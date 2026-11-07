@@ -16,7 +16,11 @@
 enum { PSX_LIGHT_POINTS = 11, PSX_LIGHT_FULL = 255, PSX_LIGHT_WALL = 128, PSX_LIGHT_WALL_FOOT = 64, PSX_LIGHT_TUNNEL_ROAD = 100 };
 
 /* port (track light file, `tone`): a scene tone a track's stretch takes: a colour and how strongly (0..100) the stretch's polygons are seen through it. At most PSX_LIGHT_TONES distinct ones a track. */
-enum { PSX_LIGHT_TONES = 16, PSX_TONE_BASE_BITS = 3 };
+enum { PSX_LIGHT_TONES = 16, PSX_TONE_BASE_BITS = 3 };   /* a vertex class's scene tone field is 5 bits: 1..16 the tones */
+
+/* port (track light file, `lamp`): a street lamp as light: where it stands, how far it reaches and the colour it adds (the colour already times its percent / 100: 1 is a lamp at 100 percent) */
+typedef struct { uint32_t node; float x, z, reach; float rgb[3]; } PsxLightLamp;
+enum { PSX_LIGHT_LAMP_RADIUS = 5 };   /* the nodes a lamp with no radius of its own reaches */
 typedef struct { uint8_t rgb[3]; uint8_t percent; } PsxLightTone;
 
 typedef struct {
@@ -59,6 +63,11 @@ typedef struct {
     uint16_t *tone_mask;/* per node (owned): the points of the node's row the tone is on (bit p: p0..p10), all of them for a stretch with no strip */
     uint8_t *car_tone;  /* port (track light file, tono_coche): per node 4 bytes (owned), the car's tone there: red, green, blue and its intensity 0..100; NULL none (psx_car_tone_table) */
     uint8_t *car_pool;  /* port (lamp_car_shade): per node (owned), 0 none, 1..4 how strong a street lamp's pool is under a car there (the new node's); NULL none */
+    uint32_t *lamp_node;    /* port (track light file export): the nodes of the street lamps the pools were made from (owned), lamp_node_count of them, and whether the track is a ring; the export writes them as `lamp` lines */
+    int lamp_node_count, lamp_ring;
+    PsxLightLamp *lamps;    /* port (track light file, `lamp`): the file's lamps, by node (owned), lamp_n of them; NULL none. Their x / z / reach are set by psx_light_lamps_place */
+    uint8_t *lamp_lift;     /* port (`lamp`): per row point (nodes * PSX_LIGHT_POINTS, owned), how much the lamps lift it, 0..255 (the baked pools: the open night's floor rises by it); NULL none */
+    int lamp_n, lamp_placed, lamp_reach_nodes;   /* lamp_placed: x / z / reach are in metres; lamp_reach_nodes: the widest lamp's radius in nodes */
     int pooled;         /* port (lamp_pools): the street lamps' pools are in `data` already (psx_light_add_pools) */
     int reversed;       /* port: the track runs the other way round (tri_reverse.h): a node and a side are asked as the new file has them, the
                          * file's are the old ones (node j is the file's (nodes - j) mod nodes, the two chains of a row swapped). Last. */
@@ -100,6 +109,21 @@ void psx_light_tunnel_look(const PsxLight *light, const float shown[3], const fl
 
 /* port (`tone`): the class of the point `point` (a row's point as psx_light_at takes it) of node `node`: psx_light_tunnel_class in the low PSX_TONE_BASE_BITS bits and the point's tone (1..PSX_LIGHT_TONES, 0 none) above them */
 int psx_light_vertex_class(const PsxLight *light, uint32_t node, int point);
+
+/* port (`lamp`): a lamp's light at a distance: (1 - distance / reach)^2 under reach, else 0: full under the lamp, smooth to nothing at the reach, no step anywhere */
+float psx_light_lamp_falloff(float distance, float reach);
+
+/* port (`lamp`): the lamps within reach of the four nodes of a polygon (the track as it runs; PSX_LIGHT_NO_NODE ones count for none): their indexes into `lamps`, at most `max`. Returns how many. */
+int psx_light_lamps_near(const PsxLight *light, const uint32_t node[4], int out[], int max);
+
+/* port (`lamp`): the light of the lamps `idx` (n of them) at the ground point x, z (metres): the sum of their strengths times their falloffs (0 none), and in `rgb` their colour (the mean weighted by what each gives, 0..1 a channel). */
+float psx_light_lamp_at(const PsxLight *light, const int idx[], int n, double x, double z, float rgb[3]);
+
+/* port (`lamp`): a car at ground point x, z (node `node`) lit by the lamps: their colour times LAMP_CAR_ADD added to the ratio `out` (never darkened, to the ceiling the old pool had): 1 when it changed. */
+#define LAMP_ADD 0.4f        /* what a lamp at 100 percent adds under it, as a share of full (255) */
+#define LAMP_CAR_ADD 0.6f
+#define LAMP_BAKE 1.0f       /* how far toward full light a lamp at 100 percent lifts the rows and the night's floor under it */
+int psx_light_lamp_car(const PsxLight *light, uint32_t node, double x, double z, float out[3]);
 
 /* port (lamp_pool_tint): what the light of the polygons at `node` is tabled by: 1 a tunnel (psx_light_tunnel), 2..5 a street lamp's pool of class 1..4 (the road there takes a warm tint), 0 else. */
 int psx_light_tunnel_class(const PsxLight *light, uint32_t node);

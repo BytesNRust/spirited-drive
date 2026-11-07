@@ -241,6 +241,56 @@ static uint8_t (*tone_get(int id, int in_tunnel))[256]
     return t;
 }
 
+/* port (track light file, `lamp`): the tables a street lamp's light is: the lit tables with the lamp's colour ADDED (a light, not a tint: nothing is darkened), for a colour (to 1/16 a channel, its strongest
+ * channel 1) and a strength bucket (the most the lamps give there, in lamps at 100 percent). Made when a polygon asks, from what the table block saved for the tones (the palette and the lit tint), and kept
+ * in a small ring; the block drops them when it makes its own again. */
+enum { LAMP_CACHE = 12, LAMP_BUCKETS = 5, LAMP_NEAR = 24 };
+static const float LAMP_BUCKET[LAMP_BUCKETS] = { 1.0f, 2.0f, 3.0f, 5.0f, 10.0f };
+static struct { uint8_t key[4]; uint8_t tables[MODERN_FOG_LEVELS][256]; } lamp_cache[LAMP_CACHE];
+static int lamp_cache_used, lamp_cache_next;
+
+static const uint8_t (*lamp_add_get(const float rgb[3], int bucket))[256]
+{
+    uint8_t key[4];
+    for (int k = 0; k < 3; k++) key[k] = (uint8_t)(rgb[k] * 16.0f + 0.5f);
+    key[3] = (uint8_t)bucket;
+    for (int i = 0; i < lamp_cache_used; i++)
+        if (memcmp(lamp_cache[i].key, key, sizeof key) == 0) return lamp_cache[i].tables;
+    const int slot = lamp_cache_used < LAMP_CACHE ? lamp_cache_used++ : lamp_cache_next;
+    if (slot == lamp_cache_next && lamp_cache_used == LAMP_CACHE) lamp_cache_next = (lamp_cache_next + 1) % LAMP_CACHE;
+    float add[3];
+    for (int k = 0; k < 3; k++) add[k] = 255.0f * LAMP_ADD * LAMP_BUCKET[bucket] * (float)key[k] / 16.0f;
+    memcpy(lamp_cache[slot].key, key, sizeof key);
+    modern_light_tables_add(tone_palette, tone_lit_tint, add, lamp_cache[slot].tables);
+    return lamp_cache[slot].tables;
+}
+
+/* port (`lamp`): the heat of the lamps at the polygon being drawn's four corners (the sum of their falloffs at each corner's place in the world, 0 none; a bucket's share of 1), and the table of the lamps'
+ * colour at the strength the polygon's strongest corner takes. 0 when no lamp reaches it, or it is a tunnel's or a tone's: those keep their own tables. The light then grades per pixel between the
+ * lit tables and these as the heat does between the corners. */
+static int lamp_polygon(float heat[4], const uint8_t (**top)[256])
+{
+    if (psx_light == NULL || psx_light->lamp_n <= 0 || !track_light_xz_ok || (track_light_tunnel & 7) == 1 || !tables_made) return 0;
+    int idx[LAMP_NEAR];
+    const int n = psx_light_lamps_near(psx_light, track_light_node, idx, LAMP_NEAR);
+    if (n == 0) return 0;
+    float rgb[4][3], strongest = 0.0f, mean[3] = { 0, 0, 0 };
+    for (int k = 0; k < 4; k++) {
+        heat[k] = psx_light_lamp_at(psx_light, idx, n, track_light_xz[k][0], track_light_xz[k][1], rgb[k]);
+        strongest = heat[k] > strongest ? heat[k] : strongest;
+        for (int c = 0; c < 3; c++) mean[c] += rgb[k][c] * heat[k];
+    }
+    if (strongest < 0.02f) return 0;   /* a pool's last sliver is not worth the warm path */
+    float top_channel = 0.0f;
+    for (int c = 0; c < 3; c++) top_channel = mean[c] > top_channel ? mean[c] : top_channel;
+    for (int c = 0; c < 3; c++) mean[c] /= top_channel;
+    int bucket = 0;
+    while (bucket < LAMP_BUCKETS - 1 && LAMP_BUCKET[bucket] < strongest) bucket++;
+    for (int k = 0; k < 4; k++) heat[k] = heat[k] / LAMP_BUCKET[bucket] < 1.0f ? heat[k] / LAMP_BUCKET[bucket] : 1.0f;
+    *top = lamp_add_get(mean, bucket);
+    return 1;
+}
+
 /* the tables of the polygon being drawn: its scene tone's (`tone`, above the class's 3 bits), a tunnel's (track_light_tunnel 1), a lamp pool's (2..5), the road's */
 static uint8_t (*light_tables(void))[256]
 {
@@ -474,7 +524,14 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
         for (int i = 0; i < 4; i++) dark[i] = (255.0f - lit_corner[i]) * (MODERN_FOG_LEVELS - 1) / 255.0f;
         if (track_light_xz_ok && (track_light_tunnel & 7) == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), psx_light, lit_corner, track_light_xz, track_light_node)) return;   /* port (headlight_cone): lit inside the polygon */
         const uint8_t (*tables)[256] = lit_tables_for(texture);
-        if (pool_ready && track_light_xz_ok && (track_light_tunnel & 7) != 1 && psx_light != NULL && (tables == lit_tables || ((track_light_tunnel & 7) >= 2 && tables == pool_tables[((track_light_tunnel & 7) - 2) & 3]))) {
+        float lamp_heat[4];
+        const uint8_t (*lamp_top)[256] = NULL;
+        if (tables == lit_tables && lamp_polygon(lamp_heat, &lamp_top)) {   /* port (`lamp`): the street lamps' light, radial and per pixel: the lit tables and the lamps' graded by the heat at each corner */
+            modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, lamp_top, lamp_heat);
+            return;
+        }
+        if (pool_ready && track_light_xz_ok && (track_light_tunnel & 7) != 1 && psx_light != NULL
+            && (tables == lit_tables || ((track_light_tunnel & 7) >= 2 && tables == pool_tables[((track_light_tunnel & 7) - 2) & 3]))) {
             /* port (lamp_pool_tint): the road in a lamp's pool is the plain lit tables and the pool's warm ones by the warmth at each corner (its node's class), dithered per pixel as the
              * darkness is: the warmth fades along the road with the lamp's classes, no polygon with a table of its own */
             float heat[4];
@@ -482,8 +539,7 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
                 const int cls = psx_light_tunnel_class(psx_light, track_light_node[k]);
                 heat[k] = cls >= 2 ? (float)(cls - 1) / POOL_CLASSES : 0.0f;
             }
-            const float *const corner = heat;
-            if (corner[0] > 0 || corner[1] > 0 || corner[2] > 0 || corner[3] > 0) {   /* a polygon that only reaches into the pool (its weakest corner is out of it) grades into it too */
+            if (heat[0] > 0 || heat[1] > 0 || heat[2] > 0 || heat[3] > 0) {   /* a polygon that only reaches into the pool (its weakest corner is out of it) grades into it too */
                 modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, pool_tables[POOL_CLASSES - 1], heat);
                 return;
             }
@@ -729,6 +785,13 @@ static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
         }
         return psx_light_car_pool(psx_light, at, out);
     }
+    if (psx_light != NULL && psx_light->lamp_n > 0 && xz != NULL) {   /* port (`lamp`): the street lamps add their light to the car by its distance to each */
+        float lit[3] = { found ? out[0] : 1.0f, found ? out[1] : 1.0f, found ? out[2] : 1.0f };
+        if (psx_light_lamp_car(psx_light, psx_ring_node(node, psx_light->nodes), xz[0], xz[1], lit)) {
+            memcpy(out, lit, sizeof lit);
+            return 1;
+        }
+    }
     return found;
 }
 
@@ -770,7 +833,7 @@ void ported_view_set_police_lights(int on) { police_flash_on = on; }
 /* the table for a car at `node`, NULL when its ambient is the world's */
 static const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t palette[768])
 {
-    if (psx_light == NULL || palette == NULL || !(ambient_on || synth_on || (port_lamp_car_shade() && psx_light->car_pool != NULL) || psx_light->car_tone != NULL)) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
+    if (psx_light == NULL || palette == NULL || !(ambient_on || synth_on || (port_lamp_car_shade() && psx_light->car_pool != NULL) || psx_light->lamp_n > 0 || psx_light->car_tone != NULL)) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
     static struct { int key[7]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];   /* the ratio and the car's tone (track light file's car_tone) */
     static uint8_t made_for[768];
     static int next, valid;
@@ -2272,6 +2335,7 @@ static void light_tables_prepare(const TrackArt *art)
         made_look = look;
         memcpy(made_tone, psx_light->tone, sizeof made_tone), made_tone_count = psx_light->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
         memset(tone_made, 0, sizeof tone_made);
+        lamp_cache_used = lamp_cache_next = 0;   /* port (`lamp`): the lamps' tables are made again from the palette */
         memcpy(tone_palette, art->palette, sizeof tone_palette);
         memcpy(tone_lit_tint, lit_tint, sizeof tone_lit_tint), memcpy(tone_tunnel_tint, look.tint, sizeof tone_tunnel_tint);
         tone_have_cast = look.cast_on, tone_min_light = look.min_light;

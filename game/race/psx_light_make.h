@@ -60,6 +60,14 @@ void psx_light_add_lamps(uint8_t *data, uint32_t count, int ring, const uint32_t
  * terrain by) in four steps, the strongest of the lamps' near. */
 void psx_light_lamp_classes(uint8_t *out, uint32_t count, int ring, const uint32_t *lamp_nodes, int n);
 
+/* port (track light file, `lamp`): the pool class (0..4) of a lamp of `percent` light at `distance` nodes (either side) from its node, fading to 0 past `radius` nodes: the lamp's strength there is
+ * percent / 100 of the pool's weight 1 - (distance / (radius + 1))^2, in the steps psx_light_lamp_classes takes (at .9 .7 .45 .2: 4 3 2 1), so 100 percent and a radius of PSX_LIGHT_LAMP_REACH is exactly
+ * one of its lamps, a lower percent a smaller bright core and a higher one a wider (never a class past 4). */
+int psx_light_lamp_class_at(int distance, int radius, int percent);
+
+/* port (`lamp`): one lamp laid over `data` as psx_light_add_lamps does, to `radius` nodes and by `percent` / 100 of its lift (100 percent and radius PSX_LIGHT_LAMP_REACH is psx_light_add_lamps' lamp) */
+void psx_light_add_lamp(uint8_t *data, uint32_t count, int ring, uint32_t lamp_node, int radius, int percent);
+
 /* port (lamp_pools): the night's lamps laid over a light that was not made here (the CD's own LGT): `lamp_nodes` are the lamps' nodes as the track runs now; with `lift` psx_light_add_lamps on its rows (the
  * file's node of each, on a reversed light), and with `tint` its pool_class (psx_light_lamp_classes), with `car` its car_pool (lamp_car_shade), made too, by the new nodes. 1 when pools were added; 0 for no light, no
  * lamps, or one already pooled (`light->pooled`), so a second call changes nothing. */

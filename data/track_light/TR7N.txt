@@ -518,244 +518,91 @@ rows 1020 1020 255 255 184 193 202 205 255 186 186 191 200
 rows 1021 1021 255 255 193 202 211 214 255 195 196 200 208
 rows 1022 1022 255 255 196 205 214 217 255 198 199 203 211
 rows 1023 1023 255 255 193 202 211 214 255 195 196 200 208
-present pool
-present car_pool
 tunnel 1 62 lit
 tunnel 1011 1023 lit
-pool 0 0 4
-pool 1 1 3
-pool 2 3 2
-pool 4 4 3
-pool 5 9 4
-pool 10 10 3
-pool 11 13 2
-pool 14 14 3
-pool 15 19 4
-pool 20 20 3
-pool 21 21 2
-pool 22 22 3
-pool 23 27 4
-pool 28 28 3
-pool 29 31 2
-pool 32 32 3
-pool 33 37 4
-pool 38 38 3
-pool 39 40 2
-pool 41 41 1
-pool 42 43 2
-pool 44 44 3
-pool 45 49 4
-pool 50 50 3
-pool 51 52 2
-pool 53 53 1
-pool 66 66 1
-pool 67 68 2
-pool 69 69 3
-pool 70 74 4
-pool 75 75 3
-pool 76 78 2
-pool 79 79 3
-pool 80 84 4
-pool 85 85 3
-pool 86 87 2
-pool 88 88 1
-pool 93 93 1
-pool 94 95 2
-pool 96 96 3
-pool 97 102 4
-pool 103 103 3
-pool 104 105 2
-pool 106 106 3
-pool 107 111 4
-pool 112 112 3
-pool 113 115 2
-pool 116 116 3
-pool 117 125 4
-pool 126 126 3
-pool 127 131 4
-pool 132 132 3
-pool 133 141 4
-pool 142 142 3
-pool 143 145 2
-pool 146 146 3
-pool 147 151 4
-pool 152 153 3
-pool 154 161 4
-pool 162 162 3
-pool 163 171 4
-pool 172 172 3
-pool 173 174 2
-pool 175 175 3
-pool 176 183 4
-pool 184 185 3
-pool 186 195 4
-pool 196 196 3
-pool 197 198 2
-pool 199 199 3
-pool 200 208 4
-pool 209 209 3
-pool 210 244 4
-pool 245 246 3
-pool 247 251 4
-pool 252 252 3
-pool 253 253 2
-pool 254 254 3
-pool 255 269 4
-pool 270 270 3
-pool 271 279 4
-pool 280 280 3
-pool 281 282 2
-pool 283 283 3
-pool 284 312 4
-pool 313 313 3
-pool 314 332 4
-pool 333 333 3
-pool 334 335 2
-pool 336 336 1
-pool 337 338 2
-pool 339 339 3
-pool 340 419 4
-pool 420 420 3
-pool 421 444 4
-pool 445 445 3
-pool 446 447 2
-pool 448 448 1
-pool 889 889 1
-pool 890 891 2
-pool 892 892 3
-pool 893 926 4
-pool 927 927 3
-pool 928 945 4
-pool 946 946 3
-pool 947 948 2
-pool 949 949 1
-pool 987 987 1
-pool 988 989 2
-pool 990 990 3
-pool 991 1005 4
-pool 1006 1006 3
-pool 1007 1008 2
-pool 1009 1009 1
-pool 1016 1016 1
-pool 1017 1018 2
-pool 1019 1019 3
-pool 1020 1023 4
-car_pool 0 0 4
-car_pool 1 1 3
-car_pool 2 3 2
-car_pool 4 4 3
-car_pool 5 9 4
-car_pool 10 10 3
-car_pool 11 13 2
-car_pool 14 14 3
-car_pool 15 19 4
-car_pool 20 20 3
-car_pool 21 21 2
-car_pool 22 22 3
-car_pool 23 27 4
-car_pool 28 28 3
-car_pool 29 31 2
-car_pool 32 32 3
-car_pool 33 37 4
-car_pool 38 38 3
-car_pool 39 40 2
-car_pool 41 41 1
-car_pool 42 43 2
-car_pool 44 44 3
-car_pool 45 49 4
-car_pool 50 50 3
-car_pool 51 52 2
-car_pool 53 53 1
-car_pool 66 66 1
-car_pool 67 68 2
-car_pool 69 69 3
-car_pool 70 74 4
-car_pool 75 75 3
-car_pool 76 78 2
-car_pool 79 79 3
-car_pool 80 84 4
-car_pool 85 85 3
-car_pool 86 87 2
-car_pool 88 88 1
-car_pool 93 93 1
-car_pool 94 95 2
-car_pool 96 96 3
-car_pool 97 102 4
-car_pool 103 103 3
-car_pool 104 105 2
-car_pool 106 106 3
-car_pool 107 111 4
-car_pool 112 112 3
-car_pool 113 115 2
-car_pool 116 116 3
-car_pool 117 125 4
-car_pool 126 126 3
-car_pool 127 131 4
-car_pool 132 132 3
-car_pool 133 141 4
-car_pool 142 142 3
-car_pool 143 145 2
-car_pool 146 146 3
-car_pool 147 151 4
-car_pool 152 153 3
-car_pool 154 161 4
-car_pool 162 162 3
-car_pool 163 171 4
-car_pool 172 172 3
-car_pool 173 174 2
-car_pool 175 175 3
-car_pool 176 183 4
-car_pool 184 185 3
-car_pool 186 195 4
-car_pool 196 196 3
-car_pool 197 198 2
-car_pool 199 199 3
-car_pool 200 208 4
-car_pool 209 209 3
-car_pool 210 244 4
-car_pool 245 246 3
-car_pool 247 251 4
-car_pool 252 252 3
-car_pool 253 253 2
-car_pool 254 254 3
-car_pool 255 269 4
-car_pool 270 270 3
-car_pool 271 279 4
-car_pool 280 280 3
-car_pool 281 282 2
-car_pool 283 283 3
-car_pool 284 312 4
-car_pool 313 313 3
-car_pool 314 332 4
-car_pool 333 333 3
-car_pool 334 335 2
-car_pool 336 336 1
-car_pool 337 338 2
-car_pool 339 339 3
-car_pool 340 419 4
-car_pool 420 420 3
-car_pool 421 444 4
-car_pool 445 445 3
-car_pool 446 447 2
-car_pool 448 448 1
-car_pool 889 889 1
-car_pool 890 891 2
-car_pool 892 892 3
-car_pool 893 926 4
-car_pool 927 927 3
-car_pool 928 945 4
-car_pool 946 946 3
-car_pool 947 948 2
-car_pool 949 949 1
-car_pool 987 987 1
-car_pool 988 989 2
-car_pool 990 990 3
-car_pool 991 1005 4
-car_pool 1006 1006 3
-car_pool 1007 1008 2
-car_pool 1009 1009 1
-car_pool 1016 1016 1
-car_pool 1017 1018 2
-car_pool 1019 1019 3
-car_pool 1020 1023 4
+lamp 7 100
+lamp 17 100
+lamp 25 100
+lamp 35 100
+lamp 47 100
+lamp 72 100
+lamp 82 100
+lamp 99 100
+lamp 100 100
+lamp 109 100
+lamp 119 100
+lamp 123 100
+lamp 129 100
+lamp 135 100
+lamp 139 100
+lamp 149 100
+lamp 156 100
+lamp 159 100
+lamp 165 100
+lamp 169 100
+lamp 178 100
+lamp 181 100
+lamp 188 100
+lamp 193 100
+lamp 202 100
+lamp 206 100
+lamp 212 100
+lamp 217 100
+lamp 222 100
+lamp 227 100
+lamp 232 100
+lamp 237 100
+lamp 242 100
+lamp 249 100
+lamp 257 100
+lamp 262 100
+lamp 267 100
+lamp 273 100
+lamp 277 100
+lamp 286 100
+lamp 291 100
+lamp 296 100
+lamp 301 100
+lamp 306 100
+lamp 310 100
+lamp 316 100
+lamp 321 100
+lamp 326 100
+lamp 330 100
+lamp 342 100
+lamp 347 100
+lamp 352 100
+lamp 357 100
+lamp 362 100
+lamp 367 100
+lamp 372 100
+lamp 377 100
+lamp 382 100
+lamp 387 100
+lamp 392 100
+lamp 397 100
+lamp 402 100
+lamp 407 100
+lamp 412 100
+lamp 417 100
+lamp 423 100
+lamp 427 100
+lamp 432 100
+lamp 437 100
+lamp 442 100
+lamp 895 100
+lamp 900 100
+lamp 905 100
+lamp 910 100
+lamp 915 100
+lamp 920 100
+lamp 924 100
+lamp 930 100
+lamp 935 100
+lamp 939 100
+lamp 943 100
+lamp 993 100
+lamp 998 100
+lamp 1003 100
+lamp 1022 100
 tunnel_tone 60 1/0.8/0.15

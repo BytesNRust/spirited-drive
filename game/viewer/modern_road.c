@@ -109,7 +109,7 @@ void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_
     modern_light_tables_cast(palette, tint, neutral, out);
 }
 
-static void light_tables(const uint8_t palette[768], const float tint[3], const float cast[3], int cast_full, uint8_t out[MODERN_FOG_LEVELS][256])
+static void light_tables(const uint8_t palette[768], const float tint[3], const float cast[3], int cast_full, const float *add, uint8_t out[MODERN_FOG_LEVELS][256])
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels: they stay */
     const uint8_t *usable = palette_world_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
@@ -117,12 +117,16 @@ static void light_tables(const uint8_t palette[768], const float tint[3], const 
     for (int l = 0; l < MODERN_FOG_LEVELS; l++) {
         const float f = 1.0f - (float)l / (MODERN_FOG_LEVELS - 1);
         for (int c = 0; c < 256; c++) {
-            if (c >= CHOICES || emissive[c] || (l == 0 && tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f)) {
+            if (c >= CHOICES || emissive[c] || (l == 0 && add == NULL && tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f)) {
                 out[l][c] = (uint8_t)c;
                 continue;
             }
             float want[3];
-            for (int k = 0; k < 3; k++) want[k] = fminf(palette[3 * c + k] * tint[k] * f * (l > 0 || cast_full ? cast[k] : 1.0f), 255.0f);
+            for (int k = 0; k < 3; k++) {
+                float v = palette[3 * c + k] * tint[k] * f * (l > 0 || cast_full ? cast[k] : 1.0f);
+                if (add != NULL) v += add[k];   /* port (`lamp`): a coloured lamp's light, added to what the surface has (never darkens) */
+                want[k] = fminf(v, 255.0f);
+            }
             int best = 0;
             float best_d = 1e30f;
             for (int i = 0; i < CHOICES; i++) {
@@ -138,13 +142,19 @@ static void light_tables(const uint8_t palette[768], const float tint[3], const 
 
 void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], const float cast[3], uint8_t out[MODERN_FOG_LEVELS][256])
 {
-    light_tables(palette, tint, cast, 0, out);
+    light_tables(palette, tint, cast, 0, NULL, out);
+}
+
+void modern_light_tables_add(const uint8_t palette[768], const float tint[3], const float add[3], uint8_t out[MODERN_FOG_LEVELS][256])
+{
+    static const float neutral[3] = { 1, 1, 1 };
+    light_tables(palette, tint, neutral, 0, add, out);
 }
 
 void modern_tunnel_tables(const uint8_t palette[768], const float tint[3], const float cast[3], float min_light, uint8_t out[MODERN_FOG_LEVELS][256])
 {
     const float mean = (tint[0] + tint[1] + tint[2]) / 3.0f, m = mean > min_light ? mean : min_light, grey[3] = { m, m, m };
-    light_tables(palette, grey, cast, 1, out);
+    light_tables(palette, grey, cast, 1, NULL, out);
 }
 
 /* the 4x4 ordered dither's thresholds, (BAYER + 0.5) / 16 by (y & 3, x & 3) */

@@ -47,10 +47,10 @@ The **light file** `data/track_light/CY1N.txt` (the new keys are in the second b
 
     track CY1 time N nodes 1920 flags dff     the header (flags: the settings the generated rows were made with, a record)
     rows 0 5 255 255 61 61 62 63 255 60 61 62 63    nodes 0..5 have this row of 11 points
-    present pool           the array is there even if it is empty (also car_pool)
-    pool 13 13 1           a street lamp's pool, class 1..4 (also car_pool)
+    lamp 13 100            a street lamp at node 13 (the export writes one for each of the CD's lamps; the pools are the lamps now)
     car_disc 1 <6 floats>   the car's brightness ratios in a tunnel's lamp alternation (hex floats)
     brightness 120 180 70                     nodes 120..180 at 70 percent of their light
+    lamp 130 150 ff2000:80 8           a street lamp by hand: node, light in percent, an optional colour RRGGBB[:strength], an optional radius in nodes (5)
     car_tone ff8020:60                  the car's tone: a colour in hex and its intensity 0..100, the whole track
     car_tone 120 180 ff8020:60          the same for nodes 120..180 only (a later line goes over an earlier one)
     tone 120 180 ffe080:50              scene tone: nodes 120..180 are seen through a colour (hex) at 0..100 strength (yellower or whiter tunnels)
@@ -79,13 +79,37 @@ in a time file only `tunnel` (the zone line above) is read.
 `car_tone` takes each of the car's colours toward the tone at its own brightness, and shows the nearest colour the palette has, of any hue: a red car goes toward orange,
 a white one to orange, a dark blue one stays bluish where the palette has no dark orange near. (`car_disc` only changes the car's brightness: a car's colours stay in their own hue family there.)
 
-The words are English. The format's first version was Spanish (`pista hora nodos banderas filas presente tunel coche_tenue canon pozo pozo_coche coche_disco tono_tunel brillo tono_coche`):
+The words are English. The format's first version was Spanish (`pista hora nodos banderas filas presente tunel coche_tenue canon coche_disco tono_tunel brillo tono_coche`):
 the port still reads those words as the English ones, and the export writes English only.
 
-The generated lines (`rows`, `pool`, `car_pool`, `car_disc`, `tunnel ... lit`, `tunnel_tone`, and the places file) are what the export writes.
+The generated lines (`rows`, `lamp`, `car_disc`, `tunnel ... lit`, `tunnel_tone`, and the places file) are what the export writes.
 `tone` tints the road, walls and scenery of those nodes (the tint is 1 + (colour/255 - 1) x strength, applied to the lit colours; in a tunnel, over its cast). A track has at most 16 distinct tones (a 17th is a bad line); each is built the first time it is seen (about 2.5 ms and 4 KB). A later line over the same nodes replaces the earlier. A polygon takes a tone only when all four corners have it, so a strip follows the row points. The light editor shows the current stretch's tone.
 
-`brightness` and `car_tone` are lines added by hand; the editor's F11 writes a `brightness` line. All of them count the same.
+## The street lamp
+
+    lamp <node> <light%> [RRGGBB[:strength]] [radius in nodes]        (Spanish: `farola`)
+
+A lamp is light, added where it stands. It lights the road, the walls beside it and the car. The old `pool` and `car_pool` lines are gone (a line with them is a bad line); the export writes
+`lamp <node> 100` for each of the CD's street lamps. Under the lamp its light is full, and it fades smoothly to nothing at the radius, with no step at a node's edge: the fall is
+`(1 - distance / reach)^2`, where distance is measured in metres from the lamp's world place, the post's own (the scenery of the lamp boards at that node) or, if the line matches no post, the
+node's centre.
+
+* **Light** is a percent, 1..1000: the strength. 100 is the lamp the export writes, a clearly visible pool of warm light under it at night. More is brighter, never wider (the radius sets the size).
+* **Colour** is optional, `RRGGBB` and an optional `:strength` 0..100 (as in `tone`), default 100. With none the lamp is the warm street lamp's colour. A colour is added as light (it brightens and
+  tints, keeps the surface's own detail and never darkens anything), the warm colour of the lamp mixed toward it by the strength: `ff2000:50` is half way.
+* **Radius** is optional, in nodes, 1..64; the default is 5 (about 30 m on CY1). It is the pool's size.
+* How it is drawn: when the track loads each lamp lifts every row point (the 11 points of each node) within its reach by its strength times the falloff at that point's own place in the world, and
+  the night's floor under it too, so the polygons' light, which the renderer interpolates between corners, is the pool, at no cost a frame. The warm or coloured light is added by the polygons
+  near a lamp: a table of the lamp's colour graded per pixel between the lit tables and these by the lamps' light at each corner. The car takes the lamps' colour added to its light by its own
+  distance to each lamp (up to the old pool's ceiling).
+* The lamp list replaces the old pools: with `lamp` lines the pool classes the code makes (road tint, car light, the pools' floor) are dropped, the lamp is all of it.
+* A track has at most 2048 lamps; a line past that is a bad line.
+* The lamps are for the night: in the dawn, day and dusk files (`...A.txt`, `...B.txt`, `...C.txt`) `lamp` lines do nothing (the editor says `lamp: off (dawn/day/dusk)`) and the export writes
+  lamps only in the night's.
+* The lines are read only with the port's `track_light_lamp` (`TNFS_TRACK_LIGHT_LAMP=0/1`; on in Restomod '26, off in Stock and Restored, which do not read the files at all). The log says
+  `lamps: N placed` and `lamps: baked into M row points`; `TNFS_LAMP_BAKE=0` leaves the rows alone (the colour and the car's light stay), for comparing.
+* The light editor's line shows the nearest lamp of the node the car is at: `street lamp: node 125, light 100% (colour 1.00 0.90 0.55), reach 30 m`, `none`, or `lamp: off (dawn/day/dusk)`.
+* Not lit by the lamps yet: the scenery objects (buildings, trees, posts: they are lit as a whole by their node) and the road beyond the camera's near detail (the far, flat polygons).
 
 ## The weather and the tunnels (Restomod)
 

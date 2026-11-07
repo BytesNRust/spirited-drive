@@ -1,5 +1,6 @@
 #include "game/race/psx_light.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -32,6 +33,12 @@ void psx_light_free(PsxLight *light)
     free(light->pool_class);
     free(light->car_pool);
     free(light->car_tone);
+    free(light->lamp_lift);
+    light->lamp_lift = NULL;
+    free(light->lamps);
+    light->lamps = NULL, light->lamp_n = 0, light->lamp_placed = 0, light->lamp_reach_nodes = 0;
+    free(light->lamp_node);
+    light->lamp_node = NULL, light->lamp_node_count = 0, light->lamp_ring = 0;
     free(light->tone_id);
     free(light->tone_mask);
     light->tone_id = NULL, light->tone_mask = NULL, light->tone_count = 0;
@@ -211,6 +218,10 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
         const int share = light->pool->cone && xz != NULL ? 256 : headlight_pool_width(point);   /* port (headlight_cone): the cone has its own sides, so the verges and what stands beyond take the beam by where they are */
         const int lamp_floor = psx_light_lamp_floor(light, node);   /* port (lamp_pool_bright): under a street lamp the floor lifts toward full, by the pool's class (1..4 of 4) */
         if (lamp_floor > floor) floor = lamp_floor;
+        if (light->lamp_lift != NULL && light->nodes > 0) {   /* port (`lamp`): the baked pool lifts the floor toward full by the point's weight */
+            const int w = light->lamp_lift[(size_t)psx_light_old_node(light, node) * PSX_LIGHT_POINTS + (size_t)old_point(light, point)];
+            if (w > 0) floor += (256 - floor) * w / 255;
+        }
         if (light->night_lift > 0 && light->beam_on_top) gain = headlight_pool_gain_at_lift(floor, lift);   /* port (city_lift 3): the beam adds on top of the lifted floor, it is not lost under it */
         if (gain < floor) gain = floor;
         uint8_t open = headlight_pool_apply(v, floor + (gain - floor) * share / 256);
@@ -283,6 +294,68 @@ uint8_t psx_light_node_xz(const PsxLight *light, uint32_t node, const double *xz
 }
 
 uint8_t psx_light_node(const PsxLight *light, uint32_t node) { return psx_light_node_xz(light, node, NULL); }
+
+float psx_light_lamp_falloff(float distance, float reach)
+{
+    if (reach <= 0.0f || distance >= reach) return 0.0f;
+    const float u = 1.0f - (distance < 0.0f ? 0.0f : distance) / reach;
+    return u * u;
+}
+
+int psx_light_lamps_near(const PsxLight *light, const uint32_t node[4], int out[], int max)
+{
+    int n = 0;
+    if (light == NULL || light->lamps == NULL || light->lamp_n <= 0 || light->nodes == 0 || node[0] == PSX_LIGHT_NO_NODE) return 0;
+    const int64_t at = psx_light_old_node(light, node[0]), reach = light->lamp_reach_nodes + 2, size = (int64_t)light->nodes;
+    for (int w = -1; w <= 1; w++) {   /* the ring's seam: the lamps just past the end are just before the start */
+        if (w != 0 && !light->lamp_ring) continue;
+        const int64_t lo = at - reach - (int64_t)w * size, hi = at + reach - (int64_t)w * size;   /* the lamp node range this wrap sees */
+        int a = 0, b = light->lamp_n;
+        while (a < b) {
+            const int mid = (a + b) / 2;
+            if ((int64_t)light->lamps[mid].node < lo) a = mid + 1;
+            else b = mid;
+        }
+        for (int i = a; i < light->lamp_n && (int64_t)light->lamps[i].node <= hi && n < max; i++) out[n++] = i;
+    }
+    return n;
+}
+
+float psx_light_lamp_at(const PsxLight *light, const int idx[], int n, double x, double z, float rgb[3])
+{
+    float heat = 0.0f, sum[3] = { 0, 0, 0 };
+    rgb[0] = rgb[1] = rgb[2] = 0.0f;   /* none where no lamp reaches */
+    for (int i = 0; i < n; i++) {
+        const PsxLightLamp *const l = &light->lamps[idx[i]];
+        const double dx = x - l->x, dz = z - l->z;
+        const float f = psx_light_lamp_falloff((float)sqrt(dx * dx + dz * dz), l->reach);
+        if (f <= 0.0f) continue;
+        heat += f;
+        for (int k = 0; k < 3; k++) sum[k] += l->rgb[k] * f;
+    }
+    if (heat <= 0.0f) return 0.0f;
+    float top = 0.0f;
+    for (int k = 0; k < 3; k++) top = sum[k] > top ? sum[k] : top;
+    for (int k = 0; k < 3; k++) rgb[k] = sum[k] / top;
+    return top;
+}
+
+int psx_light_lamp_car(const PsxLight *light, uint32_t node, double x, double z, float out[3])
+{
+    enum { RATIO_MAX = 2, NEAR_MAX = 16 };
+    int idx[NEAR_MAX];
+    const uint32_t nodes[4] = { node, node, node, node };
+    const int n = psx_light_lamps_near(light, nodes, idx, NEAR_MAX);
+    float rgb[3];
+    const float top = n > 0 ? psx_light_lamp_at(light, idx, n, x, z, rgb) : 0.0f;
+    if (top <= 0.0f) return 0;
+    int changed = 0;
+    for (int k = 0; k < 3; k++) {
+        const float lifted = out[k] + LAMP_CAR_ADD * top * rgb[k];
+        if (lifted > out[k]) out[k] = lifted < (float)RATIO_MAX ? lifted : (out[k] > (float)RATIO_MAX ? out[k] : (float)RATIO_MAX), changed = 1;
+    }
+    return changed;
+}
 
 int psx_light_car_pool(const PsxLight *light, uint32_t node, float out[3])
 {

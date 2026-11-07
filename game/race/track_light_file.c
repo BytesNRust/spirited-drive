@@ -1,5 +1,6 @@
 /* port: see track_light_file.h. */
 #include "game/race/track_light_file.h"
+#include "game/race/psx_light_make.h"
 
 
 #include <ctype.h>
@@ -47,17 +48,27 @@ static void put_ranges(Buffer *b, const char *key, const uint8_t *flag, uint32_t
     }
 }
 
-/* the runs of equal non-zero classes, one `key from to class` line each */
-static void put_classes(Buffer *b, const char *key, const uint8_t *cls, uint32_t nodes)
+static int node_order(const void *a, const void *b)
 {
-    if (cls == NULL) return;
-    for (uint32_t n = 0; n < nodes;) {
-        if (cls[n] == 0) { n++; continue; }
-        uint32_t end = n;
-        while (end + 1 < nodes && cls[end + 1] == cls[n]) end++;
-        put(b, "%s %u %u %u\n", key, n, end, cls[n]);
-        n = end + 1;
+    const uint32_t x = *(const uint32_t *)a, y = *(const uint32_t *)b;
+    return x < y ? -1 : x > y;
+}
+
+/* the street lamps as `lamp <node> 100` lines (the ordinary lamp: 100 percent, the default radius), by node, one for each */
+static void put_lamps(Buffer *b, const PsxLight *light)
+{
+    if (light->lamp_node == NULL || light->lamp_node_count <= 0 || light->nodes == 0) return;
+    uint32_t *nodes = malloc((size_t)light->lamp_node_count * sizeof *nodes);
+    if (nodes == NULL) { b->failed = 1; return; }
+    int n = 0;
+    for (int i = 0; i < light->lamp_node_count; i++) {
+        if (!light->lamp_ring && light->lamp_node[i] >= light->nodes) continue;   /* psx_light_lamp_classes drops it too */
+        nodes[n++] = light->lamp_node[i] % light->nodes;
     }
+    qsort(nodes, (size_t)n, sizeof *nodes, node_order);
+    for (int i = 0; i < n; i++)
+        if (i == 0 || nodes[i] != nodes[i - 1]) put(b, "lamp %u 100\n", nodes[i]);
+    free(nodes);
 }
 
 /* a colour as the file writes it: RRGGBB when the bytes give the same factors exactly, else r/g/b, the factors written out (the export's, for the made looks whose factors 8 bits cannot hold) */
@@ -121,9 +132,7 @@ int track_light_format(const PsxLight *light, const char *track, char letter, ui
         put(&b, "\n");
         n = end + 1;
     }
-    /* the places (tunnels, canyon, car_dim) are the track's file (track_light_place_format); this file holds the time's light: the pools' arrays are there but empty is not an array that is not */
-    if (light->pool_class != NULL) put(&b, "present pool\n");
-    if (light->car_pool != NULL) put(&b, "present car_pool\n");
+    /* the places (tunnels, canyon, car_dim) are the track's file (track_light_place_format); this file holds the time's light */
     for (uint32_t n = 0; light->hall != NULL && n < light->nodes;) {   /* a hall is a tunnel with a lot of light: lit by its own lamps */
         if (!light->hall[n]) { n++; continue; }
         uint32_t end = n;
@@ -131,8 +140,7 @@ int track_light_format(const PsxLight *light, const char *track, char letter, ui
         put(&b, "tunnel %u %u lit\n", n, end);
         n = end + 1;
     }
-    put_classes(&b, "pool", light->pool_class, light->nodes);
-    put_classes(&b, "car_pool", light->car_pool, light->nodes);
+    put_lamps(&b, light);
     if (light->car_disc)
         put(&b, "car_disc 1 %a %a %a %a %a %a\n", (double)light->car_even[0], (double)light->car_even[1], (double)light->car_even[2], (double)light->car_odd[0], (double)light->car_odd[1], (double)light->car_odd[2]);
     if (light->look_set) {   /* the tunnels' look: its light as a percent of full light at this time, and its colour */
@@ -154,8 +162,8 @@ static const char *english(const char *word)
 {
     static const char *const WORDS[][2] = {
         { "pista", "track" }, { "hora", "time" }, { "nodos", "nodes" }, { "banderas", "flags" }, { "filas", "rows" }, { "presente", "present" },
-        { "tunel", "tunnel" }, { "coche_tenue", "car_dim" }, { "canon", "canyon" }, { "pozo", "pool" }, { "pozo_coche", "car_pool" },
-        { "coche_disco", "car_disc" }, { "tono_tunel", "tunnel_tone" }, { "brillo", "brightness" }, { "tono_coche", "car_tone" },
+        { "tunel", "tunnel" }, { "coche_tenue", "car_dim" }, { "canon", "canyon" },
+        { "coche_disco", "car_disc" }, { "tono_tunel", "tunnel_tone" }, { "brillo", "brightness" }, { "tono_coche", "car_tone" }, { "farola", "lamp" },
     };
     for (size_t i = 0; i < sizeof WORDS / sizeof WORDS[0]; i++)
         if (strcmp(word, WORDS[i][0]) == 0) return WORDS[i][1];
@@ -241,6 +249,46 @@ static int take_look(TrackLightTweaks *tweaks, int has_light, double light, int 
     return 1;
 }
 
+/* a `lamp` line (after its word): the node, the light in percent (1..TRACK_LIGHT_MAX_LAMP_PERCENT), then the colour (six hex digits, `:strength` 0..100 after them) and the radius (one or two
+ * decimal digits), each optional, in that order */
+static int parse_lamp(const char *rest, uint32_t nodes, TrackLightTweaks *tweaks)
+{
+    unsigned node, percent;
+    int used = 0;
+    if (sscanf(rest, "%u %u%n", &node, &percent, &used) != 2 || node >= nodes || percent < 1 || percent > TRACK_LIGHT_MAX_LAMP_PERCENT || tweaks->lamp_count >= TRACK_LIGHT_MAX_LAMPS) return 0;
+    rest += used;
+    TrackLightLamp lamp = { node, (uint16_t)percent, PSX_LIGHT_LAMP_RADIUS, 0, 100, { 0, 0, 0 } };
+    int have_radius = 0;
+    char token[32];
+    while (sscanf(rest, "%31s%n", token, &used) == 1) {
+        rest += used;
+        const size_t len = strlen(token);
+        char *end = NULL;
+        if (len >= 6 && !lamp.coloured && !have_radius) {   /* the colour: RRGGBB or RRGGBB:strength */
+            char hex[7] = { 0 };
+            memcpy(hex, token, 6);
+            const unsigned long rgb = strtoul(hex, &end, 16);
+            long strength = 100;
+            if (*end != '\0' || strspn(hex, "0123456789abcdefABCDEF") != 6) return 0;
+            if (len > 6) {
+                if (token[6] != ':' || len < 8 || len > 10) return 0;
+                strength = strtol(token + 7, &end, 10);
+                if (*end != '\0' || strength < 0 || strength > 100) return 0;
+            }
+            lamp.coloured = 1, lamp.strength = (uint8_t)strength;
+            lamp.rgb[0] = (uint8_t)(rgb >> 16), lamp.rgb[1] = (uint8_t)(rgb >> 8), lamp.rgb[2] = (uint8_t)rgb;
+        } else if (len <= 2 && !have_radius) {   /* the radius */
+            const unsigned long radius = strtoul(token, &end, 10);
+            if (*end != '\0' || radius < 1 || radius > TRACK_LIGHT_MAX_LAMP_RADIUS) return 0;
+            lamp.radius = (uint8_t)radius, have_radius = 1;
+        } else {
+            return 0;
+        }
+    }
+    tweaks->lamps[tweaks->lamp_count++] = lamp;
+    return 1;
+}
+
 /* one line of the file into `light`; 0 when it is not well-formed. `seen` counts the node rows given. */
 static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweaks, uint32_t *seen)
 {
@@ -251,13 +299,6 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
     const char *rest = line + used;
     const uint32_t nodes = light->nodes;
     unsigned a, b, c;
-    if (strcmp(key, "present") == 0) {
-        char spoken[32];
-        if (sscanf(rest, "%31s", spoken) != 1) return 0;
-        const char *const what = english(spoken);
-        uint8_t **slot = strcmp(what, "pool") == 0 ? &light->pool_class : strcmp(what, "car_pool") == 0 ? &light->car_pool : NULL;   /* the places' arrays are the track file's (track_light_place_parse) */
-        return slot != NULL && flag_array(slot, nodes) != NULL;
-    }
     if (strcmp(key, "rows") == 0) {
         unsigned v[PSX_LIGHT_POINTS];
         int n = 0;
@@ -281,14 +322,6 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         float cast[3];
         if (!parse_look(rest + n, 1, &lit, &has_light, &value, &has_colour, cast) || !take_look(tweaks, has_light, value, has_colour, cast)) return 0;
         tweaks->zones[tweaks->zone_count++] = (TrackLightZone){ a, b, lit };
-        return 1;
-    }
-    uint8_t **class_slot = strcmp(key, "pool") == 0 ? &light->pool_class : strcmp(key, "car_pool") == 0 ? &light->car_pool : NULL;
-    if (class_slot != NULL) {
-        if (sscanf(rest, "%u %u %u", &a, &b, &c) != 3 || a > b || b >= nodes || c < 1 || c > 4) return 0;
-        uint8_t *cls = flag_array(class_slot, nodes);
-        if (cls == NULL) return 0;
-        memset(cls + a, (int)c, b - a + 1);
         return 1;
     }
     if (strcmp(key, "car_disc") == 0) {
@@ -337,6 +370,7 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
         tweaks->tone_runs[tweaks->tone_run_count++] = (TrackLightToneRun){ from, to, (uint16_t)mask, (uint8_t)id };
         return 1;
     }
+    if (strcmp(key, "lamp") == 0) return parse_lamp(rest, nodes, tweaks);
     if (strcmp(key, "car_tone") == 0) {
         unsigned from = 0, to = nodes > 0 ? nodes - 1 : 0, rgb = 0;
         int percent = 0;
@@ -471,7 +505,47 @@ void track_light_file_free(TrackLightFile *file)
     memset(file, 0, sizeof *file);
 }
 
-void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light)
+/* the colour a lamp adds, 0..1 a channel, its strongest channel its percent / 100: the warm street lamp's, or the line's mixed toward it by the line's strength */
+static void lamp_colour(const TrackLightLamp *lamp, float out[3])
+{
+    static const float WARM[3] = { 1.0f, 0.9f, 0.55f };
+    float top = 0.0f;
+    for (int k = 0; k < 3; k++) {
+        const float want = (float)lamp->rgb[k] / 255.0f, mix = (float)lamp->strength / 100.0f;
+        out[k] = lamp->coloured ? WARM[k] + (want - WARM[k]) * mix : WARM[k];
+        top = out[k] > top ? out[k] : top;
+    }
+    for (int k = 0; k < 3; k++) out[k] = top > 0.0f ? out[k] / top * (float)lamp->percent / 100.0f : 0.0f;
+}
+
+static int lamp_by_node(const void *a, const void *b)
+{
+    const PsxLightLamp *x = a, *y = b;
+    return x->node < y->node ? -1 : x->node > y->node;
+}
+
+/* the `lamp` lines over `light`: its lamp list, by node (the world place comes later), and the old pools the code made dropped: a lamp is light, the only one */
+static void apply_lamps(const TrackLightTweaks *tweaks, PsxLight *light, int ring)
+{
+    if (tweaks->lamp_count == 0 || light->nodes < 2) return;
+    PsxLightLamp *list = calloc((size_t)tweaks->lamp_count, sizeof *list);
+    if (list == NULL) return;
+    int reach = 0;
+    for (int i = 0; i < tweaks->lamp_count; i++) {
+        const TrackLightLamp *lamp = &tweaks->lamps[i];
+        list[i].node = lamp->node;
+        list[i].reach = (float)lamp->radius;   /* in nodes until psx_light_lamps_place turns it into metres */
+        lamp_colour(lamp, list[i].rgb);
+        reach = lamp->radius > reach ? lamp->radius : reach;
+    }
+    qsort(list, (size_t)tweaks->lamp_count, sizeof *list, lamp_by_node);
+    free(light->lamps);
+    light->lamps = list, light->lamp_n = tweaks->lamp_count, light->lamp_reach_nodes = reach, light->lamp_ring = ring, light->lamp_placed = 0;
+    free(light->pool_class), light->pool_class = NULL;
+    free(light->car_pool), light->car_pool = NULL;
+}
+
+void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light, int lamps, int ring)
 {
     if (tweaks == NULL || light == NULL) return;
     for (int i = 0; i < tweaks->brightness_count && light->data != NULL; i++) {
@@ -521,6 +595,7 @@ void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light)
     light->look_set = 1;   /* a file's light always has the tunnels' look: its own, or the dark default (10 % of full light, no colour) */
     light->look_light = tweaks->look_has_light ? tweaks->look_light : 10.0;
     for (int k = 0; k < 3; k++) light->look_cast[k] = tweaks->look_has_colour ? tweaks->look_cast[k] : 1.0f;
+    if (lamps) apply_lamps(tweaks, light, ring);
 }
 
 void track_light_diff(uint32_t file, uint32_t now, char *out, size_t out_size)

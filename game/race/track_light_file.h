@@ -1,13 +1,13 @@
 /* port (track_light_file): the light the port makes for a track, as a text file the game reads in place of making it, one per track and time of day
  * (data/track_light/<TRACK><A|B|C|N>.txt, A dawn, B day, C dusk, N night), by runs of nodes so it can be edited by hand. The file holds what make_light (drive_light.c)
- * makes from the terrain, the road's tunnels and the street lamps: the rows of 11 points, the tunnel, hall, canyon and dim-car nodes, the lamps' pools, the car's
+ * makes from the terrain, the road's tunnels and the street lamps: the rows of 11 points, the tunnel, hall, canyon and dim-car nodes, the street lamps, the car's
  * lamp alternation and the tunnel casts. A line a run, '#' starts a comment:
  *
  *   # tnfs track light 1
  *   track CY1 time N nodes 1024 flags 3fff   (the header: the file is read only for this track, time, node count and the port flags it was made with)
  *   rows 0 63 255 255 255 255 255 255 255 255 255 255 255    (nodes 0..63 have this row of 11 points)
  *   tunnel 76 107          (road tunnel nodes; hall: a lit hall's; car_dim: the car keeps its dim tone; canyon: TR6's canyon)
- *   pool 130 136 3        (the street lamps' pool class 1..4 of the nodes, for the road's warm tint; car_pool: the same under a car)
+ *   lamp 130 100          (a street lamp at node 130 at 100 percent: light it ADDS, warm, round its post, fading smoothly to nothing at its radius, on the road, the walls and the car; the export writes the CD's lamps so)
  *   car_disc 1 <even r g b> <odd r g b>   (the CD's own car ratios in a tunnel's lamp alternation, as C hex floats)
  *   cast neutral 0 city 1                (the tunnel's cast: neutral_cast, city_tunnel)
  *
@@ -16,6 +16,9 @@
  *   brightness 120 180 70                  (nodes 120..180 at 70 percent of the light they have)
  *   tone 120 180 ffe080:50            (scene tone: nodes 120..180 are seen through a colour (hex) at 0..100 strength; `tone 120 180 p6 p7 ff2020:60` only the row points p6 p7 (a side strip);
  *                                      16 distinct tones a track at most; a later line over the same nodes replaces the earlier)
+ *   lamp 130 150 ff2020:80 8         (a lamp by hand: node, light in percent (1..1000; 100 is the lamp the export writes: a clearly visible pool at night, like a street lamp; more is brighter, never wider), an optional colour
+ *                                     RRGGBB[:strength 0..100] (the warm street lamp's when none), an optional radius in nodes (4 when none: how big the pool is); `farola` is the same word; read only at night
+ *                                     (N) and with the port's track_light_lamp). `pool` and `car_pool` lines are not read: a lamp is all of them
  *   car_tone ff8020:60               (the car's tone on the whole track: a colour in hex and its intensity 0..100, as the palette allows; car_tone 120 180 ff8020:60 for nodes 120..180 only)
  *
  * The header's flags are a record of which of the port's settings the rows were generated with. In Restomod '26 the file rules whatever they say (a difference is one log line, track_light_diff names it);
@@ -47,12 +50,14 @@ enum {
 /* The names of the bits of `file` and `now` that differ, comma separated in `out` ("" when they are the same) */
 void track_light_diff(uint32_t file, uint32_t now, char *out, size_t out_size);
 
-enum { TRACK_LIGHT_MAX_BRIGHT = 64 };
+enum { TRACK_LIGHT_MAX_BRIGHT = 64, TRACK_LIGHT_MAX_LAMPS = 2048, TRACK_LIGHT_MAX_LAMP_RADIUS = 64, TRACK_LIGHT_MAX_LAMP_PERCENT = 1000 };
 typedef struct { uint32_t from, to; int percent; } TrackLightBrightness;
 typedef struct { uint32_t from, to; uint8_t rgb[3]; int percent; } TrackLightCarTone;
 /* a `tone` line: nodes from..to, the points of their rows it is on (bit p; 0x7ff all), and the tone's number in the file's list of distinct tones */
 typedef struct { uint32_t from, to; uint16_t mask; uint8_t tone; } TrackLightToneRun;
 typedef struct { uint32_t from, to; int lit; } TrackLightZone;   /* a `tunnel a b [light] [colour | lit]` line: lit, a hall (a tunnel with a lot of light, lit by its own lamps) */
+/* a `lamp` line: the lamp's node, its light in percent (1..TRACK_LIGHT_MAX_LAMP_PERCENT), its radius in nodes, and its colour (the warm street lamp's when `coloured` is 0; else rgb mixed toward the warm by 100 - strength percent) */
+typedef struct { uint32_t node; uint16_t percent; uint8_t radius; uint8_t coloured, strength; uint8_t rgb[3]; } TrackLightLamp;
 typedef struct {
     TrackLightBrightness brightness[TRACK_LIGHT_MAX_BRIGHT];
     int brightness_count;
@@ -67,6 +72,8 @@ typedef struct {
     float look_cast[3];                    /* the colour as the factor on each channel, 0..1 (the file's RRGGBB[:strength]) */
     TrackLightZone zones[TRACK_LIGHT_MAX_BRIGHT];   /* the `tunnel a b ...` lines: they add to the places' tunnels, and `lit` makes the nodes a hall */
     int zone_count;
+    TrackLightLamp lamps[TRACK_LIGHT_MAX_LAMPS];   /* lamp: in file order */
+    int lamp_count;
 } TrackLightTweaks;
 
 typedef struct {
@@ -85,8 +92,9 @@ typedef struct {
 int track_light_parse(const char *text, size_t size, const char *track, char letter, uint32_t expected_nodes, uint32_t flags, TrackLightFile *out, int *bad_line);
 void track_light_file_free(TrackLightFile *file);
 
-/* The tweaks over a made light: the brightness runs scale its rows, the tunnel looks are its warm_cast / warm_percent. */
-void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light);
+/* The tweaks over a made light: the brightness runs scale its rows, the tunnel looks are its warm_cast / warm_percent. With `lamps` (the port's track_light_lamp) the `lamp` lines are laid too, as
+ * the light's lamp list (sorted by node; their world place is set by psx_light_lamps_place): the old pool classes the code made are dropped, a lamp is light. `ring` wraps a lamp's reach past the ends. */
+void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light, int lamps, int ring);
 
 /* Where the file `<TRACK><letter>.txt` is: `out` takes the path of the first that exists (the mod's, then the data folders: data_path.h), 1 when there is one. */
 int track_light_find(const char *track, char letter, char *out, size_t out_size);
