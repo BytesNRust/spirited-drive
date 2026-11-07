@@ -51,3 +51,21 @@ uint8_t *wet_zones_for_track(const Tri *tri, const char *name, int reversed)
     free(property);
     return open;
 }
+
+int track_snow_for(const Tri *tri, const char *name, uint8_t snow_map[PSX_LIGHT_SNOW_SLOTS])
+{
+    if (snow_map != NULL) memset(snow_map, 0, PSX_LIGHT_SNOW_SLOTS);
+    char path[DATA_PATH_MAX];
+    if (tri == NULL || tri->node_count == 0 || !track_light_place_find(name, path, sizeof path)) return 0;
+    size_t size = 0;
+    uint8_t *text = platform_read_file(path, &size);
+    if (text == NULL) return 0;
+    PsxLight places = { 0 };
+    places.nodes = tri->node_count;
+    const int have = track_light_place_parse((const char *)text, size, name, tri->node_count, &places, NULL);
+    platform_free_file(text);
+    const int snow = have && places.snow != 0;
+    if (snow && snow_map != NULL) memcpy(snow_map, places.snow_map, PSX_LIGHT_SNOW_SLOTS);
+    psx_light_free(&places);
+    return snow;
+}

@@ -446,6 +446,8 @@ static int lunar_gravity_race(const char *name, int arcade)
 /* port (tunnel_dry): how much rain reaches each node, from the road's own property bytes (wet_zones.h): the places file's tunnels and Coastal's galleries, as the weather's looks; kept for the race's life, the next drive frees it */
 static uint8_t *drive_wet_open;
 
+static int drive_snow;   /* port (snow_weather): this race's track is a snowy one (its places file's `snow 1`) and the switch is on; set before the field is made */
+
 static const uint8_t *drive_wet_open_make(const Tri *tri, const char *name, int reversed)
 {
     free(drive_wet_open);
@@ -539,7 +541,7 @@ static void drive_field_port(RaceField *field, const char *name, int arcade)
         : difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL, drive_link_on);
     {   /* port: the mode's file's rally_gravel (rally_gravel.h) */
         const PortExtras gravel = race_extras();
-        field->port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel);
+        field->port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel, drive_snow);
         field->port_rally_road = arcade != 0;
         field->port_analog_pad = port_analog_pad();
         field->port_rally_shoulder_sound = port_rally_gravel_shoulder();
@@ -706,6 +708,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     field.slide = drive_menus_on ? drive_slide : NULL;  /* the front end's screen is up only with the menus */
     if (!drive_field_entries(&field, data_root, model, racers, entries)) return 0;
     if (!drive_field_replay(&field, &arcade, data_root)) return 0;
+    drive_snow = port_snow_weather() && track_snow_for(&t->tri, name, NULL);   /* port (snow_weather) */
+    ported_view_set_snow(drive_snow);
     drive_field_port(&field, name, arcade);
     field.port_open = drive_wet_open_make(&t->tri, name, t->reversed);   /* port (tunnel_dry): the rain's grip loss stops inside a closed zone, the weather's own */
     const int exe_laps = replay_of != NULL ? replay_of->laps : drive_menus_on && drive_menus.laps > 0 ? drive_menus.laps : 2;
@@ -872,6 +876,10 @@ static void drive_look_fill(TrackFamInputs *look, const char *data_root, const c
         drive_time_of_day = drive_menus.time_of_day;
     } else if (track_viewer_fam_missing(data_root, name, look) || getenv("TNFS_MIDDAY") != NULL) {
         look->time_of_day = 1;   /* port (dev, env only): TNFS_MIDDAY=1 takes the midday art as the menus' race does under the PS1 look */
+    }
+    if (replay_file == NULL && !drive_menus_on && getenv("TNFS_RALLY_ART") != NULL) {   /* port (dev, env only): the headless --drive with the rally's art, as the menus' rally has it (with TNFS_RALLY for the rally's physics) */
+        look->variant_r = 1;
+        look->time_of_day = track_fam_time_of(look->track, 0, 1, port_extras_load().variant_time, 1);
     }
 }
 

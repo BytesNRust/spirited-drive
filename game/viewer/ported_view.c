@@ -34,6 +34,7 @@
 #include "game/race/tyre_smoke.h"
 #include "game/race/dust_trail.h"
 #include "game/race/rally_gravel.h"
+#include "game/race/weather_snow.h"
 #include "game/race/rain_roll.h"
 #include "game/viewer/follow_arm.h"
 #include "game/viewer/follow_behind.h"
@@ -368,6 +369,9 @@ typedef struct {
     uint8_t lens[256];   /* port (rain v3): the body of a drop on the lens: the scene behind it, darker */
 } WeatherTables;
 
+static int track_snow;   /* port (snow_weather): this race's track is a snowy one with the switch on (ported_view_set_snow) */
+void ported_view_set_snow(int snow) { track_snow = snow != 0; }
+static int snow_level(void) { return weather_snow_level(weather, track_snow, 1); }   /* SNOW_NONE .. SNOW_HEAVY: what falls on this race */
 void ported_view_set_weather(int w) { weather = w > WEATHER_CLEAR && w < WEATHER_COUNT ? w : WEATHER_CLEAR; }
 
 static const WeatherTables *weather_tables(const TrackArt *art)
@@ -1436,7 +1440,7 @@ static void dust_draw(const Car *car)
     const int drop = rally_dust_skid(kind, car->speed, car->airborne_ticks == 0) != 0;
     const int32_t at[3] = { car->x, car->y, car->z };
     dust_trail_step(&dust_trail, shadow_race->tick, kind, drop, at, car->yaw, car->speed);
-    if (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH) return;
+    if (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH && kind != RALLY_GRAVEL_SNOW) return;
     const PuffView v = puff_view();
     const int lunar = shadow_race->port_lunar_gravity != 0;
     for (int n = 0; n < DUST_TRAIL_PUFFS; n++) {   /* the ring's oldest first: the farthest from a camera behind the car */
@@ -1447,7 +1451,7 @@ static void dust_draw(const Car *car)
         const int32_t depth = 0x38400 / camera[2];
         const int32_t scale = depth * size * DUST_SIZE / 0x100 * 8;
         puff_smoke(&v, screen[0], screen[1], scale);
-        if ((p->seed & 3) < DUST_DIRT_SHARE) {
+        if (kind != RALLY_GRAVEL_SNOW && (p->seed & 3) < DUST_DIRT_SHARE) {   /* port (snow_weather): the powder is white smoke, with no grit in it */
             const int32_t dx = (p->seed >> 2 & 0x1f) - 0x10, dy = (p->seed >> 7 & 0xf) - 8;
             puff_dirt(&v, screen[0] + dx * depth / 0x1000, screen[1] + dy * depth / 0x1000, scale / 2);
         }
@@ -2273,10 +2277,16 @@ static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *vi
         int32_t vanish[2] = { view->centre_x, view->centre_y };
         rain_vanishing_point(vanish);
         if (port_rain_v2()) vanish[1] -= (box[3] - box[1]) / RAIN_V2_RAISE_DIV;   /* port (rain_v2): the rain falls from above: the streaks leave a point higher up */
+        if (snow_level() != SNOW_NONE)   /* port (snow_weather): flakes for streaks and none on the lens; the wet road under them is the rain's */
+            weather_snow_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4[WEATHER_RAIN_LEVELS - 1]);
+        else
         weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], (float)view->focal_x,
                              drive_light_night(), rain_open, wt->rain4, weather == WEATHER_STORM, port_rain_v2());
+        if (snow_level() == SNOW_NONE)
         weather_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens, rain_open);   /* port (rain v3): drops on the lens */
-    } else if (wt != NULL && weather_wet(weather))   /* port (weather): the streaks over the whole view, under the 2D layer */
+    } else if (wt != NULL && weather_wet(weather) && snow_level() != SNOW_NONE)   /* port (snow_weather): flakes without rain_fx too */
+        weather_snow_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4[WEATHER_RAIN_LEVELS - 1]);
+    else if (wt != NULL && weather_wet(weather))   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM, port_rain_v2());
 }
 
@@ -2562,7 +2572,7 @@ static void storm_thunder_update(void)
 {
     static uint32_t last;
     static int have;
-    if (weather != WEATHER_STORM || !port_rain_v2()) {
+    if (weather != WEATHER_STORM || !port_rain_v2() || snow_level() != SNOW_NONE) {   /* port (snow_weather): a snowstorm has no thunder */
         have = 0;
         return;
     }
@@ -2597,7 +2607,7 @@ static void rain_roll_update(void)
 
 static int storm_flash_level(void)
 {
-    if (weather != WEATHER_STORM) return 0;
+    if (weather != WEATHER_STORM || snow_level() != SNOW_NONE) return 0;   /* port (snow_weather): a snowstorm has no lightning */
     return weather_flash_open(weather_rain_flash((uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick)), rain_open);   /* port (weather_zones): none inside a closed zone */
 }
 

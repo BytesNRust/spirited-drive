@@ -109,6 +109,9 @@ int track_light_place_format(const PsxLight *light, const char *track, char **te
     free(both);
     put_ranges(&b, "canyon", light->canyon, light->nodes);
     put_ranges(&b, "car_dim", light->car_dim, light->nodes);
+    if (light->snow) put(&b, "snow 1\n");
+    for (int slot = 0; slot < PSX_LIGHT_SNOW_SLOTS; slot++)
+        if (light->snow_map[slot] != 0) put(&b, "snow_map %d %d\n", slot, light->snow_map[slot] - 1);
     if (b.failed) {
         free(b.text);
         return 0;
@@ -170,7 +173,7 @@ static const char *english(const char *word)
 {
     static const char *const WORDS[][2] = {
         { "pista", "track" }, { "hora", "time" }, { "nodos", "nodes" }, { "banderas", "flags" }, { "filas", "rows" }, { "presente", "present" },
-        { "tunel", "tunnel" }, { "coche_tenue", "car_dim" }, { "canon", "canyon" },
+        { "tunel", "tunnel" }, { "coche_tenue", "car_dim" }, { "canon", "canyon" }, { "nieve", "snow" },
         { "tono_tunel", "tunnel_tone" }, { "brillo", "brightness" }, { "tono_coche", "car_tone" }, { "farola", "lamp" },
     };
     for (size_t i = 0; i < sizeof WORDS / sizeof WORDS[0]; i++)
@@ -504,6 +507,19 @@ int track_light_place_parse(const char *text, size_t size, const char *track, ui
             header = 1;
             continue;
         }
+        if (strcmp(key, "snow") == 0) {   /* the track is a snowy one: its rain falls as snow */
+            int on = 0;
+            if (sscanf(rest, "%d", &on) != 1 || (on != 0 && on != 1)) goto bad;
+            places.snow = on;
+            continue;
+        }
+        if (strcmp(key, "snow_map") == 0) {   /* a texture slot of the road that the snow's bitmaps take over in the rally */
+            unsigned from, to;
+            int used_map = 0;
+            if (sscanf(rest, "%u %u%n", &from, &to, &used_map) != 2 || from >= PSX_LIGHT_SNOW_SLOTS || to >= PSX_LIGHT_SNOW_SLOTS || rest[used_map + strspn(rest + used_map, " \t")] != '\0') goto bad;
+            places.snow_map[from] = (uint8_t)(to + 1);
+            continue;
+        }
         uint8_t **slot = strcmp(key, "tunnel") == 0 ? &places.tunnel : strcmp(key, "canyon") == 0 ? &places.canyon : strcmp(key, "car_dim") == 0 ? &places.car_dim : NULL;
         if (slot == NULL && strcmp(key, "present") != 0) goto bad;
         if (strcmp(key, "present") == 0) {
@@ -519,7 +535,8 @@ int track_light_place_parse(const char *text, size_t size, const char *track, ui
         memset(flag + a, 1, b - a + 1);
     }
     if (!header) { line_no = 0; goto bad; }
-    out->tunnel = places.tunnel, out->canyon = places.canyon, out->car_dim = places.car_dim, out->from_places = 1;   /* the caller's light had none of them */
+    out->tunnel = places.tunnel, out->canyon = places.canyon, out->car_dim = places.car_dim, out->snow = places.snow, out->from_places = 1;
+    memcpy(out->snow_map, places.snow_map, sizeof out->snow_map);   /* the caller's light had none of them */
     return 1;
 bad:
     if (bad_line != NULL) *bad_line = line_no;

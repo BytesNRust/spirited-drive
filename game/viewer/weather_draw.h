@@ -18,6 +18,10 @@ void weather_sky_fade(uint8_t *pixels, int32_t pitch, int32_t left, int32_t righ
  * `table`; their width is `scale` pixels. The same call draws the same picture. */
 void weather_rain_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, const uint8_t table[256], int storm, int v2);
 
+/* port (snow_weather): the flakes of weather_snow_flake at `tick` over the box, `level` SNOW_LIGHT / SNOW_HEAVY (weather_snow.h): each a square of size x one unit pixels (`scale`, or a 220th of the box's height where that is more) (the bigger ones a soft plus), every pixel
+ * it covers through `table` (a brightening one); `open` (0..16) as the rain's: none in a closed zone, thinned out at its mouths. The same call draws the same picture. */
+void weather_snow_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int level, int open, const uint8_t table[256]);
+
 /* port (rain_fx): the streaks of weather_rain_spoke: speed (the followed car's, 16.16 m/s), the vanishing point (vx, vy) in box pixels, the lens's focal in pixels, `night` for the
  * cone's light; `open` (0..16) how much of the rain falls here (0 in a tunnel, the drops thinned out by it at its mouths); `tables` the four brightness levels' (weather_rain_level_fog); `storm` WEATHER_STORM_DROPS times the streaks. */
 void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int32_t speed, int32_t vx, int32_t vy, float focal, int night,

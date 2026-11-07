@@ -119,6 +119,18 @@ static void load_scenery(TrackArt *art, const Chunk *root)
     }
 }
 
+int track_art_remap_slots(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOTS])
+{
+    int taken = 0;
+    for (int from = 0; art != NULL && map != NULL && from < TRACK_TEXTURE_SLOTS; from++) {
+        const int to = (int)map[from] - 1;
+        if (to < 0 || to >= TRACK_TEXTURE_SLOTS || to == from || !art->slots[to][0].present) continue;
+        for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) art->slots[from][v] = art->slots[to][v];
+        taken++;
+    }
+    return taken;
+}
+
 int track_art_load(TrackArt *art, const Chunk *root)
 {
     memset(art, 0, sizeof *art);

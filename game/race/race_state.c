@@ -1,4 +1,5 @@
 #include "game/race/race_state.h"
+#include "game/race/rally_gravel.h"
 #include "game/race/weather.h"
 
 #include "game/race/track_gravity.h"
@@ -52,11 +53,12 @@ void race_surfaces_init(RaceState *race)
         race->surfaces[2] = surface(0xcc, 0xf00, 0x5999, 1);
     }
     if (race->arcade)
-        for (int i = 0; i < RACE_SURFACES; i++) race->surfaces[i] = surface(0x180, 0x80, 0x1999, 1);
+        for (int i = 0; i < RACE_SURFACES; i++)
+            race->surfaces[i] = race->port_rally_gravel == RALLY_GRAVEL_SNOW ? surface(RALLY_SNOW_GRIP, RALLY_SNOW_ROLLING, 0x1999, 1) : surface(0x180, 0x80, 0x1999, 1);   /* port (snow_weather): snow, not gravel */
     if (race->port_lunar_gravity)   /* port: the moon's grip */
         for (int i = 0; i < RACE_SURFACES; i++) race->surfaces[i].grip = track_grip(race->port_lunar_gravity, race->surfaces[i].grip);
     for (int i = 0; i < RACE_SURFACES; i++) race->port_grip_dry[i] = race->surfaces[i].grip;
-    if (race->port_rain_grip)   /* port (rain_grip): the wet road, not the shoulder */
+    if (race->port_rain_grip && race->port_rally_gravel != RALLY_GRAVEL_SNOW)   /* port (rain_grip): the wet road, not the shoulder (the snow's own number is the wet snow's) */
         for (int i = 0; i < RACE_SURFACES; i++)
             if (race->surfaces[i].off_road == 0 || race->arcade) race->surfaces[i].grip = track_rain_grip(race->port_rain_grip, race->surfaces[i].grip);
 }

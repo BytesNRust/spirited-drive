@@ -8,8 +8,9 @@ enum {
     DUST_TOP = 0x1e00000      /* the speed the dust stops growing at */
 };
 
-int rally_gravel_kind(int track, int variant_r, int lunar, int enabled)
+int rally_gravel_kind(int track, int variant_r, int lunar, int enabled, int snow)
 {
+    if (variant_r && snow) return RALLY_GRAVEL_SNOW;
     if (!enabled || !variant_r) return RALLY_GRAVEL_OFF;
     if (track == 3) return lunar ? RALLY_GRAVEL_REGOLITH : RALLY_GRAVEL_DUST;
     return RALLY_GRAVEL_COMPACT;
@@ -18,7 +19,8 @@ int rally_gravel_kind(int track, int variant_r, int lunar, int enabled)
 int32_t rally_gravel_level(int kind, int32_t level)
 {
     switch (kind) {
-    case RALLY_GRAVEL_COMPACT: return level * 3 / 4;
+    case RALLY_GRAVEL_COMPACT:
+    case RALLY_GRAVEL_SNOW: return level * 3 / 4;
     case RALLY_GRAVEL_DUST: return level * 2 / 3;
     case RALLY_GRAVEL_REGOLITH: return level / 3;
     default: return level;
@@ -56,9 +58,9 @@ int32_t rally_gravel_roll_distance(int32_t distance)
 
 int32_t rally_dust_skid(int kind, int32_t speed, int on_ground)
 {
-    if (!on_ground || speed < DUST_MOVING || (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH)) return 0;
+    if (!on_ground || speed < DUST_MOVING || (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH && kind != RALLY_GRAVEL_SNOW)) return 0;
     const int32_t v = speed > DUST_TOP ? DUST_TOP : speed;
-    return kind == RALLY_GRAVEL_DUST ? DUST_BASE + v / 2 : DUST_FROM + 0x40000 + v / 16;
+    return kind == RALLY_GRAVEL_DUST || kind == RALLY_GRAVEL_SNOW ? DUST_BASE + v / 2 : DUST_FROM + 0x40000 + v / 16;
 }
 
 /* the floor a car at `speed` (16.16 m/s) gets: all of it from 3 m/s, in proportion below, none standing */

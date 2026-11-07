@@ -1,6 +1,7 @@
 #include "viewer/weather_draw.h"
 
 #include "game/race/weather.h"
+#include "game/race/weather_snow.h"
 
 #include <math.h>
 #include <stddef.h>
@@ -63,6 +64,26 @@ void weather_rain_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int
                 *p = table[*p];
             }
         }
+    }
+}
+
+void weather_snow_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int level, int open, const uint8_t table[256])
+{
+    const int32_t w = box[2] - box[0], h = box[3] - box[1];
+    const int count = weather_snow_count(w, h, level);
+    for (int i = 0; i < count; i++) {
+        int32_t f[3];
+        if (open < 16 && (int)((uint32_t)i * 2654435761u >> 12 & 15u) >= open) continue;   /* a tunnel: no snow, thinning out at the mouths */
+        weather_snow_flake(i, tick, level, w, h, f);
+        const int32_t side = scale > h / 220 ? (scale > 0 ? scale : 1) : h / 220;   /* a flake's unit: the render scale's, or a 220th of the box's height where that is more (a flake is the same share of the view at any size) */
+        for (int32_t dy = 0; dy < f[2] * side; dy++)
+            for (int32_t dx = 0; dx < f[2] * side; dx++) {
+                if (f[2] == SNOW_SIZE_MAX && (dx < side || dx >= 2 * side) && (dy < side || dy >= 2 * side)) continue;   /* the biggest is a soft plus, not a square */
+                const int32_t px = f[0] + dx, py = f[1] + dy;
+                if (px < 0 || px >= w || py < 0 || py >= h) continue;
+                uint8_t *p = pixels + (size_t)(box[1] + py) * (size_t)pitch + (size_t)(box[0] + px);
+                *p = table[*p];
+            }
     }
 }
 

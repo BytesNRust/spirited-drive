@@ -70,12 +70,13 @@ typedef struct {
     int shoulder_light;   /* port.cfg's, appended */
     int track_light_lamp;   /* port.cfg's, appended */
     int rain_tyre_roll;
+    int snow_weather;   /* port.cfg's, appended */
 } Table;
 
 static const Table TABLES[PROFILE_COUNT] = {
-    [PROFILE_STOCK]    = { 0, 30,  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 },   /* 30: the exe's 30 steps a second, each drawn once */
-    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 },
-    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 1, 1, 1, 5, 1, 1, 2, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1 },   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
+    [PROFILE_STOCK]    = { 0, 30,  0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0 },   /* 30: the exe's 30 steps a second, each drawn once */
+    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0 },
+    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 1, 1, 1, 5, 1, 1, 2, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1 },   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
 };
 
 /* what the player may change in a mode, by file key; Restomod '26 leaves everything free but the machine's own */
@@ -184,6 +185,7 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
     s.police_glow = t->police_glow;
     s.car_tunnel_light = t->car_tunnel_light, s.vegas_car_night = t->vegas_car_night, s.rally_gravel_shoulder = t->rally_gravel_shoulder;
     s.chase_height = t->chase_height, s.lamp_pool_tint = t->lamp_pool_tint, s.trans_shadows = t->trans_shadows, s.canyon_shade = t->canyon_shade, s.tunnel_headlight = t->tunnel_headlight, s.parking_dark = t->parking_dark, s.forest_neutral = t->forest_neutral, s.cavern_dark = t->cavern_dark, s.vegas_objects = t->vegas_objects, s.close_houses = t->close_houses, s.brake_over_gas = t->brake_over_gas, s.lamp_pools = t->lamp_pools, s.lamp_car_shade = t->lamp_car_shade, s.reverse_rows = t->reverse_rows, s.city_lift = t->city_lift, s.vegas_lift = t->vegas_lift, s.headlight_cone = t->headlight_cone, s.rain_fx = t->rain_fx, s.rain_grip = t->rain_grip, s.gauge_light = t->gauge_light, s.finish_gate_light = t->finish_gate_light, s.lamp_pool_bright = t->lamp_pool_bright, s.night_tone = t->night_tone, s.rain_lamps = t->rain_lamps, s.gauge_exterior = t->gauge_exterior, s.sign_glow = t->sign_glow, s.analog_pad = t->analog_pad, s.rain_v2 = t->rain_v2, s.shoulder_light = t->shoulder_light, s.track_light_lamp = t->track_light_lamp, s.rain_tyre_roll = t->rain_tyre_roll, s.police_halo = t->police_halo, s.traffic_halo = t->traffic_halo, s.rally_dry_lamps = t->rally_dry_lamps, s.traffic_spray = t->traffic_spray;
+    s.snow_weather = t->snow_weather;
     return s;
 }
 
