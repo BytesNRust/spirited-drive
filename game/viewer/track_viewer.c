@@ -541,7 +541,7 @@ static void drive_field_port(RaceField *field, const char *name, int arcade)
         : difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL, drive_link_on);
     {   /* port: the mode's file's rally_gravel (rally_gravel.h) */
         const PortExtras gravel = race_extras();
-        field->port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel, drive_snow);
+        field->port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel, drive_snow && !drive_link_on && replay_file == NULL);   /* the snow's grip is the sim's: a local setting, so never in a link race or a replay (not synced) */
         field->port_rally_road = arcade != 0;
         field->port_analog_pad = port_analog_pad();
         field->port_rally_shoulder_sound = port_rally_gravel_shoulder();

@@ -516,7 +516,7 @@ int track_light_place_parse(const char *text, size_t size, const char *track, ui
         if (strcmp(key, "snow_map") == 0) {   /* a texture slot of the road that the snow's bitmaps take over in the rally */
             unsigned from, to;
             int used_map = 0;
-            if (sscanf(rest, "%u %u%n", &from, &to, &used_map) != 2 || from >= PSX_LIGHT_SNOW_SLOTS || to >= PSX_LIGHT_SNOW_SLOTS || rest[used_map + strspn(rest + used_map, " \t")] != '\0') goto bad;
+            if (sscanf(rest, "%u %u%n", &from, &to, &used_map) != 2 || from >= PSX_LIGHT_SNOW_SLOTS || to >= PSX_LIGHT_SNOW_SLOTS || rest[used_map + strspn(rest + used_map, " \t\r")] != '\0') goto bad;
             places.snow_map[from] = (uint8_t)(to + 1);
             continue;
         }

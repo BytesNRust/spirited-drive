@@ -1,6 +1,7 @@
 #include "game/race/track_art.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* 0044c1fc: exact name, upper case first, then lower case. */
@@ -122,12 +123,17 @@ static void load_scenery(TrackArt *art, const Chunk *root)
 int track_art_remap_slots(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOTS])
 {
     int taken = 0;
-    for (int from = 0; art != NULL && map != NULL && from < TRACK_TEXTURE_SLOTS; from++) {
+    if (art == NULL || map == NULL) return 0;
+    TrackTexture *const before = malloc(sizeof art->slots);   /* every `to` is read as it was, so a chain of pairs does not depend on their order */
+    if (before == NULL) return 0;
+    memcpy(before, art->slots, sizeof art->slots);
+    for (int from = 0; from < TRACK_TEXTURE_SLOTS; from++) {
         const int to = (int)map[from] - 1;
-        if (to < 0 || to >= TRACK_TEXTURE_SLOTS || to == from || !art->slots[to][0].present) continue;
-        for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) art->slots[from][v] = art->slots[to][v];
+        if (to < 0 || to >= TRACK_TEXTURE_SLOTS || to == from || !before[to * TRACK_TEXTURE_VARIANTS].present) continue;
+        for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) art->slots[from][v] = before[to * TRACK_TEXTURE_VARIANTS + v];
         taken++;
     }
+    free(before);
     return taken;
 }
 

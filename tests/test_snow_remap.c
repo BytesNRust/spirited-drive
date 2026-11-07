@@ -39,6 +39,17 @@ static void test_a_mapped_slot_takes_the_snows_bitmaps(void)
     free(art);
 }
 
+static void test_a_chain_of_pairs_reads_every_slot_as_it_was(void)
+{
+    TrackArt *art = make_art();
+    uint8_t map[TRACK_TEXTURE_SLOTS] = { 0 };
+    map[3] = 4 + 1, map[4] = 5 + 1;   /* 3 takes 4 and 4 takes 5: 3 gets the original 4, whichever is done first */
+    CHECK_EQ_INT(track_art_remap_slots(art, map), 2);
+    CHECK_EQ_INT(art->slots[3][0].bitmap.height, 64 + 4);
+    CHECK_EQ_INT(art->slots[4][0].bitmap.height, 64 + 5);
+    free(art);
+}
+
 static void test_no_map_changes_nothing(void)
 {
     TrackArt *art = make_art(), *same = make_art();
@@ -68,6 +79,10 @@ static void test_the_places_file_gives_the_map(void)
     free(out);
     psx_light_free(&places);
     const char *bad_texts[] = { "snow_map 3\n", "snow_map 3 144\n", "snow_map 144 3\n", "snow_map a b\n", "snow_map 3 4 5\n", "snow 2\n" };
+    const char *crlf = "# tnfs track places 1\r\ntrack AL3\r\nsnow_map 3 4\r\n";
+    PsxLight c = { 0 };
+    CHECK(track_light_place_parse(crlf, strlen(crlf), "AL3", 100, &c, NULL) && c.snow_map[3] == 5);   /* a CRLF file is as good */
+    psx_light_free(&c);
     for (size_t i = 0; i < sizeof bad_texts / sizeof *bad_texts; i++) {
         char file[128];
         snprintf(file, sizeof file, "# tnfs track places 1\ntrack AL3\n%s", bad_texts[i]);
@@ -80,6 +95,7 @@ static void test_the_places_file_gives_the_map(void)
 int main(void)
 {
     test_a_mapped_slot_takes_the_snows_bitmaps();
+    test_a_chain_of_pairs_reads_every_slot_as_it_was();
     test_no_map_changes_nothing();
     test_the_places_file_gives_the_map();
     return TEST_REPORT();
