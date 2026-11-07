@@ -36,7 +36,8 @@ typedef struct {
     int dash_rgb_on;
     char psx_dir[PSX_DIR_MAX];  /* port: port.cfg's psx_dir for this race, "" none */
     /* port: what the rivals' colours are drawn from, kept for drive_load: a rival's car is known only when its file is (race_models.c decides it; the field's entries do not say) */
-    struct { int on; uint32_t seed; int player_slot, player_car, player_paint, racers; } colours;
+    struct { int on; uint32_t seed; int player_slot, player_car, player_paint, racers;
+             int shared, humans, host_car, host_paint; uint8_t paint[8]; } colours;   /* port (online): shared: the host's paint list rules (session_rules.h), the humans' slots and the rivals' exclusion by the host's car */
 } DriveCars;
 
 /* port: the wide screen (port.cfg's format; TNFS_SCREEN=4:3 / 16:9 / 21:9 overrides it for the checks). The race

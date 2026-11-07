@@ -81,7 +81,8 @@ typedef struct {
     uint8_t unknown_2d[4];
     ControlSetup controls;  /* +0x31 (004fb82b): the player's 004fb724 (004275f8 puts it here from 00426ddc's, so the
                              * replay's setup keeps it, and takes every human's back out after the setup is read) */
-    uint8_t unknown_3d[0xe];
+    uint8_t paint_pick;     /* +0x3d (port): the player's own paint for its car + 1 (PAINT_* of port_extras.h), 0: none; rides in the link's info record so the host can tell every machine each slot's paint */
+    uint8_t unknown_3e[0xd];
 } RaceEntry;
 #pragma pack(pop)
 typedef char race_entry_size_check[sizeof(RaceEntry) == 0x4b ? 1 : -1];
