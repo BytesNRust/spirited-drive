@@ -158,7 +158,7 @@ static void handle(void *ctx, int16_t kind, uint32_t link, const uint8_t *data, 
         break;
     }
     case 1: {
-        RaceNetSetupIn in = { L->flags_a, L->state, L->setup };
+        RaceNetSetupIn in = { L->flags_a, L->state, L->setup, L->trailer, &L->trailer_size };
         race_net_on_setup(&in, data, size);
         break;
     }

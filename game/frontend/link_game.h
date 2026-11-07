@@ -43,6 +43,9 @@ typedef struct LinkGame {
     int32_t deadline;                      /* 004f8158 */
     int16_t sets[1 + RACE_NET_SET_WORDS];  /* 0052b2b2, then 0052b2b4's eight (004465e4 reads [-1]) */
     uint8_t setup[RACE_NET_SETUP];         /* 004fb7bc, the players' records 004fb7f8 at its +0x3c */
+    uint8_t trailer[RACE_NET_SETUP_TRAILER_MAX];   /* port: the host's rules after the setup (session_rules.h) */
+    int32_t trailer_size;
+    int session_known;                     /* port: the host's rules came with the last setup, or this machine is the host */
     uint8_t chat[RACE_NET_CHAT_LINES][RACE_NET_CHAT_LINE];  /* 004b7a30 */
     int16_t chat_line, chat_arrived;       /* 004b905f, 004b9062 */
     RaceNetServices services;              /* 004bc6c0.. */

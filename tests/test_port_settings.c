@@ -4,7 +4,9 @@
 #include "test.h"
 
 #include "game/platform/platform.h"
+#include "game/race/session_rules.h"
 #include "game/race/weather.h"
+#include "game/sys/reverse_track.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -661,8 +663,35 @@ static void test_rain_grip_needs_the_rain(void)
     unsetenv("TNFS_WEATHER");
 }
 
+/* port (online): the settings a link race reads are the host's while its rules are set (session_rules.h), and the machine's own again after */
+static void test_the_hosts_rules_win_while_set(void)
+{
+    clear_files();
+    unsetenv("TNFS_WEATHER"), unsetenv("TNFS_REVERSE"), unsetenv("TNFS_RAIN_GRIP"), unsetenv("TNFS_PSX_TIME");
+    session_rules_set(NULL);
+    const int weather = port_weather(), grip = port_rain_grip(), psx = port_psx_time(), reverse = reverse_track_wanted();
+    SessionRules r;
+    memset(&r, 0, sizeof r);
+    r.weather = (uint8_t)(weather == WEATHER_STORM ? WEATHER_FOG : WEATHER_STORM);
+    r.rain_grip = (uint8_t)!grip, r.psx_time = (uint8_t)((psx + 1) % 3), r.reverse = (uint8_t)!reverse;
+    session_rules_set(&r);
+    CHECK_EQ_INT(port_weather(), r.weather);
+    CHECK_EQ_INT(port_rain_grip(), r.rain_grip);
+    CHECK_EQ_INT(port_psx_time(), r.psx_time);
+    CHECK_EQ_INT(reverse_track_wanted(), r.reverse);
+    setenv("TNFS_WEATHER", "clear", 1);   /* a dev override stays the strongest */
+    CHECK_EQ_INT(port_weather(), WEATHER_CLEAR);
+    unsetenv("TNFS_WEATHER");
+    session_rules_set(NULL);
+    CHECK_EQ_INT(port_weather(), weather);
+    CHECK_EQ_INT(port_rain_grip(), grip);
+    CHECK_EQ_INT(port_psx_time(), psx);
+    CHECK_EQ_INT(reverse_track_wanted(), reverse);
+}
+
 int main(void)
 {
+    test_the_hosts_rules_win_while_set();
     test_rain_grip_needs_the_rain();
     clear_files();
     test_defaults();

@@ -824,6 +824,13 @@ void race_net_on_setup(RaceNetSetupIn *in, const uint8_t *data, int32_t size)
         for (int k = 0; k < 4; k++) in->setup[RACE_NET_SETUP_4FBACC + k] = (uint8_t)((uint32_t)slot >> 8 * k);
         return;
     }
+    if (data[2] == 0 && in->trailer_size != NULL) *in->trailer_size = 0;   /* port: a new setup begins; the last race's trailer is not this one's */
+    if (data[2] == RACE_NET_SETUP_TRAILER_CHUNK && size > RACE_NET_SETUP_HEAD && in->trailer != NULL && in->trailer_size != NULL) {
+        const int32_t n = size - RACE_NET_SETUP_HEAD;
+        memcpy(in->trailer, data + RACE_NET_SETUP_HEAD, (size_t)(n > RACE_NET_SETUP_TRAILER_MAX ? RACE_NET_SETUP_TRAILER_MAX : n));
+        *in->trailer_size = n > RACE_NET_SETUP_TRAILER_MAX ? RACE_NET_SETUP_TRAILER_MAX : n;
+        return;
+    }
     const int32_t at = data[2] * RACE_NET_SETUP_CHUNK;
     for (int32_t k = 0; k < size - RACE_NET_SETUP_HEAD && at + k < RACE_NET_SETUP; k++)  /* port guard */
         in->setup[at + k] = data[RACE_NET_SETUP_HEAD + k];
@@ -904,6 +911,11 @@ enum { SETUP_RACE_W4FB7D4 = 0x18 };
 
 void race_net_send_setup(const RaceNetSetupSendOps *ops, uint8_t *setup, const uint8_t *state)
 {
+    race_net_send_setup_trailer(ops, setup, state, NULL, 0);
+}
+
+void race_net_send_setup_trailer(const RaceNetSetupSendOps *ops, uint8_t *setup, const uint8_t *state, const uint8_t *trailer, int32_t trailer_size)
+{
     if ((uint32_t)(setup[SETUP_RACE_W4FB7D4] | setup[SETUP_RACE_W4FB7D4 + 1] << 8 | setup[SETUP_RACE_W4FB7D4 + 2] << 16 |
                    (uint32_t)setup[SETUP_RACE_W4FB7D4 + 3] << 24) != 1)
         return;
@@ -919,6 +931,12 @@ void race_net_send_setup(const RaceNetSetupSendOps *ops, uint8_t *setup, const u
         left -= n;
         ops->service(ops->ctx);
         ops->send(ops->ctx, 0, message, n + RACE_NET_SETUP_HEAD);
+    }
+    if (trailer != NULL && trailer_size > 0 && trailer_size <= RACE_NET_SETUP_TRAILER_MAX) {   /* port: after the setup's chunks, before the end */
+        message[2] = RACE_NET_SETUP_TRAILER_CHUNK;
+        memcpy(message + RACE_NET_SETUP_HEAD, trailer, (size_t)trailer_size);
+        ops->service(ops->ctx);
+        ops->send(ops->ctx, 0, message, trailer_size + RACE_NET_SETUP_HEAD);
     }
     ops->send(ops->ctx, 0, message, RACE_NET_SETUP_END);
 }

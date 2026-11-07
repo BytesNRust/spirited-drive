@@ -24,6 +24,7 @@
 # client's config.dat (its name, car and gearbox); CAPTURE_EVERY=N also keeps
 # every Nth frame there (OUT_DIR/NAME/cap, PPMs: delete them after); CLIENT_IDLE=1: the clients press nothing after
 # the race (only the host answers the screens); TAIL (300 s): continue mode's time past the results;
+# HOST_ENV / CLIENT_ENV="VAR=value ...": environment of the host / of every client (the host-only rules: HOST_ENV="TNFS_WEATHER=rain TNFS_REVERSE=1" and the clients' logs say "session rules");
 # AFTER="ms:KEY,...": the steps after the race (times from the results screen) instead of the mode's.
 set -euo pipefail
 
@@ -74,7 +75,9 @@ run() {  # name script secs port [args...]
     fi
     [ -n "${CAPTURE_EVERY:-}" ] && mkdir -p "$out/$name/cap"
     set +e
-    TNFS_CAPTURE_DIR=${CAPTURE_EVERY:+$out/$name/cap} TNFS_CAPTURE_EVERY=${CAPTURE_EVERY:-} SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_INPUT_SCRIPT=$script \
+    local extra=${HOST_ENV:-}
+    [ "$name" != host ] && extra=${CLIENT_ENV:-}
+    env $extra TNFS_CAPTURE_DIR=${CAPTURE_EVERY:+$out/$name/cap} TNFS_CAPTURE_EVERY=${CAPTURE_EVERY:-} SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_INPUT_SCRIPT=$script \
         timeout -k 5 "$secs" "$exe" --user "$out/$name/mods/user" --net-port "$port" "$@" >"$out/$name/log" 2>&1
     echo $? >"$out/$name/rc"
 }

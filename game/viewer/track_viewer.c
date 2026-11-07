@@ -31,6 +31,8 @@
 #include "viewer/drive_smoke.h"
 #include "game/sys/port_log.h"
 #include "game/race/lunar_springs.h"
+#include "game/race/session_rules.h"
+#include "game/sys/extras_marks.h"
 #include "game/race/difficulty.h"
 #include "game/race/rally_gravel.h"
 
@@ -303,6 +305,23 @@ static void race_stand_in(void *user, int32_t player) { (void)user, drive_link_s
 
 int32_t link_wait_ticks;  /* 004fbac8: 00410d80's, a link race's queue wait */
 
+/* port (online): the extras this race runs under: the machine's own, but in a link game the host's rules (session_rules.h) where they decide the race or the cars' colours
+ * (a guest without them, from an older host, keeps its own as before) */
+static PortExtras race_extras(void)
+{
+    PortExtras e = port_extras_load();
+    const SessionRules *r = drive_link_on ? session_rules_active() : NULL;
+    if (r == NULL) return e;
+    e.difficulty = r->difficulty, e.lunar_springs = r->lunar_springs, e.lunar_gravity = r->lunar_gravity, e.rally_gravel = r->rally_gravel;
+    e.psx_liveries = r->liveries, e.reverse = r->reverse;
+    e.nitro = (r->cheats & EXTRAS_MARK_NITRO) != 0, e.explode = (r->cheats & EXTRAS_MARK_EXPLODE) != 0, e.turbo = (r->cheats & EXTRAS_MARK_TURBO) != 0;
+    return e;
+}
+
+/* port (online): the link's exchange (the setup and the host's rules) is done before the track loads, since the rules say which track (reversed, the moon's, the time of day) to
+ * load: start_drive takes its results */
+static struct { int done; const uint8_t *entries; uint32_t seed, flags; } early;
+
 /* 004273d0 in a link game: this machine's entry (its car and aids, as a solo race's first) out, every slot's back */
 static const uint8_t *link_entries(int model, uint32_t *seed, uint32_t *flags)
 {
@@ -334,8 +353,18 @@ static uint8_t race_paint[RACE_PLAYERS];   /* port (replay colours): the paint e
 static void slot_colours(int slot, int car)
 {
     const int is_player = slot == drive_cars.colours.player_slot;
-    int paint = is_player ? drive_cars.colours.player_paint
-                          : rival_paint_choice(drive_cars.colours.seed, slot, car, drive_cars.colours.player_car, drive_cars.colours.player_paint, drive_cars.psx_dir);
+    const int shared = drive_cars.colours.shared;
+    int paint;
+    if (is_player) {
+        paint = drive_cars.colours.player_paint;
+    } else if (shared && slot < drive_cars.colours.humans && slot < 8 && drive_cars.colours.paint[slot] != 0xff) {   /* port (online): a human's own pick, as its machine sent it */
+        uint16_t swatch[2];
+        const int ps1 = drive_cars.psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(drive_cars.psx_dir, car_model_names[car], swatch);
+        paint = car_paint_replayed(drive_cars.colours.paint[slot], car, ps1);
+    } else {   /* a rival: the race's draw; in a link game the one car it must differ from is the host's, the same on every machine */
+        paint = rival_paint_choice(drive_cars.colours.seed, slot, car, shared ? drive_cars.colours.host_car : drive_cars.colours.player_car,
+                                   shared ? drive_cars.colours.host_paint : drive_cars.colours.player_paint, drive_cars.psx_dir);
+    }
     if (replay_of != NULL && replay_of->paint_known && slot < RACE_PLAYERS) {
         uint16_t swatch[2];
         const int ps1 = drive_cars.psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(drive_cars.psx_dir, car_model_names[car], swatch);
@@ -361,7 +390,7 @@ static void rival_liveries(const RaceField *field, int player, const char *track
 {
     static CarPaintSeedKeep seed_keep;   /* port: the rivals' colours hold from one stage of a set to the next (car_paint_seed) */
     const uint32_t paint_seed = replay ? field->seed : car_paint_seed(&seed_keep, track, field->seed);
-    const PortExtras extras = port_extras_load();
+    const PortExtras extras = race_extras();
     const PortSettings settings = port_settings_load();
     memset(drive_cars.livery, 0, sizeof drive_cars.livery);
     memset(drive_cars.paint_on, 0, sizeof drive_cars.paint_on);
@@ -379,6 +408,12 @@ static void rival_liveries(const RaceField *field, int player, const char *track
         player_paint = PAINT_OWN;   /* a choice the files or the table no longer have */
     drive_cars.colours.on = 1, drive_cars.colours.seed = paint_seed, drive_cars.colours.player_slot = player;
     drive_cars.colours.player_car = player_car, drive_cars.colours.player_paint = player_paint, drive_cars.colours.racers = field->racers;
+    const SessionRules *host = drive_link_on ? session_rules_active() : NULL;
+    if (host != NULL) {   /* port (online): every machine paints the same slots the same */
+        drive_cars.colours.shared = 1, drive_cars.colours.humans = drive_link.humans;
+        drive_cars.colours.host_car = field->entries[0].car, drive_cars.colours.host_paint = host->paint[0] != 0xff ? host->paint[0] : PAINT_OWN;
+        memcpy(drive_cars.colours.paint, host->paint, sizeof drive_cars.colours.paint);
+    }
     slot_colours(player, player_car);   /* the player's own is known now: the dash art asks for it before the cars are read */
 }
 
@@ -397,7 +432,7 @@ static int paint_dash(void *user, uint8_t *bank, size_t size)
 /* port: lunar_gravity (lunar_springs.h): the moon's race takes the moon's pull and grip (track_gravity.h) */
 static int lunar_gravity_race(const char *name, int arcade)
 {
-    const PortExtras e = port_extras_load();
+    const PortExtras e = race_extras();
     return lunar_gravity_active(race_sim_track_index(name), arcade, e.lunar_springs, e.lunar_gravity);
 }
 
@@ -407,7 +442,9 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     /* 004fb7f4: 004275f8's time(0), the race's random seed (00428fe0); --drive alone keeps a fixed one */
     uint32_t seed = drive_menus_on ? (uint32_t)time(NULL) : DRIVE_SEED;
     uint32_t flags = drive_menus_on ? drive_menus.track_flags : 0;  /* 004fb7d8: 0042702c's copy of 0052b306 */
-    const uint8_t *entries = drive_link_on ? link_entries(model, &seed, &flags) : NULL;  /* the host's setup's, 004fb7fa */
+    const uint8_t *entries = NULL;   /* the host's setup's, 004fb7fa */
+    if (drive_link_on && early.done) entries = early.entries, seed = early.seed, flags = early.flags;
+    else if (drive_link_on) entries = link_entries(model, &seed, &flags);
     if (entries != NULL) memcpy(&model, entries + offsetof(RaceEntry, car), sizeof model);  /* slot 0's specs: the host's car's */
     CarSpecs specs;
     if (!load_specs(data_root, model, &specs)) return 0;
@@ -479,10 +516,10 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     field.port_lunar_gravity = lunar_gravity_race(name, arcade);
     field.port_rain_grip = port_rain_grip_active();
     /* port (difficulty.h): the mode's file's level; Original in a link race, a replay's own (the CD's demos: Original) */
-    field.port_difficulty = difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL,
-                                               drive_link_on);
+    field.port_difficulty = drive_link_on && session_rules_active() != NULL ? difficulty_from_extras(race_extras().difficulty)   /* port (online): the host's */
+        : difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL, drive_link_on);
     {   /* port: the mode's file's rally_gravel (rally_gravel.h) */
-        const PortExtras gravel = port_extras_load();
+        const PortExtras gravel = race_extras();
         field.port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel);
         field.port_rally_road = arcade != 0;
         field.port_analog_pad = port_analog_pad();
@@ -520,8 +557,9 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_sim.race.port_follow_camera = port_extras_load().follow_camera;   /* port: the mode's file's Follow camera (CUSTOMIZE, Unlocks & mods) */
     drive_sim.race.port_follow_ring = drive_sim.race.port_follow_camera != 0;   /* port: and its arm behind, a longer one, in a bigger cache */
     if (drive_menus_on && replay_of == NULL) {  /* the cheats' words, shared with the menus in the original */
-        drive_sim.race.unknown_4c5cd4 = drive_menus.explode;
-        drive_sim.race.start_input = drive_menus.start_boost;
+        const PortExtras cheats = race_extras();
+        drive_sim.race.unknown_4c5cd4 = drive_link_on && session_rules_active() != NULL ? cheats.explode : drive_menus.explode;   /* port (online): the host's cheats */
+        drive_sim.race.start_input = drive_link_on && session_rules_active() != NULL ? cheats.nitro : drive_menus.start_boost;
         drive_sim.race.port_replay_cameras = drive_menus.replay_cameras;
     }
     if (replay_of != NULL) race_replay_apply_cheats(&drive_sim.race, replay_of);  /* port: the recording's cheat, or the horn's spin-outs are missing */
@@ -720,13 +758,21 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
                        const char *screenshot)
 {
     drive_time_of_day = 1;
+    early.done = 0;
+    if (!drive_link_on) session_rules_set(NULL);
+    else if (replay_file == NULL && model >= 0 && model < CAR_MODELS) {   /* port (online): the exchange first, then the track the host's rules describe */
+        early.seed = drive_menus_on ? (uint32_t)time(NULL) : DRIVE_SEED, early.flags = drive_menus_on ? drive_menus.track_flags : 0;
+        early.entries = link_entries(model, &early.seed, &early.flags), early.done = 1;
+        const SessionRules *rules = session_rules_active();
+        if (rules != NULL && drive_menus_on) drive_menus.time_of_day = rules->time_of_day;
+    }
     static Track t;
     /* 004278c0: 004fa0ec 1 with a variant, else the track's time of day (004fbae0[004fb7c2]): a replay's from its
      * setup (004fbad8 +0x31c, 004fbadc +0x320, 004fbae0 +0x324, 004fb7c2 +6), the menus'; else 0 and no variant */
     TrackFamInputs look = { .time_of_day = 0, .variant_m = 0, .variant_r = 0, .track = race_sim_track_index(name),
                             .stem = NULL, .dir = NULL, .dir_midday = NULL, .port_both_variants = 0 };
-    look.port_lunar = port_extras_load().lunar_springs;   /* port: the moon's textures for the rally on Rusty Springs */
-    look.port_reverse = replay_file == NULL && !drive_link_on && reverse_track_wanted();   /* port: the circuit backwards (not a replay's nor a link game's) */
+    look.port_lunar = race_extras().lunar_springs;   /* port: the moon's textures for the rally on Rusty Springs */
+    look.port_reverse = replay_file == NULL && (drive_link_on ? session_rules_active() != NULL && session_rules_active()->reverse : reverse_track_wanted());   /* port: the circuit backwards (not a replay's; a link game's is the host's) */
     if (replay_file != NULL) {
         const int32_t track = le32_at(replay_file + 6);
         look.variant_m = le32_at(replay_file + 0x31c), look.variant_r = le32_at(replay_file + 0x320), look.track = track;
@@ -767,6 +813,7 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     track_viewer_free(&t);
     if (drive_link_on) drive_link.racing(NULL, NULL, NULL);
     drive_menus_on = 0, drive_link_on = 0;
+    session_rules_set(NULL);
     drive_input.link = NULL, drive_input.stand_in_block = drive_input.own_stand_ins;
     return ok;
 }

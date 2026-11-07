@@ -1017,6 +1017,8 @@ enum {
     RACE_NET_SETUP_HEAD = 3,
     RACE_NET_SETUP_END = 2,           /* the size of the last message, {1} */
     RACE_NET_SETUP_4FBACC = 0x310,
+    RACE_NET_SETUP_TRAILER_CHUNK = 4,   /* port: the chunk after the setup's four (0xf7 x 4 is past its end, so a receiver that knows no trailer drops it by its guard) */
+    RACE_NET_SETUP_TRAILER_MAX = RACE_NET_SETUP_CHUNK,
     RACE_NET_SETUP_FLAG = 1           /* 0050a5ae = 0050a5ac[1] */
 };
 
@@ -1025,6 +1027,8 @@ typedef struct {
     int16_t *flags_a;                 /* 0050a5ac */
     const uint8_t *state;             /* 004f8164: RACE_NET_STATE bytes */
     uint8_t *setup;                   /* 004fb7bc: RACE_NET_SETUP bytes */
+    uint8_t *trailer;                 /* port: RACE_NET_SETUP_TRAILER_MAX bytes for the host's trailer (session_rules.h); NULL: none taken */
+    int32_t *trailer_size;            /* port: its size, 0 when this setup came with none */
 } RaceNetSetupIn;
 
 /* 00439d98, message kind 1 (eax link, edx data, ebx size): size 2 (all 32
@@ -1046,6 +1050,8 @@ typedef struct {
  * chunks 0, 1, ... (00475c14(0) before each 00445e00(0, message, n + 3)),
  * and last 00445e00(0, message, 2), what handler 1 (00439d98) takes. */
 void race_net_send_setup(const RaceNetSetupSendOps *ops, uint8_t *setup, const uint8_t *state);
+/* port: the same, with a trailer (up to RACE_NET_SETUP_TRAILER_MAX bytes) as chunk RACE_NET_SETUP_TRAILER_CHUNK after the setup's, before the end */
+void race_net_send_setup_trailer(const RaceNetSetupSendOps *ops, uint8_t *setup, const uint8_t *state, const uint8_t *trailer, int32_t trailer_size);
 
 enum { RACE_NET_MENU_NAME = 0x95 };  /* 0052ad44's names, one a player */
 
