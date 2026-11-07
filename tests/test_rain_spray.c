@@ -66,6 +66,32 @@ static void test_nothing_dry_or_slow(void)
     CHECK_EQ_INT(rain_spray_step(&s, 99, 12, w, w, right, 1, 20 << 16, 1), 0);  /* a car that does not exist */
 }
 
+/* a rival is drawn with its matrix and its yaw stays 0: its wheels follow the matrix's heading, on the road's bends, the left and the right wheel either side of it */
+static void test_a_matrix_car_has_its_wheels_where_it_heads(void)
+{
+    const int32_t at[3] = { 100 << 16, 0, 200 << 16 };
+    int32_t forward[2], wheel[2][3], right[2];
+    rain_spray_heading(1, 0, 65536, 0, forward);   /* heading east (+x), yaw 0 */
+    CHECK_EQ_INT(forward[0], 65536);
+    CHECK_EQ_INT(forward[1], 0);
+    rain_spray_wheels(at, forward, wheel, right);
+    CHECK_EQ_INT(right[0], 0);                      /* the right of a car heading +x is -z */
+    CHECK_EQ_INT(right[1], -65536);
+    CHECK(wheel[0][0] < at[0] && wheel[1][0] < at[0]);   /* both behind it, along the road */
+    CHECK_EQ_INT(wheel[0][0], wheel[1][0]);
+    CHECK(wheel[0][2] > at[2] && wheel[1][2] < at[2]);   /* the left (+z) and the right (-z) either side of it */
+    CHECK_EQ_INT(wheel[0][2] - at[2], at[2] - wheel[1][2]);
+    rain_spray_heading(1, 0, 0, 0, forward);        /* a degenerate matrix: the yaw's (north, +z) */
+    CHECK_EQ_INT(forward[0], 0);
+    CHECK_EQ_INT(forward[1], 65536);
+    rain_spray_heading(0, 0x4000 << 8, 12345, 678, forward);   /* a car with no matrix: its yaw, a quarter turn */
+    CHECK_EQ_INT(forward[0], 65536);
+    CHECK_EQ_INT(forward[1], 0);
+    rain_spray_heading(1, 0, 32886, 55230, forward);   /* an unnormalised matrix is made a unit one */
+    const double len = ((double)forward[0] * forward[0] + (double)forward[1] * forward[1]) / 65536.0 / 65536.0;
+    CHECK(len > 0.999 && len < 1.001);
+}
+
 static void test_a_tunnel_leaves_no_spray(void)
 {
     static RainSpray s;
@@ -118,6 +144,7 @@ int main(void)
     test_dropped_once_a_tick_and_left_behind();
     test_a_wisp_is_one_short_particle();
     test_nothing_dry_or_slow();
+    test_a_matrix_car_has_its_wheels_where_it_heads();
     test_a_tunnel_leaves_no_spray();
     test_a_clock_that_goes_back_clears_the_trail();
     test_wisp2();

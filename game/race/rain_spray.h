@@ -37,6 +37,14 @@ typedef struct {
 
 void rain_spray_clear(RainSpray *s);
 
+/* The car's heading as a unit vector (x, z; 16.16) for its wheels: its yaw (16.16 turn, the high bits: `yaw >> 8`), or, for a car that is drawn with its matrix (use_matrix: the rivals' and the
+ * traffic's, whose yaw stays 0), the matrix's forward (`matrix6`, `matrix8`: its x and z). The matrix's is normalised; a degenerate one falls back to the yaw. */
+void rain_spray_heading(int use_matrix, int32_t yaw, int32_t matrix6, int32_t matrix8, int32_t forward[2]);
+
+/* Where a car's rear wheels are and which way is its right: `at` (x, y, z, 16.16 m) the car's centre, `forward` its heading (rain_spray_heading). wheel[0] the left, wheel[1] the right
+ * (1.4 m behind the centre, 0.8 m out, 0.3 m down); `right` the car's right (x, z; 16.16 unit). */
+void rain_spray_wheels(const int32_t at[3], const int32_t forward[2], int32_t wheel[2][3], int32_t right[2]);
+
 /* A tick of car `car` (0..RAIN_SPRAY_CARS - 1): once for each tick (a frame drawn again at the same tick drops nothing, a tick that goes back clears the trails), each wheel drops a
  * particle at `left` / `right_wheel` (16.16 m, the road under the wheel) when `wet` (on the road, on the ground) and above 8 m/s (`speed` 16.16 m/s). `right` is the car's right (x, z;
  * 16.16 unit) so the mist spreads away from it. Returns how many were dropped. */
