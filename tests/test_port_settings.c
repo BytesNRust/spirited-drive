@@ -8,6 +8,7 @@
 #include "game/race/weather.h"
 #include "game/sys/reverse_track.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -581,7 +582,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0);
     CHECK(n > 480);   /* about the size of the older 512 buffer: one more key would not have fitted */
-    const PortSettings back = port_settings_parse(text, n);
+    const PortSettings back = port_settings_parse(text + 1, n);
     CHECK(strcmp(back.psx_dir, s.psx_dir) == 0);
     CHECK_EQ_INT(back.body_shine, 4);
     CHECK_EQ_INT(back.free_records, 1);
@@ -744,8 +745,42 @@ static void test_a_menu_change_between_two_races_takes_effect(void)
     clear_files();
 }
 
+/* every key of the table of whole numbers: set to a value other than its default, written by port_settings_format and read back by port_settings_parse, it comes back; a value one past
+ * its range is refused and the field stays what it was; no other field moves */
+static void test_every_int_key_round_trips(void)
+{
+    int count = 0;
+    const PortSettingsKey *keys = port_settings_int_keys(&count);
+    CHECK(count > 60);
+    const PortSettings defaults = port_settings_defaults();
+    for (int i = 0; i < count; i++) {
+        PortSettings s = port_settings_defaults();
+        int *const field = (int *)(void *)((char *)&s + keys[i].offset);
+        const int was = *field, want = keys[i].max != was ? keys[i].max : keys[i].min;
+        *field = want;
+        char text[PORT_CFG_TEXT_MAX + 1] = "\n", named[64];   /* the written text after a line end: a key is found by its whole name */
+        const size_t n = port_settings_format(&s, text + 1, sizeof text - 1);
+        snprintf(named, sizeof named, "\n%s=", keys[i].key);
+        if (n == 0 || strstr(text, named) == NULL) {
+            fprintf(stderr, "key %s is not written by port_settings_format\n", keys[i].key);
+            CHECK(0);
+            continue;
+        }
+        const PortSettings back = port_settings_parse(text, n);
+        if (*(const int *)(const void *)((const char *)&back + keys[i].offset) != want) {
+            fprintf(stderr, "key %s did not come back (%d)\n", keys[i].key, want);
+            CHECK(0);
+        }
+        char over[96];   /* one past the top: refused */
+        snprintf(over, sizeof over, "%s=%d\n", keys[i].key, keys[i].max + 1);
+        const PortSettings kept = port_settings_parse(over, strlen(over));
+        CHECK_EQ_INT(*(const int *)(const void *)((const char *)&kept + keys[i].offset), *(const int *)(const void *)((const char *)&defaults + keys[i].offset));
+    }
+}
+
 int main(void)
 {
+    test_every_int_key_round_trips();
     test_a_save_during_a_race_keeps_the_machines_weather();
     test_a_menu_change_between_two_races_takes_effect();
     test_the_hosts_rules_win_while_set();
