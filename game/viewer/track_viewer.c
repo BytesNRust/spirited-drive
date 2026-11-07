@@ -525,6 +525,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
         drive_sim.race.port_replay_cameras = drive_menus.replay_cameras;
     }
     if (replay_of != NULL) race_replay_apply_cheats(&drive_sim.race, replay_of);  /* port: the recording's cheat, or the horn's spin-outs are missing */
+    port_log("mark:race_start\n");   /* port: the test harness */
     drive_sim.race.port_replay_launch = 1;  /* port: and the NITRO start is recorded in the replay and played back */
     drive_sim.race.port_nitro_start = 1;  /* port: the NITRO start takes N alone or the pad's key (start_keys.h) */
     drive_sim.race.port_pad_and_keys = 1;  /* port: the keys and the pad are both live (input_read.c), not one device per action */
@@ -714,6 +715,7 @@ void drive_end(void)
                drive_sim.race.players[slot].finish);
     }
     port_out("\n");
+    port_log("mark:race_over\n");   /* port: the test harness waits for it (after the standings above) */
 }
 
 int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,

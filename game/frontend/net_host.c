@@ -1,6 +1,7 @@
 #include "game/frontend/net_host.h"
 
 #include "game/frontend/text_fit.h"
+#include "game/sys/port_log.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -169,6 +170,7 @@ static void ask_again(Box *b, const NetHostOps *o)
 {
     const int16_t sel = b->selected;
     b->games = o->games(o->ctx, TIMEOUT);
+    if (b->games->count != 0) port_log("mark:game_listed\n");   /* port: the test harness's guest waits for it before picking the game */
     if (sel >= 1 && sel <= ROWS && sel > b->games->count) b->selected = b->games->count != 0 ? b->games->count : CANCEL;
     b->changed = 1;
 }
@@ -316,7 +318,7 @@ int32_t net_host_join(NetHostState *st, const NetHostOps *ops)
     ops->save(ops->ctx, ops->picture_shape(ops->ctx, b.behind), 0x166, 0x6c);
     if (no_new(st)) b.selected = b.previous = CANCEL;
     b.games = ops->games(ops->ctx, TIMEOUT);
-    if (b.games->count != 0) b.selected = b.previous = 1;
+    if (b.games->count != 0) b.selected = b.previous = 1, port_log("mark:game_listed\n");
     ops->clip(ops->ctx, 0x166, 0xa0, 0x237, 0x176);
     move_to(&b, ops);
     ops->ticks(ops->ctx);

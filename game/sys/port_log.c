@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static int verbose = -1;   /* -1: not read yet */
 static FILE *file;
@@ -28,8 +29,31 @@ void port_log_close_file(void)
     file = NULL;
 }
 
+static char watch_text[64];
+static int watch_found;
+
+void port_log_watch(const char *text)
+{
+    snprintf(watch_text, sizeof watch_text, "%s", text != NULL ? text : "");
+    watch_found = 0;
+}
+
+int port_log_watch_hit(void) { return watch_found; }
+
+static void scan(const char *format, va_list args)
+{
+    char line[512];
+    if (watch_text[0] == '\0' || watch_found) return;
+    vsnprintf(line, sizeof line, format, args);
+    if (strstr(line, watch_text) != NULL) watch_found = 1;
+}
+
 static void to_file(const char *format, va_list args)
 {
+    va_list again;
+    va_copy(again, args);
+    scan(format, again);
+    va_end(again);
     if (file == NULL) return;
     if (file_bytes >= PORT_LOG_FILE_MAX) return;
     const int n = vfprintf(file, format, args);
