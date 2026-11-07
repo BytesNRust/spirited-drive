@@ -1111,11 +1111,12 @@ static void rain_dot(uint8_t *pixels, int32_t pitch, const int32_t box[4], int32
     *d = table[*d];
 }
 
-/* port (weather_zones): how much weather there is at a node, 0..16: none inside a closed zone (the light's tunnel nodes, psx_light_weather_closed; Coastal's galleries, rain_cover; the
+/* port (weather_zones): how much weather there is at a node, 0..16: none inside a closed zone (the light's tunnel nodes, psx_light_weather_closed, alone when they are a places file's, Coastal's galleries among them; else Coastal's galleries, rain_cover, and the
  * road's own tunnels where there is no light), fading in over WEATHER_MOUTH_NODES nodes outside its mouths. The rain, the haze and the fog, the lightning and the lens drops follow it.
  * A hall is not a closed zone and a canyon is open air. */
 static int weather_closed_at(const uint8_t *tunnel, const uint8_t *cover, uint32_t node)
 {
+    if (psx_light != NULL && psx_light->from_places) return psx_light_weather_closed(psx_light, node);   /* port (tunnel_dry): a places file is the only source of the closed zones */
     if (cover != NULL && cover[node]) return 1;
     if (psx_light != NULL) return psx_light_weather_closed(psx_light, node);
     return tunnel != NULL && tunnel[node] == PSX_SYNTH_FLAG_TUNNEL;
