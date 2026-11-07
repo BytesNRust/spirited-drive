@@ -566,7 +566,6 @@ static int make_light_code(const Tri *tri, const char *track, PsxLight *out)
         psx_light_synth_made_tunnels(&made, &tunnels, hall_range ? hall_from : 1, hall_range ? hall_to : 0);
         made.neutral_cast = psx_light_synth_mine(track) || gallery;   /* i074: the mine keeps its blue, the warm cast stays on TR7's tunnels */
         made.city_tunnel = psx_light_synth_city_track(track);   /* 1 CY1, 2 CY2/CY3, 0 else */
-        if (port_car_tunnel_light()) made.car_disc = psx_light_synth_disc_car(track, synth_time, made.car_even, made.car_odd);   /* the City's tunnels: the CD's own car ratio, orange in CY2 and CY3 */   /* i074: the mine keeps its blue, the warm cast stays on TR7's tunnels */
     }
     psx_light_free(&tunnels);
     *out = made;
@@ -664,6 +663,32 @@ static void bake_lamps(const Tri *tri, PsxLight *made)
     port_log("lamps: baked into %u row points\n", lifted_cells);
 }
 
+/* port (tunnel zone looks): a light made in code with tunnels gets the look its file has (the export writes it: the tunnels' light as a percent of full light at this time, and their colour, worked out from the
+ * made light's own look, psx_light_tunnel_look), so the code's light and its file are one light for the world and for the car */
+static void made_look_set(PsxLight *made)
+{
+    if (made->tunnel == NULL || made->look_set) return;
+    float shown[3];
+    drive_light_tint(shown);
+    PsxTunnelLook look;
+    psx_light_tunnel_look(made, shown, shown, 0, &look);
+    if (!look.cast_on) return;
+    const float mean = (shown[0] + shown[1] + shown[2]) / 3.0f;
+    const double exact = (double)look.tint[0] * (double)(mean > 0.05f ? mean : 1.0f) * 100.0;
+    made->look_set = 1;
+    made->look_light = exact;
+    for (int digits = 1; digits <= 12; digits++) {   /* the shortest number a person would write that gives the very same gain at run time (psx_light_tunnel_look) */
+        char text[32];
+        snprintf(text, sizeof text, "%.*g", digits, exact);
+        const double shorter = strtod(text, NULL);
+        if ((float)(mean > 0.05f ? shorter / 100.0 / (double)mean : shorter / 100.0) == look.tint[0]) {
+            made->look_light = shorter;
+            break;
+        }
+    }
+    memcpy(made->look_cast, look.cast, sizeof made->look_cast);
+}
+
 /* port (track_light_file): the light data/track_light/<TRACK><letter>.txt holds for this track, time and flags, else the one made from the terrain (make_light_code); the file's retouches
  * (brightness, tunnel look) and the track's own rules go over either. TNFS_EXPORT_TRACK_LIGHT=<dir> writes the made light as such a file (tools/export_track_light.sh);
  * TNFS_TRACK_LIGHT_FILE=0 makes it in code as before, ignoring the files. */
@@ -691,34 +716,14 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
             return 0;
         }
         warm_looks(&made);
+        made_look_set(&made);
         snprintf(track_light_status, sizeof track_light_status, "track light: made in code (no file for %s%c)", track, light_letter);
         const char *dir = getenv("TNFS_EXPORT_TRACK_LIGHT");
         if (dir != NULL && dir[0] != '\0') {
             char *text = NULL, file_path[1024];
             size_t size = 0;
             snprintf(file_path, sizeof file_path, "%s/%s%c.txt", dir, track, light_letter);
-            PsxLight exported = made;   /* a shallow copy: the file's look is worked out from the made light's own (psx_light_tunnel_look), as a percent of full light at this time */
-            float shown[3];
-            drive_light_tint(shown);
-            PsxTunnelLook look;
-            psx_light_tunnel_look(&made, shown, shown, 0, &look);
-            if (look.cast_on) {
-                const float mean = (shown[0] + shown[1] + shown[2]) / 3.0f;
-                exported.look_set = 1;
-                const double exact = (double)look.tint[0] * (double)(mean > 0.05f ? mean : 1.0f) * 100.0;
-                exported.look_light = exact;
-                for (int digits = 1; digits <= 12; digits++) {   /* the shortest number a person would write that gives the very same gain at run time (psx_light_tunnel_look) */
-                    char text[32];
-                    snprintf(text, sizeof text, "%.*g", digits, exact);
-                    const double shorter = strtod(text, NULL);
-                    if ((float)(mean > 0.05f ? shorter / 100.0 / (double)mean : shorter / 100.0) == look.tint[0]) {
-                        exported.look_light = shorter;
-                        break;
-                    }
-                }
-                memcpy(exported.look_cast, look.cast, sizeof exported.look_cast);
-            }
-            if (track_light_format(&exported, track, light_letter, flags, &text, &size)) {
+            if (track_light_format(&made, track, light_letter, flags, &text, &size)) {
                 FILE *f = fopen(file_path, "wb");
                 if (f != NULL) {
                     fwrite(text, 1, size, f);
@@ -870,7 +875,8 @@ int drive_light_edit_lines(uint32_t node, char lines[][96], int max)
         else if (near == NULL) snprintf(lines[n++], 96, "street lamp: none");
         else snprintf(lines[n++], 96, "street lamp: node %u, light %.0f%% (colour %.2f %.2f %.2f), reach %.0f m", near->node, 100.0f * fmaxf(near->rgb[0], fmaxf(near->rgb[1], near->rgb[2])), near->rgb[0], near->rgb[1], near->rgb[2], near->reach);
     }
-    if (light.tone_id != NULL && light.tone_id[node] > 0 && light.tone_id[node] <= light.tone_count && n < max) {   /* the scene tone of the stretch (`tone`) */
+    const int zone_slot = light.tone_id != NULL && light.tone_id[node] > 0 && light.tone_id[node] <= light.tone_count && light.tone[light.tone_id[node] - 1].look;   /* a tunnel zone's own look shares the tone slots */
+    if (light.tone_id != NULL && light.tone_id[node] > 0 && light.tone_id[node] <= light.tone_count && !zone_slot && n < max) {   /* the scene tone of the stretch (`tone`) */
         const PsxLightTone *t = &light.tone[light.tone_id[node] - 1];
         char strip[64] = "";
         if (light.tone_mask[node] != (1u << PSX_LIGHT_POINTS) - 1u)
@@ -880,9 +886,11 @@ int drive_light_edit_lines(uint32_t node, char lines[][96], int max)
     } else if (n < max) {
         snprintf(lines[n++], 96, "scene tone: none");
     }
-    if (light.look_set && n < max) {   /* the tunnels' look this time (`tunnel_tone`): its light as a percent of full light, and its colour */
-        snprintf(lines[n++], 96, "tunnel look: light %.4g%%  colour %02x%02x%02x%s", light.look_light, (unsigned)(light.look_cast[0] * 255.0f + 0.5f), (unsigned)(light.look_cast[1] * 255.0f + 0.5f),
-                 (unsigned)(light.look_cast[2] * 255.0f + 0.5f), light.hall != NULL && light.hall[node] ? "  (a hall: lit by its lamps)" : "");
+    double look_light = 0.0;
+    float look_cast[3];
+    if (psx_light_zone_look_at(&light, node, &look_light, look_cast) && n < max) {   /* the tunnel's look here: its zone's own (a `tunnel a b light colour` line) or the time's `tunnel_tone`: its light as a percent of full light, and its colour */
+        snprintf(lines[n++], 96, "tunnel look: light %.4g%%  colour %02x%02x%02x%s%s", look_light, (unsigned)(look_cast[0] * 255.0f + 0.5f), (unsigned)(look_cast[1] * 255.0f + 0.5f),
+                 (unsigned)(look_cast[2] * 255.0f + 0.5f), zone_slot ? "  (this zone's own)" : "", light.hall != NULL && light.hall[node] ? "  (a hall: lit by its lamps)" : "");
     }
     else
         snprintf(lines[n++], 96, "tunnel look: the made tunnel's own");

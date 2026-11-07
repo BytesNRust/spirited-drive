@@ -19,6 +19,8 @@ enum {
     PSX_SYNTH_PROPERTY_HALL = 16,    /* TriNode.property bit: a hall, a roofed straight lit by lamps like a tunnel (TR7's steelworks, 1011..1023 and 0..62, property 17) */
     PSX_SYNTH_FLAG_TUNNEL = 1,       /* psx_light_synth_tunnels' flag of a tunnel's node */
     PSX_SYNTH_FLAG_HALL = 2,         /* and of a hall's: not darkened (the pours, the girders keep their light) but the cars and the dash take the lamp alternation */
+    PSX_SYNTH_LOOK_RAMP = 6,         /* the nodes outside a tunnel's mouth over which a car takes its zone's look (psx_light_synth_car_tunnel with a look): the weather's mouth, WEATHER_MOUTH_NODES */
+    PSX_SYNTH_LAMP_GAP_PERCENT = 40, /* a tunnel's lamp alternation: the car between two lamps (odd nodes) has this percent of the light it has under one (even nodes) */
     PSX_SYNTH_CAR_RAMP = 3,          /* the nodes outside a tunnel's mouth over which the car's light comes back (psx_light_synth_car_tunnel) */
     PSX_SYNTH_HALL_POINT = 4,        /* the row point the car's alternation reads (psx_light_synth_car) */
     PSX_SYNTH_HALL_MARK = 254,       /* a hall node's value there: 254 of 255 to the world, the mark of a lit hall to the cars */
@@ -94,9 +96,6 @@ int psx_light_synth_mine(const char *track);
  * frames against the made ones: the cast of the dim levels (red, green, blue) and the percent of the made tunnel's light. 1 for a kind, else 0 and the outputs untouched. */
 int psx_light_synth_warm_look(int kind, int dark, float cast[3], int *percent);
 
-/* port (car_tunnel_light): the CD's car ratio (three channels) in the City's tunnels at `time` (PSX_SYNTH_*), under a lamp (even nodes) and between (odd). 1 for CY1, CY2 and CY3, else 0 and the outputs untouched. */
-int psx_light_synth_disc_car(const char *track, int time, float even[3], float odd[3]);
-
 /* The light a car and the dash have at `node` of a synthesised light, as a multiplier of each channel (`out`, 3): 1 on the open road, in a tunnel the CD's lamp
  * alternation (a RAMP context takes its first colour on even nodes and its second on odd ones: CY1's 266..292 is 128,115,96 then 60,60,60 through the exe's
  * table, 0.60 0.56 0.50 under a lamp, 0.39 grey between), which flickers yellowish with the speed; the way the points beyond the foot go dark at the doors,
@@ -105,7 +104,10 @@ void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3]);
 
 /* port (car_tunnel_light): the same on a made light that has the road's tunnel flags (PsxLight.tunnel), but the car's darkness is the flags' alone: 1 in a tunnel (or a hall), ramping
  * to 0 over PSX_SYNTH_CAR_RAMP nodes outside either mouth. The rows' own points beyond the foot carry the terrain's shade as well (a canyon darkened the car into the tunnel's
- * light and lit its lamps by day) and ramp over ten nodes at the exit (the car stayed dark metres past the door). Without flags it is psx_light_synth_car. */
+ * light and lit its lamps by day) and ramp over ten nodes at the exit (the car stayed dark metres past the door). Without flags it is psx_light_synth_car.
+ * A light with a look (look_set: a file's, or a made one given the look it would be exported with) gives the car the zone's own light and colour in EVERY tunnel: the ratio under a lamp (even nodes) is
+ * min(1, light% / 100 x colour) x the road's light at the node (psx_light_road_light) per channel, between two lamps (odd) PSX_SYNTH_LAMP_GAP_PERCENT of that, and it ramps in over PSX_SYNTH_LOOK_RAMP nodes outside the mouth (the nearest tunnel node's zone gives
+ * the look). A hall keeps its own lamps' factors and car_dim its dim one. */
 void psx_light_synth_car_tunnel(const PsxLight *light, uint32_t node, float out[3]);
 
 #endif
