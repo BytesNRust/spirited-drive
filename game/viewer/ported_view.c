@@ -1250,17 +1250,10 @@ static void spray_update(void)
         const Car *car = shadow_race->cars[i];
         if (car == NULL) continue;
         if (car != player && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;
-        const int32_t angle = (car->yaw >> 8) & 0xffff;
-        const int32_t fx = fx_sin16(angle), fz = fx_cos16(angle);   /* forward (x, z); the right is (fz, -fx) */
-        const int32_t behind = 0x16000, across = 0xd000;   /* a rear wheel: 1.4 m behind the centre, 0.8 m out */
-        int32_t wheel[2][3];
-        for (int w = 0; w < 2; w++) {
-            const int32_t a = w == 0 ? -across : across;
-            wheel[w][0] = car->x - (int32_t)(((int64_t)fx * behind) >> 16) + (int32_t)(((int64_t)fz * a) >> 16);
-            wheel[w][1] = car->y - 0x5000;
-            wheel[w][2] = car->z - (int32_t)(((int64_t)fz * behind) >> 16) - (int32_t)(((int64_t)fx * a) >> 16);
-        }
-        const int32_t right[2] = { fz, -fx };
+        int32_t forward[2], wheel[2][3], right[2];
+        const int32_t at[3] = { car->x, car->y, car->z };
+        rain_spray_heading(car->use_matrix, car->yaw, car->matrix[6], car->matrix[8], forward);   /* a rival is drawn with its matrix and its yaw stays 0 */
+        rain_spray_wheels(at, forward, wheel, right);
         const int wet = car->airborne_ticks == 0 && car->off_road == 0 && rain_open_at(car->node) > 0;   /* port (tunnel_dry): no water inside a closed zone */
         if (port_traffic_spray() && port_rain_v2() && i >= shadow_race->racers && car != player)   /* port (rain_v2): a wisp from each wheel, a little longer, at any pace */
             rain_spray_step_wisp2(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, wet);
