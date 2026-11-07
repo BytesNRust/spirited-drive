@@ -70,7 +70,7 @@ default's is nothing special; each different look takes one of the 16 **tone slo
 replaces the zone's look there. The world's tunnel polygons of a zone are tabled by its look (the lamps hanging in tunnels, and the lamp flares, keep the default's). The light editor shows `tunnel look: light 104.4%  colour ff5a0d` for the node's own
 (`this zone's own` when it is a zone's, `a hall: lit by its lamps` for a hall).
 
-**The car in a tunnel** takes its zone's light and colour in every tunnel: its colours are multiplied by `min(1, light / 100 x colour)` per channel. Under a lamp (even nodes) that is the full look, between two lamps (odd nodes) 40 % of it
+**The car in a tunnel** takes its zone's light and colour in every tunnel: its colours are multiplied by `light / 100 x colour` per channel, above full light too (a `tunnel_tone 215` lights the car 2.15 times as much as a 100 one, as it lights the walls and the road); the excess over 1 comes in with the road's darkening inside the tunnel (the rows' road at 100 of 255), so the open road before a mouth is not brightened, and at 100 and white nothing is different. Under a lamp (even nodes) that is the full look, between two lamps (odd nodes) 40 % of it
 (`PSX_SYNTH_LAMP_GAP_PERCENT`), and it comes in over the 6 nodes outside the mouth (the weather's mouth). A hall keeps the lamps of its own, `car_dim` the one dim tone. There is nothing else to set: `car_disc`, which gave the car the
 CD's own ratios, is gone (a bad line, and the export does not write it).
 

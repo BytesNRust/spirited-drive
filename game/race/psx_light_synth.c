@@ -242,7 +242,7 @@ void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3])
     for (int k = 0; k < 3; k++) out[k] = 1.0f - (1.0f - lamp[k]) * dark;
 }
 
-/* a car's ratio in a light that has a look: in a tunnel the zone's light x colour (at most 1), the lamps' gap between two lamps, ramping in over PSX_SYNTH_LOOK_RAMP nodes outside a mouth */
+/* a car's ratio in a light that has a look: in a tunnel the zone's light x colour (above full light too: the excess comes in inside the tunnel, as it does in the world), the lamps' gap between two lamps, ramping in over PSX_SYNTH_LOOK_RAMP nodes outside a mouth */
 static void car_tunnel_look(const PsxLight *light, uint32_t node, float out[3])
 {
     const uint32_t at = psx_light_old_node(light, node);   /* the file's node: the arrays are of its direction */
@@ -257,9 +257,12 @@ static void car_tunnel_look(const PsxLight *light, uint32_t node, float out[3])
         psx_light_zone_look_at(light, zone, &percent, cast);
         const float dark = 1.0f - (float)d / (float)PSX_SYNTH_LOOK_RAMP, gap = (node & 1u) ? (float)PSX_SYNTH_LAMP_GAP_PERCENT / 100.0f : 1.0f;
         const float road = psx_light_road_light(light, node);   /* the look is a table's gain; how lit the place is comes from its rows: the car never has more than the road around it */
+        const float cap = (float)PSX_LIGHT_TUNNEL_ROAD / (float)PSX_LIGHT_FULL;
+        const float inside = road >= 1.0f ? 0.0f : road <= cap ? 1.0f : (1.0f - road) / (1.0f - cap);   /* how far in the road's own darkening says the car is: the open road 0, a tunnel's 1 */
         for (int k = 0; k < 3; k++) {
-            float lit = (float)(percent / 100.0) * cast[k];
-            lit = (lit > 1.0f ? 1.0f : lit) * road * gap;
+            const float look = (float)(percent / 100.0) * cast[k];
+            const float full = look > 1.0f ? 1.0f : look, excess = look > 1.0f ? look - 1.0f : 0.0f;   /* above full light the world is brighter by the excess: the car takes it as the road's darkening comes in */
+            const float lit = (full + excess * inside) * road * gap;
             out[k] = 1.0f - (1.0f - lit) * dark;
         }
         return;
