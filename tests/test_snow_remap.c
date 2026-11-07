@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-_Static_assert(PSX_LIGHT_SNOW_SLOTS == TRACK_TEXTURE_SLOTS, "the places file's snow map is a texture slot table");
 
 static TrackArt *make_art(void)
 {
@@ -48,6 +47,11 @@ static void test_a_chain_of_pairs_reads_every_slot_as_it_was(void)
     CHECK_EQ_INT(art->slots[3][0].bitmap.height, 64 + 4);
     CHECK_EQ_INT(art->slots[4][0].bitmap.height, 64 + 5);
     free(art);
+}
+
+static void test_the_places_files_map_is_a_texture_slot_table(void)
+{
+    CHECK_EQ_INT(PSX_LIGHT_SNOW_SLOTS, TRACK_TEXTURE_SLOTS);
 }
 
 static void test_no_map_changes_nothing(void)
@@ -92,11 +96,70 @@ static void test_the_places_file_gives_the_map(void)
     }
 }
 
+static void put(TrackArt *art, int idx, int r, int g, int b) { art->palette[idx * 3] = (uint8_t)r, art->palette[idx * 3 + 1] = (uint8_t)g, art->palette[idx * 3 + 2] = (uint8_t)b; }
+
+/* the snow slot 36 of one 4x1 bitmap per variant (green, white, grey, transparent), the road slot 3's own of `own_w` x 1 (what the track's bank holds): the road takes the snow */
+static void snow_road_art(TrackArt *art, const uint8_t *snow, uint8_t own[TRACK_TEXTURE_VARIANTS][4], int own_w, uint8_t map[TRACK_TEXTURE_SLOTS])
+{
+    put(art, 1, 40, 160, 40), put(art, 2, 240, 240, 240), put(art, 3, 100, 100, 100), put(art, 4, 40, 40, 40);
+    art->has_palette = 1;
+    for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) {
+        memset(own[v], 9, 4);
+        art->slots[36][v].present = 1;
+        art->slots[36][v].bitmap.width = 4, art->slots[36][v].bitmap.height = 1;
+        art->slots[36][v].bitmap.payload = snow, art->slots[36][v].bitmap.payload_size = 4;
+        art->slots[3][v].present = 1;
+        art->slots[3][v].bitmap.width = (uint16_t)own_w, art->slots[3][v].bitmap.height = 1;
+        art->slots[3][v].bitmap.payload = own[v], art->slots[3][v].bitmap.payload_size = (size_t)own_w;
+    }
+    memset(map, 0, TRACK_TEXTURE_SLOTS);
+    map[3] = 36 + 1;
+}
+
+static void test_the_snow_road_loses_its_green(void)
+{
+    const uint8_t snow[4] = { 1, 2, 3, 0xFF };
+    uint8_t own[TRACK_TEXTURE_VARIANTS][4], map[TRACK_TEXTURE_SLOTS];
+    TrackArt *art = calloc(1, sizeof *art);
+    snow_road_art(art, snow, own, 4, map);
+    CHECK_EQ_INT(track_art_remap_slots(art, map), 1);
+    for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) {
+        CHECK(art->slots[3][v].bitmap.payload == own[v]);       /* the road keeps its own place in the track's bank (the palette remap reaches it there) */
+        CHECK_EQ_INT(art->slots[3][v].bitmap.width, 4);          /* the snow's size is the slot's */
+        CHECK_EQ_INT(own[v][0], 2);      /* the green is snow-white */
+        CHECK_EQ_INT(own[v][1], 2);      /* what was not green is as it was */
+        CHECK_EQ_INT(own[v][2], 3);
+        CHECK_EQ_INT(own[v][3], 0xFF);   /* and a transparent pixel stays one */
+    }
+    CHECK_EQ_INT(snow[0], 1);            /* the snow slot the scenery uses is not touched */
+    free(art);
+}
+
+static void test_a_road_with_no_room_or_no_palette_takes_the_snow_as_it_is(void)
+{
+    const uint8_t snow[4] = { 1, 2, 3, 0xFF };
+    uint8_t own[TRACK_TEXTURE_VARIANTS][4], map[TRACK_TEXTURE_SLOTS];
+    TrackArt *art = calloc(1, sizeof *art);
+    snow_road_art(art, snow, own, 2, map);   /* its own bitmap has no room for the snow's pixels */
+    CHECK_EQ_INT(track_art_remap_slots(art, map), 1);
+    CHECK(art->slots[3][0].bitmap.payload == snow);
+    CHECK_EQ_INT(own[0][0], 9);
+    snow_road_art(art, snow, own, 4, map);
+    art->has_palette = 0;                    /* no palette: nothing to tell green by */
+    CHECK_EQ_INT(track_art_remap_slots(art, map), 1);
+    CHECK(art->slots[3][0].bitmap.payload == snow);
+    CHECK_EQ_INT(own[0][0], 9);
+    free(art);
+}
+
 int main(void)
 {
     test_a_mapped_slot_takes_the_snows_bitmaps();
     test_a_chain_of_pairs_reads_every_slot_as_it_was();
+    test_the_places_files_map_is_a_texture_slot_table();
     test_no_map_changes_nothing();
+    test_the_snow_road_loses_its_green();
+    test_a_road_with_no_room_or_no_palette_takes_the_snow_as_it_is();
     test_the_places_file_gives_the_map();
     return TEST_REPORT();
 }

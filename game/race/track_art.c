@@ -120,17 +120,53 @@ static void load_scenery(TrackArt *art, const Chunk *root)
     }
 }
 
+/* the palette index a texel of index `i` is painted with: a green one becomes the snow-white grey (the lightest, a little lighter the brighter the green was), others stay */
+static void snow_road_table(const uint8_t *pal, uint8_t lut[256])
+{
+    int luma[256], grey[256];
+    for (int i = 0; i < 256; i++) {
+        const int r = pal[i * 3], g = pal[i * 3 + 1], b = pal[i * 3 + 2];
+        const int mx = r > g ? (r > b ? r : b) : (g > b ? g : b), mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
+        luma[i] = (r * 77 + g * 150 + b * 29) >> 8;
+        grey[i] = i != 0xFF && mx - mn <= 10 && luma[i] > 0;   /* only greys, and not the black the unused entries are */
+    }
+    for (int i = 0; i < 256; i++) {
+        const int r = pal[i * 3], g = pal[i * 3 + 1], b = pal[i * 3 + 2];
+        lut[i] = (uint8_t)i;
+        if (i == 0xFF || g < r + 6 || g < b + 6) continue;   /* the transparent index and what is not green */
+        const int want = 215 + (luma[i] >> 3);
+        int best = -1, best_d = 1 << 30;
+        for (int k = 0; k < 256; k++) {
+            const int d = abs(luma[k] - want);
+            if (grey[k] && d < best_d) best_d = d, best = k;
+        }
+        if (best >= 0) lut[i] = (uint8_t)best;
+    }
+}
+
 int track_art_remap_slots(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOTS])
 {
     int taken = 0;
     if (art == NULL || map == NULL) return 0;
-    TrackTexture *const before = malloc(sizeof art->slots);   /* every `to` is read as it was, so a chain of pairs does not depend on their order */
+    TrackTexture *const before = malloc(sizeof art->slots);   /* every `to` and `from` is read as it was, so a chain of pairs does not depend on their order */
     if (before == NULL) return 0;
     memcpy(before, art->slots, sizeof art->slots);
+    uint8_t lut[256];
+    if (art->has_palette) snow_road_table(art->palette, lut);
     for (int from = 0; from < TRACK_TEXTURE_SLOTS; from++) {
         const int to = (int)map[from] - 1;
         if (to < 0 || to >= TRACK_TEXTURE_SLOTS || to == from || !before[to * TRACK_TEXTURE_VARIANTS].present) continue;
-        for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) art->slots[from][v] = before[to * TRACK_TEXTURE_VARIANTS + v];
+        for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) {
+            const TrackTexture *own = &before[from * TRACK_TEXTURE_VARIANTS + v], *snow = &before[to * TRACK_TEXTURE_VARIANTS + v];
+            TrackTexture t = *snow;
+            const size_t n = (size_t)snow->bitmap.width * snow->bitmap.height;
+            if (art->has_palette && own->present && snow->present && own->bitmap.payload != snow->bitmap.payload && n <= own->bitmap.payload_size && n <= snow->bitmap.payload_size) {
+                uint8_t *dst = (uint8_t *)(uintptr_t)own->bitmap.payload;   /* the track's bank: a file the loader owns and the palette remap rewrites in place */
+                for (size_t k = 0; k < n; k++) dst[k] = lut[snow->bitmap.payload[k]];
+                t.bitmap.payload = dst, t.bitmap.payload_size = own->bitmap.payload_size;
+            }
+            art->slots[from][v] = t;
+        }
         taken++;
     }
     free(before);
