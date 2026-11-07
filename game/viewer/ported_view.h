@@ -93,6 +93,8 @@ int ported_view_mirror_weather(const TrackArt *art);
 int ported_view_mirror_weather_on(void);
 /* 1 when the weather is rain or storm (the lamps and the gauges follow it: rain_lamps, gauge_exterior) */
 int ported_view_rain(void);
+/* port (weather_zones): how much weather there is at `node`, 0..16 (0 inside a closed zone: the light's tunnels and Coastal's galleries; 16 in the open) */
+int ported_view_weather_open(uint32_t node);
 void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const View *view, const int32_t matrix[9]);
 int ported_view_modern(void);
 /* port: EXTRAS' Texture Filter and Fog over Modern 3D (modern_look.h); nothing while Modern 3D is off */

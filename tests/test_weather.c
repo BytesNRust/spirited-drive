@@ -382,8 +382,38 @@ static void test_rain_v2(void)
     CHECK(low && high);
 }
 
+/* port (weather_zones): the weather at the eye follows the closed zones */
+static void test_weather_zones(void)
+{
+    CHECK_EQ_INT(weather_open_for_distance(-1), 16);   /* no closed node near */
+    CHECK_EQ_INT(weather_open_for_distance(WEATHER_MOUTH_NODES), 16);
+    CHECK_EQ_INT(weather_open_for_distance(0), 0);     /* inside */
+    CHECK_EQ_INT(weather_open_for_distance(3), 8);     /* the fade over the mouth */
+    int last = -1;
+    for (int d = 0; d <= WEATHER_MOUTH_NODES; d++) {
+        const int o = weather_open_for_distance(d);
+        CHECK(o >= last);
+        last = o;
+    }
+    CHECK_EQ_INT(weather_flash_open(15, 16), 15);      /* in the open the lightning is whole */
+    CHECK_EQ_INT(weather_flash_open(15, 0), 0);        /* inside there is none */
+    CHECK_EQ_INT(weather_flash_open(14, 8), 7);
+    CHECK_EQ_INT(weather_thunder_inside(100, 16), 100);
+    CHECK_EQ_INT(weather_thunder_inside(100, 0), WEATHER_THUNDER_INSIDE_PERCENT);   /* muffled, not silent */
+    CHECK_EQ_INT(weather_thunder_inside(0, 0), 0);
+    float end = 4200.0f, cap = 0.93f;
+    CHECK_EQ_INT(weather_fog_open(16, 250.0f, &end, &cap), 1);   /* the open: untouched */
+    CHECK(end == 4200.0f && cap == 0.93f);
+    CHECK_EQ_INT(weather_fog_open(0, 250.0f, &end, &cap), 0);    /* inside: no fog */
+    CHECK(end == 4200.0f);
+    CHECK_EQ_INT(weather_fog_open(8, 250.0f, &end, &cap), 1);    /* half way: the same fog twice as far, half as strong */
+    CHECK(end == 250.0f + 3950.0f * 2.0f);
+    CHECK(cap > 0.46f && cap < 0.47f);
+}
+
 int main(void)
 {
+    test_weather_zones();
     test_reflection_weight();
     test_storm_clock();
     test_rain_spray_plume();

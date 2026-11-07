@@ -726,6 +726,10 @@ int drive_light_edit_lines(uint32_t node, char lines[][96], int max)
     snprintf(lines[n++], 96, "tunnel %d  hall %d  dim car %d  canyon %d  pool %d  car pool %d", light.tunnel != NULL && light.tunnel[node], light.hall != NULL && light.hall[node],
              light.car_dim != NULL && light.car_dim[node], light.canyon != NULL && light.canyon[node], light.pool_class != NULL ? light.pool_class[node] : 0,
              light.car_pool != NULL ? light.car_pool[node] : 0);
+    if (n < max) {   /* port (weather_zones): what the rain, fog and lightning make of this node */
+        const int open = ported_view_weather_open(node);
+        snprintf(lines[n++], 96, "weather: %s %d/16", open >= 16 ? "open" : "closed", open);
+    }
     if (light.tone_id != NULL && light.tone_id[node] > 0 && light.tone_id[node] <= light.tone_count && n < max) {   /* the scene tone of the stretch (`tone`) */
         const PsxLightTone *t = &light.tone[light.tone_id[node] - 1];
         char strip[64] = "";

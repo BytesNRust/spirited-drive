@@ -410,6 +410,7 @@ static void weather_sky_band(void *user, int top, int bottom)
 int ported_view_modern(void) { return modern; }
 int ported_view_rain(void) { return weather_wet(weather); }
 
+static int rain_open = 16;  /* port (weather_zones) 0..16: how much weather there is where the eye is (rain_open_at), once a frame before the sky is drawn */
 static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
 void ported_view_set_dark_fog(int dark) { modern_look_set_dark(&look, dark); }
 
@@ -420,6 +421,7 @@ static void weather_style(const TrackArt *art, const WeatherTables *wt)
                                                fog ? WEATHER_FOG_END : WEATHER_RAIN_FOG_END);
     if (fog && weather_fog_curve())   /* the exponential variant (weather.h) */
         style.fog_exp = WEATHER_FOG_EXP_SCALE, style.fog_cap = WEATHER_FOG_EXP_CAP_PERCENT / 100.0f;
+    if (!weather_fog_open(rain_open, style.fog_start, &style.fog_end, &style.fog_cap)) style.fog = NULL;   /* port (weather_zones): no fog inside a closed zone, thinning at its mouths */
     modern_road_set_style(&style);
 }
 
@@ -1112,8 +1114,16 @@ static void rain_dot(uint8_t *pixels, int32_t pitch, const int32_t box[4], int32
     *d = table[*d];
 }
 
-/* port (rain_fx, rain v5): how much rain there is at the eye, 0..16: none in a tunnel (the road's own tunnel bit, the runs road_tunnels finds), fading in over RAIN_MOUTH_NODES nodes outside its mouths */
-enum { RAIN_MOUTH_NODES = 6 };
+/* port (weather_zones): how much weather there is at a node, 0..16: none inside a closed zone (the light's tunnel nodes, psx_light_weather_closed; Coastal's galleries, rain_cover; the
+ * road's own tunnels where there is no light), fading in over WEATHER_MOUTH_NODES nodes outside its mouths. The rain, the haze and the fog, the lightning and the lens drops follow it.
+ * A hall is not a closed zone and a canyon is open air. */
+static int weather_closed_at(const uint8_t *tunnel, const uint8_t *cover, uint32_t node)
+{
+    if (cover != NULL && cover[node]) return 1;
+    if (psx_light != NULL) return psx_light_weather_closed(psx_light, node);
+    return tunnel != NULL && tunnel[node] == PSX_SYNTH_FLAG_TUNNEL;
+}
+
 static int rain_open_at(int32_t node)
 {
     if (shadow_race == NULL) return 16;
@@ -1121,22 +1131,19 @@ static int rain_open_at(int32_t node)
     const uint8_t *tunnel = road_tunnels(shadow_race, nodes);
     const uint8_t *cover = rain_cover(shadow_race, nodes);   /* a roof the lighting's tunnel runs do not mark: Coastal's galleries */
     if (tunnel == NULL && cover == NULL && psx_light == NULL) return 16;
-    for (int32_t d = 0; d <= RAIN_MOUTH_NODES; d++) {
-        const uint32_t a = (uint32_t)(node + d) & (nodes - 1u), b = (uint32_t)(node - d) & (nodes - 1u);
-        /* the same sources the lighting darkens tunnels by: the road's tunnel runs, and the light's own (the CD's rows: Coastal's tunnels among them) */
-        if ((tunnel != NULL && (tunnel[a] || tunnel[b])) || (cover != NULL && (cover[a] || cover[b])) ||
-            (psx_light != NULL && (psx_light_tunnel(psx_light, a) || psx_light_tunnel(psx_light, b))))
-            return d >= RAIN_MOUTH_NODES ? 16 : d * 16 / RAIN_MOUTH_NODES;
-    }
+    for (int32_t d = 0; d < WEATHER_MOUTH_NODES; d++)
+        if (weather_closed_at(tunnel, cover, (uint32_t)(node + d) & (nodes - 1u)) || weather_closed_at(tunnel, cover, (uint32_t)(node - d) & (nodes - 1u)))
+            return weather_open_for_distance(d);
     return 16;
 }
+
+int ported_view_weather_open(uint32_t node) { return rain_open_at((int32_t)node); }
 
 /* port (rain_fx, rain v5): the water the cars throw up, as particles of the world (race/rain_spray.h): each wheel drops one a tick where it passes and it stays there, a low mist that widens
  * and thins for two thirds of a second. A particle is drawn when the draw of the road reaches the node it was dropped at, with the cars of that row (draw_cars), a grainy dithered sprite
  * through the recorder like the tyre smoke: so the scenery nearer than it covers it, and the cars, the player's own too. A shape's texels pick a table: 1 lightens, 2 less, 3 darkens (grit). */
 static RainSpray rain_spray;
 static int rain_spray_on;   /* the frame draws rain_fx's spray */
-static int rain_open = 16;  /* 0..16: how much of the rain there is where the eye is: none in a tunnel, fading in and out at its mouths */
 enum { SPRAY_SIDE = 64, SPRAY_VARIANTS = 3, SPRAY_SHAPE_BYTES = 16 + SPRAY_SIDE * SPRAY_SIDE };
 static uint8_t spray_shape[RAIN_SPRAY_LEVELS][SPRAY_VARIANTS][SPRAY_SHAPE_BYTES];
 static uint8_t spray_identity[256];
@@ -2383,6 +2390,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     /* 0044cc74 clears nothing (00473680 picks the surface): the horizon's
      * fills cover the view; the view (only: the rest of the surface holds
      * 004218d0's tiles and frame) cleared here for the frames without one. */
+    rain_open = weather != WEATHER_CLEAR && shadow_race != NULL ? rain_open_at(shadow_race->chase.node) : 16;   /* port (weather_zones): once a frame, before anything of the weather */
     draw_sky(art, info, pc, pixels, &quad, &target, &view, &horizon, &ctx, &cam, box);
     const WeatherTables *wt = weather != WEATHER_CLEAR ? weather_tables(art) : NULL;
     storm_thunder_update();
@@ -2429,7 +2437,6 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     memset(lit_corner, 255, sizeof lit_corner);
     rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
     if (rain_spray_on) {   /* port (rain v5) */
-        rain_open = rain_open_at(shadow_race->chase.node);
         spray_tables_set(wt);
         spray_update();
     }
@@ -2461,7 +2468,7 @@ static void storm_thunder_update(void)
     for (uint32_t t = last + 1; t <= tick; t++) {
         if (!weather_thunder_strike(t)) continue;
         const int delay = weather_thunder_delay(t);
-        drive_audio_thunder(delay, weather_thunder_volume(delay));
+        drive_audio_thunder(delay, weather_thunder_inside(weather_thunder_volume(delay), rain_open));
     }
     last = tick;
 }
@@ -2469,7 +2476,7 @@ static void storm_thunder_update(void)
 static int storm_flash_level(void)
 {
     if (weather != WEATHER_STORM) return 0;
-    return weather_rain_flash((uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick));
+    return weather_flash_open(weather_rain_flash((uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick)), rain_open);   /* port (weather_zones): none inside a closed zone */
 }
 
 uint8_t ported_view_light_at(uint32_t node, int point, uint8_t *tunnel)

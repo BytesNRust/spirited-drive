@@ -316,6 +316,31 @@ int weather_thunder_volume(int delay)
     return 100 - (100 - WEATHER_THUNDER_FAR_PERCENT) * (d - WEATHER_THUNDER_MIN_TICKS) / (WEATHER_THUNDER_MAX_TICKS - WEATHER_THUNDER_MIN_TICKS);
 }
 
+int weather_open_for_distance(int nearest)
+{
+    return nearest < 0 || nearest >= WEATHER_MOUTH_NODES ? 16 : nearest * 16 / WEATHER_MOUTH_NODES;
+}
+
+int weather_flash_open(int level, int open)
+{
+    return level * (open < 0 ? 0 : open > 16 ? 16 : open) / 16;
+}
+
+int weather_thunder_inside(int volume, int open)
+{
+    const int o = open < 0 ? 0 : open > 16 ? 16 : open;
+    return volume * (WEATHER_THUNDER_INSIDE_PERCENT + (100 - WEATHER_THUNDER_INSIDE_PERCENT) * o / 16) / 100;
+}
+
+int weather_fog_open(int open, float start, float *end, float *cap)
+{
+    if (open >= 16) return 1;
+    if (open <= 0) return 0;
+    *end = start + (*end - start) * 16.0f / (float)open;   /* the same fog over a longer reach */
+    *cap = *cap * (float)open / 16.0f;
+    return 1;
+}
+
 int weather_rain_percent(int storm, int v2)
 {
     if (v2) return storm ? WEATHER_STORM_V2_PERCENT : WEATHER_RAIN_V2_PERCENT;

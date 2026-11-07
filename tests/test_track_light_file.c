@@ -187,8 +187,29 @@ static void test_tones(void)
     { const char *t = "track CY1 time N nodes 40 flags 1\nrows 0 39 1 1 1 1 1 1 1 1 1 1 1\ntone 38 40 ff0000:10\n"; CHECK(!track_light_parse(t, strlen(t), "CY1", 'N', NODES, 0x2, &g, &bad) && bad == 3); }
 }
 
+/* port (weather_zones): the closed zones are the file's tunnel nodes; a hall is open, a canyon is open air (AL1 600..771 rains) */
+static void test_weather_closed_zones(void)
+{
+    const char *text = "track AL1 time B nodes 800 flags 1\nrows 0 799 255 255 255 255 255 255 255 255 255 255 255\ncanyon 600 771\nhall 300 330\ntunnel 100 140\ntunnel 650 660\n";
+    TrackLightFile f;
+    CHECK(track_light_parse(text, strlen(text), "AL1", 'B', 800, 1, &f, NULL));
+    const PsxLight *l = &f.light;
+    CHECK_EQ_INT(psx_light_weather_closed(l, 602), 0);   /* the canyon: open air, as the hall bit says what it says */
+    CHECK_EQ_INT(psx_light_weather_closed(l, 600), 0);
+    CHECK_EQ_INT(psx_light_weather_closed(l, 771), 0);
+    CHECK_EQ_INT(psx_light_weather_closed(l, 597), 0);
+    CHECK_EQ_INT(psx_light_weather_closed(l, 120), 1);   /* a tunnel: closed */
+    CHECK_EQ_INT(psx_light_weather_closed(l, 100), 1);
+    CHECK_EQ_INT(psx_light_weather_closed(l, 141), 0);
+    CHECK_EQ_INT(psx_light_weather_closed(l, 310), 0);   /* a hall (TR7's steelworks) is not a closed zone */
+    CHECK_EQ_INT(psx_light_weather_closed(l, 655), 0);   /* a tunnel line under a canyon: the canyon wins */
+    CHECK_EQ_INT(psx_light_weather_closed(NULL, 5), 0);
+    track_light_file_free(&f);
+}
+
 int main(void)
 {
+    test_weather_closed_zones();
     test_tones();
     test_round_trip();
     test_header_and_bad_lines();

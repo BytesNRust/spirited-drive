@@ -105,6 +105,15 @@ int psx_light_tunnel(const PsxLight *light, uint32_t node)
     return tunnel_in_file(light, psx_light_old_node(light, node));
 }
 
+int psx_light_weather_closed(const PsxLight *light, uint32_t node)
+{
+    if (light == NULL || light->nodes == 0) return 0;
+    const uint32_t at = psx_light_old_node(light, node) % light->nodes;
+    if (light->canyon != NULL && light->canyon[at]) return 0;
+    if (light->tunnel != NULL) return light->tunnel[at] != 0;
+    return psx_light_tunnel(light, node);
+}
+
 int psx_light_tunnel_class(const PsxLight *light, uint32_t node)
 {
     const uint32_t file_node = light != NULL ? psx_light_old_node(light, node) : 0;
