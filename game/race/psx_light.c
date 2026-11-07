@@ -122,6 +122,21 @@ int psx_light_weather_closed(const PsxLight *light, uint32_t node)
     return psx_light_tunnel(light, node);
 }
 
+int psx_light_zone_look_at(const PsxLight *light, uint32_t at, double *percent, float cast[3])
+{
+    if (light == NULL || !light->look_set) return 0;
+    *percent = light->look_light;
+    memcpy(cast, light->look_cast, 3 * sizeof(float));
+    if (light->tone_id != NULL && light->nodes > 0) {
+        const int id = light->tone_id[at % light->nodes];
+        if (id > 0 && id <= light->tone_count && light->tone[id - 1].look) {
+            *percent = (double)light->tone[id - 1].light;
+            memcpy(cast, light->tone[id - 1].cast, 3 * sizeof(float));
+        }
+    }
+    return 1;
+}
+
 void psx_light_tunnel_look(const PsxLight *light, const float shown[3], const float lit_tint[3], int lamp_count, PsxTunnelLook *out)
 {
     static const float TUNNEL_CAST[3] = { 1.0f, 0.8f, 0.15f }, NO_CAST[3] = { 1, 1, 1 };

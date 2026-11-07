@@ -8,7 +8,6 @@
  *   rows 0 63 255 255 255 255 255 255 255 255 255 255 255    (nodes 0..63 have this row of 11 points)
  *   tunnel 76 107          (road tunnel nodes; hall: a lit hall's; car_dim: the car keeps its dim tone; canyon: TR6's canyon)
  *   lamp 130 100          (a street lamp at node 130 at 100 percent: light it ADDS, warm, round its post, fading smoothly to nothing at its radius, on the road, the walls and the car; the export writes the CD's lamps so)
- *   car_disc 1 <even r g b> <odd r g b>   (the CD's own car ratios in a tunnel's lamp alternation, as C hex floats)
  *   cast neutral 0 city 1                (the tunnel's cast: neutral_cast, city_tunnel)
  *
  * and the lines added by hand (all lines count the same):
@@ -55,7 +54,9 @@ typedef struct { uint32_t from, to; int percent; } TrackLightBrightness;
 typedef struct { uint32_t from, to; uint8_t rgb[3]; int percent; } TrackLightCarTone;
 /* a `tone` line: nodes from..to, the points of their rows it is on (bit p; 0x7ff all), and the tone's number in the file's list of distinct tones */
 typedef struct { uint32_t from, to; uint16_t mask; uint8_t tone; } TrackLightToneRun;
-typedef struct { uint32_t from, to; int lit; } TrackLightZone;   /* a `tunnel a b [light] [colour | lit]` line: lit, a hall (a tunnel with a lot of light, lit by its own lamps) */
+/* a `tunnel a b [light] [colour | lit]` line: lit, a hall (a tunnel with a lot of light, lit by its own lamps); else the zone's own look when the line gives a light and / or a colour (what it leaves out is the
+ * time's tunnel_tone's), which is a tone slot (`tone`: its number, or -1 when the look is the time's) once the file is read. `line` is the line's number, for the slot that does not fit. */
+typedef struct { uint32_t from, to; int lit; int has_light, has_colour; double light; float cast[3]; int line; int tone; } TrackLightZone;
 /* a `lamp` line: the lamp's node, its light in percent (1..TRACK_LIGHT_MAX_LAMP_PERCENT), its radius in nodes, and its colour (the warm street lamp's when `coloured` is 0; else rgb mixed toward the warm by 100 - strength percent) */
 typedef struct { uint32_t node; uint16_t percent; uint8_t radius; uint8_t coloured, strength; uint8_t rgb[3]; } TrackLightLamp;
 typedef struct {
@@ -63,11 +64,11 @@ typedef struct {
     int brightness_count;
     TrackLightCarTone car_tone[TRACK_LIGHT_MAX_BRIGHT];   /* car_tone: in file order, later lines over earlier ones */
     int car_tone_count;
-    PsxLightTone tones[PSX_LIGHT_TONES];   /* the distinct tones the `tone` lines use (at most PSX_LIGHT_TONES: a line past that is refused) */
+    PsxLightTone tones[PSX_LIGHT_TONES];   /* the distinct tones the `tone` lines use, and then the zones' own looks (at most PSX_LIGHT_TONES in all: a line past that is refused) */
     int tone_count;
     TrackLightToneRun tone_runs[TRACK_LIGHT_MAX_BRIGHT];
     int tone_run_count;
-    int look_has_light, look_has_colour;   /* the tunnels' look this time: `tunnel_tone` or a zone line's light and colour (one look a track: a zone with another is a bad line) */
+    int look_has_light, look_has_colour;   /* the tunnels' look this time: `tunnel_tone`'s (one default a time: a second that differs is a bad line; a zone line may give its own) */
     double look_light;                     /* percent of full light (100 is row 255 at any time of day) */
     float look_cast[3];                    /* the colour as the factor on each channel, 0..1 (the file's RRGGBB[:strength]) */
     TrackLightZone zones[TRACK_LIGHT_MAX_BRIGHT];   /* the `tunnel a b ...` lines: they add to the places' tunnels, and `lit` makes the nodes a hall */

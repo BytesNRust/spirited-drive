@@ -216,6 +216,7 @@ static uint8_t tone_palette[768];
 static float tone_lit_tint[3], tone_tunnel_tint[3], tone_cast[3];
 static int tone_have_cast;
 static float tone_min_light;
+static float tone_mean;   /* the time's mean tint (drive_light_tint), which a zone's own light is taken over (psx_light_tunnel_look) */
 
 /* the tint a tone gives: each channel 1 at no strength, the tone's own (0..1) at full */
 static void tone_tint_of(const PsxLightTone *tone, float out[3])
@@ -227,8 +228,17 @@ static void tone_tint_of(const PsxLightTone *tone, float out[3])
 static uint8_t (*tone_get(int id, int in_tunnel))[256]
 {
     if (psx_light == NULL || id < 0 || id >= psx_light->tone_count) return NULL;
+    const PsxLightTone *const slot = &psx_light->tone[id];
+    if (slot->look && !in_tunnel) return NULL;   /* port (tunnel zone looks): a zone's look is a tunnel's tables; a polygon that is not in a tunnel has the road's */
     uint8_t (*t)[256] = tone_tables[id][in_tunnel != 0];
     if (tone_made[id][in_tunnel != 0]) return t;
+    if (slot->look) {   /* the zone's own light and colour, as the time's look is made (psx_light_tunnel_look): the light over the time's own tint, the colour as the cast */
+        const float gain = (float)(tone_mean > 0.05f ? (double)slot->light / 100.0 / (double)tone_mean : (double)slot->light / 100.0);
+        const float grey[3] = { gain, gain, gain };
+        modern_tunnel_tables(tone_palette, grey, slot->cast, 0.0f, t);
+        tone_made[id][1] = 1;
+        return t;
+    }
     float tint[3];
     tone_tint_of(&psx_light->tone[id], tint);
     if (in_tunnel && tone_have_cast) {   /* a tunnel's polygon: its own cast through the tone */
@@ -2363,6 +2373,7 @@ static void light_tables_prepare(const TrackArt *art)
         || memcmp(light_made.palette, art->palette, sizeof light_made.palette) != 0 || memcmp(light_made.tint, lit_tint, sizeof light_made.tint) != 0
         || memcmp(&light_made.look, &look, sizeof look) != 0) {
         light_made.look = look;
+        tone_mean = (shown[0] + shown[1] + shown[2]) / 3.0f;
         light_tables_make(art, &look, has_pool);
         light_made.pool = has_pool;
         memcpy(light_made.palette, art->palette, sizeof light_made.palette), memcpy(light_made.tint, lit_tint, sizeof light_made.tint), light_made.made = 1;

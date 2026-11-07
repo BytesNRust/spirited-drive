@@ -1900,5 +1900,4 @@ lamp 1786 100
 lamp 1796 100
 lamp 1806 100
 lamp 1816 100
-car_disc 1 0x1.e0418ap-1 0x1.e0418ap-1 0x1.e0418ap-1 0x1.4p-1 0x1.4p-1 0x1.4p-1
 tunnel_tone 104.4 1/0.35/0.05

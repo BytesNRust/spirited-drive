@@ -48,7 +48,6 @@ The **light file** `data/track_light/CY1N.txt` (the new keys are in the second b
     track CY1 time N nodes 1920 flags dff     the header (flags: the settings the generated rows were made with, a record)
     rows 0 5 255 255 61 61 62 63 255 60 61 62 63    nodes 0..5 have this row of 11 points
     lamp 13 100            a street lamp at node 13 (the export writes one for each of the CD's lamps; the pools are the lamps now)
-    car_disc 1 <6 floats>   the car's brightness ratios in a tunnel's lamp alternation (hex floats)
     brightness 120 180 70                     nodes 120..180 at 70 percent of their light
     lamp 130 150 ff2000:80 8           a street lamp by hand: node, light in percent, an optional colour RRGGBB[:strength], an optional radius in nodes (5)
     car_tone ff8020:60                  the car's tone: a colour in hex and its intensity 0..100, the whole track
@@ -58,31 +57,37 @@ The **light file** `data/track_light/CY1N.txt` (the new keys are in the second b
 
     tunnel_tone 104.4 ff5a0d            the tunnels' look at this time: their light and their colour
     tunnel_tone 115                     a light with no colour
-    tunnel 1064 1171 104.4 ff5a0d       the same for a zone (it adds to the places' tunnels if it is not there)
+    tunnel 1064 1171 104.4 ff5a0d       a zone with its own look (it adds to the places' tunnels if it is not there); what it leaves out is the tunnel_tone's
     tunnel 1 62 lit                     a hall: these nodes are lit by their own lamps (see below)
 
 **The tunnels' look.** `tunnel_tone <light> [colour]` is the look of every tunnel at this time of day. The light is a percent of full light and **absolute**: 100 is full light (a row's 255) at any time of day,
 so a tunnel at 100 looks the same by day and by night, more than 100 is brighter. The colour is `RRGGBB` in hex, with an optional `:strength` (0..100, 100 whole: the colour is the tint it gives the dim levels, as a `tone`'s);
 the export also writes a colour as `r/g/b`, the three factors 0..1 (`1/0.68/0.28`), where 8 bits do not hold a made look exactly; you can write either. A light is a number (`104.4`), a colour a token of 6 hex digits or `r/g/b`.
-With no `tunnel_tone` a tunnel is dark: 10 % of full light and no colour. The car inside a tunnel keeps its lamp alternation (`car_disc`) and `car_dim` where the file has them.
+With no `tunnel_tone` a tunnel is dark: 10 % of full light and no colour.
 
-A track has **one look a time**: a `tunnel a b <light> <colour>` zone line says the same look as the `tunnel_tone` (or no `tunnel_tone`); a zone line that says another light or colour than a line before it is a bad line.
-The light editor shows `tunnel look: light 104.4%  colour ff5a0d` (and `a hall: lit by its lamps`).
+**A look a zone.** `tunnel_tone` is the time's default look; a `tunnel a b <light> <colour>` zone line gives those nodes a look of their own (a light, a colour or both; what it leaves out is the `tunnel_tone`'s). A zone whose look is the
+default's is nothing special; each different look takes one of the 16 **tone slots**, shared with the `tone` lines (a 17th, of either, is a bad line, and zones with the same look share a slot). A node has one slot: a `tone` line over a zone's nodes
+replaces the zone's look there. The world's tunnel polygons of a zone are tabled by its look (the lamps hanging in tunnels, and the lamp flares, keep the default's). The light editor shows `tunnel look: light 104.4%  colour ff5a0d` for the node's own
+(`this zone's own` when it is a zone's, `a hall: lit by its lamps` for a hall).
+
+**The car in a tunnel** takes its zone's light and colour in every tunnel: its colours are multiplied by `min(1, light / 100 x colour)` per channel. Under a lamp (even nodes) that is the full look, between two lamps (odd nodes) 40 % of it
+(`PSX_SYNTH_LAMP_GAP_PERCENT`), and it comes in over the 6 nodes outside the mouth (the weather's mouth). A hall keeps the lamps of its own, `car_dim` the one dim tone. There is nothing else to set: `car_disc`, which gave the car the
+CD's own ratios, is gone (a bad line, and the export does not write it).
 
 **Places and times.** The places are loaded first, then the time's file: a `tunnel` line in a time file adds to the places' tunnels (the union), it never takes one away. A zone with `lit` is a **hall**: a tunnel with a lot of light,
 lit by its own lamps (TR7's steelworks, `tunnel 1 62 lit`); it keeps the terrain's light and the lamps' alternation on the car, and has no light or colour of its own. The places file lists a hall as a tunnel; the time's file says it is lit.
 Under all of it are the file's `rows`, the owner's retouches (`brightness`, `tone`, `car_tone`, `pool`) over the made light, so a row he writes is the row.
 
-What the old format had and this one does not read (a bad line, like any word the format does not know): `hall`, `cast neutral city`, and `tunnel_tone day|night r g b percent`. `tunnel`, `canyon` and `car_dim` are the places file's:
+What the old format had and this one does not read (a bad line, like any word the format does not know): `hall`, `cast neutral city`, `car_disc`, and `tunnel_tone day|night r g b percent`. `tunnel`, `canyon` and `car_dim` are the places file's:
 in a time file only `tunnel` (the zone line above) is read.
 
 `car_tone` takes each of the car's colours toward the tone at its own brightness, and shows the nearest colour the palette has, of any hue: a red car goes toward orange,
-a white one to orange, a dark blue one stays bluish where the palette has no dark orange near. (`car_disc` only changes the car's brightness: a car's colours stay in their own hue family there.)
+a white one to orange, a dark blue one stays bluish where the palette has no dark orange near. (The tunnel's own look, a zone's light and colour, only changes the car's brightness and tint by the ratio above.)
 
 The words are English. The format's first version was Spanish (`pista hora nodos banderas filas presente tunel coche_tenue canon coche_disco tono_tunel brillo tono_coche`):
 the port still reads those words as the English ones, and the export writes English only.
 
-The generated lines (`rows`, `lamp`, `car_disc`, `tunnel ... lit`, `tunnel_tone`, and the places file) are what the export writes.
+The generated lines (`rows`, `lamp`, `tunnel ... lit`, `tunnel_tone`, and the places file) are what the export writes; a zone's own look is written as `tunnel a b <light> <colour>`.
 `tone` tints the road, walls and scenery of those nodes (the tint is 1 + (colour/255 - 1) x strength, applied to the lit colours; in a tunnel, over its cast). A track has at most 16 distinct tones (a 17th is a bad line); each is built the first time it is seen (about 2.5 ms and 4 KB). A later line over the same nodes replaces the earlier. A polygon takes a tone only when all four corners have it, so a strip follows the row points. The light editor shows the current stretch's tone.
 
 ## The street lamp

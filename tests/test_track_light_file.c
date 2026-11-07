@@ -27,8 +27,10 @@ static PsxLight make(void)
     memset(l.car_dim + 14, 1, 2);
     l.canyon = calloc(NODES, 1);
     l.canyon[3] = l.canyon[39] = 1;
-    l.car_disc = 1;
-    for (int i = 0; i < 3; i++) l.car_even[i] = 0.625f + (float)i / 7.0f, l.car_odd[i] = 0.1f * (float)(i + 1);
+    l.tone_id = calloc(NODES, 1), l.tone_mask = calloc(NODES, sizeof *l.tone_mask);   /* a tunnel zone with a look of its own: nodes 12..16, 80 % and a colour the bytes cannot hold exactly */
+    memset(l.tone_id + 12, 1, 5), memset(l.tone_mask + 12, 0xff, 5 * sizeof *l.tone_mask);
+    l.tone_count = 1, l.tone[0].rgb[0] = l.tone[0].rgb[1] = l.tone[0].rgb[2] = 255, l.tone[0].look = 1, l.tone[0].light = 80.0f;
+    l.tone[0].cast[0] = 1.0f, l.tone[0].cast[1] = 0.5f, l.tone[0].cast[2] = 0.25f;
     l.look_set = 1, l.look_light = 104.4, l.look_cast[0] = 1.0f, l.look_cast[1] = 0.68f, l.look_cast[2] = 0.28f;   /* CY1's day: a made look the bytes cannot hold exactly */
     return l;
 }
@@ -54,7 +56,10 @@ static void test_round_trip(void)
     CHECK(b.car_dim != NULL && memcmp(a.car_dim, b.car_dim, NODES) == 0 && b.car_pool == NULL);   /* absent stays absent */
     CHECK(b.canyon != NULL && memcmp(a.canyon, b.canyon, NODES) == 0);
     CHECK(b.pool_class == NULL && b.car_pool == NULL);   /* the pools are the lamps' (`lamp` lines): a file has no pool runs */
-    CHECK(b.car_disc == 1 && memcmp(a.car_even, b.car_even, sizeof a.car_even) == 0 && memcmp(a.car_odd, b.car_odd, sizeof a.car_odd) == 0);   /* the floats exactly */
+    CHECK(strstr(text, "car_disc") == NULL);   /* gone: the car takes the zone's look */
+    CHECK(strstr(text, "tunnel 12 16 80 1/0.5/0.25") != NULL);   /* the zone's own look is a line of the time's file ... */
+    CHECK(b.tone_count == 1 && b.tone_id != NULL && b.tone_id[12] == 1 && b.tone_id[16] == 1 && b.tone_id[17] == 0 && memcmp(&a.tone[0], &b.tone[0], sizeof a.tone[0]) == 0);   /* ... and comes back as the slot, bit for bit */
+    CHECK(b.tone_mask[14] == 0x7ff);
     CHECK(b.nodes == NODES);
     /* the file is by runs: the first ten identical rows are one line; the places hold no light and the time's file no place */
     CHECK(strstr(text, "rows 0 9 ") != NULL);
@@ -239,9 +244,21 @@ static void test_the_tunnel_lines(void)
     track_light_apply(&f.tweaks, &l, 0, 0);
     CHECK(l.look_set && l.look_light == 115.0 && l.look_cast[0] == 1.0f && l.look_cast[1] == (float)(224.0 / 255.0) && l.look_cast[2] == (float)(128.0 / 255.0));
     track_light_file_free(&f);
-    snprintf(text, sizeof text, "%stunnel 5 9 60\ntunnel 15 19 60 ff0000:50\n", head);   /* a zone with its own light and colour; the colour at half strength is half way to no change */
+    snprintf(text, sizeof text, "%stunnel 5 9 60\ntunnel 15 19 60 ff0000:50\n", head);   /* zones with a look of their own: a tone slot each (the colour at half strength is half way to no change) */
     CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 1, &f, NULL));
-    CHECK(f.tweaks.zone_count == 2 && f.tweaks.look_light == 60.0 && f.tweaks.look_cast[0] == 1.0f && f.tweaks.look_cast[1] == 0.5f);
+    CHECK(f.tweaks.zone_count == 2 && !f.tweaks.look_has_light && f.tweaks.tone_count == 2 && f.tweaks.zones[0].tone == 0 && f.tweaks.zones[1].tone == 1);
+    track_light_apply(&f.tweaks, &l);
+    double zone_light = 0;
+    float zone_cast[3];
+    CHECK(psx_light_zone_look_at(&l, 7, &zone_light, zone_cast) && zone_light == 60.0 && zone_cast[0] == 1.0f && zone_cast[1] == 1.0f);   /* no colour: the time's (none: no change) */
+    CHECK(psx_light_zone_look_at(&l, 17, &zone_light, zone_cast) && zone_light == 60.0 && zone_cast[0] == 1.0f && zone_cast[1] == 0.5f && zone_cast[2] == 0.5f);
+    CHECK(psx_light_zone_look_at(&l, 30, &zone_light, zone_cast) && zone_light == 10.0);   /* outside the zones: the time's look, the dark default */
+    CHECK(l.tone_id[7] == 1 && l.tone_id[17] == 2 && l.tone[1].look == 1 && l.tone_mask[17] == 0x7ff && l.tone_id[12] == 0);
+    track_light_file_free(&f);
+    /* a zone's look is the time's `tunnel_tone` where it leaves a part out, and no slot where it is the same; zones with one look share a slot */
+    snprintf(text, sizeof text, "%stunnel_tone 60 ff0000\ntunnel 5 9 60 ff0000\ntunnel 11 12 60\ntunnel 15 16 80\ntunnel 20 21 80 ff0000\ntunnel 25 26 1/0.5/0.25\ntunnel 30 31 1/0.5/0.25\n", head);
+    CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 1, &f, NULL));
+    CHECK(f.tweaks.tone_count == 2 && f.tweaks.zones[0].tone == -1 && f.tweaks.zones[1].tone == -1 && f.tweaks.zones[2].tone == 0 && f.tweaks.zones[3].tone == 0 && f.tweaks.zones[4].tone == 1 && f.tweaks.zones[5].tone == 1);
     track_light_file_free(&f);
     snprintf(text, sizeof text, "%stunnel 5 9\n", head);   /* no look at all: the default, dark (10 %) and without a colour */
     CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 1, &f, NULL));
@@ -252,21 +269,28 @@ static void test_the_tunnel_lines(void)
     track_light_file_free(&f);
     psx_light_free(&d);
     int bad = 0;
-    const char *refused[] = { "tunnel 5 9 60\ntunnel 15 19 70\n",            /* one look a time: a second zone with another light */
-                              "tunnel 5 9 60 ff0000\ntunnel 15 19 60 00ff00\n",   /* ... or another colour */
-                              "tunnel_tone 60\ntunnel 5 9 70\n",
+    const char *refused[] = { "tunnel_tone 60\ntunnel_tone 70\n",            /* one default look a time: a second tunnel_tone that differs */
+                              "tunnel_tone 60 ff0000\ntunnel_tone 60 00ff00\n",   /* ... or another colour */
+                              "car_disc 1 0x1p-1 0x1p-1 0x1p-1 0x1p-1 0x1p-1 0x1p-1\n",   /* gone: the car takes its zone's look */
                               "tunnel_tone\n", "tunnel_tone day 1 0.5 0.25 130\n", "tunnel_tone night 1 0.5 0.25 130\n",   /* no light, or the old form */
                               "hall 5 9\n", "cast neutral 1 city 0\n", "canyon 1 2\n", "car_dim 1 2\n", "present tunnel\n",   /* no longer read here: places are the track's file */
                               "tunnel 5 9 lit 60\n", "tunnel 5 9 60 lit\n", "tunnel_tone 60 lit\n", "tunnel 5 9 ffffff ffffff\n", "tunnel 5 9 60 ff00\n", "tunnel 5 9 60 ff0000:101\n", "tunnel 5 9 60 2/0/0\n" };
     for (size_t i = 0; i < sizeof refused / sizeof *refused; i++) {
         snprintf(text, sizeof text, "%s%s", head, refused[i]);
-        CHECK(!track_light_parse(text, strlen(text), "CY1", 'N', NODES, 1, &f, &bad) && bad == (i < 3 ? 4 : 3));   /* the line that disagrees */
+        CHECK(!track_light_parse(text, strlen(text), "CY1", 'N', NODES, 1, &f, &bad) && bad == (i < 2 ? 4 : 3));   /* the line that disagrees */
     }
-    snprintf(text, sizeof text, "%stunnel 5 9 60 1/0.5/0.25\ntunnel 11 12 60 ff8040\n", head);   /* the written-out factors, as the export writes the made looks */
-    CHECK(!track_light_parse(text, strlen(text), "CY1", 'N', NODES, 1, &f, &bad));   /* ff8040 is 1, 0.50196, 0.251: not the same look as 1/0.5/0.25 */
-    snprintf(text, sizeof text, "%stunnel 5 9 60 1/0.5/0.25\ntunnel 11 12 60 1/0.5/0.25\n", head);
-    CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 1, &f, &bad) && f.tweaks.look_cast[1] == 0.5f && f.tweaks.look_cast[2] == 0.25f);
+    snprintf(text, sizeof text, "%stunnel 5 9 60 1/0.5/0.25\ntunnel 11 12 60 ff8040\n", head);   /* the written-out factors, as the export writes the made looks: ff8040 is 1, 0.50196, 0.251, not 1/0.5/0.25: two slots */
+    CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 1, &f, &bad) && f.tweaks.tone_count == 2);
     track_light_file_free(&f);
+    /* the slots are shared with the `tone` lines: 16 in all, the 17th is a bad line, a zone's or a tone's, whichever comes last in the file */
+    char many[2048];
+    snprintf(many, sizeof many, "%s", head);
+    for (int i = 0; i < 17; i++) snprintf(many + strlen(many), sizeof many - strlen(many), "tunnel %d %d %d\n", i, i, 20 + i);
+    CHECK(!track_light_parse(many, strlen(many), "CY1", 'N', NODES, 1, &f, &bad) && bad == 2 + 17);
+    snprintf(many, sizeof many, "%s", head);
+    for (int i = 0; i < 15; i++) snprintf(many + strlen(many), sizeof many - strlen(many), "tone %d %d %02x0000:%d\n", i, i, i + 1, 10 + i);
+    snprintf(many + strlen(many), sizeof many - strlen(many), "tunnel 20 21 70\ntunnel 22 23 71\n");
+    CHECK(!track_light_parse(many, strlen(many), "CY1", 'N', NODES, 1, &f, &bad) && bad == 2 + 15 + 2);
     psx_light_free(&l);
 }
 
