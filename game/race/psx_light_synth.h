@@ -106,7 +106,7 @@ void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3]);
  * to 0 over PSX_SYNTH_CAR_RAMP nodes outside either mouth. The rows' own points beyond the foot carry the terrain's shade as well (a canyon darkened the car into the tunnel's
  * light and lit its lamps by day) and ramp over ten nodes at the exit (the car stayed dark metres past the door). Without flags it is psx_light_synth_car.
  * A light with a look (look_set: a file's, or a made one given the look it would be exported with) gives the car the zone's own light and colour in EVERY tunnel: the ratio under a lamp (even nodes) is
- * min(1, light% / 100 x colour) x the road's light at the node (psx_light_road_light) per channel, between two lamps (odd) PSX_SYNTH_LAMP_GAP_PERCENT of that, and it ramps in over PSX_SYNTH_LOOK_RAMP nodes outside the mouth (the nearest tunnel node's zone gives
+ * light% / 100 x colour x the road's light at the node (psx_light_road_light) per channel, above full light too (the excess over 1 comes in with the road's darkening, as the world's does), between two lamps (odd) PSX_SYNTH_LAMP_GAP_PERCENT of that, and it ramps in over PSX_SYNTH_LOOK_RAMP nodes outside the mouth (the nearest tunnel node's zone gives
  * the look). A hall keeps its own lamps' factors and car_dim its dim one. */
 void psx_light_synth_car_tunnel(const PsxLight *light, uint32_t node, float out[3]);
 
