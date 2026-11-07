@@ -372,6 +372,7 @@ add_library(tnfs_game STATIC
     game/race/race_state.c
     game/race/sky_ring.c
     game/race/weather.c
+    game/race/wet_zones.c
     game/race/rain_spray.c
     game/race/track_art.c
     game/race/track_palette_repair.c
@@ -647,6 +648,11 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_link_libraries(test_weather_draw PRIVATE tnfs_game)
     target_compile_options(test_weather_draw PRIVATE ${TNFS_WARNINGS})
     add_test(NAME weather_draw COMMAND test_weather_draw)
+    add_executable(test_wet_zones tests/test_wet_zones.c)
+    target_include_directories(test_wet_zones PRIVATE game)
+    target_link_libraries(test_wet_zones PRIVATE tnfs_game)
+    target_compile_options(test_wet_zones PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME wet_zones COMMAND test_wet_zones)
     # port (emissive lamps): no tint, light table or fog table moves an emissive palette entry
     add_executable(test_palette_emissive tests/test_palette_emissive.c game/viewer/modern_road.c)
     target_include_directories(test_palette_emissive PRIVATE game)

@@ -1197,7 +1197,7 @@ static void spray_update(void)
             wheel[w][2] = car->z - (int32_t)(((int64_t)fz * behind) >> 16) - (int32_t)(((int64_t)fx * a) >> 16);
         }
         const int32_t right[2] = { fz, -fx };
-        const int wet = car->airborne_ticks == 0 && car->off_road == 0;
+        const int wet = car->airborne_ticks == 0 && car->off_road == 0 && rain_open_at(car->node) > 0;   /* port (tunnel_dry): no water inside a closed zone */
         if (port_traffic_spray() && port_rain_v2() && i >= shadow_race->racers && car != player)   /* port (rain_v2): a wisp from each wheel, a little longer, at any pace */
             rain_spray_step_wisp2(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, car->speed, wet);
         else if (port_traffic_spray() && i >= shadow_race->racers && car != player)   /* port (traffic_spray): the cops' and traffic's water is a short wisp */
@@ -1212,11 +1212,12 @@ static void spray_row(int32_t node, int far_side)
 {
     const uint32_t tick = (uint32_t)shadow_race->tick;
     const int32_t focal = abs(model_view.view->focal_x);
+    const int open = rain_open_at(node);   /* port (tunnel_dry): the openness where the water was dropped, not where the eye is */
     for (int i = 0; i < RAIN_SPRAY_MAX; i++) {
         const RainSprayParticle *p = &rain_spray.p[i];
         int32_t place[3], radius, camera[3], screen[2];
         int density;
-        if (!p->live || p->node != node || !rain_spray_look(p, tick, rain_open, place, &radius, &density)) continue;
+        if (!p->live || p->node != node || !rain_spray_look(p, tick, open, place, &radius, &density)) continue;
         if (!world_screen(place, camera, screen) || camera[2] < 64) continue;
         const Car *owner = p->car < RACE_CARS ? shadow_race->cars[p->car] : NULL;   /* a puff farther from the eye than its car is drawn before the row's cars, a nearer one after them */
         int32_t own_camera[3], own_screen[2];
@@ -1356,7 +1357,7 @@ static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4]
         if (car == NULL) continue;
         if (car != player && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;   /* a rival that is on the screen */
         if (shadow_race->port_rally_road != 0 && port_rally_dry_lamps()) continue;   /* port (rally_dry_lamps): dirt is no mirror, no lamp reflections (an early skip at the call, reflect_car itself untouched) */
-        if (!rain_wet_off()) reflect_car(car, pixels, pitch, box, wt);
+        if (!rain_wet_off() && rain_open_at(car->node) > 0) reflect_car(car, pixels, pitch, box, wt);   /* port (tunnel_dry): no mirror road inside a closed zone */
     }
 }
 
@@ -2194,8 +2195,9 @@ static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *vi
         const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
         const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
-        if (!rain_wet_off()) {   /* port (rain v4): the grey, low-contrast scene of rain; rows are independent, so in bands */
-            const RainMood mood = { pixels, screen_w, { box[0], box[1], box[2], box[3] }, wt->mood, drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE };
+        const int mood_share = (drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE) * rain_open / 16;   /* port (tunnel_dry): the grey goes with the weather: none inside a closed zone */
+        if (!rain_wet_off() && mood_share > 0) {   /* port (rain v4): the grey, low-contrast scene of rain; rows are independent, so in bands */
+            const RainMood mood = { pixels, screen_w, { box[0], box[1], box[2], box[3] }, wt->mood, mood_share };
             bands_rows(box[1], box[3], rain_mood_band, (void *)&mood);
         }
         rain_cars_paint(pixels, screen_w, box, wt);

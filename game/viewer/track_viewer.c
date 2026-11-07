@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "game/viewer/scenery_dump.h"
+#include "game/race/wet_zones.h"
 #include <string.h>
 #include <time.h>
 
@@ -436,6 +437,25 @@ static int lunar_gravity_race(const char *name, int arcade)
     return lunar_gravity_active(race_sim_track_index(name), arcade, e.lunar_springs, e.lunar_gravity);
 }
 
+/* port (tunnel_dry): how much rain reaches each node, from the road's own property bytes (wet_zones.h); kept for the race's life, the next drive frees it */
+static uint8_t *drive_wet_open;
+
+static const uint8_t *drive_wet_open_make(const Tri *tri)
+{
+    free(drive_wet_open);
+    drive_wet_open = NULL;
+    const uint32_t nodes = tri->ring_nodes;
+    uint8_t *property = nodes != 0 ? malloc(nodes) : NULL;
+    if (property == NULL) return NULL;
+    for (uint32_t i = 0; i < nodes; i++) {
+        TriNode n;
+        property[i] = tri_node(tri, i, &n) == TRI_OK ? n.property : 0;
+    }
+    drive_wet_open = wet_zones_make(property, nodes, 1);
+    free(property);
+    return drive_wet_open;
+}
+
 static int start_drive(Track *t, const char *data_root, const char *name, int model, int racers, int race_type)
 {
     static CarSpecs human_specs[RACE_PLAYERS];  /* a link race's other humans' */
@@ -515,6 +535,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     }
     field.port_lunar_gravity = lunar_gravity_race(name, arcade);
     field.port_rain_grip = port_rain_grip_active();
+    field.port_open = drive_wet_open_make(&t->tri);   /* port (tunnel_dry): the rain's grip loss stops inside a tunnel */
     /* port (difficulty.h): the mode's file's level; Original in a link race, a replay's own (the CD's demos: Original) */
     field.port_difficulty = drive_link_on && session_rules_active() != NULL ? difficulty_from_extras(race_extras().difficulty)   /* port (online): the host's */
         : difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL, drive_link_on);

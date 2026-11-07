@@ -1,4 +1,5 @@
 #include "game/race/race_state.h"
+#include "game/race/weather.h"
 
 #include "game/race/track_gravity.h"
 
@@ -54,9 +55,18 @@ void race_surfaces_init(RaceState *race)
         for (int i = 0; i < RACE_SURFACES; i++) race->surfaces[i] = surface(0x180, 0x80, 0x1999, 1);
     if (race->port_lunar_gravity)   /* port: the moon's grip */
         for (int i = 0; i < RACE_SURFACES; i++) race->surfaces[i].grip = track_grip(race->port_lunar_gravity, race->surfaces[i].grip);
+    for (int i = 0; i < RACE_SURFACES; i++) race->port_grip_dry[i] = race->surfaces[i].grip;
     if (race->port_rain_grip)   /* port (rain_grip): the wet road, not the shoulder */
         for (int i = 0; i < RACE_SURFACES; i++)
             if (race->surfaces[i].off_road == 0 || race->arcade) race->surfaces[i].grip = track_rain_grip(race->port_rain_grip, race->surfaces[i].grip);
+}
+
+int32_t race_car_grip(const RaceState *race, const Car *car)
+{
+    if (car == NULL || car->surface < 0 || car->surface >= RACE_SURFACES) return 0;
+    const Surface *s = &race->surfaces[car->surface];
+    if (!race->port_rain_grip || race->port_open == NULL || race->tri == NULL || race->tri->ring_nodes == 0) return s->grip;
+    return weather_wet_grip(race->port_grip_dry[car->surface], s->grip, race->port_open[(uint32_t)car->node % race->tri->ring_nodes]);
 }
 
 void race_dash_gauges(RaceState *race, int32_t a, int32_t b)

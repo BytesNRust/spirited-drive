@@ -277,7 +277,7 @@ static void limit_forces(const Car *car, const CarSpecs *specs, const RaceState 
 /* The forward force moves weight to the rear; the surface sets the grip. */
 static void axle_loads(Car *car, const RaceState *race, int32_t along)
 {
-    const int32_t grip = car->surface >= 0 && car->surface < RACE_SURFACES ? race->surfaces[car->surface].grip : 0;
+    const int32_t grip = race_car_grip(race, car);   /* port (tunnel_dry): dry inside a closed zone */
     const int32_t moved = (along >> 8) * (car->unknown_44d >> 8);
     car->axle_load_b = (car->unknown_455 - moved) * grip / 256;
     car->axle_load_a = (car->unknown_451 + moved) * grip / 256;

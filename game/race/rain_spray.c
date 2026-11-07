@@ -73,6 +73,7 @@ int rain_spray_step_wisp2(RainSpray *s, int car, uint32_t tick, const int32_t le
 int rain_spray_look(const RainSprayParticle *p, uint32_t tick, int open, int32_t place[3], int32_t *radius, int *density)
 {
     if (!p->live || tick < p->born || tick - p->born >= p->life) return 0;
+    if (open <= 0) return 0;   /* port (tunnel_dry): a closed zone is dry: no water to lift, what was dropped before the mouth is gone */
     const int age = (int)(tick - p->born);
     const float f = (float)age / (float)p->life, grow = 0.45f + 1.3f * f;   /* metres */
     const float big = 0.55f + 0.45f * (float)p->size / 255.0f;

@@ -113,7 +113,12 @@ enum { WEATHER_MOUTH_NODES = 6, WEATHER_THUNDER_INSIDE_PERCENT = 40 };
 int weather_open_for_distance(int nearest);
 int weather_flash_open(int level, int open);
 int weather_thunder_inside(int volume, int open);
-int weather_fog_open(int open, float start, float *end, float *cap);   /* the lightning's: a cold white-blue */
+int weather_fog_open(int open, float start, float *end, float *cap);
+/* port (tunnel_dry): the openness of every node of a ring of `nodes` from which nodes are closed (`closed`, 0/1 a node): 0 on a closed node and 16 farther than WEATHER_MOUTH_NODES from one, in between over
+ * the mouth (weather_open_for_distance). Pure: it depends on the nodes alone, so every machine and every car gets the same. A ring with no closed node is open everywhere. */
+void weather_open_nodes(const uint8_t *closed, uint32_t nodes, uint8_t *open_out);
+/* the grip of a car at openness `open` (0..16): `dry` inside a closed zone, `wet` in the open, in between at a mouth (integer arithmetic) */
+int32_t weather_wet_grip(int32_t dry, int32_t wet, int open);   /* the lightning's: a cold white-blue */
 
 /* The brightness level (0..WEATHER_RAIN_LEVELS - 1) a spray puff is drawn at: by day white, at night a mid level (it lies behind the car, outside the headlights' cone). */
 int weather_rain_spray_level(int night);
