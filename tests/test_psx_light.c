@@ -217,6 +217,49 @@ static void test_shoulder_light(void)
     CHECK_EQ_INT(psx_light_at_xz(&dark, 1, 7, at), 20);                /* by day (no pool) the row as it is */
 }
 
+/* port (`lamp`): which lamps reach a polygon (by node, the ring's seam included), the light of the lamps at a ground point (strength, falloff, colour) and the car's light by its distance to the lamp */
+static void test_radial_lamps(void)
+{
+    PsxLightLamp lamps[3] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f } }, { 14, 24.0f, 0.0f, 30.0f, { 1.0f, 0.0f, 0.0f } }, { 100, 600.0f, 0.0f, 30.0f, { 1, 1, 1 } } };
+    PsxLight l = { 0 };
+    l.nodes = 128, l.lamps = lamps, l.lamp_n = 3, l.lamp_reach_nodes = 5, l.lamp_placed = 1;
+    int idx[8];
+    const uint32_t at12[4] = { 12, 12, 13, 13 };
+    CHECK_EQ_INT(psx_light_lamps_near(&l, at12, idx, 8), 2);   /* nodes 10 and 14, not 100 */
+    CHECK(idx[0] == 0 && idx[1] == 1);
+    const uint32_t none[4] = { 50, 50, 51, 51 };
+    CHECK_EQ_INT(psx_light_lamps_near(&l, none, idx, 8), 0);
+    const uint32_t nowhere[4] = { PSX_LIGHT_NO_NODE, 0, 0, 0 };
+    CHECK_EQ_INT(psx_light_lamps_near(&l, nowhere, idx, 8), 0);
+    PsxLightLamp edge[1] = { { 2, 0.0f, 0.0f, 30.0f, { 1, 1, 1 } } };   /* a ring: the lamp at 2 is 5 nodes from node 125 across the seam */
+    PsxLight r = { 0 };
+    r.nodes = 128, r.lamps = edge, r.lamp_n = 1, r.lamp_reach_nodes = 5, r.lamp_ring = 1;
+    const uint32_t seam[4] = { 125, 125, 126, 126 };
+    CHECK_EQ_INT(psx_light_lamps_near(&r, seam, idx, 8), 1);
+    r.lamp_ring = 0;
+    CHECK_EQ_INT(psx_light_lamps_near(&r, seam, idx, 8), 0);   /* a stage has no seam */
+    float rgb[3];
+    CHECK(psx_light_lamp_at(&l, idx, 0, 0.0, 0.0, rgb) == 0.0f && rgb[0] == 0.0f && rgb[2] == 0.0f);   /* no lamp: no colour, not garbage */
+    const int one[1] = { 0 };
+    CHECK(psx_light_lamp_at(&l, one, 1, 0.0, 0.0, rgb) == 1.0f && rgb[0] == 1.0f && rgb[1] == 0.9f);   /* under the lamp: full, its colour */
+    const float half = psx_light_lamp_at(&l, one, 1, 15.0, 0.0, rgb);
+    CHECK(half == 0.25f && psx_light_lamp_at(&l, one, 1, 30.0, 0.0, rgb) == 0.0f);   /* smooth to nothing at the reach */
+    const int two[2] = { 0, 1 };
+    const float mix = psx_light_lamp_at(&l, two, 2, 12.0, 0.0, rgb);   /* between a warm and a red lamp: their colours' mean, weighted by what each gives */
+    CHECK(mix > 0.0f && rgb[0] == 1.0f && rgb[1] > 0.0f && rgb[1] < 0.9f);
+    /* the car: the lamp's colour times LAMP_CAR_ADD times its light is added, nothing darkens, none beyond the reach */
+    float out[3] = { 0.5f, 0.5f, 0.5f };
+    CHECK(psx_light_lamp_car(&l, 10, 0.0, 0.0, out));
+    CHECK(out[0] > 0.5f + LAMP_CAR_ADD - 0.01f && out[1] > 0.5f && out[2] > 0.5f && out[2] < out[1] && out[1] < out[0]);
+    float away[3] = { 0.5f, 0.5f, 0.5f };
+    CHECK(!psx_light_lamp_car(&l, 10, -40.0, 0.0, away) && away[0] == 0.5f);
+    float near[3] = { 0.5f, 0.5f, 0.5f };
+    CHECK(psx_light_lamp_car(&l, 10, 15.0, 0.0, near) && near[0] > 0.5f && near[0] < out[0]);   /* less away from it */
+    float bright[3] = { 1.9f, 1.9f, 1.9f };
+    psx_light_lamp_car(&l, 10, 0.0, 0.0, bright);
+    CHECK(bright[0] <= 2.0f);   /* the old pool's ceiling */
+}
+
 int main(void)
 {
     test_tunnel_road();
@@ -227,5 +270,6 @@ int main(void)
     test_rejected_files();
     test_reversed();
     test_shoulder_light();
+    test_radial_lamps();
     return TEST_REPORT();
 }

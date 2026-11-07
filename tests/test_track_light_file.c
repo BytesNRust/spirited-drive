@@ -1,9 +1,11 @@
 /* The track light file (track_light_file.h): a made light written and read back is the same light, the header keeps a file to its track, time, nodes and flags, a bad line
  * is refused, and the mod's folder is looked in first. Made-up rows, no game data. */
 #include "game/race/track_fence.h"
+#include "game/race/psx_light_make.h"
 #include "game/race/track_light_file.h"
 #include "test.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,9 +27,6 @@ static PsxLight make(void)
     memset(l.car_dim + 14, 1, 2);
     l.canyon = calloc(NODES, 1);
     l.canyon[3] = l.canyon[39] = 1;
-    l.pool_class = calloc(NODES, 1);
-    memset(l.pool_class + 20, 3, 4);
-    l.pool_class[30] = 4;
     l.car_disc = 1;
     for (int i = 0; i < 3; i++) l.car_even[i] = 0.625f + (float)i / 7.0f, l.car_odd[i] = 0.1f * (float)(i + 1);
     l.look_set = 1, l.look_light = 104.4, l.look_cast[0] = 1.0f, l.look_cast[1] = 0.68f, l.look_cast[2] = 0.28f;   /* CY1's day: a made look the bytes cannot hold exactly */
@@ -47,14 +46,14 @@ static void test_round_trip(void)
     CHECK(f.base);
     b = f.light;
     CHECK(track_light_place_parse(places, places_size, "CY1", NODES, &b, &bad));   /* the places are the track's own file */
-    track_light_apply(&f.tweaks, &b);                                              /* the halls and the look come from this time's file */
+    track_light_apply(&f.tweaks, &b, 0, 0);                                              /* the halls and the look come from this time's file */
     CHECK(b.look_set && b.look_light == 104.4 && memcmp(b.look_cast, a.look_cast, sizeof a.look_cast) == 0);   /* the look's floats exactly */
     CHECK(memcmp(a.data, b.data, (size_t)NODES * PSX_LIGHT_POINTS) == 0);
     CHECK(b.tunnel != NULL && memcmp(a.tunnel, b.tunnel, NODES) == 0);
     CHECK(b.hall != NULL && memcmp(a.hall, b.hall, NODES) == 0);   /* a hall is a place's tunnel the time's file calls lit */
     CHECK(b.car_dim != NULL && memcmp(a.car_dim, b.car_dim, NODES) == 0 && b.car_pool == NULL);   /* absent stays absent */
     CHECK(b.canyon != NULL && memcmp(a.canyon, b.canyon, NODES) == 0);
-    CHECK(b.pool_class != NULL && memcmp(a.pool_class, b.pool_class, NODES) == 0);
+    CHECK(b.pool_class == NULL && b.car_pool == NULL);   /* the pools are the lamps' (`lamp` lines): a file has no pool runs */
     CHECK(b.car_disc == 1 && memcmp(a.car_even, b.car_even, sizeof a.car_even) == 0 && memcmp(a.car_odd, b.car_odd, sizeof a.car_odd) == 0);   /* the floats exactly */
     CHECK(b.nodes == NODES);
     /* the file is by runs: the first ten identical rows are one line; the places hold no light and the time's file no place */
@@ -110,7 +109,7 @@ static void test_tweaks_stay_with_other_flags(void)
     l.nodes = NODES;
     l.data = malloc((size_t)NODES * PSX_LIGHT_POINTS);
     memset(l.data, 100, (size_t)NODES * PSX_LIGHT_POINTS);
-    track_light_apply(&f.tweaks, &l);
+    track_light_apply(&f.tweaks, &l, 0, 0);
     CHECK(l.data[9 * PSX_LIGHT_POINTS] == 100 && l.data[10 * PSX_LIGHT_POINTS] == 50 && l.data[19 * PSX_LIGHT_POINTS + 10] == 50 && l.data[20 * PSX_LIGHT_POINTS] == 100);
     CHECK(l.data[30 * PSX_LIGHT_POINTS] == 255);   /* clamped */
     CHECK(l.car_tone != NULL && l.car_tone[4 * 4] == 0xff && l.car_tone[4 * 4 + 1] == 0x80 && l.car_tone[4 * 4 + 3] == 60 && l.car_tone[4 * 6 + 3] == 0 && l.car_tone[4 * 8 + 3] == 60);   /* the car's tone: whole track, then 5..7 off */
@@ -132,7 +131,7 @@ static PsxLight applied(const char *text, double *light)
     l.nodes = NODES;
     l.data = malloc((size_t)NODES * PSX_LIGHT_POINTS);
     memset(l.data, 100, (size_t)NODES * PSX_LIGHT_POINTS);
-    track_light_apply(&f.tweaks, &l);
+    track_light_apply(&f.tweaks, &l, 0, 0);
     *light = f.tweaks.look_light;
     track_light_file_free(&f);
     return l;
@@ -170,7 +169,7 @@ static void test_tones(void)
     PsxLight l = { 0 };
     l.nodes = NODES;
     l.data = calloc((size_t)NODES * PSX_LIGHT_POINTS, 1);
-    track_light_apply(&f.tweaks, &l);
+    track_light_apply(&f.tweaks, &l, 0, 0);
     CHECK(l.tone_count == 2 && l.tone[0].rgb[0] == 0xff && l.tone[0].rgb[1] == 0xe0 && l.tone[0].percent == 50 && l.tone[1].rgb[1] == 0x20);
     CHECK(l.tone_id[9] == 0 && l.tone_id[10] == 1 && l.tone_mask[10] == 0x7ff);          /* a stretch: every point */
     CHECK(l.tone_id[17] == 2 && l.tone_mask[17] == ((1u << 6) | (1u << 7)));             /* the later line over the same nodes: its strip only */
@@ -210,7 +209,7 @@ static void test_weather_closed_zones(void)
     TrackLightFile f;
     CHECK(track_light_parse(time_text, strlen(time_text), "AL1", 'B', 800, 1, &f, NULL));
     CHECK(track_light_place_parse(place_text, strlen(place_text), "AL1", 800, &f.light, NULL));
-    track_light_apply(&f.tweaks, &f.light);
+    track_light_apply(&f.tweaks, &f.light, 0, 0);
     const PsxLight *l = &f.light;
     CHECK_EQ_INT(psx_light_weather_closed(l, 602), 0);   /* the canyon: open air, as the hall bit says what it says */
     CHECK_EQ_INT(psx_light_weather_closed(l, 600), 0);
@@ -237,7 +236,7 @@ static void test_the_tunnel_lines(void)
     l.data = calloc((size_t)NODES * PSX_LIGHT_POINTS, 1);
     snprintf(text, sizeof text, "%stunnel_tone 115 ffe080\n", head);   /* the track's look this time: a light (100 is full) and a colour */
     CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 1, &f, NULL));
-    track_light_apply(&f.tweaks, &l);
+    track_light_apply(&f.tweaks, &l, 0, 0);
     CHECK(l.look_set && l.look_light == 115.0 && l.look_cast[0] == 1.0f && l.look_cast[1] == (float)(224.0 / 255.0) && l.look_cast[2] == (float)(128.0 / 255.0));
     track_light_file_free(&f);
     snprintf(text, sizeof text, "%stunnel 5 9 60\ntunnel 15 19 60 ff0000:50\n", head);   /* a zone with its own light and colour; the colour at half strength is half way to no change */
@@ -248,7 +247,7 @@ static void test_the_tunnel_lines(void)
     CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 1, &f, NULL));
     PsxLight d = { 0 };
     d.nodes = NODES, d.data = calloc((size_t)NODES * PSX_LIGHT_POINTS, 1);
-    track_light_apply(&f.tweaks, &d);
+    track_light_apply(&f.tweaks, &d, 0, 0);
     CHECK(d.look_set && d.look_light == 10.0 && d.look_cast[0] == 1.0f && d.look_cast[1] == 1.0f && d.look_cast[2] == 1.0f && d.tunnel[7] == 1 && d.tunnel[4] == 0);
     track_light_file_free(&f);
     psx_light_free(&d);
@@ -296,7 +295,7 @@ static void test_a_made_look_and_its_file_agree(void)
         CHECK(track_light_parse(text, size, "CY1", 'B', NODES, 1, &f, NULL));
         PsxLight loaded = { 0 };
         loaded.nodes = NODES, loaded.tunnel = made.tunnel;
-        track_light_apply(&f.tweaks, &loaded);
+        track_light_apply(&f.tweaks, &loaded, 0, 0);
         PsxTunnelLook now;
         psx_light_tunnel_look(&loaded, tints[t], tints[t], 0, &now);
         CHECK(now.cast_on == was.cast_on && memcmp(now.cast, was.cast, sizeof now.cast) == 0 && memcmp(now.tint, was.tint, sizeof now.tint) == 0 && now.min_light == was.min_light);   /* bit for bit */
@@ -306,6 +305,124 @@ static void test_a_made_look_and_its_file_agree(void)
         free(text);
     }
     free(made.tunnel);
+}
+
+#define LAMP_HEAD "track CY1 time N nodes 40 flags 1\nrows 0 39 100 100 100 100 100 100 100 100 100 100 100\n"
+
+static int parse_lamp_lines(const char *lines, TrackLightFile *f, int *bad)
+{
+    char text[2048];
+    snprintf(text, sizeof text, "%s%s", LAMP_HEAD, lines);
+    return track_light_parse(text, strlen(text), "CY1", 'N', NODES, 0x2, f, bad);
+}
+
+/* `lamp <node> <light%> [RRGGBB[:strength]] [radius]` (and `farola`): the colour is optional (no colour is the warm street lamp), the radius is optional (PSX_LIGHT_LAMP_RADIUS) */
+static void test_lamp_lines_parse(void)
+{
+    TrackLightFile f = { 0 };
+    int bad = 0;
+    CHECK(parse_lamp_lines("lamp 10 80\nlamp 11 100 ff2000\nlamp 12 150 8\nfarola 13 30 00ff80:50 12\nlamp 14 100 ff2000 3\nlamp 17 100 ff2000:100\nlamp 18 100 ff2000:0\n", &f, &bad));
+    const TrackLightTweaks *t = &f.tweaks;
+    CHECK(t->lamp_count == 7);
+    CHECK(t->lamps[0].node == 10 && t->lamps[0].percent == 80 && !t->lamps[0].coloured && t->lamps[0].radius == PSX_LIGHT_LAMP_RADIUS);   /* no colour: warm; no radius: the default */
+    CHECK(t->lamps[1].coloured && t->lamps[1].strength == 100 && t->lamps[1].rgb[0] == 0xff && t->lamps[1].rgb[1] == 0x20 && t->lamps[1].rgb[2] == 0 && t->lamps[1].radius == PSX_LIGHT_LAMP_RADIUS);
+    CHECK(!t->lamps[2].coloured && t->lamps[2].radius == 8 && t->lamps[2].percent == 150);   /* a radius with no colour, above 100 percent */
+    CHECK(t->lamps[3].coloured && t->lamps[3].strength == 50 && t->lamps[3].radius == 12 && t->lamps[3].percent == 30);   /* the Spanish word, a colour with a strength */
+    CHECK(t->lamps[4].coloured && t->lamps[4].radius == 3 && t->lamps[5].strength == 100 && t->lamps[6].strength == 0);
+    track_light_file_free(&f);
+    /* bad lines: 0 percent or past the cap, no light, node past the track, a colour that is not hex, a strength past 100, a radius of 0 or 65, two radii, something after the radius, `lift` (gone) and the
+     * pool lines the lamp replaced */
+    const char *bads[] = { "lamp 10 0\n", "lamp 10 1001\n", "lamp 10\n", "lamp 40 50\n", "lamp 10 50 gg0000\n", "lamp 10 50 ff0000:101\n", "lamp 10 50 ff0000:\n", "lamp 10 50 ff0000x5\n", "lamp 10 50 0\n", "lamp 10 50 65\n",
+                           "lamp 10 50 5 6\n", "lamp 10 50 5 ff0000\n", "lamp 10 50 ff0000 5 7\n", "lamp 10 50 ff00000\n", "lamp x 50\n", "lamp 10 50 lift\n", "lamp 10 50 ff0000 lift\n",
+                           "pool 10 12 3\n", "car_pool 10 12 3\n", "present pool\n", "pozo 10 12 3\n" };
+    for (size_t i = 0; i < sizeof bads / sizeof *bads; i++) CHECK(!parse_lamp_lines(bads[i], &f, &bad) && bad == 3);
+}
+
+/* the falloff: full under the lamp, (1 - d / reach)^2, nothing at the reach and past it, smooth between */
+static void test_lamp_falloff(void)
+{
+    CHECK_EQ_INT(psx_light_lamp_falloff(0.0f, 30.0f) == 1.0f, 1);
+    CHECK_EQ_INT(psx_light_lamp_falloff(15.0f, 30.0f) == 0.25f, 1);
+    CHECK_EQ_INT(psx_light_lamp_falloff(30.0f, 30.0f) == 0.0f && psx_light_lamp_falloff(31.0f, 30.0f) == 0.0f, 1);
+    CHECK_EQ_INT(psx_light_lamp_falloff(5.0f, 0.0f) == 0.0f, 1);
+    float last = 2.0f;
+    for (int d = 0; d <= 30; d++) {   /* never rises, steps are small */
+        const float f = psx_light_lamp_falloff((float)d, 30.0f);
+        CHECK(f <= last && last - f < 0.1f + (d == 0 ? 2.0f : 0.0f));
+        last = f;
+    }
+}
+
+static int near_f(float a, float b) { return fabsf(a - b) < 1e-4f; }
+
+static PsxLight lamp_light(const char *lines, TrackLightFile *f, int lamps, int ring)
+{
+    CHECK(parse_lamp_lines(lines, f, NULL));
+    PsxLight l = { 0 };
+    l.nodes = NODES;
+    l.data = malloc((size_t)NODES * PSX_LIGHT_POINTS);
+    memset(l.data, 100, (size_t)NODES * PSX_LIGHT_POINTS);
+    l.pool_class = calloc(NODES, 1), l.car_pool = calloc(NODES, 1);   /* what the code made: a lamp line replaces it */
+    track_light_apply(&f->tweaks, &l, lamps, ring);
+    return l;
+}
+
+/* a lamp line is the light's lamp list (by node, the colour its strength): warm with no colour, the line's colour mixed toward warm by its strength; the old pools go; with the flag off or no lamp
+ * line nothing changes */
+static void test_lamp_apply(void)
+{
+    TrackLightFile f = { 0 };
+    PsxLight on = lamp_light("lamp 30 55 ff2000 3\nlamp 20 100\nlamp 25 200 ff0000:0\n", &f, 1, 0);
+    CHECK(on.lamps != NULL && on.lamp_n == 3 && on.lamp_reach_nodes == PSX_LIGHT_LAMP_RADIUS && !on.lamp_placed);
+    CHECK(on.lamps[0].node == 20 && on.lamps[1].node == 25 && on.lamps[2].node == 30);   /* by node */
+    CHECK(near_f(on.lamps[0].rgb[0], 1.0f) && near_f(on.lamps[0].rgb[1], 0.9f) && near_f(on.lamps[0].rgb[2], 0.55f));   /* the warm lamp at 100 percent */
+    CHECK(near_f(on.lamps[1].rgb[0], 2.0f) && near_f(on.lamps[1].rgb[1], 1.8f));   /* strength 0: the warm colour again, at 200 percent */
+    CHECK(on.lamps[2].rgb[0] > 0.54f && on.lamps[2].rgb[0] < 0.56f && on.lamps[2].rgb[1] < 0.2f && near_f(on.lamps[2].rgb[2], 0.0f));   /* a colour at 55 percent: red, little green */
+    CHECK(on.lamps[0].reach == (float)PSX_LIGHT_LAMP_RADIUS && on.lamps[2].reach == 3.0f);   /* nodes until it is placed */
+    CHECK(on.pool_class == NULL && on.car_pool == NULL);   /* the old pools are gone */
+    CHECK(memcmp(on.data + 20 * PSX_LIGHT_POINTS, on.data + 5 * PSX_LIGHT_POINTS, PSX_LIGHT_POINTS) == 0);   /* the rows are not touched at load */
+    psx_light_free(&on);
+    track_light_file_free(&f);
+    /* the port flag off: the lines are read and laid nowhere; the pools stay */
+    TrackLightFile off = { 0 };
+    PsxLight none = lamp_light("lamp 20 100 ff0000\n", &off, 0, 0);
+    CHECK(none.lamps == NULL && none.lamp_n == 0 && none.pool_class != NULL && none.car_pool != NULL);
+    psx_light_free(&none);
+    track_light_file_free(&off);
+    /* a file with no lamp line, the flag on: the light is the same as with it off */
+    TrackLightFile plain = { 0 };
+    PsxLight a = lamp_light("brightness 5 6 50\n", &plain, 1, 0), b = lamp_light("brightness 5 6 50\n", &plain, 0, 0);
+    CHECK(memcmp(a.data, b.data, (size_t)NODES * PSX_LIGHT_POINTS) == 0 && a.lamps == NULL && a.pool_class != NULL);
+    psx_light_free(&a), psx_light_free(&b);
+    track_light_file_free(&plain);
+}
+
+/* the export writes the street lamps as `lamp <node> 100` lines (there are no pool runs), and the file reads back as the lamp list */
+static void test_export_writes_lamps(void)
+{
+    PsxLight a = make();
+    const uint32_t lamps[] = { 22, 30, 3, 22, 99 };   /* a node twice and one past the track (a stage drops it) */
+    a.lamp_node = malloc(sizeof lamps), a.lamp_node_count = 5, a.lamp_ring = 0;
+    memcpy(a.lamp_node, lamps, sizeof lamps);
+    char *text = NULL;
+    size_t size = 0;
+    CHECK(track_light_format(&a, "CY1", 'N', 0x3fff, &text, &size));
+    CHECK(strstr(text, "\nlamp 3 100\nlamp 22 100\nlamp 30 100\n") != NULL && strstr(text, "pool") == NULL);   /* by node, once each */
+    TrackLightFile f = { 0 };
+    CHECK(track_light_parse(text, size, "CY1", 'N', NODES, 0x3fff, &f, NULL));
+    PsxLight b = f.light;
+    memset(&f.light, 0, sizeof f.light);
+    track_light_apply(&f.tweaks, &b, 1, 0);
+    CHECK(b.lamp_n == 3 && b.lamps[0].node == 3 && b.lamps[1].node == 22 && b.lamps[2].node == 30 && near_f(b.lamps[1].rgb[0], 1.0f));
+    CHECK(memcmp(b.data, a.data, (size_t)NODES * PSX_LIGHT_POINTS) == 0);   /* the rows are the file's: a lamp line lifts nothing at load */
+    free(text);
+    psx_light_free(&b);
+    track_light_file_free(&f);
+    psx_light_free(&a);
+    PsxLight none = make();   /* no lamps: no lines */
+    CHECK(track_light_format(&none, "CY1", 'N', 0x3fff, &text, &size) && strstr(text, "lamp") == NULL);
+    free(text);
+    psx_light_free(&none);
 }
 
 int main(void)
@@ -318,5 +435,9 @@ int main(void)
     test_header_and_bad_lines();
     test_tweaks_stay_with_other_flags();
     test_english_and_spanish_words_load_the_same();
+    test_lamp_lines_parse();
+    test_lamp_falloff();
+    test_lamp_apply();
+    test_export_writes_lamps();
     return TEST_REPORT();
 }

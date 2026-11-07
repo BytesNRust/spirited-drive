@@ -143,24 +143,34 @@ void psx_light_smooth(float *light, uint32_t count, int ring)
     free(copy);
 }
 
+void psx_light_add_lamp(uint8_t *data, uint32_t count, int ring, uint32_t lamp_node, int radius, int percent)
+{
+    if (data == NULL || count < 2 || radius < 1 || percent < 1 || (!ring && lamp_node >= count)) return;
+    const int64_t lamp = (int64_t)(lamp_node % count);
+    for (int d = -radius; d <= radius; d++) {
+        int64_t node = lamp + d;
+        if (ring) node = ((node % count) + count) % count;
+        else if (node < 0 || node >= count) continue;
+        const float r = (float)d / (float)(radius + 1), add = LAMP_POOL * ((float)percent / 100.0f) * (1.0f - r * r);
+        for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+            if (is_road_point(p)) continue;
+            uint8_t *at = &data[(uint32_t)node * PSX_LIGHT_POINTS + (uint32_t)p];
+            *at = psx_light_level((float)*at / (float)PSX_LIGHT_FULL + add);
+        }
+    }
+}
+
 void psx_light_add_lamps(uint8_t *data, uint32_t count, int ring, const uint32_t *lamp_nodes, int n)
 {
     if (data == NULL || lamp_nodes == NULL || count < 2) return;
-    for (int i = 0; i < n; i++) {
-        if (!ring && lamp_nodes[i] >= count) continue;
-        const int64_t lamp = (int64_t)(lamp_nodes[i] % count);
-        for (int d = -PSX_LIGHT_LAMP_REACH; d <= PSX_LIGHT_LAMP_REACH; d++) {
-            int64_t node = lamp + d;
-            if (ring) node = ((node % count) + count) % count;
-            else if (node < 0 || node >= count) continue;
-            const float r = (float)d / (float)(PSX_LIGHT_LAMP_REACH + 1), add = LAMP_POOL * (1.0f - r * r);
-            for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
-                if (is_road_point(p)) continue;
-                uint8_t *at = &data[(uint32_t)node * PSX_LIGHT_POINTS + (uint32_t)p];
-                *at = psx_light_level((float)*at / (float)PSX_LIGHT_FULL + add);
-            }
-        }
-    }
+    for (int i = 0; i < n; i++) psx_light_add_lamp(data, count, ring, lamp_nodes[i], PSX_LIGHT_LAMP_REACH, 100);
+}
+
+int psx_light_lamp_class_at(int distance, int radius, int percent)
+{
+    if (radius < 1 || percent < 1) return 0;
+    const float r = (float)distance / (float)(radius + 1), w = ((float)percent / 100.0f) * (1.0f - r * r);
+    return w >= 0.9f ? 4 : w >= 0.7f ? 3 : w >= 0.45f ? 2 : w >= 0.2f ? 1 : 0;
 }
 
 void psx_light_lamp_classes(uint8_t *out, uint32_t count, int ring, const uint32_t *lamp_nodes, int n)
@@ -174,8 +184,7 @@ void psx_light_lamp_classes(uint8_t *out, uint32_t count, int ring, const uint32
             int64_t node = lamp + d;
             if (ring) node = ((node % count) + count) % count;
             else if (node < 0 || node >= count) continue;
-            const float r = (float)d / (float)(PSX_LIGHT_LAMP_REACH + 1), w = 1.0f - r * r;
-            const uint8_t c = w >= 0.9f ? 4 : w >= 0.7f ? 3 : w >= 0.45f ? 2 : w >= 0.2f ? 1 : 0;
+            const uint8_t c = (uint8_t)psx_light_lamp_class_at(d, PSX_LIGHT_LAMP_REACH, 100);
             if (c > out[node]) out[node] = c;
         }
     }

@@ -596,96 +596,86 @@ rows 1013 1013 255 255 49 11 11 11 255 47 11 11 11
 rows 1014 1014 255 255 49 0 0 0 255 48 0 0 0
 rows 1015 1015 255 255 49 0 0 0 255 49 0 0 0
 rows 1016 1023 255 255 255 0 0 0 255 255 0 0 0
-present pool
-present car_pool
-pool 434 434 1
-pool 435 436 2
-pool 437 437 3
-pool 438 468 4
-pool 469 469 3
-pool 470 493 4
-pool 494 494 3
-pool 495 509 4
-pool 510 510 3
-pool 511 541 4
-pool 542 542 3
-pool 543 544 2
-pool 545 545 3
-pool 546 552 4
-pool 553 554 3
-pool 555 572 4
-pool 573 573 3
-pool 574 580 4
-pool 581 582 3
-pool 583 604 4
-pool 605 605 3
-pool 606 607 2
-pool 608 608 1
-pool 755 755 1
-pool 756 757 2
-pool 758 758 3
-pool 759 763 4
-pool 764 764 3
-pool 765 766 2
-pool 767 767 1
-pool 768 769 2
-pool 770 770 3
-pool 771 775 4
-pool 776 776 3
-pool 777 781 4
-pool 782 782 3
-pool 783 784 2
-pool 785 785 1
-pool 817 817 1
-pool 818 819 2
-pool 820 820 3
-pool 821 834 4
-pool 835 835 3
-pool 836 837 2
-pool 838 838 1
-car_pool 434 434 1
-car_pool 435 436 2
-car_pool 437 437 3
-car_pool 438 468 4
-car_pool 469 469 3
-car_pool 470 493 4
-car_pool 494 494 3
-car_pool 495 509 4
-car_pool 510 510 3
-car_pool 511 541 4
-car_pool 542 542 3
-car_pool 543 544 2
-car_pool 545 545 3
-car_pool 546 552 4
-car_pool 553 554 3
-car_pool 555 572 4
-car_pool 573 573 3
-car_pool 574 580 4
-car_pool 581 582 3
-car_pool 583 604 4
-car_pool 605 605 3
-car_pool 606 607 2
-car_pool 608 608 1
-car_pool 755 755 1
-car_pool 756 757 2
-car_pool 758 758 3
-car_pool 759 763 4
-car_pool 764 764 3
-car_pool 765 766 2
-car_pool 767 767 1
-car_pool 768 769 2
-car_pool 770 770 3
-car_pool 771 775 4
-car_pool 776 776 3
-car_pool 777 781 4
-car_pool 782 782 3
-car_pool 783 784 2
-car_pool 785 785 1
-car_pool 817 817 1
-car_pool 818 819 2
-car_pool 820 820 3
-car_pool 821 834 4
-car_pool 835 835 3
-car_pool 836 837 2
-car_pool 838 838 1
+lamp 440 100
+lamp 442 100
+lamp 444 100
+lamp 446 100
+lamp 449 100
+lamp 451 100
+lamp 452 100
+lamp 453 100
+lamp 454 100
+lamp 455 100
+lamp 456 100
+lamp 457 100
+lamp 458 100
+lamp 459 100
+lamp 460 100
+lamp 462 100
+lamp 464 100
+lamp 466 100
+lamp 472 100
+lamp 473 100
+lamp 474 100
+lamp 475 100
+lamp 477 100
+lamp 479 100
+lamp 481 100
+lamp 483 100
+lamp 484 100
+lamp 486 100
+lamp 489 100
+lamp 491 100
+lamp 497 100
+lamp 499 100
+lamp 501 100
+lamp 503 100
+lamp 505 100
+lamp 507 100
+lamp 513 100
+lamp 515 100
+lamp 520 100
+lamp 523 100
+lamp 524 100
+lamp 526 100
+lamp 528 100
+lamp 530 100
+lamp 532 100
+lamp 535 100
+lamp 537 100
+lamp 538 100
+lamp 539 100
+lamp 548 100
+lamp 549 100
+lamp 550 100
+lamp 557 100
+lamp 559 100
+lamp 560 100
+lamp 562 100
+lamp 563 100
+lamp 564 100
+lamp 565 100
+lamp 566 100
+lamp 567 100
+lamp 568 100
+lamp 570 100
+lamp 576 100
+lamp 578 100
+lamp 585 100
+lamp 586 100
+lamp 588 100
+lamp 591 100
+lamp 596 100
+lamp 598 100
+lamp 600 100
+lamp 602 100
+lamp 761 100
+lamp 773 100
+lamp 779 100
+lamp 823 100
+lamp 824 100
+lamp 827 100
+lamp 828 100
+lamp 830 100
+lamp 832 100
 tunnel_tone 60 1/0.8/0.15

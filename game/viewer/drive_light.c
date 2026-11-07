@@ -15,12 +15,15 @@
 #include "game/race/psx_light_make.h"
 #include "game/race/psx_light_synth.h"
 #include "game/race/track_light_file.h"
+#include "game/race/track_geometry.h"
+#include "game/race/track_objects.h"
 #include "game/sys/reverse_track.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -448,6 +451,8 @@ static void lamp_pool_classes(const Tri *tri, PsxLight *made, const uint32_t *la
         made->car_pool = malloc(made->nodes);
         if (made->car_pool != NULL) psx_light_lamp_classes(made->car_pool, made->nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
     }
+    made->lamp_node = lamps > 0 ? malloc(lamps * sizeof *made->lamp_node) : NULL;   /* port (track light file): the lamps' nodes, which the export writes as `lamp` lines in place of the pools' runs */
+    if (made->lamp_node != NULL) memcpy(made->lamp_node, lamp_nodes, lamps * sizeof *made->lamp_node), made->lamp_node_count = (int)lamps, made->lamp_ring = tri_is_circuit(tri);
 }
 
 /* port (trans_shadows): the parking's deck roofs nodes 465..470 too: the interior shade of its marked run, the hall's points beyond the foot kept as the hall keeps them */
@@ -571,6 +576,76 @@ static void warm_looks(PsxLight *made)
         (void)psx_light_synth_warm_look(made->city_tunnel, dark, made->warm_cast[dark], &made->warm_percent[dark]);
 }
 
+static void bake_lamps(const Tri *tri, PsxLight *made);
+
+/* port (`lamp`): where each of the file's lamps stands in the world, in metres. A lamp line that matches a street lamp post (a scenery of the lamp boards at its node) is where the post is; else it is at
+ * the node's centre. The reach, which the file gives in nodes, becomes metres by the road's own spacing there. */
+static void place_lamps(const Tri *tri, PsxLight *made)
+{
+    if (made->lamps == NULL || made->lamp_n <= 0 || made->lamp_placed || tri == NULL || tri->node_count == 0) return;
+    uint8_t *post = calloc((size_t)made->lamp_n, 1);
+    if (post == NULL) return;
+    for (int i = 0; i < made->lamp_n; i++) {
+        PsxLightLamp *const l = &made->lamps[i];
+        TriNode here, next;
+        if (tri_node(tri, l->node % tri->node_count, &here) != TRI_OK || tri_node(tri, (l->node + 1) % tri->node_count, &next) != TRI_OK) continue;
+        const double dx = (next.position.x - here.position.x) / 65536.0, dz = (next.position.z - here.position.z) / 65536.0;
+        l->x = (float)(here.position.x / 65536.0), l->z = (float)(here.position.z / 65536.0);
+        l->reach *= (float)sqrt(dx * dx + dz * dz);
+    }
+    for (uint32_t s = 0; street_lamp_on && s < tri->scenery_count; s++) {
+        TrackObject o;
+        if (track_object(tri, s, &o) != TRI_OK || (o.descriptor.type != TRACK_OBJECT_BILLBOARD && o.descriptor.type != TRACK_OBJECT_TWO_SIDED)) continue;
+        int board = 0;
+        for (int j = 0; j < street_lamp_count && !board; j++) board = o.descriptor.resource_id / 4 == street_lamps[j].scenery;
+        for (int i = 0; board && i < made->lamp_n; i++)
+            if (!post[i] && made->lamps[i].node == o.node) post[i] = 1, made->lamps[i].x = (float)(o.origin.x / 65536.0), made->lamps[i].z = (float)(o.origin.z / 65536.0);
+    }
+    free(post);
+    made->lamp_placed = 1;
+    bake_lamps(tri, made);
+    port_log("lamps: %d placed (first node %u at %.1f, %.1f, reach %.1f m)\n", made->lamp_n, made->lamps[0].node, made->lamps[0].x, made->lamps[0].z, made->lamps[0].reach);
+}
+
+/* port (`lamp`): the lamps' light baked into the light rows at load: every row point within a lamp's reach takes LAMP_BAKE x the lamp's strength x its falloff at the point's place in the world more
+ * light (to full), so the light the polygons interpolate between their corners is the pool, at no cost a frame. TNFS_LAMP_BAKE=0 leaves the rows alone (the lamps' colour and the car's light stay). */
+static void bake_lamps(const Tri *tri, PsxLight *made)
+{
+    const char *env = getenv("TNFS_LAMP_BAKE");
+    if (made->data == NULL || (env != NULL && env[0] == '0') || made->nodes != tri->node_count) {
+        port_log("lamps: not baked (data %d, env %d, nodes %u of %u)\n", made->data != NULL, env != NULL, made->nodes, tri->node_count);
+        return;
+    }
+    unsigned lifted_cells = 0;
+    free(made->lamp_lift);
+    made->lamp_lift = calloc((size_t)made->nodes * PSX_LIGHT_POINTS, 1);
+    if (made->lamp_lift == NULL) return;
+    for (int i = 0; i < made->lamp_n; i++) {
+        const PsxLightLamp *const l = &made->lamps[i];
+        const float strength = fmaxf(l->rgb[0], fmaxf(l->rgb[1], l->rgb[2]));
+        const int span = made->lamp_reach_nodes + 1;
+        for (int d = -span; d <= span; d++) {
+            int64_t node = (int64_t)l->node + d;
+            if (made->lamp_ring) node = ((node % made->nodes) + made->nodes) % made->nodes;
+            else if (node < 0 || node >= made->nodes) continue;
+            TrackSegment segment;
+            if (track_decode_segment(tri, (uint32_t)node / TRI_NODES_PER_SEGMENT, &segment) != TRI_OK) continue;
+            for (int p = 0; p < TRACK_ROW_POINTS; p++) {
+                const TrackPoint at = segment.rows[node % TRI_NODES_PER_SEGMENT][p];
+                const double dx = at.x / 65536.0 - l->x, dz = at.z / 65536.0 - l->z;
+                const float lift = LAMP_BAKE * strength * psx_light_lamp_falloff((float)sqrt(dx * dx + dz * dz), l->reach);
+                const size_t cell = (size_t)node * PSX_LIGHT_POINTS + (size_t)p;
+                const int weight = (int)(255.0f * (lift > 1.0f ? 1.0f : lift) + 0.5f), sum = made->lamp_lift[cell] + weight;
+                if (weight == 0) continue;
+                made->lamp_lift[cell] = (uint8_t)(sum > 255 ? 255 : sum);
+                made->data[cell] = (uint8_t)(made->data[cell] + (PSX_LIGHT_FULL - made->data[cell]) * weight / 255);
+                lifted_cells++;
+            }
+        }
+    }
+    port_log("lamps: baked into %u row points\n", lifted_cells);
+}
+
 /* port (track_light_file): the light data/track_light/<TRACK><letter>.txt holds for this track, time and flags, else the one made from the terrain (make_light_code); the file's retouches
  * (brightness, tunnel look) and the track's own rules go over either. TNFS_EXPORT_TRACK_LIGHT=<dir> writes the made light as such a file (tools/export_track_light.sh);
  * TNFS_TRACK_LIGHT_FILE=0 makes it in code as before, ignoring the files. */
@@ -645,7 +720,10 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
             }
         }
     }
-    if (have) track_light_apply(&file.tweaks, &made);   /* a file's own retouches (the code's light has none) */
+    if (have) {
+        track_light_apply(&file.tweaks, &made, port_track_light_lamp() && light_letter == 'N', tri_is_circuit(tri));   /* a file's own retouches (the code's light has none); its `lamp` lines with track_light_lamp, at night only: the lamps do nothing in the dawn, day and dusk files */
+        place_lamps(tri, &made);
+    }
     track_light_file_free(&file);
     apply_rules_file(track, &made);
     *out = made;
@@ -763,6 +841,16 @@ int drive_light_edit_lines(uint32_t node, char lines[][96], int max)
     if (n < max) {   /* port (weather_zones): what the rain, fog and lightning make of this node */
         const int open = ported_view_weather_open(node);
         snprintf(lines[n++], 96, "weather: %s %d/16", open >= 16 ? "open" : "closed", open);
+    }
+    if (n < max) {   /* port (`lamp`): the street lamp of the stretch (the nearest within its reach) */
+        const PsxLightLamp *near = NULL;
+        for (int i = 0; i < light.lamp_n; i++) {
+            const int d = (int)light.lamps[i].node - (int)node;
+            if ((d < 0 ? -d : d) <= light.lamp_reach_nodes && (near == NULL || (d < 0 ? -d : d) < abs((int)near->node - (int)node))) near = &light.lamps[i];
+        }
+        if (light_letter != 'N') snprintf(lines[n++], 96, "lamp: off (dawn/day/dusk)");
+        else if (near == NULL) snprintf(lines[n++], 96, "street lamp: none");
+        else snprintf(lines[n++], 96, "street lamp: node %u, light %.0f%% (colour %.2f %.2f %.2f), reach %.0f m", near->node, 100.0f * fmaxf(near->rgb[0], fmaxf(near->rgb[1], near->rgb[2])), near->rgb[0], near->rgb[1], near->rgb[2], near->reach);
     }
     if (light.tone_id != NULL && light.tone_id[node] > 0 && light.tone_id[node] <= light.tone_count && n < max) {   /* the scene tone of the stretch (`tone`) */
         const PsxLightTone *t = &light.tone[light.tone_id[node] - 1];

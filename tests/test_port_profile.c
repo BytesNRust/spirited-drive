@@ -113,6 +113,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.tach_dim, 0);
     CHECK_EQ_INT(s.gauge_wheel, 0);
     CHECK_EQ_INT(s.police_glow, 0);
+    CHECK_EQ_INT(s.track_light_lamp, 0);   /* the exe's: no lamp lines */
     CHECK_EQ_INT(s.night_tone, 0);   /* the exe's fallback night, in Stock and Restored */
     CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift + s.headlight_cone + s.rain_fx + s.rain_grip + s.gauge_light, 0);
     s = port_profile_settings(PROFILE_RESTORED, base, SCREEN_16_9);
@@ -133,6 +134,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.tach_dim, 0);
     CHECK_EQ_INT(s.gauge_wheel, 0);
     CHECK_EQ_INT(s.police_glow, 0);
+    CHECK_EQ_INT(s.track_light_lamp, 0);   /* the exe's: no lamp lines */
     CHECK_EQ_INT(s.night_tone, 0);   /* the exe's fallback night, in Stock and Restored */
     CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift + s.headlight_cone + s.rain_fx + s.rain_grip + s.gauge_light, 0);
     s = port_profile_settings(PROFILE_RESTOMOD, base, SCREEN_21_9);
@@ -163,6 +165,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.gauge_light, 5);   /* the owner: the dash's own colours ("Car") are Restomod's default; orange where the car paints none */
     CHECK_EQ_INT(s.police_halo, 1);   /* the owner: one size under the 2 he tried */
     CHECK_EQ_INT(s.rain_v2, 1);   /* the owner: the lighter rain, the storm's thunder, the carriageway reflections */
+    CHECK_EQ_INT(s.track_light_lamp, 1);   /* the lamp lines of the track light files */
     CHECK_EQ_INT(s.shoulder_light, 1);   /* the third lane and the shoulders lit like the road */
     CHECK_EQ_INT(s.finish_gate_light, 1);   /* the owner: the gates are OK (the current tint, not the neutral one) */
     CHECK_EQ_INT(s.lamp_pool_bright, 1);   /* the owner approved the stronger lamp pools: Restomod's default (Stock and Restored keep 0) */

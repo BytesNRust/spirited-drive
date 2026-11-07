@@ -81,6 +81,7 @@ typedef struct {
     int traffic_halo;    /* with the PS1 flares at night, the traffic's lit headlights and brake lights get their halo as the racers' do (the port draws it only for the racers and the police car); 0 as now */
     int police_halo;    /* the police car's roof lights' halo size: 0 the port's now, 1..3 progressively bigger, near and far */
     int rain_v2;        /* 1: the rain is lighter (half the streaks), the storm is the old rain a little heavier with thunder after each lightning, the wet road's lamp reflections stay on the carriageway, the streaks fall from higher, and the traffic's and police's spray wisp is longer with a minimum at any speed; 0: as it was */
+    int track_light_lamp; /* 1: a `lamp` line of a track light file (a street lamp's pool by node, brightness, colour and radius, with the car's light) is read; 0: such lines are ignored, the file's pools are the only lamps (track_light_file.h) */
     int shoulder_light; /* 1: at night with the headlights, the shoulder's far edge (rows' points 2 and 7) takes at least the road's own light before the beam and the lamps scale it, so the shoulder and a third lane that lives out there are lit like the road (the made light leaves them near black, and the beam only scales the row's light); 0: as it was */
     int analog_pad;    /* 1: a control bound to an axis (a pad's stick or trigger, a wheel, pedals) steers and works the pedals in proportion, one bound to a key or button keeps its full lock and full pedal (analog_pad.h); 0 the exe's key paths */
     int sign_glow;         /* 1: at night, with the PS1 headlights, the City's matrix sign (CY1: EXPRESS LANES CLOSED) has its amber bulbs lit like the windows (window_lights.h); 0 the exe's */
@@ -238,6 +239,9 @@ int port_analog_pad(void);
 int port_rain_v2(void);
 /* 1 when shoulder_light: TNFS_SHOULDER_LIGHT=0..1 when set, else the mode's. */
 int port_shoulder_light(void);
+
+/* 1 when track_light_lamp: TNFS_TRACK_LIGHT_LAMP=0..1 when set, else the mode's. */
+int port_track_light_lamp(void);
 
 /* the police roof halo's size 0..3: TNFS_POLICE_HALO=0..3 when set, else the mode's. */
 int port_police_halo(void);

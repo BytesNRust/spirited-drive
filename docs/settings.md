@@ -79,6 +79,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `analog_pad` | 0 | 0 | 0, 1 (a control bound to an axis (pad stick or trigger, wheel, pedals) steers and works the pedals in proportion, a key or button keeps full travel; 0 the exe's key paths) | none | `TNFS_ANALOG_PAD` | 1 / 1 / 1 | a game controller |
 | `rain_v2` | 0 | 0 | 0, 1 (with `weather=rain` the rain has half the streaks, with `weather=storm` it has the old rain's count plus a quarter, with thunder after each lightning (0.5 to 4 s later, quieter the later; the sample is `data/sounds/thunder.wav`, CC0 by WuxiaScrub, see `data/sounds/LICENSES.md`), the streaks fall from higher, the wet road's lamp reflections show on the carriageway only, and the traffic's and police's spray wisp is a little longer and never gone at low speed; 0 as before) | none | `TNFS_RAIN_V2` | 0 / 0 / 1 | `weather=rain` or `storm`, `rain_fx` |
 | `shoulder_light` | 0 | 0 | 0, 1 (at night with the headlights the shoulder's far edge takes at least the road's light before the beam and the lamps scale it: the shoulder and a third lane out there are lit like the road, not left near black; 0 as before) | none | `TNFS_SHOULDER_LIGHT` | 0 / 0 / 1 | `psx_headlights` |
+| `track_light_lamp` | 0 | 0 | 0, 1 (a `lamp` line of a track light file adds light round its post, in the colour, strength and radius the line says, to the road, the walls and the car; 0 the line is ignored) | none | `TNFS_TRACK_LIGHT_LAMP` | 0 / 0 / 1 | Restomod '26's track light files |
 | `police_halo` | 0 | 0 | 0..3 (the police roof lights' halo size: 0 as now, 1..3 progressively bigger (near and far)) | none | `TNFS_POLICE_HALO` | 0 / 0 / 1 | `police_glow`, `psx_flares` |
 | `traffic_halo` | 0 | 0 | 0..1 (at night the traffic's lit lamps get a halo as the racers' do; 0 as now) | none | `TNFS_TRAFFIC_HALO` | 0 / 0 / 0 | `psx_flares`, night |
 | `rally_dry_lamps` | 0 | 0 | 0..1 (in a rally (dirt) race in rain the cars' lamps are not reflected in the road, as dirt is no mirror; 0 the exe's wet-asphalt reflections) | none | `TNFS_RALLY_DRY_LAMPS` | 0 / 0 / 0 | `weather=rain`, `rain_fx`, a rally race |
@@ -227,6 +228,7 @@ All 64 columns of the table, in file order. A column that is not here is not tou
 | `police_halo` | settings | 0 | 0 | 1 |
 | `rain_v2` | settings | 0 | 0 | 1 |
 | `shoulder_light` | settings | 0 | 0 | 1 |
+| `track_light_lamp` | settings | 0 | 0 | 1 |
 | `traffic_halo` | settings | 0 | 0 | 0 |
 | `rally_dry_lamps` | settings | 0 | 0 | 0 |
 | `traffic_spray` | settings | 0 | 0 | 0 |

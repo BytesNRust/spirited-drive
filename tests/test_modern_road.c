@@ -297,8 +297,31 @@ static void test_lit_darkness_out_of_range(void)
     CHECK(memcmp(level0, screen, sizeof level0) == 0);
 }
 
+/* port (`lamp`): the tables with a colour added brighten toward it and never darken what the plain tables give; a zero add is the plain tables */
+static void test_light_tables_add(void)
+{
+    uint8_t palette[768];
+    for (int i = 0; i < 256; i++) palette[3 * i] = (uint8_t)i, palette[3 * i + 1] = (uint8_t)(i / 2), palette[3 * i + 2] = (uint8_t)(i / 4);
+    static uint8_t plain[MODERN_FOG_LEVELS][256], zero[MODERN_FOG_LEVELS][256], red[MODERN_FOG_LEVELS][256];
+    const float tint[3] = { 0.6f, 0.6f, 0.7f }, none[3] = { 0, 0, 0 }, add[3] = { 60, 0, 0 };
+    modern_light_tables(palette, tint, plain);
+    modern_light_tables_add(palette, tint, none, zero);
+    modern_light_tables_add(palette, tint, add, red);
+    CHECK(memcmp(plain, zero, sizeof plain) == 0);
+    int brighter = 0, darker = 0;
+    for (int l = 0; l < MODERN_FOG_LEVELS; l++)
+        for (int c = 0; c < 0xfe; c++) {
+            const int a = plain[l][c], b = red[l][c];
+            const int sa = palette[3 * a] + palette[3 * a + 1] + palette[3 * a + 2], sb = palette[3 * b] + palette[3 * b + 1] + palette[3 * b + 2];
+            brighter += sb > sa, darker += sb < sa;
+        }
+    CHECK(brighter > 0 && darker == 0);
+    CHECK(red[0][0xfe] == 0xfe && red[0][0xff] == 0xff);   /* the shadow and see-through marks stay */
+}
+
 int main(void)
 {
+    test_light_tables_add();
     test_lit_warm();
     test_lit_darkness_out_of_range();
     test_t_junction_covered();
