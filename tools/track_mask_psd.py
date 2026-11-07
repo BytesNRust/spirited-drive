@@ -7,7 +7,8 @@ Each texture becomes one PSD at its native size, 8-bit RGB, with three layers:
   draft    hidden, over the mask: a first guess (tools/track_mask_auto.py), white where it thinks the texture is reflective. Copy it into `mask` or touch it up; it is never read.
 tools/track_mask_from_psd.py reads the mask layer back into data/track_masks/<TRACK>/<name>.png (and nothing else).
 
-usage: track_mask_psd.py <drafts dir> <output dir> [--png <dir>]
+usage: track_mask_psd.py <drafts dir> <output dir> [--png <dir>] [--all]
+By default a track with a list of candidates (track_mask_auto.CANDIDATES: the road textures and boards worth painting) gets PSDs of those only; --all writes every texture. A track with no list gets all.
 --png also writes each guess as <dir>/<TRACK>/<name>.png (white reflective, black not: the format the game reads), to try the masks without painting. They are for trying only.
 <drafts dir>/<TRACK>/slot_<NN>.rgb.png (a road texture slot) and scenery_<NN>.rgb.png (a scenery board) come from track_mask_draft (the game's pixels: they stay out of the
 repository). Writes <output dir>/<TRACK>/<name>.psd. Needs Pillow; reuses car_mask_psd.py's writer (no other dependency).
@@ -39,6 +40,8 @@ def write_track_psd(path, rgba, draft=None):
 
 def main(argv):
     png_dir = None
+    every = "--all" in argv
+    argv = [a for a in argv if a != "--all"]
     if len(argv) == 5 and argv[3] == "--png":
         png_dir = argv[4]
         argv = argv[:3]
@@ -56,6 +59,8 @@ def main(argv):
             if not name.endswith(".rgb.png"):
                 continue
             stem = name[: -len(".rgb.png")]
+            if not every and not _auto.is_candidate(track, stem):
+                continue
             path = os.path.join(out_dir, track, stem + ".psd")
             texture = Image.open(os.path.join(folder, name))
             guess = _auto.auto_mask(stem, texture)

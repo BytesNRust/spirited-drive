@@ -108,6 +108,16 @@ for y in range(16):
 post.putpixel((1, 3), (230, 140, 40, 255))
 m = auto.auto_mask("scenery_18", post)
 check("post: the stripe", (m.getpixel((1, 3)), m.getpixel((2, 8))), (255, 0))
+# a palm's crown (31 x 127: green leaves with dark gaps) is no sign: nothing marked, whatever is dark in it
+palm = _Image.new("RGBA", (31, 127), (0, 0, 0, 0))
+for y in range(60):
+    for x in range(31):
+        palm.putpixel((x, y), (20, 90, 30, 255) if (x + y) % 3 else (8, 12, 8, 255))   # leaves and dark gaps
+check("a palm's crown is not a sign", auto.auto_mask("scenery_15", palm).getbbox(), None)
+check("the candidates of CL1: a listed road slot and board", (auto.is_candidate("CL1", "slot_06"), auto.is_candidate("CL1", "scenery_18")), (True, True))
+check("the candidates of CL1: a palm, a tree and an unlisted slot are not", (auto.is_candidate("CL1", "scenery_15"), auto.is_candidate("CL1", "scenery_14"), auto.is_candidate("CL1", "slot_12")), (False, False, False))
+check("a track with no list: everything is", (auto.is_candidate("TR9", "scenery_15"), auto.is_candidate("TR9", "slot_12")), (True, True))
+check("junk names are not candidates", (auto.is_candidate("CL1", "scenery_x"), auto.is_candidate("CL1", "thing_03")), (False, False))
 check("transparent is never reflective", auto.auto_mask("scenery_09", _Image.new("RGBA", (53, 127), (0, 0, 0, 0))).getbbox(), None)
 
 with tempfile.TemporaryDirectory() as tmp:
@@ -130,6 +140,17 @@ with tempfile.TemporaryDirectory() as tmp:
     check("main writes one PSD", writer.main(["x", drafts, out, "--png", pngs]), 0)
     check("the PSD is named by the texture", sorted(os.listdir(os.path.join(out, "CL1"))), ["scenery_02.psd"])
     check("--png writes the guess under the same name", sorted(os.listdir(os.path.join(pngs, "CL1"))), ["scenery_02.png"])
+    # the default writes the track's candidates only; --all writes every texture
+    texture.save(os.path.join(drafts, "CL1", "scenery_15.rgb.png"))
+    os.makedirs(os.path.join(drafts, "TR9"))
+    texture.save(os.path.join(drafts, "TR9", "scenery_15.rgb.png"))
+    out2 = os.path.join(tmp, "psds2")
+    check("main by default", writer.main(["x", drafts, out2]), 0)
+    check("default: CL1 only its candidates", sorted(os.listdir(os.path.join(out2, "CL1"))), ["scenery_02.psd"])
+    check("default: a track with no list gets all", sorted(os.listdir(os.path.join(out2, "TR9"))), ["scenery_15.psd"])
+    out3 = os.path.join(tmp, "psds3")
+    check("main --all", writer.main(["x", drafts, out3, "--all"]), 0)
+    check("--all: CL1 every texture", sorted(os.listdir(os.path.join(out3, "CL1"))), ["scenery_02.psd", "scenery_15.psd"])
     check("the guess PNG is the texture's size, grey", (Image.open(os.path.join(pngs, "CL1", "scenery_02.png")).size, Image.open(os.path.join(pngs, "CL1", "scenery_02.png")).mode), ((6, 4), "L"))
 print("test_track_mask_psd: %d failures" % failures)
 sys.exit(1 if failures else 0)
