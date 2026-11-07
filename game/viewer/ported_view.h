@@ -145,11 +145,6 @@ typedef struct {
     int32_t roll;
 } PortedCamera;
 
-/* The track from `cam`, with the car (set by ported_view_set_car) at `pose`
- * drawn with the row of `car_node`; car_node -1 leaves it out. */
-void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *cam,
-                             const CarPose *pose, int32_t car_node, uint8_t *pixels);
-
 /* 0043f540's cache and list part: the segment cache's window and the point
  * list follow the camera as in the race loop, which runs it every frame (the
  * headless ticks too). Returns the renderer whose cache (005041d8) and
