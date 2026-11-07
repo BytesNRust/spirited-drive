@@ -48,6 +48,16 @@ void race_menu_keys(const RaceMenuKeysOps *ops, const RaceMenuKeysInputs *in, Ra
 {
     if (in->tick < KEYS_RESET_BEFORE) st->pending = 0, st->last = 0;
     const int16_t next = (int16_t)(frame + 1);
+    if (st->port_menu_after_pause) {
+        st->port_menu_after_pause = 0;
+        if (in->phase == PHASE_RACING && in->playback == 0 && in->replay == 0 && st->pending == 0) {
+            st->last = in->tick;
+            ops->set(ops->ctx, next, RACE_SCHEDULE_MENU, 1);
+            st->pending = 1;
+            if (in->detail < 3) ops->detail(ops->ctx, DETAIL_SEGMENTS[in->detail]);
+            return;
+        }
+    }
     if (in->esc == 0) st->port_esc_up_wait = 0;
     if (in->esc != 0 && st->port_esc_up_wait == 0 && in->phase == PHASE_RACING && in->tick > KEYS_AFTER && st->pending == 0) {
         if (in->playback != 0 && (in->lshift != 0 || in->rshift != 0)) {
@@ -110,7 +120,9 @@ void race_pause(const RacePauseOps *ops, const RacePauseInputs *in, RaceMenuKeys
     ops->voices_off(ops->ctx);
     ops->end_43cbcc(ops->ctx);
     pause_while_down(ops, in);
-    while (in->pause == 0) pause_serve(ops, in);
+    const int esc_opens_menu = in->port_resume_keys != 0;
+    while (in->pause == 0 && !(esc_opens_menu && in->esc != 0)) pause_serve(ops, in);
+    const int left_by_esc = esc_opens_menu && in->pause == 0;
     ops->hud_clear(ops->ctx);
     ops->take(ops->ctx, in->follow_kind);
     pause_while_down(ops, in);
@@ -124,6 +136,7 @@ void race_pause(const RacePauseOps *ops, const RacePauseInputs *in, RaceMenuKeys
     st->last = in->port_resume_keys ? 0 : in->tick;
     st->port_esc_up_wait = in->port_resume_keys != 0;
     st->port_pause_up_wait = in->port_resume_keys != 0;
+    st->port_menu_after_pause = left_by_esc;
     ops->setup_43cbe0(ops->ctx);
     *loading = 0;
 }

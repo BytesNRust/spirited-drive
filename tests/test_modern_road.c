@@ -6,6 +6,7 @@
 #include "test.h"
 
 #include <stdlib.h>
+#include <math.h>
 #include <string.h>
 
 enum { W = 640, H = 480, TEX = 256, UNTOUCHED = 3 };
@@ -222,7 +223,7 @@ static void draw_lit(const View *view, const QuadTarget *q, const FshEntry *t, c
     memcpy(c, corners, sizeof c);
     const int32_t *const cam[4] = { c[0], c[1], c[2], c[3] };
     const int32_t uv[8] = { 0, 255 << 16, 255 << 16, 255 << 16, 255 << 16, 0, 0, 0 };
-    modern_road_cell_lit_warm(q, view, t, uv, cam, 0, lit_tab, dark, heat != NULL ? warm_tab : NULL, heat);
+    modern_road_cell_lit_warm(q, view, t, uv, cam, 0, lit_tab, dark, heat != NULL ? warm_tab : NULL, heat, 0);
 }
 
 static void test_lit_warm(void)
@@ -263,9 +264,127 @@ static void test_lit_warm(void)
     CHECK(memcmp(screen, whole, sizeof whole) == 0);
 }
 
+/* port (`lamp`, steps): with steps the pool grades in even steps, no dither: a cell of one warmth s / steps is the step s block drawn whole (what the full dither of that block gives), a ramp takes
+ * each pixel from the lit tables or one of the blocks and the four-pixel path and the scalar tail agree */
+static uint8_t step_tab[3][16][256];
+
+static void draw_steps(const View *view, const QuadTarget *q, const FshEntry *t, const float dark[4], const uint8_t (*warm)[256], const float heat[4], int steps)
+{
+    static int32_t c[4][3];
+    const int32_t corners[4][3] = { { -20, -10, 200 }, { 20, -10, 200 }, { 20, -10, 20 }, { -20, -10, 20 } };
+    memcpy(c, corners, sizeof c);
+    const int32_t *const cam[4] = { c[0], c[1], c[2], c[3] };
+    const int32_t uv[8] = { 0, 255 << 16, 255 << 16, 255 << 16, 255 << 16, 0, 0, 0 };
+    modern_road_cell_lit_warm(q, view, t, uv, cam, 0, lit_tab, dark, warm, heat, steps);
+}
+
+static void test_lit_steps(void)
+{
+    for (int l = 0; l < 16; l++)
+        for (int c = 0; c < 256; c++) {
+            lit_tab[l][c] = (uint8_t)((c + l) % 200);
+            for (int s = 0; s < 3; s++) step_tab[s][l][c] = (uint8_t)((c + l + 40 * (s + 1)) % 200);
+        }
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    const FshEntry t = texture();
+    static uint8_t lit_only[W * H], blocks[3][W * H], ramp_px[W * H], scalar[W * H];
+    const float dark[4] = { 2.0f, 9.0f, 9.0f, 2.0f }, ramp[4] = { 0.1f, 0.95f, 0.95f, 0.1f };
+    QuadTarget q = { screen, W, 0, 0, W, H };
+    memset(screen, UNTOUCHED, sizeof screen);
+    draw_lit(&view, &q, &t, dark, NULL), memcpy(lit_only, screen, sizeof lit_only);
+    for (int s = 0; s < 3; s++) {   /* a uniform warmth s / 3 is block s whole */
+        const float h = (float)(s + 1) / 3.0f, uniform[4] = { h, h, h, h }, full[4] = { 1, 1, 1, 1 };
+        memset(screen, UNTOUCHED, sizeof screen);
+        draw_steps(&view, &q, &t, dark, step_tab[0], uniform, 3), memcpy(blocks[s], screen, sizeof blocks[s]);
+        static uint8_t ref[W * H];
+        memset(screen, UNTOUCHED, sizeof screen);
+        draw_steps(&view, &q, &t, dark, step_tab[s], full, 0), memcpy(ref, screen, sizeof ref);
+        CHECK(memcmp(blocks[s], ref, sizeof ref) == 0);
+    }
+    memset(screen, UNTOUCHED, sizeof screen);
+    draw_steps(&view, &q, &t, dark, step_tab[0], ramp, 3), memcpy(ramp_px, screen, sizeof ramp_px);
+    int seen[4] = { 0, 0, 0, 0 }, stray = 0;   /* every pixel is the lit tables' or a block's; all four are in use on the ramp */
+    for (int i = 0; i < W * H; i++) {
+        if (ramp_px[i] == UNTOUCHED) continue;
+        const int is_lit = ramp_px[i] == lit_only[i];
+        int hit = is_lit;
+        seen[0] += is_lit;
+        for (int s = 0; s < 3; s++) seen[s + 1] += ramp_px[i] == blocks[s][i], hit |= ramp_px[i] == blocks[s][i];
+        stray += !hit;
+    }
+    CHECK_EQ_INT(stray, 0);
+    CHECK(seen[0] > 100 && seen[1] > 100 && seen[2] > 100 && seen[3] > 100);
+    memset(screen, UNTOUCHED, sizeof screen);
+    for (int x = 0; x < W; x++) {
+        q.clip_left = x, q.clip_right = x + 1;
+        draw_steps(&view, &q, &t, dark, step_tab[0], ramp, 3);
+    }
+    memcpy(scalar, screen, sizeof scalar);
+    CHECK(memcmp(scalar, ramp_px, sizeof scalar) == 0);
+}
+
+/* a darkness out of the int range (an extrapolated pixel of a polygon that reaches behind the camera: lz * r with r = 1 / IZ_MIN) is level 0 on every path: the four-pixel path (the
+ * truncating convert gives the lowest int) and the scalar tail (it was a float to int overflow, undefined; UBSan: "3.38e9 is outside the range of type int") */
+static void test_lit_darkness_out_of_range(void)
+{
+    for (int l = 0; l < 16; l++)
+        for (int c = 0; c < 256; c++) lit_tab[l][c] = (uint8_t)((c + l) % 200);
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    const FshEntry t = texture();
+    static uint8_t level0[W * H], vector[W * H], tail[W * H];
+    const float zero[4] = { 0, 0, 0, 0 }, huge[4] = { 3.38e9f, 3.38e9f, 3.38e9f, 3.38e9f }, nan[4] = { NAN, NAN, NAN, NAN };
+    QuadTarget q = { screen, W, 0, 0, W, H };
+    memset(screen, UNTOUCHED, sizeof screen);
+    draw_lit(&view, &q, &t, zero, NULL), memcpy(level0, screen, sizeof level0);
+    memset(screen, UNTOUCHED, sizeof screen);
+    draw_lit(&view, &q, &t, huge, NULL), memcpy(vector, screen, sizeof vector);
+    CHECK(memcmp(level0, vector, sizeof level0) == 0);
+    memset(screen, UNTOUCHED, sizeof screen);
+    for (int x = 0; x < W; x++) {   /* every column alone: all scalar tail */
+        q.clip_left = x, q.clip_right = x + 1;
+        draw_lit(&view, &q, &t, huge, NULL);
+    }
+    memcpy(tail, screen, sizeof tail);
+    CHECK(memcmp(level0, tail, sizeof level0) == 0);
+    q.clip_left = 0, q.clip_right = W;
+    memset(screen, UNTOUCHED, sizeof screen);
+    for (int x = 0; x < W; x++) {
+        q.clip_left = x, q.clip_right = x + 1;
+        draw_lit(&view, &q, &t, nan, NULL);
+    }
+    CHECK(memcmp(level0, screen, sizeof level0) == 0);
+}
+
+/* port (`lamp`): the tables with a colour added brighten toward it and never darken what the plain tables give; a zero add is the plain tables */
+static void test_light_tables_add(void)
+{
+    uint8_t palette[768];
+    for (int i = 0; i < 256; i++) palette[3 * i] = (uint8_t)i, palette[3 * i + 1] = (uint8_t)(i / 2), palette[3 * i + 2] = (uint8_t)(i / 4);
+    static uint8_t plain[MODERN_FOG_LEVELS][256], zero[MODERN_FOG_LEVELS][256], red[MODERN_FOG_LEVELS][256];
+    const float tint[3] = { 0.6f, 0.6f, 0.7f }, none[3] = { 0, 0, 0 }, add[3] = { 60, 0, 0 };
+    modern_light_tables(palette, tint, plain);
+    modern_light_tables_add(palette, tint, none, zero);
+    modern_light_tables_add(palette, tint, add, red);
+    CHECK(memcmp(plain, zero, sizeof plain) == 0);
+    int brighter = 0, darker = 0;
+    for (int l = 0; l < MODERN_FOG_LEVELS; l++)
+        for (int c = 0; c < 0xfe; c++) {
+            const int a = plain[l][c], b = red[l][c];
+            const int sa = palette[3 * a] + palette[3 * a + 1] + palette[3 * a + 2], sb = palette[3 * b] + palette[3 * b + 1] + palette[3 * b + 2];
+            brighter += sb > sa, darker += sb < sa;
+        }
+    CHECK(brighter > 0 && darker == 0);
+    CHECK(red[0][0xfe] == 0xfe && red[0][0xff] == 0xff);   /* the shadow and see-through marks stay */
+}
+
 int main(void)
 {
+    test_light_tables_add();
     test_lit_warm();
+    test_lit_steps();
+    test_lit_darkness_out_of_range();
     test_t_junction_covered();
     test_perspective_correct();
     test_near_clip_and_box();

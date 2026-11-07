@@ -11,11 +11,18 @@
 
 #include <stdint.h>
 
-enum { RALLY_GRAVEL_OFF = 0, RALLY_GRAVEL_COMPACT, RALLY_GRAVEL_DUST, RALLY_GRAVEL_REGOLITH };
+enum { RALLY_GRAVEL_OFF = 0, RALLY_GRAVEL_COMPACT, RALLY_GRAVEL_DUST, RALLY_GRAVEL_REGOLITH, RALLY_GRAVEL_SNOW };
+
+/* port (snow_weather): RALLY_GRAVEL_SNOW, the rally of a snowy track (its places file's `snow 1`: Alpine 3), where road and shoulder are covered in snow (the track's own snow textures, laid over the
+ * asphalt at load). It rolls on the gravel's noise (rally_gravel_level and the rest as the compacted gravel's), throws a white powder puff while it rolls (rally_dust_skid, dust_trail.h) and has its own
+ * surface, race_surfaces_init: packed snow's friction is about half gravel's (0.3 against 0.6), so the grip is half the rally's 0x180, and it rolls half as hard again (0xc0 against 0x80). The number is the
+ * wet snow's: the rain's grip factor (track_rain_grip) is not put on it a second time. */
+enum { RALLY_SNOW_GRIP = 0xc0, RALLY_SNOW_ROLLING = 0xc0 };
 
 /* The kind of a race: RALLY_GRAVEL_OFF unless the race is a rally (`variant_r`) and `enabled`; `track` is race_sim_track_index's,
- * `lunar` the mode's file's lunar_springs (the rally on Rusty Springs, track 3, is then the moon's). */
-int rally_gravel_kind(int track, int variant_r, int lunar, int enabled);
+ * `lunar` the mode's file's lunar_springs (the rally on Rusty Springs, track 3, is then the moon's). `snow` (a snowy track with the snow_weather switch): the rally is RALLY_GRAVEL_SNOW,
+ * whatever `enabled` says; no rally, no snow kind. */
+int rally_gravel_kind(int track, int variant_r, int lunar, int enabled, int snow);
 
 /* The road noise's level (0..0x7f) as the rolling gravel gives it: lower than the exe's off-road scrape. `level` as race_sound.c's
  * road_noise has it before its limit. */

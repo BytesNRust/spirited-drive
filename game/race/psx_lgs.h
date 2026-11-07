@@ -80,6 +80,10 @@ void psx_lgs_ratio(const PsxLgs *lgs, int segment, int segment_count, const floa
  * identity. */
 void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out[256]);
 
+/* port (track light file, tono_coche): `base` (a table as psx_lit_table makes, NULL for none) with the car's colours taken toward the tone `rgb` (0..255 each) by `percent` 0..100: each colour keeps its brightness and
+ * its hue goes toward the tone's (a red car toward orange, a white one to it, a black one to a dark orange); the result is the nearest colour the palette has, of any hue (the palette is all a car can take). */
+void psx_car_tone_table(const uint8_t palette[768], const uint8_t *base, const uint8_t rgb[3], int percent, uint8_t out[256]);
+
 /* `out` (768 bytes, 8 bits a channel) is `palette` with every entry multiplied by `tint` (per channel, clamped to 255,
  * rounded). A tint of the palette keeps each index its own colour, so a texture's variation survives, where moving each
  * polygon's colours to the nearest palette entry gathers them into the few dark ones the palette has. It is used for the 3D's

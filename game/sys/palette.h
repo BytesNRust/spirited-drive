@@ -8,7 +8,8 @@ enum {
     PALETTE_COLORS = 256,
     PALETTE_BYTES = 768,
     PALETTE_FULL_STEP = 32,
-    PALETTE_FADE_STEPS = 17
+    PALETTE_FADE_STEPS = 17,
+    PALETTE_FADE_QUICK_STEPS = 9   /* port: 0, 4, ..., 32 */
 };
 
 /* 004c5ff8: the colours the nearest-colour searches may pick, the menus' and

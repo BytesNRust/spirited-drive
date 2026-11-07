@@ -17,6 +17,7 @@
 #include "viewer/drive_clock.h"
 #include "viewer/drive_interp.h"
 #include "viewer/race_stats.h"
+#include "viewer/light_edit.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_profile.h"
 
@@ -29,6 +30,8 @@
 #include <time.h>
 
 static RaceRunWords *drive_link_run;  /* the running race's words (004c5598) the inputs' messages write */
+static int light_edit_started;         /* a headless run's screenshot starts the editor itself (write_drive_ppm) */
+static LightEdit light_edit;          /* port (light_edit): the live light editor (light_edit.h) */
 static RaceStats race_stats;          /* port: F12's overlay, its figures and its switch (race_stats.h) */
 
 enum { KEY_F1 = 0x3b, KEY_F2 = 0x3c, KEY_F3 = 0x3d, KEY_F9 = 0x43 };
@@ -268,7 +271,8 @@ static void place_car(Car *car, RaceState *race, double where)
     const int32_t node = (int32_t)((uint32_t)where % race->tri->ring_nodes);
     car->node = node;
     car->progress = node;
-    car->ai_target_lateral = 0;
+    const char *const side = getenv("TNFS_START_SIDE");   /* port (dev, env only): TNFS_START_SIDE=M puts the car M metres (negative: left) across the road from its centre line, for the captures at the road's edge */
+    car->ai_target_lateral = side != NULL ? (int32_t)(strtod(side, NULL) * 65536.0) : 0;
     car->steer = 0;
     ai_snap_to_road(car, race);
     car->yaw = (int32_t)((uint32_t)fx_atan2(car->matrix[6], car->matrix[8]) << 8);   /* as car_prepare takes the heading from the matrix */
@@ -428,12 +432,26 @@ static void run_frame(void *ctx, int32_t frame)
     if (drive_pause.quit) r->quit = 1, r->w->running = 0;
     drive_keys_frame(&drive_keys, &drive_input, &drive_sim.race, &drive_views);
     race_stats_key_save(&race_stats, drive_input.keys[RACE_STATS_KEY] != 0);  /* port: F12, written to the mode's file on a toggle */
+    {   /* port (light_edit): F10 holds the race where it is, F11 copies the node's line, the file is read again when it changes */
+        const Car *followed = drive_sim.race.cars[race_slot(drive_sim.race.player)];
+        const uint32_t now = platform_ticks_ms();
+        light_edit_keys(&light_edit, drive_input.keys, followed != NULL ? (uint32_t)followed->node : 0, now);
+        if (light_edit_poll(&light_edit, now)) drive_wet_reload();   /* the places file is watched too: the dry zones follow it */
+        static uint32_t held_at;   /* the real time the hold last counted */
+        if (light_edit.on && light_edit.frozen) {   /* the clock stands still while the race does */
+            if (held_at == 0) held_at = now;
+            r->base_ms += now - held_at;
+            held_at = now;
+            return;
+        }
+        held_at = 0;
+    }
     take_detail(&drive_keys.detail_pending);
     ported_view_set_sky_off(drive_keys.state.w4fb786);
     ported_view_set_tags_hidden(drive_keys.state.hidden);
     drive_replay_key(&drive_replay, drive_input.keys[KEY_F9] != 0);
     drive_bumper_keys(&drive_bumper, drive_input.keys[KEY_F1] != 0 && port_profile_key_free((Profile)port_settings_profile(), "bumper_mirror"),
-                      drive_input.keys[KEY_F2] != 0 && port_profile_key_free((Profile)port_settings_profile(), "bumper_radar"));   /* port (modes): only where the mode leaves them free */
+                      drive_input.keys[KEY_F2] != 0 && port_profile_key_free((Profile)port_settings_profile(), "bumper_radar") && port_host_allows_radar_and_camera());   /* port (modes): only where the mode leaves them free */
     drive_tick(drive_input_tick(&drive_input, &drive_sim.race));
 }
 
@@ -461,6 +479,11 @@ static int lit_colour_palettes(const uint8_t *palette, uint8_t out[PLATFORM_LIT_
 static int write_drive_ppm(const char *path, const uint8_t *shown, int width, const uint8_t *palette)
 {
     const int height = drive_output_height();
+    {   /* port (light_edit): a screenshot of a race with the editor on shows its lines, which checks them headless */
+        const Car *followed = drive_sim.race.cars[race_slot(drive_sim.race.player)];
+        if (!light_edit_started) light_edit_start(&light_edit, light_edit_wanted()), light_edit_started = 1;
+        shown = light_edit_compose(&light_edit, shown, width, height, palette, followed != NULL ? (uint32_t)followed->node : 0);
+    }
     const uint8_t *mask = drive_light_world_mask(shown, (size_t)width * (size_t)height);
     if (mask == NULL) return track_viewer_write_ppm(path, shown, width, height, palette);
     uint8_t world[768], half[768], lit[768], colours[PLATFORM_LIT_SLOTS][768];
@@ -505,6 +528,10 @@ static void present_drive(const Track *t, uint8_t *pixels)
                                  .segments = ported_view_draw_segments(), .modern = ported_view_modern(),
                                  .filter = ported_view_filter_on(), .fog = ported_view_fog_on() };
     shown = race_stats_compose(&race_stats, shown, width, drive_output_height(), t->art.palette, &view);
+    {   /* port (light_edit) */
+        const Car *followed = drive_sim.race.cars[race_slot(drive_sim.race.player)];
+        shown = light_edit_compose(&light_edit, shown, width, drive_output_height(), t->art.palette, followed != NULL ? (uint32_t)followed->node : 0);
+    }
     const uint8_t *mask = drive_light_world_mask(shown, (size_t)width * (size_t)drive_output_height());   /* the overlay is 2D */
     if (mask != NULL) platform_present_split(shown, palette, world, half, mask);
     else platform_present(shown, palette);
@@ -597,6 +624,7 @@ int drive_window(const Track *t, uint8_t *pixels)
     /* 004275f8: 004fb7d8 bit 3 (the Turbo cheat) puts the timer on level 3 (0043bb44) */
     if (drive_sim.race.track_flags & TRACK_FLAG_TURBO) r.clock = drive_clock_of_level(DRIVE_CLOCK_TURBO_LEVEL);
     drive_clock = r.clock;
+    light_edit_start(&light_edit, light_edit_wanted()), light_edit_started = 1;   /* port (light_edit) */
     race_stats_start(&race_stats, port_extras_race_on(RACE_SWITCH_STATS));  /* port: the overlay as the mode's file has it */
     memset(&drive_interp, 0, sizeof drive_interp);
     drive_interp.on = 1;

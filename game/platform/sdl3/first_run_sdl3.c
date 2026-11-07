@@ -16,7 +16,7 @@
 bool first_run_user_copy(char *out, size_t out_size)
 {
     char dir[1024];
-    if (!platform_user_dir(dir, sizeof dir)) return false;   /* the --mods folder's user/, $TNFS_PREF_DIR or the OS's: the same one as the settings and the log */
+    if (!platform_user_dir(dir, sizeof dir)) return false;   /* --user DIR, $TNFS_PREF_DIR or the OS's: the same one as the settings and the log */
     snprintf(out, out_size, "%sgamedata", dir);
     return true;
 }
@@ -133,6 +133,53 @@ static bool copy_with_bar(WizardSource kind, const char *src, const char *root, 
     return ok;
 }
 
+/* A file chosen as an ISO image that cannot be read as one: asks. 1 it reads, 0 choose again, -1 quit. */
+static int iso_readable_or_ask(const char *chosen)
+{
+    char why[200] = { 0 };
+    if (data_iso_readable(chosen, why, sizeof why)) return 1;
+    static const char *const AGAIN[] = { "Choose again", "Quit" };
+    char text[1500];
+    snprintf(text, sizeof text, "%s\n\nIt could not be read as an ISO image of a CD (%s). Choose the .iso of The Need for Speed SE (PC), or the CD or a folder.", chosen, why);
+    port_log("first run: %s: %s\n", chosen, why);
+    return ask("This is not a CD image", text, AGAIN, 2) == 0 ? 0 : -1;
+}
+
+/* A choice that is not the expected game's files: asks what to do with it; the answer (0 choose another, 1 use it anyway when it can be, else quit). */
+static int ask_unexpected(const char *chosen, const DataCheck *c, WizardSource kind, const char *what)
+{
+    char text[640];
+    snprintf(text, sizeof text, "%s\n\n%d of the %d key files are as in The Need for Speed SE (PC); %d are missing and %d are different.\n\n"
+                                "It may be another edition, a modified copy, or the wrong %s.",
+             chosen, c->matched, c->total, c->missing, c->different, what);
+    static const char *const OTHER_FOLDER[] = { "Choose another folder", "Use it anyway", "Quit" };
+    static const char *const OTHER_IMAGE[] = { "Choose another image", "Use it anyway", "Quit" };
+    static const char *const OTHER_NONE_FOLDER[] = { "Choose another folder", "Quit" };
+    static const char *const OTHER_NONE_IMAGE[] = { "Choose another image", "Quit" };
+    const char *const title = kind == WIZARD_ISO ? "This is not the expected image" : "This is not the expected folder";
+    const int found = c->found;   /* the game's own files are there, only some differ: using it is possible */
+    return found ? ask(title, text, kind == WIZARD_ISO ? OTHER_IMAGE : OTHER_FOLDER, 3)
+                 : ask(title, text, kind == WIZARD_ISO ? OTHER_NONE_IMAGE : OTHER_NONE_FOLDER, 2);
+}
+
+/* The chosen files copied into the game's folder, with the profile asked once; false (and told) when the copy fails. */
+static bool install_chosen(WizardSource kind, const char *chosen, const char *dest)
+{
+    DataCheck c;
+    (void)(kind == WIZARD_ISO ? data_check_iso(chosen, &c) : data_check(chosen, &c));   /* the folder that holds the files (one level down, perhaps) */
+    const char *const root = kind == WIZARD_ISO ? c.root : (c.root[0] != '\0' ? c.root : chosen);
+    const bool ok = copy_with_bar(kind, kind == WIZARD_ISO ? chosen : root, kind == WIZARD_ISO ? c.root : "", dest);
+    if (ok && c.matched != c.total) (void)data_mark_accepted(dest, &c);   /* Use it anyway: the next start must not ask again */
+    if (ok && !port_settings_profile_chosen()) choose_profile();   /* a file that already names a profile (a reinstall) keeps it */
+    if (!ok) {
+        static const char *const OK[] = { "OK" };
+        char text[1500];
+        snprintf(text, sizeof text, "The game's files could not be copied: %s. Nothing was kept; the next start asks again.", data_copy_error());
+        ask("The copy failed", text, OK, 1);
+    }
+    return ok;
+}
+
 bool first_run_setup(const char *dest)
 {
     const char *const display = SDL_getenv("SDL_VIDEO_DRIVER");
@@ -156,33 +203,17 @@ bool first_run_setup(const char *dest)
     while (!done) {
         if (!(kind == WIZARD_ISO ? pick_iso(chosen, sizeof chosen) : pick_folder(chosen, sizeof chosen))) break;
         if (kind == WIZARD_ISO) {   /* a file that is not an ISO image: renamed, cut short, empty */
-            char why[200] = { 0 };
-            if (!data_iso_readable(chosen, why, sizeof why)) {
-                static const char *const AGAIN[] = { "Choose again", "Quit" };
-                char text[1500];
-                snprintf(text, sizeof text, "%s\n\nIt could not be read as an ISO image of a CD (%s). Choose the .iso of The Need for Speed SE (PC), or the CD or a folder.", chosen, why);
-                port_log("first run: %s: %s\n", chosen, why);
-                if (ask("This is not a CD image", text, AGAIN, 2) == 0) continue;
-                break;
-            }
+            const int readable = iso_readable_or_ask(chosen);
+            if (readable == 0) continue;
+            if (readable < 0) break;
         }
         DataCheck c;
         if (kind == WIZARD_ISO ? data_check_iso(chosen, &c) : data_check(chosen, &c)) {
             done = true;
             break;
         }
-        char text[640];
-        snprintf(text, sizeof text, "%s\n\n%d of the %d key files are as in The Need for Speed SE (PC); %d are missing and %d are different.\n\n"
-                                    "It may be another edition, a modified copy, or the wrong %s.",
-                 chosen, c.matched, c.total, c.missing, c.different, what);
-        static const char *const OTHER_FOLDER[] = { "Choose another folder", "Use it anyway", "Quit" };
-        static const char *const OTHER_IMAGE[] = { "Choose another image", "Use it anyway", "Quit" };
-        static const char *const OTHER_NONE_FOLDER[] = { "Choose another folder", "Quit" };
-        static const char *const OTHER_NONE_IMAGE[] = { "Choose another image", "Quit" };
-        const char *const title = kind == WIZARD_ISO ? "This is not the expected image" : "This is not the expected folder";
         const int found = c.found;   /* the game's own files are there, only some differ: using it is possible */
-        const int answer = found ? ask(title, text, kind == WIZARD_ISO ? OTHER_IMAGE : OTHER_FOLDER, 3)
-                                 : ask(title, text, kind == WIZARD_ISO ? OTHER_NONE_IMAGE : OTHER_NONE_FOLDER, 2);
+        const int answer = ask_unexpected(chosen, &c, kind, what);
         if (answer == 1 && found) {
             done = true;
             break;
@@ -190,20 +221,7 @@ bool first_run_setup(const char *dest)
         if (answer != 0) break;
     }
     bool ok = false;
-    if (done) {
-        DataCheck c;
-        (void)(kind == WIZARD_ISO ? data_check_iso(chosen, &c) : data_check(chosen, &c));   /* the folder that holds the files (one level down, perhaps) */
-        const char *const root = kind == WIZARD_ISO ? c.root : (c.root[0] != '\0' ? c.root : chosen);
-        ok = copy_with_bar(kind, kind == WIZARD_ISO ? chosen : root, kind == WIZARD_ISO ? c.root : "", dest);
-        if (ok && c.matched != c.total) (void)data_mark_accepted(dest, &c);   /* Use it anyway: the next start must not ask again */
-        if (ok && !port_settings_profile_chosen()) choose_profile();   /* a file that already names a profile (a reinstall) keeps it */
-        if (!ok) {
-            static const char *const OK[] = { "OK" };
-            char text[1500];
-            snprintf(text, sizeof text, "The game's files could not be copied: %s. Nothing was kept; the next start asks again.", data_copy_error());
-            ask("The copy failed", text, OK, 1);
-        }
-    }
+    if (done) ok = install_chosen(kind, chosen, dest);
     SDL_Quit();
     return ok;
 }

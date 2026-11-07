@@ -209,19 +209,9 @@ static void lerp3_edge(const int32_t a[3], const int32_t b[3], int32_t f, int32_
     else lerp3(a, b, f, out);
 }
 
-/* The mirror's polygon across the lens (the classic sink): cut at the near plane as a polygon, the way a neighbour cut by the
- * same plane is, so the two meet on one edge (sliding each quad's corners left a gap between them: the wedge of bare ground),
- * its texture's uv cut with it, drawn as the one to three quads the cut leaves. */
-static void draw_cut_cell(const Pass *p, const FshEntry *t, const TrackUv *uv, const int32_t *const cam[4], int strip)
+/* The cell's corners cut at the near plane as a polygon: its vertices in camera space and their uvs; the vertex count. */
+static int cut_polygon(const int32_t *const cam[4], int32_t plane, const int32_t corner_uv[4][2], int32_t pos[8][3], int32_t tex[8][2])
 {
-    const int32_t w = (int16_t)t->width >> (uv->u_level & 31), h = (int16_t)t->height;
-    const int32_t u0 = x_shl(x_mul(x_sub(x_sub(x_shl(1, uv->u_level & 31), 1), uv->u_cell), w), 16);
-    const int32_t v0 = x_shl(x_mul(h, x_sub(x_sub(x_shl(1, 0), 1), 0)), 16);
-    const int32_t u1 = x_add(u0, x_shl(w - 1, 16)), v1 = x_add(v0, x_shl(h - 1, 16));
-    if (!(u0 < u1 && v0 < v1)) return;
-    const int32_t plane = p->ctx.near / CUT_DIVISOR > 0 ? p->ctx.near / CUT_DIVISOR : 1;   /* nearer than the near plane: the ground under the lens reaches the screen's bottom */
-    const int32_t corner_uv[4][2] = { { u0, v0 }, { u1, v0 }, { u1, v1 }, { u0, v1 } };
-    int32_t pos[8][3], tex[8][2];
     int n = 0;
     for (int i = 0; i < 4; i++) {
         const int j = (i + 1) & 3;
@@ -239,6 +229,23 @@ static void draw_cut_cell(const Pass *p, const FshEntry *t, const TrackUv *uv, c
             n++;
         }
     }
+    return n;
+}
+
+/* The mirror's polygon across the lens (the classic sink): cut at the near plane as a polygon, the way a neighbour cut by the
+ * same plane is, so the two meet on one edge (sliding each quad's corners left a gap between them: the wedge of bare ground),
+ * its texture's uv cut with it, drawn as the one to three quads the cut leaves. */
+static void draw_cut_cell(const Pass *p, const FshEntry *t, const TrackUv *uv, const int32_t *const cam[4], int strip)
+{
+    const int32_t w = (int16_t)t->width >> (uv->u_level & 31), h = (int16_t)t->height;
+    const int32_t u0 = x_shl(x_mul(x_sub(x_sub(x_shl(1, uv->u_level & 31), 1), uv->u_cell), w), 16);
+    const int32_t v0 = x_shl(x_mul(h, x_sub(x_sub(x_shl(1, 0), 1), 0)), 16);
+    const int32_t u1 = x_add(u0, x_shl(w - 1, 16)), v1 = x_add(v0, x_shl(h - 1, 16));
+    if (!(u0 < u1 && v0 < v1)) return;
+    const int32_t plane = p->ctx.near / CUT_DIVISOR > 0 ? p->ctx.near / CUT_DIVISOR : 1;   /* nearer than the near plane: the ground under the lens reaches the screen's bottom */
+    const int32_t corner_uv[4][2] = { { u0, v0 }, { u1, v0 }, { u1, v1 }, { u0, v1 } };
+    int32_t pos[8][3], tex[8][2];
+    const int n = cut_polygon(cam, plane, corner_uv, pos, tex);
     if (n < 3) return;
     for (int first = 1; first + 1 < n; first += 2) {   /* a fan of quads from vertex 0; a last triangle repeats its corner */
         const int idx[4] = { 0, first, first + 1, first + 2 < n ? first + 2 : first + 1 };
@@ -531,6 +538,69 @@ static void draw_segment(Pass *p, int32_t s, int ascending, int near_style)
     }
 }
 
+/* The pass's near direction from the camera's two nodes, and whether the road runs backward to the camera. */
+static void behind_aim(Pass *p, const TrackRender *r, const TrackCamera *cam, int32_t camera_segment, int circuit, int shift)
+{
+    int32_t lo[3], hi[3];
+    node_position(r, follow_behind_lower_node(camera_segment, circuit), lo);
+    node_position(r, camera_segment * 4, hi);
+    follow_behind_direction(lo, hi, cam->matrix, shift, p->ctx.near_dir);
+    {
+        const int32_t toward_lower[3] = { x_sub(lo[0], hi[0]) >> shift, x_sub(lo[1], hi[1]) >> shift, x_sub(lo[2], hi[2]) >> shift };
+        int32_t raw[3];
+        mat3_apply(toward_lower, cam->matrix, raw);
+        p->backward = raw[2] > 0;
+    }
+}
+
+/* The build's vertices and the objects' in camera space, and on the screen. */
+static void behind_project(Pass *p, const TrackCamera *cam, int shift)
+{
+    const int32_t points = B.build.vertex_count;
+    for (int32_t i = 0; i < points; i++) {
+        to_camera(cam, shift, B.world[i], B.camera[i]);
+        memcpy(B.pushed[i], B.camera[i], sizeof B.pushed[i]);
+        track_render_push_near(B.pushed[i], p->ctx.near, p->ctx.near_dir);
+        view_project(p->ctx.view, B.pushed[i], B.screen[i]);
+    }
+    for (int32_t i = 0; i < B.build.walk.vertex_total && i < OBJECT_CAPACITY; i++) {
+        to_camera(cam, shift, B.object_world[i], B.object_camera[i]);
+        view_project(p->ctx.view, B.object_camera[i], B.object_screen[i]);
+    }
+}
+
+/* The pass's glue, its fence, object and mirror ops, and the box a near polygon is dropped by. */
+static void behind_pass_ops(Pass *p, const FollowArm *a, const TrackRender *r, const TrackCamera *cam)
+{
+    p->glue = (TrackGlue){ r, cam, &p->ctx, B.light_now, &B.build.walk };
+    track_render_fence_ops(&p->glue, &p->fence_ops);
+    TrackObjectDrawOps object_ops;
+    track_render_object_ops(&p->glue, &object_ops);
+    p->objects = (TrackObjectDraw){ &B.build.walk, r->nodes, (const int32_t (*)[3])B.object_world,
+                                    (const int32_t (*)[3])B.object_camera, (const int32_t (*)[2])B.object_screen,
+                                    OBJECT_CAPACITY, a->frame, 0, object_ops };
+    /* the exe drops a near polygon whose points 0 and 3 are below the box, as it never draws one that reaches past it on a road
+     * ahead; with the road pushed along its other direction one can span the screen, so no bottom: the sink clips */
+    p->bounds = (MirrorBounds){ 0x7fffffff, p->ctx.clip.x1, p->ctx.clip.x0, p->ctx.clip.y0 };
+}
+
+/* The farthest segment first: from either end in, the one farther from the camera's. */
+static void behind_draw_segments(Pass *p, const FollowArm *a, int32_t first, int32_t last, int32_t camera_segment)
+{
+    int32_t lo_s = first, hi_s = last;
+    while (lo_s < camera_segment || hi_s >= camera_segment) {
+        const int take_lo = lo_s < camera_segment && (hi_s < camera_segment || camera_segment - lo_s > hi_s - camera_segment);
+        if (take_lo) {
+            draw_segment(p, lo_s, 1, a->low_lod || camera_segment - lo_s < TRACK_NEAR_SEGMENTS);
+            lo_s++;
+        } else {
+            /* the camera's own segment, seen from a camera that looks back along the road: its lowest node is the farthest */
+            draw_segment(p, hi_s, hi_s == camera_segment && p->backward, a->low_lod || hi_s - camera_segment < TRACK_NEAR_SEGMENTS);
+            hi_s--;
+        }
+    }
+}
+
 void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
 {
     const TrackRender *r = a->render;
@@ -549,50 +619,10 @@ void follow_behind_draw(const FollowArm *a, int32_t behind, int32_t ahead)
     Pass *p = &(Pass){ .arm = a, .ctx = *a->ctx, .camera_node = cam->node, .node_mask = (int32_t)r->build.walk.node_mask,
                        .mask = mask, .run_hi = B.run_count - 1, .first_node = (int32_t)((uint32_t)first * 4u & (uint32_t)r->build.walk.node_mask), .last_node = -1 };
     const int shift = p->ctx.world_shift & 31;
-    int32_t lo[3], hi[3];
-    node_position(r, follow_behind_lower_node(camera_segment, a->circuit), lo);
-    node_position(r, camera_segment * 4, hi);
-    follow_behind_direction(lo, hi, cam->matrix, shift, p->ctx.near_dir);
-    {
-        const int32_t toward_lower[3] = { x_sub(lo[0], hi[0]) >> shift, x_sub(lo[1], hi[1]) >> shift, x_sub(lo[2], hi[2]) >> shift };
-        int32_t raw[3];
-        mat3_apply(toward_lower, cam->matrix, raw);
-        p->backward = raw[2] > 0;
-    }
-    const int32_t points = B.build.vertex_count;
-    for (int32_t i = 0; i < points; i++) {
-        to_camera(cam, shift, B.world[i], B.camera[i]);
-        memcpy(B.pushed[i], B.camera[i], sizeof B.pushed[i]);
-        track_render_push_near(B.pushed[i], p->ctx.near, p->ctx.near_dir);
-        view_project(p->ctx.view, B.pushed[i], B.screen[i]);
-    }
-    for (int32_t i = 0; i < B.build.walk.vertex_total && i < OBJECT_CAPACITY; i++) {
-        to_camera(cam, shift, B.object_world[i], B.object_camera[i]);
-        view_project(p->ctx.view, B.object_camera[i], B.object_screen[i]);
-    }
-    p->glue = (TrackGlue){ r, cam, &p->ctx, B.light_now, &B.build.walk };
-    track_render_fence_ops(&p->glue, &p->fence_ops);
-    TrackObjectDrawOps object_ops;
-    track_render_object_ops(&p->glue, &object_ops);
-    p->objects = (TrackObjectDraw){ &B.build.walk, r->nodes, (const int32_t (*)[3])B.object_world,
-                                    (const int32_t (*)[3])B.object_camera, (const int32_t (*)[2])B.object_screen,
-                                    OBJECT_CAPACITY, a->frame, 0, object_ops };
-    /* the exe drops a near polygon whose points 0 and 3 are below the box, as it never draws one that reaches past it on a road
-     * ahead; with the road pushed along its other direction one can span the screen, so no bottom: the sink clips */
-    p->bounds = (MirrorBounds){ 0x7fffffff, p->ctx.clip.x1, p->ctx.clip.x0, p->ctx.clip.y0 };
-    /* the farthest segment first: from either end in, the one farther from the camera's */
-    int32_t lo_s = first, hi_s = last;
-    while (lo_s < camera_segment || hi_s >= camera_segment) {
-        const int take_lo = lo_s < camera_segment && (hi_s < camera_segment || camera_segment - lo_s > hi_s - camera_segment);
-        if (take_lo) {
-            draw_segment(p, lo_s, 1, a->low_lod || camera_segment - lo_s < TRACK_NEAR_SEGMENTS);
-            lo_s++;
-        } else {
-            /* the camera's own segment, seen from a camera that looks back along the road: its lowest node is the farthest */
-            draw_segment(p, hi_s, hi_s == camera_segment && p->backward, a->low_lod || hi_s - camera_segment < TRACK_NEAR_SEGMENTS);
-            hi_s--;
-        }
-    }
+    behind_aim(p, r, cam, camera_segment, a->circuit, shift);
+    behind_project(p, cam, shift);
+    behind_pass_ops(p, a, r, cam);
+    behind_draw_segments(p, a, first, last, camera_segment);
     if (p->ctx.sink.draw_cars != NULL) {   /* the rows the lag left: the nearest cars, and the one row between the two halves, which neither calls for */
         const int32_t last_node = p->last_node >= 0 ? p->last_node : camera_segment * 4 - 1;
         for (int32_t k = p->last_node >= 0 ? 1 : CARS_LAG; k <= CARS_LAG; k++)

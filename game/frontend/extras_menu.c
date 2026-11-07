@@ -349,14 +349,9 @@ static void text_right(const ExtrasMenuOps *o, int lit, const char *word, int ri
 /* the clean background is a picture of the screen, so it is blitted whole and the words go straight onto it, as on
  * the Graphics screen. Without it (no CD screens to compose it from) the caller's picture is behind, and a dark panel
  * keeps the words readable over it. */
-static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, const Bgnd *b, const ExtrasMenuOps *o)
+/* the page's headers and its rows: label at the left, value at the right, the selection lit */
+static void draw_rows(Page *p, PortExtras *e, int16_t unlock, const ExtrasMenuOps *o)
 {
-    o->select(o->ctx, 0);   /* the caller's picture behind */
-    if (b->ready) {
-        o->plus_bgnd_shape(o->ctx, b->pixels, b->palette);
-    } else {
-        o->plus_panel(o->ctx, NULL, PANEL_X0, PANEL_Y0, PANEL_X1, PANEL_Y1, 1);
-    }
     /* the page's two headers: they name the group under them and are never the selection. Underlined across the
      * rows, as the credits head and close off their sections */
     for (int group = 0; group < EXTRAS_GROUPS; group++) {
@@ -376,6 +371,17 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
         if (held) text(o, lit ? STYLE_YELLOW : STYLE_DIM, v, VALUE_RIGHT - o->plus_text_width(o->ctx, v), y);
         else text_right(o, lit, v, VALUE_RIGHT, y);
     }
+}
+
+static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, const Bgnd *b, const ExtrasMenuOps *o)
+{
+    o->select(o->ctx, 0);   /* the caller's picture behind */
+    if (b->ready) {
+        o->plus_bgnd_shape(o->ctx, b->pixels, b->palette);
+    } else {
+        o->plus_panel(o->ctx, NULL, PANEL_X0, PANEL_Y0, PANEL_X1, PANEL_Y1, 1);
+    }
+    draw_rows(p, e, unlock, o);
     /* the bottom row's Done and Cancel: the exe's Options look, both always drawn (lit when selected, dark
      * otherwise) the way Options' rows paint their labels. The art replaces the flat panel and the words. Names are
      * capitalised as OPTIONS.QFS ships them -- shape_bank_find uses memcmp, so the lowercase spellings miss. */

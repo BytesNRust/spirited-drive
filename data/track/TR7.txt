@@ -1,0 +1,10 @@
+# tnfs track places 1
+track TR7
+present tunnel
+present car_dim
+tunnel 1 62
+tunnel 465 470
+tunnel 571 609
+tunnel 682 695
+tunnel 1011 1023
+car_dim 465 570

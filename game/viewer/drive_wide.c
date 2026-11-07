@@ -406,6 +406,12 @@ int drive_wide_lit_colours(uint8_t (*rgb)[3], int max)
 }
 
 /* port (gauge_light): inside a dial proper: the gauge's ellipse inset by a twelfth of its size each side (the rim is the dash's art) */
+/* the ellipse of either dial's box */
+static int in_gauge(const Cockpit *k, int x, int y)
+{
+    return in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
+}
+
 static int in_dial(const Cockpit *k, int x, int y)
 {
     return in_ellipse(x, y, k->tach_x + k->tach_w / 12, k->tach_y + k->tach_h / 12, k->tach_w - k->tach_w / 6, k->tach_h - k->tach_h / 6) ||
@@ -427,26 +433,17 @@ static void dash_dump_pgm(const char *dir, const char *stem, const char *what, c
 /* port (dev, env only): TNFS_DASH_DUMP=<dir> writes each dash's 2D layer as <dir>/<STEM>.ppm (the dash art in the track's palette, the windshield black, and black too
  * wherever the steering wheel is in some pose: the wheel is drawn over the dash later, so the template does not hold it; wheel_front_zone) and a draft mask
  * <dir>/<STEM>.mask.png (the two gauge ellipses as DIAL), once per dash, for tools/dash_mask_psd.py's drafts */
-static void dash_dump(const Cockpit *k, const uint8_t *art)
+/* the arrays dash_dump's parts share: the wheel's zone, the dials over it, and the dash with the wheel blanked */
+static uint8_t dump_zone[SCREEN_W * SCREEN_H], dump_dials[SCREEN_W * SCREEN_H], dump_out[SCREEN_W * SCREEN_H];
+
+/* <STEM>.ppm: the dash with the wheel blanked and the dials back over it, in the lit palette */
+static void dash_dump_picture(const char *path, const Cockpit *k, const uint8_t *art)
 {
-    const char *dir = getenv("TNFS_DASH_DUMP");
-    static char done[sizeof drive_hud.dash_stem];
-    if (dir == NULL || lit_palette == NULL || strcmp(done, drive_hud.dash_stem) == 0) return;
-    snprintf(done, sizeof done, "%s", drive_hud.dash_stem);
-    char path[512];
-    snprintf(path, sizeof path, "%s/%s.ppm", dir, done);
-    static uint8_t zone[SCREEN_W * SCREEN_H], dials[SCREEN_W * SCREEN_H], out[SCREEN_W * SCREEN_H];
-    wheel_front_zone(k, art, zone);
-    /* the dials the game draws over the 'w' frame inside the gauge ellipses ('tach', 'sped'): they come back over the blanked wheel */
-    memset(dials, LAYER_KEY, sizeof dials);
-    const QuadTarget dt = { dials, SCREEN_W, 0, 0, SCREEN_W, SCREEN_H };
-    if (k->tach != NULL) blit_shape_at_transparent(&dt, k->tach, 0, 0);
-    if (k->sped != NULL) blit_shape_at_transparent(&dt, k->sped, 0, 0);
     for (int y = 0; y < SCREEN_H; y++)
         for (int x = 0; x < SCREEN_W; x++) {
             const int i = y * SCREEN_W + x;
-            const int dial = dials[i] != LAYER_KEY && (in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h));
-            out[i] = zone[i] ? (dial ? dials[i] : LAYER_KEY) : art[i];
+            const int dial = dump_dials[i] != LAYER_KEY && in_gauge(k, x, y);
+            dump_out[i] = dump_zone[i] ? (dial ? dump_dials[i] : LAYER_KEY) : art[i];
         }
     FILE *f = fopen(path, "wb");
     if (f != NULL) {
@@ -454,35 +451,45 @@ static void dash_dump(const Cockpit *k, const uint8_t *art)
         for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
             const uint8_t v = art[i];
             static const uint8_t black[3] = { 0, 0, 0 };
-            fwrite(out[i] == LAYER_KEY ? black : lit_palette + 3 * out[i], 1, 3, f);
+            fwrite(dump_out[i] == LAYER_KEY ? black : lit_palette + 3 * dump_out[i], 1, 3, f);
             (void)v;
         }
         fclose(f);
     }
-    /* the straight-ahead wheel, for a guide layer: the stored art where the wheel is in some pose (<STEM>.guide.ppm) and where that is (<STEM>.zone.pgm) */
+}
+
+/* the straight-ahead wheel, for a guide layer: the stored art where the wheel is in some pose (<STEM>.guide.ppm) and where that is (<STEM>.zone.pgm) */
+static void dash_dump_guide(const char *dir, const char *done, const uint8_t *art)
+{
+    char path[512];
     snprintf(path, sizeof path, "%s/%s.guide.ppm", dir, done);
-    if ((f = fopen(path, "wb")) != NULL) {
+    FILE *f = fopen(path, "wb");
+    if (f != NULL) {
         fprintf(f, "P6\n%d %d\n255\n", SCREEN_W, SCREEN_H);
         for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
             static const uint8_t black[3] = { 0, 0, 0 };
-            fwrite(zone[i] && art[i] != LAYER_KEY ? lit_palette + 3 * art[i] : black, 1, 3, f);
+            fwrite(dump_zone[i] && art[i] != LAYER_KEY ? lit_palette + 3 * art[i] : black, 1, 3, f);
         }
         fclose(f);
     }
     snprintf(path, sizeof path, "%s/%s.zone.pgm", dir, done);
     if ((f = fopen(path, "wb")) != NULL) {
         fprintf(f, "P5\n%d %d\n255\n", SCREEN_W, SCREEN_H);
-        for (int i = 0; i < SCREEN_W * SCREEN_H; i++) fputc(zone[i] && art[i] != LAYER_KEY ? 255 : 0, f);
+        for (int i = 0; i < SCREEN_W * SCREEN_H; i++) fputc(dump_zone[i] && art[i] != LAYER_KEY ? 255 : 0, f);
         fclose(f);
     }
-    /* the inputs of tools/dash_rebuild.py, which gives the layer the dash behind the wheel from the steering frames: the art's palette indices (<STEM>.art.pgm), the 'w' frames'
-     * ('w'l and 'w'r, each steering frame: <STEM>.w<row>_<frame>.pgm, 255 where a frame draws nothing), the dials over the wheel (<STEM>.dials.pgm, 255 elsewhere) and the palette (<STEM>.pal) */
+}
+
+/* the inputs of tools/dash_rebuild.py, which gives the layer the dash behind the wheel from the steering frames: the art's palette indices (<STEM>.art.pgm), the 'w' frames'
+ * ('w'l and 'w'r, each steering frame: <STEM>.w<row>_<frame>.pgm, 255 where a frame draws nothing), the dials over the wheel (<STEM>.dials.pgm, 255 elsewhere) and the palette (<STEM>.pal) */
+static void dash_dump_rebuild_inputs(const char *dir, const char *done, const Cockpit *k, const uint8_t *art)
+{
     dash_dump_pgm(dir, done, "art", art);
     static uint8_t dial_only[SCREEN_W * SCREEN_H];
     for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
         const int x = i % SCREEN_W, y = i / SCREEN_W;
-        const int dial = dials[i] != LAYER_KEY && (in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h));
-        dial_only[i] = dial ? dials[i] : 255;
+        const int dial = dump_dials[i] != LAYER_KEY && in_gauge(k, x, y);
+        dial_only[i] = dial ? dump_dials[i] : 255;
     }
     dash_dump_pgm(dir, done, "dials", dial_only);
     for (int row = 0; row < 2; row++)
@@ -496,15 +503,22 @@ static void dash_dump(const Cockpit *k, const uint8_t *art)
             snprintf(what, sizeof what, "w%d_%d", row, frame);
             dash_dump_pgm(dir, done, what, pic);
         }
+}
+
+/* <STEM>.pal, and <STEM>.mask.png: the draft of a hand-made mask (the dials' marks, else automatic) */
+static void dash_dump_palette_and_mask(const char *dir, const char *done, const Cockpit *k)
+{
+    char path[512];
     snprintf(path, sizeof path, "%s/%s.pal", dir, done);
-    if ((f = fopen(path, "wb")) != NULL) {
+    FILE *f = fopen(path, "wb");
+    if (f != NULL) {
         fwrite(lit_palette, 1, 768, f);
         fclose(f);
     }
     static uint8_t draft[SCREEN_W * SCREEN_H];
     for (int y = 0; y < SCREEN_H; y++)
         for (int x = 0; x < SCREEN_W; x++)
-            draft[y * SCREEN_W + x] = in_dial(k, x, y) && out[y * SCREEN_W + x] != LAYER_KEY ? DASH_MASK_DIAL : DASH_MASK_AUTO;
+            draft[y * SCREEN_W + x] = in_dial(k, x, y) && dump_out[y * SCREEN_W + x] != LAYER_KEY ? DASH_MASK_DIAL : DASH_MASK_AUTO;
     uint8_t *png = NULL;
     size_t len = 0;
     snprintf(path, sizeof path, "%s/%s.mask.png", dir, done);
@@ -512,6 +526,26 @@ static void dash_dump(const Cockpit *k, const uint8_t *art)
     if (f != NULL && dash_mask_write(draft, SCREEN_W, SCREEN_H, &png, &len)) fwrite(png, 1, len, f);
     if (f != NULL) fclose(f);
     free(png);
+}
+
+static void dash_dump(const Cockpit *k, const uint8_t *art)
+{
+    const char *dir = getenv("TNFS_DASH_DUMP");
+    static char done[sizeof drive_hud.dash_stem];
+    if (dir == NULL || lit_palette == NULL || strcmp(done, drive_hud.dash_stem) == 0) return;
+    snprintf(done, sizeof done, "%s", drive_hud.dash_stem);
+    char path[512];
+    snprintf(path, sizeof path, "%s/%s.ppm", dir, done);
+    wheel_front_zone(k, art, dump_zone);
+    /* the dials the game draws over the 'w' frame inside the gauge ellipses ('tach', 'sped'): they come back over the blanked wheel */
+    memset(dump_dials, LAYER_KEY, sizeof dump_dials);
+    const QuadTarget dt = { dump_dials, SCREEN_W, 0, 0, SCREEN_W, SCREEN_H };
+    if (k->tach != NULL) blit_shape_at_transparent(&dt, k->tach, 0, 0);
+    if (k->sped != NULL) blit_shape_at_transparent(&dt, k->sped, 0, 0);
+    dash_dump_picture(path, k, art);
+    dash_dump_guide(dir, done, art);
+    dash_dump_rebuild_inputs(dir, done, k, art);
+    dash_dump_palette_and_mask(dir, done, k);
 }
 
 /* port (compose perf): what the class loop reads, so its rows can run on bands (each row is a function of the frame alone) */
@@ -524,7 +558,25 @@ typedef struct {
     const uint8_t *wheel_t, *wheel_s, *wheel_w;
     int lights_left, lights_top, lights_w, lights_h;
     int in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed;
+    const uint8_t *dials;   /* gauge_dials: per pixel GAUGE_ELLIPSE (inside a dial's box's ellipse), GAUGE_DIAL (inside the smaller dial) */
 } ClassJob;
+
+/* port (frame budget): the ellipses of the two dials are a function of the cockpit alone, so each pixel's two tests (four ellipse sums a pixel) are made once per cockpit, not per frame */
+enum { GAUGE_ELLIPSE = 1, GAUGE_DIAL = 2 };
+
+static const uint8_t *gauge_dials(const Cockpit *k)
+{
+    static uint8_t flags[SCREEN_W * SCREEN_H];
+    static int key[8], made;
+    const int now[8] = { k->tach_x, k->tach_y, k->tach_w, k->tach_h, k->sped_x, k->sped_y, k->sped_w, k->sped_h };
+    if (made && memcmp(key, now, sizeof key) == 0) return flags;
+    for (int y = 0; y < SCREEN_H; y++)
+        for (int x = 0; x < SCREEN_W; x++)
+            flags[y * SCREEN_W + x] = (uint8_t)((in_gauge(k, x, y) ? GAUGE_ELLIPSE : 0) |
+                                                (in_dial(k, x, y) ? GAUGE_DIAL : 0));
+    memcpy(key, now, sizeof key), made = 1;
+    return flags;
+}
 
 static void class_band(void *user, int top, int bottom)
 {
@@ -533,8 +585,8 @@ static void class_band(void *user, int top, int bottom)
     const DashColour *const colour = j->colour;
     const uint8_t *const wheel_t = j->wheel_t, *const wheel_s = j->wheel_s, *const wheel_w = j->wheel_w;
     uint8_t *const classes = j->classes;
-    const Cockpit *const k = j->k;
     const int lights_left = j->lights_left, lights_top = j->lights_top, lights_w = j->lights_w, lights_h = j->lights_h;
+    const uint8_t *const dials = j->dials;
     const int in_car = j->in_car, map_on = j->map_on, dim_tach = j->dim_tach, wheel_gauge = j->wheel_gauge,
               wheel_masked = j->wheel_masked, lit_keyed = j->lit_keyed;
     for (int y = top; y < bottom; y++)
@@ -546,7 +598,7 @@ static void class_band(void *user, int top, int bottom)
             }
             int hud = !in_car || y < HUD_BAR_HEIGHT || (map_on && in_rect(x, y, DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H));
             hud = hud || (in_car && v != art[y * SCREEN_W + x] && in_rect(x, y, lights_left, lights_top, lights_w, lights_h));
-            int gauge = in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
+            int gauge = dials[y * SCREEN_W + x] & GAUGE_ELLIPSE;
             if (gauge && wheel_gauge && (wheel_front_pixel(wheel_t, x, y) || wheel_front_pixel(wheel_s, x, y))) gauge = 0;   /* port (gauge_wheel): the wheel in front of the dials is the dash's */
             hud = hud || gauge;
             if (hud && dim_tach && tach_dim_face(drive_hud.art.tach, x, y, v, (uint8_t)drive_hud.needle_colour, LAYER_KEY)) hud = 0;   /* port (tach_dim): the dial's face is half tinted */
@@ -559,7 +611,7 @@ static void class_band(void *user, int top, int bottom)
                     if (m == DASH_MASK_DASH) class = PSX_CLASS_DASH;
                     else if (m == DASH_MASK_LIT || (m == DASH_MASK_DIAL && lit_pixel(v))) class = PSX_CLASS_LIT;
                 } else if (class == PSX_CLASS_HUD && gauge) {
-                    if (!in_dial(k, x, y)) class = PSX_CLASS_DASH;   /* the ellipse's rim holds the dash's art (the speedo's arc): the dash's, not the dial's */
+                    if (!(dials[y * SCREEN_W + x] & GAUGE_DIAL)) class = PSX_CLASS_DASH;   /* the ellipse's rim holds the dash's art (the speedo's arc): the dash's, not the dial's */
                     else if (lit_pixel(v)) class = PSX_CLASS_LIT;
                 }
             }
@@ -607,7 +659,7 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     const uint8_t *const wheel_s = wheel_any ? wheel_front_shape(k, 1, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
     const uint8_t *const wheel_w = wheel_masked ? wheel_front_shape(k, 2, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
     const ClassJob job = { frame, art, k, dash_mask, colour, classes, wheel_t, wheel_s, wheel_w, lights_left, lights_top, lights_w, lights_h,
-                           in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed };
+                           in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed, gauge_dials(k) };
     bands_rows(0, SCREEN_H, class_band, (void *)&job);
     memset(shadow, LAYER_KEY, out);
     shadow_out = shadow;
@@ -617,61 +669,114 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     drive_light_world_class(shadow, drive_wide.width, SCREEN_H, drive_wide.scale);
 }
 
-void drive_wide_compose(const RaceState *race, const uint8_t *frame)
+/* what drive_wide_compose decides about this frame and hands to its parts */
+typedef struct {
+    const DriveMirror *m;
+    int police, in_car, mirror_on, lights, map_on, box_on;
+    LayerRect mirror;
+    int32_t mirror_scale;
+    int mirror_w;
+    HudAnchors a;
+} WideFrame;
+
+/* the frame's layout: who is drawn (the police screen, the cockpit, the mirror) and where the HUD's pieces go on the wide screen */
+static WideFrame wide_frame_start(const RaceState *race, const uint8_t *frame)
 {
+    WideFrame w;
+    memset(&w, 0, sizeof w);
+    w.m = &drive_hud.mirror;
     const RaceCamera *camera = race->chase.camera;
-    place_count = 0;
-    const int police = drive_hud.police.screen != NULL;
-    const int in_car = !police && camera != NULL && camera->layout == 0;
-    const CockpitScale cs = screen_cockpit_scale(drive_wide.width);
-    const DriveMirror *m = &drive_hud.mirror;
-    const int mirror_on = in_car && m->picture != NULL && m->state != 0 && !m->on_dash;  /* on the dash: with it */
+    w.police = drive_hud.police.screen != NULL;
+    w.in_car = !w.police && camera != NULL && camera->layout == 0;
+    const DriveMirror *m = w.m;
+    w.mirror_on = w.in_car && m->picture != NULL && m->state != 0 && !m->on_dash;  /* on the dash: with it */
     const LayerRect picture = { drive_hud.mirror_x, drive_hud.mirror_y, drive_hud.mirror_x + m->width - m->extra,
                                 drive_hud.mirror_y + m->height };  /* as the frame holds it: a widened one's middle */
-    const LayerRect mirror = mirror_on ? grow_piece(frame, picture, MIRROR_FRAME) : picture;
-    const int32_t mirror_scale = screen_mirror_scale(drive_wide.width);
-    const int mirror_w = (int)((int64_t)(mirror.right - mirror.left + (mirror_on ? m->extra : 0)) * mirror_scale >> 16);
-    const int mirror_h = (int)((int64_t)(mirror.bottom - mirror.top) * mirror_scale >> 16);
+    w.mirror = w.mirror_on ? grow_piece(frame, picture, MIRROR_FRAME) : picture;
+    w.mirror_scale = screen_mirror_scale(drive_wide.width);
+    w.mirror_w = (int)((int64_t)(w.mirror.right - w.mirror.left + (w.mirror_on ? m->extra : 0)) * w.mirror_scale >> 16);
+    const int mirror_h = (int)((int64_t)(w.mirror.bottom - w.mirror.top) * w.mirror_scale >> 16);
     const ScreenPoint sizes[7] = { { BAR_MIDDLE_640, HUD_BAR_HEIGHT }, { BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT },
-                                   { SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT }, { mirror_w, mirror_h },
+                                   { SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT }, { w.mirror_w, mirror_h },
                                    { DRIVE_MAP_W, DRIVE_MAP_H }, { 0, 0 },   /* the radar detector stays on the dash */
                                    { GAUGE_SIZE, GAUGE_SIZE } };
-    HudAnchors a = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ mirror.left, mirror.top });
+    w.a = screen_hud_anchors(drive_wide.width, sizes, (ScreenPoint){ w.mirror.left, w.mirror.top });
     /* the box where the exe's 640 frame has it (the anchor is the dash's grab, 2 px on) when the wide path is on only for the dawn / dusk tint:
      * that frame is the day's; the other reasons keep the wide path's own place */
-    if (drive_wide.width <= SCREEN_W && drive_light_time_tinted()) a.map = (ScreenPoint){ DRIVE_MAP_X, DRIVE_MAP_Y };
-    drive_light_world_rect(drive_wide.width * drive_wide.scale, 0, 0, 0, 0);
-    LayerPiece pieces[12];
+    if (drive_wide.width <= SCREEN_W && drive_light_time_tinted()) w.a.map = (ScreenPoint){ DRIVE_MAP_X, DRIVE_MAP_Y };
+    return w;
+}
+
+/* the pieces of the layer, in order: the start lights or the bar's three groups with the map's box, the mirror (whole, or in two apart), or the gauge; returns how many */
+static int wide_pieces(const WideFrame *w, LayerPiece pieces[12])
+{
+    const DriveMirror *m = w->m;
+    const HudAnchors *a = &w->a;
     int n = 0;
-    const int lights = !police && hud_start_lights_drawn(&drive_hud.hud, race->tick);
-    /* 004f9b3c: off, the 640's map box holds the dash, and for a moment the gear gate (0041f5bc's state not 0). The box
-     * is a piece at its size and anchor with the map, or with the gate; with neither it is the continuous dash. */
-    const int map_on = drive_hud.keys.use_parts != 0;
-    const int box_on = dash_box_shown((DashBox)drive_hud.dash_box, drive_hud.keys.use_parts, drive_hud.gate_state, in_car);
-    if (lights) {  /* the start lights whole, each at its width spread across the screen, not cut with the groups */
+    if (w->lights) {  /* the start lights whole, each at its width spread across the screen, not cut with the groups */
         for (int i = 0; i < LIGHT_COUNT; i++)
             pieces[n++] = wide_piece(i * LIGHT_STEP_640, 0, LIGHT_WIDTH, HUD_BAR_HEIGHT,
                                      (ScreenPoint){ screen_light_x(drive_wide.width, i), 0 }, 0);
-        if (box_on) pieces[n++] = wide_box_piece(map_on, a.map);
-    } else if (!police) {
-        pieces[n++] = wide_piece(0, 0, BAR_MIDDLE_640, HUD_BAR_HEIGHT, a.bar_start, 0);
-        pieces[n++] = wide_piece(BAR_MIDDLE_640, 0, BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT, a.bar_middle, 0);
-        pieces[n++] = wide_piece(BAR_END_640, 0, SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT, a.bar_end, 0);
-        if (box_on) pieces[n++] = wide_box_piece(map_on, a.map);
+        if (w->box_on) pieces[n++] = wide_box_piece(w->map_on, a->map);
+    } else if (!w->police) {
+        pieces[n++] = wide_piece(0, 0, BAR_MIDDLE_640, HUD_BAR_HEIGHT, a->bar_start, 0);
+        pieces[n++] = wide_piece(BAR_MIDDLE_640, 0, BAR_END_640 - BAR_MIDDLE_640, HUD_BAR_HEIGHT, a->bar_middle, 0);
+        pieces[n++] = wide_piece(BAR_END_640, 0, SCREEN_W - BAR_END_640, HUD_BAR_HEIGHT, a->bar_end, 0);
+        if (w->box_on) pieces[n++] = wide_box_piece(w->map_on, a->map);
     }
-    if (in_car) {
-        if (mirror_on && m->extra == 0) pieces[n++] = (LayerPiece){ mirror, a.mirror.x, a.mirror.y, 1, 0 };
-        if (mirror_on && m->extra != 0) {  /* the frame in two, either side of the picture's middle, apart by the extra */
+    if (w->in_car) {
+        if (w->mirror_on && m->extra == 0) pieces[n++] = (LayerPiece){ w->mirror, a->mirror.x, a->mirror.y, 1, 0 };
+        if (w->mirror_on && m->extra != 0) {  /* the frame in two, either side of the picture's middle, apart by the extra */
             const int mid = drive_hud.mirror_x + (m->width - m->extra) / 2;
-            const int apart = (int)((int64_t)(mid - mirror.left + m->extra) * mirror_scale >> 16);
-            pieces[n++] = (LayerPiece){ { mirror.left, mirror.top, mid, mirror.bottom }, a.mirror.x, a.mirror.y, 1, 0 };
-            pieces[n++] = (LayerPiece){ { mid, mirror.top, mirror.right, mirror.bottom }, a.mirror.x + apart, a.mirror.y, 1,
-                                        mirror_w - apart };   /* to the mirror's end, as anchored */
+            const int apart = (int)((int64_t)(mid - w->mirror.left + m->extra) * w->mirror_scale >> 16);
+            pieces[n++] = (LayerPiece){ { w->mirror.left, w->mirror.top, mid, w->mirror.bottom }, a->mirror.x, a->mirror.y, 1, 0 };
+            pieces[n++] = (LayerPiece){ { mid, w->mirror.top, w->mirror.right, w->mirror.bottom }, a->mirror.x + apart, a->mirror.y, 1,
+                                        w->mirror_w - apart };   /* to the mirror's end, as anchored */
         }
-    } else if (!police) {
-        pieces[n++] = wide_piece(GAUGE_X_640, GAUGE_Y_640, GAUGE_SIZE, GAUGE_SIZE, a.gauge, 0);
+    } else if (!w->police) {
+        pieces[n++] = wide_piece(GAUGE_X_640, GAUGE_Y_640, GAUGE_SIZE, GAUGE_SIZE, a->gauge, 0);
     }
-    if (police && drive_hud.rgb != NULL) {  /* 004214e4's screen over its darkened, enlarged copy, as the menus */
+    return n;
+}
+
+/* the mirror's picture where the layer puts it (and the PS1 light's tint reaching it), the widened mirror's middle, and the strips between the lights or the bar's groups */
+static void wide_mirror_and_strips(const WideFrame *w, const uint8_t *frame)
+{
+    const DriveMirror *m = w->m;
+    const HudAnchors *a = &w->a;
+    const CockpitScale mirror_cs = { w->mirror_scale, screen_cockpit_scale(drive_wide.width).crop_top };
+    if (w->mirror_on) {  /* the picture's place in the layer, as wide_mirror puts it */
+        const int left = (int)((int64_t)(drive_hud.mirror_x - w->mirror.left) * w->mirror_scale >> 16);
+        const int top = (int)((int64_t)(drive_hud.mirror_y - w->mirror.top) * w->mirror_scale >> 16);
+        const int out_w = (int)((int64_t)(drive_hud.mirror_x - w->mirror.left + m->width) * w->mirror_scale >> 16) - left;
+        const int out_h = (int)((int64_t)(drive_hud.mirror_y - w->mirror.top + m->height) * w->mirror_scale >> 16) - top;
+        drive_wide_hires_place(m, a->mirror.x + left, a->mirror.y + top, out_w, out_h);
+        const int s = drive_wide.scale;   /* the picture shows the 3D: the PS1 light's tint reaches it */
+        drive_light_world_rect(drive_wide.width * s, (a->mirror.x + left) * s, (a->mirror.y + top) * s, out_w * s, out_h * s);
+    }
+    if (w->mirror_on && m->extra != 0) wide_mirror(frame, m, &w->mirror, a->mirror, &mirror_cs);
+    if (w->lights) {  /* the strip between the lights */
+        for (int i = 0; i + 1 < LIGHT_COUNT; i++)
+            wide_strip_gap(frame, screen_light_x(drive_wide.width, i) + LIGHT_WIDTH, screen_light_x(drive_wide.width, i + 1));
+    } else if (!w->police) {  /* the strip between the groups */
+        wide_strip_gap(frame, a->bar_start.x + BAR_MIDDLE_640, a->bar_middle.x);
+        wide_strip_gap(frame, a->bar_middle.x + BAR_END_640 - BAR_MIDDLE_640, a->bar_end.x);
+    }
+}
+
+void drive_wide_compose(const RaceState *race, const uint8_t *frame)
+{
+    place_count = 0;
+    WideFrame w = wide_frame_start(race, frame);
+    drive_light_world_rect(drive_wide.width * drive_wide.scale, 0, 0, 0, 0);
+    LayerPiece pieces[12];
+    w.lights = !w.police && hud_start_lights_drawn(&drive_hud.hud, race->tick);
+    /* 004f9b3c: off, the 640's map box holds the dash, and for a moment the gear gate (0041f5bc's state not 0). The box
+     * is a piece at its size and anchor with the map, or with the gate; with neither it is the continuous dash. */
+    w.map_on = drive_hud.keys.use_parts != 0;
+    w.box_on = dash_box_shown((DashBox)drive_hud.dash_box, drive_hud.keys.use_parts, drive_hud.gate_state, w.in_car);
+    const int n = wide_pieces(&w, pieces);
+    if (w.police && drive_hud.rgb != NULL) {  /* 004214e4's screen over its darkened, enlarged copy, as the menus */
         static uint8_t screen[SCREEN_W * SCREEN_H];
         uint8_t shade[256];
         for (size_t i = 0; i < sizeof screen; i++) screen[i] = frame[i] == LAYER_KEY ? 0 : frame[i];  /* none on black */
@@ -680,31 +785,14 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
         drive_wide.ready = 1;
         return;
     }
-    if (police) memset(drive_wide_canvas(), 0, (size_t)drive_wide.width * SCREEN_H);  /* 004214e4's screen on black */
+    if (w.police) memset(drive_wide_canvas(), 0, (size_t)drive_wide.width * SCREEN_H);  /* 004214e4's screen on black */
     else if (drive_wide.scale > 1) memset(drive_wide.layer, LAYER_KEY, (size_t)drive_wide.width * SCREEN_H);  /* the 3D shows through */
     const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
-    if (in_car && box_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit), drive_wide_canvas(), 0);  /* the dash where the map was */
-    const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, mirror_scale, in_car, pieces, n };
+    if (w.in_car && w.box_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit), drive_wide_canvas(), 0);  /* the dash where the map was */
+    const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, w.mirror_scale, w.in_car, pieces, n };
     compose_banded(&c, frame);
-    if (drive_light_active()) compose_classes(&c, frame, in_car, in_car && box_on ? &map : NULL, map_on);
-    const CockpitScale mirror_cs = { mirror_scale, cs.crop_top };
-    if (mirror_on) {  /* the picture's place in the layer, as wide_mirror puts it */
-        const int left = (int)((int64_t)(drive_hud.mirror_x - mirror.left) * mirror_scale >> 16);
-        const int top = (int)((int64_t)(drive_hud.mirror_y - mirror.top) * mirror_scale >> 16);
-        const int out_w = (int)((int64_t)(drive_hud.mirror_x - mirror.left + m->width) * mirror_scale >> 16) - left;
-        const int out_h = (int)((int64_t)(drive_hud.mirror_y - mirror.top + m->height) * mirror_scale >> 16) - top;
-        drive_wide_hires_place(m, a.mirror.x + left, a.mirror.y + top, out_w, out_h);
-        const int s = drive_wide.scale;   /* the picture shows the 3D: the PS1 light's tint reaches it */
-        drive_light_world_rect(drive_wide.width * s, (a.mirror.x + left) * s, (a.mirror.y + top) * s, out_w * s, out_h * s);
-    }
-    if (mirror_on && m->extra != 0) wide_mirror(frame, m, &mirror, a.mirror, &mirror_cs);
-    if (lights) {  /* the strip between the lights */
-        for (int i = 0; i + 1 < LIGHT_COUNT; i++)
-            wide_strip_gap(frame, screen_light_x(drive_wide.width, i) + LIGHT_WIDTH, screen_light_x(drive_wide.width, i + 1));
-    } else if (!police) {  /* the strip between the groups */
-        wide_strip_gap(frame, a.bar_start.x + BAR_MIDDLE_640, a.bar_middle.x);
-        wide_strip_gap(frame, a.bar_middle.x + BAR_END_640 - BAR_MIDDLE_640, a.bar_end.x);
-    }
+    if (drive_light_active()) compose_classes(&c, frame, w.in_car, w.in_car && w.box_on ? &map : NULL, w.map_on);
+    wide_mirror_and_strips(&w, frame);
     drive_wide.ready = 1;
 }
 

@@ -5,6 +5,9 @@
 #include "game/audio/sound_bank.h"
 #include "game/audio/sound_driver.h"
 #include "game/audio/sound_queue.h"
+#include "game/audio/thunder.h"
+#include "game/audio/wet_roll.h"
+#include "game/sys/data_path.h"
 #include "game/race/race_music.h"
 #include "platform/platform.h"
 
@@ -35,6 +38,12 @@ static const char *root;
 static int open_;
 static int mixing;           /* the driver set up: the device's thread mixes it */
 static uint32_t tick_frames;  /* the frames mixed since the last tick, x 100 */
+static Thunder thunder;                                    /* port (rain_v2): the storm's thunder, over the mix */
+static int thunder_tried;
+static WetRoll wet_roll;                                   /* port (rain_tyre_roll): the wet-tyre roll, over the mix */
+static int wet_roll_tried;
+static WetRoll snow_roll;                                  /* port (snow crunch): the snowy rally's crunch, the same voice with another sample */
+static int snow_roll_tried;
 static SoundQueue speech;                                  /* 004c7b60 */
 static SoundSample speech_sample[SOUND_QUEUE_ENTRIES];     /* each queued file's header, by the writer it took */
 
@@ -122,6 +131,9 @@ static void mix(void *user, int16_t *frames, uint32_t count)
         const uint32_t n = count < TICK_FRAMES ? count : TICK_FRAMES;
         voice_stats(n);
         sound_mix_frames(&driver.mixer, frames, (int32_t)n);
+        thunder_mix(&thunder, frames, n);
+        wet_roll_mix(&wet_roll, frames, n);
+        wet_roll_mix(&snow_roll, frames, n);
         frames += 2 * n, count -= n;
         for (tick_frames += n * TICKS_PER_SECOND; tick_frames >= MIX_RATE; tick_frames -= MIX_RATE) {
             if (speech.ready) sound_queue_tick(&driver, &speech);  /* 004a4ac0: 00492330 first, while 004c7b60 */
@@ -171,6 +183,76 @@ static int32_t voice_stopped(void *user, int32_t voice)
     const int32_t stopped = sound_handle_stopped(&driver.channels, voice);
     unlock();
     return stopped;
+}
+
+/* port (rain_v2): the thunder sample, read once from data/sounds/thunder.wav (a missing or unusable file leaves the storm silent, logged once). The caller holds the lock. */
+static void thunder_read(void)
+{
+    if (thunder_tried) return;
+    thunder_tried = 1;
+    char found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
+    (void)data_path_candidates("sounds/thunder.wav", found);
+    for (int i = 0; i < DATA_PATH_CANDIDATES; i++) {
+        if (found[i][0] == '\0') continue;
+        size_t size = 0;
+        uint8_t *file = platform_read_file(found[i], &size);
+        if (file == NULL) continue;
+        const int ok = thunder_load(&thunder, file, size, MIX_RATE);
+        platform_free_file(file);
+        port_log("thunder: %s: %s\n", found[i], ok ? "loaded" : "not a 16-bit mono WAV at the mixer's rate");
+        if (ok) return;
+    }
+    port_log("thunder: no sounds/thunder.wav: the storm is silent\n");
+}
+
+/* port (rain_tyre_roll, snow crunch): a roll voice's sample, read once from data/sounds/<file> (a missing or unusable file leaves it silent, logged once). The caller holds the lock. */
+static void roll_read(WetRoll *voice, int *tried, const char *file)
+{
+    if (*tried) return;
+    *tried = 1;
+    char rel[64];
+    snprintf(rel, sizeof rel, "sounds/%s", file);
+    char found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
+    (void)data_path_candidates(rel, found);
+    for (int i = 0; i < DATA_PATH_CANDIDATES; i++) {
+        if (found[i][0] == '\0') continue;
+        size_t size = 0;
+        uint8_t *bytes = platform_read_file(found[i], &size);
+        if (bytes == NULL) continue;
+        const int ok = wet_roll_load(voice, bytes, size, MIX_RATE);
+        platform_free_file(bytes);
+        port_log("wet_roll: %s: %s\n", found[i], ok ? "loaded" : "not a 16-bit mono WAV at the mixer's rate");
+        if (ok) return;
+    }
+    port_log("wet_roll: no %s: the roll is silent\n", rel);
+}
+
+void drive_audio_wet_roll(int volume_percent, int pitch_permille)
+{
+    if (!open_) return;
+    lock();
+    if (volume_percent > 0) roll_read(&wet_roll, &wet_roll_tried, "rain_tyre_roll.wav");
+    wet_roll_set(&wet_roll, volume_percent, pitch_permille);
+    unlock();
+}
+
+void drive_audio_snow_roll(int volume_percent, int pitch_permille)
+{
+    if (!open_) return;
+    lock();
+    if (volume_percent > 0) roll_read(&snow_roll, &snow_roll_tried, "snow_crunch.wav");
+    wet_roll_set(&snow_roll, volume_percent, pitch_permille);
+    unlock();
+}
+
+void drive_audio_thunder(int delay_ticks, int volume_percent)
+{
+    if (!open_) return;
+    lock();
+    thunder_read();
+    port_log("thunder: clap in %d ticks at %d%%\n", delay_ticks, volume_percent);
+    thunder_schedule(&thunder, delay_ticks, volume_percent);
+    unlock();
 }
 
 int drive_audio_device_open(const char *data_root)
@@ -352,6 +434,9 @@ void drive_audio_offline_tick(void)
     for (uint32_t left = MIX_RATE / STEPS_PER_SECOND; left > 0;) {
         const uint32_t n = left < TICK_FRAMES ? left : TICK_FRAMES;
         sound_mix_frames(&driver.mixer, frames, (int32_t)n);
+        thunder_mix(&thunder, frames, n);
+        wet_roll_mix(&wet_roll, frames, n);
+        wet_roll_mix(&snow_roll, frames, n);
         fwrite(frames, sizeof frames[0], 2 * n, drive_dump_file);
         drive_dump_frames += n, left -= n;
         for (tick_frames += n * TICKS_PER_SECOND; tick_frames >= MIX_RATE; tick_frames -= MIX_RATE) sound_driver_tick(&driver);

@@ -88,9 +88,9 @@ static int kept(const RepaintTexture *tex, size_t i)
     return 0;
 }
 
-static void survey_rules(const RepaintBank *bank, int floor, Survey *s)
+/* counts how many pixels of each entry the main, end and other textures show; the entries a masked texture shows under a paint texel are forced */
+static void survey_count(const RepaintBank *bank, Survey *s)
 {
-    memset(s, 0, sizeof *s);
     for (int t = 0; t < bank->texture_count; t++) {
         const RepaintTexture *tex = &bank->textures[t];
         uint32_t *into = tex->body == REPAINT_MAIN ? s->main : tex->body == REPAINT_END ? s->end : s->other;
@@ -102,8 +102,12 @@ static void survey_rules(const RepaintBank *bank, int floor, Survey *s)
             if (masked && !keeps) s->forced[tex->pixels[i]] = 1;
         }
     }
-    /* the entries the main textures show heavily and that are paint, not glass or shadow: coloured, or a grey lighter than the floor */
-    uint8_t cand[ENTRIES] = { 0 };
+}
+
+/* marks in `cand` the entries the main textures show heavily and that are paint, not glass or shadow: coloured, or a grey lighter than the floor.
+ * Returns 1 for a coloured body: most of the paint's pixels are coloured, its greys (the underside, the shadows) are then not its paint. */
+static int survey_candidates(const RepaintBank *bank, int floor, const Survey *s, uint8_t cand[ENTRIES])
+{
     uint64_t colourful = 0, grey = 0;
     for (int e = 0; e < ENTRIES; e++) {
         uint8_t c[3];
@@ -113,10 +117,13 @@ static void survey_rules(const RepaintBank *bank, int floor, Survey *s)
         if (spread_of(c) >= CHROMATIC_SPREAD) cand[e] = 1, colourful += s->main[e];
         else if (luma_of(c) >= (float)floor) cand[e] = 1, grey += s->main[e];
     }
-    /* a coloured body when most of the paint's pixels are coloured: its greys (the underside, the shadows) are then not its paint */
-    const int coloured = colourful > grey;
+    return colourful > grey;
+}
+
+/* the candidates that are the paint: the flags, the spread and luma maxima, the pixel total and the hue's vector sum (sx, sy) */
+static uint64_t survey_paint(const RepaintBank *bank, Survey *s, const uint8_t cand[ENTRIES], int coloured, float *sx, float *sy)
+{
     uint64_t total = 0;
-    float sx = 0, sy = 0;
     for (int e = 0; e < ENTRIES; e++) {
         uint8_t c[3];
         colour_of(bank, e, c);
@@ -128,11 +135,15 @@ static void survey_rules(const RepaintBank *bank, int floor, Survey *s)
         if (luma_of(c) > s->luma_max) s->luma_max = luma_of(c);
         if (spread_of(c) >= CHROMATIC_SPREAD) {
             const float h = hue_of(c) * 0.01745329f;
-            sx += cosf(h) * (float)s->main[e], sy += sinf(h) * (float)s->main[e];
+            *sx += cosf(h) * (float)s->main[e], *sy += sinf(h) * (float)s->main[e];
         }
     }
-    if (!s->any) return;
-    /* the median spread, by pixels: sorted by spread (the entries are few) */
+    return total;
+}
+
+/* the median spread of the paint, by pixels: sorted by spread (the entries are few) */
+static void survey_median(const RepaintBank *bank, Survey *s, uint64_t total)
+{
     int order[ENTRIES], n = 0;
     for (int e = 0; e < ENTRIES; e++) {
         if (!s->paint[e]) continue;
@@ -155,6 +166,18 @@ static void survey_rules(const RepaintBank *bank, int floor, Survey *s)
         s->spread_median = (float)spread_of(c);
         if (before * 2 >= total) break;
     }
+}
+
+static void survey_rules(const RepaintBank *bank, int floor, Survey *s)
+{
+    memset(s, 0, sizeof *s);
+    survey_count(bank, s);
+    uint8_t cand[ENTRIES] = { 0 };
+    const int coloured = survey_candidates(bank, floor, s, cand);
+    float sx = 0, sy = 0;
+    const uint64_t total = survey_paint(bank, s, cand, coloured, &sx, &sy);
+    if (!s->any) return;
+    survey_median(bank, s, total);
     s->body_chromatic = coloured;
     s->hue = atan2f(sy, sx) * 57.29578f;
 }
@@ -245,24 +268,9 @@ static int shines(const RepaintBank *bank, int entry, int floor)
 
 /* Recolours the family (fn) and rewrites the body's texels to the colours. With `draft` set (one array of `count` bytes a texture) nothing is
  * changed: the texels it would not touch are set to 1, the others to 0, and the number of the others is returned. */
-static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, const Survey *s, uint8_t *const *draft)
+/* which texels are dithered, before any texel is rewritten (a rewritten neighbour is not paint any more): fills `guard` per texture and marks in `shared` the entries a guarded texel shows */
+static void repaint_guard(const RepaintBank *bank, const Survey *s, const uint8_t family[ENTRIES], uint8_t shared[ENTRIES], uint8_t **guard)
 {
-    int remap[ENTRIES], changed = 0;
-    Spares *sp = calloc(1, sizeof *sp);
-    if (sp == NULL) return 0;
-    uint8_t family[ENTRIES], shared[ENTRIES];   /* the paint entries; the ones a dithered texel shows (not recoloured in place) */
-    for (int e = 0; e < ENTRIES; e++) {
-        remap[e] = -1;
-        sp->used[e] = (uint8_t)(s->main[e] + s->end[e] + s->other[e] != 0 || e >= FIRST_RESERVED);
-        family[e] = (uint8_t)(s->main[e] + s->end[e] != 0 && in_family(bank, s, e, floor));
-        shared[e] = 0;
-    }
-    /* which texels are dithered, before any texel is rewritten (a rewritten neighbour is not paint any more) */
-    uint8_t **guard = calloc((size_t)bank->texture_count + 1, sizeof *guard);
-    if (guard == NULL) {
-        free(sp);
-        return 0;
-    }
     for (int t = 0; t < bank->texture_count; t++) {
         const RepaintTexture *tex = &bank->textures[t];
         if (tex->body == REPAINT_NONE || tex->width <= 0 || tex->mask != NULL) continue;
@@ -282,6 +290,11 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
             if (guard[t][i] && family[tex->pixels[i]]) shared[tex->pixels[i]] = 1;
         }
     }
+}
+
+/* the remap of every family entry: itself for a draft, else recoloured in place or moved to a spare entry */
+static void repaint_plan(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, const Survey *s, uint8_t *const *draft, Spares *sp, const uint8_t shared[ENTRIES], int remap[ENTRIES])
+{
     for (int e = 0; e < ENTRIES; e++) {
         if (s->main[e] + s->end[e] == 0 || !in_family(bank, s, e, floor)) continue;
         if (draft != NULL) {
@@ -306,23 +319,37 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
             remap[e] = spare_for(bank, sp, out, second);
         }
     }
+}
+
+/* draft mode, texel `i` of texture `t`: paint, shine, body or matte. Returns 1 when the texel counts as paint. */
+static int repaint_draft_texel(const RepaintBank *bank, int floor, const RepaintTexture *tex, uint8_t *draft_t, const uint8_t *guard_t, const int remap[ENTRIES], size_t i)
+{
+    const int to = remap[tex->pixels[i]];
+    if (tex->mask != NULL ? tex->mask[i] == 0 || tex->mask[i] == CAR_MASK_BLACK : !kept(tex, i) && !(guard_t != NULL && guard_t[i]) && to >= 0) {
+        draft_t[i] = REPAINT_DRAFT_PAINT;
+        return 1;
+    } else if (tex->mask != NULL) {   /* the mask's class: glass and the lamp classes (240..248, emissive in low light) shine as glass, a body texel as the body, the rest is matte */
+        draft_t[i] = tex->mask[i] == CAR_MASK_SHINE || (tex->mask[i] >= CAR_MASK_BRAKE && tex->mask[i] <= CAR_MASK_REVERSE) ? REPAINT_DRAFT_SHINE
+                        : tex->mask[i] == CAR_MASK_BODY ? REPAINT_DRAFT_BODY
+                                                        : REPAINT_DRAFT_MATTE;
+    } else if (!kept(tex, i)) {
+        draft_t[i] = (uint8_t)((guard_t != NULL && guard_t[i]) || shines(bank, tex->pixels[i], floor) ? REPAINT_DRAFT_SHINE
+                                                                                                      : REPAINT_DRAFT_MATTE);
+    }
+    return 0;
+}
+
+/* rewrites the texels through `remap` (or classifies them into `draft`); returns how many texels changed (or are paint) */
+static int repaint_apply(const RepaintBank *bank, int floor, uint8_t *const *draft, uint8_t *const *guard, const int remap[ENTRIES])
+{
+    int changed = 0;
     for (int t = 0; t < bank->texture_count; t++) {
         const RepaintTexture *tex = &bank->textures[t];
         if (draft != NULL) memset(draft[t], REPAINT_DRAFT_MATTE, tex->count);
         if (tex->body == REPAINT_NONE) continue;
         for (size_t i = 0; i < tex->count; i++) {
             if (draft != NULL) {
-                const int to = remap[tex->pixels[i]];
-                if (tex->mask != NULL ? tex->mask[i] == 0 || tex->mask[i] == CAR_MASK_BLACK : !kept(tex, i) && !(guard[t] != NULL && guard[t][i]) && to >= 0) {
-                    draft[t][i] = REPAINT_DRAFT_PAINT, changed++;
-                } else if (tex->mask != NULL) {   /* the mask's class: glass and the lamp classes (240..248, emissive in low light) shine as glass, a body texel as the body, the rest is matte */
-                    draft[t][i] = tex->mask[i] == CAR_MASK_SHINE || (tex->mask[i] >= CAR_MASK_BRAKE && tex->mask[i] <= CAR_MASK_REVERSE) ? REPAINT_DRAFT_SHINE
-                                    : tex->mask[i] == CAR_MASK_BODY ? REPAINT_DRAFT_BODY
-                                                                    : REPAINT_DRAFT_MATTE;
-                } else if (!kept(tex, i)) {
-                    draft[t][i] = (uint8_t)((guard[t] != NULL && guard[t][i]) || shines(bank, tex->pixels[i], floor) ? REPAINT_DRAFT_SHINE
-                                                                                                                  : REPAINT_DRAFT_MATTE);
-                }
+                changed += repaint_draft_texel(bank, floor, tex, draft[t], guard[t], remap, i);
                 continue;
             }
             if (tex->mask != NULL ? tex->mask[i] != 0 : (kept(tex, i) || (guard[t] != NULL && guard[t][i]))) continue;
@@ -331,6 +358,29 @@ static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, c
             else if (to == tex->pixels[i]) changed++;
         }
     }
+    return changed;
+}
+
+static int repaint(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, const Survey *s, uint8_t *const *draft)
+{
+    int remap[ENTRIES], changed = 0;
+    Spares *sp = calloc(1, sizeof *sp);
+    if (sp == NULL) return 0;
+    uint8_t family[ENTRIES], shared[ENTRIES];   /* the paint entries; the ones a dithered texel shows (not recoloured in place) */
+    for (int e = 0; e < ENTRIES; e++) {
+        remap[e] = -1;
+        sp->used[e] = (uint8_t)(s->main[e] + s->end[e] + s->other[e] != 0 || e >= FIRST_RESERVED);
+        family[e] = (uint8_t)(s->main[e] + s->end[e] != 0 && in_family(bank, s, e, floor));
+        shared[e] = 0;
+    }
+    uint8_t **guard = calloc((size_t)bank->texture_count + 1, sizeof *guard);
+    if (guard == NULL) {
+        free(sp);
+        return 0;
+    }
+    repaint_guard(bank, s, family, shared, guard);
+    repaint_plan(bank, floor, fn, ctx, s, draft, sp, shared, remap);
+    changed = repaint_apply(bank, floor, draft, guard, remap);
     for (int t = 0; t < bank->texture_count; t++) free(guard[t]);
     free(guard);
     free(sp);
@@ -353,11 +403,10 @@ typedef struct {
 /* Each entry the fixed black texels use takes the black of the body's tone at the same rank: the fixed texels sorted by lightness, their place in that order (by
  * pixels) read off the body's tones in theirs. A fixed texel then has the distribution of tones a black body has, as a texel of the paint would; run through the
  * plan on its own colour it kept the darkness of the texture it is in (a frame's shadow) and came out flatter and darker than the body. */
-static void fixed_black_remap(const RepaintBank *bank, const Survey *s, PaintCtx *ctx, int planned, const uint8_t black[3], int floor, Spares *sp, int remap[ENTRIES])
+/* the body's tones sorted by luma into `tone`, and every remap slot set to -2; returns how many tones, and adds their weights to *total_weight */
+static int fixed_black_tones(const RepaintBank *bank, const Survey *s, PaintCtx *ctx, int planned, int floor, int remap[ENTRIES], BodyTone tone[ENTRIES], uint64_t *total_weight)
 {
-    BodyTone tone[ENTRIES];
     int tones = 0;
-    uint64_t total_weight = 0;
     for (int e = 0; e < ENTRIES; e++) {
         remap[e] = -2;
         if (!planned || s->main[e] + s->end[e] == 0 || !in_family(bank, s, e, floor)) continue;
@@ -375,9 +424,14 @@ static void fixed_black_remap(const RepaintBank *bank, const Survey *s, PaintCtx
         int k = tones++;
         while (k > 0 && tone[k - 1].luma > b.luma) tone[k] = tone[k - 1], k--;
         tone[k] = b;
-        total_weight += b.weight;
+        *total_weight += b.weight;
     }
-    uint32_t used[ENTRIES] = { 0 };
+    return tones;
+}
+
+/* counts per entry the texels the masks mark as fixed black; returns their total */
+static uint64_t fixed_black_used(const RepaintBank *bank, uint32_t used[ENTRIES])
+{
     uint64_t total_used = 0;
     for (int t = 0; t < bank->texture_count; t++) {
         const RepaintTexture *tex = &bank->textures[t];
@@ -385,7 +439,13 @@ static void fixed_black_remap(const RepaintBank *bank, const Survey *s, PaintCtx
         for (size_t i = 0; i < tex->count; i++)
             if (tex->mask[i] == CAR_MASK_BLACK && tex->pixels[i] != TRANSPARENT) used[tex->pixels[i]]++, total_used++;
     }
-    int order[ENTRIES], n = 0;
+    return total_used;
+}
+
+/* the entries that have fixed black texels into `order`, darkest first; returns how many */
+static int fixed_black_order(const RepaintBank *bank, const uint32_t used[ENTRIES], int order[ENTRIES])
+{
+    int n = 0;
     for (int e = 0; e < ENTRIES; e++) {
         if (used[e] == 0) continue;
         uint8_t c[3];
@@ -399,6 +459,18 @@ static void fixed_black_remap(const RepaintBank *bank, const Survey *s, PaintCtx
         }
         order[k] = e;
     }
+    return n;
+}
+
+static void fixed_black_remap(const RepaintBank *bank, const Survey *s, PaintCtx *ctx, int planned, const uint8_t black[3], int floor, Spares *sp, int remap[ENTRIES])
+{
+    BodyTone tone[ENTRIES];
+    uint64_t total_weight = 0;
+    const int tones = fixed_black_tones(bank, s, ctx, planned, floor, remap, tone, &total_weight);
+    uint32_t used[ENTRIES] = { 0 };
+    const uint64_t total_used = fixed_black_used(bank, used);
+    int order[ENTRIES];
+    const int n = fixed_black_order(bank, used, order);
     uint64_t before = 0;
     for (int k = 0; k < n; k++) {
         const int e = order[k];

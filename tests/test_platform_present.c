@@ -93,6 +93,36 @@ static void split_case(int width, int height, int threads, unsigned seed)
     platform_shutdown();
 }
 
+/* the front end's fades are paced at 60 a second whatever the refresh rate: 17 steps (PALETTE_FADE_STEPS) last about 283 ms at 30, 60 and 144 Hz alike */
+static void test_frontend_pace(void)
+{
+    const int hz[3] = { 30, 60, 144 };
+    for (int k = 0; k < 3; k++) {
+        refresh_hz = hz[k];
+        CHECK_EQ_INT((int)platform_frontend_period_ns(), 16666666);   /* not the refresh's */
+        CHECK_EQ_INT((int)platform_refresh_period_ns(), (int)(1000000000u / (unsigned)hz[k]));
+        uint64_t now = 1000, next = 0, wait = 0, start = now;
+        for (int step = 0; step < 17; step++) {
+            next = pace_step(next, now, platform_frontend_period_ns(), &wait);
+            now += wait + 20000;   /* the step's own work: 20 us */
+        }
+        const uint64_t ms = (now - start) / 1000000u;
+        CHECK(ms >= 280 && ms <= 286);
+        /* and the race's refresh as it was: 17 steps at its own rate */
+        now = 1000, next = 0, start = now;
+        for (int step = 0; step < 17; step++) {
+            next = pace_step(next, now, platform_refresh_period_ns(), &wait);
+            now += wait + 20000;
+        }
+        const uint64_t refresh_ms = (now - start) / 1000000u;
+        CHECK(refresh_ms >= 17000u / (unsigned)hz[k] - 3 && refresh_ms <= 17000u / (unsigned)hz[k] + 3);
+    }
+    refresh_hz = VBLANK_HZ;
+    uint64_t wait = 99;
+    CHECK_EQ_INT((int)pace_step(5000, 100000000, 16666666, &wait) > 100000000, 1);   /* far behind: resynced, then one period on */
+    CHECK_EQ_INT((int)wait, 16666666);
+}
+
 int main(void)
 {
     setenv("SDL_VIDEO_DRIVER", "dummy", 1);
@@ -103,5 +133,6 @@ int main(void)
         for (int threads = 0; threads <= 4; threads += 4) present_case(sizes[k][0], sizes[k][1], threads, (unsigned)k);
     for (int k = 0; k < 4; k++)
         for (int threads = 0; threads <= 4; threads += 4) split_case(sizes[k][0], sizes[k][1], threads, (unsigned)k);
+    test_frontend_pace();
     return TEST_REPORT();
 }

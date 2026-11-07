@@ -190,6 +190,101 @@ static void test_reversed(void)
     CHECK_EQ_INT(psx_light_old_node(NULL, 5), 5);
 }
 
+/* port (shoulder_light): the shoulder's far edge (points 2 and 7) is as lit as the road beside it before the beam scales it, so a car's beam lights it */
+static void test_shoulder_light(void)
+{
+    uint8_t rows[3 * PSX_LIGHT_POINTS];
+    memset(rows, 20, sizeof rows);
+    for (int n = 0; n < 3; n++) rows[n * PSX_LIGHT_POINTS + 0] = rows[n * PSX_LIGHT_POINTS + 1] = rows[n * PSX_LIGHT_POINTS + 6] = 95;   /* the road */
+    HeadlightPool pool;
+    memset(&pool, 0, sizeof pool);
+    pool.cone = 1, pool.count = 1;
+    pool.cone_x[0] = 0.0, pool.cone_z[0] = 0.0, pool.cone_hx[0] = 0.0, pool.cone_hz[0] = 1.0;   /* a car at the origin facing +z */
+    PsxLight off = { .data = rows, .nodes = 3, .pool = &pool };
+    PsxLight on = off;
+    on.shoulder_road = 1;
+    const double at[2] = { 0.0, 8.0 };   /* in the beam */
+    const int road = psx_light_at_xz(&on, 1, 1, at), edge_off = psx_light_at_xz(&off, 1, 7, at), edge_on = psx_light_at_xz(&on, 1, 7, at);
+    CHECK(edge_off < road / 2);                                        /* as it was: near black next to the lit road */
+    CHECK(edge_on >= road - 2 && edge_on <= road + 2);                 /* the road's light, the beam on it alike */
+    CHECK_EQ_INT(psx_light_at_xz(&on, 1, 2, at), psx_light_at_xz(&on, 1, 1, at));   /* the right side's point 2 too (points 1 and 2 share the road's) */
+    CHECK_EQ_INT(psx_light_at_xz(&on, 1, 3, at), psx_light_at_xz(&off, 1, 3, at));  /* the terrain beyond is its own */
+    CHECK_EQ_INT(psx_light_at_xz(&on, 1, 0, at), psx_light_at_xz(&off, 1, 0, at));  /* the road is untouched */
+    const double far_at[2] = { 0.0, 150.0 };   /* beyond the beam's reach */
+    CHECK_EQ_INT(psx_light_at_xz(&on, 1, 7, far_at), psx_light_at_xz(&off, 1, 7, far_at));   /* where there is no beam the row is as it was */
+    PsxLight dark = on;
+    dark.pool = NULL;
+    CHECK_EQ_INT(psx_light_at_xz(&dark, 1, 7, at), 20);                /* by day (no pool) the row as it is */
+}
+
+/* port (`lamp`): which lamps reach a polygon (by node, the ring's seam included), the light of the lamps at a ground point (strength, falloff, colour) and the car's light by its distance to the lamp */
+static void test_radial_lamps(void)
+{
+    PsxLightLamp lamps[3] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f } }, { 14, 24.0f, 0.0f, 30.0f, { 1.0f, 0.0f, 0.0f } }, { 100, 600.0f, 0.0f, 30.0f, { 1, 1, 1 } } };
+    PsxLight l = { 0 };
+    l.nodes = 128, l.lamps = lamps, l.lamp_n = 3, l.lamp_reach_nodes = 5, l.lamp_placed = 1;
+    int idx[8];
+    const uint32_t at12[4] = { 12, 12, 13, 13 };
+    CHECK_EQ_INT(psx_light_lamps_near(&l, at12, idx, 8), 2);   /* nodes 10 and 14, not 100 */
+    CHECK(idx[0] == 0 && idx[1] == 1);
+    const uint32_t none[4] = { 50, 50, 51, 51 };
+    CHECK_EQ_INT(psx_light_lamps_near(&l, none, idx, 8), 0);
+    const uint32_t nowhere[4] = { PSX_LIGHT_NO_NODE, 0, 0, 0 };
+    CHECK_EQ_INT(psx_light_lamps_near(&l, nowhere, idx, 8), 0);
+    PsxLightLamp edge[1] = { { 2, 0.0f, 0.0f, 30.0f, { 1, 1, 1 } } };   /* a ring: the lamp at 2 is 5 nodes from node 125 across the seam */
+    PsxLight r = { 0 };
+    r.nodes = 128, r.lamps = edge, r.lamp_n = 1, r.lamp_reach_nodes = 5, r.lamp_ring = 1;
+    const uint32_t seam[4] = { 125, 125, 126, 126 };
+    CHECK_EQ_INT(psx_light_lamps_near(&r, seam, idx, 8), 1);
+    r.lamp_ring = 0;
+    CHECK_EQ_INT(psx_light_lamps_near(&r, seam, idx, 8), 0);   /* a stage has no seam */
+    float rgb[3];
+    CHECK(psx_light_lamp_at(&l, idx, 0, 0.0, 0.0, rgb) == 0.0f && rgb[0] == 0.0f && rgb[2] == 0.0f);   /* no lamp: no colour, not garbage */
+    const int one[1] = { 0 };
+    CHECK(psx_light_lamp_at(&l, one, 1, 0.0, 0.0, rgb) == 1.0f && rgb[0] == 1.0f && rgb[1] == 0.9f);   /* under the lamp: full, its colour */
+    const float half = psx_light_lamp_at(&l, one, 1, 15.0, 0.0, rgb);
+    CHECK(half == 0.25f && psx_light_lamp_at(&l, one, 1, 30.0, 0.0, rgb) == 0.0f);   /* smooth to nothing at the reach */
+    const int two[2] = { 0, 1 };
+    const float mix = psx_light_lamp_at(&l, two, 2, 12.0, 0.0, rgb);   /* between a warm and a red lamp: their colours' mean, weighted by what each gives */
+    CHECK(mix > 0.0f && rgb[0] == 1.0f && rgb[1] > 0.0f && rgb[1] < 0.9f);
+    /* the car: the lamp's colour times LAMP_CAR_ADD times its light is added, nothing darkens, none beyond the reach */
+    float out[3] = { 0.5f, 0.5f, 0.5f };
+    CHECK(psx_light_lamp_car(&l, 10, 0.0, 0.0, out));
+    CHECK(out[0] > 0.5f + LAMP_CAR_ADD - 0.01f && out[1] > 0.5f && out[2] > 0.5f && out[2] < out[1] && out[1] < out[0]);
+    float away[3] = { 0.5f, 0.5f, 0.5f };
+    CHECK(!psx_light_lamp_car(&l, 10, -40.0, 0.0, away) && away[0] == 0.5f);
+    float near[3] = { 0.5f, 0.5f, 0.5f };
+    CHECK(psx_light_lamp_car(&l, 10, 15.0, 0.0, near) && near[0] > 0.5f && near[0] < out[0]);   /* less away from it */
+    float bright[3] = { 1.9f, 1.9f, 1.9f };
+    psx_light_lamp_car(&l, 10, 0.0, 0.0, bright);
+    CHECK(bright[0] <= 2.0f);   /* the old pool's ceiling */
+}
+
+/* an object beside a lamp: raised to what the lamp gives at its own place, less what the rows' bake already put on its terrain's points (not added twice) */
+static void test_object_lamp(void)
+{
+    PsxLightLamp lamp[1] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f } } };
+    static uint8_t lift[128 * PSX_LIGHT_POINTS];
+    PsxLight l = { 0 };
+    l.nodes = 128, l.lamps = lamp, l.lamp_n = 1, l.lamp_reach_nodes = 5, l.lamp_placed = 1;
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, 0.0, 0.0, 100), 100);   /* no bake (lamp_lift NULL): the rows are as they were */
+    l.lamp_lift = lift;
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, 0.0, 0.0, 100), 255);   /* under the lamp, nothing baked there: full */
+    const int half = psx_light_object_lamp(&l, 10, 15.0, 0.0, 100);    /* a quarter of the lamp at 15 m: a quarter of the way to full */
+    CHECK(half > 100 && half < 255 && half == 100 + (int)(155 * 0.25f + 0.5f));
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, -40.0, 0.0, 100), 100);   /* beyond the reach */
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 60, 0.0, 0.0, 100), 100);     /* a node no lamp is near */
+    CHECK_EQ_INT(psx_light_object_lamp(&l, PSX_LIGHT_NO_NODE, 0.0, 0.0, 100), 100);
+    for (int n = 0; n < 128; n++)   /* the terrain's points fully baked: the object has nothing more to take */
+        for (int p = 0; p < PSX_LIGHT_POINTS; p++) lift[n * PSX_LIGHT_POINTS + p] = 255;
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, 0.0, 0.0, 100), 100);
+    for (int n = 0; n < 128; n++)   /* half baked: under the lamp it takes the rest of the way, at 15 m (a quarter) it is already past it */
+        for (int p = 0; p < PSX_LIGHT_POINTS; p++) lift[n * PSX_LIGHT_POINTS + p] = 128;
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, 0.0, 0.0, 180), 255);
+    CHECK_EQ_INT(psx_light_object_lamp(&l, 10, 15.0, 0.0, 180), 180);
+    CHECK_EQ_INT(psx_light_object_lamp(NULL, 10, 0.0, 0.0, 77), 77);
+}
+
 int main(void)
 {
     test_tunnel_road();
@@ -199,5 +294,8 @@ int main(void)
     test_object_floor_lifts_only_the_points_beyond_the_road();
     test_rejected_files();
     test_reversed();
+    test_shoulder_light();
+    test_radial_lamps();
+    test_object_lamp();
     return TEST_REPORT();
 }

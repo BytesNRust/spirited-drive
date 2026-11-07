@@ -16,7 +16,7 @@
 #   replay  --replay on each replay of the CD and the scratch config's own to its end, then Esc (which leaves the
 #           last picture; one in the replay opens its menu and the next closes it), every 15 s from 60 s
 # Each run leaves OUT/<name>.log; a line per run goes to OUT/summary: its rc (124: the timeout ran out), its seconds
-# and the sanitizer's first report. MODS (a scratch --mods dir with a user/config.dat) keeps the real config out.
+# and the sanitizer's first report. MODS (a scratch dir with a user/config.dat, run as --user MODS/user) keeps the real config out.
 export PATH=/nix/var/nix/profiles/default/bin:$PATH
 cd $1 || exit 1
 out=${2:a}; shift 2
@@ -25,7 +25,7 @@ phases=(${@:-drive variant frame replay menus movie})
 maxp=${MAXP:-3}
 bin=$PWD/build/dev/tnfs
 data=$PWD/original
-mods=(); [[ -n $MODS ]] && mods=(--mods $MODS)
+mods=(); [[ -n $MODS ]] && mods=(--user $MODS/user)   # the player's folder: --mods no longer holds it
 export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy
 export ASAN_OPTIONS=halt_on_error=1:detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
 
@@ -59,9 +59,10 @@ run() {
   local name=$1 limit=$2 script=$3; shift 3
   wait_slot
   (
-    local start=$SECONDS
+    local start=$SECONDS umods=($mods)
+    [[ -n $RUN_MODS ]] && umods=(--user $RUN_MODS/user)
     TNFS_VERBOSE=1 TNFS_INPUT_SETTLE=${RUN_SETTLE:-0} TNFS_INPUT_SCRIPT=$script timeout -k 5 $limit $bin --data $data \
-      ${RUN_MODS:+--mods} ${RUN_MODS:-$mods} "$@" > $out/$name.log 2>&1
+      $umods "$@" > $out/$name.log 2>&1
     local rc=$? found=$(grep -m1 -E "runtime error|ERROR: AddressSanitizer|SUMMARY: (Address|Undefined)" $out/$name.log)
     local over=""; (( rc == 124 )) && grep -q "race over" $out/$name.log && over=" (after its race over)"
     print -r -- "$name rc $rc$over $(( SECONDS - start ))s ${found:-clean}" >> $out/summary

@@ -19,10 +19,11 @@ void modern_road_cell_lit(const QuadTarget *q, const View *view, const FshEntry 
                           const int32_t *const cam[4], int transparent, const uint8_t (*tables)[256], const float dark[4]);
 
 /* port (lamp_pool_tint): the same with a warmth (0..1) at each corner and `warm`, the tables of a lamp's full warmth (MODERN_FOG_LEVELS of them, kept by pointer): a pixel takes
- * the warm tables where its interpolated warmth and the ordered dither say, the lit ones elsewhere. warm NULL, or no warmth at any corner: modern_road_cell_lit's. */
+ * the warm tables where its interpolated warmth and the ordered dither say, the lit ones elsewhere. warm NULL, or no warmth at any corner: modern_road_cell_lit's.
+ * With steps > 0 `warm` holds that many blocks of MODERN_FOG_LEVELS tables (block s the warmth s / steps): no dither, a pixel takes the block its warmth rounds to (the lit tables below half a step). */
 void modern_road_cell_lit_warm(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
                                const int32_t *const cam[4], int transparent, const uint8_t (*tables)[256], const float dark[4],
-                               const uint8_t (*warm)[256], const float heat[4]);
+                               const uint8_t (*warm)[256], const float heat[4], int steps);
 
 /* port: the 3D object engine's textured polygon (3 or 4 corners) the same way: uv 16.16 per corner, the mapper's
  * mode (a MAP_SHADE texel 0xfe takes shade[] of the pixel under it, `shade` 256 bytes then) */
@@ -59,6 +60,9 @@ void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_
 /* The same with `cast` (per channel, 1 none) on the darkened levels 1 and up: level 0, the full light, is not cast (a tunnel's lit
  * parts stay as they are while its dim road and walls turn olive). A neutral cast is modern_light_tables. */
 void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], const float cast[3], uint8_t out[MODERN_FOG_LEVELS][256]);
+
+/* port (`lamp`): the lit tables with `add` (red, green, blue in 0..255 units) added to each colour after the tint and the darkness: a coloured lamp's light, which brightens toward its colour and never darkens */
+void modern_light_tables_add(const uint8_t palette[768], const float tint[3], const float add[3], uint8_t out[MODERN_FOG_LEVELS][256]);
 
 /* The tunnel's tables: the same cast, but the tint only as its brightness (the mean of its channels, no hue; at least min_light, a
  * tunnel's own lamps keep it lit when the night's tint is darker), the cast on every level the tint darkens: a tunnel is as warm at

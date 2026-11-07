@@ -126,4 +126,7 @@ TrackViewerResults track_viewer_drive_results(void);
 /* port: the race's screen width (640, or the wide screen's 854 / 1120 while a race draws wide) */
 int drive_screen_width(void);
 
+/* port (light_edit): the race's dry zones made again from the places file (the editor saw it change); 1 when made */
+int drive_wet_reload(void);
+
 #endif

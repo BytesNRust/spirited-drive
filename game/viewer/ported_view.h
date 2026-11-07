@@ -86,6 +86,7 @@ struct PsxSkyDraw;
 void ported_view_set_psx_sky(struct PsxSkyDraw *sky);
 /* port (weather.h): the race's weather, WEATHER_CLEAR (the default) draws as it always did; fog needs Modern 3D on */
 void ported_view_set_weather(int weather);
+void ported_view_set_snow(int snow);   /* port (snow_weather): the race's track is a snowy one with the switch on: the rain falls as snow (weather_snow.h) */
 void ported_view_set_modern(int on);
 /* port (weather): the mirror's road style for the weather (0: clear weather, nothing set) and its sky, drawn by then */
 int ported_view_mirror_weather(const TrackArt *art);
@@ -93,6 +94,8 @@ int ported_view_mirror_weather(const TrackArt *art);
 int ported_view_mirror_weather_on(void);
 /* 1 when the weather is rain or storm (the lamps and the gauges follow it: rain_lamps, gauge_exterior) */
 int ported_view_rain(void);
+/* port (weather_zones): how much weather there is at `node`, 0..16 (0 inside a closed zone: the light's tunnels and Coastal's galleries; 16 in the open) */
+int ported_view_weather_open(uint32_t node);
 void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const View *view, const int32_t matrix[9]);
 int ported_view_modern(void);
 /* port: EXTRAS' Texture Filter and Fog over Modern 3D (modern_look.h); nothing while Modern 3D is off */
@@ -144,11 +147,6 @@ typedef struct {
     int32_t node;
     int32_t roll;
 } PortedCamera;
-
-/* The track from `cam`, with the car (set by ported_view_set_car) at `pose`
- * drawn with the row of `car_node`; car_node -1 leaves it out. */
-void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *cam,
-                             const CarPose *pose, int32_t car_node, uint8_t *pixels);
 
 /* 0043f540's cache and list part: the segment cache's window and the point
  * list follow the camera as in the race loop, which runs it every frame (the

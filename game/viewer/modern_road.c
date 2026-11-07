@@ -25,6 +25,7 @@ typedef struct {
     float dark[4];                  /* the darkness (0 light .. MODERN_FOG_LEVELS - 1) at each corner, in cam's order */
     const uint8_t (*warm)[256];     /* port (lamp_pool_tint): the tables of a lamp's full warmth, which a pixel takes where its heat says (NULL none: the lit tables alone) */
     float heat[4];                  /* the warmth (0..1) at each corner, in cam's order */
+    int warm_steps;                 /* port (`lamp`): 0 the warm tables are one, taken by the ordered dither; else `warm` holds that many tables' blocks, a pixel takes the one its heat rounds to (no dither) */
 } Fill;
 
 static void uv_box(Fill *fill, const int32_t uv[8], int corners)
@@ -109,7 +110,7 @@ void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_
     modern_light_tables_cast(palette, tint, neutral, out);
 }
 
-static void light_tables(const uint8_t palette[768], const float tint[3], const float cast[3], int cast_full, uint8_t out[MODERN_FOG_LEVELS][256])
+static void light_tables(const uint8_t palette[768], const float tint[3], const float cast[3], int cast_full, const float *add, uint8_t out[MODERN_FOG_LEVELS][256])
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels: they stay */
     const uint8_t *usable = palette_world_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
@@ -117,12 +118,16 @@ static void light_tables(const uint8_t palette[768], const float tint[3], const 
     for (int l = 0; l < MODERN_FOG_LEVELS; l++) {
         const float f = 1.0f - (float)l / (MODERN_FOG_LEVELS - 1);
         for (int c = 0; c < 256; c++) {
-            if (c >= CHOICES || emissive[c] || (l == 0 && tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f)) {
+            if (c >= CHOICES || emissive[c] || (l == 0 && add == NULL && tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f)) {
                 out[l][c] = (uint8_t)c;
                 continue;
             }
             float want[3];
-            for (int k = 0; k < 3; k++) want[k] = fminf(palette[3 * c + k] * tint[k] * f * (l > 0 || cast_full ? cast[k] : 1.0f), 255.0f);
+            for (int k = 0; k < 3; k++) {
+                float v = palette[3 * c + k] * tint[k] * f * (l > 0 || cast_full ? cast[k] : 1.0f);
+                if (add != NULL) v += add[k];   /* port (`lamp`): a coloured lamp's light, added to what the surface has (never darkens) */
+                want[k] = fminf(v, 255.0f);
+            }
             int best = 0;
             float best_d = 1e30f;
             for (int i = 0; i < CHOICES; i++) {
@@ -138,13 +143,19 @@ static void light_tables(const uint8_t palette[768], const float tint[3], const 
 
 void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], const float cast[3], uint8_t out[MODERN_FOG_LEVELS][256])
 {
-    light_tables(palette, tint, cast, 0, out);
+    light_tables(palette, tint, cast, 0, NULL, out);
+}
+
+void modern_light_tables_add(const uint8_t palette[768], const float tint[3], const float add[3], uint8_t out[MODERN_FOG_LEVELS][256])
+{
+    static const float neutral[3] = { 1, 1, 1 };
+    light_tables(palette, tint, neutral, 0, add, out);
 }
 
 void modern_tunnel_tables(const uint8_t palette[768], const float tint[3], const float cast[3], float min_light, uint8_t out[MODERN_FOG_LEVELS][256])
 {
     const float mean = (tint[0] + tint[1] + tint[2]) / 3.0f, m = mean > min_light ? mean : min_light, grey[3] = { m, m, m };
-    light_tables(palette, grey, cast, 1, out);
+    light_tables(palette, grey, cast, 1, NULL, out);
 }
 
 /* the 4x4 ordered dither's thresholds, (BAYER + 0.5) / 16 by (y & 3, x & 3) */
@@ -176,13 +187,29 @@ static int fog_level(float z, int x, int y)
 /* port (PS1 light): the level of a pixel whose interpolated darkness is d, a dither between two levels as the fog's */
 static int dark_level(float d, int x, int y)
 {
-    const int l = (int)floorf(d + BAYER[y & 3][x & 3]);
+    const float f = d + BAYER[y & 3][x & 3];
+    /* a darkness out of the int range (or NaN: a pixel extrapolated past the polygon toward the camera, lz * r with r = 1 / IZ_MIN) is level 0, as dark_levels' truncating convert
+     * gives it (the lowest int): the float to int cast was undefined here, and gave another level on other CPUs */
+    if (!(f > -2147483648.0f && f < 2147483648.0f)) return 0;
+    const int l = (int)floorf(f);
     return l < 0 ? 0 : l >= MODERN_FOG_LEVELS ? MODERN_FOG_LEVELS - 1 : l;
 }
 
 /* port (lamp_pool_tint): whether the pixel takes the warm tables, by its interpolated heat (0..1) against the same ordered dither: a pool's warmth fades in with the
  * lamp's class at the corners, no polygon of its own class */
 static int warm_pixel(float h, int x, int y) { return h + BAYER[y & 3][x & 3] >= 1.0f; }
+
+/* The tables a pixel of heat h is drawn through: the lit ones; `warm` (one block) where the dither says; or, with `steps`, the block of the step h rounds to (1..steps; 0 the lit tables):
+ * the pool grades in `steps` even steps with nothing random or ordered between them. */
+static inline const uint8_t (*warm_pick(const uint8_t (*lit)[256], const uint8_t (*warm)[256], int steps, float h, int x, int y))[256]
+{
+    if (warm == NULL) return lit;
+    if (steps == 0) return warm_pixel(h, x, y) ? warm : lit;
+    int s = (int)(h * (float)steps + 0.5f);
+    if (s < 1) return lit;   /* NaN converts to a value the test above does not keep either way: clamp both ends */
+    if (s > steps) s = steps;
+    return warm + (size_t)(s - 1) * MODERN_FOG_LEVELS;
+}
 
 #if defined(__SSE2__) && !defined(__FMA__)
 /* fog_level for the depths z of four pixels x .. x + 3 of row y: the same operations, a lane each */
@@ -340,6 +367,7 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
     const uint8_t (*lit)[256] = fill->lit;
     const float lz = at[3].base + at[3].dx * px + at[3].dy * py, lzdx = at[3].dx;
     const uint8_t (*warm)[256] = lit != NULL ? fill->warm : NULL;   /* port (lamp_pool_tint) */
+    const int steps = fill->warm_steps;
     const float hz = at[4].base + at[4].dx * px + at[4].dy * py, hzdx = at[4].dx;
     const Paint paint = fill->paint;   /* locals: the row's stores (chars) would make every pixel reload them */
     const uint8_t *const payload = fill->texture->payload;
@@ -383,7 +411,7 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
         for (int j = 0; j < 4; j++) {
             uint8_t c = payload[at4[j]];
             if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[lv[j]][c];
-            if (lit != NULL && c < MAP_SHADE_TEXEL) c = (warm != NULL && warm_pixel(hl[j], x + j, y) ? warm : lit)[dl[j]][c];
+            if (lit != NULL && c < MAP_SHADE_TEXEL) c = warm_pick(lit, warm, steps, hl[j], x + j, y)[dl[j]][c];
             paint_texel(&paint, &row[x + j], c);
         }
     }
@@ -402,7 +430,7 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
         }
         uint8_t c = texel(fill, u, v);
         if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[fog_level(r, x, y)][c];
-        if (lit != NULL && c < MAP_SHADE_TEXEL) c = (warm != NULL && warm_pixel((hz + hzdx * k) * r, x, y) ? warm : lit)[dark_level((lz + lzdx * k) * r, x, y)][c];
+        if (lit != NULL && c < MAP_SHADE_TEXEL) c = warm_pick(lit, warm, steps, (hz + hzdx * k) * r, x, y)[dark_level((lz + lzdx * k) * r, x, y)][c];
         paint_texel(&paint, &row[x], c);
     }
 }
@@ -525,7 +553,7 @@ void modern_road_cell(const QuadTarget *q, const View *view, const FshEntry *tex
         keep(c, view, uv, cam, 4);
         return;
     }
-    Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 } };
+    Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 }, 0 };
     uv_box(&fill, uv, 4);
     draw_clipped(q, view, uv, cam, 4, &fill);
 }
@@ -543,18 +571,18 @@ static void replay_lit(const RasterCmd *c, const QuadTarget *whole, int32_t top,
     memcpy(heat, c->v + 24, sizeof heat);
     memcpy(&warm, c->v + 28, sizeof warm);
     if (raster_narrow(whole, top, bottom, &band))
-        modern_road_cell_lit_warm(&band, c->table, c->texture, c->v, cam, (int)c->mode, (const uint8_t (*)[256])c->shape, dark, warm, warm != NULL ? heat : NULL);
+        modern_road_cell_lit_warm(&band, c->table, c->texture, c->v, cam, (int)c->mode, (const uint8_t (*)[256])c->shape, dark, warm, warm != NULL ? heat : NULL, c->v[30]);
 }
 
 void modern_road_cell_lit(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
                           const int32_t *const cam[4], int transparent, const uint8_t (*tables)[256], const float dark[4])
 {
-    modern_road_cell_lit_warm(q, view, texture, uv, cam, transparent, tables, dark, NULL, NULL);
+    modern_road_cell_lit_warm(q, view, texture, uv, cam, transparent, tables, dark, NULL, NULL, 0);
 }
 
 void modern_road_cell_lit_warm(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8],
                                const int32_t *const cam[4], int transparent, const uint8_t (*tables)[256], const float dark[4],
-                               const uint8_t (*warm)[256], const float heat[4])
+                               const uint8_t (*warm)[256], const float heat[4], int steps)
 {
     if (warm == NULL || heat == NULL) warm = NULL, heat = NULL;
     else if (heat[0] <= 0 && heat[1] <= 0 && heat[2] <= 0 && heat[3] <= 0) warm = NULL, heat = NULL;   /* no warmth anywhere on it: the lit tables, as without the pool */
@@ -567,10 +595,11 @@ void modern_road_cell_lit_warm(const QuadTarget *q, const View *view, const FshE
         if (warm != NULL) memcpy(c->v + 24, heat, 4 * sizeof *heat);
         else memset(c->v + 24, 0, 4 * sizeof *heat);
         memcpy(c->v + 28, &warm, sizeof warm);
+        c->v[30] = warm != NULL ? steps : 0;
         return;
     }
     Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0, tables,
-                  { dark[0], dark[1], dark[2], dark[3] }, warm, { 0 } };
+                  { dark[0], dark[1], dark[2], dark[3] }, warm, { 0 }, warm != NULL ? steps : 0 };
     if (warm != NULL) memcpy(fill.heat, heat, sizeof fill.heat);
     uv_box(&fill, uv, 4);
     draw_clipped(q, view, uv, cam, 4, &fill);
@@ -580,7 +609,7 @@ void modern_polygon(const QuadTarget *q, const View *view, const FshEntry *textu
                     const int32_t *const cam[4], int corners, MapMode mode, const uint8_t *shade)
 {
     if (texture == NULL || (corners != 3 && corners != 4)) return;
-    Fill fill = { texture, { mode, shade }, 0, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 } };
+    Fill fill = { texture, { mode, shade }, 0, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 }, 0 };
     if (!paint_valid(&fill.paint)) return;
     struct RasterRecorder *rec = raster_recorder_for(q);
     if (rec != NULL) {
@@ -604,6 +633,6 @@ void modern_flat(const QuadTarget *q, const View *view, uint8_t colour, const in
         keep(c, view, uv, cam, corners);
         return;
     }
-    const Fill fill = { NULL, { MAP_OPAQUE, NULL }, colour, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 } };
+    const Fill fill = { NULL, { MAP_OPAQUE, NULL }, colour, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 }, 0 };
     draw_clipped(q, view, uv, cam, corners, &fill);
 }

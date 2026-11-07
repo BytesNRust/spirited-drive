@@ -220,55 +220,41 @@ static void used_entries(const RacePalette *p, const RaceState *race, CarLoad *c
     for (int e = LAMP_SCAN_LAST + 1; e < RACE_PALETTE_COLOURS; e++) used[e] = 1;   /* the HUD's, the police lights, the pointer, the see-through */
 }
 
-/* port (emissive lamps, lamp_emissive.h): the cars' lamp texels armed, the slots' own lamp entries kept lit whatever the light, and for the position light and
- * the headlight two entries nothing shows: a shared entry each, written once and out of every search. With none free that kind stays as it is. */
-static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const Chunk *fam, const Chunk *terrain,
-                           const uint8_t *track, const uint8_t *dash_bank)
+/* port (emissive lamps): the shared entries the wanted lamps take, written once and out of every search. */
+static void lamp_set_aside(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const Chunk *fam, const Chunk *terrain,
+                           const uint8_t *track, const uint8_t *dash_bank, const int wanted[LAMP_ENTRIES], const char *const name[LAMP_ENTRIES],
+                           uint8_t entry[LAMP_ENTRIES], uint8_t exempt[RACE_PALETTE_COLOURS])
 {
-    if (!port_emissive_lamps()) return;
-    drive_lamps_arm();
-    for (int i = 0; i < DRIVE_LAMP_SLOTS && i < RACE_CARS; i++)   /* a lamp texel the car's objects do not draw is one the toggle cannot light */
-        if (drive_lamps_count(i) > 0 && cars[i] != NULL)
-            port_log("emissive_lamps: slot %d: %d lamp texels, %d in the textures the high detail body draws, %d in the low detail's\n", i,
-                     drive_lamps_count(i), drive_lamps_reached(i, &cars[i]->object[0]), drive_lamps_reached(i, &cars[i]->object[1]));
-    for (int i = 0; i < DRIVE_LAMP_SLOTS && i < RACE_CARS; i++)
-        if (drive_lamps_count(i) > 0 && cars[i] != NULL && drive_lamps_reached(i, &cars[i]->object[0]) == 0)
-            port_log("emissive_lamps: slot %d: the masks mark no lamp in the high detail body: they show only from far away\n", i);
-    int brake = 0, position = 0, headlight = 0, reverse = 0;
-    for (int i = 0; i < DRIVE_LAMP_SLOTS; i++) {
-        brake |= drive_lamps_has(i, LAMP_BRAKE), position |= drive_lamps_has(i, LAMP_POSITION), headlight |= drive_lamps_has(i, LAMP_HEADLIGHT);
-        reverse |= drive_lamps_has(i, LAMP_REVERSE);
+    uint8_t used[RACE_PALETTE_COLOURS], free_entries[LAMP_ENTRIES], rgb[RACE_PALETTE_COLOURS * 3];
+    used_entries(p, race, cars, fam, terrain, track, dash_bank, used);
+    for (int e = 0; e < RACE_PALETTE_COLOURS; e++) memcpy(rgb + 3 * e, p->screen_rgbx + 4 * e, 3);
+    const int want = wanted[0] + wanted[1] + wanted[2] + wanted[3];
+    const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, want, free_entries);
+    int next = 0;
+    for (int k = 0; k < LAMP_ENTRIES; k++) {
+        if (!wanted[k]) continue;
+        if (next < found) entry[k] = free_entries[next++];
+        else port_log("emissive_lamps: no free palette entry for the %s: those texels stay as the exe has them\n", name[k]);
     }
-    position |= brake;   /* a brake texel shows the position light's entry while the brake is off */
-    uint8_t entry[LAMP_ENTRIES] = { 0 }, exempt[RACE_PALETTE_COLOURS] = { 0 };   /* position, brake lit, headlight */
-    const int wanted[LAMP_ENTRIES] = { position, brake, headlight, reverse };
-    const char *const name[LAMP_ENTRIES] = { "position light", "lit brake light", "headlight", "reversing light" };
-    if (position || headlight || reverse) {
-        uint8_t used[RACE_PALETTE_COLOURS], free_entries[LAMP_ENTRIES], rgb[RACE_PALETTE_COLOURS * 3];
-        used_entries(p, race, cars, fam, terrain, track, dash_bank, used);
-        for (int e = 0; e < RACE_PALETTE_COLOURS; e++) memcpy(rgb + 3 * e, p->screen_rgbx + 4 * e, 3);
-        const int want = wanted[0] + wanted[1] + wanted[2] + wanted[3];
-        const int found = lamp_pick_entries(used, p->enabled, rgb, LAMP_SCAN_FIRST, LAMP_SCAN_LAST, want, free_entries);
-        int next = 0;
-        for (int k = 0; k < LAMP_ENTRIES; k++) {
-            if (!wanted[k]) continue;
-            if (next < found) entry[k] = free_entries[next++];
-            else port_log("emissive_lamps: no free palette entry for the %s: those texels stay as the exe has them\n", name[k]);
-        }
-        port_log("emissive_lamps: %d of %d shared entries free (position %d, lit brake %d, headlight %d, reversing %d)\n", found, want, entry[0], entry[1], entry[2], entry[3]);
-        const uint8_t colour[LAMP_ENTRIES][3] = { { LAMP_POSITION_R, LAMP_POSITION_G, LAMP_POSITION_B }, { LAMP_BRAKE_R, LAMP_BRAKE_G, LAMP_BRAKE_B },
-                                                  { LAMP_HEADLIGHT_R, LAMP_HEADLIGHT_G, LAMP_HEADLIGHT_B }, { LAMP_REVERSE_R, LAMP_REVERSE_G, LAMP_REVERSE_B } };
-        uint8_t hidden[RACE_PALETTE_COLOURS];
-        memcpy(hidden, palette_world_hidden(), sizeof hidden);
-        for (int k = 0; k < LAMP_ENTRIES; k++) {
-            if (entry[k] == 0) continue;
-            race_palette_write(p, entry[k], 1, colour[k]);
-            p->enabled[entry[k]] = 0, hidden[entry[k]] = 1, exempt[entry[k]] = 1;   /* no search picks it, no table of the world maps to it */
-        }
-        palette_world_hide(hidden);
-        palette_usable_set(p->enabled);
-        if (p->inverse != NULL) race_palette_inverse(p);
+    port_log("emissive_lamps: %d of %d shared entries free (position %d, lit brake %d, headlight %d, reversing %d)\n", found, want, entry[0], entry[1], entry[2], entry[3]);
+    const uint8_t colour[LAMP_ENTRIES][3] = { { LAMP_POSITION_R, LAMP_POSITION_G, LAMP_POSITION_B }, { LAMP_BRAKE_R, LAMP_BRAKE_G, LAMP_BRAKE_B },
+                                              { LAMP_HEADLIGHT_R, LAMP_HEADLIGHT_G, LAMP_HEADLIGHT_B }, { LAMP_REVERSE_R, LAMP_REVERSE_G, LAMP_REVERSE_B } };
+    uint8_t hidden[RACE_PALETTE_COLOURS];
+    memcpy(hidden, palette_world_hidden(), sizeof hidden);
+    for (int k = 0; k < LAMP_ENTRIES; k++) {
+        if (entry[k] == 0) continue;
+        race_palette_write(p, entry[k], 1, colour[k]);
+        p->enabled[entry[k]] = 0, hidden[entry[k]] = 1, exempt[entry[k]] = 1;   /* no search picks it, no table of the world maps to it */
     }
+    palette_world_hide(hidden);
+    palette_usable_set(p->enabled);
+    if (p->inverse != NULL) race_palette_inverse(p);
+}
+
+/* port (police_lights.h): the police flash's entries set aside like the lamps', when a police car is in the race. */
+static void police_set_aside(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const Chunk *fam, const Chunk *terrain,
+                             const uint8_t *track, const uint8_t *dash_bank, const uint8_t entry[LAMP_ENTRIES], uint8_t exempt[RACE_PALETTE_COLOURS])
+{
     /* port (police_lights.h): a police car in the race (police mode on) flashes with two entries of its own, pure red and pure blue, set aside like the lamps' (no
      * search picks them, no table of the world maps to them, the tint and the light leave them), since the palette's nearest to blue is a dull (20,65,150) */
     police_lights_set_entries(0, 0, 0, 0);
@@ -295,6 +281,35 @@ static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const
             police_lights_set_found(pair, found);
         }
     }
+}
+
+/* port (emissive lamps, lamp_emissive.h): the cars' lamp texels armed, the slots' own lamp entries kept lit whatever the light, and for the position light and
+ * the headlight two entries nothing shows: a shared entry each, written once and out of every search. With none free that kind stays as it is. */
+static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const Chunk *fam, const Chunk *terrain,
+                           const uint8_t *track, const uint8_t *dash_bank)
+{
+    if (!port_emissive_lamps()) return;
+    drive_lamps_arm();
+    for (int i = 0; i < DRIVE_LAMP_SLOTS && i < RACE_CARS; i++)   /* a lamp texel the car's objects do not draw is one the toggle cannot light */
+        if (drive_lamps_count(i) > 0 && cars[i] != NULL)
+            port_log("emissive_lamps: slot %d: %d lamp texels, %d in the textures the high detail body draws, %d in the low detail's\n", i,
+                     drive_lamps_count(i), drive_lamps_reached(i, &cars[i]->object[0]), drive_lamps_reached(i, &cars[i]->object[1]));
+    for (int i = 0; i < DRIVE_LAMP_SLOTS && i < RACE_CARS; i++)
+        if (drive_lamps_count(i) > 0 && cars[i] != NULL && drive_lamps_reached(i, &cars[i]->object[0]) == 0)
+            port_log("emissive_lamps: slot %d: the masks mark no lamp in the high detail body: they show only from far away\n", i);
+    int brake = 0, position = 0, headlight = 0, reverse = 0;
+    for (int i = 0; i < DRIVE_LAMP_SLOTS; i++) {
+        brake |= drive_lamps_has(i, LAMP_BRAKE), position |= drive_lamps_has(i, LAMP_POSITION), headlight |= drive_lamps_has(i, LAMP_HEADLIGHT);
+        reverse |= drive_lamps_has(i, LAMP_REVERSE);
+    }
+    position |= brake;   /* a brake texel shows the position light's entry while the brake is off */
+    uint8_t entry[LAMP_ENTRIES] = { 0 }, exempt[RACE_PALETTE_COLOURS] = { 0 };   /* position, brake lit, headlight */
+    const int wanted[LAMP_ENTRIES] = { position, brake, headlight, reverse };
+    const char *const name[LAMP_ENTRIES] = { "position light", "lit brake light", "headlight", "reversing light" };
+    if (position || headlight || reverse) {
+        lamp_set_aside(p, race, cars, fam, terrain, track, dash_bank, wanted, name, entry, exempt);
+    }
+    police_set_aside(p, race, cars, fam, terrain, track, dash_bank, entry, exempt);
     palette_emissive_set(exempt);   /* only the shared entries: no texel shows them by day */
     drive_lamps_set_entries(entry[1], entry[0], entry[2], entry[3]);
 }
@@ -387,6 +402,41 @@ void drive_palette_write(int entry, const uint8_t rgb[3])
     race_palette_write(&race_palette_now, entry, 1, six);
 }
 
+/* The palette's base: the cars' banks, the dash's and the HUD's entries, and which entries are enabled. */
+static void palette_base(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], uint8_t *carpal, DriveHud *hud)
+{
+    /* own[i]: slot i's '!xxx' (car +0x526), as its loader set it. */
+    const uint8_t *own[RACE_CARS] = { 0 };
+    for (int i = 0; i < RACE_CARS; i++) own[i] = cars[i] != NULL ? cars[i]->own : NULL;
+    race_palette_cars(p, race, own, carpal);
+    if (hud != NULL && hud->cockpit_ready && hud->cockpit.palette != NULL)
+        cockpit_queue_palette(p, hud->cockpit.palette);  /* 0041f988: the dashboard's 0..0x2f, after 004572e0 */
+    if (hud != NULL) drive_hud_setup(hud, p);  /* 00450838 after 0041f988, as 00455a5c */
+    race_palette_apply(p);
+    if (hud != NULL && hud->cockpit_ready)  /* 0041f818 whole: the dash bank onto the palette, 004f9744, ... */
+        cockpit_colours(p, race, &hud->cockpit, &hud->cockpit_world, &hud->hud, &hud->colours);
+    else
+        race_palette_enable(p, race);
+}
+
+/* The palette's last steps: the shade table matched again, the smoke's blend, and the screen colours out as rgb. */
+static void palette_finish(RacePalette *p, DriveHud *hud, const DrivePaletteLate *late, int fitted, const uint8_t *before_fit, uint8_t rgb[768])
+{
+    if (hud != NULL && hud->ready && fitted) {   /* the shade table is copied from the cockpit colours in drive_hud_start, after the fit: its targets the fit gave the cars take the nearest usable entry to their old colour */
+        const int moved = shade_refit(hud->shade, before_fit, palette_world_hidden(), p->enabled);
+        port_log("car_colours: %d shade rows pointed at entries given to the cars, matched again\n", moved);
+    }
+    if (hud != NULL && hud->ready) shade_off_emissive(p, hud->shade);
+    /* port: the smoke's blend table (00456948) was matched to the entries the lamps have since set aside and recoloured: a skid's spray over the road came out
+     * lamp-amber. Matched again on the palette as it now stands. */
+    if (late != NULL && late->after_banks != NULL) late->after_banks(late->ctx, p);
+    for (int i = 0; i < 256; i++) {
+        rgb[3 * i] = p->screen_rgbx[4 * i];
+        rgb[3 * i + 1] = p->screen_rgbx[4 * i + 1];
+        rgb[3 * i + 2] = p->screen_rgbx[4 * i + 2];
+    }
+}
+
 int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const cars[RACE_CARS], uint8_t *carpal,
                         DriveHud *hud, const DrivePaletteLate *late, const RacePaletteTint *tint, uint8_t rgb[768])
 {
@@ -407,18 +457,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     p.tint = tint != NULL ? *tint : (RacePaletteTint){ 0x10000, 0x100, 0, 0x100, 0x100 };
     p.tint_ready = 1;
     race_palette_queue(&p, TRACK_FIRST, TRACK_COUNT, track);
-    /* own[i]: slot i's '!xxx' (car +0x526), as its loader set it. */
-    const uint8_t *own[RACE_CARS] = { 0 };
-    for (int i = 0; i < RACE_CARS; i++) own[i] = cars[i] != NULL ? cars[i]->own : NULL;
-    race_palette_cars(&p, race, own, carpal);
-    if (hud != NULL && hud->cockpit_ready && hud->cockpit.palette != NULL)
-        cockpit_queue_palette(&p, hud->cockpit.palette);  /* 0041f988: the dashboard's 0..0x2f, after 004572e0 */
-    if (hud != NULL) drive_hud_setup(hud, &p);  /* 00450838 after 0041f988, as 00455a5c */
-    race_palette_apply(&p);
-    if (hud != NULL && hud->cockpit_ready)  /* 0041f818 whole: the dash bank onto the palette, 004f9744, ... */
-        cockpit_colours(&p, race, &hud->cockpit, &hud->cockpit_world, &hud->hud, &hud->colours);
-    else
-        race_palette_enable(&p, race);
+    palette_base(&p, race, cars, carpal, hud);
     const int fitted = port_car_colours();
     uint8_t before_fit[sizeof p.screen_rgbx];
     palette_world_hide(NULL);
@@ -436,19 +475,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
     if (fitted) memcpy(p.enabled, enabled, sizeof enabled), p.inverse != NULL ? (void)race_palette_inverse(&p) : (void)0;
     emissive_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL);
     night_lamps(&p, race, cars, fam, &terrain, track, hud != NULL && hud->cockpit_ready ? hud->cockpit.bank : NULL, hud != NULL && hud->ready ? hud->shade : NULL);
-    if (hud != NULL && hud->ready && fitted) {   /* the shade table is copied from the cockpit colours in drive_hud_start, after the fit: its targets the fit gave the cars take the nearest usable entry to their old colour */
-        const int moved = shade_refit(hud->shade, before_fit, palette_world_hidden(), p.enabled);
-        port_log("car_colours: %d shade rows pointed at entries given to the cars, matched again\n", moved);
-    }
-    if (hud != NULL && hud->ready) shade_off_emissive(&p, hud->shade);
-    /* port: the smoke's blend table (00456948) was matched to the entries the lamps have since set aside and recoloured: a skid's spray over the road came out
-     * lamp-amber. Matched again on the palette as it now stands. */
-    if (late != NULL && late->after_banks != NULL) late->after_banks(late->ctx, &p);
-    for (int i = 0; i < 256; i++) {
-        rgb[3 * i] = p.screen_rgbx[4 * i];
-        rgb[3 * i + 1] = p.screen_rgbx[4 * i + 1];
-        rgb[3 * i + 2] = p.screen_rgbx[4 * i + 2];
-    }
+    palette_finish(&p, hud, late, fitted, before_fit, rgb);
     return 1;
 }
 #undef p

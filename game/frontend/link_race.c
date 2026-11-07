@@ -4,9 +4,12 @@
 
 #include "game/frontend/link_central.h"
 #include "game/frontend/link_game.h"
+#include "game/frontend/link_rules.h"
 #include "game/frontend/link_sync.h"
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/tournament.h"
+#include "game/race/session_rules.h"
+#include "game/sys/port_log.h"
 #include "game/viewer/track_viewer.h"
 
 #include <string.h>
@@ -82,7 +85,11 @@ static void ex_send_setup(void *ctx, uint8_t *setup)
 {
     (void)ctx;
     static const RaceNetSetupSendOps ops = { NULL, ex_service, ex_send };
-    race_net_send_setup(&ops, setup, L->state);
+    SessionRules rules;   /* port: the host's rules ride after the setup's chunks (an older guest drops them) */
+    uint8_t trailer[SESSION_RULES_SIZE];
+    link_rules_compose(setup + RACE_NET_SETUP_RECORD_A, setup_dword(RACE_NET_SETUP_HUMANS), &rules);
+    session_rules_set(&rules);
+    race_net_send_setup_trailer(&ops, setup, L->state, trailer, session_rules_put(&rules, trailer));
 }
 
 static void ex_send_info(void *ctx, uint8_t *record)
@@ -149,12 +156,22 @@ static const uint8_t *exchange(const RaceEntry *own, uint8_t *names, int32_t *wa
     uint8_t record[RACE_NET_INFO] = { 0 };
     RaceEntry entry = *own;
     memcpy(entry.name, own_name, sizeof entry.name);
+    entry.paint_pick = link_rules_paint_pick(entry.car);
     memcpy(record + 2, &entry, RACE_NET_INFO - 2);
     names_at = names != NULL ? names : spare_names;
     if (menu_words.intro_seen != 0) put_setup_dword(SETUP_NET_GAME, 1), put_setup_dword(RACE_NET_SETUP_HUMANS, link_humans());
     RaceNetExchange x = { once, menu_words.intro_seen, menu_words.link_game, L->setup };
     put_setup_dword(SETUP_SEED, (int32_t)*seed), put_setup_dword(SETUP_FLAGS, (int32_t)*flags);
     race_net_exchange_setup(&ops, &x, record, record);
+    if (menu_words.intro_seen == 0) {   /* a guest: the rules of the setup it was sent (chunk 0 of a new setup clears the last one's), none from an older host */
+        SessionRules rules;
+        session_rules_set(session_rules_get(L->trailer, (size_t)L->trailer_size, &rules) ? &rules : NULL);
+    }
+    const SessionRules *rules = session_rules_active();
+    if (rules == NULL) port_log("session rules: none (an older host)\n");
+    else port_log("session rules: mode %d difficulty %d weather %d reverse %d lunar %d/%d gravel %d cheats %d rain_grip %d colours %d time %d/%d paint %d %d %d %d %d %d %d %d\n", rules->mode,
+                  rules->difficulty, rules->weather, rules->reverse, rules->lunar_springs, rules->lunar_gravity, rules->rally_gravel, rules->cheats, rules->rain_grip, rules->liveries,
+                  rules->time_of_day, rules->psx_time, rules->paint[0], rules->paint[1], rules->paint[2], rules->paint[3], rules->paint[4], rules->paint[5], rules->paint[6], rules->paint[7]);
     *seed = (uint32_t)setup_dword(SETUP_SEED), *flags = (uint32_t)setup_dword(SETUP_FLAGS);
     return L->setup + RACE_NET_SETUP_RECORD_A + 2;
 }

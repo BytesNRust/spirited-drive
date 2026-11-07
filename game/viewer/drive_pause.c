@@ -40,6 +40,7 @@ static void serve(void *ctx)
         return;
     }
     c->pause.pause = platform_key_down(KEY_PAUSE);
+    c->pause.esc = platform_key_down(KEY_ESC);
     platform_sleep_ms(PAUSE_IDLE_MS);
 }
 
@@ -77,7 +78,7 @@ static void serve_music(void *ctx)
 static void pause(PauseCtx *c)
 {
     c->pause = (RacePauseInputs){ c->in->keys[KEY_PAUSE], drive_audio_music_setting(), c->race->chase.kind, 0, 0, c->race->tick,
-                                    1 };
+                                    1, 0 };
     const RacePauseOps ops = { c, none, voices_off, forces_off, serve_music, serve, hud_clear, take, none, none_i, none_wait, music_back,
                                forces_on };
     const uint32_t start = platform_ticks_ms();

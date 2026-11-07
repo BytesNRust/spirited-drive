@@ -1,6 +1,7 @@
 #include "viewer/weather_draw.h"
 
 #include "game/race/weather.h"
+#include "game/race/weather_snow.h"
 
 #include <math.h>
 #include <stddef.h>
@@ -43,11 +44,11 @@ void weather_sky_fade(uint8_t *pixels, int32_t pitch, int32_t left, int32_t righ
     }
 }
 
-void weather_rain_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, const uint8_t table[256], int storm)
+void weather_rain_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, const uint8_t table[256], int storm, int v2)
 {
     const int32_t w = box[2] - box[0], h = box[3] - box[1];
     const int width = weather_rain_width(scale);
-    const int drops = weather_rain_count(w, h) * (storm ? WEATHER_STORM_DROPS : 1);
+    const int drops = weather_rain_scaled(weather_rain_count(w, h), storm, v2);
     for (int i = 0; i < drops; i++) {
         int32_t s[4];
         weather_rain_streak(i, tick, w, h, s);   /* (x0, y0) the tail, (x1, y1) the head */
@@ -66,12 +67,32 @@ void weather_rain_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int
     }
 }
 
+void weather_snow_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int level, int open, const uint8_t table[256])
+{
+    const int32_t w = box[2] - box[0], h = box[3] - box[1];
+    const int count = weather_snow_count(w, h, level);
+    for (int i = 0; i < count; i++) {
+        int32_t f[3];
+        if (open < 16 && (int)((uint32_t)i * 2654435761u >> 12 & 15u) >= open) continue;   /* a tunnel: no snow, thinning out at the mouths */
+        weather_snow_flake(i, tick, level, w, h, f);
+        const int32_t side = scale > h / 220 ? (scale > 0 ? scale : 1) : h / 220;   /* a flake's unit: the render scale's, or a 220th of the box's height where that is more (a flake is the same share of the view at any size) */
+        for (int32_t dy = 0; dy < f[2] * side; dy++)
+            for (int32_t dx = 0; dx < f[2] * side; dx++) {
+                if (f[2] == SNOW_SIZE_MAX && (dx < side || dx >= 2 * side) && (dy < side || dy >= 2 * side)) continue;   /* the biggest is a soft plus, not a square */
+                const int32_t px = f[0] + dx, py = f[1] + dy;
+                if (px < 0 || px >= w || py < 0 || py >= h) continue;
+                uint8_t *p = pixels + (size_t)(box[1] + py) * (size_t)pitch + (size_t)(box[0] + px);
+                *p = table[*p];
+            }
+    }
+}
+
 void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int32_t speed, int32_t vx, int32_t vy, float focal, int night,
-                          int open, const uint8_t tables[][256], int storm)
+                          int open, const uint8_t tables[][256], int storm, int v2)
 {
     const int32_t w = box[2] - box[0], h = box[3] - box[1];
     const int width = weather_rain_width(scale);
-    const int drops = weather_rain_count_fx(w, h) * (storm ? WEATHER_STORM_DROPS : 1);
+    const int drops = weather_rain_scaled(weather_rain_count_fx(w, h), storm, v2);
     static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
     const float turned = weather_rain_blend(speed), fade_r = 0.12f * (float)h;   /* a spoke is faded in over the first 12 % of the box's height from the vanishing point */
     for (int i = 0; i < drops; i++) {

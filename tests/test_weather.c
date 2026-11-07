@@ -326,8 +326,94 @@ static void test_reflection_weight(void)
     }
 }
 
+static void test_rain_v2(void)
+{
+    /* the counts: v2 0 as before (rain x1, storm x3), v2 1 half and a quarter over the old rain */
+    CHECK_EQ_INT(weather_rain_scaled(200, 0, 0), 200);
+    CHECK_EQ_INT(weather_rain_scaled(200, 1, 0), 200 * WEATHER_STORM_DROPS);
+    CHECK_EQ_INT(weather_rain_scaled(200, 0, 1), 100);
+    CHECK_EQ_INT(weather_rain_scaled(200, 1, 1), 250);
+    CHECK_EQ_INT(weather_rain_scaled(1, 0, 1), 1);   /* never none */
+    CHECK_EQ_INT(weather_rain_scaled(0, 0, 1), 0);
+    /* the thunder: a strike is a flash that rises, once per flash, a delay of 0.5..4 s that is the tick's alone, quieter the later */
+    int strikes = 0;
+    for (uint32_t t = 0; t < 20 * WEATHER_STORM_SLOT; t++) {
+        const int s = weather_thunder_strike(t);
+        CHECK_EQ_INT(s, weather_thunder_strike(t));
+        if (!s) continue;
+        strikes++;
+        CHECK(weather_rain_flash(t) > 0);
+        const int d = weather_thunder_delay(t);
+        CHECK(d >= WEATHER_THUNDER_MIN_TICKS && d <= WEATHER_THUNDER_MAX_TICKS);
+        CHECK_EQ_INT(d, weather_thunder_delay(t));
+        const int v = weather_thunder_volume(d);
+        CHECK(v >= WEATHER_THUNDER_FAR_PERCENT && v <= 100);
+    }
+    CHECK(strikes >= 10);
+    CHECK_EQ_INT(weather_thunder_strike(0), 0);
+    CHECK_EQ_INT(weather_thunder_volume(WEATHER_THUNDER_MIN_TICKS), 100);
+    CHECK_EQ_INT(weather_thunder_volume(WEATHER_THUNDER_MAX_TICKS), WEATHER_THUNDER_FAR_PERCENT);
+    CHECK(weather_thunder_volume(60) > weather_thunder_volume(90));   /* later, quieter */
+    /* the lamps' reflections stay on the carriageway: a verge of 40 eighths is 5 m */
+    CHECK_EQ_INT(weather_on_carriageway(-2 * 65536, 40, 40), 1);        /* the left lane */
+    CHECK_EQ_INT(weather_on_carriageway(4 * 65536, 40, 40), 1);         /* the right lane */
+    CHECK_EQ_INT(weather_on_carriageway(5 * 65536, 40, 40), 1);         /* the line itself */
+    CHECK_EQ_INT(weather_on_carriageway(6 * 65536, 40, 40), 0);         /* the right shoulder */
+    CHECK_EQ_INT(weather_on_carriageway(-6 * 65536, 40, 40), 0);        /* the left shoulder */
+    CHECK_EQ_INT(weather_on_carriageway(-6 * 65536, 56, 40), 1);        /* a wider left side (a third lane): its own verge */
+    CHECK_EQ_INT(weather_on_carriageway(7 * 65536, 56, 40), 0);         /* but the right is still 5 m */
+    CHECK_EQ_INT(weather_on_carriageway(9 * 65536, 0, 0), 1);           /* no verge known: as before */
+    /* the sideways distance of a ground point from a node's centre line (car_walls' `across`: negative left, positive right): the road runs along (sin a, cos a)
+     * in (x, z), so it is the point's offset's share across that, not along it (car_lateral's is the along-road one, and a check made on it let the shoulder through) */
+    CHECK_EQ_INT(weather_across_road(0, 3 * 65536, 40 * 65536), 3 * 65536);         /* heading +z: 3 m to +x, 40 m on along: 3 m across */
+    CHECK_EQ_INT(weather_across_road(0, -3 * 65536, -40 * 65536), -3 * 65536);
+    CHECK_EQ_INT(weather_across_road(0, 0, 9 * 65536), 0);                          /* along the road only: on its centre line */
+    CHECK_EQ_INT(weather_across_road(0x4000, 40 * 65536, -3 * 65536), 3 * 65536);   /* heading +x: 3 m to -z is the same side */
+    CHECK_EQ_INT(weather_across_road(0x4000, 7 * 65536, 0), 0);
+    CHECK(abs(weather_across_road(0x2000, 4 * 65536, 4 * 65536)) < 64);             /* heading diagonal: the diagonal is along */
+    /* a lamp 6 m across on a 5 m verge is off the carriageway wherever along the node it is; 2 m across never is */
+    CHECK_EQ_INT(weather_on_carriageway(weather_across_road(0, 6 * 65536, 3 * 65536), 40, 40), 0);
+    CHECK_EQ_INT(weather_on_carriageway(weather_across_road(0, 2 * 65536, 12 * 65536), 40, 40), 1);
+    int low = 0, high = 0;   /* the delays use the whole range */
+    for (uint32_t t = 150; t < 50000; t++) {
+        const int d = weather_thunder_delay(t);
+        low |= d < 40, high |= d > 95;
+    }
+    CHECK(low && high);
+}
+
+/* port (weather_zones): the weather at the eye follows the closed zones */
+static void test_weather_zones(void)
+{
+    CHECK_EQ_INT(weather_open_for_distance(-1), 16);   /* no closed node near */
+    CHECK_EQ_INT(weather_open_for_distance(WEATHER_MOUTH_NODES), 16);
+    CHECK_EQ_INT(weather_open_for_distance(0), 0);     /* inside */
+    CHECK_EQ_INT(weather_open_for_distance(3), 8);     /* the fade over the mouth */
+    int last = -1;
+    for (int d = 0; d <= WEATHER_MOUTH_NODES; d++) {
+        const int o = weather_open_for_distance(d);
+        CHECK(o >= last);
+        last = o;
+    }
+    CHECK_EQ_INT(weather_flash_open(15, 16), 15);      /* in the open the lightning is whole */
+    CHECK_EQ_INT(weather_flash_open(15, 0), 0);        /* inside there is none */
+    CHECK_EQ_INT(weather_flash_open(14, 8), 7);
+    CHECK_EQ_INT(weather_thunder_inside(100, 16), 100);
+    CHECK_EQ_INT(weather_thunder_inside(100, 0), WEATHER_THUNDER_INSIDE_PERCENT);   /* muffled, not silent */
+    CHECK_EQ_INT(weather_thunder_inside(0, 0), 0);
+    float end = 4200.0f, cap = 0.93f;
+    CHECK_EQ_INT(weather_fog_open(16, 250.0f, &end, &cap), 1);   /* the open: untouched */
+    CHECK(end == 4200.0f && cap == 0.93f);
+    CHECK_EQ_INT(weather_fog_open(0, 250.0f, &end, &cap), 0);    /* inside: no fog */
+    CHECK(end == 4200.0f);
+    CHECK_EQ_INT(weather_fog_open(8, 250.0f, &end, &cap), 1);    /* half way: the same fog twice as far, half as strong */
+    CHECK(end == 250.0f + 3950.0f * 2.0f);
+    CHECK(cap > 0.46f && cap < 0.47f);
+}
+
 int main(void)
 {
+    test_weather_zones();
     test_reflection_weight();
     test_storm_clock();
     test_rain_spray_plume();
@@ -342,5 +428,6 @@ int main(void)
     test_rain_is_a_function_of_drop_and_tick();
     test_rain_bounds_and_scale();
     test_sky_meets_the_fog_at_the_horizon();
+    test_rain_v2();
     return TEST_REPORT();
 }

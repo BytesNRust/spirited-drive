@@ -1,11 +1,15 @@
 /* The port's own settings file (port.cfg): defaults, text round trip, and what a damaged file leaves alone. */
+#include "game/sys/port_extras.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
+#include "game/race/session_rules.h"
 #include "game/race/weather.h"
+#include "game/sys/reverse_track.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -40,10 +44,12 @@ static void put_file(const char *name, const char *text)
     snprintf((char *)s->bytes, sizeof s->bytes, "%s", text);
     s->size = strlen(text);
     s->present = 1;
+    port_settings_forget();   /* the settings keep what they read */
 }
 
 static void clear_files(void)
 {
+    port_settings_forget();
     for (int i = 0; i < 2; i++) {
         stored[i].name[0] = '\0';
         stored[i].size = 0;
@@ -190,6 +196,11 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.rally_dry_lamps, 0);
     CHECK_EQ_INT(d.traffic_halo, 0);
     CHECK_EQ_INT(d.police_halo, 0);
+    CHECK_EQ_INT(d.rain_v2, 0);   /* as it was, until asked */
+    CHECK_EQ_INT(d.shoulder_light, 0);   /* as it was, until asked */
+    CHECK_EQ_INT(d.track_light_lamp, 0);   /* the lamp lines are ignored until asked */
+    CHECK_EQ_INT(d.rain_tyre_roll, 0);     /* no wet-tyre roll until asked */
+    CHECK_EQ_INT(d.snow_weather, 0);       /* the rain as it was until asked */
     CHECK_EQ_INT(d.analog_pad, 0);   /* the exe's key paths, until a profile or the file asks */
     CHECK_EQ_INT(d.city_lift, 0);   /* as the exe has it, until asked */
     CHECK_EQ_INT(d.reverse_rows, 0);   /* as the exe has it, until asked */
@@ -567,7 +578,7 @@ static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
                        .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1,
-                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .chase_height = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1, .lamp_pool_tint = 1, .trans_shadows = 1, .canyon_shade = 1, .tunnel_headlight = 1, .parking_dark = 1, .forest_neutral = 1, .cavern_dark = 1, .vegas_objects = 1, .close_houses = 1, .brake_over_gas = 1, .lamp_pools = 1, .lamp_car_shade = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .headlight_cone = 1, .rain_fx = 1, .rain_grip = 1, .gauge_light = 3, .finish_gate_light = 1, .lamp_pool_bright = 1, .night_tone = 2, .rain_lamps = 1, .gauge_exterior = 1, .sign_glow = 1 };
+                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .chase_height = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1, .lamp_pool_tint = 1, .trans_shadows = 1, .snow_weather = 1, .canyon_shade = 1, .tunnel_headlight = 1, .parking_dark = 1, .forest_neutral = 1, .cavern_dark = 1, .vegas_objects = 1, .close_houses = 1, .brake_over_gas = 1, .lamp_pools = 1, .lamp_car_shade = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .headlight_cone = 1, .rain_fx = 1, .rain_grip = 1, .gauge_light = 3, .finish_gate_light = 1, .lamp_pool_bright = 1, .night_tone = 2, .rain_lamps = 1, .gauge_exterior = 1, .sign_glow = 1 };
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
@@ -575,7 +586,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0);
     CHECK(n > 480);   /* about the size of the older 512 buffer: one more key would not have fitted */
-    const PortSettings back = port_settings_parse(text, n);
+    const PortSettings back = port_settings_parse(text + 1, n);
     CHECK(strcmp(back.psx_dir, s.psx_dir) == 0);
     CHECK_EQ_INT(back.body_shine, 4);
     CHECK_EQ_INT(back.free_records, 1);
@@ -591,6 +602,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK_EQ_INT(back.chase_height, 1);
     CHECK_EQ_INT(back.lamp_pool_tint, 1);
     CHECK_EQ_INT(back.trans_shadows, 1);
+    CHECK_EQ_INT(back.snow_weather, 1);
     CHECK_EQ_INT(back.canyon_shade, 1);
     CHECK_EQ_INT(back.tunnel_headlight, 1);
     CHECK_EQ_INT(back.parking_dark, 1);
@@ -659,8 +671,201 @@ static void test_rain_grip_needs_the_rain(void)
     unsetenv("TNFS_WEATHER");
 }
 
+/* port (online): the settings a link race reads are the host's while its rules are set (session_rules.h), and the machine's own again after */
+static void test_the_hosts_rules_win_while_set(void)
+{
+    clear_files();
+    unsetenv("TNFS_WEATHER"), unsetenv("TNFS_REVERSE"), unsetenv("TNFS_RAIN_GRIP"), unsetenv("TNFS_PSX_TIME");
+    session_rules_set(NULL);
+    const int weather = port_weather(), grip = port_rain_grip(), psx = port_psx_time(), reverse = reverse_track_wanted();
+    SessionRules r;
+    memset(&r, 0, sizeof r);
+    r.weather = (uint8_t)(weather == WEATHER_STORM ? WEATHER_FOG : WEATHER_STORM);
+    r.rain_grip = (uint8_t)!grip, r.psx_time = (uint8_t)((psx + 1) % 3), r.reverse = (uint8_t)!reverse;
+    session_rules_set(&r);
+    CHECK_EQ_INT(port_weather(), r.weather);
+    CHECK_EQ_INT(port_rain_grip(), r.rain_grip);
+    CHECK_EQ_INT(port_psx_time(), r.psx_time);
+    CHECK_EQ_INT(reverse_track_wanted(), r.reverse);
+    setenv("TNFS_WEATHER", "clear", 1);   /* a dev override stays the strongest */
+    CHECK_EQ_INT(port_weather(), WEATHER_CLEAR);
+    unsetenv("TNFS_WEATHER");
+    session_rules_set(NULL);
+    CHECK_EQ_INT(port_weather(), weather);
+    CHECK_EQ_INT(port_rain_grip(), grip);
+    CHECK_EQ_INT(port_psx_time(), psx);
+    CHECK_EQ_INT(reverse_track_wanted(), reverse);
+}
+
+/* port (online): radar and the 360 camera run in a link race only under a Restomod host; the machine's file is never changed by that, and its own values return after */
+static void start_restomod_with(int weather);
+
+static void restomod_with_radar_and_camera(void)
+{
+    start_restomod_with(WEATHER_CLEAR);
+    PortExtras e = port_extras_load();
+    e.bumper_radar = 1, e.follow_camera = 1;
+    CHECK(port_extras_save(&e));
+    unsetenv("TNFS_BUMPER_RADAR");
+}
+
+static void host_of(uint8_t mode, SessionRules *r)
+{
+    memset(r, 0, sizeof *r);
+    r->mode = mode;
+    session_rules_set(r);
+}
+
+static void test_a_stock_or_restored_host_turns_radar_and_the_360_camera_off(void)
+{
+    restomod_with_radar_and_camera();
+    CHECK_EQ_INT(port_host_allows_radar_and_camera(), 1);
+    SessionRules host;
+    for (uint8_t mode = SESSION_STOCK; mode <= SESSION_RESTORED; mode++) {
+        host_of(mode, &host);
+        CHECK_EQ_INT(port_host_allows_radar_and_camera(), 0);
+            const PortExtras e = port_extras_load();   /* the machine's own file is as it was */
+        CHECK_EQ_INT(e.bumper_radar, 1);
+        CHECK_EQ_INT(e.follow_camera, 1);
+    }
+    session_rules_set(NULL);
+    clear_files();
+}
+
+static void test_a_restomod_host_leaves_radar_and_the_360_camera_to_each_player(void)
+{
+    restomod_with_radar_and_camera();
+    SessionRules host;
+    host_of(SESSION_RESTOMOD, &host);
+    CHECK_EQ_INT(port_host_allows_radar_and_camera(), 1);
+    session_rules_set(NULL);
+    clear_files();
+}
+
+static void test_the_local_radar_and_camera_come_back_after_the_race(void)
+{
+    restomod_with_radar_and_camera();
+    SessionRules host;
+    host_of(SESSION_STOCK, &host);
+    CHECK_EQ_INT(port_host_allows_radar_and_camera(), 0);
+    PortSettings now = port_settings_load();   /* the race's end saves the settings */
+    now.camera_kind = 2;
+    CHECK(port_settings_save(&now));
+    session_rules_set(NULL);
+    CHECK_EQ_INT(port_host_allows_radar_and_camera(), 1);
+    CHECK_EQ_INT(port_extras_load().bumper_radar, 1);
+    clear_files();
+}
+
+/* port (online): the frame-budget cache and the host's session rules (session_rules.h) */
+static void start_restomod_with(int weather)
+{
+    clear_files();
+    unsetenv("TNFS_WEATHER");
+    put_file("port.cfg", "profile=restomod\n");
+    session_rules_set(NULL);
+    PortSettings s = port_settings_load();   /* the cache is filled */
+    s.weather = weather;
+    CHECK(port_settings_save(&s));
+}
+
+/* rules active, then a save (the race's end keeps the camera): the file keeps the machine's weather, not the host's */
+static void test_a_save_during_a_race_keeps_the_machines_weather(void)
+{
+    start_restomod_with(WEATHER_CLEAR);
+    SessionRules host;
+    memset(&host, 0, sizeof host);
+    host.weather = WEATHER_RAIN;
+    session_rules_set(&host);
+    CHECK_EQ_INT(port_weather(), WEATHER_RAIN);
+    PortSettings now = port_settings_load();
+    now.camera_kind = 3;
+    CHECK(port_settings_save(&now));
+    CHECK_EQ_INT(port_settings_load().weather, WEATHER_CLEAR);
+    session_rules_set(NULL);
+    CHECK_EQ_INT(port_weather(), WEATHER_CLEAR);
+    clear_files();
+}
+
+/* race 1's rules, cleared, a menu save, race 2's rules, cleared: each read is the one in force */
+static void test_a_menu_change_between_two_races_takes_effect(void)
+{
+    start_restomod_with(WEATHER_CLEAR);
+    SessionRules host;
+    memset(&host, 0, sizeof host);
+    host.weather = WEATHER_RAIN;
+    session_rules_set(&host);
+    CHECK_EQ_INT(port_weather(), WEATHER_RAIN);
+    session_rules_set(NULL);
+    CHECK_EQ_INT(port_weather(), WEATHER_CLEAR);
+    PortSettings menu = port_settings_load();
+    menu.weather = WEATHER_FOG;
+    CHECK(port_settings_save(&menu));
+    CHECK_EQ_INT(port_weather(), WEATHER_FOG);   /* at once: the writers drop the cache */
+    host.weather = WEATHER_STORM;
+    session_rules_set(&host);
+    CHECK_EQ_INT(port_weather(), WEATHER_STORM);
+    session_rules_set(NULL);
+    CHECK_EQ_INT(port_weather(), WEATHER_FOG);
+    clear_files();
+}
+
+/* every key of the table of whole numbers: set to a value other than its default, written by port_settings_format and read back by port_settings_parse, it comes back; a value one past
+ * its range is refused and the field stays what it was; no other field moves */
+static void test_every_int_key_round_trips(void)
+{
+    int count = 0;
+    const PortSettingsKey *keys = port_settings_int_keys(&count);
+    CHECK(count > 60);
+    const PortSettings defaults = port_settings_defaults();
+    for (int i = 0; i < count; i++) {
+        PortSettings s = port_settings_defaults();
+        int *const field = (int *)(void *)((char *)&s + keys[i].offset);
+        const int was = *field, want = keys[i].max != was ? keys[i].max : keys[i].min;
+        *field = want;
+        char text[PORT_CFG_TEXT_MAX + 1] = "\n", named[64];   /* the written text after a line end: a key is found by its whole name */
+        const size_t n = port_settings_format(&s, text + 1, sizeof text - 1);
+        snprintf(named, sizeof named, "\n%s=", keys[i].key);
+        if (n == 0 || strstr(text, named) == NULL) {
+            fprintf(stderr, "key %s is not written by port_settings_format\n", keys[i].key);
+            CHECK(0);
+            continue;
+        }
+        const PortSettings back = port_settings_parse(text, n);
+        if (*(const int *)(const void *)((const char *)&back + keys[i].offset) != want) {
+            fprintf(stderr, "key %s did not come back (%d)\n", keys[i].key, want);
+            CHECK(0);
+        }
+        char over[96];   /* one past the top: refused */
+        snprintf(over, sizeof over, "%s=%d\n", keys[i].key, keys[i].max + 1);
+        const PortSettings kept = port_settings_parse(over, strlen(over));
+        CHECK_EQ_INT(*(const int *)(const void *)((const char *)&kept + keys[i].offset), *(const int *)(const void *)((const char *)&defaults + keys[i].offset));
+    }
+}
+
+/* the host's value wins in a link race (port_snow_weather), as the rain's grip does; the local setting rules without one */
+static void test_the_host_decides_the_snow(void)
+{
+    unsetenv("TNFS_SNOW_WEATHER");
+    SessionRules r = { .mode = SESSION_RESTOMOD, .snow_weather = 1 };
+    session_rules_set(&r);
+    CHECK_EQ_INT(port_snow_weather(), 1);
+    r.snow_weather = 0;
+    session_rules_set(&r);
+    CHECK_EQ_INT(port_snow_weather(), 0);
+    session_rules_set(NULL);
+}
+
 int main(void)
 {
+    test_the_host_decides_the_snow();
+    test_every_int_key_round_trips();
+    test_a_save_during_a_race_keeps_the_machines_weather();
+    test_a_menu_change_between_two_races_takes_effect();
+    test_the_hosts_rules_win_while_set();
+    test_a_stock_or_restored_host_turns_radar_and_the_360_camera_off();
+    test_a_restomod_host_leaves_radar_and_the_360_camera_to_each_player();
+    test_the_local_radar_and_camera_come_back_after_the_race();
     test_rain_grip_needs_the_rain();
     clear_files();
     test_defaults();

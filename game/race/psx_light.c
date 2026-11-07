@@ -1,5 +1,6 @@
 #include "game/race/psx_light.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -31,6 +32,17 @@ void psx_light_free(PsxLight *light)
     light->canyon = NULL;
     free(light->pool_class);
     free(light->car_pool);
+    free(light->car_tone);
+    free(light->lamp_lift);
+    light->lamp_lift = NULL;
+    free(light->lamps);
+    light->lamps = NULL, light->lamp_n = 0, light->lamp_placed = 0, light->lamp_reach_nodes = 0;
+    free(light->lamp_node);
+    light->lamp_node = NULL, light->lamp_node_count = 0, light->lamp_ring = 0;
+    free(light->tone_id);
+    free(light->tone_mask);
+    light->tone_id = NULL, light->tone_mask = NULL, light->tone_count = 0;
+    light->car_tone = NULL;
     light->car_pool = NULL;
     light->pool_class = NULL;
     light->data = NULL;
@@ -100,6 +112,60 @@ int psx_light_tunnel(const PsxLight *light, uint32_t node)
     return tunnel_in_file(light, psx_light_old_node(light, node));
 }
 
+int psx_light_weather_closed(const PsxLight *light, uint32_t node)
+{
+    if (light == NULL || light->nodes == 0) return 0;
+    const uint32_t at = psx_light_old_node(light, node) % light->nodes;
+    if (light->canyon != NULL && light->canyon[at]) return 0;
+    if (light->hall != NULL && light->hall[at]) return 1;   /* a hall is a tunnel with a lot of light: it has a roof */
+    if (light->tunnel != NULL) return light->tunnel[at] != 0;
+    return psx_light_tunnel(light, node);
+}
+
+int psx_light_zone_look_at(const PsxLight *light, uint32_t at, double *percent, float cast[3])
+{
+    if (light == NULL || !light->look_set) return 0;
+    *percent = light->look_light;
+    memcpy(cast, light->look_cast, 3 * sizeof(float));
+    if (light->tone_id != NULL && light->nodes > 0) {
+        const int id = light->tone_id[at % light->nodes];
+        if (id > 0 && id <= light->tone_count && light->tone[id - 1].look) {
+            *percent = (double)light->tone[id - 1].light;
+            memcpy(cast, light->tone[id - 1].cast, 3 * sizeof(float));
+        }
+    }
+    return 1;
+}
+
+void psx_light_tunnel_look(const PsxLight *light, const float shown[3], const float lit_tint[3], int lamp_count, PsxTunnelLook *out)
+{
+    static const float TUNNEL_CAST[3] = { 1.0f, 0.8f, 0.15f }, NO_CAST[3] = { 1, 1, 1 };
+    static const float LEAST = 0.6f;   /* the least light a tunnel's surfaces take (the dusk's mean): its own lamps light it */
+    memset(out, 0, sizeof *out);
+    for (int k = 0; k < 3; k++) out->tint[k] = lit_tint[k];
+    if (light == NULL) return;
+    const float mean = (shown[0] + shown[1] + shown[2]) / 3.0f;
+    out->min_light = light->tunnel != NULL ? 0.0f : LEAST;
+    if (light->look_set) {   /* the file's: its light is of full light at any time of day, so the tables take it over the time's own tint */
+        const float gain = (float)(mean > 0.05f ? light->look_light / 100.0 / (double)mean : light->look_light / 100.0);
+        out->cast_on = 1;
+        out->tint[0] = out->tint[1] = out->tint[2] = gain;
+        memcpy(out->cast, light->look_cast, sizeof out->cast);
+        return;
+    }
+    const int dark = mean < LEAST;
+    const int warm = light->city_tunnel != 0 && light->tunnel != NULL && !light->neutral_cast;
+    const float *warm_cast = warm && light->warm_percent[dark] > 0 ? light->warm_cast[dark] : NULL;   /* the made light's look of this kind of tunnel */
+    const int percent = warm_cast != NULL ? light->warm_percent[dark] : 0;
+    const int kind = warm_cast != NULL ? 3 : light->neutral_cast ? 2 : lamp_count > 0 || light->tunnel != NULL;   /* a tunnel track: its darkened levels take the olive cast and the tunnel's least light */
+    if (light->tunnel != NULL) {   /* the palette shown is the night's, so the tables are made brighter by as much as it takes off, to LEAST on the screen */
+        const float base = mean > 0.05f && mean < LEAST ? LEAST / mean : 1.0f, gain = warm_cast != NULL ? base * (float)percent / 100.0f : base;
+        out->tint[0] = out->tint[1] = out->tint[2] = gain;
+    }
+    out->cast_on = kind != 0;
+    memcpy(out->cast, warm_cast != NULL ? warm_cast : kind == 2 ? NO_CAST : TUNNEL_CAST, sizeof out->cast);
+}
+
 int psx_light_tunnel_class(const PsxLight *light, uint32_t node)
 {
     const uint32_t file_node = light != NULL ? psx_light_old_node(light, node) : 0;
@@ -108,6 +174,17 @@ int psx_light_tunnel_class(const PsxLight *light, uint32_t node)
     if (light == NULL || light->pool_class == NULL || light->nodes == 0) return 0;
     const uint8_t c = light->pool_class[node % light->nodes];
     return c > 0 ? 1 + c : 0;
+}
+
+int psx_light_vertex_class(const PsxLight *light, uint32_t node, int point)
+{
+    int cls = psx_light_tunnel_class(light, node);
+    if (light != NULL && light->tone_id != NULL && light->nodes > 0 && point >= 0 && point < PSX_LIGHT_POINTS) {
+        const uint32_t at = psx_light_old_node(light, node) % light->nodes;
+        const int id = light->tone_id[at];
+        if (id > 0 && id <= PSX_LIGHT_TONES && (light->tone_mask[at] >> old_point(light, point) & 1u)) cls |= id << PSX_TONE_BASE_BITS;
+    }
+    return cls;
 }
 
 static uint8_t light_at(const PsxLight *light, uint32_t node, int point)
@@ -134,6 +211,11 @@ static uint8_t light_at(const PsxLight *light, uint32_t node, int point)
     return row[point];
 }
 
+float psx_light_road_light(const PsxLight *light, uint32_t node)
+{
+    return ((float)light_at(light, node, 0) + (float)light_at(light, node, 1) + (float)light_at(light, node, 6)) / (3.0f * (float)PSX_LIGHT_FULL);
+}
+
 static int made_tunnel(const PsxLight *light, uint32_t node)
 {
     return light->tunnel != NULL && light->nodes > 0 && light->tunnel[node % light->nodes] != 0;
@@ -142,9 +224,13 @@ static int made_tunnel(const PsxLight *light, uint32_t node)
 /* xz: the point's place on the ground in metres, or NULL when only the node is known (the node's centre is used with headlight_cone) */
 static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, const double *xz)
 {
-    const uint8_t v = light_at(light, node, point);
+    uint8_t v = light_at(light, node, point);
     if (light == NULL || light->pool == NULL) return v;
     const int lift = light->pool->cone && xz != NULL ? headlight_pool_lift_xz(light->pool, xz[0], xz[1]) : headlight_pool_beam(light->pool, node);   /* port (headlight_cone): the beam at the point itself */
+    if (light->shoulder_road && (point == 2 || point == 7) && !psx_light_tunnel(light, node)) {   /* port (shoulder_light): where the beam is, the shoulder's far edge takes the road's light (the made rows leave it near black and the beam only scales the row's light); the more of the beam, the more of it, so far ground is as it was */
+        const int road = light_at(light, node, point == 2 ? 1 : 6);
+        if (road > v) v = (uint8_t)(v + (road - v) * (lift * lift / 256) / 256);   /* the beam's weight squared: the far, faint end of the cone leaves the row alone */
+    }
     if (!psx_light_tunnel(light, node) && !headlight_pool_tunnel(light->pool, node)) {
         int gain = headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift);   /* the pool is as wide as the road and its shoulders: the ground beyond takes less of it */
         int floor = HEADLIGHT_FLOOR;
@@ -152,6 +238,10 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
         const int share = light->pool->cone && xz != NULL ? 256 : headlight_pool_width(point);   /* port (headlight_cone): the cone has its own sides, so the verges and what stands beyond take the beam by where they are */
         const int lamp_floor = psx_light_lamp_floor(light, node);   /* port (lamp_pool_bright): under a street lamp the floor lifts toward full, by the pool's class (1..4 of 4) */
         if (lamp_floor > floor) floor = lamp_floor;
+        if (light->lamp_lift != NULL && light->nodes > 0) {   /* port (`lamp`): the baked pool lifts the floor toward full by the point's weight */
+            const int w = light->lamp_lift[(size_t)psx_light_old_node(light, node) * PSX_LIGHT_POINTS + (size_t)old_point(light, point)];
+            if (w > 0) floor += (256 - floor) * w / 255;
+        }
         if (light->night_lift > 0 && light->beam_on_top) gain = headlight_pool_gain_at_lift(floor, lift);   /* port (city_lift 3): the beam adds on top of the lifted floor, it is not lost under it */
         if (gain < floor) gain = floor;
         uint8_t open = headlight_pool_apply(v, floor + (gain - floor) * share / 256);
@@ -224,6 +314,89 @@ uint8_t psx_light_node_xz(const PsxLight *light, uint32_t node, const double *xz
 }
 
 uint8_t psx_light_node(const PsxLight *light, uint32_t node) { return psx_light_node_xz(light, node, NULL); }
+
+float psx_light_lamp_falloff(float distance, float reach)
+{
+    if (reach <= 0.0f || distance >= reach) return 0.0f;
+    const float u = 1.0f - (distance < 0.0f ? 0.0f : distance) / reach;
+    return u * u;
+}
+
+int psx_light_lamps_near(const PsxLight *light, const uint32_t node[4], int out[], int max)
+{
+    int n = 0;
+    if (light == NULL || light->lamps == NULL || light->lamp_n <= 0 || light->nodes == 0 || node[0] == PSX_LIGHT_NO_NODE) return 0;
+    const int64_t at = psx_light_old_node(light, node[0]), reach = light->lamp_reach_nodes + 2, size = (int64_t)light->nodes;
+    for (int w = -1; w <= 1; w++) {   /* the ring's seam: the lamps just past the end are just before the start */
+        if (w != 0 && !light->lamp_ring) continue;
+        const int64_t lo = at - reach - (int64_t)w * size, hi = at + reach - (int64_t)w * size;   /* the lamp node range this wrap sees */
+        int a = 0, b = light->lamp_n;
+        while (a < b) {
+            const int mid = (a + b) / 2;
+            if ((int64_t)light->lamps[mid].node < lo) a = mid + 1;
+            else b = mid;
+        }
+        for (int i = a; i < light->lamp_n && (int64_t)light->lamps[i].node <= hi && n < max; i++) out[n++] = i;
+    }
+    return n;
+}
+
+float psx_light_lamp_at(const PsxLight *light, const int idx[], int n, double x, double z, float rgb[3])
+{
+    float heat = 0.0f, sum[3] = { 0, 0, 0 };
+    rgb[0] = rgb[1] = rgb[2] = 0.0f;   /* none where no lamp reaches */
+    for (int i = 0; i < n; i++) {
+        const PsxLightLamp *const l = &light->lamps[idx[i]];
+        const double dx = x - l->x, dz = z - l->z;
+        const float f = psx_light_lamp_falloff((float)sqrt(dx * dx + dz * dz), l->reach);
+        if (f <= 0.0f) continue;
+        heat += f;
+        for (int k = 0; k < 3; k++) sum[k] += l->rgb[k] * f;
+    }
+    if (heat <= 0.0f) return 0.0f;
+    float top = 0.0f;
+    for (int k = 0; k < 3; k++) top = sum[k] > top ? sum[k] : top;
+    for (int k = 0; k < 3; k++) rgb[k] = sum[k] / top;
+    return top;
+}
+
+uint8_t psx_light_object_lamp(const PsxLight *light, uint32_t node, double x, double z, uint8_t level)
+{
+    static const int TERRAIN[] = { 2, 3, 4, 5, 7, 8, 9, 10 };   /* psx_light_node_xz's points */
+    enum { NEAR_MAX = 24 };
+    if (light == NULL || light->lamp_lift == NULL || light->lamps == NULL || light->lamp_n <= 0 || !light->lamp_placed || light->nodes == 0 || node == PSX_LIGHT_NO_NODE) return level;
+    const uint32_t nodes[4] = { node, node, node, node };
+    int idx[NEAR_MAX];
+    const int n = psx_light_lamps_near(light, nodes, idx, NEAR_MAX);
+    if (n == 0) return level;
+    float rgb[3];
+    float own = LAMP_BAKE * psx_light_lamp_at(light, idx, n, x, z, rgb);
+    if (own > 1.0f) own = 1.0f;
+    const size_t base = (size_t)(psx_light_old_node(light, node) % light->nodes) * PSX_LIGHT_POINTS;
+    unsigned sum = 0;
+    for (size_t i = 0; i < sizeof TERRAIN / sizeof *TERRAIN; i++) sum += light->lamp_lift[base + (size_t)old_point(light, TERRAIN[i])];
+    const float baked = (float)sum / (255.0f * (float)(sizeof TERRAIN / sizeof *TERRAIN));
+    if (own <= baked || baked >= 1.0f) return level;
+    const float lift = (own - baked) / (1.0f - baked);
+    return (uint8_t)((float)level + (float)(PSX_LIGHT_FULL - level) * lift + 0.5f);
+}
+
+int psx_light_lamp_car(const PsxLight *light, uint32_t node, double x, double z, float out[3])
+{
+    enum { RATIO_MAX = 2, NEAR_MAX = 16 };
+    int idx[NEAR_MAX];
+    const uint32_t nodes[4] = { node, node, node, node };
+    const int n = psx_light_lamps_near(light, nodes, idx, NEAR_MAX);
+    float rgb[3];
+    const float top = n > 0 ? psx_light_lamp_at(light, idx, n, x, z, rgb) : 0.0f;
+    if (top <= 0.0f) return 0;
+    int changed = 0;
+    for (int k = 0; k < 3; k++) {
+        const float lifted = out[k] + LAMP_CAR_ADD * top * rgb[k];
+        if (lifted > out[k]) out[k] = lifted < (float)RATIO_MAX ? lifted : (out[k] > (float)RATIO_MAX ? out[k] : (float)RATIO_MAX), changed = 1;
+    }
+    return changed;
+}
 
 int psx_light_car_pool(const PsxLight *light, uint32_t node, float out[3])
 {

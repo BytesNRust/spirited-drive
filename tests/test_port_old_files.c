@@ -40,6 +40,7 @@ static void put_file(const char *name, const char *text)
     snprintf((char *)s->bytes, sizeof s->bytes, "%s", text);
     s->size = strlen(text);
     s->present = 1;
+    port_settings_forget();   /* the settings keep what they read */
 }
 
 /* the file's text, or NULL when it is not there */
@@ -81,6 +82,7 @@ bool platform_remove_user_file(const char *name)
 {
     Stored *s = slot_for(name);
     s->present = 0;
+    port_settings_forget();
     return true;
 }
 
@@ -104,7 +106,7 @@ static int has_line(const char *name, const char *line)
 
 static void test_custom_goes_to_restomod(void)
 {
-    memset(stored, 0, sizeof stored);
+    memset(stored, 0, sizeof stored), port_settings_forget();
     static const char OLD[] = "format=21:9\nprofile=custom\npsx_dir=/ps1\ncamera_kind=3\nlaps=5\nfog=0\nfullscreen=0\n";
     put_file("port.cfg", OLD);
     put_file("extras.cfg", "nitro=1\nunits=kmh\nfollow_camera=0\n");
@@ -136,7 +138,7 @@ static void test_custom_goes_to_restomod(void)
 /* a key custom set at the table's value is the player's choice: it stays when the table changes, and through a later save */
 static void test_custom_pins_what_it_set(void)
 {
-    memset(stored, 0, sizeof stored);
+    memset(stored, 0, sizeof stored), port_settings_forget();
     put_file("port.cfg", "profile=custom\nfog=1\ncamera_kind=3\n");
     put_file("extras.cfg", "no_movies=0\n");
     port_old_files_migrate();
@@ -151,7 +153,7 @@ static void test_custom_pins_what_it_set(void)
 
 static void test_it_runs_once(void)
 {
-    memset(stored, 0, sizeof stored);
+    memset(stored, 0, sizeof stored), port_settings_forget();
     put_file("port.cfg", "profile=custom\ncamera_kind=3\n");
     port_old_files_migrate();
     /* the player's later change is not undone by a later start */
@@ -164,7 +166,7 @@ static void test_it_runs_once(void)
 
 static void test_no_profile_line_was_custom(void)
 {
-    memset(stored, 0, sizeof stored);
+    memset(stored, 0, sizeof stored), port_settings_forget();
     put_file("port.cfg", "camera_kind=2\n");
     CHECK(!file_text("port.cfg.bak"));
     port_old_files_migrate();
@@ -176,7 +178,7 @@ static void test_no_profile_line_was_custom(void)
 /* a copy already there is the player's original: it stays */
 static void test_copies_are_kept(void)
 {
-    memset(stored, 0, sizeof stored);
+    memset(stored, 0, sizeof stored), port_settings_forget();
     put_file("port.cfg", "profile=custom\ncamera_kind=2\n");
     put_file("extras.cfg", "nitro=1\n");
     put_file("port.cfg.bak", "first\n");
@@ -191,7 +193,7 @@ static void test_copies_are_kept(void)
 /* a named mode took its table's values whatever the file said; what it left alone moves when it is free in that mode */
 static void test_named_mode_keeps_its_table(void)
 {
-    memset(stored, 0, sizeof stored);
+    memset(stored, 0, sizeof stored), port_settings_forget();
     put_file("port.cfg", "profile=restomod\ncity_lift=1\nrefresh_hz=60\ncamera_kind=3\nfullscreen=0\n");
     port_old_files_migrate();
     const PortSettings s = port_settings_load();
@@ -202,7 +204,7 @@ static void test_named_mode_keeps_its_table(void)
     CHECK_EQ_INT(s.fullscreen, 0);
     CHECK(!has_line("restomod.cfg", "city_lift=1"));
 
-    memset(stored, 0, sizeof stored);
+    memset(stored, 0, sizeof stored), port_settings_forget();
     put_file("port.cfg", "profile=restored\ncamera_kind=3\nfullscreen=0\n");
     put_file("extras.cfg", "nitro=1\nno_movies=1\n");
     port_old_files_migrate();
@@ -219,7 +221,7 @@ static void test_named_mode_keeps_its_table(void)
 /* a mode's file already there is newer than the old port.cfg: its keys win, the others are added */
 static void test_mode_file_wins(void)
 {
-    memset(stored, 0, sizeof stored);
+    memset(stored, 0, sizeof stored), port_settings_forget();
     put_file("port.cfg", "profile=restomod\nlaps=5\ncamera_kind=3\n");
     put_file("restomod.cfg", "camera_kind=1\nfog=0\n");
     port_old_files_migrate();
@@ -231,7 +233,7 @@ static void test_mode_file_wins(void)
 
 static void test_clean_port_cfg_stays(void)
 {
-    memset(stored, 0, sizeof stored);
+    memset(stored, 0, sizeof stored), port_settings_forget();
     put_file("port.cfg", "profile=stock\npsx_dir=/ps1\n");
     put_file("extras.cfg", "nitro=1\n");
     const int before = writes;
@@ -246,7 +248,7 @@ static void test_clean_port_cfg_stays(void)
 /* a folder that cannot be written: port.cfg and extras.cfg are as they were, and the next start tries again */
 static void test_a_failed_move(void)
 {
-    memset(stored, 0, sizeof stored);
+    memset(stored, 0, sizeof stored), port_settings_forget();
     put_file("port.cfg", "profile=custom\ncamera_kind=3\n");
     put_file("extras.cfg", "nitro=1\n");
     writes_fail = 1;

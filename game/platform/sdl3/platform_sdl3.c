@@ -59,7 +59,11 @@ static int key_count;
  * has been read all that time with no gap over SCRIPT_READ_GAP_MS (the menus present only on a change and poll
  * the pointer while they wait, so that is a screen waiting for its input, however slow the build runs; a load
  * presents nothing either, but reads no pointer) or, on a screen that never stills (a movie, a blinking
- * cursor), after SCRIPT_SETTLE_CAP_MS. */
+ * cursor), after SCRIPT_SETTLE_CAP_MS.
+ * ms:WAIT:text:secs (with TNFS_INPUT_SETTLE only): the script holds there, ms after the event before it, until the game logs a line
+ * containing `text` (port_log_watch, armed at that moment: a line logged before does not count) -- the game's marks are the
+ * "mark:..." lines (tools/link_loopback.sh) -- and goes on; if no such line comes in `secs` seconds the process says which step
+ * it stopped at ("input script: step N: WAIT text timed out after S s") and exits with status 3. */
 enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100, SCRIPT_SETTLE_CAP_MS = 12000, SCRIPT_READ_GAP_MS = 250 };
 typedef struct {
     uint32_t at_ms;
@@ -68,9 +72,10 @@ typedef struct {
     bool seen;     /* held until the game has read it at least once */
     bool queued;   /* text / editing code already pushed to the text queue */
     bool keyed;    /* pushed to the key queue, as a real press is */
-    char text[16]; /* TEXT events */
+    char text[32]; /* TEXT events; WAIT: the log line's text */
     uint32_t delay; /* TNFS_INPUT_SETTLE: ms after the event before it */
     bool placed;    /* CLICK: the pointer moved there, the press due on the next read */
+    bool latched;   /* a key's press latched, as the event of a real one does */
 } ScriptEvent;
 static ScriptEvent script[SCRIPT_MAX];
 static int script_count;
@@ -414,6 +419,9 @@ static void watch_keys_check(void)
     }
 }
 
+static SDL_Scancode from_set1(int scancode);
+static void script_latch_presses(void);
+
 bool platform_poll_events(void)
 {
     static bool quit;  /* the window closed: every caller after the first sees it too (a race's loop, then a screen's) */
@@ -422,6 +430,7 @@ bool platform_poll_events(void)
     /* port: a binding's key held or let go while nothing reads the pad (the pause's wait, a race on the keyboard) */
     if (joy_refresh != NULL) joy_refresh();
     key_latch_pump();
+    if (script_count > 0) script_latch_presses();
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
             quit = true;
@@ -521,9 +530,16 @@ static void load_script(void)
     char *save = NULL;
     for (char *item = SDL_strtok_r(buf, ",", &save); item != NULL && script_count < SCRIPT_MAX;
          item = SDL_strtok_r(NULL, ",", &save)) {
-        ScriptEvent e = { 0, 0, 0, 0, false, false, false, "", 0, false };
+        ScriptEvent e = { 0, 0, 0, 0, false, false, false, "", 0, false, false };
         char name[16] = "";
-        if (SDL_sscanf(item, "%u:MOUSE:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
+        const char *wait = SDL_strstr(item, ":WAIT:");
+        const char *last = wait != NULL ? SDL_strrchr(item, ':') : NULL;   /* WAIT: ms:WAIT:text:secs, the text may hold colons */
+        if (wait != NULL && last > wait + 6 && last - (wait + 6) < (int)sizeof e.text && SDL_sscanf(item, "%u:", &e.at_ms) == 1 &&
+            SDL_sscanf(last + 1, "%d", &e.x) == 1 && e.x > 0) {   /* x: the seconds */
+            SDL_memcpy(e.text, wait + 6, (size_t)(last - (wait + 6)));
+            e.scancode = -4;
+            script[script_count++] = e;
+        } else if (SDL_sscanf(item, "%u:MOUSE:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
             script[script_count++] = e;
         } else if (SDL_sscanf(item, "%u:CLICK:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
             e.scancode = -3;
@@ -540,13 +556,18 @@ static void load_script(void)
     script_start_ms = (uint32_t)SDL_GetTicks();
     const char *settle = SDL_getenv("TNFS_INPUT_SETTLE");
     settle_ms = settle != NULL ? (uint32_t)SDL_atoi(settle) : 0;
-    if (settle_ms == 0) return;
+    if (settle_ms == 0) {
+        for (int i = 0; i < script_count; i++)
+            if (script[i].scancode == -4) port_log("platform: WAIT %s in TNFS_INPUT_SCRIPT needs TNFS_INPUT_SETTLE; it does nothing\n", script[i].text);
+        return;
+    }
     for (int i = 0; i < script_count; i++) script[i].delay = script[i].at_ms, script[i].at_ms = UINT32_MAX;
 }
 
 static bool script_done(const ScriptEvent *e, uint32_t now)
 {
     if (e->scancode == -1) return true;                       /* a mouse move, consumed */
+    if (e->scancode == -4) return port_log_watch_hit() != 0;  /* WAIT: the game logged its line */
     if (e->scancode == -3 || e->scancode == -2) return e->seen || (e->scancode == -2 && e->queued);
     return now >= e->at_ms + SCRIPT_HOLD_MS && (e->seen || e->keyed || e->queued);
 }
@@ -560,7 +581,15 @@ static void script_sequence(void)
     while (script_next < script_count) {
         ScriptEvent *e = &script[script_next];
         if (e->at_ms != UINT32_MAX) {
-            if (!script_done(e, now)) return;
+            if (!script_done(e, now)) {
+                if (e->scancode == -4 && now - e->at_ms > (uint32_t)e->x * 1000u) {   /* the step the script stopped at, named */
+                    port_log("input script: step %d: WAIT %s timed out after %d s\n", script_next + 1, e->text, e->x);
+                    if (!port_log_verbose()) fprintf(stderr, "input script: step %d: WAIT %s timed out after %d s\n", script_next + 1, e->text, e->x);
+                    exit(3);
+                }
+                return;
+            }
+            if (e->scancode == -4) port_log("input script: step %d: %s came\n", script_next + 1, e->text);
             script_next++, script_last_ms = now;
             continue;
         }
@@ -569,6 +598,10 @@ static void script_sequence(void)
         const bool still = now - last_present_ms >= settle_ms && now - reading_since_ms >= settle_ms;
         if (now < due || (pointer && !still && now < due + SCRIPT_SETTLE_CAP_MS)) return;
         e->at_ms = now;
+        if (e->scancode == -4) {   /* WAIT: from now on (its own line first: it holds the text it waits for) */
+            port_log("input script: step %d: waiting for %s\n", script_next + 1, e->text);
+            port_log_watch(e->text);
+        }
         return;
     }
 }
@@ -576,6 +609,7 @@ static void script_sequence(void)
 static bool script_key_down(int scancode)
 {
     script_sequence();
+    script_latch_presses();   /* the press is latched as its event is pumped, before the read that sees it */
     const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
     for (int i = 0; i < script_count; i++) {
         ScriptEvent *e = &script[i];
@@ -628,6 +662,19 @@ static void apply_script_mouse(void)
             mouse_buttons &= ~(unsigned)PLATFORM_MOUSE_LEFT;
             script[i].seen = true;
         }
+    }
+}
+
+/* a scripted key press latches as a real one does (its KEY_DOWN event), so the script walks the same paths a finger does */
+static void script_latch_presses(void)
+{
+    const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
+    for (int i = 0; i < script_count; i++) {
+        ScriptEvent *e = &script[i];
+        if (e->latched || e->scancode <= 0 || now < e->at_ms) continue;
+        const SDL_Scancode sc = from_set1(e->scancode);
+        if (sc != SDL_SCANCODE_UNKNOWN) key_latch_press((int)sc);
+        e->latched = true;
     }
 }
 
@@ -767,6 +814,11 @@ bool platform_joy_virtual_down(int scancode)
     return false;
 }
 
+bool platform_set_clipboard_text(const char *text)
+{
+    return text != NULL && SDL_SetClipboardText(text);
+}
+
 bool platform_key_down(int scancode)
 {
     if (script_count > 0 && script_key_down(scancode)) return true;
@@ -795,15 +847,31 @@ bool platform_mouse(int *x, int *y, unsigned *buttons)
 
 /* ---- mods overlay: the rules are in formats/modpath.c, the validation in formats/validate.c */
 
+/* the name of the player's folder, in one place (it may change); LEGACY_* is where it was before, moved from once */
+#define USER_FOLDER_NAME "TNFS Restomod"
+#define LEGACY_USER_ORG "tnfs"
+#define LEGACY_USER_APP "tnfs"
+
 static char mods_data_root[1024];
 static char mods_dir_path[1024];
 static char mods_real_path[1100];
 static char mods_error[1024];
 
+/* The player's folder (see user_dir): the mods' default folder is inside it */
+static const char *user_dir(char *out, size_t out_size);
+
 bool platform_set_mods(const char *data_root, const char *mods_dir)
 {
     mods_error[0] = '\0';
-    if (mods_dir == NULL || mods_dir[0] == '\0') { mods_dir_path[0] = '\0'; return true; }
+    char fallback[1200];
+    if (mods_dir == NULL || mods_dir[0] == '\0') {   /* the default: <user folder>/mods/, when it is there; no folder, no mods */
+        mods_dir_path[0] = '\0';
+        if (user_dir(fallback, sizeof fallback) == NULL || strlen(fallback) + sizeof "mods" >= sizeof fallback) return true;
+        strcat(fallback, "mods");
+        SDL_PathInfo found;
+        if (!SDL_GetPathInfo(fallback, &found) || found.type != SDL_PATHTYPE_DIRECTORY) return true;
+        mods_dir = fallback;
+    }
     SDL_PathInfo info;
     if (!SDL_GetPathInfo(mods_dir, &info) || info.type != SDL_PATHTYPE_DIRECTORY) {
         SDL_snprintf(mods_error, sizeof mods_error, "mods directory %s does not exist", mods_dir);
@@ -822,13 +890,111 @@ bool platform_set_mods(const char *data_root, const char *mods_dir)
     return true;
 }
 
+const char *platform_mods_dir(void)
+{
+    return mods_dir_path[0] != '\0' ? mods_dir_path : NULL;
+}
+
+/* ---- the player's folder moves: an item of `from` the destination lacks is moved there (a folder item by item); one the destination has stays where
+ * it is (the destination wins, the old copy is left intact). */
+static int move_item(const char *from, const char *to)
+{
+    if (SDL_RenamePath(from, to)) return 1;
+    SDL_PathInfo info;
+    if (SDL_GetPathInfo(from, &info) && info.type == SDL_PATHTYPE_FILE && SDL_CopyFile(from, to)) {   /* another volume */
+        if (!SDL_RemovePath(from)) port_log("user: %s was copied but could not be removed\n", from);
+        return 1;
+    }
+    port_log("user: %s could not be moved to %s: %s\n", from, to, SDL_GetError());
+    return 0;
+}
+
+typedef struct { const char *to; int moved; } MoveJob;
+
+static int move_tree(const char *from, const char *to);
+
+static SDL_EnumerationResult move_entry(void *userdata, const char *dirname, const char *name)
+{
+    MoveJob *job = userdata;
+    char a[1600], b[1600];
+    SDL_snprintf(a, sizeof a, "%s%s", dirname, name);
+    SDL_snprintf(b, sizeof b, "%s%s", job->to, name);
+    SDL_PathInfo have, there;
+    if (!SDL_GetPathInfo(a, &have)) return SDL_ENUM_CONTINUE;
+    if (!SDL_GetPathInfo(b, &there)) {
+        job->moved += move_item(a, b);
+    } else if (have.type == SDL_PATHTYPE_DIRECTORY && there.type == SDL_PATHTYPE_DIRECTORY) {
+        char fa[1604], fb[1604];
+        SDL_snprintf(fa, sizeof fa, "%s/", a);
+        SDL_snprintf(fb, sizeof fb, "%s/", b);
+        job->moved += move_tree(fa, fb);
+    }
+    return SDL_ENUM_CONTINUE;
+}
+
+static int move_tree(const char *from, const char *to)
+{
+    MoveJob job = { to, 0 };
+    SDL_CreateDirectory(to);
+    SDL_EnumerateDirectory(from, move_entry, &job);
+    return job.moved;
+}
+
+int platform_move_user_files(const char *from, const char *to)
+{
+    char a[1200], b[1200];
+    if (from == NULL || to == NULL || from[0] == '\0' || to[0] == '\0') return 0;
+    SDL_snprintf(a, sizeof a, "%s%s", from, from[strlen(from) - 1] == '/' ? "" : "/");
+    SDL_snprintf(b, sizeof b, "%s%s", to, to[strlen(to) - 1] == '/' ? "" : "/");
+    SDL_PathInfo info;
+    if (!SDL_GetPathInfo(a, &info) || info.type != SDL_PATHTYPE_DIRECTORY) return 0;
+    return move_tree(a, b);
+}
+
+static char user_override[1024];   /* --user DIR */
+
+void platform_set_user_dir(const char *dir)
+{
+    if (dir == NULL || dir[0] == '\0') { user_override[0] = '\0'; return; }
+    SDL_snprintf(user_override, sizeof user_override, "%s%s", dir, dir[strlen(dir) - 1] == '/' ? "" : "/");
+}
+
+/* The folder the player's files lived in before it was named USER_FOLDER_NAME (tnfs/tnfs under the OS's data folder), found from the new one without making it. */
+static bool legacy_pref_dir(const char *pref, char *out, size_t out_size)
+{
+    char base[1024];
+    SDL_snprintf(base, sizeof base, "%s", pref);
+    size_t n = strlen(base);
+    while (n > 0 && (base[n - 1] == '/' || base[n - 1] == '\\')) base[--n] = '\0';   /* ...<base>/TNFS Restomod */
+    while (n > 0 && base[n - 1] != '/' && base[n - 1] != '\\') base[--n] = '\0';     /* ...<base>/ */
+    if (n == 0) return false;
+    SDL_snprintf(out, out_size, "%s%s%c%s%c", base, LEGACY_USER_ORG, base[n - 1], LEGACY_USER_APP, base[n - 1]);
+    return true;
+}
+
+static void migrate_user_files(const char *mods_dir)
+{
+    char dir[1200], from[1300];
+    if (user_dir(dir, sizeof dir) == NULL) return;
+    if (user_override[0] == '\0' && SDL_getenv("TNFS_PREF_DIR") == NULL) {   /* the OS's own folder: what the old name held comes along */
+        char legacy[1200];
+        if (legacy_pref_dir(dir, legacy, sizeof legacy)) {
+            const int moved = platform_move_user_files(legacy, dir);
+            if (moved > 0) port_log("user: %d item(s) moved from %s to %s\n", moved, legacy, dir);
+        }
+    }
+    if (mods_dir != NULL && mods_dir[0] != '\0') {   /* --mods no longer holds the player's files: those it did (<mods>/user/) move to the player's folder */
+        SDL_snprintf(from, sizeof from, "%s/user/", mods_dir);
+        const int moved = platform_move_user_files(from, dir);
+        if (moved > 0) port_log("user: %d item(s) moved from %s to %s (--mods no longer keeps the player's files; --user DIR says where they go)\n", moved, from, dir);
+    }
+}
+
 void platform_open_log(const char *mods_dir)
 {
-    SDL_PathInfo info;
-    if (mods_dir != NULL && mods_dir[0] != '\0' && SDL_GetPathInfo(mods_dir, &info) && info.type == SDL_PATHTYPE_DIRECTORY)
-        SDL_snprintf(mods_dir_path, sizeof mods_dir_path, "%s", mods_dir);   /* platform_set_mods checks it and says so when it is not there */
     data_path_set_base(SDL_GetBasePath());
     open_log();
+    migrate_user_files(mods_dir);
 }
 
 const char *platform_mods_error(void)
@@ -901,23 +1067,23 @@ void platform_free_file(uint8_t *data)
     SDL_free(data);
 }
 
-/* The writable directory of the game, from SDL_GetPrefPath; NULL when the
- * platform has none. */
+/* The player's folder: --user DIR, else $TNFS_PREF_DIR (tests, modders), else one folder named USER_FOLDER_NAME in the OS's per-user data directory
+ * (SDL_GetPrefPath without an organisation, so no tnfs/tnfs). NULL when the platform has none. --mods has no say in it. */
 static const char *user_dir(char *out, size_t out_size)
 {
     static char *pref;
-    if (mods_dir_path[0] != '\0') {   /* with a mods directory the player's files stay beside the mod */
-        SDL_snprintf(out, out_size, "%s/user/", mods_dir_path);
+    if (user_override[0] != '\0') {
+        SDL_snprintf(out, out_size, "%s", user_override);
         SDL_CreateDirectory(out);
         return out;
     }
-    const char *const env = SDL_getenv("TNFS_PREF_DIR");   /* a dev/test override: the tests and modders keep clear of the player's own folder */
+    const char *const env = SDL_getenv("TNFS_PREF_DIR");
     if (env != NULL && env[0] != '\0') {
         SDL_snprintf(out, out_size, "%s/", env);
         SDL_CreateDirectory(out);
         return out;
     }
-    if (pref == NULL) pref = SDL_GetPrefPath("tnfs", "tnfs");
+    if (pref == NULL) pref = SDL_GetPrefPath(NULL, USER_FOLDER_NAME);
     if (pref == NULL) return NULL;
     SDL_snprintf(out, out_size, "%s", pref);
     return out;
@@ -1118,13 +1284,34 @@ static void capture_frame(void)
     fclose(f);
 }
 
+/* One step of the pacing: the time of the next boundary (`next`, 0 at the first), after one `period`; resynced when more than a period behind. *wait_ns is how long to sleep from `now`. */
+static uint64_t pace_step(uint64_t next, uint64_t now, uint64_t period, uint64_t *wait_ns)
+{
+    if (next == 0 || now > next + period) next = now;  /* resync after stalls */
+    next += period;
+    *wait_ns = next > now ? next - now : 0;
+    return next;
+}
+
 void platform_wait_vblank(void)
 {
-    const uint64_t period = platform_refresh_period_ns();
-    const uint64_t now = SDL_GetTicksNS();
-    if (next_vblank_ns == 0 || now > next_vblank_ns + period) next_vblank_ns = now;  /* resync after stalls */
-    next_vblank_ns += period;
-    if (next_vblank_ns > now) platform_sleep_ms((uint32_t)((next_vblank_ns - now) / SDL_NS_PER_MS));
+    uint64_t wait_ns;
+    next_vblank_ns = pace_step(next_vblank_ns, SDL_GetTicksNS(), platform_refresh_period_ns(), &wait_ns);
+    if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
+}
+
+uint64_t platform_frontend_period_ns(void)
+{
+    return SDL_NS_PER_SECOND / PLATFORM_FRONTEND_HZ;
+}
+
+static uint64_t next_frontend_ns;
+
+void platform_wait_frontend_frame(void)
+{
+    uint64_t wait_ns;
+    next_frontend_ns = pace_step(next_frontend_ns, SDL_GetTicksNS(), platform_frontend_period_ns(), &wait_ns);
+    if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
 }
 
 typedef struct {

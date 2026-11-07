@@ -158,7 +158,7 @@ static void handle(void *ctx, int16_t kind, uint32_t link, const uint8_t *data, 
         break;
     }
     case 1: {
-        RaceNetSetupIn in = { L->flags_a, L->state, L->setup };
+        RaceNetSetupIn in = { L->flags_a, L->state, L->setup, L->trailer, &L->trailer_size };
         race_net_on_setup(&in, data, size);
         break;
     }
@@ -265,6 +265,8 @@ static int32_t add_join(void *ctx, const RaceNetLink *entry)
     queue_out();
     const int32_t r = link_join(entry);
     queue_in();
+    static int joined;   /* port: the test harness's host presses Start once each guest has joined (the humans count only moves at the Start) */
+    if (r != 0) port_log("mark:joined=%d\n", ++joined);
     return r;
 }
 

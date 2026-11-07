@@ -1,7 +1,7 @@
 #!/bin/zsh
 # bench_matrix.sh BIN [REPO]: prints a TSV on stdout; CPU and wall ms per drawn frame over tracks x views x looks x TNFS_BANDS x TNFS_RENDER_SCALE.
 # Each cell: the same 1000 steps with TNFS_FRAMES=0 and =600; (t600 - t0) / 600; min of 3 for each of the two runs.
-# Env filters: TRACKS="TR1 CY1" CASES="0:21:9 1:4:3" LOOKS="exe modern" BANDS="0 2 4" SCALES="1 2 3" ROUNDS=3
+# Env filters (EXTRA_CFG: lines for restomod.cfg, e.g. EXTRA_CFG='weather=rain', TNFS_PSX_TIME etc. pass through; PROFILE=stock|restored|restomod, default restomod): TRACKS="TR1 CY1" CASES="0:21:9 1:4:3" LOOKS="exe modern" BANDS="0 2 4" SCALES="1 2 3" ROUNDS=3
 emulate -L zsh
 set -u
 export PATH=/nix/var/nix/profiles/default/bin:$PATH
@@ -12,15 +12,16 @@ BANDS=(${=BANDS:-0 2 auto}); SCALES=(${=SCALES:-1 2 3}); ROUNDS=${ROUNDS:-3}
 TIMEFMT='%U %S %E'
 mods() {   # mods FORMAT MODERN
   local d=$S/mods_matrix; [[ -d $d ]] && find $d -delete; mkdir -p $d/user
-  print 'profile=restomod' > $d/user/port.cfg   # the real mode, with only what this case changes
+  print "profile=${PROFILE:-restomod}" > $d/user/port.cfg   # the real mode, with only what this case changes
   printf 'format=%s\nscale=integer\nrefresh_hz=120\nrender_scale=1\n' $1 > $d/user/restomod.cfg
+  [[ -n ${EXTRA_CFG:-} ]] && print -r -- ${(pj:\n:)${(s:;:)EXTRA_CFG}} >> $d/user/restomod.cfg
   if (( ! $2 )); then printf 'perspective=0\ntexture_filter=0\nfog=0\n' >> $d/user/restomod.cfg; fi
   print -r -- $d
 }
 one() {   # one MODS TRACK VIEW FRAMES BANDS SCALE -> "cpu_s wall_s"
   local t
   t=$( { time ( cd $repo && SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VIEW=$3 TNFS_FRAMES=$4 TNFS_BANDS=$5 TNFS_RENDER_SCALE=$6 \
-        timeout -k 5 600 $bin --data original --mods $1 --drive $2 --entry 1000 --screenshot $S/matrix_shot.ppm >/dev/null 2>&1 ) } 2>&1 )
+        timeout -k 5 600 $bin --data original --user $1/user --drive $2 --entry 1000 --screenshot $S/matrix_shot.ppm >/dev/null 2>&1 ) } 2>&1 )
   print -r -- $t | awk '{printf "%.4f %.4f\n", $1+$2, $3}'
 }
 printf "track\tview\tfmt\tlook\tbands\tscale\tcpu_ms\twall_ms\tload\n"

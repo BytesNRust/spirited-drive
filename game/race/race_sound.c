@@ -211,6 +211,30 @@ static void node_sound(RaceState *race, const Car *car)
     race_sound_channel(race, NODE_CHANNEL, NODE_SOUND, PAN_CENTRE, e->node_volume, e->node_pan);
 }
 
+/* port: the level of the road noise on the rally's rolling gravel (the car is on the road, on the ground), and its crunch strikes; sets the pitch */
+static int32_t gravel_roll_noise(RaceState *race, const Car *car, int32_t level)
+{
+    RaceEngineSound *e = &race->engine_sound;
+    /* port (rally_gravel.h): the rally rolls on gravel: the road noise as the shoulder's own (the off-road branch below: its level plus
+     * 0x14 and the pitch 0x5e), only lower. */
+    level = rally_gravel_level(race->port_rally_gravel, (int32_t)((uint32_t)level + 0x14u));
+    level = rally_gravel_road_level(race->port_rally_gravel, level, car->speed);   /* and heard at a crawl */
+    e->pitch = 0x5e;
+    /* and the exe's own gravel sample struck on the rolling car (rally_gravel_crunch): the road voice alone is sample 0x29, the same low murmur the asphalt has */
+    if (race->port_rally_shoulder_sound != 0 || race->port_rally_gravel == RALLY_GRAVEL_SNOW) {
+        /* port (rally_gravel_shoulder): the shoulder's own tyre sound carries the roll (race_sound_tyres), so no strike of the 0x50 sample here; the snow's crunch is its own voice (snow_roll.h) */
+        return level;
+    }
+    const int32_t crunch = rally_gravel_crunch(race->port_rally_gravel, car->speed, race_rand(race) & 0xffffu);
+    if (crunch > 0) {
+        const int32_t pan = (int16_t)(((race_rand(race) & 0xffffu) * LEVEL_MAX) >> 16);
+        race_sound_channel(race, GRAVEL_CHANNEL, GRAVEL_SOUND, PAN_CENTRE, crunch, pan);
+        /* the sample is the bank's quietest (0.09 of full scale against the engine's 0.3): a second strike, lower and from the other side, doubles it and thickens it */
+        race_sound_channel(race, GRAVEL_CHANNEL, GRAVEL_SOUND, GRAVEL_LOW_PITCH, crunch, LEVEL_MAX - pan);
+    }
+    return level;
+}
+
 /* The road noise's level (0..0x7f) from the car's speed, and its pitch;
  * gravel and rumble on track 5. */
 static int32_t road_noise(RaceState *race, const Car *car)
@@ -219,23 +243,7 @@ static int32_t road_noise(RaceState *race, const Car *car)
     int32_t level = car->speed >> 16;
     level = (int32_t)((level > 0 ? (uint32_t)level : 0u - (uint32_t)level) * 2u);
     if (race->port_rally_gravel != 0 && car->node_flag_4aa == 0 && car->node_flag_4c6 == 0 && car->airborne_ticks == 0) {
-        /* port (rally_gravel.h): the rally rolls on gravel: the road noise as the shoulder's own (the off-road branch below: its level plus
-         * 0x14 and the pitch 0x5e), only lower. */
-        level = rally_gravel_level(race->port_rally_gravel, (int32_t)((uint32_t)level + 0x14u));
-        level = rally_gravel_road_level(race->port_rally_gravel, level, car->speed);   /* and heard at a crawl */
-        e->pitch = 0x5e;
-        /* and the exe's own gravel sample struck on the rolling car (rally_gravel_crunch): the road voice alone is sample 0x29, the same low murmur the asphalt has */
-        if (race->port_rally_shoulder_sound != 0) {
-            /* port (rally_gravel_shoulder): the shoulder's own tyre sound carries the roll (race_sound_tyres), so no strike of the 0x50 sample here */
-            return at_most(level, LEVEL_MAX);
-        }
-        const int32_t crunch = rally_gravel_crunch(race->port_rally_gravel, car->speed, race_rand(race) & 0xffffu);
-        if (crunch > 0) {
-            const int32_t pan = (int16_t)(((race_rand(race) & 0xffffu) * LEVEL_MAX) >> 16);
-            race_sound_channel(race, GRAVEL_CHANNEL, GRAVEL_SOUND, PAN_CENTRE, crunch, pan);
-            /* the sample is the bank's quietest (0.09 of full scale against the engine's 0.3): a second strike, lower and from the other side, doubles it and thickens it */
-            race_sound_channel(race, GRAVEL_CHANNEL, GRAVEL_SOUND, GRAVEL_LOW_PITCH, crunch, LEVEL_MAX - pan);
-        }
+        level = gravel_roll_noise(race, car, level);
     } else if (car->node_flag_4aa != 0) {
         level = (int32_t)((uint32_t)level + 0x14u);
         level = rally_gravel_shoulder_level(race->port_rally_gravel, level, car->speed);   /* port: heard at a crawl in the rally */
@@ -617,7 +625,7 @@ void race_sound_tyres(RaceState *race)
             ? TYRE_ON_ROAD : TYRE_OFF_ROAD;
     }
     int32_t front = car->skid_front, rear = car->skid_rear;
-    if (race->port_rally_gravel != 0 && race->port_rally_shoulder_sound != 0 && car->node_flag_4aa == 0 && car->node_flag_4c6 == 0) {
+    if (race->port_rally_gravel != 0 && race->port_rally_gravel != RALLY_GRAVEL_SNOW && race->port_rally_shoulder_sound != 0 && car->node_flag_4aa == 0 && car->node_flag_4c6 == 0) {   /* port (snow crunch): the snow's roll is its own voice, not the off-road tyre sound */
         /* port (rally_gravel_shoulder): the rolling rally gravel scrubs as the shoulder does: the same tyre sound, its off-road variant, fed by speed */
         const int on_ground = car->airborne_ticks == 0;
         front = rally_gravel_tyre_skid(race->port_rally_gravel, car->speed, front, on_ground);

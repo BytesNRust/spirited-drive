@@ -1,5 +1,6 @@
 #include "game/race/weather.h"
 #include "game/race/headlight_pool.h"
+#include "game/sys/fixed_math.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -168,6 +169,21 @@ static void box_run(float vx, float vy, float ux, float uy, float w, float h, fl
     *enter = t0, *leave = t1;
 }
 
+/* the light level of a drop (-1 when it is gone): the day's, or at night what the headlights' cone gives where its head is; a wedge drop leaves as the car speeds up */
+static int rain_level(uint32_t d, int night, float focal, float fvx, float fvy, const int32_t out[4], float keep, float b)
+{
+    int l = WEATHER_RAIN_DAY_LEVEL;
+    if (night && focal > 0.0f) {
+        const float z = 4.0f + 36.0f * (float)(hash(d, 6) & 0xffff) / 65536.0f * (float)(hash(d, 6) & 0xffff) / 65536.0f;   /* the depth the drop is taken at: most near */
+        const float rx = ((float)out[2] - fvx) / focal, ry = (fvy - (float)out[3]) / focal;
+        const int w = weather_rain_cone_weight(z, rx * z, 1.2f + ry * z);
+        l = w < 24 ? 0 : w < 96 ? 1 : w < 176 ? 2 : 3;
+    }
+    /* a wedge drop leaves as the car speeds up, each at a speed of its own (no pop of them all at once) */
+    if (keep < 1.0f && b * (1.0f - keep) > (float)(hash(d, 8) & 0xffff) / 65536.0f) l = -1;
+    return l;
+}
+
 void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, float focal, int night, int32_t out[4], int *level)
 {
     const uint32_t d = (uint32_t)drop;
@@ -209,16 +225,7 @@ void weather_rain_spoke(int drop, uint32_t tick, int32_t speed, int32_t box_w, i
     const float fall_tail = fall_head > fall_len ? fall_head - fall_len : 0.0f, rad_tail = rad_head - rad_len > enter ? rad_head - rad_len : enter;
     const float tx = (1.0f - b) * (column + dxn * fall_tail) + b * (fvx + ux * rad_tail), ty = (1.0f - b) * (dyn * fall_tail) + b * (fvy + uy * rad_tail);
     out[0] = (int32_t)tx, out[1] = (int32_t)ty, out[2] = (int32_t)hx, out[3] = (int32_t)hy;
-    int l = WEATHER_RAIN_DAY_LEVEL;
-    if (night && focal > 0.0f) {
-        const float z = 4.0f + 36.0f * (float)(hash(d, 6) & 0xffff) / 65536.0f * (float)(hash(d, 6) & 0xffff) / 65536.0f;   /* the depth the drop is taken at: most near */
-        const float rx = ((float)out[2] - fvx) / focal, ry = (fvy - (float)out[3]) / focal;
-        const int w = weather_rain_cone_weight(z, rx * z, 1.2f + ry * z);
-        l = w < 24 ? 0 : w < 96 ? 1 : w < 176 ? 2 : 3;
-    }
-    /* a wedge drop leaves as the car speeds up, each at a speed of its own (no pop of them all at once) */
-    if (keep < 1.0f && b * (1.0f - keep) > (float)(hash(d, 8) & 0xffff) / 65536.0f) l = -1;
-    *level = l;
+    *level = rain_level(d, night, focal, fvx, fvy, out, keep, b);
 }
 
 int weather_lens_count(int32_t box_w, int32_t box_h)
@@ -299,6 +306,75 @@ int weather_rain_flash(uint32_t tick)
     return 0;
 }
 
+int weather_thunder_strike(uint32_t tick)
+{
+    return tick > 0 && weather_rain_flash(tick) > weather_rain_flash(tick - 1);
+}
+
+int weather_thunder_delay(uint32_t tick)
+{
+    return WEATHER_THUNDER_MIN_TICKS + (int)(hash(tick, 23) % (uint32_t)(WEATHER_THUNDER_MAX_TICKS - WEATHER_THUNDER_MIN_TICKS + 1));
+}
+
+int weather_thunder_volume(int delay)
+{
+    const int d = delay < WEATHER_THUNDER_MIN_TICKS ? WEATHER_THUNDER_MIN_TICKS : delay > WEATHER_THUNDER_MAX_TICKS ? WEATHER_THUNDER_MAX_TICKS : delay;
+    return 100 - (100 - WEATHER_THUNDER_FAR_PERCENT) * (d - WEATHER_THUNDER_MIN_TICKS) / (WEATHER_THUNDER_MAX_TICKS - WEATHER_THUNDER_MIN_TICKS);
+}
+
+int weather_open_for_distance(int nearest)
+{
+    return nearest < 0 || nearest >= WEATHER_MOUTH_NODES ? 16 : nearest * 16 / WEATHER_MOUTH_NODES;
+}
+
+int weather_flash_open(int level, int open)
+{
+    return level * (open < 0 ? 0 : open > 16 ? 16 : open) / 16;
+}
+
+int weather_thunder_inside(int volume, int open)
+{
+    const int o = open < 0 ? 0 : open > 16 ? 16 : open;
+    return volume * (WEATHER_THUNDER_INSIDE_PERCENT + (100 - WEATHER_THUNDER_INSIDE_PERCENT) * o / 16) / 100;
+}
+
+int weather_fog_open(int open, float start, float *end, float *cap)
+{
+    if (open >= 16) return 1;
+    if (open <= 0) return 0;
+    *end = start + (*end - start) * 16.0f / (float)open;   /* the same fog over a longer reach */
+    *cap = *cap * (float)open / 16.0f;
+    return 1;
+}
+
+void weather_open_nodes(const uint8_t *closed, uint32_t nodes, uint8_t *open_out)
+{
+    for (uint32_t n = 0; n < nodes; n++) {
+        int nearest = -1;
+        for (int d = 0; d < WEATHER_MOUTH_NODES && nearest < 0; d++)
+            if (closed[(n + (uint32_t)d) % nodes] || closed[(n + nodes - (uint32_t)d % nodes) % nodes]) nearest = d;
+        open_out[n] = (uint8_t)weather_open_for_distance(nearest);
+    }
+}
+
+int32_t weather_wet_grip(int32_t dry, int32_t wet, int open)
+{
+    const int o = open < 0 ? 0 : open > 16 ? 16 : open;
+    return dry + (wet - dry) * o / 16;
+}
+
+int weather_rain_percent(int storm, int v2)
+{
+    if (v2) return storm ? WEATHER_STORM_V2_PERCENT : WEATHER_RAIN_V2_PERCENT;
+    return storm ? 100 * WEATHER_STORM_DROPS : 100;
+}
+
+int weather_rain_scaled(int base, int storm, int v2)
+{
+    const int n = (int)((int64_t)base * weather_rain_percent(storm, v2) / 100);
+    return n < 1 && base > 0 ? 1 : n;
+}
+
 void weather_flash_colour(uint8_t out[3])
 {
     out[0] = 248, out[1] = 250, out[2] = 255;
@@ -308,6 +384,18 @@ static float smooth_step(float a, float b, float x)
 {
     const float t = x <= a ? 0.0f : x >= b ? 1.0f : (x - a) / (b - a);
     return t * t * (3.0f - 2.0f * t);
+}
+
+int weather_on_carriageway(int32_t lateral, int left_verge, int right_verge)
+{
+    const int64_t verge = (int64_t)(lateral < 0 ? left_verge : right_verge) * 0x2000;
+    const int64_t side = lateral < 0 ? -(int64_t)lateral : lateral;
+    return verge <= 0 || side <= verge;
+}
+
+int32_t weather_across_road(int32_t angle, int32_t dx, int32_t dz)
+{
+    return fx_mul_round(fx_cos16(angle), dx) - fx_mul_round(fx_sin16(angle), dz);
 }
 
 int weather_reflection_weight(float dot, float distance)

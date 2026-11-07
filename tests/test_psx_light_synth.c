@@ -55,27 +55,145 @@ static void test_warm_tunnel_tracks(void)
     CHECK(psx_light_synth_city_track("TR6") == 0 && psx_light_synth_city_track("TR7") == 0 && psx_light_synth_city_track("CL2") == 0 && psx_light_synth_city_track(NULL) == 0);
 }
 
-static void test_city_car_ratios_are_the_discs(void)
+/* port (tunnel zone looks): in every tunnel the car takes its zone's light and colour: under a lamp (even node) light% / 100 x colour (capped at 1 here: these lights have no rows, so no road darkening for the excess to come in with; test_car_above_full_light_takes_the_excess), between two lamps (odd) the gap's 40 % of that,
+ * coming in over the weather's 6 nodes outside the mouth; a zone with a look of its own (a tone slot) gives its own */
+static void test_car_takes_the_zones_look(void)
 {
-    float even[3], odd[3];
-    CHECK(!psx_light_synth_disc_car("TR7", PSX_SYNTH_DAY, even, odd) && !psx_light_synth_disc_car(NULL, PSX_SYNTH_DAY, even, odd));
-    CHECK(psx_light_synth_disc_car("CY3", PSX_SYNTH_DAY, even, odd));
-    CHECK(even[0] > even[1] && even[1] > even[2] && fabsf(even[2] - 0.188f) < 0.001f && odd[0] < even[0]);
-    CHECK(!psx_light_synth_disc_car("CY3", PSX_SYNTH_NIGHT, even, odd) && !psx_light_synth_disc_car("CY2", PSX_SYNTH_DUSK, even, odd) && psx_light_synth_disc_car("CY2", PSX_SYNTH_DAY, even, odd));
-    CHECK(psx_light_synth_disc_car("CY3", PSX_SYNTH_DAY, even, odd));
-    float night_even[3], night_odd[3];
-    CHECK(psx_light_synth_disc_car("cy1", PSX_SYNTH_NIGHT, night_even, night_odd));
-    CHECK(night_even[0] == night_even[2] && night_even[0] > 0.9f && night_odd[0] < night_even[0]);
-    CHECK(psx_light_synth_disc_car("CY1", PSX_SYNTH_DAY, even, odd) && even[0] < night_even[0]);
-    uint8_t tunnel[8] = { 1, 1, 1, 1, 1, 1, 1, 1 };
+    enum { N = 64 };
+    uint8_t tunnel[N] = { 0 }, tone_id[N] = { 0 };
+    uint16_t tone_mask[N] = { 0 };
+    memset(tunnel + 20, 1, 21);   /* nodes 20..40 */
     PsxLight light = { 0 };
-    light.nodes = 8, light.tunnel = tunnel;
-    float plain[3], disc[3];
-    psx_light_synth_car_tunnel(&light, 4, plain);
-    CHECK(psx_light_synth_disc_car("CY3", PSX_SYNTH_DAY, light.car_even, light.car_odd));
-    light.car_disc = 1;
-    psx_light_synth_car_tunnel(&light, 4, disc);
-    CHECK(disc[0] > disc[2] && fabsf(disc[2] - light.car_even[2]) < 0.001f && plain[2] != disc[2]);   /* in a tunnel (dark 1) the car takes the lamp factor itself */
+    light.nodes = N, light.tunnel = tunnel, light.look_set = 1, light.look_light = 104.4;
+    light.look_cast[0] = 1.0f, light.look_cast[1] = 0.35f, light.look_cast[2] = 0.05f;
+    float out[3];
+    psx_light_synth_car_tunnel(&light, 30, out);   /* under a lamp: 104.4 % x (1, .35, .05), capped at 1 */
+    CHECK(fabsf(out[0] - 1.0f) < 1e-5f && fabsf(out[1] - 0.3654f) < 1e-4f && fabsf(out[2] - 0.0522f) < 1e-4f);
+    psx_light_synth_car_tunnel(&light, 31, out);   /* between: 40 % of it */
+    CHECK(fabsf(out[0] - 0.4f) < 1e-5f && fabsf(out[1] - 0.14616f) < 1e-4f && fabsf(out[2] - 0.02088f) < 1e-4f);
+    psx_light_synth_car_tunnel(&light, 18, out);   /* 2 nodes outside the mouth, a lamp node: dark 1 - 2/6 of the way in */
+    CHECK(fabsf(out[1] - (1.0f - (1.0f - 0.3654f) * (1.0f - 2.0f / 6.0f))) < 1e-4f);
+    psx_light_synth_car_tunnel(&light, 14, out);   /* 6 nodes out: the open road */
+    CHECK(out[0] == 1.0f && out[1] == 1.0f && out[2] == 1.0f);
+    psx_light_synth_car_tunnel(&light, 47, out);   /* and past the other mouth */
+    CHECK(out[0] == 1.0f && out[1] == 1.0f && out[2] == 1.0f);
+    light.look_light = 50.0, light.look_cast[1] = light.look_cast[2] = 1.0f;   /* a white 50 % tunnel: half the light, even and gap */
+    psx_light_synth_car_tunnel(&light, 30, out);
+    CHECK(fabsf(out[0] - 0.5f) < 1e-5f && fabsf(out[1] - 0.5f) < 1e-5f);
+    psx_light_synth_car_tunnel(&light, 31, out);
+    CHECK(fabsf(out[2] - 0.2f) < 1e-5f);
+    /* a zone with its own look: nodes 20..30 through a slot (150 %, red), the rest the time's */
+    light.tone_count = 1, light.tone[0].look = 1, light.tone[0].light = 150.0f;
+    light.tone[0].cast[0] = 1.0f, light.tone[0].cast[1] = 0.5f, light.tone[0].cast[2] = 0.0f;
+    light.tone_id = tone_id, light.tone_mask = tone_mask;
+    memset(tone_id + 20, 1, 11);
+    psx_light_synth_car_tunnel(&light, 24, out);
+    CHECK(fabsf(out[0] - 1.0f) < 1e-5f && fabsf(out[1] - 0.75f) < 1e-5f && fabsf(out[2]) < 1e-5f);
+    psx_light_synth_car_tunnel(&light, 36, out);   /* the other zone: the time's look */
+    CHECK(fabsf(out[0] - 0.5f) < 1e-5f);
+    psx_light_synth_car_tunnel(&light, 19, out);   /* one node before the first zone: its look, ramping */
+    CHECK(fabsf(out[1] - (1.0f - (1.0f - 0.4f * 0.75f) * (1.0f - 1.0f / 6.0f))) < 1e-4f);
+    uint8_t hall[N] = { 0 };   /* a hall keeps its lamps' own factors */
+    hall[35] = 1, light.hall = hall;
+    psx_light_synth_car_tunnel(&light, 35, out);
+    CHECK(out[0] > out[1] && out[1] > out[2]);
+}
+
+/* the car is never brighter than the road around it: its zone's look is taken over the light the road gets at its node (the rows' road points, a tunnel's road capped as the world's: TR6's, CL2's and
+ * CY1's rows say 255 and the world shows 100 of 255) */
+static void test_car_is_no_brighter_than_the_road(void)
+{
+    enum { N = 64 };
+    uint8_t tunnel[N] = { 0 }, data[N * PSX_LIGHT_POINTS];
+    memset(tunnel + 20, 1, 21);
+    for (int n = 0; n < N; n++) {   /* the rows of TR6's tunnel: the road 255, the foot 130, the walls 0 (the world takes the walls to 128 and the road to 100); the open road's all 255 */
+        static const uint8_t ROW[PSX_LIGHT_POINTS] = { 255, 255, 130, 0, 0, 0, 255, 130, 0, 0, 0 };
+        if (tunnel[n]) memcpy(data + (size_t)n * PSX_LIGHT_POINTS, ROW, PSX_LIGHT_POINTS);
+        else memset(data + (size_t)n * PSX_LIGHT_POINTS, 255, PSX_LIGHT_POINTS);
+    }
+    PsxLight light = { 0 };
+    light.nodes = N, light.data = data, light.tunnel = tunnel, light.look_set = 1, light.look_light = 100.0;
+    light.look_cast[0] = light.look_cast[1] = light.look_cast[2] = 1.0f;
+    float out[3];
+    psx_light_synth_car_tunnel(&light, 30, out);   /* under a lamp: the road's 100 of 255, not the look's full */
+    CHECK(fabsf(out[0] - 100.0f / 255.0f) < 1e-4f && out[0] == out[1] && out[1] == out[2]);
+    psx_light_synth_car_tunnel(&light, 31, out);   /* between: 40 % of that */
+    CHECK(fabsf(out[0] - 0.4f * 100.0f / 255.0f) < 1e-4f);
+    float road = psx_light_road_light(&light, 30);
+    CHECK(fabsf(road - 100.0f / 255.0f) < 1e-4f);
+    CHECK(psx_light_road_light(&light, 5) == 1.0f);   /* the open road's rows: the road points at 255 */
+    light.look_light = 50.0, light.look_cast[1] = 0.5f;   /* a dimmer, orange zone: its look, then the road's share of it */
+    psx_light_synth_car_tunnel(&light, 30, out);
+    CHECK(fabsf(out[0] - 0.5f * 100.0f / 255.0f) < 1e-4f && fabsf(out[1] - 0.25f * 100.0f / 255.0f) < 1e-4f);
+    CHECK(out[0] <= road && out[1] <= road && out[2] <= road);
+    psx_light_synth_car_tunnel(&light, 14, out);   /* 6 nodes from the mouth: the open road */
+    CHECK(out[0] == 1.0f);
+}
+
+/* port (tunnel_tone, the car above full light): a tunnel look brighter than 100 % lights the world by its excess (the walls and the road are 1.87 times brighter at 215 % than at 115 %), and the car takes it
+ * too: the look's light x colour is no longer capped at 1 before the road's share, so the car is lit as its surroundings are. The excess comes in with the road's darkening (the rows' road at 100 of 255 in a
+ * tunnel, 255 outside), so the open road before a mouth is not brightened; at 100 % and white nothing is different. */
+static void test_car_above_full_light_takes_the_excess(void)
+{
+    enum { N = 64 };
+    uint8_t tunnel[N] = { 0 }, data[N * PSX_LIGHT_POINTS];
+    memset(tunnel + 20, 1, 21);
+    for (int n = 0; n < N; n++) {
+        static const uint8_t ROW[PSX_LIGHT_POINTS] = { 255, 255, 130, 0, 0, 0, 255, 130, 0, 0, 0 };
+        if (tunnel[n]) memcpy(data + (size_t)n * PSX_LIGHT_POINTS, ROW, PSX_LIGHT_POINTS);
+        else memset(data + (size_t)n * PSX_LIGHT_POINTS, 255, PSX_LIGHT_POINTS);
+    }
+    PsxLight light = { 0 };
+    light.nodes = N, light.data = data, light.tunnel = tunnel, light.look_set = 1, light.look_light = 215.0;
+    light.look_cast[0] = 1.0f, light.look_cast[1] = 0.68f, light.look_cast[2] = 0.28f;   /* CY1's tunnel_tone 215 1/0.68/0.28 */
+    const float road = 100.0f / 255.0f;
+    float out[3], at115[3];
+    psx_light_synth_car_tunnel(&light, 30, out);   /* under a lamp: the look's own light x colour (2.15, 1.462, .602) x the road's share */
+    CHECK(fabsf(out[0] - 2.15f * road) < 1e-4f && fabsf(out[1] - 1.462f * road) < 1e-4f && fabsf(out[2] - 0.602f * road) < 1e-4f);
+    light.look_light = 115.0;
+    psx_light_synth_car_tunnel(&light, 30, at115);
+    CHECK(fabsf(at115[0] - 1.15f * road) < 1e-4f && fabsf(at115[1] - 0.782f * road) < 1e-4f);
+    CHECK(fabsf(out[0] / at115[0] - 2.15f / 1.15f) < 1e-3f);   /* the car goes up with the look as the world does */
+    light.look_light = 215.0;
+    psx_light_synth_car_tunnel(&light, 31, out);   /* between two lamps: 40 % of it, the flicker stays */
+    CHECK(fabsf(out[0] - 0.4f * 2.15f * road) < 1e-4f);
+    psx_light_synth_car_tunnel(&light, 16, out);   /* 4 nodes out, the road still open: no excess, the old ratio (the amber tint of the mouth only) */
+    CHECK(out[0] == 1.0f && out[1] == 1.0f && fabsf(out[2] - (1.0f - (1.0f - 0.602f) * (1.0f - 4.0f / 6.0f))) < 1e-4f);
+    light.look_light = 100.0, light.look_cast[0] = light.look_cast[1] = light.look_cast[2] = 1.0f;   /* 100 % and white: as it was */
+    psx_light_synth_car_tunnel(&light, 30, out);
+    CHECK(fabsf(out[0] - road) < 1e-5f && out[0] == out[1] && out[1] == out[2]);
+}
+
+/* a reversed track: the file's arrays (tunnel, hall, car_dim) are of its own direction; the car asks them at the node the file has (psx_light_old_node), not the game's: file node n is game node (nodes - n) */
+static void test_a_reversed_track_has_its_places_mirrored_for_the_car(void)
+{
+    enum { N = 64 };
+    uint8_t tunnel[N] = { 0 }, hall[N] = { 0 }, dim[N] = { 0 };
+    memset(tunnel + 10, 1, 11);   /* the file's 10..20, the game's 44..54 */
+    memset(hall + 40, 1, 3);      /* the file's 40..42, the game's 22..24 */
+    memset(dim + 50, 1, 3);       /* the file's 50..52, the game's 12..14 */
+    PsxLight light = { 0 };
+    light.nodes = N, light.tunnel = tunnel, light.hall = hall, light.car_dim = dim, light.reversed = 1;
+    float out[3];
+    psx_light_synth_car_tunnel(&light, 48, out);   /* the file's 16: in the tunnel (even node, under a lamp) */
+    CHECK(out[0] < 0.7f);
+    psx_light_synth_car_tunnel(&light, 16, out);   /* the file's 48: open road, whatever the game's node 16 would be unmirrored */
+    CHECK(out[0] == 1.0f && out[1] == 1.0f && out[2] == 1.0f);
+    psx_light_synth_car_tunnel(&light, 24, out);   /* the file's 40: the hall's lamps, warm */
+    CHECK(out[0] > 0.9f && out[0] > out[1] && out[1] > out[2]);
+    psx_light_synth_car_tunnel(&light, 40, out);   /* the file's 24: not the hall */
+    CHECK(out[0] == 1.0f);
+    psx_light_synth_car_tunnel(&light, 13, out);   /* the file's 51: the car keeps its dim tone */
+    CHECK(fabsf(out[0] - 62.0f / 160.0f) < 1e-5f);
+    psx_light_synth_car_tunnel(&light, 50, out);   /* the file's 14 (even: under a lamp): not the dim one but the tunnel's */
+    CHECK(fabsf(out[0] - 62.0f / 160.0f) > 1e-3f);
+    uint8_t flags[N] = { 0 };   /* the same light with no tunnel array: psx_light_synth_car's own hall lookup */
+    light.tunnel = NULL;
+    psx_light_synth_car(&light, 24, out);   /* the file's 40, a hall node */
+    CHECK(out[0] > 0.9f && out[0] > out[1]);
+    psx_light_synth_car(&light, 41, out);   /* the file's 23 */
+    CHECK(out[0] == 1.0f);
+    (void)flags;
 }
 
 /* TR7's steelworks hall: property 17 (the hall bit with the open one) along the start straight, across node 0 of the ring, is a hall (flag 2, not a tunnel's 1); a short one is nothing */
@@ -418,7 +536,10 @@ int main(void)
     test_hall_is_a_tunnel();
     test_gallery_is_a_tunnel_when_asked();
     test_warm_tunnel_tracks();
-    test_city_car_ratios_are_the_discs();
+    test_car_takes_the_zones_look();
+    test_car_is_no_brighter_than_the_road();
+    test_car_above_full_light_takes_the_excess();
+    test_a_reversed_track_has_its_places_mirrored_for_the_car();
     test_hall_rows_and_cars();
     test_ring_joins_a_run_across_node_zero();
     test_rows_open_and_tunnel();

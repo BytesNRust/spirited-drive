@@ -19,7 +19,7 @@ static const int16_t BAND_BOTTOM[OPTIONS] = { 0xb1, 0xfd, 0x149, 0x1e0 };
 enum { PROFILE_LEFT = 0xd5, PROFILE_RIGHT = 0x1ab };
 static const char *const WORDS[OPTIONS] = { NULL, "Single Player", "Multiplayer", "Exit" };
 
-enum { FOOTER_CAP = 80, FOOTER_LINES = 2, FOOTER_X = 8, FOOTER_Y = 452, FOOTER_STEP = 28 };
+enum { FOOTER_CAP = 80, FOOTER_LINES = 2, FOOTER_X = 14, FOOTER_Y = 448, FOOTER_STEP = 20, FOOTER_NUM = 3, FOOTER_DEN = 5 };   /* the small subtitle size (3/5) of the profile's lines, 14 pixels in from the left and the bottom */
 
 typedef struct Menu {
     int32_t bank;
@@ -35,6 +35,8 @@ typedef struct Menu {
     int16_t result;    /* esp + 0x380 */
     char footer[FOOTER_LINES][FOOTER_CAP];   /* port: the foot lines as last drawn */
     int pending;       /* port (profiles): how many steps along the cycle the row shows, not yet applied (0: the profile in use) */
+    uint32_t pending_at;   /* port: the clock's ms at the last arrow, the mode applies once PROFILE_IDLE_MS pass without another */
+    int quick;         /* port: the fade in after a mode's change of picture is the short one */
     uint8_t rgb[GAME_MODE_PALETTE];
 } Menu;
 
@@ -63,9 +65,6 @@ static void follow(Menu *m, const GameModeOps *o)
     }
 }
 
-/* the row's second line while it shows a mode not yet applied */
-static const char PENDING_LINE[] = "Return applies it.";
-
 /* the art's words put back to the clean background over a row's place */
 static void cover_row(const GameModeOps *o, int16_t row)
 {
@@ -81,7 +80,6 @@ static void profile_row(const Menu *m, const GameModeOps *o)
     if (o->profile == NULL || o->plus_text_scaled == NULL || o->plus_text_width_scaled == NULL ||
         !o->profile(o->ctx, m->pending != 0 ? GAME_MODE_PROFILE_PEEK + m->pending : 0, text))
         return;
-    if (m->pending != 0) text[2] = PENDING_LINE;   /* not applied yet: say how */
     char title[96];
     snprintf(title, sizeof title, "<  %s  >", text[0]);
     o->plus_text(o->ctx, m->selected == PROFILE, title, CENTRE - o->plus_text_width(o->ctx, title) / 2, TITLE_Y);
@@ -102,7 +100,7 @@ static void rows_draw(const Menu *m, const GameModeOps *o)
 /* port: where foot line i (its text) goes and how wide it is */
 static void footer_place(const GameModeOps *o, int32_t i, const char *text, int32_t *x, int32_t *y, int32_t *w)
 {
-    *w = o->plus_text_width != NULL ? o->plus_text_width(o->ctx, text) : 0;
+    *w = o->plus_text_width_scaled != NULL ? o->plus_text_width_scaled(o->ctx, text, FOOTER_NUM, FOOTER_DEN) : o->plus_text_width != NULL ? o->plus_text_width(o->ctx, text) : 0;
     *x = FOOTER_X, *y = FOOTER_Y - i * FOOTER_STEP;
 }
 
@@ -115,7 +113,8 @@ static void footer_draw(Menu *m, const GameModeOps *o)
         if (m->footer[i][0] == 0) continue;
         int32_t x, y, w;
         footer_place(o, i, m->footer[i], &x, &y, &w);
-        o->plus_text(o->ctx, 0, m->footer[i], x, y);
+        if (o->plus_text_scaled != NULL) o->plus_text_scaled(o->ctx, 0, m->footer[i], x, y, FOOTER_NUM, FOOTER_DEN);
+        else o->plus_text(o->ctx, 0, m->footer[i], x, y);
     }
 }
 
@@ -134,7 +133,7 @@ static int footer_stale(const Menu *m, const GameModeOps *o)
 /* port: 1 when the notice is drawn and the pointer is on it (its band: the left 400 columns of its row) */
 static int on_notice(const Menu *m, const GameModeOps *o)
 {
-    enum { NOTICE_WIDTH = 400, NOTICE_HEIGHT = 28 };
+    enum { NOTICE_WIDTH = 400, NOTICE_HEIGHT = 20 };
     if (o->open_notice == NULL || o->footer == NULL || m->footer[1][0] == 0) return 0;
     int32_t x, y, w;
     footer_place(o, 1, m->footer[1], &x, &y, &w);
@@ -158,7 +157,9 @@ static void draw(Menu *m, GameModeState *st, int german, const GameModeOps *o)
     if (m->fade) {
         o->music_feed(o->ctx);
         if (st->pointer_active) o->pointer_buttons(o->ctx);
-        o->fade_in(o->ctx, 0, ALL, m->rgb);
+        if (m->quick && o->fade_in_quick != NULL) o->fade_in_quick(o->ctx, m->rgb);
+        else o->fade_in(o->ctx, 0, ALL, m->rgb);
+        m->quick = 0;
         o->inverse_build(o->ctx);
         m->fade = 0;
         if (st->lost && st->lost_shown) {
@@ -172,11 +173,13 @@ static void draw(Menu *m, GameModeState *st, int german, const GameModeOps *o)
     m->redraw = 0;
 }
 
+static void settle_profile(Menu *m, const GameModeOps *o, int quiet);
+
 /* the selection moved: its sound, and the page drawn again; leaving the Profile row forgets a mode not applied */
 static void redraw_options(Menu *m, const GameModeOps *o)
 {
     if (m->previous != m->selected) o->sound(o->ctx, MOVED);
-    if (m->previous == PROFILE && m->selected != PROFILE) m->pending = 0;
+    if (m->previous == PROFILE && m->selected != PROFILE) settle_profile(m, o, 0);   /* port: what the row showed is what applies */
     m->redraw = 1;
     m->changed = 0;
 }
@@ -208,7 +211,23 @@ static void came_back(Menu *m, GameModeState *st, int16_t r, const GameModeOps *
     }
 }
 
-/* port (profiles): the row shows the next (+1) or previous (-1) profile; nothing is changed until it is applied. Coming round to the one in use shows it as it is */
+/* port (modes): the mode the row shows becomes the one in use; nothing is lost, each mode keeps its own. A change of
+ * the image's format or of its internal resolution is covered by a short fade (`quiet`: not, the screen is closing) */
+static void settle_profile(Menu *m, const GameModeOps *o, int quiet)
+{
+    const char *text[3];
+    if (o->profile == NULL || m->pending == 0) return;
+    const int fades = !quiet && o->fade_out_quick != NULL && o->fade_in_quick != NULL &&
+                      o->profile(o->ctx, GAME_MODE_PROFILE_LOOK + m->pending, text) == 1;
+    if (fades) o->fade_out_quick(o->ctx);
+    o->profile(o->ctx, GAME_MODE_PROFILE_APPLY + m->pending, text);
+    m->pending = 0;
+    m->redraw = 1;
+    if (fades) m->fade = m->quick = 1;
+}
+
+/* port (profiles): the row shows the next (+1) or previous (-1) profile, at once; the mode applies once the arrows rest (no clock: at once).
+ * Coming round to the one in use shows it as it is and applies nothing */
 static void cycle_profile(Menu *m, const GameModeOps *o, int step)
 {
     const char *text[3];
@@ -217,16 +236,15 @@ static void cycle_profile(Menu *m, const GameModeOps *o, int step)
     const int want = m->pending + step >= -REACH && m->pending + step <= REACH ? m->pending + step : 0;
     m->pending = want != 0 && o->profile(o->ctx, GAME_MODE_PROFILE_PEEK + want, text) == 2 ? want : 0;
     m->redraw = 1;
+    if (o->clock_ms == NULL) settle_profile(m, o, 0);
+    else m->pending_at = o->clock_ms(o->ctx);
 }
 
-/* port (modes): Return on the row (or a click on its name): the mode it shows; nothing is lost, each mode keeps its own */
-static void apply_profile(Menu *m, const GameModeOps *o)
+/* port: the arrows have rested: the mode on the row applies */
+static void profile_rests(Menu *m, const GameModeOps *o)
 {
-    const char *text[3];
-    if (o->profile == NULL || m->pending == 0) return;
-    o->profile(o->ctx, GAME_MODE_PROFILE_APPLY + m->pending, text);
-    m->pending = 0;
-    m->redraw = 1;
+    enum { PROFILE_IDLE_MS = 400 };
+    if (m->pending != 0 && o->clock_ms != NULL && o->clock_ms(o->ctx) - m->pending_at >= PROFILE_IDLE_MS) settle_profile(m, o, 0);
 }
 
 static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
@@ -257,7 +275,7 @@ static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
     case PROFILE:   /* port: a click on the row's left third shows the previous profile, on its right third the next; Return or a click on the name applies it */
         if (st->buttons == LEFT_BUTTON && o->pointer_in_rect(o->ctx, 0, PROFILE_LEFT, BAND_TOP[PROFILE], BAND_BOTTOM[PROFILE])) cycle_profile(m, o, -1);
         else if (st->buttons == LEFT_BUTTON && o->pointer_in_rect(o->ctx, PROFILE_RIGHT, WIDE, BAND_TOP[PROFILE], BAND_BOTTOM[PROFILE])) cycle_profile(m, o, 1);
-        else apply_profile(m, o);
+        else settle_profile(m, o, 0);
         break;
     }
 }
@@ -301,6 +319,7 @@ int32_t game_mode_menu(int german, GameModeState *st, const GameModeOps *ops)
     ops->pointer_mark(ops->ctx);
     do {
         follow(&m, ops);
+        profile_rests(&m, ops);
         if (m.redraw) draw(&m, st, german, ops);
         if (m.changed) redraw_options(&m, ops);
         int16_t k = (int16_t)ops->key(ops->ctx);
@@ -336,6 +355,7 @@ int32_t game_mode_menu(int german, GameModeState *st, const GameModeOps *ops)
         if (m.fade || m.done) continue;
         if (ops->deadline_passed(ops->ctx)) {
             ops->sound(ops->ctx, CHOSEN);
+            settle_profile(&m, ops, 1);   /* port: the screen is closing, the mode on the row still applies */
             m.done = 1;
             m.result = TIMED_OUT;
         } else if (st->buttons == RIGHT_BUTTON && m.released) {

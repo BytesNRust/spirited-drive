@@ -82,6 +82,15 @@ static void envmap_pixel(uint8_t *px, const EnvShine *env, int glass, float eu, 
     *px = (glass ? env->glass : env->paint)[level][*px];
 }
 
+/* The mask's class of the texel (u, v), clamped to the class texture's edges. */
+static uint8_t texel_class(const Shine *sh, float u, float v)
+{
+    int tx = (int)floorf(u), ty = (int)floorf(v);
+    tx = tx < 0 ? 0 : tx >= sh->cls->width ? sh->cls->width - 1 : tx;
+    ty = ty < 0 ? 0 : ty >= sh->cls->height ? sh->cls->height - 1 : ty;
+    return sh->cls->klass[(size_t)ty * (size_t)sh->cls->width + (size_t)tx];
+}
+
 static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, const Screen *c, Outline o, float origin, float grow,
                      float row_reach, const Shine *sh)
 {
@@ -113,10 +122,7 @@ static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, cons
             if (iz < IZ_MIN) continue;
             const float r = 1.0f / iz;
             const float u = (wa * a->uz + wb * b->uz + wc * c->uz) * r, v = (wa * a->vz + wb * b->vz + wc * c->vz) * r;
-            int tx = (int)floorf(u), ty = (int)floorf(v);
-            tx = tx < 0 ? 0 : tx >= sh->cls->width ? sh->cls->width - 1 : tx;
-            ty = ty < 0 ? 0 : ty >= sh->cls->height ? sh->cls->height - 1 : ty;
-            const uint8_t k = sh->cls->klass[(size_t)ty * (size_t)sh->cls->width + (size_t)tx];
+            const uint8_t k = texel_class(sh, u, v);
             if (sh->env != NULL) {
                 /* the mask drives the shine: paint (0) at the body intensity, tinted by the paint; glass and lamps (128) at the glass
                  * intensity, keeping their own colour; a body texel (192) keeps its colour too but takes the paint's intensity and table;

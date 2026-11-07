@@ -231,6 +231,11 @@ add_library(tnfs_game STATIC
     game/race/race_enter.c
     game/race/race_teardown.c
     game/audio/sound_mix.c
+    game/audio/thunder.c
+    game/audio/wet_roll.c
+    game/race/rain_roll.c
+    game/race/snow_roll.c
+    game/race/weather_snow.c
     game/audio/sound_channel.c
     game/audio/sound_driver.c
     game/audio/sound_queue.c
@@ -253,6 +258,7 @@ add_library(tnfs_game STATIC
     game/race/race_replay_cuts.c
     game/race/race_replay_file.c
     game/race/race_replay_image.c
+    game/race/session_rules.c
     game/race/race_view_pick.c
     game/race/replay_panel.c
     game/race/dash_controls.c
@@ -312,6 +318,8 @@ add_library(tnfs_game STATIC
     game/race/car_envmap.c
     game/race/psx_light.c
     game/race/psx_light_synth.c
+    game/race/track_light_file.c
+    game/race/track_light_find.c
     game/race/psx_light_make.c
     game/race/headlight_pool.c
     game/race/street_lamp.c
@@ -368,6 +376,8 @@ add_library(tnfs_game STATIC
     game/race/race_state.c
     game/race/sky_ring.c
     game/race/weather.c
+    game/race/wet_zones.c
+    game/viewer/wet_zones_load.c
     game/race/rain_spray.c
     game/race/track_art.c
     game/race/track_palette_repair.c
@@ -476,6 +486,7 @@ add_executable(tnfs
     game/frontend/link_session.c
     game/frontend/link_central.c
     game/frontend/link_race.c
+    game/frontend/link_rules.c
     game/frontend/central_glue.c
     game/frontend/menu_audio.c
     game/frontend/screens.c
@@ -493,6 +504,7 @@ add_executable(tnfs
     game/viewer/drive_input.c
     game/viewer/drive_interp.c
     game/viewer/drive_clock.c
+    game/viewer/light_edit.c
     game/viewer/race_stats.c
     game/viewer/race_stats_draw.c
     game/viewer/draw_rands.c
@@ -576,13 +588,16 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
+    if(NOT WIN32)
+        add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
+    endif()
     foreach(name qfs qfs_encode doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name port_old_files band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth lamp_emissive drive_lamps headlight_pool street_lamp window_lights finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_color lamp_flare shade_fit key_latch track_wall chase_slope data_path data_check psx_light_make port_profile game_mode_profile file_url tach_dim wheel_front rain_spray)
+foreach(name port_old_files band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth lamp_emissive drive_lamps headlight_pool street_lamp window_lights finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_color lamp_flare shade_fit thunder wet_roll rain_roll snow_roll weather_snow snow_remap key_latch track_wall chase_slope data_path data_check psx_light_make port_profile game_mode_profile file_url tach_dim wheel_front rain_spray track_light_file session_rules)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -596,6 +611,8 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     # the CD check of the clean configuration background runs when original/ is there
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_paint_cfm PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_rain_roll PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_snow_roll PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_drive_lamps PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_colours PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_paint_dash PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -638,6 +655,12 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_link_libraries(test_weather_draw PRIVATE tnfs_game)
     target_compile_options(test_weather_draw PRIVATE ${TNFS_WARNINGS})
     add_test(NAME weather_draw COMMAND test_weather_draw)
+    add_executable(test_wet_zones tests/test_wet_zones.c)
+    target_include_directories(test_wet_zones PRIVATE game)
+    target_link_libraries(test_wet_zones PRIVATE tnfs_game)
+    target_compile_options(test_wet_zones PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME wet_zones COMMAND test_wet_zones)
+    add_test(NAME export_keeps_edits COMMAND sh ${CMAKE_SOURCE_DIR}/tests/export_keeps_edits.sh)
     # port (emissive lamps): no tint, light table or fog table moves an emissive palette entry
     add_executable(test_palette_emissive tests/test_palette_emissive.c game/viewer/modern_road.c)
     target_include_directories(test_palette_emissive PRIVATE game)
@@ -1184,23 +1207,30 @@ if(NOT EMSCRIPTEN)
     foreach(t IN LISTS tnfs_all_tests)
         set_property(TEST ${t} APPEND PROPERTY ENVIRONMENT "TNFS_PREF_DIR=${CMAKE_BINARY_DIR}/test_pref")
     endforeach()
-    # a run with --mods keeps every user file in <mods>/user/ and touches nothing in the pref dir, the log included, even a run that stops for want of game data
+    # --user keeps every user file in its folder and touches nothing in the pref dir, the log included, even a run that stops for want of game data; --mods holds none of them (the old <mods>/user/ moves once)
     add_test(NAME pref_isolation COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DWORK=${CMAKE_BINARY_DIR}/pref_isolation -P ${CMAKE_SOURCE_DIR}/tests/pref_isolation.cmake)
     set_tests_properties(pref_isolation PROPERTIES TIMEOUT 60)
     # a development build run from the repository with no --data takes ./original (tools/golden_frames.sh runs so)
     if(NOT TNFS_RELEASE AND EXISTS "${CMAKE_SOURCE_DIR}/original/NFS_WIN.EXE")
         add_test(NAME dev_data_default COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/dev_data_default -P ${CMAKE_SOURCE_DIR}/tests/dev_data_default.cmake)
         set_tests_properties(dev_data_default PROPERTIES TIMEOUT 120)
-        # the anonymous counters of a "release" version run with --mods: the flag in <mods>/user, nothing in the pref dir, nothing when Off
+        # the anonymous counters of a "release" version run with --mods: the flag in the --user folder, nothing in the pref dir, nothing when Off
         add_test(NAME stats_mods_isolation COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/stats_mods_isolation -P ${CMAKE_SOURCE_DIR}/tests/stats_mods_isolation.cmake)
         set_tests_properties(stats_mods_isolation PROPERTIES TIMEOUT 60)
         # the bumper view at night in rain with the headlights: the same frame each run, no sanitizer error (the tunnel flags read after being freed)
         add_test(NAME rain_night_headlights COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/rain_night_headlights -P ${CMAKE_SOURCE_DIR}/tests/rain_night_headlights.cmake)
         set_tests_properties(rain_night_headlights PROPERTIES TIMEOUT 400)
+        # the light editor: saving the light file mid-race must not overrun the lines it draws
+        add_test(NAME light_edit_reload COMMAND ${CMAKE_SOURCE_DIR}/tests/light_edit_reload.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/light_edit_reload)
+        set_tests_properties(light_edit_reload PROPERTIES TIMEOUT 120)
+        add_test(NAME light_edit_places COMMAND ${CMAKE_SOURCE_DIR}/tests/light_edit_places.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/light_edit_places)
+        set_tests_properties(light_edit_places PROPERTIES TIMEOUT 120)
         # rain_lamps must change the frame of a masked car in rain and storm, and not in clear; an old port.cfg moves at the real startup
         add_test(NAME rain_lamps_masked COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/rain_lamps_masked -P ${CMAKE_SOURCE_DIR}/tests/rain_lamps_masked.cmake)
         set_tests_properties(rain_lamps_masked PROPERTIES TIMEOUT 400)
         add_test(NAME old_files_startup COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/old_files_startup -P ${CMAKE_SOURCE_DIR}/tests/old_files_startup.cmake)
         set_tests_properties(old_files_startup PROPERTIES TIMEOUT 200)
+        add_test(NAME input_script_wait COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/input_script_wait -P ${CMAKE_SOURCE_DIR}/tests/input_script_wait.cmake)
+        set_tests_properties(input_script_wait PROPERTIES TIMEOUT 150)
     endif()
 endif()

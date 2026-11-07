@@ -33,6 +33,9 @@ void video_set_palette(int first, int count, const uint8_t *rgb);     /* 004763c
 void video_get_palette(uint8_t rgb[768]);                             /* 00476648 */
 void video_fade_in(int first, int count, const uint8_t *target);      /* 00463e7c */
 void video_fade_out(int first, int count);                            /* 00463ef0 */
+/* port: the short fades (PALETTE_FADE_QUICK_STEPS frames) that cover a change of the window's picture */
+void video_fade_out_quick(int first, int count);
+void video_fade_in_quick(int first, int count, const uint8_t *target);
 
 /* port: whether the display is already dark -- every colour on it is black, so a screen that fades its caller's
  * picture out before putting its own page up has nothing left to fade and can skip those seventeen vblanks. It is

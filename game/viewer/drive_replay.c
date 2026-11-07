@@ -435,7 +435,7 @@ static void *out_open(void *ctx, const char *name, const char *mode)
 {
     (void)ctx, (void)mode;
     free(out);
-    out = malloc(REPLAY_FILE_SIZE), out_size = 0;
+    out = malloc(REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE + REPLAY_SNOW_TRAILER_SIZE), out_size = 0;
     snprintf(out_name, sizeof out_name, "%s", name);
     return out;
 }
@@ -455,9 +455,22 @@ static void out_write(void *ctx, const void *buffer, uint32_t size, uint32_t cou
     out_size += n;
 }
 
+static uint8_t race_paints[RACE_PLAYERS] = { REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE };
+
+void drive_replay_set_paints(const uint8_t paint[8]) { memcpy(race_paints, paint, sizeof race_paints); }
+
+static int race_snow;   /* port (snow_weather): this race ran on snow */
+void drive_replay_set_snow(int snow) { race_snow = snow != 0; }
+
 static int32_t out_close(void *ctx, void *file)
 {
     (void)ctx;
+    if (file != NULL && out_size == REPLAY_FILE_SIZE) {   /* port (replay colours): the colours the race wore, past the exe's blocks */
+        race_replay_paint_put(race_paints, out + out_size);
+        out_size += REPLAY_PAINT_TRAILER_SIZE;
+        race_replay_snow_put(race_snow, out + out_size);   /* and whether it ran on snow */
+        out_size += REPLAY_SNOW_TRAILER_SIZE;
+    }
     const int ok = file != NULL && platform_write_user_file(out_name, out, out_size);
     if (file != NULL && !ok) port_log("drive_replay: %s not written\n", out_name);
     free(out);

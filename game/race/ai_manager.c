@@ -215,65 +215,73 @@ static int32_t reach_of(const Car *car, const RaceState *race, const Car *other)
     return profile != NULL ? profile->oncoming_reach : REACH;  /* port guard */
 }
 
-void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupied[RACE_CARS], int32_t lane,
-                   uint32_t *found, int32_t first[3], int32_t second[3], const Car *ahead[3])
+/* the cars ahead of a car going the same way as the road, and the speed limits they leave in the lanes */
+static void ahead_same_way(const Car *car, const RaceState *race, const uint32_t occupied[RACE_CARS], int32_t lane, int32_t at,
+                           uint32_t *found, int32_t first[3], int32_t second[3], const Car *ahead[3])
 {
     const int32_t count = race->car_count;
-    int32_t at = 0;  /* the original leaves it unset when the car is not in the order */
-    for (int32_t i = 0; i < count; i++)
-        if (car_at(race, i) == car) at = i;
     const Car *last = NULL;  /* the last car looked at */
     int taken = 0;
-    if (!(car->flags_175 & ONCOMING)) {
-        for (int32_t k = 1, place = at + 1; k < count && taken != 3; k++, place++) {
-            const int32_t i = place % count;
-            const Car *other = last = car_at(race, i);
-            if (!counts(car, other)) continue;
-            int32_t gap = other->node - car->node;
-            if (magnitude(gap) < 2 && along_road(car, other) < BESIDE_AHEAD) continue;
-            if (gap < 0 && other->progress - car->progress > 0) gap = -gap;
-            if (gap <= 0 || gap >= reach_of(car, race, other)) continue;
-            gap -= 2;
-            if (((car->flags_174 & KEEPS_GAP) || (car->flags_175 & KEEPS_GAP)) && gap < 1) gap = 1;
-            taken += take_lanes(other, occupied[i], lane, gap, found, first, second, ahead);
-        }
-        if (in_traffic(car, race) && ahead[1] != NULL && ahead[1]->node - car->node < 3) {
-            halve(first, second, 1);
-            if (car->ai_target_speed <= ahead[1]->ai_speed) {
-                halve(first, second, 0);
-                halve(first, second, 2);
-            }
-        }
-        if (car->index >= 0 && car->index < race->racers && ahead[1] != NULL && ahead[1]->node - car->node < 2 &&
-            last != NULL && last->ai_speed > FAST) {  /* port guard: last */
-            int32_t speed = last->ai_speed - (last->ai_speed >> 3);
-            if (speed < 0) speed = 0x10000;
-            first[1] = second[1] = speed;
-        }
-        const TriNode node = race_node(race, car->node);
-        if (lane + 1 == (node.flags[0] & 0xf) + 4)
-            halve(first, second, 2);
-        else if (lane - 1 == 3 - (node.flags[0] >> 4))
+    for (int32_t k = 1, place = at + 1; k < count && taken != 3; k++, place++) {
+        const int32_t i = place % count;
+        const Car *other = last = car_at(race, i);
+        if (!counts(car, other)) continue;
+        int32_t gap = other->node - car->node;
+        if (magnitude(gap) < 2 && along_road(car, other) < BESIDE_AHEAD) continue;
+        if (gap < 0 && other->progress - car->progress > 0) gap = -gap;
+        if (gap <= 0 || gap >= reach_of(car, race, other)) continue;
+        gap -= 2;
+        if (((car->flags_174 & KEEPS_GAP) || (car->flags_175 & KEEPS_GAP)) && gap < 1) gap = 1;
+        taken += take_lanes(other, occupied[i], lane, gap, found, first, second, ahead);
+    }
+    if (in_traffic(car, race) && ahead[1] != NULL && ahead[1]->node - car->node < 3) {
+        halve(first, second, 1);
+        if (car->ai_target_speed <= ahead[1]->ai_speed) {
             halve(first, second, 0);
-    } else {
-        for (int32_t place = count + at; place > at && taken != 3; place--) {
-            const int32_t i = place % count;
-            const Car *other = car_at(race, i);
-            if (!counts(car, other)) continue;
-            int32_t gap = other->node - car->node;
-            if (gap < 0 && other->progress - car->progress > 0) gap = -gap;
-            if (gap > 0 || -gap >= REACH) continue;
-            gap += 2;
-            taken += take_lanes(other, occupied[i], lane, gap, found, first, second, ahead);
-        }
-        if (ahead[1] != NULL && in_traffic(car, race) && car->node - ahead[1]->node < 3) {
-            halve(first, second, 1);
-            if (car->ai_target_speed >= ahead[1]->ai_speed) {
-                halve(first, second, 0);
-                halve(first, second, 2);
-            }
+            halve(first, second, 2);
         }
     }
+    if (car->index >= 0 && car->index < race->racers && ahead[1] != NULL && ahead[1]->node - car->node < 2 &&
+        last != NULL && last->ai_speed > FAST) {  /* port guard: last */
+        int32_t speed = last->ai_speed - (last->ai_speed >> 3);
+        if (speed < 0) speed = 0x10000;
+        first[1] = second[1] = speed;
+    }
+    const TriNode node = race_node(race, car->node);
+    if (lane + 1 == (node.flags[0] & 0xf) + 4)
+        halve(first, second, 2);
+    else if (lane - 1 == 3 - (node.flags[0] >> 4))
+        halve(first, second, 0);
+}
+
+/* the cars ahead of an oncoming car, walking the order the other way */
+static void ahead_oncoming(const Car *car, const RaceState *race, const uint32_t occupied[RACE_CARS], int32_t lane, int32_t at,
+                           uint32_t *found, int32_t first[3], int32_t second[3], const Car *ahead[3])
+{
+    const int32_t count = race->car_count;
+    int taken = 0;
+    for (int32_t place = count + at; place > at && taken != 3; place--) {
+        const int32_t i = place % count;
+        const Car *other = car_at(race, i);
+        if (!counts(car, other)) continue;
+        int32_t gap = other->node - car->node;
+        if (gap < 0 && other->progress - car->progress > 0) gap = -gap;
+        if (gap > 0 || -gap >= REACH) continue;
+        gap += 2;
+        taken += take_lanes(other, occupied[i], lane, gap, found, first, second, ahead);
+    }
+    if (ahead[1] != NULL && in_traffic(car, race) && car->node - ahead[1]->node < 3) {
+        halve(first, second, 1);
+        if (car->ai_target_speed >= ahead[1]->ai_speed) {
+            halve(first, second, 0);
+            halve(first, second, 2);
+        }
+    }
+}
+
+/* a racer closing on the car in the middle lane that has no room to steer round it: the middle lane is shut */
+static void ahead_pull_out(const Car *car, const RaceState *race, int32_t first[3], int32_t second[3], const Car *ahead[3])
+{
     const Car *racer = ahead[1];
     if (car->ai_speed > PULLING_OUT && racer != NULL && racer->index >= 0 && racer->index < race->racers &&
         first[1] < first[0] && first[1] < first[2]) {
@@ -285,6 +293,18 @@ void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupie
             if (needed > fx_mul_round(nodes * ROOM_PER_NODE, steer)) first[1] = second[1] = 0;
         }
     }
+}
+
+void ai_cars_ahead(const Car *car, const RaceState *race, const uint32_t occupied[RACE_CARS], int32_t lane,
+                   uint32_t *found, int32_t first[3], int32_t second[3], const Car *ahead[3])
+{
+    const int32_t count = race->car_count;
+    int32_t at = 0;  /* the original leaves it unset when the car is not in the order */
+    for (int32_t i = 0; i < count; i++)
+        if (car_at(race, i) == car) at = i;
+    if (!(car->flags_175 & ONCOMING)) ahead_same_way(car, race, occupied, lane, at, found, first, second, ahead);
+    else ahead_oncoming(car, race, occupied, lane, at, found, first, second, ahead);
+    ahead_pull_out(car, race, first, second, ahead);
 }
 
 void race_hold_car_sound(RaceState *race, int32_t slot, int32_t kind)

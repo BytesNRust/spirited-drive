@@ -19,6 +19,7 @@ typedef struct {
     /* port: 1 takes the rally's art when variant_m and variant_r are both set (the mirror's geometry with the
      * rally's look), where 004510e8 gives the mirror's "m" the first look and the rally's "r" is never reached.
      * 0 is the exe. A variant on its own is the same either way. */
+    int port_snow;   /* port (snow_weather): the race is on snow (the host's, a replay's own, else the setting's: snow_race_wanted); the rally of a snowy track then has its road art remapped */
     int port_both_variants;
     /* port: 1 with the mode's file's lunar_springs: the rally on Rusty Springs reads the moon's FAM (lunar_springs.h). Last,
      * so the initialisers above keep their meaning. 0 is the exe. */

@@ -1,0 +1,11 @@
+# tnfs track places 1
+track AL3
+present tunnel
+present canyon
+tunnel 616 639
+tunnel 1080 1119
+tunnel 1240 1303
+tunnel 1812 1851
+snow 1
+snow_map 3 36
+snow_map 4 37

@@ -182,8 +182,27 @@ static void test_stage_seed(void)
     CHECK(car_paint_seed(NULL, "CY2", 5) == 5 && car_paint_seed(&k, NULL, 6) == 6);
 }
 
+/* a rival's colours follow the car its file is (race_models.c's value of its slot), not its field entry's: a pack against a CZR1 is DVIPER, CZR1, P911 */
+static void race_cars(void)
+{
+    CHECK(car_paint_race_car(200 + 3) == 3 && car_paint_race_car(100 + 2) == 2 && car_paint_race_car(100 + 5) == 5);
+    CHECK(car_paint_race_car(7) == -1 && car_paint_race_car(400 + 2) == -1 && car_paint_race_car(-1) == -1);   /* traffic, police */
+}
+
+/* port (replay colours): a replay's paint comes back as it was where this machine can show it, else the car's own; nothing recorded leaves the pick to the rules */
+static void replayed(void)
+{
+    CHECK(car_paint_replayed(0xff, 3, 1) == -1 && car_paint_replayed(-1, 3, 1) == -1);
+    CHECK(car_paint_replayed(0, 3, 1) == 0);
+    CHECK(car_paint_replayed(1, 3, 1) == 1 && car_paint_replayed(1, 3, 0) == 0);   /* the PS1 livery needs its files */
+    CHECK(car_paint_replayed(2 + car_paint_count(3) - 1, 3, 0) == 2 + car_paint_count(3) - 1);
+    CHECK(car_paint_replayed(2 + car_paint_count(3), 3, 1) == 0);   /* a catalogue paint the table no longer has */
+}
+
 int main(void)
 {
+    replayed();
+    race_cars();
     test_stage_seed();
     test_the_catalogue_black();
     test_bright_paint_keeps_steps();

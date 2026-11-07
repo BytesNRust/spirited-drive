@@ -1,6 +1,7 @@
 /* port: the port's own settings file (port.cfg). */
 #include "game/sys/port_settings.h"
 #include "game/platform/platform.h"
+#include "game/race/session_rules.h"
 #include "game/race/weather.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
@@ -50,7 +51,89 @@ static bool parse_int(const char *value, long *out)
     return end != value && *end == '\0';
 }
 
-static void apply(PortSettings *s, const char *key, const char *value)
+/* port: the keys that are a whole number in a range, by name and where the field is; a value that is not a number, or is out of the range, leaves the field as it was.
+ * (A plain list, so a new key is one line, and test_port_settings walks it: each one is written by port_settings_format and read back.) */
+static const PortSettingsKey INT_KEYS[] = {
+    { "fullscreen", offsetof(PortSettings, fullscreen), 0, 1 },
+    { "fov_adjust", offsetof(PortSettings, fov_adjust), FOV_MIN, FOV_MAX },
+    { "view_ultra", offsetof(PortSettings, view_ultra), 0, 1 },
+    { "f3_ultra", offsetof(PortSettings, f3_ultra), 0, 1 },
+    { "render_scale", offsetof(PortSettings, render_scale), 1, 3 },
+    { "laps", offsetof(PortSettings, laps), 0, 99 },
+    { "perspective", offsetof(PortSettings, perspective), 0, 1 },
+    { "texture_filter", offsetof(PortSettings, texture_filter), 0, 1 },
+    { "fog", offsetof(PortSettings, fog), 0, 1 },
+    { "psx_light", offsetof(PortSettings, psx_light), 0, 1 },
+    { "psx_headlights", offsetof(PortSettings, psx_headlights), 0, 1 },
+    { "psx_shadow", offsetof(PortSettings, psx_shadow), 0, 1 },
+    { "free_records", offsetof(PortSettings, free_records), 0, 1 },
+    { "fog_sample", offsetof(PortSettings, fog_sample), 0, 1 },
+    { "made_tunnels", offsetof(PortSettings, made_tunnels), 0, 1 },
+    { "psx_flares", offsetof(PortSettings, psx_flares), 0, 1 },
+    { "sky_fill_below", offsetof(PortSettings, sky_fill_below), 0, 1 },
+    { "radar_all_views", offsetof(PortSettings, radar_all_views), 0, 1 },
+    { "tach_dim", offsetof(PortSettings, tach_dim), 0, 1 },
+    { "gauge_wheel", offsetof(PortSettings, gauge_wheel), 0, 1 },
+    { "police_glow", offsetof(PortSettings, police_glow), 0, 1 },
+    { "car_tunnel_light", offsetof(PortSettings, car_tunnel_light), 0, 1 },
+    { "vegas_car_night", offsetof(PortSettings, vegas_car_night), 0, 1 },
+    { "rally_gravel_shoulder", offsetof(PortSettings, rally_gravel_shoulder), 0, 1 },
+    { "chase_height", offsetof(PortSettings, chase_height), 0, 1 },
+    { "lamp_pool_tint", offsetof(PortSettings, lamp_pool_tint), 0, 1 },
+    { "brake_over_gas", offsetof(PortSettings, brake_over_gas), 0, 1 },
+    { "lamp_pools", offsetof(PortSettings, lamp_pools), 0, 1 },
+    { "lamp_pool_bright", offsetof(PortSettings, lamp_pool_bright), 0, 1 },
+    { "headlight_cone", offsetof(PortSettings, headlight_cone), 0, 1 },
+    { "lamp_car_shade", offsetof(PortSettings, lamp_car_shade), 0, 1 },
+    { "tunnel_headlight", offsetof(PortSettings, tunnel_headlight), 0, 1 },
+    { "parking_dark", offsetof(PortSettings, parking_dark), 0, 1 },
+    { "forest_neutral", offsetof(PortSettings, forest_neutral), 0, 1 },
+    { "cavern_dark", offsetof(PortSettings, cavern_dark), 0, 1 },
+    { "vegas_objects", offsetof(PortSettings, vegas_objects), 0, 1 },
+    { "close_houses", offsetof(PortSettings, close_houses), 0, 1 },
+    { "reverse_rows", offsetof(PortSettings, reverse_rows), 0, 1 },
+    { "rain_lamps", offsetof(PortSettings, rain_lamps), 0, 1 },
+    { "gauge_exterior", offsetof(PortSettings, gauge_exterior), 0, 1 },
+    { "traffic_spray", offsetof(PortSettings, traffic_spray), 0, 1 },
+    { "rally_dry_lamps", offsetof(PortSettings, rally_dry_lamps), 0, 1 },
+    { "traffic_halo", offsetof(PortSettings, traffic_halo), 0, 1 },
+    { "police_halo", offsetof(PortSettings, police_halo), 0, 3 },
+    { "rain_v2", offsetof(PortSettings, rain_v2), 0, 1 },
+    { "shoulder_light", offsetof(PortSettings, shoulder_light), 0, 1 },
+    { "track_light_lamp", offsetof(PortSettings, track_light_lamp), 0, 1 },
+    { "rain_tyre_roll", offsetof(PortSettings, rain_tyre_roll), 0, 1 },
+    { "snow_weather", offsetof(PortSettings, snow_weather), 0, 1 },
+    { "analog_pad", offsetof(PortSettings, analog_pad), 0, 1 },
+    { "sign_glow", offsetof(PortSettings, sign_glow), 0, 1 },
+    { "night_tone", offsetof(PortSettings, night_tone), 0, 2 },
+    { "city_lift", offsetof(PortSettings, city_lift), 0, 3 },
+    { "vegas_lift", offsetof(PortSettings, vegas_lift), 0, 2 },
+    { "rain_fx", offsetof(PortSettings, rain_fx), 0, 1 },
+    { "rain_grip", offsetof(PortSettings, rain_grip), 0, 1 },
+    { "finish_gate_light", offsetof(PortSettings, finish_gate_light), 0, 1 },
+    { "gauge_light", offsetof(PortSettings, gauge_light), 0, 5 },
+    { "canyon_shade", offsetof(PortSettings, canyon_shade), 0, 1 },
+    { "trans_shadows", offsetof(PortSettings, trans_shadows), 0, 1 },
+    { "headlight_relight", offsetof(PortSettings, headlight_relight), 0, 1 },
+    { "hall_light", offsetof(PortSettings, hall_light), 0, 1 },
+    { "replay_no_ffb", offsetof(PortSettings, replay_no_ffb), 0, 1 },
+    { "last_camera", offsetof(PortSettings, last_camera), 0, 1 },
+    { "camera_kind", offsetof(PortSettings, camera_kind), -1, 5 },
+    { "sky_fill", offsetof(PortSettings, sky_fill), 0, 1 },
+    { "night_sky_hue", offsetof(PortSettings, night_sky_hue), 0, 1 },
+    { "forest_dark", offsetof(PortSettings, forest_dark), 0, 1 },
+    { "night_stretch_clean", offsetof(PortSettings, night_stretch_clean), 0, 1 },
+    { "car_colours", offsetof(PortSettings, car_colours), 0, 1 },
+};
+
+const PortSettingsKey *port_settings_int_keys(int *count)
+{
+    *count = (int)(sizeof INT_KEYS / sizeof INT_KEYS[0]);
+    return INT_KEYS;
+}
+
+/* the keys that are not a plain range: a name, a set of values, a text, or a table of their own */
+static void apply_named(PortSettings *s, const char *key, const char *value)
 {
     long n;
     if (strcmp(key, "format") == 0) {
@@ -65,209 +148,14 @@ static void apply(PortSettings *s, const char *key, const char *value)
             s->scale_integer = 0;
         else if (strcmp(value, "integer") == 0)
             s->scale_integer = 1;
-    } else if (strcmp(key, "fullscreen") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->fullscreen = (int)n;
-    } else if (strcmp(key, "fov_adjust") == 0) {
-        if (parse_int(value, &n) && n >= FOV_MIN && n <= FOV_MAX)
-            s->fov_adjust = (int)n;
-    } else if (strcmp(key, "view_ultra") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->view_ultra = (int)n;
-    } else if (strcmp(key, "f3_ultra") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->f3_ultra = (int)n;
-    } else if (strcmp(key, "render_scale") == 0) {
-        if (parse_int(value, &n) && n >= 1 && n <= 3)
-            s->render_scale = (int)n;
-    } else if (strcmp(key, "laps") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 99)
-            s->laps = (int)n;
     } else if (strcmp(key, "weather") == 0) {
         const int w = weather_named(value);
         if (w >= 0) s->weather = w;
-    } else if (strcmp(key, "perspective") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->perspective = (int)n;
-    } else if (strcmp(key, "texture_filter") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->texture_filter = (int)n;
-    } else if (strcmp(key, "fog") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->fog = (int)n;
-    } else if (strcmp(key, "psx_light") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->psx_light = (int)n;
-    } else if (strcmp(key, "psx_headlights") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->psx_headlights = (int)n;
-    } else if (strcmp(key, "psx_shadow") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->psx_shadow = (int)n;
     } else if (strcmp(key, "psx_time") == 0) {
         const int t = psx_time_named(value);
         if (t >= 0) s->psx_time = t;
     } else if (strcmp(key, "psx_dir") == 0) {
         snprintf(s->psx_dir, sizeof s->psx_dir, "%s", value);
-    } else if (strcmp(key, "free_records") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->free_records = (int)n;
-    } else if (strcmp(key, "fog_sample") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->fog_sample = (int)n;
-    } else if (strcmp(key, "made_tunnels") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->made_tunnels = (int)n;
-    } else if (strcmp(key, "psx_flares") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->psx_flares = (int)n;
-    } else if (strcmp(key, "sky_fill_below") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->sky_fill_below = (int)n;
-    } else if (strcmp(key, "radar_all_views") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->radar_all_views = (int)n;
-    } else if (strcmp(key, "tach_dim") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->tach_dim = (int)n;
-    } else if (strcmp(key, "gauge_wheel") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->gauge_wheel = (int)n;
-    } else if (strcmp(key, "police_glow") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->police_glow = (int)n;
-    } else if (strcmp(key, "car_tunnel_light") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->car_tunnel_light = (int)n;
-    } else if (strcmp(key, "vegas_car_night") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->vegas_car_night = (int)n;
-    } else if (strcmp(key, "rally_gravel_shoulder") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->rally_gravel_shoulder = (int)n;
-    } else if (strcmp(key, "chase_height") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->chase_height = (int)n;
-    } else if (strcmp(key, "lamp_pool_tint") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->lamp_pool_tint = (int)n;
-    } else if (strcmp(key, "brake_over_gas") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->brake_over_gas = (int)n;
-    } else if (strcmp(key, "lamp_pools") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->lamp_pools = (int)n;
-    } else if (strcmp(key, "lamp_pool_bright") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->lamp_pool_bright = (int)n;
-    } else if (strcmp(key, "headlight_cone") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->headlight_cone = (int)n;
-    } else if (strcmp(key, "lamp_car_shade") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->lamp_car_shade = (int)n;
-    } else if (strcmp(key, "tunnel_headlight") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->tunnel_headlight = (int)n;
-    } else if (strcmp(key, "parking_dark") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->parking_dark = (int)n;
-    } else if (strcmp(key, "forest_neutral") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->forest_neutral = (int)n;
-    } else if (strcmp(key, "cavern_dark") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->cavern_dark = (int)n;
-    } else if (strcmp(key, "vegas_objects") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->vegas_objects = (int)n;
-    } else if (strcmp(key, "close_houses") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->close_houses = (int)n;
-    } else if (strcmp(key, "reverse_rows") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->reverse_rows = (int)n;
-    } else if (strcmp(key, "rain_lamps") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->rain_lamps = (int)n;
-    } else if (strcmp(key, "gauge_exterior") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->gauge_exterior = (int)n;
-    } else if (strcmp(key, "traffic_spray") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->traffic_spray = (int)n;
-    } else if (strcmp(key, "rally_dry_lamps") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->rally_dry_lamps = (int)n;
-    } else if (strcmp(key, "traffic_halo") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->traffic_halo = (int)n;
-    } else if (strcmp(key, "police_halo") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 3)
-            s->police_halo = (int)n;
-    } else if (strcmp(key, "analog_pad") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->analog_pad = (int)n;
-    } else if (strcmp(key, "sign_glow") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->sign_glow = (int)n;
-    } else if (strcmp(key, "night_tone") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 2)
-            s->night_tone = (int)n;
-    } else if (strcmp(key, "city_lift") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 3)
-            s->city_lift = (int)n;
-    } else if (strcmp(key, "vegas_lift") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 2)
-            s->vegas_lift = (int)n;
-    } else if (strcmp(key, "rain_fx") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->rain_fx = (int)n;
-    } else if (strcmp(key, "rain_grip") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->rain_grip = (int)n;
-    } else if (strcmp(key, "finish_gate_light") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->finish_gate_light = (int)n;
-    } else if (strcmp(key, "gauge_light") == 0) {
-        if (parse_int(value, &n) && n >= 0 && n <= 5)
-            s->gauge_light = (int)n;
-    } else if (strcmp(key, "canyon_shade") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->canyon_shade = (int)n;
-    } else if (strcmp(key, "trans_shadows") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->trans_shadows = (int)n;
-    } else if (strcmp(key, "headlight_relight") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->headlight_relight = (int)n;
-    } else if (strcmp(key, "hall_light") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->hall_light = (int)n;
-    } else if (strcmp(key, "replay_no_ffb") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->replay_no_ffb = (int)n;
-    } else if (strcmp(key, "last_camera") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->last_camera = (int)n;
-    } else if (strcmp(key, "camera_kind") == 0) {
-        if (parse_int(value, &n) && n >= -1 && n <= 5)
-            s->camera_kind = (int)n;
-    } else if (strcmp(key, "sky_fill") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->sky_fill = (int)n;
-    } else if (strcmp(key, "night_sky_hue") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->night_sky_hue = (int)n;
-    } else if (strcmp(key, "forest_dark") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->forest_dark = (int)n;
-    } else if (strcmp(key, "night_stretch_clean") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->night_stretch_clean = (int)n;
-    } else if (strcmp(key, "car_colours") == 0) {
-        if (parse_int(value, &n) && (n == 0 || n == 1))
-            s->car_colours = (int)n;
     } else if (strcmp(key, "render_bands") == 0) {
         /* the render threads: "auto" for as many as the logical cores, or a count. Anything else keeps the default
          * (auto), so a damaged file cannot turn the threads off by accident. */
@@ -282,6 +170,20 @@ static void apply(PortSettings *s, const char *key, const char *value)
         if (parse_int(value, &n) && n >= 0 && n <= 4)
             s->body_shine = n == 0 ? 0 : 4;   /* off or the envmap: the strengths 1..3 of an older file are the envmap now */
     }
+}
+
+static void apply(PortSettings *s, const char *key, const char *value)
+{
+    for (size_t i = 0; i < sizeof INT_KEYS / sizeof INT_KEYS[0]; i++) {
+        if (strcmp(key, INT_KEYS[i].key) != 0) continue;
+        long n;
+        if (parse_int(value, &n) && n >= INT_KEYS[i].min && n <= INT_KEYS[i].max) {
+            int *const field = (int *)(void *)((char *)s + INT_KEYS[i].offset);
+            *field = (int)n;
+        }
+        return;
+    }
+    apply_named(s, key, value);
 }
 
 PortSettings port_settings_parse(const char *text, size_t size)
@@ -318,11 +220,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\ncar_tunnel_light=%d\nvegas_car_night=%d\nrally_gravel_shoulder=%d\nlamp_pool_tint=%d\ntrans_shadows=%d\ncanyon_shade=%d\ntunnel_headlight=%d\nparking_dark=%d\nforest_neutral=%d\ncavern_dark=%d\nvegas_objects=%d\nclose_houses=%d\nbrake_over_gas=%d\nlamp_pools=%d\nlamp_car_shade=%d\nheadlight_cone=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nfinish_gate_light=%d\nlamp_pool_bright=%d\nnight_tone=%d\nrain_lamps=%d\ngauge_exterior=%d\nsign_glow=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nchase_height=%d\nhall_light=%d\nforest_dark=%d\ntraffic_spray=%d\nrally_dry_lamps=%d\ntraffic_halo=%d\npolice_halo=%d\nanalog_pad=%d\nprofile=%s\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\ncar_tunnel_light=%d\nvegas_car_night=%d\nrally_gravel_shoulder=%d\nlamp_pool_tint=%d\ntrans_shadows=%d\ncanyon_shade=%d\ntunnel_headlight=%d\nparking_dark=%d\nforest_neutral=%d\ncavern_dark=%d\nvegas_objects=%d\nclose_houses=%d\nbrake_over_gas=%d\nlamp_pools=%d\nlamp_car_shade=%d\nheadlight_cone=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nfinish_gate_light=%d\nlamp_pool_bright=%d\nnight_tone=%d\nrain_lamps=%d\ngauge_exterior=%d\nsign_glow=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nchase_height=%d\nhall_light=%d\nforest_dark=%d\ntraffic_spray=%d\nrally_dry_lamps=%d\ntraffic_halo=%d\npolice_halo=%d\nanalog_pad=%d\nrain_v2=%d\nshoulder_light=%d\ntrack_light_lamp=%d\nrain_tyre_roll=%d\nsnow_weather=%d\nprofile=%s\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->headlight_relight, s->car_tunnel_light, s->vegas_car_night, s->rally_gravel_shoulder, s->lamp_pool_tint, s->trans_shadows, s->canyon_shade, s->tunnel_headlight, s->parking_dark, s->forest_neutral, s->cavern_dark, s->vegas_objects, s->close_houses, s->brake_over_gas, s->lamp_pools, s->lamp_car_shade, s->headlight_cone, s->rain_fx, s->rain_grip, s->gauge_light, s->finish_gate_light, s->lamp_pool_bright, s->night_tone, s->rain_lamps, s->gauge_exterior, s->sign_glow, s->reverse_rows, s->city_lift, s->vegas_lift, s->chase_height, s->hall_light, s->forest_dark, s->traffic_spray, s->rally_dry_lamps, s->traffic_halo, s->police_halo, s->analog_pad, port_profile_key((Profile)s->profile));
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->headlight_relight, s->car_tunnel_light, s->vegas_car_night, s->rally_gravel_shoulder, s->lamp_pool_tint, s->trans_shadows, s->canyon_shade, s->tunnel_headlight, s->parking_dark, s->forest_neutral, s->cavern_dark, s->vegas_objects, s->close_houses, s->brake_over_gas, s->lamp_pools, s->lamp_car_shade, s->headlight_cone, s->rain_fx, s->rain_grip, s->gauge_light, s->finish_gate_light, s->lamp_pool_bright, s->night_tone, s->rain_lamps, s->gauge_exterior, s->sign_glow, s->reverse_rows, s->city_lift, s->vegas_lift, s->chase_height, s->hall_light, s->forest_dark, s->traffic_spray, s->rally_dry_lamps, s->traffic_halo, s->police_halo, s->analog_pad, s->rain_v2, s->shoulder_light, s->track_light_lamp, s->rain_tyre_roll, s->snow_weather, port_profile_key((Profile)s->profile));
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 
@@ -352,7 +254,23 @@ ScreenFormat port_monitor_format(ScreenFormat fallback)
 }
 
 /* port.cfg: the mode's name and the machine's folder */
-static PortSettings machine_load(void)
+/* port (frame budget): the settings getters (port_car_tunnel_light ...) run per row of a drawn frame and each read port.cfg and the mode's file, parsed them, and made the user folder.
+ * The two reads are kept until a writer here changes a file (settings_written): the values are the ones the files had when last written by the game. */
+static struct {
+    bool machine_have;
+    PortSettings machine;
+    bool mode_have[PROFILE_COUNT];
+    PortSettings mode[PROFILE_COUNT];
+} kept;
+
+/* a file of settings was written or reset (or a test changed what the platform reads): the next read goes to the files */
+void port_settings_forget(void)
+{
+    memset(&kept.machine_have, 0, sizeof kept.machine_have);
+    memset(kept.mode_have, 0, sizeof kept.mode_have);
+}
+
+static PortSettings machine_read(void)
 {
     size_t size = 0;
     uint8_t *data = platform_read_user_file(PORT_CFG_NAME, &size);
@@ -360,6 +278,12 @@ static PortSettings machine_load(void)
     const PortSettings s = port_settings_parse((const char *)data, size);
     platform_free_file(data);
     return s;
+}
+
+static PortSettings machine_load(void)
+{
+    if (!kept.machine_have) kept.machine = machine_read(), kept.machine_have = true;
+    return kept.machine;
 }
 
 bool port_machine_save(int profile, const char *psx_dir)
@@ -370,7 +294,9 @@ bool port_machine_save(int profile, const char *psx_dir)
         return false;
     }
     const int n = snprintf(text, sizeof text, "profile=%s\npsx_dir=%s\n", port_profile_key((Profile)profile), psx_dir);
-    return n > 0 && (size_t)n < sizeof text && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, (size_t)n);
+    const bool written = n > 0 && (size_t)n < sizeof text && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, (size_t)n);
+    port_settings_forget();
+    return written;
 }
 
 /* the values of mode `p`'s table, with the machine's own */
@@ -384,17 +310,26 @@ PortSettings port_mode_values(int p, const char *psx_dir)
 
 void port_settings_take(void *to, const char *key, const char *value) { apply(to, key, value); }
 
-PortSettings port_settings_load(void)
+static PortSettings mode_read(int profile)
 {
     const PortSettings machine = machine_load();
-    PortSettings s = port_mode_values(machine.profile, machine.psx_dir);
+    PortSettings s = port_mode_values(profile, machine.psx_dir);
     size_t size = 0;
-    uint8_t *data = platform_read_user_file(port_profile_file((Profile)machine.profile), &size);
+    uint8_t *data = platform_read_user_file(port_profile_file((Profile)profile), &size);
     if (data == NULL) return s;
-    port_profile_read_free((Profile)machine.profile, (const char *)data, size, port_settings_take, &s);
+    port_profile_read_free((Profile)profile, (const char *)data, size, port_settings_take, &s);
     platform_free_file(data);
     return s;
 }
+
+PortSettings port_settings_of_profile(int profile)
+{
+    if (profile < 0 || profile >= PROFILE_COUNT) return mode_read(profile);
+    if (!kept.mode_have[profile]) kept.mode[profile] = mode_read(profile), kept.mode_have[profile] = true;
+    return kept.mode[profile];
+}
+
+PortSettings port_settings_load(void) { return port_settings_of_profile(machine_load().profile); }
 
 int port_settings_profile(void) { return machine_load().profile; }
 
@@ -423,7 +358,9 @@ bool port_mode_write(const PortSettings *s, const PortExtras *e, const char *kee
     if (extras < 0) return false;
     size_t n = (size_t)settings + (size_t)extras;
     if (n == 0) out[n++] = '\n';   /* nothing changed: an empty file, the mode's values */
-    return platform_write_user_file(port_profile_file(p), (const uint8_t *)out, n);
+    const bool written = platform_write_user_file(port_profile_file(p), (const uint8_t *)out, n);
+    port_settings_forget();
+    return written;
 }
 
 bool port_mode_save(const PortSettings *s, const PortExtras *e)
@@ -464,7 +401,9 @@ bool port_profile_reset(int p)
 {
     if (p < 0 || p >= PROFILE_COUNT) return false;
     static const uint8_t EMPTY[] = "\n";
-    return platform_write_user_file(port_profile_file((Profile)p), EMPTY, 1);
+    const bool written = platform_write_user_file(port_profile_file((Profile)p), EMPTY, 1);
+    port_settings_forget();
+    return written;
 }
 
 PlatformConfig port_platform_config(const char *title)
@@ -477,7 +416,9 @@ int port_weather(void)
 {
     const char *v = getenv("TNFS_WEATHER");
     const int w = v != NULL ? weather_named(v) : -1;
-    return w >= 0 ? w : port_settings_load().weather;
+    if (w >= 0) return w;
+    const SessionRules *host = session_rules_active();   /* port (online): a link race runs the host's weather */
+    return host != NULL ? host->weather : port_settings_load().weather;
 }
 
 int port_render_scale(void)
@@ -491,7 +432,8 @@ int port_psx_time(void)
 {
     const char *v = getenv("TNFS_PSX_TIME");
     const int t = v != NULL ? psx_time_named(v) : -1;
-    return t >= 0 ? t : port_settings_load().psx_time;
+    const SessionRules *host = session_rules_active();   /* port (online): the host's time of day */
+    return t >= 0 ? t : host != NULL ? host->psx_time : port_settings_load().psx_time;
 }
 
 int port_fog_sample(void)
@@ -686,7 +628,8 @@ int port_rain_grip(void)
 {
     const char *v = getenv("TNFS_RAIN_GRIP");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().rain_grip;
+    const SessionRules *host = session_rules_active();   /* port (online): the host's grip rule */
+    return host != NULL ? host->rain_grip : port_settings_load().rain_grip;
 }
 
 int port_rain_fx(void)
@@ -753,6 +696,27 @@ int port_traffic_halo(void)
     const char *v = getenv("TNFS_TRAFFIC_HALO");
     if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().traffic_halo;
+}
+
+int port_rain_v2(void)
+{
+    const char *v = getenv("TNFS_RAIN_V2");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().rain_v2;
+}
+
+int port_shoulder_light(void)
+{
+    const char *v = getenv("TNFS_SHOULDER_LIGHT");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().shoulder_light;
+}
+
+int port_track_light_lamp(void)
+{
+    const char *v = getenv("TNFS_TRACK_LIGHT_LAMP");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().track_light_lamp;
 }
 
 int port_police_halo(void)
@@ -845,6 +809,12 @@ int port_sky_fill_below(void)
     const char *v = getenv("TNFS_SKY_FILL_BELOW");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') s.sky_fill_below = v[0] - '0';
     return sky_fill_below_applies(&s);
+}
+
+int port_host_allows_radar_and_camera(void)
+{
+    const SessionRules *host = session_rules_active();
+    return host == NULL || host->mode == SESSION_RESTOMOD;
 }
 
 int port_radar_all_views(void)
@@ -958,4 +928,19 @@ int port_psx_light(void)
     const char *v = getenv("TNFS_PSX_LIGHT");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().psx_light;
+}
+
+int port_rain_tyre_roll(void)
+{
+    const char *v = getenv("TNFS_RAIN_TYRE_ROLL");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().rain_tyre_roll;
+}
+
+int port_snow_weather(void)
+{
+    const char *v = getenv("TNFS_SNOW_WEATHER");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    const SessionRules *host = session_rules_active();   /* port (online): the host's snow: it changes the grip */
+    return host != NULL ? host->snow_weather : port_settings_load().snow_weather;
 }

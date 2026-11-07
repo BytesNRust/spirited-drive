@@ -74,9 +74,14 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `trans_shadows` | 0 | 0 | 0, 1 (Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge) | none | `TNFS_TRANS_SHADOWS` | 0 / 0 / 1 | `psx_light` |
 | `brake_over_gas` | 0 | 0 | 0, 1 (a pad's brake past its dead zone beats the gas: the car brakes and the brake light lights; 0 sums them as the exe does) | none | `TNFS_BRAKE_OVER_GAS` | 0 / 0 / 1 | none |
 | `lamp_pools` | 0 | 0 | 0, 1 (with the CD's light loaded at night, the street lamps' pools are laid over it: the ground round each lamp is lit) | none | `TNFS_LAMP_POOLS` | 0 / 0 / 1 | `psx_headlights` |
-| `lamp_pool_bright` | 0 | 0 | 0, 1 (a street lamp's pool is not dimmed by the night's dark floor: under the lamp the light is full, fading with the pool; 0 the pool is dimmed by the headlights' gain) | none | `TNFS_LAMP_POOL_BRIGHT` | 0 / 0 / 0 | `psx_headlights` |
+| `lamp_pool_bright` | 0 | 0 | 0, 1 (a street lamp's pool is not dimmed by the night's dark floor: under the lamp the light is full, fading with the pool; 0 the pool is dimmed by the headlights' gain) | none | `TNFS_LAMP_POOL_BRIGHT` | 0 / 0 / 1 | `psx_headlights` |
 | `sign_glow` | 0 | 0 | 0, 1 (at night, with `psx_headlights`, the City's matrix sign, EXPRESS LANES CLOSED (CY1), has its amber bulbs lit like the windows; 0 the exe's) | none | `TNFS_SIGN_GLOW` | 0 / 0 / 1 | `psx_headlights`, CY1 |
 | `analog_pad` | 0 | 0 | 0, 1 (a control bound to an axis (pad stick or trigger, wheel, pedals) steers and works the pedals in proportion, a key or button keeps full travel; 0 the exe's key paths) | none | `TNFS_ANALOG_PAD` | 1 / 1 / 1 | a game controller |
+| `rain_v2` | 0 | 0 | 0, 1 (with `weather=rain` the rain has half the streaks, with `weather=storm` it has the old rain's count plus a quarter, with thunder after each lightning (0.5 to 4 s later, quieter the later; the sample is `data/sounds/thunder.wav`, CC0 by WuxiaScrub, see `data/sounds/LICENSES.md`), the streaks fall from higher, the wet road's lamp reflections show on the carriageway only, and the traffic's and police's spray wisp is a little longer and never gone at low speed; 0 as before) | none | `TNFS_RAIN_V2` | 0 / 0 / 1 | `weather=rain` or `storm`, `rain_fx` |
+| `shoulder_light` | 0 | 0 | 0, 1 (at night with the headlights the shoulder's far edge takes at least the road's light before the beam and the lamps scale it: the shoulder and a third lane out there are lit like the road, not left near black; 0 as before) | none | `TNFS_SHOULDER_LIGHT` | 0 / 0 / 1 | `psx_headlights` |
+| `track_light_lamp` | 0 | 0 | 0, 1 (a `lamp` line of a track light file adds light round its post, in the colour, strength and radius the line says, to the road, the walls and the car; 0 the line is ignored) | none | `TNFS_TRACK_LIGHT_LAMP` | 0 / 0 / 1 | Restomod '26's track light files |
+| `rain_tyre_roll` | 0 | 0 | 0, 1 (in rain or a storm with `rain_v2`, the followed car rolling on open asphalt makes a low wet-tyre roll (data/sounds/rain_tyre_roll.wav) whose level and pitch follow its speed: silent when stopped, on gravel or grass, in the air and inside a closed zone, fading at the zone's mouths; 0 none) | none | `TNFS_RAIN_TYRE_ROLL` | 0 / 0 / 1 | Restomod '26's rain |
+| `snow_weather` | 0 | 0 | 0, 1 (on a track whose places file says `snow 1`, Alpine 3, rain is snow: white flakes falling slowly and drifting, with the weather's openness; the storm is heavier snow with no lightning or thunder; the road stays wet as in rain; in the rally the road and the shoulder are covered in snow with a loose, slidy grip (rally_gravel.h); 0 the rain as it was) | none | `TNFS_SNOW_WEATHER` | 0 / 0 / 1 | Restomod '26's Alpine |
 | `police_halo` | 0 | 0 | 0..3 (the police roof lights' halo size: 0 as now, 1..3 progressively bigger (near and far)) | none | `TNFS_POLICE_HALO` | 0 / 0 / 1 | `police_glow`, `psx_flares` |
 | `traffic_halo` | 0 | 0 | 0..1 (at night the traffic's lit lamps get a halo as the racers' do; 0 as now) | none | `TNFS_TRAFFIC_HALO` | 0 / 0 / 0 | `psx_flares`, night |
 | `rally_dry_lamps` | 0 | 0 | 0..1 (in a rally (dirt) race in rain the cars' lamps are not reflected in the road, as dirt is no mirror; 0 the exe's wet-asphalt reflections) | none | `TNFS_RALLY_DRY_LAMPS` | 0 / 0 / 0 | `weather=rain`, `rain_fx`, a rally race |
@@ -219,10 +224,15 @@ All 64 columns of the table, in file order. A column that is not here is not tou
 | `rain_grip` | settings | 0 | 0 | 1 |
 | `gauge_light` | settings | 0 | 0 | 5 |
 | `finish_gate_light` | settings | 0 | 0 | 1 |
-| `lamp_pool_bright` | settings | 0 | 0 | 0 |
+| `lamp_pool_bright` | settings | 0 | 0 | 1 |
 | `sign_glow` | settings | 0 | 0 | 1 |
 | `analog_pad` | settings | 1 | 1 | 1 |
 | `police_halo` | settings | 0 | 0 | 1 |
+| `rain_v2` | settings | 0 | 0 | 1 |
+| `shoulder_light` | settings | 0 | 0 | 1 |
+| `track_light_lamp` | settings | 0 | 0 | 1 |
+| `rain_tyre_roll` | settings | 0 | 0 | 1 |
+| `snow_weather` | settings | 0 | 0 | 1 |
 | `traffic_halo` | settings | 0 | 0 | 0 |
 | `rally_dry_lamps` | settings | 0 | 0 | 0 |
 | `traffic_spray` | settings | 0 | 0 | 0 |
@@ -239,7 +249,7 @@ The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `p
 
 ## Development-only variables
 
-Not a setting: a way to drive the headless runs and the checks. They are not stable and none is written anywhere. Headless runs go with the dummy SDL drivers, `timeout -k`, and `--mods <scratch>`.
+Not a setting: a way to drive the headless runs and the checks. They are not stable and none is written anywhere. Headless runs go with the dummy SDL drivers, `timeout -k`, and `--user <scratch>` (the player's folder: `--mods` no longer holds it).
 
 - **Place and time:** `TNFS_START_NODE=N` (start the player on node N), `TNFS_FRAMES=N`, `TNFS_SHOTS=prefix:every` (screenshots during a run), `TNFS_MIDDAY=1`, `TNFS_DRIVE_TIME`, `TNFS_RUN`, `TNFS_RALLY=1`, `TNFS_OPPONENT=<car>`, `TNFS_REPLAY_REQUEST`.
 - **Cars and cameras:** `TNFS_FOLLOW_CAR=<slot>` (the chase follows that car, 2 is the police), `TNFS_POLICE_NEAR=N` (the police N nodes behind the player, chasing; race type 1), `TNFS_VIEW`, `TNFS_LOOK_BACK_AT=from:to`, `TNFS_STEER=left|right`, `TNFS_SCRIPT=spin`, `TNFS_CAR=NAME` (`--track` stand-in).
@@ -247,5 +257,6 @@ Not a setting: a way to drive the headless runs and the checks. They are not sta
 - **Capture and dumps:** `TNFS_CAPTURE_DIR` with `TNFS_CAPTURE_EVERY` and `TNFS_CAPTURE_FROM` (every presented frame: set the interval, a capture of every frame fills the disk), `TNFS_AUDIO_DUMP=file.wav`, `TNFS_SCENERY_DUMP`, `TNFS_SCENERY_DUMP_NIGHT`, `TNFS_SLOT_DUMP`.
 - **Traces:** `TNFS_VERBOSE=1` (or `--verbose`), `TNFS_TRACE_FAM`, `TNFS_TRACE_PLAYER=N`, `TNFS_FRAME_TIMES=1`, `TNFS_NOTICE=1|2`.
 - **A/B overrides of automatic behaviour:** `TNFS_TWO_SIDED`, `TNFS_CLOSE_BOXES` (both automatic with a reversed track or the 360 camera), `TNFS_CAR_DRAW_DISTANCE=0` (the exe's distances at render scale 2 or 3), `TNFS_WIDE_BOARD=0`, `TNFS_EMISSIVE_LAMPS`, `TNFS_FOG_CURVE=line`, `TNFS_FOG_LIFT`, `TNFS_SKY_FILL_MODE`, `TNFS_STAND_IN`.
-- **Data and folders:** `TNFS_PREF_DIR` (the user folder, for tests and modders), `TNFS_CAR_ENVMAP`, `TNFS_CAR_MASKS`.
+- **Data and folders:** `TNFS_PREF_DIR` (the player's folder, for tests and modders; `--user DIR` does it for one run), `TNFS_CAR_ENVMAP`, `TNFS_CAR_MASKS`.
+- **Captures of the light and the rain (read where they act, kept for before / after pictures):** `TNFS_CITY_BEAM_OPEN=n` (1..255: the open-ground light of the headlight beam in the City nights, in place of the per-track value, `city_lift 3`), `TNFS_CITY_MADE_SCALE=n` (1..256: the share of the terrain's light the City's made night rows take, in place of the per-track fit), `TNFS_LAMP_CAR_MODE=2` (the car's lift under the street lamps is steady along the lamps' stretch, instead of following each pool; `lamp_car_shade`), `TNFS_RAIN_SPEED=n` (metres a second the rain's streaks are drawn for, for a capture of a car the harness has not got up to speed), `TNFS_RAIN_WET_OFF=1` (leaves out the rain's grey scene and the tail lights' reflections), `TNFS_CANYON_SHADE=0|1` (over the `canyon_shade` key, only with `car_tunnel_light` on).
 - **Development builds only:** `TNFS_STATS_DRYRUN=<version>`, `TNFS_UPDATE_FAKE=9.9.9`; a release build ignores them.

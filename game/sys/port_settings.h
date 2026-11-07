@@ -80,6 +80,11 @@ typedef struct {
     int rally_dry_lamps;    /* with weather=rain in a rally (dirt) race the cars' lamps are not mirrored in the road (dirt is no mirror): the headlights' and tail lights' reflections are left out; 0 the exe's wet-asphalt reflections */
     int traffic_halo;    /* with the PS1 flares at night, the traffic's lit headlights and brake lights get their halo as the racers' do (the port draws it only for the racers and the police car); 0 as now */
     int police_halo;    /* the police car's roof lights' halo size: 0 the port's now, 1..3 progressively bigger, near and far */
+    int rain_v2;        /* 1: the rain is lighter (half the streaks), the storm is the old rain a little heavier with thunder after each lightning, the wet road's lamp reflections stay on the carriageway, the streaks fall from higher, and the traffic's and police's spray wisp is longer with a minimum at any speed; 0: as it was */
+    int track_light_lamp; /* 1: a `lamp` line of a track light file (a street lamp's pool by node, brightness, colour and radius, with the car's light) is read; 0: such lines are ignored, the file's pools are the only lamps (track_light_file.h) */
+    int snow_weather;     /* 1: on a track whose places file says `snow 1` (Alpine 3) the rain is snow: flakes for streaks, no lightning or thunder in the storm, and the rally's road and shoulder are covered in snow (rally_gravel.h); 0 the rain as it was */
+    int rain_tyre_roll;   /* 1: in rain or a storm (rain_v2) a car rolling on open asphalt makes a low wet-tyre roll, by its speed (rain_roll.h); 0: none */
+    int shoulder_light; /* 1: at night with the headlights, the shoulder's far edge (rows' points 2 and 7) takes at least the road's own light before the beam and the lamps scale it, so the shoulder and a third lane that lives out there are lit like the road (the made light leaves them near black, and the beam only scales the row's light); 0: as it was */
     int analog_pad;    /* 1: a control bound to an axis (a pad's stick or trigger, a wheel, pedals) steers and works the pedals in proportion, one bound to a key or button keeps its full lock and full pedal (analog_pad.h); 0 the exe's key paths */
     int sign_glow;         /* 1: at night, with the PS1 headlights, the City's matrix sign (CY1: EXPRESS LANES CLOSED) has its amber bulbs lit like the windows (window_lights.h); 0 the exe's */
     int lamp_pool_bright;  /* 1: with the PS1 headlights at night, a street lamp's pool is not dimmed by the night's dark floor: under the lamp the road, its shoulders and the scenery take the lamp's light in full, fading with the pool (the headlights' gain no longer swallows it); 0: the pool lifts the light the gain then dims, as now */
@@ -145,6 +150,10 @@ int port_tach_dim(void);
 int port_sky_fill_below(void);
 /* the flag `s` has, and the format it is for: on, and not 4:3, where the exe's fill stays whatever the flag says */
 int sky_fill_below_applies(const PortSettings *s);
+/* port (online): 0 while a link race runs under a Stock or Restored host's rules (session_rules.h): the police radar and the 360 camera are off for everyone then, whatever
+ * each player's own file says; 1 otherwise (a Restomod host, no link race, an older host). Never saved, nothing in the files changes; the rules end with the race. */
+int port_host_allows_radar_and_camera(void);
+
 /* 1 when the police radar shows in every outside view: TNFS_RADAR_ALL_VIEWS=0/1 when set, else the mode's radar_all_views. */
 int port_radar_all_views(void);
 /* 1 when the night's sky is re-hued blue-black (psx_sky_draw.h): TNFS_NIGHT_SKY_HUE=0/1 when set, else the mode's night_sky_hue. */
@@ -228,6 +237,19 @@ int port_sign_glow(void);
 /* 1 when analog_pad: TNFS_ANALOG_PAD=0..1 when set, else the mode's. */
 int port_analog_pad(void);
 
+/* 1 when rain_v2: TNFS_RAIN_V2=0..1 when set, else the mode's. */
+int port_rain_v2(void);
+/* 1 when shoulder_light: TNFS_SHOULDER_LIGHT=0..1 when set, else the mode's. */
+int port_shoulder_light(void);
+
+/* 1 when track_light_lamp: TNFS_TRACK_LIGHT_LAMP=0..1 when set, else the mode's. */
+int port_track_light_lamp(void);
+
+/* 1 when rain_tyre_roll: TNFS_RAIN_TYRE_ROLL=0..1 when set, else the mode's. */
+int port_rain_tyre_roll(void);
+/* 1 when snow_weather: TNFS_SNOW_WEATHER=0..1 when set, else the mode's. */
+int port_snow_weather(void);
+
 /* the police roof halo's size 0..3: TNFS_POLICE_HALO=0..3 when set, else the mode's. */
 int port_police_halo(void);
 
@@ -289,7 +311,19 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size);
 /* what port_old_files.c builds a mode's file from: mode `p`'s values with the machine's folder, one key=value over a PortSettings, and port.cfg's two lines */
 PortSettings port_mode_values(int p, const char *psx_dir);
 void port_settings_take(void *to, const char *key, const char *value);
+/* port: the keys that are a whole number in a range (name, where the int field is in PortSettings, lowest and highest value), for the test that walks them all */
+typedef struct {
+    const char *key;
+    size_t offset;
+    int min, max;
+} PortSettingsKey;
+const PortSettingsKey *port_settings_int_keys(int *count);
+
 bool port_machine_save(int profile, const char *psx_dir);
+/* the settings the mode `profile` would have (its values and its file's), whichever is in use: what applying it would change */
+PortSettings port_settings_of_profile(int profile);
+/* port (frame budget): the settings are read from the files once and kept; the writers here drop what is kept. A test that changes what the platform reads calls this. */
+void port_settings_forget(void);
 PortSettings port_settings_load(void);
 /* the mode's name and folder as `s` has them, and in the file of `s`'s mode what differs from its values and is free in it. */
 bool port_settings_save(const PortSettings *s);
