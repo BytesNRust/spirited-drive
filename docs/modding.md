@@ -1,13 +1,13 @@
 # Modding guide
 
-How to change the game's data without touching the CD: where files live, what a mod can replace, and the file formats of the things the port added (track light, car masks, dash masks, sounds). The settings themselves are in [settings.md](settings.md); the track light format has its own page, [track-light.md](track-light.md).
+How to change the game's data without touching the CD: where files live, what a mod can replace, and the file formats of the things the port added (track light, car masks, dash masks, track masks, sounds). The settings themselves are in [settings.md](settings.md); the track light format has its own page, [track-light.md](track-light.md).
 
 ## The three folders
 
 | Folder | What it is | Written by the game? |
 |--------|------------|----------------------|
 | **Game data** (`--data DIR`, or the player's copy `<player folder>/gamedata/`, or `./original` in a development build) | The original CD's files: `SIMDATA/`, `GAMEDATA/`, `FRONTEND/`, the `NFS_WIN.EXE`. Read only. | Never |
-| **The port's data** (`data/` beside the program; in a source tree `data/` at the repository root) | What the port ships: `car_masks/`, `dash_masks/`, `track/`, `track_light/`, `sounds/`, the car environment map. Looked up as `<mod>/...` first (see below), then `<program folder>/data/...`, then `./data/...`, then (development builds) the source tree's `data/...`. | Never |
+| **The port's data** (`data/` beside the program; in a source tree `data/` at the repository root) | What the port ships: `car_masks/`, `dash_masks/`, `track_masks/`, `track/`, `track_light/`, `sounds/`, the car environment map. Looked up as `<mod>/...` first (see below), then `<program folder>/data/...`, then `./data/...`, then (development builds) the source tree's `data/...`. | Never |
 | **The player's folder** | `port.cfg`, `stock.cfg`, `restored.cfg`, `restomod.cfg`, `controls.cfg`, `extras.cfg`, `records.dat`, `config.dat`, `Replay.rpl`, saved games, `tnfs.log`, `gamedata/`, `mods/`. | Yes: all of it |
 | **A mod** (`--mods DIR`, else `<player folder>/mods/`) | A folder of files that replace the game's. One overlay. | Never |
 
@@ -31,7 +31,7 @@ Example, a changed track:
 
 [modding/track-layout.md](modding/track-layout.md) and [modding/limitations.md](modding/limitations.md) cover building tracks and what the engine cannot do; `tnfs-studio slot replace` puts a track or a car into a mod's folder with the checks.
 
-The port's own files (track light, car masks, dash masks, sounds, the car environment map) go through the same overlay: **a mod's `<mod>/<path>` is tried first, where `<path>` is the path under `data/`** (`track_light/CY1N.txt`, `track/CY1.txt`, `car_masks/<CAR>/<tex>_mask.png`, `dash_masks/<CAR>/dash_mask.png`, `sounds/thunder.wav`, `car_envmap.png`), then the port's own `data/`. The `TNFS_CAR_MASKS` and `TNFS_DASH_MASKS` variables, for trying a folder, still win over both.
+The port's own files (track light, car masks, dash masks, track masks, sounds, the car environment map) go through the same overlay: **a mod's `<mod>/<path>` is tried first, where `<path>` is the path under `data/`** (`track_light/CY1N.txt`, `track/CY1.txt`, `car_masks/<CAR>/<tex>_mask.png`, `dash_masks/<CAR>/dash_mask.png`, `track_masks/<TRACK>/<name>.png`, `sounds/thunder.wav`, `car_envmap.png`), then the port's own `data/`. The `TNFS_CAR_MASKS` and `TNFS_DASH_MASKS` variables, for trying a folder, still win over both.
 
 ## Track light
 
@@ -86,6 +86,17 @@ Colours of the `mask` layer:
 | blue `0000ff` | the dash's art: never lit (the speedo's rim) |
 
 The **`color`** layer: paint over the lit parts in the colour each is to glow (the strongest channel sets the hue; the dash's art gives the brightness). Transparent or black means no colour: it glows orange. The game folds the colours into twelve flat ones, so use a few. `TNFS_DASH_MASKS=<dir of <CAR>/dash_mask.png>` tries a folder without installing it.
+
+## Track masks
+
+At night, or in a dark tunnel, what is **reflective** (road signs, posts, the cat's eyes painted on the asphalt of some roads) is to shine when it is in the cone of the car's headlights. A **mask** says which texels of a texture are reflective. One PNG per texture: `data/track_masks/<TRACK>/<name>.png`, with `<TRACK>` the track's name in capitals (`CL1`) and `<name>`:
+
+* `slot_<NN>` a road texture slot (the road, its shoulder; `NN` is the slot number, `id * 3 + letter`, as the places file's `snow_map` lines number them), the base-size bitmap of the slot: the cat's eyes are in these;
+* `scenery_<NN>` a scenery board (signs, posts, panels; `NN` is the board number).
+
+The PNG has the size of the texture, or any other size (scaled by nearest neighbour). **White is reflective** (red 128 or more, and not transparent); black and transparent are not. A texture with no mask is not reflective. The masks hold no colour and none of the game's pixels. The loader gives the drawing code the mask of a texture (`track_mask_for`: one byte per texel, 1 reflective), the same for a road texture and a board.
+
+The masks are made from layered PSDs, as the car's are: `tools/track_mask_draft` (built with the game) writes each texture of the CD's tracks as a PNG, `tools/track_mask_psd.py <drafts> <output>` turns them into PSDs (the texture on a locked layer, an empty **`mask`** layer over it at 50% opacity), and `tools/track_mask_from_psd.py <dir of TRACK/<name>.psd>` reads the **`mask` layer** back into the PNGs: paint what is reflective in any colour but black (white is easiest); an unpainted or black texel is not. The layer's own opacity is ignored. Needs `pip install psd-tools Pillow`. A mod puts its masks in `<mod>/track_masks/<TRACK>/`. To try a folder of masks without installing them: `TNFS_TRACK_MASKS=<dir of <TRACK>/<name>.png>`; the log's `track mask:` lines say which file each texture used.
 
 ## Sounds
 

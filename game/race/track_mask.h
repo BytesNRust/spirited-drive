@@ -1,0 +1,31 @@
+/* port: the hand-made reflective masks of a track's textures. Night, or a dark tunnel: what is reflective (road signs, posts, the cat's eyes painted on the asphalt of some roads)
+ * shines when the car's headlights reach it. The owner paints a mask per texture, as for the cars: one PNG the size of the texture, <root>/<TRACK>/slot_<NN>.png for a road texture
+ * slot (track_art.h: slot = id * 3 + letter, variant 0, the base size) and <root>/<TRACK>/scenery_<NN>.png for a scenery board (the signs and posts). White (red 128 or more) is
+ * reflective; black and transparent are not. The mask can be any size (scaled by nearest neighbour to the texture's). A texture with no mask is not reflective. The masks hold no
+ * colour and no pixel of the game. The files are looked up in $TNFS_TRACK_MASKS (a dev override: <dir of <TRACK>/<file>.png>), then <mod>/track_masks/, the program's data/track_masks/
+ * and the source tree's (data_path.h). */
+#ifndef TNFS_TRACK_MASK_H
+#define TNFS_TRACK_MASK_H
+
+#include "game/race/track_art.h"
+
+#include <stddef.h>
+#include <stdint.h>
+
+/* Decodes a mask PNG into `out` (width x height bytes: 1 reflective, 0 not), scaled from the image's own size by nearest neighbour. A texel is reflective when its red is 128 or
+ * more and it is not transparent (an indexed image's palette colour, opaque). Returns 0 for data that is not a readable PNG or a zero size. */
+int track_mask_parse(const uint8_t *png, size_t len, int width, int height, uint8_t *out);
+
+/* The mask file `name` ("slot_07", "scenery_02") of `track` ("CL1") for a texture of width x height texels, from the first place that has it; malloc'd, width x height bytes; NULL
+ * when there is none or it does not read. */
+uint8_t *track_mask_load(const char *track, const char *name, int width, int height);
+
+/* Loads the masks of `track`'s textures (each present slot's variant 0 and each scenery board of `art`) and keeps them until the next call; the previous track's are dropped.
+ * `art` must stay as it is while they are used (the masks are found by the texture's address). Returns how many masks were found. NULL track or art: just drops them. */
+int track_masks_set(const char *track, const TrackArt *art);
+
+/* The mask of a texture of the track last given to track_masks_set (a slot's variant 0 as `&art->slots[s][0]`, or a scenery board `&art->scenery[i]`): bitmap.width x bitmap.height
+ * bytes, 1 reflective, 0 not; NULL when it has no mask (or `t` is NULL). */
+const uint8_t *track_mask_for(const TrackTexture *t);
+
+#endif

@@ -304,6 +304,7 @@ add_library(tnfs_game STATIC
     game/race/car_paint.c
     game/race/car_repaint.c
     game/race/car_mask.c
+    game/race/track_mask.c
     game/race/dash_mask.c
     game/race/dash_color.c
     game/sys/data_path.c
@@ -578,6 +579,13 @@ if(NOT EMSCRIPTEN)
     target_compile_options(car_mask_draft PRIVATE ${TNFS_WARNINGS})
 endif()
 
+# The textures a track's reflective mask is painted over (tools/track_mask_draft.c): reads the CD's ETRACKFM, writes PNGs.
+if(NOT EMSCRIPTEN)
+    add_executable(track_mask_draft tools/track_mask_draft.c)
+    target_link_libraries(track_mask_draft PRIVATE tnfs_game)
+    target_compile_options(track_mask_draft PRIVATE ${TNFS_WARNINGS})
+endif()
+
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
     add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c)
@@ -597,7 +605,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name port_old_files band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth lamp_emissive drive_lamps headlight_pool street_lamp window_lights finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_color lamp_flare shade_fit thunder wet_roll rain_roll snow_roll weather_snow snow_remap key_latch track_wall chase_slope data_path data_check psx_light_make port_profile game_mode_profile file_url tach_dim wheel_front rain_spray track_light_file session_rules)
+foreach(name port_old_files band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask track_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth lamp_emissive drive_lamps headlight_pool street_lamp window_lights finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_color lamp_flare shade_fit thunder wet_roll rain_roll snow_roll weather_snow snow_remap key_latch track_wall chase_slope data_path data_check psx_light_make port_profile game_mode_profile file_url tach_dim wheel_front rain_spray track_light_file session_rules)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -1117,6 +1125,7 @@ if(NOT EMSCRIPTEN)
     find_program(TNFS_PYTHON3 python3)   # the PSD mask tool's lamp colours (skips itself when Pillow is missing)
     if(TNFS_PYTHON3)
         add_test(NAME car_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_car_mask_psd.py")
+        add_test(NAME track_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_track_mask_psd.py")
         add_test(NAME dash_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_dash_mask_psd.py")
         add_test(NAME dash_psd_update COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_dash_psd_update.py")
     endif()
