@@ -247,7 +247,7 @@ static void test_the_tunnel_lines(void)
     snprintf(text, sizeof text, "%stunnel 5 9 60\ntunnel 15 19 60 ff0000:50\n", head);   /* zones with a look of their own: a tone slot each (the colour at half strength is half way to no change) */
     CHECK(track_light_parse(text, strlen(text), "CY1", 'N', NODES, 1, &f, NULL));
     CHECK(f.tweaks.zone_count == 2 && !f.tweaks.look_has_light && f.tweaks.tone_count == 2 && f.tweaks.zones[0].tone == 0 && f.tweaks.zones[1].tone == 1);
-    track_light_apply(&f.tweaks, &l);
+    track_light_apply(&f.tweaks, &l, 0, 0);
     double zone_light = 0;
     float zone_cast[3];
     CHECK(psx_light_zone_look_at(&l, 7, &zone_light, zone_cast) && zone_light == 60.0 && zone_cast[0] == 1.0f && zone_cast[1] == 1.0f);   /* no colour: the time's (none: no change) */
