@@ -169,6 +169,24 @@ static void test_dense_drops_fill_the_way_at_speed(void)
     CHECK_EQ_INT(behind, 2);
 }
 
+static void test_ticks_without_a_frame_are_laid_on_the_way(void)
+{
+    static RainSpray s;
+    rain_spray_clear(&s);
+    const int32_t right[2] = { 0, -65536 }, left[3] = { 0, 0, 0 }, wheel[3] = { 0, 0, 0 };   /* forward is +x */
+    CHECK_EQ_INT(rain_spray_step(&s, 0, 100, left, wheel, right, 5, 30 << 16, 1), 2);
+    CHECK_EQ_INT(rain_spray_step(&s, 0, 104, left, wheel, right, 5, 30 << 16, 1), 2);   /* three ticks with no frame */
+    CHECK_EQ_INT(live_count(&s), 2 + 2 + 3 * 2);
+    int32_t lowest = 0;   /* a metre a tick: the oldest of them three metres back */
+    for (int i = 0; i < RAIN_SPRAY_MAX; i++)
+        if (s.p[i].live && s.p[i].born == 101 && (lowest == 0 || s.p[i].x < lowest)) lowest = s.p[i].x;
+    CHECK(lowest < -2 * 65536 - 2 * 0x4000 && lowest > -4 * 65536);
+    rain_spray_clear(&s);
+    CHECK_EQ_INT(rain_spray_step(&s, 0, 100, left, wheel, right, 5, 30 << 16, 1), 2);
+    CHECK_EQ_INT(rain_spray_step(&s, 0, 400, left, wheel, right, 5, 30 << 16, 1), 2);   /* a long stop: no more than the life's worth */
+    CHECK_EQ_INT(live_count(&s), 2 + 2 * RAIN_SPRAY_LIFE);
+}
+
 int main(void)
 {
     test_dropped_once_a_tick_and_left_behind();
@@ -180,5 +198,6 @@ int main(void)
     test_wisp2();
     test_a_car_without_a_speed_goes_by_its_velocity();
     test_dense_drops_fill_the_way_at_speed();
+    test_ticks_without_a_frame_are_laid_on_the_way();
     return TEST_REPORT();
 }
