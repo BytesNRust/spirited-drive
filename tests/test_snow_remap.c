@@ -135,12 +135,37 @@ static void test_the_snow_road_loses_its_green(void)
     free(art);
 }
 
+/* the road's own bitmap is bigger than the snow's (the track's is 128 x 256, the snow slot's 80 x 80; far 32 x 96 against 80 x 40): the snow is laid on it texel for texel, repeated, so the road's polygons keep the texel size they have in the exe and the road's texture does not change grain from one distance to the next */
+static void test_the_snow_is_laid_on_the_roads_own_size(void)
+{
+    const uint8_t snow[4] = { 1, 2, 3, 0xFF };
+    uint8_t own[TRACK_TEXTURE_VARIANTS][8], map[TRACK_TEXTURE_SLOTS];
+    TrackArt *art = calloc(1, sizeof *art);
+    uint8_t small[TRACK_TEXTURE_VARIANTS][4];
+    snow_road_art(art, snow, small, 4, map);
+    for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) {
+        memset(own[v], 9, 8);
+        art->slots[3][v].bitmap.width = 8, art->slots[3][v].bitmap.height = 1;
+        art->slots[3][v].bitmap.payload = own[v], art->slots[3][v].bitmap.payload_size = 8;
+    }
+    CHECK_EQ_INT(track_art_remap_slots(art, map), 1);
+    for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) {
+        CHECK_EQ_INT(art->slots[3][v].bitmap.width, 8);          /* the road's size, so its polygons' texels are the size they were */
+        CHECK_EQ_INT(art->slots[3][v].bitmap.height, 1);
+        CHECK(art->slots[3][v].bitmap.payload == own[v]);
+        const uint8_t want[8] = { 2, 2, 3, 0xFF, 2, 2, 3, 0xFF };   /* the snow twice, its green white */
+        CHECK(memcmp(own[v], want, 8) == 0);
+    }
+    free(art);
+}
+
 static void test_a_road_with_no_room_or_no_palette_takes_the_snow_as_it_is(void)
 {
     const uint8_t snow[4] = { 1, 2, 3, 0xFF };
     uint8_t own[TRACK_TEXTURE_VARIANTS][4], map[TRACK_TEXTURE_SLOTS];
     TrackArt *art = calloc(1, sizeof *art);
-    snow_road_art(art, snow, own, 2, map);   /* its own bitmap has no room for the snow's pixels */
+    snow_road_art(art, snow, own, 4, map);
+    for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) art->slots[3][v].bitmap.payload_size = 2;   /* its own bitmap has no room for its size's pixels */
     CHECK_EQ_INT(track_art_remap_slots(art, map), 1);
     CHECK(art->slots[3][0].bitmap.payload == snow);
     CHECK_EQ_INT(own[0][0], 9);
@@ -159,6 +184,7 @@ int main(void)
     test_the_places_files_map_is_a_texture_slot_table();
     test_no_map_changes_nothing();
     test_the_snow_road_loses_its_green();
+    test_the_snow_is_laid_on_the_roads_own_size();
     test_a_road_with_no_room_or_no_palette_takes_the_snow_as_it_is();
     test_the_places_file_gives_the_map();
     return TEST_REPORT();
