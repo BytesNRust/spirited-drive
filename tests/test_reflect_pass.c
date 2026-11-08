@@ -109,6 +109,40 @@ static void test_each_family_takes_its_own_ramp_and_the_level_a_step(void)
     CHECK_EQ_INT(low[3], WARM);             /* the rim at the bottom */
 }
 
+/* two tracks in one process: the next track's art stands where the last one did (a Track reused, a freed block taken again), and the pass must hold the second's textures, not the first's */
+static TrackArt art;
+static uint8_t scenery_pixels[3][W * H];
+static const uint8_t *mask_of_wide(const TrackTexture *t) { return t->bitmap.width == W ? mask : NULL; }
+
+static void put_scenery(int index, int board)
+{
+    memset(scenery_pixels[board], 1 + board, sizeof scenery_pixels[board]);
+    TrackTexture *t = &art.scenery[index];
+    t->present = 1;
+    memset(&t->bitmap, 0, sizeof t->bitmap);
+    t->bitmap.width = W, t->bitmap.height = H, t->bitmap.payload = scenery_pixels[board], t->bitmap.payload_size = W * H, t->bitmap.type = 0x41;
+}
+
+static void test_the_next_track_at_the_same_address_is_registered_again(void)
+{
+    setup();
+    reflect_pass_forget_art();
+    memset(&art, 0, sizeof art);
+    put_scenery(0, 0);   /* the first track: one textured board with a mask */
+    CHECK_EQ_INT(reflect_pass_register_art(&art, mask_of_wide), 1);
+    CHECK_EQ_INT(reflect_pass_register_art(&art, mask_of_wide), -1);   /* the same art: nothing to do */
+    memset(&art, 0, sizeof art);   /* the first is freed and the second takes its place (the same address) with three boards */
+    put_scenery(1, 1), put_scenery(2, 2);
+    CHECK_EQ_INT(reflect_pass_register_art(&art, mask_of_wide), -1);   /* what the old pointer test did: the address is the same, the pass keeps the first's entries */
+    reflect_pass_forget_art();   /* what freeing or loading a track does now */
+    CHECK_EQ_INT(reflect_pass_register_art(&art, mask_of_wide), 2);
+    reflect_pass_frame(1, 0, 0, 1, 0, 1, palette);
+    CHECK(reflect_pass_copy(&art.scenery[1].bitmap) != NULL);
+    CHECK(reflect_pass_copy(&art.scenery[0].bitmap) == NULL);
+    reflect_pass_forget_art();
+    CHECK_EQ_INT(reflect_pass_count(), 0);
+}
+
 int main(void)
 {
     test_a_texture_is_registered_once_and_found_by_its_pixels();
@@ -117,6 +151,7 @@ int main(void)
     test_the_pass_runs_only_with_lamps_dark_and_entries();
     test_the_gain_follows_the_lamps_heading();
     test_each_family_takes_its_own_ramp_and_the_level_a_step();
+    test_the_next_track_at_the_same_address_is_registered_again();
     reflect_pass_reset();
     return TEST_REPORT();
 }

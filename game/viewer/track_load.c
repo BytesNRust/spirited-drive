@@ -11,6 +11,7 @@
 
 #include "viewer/screen_layout.h"
 #include "viewer/ported_view.h"
+#include "game/viewer/reflect_pass.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
 #include "game/race/wet_zones.h"
@@ -253,6 +254,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     {   /* port: the reflective masks of this track's textures (track_mask.h), by its stem in capitals */
         char stem[16] = { 0 };
         for (size_t i = 0; name[i] != '\0' && i + 1 < sizeof stem; i++) stem[i] = (char)toupper((unsigned char)name[i]);
+        reflect_pass_forget_art();   /* port (reflectors): a track loaded where another stood is not the registered art */
         const int found = track_masks_set(stem, &t->art);
         if (found > 0) port_log("track_viewer: %s: %d reflective masks\n", stem, found);
     }

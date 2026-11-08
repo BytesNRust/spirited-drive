@@ -358,41 +358,26 @@ static const uint8_t *lit_table(void) { return lit_active && (lit_level > 0 || l
 
 /* port (reflectors): the masks come from the track (track_mask.h's track_mask_for, which the loader fills); the textures are registered once per loaded art, the lamps' state each frame */
 static const uint8_t *(*reflect_mask_for)(const TrackTexture *t) = track_mask_for;
-static const TrackArt *reflect_registered;
 static int reflect_lamps_on, reflect_dark;
 static double reflect_x, reflect_z, reflect_hx, reflect_hz;
 
 void ported_view_set_reflect_masks(const uint8_t *(*mask_for)(const TrackTexture *t))
 {
     reflect_mask_for = mask_for;
-    reflect_registered = NULL;
+    reflect_pass_forget_art();
 }
 
 static void reflect_register(const TrackArt *art)
 {
-    if (art == reflect_registered) return;
-    reflect_registered = art;
-    reflect_pass_reset();
-    if (art == NULL || reflect_mask_for == NULL) return;
-    for (int s = 0; s < TRACK_TEXTURE_SLOTS; s++) {   /* a road slot: its variants are the same picture smaller (the mask is the base's, resampled) */
-        const TrackTexture *base = &art->slots[s][0];
-        const uint8_t *mask = base->present ? reflect_mask_for(base) : NULL;
-        for (int v = 0; mask != NULL && v < TRACK_TEXTURE_VARIANTS; v++)
-            if (art->slots[s][v].present) reflect_pass_add(&art->slots[s][v].bitmap, mask, base->bitmap.width, base->bitmap.height);
-    }
-    for (int i = 0; i < TRACK_SCENERY_TEXTURES; i++) {
-        const TrackTexture *t = &art->scenery[i];
-        const uint8_t *mask = t->present ? reflect_mask_for(t) : NULL;
-        if (mask != NULL) reflect_pass_add(&t->bitmap, mask, t->bitmap.width, t->bitmap.height);
-    }
-    port_log("reflectors: %d textures with a mask\n", reflect_pass_count());
+    const int count = reflect_pass_register_art(art, reflect_mask_for);
+    if (count >= 0) port_log("reflectors: %d textures with a mask\n", count);
 }
 
 /* the frame's state, before the track is drawn */
 static void reflect_frame(const TrackArt *art)
 {
     if (!port_reflectors() || art == NULL) {
-        if (reflect_registered != NULL) reflect_pass_reset(), reflect_registered = NULL;
+        reflect_pass_forget_art();
         reflect_pass_frame(0, 0, 0, 1, 0, 0, NULL);
         return;
     }
@@ -2399,6 +2384,7 @@ static void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
 void ported_view_forget_track(void)
 {
     render.tri = NULL;
+    reflect_pass_forget_art();   /* port (reflectors): the next track's art may stand at this one's address; its textures are not these */
     ported_view_set_models(NULL, NULL, 0, 0, 0);  /* the next track's models sit at the same address, bound to these textures */
     horizon_smooth_cache_reset();           /* port: the sky bands kept for this track's bitmap */
     road_tunnels_forget();
