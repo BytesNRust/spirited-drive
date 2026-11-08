@@ -1,4 +1,5 @@
 #include "game/race/rain_spray.h"
+#include "game/race/trail_rise.h"
 
 #include "game/sys/fixed_math.h"
 
@@ -73,7 +74,7 @@ int rain_spray_step_wisp2(RainSpray *s, int car, uint32_t tick, const int32_t le
     return step(s, car, tick, left, right_wheel, right, node, speed, wet, 2);
 }
 
-int rain_spray_look(const RainSprayParticle *p, uint32_t tick, int open, int32_t place[3], int32_t *radius, int *density)
+int rain_spray_look(const RainSprayParticle *p, uint32_t tick, int open, int rise, int32_t place[3], int32_t *radius, int *density)
 {
     if (!p->live || tick < p->born || tick - p->born >= p->life) return 0;
     if (open <= 0) return 0;   /* port (tunnel_dry): a closed zone is dry: no water to lift, what was dropped before the mouth is gone */
@@ -83,8 +84,10 @@ int rain_spray_look(const RainSprayParticle *p, uint32_t tick, int open, int32_t
     const float o = open < 0 ? 0.0f : open > 16 ? 1.0f : (float)open / 16.0f;
     place[0] = p->x + (int32_t)((float)p->drift_x * f), place[2] = p->z + (int32_t)((float)p->drift_z * f);
     place[1] = p->y + (int32_t)(65536.0f * 0.30f * o * f);   /* it hangs low: it lifts only a little, and not at all in a tunnel */
+    if (rise) place[1] = p->y + (int32_t)((float)trail_rise_height(age, p->life) * o);   /* port (trail_rise): it drifts up to a car's height, less in a tunnel's mouth */
     *radius = (int32_t)(65536.0f * grow * big * (0.5f + 0.5f * o));
-    const float d = (1.0f - f) * (1.0f - f) * (0.35f + 0.65f * (float)p->size / 255.0f) * (0.4f + 0.6f * o);
+    float d = (1.0f - f) * (1.0f - f) * (0.35f + 0.65f * (float)p->size / 255.0f) * (0.4f + 0.6f * o);
+    if (rise) d *= (float)trail_rise_fade(age, p->life) / 100.0f;   /* and thins as it rises */
     int level = (int)(d * (float)RAIN_SPRAY_LEVELS);
     if (level >= RAIN_SPRAY_LEVELS) level = RAIN_SPRAY_LEVELS - 1;
     if (level < 0) level = 0;
