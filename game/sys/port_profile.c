@@ -76,6 +76,7 @@ typedef struct {
     int rally_spray;   /* port.cfg's, appended */
     int trail_rise;   /* port.cfg's, appended */
     int snow_fx;   /* port.cfg's, appended */
+    int spray_cd_smoke;   /* port.cfg's, appended */
 } Table;
 
 static const Table TABLES[PROFILE_COUNT] = {
@@ -196,6 +197,7 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
     s.rally_spray = t->rally_spray;
     s.trail_rise = t->trail_rise;
     s.snow_fx = t->snow_fx;
+    s.spray_cd_smoke = t->spray_cd_smoke;
     return s;
 }
 

@@ -70,7 +70,9 @@ void spray_add_table(const uint8_t pal[768], const uint8_t colour[3], int amount
             if (want[k] > 255) want[k] = 255;
         }
         int best = i, best_d = 1 << 30;
+        const int floor_luma = pal[i * 3] + 2 * pal[i * 3 + 1] + pal[i * 3 + 2];   /* an additive never darkens: no colour of the palette that is darker than the one under */
         for (int j = 0; j < 255; j++) {
+            if (j != i && pal[j * 3] + 2 * pal[j * 3 + 1] + pal[j * 3 + 2] < floor_luma) continue;
             const int dr = pal[j * 3] - want[0], dg = pal[j * 3 + 1] - want[1], db = pal[j * 3 + 2] - want[2];
             const int d = dr * dr * 3 + dg * dg * 4 + db * db * 2;
             if (d < best_d || (d == best_d && j == i)) best_d = d, best = j;
@@ -87,7 +89,7 @@ int spray_mist_shape(const uint8_t *shape, const uint8_t grey[256], uint8_t *out
     for (size_t i = 0; i < 16; i++) out[i] = shape[i];
     for (size_t i = 0; i < w * h; i++) {
         const uint8_t t = shape[16 + i];
-        const int g = t == 0xFF ? 0 : grey[t];
+        const int g = t == 0xFF || grey[t] < 24 ? 0 : grey[t];   /* the sprite's faint fringe is nothing: it would show the sprite's box */
         int level = (g * SPRAY_MIST_LEVELS + 127) / 255;
         if (g > 0 && level < 1) level = 1;
         out[16 + i] = (uint8_t)level;

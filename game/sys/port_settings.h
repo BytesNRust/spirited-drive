@@ -120,6 +120,7 @@ typedef struct {
     int rally_spray;    /* 1: in a rally with rain_fx and rain or snow, every car (the player's too) throws the road's spray, tinted by the road it is on (gravel grey, brown dirt, snow white) and darker than water; 0 the exe's */
     int trail_rise;    /* 1: the spray and the dust trails rise with their age, to about a car's height, and fade as they rise (every car); 0 as before */
     int snow_fx;    /* 1: with snow_weather, the falling snow has more depth: flakes less regular and soft, leaning with the car's speed (a smaller angle than the rain's), a snowstorm whose wind swings from side to side, and white marks on the lens (fewer than the rain's drops); 0 as before */
+    int spray_cd_smoke;   /* 1: the spray and the dust are drawn as the CD's smoke sprite (SMOKE.QFS) tinted by the surface, more transparent, with a few fine droplets by the wheel (water and mud); 0 the speckled mist and the exe's puffs */
     int profile;             /* a Profile (port_profile.h): the mode in use, `profile=stock|restored|restomod` in port.cfg, Stock without the line. Last, so the positional initialisers keep their meaning. */
 } PortSettings;
 
@@ -256,6 +257,9 @@ int port_rain_tyre_roll(void);
 int port_snow_weather(void);
 /* 1 when reflectors: TNFS_REFLECTORS=0/1 when set, else the mode's; never without port_psx_headlights(). */
 int port_reflectors(void);
+
+/* 1 when spray_cd_smoke: TNFS_SPRAY_CD_SMOKE=0/1 when set, else the mode's. */
+int port_spray_cd_smoke(void);
 /* 1 when rally_spray: TNFS_RALLY_SPRAY=0/1 when set, else the mode's. */
 int port_rally_spray(void);
 /* 1 when trail_rise: TNFS_TRAIL_RISE=0/1 when set, else the mode's. */
