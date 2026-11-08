@@ -18,6 +18,26 @@ enum { SNOW_PER_640x480 = 160, SNOW_HEAVY_TIMES = 3, SNOW_MAX = 1400, SNOW_SIZE_
 int weather_snow_count(int32_t box_w, int32_t box_h, int level);
 void weather_snow_flake(int flake, uint32_t tick, int level, int32_t box_w, int32_t box_h, int32_t out[3]);
 
+/* port (snow_fx): the flakes with more depth. weather_snow_flake_fx is weather_snow_flake with
+ *   - a randomness of its own: each flake's fall speeds up and slows and it sways on two beats (a little: a few percent of the box);
+ *   - the car's speed (`speed`, 16.16 m/s): the flakes flow away from the vanishing point (`vx`, `vy`, in box pixels) like the rain's streaks, at a smaller angle (at most SNOW_LEAN_PERCENT of the
+ *     way to the rain's), and one the lean takes out of the box is not drawn (size 0);
+ *   - the storm's wind, which swings: weather_snow_wind (tenths of a percent of the box's width a second, signed) follows a sine of period SNOW_DRIFT_PERIOD_TICKS, so the snowstorm leans one way,
+ *     comes upright and leans the other, instead of always from the same side.
+ * With the speed and the randomness at nothing it is the same animation as weather_snow_flake's, a little less regular. */
+enum { SNOW_DRIFT_PERIOD_TICKS = 1800, SNOW_WIND_MAX = 120, SNOW_LEAN_PERCENT = 30, SNOW_LENS_EVERY = 3 };
+int weather_snow_wind(uint32_t tick);
+void weather_snow_flake_fx(int flake, uint32_t tick, int level, int32_t box_w, int32_t box_h, int32_t speed, int32_t vx, int32_t vy, int32_t out[3]);
+
+/* port (snow_fx): the soft flake: a round sprite of ramp steps for a flake of `size` (1..SNOW_SIZE_MAX, the far ones tiny and the near ones big, softer and dimmer at the rim) and the render's unit `side`
+ * in pixels (clamped 1..SNOW_SIDE_MAX): `out` (SNOW_SPRITE_MAX x SNOW_SPRITE_MAX bytes) gets dim x dim steps, 0 none .. SNOW_RAMP the whitest (the draw maps a step to the rain's brightness tables).
+ * Returns dim. Built in code, so at the render scale's own resolution it is not a scaled block. */
+enum { SNOW_RAMP = 4, SNOW_SIDE_MAX = 12, SNOW_SPRITE_MAX = 2 * (SNOW_SIDE_MAX * 5 / 2 + 2) + 1 };
+int weather_snow_sprite(int size, int side, uint8_t *out);
+
+/* port (snow_fx): the marks the snow leaves on the lens, a third of the rain's drops in number (weather_lens_drop's, every SNOW_LENS_EVERY-th) */
+int weather_snow_lens_count(int32_t box_w, int32_t box_h);
+
 /* Where a race's snow comes from: `in_replay` a replay's own record (`replay_snow`, 0 for a file that has none), else `local`, the setting or the host's (port_snow_weather). The snow decides the grip, so a
  * replay is played as it was recorded. */
 int snow_race_wanted(int in_replay, int replay_snow, int local);
