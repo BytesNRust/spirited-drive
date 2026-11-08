@@ -824,6 +824,7 @@ int drive_light_reload(void)
     PsxLight made = { 0 };
     if (!make_light(made_tri, made_track, &made)) return 0;
     install_made(&made, made_track, made_tunnel_track);
+    ported_view_light_changed();   /* the segments built hold the old rows: the main pass builds them again (the follow pass does each frame) */
     port_log("psx_light: %s's light made again\n", made_track);
     return 1;
 }

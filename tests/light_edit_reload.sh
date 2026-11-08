@@ -32,6 +32,18 @@ sleep 3   # the editor has taken the file's checksum by now
 echo "# saved mid-race" >> "$WORK/mods/track_light/CY1B.txt"
 wait_log "light made again" 15 || finish "the file was not read again, or the game died reading it"
 sleep 4   # the message is on screen for 3 s: the frames that draw it
+# the drawn track must follow the file too, not only the overlay: the rows round the start made dark, saved, the built track's light changes
+wait_log "the track built again with the new light" 15 || finish "the first reload did not build the track again"
+sum_of() { grep -a "the track built again with the new light" "$LOG" | tail -1 | sed 's/.*light sum \([0-9]*\).*/\1/'; }
+BEFORE=$(sum_of)
+awk '$1=="rows" && $2>=0 && $2<=400 && $2==$3 { printf "rows %s %s", $2, $3; for (i=4;i<=NF;i++) printf " 100"; print ""; next } { print }' \
+    "$WORK/mods/track_light/CY1B.txt" > "$WORK/dark.txt" && cp "$WORK/dark.txt" "$WORK/mods/track_light/CY1B.txt"
+for _ in $(seq 1 15); do
+    [ "$(grep -a -c "the track built again with the new light" "$LOG")" -ge 2 ] && break
+    sleep 1
+done
+AFTER=$(sum_of)
+[ -n "$BEFORE" ] && [ -n "$AFTER" ] && [ "$AFTER" -lt "$BEFORE" ] || finish "the drawn track kept its light (sum $BEFORE -> $AFTER)"
 kill -0 "$GAME" 2>/dev/null || finish "the game died after the reload"
 kill -9 "$GAME" 2>/dev/null
 wait "$GAME" 2>/dev/null

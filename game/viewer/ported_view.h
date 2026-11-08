@@ -53,6 +53,8 @@ int32_t ported_view_draw_segments(void);   /* the segments the frames draw now (
  * textured perspective-correct (modern_road.h) instead of 00425718's subdivision into the affine mapper; 0 the exe's */
 /* port: the PS1 look's light (psx_light.h) and the ambient colour's tint (per channel, 1 neutral; copied); NULL, none */
 void ported_view_set_light(const PsxLight *light, const float tint[3]);
+/* port (the light editor): the light's rows were changed in place; the built track is built again with them (the next frame) */
+void ported_view_light_changed(void);
 
 /* port (the PS1 look's light): the track's tunnel lamps (psx_lamps.h), `count` of them (copied; NULL or 0 none): the colours of each
  * lamp's fitting in its texture are not darkened by the light. Needs ported_view_set_light's light. */
