@@ -2810,7 +2810,7 @@ static const uint8_t *wiper_dark(void)
     static int made;
     if (!made || memcmp(made_for, object_pixels.palette, sizeof made_for) != 0) {
         static const uint8_t black[3] = { 0, 0, 0 };
-        spray_tint_table(object_pixels.palette, black, 92, table);
+        spray_tint_table(object_pixels.palette, black, 97, table);
         memcpy(made_for, object_pixels.palette, sizeof made_for);
         made = 1;
     }

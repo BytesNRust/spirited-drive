@@ -771,7 +771,7 @@ static void wide_mirror_and_strips(const WideFrame *w, const uint8_t *frame)
  * the glass's width is the visible width over WIPER_VISIBLE_SHARE; the left (driver) pivot is low, about at the wheel's x-centre, a little below the glass's bottom edge (hidden by the dash: the blade comes out from behind the wheel and the dash top, as in DriveClub), the second near the glass's centre (often past the view), both blades the same length, parked flat to the
  * right of their pivot along the bottom edge's slope and sweeping together up to the left. The glass is raked and seen from the left of its centre, so a blade turns in the glass's plane and the plane's axes put it
  * on the screen: along the edge (u) as it is, up the glass (v) squashed by WIPER_RAKE. The sweep is cut only against the left pillar and the glass's top (the right edge of the view cuts nothing). */
-enum { WIPER_PROBE_X = 300, WIPER_SPAN_DEG = 104, WIPER_FREE_X = 540, WIPER_LEFT_PIVOT_X = 282, WIPER_PIVOT_DROP = 24, WIPER_FIT_FROM = 7 };   /* the driver's pivot: x a little left of the wheel's centre, y this far below the edge */
+enum { WIPER_PROBE_X = 300, WIPER_SPAN_DEG = 118, WIPER_FREE_X = 540, WIPER_LEFT_PIVOT_X = 333, WIPER_PIVOT_DROP = 8, WIPER_FIT_FROM = 7 };   /* the driver's pivot: x at the wheel's centre (DriveClub's driver blade, a little right of it), y this far below the edge */
 static const float WIPER_VISIBLE_SHARE = 0.62f, WIPER_RAKE = 0.55f, WIPER_LEN_SHARE = 0.45f;
 
 /* the glass (the art's nothing, or what its mask gives to the blades) */
