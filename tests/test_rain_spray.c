@@ -26,13 +26,13 @@ static void test_dropped_once_a_tick_and_left_behind(void)
     int32_t place[3], radius, a_place[3], a_radius;
     int density, a_density;
     const RainSprayParticle first = s.p[0];
-    CHECK(rain_spray_look(&first, 101, 16, place, &radius, &density));
-    CHECK(rain_spray_look(&first, 101 + RAIN_SPRAY_LIFE - 2, 16, a_place, &a_radius, &a_density));
+    CHECK(rain_spray_look(&first, 101, 16, 0, place, &radius, &density));
+    CHECK(rain_spray_look(&first, 101 + RAIN_SPRAY_LIFE - 2, 16, 0, a_place, &a_radius, &a_density));
     CHECK(a_radius > radius);                 /* it widens */
     CHECK(a_density <= density);              /* and thins */
     CHECK(abs(a_place[2] - place[2]) < (2 << 16) && abs(a_place[1] - place[1]) < (1 << 16));   /* it stays where it was dropped: the car's 5 m on does not carry it; it lifts only a little */
-    CHECK(!rain_spray_look(&first, 100 + RAIN_SPRAY_LIFE, 16, place, &radius, &density));       /* gone at the end of its life */
-    CHECK(!rain_spray_look(&first, 99, 16, place, &radius, &density));                          /* and not before it was dropped */
+    CHECK(!rain_spray_look(&first, 100 + RAIN_SPRAY_LIFE, 16, 0, place, &radius, &density));       /* gone at the end of its life */
+    CHECK(!rain_spray_look(&first, 99, 16, 0, place, &radius, &density));                          /* and not before it was dropped */
 }
 
 static void test_a_wisp_is_one_short_particle(void)
@@ -47,12 +47,12 @@ static void test_a_wisp_is_one_short_particle(void)
     CHECK_EQ_INT(live_count(&s), 1);
     int32_t place[3], radius;
     int density;
-    CHECK(rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_WISP_LIFE - 1, 16, place, &radius, &density));
-    CHECK(!rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_WISP_LIFE, 16, place, &radius, &density));   /* gone in a tenth of a second */
+    CHECK(rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_WISP_LIFE - 1, 16, 0, place, &radius, &density));
+    CHECK(!rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_WISP_LIFE, 16, 0, place, &radius, &density));   /* gone in a tenth of a second */
     CHECK(abs(s.p[0].x) < (1 << 16));        /* dropped between the wheels */
     rain_spray_clear(&s);
     CHECK_EQ_INT(rain_spray_step(&s, 0, 100, left, wheel, right, 5, 20 << 16, 1), 2);   /* the plume is as before */
-    CHECK(rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_LIFE - 1, 16, place, &radius, &density));
+    CHECK(rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_LIFE - 1, 16, 0, place, &radius, &density));
 }
 
 static void test_nothing_dry_or_slow(void)
@@ -100,11 +100,11 @@ static void test_a_tunnel_leaves_no_spray(void)
     rain_spray_step(&s, 0, 10, w, w, right, 1, 30 << 16, 1);
     int32_t open_place[3], mouth_place[3], shut_place[3], open_radius, mouth_radius, shut_radius;
     int open_density, mouth_density, shut_density;
-    CHECK(rain_spray_look(&s.p[0], 18, 16, open_place, &open_radius, &open_density));
-    CHECK(rain_spray_look(&s.p[0], 18, 8, mouth_place, &mouth_radius, &mouth_density));
+    CHECK(rain_spray_look(&s.p[0], 18, 16, 0, open_place, &open_radius, &open_density));
+    CHECK(rain_spray_look(&s.p[0], 18, 8, 0, mouth_place, &mouth_radius, &mouth_density));
     CHECK(mouth_radius < open_radius && mouth_density <= open_density);   /* at a mouth: smaller and thinner */
     CHECK(mouth_place[1] <= open_place[1]);                               /* and lower */
-    CHECK(!rain_spray_look(&s.p[0], 18, 0, shut_place, &shut_radius, &shut_density));   /* port (tunnel_dry): inside a closed zone the road is dry, there is none */
+    CHECK(!rain_spray_look(&s.p[0], 18, 0, 0, shut_place, &shut_radius, &shut_density));   /* port (tunnel_dry): inside a closed zone the road is dry, there is none */
 }
 
 static void test_a_clock_that_goes_back_clears_the_trail(void)
@@ -134,7 +134,7 @@ static void test_wisp2(void)
             CHECK_EQ_INT(s.p[i].life, RAIN_SPRAY_WISP2_LIFE);   /* longer than the wisp's, shorter than the plume's */
             CHECK(RAIN_SPRAY_WISP2_LIFE > RAIN_SPRAY_WISP_LIFE && RAIN_SPRAY_WISP2_LIFE < RAIN_SPRAY_LIFE);
             CHECK(s.p[i].size >= 120);   /* the slow one is not a speck */
-            alive += rain_spray_look(&s.p[i], 100, 16, place, &radius, &density);
+            alive += rain_spray_look(&s.p[i], 100, 16, 0, place, &radius, &density);
         }
     CHECK_EQ_INT(alive, 2);
 }

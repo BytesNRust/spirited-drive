@@ -61,7 +61,7 @@ int rain_spray_step_wisp(RainSpray *s, int car, uint32_t tick, const int32_t lef
 int rain_spray_step_wisp2(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet);
 
 /* How a particle looks at `tick`: its place (16.16 m: dropped, drifted, risen a little), its radius (16.16 m: widening) and its density 0..RAIN_SPRAY_LEVELS - 1 (thinning; 0 the
- * faintest). 0 when it is not alive (never emitted, or past its life). `open` (0..16) thins and lowers it in a tunnel (road water only). */
-int rain_spray_look(const RainSprayParticle *p, uint32_t tick, int open, int32_t place[3], int32_t *radius, int *density);
+ * faintest). `rise` (port trail_rise): it climbs to about a car's height with its age and thins as it does (trail_rise.h) in place of the little lift it had. 0 when it is not alive (never emitted, or past its life). `open` (0..16) thins and lowers it in a tunnel (road water only). */
+int rain_spray_look(const RainSprayParticle *p, uint32_t tick, int open, int rise, int32_t place[3], int32_t *radius, int *density);
 
 #endif

@@ -18,6 +18,7 @@
 #include "game/race/track_object_draw.h"
 #include "game/race/reflector.h"
 #include "game/race/spray_tint.h"
+#include "game/race/trail_rise.h"
 #include "game/race/track_mask.h"
 #include "game/viewer/reflect_pass.h"
 #include "game/viewer/screen_layout.h"
@@ -1275,7 +1276,8 @@ static int32_t smoke_view_angle(void *ctx, const Car *car)
 /* port (rally_gravel.h): the dust of the followed car, a trail (dust_trail.h): puffs born at the rear wheels that stay where they were dropped, low,
  * rising and spreading a little, fading behind it. Each is a smoke puff over a few of the exe's own gravel puffs (puff_dirt, dir1..4), so
  * it reads as grit in a haze; the screen's place is the car's own world-to-screen (render_point). */
-static DustTrail dust_trail;
+static DustTrail dust_trails[RACE_CARS];   /* port (rally_spray): one a car, so a rival's dust is its own; the followed car's is the car's slot too */
+static int trail_rise_on;   /* port (trail_rise): the frame's switch, read where the frame is set up */
 enum { SPRAY_DIV = 0x14000 };   /* a spray puff's pixel radius: depth x size / SPRAY_DIV */
 static int32_t last_near_dir[3];   /* the main view's near plane (set by the render, used by render_point and the dust) */
 static int32_t last_near;
@@ -1477,7 +1479,7 @@ static void spray_row(int32_t node, int far_side)
         const RainSprayParticle *p = &rain_spray.p[i];
         int32_t place[3], radius, camera[3], screen[2];
         int density;
-        if (!p->live || p->node != node || !rain_spray_look(p, tick, open, place, &radius, &density)) continue;
+        if (!p->live || p->node != node || !rain_spray_look(p, tick, open, trail_rise_on, place, &radius, &density)) continue;
         if (!world_screen(place, camera, screen) || camera[2] < 64) continue;
         const Car *owner = p->car < RACE_CARS ? shadow_race->cars[p->car] : NULL;   /* a puff farther from the eye than its car is drawn before the row's cars, a nearer one after them */
         int32_t own_camera[3], own_screen[2];
@@ -1622,20 +1624,35 @@ static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4]
     }
 }
 
-static void dust_draw(const Car *car)
+static void dust_draw(const Car *car, int slot)
 {
     const int kind = shadow_race->port_rally_gravel;
-    const int drop = rally_dust_skid(kind, car->speed, car->airborne_ticks == 0) != 0;
+    DustTrail *const trail = &dust_trails[slot];
+    int32_t yaw = car->yaw, speed = car->speed;
+    if (car != followed_car()) {   /* port (rally_spray): a rival's yaw stays 0 (it is drawn with its matrix) and the traffic's speed too: heading from the matrix, pace from the speed or the velocity */
+        int32_t forward[2];
+        rain_spray_heading(car->use_matrix, car->yaw, car->matrix[6], car->matrix[8], forward);
+        yaw = (int32_t)((uint32_t)((int32_t)lrint(atan2((double)forward[0], (double)forward[1]) / (2.0 * M_PI) * 65536.0) & 0xffff) << 8);
+        speed = rain_spray_speed(car->speed, car->velocity_x, car->velocity_z);
+    }
+    const int drop = rally_dust_skid(kind, speed, car->airborne_ticks == 0) != 0;
     const int32_t at[3] = { car->x, car->y, car->z };
-    dust_trail_step(&dust_trail, shadow_race->tick, kind, drop, at, car->yaw, car->speed);
+    dust_trail_step(trail, shadow_race->tick, kind, drop, at, yaw, speed);
     if (rally_spray_on) return;   /* port (rally_spray): the wet road's spray is drawn in its place */
     if (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH && kind != RALLY_GRAVEL_SNOW) return;
     const PuffView v = puff_view();
     const int lunar = shadow_race->port_lunar_gravity != 0;
+    const int rise = trail_rise_on && kind != RALLY_GRAVEL_REGOLITH;   /* port (trail_rise): the dust climbs to a car's height and thins; the regolith is thrown up and falls back as it is */
     for (int n = 0; n < DUST_TRAIL_PUFFS; n++) {   /* the ring's oldest first: the farthest from a camera behind the car */
-        const DustPuff *p = &dust_trail.puff[(dust_trail.next + n) % DUST_TRAIL_PUFFS];
+        const DustPuff *p = &trail->puff[(trail->next + n) % DUST_TRAIL_PUFFS];
         int32_t place[3], size, camera[3], screen[2];
         if (!dust_puff_at(p, shadow_race->tick, kind, lunar, place, &size)) continue;
+        if (rise) {
+            const int age = (int)(shadow_race->tick - p->born), life = (int)dust_life(kind, lunar);
+            place[1] = p->pos[1] + trail_rise_height(age, life);
+            size = size * trail_rise_fade(age, life) / 100;
+            if (size < 1) size = 1;
+        }
         if (!world_screen(place, camera, screen) || camera[2] < 64) continue;
         const int32_t depth = 0x38400 / camera[2];
         const int32_t scale = depth * size * DUST_SIZE / 0x100 * 8;
@@ -1652,7 +1669,11 @@ static void smoke_draw(void *ctx, int in_car)
 {
     const TyreSmokeOps ops = { puff_rand_ctx, smoke_view_angle, puff_rand, smoke_puffs };
     tyre_smoke(&ops, (const Car *)ctx, in_car, shadow_race->camera_roll_add);
-    if (ctx == followed_car()) dust_draw(ctx);
+    const Car *const car = ctx;
+    int slot = -1;
+    for (int32_t i = 0; i < RACE_CARS && slot < 0; i++)
+        if (shadow_race->cars[i] == car) slot = (int)i;
+    if (slot >= 0 && (car == followed_car() || (shadow_race->port_rally_road != 0 && port_rally_spray()))) dust_draw(car, slot);   /* port (rally_spray): every car's dust, not only the followed one's */
 }
 
 /* 00490570 with *004c55e0 ('smok') */
@@ -2749,6 +2770,7 @@ static void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8
     memset(lit_corner, 255, sizeof lit_corner);
     rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
     rally_spray_on = rain_spray_on && shadow_race->port_rally_road != 0 && port_rally_spray();   /* port (rally_spray) */
+    trail_rise_on = port_trail_rise();   /* port (trail_rise) */
     if (rain_spray_on) {   /* port (rain v5) */
         spray_tables_set(wt);
         spray_update();
