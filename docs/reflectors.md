@@ -1,6 +1,6 @@
 # Reflectors
 
-At night, or in a dark tunnel, what is reflective (road signs, delineator posts, the cat's eyes painted on some roads) shines when the **player's** headlights reach it, far beyond the pool of light the road gets. Behind `reflectors=1` / `TNFS_REFLECTORS=1` (off in every profile; needs `psx_headlights`). With no mask for a texture, or the switch off, nothing changes: the frame is the one without the feature.
+At night, or in a dark tunnel, what is reflective (road signs, delineator posts, the cat's eyes painted on some roads) shines when the **player's** headlights reach it, far beyond the pool of light the road gets. Behind `reflectors=1` / `TNFS_REFLECTORS=1` (on in Restomod, off in Stock and Restored; needs `psx_headlights`). With no mask for a texture, or the switch off, nothing changes: the frame is the one without the feature.
 
 ## What is reflective
 

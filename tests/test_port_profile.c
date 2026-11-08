@@ -174,7 +174,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.track_light_lamp, 1);   /* the lamp lines of the track light files */
     CHECK_EQ_INT(s.rain_tyre_roll, 1);     /* the wet-tyre roll in the rain */
     CHECK_EQ_INT(s.snow_weather, 1);     /* the snow: only Restomod's */
-    CHECK_EQ_INT(s.reflectors, 0);   /* off in every profile until the owner approves it */
+    CHECK_EQ_INT(s.reflectors, 1);   /* the owner: the shine is Restomod's default (Stock and Restored keep 0) */
     CHECK_EQ_INT(s.shoulder_light, 1);   /* the third lane and the shoulders lit like the road */
     CHECK_EQ_INT(s.finish_gate_light, 1);   /* the owner: the gates are OK (the current tint, not the neutral one) */
     CHECK_EQ_INT(s.lamp_pool_bright, 1);   /* the owner approved the stronger lamp pools: Restomod's default (Stock and Restored keep 0) */
