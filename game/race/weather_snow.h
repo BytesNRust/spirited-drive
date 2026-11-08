@@ -19,12 +19,12 @@ int weather_snow_count(int32_t box_w, int32_t box_h, int level);
 void weather_snow_flake(int flake, uint32_t tick, int level, int32_t box_w, int32_t box_h, int32_t out[3]);
 
 /* port (snow_fx): the flakes with more depth. weather_snow_flake_fx is weather_snow_flake with
- *   - a randomness of its own: each flake's fall speeds up and slows and it sways on two beats (a little: a few percent of the box);
+ *   - a randomness of its own: each flake's fall speeds up and slows (a little: a few percent of the box); it does not sway from side to side;
  *   - the car's speed (`speed`, 16.16 m/s): the flakes flow away from the vanishing point (`vx`, `vy`, in box pixels) like the rain's streaks, at a smaller angle (at most SNOW_LEAN_PERCENT of the
  *     way to the rain's), and one the lean takes out of the box is not drawn (size 0);
  *   - the storm's wind, which swings: weather_snow_wind (tenths of a percent of the box's width a second, signed) follows a sine of period SNOW_DRIFT_PERIOD_TICKS, so the snowstorm leans one way,
  *     comes upright and leans the other, instead of always from the same side.
- * With the speed and the randomness at nothing it is the same animation as weather_snow_flake's, a little less regular. */
+ * With the speed at nothing the flakes fall as weather_snow_flake's do, a little less regular, but straight: no there-and-back sway. */
 enum { SNOW_DRIFT_PERIOD_TICKS = 1800, SNOW_WIND_MAX = 120, SNOW_LEAN_PERCENT = 30, SNOW_LENS_EVERY = 3 };
 int weather_snow_wind(uint32_t tick);
 void weather_snow_flake_fx(int flake, uint32_t tick, int level, int32_t box_w, int32_t box_h, int32_t speed, int32_t vx, int32_t vy, int32_t out[3]);

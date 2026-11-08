@@ -29,6 +29,10 @@ int lamp_blobs(const uint8_t *pixels, int pitch, int x0, int y0, int x1, int y1,
  * a pixel or two, so the nearest are the ones that get a halo when there are more than `max`. */
 int lamp_blobs_frame(const uint8_t *pixels, int pitch, int x0, int y0, int x1, int y1, const uint8_t member[256], LampBlob *out, int max);
 
+/* port (lamp_halos): 1 when the blob's centre is within `margin` pixels of one of the `count` screen rectangles {x0, y0, x1, y1} (corners in any order). The street lamps' halos go only to
+ * blobs inside a rectangle where a lamp's own sprite was drawn: a traffic sign the reflectors light is painted in the same entries, and is no lamp. */
+int lamp_blob_in_rects(const LampBlob *blob, const int (*rects)[4], int count, int margin);
+
 /* The halo's radius for a blob of `area` pixels: the blob's own radius times LAMP_FLARE_REACH / 10, at least LAMP_FLARE_MIN_RADIUS, at most LAMP_FLARE_MAX_RADIUS. */
 int lamp_flare_radius(int area);
 

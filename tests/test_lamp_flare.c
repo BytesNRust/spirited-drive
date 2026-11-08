@@ -68,6 +68,22 @@ static void test_frame_blobs(void)
     free(px);
 }
 
+/* a blob counts as a lamp only where a lamp's own sprite was drawn: the traffic signs the reflectors light are the same entries, but their rectangles are none of these */
+static void test_blob_in_rects(void)
+{
+    const LampBlob b = { .cx = 100, .cy = 50, .area = 9, .value = LAMP };
+    const int rects[2][4] = { { 10, 10, 40, 40 }, { 90, 30, 120, 80 } };
+    CHECK_EQ_INT(lamp_blob_in_rects(&b, rects, 2, 0), 1);          /* inside the second */
+    CHECK_EQ_INT(lamp_blob_in_rects(&b, rects, 1, 0), 0);          /* the first alone: outside */
+    CHECK_EQ_INT(lamp_blob_in_rects(&b, rects, 0, 0), 0);          /* no sprite drawn: no lamp */
+    CHECK_EQ_INT(lamp_blob_in_rects(&b, NULL, 2, 0), 0);
+    const int near[1][4] = { { 102, 52, 120, 80 } };
+    CHECK_EQ_INT(lamp_blob_in_rects(&b, near, 1, 0), 0);           /* just outside */
+    CHECK_EQ_INT(lamp_blob_in_rects(&b, near, 1, 2), 1);           /* a margin of two pixels takes it in */
+    const int flipped[1][4] = { { 120, 80, 90, 30 } };
+    CHECK_EQ_INT(lamp_blob_in_rects(&b, flipped, 1, 0), 1);        /* corners in any order */
+}
+
 static void test_radius(void)
 {
     CHECK_EQ_INT(lamp_flare_radius(0), LAMP_FLARE_MIN_RADIUS);
@@ -159,6 +175,7 @@ int main(void)
     test_far_fade();
     test_blobs();
     test_frame_blobs();
+    test_blob_in_rects();
     test_radius();
     test_level();
     test_draw();

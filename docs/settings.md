@@ -110,7 +110,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `spray_cd_smoke` | 0 | 0 | 0, 1, 2 (2: as 1 but the dry dust is the CD's gravel puffs (dir1..4) tinted by the road, and the mud by the wheel too, in place of the cloud and the droplets; 1: the spray and the dust of every car are the CD's smoke sprite, drawn additively and more transparent, tinted by the surface: white on water and snow, the road's brown on mud, beige on dust; water and mud add a few fine droplets stretched along the spray, the mud's darker; dry dust is the cloud only; 0 as before) | none | `TNFS_SPRAY_CD_SMOKE` | 0 / 0 / 1 | none |
 | `trail_rise` | 0 | 0 | 0, 1 (the water spray and the dust of every car rise with their age behind it, up to about a car's height, thinning as they go, as particles in suspension drift up; 0 as before) | none | `TNFS_TRAIL_RISE` | 0 / 0 / 0 | none |
 | `snow_fx` | 0 | 0 | 0, 1 (with snow_weather, the falling snow: soft round flakes, a little less regular, leaning away from the vanishing point with the car's speed at a smaller angle than the rain's streaks, the snowstorm's wind swinging from one side to the other over about a minute, and whiter, rarer marks on the lens; 0 as before) | none | `TNFS_SNOW_FX` | 0 / 0 / 0 | none |
-| `lamp_halos` | 0 | 0 | 0, 1 (at night, the street lamps get the same soft dithered halo as the brake lights and the tunnel lamps: found as the blobs of the lamp boards' emissive entries after the 3D, the nearest or largest few; the lit windows never; 0 as before)
+| `lamp_halos` | 0 | 0 | 0, 1 (at night, the street lamps get the same soft dithered halo as the brake lights and the tunnel lamps: found as the blobs of the lamp boards' emissive entries after the 3D, only where a lamp's own sprite was drawn, the nearest or largest few; the lit windows and the traffic signs the reflectors light never; 0 as before) | none | `TNFS_LAMP_HALOS` | 0 / 0 / 1 | none |
 0 | none | `TNFS_LAMP_HALOS` | 0 / 0 / 0 | none |
 | `wipers` | 0 | 0 | 0, 1 (in the dash view, in rain, storm and snow, two wiper blades sweep the glass, at a pace that follows what falls (light rain slow with a pause, snow in between, storm fast), and park when the cycle is done; each pass clears the lens drops and the snow's marks it crosses; a dash whose art draws wiper blades (the P911's, a red `dash_mask.png` colour) shows them only when the wipers are off; needs the wide path (a wide format or render_scale above 1); 0 as before) | none | `TNFS_WIPERS` | 0 / 0 / 0 | none |
 
@@ -259,7 +259,7 @@ All 64 columns of the table, in file order. A column that is not here is not tou
 | `spray_cd_smoke` | settings | 0 | 0 | 1 |
 | `trail_rise` | settings | 0 | 0 | 0 |
 | `snow_fx` | settings | 0 | 0 | 0 |
-| `lamp_halos` | settings | 0 | 0 | 0 |
+| `lamp_halos` | settings | 0 | 0 | 1 |
 | `wipers` | settings | 0 | 0 | 0 |
 
 The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.

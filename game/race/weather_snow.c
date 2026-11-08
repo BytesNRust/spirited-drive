@@ -80,14 +80,12 @@ void weather_snow_flake_fx(int flake, uint32_t tick, int level, int32_t box_w, i
     const uint32_t f = (uint32_t)flake;
     weather_snow_flake(flake, tick, level, box_w, box_h, out);
     if (box_w <= 0 || box_h <= 0) return;
-    float x = (float)out[0], y = (float)out[1];
-    if (level == SNOW_HEAVY) {   /* the storm's wind is the swinging one: the constant lean of weather_snow_flake comes off */
-        const double constant = (double)box_w * WIND_PERCENT * (double)(tick % 1000000u) / (100.0 * TICKS_A_SECOND);
+    /* no flake sways from side to side: the column it starts in (weather_snow_flake's own, without its there-and-back sway), and in the storm the slow swinging wind */
+    float x = (float)((int64_t)(hash(f, 3) & 0xffff) * box_w >> 16), y = (float)out[1];
+    if (level == SNOW_HEAVY) {
         const double omega = 6.2831853 * TICKS_A_SECOND / SNOW_DRIFT_PERIOD_TICKS;   /* rad a second */
-        const double swing = (double)box_w * (SNOW_WIND_MAX / 10.0) / 100.0 / omega * (1.0 - cosf(turn(tick, SNOW_DRIFT_PERIOD_TICKS)));
-        x += (float)(swing - constant);
+        x += (float)((double)box_w * (SNOW_WIND_MAX / 10.0) / 100.0 / omega * (1.0 - cosf(turn(tick, SNOW_DRIFT_PERIOD_TICKS))));
     }
-    x += sinf(turn(tick + hash(f, 9) % 200u, 17u + hash(f, 10) % 23u)) * (float)box_w * 0.012f;   /* a second sway on a beat of its own */
     y += sinf(turn(tick + hash(f, 11) % 300u, 41u + hash(f, 12) % 37u)) * (float)box_h * 0.015f;   /* its fall speeds up and slows */
     float wrapped = fmodf(x, (float)box_w);
     if (wrapped < 0.0f) wrapped += (float)box_w;
