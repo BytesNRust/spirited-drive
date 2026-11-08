@@ -2779,6 +2779,14 @@ void ported_view_set_wipers(const WiperBlade *blades, int count)
     if (wiper_scene_count > 0) memcpy(wiper_scene, blades, sizeof(WiperBlade) * (size_t)wiper_scene_count);
 }
 
+static const uint8_t *wiper_glass;
+static float wiper_glass_x, wiper_glass_y, wiper_glass_scale = 1.0f;
+
+void ported_view_set_wiper_glass(const uint8_t *glass, float x, float y, float scale)
+{
+    wiper_glass = glass, wiper_glass_x = x, wiper_glass_y = y, wiper_glass_scale = scale > 0.0f ? scale : 1.0f;
+}
+
 int ported_view_wipers_active(void) { return wiper_scene_count > 0 && weather_wet(weather); }
 
 /* the passes in the box's own pixels for this frame, NULL when there are none (no blades, nothing falls) */
@@ -2791,6 +2799,7 @@ static const WiperPass *wiper_pass_now(WiperPass *out, const int32_t box[4])
         out->blade[i].x -= (float)box[0], out->blade[i].y -= (float)box[1];
         if (out->blade[i].xmax > 0.0f) out->blade[i].xmax -= (float)box[0];
     }
+    out->glass = wiper_glass, out->glass_x = wiper_glass_x - (float)box[0], out->glass_y = wiper_glass_y - (float)box[1], out->glass_scale = wiper_glass_scale;
     out->timing = wiper_timing(snow_level() != SNOW_NONE ? WIPER_SNOW : weather == WEATHER_STORM ? WIPER_STORM : WIPER_RAIN);
     return out;
 }

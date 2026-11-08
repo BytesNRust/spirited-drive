@@ -13,7 +13,7 @@ static void test_the_blade_darkens_along_its_angle(void)
     for (int i = 0; i < 256; i++) dark[i] = (uint8_t)(i == 0xFF ? 0xFF : 7);
     memset(px, 200, sizeof px);
     const int32_t box[4] = { 0, 0, W, H };
-    WiperPass w = { { { 100.0f, 100.0f, 80.0f, 3.14159265f, 1.5707963f, 0, 0, 0, 0, 0 } }, 1, wiper_timing(WIPER_RAIN) };
+    WiperPass w = { { { 100.0f, 100.0f, 80.0f, 3.14159265f, 1.5707963f, 0, 0, 0, 0, 0 } }, 1, wiper_timing(WIPER_RAIN), NULL, 0.0f, 0.0f, 1.0f };
     wiper_draw(px, W, box, &w, 0, dark);   /* parked: pointing left from the pivot */
     CHECK_EQ_INT(px[100 * W + 60], 7);     /* on the blade, 40 px to the left */
     CHECK_EQ_INT(px[100 * W + 100 - 80 + 3], 7);   /* near its tip */
@@ -32,7 +32,7 @@ static void test_it_stays_inside_the_box_and_in_the_pixels_it_is_given(void)
     for (int i = 0; i < 256; i++) dark[i] = 7;
     memset(px, 200, sizeof px);
     const int32_t box[4] = { 20, 10, 120, 90 };   /* a box inside the buffer, its own origin */
-    WiperPass w = { { { 10.0f, 70.0f, 300.0f, 3.14159265f * 0.9f, 1.0f, 0, 0, 0, 0, 0 } }, 1, wiper_timing(WIPER_STORM) };   /* reaches far outside it */
+    WiperPass w = { { { 10.0f, 70.0f, 300.0f, 3.14159265f * 0.9f, 1.0f, 0, 0, 0, 0, 0 } }, 1, wiper_timing(WIPER_STORM), NULL, 0.0f, 0.0f, 1.0f };   /* reaches far outside it */
     wiper_draw(px, W, box, &w, 0, dark);
     for (int y = 0; y < H; y++)
         for (int x = 0; x < W; x++)
