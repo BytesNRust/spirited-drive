@@ -117,6 +117,7 @@ typedef struct {
     int police_glow;         /* 1: the police car's lights have a near-white core of the light's colour, and a stronger halo in poor light (psx_flares on); 0: the flat colour, as it was */
     int reflectors;    /* 1: at night or in a dark tunnel, with the PS1 headlights, the texels a track mask marks reflective shine in the player's lamp cone out to 200 m (reflector.h); 0 the exe's */
     int handbrake_lamps;   /* 1: a brake that is the handbrake's alone (the rally's handbrake is a full brake, car_physics.c) does not light the brake lamps; 0 the exe's */
+    int rally_spray;    /* 1: in a rally with rain_fx and rain or snow, every car (the player's too) throws the road's spray, tinted by the road it is on (gravel grey, brown dirt, snow white) and darker than water; 0 the exe's */
     int profile;             /* a Profile (port_profile.h): the mode in use, `profile=stock|restored|restomod` in port.cfg, Stock without the line. Last, so the positional initialisers keep their meaning. */
 } PortSettings;
 
@@ -253,6 +254,8 @@ int port_rain_tyre_roll(void);
 int port_snow_weather(void);
 /* 1 when reflectors: TNFS_REFLECTORS=0/1 when set, else the mode's; never without port_psx_headlights(). */
 int port_reflectors(void);
+/* 1 when rally_spray: TNFS_RALLY_SPRAY=0/1 when set, else the mode's. */
+int port_rally_spray(void);
 
 /* 1 when handbrake_lamps: TNFS_HANDBRAKE_LAMPS=0/1 when set, else the mode's. The lamps only: the physics are the exe's either way. */
 int port_handbrake_lamps(void);

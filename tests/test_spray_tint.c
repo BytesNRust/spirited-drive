@@ -1,0 +1,54 @@
+/* The rally's spray colour (spray_tint.h): the colour the road gives it and the table that paints with it. */
+#include "game/race/spray_tint.h"
+#include "tests/test.h"
+
+#include <string.h>
+
+static int luma(const uint8_t c[3]) { return (c[0] * 77 + c[1] * 150 + c[2] * 29) >> 8; }
+
+static void test_the_spray_is_a_darker_road_and_the_snows_stays_white(void)
+{
+    const uint8_t gravel[3] = { 110, 105, 100 }, dirt[3] = { 130, 95, 60 }, snow[3] = { 225, 230, 238 };
+    uint8_t t[3];
+    spray_tint_target(gravel, t);
+    CHECK(luma(t) < luma(gravel) && t[0] >= t[1] && t[1] >= t[2]);   /* greyer-darker, still grey */
+    spray_tint_target(dirt, t);
+    CHECK(luma(t) < luma(dirt) && t[0] > t[1] && t[1] > t[2]);        /* darker, still brown */
+    spray_tint_target(snow, t);
+    CHECK(luma(t) >= 210);                                            /* snow throws white powder */
+}
+
+static void put(uint8_t *pal, int i, int r, int g, int b) { pal[i * 3] = (uint8_t)r, pal[i * 3 + 1] = (uint8_t)g, pal[i * 3 + 2] = (uint8_t)b; }
+
+static void test_the_table_moves_each_colour_toward_the_tint(void)
+{
+    uint8_t pal[768] = { 0 }, table[256];
+    put(pal, 1, 250, 250, 250), put(pal, 2, 128, 128, 128), put(pal, 3, 80, 55, 30), put(pal, 4, 20, 20, 20);
+    const uint8_t tint[3] = { 80, 55, 30 };
+    spray_tint_table(pal, tint, 60, table);
+    CHECK_EQ_INT(table[255], 255);                  /* the transparent index is left alone */
+    CHECK_EQ_INT(table[3], 3);                      /* the tint itself is as it is */
+    CHECK(table[1] != 1);                           /* a white is carried toward the brown... */
+    CHECK(luma(&pal[table[1] * 3]) < 250);          /* ...and so is darker */
+    spray_tint_table(pal, tint, 0, table);
+    CHECK_EQ_INT(table[1], 1);                      /* no share: the colour itself */
+    CHECK_EQ_INT(table[2], 2);
+    spray_tint_table(pal, tint, 100, table);
+    CHECK_EQ_INT(table[1], 3);                      /* all of it: the tint's entry */
+    CHECK_EQ_INT(table[4], 3);
+}
+
+static void test_a_key_groups_alike_colours(void)
+{
+    const uint8_t a[3] = { 100, 90, 80 }, b[3] = { 101, 91, 81 }, c[3] = { 140, 90, 80 };
+    CHECK_EQ_INT(spray_tint_key(a), spray_tint_key(b));
+    CHECK(spray_tint_key(a) != spray_tint_key(c));
+}
+
+int main(void)
+{
+    test_the_spray_is_a_darker_road_and_the_snows_stays_white();
+    test_the_table_moves_each_colour_toward_the_tint();
+    test_a_key_groups_alike_colours();
+    return TEST_REPORT();
+}
