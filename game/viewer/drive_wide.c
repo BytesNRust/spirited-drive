@@ -768,10 +768,10 @@ static void wide_mirror_and_strips(const WideFrame *w, const uint8_t *frame)
 }
 
 /* port (wipers): where the blades are on the dash (layer pixels), for every dash from its art, as a tandem pair on the FULL windscreen: the dash view shows only about 62% of the glass, the rest is past the right edge, so
- * the glass's width is the visible width over WIPER_VISIBLE_SHARE; the left (driver) pivot is low, at the x of the wheel's left rim, a little below the glass's bottom edge (hidden by the dash: the blade comes out from behind the wheel and the dash top, as in DriveClub), the second near the glass's centre (often past the view), both blades the same length, parked flat to the
+ * the glass's width is the visible width over WIPER_VISIBLE_SHARE; the left (driver) pivot is low, a gap right of the wheel's left rim, a little below the glass's bottom edge (hidden by the dash: the blade comes out from behind the wheel and the dash top, as in DriveClub), the second near the glass's centre (often past the view), both blades the same length, parked flat to the
  * right of their pivot along the bottom edge's slope and sweeping together up to the left. The glass is raked and seen from the left of its centre, so a blade turns in the glass's plane and the plane's axes put it
  * on the screen: along the edge (u) as it is, up the glass (v) squashed by WIPER_RAKE. The sweep is cut only against the left pillar and the glass's top (the right edge of the view cuts nothing). */
-enum { WIPER_PROBE_X = 300, WIPER_SPAN_DEG = 118, WIPER_FREE_X = 540, WIPER_LEFT_PIVOT_X = 333, WIPER_PIVOT_DROP = 8, WIPER_FIT_FROM = 7 };   /* the driver's pivot: x at the wheel's left rim (wheel_left_rim; this is its fallback), y this far below the edge */
+enum { WIPER_PROBE_X = 300, WIPER_SPAN_DEG = 90, WIPER_FREE_X = 540, WIPER_LEFT_PIVOT_X = 333, WIPER_PIVOT_DROP = 8, WIPER_FIT_FROM = 7 };   /* the driver's pivot: a gap right of the wheel's left rim (wheel_left_rim; WIPER_LEFT_PIVOT_X is its fallback), y this far below the edge */
 static const float WIPER_VISIBLE_SHARE = 0.62f, WIPER_RAKE = 0.55f, WIPER_LEN_SHARE = 0.45f;
 
 /* the glass (the art's nothing, or what its mask gives to the blades) */
@@ -872,8 +872,8 @@ int drive_wide_wiper_scene(const RaceState *race, WiperBlade *out)
     const float ya = windscreen_bottom(art, mask, xa), yb = windscreen_bottom(art, mask, xb);
     const float slope = atan2f(ya - yb, (float)(xb - xa)), tn = tanf(slope);   /* the edge's, up to the right */
     const uint8_t *const flags = wiper_glass_flags(art, mask, WIPER_PROBE_X, row);
-    const float lx = wheel_left_rim(flags, ya, tn, xa, (float)WIPER_LEFT_PIVOT_X), len = full * WIPER_LEN_SHARE;
-    const float rx = lx + ((float)gl + full * 0.5f - (float)WIPER_LEFT_PIVOT_X);   /* the second pivot keeps its distance from the driver's */
+    const float rim = wheel_left_rim(flags, ya, tn, xa, (float)WIPER_LEFT_PIVOT_X), gap = (float)gl + full * 0.5f - (float)WIPER_LEFT_PIVOT_X, len = full * WIPER_LEN_SHARE;
+    const float lx = rim + gap, rx = rim + 2.0f * gap;   /* the driver's pivot a gap right of the wheel's left rim, the second a gap further */
     const float ux = cosf(slope), uy = sinf(slope), vx = -sinf(slope) * WIPER_RAKE, vy = cosf(slope) * WIPER_RAKE;
     WiperBlade layer[WIPER_BLADES] = {
         { lx, ya - tn * (lx - (float)xa) + (float)WIPER_PIVOT_DROP, len, slope, 0.0f, ux, uy, vx, vy, (float)SCREEN_W },
