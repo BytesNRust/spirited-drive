@@ -109,3 +109,24 @@ int weather_snow_lens_count(int32_t box_w, int32_t box_h)
     const int n = weather_lens_count(box_w, box_h) / SNOW_LENS_EVERY;
     return n < 1 ? 1 : n;
 }
+
+int weather_snow_sprite(int size, int side, uint8_t *out)
+{
+    if (size < 1) size = 1;
+    if (size > SNOW_SIZE_MAX) size = SNOW_SIZE_MAX;
+    if (side < 1) side = 1;
+    if (side > SNOW_SIDE_MAX) side = SNOW_SIDE_MAX;
+    const float radius = (float)side * (0.55f + 0.95f * (float)(size - 1));   /* far flakes tiny, near ones big */
+    const float soft = fmaxf(1.0f, radius * (size == 1 ? 0.7f : 0.5f + 0.15f * (float)size));   /* and the near ones softer at the rim */
+    const int top = size == 1 ? 2 : size == 2 ? 3 : SNOW_RAMP;   /* the far ones dimmer, too */
+    const int half = (int)ceilf(radius) + 1, dim = 2 * half + 1;
+    for (int y = 0; y < dim; y++)
+        for (int x = 0; x < dim; x++) {
+            const float dist = sqrtf((float)((x - half) * (x - half) + (y - half) * (y - half)));
+            float c = (radius + 0.5f - dist) / soft;
+            c = c < 0.0f ? 0.0f : c > 1.0f ? 1.0f : c;
+            int v = (int)floorf(c * (float)top + 0.35f);
+            out[y * dim + x] = (uint8_t)(v > top ? top : v);
+        }
+    return dim;
+}

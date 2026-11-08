@@ -29,6 +29,12 @@ enum { SNOW_DRIFT_PERIOD_TICKS = 1800, SNOW_WIND_MAX = 120, SNOW_LEAN_PERCENT = 
 int weather_snow_wind(uint32_t tick);
 void weather_snow_flake_fx(int flake, uint32_t tick, int level, int32_t box_w, int32_t box_h, int32_t speed, int32_t vx, int32_t vy, int32_t out[3]);
 
+/* port (snow_fx): the soft flake: a round sprite of ramp steps for a flake of `size` (1..SNOW_SIZE_MAX, the far ones tiny and the near ones big, softer and dimmer at the rim) and the render's unit `side`
+ * in pixels (clamped 1..SNOW_SIDE_MAX): `out` (SNOW_SPRITE_MAX x SNOW_SPRITE_MAX bytes) gets dim x dim steps, 0 none .. SNOW_RAMP the whitest (the draw maps a step to the rain's brightness tables).
+ * Returns dim. Built in code, so at the render scale's own resolution it is not a scaled block. */
+enum { SNOW_RAMP = 4, SNOW_SIDE_MAX = 12, SNOW_SPRITE_MAX = 2 * (SNOW_SIDE_MAX * 5 / 2 + 2) + 1 };
+int weather_snow_sprite(int size, int side, uint8_t *out);
+
 /* port (snow_fx): the marks the snow leaves on the lens, a third of the rain's drops in number (weather_lens_drop's, every SNOW_LENS_EVERY-th) */
 int weather_snow_lens_count(int32_t box_w, int32_t box_h);
 

@@ -22,8 +22,8 @@ void weather_rain_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int
  * it covers through `table` (a brightening one); `open` (0..16) as the rain's: none in a closed zone, thinned out at its mouths. The same call draws the same picture. */
 void weather_snow_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int level, int open, const uint8_t table[256]);
 
-/* port (snow_fx): the same with weather_snow_flake_fx (weather_snow.h): `speed` the followed car's (16.16 m/s), (`vx`, `vy`) the vanishing point in box pixels */
-void weather_snow_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int level, int open, const uint8_t table[256], int32_t speed, int32_t vx, int32_t vy);
+/* port (snow_fx): the same with weather_snow_flake_fx (weather_snow.h) and the soft round flake (weather_snow_sprite): each flake's ramp step goes through the rain's brightness tables `tables` (WEATHER_RAIN_LEVELS of them); `speed` the followed car's (16.16 m/s), (`vx`, `vy`) the vanishing point in box pixels */
+void weather_snow_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int level, int open, const uint8_t tables[][256], int32_t speed, int32_t vx, int32_t vy);
 
 /* port (snow_fx): the marks the snow leaves on the lens: soft white blots, the lens's drops (weather_lens_drop) every SNOW_LENS_EVERY-th, the scene behind them lightened twice by the `light` table, an edge that thins by a dither */
 void weather_snow_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], uint32_t tick, int32_t speed, int32_t vx, int32_t vy, const uint8_t light[256], int open);

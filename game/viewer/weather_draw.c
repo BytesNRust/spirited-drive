@@ -87,29 +87,32 @@ void weather_snow_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int
     }
 }
 
-static void snow_flake_square(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, const int32_t f[3], const uint8_t table[256])
-{
-    const int32_t w = box[2] - box[0], h = box[3] - box[1];
-    const int32_t side = scale > h / 220 ? (scale > 0 ? scale : 1) : h / 220;   /* a flake's unit: the render scale's, or a 220th of the box's height where that is more */
-    for (int32_t dy = 0; dy < f[2] * side; dy++)
-        for (int32_t dx = 0; dx < f[2] * side; dx++) {
-            if (f[2] == SNOW_SIZE_MAX && (dx < side || dx >= 2 * side) && (dy < side || dy >= 2 * side)) continue;   /* the biggest is a soft plus, not a square */
-            const int32_t px = f[0] + dx, py = f[1] + dy;
-            if (px < 0 || px >= w || py < 0 || py >= h) continue;
-            uint8_t *p = pixels + (size_t)(box[1] + py) * (size_t)pitch + (size_t)(box[0] + px);
-            *p = table[*p];
-        }
-}
+/* the soft flakes, built the first time a size is drawn at a unit (code, no art): the render scale's own resolution, so at x2 or x3 they are not blocks scaled up */
+static struct { uint8_t px[SNOW_SPRITE_MAX * SNOW_SPRITE_MAX]; int dim; } snow_sprites[SNOW_SIZE_MAX + 1][SNOW_SIDE_MAX + 1];
 
-void weather_snow_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int level, int open, const uint8_t table[256], int32_t speed, int32_t vx, int32_t vy)
+void weather_snow_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int level, int open, const uint8_t tables[][256], int32_t speed, int32_t vx, int32_t vy)
 {
     const int32_t w = box[2] - box[0], h = box[3] - box[1];
     const int count = weather_snow_count(w, h, level);
+    int32_t side = scale > h / 220 ? (scale > 0 ? scale : 1) : h / 220;   /* a flake's unit: the render scale's, or a 220th of the box's height where that is more */
+    if (side > SNOW_SIDE_MAX) side = SNOW_SIDE_MAX;
     for (int i = 0; i < count; i++) {
         int32_t f[3];
         if (open < 16 && (int)((uint32_t)i * 2654435761u >> 12 & 15u) >= open) continue;   /* a tunnel: no snow, thinning out at the mouths */
         weather_snow_flake_fx(i, tick, level, w, h, speed, vx, vy, f);
-        if (f[2] > 0) snow_flake_square(pixels, pitch, box, scale, f, table);
+        if (f[2] <= 0) continue;
+        if (snow_sprites[f[2]][side].dim == 0) snow_sprites[f[2]][side].dim = weather_snow_sprite(f[2], side, snow_sprites[f[2]][side].px);
+        const int dim = snow_sprites[f[2]][side].dim;
+        const uint8_t *sp = snow_sprites[f[2]][side].px;
+        const int32_t left = f[0] + f[2] * side / 2 - dim / 2, top = f[1] + f[2] * side / 2 - dim / 2;
+        for (int32_t y = 0; y < dim; y++)
+            for (int32_t x = 0; x < dim; x++) {
+                const uint8_t step = sp[y * dim + x];
+                const int32_t px = left + x, py = top + y;
+                if (step == 0 || px < 0 || px >= w || py < 0 || py >= h) continue;
+                uint8_t *p = pixels + (size_t)(box[1] + py) * (size_t)pitch + (size_t)(box[0] + px);
+                *p = tables[step - 1][*p];
+            }
     }
 }
 

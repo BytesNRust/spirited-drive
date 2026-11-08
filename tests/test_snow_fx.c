@@ -101,8 +101,41 @@ static void test_fewer_marks_on_the_lens_than_drops_of_rain(void)
     CHECK(weather_snow_lens_count(W, H) < weather_lens_count(W, H));
 }
 
+/* the soft flake: a round sprite of ramp steps (0 none .. SNOW_RAMP the whitest), built in code for a size (1..SNOW_SIZE_MAX, near ones bigger) and the render's unit in pixels */
+static void test_a_flake_is_round_and_soft(void)
+{
+    uint8_t a[SNOW_SPRITE_MAX * SNOW_SPRITE_MAX];
+    for (int side = 1; side <= 4; side++)
+        for (int size = 1; size <= SNOW_SIZE_MAX; size++) {
+            const int dim = weather_snow_sprite(size, side, a);
+            CHECK(dim >= 1 && dim <= SNOW_SPRITE_MAX);
+            const int mid = dim / 2;
+            int top = 0, levels[SNOW_RAMP + 1] = { 0 };
+            for (int y = 0; y < dim; y++)
+                for (int x = 0; x < dim; x++) {
+                    const int v = a[y * dim + x];
+                    CHECK(v >= 0 && v <= SNOW_RAMP);
+                    levels[v]++;
+                    if (v > top) top = v;
+                    CHECK_EQ_INT(a[y * dim + x], a[x * dim + y]);                 /* the same turned over: round, not a square's tilt */
+                }
+            CHECK(top >= 1);
+            CHECK_EQ_INT(a[mid * dim + mid] == top || a[(mid ? mid - 1 : 0) * dim + mid] == top, 1);   /* the brightest is at its heart */
+            if (side >= 2 && size == SNOW_SIZE_MAX) {
+                int steps = 0;
+                for (int v = 1; v <= SNOW_RAMP; v++) steps += levels[v] > 0;
+                CHECK(steps >= 3);                                               /* a ramp of its own colours, not a flat disc */
+                CHECK(a[0] == 0 && a[dim - 1] == 0);                             /* the corners empty: not a square */
+            }
+        }
+    uint8_t small[SNOW_SPRITE_MAX * SNOW_SPRITE_MAX], big[SNOW_SPRITE_MAX * SNOW_SPRITE_MAX];
+    CHECK(weather_snow_sprite(SNOW_SIZE_MAX, 3, big) > weather_snow_sprite(1, 3, small));   /* near is bigger */
+    CHECK_EQ_INT(weather_snow_sprite(1, 0, small) >= 1, 1);                                   /* a unit of 0 is taken as 1 */
+}
+
 int main(void)
 {
+    test_a_flake_is_round_and_soft();
     test_the_wind_swings_both_ways();
     test_flakes_stay_in_the_box_and_repeat();
     test_the_flakes_are_less_regular();
