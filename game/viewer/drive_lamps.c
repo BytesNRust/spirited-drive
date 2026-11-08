@@ -83,6 +83,8 @@ void drive_lamps_arm(void)
     }
 }
 
+LampEntries drive_lamps_get_entries(void) { return entries; }
+
 void drive_lamps_set_entries(uint8_t brake_lit, uint8_t position, uint8_t headlight, uint8_t reverse)
 {
     entries = (LampEntries){ brake_lit, position, headlight, reverse };

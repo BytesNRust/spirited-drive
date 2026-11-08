@@ -115,6 +115,7 @@ typedef struct {
     int tach_dim;            /* 1: the R&T tachometer of the views outside the car takes the dash's half tint with the time of day (a little darker at night), its needle staying lit (tach_dim.h); 0: untinted, as it was */
     int gauge_wheel;         /* 1: at night the steering wheel in front of the gauges is the dash's (half tint) like the rest of the wheel, not lit with the dials; 0: lit, as it was */
     int police_glow;         /* 1: the police car's lights have a near-white core of the light's colour, and a stronger halo in poor light (psx_flares on); 0: the flat colour, as it was */
+    int reflectors;    /* 1: at night or in a dark tunnel, with the PS1 headlights, the texels a track mask marks reflective shine in the player's lamp cone out to 200 m (reflector.h); 0 the exe's */
     int profile;             /* a Profile (port_profile.h): the mode in use, `profile=stock|restored|restomod` in port.cfg, Stock without the line. Last, so the positional initialisers keep their meaning. */
 } PortSettings;
 
@@ -249,6 +250,8 @@ int port_track_light_lamp(void);
 int port_rain_tyre_roll(void);
 /* 1 when snow_weather: TNFS_SNOW_WEATHER=0..1 when set, else the mode's. */
 int port_snow_weather(void);
+/* 1 when reflectors: TNFS_REFLECTORS=0/1 when set, else the mode's; never without port_psx_headlights(). */
+int port_reflectors(void);
 
 /* the police roof halo's size 0..3: TNFS_POLICE_HALO=0..3 when set, else the mode's. */
 int port_police_halo(void);
