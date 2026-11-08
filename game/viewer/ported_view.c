@@ -1486,7 +1486,7 @@ typedef struct {
     uint8_t made[MIST_DENSITIES];
     uint8_t row[MIST_DENSITIES][SPRAY_MIST_LEVELS + 1][256];   /* a table for each level of the sprite's grey, by how thick the particle is */
     uint8_t drop[256];                                         /* the droplets' table: lighter (water) or darker (mud) */
-    uint8_t colour[3];
+    uint8_t colour[3], road[3];
 } MistTint;
 static MistTint mist_tints[MIST_TINTS];
 static int mist_tint_next, spray_cd_on;
@@ -1520,22 +1520,28 @@ static MistTint *mist_tint(const uint8_t road[3])
     memset(m, 0, sizeof *m);
     m->key = key, m->used = 1, m->kind = spray_mist_kind(road);
     spray_mist_colour(road, m->colour);
+    memcpy(m->road, road, 3);
     uint8_t dark[3];
     for (int k = 0; k < 3; k++) dark[k] = (uint8_t)(road[k] * 40 / 100);
     if (m->kind == SPRAY_MIST_MUD) spray_tint_table(object_pixels.palette, dark, 78, m->drop);   /* a mud droplet is darker than the road */
-    else spray_add_table(object_pixels.palette, m->colour, 200, m->drop);                        /* a water droplet catches the light */
+    else spray_add_table(object_pixels.palette, m->colour, 255, m->drop);                        /* a water droplet catches the light */
     return m;
 }
 
 /* the rows of a thickness 0..3: the sprite's level k adds MAX x k / levels of the colour; made when first wanted */
 static const uint8_t *const *mist_rows_of(MistTint *m, int density)
 {
-    static const int MAX_ADD[MIST_DENSITIES] = { 100, 150, 200, 250 };   /* of 255 at the sprite's whitest: far less than the exe's puff */
+    static const int MAX_ADD[MIST_DENSITIES] = { 110, 150, 190, 230 }, MAX_ADD_MUD[MIST_DENSITIES] = { 55, 80, 105, 130 };   /* water's white reads as strongly as the speckles; the mud's and the dust's as they were */   /* of 255 at the sprite's whitest: far less than the exe's puff */
     if (density < 0) density = 0;
     if (density >= MIST_DENSITIES) density = MIST_DENSITIES - 1;
     if (!m->made[density]) {
-        const int scale = m->kind == SPRAY_MIST_MUD ? 85 : 100;   /* a dust is a little thinner than water's white */
-        for (int k = 0; k <= SPRAY_MIST_LEVELS; k++) spray_add_table(object_pixels.palette, m->colour, MAX_ADD[density] * scale / 100 * k / SPRAY_MIST_LEVELS, m->row[density][k]);
+        for (int k = 0; k <= SPRAY_MIST_LEVELS; k++) spray_add_table(object_pixels.palette, m->colour, (m->kind == SPRAY_MIST_MUD ? MAX_ADD_MUD : MAX_ADD)[density] * k / SPRAY_MIST_LEVELS, m->row[density][k]);
+        const int road_warm = m->road[0] - m->road[2];   /* on a warm ground (dirt, dust) a cool colour is the car's body, not the ground: the beige is not drawn over it, so it does not turn grey-blue */
+        for (int i = 0; i < 255; i++) {
+            const int warm = object_pixels.palette[i * 3] - object_pixels.palette[i * 3 + 2];
+            if (road_warm > 20 && warm < 0)
+                for (int k = 0; k <= SPRAY_MIST_LEVELS; k++) m->row[density][k][i] = (uint8_t)i;
+        }
         m->made[density] = 1;
     }
     for (int i = 0; i < 256; i++) mist_rows[i] = m->row[density][0];
@@ -1555,14 +1561,14 @@ static void mist_draw(const uint8_t road[3], int density, int32_t cx, int32_t cy
 /* a few fine droplets thrown along the spray by a young particle (water and mud only), a streak each, stretched along (dx, dy) on the screen */
 static void mist_droplets(const uint8_t road[3], const RainSprayParticle *p, uint32_t tick, int slot, int32_t cx, int32_t cy, int32_t px, int dx, int dy)
 {
-    if (tick - p->born > 5u || px < 2) return;
+    if (tick - p->born > 8u || px < 2) return;
     MistTint *m = mist_tint(road);
     if (m->kind == SPRAY_MIST_SNOW) return;
     const QuadTarget *t = object_pixels.target;
     if (dx == 0 && dy == 0) dy = -1;
     const int norm = (int)lrint(sqrt((double)dx * dx + (double)dy * dy));
     const int len = 3 + (px > 24 ? 24 : px) / 5;
-    for (int n = 0; n < 2; n++) {
+    for (int n = 0; n < 4; n++) {
         const uint32_t h = rain_hash((uint32_t)slot * 4u + (uint32_t)n, p->born * 2654435761u + 77u);
         int x = cx + (int)(h % (uint32_t)(px + 1)) - px / 2, y = cy - (int)((h >> 8) % (uint32_t)(px / 2 + 1));
         for (int s = 0; s < len; s++) {
@@ -1782,7 +1788,7 @@ static void dust_draw(const Car *car, int slot)
         const int32_t scale = depth * size * DUST_SIZE / 0x100 * 8;
         if (mist_have) {   /* port (spray_cd_smoke): the cloud only, the CD's sprite tinted by the road */
             const int32_t w = (int32_t)((int64_t)scale * 75 >> 16);
-            mist_draw(mist_road, 1, screen[0], screen[1], w, w * 7 / 10 + 1, p->seed);
+            mist_draw(mist_road, 3, screen[0], screen[1], w, w * 7 / 10 + 1, p->seed);
             continue;
         }
         puff_smoke(&v, screen[0], screen[1], scale);

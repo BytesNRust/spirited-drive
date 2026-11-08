@@ -74,7 +74,8 @@ void spray_add_table(const uint8_t pal[768], const uint8_t colour[3], int amount
         for (int j = 0; j < 255; j++) {
             if (j != i && pal[j * 3] + 2 * pal[j * 3 + 1] + pal[j * 3 + 2] < floor_luma) continue;
             const int dr = pal[j * 3] - want[0], dg = pal[j * 3 + 1] - want[1], db = pal[j * 3 + 2] - want[2];
-            const int d = dr * dr * 3 + dg * dg * 4 + db * db * 2;
+            const int warm = (pal[j * 3] - pal[j * 3 + 2]) - (want[0] - want[2]);   /* the tint's warm or cool side is kept: a beige lift of a dark blue stays beige, not a grey-blue */
+            const int d = dr * dr * 3 + dg * dg * 4 + db * db * 2 + warm * warm * 3;
             if (d < best_d || (d == best_d && j == i)) best_d = d, best = j;
         }
         table[i] = (uint8_t)best;
@@ -87,9 +88,14 @@ int spray_mist_shape(const uint8_t *shape, const uint8_t grey[256], uint8_t *out
     const size_t w = (size_t)(shape[4] | shape[5] << 8), h = (size_t)(shape[6] | shape[7] << 8);
     if (out_size < 16 + w * h) return 0;
     for (size_t i = 0; i < 16; i++) out[i] = shape[i];
+    int top = 0;   /* the sprite's whitest grey is the top level whatever the palette's range: the CD's blend palette is dark, its greys stay low */
     for (size_t i = 0; i < w * h; i++) {
         const uint8_t t = shape[16 + i];
-        const int g = t == 0xFF || grey[t] < 24 ? 0 : grey[t];   /* the sprite's faint fringe is nothing: it would show the sprite's box */
+        if (t != 0xFF && grey[t] > top) top = grey[t];
+    }
+    for (size_t i = 0; i < w * h; i++) {
+        const uint8_t t = shape[16 + i];
+        const int g = t == 0xFF || top == 0 || grey[t] * 255 / top < 24 ? 0 : grey[t] * 255 / top;   /* the faint fringe is nothing: it would show the sprite's box */
         int level = (g * SPRAY_MIST_LEVELS + 127) / 255;
         if (g > 0 && level < 1) level = 1;
         out[16 + i] = (uint8_t)level;
