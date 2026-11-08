@@ -193,7 +193,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.rally_spray, 1);   /* on in Restomod (owner 2026-11-08): every car throws the tinted trail in a rally */
     CHECK_EQ_INT(s.trail_rise, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.snow_fx, 0);   /* off in every profile until the owner approves it */
-    CHECK_EQ_INT(s.lamp_halos, 0);   /* off in every profile until the owner approves it */
+    CHECK_EQ_INT(s.lamp_halos, 1);   /* on in Restomod (owner 2026-11-08): the street lamps' halo; Stock and Restored keep 0 */
     CHECK_EQ_INT(s.spray_cd_smoke, 1);   /* on in Restomod (owner 2026-11-08): the CD smoke variant, not 2 */
     CHECK_EQ_INT(s.wipers, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.shoulder_light, 1);   /* the third lane and the shoulders lit like the road */

@@ -161,3 +161,14 @@ int lamp_far_fade(int32_t z, int32_t far_z)
     if (z >= 2 * far_z) return 0;
     return (int)((int64_t)(2 * far_z - z) * 100 / far_z);
 }
+
+int lamp_blob_in_rects(const LampBlob *blob, const int (*rects)[4], int count, int margin)
+{
+    if (blob == NULL || rects == NULL) return 0;
+    for (int i = 0; i < count; i++) {
+        const int x0 = rects[i][0] < rects[i][2] ? rects[i][0] : rects[i][2], x1 = rects[i][0] < rects[i][2] ? rects[i][2] : rects[i][0];
+        const int y0 = rects[i][1] < rects[i][3] ? rects[i][1] : rects[i][3], y1 = rects[i][1] < rects[i][3] ? rects[i][3] : rects[i][1];
+        if (blob->cx >= x0 - margin && blob->cx <= x1 + margin && blob->cy >= y0 - margin && blob->cy <= y1 + margin) return 1;
+    }
+    return 0;
+}
