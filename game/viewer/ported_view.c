@@ -1780,6 +1780,14 @@ static void body_palette(void *ctx, int32_t first, int32_t count, const uint8_t 
 
 static const uint8_t NO_SLOT_COLOURS[RACE_CARS + 1];
 
+/* port (handbrake_lamps): the brake lamps are lit by the brake above LAMP_BRAKE_ON, but not by one that is the handbrake's alone (the rally's handbrake is a full brake, car_physics.c) */
+static int brake_lamp(const Car *car)
+{
+    if (car->brake <= LAMP_BRAKE_ON) return 0;
+    const int by_handbrake = shadow_race != NULL && car->index >= 0 && car->index < RACE_CARS && shadow_race->port_hb_lamp[car->index];
+    return !(by_handbrake && port_handbrake_lamps());
+}
+
 /* port (emissive lamps): the car's lamp texels as the light at the car is (the day's, or glowing, lit by its brake), before it is drawn */
 void ported_view_set_flares(int on) { flare_on = on != 0; }
 
@@ -1789,9 +1797,9 @@ static void lamp_state(const Car *car)
     ratio_of_car(car, ratio);
     drive_light_tint(tint);
     if (flare_on && weather == WEATHER_FOG)   /* port (psx_flares): the lamps glow in fog too */
-        drive_lamps_frame(car->index, 1, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR);
+        drive_lamps_frame(car->index, 1, brake_lamp(car), car->gear == LAMP_REVERSE_GEAR);
     else   /* port (rain_lamps): and in rain, day included: by day or dusk only the texels (force 2), no halo; at night as the light says */
-        drive_lamps_light_forced(car->index, car->node, tint, ratio, car->brake > LAMP_BRAKE_ON, car->gear == LAMP_REVERSE_GEAR,
+        drive_lamps_light_forced(car->index, car->node, tint, ratio, brake_lamp(car), car->gear == LAMP_REVERSE_GEAR,
                                  weather_wet(weather) && port_rain_lamps() ? (drive_light_night() ? 1 : 2) : 0);
 }
 
