@@ -18,7 +18,7 @@ except ImportError as error:
     sys.exit(0)
 
 header = open(os.path.join(here, "..", "game", "race", "dash_mask.h")).read()
-want = dict((name, int(value)) for name, value in re.findall(r"DASH_MASK_(AUTO|DASH|DIAL|LIT) = (\d+)", header))
+want = dict((name, int(value)) for name, value in re.findall(r"DASH_MASK_(AUTO|DASH|DIAL|BLADE|LIT) = (\d+)", header))
 failures = 0
 
 
@@ -29,7 +29,7 @@ def check(name, got, expected):
         print("FAIL %s: got %r, want %r" % (name, got, expected))
 
 
-check("the tool's classes are the header's", (tool.AUTO, tool.DASH, tool.DIAL, tool.LIT), (want["AUTO"], want["DASH"], want["DIAL"], want["LIT"]))
+check("the tool's classes are the header's", (tool.AUTO, tool.DASH, tool.DIAL, tool.BLADE, tool.LIT), (want["AUTO"], want["DASH"], want["DIAL"], want["BLADE"], want["LIT"]))
 check("black", tool.mask_class(0, 0, 0), tool.AUTO)
 check("a transparent pixel", tool.mask_class(0, 255, 0, 10), tool.AUTO)
 check("blue", tool.mask_class(0, 0, 255), tool.DASH)
@@ -42,7 +42,8 @@ check("orange is not marked", tool.mask_class(255, 160, 0), tool.AUTO)
 check("a dark yellow is not marked", tool.mask_class(150, 150, 0), tool.AUTO)
 check("a green with some red stays a dial", tool.mask_class(120, 255, 0), tool.DIAL)
 check("a transparent yellow is not marked", tool.mask_class(255, 255, 0, 10), tool.AUTO)
-check("red is not marked", tool.mask_class(255, 0, 0), tool.AUTO)
+check("red is a wiper blade", tool.mask_class(255, 0, 0), tool.BLADE)
+check("a dark red is not marked", tool.mask_class(150, 0, 0), tool.AUTO)
 check("a mid grey is not marked", tool.mask_class(128, 128, 128), tool.AUTO)
 
 layer = Image.new("RGBA", (3, 2), (0, 0, 0, 0))
@@ -107,3 +108,43 @@ with tempfile.TemporaryDirectory() as tmp:
 if failures:
     sys.exit(1)
 print("test_dash_mask_psd: ok")
+
+
+class FakeLayer:
+    def __init__(self, name, image, left=0, top=0):
+        self.name, self.image, self.left, self.top = name, image, left, top
+
+    def is_group(self):
+        return False
+
+    def topil(self):
+        return self.image
+
+
+class FakePsd(list):
+    width, height = 8, 6
+
+
+mask_layer = Image.new("RGBA", (8, 6), (0, 0, 0, 0))
+mask_layer.putpixel((1, 1), (0, 255, 0, 255))
+mask_layer.putpixel((3, 2), (0, 0, 255, 255))
+wipers = Image.new("RGBA", (3, 1), (0, 0, 0, 0))
+wipers.putpixel((0, 0), (200, 200, 200, 255))   # any colour but black: the layer's painting is the blade
+wipers.putpixel((1, 0), (0, 0, 0, 255))         # black is nothing
+wipers.putpixel((2, 0), (255, 0, 0, 40))        # nearly transparent is nothing
+psd = FakePsd([FakeLayer("mask", mask_layer), FakeLayer("limpia", wipers, 3, 2)])
+both = tool.psd_mask(psd)
+check("the blades layer paints BLADE over the mask", both.getpixel((3, 2)), tool.BLADE)
+check("black on it is nothing: the mask's own stays", both.getpixel((4, 2)), tool.AUTO)
+check("a faint pixel is nothing", both.getpixel((5, 2)), tool.AUTO)
+check("the mask's other marks stay", both.getpixel((1, 1)), tool.DIAL)
+with tempfile.TemporaryDirectory() as tmp:
+    path = os.path.join(tmp, "m.png")
+    tool.save_mask(both, path)
+    back = Image.open(path).convert("RGB")
+    check("BLADE is saved as the red the game reads", back.getpixel((3, 2)), (255, 0, 0))
+    check("and DIAL as the green", back.getpixel((1, 1)), (0, 255, 0))
+if failures:
+    print("%d failures" % failures)
+    sys.exit(1)
+print("test_dash_mask_psd: blade layer ok")

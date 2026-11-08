@@ -101,6 +101,9 @@ void drive_wide_set_viewport(const RaceState *race);
 PortedViewport drive_wide_viewport(const RaceState *race);
 void drive_wide_key_box(const RaceState *race, uint8_t *surface);
 void drive_wide_compose(const RaceState *race, const uint8_t *frame);
+/* port (wipers): the dash view's wiper blades (wiper.h) in the 3D buffer's pixels, up to WIPER_BLADES, how many: 0 unless wipers are on, the view is the dash and the wide path is on */
+struct WiperBlade;
+int drive_wide_wiper_scene(const RaceState *race, struct WiperBlade *out);
 /* port (gauge_light): the track's palette (768 bytes), read for the brightness of the dials' pixels; call before drive_wide_compose */
 void drive_wide_set_palette(const uint8_t *palette);
 /* port (gauge_light = 5): the colours the dash on screen paints for its lit parts (dash_color.h), as the class PSX_CLASS_LIT_COLOUR + k means them: up to `max` of them into `rgb`, how many. 0 when

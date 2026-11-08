@@ -8,6 +8,8 @@ The PSD is a dash's 640 x 480 2D layer (tools/dash_mask_psd.py makes the drafts)
                                                    255  LIT: lit whatever its brightness (a warning lamp). Paint it yellow ffff00: it contrasts on the dash; white still works
   blue-dominant (blue > red, green)                64   DASH: the dash's art, never lit (the speedo's rim)
   green-dominant (green > red, blue)               128  DIAL: inside a dial, its bright marks (numerals, ticks) are lit, its dark face is not
+  red (red >= 192, green and blue <= 64)           192  BLADE: a wiper blade the dash's art draws; with port_wipers it is not drawn in rain or snow. An optional layer named "limpia" (or "wipers") holds them:
+                                                        whatever is painted on it (any colour but black) is BLADE
   anything else                                    0    AUTO
 The layer's own opacity is ignored: it is only how the mask shows over the dash.
 
@@ -28,8 +30,9 @@ import sys
 
 from PIL import Image
 
-AUTO, DASH, DIAL, LIT = 0, 64, 128, 255   # game/race/dash_mask.h's classes
-PALETTE = {AUTO: (0, 0, 0), DASH: (0, 0, 255), DIAL: (0, 255, 0), LIT: (255, 255, 255)}
+AUTO, DASH, DIAL, BLADE, LIT = 0, 64, 128, 192, 255   # game/race/dash_mask.h's classes
+PALETTE = {AUTO: (0, 0, 0), DASH: (0, 0, 255), DIAL: (0, 255, 0), LIT: (255, 255, 255), BLADE: (255, 0, 0)}
+BLADE_LAYERS = ("limpia", "wipers")   # the optional layer of the wiper blades the dash's art draws (hidden in rain and snow)
 PSD_NAME = "dash.psd"
 PNG_NAME = "dash_mask.png"
 COLOR_PNG_NAME = "dash_color.png"
@@ -42,6 +45,8 @@ def mask_class(r, g, b, a=255):
         return AUTO
     if min(r, g, b) >= 192 or (r >= 192 and g >= 192 and b <= 64):   # white, or yellow (ffff00)
         return LIT
+    if r >= 192 and g <= 64 and b <= 64:   # red: a wiper blade the dash's art draws
+        return BLADE
     if b > r and b > g:
         return DASH
     if g > r and g > b:
@@ -101,9 +106,9 @@ def psd_color(psd):
 
 def save_mask(classes, path):
     """The class image as the indexed PNG dash_mask.h reads."""
-    index = {AUTO: 0, DASH: 1, DIAL: 2, LIT: 3}
+    index = {AUTO: 0, DASH: 1, DIAL: 2, LIT: 3, BLADE: 4}
     img = Image.frombytes("P", classes.size, bytes(index.get(v, 0) for v in classes.tobytes()))
-    img.putpalette([c for v in (AUTO, DASH, DIAL, LIT) for c in PALETTE[v]])
+    img.putpalette([c for v in (AUTO, DASH, DIAL, LIT, BLADE) for c in PALETTE[v]])
     img.save(path, optimize=True)
 
 
@@ -111,7 +116,18 @@ def psd_mask(psd):
     layer = find_layer(psd, "mask")
     if layer is None:
         raise ValueError('no layer named "mask"')
-    return mask_image(psd.width, psd.height, layer.topil(), layer.left, layer.top)
+    classes = mask_image(psd.width, psd.height, layer.topil(), layer.left, layer.top)
+    blades = find_layer(psd, BLADE_LAYERS)
+    if blades is not None:   # the wiper blades layer: whatever is painted on it (alpha >= 128, not black) is BLADE, over whatever the mask has there
+        px = blades.topil().convert("RGBA").load()
+        dst = classes.load()
+        for y in range(blades.topil().height):
+            for x in range(blades.topil().width):
+                tx, ty = blades.left + x, blades.top + y
+                r, g, b, a = px[x, y]
+                if a >= 128 and max(r, g, b) >= 64 and 0 <= tx < psd.width and 0 <= ty < psd.height:
+                    dst[tx, ty] = BLADE
+    return classes
 
 
 def main(argv):

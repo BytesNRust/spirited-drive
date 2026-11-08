@@ -7,6 +7,7 @@
 #include "game/race/race_draw_setup.h"
 #include "viewer/draw_rands.h"
 #include "viewer/dash_box.h"
+#include "game/race/wiper.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -403,6 +404,10 @@ void render_drive(const Track *t, uint8_t *pixels)
     f.t = t, f.pixels = pixels, f.race = race, f.d = &drive_frame, f.ticked = ticked, f.last_ms = last_ms;
     drive_frame_in(&drive_frame, race);
     drive_wide_set_viewport(race);
+    {   /* port (wipers): the dash view's blades, set before the 3D is drawn under them */
+        WiperBlade blades[WIPER_BLADES];
+        ported_view_set_wipers(blades, drive_wide_wiper_scene(race, blades));
+    }
     f.cam = chase_camera(&race->chase, t->tri.ring_nodes);
     FrameDrawOps ops = drive_frame_ops;
     ops.ctx = &f;

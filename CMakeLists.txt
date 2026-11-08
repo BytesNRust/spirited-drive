@@ -530,6 +530,7 @@ add_executable(tnfs
     game/viewer/cone_cells.c
     game/viewer/modern_look.c
     game/viewer/weather_draw.c
+    game/viewer/wiper_draw.c
     game/viewer/horizon_smooth.c
     game/viewer/psx_sky_draw.c
     game/viewer/sky_smooth.c
@@ -668,6 +669,11 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_link_libraries(test_weather_draw PRIVATE tnfs_game)
     target_compile_options(test_weather_draw PRIVATE ${TNFS_WARNINGS})
     add_test(NAME weather_draw COMMAND test_weather_draw)
+    add_executable(test_wiper_draw tests/test_wiper_draw.c game/viewer/wiper_draw.c)
+    target_include_directories(test_wiper_draw PRIVATE game)
+    target_link_libraries(test_wiper_draw PRIVATE tnfs_game)
+    target_compile_options(test_wiper_draw PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME wiper_draw COMMAND test_wiper_draw)
     add_executable(test_wet_zones tests/test_wet_zones.c)
     target_include_directories(test_wet_zones PRIVATE game)
     target_link_libraries(test_wet_zones PRIVATE tnfs_game)
@@ -1245,6 +1251,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(two_tracks_reflectors PROPERTIES TIMEOUT 300)
         add_test(NAME spray_cd_smoke COMMAND ${CMAKE_SOURCE_DIR}/tests/spray_cd_smoke.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/spray_cd_smoke)
         set_tests_properties(spray_cd_smoke PROPERTIES TIMEOUT 600)
+        add_test(NAME wipers COMMAND ${CMAKE_SOURCE_DIR}/tests/wipers.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/wipers)
+        set_tests_properties(wipers PROPERTIES TIMEOUT 400)
         # rain_lamps must change the frame of a masked car in rain and storm, and not in clear; an old port.cfg moves at the real startup
         add_test(NAME rain_lamps_masked COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/rain_lamps_masked -P ${CMAKE_SOURCE_DIR}/tests/rain_lamps_masked.cmake)
         set_tests_properties(rain_lamps_masked PROPERTIES TIMEOUT 400)

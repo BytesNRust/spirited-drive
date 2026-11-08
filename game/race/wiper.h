@@ -10,7 +10,7 @@
 enum { WIPER_BLADES = 2 };
 enum { WIPER_OFF = 0, WIPER_LIGHT = 1, WIPER_RAIN = 2, WIPER_STORM = 3, WIPER_SNOW = 4 };   /* what falls: the sweep's pace */
 
-typedef struct {
+typedef struct WiperBlade {
     float x, y;        /* the pivot */
     float len;         /* the blade's reach from the pivot */
     float park, top;   /* the angle at rest and the angle at the top of the sweep */
