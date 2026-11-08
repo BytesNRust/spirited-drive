@@ -59,6 +59,29 @@ static void test_standing_still_is_the_same_animation_with_a_little_randomness(v
     CHECK(far < 10);   /* a flake stays near where it was: a few percent of the box at most */
 }
 
+/* no flake wobbles from side to side: in still air a flake falls in a straight line, and in the storm it moves only with the slow wind */
+static void test_no_flake_sways_side_to_side(void)
+{
+    for (int i = 0; i < 200; i++) {
+        int32_t first[3];
+        weather_snow_flake_fx(i, 0, SNOW_LIGHT, W, H, 0, W / 2, H / 2, first);
+        for (uint32_t tick = 1; tick < 600; tick += 7) {
+            int32_t now[3];
+            weather_snow_flake_fx(i, tick, SNOW_LIGHT, W, H, 0, W / 2, H / 2, now);
+            CHECK_EQ_INT(now[0], first[0]);   /* the same column: no wind in the light snow, no speed */
+        }
+    }
+    for (int i = 0; i < 200; i++)
+        for (uint32_t tick = 100; tick < 2000; tick += 13) {
+            int32_t a[3], b[3];
+            weather_snow_flake_fx(i, tick, SNOW_HEAVY, W, H, 0, W / 2, H / 2, a);
+            weather_snow_flake_fx(i, tick + 1, SNOW_HEAVY, W, H, 0, W / 2, H / 2, b);
+            int dx = abs(b[0] - a[0]);
+            if (dx > W / 2) dx = W - dx;                     /* round the box's edge */
+            CHECK(dx <= 4);                                   /* a tick of the slow wind: a few pixels, no flip-flop */
+        }
+}
+
 static void test_the_speed_leans_the_flakes_away_from_the_vanishing_point(void)
 {
     int out = 0, in = 0, n = 0;
@@ -140,6 +163,7 @@ int main(void)
     test_flakes_stay_in_the_box_and_repeat();
     test_the_flakes_are_less_regular();
     test_standing_still_is_the_same_animation_with_a_little_randomness();
+    test_no_flake_sways_side_to_side();
     test_the_speed_leans_the_flakes_away_from_the_vanishing_point();
     test_the_storms_wind_changes_side_over_time();
     test_fewer_marks_on_the_lens_than_drops_of_rain();
