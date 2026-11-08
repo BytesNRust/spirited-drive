@@ -768,10 +768,10 @@ static void wide_mirror_and_strips(const WideFrame *w, const uint8_t *frame)
 }
 
 /* port (wipers): where the blades are on the dash (layer pixels), for every dash from its art, as a tandem pair on the FULL windscreen: the dash view shows only about 62% of the glass, the rest is past the right edge, so
- * the glass's width is the visible width over WIPER_VISIBLE_SHARE; the left pivot is a hand-span in from the left pillar (just inside the glass, clear of the wheel), the second near its centre (often past the view), both blades the same length, parked flat to the
+ * the glass's width is the visible width over WIPER_VISIBLE_SHARE; the left (driver) pivot is low, about at the wheel's x-centre, a little below the glass's bottom edge (hidden by the dash: the blade comes out from behind the wheel and the dash top, as in DriveClub), the second near the glass's centre (often past the view), both blades the same length, parked flat to the
  * right of their pivot along the bottom edge's slope and sweeping together up to the left. The glass is raked and seen from the left of its centre, so a blade turns in the glass's plane and the plane's axes put it
  * on the screen: along the edge (u) as it is, up the glass (v) squashed by WIPER_RAKE. The sweep is cut only against the left pillar and the glass's top (the right edge of the view cuts nothing). */
-enum { WIPER_PROBE_X = 300, WIPER_SPAN_DEG = 104, WIPER_FREE_X = 540, WIPER_HAND_SPAN = 48 };   /* the left pivot: a hand-span in from the pillar */
+enum { WIPER_PROBE_X = 300, WIPER_SPAN_DEG = 104, WIPER_FREE_X = 540, WIPER_LEFT_PIVOT_X = 282, WIPER_PIVOT_DROP = 24, WIPER_FIT_FROM = 7 };   /* the driver's pivot: x a little left of the wheel's centre, y this far below the edge */
 static const float WIPER_VISIBLE_SHARE = 0.62f, WIPER_RAKE = 0.55f, WIPER_LEN_SHARE = 0.45f;
 
 /* the glass (the art's nothing, or what its mask gives to the blades) */
@@ -795,14 +795,14 @@ static int glass_edge(const uint8_t *art, const uint8_t *mask, int y, int x, int
     return x;
 }
 
-/* how far (degrees) a blade turns from its park and stays on the glass: the angle before the first at which a point of it, a fifth of the way out to its tip, is off the art's glass, past the left side or above the
+/* how far (degrees) a blade turns from its park and stays on the glass: the angle before the first at which a point of its outer 40%, is off the art's glass, past the left side or above the
  * view. Points in the right part of the view (WIPER_FREE_X on) are not looked at. */
 static float blade_fit(const uint8_t *art, const uint8_t *mask, const WiperBlade *b)
 {
     float ok = 0.0f;
     const float rad = 3.14159265f / 180.0f;
     for (float a = 24.0f;   /* the bottom edge is curved, a line is only its slope: the first degrees are the edge itself */ a <= (float)WIPER_SPAN_DEG; a += 2.0f) {
-        for (int k = 2; k <= 10; k++) {
+        for (int k = WIPER_FIT_FROM; k <= 10; k++) {   /* the blade's outer part: its root is behind the wheel and the dash */
             float dx, dy;
             wiper_offset(b, b->len * (float)k / 10.0f, b->park + a * rad, &dx, &dy);
             const int px = (int)(b->x + dx), py = (int)(b->y + dy);
@@ -850,10 +850,10 @@ int drive_wide_wiper_scene(const RaceState *race, WiperBlade *out)
     const int xa = gl + (int)(seen * 0.1f), xb = gl + (int)(seen * 0.9f);
     const float ya = windscreen_bottom(art, mask, xa), yb = windscreen_bottom(art, mask, xb);
     const float slope = atan2f(ya - yb, (float)(xb - xa)), tn = tanf(slope);   /* the edge's, up to the right */
-    const float lx = (float)gl + WIPER_HAND_SPAN, rx = (float)gl + full * 0.5f, len = full * WIPER_LEN_SHARE;
+    const float lx = (float)WIPER_LEFT_PIVOT_X, rx = (float)gl + full * 0.5f, len = full * WIPER_LEN_SHARE;
     const float ux = cosf(slope), uy = sinf(slope), vx = -sinf(slope) * WIPER_RAKE, vy = cosf(slope) * WIPER_RAKE;
     WiperBlade layer[WIPER_BLADES] = {
-        { lx, ya - tn * (lx - (float)xa), len, slope, 0.0f, ux, uy, vx, vy, (float)SCREEN_W },
+        { lx, ya - tn * (lx - (float)xa) + (float)WIPER_PIVOT_DROP, len, slope, 0.0f, ux, uy, vx, vy, (float)SCREEN_W },
         { rx, ya - tn * (rx - (float)xa), len, slope, 0.0f, ux, uy, vx, vy, (float)SCREEN_W }
     };
     float span = blade_fit(art, mask, &layer[0]);
