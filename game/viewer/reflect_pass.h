@@ -5,6 +5,7 @@
 #define TNFS_REFLECT_PASS_H
 
 #include "core/formats/fsh.h"
+#include "game/race/track_art.h"
 
 #include <stdint.h>
 
@@ -15,6 +16,14 @@ void reflect_pass_reset(void);
 int reflect_pass_add(const FshEntry *bitmap, const uint8_t *mask, int mw, int mh);
 
 int reflect_pass_count(void);
+
+/* registers every texture of `art` that `mask_for` gives a mask (a road slot's variants take the base's mask resampled), once per art: asked again for the art it has, it does nothing and
+ * returns -1; otherwise it forgets what it had and returns how many it registered. The textures are the art's own bitmaps, so whoever frees or loads an art calls reflect_pass_forget_art: the next
+ * track's art may stand at the same address, and the address alone does not say it is the same textures. */
+int reflect_pass_register_art(const TrackArt *art, const uint8_t *(*mask_for)(const TrackTexture *t));
+
+/* forgets the art (and every texture) registered; nothing when none is */
+void reflect_pass_forget_art(void);
 
 /* the entries the night already has lit (palette indices, 0 = not there): the street lamp's three, dimmest first (NULL: none), the windows', and the cars' lit brake, position, head and reversing lights.
  * A polygon's shine takes one of them by the texel's colour family and its own step; no entry of the pass's own is spent. */

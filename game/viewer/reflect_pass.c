@@ -29,6 +29,34 @@ static int tables_fresh;
 static uint8_t ramp[REFLECTOR_FAMILIES][4];   /* each family's entries, dimmest first */
 static int ramp_len[REFLECTOR_FAMILIES];
 
+static const TrackArt *registered_art;
+
+void reflect_pass_forget_art(void)
+{
+    if (registered_art != NULL) reflect_pass_reset();
+    registered_art = NULL;
+}
+
+int reflect_pass_register_art(const TrackArt *art, const uint8_t *(*mask_for)(const TrackTexture *t))
+{
+    if (art != NULL && art == registered_art) return -1;
+    reflect_pass_reset();
+    registered_art = art;
+    if (art == NULL || mask_for == NULL) return 0;
+    for (int s = 0; s < TRACK_TEXTURE_SLOTS; s++) {   /* a road slot: its variants are the same picture smaller (the mask is the base's, resampled) */
+        const TrackTexture *base = &art->slots[s][0];
+        const uint8_t *mask = base->present ? mask_for(base) : NULL;
+        for (int v = 0; mask != NULL && v < TRACK_TEXTURE_VARIANTS; v++)
+            if (art->slots[s][v].present) reflect_pass_add(&art->slots[s][v].bitmap, mask, base->bitmap.width, base->bitmap.height);
+    }
+    for (int i = 0; i < TRACK_SCENERY_TEXTURES; i++) {
+        const TrackTexture *t = &art->scenery[i];
+        const uint8_t *mask = t->present ? mask_for(t) : NULL;
+        if (mask != NULL) reflect_pass_add(&t->bitmap, mask, t->bitmap.width, t->bitmap.height);
+    }
+    return reflect_pass_count();
+}
+
 void reflect_pass_reset(void)
 {
     for (int i = 0; i < entry_count; i++) free(entries[i].mask), free(entries[i].pixels);
