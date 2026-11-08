@@ -782,13 +782,14 @@ static float windscreen_bottom(const uint8_t *art, int x)
 int drive_wide_wiper_scene(const RaceState *race, WiperBlade *out)
 {
     const RaceCamera *camera = race != NULL ? race->chase.camera : NULL;
-    if (!port_wipers() || !drive_wide_active() || camera == NULL || camera->layout != 0 || drive_hud.police.screen != NULL || drive_hud.cockpit.dash == NULL) return 0;
+    if (!port_wipers() || camera == NULL || camera->layout != 0 || drive_hud.police.screen != NULL || drive_hud.cockpit.dash == NULL) return 0;
     const uint8_t *const art = dash_art_layer(&drive_hud.cockpit);
     WiperSpot spot = { "", WIPER_GENERIC_LX, 0, WIPER_GENERIC_LEN, WIPER_GENERIC_RX, 0, WIPER_GENERIC_LEN };
     spot.ly = windscreen_bottom(art, WIPER_GENERIC_LX), spot.ry = windscreen_bottom(art, WIPER_GENERIC_RX);
     for (size_t i = 0; i < sizeof WIPER_SPOTS / sizeof WIPER_SPOTS[0]; i++)
         if (strcmp(WIPER_SPOTS[i].stem, drive_hud.dash_stem) == 0) spot = WIPER_SPOTS[i];
-    const float PI = 3.14159265f, scale = (float)drive_wide.scale, x0 = (float)((drive_wide.width - SCREEN_W) / 2), y0 = drive_wide.width > SCREEN_W ? (float)DASH_DROP : 0.0f;
+    const int wide = drive_wide_active();   /* the 640x480 path (the exe's) has its dash at the layer's own coordinates */
+    const float PI = 3.14159265f, scale = wide ? (float)drive_wide.scale : 1.0f, x0 = wide ? (float)((drive_wide.width - SCREEN_W) / 2) : 0.0f, y0 = wide && drive_wide.width > SCREEN_W ? (float)DASH_DROP : 0.0f;
     const WiperBlade left = { (x0 + spot.lx) * scale, (y0 + spot.ly) * scale, spot.ll * scale, PI * 192.0f / 180.0f, PI * 100.0f / 180.0f };   /* parked pointing left, up to near the vertical */
     const WiperBlade right = { (x0 + spot.rx) * scale, (y0 + spot.ry) * scale, spot.rl * scale, -PI * 9.0f / 180.0f, PI * 80.0f / 180.0f };   /* parked pointing right */
     out[0] = left, out[1] = right;
@@ -806,6 +807,16 @@ static const uint8_t *blades_hidden(const uint8_t *frame)
     for (size_t i = 0; i < sizeof copy; i++)
         if (mask[i] == DASH_MASK_BLADE) copy[i] = LAYER_KEY, any = 1;
     return any ? copy : frame;
+}
+
+/* port (wipers): on the 640x480 path the 3D (`view`) reaches the screen through the windscreen's run lists only, so the art's own blades stay: where the dash's mask marks a blade, the 3D's pixel goes on the screen
+ * (the sweeping blades are in it). The frame's mirror, gauges and the rest are drawn after, as ever. */
+void drive_wide_wipers_reveal(uint8_t *screen, const uint8_t *view)
+{
+    const uint8_t *const mask = dash_mask_now();
+    if (mask == NULL || drive_wide_active() || !ported_view_wipers_active()) return;
+    for (size_t i = 0; i < (size_t)SCREEN_W * SCREEN_H; i++)
+        if (mask[i] == DASH_MASK_BLADE) screen[i] = view[i];
 }
 
 void drive_wide_compose(const RaceState *race, const uint8_t *frame)

@@ -1,6 +1,7 @@
 #include "viewer/drive_hud.h"
 #include "viewer/drive_hud_mask.h"
 #include "viewer/dash_box.h"
+#include "viewer/drive_session.h"
 
 #include "game/platform/platform.h"
 #include "game/gfx/blit.h"
@@ -455,6 +456,7 @@ static void frame_runs(void *ctx, int32_t runs)
 {
     FrameCalls *f = ctx;
     blit_runs(f->target, DRIVE_VIEW_W, f->s->h->view, f->s->h->dash_fmm + runs);  /* relocated as 004511a4 does */
+    if (f->target->pixels != NULL && f->target->pitch == DRIVE_VIEW_W) drive_wide_wipers_reveal(f->target->pixels, f->s->h->view + DRIVE_VIEW_HEADER);   /* port (wipers) */
 }
 
 static void frame_mirror(void *ctx, int32_t x, int32_t y)
