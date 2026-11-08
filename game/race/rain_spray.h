@@ -8,12 +8,14 @@
 #include <stdint.h>
 
 enum {
-    RAIN_SPRAY_MAX = 768,    /* the ring: 8 cars x 2 wheels x the life, with room over */
+    RAIN_SPRAY_MAX = 1024,    /* the ring: 8 cars x 2 wheels x the life, with room over */
     RAIN_SPRAY_LIFE = 20,    /* ticks (30 a second): two thirds of a second */
     RAIN_SPRAY_WISP_LIFE = 3,/* a wisp's (traffic_spray): a tenth of a second, so one to three sprites of a car on the road at once */
     RAIN_SPRAY_WISP2_LIFE = 6,     /* a rain_v2 wisp's: a fifth of a second, still far under the plume's two thirds */
     RAIN_SPRAY_WISP2_MIN_SPEED = 1,/* metres a second: a car that moves at all leaves one */
     RAIN_SPRAY_CARS = 16,
+    RAIN_SPRAY_DENSE_GAP = 0x18000,   /* port (water_mist): 1.5 m: the gap the plume's drops are kept under at speed */
+    RAIN_SPRAY_DENSE_MAX = 4,
     RAIN_SPRAY_LEVELS = 4    /* the density steps a particle's look has (the drawing has a shape for each) */
 };
 
@@ -55,6 +57,9 @@ void rain_spray_wheels(const int32_t at[3], const int32_t forward[2], int32_t wh
 int rain_spray_step(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet);
 
 /* The same for a wisp (port traffic_spray): one particle a tick, from the middle of the two wheels, living RAIN_SPRAY_WISP_LIFE ticks. Returns how many were dropped (1, or 0 as above). */
+/* The plume of rain_spray_step, and at speed more drops a tick (one each RAIN_SPRAY_DENSE_GAP of the car's way since the last tick, up to RAIN_SPRAY_DENSE_MAX): the veil has no gaps. Returns how many were dropped. */
+int rain_spray_step_dense(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet);
+
 int rain_spray_step_wisp(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet);
 
 /* The same for rain_v2's wisp: one particle a tick from each wheel living RAIN_SPRAY_WISP2_LIFE ticks, from RAIN_SPRAY_WISP2_MIN_SPEED m/s up. Returns how many were dropped (2, or 0 as above). */

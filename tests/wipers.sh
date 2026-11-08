@@ -1,5 +1,5 @@
 #!/bin/bash
-# wipers: in the P911's dash view 0 changes nothing (the setting unset and at 0 draw the same frame); 1 in rain draws the sweeping blades and hides the art's own, so the frame changes; 1 in the dry
+# wipers: on by default in Restomod (unset draws the frame of 1; in Restored unset is 0); 1 in rain draws the sweeping blades and hides the art's own, so the frame changes; 1 in the dry
 # is the frame as it was (the blades parked in the art, nothing drawn).
 # (the 640x480 path too)
 # usage: wipers.sh TNFS REPO WORK [DATA]
@@ -25,7 +25,7 @@ shot 0 rain rain_off
 shot 1 rain rain_on
 shot 0 clear dry_off
 shot 1 clear dry_on
-cmp -s "$WORK/rain_unset.ppm" "$WORK/rain_off.ppm" || fail "the setting at 0 changes the frame"
+cmp -s "$WORK/rain_unset.ppm" "$WORK/rain_on.ppm" || fail "Restomod does not default the setting on"
 cmp -s "$WORK/rain_off.ppm" "$WORK/rain_on.ppm" && fail "the setting at 1 changes nothing in rain"
 cmp -s "$WORK/dry_off.ppm" "$WORK/dry_on.ppm" || fail "the setting at 1 changes the frame in the dry"
 # the 640x480 path (the exe's: the restored profile, no render scale): the blades sweep there too

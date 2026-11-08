@@ -18,9 +18,9 @@ void rain_spray_clear(RainSpray *s)
     memset(s, 0, sizeof *s);
 }
 
-static void drop(RainSpray *s, int car, int side, uint32_t tick, const int32_t wheel[3], const int32_t right[2], int32_t node, int32_t metres, int life)
+static void drop(RainSpray *s, int car, int side, uint32_t tick, const int32_t wheel[3], const int32_t right[2], int32_t node, int32_t metres, int life, uint32_t salt)
 {
-    const uint32_t h = hash2((uint32_t)car * 2u + (side > 0 ? 1u : 0u), tick);
+    const uint32_t h = hash2((uint32_t)car * 2u + (side > 0 ? 1u : 0u), tick + salt * 0x9e3779b9u);
     RainSprayParticle *p = &s->p[s->next];
     s->next = (s->next + 1) % RAIN_SPRAY_MAX;
     const int32_t jx = (int32_t)(h & 0xff) - 128, jz = (int32_t)(h >> 8 & 0xff) - 128;   /* a hand's width either way: the plume is not a line */
@@ -34,29 +34,67 @@ static void drop(RainSpray *s, int car, int side, uint32_t tick, const int32_t w
     p->life = (uint8_t)life;
 }
 
+/* what one tick drops: a wisp's, the rain_v2 wisp's or the plume's, at `tick`, the wheels moved back along the heading by (bx, bz) */
+static int drop_tick(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t metres, int wisp, int32_t bx, int32_t bz)
+{
+    const int32_t l[3] = { left[0] - bx, left[1], left[2] - bz }, r[3] = { right_wheel[0] - bx, right_wheel[1], right_wheel[2] - bz };
+    if (wisp == 2) {   /* rain_v2: a wisp from each wheel, a little longer, at any pace */
+        drop(s, car, -1, tick, l, right, node, metres, RAIN_SPRAY_WISP2_LIFE, 0);
+        drop(s, car, 1, tick, r, right, node, metres, RAIN_SPRAY_WISP2_LIFE, 0);
+        return 2;
+    }
+    if (wisp) {
+        const int32_t mid[3] = { l[0] / 2 + r[0] / 2, l[1] / 2 + r[1] / 2, l[2] / 2 + r[2] / 2 };
+        drop(s, car, 0, tick, mid, right, node, metres, RAIN_SPRAY_WISP_LIFE, 0);
+        return 1;
+    }
+    drop(s, car, -1, tick, l, right, node, metres, RAIN_SPRAY_LIFE, 0);
+    drop(s, car, 1, tick, r, right, node, metres, RAIN_SPRAY_LIFE, 0);
+    return 2;
+}
+
 static int step(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet, int wisp)
 {
     if (car < 0 || car >= RAIN_SPRAY_CARS) return 0;
+    uint32_t missed = 0;   /* the ticks that went by without a frame (a low frame rate, a view not drawn): their drops are laid on the way the car came */
     if (s->has_tick[car] && tick < s->last_tick[car]) {   /* the clock went back (a restart, a replay): the old trail is of another time */
         for (int i = 0; i < RAIN_SPRAY_MAX; i++) s->p[i].live = 0;
     } else if (s->has_tick[car] && tick == s->last_tick[car]) return 0;   /* the same tick drawn again: nothing new */
+    else if (s->has_tick[car]) missed = tick - s->last_tick[car] - 1;
     s->last_tick[car] = tick, s->has_tick[car] = 1;
     const int64_t v = speed < 0 ? -(int64_t)speed : speed;
     const int32_t metres = (int32_t)(v >> 16);
     if (!wet || metres < (wisp == 2 ? RAIN_SPRAY_WISP2_MIN_SPEED : 8)) return 0;
-    if (wisp == 2) {   /* rain_v2: a wisp from each wheel, a little longer, at any pace */
-        drop(s, car, -1, tick, left, right, node, metres, RAIN_SPRAY_WISP2_LIFE);
-        drop(s, car, 1, tick, right_wheel, right, node, metres, RAIN_SPRAY_WISP2_LIFE);
-        return 2;
+    const uint32_t life = wisp == 2 ? RAIN_SPRAY_WISP2_LIFE : wisp ? RAIN_SPRAY_WISP_LIFE : RAIN_SPRAY_LIFE;
+    if (missed >= life) missed = life - 1;   /* an older one is gone already */
+    const int32_t fx = -right[1], fz = right[0], per_tick = (int32_t)(v / 30);   /* the heading (right is (fz, -fx)); 16.16 metres a tick */
+    for (uint32_t g = missed; g >= 1; g--) {
+        const int32_t back = (int32_t)((int64_t)per_tick * g);
+        drop_tick(s, car, tick - g, left, right_wheel, right, node, metres, wisp, (int32_t)(((int64_t)fx * back) >> 16), (int32_t)(((int64_t)fz * back) >> 16));
     }
-    if (wisp) {
-        const int32_t mid[3] = { left[0] / 2 + right_wheel[0] / 2, left[1] / 2 + right_wheel[1] / 2, left[2] / 2 + right_wheel[2] / 2 };
-        drop(s, car, 0, tick, mid, right, node, metres, RAIN_SPRAY_WISP_LIFE);
-        return 1;
+    return drop_tick(s, car, tick, left, right_wheel, right, node, metres, wisp, 0, 0);
+}
+
+int rain_spray_step_dense(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet)
+{
+    if (car < 0 || car >= RAIN_SPRAY_CARS) return 0;
+    const int has = s->has_tick[car] && tick >= s->last_tick[car];
+    const int fresh = !has || tick != s->last_tick[car];
+    const int dropped = step(s, car, tick, left, right_wheel, right, node, speed, wet, 0);   /* the plume's own two, as it always was */
+    if (!fresh || dropped == 0) return dropped;
+    const int64_t v = speed < 0 ? -(int64_t)speed : speed;
+    const int32_t metres = (int32_t)(v >> 16), per_tick = (int32_t)(v / 30);   /* 16.16 metres a tick */
+    int n = (int)((per_tick + RAIN_SPRAY_DENSE_GAP - 1) / RAIN_SPRAY_DENSE_GAP);
+    if (n > RAIN_SPRAY_DENSE_MAX) n = RAIN_SPRAY_DENSE_MAX;
+    const int32_t fx = -right[1], fz = right[0];   /* the heading (right is (fz, -fx)) */
+    for (int k = 1; k < n; k++) {   /* the points the wheels passed since the last tick: a veil with no gaps at speed */
+        const int32_t back = (int32_t)((int64_t)per_tick * k / n);
+        const int32_t bx = (int32_t)(((int64_t)fx * back) >> 16), bz = (int32_t)(((int64_t)fz * back) >> 16);
+        const int32_t a[3] = { left[0] - bx, left[1], left[2] - bz }, b[3] = { right_wheel[0] - bx, right_wheel[1], right_wheel[2] - bz };
+        drop(s, car, -1, tick, a, right, node, metres, RAIN_SPRAY_LIFE, (uint32_t)k);
+        drop(s, car, 1, tick, b, right, node, metres, RAIN_SPRAY_LIFE, (uint32_t)k);
     }
-    drop(s, car, -1, tick, left, right, node, metres, RAIN_SPRAY_LIFE);
-    drop(s, car, 1, tick, right_wheel, right, node, metres, RAIN_SPRAY_LIFE);
-    return 2;
+    return dropped + 2 * (n > 1 ? n - 1 : 0);
 }
 
 int rain_spray_step(RainSpray *s, int car, uint32_t tick, const int32_t left[3], const int32_t right_wheel[3], const int32_t right[2], int32_t node, int32_t speed, int wet)
@@ -84,7 +122,10 @@ int rain_spray_look(const RainSprayParticle *p, uint32_t tick, int open, int ris
     const float o = open < 0 ? 0.0f : open > 16 ? 1.0f : (float)open / 16.0f;
     place[0] = p->x + (int32_t)((float)p->drift_x * f), place[2] = p->z + (int32_t)((float)p->drift_z * f);
     place[1] = p->y + (int32_t)(65536.0f * 0.30f * o * f);   /* it hangs low: it lifts only a little, and not at all in a tunnel */
-    if (rise) place[1] = p->y + (int32_t)((float)trail_rise_height(age, p->life) * o);   /* port (trail_rise): it drifts up to a car's height, less in a tunnel's mouth */
+    if (rise) {   /* port (trail_rise): it drifts up to a car's height, less in a tunnel's mouth; a wisp (a short life) climbs by its share of the plume's life, or the traffic's trail is two chimneys */
+        const float share = p->life >= RAIN_SPRAY_LIFE ? 1.0f : (float)p->life / (float)RAIN_SPRAY_LIFE;
+        place[1] = p->y + (int32_t)((float)trail_rise_height(age, p->life) * o * share);
+    }
     *radius = (int32_t)(65536.0f * grow * big * (0.5f + 0.5f * o));
     float d = (1.0f - f) * (1.0f - f) * (0.35f + 0.65f * (float)p->size / 255.0f) * (0.4f + 0.6f * o);
     if (rise) d *= (float)trail_rise_fade(age, p->life) / 100.0f;   /* and thins as it rises */
