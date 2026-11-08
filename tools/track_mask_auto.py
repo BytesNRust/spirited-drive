@@ -24,6 +24,23 @@ FACE_SHARE = 0.3   # a road sign's face (yellow or white) is at least this share
 # business of his; a track with no list gets a draft of every texture (the vegetation still left out by the sign rule's face test).
 CANDIDATES = {
     "CL1": ({0, 1, 3, 4, 6, 7, 10}, {0, 1, 2, 3, 4, 5, 8, 11, 12, 13, 16, 18}),
+    # the other tracks: the cat's-eye road slots (AL, CL) and the signs, posts and boards the guess marks, looked at one by one; the lattice masts (CY1 12, CY3 06 16, TR2 07 08) and the lamp posts
+    # it also lights are left out, and so are the trees, the ads and the buildings it leaves at nothing
+    "AL1": ({0, 3, 6, 7}, {0, 1, 2, 3, 4, 8, 9, 18}),
+    "AL2": ({0, 3, 6, 7, 12}, {0, 1, 2, 3, 4, 5, 6}),
+    "AL3": ({0, 3}, {0, 1, 2, 3, 4}),
+    "CL2": ({0, 3, 6, 7}, {0, 1, 2, 3, 4, 5, 6}),
+    "CL3": ({0, 1, 3, 4, 6}, {0, 1, 2, 3, 4}),
+    "CY1": (set(), {0, 2, 4, 5, 6, 8, 9}),
+    "CY2": (set(), {0, 1, 2, 3, 4}),
+    "CY3": (set(), {0, 1, 2, 3, 9, 10}),
+    "TR1": (set(), {22}),
+    "TR2": (set(), set()),
+    "TR3": (set(), {8, 9, 37, 40}),
+    "TR4": (set(), set()),
+    "TR5": (set(), set()),
+    "TR6": (set(), {17, 18, 21, 22, 23, 25}),
+    "TR7": (set(), set()),
 }
 
 
@@ -73,7 +90,7 @@ def has_sign_face(px, width, rows):
             if a == 0:
                 continue
             total += 1
-            face += (r >= 180 and g >= 110 and b <= 90) or min(r, g, b) >= 170
+            face += (r >= 150 and g >= 100 and b <= 90 and g * 10 >= r * 6) or min(r, g, b) >= 170
     return total > 0 and face >= total * FACE_SHARE
 
 
