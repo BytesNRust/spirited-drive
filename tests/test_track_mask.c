@@ -195,6 +195,27 @@ static void test_registry(void)
     unsetenv("TNFS_TRACK_MASKS");
 }
 
+/* a rally's road is gravel, dirt or snow: the slots' masks (the cat's eyes) are not kept, the scenery boards' (signs, posts) are */
+static void test_a_rally_keeps_no_road_masks(void)
+{
+    static TrackArt art;
+    memset(&art, 0, sizeof art);
+    uint8_t pixels[2 * 2];
+    art.slots[3][0] = texture(2, 2, pixels);
+    art.scenery[5] = texture(4, 2, pixels);
+    const uint8_t white[4 * 4] = { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
+    write_rgba(ROOT "/env", "TRALLY", "slot_03.png", white, 2, 2);
+    write_rgba(ROOT "/env", "TRALLY", "scenery_05.png", white, 2, 2);
+    setenv("TNFS_TRACK_MASKS", ROOT "/env", 1);
+    CHECK_EQ_INT(track_masks_set_race("TRALLY", &art, 0), 2);   /* the circuit: both */
+    CHECK(track_mask_for(&art.slots[3][0]) != NULL);
+    CHECK_EQ_INT(track_masks_set_race("TRALLY", &art, 1), 1);   /* the rally: the board only */
+    CHECK(track_mask_for(&art.slots[3][0]) == NULL);
+    CHECK(track_mask_for(&art.scenery[5]) != NULL);
+    CHECK_EQ_INT(track_masks_set("TRALLY", &art), 2);           /* the old call is the circuit's */
+    unsetenv("TNFS_TRACK_MASKS");
+}
+
 int main(void)
 {
     test_colours();
@@ -203,5 +224,6 @@ int main(void)
     test_refused();
     test_mod_before_data();
     test_registry();
+    test_a_rally_keeps_no_road_masks();
     return TEST_REPORT();
 }

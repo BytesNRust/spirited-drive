@@ -255,7 +255,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
         char stem[16] = { 0 };
         for (size_t i = 0; name[i] != '\0' && i + 1 < sizeof stem; i++) stem[i] = (char)toupper((unsigned char)name[i]);
         reflect_pass_forget_art();   /* port (reflectors): a track loaded where another stood is not the registered art */
-        const int found = track_masks_set(stem, &t->art);
+        const int found = track_masks_set_race(stem, &t->art, look->variant_r != 0);   /* a rally's road is gravel, dirt or snow: no cat's eyes, the signs and posts stay */
         if (found > 0) port_log("track_viewer: %s: %d reflective masks\n", stem, found);
     }
     char info_path[512];
