@@ -268,6 +268,20 @@ static void test_psx_flares_values(void)
     unsetenv("TNFS_PSX_LIGHT");
 }
 
+/* port (replay conditions): a replay's time of day and weather stand in for the settings' while forced; the variables still win, and unforced they are the settings' again */
+static void test_conditions_force(void)
+{
+    unsetenv("TNFS_PSX_TIME"), unsetenv("TNFS_WEATHER");
+    const int time = port_psx_time(), weather = port_weather();
+    port_conditions_force(1, PSX_TIME_NIGHT == time ? PSX_TIME_DAY : PSX_TIME_NIGHT, weather == 2 ? 0 : 2);
+    CHECK(port_psx_time() != time && port_weather() != weather);
+    setenv("TNFS_PSX_TIME", "dusk", 1);
+    CHECK_EQ_INT(port_psx_time(), PSX_TIME_DUSK);   /* the variable wins */
+    unsetenv("TNFS_PSX_TIME");
+    port_conditions_force(0, 0, 0);
+    CHECK(port_psx_time() == time && port_weather() == weather);
+}
+
 /* reflectors: 0/1 in the file, TNFS_REFLECTORS over it, and only with the PS1 headlights on (the shine is the headlights') */
 static void test_rally_spray_values(void)
 {
@@ -924,6 +938,7 @@ int main(void)
     test_gauge_wheel_values();
     test_police_glow_values();
     test_psx_flares_values();
+    test_conditions_force();
     test_reflectors_values();
     test_rally_spray_values();
     test_emissive_lamps_follow_light_effects();

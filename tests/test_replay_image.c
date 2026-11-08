@@ -172,8 +172,28 @@ static void snow_trailer(void)
     CHECK(race_replay_snow_get(file, REPLAY_FILE_SIZE, &snow) == 0);          /* the exe's size */
 }
 
+/* port (replay conditions): the time of day, weather and direction a race ran with travel after the snow record; a file without them (the CD's demos, an older port's) is the original's: day, clear, forward */
+static void conditions_trailer(void)
+{
+    enum { AT = REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE + REPLAY_SNOW_TRAILER_SIZE };
+    static uint8_t file[AT + REPLAY_CONDITIONS_TRAILER_SIZE];
+    ReplayConditions c = { 9, 9, 9 };
+    CHECK(race_replay_conditions_get(file, AT, &c) == 0 && c.psx_time == 0 && c.weather == 0 && c.reverse == 0);   /* the snow's size: day, clear, forward */
+    const ReplayConditions night = { 3, 2, 1 };
+    race_replay_conditions_put(&night, file + AT);
+    c = (ReplayConditions){ 0, 0, 0 };
+    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 1 && c.psx_time == 3 && c.weather == 2 && c.reverse == 1);
+    file[AT + 8] = 7;
+    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 0 && c.psx_time == 0);   /* not a time of ours */
+    race_replay_conditions_put(&night, file + AT);
+    file[AT] ^= 1;
+    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 0 && c.weather == 0);   /* not our marker */
+    CHECK(race_replay_conditions_get(NULL, 0, &c) == 0);
+}
+
 int main(int argc, char **argv)
 {
+    conditions_trailer();
     snow_trailer();
     paints();
     synthetic();

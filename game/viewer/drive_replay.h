@@ -67,4 +67,7 @@ void drive_replay_set_paints(const uint8_t paint[8]);
 /* port (snow_weather): whether this race runs on snow (its grip), written after the paints when the replay is saved */
 void drive_replay_set_snow(int snow);
 
+/* port (replay conditions): the time of day (port_psx_time), weather and direction of this race, written after the snow record when the replay is saved */
+void drive_replay_set_conditions(int psx_time, int weather, int reverse);
+
 #endif
