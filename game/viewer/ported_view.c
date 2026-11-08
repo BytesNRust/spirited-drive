@@ -17,6 +17,7 @@
 #include "game/race/track_fence.h"
 #include "game/race/track_object_draw.h"
 #include "game/race/reflector.h"
+#include "game/race/spray_tint.h"
 #include "game/race/track_mask.h"
 #include "game/viewer/reflect_pass.h"
 #include "game/viewer/screen_layout.h"
@@ -1352,6 +1353,7 @@ int ported_view_weather_open(uint32_t node) { return rain_open_at((int32_t)node)
  * through the recorder like the tyre smoke: so the scenery nearer than it covers it, and the cars, the player's own too. A shape's texels pick a table: 1 lightens, 2 less, 3 darkens (grit). */
 static RainSpray rain_spray;
 static int rain_spray_on;   /* the frame draws rain_fx's spray */
+static int rally_spray_on;  /* port (rally_spray): in a rally the spray is every car's and takes the road's colour */
 enum { SPRAY_SIDE = 64, SPRAY_VARIANTS = 3, SPRAY_SHAPE_BYTES = 16 + SPRAY_SIDE * SPRAY_SIDE };
 static uint8_t spray_shape[RAIN_SPRAY_LEVELS][SPRAY_VARIANTS][SPRAY_SHAPE_BYTES];
 static uint8_t spray_identity[256];
@@ -1401,7 +1403,7 @@ static void spray_update(void)
         const int32_t at[3] = { car->x, car->y, car->z };
         rain_spray_heading(car->use_matrix, car->yaw, car->matrix[6], car->matrix[8], forward);   /* a rival is drawn with its matrix and its yaw stays 0 */
         rain_spray_wheels(at, forward, wheel, right);
-        const int wet = car->airborne_ticks == 0 && car->off_road == 0 && rain_open_at(car->node) > 0;   /* port (tunnel_dry): no water inside a closed zone */
+        const int wet = car->airborne_ticks == 0 && (car->off_road == 0 || rally_spray_on) && rain_open_at(car->node) > 0;   /* port (tunnel_dry): no water inside a closed zone; port (rally_spray): a rally's road is all off_road (the player's never threw any) */
         const int32_t pace = rain_spray_speed(car->speed, car->velocity_x, car->velocity_z);   /* the traffic's physics does not run: its speed is 0 while it drives */
         if (port_traffic_spray() && port_rain_v2() && i >= shadow_race->racers && car != player)   /* port (rain_v2): a wisp from each wheel, a little longer, at any pace */
             rain_spray_step_wisp2(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
@@ -1410,6 +1412,59 @@ static void spray_update(void)
         else
             rain_spray_step(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
     }
+}
+
+/* port (rally_spray): the spray's table in the colour of the road it flies from: the pixels the road was drawn with, around the particle's ground point, their mean (spray_tint.h makes the colour and the table;
+ * the tables are kept by the colour's key and made again when the palette changes) */
+enum { SPRAY_TINTS = 24 };
+static struct { uint32_t key; int used; uint8_t row[3][256]; } spray_tints[SPRAY_TINTS];
+static int spray_tint_next;
+static uint8_t spray_tint_palette[768];
+static const uint8_t *spray_tint_rows[256];
+
+static int spray_road_colour(const RainSprayParticle *p, uint8_t rgb[3])
+{
+    int32_t ground[3] = { p->x, p->y, p->z }, camera[3], screen[2];
+    if (!world_screen(ground, camera, screen) || camera[2] < 64) return 0;
+    const QuadTarget *t = object_pixels.target;
+    int sum[3] = { 0, 0, 0 }, n = 0;
+    for (int dy = 0; dy <= 4; dy += 4)
+        for (int dx = -8; dx <= 8; dx += 8) {
+            const int x = screen[0] + dx, y = screen[1] + dy;
+            if (x < t->clip_left || x >= t->clip_right || y < t->clip_top || y >= t->clip_bottom) continue;
+            const uint8_t i = t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x];
+            if (i == 0xFF) continue;
+            for (int k = 0; k < 3; k++) sum[k] += object_pixels.palette[i * 3 + k];
+            n++;
+        }
+    if (n == 0) return 0;
+    for (int k = 0; k < 3; k++) rgb[k] = (uint8_t)(sum[k] / n);
+    return 1;
+}
+
+/* the rows of a particle's tint (the heart, the thinner part, the grit), or NULL when the road's colour is not to be had */
+static const uint8_t *const *spray_tinted_rows(const RainSprayParticle *p)
+{
+    static const int SHARE[3] = { 52, 34, 70 };   /* percent toward the tint: the sprite's texels 1, 2 and 3 (grit darkest) */
+    uint8_t road[3], tint[3];
+    if (!spray_road_colour(p, road)) return NULL;
+    if (memcmp(spray_tint_palette, object_pixels.palette, sizeof spray_tint_palette) != 0) {
+        memcpy(spray_tint_palette, object_pixels.palette, sizeof spray_tint_palette);
+        memset(spray_tints, 0, sizeof spray_tints);
+    }
+    const uint32_t key = spray_tint_key(road);
+    int at = -1;
+    for (int i = 0; i < SPRAY_TINTS; i++)
+        if (spray_tints[i].used && spray_tints[i].key == key) at = i;
+    if (at < 0) {
+        at = spray_tint_next++ % SPRAY_TINTS;
+        spray_tint_target(road, tint);
+        for (int k = 0; k < 3; k++) spray_tint_table(object_pixels.palette, tint, SHARE[k], spray_tints[at].row[k]);
+        spray_tints[at].key = key, spray_tints[at].used = 1;
+    }
+    for (int i = 0; i < 256; i++) spray_tint_rows[i] = spray_identity;
+    for (int k = 0; k < 3; k++) spray_tint_rows[1 + k] = spray_tints[at].row[k];
+    return spray_tint_rows;
 }
 
 /* the particles dropped at road node `node`, drawn with that row's cars */
@@ -1431,7 +1486,8 @@ static void spray_row(int32_t node, int far_side)
         if (farther != far_side) continue;
         const int32_t px = (int32_t)((int64_t)(radius >> WORLD_SHIFT) * focal / camera[2]);   /* the radius in pixels */
         const int32_t w = px * 2 + 3, h = w * 6 / 11 + 2;   /* flatter than wide: a mist along the road */
-        sprite_scaled_blend(object_pixels.target, spray_rows, spray_shape[density][(p->born * 7u + (uint32_t)i) % SPRAY_VARIANTS], w, h, screen[0] - w / 2, screen[1] - h / 2);
+        const uint8_t *const *rows = rally_spray_on ? spray_tinted_rows(p) : NULL;   /* port (rally_spray) */
+        sprite_scaled_blend(object_pixels.target, rows != NULL ? rows : spray_rows, spray_shape[density][(p->born * 7u + (uint32_t)i) % SPRAY_VARIANTS], w, h, screen[0] - w / 2, screen[1] - h / 2);
     }
 }
 
@@ -1572,6 +1628,7 @@ static void dust_draw(const Car *car)
     const int drop = rally_dust_skid(kind, car->speed, car->airborne_ticks == 0) != 0;
     const int32_t at[3] = { car->x, car->y, car->z };
     dust_trail_step(&dust_trail, shadow_race->tick, kind, drop, at, car->yaw, car->speed);
+    if (rally_spray_on) return;   /* port (rally_spray): the wet road's spray is drawn in its place */
     if (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH && kind != RALLY_GRAVEL_SNOW) return;
     const PuffView v = puff_view();
     const int lunar = shadow_race->port_lunar_gravity != 0;
@@ -2683,6 +2740,7 @@ static void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8
     lit_level = 0;
     memset(lit_corner, 255, sizeof lit_corner);
     rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
+    rally_spray_on = rain_spray_on && shadow_race->port_rally_road != 0 && port_rally_spray();   /* port (rally_spray) */
     if (rain_spray_on) {   /* port (rain v5) */
         spray_tables_set(wt);
         spray_update();
@@ -2727,7 +2785,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
      * recorded by the rasterizers, which find the recorder in the target, and replayed by bands at the end, in order */
     cars_frame_begin(art, wt, pixels);
     const int ahead = draw_track(tri, pc, &cam, &ctx);
-    rain_spray_on = 0;
+    rain_spray_on = 0, rally_spray_on = 0;
     track_light_hook = NULL;
     lit_active = 0;
     if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);
