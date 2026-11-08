@@ -11,10 +11,10 @@ static const float PI = 3.14159265358979f;
 WiperTiming wiper_timing(int kind)
 {
     switch (kind) {   /* ticks at the race's 30 a second */
-    case WIPER_LIGHT: return (WiperTiming){ 54, 30 };
-    case WIPER_RAIN:  return (WiperTiming){ 36, 34 };
-    case WIPER_STORM: return (WiperTiming){ 21, 20 };
-    case WIPER_SNOW:  return (WiperTiming){ 45, 40 };
+    case WIPER_LIGHT: return (WiperTiming){ 72, 40 };   /* 2.4 s, with a pause */
+    case WIPER_RAIN:  return (WiperTiming){ 54, 50 };   /* 1.8 s: a car's wipers at normal speed take 1.5 to 2 s a cycle */
+    case WIPER_STORM: return (WiperTiming){ 39, 36 };   /* 1.3 s */
+    case WIPER_SNOW:  return (WiperTiming){ 54, 50 };   /* as the rain */
     default:          return (WiperTiming){ 0, 0 };
     }
 }

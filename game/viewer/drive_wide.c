@@ -839,11 +839,12 @@ static int glass_row(const uint8_t *flags)
 
 /* how far (degrees) a blade turns from its park and stays on the glass: the angle before the first at which a point of its outer 40%, is off the art's glass, past the left side or above the
  * view. Points in the right part of the view (WIPER_FREE_X on) are not looked at. */
-static float blade_fit(const uint8_t *art, const uint8_t *mask, const WiperBlade *b)
+static float blade_fit(const uint8_t *art, const uint8_t *mask, const WiperBlade *b, float max_span)
 {
     float ok = 0.0f;
     const float rad = 3.14159265f / 180.0f;
-    for (float a = 24.0f;   /* the bottom edge is curved, a line is only its slope: the first degrees are the edge itself */ a <= (float)WIPER_SPAN_DEG; a += 2.0f) {
+    for (float a = 24.0f;   /* the bottom edge is curved, a line is only its slope: the first degrees are the edge itself */ a <= max_span + 1.9f; a += 2.0f) {
+        if (a > max_span) a = max_span;   /* the last step ends exactly at the top */
         for (int k = WIPER_FIT_FROM; k <= 10; k++) {   /* the blade's outer part: its root is behind the wheel and the dash */
             float dx, dy;
             wiper_offset(b, b->len * (float)k / 10.0f, b->park + a * rad, &dx, &dy);
@@ -852,6 +853,7 @@ static float blade_fit(const uint8_t *art, const uint8_t *mask, const WiperBlade
             if (px < 0 || py < 0 || py >= SCREEN_H || !wiper_glass(art, mask, px, py)) return ok;
         }
         ok = a;
+        if (a >= max_span) break;
     }
     return ok;
 }
@@ -904,8 +906,10 @@ int drive_wide_wiper_scene(const RaceState *race, WiperBlade *out)
             { rx, ya - tn * (rx - (float)xa), len, slope, 0.0f, ux, uy, vx, vy, (float)SCREEN_W }
         };
         layer[0] = pair[0], layer[1] = pair[1];
-        span = blade_fit(art, mask, &layer[0]);
-        const float right = blade_fit(art, mask, &layer[1]);
+        /* the top of the sweep is vertical ON THE SCREEN: the plane angle at which the blade's screen x offset is nil (cos t * ux + sin t * vx = 0), not 90 degrees in the glass's plane, which the slope and the raking tilt */
+        const float top_plane = atan2f(ux, -vx), max_span = (top_plane - slope) / deg;
+        span = blade_fit(art, mask, &layer[0], max_span);
+        const float right = blade_fit(art, mask, &layer[1], max_span);
         if (right < span) span = right;
         if (span < 50.0f) span = 50.0f;
         measured_for = drive_hud.cockpit.dash;
