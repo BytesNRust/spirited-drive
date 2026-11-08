@@ -1238,6 +1238,9 @@ if(NOT EMSCRIPTEN)
         # a replay plays with the conditions it was recorded with (a CD's demo: day and clear), not the settings'
         add_test(NAME replay_conditions COMMAND ${CMAKE_SOURCE_DIR}/tests/replay_conditions.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/replay_conditions)
         set_tests_properties(replay_conditions PROPERTIES TIMEOUT 300)
+        # two races in one process (TNFS_DRIVE_THEN): the second track registers its own reflector masks, not the first's
+        add_test(NAME two_tracks_reflectors COMMAND ${CMAKE_SOURCE_DIR}/tests/two_tracks_reflectors.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/two_tracks_reflectors)
+        set_tests_properties(two_tracks_reflectors PROPERTIES TIMEOUT 300)
         # rain_lamps must change the frame of a masked car in rain and storm, and not in clear; an old port.cfg moves at the real startup
         add_test(NAME rain_lamps_masked COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/rain_lamps_masked -P ${CMAKE_SOURCE_DIR}/tests/rain_lamps_masked.cmake)
         set_tests_properties(rain_lamps_masked PROPERTIES TIMEOUT 400)

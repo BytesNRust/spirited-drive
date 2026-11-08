@@ -312,6 +312,9 @@ int main(int argc, char **argv)
         resource_init(opt.data_root, opt.german);
         resource_set_units(port_extras_load().units);
         ok = track_viewer_drive(opt.data_root, opt.drive, opt.car, opt.racers, opt.race_type, opt.entry, opt.screenshot);
+        /* port (dev, env only): TNFS_DRIVE_THEN=NAME races a second track in the same process, as the menus do after a race (the tests for what a track leaves behind) */
+        const char *then = getenv("TNFS_DRIVE_THEN");
+        if (ok && then != NULL && then[0] != '\0') ok = track_viewer_drive(opt.data_root, then, opt.car, opt.racers, opt.race_type, opt.entry, opt.screenshot);
     }
     else if (opt.track != NULL) ok = track_viewer_main(opt.data_root, opt.track, opt.entry, opt.screenshot);
     else ok = run_game(&opt);
