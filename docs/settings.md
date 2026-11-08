@@ -109,6 +109,8 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `rally_spray` | 0 | 0 | 0, 1 (in a rally with rain_fx, in rain or snow, every car, the player's too, throws the rain spray tinted by the road under it: grey on gravel, brown on dirt, white on snow; the dust is not drawn over it; 0 as before) | none | `TNFS_RALLY_SPRAY` | 0 / 0 / 0 | none |
 | `trail_rise` | 0 | 0 | 0, 1 (the water spray and the dust of every car rise with their age behind it, up to about a car's height, thinning as they go, as particles in suspension drift up; 0 as before) | none | `TNFS_TRAIL_RISE` | 0 / 0 / 0 | none |
 | `snow_fx` | 0 | 0 | 0, 1 (with snow_weather, the falling snow: soft round flakes, a little less regular, leaning away from the vanishing point with the car's speed at a smaller angle than the rain's streaks, the snowstorm's wind swinging from one side to the other over about a minute, and whiter, rarer marks on the lens; 0 as before) | none | `TNFS_SNOW_FX` | 0 / 0 / 0 | none |
+| `lamp_halos` | 0 | 0 | 0, 1 (at night, the street lamps get the same soft dithered halo as the brake lights and the tunnel lamps: found as the blobs of the lamp boards' emissive entries after the 3D, the nearest or largest few; the lit windows never; 0 as before)
+0 | none | `TNFS_LAMP_HALOS` | 0 / 0 / 0 | none |
 
 ### Dash, cameras and replay
 
@@ -254,6 +256,7 @@ All 64 columns of the table, in file order. A column that is not here is not tou
 | `rally_spray` | settings | 0 | 0 | 0 |
 | `trail_rise` | settings | 0 | 0 | 0 |
 | `snow_fx` | settings | 0 | 0 | 0 |
+| `lamp_halos` | settings | 0 | 0 | 0 |
 
 The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.
 

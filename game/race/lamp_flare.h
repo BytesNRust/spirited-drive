@@ -25,6 +25,10 @@ typedef struct {
  * `max`, largest first; returns how many. */
 int lamp_blobs(const uint8_t *pixels, int pitch, int x0, int y0, int x1, int y1, const uint8_t member[256], LampBlob *out, int max);
 
+/* port (lamp_halos): the same for a whole frame, where the lamps are many and small: any size of rectangle (the scratch buffer is kept between calls), the `max` largest blobs, largest first. A far lamp is
+ * a pixel or two, so the nearest are the ones that get a halo when there are more than `max`. */
+int lamp_blobs_frame(const uint8_t *pixels, int pitch, int x0, int y0, int x1, int y1, const uint8_t member[256], LampBlob *out, int max);
+
 /* The halo's radius for a blob of `area` pixels: the blob's own radius times LAMP_FLARE_REACH / 10, at least LAMP_FLARE_MIN_RADIUS, at most LAMP_FLARE_MAX_RADIUS. */
 int lamp_flare_radius(int area);
 
