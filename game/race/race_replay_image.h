@@ -34,6 +34,14 @@ void race_replay_snow_put(int snow, uint8_t out[REPLAY_SNOW_TRAILER_SIZE]);
 /* 1 when `file` has the snow record (after the paint trailer): `*snow` is it; else 0 and `*snow` 0 */
 int race_replay_snow_get(const uint8_t *file, size_t size, int *snow);
 
+/* port (replay conditions): after the snow record, the 8 bytes "TNFSCND1", the time of day (port_psx_time's 0..3), the weather (0..3) and whether the track ran reversed (0/1), and padding. A file without it (the
+ * CD's demos, an older port's) was recorded as the original plays: day, clear, forward. */
+enum { REPLAY_CONDITIONS_TRAILER_SIZE = 16 };
+typedef struct { int psx_time, weather, reverse; } ReplayConditions;
+void race_replay_conditions_put(const ReplayConditions *c, uint8_t out[REPLAY_CONDITIONS_TRAILER_SIZE]);
+/* 1 when `file` has the conditions record (after the snow trailer): `*c` is it; else 0 and `*c` is day, clear, forward */
+int race_replay_conditions_get(const uint8_t *file, size_t size, ReplayConditions *c);
+
 /* A replay's race as its setup tells it */
 typedef struct {
     char stem[REPLAY_TRACK_NAME + 1];  /* upper case, as the CD's names */
@@ -44,6 +52,8 @@ typedef struct {
     int arcade;                        /* 004fbadc (the field holds 004fbad8) */
     int nitro;                         /* port: 004faa50, the NITRO cheat, stamped beside it: the start the recording holds launches */
     uint8_t paint[RACE_PLAYERS];       /* port (replay colours): each slot's paint as the race wore it, REPLAY_PAINT_NONE where the file has none */
+    ReplayConditions conditions;       /* port (replay conditions): the time of day, weather and direction it was recorded with; day, clear, forward without the record */
+    int conditions_known;              /* ... 1 when the file has them */
     int snow, snow_known;              /* port (snow_weather): the race ran on snow (race_replay_snow_get), when the file says */
     int paint_known;                   /* ... 1 when the file has them (race_replay_paint_get) */
     int explode;                       /* port: 004c5cd4, the race's EXPLODE cheat, stamped in the setup's two bytes at

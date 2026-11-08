@@ -731,6 +731,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_snow = snow_race_wanted(replay_of != NULL, replay_of != NULL && replay_of->snow, port_snow_weather()) && track_snow_for(&t->tri, name, NULL);   /* port (snow_weather): a replay's own, else the host's or the setting's */
     ported_view_set_snow(drive_snow);
     drive_replay_set_snow(drive_snow);
+    drive_replay_set_conditions(port_psx_time(), port_weather(), t->reversed);   /* port (replay conditions): what the replay of this race is played with */
+    port_log("%s: time %d, weather %d, reverse %d\n", replay_of != NULL ? (replay_of->conditions_known ? "replay conditions (recorded)" : "replay conditions (the original's)") : "race conditions", port_psx_time(), port_weather(), t->reversed);
     drive_field_port(&field, name, arcade);
     snow_grip_set(field.port_rally_gravel == RALLY_GRAVEL_SNOW);   /* port (snow_weather): this race's grip is the snow's: no time or record (records_glue_route) */
     field.port_open = drive_wet_open_make(&t->tri, name, t->reversed);   /* port (tunnel_dry): the rain's grip loss stops inside a closed zone, the weather's own */
@@ -874,7 +876,7 @@ static void drive_early_link(int model)
 static void drive_look_fill(TrackFamInputs *look, const char *data_root, const char *name)
 {
     look->port_lunar = race_extras().lunar_springs;   /* port: the moon's textures for the rally on Rusty Springs */
-    look->port_reverse = replay_file == NULL && (drive_link_on ? session_rules_active() != NULL && session_rules_active()->reverse : reverse_track_wanted());   /* port: the circuit backwards (not a replay's; a link game's is the host's) */
+    look->port_reverse = replay_file == NULL ? (drive_link_on ? session_rules_active() != NULL && session_rules_active()->reverse : reverse_track_wanted()) : replay_of != NULL && replay_of->conditions.reverse;   /* port: the circuit backwards (a replay's: the way it was recorded; a link game's is the host's) */
     if (replay_file != NULL) {
         const int32_t track = le32_at(replay_file + 6);
         look->variant_m = le32_at(replay_file + 0x31c), look->variant_r = le32_at(replay_file + 0x320), look->track = track;
@@ -949,9 +951,14 @@ int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, s
     }
     race.snow_known = race_replay_snow_get(file, size, &race.snow);   /* port (snow_weather): whether it ran on snow; a CD's or older file: no */
     race.paint_known = race_replay_paint_get(file, size, race.paint);   /* port (replay colours): the paints the race wore; a CD's or older file has none */
+    race.conditions_known = race_replay_conditions_get(file, size, &race.conditions);   /* port (replay conditions): a CD's or older file plays as the original: day, clear, forward */
+    port_conditions_force(1, race.conditions.psx_time, race.conditions.weather);
+    reverse_track_force(1, race.conditions.reverse);
     replay_of = &race, replay_file = file, replay_request = request;
     const int ok = track_viewer_drive(data_root, race.stem, race.field.entries[0].car, race.field.racers, -1, 0, NULL);
     replay_of = NULL, replay_file = NULL;
+    port_conditions_force(0, 0, 0);
+    reverse_track_force(0, 0);
     return ok;
 }
 

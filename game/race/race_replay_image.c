@@ -106,6 +106,25 @@ int race_replay_snow_get(const uint8_t *file, size_t size, int *snow)
     return 1;
 }
 
+static const char CONDITIONS_MAGIC[8] = { 'T', 'N', 'F', 'S', 'C', 'N', 'D', '1' };
+
+void race_replay_conditions_put(const ReplayConditions *c, uint8_t out[REPLAY_CONDITIONS_TRAILER_SIZE])
+{
+    memset(out, 0, REPLAY_CONDITIONS_TRAILER_SIZE);
+    memcpy(out, CONDITIONS_MAGIC, sizeof CONDITIONS_MAGIC);
+    out[8] = (uint8_t)c->psx_time, out[9] = (uint8_t)c->weather, out[10] = c->reverse != 0;
+}
+
+int race_replay_conditions_get(const uint8_t *file, size_t size, ReplayConditions *c)
+{
+    const size_t at = (size_t)REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE + REPLAY_SNOW_TRAILER_SIZE;
+    *c = (ReplayConditions){ 0, 0, 0 };
+    if (file == NULL || size < at + REPLAY_CONDITIONS_TRAILER_SIZE || memcmp(file + at, CONDITIONS_MAGIC, sizeof CONDITIONS_MAGIC) != 0) return 0;
+    if (file[at + 8] > 3 || file[at + 9] > 3) return 0;   /* not a value of ours */
+    c->psx_time = file[at + 8], c->weather = file[at + 9], c->reverse = file[at + 10] == 1;
+    return 1;
+}
+
 void race_replay_apply_cheats(RaceState *race, const ReplayRace *replay)
 {
     race->unknown_4c5cd4 = replay->explode;

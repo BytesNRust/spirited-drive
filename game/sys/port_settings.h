@@ -260,6 +260,9 @@ int port_rally_spray(void);
 /* 1 when handbrake_lamps: TNFS_HANDBRAKE_LAMPS=0/1 when set, else the mode's. The lamps only: the physics are the exe's either way. */
 int port_handbrake_lamps(void);
 
+/* port (replay conditions): while `on`, port_psx_time() and port_weather() answer these (a replay plays with the conditions it was recorded with, not the settings'); the TNFS_PSX_TIME / TNFS_WEATHER variables still win. 0 gives them back. */
+void port_conditions_force(int on, int psx_time, int weather);
+
 /* the police roof halo's size 0..3: TNFS_POLICE_HALO=0..3 when set, else the mode's. */
 int port_police_halo(void);
 

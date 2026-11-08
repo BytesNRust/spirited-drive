@@ -415,11 +415,19 @@ PlatformConfig port_platform_config(const char *title)
     return (PlatformConfig){ screen_width(s.format), SCREEN_HEIGHT, title, s.scale_integer, s.fullscreen, s.refresh_hz };
 }
 
+static int conditions_on, conditions_time, conditions_weather;
+
+void port_conditions_force(int on, int psx_time, int weather)
+{
+    conditions_on = on != 0, conditions_time = psx_time, conditions_weather = weather;
+}
+
 int port_weather(void)
 {
     const char *v = getenv("TNFS_WEATHER");
     const int w = v != NULL ? weather_named(v) : -1;
     if (w >= 0) return w;
+    if (conditions_on) return conditions_weather;   /* port (replay conditions): a replay's own */
     const SessionRules *host = session_rules_active();   /* port (online): a link race runs the host's weather */
     return host != NULL ? host->weather : port_settings_load().weather;
 }
@@ -436,7 +444,7 @@ int port_psx_time(void)
     const char *v = getenv("TNFS_PSX_TIME");
     const int t = v != NULL ? psx_time_named(v) : -1;
     const SessionRules *host = session_rules_active();   /* port (online): the host's time of day */
-    return t >= 0 ? t : host != NULL ? host->psx_time : port_settings_load().psx_time;
+    return t >= 0 ? t : conditions_on ? conditions_time : host != NULL ? host->psx_time : port_settings_load().psx_time;
 }
 
 int port_fog_sample(void)

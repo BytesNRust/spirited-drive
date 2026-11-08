@@ -9,6 +9,9 @@
  * not saved) asks for it; TNFS_REVERSE=1 asks for it without either. */
 int reverse_track_wanted(void);
 
+/* port (replay conditions): while `on`, reverse_track_wanted() answers `reverse` (the direction a replay was recorded in); TNFS_REVERSE still wins */
+void reverse_track_force(int on, int reverse);
+
 /* The race now running: 1 when its track was reversed. Read by the records. */
 void reverse_track_set(int on);
 int reverse_track_running(void);

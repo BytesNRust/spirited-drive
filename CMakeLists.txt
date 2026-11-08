@@ -1235,6 +1235,9 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(light_edit_reload PROPERTIES TIMEOUT 120)
         add_test(NAME light_edit_places COMMAND ${CMAKE_SOURCE_DIR}/tests/light_edit_places.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/light_edit_places)
         set_tests_properties(light_edit_places PROPERTIES TIMEOUT 120)
+        # a replay plays with the conditions it was recorded with (a CD's demo: day and clear), not the settings'
+        add_test(NAME replay_conditions COMMAND ${CMAKE_SOURCE_DIR}/tests/replay_conditions.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/replay_conditions)
+        set_tests_properties(replay_conditions PROPERTIES TIMEOUT 300)
         # rain_lamps must change the frame of a masked car in rain and storm, and not in clear; an old port.cfg moves at the real startup
         add_test(NAME rain_lamps_masked COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/rain_lamps_masked -P ${CMAKE_SOURCE_DIR}/tests/rain_lamps_masked.cmake)
         set_tests_properties(rain_lamps_masked PROPERTIES TIMEOUT 400)
