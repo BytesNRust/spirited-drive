@@ -18,15 +18,22 @@ d = sys.argv[1]
 for n in ("scenery_00", "scenery_02", "scenery_04"): png(f"{d}/CY1/{n}.png")   # CY1 has these boards (signs): three masks
 png(f"{d}/CY2/scenery_00.png")                                                  # CY2 one
 P
-printf 'profile=restomod\npsx_light=1\npsx_headlights=1\n' > "$WORK/user/port.cfg"
-env TNFS_REFLECTORS=1 TNFS_TRACK_MASKS="$WORK/masks" TNFS_PSX_TIME=night TNFS_WEATHER=clear TNFS_DRIVE_THEN=CY2 TNFS_FRAMES=20 \
-    SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
-    timeout -k 5 200 "$TNFS" --data "$DATA" --user "$WORK/user" --mods "$WORK/mods" --drive CY1 --type 0 --car 2 --node 20 --screenshot "$WORK/shot.ppm" > "$WORK/run.out" 2>&1
-LOG="$WORK/user/tnfs.log"
-lines=$(grep -a "^reflectors: " "$LOG")
+# a mask is looked up file by file (these first, then the port's data/track_masks), so each track's count is what that track gives alone: run each once by itself
+race() {   # race TRACK THEN USERDIR: the "reflectors:" lines of a run of TRACK (then THEN, when not empty)
+    mkdir -p "$3"
+    printf 'profile=restomod\npsx_light=1\npsx_headlights=1\n' > "$3/port.cfg"
+    env TNFS_REFLECTORS=1 TNFS_TRACK_MASKS="$WORK/masks" TNFS_PSX_TIME=night TNFS_WEATHER=clear ${2:+TNFS_DRIVE_THEN=$2} TNFS_FRAMES=20 \
+        SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
+        timeout -k 5 200 "$TNFS" --data "$DATA" --user "$3" --mods "$WORK/mods" --drive "$1" --type 0 --car 2 --node 20 --screenshot "$3/shot.ppm" > "$3/run.out" 2>&1
+    grep -a "^reflectors: " "$3/tnfs.log"
+}
+alone1=$(race CY1 "" "$WORK/u1" | sed -n 1p) alone2=$(race CY2 "" "$WORK/u2" | sed -n 1p)
+lines=$(race CY1 CY2 "$WORK/user")
 echo "$lines"
+[ -n "$alone1" ] && [ -n "$alone2" ] || { echo "FAIL: a lone race registered no masks ('$alone1', '$alone2')"; exit 1; }
+[ "$alone1" != "$alone2" ] || { echo "FAIL: CY1 and CY2 give the same count ('$alone1'): the test cannot tell them apart"; exit 1; }
 [ "$(echo "$lines" | grep -c .)" -ge 2 ] || { echo "FAIL: the second track did not register its masks (one 'reflectors:' line)"; exit 1; }
 first=$(echo "$lines" | sed -n 1p) second=$(echo "$lines" | sed -n 2p)
-[ "$first" = "reflectors: 3 textures with a mask" ] || { echo "FAIL: CY1: '$first'"; exit 1; }
-[ "$second" = "reflectors: 1 textures with a mask" ] || { echo "FAIL: CY2: '$second'"; exit 1; }
+[ "$first" = "$alone1" ] || { echo "FAIL: CY1: '$first', alone '$alone1'"; exit 1; }
+[ "$second" = "$alone2" ] || { echo "FAIL: CY2: '$second', alone '$alone2'"; exit 1; }
 echo PASS
