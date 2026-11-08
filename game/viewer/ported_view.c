@@ -847,12 +847,14 @@ static void cone_heading(const Car *car, double *hx, double *hz)
 /* port (psx_headlights): the tick each car's body was last drawn (its draw distance, the render scale's): a car that is not drawn does not light the road, so no lit road
  * shows far from a car that is not there yet. Stored as tick + 1: 0 is never */
 static int32_t body_drawn_tick[RACE_CARS];
+static HeadlightPool *pool_fed;   /* the pool headlights_update last fed: its tunnel flags and node table are freed with the track, so it lets go of them then */
 
 /* port (psx_headlights): the cars with their lights on, each frame - the active cars of the race, the player first - are the pools the road is lit in */
 static void headlights_update(void)
 {
     if (psx_light == NULL || psx_light->pool == NULL) return;
     HeadlightPool *pool = psx_light->pool;
+    pool_fed = pool;
     static int32_t seen[RACE_CARS];
     static int8_t travel[RACE_CARS];
     static uint32_t of_ring;
@@ -2474,6 +2476,7 @@ void ported_view_forget_track(void)
     ported_view_set_models(NULL, NULL, 0, 0, 0);  /* the next track's models sit at the same address, bound to these textures */
     horizon_smooth_cache_reset();           /* port: the sky bands kept for this track's bitmap */
     road_tunnels_forget();
+    if (pool_fed != NULL) pool_fed->tunnel = NULL, pool_fed->node_xz = NULL;   /* the next track's first build asks the pool before headlights_update feeds it again */
 }
 
 void ported_view_set_reach(int32_t segments)
