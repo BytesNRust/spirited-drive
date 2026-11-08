@@ -24,6 +24,10 @@ uint8_t *track_mask_load(const char *track, const char *name, int width, int hei
  * `art` must stay as it is while they are used (the masks are found by the texture's address). Returns how many masks were found. NULL track or art: just drops them. */
 int track_masks_set(const char *track, const TrackArt *art);
 
+/* The same for a race: `rally` 1 (the track's rally variant: its road is gravel, dirt or snow) keeps no slot's mask (the cat's eyes painted on the asphalt are not there), only the scenery boards' (signs, posts).
+ * track_masks_set is the circuit's (rally 0). */
+int track_masks_set_race(const char *track, const TrackArt *art, int rally);
+
 /* The mask of a texture of the track last given to track_masks_set (a slot's variant 0 as `&art->slots[s][0]`, or a scenery board `&art->scenery[i]`): bitmap.width x bitmap.height
  * bytes, 1 reflective, 0 not; NULL when it has no mask (or `t` is NULL). */
 const uint8_t *track_mask_for(const TrackTexture *t);

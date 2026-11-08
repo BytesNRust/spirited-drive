@@ -41,3 +41,5 @@ Only polygons with a mask, in the dark, with the lamps lit and the gain above 0,
 
 - 3D models (scenery drawn through `draw_model`, the cars) are not reflective: the masks cover the boards (billboards) and the road.
 - The rivals' lamps do nothing (the light a reflector returns goes back to its own source).
+
+**In a rally** the road is gravel, dirt or snow, so the slots' masks (the cat's eyes painted on the asphalt) are not kept; the scenery boards' (signs, posts) are as on the circuit (`track_masks_set_race`, `rally` from the track's rally variant).

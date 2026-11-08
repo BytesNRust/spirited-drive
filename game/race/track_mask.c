@@ -76,13 +76,13 @@ static void keep(const char *track, const char *name, const TrackTexture *t)
     if (mask != NULL) masks[mask_count++] = (Entry){ t, mask };
 }
 
-int track_masks_set(const char *track, const TrackArt *art)
+int track_masks_set_race(const char *track, const TrackArt *art, int rally)
 {
     for (int i = 0; i < mask_count; i++) free(masks[i].mask);
     mask_count = 0;
     if (track == NULL || art == NULL) return 0;
     char name[32];
-    for (int s = 0; s < TRACK_TEXTURE_SLOTS; s++) {
+    for (int s = 0; !rally && s < TRACK_TEXTURE_SLOTS; s++) {   /* a rally's road has no cat's eyes */
         snprintf(name, sizeof name, "slot_%02d", s);
         keep(track, name, &art->slots[s][0]);
     }
@@ -92,6 +92,8 @@ int track_masks_set(const char *track, const TrackArt *art)
     }
     return mask_count;
 }
+
+int track_masks_set(const char *track, const TrackArt *art) { return track_masks_set_race(track, art, 0); }
 
 const uint8_t *track_mask_for(const TrackTexture *t)
 {
