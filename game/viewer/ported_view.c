@@ -1790,7 +1790,9 @@ static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4]
 enum { DUST_BODY_REAR = 60 };   /* a puff within the car's rear (its half length and a puff's radius, in the camera's depth units) is behind the body, not in front of it */
 static void dust_puffs(const Car *car, int slot, int pass);
 
-static void dust_draw(const Car *car, int slot)
+/* port (cam_trail): a car's dust trail is stepped every frame for every car that throws dust, drawn or not (the body's smoke stepped it, so a camera that does not draw the car, or a car off the screen,
+ * froze its trail and the next view laid the missed ticks again along the heading it has now) */
+static void dust_step(const Car *car, int slot)
 {
     const int kind = shadow_race->port_rally_gravel;
     DustTrail *const trail = &dust_trails[slot];
@@ -1804,6 +1806,20 @@ static void dust_draw(const Car *car, int slot)
     const int drop = rally_dust_skid(kind, speed, car->airborne_ticks == 0) != 0;
     const int32_t at[3] = { car->x, car->y, car->z };
     dust_trail_step(trail, shadow_race->tick, kind, drop, at, yaw, speed);
+}
+
+static void dust_update(void)
+{
+    if (shadow_race == NULL) return;
+    const int32_t n = shadow_race->car_count < RACE_CARS ? shadow_race->car_count : RACE_CARS;
+    for (int32_t i = 0; i < n; i++) {
+        const Car *car = shadow_race->cars[i];
+        if (car != NULL && (car == followed_car() || (shadow_race->port_rally_road != 0 && port_rally_spray()))) dust_step(car, (int)i);
+    }
+}
+
+static void dust_draw(const Car *car, int slot)
+{
     if (spray_cd_on) return;   /* port (spray_cd_smoke): the dust is drawn by its row, the puffs behind the car before its body (dust_row) */
     dust_puffs(car, slot, -1);
 }
@@ -3091,6 +3107,7 @@ static void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8
         spray_tables_set(wt);
         spray_update();
     }
+    dust_update();   /* port (cam_trail) */
 }
 
 void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,

@@ -791,6 +791,10 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     const char *look_env = getenv("TNFS_LOOK_BACK_AT");
     if (look_env != NULL) sscanf(look_env, "%d:%d", &look_from, &look_to);
     const PortControls look_port = port_controls_load();
+    /* port (dev, env only): TNFS_VIEW_AT=tick:kind takes the chase camera to that kind at that tick, as a view key would (the cameras' change, for the captures) */
+    int32_t view_at = -1, view_to = 0;
+    const char *view_at_env = getenv("TNFS_VIEW_AT");
+    if (view_at_env != NULL) sscanf(view_at_env, "%d:%d", &view_at, &view_to);
     const char *dump_path = getenv("TNFS_AUDIO_DUMP");   /* port (dev, env only): the race's sound mixed offline to this WAV (drive_audio.c) */
     const int dumping = dump_path != NULL && drive_audio_offline_open(&drive_sim.race, drive_cars.data_root, dump_path);
     if (dumping) {
@@ -800,6 +804,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     }
     for (uint32_t i = 0; i < ticks; i++) {
         drive_replay_key(&drive_replay, env_press((int32_t)i));
+        if (view_at >= 0 && (int32_t)i == view_at) race_chase_follow(&drive_sim.race, &drive_sim.race.chase, followed, view_to % CHASE_KINDS);
         if (look_from >= 0) {
             const int32_t key = port_controls_look_back_key(&look_port);
             drive_input.keys[key] = (int32_t)i >= look_from && (int32_t)i < look_to;
