@@ -1,5 +1,5 @@
 #!/bin/bash
-# spray_cd_smoke: 0 draws the spray as it was (the same frame with the setting unset and set to 0); 1 draws the CD's smoke sprite, so the rain spray behind a car on the wet road changes.
+# spray_cd_smoke: on by default in Restomod (unset is the frame of 1); 0 draws the spray as it was; 1 draws the CD's smoke sprite, so the rain spray behind a car on the wet road changes.
 # usage: spray_cd_smoke.sh TNFS REPO WORK [DATA]
 set -u
 TNFS=$1 REPO=$2 WORK=$3 DATA=${4:-$2/original}
@@ -20,6 +20,6 @@ fail() { echo "FAIL: $1"; exit 1; }
 shot "" unset
 shot 0 off
 shot 1 on
-cmp -s "$WORK/unset.ppm" "$WORK/off.ppm" || fail "the setting at 0 changes the frame"
+cmp -s "$WORK/unset.ppm" "$WORK/on.ppm" || fail "Restomod does not default the setting on"
 cmp -s "$WORK/off.ppm" "$WORK/on.ppm" && fail "the setting at 1 does not change the rain spray"
 echo PASS

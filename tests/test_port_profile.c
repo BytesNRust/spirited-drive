@@ -186,10 +186,10 @@ static void test_tables(void)
     CHECK_EQ_INT(s.snow_weather, 1);     /* the snow: only Restomod's */
     CHECK_EQ_INT(s.reflectors, 1);   /* the owner: the shine is Restomod's default (Stock and Restored keep 0) */
     CHECK_EQ_INT(s.handbrake_lamps, 1);   /* Restomod: the handbrake never lights the brake lamps */
-    CHECK_EQ_INT(s.rally_spray, 0);   /* off in every profile until the owner approves it */
+    CHECK_EQ_INT(s.rally_spray, 1);   /* on in Restomod (owner 2026-11-08): every car throws the tinted trail in a rally */
     CHECK_EQ_INT(s.trail_rise, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.snow_fx, 0);   /* off in every profile until the owner approves it */
-    CHECK_EQ_INT(s.spray_cd_smoke, 0);   /* off in every profile until the owner approves it */
+    CHECK_EQ_INT(s.spray_cd_smoke, 1);   /* on in Restomod (owner 2026-11-08): the CD smoke variant, not 2 */
     CHECK_EQ_INT(s.shoulder_light, 1);   /* the third lane and the shoulders lit like the road */
     CHECK_EQ_INT(s.finish_gate_light, 1);   /* the owner: the gates are OK (the current tint, not the neutral one) */
     CHECK_EQ_INT(s.lamp_pool_bright, 1);   /* the owner approved the stronger lamp pools: Restomod's default (Stock and Restored keep 0) */
