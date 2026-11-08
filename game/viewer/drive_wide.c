@@ -13,9 +13,12 @@
 #include "game/race/car_draw.h"
 #include "game/race/dash_color.h"
 #include "game/race/dash_mask.h"
+#include "game/race/wiper.h"
+#include "viewer/ported_view.h"
 #include "game/race/tach_dim.h"
 #include "game/race/wheel_front.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -764,6 +767,177 @@ static void wide_mirror_and_strips(const WideFrame *w, const uint8_t *frame)
     }
 }
 
+/* port (wipers): where the blades are on the dash (layer pixels), for every dash from its art, as a tandem pair on the FULL windscreen: the dash view shows only about 62% of the glass, the rest is past the right edge, so
+ * the glass's width is the visible width over WIPER_VISIBLE_SHARE; the left (driver) pivot is low, a gap right of the wheel's left rim, a little below the glass's bottom edge (hidden by the dash: the blade comes out from behind the wheel and the dash top, as in DriveClub), the second near the glass's centre (often past the view), both blades the same length, parked flat to the
+ * right of their pivot along the bottom edge's slope and sweeping together up to the left. The glass is raked and seen from the left of its centre, so a blade turns in the glass's plane and the plane's axes put it
+ * on the screen: along the edge (u) as it is, up the glass (v) squashed by WIPER_RAKE. The sweep is cut only against the left pillar and the glass's top (the right edge of the view cuts nothing). */
+enum { WIPER_PROBE_X = 300, WIPER_SPAN_DEG = 90, WIPER_FREE_X = 540, WIPER_LEFT_PIVOT_X = 333, WIPER_PIVOT_DROP = 8, WIPER_FIT_FROM = 7 };   /* the driver's pivot: a gap right of the wheel's left rim (wheel_left_rim; WIPER_LEFT_PIVOT_X is its fallback), y this far below the edge */
+static const float WIPER_VISIBLE_SHARE = 0.62f, WIPER_RAKE = 0.55f, WIPER_LEN_SHARE = 0.45f;
+
+/* the glass (the art's nothing, or what its mask gives to the blades) */
+static int wiper_glass(const uint8_t *art, const uint8_t *mask, int x, int y)
+{
+    const size_t i = (size_t)y * SCREEN_W + (size_t)x;
+    return art[i] == LAYER_KEY || (mask != NULL && mask[i] == DASH_MASK_BLADE);
+}
+
+/* the windscreen's glass alone: the art's glass connected, by 4 neighbours, to the first glass found going down from the top of the view (at the middle columns), so the holes of the wheel and the rest of the cockpit's
+ * art are not in it; flags (1 = glass) cached per dash art */
+static const uint8_t *wiper_glass_flags(const uint8_t *art, const uint8_t *mask)
+{
+    static uint8_t flags[SCREEN_W * SCREEN_H];
+    static int stack[SCREEN_W * SCREEN_H];
+    static const uint8_t *made_for;
+    if (made_for == drive_hud.cockpit.dash) return flags;
+    memset(flags, 0, sizeof flags);
+    size_t top = 0;
+    for (int x = WIPER_PROBE_X; x < WIPER_PROBE_X + 200 && top == 0; x += 20)
+        for (int y = HUD_BAR_HEIGHT + 10; y < SCREEN_H && top == 0; y++)
+            if (wiper_glass(art, mask, x, y)) stack[top++] = y * SCREEN_W + x, flags[y * SCREEN_W + x] = 1;
+    while (top > 0) {
+        const int at = stack[--top], ax = at % SCREEN_W, ay = at / SCREEN_W;
+        const int nx[4] = { ax - 1, ax + 1, ax, ax }, ny[4] = { ay, ay, ay - 1, ay + 1 };
+        for (int k = 0; k < 4; k++) {
+            if (nx[k] < 0 || nx[k] >= SCREEN_W || ny[k] < 0 || ny[k] >= SCREEN_H) continue;
+            const int n = ny[k] * SCREEN_W + nx[k];
+            if (flags[n] == 0 && wiper_glass(art, mask, nx[k], ny[k])) flags[n] = 1, stack[top++] = n;
+        }
+    }
+    made_for = drive_hud.cockpit.dash;
+    return flags;
+}
+
+/* the glass's lowest row in column x, less 2 (inside it); -1 when the column has none */
+static float windscreen_bottom(const uint8_t *flags, int x)
+{
+    int y = SCREEN_H - 1;
+    while (y >= 0 && flags[y * SCREEN_W + x] == 0) y--;
+    return y < 0 ? -1.0f : (float)y - 2.0f;
+}
+
+/* the glass's extent along a row: its first and last flagged columns */
+static void glass_extent(const uint8_t *flags, int y, int *left, int *right)
+{
+    int x = 0;
+    while (x < SCREEN_W - 1 && flags[y * SCREEN_W + x] == 0) x++;
+    *left = x;
+    x = SCREEN_W - 1;
+    while (x > 0 && flags[y * SCREEN_W + x] == 0) x--;
+    *right = x;
+}
+
+/* the lowest row with a wide stretch of glass (the windscreen's bottom, wheel and all), 10 rows up from it */
+static int glass_row(const uint8_t *flags)
+{
+    for (int y = SCREEN_H - 1; y > HUD_BAR_HEIGHT; y--) {
+        int n = 0;
+        for (int x = 0; x < SCREEN_W; x++) n += flags[y * SCREEN_W + x] != 0;
+        if (n >= 250) return y - 10;
+    }
+    return SCREEN_H / 2;
+}
+
+/* how far (degrees) a blade turns from its park and stays on the glass: the angle before the first at which a point of its outer 40%, is off the art's glass, past the left side or above the
+ * view. Points in the right part of the view (WIPER_FREE_X on) are not looked at. */
+static float blade_fit(const uint8_t *art, const uint8_t *mask, const WiperBlade *b)
+{
+    float ok = 0.0f;
+    const float rad = 3.14159265f / 180.0f;
+    for (float a = 24.0f;   /* the bottom edge is curved, a line is only its slope: the first degrees are the edge itself */ a <= (float)WIPER_SPAN_DEG; a += 2.0f) {
+        for (int k = WIPER_FIT_FROM; k <= 10; k++) {   /* the blade's outer part: its root is behind the wheel and the dash */
+            float dx, dy;
+            wiper_offset(b, b->len * (float)k / 10.0f, b->park + a * rad, &dx, &dy);
+            const int px = (int)(b->x + dx), py = (int)(b->y + dy);
+            if (px >= WIPER_FREE_X) continue;   /* the right part of the view: the mirror is drawn over it and the right pillar is off the view */
+            if (px < 0 || py < 0 || py >= SCREEN_H || !wiper_glass(art, mask, px, py)) return ok;
+        }
+        ok = a;
+    }
+    return ok;
+}
+
+/* the x of the steering wheel's left rim (its outer edge), read from the art: where the glass's lower boundary is pushed above the edge's line by the wheel's top, the bump is the arc of a circle, whose chord (c) and height (h)
+ * give its radius (c*c/4 + h*h) / 2h and its centre; the rim is the centre less the radius. `fallback` when there is no bump. */
+static float wheel_left_rim(const uint8_t *flags, float ya, float tn, int xa, float fallback)
+{
+    int x1 = -1, x2 = -1;
+    float h = 0.0f;
+    for (int x = 0; x < SCREEN_W; x++) {
+        int y = SCREEN_H - 1;
+        while (y > 0 && flags[y * SCREEN_W + x] == 0) y--;   /* the glass's lowest pixel in this column */
+        const float up = (ya - tn * (float)(x - xa)) - (float)y;   /* how far above the edge's line */
+        if (up > 6.0f) {
+            if (x1 < 0) x1 = x;
+            x2 = x;
+            if (up > h) h = up;
+        }
+    }
+    if (x1 < 0 || x2 - x1 < 40 || h < 8.0f) return fallback;
+    const float c = (float)(x2 - x1), r = (c * c / 4.0f + h * h) / (2.0f * h);
+    return (float)(x1 + x2) / 2.0f - r;
+}
+
+int drive_wide_wiper_scene(const RaceState *race, WiperBlade *out)
+{
+    ported_view_set_wiper_glass(NULL, 0.0f, 0.0f, 1.0f);
+    const RaceCamera *camera = race != NULL ? race->chase.camera : NULL;
+    if (!port_wipers() || camera == NULL || camera->layout != 0 || drive_hud.police.screen != NULL || drive_hud.cockpit.dash == NULL) return 0;
+    const uint8_t *const art = dash_art_layer(&drive_hud.cockpit), *const mask = dash_mask_now();
+    const float PI = 3.14159265f, deg = PI / 180.0f;
+    const uint8_t *const flags = wiper_glass_flags(art, mask);
+    const int row = glass_row(flags);
+    int gl, gr;
+    glass_extent(flags, row, &gl, &gr);
+    const float seen = (float)(gr - gl), full = seen / WIPER_VISIBLE_SHARE;
+    const int xa = gl + (int)(seen * 0.1f), xb = gl + (int)(seen * 0.9f);
+    const float ya = windscreen_bottom(flags, xa), yb = windscreen_bottom(flags, xb);
+    const float slope = atan2f(ya - yb, (float)(xb - xa)), tn = tanf(slope);   /* the edge's, up to the right */
+    const float rim = wheel_left_rim(flags, ya, tn, xa, (float)WIPER_LEFT_PIVOT_X), gap = (float)gl + full * 0.5f - (float)WIPER_LEFT_PIVOT_X, len = full * WIPER_LEN_SHARE;
+    const float lx = rim + gap, rx = rim + 2.0f * gap;   /* the driver's pivot a gap right of the wheel's left rim, the second a gap further */
+    const float ux = cosf(slope), uy = sinf(slope), vx = -sinf(slope) * WIPER_RAKE, vy = cosf(slope) * WIPER_RAKE;
+    WiperBlade layer[WIPER_BLADES] = {
+        { lx, ya - tn * (lx - (float)xa) + (float)WIPER_PIVOT_DROP, len, slope, 0.0f, ux, uy, vx, vy, (float)SCREEN_W },
+        { rx, ya - tn * (rx - (float)xa), len, slope, 0.0f, ux, uy, vx, vy, (float)SCREEN_W }
+    };
+    float span = blade_fit(art, mask, &layer[0]);
+    const float right = blade_fit(art, mask, &layer[1]);
+    if (right < span) span = right;
+    if (span < 50.0f) span = 50.0f;
+    const int wide = drive_wide_active();   /* the 640x480 path (the exe's) has its dash at the layer's own coordinates */
+    const float scale = wide ? (float)drive_wide.scale : 1.0f, x0 = wide ? (float)((drive_wide.width - SCREEN_W) / 2) : 0.0f, y0 = wide && drive_wide.width > SCREEN_W ? (float)DASH_DROP : 0.0f;
+    for (int i = 0; i < WIPER_BLADES; i++) {
+        WiperBlade b = layer[i];
+        b.top = b.park + span * deg;
+        b.x = (x0 + b.x) * scale, b.y = (y0 + b.y) * scale, b.len *= scale, b.xmax = (x0 + b.xmax) * scale;
+        out[i] = b;
+    }
+    ported_view_set_wiper_glass(flags, x0 * scale, y0 * scale, scale);
+    return WIPER_BLADES;
+}
+
+/* port (wipers): `frame` with the pixels the dash's mask marks as a wiper blade (dash_mask.h BLADE) made nothing, as the windscreen is; `frame` itself when the dash has none */
+static const uint8_t *blades_hidden(const uint8_t *frame)
+{
+    static uint8_t copy[SCREEN_W * SCREEN_H];
+    const uint8_t *const mask = dash_mask_now();
+    if (mask == NULL) return frame;
+    int any = 0;
+    memcpy(copy, frame, sizeof copy);
+    for (size_t i = 0; i < sizeof copy; i++)
+        if (mask[i] == DASH_MASK_BLADE) copy[i] = LAYER_KEY, any = 1;
+    return any ? copy : frame;
+}
+
+/* port (wipers): on the 640x480 path the 3D (`view`) reaches the screen through the windscreen's run lists only, so the art's own blades stay: where the dash's mask marks a blade, the 3D's pixel goes on the screen
+ * (the sweeping blades are in it). The frame's mirror, gauges and the rest are drawn after, as ever. */
+void drive_wide_wipers_reveal(uint8_t *screen, const uint8_t *view)
+{
+    const uint8_t *const mask = dash_mask_now();
+    if (mask == NULL || drive_wide_active() || !ported_view_wipers_active()) return;
+    for (size_t i = 0; i < (size_t)SCREEN_W * SCREEN_H; i++)
+        if (mask[i] == DASH_MASK_BLADE) screen[i] = view[i];
+}
+
 void drive_wide_compose(const RaceState *race, const uint8_t *frame)
 {
     place_count = 0;
@@ -790,8 +964,9 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
     const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
     if (w.in_car && w.box_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit), drive_wide_canvas(), 0);  /* the dash where the map was */
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, w.mirror_scale, w.in_car, pieces, n };
-    compose_banded(&c, frame);
-    if (drive_light_active()) compose_classes(&c, frame, w.in_car, w.in_car && w.box_on ? &map : NULL, w.map_on);
+    const uint8_t *const shown = w.in_car && ported_view_wipers_active() ? blades_hidden(frame) : frame;   /* port (wipers): the dash art's own blades are not there when ours sweep */
+    compose_banded(&c, shown);
+    if (drive_light_active()) compose_classes(&c, shown, w.in_car, w.in_car && w.box_on ? &map : NULL, w.map_on);
     wide_mirror_and_strips(&w, frame);
     drive_wide.ready = 1;
 }

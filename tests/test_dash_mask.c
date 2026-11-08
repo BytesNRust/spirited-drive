@@ -40,7 +40,8 @@ static void test_colours(void)
     CHECK_EQ_INT(dash_mask_class(green), DASH_MASK_DIAL);
     CHECK_EQ_INT(dash_mask_class(white), DASH_MASK_LIT);
     CHECK_EQ_INT(dash_mask_class(grey), DASH_MASK_LIT);
-    CHECK_EQ_INT(dash_mask_class(red), DASH_MASK_AUTO);       /* any other colour: not marked */
+    CHECK_EQ_INT(dash_mask_class(red), DASH_MASK_BLADE);      /* red: a wiper blade the dash art draws (hidden in rain and snow) */
+    CHECK_EQ_INT(dash_mask_class(orange), DASH_MASK_AUTO);    /* any other colour: not marked */
     CHECK_EQ_INT(dash_mask_class(yellow), DASH_MASK_LIT);     /* yellow ffff00 is LIT too: it contrasts on the dash */
     CHECK_EQ_INT(dash_mask_class(paleyellow), DASH_MASK_LIT);
     CHECK_EQ_INT(dash_mask_class(orange), DASH_MASK_AUTO);    /* a yellow with blue to spare, or too little green, is not */
@@ -52,8 +53,8 @@ static void test_colours(void)
 static void test_round_trip_and_scale(void)
 {
     uint8_t mask[W * H], back[W * H];
-    static const uint8_t CLASSES[4] = { DASH_MASK_AUTO, DASH_MASK_DASH, DASH_MASK_DIAL, DASH_MASK_LIT };
-    for (int i = 0; i < W * H; i++) mask[i] = CLASSES[(i * 3 + i / W) % 4];
+    static const uint8_t CLASSES[5] = { DASH_MASK_AUTO, DASH_MASK_DASH, DASH_MASK_DIAL, DASH_MASK_LIT, DASH_MASK_BLADE };
+    for (int i = 0; i < W * H; i++) mask[i] = CLASSES[(i * 3 + i / W) % 5];
     uint8_t *png = NULL;
     size_t len = 0;
     CHECK(dash_mask_write(mask, W, H, &png, &len));

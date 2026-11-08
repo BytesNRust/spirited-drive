@@ -1,5 +1,6 @@
 #include "game/race/weather.h"
 #include "game/race/headlight_pool.h"
+#include "game/race/wiper.h"
 #include "game/sys/fixed_math.h"
 
 #include <math.h>
@@ -263,6 +264,16 @@ int weather_lens_drop(int drop, uint32_t tick, int32_t speed, int32_t box_w, int
     if (x < 0 || y < 0 || x >= W || y >= H) return 0;
     out[0] = (int32_t)x, out[1] = (int32_t)y, out[2] = (int32_t)(r + 0.5f), out[3] = (int32_t)keep;
     return 1;
+}
+
+int weather_lens_drop_wiped(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, int32_t out[4], const struct WiperPass *wipers)
+{
+    if (!weather_lens_drop(drop, tick, speed, box_w, box_h, vx, vy, out)) return 0;
+    if (wipers == NULL) return 1;
+    const uint32_t d = (uint32_t)drop, period = 150 + hash(d, 20) % 150, t = tick + hash(d, 21) % period;
+    const int64_t landed = (int64_t)tick - (int64_t)(t % period);   /* when this life began */
+    const int64_t pass = wiper_pass_latest(wipers, tick, (float)out[0], (float)out[1]);
+    return pass < 0 || pass < landed;
 }
 
 int weather_rain_spray_puff(int k, int side, uint32_t tick, int32_t speed, int wet_road, int32_t out[3], int32_t *size)

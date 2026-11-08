@@ -82,6 +82,11 @@ enum { WEATHER_LENS_PER_640x480 = 7, WEATHER_LENS_MAX = 40 };
 int weather_lens_count(int32_t box_w, int32_t box_h);
 int weather_lens_drop(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, int32_t out[4]);
 
+/* port (wipers): weather_lens_drop with the wipers' passes (wiper.h, in the box's pixels): a drop that a blade crossed during its life (since it landed) is gone, and the glass stays
+ * clear there until its next life; every other drop is as it was. `wipers` NULL: weather_lens_drop's. */
+struct WiperPass;
+int weather_lens_drop_wiped(int drop, uint32_t tick, int32_t speed, int32_t box_w, int32_t box_h, int32_t vx, int32_t vy, int32_t out[4], const struct WiperPass *wipers);
+
 /* port (rain_fx): the spray a car at `speed` (16.16 m/s) throws from each rear wheel: WEATHER_SPRAY_PUFFS puffs per wheel strung out behind it, a plume that hangs in the
  * air behind the car as it goes (not left where they were dropped: a chase camera would drive through them). Puff `k` of the wheel on `side` (-1 left, 1 right) at `tick`:
  * `out` its place relative to the wheel in 16.16 metres { behind, to the side (outward), up } and `*size` (0x100 a standard puff, 0 none). It has none below 8 m/s, on the

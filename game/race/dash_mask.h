@@ -3,6 +3,8 @@
  *   black   0   AUTO  not marked: the cockpit's own gauge ellipses decide, as without a mask
  *   blue   64   DASH  the dash's art: never lit (the speedo's rim, the dash round a dial)
  *   green 128   DIAL  inside a dial: its bright marks (numerals, ticks) are lit, its dark face is not
+ *   red   192   BLADE a wiper blade the dash's art draws (the P911's): with the wipers on (port_wipers, in rain or snow) it is not drawn, the view shows through as it does at the
+ *                         windscreen; otherwise it is the dash's art as it was, and never lit
  *   yellow or white 255   LIT   lit whatever its brightness (a warning lamp, a lit window); yellow (red and green >= 192, blue <= 64) contrasts on the dash, white still reads
  *                         for what was painted with it
  * A pixel the needle's colour draws is never lit. The masks hold no colour of the art. A dash with a mask is decided by it alone (the automatic
@@ -13,7 +15,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { DASH_MASK_AUTO = 0, DASH_MASK_DASH = 64, DASH_MASK_DIAL = 128, DASH_MASK_LIT = 255 };
+enum { DASH_MASK_AUTO = 0, DASH_MASK_DASH = 64, DASH_MASK_DIAL = 128, DASH_MASK_BLADE = 192, DASH_MASK_LIT = 255 };
 enum { DASH_MASK_W = 640, DASH_MASK_H = 480 };
 
 /* The class of a mask colour (RGB). */

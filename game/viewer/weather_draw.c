@@ -116,7 +116,7 @@ void weather_snow_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], 
     }
 }
 
-void weather_snow_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], uint32_t tick, int32_t speed, int32_t vx, int32_t vy, const uint8_t light[256], int open)
+void weather_snow_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], uint32_t tick, int32_t speed, int32_t vx, int32_t vy, const uint8_t light[256], int open, const struct WiperPass *wipers)
 {
     static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
     const int32_t w = box[2] - box[0], h = box[3] - box[1];
@@ -124,7 +124,7 @@ void weather_snow_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4]
     for (int i = 0; i < marks; i++) {
         int32_t o[4];
         if (open < 16 && (int)((uint32_t)i * 2246822519u >> 12 & 15u) >= open) continue;   /* none lands in a tunnel */
-        if (!weather_lens_drop(i * SNOW_LENS_EVERY, tick, speed, w, h, vx, vy, o)) continue;
+        if (!weather_lens_drop_wiped(i * SNOW_LENS_EVERY, tick, speed, w, h, vx, vy, o, wipers)) continue;
         const int32_t cx = o[0], cy = o[1], r = o[2] > 16 ? 16 : o[2], keep = o[3];
         for (int32_t y = -r; y <= r; y++)
             for (int32_t x = -r; x <= r; x++) {
@@ -174,7 +174,7 @@ void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], 
 }
 
 void weather_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], uint32_t tick, int32_t speed, int32_t vx, int32_t vy, int edge, const uint8_t tables[][256],
-                       const uint8_t body[256], int open)
+                       const uint8_t body[256], int open, const struct WiperPass *wipers)
 {
     static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
     const int32_t w = box[2] - box[0], h = box[3] - box[1];
@@ -184,7 +184,7 @@ void weather_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], uin
     for (int i = 0; i < drops; i++) {
         int32_t o[4];
         if (open < 16 && (int)((uint32_t)i * 2246822519u >> 12 & 15u) >= open) continue;   /* none lands in a tunnel */
-        if (!weather_lens_drop(i, tick, speed, w, h, vx, vy, o)) continue;
+        if (!weather_lens_drop_wiped(i, tick, speed, w, h, vx, vy, o, wipers)) continue;
         const int32_t cx = o[0], cy = o[1], r = o[2] > 16 ? 16 : o[2], keep = o[3];
         for (int32_t y = -r - 1; y <= r + 1; y++)   /* the scene as it was: the body samples it turned, and the rim is put over it */
             for (int32_t x = -r - 1; x <= r + 1; x++) {

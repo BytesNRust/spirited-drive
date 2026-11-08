@@ -63,6 +63,8 @@
 #include "game/sys/port_log.h"
 #include "game/sys/palette.h"
 #include "viewer/weather_draw.h"
+#include "viewer/wiper_draw.h"
+#include "game/race/wiper.h"
 #include "viewer/drive_light.h"
 #include "game/race/weather.h"
 #include "game/race/rain_spray.h"
@@ -2767,9 +2769,59 @@ static void draw_followed_car(const PortedCamera *pc, int ahead_drawn)
     row_draw(NULL, car, 0);
 }
 
+/* port (wipers): the dash view's blades (the 3D buffer's pixels), what falls fixes their pace, and the darkening table the blades are drawn with */
+static WiperBlade wiper_scene[WIPER_BLADES];
+static int wiper_scene_count;
+
+void ported_view_set_wipers(const WiperBlade *blades, int count)
+{
+    wiper_scene_count = blades != NULL && count > 0 ? (count < WIPER_BLADES ? count : WIPER_BLADES) : 0;
+    if (wiper_scene_count > 0) memcpy(wiper_scene, blades, sizeof(WiperBlade) * (size_t)wiper_scene_count);
+}
+
+static const uint8_t *wiper_glass;
+static float wiper_glass_x, wiper_glass_y, wiper_glass_scale = 1.0f;
+
+void ported_view_set_wiper_glass(const uint8_t *glass, float x, float y, float scale)
+{
+    wiper_glass = glass, wiper_glass_x = x, wiper_glass_y = y, wiper_glass_scale = scale > 0.0f ? scale : 1.0f;
+}
+
+int ported_view_wipers_active(void) { return wiper_scene_count > 0 && weather_wet(weather); }
+
+/* the passes in the box's own pixels for this frame, NULL when there are none (no blades, nothing falls) */
+static const WiperPass *wiper_pass_now(WiperPass *out, const int32_t box[4])
+{
+    if (wiper_scene_count == 0 || !weather_wet(weather)) return NULL;
+    out->count = wiper_scene_count;
+    for (int i = 0; i < wiper_scene_count; i++) {
+        out->blade[i] = wiper_scene[i];
+        out->blade[i].x -= (float)box[0], out->blade[i].y -= (float)box[1];
+        if (out->blade[i].xmax > 0.0f) out->blade[i].xmax -= (float)box[0];
+    }
+    out->glass = wiper_glass, out->glass_x = wiper_glass_x - (float)box[0], out->glass_y = wiper_glass_y - (float)box[1], out->glass_scale = wiper_glass_scale;
+    out->timing = wiper_timing(snow_level() != SNOW_NONE ? WIPER_SNOW : weather == WEATHER_STORM ? WIPER_STORM : WIPER_RAIN);
+    return out;
+}
+
+static const uint8_t *wiper_dark(void)
+{
+    static uint8_t table[256], made_for[768];
+    static int made;
+    if (!made || memcmp(made_for, object_pixels.palette, sizeof made_for) != 0) {
+        static const uint8_t black[3] = { 0, 0, 0 };
+        spray_tint_table(object_pixels.palette, black, 97, table);
+        memcpy(made_for, object_pixels.palette, sizeof made_for);
+        made = 1;
+    }
+    return table;
+}
+
 /* port (weather): the rain over the drawn view, under the 2D layer: the speed-following streaks and the lens at night (rain_fx), else the plain streaks */
 static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *view, int32_t rs, const WeatherTables *wt)
 {
+    WiperPass wiper_now;
+    const WiperPass *const wipers = wt != NULL ? wiper_pass_now(&wiper_now, box) : NULL;   /* port (wipers) */
     if (wt != NULL && weather_wet(weather) && port_rain_fx()) {   /* port (rain_fx): streaks that follow the speed, lit by the headlights at night */
         const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
@@ -2791,18 +2843,19 @@ static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *vi
         weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], (float)view->focal_x,
                              drive_light_night(), rain_open, wt->rain4, weather == WEATHER_STORM, port_rain_v2());
         if (snow_level() != SNOW_NONE && port_snow_fx())
-            weather_snow_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], wt->rain4[WEATHER_RAIN_LEVELS - 1], rain_open);
+            weather_snow_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], wt->rain4[WEATHER_RAIN_LEVELS - 1], rain_open, wipers);
         if (snow_level() == SNOW_NONE)
-        weather_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens, rain_open);   /* port (rain v3): drops on the lens */
+        weather_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens, rain_open, wipers);   /* port (rain v3): drops on the lens */
     } else if (wt != NULL && weather_wet(weather) && snow_level() != SNOW_NONE) {   /* port (snow_weather): flakes without rain_fx too */
         if (port_snow_fx()) {   /* port (snow_fx): no speed here (no rain_fx), the view's middle for the vanishing point */
             weather_snow_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4, 0, (box[2] - box[0]) / 2, (box[3] - box[1]) / 2);
-            weather_snow_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, 0, (box[2] - box[0]) / 2, (box[3] - box[1]) / 2, wt->rain4[WEATHER_RAIN_LEVELS - 1], rain_open);
+            weather_snow_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, 0, (box[2] - box[0]) / 2, (box[3] - box[1]) / 2, wt->rain4[WEATHER_RAIN_LEVELS - 1], rain_open, wipers);
         } else
             weather_snow_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4[WEATHER_RAIN_LEVELS - 1]);
     }
     else if (wt != NULL && weather_wet(weather))   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM, port_rain_v2());
+    if (wipers != NULL) wiper_draw(pixels, screen_w, box, wipers, (uint32_t)anim_tick, wiper_dark());   /* port (wipers): over the drops, under the dash */
 }
 
 /* port: the lamps', the street lamps' and the lit windows' tables from the world's tables just made, and the textures they are drawn on */
