@@ -87,6 +87,55 @@ void weather_snow_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], int
     }
 }
 
+static void snow_flake_square(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, const int32_t f[3], const uint8_t table[256])
+{
+    const int32_t w = box[2] - box[0], h = box[3] - box[1];
+    const int32_t side = scale > h / 220 ? (scale > 0 ? scale : 1) : h / 220;   /* a flake's unit: the render scale's, or a 220th of the box's height where that is more */
+    for (int32_t dy = 0; dy < f[2] * side; dy++)
+        for (int32_t dx = 0; dx < f[2] * side; dx++) {
+            if (f[2] == SNOW_SIZE_MAX && (dx < side || dx >= 2 * side) && (dy < side || dy >= 2 * side)) continue;   /* the biggest is a soft plus, not a square */
+            const int32_t px = f[0] + dx, py = f[1] + dy;
+            if (px < 0 || px >= w || py < 0 || py >= h) continue;
+            uint8_t *p = pixels + (size_t)(box[1] + py) * (size_t)pitch + (size_t)(box[0] + px);
+            *p = table[*p];
+        }
+}
+
+void weather_snow_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int level, int open, const uint8_t table[256], int32_t speed, int32_t vx, int32_t vy)
+{
+    const int32_t w = box[2] - box[0], h = box[3] - box[1];
+    const int count = weather_snow_count(w, h, level);
+    for (int i = 0; i < count; i++) {
+        int32_t f[3];
+        if (open < 16 && (int)((uint32_t)i * 2654435761u >> 12 & 15u) >= open) continue;   /* a tunnel: no snow, thinning out at the mouths */
+        weather_snow_flake_fx(i, tick, level, w, h, speed, vx, vy, f);
+        if (f[2] > 0) snow_flake_square(pixels, pitch, box, scale, f, table);
+    }
+}
+
+void weather_snow_lens_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], uint32_t tick, int32_t speed, int32_t vx, int32_t vy, const uint8_t light[256], int open)
+{
+    static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+    const int32_t w = box[2] - box[0], h = box[3] - box[1];
+    const int marks = weather_snow_lens_count(w, h);
+    for (int i = 0; i < marks; i++) {
+        int32_t o[4];
+        if (open < 16 && (int)((uint32_t)i * 2246822519u >> 12 & 15u) >= open) continue;   /* none lands in a tunnel */
+        if (!weather_lens_drop(i * SNOW_LENS_EVERY, tick, speed, w, h, vx, vy, o)) continue;
+        const int32_t cx = o[0], cy = o[1], r = o[2] > 16 ? 16 : o[2], keep = o[3];
+        for (int32_t y = -r; y <= r; y++)
+            for (int32_t x = -r; x <= r; x++) {
+                const int32_t px = cx + x, py = cy + y;
+                if (px < 0 || px >= w || py < 0 || py >= h) continue;
+                const float dist = sqrtf((float)(x * x + y * y)), soft = fmaxf(1.5f, 0.45f * (float)r);
+                const float cover = fminf(1.0f, ((float)r + 0.5f - dist) / soft);
+                if (cover <= 0.0f || cover * (float)keep <= (float)BAYER[py & 3][px & 3]) continue;
+                uint8_t *p = pixels + (size_t)(box[1] + py) * (size_t)pitch + (size_t)(box[0] + px);
+                *p = light[light[*p]];   /* snow on the glass is white: the scene lightened twice */
+            }
+    }
+}
+
 void weather_rain_draw_fx(uint8_t *pixels, int32_t pitch, const int32_t box[4], int scale, uint32_t tick, int32_t speed, int32_t vx, int32_t vy, float focal, int night,
                           int open, const uint8_t tables[][256], int storm, int v2)
 {
