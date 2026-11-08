@@ -729,6 +729,9 @@ static void draw_full_alt(void *user, const FshEntry *texture, const int32_t scr
 
 /* port (the PS1 look's light): the track's light, or NULL for none (the frames are then the exe's, byte for byte) */
 static const PsxLight *psx_light;
+static int light_changed;   /* the light editor's reload put new rows in the same light: the built track is built again */
+
+void ported_view_light_changed(void) { light_changed = 1; }
 
 void ported_view_set_light(const PsxLight *light, const float tint[3])
 {
@@ -2373,9 +2376,20 @@ static void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
         if (shadow_race->scenery_stream_node < 0) render.build.first_node = -1;
     }
     track_render_set_light(&render, psx_light);  /* before the build: it fills the light with the vertices */
+    const int relit = light_changed;
+    if (relit) {   /* the light editor's reload: the segments already built hold the old rows */
+        light_changed = 0;
+        render.build.first_node = -1;
+    }
     track_render_set_ring(&render, shadow_race != NULL && shadow_race->port_follow_ring ? TRACK_CACHE_RECORDS_MAX : TRACK_CACHE_RECORDS);   /* port (port_follow_ring) */
     if (shadow_race != NULL && shadow_race->port_follow_camera) follow_arm_window(&render, follow_arm_segments());   /* the window's reach behind before it is filled */
     track_render_build(&render, tri, art, camera_node);
+    if (relit && psx_light != NULL) {   /* the editor's proof: the sum of the built vertices' light */
+        uint64_t sum = 0;
+        const int32_t n = render.build.world_next < TRACK_MAX_VERTICES ? render.build.world_next : TRACK_MAX_VERTICES;
+        for (int32_t i = 0; i < n; i++) sum += render.light_vertex[i];
+        port_log("light edit: the track built again with the new light (%d vertices, light sum %llu)\n", (int)n, (unsigned long long)sum);
+    }
     if (shadow_race != NULL) {
         render.build.knocked = shadow_race->scenery_state;  /* again, for a first build that bound the track */
         shadow_race->scenery_stream_node = render.build.first_node;
