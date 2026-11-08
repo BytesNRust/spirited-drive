@@ -114,6 +114,19 @@ for y in range(60):
     for x in range(31):
         palm.putpixel((x, y), (20, 90, 30, 255) if (x + y) % 3 else (8, 12, 8, 255))   # leaves and dark gaps
 check("a palm's crown is not a sign", auto.auto_mask("scenery_15", palm).getbbox(), None)
+# a weathered chevron (CL2, CL3: the yellow is (170, 140, 0) and black arrows, 62 x 87 with its pole) is a sign: its dark arrows are marked
+chev = _Image.new("RGBA", (62, 87), (0, 0, 0, 0))
+for y in range(0, 40):
+    for x in range(62):
+        chev.putpixel((x, y), (170, 140, 0, 255))
+for y in range(40, 87):
+    for x in range(28, 34):
+        chev.putpixel((x, y), (150, 150, 150, 255))
+for y in range(10, 30):
+    for x in range(10, 40):
+        chev.putpixel((x, y), (10, 10, 0, 255))
+check("a weathered chevron's arrows are marked", auto.auto_mask("scenery_03", chev).getbbox() is not None, True)
+
 check("the candidates of CL1: a listed road slot and board", (auto.is_candidate("CL1", "slot_06"), auto.is_candidate("CL1", "scenery_18")), (True, True))
 check("the candidates of CL1: a palm, a tree and an unlisted slot are not", (auto.is_candidate("CL1", "scenery_15"), auto.is_candidate("CL1", "scenery_14"), auto.is_candidate("CL1", "slot_12")), (False, False, False))
 check("a track with no list: everything is", (auto.is_candidate("TR9", "scenery_15"), auto.is_candidate("TR9", "slot_12")), (True, True))
