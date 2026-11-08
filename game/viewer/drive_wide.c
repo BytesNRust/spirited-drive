@@ -766,16 +766,16 @@ static void wide_mirror_and_strips(const WideFrame *w, const uint8_t *frame)
     }
 }
 
-/* port (wipers): where the blades are on the dash (layer pixels): by the dash's stem, the P911's measured on its art's parked blades; any other dash is a pair at the middle of the windscreen's
- * bottom edge (the art's own: the first dash pixel below the bar), which the windscreen's width fits. */
+/* port (wipers): where the blades are on the dash (layer pixels): by the dash's stem, the P911's measured on its art's parked blades; any other dash is a pair on the windscreen's bottom edge at two fixed columns (the
+ * art's own: the first nothing above the dash). */
 typedef struct { const char *stem; float lx, ly, ll, rx, ry, rl; } WiperSpot;
 static const WiperSpot WIPER_SPOTS[] = { { "P911", 262.0f, 286.0f, 182.0f, 330.0f, 266.0f, 214.0f } };
 enum { WIPER_GENERIC_LX = 262, WIPER_GENERIC_RX = 330, WIPER_GENERIC_LEN = 190 };
 
 static float windscreen_bottom(const uint8_t *art, int x)
 {
-    int y = HUD_BAR_HEIGHT + 10;
-    while (y < SCREEN_H - 1 && art[y * SCREEN_W + x] == LAYER_KEY) y++;
+    int y = SCREEN_H - 40;   /* up from the dash: the first pixel of nothing is the windscreen's bottom edge there */
+    while (y > HUD_BAR_HEIGHT + 10 && art[y * SCREEN_W + x] != LAYER_KEY) y--;
     return (float)y - 2.0f;
 }
 
