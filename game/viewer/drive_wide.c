@@ -781,18 +781,60 @@ static int wiper_glass(const uint8_t *art, const uint8_t *mask, int x, int y)
     return art[i] == LAYER_KEY || (mask != NULL && mask[i] == DASH_MASK_BLADE);
 }
 
-static float windscreen_bottom(const uint8_t *art, const uint8_t *mask, int x)
+/* the windscreen's glass alone: the art's glass connected, by 4 neighbours, to the first glass found going down from the top of the view (at the middle columns), so the holes of the wheel and the rest of the cockpit's
+ * art are not in it; flags (1 = glass) cached per dash art */
+static const uint8_t *wiper_glass_flags(const uint8_t *art, const uint8_t *mask)
 {
-    int y = SCREEN_H - 40;   /* up from the dash: the first pixel of glass is the windscreen's bottom edge there */
-    while (y > HUD_BAR_HEIGHT + 10 && !wiper_glass(art, mask, x, y)) y--;
-    return (float)y - 2.0f;
+    static uint8_t flags[SCREEN_W * SCREEN_H];
+    static int stack[SCREEN_W * SCREEN_H];
+    static const uint8_t *made_for;
+    if (made_for == drive_hud.cockpit.dash) return flags;
+    memset(flags, 0, sizeof flags);
+    size_t top = 0;
+    for (int x = WIPER_PROBE_X; x < WIPER_PROBE_X + 200 && top == 0; x += 20)
+        for (int y = HUD_BAR_HEIGHT + 10; y < SCREEN_H && top == 0; y++)
+            if (wiper_glass(art, mask, x, y)) stack[top++] = y * SCREEN_W + x, flags[y * SCREEN_W + x] = 1;
+    while (top > 0) {
+        const int at = stack[--top], ax = at % SCREEN_W, ay = at / SCREEN_W;
+        const int nx[4] = { ax - 1, ax + 1, ax, ax }, ny[4] = { ay, ay, ay - 1, ay + 1 };
+        for (int k = 0; k < 4; k++) {
+            if (nx[k] < 0 || nx[k] >= SCREEN_W || ny[k] < 0 || ny[k] >= SCREEN_H) continue;
+            const int n = ny[k] * SCREEN_W + nx[k];
+            if (flags[n] == 0 && wiper_glass(art, mask, nx[k], ny[k])) flags[n] = 1, stack[top++] = n;
+        }
+    }
+    made_for = drive_hud.cockpit.dash;
+    return flags;
 }
 
-/* the glass's extent along a row of the art: the first column left and right of `x` that is not glass */
-static int glass_edge(const uint8_t *art, const uint8_t *mask, int y, int x, int step)
+/* the glass's lowest row in column x, less 2 (inside it); -1 when the column has none */
+static float windscreen_bottom(const uint8_t *flags, int x)
 {
-    while (x + step >= 0 && x + step < SCREEN_W && wiper_glass(art, mask, x + step, y)) x += step;
-    return x;
+    int y = SCREEN_H - 1;
+    while (y >= 0 && flags[y * SCREEN_W + x] == 0) y--;
+    return y < 0 ? -1.0f : (float)y - 2.0f;
+}
+
+/* the glass's extent along a row: its first and last flagged columns */
+static void glass_extent(const uint8_t *flags, int y, int *left, int *right)
+{
+    int x = 0;
+    while (x < SCREEN_W - 1 && flags[y * SCREEN_W + x] == 0) x++;
+    *left = x;
+    x = SCREEN_W - 1;
+    while (x > 0 && flags[y * SCREEN_W + x] == 0) x--;
+    *right = x;
+}
+
+/* the lowest row with a wide stretch of glass (the windscreen's bottom, wheel and all), 10 rows up from it */
+static int glass_row(const uint8_t *flags)
+{
+    for (int y = SCREEN_H - 1; y > HUD_BAR_HEIGHT; y--) {
+        int n = 0;
+        for (int x = 0; x < SCREEN_W; x++) n += flags[y * SCREEN_W + x] != 0;
+        if (n >= 250) return y - 10;
+    }
+    return SCREEN_H / 2;
 }
 
 /* how far (degrees) a blade turns from its park and stays on the glass: the angle before the first at which a point of its outer 40%, is off the art's glass, past the left side or above the
@@ -812,29 +854,6 @@ static float blade_fit(const uint8_t *art, const uint8_t *mask, const WiperBlade
         ok = a;
     }
     return ok;
-}
-
-/* the windscreen's glass alone: the art's glass (nothing, or the mask's blade pixels) connected to the point (x, y), by 4 neighbours, so the holes of the wheel and the rest of the cockpit's art are not in it; cached per dash art */
-static const uint8_t *wiper_glass_flags(const uint8_t *art, const uint8_t *mask, int x, int y)
-{
-    static uint8_t flags[SCREEN_W * SCREEN_H];
-    static int stack[SCREEN_W * SCREEN_H];
-    static const uint8_t *made_for;
-    if (made_for == drive_hud.cockpit.dash) return flags;
-    memset(flags, 0, sizeof flags);
-    size_t top = 0;
-    if (wiper_glass(art, mask, x, y)) stack[top++] = y * SCREEN_W + x, flags[y * SCREEN_W + x] = 1;
-    while (top > 0) {
-        const int at = stack[--top], ax = at % SCREEN_W, ay = at / SCREEN_W;
-        const int nx[4] = { ax - 1, ax + 1, ax, ax }, ny[4] = { ay, ay, ay - 1, ay + 1 };
-        for (int k = 0; k < 4; k++) {
-            if (nx[k] < 0 || nx[k] >= SCREEN_W || ny[k] < 0 || ny[k] >= SCREEN_H) continue;
-            const int n = ny[k] * SCREEN_W + nx[k];
-            if (flags[n] == 0 && wiper_glass(art, mask, nx[k], ny[k])) flags[n] = 1, stack[top++] = n;
-        }
-    }
-    made_for = drive_hud.cockpit.dash;
-    return flags;
 }
 
 /* the x of the steering wheel's left rim (its outer edge), read from the art: where the glass's lower boundary is pushed above the edge's line by the wheel's top, the bump is the arc of a circle, whose chord (c) and height (h)
@@ -865,13 +884,14 @@ int drive_wide_wiper_scene(const RaceState *race, WiperBlade *out)
     if (!port_wipers() || camera == NULL || camera->layout != 0 || drive_hud.police.screen != NULL || drive_hud.cockpit.dash == NULL) return 0;
     const uint8_t *const art = dash_art_layer(&drive_hud.cockpit), *const mask = dash_mask_now();
     const float PI = 3.14159265f, deg = PI / 180.0f;
-    const int row = (int)windscreen_bottom(art, mask, WIPER_PROBE_X) - 10;
-    const int gl = glass_edge(art, mask, row, WIPER_PROBE_X, -1), gr = glass_edge(art, mask, row, WIPER_PROBE_X, 1);
+    const uint8_t *const flags = wiper_glass_flags(art, mask);
+    const int row = glass_row(flags);
+    int gl, gr;
+    glass_extent(flags, row, &gl, &gr);
     const float seen = (float)(gr - gl), full = seen / WIPER_VISIBLE_SHARE;
     const int xa = gl + (int)(seen * 0.1f), xb = gl + (int)(seen * 0.9f);
-    const float ya = windscreen_bottom(art, mask, xa), yb = windscreen_bottom(art, mask, xb);
+    const float ya = windscreen_bottom(flags, xa), yb = windscreen_bottom(flags, xb);
     const float slope = atan2f(ya - yb, (float)(xb - xa)), tn = tanf(slope);   /* the edge's, up to the right */
-    const uint8_t *const flags = wiper_glass_flags(art, mask, WIPER_PROBE_X, row);
     const float rim = wheel_left_rim(flags, ya, tn, xa, (float)WIPER_LEFT_PIVOT_X), gap = (float)gl + full * 0.5f - (float)WIPER_LEFT_PIVOT_X, len = full * WIPER_LEN_SHARE;
     const float lx = rim + gap, rx = rim + 2.0f * gap;   /* the driver's pivot a gap right of the wheel's left rim, the second a gap further */
     const float ux = cosf(slope), uy = sinf(slope), vx = -sinf(slope) * WIPER_RAKE, vy = cosf(slope) * WIPER_RAKE;
