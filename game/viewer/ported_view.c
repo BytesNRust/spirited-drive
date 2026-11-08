@@ -1785,6 +1785,9 @@ static void rain_cars_paint(uint8_t *pixels, int32_t pitch, const int32_t box[4]
     }
 }
 
+enum { DUST_BODY_REAR = 60 };   /* a puff within the car's rear (its half length and a puff's radius, in the camera's depth units) is behind the body, not in front of it */
+static void dust_puffs(const Car *car, int slot, int pass);
+
 static void dust_draw(const Car *car, int slot)
 {
     const int kind = shadow_race->port_rally_gravel;
@@ -1799,8 +1802,20 @@ static void dust_draw(const Car *car, int slot)
     const int drop = rally_dust_skid(kind, speed, car->airborne_ticks == 0) != 0;
     const int32_t at[3] = { car->x, car->y, car->z };
     dust_trail_step(trail, shadow_race->tick, kind, drop, at, yaw, speed);
+    if (spray_cd_on) return;   /* port (spray_cd_smoke): the dust is drawn by its row, the puffs behind the car before its body (dust_row) */
+    dust_puffs(car, slot, -1);
+}
+
+/* the puffs of a car's trail: pass -1 all of them (the exe's order, after the body), 1 those not nearer the eye than the car (before its body), 0 the nearer */
+static void dust_puffs(const Car *car, int slot, int pass)
+{
+    const int kind = shadow_race->port_rally_gravel;
+    DustTrail *const trail = &dust_trails[slot];
     if (rally_spray_on) return;   /* port (rally_spray): the wet road's spray is drawn in its place */
     if (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH && kind != RALLY_GRAVEL_SNOW) return;
+    int32_t own_camera[3], own_screen[2];
+    const int32_t own_at[3] = { car->x, car->y, car->z };
+    const int own_seen = world_screen(own_at, own_camera, own_screen);
     const PuffView v = puff_view();
     const int lunar = shadow_race->port_lunar_gravity != 0;
     uint8_t mist_road[3];
@@ -1826,6 +1841,7 @@ static void dust_draw(const Car *car, int slot)
             if (size < 1) size = 1;
         }
         if (!world_screen(place, camera, screen) || camera[2] < 64) continue;
+        if (pass >= 0 && (!own_seen || camera[2] >= own_camera[2] - DUST_BODY_REAR) != (pass == 1)) continue;   /* port (spray_cd_smoke): a puff behind its car is drawn before the body, one in front after it */
         const int32_t depth = 0x38400 / camera[2];
         const int32_t scale = depth * size * DUST_SIZE / 0x100 * 8;
         if (mist_have) {   /* port (spray_cd_smoke): the cloud only, the CD's sprite tinted by the road */
@@ -1852,6 +1868,17 @@ static void smoke_draw(void *ctx, int in_car)
     for (int32_t i = 0; i < RACE_CARS && slot < 0; i++)
         if (shadow_race->cars[i] == car) slot = (int)i;
     if (slot >= 0 && (car == followed_car() || (shadow_race->port_rally_road != 0 && port_rally_spray()))) dust_draw(car, slot);   /* port (rally_spray): every car's dust, not only the followed one's */
+}
+
+/* port (spray_cd_smoke): the dust of the cars on a row, the puffs behind each car before the row's bodies and the nearer after them, as spray_row does the water */
+static void dust_row(int32_t node, int far_side)
+{
+    if (!spray_cd_on) return;
+    for (int i = 0; i < RACE_CARS; i++) {
+        const Car *car = shadow_race->cars[i];
+        if (car == NULL || car->node != node) continue;
+        if (car == followed_car() || (shadow_race->port_rally_road != 0 && port_rally_spray())) dust_puffs(car, i, far_side);
+    }
 }
 
 /* 00490570 with *004c55e0 ('smok') */
@@ -2442,12 +2469,14 @@ static void draw_cars(void *user, int32_t node)
         const RowCarsInputs in = { race->chase.node, race->segments, ahead_rows, race->drawn, race->drawn_count, followed_car(),
                                    race->chase.kind, 0 };
         if (rain_spray_on) spray_row(node, 1);   /* port (rain v5): the water farther off than its car, first */
+        dust_row(node, 1);
         cars_on_row(&ops, &in, node);
         if (arm_drawing) {   /* port: the rows behind the camera's node, which the exe's pass reads as the end of the ring */
             const RowCarsBehindInputs back = { race->chase.node, race->segments, behind_rows, race->drawn, race->drawn_count, followed_car() };
             cars_on_row_behind(&ops, &back, node);
         }
         if (rain_spray_on) spray_row(node, 0);   /* and the nearer, after the cars */
+        dust_row(node, 0);
         return;
     }
     const Object3DSink sink = object_sink(&object_pixels);
