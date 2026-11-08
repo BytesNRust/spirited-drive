@@ -2040,6 +2040,50 @@ static void tunnel_flare_draw(const QuadTarget *t, const uint8_t palette[768])
     }
 }
 
+/* port (lamp_halos): the street lamps' halo at night. The lamp board's three entries (street_entry) are emissive, so a lamp on screen after the 3D is a blob of them; the window entry is never
+ * a member. The nearest (largest) STREET_HALO_MAX blobs get the halo, in the brightest of the three entries' colour; the tables are made again only when the palette or the colour changes */
+enum { STREET_HALO_MAX = 24, STREET_HALO_REACH = 200 };   /* STREET_HALO_REACH: percent of the usual radius: a lamp is far and small, its halo has to read */
+
+static void street_halo_draw(const QuadTarget *t, const uint8_t palette[768])
+{
+    if (!port_lamp_halos() || street_count <= 0 || !drive_light_night() || t == NULL || t->pixels == NULL) return;
+    uint8_t member[256] = { 0 };
+    for (int k = 0; k < 3; k++) member[street_entry[k]] = 1;
+    member[window_entry] = 0;
+    LampBlob blobs[STREET_HALO_MAX];
+    const int count = lamp_blobs_frame(t->pixels, t->pitch, t->clip_left, t->clip_top, t->clip_right - 1, t->clip_bottom - 1, member, blobs, STREET_HALO_MAX);
+    if (count <= 0) return;
+    static uint8_t maps[3][LAMP_FLARE_LEVELS][256], made_palette[768];
+    static int made_window = -1;
+    static int made[3];
+    if (made_window != window_entry || memcmp(made_palette, palette, 768) != 0) {   /* the tables are made again only when the palette changes */
+        memset(made, 0, sizeof made);
+        memcpy(made_palette, palette, 768), made_window = window_entry;
+    }
+    static const int PERCENT[LAMP_FLARE_LEVELS] = { 30, 60, 100 };
+    const uint8_t *const usable = palette_usable();
+    for (int i = 0; i < count; i++) {
+        int k = 0;   /* the halo is the colour of the blob's own entry: a lamp's orange stays orange */
+        while (k < 2 && street_entry[k] != blobs[i].value) k++;
+        if (!made[k]) {
+            const int glow = street_entry[k];
+            for (int l = 0; l < LAMP_FLARE_LEVELS; l++)
+                for (int d = 0; d < 256; d++) {
+                    int rgb[3];
+                    for (int c = 0; c < 3; c++) {
+                        rgb[c] = palette[3 * d + c] + palette[3 * glow + c] * PERCENT[l] / 100;
+                        if (rgb[c] > 255) rgb[c] = 255;
+                    }
+                    maps[k][l][d] = member[d] || d == window_entry || !usable[d] ? (uint8_t)d : (uint8_t)palette_nearest(palette, usable, rgb[0], rgb[1], rgb[2]);
+                }
+            made[k] = 1;
+        }
+        const uint8_t *const map[LAMP_FLARE_LEVELS] = { maps[k][0], maps[k][1], maps[k][2] };
+        lamp_halo_draw(t->pixels, t->pitch, t->clip_left, t->clip_top, t->clip_right - 1, t->clip_bottom - 1, blobs[i].cx, blobs[i].cy,
+                       lamp_flare_radius_scaled(blobs[i].area, STREET_HALO_REACH), map);
+    }
+}
+
 /* port (psx_flares): the halo round a lit lamp: the brake light, the reversing light, the headlights, the police car's red and blue. A lit lamp's pixels are an emissive
  * entry of its own (drive_lamps_lit_entry: not tinted, not fogged), found in the rectangle of the car's projected vertices after the car is drawn, so what hides the
  * lamp hides its blobs; the halo is added to the pixels' palette, in the lamp's colour at three strengths over a radius a few times the lamp's own */
@@ -2833,6 +2877,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);
     if (raster_active == &recorder) raster_record_end(&recorder);
     tunnel_flare_draw(&quad, art->palette);
+    street_halo_draw(&quad, art->palette);
     rain_over_view(pixels, box, &view, rs, wt);
 }
 

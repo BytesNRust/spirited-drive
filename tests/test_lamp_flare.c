@@ -3,6 +3,7 @@
 
 #include "game/race/lamp_flare.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 enum { W = 40, H = 24, LAMP = 77 };
@@ -41,6 +42,30 @@ static void test_blobs(void)
     disc(px, 15, 12, 3, LAMP);
     CHECK_EQ_INT(lamp_blobs(px, W, 0, 0, W - 1, H - 1, member, b, LAMP_FLARE_BLOBS), 1);
     CHECK_EQ_INT(b[0].value, LAMP);
+}
+
+/* the whole frame's blobs (the street lamps': many, small, far): a frame bigger than the car rectangle's cap, the nearest (largest) kept when there are more than asked for */
+static void test_frame_blobs(void)
+{
+    enum { FW = 1600, FH = 900, MAXB = 32 };   /* 1.44 million pixels: past lamp_blobs' cap */
+    uint8_t *px = malloc((size_t)FW * FH);
+    CHECK(px != NULL);
+    if (px == NULL) return;
+    memset(px, 3, (size_t)FW * FH);
+    uint8_t member[256] = { 0 };
+    member[LAMP] = 1, member[LAMP + 1] = 1;
+    for (int i = 0; i < 40; i++)   /* 40 blobs of growing size, in a row */
+        for (int y = 100; y < 100 + 1 + i / 4; y++)
+            for (int x = 20 + i * 30; x < 20 + i * 30 + 1 + i / 4; x++) px[(size_t)y * FW + x] = i % 2 ? LAMP : LAMP + 1;   /* a lamp's two entries: one blob each */
+    static LampBlob b[MAXB];
+    const int n = lamp_blobs_frame(px, FW, 0, 0, FW - 1, FH - 1, member, b, MAXB);
+    CHECK_EQ_INT(n, MAXB);
+    for (int i = 1; i < n; i++) CHECK(b[i - 1].area >= b[i].area);   /* the largest first */
+    CHECK_EQ_INT(b[0].area, 10 * 10);                                /* the biggest of the 40 is there... */
+    CHECK(b[n - 1].area >= 4);                                       /* ...and the 8 smallest (1 and 4 pixels) were the ones dropped */
+    CHECK_EQ_INT(lamp_blobs_frame(px, FW, 0, 0, FW - 1, FH - 1, member, b, 0), 0);
+    CHECK_EQ_INT(lamp_blobs_frame(px, FW, 800, 500, FW - 1, FH - 1, member, b, MAXB), 0);   /* a rectangle with none */
+    free(px);
 }
 
 static void test_radius(void)
@@ -133,6 +158,7 @@ int main(void)
 {
     test_far_fade();
     test_blobs();
+    test_frame_blobs();
     test_radius();
     test_level();
     test_draw();
