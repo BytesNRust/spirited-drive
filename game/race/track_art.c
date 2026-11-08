@@ -159,11 +159,16 @@ int track_art_remap_slots(TrackArt *art, const uint8_t map[TRACK_TEXTURE_SLOTS])
         for (int v = 0; v < TRACK_TEXTURE_VARIANTS; v++) {
             const TrackTexture *own = &before[from * TRACK_TEXTURE_VARIANTS + v], *snow = &before[to * TRACK_TEXTURE_VARIANTS + v];
             TrackTexture t = *snow;
-            const size_t n = (size_t)snow->bitmap.width * snow->bitmap.height;
-            if (art->has_palette && own->present && snow->present && own->bitmap.payload != snow->bitmap.payload && n <= own->bitmap.payload_size && n <= snow->bitmap.payload_size) {
+            const size_t sw = snow->bitmap.width, sh = snow->bitmap.height;
+            const size_t ow = own->bitmap.width, oh = own->bitmap.height;
+            /* the snow is laid on the road's own size, texel for texel and repeated: the road's polygons map their whole bitmap, so the snow slot's 80 x 80 (far 80 x 40) on a road of 128 x 256 (far 32 x 96) made the texels two to three times coarser and of another shape, and the grain changed from one distance to the next */
+            if (art->has_palette && own->present && snow->present && own->bitmap.payload != snow->bitmap.payload && sw > 0 && sh > 0 && ow > 0 && oh > 0
+                && ow * oh <= own->bitmap.payload_size && sw * sh <= snow->bitmap.payload_size) {
                 uint8_t *dst = (uint8_t *)(uintptr_t)own->bitmap.payload;   /* the track's bank: a file the loader owns and the palette remap rewrites in place */
-                for (size_t k = 0; k < n; k++) dst[k] = lut[snow->bitmap.payload[k]];
+                for (size_t y = 0; y < oh; y++)
+                    for (size_t x = 0; x < ow; x++) dst[y * ow + x] = lut[snow->bitmap.payload[(y % sh) * sw + x % sw]];
                 t.bitmap.payload = dst, t.bitmap.payload_size = own->bitmap.payload_size;
+                t.bitmap.width = own->bitmap.width, t.bitmap.height = own->bitmap.height;
             }
             art->slots[from][v] = t;
         }
