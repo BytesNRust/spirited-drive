@@ -125,7 +125,7 @@ static const PortSettingsKey INT_KEYS[] = {
     { "night_stretch_clean", offsetof(PortSettings, night_stretch_clean), 0, 1 },
     { "car_colours", offsetof(PortSettings, car_colours), 0, 1 },
     { "reflectors", offsetof(PortSettings, reflectors), 0, 1 },
-    { "spray_cd_smoke", offsetof(PortSettings, spray_cd_smoke), 0, 1 },
+    { "spray_cd_smoke", offsetof(PortSettings, spray_cd_smoke), 0, 2 },
     { "handbrake_lamps", offsetof(PortSettings, handbrake_lamps), 0, 1 },
     { "rally_spray", offsetof(PortSettings, rally_spray), 0, 1 },
     { "trail_rise", offsetof(PortSettings, trail_rise), 0, 1 },
@@ -977,7 +977,7 @@ int port_reflectors(void)
 int port_spray_cd_smoke(void)
 {
     const char *v = getenv("TNFS_SPRAY_CD_SMOKE");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().spray_cd_smoke;
 }
 

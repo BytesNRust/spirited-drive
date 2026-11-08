@@ -1489,7 +1489,7 @@ typedef struct {
     uint8_t colour[3], road[3];
 } MistTint;
 static MistTint mist_tints[MIST_TINTS];
-static int mist_tint_next, spray_cd_on;
+static int mist_tint_next, spray_cd_on, spray_cd_dir;   /* spray_cd_dir: the setting's 2, the CD's gravel puffs (dir1..4) in place of the cloud on dust and for the mud by the wheel */
 static uint8_t mist_shape[MIST_SHAPE_BYTES], mist_palette[768];
 static const uint8_t *mist_made_from;
 static const uint8_t *mist_rows[256];
@@ -1549,6 +1549,44 @@ static const uint8_t *const *mist_rows_of(MistTint *m, int density)
     return mist_rows;
 }
 
+/* the CD's gravel sprites ('dir1'..'dir4', opaque) with their colours moved toward the road's, made once for a road colour */
+enum { DIR_TINTS = 6, DIR_BYTES = 16 + 75 * 38 + 16 };
+typedef struct { uint32_t key; int used; uint8_t shape[PUFF_SHAPES][DIR_BYTES]; } DirTint;
+static DirTint dir_tints[DIR_TINTS];
+static int dir_tint_next;
+static uint8_t dir_palette[768];
+
+static void dir_draw(const uint8_t road[3], uint32_t seed, int32_t cx, int32_t cy, int32_t scale)
+{
+    if (puff_art == NULL || scale < 0x400) return;
+    if (memcmp(dir_palette, object_pixels.palette, sizeof dir_palette) != 0) {
+        memcpy(dir_palette, object_pixels.palette, sizeof dir_palette);
+        memset(dir_tints, 0, sizeof dir_tints);
+    }
+    const uint32_t key = spray_tint_key(road);
+    DirTint *d = NULL;
+    for (int i = 0; i < DIR_TINTS && d == NULL; i++)
+        if (dir_tints[i].used && dir_tints[i].key == key) d = &dir_tints[i];
+    if (d == NULL) {
+        d = &dir_tints[dir_tint_next++ % DIR_TINTS];
+        memset(d, 0, sizeof *d);
+        uint8_t table[256];
+        spray_tint_table(object_pixels.palette, road, 80, table);
+        for (int k = 0; k < PUFF_SHAPES; k++) {
+            const uint8_t *src = puff_art->dirt[k];
+            if (src == NULL || src[0] != 0x7b) continue;
+            const size_t w = (size_t)(src[4] | src[5] << 8), h = (size_t)(src[6] | src[7] << 8);
+            if (16 + w * h > DIR_BYTES) continue;
+            memcpy(d->shape[k], src, 16);
+            for (size_t i = 0; i < w * h; i++) d->shape[k][16 + i] = src[16 + i] == 0xFF ? 0xFF : table[src[16 + i]];
+        }
+        d->key = key, d->used = 1;
+    }
+    const int pick = (int)(seed % 3u);
+    if (d->shape[pick][0] != 0x7b) return;
+    sprite_scaled_at(object_pixels.target, d->shape[pick], scale > 0x10000 ? 0x10000 : scale, cx, cy);
+}
+
 static void mist_draw(const uint8_t road[3], int density, int32_t cx, int32_t cy, int32_t w, int32_t h, uint32_t seed)
 {
     const uint8_t *shape = mist_sprite();
@@ -1564,6 +1602,10 @@ static void mist_droplets(const uint8_t road[3], const RainSprayParticle *p, uin
     if (tick - p->born > 8u || px < 2) return;
     MistTint *m = mist_tint(road);
     if (m->kind == SPRAY_MIST_SNOW) return;
+    if (spray_cd_dir && m->kind == SPRAY_MIST_MUD) {   /* the mud thrown by the wheel: the CD's gravel puffs in the road's colour, a few and small */
+        if ((slot & 1) == 0) dir_draw(road, p->born * 5u + (uint32_t)slot, cx + (int)(rain_hash((uint32_t)slot, p->born) % (uint32_t)(px + 1)) - px / 2, cy, (int32_t)px * 0x10000 / 40 + 0x1000);
+        return;
+    }
     const QuadTarget *t = object_pixels.target;
     if (dx == 0 && dy == 0) dy = -1;
     const int norm = (int)lrint(sqrt((double)dx * dx + (double)dy * dy));
@@ -1788,7 +1830,8 @@ static void dust_draw(const Car *car, int slot)
         const int32_t scale = depth * size * DUST_SIZE / 0x100 * 8;
         if (mist_have) {   /* port (spray_cd_smoke): the cloud only, the CD's sprite tinted by the road */
             const int32_t w = (int32_t)((int64_t)scale * 75 >> 16);
-            mist_draw(mist_road, 3, screen[0], screen[1], w, w * 7 / 10 + 1, p->seed);
+            if (spray_cd_dir) dir_draw(mist_road, p->seed, screen[0], screen[1], scale);   /* the CD's gravel puffs in the road's colour, not the cloud */
+            else mist_draw(mist_road, 3, screen[0], screen[1], w, w * 7 / 10 + 1, p->seed);
             continue;
         }
         puff_smoke(&v, screen[0], screen[1], scale);
@@ -2916,7 +2959,8 @@ static void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8
     rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
     rally_spray_on = rain_spray_on && shadow_race->port_rally_road != 0 && port_rally_spray();   /* port (rally_spray) */
     trail_rise_on = port_trail_rise();   /* port (trail_rise) */
-    spray_cd_on = port_spray_cd_smoke() && mist_sprite() != NULL;   /* port (spray_cd_smoke) */
+    spray_cd_on = port_spray_cd_smoke() != 0 && mist_sprite() != NULL;
+    spray_cd_dir = spray_cd_on && port_spray_cd_smoke() == 2;   /* port (spray_cd_smoke) */
     if (rain_spray_on) {   /* port (rain v5) */
         spray_tables_set(wt);
         spray_update();

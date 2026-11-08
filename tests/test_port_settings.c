@@ -304,11 +304,14 @@ static void test_snow_fx_values(void)
 
 static void test_spray_cd_smoke_values(void)
 {
-    const char *const on = "spray_cd_smoke=1\n", *const bad = "spray_cd_smoke=2\n";
+    const char *const on = "spray_cd_smoke=1\n", *const bad = "spray_cd_smoke=3\n";
     CHECK_EQ_INT(port_settings_parse(on, strlen(on)).spray_cd_smoke, 1);
+    CHECK_EQ_INT(port_settings_parse("spray_cd_smoke=2\n", 17).spray_cd_smoke, 2);   /* the CD's gravel puffs variant */
     CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).spray_cd_smoke, 0);
     setenv("TNFS_SPRAY_CD_SMOKE", "1", 1);
     CHECK_EQ_INT(port_spray_cd_smoke(), 1);
+    setenv("TNFS_SPRAY_CD_SMOKE", "2", 1);
+    CHECK_EQ_INT(port_spray_cd_smoke(), 2);
     setenv("TNFS_SPRAY_CD_SMOKE", "0", 1);
     CHECK_EQ_INT(port_spray_cd_smoke(), 0);
     unsetenv("TNFS_SPRAY_CD_SMOKE");
