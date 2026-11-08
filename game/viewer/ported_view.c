@@ -2789,6 +2789,7 @@ static const WiperPass *wiper_pass_now(WiperPass *out, const int32_t box[4])
     for (int i = 0; i < wiper_scene_count; i++) {
         out->blade[i] = wiper_scene[i];
         out->blade[i].x -= (float)box[0], out->blade[i].y -= (float)box[1];
+        if (out->blade[i].xmax > 0.0f) out->blade[i].xmax -= (float)box[0];
     }
     out->timing = wiper_timing(snow_level() != SNOW_NONE ? WIPER_SNOW : weather == WEATHER_STORM ? WIPER_STORM : WIPER_RAIN);
     return out;

@@ -13,7 +13,9 @@ enum { WIPER_OFF = 0, WIPER_LIGHT = 1, WIPER_RAIN = 2, WIPER_STORM = 3, WIPER_SN
 typedef struct WiperBlade {
     float x, y;        /* the pivot */
     float len;         /* the blade's reach from the pivot */
-    float park, top;   /* the angle at rest and the angle at the top of the sweep */
+    float park, top;   /* the angle at rest and the angle at the top of the sweep, in the glass's own plane */
+    float ux, uy, vx, vy;   /* the glass's axes on the screen (y up): where one unit along the glass's bottom edge (u) and one unit up the glass (v) land; all zero: the identity */
+    float xmax;        /* nothing is drawn or swept at or past this x (the dash layer's right edge); 0: no limit */
 } WiperBlade;
 
 typedef struct {
@@ -35,6 +37,9 @@ float wiper_fraction(uint32_t tick, WiperTiming t);
 
 /* The blade's angle at a fraction. */
 float wiper_angle(const WiperBlade *b, float fraction);
+
+/* The screen offset (`*dx`, `*dy`, y down) of the point at `r` from the pivot, at the plane angle `angle`: the blade turns in the glass's plane and the glass's axes put it on the screen, so its tip traces an ellipse. */
+void wiper_offset(const WiperBlade *b, float r, float angle, float *dx, float *dy);
 
 /* 1 and `*fraction` (0 at the park .. 1 at the top) when the point is on the glass the blade sweeps: within its reach and between its park and its top; 0 otherwise. */
 int wiper_point_fraction(const WiperBlade *b, float x, float y, float *fraction);

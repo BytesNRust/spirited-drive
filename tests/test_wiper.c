@@ -7,7 +7,7 @@
 
 static WiperBlade blade(void)
 {
-    const WiperBlade b = { 300.0f, 400.0f, 200.0f, 3.14159265f * 0.9f, 3.14159265f * 0.4f };   /* parked pointing left, sweeping up to near vertical */
+    const WiperBlade b = { 300.0f, 400.0f, 200.0f, 3.14159265f * 0.9f, 3.14159265f * 0.4f, 0, 0, 0, 0, 0 };   /* parked pointing left, sweeping up to near vertical */
     return b;
 }
 
@@ -93,6 +93,22 @@ static void test_a_wiped_drop_stays_off_until_its_next_life(void)
     CHECK(wiped < found);                                                     /* and some stay: outside the arc */
 }
 
+/* the glass's plane: a blade turned up the glass is squashed on the screen (its tip traces an ellipse), the point the matrix puts it at is swept at the fraction it has, and nothing past xmax is swept */
+static void test_the_blade_turns_in_the_glass_plane_and_stops_at_xmax(void)
+{
+    WiperBlade b = { 300.0f, 400.0f, 200.0f, 0.0f, 3.14159265f * 0.5f, 1.0f, 0.0f, 0.0f, 0.5f, 0.0f };   /* u as is, v half as long */
+    float dx, dy, f;
+    wiper_offset(&b, 200.0f, 0.0f, &dx, &dy);
+    CHECK(dx > 199.9f && dx < 200.1f && dy > -0.1f && dy < 0.1f);          /* parked: the whole length along the edge */
+    wiper_offset(&b, 200.0f, 3.14159265f * 0.5f, &dx, &dy);
+    CHECK(dx > -0.1f && dx < 0.1f && dy > -100.1f && dy < -99.9f);         /* straight up the glass: half as long on the screen */
+    CHECK(wiper_point_fraction(&b, 300.0f, 300.0f, &f) && f > 0.99f);      /* that point is at the top of the sweep */
+    CHECK(!wiper_point_fraction(&b, 300.0f, 200.0f, &f));                  /* the circle's point is outside the squashed reach */
+    b.xmax = 450.0f;
+    CHECK(wiper_point_fraction(&b, 440.0f, 399.0f, &f));
+    CHECK(!wiper_point_fraction(&b, 460.0f, 399.0f, &f));                  /* past the layer's right edge: not swept */
+}
+
 int main(void)
 {
     test_the_sweep_is_a_triangle_and_parks();
@@ -100,5 +116,6 @@ int main(void)
     test_a_point_in_the_arc_is_swept_and_outside_it_is_not();
     test_a_pass_is_remembered_from_when_the_blade_crossed_the_point();
     test_a_wiped_drop_stays_off_until_its_next_life();
+    test_the_blade_turns_in_the_glass_plane_and_stops_at_xmax();
     return TEST_REPORT();
 }

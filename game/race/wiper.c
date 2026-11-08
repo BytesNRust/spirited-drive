@@ -37,6 +37,21 @@ float wiper_angle(const WiperBlade *b, float fraction)
     return b->park + (b->top - b->park) * fraction;
 }
 
+static void axes(const WiperBlade *b, float *ux, float *uy, float *vx, float *vy)
+{
+    if (b->ux == 0.0f && b->uy == 0.0f && b->vx == 0.0f && b->vy == 0.0f) *ux = 1.0f, *uy = 0.0f, *vx = 0.0f, *vy = 1.0f;
+    else *ux = b->ux, *uy = b->uy, *vx = b->vx, *vy = b->vy;
+}
+
+void wiper_offset(const WiperBlade *b, float r, float angle, float *dx, float *dy)
+{
+    float ux, uy, vx, vy;
+    axes(b, &ux, &uy, &vx, &vy);
+    const float p = r * cosf(angle), q = r * sinf(angle);
+    *dx = p * ux + q * vx;
+    *dy = -(p * uy + q * vy);   /* the screen's y runs down */
+}
+
 static float wrap(float a)
 {
     while (a > PI) a -= 2.0f * PI;
@@ -46,12 +61,17 @@ static float wrap(float a)
 
 int wiper_point_fraction(const WiperBlade *b, float x, float y, float *fraction)
 {
-    const float dx = x - b->x, dy = b->y - y;   /* y up */
-    const float r = sqrtf(dx * dx + dy * dy);
+    if (b->xmax > 0.0f && x >= b->xmax) return 0;
+    float ux, uy, vx, vy;
+    axes(b, &ux, &uy, &vx, &vy);
+    const float dx = x - b->x, dy = b->y - y, det = ux * vy - vx * uy;   /* y up */
+    if (fabsf(det) < 1e-6f) return 0;
+    const float p = (dx * vy - vx * dy) / det, q = (ux * dy - uy * dx) / det;   /* the point in the glass's plane */
+    const float r = sqrtf(p * p + q * q);
     if (r > b->len * REACH_PERCENT / 100.0f || r < b->len * HUB_PERCENT / 100.0f) return 0;
     const float span = wrap(b->top - b->park);
     if (fabsf(span) < 1e-4f) return 0;
-    const float f = wrap(atan2f(dy, dx) - b->park) / span;
+    const float f = wrap(atan2f(q, p) - b->park) / span;
     if (f < 0.0f || f > 1.0f) return 0;
     *fraction = f;
     return 1;
