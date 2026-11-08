@@ -1395,7 +1395,7 @@ static void spray_tables_set(const WeatherTables *wt)
     spray_rows[1] = wt->rain4[level], spray_rows[2] = wt->rain4[level > 0 ? level - 1 : 0], spray_rows[3] = wt->rain4[level > 1 ? level - 2 : 0];
 }
 
-/* once a tick, each car's wheels drop their water (the cars on the screen, and the player's) */
+/* once a tick, each car's wheels drop their water */
 static void spray_update(void)
 {
     if (shadow_race == NULL) return;
@@ -1404,8 +1404,7 @@ static void spray_update(void)
     for (int32_t i = 0; i < n; i++) {
         const Car *car = shadow_race->cars[i];
         if (car == NULL) continue;
-        if (car != player && (body_drawn_tick[i] == 0 || shadow_race->tick + 1 - body_drawn_tick[i] > 4 || shadow_race->tick + 1 < body_drawn_tick[i])) continue;
-        int32_t forward[2], wheel[2][3], right[2];
+        int32_t forward[2], wheel[2][3], right[2];   /* port (cam_trail): every car, drawn or not (a car off the screen, or a view that does not draw it, kept no trail and left a gap) */
         const int32_t at[3] = { car->x, car->y, car->z };
         rain_spray_heading(car->use_matrix, car->yaw, car->matrix[6], car->matrix[8], forward);   /* a rival is drawn with its matrix and its yaw stays 0 */
         rain_spray_wheels(at, forward, wheel, right);
