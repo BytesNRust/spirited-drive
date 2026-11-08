@@ -513,9 +513,14 @@ void car_driving_physics(Car *car, const CarSpecs *specs, RaceState *race)
     race->wheelspin = 0;
     const int32_t ax = abs32(car->velocity_x), az = abs32(car->velocity_z);
     car->speed = ax > az ? ax + (az >> 2) : az + (ax >> 2);
+    const int hb = car->index >= 0 && car->index < RACE_CARS ? car->index : -1;
     if (car->handbrake == 1 && race->arcade != 0) {
         car->handbrake = 0;
+        if (hb >= 0) race->port_hb_lamp[hb] = car->brake <= 100, race->port_hb_seen[hb] = 0xfa;   /* port (handbrake_lamps): no pedal brake behind it (the pedal's 100 or less): the lamps leave it alone */
         car->brake = 0xfa;
+    } else if (hb >= 0 && race->port_hb_lamp[hb]) {   /* the brake that is the handbrake's dies away; it is the pedal's once it rises or is gone */
+        if (car->brake > race->port_hb_seen[hb] || car->brake <= 10) race->port_hb_lamp[hb] = 0;
+        race->port_hb_seen[hb] = car->brake;
     }
     tick_rate(car, race);
     driver_aids(car, race);

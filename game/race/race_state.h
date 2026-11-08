@@ -443,6 +443,8 @@ typedef struct {
     int32_t port_rain_grip;         /* port: a wet race (port.cfg's rain_grip with weather=rain, track_gravity.h): the road grips at four fifths; 0 the exe's */
     int32_t port_lunar_gravity;     /* port: the moon's race (the mode's file's lunar_gravity, track_gravity.h): a third of the pull, two thirds of the grip; 0 the exe's */
     int32_t port_analog_pad;        /* port: 1 a pad's axis words steer and work the pedals in proportion (analog_pad.h); 0 the exe's key paths unless config.dat asks for the pad */
+    int32_t port_hb_lamp[RACE_CARS];   /* port (handbrake_lamps): per car (index), 1 while its brake is the handbrake's alone (car_physics.c: the arcade handbrake is a full brake); written, never read by the physics; the lamps read it */
+    int32_t port_hb_seen[RACE_CARS];   /* port (handbrake_lamps): the brake last seen while port_hb_lamp is set (a brake that rises is the pedal's) */
     int32_t port_rally_road;        /* port: 1 in a rally (the `r` variant, dirt roads), whatever port_rally_gravel is; 0 the exe's track */
     int32_t port_rally_gravel;      /* port: RALLY_GRAVEL_* (rally_gravel.h), the rally's gravel noise and dust; 0 the exe's */
     int32_t port_rally_shoulder_sound;   /* port: with port_rally_gravel, the rolling car strikes the gravel sample as the shoulder does (race_sound.c), not the crunch's faster double strike; 0 the crunch */
