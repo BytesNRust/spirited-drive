@@ -15,6 +15,14 @@ void water_mist_shape(uint8_t out[WATER_MIST_BYTES]);
 /* How much of the veil's colour (0..255) the top level adds, for the variant 1..3 and the particle's density 0..WATER_MIST_DENSITIES - 1 (0 the thinnest, the end of its life). */
 int water_mist_amount(int variant, int density);
 
+/* The droplet streaks' shape (WATER_STREAK_SIDE square, the same format): a few thin bright lines leaning outward and up, level WATER_MIST_LEVELS at the head fading along the line, 0 elsewhere. Made as a sprite
+ * (not pixels set in the target) so it is drawn where the rest of the spray is, in the recorded order. */
+enum { WATER_STREAK_SIDE = 32, WATER_STREAK_BYTES = 16 + WATER_STREAK_SIDE * WATER_STREAK_SIDE };
+void water_mist_streak_shape(uint8_t out[WATER_STREAK_BYTES], int mirror);
+
+/* How much of white the streaks' top level adds (0..255). */
+int water_mist_streak_amount(void);
+
 /* The veil's colour for the variant. */
 void water_mist_colour(int variant, uint8_t rgb[3]);
 

@@ -1451,12 +1451,15 @@ static void spray_tables_set(const WeatherTables *wt)
     spray_rows[1] = wt->rain4[level], spray_rows[2] = wt->rain4[level > 0 ? level - 1 : 0], spray_rows[3] = wt->rain4[level > 1 ? level - 2 : 0];
 }
 
-/* port (water_mist, TNFS_WATER_MIST 1..3 while the variants are looked at): the rain's spray as a soft, low, wide veil (water_mist.h), in place of the speckle and of the CD's smoke; a dirt road's keeps what it had */
+/* port (water_mist, 1..3): the rain's spray as a soft, low, wide veil (water_mist.h), in place of the speckle and of the CD's smoke; a dirt road's keeps what it had */
 static int water_mist_variant;
 static uint8_t water_mist_shape_data[WATER_MIST_BYTES];
 static uint8_t water_mist_table[WATER_MIST_VARIANTS][WATER_MIST_DENSITIES][WATER_MIST_LEVELS + 1][256];
 static const uint8_t *water_mist_rows[256];
 static uint8_t water_mist_palette[768];
+static uint8_t water_streak_table[WATER_MIST_LEVELS + 1][256];
+static const uint8_t *water_streak_rows[256];
+static uint8_t water_streak_shape[2][WATER_STREAK_BYTES];
 static int water_mist_made;
 
 static const uint8_t *const *water_mist_rows_of(int variant, int density)
@@ -1471,11 +1474,25 @@ static const uint8_t *const *water_mist_rows_of(int variant, int density)
                 for (int k = 0; k <= WATER_MIST_LEVELS; k++)
                     spray_add_table(object_pixels.palette, rgb, water_mist_amount(v, d) * k / WATER_MIST_LEVELS, water_mist_table[v - 1][d][k]);
         }
+        const uint8_t white[3] = { 242, 246, 252 };
+        for (int k = 0; k <= WATER_MIST_LEVELS; k++) spray_add_table(object_pixels.palette, white, water_mist_streak_amount() * k / WATER_MIST_LEVELS, water_streak_table[k]);
+        water_mist_streak_shape(water_streak_shape[0], 0), water_mist_streak_shape(water_streak_shape[1], 1);
         water_mist_made = 1;
     }
     for (int i = 0; i < 256; i++) water_mist_rows[i] = water_mist_table[variant - 1][density][0];
     for (int k = 0; k <= WATER_MIST_LEVELS; k++) water_mist_rows[k] = water_mist_table[variant - 1][density][k];
     return water_mist_rows;
+}
+
+/* the droplet streaks of a young particle: a sprite of thin bright lines, one of two leans by the particle's side, drawn with the veil */
+static void water_streaks_draw(const RainSprayParticle *p, uint32_t tick, int slot, int32_t cx, int32_t cy, int32_t px)
+{
+    if (tick - p->born > 5u || px < 3 || ((uint32_t)slot + p->born) % 4u != 0) return;   /* the young, some of them */
+    water_mist_rows_of(1, 0);   /* the tables, made when wanted */
+    for (int i = 0; i < 256; i++) water_streak_rows[i] = water_streak_table[0];
+    for (int k = 0; k <= WATER_MIST_LEVELS; k++) water_streak_rows[k] = water_streak_table[k];
+    const int32_t sw = px * 2 + 4;
+    sprite_scaled_blend(object_pixels.target, water_streak_rows, water_streak_shape[p->drift_x + p->drift_z < 0 ? 0 : 1], sw, sw, cx - sw / 2, cy - sw + sw / 5);
 }
 
 /* once a tick, each car's wheels drop their water */
@@ -1731,11 +1748,7 @@ static void spray_row(int32_t node, int far_side)
         if (water_mist_variant > 0 && !rally_spray_on) {   /* port (water_mist) */
             const int32_t mw = w * water_mist_width_pct(water_mist_variant) / 100, mh = mw * water_mist_height_pct(water_mist_variant) / 100 + 2;
             if (mw >= 3) sprite_scaled_blend(object_pixels.target, water_mist_rows_of(water_mist_variant, density), water_mist_shape_data, mw, mh, screen[0] - mw / 2, screen[1] - mh / 2);
-            if (water_mist_streaks(water_mist_variant) && spray_road_colour(p, ground_rgb)) {
-                int32_t ahead[3] = { place[0] + p->drift_x, place[1], place[2] + p->drift_z }, ahead_camera[3], ahead_screen[2];
-                const int have = world_screen(ahead, ahead_camera, ahead_screen);
-                mist_droplets(ground_rgb, p, tick, i, screen[0], screen[1], px, have ? ahead_screen[0] - screen[0] : 0, have ? ahead_screen[1] - screen[1] : -1);
-            }
+            if (water_mist_streaks(water_mist_variant)) water_streaks_draw(p, tick, i, screen[0], screen[1], px);
             continue;
         }
         if (spray_cd_on && spray_road_colour(p, ground_rgb)) {   /* port (spray_cd_smoke): the CD's cloud and a few droplets */
@@ -3200,7 +3213,7 @@ static void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8
     rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
     rally_spray_on = rain_spray_on && shadow_race->port_rally_road != 0 && port_rally_spray();   /* port (rally_spray) */
     trail_rise_on = port_trail_rise();   /* port (trail_rise) */
-    { const char *wm = getenv("TNFS_WATER_MIST"); water_mist_variant = wm != NULL ? atoi(wm) : 0; if (water_mist_variant < 0 || water_mist_variant > WATER_MIST_VARIANTS) water_mist_variant = 0; }   /* port (water_mist) */
+    water_mist_variant = port_water_mist();   /* port (water_mist) */
     spray_cd_on = port_spray_cd_smoke() != 0 && mist_sprite() != NULL;
     spray_cd_dir = spray_cd_on && port_spray_cd_smoke() == 2;   /* port (spray_cd_smoke) */
     if (rain_spray_on) {   /* port (rain v5) */
