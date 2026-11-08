@@ -84,7 +84,10 @@ int rain_spray_look(const RainSprayParticle *p, uint32_t tick, int open, int ris
     const float o = open < 0 ? 0.0f : open > 16 ? 1.0f : (float)open / 16.0f;
     place[0] = p->x + (int32_t)((float)p->drift_x * f), place[2] = p->z + (int32_t)((float)p->drift_z * f);
     place[1] = p->y + (int32_t)(65536.0f * 0.30f * o * f);   /* it hangs low: it lifts only a little, and not at all in a tunnel */
-    if (rise) place[1] = p->y + (int32_t)((float)trail_rise_height(age, p->life) * o);   /* port (trail_rise): it drifts up to a car's height, less in a tunnel's mouth */
+    if (rise) {   /* port (trail_rise): it drifts up to a car's height, less in a tunnel's mouth; a wisp (a short life) climbs by its share of the plume's life, or the traffic's trail is two chimneys */
+        const float share = p->life >= RAIN_SPRAY_LIFE ? 1.0f : (float)p->life / (float)RAIN_SPRAY_LIFE;
+        place[1] = p->y + (int32_t)((float)trail_rise_height(age, p->life) * o * share);
+    }
     *radius = (int32_t)(65536.0f * grow * big * (0.5f + 0.5f * o));
     float d = (1.0f - f) * (1.0f - f) * (0.35f + 0.65f * (float)p->size / 255.0f) * (0.4f + 0.6f * o);
     if (rise) d *= (float)trail_rise_fade(age, p->life) / 100.0f;   /* and thins as it rises */

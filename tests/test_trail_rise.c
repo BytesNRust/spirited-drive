@@ -42,10 +42,23 @@ static void test_the_water_spray_rises_higher_with_the_switch(void)
     CHECK(place[1] - p.y <= TRAIL_RISE_CAP / 8);
 }
 
+static void test_a_wisp_does_not_rise_as_a_chimney(void)
+{
+    RainSprayParticle plume = { .x = 0, .y = 1000, .z = 0, .born = 100, .size = 200, .live = 1, .life = RAIN_SPRAY_LIFE };
+    RainSprayParticle wisp = plume;
+    wisp.life = RAIN_SPRAY_WISP2_LIFE;
+    int32_t a[3], b[3], radius;
+    int density;
+    CHECK(rain_spray_look(&plume, 100 + RAIN_SPRAY_LIFE - 1, 16, 1, a, &radius, &density));
+    CHECK(rain_spray_look(&wisp, 100 + RAIN_SPRAY_WISP2_LIFE - 1, 16, 1, b, &radius, &density));
+    CHECK(b[1] - wisp.y < (a[1] - plume.y) / 2);   /* a sixth-of-a-second wisp climbs a share of what the plume's two thirds do */
+}
+
 int main(void)
 {
     test_a_puff_rises_with_age_up_to_a_cap();
     test_a_puff_thins_as_it_rises();
     test_the_water_spray_rises_higher_with_the_switch();
+    test_a_wisp_does_not_rise_as_a_chimney();
     return TEST_REPORT();
 }

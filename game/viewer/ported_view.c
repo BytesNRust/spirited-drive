@@ -19,6 +19,7 @@
 #include "game/race/reflector.h"
 #include "game/race/spray_tint.h"
 #include "game/race/trail_rise.h"
+#include "game/race/water_mist.h"
 #include "game/race/track_mask.h"
 #include "game/viewer/reflect_pass.h"
 #include "game/viewer/screen_layout.h"
@@ -1450,6 +1451,33 @@ static void spray_tables_set(const WeatherTables *wt)
     spray_rows[1] = wt->rain4[level], spray_rows[2] = wt->rain4[level > 0 ? level - 1 : 0], spray_rows[3] = wt->rain4[level > 1 ? level - 2 : 0];
 }
 
+/* port (water_mist, TNFS_WATER_MIST 1..3 while the variants are looked at): the rain's spray as a soft, low, wide veil (water_mist.h), in place of the speckle and of the CD's smoke; a dirt road's keeps what it had */
+static int water_mist_variant;
+static uint8_t water_mist_shape_data[WATER_MIST_BYTES];
+static uint8_t water_mist_table[WATER_MIST_VARIANTS][WATER_MIST_DENSITIES][WATER_MIST_LEVELS + 1][256];
+static const uint8_t *water_mist_rows[256];
+static uint8_t water_mist_palette[768];
+static int water_mist_made;
+
+static const uint8_t *const *water_mist_rows_of(int variant, int density)
+{
+    if (!water_mist_made || memcmp(water_mist_palette, object_pixels.palette, sizeof water_mist_palette) != 0) {
+        memcpy(water_mist_palette, object_pixels.palette, sizeof water_mist_palette);
+        water_mist_shape(water_mist_shape_data);
+        for (int v = 1; v <= WATER_MIST_VARIANTS; v++) {
+            uint8_t rgb[3];
+            water_mist_colour(v, rgb);
+            for (int d = 0; d < WATER_MIST_DENSITIES; d++)
+                for (int k = 0; k <= WATER_MIST_LEVELS; k++)
+                    spray_add_table(object_pixels.palette, rgb, water_mist_amount(v, d) * k / WATER_MIST_LEVELS, water_mist_table[v - 1][d][k]);
+        }
+        water_mist_made = 1;
+    }
+    for (int i = 0; i < 256; i++) water_mist_rows[i] = water_mist_table[variant - 1][density][0];
+    for (int k = 0; k <= WATER_MIST_LEVELS; k++) water_mist_rows[k] = water_mist_table[variant - 1][density][k];
+    return water_mist_rows;
+}
+
 /* once a tick, each car's wheels drop their water */
 static void spray_update(void)
 {
@@ -1465,7 +1493,9 @@ static void spray_update(void)
         rain_spray_wheels(at, forward, wheel, right);
         const int wet = car->airborne_ticks == 0 && (car->off_road == 0 || rally_spray_on) && rain_open_at(car->node) > 0;   /* port (tunnel_dry): no water inside a closed zone; port (rally_spray): a rally's road is all off_road (the player's never threw any) */
         const int32_t pace = rain_spray_speed(car->speed, car->velocity_x, car->velocity_z);   /* the traffic's physics does not run: its speed is 0 while it drives */
-        if (port_traffic_spray() && port_rain_v2() && i >= shadow_race->racers && car != player)   /* port (rain_v2): a wisp from each wheel, a little longer, at any pace */
+        if (water_mist_variant > 0 && !rally_spray_on)   /* port (water_mist): every car's water is the plume, the traffic's too (a wisp of three ticks is no veil) */
+            rain_spray_step(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
+        else if (port_traffic_spray() && port_rain_v2() && i >= shadow_race->racers && car != player)   /* port (rain_v2): a wisp from each wheel, a little longer, at any pace */
             rain_spray_step_wisp2(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
         else if (port_traffic_spray() && i >= shadow_race->racers && car != player)   /* port (traffic_spray): the cops' and traffic's water is a short wisp */
             rain_spray_step_wisp(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
@@ -1688,7 +1718,7 @@ static void spray_row(int32_t node, int far_side)
         const RainSprayParticle *p = &rain_spray.p[i];
         int32_t place[3], radius, camera[3], screen[2];
         int density;
-        if (!p->live || p->node != node || !rain_spray_look(p, tick, open, trail_rise_on, place, &radius, &density)) continue;
+        if (!p->live || p->node != node || !rain_spray_look(p, tick, open, trail_rise_on && (water_mist_variant == 0 || rally_spray_on), place, &radius, &density)) continue;   /* port (water_mist): the veil stays low */
         if (!world_screen(place, camera, screen) || camera[2] < 64) continue;
         const Car *owner = p->car < RACE_CARS ? shadow_race->cars[p->car] : NULL;   /* a puff farther from the eye than its car is drawn before the row's cars, a nearer one after them */
         int32_t own_camera[3], own_screen[2];
@@ -1698,6 +1728,16 @@ static void spray_row(int32_t node, int far_side)
         const int32_t px = (int32_t)((int64_t)(radius >> WORLD_SHIFT) * focal / camera[2]);   /* the radius in pixels */
         const int32_t w = px * 2 + 3, h = w * 6 / 11 + 2;   /* flatter than wide: a mist along the road */
         uint8_t ground_rgb[3];
+        if (water_mist_variant > 0 && !rally_spray_on) {   /* port (water_mist) */
+            const int32_t mw = w * water_mist_width_pct(water_mist_variant) / 100, mh = mw * water_mist_height_pct(water_mist_variant) / 100 + 2;
+            if (mw >= 3) sprite_scaled_blend(object_pixels.target, water_mist_rows_of(water_mist_variant, density), water_mist_shape_data, mw, mh, screen[0] - mw / 2, screen[1] - mh / 2);
+            if (water_mist_streaks(water_mist_variant) && spray_road_colour(p, ground_rgb)) {
+                int32_t ahead[3] = { place[0] + p->drift_x, place[1], place[2] + p->drift_z }, ahead_camera[3], ahead_screen[2];
+                const int have = world_screen(ahead, ahead_camera, ahead_screen);
+                mist_droplets(ground_rgb, p, tick, i, screen[0], screen[1], px, have ? ahead_screen[0] - screen[0] : 0, have ? ahead_screen[1] - screen[1] : -1);
+            }
+            continue;
+        }
         if (spray_cd_on && spray_road_colour(p, ground_rgb)) {   /* port (spray_cd_smoke): the CD's cloud and a few droplets */
             int32_t ahead[3] = { place[0] + p->drift_x, place[1], place[2] + p->drift_z }, ahead_camera[3], ahead_screen[2];
             const int have = world_screen(ahead, ahead_camera, ahead_screen);
@@ -3160,6 +3200,7 @@ static void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8
     rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
     rally_spray_on = rain_spray_on && shadow_race->port_rally_road != 0 && port_rally_spray();   /* port (rally_spray) */
     trail_rise_on = port_trail_rise();   /* port (trail_rise) */
+    { const char *wm = getenv("TNFS_WATER_MIST"); water_mist_variant = wm != NULL ? atoi(wm) : 0; if (water_mist_variant < 0 || water_mist_variant > WATER_MIST_VARIANTS) water_mist_variant = 0; }   /* port (water_mist) */
     spray_cd_on = port_spray_cd_smoke() != 0 && mist_sprite() != NULL;
     spray_cd_dir = spray_cd_on && port_spray_cd_smoke() == 2;   /* port (spray_cd_smoke) */
     if (rain_spray_on) {   /* port (rain v5) */
