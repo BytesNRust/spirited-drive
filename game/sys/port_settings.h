@@ -118,6 +118,7 @@ typedef struct {
     int reflectors;    /* 1: at night or in a dark tunnel, with the PS1 headlights, the texels a track mask marks reflective shine in the player's lamp cone out to 200 m (reflector.h); 0 the exe's */
     int handbrake_lamps;   /* 1: a brake that is the handbrake's alone (the rally's handbrake is a full brake, car_physics.c) does not light the brake lamps; 0 the exe's */
     int rally_spray;    /* 1: in a rally with rain_fx and rain or snow, every car (the player's too) throws the road's spray, tinted by the road it is on (gravel grey, brown dirt, snow white) and darker than water; 0 the exe's */
+    int wipers;        /* 1: in the dash view in rain and snow a wiper blade sweeps the glass (the pace follows what falls), clears the lens drops and snow marks it crosses and hides the blades some dash art draws (a red dash mask colour); 0 as before */
     int trail_rise;    /* 1: the spray and the dust trails rise with their age, to about a car's height, and fade as they rise (every car); 0 as before */
     int snow_fx;    /* 1: with snow_weather, the falling snow has more depth: flakes less regular and soft, leaning with the car's speed (a smaller angle than the rain's), a snowstorm whose wind swings from side to side, and white marks on the lens (fewer than the rain's drops); 0 as before */
     int lamp_halos;    /* 1: at night the street lamps (the lamp boards' emissive entries) get a soft halo like the brake lights' (never the windows'); 0 as before */
@@ -265,6 +266,9 @@ int port_spray_cd_smoke(void);
 int port_rally_spray(void);
 /* 1 when trail_rise: TNFS_TRAIL_RISE=0/1 when set, else the mode's. */
 int port_trail_rise(void);
+
+/* 1 when wipers: TNFS_WIPERS=0/1 when set, else the mode's. */
+int port_wipers(void);
 /* 1 when snow_fx: TNFS_SNOW_FX=0/1 when set, else the mode's. */
 int port_snow_fx(void);
 /* 1 when lamp_halos: TNFS_LAMP_HALOS=0/1 when set, else the mode's. */

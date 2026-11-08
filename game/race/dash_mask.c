@@ -20,6 +20,7 @@ int dash_mask_class(const uint8_t c[3])
     if (top < 64) return DASH_MASK_AUTO;                                       /* black */
     if (low >= WHITE_FROM) return DASH_MASK_LIT;                               /* white */
     if (c[0] >= WHITE_FROM && c[1] >= WHITE_FROM && c[2] <= YELLOW_BLUE_MAX) return DASH_MASK_LIT;   /* yellow: reads on the dash where white does not */
+    if (c[0] >= WHITE_FROM && c[1] <= YELLOW_BLUE_MAX && c[2] <= YELLOW_BLUE_MAX) return DASH_MASK_BLADE;   /* red: a wiper blade */
     if (c[2] > c[0] && c[2] > c[1]) return DASH_MASK_DASH;                     /* blue */
     if (c[1] > c[0] && c[1] > c[2]) return DASH_MASK_DIAL;                     /* green */
     return DASH_MASK_AUTO;                                                     /* any other colour: not marked */
@@ -50,11 +51,12 @@ int dash_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, s
     uint8_t *indices = malloc(count);
     if (indices == NULL) return 0;
     for (size_t i = 0; i < count; i++)
-        indices[i] = mask[i] == DASH_MASK_DASH ? 1 : mask[i] == DASH_MASK_DIAL ? 2 : mask[i] == DASH_MASK_LIT ? 3 : 0;
+        indices[i] = mask[i] == DASH_MASK_DASH ? 1 : mask[i] == DASH_MASK_DIAL ? 2 : mask[i] == DASH_MASK_LIT ? 3 : mask[i] == DASH_MASK_BLADE ? 4 : 0;
     uint8_t palette[768] = { 0 };
     palette[5] = 255;                                  /* 1 blue */
     palette[7] = 255;                                  /* 2 green */
     palette[9] = palette[10] = palette[11] = 255;      /* 3 white */
+    palette[12] = 255;                                 /* 4 red */
     const PngResult r = png_write_indexed(indices, (uint32_t)width, (uint32_t)height, palette, out, len);
     free(indices);
     return r == PNG_OK;
