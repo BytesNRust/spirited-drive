@@ -154,6 +154,21 @@ static void test_a_car_without_a_speed_goes_by_its_velocity(void)
     CHECK_EQ_INT(rain_spray_step_wisp2(&s, 3, 100, left, wheel, right, 5, rain_spray_speed(0, -4 * 65536, 16 << 16), 1), 2);
 }
 
+static void test_dense_drops_fill_the_way_at_speed(void)
+{
+    static RainSpray slow, fast, plain;
+    rain_spray_clear(&slow), rain_spray_clear(&fast), rain_spray_clear(&plain);
+    const int32_t right[2] = { 0, -65536 }, left[3] = { 0, 0, 0 }, wheel[3] = { 0, 0, 0 };   /* heading +x... right (0,-1): forward is (1, 0) */
+    CHECK_EQ_INT(rain_spray_step_dense(&slow, 0, 100, left, wheel, right, 5, 20 << 16, 1), rain_spray_step(&plain, 0, 100, left, wheel, right, 5, 20 << 16, 1));   /* slow: the plume as it was */
+    CHECK_EQ_INT(rain_spray_step_dense(&fast, 0, 100, left, wheel, right, 5, 75 << 16, 1), 2 + 2 * 1);   /* 2.5 m a tick: two drops a wheel */
+    CHECK_EQ_INT(rain_spray_step_dense(&fast, 0, 100, left, wheel, right, 5, 75 << 16, 1), 0);   /* the same tick again: nothing */
+    CHECK(live_count(&fast) == 4);
+    int behind = 0;
+    for (int i = 0; i < RAIN_SPRAY_MAX; i++)
+        if (fast.p[i].live && fast.p[i].x < -65536) behind++;   /* the extra ones lie behind the wheel, on the way it came */
+    CHECK_EQ_INT(behind, 2);
+}
+
 int main(void)
 {
     test_dropped_once_a_tick_and_left_behind();
@@ -164,5 +179,6 @@ int main(void)
     test_a_clock_that_goes_back_clears_the_trail();
     test_wisp2();
     test_a_car_without_a_speed_goes_by_its_velocity();
+    test_dense_drops_fill_the_way_at_speed();
     return TEST_REPORT();
 }

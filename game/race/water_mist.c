@@ -18,7 +18,7 @@ void water_mist_shape(uint8_t out[WATER_MIST_BYTES])
 
 int water_mist_amount(int variant, int density)
 {
-    static const int TOP[WATER_MIST_VARIANTS][WATER_MIST_DENSITIES] = { { 8, 52, 96, 132 }, { 8, 52, 96, 132 }, { 6, 40, 74, 104 } };
+    static const int TOP[WATER_MIST_VARIANTS][WATER_MIST_DENSITIES] = { { 6, 38, 72, 100 }, { 6, 38, 72, 100 }, { 5, 30, 56, 80 } };
     if (variant < 1 || variant > WATER_MIST_VARIANTS) return 0;
     if (density < 0) density = 0;
     if (density >= WATER_MIST_DENSITIES) density = WATER_MIST_DENSITIES - 1;
@@ -34,6 +34,6 @@ void water_mist_colour(int variant, uint8_t rgb[3])
 
 int water_mist_width_pct(int variant) { return variant == 3 ? 260 : 200; }
 
-int water_mist_height_pct(int variant) { return variant == 3 ? 24 : 36; }
+int water_mist_height_pct(int variant) { return variant == 3 ? 40 : 55; }
 
 int water_mist_streaks(int variant) { return variant >= 2; }

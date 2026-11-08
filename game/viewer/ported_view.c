@@ -1494,7 +1494,7 @@ static void spray_update(void)
         const int wet = car->airborne_ticks == 0 && (car->off_road == 0 || rally_spray_on) && rain_open_at(car->node) > 0;   /* port (tunnel_dry): no water inside a closed zone; port (rally_spray): a rally's road is all off_road (the player's never threw any) */
         const int32_t pace = rain_spray_speed(car->speed, car->velocity_x, car->velocity_z);   /* the traffic's physics does not run: its speed is 0 while it drives */
         if (water_mist_variant > 0 && !rally_spray_on)   /* port (water_mist): every car's water is the plume, the traffic's too (a wisp of three ticks is no veil) */
-            rain_spray_step(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
+            rain_spray_step_dense(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
         else if (port_traffic_spray() && port_rain_v2() && i >= shadow_race->racers && car != player)   /* port (rain_v2): a wisp from each wheel, a little longer, at any pace */
             rain_spray_step_wisp2(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
         else if (port_traffic_spray() && i >= shadow_race->racers && car != player)   /* port (traffic_spray): the cops' and traffic's water is a short wisp */
