@@ -117,6 +117,146 @@ static void test_upscale(void)
     }
 }
 
+
+/* The compose before the speed-ups (all-key rows skipped, the pieces' source columns made once, the frame's columns clipped once), kept here as the reference: the same loops, pixel by pixel. */
+static void ref_put(const LayerCompose *c, uint8_t *wide, int x, int y, uint8_t p)
+{
+    if (p != LAYER_KEY && x >= 0 && x < c->width && y >= 0 && y < c->layer_h) wide[(int64_t)y * c->width + x] = p;
+}
+
+/* the pieces' pixels of the layer, marked for the rest's loop (the pieces' rects set, used, then cleared again) */
+enum { REF_MASK_W = 640, REF_MASK_H = 480 };
+static uint8_t ref_mask[REF_MASK_W * REF_MASK_H];   /* port (render bands): per thread */
+
+/* port (perf): only the layer rows [lo, hi) the band reads are marked (every band marked every piece's whole rect before), the thread's mask once in a local (a
+ * thread local read per pixel is a call on macOS) and a row of it set at a time. The mask outside [lo, hi) stays 0 (every mark is cleared with the same rows). */
+static void ref_mark_pieces(const LayerCompose *c, uint8_t on, int lo, int hi)
+{
+    uint8_t *const mask = ref_mask;
+    for (int i = 0; i < c->piece_count; i++) {
+        const LayerRect *r = &c->pieces[i].from;
+        const int left = r->left < 0 ? 0 : r->left, right = r->right < c->layer_w ? r->right : c->layer_w;
+        const int top = r->top < lo ? lo : r->top, bottom = r->bottom < hi ? r->bottom : hi;
+        if (left >= right) continue;
+        for (int y = top; y < bottom; y++) memset(mask + y * c->layer_w + left, on, (size_t)(right - left));
+    }
+}
+
+/* the rest of the layer: inside the car the dash (each wide pixel from the layer pixel screen_dash_x / _y give),
+ * outside it centred */
+static void ref_rest(const LayerCompose *c, const uint8_t *layer, uint8_t *wide, int top, int bottom)
+{
+    if (c->layer_w > REF_MASK_W || c->layer_h > REF_MASK_H) return;
+    uint8_t *const mask = ref_mask;
+    if (!c->in_car) {
+        const int lo = top < 0 ? 0 : top, hi = bottom < c->layer_h ? bottom : c->layer_h;   /* the layer rows this band reads: its own */
+        ref_mark_pieces(c, 1, lo, hi);
+        const int dx = (c->width - c->layer_w) / 2;
+        for (int y = top; y < bottom; y++)
+            for (int x = 0; x < c->layer_w; x++)
+                if (!mask[y * c->layer_w + x]) ref_put(c, wide, x + dx, y, layer[y * c->layer_w + x]);
+        ref_mark_pieces(c, 0, lo, hi);
+        return;
+    }
+    /* the dash: the band's rows are the layer rows screen_dash_y gives (it never goes back as y goes down, so its ends are the range's) when the frame is wider than the layer */
+    int first = top, last = bottom - 1;
+    if (c->width > c->layer_w && bottom > top) first = screen_dash_y(top), last = screen_dash_y(bottom - 1);
+    const int lo = first < 0 ? 0 : first, hi = last + 1 < c->layer_h ? last + 1 : c->layer_h;
+    ref_mark_pieces(c, 1, lo, hi);
+    const int width = c->width < SCREEN_DASH_MOST_WIDTH ? c->width : SCREEN_DASH_MOST_WIDTH;
+    const int *column = screen_dash_columns(c->width);
+    for (int y = top; y < bottom; y++) {
+        const int sy = c->width > c->layer_w ? screen_dash_y(y) : y;
+        if (sy < 0 || sy >= c->layer_h) continue;
+        const uint8_t *row = layer + sy * c->layer_w, *masked = mask + sy * c->layer_w;
+        uint8_t *out = wide + (int64_t)y * c->width;
+        for (int x = 0; x < width; x++) {
+            const int sx = column[x];
+            if (sx < c->layer_w && !masked[sx] && row[sx] != LAYER_KEY) out[x] = row[sx];
+        }
+    }
+    ref_mark_pieces(c, 0, lo, hi);
+}
+
+static void ref_piece(const LayerCompose *c, const LayerPiece *p, const uint8_t *layer, uint8_t *wide, int top, int bottom)
+{
+    const int w = p->from.right - p->from.left, h = p->from.bottom - p->from.top;
+    const int32_t scale = p->scaled ? c->scale : 1 << 16;
+    const int out_w = p->out_w > 0 ? p->out_w : (int)((int64_t)w * scale >> 16), out_h = (int)((int64_t)h * scale >> 16);
+    for (int y = 0; y < out_h; y++) {
+        if (p->y + y < top || p->y + y >= bottom) continue;   /* port (render bands): the rows asked for */
+        const int sy = p->from.top + (int)(((int64_t)y << 16) / scale);
+        for (int x = 0; x < out_w; x++) {
+            int sx = p->from.left + (int)(((int64_t)x << 16) / scale);
+            if (sx >= p->from.right) sx = p->from.right - 1;   /* a set out_w a column past the scaled one */
+            if (sx < c->layer_w && sy < c->layer_h) ref_put(c, wide, p->x + x, p->y + y, layer[sy * c->layer_w + sx]);
+        }
+    }
+}
+
+static void ref_layer_compose_rows(const LayerCompose *c, const uint8_t *layer, uint8_t *wide, int top, int bottom)
+{
+    if (top < 0) top = 0;
+    if (bottom > c->layer_h) bottom = c->layer_h;
+    if (bottom <= top) return;
+    ref_rest(c, layer, wide, top, bottom);
+    for (int i = 0; i < c->piece_count; i++) ref_piece(c, &c->pieces[i], layer, wide, top, bottom);
+}
+
+
+/* the new compose against the reference: random layers (rows of nothing but the key, runs of it, scattered), random widths and pieces (partly or wholly off the frame, scaled or not, a
+ * set width), both places of the layer, and random bands, over the same background: every byte of the frame the same */
+static void test_matches_the_reference(void)
+{
+    enum { WIDE_MAX = 1500 };
+    static uint8_t lay[LW * H], bg[WIDE_MAX * H], got[WIDE_MAX * H], want[WIDE_MAX * H];
+    uint32_t seed = 2024;
+    #define RND(n) (seed = seed * 1664525u + 1013904223u, (int)((seed >> 8) % (uint32_t)(n)))
+    long checked = 0;
+    for (int round = 0; round < 120; round++) {
+        const int density = RND(4);   /* 0: all key, 1: a few pixels, 2: half, 3: almost full */
+        for (int y = 0; y < H; y++) {
+            const int kind = RND(5);   /* 0, 1: a row of nothing but the key; 2: one pixel that is not (any column, the ends too); else by density */
+            const int lone = RND(4) == 0 ? LW - 1 : RND(4) == 0 ? 0 : RND(LW);
+            for (int x = 0; x < LW; x++) {
+                const int key = density == 0 || kind < 2 || (kind == 2 ? x != lone : density == 1 ? RND(40) != 0 : density == 2 ? RND(2) == 0 : RND(10) == 0);
+                lay[y * LW + x] = key ? LAYER_KEY : (uint8_t)RND(250);
+            }
+        }
+        for (int i = 0; i < WIDE_MAX * H; i++) bg[i] = (uint8_t)RND(250);
+        const int width = 640 + RND(861);
+        LayerPiece pieces[6];
+        const int n = RND(7);
+        for (int i = 0; i < n; i++) {
+            const int l = RND(600), t = RND(440), pw = 1 + RND(120), ph = 1 + RND(60);
+            const int px = RND(width + 200) - 100, py = RND(500) - 20, scaled = RND(2), set_w = RND(3) == 0 ? RND(300) : 0;
+            pieces[i] = (LayerPiece){ { l, t, l + pw, t + ph }, px, py, scaled, set_w };
+        }
+        const LayerCompose c = { LW, H, width, (int32_t)(((int64_t)width << 16) / LW), RND(2), pieces, n };
+        memcpy(got, bg, sizeof got), memcpy(want, bg, sizeof want);
+        int cut = 0;
+        while (cut < H) {   /* the same bands for both, in order */
+            const int next = cut + 1 + RND(120);
+            layer_compose_rows(&c, lay, got, cut, next > H ? H : next);
+            ref_layer_compose_rows(&c, lay, want, cut, next > H ? H : next);
+            cut = next;
+        }
+        CHECK(memcmp(got, want, sizeof got) == 0);
+        checked++;
+    }
+    #undef RND
+    CHECK_EQ_INT(checked, 120);
+    /* a piece wider than the columns table holds (4096) takes the per-pixel division: the same bytes */
+    static uint8_t big_got[4600 * H], big_want[4600 * H];
+    memset(big_got, 7, sizeof big_got), memset(big_want, 7, sizeof big_want);
+    for (int i = 0; i < LW * H; i++) lay[i] = i % 7 == 0 ? LAYER_KEY : (uint8_t)(i * 31);
+    const LayerPiece wide_piece = { { 10, 20, 300, 90 }, -50, 15, 1, 4200 };
+    const LayerCompose big = { LW, H, 4600, (int32_t)(((int64_t)4600 << 16) / LW), 0, &wide_piece, 1 };
+    layer_compose_rows(&big, lay, big_got, 0, H);
+    ref_layer_compose_rows(&big, lay, big_want, 0, H);
+    CHECK(memcmp(big_got, big_want, sizeof big_got) == 0);
+}
+
 int main(void)
 {
     test_upscale();
@@ -208,5 +348,6 @@ int main(void)
     CHECK(holes > 0);
     test_bands_make_the_whole();
     test_mask_rows_follow_the_band();
+    test_matches_the_reference();
     return TEST_REPORT();
 }
