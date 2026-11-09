@@ -72,6 +72,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `rally_gravel_shoulder` | 0 | 0 | 0, 1 (the rolling gravel scrubs with the shoulder's own tyre sound, by speed, no gravel strikes) | none | `TNFS_RALLY_GRAVEL_SHOULDER` | 0 / 0 / 1 | extras `rally_gravel` |
 | `lamp_pool_tint` | 0 | 0 | 0, 1 (the road under a street lamp takes a warm yellow tint, strongest under the lamp and fading with the pool) | none | `TNFS_LAMP_POOL_TINT` | 0 / 0 / 1 | `psx_headlights` |
 | `trans_shadows` | 0 | 0 | 0, 1 (Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge) | none | `TNFS_TRANS_SHADOWS` | 0 / 0 / 1 | `psx_light` |
+| `canyon_shade` | 0 | 0 | 0, 1 (the car is 30 % darker in the canyon, where the walls shade it) | none | `TNFS_CANYON_SHADE` | 0 / 0 / 1 | `car_tunnel_light` |
 | `brake_over_gas` | 0 | 0 | 0, 1 (a pad's brake past its dead zone beats the gas: the car brakes and the brake light lights; 0 sums them as the exe does) | none | `TNFS_BRAKE_OVER_GAS` | 0 / 0 / 1 | none |
 | `lamp_pools` | 0 | 0 | 0, 1 (with the CD's light loaded at night, the street lamps' pools are laid over it: the ground round each lamp is lit) | none | `TNFS_LAMP_POOLS` | 0 / 0 / 1 | `psx_headlights` |
 | `lamp_pool_bright` | 0 | 0 | 0, 1 (a street lamp's pool is not dimmed by the night's dark floor: under the lamp the light is full, fading with the pool; 0 the pool is dimmed by the headlights' gain) | none | `TNFS_LAMP_POOL_BRIGHT` | 0 / 0 / 1 | `psx_headlights` |
@@ -93,7 +94,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `finish_gate_light` | 0 | 0 | 0, 1 (at night, with `psx_headlights`, the stage tracks' gate that ends a stage (CY, CL, AL; CHECKPOINT, FINISH on the third stage) keeps its daylight light against the dark; 0 the exe's) | none | `TNFS_FINISH_GATE_LIGHT` | 0 / 0 / 1 | `psx_headlights`, CY/CL/AL |
 | `lamp_car_shade` | 0 | 0 | 0, 1 (a car under a street lamp is lit by its pool: warmer and lighter, fading as it leaves) | none | `TNFS_LAMP_CAR_SHADE` | 0 / 0 / 1 | `psx_headlights` |
 | `reverse_rows` | 0 | 0 | 0, 1 (a reversed circuit's rows are read the way the forward circuit's are (the exe's reverse swaps the two chains of each row, which bends a tunnel's roof into a slab and lays its wall down as a hillside): the tunnels keep their walls and roof; 0 the rows swapped as the exe's reverse has them) | none | `TNFS_REVERSE_ROWS` | 0 / 0 / 1 | none |
-| `city_lift` | 0 | 0 | 0, 1, 2, 3 (with the PS1 light and headlights the City nights CY1..CY3 are brightened: 1 mild, 2 more, by raising the night tint's ceiling and the open night's dark floor, the beams added on top of that floor; 3 a darker base than 1 with brighter tunnels and lamp pools, so the beams stand out; 0 the exe's darkness) | none | `TNFS_CITY_LIFT` | 0 / 0 / 1 | `psx_light` |
+| `city_lift` | 0 | 0 | 0, 1, 2, 3 (with the PS1 light and headlights the City nights CY1..CY3 are brightened: 1 mild, 2 more, by raising the night tint's ceiling and the open night's dark floor, the beams added on top of that floor; 3 a darker base than 1 with brighter tunnels and lamp pools, so the beams stand out; 0 the exe's darkness) | none | `TNFS_CITY_LIFT` | 0 / 0 / 3 | `psx_light` |
 | `vegas_lift` | 0 | 0 | 0, 1, 2 (the same for Lost Vegas' night: 1 mild, 2 more; 0 the exe's) | none | `TNFS_VEGAS_LIFT` | 0 / 0 / 2 | `psx_light` |
 | `night_tone` | 0 | 0 | 0, 1, 2 (the night's flat tint of a track with no PS1 light, i.e. with no disc or no light file for it: 0 the fallback's warm brown-green; 1 each track's own CD night tint (constants, no PS1 data), brought under the City's and Lost Vegas' lift ceilings as on the CD path, with a brightness match to the CD's road; 2 one neutral cool blue-grey, the City's and Lost Vegas' following `city_lift` and `vegas_lift` from the look at city_lift 3 / vegas_lift 2; the CD's own light and tints are never changed) | none | `TNFS_NIGHT_TONE` | 0 / 0 / 2 | `psx_light`, night |
 | `rain_lamps` | 0 | 0 | 0, 1 (with `weather=rain` or `storm` every car drives with its headlights on, day included: lit front lamps and their warm reflections on the wet road; no night beam or pools by day) | none | `TNFS_RAIN_LAMPS` | 0 / 0 / 0 | `weather=rain` |
@@ -176,7 +177,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 ## What each profile sets (`TABLES`)
 
-All 64 columns of the table, in file order. A column that is not here is not touched by any profile. "group" is the section above the key is in.
+All 84 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
 | column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
@@ -222,6 +223,7 @@ All 64 columns of the table, in file order. A column that is not here is not tou
 | `chase_height` | settings | 0 | 0 | 1 |
 | `lamp_pool_tint` | settings | 0 | 0 | 1 |
 | `trans_shadows` | settings | 0 | 0 | 1 |
+| `canyon_shade` | settings | 0 | 0 | 1 |
 | `tunnel_headlight` | settings | 0 | 0 | 1 |
 | `parking_dark` | settings | 0 | 0 | 1 |
 | `forest_neutral` | settings | 0 | 0 | 1 |
@@ -247,7 +249,7 @@ All 64 columns of the table, in file order. A column that is not here is not tou
 | `rally_dry_lamps` | settings | 0 | 0 | 0 |
 | `traffic_spray` | settings | 0 | 0 | 0 |
 | `reverse_rows` | settings | 0 | 0 | 1 |
-| `city_lift` | settings | 0 | 0 | 1 |
+| `city_lift` | settings | 0 | 0 | 3 |
 | `vegas_lift` | settings | 0 | 0 | 2 |
 | `night_tone` | settings | 0 | 0 | 2 |
 | `rain_lamps` | settings | 0 | 0 | 0 |
