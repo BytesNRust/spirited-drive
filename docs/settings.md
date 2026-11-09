@@ -116,6 +116,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `wipers` | 0 | 0 | 0, 1 (in the dash view, in rain, storm and snow, two wiper blades sweep the glass, at a pace that follows what falls (rain and snow 1.8 s a cycle, the storm 1.3 s), and park when the cycle is done; each pass clears the lens drops and the snow's marks it crosses; a dash whose art draws wiper blades (the P911's, a red `dash_mask.png` colour) shows them only when the wipers are off; needs the wide path (a wide format or render_scale above 1); 0 as before) | none | `TNFS_WIPERS` | 0 / 0 / 1 | none |
 | `water_mist` | 0 | 0 | 0..3 (the rain's spray as a soft, low, wide veil of a generated sprite, not the CD's smoke nor the speckle, thinning to nothing with the particle's life, on every car (the traffic's and police's too, the plume in place of the wisp), with more drops a tick at speed so a fast car leaves a continuous trail: 1 the veil, 2 the veil and a few fine droplet streaks by the tyre, 3 a cooler, flatter, wider, thinner veil with the streaks; a dirt road's spray and the dry dust keep what they had; 0 as before) | none | `TNFS_WATER_MIST` | 0 / 0 / 2 | `weather=rain` or `storm`, `rain_fx` |
 | `weather_fog` | 0 | 0 | 0..2 (the weather's fog in snow and in the rain storm, with Modern 3D: 1 the snow's fog is whiter and denser (a snow-white colour, closer, with the fog weather's exponential curve, denser in the snow storm) and the rain storm's fog is denser than the rain's; 2 the same, and the rain's dark grey mood is not laid over the snow, so the picture is whiter; 0 the same fog as the rain in all four) | none | `TNFS_WEATHER_FOG` | 0 / 0 / 0 | `modern_3d` |
+| `spray_v4` | 0 | 0 | 0, 1 (the wheels' spray and dust as the generated sprites of each material, born every simulation tick at the wheel's own place and height: on a wet road small drops thrown back and up in a fan that fall under gravity and vanish where they touch the road, and a low flat mist; the desert's dust a slow cottony cloud; the snow's powder and small lumps; gravel and the shoulder small angular stones with a fine dust; replaces rain_fx's spray and the rally's dust; 0 as before) | none | `TNFS_SPRAY_V4` | 0 / 0 / 0 | `weather=rain`, or a rally's dust, gravel or snow, or the shoulder |
 
 ### Dash, cameras and replay
 
@@ -267,6 +268,7 @@ All 85 columns of the table. A column that is not here is not touched by any pro
 | `wipers` | settings | 0 | 0 | 1 |
 | `water_mist` | settings | 0 | 0 | 2 |
 | `weather_fog` | settings | 0 | 0 | 0 |
+| `spray_v4` | settings | 0 | 0 | 0 |
 
 The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.
 

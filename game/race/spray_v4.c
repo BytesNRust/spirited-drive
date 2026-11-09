@@ -3,7 +3,6 @@
 #include <math.h>
 #include <string.h>
 
-static const float GRAVITY = 9.8f;
 static const float MIN_WATER_SPEED = 8.0f, MIN_GRAVEL_SPEED = 6.0f, MIN_EARTH_SPEED = 3.0f;
 
 static uint32_t hash2(uint32_t a, uint32_t b)
@@ -26,7 +25,7 @@ static const Physics PHYSICS[SPRAY_V4_KINDS] = {
     [SPRAY_V4_GRAVEL] = { 9.8f, 0.0f, 0.90f, 1.0f, 0.0f, 1 },
     [SPRAY_V4_DUST]   = { 0.0f, 0.0f, 0.80f, 0.7f, 1.5f, 0 },
     [SPRAY_V4_DROP]   = { 9.8f, 0.8f, 0.95f, 1.0f, 0.0f, 1 },
-    [SPRAY_V4_EARTH]  = { 0.0f, 0.0f, 0.80f, 0.8f, 3.2f, 0 },
+    [SPRAY_V4_EARTH]  = { 0.0f, 0.0f, 0.95f, 0.8f, 3.2f, 0 },
     [SPRAY_V4_SNOW]   = { 0.9f, 0.0f, 0.75f, 0.8f, 2.4f, 0 },
     [SPRAY_V4_CLUMP]  = { 9.8f, 0.3f, 0.95f, 1.0f, 0.0f, 1 }
 };
@@ -71,8 +70,8 @@ static int water(SprayV4 *s, const SprayV4Emit *e, float slope)
         for (int k = 0; k < drops; k++) {   /* the drops: a fan, back and up, with the car's speed */
             h = hash2((uint32_t)e->car * 32u + (uint32_t)side * 16u + (uint32_t)k, e->tick * 5u + 1u);
             wheel_point(e, side, h, 0.2f, at);
-            SprayV4Particle *d = take(s, e, SPRAY_V4_DROP, 40, at, slope);
-            throw_at(d, e, e->speed * (0.25f + 0.45f * unit(h, 0)), dir * (0.5f + 0.04f * e->speed) * (0.3f + 0.7f * unit(h, 8)), 2.0f + 2.0f * unit(h, 16) + 0.02f * e->speed);
+            SprayV4Particle *d = take(s, e, SPRAY_V4_DROP, 48, at, slope);
+            throw_at(d, e, e->speed * (0.25f + 0.45f * unit(h, 0)), dir * (1.0f + 0.05f * e->speed) * (0.4f + 0.6f * unit(h, 8)), 1.6f + 1.6f * unit(h, 16) + 0.01f * e->speed);
             d->size = 0.05f + 0.04f * unit(h, 24);
             n++;
         }
@@ -85,18 +84,18 @@ static int gravel(SprayV4 *s, const SprayV4Emit *e, float slope)
     int n = 0;
     for (int side = 0; side < 2; side++) {
         const float dir = side == 0 ? -1.0f : 1.0f;
-        for (int k = 0; k < 6; k++) {   /* stones: five, and the dust */
-            const uint32_t h = hash2((uint32_t)e->car * 16u + (uint32_t)side * 8u + (uint32_t)k, e->tick * 7u + 3u);
+        for (int k = 0; k < 9; k++) {   /* stones: eight, small, and the dust */
+            const uint32_t h = hash2((uint32_t)e->car * 32u + (uint32_t)side * 16u + (uint32_t)k, e->tick * 7u + 3u);
             float at[3];
             wheel_point(e, side, h, 0.0f, at);
-            if (k == 5) {   /* the dust: light, low, drifts back and up, widens */
+            if (k == 8) {   /* the dust: light, low, drifts back and up, widens */
                 SprayV4Particle *d = take(s, e, SPRAY_V4_DUST, 44, at, slope);
                 throw_at(d, e, 0.5f, dir * 0.35f, 0.5f);
                 d->size = 0.7f + 0.5f * unit(h, 24);
             } else {
                 SprayV4Particle *g = take(s, e, SPRAY_V4_GRAVEL, 28 + (int)(h >> 4 & 0xff) % 12, at, slope);
                 throw_at(g, e, 0.6f + 1.4f * unit(h, 8), dir * (1.0f + 2.5f * unit(h, 0)), 0.9f + 1.3f * unit(h, 16));
-                g->size = 0.18f + 0.16f * unit(h, 24);
+                g->size = 0.09f + 0.08f * unit(h, 24);
             }
             n++;
         }
@@ -108,15 +107,16 @@ static int earth(SprayV4 *s, const SprayV4Emit *e, float slope)
 {
     int n = 0;
     const float frac = (e->speed > 40.0f ? 40.0f : e->speed) / 40.0f;
-    for (int side = 0; side < 2; side++) {
-        const uint32_t h = hash2((uint32_t)e->car * 2u + (uint32_t)side, e->tick * 3u + 11u);
-        float at[3];
-        wheel_point(e, side, h, 0.5f, at);
-        SprayV4Particle *d = take(s, e, SPRAY_V4_EARTH, 100 + (int)(h >> 4 & 0xff) % 24, at, slope);   /* 1.7 to 2 s */
-        throw_at(d, e, 0.6f, (side == 0 ? -1.0f : 1.0f) * 0.4f * (0.3f + unit(h, 16)), 0.3f + 0.15f * unit(h, 24));
-        d->size = 0.9f + 0.6f * frac * (0.7f + 0.6f * unit(h, 16));
-        n++;
-    }
+    for (int side = 0; side < 2; side++)
+        for (int k = 0; k < 2; k++) {   /* two puffs a wheel a step: a thick trail */
+            const uint32_t h = hash2((uint32_t)e->car * 4u + (uint32_t)side * 2u + (uint32_t)k, e->tick * 3u + 11u);
+            float at[3];
+            wheel_point(e, side, h, 0.5f, at);
+            SprayV4Particle *d = take(s, e, SPRAY_V4_EARTH, 100 + (int)(h >> 4 & 0xff) % 24, at, slope);   /* 1.7 to 2 s */
+            throw_at(d, e, 0.6f, (side == 0 ? -1.0f : 1.0f) * 0.4f * (0.3f + unit(h, 16)), 0.3f + 0.15f * unit(h, 24));
+            d->size = 1.1f + 0.8f * frac * (0.7f + 0.6f * unit(h, 16));
+            n++;
+        }
     return n;
 }
 
