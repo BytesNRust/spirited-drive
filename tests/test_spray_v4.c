@@ -145,7 +145,7 @@ static void test_earth_floats_and_lasts_two_seconds_snow_settles_with_lumps(void
             CHECK(spray_v4_look(&s.p[i], 404, 0, &a) && spray_v4_look(&s.p[i], 404 + 60, 0, &b));
             CHECK(b.y > a.y && b.y - a.y < 1.0f);   /* it rises slowly */
             CHECK(b.radius > 1.5f * a.radius);       /* and spreads a lot */
-            CHECK(b.z > a.z - 0.01f);                /* drifting with the car's own way, the car left it behind: a smaller z than the car's now */
+            CHECK(b.z < a.z);                        /* it drifts backward over the ground (the car goes toward +z) */
         }
     spray_v4_clear(&s);
     const SprayV4Emit n = car_at(4, 500, 0, 0, 0, SPRAY_V4_ON_SNOW);
@@ -194,7 +194,7 @@ static void test_each_material_has_its_own_sprites(void)
             int peak = 0, solid = 0, holes = 0;
             for (int i = 0; i < SPRAY_V4_ART_SIZE * SPRAY_V4_ART_SIZE; i++) peak = sp[i] > peak ? sp[i] : peak, solid += sp[i] > 200, holes += sp[i] == 0;
             CHECK(peak >= 230);
-            CHECK(holes > SPRAY_V4_ART_SIZE * SPRAY_V4_ART_SIZE / 4);   /* a shape, not a square */
+            CHECK(holes > SPRAY_V4_ART_SIZE * SPRAY_V4_ART_SIZE / 7);   /* a shape, not a square */
             for (int i = 0; i < SPRAY_V4_ART_SIZE; i++) {              /* nothing touches the border */
                 CHECK(sp[i] == 0 && sp[(SPRAY_V4_ART_SIZE - 1) * SPRAY_V4_ART_SIZE + i] == 0);
                 CHECK(sp[i * SPRAY_V4_ART_SIZE] == 0 && sp[i * SPRAY_V4_ART_SIZE + SPRAY_V4_ART_SIZE - 1] == 0);

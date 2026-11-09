@@ -1,7 +1,7 @@
 /* port (spray v4c): the sprites of each material, each its own look, made once from code (no art files). Every sprite is a SPRAY_V4_ART_SIZE square of 8-bit alpha, nothing on the border; the compositor tints it with the
- * material's colour. A family has SPRAY_V4_ART_VARIANTS sprites: for the clouds, sizes or shapes; for the drops, the orientations of the streak.
- *   DROP      small water drops: a dot, then tears (long along the way they fly) with a clear (denser) core
- *   MIST      the wide flat sheet of water mist: very soft, streaked along the way back
+ * material's colour. A family has SPRAY_V4_ART_VARIANTS sprites: for the clouds, sizes or shapes; for the clusters, sizes. Every sprite is a billboard: drawn square, facing the camera, never squashed.
+ *   DROP      the water's spray cluster: a loose cluster of tiny speckles, denser at the core, a ragged edge
+ *   MIST      the water's mist: a soft round puff
  *   EARTH     the desert's dust: a cottony cloud of round lobes, the core the densest (as the game's own smoke)
  *   SNOW      the snow's powder: fine, mottled grain with loose bright sparks and frayed edges
  *   CLUMP     a small lump of snow

@@ -12,18 +12,19 @@
 enum { WORLD_SHIFT = 11, MAX_CHUNKS = 512, LEVELS = 8, GLINT = SPRAY_V4_KINDS, KINDS = SPRAY_V4_KINDS + 1 };
 
 /* how each kind is drawn: its sprite family, its colour's cap (a level k mixes k/per toward it), how far the sprite's half width is from the particle's radius (the body of the sprite is a fraction of it), its height over
- * its width, how far it sits above the road, and the distances it fades in (from `near0` to `near1` metres) and out (`far0` to `far1`) */
+ * its width (1: a billboard, never squashed), how far it sits above the road, and the distances it fades in (from `near0` to `near1` metres) and out (`far0` to `far1`) */
 typedef struct { int family; int per; float scale, flat, lift, near0, near1, far0, far1; } Look;
 static const Look LOOKS[KINDS] = {
-    [SPRAY_V4_MIST]   = { SPRAY_V4_ART_MIST,      16, 1.7f, 0.55f, 0.30f, 0.8f, 4.0f, 80.0f, 300.0f },
-    [SPRAY_V4_GRAVEL] = { SPRAY_V4_ART_STONE,     12, 1.5f, 1.00f, 0.00f, 0.8f, 2.5f, 30.0f, 90.0f },
-    [SPRAY_V4_DUST]   = { SPRAY_V4_ART_FINE_DUST, 20, 1.5f, 0.80f, 0.30f, 0.8f, 4.0f, 80.0f, 300.0f },
-    [SPRAY_V4_DROP]   = { SPRAY_V4_ART_DROP,      10, 2.4f, 1.00f, 0.00f, 0.5f, 2.0f, 40.0f, 120.0f },
-    [SPRAY_V4_EARTH]  = { SPRAY_V4_ART_EARTH,      8, 2.0f, 0.80f, 0.30f, 0.8f, 4.0f, 80.0f, 300.0f },
-    [SPRAY_V4_SNOW]   = { SPRAY_V4_ART_SNOW,      11, 1.5f, 0.90f, 0.30f, 0.8f, 4.0f, 80.0f, 300.0f },
-    [SPRAY_V4_CLUMP]  = { SPRAY_V4_ART_CLUMP,     10, 2.2f, 1.00f, 0.00f, 0.8f, 2.5f, 40.0f, 120.0f },
-    [GLINT]           = { SPRAY_V4_ART_STONE,      8, 1.5f, 1.00f, 0.00f, 0.8f, 2.5f, 30.0f, 90.0f }
+    [SPRAY_V4_MIST]   = { SPRAY_V4_ART_MIST,      16, 1.7f, 1.00f, 0.25f, 2.0f, 4.5f, 80.0f, 300.0f },
+    [SPRAY_V4_GRAVEL] = { SPRAY_V4_ART_STONE,     12, 1.5f, 1.00f, 0.00f, 1.5f, 3.5f, 30.0f, 90.0f },
+    [SPRAY_V4_DUST]   = { SPRAY_V4_ART_FINE_DUST, 20, 1.5f, 1.00f, 0.30f, 2.0f, 4.5f, 80.0f, 300.0f },
+    [SPRAY_V4_DROP]   = { SPRAY_V4_ART_DROP,      10, 1.4f, 1.00f, 0.00f, 1.5f, 3.5f, 40.0f, 120.0f },
+    [SPRAY_V4_EARTH]  = { SPRAY_V4_ART_EARTH,      8, 2.0f, 1.00f, 0.30f, 2.0f, 4.5f, 80.0f, 300.0f },
+    [SPRAY_V4_SNOW]   = { SPRAY_V4_ART_SNOW,      11, 1.5f, 1.00f, 0.30f, 2.0f, 4.5f, 80.0f, 300.0f },
+    [SPRAY_V4_CLUMP]  = { SPRAY_V4_ART_CLUMP,     10, 2.2f, 1.00f, 0.00f, 1.5f, 3.5f, 40.0f, 120.0f },
+    [GLINT]           = { SPRAY_V4_ART_STONE,      8, 1.5f, 1.00f, 0.00f, 1.5f, 3.5f, 30.0f, 90.0f }
 };
+static const float BODY_KEEP = 0.2f;   /* the share of a puff's alpha over the body of the car it came from */
 static const float BAYER[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
 
 static SprayV4 state;
@@ -166,34 +167,21 @@ void spray_v4_draw_row(int32_t node, int far_side)
         const Look *lk = &LOOKS[p->kind];
         const float metres = (float)camera[2] / 32.0f;   /* a camera unit is 1/32 m */
         const float fade = ramp(metres, lk->near0, lk->near1) * (1.0f - ramp(metres, lk->far0, lk->far1));
-        const int alpha = (int)(look.alpha * fade * 255.0f);
+        float keep = 1.0f;
+        if (owner != NULL && !far_side && own_camera[2] > 64) {   /* a plume between the camera and its own car does not fog the body: over the car's box it keeps a fraction */
+            const float unit_px = 32.0f * (float)focal / (float)own_camera[2];   /* pixels in a metre at the car's depth */
+            const float half = (owner->model_width > 0 ? (float)owner->model_width / 65536.0f : 1.8f) * 0.5f * unit_px;
+            const float dx = (float)(screen[0] - own_screen[0]), dy = (float)(screen[1] - own_screen[1]);
+            if (fabsf(dx) < half && dy > -1.6f * unit_px && dy < 0.4f * unit_px) keep = BODY_KEEP;
+        }
+        const int alpha = (int)(look.alpha * fade * keep * 255.0f);
         if (alpha < 3) continue;
         const float rpx = (float)(((int32_t)(look.radius * 65536.0f)) >> WORLD_SHIFT) * (float)focal / (float)camera[2];
         const uint32_t pick = (uint32_t)(i * 7) + p->born / 2;
-        int variant = (int)(pick % SPRAY_V4_ART_VARIANTS), flip_u = (int)(pick / 5 & 1), flip_v = 0;
+        const int variant = (int)(pick % SPRAY_V4_ART_VARIANTS), flip_u = (int)(pick / 5 & 1), flip_v = 0;   /* every sprite a billboard: square, facing the camera */
         Puff *q = &puffs[p->kind][count[p->kind]];
         q->cx = (float)screen[0], q->rx = (rpx < 1.0f ? 1.0f : rpx) * lk->scale;
         q->ry = q->rx * lk->flat, q->cy = (float)screen[1] - q->ry * lk->lift;
-        if (p->kind == SPRAY_V4_DROP) {   /* a drop is a tear along the way it flies on the screen: the sprite's head forward */
-            SprayV4Look ahead;
-            int32_t c2[3], s2[2];
-            float dx = 0.0f, dy = 0.0f;
-            if (spray_v4_look(p, tick + 2, open, &ahead)) {
-                const int32_t to[3] = { (int32_t)(ahead.x * 65536.0f), (int32_t)(ahead.y * 65536.0f), (int32_t)(ahead.z * 65536.0f) };
-                if (H.world_screen(to, c2, s2) && c2[2] >= 64) dx = (float)(s2[0] - screen[0]), dy = (float)(s2[1] - screen[1]);
-            }
-            const float len = sqrtf(dx * dx + dy * dy);
-            if (len < 0.8f) variant = 0, flip_u = 0;   /* barely moving on the screen: a round drop */
-            else {
-                const float ax = fabsf(dx), ay = fabsf(dy);
-                if (ay < 0.4f * ax) variant = 1, flip_u = dx < 0.0f;
-                else if (ax < 0.4f * ay) variant = 3, flip_u = 0, flip_v = dy < 0.0f;   /* the vertical tear's head is at +y */
-                else if (len > 6.0f && dx * dy < 0.0f) variant = 4, flip_u = dx < 0.0f, flip_v = dy > 0.0f;
-                else variant = 2, flip_u = dx < 0.0f, flip_v = dy < 0.0f;
-            }
-            q->rx *= 1.0f + 0.04f * (len > 12.0f ? 12.0f : len);   /* a fast drop is a longer streak */
-            q->ry = q->rx * lk->flat, q->cy = (float)screen[1];
-        }
         q->sprite = spray_v4_art(lk->family, variant);
         q->flip_u = flip_u, q->flip_v = flip_v;
         q->alpha = alpha > 255 ? 255 : alpha;

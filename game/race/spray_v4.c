@@ -24,7 +24,7 @@ static const Physics PHYSICS[SPRAY_V4_KINDS] = {
     [SPRAY_V4_MIST]   = { 0.0f, 0.0f, 0.70f, 0.7f, 1.5f, 0 },
     [SPRAY_V4_GRAVEL] = { 9.8f, 0.0f, 0.90f, 1.0f, 0.0f, 1 },
     [SPRAY_V4_DUST]   = { 0.0f, 0.0f, 0.80f, 0.7f, 1.5f, 0 },
-    [SPRAY_V4_DROP]   = { 9.8f, 0.8f, 0.95f, 1.0f, 0.0f, 1 },
+    [SPRAY_V4_DROP]   = { 9.8f, 0.8f, 0.5f, 0.7f, 0.8f, 1 },   /* a cluster grows a little as it goes */
     [SPRAY_V4_EARTH]  = { 0.0f, 0.0f, 0.95f, 0.8f, 3.2f, 0 },
     [SPRAY_V4_SNOW]   = { 0.9f, 0.0f, 0.75f, 0.8f, 2.4f, 0 },
     [SPRAY_V4_CLUMP]  = { 9.8f, 0.3f, 0.95f, 1.0f, 0.0f, 1 }
@@ -42,9 +42,9 @@ static SprayV4Particle *take(SprayV4 *s, const SprayV4Emit *e, SprayV4Kind kind,
 }
 
 /* the particle's velocity from the car's frame: `back` metres a second behind the car (relative to it), `side` outward (signed), `up` */
-static void throw_at(SprayV4Particle *p, const SprayV4Emit *e, float back_rel, float side, float up)
+static void throw_at(SprayV4Particle *p, const SprayV4Emit *e, float back, float side, float up)
 {
-    const float world_forward = e->speed - back_rel;
+    const float world_forward = -back;   /* metres a second backward over the GROUND: the car's speed is not the particle's (it is left where it is thrown, and the car goes on) */
     p->vx = e->forward[0] * world_forward + e->right[0] * side, p->vz = e->forward[1] * world_forward + e->right[1] * side, p->vy = up;
 }
 
@@ -57,22 +57,22 @@ static int water(SprayV4 *s, const SprayV4Emit *e, float slope)
 {
     int n = 0;
     const float frac = (e->speed > 45.0f ? 45.0f : e->speed) / 45.0f;
-    const int drops = 2 + (int)(e->speed / 12.0f) > 5 ? 5 : 2 + (int)(e->speed / 12.0f);
+    const int drops = 1 + (int)(e->speed / 25.0f) > 3 ? 3 : 1 + (int)(e->speed / 25.0f);
     for (int side = 0; side < 2; side++) {
         const float dir = side == 0 ? -1.0f : 1.0f;
         uint32_t h = hash2((uint32_t)e->car * 2u + (uint32_t)side, e->tick);
         float at[3];
         wheel_point(e, side, h, 0.3f, at);
         SprayV4Particle *m = take(s, e, SPRAY_V4_MIST, 48, at, slope);   /* the mist: fine, low, opening to the sides */
-        throw_at(m, e, 0.0f, dir * (0.8f + 0.7f * unit(h, 16)), 0.35f);
+        throw_at(m, e, 0.4f, dir * (0.8f + 0.7f * unit(h, 16)), 0.35f);
         m->size = 0.7f + 0.5f * frac * (0.8f + 0.4f * unit(h, 24));
         n++;
         for (int k = 0; k < drops; k++) {   /* the drops: a fan, back and up, with the car's speed */
             h = hash2((uint32_t)e->car * 32u + (uint32_t)side * 16u + (uint32_t)k, e->tick * 5u + 1u);
             wheel_point(e, side, h, 0.2f, at);
             SprayV4Particle *d = take(s, e, SPRAY_V4_DROP, 48, at, slope);
-            throw_at(d, e, e->speed * (0.25f + 0.45f * unit(h, 0)), dir * (1.0f + 0.05f * e->speed) * (0.4f + 0.6f * unit(h, 8)), 1.6f + 1.6f * unit(h, 16) + 0.01f * e->speed);
-            d->size = 0.05f + 0.04f * unit(h, 24);
+            throw_at(d, e, 0.3f + 1.7f * unit(h, 0), dir * (1.0f + 0.05f * e->speed) * (0.4f + 0.6f * unit(h, 8)), 1.6f + 1.6f * unit(h, 16) + 0.01f * e->speed);
+            d->size = 0.14f + 0.12f * unit(h, 24);   /* a cluster: a few decimetres across */
             n++;
         }
     }
@@ -136,7 +136,7 @@ static int snow(SprayV4 *s, const SprayV4Emit *e, float slope)
             h = hash2((uint32_t)e->car * 32u + (uint32_t)side * 16u + (uint32_t)k, e->tick * 5u + 29u);
             wheel_point(e, side, h, 0.2f, at);
             SprayV4Particle *c = take(s, e, SPRAY_V4_CLUMP, 24, at, slope);
-            throw_at(c, e, 0.4f + 0.5f * e->speed * unit(h, 0) / 2.0f, dir * (0.8f + 1.2f * unit(h, 8)), 1.0f + 1.5f * unit(h, 16));
+            throw_at(c, e, 0.5f + 1.5f * unit(h, 0), dir * (0.8f + 1.2f * unit(h, 8)), 1.0f + 1.5f * unit(h, 16));
             c->size = 0.06f + 0.06f * unit(h, 24);
             n++;
         }
@@ -191,7 +191,7 @@ int spray_v4_look(const SprayV4Particle *p, uint32_t tick, int open, SprayV4Look
     const float fade_in = t * 60.0f + 1.0f >= 4.0f ? 1.0f : (t * 60.0f + 1.0f) / 4.0f;
     switch (p->kind) {
     case SPRAY_V4_MIST:  out->alpha = ph->peak * powf(1.0f - f, 1.4f) * fade_in * (0.4f + 0.6f * o), out->radius *= 0.5f + 0.5f * o; break;
-    case SPRAY_V4_DROP:  out->alpha = ph->peak * (f < 0.7f ? 1.0f : (1.0f - f) / 0.3f) * (0.5f + 0.5f * o); break;
+    case SPRAY_V4_DROP:  out->alpha = ph->peak * powf(1.0f - f, 0.9f) * (0.5f + 0.5f * o); break;   /* thinning out as it ages */
     case SPRAY_V4_GRAVEL:
     case SPRAY_V4_CLUMP: out->alpha = ph->peak * powf(1.0f - f, 0.6f); break;
     default:             out->alpha = ph->peak * powf(1.0f - f, 1.2f) * fade_in; break;

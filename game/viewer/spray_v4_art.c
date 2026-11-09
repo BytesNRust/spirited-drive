@@ -49,41 +49,31 @@ static void store(uint8_t *out, const float *f, float top)
 
 static float field[N * N];
 
-/* ---- water drops: along an axis at angle `theta`, a head (round, with a clear core) and a tail that thins out ---- */
+/* ---- the water's spray cluster: a loose cluster of many tiny speckles (a dot each, one pixel at the sprite's scale), denser at the core, the edge ragged ---- */
 static void drop_make(uint8_t *out, int variant)
 {
-    static const float THETA[SPRAY_V4_ART_VARIANTS] = { 0.0f, 0.0f, 0.7854f, 1.5708f, -0.7854f };
-    static const float LEN[SPRAY_V4_ART_VARIANTS] = { 0.30f, 0.80f, 0.80f, 0.80f, 0.92f }, WID[SPRAY_V4_ART_VARIANTS] = { 0.30f, 0.26f, 0.26f, 0.26f, 0.15f };
-    const float c = cosf(THETA[variant]), s = sinf(THETA[variant]);
+    const uint32_t seed = 71u + (uint32_t)variant * 19u;
+    static const float REACH[SPRAY_V4_ART_VARIANTS] = { 0.55f, 0.65f, 0.75f, 0.85f, 0.95f }, FILL[SPRAY_V4_ART_VARIANTS] = { 0.60f, 0.55f, 0.50f, 0.45f, 0.40f };
     for (int y = 0; y < N; y++)
         for (int x = 0; x < N; x++) {
-            const float u = at(x), v = at(y), a = u * c + v * s, b = -u * s + v * c;   /* along the flight (the head at +a), across */
-            const float tail = LEN[variant], head = WID[variant];
-            float w, body;   /* the half width at a: a round head, a tapering tail */
-            if (a >= 0.0f) w = head * sqrtf(fmaxf(0.0f, 1.0f - (a / head) * (a / head)));
-            else w = head * powf(fmaxf(0.0f, 1.0f + a / tail), 1.4f);
-            body = w > 0.01f ? 1.0f - smooth(w * 0.55f, w, fabsf(b)) : 0.0f;
-            if (a < -tail || a > head) body = 0.0f;
-            const float core = expf(-((a - head * 0.2f) * (a - head * 0.2f) + b * b * 1.6f) / (2.0f * head * head * 0.18f));
-            field[y * N + x] = body * (0.55f + 0.45f * core) * (a >= 0.0f ? 1.0f : 0.5f + 0.5f * (1.0f + a / tail));
+            const float u = at(x), v = at(y), rr = sqrtf(u * u + v * v) / REACH[variant];
+            const float ragged = rr + 0.25f * (noise(seed, u * 6.0f, v * 6.0f) - 0.5f) + 0.1f * (noise(seed + 1u, u * 15.0f, v * 15.0f) - 0.5f);
+            const float density = powf(clamp01(1.0f - ragged), 1.4f) * FILL[variant];   /* the core densest */
+            field[y * N + x] = lattice(seed + 2u, x, y) < density ? 0.55f + 0.45f * lattice(seed + 3u, x, y) : 0.0f;
         }
-    store(out, field, 0.0f);
+    store(out, field, 1.0f);
 }
 
-/* ---- the mist's sheet: wide, flat, very soft, streaked along x, longer toward -x (back) ---- */
+/* ---- the mist: a soft round puff, no streaks, no flat sheet (it is a billboard) ---- */
 static void mist_make(uint8_t *out, int variant)
 {
     const uint32_t seed = 101u + (uint32_t)variant * 13u;
-    const float flat = 0.30f + 0.05f * (float)variant;
     for (int y = 0; y < N; y++)
         for (int x = 0; x < N; x++) {
-            const float u = at(x), v = at(y);
-            const float reach = u < 0.0f ? 0.95f : 0.55f;   /* longer toward the back */
-            const float r2 = (u / reach) * (u / reach) + (v / flat) * (v / flat);
-            const float edge = r2 >= 1.0f ? 0.0f : powf(1.0f - r2, 1.5f);
-            const float streak = 0.35f + 0.65f * noise(seed, u * 2.0f + 5.0f, v * 22.0f + 5.0f);   /* long thin streaks along x */
-            const float patch = 0.7f + 0.3f * noise(seed + 3u, u * 4.0f + 7.0f, v * 5.0f + 7.0f);
-            field[y * N + x] = edge * streak * patch;
+            const float u = at(x), v = at(y), rr = sqrtf(u * u + v * v);
+            const float edge = rr >= 1.0f ? 0.0f : powf(1.0f - rr * rr, 1.6f);
+            const float patch = 0.6f + 0.4f * noise(seed, u * 3.5f + 7.0f, v * 3.5f + 7.0f) + 0.15f * (noise(seed + 3u, u * 9.0f, v * 9.0f) - 0.5f);
+            field[y * N + x] = edge * patch;
         }
     store(out, field, 0.0f);
 }
