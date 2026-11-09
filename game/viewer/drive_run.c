@@ -496,6 +496,10 @@ static int write_drive_ppm(const char *path, const uint8_t *shown, int width, co
                                         n > 0 ? colours[0] : NULL, n);
 }
 
+/* port (dev, TNFS_FRAME_TIMES): present_drive without the platform (the headless run has none): the palettes, the output, the overlays and the light's mask,
+ * not the upload; what the report's "present" line times */
+static int present_dry;
+
 static void present_drive(const Track *t, uint8_t *pixels)
 {
     PlatformColor palette[256], world[256], half[256];
@@ -513,13 +517,13 @@ static void present_drive(const Track *t, uint8_t *pixels)
     }
     if (drive_light_palette_lit(t->art.palette, lit_palette)) {
         for (int i = 0; i < 256; i++) lit[i] = (PlatformColor){ lit_palette[3 * i], lit_palette[3 * i + 1], lit_palette[3 * i + 2] };
-        platform_set_lit_palette(lit);
-    } else platform_set_lit_palette(NULL);
+        if (!present_dry) platform_set_lit_palette(lit);
+    } else if (!present_dry) platform_set_lit_palette(NULL);
     const int colours = lit_colour_palettes(t->art.palette, colour_palettes);
     for (int k = 0; k < colours; k++)
         for (int i = 0; i < 256; i++)
             lit_colour[k][i] = (PlatformColor){ colour_palettes[k][3 * i], colour_palettes[k][3 * i + 1], colour_palettes[k][3 * i + 2] };
-    platform_set_lit_colours(colours > 0 ? (const PlatformColor (*)[256])lit_colour : NULL, colours);
+    if (!present_dry) platform_set_lit_colours(colours > 0 ? (const PlatformColor (*)[256])lit_colour : NULL, colours);
     int width;
     const uint8_t *shown = drive_output(pixels, &width);
     /* port: the stats overlay (race_stats.h) on a copy of the frame, after the frame is composed and before it is shown */
@@ -534,6 +538,7 @@ static void present_drive(const Track *t, uint8_t *pixels)
         shown = light_edit_compose(&light_edit, shown, width, drive_output_height(), t->art.palette, followed != NULL ? (uint32_t)followed->node : 0);
     }
     const uint8_t *mask = drive_light_world_mask(shown, (size_t)width * (size_t)drive_output_height());   /* the overlay is 2D */
+    if (present_dry) return;
     if (mask != NULL) platform_present_split(shown, palette, world, half, mask);
     else platform_present(shown, palette);
 }
@@ -756,7 +761,7 @@ static void spin_shot(const Track *t, uint8_t *pixels, uint32_t i, uint32_t tick
 
 /* TNFS_FRAME_TIMES=1: the whole frames' render times (the follow camera's cost) */
 enum { FRAME_TIMES = 4096 };
-static double frame_us[FRAME_TIMES];
+static double frame_us[FRAME_TIMES], present_us[FRAME_TIMES];   /* the render's, and the present's (present_dry) */
 static int frame_count;
 static double spray_sum[5];   /* the frames' live, puffs, big, strips, texels (spray v4) */
 static long spray_max_texels;
@@ -771,11 +776,17 @@ static int compare_us(const void *a, const void *b)
 static void frame_times_print(void)
 {
     if (getenv("TNFS_FRAME_TIMES") == NULL || frame_count == 0) return;
-    double sum = 0;
-    for (int i = 0; i < frame_count; i++) sum += frame_us[i];
+    double total[FRAME_TIMES], sum = 0, psum = 0, tsum = 0;
+    for (int i = 0; i < frame_count; i++) sum += frame_us[i], psum += present_us[i], tsum += (total[i] = frame_us[i] + present_us[i]);
     qsort(frame_us, (size_t)frame_count, sizeof frame_us[0], compare_us);
     printf("frames %d: mean %.0f us, p50 %.0f us, p95 %.0f us, max %.0f us\n", frame_count, sum / frame_count,
            frame_us[frame_count / 2], frame_us[(int)(frame_count * 0.95)], frame_us[frame_count - 1]);
+    qsort(present_us, (size_t)frame_count, sizeof present_us[0], compare_us);
+    qsort(total, (size_t)frame_count, sizeof total[0], compare_us);
+    printf("present %d: mean %.0f us, p50 %.0f us, p95 %.0f us, max %.0f us (no upload)\n", frame_count, psum / frame_count,
+           present_us[frame_count / 2], present_us[(int)(frame_count * 0.95)], present_us[frame_count - 1]);
+    printf("total %d: mean %.0f us, p50 %.0f us, p95 %.0f us, max %.0f us\n", frame_count, tsum / frame_count,
+           total[frame_count / 2], total[(int)(frame_count * 0.95)], total[frame_count - 1]);
     if (spray_frames > 0 && spray_sum[0] + spray_sum[1] > 0)   /* spray v4 on: what each frame drew, so a cost regression shows in the log */
         printf("spray v4 per frame (mean of %d): live %.0f, puffs %.1f (big %.1f), strips %.1f, texels %.0f (max %ld)\n", spray_frames,
                spray_sum[0] / spray_frames, spray_sum[1] / spray_frames, spray_sum[2] / spray_frames, spray_sum[3] / spray_frames,
@@ -850,8 +861,18 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
             clock_gettime(CLOCK_MONOTONIC, &t0);
             render_drive(t, pixels);
             clock_gettime(CLOCK_MONOTONIC, &t1);
+            struct timespec t2 = t1;
+            if (getenv("TNFS_FRAME_TIMES") != NULL) {   /* dev: and the present's work with no upload (present_dry), timed on its own */
+                present_dry = 1;
+                present_drive(t, pixels);
+                present_dry = 0;
+                clock_gettime(CLOCK_MONOTONIC, &t2);
+            }
             if (frame_count < FRAME_TIMES) spray_stats_add();
-            if (frame_count < FRAME_TIMES) frame_us[frame_count++] = (t1.tv_sec - t0.tv_sec) * 1000000.0 + (t1.tv_nsec - t0.tv_nsec) / 1000.0;
+            if (frame_count < FRAME_TIMES) {
+                present_us[frame_count] = (t2.tv_sec - t1.tv_sec) * 1000000.0 + (t2.tv_nsec - t1.tv_nsec) / 1000.0;
+                frame_us[frame_count++] = (t1.tv_sec - t0.tv_sec) * 1000000.0 + (t1.tv_nsec - t0.tv_nsec) / 1000.0;
+            }
             spin_shot(t, pixels, i, ticks);
             continue;
         }
