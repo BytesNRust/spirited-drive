@@ -116,7 +116,7 @@ void spray_v4_draw_frame(const SprayV4Host *host, const uint8_t rgb[SPRAY_V4_KIN
     if ((size_t)map_h > row_cap || (size_t)map_w + 8 > now_cap) {
         now_cap = (size_t)map_w + 8;
         free(row_lo), free(row_hi), free(half_lo), free(half_hi), free(fm_used), free(now_row);
-        fm_used = malloc((size_t)(KINDS + 1) * (size_t)map_h), now_row = malloc((size_t)map_w + 8);
+        fm_used = malloc((size_t)(KINDS + 2) * (size_t)map_h), now_row = malloc((size_t)map_w + 8);
         row_lo = malloc((size_t)map_h * sizeof *row_lo), row_hi = malloc((size_t)map_h * sizeof *row_hi);
         half_lo = malloc((size_t)(map_h / 2 + 1) * sizeof *half_lo), half_hi = malloc((size_t)(map_h / 2 + 1) * sizeof *half_hi);
         row_cap = row_lo != NULL && row_hi != NULL && half_lo != NULL && half_hi != NULL && fm_used != NULL && now_row != NULL ? (size_t)map_h : 0;
@@ -140,7 +140,7 @@ void spray_v4_draw_frame(const SprayV4Host *host, const uint8_t rgb[SPRAY_V4_KIN
         if (!ok || group_map == NULL || half_map == NULL) { frame_cap = group_cap = 0, map_w = map_h = 0; return; }
     }
     for (int k = 0; k < KINDS; k++) memset(frame_map[k], 0, need);
-    memset(fm_used, 0, (size_t)(KINDS + 1) * (size_t)map_h);
+    memset(fm_used, 0, (size_t)(KINDS + 2) * (size_t)map_h);
 }
 
 typedef struct { float cx, cy, rx, ry; int alpha, x0, y0, x1, y1, flip_u, flip_v; const uint8_t *sprite; } Puff;
@@ -160,7 +160,7 @@ static void compose(int kind, const Puff *puffs, int count)
     const int w = x1 - x0, h = y1 - y0;
     if (count == 0 || w <= 0 || h <= 0 || chunk_count >= MAX_CHUNKS) return;
     const int ox = H.target->clip_left, oy = H.target->clip_top;
-    for (int y = y0; y < y1; y++) row_lo[y - oy] = 1 << 30, row_hi[y - oy] = -1, fm_used[(size_t)KINDS * (size_t)map_h + (size_t)(y - oy)] = 0;
+    for (int y = y0; y < y1; y++) row_lo[y - oy] = 1 << 30, row_hi[y - oy] = -1, fm_used[(size_t)KINDS * (size_t)map_h + (size_t)(y - oy)] = 0, fm_used[(size_t)(KINDS + 1) * (size_t)map_h + (size_t)(y - oy)] = 0;
     for (int y = (y0 - oy) / 2 > 0 ? (y0 - oy) / 2 - 1 : 0; y <= (y1 - 1 - oy) / 2 + 1 && y <= map_h / 2; y++) half_lo[y] = 1 << 30, half_hi[y] = -1;
     for (int i = 0; i < count; i++) {
         const Puff *p = &puffs[i];
@@ -173,22 +173,45 @@ static void compose(int kind, const Puff *puffs, int count)
         if (p->rx > (float)HALF_RX) {   /* a big puff is smooth: its alpha is made on cells of 2x2 pixels (a quarter of the work), the dither below stays per pixel */
             const int hx0 = (p->x0 - ox) / 2, hx1 = (p->x1 - 1 - ox) / 2 + 1;
             for (int hx = hx0; hx < hx1; hx++) col[hx - hx0] = cell(((float)(ox + hx * 2 + 1) - p->cx) / p->rx, p->flip_u);
+            const int tmin = (255 + p->alpha - 1) / p->alpha;   /* a texel gives the puff's map a value only from this: the alpha scaled down is 0 below it */
+            int va = hx0, vb = hx1 - 1;   /* the cells inside the sprite (the others hold -1, at either end) */
+            while (va <= vb && col[va - hx0] < 0) va++;
+            while (vb >= va && col[vb - hx0] < 0) vb--;
             for (int hy = (p->y0 - oy) / 2; hy <= (p->y1 - 1 - oy) / 2; hy++) {
                 const int r = cell(((float)(oy + hy * 2 + 1) - p->cy) / p->ry, p->flip_v);
                 if (r < 0) continue;
+                for (int y = oy + hy * 2; y < oy + hy * 2 + 2; y++)
+                    if (y >= p->y0 && y < p->y1) fm_used[(size_t)(KINDS + 1) * (size_t)map_h + (size_t)(y - oy)] = 1;   /* the row is the puff's, however much of it draws */
                 const uint8_t *src = sp + r * SPRAY_V4_ART_SIZE;
+                int t0 = 0, t1 = SPRAY_V4_ART_SIZE - 1;   /* the sprite row's drawing texels: the cells outside them are 0 and are not visited */
+                while (t0 <= t1 && src[t0] < tmin) t0++;
+                while (t1 >= t0 && src[t1] < tmin) t1--;
+                if (va > vb || t0 > t1) continue;
+                int ca = va, cb = vb + 1;   /* the cells whose texel is in t0..t1: col is monotone over va..vb */
+                if (!p->flip_u) {
+                    int lo = va, hi = vb + 1;
+                    while (lo < hi) { const int m = (lo + hi) / 2; if (col[m - hx0] >= t0) hi = m; else lo = m + 1; }
+                    ca = lo, lo = ca, hi = vb + 1;
+                    while (lo < hi) { const int m = (lo + hi) / 2; if (col[m - hx0] > t1) hi = m; else lo = m + 1; }
+                    cb = lo;
+                } else {
+                    int lo = va, hi = vb + 1;
+                    while (lo < hi) { const int m = (lo + hi) / 2; if (col[m - hx0] <= t1) hi = m; else lo = m + 1; }
+                    ca = lo, lo = ca, hi = vb + 1;
+                    while (lo < hi) { const int m = (lo + hi) / 2; if (col[m - hx0] < t0) hi = m; else lo = m + 1; }
+                    cb = lo;
+                }
+                if (ca >= cb) continue;
                 uint8_t *g = &half_map[(size_t)hy * (size_t)half_w];
-                for (int hx = hx0; hx < hx1; hx++) {
-                    const int c = col[hx - hx0];
-                    if (c < 0) continue;
-                    const uint8_t a = mul[src[c]];
+                for (int hx = ca; hx < cb; hx++) {
+                    const uint8_t a = mul[src[col[hx - hx0]]];
                     if (a > g[hx]) g[hx] = a;
                 }
-                if (hx0 < half_lo[hy]) half_lo[hy] = hx0;
-                if (hx1 > half_hi[hy]) half_hi[hy] = hx1;
+                if (ca < half_lo[hy]) half_lo[hy] = ca;
+                if (cb > half_hi[hy]) half_hi[hy] = cb;
                 for (int y = oy + hy * 2; y < oy + hy * 2 + 2; y++) {
                     if (y < p->y0 || y >= p->y1) continue;
-                    const int lo = ox + hx0 * 2 > p->x0 ? ox + hx0 * 2 : p->x0, hi = ox + hx1 * 2 < p->x1 ? ox + hx1 * 2 : p->x1;
+                    const int lo = ox + ca * 2 > p->x0 ? ox + ca * 2 : p->x0, hi = ox + cb * 2 < p->x1 ? ox + cb * 2 : p->x1;
                     if (lo < row_lo[y - oy]) row_lo[y - oy] = lo;
                     if (hi > row_hi[y - oy]) row_hi[y - oy] = hi;
                 }
@@ -229,6 +252,7 @@ static void compose(int kind, const Puff *puffs, int count)
             const uint8_t *hm = &half_map[(size_t)((y - oy) >> 1) * (size_t)half_w];
             uint8_t *out = shape != NULL ? shape + 16 + (size_t)(y - by) * (size_t)bw - lo : NULL;
             const int xe = row_hi[y - oy];
+            if (fm_used[(size_t)(KINDS + 1) * (size_t)map_h + (size_t)(y - oy)]) fm_used[(size_t)kind * (size_t)map_h + (size_t)(y - oy)] |= xe > row_lo[y - oy] ? 0 : 1;   /* a big puff's row with nothing left to draw still counts as touched (the row's path stays what it was) */
             if (xe <= row_lo[y - oy]) continue;   /* no puff on this row */
             if (out == NULL) { for (int x = row_lo[y - oy]; x < xe; x++) g[x - ox] = 0; continue; }
             if (!fm_used[(size_t)kind * (size_t)map_h + (size_t)(y - oy)] && !fm_used[(size_t)KINDS * (size_t)map_h + (size_t)(y - oy)]) {   /* only big puffs and nothing before: the level is a table lookup per half-map cell and phase of the dither */
