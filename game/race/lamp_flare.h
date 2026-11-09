@@ -33,6 +33,13 @@ int lamp_blobs_frame(const uint8_t *pixels, int pitch, int x0, int y0, int x1, i
  * blobs inside a rectangle where a lamp's own sprite was drawn: a traffic sign the reflectors light is painted in the same entries, and is no lamp. */
 int lamp_blob_in_rects(const LampBlob *blob, const int (*rects)[4], int count, int margin);
 
+/* port (lamp_halos): the list those rectangles are kept in. A rectangle past LAMP_RECTS_MAX is not kept (it is counted in `dropped`), so a blob that would have been inside it is inside none and
+ * gets no halo: what cannot be checked is never lit, so a sign never is. */
+enum { LAMP_RECTS_MAX = 512 };
+typedef struct { int rects[LAMP_RECTS_MAX][4]; int count, dropped; } LampRects;
+void lamp_rects_reset(LampRects *list);
+int lamp_rects_push(LampRects *list, int x0, int y0, int x1, int y1);   /* 1 when kept, 0 when the list was full */
+
 /* The halo's radius for a blob of `area` pixels: the blob's own radius times LAMP_FLARE_REACH / 10, at least LAMP_FLARE_MIN_RADIUS, at most LAMP_FLARE_MAX_RADIUS. */
 int lamp_flare_radius(int area);
 

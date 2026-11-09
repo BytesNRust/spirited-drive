@@ -84,6 +84,24 @@ static void test_blob_in_rects(void)
     CHECK_EQ_INT(lamp_blob_in_rects(&b, flipped, 1, 0), 1);        /* corners in any order */
 }
 
+static void test_rects_overflow(void)
+{
+    static LampRects list;
+    lamp_rects_reset(&list);
+    for (int i = 0; i < LAMP_RECTS_MAX; i++) CHECK_EQ_INT(lamp_rects_push(&list, i, 0, i + 1, 1), 1);
+    CHECK_EQ_INT(list.count, LAMP_RECTS_MAX);
+    CHECK_EQ_INT(lamp_rects_push(&list, 500, 500, 600, 600), 0);   /* full: not kept */
+    CHECK_EQ_INT(lamp_rects_push(&list, 500, 500, 600, 600), 0);
+    CHECK_EQ_INT(list.count, LAMP_RECTS_MAX);
+    CHECK_EQ_INT(list.dropped, 2);
+    const LampBlob b = { .cx = 550, .cy = 550, .area = 9, .value = LAMP };
+    CHECK_EQ_INT(lamp_blob_in_rects(&b, (const int (*)[4])list.rects, list.count, 3), 0);   /* in a dropped rect: no halo */
+    lamp_rects_reset(&list);
+    CHECK_EQ_INT(list.count, 0);
+    CHECK_EQ_INT(list.dropped, 0);
+    CHECK_EQ_INT(lamp_rects_push(NULL, 0, 0, 1, 1), 0);
+}
+
 static void test_radius(void)
 {
     CHECK_EQ_INT(lamp_flare_radius(0), LAMP_FLARE_MIN_RADIUS);
@@ -176,6 +194,7 @@ int main(void)
     test_blobs();
     test_frame_blobs();
     test_blob_in_rects();
+    test_rects_overflow();
     test_radius();
     test_level();
     test_draw();

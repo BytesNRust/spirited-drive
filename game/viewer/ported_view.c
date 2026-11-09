@@ -152,8 +152,8 @@ void ported_view_set_street_lamps(const int scenery[], int n, const uint8_t entr
 }
 
 /* port (lamp_halos): the screen rectangles of the lamp boards' sprites drawn this frame; a halo goes only to a blob inside one (a traffic sign the reflectors light is painted in the same entries) */
-enum { STREET_RECTS_MAX = 512, STREET_RECT_MARGIN = 3 };
-static int street_rects[STREET_RECTS_MAX][4], street_rect_count;
+enum { STREET_RECT_MARGIN = 3 };
+static LampRects street_rects;
 
 static int street_board(const FshEntry *texture)
 {
@@ -164,15 +164,13 @@ static int street_board(const FshEntry *texture)
 
 static void street_push(int x0, int y0, int x1, int y1)
 {
-    if (street_rect_count >= STREET_RECTS_MAX) return;
-    street_rects[street_rect_count][0] = x0, street_rects[street_rect_count][1] = y0, street_rects[street_rect_count][2] = x1, street_rects[street_rect_count][3] = y1;
-    street_rect_count++;
+    lamp_rects_push(&street_rects, x0, y0, x1, y1);
 }
 
 /* the exe's mappers: the polygon's screen corners */
 static void street_note(const FshEntry *texture, const int32_t screen[8])
 {
-    if (street_rect_count >= STREET_RECTS_MAX || !port_lamp_halos() || !street_board(texture)) return;
+    if (!port_lamp_halos() || !street_board(texture)) return;
     int x0 = screen[0], y0 = screen[1], x1 = screen[0], y1 = screen[1];
     for (int k = 1; k < 4; k++) {
         x0 = screen[2 * k] < x0 ? screen[2 * k] : x0, x1 = screen[2 * k] > x1 ? screen[2 * k] : x1;
@@ -184,7 +182,7 @@ static void street_note(const FshEntry *texture, const int32_t screen[8])
 /* Modern 3D: the corners in camera space, projected as modern_road.c does; a board the near plane clips takes the whole view (it is that close) */
 static void street_note_cam(const FshEntry *texture, const View *view, const int32_t *const cam[4])
 {
-    if (street_rect_count >= STREET_RECTS_MAX || !port_lamp_halos() || view == NULL || !street_board(texture)) return;
+    if (!port_lamp_halos() || view == NULL || !street_board(texture)) return;
     const float focal = (float)view->focal_x;
     float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
     for (int i = 0; i < 4; i++) {
@@ -2384,9 +2382,11 @@ static void street_halo_draw(const QuadTarget *t, const uint8_t palette[768])
     member[window_entry] = 0;
     LampBlob blobs[STREET_HALO_SCAN];   /* more than are drawn: the signs' blobs, large, are dropped after the scan */
     int count = lamp_blobs_frame(t->pixels, t->pitch, t->clip_left, t->clip_top, t->clip_right - 1, t->clip_bottom - 1, member, blobs, STREET_HALO_SCAN);
+    static int logged_drops;
+    if (street_rects.dropped > 0 && !logged_drops++) port_log("street_halo: %d lamp-board rectangles past %d were dropped; the blobs in them get no halo\n", street_rects.dropped, LAMP_RECTS_MAX);
     int kept = 0;
     for (int i = 0; i < count; i++)   /* only a lamp's own sprite: not a sign the reflectors light in the same entries */
-        if (lamp_blob_in_rects(&blobs[i], (const int (*)[4])street_rects, street_rect_count, STREET_RECT_MARGIN)) blobs[kept++] = blobs[i];
+        if (lamp_blob_in_rects(&blobs[i], (const int (*)[4])street_rects.rects, street_rects.count, STREET_RECT_MARGIN)) blobs[kept++] = blobs[i];
     count = kept < STREET_HALO_MAX ? kept : STREET_HALO_MAX;
     if (count <= 0) return;
     static uint8_t maps[3][LAMP_FLARE_LEVELS][256], made_palette[768];
@@ -3142,7 +3142,7 @@ static int draw_track(const Tri *tri, const PortedCamera *pc, TrackCamera *cam, 
         }
     }
     tunnel_flare_count = 0;
-    street_rect_count = 0;
+    lamp_rects_reset(&street_rects);
     if (ahead) track_render_draw(&render, cam, ctx, view_mirrored(), anim_tick);
     return ahead;
 }
