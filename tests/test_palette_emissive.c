@@ -68,6 +68,33 @@ static void test_lit_table_any_family(void)
     palette_emissive_set(NULL);
 }
 
+/* port (car_night_lift): a floor of light added to the wanted colour lifts a near-black paint out of black (a multiplier cannot), keeps the emissive entry and the markers, and none is the table as before */
+static void test_lit_table_floor(void)
+{
+    uint8_t dark[768], none[256], plain[256], floor_t[256], exempt[256] = { 0 };
+    for (int i = 0; i < 256; i++) dark[3 * i] = dark[3 * i + 1] = dark[3 * i + 2] = (uint8_t)i;   /* a grey ramp: 0 is black */
+    exempt[LAMP] = 1;
+    palette_emissive_set(exempt);
+    const float ratio[3] = { 1.25f, 1.25f, 1.25f };
+    const uint8_t add[3] = { 24, 24, 30 };
+    psx_lit_table_ex(dark, ratio, 1, plain);
+    psx_lit_table_floor(dark, ratio, 1, NULL, none);
+    psx_lit_table_floor(dark, ratio, 1, add, floor_t);
+    CHECK(memcmp(plain, none, sizeof plain) == 0);   /* no floor is the table as before */
+    CHECK(dark[3 * plain[0]] < 5);                    /* black stays black without it */
+    CHECK(dark[3 * floor_t[0]] >= 20 && dark[3 * floor_t[0] + 2] >= 26);   /* and is lifted by it, a hair bluer */
+    CHECK(dark[3 * floor_t[40]] > dark[3 * plain[40]]);
+    /* a dark chromatic entry (a tyre, a dark paint's shade) has no lighter neighbour of its own family in a ramp of greys: with a floor it is lifted all the same, not held to itself */
+    dark[3 * 10] = 30, dark[3 * 10 + 1] = 8, dark[3 * 10 + 2] = 8;
+    psx_lit_table_floor(dark, ratio, 0, add, floor_t);
+    CHECK(floor_t[10] != 10);
+    CHECK(dark[3 * floor_t[10]] + dark[3 * floor_t[10] + 1] > 30 + 8);
+    CHECK_EQ_INT(floor_t[LAMP], LAMP);
+    CHECK_EQ_INT(floor_t[0xfe], 0xfe);
+    CHECK_EQ_INT(floor_t[0xff], 0xff);
+    palette_emissive_set(NULL);
+}
+
 static void test_fog_and_light_tables_keep_the_entry(void)
 {
     const uint8_t fog[3] = { 128, 128, 128 };
@@ -94,6 +121,7 @@ int main(void)
     test_tint_keeps_the_entry();
     test_lit_table_keeps_the_entry();
     test_lit_table_any_family();
+    test_lit_table_floor();
     test_fog_and_light_tables_keep_the_entry();
     return TEST_REPORT();
 }
