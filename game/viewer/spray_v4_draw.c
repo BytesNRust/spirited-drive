@@ -25,6 +25,8 @@ static const Look LOOKS[KINDS] = {
     [SPRAY_V4_CLUMP]  = { SPRAY_V4_ART_CLUMP,     10, 2.2f, 1.00f, 0.00f, 1.5f, 3.5f, 40.0f, 120.0f },
     [GLINT]           = { SPRAY_V4_ART_STONE,      8, 1.5f, 1.00f, 0.00f, 1.5f, 3.5f, 30.0f, 90.0f }
 };
+/* a puff's half width from SIZE_FADE_FROM to SIZE_FADE_TO of the screen's height fades out: the compositor's cost is the texels its puffs cover, and the largest (near the camera) are most of them, eight plumes several screens a frame */
+static const float SIZE_FADE_FROM = 0.26f, SIZE_FADE_TO = 0.5f;
 static const float BODY_KEEP = 0.2f;   /* the share of a puff's alpha over the body of the car it came from */
 /* the birth: a puff behind its car's centre by less than BIRTH_FROM metres is BIRTH_MIN of its size, growing to the full from the rear bumper (and BIRTH_PAST metres beyond), so the trail starts small at the wheels and is whole past the bumper */
 static const float BIRTH_FROM = 1.0f, BIRTH_MIN = 0.25f, BIRTH_PAST = 0.6f;
@@ -95,6 +97,19 @@ static int cell(float u, int flip)
     return c < 0 ? 0 : c >= SPRAY_V4_ART_SIZE ? SPRAY_V4_ART_SIZE - 1 : c;
 }
 
+/* the sprite's position at the unit-square coordinate u in -1..1 for a magnified puff (bilinear): the texel `c` below it and the weight (0..255) of the one above, or -1 outside */
+static int cell_lin(float u, int flip, int *frac)
+{
+    if (u <= -1.0f || u >= 1.0f) return -1;
+    const float g = ((flip ? -u : u) + 1.0f) * 0.5f * (float)(SPRAY_V4_ART_SIZE - 1);
+    int c = (int)g;
+    if (c < 0) c = 0;
+    if (c > SPRAY_V4_ART_SIZE - 2) c = SPRAY_V4_ART_SIZE - 2;
+    const int f = (int)((g - (float)c) * 256.0f);
+    *frac = f < 0 ? 0 : f > 255 ? 255 : f;
+    return c;
+}
+
 static void tables_set(const uint8_t rgb[SPRAY_V4_KINDS][3])
 {
     uint8_t want[KINDS][3];
@@ -111,12 +126,26 @@ static void tables_set(const uint8_t rgb[SPRAY_V4_KINDS][3])
     tables_made = 1;
 }
 
+/* the frame's budget. The compositor's cost is mostly the cells its big puffs are rasterised on (the sum of the puffs' areas: eight plumes overlap several screens deep) and a trail is born every simulation tick, its puffs overlapping (the frame's map is a maximum, not a sum). When the last frame rasterised more cells than BUDGET_OVERDRAW screens' worth, a share of the puffs farther than BUDGET_NEAR metres is not drawn (an even pattern over the trail's births, so it keeps its length); the share follows the last frame's cells in small steps with a dead band, so it does not flicker, and its target is in screens, the same at any resolution. */
+static float budget_share = 1.0f;   /* the share of the far puffs drawn */
+static long budget_last_cells;   /* the cells the frame before rasterised */
+static const float BUDGET_OVERDRAW = 3.0f, BUDGET_NEAR = 3.0f, BUDGET_MIN = 0.125f;
+static int budget_keep(const SprayV4Particle *p) { return (int)((p->born * 2654435761u) >> 24) < (int)(budget_share * 256.0f); }   /* a hash of the birth tick: the same particles the frame after, whatever the resolution */
+static void budget_frame(void)
+{
+    const float target = BUDGET_OVERDRAW * (float)map_w * (float)map_h / 4.0f, last = (float)budget_last_cells;
+    if (last > target * 1.1f) budget_share *= 0.985f;
+    else if (last < target * 0.85f) budget_share *= 1.01f;
+    budget_share = budget_share < BUDGET_MIN ? BUDGET_MIN : budget_share > 1.0f ? 1.0f : budget_share;
+}
+
 void spray_v4_draw_frame(const SprayV4Host *host, const uint8_t rgb[SPRAY_V4_KINDS][3])
 {
     H = *host;
     tables_set(rgb);
     for (int b = 0; b < ARENA_BLOCKS; b++) arena_used[b] = 0;
     chunk_count = 0;
+    budget_last_cells = stats.cells;
     stats = (SprayV4Stats){ 0 };
     map_w = H.target->clip_right - H.target->clip_left, map_h = H.target->clip_bottom - H.target->clip_top;
     if (map_w <= 0 || map_h <= 0) { map_w = map_h = 0; return; }
@@ -148,6 +177,7 @@ void spray_v4_draw_frame(const SprayV4Host *host, const uint8_t rgb[SPRAY_V4_KIN
     }
     for (int k = 0; k < KINDS; k++) memset(frame_map[k], 0, need);
     memset(fm_used, 0, (size_t)(KINDS + 2) * (size_t)map_h);
+    budget_frame();
 }
 
 typedef struct { float cx, cy, rx, ry; int alpha, x0, y0, x1, y1, flip_u, flip_v; const uint8_t *sprite; } Puff;
@@ -179,22 +209,25 @@ static void compose(int kind, const Puff *puffs, int count)
         for (int a = 0; a < 256; a++) mul[a] = (uint8_t)(a * p->alpha / 255);
         if (p->rx > (float)HALF_RX) {   /* a big puff is smooth: its alpha is made on cells of 2x2 pixels (a quarter of the work), the dither below stays per pixel */
             const int hx0 = (p->x0 - ox) / 2, hx1 = (p->x1 - 1 - ox) / 2 + 1;
-            for (int hx = hx0; hx < hx1; hx++) col[hx - hx0] = cell(((float)(ox + hx * 2 + 1) - p->cx) / p->rx, p->flip_u);
-            const int tmin = (255 + p->alpha - 1) / p->alpha;   /* a texel gives the puff's map a value only from this: the alpha scaled down is 0 below it */
+            static int colf[MAX_PUFF_W];
+            for (int hx = hx0; hx < hx1; hx++) col[hx - hx0] = cell_lin(((float)(ox + hx * 2 + 1) - p->cx) / p->rx, p->flip_u, &colf[hx - hx0]);   /* a magnified puff is sampled bilinear: its texels would show as blocks */
+            const int tmin = (255 + p->alpha - 1) / p->alpha;   /* the sample is at most its largest texel: the alpha scaled down is 0 below it */
             int va = hx0, vb = hx1 - 1;   /* the cells inside the sprite (the others hold -1, at either end) */
             while (va <= vb && col[va - hx0] < 0) va++;
             while (vb >= va && col[vb - hx0] < 0) vb--;
             for (int hy = (p->y0 - oy) / 2; hy <= (p->y1 - 1 - oy) / 2; hy++) {
-                const int r = cell(((float)(oy + hy * 2 + 1) - p->cy) / p->ry, p->flip_v);
+                int fy;
+                const int r = cell_lin(((float)(oy + hy * 2 + 1) - p->cy) / p->ry, p->flip_v, &fy);
                 if (r < 0) continue;
                 for (int y = oy + hy * 2; y < oy + hy * 2 + 2; y++)
                     if (y >= p->y0 && y < p->y1) fm_used[(size_t)(KINDS + 1) * (size_t)map_h + (size_t)(y - oy)] = 1;   /* the row is the puff's, however much of it draws */
-                const uint8_t *src = sp + r * SPRAY_V4_ART_SIZE;
-                int t0 = 0, t1 = SPRAY_V4_ART_SIZE - 1;   /* the sprite row's drawing texels: the cells outside them are 0 and are not visited */
-                while (t0 <= t1 && src[t0] < tmin) t0++;
-                while (t1 >= t0 && src[t1] < tmin) t1--;
+                const uint8_t *src = sp + r * SPRAY_V4_ART_SIZE, *src1 = src + SPRAY_V4_ART_SIZE;
+                int t0 = 0, t1 = SPRAY_V4_ART_SIZE - 1;   /* the texels (of the two rows) that can draw: the cells whose two texels are outside them are 0 and are not visited */
+                while (t0 <= t1 && src[t0] < tmin && src1[t0] < tmin) t0++;
+                while (t1 >= t0 && src[t1] < tmin && src1[t1] < tmin) t1--;
                 if (va > vb || t0 > t1) continue;
-                int ca = va, cb = vb + 1;   /* the cells whose texel is in t0..t1: col is monotone over va..vb */
+                t0 = t0 > 0 ? t0 - 1 : 0;   /* a cell's lower texel is below its upper one */
+                int ca = va, cb = vb + 1;   /* the cells whose lower texel is in t0..t1: col is monotone over va..vb */
                 if (!p->flip_u) {
                     int lo = va, hi = vb + 1;
                     while (lo < hi) { const int m = (lo + hi) / 2; if (col[m - hx0] >= t0) hi = m; else lo = m + 1; }
@@ -210,9 +243,14 @@ static void compose(int kind, const Puff *puffs, int count)
                 }
                 if (ca >= cb) continue;
                 uint8_t *g = &half_map[(size_t)hy * (size_t)half_w];
+                unsigned vr[SPRAY_V4_ART_SIZE];   /* the two rows blended once (the cells of a row share them) */
+                const int tl = col[(p->flip_u ? cb - 1 : ca) - hx0], th = col[(p->flip_u ? ca : cb - 1) - hx0] + 1;
+                for (int t = tl; t <= th; t++) vr[t] = (unsigned)src[t] * (unsigned)(256 - fy) + (unsigned)src1[t] * (unsigned)fy;
+                stats.cells += cb - ca;
                 for (int hx = ca; hx < cb; hx++) {
-                    const uint8_t a = mul[src[col[hx - hx0]]];
-                    if (a > g[hx]) g[hx] = a;
+                    const int c = col[hx - hx0], fx = colf[hx - hx0];
+                    const uint8_t a = mul[(vr[c] * (unsigned)(256 - fx) + vr[c + 1] * (unsigned)fx) >> 16], gv = g[hx];
+                    g[hx] = a > gv ? a : gv;
                 }
                 if (ca < half_lo[hy]) half_lo[hy] = ca;
                 if (cb > half_hi[hy]) half_hi[hy] = cb;
@@ -343,6 +381,7 @@ void spray_v4_draw_row(int32_t node, int far_side)
         if (farther != far_side) continue;
         const Look *lk = &LOOKS[p->kind];
         const float metres = (float)camera[2] / 32.0f;   /* a camera unit is 1/32 m */
+        if (metres > BUDGET_NEAR && !budget_keep(p)) continue;
         const float fade = ramp(metres, lk->near0, lk->near1) * (1.0f - ramp(metres, lk->far0, lk->far1));
         float keep = 1.0f;
         if (owner != NULL && !far_side && own_camera[2] > 64) {   /* a plume between the camera and its own car does not fog the body: over the car's box it keeps a fraction */
@@ -359,9 +398,10 @@ void spray_v4_draw_row(int32_t node, int far_side)
             const float bumper = owner->model_length > 0 ? (float)owner->model_length / 65536.0f * 0.5f : 2.2f;
             birth = BIRTH_MIN + (1.0f - BIRTH_MIN) * ramp(behind, BIRTH_FROM, bumper + BIRTH_PAST);
         }
-        const int alpha = (int)(look.alpha * fade * keep * birth * 255.0f);
-        if (alpha < 3) continue;
         const float rpx = (float)(((int32_t)(look.radius * 65536.0f)) >> WORLD_SHIFT) * (float)focal / (float)camera[2] * birth;
+        const float sized = 1.0f - ramp(rpx * lk->scale, SIZE_FADE_FROM * (float)map_h, SIZE_FADE_TO * (float)map_h);   /* a puff as big as the screen is a faint veil that costs the screen: it thins out as it grows */
+        const int alpha = (int)(look.alpha * fade * keep * birth * sized * 255.0f);
+        if (alpha < 3) continue;
         const uint32_t pick = (uint32_t)(i * 7) + p->born / 2;
         const int variant = (int)(pick % SPRAY_V4_ART_VARIANTS), flip_u = (int)(pick / 5 & 1), flip_v = 0;   /* every sprite a billboard: square, facing the camera */
         Puff *q = &puffs[p->kind][count[p->kind]];

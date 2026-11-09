@@ -763,7 +763,7 @@ static void spin_shot(const Track *t, uint8_t *pixels, uint32_t i, uint32_t tick
 enum { FRAME_TIMES = 4096 };
 static double frame_us[FRAME_TIMES], present_us[FRAME_TIMES];   /* the render's, and the present's (present_dry) */
 static int frame_count;
-static double spray_sum[5];   /* the frames' live, puffs, big, strips, texels (spray v4) */
+static double spray_sum[6];   /* the frames' live, puffs, big, strips, texels (spray v4) */
 static long spray_max_texels;
 static int spray_frames;
 
@@ -788,15 +788,15 @@ static void frame_times_print(void)
     printf("total %d: mean %.0f us, p50 %.0f us, p95 %.0f us, max %.0f us\n", frame_count, tsum / frame_count,
            total[frame_count / 2], total[(int)(frame_count * 0.95)], total[frame_count - 1]);
     if (spray_frames > 0 && spray_sum[0] + spray_sum[1] > 0)   /* spray v4 on: what each frame drew, so a cost regression shows in the log */
-        printf("spray v4 per frame (mean of %d): live %.0f, puffs %.1f (big %.1f), strips %.1f, texels %.0f (max %ld)\n", spray_frames,
+        printf("spray v4 per frame (mean of %d): live %.0f, puffs %.1f (big %.1f), strips %.1f, texels %.0f (max %ld), cells %.0f\n", spray_frames,
                spray_sum[0] / spray_frames, spray_sum[1] / spray_frames, spray_sum[2] / spray_frames, spray_sum[3] / spray_frames,
-               spray_sum[4] / spray_frames, spray_max_texels);
+               spray_sum[4] / spray_frames, spray_max_texels, spray_sum[5] / spray_frames);
 }
 
 static void spray_stats_add(void)
 {
     const SprayV4Stats *s = spray_v4_stats();
-    spray_sum[0] += s->live, spray_sum[1] += s->puffs, spray_sum[2] += s->big, spray_sum[3] += s->strips, spray_sum[4] += (double)s->texels;
+    spray_sum[0] += s->live, spray_sum[1] += s->puffs, spray_sum[2] += s->big, spray_sum[3] += s->strips, spray_sum[4] += (double)s->texels, spray_sum[5] += (double)s->cells;
     if (s->texels > spray_max_texels) spray_max_texels = s->texels;
     spray_frames++;
 }
