@@ -31,6 +31,14 @@ static uint32_t rnd(void) { seed = seed * 1664525u + 1013904223u; return seed >>
 
 static void fill_layer(uint8_t *layer, size_t n, int density)
 {
+    if (density < 0) {   /* runs of one class, as the HUD's bars and the bars of the picture are: lengths from 1 to a few hundred */
+        for (size_t i = 0; i < n;) {
+            const uint8_t c = rnd() % 3 == 0 ? (uint8_t)(rnd() % 20) : rnd() % 2 ? 0xff : (uint8_t)(1 + rnd() % 15);
+            size_t len = 1 + (rnd() % 4 == 0 ? rnd() % 400 : rnd() % 12);
+            for (; len > 0 && i < n; len--) layer[i++] = c;
+        }
+        return;
+    }
     for (size_t i = 0; i < n; i++) layer[i] = rnd() % 100 < (uint32_t)density ? (uint8_t)(rnd() % 256) : 0xff;   /* mostly "nothing drawn" */
 }
 
@@ -59,8 +67,11 @@ static void timing(void)
     const size_t n = (size_t)W * H, out = n * S * S;
     uint8_t *layer = malloc(n), *marks = malloc(H), *mask = malloc(out);
     memset(layer, 0xff, n);
-    for (int y = 0; y < 24; y++) memset(layer + (size_t)y * W, PSX_CLASS_HUD, W);   /* the top bar, and a map and some gauges */
-    for (int y = 380; y < 480; y++) memset(layer + (size_t)y * W + 300, y % 3 == 0 ? PSX_CLASS_DASH : PSX_CLASS_LIT, 250);
+    for (int y = 0; y < H; y++) {   /* a chase view's layer: the bars at the sides and the bottom are HUD (64% of the layer), the 3D shows between */
+        memset(layer + (size_t)y * W, PSX_CLASS_HUD, 150);
+        memset(layer + (size_t)y * W + W - 150, PSX_CLASS_HUD, 150);
+    }
+    for (int y = 400; y < H; y++) memset(layer + (size_t)y * W, PSX_CLASS_HUD, W);
     memset(mask, 1, out);
     double t0 = seconds();
     for (int f = 0; f < FRAMES; f++) reference(mask, layer, W, S, W * S, out);
@@ -82,6 +93,8 @@ int main(void)
         compare(64, 48, scale, 3, 40);     /* a few marks */
         compare(64, 48, scale, 50, 40);
         compare(64, 48, scale, 100, 40);   /* every class value */
+        compare(64, 48, scale, -1, 80);    /* runs */
+        compare(643, 31, scale, -1, 40);   /* runs across the eight-byte steps, a width that is no multiple of 8 */
         compare(1, 1, scale, 100, 10);     /* one pixel */
         compare(7, 5, scale, 40, 40);      /* odd sizes */
     }
