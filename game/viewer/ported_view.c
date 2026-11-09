@@ -1589,6 +1589,8 @@ typedef struct {
     uint8_t made[MIST_DENSITIES];
     uint8_t row[MIST_DENSITIES][SPRAY_MIST_LEVELS + 1][256];   /* a table for each level of the sprite's grey, by how thick the particle is */
     uint8_t drop[256];                                         /* the droplets' table: lighter (water) or darker (mud) */
+    uint8_t streak[WATER_MIST_LEVELS + 1][256];                /* the droplet streaks' tables by level (water lighter, mud darker), made when first wanted */
+    int streak_made;
     uint8_t colour[3], road[3];
 } MistTint;
 static MistTint mist_tints[MIST_TINTS];
@@ -1709,20 +1711,22 @@ static void mist_droplets(const uint8_t road[3], const RainSprayParticle *p, uin
         if ((slot & 1) == 0) dir_draw(road, p->born * 5u + (uint32_t)slot, cx + (int)(rain_hash((uint32_t)slot, p->born) % (uint32_t)(px + 1)) - px / 2, cy, (int32_t)px * 0x10000 / 40 + 0x1000);
         return;
     }
-    const QuadTarget *t = object_pixels.target;
-    if (dx == 0 && dy == 0) dy = -1;
-    const int norm = (int)lrint(sqrt((double)dx * dx + (double)dy * dy));
-    const int len = 3 + (px > 24 ? 24 : px) / 5;
-    for (int n = 0; n < 4; n++) {
-        const uint32_t h = rain_hash((uint32_t)slot * 4u + (uint32_t)n, p->born * 2654435761u + 77u);
-        int x = cx + (int)(h % (uint32_t)(px + 1)) - px / 2, y = cy - (int)((h >> 8) % (uint32_t)(px / 2 + 1));
-        for (int s = 0; s < len; s++) {
-            const int ix = x + dx * s / (norm > 0 ? norm : 1), iy = y + dy * s / (norm > 0 ? norm : 1);
-            if (ix < t->clip_left || ix >= t->clip_right || iy < t->clip_top || iy >= t->clip_bottom) continue;
-            uint8_t *pixel = &t->pixels[(size_t)iy * (size_t)t->pitch + (size_t)ix];
-            if (*pixel != 0xFF) *pixel = m->drop[*pixel];
+    (void)dx, (void)dy;   /* the streaks are a sprite of thin lines (the pixels set in the target here were overwritten when the road is replayed by bands) */
+    if (((uint32_t)slot + p->born) % 2u != 0) return;   /* the young, some of them */
+    water_mist_rows_of(1, 0);   /* the streak sprites, made when wanted */
+    if (!m->streak_made) {
+        uint8_t dark[3];
+        for (int k = 0; k < 3; k++) dark[k] = (uint8_t)(road[k] * 40 / 100);
+        for (int k = 0; k <= WATER_MIST_LEVELS; k++) {
+            if (m->kind == SPRAY_MIST_MUD) spray_tint_table(object_pixels.palette, dark, 78 * k / WATER_MIST_LEVELS, m->streak[k]);
+            else spray_add_table(object_pixels.palette, m->colour, 255 * k / WATER_MIST_LEVELS, m->streak[k]);
         }
+        m->streak_made = 1;
     }
+    for (int i = 0; i < 256; i++) water_streak_rows[i] = m->streak[0];
+    for (int k = 0; k <= WATER_MIST_LEVELS; k++) water_streak_rows[k] = m->streak[k];
+    const int32_t sw = px * 2 + 4;
+    sprite_scaled_blend(object_pixels.target, water_streak_rows, water_streak_shape[p->drift_x + p->drift_z < 0 ? 0 : 1], sw, sw, cx - sw / 2, cy - sw + sw / 5);
 }
 
 /* the particles dropped at road node `node`, drawn with that row's cars */
