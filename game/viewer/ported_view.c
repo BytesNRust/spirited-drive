@@ -1955,6 +1955,7 @@ static int lamp_on_car(const Car *car)
  * (above full light the road was the palette's brightest entries and the shadow a white box) */
 static int look_tunnel_on_car(const Car *car)
 {
+    if (psx_light == NULL) return 0;   /* the soft shadow needs no light (psx_shadow is its own switch): none loaded, no tunnel look */
     return psx_light_look_tunnel(psx_light, psx_ring_node(car->node, psx_light->nodes));
 }
 
