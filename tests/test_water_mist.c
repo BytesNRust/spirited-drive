@@ -33,9 +33,31 @@ static void test_it_thins_with_the_density_and_is_cooler_in_the_third(void)
     CHECK(!water_mist_streaks(1) && water_mist_streaks(2) && water_mist_streaks(3));
 }
 
+static void test_the_streaks_are_thin_lines_and_mirror(void)
+{
+    uint8_t a[WATER_STREAK_BYTES], b[WATER_STREAK_BYTES];
+    water_mist_streak_shape(a, 0), water_mist_streak_shape(b, 1);
+    CHECK_EQ_INT(a[0], 0x7b);
+    CHECK_EQ_INT(a[4] | a[5] << 8, WATER_STREAK_SIDE);
+    CHECK_EQ_INT(a[6] | a[7] << 8, WATER_STREAK_SIDE);
+    int lit = 0, top = 0;
+    for (int y = 0; y < WATER_STREAK_SIDE; y++)
+        for (int x = 0; x < WATER_STREAK_SIDE; x++) {
+            const int l = a[16 + y * WATER_STREAK_SIDE + x];
+            CHECK(l <= WATER_MIST_LEVELS);
+            if (l > 0) lit++;
+            if (l > top) top = l;
+            CHECK_EQ_INT(b[16 + y * WATER_STREAK_SIDE + x], a[16 + y * WATER_STREAK_SIDE + (WATER_STREAK_SIDE - 1 - x)]);   /* the other lean is the mirror image */
+        }
+    CHECK_EQ_INT(top, WATER_MIST_LEVELS);                       /* the heads are as bright as the veil's top */
+    CHECK(lit > 12 && lit < WATER_STREAK_SIDE * WATER_STREAK_SIDE / 8);   /* thin lines, not a patch */
+    CHECK(water_mist_streak_amount() > 0 && water_mist_streak_amount() <= 255);
+}
+
 int main(void)
 {
     test_the_shape_is_smooth_and_closed();
     test_it_thins_with_the_density_and_is_cooler_in_the_third();
+    test_the_streaks_are_thin_lines_and_mirror();
     return TEST_REPORT();
 }

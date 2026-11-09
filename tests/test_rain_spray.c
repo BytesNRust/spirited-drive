@@ -187,6 +187,37 @@ static void test_ticks_without_a_frame_are_laid_on_the_way(void)
     CHECK_EQ_INT(live_count(&s), 2 + 2 * RAIN_SPRAY_LIFE);
 }
 
+static void test_missed_ticks_of_a_wisp_are_capped_by_its_life(void)
+{
+    static RainSpray s;
+    rain_spray_clear(&s);
+    const int32_t right[2] = { 0, -65536 }, left[3] = { 0, 0, 0 }, wheel[3] = { 0, 0, 0 };
+    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 100, left, wheel, right, 5, 30 << 16, 1), 2);
+    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 103, left, wheel, right, 5, 30 << 16, 1), 2);   /* two ticks with no frame */
+    CHECK_EQ_INT(live_count(&s), 2 + 2 + 2 * 2);
+    rain_spray_clear(&s);
+    CHECK_EQ_INT(rain_spray_step_wisp(&s, 1, 100, left, wheel, right, 5, 30 << 16, 1), 1);
+    CHECK_EQ_INT(rain_spray_step_wisp(&s, 1, 150, left, wheel, right, 5, 30 << 16, 1), 1);   /* a long stop: a wisp lives 3 ticks, so two missed ones at most */
+    CHECK_EQ_INT(live_count(&s), 1 + 1 + (RAIN_SPRAY_WISP_LIFE - 1));
+    rain_spray_clear(&s);
+    CHECK_EQ_INT(rain_spray_step(&s, 2, 100, left, wheel, right, 5, 0, 1), 0);   /* not moving: no drops, missed or not */
+    CHECK_EQ_INT(rain_spray_step(&s, 2, 110, left, wheel, right, 5, 0, 1), 0);
+    CHECK_EQ_INT(live_count(&s), 0);
+}
+
+static void test_the_dense_drops_never_overrun_the_ring(void)
+{
+    static RainSpray s;
+    rain_spray_clear(&s);
+    const int32_t right[2] = { 0, -65536 }, left[3] = { 0, 0, 0 }, wheel[3] = { 0, 0, 0 };
+    for (int car = 0; car < 9; car++)
+        for (uint32_t tick = 100; tick < 400; tick++) {   /* nine cars at 200 m/s for 300 ticks: far more than the ring holds */
+            CHECK(rain_spray_step_dense(&s, car, tick, left, wheel, right, 5, 200 << 16, 1) >= 2);
+        }
+    CHECK(live_count(&s) <= RAIN_SPRAY_MAX);
+    for (int i = 0; i < RAIN_SPRAY_MAX; i++) CHECK(!s.p[i].live || s.p[i].life == RAIN_SPRAY_LIFE);   /* the ring's slots hold whole particles */
+}
+
 int main(void)
 {
     test_dropped_once_a_tick_and_left_behind();
@@ -199,5 +230,7 @@ int main(void)
     test_a_car_without_a_speed_goes_by_its_velocity();
     test_dense_drops_fill_the_way_at_speed();
     test_ticks_without_a_frame_are_laid_on_the_way();
+    test_missed_ticks_of_a_wisp_are_capped_by_its_life();
+    test_the_dense_drops_never_overrun_the_ring();
     return TEST_REPORT();
 }
