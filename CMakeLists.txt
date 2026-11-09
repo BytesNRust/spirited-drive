@@ -551,6 +551,7 @@ add_executable(tnfs
     game/viewer/body_shine.c
     game/viewer/soft_shadow.c
     game/viewer/ported_view.c
+    game/viewer/view_lamps.c
     game/viewer/follow_arm.c
     game/viewer/follow_behind.c
     game/viewer/ported_viewport.c
