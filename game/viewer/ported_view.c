@@ -24,6 +24,7 @@
 #include "game/viewer/reflect_pass.h"
 #include "game/viewer/street_halo.h"
 #include "game/viewer/view_lamps.h"
+#include "game/viewer/view_screen.h"
 #include "game/viewer/car_lamp_halo.h"
 #include "game/viewer/weather_sky.h"
 #include "game/viewer/weather_hooks.h"
@@ -83,9 +84,6 @@
 #include <string.h>
 
 enum {
-    WIDTH = 640,
-    HEIGHT = 480,
-    FOV = 96,              /* chase views (004b78a8, view 1) */
     WORLD_SHIFT = 11,      /* 004c52bc */
     EYE_HEIGHT = 111411,   /* camera mode 2 (004b6bb0): 1.7 m */
     SKY_WORLD_SHIFT = 8,   /* 004bb8d4 */
@@ -2360,16 +2358,6 @@ void ported_view_set_tick(int32_t tick)
 /* 0043af80: the 3D sky ring of the tracks whose INFO asks for one. */
 /* 0043af80's ring path: 0043b298 with the camera's yaw and roll (the follow
  * record's +0x44, +0x48); 0043b0c8 slopes the fills with the roll. */
-static PortedViewport viewport = { 0, 0, WIDTH, HEIGHT, FOV, 0x10000, 0, 0, WIDTH, HEIGHT, 0, 0, 1 };
-
-/* port: the frame the 3D view draws into, 640 x 480 but on a wide screen (ported_view_set_screen) */
-static int32_t screen_w = WIDTH, screen_h = HEIGHT;
-
-void ported_view_set_screen(int width, int height)
-{
-    screen_w = width, screen_h = height;
-}
-
 /* 00512040..: the road direction the last frame's transform left (the mirror draws with it). */
 static int32_t last_near_dir[3] = { 0, 0, 0x1999 };
 static int32_t last_near = 62259 >> WORLD_SHIFT;  /* *(00511fe8) +4 as the last frame's transform left it */
@@ -2379,21 +2367,16 @@ void ported_view_near_dir(int32_t out[3])
     memcpy(out, last_near_dir, sizeof last_near_dir);
 }
 
-void ported_view_set_viewport(const PortedViewport *v)
-{
-    viewport = *v;
-}
-
 static SkyRing sky_ring;   /* built once a frame by the caller, read by every band */
 
 static void draw_sky_ring(const SkyTargets *targets, const View *view, const FshEntry *horz, const TrackInfo *info,
                           const TrackCamera *cam, int32_t yaw, int32_t roll)
 {
     const SkyRing *ring = &sky_ring;
-    const int32_t rs = viewport.render_scale > 0 ? viewport.render_scale : 1;
+    const int32_t rs = view_viewport.render_scale > 0 ? view_viewport.render_scale : 1;
     SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, view_mirrored(), SKY_WORLD_SHIFT, 0, { 0 },
-                       { viewport.scale, viewport.width, viewport.sky_left, viewport.sky_top, viewport.sky_width,
-                         viewport.sky_height }, screen_w / rs, screen_w, 0, sky_off, 1, rs };   /* port: wide fields, render scale */
+                       { view_viewport.scale, view_viewport.width, view_viewport.sky_left, view_viewport.sky_top, view_viewport.sky_width,
+                         view_viewport.sky_height }, view_screen_w / rs, view_screen_w, 0, sky_off, 1, rs };   /* port: wide fields, render scale */
     for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
     horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
     const SkySink sink = { (void *)targets, sky_triangle, sky_fill, sky_polygon };
@@ -2423,8 +2406,8 @@ static void sky_stage_band(void *user, int top, int bottom)
 {
     const SkyStage *st = user;
     for (int32_t y = top; y < bottom; y++) {   /* 0044cc74 clears nothing; the view only, for the frames without one */
-        const int32_t x0 = st->box_left < 0 ? 0 : st->box_left, x1 = st->box_right > screen_w ? screen_w : st->box_right;
-        if (x1 > x0) memset(st->pixels + (size_t)y * screen_w + x0, 0, (size_t)(x1 - x0));
+        const int32_t x0 = st->box_left < 0 ? 0 : st->box_left, x1 = st->box_right > view_screen_w ? view_screen_w : st->box_right;
+        if (x1 > x0) memset(st->pixels + (size_t)y * view_screen_w + x0, 0, (size_t)(x1 - x0));
     }
     QuadTarget quad = *st->quad;   /* the box's rows this band owns */
     ClipRect clip = *st->clip;
@@ -2437,7 +2420,7 @@ static void sky_stage_band(void *user, int top, int bottom)
         const SkyTargets targets = { &quad, st->target, st->smooth, st->quad, st->banded, top, bottom };
         draw_sky_ring(&targets, st->view, st->ring_horz, st->info, st->cam, st->pc->yaw, st->pc->roll);
     } else if (st->flat) {
-        const HorizonTarget ht = { st->pixels, screen_w };
+        const HorizonTarget ht = { st->pixels, view_screen_w };
         if (st->smooth != NULL) {  /* the magnified flat sky blended */
             horizon_draw_flat_smooth(st->smooth, st->horizon, &ht, &clip, st->horz, st->pc->yaw, view_mirrored(),
                                      sky_off, st->line);
@@ -2551,34 +2534,34 @@ static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *vi
         const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
         const int mood_share = (drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE) * rain_open / 16;   /* port (tunnel_dry): the grey goes with the weather: none inside a closed zone */
         if (!rain_wet_off() && mood_share > 0 && weather_fog_snow_mood(snow_level(), port_weather_fog())) {   /* port (rain v4): the grey, low-contrast scene of rain; rows are independent, so in bands */
-            const RainMood mood = { pixels, screen_w, { box[0], box[1], box[2], box[3] }, wt->mood, mood_share };
+            const RainMood mood = { pixels, view_screen_w, { box[0], box[1], box[2], box[3] }, wt->mood, mood_share };
             bands_rows(box[1], box[3], rain_mood_band, (void *)&mood);
         }
-        rain_cars_paint(pixels, screen_w, box, wt);
+        rain_cars_paint(pixels, view_screen_w, box, wt);
         int32_t vanish[2] = { view->centre_x, view->centre_y };
         rain_vanishing_point(vanish);
         if (port_rain_v2()) vanish[1] -= (box[3] - box[1]) / RAIN_V2_RAISE_DIV;   /* port (rain_v2): the rain falls from above: the streaks leave a point higher up */
         if (snow_level() != SNOW_NONE && port_snow_fx())   /* port (snow_fx): flakes that lean with the speed, a swinging storm wind, white marks on the lens */
-            weather_snow_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4, shown, vanish[0] - box[0], vanish[1] - box[1]);
+            weather_snow_draw_fx(pixels, view_screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4, shown, vanish[0] - box[0], vanish[1] - box[1]);
         else if (snow_level() != SNOW_NONE)   /* port (snow_weather): flakes for streaks and none on the lens; the wet road under them is the rain's */
-            weather_snow_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4[WEATHER_RAIN_LEVELS - 1]);
+            weather_snow_draw(pixels, view_screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4[WEATHER_RAIN_LEVELS - 1]);
         else
-        weather_rain_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], (float)view->focal_x,
+        weather_rain_draw_fx(pixels, view_screen_w, box, rs, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], (float)view->focal_x,
                              drive_light_night(), rain_open, wt->rain4, weather == WEATHER_STORM, port_rain_v2());
         if (snow_level() != SNOW_NONE && port_snow_fx())
-            weather_snow_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], wt->rain4[WEATHER_RAIN_LEVELS - 1], rain_open, wipers);
+            weather_snow_lens_draw(pixels, view_screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], wt->rain4[WEATHER_RAIN_LEVELS - 1], rain_open, wipers);
         if (snow_level() == SNOW_NONE)
-        weather_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens, rain_open, wipers);   /* port (rain v3): drops on the lens */
+        weather_lens_draw(pixels, view_screen_w, box, (uint32_t)anim_tick, shown, vanish[0] - box[0], vanish[1] - box[1], weather_rain_spray_level(drive_light_night()), wt->rain4, wt->lens, rain_open, wipers);   /* port (rain v3): drops on the lens */
     } else if (wt != NULL && weather_wet(weather) && snow_level() != SNOW_NONE) {   /* port (snow_weather): flakes without rain_fx too */
         if (port_snow_fx()) {   /* port (snow_fx): no speed here (no rain_fx), the view's middle for the vanishing point */
-            weather_snow_draw_fx(pixels, screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4, 0, (box[2] - box[0]) / 2, (box[3] - box[1]) / 2);
-            weather_snow_lens_draw(pixels, screen_w, box, (uint32_t)anim_tick, 0, (box[2] - box[0]) / 2, (box[3] - box[1]) / 2, wt->rain4[WEATHER_RAIN_LEVELS - 1], rain_open, wipers);
+            weather_snow_draw_fx(pixels, view_screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4, 0, (box[2] - box[0]) / 2, (box[3] - box[1]) / 2);
+            weather_snow_lens_draw(pixels, view_screen_w, box, (uint32_t)anim_tick, 0, (box[2] - box[0]) / 2, (box[3] - box[1]) / 2, wt->rain4[WEATHER_RAIN_LEVELS - 1], rain_open, wipers);
         } else
-            weather_snow_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4[WEATHER_RAIN_LEVELS - 1]);
+            weather_snow_draw(pixels, view_screen_w, box, rs, (uint32_t)anim_tick, snow_level(), rain_open, wt->rain4[WEATHER_RAIN_LEVELS - 1]);
     }
     else if (wt != NULL && weather_wet(weather))   /* port (weather): the streaks over the whole view, under the 2D layer */
-        weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM, port_rain_v2());
-    if (wipers != NULL) wiper_draw(pixels, screen_w, box, wipers, (uint32_t)anim_tick, weather_hooks_wiper_dark(object_pixels.palette));   /* port (wipers): over the drops, under the dash */
+        weather_rain_draw(pixels, view_screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM, port_rain_v2());
+    if (wipers != NULL) wiper_draw(pixels, view_screen_w, box, wipers, (uint32_t)anim_tick, weather_hooks_wiper_dark(object_pixels.palette));   /* port (wipers): over the drops, under the dash */
 }
 
 /* port: the lamps', the street lamps' and the lit windows' tables from the world's tables just made, and the textures they are drawn on */
@@ -2697,7 +2680,7 @@ static void draw_sky(const TrackArt *art, const TrackInfo *info, const PortedCam
                                  night_fill && port_night_stretch_clean() && own != NULL ? own->bitmap.palette : art->palette);   /* the sky's texels index its own palette */   /* port (night_stretch_clean): no star carried up as a stripe */
     static SkyStretch below;   /* port (sky_fill_below): and downward, to the view's bottom, in 16:9 and 21:9 */
     if (stage.flat && port_sky_fill_below()) stage.horz = sky_stretch_below(&below, stage.horz, horizon->scale, stage.line, ctx->clip.y1);
-    bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, sky_stage_band, &stage);
+    bands_rows(box[1] < 0 ? 0 : box[1], box[3] < view_screen_h ? box[3] : view_screen_h, sky_stage_band, &stage);
 }
 
 /* port: the track pass, by which way the camera looks (follow_off_road): the exe's pass ahead, or follow_behind's; returns whether the exe's pass was the one drawn */
@@ -2731,9 +2714,9 @@ static void cars_weather_sky(const WeatherTables *wt, uint8_t *pixels, const int
     snow_roll_update();
     drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (WEATHER_STORM): the palette goes bright with the flash, the sky white below */
     if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
-        const WeatherSky sky = weather_sky(pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt,
+        const WeatherSky sky = weather_sky(pixels, view_screen_w, box[0] < 0 ? 0 : box[0], box[2] > view_screen_w ? view_screen_w : box[2], wt,
                                            view, cam->matrix, storm_flash_level());
-        bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, weather_sky_band, (void *)&sky);
+        bands_rows(box[1] < 0 ? 0 : box[1], box[3] < view_screen_h ? box[3] : view_screen_h, weather_sky_band, (void *)&sky);
     }
 }
 
@@ -2809,15 +2792,15 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
 {
     static View view;
     static HorizonTables horizon;
-    const PortedViewport *vp = &viewport;
+    const PortedViewport *vp = &view_viewport;
     view_init(&view, vp->left, vp->top, vp->width, vp->height, vp->fov, vp->fov_y != 0 ? vp->fov_y : vp->fov);
     /* port: the exe's rows scale grows with the width (0043a028); past 640 it keeps the 640's zoom */
     const int32_t rs = vp->render_scale > 0 ? vp->render_scale : 1;   /* port (render scale): the zoom of the unscaled width */
     horizon_tables(&horizon, vp->width, vp->fov, screen_horizon_scale(vp->scale, vp->width / rs));
-    RasterTarget target = { pixels, screen_w, screen_h, 0, 0 };
+    RasterTarget target = { pixels, view_screen_w, view_screen_h, 0, 0 };
     /* the box (00449f50: the layout's left, top, +0x20, +0x24); left + x, top + y only place the projection */
     const int32_t box[4] = { vp->sky_left, vp->sky_top, vp->sky_left + vp->sky_width, vp->sky_top + vp->sky_height };
-    QuadTarget quad = { pixels, screen_w, box[0], box[1], box[2], box[3] };
+    QuadTarget quad = { pixels, view_screen_w, box[0], box[1], box[2], box[3] };
     DrawContext ctx = { &view, { box[0], box[1], box[2], box[3] }, WORLD_SHIFT,
                         { 0, 0, 0x1999 },
                         { &quad, draw_uv, draw_full, draw_full_alt, draw_model, draw_cars, draw_skids,
