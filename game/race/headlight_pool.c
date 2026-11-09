@@ -143,7 +143,7 @@ int headlight_pool_width(int point)
 
 int headlight_pool_car_night_lift(int gain, int level)
 {
-    const int more = level == 1 ? 96 : level == 2 ? 160 : 0;
+    const int more = level == 1 ? 32 : level == 2 ? 64 : 0;
     return gain + gain * more / 256;
 }
 
