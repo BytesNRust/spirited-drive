@@ -25,6 +25,7 @@
 #include "game/viewer/street_halo.h"
 #include "game/viewer/car_lamp_halo.h"
 #include "game/viewer/weather_sky.h"
+#include "game/viewer/weather_hooks.h"
 #include "game/viewer/screen_layout.h"
 #include "game/race/car_draw.h"
 #include "game/race/car_road.h"
@@ -465,6 +466,7 @@ static void rain_mood_band(void *user, int top, int bottom)
     weather_mood_rows(m->pixels, m->pitch, box, m->table, m->share);
 }
 
+static WeatherFrame weather_frame(void);   /* port (weather): the frame's weather, as weather_hooks.h asks for it */
 static void storm_thunder_update(void);   /* port (rain_v2): the thunder after each strike */
 static void rain_roll_update(void);       /* port (rain_tyre_roll): the wet-tyre roll of the followed car */
 static void snow_roll_update(void);       /* port (snow crunch): the snowy rally's crunch of the followed car */
@@ -2573,59 +2575,12 @@ static void draw_followed_car(const PortedCamera *pc, int ahead_drawn)
     row_draw(NULL, car, 0);
 }
 
-/* port (wipers): the dash view's blades (the 3D buffer's pixels), what falls fixes their pace, and the darkening table the blades are drawn with */
-static WiperBlade wiper_scene[WIPER_BLADES];
-static int wiper_scene_count;
-
-void ported_view_set_wipers(const WiperBlade *blades, int count)
-{
-    wiper_scene_count = blades != NULL && count > 0 ? (count < WIPER_BLADES ? count : WIPER_BLADES) : 0;
-    if (wiper_scene_count > 0) memcpy(wiper_scene, blades, sizeof(WiperBlade) * (size_t)wiper_scene_count);
-}
-
-static const uint8_t *wiper_glass;
-static float wiper_glass_x, wiper_glass_y, wiper_glass_scale = 1.0f;
-
-void ported_view_set_wiper_glass(const uint8_t *glass, float x, float y, float scale)
-{
-    wiper_glass = glass, wiper_glass_x = x, wiper_glass_y = y, wiper_glass_scale = scale > 0.0f ? scale : 1.0f;
-}
-
-int ported_view_wipers_active(void) { return wiper_scene_count > 0 && weather_wet(weather); }
-
-/* the passes in the box's own pixels for this frame, NULL when there are none (no blades, nothing falls) */
-static const WiperPass *wiper_pass_now(WiperPass *out, const int32_t box[4])
-{
-    if (wiper_scene_count == 0 || !weather_wet(weather)) return NULL;
-    out->count = wiper_scene_count;
-    for (int i = 0; i < wiper_scene_count; i++) {
-        out->blade[i] = wiper_scene[i];
-        out->blade[i].x -= (float)box[0], out->blade[i].y -= (float)box[1];
-        if (out->blade[i].xmax > 0.0f) out->blade[i].xmax -= (float)box[0];
-    }
-    out->glass = wiper_glass, out->glass_x = wiper_glass_x - (float)box[0], out->glass_y = wiper_glass_y - (float)box[1], out->glass_scale = wiper_glass_scale;
-    out->timing = wiper_timing(snow_level() != SNOW_NONE ? WIPER_SNOW : weather == WEATHER_STORM ? WIPER_STORM : WIPER_RAIN);
-    return out;
-}
-
-static const uint8_t *wiper_dark(void)
-{
-    static uint8_t table[256], made_for[768];
-    static int made;
-    if (!made || memcmp(made_for, object_pixels.palette, sizeof made_for) != 0) {
-        static const uint8_t black[3] = { 0, 0, 0 };
-        spray_tint_table(object_pixels.palette, black, 97, table);
-        memcpy(made_for, object_pixels.palette, sizeof made_for);
-        made = 1;
-    }
-    return table;
-}
-
 /* port (weather): the rain over the drawn view, under the 2D layer: the speed-following streaks and the lens at night (rain_fx), else the plain streaks */
 static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *view, int32_t rs, const WeatherTables *wt)
 {
     WiperPass wiper_now;
-    const WiperPass *const wipers = wt != NULL ? wiper_pass_now(&wiper_now, box) : NULL;   /* port (wipers) */
+    const WeatherFrame frame = weather_frame();
+    const WiperPass *const wipers = wt != NULL ? weather_hooks_wiper_pass(&wiper_now, box, &frame) : NULL;   /* port (wipers) */
     if (wt != NULL && weather_wet(weather) && port_rain_fx()) {   /* port (rain_fx): streaks that follow the speed, lit by the headlights at night */
         const int32_t speed = shadow_race != NULL && followed_car() != NULL ? followed_car()->speed : 0;
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
@@ -2659,7 +2614,7 @@ static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *vi
     }
     else if (wt != NULL && weather_wet(weather))   /* port (weather): the streaks over the whole view, under the 2D layer */
         weather_rain_draw(pixels, screen_w, box, rs, (uint32_t)anim_tick, wt->rain, weather == WEATHER_STORM, port_rain_v2());
-    if (wipers != NULL) wiper_draw(pixels, screen_w, box, wipers, (uint32_t)anim_tick, wiper_dark());   /* port (wipers): over the drops, under the dash */
+    if (wipers != NULL) wiper_draw(pixels, screen_w, box, wipers, (uint32_t)anim_tick, weather_hooks_wiper_dark(object_pixels.palette));   /* port (wipers): over the drops, under the dash */
 }
 
 /* port: the lamps', the street lamps' and the lit windows' tables from the world's tables just made, and the textures they are drawn on */
@@ -2949,65 +2904,15 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     rain_over_view(pixels, box, &view, rs, wt);
 }
 
-/* port (rain_v2): the thunder after each strike. Every race tick since the last frame is looked at (a frame can span several); a strike schedules its clap weather_thunder_delay ticks
- * on at weather_thunder_volume. The first call, a clock gone back, or a jump of more than a few seconds starts afresh (no claps for ticks nobody saw). */
-static void storm_thunder_update(void)
-{
-    static uint32_t last;
-    static int have;
-    if (weather != WEATHER_STORM || !port_rain_v2() || snow_level() != SNOW_NONE) {   /* port (snow_weather): a snowstorm has no thunder */
-        have = 0;
-        return;
-    }
-    const uint32_t tick = (uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick);
-    if (!have || tick < last || tick - last > 90) {
-        last = tick, have = 1;
-        return;
-    }
-    for (uint32_t t = last + 1; t <= tick; t++) {
-        if (!weather_thunder_strike(t)) continue;
-        const int delay = weather_thunder_delay(t);
-        drive_audio_thunder(delay, weather_thunder_inside(weather_thunder_volume(delay), rain_open));
-    }
-    last = tick;
-}
+/* port (weather): the frame's weather as weather_hooks.h asks for it; the thunder, the voices of the followed car and the lightning are there */
+static WeatherFrame weather_frame(void) { return (WeatherFrame){ weather, snow_level(), rain_open, shadow_race, anim_tick }; }
 
-/* port (rain_tyre_roll): the wet-tyre roll of the car the camera follows (as the tyre sounds are), once a frame: its level and pitch by its speed (rain_roll.h), only in rain or a storm with rain_v2,
- * on open asphalt (not the rally's gravel, a road shoulder or the air) and by the rain's openness (silent inside a closed zone). The voice falls silent by itself when the frames stop. */
-static void rain_roll_update(void)
-{
-    int percent = 0, pitch = RAIN_ROLL_PITCH_SLOW;
-    if (shadow_race != NULL && port_rain_tyre_roll() && port_rain_v2() && weather_wet(weather)) {
-        const Car *const car = shadow_race->cars[race_slot(shadow_race->viewed)];
-        if (car != NULL) {
-            const int asphalt = car->airborne_ticks == 0 && shadow_race->port_rally_gravel == 0 && (uint32_t)car->surface < RACE_SURFACES && shadow_race->surfaces[car->surface].off_road == 0;
-            percent = rain_roll_volume(1, rain_open, car->speed, asphalt);
-            pitch = rain_roll_pitch(car->speed);
-        }
-    }
-    drive_audio_wet_roll(percent, pitch);
-}
+static void storm_thunder_update(void) { const WeatherFrame f = weather_frame(); weather_hooks_thunder(&f); }
+static void rain_roll_update(void) { const WeatherFrame f = weather_frame(); weather_hooks_rain_roll(&f); }
+static void snow_roll_update(void) { const WeatherFrame f = weather_frame(); weather_hooks_snow_roll(&f); }
+static int storm_flash_level(void) { const WeatherFrame f = weather_frame(); return weather_hooks_flash_level(&f); }
 
-/* port (snow crunch): the crunch of the car the camera follows on the snowy rally (RALLY_GRAVEL_SNOW), once a frame: its level and pitch by its speed (snow_roll.h), the gravel roll's curve; the exe's gravel
- * sample is not struck there (race_sound.c). The voice falls silent by itself when the frames stop. */
-static void snow_roll_update(void)
-{
-    int percent = 0, pitch = SNOW_ROLL_PITCH_SLOW;
-    if (shadow_race != NULL && shadow_race->port_rally_gravel == RALLY_GRAVEL_SNOW) {
-        const Car *const car = shadow_race->cars[race_slot(shadow_race->viewed)];
-        if (car != NULL) {
-            percent = snow_roll_volume(shadow_race->port_rally_gravel, car->speed, car->airborne_ticks == 0);
-            pitch = snow_roll_pitch(car->speed);
-        }
-    }
-    drive_audio_snow_roll(percent, pitch);
-}
-
-static int storm_flash_level(void)
-{
-    if (weather != WEATHER_STORM || snow_level() != SNOW_NONE) return 0;   /* port (snow_weather): a snowstorm has no lightning */
-    return weather_flash_open(weather_rain_flash((uint32_t)(shadow_race != NULL ? shadow_race->tick : anim_tick)), rain_open);   /* port (weather_zones): none inside a closed zone */
-}
+int ported_view_wipers_active(void) { return weather_hooks_wiper_blades() > 0 && weather_wet(weather); }
 
 uint8_t ported_view_light_at(uint32_t node, int point, uint8_t *tunnel)
 {
