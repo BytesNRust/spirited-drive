@@ -234,8 +234,8 @@ static void test_tables(void)
 /* what is free, by mode */
 static void test_free_keys(void)
 {
-    static const char *const ALL[] = { "fullscreen", "explode", "nitro", "turbo", "warrior", "mirror", "rally", "vegas", "units", "update_check" };
-    static const char *const RESTORED[] = { "format", "refresh_hz", "scale", "render_bands", "stats_overlay" };
+    static const char *const ALL[] = { "fullscreen", "explode", "nitro", "turbo", "warrior", "mirror", "rally", "vegas", "units", "update_check", "scale" };
+    static const char *const RESTORED[] = { "format", "refresh_hz", "render_bands", "stats_overlay" };
     static const char *const RESTOMOD[] = { "perspective", "texture_filter", "fog", "psx_light", "fov_adjust", "render_scale", "view_ultra", "weather", "psx_time", "laps", "reverse", "car_paint", "psx_liveries",
                                             "lunar_springs", "lunar_gravity", "warrior_rival", "no_assists", "bumper_mirror", "bumper_radar", "replay_cameras", "car_markers", "dash_box", "follow_camera",
                                             "difficulty", "start", "no_movies", "body_shine" };

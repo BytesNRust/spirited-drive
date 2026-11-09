@@ -12,7 +12,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 ## How the pieces fit
 
 - **`TNFS_*` variable.** Where a key has one, the variable wins over the file when it is set (`0`/`1` unless noted). Most are for A/B comparisons.
-- **Modes** (`profile=stock|restored|restomod`). A mode starts from its `TABLES` row for the keys in the table below. Its file's value counts only for a key that is free in the mode. Free in all three: `fullscreen`, `explode`, `nitro`, `turbo`, `warrior`, `mirror`, `rally`, `vegas`, `units`, `update_check`. Restored adds `format`, `refresh_hz`, `scale`, `render_bands`, `stats_overlay`. Restomod leaves every key free but `profile` and `psx_dir`.
+- **Modes** (`profile=stock|restored|restomod`). A mode starts from its `TABLES` row for the keys in the table below. Its file's value counts only for a key that is free in the mode. Free in all three: `fullscreen`, `explode`, `nitro`, `turbo`, `warrior`, `mirror`, `rally`, `vegas`, `units`, `update_check`, `scale`. Restored adds `format`, `refresh_hz`, `render_bands`, `stats_overlay`. Restomod leaves every key free but `profile` and `psx_dir`.
 - **"Exe"** is the value that gives the original game's behaviour (the `Stock` profile, where the key is in it). Where the default is not the exe's, the column says so.
 - Many look keys do nothing without another: the ones marked "needs" are inert unless that key is on.
 
@@ -24,7 +24,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 |---|---|---|---|---|---|---|
 | `format` | `4:3` | `4:3` | `4:3`, `16:9`, `21:9` | Graphics Detail: Screen Format | `TNFS_SCREEN` | 4:3 / the monitor's format / the monitor's format (the table's `widescreen`) |
 | `refresh_hz` | 60 | 30 (the exe's 30 steps a second, each drawn once) | 30, 60, 120, 144 | Graphics Detail: Refresh Rate | `TNFS_REFRESH_HZ` | 30 / 144 / 144 |
-| `scale` | `fill` | `fill` | `fill`, `integer` | Graphics Detail: Scaling | none | integer / integer / fill (`scale_integer`) |
+| `scale` | `fill` | `fill` | `fill`, `integer` | Graphics Detail: Scaling (free in every mode; the window counts real pixels on a retina display, so Whole is 3x/4x there, and tnfs.log has its sizes) | none | integer / integer / fill (`scale_integer`) |
 | `fullscreen` | 0 | 0 | 0, 1 | Graphics Detail: Full Screen | none | not set |
 | `fov_adjust` | 0 | 0 | -10..+20 (degrees added to the vertical field) | Graphics Detail: Field Of View | none | not set |
 | `render_scale` | 1 | 1 | 1, 2, 3 (the 3D drawn at that many times the frame's size) | Graphics Detail: Render Scale | `TNFS_RENDER_SCALE` | 1 / 1 / 2 |
