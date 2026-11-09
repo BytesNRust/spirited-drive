@@ -2,6 +2,7 @@
  * shorts here, filled from config.dat's race settings on entry and put back on leaving; the race settings' checked
  * steps (race_settings.c, tournament.c) run on a RaceSettings made from them. */
 #include "game/frontend/menu_glue.h"
+#include "game/frontend/central_split.h"
 
 #include "game/frontend/audio_menu.h"
 #include "game/frontend/best_times.h"
@@ -915,8 +916,6 @@ static int32_t capture(void *ctx, char *name)
 /* port: the added pages' text, panels and saving (graphics_plus' routines below), and the pad as it is now */
 static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
 static int32_t plus_text_width(void *ctx, const char *text);
-static int32_t plus_arrow_size(void *ctx, int32_t right, int32_t *w, int32_t *h);
-static void plus_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
 static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed);
 static void controls_plus_save(void *ctx, const PortControls *controls)
 {
@@ -994,7 +993,7 @@ static void controls(void *ctx, int32_t mode)
         select_default, flip, show, deadline_set, sound, nothing, blit_at, ticks, buttons, activate, key, click, clash,
         glue_boxed, capture, deadline_passed, music, fade_out, free_handle_inverse, no_mode, off, net_sync,
         picture_free, free_bank, ctx, plus_text, plus_text_width, plus_panel, controls_plus_save, pad_raw,
-        plus_arrow_size, plus_arrow,
+        central_page_arrow_size, central_page_arrow,
         /* port: the pages 2 and 3 over the clean background, with the title and the group headers as CUSTOMIZE's */
         controls_bgnd, glue_own_bgnd_shape, own_plus_text, own_title_text, own_header_text,
         /* port: the keyboard page's capture and key names, and the pages' subtitle */
@@ -1066,26 +1065,6 @@ static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, 
 }
 static int32_t plus_text_width(void *ctx, const char *text) { (void)ctx; return text_width(text); }
 
-/* port: the page indicator's triangles (page_arrows.h), cut from the CD the first time and kept; none when the CD
- * cannot give them, and the indicator is its text */
-static int32_t plus_arrow_size(void *ctx, int32_t right, int32_t *w, int32_t *h)
-{
-    (void)ctx;
-    const PageArrowMasks *const m = page_arrows_shared(resource_load_art);
-    if (m == NULL) return 0;
-    *w = m->w[right ? PAGE_ARROW_RIGHT : PAGE_ARROW_LEFT], *h = m->h[right ? PAGE_ARROW_RIGHT : PAGE_ARROW_LEFT];
-    return 1;
-}
-static void plus_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y)
-{
-    (void)ctx;
-    const PageArrowMasks *const m = page_arrows_shared(resource_load_art);
-    const int a = right ? PAGE_ARROW_RIGHT : PAGE_ARROW_LEFT;
-    if (m == NULL) return;
-    text_select(lit ? TEXT_YELLOW : TEXT_CREAM);
-    text_draw_item_mask(m->mask[a], m->w[a], m->h[a], x, y);
-}
-int32_t glue_plus_arrow_size(void *ctx, int32_t right, int32_t *w, int32_t *h) { return plus_arrow_size(ctx, right, w, h); }
 static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
     enum { DARK = 0x1000, RED = 0xff0000, CORNERS = 4 };
@@ -1302,7 +1281,7 @@ void own_panel_text(void *ctx, int32_t style_id, const char *text, int32_t x, in
 void own_panel_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y)
 {
     text_build_styles_from(own_palette);
-    plus_arrow(ctx, right, lit, x, y);
+    central_page_arrow(ctx, right, lit, x, y);
 }
 
 /* Cancel or Escape: the settings back as they were on entry, and the config.dat image with them -- the view distance
@@ -1354,7 +1333,7 @@ static void graphics(void *ctx, int32_t mode)
         own_plus_text,
         /* port: whether the display is already dark, so the screen skips a fade of a display Options has already
          * faded out rather than scaling zeros for seventeen vblanks */
-        display_dark, plus_arrow_size, plus_arrow };
+        display_dark, central_page_arrow_size, central_page_arrow };
     input_function_keys(&showing);
     input_page_keys(!race);
     /* port: graphics_own.c, the port's own screen, from Options and from the race's pause menu alike */
@@ -1645,31 +1624,6 @@ static void options_extras(void *ctx)
     extras_apply();
 }
 
-/* port: the Options rows' text (Customize game) soft like the art: the screen's own picture put back under it
- * first, since the row is redrawn over itself when the selection moves */
-static void options_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
-{
-    enum { MARGIN = 2, SHADOW_ROOM = 6 };
-    static int32_t bank;
-    (void)ctx;
-    if (bank == 0) bank = ea_bank_load("option/options.qfs");
-    const uint8_t *const bgnd = bank != 0 ? ea_shape(bank, "bgnd") : NULL;
-    const int left = x - MARGIN, top = y - MARGIN;
-    const int w = text_width(text) + MARGIN + SHADOW_ROOM, h = text_line_height() + MARGIN + SHADOW_ROOM;
-    uint8_t *const cover = malloc(CONFIG_BGND_SHAPE_HEADER + (size_t)w * h);
-    if (bgnd != NULL && cover != NULL && config_bgnd_shape(bgnd + CONFIG_BGND_SHAPE_HEADER, left, top, w, h, cover) != 0)
-        ea_blit_own(cover);
-    free(cover);
-    /* the styles from the bank's palette: the first draw comes before the fade puts it on screen */
-    const uint8_t *const pal = bank != 0 ? ea_shape(bank, "!pal") : NULL;
-    uint8_t rgb[768];
-    const FshEntry e = { .type = pal != NULL ? pal[0] : FSH_TYPE_BITMAP, .payload = pal != NULL ? pal + 16 : NULL,
-                         .payload_size = sizeof rgb };
-    if (pal != NULL && fsh_palette_rgb(&e, rgb) == FSH_OK) text_build_styles_from(rgb);
-    text_select((TextStyle)style_id);
-    text_draw_smooth(text, x, y, 1, 1);
-}
-
 static void options(void *ctx)
 {
     ConfigDat *const config = config_current();
@@ -1681,7 +1635,7 @@ static void options(void *ctx)
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
         ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
         music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, net_sync,
-        deadline_passed, ctx, options_extras, options_plus_text, plus_text_width, plus_panel };
+        deadline_passed, ctx, options_extras, central_options_plus_text, plus_text_width, plus_panel };
     OptionsMenuState st = {
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
         &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],
