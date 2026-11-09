@@ -376,6 +376,8 @@ add_library(tnfs_game STATIC
     game/race/race_menu.c
     game/race/race_menu_tables.c
     game/race/race_net.c
+    game/race/race_net_receive.c
+    game/race/race_net_setup.c
     game/race/horizon.c
     game/race/sky_stretch.c
     game/race/model_draw.c
