@@ -52,6 +52,10 @@ int headlight_pool_car_gain(int gain);
  * lift reaches every car, the player's with its lights on too; a lit car gains most in absolute terms, a dark one keeps its order. */
 int headlight_pool_car_night_lift(int gain, int level);
 
+/* port (car_night_lift): the start of a car's ratio when the track's light gave none (`found` 0: no ambient, no synth, as CL1's night): with a headlight pool and a lift level the car's own light is full
+ * (out 1, 1, 1) and it counts as found, so the pool's gain lights it as it lights the road; otherwise `out` is left as the caller set it. Returns the new `found`. */
+int headlight_pool_car_ratio_start(int found, int has_pool, int lift_level, float out[3]);
+
 /* the same as a tunnel node, whatever pool->tunnel says (a light whose own rows mark the node a tunnel) */
 int headlight_pool_gain_tunnel(const HeadlightPool *pool, uint32_t node);
 

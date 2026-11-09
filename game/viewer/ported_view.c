@@ -817,10 +817,8 @@ static void headlights_update(void)
 static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
 {
     int found = ratio_of(node, out);
-    if (!found && port_car_night_lift() >= 1 && psx_light != NULL && psx_light->pool != NULL) {   /* port (car_night_lift): a light with no ratio for the car (no ambient, no synth: CL1's night) left `out` unset, and car_light made the car's table from 0: every texel but the paint's black, a wheel a flat disc. The car's own light is full, and the pool's gain below lights it as it lights the road */
-        out[0] = out[1] = out[2] = 1.0f;
-        found = 1;
-    }
+    found = headlight_pool_car_ratio_start(found, psx_light != NULL && psx_light->pool != NULL, port_car_night_lift(), out);
+    /* port (car_night_lift): a light with no ratio for the car (no ambient, no synth: CL1's night) left `out` unset, and car_light made the car's table from 0: every texel but the paint's black, a wheel a flat disc. The car's own light is full, and the pool's gain below lights it as it lights the road */
     /* port (car_tunnel_match): a made tunnel with a look keeps the light its look gives (the world's tables are not scaled by the headlight pool's floor there, light_at_dark), so the car is not either: the pool's share took a further 60 % off the car */
     const int match_tunnel = found && port_car_tunnel_match() >= 1 && psx_light != NULL && psx_light->look_set && psx_light_tunnel(psx_light, psx_ring_node(node, psx_light->nodes));
     if (found && !match_tunnel && psx_light != NULL && psx_light->pool != NULL) {   /* port (psx_headlights): a car in the dark or in a pool takes its light, as the road under it does */

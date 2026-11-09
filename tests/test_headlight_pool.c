@@ -377,8 +377,23 @@ static void test_car_night_lift(void)
     CHECK_EQ_INT(headlight_pool_car_night_lift(100, 7), 100);
 }
 
+/* port (car_night_lift): a track whose light gives the car no ratio (CL1's night: no ambient, no synth) leaves the caller's ratio untouched; with the pool and a lift level it is the car's own full light, found */
+static void test_car_ratio_start(void)
+{
+    float out[3] = { 0.0f, 0.0f, 0.0f };
+    CHECK_EQ_INT(headlight_pool_car_ratio_start(1, 1, 1, out), 1);   /* a ratio was found: not touched */
+    CHECK(out[0] == 0.0f && out[1] == 0.0f && out[2] == 0.0f);
+    CHECK_EQ_INT(headlight_pool_car_ratio_start(0, 1, 0, out), 0);   /* no lift: as before, the caller's zero stays */
+    CHECK(out[0] == 0.0f);
+    CHECK_EQ_INT(headlight_pool_car_ratio_start(0, 0, 1, out), 0);   /* no pool (the day): as before */
+    CHECK(out[0] == 0.0f);
+    CHECK_EQ_INT(headlight_pool_car_ratio_start(0, 1, 1, out), 1);   /* CL1 at night with the lift: full light, found */
+    CHECK(out[0] == 1.0f && out[1] == 1.0f && out[2] == 1.0f);
+}
+
 int main(void)
 {
+    test_car_ratio_start();
     test_car_night_lift();
     test_the_pool_ahead_of_a_car();
     test_the_pool_slides_with_the_car_inside_a_node();
