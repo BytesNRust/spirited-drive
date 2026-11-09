@@ -4,6 +4,7 @@
 #include "game/race/rally_gravel.h"
 #include "game/race/snow_roll.h"
 #include "game/race/spray_tint.h"
+#include "game/race/tick_rate.h"
 #include "game/race/weather.h"
 #include "game/race/weather_snow.h"
 #include "game/sys/port_settings.h"
@@ -71,7 +72,7 @@ void weather_hooks_thunder(const WeatherFrame *f)
         return;
     }
     const uint32_t tick = (uint32_t)(f->race != NULL ? f->race->tick : f->anim_tick);
-    if (!have || tick < last || tick - last > 90) {
+    if (!have || tick < last || tick - last > 3 * RACE_TICKS_A_SECOND) {
         last = tick, have = 1;
         return;
     }

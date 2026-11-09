@@ -3,7 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { STEPS_PER_SECOND = 30 };
+#include "game/race/tick_rate.h"
+
+enum { STEPS_PER_SECOND = RACE_TICKS_A_SECOND };   /* the delay is in race ticks (weather_thunder_delay) */
 
 static uint32_t le16(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8; }
 static uint32_t le32(const uint8_t *p) { return le16(p) | le16(p + 2) << 16; }

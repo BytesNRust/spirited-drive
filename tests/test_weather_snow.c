@@ -54,7 +54,7 @@ static void test_fall_is_slow_and_drift_is_sideways(void)
     for (int i = 0; i < 110; i++) {
         int32_t a[3], b[3];
         weather_snow_flake(i, 0, SNOW_LIGHT, 640, 480, a);
-        weather_snow_flake(i, 30, SNOW_LIGHT, 640, 480, b);
+        weather_snow_flake(i, 60, SNOW_LIGHT, 640, 480, b);   /* one second: 60 race ticks */
         const int fell = ((b[1] - a[1]) + 480) % 480 * 100 / 480;   /* percent of the box's height in one second */
         if (fell < slowest) slowest = fell;
         if (fell > fastest) fastest = fell;

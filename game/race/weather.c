@@ -302,11 +302,11 @@ int weather_rain_spray_level(int night)
 }
 
 /* the lightning's brightness a tick after its strike: full at once, then decaying (of WEATHER_FLASH_PEAK) */
-static const uint8_t FLASH_DECAY[WEATHER_FLASH_TICKS] = { 15, 14, 11, 8, 6, 4, 3, 2, 1, 1 };
+static const uint8_t FLASH_DECAY[WEATHER_FLASH_TICKS] = { 15, 15, 14, 14, 11, 11, 8, 8, 6, 6, 4, 4, 3, 3, 2, 2, 1, 1, 1, 1 };
 
 int weather_rain_flash(uint32_t tick)
 {
-    if (tick < 150) return 0;
+    if (tick < WEATHER_STORM_QUIET) return 0;
     const uint32_t slot = tick / WEATHER_STORM_SLOT, at = tick - slot * WEATHER_STORM_SLOT;
     const uint32_t h = hash(slot, 11);
     if ((h & 3) == 0) return 0;                                     /* one slot in four is quiet */

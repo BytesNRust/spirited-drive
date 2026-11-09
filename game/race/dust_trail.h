@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 
-enum { DUST_TRAIL_PUFFS = 192 };
+enum { DUST_TRAIL_PUFFS = 384 };
 
 typedef struct {
     int32_t pos[3];    /* the world place it was dropped at (x, y, z as the cars have them) */

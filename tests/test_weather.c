@@ -259,7 +259,7 @@ static void test_rain_spray_plume(void)
 static void test_storm_clock(void)
 {
     int strikes = 0, doubles = 0, quiet_slots = 0;
-    for (uint32_t t = 0; t < 150; t++) CHECK_EQ_INT(weather_rain_flash(t), 0);   /* none in the first 5 seconds */
+    for (uint32_t t = 0; t < WEATHER_STORM_QUIET; t++) CHECK_EQ_INT(weather_rain_flash(t), 0);   /* none in the first 5 seconds */
     for (uint32_t slot = 0; slot < 60; slot++) {
         int lit = 0, peaks = 0, last = 0;
         for (uint32_t t = slot * WEATHER_STORM_SLOT; t < (slot + 1) * WEATHER_STORM_SLOT; t++) {
@@ -281,6 +281,10 @@ static void test_storm_clock(void)
             CHECK_EQ_INT(top, WEATHER_FLASH_PEAK);                                    /* the sky goes white at the strike */
         }
     }
+    CHECK_EQ_INT(WEATHER_STORM_SLOT, 15 * 60);   /* a strike every 15 s, a flash a third of a second, none in the first 5 s (60 ticks a second) */
+    CHECK_EQ_INT(WEATHER_FLASH_TICKS, 20);
+    CHECK_EQ_INT(WEATHER_STORM_QUIET, 5 * 60);
+    CHECK(WEATHER_THUNDER_MIN_TICKS == 30 && WEATHER_THUNDER_MAX_TICKS == 240);   /* 0.5 to 4 s */
     CHECK(strikes > 30 && strikes < 56);   /* three slots in four */
     CHECK(doubles > 2 && doubles * 2 < strikes);
     CHECK(quiet_slots > 2);
