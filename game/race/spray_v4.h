@@ -11,10 +11,12 @@
 
 #include <stdint.h>
 
+#include "game/race/tick_rate.h"
+
 enum {
     SPRAY_V4_MAX = 2048,
     SPRAY_V4_CARS = 16,
-    SPRAY_V4_TICKS_A_SECOND = 60
+    SPRAY_V4_TICKS_A_SECOND = RACE_TICKS_A_SECOND
 };
 
 /* the kinds of particle: each is drawn with its own colour and opacity */
