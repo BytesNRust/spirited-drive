@@ -415,8 +415,50 @@ static void test_weather_zones(void)
     CHECK(cap > 0.46f && cap < 0.47f);
 }
 
+static void test_weather_fog_variants(void)
+{
+    const uint8_t base[3] = { 120, 130, 150 };
+    for (int w = 0; w < WEATHER_COUNT; w++)
+        for (int snow = 0; snow <= 2; snow++) {
+            /* variant 0 is today's, for every weather and snow */
+            uint8_t a[3], b[3], sa[3], sb[3];
+            WeatherFogShape sh;
+            weather_fog_colour(w, base, a), weather_fog_colour_for(w, snow, 0, base, b);
+            CHECK(memcmp(a, b, 3) == 0);
+            weather_sky_colour(w, a, sa), weather_sky_colour_for(w, snow, 0, a, sb);
+            CHECK(memcmp(sa, sb, 3) == 0);
+            CHECK_EQ_INT(weather_sky_is_wet_dark(w, snow, 0), weather_wet(w));
+            CHECK(weather_fog_snow_mood(snow, 0));
+            weather_fog_shape(w, snow, 0, &sh);
+            if (w == WEATHER_FOG) CHECK(sh.start == WEATHER_FOG_START && sh.end == WEATHER_FOG_END);
+            else CHECK(sh.start == WEATHER_RAIN_FOG_START && sh.end == WEATHER_RAIN_FOG_END && sh.exp == 0);
+            /* clear and fog never change with the setting */
+            if (!weather_wet(w)) {
+                WeatherFogShape s2;
+                weather_fog_shape(w, snow, 2, &s2);
+                CHECK(memcmp(&sh, &s2, sizeof sh) == 0);
+                weather_fog_colour_for(w, snow, 2, base, b);
+                CHECK(memcmp(a, b, 3) == 0);
+            }
+        }
+    /* snow whiter and closer; the storm's snow closer still; the rain storm denser than rain */
+    WeatherFogShape rain, storm, snow, blizzard;
+    uint8_t c0[3], c1[3];
+    weather_fog_shape(WEATHER_RAIN, 0, 1, &rain);
+    weather_fog_shape(WEATHER_STORM, 0, 1, &storm);
+    weather_fog_shape(WEATHER_RAIN, 1, 1, &snow);
+    weather_fog_shape(WEATHER_STORM, 2, 1, &blizzard);
+    CHECK(rain.start == WEATHER_RAIN_FOG_START && rain.end == WEATHER_RAIN_FOG_END);
+    CHECK(storm.end < rain.end && snow.end < rain.end && blizzard.end < snow.end);
+    weather_fog_colour_for(WEATHER_RAIN, 1, 0, base, c0), weather_fog_colour_for(WEATHER_RAIN, 1, 1, base, c1);
+    CHECK(c1[0] > c0[0] && c1[1] > c0[1] && c1[2] > c0[2]);
+    CHECK(!weather_sky_is_wet_dark(WEATHER_RAIN, 1, 1) && weather_sky_is_wet_dark(WEATHER_RAIN, 0, 1));
+    CHECK(weather_fog_snow_mood(1, 1) && !weather_fog_snow_mood(1, 2) && weather_fog_snow_mood(0, 2));
+}
+
 int main(void)
 {
+    test_weather_fog_variants();
     test_weather_zones();
     test_reflection_weight();
     test_storm_clock();

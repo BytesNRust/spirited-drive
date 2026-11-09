@@ -450,7 +450,7 @@ void ported_view_set_snow(int snow) { track_snow = snow != 0; }
 static int snow_level(void) { return weather_snow_level(weather, track_snow, 1); }   /* SNOW_NONE .. SNOW_HEAVY: what falls on this race */
 void ported_view_set_weather(int w) { weather = w > WEATHER_CLEAR && w < WEATHER_COUNT ? w : WEATHER_CLEAR; }
 
-static const WeatherTables *weather_tables(const TrackArt *art) { return weather_tables_for(art, weather, &look); }
+static const WeatherTables *weather_tables(const TrackArt *art) { return weather_tables_for(art, weather, snow_level(), port_weather_fog(), &look); }
 
 typedef struct {
     uint8_t *pixels;
@@ -486,7 +486,7 @@ int ported_view_mirror_weather_on(void) { return weather != WEATHER_CLEAR && mod
 int ported_view_mirror_weather(const TrackArt *art)
 {
     if (weather == WEATHER_CLEAR || !modern) return 0;
-    weather_style(art, weather_tables(art), weather, &look, look_filter, rain_open);
+    weather_style(art, weather_tables(art), weather, snow_level(), port_weather_fog(), &look, look_filter, rain_open);
     return 1;
 }
 
@@ -2586,7 +2586,7 @@ static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *vi
         const char *forced = getenv("TNFS_RAIN_SPEED");   /* dev: the speed the streaks are drawn for (metres a second), for captures of a car the harness has not got up to speed */
         const int32_t shown = forced != NULL ? (int32_t)(atoi(forced)) << 16 : speed;
         const int mood_share = (drive_light_night() ? RAIN_MOOD_SHARE_NIGHT : RAIN_MOOD_SHARE) * rain_open / 16;   /* port (tunnel_dry): the grey goes with the weather: none inside a closed zone */
-        if (!rain_wet_off() && mood_share > 0) {   /* port (rain v4): the grey, low-contrast scene of rain; rows are independent, so in bands */
+        if (!rain_wet_off() && mood_share > 0 && weather_fog_snow_mood(snow_level(), port_weather_fog())) {   /* port (rain v4): the grey, low-contrast scene of rain; rows are independent, so in bands */
             const RainMood mood = { pixels, screen_w, { box[0], box[1], box[2], box[3] }, wt->mood, mood_share };
             bands_rows(box[1], box[3], rain_mood_band, (void *)&mood);
         }
@@ -2798,7 +2798,7 @@ static void cars_stream_style(const Tri *tri, const TrackArt *art, const PortedC
 {
     stream(tri, art, pc->node);
     if (!modern) modern_road_set_style(NULL);
-    else if (wt != NULL) weather_style(art, wt, weather, &look, look_filter, rain_open);
+    else if (wt != NULL) weather_style(art, wt, weather, snow_level(), port_weather_fog(), &look, look_filter, rain_open);
     else {
         modern_look_set_sample(&look, port_fog_sample(), port_fog_lift());
         modern_road_set_style(modern_look_style(&look, art, look_filter, look_fog, render.draw_segments));

@@ -1,4 +1,5 @@
 #include "game/race/weather.h"
+#include "game/race/weather_snow.h"
 #include "game/race/headlight_pool.h"
 #include "game/race/wiper.h"
 #include "game/sys/fixed_math.h"
@@ -54,6 +55,39 @@ void weather_sky_colour(int weather, const uint8_t fog[3], uint8_t out[3])
     static const uint8_t RAIN_SKY[3] = { 62, 68, 78 };
     if (weather_wet(weather)) memcpy(out, RAIN_SKY, 3);
     else memcpy(out, fog, 3);
+}
+
+static int whiter_snow(int snow, int variant) { return variant >= 1 && snow > 0; }
+
+void weather_fog_colour_for(int weather, int snow, int variant, const uint8_t base[3], uint8_t out[3])
+{
+    static const uint8_t SNOW_WHITE[3] = { 230, 234, 242 };
+    if (weather_wet(weather) && whiter_snow(snow, variant)) mix(base, SNOW_WHITE, snow >= SNOW_HEAVY ? 80 : 72, out);
+    else weather_fog_colour(weather, base, out);
+}
+
+void weather_sky_colour_for(int weather, int snow, int variant, const uint8_t fog[3], uint8_t out[3])
+{
+    if (weather_wet(weather) && whiter_snow(snow, variant)) memcpy(out, fog, 3);   /* a white sky, as the fog's own */
+    else weather_sky_colour(weather, fog, out);
+}
+
+int weather_sky_is_wet_dark(int weather, int snow, int variant) { return weather_wet(weather) && !(whiter_snow(snow, variant)); }
+
+int weather_fog_snow_mood(int snow, int variant) { return !(snow > 0 && variant >= 2); }
+
+void weather_fog_shape(int weather, int snow, int variant, WeatherFogShape *out)
+{
+    if (weather == WEATHER_FOG) {
+        *out = (WeatherFogShape){ WEATHER_FOG_START, WEATHER_FOG_END, 0, 0 };
+        if (weather_fog_curve()) out->exp = WEATHER_FOG_EXP_SCALE, out->cap = WEATHER_FOG_EXP_CAP_PERCENT / 100.0f;
+        return;
+    }
+    *out = (WeatherFogShape){ WEATHER_RAIN_FOG_START, WEATHER_RAIN_FOG_END, 0, 0 };
+    if (variant < 1 || !weather_wet(weather)) return;
+    if (snow >= SNOW_HEAVY) *out = (WeatherFogShape){ 150, 3000, 1500, 0.95f };   /* the snow storm: a wall of white */
+    else if (snow > 0) *out = (WeatherFogShape){ 250, 6000, 2600, 0.90f };        /* snow: the far is lost in white */
+    else if (weather == WEATHER_STORM) *out = (WeatherFogShape){ 900, 7000, 0, 0 };   /* the rain storm: denser than the rain's, a line */
 }
 
 void weather_fog_for_tint(const uint8_t fog[3], const float tint[3], uint8_t out[3])

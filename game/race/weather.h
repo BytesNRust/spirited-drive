@@ -26,6 +26,16 @@ void weather_fog_colour(int weather, const uint8_t base[3], uint8_t out[3]);   /
 void weather_sky_colour(int weather, const uint8_t fog[3], uint8_t out[3]);    /* the sky's, at WEATHER_SKY_LEVEL */
 void weather_rain_colour(uint8_t out[3]);                                      /* a streak's, at WEATHER_STREAK_LEVEL */
 
+/* port (weather_fog, the owner's wish from Colin McRae): with snow (`snow` is a SNOW_* level of weather_snow.h, 0 none) and in the rain storm the fog is not the rain's dark grey haze. `variant` is the
+ * setting: 0 the same as the functions above (the rain's fog in all of rain, storm, snow and snow storm); 1 the snow's fog a snow white, closer, with the fog weather's exponential curve, the snow storm's
+ * closer still, and the rain storm's closer than the rain's; 2 as 1 (the dark mood over the snow is the caller's: weather_fog_snow_mood). Clear and fog weather are never changed. */
+typedef struct { float start, end, exp, cap; } WeatherFogShape;   /* ModernStyle's fog_start, fog_end, fog_exp (0: the line to fog_end), fog_cap */
+void weather_fog_shape(int weather, int snow, int variant, WeatherFogShape *out);
+void weather_fog_colour_for(int weather, int snow, int variant, const uint8_t base[3], uint8_t out[3]);
+void weather_sky_colour_for(int weather, int snow, int variant, const uint8_t fog[3], uint8_t out[3]);
+int weather_sky_is_wet_dark(int weather, int snow, int variant);   /* 1: the sky is the rain's dark colour at WEATHER_RAIN_SKY_LEVEL, 0: the fog's colour fading to the horizon */
+int weather_fog_snow_mood(int snow, int variant);                  /* 1: the rain's dark grey mood is laid over the picture; 0 the snow's is left white (variant 2) */
+
 /* The fog table a sky pixel (x, y) goes through: the sky's own `low` high above the horizon, `high` at it and below, a
  * dither of the two between, so that what the fog has made whole (land and cars past the fog's end) meets the sky without
  * an edge. `up` is the world's up in camera space (x right, y up, z ahead), the view's centre cx, cy and focal in pixels;

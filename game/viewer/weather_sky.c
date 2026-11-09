@@ -10,28 +10,28 @@
 #include <math.h>
 #include <string.h>
 
-const WeatherTables *weather_tables_for(const TrackArt *art, int weather, const ModernLook *look)
+const WeatherTables *weather_tables_for(const TrackArt *art, int weather, int snow, int variant, const ModernLook *look)
 {
-
     static WeatherTables wt;
     float tint[3];
     drive_light_tint(tint);
     const int sample = port_fog_sample(), lift = port_fog_lift(), dark = look->dark;
-    if (wt.made && wt.weather == weather && wt.sample == sample && wt.lift == lift && wt.dark == dark &&
+    if (wt.made && wt.weather == weather && wt.snow == snow && wt.variant == variant && wt.sample == sample && wt.lift == lift && wt.dark == dark &&
         memcmp(wt.tint, tint, sizeof tint) == 0 && memcmp(wt.palette, art->palette, sizeof wt.palette) == 0)
         return &wt;
     static uint8_t scratch[MODERN_FOG_LEVELS][256];
     uint8_t base[3], sky[3], rain[3];
     if (sample) modern_look_fog_colour_sampled(art, lift, base);
     else modern_look_fog_colour(art, base);
-    weather_fog_colour(weather, base, wt.fog);
+    weather_fog_colour_for(weather, snow, variant, base, wt.fog);
     weather_fog_for_tint(wt.fog, tint, wt.fog);   /* the time of day's tint reaches the fog at half strength */
     modern_look_weather_fog(look, wt.fog, wt.fog);   /* the dark track's fog as its distance fog: the rain's haze too */
-    weather_sky_colour(weather, wt.fog, sky);
+    weather_sky_colour_for(weather, snow, variant, wt.fog, sky);
     modern_look_weather_fog(look, sky, sky);          /* the rain's own sky colour: dark as well */
     modern_fog_tables(art->palette, sky, scratch);
-    wt.sky_low = weather_wet(weather) ? WEATHER_RAIN_SKY_LEVEL : WEATHER_SKY_LEVEL;
-    wt.sky_high = weather_wet(weather) ? wt.sky_low : MODERN_FOG_LEVELS - 1;
+    const int wet_sky = weather_sky_is_wet_dark(weather, snow, variant);   /* port (weather_fog): a snow white sky is the fog's, fading to the horizon, like the fog weather's */
+    wt.sky_low = wet_sky ? WEATHER_RAIN_SKY_LEVEL : WEATHER_SKY_LEVEL;
+    wt.sky_high = wet_sky ? wt.sky_low : MODERN_FOG_LEVELS - 1;
     memcpy(wt.sky, scratch[wt.sky_low], sizeof wt.sky);
     memcpy(wt.levels, scratch, sizeof wt.levels);
     weather_rain_colour(rain);
@@ -54,7 +54,7 @@ const WeatherTables *weather_tables_for(const TrackArt *art, int weather, const 
     for (int l = 0; l <= WEATHER_FLASH_PEAK; l++) memcpy(wt.flash[l], scratch[l], 256);
     memcpy(wt.palette, art->palette, sizeof wt.palette);
     memcpy(wt.tint, tint, sizeof tint);
-    wt.weather = weather, wt.sample = sample, wt.lift = lift, wt.dark = dark, wt.made = 1;
+    wt.weather = weather, wt.snow = snow, wt.variant = variant, wt.sample = sample, wt.lift = lift, wt.dark = dark, wt.made = 1;
     return &wt;
 }
 
@@ -82,13 +82,12 @@ void weather_sky_band(void *user, int top, int bottom)
     if (flash > 0) weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->flash[flash]);
 }
 
-void weather_style(const TrackArt *art, const WeatherTables *wt, int weather, ModernLook *look, int look_filter, int rain_open)
+void weather_style(const TrackArt *art, const WeatherTables *wt, int weather, int snow, int variant, ModernLook *look, int look_filter, int rain_open)
 {
-    const int fog = weather == WEATHER_FOG;
-    ModernStyle style = *modern_look_fixed_fog(look, art, look_filter, wt->fog, fog ? WEATHER_FOG_START : WEATHER_RAIN_FOG_START,
-                                               fog ? WEATHER_FOG_END : WEATHER_RAIN_FOG_END);
-    if (fog && weather_fog_curve())   /* the exponential variant (weather.h) */
-        style.fog_exp = WEATHER_FOG_EXP_SCALE, style.fog_cap = WEATHER_FOG_EXP_CAP_PERCENT / 100.0f;
+    WeatherFogShape shape;
+    weather_fog_shape(weather, snow, variant, &shape);   /* the fog weather's, the rain's, and (weather_fog) the snow's and the storm's */
+    ModernStyle style = *modern_look_fixed_fog(look, art, look_filter, wt->fog, shape.start, shape.end);
+    style.fog_exp = shape.exp, style.fog_cap = shape.cap;   /* the exponential variant (weather.h), where the shape has one */
     if (!weather_fog_open(rain_open, style.fog_start, &style.fog_end, &style.fog_cap)) style.fog = NULL;   /* port (weather_zones): no fog inside a closed zone, thinning at its mouths */
     modern_road_set_style(&style);
 }

@@ -13,6 +13,7 @@
 typedef struct {
     uint8_t palette[768];
     int weather, made;
+    int snow, variant;   /* port (weather_fog): what falls and the setting the fog was made for */
     int sample, lift;    /* port (fog_sample): the colour's source the fog was made from */
     int dark;            /* port (the PS1 look): the weather fog was made dark (modern_look_weather_fog) */
     uint8_t fog[3];      /* the fog's colour */
@@ -30,7 +31,7 @@ typedef struct {
 } WeatherTables;
 
 /* The tables of `weather`, made again when the palette, the weather, the fog's source, the time of day's tint or the dark look changed (one static set; the pointer stays valid). */
-const WeatherTables *weather_tables_for(const TrackArt *art, int weather, const ModernLook *look);
+const WeatherTables *weather_tables_for(const TrackArt *art, int weather, int snow, int variant, const ModernLook *look);
 
 typedef struct {
     uint8_t *pixels;
@@ -48,6 +49,6 @@ WeatherSky weather_sky(uint8_t *pixels, int32_t pitch, int32_t left, int32_t rig
 void weather_sky_band(void *user, int top, int bottom);
 
 /* the modern road's style for the weather (fog and its zones); `rain_open` is how much weather there is where the eye is, 0..16 */
-void weather_style(const TrackArt *art, const WeatherTables *wt, int weather, ModernLook *look, int look_filter, int rain_open);
+void weather_style(const TrackArt *art, const WeatherTables *wt, int weather, int snow, int variant, ModernLook *look, int look_filter, int rain_open);
 
 #endif
