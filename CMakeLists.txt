@@ -474,6 +474,7 @@ add_library(tnfs_game STATIC
     game/viewer/weather_hooks.c
     game/viewer/drive_light.c
     game/viewer/class_overlay.c
+    game/viewer/class_cache.c
     game/sys/backdrop.c
     game/frontend/variant_rule.c
     game/sys/resource.c
@@ -681,6 +682,11 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_link_libraries(test_class_overlay PRIVATE tnfs_game)
     target_compile_options(test_class_overlay PRIVATE ${TNFS_WARNINGS})
     add_test(NAME class_overlay COMMAND test_class_overlay)
+    add_executable(test_class_cache tests/test_class_cache.c)
+    target_include_directories(test_class_cache PRIVATE game)
+    target_link_libraries(test_class_cache PRIVATE tnfs_game)
+    target_compile_options(test_class_cache PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME class_cache COMMAND test_class_cache)
     add_executable(test_modern_road tests/test_modern_road.c game/viewer/modern_road.c)
     target_include_directories(test_modern_road PRIVATE game)
     target_link_libraries(test_modern_road PRIVATE tnfs_game)
