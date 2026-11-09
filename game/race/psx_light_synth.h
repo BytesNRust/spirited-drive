@@ -20,6 +20,7 @@ enum {
     PSX_SYNTH_FLAG_TUNNEL = 1,       /* psx_light_synth_tunnels' flag of a tunnel's node */
     PSX_SYNTH_FLAG_HALL = 2,         /* and of a hall's: not darkened (the pours, the girders keep their light) but the cars and the dash take the lamp alternation */
     PSX_SYNTH_LOOK_RAMP = 6,         /* the nodes outside a tunnel's mouth over which a car takes its zone's look (psx_light_synth_car_tunnel with a look): the weather's mouth, WEATHER_MOUTH_NODES */
+    PSX_SYNTH_LAMP_GAP_SMOOTH_PERCENT = 85, /* port (car_tunnel_match 2): the smoothed gap, a fixed level: the unlit open road at night is the level of a tunnel_tone of about 100 (measured, CY1N), so between two lamps the car is never below it */
     PSX_SYNTH_LAMP_GAP_PERCENT = 40, /* a tunnel's lamp alternation: the car between two lamps (odd nodes) has this percent of the light it has under one (even nodes) */
     PSX_SYNTH_CAR_RAMP = 3,          /* the nodes outside a tunnel's mouth over which the car's light comes back (psx_light_synth_car_tunnel) */
     PSX_SYNTH_HALL_POINT = 4,        /* the row point the car's alternation reads (psx_light_synth_car) */
@@ -109,5 +110,10 @@ void psx_light_synth_car(const PsxLight *light, uint32_t node, float out[3]);
  * light% / 100 x colour x the road's light at the node (psx_light_road_light) per channel, above full light too (the excess over 1 comes in with the road's darkening, as the world's does), between two lamps (odd) PSX_SYNTH_LAMP_GAP_PERCENT of that, and it ramps in over PSX_SYNTH_LOOK_RAMP nodes outside the mouth (the nearest tunnel node's zone gives
  * the look). A hall keeps its own lamps' factors and car_dim its dim one. */
 void psx_light_synth_car_tunnel(const PsxLight *light, uint32_t node, float out[3]);
+
+/* port (car_tunnel_match): psx_light_synth_car_tunnel with the car matched to the world's light at the same tunnel_tone, for a light with a look. `match` 0 is the function above; 1 the world's
+ * gain (the look over `mean`, the night's tint mean, as psx_light_tunnel_look gives the tables; a mean under 0.05 divides nothing), the car's share of the light full light's (the road's
+ * PSX_LIGHT_TUNNEL_ROAD scaled up to PSX_LIGHT_FULL inside the tunnel) and the lamp gap a fixed PSX_SYNTH_LAMP_GAP_SMOOTH_PERCENT under a lamp and between. The open road is 1. */
+void psx_light_synth_car_tunnel_match(const PsxLight *light, uint32_t node, int match, float mean, float out[3]);
 
 #endif
