@@ -102,6 +102,10 @@ uint32_t psx_light_old_node(const PsxLight *light, uint32_t node);
  * Its road is dimmed (PSX_LIGHT_TUNNEL_ROAD), its wall foot capped (PSX_LIGHT_WALL) and its darkened light cast (the renderer). 0 without data. */
 int psx_light_tunnel(const PsxLight *light, uint32_t node);
 
+/* port (tunnel look): 1 when `node` is in a tunnel of a light that has a look (look_set): its road can be lit above full light (a tunnel_tone over 100), so what is drawn on the road (the car's shadow) is
+ * made in the shown palette. 0 otherwise. */
+int psx_light_look_tunnel(const PsxLight *light, uint32_t node);
+
 /* port (weather_zones): 1 when `node` is a closed zone for the weather (no rain, fog or lightning inside): the file's `tunnel` nodes (a made light's road tunnels) and its halls (a tunnel with a lot of light), or the rows' tunnel
  * where the light has no tunnel array. A node the light marks `canyon` is open air. */
 int psx_light_weather_closed(const PsxLight *light, uint32_t node);

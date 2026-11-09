@@ -1936,6 +1936,13 @@ static int lamp_on_car(const Car *car)
     return psx_light_lamp_car(psx_light, psx_ring_node(car->node, psx_light->nodes), car->x / 65536.0, car->z / 65536.0, lit);
 }
 
+/* port (tunnel look): the car stands in a tunnel whose look lights the road (a file's tunnel_tone): its road's indexes are the shown palette's bright ones too, so the half-way remap is made in the shown palette as lamp_shadow's is
+ * (above full light the road was the palette's brightest entries and the shadow a white box) */
+static int look_tunnel_on_car(const Car *car)
+{
+    return psx_light_look_tunnel(psx_light, psx_ring_node(car->node, psx_light->nodes));
+}
+
 /* 0045a724 */
 static void row_prepare(void *ctx, Car *car, int pass)
 {
@@ -1945,7 +1952,7 @@ static void row_prepare(void *ctx, Car *car, int pass)
     if (soft_shadow_on && shadow_remap != NULL && object_pixels.palette != NULL) {   /* port: the quad's corners, the shade not drawn (remap NULL) */
         const CarShadowOps cut = { NULL, shadow_contact, shadow_followed, follow_arm_clip_quad, 1 };   /* and the quad cut at the near plane, not lost */
         if (car_prepare(&cut, car, &model_view, pass, car == followed_car(), object_pixels.target, NULL, screen))
-            soft_shadow_draw(object_pixels.target, shadow_remap, lamp_on_car(car) ? soft_half_shown() : soft_half(), soft_shadow_level(psx_light_node(psx_light, (uint32_t)car->node)), screen);
+            soft_shadow_draw(object_pixels.target, shadow_remap, lamp_on_car(car) || look_tunnel_on_car(car) ? soft_half_shown() : soft_half(), soft_shadow_level(psx_light_node(psx_light, (uint32_t)car->node)), screen);
         return;
     }
     car_prepare(&ops, car, &model_view, pass, car == followed_car(), object_pixels.target, shadow_remap, screen);

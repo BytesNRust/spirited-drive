@@ -216,6 +216,8 @@ float psx_light_road_light(const PsxLight *light, uint32_t node)
     return ((float)light_at(light, node, 0) + (float)light_at(light, node, 1) + (float)light_at(light, node, 6)) / (3.0f * (float)PSX_LIGHT_FULL);
 }
 
+int psx_light_look_tunnel(const PsxLight *light, uint32_t node) { return light != NULL && light->look_set && psx_light_tunnel(light, node); }
+
 static int made_tunnel(const PsxLight *light, uint32_t node)
 {
     return light->tunnel != NULL && light->nodes > 0 && light->tunnel[node % light->nodes] != 0;
