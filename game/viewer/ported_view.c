@@ -817,7 +817,9 @@ static void headlights_update(void)
 static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
 {
     const int found = ratio_of(node, out);
-    if (found && psx_light != NULL && psx_light->pool != NULL) {   /* port (psx_headlights): a car in the dark or in a pool takes its light, as the road under it does */
+    /* port (car_tunnel_match): a made tunnel with a look keeps the light its look gives (the world's tables are not scaled by the headlight pool's floor there, light_at_dark), so the car is not either: the pool's share took a further 60 % off the car */
+    const int match_tunnel = found && port_car_tunnel_match() >= 1 && psx_light != NULL && psx_light->look_set && psx_light_tunnel(psx_light, psx_ring_node(node, psx_light->nodes));
+    if (found && !match_tunnel && psx_light != NULL && psx_light->pool != NULL) {   /* port (psx_headlights): a car in the dark or in a pool takes its light, as the road under it does */
         const uint32_t at = psx_ring_node(node, psx_light->nodes);
         int g;
         if (psx_light->pool->cone && xz != NULL) {   /* port (headlight_cone): by where the car is in every car's patch of light, its own included (the glow round it): rivals, police and the player alike */
@@ -871,7 +873,9 @@ static const float CANYON_SHADE_FACTOR = 0.70f;   /* port (canyon_shade): the ow
 static int ratio_of(int32_t node, float out[3])
 {
     if (synth_on && psx_light != NULL) {   /* port: a light made from the road (psx_light_synth.h): no script, the tunnel's lamp alternation */
-        (port_car_tunnel_light() || psx_light->from_file ? psx_light_synth_car_tunnel : psx_light_synth_car)(psx_light, psx_ring_node(node, psx_light->nodes), out);   /* port (car_tunnel_light) */
+        const uint32_t at = psx_ring_node(node, psx_light->nodes);
+        if (port_car_tunnel_light() || psx_light->from_file) psx_light_synth_car_tunnel_match(psx_light, at, port_car_tunnel_match(), (lit_tint[0] + lit_tint[1] + lit_tint[2]) / 3.0f, out);   /* port (car_tunnel_light, car_tunnel_match) */
+        else psx_light_synth_car(psx_light, at, out);
         if (psx_light->canyon != NULL && psx_light->canyon[psx_ring_node(node, psx_light->nodes)]) {   /* port (canyon_shade): the walls shade the car in the canyon */
             const float f = port_canyon_shade() || psx_light->from_file ? CANYON_SHADE_FACTOR : 1.0f;
             for (int k = 0; k < 3; k++) out[k] *= f;
@@ -904,6 +908,7 @@ static const uint8_t *car_light(int32_t node, const double *xz, int car, const u
     float ratio[3];
     ratio_at_xz(node, xz, car, ratio);
     int key[7] = { 0 }, neutral = 1;
+    const int match_bright = port_car_tunnel_match() >= 1 && (ratio[0] > 1.0f || ratio[1] > 1.0f || ratio[2] > 1.0f);   /* port (car_tunnel_match): above full light the table has no family */
     for (int k = 0; k < 3; k++) {
         key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
         neutral = neutral && key[k] == AMBIENT_STEP;
@@ -925,7 +930,7 @@ static const uint8_t *car_light(int32_t node, const double *xz, int car, const u
     const int slot = next;
     next = (next + 1) % AMBIENT_TABLES;
     memcpy(cache[slot].key, key, sizeof key), cache[slot].used = 1;
-    psx_lit_table(palette, ratio, cache[slot].table);
+    psx_lit_table_ex(palette, ratio, match_bright, cache[slot].table);
     if (key[6] > 0) {
         const uint8_t rgb[3] = { (uint8_t)key[3], (uint8_t)key[4], (uint8_t)key[5] };
         psx_car_tone_table(palette, cache[slot].table, rgb, key[6], cache[slot].table);   /* in place: each entry reads only its own */

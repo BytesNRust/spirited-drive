@@ -51,6 +51,23 @@ static void test_lit_table_keeps_the_entry(void)
     palette_emissive_set(NULL);
 }
 
+/* port (car_tunnel_match): the any-family table keeps what the table keeps (the emissive entry, the shadow and see-through texels), and with the family on it is psx_lit_table */
+static void test_lit_table_any_family(void)
+{
+    const float ratio[3] = { 1.6f, 1.6f, 1.6f };
+    uint8_t plain[256], family[256], any[256], exempt[256] = { 0 };
+    exempt[LAMP] = 1;
+    palette_emissive_set(exempt);
+    psx_lit_table(pal, ratio, plain);
+    psx_lit_table_ex(pal, ratio, 0, family);
+    psx_lit_table_ex(pal, ratio, 1, any);
+    CHECK(memcmp(plain, family, sizeof plain) == 0);
+    CHECK_EQ_INT(any[LAMP], LAMP);
+    CHECK_EQ_INT(any[0xfe], 0xfe);
+    CHECK_EQ_INT(any[0xff], 0xff);
+    palette_emissive_set(NULL);
+}
+
 static void test_fog_and_light_tables_keep_the_entry(void)
 {
     const uint8_t fog[3] = { 128, 128, 128 };
@@ -76,6 +93,7 @@ int main(void)
     make_palette();
     test_tint_keeps_the_entry();
     test_lit_table_keeps_the_entry();
+    test_lit_table_any_family();
     test_fog_and_light_tables_keep_the_entry();
     return TEST_REPORT();
 }
