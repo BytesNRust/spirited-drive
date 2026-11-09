@@ -32,24 +32,36 @@ void class_overlay_rows(const uint8_t *layer, int width, int height, uint8_t *ma
     }
 }
 
+/* the mask byte a class makes, or -1 when it leaves the byte alone */
+static int mark_value(uint8_t c)
+{
+    if (c == PSX_CLASS_DASH) return 2;
+    if (c == PSX_CLASS_HUD) return 0;
+    if (c >= PSX_CLASS_LIT && c <= LAST_MARK) return c;
+    return -1;
+}
+
 void class_overlay_apply(uint8_t *mask, int mask_width, size_t rows, const uint8_t *layer, int width, int height, int scale, const uint8_t *marks)
 {
     for (int cy = 0; cy < height; cy++) {
         if (!marks[cy]) continue;
         const uint8_t *row = layer + (size_t)cy * (size_t)width;
-        for (int ky = 0; ky < scale; ky++) {
-            const size_t y = (size_t)cy * (size_t)scale + (size_t)ky;
-            if (y >= rows) return;
-            uint8_t *out = mask + y * (size_t)mask_width;
-            for (int x = 0; x < width; x++) {
-                const uint8_t c = row[x];
-                uint8_t v;
-                if (c == PSX_CLASS_DASH) v = 2;
-                else if (c == PSX_CLASS_HUD) v = 0;
-                else if (c >= PSX_CLASS_LIT && c <= LAST_MARK) v = c;
-                else continue;
-                for (int k = 0; k < scale; k++) out[(size_t)x * (size_t)scale + (size_t)k] = v;
+        /* the layer's classes come in runs (the HUD's pixels are one class across a bar): a run is one write of `scale` times its length, per output row */
+        for (int x = 0; x < width;) {
+            const uint8_t c = row[x];
+            int end = x + 1;
+            const uint64_t same = 0x0101010101010101ull * c;
+            for (uint64_t w; end + 8 <= width && (memcpy(&w, row + end, sizeof w), w == same);) end += 8;
+            while (end < width && row[end] == c) end++;
+            const int v = mark_value(c);
+            if (v >= 0) {
+                for (int ky = 0; ky < scale; ky++) {
+                    const size_t y = (size_t)cy * (size_t)scale + (size_t)ky;
+                    if (y >= rows) return;
+                    memset(mask + y * (size_t)mask_width + (size_t)x * (size_t)scale, v, (size_t)(end - x) * (size_t)scale);
+                }
             }
+            x = end;
         }
     }
 }
