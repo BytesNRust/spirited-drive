@@ -1302,19 +1302,21 @@ static void spray_v4_tick(const RaceState *race)
     }
 }
 
-/* the frame's colours: the water is the scene's fog lifted toward a pale blue-white by day (a wet road's mist is whitish) and just the fog at night (it is dark, no lit white); the gravel's dust is a dark shade of the fog */
+/* the frame's colours: the water is the scene's fog lifted toward a pale blue-white by day (a wet road's mist is whitish) and a light grey of the fog at night (never lit white); the stones are a dark shade of the fog and
+ * the gravel's dust a light dusty one */
 static void spray_v4_frame(const TrackArt *art)
 {
-    static const int PALE[3] = { 226, 231, 239 };
-    uint8_t fog[3], water[3], gravel[3];
+    static const int PALE[3] = { 236, 240, 246 }, DUSTY[3] = { 205, 198, 184 };
+    uint8_t fog[3], water[3], gravel[3], dust[3];
     modern_look_fog_colour(art, fog);
     const int night = drive_light_night();
     for (int k = 0; k < 3; k++) {
-        water[k] = (uint8_t)(night ? fog[k] * 9 / 10 + 14 : (fog[k] * 45 + PALE[k] * 55) / 100);
-        gravel[k] = (uint8_t)((night ? fog[k] * 6 / 10 : fog[k]) * 35 / 100);
+        water[k] = (uint8_t)(night ? fog[k] * 5 / 10 + 78 : (fog[k] * 30 + PALE[k] * 70) / 100);
+        dust[k] = (uint8_t)(night ? fog[k] * 5 / 10 + 62 : (fog[k] * 35 + DUSTY[k] * 65) / 100);
+        gravel[k] = (uint8_t)((night ? fog[k] * 6 / 10 : fog[k]) * 30 / 100);
     }
     const SprayV4Host host = { object_pixels.target, object_pixels.palette, &model_view, shadow_race, world_screen, rain_open_at };
-    spray_v4_draw_frame(&host, water, gravel);
+    spray_v4_draw_frame(&host, water, gravel, dust);
 }
 
 /* port (rain_fx, rain v5): the water the cars throw up, as particles of the world (race/rain_spray.h): each wheel drops one a tick where it passes and it stays there, a low mist that widens

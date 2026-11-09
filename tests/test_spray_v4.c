@@ -73,10 +73,10 @@ static void test_water_thins_and_opens_gravel_falls_and_lands(void)
     CHECK(!spray_v4_look(p, 202, 0, &b));              /* a closed zone is dry */
     spray_v4_clear(&s);
     const SprayV4Emit g = car_at(2, 300, 0, 0, 5.0f, 0, 1);   /* dry gravel */
-    CHECK(spray_v4_emit(&s, &g) == 4);
+    CHECK_EQ_INT(spray_v4_emit(&s, &g), 12);   /* five stones and a puff of dust a wheel */
     float top = 5.0f;
     for (int i = 0; i < SPRAY_V4_MAX; i++)
-        if (s.p[i].live)
+        if (s.p[i].live && s.p[i].kind == SPRAY_V4_GRAVEL)
             for (uint32_t t = 300; t < 300u + s.p[i].life; t++) {
                 SprayV4Look l;
                 if (!spray_v4_look(&s.p[i], t, 0, &l)) continue;   /* open 0: gravel is thrown anywhere */
@@ -86,7 +86,7 @@ static void test_water_thins_and_opens_gravel_falls_and_lands(void)
     CHECK(top > 5.04f);   /* it was thrown up */
     SprayV4Look end;
     for (int i = 0; i < SPRAY_V4_MAX; i++)
-        if (s.p[i].live && spray_v4_look(&s.p[i], 300u + (uint32_t)s.p[i].life - 1u, 0, &end)) CHECK(end.y < 5.1f);   /* and came down */
+        if (s.p[i].live && s.p[i].kind == SPRAY_V4_GRAVEL && spray_v4_look(&s.p[i], 300u + (uint32_t)s.p[i].life - 1u, 0, &end)) CHECK(end.y < 5.1f);   /* and came down */
 }
 
 static void test_a_wheel_in_the_air_or_dry_throws_no_water(void)
@@ -101,32 +101,37 @@ static void test_a_wheel_in_the_air_or_dry_throws_no_water(void)
     CHECK_EQ_INT(spray_v4_emit(&s, &e), 0);
 }
 
-static void test_the_puffs_have_no_hard_rim(void)
+static void test_the_clouds_are_ragged_and_each_variant_is_its_own(void)
 {
-    for (int c = 0; c <= SPRAY_V4_CLASSES; c++) {
-        const uint8_t *sp = spray_v4_sprite(c);
-        CHECK(sp != NULL);
-        int peak = 0;
-        for (int i = 0; i < SPRAY_V4_SPRITE * SPRAY_V4_SPRITE; i++) peak = sp[i] > peak ? sp[i] : peak;
-        CHECK_EQ_INT(peak, 255);
-        for (int i = 0; i < SPRAY_V4_SPRITE; i++) {   /* the border is (nearly) clear on all four sides */
-            CHECK(sp[i] < 6 && sp[(SPRAY_V4_SPRITE - 1) * SPRAY_V4_SPRITE + i] < 6);
-            CHECK(sp[i * SPRAY_V4_SPRITE] < 6 && sp[i * SPRAY_V4_SPRITE + SPRAY_V4_SPRITE - 1] < 6);
+    for (int c = 0; c <= SPRAY_V4_CLASSES; c++)
+        for (int v = 0; v < (c == SPRAY_V4_CLASSES ? 1 : SPRAY_V4_VARIANTS); v++) {
+            const uint8_t *sp = spray_v4_sprite(c, v);
+            CHECK(sp != NULL);
+            int peak = 0, holes = 0, mid = 0;
+            for (int i = 0; i < SPRAY_V4_SPRITE * SPRAY_V4_SPRITE; i++) peak = sp[i] > peak ? sp[i] : peak, holes += sp[i] == 0, mid += sp[i] > 40 && sp[i] < 215;
+            CHECK(peak >= 250);
+            CHECK(holes > SPRAY_V4_SPRITE * SPRAY_V4_SPRITE / 5);   /* the thin tail is cut: ragged, not a disc */
+            CHECK(mid > 200);                                         /* and there are soft parts */
+            for (int i = 0; i < SPRAY_V4_SPRITE; i++) {              /* nothing touches the border */
+                CHECK(sp[i] == 0 && sp[(SPRAY_V4_SPRITE - 1) * SPRAY_V4_SPRITE + i] == 0);
+                CHECK(sp[i * SPRAY_V4_SPRITE] == 0 && sp[i * SPRAY_V4_SPRITE + SPRAY_V4_SPRITE - 1] == 0);
+            }
         }
-    }
-    CHECK(spray_v4_sprite(SPRAY_V4_CLASSES + 1) == NULL);
+    for (int c = 0; c < SPRAY_V4_CLASSES; c++)   /* the variants differ */
+        CHECK(memcmp(spray_v4_sprite(c, 0), spray_v4_sprite(c, 1), (size_t)SPRAY_V4_SPRITE * SPRAY_V4_SPRITE) != 0);
+    CHECK(spray_v4_sprite(SPRAY_V4_CLASSES + 1, 0) == NULL && spray_v4_sprite(0, SPRAY_V4_VARIANTS) == NULL);
     const char *sheet = getenv("TNFS_SPRAY_V4_SHEET");
     FILE *f = sheet != NULL ? fopen(sheet, "wb") : NULL;
-    if (f != NULL) {   /* the sprites side by side, white on dark */
-        enum { W = (SPRAY_V4_CLASSES + 1) * (SPRAY_V4_SPRITE + 4), H = SPRAY_V4_SPRITE };
+    if (f != NULL) {   /* a row a variant, a column a class (and the stone's dot last), white on dark */
+        enum { CELL = SPRAY_V4_SPRITE + 4, W = (SPRAY_V4_CLASSES + 1) * CELL, H = SPRAY_V4_VARIANTS * CELL };
         fprintf(f, "P6\n%d %d\n255\n", W, H);
         for (int y = 0; y < H; y++)
-            for (int c = 0; c <= SPRAY_V4_CLASSES; c++)
-                for (int x = 0; x < SPRAY_V4_SPRITE + 4; x++) {
-                    const int a = x < SPRAY_V4_SPRITE ? spray_v4_sprite(c)[y * SPRAY_V4_SPRITE + x] : 0;
-                    const unsigned char px[3] = { (unsigned char)(24 + a * 220 / 255), (unsigned char)(26 + a * 222 / 255), (unsigned char)(30 + a * 225 / 255) };
-                    fwrite(px, 1, 3, f);
-                }
+            for (int x = 0; x < W; x++) {
+                const int c = x / CELL, v = y / CELL, px_x = x % CELL, px_y = y % CELL;
+                const int a = px_x < SPRAY_V4_SPRITE && px_y < SPRAY_V4_SPRITE && (c < SPRAY_V4_CLASSES || v == 0) ? spray_v4_sprite(c, v)[px_y * SPRAY_V4_SPRITE + px_x] : 0;
+                const unsigned char px[3] = { (unsigned char)(24 + a * 220 / 255), (unsigned char)(26 + a * 222 / 255), (unsigned char)(30 + a * 225 / 255) };
+                fwrite(px, 1, 3, f);
+            }
         fclose(f);
     }
 }
@@ -137,6 +142,6 @@ int main(void)
     test_the_emitter_runs_each_tick_with_that_ticks_place();
     test_water_thins_and_opens_gravel_falls_and_lands();
     test_a_wheel_in_the_air_or_dry_throws_no_water();
-    test_the_puffs_have_no_hard_rim();
+    test_the_clouds_are_ragged_and_each_variant_is_its_own();
     return TEST_REPORT();
 }

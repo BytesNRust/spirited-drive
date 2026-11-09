@@ -1,6 +1,6 @@
 /* port (spray v4, dev prototype: TNFS_SPRAY_V4=1): the spray a car throws up, redone. A particle is born at the tick the wheel was there, at the wheel's own place and height (no catch-up: the
- * emitter runs every tick of the simulation, not every frame drawn), and its look is a pure function of its age. Two kinds: water (large, few, low, opening to the sides, thinning over about a second and
- * a third) and gravel (small, dark, thrown up and falling under gravity, gone in half a second). Pure: no drawing here (viewer/spray_v4_draw.h composites the look). Metres and race ticks: the simulation runs 30 steps a second and the race's tick counter goes up by two each (race_frame.c TICK_STEP), so a tick is a sixtieth of a second and every particle is born on an even tick. */
+ * emitter runs every tick of the simulation, not every frame drawn), and its look is a pure function of its age. Three kinds: water (large, few, low, opening to the sides, thinning over about a second and
+ * a third) gravel (stones, dark, thrown up and falling under gravity, gone in half a second) and the dust that goes with it (light, soft, drifting back and rising, a second). Pure: no drawing here (viewer/spray_v4_draw.h composites the look). Metres and race ticks: the simulation runs 30 steps a second and the race's tick counter goes up by two each (race_frame.c TICK_STEP), so a tick is a sixtieth of a second and every particle is born on an even tick. */
 #ifndef TNFS_SPRAY_V4_H
 #define TNFS_SPRAY_V4_H
 
@@ -11,7 +11,9 @@ enum {
     SPRAY_V4_CARS = 16,
     SPRAY_V4_WATER = 0,
     SPRAY_V4_GRAVEL = 1,
-    SPRAY_V4_WATER_LIFE = 80,    /* ticks: 1.33 s */
+    SPRAY_V4_DUST = 2,           /* the light dust a gravel wheel raises behind the stones */
+    SPRAY_V4_DUST_LIFE = 44,     /* ticks */
+    SPRAY_V4_WATER_LIFE = 66,    /* ticks: 1.1 s, 20 to 40 m of trail at 65 to 130 km/h */
     SPRAY_V4_GRAVEL_MIN_LIFE = 28,
     SPRAY_V4_GRAVEL_SPREAD = 12  /* ticks added at random to the gravel's life */
 };

@@ -19,17 +19,17 @@ typedef struct SprayV4Host {
     int (*rain_open)(int32_t node);
 } SprayV4Host;
 
-enum { SPRAY_V4_CLASSES = 5, SPRAY_V4_SPRITE = 64 };
+enum { SPRAY_V4_CLASSES = 5, SPRAY_V4_VARIANTS = 3, SPRAY_V4_SPRITE = 64 };
 
 SprayV4 *spray_v4_state(void);
 
 /* Starts a frame: the tables for the colours (the water's and the gravel's), the frame's map cleared, the last frame's sprites freed. */
-void spray_v4_draw_frame(const SprayV4Host *host, const uint8_t water_rgb[3], const uint8_t gravel_rgb[3]);
+void spray_v4_draw_frame(const SprayV4Host *host, const uint8_t water_rgb[3], const uint8_t gravel_rgb[3], const uint8_t dust_rgb[3]);
 
 /* The group of a road row; far_side 1: the puffs farther from the eye than their car (before the row's cars), 0 the nearer (after). */
 void spray_v4_draw_row(int32_t node, int far_side);
 
-/* The soft puffs' sprites (SPRAY_V4_SPRITE square, 8-bit alpha): class 0..SPRAY_V4_CLASSES - 1 water by size, SPRAY_V4_CLASSES the gravel's dot. For the sheet and the tests. */
-const uint8_t *spray_v4_sprite(int cls);
+/* The cloud sprites (SPRAY_V4_SPRITE square, 8-bit alpha, irregular: many lumps, noisy broken edges): class 0..SPRAY_V4_CLASSES - 1 by size, each in SPRAY_V4_VARIANTS different shapes; class SPRAY_V4_CLASSES is the stone's dot (variant ignored). For the sheet and the tests. */
+const uint8_t *spray_v4_sprite(int cls, int variant);
 
 #endif

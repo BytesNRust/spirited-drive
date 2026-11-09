@@ -6,7 +6,7 @@
 enum { WATER_EVERY = 1, WATER_MIN_SPEED = 8, GRAVEL_MIN_SPEED = 6 };   /* water: each wheel every simulation step */
 static const float TICKS_A_SECOND = 60.0f;
 static const float GRAVITY = 9.8f / 3600.0f;   /* metres a tick a tick */
-static const float WATER_PEAK = 0.42f, GRAVEL_PEAK = 0.85f;
+static const float WATER_PEAK = 0.9f, GRAVEL_PEAK = 0.9f, DUST_PEAK = 0.8f;   /* peaks over the frame's cap: the middle of a puff is at the cap, the edges soft */
 
 static uint32_t hash2(uint32_t a, uint32_t b)
 {
@@ -34,7 +34,7 @@ static SprayV4Particle *take(SprayV4 *s)
 static int water(SprayV4 *s, const SprayV4Emit *e)
 {
     int n = 0;
-    const float size = 1.1f + 0.9f * (e->speed > 45.0f ? 45.0f : e->speed) / 45.0f;   /* a faster car throws a bigger cloud */
+    const float size = 1.5f + 1.1f * (e->speed > 45.0f ? 45.0f : e->speed) / 45.0f;   /* a faster car throws a bigger cloud */
     for (int side = 0; side < 2; side++) {
         if ((e->tick / 2u + (uint32_t)e->car + (uint32_t)side) % WATER_EVERY != 0) continue;   /* the tick goes up by two a step */
         const float dir = side == 0 ? -1.0f : 1.0f;
@@ -54,19 +54,25 @@ static int water(SprayV4 *s, const SprayV4Emit *e)
 static int gravel(SprayV4 *s, const SprayV4Emit *e)
 {
     int n = 0;
-    for (int side = 0; side < 2; side++)
-        for (int k = 0; k < 2; k++) {
-            const float dir = side == 0 ? -1.0f : 1.0f;
-            const uint32_t h = hash2((uint32_t)e->car * 4u + (uint32_t)side * 2u + (uint32_t)k, e->tick * 7u + 3u);
+    for (int side = 0; side < 2; side++) {
+        const float dir = side == 0 ? -1.0f : 1.0f;
+        for (int k = 0; k < 6; k++) {   /* stones: five, and the dust */
+            const uint32_t h = hash2((uint32_t)e->car * 16u + (uint32_t)side * 8u + (uint32_t)k, e->tick * 7u + 3u);
             SprayV4Particle *p = take(s);
             p->x = e->wheel[side][0], p->y = e->wheel[side][1], p->z = e->wheel[side][2];
-            const float side_v = dir * (1.0f + 2.5f * unit(h, 0)) / TICKS_A_SECOND, back = (0.6f + 1.4f * unit(h, 8)) / TICKS_A_SECOND, up = (0.9f + 1.3f * unit(h, 16)) / TICKS_A_SECOND;   /* it is down again (2 up / g) before its life ends */
-            p->vx = e->right[0] * side_v - e->forward[0] * back, p->vz = e->right[1] * side_v - e->forward[1] * back, p->vy = up;
-            p->size = 0.12f + 0.12f * unit(h, 24);
-            p->born = e->tick, p->node = e->node, p->kind = SPRAY_V4_GRAVEL, p->car = (uint8_t)e->car;
-            p->life = (uint8_t)(SPRAY_V4_GRAVEL_MIN_LIFE + (int)(h >> 4 & 0xff) % SPRAY_V4_GRAVEL_SPREAD);
+            p->born = e->tick, p->node = e->node, p->car = (uint8_t)e->car;
+            if (k == 5) {   /* the dust: light, low, drifts back and up, widens */
+                p->kind = SPRAY_V4_DUST, p->life = SPRAY_V4_DUST_LIFE, p->size = 0.7f + 0.5f * unit(h, 24);
+                p->vx = e->right[0] * dir * 0.006f - e->forward[0] * 0.012f, p->vz = e->right[1] * dir * 0.006f - e->forward[1] * 0.012f, p->vy = 0.008f;
+            } else {
+                const float side_v = dir * (1.0f + 2.5f * unit(h, 0)) / TICKS_A_SECOND, back = (0.6f + 1.4f * unit(h, 8)) / TICKS_A_SECOND, up = (0.9f + 1.3f * unit(h, 16)) / TICKS_A_SECOND;   /* it is down again (2 up / g) before its life ends */
+                p->vx = e->right[0] * side_v - e->forward[0] * back, p->vz = e->right[1] * side_v - e->forward[1] * back, p->vy = up;
+                p->size = 0.18f + 0.16f * unit(h, 24);
+                p->kind = SPRAY_V4_GRAVEL, p->life = (uint8_t)(SPRAY_V4_GRAVEL_MIN_LIFE + (int)(h >> 4 & 0xff) % SPRAY_V4_GRAVEL_SPREAD);
+            }
             n++;
         }
+    }
     return n;
 }
 
@@ -89,8 +95,12 @@ int spray_v4_look(const SprayV4Particle *p, uint32_t tick, int open, SprayV4Look
     out->x = p->x + p->vx * a, out->z = p->z + p->vz * a;
     if (p->kind == SPRAY_V4_WATER) {
         out->y = p->y + p->vy * a;
-        out->radius = p->size * (0.6f + 1.6f * f) * (0.5f + 0.5f * o);
+        out->radius = p->size * (0.6f + 1.8f * f) * (0.5f + 0.5f * o);
         out->alpha = WATER_PEAK * powf(1.0f - f, 1.5f) * (a + 1.0f >= 4.0f ? 1.0f : (a + 1.0f) / 4.0f) * (0.4f + 0.6f * o);
+    } else if (p->kind == SPRAY_V4_DUST) {
+        out->y = p->y + p->vy * a;
+        out->radius = p->size * (0.7f + 1.5f * f);
+        out->alpha = DUST_PEAK * powf(1.0f - f, 1.2f) * (a + 1.0f >= 6.0f ? 1.0f : (a + 1.0f) / 6.0f);
     } else {
         float y = p->y + p->vy * a - 0.5f * GRAVITY * a * a;
         out->y = y < p->y ? p->y : y;   /* it lands on the road it was thrown from */
