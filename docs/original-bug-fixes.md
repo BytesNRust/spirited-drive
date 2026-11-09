@@ -85,27 +85,14 @@ Not bugs. `port_banner` is the one with a Stock-vs-port argument: it is on-scree
 - `TNFS_WIDE_BOARD` has no settings key and no oracle named in its commit.
 - **Known exe bug, not fixed (port matches the exe): the NITRO start (N with a shift or B) is not sent to the other machines in a link race.** The race is lockstep, so every machine simulates every car from the same control words. `0042f138` (`car_drive.c` `launch()`) launches the machine's own player from the keyboard flags only (N `004c696d` with LShift `004c6966`, RShift `004c6972` or B `004c696c`); every other human's car launches only when `004faa5c[player]` is set. `004397f4` (`input_tick.c`) sets that only when the received word has both gear bits (0x3000), and `0043915c` (`input_read.c`) produces them only for B+R+W held with an automatic car. So an N launch happens in the launcher's own sim alone, and the peers simulate that car without it (a desync by reading; no two-machine run was made and the exe cannot be run here). Any fix is a deliberate change from the exe (the launch put into the sent word, behind a `port_*` setting) and is the owner's call (panel i178).
 
-## 5. Proposal (for the owner to choose)
+## 5. Decision: the fixes are on in every profile (owner, 2026-11-09)
 
-**A. One switch (recommended).** A new `PortSettings` key `bug_fixes=0|1` (menu row "Original bugs: Kept / Fixed", Options page next to the profile row), written by the profile table as one more column:
+The owner chose option C of the old proposal: the port's fixes are **deliberately on in all profiles, Stock included** ("it is subtle, better fixed"). So:
 
-| Stock | Restored | Restomod |
-|---|---|---|
-| 0 | 1 | 1 |
-
-Proposal only. `port_bug_fixes()` (same shape as `port_psx_flares()`: an env override, else port.cfg) would be read at the places in section 0 for items 1-3 instead of the literal 1.
-None of it exists in the code (checked on origin/main 45ed343e): there is no `bug_fixes` key in `PortSettings`, no `port_bug_fixes()`, no `TNFS_BUG_FIXES` variable, and the profile table has no such column. What the code does today: items 1 and 2 and the extensions of 3.0 and 3.1 are always on, hard-wired to 1 where the race is built (`track_viewer.c:609-612` for `port_replay_launch`, `port_nitro_start`, `port_pad_and_keys` and `port_stop_replaced`; `drive_pause.c:131` for `port_resume_keys`), so Stock does not keep those exe bugs; the wide board (item 3) has only the environment variable `TNFS_WIDE_BOARD`, on by default, `0` for the exe's drop.
-Covers items 1-3. Section 2 stays always on. Cost: small, mostly the table column, the key, the row and the five call sites; the Options undo already restores port.cfg.
-
-**B. One key per fix** (`stop_replaced`, `resume_keys`, `resume`, `replay_launch`, `wide_board`). More exact, but five rows that mean nothing to a player, and the profile table grows five columns. Only worth it if the owner wants to mix (for instance the horn fix without the ESC fix). Not recommended.
-
-**C. Leave as is** and drop the claim "Stock = exe including bugs" from the blurb ("Factory spec. Every bolt, every bug." / "Same look, bugs fixed"). Zero code, but then Stock and Restored differ only in screen format and refresh.
-
-Decisions needed from the owner:
-1. A, B or C.
-2. Whether item 5 (wide board) is "bug fixed" (Restored on) or Restomod only.
-3. Whether `port_nitro_start` / `port_pad_and_keys` (3.1) follow the switch or become player options.
-4. `port_banner` default per profile (3.3).
+- There is no `bug_fixes` or `nitro_start` setting, no profile column, no menu row and no `port_bug_fixes()`. The hard-wired 1s of section 0 (`track_viewer.c:609-612`, `drive_pause.c:131`, `TNFS_WIDE_BOARD` on by default) are the intended behaviour, not a gap.
+- The `Stock` / `Restored` / `Restomod` 0 / 1 / 1 columns in section 1 describe the exe's behaviour per branch, not what Stock does: Stock runs the fixed branch too. The `0 = exe` branches stay for the oracles.
+- Stock therefore differs from Restored by screen format and refresh only; the blurb claim "Stock = the exe, bugs included" is not true of these fixes.
+- New fixes of this kind follow the same rule (on in every mode, no setting) unless the owner says otherwise.
 
 ## 6. Check against the binary (revision)
 
