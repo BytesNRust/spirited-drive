@@ -929,10 +929,10 @@ static void test_step_writes_only_its_row(void)
     CHECK_EQ_INT(s.view_ultra, before.view_ultra);
 }
 
-/* what each mode holds: dimmed, not changed; Stock leaves only Full Screen and the view distance without Ultra */
+/* what each mode holds: dimmed, not changed; Stock leaves only Full Screen, Scaling and the view distance without Ultra */
 static void test_the_mode_holds_its_rows(void)
 {
-    static const int STOCK_HELD[] = { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_FOG, GRAPHICS_OWN_LIGHT, GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH, GRAPHICS_OWN_SCALING,
+    static const int STOCK_HELD[] = { GRAPHICS_OWN_PERSPECTIVE, GRAPHICS_OWN_FILTER, GRAPHICS_OWN_FOG, GRAPHICS_OWN_LIGHT, GRAPHICS_OWN_FOV, GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH,
                                       GRAPHICS_OWN_BANDS, GRAPHICS_OWN_SCALE };
     static const int RESTORED_FREE[] = { GRAPHICS_OWN_FORMAT, GRAPHICS_OWN_REFRESH, GRAPHICS_OWN_SCALING, GRAPHICS_OWN_BANDS };
     for (size_t i = 0; i < sizeof STOCK_HELD / sizeof STOCK_HELD[0]; i++) {
@@ -950,6 +950,11 @@ static void test_the_mode_holds_its_rows(void)
     full.port.profile = PROFILE_STOCK;
     run_script(&full, script_walk(GRAPHICS_OWN_FULLSCREEN, RIGHT, 1, GRAPHICS_OWN_DONE));
     CHECK_EQ_INT(full.port.fullscreen, 1);
+    Rig scaling;   /* Scaling is free in Stock: Whole -> Fill (a retina's whole scale is the player's to leave) */
+    rig_init(&scaling);
+    scaling.port.profile = PROFILE_STOCK, scaling.port.scale_integer = 1;
+    run_script(&scaling, script_walk(GRAPHICS_OWN_SCALING, RIGHT, 1, GRAPHICS_OWN_DONE));
+    CHECK_EQ_INT(scaling.port.scale_integer, 0);
     for (size_t i = 0; i < sizeof RESTORED_FREE / sizeof RESTORED_FREE[0]; i++) {
         Rig r;
         rig_init(&r);

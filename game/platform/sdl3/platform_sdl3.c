@@ -179,6 +179,20 @@ static void open_log(void)
     port_log("log: %s\n", path);
 }
 
+/* port: the window's size in points and in pixels, the renderer's output and the presentation rectangle, so a log shows what a retina display gave */
+static void log_window_sizes(const char *when)
+{
+    int w = 0, h = 0, pw = 0, ph = 0, ow = 0, oh = 0;
+    SDL_GetWindowSize(window, &w, &h);
+    SDL_GetWindowSizeInPixels(window, &pw, &ph);
+    SDL_GetRenderOutputSize(renderer, &ow, &oh);
+    SDL_FRect frect = { 0, 0, 0, 0 };
+    SDL_GetRenderLogicalPresentationRect(renderer, &frect);
+    port_log("platform: window %s: %dx%d points, %dx%d pixels (density %.2f), render output %dx%d, presentation rect %.0f,%.0f %.0fx%.0f for %dx%d\n",
+             when, w, h, pw, ph, (double)SDL_GetWindowPixelDensity(window), ow, oh,
+             (double)frect.x, (double)frect.y, (double)frect.w, (double)frect.h, fb_width, fb_height);
+}
+
 bool platform_init(const PlatformConfig *config)
 {
     data_path_set_base(SDL_GetBasePath());   /* port: our own data beside the program (the bundle's Contents/Resources/ on macOS): data_path.h */
@@ -192,7 +206,8 @@ bool platform_init(const PlatformConfig *config)
     refresh_hz = config->refresh_hz > 0 ? config->refresh_hz : VBLANK_HZ;
     next_vblank_ns = 0;
 
-    const SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | (config->fullscreen != 0 ? SDL_WINDOW_FULLSCREEN : 0);
+    /* real pixels, not points: on a retina display the integer scale counts the display's pixels (3x, 4x), not the half-size point grid */
+    const SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | (config->fullscreen != 0 ? SDL_WINDOW_FULLSCREEN : 0);
     if (!SDL_CreateWindowAndRenderer(config->title, fb_width, fb_height, flags, &window, &renderer)) {
         port_fatal("platform: window creation failed: %s\n", SDL_GetError());
         platform_shutdown();
@@ -201,6 +216,7 @@ bool platform_init(const PlatformConfig *config)
     SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height,
                                      config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
                                                                 : SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    log_window_sizes("created");
     load_script();
     window_focused = true;
     cursor_apply();
@@ -250,6 +266,7 @@ bool platform_reconfigure(const PlatformConfig *config)
     SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height,
                                      config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
                                                                 : SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    log_window_sizes("reconfigured");
     return true;
 }
 
