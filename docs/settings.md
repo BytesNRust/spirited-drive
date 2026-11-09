@@ -179,7 +179,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 ## What each profile sets (`TABLES`)
 
-All 85 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
+All 86 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
 | column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
