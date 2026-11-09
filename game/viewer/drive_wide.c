@@ -5,6 +5,7 @@
 #include "game/gfx/blit.h"
 #include "game/sys/backdrop.h"
 #include "viewer/layer_compose.h"
+#include "viewer/class_cache.h"
 #include "viewer/drive_light.h"
 #include "viewer/dash_box.h"
 #include "game/sys/bands.h"
@@ -564,6 +565,8 @@ typedef struct {
     int lights_left, lights_top, lights_w, lights_h;
     int in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed;
     const uint8_t *dials;   /* gauge_dials: per pixel GAUGE_ELLIPSE (inside a dial's box's ellipse), GAUGE_DIAL (inside the smaller dial) */
+    ClassCache *cache;      /* port (frame budget): the rows whose inputs have not changed since the last frame keep their classes */
+    int cache_check;        /* TNFS_CLASS_CACHE_CHECK (dev): a row the cache calls the same is made again and compared */
 } ClassJob;
 
 /* port (frame budget): the ellipses of the two dials are a function of the cockpit alone, so each pixel's two tests (four ellipse sums a pixel) are made once per cockpit, not per frame */
@@ -583,22 +586,20 @@ static const uint8_t *gauge_dials(const Cockpit *k)
     return flags;
 }
 
-static void class_band(void *user, int top, int bottom)
+/* row y's classes into out[SCREEN_W] */
+static void class_row(const ClassJob *j, int y, uint8_t *out)
 {
-    const ClassJob *j = user;
     const uint8_t *const frame = j->frame, *const art = j->art, *const dash_mask = j->dash_mask;
     const DashColour *const colour = j->colour;
     const uint8_t *const wheel_mask = j->wheel_mask;
-    uint8_t *const classes = j->classes;
     const int lights_left = j->lights_left, lights_top = j->lights_top, lights_w = j->lights_w, lights_h = j->lights_h;
     const uint8_t *const dials = j->dials;
     const int in_car = j->in_car, map_on = j->map_on, dim_tach = j->dim_tach, wheel_gauge = j->wheel_gauge,
               wheel_masked = j->wheel_masked, lit_keyed = j->lit_keyed;
-    for (int y = top; y < bottom; y++)
-        for (int x = 0; x < SCREEN_W; x++) {
+    for (int x = 0; x < SCREEN_W; x++) {
             const uint8_t v = frame[y * SCREEN_W + x];
             if (v == LAYER_KEY) {   /* nothing drawn: the 3D's, whatever the rest says (every test below is on a drawn pixel) */
-                classes[y * SCREEN_W + x] = LAYER_KEY;
+                out[x] = LAYER_KEY;
                 continue;
             }
             int hud = !in_car || y < HUD_BAR_HEIGHT || (map_on && in_rect(x, y, DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_W, DRIVE_MAP_H));
@@ -622,8 +623,27 @@ static void class_band(void *user, int top, int bottom)
             }
             if (class == PSX_CLASS_LIT && colour != NULL && colour->slot[y * SCREEN_W + x] != 0)
                 class = (uint8_t)(PSX_CLASS_LIT_COLOUR + colour->slot[y * SCREEN_W + x] - 1);   /* painted: its own colour; else the orange of gauge_light 3 */
-            classes[y * SCREEN_W + x] = class;
+            out[x] = class;
+    }
+}
+
+/* the rows [top, bottom): a row whose inputs and settings are the last frame's keeps its classes (classes is static, so the row is still there) */
+static void class_band(void *user, int top, int bottom)
+{
+    const ClassJob *j = user;
+    for (int y = top; y < bottom; y++) {
+        uint8_t *const out = j->classes + (size_t)y * SCREEN_W;
+        const uint8_t *const input[CLASS_CACHE_INPUTS] = { j->frame, j->art, j->dash_mask, j->colour != NULL ? j->colour->slot : NULL, j->wheel_mask, j->dials };
+        if (class_cache_row_same(j->cache, y, input)) {
+            if (j->cache_check) {
+                uint8_t again[SCREEN_W];
+                class_row(j, y, again);
+                if (memcmp(again, out, SCREEN_W) != 0) fprintf(stderr, "class cache: row %d kept but its classes changed\n", y);
+            }
+            continue;
         }
+        class_row(j, y, out);
+    }
 }
 
 /* `placed`: the 640 box where the map was and the dash is drawn instead (wide_art_placed), NULL when the map is there or it is not the dash;
@@ -665,8 +685,27 @@ static void compose_classes(const LayerCompose *c, const uint8_t *frame, int in_
     const uint8_t *const wheel_w = wheel_masked ? wheel_front_shape(k, 2, drive_hud.hud.unknown_4f9a20[0], steer_negative, drive_sim.race.mirrored) : NULL;
     static uint8_t wheel_mask[WHEEL_MASK_SIZE];   /* the wheel's pixels for the frame, made once here and not asked about pixel by pixel */
     if (wheel_any) wheel_front_mask(wheel_w, wheel_t, wheel_s, art, wheel_mask);
-    const ClassJob job = { frame, art, k, dash_mask, colour, classes, wheel_t, wheel_s, wheel_w, wheel_any ? wheel_mask : NULL, lights_left, lights_top, lights_w, lights_h,
-                           in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed, gauge_dials(k) };
+    static ClassCache cache;
+    static int cache_check = -1;
+    if (cache_check < 0) cache_check = getenv("TNFS_CLASS_CACHE_CHECK") != NULL;
+    const uint8_t *const dials = gauge_dials(k);
+    const uint8_t *const wheel_plane = wheel_any ? wheel_mask : NULL;
+    const ClassJob job = { frame, art, k, dash_mask, colour, classes, wheel_t, wheel_s, wheel_w, wheel_plane, lights_left, lights_top, lights_w, lights_h,
+                           in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed, dials, &cache, cache_check };
+    /* everything but the planes a class reads (class_row): a change makes every row be made again */
+    struct {
+        int in_car, map_on, dim_tach, wheel_gauge, wheel_masked, lit_keyed, lights_left, lights_top, lights_w, lights_h;
+        uint32_t needle_colour;
+        const void *tach;
+        unsigned planes;
+    } sig;
+    memset(&sig, 0, sizeof sig);
+    sig.in_car = in_car, sig.map_on = map_on, sig.dim_tach = dim_tach, sig.wheel_gauge = wheel_gauge, sig.wheel_masked = wheel_masked, sig.lit_keyed = lit_keyed;
+    sig.lights_left = lights_left, sig.lights_top = lights_top, sig.lights_w = lights_w, sig.lights_h = lights_h;
+    sig.needle_colour = (uint32_t)drive_hud.needle_colour, sig.tach = drive_hud.art.tach;
+    const uint8_t *const planes[CLASS_CACHE_INPUTS] = { frame, art, dash_mask, colour != NULL ? colour->slot : NULL, wheel_plane, dials };
+    for (int i = 0; i < CLASS_CACHE_INPUTS; i++) sig.planes |= planes[i] != NULL ? 1u << i : 0u;
+    class_cache_begin(&cache, &sig, sizeof sig, SCREEN_W, SCREEN_H, sig.planes);
     bands_rows(0, SCREEN_H, class_band, (void *)&job);
     memset(shadow, LAYER_KEY, out);
     shadow_out = shadow;
