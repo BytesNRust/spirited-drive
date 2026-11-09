@@ -24,6 +24,7 @@
 #include "game/viewer/reflect_pass.h"
 #include "game/viewer/street_halo.h"
 #include "game/viewer/car_lamp_halo.h"
+#include "game/viewer/weather_sky.h"
 #include "game/viewer/screen_layout.h"
 #include "game/race/car_draw.h"
 #include "game/race/car_road.h"
@@ -442,97 +443,13 @@ void ported_view_set_modern(int on) { modern = on != 0; }
  * weather changes. */
 static int weather;
 static ModernLook look;   /* port: the Texture Filter and Fog's look (the PS1 look's dark fog too: ported_view_set_dark_fog) */
-typedef struct {
-    uint8_t palette[768];
-    int weather, made;
-    int sample, lift;    /* port (fog_sample): the colour's source the fog was made from */
-    int dark;            /* port (the PS1 look): the weather fog was made dark (modern_look_weather_fog) */
-    uint8_t fog[3];      /* the fog's colour */
-    uint8_t sky[256];    /* the sky's palette moved toward its colour */
-    uint8_t levels[MODERN_FOG_LEVELS][256];   /* all its levels: the fog's sky gets the fog's whole at the horizon */
-    int sky_low, sky_high;
-    float tint[3];       /* the time of day's tint the fog colour was made for */
-    uint8_t rain[256];   /* a streak's lightening */
-    uint8_t flash[WEATHER_FLASH_PEAK + 1][256];   /* port (WEATHER_STORM): the picture lifted toward the lightning's colour, by the flash's brightness (0 none .. WEATHER_FLASH_PEAK all) */
-    uint8_t rain4[WEATHER_RAIN_LEVELS][256];   /* port (rain_fx): and its four brightness levels, dark to white */
-    uint8_t mood[256];   /* port (rain v4): the whole picture moved toward a dark grey: rain's desaturated, lower contrast light */
-    uint8_t tail[256];   /* port (rain v4): a road pixel under a tail light, moved toward its red */
-    uint8_t head[256];   /* port (rain_fx): a road pixel under a lit headlight, moved toward its warm white */
-    uint8_t lens[256];   /* port (rain v3): the body of a drop on the lens: the scene behind it, darker */
-} WeatherTables;
 
 static int track_snow;   /* port (snow_weather): this race's track is a snowy one with the switch on (ported_view_set_snow) */
 void ported_view_set_snow(int snow) { track_snow = snow != 0; }
 static int snow_level(void) { return weather_snow_level(weather, track_snow, 1); }   /* SNOW_NONE .. SNOW_HEAVY: what falls on this race */
 void ported_view_set_weather(int w) { weather = w > WEATHER_CLEAR && w < WEATHER_COUNT ? w : WEATHER_CLEAR; }
 
-static const WeatherTables *weather_tables(const TrackArt *art)
-{
-    static WeatherTables wt;
-    float tint[3];
-    drive_light_tint(tint);
-    const int sample = port_fog_sample(), lift = port_fog_lift(), dark = look.dark;
-    if (wt.made && wt.weather == weather && wt.sample == sample && wt.lift == lift && wt.dark == dark &&
-        memcmp(wt.tint, tint, sizeof tint) == 0 && memcmp(wt.palette, art->palette, sizeof wt.palette) == 0)
-        return &wt;
-    static uint8_t scratch[MODERN_FOG_LEVELS][256];
-    uint8_t base[3], sky[3], rain[3];
-    if (sample) modern_look_fog_colour_sampled(art, lift, base);
-    else modern_look_fog_colour(art, base);
-    weather_fog_colour(weather, base, wt.fog);
-    weather_fog_for_tint(wt.fog, tint, wt.fog);   /* the time of day's tint reaches the fog at half strength */
-    modern_look_weather_fog(&look, wt.fog, wt.fog);   /* the dark track's fog as its distance fog: the rain's haze too */
-    weather_sky_colour(weather, wt.fog, sky);
-    modern_look_weather_fog(&look, sky, sky);          /* the rain's own sky colour: dark as well */
-    modern_fog_tables(art->palette, sky, scratch);
-    wt.sky_low = weather_wet(weather) ? WEATHER_RAIN_SKY_LEVEL : WEATHER_SKY_LEVEL;
-    wt.sky_high = weather_wet(weather) ? wt.sky_low : MODERN_FOG_LEVELS - 1;
-    memcpy(wt.sky, scratch[wt.sky_low], sizeof wt.sky);
-    memcpy(wt.levels, scratch, sizeof wt.levels);
-    weather_rain_colour(rain);
-    modern_fog_tables(art->palette, rain, scratch);
-    memcpy(wt.rain, scratch[WEATHER_STREAK_LEVEL], sizeof wt.rain);
-    for (int l = 0; l < WEATHER_RAIN_LEVELS; l++) memcpy(wt.rain4[l], scratch[weather_rain_level_fog(l)], 256);
-    { const uint8_t dark[3] = { 20, 26, 36 };
-      modern_fog_tables(art->palette, dark, scratch);
-      memcpy(wt.lens, scratch[6], 256);   /* port (rain v3) */
-      const uint8_t grey[3] = { 92, 98, 108 }, red[3] = { 255, 34, 24 };   /* port (rain v4) */
-      modern_fog_tables(art->palette, grey, scratch);
-      memcpy(wt.mood, scratch[drive_light_night() ? 4 : 5], 256);
-      modern_fog_tables(art->palette, red, scratch);
-      memcpy(wt.tail, scratch[9], 256);
-      const uint8_t warm[3] = { 255, 226, 160 };
-      modern_fog_tables(art->palette, warm, scratch);
-      memcpy(wt.head, scratch[9], 256); }
-    weather_flash_colour(rain);
-    modern_fog_tables(art->palette, rain, scratch);
-    for (int l = 0; l <= WEATHER_FLASH_PEAK; l++) memcpy(wt.flash[l], scratch[l], 256);
-    memcpy(wt.palette, art->palette, sizeof wt.palette);
-    memcpy(wt.tint, tint, sizeof tint);
-    wt.weather = weather, wt.sample = sample, wt.lift = lift, wt.dark = dark, wt.made = 1;
-    return &wt;
-}
-
-typedef struct {
-    uint8_t *pixels;
-    int32_t pitch, left, right;   /* the columns clipped to the buffer */
-    const WeatherTables *wt;
-    int32_t cx, cy;               /* the view's centre and focal length, and the world's up in its space (unit) */
-    float focal, up[3];
-} WeatherSky;
-
-/* the weather's sky for the view `view` at the camera matrix `matrix` (the world's up taken to the camera's space) */
-static WeatherSky weather_sky(uint8_t *pixels, int32_t pitch, int32_t left, int32_t right, const WeatherTables *wt,
-                              const View *view, const int32_t matrix[9])
-{
-    const int32_t up_world[3] = { 0, 0x10000, 0 };
-    int32_t c[3];
-    mat3_apply(up_world, matrix, c);
-    const float len = sqrtf((float)c[0] * (float)c[0] + (float)c[1] * (float)c[1] + (float)c[2] * (float)c[2]);
-    const float k = len > 0 ? 1.0f / len : 0.0f;
-    return (WeatherSky){ pixels, pitch, left, right, wt, view->centre_x, view->centre_y, (float)view->focal_x,
-                         { (float)c[0] * k, (float)c[1] * k, (float)c[2] * k } };
-}
+static const WeatherTables *weather_tables(const TrackArt *art) { return weather_tables_for(art, weather, &look); }
 
 typedef struct {
     uint8_t *pixels;
@@ -553,33 +470,12 @@ static void rain_roll_update(void);       /* port (rain_tyre_roll): the wet-tyre
 static void snow_roll_update(void);       /* port (snow crunch): the snowy rally's crunch of the followed car */
 static int storm_flash_level(void);   /* port (WEATHER_STORM): the lightning's brightness this frame, 0 none */
 
-static void weather_sky_band(void *user, int top, int bottom)
-{
-    const WeatherSky *s = user;
-    if (s->wt->sky_high > s->wt->sky_low)
-        weather_sky_fade(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->levels, s->wt->sky_low, s->wt->sky_high,
-                         s->cx, s->cy, s->focal, s->up);
-    else weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->sky);
-    const int flash = storm_flash_level();   /* the lightning: the sky, drawn before the scenery, goes (nearly) white, the silhouettes of what stands against it kept */
-    if (flash > 0) weather_sky_rows(s->pixels, s->pitch, s->left, s->right, top, bottom, s->wt->flash[flash]);
-}
 int ported_view_modern(void) { return modern; }
 int ported_view_rain(void) { return weather_wet(weather); }
 
 static int rain_open = 16;  /* port (weather_zones) 0..16: how much weather there is where the eye is (rain_open_at), once a frame before the sky is drawn */
 static int look_filter, look_fog;  /* port: EXTRAS' Texture Filter and Fog (ported_view_set_look) */
 void ported_view_set_dark_fog(int dark) { modern_look_set_dark(&look, dark); }
-
-static void weather_style(const TrackArt *art, const WeatherTables *wt)
-{
-    const int fog = weather == WEATHER_FOG;
-    ModernStyle style = *modern_look_fixed_fog(&look, art, look_filter, wt->fog, fog ? WEATHER_FOG_START : WEATHER_RAIN_FOG_START,
-                                               fog ? WEATHER_FOG_END : WEATHER_RAIN_FOG_END);
-    if (fog && weather_fog_curve())   /* the exponential variant (weather.h) */
-        style.fog_exp = WEATHER_FOG_EXP_SCALE, style.fog_cap = WEATHER_FOG_EXP_CAP_PERCENT / 100.0f;
-    if (!weather_fog_open(rain_open, style.fog_start, &style.fog_end, &style.fog_cap)) style.fog = NULL;   /* port (weather_zones): no fog inside a closed zone, thinning at its mouths */
-    modern_road_set_style(&style);
-}
 
 /* the rear-view mirror draws before the front view of the frame: its road gets the weather's style (not last frame's);
  * 0 (nothing set) in WEATHER_CLEAR or without Modern 3D */
@@ -588,7 +484,7 @@ int ported_view_mirror_weather_on(void) { return weather != WEATHER_CLEAR && mod
 int ported_view_mirror_weather(const TrackArt *art)
 {
     if (weather == WEATHER_CLEAR || !modern) return 0;
-    weather_style(art, weather_tables(art));
+    weather_style(art, weather_tables(art), weather, &look, look_filter, rain_open);
     return 1;
 }
 
@@ -597,7 +493,7 @@ void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const
 {
     if (!ported_view_mirror_weather(art)) return;
     const WeatherTables *wt = weather_tables(art);
-    const WeatherSky sky = weather_sky(target->pixels, target->pitch, target->clip_left, target->clip_right, wt, view, matrix);
+    const WeatherSky sky = weather_sky(target->pixels, target->pitch, target->clip_left, target->clip_right, wt, view, matrix, storm_flash_level());
     weather_sky_band((void *)&sky, target->clip_top, target->clip_bottom);
 }
 static PsxSkyDraw *psx_sky;        /* port: the PS1 sky (ported_view_set_psx_sky) */
@@ -2937,7 +2833,7 @@ static void cars_weather_sky(const WeatherTables *wt, uint8_t *pixels, const int
     drive_light_set_flash(wt != NULL ? storm_flash_level() : 0);   /* port (WEATHER_STORM): the palette goes bright with the flash, the sky white below */
     if (wt != NULL) {   /* port (weather): the sky toward its colour, before the track covers it */
         const WeatherSky sky = weather_sky(pixels, screen_w, box[0] < 0 ? 0 : box[0], box[2] > screen_w ? screen_w : box[2], wt,
-                                           view, cam->matrix);
+                                           view, cam->matrix, storm_flash_level());
         bands_rows(box[1] < 0 ? 0 : box[1], box[3] < screen_h ? box[3] : screen_h, weather_sky_band, (void *)&sky);
     }
 }
@@ -2947,7 +2843,7 @@ static void cars_stream_style(const Tri *tri, const TrackArt *art, const PortedC
 {
     stream(tri, art, pc->node);
     if (!modern) modern_road_set_style(NULL);
-    else if (wt != NULL) weather_style(art, wt);
+    else if (wt != NULL) weather_style(art, wt, weather, &look, look_filter, rain_open);
     else {
         modern_look_set_sample(&look, port_fog_sample(), port_fog_lift());
         modern_road_set_style(modern_look_style(&look, art, look_filter, look_fog, render.draw_segments));
