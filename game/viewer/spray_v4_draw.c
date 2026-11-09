@@ -9,7 +9,7 @@
 #include <string.h>
 
 /* the drawn kinds: the particles' own (SprayV4Kind) and the stones' glint */
-enum { WORLD_SHIFT = 11, MAX_CHUNKS = 512, MAX_PUFF_W = 4096, NODE_BUCKETS = 1024, LEVELS = 8, GLINT = SPRAY_V4_KINDS, KINDS = SPRAY_V4_KINDS + 1 };
+enum { WORLD_SHIFT = 11, MAX_CHUNKS = 4096, BAND = 8, MAX_PUFF_W = 4096, NODE_BUCKETS = 1024, LEVELS = 8, GLINT = SPRAY_V4_KINDS, KINDS = SPRAY_V4_KINDS + 1 };
 
 /* how each kind is drawn: its sprite family, its colour's cap (a level k mixes k/per toward it), how far the sprite's half width is from the particle's radius (the body of the sprite is a fraction of it), its height over
  * its width (1: a billboard, never squashed), how far it sits above the road, and the distances it fades in (from `near0` to `near1` metres) and out (`far0` to `far1`) */
@@ -116,8 +116,6 @@ static void compose(int kind, const Puff *puffs, int count)
     }
     const int w = x1 - x0, h = y1 - y0;
     if (count == 0 || w <= 0 || h <= 0 || chunk_count >= MAX_CHUNKS) return;
-    uint8_t *shape = calloc((size_t)16 + (size_t)w * (size_t)h, 1);
-    if (shape == NULL) return;
     const int ox = H.target->clip_left, oy = H.target->clip_top;
     for (int y = y0; y < y1; y++) row_lo[y - oy] = 1 << 30, row_hi[y - oy] = -1;
     for (int i = 0; i < count; i++) {
@@ -144,25 +142,37 @@ static void compose(int kind, const Puff *puffs, int count)
             if (p->x1 > row_hi[y - oy]) row_hi[y - oy] = p->x1;
         }
     }
+    /* the sprites are made in bands of rows, each as wide as the puffs on its rows are: a group's one box would be mostly empty (and the blend walks every texel of it) */
     const int per = LOOKS[kind].per;
-    int any = 0;
-    for (int y = y0; y < y1; y++) {
-        uint8_t *g = &group_map[(size_t)(y - oy) * (size_t)map_w], *fm = &frame_map[kind][(size_t)(y - oy) * (size_t)map_w];
-        for (int x = row_lo[y - oy]; x < row_hi[y - oy]; x++) {
-            const int now = g[x - ox], before = fm[x - ox];
-            g[x - ox] = 0;   /* the group's map is left clean for the next */
-            if (now <= before) continue;
-            const float inc = (float)(now - before) * 255.0f / (float)(255 - before);   /* what the pixel still takes after what the groups before gave it */
-            int k = (int)(inc * (float)per / 255.0f + (BAYER[(y & 3) * 4 + (x & 3)] + 0.5f) / 16.0f);
-            if (k > LEVELS) k = LEVELS;
-            fm[x - ox] = (uint8_t)now;
-            if (k > 0) shape[16 + (size_t)(y - y0) * (size_t)w + (size_t)(x - x0)] = (uint8_t)k, any = 1;
+    for (int by = y0; by < y1; by += BAND) {
+        const int ey = by + BAND < y1 ? by + BAND : y1;
+        int lo = 1 << 30, hi = -1;
+        for (int y = by; y < ey; y++) {
+            if (row_lo[y - oy] < lo) lo = row_lo[y - oy];
+            if (row_hi[y - oy] > hi) hi = row_hi[y - oy];
         }
+        const int bw = hi - lo, bh = ey - by;
+        uint8_t *shape = bw > 0 && chunk_count < MAX_CHUNKS ? calloc((size_t)16 + (size_t)bw * (size_t)bh, 1) : NULL;
+        int any = 0;
+        for (int y = by; y < ey; y++) {
+            uint8_t *g = &group_map[(size_t)(y - oy) * (size_t)map_w], *fm = &frame_map[kind][(size_t)(y - oy) * (size_t)map_w];
+            for (int x = row_lo[y - oy]; x < row_hi[y - oy]; x++) {
+                const int now = g[x - ox], before = fm[x - ox];
+                g[x - ox] = 0;   /* the group's map is left clean for the next */
+                if (shape == NULL || now <= before) continue;
+                const float inc = (float)(now - before) * 255.0f / (float)(255 - before);   /* what the pixel still takes after what the groups before gave it */
+                int k = (int)(inc * (float)per / 255.0f + (BAYER[(y & 3) * 4 + (x & 3)] + 0.5f) / 16.0f);
+                if (k > LEVELS) k = LEVELS;
+                fm[x - ox] = (uint8_t)now;
+                if (k > 0) shape[16 + (size_t)(y - by) * (size_t)bw + (size_t)(x - lo)] = (uint8_t)k, any = 1;
+            }
+        }
+        if (shape == NULL) continue;
+        if (!any) { free(shape); continue; }
+        shape[0] = 0x7b, shape[4] = (uint8_t)(bw & 0xff), shape[5] = (uint8_t)(bw >> 8), shape[6] = (uint8_t)(bh & 0xff), shape[7] = (uint8_t)(bh >> 8);
+        chunks[chunk_count++] = shape;   /* kept until the next frame: the recorder replays the sprite when the frame's 3D is whole */
+        sprite_scaled_blend(H.target, rows[kind], shape, bw, bh, lo, by);
     }
-    if (!any) { free(shape); return; }
-    shape[0] = 0x7b, shape[4] = (uint8_t)(w & 0xff), shape[5] = (uint8_t)(w >> 8), shape[6] = (uint8_t)(h & 0xff), shape[7] = (uint8_t)(h >> 8);
-    chunks[chunk_count++] = shape;   /* kept until the next frame: the recorder replays the sprite when the frame's 3D is whole */
-    sprite_scaled_blend(H.target, rows[kind], shape, w, h, x0, y0);
 }
 
 void spray_v4_draw_row(int32_t node, int far_side)
