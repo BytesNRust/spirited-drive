@@ -84,6 +84,10 @@ void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out
  * leaves the car at its brightest red while the world's tables, which have no family, go on lighter) */
 void psx_lit_table_ex(const uint8_t palette[768], const float ratio[3], int any_family, uint8_t out[256]);
 
+/* port (car_night_lift): the same with a floor of light `add` (8 bits a channel, NULL none) added to the wanted colour: a near-black paint (a dark car at night) is lifted out of black by it, which a
+ * ratio cannot do. With a floor the table is made even at ratio 1. */
+void psx_lit_table_floor(const uint8_t palette[768], const float ratio[3], int any_family, const uint8_t add[3], uint8_t out[256]);
+
 /* port (track light file, tono_coche): `base` (a table as psx_lit_table makes, NULL for none) with the car's colours taken toward the tone `rgb` (0..255 each) by `percent` 0..100: each colour keeps its brightness and
  * its hue goes toward the tone's (a red car toward orange, a white one to it, a black one to a dark orange); the result is the nearest colour the palette has, of any hue (the palette is all a car can take). */
 void psx_car_tone_table(const uint8_t palette[768], const uint8_t *base, const uint8_t rgb[3], int percent, uint8_t out[256]);

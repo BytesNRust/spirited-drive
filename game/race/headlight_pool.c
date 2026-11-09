@@ -141,6 +141,19 @@ int headlight_pool_width(int point)
     return point >= 0 && point < 11 ? SHARE[point] : 256;
 }
 
+int headlight_pool_car_ratio_start(int found, int has_pool, int lift_level, float out[3])
+{
+    if (found || !has_pool || lift_level < 1) return found;
+    out[0] = out[1] = out[2] = 1.0f;
+    return 1;
+}
+
+int headlight_pool_car_night_lift(int gain, int level)
+{
+    const int more = level == 1 ? 32 : level == 2 ? 64 : 0;
+    return gain + gain * more / 256;
+}
+
 int headlight_pool_car_gain(int gain)
 {
     return HEADLIGHT_FLOOR + (gain - HEADLIGHT_FLOOR) * HEADLIGHT_CAR_SHARE / 256;

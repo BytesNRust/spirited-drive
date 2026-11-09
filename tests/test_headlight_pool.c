@@ -360,8 +360,41 @@ static void test_the_beam_adds_on_top_of_a_lifted_floor(void)
     CHECK_EQ_INT(psx_light_open_gain_floor(&light, lift, 0), headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift));
 }
 
+/* port (car_night_lift): the car's gain is raised by an eighth or a quarter of itself: nothing at level 0 or an unknown level, the order of the lights kept, a lit car (256) at 288 / 320 */
+static void test_car_night_lift(void)
+{
+    for (int g = 0; g <= 256; g += 16) CHECK_EQ_INT(headlight_pool_car_night_lift(g, 0), g);
+    CHECK_EQ_INT(headlight_pool_car_night_lift(256, 1), 288);
+    CHECK_EQ_INT(headlight_pool_car_night_lift(256, 2), 320);
+    CHECK_EQ_INT(headlight_pool_car_night_lift(96, 1), 108);
+    CHECK_EQ_INT(headlight_pool_car_night_lift(96, 2), 120);
+    for (int level = 1; level <= 2; level++)
+        for (int g = 0; g < 256; g++) {
+            const int lifted = headlight_pool_car_night_lift(g, level);
+            CHECK(lifted >= g);
+            CHECK(headlight_pool_car_night_lift(g + 1, level) >= lifted);
+        }
+    CHECK_EQ_INT(headlight_pool_car_night_lift(100, 7), 100);
+}
+
+/* port (car_night_lift): a track whose light gives the car no ratio (CL1's night: no ambient, no synth) leaves the caller's ratio untouched; with the pool and a lift level it is the car's own full light, found */
+static void test_car_ratio_start(void)
+{
+    float out[3] = { 0.0f, 0.0f, 0.0f };
+    CHECK_EQ_INT(headlight_pool_car_ratio_start(1, 1, 1, out), 1);   /* a ratio was found: not touched */
+    CHECK(out[0] == 0.0f && out[1] == 0.0f && out[2] == 0.0f);
+    CHECK_EQ_INT(headlight_pool_car_ratio_start(0, 1, 0, out), 0);   /* no lift: as before, the caller's zero stays */
+    CHECK(out[0] == 0.0f);
+    CHECK_EQ_INT(headlight_pool_car_ratio_start(0, 0, 1, out), 0);   /* no pool (the day): as before */
+    CHECK(out[0] == 0.0f);
+    CHECK_EQ_INT(headlight_pool_car_ratio_start(0, 1, 1, out), 1);   /* CL1 at night with the lift: full light, found */
+    CHECK(out[0] == 1.0f && out[1] == 1.0f && out[2] == 1.0f);
+}
+
 int main(void)
 {
+    test_car_ratio_start();
+    test_car_night_lift();
     test_the_pool_ahead_of_a_car();
     test_the_pool_slides_with_the_car_inside_a_node();
     test_a_tunnel_is_lit_by_the_beam_too();
