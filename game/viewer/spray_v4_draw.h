@@ -21,6 +21,10 @@ typedef struct SprayV4Host {
 
 SprayV4 *spray_v4_state(void);
 
+/* What the frame drawn last cost in particles (dev: TNFS_FRAME_TIMES prints them): the live particles, the puffs drawn (after the fades), of them the big ones (made on the half map), the strips recorded and their texels. */
+typedef struct SprayV4Stats { int live, puffs, big, strips; long texels; } SprayV4Stats;
+const SprayV4Stats *spray_v4_stats(void);
+
 /* Starts a frame: the tables for the colours of each kind (SprayV4Kind order; the stones' glint takes the gravel dust's), the frame's maps cleared, the last frame's sprites freed. */
 void spray_v4_draw_frame(const SprayV4Host *host, const uint8_t rgb[SPRAY_V4_KINDS][3]);
 

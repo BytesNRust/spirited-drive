@@ -79,7 +79,10 @@ static uint8_t *arena_zeroed(size_t n)
     return NULL;
 }
 
+static SprayV4Stats stats;   /* the frame's, cleared by draw_frame */
+
 SprayV4 *spray_v4_state(void) { return &state; }
+const SprayV4Stats *spray_v4_stats(void) { return &stats; }
 
 /* the sprite's column or row (0..SPRAY_V4_ART_SIZE - 1) at the unit-square coordinate u in -1..1 (nearest, on the texel centres: the dither hides the step), or -1 outside */
 static int cell(float u, int flip)
@@ -111,6 +114,7 @@ void spray_v4_draw_frame(const SprayV4Host *host, const uint8_t rgb[SPRAY_V4_KIN
     tables_set(rgb);
     for (int b = 0; b < ARENA_BLOCKS; b++) arena_used[b] = 0;
     chunk_count = 0;
+    stats = (SprayV4Stats){ 0 };
     map_w = H.target->clip_right - H.target->clip_left, map_h = H.target->clip_bottom - H.target->clip_top;
     if (map_w <= 0 || map_h <= 0) { map_w = map_h = 0; return; }
     if ((size_t)map_h > row_cap || (size_t)map_w + 8 > now_cap) {
@@ -126,7 +130,7 @@ void spray_v4_draw_frame(const SprayV4Host *host, const uint8_t rgb[SPRAY_V4_KIN
     for (int i = 0; i < SPRAY_V4_MAX; i++)
         if (state.p[i].live) {
             const uint32_t b = (uint32_t)state.p[i].node & (NODE_BUCKETS - 1);
-            node_next[i] = node_head[b], node_head[b] = (int16_t)i;
+            node_next[i] = node_head[b], node_head[b] = (int16_t)i, stats.live++;
         }
     half_w = map_w / 2 + 1;
     if (RCP[0] == 0) fixed_tables();
@@ -307,7 +311,7 @@ static void compose(int kind, const Puff *puffs, int count)
         if (shape == NULL) continue;
         if (!any) continue;
         shape[0] = 0x7b, shape[4] = (uint8_t)(bw & 0xff), shape[5] = (uint8_t)(bw >> 8), shape[6] = (uint8_t)(bh & 0xff), shape[7] = (uint8_t)(bh >> 8);
-        chunk_count++;
+        chunk_count++, stats.strips++, stats.texels += (long)bw * bh;
         sprite_scaled_blend(H.target, rows[kind], shape, bw, bh, lo, by);
     }
     for (int hy = (y0 - oy) / 2 > 0 ? (y0 - oy) / 2 - 1 : 0; hy <= (y1 - 1 - oy) / 2 + 1 && hy <= map_h / 2; hy++)   /* the half map is left clean too */
@@ -361,11 +365,11 @@ void spray_v4_draw_row(int32_t node, int far_side)
         if (q->x1 > H.target->clip_right) q->x1 = H.target->clip_right;
         if (q->y1 > H.target->clip_bottom) q->y1 = H.target->clip_bottom;
         if (q->x0 >= q->x1 || q->y0 >= q->y1) continue;
-        count[p->kind]++;
+        count[p->kind]++, stats.puffs++, stats.big += q->rx > (float)HALF_RX;
         if (p->kind == SPRAY_V4_GRAVEL && q->rx >= 1.6f) {   /* the stone's glint: the same place, its own sprite, the light colour */
             Puff *g = &puffs[GLINT][count[GLINT]];
             *g = *q, g->sprite = spray_v4_art_glint(lk->family, variant);
-            if (g->sprite != NULL) count[GLINT]++;
+            if (g->sprite != NULL) count[GLINT]++, stats.puffs++;
         }
     }
     for (int kind = 0; kind < KINDS; kind++) compose(kind, puffs[kind], count[kind]);

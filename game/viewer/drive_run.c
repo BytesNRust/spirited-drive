@@ -18,6 +18,7 @@
 #include "viewer/drive_interp.h"
 #include "viewer/race_stats.h"
 #include "viewer/light_edit.h"
+#include "viewer/spray_v4_draw.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_profile.h"
 
@@ -757,6 +758,9 @@ static void spin_shot(const Track *t, uint8_t *pixels, uint32_t i, uint32_t tick
 enum { FRAME_TIMES = 4096 };
 static double frame_us[FRAME_TIMES];
 static int frame_count;
+static double spray_sum[5];   /* the frames' live, puffs, big, strips, texels (spray v4) */
+static long spray_max_texels;
+static int spray_frames;
 
 static int compare_us(const void *a, const void *b)
 {
@@ -772,6 +776,18 @@ static void frame_times_print(void)
     qsort(frame_us, (size_t)frame_count, sizeof frame_us[0], compare_us);
     printf("frames %d: mean %.0f us, p50 %.0f us, p95 %.0f us, max %.0f us\n", frame_count, sum / frame_count,
            frame_us[frame_count / 2], frame_us[(int)(frame_count * 0.95)], frame_us[frame_count - 1]);
+    if (spray_frames > 0 && spray_sum[0] + spray_sum[1] > 0)   /* spray v4 on: what each frame drew, so a cost regression shows in the log */
+        printf("spray v4 per frame (mean of %d): live %.0f, puffs %.1f (big %.1f), strips %.1f, texels %.0f (max %ld)\n", spray_frames,
+               spray_sum[0] / spray_frames, spray_sum[1] / spray_frames, spray_sum[2] / spray_frames, spray_sum[3] / spray_frames,
+               spray_sum[4] / spray_frames, spray_max_texels);
+}
+
+static void spray_stats_add(void)
+{
+    const SprayV4Stats *s = spray_v4_stats();
+    spray_sum[0] += s->live, spray_sum[1] += s->puffs, spray_sum[2] += s->big, spray_sum[3] += s->strips, spray_sum[4] += (double)s->texels;
+    if (s->texels > spray_max_texels) spray_max_texels = s->texels;
+    spray_frames++;
 }
 
 int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
@@ -834,6 +850,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
             clock_gettime(CLOCK_MONOTONIC, &t0);
             render_drive(t, pixels);
             clock_gettime(CLOCK_MONOTONIC, &t1);
+            if (frame_count < FRAME_TIMES) spray_stats_add();
             if (frame_count < FRAME_TIMES) frame_us[frame_count++] = (t1.tv_sec - t0.tv_sec) * 1000000.0 + (t1.tv_nsec - t0.tv_nsec) / 1000.0;
             spin_shot(t, pixels, i, ticks);
             continue;
