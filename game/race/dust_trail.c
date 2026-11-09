@@ -2,6 +2,7 @@
 #include "game/race/dust_trail.h"
 
 #include "game/race/rally_gravel.h"
+#include "game/race/tick_rate.h"
 #include "game/sys/fixed_math.h"
 
 enum {
@@ -9,13 +10,12 @@ enum {
     HALF_TRACK = 0xd000,   /* ...and 0.8 m either side of it */
     DROP = 0x5000,         /* 0.3 m under the centre: the tyre's own height */
     SPREAD = 0x5000,       /* a puff is dropped within this of the wheel */
-    RISE = 0x380,          /* a tick's rise (16.16 metres): 0.5 m over a desert puff's life */
-    DRIFT = 0x900,         /* a tick's drift outward */
-    LIFE_DUST = 36,        /* 1.2 s */
-    LIFE_REGOLITH = 54,
-    LIFE_LUNAR = 90,       /* the regolith under the moon's pull hangs 3 seconds */
-    MAX_STEPS = 12,   /* a frame may cover this many ticks (a slow machine) and still lay its trail whole; a longer pause leaves a gap, not a burst */
-    TICKS_A_SECOND = 30
+    RISE = 0x1c0,          /* a tick's rise (16.16 metres): 0.5 m over a desert puff's life */
+    DRIFT = 0x480,         /* a tick's drift outward */
+    LIFE_DUST = 12 * RACE_TICKS_A_SECOND / 10,        /* 1.2 s */
+    LIFE_REGOLITH = 18 * RACE_TICKS_A_SECOND / 10,    /* 1.8 s */
+    LIFE_LUNAR = 3 * RACE_TICKS_A_SECOND,             /* the regolith under the moon's pull hangs 3 seconds */
+    MAX_STEPS = 4 * RACE_TICKS_A_SECOND / 10          /* a frame may cover this much (0.4 s: a slow machine) and still lay its trail whole; a longer pause leaves a gap, not a burst */
 };
 
 void dust_trail_reset(DustTrail *trail)
@@ -68,7 +68,7 @@ void dust_trail_step(DustTrail *trail, int32_t tick, int kind, int drop, const i
     int32_t from = trail->last_tick + 1;
     if (tick - from + 1 > MAX_STEPS) from = tick - MAX_STEPS + 1;
     if (drop && (kind == RALLY_GRAVEL_DUST || kind == RALLY_GRAVEL_REGOLITH || kind == RALLY_GRAVEL_SNOW))
-        for (int32_t t = from; t <= tick; t++) drop_at(trail, t, car, yaw, (int32_t)((int64_t)speed * (tick - t) / TICKS_A_SECOND));
+        for (int32_t t = from; t <= tick; t++) drop_at(trail, t, car, yaw, (int32_t)((int64_t)speed * (tick - t) / RACE_TICKS_A_SECOND));
     trail->last_tick = tick;
 }
 
@@ -79,7 +79,7 @@ int dust_puff_at(const DustPuff *puff, int32_t tick, int kind, int lunar, int32_
     const int32_t f = age * 256 / life;   /* 0..255 of its life */
     /* the dust rises a little; the regolith is thrown up and falls back (slowly under the moon's pull) */
     int32_t up = RISE * age;
-    if (kind == RALLY_GRAVEL_REGOLITH) up = 3 * RISE * age - (lunar ? RISE / 8 : RISE / 2) * age * age / 4;
+    if (kind == RALLY_GRAVEL_REGOLITH) up = 3 * RISE * age - (lunar ? RISE / 16 : RISE / 4) * age * age / 4;
     if (up < 0) up = 0;
     place[0] = puff->pos[0];
     place[1] = puff->pos[1] + up;

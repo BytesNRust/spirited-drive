@@ -91,27 +91,37 @@ static void test_trail(void)
     CHECK_EQ_INT(live(&t, 101, RALLY_GRAVEL_DUST, 0), 2);    /* the same tick drawn again: no more */
     dust_trail_step(&t, 102, RALLY_GRAVEL_DUST, 0, car, 0, 0);
     CHECK_EQ_INT(live(&t, 102, RALLY_GRAVEL_DUST, 0), 2);    /* not throwing: none dropped */
-    dust_trail_step(&t, 120, RALLY_GRAVEL_DUST, 1, car, 0, 0);
-    CHECK_EQ_INT(live(&t, 120, RALLY_GRAVEL_DUST, 0), 2 + 24);   /* a pause: 12 ticks of puffs, not 18 */
-    CHECK_EQ_INT(live(&t, 101 + dust_life(RALLY_GRAVEL_DUST, 0), RALLY_GRAVEL_DUST, 0), 24);   /* the first pair has gone... */
-    CHECK_EQ_INT(live(&t, 200, RALLY_GRAVEL_DUST, 0), 0);                                      /* ...and all, in time */
+    dust_trail_step(&t, 140, RALLY_GRAVEL_DUST, 1, car, 0, 0);
+    CHECK_EQ_INT(live(&t, 140, RALLY_GRAVEL_DUST, 0), 2 + 48);   /* a pause: 0.4 s (24 ticks) of puffs, not the 38 missed */
+    CHECK_EQ_INT(live(&t, 101 + dust_life(RALLY_GRAVEL_DUST, 0), RALLY_GRAVEL_DUST, 0), 48);   /* the first pair has gone... */
+    CHECK_EQ_INT(live(&t, 400, RALLY_GRAVEL_DUST, 0), 0);                                      /* ...and all, in time */
     dust_trail_step(&t, 5, RALLY_GRAVEL_DUST, 1, car, 0, 0);   /* the clock went back: a new race */
     CHECK_EQ_INT(live(&t, 5, RALLY_GRAVEL_DUST, 0), 0);
     dust_trail_step(&t, 6, RALLY_GRAVEL_COMPACT, 1, car, 0, 0);
     CHECK_EQ_INT(live(&t, 6, RALLY_GRAVEL_COMPACT, 0), 0);   /* compacted gravel: no trail */
 }
 
-/* ticks stepped at once are dropped along the way the car came, not in one heap: at 30 m/s the puffs of 3 ticks lie 1 m apart in z */
+/* the lives are in seconds of the 60-tick clock: 1.2 s, 1.8 s, 3 s on the moon */
+static void test_lives_in_seconds(void)
+{
+    CHECK_EQ_INT(dust_life(RALLY_GRAVEL_DUST, 0), 72);
+    CHECK_EQ_INT(dust_life(RALLY_GRAVEL_REGOLITH, 0), 108);
+    CHECK_EQ_INT(dust_life(RALLY_GRAVEL_REGOLITH, 1), 180);
+    CHECK(2 * dust_life(RALLY_GRAVEL_REGOLITH, 1) <= DUST_TRAIL_PUFFS);   /* the ring holds two puffs a tick for the longest life */
+}
+
+/* ticks stepped at once are dropped along the way the car came, not in one heap: at 60 m/s (1 m a tick of a sixtieth) the puffs of 3 ticks lie 1 m apart in z */
 static void test_catch_up_is_spread(void)
 {
     static DustTrail t;
     const int32_t car[3] = { 0, 0x100000, 0x400000 };
     dust_trail_reset(&t);
     dust_trail_step(&t, 10, RALLY_GRAVEL_DUST, 1, car, 0, 0);
-    dust_trail_step(&t, 13, RALLY_GRAVEL_DUST, 1, car, 0, 30 * 0x10000);   /* heading +z, 30 m/s: 1 m a tick */
+    dust_trail_step(&t, 13, RALLY_GRAVEL_DUST, 1, car, 0, 60 * 0x10000);   /* heading +z, 60 m/s: 1 m a tick */
     int32_t zs[3] = { 0 };
     for (int i = 0; i < 3; i++) zs[i] = t.puff[2 * i].pos[2];   /* ticks 11, 12, 13: the left wheel's */
     CHECK(zs[0] < zs[1] - 0x8000 && zs[1] < zs[2] - 0x8000);   /* oldest farthest back, about a metre apart (the jitter is under 0.4 m) */
+    CHECK(zs[2] - zs[0] > 2 * 0x10000 - 0xa000 && zs[2] - zs[0] < 2 * 0x10000 + 0xa000);   /* two ticks back is 2 m (60 ticks a second), not 4 */
 }
 
 /* a puff stays where it was dropped (the car moves on), is low and rises slowly, spreads outward on its own side, and thins toward the end */
@@ -265,6 +275,7 @@ int main(void)
     test_crunch();
     test_trail();
     test_puff();
+    test_lives_in_seconds();
     test_catch_up_is_spread();
     return TEST_REPORT();
 }

@@ -1,12 +1,13 @@
 #include "game/race/weather_snow.h"
 
+#include "game/race/tick_rate.h"
 #include "game/race/weather.h"
 
 #include <math.h>
 
 enum {
-    TICKS_A_SECOND = 30,
-    SWAY_PERIOD_MIN = 60, SWAY_PERIOD_RANGE = 90,   /* ticks of a flake's sway there and back */
+    TICKS_A_SECOND = RACE_TICKS_A_SECOND,
+    SWAY_PERIOD_MIN = 2 * RACE_TICKS_A_SECOND, SWAY_PERIOD_RANGE = 3 * RACE_TICKS_A_SECOND,   /* ticks of a flake's sway there and back: 2 to 5 s */
     SWAY_PERCENT_MIN = 2, SWAY_PERCENT_RANGE = 4,   /* the sway's reach each way, percent of the box's width */
     WIND_PERCENT = 12,                               /* the storm's wind: percent of the box's width a second */
     HEAVY_FALL_PERCENT = 125                         /* the storm's flakes fall this much faster */

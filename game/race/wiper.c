@@ -4,17 +4,20 @@
 #include <math.h>
 #include <stddef.h>
 
+#include "game/race/tick_rate.h"
+
 enum { REACH_PERCENT = 105, HUB_PERCENT = 8 };   /* the blade reaches a little past its length (its tip's width); nothing is swept at the hub */
 
 static const float PI = 3.14159265358979f;
 
 WiperTiming wiper_timing(int kind)
 {
-    switch (kind) {   /* ticks at the race's 30 a second */
-    case WIPER_LIGHT: return (WiperTiming){ 72, 40 };   /* 2.4 s, with a pause */
-    case WIPER_RAIN:  return (WiperTiming){ 54, 50 };   /* 1.8 s: a car's wipers at normal speed take 1.5 to 2 s a cycle */
-    case WIPER_STORM: return (WiperTiming){ 39, 36 };   /* 1.3 s */
-    case WIPER_SNOW:  return (WiperTiming){ 54, 50 };   /* as the rain */
+    const int s = RACE_TICKS_A_SECOND;
+    switch (kind) {   /* ticks at the race's 60 a second */
+    case WIPER_LIGHT: return (WiperTiming){ 24 * s / 10, 4 * s / 3 };   /* 2.4 s, with a pause */
+    case WIPER_RAIN:  return (WiperTiming){ 18 * s / 10, 5 * s / 3 };   /* 1.8 s: a car's wipers at normal speed take 1.5 to 2 s a cycle */
+    case WIPER_STORM: return (WiperTiming){ 13 * s / 10, 6 * s / 5 };   /* 1.3 s */
+    case WIPER_SNOW:  return (WiperTiming){ 18 * s / 10, 5 * s / 3 };   /* as the rain */
     default:          return (WiperTiming){ 0, 0 };
     }
 }

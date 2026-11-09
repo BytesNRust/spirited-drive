@@ -95,18 +95,18 @@ enum { WEATHER_SPRAY_PUFFS = 22 };
 #define WEATHER_SPRAY_CAP 1.5f   /* a puff grows as it goes from the wheel up to this many times the standard size */
 int weather_rain_spray_puff(int k, int side, uint32_t tick, int32_t speed, int wet_road, int32_t out[3], int32_t *size);
 
-/* port (WEATHER_STORM): the storm's clock. The lightning's brightness at `tick` (30 a second), 0 (none) .. WEATHER_FLASH_PEAK (the whole sky white): full on the
+/* port (WEATHER_STORM): the storm's clock. The lightning's brightness at `tick` (60 a second), 0 (none) .. WEATHER_FLASH_PEAK (the whole sky white): full on the
  * strike's first tick, then decaying over WEATHER_FLASH_TICKS. A pure function of the tick, so a replay or a screenshot at the same tick flashes the same. Every WEATHER_STORM_SLOT ticks
  * (15 s) three slots in four have a strike at a place of its own in the slot, one in three flashing a second, weaker time WEATHER_STORM_DOUBLE ticks after the first; none in the first 5
  * seconds. The sky is painted white by it, and the palette goes toward full bright by it (drive_light_set_flash). */
-enum { WEATHER_STORM_SLOT = 450, WEATHER_STORM_DOUBLE = 18, WEATHER_FLASH_TICKS = 10, WEATHER_FLASH_PEAK = 15 };
+enum { WEATHER_STORM_SLOT = 15 * 60, WEATHER_STORM_DOUBLE = 36, WEATHER_FLASH_TICKS = 20, WEATHER_FLASH_PEAK = 15, WEATHER_STORM_QUIET = 5 * 60 };   /* a flash lasts a third of a second; none in the first WEATHER_STORM_QUIET ticks */
 int weather_rain_flash(uint32_t tick);
 void weather_flash_colour(uint8_t out[3]);
 
 /* port (rain_v2): the thunder after each lightning. weather_thunder_strike is 1 at the tick a strike begins (the flash rises: the first of a double too). The thunder follows
- * weather_thunder_delay(strike tick) ticks later, WEATHER_THUNDER_MIN_TICKS..WEATHER_THUNDER_MAX_TICKS (0.5 to 4 s at 30 a second), a pure function of the tick so a replay sounds the same,
+ * weather_thunder_delay(strike tick) ticks later, WEATHER_THUNDER_MIN_TICKS..WEATHER_THUNDER_MAX_TICKS (0.5 to 4 s at 60 a second), a pure function of the tick so a replay sounds the same,
  * at weather_thunder_volume(delay) percent: full at the shortest delay, WEATHER_THUNDER_FAR_PERCENT at the longest. */
-enum { WEATHER_THUNDER_MIN_TICKS = 15, WEATHER_THUNDER_MAX_TICKS = 120, WEATHER_THUNDER_FAR_PERCENT = 35 };
+enum { WEATHER_THUNDER_MIN_TICKS = 30, WEATHER_THUNDER_MAX_TICKS = 240, WEATHER_THUNDER_FAR_PERCENT = 35 };
 int weather_thunder_strike(uint32_t tick);
 int weather_thunder_delay(uint32_t tick);
 int weather_thunder_volume(int delay);   /* (below, weather_thunder_inside) */

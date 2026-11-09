@@ -44,7 +44,7 @@ static void test_play(void)
     thunder_schedule(&t, 10, 100);   /* no sample: nothing */
     CHECK_EQ_INT(thunder_active(&t), 0);
     CHECK_EQ_INT(thunder_load(&t, wav, make_wav(wav, SAMPLE_FRAMES, 10000, RATE, 1), RATE), 1);
-    thunder_schedule(&t, 30, 100);   /* a second: RATE frames of silence */
+    thunder_schedule(&t, 60, 100);   /* a second (60 race ticks): RATE frames of silence */
     CHECK_EQ_INT(thunder_active(&t), 1);
     static int16_t out[2 * RATE];
     memset(out, 0, sizeof out);

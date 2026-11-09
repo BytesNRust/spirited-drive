@@ -15,6 +15,10 @@ static void test_the_sweep_is_a_triangle_and_parks(void)
 {
     const WiperTiming t = wiper_timing(WIPER_RAIN);
     CHECK(t.period > 0 && t.sweep > 0 && t.sweep <= t.period);
+    CHECK_EQ_INT(t.period, 108);                                         /* the rain's 1.8 s, light 2.4 s, storm 1.3 s, snow as the rain (60 ticks a second) */
+    CHECK_EQ_INT(wiper_timing(WIPER_LIGHT).period, 144);
+    CHECK_EQ_INT(wiper_timing(WIPER_STORM).period, 78);
+    CHECK_EQ_INT(wiper_timing(WIPER_SNOW).period, 108);
     CHECK(wiper_timing(WIPER_STORM).period < t.period);                  /* the storm sweeps faster */
     CHECK(wiper_timing(WIPER_LIGHT).period > t.period);                  /* a light rain more slowly */
     CHECK(wiper_timing(WIPER_LIGHT).sweep < wiper_timing(WIPER_LIGHT).period);   /* and with a pause */

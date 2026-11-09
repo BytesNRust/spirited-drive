@@ -25,7 +25,7 @@ void weather_snow_flake(int flake, uint32_t tick, int level, int32_t box_w, int3
  *   - the storm's wind, which swings: weather_snow_wind (tenths of a percent of the box's width a second, signed) follows a sine of period SNOW_DRIFT_PERIOD_TICKS, so the snowstorm leans one way,
  *     comes upright and leans the other, instead of always from the same side.
  * With the speed at nothing the flakes fall as weather_snow_flake's do, a little less regular, but straight: no there-and-back sway. */
-enum { SNOW_DRIFT_PERIOD_TICKS = 1800, SNOW_WIND_MAX = 120, SNOW_LEAN_PERCENT = 30, SNOW_LENS_EVERY = 3 };
+enum { SNOW_DRIFT_PERIOD_TICKS = 3600, SNOW_WIND_MAX = 120, SNOW_LEAN_PERCENT = 30, SNOW_LENS_EVERY = 3 };
 int weather_snow_wind(uint32_t tick);
 void weather_snow_flake_fx(int flake, uint32_t tick, int level, int32_t box_w, int32_t box_h, int32_t speed, int32_t vx, int32_t vy, int32_t out[3]);
 
