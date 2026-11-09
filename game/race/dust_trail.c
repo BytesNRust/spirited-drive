@@ -14,7 +14,7 @@ enum {
     LIFE_DUST = 36,        /* 1.2 s */
     LIFE_REGOLITH = 54,
     LIFE_LUNAR = 90,       /* the regolith under the moon's pull hangs 3 seconds */
-    MAX_STEPS = 4,
+    MAX_STEPS = 12,   /* a frame may cover this many ticks (a slow machine) and still lay its trail whole; a longer pause leaves a gap, not a burst */
     TICKS_A_SECOND = 30
 };
 

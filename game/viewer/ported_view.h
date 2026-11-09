@@ -47,6 +47,8 @@ PortedViewport ported_view_scaled(const PortedViewport *v, int s);
 
 /* port: the segments of track drawn (track_render_set_reach): DRAW_SEGMENTS_ULTRA for port.cfg's view_ultra */
 void ported_view_set_reach(int32_t segments);
+/* port (dev, TNFS_FRAME_SKIP's test): how many of the last 64 ticks have a live drop of the followed car's rain plume (rain) and a live puff of its dust trail (dust): a trail laid with no gaps has one for each tick of its life */
+void ported_view_trail_stats(int *rain, int *dust);
 int32_t ported_view_draw_segments(void);   /* the segments the frames draw now (track_render's draw_segments) */
 
 /* port: EXTRAS' Modern 3D: the near road clipped against the near plane, projected without pixel snapping and

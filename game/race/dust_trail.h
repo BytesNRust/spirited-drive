@@ -23,7 +23,7 @@ typedef struct {
 
 void dust_trail_reset(DustTrail *trail);
 
-/* The race is at `tick`: for each tick since the last call (at most 4: a long pause leaves a gap, not a burst) drop a puff at each rear wheel of a car
+/* The race is at `tick`: for each tick since the last call (at most 12: a long pause leaves a gap, not a burst) drop a puff at each rear wheel of a car
  * at `car` (world place) heading `yaw` (24-bit angle) when `drop`; a tick before the last one is placed back along the way the car came, `speed` (16.16 metres
  * a second) a tick; a tick that went back clears the ring (a new race). `kind` is rally_gravel_kind's. */
 void dust_trail_step(DustTrail *trail, int32_t tick, int kind, int drop, const int32_t car[3], int32_t yaw, int32_t speed);

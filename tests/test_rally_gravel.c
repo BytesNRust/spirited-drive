@@ -92,8 +92,8 @@ static void test_trail(void)
     dust_trail_step(&t, 102, RALLY_GRAVEL_DUST, 0, car, 0, 0);
     CHECK_EQ_INT(live(&t, 102, RALLY_GRAVEL_DUST, 0), 2);    /* not throwing: none dropped */
     dust_trail_step(&t, 120, RALLY_GRAVEL_DUST, 1, car, 0, 0);
-    CHECK_EQ_INT(live(&t, 120, RALLY_GRAVEL_DUST, 0), 2 + 8);   /* a pause: 4 ticks of puffs, not 18 */
-    CHECK_EQ_INT(live(&t, 101 + dust_life(RALLY_GRAVEL_DUST, 0), RALLY_GRAVEL_DUST, 0), 8);   /* the first pair has gone... */
+    CHECK_EQ_INT(live(&t, 120, RALLY_GRAVEL_DUST, 0), 2 + 24);   /* a pause: 12 ticks of puffs, not 18 */
+    CHECK_EQ_INT(live(&t, 101 + dust_life(RALLY_GRAVEL_DUST, 0), RALLY_GRAVEL_DUST, 0), 24);   /* the first pair has gone... */
     CHECK_EQ_INT(live(&t, 200, RALLY_GRAVEL_DUST, 0), 0);                                      /* ...and all, in time */
     dust_trail_step(&t, 5, RALLY_GRAVEL_DUST, 1, car, 0, 0);   /* the clock went back: a new race */
     CHECK_EQ_INT(live(&t, 5, RALLY_GRAVEL_DUST, 0), 0);
