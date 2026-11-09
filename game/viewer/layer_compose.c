@@ -6,11 +6,6 @@
 #include <stdint.h>
 #include <string.h>
 
-static void put(const LayerCompose *c, uint8_t *wide, int x, int y, uint8_t p)
-{
-    if (p != LAYER_KEY && x >= 0 && x < c->width && y >= 0 && y < c->layer_h) wide[(int64_t)y * c->width + x] = p;
-}
-
 /* the pieces' pixels of the layer, marked for the rest's loop (the pieces' rects set, used, then cleared again) */
 enum { MASK_W = 640, MASK_H = 480 };
 static BANDS_THREAD_LOCAL uint8_t piece_mask[MASK_W * MASK_H];   /* port (render bands): per thread */
@@ -29,6 +24,20 @@ static void mark_pieces(const LayerCompose *c, uint8_t on, int lo, int hi)
     }
 }
 
+/* port (perf): 1 when the layer's row is nothing but LAYER_KEY, which no loop below writes a pixel of (a key pixel leaves the frame as it was): the 3D window's rows, most of a frame's */
+static int row_is_key(const uint8_t *row, int n)
+{
+    int i = 0;
+    for (; i + 8 <= n; i += 8) {
+        uint64_t v;
+        memcpy(&v, row + i, 8);
+        if (v != 0xffffffffffffffffull) return 0;
+    }
+    for (; i < n; i++)
+        if (row[i] != LAYER_KEY) return 0;
+    return 1;
+}
+
 /* the rest of the layer: inside the car the dash (each wide pixel from the layer pixel screen_dash_x / _y give),
  * outside it centred */
 static void rest(const LayerCompose *c, const uint8_t *layer, uint8_t *wide, int top, int bottom)
@@ -39,9 +48,14 @@ static void rest(const LayerCompose *c, const uint8_t *layer, uint8_t *wide, int
         const int lo = top < 0 ? 0 : top, hi = bottom < c->layer_h ? bottom : c->layer_h;   /* the layer rows this band reads: its own */
         mark_pieces(c, 1, lo, hi);
         const int dx = (c->width - c->layer_w) / 2;
-        for (int y = top; y < bottom; y++)
-            for (int x = 0; x < c->layer_w; x++)
-                if (!mask[y * c->layer_w + x]) put(c, wide, x + dx, y, layer[y * c->layer_w + x]);
+        const int x0 = dx < 0 ? -dx : 0, x1 = c->width - dx < c->layer_w ? c->width - dx : c->layer_w;   /* the columns that land on the frame */
+        for (int y = top; y < bottom; y++) {
+            const uint8_t *row = layer + y * c->layer_w, *masked = mask + y * c->layer_w;
+            if (y < 0 || y >= c->layer_h || row_is_key(row, c->layer_w)) continue;
+            uint8_t *out = wide + (int64_t)y * c->width + dx;
+            for (int x = x0; x < x1; x++)
+                if (!masked[x] && row[x] != LAYER_KEY) out[x] = row[x];
+        }
         mark_pieces(c, 0, lo, hi);
         return;
     }
@@ -56,6 +70,7 @@ static void rest(const LayerCompose *c, const uint8_t *layer, uint8_t *wide, int
         const int sy = c->width > c->layer_w ? screen_dash_y(y) : y;
         if (sy < 0 || sy >= c->layer_h) continue;
         const uint8_t *row = layer + sy * c->layer_w, *masked = mask + sy * c->layer_w;
+        if (row_is_key(row, c->layer_w)) continue;
         uint8_t *out = wide + (int64_t)y * c->width;
         for (int x = 0; x < width; x++) {
             const int sx = column[x];
@@ -82,18 +97,40 @@ void layer_dash_grab(const uint8_t *art, int width, int x, int y, uint8_t *out, 
     }
 }
 
+/* port (perf): the source column of each output column x of a piece, made once for the piece and not by a division at every pixel; PIECE_COLUMNS_MAX covers any frame the port makes, and a
+ * wider piece falls back to the division */
+enum { PIECE_COLUMNS_MAX = 4096 };
+
 static void piece(const LayerCompose *c, const LayerPiece *p, const uint8_t *layer, uint8_t *wide, int top, int bottom)
 {
     const int w = p->from.right - p->from.left, h = p->from.bottom - p->from.top;
     const int32_t scale = p->scaled ? c->scale : 1 << 16;
     const int out_w = p->out_w > 0 ? p->out_w : (int)((int64_t)w * scale >> 16), out_h = (int)((int64_t)h * scale >> 16);
-    for (int y = 0; y < out_h; y++) {
-        if (p->y + y < top || p->y + y >= bottom) continue;   /* port (render bands): the rows asked for */
-        const int sy = p->from.top + (int)(((int64_t)y << 16) / scale);
+    int columns[PIECE_COLUMNS_MAX];
+    const int mapped = out_w <= PIECE_COLUMNS_MAX;
+    if (mapped)
         for (int x = 0; x < out_w; x++) {
             int sx = p->from.left + (int)(((int64_t)x << 16) / scale);
             if (sx >= p->from.right) sx = p->from.right - 1;   /* a set out_w a column past the scaled one */
-            if (sx < c->layer_w && sy < c->layer_h) put(c, wide, p->x + x, p->y + y, layer[sy * c->layer_w + sx]);
+            columns[x] = sx;
+        }
+    const int y0 = top - p->y > 0 ? top - p->y : 0, y1 = bottom - p->y < out_h ? bottom - p->y : out_h;   /* port (render bands): the rows asked for */
+    const int x0 = p->x < 0 ? -p->x : 0, x1 = c->width - p->x < out_w ? c->width - p->x : out_w;   /* the columns that land on the frame */
+    for (int y = y0; y < y1; y++) {
+        const int sy = p->from.top + (int)(((int64_t)y << 16) / scale), yy = p->y + y;
+        if (sy >= c->layer_h || yy < 0 || yy >= c->layer_h) continue;
+        uint8_t *out = wide + (int64_t)yy * c->width + p->x;
+        for (int x = x0; x < x1; x++) {
+            int sx;
+            if (mapped) sx = columns[x];
+            else {
+                sx = p->from.left + (int)(((int64_t)x << 16) / scale);
+                if (sx >= p->from.right) sx = p->from.right - 1;
+            }
+            if (sx < c->layer_w) {
+                const uint8_t v = layer[sy * c->layer_w + sx];
+                if (v != LAYER_KEY) out[x] = v;
+            }
         }
     }
 }
