@@ -120,6 +120,7 @@ typedef struct {
     int rally_spray;    /* 1: in a rally with rain_fx and rain or snow, every car (the player's too) throws the road's spray, tinted by the road it is on (gravel grey, brown dirt, snow white) and darker than water; 0 the exe's */
     int weather_fog;    /* 0..2: the weather's fog in snow and in the rain storm (modern 3D): 1 snow fog whiter, closer and with the exponential curve (heavier in the snow storm), the rain storm's denser than the rain's; 2 the same, and no dark rain mood over the snow (whiter picture); 0 the exe's */
     int car_tunnel_match;   /* 0..1: the car's light in a tunnel with a look matched to the world's at the same tunnel_tone: the world's gain (over the night's tint), the car at full light's share (brighter than the walls) and a fixed 0.85 lamp gap, and the car's colour table not held to its own hue family above full light, and no headlight-pool floor on it there; 0 the car as before: dimmer than the walls, with the 0.4 gap */
+    int spray_v4;      /* 1: the wheels' spray and dust as the generated sprites of each material (water drops and a flat mist, the desert's cottony dust, the snow's powder and lumps, gravel stones and a fine dust), thrown by physics with gravity and landing on the road, born each simulation tick at the wheel's place; replaces rain_fx's spray and the rally's dust; 0 as before */
     int water_mist;    /* 0..3: the rain's spray as a soft low wide veil of a generated sprite (no CD smoke, no speckle; a dirt road's keeps what it had): 1 the veil, 2 the veil and fine droplet streaks by the tyre, 3 a cooler, flatter, wider, thinner veil with the streaks; every car throws the plume (the traffic's too), with more drops a tick at speed; 0 as before */
     int wipers;        /* 1: in the dash view in rain and snow a wiper blade sweeps the glass (the pace follows what falls), clears the lens drops and snow marks it crosses and hides the blades some dash art draws (a red dash mask colour); 0 as before */
     int trail_rise;    /* 1: the spray and the dust trails rise with their age, to about a car's height, and fade as they rise (every car); 0 as before */
@@ -280,6 +281,8 @@ int port_weather_fog(void);
 
 /* 0..1 car_tunnel_match: TNFS_CAR_TUNNEL_MATCH=0 or 1 when set, else the mode's; only with car_tunnel_light and a tunnel look. */
 int port_car_tunnel_match(void);
+/* 0/1 spray_v4: TNFS_SPRAY_V4=0/1 when set, else the mode's. */
+int port_spray_v4(void);
 /* 1 when snow_fx: TNFS_SNOW_FX=0/1 when set, else the mode's. */
 int port_snow_fx(void);
 /* 1 when lamp_halos: TNFS_LAMP_HALOS=0/1 when set, else the mode's. */

@@ -73,6 +73,9 @@
 #include "viewer/drive_light.h"
 #include "game/race/weather.h"
 #include "game/race/rain_spray.h"
+#include "game/race/race_sim.h"
+#include "game/race/spray_v4.h"
+#include "viewer/spray_v4_draw.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -1270,6 +1273,75 @@ static int rain_open_at(int32_t node)
 
 int ported_view_weather_open(uint32_t node) { return rain_open_at((int32_t)node); }
 
+/* port (spray v4, dev prototype: TNFS_SPRAY_V4=1): the spray of race/spray_v4.h in place of rain_fx's. Its emitter runs after every simulation tick (race_sim_set_tick_hook), so each wheel's drop has that tick's own place
+ * and height whatever the frames drawn; the frame composites the particles by road row (viewer/spray_v4_draw.h). Off: nothing here runs. */
+static int spray_ground_colour(const int32_t ground[3], uint8_t rgb[3]);
+
+static int spray_v4_on(void)
+{
+    static int on = -1;
+    if (on < 0) on = port_spray_v4() != 0;   /* port.cfg's spray_v4, TNFS_SPRAY_V4 over it */
+    return on;
+}
+
+static void spray_v4_tick(const RaceState *race)
+{
+    const int rain = weather_wet(weather) && port_rain_fx();
+    const int32_t n = race->car_count < RACE_CARS ? race->car_count : RACE_CARS;
+    for (int32_t i = 0; i < n; i++) {
+        const Car *car = race->cars[i];
+        if (car == NULL) continue;
+        int32_t forward[2], wheel[2][3], right[2];
+        const int32_t at[3] = { car->x, car->y, car->z };
+        rain_spray_heading(car->use_matrix, car->yaw, car->matrix[6], car->matrix[8], forward);   /* as the old emitter: a rival is drawn with its matrix and its yaw stays 0 */
+        rain_spray_wheels(at, forward, wheel, right);
+        SprayV4Surface surface = SPRAY_V4_NONE;   /* what the wheels run on: the rally's ground, the shoulder, or a wet road */
+        switch (race->port_rally_gravel) {
+        case RALLY_GRAVEL_DUST:
+        case RALLY_GRAVEL_REGOLITH: surface = SPRAY_V4_ON_EARTH; break;
+        case RALLY_GRAVEL_SNOW:     surface = SPRAY_V4_ON_SNOW; break;
+        case RALLY_GRAVEL_COMPACT:  surface = SPRAY_V4_ON_GRAVEL; break;
+        default:                    surface = car->off_road != 0 ? SPRAY_V4_ON_GRAVEL : rain && rain_open_at(car->node) > 0 ? SPRAY_V4_WATER : SPRAY_V4_NONE; break;
+        }
+        SprayV4Emit e = { (int)i, (uint32_t)race->tick, car->node, (float)rain_spray_speed(car->speed, car->velocity_x, car->velocity_z) / 65536.0f,
+                          car->airborne_ticks == 0, surface, { { 0 } }, { 0 }, { 0 } };
+        for (int w = 0; w < 2; w++)
+            for (int k = 0; k < 3; k++) e.wheel[w][k] = (float)wheel[w][k] / 65536.0f;
+        e.right[0] = (float)right[0] / 65536.0f, e.right[1] = (float)right[1] / 65536.0f;
+        e.forward[0] = -e.right[1], e.forward[1] = e.right[0];   /* the heading (right is (fz, -fx)) */
+        spray_v4_emit(spray_v4_state(), &e);
+    }
+}
+
+/* the frame's colours: the water is the scene's fog lifted toward a pale blue-white by day (a wet road's mist is whitish) and a light grey of the fog at night (never lit white); the stones are a dark shade of the fog and
+ * the gravel's dust a light dusty one */
+static void spray_v4_frame(const TrackArt *art)
+{
+    static const int PALE[3] = { 236, 240, 246 }, DUSTY[3] = { 205, 198, 184 }, SNOWY[3] = { 250, 251, 255 }, LIFTED[3] = { 250, 232, 205 };
+    static uint8_t ground[3] = { 176, 124, 84 };   /* the desert's: sampled from the road under the followed car when it is on the screen, the last one else */
+    uint8_t fog[3], rgb[SPRAY_V4_KINDS][3];
+    modern_look_fog_colour(art, fog);
+    const int night = drive_light_night();
+    const Car *const car = shadow_race != NULL ? followed_car() : NULL;
+    if (car != NULL && shadow_race->port_rally_gravel != RALLY_GRAVEL_OFF) {
+        const int32_t at[3] = { car->x, car->y, car->z };
+        uint8_t sampled[3];
+        if (spray_ground_colour(at, sampled)) memcpy(ground, sampled, 3);
+    }
+    for (int k = 0; k < 3; k++) {
+        const int water = night ? fog[k] * 5 / 10 + 78 : (fog[k] * 30 + PALE[k] * 70) / 100, dust = night ? fog[k] * 5 / 10 + 62 : (fog[k] * 35 + DUSTY[k] * 65) / 100;
+        const int earth = night ? ground[k] * 6 / 10 + fog[k] * 2 / 10 : ((ground[k] * 40 + LIFTED[k] * 60) / 100) * 85 / 100 + fog[k] * 15 / 100;   /* the road's own colour lifted toward a pale dust and hazed: lighter than the ground, so the cloud shows against it */
+        const int snow = night ? fog[k] * 5 / 10 + 85 : (fog[k] * 25 + SNOWY[k] * 75) / 100;
+        rgb[SPRAY_V4_MIST][k] = rgb[SPRAY_V4_DROP][k] = (uint8_t)water;
+        rgb[SPRAY_V4_DUST][k] = (uint8_t)dust;
+        rgb[SPRAY_V4_GRAVEL][k] = (uint8_t)((night ? fog[k] * 6 / 10 : fog[k]) * 30 / 100);
+        rgb[SPRAY_V4_EARTH][k] = (uint8_t)(earth > 255 ? 255 : earth);
+        rgb[SPRAY_V4_SNOW][k] = rgb[SPRAY_V4_CLUMP][k] = (uint8_t)snow;
+    }
+    const SprayV4Host host = { object_pixels.target, object_pixels.palette, &model_view, shadow_race, world_screen, rain_open_at };
+    spray_v4_draw_frame(&host, rgb);
+}
+
 /* port (rain_fx, rain v5): the water the cars throw up, as particles of the world (race/rain_spray.h): each wheel drops one a tick where it passes and it stays there, a low mist that widens
  * and thins for two thirds of a second. A particle is drawn when the draw of the road reaches the node it was dropped at, with the cars of that row (draw_cars), a grainy dithered sprite
  * through the recorder like the tyre smoke: so the scenery nearer than it covers it, and the cars, the player's own too. A shape's texels pick a table: 1 lightens, 2 less, 3 darkens (grit). */
@@ -1812,6 +1884,7 @@ static void dust_update(void)
 
 static void dust_draw(const Car *car, int slot)
 {
+    if (spray_v4_on()) return;   /* port (spray v4): the dust is the spray's earth */
     if (spray_cd_on) return;   /* port (spray_cd_smoke): the dust is drawn by its row, the puffs behind the car before its body (dust_row) */
     dust_puffs(car, slot, -1);
 }
@@ -1883,7 +1956,7 @@ static void smoke_draw(void *ctx, int in_car)
 /* port (spray_cd_smoke): the dust of the cars on a row, the puffs behind each car before the row's bodies and the nearer after them, as spray_row does the water */
 static void dust_row(int32_t node, int far_side)
 {
-    if (!spray_cd_on) return;
+    if (!spray_cd_on || spray_v4_on()) return;
     for (int i = 0; i < RACE_CARS; i++) {
         const Car *car = shadow_race->cars[i];
         if (car == NULL || car->node != node) continue;
@@ -2332,6 +2405,7 @@ static void draw_cars(void *user, int32_t node)
         const RowCarsOps ops = { NULL, row_prepare, row_draw, row_unseen };
         const RowCarsInputs in = { race->chase.node, race->segments, ahead_rows, race->drawn, race->drawn_count, followed_car(),
                                    race->chase.kind, 0 };
+        if (spray_v4_on()) spray_v4_draw_row(node, 1);
         if (rain_spray_on) spray_row(node, 1);   /* port (rain v5): the water farther off than its car, first */
         dust_row(node, 1);
         cars_on_row(&ops, &in, node);
@@ -2339,6 +2413,7 @@ static void draw_cars(void *user, int32_t node)
             const RowCarsBehindInputs back = { race->chase.node, race->segments, behind_rows, race->drawn, race->drawn_count, followed_car() };
             cars_on_row_behind(&ops, &back, node);
         }
+        if (spray_v4_on()) spray_v4_draw_row(node, 0);
         if (rain_spray_on) spray_row(node, 0);   /* and the nearer, after the cars */
         dust_row(node, 0);
         return;
@@ -2855,7 +2930,7 @@ static void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8
     reflect_frame(art);
     lit_level = 0;
     memset(lit_corner, 255, sizeof lit_corner);
-    rain_spray_on = wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
+    rain_spray_on = !spray_v4_on() && wt != NULL && weather_wet(weather) && port_rain_fx() && shadow_race != NULL;
     rally_spray_on = rain_spray_on && shadow_race->port_rally_road != 0 && port_rally_spray();   /* port (rally_spray) */
     trail_rise_on = port_trail_rise();   /* port (trail_rise) */
     water_mist_variant = port_water_mist();   /* port (water_mist) */
@@ -2866,6 +2941,10 @@ static void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8
         spray_update();
     }
     dust_update();   /* port (cam_trail) */
+    if (spray_v4_on()) {   /* port (spray v4) */
+        race_sim_set_tick_hook(spray_v4_tick);
+        spray_v4_frame(art);
+    }
 }
 
 void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
