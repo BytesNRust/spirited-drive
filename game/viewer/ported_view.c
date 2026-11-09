@@ -828,6 +828,7 @@ static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
         } else {
             g = headlight_pool_car_at(psx_light->pool, at) ? 256 : headlight_pool_car_gain(psx_light_tunnel(psx_light, at) ? headlight_pool_gain_tunnel(psx_light->pool, at) : headlight_pool_gain(psx_light->pool, at));   /* a car with its lights on keeps its own light: the beam is ahead of it */
         }
+        g = headlight_pool_car_night_lift(g, port_car_night_lift());   /* port (car_night_lift) */
         const float gain = (float)g / 256.0f;
         for (int k = 0; k < 3; k++) out[k] *= gain;
         if (port_lamp_car_shade()) (void)psx_light_car_pool(psx_light, at, out);   /* port (lamp_car_shade): and the street lamp's pool lights it */
@@ -902,13 +903,15 @@ void ported_view_set_police_lights(int on) { police_flash_on = on; }
 static const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t palette[768])
 {
     if (psx_light == NULL || palette == NULL || !(ambient_on || synth_on || (port_lamp_car_shade() && psx_light->car_pool != NULL) || psx_light->lamp_n > 0 || psx_light->car_tone != NULL)) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
-    static struct { int key[7]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];   /* the ratio and the car's tone (track light file's car_tone) */
+    static struct { int key[8]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];   /* the ratio and the car's tone (track light file's car_tone) */
     static uint8_t made_for[768];
     static int next, valid;
     float ratio[3];
     ratio_at_xz(node, xz, car, ratio);
-    int key[7] = { 0 }, neutral = 1;
-    const int match_bright = port_car_tunnel_match() >= 1 && (ratio[0] > 1.0f || ratio[1] > 1.0f || ratio[2] > 1.0f);   /* port (car_tunnel_match): above full light the table has no family */
+    int key[8] = { 0 }, neutral = 1;
+    const int floor_level = psx_light->pool != NULL ? port_car_night_lift() : 0;   /* port (car_night_lift): at night (the headlight pool), a floor of light on the body */
+    key[7] = floor_level, neutral = floor_level == 0;
+    const int match_bright = (port_car_tunnel_match() >= 1 || port_car_night_lift() >= 1) && (ratio[0] > 1.0f || ratio[1] > 1.0f || ratio[2] > 1.0f);   /* port (car_tunnel_match): above full light the table has no family */
     for (int k = 0; k < 3; k++) {
         key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
         neutral = neutral && key[k] == AMBIENT_STEP;
@@ -930,7 +933,8 @@ static const uint8_t *car_light(int32_t node, const double *xz, int car, const u
     const int slot = next;
     next = (next + 1) % AMBIENT_TABLES;
     memcpy(cache[slot].key, key, sizeof key), cache[slot].used = 1;
-    psx_lit_table_ex(palette, ratio, match_bright, cache[slot].table);
+    static const uint8_t FLOOR[3][3] = { { 0, 0, 0 }, { 12, 13, 17 }, { 24, 26, 34 } };   /* a cool light, as the night's */
+    psx_lit_table_floor(palette, ratio, match_bright, floor_level > 0 && floor_level < 3 ? FLOOR[floor_level] : NULL, cache[slot].table);
     if (key[6] > 0) {
         const uint8_t rgb[3] = { (uint8_t)key[3], (uint8_t)key[4], (uint8_t)key[5] };
         psx_car_tone_table(palette, cache[slot].table, rgb, key[6], cache[slot].table);   /* in place: each entry reads only its own */

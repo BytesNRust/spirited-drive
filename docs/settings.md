@@ -117,6 +117,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `water_mist` | 0 | 0 | 0..3 (the rain's spray as a soft, low, wide veil of a generated sprite, not the CD's smoke nor the speckle, thinning to nothing with the particle's life, on every car (the traffic's and police's too, the plume in place of the wisp), with more drops a tick at speed so a fast car leaves a continuous trail: 1 the veil, 2 the veil and a few fine droplet streaks by the tyre, 3 a cooler, flatter, wider, thinner veil with the streaks; a dirt road's spray and the dry dust keep what they had; 0 as before) | none | `TNFS_WATER_MIST` | 0 / 0 / 2 | `weather=rain` or `storm`, `rain_fx` |
 | `weather_fog` | 0 | 0 | 0..2 (the weather's fog in snow and in the rain storm, with Modern 3D: 1 the snow's fog is whiter and denser (a snow-white colour, closer, with the fog weather's exponential curve, denser in the snow storm) and the rain storm's fog is denser than the rain's; 2 the same, and the rain's dark grey mood is not laid over the snow, so the picture is whiter; 0 the same fog as the rain in all four) | none | `TNFS_WEATHER_FOG` | 0 / 0 / 2 | `modern_3d` |
 | `car_tunnel_match` | 0 | 0 | 0..1 (the car's light in a tunnel with a look, matched to the world's at the same `tunnel_tone`: 1 the world's gain (over the night's tint), the car as lit as full light, brighter than the walls' half light, the lamp gap a fixed 0.85 under a lamp and between, the car's colour table not held to its own hue family above full light, and no headlight-pool floor on it in the tunnel; 0 the car as before: dimmer than the walls, 0.4 between lamps) | none | `TNFS_CAR_TUNNEL_MATCH` | 0 / 0 / 1 | `car_tunnel_light`, a track light file with a tunnel look |
+| `car_night_lift` | 0 | 0 | 0..2 (the cars at night, every car's light raised where the headlight pool gives it: 1 by a quarter of its gain, 2 by a half, above the paint's own colour with the lit table not held to its hue family; the player's car with its lights on and the traffic and rivals alike; 0 as before) | none | `TNFS_CAR_NIGHT_LIFT` | 0 / 0 / 1 | `psx_light`, `psx_headlights`, night |
 
 ### Dash, cameras and replay
 
@@ -179,7 +180,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 ## What each profile sets (`TABLES`)
 
-All 86 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
+All 87 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
 | column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
@@ -269,6 +270,7 @@ All 86 columns of the table. A column that is not here is not touched by any pro
 | `water_mist` | settings | 0 | 0 | 2 |
 | `weather_fog` | settings | 0 | 0 | 2 |
 | `car_tunnel_match` | settings | 0 | 0 | 1 |
+| `car_night_lift` | settings | 0 | 0 | 1 |
 
 The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.
 

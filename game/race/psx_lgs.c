@@ -163,18 +163,18 @@ void psx_lgs_ratio(const PsxLgs *lgs, int segment, int segment_count, const floa
     }
 }
 
-void psx_lit_table_ex(const uint8_t palette[768], const float ratio[3], int any_family, uint8_t out[256])
+void psx_lit_table_floor(const uint8_t palette[768], const float ratio[3], int any_family, const uint8_t add[3], uint8_t out[256])
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels */
     const uint8_t *usable = palette_usable();   /* not the entries the race rewrites (the brake lamp, the police lights); the cars' own slots are here */
     const uint8_t *emissive = palette_emissive();   /* port (emissive lamps): a lamp is lit whatever the light */
     for (int c = 0; c < 256; c++) {
-        if (c >= CHOICES || emissive[c] || (ratio[0] == 1.0f && ratio[1] == 1.0f && ratio[2] == 1.0f)) {
+        if (c >= CHOICES || emissive[c] || (add == NULL && ratio[0] == 1.0f && ratio[1] == 1.0f && ratio[2] == 1.0f)) {
             out[c] = (uint8_t)c;
             continue;
         }
         float want[3];
-        for (int k = 0; k < 3; k++) want[k] = (float)palette[3 * c + k] * ratio[k];
+        for (int k = 0; k < 3; k++) want[k] = (float)palette[3 * c + k] * ratio[k] + (add != NULL ? (float)add[k] : 0.0f);   /* port (car_night_lift): a floor of light, which a multiplier on a near-black paint cannot give */
         /* a colour stays in its hue family under a darker or lighter light (a yellow in shadow went to olive, orange and pink); where the palette has
          * none of the family (a tone with no neighbour) the nearest of all */
         int best = 0, best_any = 0;
@@ -189,6 +189,8 @@ void psx_lit_table_ex(const uint8_t palette[768], const float ratio[3], int any_
         out[c] = (uint8_t)(best_d < 1e29f ? best : best_any);
     }
 }
+
+void psx_lit_table_ex(const uint8_t palette[768], const float ratio[3], int any_family, uint8_t out[256]) { psx_lit_table_floor(palette, ratio, any_family, NULL, out); }
 
 void psx_lit_table(const uint8_t palette[768], const float ratio[3], uint8_t out[256]) { psx_lit_table_ex(palette, ratio, 0, out); }
 
