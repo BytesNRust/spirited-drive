@@ -13,9 +13,9 @@ they are Stock behaviour and need no switch.
 Every behavioural fix below has its `0 = the exe` branch in code, but **nothing a player can set reaches it**.
 They are hard-wired to 1 where the race is built:
 
-- `game/viewer/track_viewer.c:477-480` sets `port_replay_launch`, `port_nitro_start`, `port_pad_and_keys` and `port_stop_replaced` to 1.
-- `game/viewer/drive_pause.c:130` sets `port_resume_keys` to 1.
-- `game/viewer/drive_replay.c:379` sets `port_resume` to 1.
+- `game/viewer/track_viewer.c:609-612` sets `port_replay_launch`, `port_nitro_start`, `port_pad_and_keys` and `port_stop_replaced` to 1.
+- `game/viewer/drive_pause.c:131` sets `port_resume_keys` to 1.
+- `port_resume` (`drive_replay.c`) is gone: it was a port regression, not an exe behaviour (section 6).
 - `TNFS_WIDE_BOARD` is an environment variable read in `ported_view.c`; default on.
 
 So today **Stock '96 does not reproduce the exe's bugs** in the real game. Only the oracles run the 0 paths, by building the structs themselves.
@@ -26,8 +26,8 @@ Making Stock honest needs one place the profile can reach, which is the proposal
 
 | # | Exe behaviour | Port fix | Flag (where) | Stock | Restored | Restomod |
 |---|---|---|---|---|---|---|
-| 1 | A looping horn (voices 0x3f..0x41) or skid (0x2a) voice is not cut when another sound takes its channel: the record is lost and it loops to the end of the race | The voice is cut when its channel is taken | `RaceState.port_stop_replaced` (set at `track_viewer.c:480`; logic in `race_sound.c`) | 0 | 1 | 1 |
-| 2 | After the pause menu closes, ESC is dead for `MENU_GAP` (0xb4) ticks, and back from a replay the ESC that closed it is read as the menu's | ESC and the pause key work at once; ESC while paused (P) also ends the pause and opens the in-race menu (the exe waits for P alone), `port_menu_after_pause` | `port_resume_keys` in `DrivePause`, `DriveMenu`, `RacePauseInputs` (`drive_pause.c:130`; state `port_esc_up_wait`/`port_pause_up_wait` in `race_schedule.c`) | 0 | 1 | 1 |
+| 1 | A looping horn (voices 0x3f..0x41) or skid (0x2a) voice is not cut when another sound takes its channel: the record is lost and it loops to the end of the race | The voice is cut when its channel is taken | `RaceState.port_stop_replaced` (set at `track_viewer.c:612`; logic in `race_sound.c`) | 0 | 1 | 1 |
+| 2 | After the pause menu closes, ESC is dead for `MENU_GAP` (0xb4) ticks, and back from a replay the ESC that closed it is read as the menu's | ESC and the pause key work at once; ESC while paused (P) also ends the pause and opens the in-race menu (the exe waits for P alone), `port_menu_after_pause` | `port_resume_keys` in `DrivePause`, `DriveMenu`, `RacePauseInputs` (`drive_pause.c:131`; state `port_esc_up_wait`/`port_pause_up_wait` in `race_schedule.c`) | 0 | 1 | 1 |
 | 3 | A scenery board is dropped whole when one corner is past +-0x800 across (0044a450) while its middle shows: a big tree or a building's face pops out near the screen edge | Drawn by the near call, clipped at the near plane, perspective-correct | Env `TNFS_WIDE_BOARD` only (`ported_view.c`), default on; `track_port_wide_board` in `track_object_draw.c`. To verify: whether it needs Modern 3D (the near call is `ops.port_near_camera`) | 0 | 1 | 1 |
 
 Reading of the columns: Stock 0 is the whole point of Stock. Restored 1 is the "bugs fixed" promise. Restomod 1 because it is Restored plus more.
@@ -61,7 +61,7 @@ The exe's output there is not reproducible, so there is nothing to put behind a 
 
 - `dd8525f5`: the intro movies play from a data folder with a path over 0x50 bytes (the port allows 512). Needed for any install under a deep path (an .app in a long folder). No flag; Stock would only mean "movies silently missing" for long paths.
 - `f07112c1`: the first call of the segment window loads the segments ahead of the camera wherever it is; the exe's loop only fills them from a start near segment 0. To verify whether the exe path can reach it (replay seek, `TNFS_START_NODE`); if only the port's own starts hit it, no flag.
-- `port_free_laps` (`race_state.h:453`): places the lap count outgrows (the splits' 85, 20 lap times, the finish estimate's int32, the AI zones' int16) guard themselves. Set from `free_race` (`track_viewer.c:462`), so it is already only on when the player picks a free lap count. No change.
+- `port_free_laps` (`race_state.h:453`): places the lap count outgrows (the splits' 85, 20 lap times, the finish estimate's int32, the AI zones' int16) guard themselves. Set from `free_race` (`track_viewer.c:579`), so it is already only on when the player picks a free lap count. No change.
 
 ## 3. Items that look like fixes and are not (do not put them under "bugs fixed")
 
@@ -83,27 +83,16 @@ Not bugs. `port_banner` is the one with a Stock-vs-port argument: it is on-scree
 - Honest Stock needs the exe's own bugs *in the real game*, and today only the oracles have them. Section 0.
 - No test or oracle asserts that flag 0 still equals the exe for items 1-4 outside the oracles' hand-built structs. When the switch exists, one test per item should build the race through the real path with the profile Stock and check the 0 branch ran.
 - `TNFS_WIDE_BOARD` has no settings key and no oracle named in its commit.
+- **Not a bug, a limit of the exe (port matches it): the NITRO start's N does nothing in a link race.** A link game has `0052b312` (the port's `race->playback`) at 1 (`track_viewer.c` drive_start_input). `0042f138` (`car_drive.c` `launch()`) takes the keyboard flags (N `004c696d` with LShift `004c6966`, RShift `004c6972` or B `004c696c`) only with `0052b312 == 0`, and `start_keys_fill_key` writes nothing while `playback != 0`, so no machine launches from N. The launch that does work is the both-gear word: `0043915c` (`input_read.c`) puts 0x3000 in the word for B+R+W held with an automatic car, `004397f4` (`input_tick.c`) sets `004faa5c[player]`, and every machine launches that car from the same word. So there is no desync. (An earlier version of this bullet said N desyncs the peers; that was wrong, it missed the `playback` gate.) Making N launch in a link race would be a new feature (the 0x3000 word sent for N), not a fix.
 
-## 5. Proposal (for the owner to choose)
+## 5. Decision: the fixes are on in every profile (owner, 2026-11-09)
 
-**A. One switch (recommended).** A new `PortSettings` key `bug_fixes=0|1` (menu row "Original bugs: Kept / Fixed", Options page next to the profile row), written by the profile table as one more column:
+The owner chose option C of the old proposal: the port's fixes are **deliberately on in all profiles, Stock included** ("it is subtle, better fixed"). So:
 
-| Stock | Restored | Restomod |
-|---|---|---|
-| 0 | 1 | 1 |
-
-`port_bug_fixes()` (same shape as `port_psx_flares()`: env `TNFS_BUG_FIXES` overrides, else port.cfg) is read at the places in section 0 for items 1-3 instead of the literal 1.
-Covers items 1-3. Section 2 stays always on. Cost: small, mostly the table column, the key, the row and the five call sites; the Options undo already restores port.cfg.
-
-**B. One key per fix** (`stop_replaced`, `resume_keys`, `resume`, `replay_launch`, `wide_board`). More exact, but five rows that mean nothing to a player, and the profile table grows five columns. Only worth it if the owner wants to mix (for instance the horn fix without the ESC fix). Not recommended.
-
-**C. Leave as is** and drop the claim "Stock = exe including bugs" from the blurb ("Factory spec. Every bolt, every bug." / "Same look, bugs fixed"). Zero code, but then Stock and Restored differ only in screen format and refresh.
-
-Decisions needed from the owner:
-1. A, B or C.
-2. Whether item 5 (wide board) is "bug fixed" (Restored on) or Restomod only.
-3. Whether `port_nitro_start` / `port_pad_and_keys` (3.1) follow the switch or become player options.
-4. `port_banner` default per profile (3.3).
+- There is no `bug_fixes` or `nitro_start` setting, no profile column, no menu row and no `port_bug_fixes()`. The hard-wired 1s of section 0 (`track_viewer.c:609-612`, `drive_pause.c:131`, `TNFS_WIDE_BOARD` on by default) are the intended behaviour, not a gap.
+- The `Stock` / `Restored` / `Restomod` 0 / 1 / 1 columns in section 1 describe the exe's behaviour per branch, not what Stock does: Stock runs the fixed branch too. The `0 = exe` branches stay for the oracles.
+- Stock therefore differs from Restored by screen format and refresh only; the blurb claim "Stock = the exe, bugs included" is not true of these fixes.
+- New fixes of this kind follow the same rule (on in every mode, no setting) unless the owner says otherwise.
 
 ## 6. Check against the binary (revision)
 
