@@ -39,6 +39,29 @@ int wheel_front_now(const uint8_t *w, const uint8_t *t, const uint8_t *s, const 
     return v >= 0 && art != NULL && v != art[y * 640 + x];
 }
 
+/* the shape's pixels that are in the 640 x 480 view, each given to `mark` as the index of the view's pixel and the shape's colour there */
+static void shape_mark(const uint8_t *shape, const uint8_t *art, int bit, uint8_t mask[WHEEL_MASK_SIZE])
+{
+    if (shape == NULL) return;
+    const int left = s16(shape + SHAPE_X), top = s16(shape + SHAPE_Y), w = s16(shape + SHAPE_WIDTH), h = s16(shape + SHAPE_HEIGHT);
+    if (w <= 0 || h <= 0) return;
+    for (int y = top < 0 ? 0 : top; y < top + h && y < 480; y++)
+        for (int x = left < 0 ? 0 : left; x < left + w && x < 640; x++) {
+            const uint8_t v = shape[SHAPE_PIXELS + (y - top) * w + (x - left)];
+            if (v == SEE_THROUGH) continue;
+            if (bit == WHEEL_MASK_W && v == art[y * 640 + x]) continue;
+            mask[y * 640 + x] |= (uint8_t)bit;
+        }
+}
+
+void wheel_front_mask(const uint8_t *w, const uint8_t *t, const uint8_t *s, const uint8_t *art, uint8_t mask[WHEEL_MASK_SIZE])
+{
+    memset(mask, 0, WHEEL_MASK_SIZE);
+    shape_mark(t, NULL, WHEEL_MASK_FRONT, mask);
+    shape_mark(s, NULL, WHEEL_MASK_FRONT, mask);
+    if (art != NULL) shape_mark(w, art, WHEEL_MASK_W, mask);
+}
+
 void wheel_front_zone(const Cockpit *c, const uint8_t *art, uint8_t *zone)
 {
     memset(zone, 0, (size_t)640 * 480);

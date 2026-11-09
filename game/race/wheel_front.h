@@ -21,4 +21,10 @@ int wheel_front_now(const uint8_t *w, const uint8_t *t, const uint8_t *s, const 
  * that the wheel never covers). The dash art with those pixels blanked is the dash the wheel is drawn over. */
 void wheel_front_zone(const Cockpit *c, const uint8_t *art, uint8_t *zone);
 
+/* The same answers for every pixel of the 640 x 480 view at once, for a frame that asks about all of them (drive_wide.c class_band asks about each pixel of the layer, and the calls cost the dials'
+ * night light a visible share of the frame). mask[y * 640 + x] holds WHEEL_MASK_FRONT where wheel_front_pixel(t) or wheel_front_pixel(s) is 1 (so that
+ * wheel_front_now(NULL, t, s, art, x, y) is 1), and WHEEL_MASK_W where `w` draws a pixel that is not `art`'s (NULL art: none); wheel_front_now(w, t, s, art, x, y) is 1 exactly where mask has either bit. */
+enum { WHEEL_MASK_FRONT = 1, WHEEL_MASK_W = 2, WHEEL_MASK_SIZE = 640 * 480 };
+void wheel_front_mask(const uint8_t *w, const uint8_t *t, const uint8_t *s, const uint8_t *art, uint8_t mask[WHEEL_MASK_SIZE]);
+
 #endif

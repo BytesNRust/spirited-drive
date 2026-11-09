@@ -95,11 +95,57 @@ static void test_the_zone_is_the_wheel_in_any_pose(void)
     CHECK(zone_pic[0] == 0);
 }
 
+/* shapes of every kind (boxes partly or wholly outside the view, empty ones, see-through pixels, pixels equal to the art's) and a NULL here and there: the mask is the per-pixel answers of
+ * wheel_front_now and wheel_front_pixel at every pixel of the 640 x 480 view, for each way drive_wide.c asks (with the 'w' frame, without it) */
+static uint32_t rng_state;
+static int rnd(int n) { rng_state = rng_state * 1664525u + 1013904223u; return (int)((rng_state >> 8) % (uint32_t)n); }
+
+static uint8_t *random_shape(uint8_t *buf)
+{
+    if (rnd(6) == 0) return NULL;
+    const int w = rnd(8) == 0 ? 0 : rnd(70), h = rnd(8) == 0 ? 0 : rnd(50);
+    const int left = rnd(700) - 30, top = rnd(520) - 30;
+    memset(buf, 0, 0x10);
+    buf[4] = (uint8_t)w, buf[5] = (uint8_t)(w >> 8), buf[6] = (uint8_t)h, buf[7] = (uint8_t)(h >> 8);
+    buf[0xc] = (uint8_t)left, buf[0xd] = (uint8_t)(left >> 8), buf[0xe] = (uint8_t)top, buf[0xf] = (uint8_t)(top >> 8);
+    for (int i = 0; i < w * h; i++) buf[0x10 + i] = rnd(3) == 0 ? 0xff : (uint8_t)rnd(4);
+    return buf;
+}
+
+static void test_the_mask_is_the_per_pixel_answers(void)
+{
+    static uint8_t bw[0x10 + 70 * 50], bt[0x10 + 70 * 50], bs[0x10 + 70 * 50], mask[WHEEL_MASK_SIZE];
+    long on = 0, off = 0;
+    for (int seed = 0; seed < 60; seed++) {
+        rng_state = 12345u + (uint32_t)seed * 7919u;
+        const uint8_t *w = random_shape(bw), *t = random_shape(bt), *sh = random_shape(bs);
+        const uint8_t *art = NULL;
+        if (rnd(5) != 0) {
+            for (int i = 0; i < 640 * 480; i++) art_pic[i] = (uint8_t)rnd(4);
+            art = art_pic;
+        }
+        wheel_front_mask(w, t, sh, art, mask);
+        int bad = 0;
+        for (int y = 0; y < 480; y++)
+            for (int x = 0; x < 640; x++) {
+                const int m = mask[y * 640 + x];
+                bad += ((m & WHEEL_MASK_FRONT) != 0) != (wheel_front_now(NULL, t, sh, art, x, y) != 0);
+                bad += ((m & WHEEL_MASK_FRONT) != 0) != (wheel_front_pixel(t, x, y) || wheel_front_pixel(sh, x, y));
+                bad += (m != 0) != (wheel_front_now(w, t, sh, art, x, y) != 0);
+                if (m != 0) on++;
+                else off++;
+            }
+        CHECK_EQ_INT(bad, 0);
+    }
+    CHECK(on > 10000 && off > 10000);   /* pixels on and off, or the comparison proves nothing */
+}
+
 int main(void)
 {
     test_pixels();
     test_the_frame_is_the_one_cockpit_frame_draws();
     test_the_wheel_in_the_shown_frame();
     test_the_zone_is_the_wheel_in_any_pose();
+    test_the_mask_is_the_per_pixel_answers();
     return TEST_REPORT();
 }
