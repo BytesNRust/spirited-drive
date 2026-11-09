@@ -55,6 +55,22 @@ static void test_warm_tunnel_tracks(void)
     CHECK(psx_light_synth_city_track("TR6") == 0 && psx_light_synth_city_track("TR7") == 0 && psx_light_synth_city_track("CL2") == 0 && psx_light_synth_city_track(NULL) == 0);
 }
 
+/* port (tunnel look): the shadow's remap is made in the shown palette in a tunnel of a light with a look, and only there */
+static void test_look_tunnel(void)
+{
+    enum { N = 64 };
+    uint8_t tunnel[N] = { 0 }, data[N * PSX_LIGHT_POINTS];
+    memset(tunnel + 20, 1, 21);
+    memset(data, 255, sizeof data);
+    PsxLight light = { 0 };
+    light.nodes = N, light.tunnel = tunnel, light.data = data;
+    CHECK(!psx_light_look_tunnel(&light, 30));   /* no look: the art palette's remap is right */
+    light.look_set = 1;
+    CHECK(psx_light_look_tunnel(&light, 30) && psx_light_look_tunnel(&light, 20) && psx_light_look_tunnel(&light, 40));
+    CHECK(!psx_light_look_tunnel(&light, 19) && !psx_light_look_tunnel(&light, 41));   /* the open road */
+    CHECK(!psx_light_look_tunnel(NULL, 30));
+}
+
 /* port (tunnel zone looks): in every tunnel the car takes its zone's light and colour: under a lamp (even node) light% / 100 x colour (capped at 1 here: these lights have no rows, so no road darkening for the excess to come in with; test_car_above_full_light_takes_the_excess), between two lamps (odd) the gap's 40 % of that,
  * coming in over the weather's 6 nodes outside the mouth; a zone with a look of its own (a tone slot) gives its own */
 static void test_car_takes_the_zones_look(void)
@@ -537,6 +553,7 @@ int main(void)
     test_gallery_is_a_tunnel_when_asked();
     test_warm_tunnel_tracks();
     test_car_takes_the_zones_look();
+    test_look_tunnel();
     test_car_is_no_brighter_than_the_road();
     test_car_above_full_light_takes_the_excess();
     test_a_reversed_track_has_its_places_mirrored_for_the_car();
