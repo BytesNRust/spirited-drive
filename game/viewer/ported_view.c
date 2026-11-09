@@ -1451,6 +1451,27 @@ static void water_streaks_draw(const RainSprayParticle *p, uint32_t tick, int sl
     sprite_scaled_blend(object_pixels.target, water_streak_rows, water_streak_shape[p->drift_x + p->drift_z < 0 ? 0 : 1], sw, sw, cx - sw / 2, cy - sw + sw / 5);
 }
 
+void ported_view_trail_stats(int *rain, int *dust)
+{
+    *rain = *dust = 0;
+    if (shadow_race == NULL) return;
+    const int slot = race_slot(shadow_race->player);
+    uint64_t rain_ticks = 0, dust_ticks = 0;
+    const uint32_t now = (uint32_t)shadow_race->tick;
+    for (int i = 0; i < RAIN_SPRAY_MAX; i++) {
+        const RainSprayParticle *p = &rain_spray.p[i];
+        if (p->live && p->car == slot && now >= p->born && now - p->born < p->life && now - p->born < 64u) rain_ticks |= (uint64_t)1 << (now - p->born);
+    }
+    if (slot >= 0 && slot < RACE_CARS)
+        for (int i = 0; i < DUST_TRAIL_PUFFS; i++) {
+            const DustPuff *d = &dust_trails[slot].puff[i];
+            int32_t place[3], size;
+            if (dust_puff_at(d, shadow_race->tick, shadow_race->port_rally_gravel, shadow_race->port_lunar_gravity != 0, place, &size) && shadow_race->tick - d->born < 64)
+                dust_ticks |= (uint64_t)1 << (shadow_race->tick - d->born);
+        }
+    for (int b = 0; b < 64; b++) *rain += (int)(rain_ticks >> b & 1), *dust += (int)(dust_ticks >> b & 1);
+}
+
 /* once a tick, each car's wheels drop their water */
 static void spray_update(void)
 {

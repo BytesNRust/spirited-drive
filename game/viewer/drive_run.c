@@ -795,6 +795,9 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     int32_t view_at = -1, view_to = 0;
     const char *view_at_env = getenv("TNFS_VIEW_AT");
     if (view_at_env != NULL) sscanf(view_at_env, "%d:%d", &view_at, &view_to);
+    /* port (dev, env only): TNFS_FRAME_SKIP=n draws one tick in n of the last TNFS_FRAMES (the last one always), as a slow machine does: the ticks between have no frame (the trails must lay them, spray and dust) */
+    const char *skip_env = getenv("TNFS_FRAME_SKIP");
+    const uint32_t frame_skip = skip_env != NULL && atoi(skip_env) > 1 ? (uint32_t)atoi(skip_env) : 1;
     const char *dump_path = getenv("TNFS_AUDIO_DUMP");   /* port (dev, env only): the race's sound mixed offline to this WAV (drive_audio.c) */
     const int dumping = dump_path != NULL && drive_audio_offline_open(&drive_sim.race, drive_cars.data_root, dump_path);
     if (dumping) {
@@ -826,7 +829,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
             render_drive(t, pixels);  /* whole frames, so the screen comes and goes as on screen */
             continue;
         }
-        if (i + frames >= ticks) {
+        if (i + frames >= ticks && (ticks - 1 - i) % frame_skip == 0) {
             struct timespec t0, t1;
             clock_gettime(CLOCK_MONOTONIC, &t0);
             render_drive(t, pixels);
@@ -846,6 +849,11 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
            drive_sim.race.tick, drive_sim.race.phase, car->node, car->speed / 65536.0, car->gear, chase->kind, chase->node,
            chase->position[0] / 65536.0, chase->position[1] / 65536.0, chase->position[2] / 65536.0);
     render_drive(t, pixels);
+    if (skip_env != NULL) {   /* port (dev, env only): the trails' continuity, for the frame-skip test */
+        int rain_ticks, dust_ticks;
+        ported_view_trail_stats(&rain_ticks, &dust_ticks);
+        printf("trail ticks: rain %d dust %d\n", rain_ticks, dust_ticks);
+    }
     printf("segments %d\n", (int)ported_view_draw_segments());  /* the F12 overlay's "View n segments" (drive_run.c) */
     int width;
     const uint8_t *shown = drive_output(pixels, &width);

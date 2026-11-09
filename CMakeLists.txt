@@ -1255,6 +1255,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(spray_cd_smoke PROPERTIES TIMEOUT 600)
         add_test(NAME water_mist_frames COMMAND ${CMAKE_SOURCE_DIR}/tests/water_mist_frames.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/water_mist_frames)
         set_tests_properties(water_mist_frames PROPERTIES TIMEOUT 600)
+        add_test(NAME trail_frame_skip COMMAND ${CMAKE_SOURCE_DIR}/tests/trail_frame_skip.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/trail_frame_skip)
+        set_tests_properties(trail_frame_skip PROPERTIES TIMEOUT 600)
         add_test(NAME wipers COMMAND ${CMAKE_SOURCE_DIR}/tests/wipers.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/wipers)
         set_tests_properties(wipers PROPERTIES TIMEOUT 400)
         # rain_lamps must change the frame of a masked car in rain and storm, and not in clear; an old port.cfg moves at the real startup
