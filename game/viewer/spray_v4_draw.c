@@ -45,11 +45,11 @@ static int chunk_count;
 
 SprayV4 *spray_v4_state(void) { return &state; }
 
-/* the sprite's column or row (0..SPRAY_V4_ART_SIZE - 1) at the unit-square coordinate u in -1..1 (nearest: the dither hides the step), or -1 outside */
+/* the sprite's column or row (0..SPRAY_V4_ART_SIZE - 1) at the unit-square coordinate u in -1..1 (nearest, on the texel centres: the dither hides the step), or -1 outside */
 static int cell(float u, int flip)
 {
     if (u <= -1.0f || u >= 1.0f) return -1;
-    const int c = (int)(((flip ? -u : u) + 1.0f) * 0.5f * (float)SPRAY_V4_ART_SIZE);
+    const int c = (int)(((flip ? -u : u) + 1.0f) * 0.5f * (float)(SPRAY_V4_ART_SIZE - 1) + 0.5f);   /* the texel centres on the same grid the bilinear sample had, so the map keeps its mean */
     return c < 0 ? 0 : c >= SPRAY_V4_ART_SIZE ? SPRAY_V4_ART_SIZE - 1 : c;
 }
 
