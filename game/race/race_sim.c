@@ -457,6 +457,10 @@ static void sim_others(void *ctx) { race_sound_others(&((RaceSim *)ctx)->race, &
 static void sim_none(void *ctx) { (void)ctx; }
 static void sim_frame_none(void *ctx, int16_t frame) { (void)ctx, (void)frame; }
 
+static void (*tick_hook)(const RaceState *race);
+
+void race_sim_set_tick_hook(void (*hook)(const RaceState *race)) { tick_hook = hook; }
+
 static void sim_tick(void *ctx)
 {
     static const RaceTickOps ops = { NULL, sim_replay, sim_controller, sim_window, sim_window_set, sim_finish,
@@ -471,6 +475,7 @@ static void sim_tick(void *ctx)
     const int32_t *timer = sim->service != NULL && sim->timer != NULL ? sim->timer : &sim_wait_timer;
     RaceTickWords w = { race->dropped, 0, 0, 0, sim->wait_ticks, timer, { 0, 0 } };  /* 0052b314: a dropped link game stands */
     race_tick(&o, race, &w);
+    if (tick_hook != NULL) tick_hook(race);
 }
 
 /* 0045597c: the music, the deferred calls (the in-race menu and pause), the

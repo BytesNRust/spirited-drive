@@ -119,6 +119,9 @@ void race_sim_tick(RaceSim *sim, uint32_t input);
 /* 00440ef0 alone (race_tick on the sim's ops), as 00455a5c's start runs it. */
 void race_sim_tick_only(RaceSim *sim);
 
+/* port (spray v4, dev): a hook the viewer sets, called after every simulation tick (not every frame drawn) with the race as that tick left it: its emitters see each tick's true wheel places. NULL: none. */
+void race_sim_set_tick_hook(void (*hook)(const RaceState *race));
+
 /* 00455a5c's setup and start, their part on the race (race_run does the
  * same through its ops): the start beeps 1, tick, phase, camera hold,
  * 00513e60 / 64 / 6c 0; a time trial on track 3 starts at node 5 (z

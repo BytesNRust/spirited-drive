@@ -537,6 +537,8 @@ add_executable(tnfs
     game/viewer/weather_draw.c
     game/viewer/wiper_draw.c
     game/viewer/wiper_scene.c
+    game/viewer/spray_v4_draw.c
+    game/race/spray_v4.c
     game/viewer/horizon_smooth.c
     game/viewer/psx_sky_draw.c
     game/viewer/sky_smooth.c
@@ -685,6 +687,11 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_link_libraries(test_wiper_scene PRIVATE tnfs_game)
     target_compile_options(test_wiper_scene PRIVATE ${TNFS_WARNINGS})
     add_test(NAME wiper_scene COMMAND test_wiper_scene)
+    add_executable(test_spray_v4 tests/test_spray_v4.c game/race/spray_v4.c game/viewer/spray_v4_draw.c)
+    target_include_directories(test_spray_v4 PRIVATE game)
+    target_link_libraries(test_spray_v4 PRIVATE tnfs_game)
+    target_compile_options(test_spray_v4 PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME spray_v4 COMMAND test_spray_v4)
     add_executable(test_wet_zones tests/test_wet_zones.c)
     target_include_directories(test_wet_zones PRIVATE game)
     target_link_libraries(test_wet_zones PRIVATE tnfs_game)
