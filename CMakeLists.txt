@@ -467,6 +467,7 @@ add_library(tnfs_game STATIC
     game/viewer/drive_lamps.c
     game/viewer/reflect_pass.c
     game/viewer/street_halo.c
+    game/viewer/car_lamp_halo.c
     game/viewer/drive_light.c
     game/sys/backdrop.c
     game/frontend/variant_rule.c
