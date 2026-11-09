@@ -9,7 +9,7 @@
 #include <string.h>
 
 /* the drawn kinds: the particles' own (SprayV4Kind) and the stones' glint */
-enum { WORLD_SHIFT = 11, MAX_CHUNKS = 512, LEVELS = 8, GLINT = SPRAY_V4_KINDS, KINDS = SPRAY_V4_KINDS + 1 };
+enum { WORLD_SHIFT = 11, MAX_CHUNKS = 512, MAX_PUFF_W = 4096, NODE_BUCKETS = 1024, LEVELS = 8, GLINT = SPRAY_V4_KINDS, KINDS = SPRAY_V4_KINDS + 1 };
 
 /* how each kind is drawn: its sprite family, its colour's cap (a level k mixes k/per toward it), how far the sprite's half width is from the particle's radius (the body of the sprite is a fraction of it), its height over
  * its width (1: a billboard, never squashed), how far it sits above the road, and the distances it fades in (from `near0` to `near1` metres) and out (`far0` to `far1`) */
@@ -37,24 +37,21 @@ static int tables_made;
 static uint8_t *frame_map[KINDS], *group_map;
 static size_t frame_cap, group_cap;
 static int map_w, map_h;
+static int *row_lo, *row_hi;   /* the extent of each row the group's puffs touch */
+static size_t row_cap;
+static int16_t node_head[NODE_BUCKETS], node_next[SPRAY_V4_MAX];   /* the live particles by road node (chained in a hash of it), built each frame */
 static uint8_t *chunks[MAX_CHUNKS];
 static int chunk_count;
 
 SprayV4 *spray_v4_state(void) { return &state; }
 
-/* the sprite's alpha (0..255) at the unit-square point (u, v) in -1..1, bilinear */
-static int sample(const uint8_t *sp, float u, float v)
+/* the sprite's column or row (0..SPRAY_V4_ART_SIZE - 1) at the unit-square coordinate u in -1..1 (nearest: the dither hides the step), or -1 outside */
+static int cell(float u, int flip)
 {
-    const float fx = (u + 1.0f) * 0.5f * (float)(SPRAY_V4_ART_SIZE - 1), fy = (v + 1.0f) * 0.5f * (float)(SPRAY_V4_ART_SIZE - 1);
-    int x0 = (int)fx, y0 = (int)fy;
-    if (x0 >= SPRAY_V4_ART_SIZE - 1) x0 = SPRAY_V4_ART_SIZE - 2;
-    if (y0 >= SPRAY_V4_ART_SIZE - 1) y0 = SPRAY_V4_ART_SIZE - 2;
-    const float tx = fx - (float)x0, ty = fy - (float)y0;
-    const float a = (float)sp[y0 * SPRAY_V4_ART_SIZE + x0], b = (float)sp[y0 * SPRAY_V4_ART_SIZE + x0 + 1];
-    const float c = (float)sp[(y0 + 1) * SPRAY_V4_ART_SIZE + x0], d = (float)sp[(y0 + 1) * SPRAY_V4_ART_SIZE + x0 + 1];
-    return (int)((a * (1.0f - tx) + b * tx) * (1.0f - ty) + (c * (1.0f - tx) + d * tx) * ty);
+    if (u <= -1.0f || u >= 1.0f) return -1;
+    const int c = (int)(((flip ? -u : u) + 1.0f) * 0.5f * (float)SPRAY_V4_ART_SIZE);
+    return c < 0 ? 0 : c >= SPRAY_V4_ART_SIZE ? SPRAY_V4_ART_SIZE - 1 : c;
 }
-
 
 static void tables_set(const uint8_t rgb[SPRAY_V4_KINDS][3])
 {
@@ -80,6 +77,18 @@ void spray_v4_draw_frame(const SprayV4Host *host, const uint8_t rgb[SPRAY_V4_KIN
     chunk_count = 0;
     map_w = H.target->clip_right - H.target->clip_left, map_h = H.target->clip_bottom - H.target->clip_top;
     if (map_w <= 0 || map_h <= 0) { map_w = map_h = 0; return; }
+    if ((size_t)map_h > row_cap) {
+        free(row_lo), free(row_hi);
+        row_lo = malloc((size_t)map_h * sizeof *row_lo), row_hi = malloc((size_t)map_h * sizeof *row_hi);
+        row_cap = row_lo != NULL && row_hi != NULL ? (size_t)map_h : 0;
+        if (row_cap == 0) { map_w = map_h = 0; return; }
+    }
+    for (int i = 0; i < NODE_BUCKETS; i++) node_head[i] = -1;
+    for (int i = 0; i < SPRAY_V4_MAX; i++)
+        if (state.p[i].live) {
+            const uint32_t b = (uint32_t)state.p[i].node & (NODE_BUCKETS - 1);
+            node_next[i] = node_head[b], node_head[b] = (int16_t)i;
+        }
     const size_t need = (size_t)map_w * (size_t)map_h;
     if (need > frame_cap) {
         int ok = 1;
@@ -95,7 +104,7 @@ typedef struct { float cx, cy, rx, ry; int alpha, x0, y0, x1, y1, flip_u, flip_v
 
 static float ramp(float v, float lo, float hi) { return v <= lo ? 0.0f : v >= hi ? 1.0f : (v - lo) / (hi - lo); }
 
-/* one kind's puffs of the group: their maximum, set against the frame's map, drawn as one sprite */
+/* one kind's puffs of the group: their maximum, set against the frame's map, drawn as one sprite. Only the pixels the puffs touch are visited (each row's extent), not the union box of the group */
 static void compose(int kind, const Puff *puffs, int count)
 {
     int x0 = H.target->clip_right, y0 = H.target->clip_bottom, x1 = H.target->clip_left, y1 = H.target->clip_top;
@@ -110,34 +119,46 @@ static void compose(int kind, const Puff *puffs, int count)
     uint8_t *shape = calloc((size_t)16 + (size_t)w * (size_t)h, 1);
     if (shape == NULL) return;
     const int ox = H.target->clip_left, oy = H.target->clip_top;
-    for (int y = y0; y < y1; y++) memset(group_map + (size_t)(y - oy) * (size_t)map_w + (size_t)(x0 - ox), 0, (size_t)w);
+    for (int y = y0; y < y1; y++) row_lo[y - oy] = 1 << 30, row_hi[y - oy] = -1;
     for (int i = 0; i < count; i++) {
         const Puff *p = &puffs[i];
         const uint8_t *sp = p->sprite;
+        static int col[MAX_PUFF_W];   /* a puff is clipped to the target: no wider than it */
+        uint8_t mul[256];
+        const int pw = p->x1 - p->x0;
+        if (pw > MAX_PUFF_W) continue;
+        for (int x = p->x0; x < p->x1; x++) col[x - p->x0] = cell(((float)x + 0.5f - p->cx) / p->rx, p->flip_u);
+        for (int a = 0; a < 256; a++) mul[a] = (uint8_t)(a * p->alpha / 255);
         for (int y = p->y0; y < p->y1; y++) {
-            const float v = ((float)y + 0.5f - p->cy) / p->ry;
+            const int r = cell(((float)y + 0.5f - p->cy) / p->ry, p->flip_v);
+            if (r < 0) continue;
+            const uint8_t *src = sp + r * SPRAY_V4_ART_SIZE;
+            uint8_t *g = &group_map[(size_t)(y - oy) * (size_t)map_w];
             for (int x = p->x0; x < p->x1; x++) {
-                const float u = ((float)x + 0.5f - p->cx) / p->rx;
-                if (u <= -1.0f || u >= 1.0f || v <= -1.0f || v >= 1.0f) continue;
-                const int a = sample(sp, p->flip_u ? -u : u, p->flip_v ? -v : v) * p->alpha / 255;
-                uint8_t *g = &group_map[(size_t)(y - oy) * (size_t)map_w + (size_t)(x - ox)];
-                if (a > *g) *g = (uint8_t)a;
+                const int c = col[x - p->x0];
+                if (c < 0) continue;
+                const uint8_t a = mul[src[c]];
+                if (a > g[x - ox]) g[x - ox] = a;
             }
+            if (p->x0 < row_lo[y - oy]) row_lo[y - oy] = p->x0;
+            if (p->x1 > row_hi[y - oy]) row_hi[y - oy] = p->x1;
         }
     }
     const int per = LOOKS[kind].per;
     int any = 0;
-    for (int y = y0; y < y1; y++)
-        for (int x = x0; x < x1; x++) {
-            const size_t at = (size_t)(y - oy) * (size_t)map_w + (size_t)(x - ox);
-            const int now = group_map[at], before = frame_map[kind][at];
+    for (int y = y0; y < y1; y++) {
+        uint8_t *g = &group_map[(size_t)(y - oy) * (size_t)map_w], *fm = &frame_map[kind][(size_t)(y - oy) * (size_t)map_w];
+        for (int x = row_lo[y - oy]; x < row_hi[y - oy]; x++) {
+            const int now = g[x - ox], before = fm[x - ox];
+            g[x - ox] = 0;   /* the group's map is left clean for the next */
             if (now <= before) continue;
             const float inc = (float)(now - before) * 255.0f / (float)(255 - before);   /* what the pixel still takes after what the groups before gave it */
             int k = (int)(inc * (float)per / 255.0f + (BAYER[(y & 3) * 4 + (x & 3)] + 0.5f) / 16.0f);
             if (k > LEVELS) k = LEVELS;
-            frame_map[kind][at] = (uint8_t)now;
+            fm[x - ox] = (uint8_t)now;
             if (k > 0) shape[16 + (size_t)(y - y0) * (size_t)w + (size_t)(x - x0)] = (uint8_t)k, any = 1;
         }
+    }
     if (!any) { free(shape); return; }
     shape[0] = 0x7b, shape[4] = (uint8_t)(w & 0xff), shape[5] = (uint8_t)(w >> 8), shape[6] = (uint8_t)(h & 0xff), shape[7] = (uint8_t)(h >> 8);
     chunks[chunk_count++] = shape;   /* kept until the next frame: the recorder replays the sprite when the frame's 3D is whole */
@@ -152,7 +173,7 @@ void spray_v4_draw_row(int32_t node, int far_side)
     const uint32_t tick = (uint32_t)H.race->tick;
     const int32_t focal = abs(H.view->view->focal_x);
     const int open = H.rain_open(node);
-    for (int i = 0; i < SPRAY_V4_MAX; i++) {
+    for (int i = node_head[(uint32_t)node & (NODE_BUCKETS - 1)]; i >= 0; i = node_next[i]) {
         const SprayV4Particle *p = &state.p[i];
         SprayV4Look look;
         if (!p->live || p->node != node || !spray_v4_look(p, tick, open, &look)) continue;
