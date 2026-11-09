@@ -172,3 +172,20 @@ int lamp_blob_in_rects(const LampBlob *blob, const int (*rects)[4], int count, i
     }
     return 0;
 }
+
+void lamp_rects_reset(LampRects *list)
+{
+    if (list != NULL) list->count = list->dropped = 0;
+}
+
+int lamp_rects_push(LampRects *list, int x0, int y0, int x1, int y1)
+{
+    if (list == NULL) return 0;
+    if (list->count >= LAMP_RECTS_MAX) {
+        list->dropped++;
+        return 0;
+    }
+    int *r = list->rects[list->count++];
+    r[0] = x0, r[1] = y0, r[2] = x1, r[3] = y1;
+    return 1;
+}
