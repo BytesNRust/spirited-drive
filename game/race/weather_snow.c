@@ -41,6 +41,22 @@ int weather_snow_count(int32_t box_w, int32_t box_h, int level)
     return n > SNOW_MAX ? SNOW_MAX : n < 1 ? 1 : (int)n;
 }
 
+/* what both ways of placing a flake share: the column it starts in, how far down the box it is, and its size */
+typedef struct { int32_t column, y, size; } FlakeBase;
+
+static FlakeBase flake_base(uint32_t f, uint32_t tick, int level, int32_t box_w, int32_t box_h)
+{
+    uint32_t fall = SNOW_FALL_MIN + hash(f, 1) % (SNOW_FALL_MAX - SNOW_FALL_MIN + 1);   /* percent of the box's height a second */
+    if (level == SNOW_HEAVY) fall = fall * HEAVY_FALL_PERCENT / 100;
+    const uint32_t along = ((hash(f, 2) & 0xffff) + (uint32_t)((uint64_t)fall * 65536u * tick / (100u * TICKS_A_SECOND))) & 0xffff;   /* of 65536 down the box */
+    const uint32_t s = hash(f, 7) % 100u;
+    FlakeBase b;
+    b.y = (int32_t)((int64_t)along * box_h >> 16);
+    b.column = (int32_t)((int64_t)(hash(f, 3) & 0xffff) * box_w >> 16);
+    b.size = s < 55 ? 1 : s < 90 ? 2 : SNOW_SIZE_MAX;
+    return b;
+}
+
 void weather_snow_flake(int flake, uint32_t tick, int level, int32_t box_w, int32_t box_h, int32_t out[3])
 {
     const uint32_t f = (uint32_t)flake;
@@ -49,11 +65,8 @@ void weather_snow_flake(int flake, uint32_t tick, int level, int32_t box_w, int3
         out[0] = out[1] = out[2] = 0;
         return;
     }
-    uint32_t fall = SNOW_FALL_MIN + hash(f, 1) % (SNOW_FALL_MAX - SNOW_FALL_MIN + 1);   /* percent of the box's height a second */
-    if (heavy) fall = fall * HEAVY_FALL_PERCENT / 100;
-    const uint32_t along = ((hash(f, 2) & 0xffff) + (uint32_t)((uint64_t)fall * 65536u * tick / (100u * TICKS_A_SECOND))) & 0xffff;   /* of 65536 down the box */
-    const int32_t y = (int32_t)((int64_t)along * box_h >> 16);
-    const int32_t column = (int32_t)((int64_t)(hash(f, 3) & 0xffff) * box_w >> 16);
+    const FlakeBase base = flake_base(f, tick, level, box_w, box_h);
+    const int32_t column = base.column;
     const int32_t period = SWAY_PERIOD_MIN + (int32_t)(hash(f, 4) % SWAY_PERIOD_RANGE), half = period / 2;
     const int32_t reach = box_w * (SWAY_PERCENT_MIN + (int32_t)(hash(f, 5) % SWAY_PERCENT_RANGE)) / 100;
     const int32_t t = (int32_t)((tick + hash(f, 6)) % (uint32_t)period), tri = t < half ? t : period - t;   /* 0 .. half, there and back */
@@ -61,9 +74,8 @@ void weather_snow_flake(int flake, uint32_t tick, int level, int32_t box_w, int3
     if (heavy) x += (int64_t)box_w * WIND_PERCENT * (int64_t)(tick % 1000000u) / (100 * TICKS_A_SECOND);
     x %= box_w;
     out[0] = (int32_t)(x < 0 ? x + box_w : x);
-    out[1] = y;
-    const uint32_t s = hash(f, 7) % 100u;
-    out[2] = s < 55 ? 1 : s < 90 ? 2 : SNOW_SIZE_MAX;
+    out[1] = base.y;
+    out[2] = base.size;
 }
 
 enum { SPEED_FULL_MS = 60 };   /* the lean reaches its top at this speed */
@@ -78,10 +90,14 @@ int weather_snow_wind(uint32_t tick)
 void weather_snow_flake_fx(int flake, uint32_t tick, int level, int32_t box_w, int32_t box_h, int32_t speed, int32_t vx, int32_t vy, int32_t out[3])
 {
     const uint32_t f = (uint32_t)flake;
-    weather_snow_flake(flake, tick, level, box_w, box_h, out);
-    if (box_w <= 0 || box_h <= 0) return;
+    if (box_w <= 0 || box_h <= 0) {
+        out[0] = out[1] = out[2] = 0;
+        return;
+    }
+    const FlakeBase base = flake_base(f, tick, level, box_w, box_h);
+    out[2] = base.size;
     /* no flake sways from side to side: the column it starts in (weather_snow_flake's own, without its there-and-back sway), and in the storm the slow swinging wind */
-    float x = (float)((int64_t)(hash(f, 3) & 0xffff) * box_w >> 16), y = (float)out[1];
+    float x = (float)base.column, y = (float)base.y;
     if (level == SNOW_HEAVY) {
         const double omega = 6.2831853 * TICKS_A_SECOND / SNOW_DRIFT_PERIOD_TICKS;   /* rad a second */
         x += (float)((double)box_w * (SNOW_WIND_MAX / 10.0) / 100.0 / omega * (1.0 - cosf(turn(tick, SNOW_DRIFT_PERIOD_TICKS))));
