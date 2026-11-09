@@ -83,6 +83,7 @@ Not bugs. `port_banner` is the one with a Stock-vs-port argument: it is on-scree
 - Honest Stock needs the exe's own bugs *in the real game*, and today only the oracles have them. Section 0.
 - No test or oracle asserts that flag 0 still equals the exe for items 1-4 outside the oracles' hand-built structs. When the switch exists, one test per item should build the race through the real path with the profile Stock and check the 0 branch ran.
 - `TNFS_WIDE_BOARD` has no settings key and no oracle named in its commit.
+- **Known exe bug, not fixed (port matches the exe): the NITRO start (N with a shift or B) is not sent to the other machines in a link race.** The race is lockstep, so every machine simulates every car from the same control words. `0042f138` (`car_drive.c` `launch()`) launches the machine's own player from the keyboard flags only (N `004c696d` with LShift `004c6966`, RShift `004c6972` or B `004c696c`); every other human's car launches only when `004faa5c[player]` is set. `004397f4` (`input_tick.c`) sets that only when the received word has both gear bits (0x3000), and `0043915c` (`input_read.c`) produces them only for B+R+W held with an automatic car. So an N launch happens in the launcher's own sim alone, and the peers simulate that car without it (a desync by reading; no two-machine run was made and the exe cannot be run here). Any fix is a deliberate change from the exe (the launch put into the sent word, behind a `port_*` setting) and is the owner's call (panel i178).
 
 ## 5. Proposal (for the owner to choose)
 
