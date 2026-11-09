@@ -664,6 +664,12 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_link_libraries(test_render_scale PRIVATE tnfs_game)
     target_compile_options(test_render_scale PRIVATE ${TNFS_WARNINGS})
     add_test(NAME render_scale COMMAND test_render_scale)
+    # port: the tunnel lamps' module, built into the test with its source
+    add_executable(test_view_lamps tests/test_view_lamps.c game/viewer/view_lamps.c)
+    target_include_directories(test_view_lamps PRIVATE game)
+    target_link_libraries(test_view_lamps PRIVATE tnfs_game)
+    target_compile_options(test_view_lamps PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME view_lamps COMMAND test_view_lamps)
     add_executable(test_modern_road tests/test_modern_road.c game/viewer/modern_road.c)
     target_include_directories(test_modern_road PRIVATE game)
     target_link_libraries(test_modern_road PRIVATE tnfs_game)
