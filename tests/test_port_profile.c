@@ -204,7 +204,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.wipers, 1);   /* on in Restomod (owner 2026-11-08) */
     CHECK_EQ_INT(s.spray_v4, 0);   /* off in every profile until the owner has played it */
     CHECK_EQ_INT(s.water_mist, 2);   /* the veil and the droplet streaks (owner 2026-11-08: "probemos v2") */
-    CHECK_EQ_INT(s.weather_fog, 0);   /* off until the owner approves it */
+    CHECK_EQ_INT(s.weather_fog, 2);   /* the whiter, denser snow fog and the denser storm fog, no dark mood over snow (owner 2026-11-09) */
     CHECK_EQ_INT(s.shoulder_light, 1);   /* the third lane and the shoulders lit like the road */
     CHECK_EQ_INT(s.finish_gate_light, 1);   /* the owner: the gates are OK (the current tint, not the neutral one) */
     CHECK_EQ_INT(s.lamp_pool_bright, 1);   /* the owner approved the stronger lamp pools: Restomod's default (Stock and Restored keep 0) */
