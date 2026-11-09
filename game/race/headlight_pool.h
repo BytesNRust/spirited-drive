@@ -48,7 +48,7 @@ int headlight_pool_width(int point);
 /* The gain a car's own colours take from the pool gain `gain` at its node (a car is lit less than the road under its own lamps: HEADLIGHT_CAR_SHARE of the lift). */
 int headlight_pool_car_gain(int gain);
 
-/* port (car_night_lift): a car's gain (of 256) raised by a quarter (level 1) or a half (level 2), any other level none: above 256 is above the paint's own colour (the lit table has no hue family there), so the
+/* port (car_night_lift): a car's gain (of 256) raised by three eighths (level 1) or five eighths (level 2), any other level none: above 256 is above the paint's own colour (the lit table has no hue family there), so the
  * lift reaches every car, the player's with its lights on too; a lit car gains most in absolute terms, a dark one keeps its order. */
 int headlight_pool_car_night_lift(int gain, int level);
 

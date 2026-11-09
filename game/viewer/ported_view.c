@@ -933,7 +933,7 @@ static const uint8_t *car_light(int32_t node, const double *xz, int car, const u
     const int slot = next;
     next = (next + 1) % AMBIENT_TABLES;
     memcpy(cache[slot].key, key, sizeof key), cache[slot].used = 1;
-    static const uint8_t FLOOR[3][3] = { { 0, 0, 0 }, { 12, 13, 17 }, { 24, 26, 34 } };   /* a cool light, as the night's */
+    static const uint8_t FLOOR[3][3] = { { 0, 0, 0 }, { 18, 20, 26 }, { 30, 33, 43 } };   /* a cool light, as the night's */
     psx_lit_table_floor(palette, ratio, match_bright, floor_level > 0 && floor_level < 3 ? FLOOR[floor_level] : NULL, cache[slot].table);
     if (key[6] > 0) {
         const uint8_t rgb[3] = { (uint8_t)key[3], (uint8_t)key[4], (uint8_t)key[5] };

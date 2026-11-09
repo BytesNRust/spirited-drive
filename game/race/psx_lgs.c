@@ -173,6 +173,7 @@ void psx_lit_table_floor(const uint8_t palette[768], const float ratio[3], int a
             out[c] = (uint8_t)c;
             continue;
         }
+        const int dark_source = add != NULL && palette[3 * c] < 48 && palette[3 * c + 1] < 48 && palette[3 * c + 2] < 48;   /* port (car_night_lift): a dark entry (a tyre, a shade of a dark paint) has no lighter neighbour in its family: the floor lifts it to the nearest of any */
         float want[3];
         for (int k = 0; k < 3; k++) want[k] = (float)palette[3 * c + k] * ratio[k] + (add != NULL ? (float)add[k] : 0.0f);   /* port (car_night_lift): a floor of light, which a multiplier on a near-black paint cannot give */
         /* a colour stays in its hue family under a darker or lighter light (a yellow in shadow went to olive, orange and pink); where the palette has
@@ -184,7 +185,7 @@ void psx_lit_table_floor(const uint8_t palette[768], const float ratio[3], int a
             const float dr = (float)palette[3 * i] - want[0], dg = (float)palette[3 * i + 1] - want[1], db = (float)palette[3 * i + 2] - want[2];
             const float d = dr * dr + dg * dg + db * db;
             if (d < best_any_d) best_any = i, best_any_d = d;
-            if (d < best_d && (any_family || car_shine_same_family(palette + 3 * c, palette + 3 * i))) best = i, best_d = d;
+            if (d < best_d && (any_family || dark_source || car_shine_same_family(palette + 3 * c, palette + 3 * i))) best = i, best_d = d;
         }
         out[c] = (uint8_t)(best_d < 1e29f ? best : best_any);
     }

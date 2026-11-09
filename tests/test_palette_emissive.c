@@ -84,6 +84,11 @@ static void test_lit_table_floor(void)
     CHECK(dark[3 * plain[0]] < 5);                    /* black stays black without it */
     CHECK(dark[3 * floor_t[0]] >= 20 && dark[3 * floor_t[0] + 2] >= 26);   /* and is lifted by it, a hair bluer */
     CHECK(dark[3 * floor_t[40]] > dark[3 * plain[40]]);
+    /* a dark chromatic entry (a tyre, a dark paint's shade) has no lighter neighbour of its own family in a ramp of greys: with a floor it is lifted all the same, not held to itself */
+    dark[3 * 10] = 30, dark[3 * 10 + 1] = 8, dark[3 * 10 + 2] = 8;
+    psx_lit_table_floor(dark, ratio, 0, add, floor_t);
+    CHECK(floor_t[10] != 10);
+    CHECK(dark[3 * floor_t[10]] + dark[3 * floor_t[10] + 1] > 30 + 8);
     CHECK_EQ_INT(floor_t[LAMP], LAMP);
     CHECK_EQ_INT(floor_t[0xfe], 0xfe);
     CHECK_EQ_INT(floor_t[0xff], 0xff);

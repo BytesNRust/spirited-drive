@@ -360,14 +360,14 @@ static void test_the_beam_adds_on_top_of_a_lifted_floor(void)
     CHECK_EQ_INT(psx_light_open_gain_floor(&light, lift, 0), headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift));
 }
 
-/* port (car_night_lift): the car's gain is raised by a quarter or a half of itself: nothing at level 0 or an unknown level, the order of the lights kept, a lit car (256) at 320 / 384 */
+/* port (car_night_lift): the car's gain is raised by three eighths or five eighths of itself: nothing at level 0 or an unknown level, the order of the lights kept, a lit car (256) at 352 / 416 */
 static void test_car_night_lift(void)
 {
     for (int g = 0; g <= 256; g += 16) CHECK_EQ_INT(headlight_pool_car_night_lift(g, 0), g);
-    CHECK_EQ_INT(headlight_pool_car_night_lift(256, 1), 320);
-    CHECK_EQ_INT(headlight_pool_car_night_lift(256, 2), 384);
-    CHECK_EQ_INT(headlight_pool_car_night_lift(96, 1), 120);
-    CHECK_EQ_INT(headlight_pool_car_night_lift(96, 2), 144);
+    CHECK_EQ_INT(headlight_pool_car_night_lift(256, 1), 352);
+    CHECK_EQ_INT(headlight_pool_car_night_lift(256, 2), 416);
+    CHECK_EQ_INT(headlight_pool_car_night_lift(96, 1), 132);
+    CHECK_EQ_INT(headlight_pool_car_night_lift(96, 2), 156);
     for (int level = 1; level <= 2; level++)
         for (int g = 0; g < 256; g++) {
             const int lifted = headlight_pool_car_night_lift(g, level);
