@@ -63,6 +63,9 @@ int drive_light_night(void);
 /* 1 when the gauges are lit (gauge_light): the night, and with gauge_exterior the dusk and rain with rain_lamps */
 int drive_light_gauges_lit(void);
 int drive_light_active(void);
+/* 1 when the frame's palettes differ (a tint, the dash's ratio, a storm flash, lit gauges): when 0 the split present is the plain one and drive_light_world_mask is NULL.
+ * Read after drive_light_dash_ratio is set for the frame. */
+int drive_light_needs_split(void);
 /* 1 when the race was loaded with the light on and a time other than the day (dawn, dusk), or at any time with the light script read (the dash has its own
  * light even by day): its 3D and 2D are told apart, which needs the wide path. Kept at the race's start (drive_light_load), not read from port.cfg each frame. */
 int drive_light_time_tinted(void);

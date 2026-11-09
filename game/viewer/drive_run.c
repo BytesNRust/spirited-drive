@@ -485,6 +485,7 @@ static int write_drive_ppm(const char *path, const uint8_t *shown, int width, co
         if (!light_edit_started) light_edit_start(&light_edit, light_edit_wanted()), light_edit_started = 1;
         shown = light_edit_compose(&light_edit, shown, width, height, palette, followed != NULL ? (uint32_t)followed->node : 0);
     }
+    light_dash_node();   /* the dash's ratio before the mask is asked for (drive_light_needs_split) */
     const uint8_t *mask = drive_light_world_mask(shown, (size_t)width * (size_t)height);
     if (mask == NULL) return track_viewer_write_ppm(path, shown, width, height, palette);
     uint8_t world[768], half[768], lit[768], colours[PLATFORM_LIT_SLOTS][768];

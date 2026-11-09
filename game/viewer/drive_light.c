@@ -1180,9 +1180,17 @@ void drive_light_world_rect(int width, int x, int y, int w, int h)
     rect[0] = x, rect[1] = y, rect[2] = w, rect[3] = h, rect_width = width, rect_set = w > 0 && h > 0;
 }
 
+/* port: the split present tells three palettes apart; with the tint neutral, the dash's ratio neutral, no storm flash and no lit gauges they are all the
+ * frame's palette and the mask picks between equal colours. Decided per frame, so a tunnel by day (the dash's ratio) still splits. */
+int drive_light_needs_split(void)
+{
+    const int neutral = tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f && dash_ratio[0] == 1.0f && dash_ratio[1] == 1.0f && dash_ratio[2] == 1.0f;
+    return !neutral || storm_flash > 0 || (port_gauge_light() > 0 && drive_light_gauges_lit());
+}
+
 const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count)
 {
-    if (!drive_light_active() || world_size != count || world_frame == NULL) return NULL;
+    if (!drive_light_active() || !drive_light_needs_split() || world_size != count || world_frame == NULL) return NULL;
     psx_world_mask(shown, world_frame, count, world_mask);
     if (class_width > 0 && rect_width == class_width * class_scale && count % (size_t)rect_width == 0) {
         /* the 2D layer's own marks over the diff's: the dash's art half, the HUD and the gauges not at all (class_overlay.h: only the rows that have a mark) */
