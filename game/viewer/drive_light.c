@@ -1,4 +1,5 @@
 #include "viewer/drive_light.h"
+#include "viewer/class_overlay.h"
 #include "viewer/drive_palette.h"
 #include "viewer/ported_view.h"
 #include "viewer/psx_sky_draw.h"
@@ -1093,7 +1094,8 @@ static int rect[4], rect_set, rect_width;
 /* the 2D layer's classes (drive_light.h) per layer pixel, and the output's size against it */
 static uint8_t *class_layer;
 static size_t class_size;
-static int class_width, class_scale = 1;
+static uint8_t *class_marks;   /* class_overlay_rows: a row of the layer that has a mark */
+static int class_width, class_height, class_scale = 1;
 
 void drive_light_tint(float out[3]) { memcpy(out, tint, sizeof tint); }
 
@@ -1114,16 +1116,20 @@ void drive_light_world_class(const uint8_t *layer, int width, int height, int sc
         class_width = 0;
         return;
     }
-    if (class_size != count) {
-        uint8_t *p = realloc(class_layer, count);
-        if (p == NULL) {
+    if (class_size != count || class_height != height) {
+        uint8_t *p = realloc(class_layer, count), *m = realloc(class_marks, (size_t)height);
+        if (m != NULL) class_marks = m;
+        if (p == NULL || m == NULL) {
+            if (p != NULL) class_layer = p;
             class_width = 0;
+            class_size = 0;
             return;
         }
         class_layer = p, class_size = count;
     }
     memcpy(class_layer, layer, count);
-    class_width = width, class_scale = scale < 1 ? 1 : scale;
+    class_overlay_rows(class_layer, width, height, class_marks);
+    class_width = width, class_height = height, class_scale = scale < 1 ? 1 : scale;
 }
 
 void drive_light_dash_ratio(const float ratio[3])
@@ -1179,17 +1185,8 @@ const uint8_t *drive_light_world_mask(const uint8_t *shown, size_t count)
     if (!drive_light_active() || world_size != count || world_frame == NULL) return NULL;
     psx_world_mask(shown, world_frame, count, world_mask);
     if (class_width > 0 && rect_width == class_width * class_scale && count % (size_t)rect_width == 0) {
-        /* the 2D layer's own marks over the diff's: the dash's art half, the HUD and the gauges not at all */
-        const size_t rows = count / (size_t)rect_width;
-        for (size_t y = 0; y < rows; y++) {
-            const uint8_t *row = class_layer + (y / (size_t)class_scale) * (size_t)class_width;
-            for (size_t x = 0; x < (size_t)rect_width; x++) {
-                const uint8_t c = row[x / (size_t)class_scale];
-                if (c == PSX_CLASS_DASH) world_mask[y * (size_t)rect_width + x] = 2;
-                else if (c == PSX_CLASS_HUD) world_mask[y * (size_t)rect_width + x] = 0;
-                else if (c >= PSX_CLASS_LIT && c < PSX_CLASS_LIT_COLOUR + PSX_CLASS_LIT_COLOURS) world_mask[y * (size_t)rect_width + x] = c;   /* LIT, and LIT_COLOUR + slot: the platform's mask 3, 4 + slot */
-            }
-        }
+        /* the 2D layer's own marks over the diff's: the dash's art half, the HUD and the gauges not at all (class_overlay.h: only the rows that have a mark) */
+        class_overlay_apply(world_mask, rect_width, count / (size_t)rect_width, class_layer, class_width, class_height, class_scale, class_marks);
     }
     if (rect_set && rect_width > 0 && count % (size_t)rect_width == 0)
         psx_mask_rect(world_mask, rect_width, (int)(count / (size_t)rect_width), rect[0], rect[1], rect[2], rect[3]);
