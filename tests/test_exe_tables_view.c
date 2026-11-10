@@ -1,4 +1,4 @@
-/* The viewport tables read from the exe (game/exe/exe_tables_view.c) are the tables the port holds now. */
+/* The viewport tables read from the exe (game/exe/exe_tables_view.c) are the tables the fixture holds (tests/exe_tables_fixture.h). */
 #include "tests/exe_tables_support.h"
 #include "tests/exe_tables_family.h"
 #include "tests/test.h"
@@ -15,20 +15,6 @@ static void test_real(void)
     memset(t, 0xAA, sizeof *t);
     CHECK_EQ_INT(exe_tables_view(&img, t, err, sizeof err), 0);
     CHECK(family_ok(t, "view"));
-    for (int m = 0; m < VIEW_SCREEN_MODES; m++) {
-        for (int r = 0; r < VIEW_LAYOUTS; r++) {   /* by field: no padding to trust */
-            const ViewLayout *g = &t->race_view_layouts[m][r], *w = &race_view_layouts[m][r];
-            CHECK(g->unknown_00 == w->unknown_00 && g->scale == w->scale && g->x == w->x && g->y == w->y && g->width == w->width);
-            CHECK(g->height == w->height && g->left == w->left && g->top == w->top && g->unknown_20 == w->unknown_20 && g->unknown_24 == w->unknown_24);
-        }
-        for (int r = 0; r < VIEW_ROWS; r++) {
-            const ViewRow *g = &t->race_view_rows[m][r], *w = &race_view_rows[m][r];
-            CHECK_EQ_INT(g->next, w->next);
-            CHECK_MEM(g->layouts, w->layouts, sizeof w->layouts);
-            CHECK_MEM(g->unknown_14, w->unknown_14, sizeof w->unknown_14);
-        }
-    }
-    CHECK_MEM(t->race_view_model_y, race_view_model_y, sizeof race_view_model_y);
     free(t), free(b);
 }
 

@@ -73,16 +73,6 @@ static void test_real_exe(void)
     ExeTables *t = calloc(1, sizeof *t);
     char err[1024] = "";
     CHECK_EQ_INT(exe_tables_load_dir(dir, t, err, sizeof err), 0);
-    CHECK_MEM(t->ai_driver_data, AI_DRIVER_DATA, sizeof t->ai_driver_data);
-    CHECK_MEM(t->race_split_tables, RACE_SPLIT_TABLES, sizeof t->race_split_tables);
-    CHECK_MEM(t->race_view_layouts, race_view_layouts, sizeof t->race_view_layouts);
-    CHECK_MEM(t->race_view_rows, race_view_rows, sizeof t->race_view_rows);
-    CHECK_MEM(t->race_view_model_y, race_view_model_y, sizeof t->race_view_model_y);
-    CHECK_MEM(t->track_lod_by_distance, TRACK_LOD_BY_DISTANCE, sizeof t->track_lod_by_distance);
-    CHECK_MEM(t->track_lods, TRACK_LODS, sizeof t->track_lods);
-    CHECK_MEM(t->track_polygons, TRACK_POLYGONS, sizeof t->track_polygons);
-    CHECK_MEM(t->menu_item_x, race_menu_item_x, sizeof t->menu_item_x);
-    CHECK(strcmp(t->config_row_name[0], CONFIG_RECORD_ROWS[0].name) == 0);
     CHECK(family_ok(t, "ai") && family_ok(t, "split") && family_ok(t, "view") && family_ok(t, "track") && family_ok(t, "menu") && family_ok(t, "config"));
     ExeTables *again = calloc(1, sizeof *again);
     CHECK_EQ_INT(exe_tables_load_dir(dir, again, err, sizeof err), 0);   /* idempotent: the same result */
