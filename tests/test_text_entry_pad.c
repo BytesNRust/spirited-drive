@@ -98,5 +98,19 @@ int main(void)
     strcpy(text, "AB");
     CHECK_EQ_INT(run(&f, text), 0);
 
+    /* the pad's cancel (menu_pad_cancel: the second button gives Escape): it cancels as Escape does, the text kept */
+    memset(&f, 0, sizeof f);
+    f.pad[3] = ESCAPE;
+    strcpy(text, "AB");
+    CHECK_EQ_INT(run(&f, text), 0);
+    CHECK(strcmp(text, "AB") == 0);
+    CHECK_EQ_INT(f.polls, 4);
+    /* and with no name too (a cancel needs no letter) */
+    memset(&f, 0, sizeof f);
+    f.pad[2] = ESCAPE;
+    text[0] = 0;
+    CHECK_EQ_INT(run(&f, text), 0);
+    CHECK_EQ_INT(f.polls, 3);
+
     return TEST_REPORT();
 }

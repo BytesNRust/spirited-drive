@@ -2,6 +2,7 @@
 
 #include "game/sys/hot_key.h"
 #include "game/sys/page_keys.h"
+#include "game/sys/port_settings.h"
 #include "game/sys/pointer.h"
 #include "game/sys/video.h"
 #include "platform/platform.h"
@@ -77,11 +78,13 @@ int input_get_key(void)
     int32_t present = 0, device = 0;
     const JoyOps *joy_ops = &NO_JOY;
     if (joystick != NULL) joystick(&j, &present, &device, &joy_ops);
+    j->button_key = 0;   /* port (menu_pad_cancel): set below only if the joystick is what gave the key */
     HotKeyState s = { 0 };
     if (link_game != NULL) s.playback = *link_game, s.dropped = *link_lost;
     const int32_t key = menu_hot_key(&s, flags, function_keys != NULL ? *function_keys : 0, j, present, device,
                                      &(const HotKeyOps){ NULL, no_shot, mute }, joy_ops);
     if (link_lost != NULL) *link_lost = s.dropped;
+    if (key != 0 && j->button_key == key) return joy_menu_key(key, port_menu_pad_cancel());   /* port (menu_pad_cancel): the pad's second button is Escape */
     if (key == 0 && page_keys_on) return page_key(flags);
     return key;
 }
@@ -94,7 +97,7 @@ int32_t input_menu_button(void)
     int32_t present = 0, device = 0;
     const JoyOps *joy_ops = &NO_JOY;
     if (joystick != NULL) joystick(&j, &present, &device, &joy_ops);
-    return joy_keys(j, present, device, joy_ops) != 0 ? j->button_key : 0;
+    return joy_keys(j, present, device, joy_ops) != 0 ? joy_menu_key(j->button_key, port_menu_pad_cancel()) : 0;
 }
 
 /* German characters the name field accepts (004626d0), Unicode -> CP437. */

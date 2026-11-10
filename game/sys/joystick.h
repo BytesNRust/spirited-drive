@@ -71,4 +71,9 @@ int32_t joy_poll(JoyState *j, int32_t device, const JoyOps *ops);
  * 0x4d00 above 004fcea0, else 0; 1 when either is set. Else both 0, 0. */
 int32_t joy_keys(JoyState *j, int32_t present, int32_t device, const JoyOps *ops);
 
+/* port (menu_pad_cancel): the menus' key for a joystick button key (0x20 / 0xd / 0, joy_keys' button_key): with `cancel` the
+ * second button (a pad's B by default) is Escape (0x1b), what the keyboard's Escape gives in the same menus, instead of Enter;
+ * the first button (A) keeps accepting; any other key as it is. */
+int32_t joy_menu_key(int32_t button_key, int cancel);
+
 #endif

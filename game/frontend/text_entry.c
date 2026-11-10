@@ -119,7 +119,8 @@ int32_t text_entry_edit(char *text, int32_t max, int32_t x, int32_t y, int32_t f
         else if (!pad_armed) st->joystick_key = 0;
         k = (int16_t)ops->key_read(ops->ctx);
         if (k == 0) {
-            if (st->buttons == LEFT_BUTTON || st->joystick_key != 0) k = ENTER;
+            if (st->joystick_key == ESCAPE) k = ESCAPE;   /* port (menu_pad_cancel): the pad's cancel */
+            else if (st->buttons == LEFT_BUTTON || st->joystick_key != 0) k = ENTER;
             else if (st->buttons == RIGHT_BUTTON) k = ESCAPE;
         } else if (german && (k == SPACE || k == BACKSPACE)) {
             ops->key_read(ops->ctx);

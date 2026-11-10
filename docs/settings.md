@@ -118,6 +118,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `car_tunnel_match` | 0 | 0 | 0..1 (the car's light in a tunnel with a look, matched to the world's at the same `tunnel_tone`: 1 the world's gain (over the night's tint), the car as lit as full light, brighter than the walls' half light, the lamp alternation kept soft (1.0 under a lamp, 0.75 between two lamps), the car's colour table not held to its own hue family above full light, and no headlight-pool floor on it in the tunnel; 0 the car as before: dimmer than the walls, 0.4 between lamps) | none | `TNFS_CAR_TUNNEL_MATCH` | 0 / 0 / 1 | `car_tunnel_light`, a track light file with a tunnel look |
 | `spray_v4` | 0 | 0 | 0, 1 (the wheels' spray and dust as the generated sprites of each material, born every simulation tick at the wheel's own place and height: on a wet road small drops thrown back and up in a fan that fall under gravity and vanish where they touch the road, and a low flat mist; the desert's dust a slow cottony cloud; the snow's powder and small lumps; gravel and the shoulder small angular stones with a fine dust; replaces rain_fx's spray and the rally's dust; 0 as before) | none | `TNFS_SPRAY_V4` | 0 / 0 / 1 | `weather=rain`, or a rally's dust, gravel or snow, or the shoulder |
 | `car_night_lift` | 0 | 0 | 0..2 (the cars at night, every car's light raised where the headlight pool gives it: 1 by an eighth of its gain, 2 by a half, above the paint's own colour with the lit table not held to its hue family; the player's car with its lights on and the traffic and rivals alike; 0 as before) | none | `TNFS_CAR_NIGHT_LIFT` | 0 / 0 / 1 | `psx_light`, `psx_headlights`, night |
+| `menu_pad_cancel` | 0 | 0 | 0..1 (the gamepad's second button, B by default (the exe's Enter), is Escape in the menus and the name box: back, exit, cancel; the first, A, keeps accepting (Space); 0 the exe's: both accept) | none | `TNFS_MENU_PAD_CANCEL` | 0 / 0 / 1 | a game controller |
 
 ### Dash, cameras and replay
 
@@ -180,7 +181,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 ## What each profile sets (`TABLES`)
 
-All 87 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
+All 88 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
 | column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
@@ -271,6 +272,7 @@ All 87 columns of the table. A column that is not here is not touched by any pro
 | `car_tunnel_match` | settings | 0 | 0 | 1 |
 | `spray_v4` | settings | 0 | 0 | 1 |
 | `car_night_lift` | settings | 0 | 0 | 1 |
+| `menu_pad_cancel` | settings | 0 | 0 | 1 |
 
 The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `psx_time`, `weather`, `render_bands`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.
 
