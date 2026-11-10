@@ -71,4 +71,8 @@ extern uint8_t behind_rows[ROW_CARS_BEHIND];
 const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t palette[768]);
 const uint8_t *car_table(const Car *car, const uint8_t palette[768]);
 const View *modern_view(const View *view);
+extern float lit_tint[3];
+extern int lit_tinted;
+extern int reflect_lamps_on, reflect_dark;
+extern double reflect_x, reflect_z, reflect_hx, reflect_hz;
 #endif
