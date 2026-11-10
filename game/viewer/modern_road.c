@@ -158,6 +158,12 @@ void modern_tunnel_tables(const uint8_t palette[768], const float tint[3], const
     light_tables(palette, grey, cast, 1, NULL, out);
 }
 
+void modern_tunnel_tables_add(const uint8_t palette[768], const float tint[3], const float cast[3], float min_light, const float add[3], uint8_t out[MODERN_FOG_LEVELS][256])
+{
+    const float mean = (tint[0] + tint[1] + tint[2]) / 3.0f, m = mean > min_light ? mean : min_light, grey[3] = { m, m, m };
+    light_tables(palette, grey, cast, 1, add, out);
+}
+
 /* the 4x4 ordered dither's thresholds, (BAYER + 0.5) / 16 by (y & 3, x & 3) */
 static const float BAYER[4][4] = {
     { 0.5f / 16, 8.5f / 16, 2.5f / 16, 10.5f / 16 },

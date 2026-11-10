@@ -22,7 +22,7 @@ enum { PSX_LIGHT_SNOW_SLOTS = 144 };   /* TRACK_TEXTURE_SLOTS (track_art.h), che
 enum { PSX_LIGHT_TONES = 16, PSX_TONE_BASE_BITS = 3 };   /* a vertex class's scene tone field is 5 bits: 1..16 the tones */
 
 /* port (track light file, `lamp`): a street lamp as light: where it stands, how far it reaches and the colour it adds (the colour already times its percent / 100: 1 is a lamp at 100 percent) */
-typedef struct { uint32_t node; float x, z, reach; float rgb[3]; } PsxLightLamp;
+typedef struct { uint32_t node; float x, z, reach; float rgb[3]; int tunnel; } PsxLightLamp;   /* tunnel: a tunnel's or cavern's lamp (tunnel_lamps.h): it lights the tunnel's polygons too, over their own light, and bakes nothing into the rows */
 enum { PSX_LIGHT_LAMP_RADIUS = 5 };   /* the nodes a lamp with no radius of its own reaches */
 /* A slot is a scene tone (look 0: `rgb` and `percent`, the colour the stretch's polygons are seen through) or, shared with them, a tunnel zone's own look (look 1: `light`, percent of full light, and
  * `cast`, 0..1 a channel, as the time's tunnel_tone: a tunnel zone whose look is not the track's). No padding: slots are compared and copied as bytes. */

@@ -62,6 +62,8 @@ void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_
 void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], const float cast[3], uint8_t out[MODERN_FOG_LEVELS][256]);
 
 /* port (`lamp`): the lit tables with `add` (red, green, blue in 0..255 units) added to each colour after the tint and the darkness: a coloured lamp's light, which brightens toward its colour and never darkens */
+/* port (tunnel_lamps): the tunnel's tables (modern_tunnel_tables') with a lamp's colour `add` (0..255 a channel) added to what each level shows: a light over the tunnel's own, not scaled by it. */
+void modern_tunnel_tables_add(const uint8_t palette[768], const float tint[3], const float cast[3], float min_light, const float add[3], uint8_t out[MODERN_FOG_LEVELS][256]);
 void modern_light_tables_add(const uint8_t palette[768], const float tint[3], const float add[3], uint8_t out[MODERN_FOG_LEVELS][256]);
 
 /* The tunnel's tables: the same cast, but the tint only as its brightness (the mean of its channels, no hue; at least min_light, a

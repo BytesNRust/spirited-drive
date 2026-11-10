@@ -106,6 +106,10 @@ static void draw_camera_base(void *user, const View *view, const FshEntry *textu
             modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, lamp_top, lamp_heat, LAMP_STEPS);
             return;
         }
+        if (tables == tunnel_tables && lamp_polygon_tunnel(lamp_heat, &lamp_top)) {   /* port (tunnel_lamps): a tunnel's lamps' pools, the tunnel's tables and the same with the lamp's light added, graded by the heat at each corner */
+            modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), tunnel_tables, dark, lamp_top, lamp_heat, LAMP_STEPS);
+            return;
+        }
         if (pool_ready && track_light_xz_ok && (track_light_tunnel & 7) != 1 && psx_light != NULL
             && (tables == lit_tables || ((track_light_tunnel & 7) >= 2 && tables == pool_tables[((track_light_tunnel & 7) - 2) & 3]))) {
             /* port (lamp_pool_tint): the road in a lamp's pool is the plain lit tables and the pool's warm ones by the warmth at each corner (its node's class), dithered per pixel as the

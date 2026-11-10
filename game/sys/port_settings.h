@@ -121,6 +121,7 @@ typedef struct {
     int car_tunnel_match;   /* 0..1: the car's light in a tunnel with a look matched to the world's at the same tunnel_tone: the world's gain (over the night's tint), the car at full light's share (brighter than the walls) and a fixed 0.85 lamp gap, and the car's colour table not held to its own hue family above full light, and no headlight-pool floor on it there; 0 the car as before: dimmer than the walls, with the 0.4 gap */
     int spray_v4;      /* 1: the wheels' spray and dust as the generated sprites of each material (water drops and a flat mist, the desert's cottony dust, the snow's powder and lumps, gravel stones and a fine dust), thrown by physics with gravity and landing on the road, born each simulation tick at the wheel's place; replaces rain_fx's spray and the rally's dust; 0 as before */
     int menu_pad_cancel;   /* 0..1: the gamepad's second button (B by default, the exe's Enter) is Escape in the menus and the name box (back / exit / cancel); the first (A) keeps accepting; 0 the exe's: both accept */
+    int tunnel_lamps;   /* 0..1: at night the lamps of the tunnels and caverns (psx_lamps.c's table: CY1/2/3, TR3, TR4) light the walls and the road in a pool under each, ADDED over the tunnel's own light (tunnel_tone), so a dark tunnel still has bright pools; 0 the exe's */
     int car_night_lift;   /* 0..2: the cars' light at night raised at night (every car, the player's too): 1 the headlight pool gain by a quarter and a floor of light on the body, 2 by a quarter and a stronger floor, so a near-black paint is lifted out of black; 0 as before */
     int water_mist;    /* 0..3: the rain's spray as a soft low wide veil of a generated sprite (no CD smoke, no speckle; a dirt road's keeps what it had): 1 the veil, 2 the veil and fine droplet streaks by the tyre, 3 a cooler, flatter, wider, thinner veil with the streaks; every car throws the plume (the traffic's too), with more drops a tick at speed; 0 as before */
     int wipers;        /* 1: in the dash view in rain and snow a wiper blade sweeps the glass (the pace follows what falls), clears the lens drops and snow marks it crosses and hides the blades some dash art draws (a red dash mask colour); 0 as before */
@@ -288,6 +289,8 @@ int port_car_night_lift(void);
 
 /* 0..1 menu_pad_cancel: TNFS_MENU_PAD_CANCEL=0 or 1 when set, else the mode's. */
 int port_menu_pad_cancel(void);
+/* 0..1 tunnel_lamps: TNFS_TUNNEL_LAMPS=0 or 1 when set, else the mode's; at night only. */
+int port_tunnel_lamps(void);
 /* 1 when snow_fx: TNFS_SNOW_FX=0/1 when set, else the mode's. */
 int port_snow_fx(void);
 /* 1 when lamp_halos: TNFS_LAMP_HALOS=0/1 when set, else the mode's. */

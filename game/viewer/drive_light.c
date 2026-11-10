@@ -11,6 +11,7 @@
 #include "game/race/psx_lamps.h"
 #include "game/race/psx_light.h"
 #include "game/race/street_lamp.h"
+#include "game/race/tunnel_lamps.h"
 #include "game/race/finish_gate_light.h"
 #include "game/race/window_lights.h"
 #include "game/race/psx_light_make.h"
@@ -690,6 +691,44 @@ static void made_look_set(PsxLight *made)
     memcpy(made->look_cast, look.cast, sizeof made->look_cast);
 }
 
+static int tunnel_lamp_by_node(const void *a, const void *b)
+{
+    const PsxLightLamp *x = a, *y = b;
+    return x->node < y->node ? -1 : x->node > y->node;
+}
+
+/* port (tunnel_lamps): the lamps of the track's tunnels and caverns (the lamp textures of psx_lamps.c) joined to the light's lamp list, at night: each lights a pool under it over the tunnel's own light
+ * (view_tables.c's lamp_polygon_tunnel). Their reach is 2 nodes (the search window, TUNNEL_LAMP_REACH_NODES, is wider); nothing is baked into the rows, so a dark tunnel_tone is not scaled by them. */
+enum { TUNNEL_LAMPS_MAX = 1024, TUNNEL_LAMP_REACH_NODES = 3 };
+#define TUNNEL_LAMP_STRENGTH 2.5f
+#define TUNNEL_LAMP_REACH 2.0f   /* a pool reaches 2 nodes: the lamps hang every 2, so between two the pools are a quarter of their strength: a row of pools over the tunnel's own light */
+
+static void add_tunnel_lamps(const Tri *tri, const char *track, PsxLight *made)
+{
+    static TunnelLamp found[TUNNEL_LAMPS_MAX];
+    if (!port_tunnel_lamps() || light_letter != 'N' || tri == NULL || made->nodes == 0) return;
+    const size_t n = tunnel_lamps_find(tri, track, found, TUNNEL_LAMPS_MAX);
+    if (n == 0) return;
+    PsxLightLamp *const list = calloc((size_t)made->lamp_n + n, sizeof *list);
+    if (list == NULL) return;
+    if (made->lamps != NULL && made->lamp_n > 0) memcpy(list, made->lamps, (size_t)made->lamp_n * sizeof *list);
+    for (size_t i = 0; i < n; i++) {
+        PsxLightLamp *const l = &list[(size_t)made->lamp_n + i];
+        l->node = found[i].node, l->x = found[i].x, l->z = found[i].z;
+        l->reach = TUNNEL_LAMP_REACH * found[i].spacing;
+        l->rgb[0] = TUNNEL_LAMP_STRENGTH, l->rgb[1] = 0.82f * TUNNEL_LAMP_STRENGTH, l->rgb[2] = 0.5f * TUNNEL_LAMP_STRENGTH;   /* the amber of the street lamps' warm light, a little paler, 250 percent */
+        l->tunnel = 1;
+    }
+    const int total = made->lamp_n + (int)n;
+    qsort(list, (size_t)total, sizeof *list, tunnel_lamp_by_node);
+    free(made->lamps);
+    made->lamps = list, made->lamp_n = total;
+    made->lamp_placed = 1;
+    made->lamp_ring = tri_is_circuit(tri);
+    if (made->lamp_reach_nodes < TUNNEL_LAMP_REACH_NODES) made->lamp_reach_nodes = TUNNEL_LAMP_REACH_NODES;
+    port_log("tunnel_lamps: %zu lamps placed (%d lamps in all)\n", n, total);
+}
+
 /* port (track_light_file): the light data/track_light/<TRACK><letter>.txt holds for this track, time and flags, else the one made from the terrain (make_light_code); the file's retouches
  * (brightness, tunnel look) and the track's own rules go over either. TNFS_EXPORT_TRACK_LIGHT=<dir> writes the made light as such a file (tools/export_track_light.sh);
  * TNFS_TRACK_LIGHT_FILE=0 makes it in code as before, ignoring the files. */
@@ -750,6 +789,7 @@ static int make_light(const Tri *tri, const char *track, PsxLight *out)
     }
     track_light_file_free(&file);
     apply_rules_file(track, &made);
+    add_tunnel_lamps(tri, track, &made);
     *out = made;
     return 1;
 }
