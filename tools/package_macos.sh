@@ -60,7 +60,7 @@ chmod u+w "$APP/Contents/Frameworks/libSDL3.0.dylib"
 install_name_tool -id "@rpath/libSDL3.0.dylib" "$APP/Contents/Frameworks/libSDL3.0.dylib"
 install_name_tool -change "$SDL_PATH" "@executable_path/../Frameworks/libSDL3.0.dylib" "$APP/Contents/MacOS/tnfs"
 # The builder's rpaths (Nix store, CI temp dirs) mean nothing on a player's Mac: drop them.
-for rp in $(otool -l "$APP/Contents/MacOS/tnfs" | awk '/cmd LC_RPATH/ {getline; getline; print $2}'); do
+for rp in $(otool -l "$APP/Contents/MacOS/tnfs" | awk '/cmd LC_RPATH/ {getline; getline; print $2}' | sort -u); do   # a universal binary lists each rpath once per architecture
     install_name_tool -delete_rpath "$rp" "$APP/Contents/MacOS/tnfs"
 done
 
