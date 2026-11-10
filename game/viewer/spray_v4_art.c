@@ -78,6 +78,27 @@ static void mist_make(uint8_t *out, int variant)
     store(out, field, 0.0f);
 }
 
+/* ---- the gravel's stones: the snow's way (many scattered single-texel specks, denser in the middle, the sprite growing from variant A to E), in gravel's strengths: each speck darker or lighter, and a few with a glint ---- */
+static void stone_make(uint8_t *out, uint8_t *glint_out, int variant)
+{
+    const uint32_t seed = 511u + (uint32_t)variant * 29u;
+    static const float REACH[SPRAY_V4_ART_VARIANTS] = { 0.45f, 0.55f, 0.65f, 0.75f, 0.85f };
+    memset(glint_out, 0, N * N);
+    for (int y = 0; y < N; y++)
+        for (int x = 0; x < N; x++) {
+            const float u = at(x), v = at(y), rr = sqrtf(u * u + v * v) / REACH[variant];
+            const float frayed = rr + 0.25f * (noise(seed, u * 7.0f, v * 7.0f) - 0.5f) + 0.1f * (noise(seed + 1u, u * 19.0f, v * 19.0f) - 0.5f);
+            const float density = clamp01(1.0f - frayed) * 0.16f;   /* the middle a bit denser, with space between the specks */
+            float val = 0.0f;
+            if (lattice(seed + 3u, x, y) < density) {
+                val = 0.55f + 0.45f * lattice(seed + 4u, x, y);   /* a darker or a lighter stone */
+                if (val > 0.8f && lattice(seed + 6u, x, y) < 0.3f) glint_out[y * N + x] = 255;   /* a lit one */
+            }
+            field[y * N + x] = val;
+        }
+    store(out, field, 1.0f);
+}
+
 /* ---- the cotton cloud: round lobes with a soft edge, the core the densest ---- */
 static void cloud_make(uint8_t *out, int variant, int lobes, float spread, float rmin, float rmax, float core, uint32_t seed, float grain)
 {
@@ -184,7 +205,7 @@ static void make(void)
         cloud_make(art[SPRAY_V4_ART_EARTH][v], v, 8 + v * 2, 0.36f + 0.05f * (float)v, 0.26f, 0.42f, 0.7f, 301u, 0.12f);
         snow_make(art[SPRAY_V4_ART_SNOW][v], v);
         lump_make(art[SPRAY_V4_ART_CLUMP][v], NULL, v, 9, 0.30f + 0.07f * (float)v, 0, 401u);
-        lump_make(art[SPRAY_V4_ART_STONE][v], glint[v], v, 5 + v % 2, 0.45f + 0.09f * (float)v, 1, 501u);
+        stone_make(art[SPRAY_V4_ART_STONE][v], glint[v], v);
         cloud_make(art[SPRAY_V4_ART_FINE_DUST][v], v, 22 + v * 2, 0.55f + 0.05f * (float)v, 0.14f, 0.26f, 0.15f, 601u, 0.5f);
     }
 }

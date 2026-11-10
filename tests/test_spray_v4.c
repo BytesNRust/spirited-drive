@@ -199,7 +199,7 @@ static void test_each_material_has_its_own_sprites(void)
                 CHECK(sp[i] == 0 && sp[(SPRAY_V4_ART_SIZE - 1) * SPRAY_V4_ART_SIZE + i] == 0);
                 CHECK(sp[i * SPRAY_V4_ART_SIZE] == 0 && sp[i * SPRAY_V4_ART_SIZE + SPRAY_V4_ART_SIZE - 1] == 0);
             }
-            if (f == SPRAY_V4_ART_STONE) CHECK(solid > 150);   /* a stone is solid, hard-edged */
+            if (f == SPRAY_V4_ART_STONE) CHECK(solid >= 5 && solid < 150 && holes > SPRAY_V4_ART_SIZE * SPRAY_V4_ART_SIZE * 9 / 10);   /* loose gravel: a scatter of single specks, strong ones among them, mostly empty */
             if (f == SPRAY_V4_ART_MIST) CHECK(solid == 0 || solid < SPRAY_V4_ART_SIZE * 8);   /* the mist is soft: no solid core */
         }
     for (int f = 0; f < SPRAY_V4_ART_FAMILIES; f++)   /* the variants differ, and so do the families */
