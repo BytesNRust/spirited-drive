@@ -2,6 +2,7 @@
 # By day, with the tint neutral and the dash's ratio neutral, the present skips the PS1 light's split (drive_light_needs_split): the world, half and plain
 # palettes are the same. The frame must be the one the split makes (TNFS_FORCE_SPLIT=1), in the day, in the rain, at dusk and at night, and in a day
 # tunnel (TR6, where the car's light ratio is not 1 and the split must still run: its dash art is the half palette).
+include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
 file(WRITE "${WORK}/user/port.cfg" "profile=restomod\npsx_dir=\nrender_scale=2\nformat=16:9\ngauge_light=3\n")
@@ -49,3 +50,4 @@ foreach(scene IN LISTS scenes)
         message(FATAL_ERROR "${name}: the frame differs from the split present's (${${name}_plain_md5} vs ${${name}_split_md5})")
     endif()
 endforeach()
+file(REMOVE_RECURSE "${WORK}")

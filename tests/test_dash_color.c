@@ -9,7 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ftw.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 uint8_t *platform_read_file(const char *path, size_t *size)
 {
@@ -84,7 +86,31 @@ static void test_slot_limit(void)
     png_free(png);
 }
 
-#define ROOT "/tmp/tnfs_test_dash_colors"
+/* a scratch folder of this run's own (two ctests at once shared a fixed /tmp one), removed at the end */
+static char root[64];
+static const char *under(const char *tail)
+{
+    static char paths[4][256];
+    static int next;
+    char *p = paths[next++ & 3];
+    snprintf(p, 256, "%s%s", root, tail);
+    return p;
+}
+static int remove_entry(const char *path, const struct stat *st, int type, struct FTW *ftw)
+{
+    (void)st, (void)type, (void)ftw;
+    return remove(path);
+}
+static void scratch_make(const char *template_path)
+{
+    snprintf(root, sizeof root, "%s", template_path);
+    if (mkdtemp(root) == NULL) {
+        perror("mkdtemp");
+        exit(1);
+    }
+}
+static void scratch_remove(void) { nftw(root, remove_entry, 8, FTW_DEPTH | FTW_PHYS); }
+
 static void test_lookup(void)
 {
     static uint8_t full[DASH_MASK_W * DASH_MASK_H * 4];
@@ -93,16 +119,16 @@ static void test_lookup(void)
     uint8_t *png = NULL;
     size_t len = 0;
     CHECK(png_write_rgba(full, DASH_MASK_W, DASH_MASK_H, &png, &len) == PNG_OK);
-    mkdir(ROOT, 0755);
-    mkdir(ROOT "/TDASH", 0755);
-    FILE *f = fopen(ROOT "/TDASH/dash_color.png", "wb");
+    mkdir(root, 0755);
+    mkdir(under("/TDASH"), 0755);
+    FILE *f = fopen(under("/TDASH/dash_color.png"), "wb");
     CHECK(f != NULL);
     if (f != NULL) {
         CHECK(fwrite(png, 1, len, f) == len);
         fclose(f);
     }
     png_free(png);
-    setenv("TNFS_DASH_MASKS", ROOT, 1);
+    setenv("TNFS_DASH_MASKS", root, 1);
     DashColour c;
     CHECK(dash_color_load("TDASH", &c));
     CHECK(c.slot != NULL && c.slot[5] == 1 && c.slot[DASH_MASK_W + 7] == 2 && c.slot[0] == 0 && c.count == 2);
@@ -116,8 +142,10 @@ static void test_lookup(void)
 
 int main(void)
 {
+    scratch_make("/tmp/tnfs_test_dash_colors.XXXXXX");
     test_slots();
     test_slot_limit();
     test_lookup();
+    scratch_remove();
     return TEST_REPORT();
 }
