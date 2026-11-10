@@ -38,6 +38,7 @@ configure_file(${CMAKE_SOURCE_DIR}/game/tnfs_version.h.in ${CMAKE_BINARY_DIR}/ge
 
 # Release builds (the packaged app) never look in the source tree for data.
 option(TNFS_RELEASE "Build for distribution: no source-tree data fallbacks" OFF)
+option(TNFS_EXE_TABLES_FROM_EXE "Read the tables of NFS_WIN.EXE from the player's own file at start-up (game/exe) instead of building the generated tables" OFF)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -105,7 +106,6 @@ add_library(tnfs_game STATIC
     game/frontend/best_times.c
     game/frontend/cheat_code.c
     game/frontend/config_dat.c
-    game/frontend/config_records.c
     game/frontend/extras_apply.c
     game/frontend/extras_menu.c
     game/frontend/control_central_art.c
@@ -281,12 +281,10 @@ add_library(tnfs_game STATIC
     game/race/follow_yaw.c
     game/race/race_follow.c
     game/race/race_splits.c
-    game/race/race_split_tables.c
     game/race/ai_model.c
     game/race/ai_parked.c
     game/race/ai_spun.c
     game/race/ai_setup.c
-    game/race/ai_profiles.c
     game/race/ai_zones.c
     game/race/car_held.c
     game/race/rigid_body.c
@@ -312,6 +310,14 @@ add_library(tnfs_game STATIC
     game/sys/data_check.c
     game/sys/file_url.c
     game/sys/data_manifest.c
+    game/exe/exe_image.c
+    game/exe/exe_tables.c
+    game/exe/exe_tables_menu.c
+    game/exe/exe_tables_config.c
+    game/exe/exe_tables_ai.c
+    game/exe/exe_tables_split.c
+    game/exe/exe_tables_view.c
+    game/exe/exe_tables_track.c
     game/sys/data_copy.c
     game/sys/data_root.c
     game/race/lamp_emissive.c
@@ -376,9 +382,7 @@ add_library(tnfs_game STATIC
     game/race/hud_map.c
     game/race/hud_needle.c
     game/race/hud_redraw.c
-    game/race/race_view_tables.c
     game/race/race_menu.c
-    game/race/race_menu_tables.c
     game/race/race_net.c
     game/race/race_net_receive.c
     game/race/race_net_setup.c
@@ -438,7 +442,6 @@ add_library(tnfs_game STATIC
     game/race/track_object_walk.c
     game/race/track_objects.c
     game/race/track_render.c
-    game/race/track_tables.c
     game/race/view.c
     game/sys/fixed_math.c
     game/sys/inverse_load.c
@@ -493,6 +496,14 @@ if(NOT TNFS_RELEASE)
     target_compile_definitions(tnfs_game PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")   # car_mask.c: the source tree's data/car_masks
 endif()
 target_link_libraries(tnfs_game PUBLIC tnfs_core)
+if(TNFS_EXE_TABLES_FROM_EXE)
+    target_sources(tnfs_game PRIVATE game/exe/exe_tables_store.c)
+    target_compile_definitions(tnfs_game PUBLIC TNFS_EXE_TABLES_FROM_EXE=1)
+else()
+    target_sources(tnfs_game PRIVATE
+        game/frontend/config_records.c game/race/race_split_tables.c game/race/ai_profiles.c
+        game/race/race_view_tables.c game/race/race_menu_tables.c game/race/track_tables.c)
+endif()
 target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 # The recovered game code keeps the original's 32-bit wraparound arithmetic.
 if(NOT MSVC)
@@ -662,7 +673,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name port_old_files band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu extras_background extras_layout options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own graphics_own_modes graphics_own_light f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask track_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth lamp_emissive drive_lamps headlight_pool street_lamp window_lights reflector reflect_pass street_halo halo_track weather_hooks spray_tint trail_rise wiper finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_color lamp_flare shade_fit thunder wet_roll rain_roll snow_roll weather_snow snow_fx snow_remap key_latch track_wall chase_slope data_path data_check psx_light_make port_profile game_mode_profile file_url tach_dim wheel_front rain_spray spray_pace water_mist track_light_file session_rules race_net_wire)
+foreach(name port_old_files band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu extras_background extras_layout options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own graphics_own_modes graphics_own_light f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask track_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth lamp_emissive drive_lamps headlight_pool street_lamp window_lights reflector reflect_pass street_halo halo_track weather_hooks spray_tint trail_rise wiper finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_color lamp_flare shade_fit thunder wet_roll rain_roll snow_roll weather_snow snow_fx snow_remap key_latch track_wall chase_slope data_path data_check psx_light_make port_profile game_mode_profile exe_image exe_tables_menu exe_tables_config exe_tables_load file_url tach_dim wheel_front rain_spray spray_pace water_mist track_light_file session_rules race_net_wire)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -687,6 +698,21 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_compile_definitions(test_port_records PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_sources(test_data_check PRIVATE tests/iso_build.c)   # the synthetic images of the ISO checks
     target_compile_definitions(test_data_check PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_exe_image PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_exe_tables_menu PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_exe_tables_config PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_exe_tables_load PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_exe_tables_load PRIVATE tests)
+    target_include_directories(test_exe_tables_menu PRIVATE tests)
+    target_include_directories(test_exe_tables_config PRIVATE tests)
+    # the exe-table extractors (game/exe/exe_tables_<family>.c): each against the table the port still holds
+    foreach(name exe_tables_ai exe_tables_split exe_tables_view exe_tables_track)
+        add_executable(test_${name} tests/test_${name}.c)
+        target_link_libraries(test_${name} PRIVATE tnfs_game)
+        target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
+        target_compile_definitions(test_${name} PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+        add_test(NAME ${name} COMMAND test_${name})
+    endforeach()
     # port: the mirror kept on the dash (drive_mirror.c, the viewer's: built into the test with its source)
     add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/follow_arm.c game/viewer/follow_behind.c game/viewer/modern_road.c
                    game/sys/bands.c game/sys/band_index.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)

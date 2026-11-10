@@ -23,6 +23,7 @@
 #include "game/platform/update.h"
 #include "game/sys/data_path.h"
 #include "game/sys/data_root.h"
+#include "game/exe/exe_tables.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_extras.h"
@@ -299,6 +300,13 @@ int main(int argc, char **argv)
     int data_copied = 0;
     if (!resolve_data_root(&opt, data_root, sizeof data_root, &data_copied)) return EXIT_FAILURE;
     opt.data_root = data_root;
+    {   /* port: the tables of the original's exe, from the player's own copy (a TNFS_EXE_TABLES_FROM_EXE build; the others have them in the source) */
+        char tables_error[1200];
+        if (exe_tables_install(opt.data_root, tables_error, sizeof tables_error) != 0) {
+            port_fatal("%s\n", tables_error);
+            return EXIT_FAILURE;
+        }
+    }
     if (!platform_set_mods(opt.data_root, opt.mods)) return EXIT_FAILURE;   /* port: --mods DIR, else <user folder>/mods/ when it exists */
     data_path_set_mod(platform_mods_dir());   /* port: a mod's own copy of a data file (track_light/, car_masks/, dash_masks/, sounds/, car_envmap.png) comes before the port's data/ */
     port_old_files_migrate();   /* before any setting is read, and before there are threads */

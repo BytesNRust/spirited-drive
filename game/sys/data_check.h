@@ -36,6 +36,9 @@ int data_is_iso_path(const char *path);
 /* 1 when the file reads as an ISO 9660 image; else 0 and in `err` why ("not a CD image: ...", for a box) */
 int data_iso_readable(const char *iso_path, char *err, size_t err_cap);
 
+/* `dir`/`rel` (parts separated by /) with each part found without regard to case, as the checks above find the CD's files: 1 and the path in `out`, 0 when it is not there. */
+int data_find_file(const char *dir, const char *rel, char *out, size_t out_size);
+
 /* Cheap: whether `dir` has the manifest's first file at its size (the exe), what a copy that was verified leaves; no hashing. */
 int data_looks_installed(const char *dir);
 
