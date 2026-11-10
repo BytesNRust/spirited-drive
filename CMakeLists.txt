@@ -341,6 +341,10 @@ add_library(tnfs_game STATIC
     game/race/race_models.c
     game/race/single_rival.c
     game/race/race_sound.c
+    game/race/race_sound_engine.c
+    game/race/race_sound_tyres.c
+    game/race/race_sound_others.c
+    game/race/race_sound_music.c
     game/race/race_palette.c
     game/race/car_colours.c
     game/race/dash_art.c
@@ -1165,6 +1169,10 @@ if(NOT EMSCRIPTEN)
         target_link_libraries(test_replay_nitro_sim PRIVATE tnfs_game)
         target_compile_options(test_replay_nitro_sim PRIVATE ${TNFS_WARNINGS})
         add_test(NAME replay_nitro_sim COMMAND test_replay_nitro_sim "${CMAKE_SOURCE_DIR}/original/SIMDATA")
+        add_executable(test_race_sound_trace tests/test_race_sound_trace.c)
+        target_link_libraries(test_race_sound_trace PRIVATE tnfs_game)
+        target_compile_options(test_race_sound_trace PRIVATE ${TNFS_WARNINGS})
+        add_test(NAME race_sound_trace COMMAND test_race_sound_trace "${CMAKE_SOURCE_DIR}/original/SIMDATA")
         add_executable(test_keyboard_race_sim tests/test_keyboard_race_sim.c)
         target_link_libraries(test_keyboard_race_sim PRIVATE tnfs_game)
         target_compile_options(test_keyboard_race_sim PRIVATE ${TNFS_WARNINGS})
