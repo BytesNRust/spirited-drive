@@ -28,7 +28,7 @@
 #endif
 #include "platform/sdl3/platform_sdl3_private.h"
 
-SDL_AudioStream *audio;
+SDL_AudioStream *sdl3_audio;
 static PlatformAudioFill audio_fill;
 static void *audio_user;
 
@@ -51,7 +51,7 @@ static void SDLCALL audio_get(void *user, SDL_AudioStream *stream, int additiona
 
 bool platform_audio_open(int rate, PlatformAudioFill fill, void *user)
 {
-    if (audio != NULL) return true;
+    if (sdl3_audio != NULL) return true;
     if (fill == NULL) return false;
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
         port_log("platform: no audio: %s\n", SDL_GetError());
@@ -59,8 +59,8 @@ bool platform_audio_open(int rate, PlatformAudioFill fill, void *user)
     }
     audio_fill = fill, audio_user = user;
     const SDL_AudioSpec spec = { SDL_AUDIO_S16, 2, rate };
-    audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_get, NULL);
-    if (audio == NULL || !SDL_ResumeAudioStreamDevice(audio)) {
+    sdl3_audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_get, NULL);
+    if (sdl3_audio == NULL || !SDL_ResumeAudioStreamDevice(sdl3_audio)) {
         port_log("platform: no audio device: %s\n", SDL_GetError());
         platform_audio_close();
         return false;
@@ -70,17 +70,17 @@ bool platform_audio_open(int rate, PlatformAudioFill fill, void *user)
 
 void platform_audio_close(void)
 {
-    if (audio != NULL) SDL_DestroyAudioStream(audio);
-    audio = NULL;
+    if (sdl3_audio != NULL) SDL_DestroyAudioStream(sdl3_audio);
+    sdl3_audio = NULL;
     SDL_QuitSubSystem(SDL_INIT_AUDIO);
 }
 
 void platform_audio_lock(void)
 {
-    if (audio != NULL) SDL_LockAudioStream(audio);
+    if (sdl3_audio != NULL) SDL_LockAudioStream(sdl3_audio);
 }
 
 void platform_audio_unlock(void)
 {
-    if (audio != NULL) SDL_UnlockAudioStream(audio);
+    if (sdl3_audio != NULL) SDL_UnlockAudioStream(sdl3_audio);
 }

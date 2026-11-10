@@ -101,7 +101,7 @@ static int pool_grow(int workers)
     return pool.workers;
 }
 
-void pool_stop(void)
+void sdl3_pool_stop(void)
 {
     if (pool.workers == 0) return;
     SDL_SetAtomicInt(&pool.quit, 1);

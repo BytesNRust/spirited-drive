@@ -69,14 +69,14 @@ static void push_editing_key(SDL_Keycode key)
 
 void platform_text_input(bool on)
 {
-    if (window == NULL) return;
-    if (on) SDL_StartTextInput(window);
-    else SDL_StopTextInput(window);
+    if (sdl3_window == NULL) return;
+    if (on) SDL_StartTextInput(sdl3_window);
+    else SDL_StopTextInput(sdl3_window);
 }
 
 bool platform_text_input_active(void)
 {
-    return window != NULL && SDL_TextInputActive(window);
+    return sdl3_window != NULL && SDL_TextInputActive(sdl3_window);
 }
 
 uint32_t platform_next_text(void)
@@ -91,15 +91,15 @@ uint32_t platform_next_text(void)
 
 /* The menus draw their own pointer and a race has none, so the system cursor is hidden over the window, in fullscreen
  * and windowed alike; it is shown again when the window loses the focus and when the game ends. */
-void cursor_apply(void)
+void sdl3_cursor_apply(void)
 {
-    if (window_focused) SDL_HideCursor();
+    if (sdl3_window_focused) SDL_HideCursor();
     else SDL_ShowCursor();
 }
 
 bool platform_cursor_hidden(void)
 {
-    return window != NULL && !SDL_CursorVisible();
+    return sdl3_window != NULL && !SDL_CursorVisible();
 }
 
 static PlatformKey translate_key(SDL_Keycode key)
@@ -134,12 +134,12 @@ bool platform_poll_events(void)
         input_script_watch_key_event(&event);
         if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED || event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
             if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) key_latch_clear(), input_script_watch_reset();
-            window_focused = event.type == SDL_EVENT_WINDOW_FOCUS_GAINED;
-            cursor_apply();
+            sdl3_window_focused = event.type == SDL_EVENT_WINDOW_FOCUS_GAINED;
+            sdl3_cursor_apply();
             continue;
         }
         if (event.type == SDL_EVENT_MOUSE_MOTION) {
-            SDL_ConvertEventToRenderCoordinates(renderer, &event);
+            SDL_ConvertEventToRenderCoordinates(sdl3_renderer, &event);
             mouse_x = event.motion.x;
             mouse_y = event.motion.y;
             mouse_moved = true;

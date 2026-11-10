@@ -28,34 +28,34 @@
 #endif
 #include "platform/sdl3/platform_sdl3_private.h"
 
-SDL_Window *window;
-SDL_Renderer *renderer;
-SDL_Texture *texture;
-uint32_t *rgb_buffer;
-int fb_width;
-int fb_height;
+SDL_Window *sdl3_window;
+SDL_Renderer *sdl3_renderer;
+SDL_Texture *sdl3_texture;
+uint32_t *sdl3_rgb_buffer;
+int sdl3_fb_width;
+int sdl3_fb_height;
 
 enum { VBLANK_HZ = 60 };
 static int refresh_hz = VBLANK_HZ;
 
 /* TNFS_CAPTURE_DIR=dir [TNFS_CAPTURE_EVERY=n] [TNFS_CAPTURE_FROM=m]: write every n-th presented
  * frame from the m-th on as dir/frame_NNNNN.ppm, to check the game's screens headless. */
-const char *capture_dir;
-int capture_every = 30;
-unsigned capture_from;
-unsigned presented_frames;
-uint64_t next_vblank_ns;
+const char *sdl3_capture_dir;
+int sdl3_capture_every = 30;
+unsigned sdl3_capture_from;
+unsigned sdl3_presented_frames;
+uint64_t sdl3_next_vblank_ns;
 
-bool window_focused;  /* the window has the keyboard focus: the system cursor is hidden over it then */
+bool sdl3_window_focused;  /* the window has the keyboard focus: the system cursor is hidden over it then */
 
 /* port (the bug-report log): tnfs.log in the user directory, what the game said this run (the last run's as tnfs.log.1), headed with what a report needs */
-void open_log(void)
+void sdl3_open_log(void)
 {
     static int opened;   /* once a run: another window's init must not rotate this run's log away */
     char path[1024];
     if (opened) return;
     opened = 1;
-    if (user_path("tnfs.log", path, sizeof path) == NULL || !port_log_open_file(path)) return;
+    if (sdl3_user_path("tnfs.log", path, sizeof path) == NULL || !port_log_open_file(path)) return;
 #ifdef TNFS_VERSION
     port_log("tnfs %s\n", TNFS_VERSION);
 #else
@@ -70,65 +70,65 @@ void open_log(void)
 static void log_window_sizes(const char *when)
 {
     int w = 0, h = 0, pw = 0, ph = 0, ow = 0, oh = 0;
-    SDL_GetWindowSize(window, &w, &h);
-    SDL_GetWindowSizeInPixels(window, &pw, &ph);
-    SDL_GetRenderOutputSize(renderer, &ow, &oh);
+    SDL_GetWindowSize(sdl3_window, &w, &h);
+    SDL_GetWindowSizeInPixels(sdl3_window, &pw, &ph);
+    SDL_GetRenderOutputSize(sdl3_renderer, &ow, &oh);
     SDL_FRect frect = { 0, 0, 0, 0 };
-    SDL_GetRenderLogicalPresentationRect(renderer, &frect);
+    SDL_GetRenderLogicalPresentationRect(sdl3_renderer, &frect);
     port_log("platform: window %s: %dx%d points, %dx%d pixels (density %.2f), render output %dx%d, presentation rect %.0f,%.0f %.0fx%.0f for %dx%d\n",
-             when, w, h, pw, ph, (double)SDL_GetWindowPixelDensity(window), ow, oh,
-             (double)frect.x, (double)frect.y, (double)frect.w, (double)frect.h, fb_width, fb_height);
+             when, w, h, pw, ph, (double)SDL_GetWindowPixelDensity(sdl3_window), ow, oh,
+             (double)frect.x, (double)frect.y, (double)frect.w, (double)frect.h, sdl3_fb_width, sdl3_fb_height);
 }
 
 bool platform_init(const PlatformConfig *config)
 {
     data_path_set_base(SDL_GetBasePath());   /* port: our own data beside the program (the bundle's Contents/Resources/ on macOS): data_path.h */
-    open_log();
+    sdl3_open_log();
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         port_fatal("platform: SDL_Init failed: %s\n", SDL_GetError());
         return false;
     }
-    fb_width = config->width;
-    fb_height = config->height;
+    sdl3_fb_width = config->width;
+    sdl3_fb_height = config->height;
     refresh_hz = config->refresh_hz > 0 ? config->refresh_hz : VBLANK_HZ;
-    next_vblank_ns = 0;
+    sdl3_next_vblank_ns = 0;
 
     /* real pixels, not points: on a retina display the integer scale counts the display's pixels (3x, 4x), not the half-size point grid */
     const SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | (config->fullscreen != 0 ? SDL_WINDOW_FULLSCREEN : 0);
-    if (!SDL_CreateWindowAndRenderer(config->title, fb_width, fb_height, flags, &window, &renderer)) {
+    if (!SDL_CreateWindowAndRenderer(config->title, sdl3_fb_width, sdl3_fb_height, flags, &sdl3_window, &sdl3_renderer)) {
         port_fatal("platform: window creation failed: %s\n", SDL_GetError());
         platform_shutdown();
         return false;
     }
-    SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height,
+    SDL_SetRenderLogicalPresentation(sdl3_renderer, sdl3_fb_width, sdl3_fb_height,
                                      config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
                                                                 : SDL_LOGICAL_PRESENTATION_LETTERBOX);
     log_window_sizes("created");
     input_script_load();
-    window_focused = true;
-    cursor_apply();
-    SDL_StartTextInput(window);
-    capture_dir = SDL_getenv("TNFS_CAPTURE_DIR");
+    sdl3_window_focused = true;
+    sdl3_cursor_apply();
+    SDL_StartTextInput(sdl3_window);
+    sdl3_capture_dir = SDL_getenv("TNFS_CAPTURE_DIR");
     const char *every = SDL_getenv("TNFS_CAPTURE_EVERY");
-    if (every != NULL && SDL_atoi(every) > 0) capture_every = SDL_atoi(every);
+    if (every != NULL && SDL_atoi(every) > 0) sdl3_capture_every = SDL_atoi(every);
     const char *from = SDL_getenv("TNFS_CAPTURE_FROM");
-    if (from != NULL && SDL_atoi(from) > 0) capture_from = (unsigned)SDL_atoi(from);
+    if (from != NULL && SDL_atoi(from) > 0) sdl3_capture_from = (unsigned)SDL_atoi(from);
 
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, fb_width, fb_height);
-    rgb_buffer = malloc((size_t)fb_width * (size_t)fb_height * sizeof *rgb_buffer);
-    if (texture == NULL || rgb_buffer == NULL) {
+    sdl3_texture = SDL_CreateTexture(sdl3_renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, sdl3_fb_width, sdl3_fb_height);
+    sdl3_rgb_buffer = malloc((size_t)sdl3_fb_width * (size_t)sdl3_fb_height * sizeof *sdl3_rgb_buffer);
+    if (sdl3_texture == NULL || sdl3_rgb_buffer == NULL) {
         port_fatal("platform: framebuffer allocation failed: %s\n", SDL_GetError());
         platform_shutdown();
         return false;
     }
-    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureScaleMode(sdl3_texture, SDL_SCALEMODE_NEAREST);
     return true;
 }
 
 bool platform_reconfigure(const PlatformConfig *config)
 {
-    if (window == NULL || renderer == NULL || config->width <= 0 || config->height <= 0) return false;
-    SDL_Texture *t = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, config->width,
+    if (sdl3_window == NULL || sdl3_renderer == NULL || config->width <= 0 || config->height <= 0) return false;
+    SDL_Texture *t = SDL_CreateTexture(sdl3_renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, config->width,
                                        config->height);
     uint32_t *rgb = malloc((size_t)config->width * (size_t)config->height * sizeof *rgb);
     if (t == NULL || rgb == NULL) {
@@ -138,19 +138,19 @@ bool platform_reconfigure(const PlatformConfig *config)
         return false;
     }
     SDL_SetTextureScaleMode(t, SDL_SCALEMODE_NEAREST);
-    SDL_DestroyTexture(texture);
-    free(rgb_buffer);
-    texture = t, rgb_buffer = rgb;
-    fb_width = config->width, fb_height = config->height;
+    SDL_DestroyTexture(sdl3_texture);
+    free(sdl3_rgb_buffer);
+    sdl3_texture = t, sdl3_rgb_buffer = rgb;
+    sdl3_fb_width = config->width, sdl3_fb_height = config->height;
     refresh_hz = config->refresh_hz > 0 ? config->refresh_hz : VBLANK_HZ;
-    next_vblank_ns = 0;
-    SDL_SetWindowFullscreen(window, config->fullscreen != 0);
-    cursor_apply();   /* the mode change may have brought the system's back */
+    sdl3_next_vblank_ns = 0;
+    SDL_SetWindowFullscreen(sdl3_window, config->fullscreen != 0);
+    sdl3_cursor_apply();   /* the mode change may have brought the system's back */
     if (config->fullscreen == 0) {
         int w = 0, h = 0;
-        if (SDL_GetWindowSize(window, &w, &h) && h > 0) SDL_SetWindowSize(window, h * fb_width / fb_height, h);
+        if (SDL_GetWindowSize(sdl3_window, &w, &h) && h > 0) SDL_SetWindowSize(sdl3_window, h * sdl3_fb_width / sdl3_fb_height, h);
     }
-    SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height,
+    SDL_SetRenderLogicalPresentation(sdl3_renderer, sdl3_fb_width, sdl3_fb_height,
                                      config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
                                                                 : SDL_LOGICAL_PRESENTATION_LETTERBOX);
     log_window_sizes("reconfigured");
@@ -159,8 +159,8 @@ bool platform_reconfigure(const PlatformConfig *config)
 
 void platform_framebuffer_size(int *width, int *height)
 {
-    *width = fb_width;
-    *height = fb_height;
+    *width = sdl3_fb_width;
+    *height = sdl3_fb_height;
 }
 
 bool platform_desktop_size(int *width, int *height)
@@ -181,28 +181,28 @@ uint64_t platform_refresh_period_ns(void)
 
 void platform_set_window_icon(const uint8_t *rgba, int w, int h)
 {
-    if (window == NULL || rgba == NULL || w <= 0 || h <= 0) return;
+    if (sdl3_window == NULL || rgba == NULL || w <= 0 || h <= 0) return;
     SDL_Surface *const icon = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, (void *)(uintptr_t)rgba, w * 4);
     if (icon == NULL) return;
-    SDL_SetWindowIcon(window, icon);
+    SDL_SetWindowIcon(sdl3_window, icon);
     SDL_DestroySurface(icon);
 }
 
 void platform_shutdown(void)
 {
 #ifndef __EMSCRIPTEN__
-    pool_stop();
+    sdl3_pool_stop();
 #endif
-    if (window != NULL) SDL_ShowCursor();
-    window_focused = false;
-    if (audio != NULL) platform_audio_close();
-    free(rgb_buffer);
-    rgb_buffer = NULL;
-    if (texture != NULL) SDL_DestroyTexture(texture);
-    if (renderer != NULL) SDL_DestroyRenderer(renderer);
-    if (window != NULL) SDL_DestroyWindow(window);
-    texture = NULL;
-    renderer = NULL;
-    window = NULL;
+    if (sdl3_window != NULL) SDL_ShowCursor();
+    sdl3_window_focused = false;
+    if (sdl3_audio != NULL) platform_audio_close();
+    free(sdl3_rgb_buffer);
+    sdl3_rgb_buffer = NULL;
+    if (sdl3_texture != NULL) SDL_DestroyTexture(sdl3_texture);
+    if (sdl3_renderer != NULL) SDL_DestroyRenderer(sdl3_renderer);
+    if (sdl3_window != NULL) SDL_DestroyWindow(sdl3_window);
+    sdl3_texture = NULL;
+    sdl3_renderer = NULL;
+    sdl3_window = NULL;
     SDL_Quit();
 }

@@ -10,7 +10,7 @@
 
 static uint32_t *readback(void)
 {
-    SDL_Surface *s = SDL_RenderReadPixels(renderer, NULL);
+    SDL_Surface *s = SDL_RenderReadPixels(sdl3_renderer, NULL);
     if (s == NULL) return NULL;
     SDL_Surface *c = SDL_ConvertSurface(s, SDL_PIXELFORMAT_XRGB8888);
     SDL_DestroySurface(s);

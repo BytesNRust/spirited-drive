@@ -30,11 +30,11 @@
 
 /* The player's folder: --user DIR, else $TNFS_PREF_DIR (tests, modders), else one folder named USER_FOLDER_NAME in the OS's per-user data directory
  * (SDL_GetPrefPath without an organisation, so no tnfs/tnfs). NULL when the platform has none. --mods has no say in it. */
-const char *user_dir(char *out, size_t out_size)
+const char *sdl3_user_dir(char *out, size_t out_size)
 {
     static char *pref;
-    if (user_override[0] != '\0') {
-        SDL_snprintf(out, out_size, "%s", user_override);
+    if (sdl3_user_override[0] != '\0') {
+        SDL_snprintf(out, out_size, "%s", sdl3_user_override);
         SDL_CreateDirectory(out);
         return out;
     }
@@ -52,20 +52,20 @@ const char *user_dir(char *out, size_t out_size)
 
 bool platform_user_dir(char *out, size_t out_size)
 {
-    return user_dir(out, out_size) != NULL;
+    return sdl3_user_dir(out, out_size) != NULL;
 }
 
 int platform_open_user_dir(void)
 {
     char dir[1200], url[3700];
-    if (user_dir(dir, sizeof dir) == NULL || file_url_from_path(dir, url, sizeof url) == 0) return 0;
+    if (sdl3_user_dir(dir, sizeof dir) == NULL || file_url_from_path(dir, url, sizeof url) == 0) return 0;
     return SDL_OpenURL(url) ? 1 : 0;
 }
 
-const char *user_path(const char *name, char *out, size_t out_size)
+const char *sdl3_user_path(const char *name, char *out, size_t out_size)
 {
     char dir[1200];
-    if (strpbrk(name, "/\\") != NULL || strcmp(name, "..") == 0 || user_dir(dir, sizeof dir) == NULL) return NULL;
+    if (strpbrk(name, "/\\") != NULL || strcmp(name, "..") == 0 || sdl3_user_dir(dir, sizeof dir) == NULL) return NULL;
     SDL_snprintf(out, out_size, "%s%s", dir, name);
     return out;
 }
@@ -112,7 +112,7 @@ static void cfg_cache_forget(const char *path)
 uint8_t *platform_read_user_file(const char *name, size_t *size)
 {
     char path[1024];
-    if (user_path(name, path, sizeof path) == NULL) return NULL;
+    if (sdl3_user_path(name, path, sizeof path) == NULL) return NULL;
     if (!cfg_cacheable(name)) return SDL_LoadFile(path, size);
     const Uint64 now = SDL_GetTicks();
     cfg_lock_take();
@@ -165,7 +165,7 @@ static bool write_to_disk(const char *path, const uint8_t *data, size_t size)
 bool platform_write_user_file(const char *name, const uint8_t *data, size_t size)
 {
     char path[1024], temp[1100];
-    if (user_path(name, path, sizeof path) == NULL) return false;
+    if (sdl3_user_path(name, path, sizeof path) == NULL) return false;
     cfg_cache_forget(path);
     /* Write beside the target and rename, so a crash cannot truncate a good file. The name is this write's own: two running games do not mix their bytes. */
     SDL_snprintf(temp, sizeof temp, "%s.%llx.%llx.tmp", path, (unsigned long long)SDL_GetCurrentThreadID(), (unsigned long long)SDL_GetPerformanceCounter());
@@ -186,7 +186,7 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
 bool platform_remove_user_file(const char *name)
 {
     char path[1024];
-    if (user_path(name, path, sizeof path) == NULL) return false;
+    if (sdl3_user_path(name, path, sizeof path) == NULL) return false;
     cfg_cache_forget(path);
     return SDL_RemovePath(path);
 }
@@ -195,7 +195,7 @@ bool platform_user_file_exists(const char *name)
 {
     char path[1024];
     SDL_PathInfo info;
-    return user_path(name, path, sizeof path) != NULL && SDL_GetPathInfo(path, &info)
+    return sdl3_user_path(name, path, sizeof path) != NULL && SDL_GetPathInfo(path, &info)
            && info.type == SDL_PATHTYPE_FILE;
 }
 
@@ -208,7 +208,7 @@ char **platform_list_user_files(const char *pattern, int *count)
 {
     char dir[1200];
     *count = 0;
-    if (user_dir(dir, sizeof dir) == NULL) return NULL;
+    if (sdl3_user_dir(dir, sizeof dir) == NULL) return NULL;
     return platform_list_files(dir, pattern, count);
 }
 

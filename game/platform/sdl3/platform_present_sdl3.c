@@ -32,14 +32,14 @@ static uint64_t next_frontend_ns;
 
 static void capture_frame(void)
 {
-    if (capture_dir == NULL || presented_frames++ % (unsigned)capture_every != 0 || presented_frames <= capture_from) return;
+    if (sdl3_capture_dir == NULL || sdl3_presented_frames++ % (unsigned)sdl3_capture_every != 0 || sdl3_presented_frames <= sdl3_capture_from) return;
     char path[1024];
-    SDL_snprintf(path, sizeof path, "%s/frame_%05u.ppm", capture_dir, presented_frames - 1);
+    SDL_snprintf(path, sizeof path, "%s/frame_%05u.ppm", sdl3_capture_dir, sdl3_presented_frames - 1);
     FILE *f = fopen(path, "wb");
     if (f == NULL) return;
-    fprintf(f, "P6\n%d %d\n255\n", fb_width, fb_height);
-    for (int i = 0; i < fb_width * fb_height; i++) {
-        const uint8_t px[3] = { (uint8_t)(rgb_buffer[i] >> 16), (uint8_t)(rgb_buffer[i] >> 8), (uint8_t)rgb_buffer[i] };
+    fprintf(f, "P6\n%d %d\n255\n", sdl3_fb_width, sdl3_fb_height);
+    for (int i = 0; i < sdl3_fb_width * sdl3_fb_height; i++) {
+        const uint8_t px[3] = { (uint8_t)(sdl3_rgb_buffer[i] >> 16), (uint8_t)(sdl3_rgb_buffer[i] >> 8), (uint8_t)sdl3_rgb_buffer[i] };
         fwrite(px, 1, 3, f);
     }
     fclose(f);
@@ -57,7 +57,7 @@ static uint64_t pace_step(uint64_t next, uint64_t now, uint64_t period, uint64_t
 void platform_wait_vblank(void)
 {
     uint64_t wait_ns;
-    next_vblank_ns = pace_step(next_vblank_ns, SDL_GetTicksNS(), platform_refresh_period_ns(), &wait_ns);
+    sdl3_next_vblank_ns = pace_step(sdl3_next_vblank_ns, SDL_GetTicksNS(), platform_refresh_period_ns(), &wait_ns);
     if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
 }
 
@@ -172,25 +172,25 @@ static void present_frame(const uint8_t *pixels, const PlatformColor palette[256
     /* the frame goes straight into the texture's memory, no second copy; a capture needs rgb_buffer, the web build keeps
      * the upload, and a failed lock falls back to it */
 #ifndef __EMSCRIPTEN__
-    if (capture_dir == NULL && present_lock && SDL_LockTexture(texture, NULL, &locked, &pitch)) {
+    if (sdl3_capture_dir == NULL && present_lock && SDL_LockTexture(sdl3_texture, NULL, &locked, &pitch)) {
         if (mask != NULL)
-            platform_palette_to_xrgb_split_pitch(pixels, palette, world_palette, half_palette, mask, locked, pitch, fb_width, fb_height,
+            platform_palette_to_xrgb_split_pitch(pixels, palette, world_palette, half_palette, mask, locked, pitch, sdl3_fb_width, sdl3_fb_height,
                                                  present_threads);
-        else platform_palette_to_xrgb_pitch(pixels, palette, locked, pitch, fb_width, fb_height, present_threads);
-        SDL_UnlockTexture(texture);
+        else platform_palette_to_xrgb_pitch(pixels, palette, locked, pitch, sdl3_fb_width, sdl3_fb_height, present_threads);
+        SDL_UnlockTexture(sdl3_texture);
     } else
 #endif
     {
         if (mask != NULL)
-            platform_palette_to_xrgb_split_pitch(pixels, palette, world_palette, half_palette, mask, rgb_buffer,
-                                                 fb_width * (int)sizeof *rgb_buffer, fb_width, fb_height, present_threads);
-        else platform_palette_to_xrgb(pixels, palette, rgb_buffer, fb_width, fb_height, present_threads);
+            platform_palette_to_xrgb_split_pitch(pixels, palette, world_palette, half_palette, mask, sdl3_rgb_buffer,
+                                                 sdl3_fb_width * (int)sizeof *sdl3_rgb_buffer, sdl3_fb_width, sdl3_fb_height, present_threads);
+        else platform_palette_to_xrgb(pixels, palette, sdl3_rgb_buffer, sdl3_fb_width, sdl3_fb_height, present_threads);
         capture_frame();
-        SDL_UpdateTexture(texture, NULL, rgb_buffer, fb_width * (int)sizeof *rgb_buffer);
+        SDL_UpdateTexture(sdl3_texture, NULL, sdl3_rgb_buffer, sdl3_fb_width * (int)sizeof *sdl3_rgb_buffer);
     }
-    SDL_RenderClear(renderer);
-    SDL_RenderTexture(renderer, texture, NULL, NULL);
-    SDL_RenderPresent(renderer);
+    SDL_RenderClear(sdl3_renderer);
+    SDL_RenderTexture(sdl3_renderer, sdl3_texture, NULL, NULL);
+    SDL_RenderPresent(sdl3_renderer);
 }
 
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256])

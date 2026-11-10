@@ -28,7 +28,7 @@
 #endif
 #include "platform/sdl3/platform_sdl3_private.h"
 
-char user_override[1024];   /* --user DIR */
+char sdl3_user_override[1024];   /* --user DIR */
 static char mods_data_root[1024];
 static char mods_dir_path[1024];
 static char mods_real_path[1100];
@@ -43,7 +43,7 @@ bool platform_set_mods(const char *data_root, const char *mods_dir)
     char fallback[1200];
     if (mods_dir == NULL || mods_dir[0] == '\0') {   /* the default: <user folder>/mods/, when it is there; no folder, no mods */
         mods_dir_path[0] = '\0';
-        if (user_dir(fallback, sizeof fallback) == NULL || strlen(fallback) + sizeof "mods" >= sizeof fallback) return true;
+        if (sdl3_user_dir(fallback, sizeof fallback) == NULL || strlen(fallback) + sizeof "mods" >= sizeof fallback) return true;
         strcat(fallback, "mods");
         SDL_PathInfo found;
         if (!SDL_GetPathInfo(fallback, &found) || found.type != SDL_PATHTYPE_DIRECTORY) return true;
@@ -130,8 +130,8 @@ int platform_move_user_files(const char *from, const char *to)
 
 void platform_set_user_dir(const char *dir)
 {
-    if (dir == NULL || dir[0] == '\0') { user_override[0] = '\0'; return; }
-    SDL_snprintf(user_override, sizeof user_override, "%s%s", dir, dir[strlen(dir) - 1] == '/' ? "" : "/");
+    if (dir == NULL || dir[0] == '\0') { sdl3_user_override[0] = '\0'; return; }
+    SDL_snprintf(sdl3_user_override, sizeof sdl3_user_override, "%s%s", dir, dir[strlen(dir) - 1] == '/' ? "" : "/");
 }
 
 /* The folder the player's files lived in before it was named USER_FOLDER_NAME (tnfs/tnfs under the OS's data folder), found from the new one without making it. */
@@ -150,8 +150,8 @@ static bool legacy_pref_dir(const char *pref, char *out, size_t out_size)
 static void migrate_user_files(const char *mods_dir)
 {
     char dir[1200], from[1300];
-    if (user_dir(dir, sizeof dir) == NULL) return;
-    if (user_override[0] == '\0' && SDL_getenv("TNFS_PREF_DIR") == NULL) {   /* the OS's own folder: what the old name held comes along */
+    if (sdl3_user_dir(dir, sizeof dir) == NULL) return;
+    if (sdl3_user_override[0] == '\0' && SDL_getenv("TNFS_PREF_DIR") == NULL) {   /* the OS's own folder: what the old name held comes along */
         char legacy[1200];
         if (legacy_pref_dir(dir, legacy, sizeof legacy)) {
             const int moved = platform_move_user_files(legacy, dir);
@@ -168,7 +168,7 @@ static void migrate_user_files(const char *mods_dir)
 void platform_open_log(const char *mods_dir)
 {
     data_path_set_base(SDL_GetBasePath());
-    open_log();
+    sdl3_open_log();
     migrate_user_files(mods_dir);
 }
 
