@@ -77,4 +77,7 @@ extern int reflect_lamps_on, reflect_dark;
 extern double reflect_x, reflect_z, reflect_hx, reflect_hz;
 int transparent(const FshEntry *texture);
 extern int32_t anim_tick;
+extern struct RasterRecorder recorder;
+extern TrackRender render;
+void stream(const Tri *tri, const TrackArt *art, int32_t camera_node);
 #endif
