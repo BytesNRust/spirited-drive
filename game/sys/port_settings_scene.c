@@ -1,4 +1,4 @@
-/* The settings accessors, first half: the screen, the weather and time, the fog and the lamps (port_settings.h; split from port_settings.c by responsibility). */
+/* The settings accessors for the scene: the screen, the weather and time, the fog and the lamps (port_settings.h; split from port_settings.c by responsibility). */
 #include "game/sys/port_settings.h"
 #include "game/platform/platform.h"
 #include "game/race/session_rules.h"

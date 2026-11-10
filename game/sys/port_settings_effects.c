@@ -1,4 +1,4 @@
-/* The settings accessors, second half: the track lights, the sky and the cars' and weather's effects (port_settings.h; split from port_settings.c by responsibility). */
+/* The settings accessors for the effects: the track lights, the sky and the cars' and weather's effects (port_settings.h; split from port_settings.c by responsibility). */
 #include "game/sys/port_settings.h"
 #include "game/platform/platform.h"
 #include "game/race/session_rules.h"

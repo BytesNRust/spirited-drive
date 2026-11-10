@@ -1,4 +1,4 @@
-/* The port settings files' shared names (port_settings.c, port_settings_store.c, port_settings_get.c, port_settings_get2.c), split from port_settings.c
+/* The port settings files' shared names (port_settings.c, port_settings_store.c, port_settings_scene.c, port_settings_effects.c), split from port_settings.c
  * with no change in what they do. */
 #ifndef TNFS_PORT_SETTINGS_PRIVATE_H
 #define TNFS_PORT_SETTINGS_PRIVATE_H
