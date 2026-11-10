@@ -2,7 +2,6 @@
 #ifndef TNFS_RACE_VIEW_H
 #define TNFS_RACE_VIEW_H
 
-#include "game/exe/exe_table_const.h"
 #include "game/race/horizon.h"
 #include "game/race/view.h"
 
@@ -44,8 +43,8 @@ typedef struct {
 } RaceViews;
 
 /* 004b7080 and 004b75d0 as the exe starts (race_view_tables.c, generated). */
-extern EXE_TABLE_CONST ViewLayout race_view_layouts[VIEW_SCREEN_MODES][VIEW_LAYOUTS];
-extern EXE_TABLE_CONST ViewRow race_view_rows[VIEW_SCREEN_MODES][VIEW_ROWS];
+extern ViewLayout race_view_layouts[VIEW_SCREEN_MODES][VIEW_LAYOUTS];
+extern ViewRow race_view_rows[VIEW_SCREEN_MODES][VIEW_ROWS];
 
 /* A camera record (0x20 bytes: 004b78a8, 004b78c8, 004b78e8, 004f801c). */
 typedef struct {
@@ -160,7 +159,7 @@ typedef struct {
  * (sizes 0..3) has y = height x d / 200, and mode 1's height x (d x 480 /
  * 200) / 480 (32-bit products, idiv). */
 /* 004b790c as the exe starts (race_view_tables.c). */
-extern EXE_TABLE_CONST int32_t race_view_model_y[VIEW_SCREEN_MODES][VIEW_MODELS][3];
+extern int32_t race_view_model_y[VIEW_SCREEN_MODES][VIEW_MODELS][3];
 
 void race_view_start(const RaceViewStartOps *ops, RaceViews *views, RaceCamera cams[VIEW_START_CAMERAS],
                      const RaceViewStartInputs *in, RaceViewStartOut *out);

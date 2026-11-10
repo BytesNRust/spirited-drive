@@ -2,7 +2,6 @@
 #ifndef TNFS_AI_PROFILES_H
 #define TNFS_AI_PROFILES_H
 
-#include "game/exe/exe_table_const.h"
 
 #include <stdint.h>
 
@@ -14,6 +13,6 @@ enum {
     AI_DRIVER_PROFILES_ADDR = 0x4c2888    /* where the profiles sit in the original */
 };
 
-extern EXE_TABLE_CONST uint8_t AI_DRIVER_DATA[AI_DRIVER_DATA_SIZE];
+extern uint8_t AI_DRIVER_DATA[AI_DRIVER_DATA_SIZE];
 
 #endif

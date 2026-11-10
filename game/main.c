@@ -300,7 +300,7 @@ int main(int argc, char **argv)
     int data_copied = 0;
     if (!resolve_data_root(&opt, data_root, sizeof data_root, &data_copied)) return EXIT_FAILURE;
     opt.data_root = data_root;
-    {   /* port: the tables of the original's exe, from the player's own copy (a TNFS_EXE_TABLES_FROM_EXE build; the others have them in the source) */
+    {   /* port: the tables of the original's exe, from the player's own copy */
         char tables_error[1200];
         if (exe_tables_install(opt.data_root, tables_error, sizeof tables_error) != 0) {
             port_fatal("%s\n", tables_error);

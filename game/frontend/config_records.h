@@ -2,7 +2,6 @@
 #ifndef TNFS_CONFIG_RECORDS_H
 #define TNFS_CONFIG_RECORDS_H
 
-#include "game/exe/exe_table_const.h"
 #include <stdint.h>
 
 enum {
@@ -16,7 +15,7 @@ typedef struct {
     int32_t number[5];
 } ConfigRecordRow;
 
-extern EXE_TABLE_CONST ConfigRecordRow CONFIG_RECORD_ROWS[CONFIG_RECORD_ROW_COUNT];
-extern const char *EXE_TABLE_CONST CONFIG_RECORD_NAMES[3];
+extern ConfigRecordRow CONFIG_RECORD_ROWS[CONFIG_RECORD_ROW_COUNT];
+extern const char *CONFIG_RECORD_NAMES[3];
 
 #endif
