@@ -315,6 +315,10 @@ add_library(tnfs_game STATIC
     game/exe/exe_image.c
     game/exe/exe_tables_menu.c
     game/exe/exe_tables_config.c
+    game/exe/exe_tables_ai.c
+    game/exe/exe_tables_split.c
+    game/exe/exe_tables_view.c
+    game/exe/exe_tables_track.c
     game/sys/data_copy.c
     game/sys/data_root.c
     game/race/lamp_emissive.c
@@ -692,6 +696,14 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_compile_definitions(test_exe_tables_config PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_include_directories(test_exe_tables_menu PRIVATE tests)
     target_include_directories(test_exe_tables_config PRIVATE tests)
+    # the exe-table extractors (game/exe/exe_tables_<family>.c): each against the table the port still holds
+    foreach(name exe_tables_ai exe_tables_split exe_tables_view exe_tables_track)
+        add_executable(test_${name} tests/test_${name}.c)
+        target_link_libraries(test_${name} PRIVATE tnfs_game)
+        target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
+        target_compile_definitions(test_${name} PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+        add_test(NAME ${name} COMMAND test_${name})
+    endforeach()
     # port: the mirror kept on the dash (drive_mirror.c, the viewer's: built into the test with its source)
     add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/follow_arm.c game/viewer/follow_behind.c game/viewer/modern_road.c
                    game/sys/bands.c game/sys/band_index.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)

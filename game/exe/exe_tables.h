@@ -64,5 +64,10 @@ typedef struct {
 /* the extractors of the families whose files are in this directory (see the header's top for their contract) */
 int exe_tables_menu(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
 int exe_tables_config(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
+/* the extractors of the AI drivers, the split times, the viewports and the track renderer (game/exe/exe_tables_<family>.c) */
+int exe_tables_ai(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
+int exe_tables_split(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
+int exe_tables_view(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
+int exe_tables_track(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
 
 #endif
