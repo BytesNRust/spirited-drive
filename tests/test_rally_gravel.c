@@ -101,6 +101,25 @@ static void test_trail(void)
     CHECK_EQ_INT(live(&t, 6, RALLY_GRAVEL_COMPACT, 0), 0);   /* compacted gravel: no trail */
 }
 
+/* a trail nobody has stepped (zeroed memory, as the view's are) has no history: its puffs are 'born at tick 0', which would be alive for the first life of a race at the world's origin */
+static void test_no_history_draws_nothing(void)
+{
+    static DustTrail t;
+    const int32_t car[3] = { 0, 0x100000, 0x400000 };
+    CHECK(!dust_trail_started(&t));
+    for (int32_t tick = 0; tick <= dust_life(RALLY_GRAVEL_DUST, 0) + 1; tick++) {
+        CHECK_EQ_INT(dust_trail_live(&t, tick, RALLY_GRAVEL_DUST, 0), 0);
+        CHECK_EQ_INT(dust_trail_live(&t, tick, RALLY_GRAVEL_REGOLITH, 1), 0);
+    }
+    dust_trail_step(&t, 2, RALLY_GRAVEL_DUST, 1, car, 0, 0);   /* the first step of a race that is already at tick 2: it starts the clock, drops nothing */
+    CHECK(dust_trail_started(&t));
+    CHECK_EQ_INT(dust_trail_live(&t, 2, RALLY_GRAVEL_DUST, 0), 0);
+    dust_trail_step(&t, 3, RALLY_GRAVEL_DUST, 1, car, 0, 0);
+    CHECK_EQ_INT(dust_trail_live(&t, 3, RALLY_GRAVEL_DUST, 0), 2);   /* then it works as before */
+    for (int i = 0; i < DUST_TRAIL_PUFFS; i++)
+        if (t.puff[i].born == 0) CHECK(0);   /* no puff left born at tick 0 */
+}
+
 /* the lives are in seconds of the 60-tick clock: 1.2 s, 1.8 s, 3 s on the moon */
 static void test_lives_in_seconds(void)
 {
@@ -277,5 +296,6 @@ int main(void)
     test_puff();
     test_lives_in_seconds();
     test_catch_up_is_spread();
+    test_no_history_draws_nothing();
     return TEST_REPORT();
 }

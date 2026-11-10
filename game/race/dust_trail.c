@@ -23,6 +23,20 @@ void dust_trail_reset(DustTrail *trail)
     for (int i = 0; i < DUST_TRAIL_PUFFS; i++) trail->puff[i].born = -0x40000000;
     trail->next = 0;
     trail->last_tick = -1;
+    trail->started = 1;
+}
+
+int dust_trail_started(const DustTrail *trail) { return trail->started != 0; }
+
+int dust_trail_live(const DustTrail *trail, int32_t tick, int kind, int lunar)
+{
+    int n = 0;
+    if (!trail->started) return 0;
+    for (int i = 0; i < DUST_TRAIL_PUFFS; i++) {
+        int32_t place[3], size;
+        n += dust_puff_at(&trail->puff[i], tick, kind, lunar, place, &size);
+    }
+    return n;
 }
 
 static uint32_t next_random(uint32_t seed) { return seed * 0x10004005u + 0x11u; }
@@ -60,7 +74,7 @@ static void drop_at(DustTrail *trail, int32_t tick, const int32_t car[3], int32_
 
 void dust_trail_step(DustTrail *trail, int32_t tick, int kind, int drop, const int32_t car[3], int32_t yaw, int32_t speed)
 {
-    if (trail->last_tick < 0 || tick < trail->last_tick) {
+    if (!trail->started || trail->last_tick < 0 || tick < trail->last_tick) {
         dust_trail_reset(trail);
         trail->last_tick = tick;
         return;
