@@ -40,6 +40,11 @@ static int find_path(const char *dir, const char *rel, char *out, size_t out_siz
     return snprintf(out, out_size, "%s", cur) < (int)out_size;
 }
 
+int data_find_file(const char *dir, const char *rel, char *out, size_t out_size)
+{
+    return find_path(dir, rel, out, out_size);
+}
+
 static int hash_file(const char *path, char hex[65], long *size)
 {
     FILE *f = fopen(path, "rb");

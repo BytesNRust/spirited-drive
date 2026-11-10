@@ -70,4 +70,15 @@ int exe_tables_split(const ExeImage *img, ExeTables *t, char *err, size_t errsz)
 int exe_tables_view(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
 int exe_tables_track(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
 
+/* Every family, in a fixed order, into `out`: all or nothing (on -1 `out` is as it was, `err` says which family failed and why). */
+int exe_tables_extract(const ExeImage *img, ExeTables *out, char *err, size_t errsz);
+
+/* The PC SE's exe in a buffer: checked (exe_image_verify, `where` names the folder in the message), parsed and extracted. 0 or -1
+ * with a message; `out` untouched on -1. */
+int exe_tables_load(const uint8_t *exe, size_t len, const char *where, ExeTables *out, char *err, size_t errsz);
+
+/* The same from `<data_root>/NFS_WIN.EXE` (the name found without regard to case; the file read whole, never through the mods
+ * overlay: a mod cannot swap the exe). The messages say when the file is missing, unreadable, or not the PC SE's. */
+int exe_tables_load_dir(const char *data_root, ExeTables *out, char *err, size_t errsz);
+
 #endif
