@@ -61,4 +61,10 @@ typedef struct {
     char config_name[3][EXE_NAME_MAX];
 } ExeTables;
 
+/* the extractors of the AI drivers, the split times, the viewports and the track renderer (game/exe/exe_tables_<family>.c) */
+int exe_tables_ai(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
+int exe_tables_split(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
+int exe_tables_view(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
+int exe_tables_track(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
+
 #endif
