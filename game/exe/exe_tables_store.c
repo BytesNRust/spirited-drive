@@ -1,31 +1,30 @@
-/* port: the storage of the tables read from the exe (a build with TNFS_EXE_TABLES_FROM_EXE): the arrays the port reads under
- * their own names, filled once by exe_tables_publish before anything reads them. The generated tables (ai_profiles.c,
- * race_split_tables.c, race_view_tables.c, track_tables.c, race_menu_tables.c, config_records.c) are not built then. */
+/* port: the storage of the tables read from the exe : the arrays the port reads under
+ * their own names, filled once by exe_tables_publish before anything reads them. */
 #include "game/exe/exe_tables.h"
 
 #include <string.h>
 
-EXE_TABLE_CONST uint8_t AI_DRIVER_DATA[AI_DRIVER_DATA_SIZE];
-EXE_TABLE_CONST uint8_t RACE_SPLIT_TABLES[RACE_SPLIT_TABLES_SIZE];
-EXE_TABLE_CONST ViewLayout race_view_layouts[VIEW_SCREEN_MODES][VIEW_LAYOUTS];
-EXE_TABLE_CONST ViewRow race_view_rows[VIEW_SCREEN_MODES][VIEW_ROWS];
-EXE_TABLE_CONST int32_t race_view_model_y[VIEW_SCREEN_MODES][VIEW_MODELS][3];
-EXE_TABLE_CONST uint8_t TRACK_LOD_BY_DISTANCE[TRACK_PROPERTIES][TRACK_LOD_DISTANCES];
-EXE_TABLE_CONST TrackLod TRACK_LODS[TRACK_LOD_COUNT];
-EXE_TABLE_CONST TrackUv TRACK_UVS[TRACK_UV_COUNT];
-EXE_TABLE_CONST TrackPolygon TRACK_POLYGONS[TRACK_POLYGON_COUNT];
-EXE_TABLE_CONST uint8_t TRACK_VARIANT_NEAR[TRACK_VARIANT_ROWS];
-EXE_TABLE_CONST uint8_t TRACK_VARIANT_FAR[TRACK_VARIANT_ROWS];
-EXE_TABLE_CONST int32_t TRACK_SUBDIVIDE_Z[TRACK_SUBDIVIDE_LEVELS];
-EXE_TABLE_CONST int16_t race_menu_item_x[RACE_MENU_ITEMS];
-EXE_TABLE_CONST int16_t race_menu_item_y[RACE_MENU_ITEMS];
-EXE_TABLE_CONST int16_t race_menu_x_offset[RACE_MENU_OFFSETS];
-EXE_TABLE_CONST int16_t race_menu_y_offset[RACE_MENU_OFFSETS];
-const char *EXE_TABLE_CONST race_menu_track_names[RACE_MENU_TRACKS];
-EXE_TABLE_CONST char race_menu_marker_names[RACE_MENU_CARS][5];
-EXE_TABLE_CONST RaceMenuMap race_menu_maps[RACE_MENU_TRACKS][RACE_MENU_VARIANTS];
-EXE_TABLE_CONST ConfigRecordRow CONFIG_RECORD_ROWS[CONFIG_RECORD_ROW_COUNT];
-const char *EXE_TABLE_CONST CONFIG_RECORD_NAMES[3];
+uint8_t AI_DRIVER_DATA[AI_DRIVER_DATA_SIZE];
+uint8_t RACE_SPLIT_TABLES[RACE_SPLIT_TABLES_SIZE];
+ViewLayout race_view_layouts[VIEW_SCREEN_MODES][VIEW_LAYOUTS];
+ViewRow race_view_rows[VIEW_SCREEN_MODES][VIEW_ROWS];
+int32_t race_view_model_y[VIEW_SCREEN_MODES][VIEW_MODELS][3];
+uint8_t TRACK_LOD_BY_DISTANCE[TRACK_PROPERTIES][TRACK_LOD_DISTANCES];
+TrackLod TRACK_LODS[TRACK_LOD_COUNT];
+TrackUv TRACK_UVS[TRACK_UV_COUNT];
+TrackPolygon TRACK_POLYGONS[TRACK_POLYGON_COUNT];
+uint8_t TRACK_VARIANT_NEAR[TRACK_VARIANT_ROWS];
+uint8_t TRACK_VARIANT_FAR[TRACK_VARIANT_ROWS];
+int32_t TRACK_SUBDIVIDE_Z[TRACK_SUBDIVIDE_LEVELS];
+int16_t race_menu_item_x[RACE_MENU_ITEMS];
+int16_t race_menu_item_y[RACE_MENU_ITEMS];
+int16_t race_menu_x_offset[RACE_MENU_OFFSETS];
+int16_t race_menu_y_offset[RACE_MENU_OFFSETS];
+const char *race_menu_track_names[RACE_MENU_TRACKS];
+char race_menu_marker_names[RACE_MENU_CARS][5];
+RaceMenuMap race_menu_maps[RACE_MENU_TRACKS][RACE_MENU_VARIANTS];
+ConfigRecordRow CONFIG_RECORD_ROWS[CONFIG_RECORD_ROW_COUNT];
+const char *CONFIG_RECORD_NAMES[3];
 
 /* what the pointers above point at: the maps' points, and the names */
 static int16_t menu_points[EXE_MENU_POOL_POINTS][2];

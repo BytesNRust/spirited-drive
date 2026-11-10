@@ -2,7 +2,6 @@
 #ifndef TNFS_RACE_SPLIT_TIMES_H
 #define TNFS_RACE_SPLIT_TIMES_H
 
-#include "game/exe/exe_table_const.h"
 #include "game/race/race_state.h"
 
 /* 0045b24c: once `progress` (the player's) is past the next checkpoint the
@@ -19,7 +18,7 @@ enum {
     RACE_SPLIT_TABLES_SIZE = 0x474,     /* 004c584c..004c5cc0 */
     RACE_SPLIT_FACTORS = 0x21c          /* 004c5a68 within it */
 };
-extern EXE_TABLE_CONST uint8_t RACE_SPLIT_TABLES[RACE_SPLIT_TABLES_SIZE];
+extern uint8_t RACE_SPLIT_TABLES[RACE_SPLIT_TABLES_SIZE];
 
 /* 0045aab4: at the start, each finishing car's record set to no best and
  * nothing done; the checkpoints from the track's template, a lap apart;

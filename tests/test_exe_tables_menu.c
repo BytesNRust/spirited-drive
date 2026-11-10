@@ -1,8 +1,9 @@
 /* The in-race menu's constants and map points read from the exe (exe_tables_menu.c): the items' places, the map's offsets, the
  * shape names and every map's points in one pool. The reading and the errors run on an invented image; with original/ there,
- * everything is compared with the generated table (race_menu_tables.c). */
+ * everything is checked against the fixture (tests/exe_tables_fixture.h). */
 #include "exe_pe.h"
 #include "game/exe/exe_tables.h"
+#include "tests/exe_tables_family.h"
 #include "tests/test.h"
 
 #include <stdio.h>
@@ -133,24 +134,7 @@ static void test_real_exe(void)
     CHECK_EQ_INT(exe_image_open(&img, b, (size_t)n, err, sizeof err), 0);
     ExeTables *t = calloc(1, sizeof *t);
     CHECK_EQ_INT(exe_tables_menu(&img, t, err, sizeof err), 0);
-    CHECK_MEM(t->menu_item_x, race_menu_item_x, sizeof t->menu_item_x);
-    CHECK_MEM(t->menu_item_y, race_menu_item_y, sizeof t->menu_item_y);
-    CHECK_MEM(t->menu_x_offset, race_menu_x_offset, sizeof t->menu_x_offset);
-    CHECK_MEM(t->menu_y_offset, race_menu_y_offset, sizeof t->menu_y_offset);
-    for (int i = 0; i < RACE_MENU_TRACKS; i++) CHECK(strcmp(t->menu_track_name[i], race_menu_track_names[i]) == 0);
-    for (int i = 0; i < RACE_MENU_CARS; i++) CHECK(strcmp(t->menu_marker_name[i], race_menu_marker_names[i]) == 0);
-    int used = 0;
-    for (int tr = 0; tr < RACE_MENU_TRACKS; tr++)
-        for (int v = 0; v < RACE_MENU_VARIANTS; v++) {
-            const RaceMenuMap *m = &race_menu_maps[tr][v];
-            CHECK_EQ_INT(t->menu_map_count[tr][v], m->count);
-            if (m->count) {
-                CHECK_EQ_INT(t->menu_map_first[tr][v], used);
-                CHECK_MEM(t->menu_pool[t->menu_map_first[tr][v]], m->points, (size_t)m->count * 4);
-                used += m->count;
-            }
-        }
-    CHECK_EQ_INT(used, EXE_MENU_POOL_POINTS);   /* the pool is exactly the maps' points */
+    CHECK(family_ok(t, "menu"));
     free(t);
     free(b);
 }

@@ -38,7 +38,6 @@ configure_file(${CMAKE_SOURCE_DIR}/game/tnfs_version.h.in ${CMAKE_BINARY_DIR}/ge
 
 # Release builds (the packaged app) never look in the source tree for data.
 option(TNFS_RELEASE "Build for distribution: no source-tree data fallbacks" OFF)
-option(TNFS_EXE_TABLES_FROM_EXE "Read the tables of NFS_WIN.EXE from the player's own file at start-up (game/exe) instead of building the generated tables" OFF)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -496,14 +495,7 @@ if(NOT TNFS_RELEASE)
     target_compile_definitions(tnfs_game PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")   # car_mask.c: the source tree's data/car_masks
 endif()
 target_link_libraries(tnfs_game PUBLIC tnfs_core)
-if(TNFS_EXE_TABLES_FROM_EXE)
-    target_sources(tnfs_game PRIVATE game/exe/exe_tables_store.c)
-    target_compile_definitions(tnfs_game PUBLIC TNFS_EXE_TABLES_FROM_EXE=1)
-else()
-    target_sources(tnfs_game PRIVATE
-        game/frontend/config_records.c game/race/race_split_tables.c game/race/ai_profiles.c
-        game/race/race_view_tables.c game/race/race_menu_tables.c game/race/track_tables.c)
-endif()
+target_sources(tnfs_game PRIVATE game/exe/exe_tables_store.c)   # the exe's tables live here, filled at start-up (game/exe/exe_tables.h)
 target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 # The recovered game code keeps the original's 32-bit wraparound arithmetic.
 if(NOT MSVC)

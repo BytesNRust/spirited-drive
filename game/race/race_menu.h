@@ -4,7 +4,6 @@
 #ifndef TNFS_RACE_MENU_H
 #define TNFS_RACE_MENU_H
 
-#include "game/exe/exe_table_const.h"
 #include <stdint.h>
 
 enum {
@@ -34,13 +33,13 @@ typedef struct {
     int16_t divisor;
 } RaceMenuMap;
 
-extern EXE_TABLE_CONST int16_t race_menu_item_x[RACE_MENU_ITEMS];       /* 00447410 */
-extern EXE_TABLE_CONST int16_t race_menu_item_y[RACE_MENU_ITEMS];       /* 0044741c */
-extern EXE_TABLE_CONST int16_t race_menu_x_offset[RACE_MENU_OFFSETS];   /* 00447428 */
-extern EXE_TABLE_CONST int16_t race_menu_y_offset[RACE_MENU_OFFSETS];   /* 0044745e */
-extern const char *EXE_TABLE_CONST race_menu_track_names[RACE_MENU_TRACKS];  /* 00447494 */
-extern EXE_TABLE_CONST char race_menu_marker_names[RACE_MENU_CARS][5];       /* 004474b8 */
-extern EXE_TABLE_CONST RaceMenuMap race_menu_maps[RACE_MENU_TRACKS][RACE_MENU_VARIANTS];
+extern int16_t race_menu_item_x[RACE_MENU_ITEMS];       /* 00447410 */
+extern int16_t race_menu_item_y[RACE_MENU_ITEMS];       /* 0044741c */
+extern int16_t race_menu_x_offset[RACE_MENU_OFFSETS];   /* 00447428 */
+extern int16_t race_menu_y_offset[RACE_MENU_OFFSETS];   /* 0044745e */
+extern const char *race_menu_track_names[RACE_MENU_TRACKS];  /* 00447494 */
+extern char race_menu_marker_names[RACE_MENU_CARS][5];       /* 004474b8 */
+extern RaceMenuMap race_menu_maps[RACE_MENU_TRACKS][RACE_MENU_VARIANTS];
 
 /* The words 00447564 reads and writes */
 typedef struct {

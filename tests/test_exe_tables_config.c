@@ -1,8 +1,9 @@
 /* The default records read from the exe (exe_tables_config.c): the numbers are text in the exe, parsed the way 00481f93 parses
- * them; the rows and names must be what config_records.c holds today. The parsing rules and the errors run on an invented
- * image; with original/ there, the real exe's rows are compared with the generated table. */
+ * them; the rows and names are the fixture's. The parsing rules and the errors run on an invented
+ * image; with original/ there, the real exe's rows are checked against the fixture (tests/exe_tables_fixture.h). */
 #include "exe_pe.h"
 #include "game/exe/exe_tables.h"
+#include "tests/exe_tables_family.h"
 #include "tests/test.h"
 
 #include <stdio.h>
@@ -122,11 +123,7 @@ static void test_real_exe(void)
     CHECK_EQ_INT(exe_image_open(&img, b, (size_t)n, err, sizeof err), 0);
     ExeTables *t = calloc(1, sizeof *t);
     CHECK_EQ_INT(exe_tables_config(&img, t, err, sizeof err), 0);
-    for (int r = 0; r < CONFIG_RECORD_ROW_COUNT; r++) {
-        CHECK(strcmp(t->config_row_name[r], CONFIG_RECORD_ROWS[r].name) == 0);
-        CHECK_MEM(t->config_row_number[r], CONFIG_RECORD_ROWS[r].number, sizeof t->config_row_number[r]);
-    }
-    for (int i = 0; i < 3; i++) CHECK(strcmp(t->config_name[i], CONFIG_RECORD_NAMES[i]) == 0);
+    CHECK(family_ok(t, "config"));
     free(t);
     free(b);
 }

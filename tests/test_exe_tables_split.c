@@ -1,5 +1,6 @@
-/* The split times table read from the exe (game/exe/exe_tables_split.c) is the table the port holds now. */
+/* The split times table read from the exe (game/exe/exe_tables_split.c) is the table the fixture holds (tests/exe_tables_fixture.h). */
 #include "tests/exe_tables_support.h"
+#include "tests/exe_tables_family.h"
 #include "tests/test.h"
 
 static void test_real(void)
@@ -13,7 +14,7 @@ static void test_real(void)
     ExeTables *t = malloc(sizeof *t);
     memset(t, 0xAA, sizeof *t);
     CHECK_EQ_INT(exe_tables_split(&img, t, err, sizeof err), 0);
-    CHECK_MEM(t->race_split_tables, RACE_SPLIT_TABLES, RACE_SPLIT_TABLES_SIZE);
+    CHECK(family_ok(t, "split"));
     free(t), free(b);
 }
 

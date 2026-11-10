@@ -14,6 +14,10 @@ player supplies.
 This project contains **no game data**. To play it you need your own copy of *The Need for Speed SE* for PC
 (the 1996 CD). We do not support piracy and will not answer requests for copies of the game.
 
+Some of the original's tables (the in-race menu's map, the viewports, the AI drivers, the split times, the track renderer's
+topology and the default records) are not stored in this repository: the game reads them at start-up from `NFS_WIN.EXE` in
+your own copy, and checks first that the file is the PC Special Edition's (size and SHA-256 in `game/sys/data_manifest.c`).
+
 The code is a reimplementation built by studying the original executable. The original game, its art, sound,
 music, video, tracks and cars remain the property of Electronic Arts Inc. and their other owners.
 

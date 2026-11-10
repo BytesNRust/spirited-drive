@@ -4,7 +4,8 @@ Portable reimplementation of *The Need for Speed SE* (EA, 1996), recovered from
 `NFS_WIN.EXE` with Ghidra. C99 + SDL3, targets macOS, Linux, Windows and the web.
 
 Game data is not part of this repo. Extract it from your own CD into `original/`
-(gitignored).
+(gitignored). The tables the original keeps in `NFS_WIN.EXE` are not in this repo either: the game reads them from that exe at
+start-up (`game/exe/`), and says so and stops if the file is missing or is not the PC Special Edition's.
 
 ## Environments (Nix flake)
 
