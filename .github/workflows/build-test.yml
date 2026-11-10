@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# A test build on demand (Actions > Build Test > Run workflow): the universal macOS app (Apple Silicon + Intel) and its
+# DMG, from the branch you pick, as a downloadable artifact. Nothing is released or tagged. The version is the usual
+# <version>-dev+<hash>, so the game's update check stays off in these builds.
+name: Build Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SDL_TAG: release-3.4.10                                   # the SDL the game is developed against
+  SDL_COMMIT: 8e37db5e797b6167f3a00d697d816a684bd259c7      # that tag's commit: a moved tag cannot change the build
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
+        with:
+          fetch-depth: 0             # the version's hash comes from the history
+          persist-credentials: false
+
+      - name: Install tools
+        run: brew install ninja
+
+      - name: Build SDL 3 (universal)
+        run: |
+          git init -q "$RUNNER_TEMP/SDL"
+          git -C "$RUNNER_TEMP/SDL" fetch -q --depth 1 https://github.com/libsdl-org/SDL.git "$SDL_COMMIT"
+          git -C "$RUNNER_TEMP/SDL" checkout -q FETCH_HEAD
+          cmake -S "$RUNNER_TEMP/SDL" -B "$RUNNER_TEMP/SDL/build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TEST_LIBRARY=OFF \
+                -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl3"
+          cmake --build "$RUNNER_TEMP/SDL/build"
+          cmake --install "$RUNNER_TEMP/SDL/build"
+
+      - name: Build the game (universal, release)
+        run: |
+          cmake -S . -B build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release -DTNFS_RELEASE=ON \
+                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl3"
+          cmake --build build/rel
+
+      - name: Test (Apple Silicon)
+        run: ctest --test-dir build/rel --output-on-failure
+
+      - name: Package
+        run: |
+          icon=""
+          [ -f data/icon/tnfs.icns ] && icon=data/icon/tnfs.icns
+          tools/package_macos.sh build/rel dist $icon
+          lipo -archs "dist/TNFS Restomod.app/Contents/MacOS/tnfs" | grep -q arm64
+          lipo -archs "dist/TNFS Restomod.app/Contents/MacOS/tnfs" | grep -q x86_64
+          cd dist && shasum -a 256 *.dmg > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
+        with:
+          name: tnfs-restomod-macos-${{ github.sha }}
+          path: |
+            dist/*.dmg
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
