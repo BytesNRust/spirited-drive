@@ -119,13 +119,13 @@ node's centre.
 ## The tunnels' own lamps (`tunnel_lamps`)
 
 At night, with `tunnel_lamps` (on in Restomod '26; `TNFS_TUNNEL_LAMPS=0/1`), the lamps hanging in a tunnel or a cavern light the walls and the road in a pool under each, as the street lamps do outdoors. Which polygons are lamps
-is the table of `game/race/psx_lamps.c` (the lamp textures of CY1, CY2, CY3, TR3 and TR4): every even node whose polygons use one of them has a lamp, at the middle of those polygons (`game/race/tunnel_lamps.c`). It is made when
-the track loads; no file lists them, and a `lamp` line is not needed. The lamp is warm, 250 percent, and reaches 2 nodes.
+is the table of `game/race/psx_lamps.c` (the lamp textures of CY1, CY2, CY3, TR3 and TR4): every even node whose polygons use one of them has a lamp on each side of the road that has such polygons (the lamp textures hang in the strips at the walls), at the middle of those polygons (`game/race/tunnel_lamps.c`). It is made when
+the track loads; no file lists them, and a `lamp` line is not needed. The lamp is warm, 500 percent, and reaches 1.2 nodes: with the lamps every 2 nodes the road between two keeps the tunnel's own light and each lamp is a pool on the wall and the road.
 
 * The pool is ADDED to the tunnel's own light, whatever `tunnel_tone` is: at 104 a tunnel is lit as before plus its pools, at 50 it is dark between the lamps and each lamp still gives its full pool. Nothing is baked into the light rows
   (the street lamps' bake lifts toward full light; the tunnel's lamps never scale or cap what the tunnel's light is).
 * A tunnel polygon takes the tunnel's lamps only; the street lamps' light stays out of it. The open road at a mouth takes the tunnel lamps near it like any lamp.
-* Like the street lamps' pools, it is drawn on the polygons near the camera (the far, flat polygons keep the tunnel's own light), and a polygon with a scene `tone` or a zone's own `tunnel` look keeps its table.
+* The pools are drawn on every tunnel polygon, near or far: a polygon of the road mesh is 1 to 8 nodes long, so it is drawn as cells a node long (about 4 m across), each lit by the lamps' heat at its own corners (`game/viewer/tunnel_cells.c`); a polygon with a scene `tone` or a zone's own `tunnel` look keeps its table.
 * Night only, in a Restomod '26 race that has made light (a track light file or the code's); Stock '96 and Restored '96 are as before.
 
 ## The weather and the tunnels (Restomod)

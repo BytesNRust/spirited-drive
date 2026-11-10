@@ -698,10 +698,10 @@ static int tunnel_lamp_by_node(const void *a, const void *b)
 }
 
 /* port (tunnel_lamps): the lamps of the track's tunnels and caverns (the lamp textures of psx_lamps.c) joined to the light's lamp list, at night: each lights a pool under it over the tunnel's own light
- * (view_tables.c's lamp_polygon_tunnel). Their reach is 2 nodes (the search window, TUNNEL_LAMP_REACH_NODES, is wider); nothing is baked into the rows, so a dark tunnel_tone is not scaled by them. */
+ * (view_tables.c's lamp_polygon_tunnel). Their reach is 1.2 nodes (the search window, TUNNEL_LAMP_REACH_NODES, is wider); nothing is baked into the rows, so a dark tunnel_tone is not scaled by them. */
 enum { TUNNEL_LAMPS_MAX = 1024, TUNNEL_LAMP_REACH_NODES = 3 };
-#define TUNNEL_LAMP_STRENGTH 2.5f
-#define TUNNEL_LAMP_REACH 2.0f   /* a pool reaches 2 nodes: the lamps hang every 2, so between two the pools are a quarter of their strength: a row of pools over the tunnel's own light */
+#define TUNNEL_LAMP_STRENGTH 5.0f
+#define TUNNEL_LAMP_REACH 1.2f   /* a pool reaches 1.2 nodes (7 m at 6 m a node): the lamps of a side hang every 2 nodes, so between two it is dark and each is a pool on the wall and the road under it */
 
 static void add_tunnel_lamps(const Tri *tri, const char *track, PsxLight *made)
 {
@@ -716,7 +716,7 @@ static void add_tunnel_lamps(const Tri *tri, const char *track, PsxLight *made)
         PsxLightLamp *const l = &list[(size_t)made->lamp_n + i];
         l->node = found[i].node, l->x = found[i].x, l->z = found[i].z;
         l->reach = TUNNEL_LAMP_REACH * found[i].spacing;
-        l->rgb[0] = TUNNEL_LAMP_STRENGTH, l->rgb[1] = 0.82f * TUNNEL_LAMP_STRENGTH, l->rgb[2] = 0.5f * TUNNEL_LAMP_STRENGTH;   /* the amber of the street lamps' warm light, a little paler, 250 percent */
+        l->rgb[0] = TUNNEL_LAMP_STRENGTH, l->rgb[1] = 0.82f * TUNNEL_LAMP_STRENGTH, l->rgb[2] = 0.5f * TUNNEL_LAMP_STRENGTH;   /* the amber of the street lamps' warm light, a little paler, 500 percent */
         l->tunnel = 1;
     }
     const int total = made->lamp_n + (int)n;
@@ -726,7 +726,7 @@ static void add_tunnel_lamps(const Tri *tri, const char *track, PsxLight *made)
     made->lamp_placed = 1;
     made->lamp_ring = tri_is_circuit(tri);
     if (made->lamp_reach_nodes < TUNNEL_LAMP_REACH_NODES) made->lamp_reach_nodes = TUNNEL_LAMP_REACH_NODES;
-    port_log("tunnel_lamps: %zu lamps placed (%d lamps in all)\n", n, total);
+    port_log("tunnel_lamps: %zu lamps placed (%d lamps in all, %.1f m between nodes)\n", n, total, (double)found[0].spacing);
 }
 
 /* port (track_light_file): the light data/track_light/<TRACK><letter>.txt holds for this track, time and flags, else the one made from the terrain (make_light_code); the file's retouches
