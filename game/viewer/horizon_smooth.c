@@ -158,9 +158,57 @@ uint8_t horizon_smooth_texel(const HorizonSmooth *s, const FshEntry *bitmap, int
 }
 
 
+/* a bitmap column over the row pair of a flat-v span: its two texels and the palette between them blended down by the row weight (RGB times ONE), made once
+ * for a column and kept while the span is over it */
+typedef struct {
+    int32_t at, blend[3];
+    uint8_t top, bottom;
+} SpanColumn;
+
+static void span_column(const HorizonSmooth *s, const uint8_t *row0, const uint8_t *row1, int32_t wv, int32_t at, SpanColumn *c)
+{
+    c->at = at, c->top = row0[at], c->bottom = row1[at];
+    for (int k = 0; k < 3; k++) c->blend[k] = (ONE - wv) * s->palette[3 * c->top + k] + wv * s->palette[3 * c->bottom + k];
+}
+
+/* v not changing along the row: the row pair and its weight are the span's, a column's vertical blend is made once, and a pixel only blends its two columns
+ * across. The same integer sum as pair_make and pair_blend make, in the other order (no rounding between). */
+static void span_flat_v(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t *row, int32_t x0, int32_t x1, int y, const double u[3], int32_t v)
+{
+    const int32_t w = bitmap->width, h = bitmap->height, r = v >> 16, wv = (int32_t)((uint32_t)v & 0xffff) >> 8;
+    const uint8_t *row0 = bitmap->payload + (size_t)clamp_texel(r, h) * w;
+    const uint8_t *row1 = bitmap->payload + (size_t)clamp_texel(r + 1, h) * w;
+    int32_t dither[4];   /* the Bayer row of y, as pair_blend's d */
+    for (int i = 0; i < 4; i++) dither[i] = (BAYER[y & 3][i] * 2 - 15) * DITHER * ONE * ONE / 32 + ONE * ONE / 2;
+    SpanColumn a = { -1, { 0 }, 0, 0 }, b = a;
+    for (int32_t x = x0; x <= x1; x++) {
+        const int32_t pu = (int32_t)floor(u[0] + u[1] * x + u[2] * y), c = pu >> 16, wu = (int32_t)((uint32_t)pu & 0xffff) >> 8;
+        const int32_t c0 = clamp_texel(c, w), c1 = clamp_texel(c + 1, w);
+        if (a.at != c0) {
+            if (b.at == c0) a = b;
+            else span_column(s, row0, row1, wv, c0, &a);
+        }
+        if (b.at != c1) span_column(s, row0, row1, wv, c1, &b);
+        if (a.top == a.bottom && b.top == b.bottom && a.top == b.top) {   /* the one texel all four are */
+            row[x] = s->map[a.top];
+            continue;
+        }
+        int rgb[3];
+        for (int k = 0; k < 3; k++) {
+            const int32_t m = ((ONE - wu) * a.blend[k] + wu * b.blend[k] + dither[x & 3]) >> 16;   /* / (ONE * ONE) */
+            rgb[k] = m < 0 ? 0 : m > 255 ? 255 : m;
+        }
+        row[x] = horizon_smooth_nearest(s, rgb[0], rgb[1], rgb[2]);
+    }
+}
+
 void horizon_smooth_span(const HorizonSmooth *s, const FshEntry *bitmap, uint8_t *row, int32_t x0, int32_t x1, int y,
                          const double u[3], const double v[3])
 {
+    if (v[1] == 0.0 && x0 <= x1) {   /* the sky's rows: v is the same all along */
+        span_flat_v(s, bitmap, row, x0, x1, y, u, (int32_t)floor(v[0] + v[1] * x0 + v[2] * y));
+        return;
+    }
     for (int32_t x = x0; x <= x1; x++)
         row[x] = texel_at(s, bitmap, (int32_t)floor(u[0] + u[1] * x + u[2] * y), (int32_t)floor(v[0] + v[1] * x + v[2] * y),
                           x, y);

@@ -8,6 +8,8 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <time.h>
 
 enum { W = 640, H = 480, BW = 640, BH = 8 };
 
@@ -310,6 +312,63 @@ static void test_span_flat_v(void)
     }
 }
 
+/* a flat-v span over every kind of u step (backwards, still, slower and faster than a texel a pixel), colours many and few, the bitmap's edges and
+ * past them, against the texel at each pixel */
+static void test_span_flat_oracle(void)
+{
+    make_palette();
+    uint8_t decode[768];
+    for (int i = 0; i < 256; i++) decode[3 * i] = (uint8_t)(i * 7), decode[3 * i + 1] = (uint8_t)(i * 3), decode[3 * i + 2] = (uint8_t)(255 - i);
+    static HorizonSmooth s;
+    horizon_smooth_sky(&s, decode, palette);
+    static uint8_t row[W + 8];
+    static const double STEP[] = { 0.0, -3000.0, 20000.0, 65536.0, -65536.0, 70000.0, 200000.0, 1234.5 };
+    for (int colours = 0; colours < 3; colours++) {
+        lcg_state = 4242u + (uint32_t)colours;
+        const uint32_t mask = colours == 0 ? 1u : colours == 1 ? 7u : 255u;
+        for (int i = 0; i < BW * BH; i++) texels[i] = (uint8_t)(lcg() >> 24 & mask);
+        for (int n = 0; n < 160; n++) {
+            const double u[3] = { (double)(lcg() % (BW * 65536 * 2)) - 65536.0 * BW * 0.5, STEP[n & 7], (double)(lcg() % 4000) - 2000.0 };
+            const double v[3] = { (double)(lcg() % ((BH + 4) * 65536)) - 65536.0 * 2, 0.0, (double)(lcg() % 3000) / 3 };
+            const int x0 = (int)(lcg() % 100), x1 = x0 + (int)(lcg() % 300), y = (int)(lcg() % 400);
+            memset(row, 0xee, sizeof row);
+            horizon_smooth_span(&s, bitmap(), row, x0, x1, y, u, v);
+            for (int x = x0; x <= x1; x++)
+                CHECK_EQ_INT(row[x], horizon_smooth_texel(&s, bitmap(), (int32_t)floor(u[0] + u[1] * x + u[2] * y),
+                                                          (int32_t)floor(v[0] + v[1] * x + v[2] * y), x, y));
+            CHECK_EQ_INT(row[x1 + 1], 0xee);
+        }
+    }
+}
+
+/* TNFS_BENCH_SPAN=1: a sky-like span's cost, ns a pixel (not a check) */
+static void bench_span(void)
+{
+    if (getenv("TNFS_BENCH_SPAN") == NULL) return;
+    make_palette();
+    uint8_t decode[768];
+    for (int i = 0; i < 256; i++) decode[3 * i] = (uint8_t)(i * 7), decode[3 * i + 1] = (uint8_t)(i * 3), decode[3 * i + 2] = (uint8_t)(255 - i);
+    static HorizonSmooth s;
+    horizon_smooth_sky(&s, decode, palette);
+    const char *e = getenv("TNFS_BENCH_STEP");
+    const double step = e != NULL ? atof(e) : 22000.0;   /* 16.16 texels a pixel */
+    lcg_state = 99;
+    for (int i = 0; i < BW * BH; i++) texels[i] = (uint8_t)((i / BW) * 30 + (i % BW) / 40);   /* a sky's gradient: neighbours differ a little */
+    static uint8_t row[W];
+    struct timespec a, b;
+    long px = 0;
+    unsigned sum = 0;
+    clock_gettime(CLOCK_MONOTONIC, &a);
+    for (int rep = 0; rep < 400; rep++)
+        for (int y = 0; y < 400; y++) {
+            const double u[3] = { 1000.0 * rep, step, 0.0 }, v[3] = { 65536.0 * 1.3 + y * 100.0, 0.0, 0.0 };
+            horizon_smooth_span(&s, bitmap(), row, 0, W - 1, y, u, v);
+            sum += row[rep & 255], px += W;
+        }
+    clock_gettime(CLOCK_MONOTONIC, &b);
+    printf("span bench: %.2f ns/pixel (%ld px, sum %u)\n", ((b.tv_sec - a.tv_sec) * 1e9 + (double)(b.tv_nsec - a.tv_nsec)) / (double)px, px, sum);
+}
+
 int main(void)
 {
     test_nearest();
@@ -320,5 +379,7 @@ int main(void)
     test_cache_exact();
     test_band_reference();
     test_span_flat_v();
+    test_span_flat_oracle();
+    bench_span();
     return TEST_REPORT();
 }
