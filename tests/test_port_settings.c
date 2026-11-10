@@ -158,6 +158,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.car_tunnel_match, b.car_tunnel_match);
     CHECK_EQ_INT(a.spray_v4, b.spray_v4);
     CHECK_EQ_INT(a.car_night_lift, b.car_night_lift);
+    CHECK_EQ_INT(a.menu_pad_cancel, b.menu_pad_cancel);
 }
 
 static void test_defaults(void)
@@ -225,6 +226,7 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.wipers, 0);
     CHECK_EQ_INT(d.water_mist, 0);
     CHECK_EQ_INT(d.car_night_lift, 0);
+    CHECK_EQ_INT(d.menu_pad_cancel, 0);   /* the exe's pad, until asked */
     CHECK_EQ_INT(d.car_tunnel_match, 0);
     CHECK_EQ_INT(d.weather_fog, 0);   /* the exe's, until asked */
     CHECK_EQ_INT(d.spray_v4, 0);
@@ -313,6 +315,18 @@ static void test_lamp_halos_values(void)
     setenv("TNFS_LAMP_HALOS", "0", 1);
     CHECK_EQ_INT(port_lamp_halos(), 0);
     unsetenv("TNFS_LAMP_HALOS");
+}
+
+static void test_menu_pad_cancel_values(void)
+{
+    const char *const on = "menu_pad_cancel=1\n", *const bad = "menu_pad_cancel=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).menu_pad_cancel, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).menu_pad_cancel, 0);
+    setenv("TNFS_MENU_PAD_CANCEL", "1", 1);
+    CHECK_EQ_INT(port_menu_pad_cancel(), 1);
+    setenv("TNFS_MENU_PAD_CANCEL", "2", 1);
+    CHECK_EQ_INT(port_menu_pad_cancel(), 0);
+    unsetenv("TNFS_MENU_PAD_CANCEL");
 }
 
 static void test_car_night_lift_values(void)
@@ -789,7 +803,7 @@ static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
                        .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1,
-                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .chase_height = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1, .lamp_pool_tint = 1, .trans_shadows = 1, .snow_weather = 1, .lamp_halos = 1, .snow_fx = 1, .trail_rise = 1, .canyon_shade = 1, .parking_dark = 1, .forest_neutral = 1, .cavern_dark = 1, .vegas_objects = 1, .close_houses = 1, .brake_over_gas = 1, .lamp_pools = 1, .lamp_car_shade = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .headlight_cone = 1, .rain_fx = 1, .rain_grip = 1, .gauge_light = 3, .finish_gate_light = 1, .lamp_pool_bright = 1, .night_tone = 2, .rain_lamps = 1, .gauge_exterior = 1, .sign_glow = 1, .reflectors = 1, .handbrake_lamps = 1, .rally_spray = 1, .spray_cd_smoke = 1, .wipers = 1, .water_mist = 3, .weather_fog = 2, .car_tunnel_match = 1, .spray_v4 = 1, .car_night_lift = 2 };
+                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .chase_height = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1, .lamp_pool_tint = 1, .trans_shadows = 1, .snow_weather = 1, .lamp_halos = 1, .snow_fx = 1, .trail_rise = 1, .canyon_shade = 1, .parking_dark = 1, .forest_neutral = 1, .cavern_dark = 1, .vegas_objects = 1, .close_houses = 1, .brake_over_gas = 1, .lamp_pools = 1, .lamp_car_shade = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .headlight_cone = 1, .rain_fx = 1, .rain_grip = 1, .gauge_light = 3, .finish_gate_light = 1, .lamp_pool_bright = 1, .night_tone = 2, .rain_lamps = 1, .gauge_exterior = 1, .sign_glow = 1, .reflectors = 1, .handbrake_lamps = 1, .rally_spray = 1, .spray_cd_smoke = 1, .wipers = 1, .water_mist = 3, .weather_fog = 2, .car_tunnel_match = 1, .spray_v4 = 1, .car_night_lift = 2, .menu_pad_cancel = 1 };
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
@@ -846,6 +860,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK_EQ_INT(back.car_tunnel_match, 1);
     CHECK_EQ_INT(back.spray_v4, 1);
     CHECK_EQ_INT(back.car_night_lift, 2);
+    CHECK_EQ_INT(back.menu_pad_cancel, 1);
     CHECK_EQ_INT(back.headlight_cone, 1);
     CHECK_EQ_INT(back.lamp_pool_bright, 1);
     CHECK_EQ_INT(back.lamp_pools, 1);
@@ -1122,6 +1137,7 @@ int main(void)
     test_retired_tunnel_headlight_key();
     test_spray_v4_values();
     test_car_night_lift_values();
+    test_menu_pad_cancel_values();
     test_emissive_lamps_follow_light_effects();
     test_bad_render_bands_keeps_the_default();
     test_render_scale_values();

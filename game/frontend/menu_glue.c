@@ -193,14 +193,18 @@ static int32_t yes_no(void *ctx, const char *text)
 static int32_t typed(void *ctx) { (void)ctx; return input_next_char(); }
 static int32_t pointer_poll(void *ctx) { (void)ctx; pointer_sync_from_os(); return pointer_read_buttons(); }
 
-/* 004626d0 (text_entry.c); no joystick, no German keyboard layout switch (004770a0 / 0047706c) */
+/* 0043d4c0 for the name box: the menus' joystick button (a pad's button too, as the menus read it) in the state's joystick_key,
+ * which the box takes for Enter (the exe's own path, unwired in the port until now) */
+static void pad_button(void *ctx) { ((TextEntryState *)ctx)->joystick_key = input_menu_button(); }
+
+/* 004626d0 (text_entry.c); no German keyboard layout switch (004770a0 / 0047706c) */
 static int32_t text_field(void *ctx, char *text, int32_t length, int32_t x, int32_t y, int32_t one)
 {
     (void)ctx;
+    TextEntryState st = { ea_screen(), (int16_t)pointer_active(), 0, 0 };
     const TextEntryOps ops = { width, picture_new, picture_shape, select_picture, select_default, nothing, grab, flip,
                                blit_at, blit_picture, blit_at, style, shadowed, key, music, drain, pointer_poll,
-                               nothing, typed, ticks, picture_free, nothing, nothing, NULL };
-    TextEntryState st = { ea_screen(), (int16_t)pointer_active(), 0, 0 };
+                               pad_button, typed, ticks, picture_free, nothing, nothing, &st };
     int16_t *const was = pointer_bind_active(&st.pointer_active);
     const int32_t result = text_entry_edit(text, length, x, y, one, resource_german(), &st, &ops);
     pointer_bind_active(was);

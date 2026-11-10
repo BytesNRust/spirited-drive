@@ -4,7 +4,7 @@
 enum {
     SHIFT_MASK = 31,
     SLOT_X = 1, SLOT_Y = 2, SLOT_Z = 4, SLOT_R = 8,
-    KEY_BUTTON0 = 0x20, KEY_BUTTON1 = 0xd,
+    KEY_BUTTON0 = 0x20, KEY_BUTTON1 = 0xd, KEY_ESCAPE = 0x1b,
     KEY_UP = 0x4800, KEY_DOWN = 0x5000, KEY_LEFT = 0x4b00, KEY_RIGHT = 0x4d00
 };
 
@@ -43,6 +43,11 @@ int32_t joy_poll(JoyState *j, int32_t device, const JoyOps *ops)
     }
     for (int k = 0; k < JOY_AXES; k++) j->axis[k] = to[k];
     return 1;
+}
+
+int32_t joy_menu_key(int32_t button_key, int cancel)
+{
+    return cancel && button_key == KEY_BUTTON1 ? KEY_ESCAPE : button_key;
 }
 
 int32_t joy_keys(JoyState *j, int32_t present, int32_t device, const JoyOps *ops)
