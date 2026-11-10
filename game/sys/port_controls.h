@@ -20,7 +20,7 @@ typedef enum {
     ACT_GEAR_UP, ACT_GEAR_DOWN,         /* buttons bits 0 and 1 */
     ACT_CAMERA,                         /* bit 2 (PAD_HOLD, X today) */
     ACT_HANDBRAKE,                      /* bit 3 (Y today) */
-    ACT_HORN, ACT_PAUSE, ACT_VIEW,      /* virtual keys: the horn's key from config.dat, P, F1 */
+    ACT_HORN, ACT_PAUSE,               /* virtual keys: the horn's key from config.dat, P */
     ACT_NITRO,                          /* virtual key: RACE_KEYS_PAD_NITRO, the NITRO cheat's start (start_keys.h) */
     ACT_LOOK_BACK,                      /* virtual key: RACE_KEYS_PAD_LOOK_BACK, held to turn the 360 camera about (port_follow_camera only) */
     ACT_COUNT

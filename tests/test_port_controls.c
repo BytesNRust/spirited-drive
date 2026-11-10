@@ -79,7 +79,6 @@ static void test_defaults_are_todays_pad(void)
     check_source(d.bind[ACT_HANDBRAKE][0], SRC_BUTTON, 3);            /* Y */
     check_source(d.bind[ACT_HORN][0], SRC_NONE, 0);
     check_source(d.bind[ACT_PAUSE][0], SRC_NONE, 0);
-    check_source(d.bind[ACT_VIEW][0], SRC_NONE, 0);
     check_source(d.bind[ACT_NITRO][0], SRC_BUTTON, 10);               /* RB: the face buttons are taken */
     check_source(d.bind[ACT_GAS][1], SRC_NONE, 0);
     CHECK_EQ_INT(d.deadzone, 0);
@@ -98,7 +97,6 @@ static void test_round_trip(void)
     c.bind[ACT_BRAKE][0] = (ControlSource){ SRC_AXIS_NEG, 2, 32767, 1 };
     c.bind[ACT_HORN][0] = (ControlSource){ SRC_BUTTON, 31, 0, 0 };
     c.bind[ACT_PAUSE][0] = (ControlSource){ SRC_BUTTON, 6, 0, 0 };
-    c.bind[ACT_VIEW][0] = (ControlSource){ SRC_NONE, 0, 0, 0 };
     c.bind[ACT_GEAR_UP][0] = (ControlSource){ SRC_NONE, 0, 0, 0 };                    /* cleared */
     c.deadzone = 25, c.sensitivity = 150, c.ffb_strength = 40;
     char text[2048];
@@ -233,6 +231,24 @@ static void test_nitro_is_a_binding_in_the_file(void)
     CHECK(strstr(out, "nitro=button9,axis5+\n") != NULL);
 }
 
+/* A controls.cfg of before has `view=`: the pad has no View action now, so the line is ignored and every other binding
+ * stays where it was (the file names the actions, so Nitro and Look back keep their buttons). */
+static void test_an_old_view_line_is_ignored(void)
+{
+    const char *text = "custom=1\nhorn=button4\npause=button6\nview=button7,axis2+\nnitro=button9\nlook_back=button8\nsensitivity=120\n";
+    const PortControls c = port_controls_parse(text, strlen(text));
+    check_source(c.bind[ACT_HORN][0], SRC_BUTTON, 4);
+    check_source(c.bind[ACT_PAUSE][0], SRC_BUTTON, 6);
+    check_source(c.bind[ACT_NITRO][0], SRC_BUTTON, 9);
+    check_source(c.bind[ACT_NITRO][1], SRC_NONE, 0);
+    check_source(c.bind[ACT_LOOK_BACK][0], SRC_BUTTON, 8);
+    CHECK_EQ_INT(c.sensitivity, 120);
+    char out[2048];
+    CHECK(port_controls_format(&c, out, sizeof out) > 0);
+    CHECK(strstr(out, "view") == NULL);
+    CHECK(strstr(out, "nitro=button9\n") != NULL && strstr(out, "look_back=button8\n") != NULL);
+}
+
 static void test_keyboard_keys(void)
 {
     PortControls c = port_controls_defaults();
@@ -351,6 +367,7 @@ int main(void)
     test_load_save();
     test_a_file_can_say_the_pad_is_not_custom();
     test_nitro_is_a_binding_in_the_file();
+    test_an_old_view_line_is_ignored();
     test_keyboard_keys();
     test_look_back_key();
     test_nitro_key();

@@ -279,7 +279,7 @@ static void test_virtual_keys(void)
     PortControls c = port_controls_defaults();
     c.bind[ACT_PAUSE][0] = (ControlSource){ SRC_BUTTON, 6, 0, 0 };
     c.bind[ACT_HORN][0] = (ControlSource){ SRC_HAT, 0, 1, 0 };
-    c.bind[ACT_VIEW][0] = (ControlSource){ SRC_AXIS_POS, 3, 0, 0 };
+    c.bind[ACT_NITRO][0] = (ControlSource){ SRC_AXIS_POS, 3, 0, 0 };
     RawPad r = pad();
     CHECK_EQ_INT(control_map_apply(&c, &r).keys, 0);
     r.button[6] = 1;
@@ -287,7 +287,7 @@ static void test_virtual_keys(void)
     r.hat[0] = 1, r.hats = 1;
     CHECK_EQ_INT(control_map_apply(&c, &r).keys, 1u << ACT_PAUSE | 1u << ACT_HORN);
     r.axis[3] = 30000;                       /* an axis past half its travel is a press */
-    CHECK_EQ_INT(control_map_apply(&c, &r).keys, 1u << ACT_PAUSE | 1u << ACT_HORN | 1u << ACT_VIEW);
+    CHECK_EQ_INT(control_map_apply(&c, &r).keys, 1u << ACT_PAUSE | 1u << ACT_HORN | 1u << ACT_NITRO);
 }
 
 /* Nitro is a virtual key of the pad's right shoulder by default: the four face buttons are taken. */

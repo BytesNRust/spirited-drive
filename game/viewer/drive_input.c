@@ -166,7 +166,6 @@ void drive_input_start(DriveInput *in, RaceState *race)
     in->nitro_key = port_controls_nitro_key(&port);   /* port: the NITRO start's key (start_keys.h) */
     port_controls_apply_keys(&port, in->codes);   /* port: the player's keyboard keys (controls.cfg) over config.dat's */
     platform_virtual_key(ACT_HORN, in->codes[INPUT_KEY_HORN]);   /* port: a pad's horn button presses the horn's key */
-    platform_virtual_key(ACT_VIEW, RACE_KEYS_PAD_VIEW);          /* and its View button not F1, the mirror's now */
     platform_virtual_key(ACT_NITRO, RACE_KEYS_PAD_NITRO);        /* port: and its Nitro button, the NITRO start's key */
     platform_virtual_key(ACT_LOOK_BACK, RACE_KEYS_PAD_LOOK_BACK);   /* port: and its Look back button */
     in->stand_in_block = in->own_stand_ins;

@@ -19,7 +19,7 @@ typedef struct {
     void (*f5_off)(void *ctx);                /* 0044379c */
 } RaceKeysOps;
 
-/* port: the pad's View button as a key (platform_virtual_key's scancode for ACT_VIEW while port_bumper_keys is on) */
+/* port: the pad's View button as a key (no pad action presses it any more: the pad has no View action) */
 enum { RACE_KEYS_PAD_VIEW = 0x59 };
 /* port: the pad's Nitro button as a key (platform_virtual_key's scancode for ACT_NITRO; start_keys.h) */
 enum { RACE_KEYS_PAD_NITRO = 0x5a };

@@ -17,7 +17,7 @@ enum {
 static const int EXTRA_PAD_ORDER[EXTRA_PAD_BUTTONS] = {
     PAD_LEFT_SHOULDER, PAD_RIGHT_SHOULDER, PAD_BACK, PAD_START, PAD_LEFT_STICK, PAD_RIGHT_STICK };
 static const PortAction BUTTON_ACTION[BUTTON_BITS] = { ACT_GEAR_UP, ACT_GEAR_DOWN, ACT_CAMERA, ACT_HANDBRAKE };
-static const PortAction KEY_ACTION[] = { ACT_HORN, ACT_PAUSE, ACT_VIEW, ACT_NITRO, ACT_LOOK_BACK };
+static const PortAction KEY_ACTION[] = { ACT_HORN, ACT_PAUSE, ACT_NITRO, ACT_LOOK_BACK };
 
 static int clamp(int v, int lo, int hi)
 {
@@ -330,7 +330,7 @@ const char *control_map_action_name(PortAction act)
 {
     static const char *const NAME[ACT_COUNT] = { "Analog steering", "Steer left", "Steer right", "Accelerate", "Brake",
                                                  "Gear up", "Gear down", "Camera", "Handbrake", "Horn", "Pause",
-                                                 "View", "Nitro", "Look back" };
+                                                 "Nitro", "Look back" };
     return act >= 0 && act < ACT_COUNT ? NAME[act] : "";
 }
 
