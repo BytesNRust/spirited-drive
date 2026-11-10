@@ -64,6 +64,7 @@ static void light_tables_make(const TrackArt *art, const PsxTunnelLook *look, in
     memcpy(light_made.tone, psx_light->tone, sizeof light_made.tone), light_made.tone_count = psx_light->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
     memset(tone_made, 0, sizeof tone_made);
     lamp_cache_used = lamp_cache_next = 0;   /* port (`lamp`): the lamps' tables are made again from the palette */
+    tunnel_lamp_cache_used = tunnel_lamp_cache_next = 0;   /* port (tunnel_lamps): and the tunnel's */
     memcpy(tone_palette, art->palette, sizeof tone_palette);
     memcpy(tone_lit_tint, lit_tint, sizeof tone_lit_tint), memcpy(tone_tunnel_tint, look->tint, sizeof tone_tunnel_tint);
     tone_have_cast = look->cast_on, tone_min_light = look->min_light;

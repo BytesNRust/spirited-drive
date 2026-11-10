@@ -338,6 +338,13 @@ int port_menu_pad_cancel(void)
     return port_settings_load().menu_pad_cancel;
 }
 
+int port_tunnel_lamps(void)
+{
+    const char *v = getenv("TNFS_TUNNEL_LAMPS");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().tunnel_lamps;
+}
+
 int port_car_night_lift(void)
 {
     const char *v = getenv("TNFS_CAR_NIGHT_LIFT");

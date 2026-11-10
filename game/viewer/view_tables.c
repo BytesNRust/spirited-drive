@@ -129,42 +129,57 @@ static uint8_t (*tone_get(int id, int in_tunnel))[256]
 static const float LAMP_BUCKET[LAMP_BUCKETS] = { 1.0f, 2.0f, 3.0f, 5.0f, 10.0f };
 /* port (`lamp`): no dither between the lit tables and the lamp's: the pool is graded in LAMP_STEPS even steps of the colour added (step s: s / LAMP_STEPS of it), a pixel taking the step its heat rounds to, as the
  * headlights' pool grades (cone_cells: levels, not a random choice). A slot holds a block per step, each made the first time a polygon needs it (`made` is a bit a step). */
-static struct { uint8_t key[4]; uint32_t made; uint8_t tables[LAMP_STEPS][MODERN_FOG_LEVELS][256]; } lamp_cache[LAMP_CACHE];
+typedef struct { uint8_t key[4]; uint32_t made; uint8_t tables[LAMP_STEPS][MODERN_FOG_LEVELS][256]; } LampSlot;
+static LampSlot lamp_cache[LAMP_CACHE];
 int lamp_cache_used, lamp_cache_next;
+/* port (tunnel_lamps): the same for a tunnel's polygons, whose lamp tables are the tunnel's own with the colour added (a few colours only: the tunnel's lamps are all one) */
+enum { TUNNEL_LAMP_CACHE = 8 };
+static LampSlot tunnel_lamp_cache[TUNNEL_LAMP_CACHE];
+int tunnel_lamp_cache_used, tunnel_lamp_cache_next;
 
-/* the blocks of steps 1 .. steps for a colour and bucket, in one run (block s - 1 the step s); NULL when steps is 0 */
-static const uint8_t (*lamp_add_get(const float rgb[3], int bucket, int steps))[256]
+/* the blocks of steps 1 .. steps for a colour and bucket, in one run (block s - 1 the step s); NULL when steps is 0. `tunnel`: the tunnel's tables with the colour added, not the open road's */
+static const uint8_t (*lamp_add_get(const float rgb[3], int bucket, int steps, int tunnel))[256]
 {
+    LampSlot *const cache = tunnel ? tunnel_lamp_cache : lamp_cache;
+    int *const used = tunnel ? &tunnel_lamp_cache_used : &lamp_cache_used, *const next = tunnel ? &tunnel_lamp_cache_next : &lamp_cache_next;
+    const int size = tunnel ? TUNNEL_LAMP_CACHE : LAMP_CACHE;
     uint8_t key[4];
     for (int k = 0; k < 3; k++) key[k] = (uint8_t)(rgb[k] * LAMP_KEY_STEPS + 0.5f);
     key[3] = (uint8_t)bucket;
     int slot = -1;
-    for (int i = 0; i < lamp_cache_used && slot < 0; i++)
-        if (memcmp(lamp_cache[i].key, key, sizeof key) == 0) slot = i;
+    for (int i = 0; i < *used && slot < 0; i++)
+        if (memcmp(cache[i].key, key, sizeof key) == 0) slot = i;
     if (slot < 0) {
-        slot = lamp_cache_used < LAMP_CACHE ? lamp_cache_used++ : lamp_cache_next;
-        if (slot == lamp_cache_next && lamp_cache_used == LAMP_CACHE) lamp_cache_next = (lamp_cache_next + 1) % LAMP_CACHE;
-        memcpy(lamp_cache[slot].key, key, sizeof key);
-        lamp_cache[slot].made = 0;
+        slot = *used < size ? (*used)++ : *next;
+        if (slot == *next && *used == size) *next = (*next + 1) % size;
+        memcpy(cache[slot].key, key, sizeof key);
+        cache[slot].made = 0;
     }
     for (int s = 1; s <= steps; s++) {
-        if (lamp_cache[slot].made >> s & 1) continue;
+        if (cache[slot].made >> s & 1) continue;
         float add[3];
         for (int k = 0; k < 3; k++) add[k] = 255.0f * LAMP_ADD * LAMP_BUCKET[bucket] * (float)key[k] / LAMP_KEY_STEPS * (float)s / LAMP_STEPS;
-        modern_light_tables_add(tone_palette, tone_lit_tint, add, lamp_cache[slot].tables[s - 1]);
-        lamp_cache[slot].made |= 1u << s;
+        if (tunnel && tone_have_cast) modern_tunnel_tables_add(tone_palette, tone_tunnel_tint, tone_cast, tone_min_light, add, cache[slot].tables[s - 1]);
+        else modern_light_tables_add(tone_palette, tone_lit_tint, add, cache[slot].tables[s - 1]);
+        cache[slot].made |= 1u << s;
     }
-    return lamp_cache[slot].tables[0];
+    return cache[slot].tables[0];
 }
 
 /* port (`lamp`): the heat of the lamps at the polygon being drawn's four corners (the sum of their falloffs at each corner's place in the world, 0 none; a bucket's share of 1), and the step tables of the lamps'
  * colour at the strength the polygon's strongest corner takes (as many as its hottest corner reaches). 0 when no lamp reaches it, or it is a tunnel's or a tone's: those keep their own tables. The light then
  * grades per pixel through the steps as the heat does between the corners. */
-int lamp_polygon(float heat[4], const uint8_t (**top)[256])
+static int lamp_polygon_in(int tunnel, float heat[4], const uint8_t (**top)[256])
 {
-    if (psx_light == NULL || psx_light->lamp_n <= 0 || !track_light_xz_ok || (track_light_tunnel & 7) == 1 || !tables_made) return 0;
+    if (psx_light == NULL || psx_light->lamp_n <= 0 || !track_light_xz_ok || ((track_light_tunnel & 7) == 1) != (tunnel != 0) || !tables_made) return 0;
     int idx[LAMP_NEAR];
-    const int n = psx_light_lamps_near(psx_light, track_light_node, idx, LAMP_NEAR);
+    int n = psx_light_lamps_near(psx_light, track_light_node, idx, LAMP_NEAR);
+    if (tunnel) {   /* port (tunnel_lamps): a tunnel's polygons take the tunnel's lamps only (the street lamps' light stays out of it) */
+        int kept = 0;
+        for (int i = 0; i < n; i++)
+            if (psx_light->lamps[idx[i]].tunnel) idx[kept++] = idx[i];
+        n = kept;
+    }
     if (n == 0) return 0;
     float rgb[4][3], strongest = 0.0f, mean[3] = { 0, 0, 0 };
     for (int k = 0; k < 4; k++) {
@@ -185,9 +200,14 @@ int lamp_polygon(float heat[4], const uint8_t (**top)[256])
     }
     const int steps = (int)(hottest * LAMP_STEPS + 0.5f);
     if (steps < 1) return 0;   /* under half a step everywhere: the lit tables, as the pixels would take them */
-    *top = lamp_add_get(mean, bucket, steps);
+    *top = lamp_add_get(mean, bucket, steps, tunnel);
     return 1;
 }
+
+int lamp_polygon(float heat[4], const uint8_t (**top)[256]) { return lamp_polygon_in(0, heat, top); }
+
+/* port (tunnel_lamps): the same for a polygon of a tunnel (track_light_tunnel 1, no scene tone): the tunnel's lamps' pools, ADDED over the tunnel's own light */
+int lamp_polygon_tunnel(float heat[4], const uint8_t (**top)[256]) { return lamp_polygon_in(1, heat, top); }
 
 /* the tables of the polygon being drawn: its scene tone's (`tone`, above the class's 3 bits), a tunnel's (track_light_tunnel 1), a lamp pool's (2..5), the road's */
 static uint8_t (*light_tables(void))[256]

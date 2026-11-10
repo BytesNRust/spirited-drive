@@ -220,7 +220,7 @@ static void test_shoulder_light(void)
 /* port (`lamp`): which lamps reach a polygon (by node, the ring's seam included), the light of the lamps at a ground point (strength, falloff, colour) and the car's light by its distance to the lamp */
 static void test_radial_lamps(void)
 {
-    PsxLightLamp lamps[3] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f } }, { 14, 24.0f, 0.0f, 30.0f, { 1.0f, 0.0f, 0.0f } }, { 100, 600.0f, 0.0f, 30.0f, { 1, 1, 1 } } };
+    PsxLightLamp lamps[3] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f }, 0 }, { 14, 24.0f, 0.0f, 30.0f, { 1.0f, 0.0f, 0.0f }, 0 }, { 100, 600.0f, 0.0f, 30.0f, { 1, 1, 1 }, 0 } };
     PsxLight l = { 0 };
     l.nodes = 128, l.lamps = lamps, l.lamp_n = 3, l.lamp_reach_nodes = 5, l.lamp_placed = 1;
     int idx[8];
@@ -231,7 +231,7 @@ static void test_radial_lamps(void)
     CHECK_EQ_INT(psx_light_lamps_near(&l, none, idx, 8), 0);
     const uint32_t nowhere[4] = { PSX_LIGHT_NO_NODE, 0, 0, 0 };
     CHECK_EQ_INT(psx_light_lamps_near(&l, nowhere, idx, 8), 0);
-    PsxLightLamp edge[1] = { { 2, 0.0f, 0.0f, 30.0f, { 1, 1, 1 } } };   /* a ring: the lamp at 2 is 5 nodes from node 125 across the seam */
+    PsxLightLamp edge[1] = { { 2, 0.0f, 0.0f, 30.0f, { 1, 1, 1 }, 0 } };   /* a ring: the lamp at 2 is 5 nodes from node 125 across the seam */
     PsxLight r = { 0 };
     r.nodes = 128, r.lamps = edge, r.lamp_n = 1, r.lamp_reach_nodes = 5, r.lamp_ring = 1;
     const uint32_t seam[4] = { 125, 125, 126, 126 };
@@ -263,7 +263,7 @@ static void test_radial_lamps(void)
 /* an object beside a lamp: raised to what the lamp gives at its own place, less what the rows' bake already put on its terrain's points (not added twice) */
 static void test_object_lamp(void)
 {
-    PsxLightLamp lamp[1] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f } } };
+    PsxLightLamp lamp[1] = { { 10, 0.0f, 0.0f, 30.0f, { 1.0f, 0.9f, 0.55f }, 0 } };
     static uint8_t lift[128 * PSX_LIGHT_POINTS];
     PsxLight l = { 0 };
     l.nodes = 128, l.lamps = lamp, l.lamp_n = 1, l.lamp_reach_nodes = 5, l.lamp_placed = 1;

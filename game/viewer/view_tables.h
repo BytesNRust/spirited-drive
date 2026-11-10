@@ -15,6 +15,7 @@ enum { POOL_CLASSES = 4 };   /* the lamp pool's classes 1..4 (psx_light_tunnel_c
 enum { STREET_BOARDS = 3 };
 
 int lamp_polygon(float heat[4], const uint8_t (**top)[256]);
+int lamp_polygon_tunnel(float heat[4], const uint8_t (**top)[256]);   /* port (tunnel_lamps) */
 extern int lit_active;
 extern uint8_t lit_corner[4];
 extern uint8_t lit_tables[MODERN_FOG_LEVELS][256];
@@ -29,7 +30,7 @@ extern const FshEntry *street_bitmap[STREET_BOARDS];
 extern int street_scenery[STREET_BOARDS], street_count;
 extern uint8_t street_entry[3];
 extern uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];
-extern int lamp_cache_used, lamp_cache_next;
+extern int lamp_cache_used, lamp_cache_next, tunnel_lamp_cache_used, tunnel_lamp_cache_next;
 void street_halo_sync(void);
 extern uint8_t street_tables[MODERN_FOG_LEVELS][256];
 extern uint8_t tone_made[PSX_LIGHT_TONES][2];
