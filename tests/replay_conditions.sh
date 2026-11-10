@@ -7,6 +7,7 @@ RPL=$DATA/GAMEDATA/REPLAY/REPLAY1.RPL
 [ -f "$RPL" ] || { echo "skip (no $RPL)"; exit 0; }
 mkdir -p "$WORK"
 WORK=$(mktemp -d "$WORK/run.XXXXXX")
+trap 'rc=$?; if [ "$rc" -ne 0 ] && [ "${TNFS_KEEP_RUN:-0}" = 1 ]; then echo "kept: $WORK" >&2; else find "$WORK" -delete; fi' EXIT   # its run dir goes with it; kept only on a failure with TNFS_KEEP_RUN=1
 mkdir -p "$WORK/mods" "$WORK/user"
 
 play() {   # the replay file, the port.cfg's time and weather: the log after a short headless run
