@@ -1,183 +1,83 @@
-/* 00432ff4: the checked Control Central (central.c) over game/sys and ea_lib (glue, no oracle). Its globals are
- * shorts here, filled from config.dat's race settings on entry and put back on leaving; the race settings' checked
- * steps (race_settings.c, tournament.c) run on a RaceSettings made from them. */
-#include "game/frontend/menu_glue.h"
-#include "game/frontend/central_glue_ops.h"
-#include "game/frontend/central_split.h"
+#include "game/frontend/central_glue_private.h"
 
-#include "game/frontend/audio_menu.h"
-#include "game/frontend/best_times.h"
-#include "game/frontend/best_totals_screen.h"
-#include "game/frontend/circuit_results.h"
-#include "game/frontend/graphics_menu.h"
-#include "game/frontend/graphics_own.h"
-#include "game/frontend/config_bgnd.h"
-#include "game/frontend/page_arrows.h"
-#include "game/frontend/title_art.h"
-#include "game/sys/port_log.h"
-#include "game/viewer/screen_layout.h"
-#include "game/frontend/central.h"
-#include "game/frontend/after_race.h"
-#include "game/frontend/chat.h"
-#include "game/frontend/check_options.h"
-#include "game/frontend/next_segment.h"
-#include "game/frontend/cheat_code.h"
-#include "game/frontend/config.h"
-#include "game/frontend/config_bgnd.h"
-#include "formats/fsh.h"
-#include "game/frontend/config_dat.h"
-#include "game/frontend/control_central_art.h"
-#include "game/frontend/controls_menu.h"
-#include "game/frontend/extras_apply.h"
-#include "game/frontend/variant_rule.h"
-#include "game/sys/port_extras.h"
-#include "game/sys/reverse_track.h"
-#include "game/sys/port_controls.h"
-#include "game/frontend/cop_stop.h"
-#include "game/frontend/win_movie.h"
-#include "game/frontend/credits.h"
-#include "game/frontend/ea_lib.h"
-#include "game/frontend/key_capture.h"
-#include "game/frontend/file_list.h"
-#include "game/frontend/frontend.h"
-#include "game/frontend/intro_glue.h"
-#include "game/frontend/game_list.h"
-#include "game/frontend/key_name.h"
-#include "game/frontend/link_central.h"
-#include "game/frontend/link_game.h"
-#include "game/frontend/link_race.h"
-#include "game/frontend/load_save.h"
-#include "game/frontend/load_save2.h"
-#include "game/frontend/lap_times.h"
-#include "game/frontend/menu_audio.h"
-#include "game/frontend/menu_race.h"
-#include "game/frontend/palette_put.h"
-#include "game/frontend/options_menu.h"
-#include "game/sys/port_profile.h"
-#include "game/sys/port_settings.h"
-#include "game/frontend/race_settings.h"
-#include "game/frontend/random_pick.h"
-#include "game/frontend/save_files.h"
-#include "game/frontend/record_check.h"
-#include "game/frontend/records_glue.h"
-#include "game/frontend/results_screen.h"
-#include "game/frontend/standings.h"
-#include "game/frontend/stat_text.h"
-#include "game/frontend/text_fit.h"
-#include "game/frontend/tournament.h"
-#include "game/frontend/track_results.h"
-#include "game/frontend/track_select.h"
-#include "game/race/race_models.h"
-#include "game/sys/input.h"
-#include "game/sys/key_codes.h"
-#include "game/sys/pointer.h"
-#include "game/sys/resource.h"
-#include "game/sys/text.h"
-#include "game/sys/timer.h"
-#include "game/sys/video.h"
-#include "game/platform/platform.h"
-#include "game/viewer/drive_joy.h"
-#include "game/viewer/track_viewer.h"
+CentralGlobals cg_g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
 
-#include "game/frontend/boot_screen.h"
-#include "tnfs_version.h"
-#include "game/sys/port_stats.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-
-/* the globals 00432ff4 writes (central.h gives each address) */
-typedef struct {
-    int16_t race_type, opponent, track, player_car, other_car[8], net_car, laps, difficulty;
-    int16_t car_flag_a, car_flag_b, variant;
-    int16_t volumes[3], tournament, unlock_level, races[9];
-    int32_t unlock_m, unlock_r, lost_vegas, hidden, vegas_cheat, variant_m, variant_r;
-    int16_t net_player, net_player_was, was[6];
-    int32_t art[7];
-    int16_t nomercy, warrior, net_hover, net_self, net_second, letter_held, buttons;
-    int32_t explode, inverse, nitro;
-} CentralGlobals;
-static CentralGlobals g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
-
-enum { SEGMENT_AT = 0x93 };                         /* 00524e83: a stage's segment, 0..2 (00427ae0's run) */
-enum { OPTIONS_AT = 0x81 };                        /* 00524e71: the five option words the race takes and gives back */
 enum { MOVIES_AT = 0x5b8 };                        /* 0052b2fc: 2, the movies offered (the original's default) */
-static uint8_t game_state[GAME_STATE_SIZE] = { [MOVIES_AT] = 2 };  /* 0052b2c0..: the tournament's */
+uint8_t cg_game_state[GAME_STATE_SIZE] = { [MOVIES_AT] = 2 };  /* 0052b2c0..: the tournament's */
 
 /* 0052b2fc: the movies the game offers (the showcase's video page, the arrest's and the wins' movies); the port's
  * no_movies only skips the intro (intro_glue.c) */
 int16_t glue_movies(void)
 {
-    return (int16_t)(game_state[MOVIES_AT] | game_state[MOVIES_AT + 1] << 8);
+    return (int16_t)(cg_game_state[MOVIES_AT] | cg_game_state[MOVIES_AT + 1] << 8);
 }
 static uint8_t keys[0x100];                       /* 004c693c: by scancode, refreshed at each key (00464bd0) */
-static uint8_t screen_palette[PALETTE_PUT_BYTES];
+uint8_t cg_screen_palette[PALETTE_PUT_BYTES];
 
-static RaceSettings settings_of(void)
+RaceSettings cg_settings_of(void)
 {
-    RaceSettings s = { g.race_type, g.track, g.variant_m, g.variant_r, g.player_car, g.opponent, g.laps,
-                       g.difficulty, g.car_flag_a, g.car_flag_b, g.variant, { 0 }, g.net_car };
-    for (int i = 0; i < 8; i++) s.other_car[i] = g.other_car[i];
+    RaceSettings s = { cg_g.race_type, cg_g.track, cg_g.variant_m, cg_g.variant_r, cg_g.player_car, cg_g.opponent, cg_g.laps,
+                       cg_g.difficulty, cg_g.car_flag_a, cg_g.car_flag_b, cg_g.variant, { 0 }, cg_g.net_car };
+    for (int i = 0; i < 8; i++) s.other_car[i] = cg_g.other_car[i];
     return s;
 }
 
-static void settings_put(const RaceSettings *s)
+void cg_settings_put(const RaceSettings *s)
 {
-    g.race_type = (int16_t)s->race_type, g.track = (int16_t)s->track, g.player_car = (int16_t)s->player_car;
-    g.variant_m = s->variant_m, g.variant_r = s->variant_r, g.opponent = (int16_t)s->opponent;
-    g.laps = (int16_t)s->laps, g.difficulty = (int16_t)s->difficulty, g.variant = (int16_t)s->variant;
-    g.car_flag_a = (int16_t)s->car_flag_a, g.car_flag_b = (int16_t)s->car_flag_b, g.net_car = (int16_t)s->unknown_524e9d;
-    for (int i = 0; i < 8; i++) g.other_car[i] = (int16_t)s->other_car[i];
+    cg_g.race_type = (int16_t)s->race_type, cg_g.track = (int16_t)s->track, cg_g.player_car = (int16_t)s->player_car;
+    cg_g.variant_m = s->variant_m, cg_g.variant_r = s->variant_r, cg_g.opponent = (int16_t)s->opponent;
+    cg_g.laps = (int16_t)s->laps, cg_g.difficulty = (int16_t)s->difficulty, cg_g.variant = (int16_t)s->variant;
+    cg_g.car_flag_a = (int16_t)s->car_flag_a, cg_g.car_flag_b = (int16_t)s->car_flag_b, cg_g.net_car = (int16_t)s->unknown_524e9d;
+    for (int i = 0; i < 8; i++) cg_g.other_car[i] = (int16_t)s->other_car[i];
 }
 
 /* The short 0052ad40 is config.dat's (00524df0 + 0x5f50): the level a cheat raised (central_keys.c) back into the image
  * before a path that reads it from there, and before the image is saved (0042a504) */
-static void level_to_image(void) { config_dat_set_unlock_level(config_current(), g.unlock_level); }
+void cg_level_to_image(void) { config_dat_set_unlock_level(config_current(), cg_g.unlock_level); }
 
 /* 0052b2d6..0052b2e8, the tournament's races by track that 00432ff4 sums: the menus' game state's (+0x592) */
-static void races_from_state(void) { memcpy(g.races, game_state + 0x592, sizeof g.races); }
+void cg_races_from_state(void) { memcpy(cg_g.races, cg_game_state + 0x592, sizeof cg_g.races); }
 
 /* The short 0052b302: set while 00427ae0 runs a stage (menu_race.c), the link game's in a link game; the option
  * screens read it for their art and, while clear, keep a link game in step (004104d0) */
 static int16_t solo_52b302;
-static int16_t *word_52b302(void) { return menu_words.link_game != 0 ? &link_game.unknown_52b302 : &solo_52b302; }
+int16_t *cg_word_52b302(void) { return menu_words.link_game != 0 ? &link_game.unknown_52b302 : &solo_52b302; }
 
-static Unlocks unlocks_of(void) { return (Unlocks){ g.unlock_m, g.unlock_r, g.lost_vegas, g.hidden, g.warrior }; }
+Unlocks cg_unlocks_of(void) { return (Unlocks){ cg_g.unlock_m, cg_g.unlock_r, cg_g.lost_vegas, cg_g.hidden, cg_g.warrior }; }
 
-static void unlocks_put(const Unlocks *u)
+void cg_unlocks_put(const Unlocks *u)
 {
-    g.unlock_m = u->variant_m, g.unlock_r = u->variant_r, g.lost_vegas = u->lost_vegas, g.hidden = u->hidden;
-    g.warrior = (int16_t)u->warrior;
+    cg_g.unlock_m = u->variant_m, cg_g.unlock_r = u->variant_r, cg_g.lost_vegas = u->lost_vegas, cg_g.hidden = u->hidden;
+    cg_g.warrior = (int16_t)u->warrior;
 }
 
 static FrontendSession session_of(void)
 {
-    FrontendSession f = { g.unlock_level, g.vegas_cheat, menu_words.link_game, g.net_self, g.net_player,
-                          menu_words.intro_seen, g.nomercy, { 0 }, g.tournament, resource_german(), 0 };
-    for (int i = 0; i < 6; i++) f.unknown_4bafb4[i] = g.was[i];
+    FrontendSession f = { cg_g.unlock_level, cg_g.vegas_cheat, menu_words.link_game, cg_g.net_self, cg_g.net_player,
+                          menu_words.intro_seen, cg_g.nomercy, { 0 }, cg_g.tournament, resource_german(), 0 };
+    for (int i = 0; i < 6; i++) f.unknown_4bafb4[i] = cg_g.was[i];
     return f;
 }
 
 static void session_put(const FrontendSession *f)
 {
-    g.vegas_cheat = f->unknown_4baf1c, g.net_self = (int16_t)f->unknown_4faa56, g.net_player = (int16_t)f->other_index;
-    g.nomercy = (int16_t)f->unknown_4c5cc2, g.tournament = (int16_t)f->tournament_on;
-    for (int i = 0; i < 6; i++) g.was[i] = (int16_t)f->unknown_4bafb4[i];
+    cg_g.vegas_cheat = f->unknown_4baf1c, cg_g.net_self = (int16_t)f->unknown_4faa56, cg_g.net_player = (int16_t)f->other_index;
+    cg_g.nomercy = (int16_t)f->unknown_4c5cc2, cg_g.tournament = (int16_t)f->tournament_on;
+    for (int i = 0; i < 6; i++) cg_g.was[i] = (int16_t)f->unknown_4bafb4[i];
 }
 
 /* port: the extras the player left on, over the flags the original owns (central.h names each address) */
 static void extras_flags(ExtrasFlags *f)
 {
-    f->unlock_m = &g.unlock_m;
-    f->unlock_r = &g.unlock_r;
-    f->variant_m = &g.variant_m;
-    f->variant_r = &g.variant_r;
-    f->explode = &g.explode;
-    f->nitro = &g.nitro;
-    f->vegas_cheat = &g.vegas_cheat;
-    f->lost_vegas = &g.lost_vegas;
-    f->warrior = &g.warrior;
+    f->unlock_m = &cg_g.unlock_m;
+    f->unlock_r = &cg_g.unlock_r;
+    f->variant_m = &cg_g.variant_m;
+    f->variant_r = &cg_g.variant_r;
+    f->explode = &cg_g.explode;
+    f->nitro = &cg_g.nitro;
+    f->vegas_cheat = &cg_g.vegas_cheat;
+    f->lost_vegas = &cg_g.lost_vegas;
+    f->warrior = &cg_g.warrior;
     f->track_flags = (uint32_t *)&menu_cheats.keys_506;
 }
 
@@ -188,7 +88,7 @@ static int16_t warrior_rival_flag, warrior_keep_flag;   /* and the Warrior kept 
 
 /* port: called after every place the original clears the flags, so a switch stays on across races and the
  * tournament. With the mode's file absent this reads the defaults and changes nothing. */
-static void extras_apply(void)
+void cg_extras_apply(void)
 {
     ExtrasFlags f;
     extras_flags(&f);
@@ -196,13 +96,13 @@ static void extras_apply(void)
     /* port: the level, the switches and the cheats typed in the session decide what is on: a switch turned off in
      * CUSTOMIZE takes its flag away, a cheat typed stays for the session and is never written to the mode's file (the
      * switch is the player's default, not a veto on the cheat); Mirror and Rally both on stay both on */
-    extras_settle(&e, g.unlock_level, &f, &extras_session);
+    extras_settle(&e, cg_g.unlock_level, &f, &extras_session);
     /* cheat_codes writes the globals, so they are read back and put into g again after the reapply */
-    g.unlock_m = *f.unlock_m, g.unlock_r = *f.unlock_r, g.variant_m = *f.variant_m, g.variant_r = *f.variant_r;
-    g.explode = *f.explode, g.nitro = *f.nitro, g.vegas_cheat = *f.vegas_cheat, g.lost_vegas = *f.lost_vegas;
-    g.warrior = *f.warrior;
+    cg_g.unlock_m = *f.unlock_m, cg_g.unlock_r = *f.unlock_r, cg_g.variant_m = *f.variant_m, cg_g.variant_r = *f.variant_r;
+    cg_g.explode = *f.explode, cg_g.nitro = *f.nitro, cg_g.vegas_cheat = *f.vegas_cheat, cg_g.lost_vegas = *f.lost_vegas;
+    cg_g.warrior = *f.warrior;
     menu_cheats.keys_506 = (int32_t)*f.track_flags;
-    if (e.no_assists) extras_no_assists(&g.car_flag_a, &g.car_flag_b);   /* after 00465ec8 */
+    if (e.no_assists) extras_no_assists(&cg_g.car_flag_a, &cg_g.car_flag_b);   /* after 00465ec8 */
     warrior_rival_flag = (int16_t)(e.warrior_rival != 0);
     warrior_keep_flag = (int16_t)(e.warrior != 0);
 }
@@ -211,39 +111,39 @@ static void extras_apply(void)
 static void car_flags(void *ctx)
 {
     (void)ctx;
-    RaceSettings s = settings_of();
+    RaceSettings s = cg_settings_of();
     race_settings_car_flags(&s);
-    settings_put(&s);
-    extras_apply();   /* port: after 00465ec8 / 00432974 */
+    cg_settings_put(&s);
+    cg_extras_apply();   /* port: after 00465ec8 / 00432974 */
 }
 
 static void type_changed(void *ctx)
 {
     (void)ctx;
-    RaceSettings s = settings_of();
-    Unlocks u = unlocks_of();
+    RaceSettings s = cg_settings_of();
+    Unlocks u = cg_unlocks_of();
     FrontendSession f = session_of();
     race_settings_type_changed(&s, &u, &f);
-    settings_put(&s), unlocks_put(&u), session_put(&f);
-    extras_apply();   /* port: the type change clears the variants */
+    cg_settings_put(&s), cg_unlocks_put(&u), session_put(&f);
+    cg_extras_apply();   /* port: the type change clears the variants */
 }
 
 static void track_forward(void *ctx)
 {
     (void)ctx;
-    RaceSettings s = settings_of();
-    const Unlocks u = unlocks_of();
+    RaceSettings s = cg_settings_of();
+    const Unlocks u = cg_unlocks_of();
     race_settings_track_forward(&s, &u);
-    settings_put(&s);
+    cg_settings_put(&s);
 }
 
 static void track_backward(void *ctx)
 {
     (void)ctx;
-    RaceSettings s = settings_of();
-    const Unlocks u = unlocks_of();
+    RaceSettings s = cg_settings_of();
+    const Unlocks u = cg_unlocks_of();
     race_settings_track_backward(&s, &u);
-    settings_put(&s);
+    cg_settings_put(&s);
 }
 
 static int quit_tournament(int german, void *ctx)
@@ -251,15 +151,14 @@ static int quit_tournament(int german, void *ctx)
     return glue_yes_no(ctx, german != 0 ? "Wettkampf beenden ?" : "Quit tournament ?");
 }
 
-static void step_race_type(void *ctx, int32_t key)
+static void step_race_type(void *ctx, int32_t cg_key)
 {
-    RaceSettings s = settings_of();
-    Unlocks u = unlocks_of();
+    RaceSettings s = cg_settings_of();
+    Unlocks u = cg_unlocks_of();
     FrontendSession f = session_of();
-    race_settings_type_step(&s, &u, &f, game_state, config_current(), key, quit_tournament, ctx);
-    settings_put(&s), unlocks_put(&u), session_put(&f);
+    race_settings_type_step(&s, &u, &f, cg_game_state, config_current(), cg_key, quit_tournament, ctx);
+    cg_settings_put(&s), cg_unlocks_put(&u), session_put(&f);
 }
-
 
 /* 00432884 on the art's handles */
 static void art_free(void *ctx)
@@ -267,11 +166,11 @@ static void art_free(void *ctx)
     ControlCentralArt a;
     void **const slot[7] = { &a.art_4bafc0, &a.art_4bafc4, &a.art_4bafc8, &a.art_4bafcc, &a.art_4bafd0, &a.art_4bafd4,
                              &a.art_4bafd8 };
-    for (int i = 0; i < 7; i++) *slot[i] = (void *)(intptr_t)g.art[i];
+    for (int i = 0; i < 7; i++) *slot[i] = (void *)(intptr_t)cg_g.art[i];
     FrontendSession f = session_of();
     const ControlCentralArtOps ops = { free_handle, nothing, ctx };
     control_central_art_free(&a, &f, &ops);
-    for (int i = 0; i < 7; i++) g.art[i] = (int32_t)(intptr_t)*slot[i];
+    for (int i = 0; i < 7; i++) cg_g.art[i] = (int32_t)(intptr_t)*slot[i];
     session_put(&f);
 }
 
@@ -319,7 +218,7 @@ static int32_t pad_buttons(void *ctx)
 }
 
 /* config.dat's short at 00524df0 + at */
-static int16_t image_short(int at)
+int16_t cg_image_short(int at)
 {
     int16_t v;
     memcpy(&v, config_current()->image + at, sizeof v);
@@ -335,51 +234,46 @@ static int16_t volumes_read[3];
 static void volumes_sync(void)
 {
     uint8_t *const at = config_current()->image + VOLUMES_AT;
-    if (memcmp(g.volumes, volumes_read, sizeof g.volumes) != 0) memcpy(at, g.volumes, sizeof g.volumes);
-    memcpy(g.volumes, at, sizeof g.volumes);
-    memcpy(volumes_read, g.volumes, sizeof volumes_read);
+    if (memcmp(cg_g.volumes, volumes_read, sizeof cg_g.volumes) != 0) memcpy(at, cg_g.volumes, sizeof cg_g.volumes);
+    memcpy(cg_g.volumes, at, sizeof cg_g.volumes);
+    memcpy(volumes_read, cg_g.volumes, sizeof volumes_read);
 }
 
-static void race(void *ctx);  /* 00427ae0, below */
-
-static void palette_set(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode)
+void cg_palette_set(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode)
 {
     (void)ctx;
-    palette_put(rgb, first, count, src, mode, screen_palette);
+    palette_put(rgb, first, count, src, mode, cg_screen_palette);
 }
 /* 00464a30: both pages black (screen_clear_both) */
-static void flush(void *ctx)
+void cg_flush(void *ctx)
 {
     (void)ctx;
     for (int i = 0; i < 2; i++) ea_select_default(), video_clear_back(), video_flip();
 }
 
-
 /* The short 0050a5b6 is the link's stage word (0050a5ac[5], race_net_on_stage): a client's becomes 1 when the host
  * reaches 00410c18(1), and every screen of the menus leaves on it. The original's service thread keeps it current; here
  * each screen's loop calls its deadline op first, which serves the link and, for the screens that took the word by
  * value in their inputs, writes it there */
-static int *stage_in;  /* the running screen's inputs' copy of it (results_screen.h, standings.h) */
-static int32_t deadline_passed(void *ctx)
+int *cg_stage_in;  /* the running screen's inputs' copy of it (results_screen.h, standings.h) */
+int32_t cg_deadline_passed(void *ctx)
 {
     (void)ctx;
     if (menu_words.link_game != 0) {
         link_service();
-        if (stage_in != NULL) *stage_in = *stage_word();
+        if (cg_stage_in != NULL) *cg_stage_in = *stage_word();
     }
     return timer_deadline_passed();
 }
-static int32_t key(void *ctx)
+int32_t cg_key(void *ctx)
 {
     (void)ctx;
     for (int code = 0; code < CHEAT_KEY_FLAGS; code++) keys[code] = platform_key_down(code) ? 1 : 0;
     return input_get_key();
 }
 
-
-
 /* 004687d0's pointer: ctx is its DialogPointer */
-static void poll_pointer(void *ctx)
+void cg_poll_pointer(void *ctx)
 {
     DialogPointer *const p = ctx;
     int x, y;
@@ -387,7 +281,7 @@ static void poll_pointer(void *ctx)
     pointer_position(&x, &y);
     p->x = x, p->y = y;
 }
-static void mark_at(void *ctx, DialogPointer *p)
+void cg_mark_at(void *ctx, DialogPointer *p)
 {
     (void)ctx;
     p->mark_x = (int16_t)p->x, p->mark_y = (int16_t)p->y;
@@ -395,14 +289,14 @@ static void mark_at(void *ctx, DialogPointer *p)
 }
 
 /* 004fbae0: a dword per track; 00437540 sets the nine to 1 (midday) as the game starts (00481f27) */
-static int32_t time_of_day[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+int32_t cg_time_of_day[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 
 /* 00465ec8 on config.dat's image, which 004687d0 changes */
 static void image_car_flags(void *ctx)
 {
     (void)ctx;
     ConfigDat *const config = config_current();
-    RaceSettings s = settings_of();
+    RaceSettings s = cg_settings_of();
     if (!config_dat_get_race(config, &s)) return;
     race_settings_car_flags(&s);
     if (port_extras_load().no_assists) {   /* port: no driving aids */
@@ -421,31 +315,31 @@ static void track_select(void *ctx)
 {
     (void)ctx;
     ConfigDat *const config = config_current();
-    const RaceSettings before = settings_of();
+    const RaceSettings before = cg_settings_of();
     config_dat_set_race(config, &before);
     const int32_t screen = ea_screen();
-    const TrackSelectInputs in = { "", resource_kmh(), g.variant_m, g.variant_r, g.lost_vegas, screen,
+    const TrackSelectInputs in = { "", resource_kmh(), cg_g.variant_m, cg_g.variant_r, cg_g.lost_vegas, screen,
                                    ea_picture_shape(screen) };
     /* port: the weather row, and with the PS1 look the time-of-day item on its psx_time; both written to port.cfg
      * when the screen leaves them changed (the race reads them there, as it does today) */
     int weather = port_weather(), psx_time = port_psx_time();
     int reverse = reverse_track_picked();   /* port: the mode's file's reverse offers the row; the pick is the session's, not saved */
     const PortExtras extras = port_extras_load();
-    TrackSelectPlus plus = { g.unlock_m, g.unlock_r, &g.variant_m, &g.variant_r,
+    TrackSelectPlus plus = { cg_g.unlock_m, cg_g.unlock_r, &cg_g.variant_m, &cg_g.variant_r,
                              extras.variant_time,   /* port: variants as entries */
                              port_settings_profile() == PROFILE_RESTOMOD, &weather, port_psx_light() ? &psx_time : NULL, extras.reverse ? &reverse : NULL };
     const int was_weather = weather, was_psx_time = psx_time;
-    TrackSelectState st = { config->image + (0x524df9 - 0x524df0), time_of_day, g.inverse, screen_palette, &plus };
+    TrackSelectState st = { config->image + (0x524df9 - 0x524df0), cg_time_of_day, cg_g.inverse, cg_screen_palette, &plus };
     int x, y;
     pointer_position(&x, &y);
     DialogPointer p = { pointer_active(), 0, x, y, x, y };
     const TrackSelectOps ops = {
-        flush, move_to, load_bank, no_inverse, music_feed, shape, set_palette, nothing, styles, poll_pointer, hide,
+        cg_flush, move_to, load_bank, no_inverse, music_feed, shape, set_palette, nothing, styles, cg_poll_pointer, hide,
         in_rect, select_picture, select_default, blit, blit_masked, blit_word, style, shadowed, nothing, nothing, flip,
-        show_dialog, mark_at, buttons, track_music, fade_in, track_play, deadline_set, sound, ticks, activate_dialog,
-        key, click, track_stop, track_free, fade_out, free_bank, free_handle_inverse, best_times, image_car_flags,
+        show_dialog, cg_mark_at, buttons, track_music, fade_in, track_play, deadline_set, sound, ticks, activate_dialog,
+        cg_key, click, track_stop, track_free, fade_out, free_bank, free_handle_inverse, best_times, image_car_flags,
         off_dialog, music,
-        deadline_passed, music_fade_out, music_end, &p };
+        cg_deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
     if (extras.reverse) reverse_track_pick(reverse);
     if (weather != was_weather || psx_time != was_psx_time) {
@@ -456,18 +350,18 @@ static void track_select(void *ctx)
     }
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) {
-        after.variant_m = g.variant_m, after.variant_r = g.variant_r;   /* port: as the screen left them (get_race zeroes them) */
-        settings_put(&after);
+        after.variant_m = cg_g.variant_m, after.variant_r = cg_g.variant_r;   /* port: as the screen left them (get_race zeroes them) */
+        cg_settings_put(&after);
     }
 }
 
-static void fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
+void cg_fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
 {
     (void)ctx;
     static const TextFitOps ops = { fit_width, fit_ramp, fit_draw, NULL };
     text_fit_shadowed(text, x, y, width, &ops);
 }
-static void average_text(void *ctx, char *out, int32_t time, int32_t distance)
+void cg_average_text(void *ctx, char *out, int32_t time, int32_t distance)
 {
     (void)ctx;
     stat_average_speed_text(out, resource_kmh(), time, distance);
@@ -478,292 +372,19 @@ static int32_t best_times(void *ctx)
 {
     uint8_t *const image = config_current()->image;
     const int32_t screen = ea_screen();
-    const BestTimesInputs in = { "", resource_german(), g.lost_vegas, screen, ea_picture_shape(screen),
+    const BestTimesInputs in = { "", resource_german(), cg_g.lost_vegas, screen, ea_picture_shape(screen),
                                  image + (0x524f8f - 0x524df0) };
-    BestTimesState st = { image + (0x524df9 - 0x524df0), g.inverse, screen_palette,
-                          records_glue_best_plus(image, g.variant_m, g.variant_r) };   /* port: the tables with cheats */
+    BestTimesState st = { image + (0x524df9 - 0x524df0), cg_g.inverse, cg_screen_palette,
+                          records_glue_best_plus(image, cg_g.variant_m, cg_g.variant_r) };   /* port: the tables with cheats */
     const BestTimesOps ops = {
-        move_to, load_art, no_inverse, music_feed, shape, flush, set_palette, nothing, styles, poll_pointer, mark_at,
-        in_rect, select_picture, blit, blit_masked, blit_word, style, fit, time_text, speed_text, shadowed,
+        move_to, load_art, no_inverse, music_feed, shape, cg_flush, set_palette, nothing, styles, cg_poll_pointer, cg_mark_at,
+        in_rect, select_picture, blit, blit_masked, blit_word, style, cg_fit, time_text, speed_text, shadowed,
         select_default, hide, nothing, nothing, flip, show_dialog, buttons, fade_in, deadline_set, sound, ticks,
-        activate_dialog, key, click, image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off_dialog,
+        activate_dialog, cg_key, click, image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off_dialog,
         music,
-        deadline_passed, music_fade_out, music_end, ctx, records_glue_toggle, plus_text, plus_text_width };   /* port: the cheats item */
+        cg_deadline_passed, music_fade_out, music_end, ctx, records_glue_toggle, plus_text, plus_text_width };   /* port: the cheats item */
     return best_times_screen(&in, &st, ctx, &ops);
 }
-/* 004fa0cc..: the segments' top speeds and totals (menu_race fills them); 0051dccc and 0051dcec..: 0045b6c8's;
- * the shorts 0051ce24 + 0x1d2 x player, the cars' points (0045aec8's) */
-static int32_t race_times[MENU_RACE_TIMES];
-static int32_t finish[GAME_STATE_PLAYERS];
-static TournamentOrderWork order_work;
-static int16_t car_points[GAME_STATE_PLAYERS];
-
-/* 0045bad8, 0045be50, 0045c2d0 and 0045b908 on config.dat's image and the menus' game state, this machine's player
- * 0; 0045b73c, 0045b6c8 on the game state */
-/* the records the finishing player takes are this machine's (004fbb08: the slot in a link game, 0 alone) */
-/* the records a results screen shows: its image is config.dat's with the race's table in its track block, refreshed after
- * each check so that the row a check set is the row shown (records_glue_shown) */
-static uint8_t shown_image[RECORD_CHECK_IMAGE];
-static ResultsMarks shown_marks;   /* port: the cheats of the same table, refreshed with it */
-static int32_t records_checked(RouteOp op, int32_t *times)
-{
-    const int32_t answer = records_glue_route(op, config_current()->image, game_state, menu_words.single, times);
-    records_glue_shown_as(op, shown_image, config_current()->image);
-    records_glue_marks_as(op, config_current()->image, &shown_marks);
-    return answer;
-}
-static int32_t records(void *ctx) { (void)ctx; return records_checked(ROUTE_SEGMENT, NULL); }
-static int32_t totals(void *ctx) { (void)ctx; return records_checked(ROUTE_TOTALS, race_times); }
-static int32_t top_record(void *ctx) { (void)ctx; return records_checked(ROUTE_TOP, NULL); }
-static int32_t lap_record(void *ctx) { (void)ctx; return records_checked(ROUTE_LAP, NULL); }
-static int32_t leads(void *ctx) { (void)ctx; return tournament_leads(game_state, menu_words.single); }
-static void results_order(void *ctx) { (void)ctx; tournament_results_order(game_state, finish, &order_work); }
-
-/* the results screens' ctx: their pointer first (poll_pointer's), and what 0045c45c / 0046067c are shown with */
-typedef struct ResultsCtx {
-    DialogPointer p;
-    const ResultsInputs *in;
-    ResultsState *st;
-    const ResultsOps *ops;
-} ResultsCtx;
-static void best_totals(void *ctx, int32_t row, int32_t top)
-{
-    ResultsCtx *const c = ctx;
-    best_totals_screen(row, top, c->in, c->st, &c->p, c->ops);
-}
-static int32_t lap_times(void *ctx, int32_t record, int32_t tune)
-{
-    ResultsCtx *const c = ctx;
-    return lap_times_screen(record, tune, c->in, c->st, &c->p, c->ops);
-}
-
-typedef void ResultsShow(int32_t ask, const ResultsInputs *in, ResultsState *st, DialogPointer *p,
-                         const ResultsOps *ops);
-
-/* 0045cea0, 0045de08 or 0045eff4 after a race, on the drive's results and config.dat's image, on 00427ae0's screen
- * picture */
-static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t mode)
-{
-    static const char *const CAR_NAMES[RESULTS_CARS] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER",
-                                                         "512TR", "DIABLO", "PACK", "CLOCK", "CLASS", "WARRIOR" };
-    const int32_t screen = ea_screen();
-    records_glue_shown(shown_image, config_current()->image);
-    records_glue_marks_as(ROUTE_SEGMENT, config_current()->image, &shown_marks);
-    ResultsInputs in = { game_state, shown_image, r->dropped, menu_words.single, r->place, r->rival_place,
-                               r->rival, r->rival_car, resource_german(), resource_kmh(), 0, screen, ea_picture_shape(screen),
-                               CAR_NAMES, g.lost_vegas, g.variant_r, r->player_place, r->shown_place, finish, &shown_marks };
-    ResultsState st = { g.inverse, screen_palette, 0 };
-    int x, y;
-    pointer_position(&x, &y);
-    ResultsCtx c = { { pointer_active(), 0, x, y, x, y }, &in, &st, NULL };
-    const ResultsOps ops = {
-        records, flush, move_to, load_art, no_inverse, music_feed, shape, fade_in, styles, poll_pointer, in_rect,
-        select_picture, blit, style, shadowed, fit, time_text, average_text, speed_text, set_palette, nothing,
-        select_default, hide, nothing, blit_word, nothing, flip, show_dialog, mark_at, buttons, track_music, track_play,
-        deadline_set, sound, ticks, activate_dialog, key, click, off_dialog, music, deadline_passed, track_stop, track_free, fade_out,
-        free_bank, free_handle_inverse, blit_masked, totals, top_record, leads, best_totals, lap_record,
-        results_order, lap_times, &c };
-    c.ops = &ops;
-    stage_in = &in.unknown_50a5b6;
-    screen_of(mode, &in, &st, &c.p, &ops);
-    stage_in = NULL;
-}
-
-/* 004275f8 for 00427ae0: the drive on argv[1]'s track (its stem in capitals) in the menus' window, the options from
- * config.dat (track_viewer.h's TrackViewerMenus; Options' 0 is on, 1 off, 2 none); its end (0052b2fe = 00509d6c,
- * 0 when not over) and results kept for 0045cea0 */
-static TrackViewerResults last_drive;
-static void chat(void *ctx);
-static void drive(void *ctx, int32_t argc, char *const *argv)
-{
-    (void)ctx, (void)argc;
-    char name[8] = { 0 };
-    for (size_t i = 0; i + 1 < sizeof name && argv[1][i] != 0; i++)
-        name[i] = (char)(argv[1][i] >= 'a' && argv[1][i] <= 'z' ? argv[1][i] - 0x20 : argv[1][i]);
-    /* 004275f8: 004fbadc on track 3 races "tr5" (004ae1e0); port: with both variants on — g's own pair, the state
-     * being raced, not the mode's file — the rally's own track is the one raced, the mirror keeping the geometry
-     * (variant_rule.h) */
-    const char *const stem = rally_track_stem(name, g.variant_m, g.variant_r, g.variant_m != 0 && g.variant_r != 0);
-    if (stem != name) memcpy(name, stem, 4);
-    const TrackViewerMenus menus = { image_short(0x97) == 0, image_short(0x99) == 0, image_short(0x8f) == 0, g.laps,
-                                     race_head_to_head_model((int16_t)g.opponent), image_short(0x73), image_short(0x75), image_short(0x79),
-                                     image_short(0x71), game_state,
-                                     g.track >= 0 && g.track < 9 ? time_of_day[g.track] : 1, g.variant_m, g.variant_r,
-                                     (uint32_t)menu_cheats.keys_506, g.explode, g.nitro, port_extras_load().replay_cameras,
-                                     (const char *)config_current()->image, g.track,
-                                     config_current()->image + OPTIONS_AT };
-    records_glue_begin(g.race_type, game_state + 0x592, g.variant_m, g.variant_r, g.explode, g.nitro,
-                       (menu_cheats.keys_506 & 8) != 0);   /* port: which table its records go to */
-    menu_audio_close();  /* the drive opens the device itself (drive_audio_open); its pause menu uses the menus' layer */
-    track_viewer_drive_menus(&menus);
-    if (menu_words.link_game != 0) link_race_begin((const char *)config_current()->image, chat);
-    if (!track_viewer_drive(resource_root(), name, race_head_to_head_model(g.player_car), 1, g.race_type, 0, NULL))
-        port_log("control_central: the race on %s could not start\n", name);
-    link_race_end();
-    menu_audio_open();
-    last_drive = track_viewer_drive_results();
-    const int16_t raced = last_drive.over ? last_drive.end_request : 0;
-    memcpy(game_state + 0x5ba, &raced, sizeof raced);
-}
-static void segment_results(void *ctx, int32_t mode) { (void)ctx; results(results_screen, &last_drive, mode); }
-static void track_results(void *ctx, int32_t ask) { (void)ctx; results(track_results_screen, &last_drive, ask); }
-static void circuit_results(void *ctx, int32_t ask) { (void)ctx; results(circuit_results_screen, &last_drive, ask); }
-
-static void standings(void *ctx, int32_t segment)
-{
-    (void)ctx;
-    const int32_t screen = ea_screen();
-    StandingsInputs in = { game_state, finish, car_points, image_short(0x95), image_short(0x93),
-                                 image_short(0xb1), resource_german(), g.unlock_level, 0, screen,
-                                 ea_picture_shape(screen), records_glue_cheats(ROUTE_SEGMENT, config_current()->image) };
-    StandingsState st = { g.inverse, screen_palette };
-    int x, y;
-    pointer_position(&x, &y);
-    DialogPointer p = { pointer_active(), 0, x, y, x, y };
-    const StandingsOps ops = {
-        flush, move_to, load_art, no_inverse, music_feed, shape, set_palette, set_palette, nothing, styles,
-        poll_pointer, hide, nothing, in_rect, select_picture, select_default, blit, blit_masked, blit_word, style,
-        glue_boxed, time_text, results_order, nothing, nothing, flip, show_dialog, mark_at, buttons, fade_in,
-        fade_out_bank, deadline_set, sound, ticks, activate_dialog, key, click, off_dialog, music, deadline_passed,
-        free_bank,
-        free_handle_inverse, &p };
-    stage_in = &in.unknown_50a5b6;
-    standings_screen(segment, &in, &st, &p, &ops);
-    stage_in = NULL;
-}
-static int32_t next_segment(void *ctx);
-/* 0047310c for 00427ae0's screen: the last one freed first (the original leaves it) */
-static int32_t race_picture(void *ctx, int32_t w, int32_t h, int32_t flags)
-{
-    (void)ctx, (void)flags;
-    int32_t *const slot = ea_screen_slot();
-    if (*slot != 0) ea_picture_free(*slot);
-    return *slot = ea_picture_new(w, h);
-}
-static void reset_tournament(void *ctx)
-{
-    (void)ctx;
-    RaceSettings s = settings_of();
-    tournament_reset(game_state, &s);
-    settings_put(&s);
-    extras_apply();   /* port: the tournament's start clears the variants; the switch comes back */
-}
-static int32_t pick(void *ctx)
-{
-    static uint32_t rand_state;
-    (void)ctx;
-    return random_pick_of_three((uint32_t)time(NULL), &rand_state);
-}
-static void cops(void *ctx)
-{
-    const int16_t movie_on = glue_movies();
-    const int16_t german = (int16_t)resource_german();
-    const CopStopState st = { &movie_on, &german, ea_screen_slot() };
-    cop_stop(&st, &(const CopStopOps){ picture_new, screen_file, picture_free, pick, movie, ctx });
-}
-/* 004283c4 (win_movie.c) on the drive's racers and finishers */
-static void won(void *ctx)
-{
-    const WinMovieState st = { game_state, last_drive.player, last_drive.racers, link_view_only(), last_drive.dropped, g.race_type,
-                               g.track, g.player_car, g.lost_vegas, ea_screen_slot() };
-    win_movie(&st, &(const CopStopOps){ picture_new, screen_file, picture_free, pick, movie, ctx });
-}
-static void points(void *ctx) { (void)ctx; tournament_points(game_state, car_points); }
-static int32_t champion(void *ctx, int32_t player) { (void)ctx; return tournament_champion(game_state, player); }
-
-/* the short 004c5cc4 while 00427ae0 runs */
-static int32_t race_warrior;
-
-/* 00432e48 at a tournament won: the unlocks raised to config.dat's level, as 00427ae0 just set it */
-static void raise_unlocks(void *ctx)
-{
-    (void)ctx;
-    Unlocks u = unlocks_of();
-    u.warrior = race_warrior;
-    unlocks_raise(&u, config_dat_unlock_level(config_current()));
-    unlocks_put(&u);
-    race_warrior = g.warrior;
-}
-
-/* 00427ae0 (menu_race.c) on config.dat's image and the menus' game state: alone, this machine's player 0; in a link
- * game, the link game's words */
-static void after_race(void *ctx);
-static void race_finished(void *ctx);
-static void race(void *ctx)
-{
-    (void)ctx;
-    extras_apply();   /* port: a tournament's start (central_select.c) clears rally, explode, warrior and turbo */
-    ConfigDat *const config = config_current();
-    const RaceSettings before = settings_of();
-    config_dat_set_race(config, &before);
-    level_to_image();
-    ea_select_default();
-    ea_screen_release();  /* Control Central freed it; a picture it left is freed here, not lost from the pool */
-    static int32_t ghost[MENU_RACE_GHOST];
-    static const int16_t no_link = 0;
-    static const int32_t player = 0, font = 0, host = 0;
-    int16_t link_done = 0;
-    race_warrior = g.warrior;
-    const int linked = menu_words.link_game != 0;
-    const MenuRaceState st = {
-        config->image, game_state, word_52b302(), race_times, ghost,
-        linked ? &menu_words.link_game : &no_link, linked ? &menu_words.link_lost : &no_link, pointer_active_word(),
-        linked ? &menu_words.single : &player, &font, ea_screen_slot(), &race_warrior, &g.unlock_m, &g.unlock_r,
-        &g.lost_vegas, linked ? &menu_words.intro_seen : &host, linked ? &link_game.flags_a[7] : &link_done };
-    const MenuRaceOps ops = {
-        no_mode, hide, nothing, clip, nothing, drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
-        nothing, music_pick, cops, won, sound_load, race_picture, circuit_results, segment_results, standings, track_results,
-        points, after_race, next_segment, reset_tournament, champion, raise_unlocks, game_reset, ctx, race_finished };
-    menu_race(&st, &ops);
-    g.warrior = (int16_t)race_warrior;
-    int32_t *const slot = ea_screen_slot();
-    if (*slot != 0) ea_picture_free(*slot);  /* Control Central makes its own next */
-    *slot = 0;
-    RaceSettings after = before;
-    if (config_dat_get_race(config, &after)) settings_put(&after);
-    g.unlock_level = (int16_t)config_dat_unlock_level(config);
-    races_from_state();
-    extras_apply();   /* port: get_race zeroes the variants; the next race from the same Control Central keeps them */
-}
-
-/* port: a race run to its end (not one given up or lost): the first one of an install is counted, if the switch is On */
-static void race_finished(void *ctx)
-{
-    (void)ctx;
-    port_stats_event(STATS_FIRST_RACE);
-}
-
-/* 004bb8dc: counted up by the timer (0043b9e8); here by the ticks gone between two of 004166e0's music calls */
-static int32_t credits_idle;
-static uint32_t credits_last;
-static void credits_tick(void *ctx)
-{
-    (void)ctx;
-    const uint32_t now = timer_ticks();
-    credits_idle += (int32_t)(now - credits_last);
-    credits_last = now;
-    menu_audio_music_service();
-}
-
-
-static void credits_extra(void *ctx)
-{
-    (void)ctx;
-    credits_extra_show(TNFS_VERSION, credits_service);
-}
-
-/* 004166e0 from Options */
-static void credits(void *ctx, int32_t mode)
-{
-    (void)mode;
-    const CreditsOps ops = { load_art, shape, palette_set, music_feed, select_picture, blit, select_default,
-                             picture_shape, blit_at, nothing, flip, fade_in, credits_tick, read_buttons, key, fade_out,
-                             free_handle_inverse, music_fade_out, music_end, free_bank, mark, ctx, credits_extra };
-    const CreditsState st = { ea_screen_slot(), pointer_active_word(), &g.buttons, stage_word(), &credits_idle };
-    credits_last = timer_ticks();
-    credits_show(&st, &ops);
-}
-
 /* 00444bb0's shorts in config.dat's image (offsets from 00524df0), all at odd addresses: copied out to aligned
  * shorts around the screen */
 enum { OPT_TRANSMISSION, OPT_AUTOMATIC, OPT_ABS, OPT_TRACTION, OPT_RACE_TYPE, OPT_TRACK, OPT_OPPONENT, OPT_CAR,
@@ -893,13 +514,13 @@ static void controls(void *ctx, int32_t mode)
     ControlsPlus plus = { &port, 1, port_settings_profile() != PROFILE_RESTOMOD };   /* port: the three pages, the exe's left out (input_read.c reads the keys and the pad together) */
     controls_out();
     const ControlsMenuState st = { controls_kept, &german, &drive_joy_state()->present, &no_joystick_b, &no_calibration,
-                                   pointer_active_word(), &g.buttons, screen, &g.inverse, word_52b302(), &quit,
+                                   pointer_active_word(), &cg_g.buttons, screen, &cg_g.inverse, cg_word_52b302(), &quit,
                                    &plus };
     const ControlsMenuOps ops = {
-        picture_new, flush, palette_clear, move_to, load_art, no_inverse, music_feed, shape, palette_set, fade_in,
+        picture_new, cg_flush, palette_clear, move_to, load_art, no_inverse, music_feed, shape, cg_palette_set, fade_in,
         styles, poll, mark, in_rect, style, select_picture, blit, picture_shape, grab, key_name, shadowed, set_palette,
-        select_default, flip, show, deadline_set, sound, nothing, blit_at, ticks, buttons, activate, key, click, clash,
-        glue_boxed, capture, deadline_passed, music, fade_out, free_handle_inverse, no_mode, off, net_sync,
+        select_default, flip, show, deadline_set, sound, nothing, blit_at, ticks, buttons, activate, cg_key, click, clash,
+        glue_boxed, capture, cg_deadline_passed, music, fade_out, free_handle_inverse, no_mode, off, net_sync,
         picture_free, free_bank, ctx, plus_text, plus_text_width, plus_panel, controls_plus_save, pad_raw,
         central_page_arrow_size, central_page_arrow,
         /* port: the pages 2 and 3 over the clean background, with the title and the group headers as CUSTOMIZE's */
@@ -920,7 +541,7 @@ static void audio_track(void)
 }
 static int32_t audio_buttons(void *ctx) { (void)ctx; audio_track(); return pointer_read_buttons(); }
 static void audio_activate(void *ctx) { (void)ctx; audio_track(); pointer_activate_if_moved(); }
-static int32_t audio_effects(void *ctx) { (void)ctx; return image_short(0x79); }
+static int32_t audio_effects(void *ctx) { (void)ctx; return cg_image_short(0x79); }
 
 /* 004015dc from Options (mode 0) on config.dat's image: the card 0049212c(-1) answers is the port's mixer, 16-bit
  * stereo with no modes to choose (bit 0 set, bit 1 clear), so neither the mode nor 3D sound is offered and the mode
@@ -938,14 +559,14 @@ static void audio(void *ctx, int32_t mode)
     opt_in();
     const AudioMenuState st = {
         config_current()->image + 9, menu_audio_silent(), menu_audio_kept(), &no_modes, &bit0, &sound_alt, &menu_words.link_game,
-        &german, &sound_on, &voice_4a, &voice, &audio_pointer_x, pointer_active_word(), &g.buttons, ea_screen_slot(),
-        &g.inverse, &small_stream, word_52b302(), stage_word() };
+        &german, &sound_on, &voice_4a, &voice, &audio_pointer_x, pointer_active_word(), &cg_g.buttons, ea_screen_slot(),
+        &cg_g.inverse, &small_stream, cg_word_52b302(), stage_word() };
     const AudioMenuOps ops = {
         music_fade_out, music_end, audio_track_music, picture_new, move_to, load_art, no_inverse, music_feed, shape,
-        palette_set, poll, mark, audio_clock, audio_stop_4a, audio_4a_done, sound, in_rect, audio_volume,
+        cg_palette_set, poll, mark, audio_clock, audio_stop_4a, audio_4a_done, sound, in_rect, audio_volume,
         select_picture, blit, blit_at, audio_blit_at, audio_clip, picture_shape, select_default, hide, nothing, flip,
-        show, audio_buttons, styles, fade_in, deadline_set, deadline_passed, nothing, music, nothing, blit_masked,
-        ticks, audio_activate, key, key, click, music_cut, audio_voice, audio_effects, music_fade_to,
+        show, audio_buttons, styles, fade_in, deadline_set, cg_deadline_passed, nothing, music, nothing, blit_masked,
+        ticks, audio_activate, cg_key, cg_key, click, music_cut, audio_voice, audio_effects, music_fade_to,
         audio_effects_volume,
         glue_banner, sound_free, nothing, sound_load, off, net_sync, fade_out, free_handle_inverse, picture_free,
         free_bank, music_pick, music_start, ctx };
@@ -1054,8 +675,8 @@ static int32_t own_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const 
      * fsh_palette_rgb, which shifts the CD's 6-bit values left by one on the way, so it is already display-ready
      * and any other mode shifts it twice; and palette_put reads and writes the same buffer, so aliasing the two
      * would rewrite the bytes it is reading, a little further every redraw. */
-    memcpy(screen_palette, own_palette, sizeof screen_palette);
-    palette_set(ctx, screen_palette, 0, 0x100, own_palette, 0x24 /* FSH_TYPE_PALETTE_8BIT */);
+    memcpy(cg_screen_palette, own_palette, sizeof cg_screen_palette);
+    cg_palette_set(ctx, cg_screen_palette, 0, 0x100, own_palette, 0x24 /* FSH_TYPE_PALETTE_8BIT */);
     text_build_styles_from(own_palette);
     ea_blit_own(own_shape);
     (void)palette;
@@ -1202,12 +823,12 @@ static void own_put_back(void *ctx, PortSettings *settings)
 static void graphics(void *ctx, int32_t mode)
 {
     static int16_t showing;  /* 004f9e8c */
-    const int race = mode != 0;
+    const int cg_race = mode != 0;
     PortSettings port = port_settings_load();
     const PortSettings was = port;
     int desktop_w = 0, desktop_h = 0;
     const int has_desktop = platform_desktop_size(&desktop_w, &desktop_h);
-    GraphicsPlus plus = { &port, has_desktop ? screen_format_nearest(desktop_w, desktop_h) : SCREEN_4_3, race, port.f3_ultra };
+    GraphicsPlus plus = { &port, has_desktop ? screen_format_nearest(desktop_w, desktop_h) : SCREEN_4_3, cg_race, port.f3_ultra };
     opt_in();
     /* after opt_in: it writes Options' unsaved edits into the image, which Cancel must keep */
     port_settings_was = port;
@@ -1216,13 +837,13 @@ static void graphics(void *ctx, int32_t mode)
      * close_screen), so the styles rebuilt after it must be built from this copy rather than from what is left on the
      * display -- which is that palette faded down to black, and a ramp built from black is not the caller's menu. */
     uint8_t caller_palette[PALETTE_PUT_BYTES];
-    memcpy(caller_palette, screen_palette, sizeof caller_palette);
-    const GraphicsMenuState st = { config_current()->image + 9, &showing, word_52b302(), pointer_active_word(), &g.buttons,
-                                   ea_screen_slot(), &g.inverse, stage_word(), &plus };
+    memcpy(caller_palette, cg_screen_palette, sizeof caller_palette);
+    const GraphicsMenuState st = { config_current()->image + 9, &showing, cg_word_52b302(), pointer_active_word(), &cg_g.buttons,
+                                   ea_screen_slot(), &cg_g.inverse, stage_word(), &plus };
     const GraphicsMenuOps ops = {
-        move_to, load_art, no_inverse, music_feed, shape, palette_set, poll, mark, in_rect, select_picture, blit,
+        move_to, load_art, no_inverse, music_feed, shape, cg_palette_set, poll, mark, in_rect, select_picture, blit,
         picture_shape, select_default, hide, nothing, flip, show, buttons, styles, fade_in, deadline_set, sound,
-        nothing, ticks, activate, key, click, off, music, net_sync, deadline_passed, fade_out, free_handle_inverse,
+        nothing, ticks, activate, cg_key, click, off, music, net_sync, cg_deadline_passed, fade_out, free_handle_inverse,
         free_bank, ctx, plus_text, plus_text_width, plus_panel, plus_save,
         /* port: the screen's own background, its shape with the palette that goes with it, and its title. The race's
          * pause menu gets the same ones as Options. */
@@ -1233,7 +854,7 @@ static void graphics(void *ctx, int32_t mode)
          * faded out rather than scaling zeros for seventeen vblanks */
         display_dark, central_page_arrow_size, central_page_arrow };
     input_function_keys(&showing);
-    input_page_keys(!race);
+    input_page_keys(!cg_race);
     /* port: graphics_own.c, the port's own screen, from Options and from the race's pause menu alike */
     graphics_own(&st, &ops);
     /* the screen put its own palette on and faded the display out as it left; the one that brought it up goes
@@ -1259,27 +880,27 @@ static uint8_t game_kept[GAME_LIST_STATE];
 static uint8_t replay_race[LOAD_SAVE_RACE];
 static int16_t replay_kind;  /* config.dat's short 00524e9f, aligned while 0042c498 runs */
 
-static void game_load(void *ctx, const char *name) { (void)ctx; game_file_load(name, game_state, &save_files_ops); }
+static void game_load(void *ctx, const char *name) { (void)ctx; game_file_load(name, cg_game_state, &save_files_ops); }
 
 /* 0042ae9c on config.dat's image and the menus' game state */
 static int32_t game_list(void *ctx, int32_t mode)
 {
     uint8_t *const image = config_current()->image;
     GameListState st = { resource_german(), list_check, list_highlight, ea_screen(), "", "", list_names,
-                         pointer_active_word(), &g.buttons, image + 9, (char *)image + 0x3b, game_state, game_kept,
-                         image + CONTROLS_AT, &g.lost_vegas, &g.tournament };
+                         pointer_active_word(), &cg_g.buttons, image + 9, (char *)image + 0x3b, cg_game_state, game_kept,
+                         image + CONTROLS_AT, &cg_g.lost_vegas, &cg_g.tournament };
     const GameListOps ops = {
         styles, picture_new, picture_shape, select_picture, grab, load_art, music_feed, no_cwd, no_chdir, find_first,
-        find_next, clip, move_to, ticks, in_rect, sound, deadline_set, shape, audio_blit_at, style, fit, masked_at,
-        select_default, nothing, blit_word, blit_at, nothing, flip, show, deadline_passed, nothing, buttons,
-        activate, music, key, click, glue_yes_no, remove_save, glue_banner_wait, game_load, music_fade_to,
+        find_next, clip, move_to, ticks, in_rect, sound, deadline_set, shape, audio_blit_at, style, cg_fit, masked_at,
+        select_default, nothing, blit_word, blit_at, nothing, flip, show, cg_deadline_passed, nothing, buttons,
+        activate, music, cg_key, click, glue_yes_no, remove_save, glue_banner_wait, game_load, music_fade_to,
         redraw_pointer, off, blit_masked, picture_free, free_bank, ctx };
     return game_list_screen(mode, &st, &ops);
 }
 static void save_box(void *ctx, char *name)
 {
     (void)ctx;
-    glue_save_box(name, config_current()->image, game_state, (int16_t)g.lost_vegas);
+    glue_save_box(name, config_current()->image, cg_game_state, (int16_t)cg_g.lost_vegas);
 }
 /* 004275f8 for a replay (0042c498's eax 2): config.dat's name 00524e2b, played as kind 00524e9f asks (1 the
  * replay from the start, 0044f534(4); 2 the highlights, 5), the player's file else the CD's; in the menus' window
@@ -1296,8 +917,8 @@ static void replay(void *ctx, int32_t mode, const char *path)
         port_log("load_save: no replay %s\n", name);
         return;
     }
-    const TrackViewerMenus menus = { 1, 1, 1, 0, 0, image_short(0x73), image_short(0x75), image_short(0x79),
-                                     image_short(0x71), NULL, 0, 0, 0, 0, 0, 0, 0, NULL, -1,
+    const TrackViewerMenus menus = { 1, 1, 1, 0, 0, cg_image_short(0x73), cg_image_short(0x75), cg_image_short(0x79),
+                                     cg_image_short(0x71), NULL, 0, 0, 0, 0, 0, 0, 0, NULL, -1,
                                      config_current()->image + OPTIONS_AT };  /* the time of day and the flags: the replay's setup */
     menu_audio_close();
     track_viewer_drive_menus(&menus);
@@ -1311,65 +932,65 @@ static void replay(void *ctx, int32_t mode, const char *path)
 static void load_save(void *ctx, int32_t mode)
 {
     ConfigDat *const config = config_current();
-    level_to_image();
+    cg_level_to_image();
     opt_in();
-    int16_t variant = image_short(0x93);
-    replay_kind = image_short(0xaf);
+    int16_t variant = cg_image_short(0x93);
+    replay_kind = cg_image_short(0xaf);
     volumes_sync();
     LoadSaveState st = {
-        resource_german(), g.tournament, menu_words.link_game, image_short(0x6d), pointer_active(), &g.buttons,
-        ea_screen_slot(), &g.inverse, &list_check, &variant, &list_highlight, &replay_kind, replay_race,
-        menu_audio_silent(), g.volumes, KEPT_VOLUMES, image_short(0x7f),
+        resource_german(), cg_g.tournament, menu_words.link_game, cg_image_short(0x6d), pointer_active(), &cg_g.buttons,
+        ea_screen_slot(), &cg_g.inverse, &list_check, &variant, &list_highlight, &replay_kind, replay_race,
+        menu_audio_silent(), cg_g.volumes, KEPT_VOLUMES, cg_image_short(0x7f),
         (const char *)config->image + 9, (const char *)config->image + 0x3b };
     const LoadSaveOps ops = {
-        move_to, load_art, no_inverse, music_feed, palette_clear, shape, palette_set, poll, mark, in_rect,
+        move_to, load_art, no_inverse, music_feed, palette_clear, shape, cg_palette_set, poll, mark, in_rect,
         select_picture, blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in,
-        styles, deadline_set, sound, ticks, activate, key, click, game_list, save_box, replay_box,
+        styles, deadline_set, sound, ticks, activate, cg_key, click, game_list, save_box, replay_box,
         free_handle_inverse, free_bank, music_fade_out, fade_out, music_end, picture_free, sound_free, clear_one,
         clip, replay, nothing, set_palette, no_mode_set, picture_new, sound_load, music_pick, off, music,
-        deadline_passed, ctx };
+        cg_deadline_passed, ctx };
     int16_t *const was = pointer_bind_active(&st.pointer_active);
     load_save_menu(mode, &st, &ops);
     volumes_sync();
     pointer_bind_active(was);
     memcpy(config->image + 0x93, &variant, sizeof variant), memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
     opt_out();
-    g.unlock_level = (int16_t)config_dat_unlock_level(config);
-    races_from_state();
+    cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    cg_races_from_state();
 }
 
 /* load_save_menu2 (0042d894) from 00403760 (mode 1, check/'s art) on config.dat's image, as load_save; its tournament's races (the
  * game state's +0x592..+0x5a0, Lost Vegas's +0x5a2) copied to aligned shorts */
 static void load_save2(void *ctx, int32_t mode)
 {
-    level_to_image();
+    cg_level_to_image();
     enum { RACES_AT = 0x592, EXTRA_AT = 0x5a2, RACES = 8 };
     ConfigDat *const config = config_current();
     opt_in();
     int16_t races[RACES], extra;
-    memcpy(races, game_state + RACES_AT, sizeof races), memcpy(&extra, game_state + EXTRA_AT, sizeof extra);
-    replay_kind = image_short(0xaf);
+    memcpy(races, cg_game_state + RACES_AT, sizeof races), memcpy(&extra, cg_game_state + EXTRA_AT, sizeof extra);
+    replay_kind = cg_image_short(0xaf);
     volumes_sync();
     LoadSave2State st = {
-        resource_german(), g.tournament, menu_words.link_game, image_short(0x6d), pointer_active(), &g.buttons, races,
-        extra, g.lost_vegas, ea_screen_slot(), &g.inverse, &list_check, &list_highlight, &replay_kind, menu_audio_silent(),
-        g.volumes, KEPT_VOLUMES, image_short(0x7f), (const char *)config->image + 9,
+        resource_german(), cg_g.tournament, menu_words.link_game, cg_image_short(0x6d), pointer_active(), &cg_g.buttons, races,
+        extra, cg_g.lost_vegas, ea_screen_slot(), &cg_g.inverse, &list_check, &list_highlight, &replay_kind, menu_audio_silent(),
+        cg_g.volumes, KEPT_VOLUMES, cg_image_short(0x7f), (const char *)config->image + 9,
         (const char *)config->image + 0x3b };
     const LoadSaveOps ops = {
-        move_to, load_art, no_inverse, music_feed, palette_clear, shape, palette_set, poll, mark, in_rect,
+        move_to, load_art, no_inverse, music_feed, palette_clear, shape, cg_palette_set, poll, mark, in_rect,
         select_picture, blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in,
-        styles, deadline_set, sound, ticks, activate, key, click, game_list, save_box, replay_box,
+        styles, deadline_set, sound, ticks, activate, cg_key, click, game_list, save_box, replay_box,
         free_handle_inverse, free_bank, music_fade_out, fade_out, music_end, picture_free, sound_free, clear_one,
         clip, replay, nothing, set_palette, no_mode_set, picture_new, sound_load, music_pick, off, music,
-        deadline_passed, ctx };
+        cg_deadline_passed, ctx };
     int16_t *const was = pointer_bind_active(&st.pointer_active);
     load_save_menu2(mode, &st, &ops);
     volumes_sync();
     pointer_bind_active(was);
     memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
     opt_out();
-    g.unlock_level = (int16_t)config_dat_unlock_level(config);
-    races_from_state();
+    cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    cg_races_from_state();
 }
 
 /* check_options (00403760) on config.dat's image (the sub-screens' shorts taken from it first): the options after a race, mode
@@ -1379,13 +1000,13 @@ int32_t glue_check_options(int32_t mode)
     ConfigDat *const config = config_current();
     opt_out();
     const CheckOptionsOps ops = {
-        move_to, load_art, no_inverse, shape, palette_set, poll, mark, in_rect, select_picture, blit, select_default,
-        hide, picture_shape, flip, show, buttons, fade_in, deadline_set, sound, nothing, ticks, activate, key, click,
+        move_to, load_art, no_inverse, shape, cg_palette_set, poll, mark, in_rect, select_picture, blit, select_default,
+        hide, picture_shape, flip, show, buttons, fade_in, deadline_set, sound, nothing, ticks, activate, cg_key, click,
         fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save, load_save2, music_fade_to,
-        off, music, deadline_passed, no_wait, music_feed, save_config, NULL };
+        off, music, cg_deadline_passed, no_wait, music_feed, save_config, NULL };
     const int16_t language = (int16_t)resource_german();
-    const CheckOptionsState st = { config->image, &menu_words.link_game, &language, pointer_active_word(), &g.buttons,
-                                   ea_screen_slot(), &g.inverse, stage_word() };
+    const CheckOptionsState st = { config->image, &menu_words.link_game, &language, pointer_active_word(), &cg_g.buttons,
+                                   ea_screen_slot(), &cg_g.inverse, stage_word() };
     const int32_t done = check_options(mode, &st, &ops);
     opt_out();
     return done;
@@ -1399,7 +1020,6 @@ void glue_race_option(uint32_t address)
     else if (address == 0x423d28) graphics(NULL, 1);
 }
 
-
 enum { REPLAY_FLAG_AT = 0xaf };
 
 /* 0040c710's words on config.dat's image and the menus' game state; the cars' points (0051ce24) kept
@@ -1408,13 +1028,13 @@ static AfterRaceState after_race_state(void)
 {
     static uint8_t cars[AFTER_RACE_CARS * AFTER_RACE_CAR];
     uint8_t *const image = config_current()->image;
-    replay_kind = image_short(REPLAY_FLAG_AT);
+    replay_kind = cg_image_short(REPLAY_FLAG_AT);
     volumes_sync();
     return (AfterRaceState){
-        &menu_words.link_game, stage_word(), pointer_active_word(), &g.buttons, ea_screen_slot(), &g.inverse,
-        &credits_idle, &menu_words.redraw, &replay_kind, (char *)image + 0x3b, menu_audio_silent(), g.volumes,
-        KEPT_VOLUMES, image_short(0x7f), image_short(0x95), image_short(0x6d),
-        game_state, cars };
+        &menu_words.link_game, stage_word(), pointer_active_word(), &cg_g.buttons, ea_screen_slot(), &cg_g.inverse,
+        &cg_credits_idle, &menu_words.redraw, &replay_kind, (char *)image + 0x3b, menu_audio_silent(), cg_g.volumes,
+        KEPT_VOLUMES, cg_image_short(0x7f), cg_image_short(0x95), cg_image_short(0x6d),
+        cg_game_state, cars };
 }
 
 static void chat_send(void *ctx, int32_t link, const uint8_t *message, int32_t size)
@@ -1431,10 +1051,10 @@ static void chat_in(void *ctx, int32_t link, const uint8_t *message, int32_t siz
 }
 
 /* 0040a5d8 on the link game's lines */
-static void chat(void *ctx)
+void cg_chat(void *ctx)
 {
     static const ChatOps ops = {
-        load_art, shape, palette_set, select_picture, blit, blit_masked, select_default, picture_shape, blit_word, flip,
+        load_art, shape, cg_palette_set, select_picture, blit, blit_masked, select_default, picture_shape, blit_word, flip,
         buttons, fade_in, nothing, styles, picture_new, grab, glue_drain, keys_pending, music, nothing, move_to, mark,
         net_service, in_rect, sound, lines_free, style, restore, shadowed, show_at, pump, lines_done, key_read,
         no_joystick, width, click, ticks, chat_send, chat_in, select_default, nothing, chat_shown, buttons, picture_free, nothing,
@@ -1445,7 +1065,7 @@ static void chat(void *ctx)
     ChatState st = { frontend_player_name, &menu_words.mode_menu, &link_game.chat[0][0], &link_game.chat_line,
                      &link_game.chat_arrived, &lines_lock, &no_key, &no_key, &german, &menu_words.link_lost,
                      &link_game.flags_a[RACE_NET_STAGE_FLAG], &link_game.unknown_52b318, &menu_words.redraw,
-                     pointer_active_word(), &g.buttons, ea_screen_slot() };
+                     pointer_active_word(), &cg_g.buttons, ea_screen_slot() };
     (void)ctx;
     chat_screen(&st, &ops);
 }
@@ -1453,34 +1073,33 @@ static void chat(void *ctx)
 static AfterRaceOps after_race_ops(void (*options)(void *, int32_t), void *ctx)
 {
     return (AfterRaceOps){
-        move_to, load_art, no_inverse, music_feed, palette_clear, shape, palette_set, poll, mark, net_service, in_rect,
+        move_to, load_art, no_inverse, music_feed, palette_clear, shape, cg_palette_set, poll, mark, net_service, in_rect,
         chat_waiting, select_picture, blit, blit_masked, select_default, hide, picture_shape, flip, show, buttons, fade_in,
-        styles, deadline_set, sound, nothing, ticks, activate, key, click, music_fade_out, fade_out, music_end,
+        styles, deadline_set, sound, nothing, ticks, activate, cg_key, click, music_fade_out, fade_out, music_end,
         free_bank, free_handle_inverse, picture_free, sound_free, clear_one, clip, replay, nothing, set_palette,
-        no_mode_set, no_mode, picture_new, sound_load, music_pick, options, standings, circuit_results,
-        segment_results, track_results, chat, off, credits_tick, deadline_passed, ctx };
+        no_mode_set, no_mode, picture_new, sound_load, music_pick, options, cg_standings, cg_circuit_results,
+        cg_segment_results, cg_track_results, cg_chat, off, cg_credits_tick, cg_deadline_passed, ctx };
 }
 
 /* 0040c710 for 00427ae0 */
-static void after_race(void *ctx)
+void cg_after_race(void *ctx)
 {
     AfterRaceState st = after_race_state();
     const AfterRaceOps ops = after_race_ops(after_options, ctx);
-    credits_last = timer_ticks();
+    cg_credits_last = timer_ticks();
     after_race_menu(&st, &ops);
     volumes_sync();
     memcpy(config_current()->image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);
 }
 
-
 /* 0040b648 for 00427ae0: the checkpoint menu between segments, 0 to stop the tournament's run */
-static int32_t next_segment(void *ctx)
+int32_t cg_next_segment(void *ctx)
 {
     int16_t *const over = &link_game.flags_a[RACE_NET_STAGE_FLAG];  /* 0050a5b6: read, and cleared once the others came */
     NextSegmentState st = { after_race_state(), over, &menu_words.link_lost, (int16_t)resource_german() };
     st.menu.link_over = over;
     const NextSegmentOps ops = { after_race_ops(after_options, ctx), glue_yes_no, glue_banner, deadline, all_came };
-    credits_last = timer_ticks();
+    cg_credits_last = timer_ticks();
     const int32_t go_on = next_segment_menu(&st, &ops);
     volumes_sync();
     memcpy(config_current()->image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);
@@ -1494,31 +1113,31 @@ static void options_extras(void *ctx)
     (void)ctx;
     ConfigDat *const config = config_current();
     glue_extras_screen((int16_t)config_dat_unlock_level(config));
-    g.unlock_level = (int16_t)config_dat_unlock_level(config);
-    extras_apply();
+    cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    cg_extras_apply();
 }
 
 static void options(void *ctx)
 {
     ConfigDat *const config = config_current();
-    const RaceSettings before = settings_of();
+    const RaceSettings before = cg_settings_of();
     config_dat_set_race(config, &before);
     opt_out();
     const OptionsMenuOps ops = {
-        move_to, load_art, no_inverse, music_feed, shape, palette_set, styles, poll, mark, in_rect, select_picture,
+        move_to, load_art, no_inverse, music_feed, shape, cg_palette_set, styles, poll, mark, in_rect, select_picture,
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
-        ticks, activate, key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
-        music_fade_out, music_end, music_start, credits, music_pick, opt_car_flags, music_fade_to, off, music, net_sync,
-        deadline_passed, ctx, options_extras, central_options_plus_text, plus_text_width, plus_panel };
+        ticks, activate, cg_key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
+        music_fade_out, music_end, music_start, cg_credits, music_pick, opt_car_flags, music_fade_to, off, music, net_sync,
+        cg_deadline_passed, ctx, options_extras, central_options_plus_text, plus_text_width, plus_panel };
     OptionsMenuState st = {
         &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
         &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],
-        &opt[OPT_MUSIC_VOLUME], &menu_words.link_game, pointer_active_word(), &g.buttons, ea_screen_slot(), &g.inverse,
-        word_52b302(), stage_word(), &menu_words.redraw };
+        &opt[OPT_MUSIC_VOLUME], &menu_words.link_game, pointer_active_word(), &cg_g.buttons, ea_screen_slot(), &cg_g.inverse,
+        cg_word_52b302(), stage_word(), &menu_words.redraw };
     options_menu(&st, &ops);
     opt_in();
     RaceSettings after = before;
-    if (config_dat_get_race(config, &after)) settings_put(&after);
+    if (config_dat_get_race(config, &after)) cg_settings_put(&after);
 }
 
 /* config.dat's race settings and unlock level into the globals, as the draft read them */
@@ -1531,9 +1150,9 @@ static void load(void)
         config_dat_defaults(&defaults, resource_german());
         config_dat_get_race(&defaults, &s);
     }
-    settings_put(&s);
-    g.unlock_level = (int16_t)config_dat_unlock_level(config);
-    races_from_state();
+    cg_settings_put(&s);
+    cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    cg_races_from_state();
 }
 
 /* 00466ae4 before Control Central: the game state for a new tournament (the controls, the names: config.dat's for
@@ -1541,10 +1160,10 @@ static void load(void)
 void glue_game_reset(void)
 {
     load();
-    RaceSettings s = settings_of();
+    RaceSettings s = cg_settings_of();
     FrontendSession f = session_of();
-    tournament_new(game_state, &s, config_current(), &f);
-    settings_put(&s);
+    tournament_new(cg_game_state, &s, config_current(), &f);
+    cg_settings_put(&s);
     session_put(&f);
     config_dat_set_race(config_current(), &s);
     /* the original's settings are config.dat's own words, so tournament_reset's variant = 0 clears 00524e83 */
@@ -1554,7 +1173,7 @@ void glue_game_reset(void)
 /* 00408724 on Control Central's words */
 static void showcase(void *ctx)
 {
-    const ShowcaseGlue in = { &g.player_car, &g.race_type, &g.track, pointer_active_word(), &g.buttons, car_flags, ctx };
+    const ShowcaseGlue in = { &cg_g.player_car, &cg_g.race_type, &cg_g.track, pointer_active_word(), &cg_g.buttons, car_flags, ctx };
     glue_showcase(&in);
 }
 
@@ -1565,46 +1184,46 @@ static int central_up;  /* the race settings live in g while Control Central run
 void glue_settings_to_config(void)
 {
     if (!central_up) return;
-    const RaceSettings s = settings_of();
+    const RaceSettings s = cg_settings_of();
     config_dat_set_race(config_current(), &s);
-    level_to_image();
+    cg_level_to_image();
 }
 
 int32_t glue_central(void)
 {
     static const ControlCentralOps OPS = {
         pump, palette_clear, move_to, music, load_art, picture_new, sound_load, no_inverse, music_feed, mark, shape,
-        palette_set, net_service, in_rect, car_flags, type_changed, ticks, chat_waiting, select_picture, blit, blit_masked,
+        cg_palette_set, net_service, in_rect, car_flags, type_changed, ticks, chat_waiting, select_picture, blit, blit_masked,
         blit_word, picture_shape, width, style, shadowed, frame, free_bank, load_bank, text_at, select_default, flip,
-        show, buttons, fade_in, nothing, styles, sound, deadline_set, deadline_passed, key, scancode, cheat_step,
+        show, buttons, fade_in, nothing, styles, sound, deadline_set, cg_deadline_passed, cg_key, scancode, cheat_step,
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
-        music_pick, step_race_type, track_forward, track_backward, nothing, standings, track_select, art_free, options,
-        chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, flush, race, off,
+        music_pick, step_race_type, track_forward, track_backward, nothing, cg_standings, track_select, art_free, options,
+        cg_chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, cg_flush, cg_race, off,
         plus_text, NULL, 1, pad_buttons, palette_colour };
     load();
     ControlCentralState st = {
-        &g.race_type, &g.opponent, &g.track, &g.player_car, g.other_car, &g.net_car, &g.laps, g.difficulty,
-        menu_words.mode_menu, g.volumes, menu_words.link_game, link_view_only(), &menu_words.redraw, (int16_t)resource_german(), 0,
-        &g.tournament, &menu_words.link_lost, g.races, menu_audio_kept(), (uint32_t *)&menu_cheats.keys_506,
-        &g.unlock_level, &g.unlock_m, &g.unlock_r, &g.lost_vegas, &g.vegas_cheat, &g.net_player, &g.net_player_was,
-        g.was, g.art, &g.variant_m, &g.variant_r, menu_words.single, menu_words.intro_seen, &g.nomercy, &g.warrior,
-        &g.explode, menu_audio_silent(), &g.inverse, &g.nitro, &g.net_hover, &g.net_self, &g.net_second, &g.letter_held,
-        link_humans(), link_names(), pointer_active_word(), &g.buttons, ea_screen_slot(), "", keys, &warrior_rival_flag, &warrior_keep_flag };
-    const LinkMenu link_menu = { &g.race_type, &g.track, &g.laps, &g.difficulty, &g.net_car, &g.nomercy, &g.tournament,
-                                 &g.player_car, g.other_car, &g.variant_m, &g.variant_r };
+        &cg_g.race_type, &cg_g.opponent, &cg_g.track, &cg_g.player_car, cg_g.other_car, &cg_g.net_car, &cg_g.laps, cg_g.difficulty,
+        menu_words.mode_menu, cg_g.volumes, menu_words.link_game, link_view_only(), &menu_words.redraw, (int16_t)resource_german(), 0,
+        &cg_g.tournament, &menu_words.link_lost, cg_g.races, menu_audio_kept(), (uint32_t *)&menu_cheats.keys_506,
+        &cg_g.unlock_level, &cg_g.unlock_m, &cg_g.unlock_r, &cg_g.lost_vegas, &cg_g.vegas_cheat, &cg_g.net_player, &cg_g.net_player_was,
+        cg_g.was, cg_g.art, &cg_g.variant_m, &cg_g.variant_r, menu_words.single, menu_words.intro_seen, &cg_g.nomercy, &cg_g.warrior,
+        &cg_g.explode, menu_audio_silent(), &cg_g.inverse, &cg_g.nitro, &cg_g.net_hover, &cg_g.net_self, &cg_g.net_second, &cg_g.letter_held,
+        link_humans(), link_names(), pointer_active_word(), &cg_g.buttons, ea_screen_slot(), "", keys, &warrior_rival_flag, &warrior_keep_flag };
+    const LinkMenu link_menu = { &cg_g.race_type, &cg_g.track, &cg_g.laps, &cg_g.difficulty, &cg_g.net_car, &cg_g.nomercy, &cg_g.tournament,
+                                 &cg_g.player_car, cg_g.other_car, &cg_g.variant_m, &cg_g.variant_r };
     link_central_bind(&link_menu);
-    extras_apply();   /* port: the switches are on from the first key, not after the first car change */
+    cg_extras_apply();   /* port: the switches are on from the first key, not after the first car change */
     central_up = 1, central_state = &st;
     volumes_sync();
     const int32_t result = control_central(&st, &OPS);
     volumes_sync();
     central_up = 0, central_state = NULL;
     link_central_bind(NULL);
-    extras_apply();   /* port: 00432ff4's start clears the cheats; the switches come back for the race */
+    cg_extras_apply();   /* port: 00432ff4's start clears the cheats; the switches come back for the race */
     video_set_overlay(NULL, 0, 0);
-    const RaceSettings s = settings_of();
+    const RaceSettings s = cg_settings_of();
     config_dat_set_race(config_current(), &s);
-    level_to_image();
+    cg_level_to_image();
     return result;
 }
 
@@ -1617,15 +1236,16 @@ void glue_drive_race(int32_t track, int32_t segment, int32_t car, int32_t race_t
     glue_game_reset();  /* frontend_loop's 00466ae4 before Control Central: the names, the controls, the counts */
     const int16_t run = (int16_t)segment;  /* 00524e83, which 00427ae0 keeps as 0052b276: the run's file */
     memcpy(config_current()->image + SEGMENT_AT, &run, sizeof run);
-    RaceSettings s = settings_of();
+    RaceSettings s = cg_settings_of();
     if (track >= 0) s.track = track, s.variant = segment;  /* g.variant: the same short */
     s.variant_m = variant_m, s.variant_r = variant_r;  /* 004fbad8 / 004fbadc, as the cheats and track select set them */
     const char *const time = getenv("TNFS_DRIVE_TIME");  /* port: the track screen's time of day, 0..2 */
-    if (time != NULL && track >= 0 && track < 9) time_of_day[track] = atoi(time);
+    if (time != NULL && track >= 0 && track < 9) cg_time_of_day[track] = atoi(time);
     if (car >= 0) s.player_car = car;
     if (race_type >= 0) s.race_type = race_type;
-    settings_put(&s);
-    race(NULL);
-    const RaceSettings after = settings_of();
+    cg_settings_put(&s);
+    cg_race(NULL);
+    const RaceSettings after = cg_settings_of();
     config_dat_set_race(config_current(), &after);
 }
+
