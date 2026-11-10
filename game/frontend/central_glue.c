@@ -2,6 +2,7 @@
  * shorts here, filled from config.dat's race settings on entry and put back on leaving; the race settings' checked
  * steps (race_settings.c, tournament.c) run on a RaceSettings made from them. */
 #include "game/frontend/menu_glue.h"
+#include "game/frontend/central_glue_ops.h"
 #include "game/frontend/central_split.h"
 
 #include "game/frontend/audio_menu.h"
@@ -140,7 +141,6 @@ static void races_from_state(void) { memcpy(g.races, game_state + 0x592, sizeof 
  * screens read it for their art and, while clear, keep a link game in step (004104d0) */
 static int16_t solo_52b302;
 static int16_t *word_52b302(void) { return menu_words.link_game != 0 ? &link_game.unknown_52b302 : &solo_52b302; }
-static void net_sync(void *ctx) { (void)ctx, link_sync(); }
 
 static Unlocks unlocks_of(void) { return (Unlocks){ g.unlock_m, g.unlock_r, g.lost_vegas, g.hidden, g.warrior }; }
 
@@ -259,9 +259,6 @@ static void step_race_type(void *ctx, int32_t key)
     settings_put(&s), unlocks_put(&u), session_put(&f);
 }
 
-static void free_handle(void *ctx, void *art) { (void)ctx; ea_free((int32_t)(intptr_t)art); }
-static void free_bank(void *ctx, int32_t bank) { (void)ctx; ea_free(bank); }
-static void nothing(void *ctx) { (void)ctx; }
 
 /* 00432884 on the art's handles */
 static void art_free(void *ctx)
@@ -277,9 +274,6 @@ static void art_free(void *ctx)
     session_put(&f);
 }
 
-static void no_wait(void *ctx, int32_t v) { (void)ctx, (void)v; }
-/* the link game (link_central.h): 00475c14(0) runs its transport */
-static void pump(void *ctx, int32_t v) { (void)ctx, (void)v, link_service(); }
 /* Control Central holds 0052b316 and 004f81d2 as values, but in the original they are live words that 004104d0
  * changes (its 004465e4 rebuilds the seats as machines join): read again after each call while Central runs */
 static ControlCentralState *central_state;
@@ -288,23 +282,6 @@ static void net_service(void *ctx)
     (void)ctx, link_sync();
     if (central_state != NULL) central_state->view_only = link_view_only(), central_state->players = link_humans();
 }
-static int32_t chat_waiting(void *ctx) { (void)ctx; return link_any_ready(); }
-static int32_t net_start(void *ctx) { (void)ctx; return link_ready(); }
-static void pre_race(void *ctx) { (void)ctx, link_host_ready(); }
-static void kick(void *ctx, int32_t player) { (void)ctx, link_kick(player); }
-static void sound(void *ctx, int32_t s) { (void)ctx; menu_audio_sound(s); }
-static void sound_load(void *ctx) { (void)ctx; menu_audio_bank_load(); }
-static void sound_free(void *ctx) { (void)ctx; menu_audio_bank_free(); }
-static void music(void *ctx) { (void)ctx; menu_audio_music_service(); }
-static void music_feed(void *ctx) { (void)ctx; menu_audio_music_feed(); }
-static void music_start(void *ctx, const char *name) { (void)ctx; menu_audio_music_start(name); }
-static void music_fade_out(void *ctx) { (void)ctx; menu_audio_music_fade_out(); }
-static void music_end(void *ctx) { (void)ctx; menu_audio_music_end(); }
-static void music_cut(void *ctx) { (void)ctx; menu_audio_music_cut(); }
-static void music_fade_to(void *ctx, int32_t volume) { (void)ctx; menu_audio_music_fade_to(volume); }
-static void music_pick(void *ctx) { (void)ctx; menu_audio_music_pick(); }
-static void no_mode(void *ctx, int32_t mode) { (void)ctx, (void)mode; }
-static int32_t no_inverse(void *ctx, const char *name) { (void)ctx, (void)name; return 0; }
 /* 004baf44..: the codes' letters with 0x63 added, NUL after each; 004baf90..: each one's position, in
  * ControlCentral's order (00434d69..00434f93 pass them in pairs); LUNAR's (004baf7f, 004bafac) is not stepped there */
 static const uint8_t CHEAT_LETTERS[] = {
@@ -339,7 +316,6 @@ static int32_t pad_buttons(void *ctx)
     (void)ctx;
     return platform_joy_read(0, &buttons, axis) ? (int32_t)buttons : 0;
 }
-static int32_t scancode(void *ctx, int32_t c) { (void)ctx; return key_code((uint16_t)c); }
 
 /* config.dat's short at 00524df0 + at */
 static int16_t image_short(int at)
@@ -365,15 +341,11 @@ static void volumes_sync(void)
 
 static void race(void *ctx);  /* 00427ae0, below */
 
-static void palette_clear(void *ctx, uint8_t *rgb) { (void)ctx; palette_put_clear(rgb); }
 static void palette_set(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode)
 {
     (void)ctx;
     palette_put(rgb, first, count, src, mode, screen_palette);
 }
-static void fade_in(void *ctx, int32_t first, int32_t count, const uint8_t *rgb) { (void)ctx; video_fade_in(first, count, rgb); }
-static void fade_out(void *ctx, int32_t first, int32_t count) { (void)ctx; video_fade_out(first, count); }
-static void flip(void *ctx) { (void)ctx; video_flip(); }
 /* 00464a30: both pages black (screen_clear_both) */
 static void flush(void *ctx)
 {
@@ -381,22 +353,11 @@ static void flush(void *ctx)
     for (int i = 0; i < 2; i++) ea_select_default(), video_clear_back(), video_flip();
 }
 
-static void move_to(void *ctx, int32_t x, int32_t y) { (void)ctx; pointer_move_to(x, y); }
-static void mark(void *ctx) { (void)ctx; pointer_mark(); }
-static int32_t in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1) { (void)ctx; return pointer_in_rect(x0, x1, y0, y1); }
-static void show(void *ctx) { (void)ctx; pointer_show(); }
-static int32_t buttons(void *ctx) { (void)ctx; return pointer_read_buttons(); }
-static void activate(void *ctx) { (void)ctx; pointer_activate_if_moved(); }
-static void click(void *ctx) { (void)ctx; pointer_click_feedback(); }
-static void off(void *ctx) { (void)ctx; pointer_off(); }
 
-static int32_t ticks(void *ctx) { (void)ctx; return timer_ticks_since_last(); }
-static void deadline_set(void *ctx, int32_t time) { (void)ctx; timer_set_deadline(time); }
 /* The short 0050a5b6 is the link's stage word (0050a5ac[5], race_net_on_stage): a client's becomes 1 when the host
  * reaches 00410c18(1), and every screen of the menus leaves on it. The original's service thread keeps it current; here
  * each screen's loop calls its deadline op first, which serves the link and, for the screens that took the word by
  * value in their inputs, writes it there */
-static const int16_t *stage_word(void) { return &link_game.flags_a[RACE_NET_STAGE_FLAG]; }
 static int *stage_in;  /* the running screen's inputs' copy of it (results_screen.h, standings.h) */
 static int32_t deadline_passed(void *ctx)
 {
@@ -414,25 +375,7 @@ static int32_t key(void *ctx)
     return input_get_key();
 }
 
-static int32_t load_art(void *ctx, const char *name) { (void)ctx; return ea_bank_load(name); }
-/* 00476268: central passes the data path ("" here) and control/..., as 00466c34 takes it */
-static int32_t load_bank(void *ctx, const char *path, int32_t flags) { (void)ctx, (void)flags; return ea_bank_load(path); }
-static int32_t picture_new(void *ctx, int32_t w, int32_t h, int32_t flags) { (void)ctx, (void)flags; return ea_picture_new(w, h); }
-static void picture_free(void *ctx, int32_t picture) { (void)ctx; ea_picture_free(picture); }
-static const uint8_t *shape(void *ctx, int32_t bank, const char *tag) { (void)ctx; return ea_shape(bank, tag); }
-static int32_t picture_shape(void *ctx, int32_t picture) { (void)ctx; return ea_picture_shape(picture); }
-static void select_picture(void *ctx, int32_t picture) { (void)ctx; ea_select(picture); }
-static void select_default(void *ctx) { (void)ctx; ea_select_default(); }
-static void blit(void *ctx, const uint8_t *s) { (void)ctx; ea_blit_own(s); }
-static void blit_masked(void *ctx, const uint8_t *s) { (void)ctx; ea_blit_masked(s); }
-static void blit_word(void *ctx, int32_t s) { (void)ctx; ea_blit_own((const uint8_t *)(intptr_t)s); }
-static void frame(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t c) { (void)ctx; ea_frame(x0, y0, x1, y1, c); }
 
-static int32_t width(void *ctx, const char *text) { (void)ctx; return text_width(text); }
-static void style(void *ctx, int32_t s) { (void)ctx; text_select((TextStyle)s); }
-static void shadowed(void *ctx, const char *text, int32_t x, int32_t y) { (void)ctx; text_draw_shadowed(text, x, y); }
-static void text_at(void *ctx, const char *text, int32_t x, int32_t y) { (void)ctx; text_draw(text, x, y); }
-static void styles(void *ctx) { (void)ctx; text_build_styles(); }
 
 /* 004687d0's pointer: ctx is its DialogPointer */
 static void poll_pointer(void *ctx)
@@ -443,23 +386,12 @@ static void poll_pointer(void *ctx)
     pointer_position(&x, &y);
     p->x = x, p->y = y;
 }
-static void hide(void *ctx) { (void)ctx; video_set_overlay(NULL, 0, 0); }
 static void mark_at(void *ctx, DialogPointer *p)
 {
     (void)ctx;
     p->mark_x = (int16_t)p->x, p->mark_y = (int16_t)p->y;
     pointer_mark();
 }
-/* the screens with a DialogPointer as ctx: its short 00524790 set as 00441798, 00464088 and 00464060 set the one word */
-static void show_dialog(void *ctx) { pointer_show(), ((DialogPointer *)ctx)->active = pointer_active(); }
-static void activate_dialog(void *ctx) { pointer_activate_if_moved(), ((DialogPointer *)ctx)->active = pointer_active(); }
-static void off_dialog(void *ctx) { pointer_off(), ((DialogPointer *)ctx)->active = pointer_active(); }
-static void set_palette(void *ctx, int32_t first, int32_t count, const uint8_t *rgb) { (void)ctx; video_set_palette(first, count, rgb); }
-static void track_music(void *ctx, const char *name) { (void)ctx; menu_audio_track_music(name); }
-static void track_play(void *ctx) { (void)ctx; menu_audio_track_play(); }
-static void track_stop(void *ctx) { (void)ctx; menu_audio_track_stop(); }
-static void track_free(void *ctx) { (void)ctx; menu_audio_track_free(); }
-static void free_handle_inverse(void *ctx) { (void)ctx; }
 
 /* 004fbae0: a dword per track; 00437540 sets the nine to 1 (midday) as the game starts (00481f27) */
 static int32_t time_of_day[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
@@ -528,23 +460,17 @@ static void track_select(void *ctx)
     }
 }
 
-/* 0045cea0's text: 00463d34 as text_fit.c cuts it, 00466d5c / 00466e5c / 00466c9c as stat_text.c writes them */
-static int32_t fit_width(void *ctx, const char *text) { (void)ctx; return text_width(text); }
-static void fit_ramp(void *ctx, int shadow) { (void)ctx; text_ramp(shadow); }
-static void fit_draw(void *ctx, const char *text, int32_t x, int32_t y) { (void)ctx; text_draw(text, x, y); }
 static void fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
 {
     (void)ctx;
     static const TextFitOps ops = { fit_width, fit_ramp, fit_draw, NULL };
     text_fit_shadowed(text, x, y, width, &ops);
 }
-static void time_text(void *ctx, char *out, int32_t time) { (void)ctx; stat_time_text(out, time); }
 static void average_text(void *ctx, char *out, int32_t time, int32_t distance)
 {
     (void)ctx;
     stat_average_speed_text(out, resource_kmh(), time, distance);
 }
-static void speed_text(void *ctx, char *out, int32_t speed) { (void)ctx; stat_speed_text(out, resource_kmh(), speed); }
 
 /* 004676d8 from the track screen on config.dat's image and its records; ctx is the track screen's pointer */
 static int32_t best_times(void *ctx)
@@ -682,8 +608,6 @@ static void segment_results(void *ctx, int32_t mode) { (void)ctx; results(result
 static void track_results(void *ctx, int32_t ask) { (void)ctx; results(track_results_screen, &last_drive, ask); }
 static void circuit_results(void *ctx, int32_t ask) { (void)ctx; results(circuit_results_screen, &last_drive, ask); }
 
-/* 00461540 on the menus' game state and 0045b6c8's finishers */
-static void fade_out_bank(void *ctx, int32_t first, int32_t count, int32_t bank) { (void)bank; fade_out(ctx, first, count); }
 static void standings(void *ctx, int32_t segment)
 {
     (void)ctx;
@@ -706,9 +630,6 @@ static void standings(void *ctx, int32_t segment)
     standings_screen(segment, &in, &st, &p, &ops);
     stage_in = NULL;
 }
-static void clip(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1) { (void)ctx; ea_clip(x0, y0, x1, y1); }
-static void no_two(void *ctx, int32_t a, int32_t b) { (void)ctx, (void)a, (void)b; }
-static void no_three(void *ctx, int32_t a, int32_t b, int32_t c) { (void)ctx, (void)a, (void)b, (void)c; }
 static int32_t next_segment(void *ctx);
 /* 0047310c for 00427ae0's screen: the last one freed first (the original leaves it) */
 static int32_t race_picture(void *ctx, int32_t w, int32_t h, int32_t flags)
@@ -726,10 +647,6 @@ static void reset_tournament(void *ctx)
     settings_put(&s);
     extras_apply();   /* port: the tournament's start clears the variants; the switch comes back */
 }
-static void game_reset(void *ctx) { (void)ctx; glue_game_reset(); }
-/* 00428610 (cop_stop.c): cop1..3.tgv, or the ticket (german) */
-static void screen_file(void *ctx, const char *file, int32_t mode, int32_t one) { (void)ctx; show_screen(file, mode, one); }
-static void movie(void *ctx, const char *file) { (void)ctx; glue_intro_movie(file); }  /* 004419c0 */
 static int32_t pick(void *ctx)
 {
     static uint32_t rand_state;
@@ -826,13 +743,8 @@ static void credits_tick(void *ctx)
     credits_last = now;
     menu_audio_music_service();
 }
-static int32_t read_buttons(void *ctx) { (void)ctx; pointer_sync_from_os(); return pointer_read_buttons(); }
-static void blit_at(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_restore(s, x, y); }
-static void poll(void *ctx) { (void)ctx; pointer_sync_from_os(); }
 
 
-/* port: our dedication and credits pages after the original's, over the credits' music */
-static void credits_service(void) { menu_audio_music_service(); }
 static void credits_extra(void *ctx)
 {
     (void)ctx;
@@ -883,8 +795,6 @@ enum { CONTROLS_AT = 0x5f36 };
 static int16_t controls_kept[CONTROLS_SHORTS];
 static void controls_out(void) { memcpy(controls_kept, config_current()->image + CONTROLS_AT, sizeof controls_kept); }
 static void controls_in(void) { memcpy(config_current()->image + CONTROLS_AT, controls_kept, sizeof controls_kept); }
-static void grab(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_save(s, x, y); }
-static void key_name(void *ctx, int32_t k, char *out) { (void)ctx; key_name_text(out, resource_german(), k); }
 static int32_t clash(void *ctx)
 {
     (void)ctx;
@@ -901,8 +811,6 @@ static int32_t key_read(void *ctx)
         if (k <= PLATFORM_KEY_DOWN) return ARROWS[k];
     return input_next_char();
 }
-static int32_t keys_pending(void *ctx) { (void)ctx; return input_get_key(); }
-static int32_t capture_buttons(void *ctx) { (void)ctx; pointer_sync_from_os(); return pointer_read_buttons(); }
 static int32_t capture(void *ctx, char *name)
 {
     KeyCaptureState st = { pointer_active(), 0, 0, 0, 0 };
@@ -967,7 +875,6 @@ static int32_t controls_bgnd(void *ctx, uint8_t pixels[CONTROLS_BGND_W * CONTROL
 }
 static void own_subtitle_text(void *ctx, const char *text, int32_t x, int32_t y);
 static void own_note_text(void *ctx, const char *text, int32_t x, int32_t y);
-static int32_t plus_key_down(void *ctx, int32_t scancode) { (void)ctx; return platform_key_down(scancode); }
 static int32_t plus_key_name(void *ctx, int32_t scancode, char *out, size_t size)
 {
     (void)ctx;
@@ -1012,16 +919,7 @@ static void audio_track(void)
 }
 static int32_t audio_buttons(void *ctx) { (void)ctx; audio_track(); return pointer_read_buttons(); }
 static void audio_activate(void *ctx) { (void)ctx; audio_track(); pointer_activate_if_moved(); }
-static int32_t audio_clock(void *ctx) { (void)ctx; return (int32_t)timer_ticks(); }
-static void audio_volume(void *ctx, int32_t volume) { (void)ctx; menu_audio_music_fade_to(volume); }
-static void audio_track_music(void *ctx) { (void)ctx; menu_audio_music_track(); }
-static void audio_stop_4a(void *ctx) { (void)ctx; menu_audio_stop_4a(); }
-static int32_t audio_4a_done(void *ctx) { (void)ctx; return menu_audio_4a_done(); }
-static void audio_effects_volume(void *ctx, int32_t volume) { (void)ctx; menu_audio_effects_volume(volume); }
-static void audio_voice(void *ctx, int32_t voice, int32_t volume) { (void)ctx; menu_audio_voice_volume(voice, volume); }
 static int32_t audio_effects(void *ctx) { (void)ctx; return image_short(0x79); }
-static void audio_blit_at(void *ctx, const uint8_t *s, int32_t x, int32_t y) { (void)ctx; ea_blit_at(s, x, y); }
-static void audio_clip(void *ctx, int32_t l, int32_t r, int32_t t, int32_t b) { (void)ctx; video_set_clip(l, r, t, b); }
 
 /* 004015dc from Options (mode 0) on config.dat's image: the card 0049212c(-1) answers is the port's mixer, 16-bit
  * stereo with no modes to choose (bit 0 set, bit 1 clear), so neither the mode nor 3D sound is offered and the mode
@@ -1063,7 +961,6 @@ static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, 
     text_select((TextStyle)style_id);
     text_draw_smooth(text, x, y, 1, 1);
 }
-static int32_t plus_text_width(void *ctx, const char *text) { (void)ctx; return text_width(text); }
 
 static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
@@ -1361,15 +1258,7 @@ static uint8_t game_kept[GAME_LIST_STATE];
 static uint8_t replay_race[LOAD_SAVE_RACE];
 static int16_t replay_kind;  /* config.dat's short 00524e9f, aligned while 0042c498 runs */
 
-/* 0042ae9c's calls on the player's directory (save_files.h): no directories to change into */
-static void no_cwd(void *ctx, char *out) { (void)ctx; out[0] = 0; }
-static void no_chdir(void *ctx, const char *path) { (void)ctx, (void)path; }
-static const char *find_first(void *ctx, const char *pattern) { (void)ctx; return save_files_first(pattern); }
-static const char *find_next(void *ctx) { (void)ctx; return save_files_next(); }
-static void masked_at(void *ctx, const uint8_t *s, int32_t x, int32_t y) { (void)ctx; ea_blit_masked_at(s, x, y); }
-static void remove_save(void *ctx, const char *path) { (void)ctx; save_files_remove(path); }
 static void game_load(void *ctx, const char *name) { (void)ctx; game_file_load(name, game_state, &save_files_ops); }
-static void redraw_pointer(void *ctx) { (void)ctx; pointer_show(); }
 
 /* 0042ae9c on config.dat's image and the menus' game state */
 static int32_t game_list(void *ctx, int32_t mode)
@@ -1391,8 +1280,6 @@ static void save_box(void *ctx, char *name)
     (void)ctx;
     glue_save_box(name, config_current()->image, game_state, (int16_t)g.lost_vegas);
 }
-static void replay_box(void *ctx, char *name) { (void)ctx; glue_replay_box(name, config_current()->image); }
-static void clear_one(void *ctx) { (void)ctx; ea_select_default(), video_clear_back(), video_flip(); }
 /* 004275f8 for a replay (0042c498's eax 2): config.dat's name 00524e2b, played as kind 00524e9f asks (1 the
  * replay from the start, 0044f534(4); 2 the highlights, 5), the player's file else the CD's; in the menus' window
  * with their volumes and no game state to write */
@@ -1418,7 +1305,6 @@ static void replay(void *ctx, int32_t mode, const char *path)
     menu_audio_open();
     platform_free_file(file);
 }
-static void no_mode_set(void *ctx, int32_t w, int32_t h, int32_t bits) { (void)ctx, (void)w, (void)h, (void)bits; }
 
 /* 0042c498 from Options (mode 0) on config.dat's image, its shorts copied around it to aligned ones */
 static void load_save(void *ctx, int32_t mode)
@@ -1484,7 +1370,6 @@ static void load_save2(void *ctx, int32_t mode)
     g.unlock_level = (int16_t)config_dat_unlock_level(config);
     races_from_state();
 }
-static void save_config(void *ctx) { (void)ctx; config_save(); }
 
 /* check_options (00403760) on config.dat's image (the sub-screens' shorts taken from it first): the options after a race, mode
  * 0 from 0040b648, 1 from 0040c710 */
@@ -1513,7 +1398,6 @@ void glue_race_option(uint32_t address)
     else if (address == 0x423d28) graphics(NULL, 1);
 }
 
-static void after_options(void *ctx, int32_t mode) { (void)ctx; glue_check_options(mode); }
 
 enum { REPLAY_FLAG_AT = 0xaf };
 
@@ -1532,13 +1416,6 @@ static AfterRaceState after_race_state(void)
         game_state, cars };
 }
 
-/* 0040a5d8's ops: one thread, so the lines' lock is always free; no joystick, no keyboard layouts to switch */
-static int32_t lines_free(void *ctx, uint32_t lock) { (void)ctx, (void)lock; return 1; }
-static void lines_done(void *ctx, uint32_t lock) { (void)ctx, (void)lock; }
-static int32_t no_joystick(void *ctx) { (void)ctx; return 0; }
-static void restore(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_restore(s, x, y); }
-/* 0047380c: 004737d0 less the shape's own origin, which a picture's shape (all chat shows) has at 0, 0 */
-static void show_at(void *ctx, int32_t s, int32_t x, int32_t y) { (void)ctx; ea_restore(s, x, y); }
 static void chat_send(void *ctx, int32_t link, const uint8_t *message, int32_t size)
 {
     (void)ctx;
@@ -1546,7 +1423,6 @@ static void chat_send(void *ctx, int32_t link, const uint8_t *message, int32_t s
 }
 /* 004735dc draws chat's screen straight onto the shown page (it never flips): here onto the back buffer, which is
  * shown before the pointer goes over it */
-static void chat_shown(void *ctx) { (void)ctx, video_flip(), pointer_show(); }
 static void chat_in(void *ctx, int32_t link, const uint8_t *message, int32_t size)
 {
     (void)ctx, (void)size;
@@ -1595,9 +1471,6 @@ static void after_race(void *ctx)
     memcpy(config_current()->image + REPLAY_FLAG_AT, &replay_kind, sizeof replay_kind);
 }
 
-/* 00410b7c and 00410c18: the link's deadline and the wait for the others (link_central.h) */
-static void deadline(void *ctx, int32_t ticks) { (void)ctx, link_deadline(ticks); }
-static int32_t all_came(void *ctx, int32_t stage) { (void)ctx; return link_wait((int16_t)stage); }
 
 /* 0040b648 for 00427ae0: the checkpoint menu between segments, 0 to stop the tournament's run */
 static int32_t next_segment(void *ctx)
