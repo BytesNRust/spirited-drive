@@ -1,5 +1,5 @@
 /* `--drive`'s race palette, built as 00455a5c builds it from the parts that
- * are ported (see STATE.md, Race palette): the track's colours at 0x90, the
+ * are ported (see the RE notes in the private workshop repo, Race palette): the track's colours at 0x90, the
  * cars' (004572e0), the dashboard's 0..0x2f (0041f988), the colour search's entries (0041f818's first part),
  * each car's banks (004574ec) and the track's banks (00446fd0) mapped onto
  * it in place, then the queued banks (00447098); the mask bank's colours (0xf0.., 00450838) and

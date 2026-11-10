@@ -2,7 +2,7 @@
  * texture of each ceiling lamp; the PS1 keeps the lamp itself bright. A lamp is a texture of the track (a slot of the track's TRKD
  * texture bytes, id * 3 + 0..2) and, inside it, a few palette entries (the fitting's colours): in that texture only, those entries
  * are not darkened. The palette entries are the PC's and are shared with the sky and the windows, so the texture is the key, never the
- * entry alone. Found by tnfs-decomp's helper from the PC tracks' textures; no PS1 data is used. */
+ * entry alone. Found by a helper script from the PC tracks' textures; no PS1 data is used. */
 #ifndef TNFS_PSX_LAMPS_H
 #define TNFS_PSX_LAMPS_H
 
