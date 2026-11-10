@@ -257,7 +257,7 @@ static void car_tunnel_look(const PsxLight *light, uint32_t node, int match, flo
         psx_light_zone_look_at(light, zone, &percent, cast);
         const float lamp_gap = (float)PSX_SYNTH_LAMP_GAP_PERCENT / 100.0f;
         const float dark = 1.0f - (float)d / (float)PSX_SYNTH_LOOK_RAMP;
-        const float gap = match >= 1 ? (float)PSX_SYNTH_LAMP_GAP_SMOOTH_PERCENT / 100.0f : (node & 1u) ? lamp_gap : 1.0f;   /* port (car_tunnel_match): a fixed smoothed gap, the same under a lamp and between */
+        const float gap = (node & 1u) ? (match >= 1 ? (float)PSX_SYNTH_LAMP_GAP_SMOOTH_PERCENT / 100.0f : lamp_gap) : 1.0f;   /* port (car_tunnel_match): the alternation kept, soft: 1.0 under a lamp, the smoothed gap (75%) between two */
         const float road = psx_light_road_light(light, node);   /* the look is a table's gain; how lit the place is comes from its rows: the car never has more than the road around it */
         const float cap = (float)PSX_LIGHT_TUNNEL_ROAD / (float)PSX_LIGHT_FULL;
         const float inside = road >= 1.0f ? 0.0f : road <= cap ? 1.0f : (1.0f - road) / (1.0f - cap);   /* how far in the road's own darkening says the car is: the open road 0, a tunnel's 1 */

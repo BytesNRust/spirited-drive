@@ -72,7 +72,7 @@ static void test_look_tunnel(void)
 }
 
 /* port (car_tunnel_match): the car's light in a tunnel with a look against the world's at the same tunnel_tone. The rows give a dimmed road (100 / 255) in the tunnel; level 0 is the 7-Nov
- * formula, 1 divides by the night's tint mean, takes full light's share (1.0) in place of the road's and a fixed 0.85 gap under a lamp and between */
+ * formula, 1 divides by the night's tint mean, takes full light's share (1.0) in place of the road's and keeps the lamp alternation soft: 1.0 under a lamp (even node), 0.75 between two (odd) */
 static void test_car_tunnel_match(void)
 {
     enum { N = 64 };
@@ -82,7 +82,7 @@ static void test_car_tunnel_match(void)
     PsxLight light = { 0 };
     light.nodes = N, light.tunnel = tunnel, light.data = data, light.look_set = 1, light.look_light = 100.0;
     light.look_cast[0] = light.look_cast[1] = light.look_cast[2] = 1.0f;
-    const float road = 100.0f / 255.0f, mean = 0.5f, gap = 0.85f;
+    const float road = 100.0f / 255.0f, mean = 0.5f, dark_gap = 0.75f;
     float out[3], old[3];
     psx_light_synth_car_tunnel(&light, 30, old);
     CHECK(fabsf(old[0] - road) < 1e-5f);   /* the 7-Nov car: tunnel_tone x the road's share */
@@ -90,14 +90,17 @@ static void test_car_tunnel_match(void)
         psx_light_synth_car_tunnel_match(&light, node, 0, mean, out);
         psx_light_synth_car_tunnel(&light, node, old);
         CHECK(memcmp(out, old, sizeof out) == 0);   /* level 0 is that, whatever the tint */
-        psx_light_synth_car_tunnel_match(&light, node, 1, mean, out);   /* the world's gain, full light's share, the same gap under a lamp and between */
+        psx_light_synth_car_tunnel_match(&light, node, 1, mean, out);   /* the world's gain, full light's share, the soft alternation: 1.0 under a lamp, 0.75 between */
+        const float gap = (node & 1u) ? dark_gap : 1.0f;
         CHECK(fabsf(out[0] - gap / mean) < 1e-4f && fabsf(out[1] - out[0]) < 1e-6f);
     }
     light.look_light = 300.0;   /* above full light: 3 x, the excess coming in with the road's darkening as the world's does */
     psx_light_synth_car_tunnel_match(&light, 30, 1, mean, out);
-    CHECK(fabsf(out[0] - 3.0f * gap / mean) < 1e-3f);
+    CHECK(fabsf(out[0] - 3.0f / mean) < 1e-3f);
+    psx_light_synth_car_tunnel_match(&light, 31, 1, mean, out);
+    CHECK(fabsf(out[0] - 3.0f * dark_gap / mean) < 1e-3f);
     psx_light_synth_car_tunnel_match(&light, 30, 1, 0.0f, out);   /* no tint to divide by: none divided */
-    CHECK(fabsf(out[0] - 3.0f * gap) < 1e-3f);
+    CHECK(fabsf(out[0] - 3.0f) < 1e-3f);
     psx_light_synth_car_tunnel_match(&light, 10, 1, mean, out);   /* the open road and the far side are 1 */
     CHECK(out[0] == 1.0f && out[1] == 1.0f && out[2] == 1.0f);
     psx_light_synth_car_tunnel_match(&light, 50, 1, mean, out);

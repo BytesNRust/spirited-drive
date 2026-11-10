@@ -20,7 +20,7 @@ enum {
     PSX_SYNTH_FLAG_TUNNEL = 1,       /* psx_light_synth_tunnels' flag of a tunnel's node */
     PSX_SYNTH_FLAG_HALL = 2,         /* and of a hall's: not darkened (the pours, the girders keep their light) but the cars and the dash take the lamp alternation */
     PSX_SYNTH_LOOK_RAMP = 6,         /* the nodes outside a tunnel's mouth over which a car takes its zone's look (psx_light_synth_car_tunnel with a look): the weather's mouth, WEATHER_MOUTH_NODES */
-    PSX_SYNTH_LAMP_GAP_SMOOTH_PERCENT = 85, /* port (car_tunnel_match 2): the smoothed gap, a fixed level: the unlit open road at night is the level of a tunnel_tone of about 100 (measured, CY1N), so between two lamps the car is never below it */
+    PSX_SYNTH_LAMP_GAP_SMOOTH_PERCENT = 75, /* port (car_tunnel_match): the smoothed gap between two lamps (odd nodes; 1.0 under one): the alternation stays, the dark part at 75 in place of 40 (owner, i173), so between two lamps the car is not far below the unlit open road at night, which is the level of a tunnel_tone of about 100 (measured, CY1N) */
     PSX_SYNTH_LAMP_GAP_PERCENT = 40, /* a tunnel's lamp alternation: the car between two lamps (odd nodes) has this percent of the light it has under one (even nodes) */
     PSX_SYNTH_CAR_RAMP = 3,          /* the nodes outside a tunnel's mouth over which the car's light comes back (psx_light_synth_car_tunnel) */
     PSX_SYNTH_HALL_POINT = 4,        /* the row point the car's alternation reads (psx_light_synth_car) */
@@ -113,7 +113,7 @@ void psx_light_synth_car_tunnel(const PsxLight *light, uint32_t node, float out[
 
 /* port (car_tunnel_match): psx_light_synth_car_tunnel with the car matched to the world's light at the same tunnel_tone, for a light with a look. `match` 0 is the function above; 1 the world's
  * gain (the look over `mean`, the night's tint mean, as psx_light_tunnel_look gives the tables; a mean under 0.05 divides nothing), the car's share of the light full light's (the road's
- * PSX_LIGHT_TUNNEL_ROAD scaled up to PSX_LIGHT_FULL inside the tunnel) and the lamp gap a fixed PSX_SYNTH_LAMP_GAP_SMOOTH_PERCENT under a lamp and between. The open road is 1. */
+ * PSX_LIGHT_TUNNEL_ROAD scaled up to PSX_LIGHT_FULL inside the tunnel) and the lamp alternation kept soft: 1.0 under a lamp, PSX_SYNTH_LAMP_GAP_SMOOTH_PERCENT between two. The open road is 1. */
 void psx_light_synth_car_tunnel_match(const PsxLight *light, uint32_t node, int match, float mean, float out[3]);
 
 #endif
