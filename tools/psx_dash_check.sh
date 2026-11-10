@@ -8,6 +8,8 @@ here=${0:a:h}
 bin=${1:?usage: psx_dash_check.sh BUILD}/tnfs
 data=${TNFS_DATA:-$PWD/original}
 work=$(mktemp -d)
+# the player's folder is this run's own: a tnfs with no --user would write its log, settings and replay in the real one
+export TNFS_PREF_DIR=$work/pref
 mkdir -p $work/mods/user $work/psx
 python3 $here/psx_lgs_synthetic.py $work/psx/ZAL1A.LGS 64 64 64
 python3 $here/psx_light_synthetic.py $work/psx/ZAL1A.LGT 2080 full

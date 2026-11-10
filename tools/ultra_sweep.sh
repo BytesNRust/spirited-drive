@@ -71,7 +71,7 @@ for row in $POINTS; do
     for ultra in 1 0; do
       name=${track}_${point}_u${ultra}
       ppm=$out/$name.ppm
-      TNFS_VIEW_ULTRA=$ultra TNFS_VIEW=$view TNFS_SCREEN=4:3 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
+      TNFS_PREF_DIR=$out/pref TNFS_VIEW_ULTRA=$ultra TNFS_VIEW=$view TNFS_SCREEN=4:3 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
         timeout -k 5 $secs $bin --drive $track --entry $entry $car_args --screenshot $ppm \
         >$out/$name.log 2>&1
       if [[ ! -s $ppm ]]; then

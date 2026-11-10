@@ -39,6 +39,8 @@ if [[ ! -d $data ]]; then print -u2 -- "frame_compare.sh: no data in $data"; exi
 
 if [[ -n $keep ]]; then tmp=${keep:a}; mkdir -p $tmp || exit 1
 else tmp=$(mktemp -d -t frame_compare.XXXXXX) || exit 1; trap 'rm -rf $tmp' EXIT INT TERM; fi
+# the player's folder is this run's own: a tnfs with no --user would write its log, settings and replay in the real one
+export TNFS_PREF_DIR=$tmp/pref
 
 # one picture: render TRACK VIEW FORMAT LOOK "ENV words" OUT.ppm
 render() {
