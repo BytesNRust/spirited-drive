@@ -88,7 +88,7 @@
 #include <time.h>
 
 /* the globals 00432ff4 writes (central.h gives each address) */
-static struct {
+typedef struct {
     int16_t race_type, opponent, track, player_car, other_car[8], net_car, laps, difficulty;
     int16_t car_flag_a, car_flag_b, variant;
     int16_t volumes[3], tournament, unlock_level, races[9];
@@ -97,7 +97,8 @@ static struct {
     int32_t art[7];
     int16_t nomercy, warrior, net_hover, net_self, net_second, letter_held, buttons;
     int32_t explode, inverse, nitro;
-} g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
+} CentralGlobals;
+static CentralGlobals g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
 
 enum { SEGMENT_AT = 0x93 };                         /* 00524e83: a stage's segment, 0..2 (00427ae0's run) */
 enum { OPTIONS_AT = 0x81 };                        /* 00524e71: the five option words the race takes and gives back */
