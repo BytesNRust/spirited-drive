@@ -9,6 +9,7 @@
 #ifndef TNFS_TRACK_TABLES_H
 #define TNFS_TRACK_TABLES_H
 
+#include "game/exe/exe_table_const.h"
 #include <stdint.h>
 
 enum {
@@ -44,13 +45,13 @@ typedef struct {
     uint8_t rows_done;  /* nonzero after the last polygon of a row band */
 } TrackPolygon;
 
-extern const uint8_t TRACK_LOD_BY_DISTANCE[TRACK_PROPERTIES][TRACK_LOD_DISTANCES];
-extern const TrackLod TRACK_LODS[TRACK_LOD_COUNT];
-extern const TrackUv TRACK_UVS[TRACK_UV_COUNT];
-extern const TrackPolygon TRACK_POLYGONS[TRACK_POLYGON_COUNT];
-extern const uint8_t TRACK_VARIANT_NEAR[TRACK_VARIANT_ROWS];
-extern const uint8_t TRACK_VARIANT_FAR[TRACK_VARIANT_ROWS];
-extern const int32_t TRACK_SUBDIVIDE_Z[TRACK_SUBDIVIDE_LEVELS];
+extern EXE_TABLE_CONST uint8_t TRACK_LOD_BY_DISTANCE[TRACK_PROPERTIES][TRACK_LOD_DISTANCES];
+extern EXE_TABLE_CONST TrackLod TRACK_LODS[TRACK_LOD_COUNT];
+extern EXE_TABLE_CONST TrackUv TRACK_UVS[TRACK_UV_COUNT];
+extern EXE_TABLE_CONST TrackPolygon TRACK_POLYGONS[TRACK_POLYGON_COUNT];
+extern EXE_TABLE_CONST uint8_t TRACK_VARIANT_NEAR[TRACK_VARIANT_ROWS];
+extern EXE_TABLE_CONST uint8_t TRACK_VARIANT_FAR[TRACK_VARIANT_ROWS];
+extern EXE_TABLE_CONST int32_t TRACK_SUBDIVIDE_Z[TRACK_SUBDIVIDE_LEVELS];
 enum { TRACK_SUBDIVIDE_MAX = 2 };  /* 004b9590 */
 
 #endif

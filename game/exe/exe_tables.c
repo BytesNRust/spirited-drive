@@ -70,3 +70,30 @@ int exe_tables_load_dir(const char *data_root, ExeTables *out, char *err, size_t
     free(buf);
     return rc;
 }
+
+int exe_tables_install(const char *data_root, char *err, size_t errsz)
+{
+#ifdef TNFS_EXE_TABLES_FROM_EXE
+    ExeTables *t = calloc(1, sizeof *t);
+    if (!t) {
+        if (err && errsz) snprintf(err, errsz, "out of memory reading the exe's tables");
+        return -1;
+    }
+    int rc = 0;
+#ifdef TNFS_SOURCE_DIR
+    const char *const poison = getenv("TNFS_EXE_TABLES_POISON");
+    if (poison && poison[0] && poison[0] != '0') {
+        exe_tables_publish(t);
+        free(t);
+        return 0;
+    }
+#endif
+    rc = exe_tables_load_dir(data_root, t, err, errsz);
+    if (rc == 0) exe_tables_publish(t);
+    free(t);
+    return rc;
+#else
+    (void)data_root; (void)err; (void)errsz;
+    return 0;
+#endif
+}

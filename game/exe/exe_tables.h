@@ -81,4 +81,14 @@ int exe_tables_load(const uint8_t *exe, size_t len, const char *where, ExeTables
  * overlay: a mod cannot swap the exe). The messages say when the file is missing, unreadable, or not the PC SE's. */
 int exe_tables_load_dir(const char *data_root, ExeTables *out, char *err, size_t errsz);
 
+/* Start-up: reads the tables from `<data_root>/NFS_WIN.EXE` and publishes them into the arrays the port reads (a build with
+ * TNFS_EXE_TABLES_FROM_EXE; in the other builds the tables are in the source and this does nothing). 0 or -1 with a message
+ * that tells the player what to do. Before any thread, and before anything reads a table; calling it again re-reads and
+ * re-publishes the same. A development build (TNFS_SOURCE_DIR) with TNFS_EXE_TABLES_POISON=1 publishes zeros instead and
+ * reads no exe: what the tests that depend on the exe are found by. */
+int exe_tables_install(const char *data_root, char *err, size_t errsz);
+
+/* Copies a loaded set into the arrays (exe_tables_store.c: only in a TNFS_EXE_TABLES_FROM_EXE build). */
+void exe_tables_publish(const ExeTables *t);
+
 #endif
