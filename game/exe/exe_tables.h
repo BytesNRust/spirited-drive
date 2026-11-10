@@ -61,4 +61,8 @@ typedef struct {
     char config_name[3][EXE_NAME_MAX];
 } ExeTables;
 
+/* the extractors of the families whose files are in this directory (see the header's top for their contract) */
+int exe_tables_menu(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
+int exe_tables_config(const ExeImage *img, ExeTables *t, char *err, size_t errsz);
+
 #endif
