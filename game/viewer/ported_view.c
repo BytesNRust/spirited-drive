@@ -1,85 +1,30 @@
-#include "viewer/ported_view.h"
-#include "game/race/car_progress.h"
-#include "game/race/race_chase.h"
-#include "game/sys/fixed_math.h"
 #include "game/sys/bands.h"
 #include "game/gfx/raster_record.h"
 
-#include "game/gfx/quad.h"
-#include "game/race/horizon.h"
-#include "game/race/police_lights.h"
-#include "game/race/sky_ring.h"
 #include "game/race/sky_stretch.h"
-#include "game/race/track_render.h"
-#include "game/gfx/sprite_scaled.h"
-#include "game/race/view.h"
-#include "game/viewer/cone_cells.h"
-#include "game/race/track_fence.h"
-#include "game/race/track_object_draw.h"
-#include "game/race/reflector.h"
-#include "game/race/trail_rise.h"
-#include "game/race/track_mask.h"
 #include "game/viewer/reflect_pass.h"
 #include "game/viewer/street_halo.h"
 #include "game/viewer/view_lamps.h"
 #include "game/viewer/view_screen.h"
-#include "game/viewer/car_lamp_halo.h"
-#include "game/viewer/weather_sky.h"
 #include "game/viewer/weather_hooks.h"
 #include "game/viewer/screen_layout.h"
-#include "game/race/car_draw.h"
 #include "game/race/car_road.h"
-#include "game/race/car_shadow.h"
-#include "game/race/car_tag.h"
-#include "game/race/car_lights.h"
-#include "game/race/psx_lgs.h"
-#include "game/race/psx_light_synth.h"
-#include "game/race/car_body_draw.h"
-#include "game/race/car_render.h"
-#include "game/gfx/x86_int.h"
 #include "game/race/car_wheels.h"
-#include "game/gfx/flat.h"
-#include "game/race/model_draw.h"
-#include "game/race/row_cars.h"
-#include "game/race/skid_marks.h"
 #include "game/race/tyre_smoke.h"
-#include "game/race/dust_trail.h"
-#include "game/race/rally_gravel.h"
 #include "game/race/weather_snow.h"
-#include "game/race/rain_roll.h"
-#include "game/race/snow_roll.h"
-#include "game/viewer/follow_arm.h"
 #include "game/viewer/follow_behind.h"
-#include "viewer/horizon_smooth.h"
-#include "viewer/modern_look.h"
-#include "viewer/modern_road.h"
-#include "viewer/object_sink.h"
 #include "viewer/body_shine.h"
-#include "game/sys/port_settings.h"
-#include "game/viewer/drive_audio.h"
-#include "viewer/soft_shadow.h"
-#include "viewer/raster.h"
-#include "viewer/sky_smooth.h"
 #include "viewer/psx_sky_draw.h"
-#include "viewer/drive_light.h"
-#include "viewer/drive_lamps.h"
-#include "game/race/lamp_emissive.h"
-#include "game/race/lamp_flare.h"
 #include "game/sys/port_log.h"
-#include "game/sys/palette.h"
 #include "viewer/weather_draw.h"
 #include "viewer/wiper_draw.h"
-#include "game/race/wiper.h"
 #include "viewer/drive_light.h"
-#include "game/race/weather.h"
-#include "game/race/race_sim.h"
 #include "viewer/view_spray.h"
-#include "viewer/view_rain.h"
 #include "viewer/view_cars.h"
 #include "viewer/view_light.h"
 #include "viewer/view_tables.h"
+#include "viewer/view_sky.h"
 #include "viewer/view_weather.h"
-#include "viewer/view_shared.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -355,52 +300,6 @@ void smoke_draw(void *ctx, int in_car)
 }
 
 
-typedef struct {
-    const QuadTarget *quad;        /* the box (a band's rows of it when banded) */
-    const RasterTarget *raster;
-    const HorizonSmooth *smooth;   /* port: EXTRAS' Texture Filter on the ring's slices (sky_smooth.h), NULL off */
-    const QuadTarget *full;        /* port (render bands): the whole box, for the draws whose edges a narrowed clip would move */
-    int banded, top, bottom;       /* and, when banded, the rows this band stores */
-} SkyTargets;
-
-/* 004f9e98 = 00425520 -> 004252ec */
-static void sky_triangle(void *user, const FshEntry *texture, const int32_t uv[6], const int32_t screen[6])
-{
-    const SkyTargets *t = user;
-    if (t->smooth != NULL && !transparent(texture)) sky_smooth_triangle(t->smooth, t->quad, texture, uv, screen);
-    else tri_draw(t->quad, texture, uv, screen, transparent(texture));
-}
-
-static void sky_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uint8_t colour)
-{
-    const SkyTargets *t = user;
-    if (t->banded) {   /* a rectangle's rows: the band's part of it */
-        const int64_t y0 = y < t->top ? t->top : y, y1 = (int64_t)y + h > t->bottom ? t->bottom : (int64_t)y + h;
-        if (y1 <= y0) return;
-        y = (int32_t)y0, h = (int32_t)(y1 - y0);
-    }
-    raster_fill(t->raster, x, y, w, h, t->smooth != NULL ? t->smooth->map[colour] : colour);   /* port: the PS1 / PC alt sky's bitmap index is of its own palette */
-}
-
-/* 00484389 */
-static void sky_polygon(void *user, uint8_t colour, const int32_t points[8])
-{
-    const SkyTargets *t = user;
-    const uint8_t shown = t->smooth != NULL ? t->smooth->map[colour] : colour;
-    if (t->banded) flat_polygon_rows(t->full, shown, 4, points, t->top, t->bottom);
-    else flat_polygon(t->quad, shown, 4, points);
-}
-
-static int sky_off;  /* 004fb786 */
-
-/* 004fbad8, the race's: the "m" tracks drawn turned over (004496ac, 00449f0c, 0043ae64, 0043b298) */
-static int view_mirrored(void) { return shadow_race != NULL && shadow_race->mirrored != 0; }
-
-void ported_view_set_sky_off(int off)
-{
-    sky_off = off;
-}
-
 int32_t anim_tick;  /* 00513e70 */
 
 void ported_view_set_tick(int32_t tick)
@@ -420,71 +319,6 @@ void ported_view_near_dir(int32_t out[3])
     memcpy(out, last_near_dir, sizeof last_near_dir);
 }
 
-static SkyRing sky_ring;   /* built once a frame by the caller, read by every band */
-
-static void draw_sky_ring(const SkyTargets *targets, const View *view, const FshEntry *horz, const TrackInfo *info,
-                          const TrackCamera *cam, int32_t yaw, int32_t roll)
-{
-    const SkyRing *ring = &sky_ring;
-    const int32_t rs = view_viewport.render_scale > 0 ? view_viewport.render_scale : 1;
-    SkyFrame frame = { view, cam->matrix, { 0 }, yaw, roll, view_mirrored(), SKY_WORLD_SHIFT, 0, { 0 },
-                       { view_viewport.scale, view_viewport.width, view_viewport.sky_left, view_viewport.sky_top, view_viewport.sky_width,
-                         view_viewport.sky_height }, view_screen_w / rs, view_screen_w, 0, sky_off, 1, rs };   /* port: wide fields, render scale */
-    for (int i = 0; i < 3; i++) frame.position[i] = -cam->position[i] >> SKY_POSITION_SHIFT;
-    horizon_point(view, WORLD_SHIFT, yaw, cam->matrix, frame.horizon);
-    const SkySink sink = { (void *)targets, sky_triangle, sky_fill, sky_polygon };
-    sky_ring_draw(ring, info, &frame, horz, &sink);
-}
-
-/* port (render bands): the view's clear and the sky, one band's rows of them (everything they read is built before) */
-typedef struct {
-    uint8_t *pixels;
-    const QuadTarget *quad;
-    const RasterTarget *target;
-    const View *view;
-    const HorizonTables *horizon;
-    const ClipRect *clip;
-    const TrackArt *art;
-    const TrackInfo *info;
-    const TrackCamera *cam;
-    const PortedCamera *pc;
-    const HorizonSmooth *smooth;
-    const FshEntry *horz;      /* the flat horizon's bitmap: the track's, or the PS1 sky's */
-    const FshEntry *ring_horz; /* the ring's: the track's, or the alternative sky's */
-    int32_t box_left, box_right, line;
-    int ring, flat, banded;
-} SkyStage;
-
-static void sky_stage_band(void *user, int top, int bottom)
-{
-    const SkyStage *st = user;
-    for (int32_t y = top; y < bottom; y++) {   /* 0044cc74 clears nothing; the view only, for the frames without one */
-        const int32_t x0 = st->box_left < 0 ? 0 : st->box_left, x1 = st->box_right > view_screen_w ? view_screen_w : st->box_right;
-        if (x1 > x0) memset(st->pixels + (size_t)y * view_screen_w + x0, 0, (size_t)(x1 - x0));
-    }
-    QuadTarget quad = *st->quad;   /* the box's rows this band owns */
-    ClipRect clip = *st->clip;
-    if (st->banded) {
-        if (top > quad.clip_top) quad.clip_top = top, clip.y0 = top;
-        if (bottom < quad.clip_bottom) quad.clip_bottom = bottom, clip.y1 = bottom;
-        if (quad.clip_top >= quad.clip_bottom) return;
-    }
-    if (st->ring) {  /* the circuits' 3D ring */
-        const SkyTargets targets = { &quad, st->target, st->smooth, st->quad, st->banded, top, bottom };
-        draw_sky_ring(&targets, st->view, st->ring_horz, st->info, st->cam, st->pc->yaw, st->pc->roll);
-    } else if (st->flat) {
-        const HorizonTarget ht = { st->pixels, view_screen_w };
-        if (st->smooth != NULL) {  /* the magnified flat sky blended */
-            horizon_draw_flat_smooth(st->smooth, st->horizon, &ht, &clip, st->horz, st->pc->yaw, view_mirrored(),
-                                     sky_off, st->line);
-        } else if (st->banded) {  /* the box is the whole clip's, only the stores are the band's */
-            horizon_draw_flat_rows(st->horizon, &ht, st->clip, st->horz, st->pc->yaw, view_mirrored(), sky_off,
-                                   st->line, top, bottom);
-        } else {
-            horizon_draw_flat(st->horizon, &ht, &clip, st->horz, st->pc->yaw, view_mirrored(), sky_off, st->line);
-        }
-    }
-}
 
 /* The track from `cam`, with the car (set by ported_view_set_car) at `pose` drawn with the row of `car_node`; car_node -1 leaves it out. */
 static void ported_view_render_from(const Tri *tri, const TrackArt *art, const TrackInfo *info, const PortedCamera *pc,
