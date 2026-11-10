@@ -567,6 +567,8 @@ add_executable(tnfs
     game/viewer/drive_mirror.c
     game/viewer/modern_road.c
     game/viewer/cone_cells.c
+    game/viewer/tunnel_cells.c
+    game/viewer/tunnel_cells_draw.c
     game/viewer/modern_look.c
     game/viewer/weather_draw.c
     game/viewer/wiper_draw.c
@@ -752,6 +754,11 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_link_libraries(test_cone_cells PRIVATE tnfs_game)
     target_compile_options(test_cone_cells PRIVATE ${TNFS_WARNINGS})
     add_test(NAME cone_cells COMMAND test_cone_cells)
+    add_executable(test_tunnel_cells tests/test_tunnel_cells.c game/viewer/tunnel_cells.c)
+    target_include_directories(test_tunnel_cells PRIVATE game)
+    target_link_libraries(test_tunnel_cells PRIVATE tnfs_game)
+    target_compile_options(test_tunnel_cells PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME tunnel_cells COMMAND test_tunnel_cells)
     add_executable(test_weather_draw tests/test_weather_draw.c game/viewer/weather_draw.c)
     target_include_directories(test_weather_draw PRIVATE game)
     target_link_libraries(test_weather_draw PRIVATE tnfs_game)

@@ -38,7 +38,7 @@ static void test_a_lamp_strip_gives_a_lamp_each_even_node(void)
     CHECK(fabsf(out[0].spacing - 10.0f) < 0.01f);
 }
 
-static void test_two_strips_meet_in_the_middle_and_no_lamp_is_none(void)
+static void test_one_lamp_each_side_and_none_without_a_lamp_strip(void)
 {
     TrackSegment seg;
     straight(&seg, 0);
@@ -48,8 +48,10 @@ static void test_two_strips_meet_in_the_middle_and_no_lamp_is_none(void)
     memcpy(next, &seg.rows[3][0], sizeof next);
     const uint8_t slots[1] = { 20 };
     TunnelLamp out[4];
-    CHECK_EQ_INT((int)tunnel_lamps_in_segment(&seg, next, 0, slots, 1, out, 4), 2);
-    CHECK(fabsf(out[0].x) < 0.01f);   /* both sides: the road's middle */
+    CHECK_EQ_INT((int)tunnel_lamps_in_segment(&seg, next, 0, slots, 1, out, 4), 4);   /* a lamp a side at nodes 0 and 2 */
+    CHECK(fabsf(out[0].x - 2.5f) < 0.01f && fabsf(out[1].x + 2.5f) < 0.01f);   /* the right strip's, then the left's */
+    CHECK_EQ_INT((int)out[0].node, 0);
+    CHECK_EQ_INT((int)out[2].node, 2);
     const uint8_t other[1] = { 21 };
     CHECK_EQ_INT((int)tunnel_lamps_in_segment(&seg, next, 0, other, 1, out, 4), 0);
     CHECK_EQ_INT((int)tunnel_lamps_in_segment(&seg, next, 0, slots, 1, out, 1), 1);   /* the room given is the most */
@@ -64,7 +66,7 @@ static void test_a_track_with_no_lamp_textures_has_none(void)
 int main(void)
 {
     test_a_lamp_strip_gives_a_lamp_each_even_node();
-    test_two_strips_meet_in_the_middle_and_no_lamp_is_none();
+    test_one_lamp_each_side_and_none_without_a_lamp_strip();
     test_a_track_with_no_lamp_textures_has_none();
     return TEST_REPORT();
 }

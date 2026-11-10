@@ -6,6 +6,7 @@
 #include "game/viewer/cone_cells.h"
 #include "game/viewer/reflect_pass.h"
 #include "game/viewer/street_halo.h"
+#include "game/viewer/tunnel_cells.h"
 #include "game/viewer/view_lamps.h"
 #include "game/viewer/weather_hooks.h"
 #include "viewer/psx_sky_draw.h"
@@ -106,6 +107,7 @@ static void draw_camera_base(void *user, const View *view, const FshEntry *textu
             modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, lamp_top, lamp_heat, LAMP_STEPS);
             return;
         }
+        if (tables == tunnel_tables && tunnel_cells_draw(user, view, texture, uv, cam, transparent(texture), tunnel_tables, dark)) return;   /* port (tunnel_lamps): a polygon of a tunnel with lamps near, in pieces a node long, each graded by the lamps' heat at its own corners */
         if (tables == tunnel_tables && lamp_polygon_tunnel(lamp_heat, &lamp_top)) {   /* port (tunnel_lamps): a tunnel's lamps' pools, the tunnel's tables and the same with the lamp's light added, graded by the heat at each corner */
             modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), tunnel_tables, dark, lamp_top, lamp_heat, LAMP_STEPS);
             return;

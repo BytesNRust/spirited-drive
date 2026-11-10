@@ -13,14 +13,13 @@
 
 typedef struct {
     uint32_t node;   /* the road node the polygon's near row is */
-    float x, z;      /* metres: the middle of the lamp polygons of that node */
+    float x, z;      /* metres: the middle of the lamp polygons of that side of that node */
     float spacing;   /* metres to the next node: the pool's reach is a few of them */
 } TunnelLamp;
 
 enum { TUNNEL_LAMP_EVERY = 2 };   /* one lamp a TUNNEL_LAMP_EVERY nodes (the even ones, where the lamp textures hang and the car's lamp alternation puts its light) */
 
-/* The lamps of one segment (its 4 nodes, `segment` * 4 ..): `next_row` the first row of the segment after it (the last band's far row). For each of the segment's even nodes with a band whose
- * strip's texture byte is one of `slots` (`slot_count`), one lamp at the mean of those strips' middles. Up to `max` in `out`; returns how many. */
+/* The lamps of one segment (its 4 nodes, `segment` * 4 ..): `next_row` the first row of the segment after it (the last band's far row). For each of the segment's even nodes, when a strip's texture byte is one of `slots` (`slot_count`), one lamp for each side of the road that has such strips, at the mean of that side's strips' middles (the lamp textures hang in the strips at the walls: a lamp each side). Up to `max` in `out`; returns how many. */
 size_t tunnel_lamps_in_segment(const TrackSegment *segment, const TrackPoint *next_row, uint32_t segment_index, const uint8_t *slots, int slot_count, TunnelLamp *out, size_t max);
 
 /* All the lamps of `tri`'s track `track` (psx_lamps_for): in node order, up to `max`; 0 for a track with no lamp textures. */
