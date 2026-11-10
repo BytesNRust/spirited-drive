@@ -9,6 +9,7 @@
 #include "game/race/rally_gravel.h"
 #include "viewer/drive_light.h"
 #include "game/race/rain_spray.h"
+#include "game/race/spray_pace.h"
 #include "game/race/race_sim.h"
 #include "viewer/spray_v4_draw.h"
 #include <math.h>
@@ -24,6 +25,15 @@ enum { DUST_SIZE = 14, DUST_DIRT_SHARE = 1 };   /* a puff's size units per 0x100
 /* port (spray v4, dev prototype: TNFS_SPRAY_V4=1): the spray of race/spray_v4.h in place of rain_fx's. Its emitter runs after every simulation tick (race_sim_set_tick_hook), so each wheel's drop has that tick's own place
  * and height whatever the frames drawn; the frame composites the particles by road row (viewer/spray_v4_draw.h). Off: nothing here runs. */
 static int spray_ground_colour(const int32_t ground[3], uint8_t rgb[3]);
+
+/* port (traffic_spray): the pace a car's spray goes by, its kept one capped by how far it really goes (game/race/spray_pace.h): a traffic car that waits keeps its pace and threw spray from the one spot */
+static SprayPace spray_paces[RACE_CARS];
+
+static int32_t spray_car_pace(const Car *car, int slot, int32_t tick)
+{
+    const int32_t kept = rain_spray_speed(car->speed, car->velocity_x, car->velocity_z);
+    return car == followed_car() ? kept : spray_pace(&spray_paces[slot], tick, car->x, car->z, kept);   /* the followed car is driven by the player: its pace is real */
+}
 
 static int spray_v4_on(void)
 {
@@ -51,7 +61,7 @@ static void spray_v4_tick(const RaceState *race)
         case RALLY_GRAVEL_COMPACT:  surface = SPRAY_V4_ON_GRAVEL; break;
         default:                    surface = car->off_road != 0 ? SPRAY_V4_ON_GRAVEL : rain && rain_open_at(car->node) > 0 ? SPRAY_V4_WATER : SPRAY_V4_NONE; break;
         }
-        SprayV4Emit e = { (int)i, (uint32_t)race->tick, car->node, (float)rain_spray_speed(car->speed, car->velocity_x, car->velocity_z) / 65536.0f,
+        SprayV4Emit e = { (int)i, (uint32_t)race->tick, car->node, (float)spray_car_pace(car, (int)i, (int32_t)race->tick) / 65536.0f,
                           car->airborne_ticks == 0, surface, { { 0 } }, { 0 }, { 0 } };
         for (int w = 0; w < 2; w++)
             for (int k = 0; k < 3; k++) e.wheel[w][k] = (float)wheel[w][k] / 65536.0f;
@@ -210,7 +220,7 @@ static void spray_update(void)
         rain_spray_heading(car->use_matrix, car->yaw, car->matrix[6], car->matrix[8], forward);   /* a rival is drawn with its matrix and its yaw stays 0 */
         rain_spray_wheels(at, forward, wheel, right);
         const int wet = car->airborne_ticks == 0 && (car->off_road == 0 || rally_spray_on) && rain_open_at(car->node) > 0;   /* port (tunnel_dry): no water inside a closed zone; port (rally_spray): a rally's road is all off_road (the player's never threw any) */
-        const int32_t pace = rain_spray_speed(car->speed, car->velocity_x, car->velocity_z);   /* the traffic's physics does not run: its speed is 0 while it drives */
+        const int32_t pace = spray_car_pace(car, (int)i, (int32_t)shadow_race->tick);   /* the traffic's physics does not run: its speed is 0 while it drives */
         if (water_mist_variant > 0 && !rally_spray_on)   /* port (water_mist): every car's water is the plume, the traffic's too (a wisp of three ticks is no veil) */
             rain_spray_step_dense(&rain_spray, (int)i, (uint32_t)shadow_race->tick, wheel[0], wheel[1], right, car->node, pace, wet);
         else if (port_traffic_spray() && port_rain_v2() && i >= shadow_race->racers && car != player)   /* port (rain_v2): a wisp from each wheel, a little longer, at any pace */
@@ -482,7 +492,7 @@ static void dust_step(const Car *car, int slot)
         int32_t forward[2];
         rain_spray_heading(car->use_matrix, car->yaw, car->matrix[6], car->matrix[8], forward);
         yaw = (int32_t)((uint32_t)((int32_t)lrint(atan2((double)forward[0], (double)forward[1]) / (2.0 * M_PI) * 65536.0) & 0xffff) << 8);
-        speed = rain_spray_speed(car->speed, car->velocity_x, car->velocity_z);
+        speed = spray_car_pace(car, slot, (int32_t)shadow_race->tick);
     }
     const int drop = rally_dust_skid(kind, speed, car->airborne_ticks == 0) != 0;
     const int32_t at[3] = { car->x, car->y, car->z };
