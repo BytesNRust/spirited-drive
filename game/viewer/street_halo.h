@@ -21,6 +21,11 @@ void street_halo_note(const FshEntry *texture, const int32_t screen[8]);
 /* Modern 3D: the corners in camera space (a board the near plane clips takes the whole view). */
 void street_halo_note_cam(const FshEntry *texture, const View *view, const int32_t *const cam[4]);
 
+/* port (lamp_halos): a polygon the reflectors light (a traffic sign's face, a post, the road's studs) is drawn a second time in the lamp entries; the blobs that makes are no lamp's and get no halo
+ * (the blobs in a lamp board's own rectangle keep theirs: a sign standing in front of a lamp is not what it is drawn over). Same corners as the two notes above. */
+void street_halo_note_lit(const FshEntry *texture, const int32_t screen[8]);
+void street_halo_note_lit_cam(const FshEntry *texture, const View *view, const int32_t *const cam[4]);
+
 /* After the 3D: the halos. `night` is whether the track is lit as at night. */
 void street_halo_draw(const QuadTarget *t, const uint8_t palette[768], int night);
 

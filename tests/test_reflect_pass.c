@@ -64,6 +64,26 @@ static void test_the_copy_keeps_the_masked_texels_and_hides_the_rest(void)
     CHECK_EQ_INT(reflect_pass_copy(&bitmap)->payload[0], 3);
 }
 
+static void test_the_thinned_copies_keep_half_and_a_quarter_of_the_lit_texels(void)
+{
+    setup();
+    reflect_pass_add(&bitmap, mask, W, H);
+    reflect_pass_frame(1, 0, 0, 1, 0, 1, palette);
+    const FshEntry *c = reflect_pass_copy(&bitmap);
+    CHECK(reflect_pass_thin_copy(c, 0) == c);
+    const FshEntry *half = reflect_pass_thin_copy(c, 1), *quarter = reflect_pass_thin_copy(c, 2);
+    CHECK(half != c && quarter != c && half != quarter);
+    CHECK_EQ_INT(half->type, 0x45);
+    int lit = 0, h = 0, q = 0;
+    for (int i = 0; i < W * H; i++) {
+        lit += c->payload[i] != 0xff, h += half->payload[i] != 0xff, q += quarter->payload[i] != 0xff;
+        if (half->payload[i] != 0xff) CHECK_EQ_INT(half->payload[i], c->payload[i]);   /* what is kept is the copy's texel */
+        if (quarter->payload[i] != 0xff) CHECK_EQ_INT(quarter->payload[i], c->payload[i]);
+    }
+    CHECK(h <= lit && q <= h);
+    CHECK(reflect_pass_thin_copy(NULL, 1) == NULL);
+}
+
 static void test_the_pass_runs_only_with_lamps_dark_and_entries(void)
 {
     setup();
@@ -148,6 +168,7 @@ int main(void)
     test_a_texture_is_registered_once_and_found_by_its_pixels();
     test_a_blank_mask_is_not_registered();
     test_the_copy_keeps_the_masked_texels_and_hides_the_rest();
+    test_the_thinned_copies_keep_half_and_a_quarter_of_the_lit_texels();
     test_the_pass_runs_only_with_lamps_dark_and_entries();
     test_the_gain_follows_the_lamps_heading();
     test_each_family_takes_its_own_ramp_and_the_level_a_step();

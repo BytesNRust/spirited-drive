@@ -11,7 +11,7 @@ enum { ENTRIES_MAX = 96, TRANSPARENT_INDEX = 0xff, ROWS_MAX = 16 };
 
 typedef struct {
     const uint8_t *key;   /* the bitmap's payload: the texture is found by it, whichever FshEntry struct is drawn */
-    FshEntry copy;
+    FshEntry copy, thin_copy[2];   /* the same with half and a quarter of the lit texels (reflector_thin) */
     uint8_t *mask, *pixels;
     size_t count;
     int fresh;            /* the copy's pixels are of the palette now */
@@ -74,7 +74,7 @@ int reflect_pass_add(const FshEntry *bitmap, const uint8_t *mask, int mw, int mh
     for (int i = 0; i < entry_count; i++)
         if (entries[i].key == bitmap->payload) return 0;
     Entry e = { .key = bitmap->payload, .copy = *bitmap, .count = count };
-    e.mask = malloc(count), e.pixels = malloc(count);
+    e.mask = malloc(count), e.pixels = malloc(count * 3);   /* the copy, then the half, then the quarter */
     if (e.mask == NULL || e.pixels == NULL) {
         free(e.mask), free(e.pixels);
         return 0;
@@ -88,6 +88,7 @@ int reflect_pass_add(const FshEntry *bitmap, const uint8_t *mask, int mw, int mh
         return 0;
     }
     e.copy.payload = e.pixels, e.copy.payload_size = count;
+    for (int k = 0; k < 2; k++) e.thin_copy[k] = e.copy, e.thin_copy[k].payload = e.pixels + count * (size_t)(k + 1);
     entries[entry_count++] = e;
     return 1;
 }
@@ -120,12 +121,27 @@ const FshEntry *reflect_pass_copy(const FshEntry *t)
         if (e->key != t->payload) continue;
         if (!e->fresh) {
             for (size_t k = 0; k < e->count; k++) e->pixels[k] = e->mask[k] ? t->payload[k] : TRANSPARENT_INDEX;
+            const size_t w = e->copy.width ? e->copy.width : 1;
+            for (size_t k = 0; k < e->count; k++) {   /* the thinned copies: a chessboard of the lit texels, and every other texel of every other row */
+                const size_t x = k % w, y = k / w;
+                e->pixels[e->count + k] = ((x + y) & 1) == 0 ? e->pixels[k] : TRANSPARENT_INDEX;
+                e->pixels[2 * e->count + k] = (x & 1) == 0 && (y & 1) == 0 ? e->pixels[k] : TRANSPARENT_INDEX;
+            }
             e->copy.type = TRACK_TEXTURE_TRANSPARENT_TYPE;   /* the draw is told so as well */
+            e->thin_copy[0].type = e->thin_copy[1].type = TRACK_TEXTURE_TRANSPARENT_TYPE;
             e->fresh = 1;
         }
         return &e->copy;
     }
     return NULL;
+}
+
+const FshEntry *reflect_pass_thin_copy(const FshEntry *copy, int thin)
+{
+    if (copy == NULL || thin < 1) return copy;
+    for (int i = 0; i < entry_count; i++)
+        if (&entries[i].copy == copy) return &entries[i].thin_copy[thin > 1 ? 1 : 0];
+    return copy;
 }
 
 static void add_entry(ReflectorFamily family, uint8_t entry)

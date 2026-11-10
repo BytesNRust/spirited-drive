@@ -132,7 +132,9 @@ void draw_camera(void *user, const View *view, const FshEntry *texture, const in
     if (!reflect_pass_active()) return;
     const FshEntry *copy = reflect_pass_copy(texture);
     const int level = copy != NULL ? reflect_level_here() : 0;
+    if (level > 0) copy = reflect_pass_thin_copy(copy, reflect_thin_here());
     if (level > 0) {   /* port (reflectors): the masked texels again, lit by the lamps and not by the dark */
+        street_halo_note_lit_cam(texture, view, cam);
         static const float no_dark[4] = { 0, 0, 0, 0 };
         modern_road_cell_lit(user, view, copy, uv, cam, 1, reflect_pass_rows(level, MODERN_FOG_LEVELS), no_dark);
     }
@@ -160,7 +162,9 @@ void draw_full(void *user, const FshEntry *texture, const int32_t screen[8])
     if (!reflect_pass_active()) return;
     const FshEntry *copy = reflect_pass_copy(texture);
     const int level = copy != NULL ? reflect_level_here() : 0;
+    if (level > 0) copy = reflect_pass_thin_copy(copy, reflect_thin_here());
     if (level > 0) {   /* port (reflectors) */
+        street_halo_note_lit(texture, screen);
         const uint8_t *lit = reflect_pass_table(level);
         const int32_t right = (int32_t)(int16_t)copy->width - 2, bottom = (int32_t)(int16_t)copy->height - 2;
         const int32_t uv_a[6] = { 1, 1, right, 1, right, bottom }, uv_b[6] = { right, bottom, 1, bottom, 1, 1 };
@@ -189,7 +193,9 @@ void draw_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
     if (!reflect_pass_active()) return;
     const FshEntry *copy = reflect_pass_copy(texture);
     const int level = copy != NULL ? reflect_level_here() : 0;
+    if (level > 0) copy = reflect_pass_thin_copy(copy, reflect_thin_here());
     if (level > 0) {   /* port (reflectors) */
+        street_halo_note_lit(texture, screen);
         const int32_t right = ((int32_t)(int16_t)copy->width << 16) - 1, bottom = ((int32_t)(int16_t)copy->height << 16) - 1;
         const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
         quad_draw_mode(user, copy, uv, screen, MAP_REMAP_TRANSPARENT, reflect_pass_table(level));

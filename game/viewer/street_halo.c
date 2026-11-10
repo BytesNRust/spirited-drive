@@ -13,6 +13,7 @@
 enum { STREET_RECT_MARGIN = 3 };
 static LampRects street_rects;
 static int street_depth[LAMP_RECTS_MAX];   /* each rectangle's board camera depth when the draw gave one (the modern 3D), 0 unknown */
+static LampRects lit_rects;                /* the screen rectangles of the polygons the reflectors lit this frame */
 static HaloTracker street_tracker;       /* the halos of the frame before */
 static const FshEntry *street_bitmap[3];
 static int street_count;
@@ -29,7 +30,7 @@ void street_halo_boards(const FshEntry *const bitmaps[3], int count, const uint8
     if (was != street_count || memcmp(was_bitmap, street_bitmap, sizeof was_bitmap) != 0) halo_track_clear(&street_tracker);   /* another track's lamps (this is told every frame) */
 }
 
-void street_halo_frame_begin(void) { lamp_rects_reset(&street_rects); }
+void street_halo_frame_begin(void) { lamp_rects_reset(&street_rects), lamp_rects_reset(&lit_rects); }
 
 static int street_board(const FshEntry *texture)
 {
@@ -79,6 +80,37 @@ void street_halo_note_cam(const FshEntry *texture, const View *view, const int32
     street_push((int)floorf(x0), (int)floorf(y0), (int)ceilf(x1), (int)ceilf(y1), (int)nearest);
 }
 
+void street_halo_note_lit(const FshEntry *texture, const int32_t screen[8])
+{
+    if (!port_lamp_halos() || street_board(texture)) return;
+    int x0 = screen[0], y0 = screen[1], x1 = screen[0], y1 = screen[1];
+    for (int k = 1; k < 4; k++) {
+        x0 = screen[2 * k] < x0 ? screen[2 * k] : x0, x1 = screen[2 * k] > x1 ? screen[2 * k] : x1;
+        y0 = screen[2 * k + 1] < y0 ? screen[2 * k + 1] : y0, y1 = screen[2 * k + 1] > y1 ? screen[2 * k + 1] : y1;
+    }
+    lamp_rects_push(&lit_rects, x0, y0, x1, y1);
+}
+
+void street_halo_note_lit_cam(const FshEntry *texture, const View *view, const int32_t *const cam[4])
+{
+    if (!port_lamp_halos() || view == NULL || street_board(texture)) return;
+    const float focal = (float)view->focal_x;
+    float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+    for (int i = 0; i < 4; i++) {
+        const float z = (float)cam[i][2];
+        if (!(z >= (float)view->near_z) || !(z > 0.0f)) {   /* the near plane clips it: it is that close, and covers the view */
+            lamp_rects_push(&lit_rects, -100000, -100000, 100000, 100000);
+            return;
+        }
+        const float x = view->centre_x + (float)cam[i][0] * focal / z, y = view->centre_y - (float)cam[i][1] * focal / z;
+        if (i == 0 || x < x0) x0 = x;
+        if (i == 0 || x > x1) x1 = x;
+        if (i == 0 || y < y0) y0 = y;
+        if (i == 0 || y > y1) y1 = y;
+    }
+    lamp_rects_push(&lit_rects, (int)floorf(x0), (int)floorf(y0), (int)ceilf(x1), (int)ceilf(y1));
+}
+
 /* the camera depth of the nearest board rectangle the blob is in (the draw gave one), 0 when none did */
 static int blob_depth(const LampBlob *blob)
 {
@@ -94,6 +126,20 @@ static int blob_depth(const LampBlob *blob)
 
 /* port (lamp_halos): the street lamps' halo at night. The lamp board's three entries (street_entry) are emissive, so a lamp on screen after the 3D is a blob of them; the window entry is never
  * a member. The nearest (largest) STREET_HALO_MAX blobs get the halo, in the brightest of the three entries' colour; the tables are made again only when the palette or the colour changes */
+/* port (lamp_halos): a far lamp is a pixel or two and its blob comes and goes, so its halo is held back with the distance (the blob's smoothed area, x16): a quarter of the strength at one pixel,
+ * the whole from STREET_HALO_FULL_AREA pixels. A lamp coming into range grows into its halo instead of lighting it at once, and the one going out fades to nothing. */
+enum { STREET_HALO_FULL_AREA = 8, STREET_HALO_FAR_PERCENT = 25 };
+
+static int far_percent(int area16)
+{
+    const int full = STREET_HALO_FULL_AREA * 16, one = 16;
+    if (area16 >= full) return 100;
+    if (area16 <= one) return STREET_HALO_FAR_PERCENT;
+    const int t = (area16 - one) * 100 / (full - one);   /* 0..100 */
+    const int s = t * t * (300 - 2 * t) / 10000;          /* smoothstep, 0..100 */
+    return STREET_HALO_FAR_PERCENT + (100 - STREET_HALO_FAR_PERCENT) * s / 100;
+}
+
 enum { STREET_HALO_MAX = 24, STREET_HALO_SCAN = 160, STREET_HALO_REACH = 200 };   /* STREET_HALO_REACH: percent of the usual radius: a lamp is far and small, its halo has to read */
 
 void street_halo_draw(const QuadTarget *t, const uint8_t palette[768], int night)
@@ -113,6 +159,19 @@ void street_halo_draw(const QuadTarget *t, const uint8_t palette[768], int night
     for (int i = 0; i < count; i++)   /* only a lamp's own sprite: not a sign the reflectors light in the same entries */
         if (lamp_blob_in_rects(&blobs[i], (const int (*)[4])street_rects.rects, street_rects.count, STREET_RECT_MARGIN)) blobs[kept++] = blobs[i];
     count = kept;
+    if (lit_rects.count > 0) {   /* a blob over a polygon the reflectors lit is that polygon's (a sign), unless a lamp board of its own, a bounded one, holds it */
+        int bounded[LAMP_RECTS_MAX][4], nb = 0;
+        for (int i = 0; i < street_rects.count; i++) {
+            const int *r = street_rects.rects[i];
+            if (r[0] > -50000 && r[2] < 50000) memcpy(bounded[nb++], r, sizeof bounded[0]);
+        }
+        kept = 0;
+        for (int i = 0; i < count; i++) {
+            const int over_lit = lamp_blob_in_rects(&blobs[i], (const int (*)[4])lit_rects.rects, lit_rects.count, 0);
+            if (!over_lit || lamp_blob_in_rects(&blobs[i], (const int (*)[4])bounded, nb, STREET_RECT_MARGIN)) blobs[kept++] = blobs[i];
+        }
+        count = kept;
+    }
     HaloCand cands[STREET_HALO_SCAN];   /* port (lamp_halos): each blob with the radius it asks for and the depth of the board it is in, then the halos of the frame before decide */
     for (int i = 0; i < count; i++)
         cands[i] = (HaloCand){ blobs[i].cx, blobs[i].cy, blobs[i].area, lamp_flare_radius_scaled(blobs[i].area, STREET_HALO_REACH), blobs[i].value, blob_depth(&blobs[i]) };
@@ -146,6 +205,6 @@ void street_halo_draw(const QuadTarget *t, const uint8_t palette[768], int night
         }
         const uint8_t *const map[LAMP_FLARE_LEVELS] = { maps[k][0], maps[k][1], maps[k][2] };
         lamp_halo_draw_pct(t->pixels, t->pitch, t->clip_left, t->clip_top, t->clip_right - 1, t->clip_bottom - 1, draws[i].cx, draws[i].cy,
-                           draws[i].radius, draws[i].percent, map);
+                           draws[i].radius, draws[i].percent * far_percent(draws[i].area) / 100, map);
     }
 }

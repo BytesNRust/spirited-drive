@@ -250,6 +250,8 @@ void reflect_frame(const TrackArt *art)
     reflect_pass_frame(reflect_lamps_on, reflect_x, reflect_z, reflect_hx, reflect_hz, reflect_dark, art->palette);
 }
 
+static int reflect_thin_now;   /* the thinning of the polygon reflect_level_here saw last */
+
 /* port (reflectors, reflect_pass.h): the step of shine (0 none) of the polygon being drawn: an object at its own place, a road polygon at the mean of its corners' ground places */
 int reflect_level_here(void)
 {
@@ -262,8 +264,12 @@ int reflect_level_here(void)
         x = (track_light_xz[0][0] + track_light_xz[1][0] + track_light_xz[2][0] + track_light_xz[3][0]) / 4.0;
         z = (track_light_xz[0][1] + track_light_xz[1][1] + track_light_xz[2][1] + track_light_xz[3][1]) / 4.0;
     } else return 0;
-    return reflector_level(reflect_pass_gain(x, z, height));
+    const int gain = reflect_pass_gain(x, z, height);
+    reflect_thin_now = reflector_thin(gain);
+    return reflector_level(gain);
 }
+
+int reflect_thin_here(void) { return reflect_thin_now; }
 
 /* 004f9e94 = 004254e8 -> 00425210: 00486950 / 00487180 */
 static void draw_uv_base(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
@@ -281,7 +287,8 @@ void draw_uv(void *user, const FshEntry *texture, const int32_t uv[8], const int
     if (!reflect_pass_active()) return;
     const FshEntry *copy = reflect_pass_copy(texture);
     const int level = copy != NULL ? reflect_level_here() : 0;
-    if (level > 0) quad_draw_mode(user, copy, uv, screen, MAP_REMAP_TRANSPARENT, reflect_pass_table(level));   /* port (reflectors) */
+    if (level > 0) street_halo_note_lit(texture, screen);
+    if (level > 0) quad_draw_mode(user, reflect_pass_thin_copy(copy, reflect_thin_here()), uv, screen, MAP_REMAP_TRANSPARENT, reflect_pass_table(level));   /* port (reflectors) */
 }
 
 int modern;  /* port: EXTRAS' Modern 3D (ported_view_set_modern) */

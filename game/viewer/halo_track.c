@@ -118,7 +118,7 @@ int halo_track_frame(HaloTracker *tracker, const HaloCand *cands, int n, int quo
         }
         const int percent = (int)(t->alpha * 100.0f + 0.5f);
         if (!emit || percent < 1 || count >= max) continue;
-        out[count++] = (HaloDraw){ (int)(t->x + 0.5f), (int)(t->y + 0.5f), (int)(t->radius + 0.5f), percent > 100 ? 100 : percent, t->value };
+        out[count++] = (HaloDraw){ (int)(t->x + 0.5f), (int)(t->y + 0.5f), (int)(t->radius + 0.5f), percent > 100 ? 100 : percent, t->value, (int)(t->area_avg * 16.0f + 0.5f) };
     }
     return count;
 }

@@ -25,6 +25,7 @@ const uint8_t *lit_table_for(const FshEntry *texture);
 extern int pool_ready;
 extern uint8_t pool_tables[4][MODERN_FOG_LEVELS][256];
 int reflect_level_here(void);
+int reflect_thin_here(void);   /* reflector_thin of the polygon reflect_level_here saw last */
 extern const FshEntry *street_bitmap[STREET_BOARDS];
 extern int street_scenery[STREET_BOARDS], street_count;
 extern uint8_t street_entry[3];
