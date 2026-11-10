@@ -8,6 +8,13 @@
  * steps (race_settings.c, tournament.c) run on a RaceSettings made from them. */
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/central_glue_ops.h"
+
+/* 00444bb0's shorts in config.dat's image (offsets from 00524df0), all at odd addresses: copied out to aligned
+ * shorts around the screen */
+enum { OPT_TRANSMISSION, OPT_AUTOMATIC, OPT_ABS, OPT_TRACTION, OPT_RACE_TYPE, OPT_TRACK, OPT_OPPONENT, OPT_CAR,
+       OPT_NET_CAR, OPT_LAPS, OPT_DIFFICULTY, OPT_MUSIC_VOLUME, OPT_SHORTS };
+/* 00413cb0's controls: config.dat's 13 shorts from 0052ad26, copied to aligned shorts around the screen */
+enum { CONTROLS_AT = 0x5f36 };
 #include "game/frontend/central_split.h"
 
 #include "game/frontend/audio_menu.h"
@@ -149,5 +156,22 @@ void cg_credits(void *ctx, int32_t mode);
 void cg_chat(void *ctx);
 void cg_after_race(void *ctx);
 int32_t cg_next_segment(void *ctx);
+
+void cg_image_car_flags(void *ctx);
+extern int16_t cg_opt[OPT_SHORTS];
+void cg_opt_out(void);
+void cg_opt_in(void);
+void cg_opt_car_flags(void *ctx);
+int32_t cg_key_read(void *ctx);
+void cg_controls(void *ctx, int32_t mode);
+void cg_audio(void *ctx, int32_t mode);
+void cg_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
+void cg_plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed);
+void cg_plus_save(void *ctx, const PortSettings *settings);
+int32_t cg_own_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768]);
+int32_t cg_own_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const uint8_t palette[768]);
+void cg_own_note_text(void *ctx, const char *text, int32_t x, int32_t y);
+int32_t cg_display_dark(void *ctx);
+void cg_own_subtitle_text(void *ctx, const char *text, int32_t x, int32_t y);
 
 #endif
