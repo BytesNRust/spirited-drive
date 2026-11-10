@@ -1,11 +1,9 @@
 /* port (the cars on the road): how a car is drawn in the view, taken out of ported_view.c: the soft shadow and the lamp lights on the car, the name tags, the body's parts, the lamps and flares, each row's cars.
  * ported_view.c sets the cars up and calls row_prepare, row_draw and draw_cars; what this file takes of the view is in view_shared.h. */
 
-#include "game/gfx/flat.h"
 #include "game/race/car_body_draw.h"
 #include "game/race/car_render.h"
 #include "game/race/car_shadow.h"
-#include "game/race/car_tag.h"
 #include "game/sys/port_settings.h"
 #include "game/viewer/car_lamp_halo.h"
 #include "game/viewer/follow_behind.h"
@@ -15,8 +13,7 @@
 #include "viewer/drive_light.h"
 #include "viewer/soft_shadow.h"
 #include "viewer/view_spray.h"
-#include "viewer/view_cars.h"
-#include "viewer/view_shared.h"
+#include "viewer/view_tags.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -84,26 +81,6 @@ void row_prepare(void *ctx, Car *car, int pass)
         return;
     }
     car_prepare(&ops, car, &model_view, pass, car == followed_car(), object_pixels.target, shadow_remap, screen);
-}
-
-/* 0050b7d4 / 0050b7b4 */
-static const uint8_t *tag_colours;
-static int tag_colour_count;
-static uint32_t tag_outline;
-
-void ported_view_set_tags(const uint8_t *colours, int count, uint32_t outline)
-{
-    tag_colours = colours, tag_colour_count = count, tag_outline = outline;
-}
-
-static void tag_polygon(void *ctx, uint32_t colour, int count, const int32_t *points)
-{
-    flat_polygon(ctx, colour, count, points);
-}
-
-static void tag_line(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t colour)
-{
-    flat_line(ctx, x0, y0, x1, y1, colour);
 }
 
 /* 004591d4 / 00458d4c on the slot's CarModel: car +0x52e / +0x666 hold no handles in the port, so the model is the
@@ -291,20 +268,10 @@ static void render_trail(void *ctx, const int32_t offset[2])
     crash_trail_draw(puff_trail, offset, &v);
 }
 
-static uint8_t tags_hidden;  /* 004fb78b */
-
-void ported_view_set_tags_hidden(int hidden)
-{
-    tags_hidden = (uint8_t)hidden;
-}
-
 /* 00459064 */
 static void render_tag(void *ctx, int32_t x, int32_t y, int32_t slot, int32_t z)
 {
-    if (tag_colours == NULL || slot < 0 || slot >= tag_colour_count) return;
-    const CarTagOps ops = { (void *)((BodyCtx *)ctx)->target, tag_polygon, tag_line };
-    const CarTagView v = { tag_colours, tag_outline, SKID_HIGH_RES, shadow_race->humans, tags_hidden };
-    car_tag(&ops, &v, x, y, slot, z);
+    view_tag_draw(((BodyCtx *)ctx)->target, x, y, slot, z);
 }
 
 /* 0051c774 */
