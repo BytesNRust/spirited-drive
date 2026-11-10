@@ -7,6 +7,7 @@
 #ifndef TNFS_TRACK_MASK_H
 #define TNFS_TRACK_MASK_H
 
+#include "game/race/psx_lamps.h"
 #include "game/race/track_art.h"
 
 #include <stddef.h>
@@ -31,5 +32,15 @@ int track_masks_set_race(const char *track, const TrackArt *art, int rally);
 /* The mask of a texture of the track last given to track_masks_set (a slot's variant 0 as `&art->slots[s][0]`, or a scenery board `&art->scenery[i]`): bitmap.width x bitmap.height
  * bytes, 1 reflective, 0 not; NULL when it has no mask (or `t` is NULL). */
 const uint8_t *track_mask_for(const TrackTexture *t);
+
+/* port (lamp marks): a lamp is YELLOW in a road texture's mask (slot_<NN>.png): red and green 128 or more, blue below 128, opaque. The lamp's texture is the slot, its place in the texture the bounding
+ * box of the yellow texels, its colours the palette entries those texels show (the most used first, at most PSX_LAMP_COLOURS). A yellow texel is not reflective (red stays so, and white). Yellow in a scenery
+ * board's mask (scenery_<NN>.png) is read as not reflective and used for nothing yet. The marks are read by track_masks_set_race, rally or not. */
+
+/* The lamps the yellow marks of the track last given to track_masks_set_race name (`track` must be that one, in any case): how many, `*out` (when not NULL) them; 0 when the track has none. */
+int track_lamp_marks(const char *track, const PsxLamp **out);
+
+/* The lamps of `track`: the marks' when it has any (they are the owner's drawing), else the built-in table's (psx_lamps_for: unpainted tracks and mods keep what they had). */
+int track_lamps_for(const char *track, const PsxLamp **out);
 
 #endif

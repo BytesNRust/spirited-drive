@@ -16,6 +16,7 @@ typedef struct {
     int count;                       /* the colours below */
     uint8_t idx[PSX_LAMP_COLOURS];   /* palette entries of the lamp's fitting */
     int rect[4];                     /* x0, y0, x1, y1 (inclusive, texels): where the fitting and its glow are; the colours seen only there stay bright too */
+    const uint8_t *set;              /* the 256 flags of the colours that stay bright, from the yellow marks of the track's mask (track_mask.h): then idx and rect only describe them; NULL for the table's own */
 } PsxLamp;
 
 /* The lamps of the track (CY1, CY2, CY3, TR3, TR4, in any case; the others have none): how many, and `*out` (when not NULL) the table. */
