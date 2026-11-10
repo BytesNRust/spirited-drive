@@ -521,6 +521,7 @@ static void dust_puffs(const Car *car, int slot, int pass)
 {
     const int kind = shadow_race->port_rally_gravel;
     DustTrail *const trail = &dust_trails[slot];
+    if (!dust_trail_started(trail)) return;   /* no history yet: its zeroed puffs are not puffs */
     if (rally_spray_on) return;   /* port (rally_spray): the wet road's spray is drawn in its place */
     if (kind != RALLY_GRAVEL_DUST && kind != RALLY_GRAVEL_REGOLITH && kind != RALLY_GRAVEL_SNOW) return;
     int32_t own_camera[3], own_screen[2];

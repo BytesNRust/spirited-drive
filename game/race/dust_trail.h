@@ -19,9 +19,16 @@ typedef struct {
     DustPuff puff[DUST_TRAIL_PUFFS];
     int32_t next;      /* the ring slot dropped next */
     int32_t last_tick; /* the last tick stepped, -1 none yet */
+    int32_t started;   /* 0 for a trail nobody has reset or stepped (zeroed memory): it has no history, and its puffs (born 0) are not puffs */
 } DustTrail;
 
 void dust_trail_reset(DustTrail *trail);
+
+/* 1 once the trail has been reset or stepped; a zeroed one has no history and draws nothing (its zero puffs would be 'born at tick 0' and alive for the first life of a race, at the world's origin). */
+int dust_trail_started(const DustTrail *trail);
+
+/* How many puffs of the trail are alive at `tick`: 0 for a trail with no history. */
+int dust_trail_live(const DustTrail *trail, int32_t tick, int kind, int lunar);
 
 /* The race is at `tick`: for each tick since the last call (at most 12: a long pause leaves a gap, not a burst) drop a puff at each rear wheel of a car
  * at `car` (world place) heading `yaw` (24-bit angle) when `drop`; a tick before the last one is placed back along the way the car came, `speed` (16.16 metres
