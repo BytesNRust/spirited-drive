@@ -29,6 +29,11 @@ int reflector_level(int gain)
     return l >= REFLECTOR_LEVELS ? REFLECTOR_LEVELS - 1 : l;
 }
 
+int reflector_thin(int gain)
+{
+    return gain < REFLECTOR_THIN_QUARTER_GAIN ? 2 : gain < REFLECTOR_THIN_HALF_GAIN ? 1 : 0;
+}
+
 size_t reflector_mask_scale(const uint8_t *src, int sw, int sh, uint8_t *dst, int dw, int dh)
 {
     if (src == NULL || dst == NULL || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return 0;

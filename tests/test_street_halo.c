@@ -46,7 +46,7 @@ static int changed_near(const uint8_t *before, int cx, int cy)
     return n;
 }
 
-static void run(int night, int *lamp_changed, int *sign_changed)
+static void run(int night, int *lamp_changed, int *sign_changed, int covering, int lit_sign)
 {
     static uint8_t before[W * H];
     const FshEntry *const boards[3] = { &board_a, &board_b, NULL };
@@ -60,6 +60,9 @@ static void run(int night, int *lamp_changed, int *sign_changed)
     street_halo_note(&board_a, quad);
     const int32_t other[8] = { 60, 18, 80, 18, 80, 30, 60, 30 };
     street_halo_note(NULL, other);                                    /* not a lamp board: noted nowhere */
+    const int32_t whole[8] = { -100000, -100000, 100000, -100000, 100000, 100000, -100000, 100000 };
+    if (covering) street_halo_note(&board_b, whole);                  /* a board the near plane clips: it covers the view */
+    if (lit_sign) street_halo_note_lit(NULL, other);                  /* the reflectors lit the sign's polygon */
     street_halo_draw(&t, palette, night);
     *lamp_changed = changed_near(before, 20, 24), *sign_changed = changed_near(before, 70, 24);
 }
@@ -68,15 +71,21 @@ int main(void)
 {
     setenv("TNFS_LAMP_HALOS", "1", 1);
     int lamp, sign;
-    run(1, &lamp, &sign);
+    run(1, &lamp, &sign, 0, 0);
     CHECK(lamp > 0);                 /* the lamp is lit */
     CHECK_EQ_INT(sign, 0);           /* the sign is not */
-    run(0, &lamp, &sign);
+    run(0, &lamp, &sign, 0, 0);
     CHECK_EQ_INT(lamp, 0);           /* day: no halo */
     setenv("TNFS_LAMP_HALOS", "0", 1);
-    run(1, &lamp, &sign);
+    run(1, &lamp, &sign, 0, 0);
     CHECK_EQ_INT(lamp, 0);           /* switched off: none */
     setenv("TNFS_LAMP_HALOS", "1", 1);
+    run(1, &lamp, &sign, 1, 0);
+    CHECK(sign > 0);                 /* a covering board takes the sign's blob for a lamp's ... */
+    run(0, &lamp, &sign, 0, 0);       /* (a day clears the halos the frame before still fades) */
+    run(1, &lamp, &sign, 1, 1);
+    CHECK(lamp > 0);                 /* ... unless the reflectors lit the sign's polygon: the lamp keeps its halo */
+    CHECK_EQ_INT(sign, 0);           /* and the sign has none */
     street_halo_boards(NULL, 0, NULL, 0);
     street_halo_frame_begin();
     scene();

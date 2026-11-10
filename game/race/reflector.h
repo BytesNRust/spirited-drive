@@ -16,6 +16,8 @@ enum {
     REFLECTOR_UP_FULL_PERCENT = 6,  /* a point this far above the lamps' level (% of the distance) still shines in full ... */
     REFLECTOR_UP_END_PERCENT = 16,  /* ... and none from this */
     REFLECTOR_LEVELS = 6,           /* the steps of shine a polygon takes: 0 none .. REFLECTOR_LEVELS - 1 full */
+    REFLECTOR_THIN_QUARTER_GAIN = 12,   /* below this gain (of 256) a quarter of the texels shine ... */
+    REFLECTOR_THIN_HALF_GAIN = 32,      /* ... below this, half of them */
     REFLECTOR_ENTRIES_MAX = 6       /* the colours a track's masked texels may be kept apart in */
 };
 
@@ -33,6 +35,10 @@ int reflector_step(int level, int steps);
 
 /* the step (0..REFLECTOR_LEVELS - 1) of a gain: 0 only for a gain of 0 */
 int reflector_level(int gain);
+
+/* port (reflectors): the dimmest step starts from nothing, and the palette has no step between none and its first entry, so the cone's edge popped. A polygon of the dimmest step shows only
+ * a share of its masked texels there (the texels are far smaller than a pixel at that distance, so the share reads as a dimmer glow): 0 all of them, 1 half (a chessboard), 2 a quarter. */
+int reflector_thin(int gain);
 
 /* The mask of a `sw` x `sh` texture on a `dw` x `dh` one (a smaller variant of it): a texel is reflective there when any texel of its block of the source is. A stud of one texel stays a stud
  * on the smaller bitmaps. Returns the reflective texels of `dst`. */

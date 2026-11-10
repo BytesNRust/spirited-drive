@@ -106,6 +106,22 @@ static void test_the_level_picks_a_step_of_the_ramp(void)
     }
 }
 
+static void test_the_dimmest_step_fades_in_through_thinned_texels(void)
+{
+    CHECK_EQ_INT(reflector_thin(256), 0);
+    CHECK_EQ_INT(reflector_thin(REFLECTOR_THIN_HALF_GAIN), 0);
+    CHECK_EQ_INT(reflector_thin(REFLECTOR_THIN_HALF_GAIN - 1), 1);
+    CHECK_EQ_INT(reflector_thin(REFLECTOR_THIN_QUARTER_GAIN), 1);
+    CHECK_EQ_INT(reflector_thin(REFLECTOR_THIN_QUARTER_GAIN - 1), 2);
+    CHECK_EQ_INT(reflector_thin(1), 2);
+    int last = 2;
+    for (int g = 1; g <= 256; g++) {   /* the share of lit texels never falls as the gain rises */
+        CHECK(reflector_thin(g) <= last);
+        last = reflector_thin(g);
+    }
+    CHECK(REFLECTOR_THIN_HALF_GAIN < 256 / (REFLECTOR_LEVELS - 1));   /* only the dimmest step is thinned */
+}
+
 int main(void)
 {
     test_the_shine_is_the_players_cone_and_only_in_the_dark();
@@ -116,5 +132,6 @@ int main(void)
     test_the_level_picks_a_step_of_the_ramp();
     test_a_stud_survives_the_smaller_variants();
     test_the_masked_colours_are_listed_and_repainted();
+    test_the_dimmest_step_fades_in_through_thinned_texels();
     return TEST_REPORT();
 }

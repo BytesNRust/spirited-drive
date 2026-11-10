@@ -42,6 +42,9 @@ int reflect_pass_gain(double x, double z, double height);
 /* the texture's see-through copy, or NULL when `t` has no mask. Valid until the next reflect_pass_reset or palette change. */
 const FshEntry *reflect_pass_copy(const FshEntry *t);
 
+/* port (reflectors): `copy` (from reflect_pass_copy) thinned by reflector_thin's step `thin` (0 the copy itself, 1 half the lit texels, 2 a quarter); the cone's edge fades in rather than pops */
+const FshEntry *reflect_pass_thin_copy(const FshEntry *copy, int thin);
+
 /* the table (256 bytes) a polygon of `level` (1 .. REFLECTOR_LEVELS - 1) takes; valid for the frame */
 const uint8_t *reflect_pass_table(int level);
 

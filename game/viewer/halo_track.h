@@ -26,6 +26,7 @@ typedef struct {
     int cx, cy, radius;
     int percent;    /* 1..100: how much of the halo shows */
     int value;
+    int area;       /* the blob area the halo has been following, smoothed (x16): how far the lamp is */
 } HaloDraw;
 
 typedef struct {
