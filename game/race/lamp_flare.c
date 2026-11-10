@@ -126,28 +126,39 @@ int lamp_flare_radius_scaled(int area, int percent)
     return r > LAMP_FLARE_BIG_RADIUS ? LAMP_FLARE_BIG_RADIUS : r;
 }
 
-int lamp_halo_level(int dx, int dy, int radius)
+int lamp_halo_level_pct(int dx, int dy, int radius, int percent)
 {
     static const int BAYER[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
     const long d2 = (long)dx * dx + (long)dy * dy, r2 = (long)radius * radius;
     if (radius <= 0 || d2 >= r2) return 0;
     /* intensity (1 - d2 / r2)^2 in 1/4096, times the levels in 1/16 of a level, plus the ordered threshold (0..15 of 16) */
     const long k = 4096 - d2 * 4096 / r2;
-    const long i = k * k / 4096;
+    const long i = k * k / 4096 * (percent < 0 ? 0 : percent > 100 ? 100 : percent) / 100;
     const long v = i * LAMP_FLARE_LEVELS * 16 / 4096 + BAYER[dy & 3][dx & 3];
     const long level = v / 16;
     return level < 0 ? 0 : level > LAMP_FLARE_LEVELS ? LAMP_FLARE_LEVELS : (int)level;
 }
 
+int lamp_halo_level(int dx, int dy, int radius)
+{
+    return lamp_halo_level_pct(dx, dy, radius, 100);
+}
+
 void lamp_halo_draw(uint8_t *pixels, int pitch, int x0, int y0, int x1, int y1, int cx, int cy, int radius,
                     const uint8_t *const map[LAMP_FLARE_LEVELS])
+{
+    lamp_halo_draw_pct(pixels, pitch, x0, y0, x1, y1, cx, cy, radius, 100, map);
+}
+
+void lamp_halo_draw_pct(uint8_t *pixels, int pitch, int x0, int y0, int x1, int y1, int cx, int cy, int radius, int percent,
+                        const uint8_t *const map[LAMP_FLARE_LEVELS])
 {
     if (pixels == NULL || map == NULL || radius <= 0) return;
     for (int y = cy - radius; y <= cy + radius; y++) {
         if (y < y0 || y > y1) continue;
         for (int x = cx - radius; x <= cx + radius; x++) {
             if (x < x0 || x > x1) continue;
-            const int level = lamp_halo_level(x - cx, y - cy, radius);
+            const int level = lamp_halo_level_pct(x - cx, y - cy, radius, percent);
             if (level == 0) continue;
             uint8_t *const p = pixels + (size_t)y * (size_t)pitch + (size_t)x;
             *p = map[level - 1][*p];
