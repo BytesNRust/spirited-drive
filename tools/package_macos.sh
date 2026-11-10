@@ -106,7 +106,7 @@ plutil -lint "$APP/Contents/Info.plist" >/dev/null
 
 # Nothing may point outside the bundle or the system.
 for f in "$APP/Contents/MacOS/tnfs" "$APP/Contents/Frameworks/libSDL3.0.dylib"; do
-    if otool -L "$f" | tail -n +2 | awk '{print $1}' | grep -v -E '^(/usr/lib/|/System/|@rpath/libSDL3|@executable_path/)'; then
+    if otool -L "$f" | awk '/^\t/ {print $1}' | grep -v -E '^(/usr/lib/|/System/|@rpath/libSDL3|@executable_path/)'; then
         echo "$f links a library outside the bundle (above)" >&2
         exit 1
     fi
