@@ -2,6 +2,7 @@
 # The soft shadow (psx_shadow) is its own switch: it needs no light and no PS1 files (drive_light.c). With the light off (psx_light=0) and the
 # shadow on, a car row drawn at the start read the light's node count through a null light (row_prepare's tunnel look) and the run died on a
 # segmentation fault. The race must draw its frame.
+include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
 file(WRITE "${WORK}/user/port.cfg" "profile=custom\npsx_dir=\npsx_light=0\npsx_shadow=1\nformat=16:9\n")
@@ -15,3 +16,4 @@ endif()
 if(err MATCHES "AddressSanitizer|runtime error")
     message(FATAL_ERROR "sanitizer error: ${err}")
 endif()
+file(REMOVE_RECURSE "${WORK}")

@@ -2,6 +2,7 @@
 # The bumper view at night in rain with the headlights on, headless, four times: the frame must be the same each time and the run must report no
 # sanitizer error. The road's tunnel flags (road_tunnels) were read after they were freed in this setup (the rain's lookup freed the headlight pool's array):
 # an ASan build stops on it, any other build showed a different mirror from run to run.
+include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
 # the night rain setup of an owner's settings, in Restomod's file (the lights, the rain, the street lamps), 21:9 at render scale 2: fewer keys did not show it
@@ -120,3 +121,4 @@ foreach(run 1 2 3 4)
         message(FATAL_ERROR "run ${run}: the frame differs from run 1 (${sum} against ${first}): a state that changes from run to run")
     endif()
 endforeach()
+file(REMOVE_RECURSE "${WORK}")

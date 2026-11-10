@@ -1,5 +1,6 @@
 # usage: cmake -DTNFS=<exe> -DREPO=<repository> -DWORK=<scratch dir> -P old_files_startup.cmake
 # The real program with an old custom port.cfg and extras.cfg: after one run they have moved to restomod.cfg, with their copies. test_port_old_files has the cases; this is the wiring.
+include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
 set(old_port "profile=custom\ncamera_kind=3\nlaps=5\n")

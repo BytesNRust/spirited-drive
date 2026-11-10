@@ -1,5 +1,6 @@
 # usage: cmake -DTNFS=<exe> -DREPO=<repository> -DWORK=<scratch dir> -P input_script_wait.cmake
 # The scripted input's WAIT (platform_sdl3.c): a line the game never logs stops the run at that step with status 3 and a message that names the step, in about the seconds given.
+include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
 execute_process(COMMAND ${CMAKE_COMMAND} -E env TNFS_PREF_DIR=${WORK}/pref SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy ASAN_OPTIONS=detect_leaks=0 TNFS_BANDS=0

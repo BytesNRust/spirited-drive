@@ -1,5 +1,6 @@
 # usage: cmake -DTNFS=<exe> -DREPO=<repository> -DWORK=<scratch dir> -P rain_lamps_masked.cmake
 # The P911 (--car 2, the car with a lamp mask) by day, seen from views 2 and 5: TNFS_RAIN_LAMPS must change the frame in rain and in storm, and not in clear.
+include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
 file(WRITE "${WORK}/user/port.cfg" "profile=restomod\n")
