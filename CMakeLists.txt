@@ -454,6 +454,9 @@ add_library(tnfs_game STATIC
     game/sys/palette.c
     game/sys/text_soft.c
     game/sys/port_settings.c
+    game/sys/port_settings_store.c
+    game/sys/port_settings_scene.c
+    game/sys/port_settings_effects.c
     game/sys/port_old_files.c
     game/sys/port_profile.c
     game/sys/free_laps.c

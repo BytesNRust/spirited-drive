@@ -1,0 +1,339 @@
+/* The settings accessors for the effects: the track lights, the sky and the cars' and weather's effects (port_settings.h; split from port_settings.c by responsibility). */
+#include "game/sys/port_settings.h"
+#include "game/platform/platform.h"
+#include "game/race/session_rules.h"
+#include "game/race/weather.h"
+#include "game/sys/port_extras.h"
+#include "game/sys/port_log.h"
+#include "game/sys/port_profile.h"
+#include "game/viewer/screen_layout.h"
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "game/sys/port_settings_private.h"
+
+int port_track_light_lamp(void)
+{
+    const char *v = getenv("TNFS_TRACK_LIGHT_LAMP");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().track_light_lamp;
+}
+
+int port_police_halo(void)
+{
+    const char *v = getenv("TNFS_POLICE_HALO");
+    if (v != NULL && v[0] >= '0' && v[0] <= '3' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().police_halo;
+}
+
+int port_analog_pad(void)
+{
+    const char *v = getenv("TNFS_ANALOG_PAD");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().analog_pad;
+}
+
+int port_sign_glow(void)
+{
+    if (!port_psx_headlights()) return 0;
+    const char *v = getenv("TNFS_SIGN_GLOW");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().sign_glow;
+}
+
+int port_gauge_exterior(void)
+{
+    const char *v = getenv("TNFS_GAUGE_EXTERIOR");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().gauge_exterior;
+}
+
+int port_night_tone(void)
+{
+    const char *v = getenv("TNFS_NIGHT_TONE");
+    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().night_tone;
+}
+
+int port_city_lift(void)
+{
+    if (!port_psx_light()) return 0;
+    const char *v = getenv("TNFS_CITY_LIFT");
+    if (v != NULL && v[0] >= '0' && v[0] <= '3' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().city_lift;
+}
+
+int port_vegas_lift(void)
+{
+    if (!port_psx_light()) return 0;
+    const char *v = getenv("TNFS_VEGAS_LIFT");
+    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().vegas_lift;
+}
+
+int port_headlight_relight(void)
+{
+    if (!port_psx_headlights()) return 0;
+    const char *v = getenv("TNFS_HEADLIGHT_RELIGHT");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().headlight_relight;
+}
+
+int port_hall_light(void)
+{
+    if (!port_psx_light()) return 0;   /* the PS1 look's */
+    const char *v = getenv("TNFS_HALL_LIGHT");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().hall_light;
+}
+
+int port_replay_no_ffb(void)
+{
+    const char *v = getenv("TNFS_REPLAY_NO_FFB");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().replay_no_ffb;
+}
+
+int port_last_camera(void)
+{
+    const char *v = getenv("TNFS_LAST_CAMERA");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().last_camera;
+}
+
+int sky_fill_below_applies(const PortSettings *s) { return s->sky_fill_below != 0 && s->format != SCREEN_4_3; }
+
+int port_sky_fill_below(void)
+{
+    PortSettings s = port_settings_load();
+    const char *v = getenv("TNFS_SKY_FILL_BELOW");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') s.sky_fill_below = v[0] - '0';
+    return sky_fill_below_applies(&s);
+}
+
+int port_host_allows_radar_and_camera(void)
+{
+    const SessionRules *host = session_rules_active();
+    return host == NULL || host->mode == SESSION_RESTOMOD;
+}
+
+int port_radar_all_views(void)
+{
+    const char *v = getenv("TNFS_RADAR_ALL_VIEWS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().radar_all_views;
+}
+
+int port_tach_dim(void)
+{
+    const char *v = getenv("TNFS_TACH_DIM");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().tach_dim;
+}
+
+int port_gauge_wheel(void)
+{
+    const char *v = getenv("TNFS_GAUGE_WHEEL");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().gauge_wheel;
+}
+
+int port_police_glow(void)
+{
+    const char *v = getenv("TNFS_POLICE_GLOW");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().police_glow;
+}
+
+int port_sky_fill(void)
+{
+    const char *v = getenv("TNFS_SKY_FILL");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().sky_fill;
+}
+
+int port_night_sky_hue(void)
+{
+    const char *v = getenv("TNFS_NIGHT_SKY_HUE");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().night_sky_hue;
+}
+
+int port_forest_dark(void)
+{
+    const char *v = getenv("TNFS_FOREST_DARK");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().forest_dark;
+}
+
+int port_night_stretch_clean(void)
+{
+    const char *v = getenv("TNFS_NIGHT_STRETCH_CLEAN");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().night_stretch_clean;
+}
+
+int port_sky_fill_mode(void)
+{
+    const char *v = getenv("TNFS_SKY_FILL_MODE");
+    if (v != NULL && (strcmp(v, "a") == 0 || strcmp(v, "1") == 0)) return 1;
+    if (v != NULL && (strcmp(v, "b") == 0 || strcmp(v, "2") == 0)) return 2;
+    return SKY_FILL_MODE_DEFAULT;
+}
+
+int port_free_records(void)
+{
+    const char *v = getenv("TNFS_FREE_RECORDS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().free_records;
+}
+
+int port_car_colours(void)
+{
+    const char *v = getenv("TNFS_CAR_COLOURS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().car_colours;
+}
+
+int port_psx_headlights(void)
+{
+    const char *v = getenv("TNFS_PSX_HEADLIGHTS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().psx_headlights;
+}
+
+int port_psx_shadow(void)
+{
+    const char *v = getenv("TNFS_PSX_SHADOW");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().psx_shadow;
+}
+
+int port_emissive_lamps(void)
+{
+    const char *v = getenv("TNFS_EMISSIVE_LAMPS");   /* a dev override; the game follows the Graphics Light Effects switch */
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_psx_light();
+}
+
+int port_body_shine(void)
+{
+    const char *v = getenv("TNFS_BODY_SHINE");
+    if (v != NULL && v[0] >= '0' && v[0] <= '4' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().body_shine;
+}
+
+int port_psx_light(void)
+{
+    const char *v = getenv("TNFS_PSX_LIGHT");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().psx_light;
+}
+
+int port_rain_tyre_roll(void)
+{
+    const char *v = getenv("TNFS_RAIN_TYRE_ROLL");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().rain_tyre_roll;
+}
+
+int port_snow_weather(void)
+{
+    const char *v = getenv("TNFS_SNOW_WEATHER");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    const SessionRules *host = session_rules_active();   /* port (online): the host's snow: it changes the grip */
+    return host != NULL ? host->snow_weather : port_settings_load().snow_weather;
+}
+
+int port_handbrake_lamps(void)
+{
+    const char *v = getenv("TNFS_HANDBRAKE_LAMPS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().handbrake_lamps;
+}
+
+int port_reflectors(void)
+{
+    if (!port_psx_headlights()) return 0;
+    const char *v = getenv("TNFS_REFLECTORS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().reflectors;
+}
+
+int port_spray_cd_smoke(void)
+{
+    const char *v = getenv("TNFS_SPRAY_CD_SMOKE");
+    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().spray_cd_smoke;
+}
+
+int port_rally_spray(void)
+{
+    const char *v = getenv("TNFS_RALLY_SPRAY");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().rally_spray;
+}
+
+int port_wipers(void)
+{
+    const char *v = getenv("TNFS_WIPERS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().wipers;
+}
+
+int port_water_mist(void)
+{
+    const char *v = getenv("TNFS_WATER_MIST");
+    if (v != NULL && v[0] >= '0' && v[0] <= '3' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().water_mist;
+}
+
+int port_spray_v4(void)
+{
+    const char *v = getenv("TNFS_SPRAY_V4");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().spray_v4;
+}
+
+int port_trail_rise(void)
+{
+    const char *v = getenv("TNFS_TRAIL_RISE");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().trail_rise;
+}
+
+int port_snow_fx(void)
+{
+    const char *v = getenv("TNFS_SNOW_FX");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().snow_fx;
+}
+
+int port_lamp_halos(void)
+{
+    const char *v = getenv("TNFS_LAMP_HALOS");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().lamp_halos;
+}
+
+int port_weather_fog(void)
+{
+    const char *v = getenv("TNFS_WEATHER_FOG");
+    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().weather_fog;
+}
+
+int port_car_tunnel_match(void)
+{
+    const char *v = getenv("TNFS_CAR_TUNNEL_MATCH");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().car_tunnel_match;
+}
+
+int port_car_night_lift(void)
+{
+    const char *v = getenv("TNFS_CAR_NIGHT_LIFT");
+    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().car_night_lift;
+}
