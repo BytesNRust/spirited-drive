@@ -1,4 +1,5 @@
 /* The wide screen's pure calculations (port glue, no original counterpart). */
+#include "tests/exe_tables_install.h"
 #include "game/viewer/screen_layout.h"
 #include "game/race/horizon.h"
 #include "test.h"
@@ -12,6 +13,7 @@ static void same_layout(const ViewLayout *a, const ViewLayout *b, int row)
 
 int main(void)
 {
+    exe_tables_for_test();
     CHECK_EQ_INT(screen_width(SCREEN_4_3), 640);
     CHECK_EQ_INT(screen_width(SCREEN_16_9), 854);
     CHECK_EQ_INT(screen_width(SCREEN_21_9), 1120);

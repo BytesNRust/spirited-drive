@@ -1,5 +1,6 @@
 /* The port's records (port_records.c): every block starts as the original's defaults, a variant's or the cheats' table
  * is its own, and what was written comes back from records.dat. */
+#include "tests/exe_tables_install.h"
 #include "game/frontend/config_dat.h"
 #include "game/sys/port_records.h"
 #include "test.h"
@@ -226,6 +227,7 @@ static void test_migration_keeps_the_players_rows_and_takes_the_cd_rows(void)
 
 int main(void)
 {
+    exe_tables_for_test();
     test_a_block_starts_as_the_originals_defaults();
     test_normal_without_cheats_is_config_dats();
     test_a_record_in_one_table_leaves_the_others();

@@ -1,5 +1,6 @@
 /* Where a finished race's records go (records_route.c): config.dat's image for a normal race without cheats, the
  * port's tables for a variant or a cheat, the marks that follow the rows. record_check.c's own routines run on them. */
+#include "tests/exe_tables_install.h"
 #include "game/frontend/config_dat.h"
 #include "game/frontend/records_glue.h"
 #include "game/frontend/records_route.h"
@@ -547,6 +548,7 @@ static void test_the_records_screen_gets_the_selector_only_with_the_flag(void)
 
 int main(void)
 {
+    exe_tables_for_test();
     test_the_results_show_the_table_the_race_was_checked_on();
     test_a_free_race_keeps_its_lap_and_top_speed();
     test_a_free_race_on_the_tracks_own_count_takes_that_choices_totals();

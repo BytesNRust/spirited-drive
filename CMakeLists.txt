@@ -1402,3 +1402,17 @@ if(NOT EMSCRIPTEN)
         set_property(TEST ${t} APPEND PROPERTY ENVIRONMENT "TNFS_PREF_DIR=${CMAKE_BINARY_DIR}/test_pref")
     endforeach()
 endif()
+
+# the tests that read the exe's tables install them from original/NFS_WIN.EXE first (tests/exe_tables_install.h; a no-op when the tables are in the source)
+foreach(name config_dat screen_layout port_records free_records records_route config_name mirror_on_dash modern_road follow_behind_rows race_sound_trace)
+    if(TARGET test_${name})
+        target_compile_definitions(test_${name} PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    endif()
+endforeach()
+# the tests that run the real game take the tables from the exe at its start-up: a hang (a poisoned or missing table) ends them in two minutes
+foreach(name mods_overlay track_new reference_mod two_tracks_reflectors trail_frame_skip rain_lamps_masked old_files_startup dev_data_default
+             rain_night_headlights shadow_without_light day_plain_present light_edit_reload light_edit_places spray_cd_smoke water_mist_frames wipers)
+    if(TEST ${name})
+        set_tests_properties(${name} PROPERTIES TIMEOUT 120)
+    endif()
+endforeach()
