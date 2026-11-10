@@ -1,6 +1,7 @@
 #include "viewer/spray_v4_draw.h"
 
 #include "game/gfx/sprite_scaled.h"
+#include "game/race/rain_spray.h"
 #include "game/race/spray_tint.h"
 #include "viewer/spray_v4_art.h"
 
@@ -25,6 +26,8 @@ static const Look LOOKS[KINDS] = {
     [GLINT]           = { SPRAY_V4_ART_STONE,      8, 1.5f, 1.00f, 0.00f, 1.5f, 3.5f, 30.0f, 90.0f }
 };
 static const float BODY_KEEP = 0.2f;   /* the share of a puff's alpha over the body of the car it came from */
+/* the birth: a puff behind its car's centre by less than BIRTH_FROM metres is BIRTH_MIN of its size, growing to the full from the rear bumper (and BIRTH_PAST metres beyond), so the trail starts small at the wheels and is whole past the bumper */
+static const float BIRTH_FROM = 1.0f, BIRTH_MIN = 0.25f, BIRTH_PAST = 0.6f;
 static uint8_t LEVEL_AT[KINDS][4][4][256];   /* [kind][y & 3][x & 3][alpha]: the level a pixel of that alpha gets with nothing before it */
 static int RCP[256], DITHER[16];   /* 65536 / (255 - before); the Bayer 4x4 thresholds in 16.16 */
 static void fixed_tables(void)
@@ -348,9 +351,17 @@ void spray_v4_draw_row(int32_t node, int far_side)
             const float dx = (float)(screen[0] - own_screen[0]), dy = (float)(screen[1] - own_screen[1]);
             if (fabsf(dx) < half && dy > -1.6f * unit_px && dy < 0.4f * unit_px) keep = BODY_KEEP;
         }
-        const int alpha = (int)(look.alpha * fade * keep * 255.0f);
+        float birth = 1.0f;   /* small and faint until past the rear bumper */
+        if (owner != NULL) {
+            int32_t heading[2];
+            rain_spray_heading(owner->use_matrix, owner->yaw, owner->matrix[6], owner->matrix[8], heading);
+            const float behind = -(look.x - (float)owner->x / 65536.0f) * (float)heading[0] / 65536.0f - (look.z - (float)owner->z / 65536.0f) * (float)heading[1] / 65536.0f;
+            const float bumper = owner->model_length > 0 ? (float)owner->model_length / 65536.0f * 0.5f : 2.2f;
+            birth = BIRTH_MIN + (1.0f - BIRTH_MIN) * ramp(behind, BIRTH_FROM, bumper + BIRTH_PAST);
+        }
+        const int alpha = (int)(look.alpha * fade * keep * birth * 255.0f);
         if (alpha < 3) continue;
-        const float rpx = (float)(((int32_t)(look.radius * 65536.0f)) >> WORLD_SHIFT) * (float)focal / (float)camera[2];
+        const float rpx = (float)(((int32_t)(look.radius * 65536.0f)) >> WORLD_SHIFT) * (float)focal / (float)camera[2] * birth;
         const uint32_t pick = (uint32_t)(i * 7) + p->born / 2;
         const int variant = (int)(pick % SPRAY_V4_ART_VARIANTS), flip_u = (int)(pick / 5 & 1), flip_v = 0;   /* every sprite a billboard: square, facing the camera */
         Puff *q = &puffs[p->kind][count[p->kind]];
