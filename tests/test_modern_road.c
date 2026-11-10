@@ -1,5 +1,6 @@
 /* port: EXTRAS' Modern 3D, the near road from its camera-space corners (modern_road.h), and the track drawer handing
  * it the cell instead of 00425718's subdivision (track_draw.h's draw_camera). */
+#include "tests/exe_tables_install.h"
 #include "game/race/mirror_scene.h"
 #include "game/race/track_draw.h"
 #include "viewer/modern_road.h"
@@ -381,6 +382,7 @@ static void test_light_tables_add(void)
 
 int main(void)
 {
+    exe_tables_for_test();
     test_light_tables_add();
     test_lit_warm();
     test_lit_steps();

@@ -1,5 +1,6 @@
 /* port: a mirror on the dash (the Warrior's, by the wheel) is not widened on a wide screen; one at the windshield's
  * top is (drive_mirror.h). */
+#include "tests/exe_tables_install.h"
 #include "viewer/drive_mirror.h"
 #include "viewer/ported_view.h"
 #include "test.h"
@@ -36,6 +37,7 @@ static void start(DriveMirror *m, int32_t top)
 
 int main(void)
 {
+    exe_tables_for_test();
     static DriveMirror roof, dash;
     start(&roof, 60);
     start(&dash, 250);

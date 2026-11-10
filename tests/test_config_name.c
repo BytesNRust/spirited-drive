@@ -1,6 +1,7 @@
 /* The name the direct start in Control Central takes (menu_glue.c's glue_start_screen): config_name_saved is 1 only once
  * the player's own config.dat was read. With none, the CD's and the defaults' "Player" is in frontend_player_name, but
  * that is not a name the player saved, so the name box comes first. */
+#include "tests/exe_tables_install.h"
 #include "game/frontend/config.h"
 #include "game/frontend/config_dat.h"
 #include "game/frontend/frontend.h"
@@ -70,6 +71,7 @@ static void test_a_saved_config_gives_the_saved_name(void)
 
 int main(void)
 {
+    exe_tables_for_test();
     test_no_saved_config_no_saved_name();
     test_a_saved_config_gives_the_saved_name();
     return TEST_REPORT();

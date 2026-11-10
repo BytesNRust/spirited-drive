@@ -1,6 +1,7 @@
 /* port (port_follow_camera): the arm asks the sink for the cars of every row once, none skipped. The pass draws the rows behind the
  * camera's segment with the cars lagging five rows after their polygons and the rows from it on as the exe's, and a row at the join
  * of the two was in neither: a car standing on it was not drawn, and with the camera across the road it passed the lens in view. */
+#include "tests/exe_tables_install.h"
 #include "formats/tri.h"
 #include "game/race/track_cache.h"
 #include "game/race/track_render.h"
@@ -121,6 +122,7 @@ static const char *const TRACKS[] = { "TR1", "TR6" };
 
 int main(int argc, char **argv)
 {
+    exe_tables_for_test();
     if (argc < 2) {
         fprintf(stderr, "usage: test_follow_behind_rows SIMDATA_DIR\n");
         return 2;

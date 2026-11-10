@@ -2,6 +2,7 @@
  * sound on, then the music picks, the mute / unmute calls and the pan and loudness curves hashed too. The hash is the one the code gave before race_sound.c was split by
  * responsibility; a change to what the sound code does changes it (update EXPECTED with the reason in the commit, as with the goldens).
  *   test_race_sound_trace SIMDATA_DIR */
+#include "tests/exe_tables_install.h"
 #include "formats/tri.h"
 #include "game/race/car_body.h"
 #include "game/race/car_load.h"
@@ -136,6 +137,7 @@ static void music(void)
 
 int main(int argc, char **argv)
 {
+    exe_tables_for_test();
     if (argc < 2) {
         fprintf(stderr, "usage: test_race_sound_trace SIMDATA_DIR\n");
         return 2;

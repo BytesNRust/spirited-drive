@@ -1,5 +1,6 @@
 /* port (free records): the per-lap-count tables of a free race's ten best totals (free_records.h): sparse by (track, variant, cheats,
  * laps), made from a seed, kept in free_records.dat, and a damaged file is no file. */
+#include "tests/exe_tables_install.h"
 #include "game/sys/free_records.h"
 #include "game/sys/free_laps.h"
 #include "game/platform/platform.h"
@@ -174,6 +175,7 @@ static void test_a_seed_scales_the_nearest_exe_tables_times(void)
 
 int main(void)
 {
+    exe_tables_for_test();
     test_a_table_is_made_from_the_seed_and_found_again();
     test_only_free_circuits_and_counts_have_tables();
     test_the_laps_with_a_table_come_ascending();

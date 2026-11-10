@@ -1,6 +1,7 @@
 /* config.dat parsing and serialising (0042a010 / 0042a504 / 00429278).
  * With a path argument (registered by CMake when original/ holds the CD) it
  * also checks the real file. */
+#include "tests/exe_tables_install.h"
 #include "game/frontend/config_dat.h"
 #include "test.h"
 
@@ -136,6 +137,7 @@ static void test_real_file(const char *path)
 
 int main(int argc, char **argv)
 {
+    exe_tables_for_test();
     test_defaults();
     test_round_trip();
     test_bounds();
