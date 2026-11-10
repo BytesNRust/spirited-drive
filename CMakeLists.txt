@@ -490,6 +490,14 @@ if(NOT MSVC)
     target_compile_options(tnfs_game PRIVATE -fwrapv)
 endif()
 
+set(TNFS_SDL3_PLATFORM
+    game/platform/sdl3/platform_sdl3.c
+    game/platform/sdl3/platform_audio_sdl3.c
+    game/platform/sdl3/platform_input_sdl3.c
+    game/platform/sdl3/platform_mods_sdl3.c
+    game/platform/sdl3/platform_user_sdl3.c
+    game/platform/sdl3/platform_present_sdl3.c
+    game/platform/sdl3/platform_pool_sdl3.c)   # platform_sdl3.c split by responsibility; the tests that link the platform list them all
 add_executable(tnfs
     game/main.c
     game/frontend/config.c
@@ -573,7 +581,7 @@ add_executable(tnfs
     game/viewer/drive_run.c
     game/viewer/track_viewer.c
     game/viewer/viewer_main.c
-    game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c
+    ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c
     game/platform/sdl3/first_run_sdl3.c
     game/platform/sdl3/platform_joy_sdl3.c
     game/platform/sdl3/update_sdl3.c
@@ -656,7 +664,7 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_compile_definitions(test_data_check PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     # port: the mirror kept on the dash (drive_mirror.c, the viewer's: built into the test with its source)
     add_executable(test_mirror_on_dash tests/test_mirror_on_dash.c game/viewer/drive_mirror.c game/viewer/follow_arm.c game/viewer/follow_behind.c game/viewer/modern_road.c
-                   game/sys/bands.c game/sys/band_index.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+                   game/sys/bands.c game/sys/band_index.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_include_directories(test_mirror_on_dash PRIVATE game)
     target_link_libraries(test_mirror_on_dash PRIVATE tnfs_game SDL3::SDL3)
     target_compile_options(test_mirror_on_dash PRIVATE ${TNFS_WARNINGS})
@@ -1009,12 +1017,12 @@ if(NOT EMSCRIPTEN)
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands
     add_executable(test_raster_record tests/test_raster_record.c game/viewer/modern_road.c game/sys/bands.c game/sys/band_index.c
-                   game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+                   ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_include_directories(test_raster_record PRIVATE game)
     target_link_libraries(test_raster_record PRIVATE tnfs_game SDL3::SDL3)
     target_compile_options(test_raster_record PRIVATE ${TNFS_WARNINGS})
     add_test(NAME raster_record COMMAND test_raster_record)
-    add_executable(test_bands tests/test_bands.c game/sys/bands.c game/sys/band_index.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    add_executable(test_bands tests/test_bands.c game/sys/bands.c game/sys/band_index.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_bands PRIVATE tnfs_game SDL3::SDL3)
     target_compile_options(test_bands PRIVATE ${TNFS_WARNINGS})
     add_test(NAME bands COMMAND test_bands)
@@ -1023,28 +1031,28 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(test_tgv_wide PRIVATE tnfs_game)
     target_compile_options(test_tgv_wide PRIVATE ${TNFS_WARNINGS})
     add_test(NAME tgv_wide COMMAND test_tgv_wide)
-    add_executable(test_video_wide tests/test_video_wide.c game/sys/video.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    add_executable(test_video_wide tests/test_video_wide.c game/sys/video.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_video_wide PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_video_wide PRIVATE m)
     endif()
     target_compile_options(test_video_wide PRIVATE ${TNFS_WARNINGS})
     add_test(NAME video_wide COMMAND test_video_wide)
-    add_executable(test_platform_mods tests/test_platform_mods.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    add_executable(test_platform_mods tests/test_platform_mods.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_mods PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_platform_mods PRIVATE m)
     endif()
     target_compile_options(test_platform_mods PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_mods COMMAND test_platform_mods)
-    add_executable(test_platform_cfg_cache tests/test_platform_cfg_cache.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    add_executable(test_platform_cfg_cache tests/test_platform_cfg_cache.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_cfg_cache PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_platform_cfg_cache PRIVATE m)
     endif()
     target_compile_options(test_platform_cfg_cache PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_cfg_cache COMMAND test_platform_cfg_cache)
-    add_executable(test_platform_keys tests/test_platform_keys.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    add_executable(test_platform_keys tests/test_platform_keys.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_keys PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_platform_keys PRIVATE m)
@@ -1052,7 +1060,7 @@ if(NOT EMSCRIPTEN)
     target_compile_options(test_platform_keys PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_keys COMMAND test_platform_keys)
     # port: the names TNFS_INPUT_SCRIPT's key table understands, so a page walk can be scripted by keyboard
-    add_executable(test_script_keys tests/test_script_keys.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    add_executable(test_script_keys tests/test_script_keys.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_script_keys PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_script_keys PRIVATE m)
@@ -1062,42 +1070,45 @@ if(NOT EMSCRIPTEN)
     # port: the page keys on the keyboard path: a scripted PGDN is the PageDown (0x5100) input_get_key reports,
     # and only while the page keys are on. The input layer is in the executable, not in tnfs_game, so its source
     # is built into the test.
-    add_executable(test_input_page_keys tests/test_input_page_keys.c game/sys/input.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    add_executable(test_input_page_keys tests/test_input_page_keys.c game/sys/input.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_input_page_keys PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_input_page_keys PRIVATE m)
     endif()
     target_compile_options(test_input_page_keys PRIVATE ${TNFS_WARNINGS})
     add_test(NAME input_page_keys COMMAND test_input_page_keys)
-    add_executable(test_platform_text_input tests/test_platform_text_input.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    add_executable(test_platform_text_input tests/test_platform_text_input.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_text_input PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_platform_text_input PRIVATE m)
     endif()
     target_compile_options(test_platform_text_input PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_text_input COMMAND test_platform_text_input)
-    add_executable(test_platform_cursor tests/test_platform_cursor.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    add_executable(test_platform_cursor tests/test_platform_cursor.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_cursor PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_platform_cursor PRIVATE m)
     endif()
     target_compile_options(test_platform_cursor PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_cursor COMMAND test_platform_cursor)
-    add_executable(test_platform_display tests/test_platform_display.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    add_executable(test_platform_display tests/test_platform_display.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_display PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_platform_display PRIVATE m)
     endif()
     target_compile_options(test_platform_display PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_display COMMAND test_platform_display)
-    add_executable(test_platform_present tests/test_platform_present.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    # the test includes platform_sdl3.c and platform_present_sdl3.c (to reach the renderer and the pacing); the rest of the platform is linked
+    add_executable(test_platform_present tests/test_platform_present.c game/platform/sdl3/platform_audio_sdl3.c game/platform/sdl3/platform_input_sdl3.c
+                   game/platform/sdl3/platform_mods_sdl3.c game/platform/sdl3/platform_user_sdl3.c game/platform/sdl3/platform_pool_sdl3.c
+                   game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_present PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_platform_present PRIVATE m)
     endif()
     target_compile_options(test_platform_present PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_present COMMAND test_platform_present)
-    add_executable(test_reference_mod tests/test_reference_mod.c game/platform/sdl3/platform_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    add_executable(test_reference_mod tests/test_reference_mod.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_reference_mod PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_reference_mod PRIVATE m)
