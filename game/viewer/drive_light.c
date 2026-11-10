@@ -1184,6 +1184,9 @@ void drive_light_world_rect(int width, int x, int y, int w, int h)
  * frame's palette and the mask picks between equal colours. Decided per frame, so a tunnel by day (the dash's ratio) still splits. */
 int drive_light_needs_split(void)
 {
+    static int forced = -1;   /* TNFS_FORCE_SPLIT=1 (tests/day_plain_present.cmake): always the split present, the picture the plain one must equal */
+    if (forced < 0) forced = getenv("TNFS_FORCE_SPLIT") != NULL;
+    if (forced) return 1;
     const int neutral = tint[0] == 1.0f && tint[1] == 1.0f && tint[2] == 1.0f && dash_ratio[0] == 1.0f && dash_ratio[1] == 1.0f && dash_ratio[2] == 1.0f;
     return !neutral || storm_flash > 0 || (port_gauge_light() > 0 && drive_light_gauges_lit());
 }

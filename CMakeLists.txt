@@ -1280,6 +1280,9 @@ if(NOT EMSCRIPTEN)
         # the soft shadow with the light off: a car row drawn with no light loaded (psx_shadow is its own switch)
         add_test(NAME shadow_without_light COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/shadow_without_light -P ${CMAKE_SOURCE_DIR}/tests/shadow_without_light.cmake)
         set_tests_properties(shadow_without_light PROPERTIES TIMEOUT 120)
+        # the day's frame through the plain present (drive_light_needs_split) is the one the split present makes, in a day tunnel too
+        add_test(NAME day_plain_present COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/day_plain_present -P ${CMAKE_SOURCE_DIR}/tests/day_plain_present.cmake)
+        set_tests_properties(day_plain_present PROPERTIES TIMEOUT 600)
         # the light editor: saving the light file mid-race must not overrun the lines it draws
         add_test(NAME light_edit_reload COMMAND ${CMAKE_SOURCE_DIR}/tests/light_edit_reload.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/light_edit_reload)
         set_tests_properties(light_edit_reload PROPERTIES TIMEOUT 120)
