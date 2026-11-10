@@ -125,7 +125,7 @@ void cg_extras_apply(void);
 int16_t cg_image_short(int at);
 void cg_palette_set(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode);
 void cg_flush(void *ctx);
-extern int *cg_stage_in;  /* the running screen's inputs' copy of it (results_screen.h, standings.h) */;
+extern int *cg_stage_in;  /* the running screen's inputs' copy of it (results_screen.h, standings.h) */
 int32_t cg_deadline_passed(void *ctx);
 int32_t cg_key(void *ctx);
 void cg_poll_pointer(void *ctx);
