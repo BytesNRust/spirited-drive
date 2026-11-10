@@ -127,7 +127,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.water_mist, 0);
     CHECK_EQ_INT(s.weather_fog, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.car_tunnel_match, 0);   /* the exe's car */
-    CHECK_EQ_INT(s.spray_v4, 0);   /* off in every profile until the owner has played it */
+    CHECK_EQ_INT(s.spray_v4, 0);   /* the exe's, in Stock and Restored */
     CHECK_EQ_INT(s.car_night_lift, 0);   /* the exe's cars */
     CHECK_EQ_INT(s.night_tone, 0);   /* the exe's fallback night, in Stock and Restored */
     CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift + s.headlight_cone + s.rain_fx + s.rain_grip + s.gauge_light, 0);
@@ -163,7 +163,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.water_mist, 0);
     CHECK_EQ_INT(s.weather_fog, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.car_tunnel_match, 0);   /* the exe's car */
-    CHECK_EQ_INT(s.spray_v4, 0);   /* off in every profile until the owner has played it */
+    CHECK_EQ_INT(s.spray_v4, 0);   /* the exe's, in Stock and Restored */
     CHECK_EQ_INT(s.car_night_lift, 0);   /* the exe's cars */
     CHECK_EQ_INT(s.night_tone, 0);   /* the exe's fallback night, in Stock and Restored */
     CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.tunnel_headlight + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift + s.headlight_cone + s.rain_fx + s.rain_grip + s.gauge_light, 0);
@@ -206,7 +206,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.lamp_halos, 1);   /* on in Restomod (owner 2026-11-08): the street lamps' halo; Stock and Restored keep 0 */
     CHECK_EQ_INT(s.spray_cd_smoke, 1);   /* on in Restomod (owner 2026-11-08): the CD smoke variant, not 2 */
     CHECK_EQ_INT(s.wipers, 1);   /* on in Restomod (owner 2026-11-08) */
-    CHECK_EQ_INT(s.spray_v4, 0);   /* off in every profile until the owner has played it */
+    CHECK_EQ_INT(s.spray_v4, 1);   /* on in Restomod (owner 2026-11-09, "bastante bien"): the generated spray; Stock and Restored keep 0 */
     CHECK_EQ_INT(s.water_mist, 2);   /* the veil and the droplet streaks (owner 2026-11-08: "probemos v2") */
     CHECK_EQ_INT(s.weather_fog, 2);   /* the whiter, denser snow fog and the denser storm fog, no dark mood over snow (owner 2026-11-09) */
     CHECK_EQ_INT(s.car_tunnel_match, 1);   /* the car as lit as outside, the owner's pick B with the 0.85 gap (2026-11-09) */
