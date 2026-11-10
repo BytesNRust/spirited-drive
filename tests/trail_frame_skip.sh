@@ -15,7 +15,7 @@ fail() { echo "FAIL: $1"; exit 1; }
 # count TRACK RALLY WEATHER VIEW SKIP KEY(rain|dust)
 count() {
     local rally=(); [ "$2" = 1 ] && rally=(TNFS_RALLY=1)
-    env ${rally[@]+"${rally[@]}"} TNFS_FRAME_SKIP=$5 TNFS_AUTOPILOT=1 TNFS_VIEW=$4 TNFS_WEATHER=$3 TNFS_FRAMES=60 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
+    env ${rally[@]+"${rally[@]}"} TNFS_SPRAY_V4=0 TNFS_FRAME_SKIP=$5 TNFS_AUTOPILOT=1 TNFS_VIEW=$4 TNFS_WEATHER=$3 TNFS_FRAMES=60 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
         timeout -k 5 300 "$TNFS" --data "$DATA" --user "$WORK/user" --mods "$WORK/mods" --drive "$1" --type 0 --car 3 --racers 1 --node 1000 --screenshot "$WORK/shot.ppm" 2>&1 \
         | awk -v key="$6" '/^trail ticks:/ { print (key == "rain" ? $4 : $6) }'
 }

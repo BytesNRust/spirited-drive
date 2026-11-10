@@ -11,7 +11,7 @@ printf 'profile=restomod\npsx_light=1\n' > "$WORK/user/port.cfg"
 
 shot() {   # the setting's value ("" = unset), the output name
     local e=(); [ -n "$1" ] && e=(TNFS_SPRAY_CD_SMOKE=$1)
-    env ${e[@]+"${e[@]}"} TNFS_WATER_MIST=0 TNFS_WEATHER=rain TNFS_PSX_TIME=day TNFS_VIEW=2 TNFS_START_NODE=100 TNFS_FRAMES=200 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
+    env ${e[@]+"${e[@]}"} TNFS_SPRAY_V4=0 TNFS_WATER_MIST=0 TNFS_WEATHER=rain TNFS_PSX_TIME=day TNFS_VIEW=2 TNFS_START_NODE=100 TNFS_FRAMES=200 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
         timeout -k 5 200 "$TNFS" --data "$DATA" --user "$WORK/user" --mods "$WORK/mods" --drive TR1 --type 0 --car 2 --node 360 --screenshot "$WORK/$2.ppm" > "$WORK/$2.log" 2>&1
     [ -s "$WORK/$2.ppm" ] || { echo "FAIL: no frame for '$1'"; exit 1; }
 }
