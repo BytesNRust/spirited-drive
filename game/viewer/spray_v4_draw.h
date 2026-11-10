@@ -21,7 +21,7 @@ typedef struct SprayV4Host {
 
 SprayV4 *spray_v4_state(void);
 
-/* What the frame drawn last cost in particles (dev: TNFS_FRAME_TIMES prints them): the live particles, the puffs drawn (after the fades), of them the big ones (made on the half map), the strips recorded and their texels, the cells the big puffs were rasterised on. */
+/* What the frame drawn last cost in particles (dev: TNFS_FRAME_TIMES prints them): the live particles, the puffs drawn (after the fades), of them the big ones (made on the half map), the strips recorded and their texels, the work of the big puffs (cells rasterised, and the rows' set-up). */
 typedef struct SprayV4Stats { int live, puffs, big, strips; long texels, cells; } SprayV4Stats;
 const SprayV4Stats *spray_v4_stats(void);
 
