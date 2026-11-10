@@ -1,7 +1,8 @@
 /* platform_present through the texture's locked memory against the buffer-and-upload path and a per-pixel reference. SDL's
  * dummy video driver and its software renderer: what the renderer drew is read back with SDL_RenderReadPixels.
- * Included, not linked, to reach the renderer. */
+ * Included, not linked, to reach the renderer and the pacing (platform_sdl3.c and platform_present_sdl3.c). */
 #include "platform/sdl3/platform_sdl3.c"
+#include "platform/sdl3/platform_present_sdl3.c"
 #include "test.h"
 
 #include <stdlib.h>
@@ -9,7 +10,7 @@
 
 static uint32_t *readback(void)
 {
-    SDL_Surface *s = SDL_RenderReadPixels(renderer, NULL);
+    SDL_Surface *s = SDL_RenderReadPixels(sdl3_renderer, NULL);
     if (s == NULL) return NULL;
     SDL_Surface *c = SDL_ConvertSurface(s, SDL_PIXELFORMAT_XRGB8888);
     SDL_DestroySurface(s);

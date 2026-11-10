@@ -1,3 +1,4 @@
+/* The SDL3 platform: the window, the renderer and its texture, the log header and the window's sizes (platform_sdl3.c split by responsibility; the shared names are in platform_sdl3_private.h). */
 #include "platform/platform.h"
 
 #include "formats/modpath.h"
@@ -25,109 +26,36 @@
 #include <limits.h>   /* realpath: symbolic links out of the mods directory are refused */
 #define TNFS_HAVE_REALPATH 1
 #endif
+#include "platform/sdl3/platform_sdl3_private.h"
 
-static SDL_Window *window;
-static SDL_Renderer *renderer;
-static SDL_Texture *texture;
-static uint32_t *rgb_buffer;
-static int fb_width;
-static int fb_height;
+SDL_Window *sdl3_window;
+SDL_Renderer *sdl3_renderer;
+SDL_Texture *sdl3_texture;
+uint32_t *sdl3_rgb_buffer;
+int sdl3_fb_width;
+int sdl3_fb_height;
 
-enum { KEY_QUEUE_SIZE = 16, VBLANK_HZ = 60 };
+enum { VBLANK_HZ = 60 };
 static int refresh_hz = VBLANK_HZ;
 
 /* TNFS_CAPTURE_DIR=dir [TNFS_CAPTURE_EVERY=n] [TNFS_CAPTURE_FROM=m]: write every n-th presented
  * frame from the m-th on as dir/frame_NNNNN.ppm, to check the game's screens headless. */
-static const char *capture_dir;
-static int capture_every = 30;
-static unsigned capture_from;
-static unsigned presented_frames;
-static uint64_t next_vblank_ns;
-static PlatformKey key_queue[KEY_QUEUE_SIZE];
-static int key_head;
-static int key_count;
+const char *sdl3_capture_dir;
+int sdl3_capture_every = 30;
+unsigned sdl3_capture_from;
+unsigned sdl3_presented_frames;
+uint64_t sdl3_next_vblank_ns;
 
-enum { TEXT_QUEUE_SIZE = 32 };
-static uint32_t text_queue[TEXT_QUEUE_SIZE];
-static int text_head, text_count;
-
-void sdl3_text_push(uint32_t code)
-{
-    if (text_count < TEXT_QUEUE_SIZE) text_queue[(text_head + text_count++) % TEXT_QUEUE_SIZE] = code;
-}
-
-void sdl3_text_push_utf8(const char *s)
-{
-    const unsigned char *p = (const unsigned char *)s;
-    while (*p) {
-        uint32_t cp = *p;
-        int extra = cp >= 0xF0 ? 3 : cp >= 0xE0 ? 2 : cp >= 0xC0 ? 1 : 0;
-        cp &= extra == 3 ? 0x07 : extra == 2 ? 0x0F : extra == 1 ? 0x1F : 0x7F;
-        p++;
-        for (; extra > 0 && (*p & 0xC0) == 0x80; extra--, p++) cp = (cp << 6) | (*p & 0x3F);
-        sdl3_text_push(cp);
-    }
-}
-
-static void push_editing_key(SDL_Keycode key)
-{
-    if (key == SDLK_BACKSPACE) sdl3_text_push(PLATFORM_TEXT_BACKSPACE);
-    if (key == SDLK_RETURN || key == SDLK_KP_ENTER) sdl3_text_push(PLATFORM_TEXT_ENTER);
-    if (key == SDLK_ESCAPE) sdl3_text_push(PLATFORM_TEXT_ESCAPE);
-    if (key == SDLK_DELETE) sdl3_text_push(PLATFORM_TEXT_DELETE);
-}
-
-void platform_text_input(bool on)
-{
-    if (window == NULL) return;
-    if (on) SDL_StartTextInput(window);
-    else SDL_StopTextInput(window);
-}
-
-bool platform_text_input_active(void)
-{
-    return window != NULL && SDL_TextInputActive(window);
-}
-
-uint32_t platform_next_text(void)
-{
-    if (input_script_active()) input_script_apply_text();
-    if (text_count == 0) return 0;
-    const uint32_t code = text_queue[text_head];
-    text_head = (text_head + 1) % TEXT_QUEUE_SIZE;
-    text_count--;
-    return code;
-}
-
-static float mouse_x, mouse_y;
-static unsigned mouse_buttons;
-static bool mouse_moved;
-
-static bool window_focused;  /* the window has the keyboard focus: the system cursor is hidden over it then */
-
-/* The menus draw their own pointer and a race has none, so the system cursor is hidden over the window, in fullscreen
- * and windowed alike; it is shown again when the window loses the focus and when the game ends. */
-static void cursor_apply(void)
-{
-    if (window_focused) SDL_HideCursor();
-    else SDL_ShowCursor();
-}
-
-bool platform_cursor_hidden(void)
-{
-    return window != NULL && !SDL_CursorVisible();
-}
-
-static const char *user_path(const char *name, char *out, size_t out_size);
+bool sdl3_window_focused;  /* the window has the keyboard focus: the system cursor is hidden over it then */
 
 /* port (the bug-report log): tnfs.log in the user directory, what the game said this run (the last run's as tnfs.log.1), headed with what a report needs */
-static void open_log(void)
+void sdl3_open_log(void)
 {
     static int opened;   /* once a run: another window's init must not rotate this run's log away */
     char path[1024];
     if (opened) return;
     opened = 1;
-    if (user_path("tnfs.log", path, sizeof path) == NULL || !port_log_open_file(path)) return;
+    if (sdl3_user_path("tnfs.log", path, sizeof path) == NULL || !port_log_open_file(path)) return;
 #ifdef TNFS_VERSION
     port_log("tnfs %s\n", TNFS_VERSION);
 #else
@@ -142,65 +70,65 @@ static void open_log(void)
 static void log_window_sizes(const char *when)
 {
     int w = 0, h = 0, pw = 0, ph = 0, ow = 0, oh = 0;
-    SDL_GetWindowSize(window, &w, &h);
-    SDL_GetWindowSizeInPixels(window, &pw, &ph);
-    SDL_GetRenderOutputSize(renderer, &ow, &oh);
+    SDL_GetWindowSize(sdl3_window, &w, &h);
+    SDL_GetWindowSizeInPixels(sdl3_window, &pw, &ph);
+    SDL_GetRenderOutputSize(sdl3_renderer, &ow, &oh);
     SDL_FRect frect = { 0, 0, 0, 0 };
-    SDL_GetRenderLogicalPresentationRect(renderer, &frect);
+    SDL_GetRenderLogicalPresentationRect(sdl3_renderer, &frect);
     port_log("platform: window %s: %dx%d points, %dx%d pixels (density %.2f), render output %dx%d, presentation rect %.0f,%.0f %.0fx%.0f for %dx%d\n",
-             when, w, h, pw, ph, (double)SDL_GetWindowPixelDensity(window), ow, oh,
-             (double)frect.x, (double)frect.y, (double)frect.w, (double)frect.h, fb_width, fb_height);
+             when, w, h, pw, ph, (double)SDL_GetWindowPixelDensity(sdl3_window), ow, oh,
+             (double)frect.x, (double)frect.y, (double)frect.w, (double)frect.h, sdl3_fb_width, sdl3_fb_height);
 }
 
 bool platform_init(const PlatformConfig *config)
 {
     data_path_set_base(SDL_GetBasePath());   /* port: our own data beside the program (the bundle's Contents/Resources/ on macOS): data_path.h */
-    open_log();
+    sdl3_open_log();
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         port_fatal("platform: SDL_Init failed: %s\n", SDL_GetError());
         return false;
     }
-    fb_width = config->width;
-    fb_height = config->height;
+    sdl3_fb_width = config->width;
+    sdl3_fb_height = config->height;
     refresh_hz = config->refresh_hz > 0 ? config->refresh_hz : VBLANK_HZ;
-    next_vblank_ns = 0;
+    sdl3_next_vblank_ns = 0;
 
     /* real pixels, not points: on a retina display the integer scale counts the display's pixels (3x, 4x), not the half-size point grid */
     const SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | (config->fullscreen != 0 ? SDL_WINDOW_FULLSCREEN : 0);
-    if (!SDL_CreateWindowAndRenderer(config->title, fb_width, fb_height, flags, &window, &renderer)) {
+    if (!SDL_CreateWindowAndRenderer(config->title, sdl3_fb_width, sdl3_fb_height, flags, &sdl3_window, &sdl3_renderer)) {
         port_fatal("platform: window creation failed: %s\n", SDL_GetError());
         platform_shutdown();
         return false;
     }
-    SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height,
+    SDL_SetRenderLogicalPresentation(sdl3_renderer, sdl3_fb_width, sdl3_fb_height,
                                      config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
                                                                 : SDL_LOGICAL_PRESENTATION_LETTERBOX);
     log_window_sizes("created");
     input_script_load();
-    window_focused = true;
-    cursor_apply();
-    SDL_StartTextInput(window);
-    capture_dir = SDL_getenv("TNFS_CAPTURE_DIR");
+    sdl3_window_focused = true;
+    sdl3_cursor_apply();
+    SDL_StartTextInput(sdl3_window);
+    sdl3_capture_dir = SDL_getenv("TNFS_CAPTURE_DIR");
     const char *every = SDL_getenv("TNFS_CAPTURE_EVERY");
-    if (every != NULL && SDL_atoi(every) > 0) capture_every = SDL_atoi(every);
+    if (every != NULL && SDL_atoi(every) > 0) sdl3_capture_every = SDL_atoi(every);
     const char *from = SDL_getenv("TNFS_CAPTURE_FROM");
-    if (from != NULL && SDL_atoi(from) > 0) capture_from = (unsigned)SDL_atoi(from);
+    if (from != NULL && SDL_atoi(from) > 0) sdl3_capture_from = (unsigned)SDL_atoi(from);
 
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, fb_width, fb_height);
-    rgb_buffer = malloc((size_t)fb_width * (size_t)fb_height * sizeof *rgb_buffer);
-    if (texture == NULL || rgb_buffer == NULL) {
+    sdl3_texture = SDL_CreateTexture(sdl3_renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, sdl3_fb_width, sdl3_fb_height);
+    sdl3_rgb_buffer = malloc((size_t)sdl3_fb_width * (size_t)sdl3_fb_height * sizeof *sdl3_rgb_buffer);
+    if (sdl3_texture == NULL || sdl3_rgb_buffer == NULL) {
         port_fatal("platform: framebuffer allocation failed: %s\n", SDL_GetError());
         platform_shutdown();
         return false;
     }
-    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureScaleMode(sdl3_texture, SDL_SCALEMODE_NEAREST);
     return true;
 }
 
 bool platform_reconfigure(const PlatformConfig *config)
 {
-    if (window == NULL || renderer == NULL || config->width <= 0 || config->height <= 0) return false;
-    SDL_Texture *t = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, config->width,
+    if (sdl3_window == NULL || sdl3_renderer == NULL || config->width <= 0 || config->height <= 0) return false;
+    SDL_Texture *t = SDL_CreateTexture(sdl3_renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, config->width,
                                        config->height);
     uint32_t *rgb = malloc((size_t)config->width * (size_t)config->height * sizeof *rgb);
     if (t == NULL || rgb == NULL) {
@@ -210,19 +138,19 @@ bool platform_reconfigure(const PlatformConfig *config)
         return false;
     }
     SDL_SetTextureScaleMode(t, SDL_SCALEMODE_NEAREST);
-    SDL_DestroyTexture(texture);
-    free(rgb_buffer);
-    texture = t, rgb_buffer = rgb;
-    fb_width = config->width, fb_height = config->height;
+    SDL_DestroyTexture(sdl3_texture);
+    free(sdl3_rgb_buffer);
+    sdl3_texture = t, sdl3_rgb_buffer = rgb;
+    sdl3_fb_width = config->width, sdl3_fb_height = config->height;
     refresh_hz = config->refresh_hz > 0 ? config->refresh_hz : VBLANK_HZ;
-    next_vblank_ns = 0;
-    SDL_SetWindowFullscreen(window, config->fullscreen != 0);
-    cursor_apply();   /* the mode change may have brought the system's back */
+    sdl3_next_vblank_ns = 0;
+    SDL_SetWindowFullscreen(sdl3_window, config->fullscreen != 0);
+    sdl3_cursor_apply();   /* the mode change may have brought the system's back */
     if (config->fullscreen == 0) {
         int w = 0, h = 0;
-        if (SDL_GetWindowSize(window, &w, &h) && h > 0) SDL_SetWindowSize(window, h * fb_width / fb_height, h);
+        if (SDL_GetWindowSize(sdl3_window, &w, &h) && h > 0) SDL_SetWindowSize(sdl3_window, h * sdl3_fb_width / sdl3_fb_height, h);
     }
-    SDL_SetRenderLogicalPresentation(renderer, fb_width, fb_height,
+    SDL_SetRenderLogicalPresentation(sdl3_renderer, sdl3_fb_width, sdl3_fb_height,
                                      config->scale_integer != 0 ? SDL_LOGICAL_PRESENTATION_INTEGER_SCALE
                                                                 : SDL_LOGICAL_PRESENTATION_LETTERBOX);
     log_window_sizes("reconfigured");
@@ -231,8 +159,8 @@ bool platform_reconfigure(const PlatformConfig *config)
 
 void platform_framebuffer_size(int *width, int *height)
 {
-    *width = fb_width;
-    *height = fb_height;
+    *width = sdl3_fb_width;
+    *height = sdl3_fb_height;
 }
 
 bool platform_desktop_size(int *width, int *height)
@@ -251,925 +179,30 @@ uint64_t platform_refresh_period_ns(void)
     return SDL_NS_PER_SECOND / (uint64_t)refresh_hz;
 }
 
-static SDL_AudioStream *audio;
-static PlatformAudioFill audio_fill;
-static void *audio_user;
-
-enum { AUDIO_FRAME = 4, AUDIO_CHUNK = 0x200 };  /* bytes per 16-bit stereo frame; frames per fill */
-
-/* the device's thread, the stream locked: what it asks for, filled a chunk at a time */
-static void SDLCALL audio_get(void *user, SDL_AudioStream *stream, int additional, int total)
-{
-    (void)user, (void)total;
-    static int16_t chunk[2 * AUDIO_CHUNK];
-    for (int left = additional / AUDIO_FRAME; left > 0; left -= AUDIO_CHUNK) {
-        const uint32_t n = left < AUDIO_CHUNK ? (uint32_t)left : AUDIO_CHUNK;
-        audio_fill(audio_user, chunk, n);
-        if (!SDL_PutAudioStreamData(stream, chunk, (int)(n * AUDIO_FRAME))) {
-            port_log("platform: audio: %s\n", SDL_GetError());
-            return;
-        }
-    }
-}
-
-bool platform_audio_open(int rate, PlatformAudioFill fill, void *user)
-{
-    if (audio != NULL) return true;
-    if (fill == NULL) return false;
-    if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
-        port_log("platform: no audio: %s\n", SDL_GetError());
-        return false;
-    }
-    audio_fill = fill, audio_user = user;
-    const SDL_AudioSpec spec = { SDL_AUDIO_S16, 2, rate };
-    audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_get, NULL);
-    if (audio == NULL || !SDL_ResumeAudioStreamDevice(audio)) {
-        port_log("platform: no audio device: %s\n", SDL_GetError());
-        platform_audio_close();
-        return false;
-    }
-    return true;
-}
-
-void platform_audio_close(void)
-{
-    if (audio != NULL) SDL_DestroyAudioStream(audio);
-    audio = NULL;
-    SDL_QuitSubSystem(SDL_INIT_AUDIO);
-}
-
-void platform_audio_lock(void)
-{
-    if (audio != NULL) SDL_LockAudioStream(audio);
-}
-
-void platform_audio_unlock(void)
-{
-    if (audio != NULL) SDL_UnlockAudioStream(audio);
-}
-
 void platform_set_window_icon(const uint8_t *rgba, int w, int h)
 {
-    if (window == NULL || rgba == NULL || w <= 0 || h <= 0) return;
+    if (sdl3_window == NULL || rgba == NULL || w <= 0 || h <= 0) return;
     SDL_Surface *const icon = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, (void *)(uintptr_t)rgba, w * 4);
     if (icon == NULL) return;
-    SDL_SetWindowIcon(window, icon);
+    SDL_SetWindowIcon(sdl3_window, icon);
     SDL_DestroySurface(icon);
 }
-
-#ifndef __EMSCRIPTEN__
-static void pool_stop(void);
-#endif
 
 void platform_shutdown(void)
 {
 #ifndef __EMSCRIPTEN__
-    pool_stop();
+    sdl3_pool_stop();
 #endif
-    if (window != NULL) SDL_ShowCursor();
-    window_focused = false;
-    if (audio != NULL) platform_audio_close();
-    free(rgb_buffer);
-    rgb_buffer = NULL;
-    if (texture != NULL) SDL_DestroyTexture(texture);
-    if (renderer != NULL) SDL_DestroyRenderer(renderer);
-    if (window != NULL) SDL_DestroyWindow(window);
-    texture = NULL;
-    renderer = NULL;
-    window = NULL;
+    if (sdl3_window != NULL) SDL_ShowCursor();
+    sdl3_window_focused = false;
+    if (sdl3_audio != NULL) platform_audio_close();
+    free(sdl3_rgb_buffer);
+    sdl3_rgb_buffer = NULL;
+    if (sdl3_texture != NULL) SDL_DestroyTexture(sdl3_texture);
+    if (sdl3_renderer != NULL) SDL_DestroyRenderer(sdl3_renderer);
+    if (sdl3_window != NULL) SDL_DestroyWindow(sdl3_window);
+    sdl3_texture = NULL;
+    sdl3_renderer = NULL;
+    sdl3_window = NULL;
     SDL_Quit();
-}
-
-static PlatformKey translate_key(SDL_Keycode key)
-{
-    switch (key) {
-    case SDLK_LEFT: return PLATFORM_KEY_LEFT;
-    case SDLK_RIGHT: return PLATFORM_KEY_RIGHT;
-    case SDLK_UP: return PLATFORM_KEY_UP;
-    case SDLK_DOWN: return PLATFORM_KEY_DOWN;
-    case SDLK_RETURN: return PLATFORM_KEY_ENTER;
-    case SDLK_ESCAPE: return PLATFORM_KEY_ESCAPE;
-    case SDLK_SPACE: return PLATFORM_KEY_SPACE;
-    default: return PLATFORM_KEY_NONE;
-    }
-}
-
-bool platform_poll_events(void)
-{
-    static bool quit;  /* the window closed: every caller after the first sees it too (a race's loop, then a screen's) */
-    SDL_Event event;
-    if (quit) return false;
-    /* port: a binding's key held or let go while nothing reads the pad (the pause's wait, a race on the keyboard) */
-    pad_keys_refresh();
-    key_latch_pump();
-    if (input_script_active()) input_script_latch_presses();
-    while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_EVENT_QUIT) {
-            quit = true;
-            return false;
-        }
-        input_script_log_window_event(event.type);
-        input_script_watch_key_event(&event);
-        if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED || event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
-            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) key_latch_clear(), input_script_watch_reset();
-            window_focused = event.type == SDL_EVENT_WINDOW_FOCUS_GAINED;
-            cursor_apply();
-            continue;
-        }
-        if (event.type == SDL_EVENT_MOUSE_MOTION) {
-            SDL_ConvertEventToRenderCoordinates(renderer, &event);
-            mouse_x = event.motion.x;
-            mouse_y = event.motion.y;
-            mouse_moved = true;
-        }
-        if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
-            const unsigned bit = event.button.button == SDL_BUTTON_LEFT ? PLATFORM_MOUSE_LEFT
-                : event.button.button == SDL_BUTTON_RIGHT ? PLATFORM_MOUSE_RIGHT : 0;
-            mouse_buttons = event.button.down ? (mouse_buttons | bit) : (mouse_buttons & ~bit);
-        }
-        if (event.type == SDL_EVENT_TEXT_INPUT) sdl3_text_push_utf8(event.text.text);
-        if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) key_latch_press((int)event.key.scancode);   /* port: a tap shorter than a poll still reaches the sim */
-        if (event.type == SDL_EVENT_KEY_DOWN) push_editing_key(event.key.key);
-        if (event.type == SDL_EVENT_KEY_DOWN && key_count < KEY_QUEUE_SIZE) {
-            const PlatformKey key = translate_key(event.key.key);
-            if (key != PLATFORM_KEY_NONE) key_queue[(key_head + key_count++) % KEY_QUEUE_SIZE] = key;
-        }
-    }
-    input_script_watch_check();
-    return true;
-}
-
-PlatformKey platform_next_key(void)
-{
-    if (input_script_active()) input_script_apply_keys();
-    if (key_count == 0) return PLATFORM_KEY_NONE;
-    const PlatformKey key = key_queue[key_head];
-    key_head = (key_head + 1) % KEY_QUEUE_SIZE;
-    key_count--;
-    return key;
-}
-
-bool platform_set_clipboard_text(const char *text)
-{
-    return text != NULL && SDL_SetClipboardText(text);
-}
-
-bool platform_key_down(int scancode)
-{
-    if (input_script_active() && input_script_key_down(scancode)) return true;
-    if (platform_joy_virtual_down(scancode)) return true;   /* port: a pad's binding of that key */
-    const SDL_Scancode sc = sdl3_from_set1(scancode);
-    if (sc == SDL_SCANCODE_UNKNOWN) return false;
-    const bool *state = SDL_GetKeyboardState(NULL);
-    if (key_latch_down((int)sc)) return true;   /* port: a key tapped since the last poll */
-    /* Both Ctrl / Alt / Enter keys count, as on a PC keyboard. */
-    if (sc == SDL_SCANCODE_LCTRL) return state[sc] || state[SDL_SCANCODE_RCTRL];
-    if (sc == SDL_SCANCODE_LALT) return state[sc] || state[SDL_SCANCODE_RALT];
-    if (sc == SDL_SCANCODE_RETURN) return state[sc] || state[SDL_SCANCODE_KP_ENTER];
-    return state[sc];
-}
-
-/* the state the input script drives: its events enter the queues and the pointer as a real device's do (input_shared.h) */
-void sdl3_key_push(PlatformKey key)
-{
-    if (key_count < KEY_QUEUE_SIZE) key_queue[(key_head + key_count++) % KEY_QUEUE_SIZE] = key;
-}
-
-void sdl3_mouse_place(float x, float y)
-{
-    mouse_x = x;
-    mouse_y = y;
-    mouse_moved = true;
-}
-
-void sdl3_mouse_buttons(unsigned press, unsigned release)
-{
-    mouse_buttons = (mouse_buttons | press) & ~release;
-}
-
-bool platform_mouse(int *x, int *y, unsigned *buttons)
-{
-    if (input_script_active()) input_script_apply_mouse();
-    *x = (int)mouse_x;
-    *y = (int)mouse_y;
-    *buttons = mouse_buttons;
-    const bool moved = mouse_moved;
-    mouse_moved = false;
-    return moved;
-}
-
-/* ---- mods overlay: the rules are in formats/modpath.c, the validation in formats/validate.c */
-
-/* the name of the player's folder, in one place (it may change); LEGACY_* is where it was before, moved from once */
-#define USER_FOLDER_NAME "TNFS Restomod"
-#define LEGACY_USER_ORG "tnfs"
-#define LEGACY_USER_APP "tnfs"
-
-static char mods_data_root[1024];
-static char mods_dir_path[1024];
-static char mods_real_path[1100];
-static char mods_error[1024];
-
-/* The player's folder (see user_dir): the mods' default folder is inside it */
-static const char *user_dir(char *out, size_t out_size);
-
-bool platform_set_mods(const char *data_root, const char *mods_dir)
-{
-    mods_error[0] = '\0';
-    char fallback[1200];
-    if (mods_dir == NULL || mods_dir[0] == '\0') {   /* the default: <user folder>/mods/, when it is there; no folder, no mods */
-        mods_dir_path[0] = '\0';
-        if (user_dir(fallback, sizeof fallback) == NULL || strlen(fallback) + sizeof "mods" >= sizeof fallback) return true;
-        strcat(fallback, "mods");
-        SDL_PathInfo found;
-        if (!SDL_GetPathInfo(fallback, &found) || found.type != SDL_PATHTYPE_DIRECTORY) return true;
-        mods_dir = fallback;
-    }
-    SDL_PathInfo info;
-    if (!SDL_GetPathInfo(mods_dir, &info) || info.type != SDL_PATHTYPE_DIRECTORY) {
-        SDL_snprintf(mods_error, sizeof mods_error, "mods directory %s does not exist", mods_dir);
-        port_fatal("platform: %s\n", mods_error);
-        return false;
-    }
-    SDL_snprintf(mods_data_root, sizeof mods_data_root, "%s", data_root);
-    SDL_snprintf(mods_dir_path, sizeof mods_dir_path, "%s", mods_dir);
-#ifdef TNFS_HAVE_REALPATH
-    char real[PATH_MAX];
-    if (realpath(mods_dir, real) == NULL) { port_fatal("platform: cannot resolve %s\n", mods_dir); mods_dir_path[0] = '\0'; return false; }
-    SDL_snprintf(mods_real_path, sizeof mods_real_path, "%s", real);
-#else
-    SDL_snprintf(mods_real_path, sizeof mods_real_path, "%s", mods_dir);
-#endif
-    return true;
-}
-
-const char *platform_mods_dir(void)
-{
-    return mods_dir_path[0] != '\0' ? mods_dir_path : NULL;
-}
-
-/* ---- the player's folder moves: an item of `from` the destination lacks is moved there (a folder item by item); one the destination has stays where
- * it is (the destination wins, the old copy is left intact). */
-static int move_item(const char *from, const char *to)
-{
-    if (SDL_RenamePath(from, to)) return 1;
-    SDL_PathInfo info;
-    if (SDL_GetPathInfo(from, &info) && info.type == SDL_PATHTYPE_FILE && SDL_CopyFile(from, to)) {   /* another volume */
-        if (!SDL_RemovePath(from)) port_log("user: %s was copied but could not be removed\n", from);
-        return 1;
-    }
-    port_log("user: %s could not be moved to %s: %s\n", from, to, SDL_GetError());
-    return 0;
-}
-
-typedef struct { const char *to; int moved; } MoveJob;
-
-static int move_tree(const char *from, const char *to);
-
-static SDL_EnumerationResult move_entry(void *userdata, const char *dirname, const char *name)
-{
-    MoveJob *job = userdata;
-    char a[1600], b[1600];
-    SDL_snprintf(a, sizeof a, "%s%s", dirname, name);
-    SDL_snprintf(b, sizeof b, "%s%s", job->to, name);
-    SDL_PathInfo have, there;
-    if (!SDL_GetPathInfo(a, &have)) return SDL_ENUM_CONTINUE;
-    if (!SDL_GetPathInfo(b, &there)) {
-        job->moved += move_item(a, b);
-    } else if (have.type == SDL_PATHTYPE_DIRECTORY && there.type == SDL_PATHTYPE_DIRECTORY) {
-        char fa[1604], fb[1604];
-        SDL_snprintf(fa, sizeof fa, "%s/", a);
-        SDL_snprintf(fb, sizeof fb, "%s/", b);
-        job->moved += move_tree(fa, fb);
-    }
-    return SDL_ENUM_CONTINUE;
-}
-
-static int move_tree(const char *from, const char *to)
-{
-    MoveJob job = { to, 0 };
-    SDL_CreateDirectory(to);
-    SDL_EnumerateDirectory(from, move_entry, &job);
-    return job.moved;
-}
-
-int platform_move_user_files(const char *from, const char *to)
-{
-    char a[1200], b[1200];
-    if (from == NULL || to == NULL || from[0] == '\0' || to[0] == '\0') return 0;
-    SDL_snprintf(a, sizeof a, "%s%s", from, from[strlen(from) - 1] == '/' ? "" : "/");
-    SDL_snprintf(b, sizeof b, "%s%s", to, to[strlen(to) - 1] == '/' ? "" : "/");
-    SDL_PathInfo info;
-    if (!SDL_GetPathInfo(a, &info) || info.type != SDL_PATHTYPE_DIRECTORY) return 0;
-    return move_tree(a, b);
-}
-
-static char user_override[1024];   /* --user DIR */
-
-void platform_set_user_dir(const char *dir)
-{
-    if (dir == NULL || dir[0] == '\0') { user_override[0] = '\0'; return; }
-    SDL_snprintf(user_override, sizeof user_override, "%s%s", dir, dir[strlen(dir) - 1] == '/' ? "" : "/");
-}
-
-/* The folder the player's files lived in before it was named USER_FOLDER_NAME (tnfs/tnfs under the OS's data folder), found from the new one without making it. */
-static bool legacy_pref_dir(const char *pref, char *out, size_t out_size)
-{
-    char base[1024];
-    SDL_snprintf(base, sizeof base, "%s", pref);
-    size_t n = strlen(base);
-    while (n > 0 && (base[n - 1] == '/' || base[n - 1] == '\\')) base[--n] = '\0';   /* ...<base>/TNFS Restomod */
-    while (n > 0 && base[n - 1] != '/' && base[n - 1] != '\\') base[--n] = '\0';     /* ...<base>/ */
-    if (n == 0) return false;
-    SDL_snprintf(out, out_size, "%s%s%c%s%c", base, LEGACY_USER_ORG, base[n - 1], LEGACY_USER_APP, base[n - 1]);
-    return true;
-}
-
-static void migrate_user_files(const char *mods_dir)
-{
-    char dir[1200], from[1300];
-    if (user_dir(dir, sizeof dir) == NULL) return;
-    if (user_override[0] == '\0' && SDL_getenv("TNFS_PREF_DIR") == NULL) {   /* the OS's own folder: what the old name held comes along */
-        char legacy[1200];
-        if (legacy_pref_dir(dir, legacy, sizeof legacy)) {
-            const int moved = platform_move_user_files(legacy, dir);
-            if (moved > 0) port_log("user: %d item(s) moved from %s to %s\n", moved, legacy, dir);
-        }
-    }
-    if (mods_dir != NULL && mods_dir[0] != '\0') {   /* --mods no longer holds the player's files: those it did (<mods>/user/) move to the player's folder */
-        SDL_snprintf(from, sizeof from, "%s/user/", mods_dir);
-        const int moved = platform_move_user_files(from, dir);
-        if (moved > 0) port_log("user: %d item(s) moved from %s to %s (--mods no longer keeps the player's files; --user DIR says where they go)\n", moved, from, dir);
-    }
-}
-
-void platform_open_log(const char *mods_dir)
-{
-    data_path_set_base(SDL_GetBasePath());
-    open_log();
-    migrate_user_files(mods_dir);
-}
-
-const char *platform_mods_error(void)
-{
-    return mods_error;
-}
-
-/* The mod's copy of `path`, validated; *refused is set when there is a copy the game must not get. */
-static uint8_t *read_mod_file(const char *path, size_t *size, bool *refused)
-{
-    char rel[512], candidate[1600], upper[512];
-    *refused = false;
-    if (!modpath_relative(mods_data_root, path, rel, sizeof rel)) return NULL;
-    if (rel[0] == '\0') return NULL;
-    const char *names[2] = { rel, upper };
-    if (!modpath_upper(rel, upper, sizeof upper)) return NULL;
-    for (int k = 0; k < 2; ++k) {
-        if (!modpath_join(mods_dir_path, names[k], candidate, sizeof candidate)) continue;
-        SDL_PathInfo info;
-        if (!SDL_GetPathInfo(candidate, &info) || info.type != SDL_PATHTYPE_FILE) continue;
-#ifdef TNFS_HAVE_REALPATH
-        char real[PATH_MAX];
-        if (realpath(candidate, real) == NULL || !modpath_inside(mods_real_path, real)) {
-            SDL_snprintf(mods_error, sizeof mods_error, "mod file %s leaves the mods directory (symbolic link)", names[k]);
-            port_fatal("platform: %s\n", mods_error);
-            *refused = true;
-            return NULL;
-        }
-#endif
-        uint8_t *data = SDL_LoadFile(candidate, size);
-        if (data == NULL) {
-            SDL_snprintf(mods_error, sizeof mods_error, "mod file %s cannot be read: %s", names[k], SDL_GetError());
-            port_fatal("platform: %s\n", mods_error);
-            *refused = true;
-            return NULL;
-        }
-        Report report;
-        report_init(&report);
-        validate_file(data, *size, names[k], &report);
-        if (report_fatal_count(&report) > 0) {
-            char text[700];
-            report_text(&report, VALIDATE_COMPATIBLE, text, sizeof text);
-            SDL_snprintf(mods_error, sizeof mods_error, "mod file %s is not valid for the original game: %s", names[k], text);
-            port_fatal("platform: %s\n", mods_error);
-            SDL_free(data);
-            report_free(&report);
-            *refused = true;
-            return NULL;
-        }
-        report_free(&report);
-        return data;
-    }
-    return NULL;
-}
-
-uint8_t *platform_read_file(const char *path, size_t *size)
-{
-    if (mods_dir_path[0] != '\0') {
-        bool refused;
-        uint8_t *mod = read_mod_file(path, size, &refused);
-        if (mod != NULL || refused) return mod;
-    }
-    uint8_t *data = SDL_LoadFile(path, size);
-    if (data == NULL) port_log("platform: cannot read %s: %s\n", path, SDL_GetError());
-    return data;
-}
-
-void platform_free_file(uint8_t *data)
-{
-    SDL_free(data);
-}
-
-/* The player's folder: --user DIR, else $TNFS_PREF_DIR (tests, modders), else one folder named USER_FOLDER_NAME in the OS's per-user data directory
- * (SDL_GetPrefPath without an organisation, so no tnfs/tnfs). NULL when the platform has none. --mods has no say in it. */
-static const char *user_dir(char *out, size_t out_size)
-{
-    static char *pref;
-    if (user_override[0] != '\0') {
-        SDL_snprintf(out, out_size, "%s", user_override);
-        SDL_CreateDirectory(out);
-        return out;
-    }
-    const char *const env = SDL_getenv("TNFS_PREF_DIR");
-    if (env != NULL && env[0] != '\0') {
-        SDL_snprintf(out, out_size, "%s/", env);
-        SDL_CreateDirectory(out);
-        return out;
-    }
-    if (pref == NULL) pref = SDL_GetPrefPath(NULL, USER_FOLDER_NAME);
-    if (pref == NULL) return NULL;
-    SDL_snprintf(out, out_size, "%s", pref);
-    return out;
-}
-
-bool platform_user_dir(char *out, size_t out_size)
-{
-    return user_dir(out, out_size) != NULL;
-}
-
-int platform_open_user_dir(void)
-{
-    char dir[1200], url[3700];
-    if (user_dir(dir, sizeof dir) == NULL || file_url_from_path(dir, url, sizeof url) == 0) return 0;
-    return SDL_OpenURL(url) ? 1 : 0;
-}
-
-static const char *user_path(const char *name, char *out, size_t out_size)
-{
-    char dir[1200];
-    if (strpbrk(name, "/\\") != NULL || strcmp(name, "..") == 0 || user_dir(dir, sizeof dir) == NULL) return NULL;
-    SDL_snprintf(out, out_size, "%s%s", dir, name);
-    return out;
-}
-
-/* port (perf): the settings' .cfg files are read by every port_*() accessor, many times a frame (from the band threads
- * too), each an open, read and mkdir. A copy of the bytes is kept for CFG_CACHE_MS: a write or remove through this layer
- * drops it at once, so a menu's change applies immediately, and a file edited from outside is seen within the interval. */
-enum { CFG_CACHE_SLOTS = 8, CFG_CACHE_MS = 50 };   /* port.cfg, the three modes' files, controls.cfg and room */
-static struct {
-    char path[1024];
-    uint8_t *data;
-    size_t size;
-    Uint64 at;
-} cfg_cache[CFG_CACHE_SLOTS];
-static atomic_flag cfg_lock = ATOMIC_FLAG_INIT;
-static Uint64 cfg_writes;   /* with the lock: a read that spans a write does not keep what it read */
-
-static void cfg_lock_take(void) { while (atomic_flag_test_and_set_explicit(&cfg_lock, memory_order_acquire)) {} }
-static void cfg_lock_give(void) { atomic_flag_clear_explicit(&cfg_lock, memory_order_release); }
-
-static int cfg_cacheable(const char *name)
-{
-    const size_t n = strlen(name);
-    return n > 4 && strcmp(name + n - 4, ".cfg") == 0;
-}
-
-static void cfg_cache_drop(const char *path)   /* with the lock held */
-{
-    for (int i = 0; i < CFG_CACHE_SLOTS; i++)
-        if (cfg_cache[i].data != NULL && strcmp(cfg_cache[i].path, path) == 0) {
-            SDL_free(cfg_cache[i].data);
-            cfg_cache[i].data = NULL;
-        }
-}
-
-static void cfg_cache_forget(const char *path)
-{
-    cfg_lock_take();
-    cfg_writes++;
-    cfg_cache_drop(path);
-    cfg_lock_give();
-}
-
-uint8_t *platform_read_user_file(const char *name, size_t *size)
-{
-    char path[1024];
-    if (user_path(name, path, sizeof path) == NULL) return NULL;
-    if (!cfg_cacheable(name)) return SDL_LoadFile(path, size);
-    const Uint64 now = SDL_GetTicks();
-    cfg_lock_take();
-    for (int i = 0; i < CFG_CACHE_SLOTS; i++) {
-        if (cfg_cache[i].data == NULL || strcmp(cfg_cache[i].path, path) != 0 || now - cfg_cache[i].at >= CFG_CACHE_MS) continue;
-        uint8_t *copy = SDL_malloc(cfg_cache[i].size + 1);
-        if (copy != NULL) {
-            memcpy(copy, cfg_cache[i].data, cfg_cache[i].size + 1);
-            *size = cfg_cache[i].size;
-        }
-        cfg_lock_give();
-        return copy;
-    }
-    const Uint64 writes_before = cfg_writes;
-    cfg_lock_give();
-    uint8_t *data = SDL_LoadFile(path, size);
-    cfg_lock_take();
-    if (cfg_writes != writes_before) {
-        cfg_lock_give();
-        return data;
-    }
-    cfg_cache_drop(path);
-    uint8_t *keep = data != NULL ? SDL_malloc(*size + 1) : NULL;
-    if (keep != NULL) {
-        int slot = 0;
-        for (int i = 0; i < CFG_CACHE_SLOTS; i++)
-            if (cfg_cache[i].data == NULL) { slot = i; break; }
-        memcpy(keep, data, *size + 1);   /* SDL_LoadFile's buffer has a terminating zero past the size */
-        SDL_free(cfg_cache[slot].data);
-        SDL_snprintf(cfg_cache[slot].path, sizeof cfg_cache[slot].path, "%s", path);
-        cfg_cache[slot].data = keep, cfg_cache[slot].size = *size, cfg_cache[slot].at = now;
-    }
-    cfg_lock_give();
-    return data;
-}
-
-/* the bytes in `path`, on the disk and not only in the system's buffers when it returns true */
-static bool write_to_disk(const char *path, const uint8_t *data, size_t size)
-{
-    SDL_IOStream *io = SDL_IOFromFile(path, "wb");
-    if (io == NULL) return false;
-    bool ok = SDL_WriteIO(io, data, size) == size && SDL_FlushIO(io);
-#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
-    FILE *file = SDL_GetPointerProperty(SDL_GetIOProperties(io), SDL_PROP_IOSTREAM_STDIO_FILE_POINTER, NULL);
-    if (ok && file != NULL) ok = fsync(fileno(file)) == 0;
-#endif
-    return SDL_CloseIO(io) && ok;
-}
-
-bool platform_write_user_file(const char *name, const uint8_t *data, size_t size)
-{
-    char path[1024], temp[1100];
-    if (user_path(name, path, sizeof path) == NULL) return false;
-    cfg_cache_forget(path);
-    /* Write beside the target and rename, so a crash cannot truncate a good file. The name is this write's own: two running games do not mix their bytes. */
-    SDL_snprintf(temp, sizeof temp, "%s.%llx.%llx.tmp", path, (unsigned long long)SDL_GetCurrentThreadID(), (unsigned long long)SDL_GetPerformanceCounter());
-    if (!write_to_disk(temp, data, size)) {
-        port_log("platform: cannot write %s: %s\n", temp, SDL_GetError());
-        SDL_RemovePath(temp);
-        return false;
-    }
-    if (!SDL_RenamePath(temp, path)) {
-        port_log("platform: cannot rename %s: %s\n", temp, SDL_GetError());
-        SDL_RemovePath(temp);
-        return false;
-    }
-    cfg_cache_forget(path);   /* a read that began before the rename may have kept the old bytes */
-    return true;
-}
-
-bool platform_remove_user_file(const char *name)
-{
-    char path[1024];
-    if (user_path(name, path, sizeof path) == NULL) return false;
-    cfg_cache_forget(path);
-    return SDL_RemovePath(path);
-}
-
-bool platform_user_file_exists(const char *name)
-{
-    char path[1024];
-    SDL_PathInfo info;
-    return user_path(name, path, sizeof path) != NULL && SDL_GetPathInfo(path, &info)
-           && info.type == SDL_PATHTYPE_FILE;
-}
-
-static int compare_names(const void *a, const void *b)
-{
-    return SDL_strcasecmp(*(char *const *)a, *(char *const *)b);
-}
-
-char **platform_list_user_files(const char *pattern, int *count)
-{
-    char dir[1200];
-    *count = 0;
-    if (user_dir(dir, sizeof dir) == NULL) return NULL;
-    return platform_list_files(dir, pattern, count);
-}
-
-char **platform_list_files(const char *dir, const char *pattern, int *count)
-{
-    *count = 0;
-    char **names = SDL_GlobDirectory(dir, pattern, SDL_GLOB_CASEINSENSITIVE, count);
-    if (names == NULL || *count == 0) {
-        SDL_free(names);
-        *count = 0;
-        return NULL;
-    }
-    SDL_qsort(names, (size_t)*count, sizeof *names, compare_names);
-    return names;
-}
-
-void platform_free_names(char **names)
-{
-    SDL_free(names);
-}
-
-static void capture_frame(void)
-{
-    if (capture_dir == NULL || presented_frames++ % (unsigned)capture_every != 0 || presented_frames <= capture_from) return;
-    char path[1024];
-    SDL_snprintf(path, sizeof path, "%s/frame_%05u.ppm", capture_dir, presented_frames - 1);
-    FILE *f = fopen(path, "wb");
-    if (f == NULL) return;
-    fprintf(f, "P6\n%d %d\n255\n", fb_width, fb_height);
-    for (int i = 0; i < fb_width * fb_height; i++) {
-        const uint8_t px[3] = { (uint8_t)(rgb_buffer[i] >> 16), (uint8_t)(rgb_buffer[i] >> 8), (uint8_t)rgb_buffer[i] };
-        fwrite(px, 1, 3, f);
-    }
-    fclose(f);
-}
-
-/* One step of the pacing: the time of the next boundary (`next`, 0 at the first), after one `period`; resynced when more than a period behind. *wait_ns is how long to sleep from `now`. */
-static uint64_t pace_step(uint64_t next, uint64_t now, uint64_t period, uint64_t *wait_ns)
-{
-    if (next == 0 || now > next + period) next = now;  /* resync after stalls */
-    next += period;
-    *wait_ns = next > now ? next - now : 0;
-    return next;
-}
-
-void platform_wait_vblank(void)
-{
-    uint64_t wait_ns;
-    next_vblank_ns = pace_step(next_vblank_ns, SDL_GetTicksNS(), platform_refresh_period_ns(), &wait_ns);
-    if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
-}
-
-uint64_t platform_frontend_period_ns(void)
-{
-    return SDL_NS_PER_SECOND / PLATFORM_FRONTEND_HZ;
-}
-
-static uint64_t next_frontend_ns;
-
-void platform_wait_frontend_frame(void)
-{
-    uint64_t wait_ns;
-    next_frontend_ns = pace_step(next_frontend_ns, SDL_GetTicksNS(), platform_frontend_period_ns(), &wait_ns);
-    if (wait_ns >= SDL_NS_PER_MS) platform_sleep_ms((uint32_t)(wait_ns / SDL_NS_PER_MS));
-}
-
-typedef struct {
-    const uint8_t *pixels;
-    const uint32_t *lut;     /* 256 entries; with a mask 4 x 256, the mask's value picking the table */
-    const uint8_t *mask;     /* NULL: one table */
-    uint32_t *out;
-    int width, height, count;
-    size_t stride;   /* out's row, in pixels (the texture's pitch may be wider than width) */
-} LutJob;
-
-/* the masks a pixel can have: 0 plain, 1 world, 2 half, 3 lit, then one per colour slot (PLATFORM_LIT_SLOTS) */
-enum { MASK_KINDS = PLATFORM_MASK_LIT_FIRST + PLATFORM_LIT_SLOTS };
-
-static void lut_band(void *ctx, int index)
-{
-    const LutJob *j = ctx;
-    const int from = (int)((int64_t)j->height * index / j->count), to = (int)((int64_t)j->height * (index + 1) / j->count);
-    for (int y = from; y < to; y++) {
-        const uint8_t *in = j->pixels + (size_t)y * (size_t)j->width;
-        uint32_t *row = j->out + (size_t)y * j->stride;
-        if (j->mask == NULL) {
-            for (int x = 0; x < j->width; x++) row[x] = j->lut[in[x]];
-        } else {
-            const uint8_t *m = j->mask + (size_t)y * (size_t)j->width;
-            for (int x = 0; x < j->width; x++) row[x] = j->lut[(m[x] >= MASK_KINDS ? 0 : m[x]) * 256 + in[x]];
-        }
-    }
-}
-
-void platform_palette_to_xrgb_pitch(const uint8_t *pixels, const PlatformColor palette[256], void *out, int pitch, int width,
-                                    int height, int threads)
-{
-    uint32_t lut[256];
-    for (int i = 0; i < 256; i++) {
-        lut[i] = ((uint32_t)palette[i].r << 16) | ((uint32_t)palette[i].g << 8) | palette[i].b;
-    }
-    enum { MIN_ROWS = 32 };   /* a band of fewer rows costs more to hand out than to convert */
-    int count = threads > 1 ? threads * 2 : 1;
-    if (count > height / MIN_ROWS) count = height / MIN_ROWS;
-    if (count < 1) count = 1;
-    const LutJob job = { pixels, lut, NULL, out, width, height, count, (size_t)pitch / sizeof(uint32_t) };
-    platform_parallel_for(count, lut_band, (void *)&job, threads);
-}
-
-static const PlatformColor *lit_palette;
-
-void platform_set_lit_palette(const PlatformColor lit[256]) { lit_palette = lit; }
-
-static const PlatformColor (*lit_colours)[256];
-static int lit_colour_count;
-
-void platform_set_lit_colours(const PlatformColor (*lit)[256], int count)
-{
-    lit_colours = lit;
-    lit_colour_count = lit != NULL && count > 0 ? (count > PLATFORM_LIT_SLOTS ? PLATFORM_LIT_SLOTS : count) : 0;
-}
-
-void platform_palette_to_xrgb_split_pitch(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
-                                          const PlatformColor half_palette[256], const uint8_t *mask, void *out, int pitch, int width,
-                                          int height, int threads)
-{
-    uint32_t lut[MASK_KINDS * 256];
-    const PlatformColor *by_mask[MASK_KINDS] = { palette, world_palette, half_palette, lit_palette != NULL ? lit_palette : palette };
-    for (int m = PLATFORM_MASK_LIT_FIRST; m < MASK_KINDS; m++)
-        by_mask[m] = m - PLATFORM_MASK_LIT_FIRST < lit_colour_count ? lit_colours[m - PLATFORM_MASK_LIT_FIRST] : by_mask[3];
-    for (int m = 0; m < MASK_KINDS; m++)
-        for (int i = 0; i < 256; i++)
-            lut[m * 256 + i] = ((uint32_t)by_mask[m][i].r << 16) | ((uint32_t)by_mask[m][i].g << 8) | by_mask[m][i].b;
-    enum { MIN_ROWS = 32 };
-    int count = threads > 1 ? threads * 2 : 1;
-    if (count > height / MIN_ROWS) count = height / MIN_ROWS;
-    if (count < 1) count = 1;
-    const LutJob job = { pixels, lut, mask, out, width, height, count, (size_t)pitch / sizeof(uint32_t) };
-    platform_parallel_for(count, lut_band, (void *)&job, threads);
-}
-
-void platform_palette_to_xrgb(const uint8_t *pixels, const PlatformColor palette[256], uint32_t *out, int width, int height,
-                              int threads)
-{
-    platform_palette_to_xrgb_pitch(pixels, palette, out, width * (int)sizeof *out, width, height, threads);
-}
-
-static int present_threads;
-
-void platform_set_present_threads(int threads) { present_threads = threads; }
-
-static int present_lock = 1;
-
-void platform_set_present_lock(int on) { present_lock = on; }
-
-/* the frame through one palette, or through three by the mask (the PS1 light's time of day); the texture's memory locked or the buffer */
-static void present_frame(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
-                          const PlatformColor half_palette[256], const uint8_t *mask)
-{
-    input_script_note_present();
-    void *locked = NULL;
-    int pitch = 0;
-    /* the frame goes straight into the texture's memory, no second copy; a capture needs rgb_buffer, the web build keeps
-     * the upload, and a failed lock falls back to it */
-#ifndef __EMSCRIPTEN__
-    if (capture_dir == NULL && present_lock && SDL_LockTexture(texture, NULL, &locked, &pitch)) {
-        if (mask != NULL)
-            platform_palette_to_xrgb_split_pitch(pixels, palette, world_palette, half_palette, mask, locked, pitch, fb_width, fb_height,
-                                                 present_threads);
-        else platform_palette_to_xrgb_pitch(pixels, palette, locked, pitch, fb_width, fb_height, present_threads);
-        SDL_UnlockTexture(texture);
-    } else
-#endif
-    {
-        if (mask != NULL)
-            platform_palette_to_xrgb_split_pitch(pixels, palette, world_palette, half_palette, mask, rgb_buffer,
-                                                 fb_width * (int)sizeof *rgb_buffer, fb_width, fb_height, present_threads);
-        else platform_palette_to_xrgb(pixels, palette, rgb_buffer, fb_width, fb_height, present_threads);
-        capture_frame();
-        SDL_UpdateTexture(texture, NULL, rgb_buffer, fb_width * (int)sizeof *rgb_buffer);
-    }
-    SDL_RenderClear(renderer);
-    SDL_RenderTexture(renderer, texture, NULL, NULL);
-    SDL_RenderPresent(renderer);
-}
-
-void platform_present(const uint8_t *pixels, const PlatformColor palette[256])
-{
-    present_frame(pixels, palette, NULL, NULL, NULL);
-}
-
-void platform_present_split(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
-                            const PlatformColor half_palette[256], const uint8_t *mask)
-{
-    present_frame(pixels, palette, world_palette, half_palette, mask);
-}
-
-uint32_t platform_ticks_ms(void)
-{
-    return (uint32_t)SDL_GetTicks();
-}
-
-void platform_sleep_ms(uint32_t ms)
-{
-#ifdef __EMSCRIPTEN__
-    /* With ASYNCIFY this unwinds to the browser so the tab stays responsive. */
-    emscripten_sleep(ms);
-#else
-    SDL_Delay(ms);
-#endif
-}
-
-/* The job pool (platform.h). Workers are made the first time a batch asks for them and wait on `wake`; a batch is
- * published, `needed` workers woken, and the caller claims indexes with them. Every woken worker checks in on `parked`
- * once it can claim no more, and the caller waits for all of them before it returns, so no worker is ever inside a
- * batch while the next one is set up. */
-#ifndef __EMSCRIPTEN__
-enum { POOL_MAX = 15, POOL_STACK_BYTES = 1 << 20 };
-static struct {
-    SDL_Thread *thread[POOL_MAX];
-    int workers;
-    SDL_Semaphore *wake, *parked;
-    void (*job)(void *ctx, int index);
-    void *ctx;
-    int count;
-    SDL_AtomicInt next, quit;
-} pool;
-
-static void pool_run(void)
-{
-    for (;;) {
-        const int i = SDL_AddAtomicInt(&pool.next, 1);
-        if (i >= pool.count) return;
-        pool.job(pool.ctx, i);
-    }
-}
-
-static int pool_worker(void *unused)
-{
-    (void)unused;
-    for (;;) {
-        SDL_WaitSemaphore(pool.wake);
-        if (SDL_GetAtomicInt(&pool.quit) != 0) return 0;
-        pool_run();
-        SDL_SignalSemaphore(pool.parked);
-    }
-}
-
-static int pool_grow(int workers)
-{
-    if (workers > POOL_MAX) workers = POOL_MAX;
-    if (pool.wake == NULL) {
-        pool.wake = SDL_CreateSemaphore(0);
-        pool.parked = SDL_CreateSemaphore(0);
-        if (pool.wake == NULL || pool.parked == NULL) return 0;
-    }
-    while (pool.workers < workers) {
-        /* port: a stack of its own size: the rasterizers keep their edge tables on it (quad.c's about 34 KB at 1440 rows) */
-        const SDL_PropertiesID props = SDL_CreateProperties();
-        SDL_SetPointerProperty(props, SDL_PROP_THREAD_CREATE_ENTRY_FUNCTION_POINTER, (void *)pool_worker);
-        SDL_SetStringProperty(props, SDL_PROP_THREAD_CREATE_NAME_STRING, "tnfs-job");
-        SDL_SetNumberProperty(props, SDL_PROP_THREAD_CREATE_STACKSIZE_NUMBER, POOL_STACK_BYTES);
-        pool.thread[pool.workers] = SDL_CreateThreadWithProperties(props);
-        SDL_DestroyProperties(props);
-        if (pool.thread[pool.workers] == NULL) break;
-        pool.workers++;
-    }
-    return pool.workers;
-}
-
-static void pool_stop(void)
-{
-    if (pool.workers == 0) return;
-    SDL_SetAtomicInt(&pool.quit, 1);
-    for (int i = 0; i < pool.workers; i++) SDL_SignalSemaphore(pool.wake);
-    for (int i = 0; i < pool.workers; i++) SDL_WaitThread(pool.thread[i], NULL);
-    pool.workers = 0;
-    SDL_SetAtomicInt(&pool.quit, 0);
-}
-#endif
-
-int platform_cpu_count(void)
-{
-#ifdef __EMSCRIPTEN__
-    return 1;
-#else
-    const int n = SDL_GetNumLogicalCPUCores();
-    return n < 1 ? 1 : n;
-#endif
-}
-
-void platform_parallel_for(int count, void (*job)(void *ctx, int index), void *ctx, int threads)
-{
-#ifndef __EMSCRIPTEN__
-    if (threads > 1 && count > 1) {
-        const int wanted = (threads < count ? threads : count) - 1;
-        const int workers = pool_grow(wanted);
-        const int used = workers < wanted ? workers : wanted;
-        if (used > 0) {
-            pool.job = job, pool.ctx = ctx, pool.count = count;
-            SDL_SetAtomicInt(&pool.next, 0);
-            for (int i = 0; i < used; i++) SDL_SignalSemaphore(pool.wake);
-            pool_run();
-            for (int i = 0; i < used; i++) SDL_WaitSemaphore(pool.parked);
-            return;
-        }
-    }
-#else
-    (void)threads;
-#endif
-    for (int i = 0; i < count; i++) job(ctx, i);
 }
