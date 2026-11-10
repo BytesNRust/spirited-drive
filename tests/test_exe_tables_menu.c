@@ -3,6 +3,7 @@
  * everything is compared with the generated table (race_menu_tables.c). */
 #include "exe_pe.h"
 #include "game/exe/exe_tables.h"
+#include "tests/exe_tables_family.h"
 #include "tests/test.h"
 
 #include <stdio.h>
@@ -133,6 +134,7 @@ static void test_real_exe(void)
     CHECK_EQ_INT(exe_image_open(&img, b, (size_t)n, err, sizeof err), 0);
     ExeTables *t = calloc(1, sizeof *t);
     CHECK_EQ_INT(exe_tables_menu(&img, t, err, sizeof err), 0);
+    CHECK(family_ok(t, "menu"));
     CHECK_MEM(t->menu_item_x, race_menu_item_x, sizeof t->menu_item_x);
     CHECK_MEM(t->menu_item_y, race_menu_item_y, sizeof t->menu_item_y);
     CHECK_MEM(t->menu_x_offset, race_menu_x_offset, sizeof t->menu_x_offset);

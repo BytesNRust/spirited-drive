@@ -3,6 +3,7 @@
  * exe is loaded and compared with the tables the port still holds. */
 #include "exe_pe.h"
 #include "game/exe/exe_tables.h"
+#include "tests/exe_tables_family.h"
 #include "tests/test.h"
 
 #include <stdio.h>
@@ -82,6 +83,7 @@ static void test_real_exe(void)
     CHECK_MEM(t->track_polygons, TRACK_POLYGONS, sizeof t->track_polygons);
     CHECK_MEM(t->menu_item_x, race_menu_item_x, sizeof t->menu_item_x);
     CHECK(strcmp(t->config_row_name[0], CONFIG_RECORD_ROWS[0].name) == 0);
+    CHECK(family_ok(t, "ai") && family_ok(t, "split") && family_ok(t, "view") && family_ok(t, "track") && family_ok(t, "menu") && family_ok(t, "config"));
     ExeTables *again = calloc(1, sizeof *again);
     CHECK_EQ_INT(exe_tables_load_dir(dir, again, err, sizeof err), 0);   /* idempotent: the same result */
     CHECK_MEM(t, again, sizeof *t);

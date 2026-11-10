@@ -1,5 +1,6 @@
 /* The AI drivers' table read from the exe (game/exe/exe_tables_ai.c) is the table the port holds now. */
 #include "tests/exe_tables_support.h"
+#include "tests/exe_tables_family.h"
 #include "tests/test.h"
 
 static void test_real(void)
@@ -13,6 +14,7 @@ static void test_real(void)
     ExeTables *t = malloc(sizeof *t);
     memset(t, 0xAA, sizeof *t);
     CHECK_EQ_INT(exe_tables_ai(&img, t, err, sizeof err), 0);
+    CHECK(family_ok(t, "ai"));
     CHECK_MEM(t->ai_driver_data, AI_DRIVER_DATA, AI_DRIVER_DATA_SIZE);
     free(t), free(b);
 }

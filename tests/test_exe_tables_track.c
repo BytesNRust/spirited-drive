@@ -1,5 +1,6 @@
 /* The track renderer's tables read from the exe (game/exe/exe_tables_track.c) are the tables the port holds now. */
 #include "tests/exe_tables_support.h"
+#include "tests/exe_tables_family.h"
 #include "tests/test.h"
 
 static void test_real(void)
@@ -13,6 +14,7 @@ static void test_real(void)
     ExeTables *t = malloc(sizeof *t);
     memset(t, 0xAA, sizeof *t);
     CHECK_EQ_INT(exe_tables_track(&img, t, err, sizeof err), 0);
+    CHECK(family_ok(t, "track"));
     CHECK_MEM(t->track_lod_by_distance, TRACK_LOD_BY_DISTANCE, sizeof TRACK_LOD_BY_DISTANCE);
     for (int i = 0; i < TRACK_LOD_COUNT; i++) {
         const TrackLod *g = &t->track_lods[i], *w = &TRACK_LODS[i];

@@ -1,5 +1,6 @@
 /* The viewport tables read from the exe (game/exe/exe_tables_view.c) are the tables the port holds now. */
 #include "tests/exe_tables_support.h"
+#include "tests/exe_tables_family.h"
 #include "tests/test.h"
 
 static void test_real(void)
@@ -13,6 +14,7 @@ static void test_real(void)
     ExeTables *t = malloc(sizeof *t);
     memset(t, 0xAA, sizeof *t);
     CHECK_EQ_INT(exe_tables_view(&img, t, err, sizeof err), 0);
+    CHECK(family_ok(t, "view"));
     for (int m = 0; m < VIEW_SCREEN_MODES; m++) {
         for (int r = 0; r < VIEW_LAYOUTS; r++) {   /* by field: no padding to trust */
             const ViewLayout *g = &t->race_view_layouts[m][r], *w = &race_view_layouts[m][r];

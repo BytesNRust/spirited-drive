@@ -3,6 +3,7 @@
  * image; with original/ there, the real exe's rows are compared with the generated table. */
 #include "exe_pe.h"
 #include "game/exe/exe_tables.h"
+#include "tests/exe_tables_family.h"
 #include "tests/test.h"
 
 #include <stdio.h>
@@ -122,6 +123,7 @@ static void test_real_exe(void)
     CHECK_EQ_INT(exe_image_open(&img, b, (size_t)n, err, sizeof err), 0);
     ExeTables *t = calloc(1, sizeof *t);
     CHECK_EQ_INT(exe_tables_config(&img, t, err, sizeof err), 0);
+    CHECK(family_ok(t, "config"));
     for (int r = 0; r < CONFIG_RECORD_ROW_COUNT; r++) {
         CHECK(strcmp(t->config_row_name[r], CONFIG_RECORD_ROWS[r].name) == 0);
         CHECK_MEM(t->config_row_number[r], CONFIG_RECORD_ROWS[r].number, sizeof t->config_row_number[r]);
