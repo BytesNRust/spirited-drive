@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 enum { WIDE = 854 };
 
@@ -31,7 +32,12 @@ static int last_capture(const char *dir, unsigned frame)
 int main(void)
 {
     setenv("SDL_VIDEO_DRIVER", "dummy", 1);
-    const char *dir = ".";   /* the test's working directory: frame_00000.ppm .. frame_00004.ppm, removed at the end */
+    char dir_template[] = "./video_wide.XXXXXX";   /* a folder of this run's own in the working directory (two ctests at once shared its frame files): frame_00000.ppm .. frame_00004.ppm, removed at the end */
+    const char *dir = mkdtemp(dir_template);
+    if (dir == NULL) {
+        perror("mkdtemp");
+        return 1;
+    }
     setenv("TNFS_CAPTURE_DIR", dir, 1);
     setenv("TNFS_CAPTURE_EVERY", "1", 1);
     const PlatformConfig config = { WIDE, VIDEO_HEIGHT, "test", 0, 0, 0 };
@@ -77,5 +83,6 @@ int main(void)
         snprintf(path, sizeof path, "%s/frame_%05u.ppm", dir, i);
         remove(path);
     }
+    rmdir(dir);
     return TEST_REPORT();
 }

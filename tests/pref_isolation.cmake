@@ -3,6 +3,7 @@
 #  1. --user DIR: the log is DIR/tnfs.log and the pref folder stays empty.
 #  2. only --mods DIR: the player's folder is the pref folder (the log is there), the mods directory gets nothing.
 #  3. a --mods DIR that still holds user/ files (an older install): they move to the pref folder once, said in the log, and the old copy of a file the pref folder has is left alone.
+include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 function(run)
     execute_process(COMMAND ${CMAKE_COMMAND} -E env TNFS_PREF_DIR=${WORK}/pref SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy ${TNFS} ${ARGN}
                     WORKING_DIRECTORY "${WORK}/cwd" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 30)

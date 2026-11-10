@@ -1,6 +1,7 @@
 # usage: cmake -DREPO=<repository> -DWORK=<scratch dir> -P try_online_local.cmake
 # tools/try_online_local.sh with DRY_RUN=1: the two commands it would run -- a host on UDP 15000 and a guest on 15001 that looks for it, each with its own user folder,
 # the data and mods folders, under timeout -k for two hours, and no dummy drivers.
+include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")
 execute_process(COMMAND ${CMAKE_COMMAND} -E env DRY_RUN=1 TNFS_HOME=${WORK} SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy bash ${REPO}/tools/try_online_local.sh ./tnfs

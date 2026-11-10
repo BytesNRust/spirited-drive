@@ -27,10 +27,16 @@ wait_log() {   # the text, the seconds to wait for it
 finish() { kill -9 "$GAME" 2>/dev/null; wait "$GAME" 2>/dev/null; echo "FAIL: $1"; tail -5 "$LOG" 2>/dev/null; exit 1; }
 
 wait_log "track light: .*CY1B.txt" 60 || finish "the race did not start with the file"
-sleep 3   # the editor has taken the file's checksum by now
+# The editor takes the file's checksum at its first poll, one a second of the game's frames; a slow machine (ASan under load) can poll after the edit, and
+# then the edit is the file it knows. So the edit is made, and a comment line is added to the file each second until the editor sees a change.
 echo "tunnel 300 340" >> "$WORK/mods/track/CY1.txt"
-wait_log "light made again" 15 || finish "the places file was not read again, or the game died reading it"
-wait_log "wet zones: CY1 made again" 5 || finish "the dry zones were not made again"
+for n in $(seq 1 45); do
+    wait_log "light made again" 1 && break
+    kill -0 "$GAME" 2>/dev/null || finish "the game died reading the places file"
+    echo "# touched $n" >> "$WORK/mods/track/CY1.txt"
+done
+grep -a -q "light made again" "$LOG" 2>/dev/null || finish "the places file was not read again"
+wait_log "wet zones: CY1 made again" 20 || finish "the dry zones were not made again"
 sleep 4   # the message is on screen for 3 s: the frames that draw it
 kill -0 "$GAME" 2>/dev/null || finish "the game died after the reload"
 kill -9 "$GAME" 2>/dev/null

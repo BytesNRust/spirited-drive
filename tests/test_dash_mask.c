@@ -8,7 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ftw.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 enum { W = 6, H = 2 };
 
@@ -69,7 +71,31 @@ static void test_round_trip_and_scale(void)
     png_free(png);
 }
 
-#define ROOT "/tmp/tnfs_test_dash_masks"
+/* a scratch folder of this run's own (two ctests at once shared a fixed /tmp one), removed at the end */
+static char root[64];
+static const char *under(const char *tail)
+{
+    static char paths[4][256];
+    static int next;
+    char *p = paths[next++ & 3];
+    snprintf(p, 256, "%s%s", root, tail);
+    return p;
+}
+static int remove_entry(const char *path, const struct stat *st, int type, struct FTW *ftw)
+{
+    (void)st, (void)type, (void)ftw;
+    return remove(path);
+}
+static void scratch_make(const char *template_path)
+{
+    snprintf(root, sizeof root, "%s", template_path);
+    if (mkdtemp(root) == NULL) {
+        perror("mkdtemp");
+        exit(1);
+    }
+}
+static void scratch_remove(void) { nftw(root, remove_entry, 8, FTW_DEPTH | FTW_PHYS); }
+
 static void test_lookup(void)
 {
     static uint8_t full[DASH_MASK_W * DASH_MASK_H];
@@ -78,16 +104,16 @@ static void test_lookup(void)
     uint8_t *png = NULL;
     size_t len = 0;
     CHECK(dash_mask_write(full, DASH_MASK_W, DASH_MASK_H, &png, &len));
-    mkdir(ROOT, 0755);
-    mkdir(ROOT "/TDASH", 0755);
-    FILE *f = fopen(ROOT "/TDASH/dash_mask.png", "wb");
+    mkdir(root, 0755);
+    mkdir(under("/TDASH"), 0755);
+    FILE *f = fopen(under("/TDASH/dash_mask.png"), "wb");
     CHECK(f != NULL);
     if (f != NULL) {
         CHECK(fwrite(png, 1, len, f) == len);
         fclose(f);
     }
     png_free(png);
-    setenv("TNFS_DASH_MASKS", ROOT, 1);
+    setenv("TNFS_DASH_MASKS", root, 1);
     uint8_t *m = dash_mask_load("TDASH");
     CHECK(m != NULL);
     if (m != NULL) CHECK(m[5] == DASH_MASK_LIT && m[DASH_MASK_W + 7] == DASH_MASK_DIAL && m[0] == DASH_MASK_AUTO);
@@ -123,15 +149,15 @@ static int note_is(const char *text)
 /* the lookup order: TNFS_DASH_MASKS (a dev override) first, then the mods folder's dash_masks/, then the port's data/ */
 static void test_mod_before_data(void)
 {
-    put(ROOT "/order/base/data/dash_masks/TORDER", "base");
-    data_path_set_base(ROOT "/order/base");
+    put(under("/order/base/data/dash_masks/TORDER"), "base");
+    data_path_set_base(under("/order/base"));
     unsetenv("TNFS_DASH_MASKS");
     CHECK(note_is("base"));   /* no mod: the port's */
-    put(ROOT "/order/mod/dash_masks/TORDER", "mod");
-    data_path_set_mod(ROOT "/order/mod");
+    put(under("/order/mod/dash_masks/TORDER"), "mod");
+    data_path_set_mod(under("/order/mod"));
     CHECK(note_is("mod"));    /* the mod's first */
-    put(ROOT "/order/env/TORDER", "env");
-    setenv("TNFS_DASH_MASKS", ROOT "/order/env", 1);
+    put(under("/order/env/TORDER"), "env");
+    setenv("TNFS_DASH_MASKS", under("/order/env"), 1);
     CHECK(note_is("env"));    /* the env override before both */
     unsetenv("TNFS_DASH_MASKS");
     data_path_set_mod(NULL), data_path_set_base(NULL);
@@ -139,9 +165,11 @@ static void test_mod_before_data(void)
 
 int main(void)
 {
+    scratch_make("/tmp/tnfs_test_dash_masks.XXXXXX");
     test_colours();
     test_round_trip_and_scale();
     test_lookup();
     test_mod_before_data();
+    scratch_remove();
     return TEST_REPORT();
 }

@@ -1,6 +1,7 @@
 # usage: cmake -DTNFS=<exe> -DREPO=<repository> -DWORK=<scratch dir> -P stats_mods_isolation.cmake
 # A "release" version (TNFS_STATS_DRYRUN=0.9.0: the dev build counts as 0.9.0 and only logs what it would send) run with --user: its anonymous first_start flag
 # goes to <user>/stats.cfg, the pref dir stays empty, and the log says it would send once. A run from a "dev" version (no DRYRUN) writes no stats.cfg.
+include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
 execute_process(COMMAND ${CMAKE_COMMAND} -E env TNFS_PREF_DIR=${WORK}/pref TNFS_STATS_DRYRUN=0.9.0 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy
@@ -52,3 +53,4 @@ endif()
 if(NOT EXISTS "${WORK}/user/stats.cfg")
     message(FATAL_ERROR "with --mods the flag is not in the player's folder (rc=${rc}): ${err}")
 endif()
+file(REMOVE_RECURSE "${WORK}")
