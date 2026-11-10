@@ -118,7 +118,7 @@ static void (*joy_refresh)(void);  /* port: reads the open pads' keys again (pla
  * the scancode each action's key is */
 enum { VIRTUAL_DEVICES = 16 };
 static uint32_t virtual_keys[VIRTUAL_DEVICES];
-static int virtual_scancode[ACT_COUNT] = { [ACT_PAUSE] = 0x19, [ACT_VIEW] = 0x3b };
+static int virtual_scancode[ACT_COUNT] = { [ACT_PAUSE] = 0x19 };
 void platform_joy_virtual_refresher(void (*refresh)(void)) { joy_refresh = refresh; }
 
 void platform_virtual_key(int action, int scancode)

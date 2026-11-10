@@ -194,7 +194,7 @@ bool platform_joy_read(int device, uint32_t *buttons, int32_t axis[4]);
 void platform_controls_set(const PortControls *controls);
 /* The device as it is now, whole: every button, axis and hat (what a binding is captured from). */
 bool platform_joy_raw(int device, RawPad *out);
-/* The scancode the virtual key of action ACT_HORN, ACT_PAUSE, ACT_VIEW or ACT_NITRO presses (P and F1 until set; the
+/* The scancode the virtual key of action ACT_HORN, ACT_PAUSE or ACT_NITRO presses (P until set; the
  * horn's is config.dat's, set when a race starts; the Nitro's is RACE_KEYS_PAD_NITRO, set then too); platform_key_down
  * answers true for it while a binding of the action is held. */
 void platform_virtual_key(int action, int scancode);

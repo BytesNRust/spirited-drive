@@ -22,7 +22,7 @@ enum {
 
 static const char *const ACTION_KEY[ACT_COUNT] = {
     "steer", "steer_left", "steer_right", "gas", "brake", "gear_up", "gear_down", "camera", "handbrake", "horn",
-    "pause", "view", "nitro", "look_back" };
+    "pause", "nitro", "look_back" };
 
 static const char *const KEY_KEY[PKEY_COUNT] = {
     "key_left", "key_right", "key_gas", "key_brake", "key_gear_up", "key_gear_down", "key_handbrake", "key_horn",
