@@ -15,6 +15,7 @@
 
 enum { PSX_LIGHT_POINTS = 11, PSX_LIGHT_FULL = 255, PSX_LIGHT_WALL = 128, PSX_LIGHT_WALL_FOOT = 64, PSX_LIGHT_TUNNEL_ROAD = 100 };
 
+enum { PSX_BEAM_TUNNEL = 180 };   /* port: the light out of 255 the PS1 headlight beam gives a tunnel's walls and road and a lit hall's, at night (the exe's TUNNEL_BEAM is 150) */
 enum { PSX_LIGHT_SNOW_SLOTS = 144 };   /* TRACK_TEXTURE_SLOTS (track_art.h), checked in track_light_file.c */
 
 /* port (track light file, `tone`): a scene tone a track's stretch takes: a colour and how strongly (0..100) the stretch's polygons are seen through it. At most PSX_LIGHT_TONES distinct ones a track. */
@@ -56,7 +57,7 @@ typedef struct {
     int tunnel_floor;   /* port (city_lift 3): a tunnel's dark floor (of 256) in place of TUNNEL_FLOOR, so its lamps stand out against a darker open night; 0 TUNNEL_FLOOR */
     uint8_t object_floor;   /* port (vegas_objects): the least light (of 255) a 3D object (a building, a sign) takes from its node; 0 none, the node's own light */
     int gate_board;     /* port (finish_gate_light): the stage gate's scenery board plus one, which keeps full light at night (finish_gate_light.h); 0 none */
-    int beam_tunnel;    /* port (tunnel_headlight): the light out of 255 the headlight beam gives the walls and road of a tunnel or a lit hall at night (180 on); 0 the beam as it was (TUNNEL_BEAM in a tunnel, nothing in a hall) */
+    int beam_tunnel;    /* port (the tunnel headlight, always on with the PS1 headlights at night): the light out of 255 the beam gives the walls and road of a tunnel or a lit hall (PSX_BEAM_TUNNEL); 0 with no headlights (TUNNEL_BEAM in a tunnel, nothing in a hall) */
     uint8_t *pool_class; /* port (lamp_pool_tint): per node (owned), 0 none, 1..4 how strong a street lamp's pool is there (psx_light_lamp_classes); NULL none */
     uint8_t snow_map[PSX_LIGHT_SNOW_SLOTS];   /* port (snow_weather): the places file's `snow_map from to` lines: texture slot `from` is drawn with slot `to`'s bitmaps in the rally (track_art_remap_slots); to + 1, 0 none */
     int snow;           /* port (snow_weather): the places file's `snow 1`: the track's rain is snow (weather_snow.h), and its rally road is covered in it (rally_gravel.h) */

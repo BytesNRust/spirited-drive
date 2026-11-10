@@ -150,14 +150,6 @@ int port_canyon_shade(void)
     return port_settings_load().canyon_shade;
 }
 
-int port_tunnel_headlight(void)
-{
-    if (!port_psx_headlights()) return 0;
-    const char *v = getenv("TNFS_TUNNEL_HEADLIGHT");
-    const int on = v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0' ? v[0] - '0' : port_settings_load().tunnel_headlight;
-    return on ? 180 : 0;
-}
-
 int port_parking_dark(void)
 {
     if (!port_car_tunnel_light()) return 0;

@@ -251,7 +251,7 @@ static uint8_t light_at_dark(const PsxLight *light, uint32_t node, int point, co
             const int lit = light->beam_open * lift / 256 * share / 256;
             if (lit > open) open = (uint8_t)lit;
         }
-        if (light->beam_tunnel > 0 && light->hall != NULL && light->nodes > 0 && light->hall[node % light->nodes]) {   /* port (tunnel_headlight): the lit hall's walls and pillars take the beam too */
+        if (light->beam_tunnel > 0 && light->hall != NULL && light->nodes > 0 && light->hall[node % light->nodes]) {   /* port (the tunnel headlight): the lit hall's walls and pillars take the beam too */
             const int hall_lit = light->beam_tunnel * lift / 256;
             return hall_lit > open ? (uint8_t)hall_lit : open;
         }

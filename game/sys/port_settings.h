@@ -65,7 +65,6 @@ typedef struct {
                               * 0: the pools only lift the light, as they did */
     int canyon_shade;        /* 1: with car_tunnel_light, the car is 30 % darker in Burnt Sienna's canyon (TR6, the property-16 stretch after the mine, nodes 547..585, where the walls
                               * shade the road); 0: full sun there, as it was */
-    int tunnel_headlight;    /* 1: with the PS1 headlights at night, the beam lights a tunnel's walls and road (and a lit hall's) to 180 of 255, a soft light; 0: as it was */
     int parking_dark;    /* with car_tunnel_light, Transtropolis' parking (nodes 465..570, up to the exit tunnel) keeps the car at the dark tone of the lamps' alternation, steady; 0: the alternation */
     int forest_neutral;    /* with the PS1 light, TR3's forest road (nodes 852..943, the rows mark its shade like a tunnel) is drawn with the road's neutral light, not the tunnel's olive-orange cast (yellow/orange asphalt); 0: as it was */
     int cavern_dark;    /* with car_tunnel_light, Burnt Sienna's cavern (nodes 322..546, after the mine's tunnel) keeps the car at the dim tone, steady, no highway-lamp alternation; 0: the alternation */
@@ -211,8 +210,6 @@ int port_trans_shadows(void);
 
 /* 1 when the car is shaded in the canyon (canyon_shade): TNFS_CANYON_SHADE=0/1 when set, else the mode's; never without port_car_tunnel_light. */
 int port_canyon_shade(void);
-/* 180 when the beam lights tunnels (tunnel_headlight): TNFS_TUNNEL_HEADLIGHT=0/1 when set, else the mode's; never without port_psx_headlights. 0 off. */
-int port_tunnel_headlight(void);
 /* 1 when parking_dark is on: TNFS_PARKING_DARK=0/1 when set, else the mode's; never without port_car_tunnel_light. */
 int port_parking_dark(void);
 /* 1 when forest_neutral is on: TNFS_FOREST_NEUTRAL=0/1 when set, else the mode's; never without port_psx_light. */
