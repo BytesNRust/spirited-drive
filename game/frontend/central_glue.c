@@ -292,7 +292,7 @@ void cg_mark_at(void *ctx, DialogPointer *p)
 int32_t cg_time_of_day[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 
 /* 00465ec8 on config.dat's image, which 004687d0 changes */
-static void image_car_flags(void *ctx)
+void cg_image_car_flags(void *ctx)
 {
     (void)ctx;
     ConfigDat *const config = config_current();
@@ -309,7 +309,6 @@ static void image_car_flags(void *ctx)
 
 /* 004687d0 on config.dat's image (00524df9..), the globals written to it first and read back after */
 static int32_t best_times(void *ctx);
-static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);   /* port: the cheats item */
 static int32_t plus_text_width(void *ctx, const char *text);
 static void track_select(void *ctx)
 {
@@ -337,7 +336,7 @@ static void track_select(void *ctx)
         cg_flush, move_to, load_bank, no_inverse, music_feed, shape, set_palette, nothing, styles, cg_poll_pointer, hide,
         in_rect, select_picture, select_default, blit, blit_masked, blit_word, style, shadowed, nothing, nothing, flip,
         show_dialog, cg_mark_at, buttons, track_music, fade_in, track_play, deadline_set, sound, ticks, activate_dialog,
-        cg_key, click, track_stop, track_free, fade_out, free_bank, free_handle_inverse, best_times, image_car_flags,
+        cg_key, click, track_stop, track_free, fade_out, free_bank, free_handle_inverse, best_times, cg_image_car_flags,
         off_dialog, music,
         cg_deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
@@ -380,429 +379,11 @@ static int32_t best_times(void *ctx)
         move_to, load_art, no_inverse, music_feed, shape, cg_flush, set_palette, nothing, styles, cg_poll_pointer, cg_mark_at,
         in_rect, select_picture, blit, blit_masked, blit_word, style, cg_fit, time_text, speed_text, shadowed,
         select_default, hide, nothing, nothing, flip, show_dialog, buttons, fade_in, deadline_set, sound, ticks,
-        activate_dialog, cg_key, click, image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off_dialog,
+        activate_dialog, cg_key, click, cg_image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off_dialog,
         music,
-        cg_deadline_passed, music_fade_out, music_end, ctx, records_glue_toggle, plus_text, plus_text_width };   /* port: the cheats item */
+        cg_deadline_passed, music_fade_out, music_end, ctx, records_glue_toggle, cg_plus_text, plus_text_width };   /* port: the cheats item */
     return best_times_screen(&in, &st, ctx, &ops);
 }
-/* 00444bb0's shorts in config.dat's image (offsets from 00524df0), all at odd addresses: copied out to aligned
- * shorts around the screen */
-enum { OPT_TRANSMISSION, OPT_AUTOMATIC, OPT_ABS, OPT_TRACTION, OPT_RACE_TYPE, OPT_TRACK, OPT_OPPONENT, OPT_CAR,
-       OPT_NET_CAR, OPT_LAPS, OPT_DIFFICULTY, OPT_MUSIC_VOLUME, OPT_SHORTS };
-static const uint16_t OPT_AT[OPT_SHORTS] = { 0x97, 0x8d, 0x99, 0x8f, 0x6d, 0x95, 0x91, 0x9b, 0xad, 0xb1, 0xb3, 0x77 };
-static int16_t opt[OPT_SHORTS];
-
-static void opt_out(void)
-{
-    const ConfigDat *const config = config_current();
-    for (int i = 0; i < OPT_SHORTS; i++) memcpy(&opt[i], config->image + OPT_AT[i], sizeof opt[i]);
-}
-
-static void opt_in(void)
-{
-    ConfigDat *const config = config_current();
-    for (int i = 0; i < OPT_SHORTS; i++) memcpy(config->image + OPT_AT[i], &opt[i], sizeof opt[i]);
-}
-
-/* 00465ec8 on the screen's shorts */
-static void opt_car_flags(void *ctx)
-{
-    opt_in();
-    image_car_flags(ctx);
-    opt_out();
-}
-
-/* 00413cb0's controls: config.dat's 13 shorts from 0052ad26, copied to aligned shorts around the screen */
-enum { CONTROLS_AT = 0x5f36 };
-static int16_t controls_kept[CONTROLS_SHORTS];
-static void controls_out(void) { memcpy(controls_kept, config_current()->image + CONTROLS_AT, sizeof controls_kept); }
-static void controls_in(void) { memcpy(config_current()->image + CONTROLS_AT, controls_kept, sizeof controls_kept); }
-static int32_t clash(void *ctx)
-{
-    (void)ctx;
-    controls_in();
-    return config_dat_controls_clash(config_current());
-}
-/* 00476f94: the arrows from the key queue, anything else typed from the text queue (Enter, Escape among them) */
-static int32_t key_read(void *ctx)
-{
-    (void)ctx;
-    static const int32_t ARROWS[] = { [PLATFORM_KEY_LEFT] = 0x4b00, [PLATFORM_KEY_RIGHT] = 0x4d00,
-                                      [PLATFORM_KEY_UP] = 0x4800, [PLATFORM_KEY_DOWN] = 0x5000 };
-    for (PlatformKey k; (k = platform_next_key()) != PLATFORM_KEY_NONE;)
-        if (k <= PLATFORM_KEY_DOWN) return ARROWS[k];
-    return input_next_char();
-}
-static int32_t capture(void *ctx, char *name)
-{
-    KeyCaptureState st = { pointer_active(), 0, 0, 0, 0 };
-    const KeyCaptureOps ops = { keys_pending, music, capture_buttons, nothing, ticks, glue_drain, key_read, nothing,
-                                ctx };
-    int16_t *const was = pointer_bind_active(&st.pointer_active);
-    const int32_t result = key_capture(name, resource_german(), &st, &ops);
-    pointer_bind_active(was);
-    return result;
-}
-/* port: the added pages' text, panels and saving (graphics_plus' routines below), and the pad as it is now */
-static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
-static int32_t plus_text_width(void *ctx, const char *text);
-static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed);
-static void controls_plus_save(void *ctx, const PortControls *controls)
-{
-    (void)ctx;
-    PortControls saved = *controls;   /* its `custom` as the pages left it: Defaults makes a wheel pass straight through */
-    if (!port_controls_save(&saved)) port_log("controls: controls.cfg could not be saved\n");
-    platform_controls_set(&saved);
-}
-/* Test aid, not for play: TNFS_FAKE_PAD=<source> (button4, axis5+, axis0, hat0.8) is a gamepad that presses that
- * source a moment after each time it is asked afresh (a gap of 10 ticks), so that a script can capture a binding
- * without a pad. */
-static int fake_pad(RawPad *out)
-{
-    enum { FRESH_GAP = 10, IDLE_CALLS = 20 };
-    static ControlSource source;
-    static int parsed, calls;
-    static uint32_t last;
-    const char *spec = getenv("TNFS_FAKE_PAD");
-    if (spec == NULL) return 0;
-    if (!parsed) {
-        char line[64];
-        snprintf(line, sizeof line, "gas=%s\n", spec);
-        source = port_controls_parse(line, strlen(line)).bind[ACT_GAS][0];
-        parsed = 1;
-    }
-    const uint32_t now = timer_ticks();
-    if (now - last > FRESH_GAP) calls = 0;
-    last = now;
-    memset(out, 0, sizeof *out);
-    out->gamepad = 1, out->buttons = 15, out->axes = 6, out->hats = 1;
-    if (++calls <= IDLE_CALLS) return 1;
-    switch (source.kind) {
-    case SRC_BUTTON: if (source.index < out->buttons) out->button[source.index] = 1; break;
-    case SRC_AXIS_NEG: out->axis[source.index] = -32767; break;
-    case SRC_AXIS_POS:
-    case SRC_AXIS_FULL: out->axis[source.index] = 32767; break;
-    case SRC_HAT: out->hat[source.index] = (uint8_t)source.rest; break;
-    default: break;
-    }
-    return 1;
-}
-static int32_t pad_raw(void *ctx, RawPad *out) { (void)ctx; return fake_pad(out) || platform_joy_raw(0, out); }
-/* port: the configuration screens' clean background for the controls' pages 2 and 3, the same one the Graphics and
- * CUSTOMIZE screens use (glue_own_bgnd's copy, shared) */
-static int32_t controls_bgnd(void *ctx, uint8_t pixels[CONTROLS_BGND_W * CONTROLS_BGND_H], uint8_t palette[768])
-{
-    (void)ctx;
-    return glue_own_bgnd(pixels, palette);
-}
-static void own_subtitle_text(void *ctx, const char *text, int32_t x, int32_t y);
-static void own_note_text(void *ctx, const char *text, int32_t x, int32_t y);
-static int32_t plus_key_name(void *ctx, int32_t scancode, char *out, size_t size)
-{
-    (void)ctx;
-    return platform_key_name(scancode, out, size);
-}
-/* port: the controls screen, from Options (mode 0) and from the options after a race (mode 1), is the port's three pages
- * (controls.cfg's keys, the pad's bindings and its tuning), the exe's page left out */
-static void controls(void *ctx, int32_t mode)
-{
-    static const int16_t no_joystick_b = 0, quit = 0;  /* no second joystick */
-    static const int32_t no_calibration = 0;  /* 0043bc00 dropped: no Calibrate item */
-    const int16_t german = (int16_t)resource_german();
-    int32_t *const screen = ea_screen_slot();
-    PortControls port = port_controls_load();
-    ControlsPlus plus = { &port, 1, port_settings_profile() != PROFILE_RESTOMOD };   /* port: the three pages, the exe's left out (input_read.c reads the keys and the pad together) */
-    controls_out();
-    const ControlsMenuState st = { controls_kept, &german, &drive_joy_state()->present, &no_joystick_b, &no_calibration,
-                                   pointer_active_word(), &cg_g.buttons, screen, &cg_g.inverse, cg_word_52b302(), &quit,
-                                   &plus };
-    const ControlsMenuOps ops = {
-        picture_new, cg_flush, palette_clear, move_to, load_art, no_inverse, music_feed, shape, cg_palette_set, fade_in,
-        styles, poll, mark, in_rect, style, select_picture, blit, picture_shape, grab, key_name, shadowed, set_palette,
-        select_default, flip, show, deadline_set, sound, nothing, blit_at, ticks, buttons, activate, cg_key, click, clash,
-        glue_boxed, capture, cg_deadline_passed, music, fade_out, free_handle_inverse, no_mode, off, net_sync,
-        picture_free, free_bank, ctx, plus_text, plus_text_width, plus_panel, controls_plus_save, pad_raw,
-        central_page_arrow_size, central_page_arrow,
-        /* port: the pages 2 and 3 over the clean background, with the title and the group headers as CUSTOMIZE's */
-        controls_bgnd, glue_own_bgnd_shape, own_plus_text, own_title_text, own_header_text,
-        /* port: the keyboard page's capture and key names, and the pages' subtitle */
-        plus_key_down, plus_key_name, own_subtitle_text, own_note_text };
-    controls_menu(&st, mode, &ops);
-    controls_in();
-}
-
-/* 004015dc's pointer x (004c6110), read as it drags a slider: kept by its button and move polls */
-static int16_t audio_pointer_x;
-static void audio_track(void)
-{
-    int x, y;
-    pointer_position(&x, &y);
-    audio_pointer_x = (int16_t)x;
-}
-static int32_t audio_buttons(void *ctx) { (void)ctx; audio_track(); return pointer_read_buttons(); }
-static void audio_activate(void *ctx) { (void)ctx; audio_track(); pointer_activate_if_moved(); }
-static int32_t audio_effects(void *ctx) { (void)ctx; return cg_image_short(0x79); }
-
-/* 004015dc from Options (mode 0) on config.dat's image: the card 0049212c(-1) answers is the port's mixer, 16-bit
- * stereo with no modes to choose (bit 0 set, bit 1 clear), so neither the mode nor 3D sound is offered and the mode
- * shown is 0049212c's 3, config.dat's 0 (one saved as 1 or 2 by an older build put back); the speech is not heard
- * yet */
-static void audio(void *ctx, int32_t mode)
-{
-    enum { AUDIO_MODE_AT = 0x71 };  /* 00524e61 */
-    static int16_t small_stream;
-    static const int16_t no_modes = 1, bit0 = 1, sound_alt = 0, sound_on = 1;
-    static const int32_t voice_4a = 0, voice = 0;
-    const int16_t german = (int16_t)resource_german();
-    memset(config_current()->image + AUDIO_MODE_AT, 0, sizeof(int16_t));
-    audio_track();
-    opt_in();
-    const AudioMenuState st = {
-        config_current()->image + 9, menu_audio_silent(), menu_audio_kept(), &no_modes, &bit0, &sound_alt, &menu_words.link_game,
-        &german, &sound_on, &voice_4a, &voice, &audio_pointer_x, pointer_active_word(), &cg_g.buttons, ea_screen_slot(),
-        &cg_g.inverse, &small_stream, cg_word_52b302(), stage_word() };
-    const AudioMenuOps ops = {
-        music_fade_out, music_end, audio_track_music, picture_new, move_to, load_art, no_inverse, music_feed, shape,
-        cg_palette_set, poll, mark, audio_clock, audio_stop_4a, audio_4a_done, sound, in_rect, audio_volume,
-        select_picture, blit, blit_at, audio_blit_at, audio_clip, picture_shape, select_default, hide, nothing, flip,
-        show, audio_buttons, styles, fade_in, deadline_set, cg_deadline_passed, nothing, music, nothing, blit_masked,
-        ticks, audio_activate, cg_key, cg_key, click, music_cut, audio_voice, audio_effects, music_fade_to,
-        audio_effects_volume,
-        glue_banner, sound_free, nothing, sound_load, off, net_sync, fade_out, free_handle_inverse, picture_free,
-        free_bank, music_pick, music_start, ctx };
-    audio_menu(&st, mode, &ops);
-    opt_out();
-}
-
-/* port: the text and the dark panels of graphics_plus.c, controls_plus.c and extras_menu.c, through the game's own
- * routines (0046376c's styles, the name box's shade table and frame); the text in the menu art's look
- * (text_draw_smooth), safe as each of those screens repaints its background and panel before writing */
-static void plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
-{
-    (void)ctx;
-    text_select((TextStyle)style_id);
-    text_draw_smooth(text, x, y, 1, 1);
-}
-
-static void plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
-{
-    enum { DARK = 0x1000, RED = 0xff0000, CORNERS = 4 };
-    static uint8_t shade_table[256];  /* ea_shade_set keeps the pointer */
-    (void)ctx;
-    ea_shade_table(DARK, rgb, shade_table);
-    ea_shade_set(shade_table);
-    const int32_t corners[2 * CORNERS] = { x0, y0, x1, y0, x1, y1, x0, y1 };
-    ea_shade_polygon(CORNERS, corners);
-    if (!framed) return;
-    ea_frame(x0 + 2, y0 + 2, x1 - 2, y1 - 2, ea_colour(RED));
-    ea_frame(x0 + 3, y0 + 3, x1 - 3, y1 - 3, ea_colour(RED));
-}
-
-/* port: the text and panel the additions draw with, for the EXTRAS screen's glue in menu_glue.c */
-void glue_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
-{
-    plus_text(ctx, style_id, text, x, y);
-}
-int32_t glue_plus_text_width(void *ctx, const char *text) { return plus_text_width(ctx, text); }
-void glue_plus_text_scaled(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
-{
-    (void)ctx;
-    text_select((TextStyle)style_id);
-    text_draw_smooth(text, x, y, num, den);
-}
-int32_t glue_plus_text_width_scaled(void *ctx, const char *text, int32_t num, int32_t den)
-{
-    (void)ctx;
-    return text_width_scaled(text, num, den);
-}
-void glue_plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
-{
-    plus_panel(ctx, rgb, x0, y0, x1, y1, framed);
-}
-static void plus_save(void *ctx, const PortSettings *settings)
-{
-    (void)ctx;
-    if (!port_settings_save(settings)) port_log("graphics: port.cfg could not be saved\n");
-}
-
-/* port: the Graphics screen's own background (graphics_own.c). config_bgnd_load reads the ten configuration screens
- * off the CD and composes them, which takes about half a second, so it is done once per process and kept -- it does
- * not depend on anything but the CD.
- *
- * The screen always puts this palette on, in OPTIONS' palette, whatever screen brought it up: entered from Game Mode
- * its art is the Game Mode picture, and blitting the Options background over that with Game Mode's palette is what
- * left DONE/CANCEL in rubbish colours. `own_palette` is the palette to hand back on the way out. */
-static uint8_t *own_shape;
-static uint8_t own_pixels[CONFIG_BGND_W * CONFIG_BGND_H];
-static uint8_t own_palette[768];
-static int own_tried, own_ok;
-
-/* compose once, into the caller's buffers, and keep a copy: the EXTRAS screen asks for the same background
- * (menu_glue.c), and reading the ten CD screens twice would cost another half second for nothing */
-static void own_compose(uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t palette[768])
-{
-    if (!own_tried) {
-        own_tried = 1;
-        own_ok = config_bgnd_load(resource_load_art, CONFIG_BGND_OPTIONS, 1, own_pixels, own_palette);
-        if (own_ok) {
-            own_shape = malloc(CONFIG_BGND_SHAPE_HEADER + CONFIG_BGND_W * CONFIG_BGND_H);
-            own_ok = own_shape != NULL
-                     && config_bgnd_shape(own_pixels, 0, 0, CONFIG_BGND_W, CONFIG_BGND_H, own_shape) != 0;
-        }
-        if (!own_ok) {
-            port_log("graphics: no clean configuration background, the burnt-in one stays\n");
-            free(own_shape);
-            own_shape = NULL;
-        }
-    }
-    memcpy(pixels, own_pixels, sizeof own_pixels);
-    memcpy(palette, own_palette, sizeof own_palette);
-}
-
-static int32_t own_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768])
-{
-    own_compose(pixels, palette);
-    return own_ok;
-}
-
-/* the shape, already a game shape, put on the screen; the palette goes with it, then the text styles are built from
- * that palette -- they are a ramp matched to what is showing, and they were last built for another screen's */
-static int32_t own_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const uint8_t palette[768])
-{
-    (void)ctx, (void)pixels;
-    if (own_shape == NULL) return 0;
-    /* RAW, into the screen's own copy rather than back into own_palette: config_bgnd.c read this palette through
-     * fsh_palette_rgb, which shifts the CD's 6-bit values left by one on the way, so it is already display-ready
-     * and any other mode shifts it twice; and palette_put reads and writes the same buffer, so aliasing the two
-     * would rewrite the bytes it is reading, a little further every redraw. */
-    memcpy(cg_screen_palette, own_palette, sizeof cg_screen_palette);
-    cg_palette_set(ctx, cg_screen_palette, 0, 0x100, own_palette, 0x24 /* FSH_TYPE_PALETTE_8BIT */);
-    text_build_styles_from(own_palette);
-    ea_blit_own(own_shape);
-    (void)palette;
-    return 1;
-}
-
-/* the same background for the EXTRAS screen (menu_glue.c): one composed copy, shared by both screens rather than
- * read off the CD twice */
-int32_t glue_own_bgnd(uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t palette[768])
-{
-    own_compose(pixels, palette);
-    return own_ok;
-}
-
-int32_t glue_own_bgnd_shape(void *ctx, const uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H],
-                            const uint8_t palette[768])
-{
-    return own_bgnd_shape(ctx, pixels, palette);
-}
-
-/* the smooth text for the Graphics screen: the letters with the background put back under them first, taken from the
- * composed copy in own_pixels -- the same picture the page is blitted with, not Options' bank. This is
- * options_plus_text's draw over the Graphics screen's own background instead of the Options one. */
-void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
-{
-    enum { MARGIN = 2, SHADOW_ROOM = 6 };
-    (void)ctx;
-    if (own_shape != NULL) {
-        const int left = x - MARGIN, top = y - MARGIN;
-        const int w = text_width(text) + MARGIN + SHADOW_ROOM, h = text_line_height() + MARGIN + SHADOW_ROOM;
-        uint8_t *const cover = malloc(CONFIG_BGND_SHAPE_HEADER + (size_t)w * h);
-        if (cover != NULL && config_bgnd_shape(own_pixels, left, top, w, h, cover) != 0)
-            ea_blit_own(cover);
-        free(cover);
-    }
-    own_panel_text(ctx, style_id, text, x, y);
-}
-
-/* port: a small note over the Graphics-style background: own_plus_text's cover, at 3/5 of the size */
-static void own_note_text(void *ctx, const char *text, int32_t x, int32_t y)
-{
-    enum { NUM = 3, DEN = 5, MARGIN = 2, SHADOW_ROOM = 6 };
-    if (own_shape != NULL) {
-        const int w = text_width_scaled(text, NUM, DEN) + MARGIN + SHADOW_ROOM, h = text_line_height() * NUM / DEN + MARGIN + SHADOW_ROOM;
-        uint8_t *const cover = malloc(CONFIG_BGND_SHAPE_HEADER + (size_t)w * h);
-        if (cover != NULL && config_bgnd_shape(own_pixels, x - MARGIN, y - MARGIN, w, h, cover) != 0) ea_blit_own(cover);
-        free(cover);
-    }
-    glue_plus_text_scaled(ctx, 0, text, x, y, NUM, DEN);
-}
-
-/* port: the titles in the original titles' letters (title_art.h), cut from the CD the first time each is drawn and
- * kept; a title the CD cannot give is drawn in the font */
-static const uint8_t *title_mask(const char *text, int *w)
-{
-    static uint8_t masks[TITLE_ART_COUNT][TITLE_ART_MAX_W * TITLE_ART_H];
-    static int widths[TITLE_ART_COUNT], tried[TITLE_ART_COUNT], ok[TITLE_ART_COUNT];
-    const TitleArtId id = title_art_for(text);
-    if (id == TITLE_ART_COUNT) return NULL;
-    if (!tried[id]) {
-        tried[id] = 1;
-        ok[id] = title_art_load(resource_load_art, id, masks[id], &widths[id]);
-        if (!ok[id]) port_log("title: \"%s\" not on the CD, drawn in the font\n", text);
-    }
-    *w = widths[id];
-    return ok[id] ? masks[id] : NULL;
-}
-
-/* port: whether the display is already dark, so the Graphics screen skips the fade of a display Options has already
- * faded out. video_display_is_dark answers from the palette on the display, so it is right whoever faded it. */
-static int32_t display_dark(void *ctx)
-{
-    (void)ctx;
-    return video_display_is_dark();
-}
-
-/* the screen's title as the original screens draw theirs ("Game Mode", "Control Central"): red, at their items' size */
-void own_title_text(void *ctx, const char *text, int32_t x, int32_t y)
-{
-    enum { TITLE_NUM = 33, TITLE_DEN = 20 };   /* menu_glue.c's MODE_TEXT_NUM / DEN */
-    (void)ctx;
-    text_build_styles_from(own_palette);
-    text_select(TEXT_RED);
-    int w = 0;
-    const uint8_t *const art = title_mask(text, &w);
-    if (art != NULL)   /* where the originals stand theirs, taken from where the font's would stand */
-        text_draw_mask(art, w, TITLE_ART_H, x - TITLE_ART_FONT_X + TITLE_ART_LEFT, y - TITLE_ART_FONT_Y + TITLE_ART_ROW0);
-    else
-        text_draw_smooth(text, x, y, TITLE_NUM, TITLE_DEN);
-}
-
-/* the device a controls page is for, under its title: in the title's red, at the items' size */
-static void own_subtitle_text(void *ctx, const char *text, int32_t x, int32_t y)
-{
-    (void)ctx;
-    text_build_styles_from(own_palette);
-    text_select(TEXT_RED);
-    text_draw_smooth(text, x, y, 1, 1);
-}
-
-/* a group's header as the credits draw theirs ("EA Seattle"), at their size: about 2/3 of the game's text */
-void own_header_text(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
-{
-    enum { HEADER_NUM = 2, HEADER_DEN = 3 };
-    (void)ctx;
-    text_build_styles_from(own_palette);
-    text_draw_header(text, x, y, HEADER_NUM, HEADER_DEN, width);
-}
-
-void own_panel_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y)
-{
-    (void)ctx;
-    /* the styles from the background that is showing: they are a ramp matched to it, and the last ones were built
-     * for another screen's palette */
-    text_build_styles_from(own_palette);
-    text_select((TextStyle)style_id);
-    text_draw_smooth(text, x, y, 1, 1);
-}
-
-/* the triangle as own_panel_text draws a word: in the styles of the background that is showing */
-void own_panel_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y)
-{
-    text_build_styles_from(own_palette);
-    central_page_arrow(ctx, right, lit, x, y);
-}
-
 /* Cancel or Escape: the settings back as they were on entry, and the config.dat image with them -- the view distance
  * is one of the screen's shorts there, not in port.cfg, so the kept image is what puts it back. Both are kept for as
  * long as the screen may be up, which is what the file scope is for. */
@@ -829,7 +410,7 @@ static void graphics(void *ctx, int32_t mode)
     int desktop_w = 0, desktop_h = 0;
     const int has_desktop = platform_desktop_size(&desktop_w, &desktop_h);
     GraphicsPlus plus = { &port, has_desktop ? screen_format_nearest(desktop_w, desktop_h) : SCREEN_4_3, cg_race, port.f3_ultra };
-    opt_in();
+    cg_opt_in();
     /* after opt_in: it writes Options' unsaved edits into the image, which Cancel must keep */
     port_settings_was = port;
     memcpy(config_current_kept_image, config_current()->image + 9, GRAPHICS_KEPT);
@@ -844,15 +425,15 @@ static void graphics(void *ctx, int32_t mode)
         move_to, load_art, no_inverse, music_feed, shape, cg_palette_set, poll, mark, in_rect, select_picture, blit,
         picture_shape, select_default, hide, nothing, flip, show, buttons, styles, fade_in, deadline_set, sound,
         nothing, ticks, activate, cg_key, click, off, music, net_sync, cg_deadline_passed, fade_out, free_handle_inverse,
-        free_bank, ctx, plus_text, plus_text_width, plus_panel, plus_save,
+        free_bank, ctx, cg_plus_text, plus_text_width, cg_plus_panel, cg_plus_save,
         /* port: the screen's own background, its shape with the palette that goes with it, and its title. The race's
          * pause menu gets the same ones as Options. */
-        own_bgnd, own_bgnd_shape, own_title_text, own_put_back,
+        cg_own_bgnd, cg_own_bgnd_shape, own_title_text, own_put_back,
         /* port: the letters go through the draw that restores the clean background under them */
         own_plus_text,
         /* port: whether the display is already dark, so the screen skips a fade of a display Options has already
          * faded out rather than scaling zeros for seventeen vblanks */
-        display_dark, central_page_arrow_size, central_page_arrow };
+        cg_display_dark, central_page_arrow_size, central_page_arrow };
     input_function_keys(&showing);
     input_page_keys(!cg_race);
     /* port: graphics_own.c, the port's own screen, from Options and from the race's pause menu alike */
@@ -862,7 +443,7 @@ static void graphics(void *ctx, int32_t mode)
     text_build_styles_from(caller_palette);
     input_page_keys(0);
     input_function_keys(NULL);
-    opt_out();
+    cg_opt_out();
     /* port: the screen's settings changed (Done): the window takes them now, not at the next start */
     const PortSettings now = port_settings_load();
     if (mode == 0 && (was.format != now.format || was.scale_integer != now.scale_integer
@@ -933,7 +514,7 @@ static void load_save(void *ctx, int32_t mode)
 {
     ConfigDat *const config = config_current();
     cg_level_to_image();
-    opt_in();
+    cg_opt_in();
     int16_t variant = cg_image_short(0x93);
     replay_kind = cg_image_short(0xaf);
     volumes_sync();
@@ -954,7 +535,7 @@ static void load_save(void *ctx, int32_t mode)
     volumes_sync();
     pointer_bind_active(was);
     memcpy(config->image + 0x93, &variant, sizeof variant), memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
-    opt_out();
+    cg_opt_out();
     cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
     cg_races_from_state();
 }
@@ -966,7 +547,7 @@ static void load_save2(void *ctx, int32_t mode)
     cg_level_to_image();
     enum { RACES_AT = 0x592, EXTRA_AT = 0x5a2, RACES = 8 };
     ConfigDat *const config = config_current();
-    opt_in();
+    cg_opt_in();
     int16_t races[RACES], extra;
     memcpy(races, cg_game_state + RACES_AT, sizeof races), memcpy(&extra, cg_game_state + EXTRA_AT, sizeof extra);
     replay_kind = cg_image_short(0xaf);
@@ -988,7 +569,7 @@ static void load_save2(void *ctx, int32_t mode)
     volumes_sync();
     pointer_bind_active(was);
     memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
-    opt_out();
+    cg_opt_out();
     cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
     cg_races_from_state();
 }
@@ -998,17 +579,17 @@ static void load_save2(void *ctx, int32_t mode)
 int32_t glue_check_options(int32_t mode)
 {
     ConfigDat *const config = config_current();
-    opt_out();
+    cg_opt_out();
     const CheckOptionsOps ops = {
         move_to, load_art, no_inverse, shape, cg_palette_set, poll, mark, in_rect, select_picture, blit, select_default,
         hide, picture_shape, flip, show, buttons, fade_in, deadline_set, sound, nothing, ticks, activate, cg_key, click,
-        fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save, load_save2, music_fade_to,
+        fade_out, free_handle_inverse, free_bank, cg_audio, graphics, cg_controls, load_save, load_save2, music_fade_to,
         off, music, cg_deadline_passed, no_wait, music_feed, save_config, NULL };
     const int16_t language = (int16_t)resource_german();
     const CheckOptionsState st = { config->image, &menu_words.link_game, &language, pointer_active_word(), &cg_g.buttons,
                                    ea_screen_slot(), &cg_g.inverse, stage_word() };
     const int32_t done = check_options(mode, &st, &ops);
-    opt_out();
+    cg_opt_out();
     return done;
 }
 
@@ -1016,7 +597,7 @@ int32_t glue_check_options(int32_t mode)
  * with eax 1 (graphics, no resolution) */
 void glue_race_option(uint32_t address)
 {
-    if (address == 0x4015dc) audio(NULL, 2);
+    if (address == 0x4015dc) cg_audio(NULL, 2);
     else if (address == 0x423d28) graphics(NULL, 1);
 }
 
@@ -1056,7 +637,7 @@ void cg_chat(void *ctx)
     static const ChatOps ops = {
         load_art, shape, cg_palette_set, select_picture, blit, blit_masked, select_default, picture_shape, blit_word, flip,
         buttons, fade_in, nothing, styles, picture_new, grab, glue_drain, keys_pending, music, nothing, move_to, mark,
-        net_service, in_rect, sound, lines_free, style, restore, shadowed, show_at, pump, lines_done, key_read,
+        net_service, in_rect, sound, lines_free, style, restore, shadowed, show_at, pump, lines_done, cg_key_read,
         no_joystick, width, click, ticks, chat_send, chat_in, select_default, nothing, chat_shown, buttons, picture_free, nothing,
         fade_out, free_handle_inverse, free_bank, NULL };
     static const uint32_t lines_lock = 0;
@@ -1122,20 +703,20 @@ static void options(void *ctx)
     ConfigDat *const config = config_current();
     const RaceSettings before = cg_settings_of();
     config_dat_set_race(config, &before);
-    opt_out();
+    cg_opt_out();
     const OptionsMenuOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, cg_palette_set, styles, poll, mark, in_rect, select_picture,
         blit, select_default, hide, nothing, picture_shape, nothing, flip, show, buttons, fade_in, deadline_set, sound,
-        ticks, activate, cg_key, click, fade_out, free_handle_inverse, free_bank, audio, graphics, controls, load_save,
-        music_fade_out, music_end, music_start, cg_credits, music_pick, opt_car_flags, music_fade_to, off, music, net_sync,
-        cg_deadline_passed, ctx, options_extras, central_options_plus_text, plus_text_width, plus_panel };
+        ticks, activate, cg_key, click, fade_out, free_handle_inverse, free_bank, cg_audio, graphics, cg_controls, load_save,
+        music_fade_out, music_end, music_start, cg_credits, music_pick, cg_opt_car_flags, music_fade_to, off, music, net_sync,
+        cg_deadline_passed, ctx, options_extras, central_options_plus_text, plus_text_width, cg_plus_panel };
     OptionsMenuState st = {
-        &opt[OPT_TRANSMISSION], &opt[OPT_AUTOMATIC], &opt[OPT_ABS], &opt[OPT_TRACTION], &opt[OPT_RACE_TYPE],
-        &opt[OPT_TRACK], &opt[OPT_OPPONENT], &opt[OPT_CAR], &opt[OPT_NET_CAR], &opt[OPT_LAPS], &opt[OPT_DIFFICULTY],
-        &opt[OPT_MUSIC_VOLUME], &menu_words.link_game, pointer_active_word(), &cg_g.buttons, ea_screen_slot(), &cg_g.inverse,
+        &cg_opt[OPT_TRANSMISSION], &cg_opt[OPT_AUTOMATIC], &cg_opt[OPT_ABS], &cg_opt[OPT_TRACTION], &cg_opt[OPT_RACE_TYPE],
+        &cg_opt[OPT_TRACK], &cg_opt[OPT_OPPONENT], &cg_opt[OPT_CAR], &cg_opt[OPT_NET_CAR], &cg_opt[OPT_LAPS], &cg_opt[OPT_DIFFICULTY],
+        &cg_opt[OPT_MUSIC_VOLUME], &menu_words.link_game, pointer_active_word(), &cg_g.buttons, ea_screen_slot(), &cg_g.inverse,
         cg_word_52b302(), stage_word(), &menu_words.redraw };
     options_menu(&st, &ops);
-    opt_in();
+    cg_opt_in();
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) cg_settings_put(&after);
 }
@@ -1199,7 +780,7 @@ int32_t glue_central(void)
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, cg_standings, track_select, art_free, options,
         cg_chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, cg_flush, cg_race, off,
-        plus_text, NULL, 1, pad_buttons, palette_colour };
+        cg_plus_text, NULL, 1, pad_buttons, palette_colour };
     load();
     ControlCentralState st = {
         &cg_g.race_type, &cg_g.opponent, &cg_g.track, &cg_g.player_car, cg_g.other_car, &cg_g.net_car, &cg_g.laps, cg_g.difficulty,
