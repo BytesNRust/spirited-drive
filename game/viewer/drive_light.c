@@ -352,7 +352,7 @@ static void light_adopt(const PsxLight *parsed, const char *track, const char *p
     light = *parsed;
     light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
     light.forest_road = port_forest_neutral() && psx_light_forest_road_range(track, &light.forest_from, &light.forest_to);   /* port (forest_neutral): the forest's shade is not drawn as a tunnel */
-    light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
+    light.beam_tunnel = headlights_on ? PSX_BEAM_TUNNEL : 0;
     light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
     light.pool = headlights_on ? &headlight_pool : NULL;
     city_fields(&light, track);   /* port (city_lift) */
@@ -792,7 +792,7 @@ static void install_made(PsxLight *made, const char *track, int tunnel_track)
     psx_light_free(&light);
     light = *made;
     light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
-    light.beam_tunnel = headlights_on ? port_tunnel_headlight() : 0;
+    light.beam_tunnel = headlights_on ? PSX_BEAM_TUNNEL : 0;
     city_fields(&light, track);   /* port (city_lift): the made light has the City's fields as the CD's has (lamp_pool_bright included) */
     light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects): the made light's buildings and objects keep their light as the CD's do */
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (psx_headlights): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
