@@ -55,9 +55,16 @@ int lamp_far_fade(int32_t z, int32_t far_z);
  * from 1 at the centre to 0 at `radius`, and a 4 x 4 ordered dither picks the level. */
 int lamp_halo_level(int dx, int dy, int radius);
 
+/* The same with the halo shown at `percent` (0..100) of its strength: the intensity scaled before the dither picks the level, so a fading halo thins out and does not shrink. */
+int lamp_halo_level_pct(int dx, int dy, int radius, int percent);
+
 /* Adds the halo at (cx, cy): each pixel of level l (1..LAMP_FLARE_LEVELS) becomes map[l - 1][pixel] (a 256-entry table of the frame's own palette:
  * the entry nearest the pixel's colour plus the level's); only inside x0..x1 x y0..y1. */
 void lamp_halo_draw(uint8_t *pixels, int pitch, int x0, int y0, int x1, int y1, int cx, int cy, int radius,
                     const uint8_t *const map[LAMP_FLARE_LEVELS]);
+
+/* lamp_halo_draw at `percent` (lamp_halo_level_pct). */
+void lamp_halo_draw_pct(uint8_t *pixels, int pitch, int x0, int y0, int x1, int y1, int cx, int cy, int radius, int percent,
+                        const uint8_t *const map[LAMP_FLARE_LEVELS]);
 
 #endif
