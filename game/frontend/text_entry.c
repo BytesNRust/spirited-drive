@@ -109,11 +109,14 @@ int32_t text_entry_edit(char *text, int32_t max, int32_t x, int32_t y, int32_t f
     ops->drain(ops->ctx);
     int32_t sum = 0;
     int blink = 0;
+    int pad_armed = 0;   /* port: a pad button counts only once seen up (the press that opened the box must not close it) */
     int16_t k;
     for (;;) {
         st->buttons = (int16_t)ops->pointer_poll(ops->ctx);
         ops->music(ops->ctx);
         ops->joystick_poll(ops->ctx);
+        if (st->joystick_key == 0) pad_armed = 1;
+        else if (!pad_armed) st->joystick_key = 0;
         k = (int16_t)ops->key_read(ops->ctx);
         if (k == 0) {
             if (st->buttons == LEFT_BUTTON || st->joystick_key != 0) k = ENTER;

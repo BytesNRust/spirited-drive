@@ -58,4 +58,7 @@ void input_on_close(void (*hook)(void));
  * fonts), 0x08 backspace, 0x0d Enter, 0x1b Escape, KEY_DELETE, or 0. */
 int input_next_char(void);
 
+/* port: the menus' joystick button now (0043d4c0's button key: 0x20 for the first, 0xd for the second), 0 with none down or no joystick */
+int32_t input_menu_button(void);
+
 #endif

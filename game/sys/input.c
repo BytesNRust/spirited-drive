@@ -86,6 +86,17 @@ int input_get_key(void)
     return key;
 }
 
+int32_t input_menu_button(void)
+{
+    static JoyState none;
+    static const JoyOps NO_JOY = { NULL, no_joy_read };
+    JoyState *j = &none;
+    int32_t present = 0, device = 0;
+    const JoyOps *joy_ops = &NO_JOY;
+    if (joystick != NULL) joystick(&j, &present, &device, &joy_ops);
+    return joy_keys(j, present, device, joy_ops) != 0 ? j->button_key : 0;
+}
+
 /* German characters the name field accepts (004626d0), Unicode -> CP437. */
 static int to_cp437(uint32_t cp)
 {
