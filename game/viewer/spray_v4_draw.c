@@ -129,7 +129,7 @@ static void tables_set(const uint8_t rgb[SPRAY_V4_KINDS][3])
 /* the frame's budget. The compositor's cost is mostly the cells its big puffs are rasterised on (the sum of the puffs' areas: eight plumes overlap several screens deep) and a trail is born every simulation tick, its puffs overlapping (the frame's map is a maximum, not a sum). When the last frame's work (the cells rasterised, a row's set-up counting as ROW_COST of them) was more than BUDGET_OVERDRAW screens' worth, a share of the puffs farther than BUDGET_NEAR metres is not drawn (an even pattern over the trail's births, so it keeps its length); the share follows the last frame's cells in small steps with a dead band, so it does not flicker, and its target is in screens, the same at any resolution. */
 static float budget_share = 1.0f;   /* the share of the far puffs drawn */
 static long budget_last_cells;   /* the cells the frame before rasterised */
-static const float BUDGET_OVERDRAW = 5.0f, BUDGET_NEAR = 3.0f, BUDGET_MIN = 0.125f;
+static const float BUDGET_OVERDRAW = 7.0f, BUDGET_NEAR = 3.0f, BUDGET_MIN = 0.125f;
 static int budget_keep(const SprayV4Particle *p) { return (int)((p->born * 2654435761u) >> 24) < (int)(budget_share * 256.0f); }   /* a hash of the birth tick: the same particles the frame after, whatever the resolution */
 static void budget_frame(void)
 {
@@ -185,6 +185,26 @@ typedef struct { float cx, cy, rx, ry; int alpha, x0, y0, x1, y1, flip_u, flip_v
 static float ramp(float v, float lo, float hi) { return v <= lo ? 0.0f : v >= hi ? 1.0f : (v - lo) / (hi - lo); }
 
 /* one kind's puffs of the group: their maximum, set against the frame's map, drawn as one sprite. Only the pixels the puffs touch are visited (each row's extent), not the union box of the group */
+/* per sprite and row, the first and last texel of at least 1, 2, 4 .. 128: the trim of a row is a lookup (a threshold below the exact one only widens the range by cells that are 0) */
+typedef struct { const uint8_t *sp; int8_t lo[SPRAY_V4_ART_SIZE][8], hi[SPRAY_V4_ART_SIZE][8]; } Extent;
+static const Extent *extent_of(const uint8_t *sp)
+{
+    static Extent cache[64];
+    static int used;
+    for (int i = 0; i < used; i++)
+        if (cache[i].sp == sp) return &cache[i];
+    Extent *e = &cache[used < 64 ? used++ : 63];
+    e->sp = sp;
+    for (int r = 0; r < SPRAY_V4_ART_SIZE; r++)
+        for (int b = 0; b < 8; b++) {
+            int lo = SPRAY_V4_ART_SIZE, hi = -1;
+            for (int t = 0; t < SPRAY_V4_ART_SIZE; t++)
+                if (sp[r * SPRAY_V4_ART_SIZE + t] >= (1 << b)) { if (lo == SPRAY_V4_ART_SIZE) lo = t; hi = t; }
+            e->lo[r][b] = (int8_t)lo, e->hi[r][b] = (int8_t)hi;
+        }
+    return e;
+}
+
 static void compose(int kind, const Puff *puffs, int count)
 {
     int x0 = H.target->clip_right, y0 = H.target->clip_bottom, x1 = H.target->clip_left, y1 = H.target->clip_top;
@@ -215,6 +235,10 @@ static void compose(int kind, const Puff *puffs, int count)
             static uint8_t tmp[MAX_PUFF_W];
             for (int q = qx0; q < qx1; q++) col[q - qx0] = cell_lin(((float)(ox + q * cs + sh) - p->cx) / p->rx, p->flip_u, &colf[q - qx0]);   /* a magnified puff is sampled bilinear: its texels would show as blocks */
             const int tmin = (255 + p->alpha - 1) / p->alpha;   /* the sample is at most its largest texel: the alpha scaled down is 0 below it */
+            const Extent *ex = extent_of(sp);
+            int tb = 0;
+            while (tb < 7 && (2 << tb) <= tmin) tb++;   /* the largest 1 << tb not above tmin */
+            int pa = qx0, pb = qx1;   /* the last row's ends */
             int va = qx0, vb = qx1 - 1;   /* the cells inside the sprite (the others hold -1, at either end) */
             while (va <= vb && col[va - qx0] < 0) va++;
             while (vb >= va && col[vb - qx0] < 0) vb--;
@@ -226,25 +250,25 @@ static void compose(int kind, const Puff *puffs, int count)
                 for (int y = oy + qy * cs; y < oy + qy * cs + cs; y++)
                     if (y >= p->y0 && y < p->y1) fm_used[(size_t)(KINDS + 1) * (size_t)map_h + (size_t)(y - oy)] = 1;   /* the row is the puff's, however much of it draws */
                 const uint8_t *src = sp + r * SPRAY_V4_ART_SIZE, *src1 = src + SPRAY_V4_ART_SIZE;
-                int t0 = 0, t1 = SPRAY_V4_ART_SIZE - 1;   /* the texels (of the two rows) that can draw: the cells whose two texels are outside them are 0 and are not visited */
-                while (t0 <= t1 && src[t0] < tmin && src1[t0] < tmin) t0++;
-                while (t1 >= t0 && src[t1] < tmin && src1[t1] < tmin) t1--;
+                int t0 = ex->lo[r][tb] < ex->lo[r + 1][tb] ? ex->lo[r][tb] : ex->lo[r + 1][tb];   /* the texels (of the two rows) that can draw: the cells whose two texels are outside them are 0 and are not visited */
+                int t1 = ex->hi[r][tb] > ex->hi[r + 1][tb] ? ex->hi[r][tb] : ex->hi[r + 1][tb];
                 if (va > vb || t0 > t1) continue;
                 t0 = t0 > 0 ? t0 - 1 : 0;   /* a cell's lower texel is below its upper one */
-                int ca = va, cb = vb + 1;   /* the cells whose lower texel is in t0..t1: col is monotone over va..vb */
+                int ca, cb;   /* the cells whose lower texel is in t0..t1: col is monotone over va..vb, and the ends move a little from a row to the next, so they are found from the last row's */
                 if (!p->flip_u) {
-                    int lo = va, hi = vb + 1;
-                    while (lo < hi) { const int m = (lo + hi) / 2; if (col[m - qx0] >= t0) hi = m; else lo = m + 1; }
-                    ca = lo, lo = ca, hi = vb + 1;
-                    while (lo < hi) { const int m = (lo + hi) / 2; if (col[m - qx0] > t1) hi = m; else lo = m + 1; }
-                    cb = lo;
+                    ca = pa < va ? va : pa > vb + 1 ? vb + 1 : pa, cb = pb < va ? va : pb > vb + 1 ? vb + 1 : pb;
+                    while (ca > va && col[ca - 1 - qx0] >= t0) ca--;
+                    while (ca < vb + 1 && col[ca - qx0] < t0) ca++;
+                    while (cb > va && col[cb - 1 - qx0] > t1) cb--;
+                    while (cb < vb + 1 && col[cb - qx0] <= t1) cb++;
                 } else {
-                    int lo = va, hi = vb + 1;
-                    while (lo < hi) { const int m = (lo + hi) / 2; if (col[m - qx0] <= t1) hi = m; else lo = m + 1; }
-                    ca = lo, lo = ca, hi = vb + 1;
-                    while (lo < hi) { const int m = (lo + hi) / 2; if (col[m - qx0] < t0) hi = m; else lo = m + 1; }
-                    cb = lo;
+                    ca = pa < va ? va : pa > vb + 1 ? vb + 1 : pa, cb = pb < va ? va : pb > vb + 1 ? vb + 1 : pb;
+                    while (ca > va && col[ca - 1 - qx0] <= t1) ca--;
+                    while (ca < vb + 1 && col[ca - qx0] > t1) ca++;
+                    while (cb > va && col[cb - 1 - qx0] < t0) cb--;
+                    while (cb < vb + 1 && col[cb - qx0] >= t0) cb++;
                 }
+                pa = ca, pb = cb;
                 if (ca >= cb) continue;
                 unsigned vr[SPRAY_V4_ART_SIZE];   /* the two rows blended once (the cells of a row share them) */
                 const int tl = col[(p->flip_u ? cb - 1 : ca) - qx0], th = col[(p->flip_u ? ca : cb - 1) - qx0] + 1;
@@ -360,6 +384,22 @@ static void compose(int kind, const Puff *puffs, int count)
                 continue;
             }
             fm_used[(size_t)kind * (size_t)map_h + (size_t)(y - oy)] = 1;
+            if (!fm_used[(size_t)KINDS * (size_t)map_h + (size_t)(y - oy)]) {   /* big puffs only, and something before: no small puff's map to read or clean, and a pixel that takes nothing more (the frame's map already as dense) is skipped */
+                const int xs = row_lo[y - oy];
+                const unsigned *dr = (const unsigned *)&DITHER[(y & 3) * 4];
+                uint8_t *o = out + xs, *fp = &fm[xs - ox];
+                const uint8_t *hp = &hm[(xs - ox) >> 1];
+                const int n = xe - xs, lead = (xs - ox) & 1;
+                unsigned m = 0;
+                #define TAKE(i, hv) do { const unsigned h_ = (hv), b_ = fp[i]; if (h_ > b_) { unsigned k_ = ((h_ - b_) * (unsigned)per * (unsigned)RCP[b_] + dr[(xs + (i)) & 3]) >> 16; k_ = k_ > LEVELS ? LEVELS : k_; fp[i] = (uint8_t)h_, o[i] = (uint8_t)k_, m |= k_; } } while (0)
+                int i = 0;
+                if (lead && n > 0) { TAKE(0, hp[0]); i = 1, hp++; }
+                for (; i + 1 < n; i += 2, hp++) { const unsigned hv = *hp; TAKE(i, hv); TAKE(i + 1, hv); }
+                if (i < n) TAKE(i, *hp);
+                #undef TAKE
+                any |= m != 0;
+                continue;
+            }
             for (int x = row_lo[y - oy]; x < xe; x++) {
                 const int hv = hm[(x - ox) >> 1], now = g[x - ox] > hv ? g[x - ox] : hv, before = fm[x - ox];
                 g[x - ox] = 0;   /* the group's map is left clean for the next */
