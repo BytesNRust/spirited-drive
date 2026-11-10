@@ -7,6 +7,7 @@ TNFS=$1 REPO=$2 WORK=$3 DATA=${4:-$2/original}
 [ -d "$DATA/GAMEDATA" ] || { echo "skip (no $DATA)"; exit 0; }
 mkdir -p "$WORK"
 WORK=$(mktemp -d "$WORK/run.XXXXXX")
+trap 'rc=$?; if [ "$rc" -ne 0 ] && [ "${TNFS_KEEP_RUN:-0}" = 1 ]; then echo "kept: $WORK" >&2; else find "$WORK" -delete; fi' EXIT   # its run dir goes with it; kept only on a failure with TNFS_KEEP_RUN=1
 mkdir -p "$WORK/mods" "$WORK/user"
 printf 'profile=restomod\n' > "$WORK/user/port.cfg"
 printf 'format=4:3\nrender_scale=1\n' > "$WORK/user/restomod.cfg"
