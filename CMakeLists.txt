@@ -565,6 +565,7 @@ add_executable(tnfs
     game/viewer/view_screen.c
     game/viewer/view_spray.c
     game/viewer/view_rain.c
+    game/viewer/view_cars.c
     game/viewer/follow_arm.c
     game/viewer/follow_behind.c
     game/viewer/ported_viewport.c
