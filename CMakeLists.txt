@@ -579,6 +579,7 @@ add_executable(tnfs
     game/viewer/view_cars.c
     game/viewer/view_tags.c
     game/viewer/view_sky.c
+    game/viewer/view_light_tables.c
     game/viewer/view_light.c
     game/viewer/view_tables.c
     game/viewer/view_weather.c
