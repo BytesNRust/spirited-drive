@@ -4,7 +4,7 @@ At night, or in a dark tunnel, what is reflective (road signs, delineator posts,
 
 ## What is reflective
 
-A mask per texture (`game/race/track_mask.h`, `data/track_masks/<TRACK>/slot_NN.png` and `scenery_NN.png`; red >= 128 and not transparent). `track_mask_for` is the lookup. A mask with no texel set is ignored.
+A mask per texture (`game/race/track_mask.h`, `data/track_masks/<TRACK>/slot_NN.png` and `scenery_NN.png`; red >= 128 and not transparent). `track_mask_for` is the lookup. A mask with no texel set is ignored. A yellow texel (red and green 128 or more, blue below 128) is a lamp mark, not reflective (docs/modding.md, Track masks).
 
 ## The shine (`game/race/reflector.h`)
 

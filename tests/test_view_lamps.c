@@ -11,7 +11,7 @@
 
 enum { TEX = 16, LAMP_COLOUR = 200, BACK = 10, W = 64, H = 64 };
 
-static const PsxLamp LAMP = { 0, 1, { LAMP_COLOUR }, { 4, 4, 11, 11 } };   /* the fitting is the texture's middle */
+static const PsxLamp LAMP = { 0, 1, { LAMP_COLOUR }, { 4, 4, 11, 11 }, NULL };   /* the fitting is the texture's middle */
 
 static TrackArt *make_art(uint8_t texels[TEX * TEX])
 {

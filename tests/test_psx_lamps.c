@@ -70,7 +70,7 @@ static void test_exempt(void)
     px[1 * W + 1] = 50, px[1 * W + 2] = 51;       /* ...the lamp's glow inside its rectangle (x 1..3, y 1..2) */
     px[2 * W + 3] = 9;                            /* a texel of the wall's colour inside the rectangle too */
     px[0 * W + 5] = 51;                           /* and 51 outside it: not the rectangle's alone */
-    const PsxLamp lamp = { 7, 1, { 77 }, { 1, 1, 3, 2 } };
+    const PsxLamp lamp = { 7, 1, { 77 }, { 1, 1, 3, 2 }, NULL };
     uint8_t exempt[256];
     psx_lamp_exempt(&lamp, px, W, H, exempt);
     CHECK_EQ_INT(exempt[77], 1);   /* listed, though the texture does not show it */
@@ -99,7 +99,7 @@ static void test_recolour_rect(void)
 {
     /* 4 x 3: the lamp's rectangle is x 1-2, y 1-1; colour 27 is the glare and also the wall around it */
     uint8_t pixels[12] = { 27, 27, 27, 27,  27, 27, 33, 27,  27, 27, 27, 27 }, remap[256];
-    const PsxLamp lamp = { 0, 1, { 27 }, { 1, 1, 2, 1 } };
+    const PsxLamp lamp = { 0, 1, { 27 }, { 1, 1, 2, 1 }, NULL };
     for (int c = 0; c < 256; c++) remap[c] = (uint8_t)c;
     remap[27] = 144;
     CHECK_EQ_INT((int)psx_lamp_recolour_rect(&lamp, pixels, 4, 3, remap), 1);

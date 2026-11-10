@@ -11,6 +11,7 @@
 #include "game/race/psx_lamps.h"
 #include "game/race/psx_light.h"
 #include "game/race/street_lamp.h"
+#include "game/race/track_mask.h"
 #include "game/race/tunnel_lamps.h"
 #include "game/race/finish_gate_light.h"
 #include "game/race/window_lights.h"
@@ -324,7 +325,7 @@ static void load_without_cd_light(int time, const char *track, int have_dir, con
         port_log("psx_light: Lost Vegas' night tint %.2f %.2f %.2f\n", tint[0], tint[1], tint[2]);
     }
     const PsxLamp *own_lamps = NULL;
-    const int own_count = psx_lamps_for(track, &own_lamps);
+    const int own_count = track_lamps_for(track, &own_lamps);
     ported_view_set_psx_lamps(own_lamps, own_count);   /* the lamps' glow (psx_flares) needs them known even with no light */
     if (time == PSX_TIME_NIGHT || is_lost_vegas(track)) night_lamp_spec = own_lamps, night_lamp_count = own_count;   /* the lamps' own colours are kept lit in the night's palette */
 }
@@ -401,7 +402,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
     if (port_forest_dark()) psx_light_forest_apply(&parsed, track);   /* port (forest_dark): the CD's light too, in the file's node order */
     light_adopt(&parsed, track, psx_dir, letter, time, ring_nodes);
     const PsxLamp *lamps = NULL;
-    const int lamp_count = psx_lamps_for(track, &lamps);   /* the tunnel's lamps stay bright under the light */
+    const int lamp_count = track_lamps_for(track, &lamps);   /* the tunnel's lamps stay bright under the light */
     ported_view_set_psx_lamps(lamps, lamp_count);
     if (time == PSX_TIME_NIGHT || is_lost_vegas(track)) night_lamp_spec = lamps, night_lamp_count = lamp_count;
     ported_view_set_light(&light, NULL);   /* the tint goes to the palette (drive_light_palette), not through the polygons' tables */

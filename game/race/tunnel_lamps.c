@@ -1,5 +1,7 @@
 #include "game/race/tunnel_lamps.h"
 
+#include "game/race/track_mask.h"
+
 #include <math.h>
 #include <string.h>
 
@@ -47,7 +49,7 @@ size_t tunnel_lamps_in_segment(const TrackSegment *segment, const TrackPoint *ne
 size_t tunnel_lamps_find(const Tri *tri, const char *track, TunnelLamp *out, size_t max)
 {
     const PsxLamp *lamps = NULL;
-    const int count = psx_lamps_for(track, &lamps);
+    const int count = track_lamps_for(track, &lamps);
     if (tri == NULL || count <= 0 || tri->node_count < TRI_NODES_PER_SEGMENT) return 0;
     uint8_t slots[8];
     int slot_count = 0;

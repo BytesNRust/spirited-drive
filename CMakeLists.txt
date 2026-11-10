@@ -651,6 +651,13 @@ if(NOT EMSCRIPTEN)
     target_compile_options(track_mask_draft PRIVATE ${TNFS_WARNINGS})
 endif()
 
+# The first yellow layer of the track masks from the built-in lamp table (tools/track_lamp_marks.c): reads the CD's ETRACKFM, writes the slot masks' PNGs.
+if(NOT EMSCRIPTEN)
+    add_executable(track_lamp_marks tools/track_lamp_marks.c)
+    target_link_libraries(track_lamp_marks PRIVATE tnfs_game)
+    target_compile_options(track_lamp_marks PRIVATE ${TNFS_WARNINGS})
+endif()
+
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
     add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c)

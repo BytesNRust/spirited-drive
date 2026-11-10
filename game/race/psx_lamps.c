@@ -6,12 +6,12 @@
 /* CY1: the ceiling's white oval (x 33-41, y 68-76 of byte 38's 80 x 80); CY2: the amber fitting (byte 37); CY3: the ceiling lamp (byte 20)
  * and the wall lights (byte 19); TR4: the orange strips of byte 20 (128 x 128, y 15-48). AL1 and AL3 have none. */
 enum { ALL = 255 };   /* a rectangle's far edge: the texture's own */
-static const PsxLamp CY1[] = { { 38, 5, { 0, 74, 87, 63, 67 }, { 33, 68, 41, 76 } } };
-static const PsxLamp CY2[] = { { 37, 4, { 75, 53, 32, 44 }, { 43, 50, 77, 60 } } };
-static const PsxLamp CY3[] = { { 20, 4, { 0, 38, 67, 77 }, { 34, 0, 42, 15 } }, { 19, 3, { 55, 68, 87 }, { 0, 65, ALL, 69 } } };
+static const PsxLamp CY1[] = { { 38, 5, { 0, 74, 87, 63, 67 }, { 33, 68, 41, 76 }, NULL } };
+static const PsxLamp CY2[] = { { 37, 4, { 75, 53, 32, 44 }, { 43, 50, 77, 60 }, NULL } };
+static const PsxLamp CY3[] = { { 20, 4, { 0, 38, 67, 77 }, { 34, 0, 42, 15 }, NULL }, { 19, 3, { 55, 68, 87 }, { 0, 65, ALL, 69 }, NULL } };
 /* TR3 (Vertigo Ridge): the amber bulb in the tunnel portal's ceiling (byte 19, 128 x 128, the strip at x 46-78, y 2-13) */
-static const PsxLamp TR3[] = { { 19, 0, { 0 }, { 46, 2, 78, 13 } }, { 21, 0, { 0 }, { 36, 2, 61, 11 } } };   /* byte 21: 102 x 102, the strip at x 36-61, y 2-11 */
-static const PsxLamp TR4[] = { { 20, 2, { 60, 29 }, { 0, 15, ALL, 48 } } };
+static const PsxLamp TR3[] = { { 19, 0, { 0 }, { 46, 2, 78, 13 }, NULL }, { 21, 0, { 0 }, { 36, 2, 61, 11 }, NULL } };   /* byte 21: 102 x 102, the strip at x 36-61, y 2-11 */
+static const PsxLamp TR4[] = { { 20, 2, { 60, 29 }, { 0, 15, ALL, 48 }, NULL } };
 
 static const struct { const char *track; const PsxLamp *lamps; int count; } TRACKS[] = {
     { "CY1", CY1, 1 }, { "CY2", CY2, 1 }, { "CY3", CY3, 2 }, { "TR3", TR3, 2 }, { "TR4", TR4, 1 },
@@ -39,6 +39,10 @@ void psx_lamp_exempt(const PsxLamp *lamp, const uint8_t *pixels, int w, int h, u
 {
     uint8_t inside[256] = { 0 }, outside[256] = { 0 };
     memset(exempt, 0, 256);
+    if (lamp->set != NULL) {   /* the marks name the colours: those under the yellow */
+        memcpy(exempt, lamp->set, 256);
+        return;
+    }
     for (int k = 0; k < lamp->count; k++) exempt[lamp->idx[k]] = 1;
     if (pixels == NULL || w <= 0 || h <= 0) return;
     for (int y = 0; y < h; y++)

@@ -3,7 +3,17 @@
 #include "tests/test.h"
 
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
+
+/* track_mask.c (the lamps' marks) reads files; the test has none */
+uint8_t *platform_read_file(const char *path, size_t *size)
+{
+    (void)path;
+    *size = 0;
+    return NULL;
+}
+void platform_free_file(uint8_t *data) { free(data); }
 
 /* a straight road along z, 10 m a node, the 11 points of a row across x: point 0 the centre, 1-5 to the right 1 m each, 6-10 to the left */
 static void straight(TrackSegment *s, int first_node)

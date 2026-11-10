@@ -216,6 +216,68 @@ static void test_a_rally_keeps_no_road_masks(void)
     unsetenv("TNFS_TRACK_MASKS");
 }
 
+/* yellow (red and green 128 or more, blue below 128) is a lamp and not reflective; red and white stay reflective; a pale yellow with blue 128 is white-ish: reflective */
+static void test_yellow_is_not_reflective(void)
+{
+    const uint8_t rgba[5 * 4] = { 255, 255, 0, 255, 255, 0, 0, 255, 255, 255, 255, 255, 255, 255, 127, 255, 255, 255, 128, 255 };
+    uint8_t *png = NULL;
+    size_t len = 0;
+    CHECK_EQ_INT(png_write_rgba(rgba, 5, 1, &png, &len), PNG_OK);
+    uint8_t out[5];
+    CHECK(track_mask_parse(png, len, 5, 1, out));
+    static const uint8_t WANT[5] = { 0, 1, 1, 0, 1 };   /* yellow no, red yes, white yes, yellow with blue 127 no, blue 128 yes */
+    CHECK_MEM(out, WANT, sizeof WANT);
+    png_free(png);
+}
+
+/* the lamps the yellow of a road slot's mask names: the slot, the bounding box of the yellow texels, the palette entries under them (the most used first); rally or not; the table is the fallback */
+static void test_yellow_marks_make_lamps(void)
+{
+    static TrackArt art;
+    memset(&art, 0, sizeof art);
+    uint8_t pixels[4 * 4] = { 7, 7, 7, 7,   7, 9, 9, 7,   7, 9, 4, 7,   7, 7, 7, 255 };   /* texel (1,1) .. (2,2) are the lamp's: 9, 9, 9, 4 */
+    art.slots[3][0] = texture(4, 4, pixels);
+    art.slots[8][0] = texture(4, 4, pixels);
+    uint8_t rgba[4 * 4 * 4];
+    memset(rgba, 0, sizeof rgba);
+    for (int y = 1; y <= 2; y++)
+        for (int x = 1; x <= 2; x++) memcpy(rgba + 4 * (y * 4 + x), (const uint8_t[]){ 255, 255, 0, 255 }, 4);
+    write_rgba(ROOT "/env", "TYEL", "slot_03.png", rgba, 4, 4);
+    uint8_t red[4 * 4 * 4];
+    memset(red, 0, sizeof red);
+    memcpy(red, (const uint8_t[]){ 255, 0, 0, 255 }, 4);
+    write_rgba(ROOT "/env", "TYEL", "slot_08.png", red, 4, 4);   /* a mask of red only: reflective, no lamp */
+    setenv("TNFS_TRACK_MASKS", ROOT "/env", 1);
+    CHECK_EQ_INT(track_masks_set_race("TYEL", &art, 0), 2);   /* both masks are kept (the yellow one has no reflective texel, as the reflect pass ignores) */
+    const PsxLamp *lamps = NULL;
+    CHECK_EQ_INT(track_lamp_marks("tyel", &lamps), 1);   /* any case */
+    if (lamps != NULL) {
+        CHECK_EQ_INT(lamps[0].slot, 3);
+        CHECK_EQ_INT(lamps[0].rect[0], 1);
+        CHECK_EQ_INT(lamps[0].rect[1], 1);
+        CHECK_EQ_INT(lamps[0].rect[2], 2);
+        CHECK_EQ_INT(lamps[0].rect[3], 2);
+        CHECK_EQ_INT(lamps[0].count, 2);
+        CHECK_EQ_INT(lamps[0].idx[0], 9);   /* three texels */
+        CHECK_EQ_INT(lamps[0].idx[1], 4);   /* one */
+        uint8_t exempt[256];
+        psx_lamp_exempt(&lamps[0], pixels, 4, 4, exempt);
+        CHECK(exempt[9] && exempt[4] && !exempt[7] && !exempt[255]);   /* the colours under the yellow stay bright, the wall's 7 does not (rect or no rect) */
+    }
+    CHECK_EQ_INT(track_lamp_marks("TOTHER", NULL), 0);   /* another track has none */
+    CHECK_EQ_INT(track_lamps_for("TYEL", &lamps), 1);
+    CHECK_EQ_INT(track_masks_set_race("TYEL", &art, 1), 0);   /* a rally: no reflective masks kept, the lamp is still there */
+    CHECK_EQ_INT(track_lamp_marks("TYEL", NULL), 1);
+    /* a track with no marks has the table's lamps: CY1's, with no art */
+    CHECK_EQ_INT(track_masks_set_race("CY1", &art, 0), 0);
+    CHECK_EQ_INT(track_lamps_for("CY1", &lamps), 1);
+    CHECK(lamps != NULL && lamps[0].slot == 38);
+    CHECK_EQ_INT(track_lamps_for("TR1", NULL), 0);
+    CHECK_EQ_INT(track_masks_set_race(NULL, NULL, 0), 0);
+    CHECK_EQ_INT(track_lamp_marks("TYEL", NULL), 0);   /* dropped with the track */
+    unsetenv("TNFS_TRACK_MASKS");
+}
+
 int main(void)
 {
     test_colours();
@@ -225,5 +287,7 @@ int main(void)
     test_mod_before_data();
     test_registry();
     test_a_rally_keeps_no_road_masks();
+    test_yellow_is_not_reflective();
+    test_yellow_marks_make_lamps();
     return TEST_REPORT();
 }
