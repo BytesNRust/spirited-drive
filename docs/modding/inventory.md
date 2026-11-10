@@ -5,11 +5,11 @@ Written 2026-10-10 on branch `feat/studio-a`. Nothing here changes code.
 
 Evidence tags used throughout:
 
-- **[D]** checked against the files in `original/` this session (script over every file of the type).
+- **[D]** checked against the files in `original/` by a script over every file of the type.
 - **[X]** read from the EXE (decompilation, `strings.tsv`, `tools/peek.py`); the address is given.
 - **[S]** already documented in the port's sources (`src/formats/*.h`, `docs/*.tsv`) and ported/verified there.
 - **[A]** stated only by `reference/nfsspecs-auroux-1996.txt` (DOS, 1995). Not evidence for this EXE.
-- **[?]** open: needs RE (see "Questions for the RE session").
+- **[?]** open: needs RE (see §9).
 
 Nothing is marked as a limit unless an address or a data check backs it.
 
@@ -41,7 +41,7 @@ files are 32768 bytes.
 ## 2. Slots are fixed in the EXE (decision "add slots or only replace")
 
 Every car, track and sound bank is reached through a table inside the EXE. Nothing is enumerated from the
-directories. **Evidence points to "replace only" for Level 1**; the user decides.
+directories. **Evidence points to "replace only" for Level 1**; this is a project decision.
 
 | Table | Address | Content | Tag |
 |---|---|---|---|
@@ -56,7 +56,7 @@ directories. **Evidence points to "replace only" for Level 1**; the user decides
 How `00457d40` (car loader) turns a slot into files [X]: with `n = 004fba94[car slot]`:
 `n < 100` traffic stem; `100..199` race slot `n-100` with an **`m` prefix** (`004b1174`) = restricted CFM
 (`MTSUPRA.CFM`); `200..399` race slot `n-200`, full CFM; `>= 400` cop. The file is
-`<carFams dir><prefix><stem>.cfm` (`004b1178`); the PDN is read by `0040fa3c`/`004407b8` (see STATE.md) as
+`<carFams dir><prefix><stem>.cfm` (`004b1178`); the PDN is read by `0040fa3c`/`004407b8` (see the RE notes) as
 `<stem>.PDN`. The CD's other CFMs (`F512M`, `LDIABLO`, `WARIOR`, `WARRIOR`, `TESTA`, `MF512M`, `MP911T`) have no stem in
 `004c5660`/`004c56a0` — they look unused **[?]**. `P911T` appears only in the PBS table `004bc664` (index 10, and there is no `P911T.PBS` on the CD, so model 10 would fail at the specs load; whether the frontend offers it is unchecked) and as a CFM. A car slot is two files: the PBS named by `004bc664` by model, the CFM named by `004c5660`; the tables differ only at index 10 (`004fba94` is set in `00457870`: human model + 200, 'm' mesh = 100 less in multi-car races, opponents from `004c5628`).
 
@@ -137,7 +137,7 @@ Required names in the CFM [X, `00457d40`]. After loading, the car loader looks u
 - For the player's car: `left_turn`, `right_turn` (`004b11c0`, `004b11cc`); a miss loops forever.
 
 These are the inputs `validate` checks before the game would hang (`CFM.REQUIRED_NAME`, `CFM.ELEMENT_INDEX`). The three lookups
-(`00490b21` texture records, `004912d0` section A, `004911f2` section B) were identified by the RE session (Q4). The bitmap
+(`00490b21` texture records, `004912d0` section A, `004911f2` section B) were identified by reverse engineering. The bitmap
 directory names are `!PAL` (`004b1160`) and `!xxx` (`004b1180`).
 
 ## 6. Format by format: what we have, what we lack, and the Auroux contrast
@@ -154,7 +154,7 @@ the EXE says otherwise. "Match" = the field/offset agrees and was checked on the
 | Second table, scenery start `0x1B000`, 5-row `0x554` records | yes | absent; terrain follows the object chunk | Version |
 | Object chunk tag | `OBJS` | `SJBO` (`0x1621c`) [D] | Version (spelled differently) |
 | Node record size/position | 36 bytes, 2400 nodes | 36 bytes, 2400 nodes [D] | Match |
-| Node bytes 0..7 | `a0..a3`, `b0..b3` unknown | `left_verge`, `right_verge`, `left_barrier`, `right_barrier`, flags[3], `property` (names from OpenNFS1 notes, medium) | Match on layout; Auroux names nothing. Our names are **reference-derived, not verified** by the EXE except where AI code uses them (STATE.md: `+2/+3` barriers, `+4` nibbles, `+0x1a`) |
+| Node bytes 0..7 | `a0..a3`, `b0..b3` unknown | `left_verge`, `right_verge`, `left_barrier`, `right_barrier`, flags[3], `property` (names from OpenNFS1 notes, medium) | Match on layout; Auroux names nothing. Our names are **reference-derived, not verified** by the EXE except where AI code uses them (the RE notes: `+2/+3` barriers, `+4` nibbles, `+0x1a`) |
 | Position `+8` | `x, z, y` (z vertical) | `x, y, z`; ours `y` = height, `z` = forward | **Match on offsets, naming differs**: Auroux's `z`/`y` are our `y`/`z`. Kept as the port's convention |
 | `slope` `+0x14` | 14-bit, complement of `0x4000`, ≈ `Δz/152` | values 0..0x3FFF in all files; `Δheight / signed(slope)` median **152.1** [D] | **Match** |
 | `slant-A` `+0x16`, `slant-B` `+0x1e` | `B ≈ −12.3 A` | median ratio **−12.42** over 1838 nodes [D] | **Match** |
@@ -268,7 +268,7 @@ Only entries with a source are listed. "Limit" = the original's behaviour change
 
 | Element | Limit | Source | Tag |
 |---|---|---|---|
-| TRI header block | exactly `0x1621c` bytes reserved and read (a shorter file fails; extra bytes are read by the next chunks); nodes are 2400 × 36 from `0x98c`, so `4 × segments` ≤ 2400 and a closing node needs `segments` ≤ 599 | `0043e4e0` (asm, via tnfs-decomp) | [X] |
+| TRI header block | exactly `0x1621c` bytes reserved and read (a shorter file fails; extra bytes are read by the next chunks); nodes are 2400 × 36 from `0x98c`, so `4 × segments` ≤ 2400 and a closing node needs `segments` ≤ 599 | `0043e4e0` (asm) | [X] |
 | TRI circuit size | `u16` at `+4` = 0 → stage (`segments` 0x8000, mask −1); else `segments = u16(+4)`, `nodes = 4 × segments`, mask = `nodes − 1`: **nodes must be a power of two** on circuits (inference from the mask; the 7 CD circuits have 128/256 segments [D]) | `0043e4e0` | [X] |
 | TRI `SJBO` chunk | reserved and read from its own size field (`+4`); no cap other than memory | `0043e4e0` | [X] |
 | TRI terrain | reserved and read as header `+0x24` bytes; no cap other than memory (`288 × segments` in 17/17 [D]) | `0043e4e0` | [X] |
@@ -283,7 +283,7 @@ Only entries with a source are listed. "Limit" = the original's behaviour change
 | Car CFM mesh element indices | `inside`, `surface` < 8, else infinite loop | `00457d40` | [X] |
 | Car CFM required names | see §5 | `00457d40` | [X] |
 | PBS size | 1912 bytes, checksum `+0x774` over `0x758` | `car_load.c`, [D] | [S][D] |
-| PDN size | 460 bytes (`0x1CC`) | STATE.md `00457d40`, [D] | [S][D] |
+| PDN size | 460 bytes (`0x1CC`) | RE notes `00457d40`, [D] | [S][D] |
 | Slots | 12 race cars (16 with cops), 12 traffic, track stems as §2 | `004c5660`, `004c56a0`, `004af2fc` | [X] |
 | PATHS.DAT | 19 × 80 chars, exactly 0x5f0 bytes | `0042a188` | [X] |
 | CONFIG.DAT | exactly 24402 bytes | `0042a010` | [S] |
@@ -311,41 +311,26 @@ Only entries with a source are listed. "Limit" = the original's behaviour change
 | BNK record `+0` roles | `0x40` player, `0x10` opponents, `0x30` collisions, `0xf8` front, `0x100` FM, `0x2000` TRAFFC, `4` TESTBANK. Every record's `+4` is `0x228`. Which header fields playback reads (`0048eea0` on) is still open | | [X] |
 | BNK files opened by name | the 12 `*_SW` (`00443670`), the opponent table `004436a0` (24 pointers, 2 × car), `COLLSWWT`/`COLLSWWT3`/`COLLSWMT`/`COLSWMT3` (two picked by race type 7, `004fb7c2`), `front_mw`. **Never opened**: `O*MB3D`, `COLLSW3D`, `COLL_SB`, `COLL_SW`, `TESTBANK` (no string in the EXE) | `00443670`, `004436a0` | [X] |
 
-A limit without an address does not enter the table (AC5). Still open: see §9.
+A limit without an address does not enter the table (AC5). Still open: see §9 (BNK sample header fields).
 
-## 8. Decisions (user, relayed by tnfs-decomp)
+## 8. Design decisions
 
-**Resolved.** The user took the recommended option on all three points (relayed by tnfs-decomp; the gate approval
-itself is pending my user's direct confirmation in this session):
-
-1. Level 1 only **replaces** existing slots; adding slots is Level 2.
-2. Engine sound = one WAV per sample + TSV sidecar. Condition met: 8-bit samples are signed (checked on `ODIAMB`, `O911MB`,
+1. Level 1 only **replaces** existing slots; adding slots is Level 2 (EXE patching). Evidence (§2): all slot names are
+   tables in the EXE; `004c5660` has 12 race-car entries, track stems are a fixed list, and no code enumerates a
+   directory.
+2. Engine sound = one WAV per sample plus a TSV sidecar. BNK is a table of 72-byte headers plus raw PCM [D] (PCM, 16 kHz,
+   8- or 16-bit, mono or stereo as the header says). The 8-bit samples are signed (checked on `ODIAMB`, `O911MB`,
    `COLL_SB`, `NFS_FMMB`: the bytes cluster around 0 and 255, none around 128), so the exporter converts to WAV's unsigned.
-   Found while building it: on the CD one PCM block is read by several slots, sometimes at different depths (`COLL_SB` slots 38
-   and 40 share 30933 frames as 8- and 16-bit stereo), so the exchange writes one WAV per *block* and keeps rate, bits and
-   channels per slot in `bank.tsv`.
-3. Menu names are an image edit (Level 1). Residual risk (names drawn as font text elsewhere) stays as RE question 7.
+   On the CD one PCM block is read by several slots, sometimes at different depths (`COLL_SB` slots 38 and 40 share 30933
+   frames as 8- and 16-bit stereo), so the exchange writes one WAV per *block* and keeps rate, bits and channels per slot
+   in `bank.tsv`. The sidecar carries what WAV cannot (flags, loop start/length, opaque bytes); samples whose stored length
+   is 0 (collision/gear banks) are exported by extent and flagged.
+3. Menu names are an image edit (Level 1). Searching `strings.tsv` and the raw EXE for the display names (`Rusty`,
+   `Lost Vegas`, `Autumn`, `Sienna`, `Lamborghini`, `Viper`) finds nothing but the file stems (`viper`, `lvegas`,
+   `bsienna`, `DVIPER`, …) [X]. Rendering `TRACKSEL/RUSTSEL.QFS` and `SHOW/DIABLO.QFS` shows the title text ("Rusty
+   Springs Raceway", "Lamborghini DIABLO VT") **drawn inside the bitmap** [D].
 
-The original analysis follows.
-
-1. **Add slots or only replace?** Evidence (§2): all slot names are tables in the EXE; `004c5660` has 12 race-car
-   entries, track stems are a fixed list. No code enumerates a directory. **Recommendation: replace only for
-   Level 1**; adding is Level 2 (EXE patching). Effect on AC7: "sustituyo … en su hueco" holds as written.
-2. **Engine-sound exchange format.** BNK is a table of 72-byte headers plus raw PCM [D]. Recommendation: **one WAV
-   per sample** (PCM, 16 kHz, 8- or 16-bit, mono or stereo as the header says; 8-bit data is **signed** per Auroux
-   [A] — to confirm in the data before the exporter ships), plus a **TSV sidecar** with the header fields
-   (flags, loop start/length, opaque bytes). Reasons: it round-trips (the header carries what WAV cannot), it opens
-   in any editor, and the loop points that matter for engine sound live in the TSV. Samples whose stored length is 0
-   (collision/gear banks) are exported by extent and flagged. This is a proposal; the user decides.
-3. **Risk ALTO — are menu names in the EXE?** Searched `strings.tsv` and the raw EXE for the display names
-   (`Rusty`, `Lost Vegas`, `Autumn`, `Sienna`, `Lamborghini`, `Viper`): nothing but the file stems (`viper`, `lvegas`,
-   `bsienna`, `DVIPER`, …) [X]. Rendering `TRACKSEL/RUSTSEL.QFS` and `SHOW/DIABLO.QFS` shows the title text
-   ("Rusty Springs Raceway", "Lamborghini DIABLO VT") **drawn inside the bitmap** [D]. So for these screens a rename
-   is an image edit — data, Level 1. Residual risk: other screens (results, stats, car-select tiles) may draw names
-   from font text; one RE question below closes it. If a name does come from the EXE, AC7's rename moves to Level 2
-   as the spec says, and we stop before phase 7.
-
-### 8.1 Names drawn from EXE text (answer to question 9, tnfs-decomp)
+### 8.1 Names drawn from EXE text
 
 - **Car short names are EXE text.** Eight names (RX-7, NSX, SUPRA, 911, ZR-1, VIPER, 512TR, DIABLO) sit in two identical
   copies at `004b11e8..` and `004b1924..`, in fixed slots (4 bytes for NSX and 911, 8 for the others). They are drawn with
@@ -354,29 +339,28 @@ The original analysis follows.
   The index is the car number stored in the records (`00524eb4` / `00524f9e` + track × 0xa6b) or `00524e89`.
 - **Track display names appear nowhere as EXE text.**
 - The full names on the selection screens stay QFS bitmaps (Level 1).
-- **Consequence for AC7:** renaming a car on the results and records screens is EXE text = Level 2 (the only Level 1 way
-  would be a same-length binary patch inside the slot, which the spec places at Level 2). Track renames and car renames on
-  the selection screens remain image edits. **Decision for the user** before phase 7: how AC7 words the car-name case.
+- **Consequence:** renaming a car on the results and records screens is EXE text = Level 2 (the only Level 1 way would be a
+  same-length binary patch inside the slot). Track renames and car renames on the selection screens remain image edits.
 
-## 9. Questions for the RE session (tnfs-decomp)
+## 9. Facts about the limits and formats the tool needs
 
-Each is answerable from Ghidra between two functions. They are limits the tool needs.
+Each is a fact read from the EXE between two functions; the details are in §7 unless noted.
 
-1. ~~TRI capacity~~ **Answered** by tnfs-decomp (see §7): fixed `0x1621c` header, `SJBO` and terrain sized by their own fields, `0x8700`
-   extra reserve; `00474c8c` is the allocator (name, size, flags on the stack).
-2. ~~`descriptor_count`~~ **Answered** (see §7): only a skip count; descriptor byte `+4` is unchecked; `scenery_slots × 2` state buffer.
-3. ~~FAM/ORIP limits~~ **Answered** (see §7): FAM buffer `0x162400`, 30 objects, unchecked `wwww` offsets, no ORIP vertex/polygon/uv cap, shape-bank registry ≤ 100, child 0 ≤ 48 banks, child 1 ≤ 63.
-4. ~~ORIP callees and name searches~~ **Answered** (see §7).
-5. ~~Resource load / QFS output size~~ **Answered** (see §7).
-6. ~~BNK loading and registration~~ **Answered** at bank level (see §7). Still open, deferred: the per-sample header fields the playback code reads and the meaning of each flag bit (`0048eea0` on); not needed by the loaders.
-7. ~~`BY_R&T`~~ **Answered** (see §6.6, §7).
-8. ~~`*INFO` parser~~ **Answered** (see §7).
-9. ~~Names from EXE text~~ **Answered (risk partly materialised)**: see §8.1.
-10. ~~SAV~~ **Answered**: `0042a680` saves, `0042a484` loads, `0042ae9c` lists `*.SAV`. The file is the raw `0x5b6` bytes at `0052ad44` (game/tournament state; player records at `0052ad44 + i × 0x95`), no header, no checksum; a file of another size aborts ("BUG: Loadgame, wrong file size"). Field layout inside the block not mapped; ask if a phase needs it.
-11. ~~FSH entry types and bitmap size~~ **Answered** (see §7).
-12. ~~`004bc664` versus `004c5660`~~ **Answered**: PBS table versus CFM table (see §2).
+1. **TRI capacity**: fixed `0x1621c` header, `SJBO` and terrain sized by their own fields, `0x8700` extra reserve;
+   `00474c8c` is the allocator (name, size, flags on the stack).
+2. **`descriptor_count`**: only a skip count; descriptor byte `+4` is unchecked; `scenery_slots × 2` state buffer.
+3. **FAM/ORIP limits**: FAM buffer `0x162400`, 30 objects, unchecked `wwww` offsets, no ORIP vertex/polygon/uv cap,
+   shape-bank registry ≤ 100, child 0 ≤ 48 banks, child 1 ≤ 63.
+4. **ORIP callees and name searches**, **resource load / QFS output size**, **FSH entry types and bitmap size**, **`BY_R&T`**
+   (§6.6) and the **`*INFO` parser**.
+5. **BNK loading and registration** at bank level. Still open, deferred: the per-sample header fields the playback code
+   reads and the meaning of each flag bit (`0048eea0` on); the loaders do not need them.
+6. **SAV**: `0042a680` saves, `0042a484` loads, `0042ae9c` lists `*.SAV`. The file is the raw `0x5b6` bytes at `0052ad44`
+   (game/tournament state; player records at `0052ad44 + i × 0x95`), no header, no checksum; a file of another size aborts
+   ("BUG: Loadgame, wrong file size"). The field layout inside the block is not mapped.
+7. **`004bc664` versus `004c5660`**: PBS table versus CFM table (§2).
 
-## 10. Facts with EXE addresses (for `re/STATE.md`)
+## 10. Facts with EXE addresses
 
 - `0042a188`: reads `gamedata\config\paths.dat`; 19 slots × 80 chars (`0x5f0` bytes copied) to `00524198 + 0x50 i`;
   defaults at `004aec68..004aee08`; German swaps six slots (`0052b31c`). The SE slot absent from the DOS spec is
@@ -397,7 +381,7 @@ Each is answerable from Ghidra between two functions. They are limits the tool n
 ## 11. Verification done for this document
 
 - TRI: all 17 files — version byte, segment table stride, `SJBO` tag and size, terrain tag and size, trailer; node
-  orientation norms; slope and slant ratios (throwaway scripts in the session scratchpad, not committed).
+  orientation norms; slope and slant ratios (throwaway scripts, not committed).
 - ORIP: all 330 chunks in 39 CFM and 78 FAM files — header constants and record walks.
 - BNK: all 38 files — offset tables, `EACS` markers, rates, bit widths, data extents.
 - PBS/PDN: decompressed with the port's `qfs_unpack` — sizes and the PBS checksum for all 9 PBS files.
