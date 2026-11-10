@@ -76,4 +76,5 @@ extern int lit_tinted;
 extern int reflect_lamps_on, reflect_dark;
 extern double reflect_x, reflect_z, reflect_hx, reflect_hz;
 int transparent(const FshEntry *texture);
+extern int32_t anim_tick;
 #endif
