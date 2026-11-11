@@ -1,20 +1,33 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* port: our own boot screen, shown once after EA's intro and title movies: who made the restomod, what it is, and whose game it is. The words (this file's
- * layout, pure) and the drawing (boot_screen_glue.c) are apart so the words can be tested. */
+/* port: our own boot screen, shown once after EA's intro and title movies: who presents it, the game's banner, what it is and whose game it is, over
+ * a red relief in the style of TITLE.QFS (boot_relief.h), as the owner approved it (i030). The words and their places (this file's layout, pure) and the
+ * drawing (boot_screen_glue.c) are apart so the words can be tested. */
 #ifndef TNFS_BOOT_SCREEN_H
 #define TNFS_BOOT_SCREEN_H
 
-enum { BOOT_LINES_MAX = 8, BOOT_LINE_CHARS = 96 };
+enum {
+    BOOT_LINES_MAX = 8,
+    BOOT_LINE_CHARS = 96,
+    /* the banner (data/logo/spirited_logo.png, RGBA, drawn 1:1): where it goes and the size it must have */
+    BOOT_BANNER_X = 30, BOOT_BANNER_Y = 150, BOOT_BANNER_W = 580, BOOT_BANNER_H = 140
+};
 
-typedef enum { BOOT_TITLE, BOOT_HEADLINE, BOOT_SMALL } BootSize;
+typedef enum {
+    BOOT_HOUSE,      /* "Bytes & Rust": graver18 twice its size, red */
+    BOOT_PRESENTS,   /* graver18 at 4/5, white, letters spread */
+    BOOT_SUBTITLE,   /* graver18 at 4/5, white */
+    BOOT_SMALL,      /* graver18 at 3/5, white */
+    BOOT_NAME        /* the game's name in the banner's place, graver18 three times its size, yellow: only when there is no banner */
+} BootStyle;
 
 typedef struct {
     char text[BOOT_LINE_CHARS];
-    BootSize size;
-    int gap;   /* blank pixels above the line */
+    BootStyle style;
+    int y;   /* the top of the line on the 640 x 480 screen; centred across it */
 } BootLine;
 
-/* The screen's lines, top to bottom, for `version` (NULL or empty: no version line); how many (never more than BOOT_LINES_MAX). */
+/* The screen's lines, top to bottom, for `version` (NULL or empty: no version line); how many (never more than BOOT_LINES_MAX). The BOOT_NAME line is
+ * among them; the drawing leaves it out when it has the banner. */
 int boot_screen_lines(const char *version, BootLine out[BOOT_LINES_MAX]);
 
 /* port (boot_screen_glue.c): shows it, fades in and out, about 3 seconds, any key or click ends it early. Once per run: later calls do nothing. */
