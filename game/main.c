@@ -23,6 +23,7 @@
 #include "game/platform/update.h"
 #include "game/sys/data_path.h"
 #include "game/sys/data_root.h"
+#include "game/sys/game_name.h"
 #include "game/exe/exe_tables.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
@@ -132,7 +133,7 @@ static int parse_args(int argc, char **argv, Options *opt)
 /* --movie: the window, the menus' sound and one movie (development) */
 static int run_movie(const Options *opt)
 {
-    const PlatformConfig config = port_platform_config("The Need for Speed SE");
+    const PlatformConfig config = port_platform_config(GAME_NAME);
     if (!platform_init(&config)) return 0;
     if (!video_init()) {
         platform_shutdown();
@@ -184,7 +185,7 @@ static int run_drive(const Options *opt)
         port_fatal("--drive: no track %s\n", opt->drive);
         return 0;
     }
-    const PlatformConfig config = port_platform_config("The Need for Speed SE");
+    const PlatformConfig config = port_platform_config(GAME_NAME);
     if (!platform_init(&config)) return 0;
     if (!video_init()) {
         platform_shutdown();
@@ -216,7 +217,7 @@ static int run_drive(const Options *opt)
 /* 00437540: the game's main(). */
 static int run_game(const Options *opt)
 {
-    const PlatformConfig config = port_platform_config("The Need for Speed SE");
+    const PlatformConfig config = port_platform_config(GAME_NAME);
     if (!platform_init(&config)) return 0;
     if (!video_init()) {
         platform_shutdown();
@@ -296,7 +297,7 @@ int main(int argc, char **argv)
     port_settings_set_display_probe(platform_desktop_size);   /* the profiles' widescreen is the display's own shape */
     set_stats_sender();
     platform_set_user_dir(opt.user);   /* port: before the log opens in it */
-    platform_open_log(opt.mods);   /* before anything can stop the run: the report of a run with no game data is in tnfs.log too */
+    platform_open_log(opt.mods);   /* before anything can stop the run: the report of a run with no game data is in spirited-drive.log too */
     int ok;
     static char data_root[1024];
     int data_copied = 0;

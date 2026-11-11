@@ -95,6 +95,6 @@ The record is `TNFSSYN1`, a version byte, then one byte per field in the order o
    - the host's weather (rain, fog) and the circuit's direction on both windows, whatever the guest has in its own settings;
    - the same colour on each car in both windows (a car's paint is the same in every slot), and the guest's own paint where it chose one;
    - the same result table when the race ends.
-5. `user/tnfs.log` and `user-guest/tnfs.log` are the logs. A guest's log says `session rules: ... weather 2 reverse 1 ...` when it got the host's rules.
+5. `user/spirited-drive.log` and `user-guest/spirited-drive.log` are the logs. A guest's log says `session rules: ... weather 2 reverse 1 ...` when it got the host's rules.
 
 `DRY_RUN=1 tools/try_online_local.sh` only prints the two commands.

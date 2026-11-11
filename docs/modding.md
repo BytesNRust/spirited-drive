@@ -8,18 +8,18 @@ How to change the game's data without touching the CD: where files live, what a 
 |--------|------------|----------------------|
 | **Game data** (`--data DIR`, or the player's copy `<player folder>/gamedata/`, or `./original` in a development build) | The original CD's files: `SIMDATA/`, `GAMEDATA/`, `FRONTEND/`, the `NFS_WIN.EXE`. Read only. | Never |
 | **The port's data** (`data/` beside the program; in a source tree `data/` at the repository root) | What the port ships: `car_masks/`, `dash_masks/`, `track_masks/`, `track/`, `track_light/`, `sounds/`, the car environment map. Looked up as `<mod>/...` first (see below), then `<program folder>/data/...`, then `./data/...`, then (development builds) the source tree's `data/...`. | Never |
-| **The player's folder** | `port.cfg`, `stock.cfg`, `restored.cfg`, `restomod.cfg`, `controls.cfg`, `extras.cfg`, `records.dat`, `config.dat`, `Replay.rpl`, saved games, `tnfs.log`, `gamedata/`, `mods/`. | Yes: all of it |
+| **The player's folder** | `port.cfg`, `stock.cfg`, `restored.cfg`, `restomod.cfg`, `controls.cfg`, `extras.cfg`, `records.dat`, `config.dat`, `Replay.rpl`, saved games, `spirited-drive.log`, `gamedata/`, `mods/`. | Yes: all of it |
 | **A mod** (`--mods DIR`, else `<player folder>/mods/`) | A folder of files that replace the game's. One overlay. | Never |
 
-The player's folder is `~/Library/Application Support/TNFS Restomod/` on macOS, `%APPDATA%\TNFS Restomod\` on Windows and `~/.local/share/TNFS Restomod/` on Linux. `--user DIR` puts it at `DIR` for that run (a portable install, a test: `tnfs --user ./user`); `TNFS_PREF_DIR=DIR` does the same and is what the test suite uses. `--mods` has no say in where the player's files go. The EXTRAS page's *Open folder* shows the player's folder; `tnfs.log` in it is what to send with a bug report.
+The player's folder is `~/Library/Application Support/Spirited Drive/` on macOS, `%APPDATA%\Spirited Drive\` on Windows and `~/.local/share/Spirited Drive/` on Linux. `--user DIR` puts it at `DIR` for that run (a portable install, a test: `tnfs --user ./user`); `TNFS_PREF_DIR=DIR` does the same and is what the test suite uses. `--mods` has no say in where the player's files go. The EXTRAS page's *Open folder* shows the player's folder; `spirited-drive.log` in it is what to send with a bug report.
 
-If you used an older build: what `tnfs/tnfs/` (the old folder name) or `<mods>/user/` held moves to the new folder the first time, one line in `tnfs.log` says so, and a file that already exists in the new place is kept (the old copy stays where it was).
+If you used an older build: what `TNFS Restomod/` or `tnfs/tnfs/` (the old folder names, the newer first) or `<mods>/user/` held moves to the new folder the first time, one line in `spirited-drive.log` says so, and a file that already exists in the new place is kept (the old copy stays where it was).
 
 ## How a mod replaces a file
 
 Run with `--mods DIR` (or leave the files in `<player folder>/mods/`). When the game asks for a file of the game data, say `SIMDATA/MISC/TR1.TRI`, it looks in the mod first, at the same path (`DIR/SIMDATA/MISC/TR1.TRI`, or the upper-case form of it), and then in the game data. A file the mod does not have comes from the game data, so a mod holds only what it changes.
 
-* The mod's file is checked against what the original executable accepts (`tnfs-studio` has the same checks). A file that fails is **not** given to the game and the run says which file and why (`platform_mods_error`, also in `tnfs.log`).
+* The mod's file is checked against what the original executable accepts (`tnfs-studio` has the same checks). A file that fails is **not** given to the game and the run says which file and why (`platform_mods_error`, also in `spirited-drive.log`).
 * Names that leave the mods folder (`..`, absolute paths, symbolic links out of it) are refused.
 * The mod is never written: saves, replays and settings go to the player's folder.
 * The mods folder must exist when it is given with `--mods` (a missing one is an error); the default `<player folder>/mods/` is used only when it is there.
@@ -93,7 +93,7 @@ You can also write `dash_color.png` by hand, with no PSD, at `<mod>/dash_masks/<
 * **Which pixels count:** only the lit ones, whether the mask or the game's own gauge ellipses lit them. A lit pixel with no colour glows orange (the `gauge_light` 3 look); a colour painted on a pixel that is not lit does nothing. The file needs no `dash_mask.png` beside it.
 * **Folding:** the colours become at most twelve. A colour within a distance of 48 (the sum of the three channels' differences) of an earlier one shares its slot, a thirteenth different colour takes the nearest of the twelve. Paint a few flat colours, not a gradient.
 * **When:** only with `gauge_light` 5 (*from the car*), in the cockpit while the gauges are lit (the night; also dusk and rain with `gauge_exterior`); the other values keep their own colours.
-* **Lookup:** the mod's file, then `data/`, as for the mask; a car whose folder name is in lower case is also tried in upper case. `tnfs.log` has a line `dash dash_color.png: <path>` for the file it read; no line means no file was found. A file that is found but does not read as a PNG logs the same line and then colours nothing: the lit parts are orange.
+* **Lookup:** the mod's file, then `data/`, as for the mask; a car whose folder name is in lower case is also tried in upper case. `spirited-drive.log` has a line `dash dash_color.png: <path>` for the file it read; no line means no file was found. A file that is found but does not read as a PNG logs the same line and then colours nothing: the lit parts are orange.
 
 ## Track masks
 
@@ -117,7 +117,7 @@ For a track the built-in table does not know (or one you changed), the lamps are
 1. Get the textures as PNGs and then PSDs, as for any track mask (`tools/track_mask_draft`, then `tools/track_mask_psd.py`), or open the PSDs you already have.
 2. In the **`mask`** layer of the texture a lamp is drawn on (`slot_<NN>`), paint the lamp's texels yellow, `255, 255, 0`: only the lamp, not the wall round it. Paint nothing yellow in textures that are not lamps. Red and white in the same layer stay reflective.
 3. Read the layers back with `tools/track_mask_from_psd.py`; it writes `slot_<NN>.png` for each texture. Put them at `<mod>/track_masks/<TRACK>/slot_<NN>.png`.
-4. Load the track with `--mods <mod> --verbose` (or `TNFS_VERBOSE=1`: these lines are details, left out of a plain run's log) and look in `tnfs.log` for one line per marked slot, `lamp marks: slot <NN>, <k> colours, rect x0,y0 to x1,y1`. No line means the game did not read that mask (check the name and the folder); `track mask: <path>` tells where each mask came from (a mod's mask is named in every run's log; the port's own only with `--verbose`).
+4. Load the track with `--mods <mod> --verbose` (or `TNFS_VERBOSE=1`: these lines are details, left out of a plain run's log) and look in `spirited-drive.log` for one line per marked slot, `lamp marks: slot <NN>, <k> colours, rect x0,y0 to x1,y1`. No line means the game did not read that mask (check the name and the folder); `track mask: <path>` tells where each mask came from (a mod's mask is named in every run's log; the port's own only with `--verbose`).
 5. Once any slot of a track has yellow, the built-in table is no longer read for that track: mark every lamp texture of it, not only the new one.
 
 `tools/track_lamp_marks <data dir> <output dir> [track ...]` is a starting point for the five tracks with a table (CY1, CY2, CY3, TR3, TR4): `<data dir>` holds the game's `SIMDATA/ETRACKFM/<TRACK>_001.FAM`, and it writes the table's lamps as yellow into `<output dir>/<TRACK>/slot_<NN>.png`. A mask already there keeps its red and white and gets the yellow laid over it; for a track outside the table it writes no mask.
@@ -144,7 +144,7 @@ With `body_shine` 4 the cars' paint and glass take their light from an environme
 | `rain_tyre_roll.wav` | a looping wet-tyre roll | rain or storm, `rain_v2` and `rain_tyre_roll`, the followed car on open asphalt |
 | `snow_crunch.wav` | a looping snow crunch | the snowy rally (Alpine 3, `snow_weather`), the followed car moving |
 
-A mod's `<mod>/sounds/<file>` is used instead of the one in `data/`, under the same name. The WAV must be 16-bit mono PCM at 22050 Hz; a file that is not (another rate, stereo, 8 or 24 bit) is skipped, `tnfs.log` says so once (`wet_roll: <path>: not a 16-bit mono WAV at the mixer's rate`, `thunder: ...` for the thunder) and the next candidate is tried, then the sound stays silent (`wet_roll: no sounds/<file>: the roll is silent`). Nothing else breaks. The two rolls loop, so make the file's end meet its start (a click at the seam is heard every few seconds). The sounds play only in Restomod: Stock and Restored keep the exe's.
+A mod's `<mod>/sounds/<file>` is used instead of the one in `data/`, under the same name. The WAV must be 16-bit mono PCM at 22050 Hz; a file that is not (another rate, stereo, 8 or 24 bit) is skipped, `spirited-drive.log` says so once (`wet_roll: <path>: not a 16-bit mono WAV at the mixer's rate`, `thunder: ...` for the thunder) and the next candidate is tried, then the sound stays silent (`wet_roll: no sounds/<file>: the roll is silent`). Nothing else breaks. The two rolls loop, so make the file's end meet its start (a click at the seam is heard every few seconds). The sounds play only in Restomod: Stock and Restored keep the exe's.
 
 Only CC0 or public-domain samples go in the repository, each with its source, author and licence written in [`data/sounds/LICENSES.md`](../data/sounds/LICENSES.md): add the entry there in the same change as the file (what it is made from, what was changed, the URL, the author, the licence and the date it was checked on the page). A mod of your own is free to use any sound it has the right to.
 

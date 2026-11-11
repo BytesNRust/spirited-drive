@@ -1,4 +1,7 @@
-# tnfs
+# Spirited Drive
+
+A restomod of *The Need for Speed SE* (1996) by Bytes & Rust. The program and its environment variables keep their working
+name, `tnfs` (`TNFS_*`).
 
 Portable reimplementation of *The Need for Speed SE* (EA, 1996), recovered from
 `NFS_WIN.EXE` with Ghidra. C99 + SDL3, targets macOS, Linux, Windows and the web.
@@ -101,11 +104,11 @@ With everything off and the 4:3 format the game plays as the original. The addit
 ### Files
 
 The game's own `config.dat` is kept as the original writes it. The port adds its own files beside it, in the player's
-folder: one folder named `TNFS Restomod` in the OS's per-user data directory (`~/Library/Application Support/TNFS Restomod/`
-on macOS, `%APPDATA%\TNFS Restomod\` on Windows, `~/.local/share/TNFS Restomod/` on Linux). `--user DIR` puts it at `DIR`
+folder: one folder named `Spirited Drive` in the OS's per-user data directory (`~/Library/Application Support/Spirited Drive/`
+on macOS, `%APPDATA%\Spirited Drive\` on Windows, `~/.local/share/Spirited Drive/` on Linux). `--user DIR` puts it at `DIR`
 instead (a portable install, a test); `TNFS_PREF_DIR` does the same for the tests. `--mods DIR` only says where the mods
 are (by default `<player's folder>/mods/`, when it exists) and holds none of the player's files. Anything the earlier
-folders held (`tnfs/tnfs/` in the same place, or a mods directory's `user/`) moves to the new one once, said in `tnfs.log`; a
+folders held (`TNFS Restomod/`, then `tnfs/tnfs/`, in the same place, or a mods directory's `user/`) moves to the new one once, said in `spirited-drive.log`; a
 file that is already in the new folder stays and the old copy is left alone.
 
 | File | Contents |
@@ -116,7 +119,7 @@ file that is already in the new folder stays and the old copy is left alone.
 | `extras.cfg` | the EXTRAS page's switches |
 | `records.dat` | the records the original has no place for: variants and the cheats table |
 | `config.dat`, `Replay.rpl`, saved games | the game's own player file, the last replay and the saves |
-| `tnfs.log` | what the last run said (send it with a bug report; the EXTRAS page opens the folder) |
+| `spirited-drive.log` | what the last run said (send it with a bug report; the EXTRAS page opens the folder) |
 | `gamedata/` | the player's copy of the CD, made by the first-run wizard |
 | `mods/` | the default place for a mod (an overlay of the game's files) |
 

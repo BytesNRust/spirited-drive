@@ -13,7 +13,7 @@
 #define PORT_LOG_FORMAT(a, b)
 #endif
 
-/* A log file for the player to attach to a bug report: `path` (the user directory's tnfs.log) is opened afresh each run, the last run's kept beside it as `path`.1, and every
+/* A log file for the player to attach to a bug report: `path` (the user directory's spirited-drive.log) is opened afresh each run, the last run's kept beside it as `path`.1, and every
  * line port_log, port_out and port_fatal say goes into it too, verbose or not (the console stays as it was). It stops at PORT_LOG_FILE_MAX bytes with a line saying so.
  * 1 when it is open, 0 when it could not be (the game goes on without). */
 enum { PORT_LOG_FILE_MAX = 4 * 1024 * 1024 };

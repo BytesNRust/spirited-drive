@@ -26,9 +26,9 @@ Next to the rest of the CD's files, in the game-data folder:
   your player folder (`gamedata/`). If `NFS_WIN.EXE` is in the folder you chose, nothing
   more is needed.
 - **By hand.** Copy `NFS_WIN.EXE` into `<player folder>/gamedata/`:
-  - macOS: `~/Library/Application Support/TNFS Restomod/gamedata/`
-  - Windows: `%APPDATA%\TNFS Restomod\gamedata\`
-  - Linux: `~/.local/share/TNFS Restomod/gamedata/`
+  - macOS: `~/Library/Application Support/Spirited Drive/gamedata/`
+  - Windows: `%APPDATA%\Spirited Drive\gamedata\`
+  - Linux: `~/.local/share/Spirited Drive/gamedata/`
 - **Another folder.** `tnfs --data DIR` reads the CD's files, `NFS_WIN.EXE` included, from
   `DIR`. A development build also looks in `./original`.
 
@@ -36,7 +36,7 @@ The file name is matched without regard to upper or lower case.
 
 ## What it says when something is wrong
 
-The game stops at start-up with one of these, and the same text goes to `tnfs.log` in the
+The game stops at start-up with one of these, and the same text goes to `spirited-drive.log` in the
 player folder (attach that file to a bug report):
 
 | Message | Meaning and fix |
@@ -45,6 +45,6 @@ player folder (attach that file to a bug report):
 | `NFS_WIN.EXE in <folder> is not the PC Special Edition build this port was made for (…)` | The file is there but is another build. The message gives the size and SHA-256 found and expected; use the Special Edition CD's file. |
 | `cannot read <path>` | The file exists but cannot be opened: check its permissions. |
 | `out of memory reading the exe's tables` | The machine ran out of memory while loading the file. |
-| `NFS_WIN.EXE: the <family> tables: <why>` | The file passed the size and digest check but a table did not read as expected; report it with `tnfs.log`. |
+| `NFS_WIN.EXE: the <family> tables: <why>` | The file passed the size and digest check but a table did not read as expected; report it with `spirited-drive.log`. |
 
 Nothing from the exe is written anywhere: the tables are read into memory at each start.

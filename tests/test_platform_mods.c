@@ -63,6 +63,46 @@ static int same(const uint8_t *data, size_t size, const char *text)
     return data != NULL && size == strlen(text) && memcmp(data, text, size) == 0;
 }
 
+static int file_is(const char *dir, const char *name, const char *text)
+{
+    char path[1100], got[64] = "";
+    snprintf(path, sizeof path, "%s/%s", dir, name);
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return 0;
+    const size_t n = fread(got, 1, sizeof got - 1, f);
+    fclose(f);
+    return n == strlen(text) && memcmp(got, text, n) == 0;
+}
+
+/* the player's folder's older names, beside it: "TNFS Restomod" first, then tnfs/tnfs. What the folder has stays; what both old ones have comes
+ * from the newer; everything else comes from wherever it is; the old copies of what stayed are left alone; a second start moves nothing */
+static void test_older_folders(const char *base)
+{
+    char data[400], pref[420], restomod[420], tnfs[420];
+    snprintf(data, sizeof data, "%s/osdata", base);
+    snprintf(pref, sizeof pref, "%s/Spirited Drive/", data);
+    snprintf(restomod, sizeof restomod, "%s/TNFS Restomod", data);
+    snprintf(tnfs, sizeof tnfs, "%s/tnfs/tnfs", data);
+    write_file(pref, "port.cfg", "new port", 8);
+    write_file(restomod, "port.cfg", "restomod port", 13);
+    write_file(restomod, "records.dat", "restomod records", 16);
+    write_file(restomod, "controls.cfg", "restomod controls", 17);
+    write_file(tnfs, "records.dat", "tnfs records", 12);
+    write_file(tnfs, "Replay.rpl", "tnfs replay", 11);
+    CHECK_EQ_INT(platform_migrate_user_folders(pref), 3);   /* records.dat and controls.cfg from TNFS Restomod, Replay.rpl from tnfs/tnfs */
+    CHECK(file_is(pref, "port.cfg", "new port"));               /* the folder's own wins */
+    CHECK(file_is(pref, "records.dat", "restomod records"));    /* the newer old name wins over the older */
+    CHECK(file_is(pref, "controls.cfg", "restomod controls"));
+    CHECK(file_is(pref, "Replay.rpl", "tnfs replay"));
+    CHECK(file_is(restomod, "port.cfg", "restomod port"));      /* what stayed behind is intact */
+    CHECK(file_is(tnfs, "records.dat", "tnfs records"));
+    CHECK(!file_is(restomod, "records.dat", "restomod records"));   /* moved, not copied */
+    CHECK_EQ_INT(platform_migrate_user_folders(pref), 0);   /* once */
+    char lone[420];
+    snprintf(lone, sizeof lone, "%s/elsewhere/Spirited Drive/", base);
+    CHECK_EQ_INT(platform_migrate_user_folders(lone), 0);   /* no old folders: nothing, and nothing made */
+}
+
 int main(void)
 {
     char base[256];
@@ -200,6 +240,7 @@ int main(void)
     CHECK(stat(path, &st) == 0);                                                               /* and the old one intact */
     CHECK_EQ_INT(platform_move_user_files(old_dir, new_dir), 0);                               /* once: nothing more to move */
     CHECK_EQ_INT(platform_move_user_files("/nonexistent_tnfs_dir", new_dir), 0);
+    test_older_folders(base);
 
     /* the default mods directory: <user folder>/mods/ when it is there */
     char default_misc[420];

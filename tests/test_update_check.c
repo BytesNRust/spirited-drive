@@ -6,7 +6,7 @@
 static void parses_the_tag(void)
 {
     char tag[32];
-    const char *json = "{\"url\":\"x\",\"tag_name\": \"v0.9.1\",\"name\":\"TNFS Restomod 0.9.1\"}";
+    const char *json = "{\"url\":\"x\",\"tag_name\": \"v0.9.1\",\"name\":\"Spirited Drive 0.9.1\"}";
     CHECK_EQ_INT(update_parse_latest_tag(json, tag, sizeof tag), 1);
     CHECK(strcmp(tag, "0.9.1") == 0);
 

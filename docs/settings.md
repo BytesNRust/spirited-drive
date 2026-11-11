@@ -24,7 +24,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 |---|---|---|---|---|---|---|
 | `format` | `4:3` | `4:3` | `4:3`, `16:9`, `21:9` | Graphics Detail: Screen Format | `TNFS_SCREEN` | 4:3 / the monitor's format / the monitor's format (the table's `widescreen`) |
 | `refresh_hz` | 60 | 30 (the exe's 30 steps a second, each drawn once) | 30, 60, 120, 144 | Graphics Detail: Refresh Rate | `TNFS_REFRESH_HZ` | 30 / 144 / 144 |
-| `scale` | `fill` | `fill` | `fill`, `integer` | Graphics Detail: Scaling (free in every mode; the window counts real pixels on a retina display, so Whole is 3x/4x there, and tnfs.log has its sizes) | none | integer / integer / fill (`scale_integer`) |
+| `scale` | `fill` | `fill` | `fill`, `integer` | Graphics Detail: Scaling (free in every mode; the window counts real pixels on a retina display, so Whole is 3x/4x there, and spirited-drive.log has its sizes) | none | integer / integer / fill (`scale_integer`) |
 | `fullscreen` | 0 | 0 | 0, 1 | Graphics Detail: Full Screen | none | not set |
 | `fov_adjust` | 0 | 0 | -10..+20 (degrees added to the vertical field) | Graphics Detail: Field Of View | none | not set |
 | `render_scale` | 1 | 1 | 1, 2, 3 (the 3D drawn at that many times the frame's size) | Graphics Detail: Render Scale | `TNFS_RENDER_SCALE` | 1 / 1 / 2 |

@@ -26,7 +26,7 @@ race() {   # race TRACK THEN USERDIR: the "reflectors:" lines of a run of TRACK 
     env TNFS_VERBOSE=1 TNFS_REFLECTORS=1 TNFS_TRACK_MASKS="$WORK/masks" TNFS_LIGHT_TIME=night TNFS_WEATHER=clear ${2:+TNFS_DRIVE_THEN=$2} TNFS_FRAMES=20 \
         SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
         timeout -k 5 200 "$TNFS" --data "$DATA" --user "$3" --mods "$WORK/mods" --drive "$1" --type 0 --car 2 --node 20 --screenshot "$3/shot.ppm" > "$3/run.out" 2>&1
-    grep -a "^reflectors: " "$3/tnfs.log"
+    grep -a "^reflectors: " "$3/spirited-drive.log"
 }
 alone1=$(race CY1 "" "$WORK/u1" | sed -n 1p) alone2=$(race CY2 "" "$WORK/u2" | sed -n 1p)
 lines=$(race CY1 CY2 "$WORK/user")

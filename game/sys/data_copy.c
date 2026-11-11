@@ -18,7 +18,7 @@ static char error_text[1300];
 
 const char *data_copy_error(void) { return error_text; }
 
-/* what went wrong, with the path and the OS's reason: kept for the caller and in tnfs.log (the first failure only) */
+/* what went wrong, with the path and the OS's reason: kept for the caller and in spirited-drive.log (the first failure only) */
 static void fail(const char *what, const char *path, int err)
 {
     if (error_text[0] != '\0') return;

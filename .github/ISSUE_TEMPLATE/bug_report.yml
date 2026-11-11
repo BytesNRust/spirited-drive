@@ -61,8 +61,9 @@ body:
     attributes:
       label: Log file
       description: |
-        Drag the log file here. On macOS it is in ~/Library/Application Support/tnfs/tnfs/
-        (Finder: Go → Go to Folder…, paste the path).
+        Drag spirited-drive.log here (EXTRAS → Open the log folder shows it). On macOS it is in
+        ~/Library/Application Support/Spirited Drive/ (Finder: Go → Go to Folder…, paste the path),
+        on Windows in %APPDATA%\Spirited Drive\, on Linux in ~/.local/share/Spirited Drive/.
   - type: textarea
     id: media
     attributes:
