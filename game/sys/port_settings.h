@@ -122,6 +122,7 @@ typedef struct {
     int spray_v4;      /* 1: the wheels' spray and dust as the generated sprites of each material (water drops and a flat mist, the desert's cottony dust, the snow's powder and lumps, gravel stones and a fine dust), thrown by physics with gravity and landing on the road, born each simulation tick at the wheel's place; replaces rain_fx's spray and the rally's dust; 0 as before */
     int menu_pad_cancel;   /* 0..1: the gamepad's second button (B by default, the exe's Enter) is Escape in the menus and the name box (back / exit / cancel); the first (A) keeps accepting; 0 the exe's: both accept */
     int wrong_way;      /* 0..1: a centred blinking WRONG WAY (FALSCHE RICHTUNG in German) when the player's car drives forwards with its nose more than a quarter turn from the road, above 30 km/h, for 1.5 s (wrong_way.h); reversing never; 0 the exe's: none */
+    int light_edit;     /* 0..1, the machine's (port.cfg, as profile and psx_dir; no mode file holds it): the live light editor in a race (light_edit.h); 0 off in every mode */
     int tunnel_lamps;   /* 0..2 (1 at night, 2 by day too): the lamps of the tunnels and caverns (tunnel_lamp_textures.c's table: CY1/2/3, TR3, TR4) light the walls and the road in a pool under each, ADDED over the tunnel's own light (tunnel_tone), so a dark tunnel still has bright pools; 0 the exe's */
     int car_night_lift;   /* 0..2: the cars' light at night raised at night (every car, the player's too): 1 the headlight pool gain by a quarter and a floor of light on the body, 2 by a quarter and a stronger floor, so a near-black paint is lifted out of black; 0 as before */
     int water_mist;    /* 0..3: the rain's spray as a soft low wide veil of a generated sprite (no CD smoke, no speckle; a dirt road's keeps what it had): 1 the veil, 2 the veil and fine droplet streaks by the tyre, 3 a cooler, flatter, wider, thinner veil with the streaks; every car throws the plume (the traffic's too), with more drops a tick at speed; 0 as before */
@@ -348,6 +349,10 @@ int port_settings_profile(void);
 bool port_settings_profile_chosen(void);
 /* Makes `p` (a Profile) the mode in use, its own changes coming back with it: only the mode's name is written. False when the file does not take it. */
 bool port_profile_select(int p);
+/* 1 when `key` is one of the modes' settings or extras (a key the mode files hold), 0 for the machine's (profile, psx_dir, light_edit) and a key the game does not know */
+int port_settings_mode_key(const char *key);
+/* 0..1 light_edit: TNFS_LIGHT_EDIT (anything but "" or 0 is on) when set, else port.cfg's. */
+int port_light_edit(void);
 /* Back to mode `p`'s values: its file emptied. False when the file does not take it. */
 bool port_profile_reset(int p);
 /* Where the display's size comes from (the program sets platform_desktop_size; without one, or when it cannot tell, port_monitor_format gives its fallback). */

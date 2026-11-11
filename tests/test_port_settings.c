@@ -69,6 +69,7 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.menu_pad_cancel, 0);   /* the exe's pad, until asked */
     CHECK_EQ_INT(d.tunnel_lamps, 0);   /* the exe's, until asked */
     CHECK_EQ_INT(d.wrong_way, 0);   /* the exe's: no warning */
+    CHECK_EQ_INT(d.light_edit, 0);   /* off, until asked */
     CHECK_EQ_INT(d.car_tunnel_match, 0);
     CHECK_EQ_INT(d.weather_fog, 0);   /* the exe's, until asked */
     CHECK_EQ_INT(d.spray_v4, 0);

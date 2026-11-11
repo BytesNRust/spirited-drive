@@ -4,6 +4,7 @@
 #include "viewer/drive_light.h"
 #include "game/viewer/view_pick.h"
 #include "game/platform/platform.h"
+#include "game/sys/port_settings.h"
 #include "game/sys/text.h"
 #include "game/sys/video.h"
 
@@ -15,19 +16,7 @@ enum { MARGIN_X = 4, MARGIN_Y = 26, PAD = 4, MAX_WIDTH = 3360, MAX_HEIGHT = 1440
 
 static uint8_t scratch[MAX_WIDTH * MAX_HEIGHT];
 
-int light_edit_wanted(void)
-{
-    const char *env = getenv("TNFS_LIGHT_EDIT");
-    if (env != NULL && env[0] != '\0') return env[0] != '0';
-    size_t size = 0;
-    uint8_t *file = platform_read_user_file("port.cfg", &size);
-    if (file == NULL) return 0;
-    int on = 0;
-    for (size_t i = 0; i + 11 <= size; i++)
-        if ((i == 0 || file[i - 1] == '\n') && memcmp(file + i, "light_edit=", 11) == 0) on = i + 11 < size && file[i + 11] == '1';
-    platform_free_file(file);
-    return on;
-}
+int light_edit_wanted(void) { return port_light_edit(); }   /* port.cfg's light_edit, or TNFS_LIGHT_EDIT */
 
 void light_edit_start(LightEdit *e, int on)
 {

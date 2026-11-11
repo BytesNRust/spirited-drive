@@ -46,15 +46,73 @@ static PortSettings machine_load(void)
     return kept.machine;
 }
 
+/* 1 when `text`'s line (up to its '=') names `key` */
+static bool line_is(const char *line, size_t len, const char *key)
+{
+    const size_t k = strlen(key);
+    return len > k && line[k] == '=' && memcmp(line, key, k) == 0;
+}
+
+int port_settings_mode_key(const char *key)
+{
+    static char settings[PORT_CFG_TEXT_MAX], extras[PORT_EXTRAS_TEXT_MAX];
+    static bool made;
+    if (!made) {   /* every key of the two, as their files write them */
+        const PortSettings s = port_settings_defaults();
+        const PortExtras e = port_extras_defaults();
+        made = port_settings_format(&s, settings, sizeof settings) > 0 && port_extras_format(&e, extras, sizeof extras) > 0;
+        if (!made) return 0;
+    }
+    if (key == NULL || key[0] == '\0' || !port_profile_key_free(PROFILE_RESTOMOD, key)) return 0;   /* the machine's */
+    const size_t k = strlen(key);
+    for (const char *text = settings; text != NULL; text = text == settings ? extras : NULL)
+        for (const char *at = strstr(text, key); at != NULL; at = strstr(at + 1, key))
+            if ((at == text || at[-1] == '\n') && at[k] == '=') return 1;
+    return 0;
+}
+
+/* port.cfg's lines a save keeps (i192): the ones a player put there by hand, light_edit and keys the game does not know, not the two it writes nor a mode's setting */
+static bool kept_line(const char *line, size_t len)
+{
+    if (len == 0 || line_is(line, len, "profile") || line_is(line, len, "psx_dir")) return false;
+    const char *eq = memchr(line, '=', len);
+    char key[64];
+    if (eq == NULL || (size_t)(eq - line) >= sizeof key) return true;
+    memcpy(key, line, (size_t)(eq - line));
+    key[eq - line] = '\0';
+    return !port_settings_mode_key(port_profile_key_alias(key));
+}
+
 bool port_machine_save(int profile, const char *psx_dir)
 {
-    char text[PSX_DIR_MAX + 64];
     if (strpbrk(psx_dir, "\r\n") != NULL) {   /* a line end would write another key */
         port_log("settings: the PS1 folder has a line end, not saved\n");
         return false;
     }
-    const int n = snprintf(text, sizeof text, "profile=%s\npsx_dir=%s\n", port_profile_key((Profile)profile), psx_dir);
-    const bool written = n > 0 && (size_t)n < sizeof text && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, (size_t)n);
+    size_t had_size = 0;
+    uint8_t *had = platform_read_user_file(PORT_CFG_NAME, &had_size);
+    if (had == NULL) had_size = 0;
+    const size_t room = PSX_DIR_MAX + 64 + had_size + 2;
+    char *text = malloc(room);
+    if (text == NULL) {
+        if (had != NULL) platform_free_file(had);
+        return false;
+    }
+    int n = snprintf(text, room, "profile=%s\npsx_dir=%s\n", port_profile_key((Profile)profile), psx_dir);
+    for (size_t pos = 0; n > 0 && pos < had_size;) {   /* then the lines kept, as they were */
+        const char *line = (const char *)had + pos;
+        const uint8_t *end = memchr(had + pos, '\n', had_size - pos);
+        size_t len = end != NULL ? (size_t)(end - (had + pos)) : had_size - pos;
+        pos += len + 1;
+        if (len > 0 && line[len - 1] == '\r') len--;
+        if (!kept_line(line, len)) continue;
+        memcpy(text + n, line, len);
+        n += (int)len;
+        text[n++] = '\n';
+    }
+    if (had != NULL) platform_free_file(had);
+    const bool written = n > 0 && (size_t)n < room && platform_write_user_file(PORT_CFG_NAME, (const uint8_t *)text, (size_t)n);
+    free(text);
     port_settings_forget();
     return written;
 }
@@ -64,6 +122,7 @@ PortSettings port_mode_values(int p, const char *psx_dir)
 {
     PortSettings s = port_profile_settings((Profile)p, port_settings_defaults(), port_monitor_format(SCREEN_16_9));
     s.profile = p;
+    s.light_edit = machine_load().light_edit;   /* the machine's, in every mode */
     snprintf(s.psx_dir, sizeof s.psx_dir, "%s", psx_dir);
     return s;
 }
