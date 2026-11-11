@@ -1,6 +1,6 @@
 # Building, running and testing
 
-A C99 + SDL3 program for macOS, Linux, Windows and the web. The game data is not part of this repository: extract it from your own CD into
+Spirited Drive is a C99 + SDL3 program for macOS, Linux, Windows and the web; the program is called `tnfs`. The game data is not part of this repository: extract it from your own CD into
 `original/` (gitignored). The tables the original keeps in `NFS_WIN.EXE` are not in the repository either: the game reads them from that exe at
 start-up (`game/exe/`), and says so and stops if the file is missing or is not the PC Special Edition's.
 
@@ -32,8 +32,8 @@ Serve `build/web/` over HTTP (`python3 -m http.server -d build/web`) and open `t
 ```
 
 Track viewer (development): `./build/native/tnfs --track TR1` flies along a track (Up/Down move, Left/Right turn; names as in `SIMDATA/MISC`:
-TR1..TR7, AL1..AL3, CL1..CL3, CY1..CY3). `--node N --screenshot out.ppm` renders one frame headless. Geometry and textures use the ported
-loaders; the drawing is a stand-in until the original renderer is ported.
+TR1..TR7, AL1..AL3, CL1..CL3, CY1..CY3). `--node N --screenshot out.ppm` renders one frame headless. It draws with the ported renderer; Space
+switches to an earlier stand-in that also draws the scenery (`TNFS_STAND_IN=1` picks it for `--screenshot`).
 
 Drive (development): `./build/native/tnfs --drive TR1 [--car N] [--racers 1..8]` races car N (0..7: TSupra, LDiabl, P911, CZR1, F512TR, DVIPER,
 ANSX, MRX7) against the other models as computer racers (`--racers 1` drives alone). Arrows steer, accelerate and brake; A / Z change gear (the

@@ -1,15 +1,17 @@
 # Online games (LAN and internet)
 
 A link game is the original's own: one machine hosts, up to seven join, and every machine runs the race from the same setup and the players' inputs.
-The port carries it over UDP (`--net-port N`, `--net-host IP:PORT` for a game the LAN's broadcast does not reach).
+Spirited Drive carries it over UDP (`--net-port N`, `--net-host IP:PORT` for a game the LAN's broadcast does not reach).
 
 ## Playing a network game
 
-Two or more machines race over UDP (the native build only; the web and Windows
-builds have no network yet). Each machine runs its own copy:
+Two or more machines race over UDP (the macOS and Linux builds; the web and Windows
+builds have no network yet). Each machine runs its own copy. Without options the game
+finds games on the LAN by itself; to give it options, start it from a terminal:
 
 ```sh
-./build/native/tnfs [--net-port N] [--net-host IP:PORT]...
+"/Applications/Spirited Drive.app/Contents/MacOS/tnfs" [--net-port N] [--net-host IP:PORT]...   # the macOS app
+./build/native/tnfs [--net-port N] [--net-host IP:PORT]...                                      # a build of your own
 ```
 
 - `--net-port N`: the UDP port this machine uses, 15000 by default.
@@ -38,13 +40,13 @@ If the machines don't see each other:
 - check they use the same port, or start the joiner with
   `--net-host HOST_IP:PORT`;
 - check that the firewall lets UDP through on that port, on both machines;
-- run from a terminal: a port that cannot be opened prints
-  `net_udp_open: port N: ...` (for example, already in use).
+- look in `spirited-drive.log` (Customize Game, page 3, Open the log folder): a port that
+  cannot be opened says `net_udp_open: port N: ...` (for example, already in use).
 
 ## What the host decides
 
-The host's setup (track, race type, laps, cars, seed, track flags) was always sent. The port's own settings used to be read on each machine, so two
-machines could run different physics or draw a different race. Now the host sends them too, after the setup, and every machine runs the host's:
+Every machine runs the host's race: the original's setup (track, race type, laps, cars, track flags) and these rules of
+Spirited Drive's, so that no two machines run different physics or draw a different race:
 
 | Rule | From the host |
 |------|---------------|
@@ -64,11 +66,17 @@ A guest never writes the host's values into its own files: they last for the rac
 
 ## Colours
 
-Each guest sends the paint it picked for its car with its info record (`paint_pick` in the entry, spare byte +0x3d). The host puts every human's paint in
-its list; the rivals' paint is the race's draw from the seed, and the one car a rival must differ from is the host's, so every machine draws the same colours
-in every slot.
+Each player's car has the paint that player picked. The rivals' paint is drawn from the race's seed on the host, so every machine shows the same colour
+on every car.
 
-## On the wire
+## For developers
+
+### Colours on the wire
+
+Each guest sends its paint with its info record (`paint_pick` in the entry, spare byte +0x3d). The host puts every human's paint in its list; the one
+car a rival must differ from is the host's.
+
+### The rules on the wire
 
 The setup goes in chunks `{1, 0, chunk, bytes}` of up to 0xf7 bytes, then `{1}`. The host's rules are one more chunk, number 4, before the end. A receiver
 that knows no rules drops it, because chunk 4 lies past the end of the setup. A guest whose host sent none (an older version) keeps what it did before:
@@ -76,21 +84,22 @@ Original difficulty, no reverse, its own settings.
 
 The record is `TNFSSYN1`, a version byte, then one byte per field in the order of `game/race/session_rules.h`; a later version may add fields at the end.
 
-## Testing it
+### Testing it
 
 `tools/link_loopback.sh BUILD_DIR finish|continue|quit|quitclick [OUT_DIR]` runs a host and a guest on one machine (UDP on localhost, SDL dummy drivers).
 `HOST_ENV="TNFS_WEATHER=rain TNFS_REVERSE=1"` sets the host's environment only; the guest's log then says `session rules: ... weather 2 reverse 1`.
 
-## Trying it on one Mac
+### Trying it on one Mac
 
 `tools/try_online_local.sh` opens two game windows, a host and a guest, that talk over UDP on localhost. Nothing needs a second computer.
 
 1. Run it from the folder that holds `original/` (the game's data) and `mods/`: `tools/try_online_local.sh /path/to/tnfs`, or `./tnfs` / `build/release/tnfs` found by itself.
    It makes `user/` (the host's player folder) and `user-guest/` (the guest's) there and writes nothing else. The host listens on UDP 15000, the guest on 15001.
    Both windows run for at most two hours (`timeout -k`); closing one window, or Ctrl-C in the terminal, closes the other.
-2. In the first window (the host): Game Mode, Network, then the service, and **New** in the box of games. Choose the track, race type and settings you want
-   (weather, reverse, difficulty and the car colours are the host's), and wait on the lobby screen.
-3. In the second window (the guest): the same screens, and in the box of games pick the host's game. The host's window then lists the guest; the host presses **Start**.
+2. In the first window (the host): Game Mode, **Network**, your name, then Network Setup's **Select game** and **New** in the box of games. In Control
+   Central choose the track, race type and settings you want (weather, reverse, difficulty and the car colours are the host's), and wait there.
+3. In the second window (the guest): the same screens, and in the box of games pick the host's game. The host's Control Central then lists the guest,
+   and the host starts the race with the button at the bottom left.
 4. In the race, look for:
    - the host's weather (rain, fog) and the circuit's direction on both windows, whatever the guest has in its own settings;
    - the same colour on each car in both windows (a car's paint is the same in every slot), and the guest's own paint where it chose one;
