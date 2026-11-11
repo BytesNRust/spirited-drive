@@ -709,7 +709,7 @@ enum { TUNNEL_LAMPS_MAX = 1024, TUNNEL_LAMP_REACH_NODES = 3 };
 static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *made)
 {
     static TunnelLamp found[TUNNEL_LAMPS_MAX];
-    if (!port_tunnel_lamps() || light_letter != 'N' || tri == NULL || made->nodes == 0) return;
+    if (!port_tunnel_lamps() || (light_letter != 'N' && port_tunnel_lamps() < 2) || tri == NULL || made->nodes == 0) return;
     const size_t n = tunnel_lamps_find(tri, track, found, TUNNEL_LAMPS_MAX);
     if (n == 0) return;
     TrackNodeLightLamp *const list = calloc((size_t)made->lamp_n + n, sizeof *list);

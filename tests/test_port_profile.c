@@ -215,7 +215,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.weather_fog, 2);   /* the whiter, denser snow fog and the denser storm fog, no dark mood over snow (owner 2026-11-09) */
     CHECK_EQ_INT(s.car_tunnel_match, 1);   /* the car as lit as outside, the owner's pick B with the 0.85 gap (2026-11-09) */
     CHECK_EQ_INT(s.menu_pad_cancel, 1);   /* B cancels (owner 2026-11-10) */
-    CHECK_EQ_INT(s.tunnel_lamps, 1);   /* on in Restomod (the owner's overnight rule 2026-11-10, a revert is the flag): the tunnels' lamps light their pools; Stock and Restored keep 0 */
+    CHECK_EQ_INT(s.tunnel_lamps, 2);   /* on in Restomod, by day too (the owner's overnight rule 2026-11-10, a revert is the flag): the tunnels' lamps light their pools; Stock and Restored keep 0 */
     CHECK_EQ_INT(s.car_night_lift, 1);   /* a quarter more light on every car at night (owner 2026-11-09) */
     CHECK_EQ_INT(s.shoulder_light, 1);   /* the third lane and the shoulders lit like the road */
     CHECK_EQ_INT(s.finish_gate_light, 1);   /* the owner: the gates are OK (the current tint, not the neutral one) */

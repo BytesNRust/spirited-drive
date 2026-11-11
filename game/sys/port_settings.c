@@ -131,7 +131,7 @@ static const PortSettingsKey INT_KEYS[] = {
     { "spray_v4", offsetof(PortSettings, spray_v4), 0, 1 },
     { "car_night_lift", offsetof(PortSettings, car_night_lift), 0, 2 },
     { "menu_pad_cancel", offsetof(PortSettings, menu_pad_cancel), 0, 1 },
-    { "tunnel_lamps", offsetof(PortSettings, tunnel_lamps), 0, 1 },
+    { "tunnel_lamps", offsetof(PortSettings, tunnel_lamps), 0, 2 },
     { "snow_fx", offsetof(PortSettings, snow_fx), 0, 1 },
     { "lamp_halos", offsetof(PortSettings, lamp_halos), 0, 1 },
 };

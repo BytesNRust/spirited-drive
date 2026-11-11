@@ -321,12 +321,15 @@ static void test_lamp_halos_values(void)
 
 static void test_tunnel_lamps_values(void)
 {
-    const char *const on = "tunnel_lamps=1\n", *const bad = "tunnel_lamps=2\n";
+    const char *const on = "tunnel_lamps=1\n", *const day = "tunnel_lamps=2\n", *const bad = "tunnel_lamps=3\n";
     CHECK_EQ_INT(port_settings_parse(on, strlen(on)).tunnel_lamps, 1);
+    CHECK_EQ_INT(port_settings_parse(day, strlen(day)).tunnel_lamps, 2);   /* also by day */
     CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).tunnel_lamps, 0);
     setenv("TNFS_TUNNEL_LAMPS", "1", 1);
     CHECK_EQ_INT(port_tunnel_lamps(), 1);
     setenv("TNFS_TUNNEL_LAMPS", "2", 1);
+    CHECK_EQ_INT(port_tunnel_lamps(), 2);
+    setenv("TNFS_TUNNEL_LAMPS", "3", 1);
     CHECK_EQ_INT(port_tunnel_lamps(), 0);
     unsetenv("TNFS_TUNNEL_LAMPS");
 }
