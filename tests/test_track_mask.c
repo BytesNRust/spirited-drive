@@ -278,6 +278,43 @@ static void test_yellow_marks_make_lamps(void)
     unsetenv("TNFS_TRACK_MASKS");
 }
 
+/* the race's palette remaps the track's texels in place after the marks were read (the exe's mapping to the screen palette): track_lamp_marks_refresh reads the colours under the yellow again */
+static void test_marks_follow_the_remapped_texels(void)
+{
+    static TrackArt art;
+    memset(&art, 0, sizeof art);
+    uint8_t pixels[4 * 4] = { 7, 7, 7, 7,   7, 9, 9, 7,   7, 9, 4, 7,   7, 7, 7, 255 };
+    art.slots[3][0] = texture(4, 4, pixels);
+    uint8_t rgba[4 * 4 * 4];
+    memset(rgba, 0, sizeof rgba);
+    for (int y = 1; y <= 2; y++)
+        for (int x = 1; x <= 2; x++) memcpy(rgba + 4 * (y * 4 + x), (const uint8_t[]){ 255, 255, 0, 255 }, 4);
+    write_rgba(ROOT "/env", "TREM", "slot_03.png", rgba, 4, 4);
+    setenv("TNFS_TRACK_MASKS", ROOT "/env", 1);
+    CHECK_EQ_INT(track_masks_set_race("TREM", &art, 0), 1);
+    static const uint8_t REMAP[3][2] = { { 7, 170 }, { 9, 158 }, { 4, 231 } };   /* the race palette's entries for the track's */
+    for (int i = 0; i < 16; i++)
+        for (int k = 0; k < 3; k++)
+            if (pixels[i] == REMAP[k][0]) { pixels[i] = REMAP[k][1]; break; }
+    track_lamp_marks_refresh();
+    const TunnelLampTexture *lamps = NULL;
+    CHECK_EQ_INT(track_lamp_marks("TREM", &lamps), 1);
+    if (lamps != NULL) {
+        CHECK_EQ_INT(lamps[0].count, 2);
+        CHECK_EQ_INT(lamps[0].idx[0], 158);
+        CHECK_EQ_INT(lamps[0].idx[1], 231);
+        CHECK(lamps[0].set != NULL && lamps[0].set[158] && lamps[0].set[231] && !lamps[0].set[9] && !lamps[0].set[4] && !lamps[0].set[170]);
+        CHECK_EQ_INT(lamps[0].rect[0], 1);
+        CHECK_EQ_INT(lamps[0].rect[3], 2);
+    }
+    track_lamp_marks_refresh();   /* again: the same (it reads, it does not remap) */
+    CHECK_EQ_INT(track_lamp_marks("TREM", &lamps), 1);
+    if (lamps != NULL) CHECK_EQ_INT(lamps[0].idx[0], 158);
+    CHECK_EQ_INT(track_masks_set(NULL, NULL), 0);
+    track_lamp_marks_refresh();   /* none kept: nothing to do */
+    CHECK_EQ_INT(track_lamp_marks("TREM", NULL), 0);
+}
+
 int main(void)
 {
     test_colours();
@@ -289,5 +326,6 @@ int main(void)
     test_a_rally_keeps_no_road_masks();
     test_yellow_is_not_reflective();
     test_yellow_marks_make_lamps();
+    test_marks_follow_the_remapped_texels();
     return TEST_REPORT();
 }

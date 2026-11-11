@@ -22,7 +22,7 @@ enum { TRACK_NODE_LIGHT_SNOW_SLOTS = 144 };   /* TRACK_TEXTURE_SLOTS (track_art.
 enum { TRACK_NODE_LIGHT_TONES = 16, TRACK_NODE_LIGHT_TONE_BASE_BITS = 3 };   /* a vertex class's scene tone field is 5 bits: 1..16 the tones */
 
 /* port (track light file, `lamp`): a street lamp as light: where it stands, how far it reaches and the colour it adds (the colour already times its percent / 100: 1 is a lamp at 100 percent) */
-typedef struct { uint32_t node; float x, z, reach; float rgb[3]; int tunnel; } TrackNodeLightLamp;   /* tunnel: a tunnel's or cavern's lamp (tunnel_lamps.h): it lights the tunnel's polygons too, over their own light, and bakes nothing into the rows */
+typedef struct { uint32_t node; float x, z, reach; float rgb[3]; int tunnel; float along[2], reach_along; } TrackNodeLightLamp;   /* tunnel: a tunnel's or cavern's lamp (tunnel_lamps.h): it lights the tunnel's polygons too, over their own light, and bakes nothing into the rows. reach_along > 0: its pool is an ellipse, that reach along the road (`along`, the road's direction, a unit vector) and `reach` across it (the walls); 0 round */
 enum { TRACK_NODE_LIGHT_LAMP_RADIUS = 5 };   /* the nodes a lamp with no radius of its own reaches */
 /* A slot is a scene tone (look 0: `rgb` and `percent`, the colour the stretch's polygons are seen through) or, shared with them, a tunnel zone's own look (look 1: `light`, percent of full light, and
  * `cast`, 0..1 a channel, as the time's tunnel_tone: a tunnel zone whose look is not the track's). No padding: slots are compared and copied as bytes. */

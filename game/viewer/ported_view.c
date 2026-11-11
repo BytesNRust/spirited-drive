@@ -6,6 +6,7 @@
 #include "game/viewer/reflect_pass.h"
 #include "game/viewer/street_halo.h"
 #include "game/viewer/view_lamps.h"
+#include "game/viewer/view_pick.h"
 #include "game/viewer/view_screen.h"
 #include "game/viewer/weather_hooks.h"
 #include "game/viewer/screen_layout.h"
@@ -318,6 +319,7 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     /* port (render bands P2, P3): with threads the track's draws (road, scenery, cars, shadows, skid marks, smoke) are
      * recorded by the rasterizers, which find the recorder in the target, and replayed by bands at the end, in order */
     cars_frame_begin(art, wt, pixels);
+    view_pick_frame_start(&view, art, view_screen_w, view_screen_h);   /* port (light_edit): the aim, the view's centre */
     const int ahead = draw_track(tri, pc, &cam, &ctx);
     view_spray_frame_end();
     track_light_hook = NULL;

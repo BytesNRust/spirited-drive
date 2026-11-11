@@ -8,6 +8,7 @@
 #include "game/viewer/reflect_pass.h"
 #include "game/viewer/street_halo.h"
 #include "game/viewer/view_lamps.h"
+#include "game/viewer/view_pick.h"
 #include "viewer/drive_lamps.h"
 #include "viewer/view_tables.h"
 #include "viewer/view_shared.h"
@@ -295,6 +296,7 @@ int reflect_thin_here(void) { return reflect_thin_now; }
 static void draw_uv_base(void *user, const FshEntry *texture, const int32_t uv[8], const int32_t screen[8])
 {
     view_lamps_note(texture, uv, screen);
+    view_pick_note(texture, screen);   /* port (light_edit): the aim */
     street_halo_note(texture, screen);
     const uint8_t *lit = lit_table_for(texture);
     if (lit != NULL) quad_draw_mode(user, texture, uv, screen, transparent(texture) ? MAP_REMAP_TRANSPARENT : MAP_REMAP, lit);

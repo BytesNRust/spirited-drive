@@ -610,6 +610,7 @@ static int tunnel_lamp_by_node(const void *a, const void *b)
 enum { TUNNEL_LAMPS_MAX = 1024, TUNNEL_LAMP_REACH_NODES = 3 };
 #define TUNNEL_LAMP_STRENGTH 3.0f   /* 300 percent: at 5.0 the pool saturated the tunnel tables by half its reach and the lamps (every 2 nodes, both sides) joined into one flat band, no pools (chase view, tunnel_tone 50) */
 #define TUNNEL_LAMP_DAY_STRENGTH 1.5f   /* by day (tunnel_lamps 2: dawn, day, dusk) the same pools, at half: the day's tunnel is lit more than the night's, and at 3.0 the road turned strongly amber, brighter than at night (the day captures of 2026-11-11) */
+#define TUNNEL_LAMP_REACH_ALONG 1.3f   /* i193: along the road a pool reaches 1.3 nodes (8 m): the lamps hang every 2 nodes (12 m), so half way to the next a pool has 5 % of its light and the tunnel alternates light and shadow (at 1.8 round the pools overlapped into one even band; at 1.0 the pools were dim slivers); across it keeps TUNNEL_LAMP_REACH, the walls */
 #define TUNNEL_LAMP_REACH 1.8f   /* a pool reaches 1.8 nodes (11 m at 6 m a node): CY1's lamp pair hangs 6 m apart in the middle of a 19 m tunnel (strips 4 and 9 are lanes, not walls), so at 1.2 the left wall was out of reach (7 m from its lamp) and only the right one (5.8 m) caught a sliver; at 1.8 both walls and the ceiling are lit and the road still has its gaps between lamps */
 
 static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *made)
@@ -626,6 +627,8 @@ static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *
         TrackNodeLightLamp *const l = &list[(size_t)made->lamp_n + i];
         l->node = found[i].node, l->x = found[i].x, l->z = found[i].z;
         l->reach = TUNNEL_LAMP_REACH * found[i].spacing;
+        l->reach_along = TUNNEL_LAMP_REACH_ALONG * found[i].spacing;
+        l->along[0] = found[i].along[0], l->along[1] = found[i].along[1];
         l->rgb[0] = strength, l->rgb[1] = 0.82f * strength, l->rgb[2] = 0.5f * strength;   /* the amber of the street lamps' warm light, a little paler, 300 percent */
         l->tunnel = 1;
     }

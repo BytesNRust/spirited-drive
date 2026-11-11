@@ -68,6 +68,19 @@ void view_lamps_note_full(const FshEntry *texture, const int32_t screen[8])
     view_lamps_note(texture, uv, screen);
 }
 
+void view_lamps_note_cam(const FshEntry *texture, const View *view, const int32_t uv[8], const int32_t *const cam[4])
+{
+    if (!flare_on || view == NULL || view_lamps_of(texture) < 0) return;
+    int32_t screen[8];
+    for (int i = 0; i < 4; i++) {
+        const double z = cam[i][2];
+        if (!(z >= view->near_z) || !(z > 0)) return;   /* its screen place is unknown: a lamp this near is off the screen's middle anyway */
+        screen[2 * i] = (int32_t)lrint(view->centre_x + (double)cam[i][0] * view->focal_x / z);
+        screen[2 * i + 1] = (int32_t)lrint(view->centre_y - (double)cam[i][1] * view->focal_x / z);
+    }
+    view_lamps_note(texture, uv, screen);
+}
+
 /* the lamp `texture` is, or -1 */
 int view_lamps_of(const FshEntry *texture)
 {
@@ -132,6 +145,7 @@ void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768])
     if (!flare_on || tunnel_flare_count <= 0 || t == NULL || t->pixels == NULL) return;
     static const int PERCENT[LAMP_FLARE_LEVELS] = { 30, 60, 100 };
     const uint8_t *const usable = palette_usable();
+    const uint8_t *const emissive = palette_emissive();   /* at night the lamp's texels are in entries of their own (drive_light_lamps_night), emissive: they are the lamp too */
     uint8_t maps[LAMPS_MAX][LAMP_FLARE_LEVELS][256];
     int made[LAMPS_MAX] = { 0 };
     for (int i = 0; i < tunnel_flare_count; i++) {
@@ -142,7 +156,7 @@ void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768])
             for (int dx = -2; dx <= 2 && !shows; dx++) {
                 const int x = f->x + dx, y = f->y + dy;
                 shows = x >= t->clip_left && x < t->clip_right && y >= t->clip_top && y < t->clip_bottom &&
-                        lamp_exempt_set[f->lamp][t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x]];
+                        (lamp_exempt_set[f->lamp][t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x]] || emissive[t->pixels[(size_t)y * (size_t)t->pitch + (size_t)x]]);
             }
         if (!shows) continue;
         const uint8_t entry = lamp_glow[f->lamp];

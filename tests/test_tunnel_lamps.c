@@ -46,6 +46,7 @@ static void test_a_lamp_strip_gives_a_lamp_each_even_node(void)
     CHECK(fabsf(out[0].z - 85.0f) < 0.01f);   /* the band from z 80 to 90 */
     CHECK(fabsf(out[1].z - 105.0f) < 0.01f);
     CHECK(fabsf(out[0].spacing - 10.0f) < 0.01f);
+    CHECK(fabsf(out[0].along[0]) < 0.001f && fabsf(out[0].along[1] - 1.0f) < 0.001f);   /* the road runs along z: the pool is shaped along it */
 }
 
 static void test_one_lamp_each_side_and_none_without_a_lamp_strip(void)

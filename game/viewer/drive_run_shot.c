@@ -1,4 +1,6 @@
 /* --drive's headless screenshot run (drive_screenshot): the ticks stepped with the captures' env switches, the frames timed (TNFS_FRAME_TIMES) and the picture written. Split from drive_run.c. */
+#include "game/viewer/view_pick.h"
+#include "viewer/light_edit.h"
 #include "game/sys/port_log.h"
 #include "viewer/drive_autopilot.h"
 #include "viewer/track_viewer.h"
@@ -205,6 +207,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     printf("tick %d (phase %d): node %d, speed %.1f m/s, gear %d; view kind %d, eye node %d (%.1f, %.1f, %.1f)\n",
            drive_sim.race.tick, drive_sim.race.phase, car->node, car->speed / 65536.0, car->gear, chase->kind, chase->node,
            chase->position[0] / 65536.0, chase->position[1] / 65536.0, chase->position[2] / 65536.0);
+    view_pick_set(light_edit_wanted());   /* port (light_edit): the screenshot's lines name the texture at the aim, noted as this frame is drawn (the editor itself starts at the screenshot; this run has no window, so no mouse: the aim is the view's centre) */
     render_drive(t, pixels);
     if (skip_env != NULL) {   /* port (dev, env only): the trails' continuity, for the frame-skip test */
         int rain_ticks, dust_ticks;

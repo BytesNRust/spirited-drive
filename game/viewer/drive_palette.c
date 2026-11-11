@@ -14,6 +14,7 @@
 #include "viewer/drive_lamps.h"
 #include "viewer/drive_light.h"
 #include "game/race/tunnel_lamp_textures.h"
+#include "game/race/track_mask.h"
 #include "game/viewer/shade_fit.h"
 #include <string.h>
 
@@ -465,6 +466,7 @@ int drive_palette_build(const RaceState *race, const Chunk *fam, CarLoad *const 
                                   before_fit);
     remap_cars(&p, race, cars);
     if (!fitted) map_world(&p, fam, &terrain, track, NULL);
+    track_lamp_marks_refresh();   /* port (the lamps' marks): the world's texels are the race palette's now; the colours under the yellow are read again */
     uint8_t enabled[RACE_PALETTE_COLOURS];
     memcpy(enabled, p.enabled, sizeof enabled);
     if (fitted) hide_fitted(&p);   /* the smoke's, the dash's and the mask's colours are the world's: not the slots the cars were given */

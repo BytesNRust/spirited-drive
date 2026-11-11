@@ -117,6 +117,41 @@ static void test_a_noted_lamp_gets_a_halo(void)
     free(art);
 }
 
+static void test_a_camera_quad_lamp_gets_a_halo(void)
+{
+    /* Modern 3D draws the track's polygons from camera space (draw_camera), not from screen corners: the lamp must be noted there too */
+    uint8_t texels[TEX * TEX], usable[256], before[W * H], after[W * H];
+    TrackArt *art = make_art(texels);
+    memset(usable, 1, sizeof usable);
+    palette_usable_set(usable);
+    ported_view_set_tunnel_lamps(&LAMP, 1);
+    view_lamps_set_flares(1);
+    view_lamps_textures(art);
+    View view = { 0 };
+    view.centre_x = 32, view.centre_y = 32, view.focal_x = 32, view.focal_y = -32, view.near_z = 1;
+    /* z 32 and focal 32: screen x = 32 + x, y = 32 - y, the corners of QUAD */
+    const int32_t c0[3] = { -22, 22, 32 }, c1[3] = { -6, 22, 32 }, c2[3] = { -6, 6, 32 }, c3[3] = { -22, 6, 32 };
+    const int32_t *const cam[4] = { c0, c1, c2, c3 };
+    const int32_t right = (TEX << 16) - 1, bottom = (TEX << 16) - 1;
+    const int32_t uv[8] = { 0, 0, right, 0, right, bottom, 0, bottom };
+    view_lamps_frame_start();
+    view_lamps_note_cam(&art->slots[0][0].bitmap, &view, uv, cam);
+    fill(before), fill(after);
+    QuadTarget t = { after, W, 0, 0, W, H };
+    view_lamps_draw(&t, art->palette);
+    CHECK(differing(before, after, 0, W) > 0);
+    /* a corner behind the near plane: not noted (its screen place is unknown), no halo */
+    const int32_t behind[3] = { -22, 6, 0 };
+    const int32_t *const cut[4] = { c0, c1, c2, behind };
+    view_lamps_frame_start();
+    view_lamps_note_cam(&art->slots[0][0].bitmap, &view, uv, cut);
+    fill(after);
+    view_lamps_draw(&t, art->palette);
+    CHECK_EQ_INT(differing(before, after, 0, W), 0);
+    ported_view_set_tunnel_lamps(NULL, 0);
+    free(art);
+}
+
 static void test_flares_off_notes_and_draws_nothing(void)
 {
     uint8_t texels[TEX * TEX], before[W * H], after[W * H];
@@ -143,6 +178,7 @@ int main(void)
     test_lamp_list_and_lookup();
     test_tables_keep_the_lamps_colours();
     test_a_noted_lamp_gets_a_halo();
+    test_a_camera_quad_lamp_gets_a_halo();
     test_flares_off_notes_and_draws_nothing();
     return TEST_REPORT();
 }
