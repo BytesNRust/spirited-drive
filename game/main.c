@@ -272,7 +272,9 @@ static int resolve_data_root(const Options *opt, char *out, size_t out_size, int
 
 /* port: the events go to our API; a development build (TNFS_SOURCE_DIR, never a release) with TNFS_STATS_DRYRUN=<version> counts them as that version and
  * only writes what it would send to the log, so the tests can run a "release" without a request */
+#ifdef TNFS_SOURCE_DIR
 static void stats_dry_sender(const char *event, const char *version) { port_log("stats: dry run, would send %s v=%s\n", event, version); }
+#endif
 
 static void set_stats_sender(void)
 {
