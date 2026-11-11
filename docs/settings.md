@@ -139,6 +139,23 @@ The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_tim
 |---|---|---|---|---|---|---|
 | `profile` | `stock` (no line) | `stock` | `stock`, `restored`, `restomod` | Game Mode: Profile | none | the table below |
 
+### Settings Restomod leaves with no visible effect (open question i180)
+
+Found by reading the code from each setting to what it gates (2026-11-11; a capture in the scene the code needs, on and off, agrees). In Restomod these eight change nothing the player sees or hears, because another setting that Restomod turns on takes over. They are not removed: each does something when the other setting is changed, and whether to keep, hide or drop them is the owner's decision, still open.
+
+| Setting | Restomod | Taken over by | Where it shows again |
+|---------|----------|---------------|----------------------|
+| `water_mist` | 2 | `spray_v4` 1: the old water and dust code never runs (`view_spray.c`), and the v4 spray reads none of these five | `spray_v4=0`, rain or storm, cars at speed |
+| `trail_rise` | 0 | `spray_v4` 1 | `spray_v4=0`, rain, or a rally with dust |
+| `traffic_spray` | 0 | `spray_v4` 1 | `spray_v4=0`, rain, a cop or traffic car in view |
+| `rally_spray` | 1 | `spray_v4` 1 | `spray_v4=0`, a rally road in rain, rivals in view |
+| `spray_cd_smoke` | 1 | `spray_v4` 1 | `spray_v4=0`, rally dust or rain |
+| `headlight_relight` | 1 | `headlight_cone` 1 with `perspective` 1: the cone already relights the road every frame | `headlight_cone=0` or `perspective=0`, `headlight_beams` on, night |
+| `vegas_car_night` | 1 | `night_tone` 2: the setting needs `night_tone` 0, and only acts with no PS1 folder | `night_tone=0`, no `psx_dir`, Lost Vegas (TR4) at night |
+| `gauge_wheel` | 1 | `gauge_light` above 0 (Restomod 5): the dash's mask decides alone and already treats the wheel | `gauge_light=0`, a cockpit view at night: about 40 pixels at the wheel's hub |
+
+Two more of the 34 settings checked are not in this table because they are not overridden but easy to miss: `rain_tyre_roll` and `rally_gravel_shoulder` only make a sound, so no picture shows them. The other 24 act only in one scene each (a track, a stretch of nodes, a weather); the list is in the maintainer's i180 notes.
+
 ## Switches (`port_extras`)
 
 Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
