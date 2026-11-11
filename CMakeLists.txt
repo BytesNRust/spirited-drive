@@ -148,6 +148,10 @@ add_library(tnfs_game STATIC
     game/frontend/central_banner.c
     game/frontend/boot_screen.c
     game/frontend/boot_screen_glue.c
+    game/frontend/boot_relief.c
+    game/frontend/boot_relief_glue.c
+    game/frontend/boot_relief_ops.c
+    game/frontend/boot_quant.c
     game/frontend/credits_pages.c
     game/frontend/credits_pages_glue.c
     game/frontend/credits_relief.c
@@ -939,6 +943,14 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_link_libraries(test_boot_screen PRIVATE tnfs_game)
     target_compile_options(test_boot_screen PRIVATE ${TNFS_WARNINGS})
     add_test(NAME boot_screen COMMAND test_boot_screen)
+
+    foreach(t boot_relief_ops boot_relief boot_quant)
+        add_executable(test_${t} tests/test_${t}.c)
+        target_include_directories(test_${t} PRIVATE game .)
+        target_link_libraries(test_${t} PRIVATE tnfs_game)
+        target_compile_options(test_${t} PRIVATE ${TNFS_WARNINGS})
+        add_test(NAME ${t} COMMAND test_${t})
+    endforeach()
     add_executable(test_credits_pages tests/test_credits_pages.c)
     target_include_directories(test_credits_pages PRIVATE game .)
     target_link_libraries(test_credits_pages PRIVATE tnfs_game)
