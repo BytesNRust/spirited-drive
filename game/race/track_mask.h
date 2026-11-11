@@ -40,6 +40,10 @@ const uint8_t *track_mask_for(const TrackTexture *t);
 /* The lamps the yellow marks of the track last given to track_masks_set_race name (`track` must be that one, in any case): how many, `*out` (when not NULL) them; 0 when the track has none. */
 int track_lamp_marks(const char *track, const TunnelLampTexture **out);
 
+/* The marked lamps' colours read again from their textures' texels as they are now (the yellow kept from track_masks_set_race): the race's palette remaps the track's texels in place
+ * after the marks were read (the exe's mapping to the screen palette), and the colours read before named entries the lamp no longer shows. Nothing kept: nothing done. */
+void track_lamp_marks_refresh(void);
+
 /* The lamps of `track`: the marks' when it has any (they are the owner's drawing), else the built-in table's (tunnel_lamp_textures_for: unpainted tracks and mods keep what they had). */
 int track_lamps_for(const char *track, const TunnelLampTexture **out);
 

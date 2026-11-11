@@ -5,6 +5,7 @@
 #include "formats/fsh.h"
 #include "game/gfx/quad.h"
 #include "game/race/tunnel_lamp_textures.h"
+#include "game/race/view.h"
 #include "game/race/track_art.h"
 #include "game/viewer/modern_road.h"
 
@@ -18,6 +19,7 @@ uint8_t (*view_lamps_table(int lamp))[256];            /* the lamp's darkening t
 void view_lamps_frame_start(void);                           /* no halo noted yet */
 void view_lamps_note(const FshEntry *texture, const int32_t uv[8], const int32_t screen[8]);   /* a lamp polygon drawn */
 void view_lamps_note_full(const FshEntry *texture, const int32_t screen[8]);
+void view_lamps_note_cam(const FshEntry *texture, const View *view, const int32_t uv[8], const int32_t *const cam[4]);   /* a lamp polygon drawn from camera space (Modern 3D's draw_camera): projected, then as view_lamps_note; none with a corner behind the near plane */
 void view_lamps_textures(const TrackArt *art);               /* the textures and colours when the light's tables are not made */
 void view_lamps_make_tables(const TrackArt *art, const uint8_t (*tunnel_tables)[256]);
 void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768]);   /* the halos noted this frame, over the finished 3D */

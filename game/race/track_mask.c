@@ -87,11 +87,23 @@ static uint8_t marked_set[MAX_MARKED][256];   /* the colours under each lamp's y
 static int marked_count;
 static char marked_track[16];
 
-/* the lamp of road texture slot `slot`: its yellow texels' bounding box, and the palette entries they show (all of them are `set`; idx has the most used, at most TUNNEL_LAMP_TEXTURE_COLOURS: the transparent and shadow entries are none) */
-static void mark_lamp(int slot, const TrackTexture *t, const uint8_t *lamp)
+static const TrackTexture *marked_texture[MAX_MARKED];   /* the texture each lamp was marked on, and its yellow (width x height bytes, owned): track_lamp_marks_refresh reads it again */
+static uint8_t *marked_yellow[MAX_MARKED];
+
+static void drop_marks(void)
 {
+    for (int i = 0; i < marked_count; i++) free(marked_yellow[i]), marked_yellow[i] = NULL, marked_texture[i] = NULL;
+    marked_count = 0;
+    marked_track[0] = '\0';
+}
+
+/* lamp `i`'s rectangle and colours from its texture's texels as they are now: the bounding box of the yellow, the palette entries under it (all of them are `set`; idx has the
+ * most used, at most TUNNEL_LAMP_TEXTURE_COLOURS: the transparent and shadow entries are none). 0 when the yellow covers no texel. */
+static int read_marked(int i)
+{
+    const TrackTexture *const t = marked_texture[i];
+    const uint8_t *const lamp = marked_yellow[i];
     const int w = t->bitmap.width, h = t->bitmap.height;
-    if (marked_count >= MAX_MARKED || t->bitmap.payload == NULL) return;
     int x0 = w, y0 = h, x1 = -1, y1 = -1;
     unsigned count[256] = { 0 };
     for (int y = 0; y < h; y++)
@@ -101,11 +113,11 @@ static void mark_lamp(int slot, const TrackTexture *t, const uint8_t *lamp)
             const uint8_t v = t->bitmap.payload[y * w + x];
             if (v < 0xFE) count[v]++;
         }
-    if (x1 < 0) return;
-    TunnelLampTexture *const l = &marked[marked_count];
-    uint8_t *const set = marked_set[marked_count++];
+    if (x1 < 0) return 0;
+    uint8_t *const set = marked_set[i];
     for (int c = 0; c < 256; c++) set[c] = count[c] > 0;   /* every colour the yellow shows stays bright (the table of before listed them and the ones only its rectangle showed) */
-    *l = (TunnelLampTexture){ .slot = slot, .rect = { x0, y0, x1, y1 }, .set = set };
+    TunnelLampTexture *const l = &marked[i];
+    *l = (TunnelLampTexture){ .slot = l->slot, .rect = { x0, y0, x1, y1 }, .set = set };
     while (l->count < TUNNEL_LAMP_TEXTURE_COLOURS) {
         int best = -1;
         for (int c = 0; c < 256; c++)
@@ -114,7 +126,33 @@ static void mark_lamp(int slot, const TrackTexture *t, const uint8_t *lamp)
         l->idx[l->count++] = (uint8_t)best;
         count[best] = 0;
     }
-    port_log("lamp marks: slot %d, %d colours, rect %d,%d to %d,%d\n", slot, l->count, x0, y0, x1, y1);
+    return 1;
+}
+
+/* the lamp of road texture slot `slot`: kept with its yellow (`lamp`, taken) and read (read_marked) */
+static void mark_lamp(int slot, const TrackTexture *t, uint8_t *lamp)
+{
+    if (marked_count >= MAX_MARKED || t->bitmap.payload == NULL) {
+        free(lamp);
+        return;
+    }
+    const int i = marked_count;
+    marked[i].slot = slot, marked_texture[i] = t, marked_yellow[i] = lamp;
+    if (!read_marked(i)) {
+        free(lamp);
+        marked_yellow[i] = NULL, marked_texture[i] = NULL;
+        return;
+    }
+    marked_count++;
+    const TunnelLampTexture *const l = &marked[i];
+    port_log("lamp marks: slot %d, %d colours, rect %d,%d to %d,%d\n", slot, l->count, l->rect[0], l->rect[1], l->rect[2], l->rect[3]);
+}
+
+void track_lamp_marks_refresh(void)
+{
+    for (int i = 0; i < marked_count; i++)
+        if (marked_texture[i]->bitmap.payload != NULL && read_marked(i))
+            port_log("lamp marks: slot %d read again (the race's palette): %d colours, first %d\n", marked[i].slot, marked[i].count, marked[i].idx[0]);
 }
 
 /* `slot` >= 0: a road texture slot (its yellow makes a lamp); `reflective` 0 keeps no reflective mask (a rally's road) */
@@ -125,16 +163,14 @@ static void keep(const char *track, const char *name, const TrackTexture *t, int
     uint8_t *mask = load_marks(track, name, t->bitmap.width, t->bitmap.height, slot >= 0 ? &lamp : NULL);
     if (mask != NULL && reflective && mask_count < MAX_MASKS) masks[mask_count++] = (Entry){ t, mask };
     else free(mask);
-    if (lamp != NULL) mark_lamp(slot, t, lamp);
-    free(lamp);
+    if (lamp != NULL) mark_lamp(slot, t, lamp);   /* it keeps the yellow */
 }
 
 int track_masks_set_race(const char *track, const TrackArt *art, int rally)
 {
     for (int i = 0; i < mask_count; i++) free(masks[i].mask);
     mask_count = 0;
-    marked_count = 0;
-    marked_track[0] = '\0';
+    drop_marks();
     if (track == NULL || art == NULL) return 0;
     snprintf(marked_track, sizeof marked_track, "%s", track);
     char name[32];

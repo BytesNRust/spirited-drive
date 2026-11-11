@@ -593,6 +593,7 @@ add_executable(tnfs
     game/viewer/soft_shadow.c
     game/viewer/ported_view.c
     game/viewer/view_lamps.c
+    game/viewer/view_pick.c
     game/viewer/view_screen.c
     game/viewer/view_spray.c
     game/viewer/view_rain.c
@@ -750,6 +751,11 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_link_libraries(test_view_lamps PRIVATE tnfs_game)
     target_compile_options(test_view_lamps PRIVATE ${TNFS_WARNINGS})
     add_test(NAME view_lamps COMMAND test_view_lamps)
+    add_executable(test_view_pick tests/test_view_pick.c game/viewer/view_pick.c)
+    target_include_directories(test_view_pick PRIVATE game)
+    target_link_libraries(test_view_pick PRIVATE tnfs_game)
+    target_compile_options(test_view_pick PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME view_pick COMMAND test_view_pick)
     add_executable(test_class_overlay tests/test_class_overlay.c)
     target_include_directories(test_class_overlay PRIVATE game)
     target_link_libraries(test_class_overlay PRIVATE tnfs_game)

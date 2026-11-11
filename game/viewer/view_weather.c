@@ -8,6 +8,7 @@
 #include "game/viewer/street_halo.h"
 #include "game/viewer/tunnel_cells.h"
 #include "game/viewer/view_lamps.h"
+#include "game/viewer/view_pick.h"
 #include "game/viewer/weather_hooks.h"
 #include "viewer/sky_art_draw.h"
 #include "viewer/view_rain.h"
@@ -134,6 +135,8 @@ void draw_camera(void *user, const View *view, const FshEntry *texture, const in
                         const int32_t *const cam[4])
 {
     street_halo_note_cam(texture, view, cam);
+    view_lamps_note_cam(texture, view, uv, cam);   /* port (lamp_flares): the tunnel lamps drawn by Modern 3D get their halo too */
+    view_pick_note_cam(texture, view, cam);   /* port (light_edit): the aim */
     draw_camera_base(user, view, texture, uv, cam);
     if (!reflect_pass_active()) return;
     const FshEntry *copy = reflect_pass_copy(texture);
@@ -150,6 +153,7 @@ void draw_camera(void *user, const View *view, const FshEntry *texture, const in
 static void draw_full_base(void *user, const FshEntry *texture, const int32_t screen[8])
 {
     view_lamps_note_full(texture, screen);
+    view_pick_note(texture, screen);   /* port (light_edit): the aim */
     street_halo_note(texture, screen);
     const uint8_t *lit = lit_table_for(texture);
     if (lit != NULL) {  /* quad_draw_full_tri's two triangles, the texture inset by a texel (00486720 / 004864f0) */
@@ -184,6 +188,7 @@ void draw_full(void *user, const FshEntry *texture, const int32_t screen[8])
 static void draw_full_alt_base(void *user, const FshEntry *texture, const int32_t screen[8])
 {
     view_lamps_note_full(texture, screen);
+    view_pick_note(texture, screen);   /* port (light_edit): the aim */
     street_halo_note(texture, screen);
     const uint8_t *lit = lit_table_for(texture);
     if (lit != NULL) {

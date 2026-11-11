@@ -15,6 +15,7 @@ typedef struct {
     uint32_t node;   /* the road node the polygon's near row is */
     float x, z;      /* metres: the middle of the lamp polygons of that side of that node */
     float spacing;   /* metres to the next node: the pool's reach is a few of them */
+    float along[2];  /* the road's direction there (x, z; a unit vector): the pool is shorter along it than across */
 } TunnelLamp;
 
 enum { TUNNEL_LAMP_EVERY = 2 };   /* one lamp a TUNNEL_LAMP_EVERY nodes (the even ones, where the lamp textures hang and the car's lamp alternation puts its light) */

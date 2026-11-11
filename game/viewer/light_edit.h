@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { LIGHT_EDIT_KEY_FREEZE = 0x44, LIGHT_EDIT_KEY_COPY = 0x57, LIGHT_EDIT_CHECK_MS = 1000, LIGHT_EDIT_LINES = 11, LIGHT_EDIT_MESSAGE_MS = 3000 };   /* F10, F11 (set-1 codes) */
+enum { LIGHT_EDIT_KEY_FREEZE = 0x44, LIGHT_EDIT_KEY_COPY = 0x57, LIGHT_EDIT_CHECK_MS = 1000, LIGHT_EDIT_LINES = 12, LIGHT_EDIT_MESSAGE_MS = 3000 };   /* F10, F11 (set-1 codes) */
 
 typedef struct {
     int on;
@@ -21,7 +21,7 @@ typedef struct {
     uint32_t message_ms;
     uint8_t palette[768];
     int palette_known, text_ready;
-    uint8_t dark;
+    uint8_t dark, light;   /* the darkest entry (the panel) and the brightest (the aim's cross) */
 } LightEdit;
 
 /* 1 when the editor is asked for (TNFS_LIGHT_EDIT=1, or light_edit=1 in port.cfg) */

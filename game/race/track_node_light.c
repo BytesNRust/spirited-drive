@@ -334,7 +334,13 @@ float track_node_light_lamp_at(const TrackNodeLight *light, const int idx[], int
     for (int i = 0; i < n; i++) {
         const TrackNodeLightLamp *const l = &light->lamps[idx[i]];
         const double dx = x - l->x, dz = z - l->z;
-        const float f = track_node_light_lamp_falloff((float)sqrt(dx * dx + dz * dz), l->reach);
+        double distance = sqrt(dx * dx + dz * dz);
+        if (l->reach_along > 0.0f) {   /* an ellipse: the distance along the road counts as reach / reach_along times as far */
+            const double on = dx * l->along[0] + dz * l->along[1], across = dx * l->along[1] - dz * l->along[0];
+            const double stretched = on * l->reach / l->reach_along;
+            distance = sqrt(stretched * stretched + across * across);
+        }
+        const float f = track_node_light_lamp_falloff((float)distance, l->reach);
         if (f <= 0.0f) continue;
         heat += f;
         for (int k = 0; k < 3; k++) sum[k] += l->rgb[k] * f;

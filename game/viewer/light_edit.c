@@ -2,6 +2,7 @@
 #include "viewer/light_edit.h"
 
 #include "viewer/drive_light.h"
+#include "game/viewer/view_pick.h"
 #include "game/platform/platform.h"
 #include "game/sys/text.h"
 #include "game/sys/video.h"
@@ -31,6 +32,34 @@ int light_edit_wanted(void)
 void light_edit_start(LightEdit *e, int on)
 {
     *e = (LightEdit){ .on = on != 0 };
+    view_pick_set(e->on);   /* the aim: the texture at the cross, for the lamps' marks */
+}
+
+/* the aim's line: the mask file that names the texture at the cross (slot_NN.png / scenery_NN.png in track_masks/<TRACK>/) */
+static void aim_line(char line[96])
+{
+    int slot = 0, variant = 0;
+    switch (view_pick_found(&slot, &variant)) {
+    case VIEW_PICK_SLOT: snprintf(line, 96, "aim (+): road texture slot_%02d (variant %d)", slot, variant); break;
+    case VIEW_PICK_SCENERY: snprintf(line, 96, "aim (+): scenery_%02d", slot); break;
+    case VIEW_PICK_OTHER: snprintf(line, 96, "aim (+): a car or an object, no track texture"); break;
+    default: snprintf(line, 96, "aim (+): nothing of the track"); break;
+    }
+}
+
+/* the aim's cross over the frame (`width` x `height`, the 3D's target scaled to it) in entry `ink` */
+static void draw_cross(uint8_t *pixels, int width, int height, uint8_t ink)
+{
+    enum { ARM = 8, GAP = 3 };
+    int x = 0, y = 0, tw = 0, th = 0;
+    if (!view_pick_aim_on(&x, &y, &tw, &th) || tw <= 0 || th <= 0) return;
+    const int cx = (int)((long long)x * width / tw), cy = (int)((long long)y * height / th);
+    for (int d = GAP; d <= ARM; d++)
+        for (int s = -1; s <= 1; s += 2) {
+            const int px = cx + s * d, py = cy + s * d;
+            if (px >= 0 && px < width && cy >= 0 && cy < height) pixels[cy * width + px] = ink;
+            if (py >= 0 && py < height && cx >= 0 && cx < width) pixels[py * width + cx] = ink;
+        }
 }
 
 static void say(LightEdit *e, const char *text, uint32_t now_ms)
@@ -77,23 +106,26 @@ const uint8_t *light_edit_compose(LightEdit *e, const uint8_t *frame, int width,
 {
     if (!e->on || width <= 0 || width > MAX_WIDTH || height <= 0 || height > MAX_HEIGHT) return frame;
     char lines[LIGHT_EDIT_LINES][96];
-    int n = drive_light_edit_lines(node, lines, LIGHT_EDIT_LINES - 1);
+    int n = drive_light_edit_lines(node, lines, LIGHT_EDIT_LINES - 2);   /* room for the aim and a message */
     if (n <= 0) return frame;
+    if (n < LIGHT_EDIT_LINES) aim_line(lines[n++]);
     if (n < LIGHT_EDIT_LINES && e->message[0] != '\0' && platform_ticks_ms() - e->message_ms < LIGHT_EDIT_MESSAGE_MS) snprintf(lines[n++], 96, "%s", e->message);
     if (!e->text_ready) e->text_ready = text_small_init();
     if (!e->text_ready) return frame;
     if (!e->palette_known || memcmp(e->palette, palette, 768) != 0) {
         memcpy(e->palette, palette, 768);
         text_build_styles_from(palette);
-        int best = 0, best_sum = 1 << 30;
+        int best = 0, best_sum = 1 << 30, light = 0, light_sum = -1;
         for (int i = 0; i < 256; i++) {
             const int sum = palette[3 * i] + palette[3 * i + 1] + palette[3 * i + 2];
             if (sum < best_sum) best = i, best_sum = sum;
+            if (sum > light_sum) light = i, light_sum = sum;
         }
-        e->dark = (uint8_t)best;
+        e->dark = (uint8_t)best, e->light = (uint8_t)light;
         e->palette_known = 1;
     }
     memcpy(scratch, frame, (size_t)width * (size_t)height);
+    draw_cross(scratch, width, height, e->light);
     const int line_h = text_small_line_height();
     int widest = 0;
     for (int i = 0; i < n; i++) {

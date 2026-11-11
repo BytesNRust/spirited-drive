@@ -41,6 +41,8 @@ size_t tunnel_lamps_in_segment(const TrackSegment *segment, const TrackPoint *ne
             out[n].node = segment_index * TRI_NODES_PER_SEGMENT + (uint32_t)row;
             out[n].x = (float)(sum_x / strips[side]), out[n].z = (float)(sum_z / strips[side]);
             out[n].spacing = (float)sqrt(dx * dx + dz * dz);
+            out[n].along[0] = out[n].spacing > 0.0f ? (float)(dx / out[n].spacing) : 0.0f;
+            out[n].along[1] = out[n].spacing > 0.0f ? (float)(dz / out[n].spacing) : 1.0f;
             n++;
         }
     return n;
