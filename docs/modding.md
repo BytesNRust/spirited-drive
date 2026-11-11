@@ -102,6 +102,18 @@ lamps' light pools (`tunnel_lamps`, `docs/track-light.md`) hang where those text
 marks are the track's lamps and the table is not read for it. A rally has the same lamps (a rally's road keeps no reflective mask, but its lamps are the track's). Yellow in a scenery board's mask (`scenery_<NN>.png`) is read as not reflective and used for nothing yet: the street lamps' boards are still the code's table.
 The first yellow layer of the five tracks with a table was drawn from it by `tools/track_lamp_marks <data dir> data/track_masks` (the texels of the table's rectangle whose colour the table lets stay bright; an existing mask is kept and the yellow laid over it): correct it in the PSD, in the layer the other marks are in.
 
+### Lamps for a track, step by step
+
+For a track the built-in table does not know (or one you changed), the lamps are yellow marks in the road textures' masks:
+
+1. Get the textures as PNGs and then PSDs, as for any track mask (`tools/track_mask_draft`, then `tools/track_mask_psd.py`), or open the PSDs you already have.
+2. In the **`mask`** layer of the texture a lamp is drawn on (`slot_<NN>`), paint the lamp's texels yellow, `255, 255, 0`: only the lamp, not the wall round it. Paint nothing yellow in textures that are not lamps. Red and white in the same layer stay reflective.
+3. Read the layers back with `tools/track_mask_from_psd.py`; it writes `slot_<NN>.png` for each texture. Put them at `<mod>/track_masks/<TRACK>/slot_<NN>.png`.
+4. Load the track with `--mods <mod>` and look in `tnfs.log` for one line per marked slot, `lamp marks: slot <NN>, <k> colours, rect x0,y0 to x1,y1`. No line means the game did not read that mask (check the name and the folder); `track mask: <path>` tells where each mask came from.
+5. Once any slot of a track has yellow, the built-in table is no longer read for that track: mark every lamp texture of it, not only the new one.
+
+`tools/track_lamp_marks <data dir> <output dir> [track ...]` is a starting point for the five tracks with a table (CY1, CY2, CY3, TR3, TR4): `<data dir>` holds the game's `SIMDATA/ETRACKFM/<TRACK>_001.FAM`, and it writes the table's lamps as yellow into `<output dir>/<TRACK>/slot_<NN>.png`. A mask already there keeps its red and white and gets the yellow laid over it; for a track outside the table it writes no mask.
+
 The masks are made from layered PSDs, as the car's are: `tools/track_mask_draft` (built with the game) writes each texture of the CD's tracks as a PNG, `tools/track_mask_psd.py <drafts> <output>` turns them into PSDs (the texture on a locked layer, an empty **`mask`** layer over it at 50% opacity), and `tools/track_mask_from_psd.py <dir of TRACK/<name>.psd>` reads the **`mask` layer** back into the PNGs: paint what is reflective in any colour but black (white is easiest); an unpainted or black texel is not. The layer's own opacity is ignored. Needs `pip install psd-tools Pillow`. A mod puts its masks in `<mod>/track_masks/<TRACK>/`. To try a folder of masks without installing them: `TNFS_TRACK_MASKS=<dir of <TRACK>/<name>.png>`; the log's `track mask:` lines say which file each texture used.
 
 ## Car environment map
