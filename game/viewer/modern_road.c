@@ -110,7 +110,17 @@ void modern_light_tables(const uint8_t palette[768], const float tint[3], uint8_
     modern_light_tables_cast(palette, tint, neutral, out);
 }
 
-static void light_tables(const uint8_t palette[768], const float tint[3], const float cast[3], int cast_full, const float *add, uint8_t out[MODERN_FOG_LEVELS][256])
+/* i193 (keep_hue): the cost of a candidate's colour turning away from the wanted colour's: its red - green and green - blue against the wanted's, squared, HUE_WEIGHT times
+ * (on top of the RGB distance). A tunnel lamp's warm light on a dark grey wants red > green > blue; by the RGB distance alone the nearest entry was often a pinkish
+ * grey (red over green, blue as green: (93, 76, 77) for (81, 72, 57)) and the pools' edges went mauve. A neutral grey nearby costs less than a colour of the wrong hue. */
+enum { HUE_WEIGHT = 4 };   /* CY1N node 1097, tunnel_tone 100: the pink share of the road 15.9 % at 2, 0.4 % at 4; 8 and more turn the pools olive-brown */
+static float hue_cost(const float want[3], const uint8_t *candidate)
+{
+    const float rg = ((float)candidate[0] - (float)candidate[1]) - (want[0] - want[1]), gb = ((float)candidate[1] - (float)candidate[2]) - (want[1] - want[2]);
+    return HUE_WEIGHT * (rg * rg + gb * gb);
+}
+
+static void light_tables(const uint8_t palette[768], const float tint[3], const float cast[3], int cast_full, const float *add, int keep_hue, uint8_t out[MODERN_FOG_LEVELS][256])
 {
     enum { CHOICES = 0xfe };   /* 0xfe and 0xff mark shadow and see-through texels: they stay */
     const uint8_t *usable = palette_world_usable();   /* not the entries the race rewrites (the brake lamp, the police lights) */
@@ -133,7 +143,7 @@ static void light_tables(const uint8_t palette[768], const float tint[3], const 
             for (int i = 0; i < CHOICES; i++) {
                 if (!usable[i]) continue;
                 const float dr = palette[3 * i] - want[0], dg = palette[3 * i + 1] - want[1], db = palette[3 * i + 2] - want[2];
-                const float d = dr * dr + dg * dg + db * db;
+                const float d = dr * dr + dg * dg + db * db + (keep_hue ? hue_cost(want, palette + 3 * i) : 0.0f);
                 if (d < best_d) best = i, best_d = d;
             }
             out[l][c] = (uint8_t)best;
@@ -143,25 +153,25 @@ static void light_tables(const uint8_t palette[768], const float tint[3], const 
 
 void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], const float cast[3], uint8_t out[MODERN_FOG_LEVELS][256])
 {
-    light_tables(palette, tint, cast, 0, NULL, out);
+    light_tables(palette, tint, cast, 0, NULL, 0, out);
 }
 
 void modern_light_tables_add(const uint8_t palette[768], const float tint[3], const float add[3], uint8_t out[MODERN_FOG_LEVELS][256])
 {
     static const float neutral[3] = { 1, 1, 1 };
-    light_tables(palette, tint, neutral, 0, add, out);
+    light_tables(palette, tint, neutral, 0, add, 0, out);
 }
 
 void modern_tunnel_tables(const uint8_t palette[768], const float tint[3], const float cast[3], float min_light, uint8_t out[MODERN_FOG_LEVELS][256])
 {
     const float mean = (tint[0] + tint[1] + tint[2]) / 3.0f, m = mean > min_light ? mean : min_light, grey[3] = { m, m, m };
-    light_tables(palette, grey, cast, 1, NULL, out);
+    light_tables(palette, grey, cast, 1, NULL, 0, out);
 }
 
 void modern_tunnel_tables_add(const uint8_t palette[768], const float tint[3], const float cast[3], float min_light, const float add[3], uint8_t out[MODERN_FOG_LEVELS][256])
 {
     const float mean = (tint[0] + tint[1] + tint[2]) / 3.0f, m = mean > min_light ? mean : min_light, grey[3] = { m, m, m };
-    light_tables(palette, grey, cast, 1, add, out);
+    light_tables(palette, grey, cast, 1, add, 0, out);
 }
 
 /* the 4x4 ordered dither's thresholds, (BAYER + 0.5) / 16 by (y & 3, x & 3) */
@@ -641,4 +651,16 @@ void modern_flat(const QuadTarget *q, const View *view, uint8_t colour, const in
     }
     const Fill fill = { NULL, { MAP_OPAQUE, NULL }, colour, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 }, 0 };
     draw_clipped(q, view, uv, cam, corners, &fill);
+}
+
+void modern_light_tables_add_hue(const uint8_t palette[768], const float tint[3], const float add[3], uint8_t out[MODERN_FOG_LEVELS][256])
+{
+    static const float neutral[3] = { 1, 1, 1 };
+    light_tables(palette, tint, neutral, 0, add, 1, out);
+}
+
+void modern_tunnel_tables_add_hue(const uint8_t palette[768], const float tint[3], const float cast[3], float min_light, const float add[3], uint8_t out[MODERN_FOG_LEVELS][256])
+{
+    const float mean = (tint[0] + tint[1] + tint[2]) / 3.0f, m = mean > min_light ? mean : min_light, grey[3] = { m, m, m };
+    light_tables(palette, grey, cast, 1, add, 1, out);
 }
