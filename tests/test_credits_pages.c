@@ -24,7 +24,8 @@ static void the_homage_is_the_owners_words(void)
     CHECK(strcmp(it[5].text, "and for everyone who still plays it") == 0);
     for (int i = 2; i < n; i++) CHECK(it[i].kind == CREDITS_LINE && it[i].y > it[i - 1].y);
     for (int i = 3; i < n; i++) CHECK_EQ_INT(it[i].y - it[i - 1].y, it[3].y - it[2].y);   /* evenly spaced */
-    CHECK_EQ_INT(it[2].y + it[5].y, 2 * 268);   /* the block centred where the three lines were */
+    CHECK_EQ_INT(it[2].y + it[5].y, 2 * 310);   /* the block centred on y 310 */
+    CHECK(it[2].y - it[1].y >= 100);   /* the owner: clear room between the big lines and the dedication */
 }
 
 static void ours_is_set_in_two_columns(void)
