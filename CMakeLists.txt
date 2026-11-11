@@ -1421,9 +1421,14 @@ foreach(name config_dat screen_layout port_records free_records records_route co
     endif()
 endforeach()
 # the tests that run the real game take the tables from the exe at its start-up: a hang (a poisoned or missing table) ends them in two minutes
+# (five in a sanitizer build, where a loaded machine runs them at half the speed: day_plain_present took 111 s of 120 under ASan)
+set(TNFS_GAME_TEST_TIMEOUT 120)
+if(CMAKE_C_FLAGS MATCHES "-fsanitize")
+    set(TNFS_GAME_TEST_TIMEOUT 300)
+endif()
 foreach(name mods_overlay track_new reference_mod two_tracks_reflectors trail_frame_skip rain_lamps_masked old_files_startup dev_data_default
              rain_night_headlights shadow_without_light day_plain_present light_edit_reload light_edit_places spray_cd_smoke water_mist_frames wipers)
     if(TEST ${name})
-        set_tests_properties(${name} PROPERTIES TIMEOUT 120)
+        set_tests_properties(${name} PROPERTIES TIMEOUT ${TNFS_GAME_TEST_TIMEOUT})
     endif()
 endforeach()
