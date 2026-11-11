@@ -8,10 +8,11 @@
 # the screen to be still (TNFS_INPUT_SETTLE). A step that does not come in time stops the run and says which ("input script: step N: WAIT ... timed
 # out"), exit 3. The run is the visible-run kind: dummy SDL drivers, timeout -k, a scratch --mods and --user, the repo's original/ as the game data.
 #   env: DATA (the game data folder, default <repo>/original)  STEP_TIMEOUT (60 s a step)  SETTLE (1500 ms)  KEEP=1 (keep the scratch dir, for a look)
-# exit: 0 reached and saved; 3 a step timed out; 2 bad arguments or no binary; 1 anything else (the log is printed).
+# exit: 0 reached and saved; 3 a step timed out; 2 bad arguments, no binary or no magick; 1 anything else (the log is printed).
 bin=$1 out=$2 target=$3
 [ -n "$bin" ] && [ -n "$out" ] && [ -n "$target" ] || { echo "usage: $0 <bin> <outdir> <target>" >&2; exit 2; }
 [ -x "$bin" ] || { echo "no binary: $bin" >&2; exit 2; }
+command -v magick >/dev/null 2>&1 || { echo "magick missing (ImageMagick 7 saves the frame as a PNG; on nix: nix shell --inputs-from . nixpkgs#imagemagick)" >&2; exit 2; }
 here=${0:A:h}
 data=${DATA:-$here/../original}
 [ -d "$data" ] || { echo "no game data folder: $data (set DATA)" >&2; exit 2; }
@@ -20,6 +21,11 @@ settle=${SETTLE:-1500}
 
 wait_for() { printf '0:WAIT:mark:screen=%s:%s' "$1" "$step"; }
 click() { printf '300:CLICK:%s:%s' "$1" "$2"; }
+# Controls' pages: a click on the footer's right arrow, not the RIGHT key. With the pointer over a row (it is left where the Options click was), RIGHT
+# sometimes moved that row's value (Dead zone 5 % in one walk, 0 % in the next, same binary) and sometimes turned the page, and the page 2 picture came
+# out as page 3. park: the pointer moved to the empty middle of the page so the picture shows no row hovered.
+next_page() { printf '300:MOUSE:%s:%s,300:CLICK:%s:%s' 355 452 355 452; }
+park() { printf '300:MOUSE:%s:%s' 330 405; }
 
 # the common way in: the intro skipped, Game Mode, Single, the name box left, Control Central
 to_central="1500:ESC,$(wait_for game_mode),$(click 310 217),$(wait_for name_box),500:TEXT:R,500:ENTER,$(wait_for central)"
@@ -28,8 +34,8 @@ to_options="$to_central,$(click 215 450),$(wait_for options)"
 case $target in
 options)      script="$to_options"; final=options ;;
 controls)     script="$to_options,$(click 80 285),$(wait_for controls_keyboard)"; final=controls_keyboard ;;
-controls-p2)  script="$to_options,$(click 80 285),$(wait_for controls_keyboard),500:RIGHT,$(wait_for controls_actions)"; final=controls_actions ;;
-controls-p3)  script="$to_options,$(click 80 285),$(wait_for controls_keyboard),500:RIGHT,$(wait_for controls_actions),500:RIGHT,$(wait_for controls_tune)"; final=controls_tune ;;
+controls-p2)  script="$to_options,$(click 80 285),$(wait_for controls_keyboard),$(next_page),$(wait_for controls_actions),$(park)"; final=controls_actions ;;
+controls-p3)  script="$to_options,$(click 80 285),$(wait_for controls_keyboard),$(next_page),$(wait_for controls_actions),$(next_page),$(wait_for controls_tune),$(park)"; final=controls_tune ;;
 graphics)     script="$to_options,$(click 80 250),$(wait_for graphics)"; final=graphics ;;
 extras)       script="$to_options,$(click 100 392),$(wait_for extras_p1)"; final=extras_p1 ;;
 extras-p2)    script="$to_options,$(click 100 392),$(wait_for extras_p1),500:PGDN,$(wait_for extras_p2)"; final=extras_p2 ;;
@@ -57,7 +63,7 @@ pkill -TERM -f "$work/user" 2>/dev/null; sleep 1; pkill -KILL -f "$work/user" 2>
 if [ $rc -eq 0 ]; then
     last=$(ls "$work/cap" | sort | tail -1)
     if [ -n "$last" ]; then
-        magick "$work/cap/$last" "$out/$target.png" 2>/dev/null || cp "$work/cap/$last" "$out/$target.ppm"
+        magick "$work/cap/$last" "$out/$target.png" || { rc=1; echo "the frame did not convert to $out/$target.png" >&2; }
     else rc=1; echo "reached mark:screen=$final but no frame was captured" >&2; fi
 fi
 if [ $rc -ne 0 ]; then

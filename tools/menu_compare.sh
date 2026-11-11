@@ -4,7 +4,7 @@
 # old "ULFTRA" kind) shows as a target that differs.
 #
 # For each target one line:   <target>: same   |   <target>: differs <N> px (diff: <outdir>/diff/<target>.png)   |   <target>: walk failed (A|B|A+B), see <outdir>/<A|B>/<target>.log
-# then a summary line. Exit 0 every target the same, 1 some differ, 3 some walk failed (a failure outranks a difference), 2 bad arguments.
+# then a summary line. Exit 0 every target the same, 1 some differ, 3 some walk failed (a failure outranks a difference), 2 bad arguments or no magick.
 #   TARGETS (default: every menu_walk.sh target)   JOBS (default 2: walks running at once; each is one headless game)
 #   DATA, STEP_TIMEOUT, SETTLE: as menu_walk.sh
 # The pictures are the walk's last frame (the pointer included), so a run of the same binary twice is "same". The eight targets take about 6 minutes
@@ -15,6 +15,8 @@ export PATH=/nix/var/nix/profiles/default/bin:$PATH
 bin_a=${1:-} bin_b=${2:-} out=${3:-}
 if [[ -z $bin_a || -z $bin_b || -z $out ]]; then print -u2 -- "usage: $0 <binA> <binB> <outdir>"; exit 2; fi
 for b in $bin_a $bin_b; do [[ -x $b ]] || { print -u2 -- "menu_compare.sh: no binary: $b"; exit 2; }; done
+# without ImageMagick every walk "failed" with an empty log (the walk could not save its PNG): say so at once instead
+command -v magick >/dev/null 2>&1 || { print -u2 -- "menu_compare.sh: magick missing (ImageMagick 7; on nix: nix shell --inputs-from . nixpkgs#imagemagick)"; exit 2; }
 here=${0:A:h}
 bin_a=${bin_a:a} bin_b=${bin_b:a}
 targets=(${=TARGETS:-options controls controls-p2 controls-p3 graphics extras extras-p2 extras-p3})
@@ -52,12 +54,19 @@ for t in $targets; do
     if [[ -n $bad ]]; then
         print -r -- "$t: walk failed ($bad), see $out/<A|B>/$t.log"; failed=$((failed + 1)); continue
     fi
+    # AE prints "<pixels> (<share>)"; an HDRI ImageMagick (nixpkgs') prints the pixels as a fraction ("26.085 (8.49e-05)"): rounded. Anything else (the
+    # error of pictures of two sizes) has no pixel count
     n=$(magick compare -metric AE $out/A/$t.png $out/B/$t.png $out/diff/$t.png 2>&1 >/dev/null)
-    if [[ $n == 0 || $n == "0 "* ]]; then
-        print -r -- "$t: same"; same=$((same + 1)); rm -f $out/diff/$t.png
+    px=${n%% *}
+    if [[ $px == <->(|.<->)(|[eE](|[-+])<->) ]]; then
+        px=$(printf '%.0f' $px)
+        if (( px == 0 )); then
+            print -r -- "$t: same"; same=$((same + 1)); rm -f $out/diff/$t.png
+        else
+            print -r -- "$t: differs $px px (diff: $out/diff/$t.png)"; differ=$((differ + 1))
+        fi
     else
-        [[ ${n%% *} == <-> ]] || n="? (the pictures' sizes differ)"
-        print -r -- "$t: differs ${n%% *} px (diff: $out/diff/$t.png)"; differ=$((differ + 1))
+        print -r -- "$t: differs, no pixel count (${n:-compare said nothing}); diff: $out/diff/$t.png"; differ=$((differ + 1))
     fi
 done
 print -r -- "menu_compare: $same same, $differ differ, $failed failed, of ${#targets}"
