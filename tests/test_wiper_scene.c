@@ -71,11 +71,19 @@ static void check_pair(const uint8_t *m, int width, int gl)
     const float seen = (float)(width - 1 - gl);
     CHECK(fabsf(b[0].x - ((float)gl + WIPER_LEFT_SHARE * seen)) < 1.0f);
     CHECK(fabsf(b[1].x - ((float)gl + WIPER_RIGHT_SHARE * seen)) < 1.0f);
-    CHECK(fabsf(b[0].len - WIPER_LEN_SHARE * seen) < 1.0f && b[1].len == b[0].len);
+    CHECK(fabsf(b[0].len - WIPER_LEN_SHARE * (float)SCREEN_H) < 0.5f && b[1].len == b[0].len);   /* the dash keeps its size at any width (its middle is drawn 1:1), so do the blades */
+    float ux, uy;
+    wiper_offset(&b[0], b[0].len, b[0].park + 3.14159265f / 2.0f, &ux, &uy);
+    CHECK(-uy < b[0].len && -uy > 0.75f * b[0].len);   /* straight up the glass it is foreshortened, a little shorter on the screen than at rest */
     CHECK(b[0].park == 0.0f && b[1].park == 0.0f);   /* a flat bottom edge: parked flat along it */
-    CHECK(b[0].y > b[1].y - 1.0f && b[0].y >= (float)(GBOT + (width > SCREEN_W ? DASH_DROP : 0)) - 2.0f);   /* at the glass's bottom edge, the driver's a little under it */
+    CHECK(fabsf(b[0].y - b[1].y) < 1.0f && b[0].y >= (float)(GBOT + (width > SCREEN_W ? DASH_DROP : 0)) - 3.0f);   /* both on the glass's bottom edge */
     CHECK(b[0].xmax == 0.0f && b[1].xmax == 0.0f);   /* the glass decides where a blade shows, not the 640 layer's edge */
-    CHECK(b[1].x + b[1].len <= (float)width);   /* the right blade at rest within the frame */
+    for (int i = 0; i < WIPER_BLADES; i++) {   /* at rest each blade lies on the glass (where nothing nearer hides it): its tip's pixel, or the last one in the frame, is glass */
+        float dx, dy;
+        const float r = fminf(b[i].len * 0.95f, (float)width - 2.0f - b[i].x);
+        wiper_offset(&b[i], r, b[i].park, &dx, &dy);
+        CHECK_EQ_INT(m[(int)(b[i].y + dy) * width + (int)(b[i].x + dx)], 1);
+    }
     CHECK(span >= 50.0f && span <= 120.5f);
     float again = 0.0f;
     WiperBlade copy[WIPER_BLADES];
@@ -96,11 +104,31 @@ static void test_the_pair_is_placed_on_the_glass_the_frame_shows(void)
     wiper_scene_measure(flags, SCREEN_W, narrow, &s0);
     wiper_scene_measure(map, WIDE, wide, &s1);
     CHECK(wide[1].x + wide[1].len > (float)(WIDE + SCREEN_W) / 2.0f);   /* 21:9: the right blade at rest reaches past where the 640 layer's right edge is, into the stretched side */
-    CHECK(wide[0].len > narrow[0].len);   /* more glass seen, longer blades */
+    CHECK(wide[0].len == narrow[0].len);   /* the same blades at any width */
+}
+
+/* the fit stops at the windscreen's outline (the left pillar, the roof), not at what hangs in front of the glass (the mirror): a blade passes behind it */
+static void test_the_sweep_passes_behind_the_mirror(void)
+{
+    make_dash();
+    WiperBlade b[WIPER_BLADES];
+    float open = 0.0f, hung = 0.0f;
+    wiper_scene_measure(flags, SCREEN_W, b, &open);
+    for (int y = GTOP + 5; y < GTOP + 60; y++)   /* a mirror hung inside the glass, over the right blade's way up */
+        for (int x = (int)b[1].x - 120; x < (int)b[1].x + 40; x++) flags[y * SCREEN_W + x] = 0;
+    wiper_scene_measure(flags, SCREEN_W, b, &hung);
+    CHECK(hung == open);
+    const float before = wiper_scene_blade_fit(flags, SCREEN_W, &b[0], 120.0f);
+    CHECK(before > 24.0f && before < 120.0f);   /* the roof stops it short of the most it may turn */
+    for (int y = GTOP; y < GBOT - 90; y++)   /* the glass's left edge pushed in over the left blade's way up (the outline, not a hole): its sweep is cut there */
+        for (int x = GL; x < (int)b[0].x + 200; x++) flags[y * SCREEN_W + x] = 0;
+    const float cut = wiper_scene_blade_fit(flags, SCREEN_W, &b[0], 120.0f);
+    CHECK(cut < before);
 }
 
 int main(void)
 {
+    test_the_sweep_passes_behind_the_mirror();
     test_the_flags_are_the_windscreen_alone();
     test_the_frame_glass_is_the_dash_as_the_screen_places_it();
     test_the_edges_are_read_from_the_map();

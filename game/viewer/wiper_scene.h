@@ -11,11 +11,12 @@
  * view at the middle columns. `flags` is SCREEN_W * SCREEN_H bytes, `stack` SCREEN_W * SCREEN_H ints of work area. */
 void wiper_scene_glass_flags(const uint8_t *art, const uint8_t *mask, uint8_t *flags, int *stack);
 
-/* The shares of the glass the frame shows (its width at the pair's row, from the left pillar to the frame's right edge) where the pivots are and how long the blades are: the owner's (i197), measured on the
- * P911 at 21:9, so the pair keeps its place on the windscreen at any width: the driver's pivot a quarter of the way in, the other near two thirds, each blade reaching about 0.29 of the glass at rest. */
+/* The shares of the glass the frame shows (its width at the pair's row, from the left pillar to the frame's right edge) where the pivots are and how long the blades are: the owner's sketch, measured on the
+ * P911 at 21:9, so the pair keeps its place on the windscreen at any width: the driver's pivot a quarter of the way in, the other near two thirds. The blades' length is a share of the frame's height: the dash is drawn at the same size at every width (its
+ * middle 1:1), so the blades are too, and a 4:3 view crops the right blade at the screen's edge as it crops the glass. */
 #define WIPER_LEFT_SHARE 0.243f
 #define WIPER_RIGHT_SHARE 0.634f
-#define WIPER_LEN_SHARE 0.29f
+#define WIPER_LEN_SHARE 0.535f
 
 /* The glass as the frame shows it, `width` columns by 480 rows into `map`: at 640 the layer's flags; wider, each pixel the layer's pixel the dash is drawn from there (screen_dash_x / screen_dash_y: its middle
  * as it is, its sides stretched, dropped by DASH_DROP), so the blades are placed and drawn on the glass the player sees. */
