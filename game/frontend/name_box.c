@@ -1,9 +1,11 @@
 #include "game/frontend/name_box.h"
+#include "game/sys/port_log.h"
 
 /* 004667fc */
 int32_t name_box_show(char *name, int german, const MessageBannerInputs *in, NameBoxState *s,
                       const NameBoxOps *ops)
 {
+    port_log("mark:screen=name_box\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     enum { W = 0x1e0, H = 0x64, X = 0x50, Y = 0xbe, DARK = 0x6000, RED = 0xff0000, LENGTH = 8, SOUND = 0x48 };
     const MessageBannerOps *d = ops->draw;
     uint8_t shade[MESSAGE_BANNER_SHADE];

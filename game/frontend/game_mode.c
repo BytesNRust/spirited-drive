@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "game/sys/port_log.h"
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, DOWN = 0x5000, LEFT = 0x4b00, RIGHT = 0x4d00, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 /* port (modes): the Profile row where the exe's Single Player stands, then Single Player, Multiplayer (the exe's Network) and Exit; all four drawn in the game's text, "Multiplayer" has no art */
@@ -305,6 +306,7 @@ static void step(Menu *m, int16_t k, int german, const GameModeOps *o)
 /* 004376ac */
 int32_t game_mode_menu(int german, GameModeState *st, const GameModeOps *ops)
 {
+    port_log("mark:screen=game_mode\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     Menu m = { 0 };
     m.redraw = m.fade = m.armed = m.released = 1;
     m.selected = SINGLE;   /* the Profile row is above it */
