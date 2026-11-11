@@ -341,7 +341,7 @@ int port_menu_pad_cancel(void)
 int port_tunnel_lamps(void)
 {
     const char *v = getenv("TNFS_TUNNEL_LAMPS");
-    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().tunnel_lamps;
 }
 

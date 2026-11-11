@@ -703,13 +703,13 @@ static int tunnel_lamp_by_node(const void *a, const void *b)
 /* port (tunnel_lamps): the lamps of the track's tunnels and caverns (the lamp textures of tunnel_lamp_textures.c) joined to the light's lamp list, at night: each lights a pool under it over the tunnel's own light
  * (view_tables.c's lamp_polygon_tunnel). Their reach is 1.2 nodes (the search window, TUNNEL_LAMP_REACH_NODES, is wider); nothing is baked into the rows, so a dark tunnel_tone is not scaled by them. */
 enum { TUNNEL_LAMPS_MAX = 1024, TUNNEL_LAMP_REACH_NODES = 3 };
-#define TUNNEL_LAMP_STRENGTH 5.0f
+#define TUNNEL_LAMP_STRENGTH 3.0f   /* 300 percent: at 5.0 the pool saturated the tunnel tables by half its reach and the lamps (every 2 nodes, both sides) joined into one flat band, no pools (chase view, tunnel_tone 50) */
 #define TUNNEL_LAMP_REACH 1.2f   /* a pool reaches 1.2 nodes (7 m at 6 m a node): the lamps of a side hang every 2 nodes, so between two it is dark and each is a pool on the wall and the road under it */
 
 static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *made)
 {
     static TunnelLamp found[TUNNEL_LAMPS_MAX];
-    if (!port_tunnel_lamps() || light_letter != 'N' || tri == NULL || made->nodes == 0) return;
+    if (!port_tunnel_lamps() || (light_letter != 'N' && port_tunnel_lamps() < 2) || tri == NULL || made->nodes == 0) return;
     const size_t n = tunnel_lamps_find(tri, track, found, TUNNEL_LAMPS_MAX);
     if (n == 0) return;
     TrackNodeLightLamp *const list = calloc((size_t)made->lamp_n + n, sizeof *list);
@@ -719,7 +719,7 @@ static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *
         TrackNodeLightLamp *const l = &list[(size_t)made->lamp_n + i];
         l->node = found[i].node, l->x = found[i].x, l->z = found[i].z;
         l->reach = TUNNEL_LAMP_REACH * found[i].spacing;
-        l->rgb[0] = TUNNEL_LAMP_STRENGTH, l->rgb[1] = 0.82f * TUNNEL_LAMP_STRENGTH, l->rgb[2] = 0.5f * TUNNEL_LAMP_STRENGTH;   /* the amber of the street lamps' warm light, a little paler, 500 percent */
+        l->rgb[0] = TUNNEL_LAMP_STRENGTH, l->rgb[1] = 0.82f * TUNNEL_LAMP_STRENGTH, l->rgb[2] = 0.5f * TUNNEL_LAMP_STRENGTH;   /* the amber of the street lamps' warm light, a little paler, 300 percent */
         l->tunnel = 1;
     }
     const int total = made->lamp_n + (int)n;
