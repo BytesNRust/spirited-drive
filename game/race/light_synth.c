@@ -257,7 +257,7 @@ static void car_tunnel_look(const TrackNodeLight *light, uint32_t node, int matc
         track_node_light_zone_look_at(light, zone, &percent, cast);
         const float lamp_gap = (float)LIGHT_SYNTH_LAMP_GAP_PERCENT / 100.0f;
         const float dark = 1.0f - (float)d / (float)LIGHT_SYNTH_LOOK_RAMP;
-        const float gap = (node & 1u) ? (match >= 1 ? (float)LIGHT_SYNTH_LAMP_GAP_SMOOTH_PERCENT / 100.0f : lamp_gap) : 1.0f;   /* port (car_tunnel_match): the alternation kept, soft: 1.0 under a lamp, the smoothed gap (75%) between two */
+        const float gap = (match >= 1 && light->tunnel_lamp_n > 0) ? (float)LIGHT_SYNTH_LAMP_GAP_SMOOTH_PERCENT / 100.0f : (node & 1u) ? (match >= 1 ? (float)LIGHT_SYNTH_LAMP_GAP_SMOOTH_PERCENT / 100.0f : lamp_gap) : 1.0f;   /* port (tunnel_lamps): with the track's real lamps in the light the level is the between-lamps one everywhere and their pools lift it (track_node_light_lamp_car). port (car_tunnel_match): the alternation kept, soft: 1.0 under a lamp, the smoothed gap (75%) between two */
         const float road = track_node_light_road_light(light, node);   /* the look is a table's gain; how lit the place is comes from its rows: the car never has more than the road around it */
         const float cap = (float)TRACK_NODE_LIGHT_TUNNEL_ROAD / (float)TRACK_NODE_LIGHT_FULL;
         const float inside = road >= 1.0f ? 0.0f : road <= cap ? 1.0f : (1.0f - road) / (1.0f - cap);   /* how far in the road's own darkening says the car is: the open road 0, a tunnel's 1 */

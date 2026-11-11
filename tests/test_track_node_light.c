@@ -259,6 +259,17 @@ static void test_radial_lamps(void)
     float bright[3] = { 1.9f, 1.9f, 1.9f };
     track_node_light_lamp_car(&l, 10, 0.0, 0.0, bright);
     CHECK(bright[0] <= 2.0f);   /* the old pool's ceiling */
+    /* a tunnel lamp lifts the car to full light at most (the between-lamps level up to the lit one), not to the street lamp's ceiling; a car already above it is left */
+    TrackNodeLightLamp tl[1] = { { 10, 0.0f, 0.0f, 30.0f, { 5.0f, 4.0f, 2.5f }, 1 } };
+    TrackNodeLight t = { 0 };
+    t.nodes = 128, t.lamps = tl, t.lamp_n = 1, t.lamp_reach_nodes = 5, t.lamp_placed = 1;
+    float under[3] = { 0.75f, 0.75f, 0.75f };
+    CHECK(track_node_light_lamp_car(&t, 10, 0.0, 0.0, under) && under[0] == 1.0f && under[1] <= 1.0f && under[2] <= 1.0f);
+    float side[3] = { 0.75f, 0.75f, 0.75f };
+    CHECK(track_node_light_lamp_car(&t, 10, 15.0, 0.0, side) && side[0] > 0.75f && side[0] < 1.0f + 1e-6f);
+    float over[3] = { 1.5f, 1.5f, 1.5f };
+    track_node_light_lamp_car(&t, 10, 0.0, 0.0, over);
+    CHECK(over[0] == 1.5f);
 }
 
 /* an object beside a lamp: raised to what the lamp gives at its own place, less what the rows' bake already put on its terrain's points (not added twice) */

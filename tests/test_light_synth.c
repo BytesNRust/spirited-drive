@@ -108,6 +108,16 @@ static void test_car_tunnel_match(void)
     light.look_light = 100.0;
     light_synth_car_tunnel_match(&light, 18, 1, mean, out);   /* the ramp outside the mouth (the rows there are the open road's): no brighter than the open road */
     CHECK(out[0] <= 1.0f + 1e-5f);
+    /* port (tunnel_lamps): with the track's real lamps in the light the parity alternation is gone: the car has the between-lamps level everywhere in the tunnel, and the lamps' pools (track_node_light_lamp_car) lift it by its distance to each */
+    light.look_light = 100.0;
+    light.tunnel_lamp_n = 4;
+    float even[3], odd[3];
+    light_synth_car_tunnel_match(&light, 30, 1, mean, even);
+    light_synth_car_tunnel_match(&light, 31, 1, mean, odd);
+    CHECK(memcmp(even, odd, sizeof even) == 0 && fabsf(even[0] - dark_gap / mean) < 1e-4f);
+    light_synth_car_tunnel_match(&light, 30, 0, mean, even);   /* level 0 keeps the exe's alternation whatever the lamps */
+    light_synth_car_tunnel_match(&light, 31, 0, mean, odd);
+    CHECK(even[0] != odd[0]);
 }
 
 /* port (tunnel zone looks): in every tunnel the car takes its zone's light and colour: under a lamp (even node) light% / 100 x colour (capped at 1 here: these lights have no rows, so no road darkening for the excess to come in with; test_car_above_full_light_takes_the_excess), between two lamps (odd) the gap's 40 % of that,

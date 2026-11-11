@@ -376,10 +376,12 @@ int track_node_light_lamp_car(const TrackNodeLight *light, uint32_t node, double
     float rgb[3];
     const float top = n > 0 ? track_node_light_lamp_at(light, idx, n, x, z, rgb) : 0.0f;
     if (top <= 0.0f) return 0;
-    int changed = 0;
+    int changed = 0, tunnel_only = 1;   /* port (tunnel_lamps): a tunnel's lamps lift the car to full light, not to the street lamp's ceiling */
+    for (int i = 0; i < n; i++) tunnel_only = tunnel_only && light->lamps[idx[i]].tunnel;
+    const float ceiling = tunnel_only ? 1.0f : (float)RATIO_MAX;
     for (int k = 0; k < 3; k++) {
         const float lifted = out[k] + LAMP_CAR_ADD * top * rgb[k];
-        if (lifted > out[k]) out[k] = lifted < (float)RATIO_MAX ? lifted : (out[k] > (float)RATIO_MAX ? out[k] : (float)RATIO_MAX), changed = 1;
+        if (lifted > out[k]) out[k] = lifted < ceiling ? lifted : (out[k] > ceiling ? out[k] : ceiling), changed = 1;
     }
     return changed;
 }
