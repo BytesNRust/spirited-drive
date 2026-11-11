@@ -2,6 +2,9 @@
 #include "game/frontend/config_bgnd.h"
 
 #include "formats/fsh.h"
+#include "game/sys/art_cache.h"
+
+#include <stdio.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -198,15 +201,45 @@ static int screen_rgb(ConfigBgndRead read, const char *name, uint8_t *rgb, uint8
     return ok;
 }
 
+void config_bgnd_key(ConfigBgndRead read, ArtCacheKey *key)
+{
+    for (int s = 0; s < CONFIG_BGND_SCREENS; s++) {
+        size_t size = 0;
+        uint8_t *data = read(SCREEN_NAMES[s], &size);
+        art_cache_key_add(key, data, size);
+        free(data);
+    }
+}
+
 int config_bgnd_load(ConfigBgndRead read, int palette_screen, int done_cancel, uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t palette[768])
 {
+    if (palette_screen < 0 || palette_screen >= CONFIG_BGND_SCREENS) return 0;
+    /* made once from the CD, kept in the player's cache (art_cache.h) */
+    ArtCacheKey key;
+    char name[48];
+    uint8_t *blob = malloc(SIZE + 768);
+    art_cache_key_init(&key, "config_bgnd", CONFIG_BGND_ART_VERSION);
+    const uint8_t how[2] = { (uint8_t)palette_screen, (uint8_t)(done_cancel != 0) };
+    art_cache_key_add(&key, how, sizeof how);
+    config_bgnd_key(read, &key);
+    snprintf(name, sizeof name, "config_bgnd_%d_%d.bin", palette_screen, done_cancel != 0);
+    if (blob != NULL && art_cache_read(name, &key, blob, SIZE + 768)) {
+        memcpy(pixels, blob, SIZE), memcpy(palette, blob + SIZE, 768);
+        free(blob);
+        return 1;
+    }
     uint8_t *rgb[CONFIG_BGND_SCREENS] = { NULL };
     uint8_t own[768];
-    int ok = palette_screen >= 0 && palette_screen < CONFIG_BGND_SCREENS;
+    int ok = 1;
     for (int s = 0; s < CONFIG_BGND_SCREENS && ok; s++)
         ok = (rgb[s] = malloc(3 * SIZE)) != NULL && screen_rgb(read, SCREEN_NAMES[s], rgb[s], s == palette_screen ? palette : own);
     if (ok) config_bgnd_compose((const uint8_t *const *)rgb, palette, done_cancel, pixels);
     for (int s = 0; s < CONFIG_BGND_SCREENS; s++) free(rgb[s]);
+    if (ok && blob != NULL) {
+        memcpy(blob, pixels, SIZE), memcpy(blob + SIZE, palette, 768);
+        (void)art_cache_write(name, &key, blob, SIZE + 768);
+    }
+    free(blob);
     return ok;
 }
 

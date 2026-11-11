@@ -4,6 +4,7 @@
 
 #include "formats/fsh.h"
 #include "formats/png.h"
+#include "game/sys/art_cache.h"
 #include "game/sys/data_path.h"
 #include "game/sys/port_log.h"
 #include "game/sys/resource.h"
@@ -54,6 +55,31 @@ static uint8_t *read_file(const char *path, size_t *size)
     else free(data), data = NULL;
     fclose(f);
     return data;
+}
+
+/* the first of `relative`'s candidates in the port's data (data_path.h) that is there, read whole; NULL when none is */
+static uint8_t *read_data(const char *relative, size_t *size)
+{
+    char found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
+    (void)data_path_candidates(relative, found);
+    for (int i = 0; i < DATA_PATH_CANDIDATES; i++)
+        if (found[i][0] != '\0' && data_path_exists(found[i])) return read_file(found[i], size);
+    *size = 0;
+    return NULL;
+}
+
+void boot_relief_key(ArtCacheKey *key)
+{
+    static const char *const CD[] = { "title.qfs", "iart/instunin.qfs", "iart/instinst.qfs", "iart/instvido.qfs", "control/dia1.qfs", "control/central.qfs" };
+    size_t size = 0;
+    uint8_t *data = read_data(MAP_FILE, &size);
+    art_cache_key_add(key, data, size);
+    free(data);
+    for (size_t i = 0; i < sizeof CD / sizeof CD[0]; i++) {
+        data = resource_load_art(CD[i], &size);
+        art_cache_key_add(key, data, size);
+        resource_free(data);
+    }
 }
 
 /* the region map, a W x H grey PNG of BOOT_MAP_* values, from the port's data */

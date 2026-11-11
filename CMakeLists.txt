@@ -314,6 +314,7 @@ add_library(tnfs_game STATIC
     game/race/dash_mask.c
     game/race/dash_color.c
     game/sys/data_path.c
+    game/sys/art_cache.c
     game/sys/sha256.c
     game/sys/data_check.c
     game/sys/file_url.c
@@ -937,7 +938,7 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_compile_options(test_boot_screen PRIVATE ${TNFS_WARNINGS})
     add_test(NAME boot_screen COMMAND test_boot_screen)
 
-    foreach(t boot_relief_ops boot_relief boot_quant)
+    foreach(t boot_relief_ops boot_relief boot_quant art_cache)
         add_executable(test_${t} tests/test_${t}.c)
         target_include_directories(test_${t} PRIVATE game .)
         target_link_libraries(test_${t} PRIVATE tnfs_game)

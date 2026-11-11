@@ -21,6 +21,7 @@
 #include "game/frontend/tgv_player.h"
 #include "game/platform/first_run.h"
 #include "game/platform/update.h"
+#include "game/sys/art_cache.h"
 #include "game/sys/data_path.h"
 #include "game/sys/data_root.h"
 #include "game/sys/game_name.h"
@@ -298,6 +299,10 @@ int main(int argc, char **argv)
     set_stats_sender();
     platform_set_user_dir(opt.user);   /* port: before the log opens in it */
     platform_open_log(opt.mods);   /* before anything can stop the run: the report of a run with no game data is in spirited-drive.log too */
+    {   /* port: the pictures made from the CD's art are kept in <user folder>/cache/ (art_cache.h) */
+        char cache[1100];
+        if (platform_user_dir(cache, sizeof cache - 8)) art_cache_set_dir(strcat(cache, "cache/"));
+    }
     int ok;
     static char data_root[1024];
     int data_copied = 0;
