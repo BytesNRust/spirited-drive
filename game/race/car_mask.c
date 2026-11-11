@@ -84,6 +84,7 @@ uint8_t *car_mask_load(const char *stem, const char name[4], int level, int widt
             if (found[r - 1][0] == '\0') continue;
             snprintf(path, sizeof path, "%s", found[r - 1]);
         }
+        if (r > 0 && !data_path_exists(path)) continue;   /* masks are optional: a data folder without this one is passed over, no "cannot read" line (i191); the dev override is read as named */
         size_t size = 0;
         uint8_t *file = platform_read_file(path, &size);
         if (file == NULL) continue;
@@ -94,6 +95,7 @@ uint8_t *car_mask_load(const char *stem, const char name[4], int level, int widt
             port_log("car mask: %s\n", path);   /* the log alone says where a mask came from (the bundle's data, the working directory, ...) */
             return mask;
         }
+        port_log("car mask: cannot read %s: not a %dx%d mask PNG\n", path, width, height);   /* there, but not a mask: said, then the next folder */
         free(mask);
     }
     port_log("car mask: none for %s/%.4s%s\n", stem, name, suffix);

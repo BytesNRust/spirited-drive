@@ -26,4 +26,8 @@ int data_path_candidates_for(const char *mod, const char *base, const char *sour
 /* The same with the base the platform set and the build's own source directory (none in a release build). */
 int data_path_candidates(const char *relative, char paths[DATA_PATH_CANDIDATES][DATA_PATH_MAX]);
 
+/* 1 when `path` is a file that is there (not a folder): an optional file's loader tries only those, so a candidate without it is passed over without a
+ * read, and the log's "cannot read" lines are for a file that is there and could not be read (i191) */
+int data_path_exists(const char *path);
+
 #endif

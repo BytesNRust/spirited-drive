@@ -14,11 +14,16 @@
 
 enum { W = 6, H = 2 };
 
+static int read_misses;   /* reads of a file that is not there */
+
 uint8_t *platform_read_file(const char *path, size_t *size)
 {
     *size = 0;
     FILE *f = fopen(path, "rb");
-    if (f == NULL) return NULL;
+    if (f == NULL) {
+        read_misses++;   /* the game logs each as "cannot read" (i191) */
+        return NULL;
+    }
     long n = 0;
     uint8_t *d = NULL;
     if (fseek(f, 0, SEEK_END) == 0) n = ftell(f);
@@ -121,7 +126,10 @@ static void test_lookup(void)
     m = dash_mask_load("TDash");                              /* the dash's stem in mixed case: found in upper case */
     CHECK(m != NULL);
     free(m);
+    unsetenv("TNFS_DASH_MASKS");   /* the data folders only: the dev override is read as named */
+    read_misses = 0;
     CHECK(dash_mask_load("TNOSUCH") == NULL);
+    CHECK_EQ_INT(read_misses, 0);   /* i191: the folders without the file are not read (no "cannot read" line each) */
     CHECK(dash_mask_load(NULL) == NULL);
 }
 
@@ -153,6 +161,10 @@ static void test_mod_before_data(void)
     data_path_set_base(under("/order/base"));
     unsetenv("TNFS_DASH_MASKS");
     CHECK(note_is("base"));   /* no mod: the port's */
+    data_path_set_mod(under("/order/empty_mod"));   /* i191: a mods folder without dash_masks/ is passed over without a read */
+    read_misses = 0;
+    CHECK(note_is("base"));
+    CHECK_EQ_INT(read_misses, 0);
     put(under("/order/mod/dash_masks/TORDER"), "mod");
     data_path_set_mod(under("/order/mod"));
     CHECK(note_is("mod"));    /* the mod's first */
