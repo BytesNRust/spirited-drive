@@ -1,0 +1,3 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Windows: Spirited Drive's icon as the program's own (Explorer, the taskbar's pinned button); the window's comes from port_icon.c. CMake fills in the path.
+1 ICON "@TNFS_ICON_ICO@"

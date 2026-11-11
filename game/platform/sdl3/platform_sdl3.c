@@ -179,11 +179,22 @@ uint64_t platform_refresh_period_ns(void)
     return SDL_NS_PER_SECOND / (uint64_t)refresh_hz;
 }
 
-void platform_set_window_icon(const uint8_t *rgba, int w, int h)
+static SDL_Surface *icon_surface(const PlatformIconImage *image)
 {
-    if (sdl3_window == NULL || rgba == NULL || w <= 0 || h <= 0) return;
-    SDL_Surface *const icon = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, (void *)(uintptr_t)rgba, w * 4);
+    if (image->rgba == NULL || image->w <= 0 || image->h <= 0) return NULL;
+    return SDL_CreateSurfaceFrom(image->w, image->h, SDL_PIXELFORMAT_RGBA32, (void *)(uintptr_t)image->rgba, image->w * 4);
+}
+
+void platform_set_window_icon(const PlatformIconImage *images, int count)
+{
+    if (sdl3_window == NULL || images == NULL || count <= 0) return;
+    SDL_Surface *const icon = icon_surface(&images[0]);
     if (icon == NULL) return;
+    for (int i = 1; i < count; i++) {   /* the high-DPI versions (SDL_SetWindowIcon picks the closest for the display's scale) */
+        SDL_Surface *const alt = icon_surface(&images[i]);
+        if (alt != NULL) SDL_AddSurfaceAlternateImage(icon, alt);
+        SDL_DestroySurface(alt);
+    }
     SDL_SetWindowIcon(sdl3_window, icon);
     SDL_DestroySurface(icon);
 }
