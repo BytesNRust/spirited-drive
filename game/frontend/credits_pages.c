@@ -38,11 +38,11 @@ static void homage(Page *p)
 {
     put(p, CREDITS_BIG, CREDITS_YELLOW, SCREEN_CX, 112, "They built it in 1996.");
     put(p, CREDITS_BIG, CREDITS_CREAM, SCREEN_CX, 160, "We kept it running.");
-    /* i055: the owner's option A, four lines centred where the three were (y 268) */
-    put(p, CREDITS_LINE, CREDITS_CREAM, SCREEN_CX, 226, "For the people at EA Canada");
-    put(p, CREDITS_LINE, CREDITS_CREAM, SCREEN_CX, 254, "Pioneer Productions and EA Seattle");
-    put(p, CREDITS_LINE, CREDITS_CREAM, SCREEN_CX, 282, "who made it");
-    put(p, CREDITS_LINE, CREDITS_CREAM, SCREEN_CX, 310, "and for everyone who still plays it");
+    /* i055: the owner's option A, four lines, set a line and a half (42 px) lower than the three were (centred on y 310): the owner asked for room under the two big lines */
+    put(p, CREDITS_LINE, CREDITS_CREAM, SCREEN_CX, 268, "For the people at EA Canada");
+    put(p, CREDITS_LINE, CREDITS_CREAM, SCREEN_CX, 296, "Pioneer Productions and EA Seattle");
+    put(p, CREDITS_LINE, CREDITS_CREAM, SCREEN_CX, 324, "who made it");
+    put(p, CREDITS_LINE, CREDITS_CREAM, SCREEN_CX, 352, "and for everyone who still plays it");
 }
 
 static void ours(Page *p, const char *version)
