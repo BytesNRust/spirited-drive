@@ -487,6 +487,8 @@ add_library(tnfs_game STATIC
     game/viewer/weather_sky.c
     game/viewer/weather_hooks.c
     game/viewer/drive_light.c
+    game/viewer/drive_light_sky.c
+    game/viewer/drive_light_night.c
     game/viewer/class_overlay.c
     game/viewer/class_cache.c
     game/sys/backdrop.c
