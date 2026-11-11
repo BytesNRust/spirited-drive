@@ -701,10 +701,10 @@ static int tunnel_lamp_by_node(const void *a, const void *b)
 }
 
 /* port (tunnel_lamps): the lamps of the track's tunnels and caverns (the lamp textures of tunnel_lamp_textures.c) joined to the light's lamp list, at night: each lights a pool under it over the tunnel's own light
- * (view_tables.c's lamp_polygon_tunnel). Their reach is 1.2 nodes (the search window, TUNNEL_LAMP_REACH_NODES, is wider); nothing is baked into the rows, so a dark tunnel_tone is not scaled by them. */
+ * (view_tables.c's lamp_polygon_tunnel). Their reach is 1.8 nodes (the search window, TUNNEL_LAMP_REACH_NODES, is wider); nothing is baked into the rows, so a dark tunnel_tone is not scaled by them. */
 enum { TUNNEL_LAMPS_MAX = 1024, TUNNEL_LAMP_REACH_NODES = 3 };
 #define TUNNEL_LAMP_STRENGTH 3.0f   /* 300 percent: at 5.0 the pool saturated the tunnel tables by half its reach and the lamps (every 2 nodes, both sides) joined into one flat band, no pools (chase view, tunnel_tone 50) */
-#define TUNNEL_LAMP_REACH 1.2f   /* a pool reaches 1.2 nodes (7 m at 6 m a node): the lamps of a side hang every 2 nodes, so between two it is dark and each is a pool on the wall and the road under it */
+#define TUNNEL_LAMP_REACH 1.8f   /* a pool reaches 1.8 nodes (11 m at 6 m a node): CY1's lamp pair hangs 6 m apart in the middle of a 19 m tunnel (strips 4 and 9 are lanes, not walls), so at 1.2 the left wall was out of reach (7 m from its lamp) and only the right one (5.8 m) caught a sliver; at 1.8 both walls and the ceiling are lit and the road still has its gaps between lamps */
 
 static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *made)
 {
