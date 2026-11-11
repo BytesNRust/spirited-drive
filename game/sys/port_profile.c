@@ -9,10 +9,10 @@
 static const char *const KEYS[PROFILE_COUNT] = { "stock", "restored", "restomod" };
 static const char *const FILES[PROFILE_COUNT] = { "stock.cfg", "restored.cfg", "restomod.cfg" };
 static const char *const TITLES[PROFILE_COUNT] = { "Stock '96", "Restored '96", "Restomod '26" };
-static const char *const LINE1[PROFILE_COUNT] = { "Factory spec. Every bolt as it shipped.", "Original paint, new bearings.",
-                                                 "Original block, period-correct mods." };
-static const char *const LINE2[PROFILE_COUNT] = { "4:3, as it shipped in 1996. Nothing touched.", "Same look, widescreen at 144 Hz.",
-                                                 "1996 renderer, 2026 power: night, lights, paint jobs." };
+static const char *const LINE1[PROFILE_COUNT] = { "Factory spec, recalls done.", "Original paint, new bearings.",
+                                                 "Original block, modern running gear." };
+static const char *const LINE2[PROFILE_COUNT] = { "4:3, as in 1996. Nothing touched but the bugs.", "Same look, widescreen, up to 144 Hz.",
+                                                 "As you remember it, not as it was. Yours to tune." };
 
 const char *port_profile_key(Profile p) { return p >= 0 && p < PROFILE_COUNT ? KEYS[p] : KEYS[PROFILE_STOCK]; }
 const char *port_profile_file(Profile p) { return p >= 0 && p < PROFILE_COUNT ? FILES[p] : FILES[PROFILE_STOCK]; }
