@@ -109,7 +109,8 @@ def sabotage(profile, settings, doc):
     """Each mistake below, made in a copy, must be caught."""
     row = re.search(r"\[PROFILE_STOCK\]\s*=\s*\{[^\n]*?\},", profile).group(0)
     cell = "| `lamp_halos` | settings | 0 | 0 | 1 |"
-    key_row = re.search(r"^\| `(spray_cd_smoke)` \|[^\n]*\n", doc, re.M).group(0)
+    head_end = doc.index("## What each profile sets")   # every row of the key above the TABLES table: a key may have a second row (the i180 table)
+    no_key_row = re.sub(r"^\| `spray_cd_smoke` \|[^\n]*\n", "", doc[:head_end], flags=re.M) + doc[head_end:]
     cases = {
         "a value dropped from a TABLES row": (profile.replace(row, re.sub(r",\s*\d+\s*\},?$", " },", row), 1), settings, doc),
         "a value added to a TABLES row": (profile.replace(row, row.replace("{ ", "{ 0, ", 1), 1), settings, doc),
@@ -117,7 +118,7 @@ def sabotage(profile, settings, doc):
         "a docs TABLES row deleted": (profile, settings, doc.replace(cell + "\n", "", 1)),
         "a docs TABLES value changed": (profile, settings, doc.replace(cell, "| `lamp_halos` | settings | 0 | 0 | 0 |", 1)),
         "a docs column count that is wrong": (profile, settings, re.sub(r"All \d+ columns", "All 3 columns", doc, count=1)),
-        "a port.cfg key with no docs row": (profile, settings, doc.replace(key_row, "", 1)),
+        "a port.cfg key with no docs row": (profile, settings, no_key_row),
     }
     failed = []
     for what, args in cases.items():
