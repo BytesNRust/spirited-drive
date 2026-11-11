@@ -1,4 +1,4 @@
-/* port: the PS1 look's light script (re/notes/psx-light.md). Z<TRACK><A|B|C>.LGS is text: C comments, then the depth cue's
+/* port: the PS1 look's light script. Z<TRACK><A|B|C>.LGS is text: C comments, then the depth cue's
  * four points (X,Y percent), the default ambient colour at the start and at the end (128 is neutral, per channel) and the
  * light contexts. Only the ambient colour is read here; the contexts (the cars' light by segment range) are not. Numbers are
  * separated by anything that is not a digit, so commas, spaces and CR / LF all do, and the file's trailing binary after the

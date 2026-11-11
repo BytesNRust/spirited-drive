@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """psx_light_synthetic.py OUT NODES full|dark|all|ramp|sun: a made-up Z<TRACK>B.LGT for checking the PS1 light without the CD's files.
 all: the terrain of every node at 0x40. sun: the road at 0xD7 and the terrain at 0xC8 (a low sun's A / C). ramp: terrain of nodes 96..159 fading linearly from 255 to 40 (a tunnel mouth). full: every point 255 (the frames must equal the light off). dark: terrain points of the middle tenth of the nodes at 0x40.
-Layout (re/notes/psx-lgt-format.md): u32 nodes, u32 scale, 11 bytes a node (0 middle, 1-5 right, 6-10 left), 12 byte trailer."""
+Layout: u32 nodes, u32 scale, 11 bytes a node (0 middle, 1-5 right, 6-10 left), 12 byte trailer."""
 import struct, sys
 
 out, nodes, kind = sys.argv[1], int(sys.argv[2]), sys.argv[3]

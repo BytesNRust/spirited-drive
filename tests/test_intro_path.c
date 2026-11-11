@@ -23,12 +23,12 @@ static void test_a_long_movie_directory_reaches_the_movie(void)
 {
     const IntroOps ops = { nothing, nothing, window, NULL, NULL, nothing, palette_set, nothing, mode_set, movie, NULL,
                            NULL, NULL };
-    static const char DIR[] = "/Users/someone/Library/Application Support/Games/Need for Speed SE/original/FRONTEND/"
+    static const char DIR[] = "/home/someone/Library/Application Support/Games/Need for Speed SE/original/FRONTEND/"
                               "MOVIES/";
     char path[INTRO_PATH];
     IntroState s = { .intro_movies = 1, .movie_dir = DIR, .movie_path = path };
     CHECK_EQ_INT(intro_movie(&s, &ops, "attract2.tgv"), 1);
-    CHECK(strcmp(played, "/Users/someone/Library/Application Support/Games/Need for Speed SE/original/FRONTEND/"
+    CHECK(strcmp(played, "/home/someone/Library/Application Support/Games/Need for Speed SE/original/FRONTEND/"
                          "MOVIES/attract2.tgv") == 0);
 }
 

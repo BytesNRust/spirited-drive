@@ -1,4 +1,4 @@
-/* port: the light effects' baked light (the RE notes (private workshop repo), branch docs/psx-lgt). The PS1 CD has, for each track and time
+/* port: the light effects' baked light. The PS1 CD has, for each track and time
  * of day (A, B, C), a Z<TRACK><A|B|C>.LGT: u32 node count, u32 scale, 11 bytes of intensity a node (0 black, 255 full)
  * in the order of the node's terrain row (TriRow: middle, right[0..4], left[0..4]), then a 12-byte CRCF trailer. The road's
  * points never darken; the terrain under a bridge does. In a tunnel a 0 beyond a lit wall foot (point 2 / 7 at TRACK_NODE_LIGHT_WALL_FOOT or more) is
@@ -43,7 +43,7 @@ typedef struct {
     float look_cast[3];
     float warm_cast[2][3];   /* port (made_tunnels): city_tunnel's tunnel look [0 day, 1 night]: the cast of the dim levels (red, green, blue) ... */
     int warm_percent[2];     /* ... and its light, the gain over the made tunnel's own in percent (light_synth_warm_look; 0 none) */
-    int neutral_cast;   /* port (made_tunnels, i074): 1 where the road tunnels' tables keep the palette's own hue, no olive-orange cast (Burnt Sienna's mine is blue); 0 the cast */
+    int neutral_cast;   /* port (made_tunnels): 1 where the road tunnels' tables keep the palette's own hue, no olive-orange cast (Burnt Sienna's mine is blue); 0 the cast */
     uint8_t *canyon;    /* port (canyon_shade): per node (owned), 1 where TR6's property-16 stretch (the canyon) is; NULL none */
     uint8_t *car_dim;   /* port (parking_dark): per node (owned), 1 where the car keeps the darkest tone of the lamp alternation with no alternating (TR7's parking); NULL none */
     int forest_road;    /* port (forest_neutral): 1 and the file's nodes forest_from..forest_to, which the rows mark as a tunnel (a forest's shade), are drawn with the road's tables, not a tunnel's cast */

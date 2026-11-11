@@ -3,7 +3,7 @@
 # words of ENV_A and once with ENV_B (each a quoted string of VAR=value words, "" for none), and compares the pictures
 # byte for byte (cmp on the PPMs, not a hash of them). Exit 1 and a DIFF line per picture that differs.
 #
-# For the render bands (re/notes/render-bands-design.md): frame_compare.sh build/release "TNFS_BANDS=0" "TNFS_BANDS=4".
+# For the render bands: frame_compare.sh build/release "TNFS_BANDS=0" "TNFS_BANDS=4".
 #
 # The set is the golden frames' way of drawing (track_viewer's --screenshot after 400 steps at full throttle,
 # headless, SDL dummy drivers, timeout -k, an empty --mods dir of its own per run) over

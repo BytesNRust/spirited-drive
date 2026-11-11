@@ -46,7 +46,7 @@ typedef struct {
 } QuadTarget;
 
 /* port: the rows of the per-scanline tables (the exe's 768, 0x300), lifted for a render at 3x the 1440-row 21:9
- * frame (re/notes/render-scale-design.md). A target taller than the exe's rows draws as the rows below do. */
+ * frame. A target taller than the exe's rows draws as the rows below do. */
 enum { QUAD_MAX_ROWS = 1440 };
 
 /* The target must be valid: 0 <= left < right, 0 <= top < bottom <= QUAD_MAX_ROWS (the

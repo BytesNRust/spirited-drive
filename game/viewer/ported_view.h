@@ -40,7 +40,7 @@ typedef struct {
     int32_t render_scale;       /* port (render scale): the positions and sizes above are already this many times the frame's; 1 */
 } PortedViewport;
 
-/* port (render scale, re/notes/render-scale-design.md): `v` for a frame `s` times as wide and tall. The box, the
+/* port (render scale): `v` for a frame `s` times as wide and tall. The box, the
  * projection's place and its size grow by s; the fields of view stay, so the focal lengths (view_init takes them from the
  * size) grow by s and the picture is the same with s times the pixels. */
 PortedViewport ported_view_scaled(const PortedViewport *v, int s);

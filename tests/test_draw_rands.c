@@ -24,7 +24,7 @@ int main(void)
     CHECK_EQ_INT(draw_rands_take(&d, 3, source, NULL), 2);
     CHECK_EQ_INT(draw_rands_take(&d, 2, source, NULL), 1);
     CHECK_EQ_INT(taken, 2);
-    /* another order: puff_smoke's rand_below(2) meets puff_dirt's 2 of 3 and must stay below 2 (dev1's UBSan) */
+    /* another order: puff_smoke's rand_below(2) meets puff_dirt's 2 of 3 and must stay below 2 (UBSan caught an index past the end) */
     draw_rands_frame(&d, 0);
     CHECK_EQ_INT(draw_rands_take(&d, 2, source, NULL), 0);
     CHECK_EQ_INT(draw_rands_take(&d, 3, source, NULL), 1);

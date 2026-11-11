@@ -56,7 +56,7 @@ directories. **Evidence points to "replace only" for Level 1**; this is a projec
 How `00457d40` (car loader) turns a slot into files [X]: with `n = 004fba94[car slot]`:
 `n < 100` traffic stem; `100..199` race slot `n-100` with an **`m` prefix** (`004b1174`) = restricted CFM
 (`MTSUPRA.CFM`); `200..399` race slot `n-200`, full CFM; `>= 400` cop. The file is
-`<carFams dir><prefix><stem>.cfm` (`004b1178`); the PDN is read by `0040fa3c`/`004407b8` (see the RE notes) as
+`<carFams dir><prefix><stem>.cfm` (`004b1178`); the PDN is read by `0040fa3c`/`004407b8` as
 `<stem>.PDN`. The CD's other CFMs (`F512M`, `LDIABLO`, `WARIOR`, `WARRIOR`, `TESTA`, `MF512M`, `MP911T`) have no stem in
 `004c5660`/`004c56a0` — they look unused **[?]**. `P911T` appears only in the PBS table `004bc664` (index 10, and there is no `P911T.PBS` on the CD, so model 10 would fail at the specs load; whether the frontend offers it is unchecked) and as a CFM. A car slot is two files: the PBS named by `004bc664` by model, the CFM named by `004c5660`; the tables differ only at index 10 (`004fba94` is set in `00457870`: human model + 200, 'm' mesh = 100 less in multi-car races, opponents from `004c5628`).
 
@@ -154,7 +154,7 @@ the EXE says otherwise. "Match" = the field/offset agrees and was checked on the
 | Second table, scenery start `0x1B000`, 5-row `0x554` records | yes | absent; terrain follows the object chunk | Version |
 | Object chunk tag | `OBJS` | `SJBO` (`0x1621c`) [D] | Version (spelled differently) |
 | Node record size/position | 36 bytes, 2400 nodes | 36 bytes, 2400 nodes [D] | Match |
-| Node bytes 0..7 | `a0..a3`, `b0..b3` unknown | `left_verge`, `right_verge`, `left_barrier`, `right_barrier`, flags[3], `property` (names from OpenNFS1 notes, medium) | Match on layout; Auroux names nothing. Our names are **reference-derived, not verified** by the EXE except where AI code uses them (the RE notes: `+2/+3` barriers, `+4` nibbles, `+0x1a`) |
+| Node bytes 0..7 | `a0..a3`, `b0..b3` unknown | `left_verge`, `right_verge`, `left_barrier`, `right_barrier`, flags[3], `property` (names from OpenNFS1 notes, medium) | Match on layout; Auroux names nothing. Our names are **reference-derived, not verified** by the EXE except where AI code uses them (`+2/+3` barriers, `+4` nibbles, `+0x1a`) |
 | Position `+8` | `x, z, y` (z vertical) | `x, y, z`; ours `y` = height, `z` = forward | **Match on offsets, naming differs**: Auroux's `z`/`y` are our `y`/`z`. Kept as the port's convention |
 | `slope` `+0x14` | 14-bit, complement of `0x4000`, ≈ `Δz/152` | values 0..0x3FFF in all files; `Δheight / signed(slope)` median **152.1** [D] | **Match** |
 | `slant-A` `+0x16`, `slant-B` `+0x1e` | `B ≈ −12.3 A` | median ratio **−12.42** over 1838 nodes [D] | **Match** |
@@ -283,7 +283,7 @@ Only entries with a source are listed. "Limit" = the original's behaviour change
 | Car CFM mesh element indices | `inside`, `surface` < 8, else infinite loop | `00457d40` | [X] |
 | Car CFM required names | see §5 | `00457d40` | [X] |
 | PBS size | 1912 bytes, checksum `+0x774` over `0x758` | `car_load.c`, [D] | [S][D] |
-| PDN size | 460 bytes (`0x1CC`) | RE notes `00457d40`, [D] | [S][D] |
+| PDN size | 460 bytes (`0x1CC`) | `00457d40`, [D] | [S][D] |
 | Slots | 12 race cars (16 with cops), 12 traffic, track stems as §2 | `004c5660`, `004c56a0`, `004af2fc` | [X] |
 | PATHS.DAT | 19 × 80 chars, exactly 0x5f0 bytes | `0042a188` | [X] |
 | CONFIG.DAT | exactly 24402 bytes | `0042a010` | [S] |

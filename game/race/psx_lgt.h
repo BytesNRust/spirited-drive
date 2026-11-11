@@ -1,4 +1,4 @@
-/* port: the reader of the user's own baked light files, Z<TRACK><A|B|C>.LGT of the console CD (re/notes/psx-lgt-format.md): u32 node count, u32 scale, 11 bytes of intensity a node, a 12-byte CRCF
+/* port: the reader of the user's own baked light files, Z<TRACK><A|B|C>.LGT of the console CD: u32 node count, u32 scale, 11 bytes of intensity a node, a 12-byte CRCF
  * trailer. It fills the light model (track_node_light.h); nothing of the files is in the repo. */
 #ifndef TNFS_PSX_LGT_H
 #define TNFS_PSX_LGT_H

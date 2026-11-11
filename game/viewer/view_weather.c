@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* port (weather, re/notes/weather-design.md): WEATHER_CLEAR runs none of it. The tables are made again when the palette or the
+/* port (weather): WEATHER_CLEAR runs none of it. The tables are made again when the palette or the
  * weather changes. */
 int weather;
 int view_weather(void) { return weather; }   /* the frame's weather, for view_spray.c */

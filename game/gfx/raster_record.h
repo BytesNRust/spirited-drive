@@ -1,4 +1,4 @@
-/* port (render bands P3, re/notes/render-bands-design.md): a target that is being recorded draws nothing at once. Each
+/* port (render bands P3): a target that is being recorded draws nothing at once. Each
  * raster primitive (quad.c, quad_tri.c, flat.c, sprite_scaled.c, modern_road.c) called on the pixels the active recorder
  * was begun for copies its arguments into a command instead; a flush then replays the commands per band of rows on several threads, in the order
  * they were recorded. The bands partition the pixels and each command paints inside a band what it paints there whole

@@ -1,4 +1,4 @@
-/* Render scale (re/notes/render-scale-design.md): a viewport for a frame s times as large keeps the fields of view, so
+/* Render scale: a viewport for a frame s times as large keeps the fields of view, so
  * the projection of every point lands s times as far from the corner, to a pixel; the box and the sky's box grow with it;
  * and port.cfg's render_scale is read. Needs no exe. */
 #include "game/race/view.h"

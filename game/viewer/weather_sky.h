@@ -1,4 +1,4 @@
-/* port (weather, re/notes/weather-design.md): the tables a weather's picture is made with (the fog's colour, the sky's palette moved toward its colour, the rain's, the lightning's), the sky drawn
+/* port (weather): the tables a weather's picture is made with (the fog's colour, the sky's palette moved toward its colour, the rain's, the lightning's), the sky drawn
  * from them, and the modern road's style the weather asks for. WEATHER_CLEAR runs none of it. */
 #ifndef TNFS_WEATHER_SKY_H
 #define TNFS_WEATHER_SKY_H

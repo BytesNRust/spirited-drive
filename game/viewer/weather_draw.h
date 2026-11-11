@@ -1,4 +1,4 @@
-/* port: the weather's drawing on a 3D view (re/notes/weather-design.md): the sky moved toward its colour and the rain's streaks. */
+/* port: the weather's drawing on a 3D view: the sky moved toward its colour and the rain's streaks. */
 #ifndef TNFS_WEATHER_DRAW_H
 #define TNFS_WEATHER_DRAW_H
 

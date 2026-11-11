@@ -1,4 +1,4 @@
-/* port: free laps (re/notes/free-laps.md). `laps=N` (port.cfg, TNFS_LAPS) sets a race's lap count to any 1..99 instead of the
+/* port: free laps. `laps=N` (port.cfg, TNFS_LAPS) sets a race's lap count to any 1..99 instead of the
  * exe's 2/4/6/8/12/16 of the difficulty; 0, the default, is the exe's. A race whose laps are not the exe's is a free race:
  * the code the lap count would break guards itself (RaceState.port_free_laps) and no record is written for it. */
 #ifndef TNFS_FREE_LAPS_H
