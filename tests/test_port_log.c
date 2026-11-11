@@ -69,6 +69,29 @@ static void test_log_file(void)
     rmdir(dir);
 }
 
+/* the details (port_log_detail): a line for a developer, not for the player or a bug report: in the file only with TNFS_VERBOSE, and on the console then too */
+static void detail_one(void) { port_log_detail("detail %d\n", 1); }
+static void test_detail(void)
+{
+    char dir[] = "/tmp/tnfs_port_log_detail_XXXXXX";
+    CHECK(mkdtemp(dir) != NULL);
+    char path[200], old[210];
+    snprintf(path, sizeof path, "%s/tnfs.log", dir);
+    snprintf(old, sizeof old, "%s.1", path);
+    port_log_set_verbose(0);
+    CHECK_EQ_INT(port_log_open_file(path), 1);
+    CHECK_EQ_INT((int)written(detail_one, 2), 0);   /* quiet on the console */
+    CHECK_EQ_INT((int)size_of(path), 0);            /* and not in the file */
+    port_log_set_verbose(1);
+    CHECK(written(detail_one, 2) > 0);              /* verbose: on the console */
+    CHECK_EQ_INT((int)size_of(path), 9);            /* and in the file */
+    port_log_set_verbose(0);
+    port_log_close_file();
+    unlink(path);
+    unlink(old);
+    rmdir(dir);
+}
+
 /* the scripted input's WAIT: a line containing the text, logged after the watch was armed, from any of the three, quiet or not */
 static void test_watch(void)
 {
@@ -99,6 +122,7 @@ static void test_watch(void)
 
 int main(void)
 {
+    test_detail();
     test_watch();
     unsetenv("TNFS_VERBOSE");
     port_log_set_verbose(0);

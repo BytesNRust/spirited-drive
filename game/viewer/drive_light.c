@@ -640,7 +640,7 @@ static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *
     made->lamp_placed = 1;
     made->lamp_ring = tri_is_circuit(tri);
     if (made->lamp_reach_nodes < TUNNEL_LAMP_REACH_NODES) made->lamp_reach_nodes = TUNNEL_LAMP_REACH_NODES;
-    port_log("tunnel_lamps: %zu lamps placed (%d lamps in all, %.1f m between nodes)\n", n, total, (double)found[0].spacing);
+    port_log_detail("tunnel_lamps: %zu lamps placed (%d lamps in all, %.1f m between nodes)\n", n, total, (double)found[0].spacing);
 }
 
 /* port (track_light_file): the light data/track_light/<TRACK><letter>.txt holds for this track, time and flags, else the one made from the terrain (make_light_code); the file's retouches

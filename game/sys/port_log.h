@@ -32,6 +32,9 @@ void port_log_set_verbose(int on);
 
 /* stderr, with TNFS_VERBOSE only */
 void port_log(const char *format, ...) PORT_LOG_FORMAT(1, 2);
+/* a developer's detail (each mask file, each car's paint and lamp counts): the file and stderr with TNFS_VERBOSE only. The log a player
+ * sends keeps what serves them or a bug report (port_log): the version, the system, the race, what a mod or a dev override changed, the errors. */
+void port_log_detail(const char *format, ...) PORT_LOG_FORMAT(1, 2);
 /* stdout, with TNFS_VERBOSE only (the race's results) */
 void port_out(const char *format, ...) PORT_LOG_FORMAT(1, 2);
 /* stderr, always: the errors that end the process or make the game unusable */

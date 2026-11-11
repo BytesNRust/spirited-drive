@@ -266,7 +266,7 @@ void ported_view_set_reflect_masks(const uint8_t *(*mask_for)(const TrackTexture
 static void reflect_register(const TrackArt *art)
 {
     const int count = reflect_pass_register_art(art, reflect_mask_for);
-    if (count >= 0) port_log("reflectors: %d textures with a mask\n", count);
+    if (count >= 0) port_log_detail("reflectors: %d textures with a mask\n", count);
 }
 
 /* the frame's state, before the track is drawn */

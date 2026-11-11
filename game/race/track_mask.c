@@ -70,7 +70,8 @@ static uint8_t *load_marks(const char *track, const char *name, int width, int h
         const int ok = mask != NULL && (lamp == NULL || marks != NULL) && parse_marks(file, size, width, height, mask, marks);
         platform_free_file(file);
         if (ok) {
-            port_log("track mask: %s\n", path);   /* the log says where a mask came from */
+            if (r <= 1) port_log("track mask: %s\n", path);   /* a dev override's or a mod's: what a bug report needs */
+            else port_log_detail("track mask: %s\n", path);   /* the port's own data: a detail */
             if (lamp != NULL) *lamp = marks;
             return mask;
         }
@@ -147,14 +148,14 @@ static void mark_lamp(int slot, const TrackTexture *t, uint8_t *lamp)
     }
     marked_count++;
     const TunnelLampTexture *const l = &marked[i];
-    port_log("lamp marks: slot %d, %d colours, rect %d,%d to %d,%d\n", slot, l->count, l->rect[0], l->rect[1], l->rect[2], l->rect[3]);
+    port_log_detail("lamp marks: slot %d, %d colours, rect %d,%d to %d,%d\n", slot, l->count, l->rect[0], l->rect[1], l->rect[2], l->rect[3]);
 }
 
 void track_lamp_marks_refresh(void)
 {
     for (int i = 0; i < marked_count; i++)
         if (marked_texture[i]->bitmap.payload != NULL && read_marked(i))
-            port_log("lamp marks: slot %d read again (the race's palette): %d colours, first %d\n", marked[i].slot, marked[i].count, marked[i].idx[0]);
+            port_log_detail("lamp marks: slot %d read again (the race's palette): %d colours, first %d\n", marked[i].slot, marked[i].count, marked[i].idx[0]);
 }
 
 /* `slot` >= 0: a road texture slot (its yellow makes a lamp); `reflective` 0 keeps no reflective mask (a rally's road) */
