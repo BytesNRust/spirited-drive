@@ -222,8 +222,8 @@ static void test_tables(void)
     CHECK_EQ_INT(s.lamp_pool_bright, 1);   /* the owner approved the stronger lamp pools: Restomod's default (Stock and Restored keep 0) */
     CHECK_EQ_INT(s.city_lift, 3);   /* the owner: the new City night is Restomod's default */
     CHECK_EQ_INT(s.night_tone, 2);   /* the owner picked the cool night (2) for the night with no disc */
-    CHECK_EQ_INT(s.rain_lamps, 0);   /* not until the owner approves it */
-    CHECK_EQ_INT(s.gauge_exterior, 0);   /* not until the owner approves it */
+    CHECK_EQ_INT(s.rain_lamps, 1);   /* the lamps lit in rain, day included (the owner had it on and missed it on a fresh install, 2026-11-11) */
+    CHECK_EQ_INT(s.gauge_exterior, 1);   /* the gauges lit with the exterior lights (the owner's own setting, 2026-11-11) */
     CHECK_EQ_INT(s.sign_glow, 1);   /* the owner OKs the lit matrix sign */
     CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift, 21);   /* the nine fixes of the day: car tunnel light, Vegas car night, rally shoulder gravel, chase height, lamp pool, Transtropolis shadows, canyon shade */
     PortExtras e = port_profile_extras(PROFILE_STOCK, port_extras_defaults());
