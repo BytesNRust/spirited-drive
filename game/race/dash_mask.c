@@ -78,6 +78,7 @@ uint8_t *dash_asset_read(const char *stem, const char *name, size_t *size)
             if (found[r - 1][0] == '\0') continue;
             snprintf(path, sizeof path, "%s", found[r - 1]);
         }
+        if (r > 0 && !data_path_exists(path)) continue;   /* optional: a data folder without the file is passed over, no "cannot read" line (i191); the dev override is read as named */
         uint8_t *file = platform_read_file(path, size);
         if (file != NULL) {
             port_log("dash %s: %s\n", name, path);

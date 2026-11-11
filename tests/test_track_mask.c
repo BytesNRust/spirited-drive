@@ -4,6 +4,7 @@
 #include "formats/png.h"
 #include "game/race/track_mask.h"
 #include "game/sys/data_path.h"
+#include "game/sys/port_log.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -11,11 +12,16 @@
 #include <string.h>
 #include <sys/stat.h>
 
+static int read_misses;   /* reads of a file that is not there: the game logs each as "cannot read" (i191) */
+
 uint8_t *platform_read_file(const char *path, size_t *size)
 {
     *size = 0;
     FILE *f = fopen(path, "rb");
-    if (f == NULL) return NULL;
+    if (f == NULL) {
+        read_misses++;
+        return NULL;
+    }
     long n = 0;
     uint8_t *d = NULL;
     if (fseek(f, 0, SEEK_END) == 0) n = ftell(f);
@@ -144,6 +150,31 @@ static void test_mod_before_data(void)
     CHECK(m != NULL && m[0] == 1);   /* the dev override before both */
     free(m);
     unsetenv("TNFS_TRACK_MASKS");
+    data_path_set_mod(NULL);
+    data_path_set_base(NULL);
+}
+
+/* i191: the candidates without the file are not read (a clean install has no masks: no "cannot read" line for each); a file that is there and is not a mask is logged */
+static void test_missing_masks_are_quiet(void)
+{
+    const uint8_t white[4 * 4] = { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
+    make_dirs(ROOT "/quiet/data/track_masks/TQUI"), make_dirs(ROOT "/quiet_mod");
+    write_rgba(ROOT "/quiet/data/track_masks", "TQUI", "slot_04.png", white, 2, 2);
+    data_path_set_base(ROOT "/quiet");
+    data_path_set_mod(ROOT "/quiet_mod");   /* a mods folder without track_masks/ */
+    unsetenv("TNFS_TRACK_MASKS");
+    read_misses = 0;
+    uint8_t *m = track_mask_load("TQUI", "slot_04", 2, 2);
+    CHECK(m != NULL && m[0] == 1);
+    free(m);
+    CHECK(track_mask_load("TQUI", "slot_05", 2, 2) == NULL);   /* in no folder */
+    CHECK_EQ_INT(read_misses, 0);
+    FILE *f = fopen(ROOT "/quiet/data/track_masks/TQUI/slot_06.png", "wb");   /* there, but not a PNG */
+    CHECK(f != NULL);
+    if (f != NULL) fputs("not a png", f), fclose(f);
+    port_log_watch("cannot read");
+    CHECK(track_mask_load("TQUI", "slot_06", 2, 2) == NULL);
+    CHECK(port_log_watch_hit());
     data_path_set_mod(NULL);
     data_path_set_base(NULL);
 }
@@ -322,6 +353,7 @@ int main(void)
     test_scaled();
     test_refused();
     test_mod_before_data();
+    test_missing_masks_are_quiet();
     test_registry();
     test_a_rally_keeps_no_road_masks();
     test_yellow_is_not_reflective();

@@ -14,7 +14,7 @@ static int find_relative(const char *relative, char *out, size_t out_size)
     char found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
     (void)data_path_candidates(relative, found);
     for (int i = 0; i < DATA_PATH_CANDIDATES; i++) {   /* a mod's own copy first (data_path.h) */
-        if (found[i][0] == '\0') continue;
+        if (found[i][0] == '\0' || !data_path_exists(found[i])) continue;   /* a folder without it is passed over, no "cannot read" line (i191) */
         size_t size = 0;
         uint8_t *file = platform_read_file(found[i], &size);
         if (file == NULL) continue;

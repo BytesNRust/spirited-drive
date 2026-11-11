@@ -2,6 +2,7 @@
 #include "game/sys/data_path.h"
 #include "tests/test.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #define CHECK_EQ_STR(a, b) CHECK(strcmp((a), (b)) == 0)
@@ -54,8 +55,25 @@ static void test_the_platform_base(void)
     CHECK_EQ_STR((data_path_candidates("car_envmap.png", p), p[1]), "");   /* no base: not tried */
 }
 
+/* i191: a candidate is tried only when the file is there; a folder is not a file */
+static void test_exists(void)
+{
+    const char *const path = "data_path_exists_test.txt";
+    remove(path);
+    CHECK(!data_path_exists(path));
+    FILE *f = fopen(path, "wb");
+    CHECK(f != NULL);
+    if (f != NULL) fputs("x", f), fclose(f);
+    CHECK(data_path_exists(path));
+    remove(path);
+    CHECK(!data_path_exists("."));
+    CHECK(!data_path_exists(""));
+    CHECK(!data_path_exists(NULL));
+}
+
 int main(void)
 {
+    test_exists();
     test_order_and_slashes();
     test_no_base_and_bad_input();
     test_the_platform_base();

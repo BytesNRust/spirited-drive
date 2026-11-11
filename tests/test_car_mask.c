@@ -3,6 +3,7 @@
 #include "formats/png.h"
 #include "game/race/car_mask.h"
 #include "game/sys/data_path.h"
+#include "game/sys/port_log.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -13,11 +14,16 @@
 enum { W = 5, H = 3 };
 
 /* the lookup test reads real files (the directory of TNFS_CAR_MASKS) */
+static int read_misses;   /* reads of a file that is not there */
+
 uint8_t *platform_read_file(const char *path, size_t *size)
 {
     *size = 0;
     FILE *f = fopen(path, "rb");
-    if (f == NULL) return NULL;
+    if (f == NULL) {
+        read_misses++;   /* the game logs each as "cannot read" (i191) */
+        return NULL;
+    }
     long n = 0;
     uint8_t *d = NULL;
     if (fseek(f, 0, SEEK_END) == 0) n = ftell(f);
@@ -269,6 +275,31 @@ static void test_mod_before_data(void)
     data_path_set_mod(NULL), data_path_set_base(NULL);
 }
 
+/* i191: the candidates without the file are not read (no "cannot read" line each on a clean install); a file that is there and is not a mask is logged */
+static void test_missing_masks_are_quiet(void)
+{
+    uint8_t matte[W * H];
+    memset(matte, CAR_MASK_MATTE, sizeof matte);
+    make_dirs(ROOT "/quiet/data/car_masks/TQuiet"), make_dirs(ROOT "/quiet_mod");
+    write_mask_in(ROOT "/quiet/data/car_masks", "TQuiet", "rsid_mask.png", matte, W, H);
+    data_path_set_base(ROOT "/quiet");
+    data_path_set_mod(ROOT "/quiet_mod");   /* a mods folder without car_masks/ */
+    unsetenv("TNFS_CAR_MASKS");
+    read_misses = 0;
+    uint8_t *m = car_mask_load("TQuiet", "rsid", 0, W, H);
+    CHECK(m != NULL && m[0] == CAR_MASK_MATTE);
+    free(m);
+    CHECK(car_mask_load("TQuiet", "frnt", 0, W, H) == NULL);   /* in no folder */
+    CHECK_EQ_INT(read_misses, 0);
+    FILE *f = fopen(ROOT "/quiet/data/car_masks/TQuiet/topv_mask.png", "wb");   /* there, but not a PNG */
+    CHECK(f != NULL);
+    if (f != NULL) fputs("not a png", f), fclose(f);
+    port_log_watch("cannot read");
+    CHECK(car_mask_load("TQuiet", "topv", 0, W, H) == NULL);
+    CHECK(port_log_watch_hit());
+    data_path_set_mod(NULL), data_path_set_base(NULL);
+}
+
 int main(void)
 {
     test_round_trip();
@@ -281,5 +312,6 @@ int main(void)
     test_refused();
     test_lookup_by_level();
     test_mod_before_data();
+    test_missing_masks_are_quiet();
     return TEST_REPORT();
 }

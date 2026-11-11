@@ -62,6 +62,7 @@ static uint8_t *load_marks(const char *track, const char *name, int width, int h
             if (found[r - 1][0] == '\0') continue;
             snprintf(path, sizeof path, "%s", found[r - 1]);
         }
+        if (r > 0 && !data_path_exists(path)) continue;   /* masks are optional: a data folder without this one is passed over, no "cannot read" line (i191); the dev override is read as named */
         size_t size = 0;
         uint8_t *file = platform_read_file(path, &size);
         if (file == NULL) continue;
@@ -73,6 +74,7 @@ static uint8_t *load_marks(const char *track, const char *name, int width, int h
             if (lamp != NULL) *lamp = marks;
             return mask;
         }
+        port_log("track mask: cannot read %s: not a %dx%d mask PNG\n", path, width, height);   /* there, but not a mask: said, then the next folder */
         free(mask);
         free(marks);
     }

@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 
 static char base_dir[DATA_PATH_MAX];
 static char mod_dir[DATA_PATH_MAX];
@@ -48,4 +49,10 @@ int data_path_candidates(const char *relative, char paths[DATA_PATH_CANDIDATES][
 #else
     return data_path_candidates_for(mod_dir, base_dir, NULL, relative, paths);
 #endif
+}
+
+int data_path_exists(const char *path)
+{
+    struct stat st;
+    return path != NULL && path[0] != '\0' && stat(path, &st) == 0 && (st.st_mode & S_IFMT) == S_IFREG;
 }
