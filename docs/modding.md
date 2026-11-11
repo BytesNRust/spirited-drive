@@ -104,6 +104,16 @@ The first yellow layer of the five tracks with a table was drawn from it by `too
 
 The masks are made from layered PSDs, as the car's are: `tools/track_mask_draft` (built with the game) writes each texture of the CD's tracks as a PNG, `tools/track_mask_psd.py <drafts> <output>` turns them into PSDs (the texture on a locked layer, an empty **`mask`** layer over it at 50% opacity), and `tools/track_mask_from_psd.py <dir of TRACK/<name>.psd>` reads the **`mask` layer** back into the PNGs: paint what is reflective in any colour but black (white is easiest); an unpainted or black texel is not. The layer's own opacity is ignored. Needs `pip install psd-tools Pillow`. A mod puts its masks in `<mod>/track_masks/<TRACK>/`. To try a folder of masks without installing them: `TNFS_TRACK_MASKS=<dir of <TRACK>/<name>.png>`; the log's `track mask:` lines say which file each texture used.
 
+## Car environment map
+
+With `body_shine` 4 the cars' paint and glass take their light from an environment map, a sphere map of the sky around the car. The port makes one at start-up (a sky gradient with soft clouds and a sun spot, a dark band under the horizon, flat dark ground, no EA or Sony pixels); `data/car_envmap.png`, or `<mod>/car_envmap.png`, replaces it.
+
+* **File:** a PNG up to 4096 pixels a side, any size, taken as grey (an indexed PNG by its palette's red, any other by its red channel) and resampled to 128 x 128. Row 0 is the top.
+* **Layout:** a sphere map: a surface facing the camera reads the centre, one turned edge-on reads the rim. Its axes are the world's, so the sky stays up however the camera tilts or rolls, and the light does not turn with the car.
+* **Values:** 128 leaves the paint as it is, above it lightens (255 is the strongest highlight), below it darkens.
+* **Lookup:** the mod's file, then the program's `data/`, then the working directory's `data/`, then a development build's source tree. A file that is missing, not a PNG, or too large is skipped without a log line and the next one is tried, then the port's own map. A development run can point `TNFS_CAR_ENVMAP=<file>` at a file outside these folders.
+* Stock and Restored keep the exe's frames (`body_shine` is 0 there), so the map shows only in Restomod or with `body_shine=4` set by hand.
+
 ## Sounds
 
 `data/sounds/` holds the sounds the port added (so far the storm's `thunder.wav`, mono 16-bit PCM). A mod's `<mod>/sounds/thunder.wav` is used instead of it. Only CC0 or public-domain samples go in the repository, each with its source, author and licence written in [`data/sounds/LICENSES.md`](../data/sounds/LICENSES.md): add the entry there in the same change as the file (what it is made from, what was changed, the URL, the author, the licence and the date it was checked on the page). A mod of your own is free to use any sound it has the right to.
