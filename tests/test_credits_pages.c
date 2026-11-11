@@ -15,13 +15,16 @@ static void the_homage_is_the_owners_words(void)
 {
     CreditsItem it[CREDITS_ITEMS_MAX];
     const int n = credits_page(0, "0.9.0", it);
-    CHECK_EQ_INT(n, 5);
+    CHECK_EQ_INT(n, 6);
     CHECK(strcmp(it[0].text, "They built it in 1996.") == 0 && it[0].kind == CREDITS_BIG && it[0].colour == CREDITS_YELLOW);
     CHECK(strcmp(it[1].text, "We kept it running.") == 0 && it[1].kind == CREDITS_BIG && it[1].colour == CREDITS_CREAM);
     CHECK(strcmp(it[2].text, "For the people at EA Canada") == 0);
-    CHECK(strcmp(it[3].text, "and Pioneer Productions who made it") == 0);
-    CHECK(strcmp(it[4].text, "and for everyone who still plays it") == 0);
+    CHECK(strcmp(it[3].text, "Pioneer Productions and EA Seattle") == 0);   /* i055: the owner's option A, four lines, no commas */
+    CHECK(strcmp(it[4].text, "who made it") == 0);
+    CHECK(strcmp(it[5].text, "and for everyone who still plays it") == 0);
     for (int i = 2; i < n; i++) CHECK(it[i].kind == CREDITS_LINE && it[i].y > it[i - 1].y);
+    for (int i = 3; i < n; i++) CHECK_EQ_INT(it[i].y - it[i - 1].y, it[3].y - it[2].y);   /* evenly spaced */
+    CHECK_EQ_INT(it[2].y + it[5].y, 2 * 268);   /* the block centred where the three lines were */
 }
 
 static void ours_is_set_in_two_columns(void)
