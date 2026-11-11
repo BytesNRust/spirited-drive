@@ -612,6 +612,8 @@ add_executable(tnfs
     game/viewer/scenery_dump.c
     game/viewer/track_fly.c
     game/viewer/drive_wide.c
+    game/viewer/drive_wide_dump.c
+    game/viewer/drive_wide_wipers.c
     game/viewer/drive_draw.c
     game/viewer/drive_bumper_draw.c
     game/viewer/drive_run.c

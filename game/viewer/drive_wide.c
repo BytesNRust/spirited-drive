@@ -2,6 +2,7 @@
  * the viewports that go with them (layer_compose.h, screen_layout.h). */
 #include "viewer/track_viewer.h"
 #include "viewer/drive_session.h"
+#include "viewer/drive_wide_private.h"
 #include "game/gfx/blit.h"
 #include "game/sys/backdrop.h"
 #include "viewer/layer_compose.h"
@@ -173,7 +174,7 @@ static void wide_strip_gap(const uint8_t *frame, int x0, int x1)
 }
 
 /* port: the dash's own art (004218d0's 'dash', its windshield LAYER_KEY), what the map's box covers */
-static const uint8_t *dash_art_layer(const Cockpit *c)
+const uint8_t *dash_art_layer(const Cockpit *c)
 {
     static uint8_t layer[SCREEN_W * SCREEN_H];
     static const uint8_t *drawn;
@@ -350,7 +351,7 @@ static void compose_banded(const LayerCompose *c, const uint8_t *frame)
 enum { LIGHTS_PAD_LEFT = 2, LIGHTS_PAD_RIGHT = 14, LIGHTS_PAD_TOP = 3, LIGHTS_PAD_BOTTOM = 11 };   /* round the detector's lights */
 
 /* port (gauge_light): the track's palette, for the lit parts of the gauges (a pixel's brightness); set before the layer is composed */
-static const uint8_t *lit_palette;
+const uint8_t *lit_palette;
 void drive_wide_set_palette(const uint8_t *palette) { lit_palette = palette; }
 
 /* a gauge's lit part: brighter than this (of 255, the channels' mean) */
@@ -371,7 +372,7 @@ static int in_ellipse(int x, int y, int left, int top, int w, int h)
 }
 
 /* port (gauge_light): the hand-made mask of the dash on screen (dash_mask.h), loaded once per dash; NULL when it has none */
-static const uint8_t *dash_mask_now(void)
+const uint8_t *dash_mask_now(void)
 {
     static uint8_t *mask;
     static char loaded[sizeof drive_hud.dash_stem];
@@ -412,146 +413,17 @@ int drive_wide_lit_colours(uint8_t (*rgb)[3], int max)
 
 /* port (gauge_light): inside a dial proper: the gauge's ellipse inset by a twelfth of its size each side (the rim is the dash's art) */
 /* the ellipse of either dial's box */
-static int in_gauge(const Cockpit *k, int x, int y)
+int in_gauge(const Cockpit *k, int x, int y)
 {
     return in_ellipse(x, y, k->tach_x, k->tach_y, k->tach_w, k->tach_h) || in_ellipse(x, y, k->sped_x, k->sped_y, k->sped_w, k->sped_h);
 }
 
-static int in_dial(const Cockpit *k, int x, int y)
+int in_dial(const Cockpit *k, int x, int y)
 {
     return in_ellipse(x, y, k->tach_x + k->tach_w / 12, k->tach_y + k->tach_h / 12, k->tach_w - k->tach_w / 6, k->tach_h - k->tach_h / 6) ||
            in_ellipse(x, y, k->sped_x + k->sped_w / 12, k->sped_y + k->sped_h / 12, k->sped_w - k->sped_w / 6, k->sped_h - k->sped_h / 6);
 }
 
-/* a 640 x 480 picture of palette indices as <dir>/<stem>.<what>.pgm (dash_dump) */
-static void dash_dump_pgm(const char *dir, const char *stem, const char *what, const uint8_t *pixels)
-{
-    char path[512];
-    snprintf(path, sizeof path, "%s/%s.%s.pgm", dir, stem, what);
-    FILE *f = fopen(path, "wb");
-    if (f == NULL) return;
-    fprintf(f, "P5\n%d %d\n255\n", SCREEN_W, SCREEN_H);
-    fwrite(pixels, 1, (size_t)SCREEN_W * SCREEN_H, f);
-    fclose(f);
-}
-
-/* port (dev, env only): TNFS_DASH_DUMP=<dir> writes each dash's 2D layer as <dir>/<STEM>.ppm (the dash art in the track's palette, the windshield black, and black too
- * wherever the steering wheel is in some pose: the wheel is drawn over the dash later, so the template does not hold it; wheel_front_zone) and a draft mask
- * <dir>/<STEM>.mask.png (the two gauge ellipses as DIAL), once per dash, for tools/dash_mask_psd.py's drafts */
-/* the arrays dash_dump's parts share: the wheel's zone, the dials over it, and the dash with the wheel blanked */
-static uint8_t dump_zone[SCREEN_W * SCREEN_H], dump_dials[SCREEN_W * SCREEN_H], dump_out[SCREEN_W * SCREEN_H];
-
-/* <STEM>.ppm: the dash with the wheel blanked and the dials back over it, in the lit palette */
-static void dash_dump_picture(const char *path, const Cockpit *k, const uint8_t *art)
-{
-    for (int y = 0; y < SCREEN_H; y++)
-        for (int x = 0; x < SCREEN_W; x++) {
-            const int i = y * SCREEN_W + x;
-            const int dial = dump_dials[i] != LAYER_KEY && in_gauge(k, x, y);
-            dump_out[i] = dump_zone[i] ? (dial ? dump_dials[i] : LAYER_KEY) : art[i];
-        }
-    FILE *f = fopen(path, "wb");
-    if (f != NULL) {
-        fprintf(f, "P6\n%d %d\n255\n", SCREEN_W, SCREEN_H);
-        for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
-            const uint8_t v = art[i];
-            static const uint8_t black[3] = { 0, 0, 0 };
-            fwrite(dump_out[i] == LAYER_KEY ? black : lit_palette + 3 * dump_out[i], 1, 3, f);
-            (void)v;
-        }
-        fclose(f);
-    }
-}
-
-/* the straight-ahead wheel, for a guide layer: the stored art where the wheel is in some pose (<STEM>.guide.ppm) and where that is (<STEM>.zone.pgm) */
-static void dash_dump_guide(const char *dir, const char *done, const uint8_t *art)
-{
-    char path[512];
-    snprintf(path, sizeof path, "%s/%s.guide.ppm", dir, done);
-    FILE *f = fopen(path, "wb");
-    if (f != NULL) {
-        fprintf(f, "P6\n%d %d\n255\n", SCREEN_W, SCREEN_H);
-        for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
-            static const uint8_t black[3] = { 0, 0, 0 };
-            fwrite(dump_zone[i] && art[i] != LAYER_KEY ? lit_palette + 3 * art[i] : black, 1, 3, f);
-        }
-        fclose(f);
-    }
-    snprintf(path, sizeof path, "%s/%s.zone.pgm", dir, done);
-    if ((f = fopen(path, "wb")) != NULL) {
-        fprintf(f, "P5\n%d %d\n255\n", SCREEN_W, SCREEN_H);
-        for (int i = 0; i < SCREEN_W * SCREEN_H; i++) fputc(dump_zone[i] && art[i] != LAYER_KEY ? 255 : 0, f);
-        fclose(f);
-    }
-}
-
-/* the inputs of tools/dash_rebuild.py, which gives the layer the dash behind the wheel from the steering frames: the art's palette indices (<STEM>.art.pgm), the 'w' frames'
- * ('w'l and 'w'r, each steering frame: <STEM>.w<row>_<frame>.pgm, 255 where a frame draws nothing), the dials over the wheel (<STEM>.dials.pgm, 255 elsewhere) and the palette (<STEM>.pal) */
-static void dash_dump_rebuild_inputs(const char *dir, const char *done, const Cockpit *k, const uint8_t *art)
-{
-    dash_dump_pgm(dir, done, "art", art);
-    static uint8_t dial_only[SCREEN_W * SCREEN_H];
-    for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
-        const int x = i % SCREEN_W, y = i / SCREEN_W;
-        const int dial = dump_dials[i] != LAYER_KEY && in_gauge(k, x, y);
-        dial_only[i] = dial ? dump_dials[i] : 255;
-    }
-    dash_dump_pgm(dir, done, "dials", dial_only);
-    for (int row = 0; row < 2; row++)
-        for (int frame = 0; frame < COCKPIT_FRAMES; frame++) {
-            const uint8_t *shape = k->frames[row][frame];
-            if (shape == NULL) continue;
-            static uint8_t pic[SCREEN_W * SCREEN_H];
-            for (int y = 0; y < SCREEN_H; y++)
-                for (int x = 0; x < SCREEN_W; x++) pic[y * SCREEN_W + x] = wheel_front_pixel(shape, x, y) ? shape[0x10 + (y - (int16_t)(shape[0xe] | shape[0xf] << 8)) * (int16_t)(shape[4] | shape[5] << 8) + (x - (int16_t)(shape[0xc] | shape[0xd] << 8))] : 255;
-            char what[16];
-            snprintf(what, sizeof what, "w%d_%d", row, frame);
-            dash_dump_pgm(dir, done, what, pic);
-        }
-}
-
-/* <STEM>.pal, and <STEM>.mask.png: the draft of a hand-made mask (the dials' marks, else automatic) */
-static void dash_dump_palette_and_mask(const char *dir, const char *done, const Cockpit *k)
-{
-    char path[512];
-    snprintf(path, sizeof path, "%s/%s.pal", dir, done);
-    FILE *f = fopen(path, "wb");
-    if (f != NULL) {
-        fwrite(lit_palette, 1, 768, f);
-        fclose(f);
-    }
-    static uint8_t draft[SCREEN_W * SCREEN_H];
-    for (int y = 0; y < SCREEN_H; y++)
-        for (int x = 0; x < SCREEN_W; x++)
-            draft[y * SCREEN_W + x] = in_dial(k, x, y) && dump_out[y * SCREEN_W + x] != LAYER_KEY ? DASH_MASK_DIAL : DASH_MASK_AUTO;
-    uint8_t *png = NULL;
-    size_t len = 0;
-    snprintf(path, sizeof path, "%s/%s.mask.png", dir, done);
-    f = fopen(path, "wb");
-    if (f != NULL && dash_mask_write(draft, SCREEN_W, SCREEN_H, &png, &len)) fwrite(png, 1, len, f);
-    if (f != NULL) fclose(f);
-    free(png);
-}
-
-static void dash_dump(const Cockpit *k, const uint8_t *art)
-{
-    const char *dir = getenv("TNFS_DASH_DUMP");
-    static char done[sizeof drive_hud.dash_stem];
-    if (dir == NULL || lit_palette == NULL || strcmp(done, drive_hud.dash_stem) == 0) return;
-    snprintf(done, sizeof done, "%s", drive_hud.dash_stem);
-    char path[512];
-    snprintf(path, sizeof path, "%s/%s.ppm", dir, done);
-    wheel_front_zone(k, art, dump_zone);
-    /* the dials the game draws over the 'w' frame inside the gauge ellipses ('tach', 'sped'): they come back over the blanked wheel */
-    memset(dump_dials, LAYER_KEY, sizeof dump_dials);
-    const QuadTarget dt = { dump_dials, SCREEN_W, 0, 0, SCREEN_W, SCREEN_H };
-    if (k->tach != NULL) blit_shape_at_transparent(&dt, k->tach, 0, 0);
-    if (k->sped != NULL) blit_shape_at_transparent(&dt, k->sped, 0, 0);
-    dash_dump_picture(path, k, art);
-    dash_dump_guide(dir, done, art);
-    dash_dump_rebuild_inputs(dir, done, k, art);
-    dash_dump_palette_and_mask(dir, done, k);
-}
 
 /* port (compose perf): what the class loop reads, so its rows can run on bands (each row is a function of the frame alone) */
 typedef struct {
@@ -808,79 +680,6 @@ static void wide_mirror_and_strips(const WideFrame *w, const uint8_t *frame)
         wide_strip_gap(frame, a->bar_start.x + BAR_MIDDLE_640, a->bar_middle.x);
         wide_strip_gap(frame, a->bar_middle.x + BAR_END_640 - BAR_MIDDLE_640, a->bar_end.x);
     }
-}
-
-/* port (wipers): the windscreen's glass of the dash's art (wiper_scene.h), flags (1 = glass) cached per dash art */
-static const uint8_t *wiper_glass_flags(const uint8_t *art, const uint8_t *mask)
-{
-    static uint8_t flags[SCREEN_W * SCREEN_H];
-    static int stack[SCREEN_W * SCREEN_H];
-    static const uint8_t *made_for;
-    if (made_for == drive_hud.cockpit.dash) return flags;
-    wiper_scene_glass_flags(art, mask, flags, stack);
-    made_for = drive_hud.cockpit.dash;
-    return flags;
-}
-
-int drive_wide_wiper_scene(const RaceState *race, WiperBlade *out)
-{
-    ported_view_set_wiper_glass(NULL, 0.0f, 0.0f, 1.0f);
-    const RaceCamera *camera = race != NULL ? race->chase.camera : NULL;
-    if (!port_wipers() || camera == NULL || camera->layout != 0 || drive_hud.police.screen != NULL || drive_hud.cockpit.dash == NULL) return 0;
-    const uint8_t *const art = dash_art_layer(&drive_hud.cockpit), *const mask = dash_mask_now();
-    const float PI = 3.14159265f, deg = PI / 180.0f;
-    const uint8_t *const flags = wiper_glass_flags(art, mask);
-    static const void *measured_for;   /* the geometry on the layer is the dash's alone: measured once per dash */
-    static WiperBlade layer[WIPER_BLADES];
-    static float span;
-    if (measured_for != drive_hud.cockpit.dash) {
-        wiper_scene_measure(art, mask, flags, layer, &span);
-        measured_for = drive_hud.cockpit.dash;
-    }
-    const int wide = drive_wide_active();   /* the 640x480 path (the exe's) has its dash at the layer's own coordinates */
-    const float scale = wide ? (float)drive_wide.scale : 1.0f, x0 = wide ? (float)((drive_wide.width - SCREEN_W) / 2) : 0.0f, y0 = wide && drive_wide.width > SCREEN_W ? (float)DASH_DROP : 0.0f;
-    for (int i = 0; i < WIPER_BLADES; i++) {
-        WiperBlade b = layer[i];
-        b.top = b.park + span * deg;
-        b.x = (x0 + b.x) * scale, b.y = (y0 + b.y) * scale, b.len *= scale, b.xmax = (x0 + b.xmax) * scale;
-        out[i] = b;
-    }
-    ported_view_set_wiper_glass(flags, x0 * scale, y0 * scale, scale);
-    return WIPER_BLADES;
-}
-
-/* port (wipers): `frame` with the pixels the dash's mask marks as a wiper blade (dash_mask.h BLADE) made nothing, as the windscreen is; `frame` itself when the dash has none */
-static const uint8_t *blades_hidden(const uint8_t *frame)
-{
-    static uint8_t copy[SCREEN_W * SCREEN_H];
-    static const uint8_t *listed_for;   /* the mask's blade pixels, listed once per mask */
-    static int *blade_at;
-    static size_t blade_count;
-    const uint8_t *const mask = dash_mask_now();
-    if (mask == NULL) return frame;
-    if (mask != listed_for) {
-        free(blade_at);
-        blade_at = malloc(sizeof(int) * SCREEN_W * SCREEN_H);
-        blade_count = 0;
-        if (blade_at != NULL)
-            for (size_t i = 0; i < sizeof copy; i++)
-                if (mask[i] == DASH_MASK_BLADE) blade_at[blade_count++] = (int)i;
-        listed_for = mask;
-    }
-    if (blade_count == 0) return frame;
-    memcpy(copy, frame, sizeof copy);
-    for (size_t k = 0; k < blade_count; k++) copy[blade_at[k]] = LAYER_KEY;
-    return copy;
-}
-
-/* port (wipers): on the 640x480 path the 3D (`view`) reaches the screen through the windscreen's run lists only, so the art's own blades stay: where the dash's mask marks a blade, the 3D's pixel goes on the screen
- * (the sweeping blades are in it). The frame's mirror, gauges and the rest are drawn after, as ever. */
-void drive_wide_wipers_reveal(uint8_t *screen, const uint8_t *view)
-{
-    const uint8_t *const mask = dash_mask_now();
-    if (mask == NULL || drive_wide_active() || !ported_view_wipers_active()) return;
-    for (size_t i = 0; i < (size_t)SCREEN_W * SCREEN_H; i++)
-        if (mask[i] == DASH_MASK_BLADE) screen[i] = view[i];
 }
 
 void drive_wide_compose(const RaceState *race, const uint8_t *frame)
