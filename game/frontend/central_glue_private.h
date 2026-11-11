@@ -173,5 +173,11 @@ int32_t cg_own_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const uint
 void cg_own_note_text(void *ctx, const char *text, int32_t x, int32_t y);
 int32_t cg_display_dark(void *ctx);
 void cg_own_subtitle_text(void *ctx, const char *text, int32_t x, int32_t y);
+void cg_volumes_sync(void);
+void cg_net_service(void *ctx);
+/* the three volumes the menus keep (menu_audio_kept) */
+#define KEPT_VOLUMES { menu_audio_kept()[0], menu_audio_kept()[2], menu_audio_kept()[3] }
+void cg_load_save(void *ctx, int32_t mode);
+void cg_load_save2(void *ctx, int32_t mode);
 
 #endif

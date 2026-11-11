@@ -529,6 +529,7 @@ add_executable(tnfs
     game/frontend/link_race.c
     game/frontend/link_rules.c
     game/frontend/central_glue.c
+    game/frontend/central_glue_games.c
     game/frontend/central_glue_results.c
     game/frontend/central_glue_race.c
     game/frontend/central_glue_options.c
