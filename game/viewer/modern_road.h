@@ -65,7 +65,7 @@ void modern_light_tables_cast(const uint8_t palette[768], const float tint[3], c
 /* port (tunnel_lamps): the tunnel's tables (modern_tunnel_tables') with a lamp's colour `add` (0..255 a channel) added to what each level shows: a light over the tunnel's own, not scaled by it. */
 void modern_tunnel_tables_add(const uint8_t palette[768], const float tint[3], const float cast[3], float min_light, const float add[3], uint8_t out[MODERN_FOG_LEVELS][256]);
 void modern_light_tables_add(const uint8_t palette[768], const float tint[3], const float add[3], uint8_t out[MODERN_FOG_LEVELS][256]);
-/* i193: the same two for the tunnel lamps' pools, the nearest colour kept to the wanted colour's channel order (a warm light on a grey is not matched to a mauve) */
+/* i193: the same two for the tunnel lamps' pools, the nearest colour kept to the wanted colour's hue (modern_road.c's hue_cost: a warm light on a grey is not matched to a mauve) */
 void modern_light_tables_add_hue(const uint8_t palette[768], const float tint[3], const float add[3], uint8_t out[MODERN_FOG_LEVELS][256]);
 void modern_tunnel_tables_add_hue(const uint8_t palette[768], const float tint[3], const float cast[3], float min_light, const float add[3], uint8_t out[MODERN_FOG_LEVELS][256]);
 
