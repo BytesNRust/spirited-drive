@@ -76,7 +76,7 @@ static void test_detail(void)
     char dir[] = "/tmp/tnfs_port_log_detail_XXXXXX";
     CHECK(mkdtemp(dir) != NULL);
     char path[200], old[210];
-    snprintf(path, sizeof path, "%s/tnfs.log", dir);
+    snprintf(path, sizeof path, "%s/spirited-drive.log", dir);
     snprintf(old, sizeof old, "%s.1", path);
     port_log_set_verbose(0);
     CHECK_EQ_INT(port_log_open_file(path), 1);
