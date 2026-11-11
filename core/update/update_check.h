@@ -12,9 +12,8 @@
 
 /* Our own API (the Worker at api.bytesnrust.com): the update check asks it (that request counts the start) and three
  * one-shot anonymous events are POSTed to it. Versions go without a "+build" part.
- * UPDATE_API_NAME is the API's path and the requests' user agent, in one place. It stays the game's old name until the Worker answers the new one
- * ("spirited-drive"); then only this line changes. */
-#define UPDATE_API_NAME "tnfs-restomod"
+ * UPDATE_API_NAME is the API's path and the requests' user agent, in one place (the Worker also answers the old "tnfs-restomod", for builds before it). */
+#define UPDATE_API_NAME "spirited-drive"
 #define UPDATE_API_BASE "https://api.bytesnrust.com/" UPDATE_API_NAME "/v1"
 
 /* the system's curl, never one earlier on PATH (Windows 10 1803 and later ship System32's) */
