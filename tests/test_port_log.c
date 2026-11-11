@@ -44,7 +44,7 @@ static void test_log_file(void)
     char dir[] = "/tmp/tnfs_port_log_dir_XXXXXX";
     CHECK(mkdtemp(dir) != NULL);
     char path[200], old[210];
-    snprintf(path, sizeof path, "%s/tnfs.log", dir);
+    snprintf(path, sizeof path, "%s/spirited-drive.log", dir);
     snprintf(old, sizeof old, "%s.1", path);
     port_log_set_verbose(0);
     CHECK_EQ_INT(port_log_open_file(path), 1);
@@ -63,7 +63,7 @@ static void test_log_file(void)
     CHECK(size_of(path) >= PORT_LOG_FILE_MAX);
     port_log_close_file();
     port_log("after close\n");   /* no file: no crash */
-    CHECK_EQ_INT(port_log_open_file("/no/such/dir/tnfs.log"), 0);   /* the game goes on without */
+    CHECK_EQ_INT(port_log_open_file("/no/such/dir/spirited-drive.log"), 0);   /* the game goes on without */
     unlink(path);
     unlink(old);
     rmdir(dir);
@@ -76,7 +76,7 @@ static void test_detail(void)
     char dir[] = "/tmp/tnfs_port_log_detail_XXXXXX";
     CHECK(mkdtemp(dir) != NULL);
     char path[200], old[210];
-    snprintf(path, sizeof path, "%s/tnfs.log", dir);
+    snprintf(path, sizeof path, "%s/spirited-drive.log", dir);
     snprintf(old, sizeof old, "%s.1", path);
     port_log_set_verbose(0);
     CHECK_EQ_INT(port_log_open_file(path), 1);

@@ -1,12 +1,12 @@
 # Notice
 
-**TNFS Restomod** — an unofficial restomod of *The Need for Speed SE* (PC, 1996).
+**Spirited Drive** — an unofficial restomod of *The Need for Speed SE* (PC, 1996).
 
 © 2026 Bytes & Rust and contributors.
 
 ## This is not EA's game, and it ships none of EA's data
 
-TNFS Restomod is an unofficial, non-commercial fan project. It is not affiliated with, endorsed by or sponsored by
+Spirited Drive is an unofficial, non-commercial fan project. It is not affiliated with, endorsed by or sponsored by
 Electronic Arts Inc. *The Need for Speed* and *Need for Speed* are trademarks of Electronic Arts Inc. All other
 trademarks belong to their owners. Car makes and models appear only through the original game's data, which the
 player supplies.
@@ -24,7 +24,7 @@ music, video, tracks and cars remain the property of Electronic Arts Inc. and th
 ## Original game
 
 *The Need for Speed* was made by Electronic Arts Canada together with Road & Track magazine (1994–1996). This project exists out of admiration for their work. Their names are shown in the game's own credits,
-which TNFS Restomod displays from your CD.
+which Spirited Drive displays from your CD.
 
 ## Licences
 

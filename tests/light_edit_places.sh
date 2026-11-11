@@ -9,7 +9,7 @@ mkdir -p "$WORK/mods/track_light" "$WORK/mods/track" "$WORK/user"
 cp "$REPO/data/track_light/CY1B.txt" "$WORK/mods/track_light/"
 cp "$REPO/data/track/CY1.txt" "$WORK/mods/track/"
 printf 'profile=restomod\nlight_effects=1\n' > "$WORK/user/port.cfg"
-LOG="$WORK/user/tnfs.log"
+LOG="$WORK/user/spirited-drive.log"
 
 env TNFS_LIGHT_EDIT=1 TNFS_FRAMES=100000 TNFS_LIGHT_TIME=day TNFS_WEATHER=clear TNFS_VIEW=1 \
     SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \

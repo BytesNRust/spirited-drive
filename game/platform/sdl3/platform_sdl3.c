@@ -48,18 +48,18 @@ uint64_t sdl3_next_vblank_ns;
 
 bool sdl3_window_focused;  /* the window has the keyboard focus: the system cursor is hidden over it then */
 
-/* port (the bug-report log): tnfs.log in the user directory, what the game said this run (the last run's as tnfs.log.1), headed with what a report needs */
+/* port (the bug-report log): GAME_LOG_FILE in the user directory, what the game said this run (the last run's with ".1"), headed with what a report needs */
 void sdl3_open_log(void)
 {
     static int opened;   /* once a run: another window's init must not rotate this run's log away */
     char path[1024];
     if (opened) return;
     opened = 1;
-    if (sdl3_user_path("tnfs.log", path, sizeof path) == NULL || !port_log_open_file(path)) return;
+    if (sdl3_user_path(GAME_LOG_FILE, path, sizeof path) == NULL || !port_log_open_file(path)) return;
 #ifdef TNFS_VERSION
-    port_log("tnfs %s\n", TNFS_VERSION);
+    port_log(GAME_NAME " %s\n", TNFS_VERSION);
 #else
-    port_log("tnfs (no version)\n");
+    port_log(GAME_NAME " (no version)\n");
 #endif
     port_log("system: %s, SDL %d.%d.%d, %d logical cpus\n", SDL_GetPlatform(), SDL_VERSIONNUM_MAJOR(SDL_GetVersion()),
              SDL_VERSIONNUM_MINOR(SDL_GetVersion()), SDL_VERSIONNUM_MICRO(SDL_GetVersion()), SDL_GetNumLogicalCPUCores());

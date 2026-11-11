@@ -53,13 +53,13 @@ jobs:
           icon=""
           [ -f data/icon/tnfs.icns ] && icon=data/icon/tnfs.icns
           tools/package_macos.sh build/rel dist $icon
-          lipo -archs "dist/TNFS Restomod.app/Contents/MacOS/tnfs" | grep -q arm64
-          lipo -archs "dist/TNFS Restomod.app/Contents/MacOS/tnfs" | grep -q x86_64
+          lipo -archs "dist/Spirited Drive.app/Contents/MacOS/tnfs" | grep -q arm64
+          lipo -archs "dist/Spirited Drive.app/Contents/MacOS/tnfs" | grep -q x86_64
           cd dist && shasum -a 256 *.dmg > SHA256SUMS.txt && cat SHA256SUMS.txt
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4
         with:
-          name: tnfs-restomod-macos-${{ github.sha }}
+          name: spirited-drive-macos-${{ github.sha }}
           path: |
             dist/*.dmg
             dist/SHA256SUMS.txt

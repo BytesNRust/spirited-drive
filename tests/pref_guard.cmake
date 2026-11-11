@@ -1,5 +1,5 @@
-# Every registered test runs with TNFS_PREF_DIR set to a scratch folder in the build, so none can reach the player's own folder (~/Library/Application Support/TNFS Restomod/ and its
-# kin) by default: a tnfs started with no --user writes its log, its settings and a Replay.rpl there (found 2026-11-10: a gate had rewritten the real Replay.rpl and tnfs.log).
+# Every registered test runs with TNFS_PREF_DIR set to a scratch folder in the build, so none can reach the player's own folder (~/Library/Application Support/Spirited Drive/ and its
+# kin) by default: a tnfs started with no --user writes its log, its settings and a Replay.rpl there (found 2026-11-10: a gate had rewritten the real Replay.rpl and spirited-drive.log).
 # usage: cmake -DCTEST=ctest -DBUILD=<build dir> [-DVAR=TNFS_PREF_DIR] -P pref_guard.cmake
 if(NOT DEFINED VAR)
     set(VAR TNFS_PREF_DIR)

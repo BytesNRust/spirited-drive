@@ -1,4 +1,4 @@
-# Contributing to TNFS Restomod
+# Contributing to Spirited Drive
 
 Thanks for helping restore a 1996 classic.
 

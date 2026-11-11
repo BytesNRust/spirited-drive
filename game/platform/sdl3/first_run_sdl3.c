@@ -4,6 +4,7 @@
 #include "game/platform/platform.h"
 #include "game/sys/data_check.h"
 #include "game/sys/data_copy.h"
+#include "game/sys/game_name.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
@@ -125,7 +126,7 @@ typedef enum { WIZARD_FOLDER, WIZARD_ISO } WizardSource;
 static bool copy_with_bar(WizardSource kind, const char *src, const char *root, const char *dest)
 {
     Bar bar = { NULL, NULL, kind == WIZARD_ISO ? data_copy_iso_size(src, root) : data_copy_size(src) };
-    const bool window = SDL_CreateWindowAndRenderer("TNFS Restomod: copying the game's files", 480, 104, 0, &bar.window, &bar.renderer);
+    const bool window = SDL_CreateWindowAndRenderer(GAME_NAME ": copying the game's files", 480, 104, 0, &bar.window, &bar.renderer);
     if (!window) port_log("first run: no window for the progress bar (%s): copying without\n", SDL_GetError());
     DataCopyProgress progress = window ? draw_bar : NULL;
     const bool ok = (kind == WIZARD_ISO ? data_copy_iso(src, root, dest, progress, &bar) : data_copy_tree(src, dest, progress, &bar)) != 0;
@@ -189,7 +190,7 @@ bool first_run_setup(const char *dest)
         return false;
     }
     static const char *const START[] = { "Choose the CD or a folder", "Choose an ISO image", "Quit" };
-    const int start = ask("TNFS Restomod", "This game needs the files of your own copy of The Need for Speed Special Edition (PC, 1996).\n\n"
+    const int start = ask(GAME_NAME, "This game needs the files of your own copy of The Need for Speed Special Edition (PC, 1996).\n\n"
                                            "Choose where they are: the CD, a copy of it on your disk, or an ISO image of it. They are copied once into this game's own folder, "
                                            "which takes a minute.", START, 3);
     if (start != 0 && start != 1) {

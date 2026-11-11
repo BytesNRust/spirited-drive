@@ -4,6 +4,7 @@
 #define TNFS_PLATFORM_SDL3_PRIVATE_H
 
 #include "platform/platform.h"
+#include "game/sys/game_name.h"
 
 #include <SDL3/SDL.h>
 #include <stdbool.h>
@@ -25,10 +26,8 @@ extern bool sdl3_window_focused;   /* the window has the keyboard focus: the sys
 extern char sdl3_user_override[1024];   /* --user DIR */
 extern SDL_AudioStream *sdl3_audio;     /* the open audio stream (platform_audio_sdl3.c), closed by platform_shutdown */
 
-/* the name of the player's folder, in one place (it may change); LEGACY_* is where it was before, moved from once */
-#define USER_FOLDER_NAME "TNFS Restomod"
-#define LEGACY_USER_ORG "tnfs"
-#define LEGACY_USER_APP "tnfs"
+/* the name of the player's folder: the game's (where it was before is in platform_mods_sdl3.c, moved from once) */
+#define USER_FOLDER_NAME GAME_NAME
 
 const char *sdl3_user_dir(char *out, size_t out_size);
 const char *sdl3_user_path(const char *name, char *out, size_t out_size);

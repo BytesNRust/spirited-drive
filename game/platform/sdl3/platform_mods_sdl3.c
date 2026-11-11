@@ -134,30 +134,44 @@ void platform_set_user_dir(const char *dir)
     SDL_snprintf(sdl3_user_override, sizeof sdl3_user_override, "%s%s", dir, dir[strlen(dir) - 1] == '/' ? "" : "/");
 }
 
-/* The folder the player's files lived in before it was named USER_FOLDER_NAME (tnfs/tnfs under the OS's data folder), found from the new one without making it. */
-static bool legacy_pref_dir(const char *pref, char *out, size_t out_size)
+/* Where the player's folder was before it was named USER_FOLDER_NAME, newest first, each beside it in the OS's data folder ('/' between parts) */
+static const char *const LEGACY_USER_FOLDERS[] = { "TNFS Restomod", "tnfs/tnfs" };
+
+/* The old folder `rel` beside the player's folder `pref`, found without making it. */
+static bool legacy_pref_dir(const char *pref, const char *rel, char *out, size_t out_size)
 {
     char base[1024];
     SDL_snprintf(base, sizeof base, "%s", pref);
     size_t n = strlen(base);
-    while (n > 0 && (base[n - 1] == '/' || base[n - 1] == '\\')) base[--n] = '\0';   /* ...<base>/TNFS Restomod */
+    while (n > 0 && (base[n - 1] == '/' || base[n - 1] == '\\')) base[--n] = '\0';   /* ...<base>/<USER_FOLDER_NAME> */
     while (n > 0 && base[n - 1] != '/' && base[n - 1] != '\\') base[--n] = '\0';     /* ...<base>/ */
     if (n == 0) return false;
-    SDL_snprintf(out, out_size, "%s%s%c%s%c", base, LEGACY_USER_ORG, base[n - 1], LEGACY_USER_APP, base[n - 1]);
+    const char sep = base[n - 1];
+    const int len = SDL_snprintf(out, out_size, "%s%s%c", base, rel, sep);
+    if (len < 0 || (size_t)len >= out_size) return false;
+    for (size_t i = n; i < (size_t)len; i++)
+        if (out[i] == '/') out[i] = sep;
     return true;
+}
+
+int platform_migrate_user_folders(const char *pref)
+{
+    int total = 0;
+    for (size_t i = 0; i < SDL_arraysize(LEGACY_USER_FOLDERS); i++) {
+        char legacy[1200];
+        if (!legacy_pref_dir(pref, LEGACY_USER_FOLDERS[i], legacy, sizeof legacy)) continue;
+        const int moved = platform_move_user_files(legacy, pref);
+        if (moved > 0) port_log("user: %d item(s) moved from %s to %s\n", moved, legacy, pref);
+        total += moved;
+    }
+    return total;
 }
 
 static void migrate_user_files(const char *mods_dir)
 {
     char dir[1200], from[1300];
     if (sdl3_user_dir(dir, sizeof dir) == NULL) return;
-    if (sdl3_user_override[0] == '\0' && SDL_getenv("TNFS_PREF_DIR") == NULL) {   /* the OS's own folder: what the old name held comes along */
-        char legacy[1200];
-        if (legacy_pref_dir(dir, legacy, sizeof legacy)) {
-            const int moved = platform_move_user_files(legacy, dir);
-            if (moved > 0) port_log("user: %d item(s) moved from %s to %s\n", moved, legacy, dir);
-        }
-    }
+    if (sdl3_user_override[0] == '\0' && SDL_getenv("TNFS_PREF_DIR") == NULL) platform_migrate_user_folders(dir);   /* the OS's own folder: what the old names held comes along */
     if (mods_dir != NULL && mods_dir[0] != '\0') {   /* --mods no longer holds the player's files: those it did (<mods>/user/) move to the player's folder */
         SDL_snprintf(from, sizeof from, "%s/user/", mods_dir);
         const int moved = platform_move_user_files(from, dir);

@@ -7,12 +7,14 @@
 #include <stddef.h>
 
 /* Where releases are published and announced. */
-#define UPDATE_RELEASES_API  "https://api.github.com/repos/BytesNRust/tnfs-restomod/releases/latest"
-#define UPDATE_RELEASES_PAGE "https://github.com/BytesNRust/tnfs-restomod/releases/latest"
+#define UPDATE_RELEASES_API  "https://api.github.com/repos/BytesNRust/spirited-drive/releases/latest"
+#define UPDATE_RELEASES_PAGE "https://github.com/BytesNRust/spirited-drive/releases/latest"
 
 /* Our own API (the Worker at api.bytesnrust.com): the update check asks it (that request counts the start) and three
- * one-shot anonymous events are POSTed to it. Versions go without a "+build" part. */
-#define UPDATE_API_BASE "https://api.bytesnrust.com/tnfs-restomod/v1"
+ * one-shot anonymous events are POSTed to it. Versions go without a "+build" part.
+ * UPDATE_API_NAME is the API's path and the requests' user agent, in one place (the Worker also answers the old "tnfs-restomod", for builds before it). */
+#define UPDATE_API_NAME "spirited-drive"
+#define UPDATE_API_BASE "https://api.bytesnrust.com/" UPDATE_API_NAME "/v1"
 
 /* the system's curl, never one earlier on PATH (Windows 10 1803 and later ship System32's) */
 #if defined(_WIN32)

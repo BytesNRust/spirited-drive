@@ -123,7 +123,7 @@ typedef struct ExtrasMenuOps {
      * a style's colours (lit yellow, else cream). Both NULL keeps the text "1/2 >". */
     int32_t (*plus_arrow_size)(void *ctx, int32_t right, int32_t *w, int32_t *h);
     void (*plus_arrow)(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
-    /* port: the Open the log folder row's action, run on Return, Space or a click on it (not on the arrows); the platform's file browser on the folder that holds tnfs.log.
+    /* port: the Open the log folder row's action, run on Return, Space or a click on it (not on the arrows); the platform's file browser on the folder that holds spirited-drive.log.
      * NULL: the row does nothing. */
     void (*open_log_folder)(void *ctx);
     /* port (modes): the Profile in use: a row its mode does not leave free is dimmed, shows the mode's value and does not change */

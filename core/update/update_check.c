@@ -181,11 +181,11 @@ int update_api_command(char *out, size_t cap, const char *event, const char *ver
     if (!update_api_version(version, v, sizeof v)) return 0;
     int n;
     if (event == NULL) {
-        n = snprintf(out, cap, UPDATE_CURL " -fsSL --proto =https --proto-redir =https --max-time 5 -A tnfs-restomod "
+        n = snprintf(out, cap, UPDATE_CURL " -fsSL --proto =https --proto-redir =https --max-time 5 -A " UPDATE_API_NAME " "
                                "\"" UPDATE_API_BASE "/latest?v=%s\" 2>" UPDATE_NULL_DEV, v);
     } else {
         if (strcmp(event, "first_start") != 0 && strcmp(event, "data_ready") != 0 && strcmp(event, "first_race") != 0) return 0;
-        n = snprintf(out, cap, UPDATE_CURL " -fsS -X POST --proto =https --proto-redir =https --max-time 5 -A tnfs-restomod "
+        n = snprintf(out, cap, UPDATE_CURL " -fsS -X POST --proto =https --proto-redir =https --max-time 5 -A " UPDATE_API_NAME " "
                                "-o " UPDATE_NULL_DEV " \"" UPDATE_API_BASE "/event?e=%s&v=%s\" 2>" UPDATE_NULL_DEV, event, v);
     }
     if (n < 0 || (size_t)n >= cap) {

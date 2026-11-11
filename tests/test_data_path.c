@@ -10,9 +10,9 @@
 static void test_order_and_slashes(void)
 {
     char p[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
-    CHECK_EQ_INT(data_path_candidates_for("/mods", "/Applications/TNFS Restomod.app/Contents/Resources/", "/src/tnfs", "car_masks/P911/rsid_mask.png", p), 4);
+    CHECK_EQ_INT(data_path_candidates_for("/mods", "/Applications/Spirited Drive.app/Contents/Resources/", "/src/tnfs", "car_masks/P911/rsid_mask.png", p), 4);
     CHECK_EQ_STR(p[0], "/mods/car_masks/P911/rsid_mask.png");   /* a mod's own copy, first, with no data/ in it */
-    CHECK_EQ_STR(p[1], "/Applications/TNFS Restomod.app/Contents/Resources/data/car_masks/P911/rsid_mask.png");   /* then the bundle's own */
+    CHECK_EQ_STR(p[1], "/Applications/Spirited Drive.app/Contents/Resources/data/car_masks/P911/rsid_mask.png");   /* then the bundle's own */
     CHECK_EQ_STR(p[2], "data/car_masks/P911/rsid_mask.png");
     CHECK_EQ_STR(p[3], "/src/tnfs/data/car_masks/P911/rsid_mask.png");
     CHECK_EQ_INT(data_path_candidates_for("/mods/", NULL, NULL, "sounds/thunder.wav", p), 2);   /* a trailing slash is not doubled */

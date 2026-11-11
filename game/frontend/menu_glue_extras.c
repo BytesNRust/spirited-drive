@@ -7,7 +7,7 @@
 /* the Game Mode screen's current picture (set before the menu is entered) */
 static int32_t mode_extras_screen;
 
-/* port: the Open the log folder row of the EXTRAS screen: the file browser on the user folder, where tnfs.log is */
+/* port: the Open the log folder row of the EXTRAS screen: the file browser on the user folder, where spirited-drive.log is */
 static void open_log_folder_glue(void *ctx)
 {
     (void)ctx;

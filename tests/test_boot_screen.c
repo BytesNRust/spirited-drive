@@ -17,7 +17,8 @@ static void says_what_it_is_and_whose_it_is(void)
     const int n = boot_screen_lines("0.9.0", lines);
     CHECK(n >= 5 && n <= BOOT_LINES_MAX);
     CHECK(has(lines, n, "Bytes & Rust presents"));
-    CHECK(has(lines, n, "TNFS Restomod"));
+    CHECK(has(lines, n, "Spirited Drive"));
+    CHECK(!has(lines, n, "TNFS"));   /* the game's old name is gone */
     CHECK(has(lines, n, "unofficial restomod of The Need for Speed SE for PC (1996)"));
     CHECK(has(lines, n, "2026 Bytes & Rust"));
     CHECK(has(lines, n, "GPL-3.0"));
@@ -56,7 +57,8 @@ static void the_credits_add_a_dedication_and_ours(void)
     CHECK(has(lines, n, "We restored it."));
     n = credits_extra_lines(1, "0.9.0", lines);
     CHECK(has(lines, n, "Original game: EA Canada with Road & Track 1994-1996"));
-    CHECK(has(lines, n, "Bytes & Rust and contributors"));
+    CHECK(has(lines, n, "Spirited Drive: Bytes & Rust and contributors"));
+    CHECK(!has(lines, n, "TNFS") && !has(lines, n, "Restomod"));   /* the credits name the game, not the mode */
     CHECK(has(lines, n, "GPL-3.0-or-later"));
     CHECK(has(lines, n, "CC BY-SA 4.0"));
     CHECK(has(lines, n, "Not affiliated with EA"));

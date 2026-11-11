@@ -6,7 +6,7 @@
 static void parses_the_tag(void)
 {
     char tag[32];
-    const char *json = "{\"url\":\"x\",\"tag_name\": \"v0.9.1\",\"name\":\"TNFS Restomod 0.9.1\"}";
+    const char *json = "{\"url\":\"x\",\"tag_name\": \"v0.9.1\",\"name\":\"Spirited Drive 0.9.1\"}";
     CHECK_EQ_INT(update_parse_latest_tag(json, tag, sizeof tag), 1);
     CHECK(strcmp(tag, "0.9.1") == 0);
 
@@ -98,6 +98,8 @@ static void api_commands_are_bounded(void)
     char cmd[512];
     CHECK_EQ_INT(update_api_command(cmd, sizeof cmd, NULL, "0.9.0-beta.1+abc"), 1);
     CHECK(strstr(cmd, "\"" UPDATE_API_BASE "/latest?v=0.9.0-beta.1\"") != NULL);
+    CHECK(strstr(cmd, "\"https://api.bytesnrust.com/spirited-drive/v1/latest?v=") != NULL);   /* the game's own path and agent */
+    CHECK(strstr(cmd, "-A spirited-drive ") != NULL);
     CHECK(strstr(cmd, "--max-time 5") != NULL);
     CHECK(strstr(cmd, "--proto =https") != NULL);
     CHECK(strstr(cmd, "+abc") == NULL);
@@ -105,6 +107,7 @@ static void api_commands_are_bounded(void)
     CHECK_EQ_INT(update_api_command(cmd, sizeof cmd, "first_race", "0.9.0"), 1);
     CHECK(strstr(cmd, "-X POST") != NULL);
     CHECK(strstr(cmd, "/event?e=first_race&v=0.9.0\"") != NULL);
+    CHECK(strstr(cmd, "/spirited-drive/v1/event?") != NULL && strstr(cmd, "-A spirited-drive ") != NULL);
     CHECK(strstr(cmd, "--max-time 5") != NULL);
     CHECK(strstr(cmd, "--proto =https") != NULL);
     CHECK_EQ_INT(update_api_command(cmd, sizeof cmd, "session", "0.9.0"), 0);          /* only the three */

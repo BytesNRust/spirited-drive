@@ -1,6 +1,6 @@
 # Code of conduct
 
-TNFS Restomod is a small hobby project made with care. Everyone who takes part — in issues, discussions, pull
+Spirited Drive is a small hobby project made with care. Everyone who takes part — in issues, discussions, pull
 requests or anywhere we gather — is expected to:
 
 - be respectful and patient, including with newcomers and people whose first language is not English;

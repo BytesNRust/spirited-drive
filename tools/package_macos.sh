@@ -1,11 +1,11 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Packs a built tnfs into "TNFS Restomod.app" and a DMG, with SDL3 inside the bundle.
+# Packs a built tnfs into "Spirited Drive.app" and a DMG, with SDL3 inside the bundle.
 #
 #   tools/package_macos.sh BUILD_DIR OUT_DIR [ICNS]
 #
 # BUILD_DIR holds the tnfs binary (configure it with -DTNFS_RELEASE=ON) and generated/tnfs_version.h.
-# OUT_DIR receives "TNFS Restomod.app" and TNFS-Restomod-<version>-macos.dmg.
+# OUT_DIR receives "Spirited Drive.app" and Spirited-Drive-<version>-macos.dmg.
 # ICNS is the app icon (optional until we have our own).
 #
 # No game data goes in: players bring their own CD. Our own data (data/ in the source tree: car masks, the
@@ -20,8 +20,8 @@ OUT_DIR=$2
 ICNS=${3:-}
 SRC_DIR=$(cd "$(dirname "$0")/.." && pwd)
 
-APP_NAME="TNFS Restomod"
-BUNDLE_ID="com.bytesnrust.tnfs-restomod"
+APP_NAME="Spirited Drive"
+BUNDLE_ID="com.bytesnrust.spirited-drive"
 MIN_MACOS="11.0"
 
 BIN="$BUILD_DIR/tnfs"
@@ -121,7 +121,7 @@ codesign --force --sign - "$APP"
 codesign --verify --strict "$APP"
 
 ARCHS=$(lipo -archs "$APP/Contents/MacOS/tnfs")
-DMG="$OUT_DIR/TNFS-Restomod-$VERSION-macos.dmg"
+DMG="$OUT_DIR/Spirited-Drive-$VERSION-macos.dmg"
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 cp -R "$APP" "$STAGE/"

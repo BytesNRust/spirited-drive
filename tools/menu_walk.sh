@@ -55,8 +55,8 @@ limit=$(( step * 12 + 60 ))
 rc=1 waited=0
 while [ $waited -lt $limit ]; do
     sleep 1; waited=$((waited + 1))
-    if grep -q "mark:screen=$final" "$work/user/tnfs.log" 2>/dev/null; then sleep 3; rc=0; break; fi
-    if grep -q "input script: step.*timed out" "$work/user/tnfs.log" 2>/dev/null; then rc=3; break; fi
+    if grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null; then sleep 3; rc=0; break; fi
+    if grep -q "input script: step.*timed out" "$work/user/spirited-drive.log" 2>/dev/null; then rc=3; break; fi
     pgrep -f "$work/user" >/dev/null 2>&1 || { [ $waited -gt 3 ] && break; }   # the game ended on its own (a crash, or the script's end)
 done
 pkill -TERM -f "$work/user" 2>/dev/null; sleep 1; pkill -KILL -f "$work/user" 2>/dev/null
@@ -68,7 +68,7 @@ if [ $rc -eq 0 ]; then
 fi
 if [ $rc -ne 0 ]; then
     echo "menu_walk $target: failed (exit $rc); the game's last lines:" >&2
-    grep -E "mark:screen|input script" "$work/user/tnfs.log" | tail -12 >&2
+    grep -E "mark:screen|input script" "$work/user/spirited-drive.log" | tail -12 >&2
 fi
 [ -n "$KEEP" ] && echo "kept: $work" >&2 || { find "$work" -type f -delete; find "$work" -depth -type d -empty -delete 2>/dev/null; }
 exit $rc

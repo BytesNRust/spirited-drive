@@ -111,15 +111,19 @@ bool platform_set_mods(const char *data_root, const char *mods_dir);
 const char *platform_mods_dir(void);
 /* --user DIR: the player's folder is DIR (a portable install, a test); call before platform_open_log. NULL or "": not set. */
 void platform_set_user_dir(const char *dir);
-/* The player's writable folder with its trailing '/': --user DIR, else $TNFS_PREF_DIR (tests, modders), else the OS's own, one folder named "TNFS Restomod"
- * (SDL_GetPrefPath with no organisation: ~/Library/Application Support/TNFS Restomod/ on macOS). False when there is none. */
+/* The player's writable folder with its trailing '/': --user DIR, else $TNFS_PREF_DIR (tests, modders), else the OS's own, one folder named after the game
+ * (SDL_GetPrefPath with no organisation: ~/Library/Application Support/Spirited Drive/ on macOS). False when there is none. */
 bool platform_user_dir(char *out, size_t out_size);
-/* Opens that folder (the one holding tnfs.log) in the OS file browser, for bug reports. 1 when the OS took the request, 0 when there is no folder or it could not. */
+/* Opens that folder (the one holding the log, spirited-drive.log) in the OS file browser, for bug reports. 1 when the OS took the request, 0 when there is no folder or it could not. */
 int platform_open_user_dir(void);
 /* Moves what `from` holds into `to` once: an item `to` lacks is moved (a folder item by item), one it has stays, and the old copy with it. Returns the items moved
- * (0 when `from` is not there). The program uses it for the folder this one replaced (tnfs/tnfs) and for <mods>/user/. */
+ * (0 when `from` is not there). The program uses it for the folders this one replaced and for <mods>/user/. */
 int platform_move_user_files(const char *from, const char *to);
-/* Opens tnfs.log in the player's folder at once (the program calls it first, with its --mods directory or NULL), so a run that stops before platform_init (no game data) still
+/* Moves what the player's folder's older names held ("TNFS Restomod", then tnfs/tnfs, each beside `pref`) into `pref`, newest first, with
+ * platform_move_user_files: what `pref` has stays, and what came from a newer name wins over an older one. One log line for each that gave something.
+ * Returns the items moved. The program calls it only for the OS's own folder (not with --user or $TNFS_PREF_DIR). */
+int platform_migrate_user_folders(const char *pref);
+/* Opens the log (spirited-drive.log) in the player's folder at once (the program calls it first, with its --mods directory or NULL), so a run that stops before platform_init (no game data) still
  * leaves its report, and moves the files of the older folders there (said in the log). platform_init opens the log too when this was not called. */
 void platform_open_log(const char *mods_dir);
 /* The last mod file refused, with the reason; "" when none. */
