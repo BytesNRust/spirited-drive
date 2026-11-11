@@ -87,6 +87,14 @@ Colours of the `mask` layer:
 
 The **`color`** layer: paint over the lit parts in the colour each is to glow (the strongest channel sets the hue; the dash's art gives the brightness). Transparent or black means no colour: it glows orange. The game folds the colours into twelve flat ones, so use a few. `TNFS_DASH_MASKS=<dir of <CAR>/dash_mask.png>` tries a folder without installing it.
 
+You can also write `dash_color.png` by hand, with no PSD, at `<mod>/dash_masks/<CAR>/dash_color.png`:
+
+* **Format:** a PNG up to 4096 pixels a side, in the dash's 640 x 480 frame (any other size is scaled to it, nearest pixel). A pixel with alpha under 128, or black (red, green and blue all under 24), has no colour; any other pixel is the colour its light is to have. An indexed PNG has no alpha: its palette colours count, black ones are skipped.
+* **Which pixels count:** only the lit ones, whether the mask or the game's own gauge ellipses lit them. A lit pixel with no colour glows orange (the `gauge_light` 3 look); a colour painted on a pixel that is not lit does nothing. The file needs no `dash_mask.png` beside it.
+* **Folding:** the colours become at most twelve. A colour within a distance of 48 (the sum of the three channels' differences) of an earlier one shares its slot, a thirteenth different colour takes the nearest of the twelve. Paint a few flat colours, not a gradient.
+* **When:** only with `gauge_light` 5 (*from the car*), in the cockpit while the gauges are lit (the night; also dusk and rain with `gauge_exterior`); the other values keep their own colours.
+* **Lookup:** the mod's file, then `data/`, as for the mask; a car whose folder name is in lower case is also tried in upper case. `tnfs.log` has a line `dash dash_color.png: <path>` for the file it read; no line means no file was found. A file that is found but does not read as a PNG logs the same line and then colours nothing: the lit parts are orange.
+
 ## Track masks
 
 At night, or in a dark tunnel, what is **reflective** (road signs, posts, the cat's eyes painted on the asphalt of some roads) is to shine when it is in the cone of the car's headlights. A **mask** says which texels of a texture are reflective. One PNG per texture: `data/track_masks/<TRACK>/<name>.png`, with `<TRACK>` the track's name in capitals (`CL1`) and `<name>`:
