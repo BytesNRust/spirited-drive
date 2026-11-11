@@ -6,7 +6,7 @@
 #
 # BUILD_DIR holds the tnfs binary (configure it with -DTNFS_RELEASE=ON) and generated/tnfs_version.h.
 # OUT_DIR receives "Spirited Drive.app" and Spirited-Drive-<version>-macos.dmg.
-# ICNS is the app icon (optional until we have our own).
+# ICNS is the app icon; without it, the source tree's data/icon/tnfs.icns (tools/spirited_icon.py makes it).
 #
 # No game data goes in: players bring their own CD. Our own data (data/ in the source tree: car masks, the
 # environment map, light maps) goes in Contents/Resources/data. The app is signed ad hoc (the beta is unsigned:
@@ -19,6 +19,7 @@ BUILD_DIR=$(cd "$1" && pwd)
 OUT_DIR=$2
 ICNS=${3:-}
 SRC_DIR=$(cd "$(dirname "$0")/.." && pwd)
+[ -n "$ICNS" ] || { [ -f "$SRC_DIR/data/icon/tnfs.icns" ] && ICNS="$SRC_DIR/data/icon/tnfs.icns"; } || true
 
 APP_NAME="Spirited Drive"
 BUNDLE_ID="com.bytesnrust.spirited-drive"

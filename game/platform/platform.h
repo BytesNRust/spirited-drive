@@ -34,8 +34,13 @@ bool platform_desktop_size(int *width, int *height);
 /* One refresh of platform_wait_vblank, in nanoseconds (1e9 / refresh_hz). */
 uint64_t platform_refresh_period_ns(void);
 void platform_shutdown(void);
-/* The window's icon (and the Dock's on macOS): w x h RGBA pixels, top row first; nothing without a window. */
-void platform_set_window_icon(const uint8_t *rgba, int w, int h);
+/* The window's icon (and the Dock's on macOS): `count` pictures of w x h RGBA pixels, top row first. The first is the icon at 100% scale and the others
+ * its versions for higher scales (the platform picks the closest); nothing without a window. */
+typedef struct {
+    const uint8_t *rgba;
+    int w, h;
+} PlatformIconImage;
+void platform_set_window_icon(const PlatformIconImage *images, int count);
 
 typedef enum {
     PLATFORM_KEY_NONE = 0,
