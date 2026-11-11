@@ -107,9 +107,9 @@ static void draw_camera_base(void *user, const View *view, const FshEntry *textu
             modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), lit_tables, dark, lamp_top, lamp_heat, LAMP_STEPS);
             return;
         }
-        if (tables == tunnel_tables && tunnel_cells_draw(user, view, texture, uv, cam, transparent(texture), tunnel_tables, dark)) return;   /* port (tunnel_lamps): a polygon of a tunnel with lamps near, in pieces a node long, each graded by the lamps' heat at its own corners */
-        if (tables == tunnel_tables && lamp_polygon_tunnel(lamp_heat, &lamp_top)) {   /* port (tunnel_lamps): a tunnel's lamps' pools, the tunnel's tables and the same with the lamp's light added, graded by the heat at each corner */
-            modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), tunnel_tables, dark, lamp_top, lamp_heat, LAMP_STEPS);
+        if ((track_light_tunnel & 7) == 1 && tunnel_cells_draw(user, view, texture, uv, cam, transparent(texture), tables, dark)) return;   /* port (tunnel_lamps, any tunnel polygon, a scene tone's or a zone look's tables too: the ceiling took none of the lamps' light): a polygon of a tunnel with lamps near, in pieces a node long, each graded by the lamps' heat at its own corners */
+        if ((track_light_tunnel & 7) == 1 && lamp_polygon_tunnel(lamp_heat, &lamp_top)) {   /* port (tunnel_lamps): a tunnel's lamps' pools, the tunnel's tables and the same with the lamp's light added, graded by the heat at each corner */
+            modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), tables, dark, lamp_top, lamp_heat, LAMP_STEPS);
             return;
         }
         if (pool_ready && track_light_xz_ok && (track_light_tunnel & 7) != 1 && light_effects != NULL
