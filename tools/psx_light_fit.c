@@ -1,10 +1,11 @@
 /* psx_light_fit <psx_dir> <data_dir> <A|B|C> <track>...: fits the PS1 CD's light of those tracks (at one time of day) from what our own generator can see of the terrain, numbers
  * only: for each terrain point (2..5, 7..10) and for all of them, the least-squares coefficients of the CD's byte / 255 over
  *   1, sky, nx, ny
- * (psx_light_make.h's PsxLightFeatures: the share of the dome seen, the surface normal's x and y; the PS1's sun is fixed along the track's x axis), the R squared, and the mean absolute error of the fit in the 0..255 bytes. Also the mean of the CD's bytes per point. Reads the CD's and the PC's
+ * (terrain_light.h's TerrainLightFeatures: the share of the dome seen, the surface normal's x and y; the PS1's sun is fixed along the track's x axis), the R squared, and the mean absolute error of the fit in the 0..255 bytes. Also the mean of the CD's bytes per point. Reads the CD's and the PC's
  * files, writes nothing and prints no byte of them: only these statistics. Tunnel nodes are skipped. */
-#include "game/race/psx_light.h"
-#include "game/race/psx_light_make.h"
+#include "game/race/track_node_light.h"
+#include "game/race/psx_lgt.h"
+#include "game/race/terrain_light.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -57,25 +58,25 @@ static int add_track(const char *psx_dir, const char *data_dir, const char *name
     if (tri_data == NULL || tri_open(&tri, tri_data, tri_size) != TRI_OK) return fprintf(stderr, "cannot read %s\n", path), 0;
     snprintf(path, sizeof path, "%s/Z%s%c.LGT", psx_dir, track, letter);
     uint8_t *lgt_data = slurp(path, &lgt_size);
-    PsxLight ps1 = { 0 };   /* psx_light_parse sets only the rows: the flags (reversed, scripted) must start at 0 or the CD is read mirrored */
-    if (lgt_data == NULL || !psx_light_parse(lgt_data, lgt_size, tri.node_count, &ps1)) return fprintf(stderr, "cannot read %s\n", path), 0;
+    TrackNodeLight ps1 = { 0 };   /* psx_lgt_parse sets only the rows: the flags (reversed, scripted) must start at 0 or the CD is read mirrored */
+    if (lgt_data == NULL || !psx_lgt_parse(lgt_data, lgt_size, tri.node_count, &ps1)) return fprintf(stderr, "cannot read %s\n", path), 0;
     const uint32_t count = tri.node_count;
-    LightPos *pts = malloc((size_t)count * PSX_LIGHT_POINTS * sizeof *pts);
-    if (pts == NULL || !psx_light_tri_points(&tri, pts)) return fprintf(stderr, "no terrain\n"), 0;
+    LightPos *pts = malloc((size_t)count * TRACK_NODE_LIGHT_POINTS * sizeof *pts);
+    if (pts == NULL || !terrain_light_tri_points(&tri, pts)) return fprintf(stderr, "no terrain\n"), 0;
     const int ring = tri_is_circuit(&tri);
     const size_t first = sample_count;
     const uint32_t ahead = count > 12 ? 12 : count - 1;
-    const double heading = atan2((double)(pts[ahead * PSX_LIGHT_POINTS].z - pts[0].z), (double)(pts[ahead * PSX_LIGHT_POINTS].x - pts[0].x)) * 180.0 / 3.14159265;
+    const double heading = atan2((double)(pts[ahead * TRACK_NODE_LIGHT_POINTS].z - pts[0].z), (double)(pts[ahead * TRACK_NODE_LIGHT_POINTS].x - pts[0].x)) * 180.0 / 3.14159265;
     for (uint32_t n = 0; n + 1 < count; n++) {
-        if (psx_light_tunnel(&ps1, n)) continue;
-        for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+        if (track_node_light_tunnel(&ps1, n)) continue;
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
             if (!terrain(p) || sample_count >= MAX_SAMPLES) continue;
-            PsxLightFeatures f;
-            psx_light_features(pts, count, ring, n, p, &f);
+            TerrainLightFeatures f;
+            terrain_light_features(pts, count, ring, n, p, &f);
             Sample *s = &samples[sample_count++];
             const float x[FEATURES] = { 1, f.sky, f.nx, f.nz, f.ny, f.rise / 10.0f, f.lateral / 10.0f };
             memcpy(s->x, x, sizeof x);
-            s->y = (float)psx_light_byte(&ps1, n, p) / 255.0f;
+            s->y = (float)track_node_light_byte(&ps1, n, p) / 255.0f;
             s->point = (uint8_t)p;
         }
     }
@@ -85,7 +86,7 @@ static int add_track(const char *psx_dir, const char *data_dir, const char *name
         track_count++;
     }
     printf("  %s: %u nodes\n", track, count);
-    psx_light_free(&ps1);
+    track_node_light_free(&ps1);
     free(pts), free(tri_data), free(lgt_data);
     return 1;
 }
@@ -149,7 +150,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < FEATURES; i++) printf(" %s", NAME[i]);
     printf("\n");
     fit_lo = 0, fit_hi = sample_count;
-    for (int p = -1; p < PSX_LIGHT_POINTS; p++) {
+    for (int p = -1; p < TRACK_NODE_LIGHT_POINTS; p++) {
         if (p >= 0 && !terrain(p)) continue;
         double coef[FEATURES], r2, mae, mean;
         long n;

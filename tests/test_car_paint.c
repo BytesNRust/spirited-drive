@@ -122,7 +122,7 @@ static void test_pick(void)
             CHECK(other >= 0 && other < 2 + 4);
             seen[other]++;
             CHECK_EQ_INT(car_paint_pick(seed, slot, 5, 3, 4, 4, 1), other);   /* the same race, the same colours */
-            CHECK(car_paint_pick(seed, slot, 5, 3, 4, 4, 0) != PAINT_PS1);    /* no PS1 files: no PS1 paint */
+            CHECK(car_paint_pick(seed, slot, 5, 3, 4, 4, 0) != PAINT_SECOND);    /* no PS1 files: no console paint */
         }
     for (int id = 0; id < 6; id++) CHECK(seen[id] > 0);                       /* every choice turns up */
     CHECK_EQ_INT(car_paint_pick(7, 2, 5, 5, 0, 0, 0), 0);                     /* nothing else to take: the car's own */
@@ -194,7 +194,7 @@ static void replayed(void)
 {
     CHECK(car_paint_replayed(0xff, 3, 1) == -1 && car_paint_replayed(-1, 3, 1) == -1);
     CHECK(car_paint_replayed(0, 3, 1) == 0);
-    CHECK(car_paint_replayed(1, 3, 1) == 1 && car_paint_replayed(1, 3, 0) == 0);   /* the PS1 livery needs its files */
+    CHECK(car_paint_replayed(1, 3, 1) == 1 && car_paint_replayed(1, 3, 0) == 0);   /* the console version livery needs its files */
     CHECK(car_paint_replayed(2 + car_paint_count(3) - 1, 3, 0) == 2 + car_paint_count(3) - 1);
     CHECK(car_paint_replayed(2 + car_paint_count(3), 3, 1) == 0);   /* a catalogue paint the table no longer has */
 }

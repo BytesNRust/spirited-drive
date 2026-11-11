@@ -1,7 +1,7 @@
 #!/bin/zsh
 # bench_matrix.sh BIN [REPO]: prints a TSV on stdout; CPU and wall ms per drawn frame over tracks x views x looks x TNFS_BANDS x TNFS_RENDER_SCALE.
 # Each cell: the same 1000 steps with TNFS_FRAMES=0 and =600; (t600 - t0) / 600; min of 3 for each of the two runs.
-# Env filters (EXTRA_CFG: lines for restomod.cfg, e.g. EXTRA_CFG='weather=rain', TNFS_PSX_TIME etc. pass through; PROFILE=stock|restored|restomod, default restomod): TRACKS="TR1 CY1" CASES="0:21:9 1:4:3" LOOKS="exe modern" BANDS="0 2 4" SCALES="1 2 3" ROUNDS=3
+# Env filters (EXTRA_CFG: lines for restomod.cfg, e.g. EXTRA_CFG='weather=rain', TNFS_LIGHT_TIME etc. pass through; PROFILE=stock|restored|restomod, default restomod): TRACKS="TR1 CY1" CASES="0:21:9 1:4:3" LOOKS="exe modern" BANDS="0 2 4" SCALES="1 2 3" ROUNDS=3
 emulate -L zsh
 set -u
 export PATH=/nix/var/nix/profiles/default/bin:$PATH

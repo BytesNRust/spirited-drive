@@ -2,7 +2,7 @@
  * every car at a node. */
 #include "game/race/wet_zones.h"
 #include "game/race/race_state.h"
-#include "game/race/psx_light_synth.h"
+#include "game/race/light_synth.h"
 #include "game/race/weather.h"
 #include "test.h"
 
@@ -14,7 +14,7 @@ enum { NODES = 256, TUNNEL_FROM = 100, TUNNEL_TO = 140 };
 static void ring_property(uint8_t *property)
 {
     memset(property, 0, NODES);
-    for (int i = TUNNEL_FROM; i <= TUNNEL_TO; i++) property[i] = PSX_SYNTH_PROPERTY_TUNNEL;
+    for (int i = TUNNEL_FROM; i <= TUNNEL_TO; i++) property[i] = LIGHT_SYNTH_PROPERTY_TUNNEL;
 }
 
 static void test_open_by_distance(void)
@@ -41,13 +41,13 @@ static void test_open_by_distance(void)
 static void test_places_decide(void)
 {
     uint8_t property[NODES] = { 0 };
-    for (int i = 200; i < 200 + 20; i++) property[i] = PSX_SYNTH_PROPERTY_TUNNEL;   /* the road says tunnel here; the places do not */
-    PsxLight places = { 0 };
+    for (int i = 200; i < 200 + 20; i++) property[i] = LIGHT_SYNTH_PROPERTY_TUNNEL;   /* the road says tunnel here; the places do not */
+    TrackNodeLight places = { 0 };
     places.nodes = NODES;
     places.tunnel = calloc(NODES, 1);
     places.canyon = calloc(NODES, 1);
     CHECK(places.tunnel != NULL && places.canyon != NULL);
-    if (places.tunnel == NULL || places.canyon == NULL) { psx_light_free(&places); return; }
+    if (places.tunnel == NULL || places.canyon == NULL) { track_node_light_free(&places); return; }
     memset(places.tunnel + 30, 1, 11);   /* 30..40: shorter than the road's minimum run, and no road bits */
     uint8_t *open = wet_zones_make(&places, property, NODES, 1);
     CHECK(open != NULL);
@@ -76,7 +76,7 @@ static void test_places_decide(void)
         CHECK_EQ_INT(open[31], 16);
         free(open);
     }
-    psx_light_free(&places);
+    track_node_light_free(&places);
 }
 
 /* Coastal's galleries (property 7): closed by the road's bits when there are no places, by the places' own `tunnel` lines when there are (CL2's file has them) */
@@ -84,7 +84,7 @@ static void test_galleries_and_places(void)
 {
     uint8_t property[NODES] = { 0 };
     for (int i = 60; i < 60 + 30; i++) property[i] = 7;
-    PsxLight places = { 0 };
+    TrackNodeLight places = { 0 };
     places.nodes = NODES;
     places.tunnel = calloc(NODES, 1);
     CHECK(places.tunnel != NULL);
@@ -109,13 +109,13 @@ static void test_galleries_and_places(void)
         CHECK_EQ_INT(open[75], 0);
         free(open);
     }
-    psx_light_free(&places);
+    track_node_light_free(&places);
 }
 
 static void test_short_run_is_not_a_tunnel(void)
 {
     uint8_t property[NODES] = { 0 };
-    for (int i = 50; i < 50 + PSX_SYNTH_MIN_RUN - 1; i++) property[i] = PSX_SYNTH_PROPERTY_TUNNEL;
+    for (int i = 50; i < 50 + LIGHT_SYNTH_MIN_RUN - 1; i++) property[i] = LIGHT_SYNTH_PROPERTY_TUNNEL;
     uint8_t *open = wet_zones_make(NULL, property, NODES, 1);
     CHECK(open != NULL);
     if (open == NULL) return;

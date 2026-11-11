@@ -1,5 +1,5 @@
 # usage: cmake -DTNFS=<exe> -DREPO=<repository> -DWORK=<scratch dir> -P day_plain_present.cmake
-# By day, with the tint neutral and the dash's ratio neutral, the present skips the PS1 light's split (drive_light_needs_split): the world, half and plain
+# By day, with the tint neutral and the dash's ratio neutral, the present skips the baked light's split (drive_light_needs_split): the world, half and plain
 # palettes are the same. The frame must be the one the split makes (TNFS_FORCE_SPLIT=1), in the day, in the rain, at dusk and at night, and in a day
 # tunnel (TR6, where the car's light ratio is not 1 and the split must still run: its dash art is the half palette).
 include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
@@ -15,7 +15,7 @@ function(frame name track time weather node forced)
     endif()
     file(REMOVE "${WORK}/${name}.ppm")
     execute_process(COMMAND ${CMAKE_COMMAND} -E env ${split} TNFS_PREF_DIR=${WORK}/pref SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy ASAN_OPTIONS=detect_leaks=0
-                            TNFS_VIEW=0 TNFS_FRAMES=1 TNFS_PSX_TIME=${time} TNFS_WEATHER=${weather} TNFS_START_NODE=${node}
+                            TNFS_VIEW=0 TNFS_FRAMES=1 TNFS_LIGHT_TIME=${time} TNFS_WEATHER=${weather} TNFS_START_NODE=${node}
                             ${TNFS} --data ${REPO}/original --user ${WORK}/user --drive ${track} --node 70 --screenshot ${WORK}/${name}.ppm
                     WORKING_DIRECTORY "${REPO}" RESULT_VARIABLE rc ERROR_VARIABLE err OUTPUT_QUIET TIMEOUT 100)
     if(NOT EXISTS "${WORK}/${name}.ppm")

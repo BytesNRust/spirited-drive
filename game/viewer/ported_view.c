@@ -1,4 +1,5 @@
 #include "game/sys/bands.h"
+#include "game/race/light_tint.h"
 #include "game/gfx/raster_record.h"
 
 #include "game/race/sky_stretch.h"
@@ -10,7 +11,7 @@
 #include "game/viewer/screen_layout.h"
 #include "game/race/weather_snow.h"
 #include "game/viewer/follow_behind.h"
-#include "viewer/psx_sky_draw.h"
+#include "viewer/sky_art_draw.h"
 #include "game/sys/port_log.h"
 #include "viewer/weather_draw.h"
 #include "viewer/wiper_draw.h"
@@ -108,7 +109,7 @@ void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
         render.build.knocked = shadow_race->scenery_state;
         if (shadow_race->scenery_stream_node < 0) render.build.first_node = -1;
     }
-    track_render_set_light(&render, psx_light);  /* before the build: it fills the light with the vertices */
+    track_render_set_light(&render, light_effects);  /* before the build: it fills the light with the vertices */
     const int relit = light_changed;
     if (relit) {   /* the light editor's reload: the segments already built hold the old rows */
         light_changed = 0;
@@ -117,7 +118,7 @@ void stream(const Tri *tri, const TrackArt *art, int32_t camera_node)
     track_render_set_ring(&render, shadow_race != NULL && shadow_race->port_follow_ring ? TRACK_CACHE_RECORDS_MAX : TRACK_CACHE_RECORDS);   /* port (port_follow_ring) */
     if (shadow_race != NULL && shadow_race->port_follow_camera) follow_arm_window(&render, follow_arm_segments());   /* the window's reach behind before it is filled */
     track_render_build(&render, tri, art, camera_node);
-    if (relit && psx_light != NULL) {   /* the editor's proof: the sum of the built vertices' light */
+    if (relit && light_effects != NULL) {   /* the editor's proof: the sum of the built vertices' light */
         uint64_t sum = 0;
         const int32_t n = render.build.world_next < TRACK_MAX_VERTICES ? render.build.world_next : TRACK_MAX_VERTICES;
         for (int32_t i = 0; i < n; i++) sum += render.light_vertex[i];
@@ -221,17 +222,17 @@ static void rain_over_view(uint8_t *pixels, const int32_t box[4], const View *vi
 }
 
 
-/* port: the sky over the view before the track covers it: the horizon art (or the PS1 sky, or the ring), stretched up and down where the switches say, drawn in bands */
+/* port: the sky over the view before the track covers it: the horizon art (or the console version sky, or the ring), stretched up and down where the switches say, drawn in bands */
 static void draw_sky(const TrackArt *art, const TrackInfo *info, const PortedCamera *pc, uint8_t *pixels, QuadTarget *quad, RasterTarget *target, View *view, HorizonTables *horizon,
                      DrawContext *ctx, TrackCamera *cam, const int32_t box[4])
 {
     const int sky_filter = art->has_horizon && modern && look_filter;  /* port: EXTRAS' Texture Filter on the sky */
     if (sky_filter) horizon_smooth_palette(&smooth, art->palette);
-    PsxSkyDraw *const own = psx_sky;   /* port: the PS1 sky (psx_sky_draw.h) in place of the track's, on the flat horizon */
+    SkyArtDraw *const own = psx_sky;   /* port: the console version sky (sky_art_draw.h) in place of the track's, on the flat horizon */
     if (own != NULL) {
         uint8_t shown[768];
         drive_light_palette(art->palette, shown);
-        psx_sky_draw_target(own, shown);
+        sky_art_draw_target(own, shown);
     }
     /* the PC's alternative sky (drive_light.c) is the morning / evening 3D ring of its INFO, on its own horizon */
     const int alt_ring = own != NULL && psx_sky_info != NULL && psx_sky_info->ring != 0;
@@ -333,15 +334,15 @@ int ported_view_wipers_active(void) { return weather_hooks_wiper_blades() > 0 &&
 
 uint8_t ported_view_light_at(uint32_t node, int point, uint8_t *tunnel)
 {
-    *tunnel = (uint8_t)psx_light_tunnel(psx_light, node);
-    return psx_light_at(psx_light, node, point);
+    *tunnel = (uint8_t)track_node_light_tunnel(light_effects, node);
+    return track_node_light_at(light_effects, node, point);
 }
 
-/* port (the PS1 light in the rear mirror's follow pass): the same sinks the main pass draws with, and the hook set for the pass, from the tables
+/* port (the baked light in the rear mirror's follow pass): the same sinks the main pass draws with, and the hook set for the pass, from the tables
  * the last render made. Without a light (or before the first render) begin gives 0 and the mirror draws as it did. */
 int ported_view_mirror_light_begin(void)
 {
-    if (psx_light == NULL || !tables_made) return 0;
+    if (light_effects == NULL || !tables_made) return 0;
     track_light_hook = light_hook;
     lit_level = 0;
     memset(lit_corner, 255, sizeof lit_corner);
@@ -370,7 +371,7 @@ void ported_view_render(const Tri *tri, const TrackArt *art, const TrackInfo *in
     if (tri_node(tri, node, &n) != TRI_OK) return;
     const PortedCamera cam = { { n.position.x, n.position.y + EYE_HEIGHT, n.position.z }, n.orientation * 0x400 + yaw,
                                0, (int32_t)node, 0 };
-    const int32_t parked = (int32_t)psx_ring_node((int32_t)node + car_ahead, tri->ring_nodes);   /* a modulo: the rings are not powers of two */
+    const int32_t parked = (int32_t)light_tint_ring_node((int32_t)node + car_ahead, tri->ring_nodes);   /* a modulo: the rings are not powers of two */
     if (cars[0].ok && tri_node(tri, (uint32_t)parked, &cn) == TRI_OK) {
         const CarPose pose = { { cn.position.x, cn.position.y, cn.position.z }, 0, 0, cn.orientation * 0x400, NULL, 1 };
         ported_view_render_from(tri, art, info, &cam, &pose, parked, pixels);

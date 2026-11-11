@@ -4,7 +4,7 @@
 #include "game/viewer/view_lamps.h"
 #include "game/viewer/weather_hooks.h"
 #include "viewer/drive_light.h"
-#include "viewer/psx_sky_draw.h"
+#include "viewer/sky_art_draw.h"
 #include "viewer/view_spray.h"
 #include "viewer/view_tables.h"
 
@@ -22,27 +22,27 @@ static void lamp_street_window_tables(const TrackArt *art)
         for (int i = 0; i < street_count; i++)
             street_bitmap[i] = street_scenery[i] >= 0 && street_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[street_scenery[i]].present
                                    ? &art->scenery[street_scenery[i]].bitmap : NULL;
-        psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, street_tables);
+        tunnel_lamp_texture_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, street_tables);
         street_halo_sync();
     }
     if (window_count > 0) {   /* the lit windows' boards: their entry kept */
         uint8_t exempt[256] = { 0 };
         exempt[window_entry] = 1;
-        psx_lamp_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, window_tables);
+        tunnel_lamp_texture_tables(exempt, (const uint8_t (*)[256])lit_tables, MODERN_FOG_LEVELS, window_tables);
         for (int i = 0; i < window_count; i++)
             window_bitmap[i] = window_scenery[i] >= 0 && window_scenery[i] < TRACK_SCENERY_TEXTURES && art->scenery[window_scenery[i]].present
                                    ? &art->scenery[window_scenery[i]].bitmap : NULL;
     }
 }
 
-/* port (PS1 light): what the tables in force were made from; they are made again only when one of these moved (a fade changes the palette). One unit: the tone cache below
+/* port (baked light): what the tables in force were made from; they are made again only when one of these moved (a fade changes the palette). One unit: the tone cache below
  * (tone_*) is reset together with it */
 static struct {
     uint8_t palette[768];
     float tint[3];
-    PsxTunnelLook look;
+    TrackNodeTunnelLook look;
     int made, pool;
-    PsxLightTone tone[PSX_LIGHT_TONES];
+    TrackNodeLightTone tone[TRACK_NODE_LIGHT_TONES];
     int tone_count;
 } light_made;
 
@@ -57,11 +57,11 @@ static void pool_tables_make(const TrackArt *art)
     }
 }
 
-/* port (PS1 light): the lit, tunnel and pool tables again, and the scene tones' and the lamps' caches reset from the same inputs */
-static void light_tables_make(const TrackArt *art, const PsxTunnelLook *look, int has_pool)
+/* port (baked light): the lit, tunnel and pool tables again, and the scene tones' and the lamps' caches reset from the same inputs */
+static void light_tables_make(const TrackArt *art, const TrackNodeTunnelLook *look, int has_pool)
 {
     modern_light_tables(art->palette, lit_tint, lit_tables);
-    memcpy(light_made.tone, psx_light->tone, sizeof light_made.tone), light_made.tone_count = psx_light->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
+    memcpy(light_made.tone, light_effects->tone, sizeof light_made.tone), light_made.tone_count = light_effects->tone_count;   /* port (`tone`): the scene tones' tables are made again when asked, from these */
     memset(tone_made, 0, sizeof tone_made);
     lamp_cache_used = lamp_cache_next = 0;   /* port (`lamp`): the lamps' tables are made again from the palette */
     tunnel_lamp_cache_used = tunnel_lamp_cache_next = 0;   /* port (tunnel_lamps): and the tunnel's */
@@ -75,15 +75,15 @@ static void light_tables_make(const TrackArt *art, const PsxTunnelLook *look, in
     pool_ready = has_pool;
 }
 
-/* port (PS1 light): the tables of this frame's light (the lit, tunnel, pool, tone, lamp, street and window tables), made again only when the palette or the tint moved (a fade changes the palette), and the polygon hook set */
+/* port (baked light): the tables of this frame's light (the lit, tunnel, pool, tone, lamp, street and window tables), made again only when the palette or the tint moved (a fade changes the palette), and the polygon hook set */
 void light_tables_prepare(const TrackArt *art)
 {
     float shown[3];
     drive_light_tint(shown);
-    PsxTunnelLook look;
-    psx_light_tunnel_look(psx_light, shown, lit_tint, view_lamps_count(), &look);   /* the tunnel's tables: the file's look, else the made light's (psx_light.h) */
-    const int has_pool = psx_light->pool_class != NULL;
-    if (!light_made.made || light_made.pool != has_pool || light_made.tone_count != psx_light->tone_count || memcmp(light_made.tone, psx_light->tone, sizeof light_made.tone) != 0
+    TrackNodeTunnelLook look;
+    track_node_light_tunnel_look(light_effects, shown, lit_tint, view_lamps_count(), &look);   /* the tunnel's tables: the file's look, else the made light's (track_node_light.h) */
+    const int has_pool = light_effects->pool_class != NULL;
+    if (!light_made.made || light_made.pool != has_pool || light_made.tone_count != light_effects->tone_count || memcmp(light_made.tone, light_effects->tone, sizeof light_made.tone) != 0
         || memcmp(light_made.palette, art->palette, sizeof light_made.palette) != 0 || memcmp(light_made.tint, lit_tint, sizeof light_made.tint) != 0
         || memcmp(&light_made.look, &look, sizeof look) != 0) {
         light_made.look = look;

@@ -1,6 +1,6 @@
 #include "game/viewer/tunnel_cells.h"
 
-#include "game/race/psx_light.h"
+#include "game/race/track_node_light.h"
 #include "game/race/track_fence.h"
 #include "game/viewer/view_tables.h"
 #include "viewer/view_shared.h"
@@ -10,9 +10,9 @@
 static double lerp(double a, double b, double t) { return a + (b - a) * t; }
 
 /* whether the light has a tunnel lamp (kept for the light it was asked of) */
-static int has_tunnel_lamps(const PsxLight *light)
+static int has_tunnel_lamps(const TrackNodeLight *light)
 {
-    static const PsxLight *seen;
+    static const TrackNodeLight *seen;
     static int seen_n = -1, seen_has;
     if (light == seen && light->lamp_n == seen_n) return seen_has;
     int has = 0;
@@ -24,7 +24,7 @@ static int has_tunnel_lamps(const PsxLight *light)
 int tunnel_cells_draw(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8], const int32_t *const cam[4], int transparent, const uint8_t (*tables)[256],
                       const float dark[4])
 {
-    if (psx_light == NULL || psx_light->lamp_n <= 0 || !track_light_xz_ok || (track_light_tunnel & 7) != 1 || !tables_made || !has_tunnel_lamps(psx_light)) return 0;
+    if (light_effects == NULL || light_effects->lamp_n <= 0 || !track_light_xz_ok || (track_light_tunnel & 7) != 1 || !tables_made || !has_tunnel_lamps(light_effects)) return 0;
     int along;
     const int pieces = tunnel_cells_plan(track_light_node, &along);
     if (pieces == 0) return 0;

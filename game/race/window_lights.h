@@ -1,6 +1,6 @@
-/* port (night, psx_headlights): the lit windows of the night's buildings. A building is a scenery board (a sprite of a facade) whose windows lie on a grid;
+/* port (night, headlight_beams): the lit windows of the night's buildings. A building is a scenery board (a sprite of a facade) whose windows lie on a grid;
  * at night a seeded share of them is painted in a warm entry of its own (the lamp pool's, which the light tables leave alone). The board is one texture for
- * every building drawn from it, so the same windows are lit on all its copies. No PS1 data is used. */
+ * every building drawn from it, so the same windows are lit on all its copies. No console data is used. */
 #ifndef TNFS_WINDOW_LIGHTS_H
 #define TNFS_WINDOW_LIGHTS_H
 

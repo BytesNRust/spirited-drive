@@ -12,7 +12,7 @@ mkdir -p "$WORK/mods" "$WORK/user"
 
 play() {   # the replay file, the port.cfg's time and weather: the log after a short headless run
     mkdir -p "$WORK/user"
-    printf 'profile=restomod\npsx_light=1\npsx_time=%s\nweather=%s\n' "$2" "$3" > "$WORK/user/port.cfg"
+    printf 'profile=restomod\nlight_effects=1\nlight_time=%s\nweather=%s\n' "$2" "$3" > "$WORK/user/port.cfg"
     rm -f "$WORK/user/tnfs.log"
     env TNFS_FRAMES=30 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
         timeout -k 5 120 "$TNFS" --data "$DATA" --user "$WORK/user" --mods "$WORK/mods" --replay "$1" > "$WORK/run.out" 2>&1

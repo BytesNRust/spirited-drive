@@ -104,7 +104,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
     CHECK_EQ_INT(s.last_camera + s.replay_no_ffb, 0);
     CHECK_EQ_INT(s.f3_ultra, 0);   /* the exe's three views */
-    CHECK_EQ_INT(s.psx_light, 0);
+    CHECK_EQ_INT(s.light_effects, 0);
     CHECK_EQ_INT(s.made_tunnels + s.hall_light + s.headlight_relight + s.night_stretch_clean, 0);
     CHECK_EQ_INT(s.forest_dark, 0);
     CHECK_EQ_INT(s.night_sky_hue, 0);
@@ -141,7 +141,7 @@ static void test_tables(void)
     CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
     CHECK_EQ_INT(s.last_camera + s.replay_no_ffb, 0);
     CHECK_EQ_INT(s.render_scale, 1);
-    CHECK_EQ_INT(s.psx_light, 0);
+    CHECK_EQ_INT(s.light_effects, 0);
     CHECK_EQ_INT(s.body_shine, 0);
     CHECK_EQ_INT(s.made_tunnels + s.hall_light + s.headlight_relight + s.night_stretch_clean, 0);
     CHECK_EQ_INT(s.forest_dark, 0);
@@ -174,14 +174,14 @@ static void test_tables(void)
     s = port_profile_settings(PROFILE_RESTOMOD, base, SCREEN_21_9);
     CHECK_EQ_INT(s.analog_pad, 1);
     CHECK_EQ_INT(s.format, SCREEN_21_9);
-    CHECK_EQ_INT(s.psx_light, 1);
-    CHECK_EQ_INT(s.psx_flares, 1);
+    CHECK_EQ_INT(s.light_effects, 1);
+    CHECK_EQ_INT(s.lamp_flares, 1);
     CHECK_EQ_INT(s.sky_fill_below, 1);
     CHECK_EQ_INT(s.radar_all_views, 1);
     CHECK_EQ_INT(s.tach_dim, 1);
     CHECK_EQ_INT(s.gauge_wheel, 1);
     CHECK_EQ_INT(s.police_glow, 1);
-    CHECK_EQ_INT(s.psx_headlights, 1);
+    CHECK_EQ_INT(s.headlight_beams, 1);
     CHECK_EQ_INT(s.perspective, 1);
     CHECK_EQ_INT(s.body_shine, 4);   /* the envmap */
     CHECK_EQ_INT(s.render_scale, 2);
@@ -229,7 +229,7 @@ static void test_tables(void)
     PortExtras e = port_profile_extras(PROFILE_STOCK, port_extras_defaults());
     CHECK_EQ_INT(e.movies_wide, 0);
     e = port_profile_extras(PROFILE_RESTOMOD, e);
-    CHECK_EQ_INT(e.psx_liveries, 1);
+    CHECK_EQ_INT(e.extra_liveries, 1);
     CHECK_EQ_INT(e.rally_gravel, 1);
     CHECK_EQ_INT(e.bumper_mirror + e.bumper_radar + e.follow_camera, 3);
     CHECK_EQ_INT(e.variant_time, 1);   /* the time of day also with Mirror and Rally */
@@ -242,7 +242,7 @@ static void test_free_keys(void)
 {
     static const char *const ALL[] = { "fullscreen", "explode", "nitro", "turbo", "warrior", "mirror", "rally", "vegas", "units", "update_check", "scale" };
     static const char *const RESTORED[] = { "format", "refresh_hz", "render_bands", "stats_overlay" };
-    static const char *const RESTOMOD[] = { "perspective", "texture_filter", "fog", "psx_light", "fov_adjust", "render_scale", "view_ultra", "weather", "psx_time", "laps", "reverse", "car_paint", "psx_liveries",
+    static const char *const RESTOMOD[] = { "perspective", "texture_filter", "fog", "light_effects", "fov_adjust", "render_scale", "view_ultra", "weather", "light_time", "laps", "reverse", "car_paint", "extra_liveries",
                                             "lunar_springs", "lunar_gravity", "warrior_rival", "no_assists", "bumper_mirror", "bumper_radar", "replay_cameras", "car_markers", "dash_box", "follow_camera",
                                             "difficulty", "start", "no_movies", "body_shine" };
     for (size_t i = 0; i < sizeof ALL / sizeof ALL[0]; i++)
@@ -302,19 +302,19 @@ static void test_reading(void)
     CHECK_EQ_INT(port_extras_load().stats_overlay, 1);
     CHECK_EQ_INT(port_extras_load().lunar_gravity, 0);
     /* in Restomod the file rules, also what has no menu */
-    put_file("port.cfg", "profile=restomod\npsx_dir=/ps1\n");
-    put_file("restomod.cfg", "psx_light=0\nbody_shine=0\nweather=rain\nlunar_gravity=1\nprofile=stock\npsx_dir=/other\n");
+    put_file("port.cfg", "profile=restomod\npsx_dir=/second\n");
+    put_file("restomod.cfg", "light_effects=0\nbody_shine=0\nweather=rain\nlunar_gravity=1\nprofile=stock\npsx_dir=/other\n");
     PortSettings s = port_settings_load();
-    CHECK_EQ_INT(s.psx_light, 0);
+    CHECK_EQ_INT(s.light_effects, 0);
     CHECK_EQ_INT(s.body_shine, 0);
     CHECK_EQ_INT(s.perspective, 1);   /* what it does not name stays the table's */
     CHECK_EQ_INT(port_extras_load().lunar_gravity, 1);
     CHECK_EQ_INT(s.profile, PROFILE_RESTOMOD);   /* the machine's keys are port.cfg's alone */
-    CHECK(strcmp(s.psx_dir, "/ps1") == 0);
+    CHECK(strcmp(s.psx_dir, "/second") == 0);
     /* a name that is no mode, with no settings to move: Stock */
     put_file("port.cfg", "profile=custom\n");
     CHECK_EQ_INT(port_settings_profile(), PROFILE_STOCK);
-    CHECK_EQ_INT(port_settings_load().psx_light, 0);
+    CHECK_EQ_INT(port_settings_load().light_effects, 0);
     /* extras.cfg means nothing any more */
     clear_files();
     put_file("port.cfg", "profile=restomod\n");
@@ -326,13 +326,13 @@ static void test_saving(void)
 {
     port_settings_set_display_probe(probe);
     clear_files();
-    put_file("port.cfg", "profile=restomod\npsx_dir=/ps1\n");
+    put_file("port.cfg", "profile=restomod\npsx_dir=/second\n");
     /* only what differs goes to the mode's file, and the machine's stays in port.cfg */
     PortSettings s = port_settings_load();
     s.fog = 0, s.laps = 3;
     CHECK(port_settings_save(&s));
     CHECK(strcmp(file_text("restomod.cfg"), "fog=0\nlaps=3\n") == 0 || strcmp(file_text("restomod.cfg"), "laps=3\nfog=0\n") == 0);
-    CHECK(strstr(file_text("port.cfg"), "psx_dir=/ps1") != NULL);
+    CHECK(strstr(file_text("port.cfg"), "psx_dir=/second") != NULL);
     CHECK_EQ_INT(port_settings_profile(), PROFILE_RESTOMOD);   /* a change is no change of mode */
     /* extras and settings share the file and keep each other's */
     PortExtras e = port_extras_load();
@@ -353,7 +353,7 @@ static void test_saving(void)
     CHECK(port_settings_save(&s));
     CHECK(strstr(file_text("restomod.cfg"), "fog=") == NULL);
     /* a better table value reaches who did not touch it: nothing of the table is in the file */
-    CHECK(strstr(file_text("restomod.cfg"), "psx_light") == NULL);
+    CHECK(strstr(file_text("restomod.cfg"), "light_effects") == NULL);
     /* what is fixed in the mode is not written */
     clear_files();
     put_file("port.cfg", "profile=stock\n");
@@ -404,7 +404,7 @@ static void test_machine_file(void)
 {
     port_settings_set_display_probe(probe);
     clear_files();
-    put_file("port.cfg", "profile=restored\npsx_dir=/ps1\n");
+    put_file("port.cfg", "profile=restored\npsx_dir=/second\n");
     PortSettings s = port_settings_load();
     /* the settings of another mode are not saved over this one */
     s.profile = PROFILE_RESTOMOD;
@@ -413,10 +413,10 @@ static void test_machine_file(void)
     CHECK(file_text("restomod.cfg")[0] == '\0');
     /* a line end in the folder would write another key */
     s = port_settings_load();
-    snprintf(s.psx_dir, sizeof s.psx_dir, "/ps1\nprofile=stock");
+    snprintf(s.psx_dir, sizeof s.psx_dir, "/second\nprofile=stock");
     CHECK(!port_settings_save(&s));
     CHECK_EQ_INT(port_settings_profile(), PROFILE_RESTORED);
-    CHECK(strcmp(file_text("port.cfg"), "profile=restored\npsx_dir=/ps1\n") == 0);
+    CHECK(strcmp(file_text("port.cfg"), "profile=restored\npsx_dir=/second\n") == 0);
     /* a new folder is written, the same one is not */
     s = port_settings_load();
     snprintf(s.psx_dir, sizeof s.psx_dir, "/other");
@@ -457,9 +457,9 @@ static void test_modes_remember(void)
     CHECK(!port_profile_select(PROFILE_COUNT));
     CHECK(!port_profile_reset(-1));
     /* the folder survives a change of mode */
-    put_file("port.cfg", "profile=stock\npsx_dir=/ps1\n");
+    put_file("port.cfg", "profile=stock\npsx_dir=/second\n");
     CHECK(port_profile_select(PROFILE_RESTOMOD));
-    CHECK(strcmp(port_settings_load().psx_dir, "/ps1") == 0);
+    CHECK(strcmp(port_settings_load().psx_dir, "/second") == 0);
 }
 
 int main(void)

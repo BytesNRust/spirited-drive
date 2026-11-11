@@ -72,10 +72,10 @@ typedef struct {
     uint32_t side_face;                      /* 00511fac */
     uint8_t quarter;                         /* 0051204c */
     MirrorBounds bounds;                     /* 00511f88 */
-    /* port (the PS1 look's light, psx_light.h): the intensity of each point of `world`, the light the track is built
+    /* port (the light effects' light, track_node_light.h): the intensity of each point of `world`, the light the track is built
      * with (NULL none) and the four corners' of the terrain polygon being drawn (+ 1 when it is) */
     uint8_t light_vertex[TRACK_MAX_VERTICES];
-    const PsxLight *psx;
+    const TrackNodeLight *node_light;
     uint8_t light_now[6];   /* the four corners, 1 when the polygon is lit, 1 when its corners are all in a tunnel's rows */
     uint8_t tunnel_vertex[TRACK_MAX_VERTICES];   /* 1 for the points of `world` in a tunnel's row */
     uint32_t vertex_node[TRACK_MAX_VERTICES];    /* port (headlight_relight): the node and the row point each point of `world` is of */
@@ -132,8 +132,8 @@ void track_render_set_reach(TrackRender *r, int32_t segments);
 /* port (port_follow_ring): the cache's ring at `records` (track_cache_set_records); when it changes the window starts again, its records being where the old size put them */
 void track_render_set_ring(TrackRender *r, int32_t records);
 
-/* port: the PS1's baked light on the terrain's polygons (NULL none): the track is built again with it at the next frame */
-void track_render_set_light(TrackRender *r, const PsxLight *light);
+/* port: the the console version's baked light on the terrain's polygons (NULL none): the track is built again with it at the next frame */
+void track_render_set_light(TrackRender *r, const TrackNodeLight *light);
 
 /* port (headlight_relight): the light and tunnel flag of every point the track was built with, asked again of the light as it is now (the pools move each tick, the build only
  * when the camera changes segment) */
@@ -150,8 +150,8 @@ typedef struct {
     const TrackRender *r;
     const TrackCamera *cam;
     const DrawContext *ctx;
-    const uint8_t *light_now;        /* port (PS1 light): the corners of the polygon being drawn, as TrackRender's light_now; NULL the render's own */
-    const TrackObjectWalk *walk;     /* port (PS1 light): the walker of the objects drawn, the node their light is of; NULL the render's own */
+    const uint8_t *light_now;        /* port (baked light): the corners of the polygon being drawn, as TrackRender's light_now; NULL the render's own */
+    const TrackObjectWalk *walk;     /* port (baked light): the walker of the objects drawn, the node their light is of; NULL the render's own */
 } TrackGlue;
 void track_render_fence_ops(const TrackGlue *g, TrackFenceOps *out);
 void track_render_object_ops(const TrackGlue *g, TrackObjectDrawOps *out);

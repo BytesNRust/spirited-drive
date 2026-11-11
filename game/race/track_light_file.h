@@ -27,19 +27,19 @@
 #ifndef TNFS_TRACK_LIGHT_FILE_H
 #define TNFS_TRACK_LIGHT_FILE_H
 
-#include "game/race/psx_light.h"
+#include "game/race/track_node_light.h"
 
 #include <stddef.h>
 #include <stdint.h>
 
 /* The file's text for `light` (a made light): malloc'ed in *text, its length in *size. 1 on success. `flags` is the port flags' fingerprint the light was made with. */
-int track_light_format(const PsxLight *light, const char *track, char letter, uint32_t flags, char **text, size_t *size);
+int track_light_format(const TrackNodeLight *light, const char *track, char letter, uint32_t flags, char **text, size_t *size);
 /* The track's places as a file (data/track/<TRACK>.txt): `track AL1`, then the nodes that are physical facts of the track, whatever the time: `tunnel a b` (the road's tunnels and its halls),
  * `canyon a b`, `car_dim a b`, and `present <key>` for an array that is there but empty. The same for every time of day. */
-int track_light_place_format(const PsxLight *light, const char *track, char **text, size_t *size);
+int track_light_place_format(const TrackNodeLight *light, const char *track, char **text, size_t *size);
 /* The places file in `text` for `track`, its lines checked against `expected_nodes`: its tunnel, canyon and car_dim arrays go to `out` (which has none). 0 when it is not for this track or a line
  * is bad (the number in *bad_line). */
-int track_light_place_parse(const char *text, size_t size, const char *track, uint32_t expected_nodes, PsxLight *out, int *bad_line);
+int track_light_place_parse(const char *text, size_t size, const char *track, uint32_t expected_nodes, TrackNodeLight *out, int *bad_line);
 
 /* the port's settings the rows are made with, one bit each, in this order (drive_light.c track_light_flags) */
 enum {
@@ -64,7 +64,7 @@ typedef struct {
     int brightness_count;
     TrackLightCarTone car_tone[TRACK_LIGHT_MAX_BRIGHT];   /* car_tone: in file order, later lines over earlier ones */
     int car_tone_count;
-    PsxLightTone tones[PSX_LIGHT_TONES];   /* the distinct tones the `tone` lines use, and then the zones' own looks (at most PSX_LIGHT_TONES in all: a line past that is refused) */
+    TrackNodeLightTone tones[TRACK_NODE_LIGHT_TONES];   /* the distinct tones the `tone` lines use, and then the zones' own looks (at most TRACK_NODE_LIGHT_TONES in all: a line past that is refused) */
     int tone_count;
     TrackLightToneRun tone_runs[TRACK_LIGHT_MAX_BRIGHT];
     int tone_run_count;
@@ -80,7 +80,7 @@ typedef struct {
 typedef struct {
     int base;                   /* 1: the file's flags are the ones asked and `light` holds its rows (owned); 0: only the tweaks count */
     uint32_t flags;             /* the flags the file was made with */
-    PsxLight light;
+    TrackNodeLight light;
     TrackLightTweaks tweaks;
     char place_path[512];       /* the places file the light's tunnels, canyon and car_dim came from ("" none) */
 } TrackLightFile;
@@ -94,8 +94,8 @@ int track_light_parse(const char *text, size_t size, const char *track, char let
 void track_light_file_free(TrackLightFile *file);
 
 /* The tweaks over a made light: the brightness runs scale its rows, the tunnel looks are its warm_cast / warm_percent. With `lamps` (the port's track_light_lamp) the `lamp` lines are laid too, as
- * the light's lamp list (sorted by node; their world place is set by psx_light_lamps_place): the old pool classes the code made are dropped, a lamp is light. `ring` wraps a lamp's reach past the ends. */
-void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light, int lamps, int ring);
+ * the light's lamp list (sorted by node; their world place is set by track_node_light_lamps_place): the old pool classes the code made are dropped, a lamp is light. `ring` wraps a lamp's reach past the ends. */
+void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, int lamps, int ring);
 
 /* Where the file `<TRACK><letter>.txt` is: `out` takes the path of the first that exists (the mod's, then the data folders: data_path.h), 1 when there is one. */
 int track_light_find(const char *track, char letter, char *out, size_t out_size);

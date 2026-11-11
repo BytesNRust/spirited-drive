@@ -14,7 +14,7 @@
 
 /* 00491a82 indexes five tables of three thunks back to back, so a mode past
  * 2 lands in the next table; past the last one the original crashes. */
-/* port (the PS1 look's light): while set, the textures and flat colours of the objects drawn go through this 256-byte
+/* port (the light effects' light): while set, the textures and flat colours of the objects drawn go through this 256-byte
  * table, the shadow's shade mode (2) excepted */
 static const uint8_t *light_table;
 

@@ -3,7 +3,7 @@
 #ifndef TNFS_CONE_CELLS_H
 #define TNFS_CONE_CELLS_H
 
-#include "game/race/psx_light.h"
+#include "game/race/track_node_light.h"
 #include "game/viewer/modern_road.h"
 
 #include <stdint.h>
@@ -20,14 +20,14 @@ typedef struct {
     float dark[CONE_CELLS_MAX + 1][CONE_CELLS_MAX + 1];
 } ConeGrid;
 
-/* Plans the grid for the polygon (uv 16.16 per cam corner; corner[4]: the corners' intensities; xz[4]: their ground places in metres; node[4]: their nodes, PSX_LIGHT_NO_NODE where unknown; the
+/* Plans the grid for the polygon (uv 16.16 per cam corner; corner[4]: the corners' intensities; xz[4]: their ground places in metres; node[4]: their nodes, TRACK_NODE_LIGHT_NO_NODE where unknown; the
  * texture's size picks where in the polygon each uv is). Returns the cells a side (2..CONE_CELLS_MAX), the grid in `g`; 0, `g` untouched, when the polygon is to be drawn as it was: no cone,
  * the beam does not touch it or covers it whole, the light is near the same all over it, or it is small on the screen. */
-int cone_cells_grid(ConeGrid *g, const View *view, const FshEntry *texture, const int32_t uv[8], const int32_t *const cam[4], const PsxLight *light, const uint8_t corner[4],
+int cone_cells_grid(ConeGrid *g, const View *view, const FshEntry *texture, const int32_t uv[8], const int32_t *const cam[4], const TrackNodeLight *light, const uint8_t corner[4],
                     const double xz[4][2], const uint32_t node[4]);
 
 /* Draws the polygon as its grid (returns 1), or returns 0, nothing drawn, when cone_cells_grid returns 0. */
 int cone_cells_draw(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8], const int32_t *const cam[4], int transparent,
-                    const uint8_t (*tables)[256], const PsxLight *light, const uint8_t corner[4], const double xz[4][2], const uint32_t node[4]);
+                    const uint8_t (*tables)[256], const TrackNodeLight *light, const uint8_t corner[4], const double xz[4][2], const uint32_t node[4]);
 
 #endif

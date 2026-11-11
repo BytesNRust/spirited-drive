@@ -19,9 +19,9 @@ static void reference(uint8_t *world_mask, const uint8_t *class_layer, int class
         const uint8_t *row = class_layer + (y / (size_t)class_scale) * (size_t)class_width;
         for (size_t x = 0; x < (size_t)rect_width; x++) {
             const uint8_t c = row[x / (size_t)class_scale];
-            if (c == PSX_CLASS_DASH) world_mask[y * (size_t)rect_width + x] = 2;
-            else if (c == PSX_CLASS_HUD) world_mask[y * (size_t)rect_width + x] = 0;
-            else if (c >= PSX_CLASS_LIT && c < PSX_CLASS_LIT_COLOUR + PSX_CLASS_LIT_COLOURS) world_mask[y * (size_t)rect_width + x] = c;
+            if (c == LIGHT_CLASS_DASH) world_mask[y * (size_t)rect_width + x] = 2;
+            else if (c == LIGHT_CLASS_HUD) world_mask[y * (size_t)rect_width + x] = 0;
+            else if (c >= LIGHT_CLASS_LIT && c < LIGHT_CLASS_LIT_COLOUR + LIGHT_CLASS_LIT_COLOURS) world_mask[y * (size_t)rect_width + x] = c;
         }
     }
 }
@@ -68,10 +68,10 @@ static void timing(void)
     uint8_t *layer = malloc(n), *marks = malloc(H), *mask = malloc(out);
     memset(layer, 0xff, n);
     for (int y = 0; y < H; y++) {   /* a chase view's layer: the bars at the sides and the bottom are HUD (64% of the layer), the 3D shows between */
-        memset(layer + (size_t)y * W, PSX_CLASS_HUD, 150);
-        memset(layer + (size_t)y * W + W - 150, PSX_CLASS_HUD, 150);
+        memset(layer + (size_t)y * W, LIGHT_CLASS_HUD, 150);
+        memset(layer + (size_t)y * W + W - 150, LIGHT_CLASS_HUD, 150);
     }
-    for (int y = 400; y < H; y++) memset(layer + (size_t)y * W, PSX_CLASS_HUD, W);
+    for (int y = 400; y < H; y++) memset(layer + (size_t)y * W, LIGHT_CLASS_HUD, W);
     memset(mask, 1, out);
     double t0 = seconds();
     for (int f = 0; f < FRAMES; f++) reference(mask, layer, W, S, W * S, out);

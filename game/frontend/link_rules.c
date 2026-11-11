@@ -31,9 +31,9 @@ void link_rules_compose(const uint8_t *records, int humans, SessionRules *out)
     out->cheats = (uint8_t)(port_extras_cheat_marks(&e) & 7);
     out->rain_grip = port_rain_grip() != 0;
     out->snow_weather = port_snow_weather() != 0;
-    out->liveries = e.psx_liveries != 0;
+    out->liveries = e.extra_liveries != 0;
     out->time_of_day = clamp(drive_menus_on ? drive_menus.time_of_day : 1, 2);
-    out->psx_time = clamp(port_psx_time(), 2);
+    out->light_time = clamp(port_light_time(), 2);
     for (int i = 0; i < humans && i < SESSION_SLOTS; i++) {
         const uint8_t pick = records[i * RACE_NET_INFO + 2 + offsetof(RaceEntry, paint_pick)];
         out->paint[i] = out->liveries && pick != 0 ? (uint8_t)(pick - 1) : 0xff;

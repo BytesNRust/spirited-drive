@@ -22,9 +22,9 @@ typedef struct {
     uint8_t rain_grip;       /* with wet weather the road's grip is reduced */
     uint8_t liveries;        /* the car colours (CUSTOMIZE) are on: every machine draws the paints below; off, the exe's colours */
     uint8_t time_of_day;     /* the exe's: 0 morning, 1 midday, 2 evening */
-    uint8_t psx_time;        /* the PS1 light's: PSX_TIME_* (port_settings.h) */
+    uint8_t light_time;        /* the baked light's: LIGHT_TIME_* (port_settings.h) */
     uint8_t snow_weather;    /* (version 2) the snow of a snowy track (weather_snow.h) and its rally on snow (rally_gravel.h): the host's, since it changes the grip; 0 from a version 1 host */
-    uint8_t paint[SESSION_SLOTS];   /* each slot's paint (PAINT_OWN 0, PAINT_PS1 1, PAINT_CATALOGUE + k; 0xff: the race's own draw) */
+    uint8_t paint[SESSION_SLOTS];   /* each slot's paint (PAINT_OWN 0, PAINT_SECOND 1, PAINT_CATALOGUE + k; 0xff: the race's own draw) */
 } SessionRules;
 
 /* The record as it goes on the wire: "TNFSSYN1", the version, then the fields in the order above; SESSION_RULES_SIZE */

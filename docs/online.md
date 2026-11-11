@@ -13,7 +13,7 @@ machines could run different physics or draw a different race. Now the host send
 | mode | Stock '96, Restored '96 or Restomod '26: the session's shared rules |
 | difficulty | Easy, Original or Hard for the rivals, the police and the traffic |
 | weather, rain grip | clear, fog, rain or storm, and whether wet roads grip less |
-| time of day | the exe's (morning, midday, evening) and the PS1 light's |
+| time of day | the exe's (morning, midday, evening) and the baked light's |
 | reverse | the circuit driven the other way round |
 | the moon | Lunar Springs' textures, the moon's gravity, rally gravel |
 | cheats | NITRO, EXPLODE and TURBO |

@@ -61,13 +61,13 @@ void drive_replay_press(DriveReplay *r, int which);
  * writes is left to the menus that read it back). */
 void drive_replay_end(DriveReplay *r);
 
-/* port (replay colours): the paint each racing slot wears in this race (PAINT_OWN, PAINT_PS1, PAINT_CATALOGUE + k; REPLAY_PAINT_NONE for none), written after the replay's blocks when it is saved */
+/* port (replay colours): the paint each racing slot wears in this race (PAINT_OWN, PAINT_SECOND, PAINT_CATALOGUE + k; REPLAY_PAINT_NONE for none), written after the replay's blocks when it is saved */
 void drive_replay_set_paints(const uint8_t paint[8]);
 
 /* port (snow_weather): whether this race runs on snow (its grip), written after the paints when the replay is saved */
 void drive_replay_set_snow(int snow);
 
-/* port (replay conditions): the time of day (port_psx_time), weather and direction of this race, written after the snow record when the replay is saved */
-void drive_replay_set_conditions(int psx_time, int weather, int reverse);
+/* port (replay conditions): the time of day (port_light_time), weather and direction of this race, written after the snow record when the replay is saved */
+void drive_replay_set_conditions(int light_time, int weather, int reverse);
 
 #endif

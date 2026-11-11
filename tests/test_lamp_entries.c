@@ -1,8 +1,9 @@
 /* The race rewrites some palette entries as it runs (the player's brake lamp, 0x47, and the police lights, 0xfa..0xfd): a table of the port's
- * own (fog, light, the PS1 light, the horizon's blend, the body shine) that picked one of them for a scenery or body colour would flash with
+ * own (fog, light, the baked light, the horizon's blend, the body shine) that picked one of them for a scenery or body colour would flash with
  * the lamp. They take the entries the exe's nearest-colour searches may pick (palette_usable, 004c5ff8) and no others. */
 #include "game/race/car_shine.h"
 #include "game/race/psx_lgs.h"
+#include "game/race/light_tint.h"
 #include "game/sys/palette.h"
 #include "test.h"
 #include "viewer/horizon_smooth.h"
@@ -59,7 +60,7 @@ static int count_all(void)
     static const float tint[3] = { 1.0f, 1.0f, 1.0f }, half[3] = { 0.5f, 0.5f, 0.5f };
     modern_fog_tables(palette, maroon, fog);
     modern_light_tables(palette, tint, light);
-    psx_lit_table(palette, half, lit);
+    light_tint_lit_table(palette, half, lit);
     car_shine_tables(palette, shine);
     car_envmap_tables(palette, paint, glass);
     memset(&smooth, 0, sizeof smooth);

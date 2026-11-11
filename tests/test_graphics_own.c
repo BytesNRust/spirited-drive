@@ -583,7 +583,7 @@ static void test_render_threads_row_is_reachable(void)
 }
 
 /* the order the owner named: Distance Fog, Light Effects right after it, Scaling right after Full screen; and no
- * Time of day, Weather, PS1 rows or page indicator */
+ * Time of day, Weather, console rows or page indicator */
 static void test_reorganised_screen(void)
 {
     Rig r;
@@ -604,8 +604,8 @@ static void test_reorganised_screen(void)
     CHECK(!drew(&r.f, "Fog"));
     CHECK(!drew(&r.f, "Time of day"));
     CHECK(!drew(&r.f, "Weather"));
-    CHECK(!drew(&r.f, "PS1 light"));
-    CHECK(!drew(&r.f, "PS1 shadow"));
+    CHECK(!drew(&r.f, "baked light"));
+    CHECK(!drew(&r.f, "console shadow"));
     CHECK_EQ_INT(r.f.nav_last[0], 0);   /* one page: no indicator */
 }
 

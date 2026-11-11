@@ -1,4 +1,4 @@
-/* port (the PS1 look's shadow, port.cfg psx_shadow): the footprint under each car as the PS1 shows it, a soft dark shape that is weaker where
+/* port (the light effects' shadow, port.cfg car_soft_shadow): the footprint under each car as the console version shows it, a soft dark shape that is weaker where
  * the segment's light is low (tunnels, bridges), in place of the exe's one hard-edged quad. The quad's corners are the exe's (car_shadow.h's
  * screen[8]); only the way it is shaded changes. The darkening is a remap of the surface (the exe's 004c6604 shade table); a table half
  * way to it is made here for the rim and for the weaker levels. With the setting off none of this runs and the
@@ -13,7 +13,7 @@
 /* how much shadow a car's light gets */
 typedef enum { SOFT_SHADOW_DARK, SOFT_SHADOW_MID, SOFT_SHADOW_BRIGHT } SoftShadowLevel;
 
-/* The level for the light at a car's node (psx_light_node: 0 black .. 255 full): bright, near the exe's shadow with a soft rim; mid, the
+/* The level for the light at a car's node (track_node_light_node: 0 black .. 255 full): bright, near the exe's shadow with a soft rim; mid, the
  * whole quad at half the darkening; dark, a smaller quad at half the darkening, so it does not stack into black. */
 SoftShadowLevel soft_shadow_level(uint8_t light);
 

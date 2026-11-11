@@ -8,7 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* marks[row] = 1 when the layer's row holds a class that changes the mask (PSX_CLASS_DASH .. PSX_CLASS_LIT_COLOUR + PSX_CLASS_LIT_COLOURS - 1), else 0 */
+/* marks[row] = 1 when the layer's row holds a class that changes the mask (LIGHT_CLASS_DASH .. LIGHT_CLASS_LIT_COLOUR + LIGHT_CLASS_LIT_COLOURS - 1), else 0 */
 void class_overlay_rows(const uint8_t *layer, int width, int height, uint8_t *marks);
 
 /* The marks over `mask` (mask_width x rows bytes, mask_width = width * scale): DASH 2, HUD 0, LIT and the colours as they are; any other class leaves the byte.

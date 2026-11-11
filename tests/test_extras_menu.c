@@ -170,19 +170,19 @@ static void test_page_one_has_thirteen_rows(void)
 }
 
 /* port: Car Colours is the last row of Unlocks & mods (page 1): Enter turns it on, and Done saves it, the rest as it was */
-static void test_psx_livery_row_is_saved_on_done(void)
+static void test_second_livery_row_is_saved_on_done(void)
 {
     Rig r;
     int keys[48];
-    int n = keys_to_row(keys, ROW_PSX_LIVERY);
+    int n = keys_to_row(keys, ROW_EXTRA_LIVERY);
     keys[n++] = ENTER;                                     /* on */
-    n = downs(keys, n, downs_to_done(ROW_PSX_LIVERY));     /* down to Done */
+    n = downs(keys, n, downs_to_done(ROW_EXTRA_LIVERY));     /* down to Done */
     keys[n++] = ENTER;
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
     setup(&r);
     run(&r, keys, n);
     CHECK_EQ_INT(r.fake.saves, 1);
-    CHECK_EQ_INT(r.fake.saved.psx_liveries, 1);
+    CHECK_EQ_INT(r.fake.saved.extra_liveries, 1);
     CHECK_EQ_INT(r.fake.saved.no_movies, 0);
 }
 
@@ -245,7 +245,7 @@ static void change_then_done(Rig *r, int row, int profile)
 /* what a mode holds is dimmed, keeps its value and does not change; what it leaves free does */
 static void test_the_mode_holds_its_rows(void)
 {
-    static const int HELD_IN_STOCK[] = { ROW_RIVAL, ROW_LUNAR, ROW_LUNAR_GRAVITY, ROW_PSX_LIVERY, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS, ROW_STATS, ROW_DASH_BOX,
+    static const int HELD_IN_STOCK[] = { ROW_RIVAL, ROW_LUNAR, ROW_LUNAR_GRAVITY, ROW_EXTRA_LIVERY, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS, ROW_STATS, ROW_DASH_BOX,
                                          ROW_FOLLOW_CAMERA, ROW_DIFFICULTY, ROW_START, ROW_MOVIES };
     static const int FREE_IN_STOCK[] = { ROW_EXPLODE, ROW_NITRO, ROW_TURBO, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_UNITS, ROW_UPDATE };
     for (size_t i = 0; i < sizeof HELD_IN_STOCK / sizeof HELD_IN_STOCK[0]; i++) {
@@ -704,7 +704,7 @@ int main(void)
     test_the_graphics_settings_are_gone();
     test_page_one_has_thirteen_rows();
     test_page_two_has_ten_rows();
-    test_psx_livery_row_is_saved_on_done();
+    test_second_livery_row_is_saved_on_done();
     test_race_switch_rows_save_with_done();
     test_lunar_row_is_saved_on_done();
     test_follow_camera_row_toggles_and_saves();

@@ -9,7 +9,7 @@
 #include "game/viewer/tunnel_cells.h"
 #include "game/viewer/view_lamps.h"
 #include "game/viewer/weather_hooks.h"
-#include "viewer/psx_sky_draw.h"
+#include "viewer/sky_art_draw.h"
 #include "viewer/view_rain.h"
 #include "viewer/view_tables.h"
 #include "viewer/view_weather.h"
@@ -23,7 +23,7 @@
  * weather changes. */
 int weather;
 int view_weather(void) { return weather; }   /* the frame's weather, for view_spray.c */
-ModernLook look;   /* port: the Texture Filter and Fog's look (the PS1 look's dark fog too: ported_view_set_dark_fog) */
+ModernLook look;   /* port: the Texture Filter and Fog's look (the light effects' dark fog too: ported_view_set_dark_fog) */
 
 static int track_snow;   /* port (snow_weather): this race's track is a snowy one with the switch on (ported_view_set_snow) */
 void ported_view_set_snow(int snow) { track_snow = snow != 0; }
@@ -68,11 +68,11 @@ void ported_view_mirror_sky(const TrackArt *art, const QuadTarget *target, const
     const WeatherSky sky = weather_sky(target->pixels, target->pitch, target->clip_left, target->clip_right, wt, view, matrix, storm_flash_level());
     weather_sky_band((void *)&sky, target->clip_top, target->clip_bottom);
 }
-PsxSkyDraw *psx_sky;        /* port: the PS1 sky (ported_view_set_psx_sky) */
-void ported_view_set_psx_sky(PsxSkyDraw *sky) { psx_sky = sky; }
-const TrackInfo *psx_sky_info;   /* port: the alternative sky's INFO (ported_view_set_psx_sky_info) */
-void ported_view_set_psx_sky_info(const TrackInfo *info) { psx_sky_info = info; }
-const FshEntry *ported_view_sky_in_palette(void) { return psx_sky != NULL ? psx_sky_draw_in_palette(psx_sky) : NULL; }
+SkyArtDraw *psx_sky;        /* port: the console version sky (ported_view_set_sky_art) */
+void ported_view_set_sky_art(SkyArtDraw *sky) { psx_sky = sky; }
+const TrackInfo *psx_sky_info;   /* port: the alternative sky's INFO (ported_view_set_sky_art_info) */
+void ported_view_set_sky_art_info(const TrackInfo *info) { psx_sky_info = info; }
+const FshEntry *ported_view_sky_in_palette(void) { return psx_sky != NULL ? sky_art_draw_in_palette(psx_sky) : NULL; }
 HorizonSmooth smooth;       /* port: the Texture Filter's table for the sky's palette (horizon_smooth.h) */
 
 void ported_view_set_look(int filter, int fog) { look_filter = filter != 0, look_fog = fog != 0; }
@@ -99,7 +99,7 @@ static void draw_camera_base(void *user, const View *view, const FshEntry *textu
          * found by uv across the whole texture: it stopped short of the corners and the next polygon's edge started at another value, a hard step of the cone's light at every row) */
         float dark[4];
         for (int i = 0; i < 4; i++) dark[i] = (255.0f - lit_corner[i]) * (MODERN_FOG_LEVELS - 1) / 255.0f;
-        if (track_light_xz_ok && (track_light_tunnel & 7) == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), psx_light, lit_corner, track_light_xz, track_light_node)) return;   /* port (headlight_cone): lit inside the polygon */
+        if (track_light_xz_ok && (track_light_tunnel & 7) == 0 && cone_cells_draw(user, view, texture, uv, cam, transparent(texture), lit_tables_for(texture), light_effects, lit_corner, track_light_xz, track_light_node)) return;   /* port (headlight_cone): lit inside the polygon */
         const uint8_t (*tables)[256] = lit_tables_for(texture);
         float lamp_heat[4];
         const uint8_t (*lamp_top)[256] = NULL;
@@ -112,13 +112,13 @@ static void draw_camera_base(void *user, const View *view, const FshEntry *textu
             modern_road_cell_lit_warm(user, view, texture, uv, cam, transparent(texture), tunnel_tables, dark, lamp_top, lamp_heat, LAMP_STEPS);
             return;
         }
-        if (pool_ready && track_light_xz_ok && (track_light_tunnel & 7) != 1 && psx_light != NULL
+        if (pool_ready && track_light_xz_ok && (track_light_tunnel & 7) != 1 && light_effects != NULL
             && (tables == lit_tables || ((track_light_tunnel & 7) >= 2 && tables == pool_tables[((track_light_tunnel & 7) - 2) & 3]))) {
             /* port (lamp_pool_tint): the road in a lamp's pool is the plain lit tables and the pool's warm ones by the warmth at each corner (its node's class), dithered per pixel as the
              * darkness is: the warmth fades along the road with the lamp's classes, no polygon with a table of its own */
             float heat[4];
             for (int k = 0; k < 4; k++) {
-                const int cls = psx_light_tunnel_class(psx_light, track_light_node[k]);
+                const int cls = track_node_light_tunnel_class(light_effects, track_light_node[k]);
                 heat[k] = cls >= 2 ? (float)(cls - 1) / POOL_CLASSES : 0.0f;
             }
             if (heat[0] > 0 || heat[1] > 0 || heat[2] > 0 || heat[3] > 0) {   /* a polygon that only reaches into the pool (its weakest corner is out of it) grades into it too */

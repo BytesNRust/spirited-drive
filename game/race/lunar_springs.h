@@ -1,6 +1,6 @@
 /* port: Lunar Springs, the moon version of Rusty Springs' rally, a track that was cut: the PC CD still holds its
  * parts (the moon's textures NTRACKFM/TR8_R01.FAM, its Control Central picture FRONTEND/GART/CONTROL/MOON.QFS and its
- * voices FRONTEND/SPEECH/LUNARWEL.EAS and LUNARGOL.EAS) but not the moon's own geometry (no MISC/TR8.TRI), and the PS1
+ * voices FRONTEND/SPEECH/LUNARWEL.EAS and LUNARGOL.EAS) but not the moon's own geometry (no MISC/TR8.TRI), and the console version
  * disc has no moon file at all. So the rally keeps Rusty's geometry (MISC/TR5.TRI, which is Rusty's own) and only the
  * moon's art is used. With the mode's file's lunar_springs on, the rally on Rusty Springs runs those textures and shows
  * that picture; nothing else changes, and the records stay Rusty's. */

@@ -5,7 +5,7 @@
 #include "game/race/tyre_smoke.h"
 #include "game/viewer/screen_layout.h"
 #include "game/viewer/weather_hooks.h"
-#include "viewer/psx_sky_draw.h"
+#include "viewer/sky_art_draw.h"
 #include "viewer/view_spray.h"
 #include "viewer/view_models.h"
 

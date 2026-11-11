@@ -248,7 +248,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     }
     track_art_load_animated(&t->art, &t->fam, t->tri.data);  /* 0044c36c's "ga%d0" */
     if (look->variant_r && look->port_snow) {   /* port (snow_weather): the snowy track's rally road is the track's own snow textures (the places file's `snow_map`) */
-        uint8_t snow_map[PSX_LIGHT_SNOW_SLOTS];
+        uint8_t snow_map[TRACK_NODE_LIGHT_SNOW_SLOTS];
         if (track_snow_for(&t->tri, name, snow_map)) port_log("track_viewer: %s: snow: %d road texture slots take the snow's\n", name, track_art_remap_slots(&t->art, snow_map));
     }
     {   /* port: the reflective masks of this track's textures (track_mask.h), by its stem in capitals */
@@ -278,7 +278,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
     return 1;
 }
 
-/* port (the PS1 look's alternative sky, track_load.h): the horizon of NTRACKFM/<NAME>_T01.FAM, the palette it is shown with and the INFO of the time of
+/* port (the light effects' alternative sky, track_load.h): the horizon of NTRACKFM/<NAME>_T01.FAM, the palette it is shown with and the INFO of the time of
  * day 0 (the 3D ring it sets), the PC's own morning / evening sky */
 int track_viewer_pc_sky(const char *data_root, const char *name, TrackInfo *info, FshEntry *horizon, uint8_t palette[768], uint8_t **file)
 {

@@ -17,7 +17,7 @@ uint8_t *wet_zones_for_track(const Tri *tri, const char *name, int reversed)
         TriNode n;
         property[i] = tri_node(tri, i, &n) == TRI_OK ? n.property : 0;
     }
-    PsxLight places = { 0 };
+    TrackNodeLight places = { 0 };
     int have = 0;
     char path[DATA_PATH_MAX];
     if (tri->node_count != 0 && track_light_place_find(name, path, sizeof path)) {
@@ -47,25 +47,25 @@ uint8_t *wet_zones_for_track(const Tri *tri, const char *name, int reversed)
         if (roofed != 0) port_log("wet zones: %s: the road's own roof covers %u nodes the places file does not close:%s\n", name, (unsigned)roofed, runs);
         free(road);
     }
-    psx_light_free(&places);
+    track_node_light_free(&places);
     free(property);
     return open;
 }
 
-int track_snow_for(const Tri *tri, const char *name, uint8_t snow_map[PSX_LIGHT_SNOW_SLOTS])
+int track_snow_for(const Tri *tri, const char *name, uint8_t snow_map[TRACK_NODE_LIGHT_SNOW_SLOTS])
 {
-    if (snow_map != NULL) memset(snow_map, 0, PSX_LIGHT_SNOW_SLOTS);
+    if (snow_map != NULL) memset(snow_map, 0, TRACK_NODE_LIGHT_SNOW_SLOTS);
     char path[DATA_PATH_MAX];
     if (tri == NULL || tri->node_count == 0 || !track_light_place_find(name, path, sizeof path)) return 0;
     size_t size = 0;
     uint8_t *text = platform_read_file(path, &size);
     if (text == NULL) return 0;
-    PsxLight places = { 0 };
+    TrackNodeLight places = { 0 };
     places.nodes = tri->node_count;
     const int have = track_light_place_parse((const char *)text, size, name, tri->node_count, &places, NULL);
     platform_free_file(text);
     const int snow = have && places.snow != 0;
-    if (snow && snow_map != NULL) memcpy(snow_map, places.snow_map, PSX_LIGHT_SNOW_SLOTS);
-    psx_light_free(&places);
+    if (snow && snow_map != NULL) memcpy(snow_map, places.snow_map, TRACK_NODE_LIGHT_SNOW_SLOTS);
+    track_node_light_free(&places);
     return snow;
 }

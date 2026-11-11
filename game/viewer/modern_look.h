@@ -23,7 +23,7 @@ typedef struct {
     uint8_t palette[768];            /* the palette the tables were made from */
     uint8_t rgb[3];
     int made;
-    int dark;                        /* port (the PS1 look): the fog's colour is MODERN_LOOK_DARK whatever the horizon's foot is */
+    int dark;                        /* port (the light effects): the fog's colour is MODERN_LOOK_DARK whatever the horizon's foot is */
     int sample;                      /* port (fog_sample): 1 takes the fog's colour from the band around the horizon's line (lift in lift) */
     int lift;                        /* the percent of the way to white that band is lifted */
     uint8_t tables[MODERN_FOG_LEVELS][256];
@@ -44,10 +44,10 @@ void modern_look_fog_colour_sampled(const TrackArt *art, int lift_percent, uint8
  * with `lift_percent`) when `on`, the foot's own when not. */
 void modern_look_set_sample(ModernLook *look, int on, int lift_percent);
 
-/* port (the PS1 look): the fog dark (MODERN_LOOK_DARK on each channel) whatever the horizon's foot says, 0 for the foot's own. */
+/* port (the light effects): the fog dark (MODERN_LOOK_DARK on each channel) whatever the horizon's foot says, 0 for the foot's own. */
 void modern_look_set_dark(ModernLook *look, int dark);
 
-/* port (the PS1 look): the weather fog's colour `out` (may be `rgb`): MODERN_LOOK_DARK on each channel when the look is dark, the same
+/* port (the light effects): the weather fog's colour `out` (may be `rgb`): MODERN_LOOK_DARK on each channel when the look is dark, the same
  * as the distance fog's, `rgb` as it is otherwise. */
 void modern_look_weather_fog(const ModernLook *look, const uint8_t rgb[3], uint8_t out[3]);
 

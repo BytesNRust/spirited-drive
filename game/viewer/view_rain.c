@@ -3,7 +3,7 @@
 
 #include "game/race/car_progress.h"
 #include "game/race/race_chase.h"
-#include "game/race/psx_light_synth.h"
+#include "game/race/light_synth.h"
 #include "game/sys/fixed_math.h"
 #include "game/sys/port_settings.h"
 #include "viewer/drive_lamps.h"
@@ -42,15 +42,15 @@ static void rain_dot(uint8_t *pixels, int32_t pitch, const int32_t box[4], int32
     *d = table[*d];
 }
 
-/* port (weather_zones): how much weather there is at a node, 0..16: none inside a closed zone (the light's tunnel nodes, psx_light_weather_closed, alone when they are a places file's, Coastal's galleries among them; else Coastal's galleries, rain_cover, and the
+/* port (weather_zones): how much weather there is at a node, 0..16: none inside a closed zone (the light's tunnel nodes, track_node_light_weather_closed, alone when they are a places file's, Coastal's galleries among them; else Coastal's galleries, rain_cover, and the
  * road's own tunnels where there is no light), fading in over WEATHER_MOUTH_NODES nodes outside its mouths. The rain, the haze and the fog, the lightning and the lens drops follow it.
  * A hall is not a closed zone and a canyon is open air. */
 static int weather_closed_at(const uint8_t *tunnel, const uint8_t *cover, uint32_t node)
 {
-    if (psx_light != NULL && psx_light->from_places) return psx_light_weather_closed(psx_light, node);   /* port (tunnel_dry): a places file is the only source of the closed zones */
+    if (light_effects != NULL && light_effects->from_places) return track_node_light_weather_closed(light_effects, node);   /* port (tunnel_dry): a places file is the only source of the closed zones */
     if (cover != NULL && cover[node]) return 1;
-    if (psx_light != NULL) return psx_light_weather_closed(psx_light, node);
-    return tunnel != NULL && tunnel[node] == PSX_SYNTH_FLAG_TUNNEL;
+    if (light_effects != NULL) return track_node_light_weather_closed(light_effects, node);
+    return tunnel != NULL && tunnel[node] == LIGHT_SYNTH_FLAG_TUNNEL;
 }
 
 int rain_open_at(int32_t node)
@@ -59,7 +59,7 @@ int rain_open_at(int32_t node)
     const uint32_t nodes = shadow_race->tri->ring_nodes;
     const uint8_t *tunnel = road_tunnels(shadow_race, nodes);
     const uint8_t *cover = rain_cover(shadow_race, nodes);   /* a roof the lighting's tunnel runs do not mark: Coastal's galleries */
-    if (tunnel == NULL && cover == NULL && psx_light == NULL) return 16;
+    if (tunnel == NULL && cover == NULL && light_effects == NULL) return 16;
     for (int32_t d = 0; d < WEATHER_MOUTH_NODES; d++)
         if (weather_closed_at(tunnel, cover, (uint32_t)(node + d) & (nodes - 1u)) || weather_closed_at(tunnel, cover, (uint32_t)(node - d) & (nodes - 1u)))
             return weather_open_for_distance(d);

@@ -12,7 +12,7 @@ int session_rules_put(const SessionRules *r, uint8_t out[SESSION_RULES_SIZE])
     out[SESSION_VERSION_AT] = SESSION_RULES_VERSION;
     out[SESSION_MODE_AT] = r->mode, out[SESSION_DIFFICULTY_AT] = r->difficulty, out[SESSION_WEATHER_AT] = r->weather;
     out[12] = r->reverse, out[13] = r->lunar_springs, out[14] = r->lunar_gravity, out[15] = r->rally_gravel, out[16] = r->cheats;
-    out[17] = r->rain_grip, out[18] = r->liveries, out[19] = r->time_of_day, out[20] = r->psx_time;
+    out[17] = r->rain_grip, out[18] = r->liveries, out[19] = r->time_of_day, out[20] = r->light_time;
     memcpy(out + SESSION_PAINT_AT, r->paint, SESSION_SLOTS);
     out[SESSION_SNOW_AT] = r->snow_weather;
     return SESSION_RULES_SIZE;
@@ -28,7 +28,7 @@ int session_rules_get(const uint8_t *d, size_t size, SessionRules *out)
     SessionRules r;
     r.mode = d[SESSION_MODE_AT], r.difficulty = d[SESSION_DIFFICULTY_AT], r.weather = d[SESSION_WEATHER_AT];
     r.reverse = d[12], r.lunar_springs = d[13], r.lunar_gravity = d[14], r.rally_gravel = d[15], r.cheats = d[16];
-    r.rain_grip = d[17], r.liveries = d[18], r.time_of_day = d[19], r.psx_time = d[20];
+    r.rain_grip = d[17], r.liveries = d[18], r.time_of_day = d[19], r.light_time = d[20];
     memcpy(r.paint, d + SESSION_PAINT_AT, SESSION_SLOTS);
     r.snow_weather = has_snow ? d[SESSION_SNOW_AT] : 0;
     *out = r;

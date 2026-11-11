@@ -1,5 +1,5 @@
 /* The tunnel lamps' module (view_lamps.c) on a synthetic lamp texture: the lamp list and its lookup by bitmap, the tables that keep the
- * lamp's colours, the halo noted from a drawn quad and drawn over the finished pixels, and the same with psx_flares off. */
+ * lamp's colours, the halo noted from a drawn quad and drawn over the finished pixels, and the same with lamp_flares off. */
 #include "game/viewer/view_lamps.h"
 
 #include "game/sys/palette.h"
@@ -11,7 +11,7 @@
 
 enum { TEX = 16, LAMP_COLOUR = 200, BACK = 10, W = 64, H = 64 };
 
-static const PsxLamp LAMP = { 0, 1, { LAMP_COLOUR }, { 4, 4, 11, 11 }, NULL };   /* the fitting is the texture's middle */
+static const TunnelLampTexture LAMP = { 0, 1, { LAMP_COLOUR }, { 4, 4, 11, 11 }, NULL };   /* the fitting is the texture's middle */
 
 static TrackArt *make_art(uint8_t texels[TEX * TEX])
 {
@@ -48,13 +48,13 @@ static void test_lamp_list_and_lookup(void)
 {
     uint8_t texels[TEX * TEX];
     TrackArt *art = make_art(texels);
-    ported_view_set_psx_lamps(&LAMP, 1);
+    ported_view_set_tunnel_lamps(&LAMP, 1);
     CHECK_EQ_INT(view_lamps_count(), 1);
     CHECK_EQ_INT(view_lamps_of(&art->slots[0][0].bitmap), -1);   /* the bitmaps are not known until the frame sets them */
     view_lamps_textures(art);
     CHECK_EQ_INT(view_lamps_of(&art->slots[0][0].bitmap), 0);
     CHECK_EQ_INT(view_lamps_of(&art->slots[1][0].bitmap), -1);
-    ported_view_set_psx_lamps(NULL, 0);
+    ported_view_set_tunnel_lamps(NULL, 0);
     CHECK_EQ_INT(view_lamps_count(), 0);
     CHECK_EQ_INT(view_lamps_of(&art->slots[0][0].bitmap), -1);   /* no lamp is left to be one */
     free(art);
@@ -67,14 +67,14 @@ static void test_tables_keep_the_lamps_colours(void)
     TrackArt *art = make_art(texels);
     for (int l = 0; l < MODERN_FOG_LEVELS; l++)
         for (int c = 0; c < 256; c++) tunnel[l][c] = (uint8_t)(c / 2);
-    ported_view_set_psx_lamps(&LAMP, 1);
+    ported_view_set_tunnel_lamps(&LAMP, 1);
     view_lamps_make_tables(art, (const uint8_t (*)[256])tunnel);
     CHECK_EQ_INT(view_lamps_of(&art->slots[0][0].bitmap), 0);
     for (int l = 0; l < MODERN_FOG_LEVELS; l++) {
         CHECK_EQ_INT(view_lamps_table(0)[l][LAMP_COLOUR], LAMP_COLOUR);   /* the fitting's colour is not darkened */
         CHECK_EQ_INT(view_lamps_table(0)[l][50], tunnel[l][50]);          /* the rest is the tunnel's */
     }
-    ported_view_set_psx_lamps(NULL, 0);
+    ported_view_set_tunnel_lamps(NULL, 0);
     free(art);
 }
 
@@ -84,7 +84,7 @@ static void test_a_noted_lamp_gets_a_halo(void)
     TrackArt *art = make_art(texels);
     memset(usable, 1, sizeof usable);
     palette_usable_set(usable);
-    ported_view_set_psx_lamps(&LAMP, 1);
+    ported_view_set_tunnel_lamps(&LAMP, 1);
     view_lamps_set_flares(1);
     CHECK_EQ_INT(view_lamps_flares(), 1);
     view_lamps_textures(art);
@@ -113,7 +113,7 @@ static void test_a_noted_lamp_gets_a_halo(void)
     memset(after, BACK, sizeof after);
     view_lamps_draw(&t, art->palette);
     for (int i = 0; i < W * H; i++) CHECK_EQ_INT(after[i], BACK);
-    ported_view_set_psx_lamps(NULL, 0);
+    ported_view_set_tunnel_lamps(NULL, 0);
     free(art);
 }
 
@@ -121,7 +121,7 @@ static void test_flares_off_notes_and_draws_nothing(void)
 {
     uint8_t texels[TEX * TEX], before[W * H], after[W * H];
     TrackArt *art = make_art(texels);
-    ported_view_set_psx_lamps(&LAMP, 1);
+    ported_view_set_tunnel_lamps(&LAMP, 1);
     view_lamps_set_flares(0);
     CHECK_EQ_INT(view_lamps_flares(), 0);
     view_lamps_textures(art);
@@ -134,7 +134,7 @@ static void test_flares_off_notes_and_draws_nothing(void)
     view_lamps_set_flares(1);   /* what was noted with the switch off is not kept: nothing to draw */
     view_lamps_draw(&t, art->palette);
     CHECK_EQ_INT(differing(before, after, 0, W), 0);
-    ported_view_set_psx_lamps(NULL, 0);
+    ported_view_set_tunnel_lamps(NULL, 0);
     free(art);
 }
 

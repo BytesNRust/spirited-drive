@@ -322,11 +322,11 @@ add_library(tnfs_game STATIC
     game/race/lamp_emissive.c
     game/race/car_shine.c
     game/race/car_envmap.c
-    game/race/psx_light.c
-    game/race/psx_light_synth.c
+    game/race/track_node_light.c
+    game/race/light_synth.c
     game/race/track_light_file.c
     game/race/track_light_find.c
-    game/race/psx_light_make.c
+    game/race/terrain_light.c
     game/race/headlight_pool.c
     game/race/street_lamp.c
     game/race/tunnel_lamps.c
@@ -337,9 +337,11 @@ add_library(tnfs_game STATIC
     game/race/water_mist.c
     game/race/wiper.c
     game/race/finish_gate_light.c
-    game/race/psx_lamps.c
+    game/race/tunnel_lamp_textures.c
     game/race/police_lights.c
     game/race/psx_lgs.c
+    game/race/psx_lgt.c
+    game/race/light_tint.c
     game/race/psx_sky.c
     game/race/psx_sky_bitmap.c
     game/race/car_wheels.c
@@ -577,7 +579,7 @@ add_executable(tnfs
     game/viewer/spray_v4_art.c
     game/race/spray_v4.c
     game/viewer/horizon_smooth.c
-    game/viewer/psx_sky_draw.c
+    game/viewer/sky_art_draw.c
     game/viewer/sky_smooth.c
     game/viewer/drive_bumper.c
     game/viewer/model_view.c
@@ -677,7 +679,7 @@ if(NOT EMSCRIPTEN)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
         add_test(NAME ${name} COMMAND test_${name})
     endforeach()
-foreach(name port_old_files band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu extras_background extras_layout options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own graphics_own_modes graphics_own_light f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards psx_livery car_variant car_paint car_repaint car_mask track_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants psx_light psx_lamps remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty psx_light_synth lamp_emissive drive_lamps headlight_pool street_lamp tunnel_lamps window_lights reflector reflect_pass street_halo halo_track weather_hooks spray_tint trail_rise wiper finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_color lamp_flare shade_fit thunder wet_roll rain_roll snow_roll weather_snow snow_fx snow_remap key_latch track_wall chase_slope data_path data_check psx_light_make port_profile game_mode_profile exe_image exe_tables_menu exe_tables_config exe_tables_load file_url tach_dim wheel_front rain_spray spray_pace water_mist track_light_file session_rules race_net_wire)
+foreach(name port_old_files band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply port_records free_records records_route track_select_plus extras_menu extras_background extras_layout options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own graphics_own_modes graphics_own_light f3_ultra title_art item_art page_arrows port_log speed_units best_times start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards second_livery car_variant car_paint car_repaint car_mask track_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants track_node_light tunnel_lamp_textures remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty light_synth lamp_emissive drive_lamps headlight_pool street_lamp tunnel_lamps window_lights reflector reflect_pass street_halo halo_track weather_hooks spray_tint trail_rise wiper finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_color lamp_flare shade_fit thunder wet_roll rain_roll snow_roll weather_snow snow_fx snow_remap key_latch track_wall chase_slope data_path data_check terrain_light port_profile game_mode_profile exe_image exe_tables_menu exe_tables_config exe_tables_load file_url tach_dim wheel_front rain_spray spray_pace water_mist track_light_file session_rules race_net_wire)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -824,11 +826,11 @@ foreach(name port_old_files band_textures single_rival palette race_settings con
     target_link_libraries(test_horizon_smooth PRIVATE tnfs_game)
     target_compile_options(test_horizon_smooth PRIVATE ${TNFS_WARNINGS})
     add_test(NAME horizon_smooth COMMAND test_horizon_smooth)
-    add_executable(test_psx_sky_draw tests/test_psx_sky_draw.c game/viewer/psx_sky_draw.c game/viewer/horizon_smooth.c game/sys/band_index.c)
-    target_include_directories(test_psx_sky_draw PRIVATE game)
-    target_link_libraries(test_psx_sky_draw PRIVATE tnfs_game)
-    target_compile_options(test_psx_sky_draw PRIVATE ${TNFS_WARNINGS})
-    add_test(NAME psx_sky_draw COMMAND test_psx_sky_draw)
+    add_executable(test_sky_art_draw tests/test_sky_art_draw.c game/viewer/sky_art_draw.c game/viewer/horizon_smooth.c game/sys/band_index.c)
+    target_include_directories(test_sky_art_draw PRIVATE game)
+    target_link_libraries(test_sky_art_draw PRIVATE tnfs_game)
+    target_compile_options(test_sky_art_draw PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME sky_art_draw COMMAND test_sky_art_draw)
     add_executable(test_sky_smooth tests/test_sky_smooth.c game/viewer/sky_smooth.c game/viewer/horizon_smooth.c game/sys/band_index.c)
     target_include_directories(test_sky_smooth PRIVATE game)
     target_link_libraries(test_sky_smooth PRIVATE tnfs_game)
@@ -1366,7 +1368,7 @@ if(NOT EMSCRIPTEN)
         # the bumper view at night in rain with the headlights: the same frame each run, no sanitizer error (the tunnel flags read after being freed)
         add_test(NAME rain_night_headlights COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/rain_night_headlights -P ${CMAKE_SOURCE_DIR}/tests/rain_night_headlights.cmake)
         set_tests_properties(rain_night_headlights PROPERTIES TIMEOUT 400)
-        # the soft shadow with the light off: a car row drawn with no light loaded (psx_shadow is its own switch)
+        # the soft shadow with the light off: a car row drawn with no light loaded (car_soft_shadow is its own switch)
         add_test(NAME shadow_without_light COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/shadow_without_light -P ${CMAKE_SOURCE_DIR}/tests/shadow_without_light.cmake)
         set_tests_properties(shadow_without_light PROPERTIES TIMEOUT 120)
         # the day's frame through the plain present (drive_light_needs_split) is the one the split present makes, in a day tunnel too

@@ -171,7 +171,7 @@ static const uint8_t *exchange(const RaceEntry *own, uint8_t *names, int32_t *wa
     if (rules == NULL) port_log("session rules: none (an older host)\n");
     else port_log("session rules: mode %d difficulty %d weather %d reverse %d lunar %d/%d gravel %d cheats %d rain_grip %d colours %d time %d/%d paint %d %d %d %d %d %d %d %d\n", rules->mode,
                   rules->difficulty, rules->weather, rules->reverse, rules->lunar_springs, rules->lunar_gravity, rules->rally_gravel, rules->cheats, rules->rain_grip, rules->liveries,
-                  rules->time_of_day, rules->psx_time, rules->paint[0], rules->paint[1], rules->paint[2], rules->paint[3], rules->paint[4], rules->paint[5], rules->paint[6], rules->paint[7]);
+                  rules->time_of_day, rules->light_time, rules->paint[0], rules->paint[1], rules->paint[2], rules->paint[3], rules->paint[4], rules->paint[5], rules->paint[6], rules->paint[7]);
     *seed = (uint32_t)setup_dword(SETUP_SEED), *flags = (uint32_t)setup_dword(SETUP_FLAGS);
     return L->setup + RACE_NET_SETUP_RECORD_A + 2;
 }

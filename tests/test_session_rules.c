@@ -9,7 +9,7 @@ static SessionRules sample(void)
 {
     SessionRules r;
     memset(&r, 0, sizeof r);
-    r.mode = SESSION_RESTOMOD, r.difficulty = 2, r.weather = 2, r.reverse = 1, r.lunar_springs = 1, r.lunar_gravity = 1, r.rally_gravel = 1, r.cheats = 5, r.rain_grip = 1, r.liveries = 1, r.time_of_day = 2, r.psx_time = 1;
+    r.mode = SESSION_RESTOMOD, r.difficulty = 2, r.weather = 2, r.reverse = 1, r.lunar_springs = 1, r.lunar_gravity = 1, r.rally_gravel = 1, r.cheats = 5, r.rain_grip = 1, r.liveries = 1, r.time_of_day = 2, r.light_time = 1;
     r.snow_weather = 1;
     for (int i = 0; i < SESSION_SLOTS; i++) r.paint[i] = (uint8_t)(i + 1);
     return r;

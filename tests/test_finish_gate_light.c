@@ -1,6 +1,6 @@
 /* The stage gate's light at night (finish_gate_light.h): which track has the board, what the light does to it and to nothing else. */
 #include "game/race/finish_gate_light.h"
-#include "game/race/psx_light.h"
+#include "game/race/track_node_light.h"
 #include "tests/test.h"
 
 static void test_the_stage_tracks_have_the_gate_and_no_other(void)
@@ -26,7 +26,7 @@ static void test_the_gate_keeps_full_light_and_the_rest_the_nodes(void)
 
 static void test_a_light_has_no_gate_until_asked(void)
 {
-    PsxLight l = { 0 };
+    TrackNodeLight l = { 0 };
     CHECK_EQ_INT(l.gate_board, 0);
 }
 

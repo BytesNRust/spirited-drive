@@ -46,7 +46,7 @@ int track_viewer_load(Track *t, const char *data_root, const char *name, const T
 /* port: a CFM parked ahead on the track (TNFS_CAR=NAME). */
 void track_viewer_load_car(Track *t, const char *data_root, const char *name);
 
-/* port (the PS1 look's alternative sky): the PC's morning / evening sky of `name` (its _T01 FAM's 'horz', in `horizon`, pointing into *file, which the
+/* port (the light effects' alternative sky): the PC's morning / evening sky of `name` (its _T01 FAM's 'horz', in `horizon`, pointing into *file, which the
  * caller frees; `palette` the colours its texels have as the race shows that art, `info` the INFO of the time of day 0, whose ring the sky is
  * drawn with). 0 and no file when the CD holds none. */
 int track_viewer_pc_sky(const char *data_root, const char *name, TrackInfo *info, FshEntry *horizon, uint8_t palette[768], uint8_t **file);

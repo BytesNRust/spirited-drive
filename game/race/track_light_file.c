@@ -1,6 +1,6 @@
 /* port: see track_light_file.h. */
 #include "game/race/track_light_file.h"
-#include "game/race/psx_light_make.h"
+#include "game/race/terrain_light.h"
 
 
 #include <ctype.h>
@@ -55,14 +55,14 @@ static int node_order(const void *a, const void *b)
 }
 
 /* the street lamps as `lamp <node> 100` lines (the ordinary lamp: 100 percent, the default radius), by node, one for each */
-static void put_lamps(Buffer *b, const PsxLight *light)
+static void put_lamps(Buffer *b, const TrackNodeLight *light)
 {
     if (light->lamp_node == NULL || light->lamp_node_count <= 0 || light->nodes == 0) return;
     uint32_t *nodes = malloc((size_t)light->lamp_node_count * sizeof *nodes);
     if (nodes == NULL) { b->failed = 1; return; }
     int n = 0;
     for (int i = 0; i < light->lamp_node_count; i++) {
-        if (!light->lamp_ring && light->lamp_node[i] >= light->nodes) continue;   /* psx_light_lamp_classes drops it too */
+        if (!light->lamp_ring && light->lamp_node[i] >= light->nodes) continue;   /* terrain_light_lamp_classes drops it too */
         nodes[n++] = light->lamp_node[i] % light->nodes;
     }
     qsort(nodes, (size_t)n, sizeof *nodes, node_order);
@@ -93,7 +93,7 @@ static void colour_text(const float cast[3], char out[64])
     }
 }
 
-int track_light_place_format(const PsxLight *light, const char *track, char **text, size_t *size)
+int track_light_place_format(const TrackNodeLight *light, const char *track, char **text, size_t *size)
 {
     if (light == NULL || track == NULL || light->nodes == 0 || text == NULL || size == NULL) return 0;
     Buffer b = { 0 };
@@ -110,7 +110,7 @@ int track_light_place_format(const PsxLight *light, const char *track, char **te
     put_ranges(&b, "canyon", light->canyon, light->nodes);
     put_ranges(&b, "car_dim", light->car_dim, light->nodes);
     if (light->snow) put(&b, "snow 1\n");
-    for (int slot = 0; slot < PSX_LIGHT_SNOW_SLOTS; slot++)
+    for (int slot = 0; slot < TRACK_NODE_LIGHT_SNOW_SLOTS; slot++)
         if (light->snow_map[slot] != 0) put(&b, "snow_map %d %d\n", slot, light->snow_map[slot] - 1);
     if (b.failed) {
         free(b.text);
@@ -120,18 +120,18 @@ int track_light_place_format(const PsxLight *light, const char *track, char **te
     return 1;
 }
 
-int track_light_format(const PsxLight *light, const char *track, char letter, uint32_t flags, char **text, size_t *size)
+int track_light_format(const TrackNodeLight *light, const char *track, char letter, uint32_t flags, char **text, size_t *size)
 {
     if (light == NULL || track == NULL || light->data == NULL || light->nodes == 0 || text == NULL || size == NULL) return 0;
     Buffer b = { 0 };
     put(&b, "# tnfs track light 1\n");
     put(&b, "track %s time %c nodes %u flags %x\n", track, letter, light->nodes, flags);
     for (uint32_t n = 0; n < light->nodes;) {
-        const uint8_t *row = &light->data[(size_t)n * PSX_LIGHT_POINTS];
+        const uint8_t *row = &light->data[(size_t)n * TRACK_NODE_LIGHT_POINTS];
         uint32_t end = n;
-        while (end + 1 < light->nodes && memcmp(row, &light->data[(size_t)(end + 1) * PSX_LIGHT_POINTS], PSX_LIGHT_POINTS) == 0) end++;
+        while (end + 1 < light->nodes && memcmp(row, &light->data[(size_t)(end + 1) * TRACK_NODE_LIGHT_POINTS], TRACK_NODE_LIGHT_POINTS) == 0) end++;
         put(&b, "rows %u %u", n, end);
-        for (int p = 0; p < PSX_LIGHT_POINTS; p++) put(&b, " %u", row[p]);
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) put(&b, " %u", row[p]);
         put(&b, "\n");
         n = end + 1;
     }
@@ -268,7 +268,7 @@ static int parse_lamp(const char *rest, uint32_t nodes, TrackLightTweaks *tweaks
     int used = 0;
     if (sscanf(rest, "%u %u%n", &node, &percent, &used) != 2 || node >= nodes || percent < 1 || percent > TRACK_LIGHT_MAX_LAMP_PERCENT || tweaks->lamp_count >= TRACK_LIGHT_MAX_LAMPS) return 0;
     rest += used;
-    TrackLightLamp lamp = { node, (uint16_t)percent, PSX_LIGHT_LAMP_RADIUS, 0, 100, { 0, 0, 0 } };
+    TrackLightLamp lamp = { node, (uint16_t)percent, TRACK_NODE_LIGHT_LAMP_RADIUS, 0, 100, { 0, 0, 0 } };
     int have_radius = 0;
     char token[32];
     while (sscanf(rest, "%31s%n", token, &used) == 1) {
@@ -311,7 +311,7 @@ static int zone_slots(TrackLightTweaks *tweaks, int *bad_line)
         const double light = z->has_light ? z->light : base_light;
         const float *const cast = z->has_colour ? z->cast : tweaks->look_has_colour ? tweaks->look_cast : (const float[3]){ 1.0f, 1.0f, 1.0f };
         if (light == base_light && memcmp(cast, tweaks->look_has_colour ? tweaks->look_cast : (const float[3]){ 1.0f, 1.0f, 1.0f }, 3 * sizeof(float)) == 0) continue;
-        PsxLightTone slot;
+        TrackNodeLightTone slot;
         memset(&slot, 0, sizeof slot);
         slot.rgb[0] = slot.rgb[1] = slot.rgb[2] = 255, slot.look = 1, slot.light = (float)light;
         memcpy(slot.cast, cast, sizeof slot.cast);
@@ -319,7 +319,7 @@ static int zone_slots(TrackLightTweaks *tweaks, int *bad_line)
         for (int t = 0; t < tweaks->tone_count; t++)
             if (memcmp(&tweaks->tones[t], &slot, sizeof slot) == 0) id = t;
         if (id < 0) {
-            if (tweaks->tone_count >= PSX_LIGHT_TONES) {
+            if (tweaks->tone_count >= TRACK_NODE_LIGHT_TONES) {
                 *bad_line = z->line;
                 return 0;
             }
@@ -332,7 +332,7 @@ static int zone_slots(TrackLightTweaks *tweaks, int *bad_line)
 }
 
 /* one line of the file into `light`; 0 when it is not well-formed. `seen` counts the node rows given. */
-static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweaks, uint32_t *seen)
+static int parse_line(const char *line, TrackNodeLight *light, TrackLightTweaks *tweaks, uint32_t *seen)
 {
     char word[32];
     int used = 0;
@@ -342,17 +342,17 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
     const uint32_t nodes = light->nodes;
     unsigned a, b, c;
     if (strcmp(key, "rows") == 0) {
-        unsigned v[PSX_LIGHT_POINTS];
+        unsigned v[TRACK_NODE_LIGHT_POINTS];
         int n = 0;
         if (sscanf(rest, "%u %u%n", &a, &b, &n) != 2) return 0;
         rest += n;
-        for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
             if (sscanf(rest, "%u%n", &v[p], &n) != 1 || v[p] > 255) return 0;
             rest += n;
         }
         if (a > b || b >= nodes) return 0;
         for (unsigned node = a; node <= b; node++)
-            for (int p = 0; p < PSX_LIGHT_POINTS; p++) light->data[(size_t)node * PSX_LIGHT_POINTS + (size_t)p] = (uint8_t)v[p];
+            for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) light->data[(size_t)node * TRACK_NODE_LIGHT_POINTS + (size_t)p] = (uint8_t)v[p];
         *seen += b - a + 1;
         return 1;
     }
@@ -382,17 +382,17 @@ static int parse_line(const char *line, PsxLight *light, TrackLightTweaks *tweak
             unsigned point;
             int used = 0;
             if (sscanf(rest, " p%u%n", &point, &used) != 1) break;
-            if (point >= PSX_LIGHT_POINTS) return 0;
+            if (point >= TRACK_NODE_LIGHT_POINTS) return 0;
             mask |= 1u << point, rest += used;
         }
         if (sscanf(rest, " %x:%d", &rgb, &percent) != 2 || rgb > 0xffffffu || percent < 0 || percent > 100 || tweaks->tone_run_count >= TRACK_LIGHT_MAX_BRIGHT) return 0;
-        if (mask == 0) mask = (1u << PSX_LIGHT_POINTS) - 1u;
-        const PsxLightTone tone = { .rgb = { (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb }, .percent = (uint8_t)percent };
+        if (mask == 0) mask = (1u << TRACK_NODE_LIGHT_POINTS) - 1u;
+        const TrackNodeLightTone tone = { .rgb = { (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb }, .percent = (uint8_t)percent };
         int id = -1;
         for (int i = 0; i < tweaks->tone_count; i++)
             if (memcmp(&tweaks->tones[i], &tone, sizeof tone) == 0) id = i;
         if (id < 0) {
-            if (tweaks->tone_count >= PSX_LIGHT_TONES) return 0;   /* a 17th distinct tone */
+            if (tweaks->tone_count >= TRACK_NODE_LIGHT_TONES) return 0;   /* a 17th distinct tone */
             id = tweaks->tone_count;
             tweaks->tones[tweaks->tone_count++] = tone;
         }
@@ -451,7 +451,7 @@ int track_light_parse(const char *text, size_t size, const char *track, char let
             file.flags = file_flags;
             file.base = flags == TRACK_LIGHT_ANY_FLAGS || file_flags == flags;
             file.light.nodes = expected_nodes;
-            file.light.data = calloc((size_t)expected_nodes * PSX_LIGHT_POINTS, 1);   /* parsed even when it is not the base: its lines are still checked */
+            file.light.data = calloc((size_t)expected_nodes * TRACK_NODE_LIGHT_POINTS, 1);   /* parsed even when it is not the base: its lines are still checked */
             if (file.light.data == NULL) return 0;
             header = 1;
             continue;
@@ -465,7 +465,7 @@ int track_light_parse(const char *text, size_t size, const char *track, char let
         line_no = 0;
         goto bad;
     }
-    if (!file.base) psx_light_free(&file.light);
+    if (!file.base) track_node_light_free(&file.light);
     *out = file;
     return 1;
 bad:
@@ -474,11 +474,11 @@ bad:
     return 0;
 }
 
-int track_light_place_parse(const char *text, size_t size, const char *track, uint32_t expected_nodes, PsxLight *out, int *bad_line)
+int track_light_place_parse(const char *text, size_t size, const char *track, uint32_t expected_nodes, TrackNodeLight *out, int *bad_line)
 {
     if (bad_line != NULL) *bad_line = 0;
     if (text == NULL || track == NULL || out == NULL || expected_nodes == 0) return 0;
-    PsxLight places = { 0 };
+    TrackNodeLight places = { 0 };
     places.nodes = expected_nodes;
     int header = 0, line_no = 0;
     size_t at = 0;
@@ -503,7 +503,7 @@ int track_light_place_parse(const char *text, size_t size, const char *track, ui
         if (!header) {
             char file_track[32];
             if (strcmp(key, "track") != 0 || sscanf(rest, "%31s", file_track) != 1 || strchr(rest + strspn(rest, " \t"), ' ') != NULL) goto bad;
-            if (strcmp(file_track, track) != 0) { psx_light_free(&places); return 0; }
+            if (strcmp(file_track, track) != 0) { track_node_light_free(&places); return 0; }
             header = 1;
             continue;
         }
@@ -516,7 +516,7 @@ int track_light_place_parse(const char *text, size_t size, const char *track, ui
         if (strcmp(key, "snow_map") == 0) {   /* a texture slot of the road that the snow's bitmaps take over in the rally */
             unsigned from, to;
             int used_map = 0;
-            if (sscanf(rest, "%u %u%n", &from, &to, &used_map) != 2 || from >= PSX_LIGHT_SNOW_SLOTS || to >= PSX_LIGHT_SNOW_SLOTS || rest[used_map + strspn(rest + used_map, " \t\r")] != '\0') goto bad;
+            if (sscanf(rest, "%u %u%n", &from, &to, &used_map) != 2 || from >= TRACK_NODE_LIGHT_SNOW_SLOTS || to >= TRACK_NODE_LIGHT_SNOW_SLOTS || rest[used_map + strspn(rest + used_map, " \t\r")] != '\0') goto bad;
             places.snow_map[from] = (uint8_t)(to + 1);
             continue;
         }
@@ -540,14 +540,14 @@ int track_light_place_parse(const char *text, size_t size, const char *track, ui
     return 1;
 bad:
     if (bad_line != NULL) *bad_line = line_no;
-    psx_light_free(&places);
+    track_node_light_free(&places);
     return 0;
 }
 
 void track_light_file_free(TrackLightFile *file)
 {
     if (file == NULL) return;
-    psx_light_free(&file->light);
+    track_node_light_free(&file->light);
     memset(file, 0, sizeof *file);
 }
 
@@ -566,21 +566,21 @@ static void lamp_colour(const TrackLightLamp *lamp, float out[3])
 
 static int lamp_by_node(const void *a, const void *b)
 {
-    const PsxLightLamp *x = a, *y = b;
+    const TrackNodeLightLamp *x = a, *y = b;
     return x->node < y->node ? -1 : x->node > y->node;
 }
 
 /* the `lamp` lines over `light`: its lamp list, by node (the world place comes later), and the old pools the code made dropped: a lamp is light, the only one */
-static void apply_lamps(const TrackLightTweaks *tweaks, PsxLight *light, int ring)
+static void apply_lamps(const TrackLightTweaks *tweaks, TrackNodeLight *light, int ring)
 {
     if (tweaks->lamp_count == 0 || light->nodes < 2) return;
-    PsxLightLamp *list = calloc((size_t)tweaks->lamp_count, sizeof *list);
+    TrackNodeLightLamp *list = calloc((size_t)tweaks->lamp_count, sizeof *list);
     if (list == NULL) return;
     int reach = 0;
     for (int i = 0; i < tweaks->lamp_count; i++) {
         const TrackLightLamp *lamp = &tweaks->lamps[i];
         list[i].node = lamp->node;
-        list[i].reach = (float)lamp->radius;   /* in nodes until psx_light_lamps_place turns it into metres */
+        list[i].reach = (float)lamp->radius;   /* in nodes until track_node_light_lamps_place turns it into metres */
         lamp_colour(lamp, list[i].rgb);
         reach = lamp->radius > reach ? lamp->radius : reach;
     }
@@ -591,14 +591,14 @@ static void apply_lamps(const TrackLightTweaks *tweaks, PsxLight *light, int rin
     free(light->car_pool), light->car_pool = NULL;
 }
 
-void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light, int lamps, int ring)
+void track_light_apply(const TrackLightTweaks *tweaks, TrackNodeLight *light, int lamps, int ring)
 {
     if (tweaks == NULL || light == NULL) return;
     for (int i = 0; i < tweaks->brightness_count && light->data != NULL; i++) {
         const TrackLightBrightness *r = &tweaks->brightness[i];
         for (uint32_t n = r->from; n <= r->to && n < light->nodes; n++)
-            for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
-                uint8_t *at = &light->data[(size_t)n * PSX_LIGHT_POINTS + (size_t)p];
+            for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
+                uint8_t *at = &light->data[(size_t)n * TRACK_NODE_LIGHT_POINTS + (size_t)p];
                 const int scaled = *at * r->percent / 100;
                 *at = (uint8_t)(scaled > 255 ? 255 : scaled);
             }
@@ -616,7 +616,7 @@ void track_light_apply(const TrackLightTweaks *tweaks, PsxLight *light, int lamp
             light->tone_count = tweaks->tone_count;
             for (int i = 0; i < tweaks->zone_count; i++) {
                 const TrackLightZone *z = &tweaks->zones[i];
-                for (uint32_t n = z->from; z->tone >= 0 && n <= z->to && n < light->nodes; n++) light->tone_id[n] = (uint8_t)(z->tone + 1), light->tone_mask[n] = (1u << PSX_LIGHT_POINTS) - 1u;
+                for (uint32_t n = z->from; z->tone >= 0 && n <= z->to && n < light->nodes; n++) light->tone_id[n] = (uint8_t)(z->tone + 1), light->tone_mask[n] = (1u << TRACK_NODE_LIGHT_POINTS) - 1u;
             }
             for (int i = 0; i < tweaks->tone_run_count; i++) {
                 const TrackLightToneRun *r = &tweaks->tone_runs[i];

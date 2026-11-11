@@ -1,4 +1,4 @@
-/* The PS1 look's soft shadow (soft_shadow.h) on a grey ramp: the half-way table, the light's levels, the shrunken quad and what each level
+/* The light effects' soft shadow (soft_shadow.h) on a grey ramp: the half-way table, the light's levels, the shrunken quad and what each level
  * leaves on a surface. */
 #include "game/gfx/quad.h"
 #include "game/viewer/soft_shadow.h"

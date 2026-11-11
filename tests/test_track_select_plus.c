@@ -60,7 +60,7 @@ static void test_time_of_day_with_variants(void)
     CHECK_EQ_INT(track_fam_time_offered(8, 0, 0, 1), 0);
 }
 
-/* the weather row and the PS1 time (psx_time 0 day, 1 dawn, 2 dusk, 3 night; weather 0 clear, 1 fog, 2 rain, 3 storm) */
+/* the weather row and the console version time (light_time 0 day, 1 dawn, 2 dusk, 3 night; weather 0 clear, 1 fog, 2 rain, 3 storm) */
 static void test_weather_and_time_cycles(void)
 {
     CHECK_EQ_INT(track_select_weather_step(0, 1), 1);
@@ -68,15 +68,15 @@ static void test_weather_and_time_cycles(void)
     CHECK_EQ_INT(track_select_weather_step(2, 1), 3);
     CHECK_EQ_INT(track_select_weather_step(3, 1), 0);
     CHECK_EQ_INT(track_select_weather_step(0, -1), 3);
-    CHECK_EQ_INT(track_select_psx_time_step(0, 1), 1);   /* day -> dawn -> dusk -> night -> day */
-    CHECK_EQ_INT(track_select_psx_time_step(1, 1), 2);
-    CHECK_EQ_INT(track_select_psx_time_step(2, 1), 3);
-    CHECK_EQ_INT(track_select_psx_time_step(3, 1), 0);
-    CHECK_EQ_INT(track_select_psx_time_step(0, -1), 3);
-    CHECK_EQ_INT(track_select_psx_time_art(1), 0);   /* dawn shows the morning art, day midday, dusk evening */
-    CHECK_EQ_INT(track_select_psx_time_art(0), 1);
-    CHECK_EQ_INT(track_select_psx_time_art(2), 2);
-    CHECK_EQ_INT(track_select_psx_time_art(3), 2);   /* night shows the evening art, darkened (track_select.c) */
+    CHECK_EQ_INT(track_select_light_time_step(0, 1), 1);   /* day -> dawn -> dusk -> night -> day */
+    CHECK_EQ_INT(track_select_light_time_step(1, 1), 2);
+    CHECK_EQ_INT(track_select_light_time_step(2, 1), 3);
+    CHECK_EQ_INT(track_select_light_time_step(3, 1), 0);
+    CHECK_EQ_INT(track_select_light_time_step(0, -1), 3);
+    CHECK_EQ_INT(track_select_light_time_art(1), 0);   /* dawn shows the morning art, day midday, dusk evening */
+    CHECK_EQ_INT(track_select_light_time_art(0), 1);
+    CHECK_EQ_INT(track_select_light_time_art(2), 2);
+    CHECK_EQ_INT(track_select_light_time_art(3), 2);   /* night shows the evening art, darkened (track_select.c) */
 }
 
 /* the arrows with the weather row: DONE -> TIME_OF_DAY -> WEATHER -> DONE going up and down; a hidden time is skipped */

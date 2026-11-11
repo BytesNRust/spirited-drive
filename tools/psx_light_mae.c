@@ -1,10 +1,11 @@
-/* psx_light_mae <psx_dir> <data_dir> <track> [A|B|C]: how close our own light (game/race/psx_light_make.h) is to the PS1 CD's for a track, numbers only. Reads
+/* psx_light_mae <psx_dir> <data_dir> <track> [A|B|C]: how close our own light (game/race/terrain_light.h) is to the PS1 CD's for a track, numbers only. Reads
  * <data_dir>/SIMDATA/MISC/<TRACK>.TRI (the PC game's) and <psx_dir>/Z<TRACK><letter>.LGT; writes nothing and prints no byte of the CD file, only statistics.
  * The comparison is on the terrain points (2..5 and 7..10) of the nodes that are not a tunnel's (a tunnel's rows are the synth's): the mean absolute error in
  * the 0..255 bytes, the signed bias, the share within one of the 16 levels (17), per point; and the same for each sun azimuth in 30 degree steps, the best
  * named, and for a flat 255 (what the light is without any). The time: A dawn, B day, C dusk. */
-#include "game/race/psx_light.h"
-#include "game/race/psx_light_make.h"
+#include "game/race/track_node_light.h"
+#include "game/race/psx_lgt.h"
+#include "game/race/terrain_light.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -43,7 +44,7 @@ int main(int argc, char **argv)
 {
     if (argc < 4) return fprintf(stderr, "usage: psx_light_mae <psx_dir> <data_dir> <track> [A|B|C]\n"), 2;
     const char letter = argc > 4 ? (char)toupper((unsigned char)argv[4][0]) : 'B';
-    const int time = letter == 'A' ? PSX_SYNTH_DAWN : letter == 'C' ? PSX_SYNTH_DUSK : PSX_SYNTH_DAY;
+    const int time = letter == 'A' ? LIGHT_SYNTH_DAWN : letter == 'C' ? LIGHT_SYNTH_DUSK : LIGHT_SYNTH_DAY;
     char track[16], path[512];
     size_t i = 0;
     for (; argv[3][i] != '\0' && i < sizeof track - 1; i++) track[i] = (char)toupper((unsigned char)argv[3][i]);
@@ -57,28 +58,28 @@ int main(int argc, char **argv)
     snprintf(path, sizeof path, "%s/Z%s%c.LGT", argv[1], track, letter);
     uint8_t *lgt_data = slurp(path, &lgt_size);
     if (lgt_data == NULL) return fprintf(stderr, "cannot read %s\n", path), 1;
-    PsxLight ps1 = { 0 };   /* psx_light_parse sets only the rows: the flags (reversed, scripted) must start at 0 or the CD is read mirrored */
-    if (!psx_light_parse(lgt_data, lgt_size, tri.node_count, &ps1))
+    TrackNodeLight ps1 = { 0 };   /* psx_lgt_parse sets only the rows: the flags (reversed, scripted) must start at 0 or the CD is read mirrored */
+    if (!psx_lgt_parse(lgt_data, lgt_size, tri.node_count, &ps1))
         return fprintf(stderr, "%s %c: the CD's light does not have the TRI's %u nodes\n", track, letter, tri.node_count), 1;
     const uint32_t count = tri.node_count;
-    LightPos *pts = malloc((size_t)count * PSX_LIGHT_POINTS * sizeof *pts);
-    uint8_t *ours = malloc((size_t)count * PSX_LIGHT_POINTS);
-    if (pts == NULL || ours == NULL || !psx_light_tri_points(&tri, pts)) return fprintf(stderr, "cannot read the terrain\n"), 1;
+    LightPos *pts = malloc((size_t)count * TRACK_NODE_LIGHT_POINTS * sizeof *pts);
+    uint8_t *ours = malloc((size_t)count * TRACK_NODE_LIGHT_POINTS);
+    if (pts == NULL || ours == NULL || !terrain_light_tri_points(&tri, pts)) return fprintf(stderr, "cannot read the terrain\n"), 1;
     const int ring = tri_is_circuit(&tri);
-    PsxLightSun sun;
-    psx_light_sun_default(time, &sun);
+    TerrainLightSun sun;
+    terrain_light_sun_default(time, &sun);
     printf("%s %c: %u nodes, %s, sun elevation %.0f degrees\n", track, letter, count, ring ? "a circuit" : "a stage", sun.elevation * 180.0 / 3.14159265);
     double best = 1e9;
     int best_az = 0;
-    for (int az = 0; az < 1; az += 30) {   /* the CD's sun is fixed along x (psx_light_make.c): one azimuth is all there is */
+    for (int az = 0; az < 1; az += 30) {   /* the CD's sun is fixed along x (terrain_light.c): one azimuth is all there is */
         sun.azimuth = (float)az * 3.14159265f / 180.0f;
-        if (!psx_light_make_rows_sun(pts, count, ring, time, &sun, ours)) return fprintf(stderr, "no rows\n"), 1;
-        Stat all = { 0 }, per[PSX_LIGHT_POINTS] = { { 0 } };
+        if (!terrain_light_make_rows_sun(pts, count, ring, time, &sun, ours)) return fprintf(stderr, "no rows\n"), 1;
+        Stat all = { 0 }, per[TRACK_NODE_LIGHT_POINTS] = { { 0 } };
         for (uint32_t n = 0; n + 1 < count; n++) {
-            if (psx_light_tunnel(&ps1, n)) continue;
-            for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+            if (track_node_light_tunnel(&ps1, n)) continue;
+            for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
                 if (!terrain(p)) continue;
-                const int theirs = psx_light_byte(&ps1, n, p), mine = ours[n * PSX_LIGHT_POINTS + (uint32_t)p];
+                const int theirs = track_node_light_byte(&ps1, n, p), mine = ours[n * TRACK_NODE_LIGHT_POINTS + (uint32_t)p];
                 add(&all, mine, theirs), add(&per[p], mine, theirs);
             }
         }
@@ -88,23 +89,23 @@ int main(int argc, char **argv)
         if (mae < best) best = mae, best_az = az;
         if (az == 0) {   /* the per-point split once, at the first azimuth */
             printf("    by point (MAE/bias):");
-            for (int p = 0; p < PSX_LIGHT_POINTS; p++)
+            for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++)
                 if (terrain(p) && per[p].n > 0) printf(" %d:%.0f/%+.0f", p, per[p].abs_sum / (double)per[p].n, per[p].signed_sum / (double)per[p].n);
             printf("\n");
         }
     }
-    {   /* the model on its own, from the fit tool's features (psx_light_features), no smoothing and no 16 levels: if this is far from the rows' MAE above, the rows do
+    {   /* the model on its own, from the fit tool's features (terrain_light_features), no smoothing and no 16 levels: if this is far from the rows' MAE above, the rows do
          * something the features do not */
         Stat raw = { 0 };
         for (uint32_t n = 0; n + 1 < count; n++) {
-            if (psx_light_tunnel(&ps1, n)) continue;
+            if (track_node_light_tunnel(&ps1, n)) continue;
             for (int p = 2; p <= 9; p++) {
                 if (p == 5 || p == 6) continue;
-                PsxLightFeatures f;
-                psx_light_features(pts, count, ring, n, p, &f);
-                float v = psx_light_lambert(time, f.nx, f.ny);
+                TerrainLightFeatures f;
+                terrain_light_features(pts, count, ring, n, p, &f);
+                float v = terrain_light_lambert(time, f.nx, f.ny);
                 v = v < 0 ? 0 : v > 1 ? 1 : v;
-                add(&raw, (int)(v * 255.0f + 0.5f), psx_light_byte(&ps1, n, p));
+                add(&raw, (int)(v * 255.0f + 0.5f), track_node_light_byte(&ps1, n, p));
             }
         }
         /* the CD's own quantiser: for each 0.05 band of the raw model value, how many points, the CD's mean level (0..15) there, and how many of them are at level 15 (255) and
@@ -112,15 +113,15 @@ int main(int argc, char **argv)
         long bin_n[24] = { 0 }, bin_full[24] = { 0 }, bin_14[24] = { 0 };
         double bin_level[24] = { 0 }, bin_v[24] = { 0 };
         for (uint32_t n = 0; n + 1 < count; n++) {
-            if (psx_light_tunnel(&ps1, n)) continue;
+            if (track_node_light_tunnel(&ps1, n)) continue;
             for (int p = 2; p <= 9; p++) {
                 if (p == 5 || p == 6) continue;
-                PsxLightFeatures f;
-                psx_light_features(pts, count, ring, n, p, &f);
-                const float v = psx_light_lambert(time, f.nx, f.ny);
+                TerrainLightFeatures f;
+                terrain_light_features(pts, count, ring, n, p, &f);
+                const float v = terrain_light_lambert(time, f.nx, f.ny);
                 const int b = (int)(v * 20.0f + 0.5f) - 4;   /* bands 0.40 .. 1.55 */
                 if (b < 0 || b >= 24) continue;
-                const int theirs = psx_light_byte(&ps1, n, p);
+                const int theirs = track_node_light_byte(&ps1, n, p);
                 bin_n[b]++, bin_level[b] += theirs / 17.0, bin_v[b] += v, bin_full[b] += theirs == 255, bin_14[b] += theirs == 238;
             }
         }
@@ -132,12 +133,12 @@ int main(int argc, char **argv)
     }
     Stat flat = { 0 };
     for (uint32_t n = 0; n + 1 < count; n++) {
-        if (psx_light_tunnel(&ps1, n)) continue;
-        for (int p = 0; p < PSX_LIGHT_POINTS; p++)
-            if (terrain(p)) add(&flat, 255, psx_light_byte(&ps1, n, p));
+        if (track_node_light_tunnel(&ps1, n)) continue;
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++)
+            if (terrain(p)) add(&flat, 255, track_node_light_byte(&ps1, n, p));
     }
     printf("  best azimuth %d (MAE %.1f); a flat 255 would be MAE %.1f\n", best_az, best, flat.n > 0 ? flat.abs_sum / (double)flat.n : 0);
-    psx_light_free(&ps1);
+    track_node_light_free(&ps1);
     free(pts), free(ours), free(tri_data), free(lgt_data);
     return 0;
 }

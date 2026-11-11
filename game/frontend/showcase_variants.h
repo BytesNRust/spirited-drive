@@ -1,4 +1,4 @@
-/* port: the car variants the car showcase's box offers (race/car_variant.h): the PS1 livery first. re/notes/car-variants.md
+/* port: the car variants the car showcase's box offers (race/car_variant.h): the console version livery first. re/notes/car-variants.md
  * says how to add one. */
 #ifndef TNFS_SHOWCASE_VARIANTS_H
 #define TNFS_SHOWCASE_VARIANTS_H

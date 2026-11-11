@@ -1,12 +1,12 @@
-/* port: see psx_sky_draw.h. */
-#include "viewer/psx_sky_draw.h"
+/* port: see sky_art_draw.h. */
+#include "viewer/sky_art_draw.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-int psx_sky_draw_make(PsxSkyDraw *d, const PsxSky *sky, const PsxSkyInf *inf)
+int sky_art_draw_make(SkyArtDraw *d, const PsxSky *sky, const PsxSkyInf *inf)
 {
-    psx_sky_draw_free(d);
+    sky_art_draw_free(d);
     if (!psx_sky_bitmap_build(sky, inf, &d->bitmap)) return 0;
     d->horz = (FshEntry){ { 0 }, FSH_TYPE_BITMAP, 0, (uint16_t)d->bitmap.width, (uint16_t)d->bitmap.height,
                           { 0, (int16_t)d->bitmap.horizon_row, 0, 0 }, d->bitmap.pixels,
@@ -15,9 +15,9 @@ int psx_sky_draw_make(PsxSkyDraw *d, const PsxSky *sky, const PsxSkyInf *inf)
     return 1;
 }
 
-int psx_sky_draw_make_indexed(PsxSkyDraw *d, const FshEntry *horizon, const uint8_t palette[768])
+int sky_art_draw_make_indexed(SkyArtDraw *d, const FshEntry *horizon, const uint8_t palette[768])
 {
-    psx_sky_draw_free(d);
+    sky_art_draw_free(d);
     if (horizon == NULL || horizon->payload == NULL || horizon->width == 0 || horizon->height == 0) return 0;
     const size_t count = (size_t)horizon->width * horizon->height;
     if (count > horizon->payload_size) return 0;
@@ -33,7 +33,7 @@ int psx_sky_draw_make_indexed(PsxSkyDraw *d, const FshEntry *horizon, const uint
     return 1;
 }
 
-const FshEntry *psx_sky_draw_in_palette(PsxSkyDraw *d)
+const FshEntry *sky_art_draw_in_palette(SkyArtDraw *d)
 {
     if (!d->ready || !d->smooth.ready) return NULL;
     const size_t count = d->horz.payload_size;
@@ -52,12 +52,12 @@ const FshEntry *psx_sky_draw_in_palette(PsxSkyDraw *d)
     return &d->in_palette;
 }
 
-void psx_sky_draw_target(PsxSkyDraw *d, const uint8_t target[768])
+void sky_art_draw_target(SkyArtDraw *d, const uint8_t target[768])
 {
     if (d->ready) horizon_smooth_sky(&d->smooth, d->bitmap.palette, target);
 }
 
-void psx_sky_draw_scale(PsxSkyDraw *d, const float mul[3])
+void sky_art_draw_scale(SkyArtDraw *d, const float mul[3])
 {
     if (!d->ready) return;
     for (int i = 0; i < 256; i++)
@@ -68,7 +68,7 @@ void psx_sky_draw_scale(PsxSkyDraw *d, const float mul[3])
     d->smooth.ready = 0, d->mapped_ok = 0;   /* matched again at the next target */
 }
 
-void psx_sky_draw_rehue(PsxSkyDraw *d, const float ramp[3])
+void sky_art_draw_rehue(SkyArtDraw *d, const float ramp[3])
 {
     if (!d->ready) return;
     const float ramp_luma = 0.30f * ramp[0] + 0.59f * ramp[1] + 0.11f * ramp[2];
@@ -84,7 +84,7 @@ void psx_sky_draw_rehue(PsxSkyDraw *d, const float ramp[3])
     d->smooth.ready = 0, d->mapped_ok = 0;   /* matched again at the next target */
 }
 
-/* the stars go down the sky above its horizon row, thinning toward it (a band of the bitmap's upper rows put none in a PS1 panorama's view, whose 448 rows
+/* the stars go down the sky above its horizon row, thinning toward it (a band of the bitmap's upper rows put none in a console panorama's view, whose 448 rows
  * show only the lowest ones: TR1), and off the land: a column's silhouette starts at the first row whose
  * rows (their mean, over STAR_EDGE_ROWS) are under STAR_EDGE_PERCENT of the ones above them: a step, which a gradient darkening to the horizon, dithered or not,
  * never makes; no star is put on it or the row over it. The density is raised by the band's share
@@ -106,7 +106,7 @@ static int luma_of(const uint8_t *palette, int i)
 }
 
 /* the STAR_GREYS entries the picture uses least, their texels moved to the nearest of the others */
-static void free_entries(PsxSkyDraw *d, int chosen[STAR_GREYS])
+static void free_entries(SkyArtDraw *d, int chosen[STAR_GREYS])
 {
     const size_t count = (size_t)d->bitmap.width * (size_t)d->bitmap.height;
     size_t used[256] = { 0 };
@@ -144,7 +144,7 @@ static void free_entries(PsxSkyDraw *d, int chosen[STAR_GREYS])
 
 /* the first row of column x that the land takes (the sky's, from the first row down), or `horizon` when the column has none: the row from which the mean of the
  * next STAR_EDGE_ROWS rows is under STAR_EDGE_PERCENT of the mean of the STAR_EDGE_ROWS before it (means, so a dithered or noisy gradient is not an edge) */
-static int silhouette_top(const PsxSkyDraw *d, int x, int horizon)
+static int silhouette_top(const SkyArtDraw *d, int x, int horizon)
 {
     const int width = d->bitmap.width;
     for (int y = STAR_EDGE_ROWS; y + STAR_EDGE_ROWS <= horizon; y++) {
@@ -158,7 +158,7 @@ static int silhouette_top(const PsxSkyDraw *d, int x, int horizon)
     return horizon;
 }
 
-int psx_sky_draw_stars(PsxSkyDraw *d, uint32_t seed)
+int sky_art_draw_stars(SkyArtDraw *d, uint32_t seed)
 {
     if (!d->ready || d->bitmap.pixels == NULL) return 0;
     const int width = d->bitmap.width, horizon = d->bitmap.horizon_row;
@@ -193,7 +193,7 @@ int psx_sky_draw_stars(PsxSkyDraw *d, uint32_t seed)
     return stars;
 }
 
-void psx_sky_draw_free(PsxSkyDraw *d)
+void sky_art_draw_free(SkyArtDraw *d)
 {
     psx_sky_bitmap_free(&d->bitmap);
     free(d->mapped);

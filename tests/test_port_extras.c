@@ -243,7 +243,7 @@ static void test_fullest_file_saves(void)
     int *const flags[] = { &e.mirror, &e.rally, &e.warrior, &e.vegas, &e.explode, &e.nitro, &e.turbo, &e.replay_cameras, &e.warrior_rival,
                            &e.no_movies, &e.no_assists, &e.bumper_mirror, &e.bumper_radar,
                            &e.variant_time, &e.stats_overlay, &e.car_markers, &e.lunar_springs, &e.movies_wide, &e.follow_camera,
-                           &e.psx_liveries, &e.reverse, &e.lunar_gravity };
+                           &e.extra_liveries, &e.reverse, &e.lunar_gravity };
     for (size_t i = 0; i < sizeof flags / sizeof flags[0]; i++) *flags[i] = 1;
     for (int c = 0; c < CAR_PAINT_SLOTS; c++) e.car_paint[c] = 15;
     char out[1024];

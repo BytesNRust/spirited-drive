@@ -1,4 +1,4 @@
-#include "game/race/psx_light_make.h"
+#include "game/race/terrain_light.h"
 
 #include "game/race/track_geometry.h"
 
@@ -8,10 +8,10 @@
 #include <string.h>
 #include <strings.h>
 
-uint8_t psx_light_level(float v)
+uint8_t terrain_light_level(float v)
 {
     if (!(v > 0.0f)) return 0;
-    if (v >= 1.0f) return PSX_LIGHT_FULL;
+    if (v >= 1.0f) return TRACK_NODE_LIGHT_FULL;
     return (uint8_t)(lroundf(v * 255.0f));
 }
 
@@ -44,9 +44,9 @@ typedef struct {
 
 /* What a point sees round it: for each of SKY_SECTORS azimuths the highest elevation of the terrain points near it, and over that horizon the cosine-weighted
  * share of the dome left, 1 / (1 + tan^2) (a flat horizon sees all of it, a wall straight up none), averaged over the sectors; and the horizon toward the sun. */
-static Horizon horizon_of(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, const PsxLightSun *sun)
+static Horizon horizon_of(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, const TerrainLightSun *sun)
 {
-    const LightPos *at = &pts[node * PSX_LIGHT_POINTS + (uint32_t)point];
+    const LightPos *at = &pts[node * TRACK_NODE_LIGHT_POINTS + (uint32_t)point];
     float tan_max[SKY_SECTORS] = { 0 };
     Horizon h = { 0, 0 };
     const float sun_x = cosf(sun->azimuth), sun_z = sinf(sun->azimuth);
@@ -54,8 +54,8 @@ static Horizon horizon_of(const LightPos *pts, uint32_t count, int ring, uint32_
         int64_t other = (int64_t)node + d;
         if (ring) other = ((other % count) + count) % count;
         else if (other < 0 || other >= count) continue;
-        const LightPos *row = &pts[(uint32_t)other * PSX_LIGHT_POINTS];
-        for (int q = 0; q < PSX_LIGHT_POINTS; q++) {
+        const LightPos *row = &pts[(uint32_t)other * TRACK_NODE_LIGHT_POINTS];
+        for (int q = 0; q < TRACK_NODE_LIGHT_POINTS; q++) {
             const float dx = row[q].x - at->x, dz = row[q].z - at->z, dy = row[q].y - at->y;
             if (!(dy > 0.0f)) continue;   /* only terrain that rises raises the horizon (its tangent starts at 0) */
             const float run2 = dx * dx + dz * dz;
@@ -79,8 +79,8 @@ static LightPos sub(LightPos a, LightPos b) { return (LightPos){ a.x - b.x, a.y 
 static LightPos normal_of(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point)
 {
     const uint32_t before = node > 0 ? node - 1 : (ring ? count - 1 : 0), after = node + 1 < count ? node + 1 : (ring ? 0 : count - 1);
-    const LightPos *row = &pts[node * PSX_LIGHT_POINTS];
-    const LightPos along = sub(pts[after * PSX_LIGHT_POINTS + (uint32_t)point], pts[before * PSX_LIGHT_POINTS + (uint32_t)point]);
+    const LightPos *row = &pts[node * TRACK_NODE_LIGHT_POINTS];
+    const LightPos along = sub(pts[after * TRACK_NODE_LIGHT_POINTS + (uint32_t)point], pts[before * TRACK_NODE_LIGHT_POINTS + (uint32_t)point]);
     LightPos across;
     if (point == 0) across = sub(row[1], row[6]);
     else {
@@ -96,54 +96,54 @@ static LightPos normal_of(const LightPos *pts, uint32_t count, int ring, uint32_
     return (LightPos){ n.x / len, n.y / len, n.z / len };
 }
 
-float psx_light_lambert(int time, float nx, float ny)
+float terrain_light_lambert(int time, float nx, float ny)
 {
-    return time < PSX_SYNTH_DAWN || time > PSX_SYNTH_DUSK ? 0.0f : LAMBERT[time][0] + LAMBERT[time][1] * ny + LAMBERT[time][2] * nx;
+    return time < LIGHT_SYNTH_DAWN || time > LIGHT_SYNTH_DUSK ? 0.0f : LAMBERT[time][0] + LAMBERT[time][1] * ny + LAMBERT[time][2] * nx;
 }
 
-void psx_light_features(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, PsxLightFeatures *out)
+void terrain_light_features(const LightPos *pts, uint32_t count, int ring, uint32_t node, int point, TerrainLightFeatures *out)
 {
-    PsxLightSun sun;
-    psx_light_sun_default(PSX_SYNTH_DAY, &sun);
+    TerrainLightSun sun;
+    terrain_light_sun_default(LIGHT_SYNTH_DAY, &sun);
     const Horizon h = horizon_of(pts, count, ring, node, point, &sun);
     const LightPos n = normal_of(pts, count, ring, node, point);
-    const LightPos *at = &pts[node * PSX_LIGHT_POINTS + (uint32_t)point], *centre = &pts[node * PSX_LIGHT_POINTS];
+    const LightPos *at = &pts[node * TRACK_NODE_LIGHT_POINTS + (uint32_t)point], *centre = &pts[node * TRACK_NODE_LIGHT_POINTS];
     const float dx = at->x - centre->x, dz = at->z - centre->z;
-    *out = (PsxLightFeatures){ h.sky, h.sun_tan, n.x, n.y, n.z, at->y - centre->y, sqrtf(dx * dx + dz * dz) };
+    *out = (TerrainLightFeatures){ h.sky, h.sun_tan, n.x, n.y, n.z, at->y - centre->y, sqrtf(dx * dx + dz * dz) };
 }
 
-void psx_light_sun_default(int time, PsxLightSun *out)
+void terrain_light_sun_default(int time, TerrainLightSun *out)
 {
     if (out == NULL) return;
     out->azimuth = 0.0f;
-    out->elevation = time == PSX_SYNTH_DAY ? 0.87f : time == PSX_SYNTH_DAWN ? 0.26f : 0.21f;   /* about 50, 15 and 12 degrees */
+    out->elevation = time == LIGHT_SYNTH_DAY ? 0.87f : time == LIGHT_SYNTH_DAWN ? 0.26f : 0.21f;   /* about 50, 15 and 12 degrees */
 }
 
-void psx_light_smooth(float *light, uint32_t count, int ring)
+void terrain_light_smooth(float *light, uint32_t count, int ring)
 {
     if (light == NULL || count < 2) return;
-    float *copy = malloc((size_t)count * PSX_LIGHT_POINTS * sizeof *copy);
+    float *copy = malloc((size_t)count * TRACK_NODE_LIGHT_POINTS * sizeof *copy);
     if (copy == NULL) return;
-    memcpy(copy, light, (size_t)count * PSX_LIGHT_POINTS * sizeof *copy);
+    memcpy(copy, light, (size_t)count * TRACK_NODE_LIGHT_POINTS * sizeof *copy);
     for (uint32_t n = 0; n < count; n++) {   /* along the road */
         const uint32_t before = n > 0 ? n - 1 : (ring ? count - 1 : n), after = n + 1 < count ? n + 1 : (ring ? 0 : n);
-        for (int p = 0; p < PSX_LIGHT_POINTS; p++)
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++)
             if (!is_road_point(p))
-                light[n * PSX_LIGHT_POINTS + (uint32_t)p] = 0.25f * copy[before * PSX_LIGHT_POINTS + (uint32_t)p] + 0.5f * copy[n * PSX_LIGHT_POINTS + (uint32_t)p] +
-                                                            0.25f * copy[after * PSX_LIGHT_POINTS + (uint32_t)p];
+                light[n * TRACK_NODE_LIGHT_POINTS + (uint32_t)p] = 0.25f * copy[before * TRACK_NODE_LIGHT_POINTS + (uint32_t)p] + 0.5f * copy[n * TRACK_NODE_LIGHT_POINTS + (uint32_t)p] +
+                                                            0.25f * copy[after * TRACK_NODE_LIGHT_POINTS + (uint32_t)p];
     }
-    memcpy(copy, light, (size_t)count * PSX_LIGHT_POINTS * sizeof *copy);
+    memcpy(copy, light, (size_t)count * TRACK_NODE_LIGHT_POINTS * sizeof *copy);
     for (uint32_t n = 0; n < count; n++)     /* along each chain: points 2..5 and 7..10 */
         for (int first = 2; first <= 7; first += 5)
             for (int p = first; p < first + 4; p++) {
-                const float *row = &copy[n * PSX_LIGHT_POINTS];
+                const float *row = &copy[n * TRACK_NODE_LIGHT_POINTS];
                 const float inner = p > first ? row[p - 1] : row[p], outer = p < first + 3 ? row[p + 1] : row[p];
-                light[n * PSX_LIGHT_POINTS + (uint32_t)p] = 0.25f * inner + 0.5f * row[p] + 0.25f * outer;
+                light[n * TRACK_NODE_LIGHT_POINTS + (uint32_t)p] = 0.25f * inner + 0.5f * row[p] + 0.25f * outer;
             }
     free(copy);
 }
 
-void psx_light_add_lamp(uint8_t *data, uint32_t count, int ring, uint32_t lamp_node, int radius, int percent)
+void terrain_light_add_lamp(uint8_t *data, uint32_t count, int ring, uint32_t lamp_node, int radius, int percent)
 {
     if (data == NULL || count < 2 || radius < 1 || percent < 1 || (!ring && lamp_node >= count)) return;
     const int64_t lamp = (int64_t)(lamp_node % count);
@@ -152,59 +152,59 @@ void psx_light_add_lamp(uint8_t *data, uint32_t count, int ring, uint32_t lamp_n
         if (ring) node = ((node % count) + count) % count;
         else if (node < 0 || node >= count) continue;
         const float r = (float)d / (float)(radius + 1), add = LAMP_POOL * ((float)percent / 100.0f) * (1.0f - r * r);
-        for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
             if (is_road_point(p)) continue;
-            uint8_t *at = &data[(uint32_t)node * PSX_LIGHT_POINTS + (uint32_t)p];
-            *at = psx_light_level((float)*at / (float)PSX_LIGHT_FULL + add);
+            uint8_t *at = &data[(uint32_t)node * TRACK_NODE_LIGHT_POINTS + (uint32_t)p];
+            *at = terrain_light_level((float)*at / (float)TRACK_NODE_LIGHT_FULL + add);
         }
     }
 }
 
-void psx_light_add_lamps(uint8_t *data, uint32_t count, int ring, const uint32_t *lamp_nodes, int n)
+void terrain_light_add_lamps(uint8_t *data, uint32_t count, int ring, const uint32_t *lamp_nodes, int n)
 {
     if (data == NULL || lamp_nodes == NULL || count < 2) return;
-    for (int i = 0; i < n; i++) psx_light_add_lamp(data, count, ring, lamp_nodes[i], PSX_LIGHT_LAMP_REACH, 100);
+    for (int i = 0; i < n; i++) terrain_light_add_lamp(data, count, ring, lamp_nodes[i], TERRAIN_LIGHT_LAMP_REACH, 100);
 }
 
-int psx_light_lamp_class_at(int distance, int radius, int percent)
+int terrain_light_lamp_class_at(int distance, int radius, int percent)
 {
     if (radius < 1 || percent < 1) return 0;
     const float r = (float)distance / (float)(radius + 1), w = ((float)percent / 100.0f) * (1.0f - r * r);
     return w >= 0.9f ? 4 : w >= 0.7f ? 3 : w >= 0.45f ? 2 : w >= 0.2f ? 1 : 0;
 }
 
-void psx_light_lamp_classes(uint8_t *out, uint32_t count, int ring, const uint32_t *lamp_nodes, int n)
+void terrain_light_lamp_classes(uint8_t *out, uint32_t count, int ring, const uint32_t *lamp_nodes, int n)
 {
     if (out == NULL || count < 2) return;
     memset(out, 0, count);
     for (int i = 0; lamp_nodes != NULL && i < n; i++) {
         if (!ring && lamp_nodes[i] >= count) continue;
         const int64_t lamp = (int64_t)(lamp_nodes[i] % count);
-        for (int d = -PSX_LIGHT_LAMP_REACH; d <= PSX_LIGHT_LAMP_REACH; d++) {
+        for (int d = -TERRAIN_LIGHT_LAMP_REACH; d <= TERRAIN_LIGHT_LAMP_REACH; d++) {
             int64_t node = lamp + d;
             if (ring) node = ((node % count) + count) % count;
             else if (node < 0 || node >= count) continue;
-            const uint8_t c = (uint8_t)psx_light_lamp_class_at(d, PSX_LIGHT_LAMP_REACH, 100);
+            const uint8_t c = (uint8_t)terrain_light_lamp_class_at(d, TERRAIN_LIGHT_LAMP_REACH, 100);
             if (c > out[node]) out[node] = c;
         }
     }
 }
 
-int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int time, const PsxLightSun *sun, uint8_t *data)
+int terrain_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int time, const TerrainLightSun *sun, uint8_t *data)
 {
-    if (pts == NULL || data == NULL || count < 2 || time < PSX_SYNTH_DAWN || time > PSX_SYNTH_NIGHT) return 0;
-    PsxLightSun own;
-    if (sun == NULL) psx_light_sun_default(time, &own), sun = &own;
-    float *light = malloc((size_t)count * PSX_LIGHT_POINTS * sizeof *light);
+    if (pts == NULL || data == NULL || count < 2 || time < LIGHT_SYNTH_DAWN || time > LIGHT_SYNTH_NIGHT) return 0;
+    TerrainLightSun own;
+    if (sun == NULL) terrain_light_sun_default(time, &own), sun = &own;
+    float *light = malloc((size_t)count * TRACK_NODE_LIGHT_POINTS * sizeof *light);
     if (light == NULL) return 0;
     for (uint32_t n = 0; n < count; n++)
-        for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
-            float *out = &light[n * PSX_LIGHT_POINTS + (uint32_t)p];
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
+            float *out = &light[n * TRACK_NODE_LIGHT_POINTS + (uint32_t)p];
             if (is_road_point(p)) {
                 *out = 1.0f;
                 continue;
             }
-            if (time == PSX_SYNTH_NIGHT) {
+            if (time == LIGHT_SYNTH_NIGHT) {
                 *out = NIGHT_AMBIENT * horizon_of(pts, count, ring, n, p, sun).sky;   /* the moon is no sun: the sky's share only, a dark night */
                 continue;
             }
@@ -215,18 +215,18 @@ int psx_light_make_rows_sun(const LightPos *pts, uint32_t count, int ring, int t
             const LightPos nm = normal_of(pts, count, ring, n, p);
             *out = LAMBERT[time][0] + LAMBERT[time][1] * nm.y + LAMBERT[time][2] * nm.x;
         }
-    if (time == PSX_SYNTH_NIGHT) psx_light_smooth(light, count, ring);   /* the day's light follows each node's own normal, as the CD's does: smoothing it blurs what matches */
-    for (size_t i = 0; i < (size_t)count * PSX_LIGHT_POINTS; i++) data[i] = psx_light_level(light[i]);
+    if (time == LIGHT_SYNTH_NIGHT) terrain_light_smooth(light, count, ring);   /* the day's light follows each node's own normal, as the CD's does: smoothing it blurs what matches */
+    for (size_t i = 0; i < (size_t)count * TRACK_NODE_LIGHT_POINTS; i++) data[i] = terrain_light_level(light[i]);
     free(light);
     return 1;
 }
 
-int psx_light_make_rows(const LightPos *pts, uint32_t count, int ring, int time, uint8_t *data)
+int terrain_light_make_rows(const LightPos *pts, uint32_t count, int ring, int time, uint8_t *data)
 {
-    return psx_light_make_rows_sun(pts, count, ring, time, NULL, data);
+    return terrain_light_make_rows_sun(pts, count, ring, time, NULL, data);
 }
 
-int psx_light_rules_parse(const char *text, size_t size, PsxLightRule *out, int max)
+int terrain_light_rules_parse(const char *text, size_t size, TerrainLightRule *out, int max)
 {
     if (text == NULL || out == NULL || max <= 0) return 0;
     int n = 0;
@@ -255,23 +255,23 @@ int psx_light_rules_parse(const char *text, size_t size, PsxLightRule *out, int 
         }
         while (*p != '\0' && isspace((unsigned char)*p)) p++;
         if (got != 5 || *p != '\0') continue;
-        if (v[0] < 0 || v[1] < v[0] || v[2] < 0 || v[3] < v[2] || v[3] >= PSX_LIGHT_POINTS || v[4] < 0 || v[4] > PSX_LIGHT_FULL) continue;
-        out[n++] = (PsxLightRule){ (int)v[0], (int)v[1], (int)v[2], (int)v[3], (int)v[4] };
+        if (v[0] < 0 || v[1] < v[0] || v[2] < 0 || v[3] < v[2] || v[3] >= TRACK_NODE_LIGHT_POINTS || v[4] < 0 || v[4] > TRACK_NODE_LIGHT_FULL) continue;
+        out[n++] = (TerrainLightRule){ (int)v[0], (int)v[1], (int)v[2], (int)v[3], (int)v[4] };
     }
     return n;
 }
 
-void psx_light_apply_rules(uint8_t *data, uint32_t count, const PsxLightRule *rules, int n)
+void terrain_light_apply_rules(uint8_t *data, uint32_t count, const TerrainLightRule *rules, int n)
 {
     if (data == NULL || rules == NULL) return;
     for (int i = 0; i < n; i++) {
-        const uint8_t level = psx_light_level((float)rules[i].value / (float)PSX_LIGHT_FULL);
+        const uint8_t level = terrain_light_level((float)rules[i].value / (float)TRACK_NODE_LIGHT_FULL);
         for (int node = rules[i].node_from; node <= rules[i].node_to && (uint32_t)node < count; node++)
-            for (int p = rules[i].point_from; p <= rules[i].point_to; p++) data[(uint32_t)node * PSX_LIGHT_POINTS + (uint32_t)p] = level;
+            for (int p = rules[i].point_from; p <= rules[i].point_to; p++) data[(uint32_t)node * TRACK_NODE_LIGHT_POINTS + (uint32_t)p] = level;
     }
 }
 
-int psx_light_tri_points(const Tri *tri, LightPos *out)
+int terrain_light_tri_points(const Tri *tri, LightPos *out)
 {
     if (tri == NULL || out == NULL || tri->node_count < 2) return 0;
     const uint32_t segments = tri->node_count / TRI_NODES_PER_SEGMENT;
@@ -279,23 +279,23 @@ int psx_light_tri_points(const Tri *tri, LightPos *out)
         TrackSegment seg;
         if (track_decode_segment(tri, s, &seg) != TRI_OK) return 0;
         for (int r = 0; r < TRACK_SEGMENT_ROWS; r++)
-            for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
+            for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
                 const TrackPoint *t = &seg.rows[r][p];
-                out[(s * TRACK_SEGMENT_ROWS + (uint32_t)r) * PSX_LIGHT_POINTS + (uint32_t)p] = (LightPos){ (float)t->x / 65536.0f, (float)t->y / 65536.0f, (float)t->z / 65536.0f };
+                out[(s * TRACK_SEGMENT_ROWS + (uint32_t)r) * TRACK_NODE_LIGHT_POINTS + (uint32_t)p] = (LightPos){ (float)t->x / 65536.0f, (float)t->y / 65536.0f, (float)t->z / 65536.0f };
             }
     }
     return 1;
 }
 
-int psx_light_make_lit(const Tri *tri, int time, const uint32_t *lamp_nodes, int lamps, PsxLight *out)
+int terrain_light_make_lit(const Tri *tri, int time, const uint32_t *lamp_nodes, int lamps, TrackNodeLight *out)
 {
     if (tri == NULL || out == NULL || tri->node_count < 2) return 0;
     const uint32_t count = tri->node_count;
-    LightPos *pts = malloc((size_t)count * PSX_LIGHT_POINTS * sizeof *pts);
-    uint8_t *data = malloc((size_t)count * PSX_LIGHT_POINTS);
-    int ok = pts != NULL && data != NULL && psx_light_tri_points(tri, pts);
-    ok = ok && psx_light_make_rows(pts, count, tri_is_circuit(tri), time, data);
-    if (ok && time == PSX_SYNTH_NIGHT) psx_light_add_lamps(data, count, tri_is_circuit(tri), lamp_nodes, lamps);
+    LightPos *pts = malloc((size_t)count * TRACK_NODE_LIGHT_POINTS * sizeof *pts);
+    uint8_t *data = malloc((size_t)count * TRACK_NODE_LIGHT_POINTS);
+    int ok = pts != NULL && data != NULL && terrain_light_tri_points(tri, pts);
+    ok = ok && terrain_light_make_rows(pts, count, tri_is_circuit(tri), time, data);
+    if (ok && time == LIGHT_SYNTH_NIGHT) terrain_light_add_lamps(data, count, tri_is_circuit(tri), lamp_nodes, lamps);
     if (ok) {
         memset(out, 0, sizeof *out);
         out->data = data;
@@ -308,31 +308,31 @@ int psx_light_make_lit(const Tri *tri, int time, const uint32_t *lamp_nodes, int
 
 static const float FOREST_TONE[2] = { 0.40f, 0.62f };   /* the darker band, the dark one */
 
-void psx_light_forest(uint8_t *data, uint32_t count, uint32_t from, uint32_t to, int period)
+void terrain_light_forest(uint8_t *data, uint32_t count, uint32_t from, uint32_t to, int period)
 {
     if (data == NULL || period <= 0 || from > to || to >= count) return;
     for (uint32_t n = from; n <= to; n++) {
         const float tone = FOREST_TONE[((n - from) / (uint32_t)period) % 2];
         const uint32_t in = n - from, out = to - n, edge = in < out ? in : out;
-        const float ease = edge >= PSX_LIGHT_FOREST_RAMP ? 1.0f : (float)(edge + 1) / (float)(PSX_LIGHT_FOREST_RAMP + 1);   /* 0 = untouched, 1 = the band's own tone */
+        const float ease = edge >= TERRAIN_LIGHT_FOREST_RAMP ? 1.0f : (float)(edge + 1) / (float)(TERRAIN_LIGHT_FOREST_RAMP + 1);   /* 0 = untouched, 1 = the band's own tone */
         const float scale = 1.0f - ease * (1.0f - tone);
-        for (int p = 0; p < PSX_LIGHT_POINTS; p++) {
-            uint8_t *at = &data[n * PSX_LIGHT_POINTS + (uint32_t)p];
-            *at = psx_light_level(scale * (float)*at / (float)PSX_LIGHT_FULL);
+        for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
+            uint8_t *at = &data[n * TRACK_NODE_LIGHT_POINTS + (uint32_t)p];
+            *at = terrain_light_level(scale * (float)*at / (float)TRACK_NODE_LIGHT_FULL);
         }
     }
 }
 
-int psx_light_forest_road_range(const char *track, uint32_t *from, uint32_t *to)
+int terrain_light_forest_road_range(const char *track, uint32_t *from, uint32_t *to)
 {
     uint32_t a = 0, b = 0;
-    if (!psx_light_forest_range(track, &a, &b)) return 0;
+    if (!terrain_light_forest_range(track, &a, &b)) return 0;
     if (from != NULL) *from = a;
     if (to != NULL) *to = 943;   /* the rows mark the shade as a tunnel to 943 (860..943), past the forest_dark band's 934 */
     return 1;
 }
 
-int psx_light_forest_range(const char *track, uint32_t *from, uint32_t *to)
+int terrain_light_forest_range(const char *track, uint32_t *from, uint32_t *to)
 {
     if (track == NULL || strcasecmp(track, "TR3") != 0) return 0;
     if (from != NULL) *from = 852;
@@ -340,35 +340,35 @@ int psx_light_forest_range(const char *track, uint32_t *from, uint32_t *to)
     return 1;
 }
 
-int psx_light_forest_apply(PsxLight *light, const char *track)
+int terrain_light_forest_apply(TrackNodeLight *light, const char *track)
 {
     uint32_t from, to;
-    if (light == NULL || light->data == NULL || !psx_light_forest_range(track, &from, &to) || to >= light->nodes) return 0;
-    psx_light_forest(light->data, light->nodes, from, to, PSX_LIGHT_FOREST_BAND);
+    if (light == NULL || light->data == NULL || !terrain_light_forest_range(track, &from, &to) || to >= light->nodes) return 0;
+    terrain_light_forest(light->data, light->nodes, from, to, TERRAIN_LIGHT_FOREST_BAND);
     return 1;
 }
 
-int psx_light_make(const Tri *tri, int time, PsxLight *out)
+int terrain_light(const Tri *tri, int time, TrackNodeLight *out)
 {
-    return psx_light_make_lit(tri, time, NULL, 0, out);
+    return terrain_light_make_lit(tri, time, NULL, 0, out);
 }
 
-int psx_light_add_pools(PsxLight *light, int ring, const uint32_t *lamp_nodes, int n, int lift, int tint, int car)
+int terrain_light_add_pools(TrackNodeLight *light, int ring, const uint32_t *lamp_nodes, int n, int lift, int tint, int car)
 {
     if (light == NULL || light->data == NULL || light->pooled || lamp_nodes == NULL || n <= 0 || light->nodes < 2) return 0;
     uint32_t *file_nodes = malloc((size_t)n * sizeof *file_nodes);   /* the rows are the file's: where each lamp stands in them */
     if (file_nodes == NULL) return 0;
-    for (int i = 0; i < n; i++) file_nodes[i] = psx_light_old_node(light, lamp_nodes[i]);
-    if (lift) psx_light_add_lamps(light->data, light->nodes, ring, file_nodes, n);
+    for (int i = 0; i < n; i++) file_nodes[i] = track_node_light_old_node(light, lamp_nodes[i]);
+    if (lift) terrain_light_add_lamps(light->data, light->nodes, ring, file_nodes, n);
     free(file_nodes);
     light->pooled = 1;
     if (tint && light->pool_class == NULL) {
         light->pool_class = malloc(light->nodes);
-        if (light->pool_class != NULL) psx_light_lamp_classes(light->pool_class, light->nodes, ring, lamp_nodes, n);
+        if (light->pool_class != NULL) terrain_light_lamp_classes(light->pool_class, light->nodes, ring, lamp_nodes, n);
     }
     if (car && light->car_pool == NULL) {
         light->car_pool = malloc(light->nodes);
-        if (light->car_pool != NULL) psx_light_lamp_classes(light->car_pool, light->nodes, ring, lamp_nodes, n);
+        if (light->car_pool != NULL) terrain_light_lamp_classes(light->car_pool, light->nodes, ring, lamp_nodes, n);
     }
     return 1;
 }

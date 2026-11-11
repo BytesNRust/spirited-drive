@@ -81,15 +81,15 @@ int track_select_weather_step(int weather, int direction)
     return (weather + direction + WEATHER_COUNT) % WEATHER_COUNT;
 }
 
-/* PSX_TIME_DAY 0, DAWN 1, DUSK 2, NIGHT 3 (port_settings.h): the toggle's order is day, dawn, dusk, night */
-int track_select_psx_time_step(int psx_time, int direction)
+/* LIGHT_TIME_DAY 0, DAWN 1, DUSK 2, NIGHT 3 (port_settings.h): the toggle's order is day, dawn, dusk, night */
+int track_select_light_time_step(int light_time, int direction)
 {
-    return (psx_time + direction + 4) % 4;
+    return (light_time + direction + 4) % 4;
 }
 
-int track_select_psx_time_art(int psx_time)
+int track_select_light_time_art(int light_time)
 {
-    return psx_time == 1 ? 0 : psx_time == 2 || psx_time == 3 ? 2 : 1;
+    return light_time == 1 ? 0 : light_time == 2 || light_time == 3 ? 2 : 1;
 }
 
 int track_select_arrow_plus(int key, int item, int original, int weather_on)
@@ -161,16 +161,16 @@ static int variant_of(const TrackSelectState *st)
 
 static int no_time_of_day(const TrackSelectInputs *in, const TrackSelectState *st, int track)
 {
-    if (st->plus && st->plus->psx_time) return track == LOST_VEGAS;   /* port: the PS1 time follows a variant too */
+    if (st->plus && st->plus->light_time) return track == LOST_VEGAS;   /* port: the console version time follows a variant too */
     if (st->plus)
         return !track_fam_time_offered(track, *st->plus->variant_m, *st->plus->variant_r, st->plus->variant_time);
     return track == LOST_VEGAS || in->variant_m || in->variant_r;
 }
 
-/* the time-of-day art lit: the PS1 time's (the art itself stays midday), else the exe's per-track value */
+/* the time-of-day art lit: the console version time's (the art itself stays midday), else the exe's per-track value */
 static int time_art(const TrackSelectState *st, int track)
 {
-    return st->plus && st->plus->psx_time ? track_select_psx_time_art(*st->plus->psx_time) : st->time_of_day[track];
+    return st->plus && st->plus->light_time ? track_select_light_time_art(*st->plus->light_time) : st->time_of_day[track];
 }
 
 static void masked(int32_t bank, const char *tag, const TrackSelectOps *ops);
@@ -213,7 +213,7 @@ static void night_label(const uint8_t *shape, int lit, const TrackSelectState *s
 static void time_masked(int32_t bank, const char *const tags[3], const TrackSelectState *st, int track, const TrackSelectOps *ops)
 {
     const char *tag = tags[time_art(st, track)];
-    if (!st->plus || !st->plus->psx_time || *st->plus->psx_time != PSX_TIME_NIGHT) {
+    if (!st->plus || !st->plus->light_time || *st->plus->light_time != LIGHT_TIME_NIGHT) {
         masked(bank, tag, ops);
         return;
     }
@@ -460,8 +460,8 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
     } else if (item == TRACK_SELECT_REVERSE && reverse_on(st)) {
         *st->plus->reverse = !*st->plus->reverse;
         *changed = 1;
-    } else if (item == TIME_OF_DAY && track != LOST_VEGAS && st->plus && st->plus->psx_time) {
-        *st->plus->psx_time = track_select_psx_time_step(*st->plus->psx_time, 1);
+    } else if (item == TIME_OF_DAY && track != LOST_VEGAS && st->plus && st->plus->light_time) {
+        *st->plus->light_time = track_select_light_time_step(*st->plus->light_time, 1);
         *changed = 1;
     } else if (item == TIME_OF_DAY && track != LOST_VEGAS) {
         int32_t *t = &st->time_of_day[track];
@@ -497,8 +497,8 @@ int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, Dialo
     const int32_t saved_m = st->plus ? *st->plus->variant_m : 0, saved_r = st->plus ? *st->plus->variant_r : 0;
     const int saved_weather = weather_on(st) ? *st->plus->weather : 0;
     const int saved_reverse = st->plus && st->plus->reverse ? *st->plus->reverse : 0;
-    const int saved_psx_time = st->plus && st->plus->psx_time ? *st->plus->psx_time : 0;
-    if (st->plus && st->plus->psx_time)   /* port: the art is midday whatever the exe's toggle was left at */
+    const int saved_light_time = st->plus && st->plus->light_time ? *st->plus->light_time : 0;
+    if (st->plus && st->plus->light_time)   /* port: the art is midday whatever the exe's toggle was left at */
         for (int t = 0; t < TRACKS; t++) st->time_of_day[t] = 1;
     int quit = 0, refresh = 1, redraw = 1, changed = 0, was = 0, item = DONE, keys_armed = 1, buttons_armed = 1;
     int segment = 1;
@@ -568,7 +568,7 @@ int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, Dialo
                 if (st->plus) *st->plus->variant_m = saved_m, *st->plus->variant_r = saved_r;   /* port */
                 if (weather_on(st)) *st->plus->weather = saved_weather;
                 if (st->plus && st->plus->reverse) *st->plus->reverse = saved_reverse;
-                if (st->plus && st->plus->psx_time) *st->plus->psx_time = saved_psx_time;
+                if (st->plus && st->plus->light_time) *st->plus->light_time = saved_light_time;
                 ops->sound(ops->ctx, SOUND_SELECT);
                 quit = 1;
             } else if (key == KEY_LEFT || key == KEY_RIGHT || key == KEY_UP || key == KEY_DOWN) {

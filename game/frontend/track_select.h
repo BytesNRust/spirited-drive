@@ -90,10 +90,10 @@ typedef struct TrackSelectPlus {
     /* port_track_weather (0 is the exe's screen): the weather row, item 10, under the time of day on every track. */
     int port_track_weather;
     int *weather;                     /* the row's value, a WEATHER_* (weather.h): port.cfg's weather; with port_track_weather */
-    /* With the PS1 look: non-NULL makes the time-of-day item a three-state toggle (day, dawn, dusk) on port.cfg's
-     * psx_time (PSX_TIME_*) that leaves the track's art at midday, so the PS1 tint is not laid over the CD's own evening;
+    /* With the light effects: non-NULL makes the time-of-day item a three-state toggle (day, dawn, dusk) on port.cfg's
+     * light_time (LIGHT_TIME_*) that leaves the track's art at midday, so the console version tint is not laid over the CD's own evening;
      * NULL is the exe's morning/midday/evening toggle on the art. */
-    int *psx_time;
+    int *light_time;
     /* port: non-NULL shows the Reverse row (item 11) on the circuits, outside a tournament: the value is 0 / 1, the way round the
      * race is run (reverse_track.h). It sits right of the weather row, or alone where the weather is off. */
     int *reverse;
@@ -103,11 +103,11 @@ enum { TRACK_SELECT_KEY_UP = 0x4800, TRACK_SELECT_KEY_LEFT = 0x4b00, TRACK_SELEC
        TRACK_SELECT_KEY_DOWN = 0x5000, TRACK_SELECT_WEATHER = 10,
        TRACK_SELECT_REVERSE = 11 };
 
-/* port: the next weather (WEATHER_*: clear, fog, rain) and PS1 time (PSX_TIME_*: day, dawn, dusk) for `direction` 1 or -1,
- * round; the art index (0 morning, 1 midday, 2 evening) a PS1 time lights on the time-of-day item. */
+/* port: the next weather (WEATHER_*: clear, fog, rain) and console time (LIGHT_TIME_*: day, dawn, dusk) for `direction` 1 or -1,
+ * round; the art index (0 morning, 1 midday, 2 evening) a console time lights on the time-of-day item. */
 int track_select_weather_step(int weather, int direction);
-int track_select_psx_time_step(int psx_time, int direction);
-int track_select_psx_time_art(int psx_time);
+int track_select_light_time_step(int light_time, int direction);
+int track_select_light_time_art(int light_time);
 
 /* port: the item an arrow `key` leads to from `item` when the weather row is there; `original` is the exe's answer.
  * The row sits between the time of day and Done. */

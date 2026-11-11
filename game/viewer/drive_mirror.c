@@ -80,7 +80,7 @@ static uint8_t *horz_bank(const FshEntry *h)
     return bank;
 }
 
-/* port (the PS1 look's sky): the sky as the main view has it, in the race palette's colours (ported_view_sky_in_palette), else the track's own */
+/* port (the light effects' sky): the sky as the main view has it, in the race palette's colours (ported_view_sky_in_palette), else the track's own */
 static const FshEntry *sky_horizon(const DriveMirrorWorld *w)
 {
     const FshEntry *own = ported_view_sky_in_palette();
@@ -196,7 +196,7 @@ static uint8_t node_property(void *ctx, int32_t node)
 static void step_none(void *ctx, int32_t segment) { (void)ctx, (void)segment; }
 static void build_none(void *ctx, int32_t node, int32_t segment, int32_t count) { (void)ctx, (void)node, (void)segment, (void)count; }
 
-/* port (the PS1 light): the mirror's points have the light of their segment's first node (a row of the record's 11 points per segment) */
+/* port (the baked light): the mirror's points have the light of their segment's first node (a row of the record's 11 points per segment) */
 static void mirror_point_op(void *ctx, int32_t segment, int point, int32_t index)
 {
     DriveMirror *m = ((Frame *)ctx)->m;
@@ -287,7 +287,7 @@ static void sky_op(void *ctx)
     Frame *f = ctx;
     const FshEntry *sky = sky_horizon(f->w);
     if (sky == NULL) return;
-    if (sky != &f->w->art->horizon) {   /* the PS1 look's sky: its texels follow the world's palette, so the bank is made again */
+    if (sky != &f->w->art->horizon) {   /* the light effects' sky: its texels follow the world's palette, so the bank is made again */
         free(f->m->horz);
         f->m->horz = NULL;
     }
@@ -328,7 +328,7 @@ static void draw_camera(void *user, const View *view, const FshEntry *texture, c
     modern_road_cell(user, view, texture, uv, cam, texture->type == TRACK_TEXTURE_TRANSPARENT_TYPE);
 }
 
-/* port (the PS1 light): the exe's mirror pass with the main pass's lit sinks, each quad's corners lit from the rows' points */
+/* port (the baked light): the exe's mirror pass with the main pass's lit sinks, each quad's corners lit from the rows' points */
 static int exe_lit;
 static void (*exe_uv)(void *, const FshEntry *, const int32_t[8], const int32_t[8]) = draw_uv;
 static void (*exe_camera)(void *, const View *, const FshEntry *, const int32_t[8], const int32_t *const[4]) = draw_camera;
@@ -429,7 +429,7 @@ static void follow_cars(void *user, int32_t node)
 static void follow_scene(Frame *f)
 {
     const RaceState *race = f->w->race;
-    const int lit = ported_view_mirror_light_begin();   /* port (the PS1 light): the main pass's lit sinks, 0 and the plain ones without a light */
+    const int lit = ported_view_mirror_light_begin();   /* port (the baked light): the main pass's lit sinks, 0 and the plain ones without a light */
     void (*uv)(void *, const FshEntry *, const int32_t[8], const int32_t[8]) = draw_uv;
     void (*full)(void *, const FshEntry *, const int32_t[8]) = follow_full, (*full_alt)(void *, const FshEntry *, const int32_t[8]) = follow_full_alt;
     void (*camera)(void *, const View *, const FshEntry *, const int32_t[8], const int32_t *const[4]) = draw_camera;

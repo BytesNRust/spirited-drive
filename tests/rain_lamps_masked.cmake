@@ -6,7 +6,7 @@ file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
 file(WRITE "${WORK}/user/port.cfg" "profile=restomod\n")
 function(frame out view weather lamps)
     execute_process(COMMAND ${CMAKE_COMMAND} -E env TNFS_PREF_DIR=${WORK}/pref SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy ASAN_OPTIONS=detect_leaks=0
-                            TNFS_PSX_TIME=day TNFS_WEATHER=${weather} TNFS_RAIN_LAMPS=${lamps} TNFS_VIEW=${view} TNFS_AUTOPILOT=1 TNFS_FRAMES=1 TNFS_BANDS=0
+                            TNFS_LIGHT_TIME=day TNFS_WEATHER=${weather} TNFS_RAIN_LAMPS=${lamps} TNFS_VIEW=${view} TNFS_AUTOPILOT=1 TNFS_FRAMES=1 TNFS_BANDS=0
                             ${TNFS} --data ${REPO}/original --user ${WORK}/user --drive TR1 --car 2 --node 100 --screenshot ${WORK}/shot.ppm
                     RESULT_VARIABLE rc OUTPUT_QUIET ERROR_QUIET)
     if(NOT rc EQUAL 0 OR NOT EXISTS "${WORK}/shot.ppm")

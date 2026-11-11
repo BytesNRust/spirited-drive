@@ -240,19 +240,19 @@ int car_paint_race_car(int32_t race_model)
     return race_model >= 200 && race_model < 400 ? race_model - 200 : race_model >= 100 && race_model < 200 ? race_model - 100 : -1;
 }
 
-int car_paint_replayed(int saved, int car, int ps1)
+int car_paint_replayed(int saved, int car, int second)
 {
     if (saved < 0 || saved == 0xff) return -1;
-    if (saved == 1) return ps1 ? 1 : 0;
+    if (saved == 1) return second ? 1 : 0;
     if (saved >= 2) return saved - 2 < car_paint_count(car) ? saved : 0;
     return 0;
 }
 
-int car_paint_pick(uint32_t seed, int slot, int car, int player_car, int player_paint, int catalogue, int ps1)
+int car_paint_pick(uint32_t seed, int slot, int car, int player_car, int player_paint, int catalogue, int second)
 {
     int ids[2 + CAR_PAINT_MAX], n = 0;
     ids[n++] = 0;
-    if (ps1) ids[n++] = 1;
+    if (second) ids[n++] = 1;
     for (int k = 0; k < catalogue && k < CAR_PAINT_MAX; k++) ids[n++] = 2 + k;
     int count = 0, allowed[2 + CAR_PAINT_MAX];
     for (int i = 0; i < n; i++)

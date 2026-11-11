@@ -3,7 +3,7 @@
 #define TNFS_VIEW_TABLES_H
 
 #include "formats/fsh.h"
-#include "game/race/psx_light.h"
+#include "game/race/track_node_light.h"
 #include "game/race/track_art.h"
 #include "viewer/ported_view.h"
 #include "viewer/modern_road.h"
@@ -11,7 +11,7 @@
 #include <stdint.h>
 
 enum { LAMP_CACHE = 128, LAMP_BUCKETS = 5, LAMP_NEAR = 24, LAMP_KEY_STEPS = 16, LAMP_STEPS = 12 };
-enum { POOL_CLASSES = 4 };   /* the lamp pool's classes 1..4 (psx_light_tunnel_class 2..5): the warmth at class c is c / POOL_CLASSES */
+enum { POOL_CLASSES = 4 };   /* the lamp pool's classes 1..4 (track_node_light_tunnel_class 2..5): the warmth at class c is c / POOL_CLASSES */
 enum { STREET_BOARDS = 3 };
 
 int lamp_polygon(float heat[4], const uint8_t (**top)[256]);
@@ -34,7 +34,7 @@ extern uint8_t tunnel_tables[MODERN_FOG_LEVELS][256];
 extern int lamp_cache_used, lamp_cache_next, tunnel_lamp_cache_used, tunnel_lamp_cache_next;
 void street_halo_sync(void);
 extern uint8_t street_tables[MODERN_FOG_LEVELS][256];
-extern uint8_t tone_made[PSX_LIGHT_TONES][2];
+extern uint8_t tone_made[TRACK_NODE_LIGHT_TONES][2];
 extern const FshEntry *window_bitmap[WINDOW_BOARDS_MAX];
 extern int window_scenery[WINDOW_BOARDS_MAX], window_count;
 extern uint8_t window_entry;

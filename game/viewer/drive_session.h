@@ -27,12 +27,12 @@ typedef struct {
     const char *data_root;
     int ended;
     int ticked;                 /* a tick since the last frame drawn */
-    int livery[RACE_CARS];      /* port: 1 when the slot wears the PS1 alternate livery, 0 the exe's */
+    int livery[RACE_CARS];      /* port: 1 when the slot wears the console version alternate livery, 0 the exe's */
     int model[RACE_CARS];       /* port: the slot's race model (car_model_names), for its catalogue paint */
     uint8_t paint[RACE_CARS][3]; /* port: the slot's catalogue paint (car_paint.h), valid where paint_on */
     int paint_on[RACE_CARS];
-    int fixed_black[RACE_CARS]; /* port: the car's masks' fixed black texels (car_mask.h) are repainted with its catalogue black; set with the car colours (the mode's file psx_liveries) */
-    uint8_t dash_rgb[3];        /* port: the player's PS1 livery's main colour, for the dash art's body (drive_livery_dash), valid where dash_rgb_on */
+    int fixed_black[RACE_CARS]; /* port: the car's masks' fixed black texels (car_mask.h) are repainted with its catalogue black; set with the car colours (the mode's file extra_liveries) */
+    uint8_t dash_rgb[3];        /* port: the player's console livery's main colour, for the dash art's body (drive_livery_dash), valid where dash_rgb_on */
     int dash_rgb_on;
     char psx_dir[PSX_DIR_MAX];  /* port: port.cfg's psx_dir for this race, "" none */
     /* port: what the rivals' colours are drawn from, kept for drive_load: a rival's car is known only when its file is (race_models.c decides it; the field's entries do not say) */
@@ -108,7 +108,7 @@ int drive_wide_wiper_scene(const RaceState *race, struct WiperBlade *out);
 void drive_wide_wipers_reveal(uint8_t *screen, const uint8_t *view);
 /* port (gauge_light): the track's palette (768 bytes), read for the brightness of the dials' pixels; call before drive_wide_compose */
 void drive_wide_set_palette(const uint8_t *palette);
-/* port (gauge_light = 5): the colours the dash on screen paints for its lit parts (dash_color.h), as the class PSX_CLASS_LIT_COLOUR + k means them: up to `max` of them into `rgb`, how many. 0 when
+/* port (gauge_light = 5): the colours the dash on screen paints for its lit parts (dash_color.h), as the class LIGHT_CLASS_LIT_COLOUR + k means them: up to `max` of them into `rgb`, how many. 0 when
  * the key is not 5, the gauges are not lit, or the dash paints none. */
 int drive_wide_lit_colours(uint8_t (*rgb)[3], int max);
 void drive_wide_centre(const uint8_t *frame);

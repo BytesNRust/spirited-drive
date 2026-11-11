@@ -76,7 +76,7 @@ They are 0 or automatic in a 4:3 frame (`port_two_sided_scenery(automatic)` foll
 3.3 Port additions behind their own settings: `port_banner` (CHEATS ENABLED banner and its redraw, `central_banner.c`; 0 is the exe), `port_combine_variants` (EXTRAS Mirror and Rally together; the exe's switch never clears the other variant, so both can end set), `port_look_back`, `port_follow_camera`, `port_f3_ultra`, lunar gravity, rally gravel, difficulty, free records.
 Not bugs. `port_banner` is the one with a Stock-vs-port argument: it is on-screen feedback the exe lacks. Proposal: Stock 0, Restored 0 (looks like the exe), Restomod 1. No assignment of `port_banner` was found in `game/` outside the ops initializer; to verify what the real menus pass.
 
-3.4 Lighting and paint fixes on the port's own looks (night recolour inside the lamp's rectangle, black-body tones, lamp slots cleared at race end `3ce6f500`, mirror pass PS1 light per node): bugs of port features, so they ride on those features' switches (`psx_light`, `car_colours`, `emissive_lamps`). Nothing to add.
+3.4 Lighting and paint fixes on the port's own looks (night recolour inside the lamp's rectangle, black-body tones, lamp slots cleared at race end `3ce6f500`, mirror pass baked light per node): bugs of port features, so they ride on those features' switches (`light_effects`, `car_colours`, `emissive_lamps`). Nothing to add.
 
 ## 4. Gaps found while reading
 

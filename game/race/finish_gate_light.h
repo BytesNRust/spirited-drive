@@ -1,6 +1,6 @@
 /* port (finish_gate_light): the stage tracks' (CY, CL and AL, three stages each) gate that ends a stage, a scenery board with a CHECKPOINT banner (a FINISH
  * one with chequered flags on the last stage) hung over the road. By night the board takes the node's dark like the rest of the scenery; with the flag on it
- * keeps its daylight light, so the banner stands out against the dark. Only that board is touched; no PS1 data is used. */
+ * keeps its daylight light, so the banner stands out against the dark. Only that board is touched; no console data is used. */
 #ifndef TNFS_FINISH_GATE_LIGHT_H
 #define TNFS_FINISH_GATE_LIGHT_H
 

@@ -15,8 +15,8 @@
 #include "game/race/track_info.h"
 #include "game/race/track_render.h"
 #include "game/race/psx_lgs.h"
-#include "game/race/psx_lamps.h"
-#include "game/race/psx_light.h"
+#include "game/race/tunnel_lamp_textures.h"
+#include "game/race/track_node_light.h"
 
 #include "viewer/model_view.h"
 
@@ -53,14 +53,14 @@ int32_t ported_view_draw_segments(void);   /* the segments the frames draw now (
 
 /* port: EXTRAS' Modern 3D: the near road clipped against the near plane, projected without pixel snapping and
  * textured perspective-correct (modern_road.h) instead of 00425718's subdivision into the affine mapper; 0 the exe's */
-/* port: the PS1 look's light (psx_light.h) and the ambient colour's tint (per channel, 1 neutral; copied); NULL, none */
-void ported_view_set_light(const PsxLight *light, const float tint[3]);
+/* port: the light effects' light (track_node_light.h) and the ambient colour's tint (per channel, 1 neutral; copied); NULL, none */
+void ported_view_set_light(const TrackNodeLight *light, const float tint[3]);
 /* port (the light editor): the light's rows were changed in place; the built track is built again with them (the next frame) */
 void ported_view_light_changed(void);
 
-/* port (the PS1 look's light): the track's tunnel lamps (psx_lamps.h), `count` of them (copied; NULL or 0 none): the colours of each
+/* port (the light effects' light): the track's tunnel lamps (tunnel_lamp_textures.h), `count` of them (copied; NULL or 0 none): the colours of each
  * lamp's fitting in its texture are not darkened by the light. Needs ported_view_set_light's light. */
-/* port (night, psx_headlights): the street lamp's board (TrackArt.scenery[scenery]) with its three entries the light tables leave alone; NULL entry: none. */
+/* port (night, headlight_beams): the street lamp's board (TrackArt.scenery[scenery]) with its three entries the light tables leave alone; NULL entry: none. */
 void ported_view_set_street_lamps(const int scenery[], int n, const uint8_t entry[3]);   /* the lamp boards (at most 3) whose entries the tables leave alone; NULL / 0 none */
 
 /* port (night; window_lights.h): the scenery boards whose lit windows' `entry` the light tables leave alone (at most WINDOW_BOARDS_MAX); none with n 0 */
@@ -69,28 +69,28 @@ void ported_view_set_window_boards(const int scenery[], int n, uint8_t entry);
 
 /* port (reflectors, reflect_pass.h): where the track's masks come from (track_mask.h's track_mask_for: a texture's w x h bytes, 1 reflective, or NULL); NULL: none, and nothing shines. The default is track_mask_for (a test or a tool sets its own) */
 void ported_view_set_reflect_masks(const uint8_t *(*mask_for)(const TrackTexture *t));
-void ported_view_set_psx_lamps(const PsxLamp *lamps, int count);
+void ported_view_set_tunnel_lamps(const TunnelLampTexture *lamps, int count);
 
-/* port (port.cfg psx_shadow): 1, the cars' shadow is the PS1 look's soft one (soft_shadow.h), weaker where the light is dark; 0, the exe's quad. */
+/* port (port.cfg car_soft_shadow): 1, the cars' shadow is the light effects' soft one (soft_shadow.h), weaker where the light is dark; 0, the exe's quad. */
 void ported_view_set_soft_shadow(int on);
-/* port (psx_flares): a soft halo round a lit brake light in low light and in fog (lamp_flare.h); 0 the exe's */
+/* port (lamp_flares): a soft halo round a lit brake light in low light and in fog (lamp_flare.h); 0 the exe's */
 void ported_view_set_flares(int on);
 
-/* port: the PS1 look's ambient light on the cars (psx_lgs.h): each car is drawn through a colour table of its segment's ambient
+/* port: the light effects' ambient light on the cars (psx_lgs.h): each car is drawn through a colour table of its segment's ambient
  * colour over the world's `tint`, so a context's colour (a tunnel's, a bridge's) shows on the cars and the world's mean does not
  * double. NULL, none (the cars take the world's tint as before). `lgs` is copied. Needs ported_view_set_light's light. */
-void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const float tint[3]);
-/* port: 1 when the light given to ported_view_set_light was made from the road (psx_light_synth.h) and has no script: the cars and the dash take its tunnel
- * lamp alternation (psx_light_synth_car) in place of a script's ratio. 0 (the default) otherwise. */
-void ported_view_set_psx_synth(int on);
-/* port (psx_light, police_lights.h): 1 for the police car's lights to flash red and blue while it chases; 0 (the default) the exe's. Set at the race's start. */
+void ported_view_set_light_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const float tint[3]);
+/* port: 1 when the light given to ported_view_set_light was made from the road (light_synth.h) and has no script: the cars and the dash take its tunnel
+ * lamp alternation (light_synth_car) in place of a script's ratio. 0 (the default) otherwise. */
+void ported_view_set_light_synth(int on);
+/* port (light_effects, police_lights.h): 1 for the police car's lights to flash red and blue while it chases; 0 (the default) the exe's. Set at the race's start. */
 void ported_view_set_police_lights(int on);
-/* The ratio the PS1 light scales `car`'s colours by at its place (psx_light_car_ratio), 1 and `out` set; 0 with no light script. The dash takes the player's. */
+/* The ratio the baked light scales `car`'s colours by at its place (track_node_light_car_ratio), 1 and `out` set; 0 with no light script. The dash takes the player's. */
 int ported_view_car_ratio(const Car *car, float out[3]);
 
-struct PsxSkyDraw;
-/* port: the PS1 sky (psx_sky_draw.h) drawn in place of the track's sky and ring, NULL for the track's own. Not owned. */
-void ported_view_set_psx_sky(struct PsxSkyDraw *sky);
+struct SkyArtDraw;
+/* port: the console version sky (sky_art_draw.h) drawn in place of the track's sky and ring, NULL for the track's own. Not owned. */
+void ported_view_set_sky_art(struct SkyArtDraw *sky);
 /* port (weather.h): the race's weather, WEATHER_CLEAR (the default) draws as it always did; fog needs Modern 3D on */
 void ported_view_set_weather(int weather);
 /* port (wipers): the blades of the dash view's wipers in the 3D buffer's pixels (WiperBlade, wiper.h), set each frame before the draw: none (count 0) when the view is not the dash, the setting is off or the wide path is not on */
@@ -218,15 +218,15 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
                              const PortedCar *list, int count, uint8_t *pixels);
 
 /* yaw: extra turn, 24-bit angle. pixels: 640 x 480. */
-/* port (the PS1 light in the rear mirror's follow pass): begin sets the light hook from the tables the last render made and gives 1, or gives 0
+/* port (the baked light in the rear mirror's follow pass): begin sets the light hook from the tables the last render made and gives 1, or gives 0
  * (hook untouched) with no light; end clears it. `sinks` are the main pass's own lit draws for the mirror's target to use between the two. */
-/* The PS1 look's sky (or the PC's alternative) as a horizon picture in the race palette's colours, for the draws without a smooth horizon; NULL without one */
+/* The light effects' sky (or the PC's alternative) as a horizon picture in the race palette's colours, for the draws without a smooth horizon; NULL without one */
 const FshEntry *ported_view_sky_in_palette(void);
-/* The INFO of the sky set with ported_view_set_psx_sky when it is the PC's alternative one (its ring); NULL for the PS1's own */
-void ported_view_set_psx_sky_info(const TrackInfo *info);
-void ported_view_set_dark_fog(int dark);   /* port (the PS1 look): Lost Vegas' fog dark (modern_look_set_dark) */
+/* The INFO of the sky set with ported_view_set_sky_art when it is the PC's alternative one (its ring); NULL for the the console version's own */
+void ported_view_set_sky_art_info(const TrackInfo *info);
+void ported_view_set_dark_fog(int dark);   /* port (the light effects): Lost Vegas' fog dark (modern_look_set_dark) */
 int ported_view_mirror_light_begin(void);
-/* port: the PS1 light of a road point (the mirror's rows: segment x 4's node) and 1 in `tunnel` when its node is in one; 255 and 0 without a light */
+/* port: the baked light of a road point (the mirror's rows: segment x 4's node) and 1 in `tunnel` when its node is in one; 255 and 0 without a light */
 uint8_t ported_view_light_at(uint32_t node, int point, uint8_t *tunnel);
 void ported_view_mirror_light_end(void);
 void ported_view_mirror_sinks(void (**uv)(void *, const FshEntry *, const int32_t[8], const int32_t[8]),

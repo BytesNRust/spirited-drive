@@ -1,4 +1,4 @@
-/* port: a rival's PS1 livery at load (the mode's file psx_liveries, car_livery.h). The PS1 files are the user's own, read from
+/* port: a rival's console livery at load (the mode's file extra_liveries, car_livery.h). The PS1 files are the user's own, read from
  * port.cfg's psx_dir (a folder of the CD's Z<CAR>.VSM and Z<CAR>.WSM); with the key unset or a file missing the car keeps
  * its normal colours. */
 #ifndef TNFS_DRIVE_LIVERY_H
@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Remaps the car's CFM in place (the bytes the loader reads, before it loads them) to its PS1 alternate livery: the map
+/* Remaps the car's CFM in place (the bytes the loader reads, before it loads them) to its console alternate livery: the map
  * is built from psx_dir's Z<STEM>.VSM and .WSM (STEM as the PC names the car, "P911", "TSupra") plus the car's table of
  * body palette entries (drive_livery.c), and applied to the palettes of the CFM's high and low detail banks and its
  * '!xxx' colours. The CFM buffer is the caller's, so the change is this car's alone. Returns the number of colours
@@ -35,7 +35,7 @@ int drive_livery_black(const char *stem, uint8_t *cfm, size_t size, const uint8_
 int drive_livery_lamps(const char *stem, uint8_t *cfm, size_t size, LampTexels *out);
 
 /* The dash art's body (the bonnet, wings and pillars the cockpit picture shows) in a paint: `bank` is the dash's SHPI (SIMDATA/DASH/<stem>DH.FSH) as
- * read, `rgb` a catalogue paint (car_paint.h) or the PS1 livery's main colour (drive_livery_car's `main_rgb`; the dash shows tones the car's textures
+ * read, `rgb` a catalogue paint (car_paint.h) or the console version livery's main colour (drive_livery_car's `main_rgb`; the dash shows tones the car's textures
  * do not, so the livery's map by colour would leave them grey). Texel by texel, in the entries DASH_BODY_FIRST..LAST of the 'dash' picture alone; the
  * gauges, plastics and the HUD keep theirs. Run on the bank before the palette is built. Returns the number of body texels changed. */
 int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const uint8_t rgb[3]);

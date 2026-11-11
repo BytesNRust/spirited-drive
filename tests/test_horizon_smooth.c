@@ -113,7 +113,7 @@ static void test_wrap_same_row(void)
         for (int x = 4; x < W; x++) CHECK(screen[y * W + x] == screen[y * W + x - 4]);
 }
 
-/* the PS1 sky: texels index a palette of their own, the screen gets the target palette's nearest colours */
+/* the console version sky: texels index a palette of their own, the screen gets the target palette's nearest colours */
 static void test_sky_palettes(void)
 {
     make_palette();

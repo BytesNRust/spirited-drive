@@ -13,7 +13,7 @@
 #include "game/race/police_lights.h"
 #include "viewer/drive_lamps.h"
 #include "viewer/drive_light.h"
-#include "game/race/psx_lamps.h"
+#include "game/race/tunnel_lamp_textures.h"
 #include "game/viewer/shade_fit.h"
 #include <string.h>
 
@@ -150,7 +150,7 @@ static void fit_cars(RacePalette *p, const RaceState *race, CarLoad *const cars[
  * entries taken are added to it (the fit keeps them as they are) . */
 static void reserve_for_lights(RacePalette *p, const RaceState *race, uint8_t used[RACE_PALETTE_COLOURS])
 {
-    const PsxLamp *lamps = NULL;
+    const TunnelLampTexture *lamps = NULL;
     const int street = drive_light_street_lamp_entries();
     const int night = drive_light_night_lamps(&lamps) > 0 || street > 0 ? (drive_light_night() || drive_light_night_lamps(NULL) > 0 ? NIGHT_LAMP_ENTRIES : 0) + street : 0;
     const int want = (race->unknown_4fbab8 != 0 ? 4 : 0) + (port_emissive_lamps() ? LAMP_ENTRIES : 0) + night;
@@ -314,7 +314,7 @@ static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const
     drive_lamps_set_entries(entry[1], entry[0], entry[2], entry[3]);
 }
 
-/* port (night, psx_lamps.h): the tunnel lamps' colours must stay lit in the night's light, which the tint of the palette would darken (the lamps' entries are
+/* port (night, tunnel_lamp_textures.h): the tunnel lamps' colours must stay lit in the night's light, which the tint of the palette would darken (the lamps' entries are
  * shared with the sky and the windows). A pool of entries nothing shows is set aside here, out of every search and the world's tables and out of the tint;
  * drive_light_lamps_night fills them with the colours the lamps' textures show once the textures are in the race palette's terms. */
 
@@ -354,7 +354,7 @@ static void shade_off_emissive(const RacePalette *p, uint8_t *shade)
 static void night_lamps(RacePalette *p, const RaceState *race, CarLoad *const cars[RACE_CARS], const Chunk *fam, const Chunk *terrain,
                         const uint8_t *track, const uint8_t *dash_bank, uint8_t *shade)
 {
-    const PsxLamp *lamps = NULL;
+    const TunnelLampTexture *lamps = NULL;
     const int street = drive_light_street_lamp_entries();
     if (drive_light_night_lamps(&lamps) <= 0 && street <= 0) return;
     uint8_t rgb[RACE_PALETTE_COLOURS * 3], entry[NIGHT_LAMP_MAX], used[RACE_PALETTE_COLOURS];

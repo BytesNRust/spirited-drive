@@ -107,7 +107,7 @@ static int has_line(const char *name, const char *line)
 static void test_custom_goes_to_restomod(void)
 {
     memset(stored, 0, sizeof stored), port_settings_forget();
-    static const char OLD[] = "format=21:9\nprofile=custom\npsx_dir=/ps1\ncamera_kind=3\nlaps=5\nfog=0\nfullscreen=0\n";
+    static const char OLD[] = "format=21:9\nprofile=custom\npsx_dir=/second\ncamera_kind=3\nlaps=5\nfog=0\nfullscreen=0\n";
     put_file("port.cfg", OLD);
     put_file("extras.cfg", "nitro=1\nunits=kmh\nfollow_camera=0\n");
     port_old_files_migrate();
@@ -117,13 +117,13 @@ static void test_custom_goes_to_restomod(void)
     CHECK_EQ_INT(s.laps, 5);
     CHECK_EQ_INT(s.fog, 0);
     CHECK_EQ_INT(s.fullscreen, 0);
-    CHECK(strcmp(s.psx_dir, "/ps1") == 0);
+    CHECK(strcmp(s.psx_dir, "/second") == 0);
     CHECK_EQ_INT(s.city_lift, 3);   /* what the old file did not carry takes the mode's value */
     const PortExtras e = port_extras_load();
     CHECK_EQ_INT(e.nitro, 1);
     CHECK_EQ_INT(e.follow_camera, 0);
     /* port.cfg is left with the machine's two, and the copy is the old file byte for byte */
-    CHECK(strcmp(file_text("port.cfg"), "profile=restomod\npsx_dir=/ps1\n") == 0);
+    CHECK(strcmp(file_text("port.cfg"), "profile=restomod\npsx_dir=/second\n") == 0);
     CHECK(strcmp(file_text("port.cfg.bak"), OLD) == 0);
     CHECK(has_line("restomod.cfg", "camera_kind=3"));
     CHECK(has_line("restomod.cfg", "nitro=1"));
@@ -234,7 +234,7 @@ static void test_mode_file_wins(void)
 static void test_clean_port_cfg_stays(void)
 {
     memset(stored, 0, sizeof stored), port_settings_forget();
-    put_file("port.cfg", "profile=stock\npsx_dir=/ps1\n");
+    put_file("port.cfg", "profile=stock\npsx_dir=/second\n");
     put_file("extras.cfg", "nitro=1\n");
     const int before = writes;
     port_old_files_migrate();

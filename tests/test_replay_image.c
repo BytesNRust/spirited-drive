@@ -178,13 +178,13 @@ static void conditions_trailer(void)
     enum { AT = REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE + REPLAY_SNOW_TRAILER_SIZE };
     static uint8_t file[AT + REPLAY_CONDITIONS_TRAILER_SIZE];
     ReplayConditions c = { 9, 9, 9 };
-    CHECK(race_replay_conditions_get(file, AT, &c) == 0 && c.psx_time == 0 && c.weather == 0 && c.reverse == 0);   /* the snow's size: day, clear, forward */
+    CHECK(race_replay_conditions_get(file, AT, &c) == 0 && c.light_time == 0 && c.weather == 0 && c.reverse == 0);   /* the snow's size: day, clear, forward */
     const ReplayConditions night = { 3, 2, 1 };
     race_replay_conditions_put(&night, file + AT);
     c = (ReplayConditions){ 0, 0, 0 };
-    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 1 && c.psx_time == 3 && c.weather == 2 && c.reverse == 1);
+    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 1 && c.light_time == 3 && c.weather == 2 && c.reverse == 1);
     file[AT + 8] = 7;
-    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 0 && c.psx_time == 0);   /* not a time of ours */
+    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 0 && c.light_time == 0);   /* not a time of ours */
     race_replay_conditions_put(&night, file + AT);
     file[AT] ^= 1;
     CHECK(race_replay_conditions_get(file, sizeof file, &c) == 0 && c.weather == 0);   /* not our marker */

@@ -14,20 +14,20 @@
 #include "game/sys/port_settings_private.h"
 
 static const char *const FORMAT_NAMES[] = { "4:3", "16:9", "21:9" };
-static const char *const PSX_TIME_NAMES[] = { "day", "dawn", "dusk", "night" };   /* by PSX_TIME_* */
+static const char *const LIGHT_TIME_NAMES[] = { "day", "dawn", "dusk", "night" };   /* by LIGHT_TIME_* */
 
-/* the PSX_TIME_* a name stands for ("dawn" or "a", "day" or "b", "dusk" or "c", "night", any case), or -1 */
-int port_settings_psx_time_named(const char *name)
+/* the LIGHT_TIME_* a name stands for ("dawn" or "a", "day" or "b", "dusk" or "c", "night", any case), or -1 */
+int port_settings_light_time_named(const char *name)
 {
     char lower[8];
     size_t i = 0;
     for (; name[i] != '\0' && i < sizeof lower - 1; i++) lower[i] = (char)(name[i] >= 'A' && name[i] <= 'Z' ? name[i] + 32 : name[i]);
     lower[i] = '\0';
     if (name[i] != '\0') return -1;
-    if (strcmp(lower, "day") == 0 || strcmp(lower, "b") == 0) return PSX_TIME_DAY;
-    if (strcmp(lower, "dawn") == 0 || strcmp(lower, "a") == 0) return PSX_TIME_DAWN;
-    if (strcmp(lower, "dusk") == 0 || strcmp(lower, "c") == 0) return PSX_TIME_DUSK;
-    if (strcmp(lower, "night") == 0) return PSX_TIME_NIGHT;
+    if (strcmp(lower, "day") == 0 || strcmp(lower, "b") == 0) return LIGHT_TIME_DAY;
+    if (strcmp(lower, "dawn") == 0 || strcmp(lower, "a") == 0) return LIGHT_TIME_DAWN;
+    if (strcmp(lower, "dusk") == 0 || strcmp(lower, "c") == 0) return LIGHT_TIME_DUSK;
+    if (strcmp(lower, "night") == 0) return LIGHT_TIME_NIGHT;
     return -1;
 }
 
@@ -35,7 +35,7 @@ PortSettings port_settings_defaults(void)
 {
     /* the render threads are Auto by default: as many as the machine's logical cores, at most eight. The picture is the
      * same with any number of threads, and the wall is 1.7-3.5x quicker with them (re/notes/render-timing.md). */
-    const PortSettings d = { .format = SCREEN_4_3, .refresh_hz = 60, .f3_ultra = 1, .render_scale = 1, .psx_time = PSX_TIME_DAY,
+    const PortSettings d = { .format = SCREEN_4_3, .refresh_hz = 60, .f3_ultra = 1, .render_scale = 1, .light_time = LIGHT_TIME_DAY,
                              .weather = WEATHER_CLEAR, .render_bands = -1, .camera_kind = -1 };
     return d;
 }
@@ -59,13 +59,13 @@ static const PortSettingsKey INT_KEYS[] = {
     { "perspective", offsetof(PortSettings, perspective), 0, 1 },
     { "texture_filter", offsetof(PortSettings, texture_filter), 0, 1 },
     { "fog", offsetof(PortSettings, fog), 0, 1 },
-    { "psx_light", offsetof(PortSettings, psx_light), 0, 1 },
-    { "psx_headlights", offsetof(PortSettings, psx_headlights), 0, 1 },
-    { "psx_shadow", offsetof(PortSettings, psx_shadow), 0, 1 },
+    { "light_effects", offsetof(PortSettings, light_effects), 0, 1 },
+    { "headlight_beams", offsetof(PortSettings, headlight_beams), 0, 1 },
+    { "car_soft_shadow", offsetof(PortSettings, car_soft_shadow), 0, 1 },
     { "free_records", offsetof(PortSettings, free_records), 0, 1 },
     { "fog_sample", offsetof(PortSettings, fog_sample), 0, 1 },
     { "made_tunnels", offsetof(PortSettings, made_tunnels), 0, 1 },
-    { "psx_flares", offsetof(PortSettings, psx_flares), 0, 1 },
+    { "lamp_flares", offsetof(PortSettings, lamp_flares), 0, 1 },
     { "sky_fill_below", offsetof(PortSettings, sky_fill_below), 0, 1 },
     { "radar_all_views", offsetof(PortSettings, radar_all_views), 0, 1 },
     { "tach_dim", offsetof(PortSettings, tach_dim), 0, 1 },
@@ -161,9 +161,9 @@ static void apply_named(PortSettings *s, const char *key, const char *value)
     } else if (strcmp(key, "weather") == 0) {
         const int w = weather_named(value);
         if (w >= 0) s->weather = w;
-    } else if (strcmp(key, "psx_time") == 0) {
-        const int t = port_settings_psx_time_named(value);
-        if (t >= 0) s->psx_time = t;
+    } else if (strcmp(key, "light_time") == 0) {
+        const int t = port_settings_light_time_named(value);
+        if (t >= 0) s->light_time = t;
     } else if (strcmp(key, "psx_dir") == 0) {
         snprintf(s->psx_dir, sizeof s->psx_dir, "%s", value);
     } else if (strcmp(key, "render_bands") == 0) {
@@ -184,6 +184,7 @@ static void apply_named(PortSettings *s, const char *key, const char *value)
 
 static void apply(PortSettings *s, const char *key, const char *value)
 {
+    key = port_profile_key_alias(key);   /* the keys an older file has (psx_light, psx_time ...) */
     for (size_t i = 0; i < sizeof INT_KEYS / sizeof INT_KEYS[0]; i++) {
         if (strcmp(key, INT_KEYS[i].key) != 0) continue;
         long n;
@@ -232,12 +233,12 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     if (s->render_bands >= 0) snprintf(bands_text, sizeof bands_text, "%d", s->render_bands);
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
-                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\npsx_light=%d\npsx_shadow=%d\npsx_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\npsx_headlights=%d\npsx_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\ncar_tunnel_light=%d\nvegas_car_night=%d\nrally_gravel_shoulder=%d\nlamp_pool_tint=%d\ntrans_shadows=%d\ncanyon_shade=%d\nparking_dark=%d\nforest_neutral=%d\ncavern_dark=%d\nvegas_objects=%d\nclose_houses=%d\nbrake_over_gas=%d\nlamp_pools=%d\nlamp_car_shade=%d\nheadlight_cone=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nfinish_gate_light=%d\nlamp_pool_bright=%d\nnight_tone=%d\nrain_lamps=%d\ngauge_exterior=%d\nsign_glow=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nchase_height=%d\nhall_light=%d\nforest_dark=%d\ntraffic_spray=%d\nrally_dry_lamps=%d\ntraffic_halo=%d\npolice_halo=%d\nanalog_pad=%d\nrain_v2=%d\nshoulder_light=%d\ntrack_light_lamp=%d\nrain_tyre_roll=%d\nsnow_weather=%d\nreflectors=%d\nhandbrake_lamps=%d\nrally_spray=%d\ntrail_rise=%d\nsnow_fx=%d\nlamp_halos=%d\nspray_cd_smoke=%d\nwipers=%d\nwater_mist=%d\nweather_fog=%d\ncar_tunnel_match=%d\nspray_v4=%d\ncar_night_lift=%d\nmenu_pad_cancel=%d\ntunnel_lamps=%d\nprofile=%s\n",
+                           "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\nlight_effects=%d\ncar_soft_shadow=%d\nlight_time=%s\nweather=%s\n"
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nnight_sky_hue=%d\nnight_stretch_clean=%d\nheadlight_beams=%d\nlamp_flares=%d\nmade_tunnels=%d\nheadlight_relight=%d\ncar_tunnel_light=%d\nvegas_car_night=%d\nrally_gravel_shoulder=%d\nlamp_pool_tint=%d\ntrans_shadows=%d\ncanyon_shade=%d\nparking_dark=%d\nforest_neutral=%d\ncavern_dark=%d\nvegas_objects=%d\nclose_houses=%d\nbrake_over_gas=%d\nlamp_pools=%d\nlamp_car_shade=%d\nheadlight_cone=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nfinish_gate_light=%d\nlamp_pool_bright=%d\nnight_tone=%d\nrain_lamps=%d\ngauge_exterior=%d\nsign_glow=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nchase_height=%d\nhall_light=%d\nforest_dark=%d\ntraffic_spray=%d\nrally_dry_lamps=%d\ntraffic_halo=%d\npolice_halo=%d\nanalog_pad=%d\nrain_v2=%d\nshoulder_light=%d\ntrack_light_lamp=%d\nrain_tyre_roll=%d\nsnow_weather=%d\nreflectors=%d\nhandbrake_lamps=%d\nrally_spray=%d\ntrail_rise=%d\nsnow_fx=%d\nlamp_halos=%d\nspray_cd_smoke=%d\nwipers=%d\nwater_mist=%d\nweather_fog=%d\ncar_tunnel_match=%d\nspray_v4=%d\ncar_night_lift=%d\nmenu_pad_cancel=%d\ntunnel_lamps=%d\nprofile=%s\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
-                           s->render_scale, s->laps, s->psx_dir, s->psx_light, s->psx_shadow, PSX_TIME_NAMES[s->psx_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->night_sky_hue, s->night_stretch_clean, s->psx_headlights, s->psx_flares, s->made_tunnels, s->headlight_relight, s->car_tunnel_light, s->vegas_car_night, s->rally_gravel_shoulder, s->lamp_pool_tint, s->trans_shadows, s->canyon_shade, s->parking_dark, s->forest_neutral, s->cavern_dark, s->vegas_objects, s->close_houses, s->brake_over_gas, s->lamp_pools, s->lamp_car_shade, s->headlight_cone, s->rain_fx, s->rain_grip, s->gauge_light, s->finish_gate_light, s->lamp_pool_bright, s->night_tone, s->rain_lamps, s->gauge_exterior, s->sign_glow, s->reverse_rows, s->city_lift, s->vegas_lift, s->chase_height, s->hall_light, s->forest_dark, s->traffic_spray, s->rally_dry_lamps, s->traffic_halo, s->police_halo, s->analog_pad, s->rain_v2, s->shoulder_light, s->track_light_lamp, s->rain_tyre_roll, s->snow_weather, s->reflectors, s->handbrake_lamps, s->rally_spray, s->trail_rise, s->snow_fx, s->lamp_halos, s->spray_cd_smoke, s->wipers, s->water_mist, s->weather_fog, s->car_tunnel_match, s->spray_v4, s->car_night_lift, s->menu_pad_cancel, s->tunnel_lamps, port_profile_key((Profile)s->profile));
+                           s->render_scale, s->laps, s->psx_dir, s->light_effects, s->car_soft_shadow, LIGHT_TIME_NAMES[s->light_time], weather_name(s->weather), bands, s->body_shine,
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->night_sky_hue, s->night_stretch_clean, s->headlight_beams, s->lamp_flares, s->made_tunnels, s->headlight_relight, s->car_tunnel_light, s->vegas_car_night, s->rally_gravel_shoulder, s->lamp_pool_tint, s->trans_shadows, s->canyon_shade, s->parking_dark, s->forest_neutral, s->cavern_dark, s->vegas_objects, s->close_houses, s->brake_over_gas, s->lamp_pools, s->lamp_car_shade, s->headlight_cone, s->rain_fx, s->rain_grip, s->gauge_light, s->finish_gate_light, s->lamp_pool_bright, s->night_tone, s->rain_lamps, s->gauge_exterior, s->sign_glow, s->reverse_rows, s->city_lift, s->vegas_lift, s->chase_height, s->hall_light, s->forest_dark, s->traffic_spray, s->rally_dry_lamps, s->traffic_halo, s->police_halo, s->analog_pad, s->rain_v2, s->shoulder_light, s->track_light_lamp, s->rain_tyre_roll, s->snow_weather, s->reflectors, s->handbrake_lamps, s->rally_spray, s->trail_rise, s->snow_fx, s->lamp_halos, s->spray_cd_smoke, s->wipers, s->water_mist, s->weather_fog, s->car_tunnel_match, s->spray_v4, s->car_night_lift, s->menu_pad_cancel, s->tunnel_lamps, port_profile_key((Profile)s->profile));
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 

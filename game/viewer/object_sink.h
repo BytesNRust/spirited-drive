@@ -19,7 +19,7 @@ typedef struct {
 
 Object3DSink object_sink(ObjectSink *s);
 
-/* port (the PS1 look's light): a 256-byte table the objects drawn from now on go through (every texel and flat colour), or
+/* port (the light effects' light): a 256-byte table the objects drawn from now on go through (every texel and flat colour), or
  * NULL for none; the shadow's shade mode is left as it is. */
 void object_sink_set_light(const uint8_t *table);
 /* port (body shine): while `tables` is set (car_shine_tables for the palette, kept by pointer until the frame is flushed), a textured polygon
