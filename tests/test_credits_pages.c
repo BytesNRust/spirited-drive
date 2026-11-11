@@ -28,7 +28,7 @@ static void ours_is_set_in_two_columns(void)
 {
     CreditsItem it[CREDITS_ITEMS_MAX];
     const int n = credits_page(1, "0.9.0", it);
-    static const char *const LEFT[] = { "Original game", "EA Canada", "with Road & Track", "1994-1996", "Video", "Pioneer Productions" };
+    static const char *const LEFT[] = { "Original game", "EA Canada", "Pioneer Productions", "with Road & Track", "1994-1996", "Special Edition", "EA Seattle", "with EA Canada" };
     static const char *const RIGHT[] = { "Spirited Drive", "Restomod", "Bytes & Rust", "and contributors", "Licence", "Code GPL-3.0-or-later",
                                          "Our data CC BY-SA 4.0", "Made with", "SDL3" };
     int last = -1;
@@ -51,6 +51,8 @@ static void ours_is_set_in_two_columns(void)
     }
     CHECK(find(it, n, "Original game")->kind == CREDITS_HEADER);
     CHECK(find(it, n, "Licence")->kind == CREDITS_HEADER);
+    CHECK(find(it, n, "Special Edition")->kind == CREDITS_HEADER);
+    CHECK(find(it, n, "Video") == NULL);   /* Pioneer made the game with EA Canada, not its video (i055) */
     CHECK(find(it, n, "Bytes & Rust")->kind == CREDITS_NAME);
     CHECK(find(it, n, "Spirited Drive")->colour == CREDITS_YELLOW);
     CHECK(find(it, n, "Unofficial. Not affiliated with Electronic Arts") != NULL);
