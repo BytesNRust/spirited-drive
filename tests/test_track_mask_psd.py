@@ -15,6 +15,7 @@ try:
         return module
     reader = load("track_mask_from_psd")
     writer = load("track_mask_psd")
+    lamp_writer = load("track_lamp_psd")
     auto = load("track_mask_auto")
     from PIL import Image
 except ImportError as error:
@@ -39,6 +40,13 @@ check("nearly black", reader.texel_reflective(63, 20, 10, 255), False)
 check("transparent", reader.texel_reflective(255, 255, 255, 0), False)
 check("faint", reader.texel_reflective(255, 255, 255, 127), False)
 check("half opaque", reader.texel_reflective(255, 255, 255, 128), True)
+# the lamps' yellow (track_mask.c: a lamp's mark, not reflective): read as a lamp, kept yellow in the PNG; orange paint stays reflective
+check("yellow is a lamp", reader.texel_lamp(255, 255, 0, 255), True)
+check("yellow is not reflective", reader.texel_reflective(255, 255, 0, 255), False)
+check("a soft yellow is a lamp", reader.texel_lamp(200, 210, 40, 255), True)
+check("orange is no lamp", (reader.texel_lamp(255, 128, 0, 255), reader.texel_reflective(255, 128, 0, 255)), (False, True))
+check("white is no lamp", reader.texel_lamp(255, 255, 255, 255), False)
+check("a faint yellow is nothing", (reader.texel_lamp(255, 255, 0, 127), reader.texel_reflective(255, 255, 0, 127)), (False, False))
 
 # reflective_mask on stand-in layers (no psd-tools needed): only the layer named "mask" counts, a `draft` over it is ignored
 from PIL import Image as _Image
@@ -71,6 +79,14 @@ try:
     check("a PSD with a draft and no mask is refused", False, True)
 except ValueError:
     pass
+# the PNG of a mask with lamps: RGBA, white reflective, yellow lamps, transparent the rest (what tools/track_lamp_marks writes); without lamps the grey as before
+mixed = _Image.new("RGBA", (4, 3), (0, 0, 0, 0))
+mixed.putpixel((0, 0), (255, 255, 255, 255))
+mixed.putpixel((1, 0), (255, 255, 0, 255))
+png = reader.mask_png(FakePsd([FakeLayer("mask", mixed)]))
+check("lamps: RGBA", png.mode, "RGBA")
+check("lamps: white, yellow, transparent", (png.getpixel((0, 0)), png.getpixel((1, 0)), png.getpixel((2, 0))), ((255, 255, 255, 255), (255, 255, 0, 255), (0, 0, 0, 0)))
+check("no lamps: the grey mask", reader.mask_png(psd).mode, "L")
 empty = FakePsd([FakeLayer("mask", None)])
 check("an empty mask layer reads as nothing reflective", reader.reflective_mask(empty).getbbox(), None)
 
@@ -165,5 +181,33 @@ with tempfile.TemporaryDirectory() as tmp:
     check("main --all", writer.main(["x", drafts, out3, "--all"]), 0)
     check("--all: CL1 every texture", sorted(os.listdir(os.path.join(out3, "CL1"))), ["scenery_02.psd", "scenery_15.psd"])
     check("the guess PNG is the texture's size, grey", (Image.open(os.path.join(pngs, "CL1", "scenery_02.png")).size, Image.open(os.path.join(pngs, "CL1", "scenery_02.png")).mode), ((6, 4), "L"))
+# a lamp mask's PSD (tools/track_lamp_psd.py): the texture under its mask, the yellow and white as the PNG has them, and back to the same PNG
+with tempfile.TemporaryDirectory() as tmp:
+    texture = Image.new("RGBA", (5, 4), (40, 50, 60, 255))
+    mask = Image.new("RGBA", (5, 4), (0, 0, 0, 0))
+    mask.putpixel((1, 1), (255, 255, 0, 255))
+    mask.putpixel((2, 1), (255, 255, 0, 255))
+    mask.putpixel((3, 2), (255, 255, 255, 255))
+    os.makedirs(os.path.join(tmp, "tex", "CY9")), os.makedirs(os.path.join(tmp, "masks", "CY9"))
+    texture.save(os.path.join(tmp, "tex", "CY9", "slot_38.rgb.png"))
+    mask.save(os.path.join(tmp, "masks", "CY9", "slot_38.png"))
+    out = os.path.join(tmp, "out")
+    check("lamp psd: main", lamp_writer.main(["x", os.path.join(tmp, "tex"), os.path.join(tmp, "masks"), out, "CY9/slot_38"]), 0)
+    path = os.path.join(out, "CY9", "slot_38.psd")
+    psd = Image.open(path)
+    check("lamp psd: the texture, then the mask", [layer[0] for layer in psd.layers], ["texture", "mask"])
+    try:   # the layers' pixels as Photoshop reads them (Pillow's PSD reader takes the alpha-first channels of a layer in the wrong order): with psd-tools only
+        from psd_tools import PSDImage
+    except ImportError:
+        PSDImage = None
+        print("test_track_mask_psd: the lamp PSD's pixels not checked (no psd-tools)")
+    if PSDImage is not None:
+        opened = PSDImage.open(path)
+        layer = reader.find_layer(opened, "mask").topil().convert("RGBA")
+        check("lamp psd: the yellow and the white where the PNG has them", (layer.getpixel((1, 1)), layer.getpixel((3, 2)), layer.getpixel((0, 0))[3]), ((255, 255, 0, 255), (255, 255, 255, 255), 0))
+        back = reader.mask_png(opened)   # what track_mask_from_psd.py writes for it
+        check("lamp psd: read back, the same PNG", list(back.getdata()), [px if px[3] else (0, 0, 0, 0) for px in mask.getdata()])
+    check("lamp psd: a mask of another size is refused", lamp_writer.write_lamp_psd(os.path.join(tmp, "bad.psd"), texture, Image.new("RGBA", (4, 4))), False)
+    check("lamp psd: a missing texture is said", lamp_writer.main(["x", os.path.join(tmp, "tex"), os.path.join(tmp, "masks"), out, "CY9/slot_99"]), 1)
 print("test_track_mask_psd: %d failures" % failures)
 sys.exit(1 if failures else 0)
