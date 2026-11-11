@@ -7,6 +7,7 @@
 #include "game/frontend/config_bgnd.h"
 #include "game/frontend/credits_relief.h"
 #include "game/frontend/ea_lib.h"
+#include "game/sys/art_cache.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_log.h"
@@ -41,21 +42,43 @@ static int read_pages(uint8_t **data, const uint8_t *pages[CREDITS_RELIEF_PAGES]
     return 1;
 }
 
-/* the relief, once per run */
+/* the relief's key in the player's cache (art_cache.h): what it is made from, credits.fsh and the configuration screens */
+enum { CREDITS_RELIEF_ART_VERSION = 1 };   /* raise it when credits_relief.c changes what it makes */
+static void relief_key(ArtCacheKey *key)
+{
+    size_t size = 0;
+    uint8_t *fsh = resource_load_art("credits.fsh", &size);
+    art_cache_key_init(key, "credits_relief", CREDITS_RELIEF_ART_VERSION);
+    art_cache_key_add(key, fsh, size);
+    resource_free(fsh);
+    config_bgnd_key(resource_load_art, key);
+}
+
+/* the relief, once per run: from the cache when it was made before from the same files */
 static void relief_compose(void)
 {
     static int tried;
     if (tried) return;
     tried = 1;
+    ArtCacheKey key;
+    relief_key(&key);
+    relief = malloc((size_t)SCREEN_W * SCREEN_H + 768);
+    if (relief != NULL && art_cache_read("credits_relief.bin", &key, relief, (size_t)SCREEN_W * SCREEN_H + 768)) {
+        memcpy(relief_pal, relief + SCREEN_W * SCREEN_H, 768);
+        return;
+    }
     uint8_t *data = NULL, page_pal[768], menu_pal[768];
     const uint8_t *pages[CREDITS_RELIEF_PAGES];
     uint8_t *const menu = malloc((size_t)SCREEN_W * SCREEN_H), *const menu_rgb = malloc((size_t)SCREEN_W * SCREEN_H * 3);
-    relief = malloc((size_t)SCREEN_W * SCREEN_H);
-    int ok = menu != NULL && menu_rgb != NULL && relief != NULL && read_pages(&data, pages, page_pal) &&
+    int ok = relief != NULL && menu != NULL && menu_rgb != NULL && read_pages(&data, pages, page_pal) &&
              config_bgnd_load(resource_load_art, CONFIG_BGND_OPTIONS, 0, menu, menu_pal);
     if (ok) {
         for (int i = 0; i < SCREEN_W * SCREEN_H; i++) memcpy(&menu_rgb[3 * i], &menu_pal[3 * menu[i]], 3);
         ok = credits_relief_compose(pages, page_pal, menu_rgb, relief, relief_pal);
+        if (ok) {
+            memcpy(relief + SCREEN_W * SCREEN_H, relief_pal, 768);
+            (void)art_cache_write("credits_relief.bin", &key, relief, (size_t)SCREEN_W * SCREEN_H + 768);
+        }
     }
     if (!ok) {
         port_log("credits: no relief for our pages (credits.fsh or the configuration screens), they go over black\n");

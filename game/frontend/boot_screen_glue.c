@@ -8,6 +8,7 @@
 #include "game/frontend/boot_quant.h"
 #include "game/frontend/boot_relief.h"
 #include "game/frontend/ea_lib.h"
+#include "game/sys/art_cache.h"
 #include "game/sys/data_path.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
@@ -73,8 +74,9 @@ static int lay_banner(uint8_t *rgb)
     return 0;
 }
 
-/* the picture, once per run: pixels and palette (the text's colours last); 1 when the banner is in it */
-static int compose(uint8_t *pixels, uint8_t palette[768])
+/* the picture: pixels and palette (the text's colours last); MADE_BANNER when the banner is in it, MADE_RELIEF when the relief is */
+enum { MADE_BANNER = 1, MADE_RELIEF = 2 };
+static int make(uint8_t *pixels, uint8_t palette[768])
 {
     uint8_t *rgb = calloc((size_t)SCREEN_W * SCREEN_H, 3);
     int banner = 0;
@@ -83,11 +85,51 @@ static int compose(uint8_t *pixels, uint8_t palette[768])
         memset(pixels, 0, (size_t)SCREEN_W * SCREEN_H);
         return 0;
     }
-    if (!boot_relief_load(rgb)) port_log("boot: the red relief cannot be rebuilt from the CD, over black\n");
+    const int relief = boot_relief_load(rgb);
+    if (!relief) port_log("boot: the red relief cannot be rebuilt from the CD, over black\n");
     banner = lay_banner(rgb);
-    if (boot_quant(rgb, SCREEN_W * SCREEN_H, PALETTE_COLOURS - TEXT_COLOURS, palette, pixels) == 0) memset(pixels, 0, (size_t)SCREEN_W * SCREEN_H);
+    const int quantised = boot_quant(rgb, SCREEN_W * SCREEN_H, PALETTE_COLOURS - TEXT_COLOURS, palette, pixels) != 0;
+    if (!quantised) memset(pixels, 0, (size_t)SCREEN_W * SCREEN_H);
     memcpy(palette + 3 * (PALETTE_COLOURS - TEXT_COLOURS), TEXT_RGB, sizeof TEXT_RGB);
     free(rgb);
+    return (banner ? MADE_BANNER : 0) | (relief && quantised ? MADE_RELIEF : 0);
+}
+
+/* the picture's key in the player's cache (art_cache.h): the relief's sources and the banner's file */
+enum { BOOT_SCREEN_ART_VERSION = 1 };   /* raise it when boot_relief.c, boot_quant.c or the banner's place change what is made */
+static void picture_key(ArtCacheKey *key)
+{
+    art_cache_key_init(key, "boot_screen", BOOT_SCREEN_ART_VERSION);
+    boot_relief_key(key);
+    char found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
+    (void)data_path_candidates(LOGO_FILE, found);
+    uint8_t *logo = NULL;
+    size_t size = 0;
+    for (int i = 0; i < DATA_PATH_CANDIDATES && logo == NULL; i++)
+        if (found[i][0] != '\0' && data_path_exists(found[i])) logo = read_file(found[i], &size);
+    art_cache_key_add(key, logo, size);
+    free(logo);
+}
+
+/* the picture from the cache when it was made before from the same files, else made and kept there; 1 when the banner is in it */
+static int compose(uint8_t *pixels, uint8_t palette[768])
+{
+    enum { PIXELS = SCREEN_W * SCREEN_H, BLOB = PIXELS + 768 + 1 };
+    ArtCacheKey key;
+    picture_key(&key);
+    uint8_t *blob = malloc(BLOB);
+    if (blob != NULL && art_cache_read("boot_screen.bin", &key, blob, BLOB)) {
+        memcpy(pixels, blob, PIXELS), memcpy(palette, blob + PIXELS, 768);
+        const int banner = blob[BLOB - 1];
+        free(blob);
+        return banner;
+    }
+    const int made = make(pixels, palette), banner = (made & MADE_BANNER) != 0;
+    if (blob != NULL && (made & MADE_RELIEF)) {   /* a black stand-in is not kept */
+        memcpy(blob, pixels, PIXELS), memcpy(blob + PIXELS, palette, 768), blob[BLOB - 1] = (uint8_t)banner;
+        (void)art_cache_write("boot_screen.bin", &key, blob, BLOB);
+    }
+    free(blob);
     return banner;
 }
 

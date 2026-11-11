@@ -13,6 +13,8 @@
 
 #include <stdint.h>
 
+#include "game/sys/art_cache.h"
+
 enum {
     BOOT_RELIEF_W = 640,
     BOOT_RELIEF_H = 480,
@@ -48,5 +50,8 @@ int boot_relief_compose(const BootReliefSources *in, uint8_t rgb[BOOT_RELIEF_W *
 /* port (boot_relief_glue.c): the sources read off the player's CD (title.qfs, the installer screens, control/dia1.qfs through central.qfs's palette)
  * and the map from the port's data, composed. 0 (and a line in the log) when one is missing. */
 int boot_relief_load(uint8_t rgb[BOOT_RELIEF_W * BOOT_RELIEF_H * 3]);
+
+/* port (boot_relief_glue.c): adds what the relief is made from (the map, the CD's files) to a cache key (art_cache.h). */
+void boot_relief_key(ArtCacheKey *key);
 
 #endif

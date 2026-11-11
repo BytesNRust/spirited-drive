@@ -10,6 +10,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "game/sys/art_cache.h"
+
 enum {
     CONFIG_BGND_W = 640,
     CONFIG_BGND_H = 480,
@@ -27,7 +29,13 @@ void config_bgnd_compose(const uint8_t *const rgb[CONFIG_BGND_SCREENS], const ui
  * it cannot be read. The game passes resource_load_art. */
 typedef uint8_t *(*ConfigBgndRead)(const char *name, size_t *size);
 
-/* Reads the ten screens and composes them in the palette of screen `palette_screen` (CONFIG_BGND_OPTIONS, or
+/* the generator's version for the cache (art_cache.h): raise it when config_bgnd_compose changes what it makes */
+enum { CONFIG_BGND_ART_VERSION = 1 };
+
+/* Adds the ten screens' files (as read gives them) to a cache key. */
+void config_bgnd_key(ConfigBgndRead read, ArtCacheKey *key);
+
+/* Reads the ten screens and composes them (or takes them from the player's cache, art_cache.h, when made before from the same files) in the palette of screen `palette_screen` (CONFIG_BGND_OPTIONS, or
  * CONFIG_BGND_GAME_MODE to patch Game Mode's own picture), returned in `palette`. 1 on success, 0 when a screen is
  * missing or not 640x480. */
 int config_bgnd_load(ConfigBgndRead read, int palette_screen, int done_cancel,
