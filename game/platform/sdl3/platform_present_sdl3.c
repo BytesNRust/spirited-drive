@@ -162,7 +162,7 @@ static int present_lock = 1;
 
 void platform_set_present_lock(int on) { present_lock = on; }
 
-/* the frame through one palette, or through three by the mask (the PS1 light's time of day); the texture's memory locked or the buffer */
+/* the frame through one palette, or through three by the mask (the baked light's time of day); the texture's memory locked or the buffer */
 static void present_frame(const uint8_t *pixels, const PlatformColor palette[256], const PlatformColor world_palette[256],
                           const PlatformColor half_palette[256], const uint8_t *mask)
 {

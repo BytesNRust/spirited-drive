@@ -11,11 +11,11 @@ WORK=$(mktemp -d "$WORK/run.XXXXXX")
 trap 'rc=$?; if [ "$rc" -ne 0 ] && [ "${TNFS_KEEP_RUN:-0}" = 1 ]; then echo "kept: $WORK" >&2; else find "$WORK" -delete; fi' EXIT   # its run dir goes with it; kept only on a failure with TNFS_KEEP_RUN=1
 mkdir -p "$WORK/mods" "$WORK/user"
 UW=$WORK/user
-printf 'profile=restomod\npsx_light=1\n' > "$WORK/user/port.cfg"
+printf 'profile=restomod\nlight_effects=1\n' > "$WORK/user/port.cfg"
 
 shot() {   # the setting's value ("" = unset), the weather, the name
     local e=(); [ -n "$1" ] && e=(TNFS_WIPERS=$1)
-    (cd "$REPO" && env ${e[@]+"${e[@]}"} TNFS_WEATHER=$2 TNFS_PSX_TIME=day TNFS_VIEW=0 TNFS_FRAMES=20 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
+    (cd "$REPO" && env ${e[@]+"${e[@]}"} TNFS_WEATHER=$2 TNFS_LIGHT_TIME=day TNFS_VIEW=0 TNFS_FRAMES=20 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
         timeout -k 5 200 "$TNFS" --data "$DATA" --user "$UW" --mods "$WORK/mods" --drive TR1 --type 0 --car 2 --node 30 --screenshot "$WORK/$3.ppm" > "$WORK/$3.log" 2>&1)
     [ -s "$WORK/$3.ppm" ] || { echo "FAIL: no frame for '$1' in $2"; exit 1; }
 }

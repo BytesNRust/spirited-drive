@@ -1,6 +1,6 @@
 /* The stem a loaded car file answers to (car_load_path's, the name of the CFM) is the name the eight cars' hand-made masks are filed under
  * (car_mask.h, data/car_masks/<stem>): the body shine's draft is made with it, so the masks drive the shine classes whether or not the
- * repaint (extras.cfg psx_liveries) runs. The session's own model table is only filled with the repaint on. */
+ * repaint (extras.cfg extra_liveries) runs. The session's own model table is only filled with the repaint on. */
 #include "game/race/car_load.h"
 #include "game/race/car_model.h"
 #include "game/race/car_paint.h"

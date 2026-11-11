@@ -1,8 +1,8 @@
-/* port (psx_light, the light effects): the police car's lights. The exe writes the four entries 0xfa..0xfd that the car's light texels use (the rear
+/* port (light_effects, the light effects): the police car's lights. The exe writes the four entries 0xfa..0xfd that the car's light texels use (the rear
  * deck's, 270 texels, and the front's, 38) only while a stop notice is up, and the notice's ticket screen covers the 3D then; in the chase the entries
  * hold the dash's colours (0xf0, 13 colours, queued after the lights) and the lights show as small orange, cyan, blue and violet dots that never change.
  * Here, while the police car chases (the siren's chase: police mode on, the car active and chasing), its light texels are drawn pure red and pure blue,
- * the two sides alternating every PSX_POLICE_FLASH_TICKS (the exe's flash cadence), through a table of their own: not the world's light, the night's tint
+ * the two sides alternating every POLICE_FLASH_TICKS (the exe's flash cadence), through a table of their own: not the world's light, the night's tint
  * or the fog's. The screen palette is not written (the dash uses the same entries). Off, the exe's. */
 #ifndef TNFS_POLICE_LIGHTS_H
 #define TNFS_POLICE_LIGHTS_H

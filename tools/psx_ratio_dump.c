@@ -1,9 +1,11 @@
 /* psx_ratio_dump <psx_dir> <track> [A|B|C] [limit_percent]: the light ratio a car gets at each node of a track (the one lamp_state reads: the script's
- * context colour or the LGT byte of the road's centre, game/race/psx_lgs.h psx_lgs_car_ratio), and the runs of nodes where the darkest channel is under
+ * context colour or the LGT byte of the road's centre, game/race/psx_lgs.h light_tint_car_ratio), and the runs of nodes where the darkest channel is under
  * the limit (default 70, the lamps' switch-on). For each run: the nodes, the ratio's lowest, the LGT centre byte's range, whether a script context
  * covers it (FIXED / RAMP and its colour), and the 11 LGT bytes of its first node. Read only; prints, writes nothing. */
-#include "game/race/psx_light.h"
+#include "game/race/track_node_light.h"
+#include "game/race/psx_lgt.h"
 #include "game/race/psx_lgs.h"
+#include "game/race/light_tint.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -52,8 +54,8 @@ int main(int argc, char **argv)
     uint8_t *lgt = slurp(path, &size);
     if (lgt == NULL) return fprintf(stderr, "cannot read %s\n", path), 1;
     const uint32_t nodes = (uint32_t)(lgt[0] | lgt[1] << 8 | lgt[2] << 16 | (uint32_t)lgt[3] << 24);
-    PsxLight light = { 0 };   /* psx_light_parse sets only the rows: the flags must start at 0 or the CD is read mirrored */
-    if (!psx_light_parse(lgt, size, nodes, &light)) return fprintf(stderr, "%s does not parse as %u nodes\n", path, nodes), 1;
+    TrackNodeLight light = { 0 };   /* psx_lgt_parse sets only the rows: the flags must start at 0 or the CD is read mirrored */
+    if (!psx_lgt_parse(lgt, size, nodes, &light)) return fprintf(stderr, "%s does not parse as %u nodes\n", path, nodes), 1;
     snprintf(path, sizeof path, "%s/Z%s%c.LGS", argv[1], track, letter);
     size_t lgs_size;
     uint8_t *text = slurp(path, &lgs_size);
@@ -70,9 +72,9 @@ int main(int argc, char **argv)
     for (uint32_t n = 0; n <= nodes; n++) {
         float r[3] = { 1, 1, 1 };
         int dark = 0;
-        const int b = n < nodes ? psx_light_byte(&light, n, 0) : 255;
+        const int b = n < nodes ? track_node_light_byte(&light, n, 0) : 255;
         if (n < nodes) {
-            psx_lgs_car_ratio(have ? &lgs : NULL, nodes, (int32_t)n, b, 16, r);
+            light_tint_car_ratio(have ? &lgs : NULL, nodes, (int32_t)n, b, 16, r);
             dark = lowest(r) < limit;
         }
         if (dark) {
@@ -84,14 +86,14 @@ int main(int argc, char **argv)
         } else if (run >= 0) {
             printf("  dark run nodes %d..%d (%d): lowest ratio %.2f, LGT centre byte %d..%d, %d of them in a script context; first node's 11 bytes:", run, (int)n - 1,
                    (int)n - run, run_low, byte_lo, byte_hi, ctx_nodes);
-            for (int p = 0; p < PSX_LIGHT_POINTS; p++) printf(" %d", psx_light_byte(&light, (uint32_t)run, p));
+            for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) printf(" %d", track_node_light_byte(&light, (uint32_t)run, p));
             printf("\n");
             runs++;
             run = -1;
         }
     }
     printf("  %d dark runs under %.0f%%\n", runs, limit * 100.0f);
-    psx_light_free(&light);
+    track_node_light_free(&light);
     free(lgt);
     free(text);
     return 0;

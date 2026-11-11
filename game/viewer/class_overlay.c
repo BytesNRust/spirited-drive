@@ -5,7 +5,7 @@
 
 #include <string.h>
 
-enum { FIRST_MARK = PSX_CLASS_DASH, LAST_MARK = PSX_CLASS_LIT_COLOUR + PSX_CLASS_LIT_COLOURS - 1 };
+enum { FIRST_MARK = LIGHT_CLASS_DASH, LAST_MARK = LIGHT_CLASS_LIT_COLOUR + LIGHT_CLASS_LIT_COLOURS - 1 };
 
 /* a class that changes the mask is 1..15: a byte with its high nibble 0 that is not 0. Eight bytes at a time: a word none of whose bytes has a zero
  * high nibble (0xff, the "nothing drawn" class, among them) holds no mark. */
@@ -35,9 +35,9 @@ void class_overlay_rows(const uint8_t *layer, int width, int height, uint8_t *ma
 /* the mask byte a class makes, or -1 when it leaves the byte alone */
 static int mark_value(uint8_t c)
 {
-    if (c == PSX_CLASS_DASH) return 2;
-    if (c == PSX_CLASS_HUD) return 0;
-    if (c >= PSX_CLASS_LIT && c <= LAST_MARK) return c;
+    if (c == LIGHT_CLASS_DASH) return 2;
+    if (c == LIGHT_CLASS_HUD) return 0;
+    if (c >= LIGHT_CLASS_LIT && c <= LAST_MARK) return c;
     return -1;
 }
 

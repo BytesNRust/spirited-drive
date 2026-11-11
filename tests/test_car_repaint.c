@@ -162,7 +162,7 @@ static void test_dither(void)
     CHECK_EQ_INT(pal[3 * 20 + 1], 70);                  /* and the entry it shows keeps its colour */
 }
 
-/* a near-black body's pairs are pulled towards the colour the main tone maps to, as the catalogue paints are: a PS1 body's bright
+/* a near-black body's pairs are pulled towards the colour the main tone maps to, as the catalogue paints are: a console body's bright
  * violet on a grey cover's highlights would streak */
 static void test_pairs_soft(void)
 {
@@ -392,7 +392,7 @@ static void test_a_fixed_black_texel_takes_the_bodys_tone(void)
             for (int c = 0; c < 3; c++) CHECK(abs((int)f.pal[3 * f.body[i] + c] - (int)body[c]) <= 2);
 }
 
-/* the PS1 pairs leave a colour far darker than the darkest pair; under a mask's paint it is mapped all the same */
+/* the console version pairs leave a colour far darker than the darkest pair; under a mask's paint it is mapped all the same */
 static void test_mask_pairs(void)
 {
     Fixture f;

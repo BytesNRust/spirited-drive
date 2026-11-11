@@ -83,8 +83,8 @@ static void bind_track(TrackRender *r, const Tri *tri, const TrackArt *art)
                        TRACK_MAX_VERTICES, 0, 0, r->entries, r->object_world, TRACK_MAX_OBJECT_VERTICES,
                        { r->descriptors, r->records, (int32_t)count, 0, 0, 0, 0, 0, -1, 0, circuit,
                          circuit ? tri->ring_nodes - 1u : 0xFFFFFFFFu, 0 },
-                       0, -1, 0, r->psx != NULL ? r->light_vertex : NULL, r->psx, r->psx != NULL ? r->tunnel_vertex : NULL,
-                       r->psx != NULL ? r->vertex_node : NULL, r->psx != NULL ? r->vertex_point : NULL };
+                       0, -1, 0, r->node_light != NULL ? r->light_vertex : NULL, r->node_light, r->node_light != NULL ? r->tunnel_vertex : NULL,
+                       r->node_light != NULL ? r->vertex_node : NULL, r->node_light != NULL ? r->vertex_point : NULL };
     r->draw_segments = TRACK_DRAW_SEGMENTS;
     r->window = (TrackCacheWindow){ WINDOW_HEAD, 0, WINDOW_BEHIND, WINDOW_AHEAD,
                                     circuit ? (int32_t)tri->ring_segments : STAGE_RING,
@@ -99,10 +99,10 @@ void track_render_set_ring(TrackRender *r, int32_t records)
     if (track_cache_records() != before) r->window.head = WINDOW_HEAD, r->build.first_node = -1;   /* loaded and built again from the camera's segment */
 }
 
-void track_render_set_light(TrackRender *r, const PsxLight *light)
+void track_render_set_light(TrackRender *r, const TrackNodeLight *light)
 {
-    if (light == r->psx) return;
-    r->psx = light;
+    if (light == r->node_light) return;
+    r->node_light = light;
     r->build.light = light;
     r->build.light_out = light != NULL ? r->light_vertex : NULL;
     r->build.tunnel_out = light != NULL ? r->tunnel_vertex : NULL;
@@ -113,17 +113,17 @@ void track_render_set_light(TrackRender *r, const PsxLight *light)
 
 void track_render_relight(TrackRender *r)
 {
-    if (r->psx == NULL || r->psx->pool == NULL) return;
+    if (r->node_light == NULL || r->node_light->pool == NULL) return;
     int32_t count = r->build.world_next;
     if (count > TRACK_MAX_VERTICES) count = TRACK_MAX_VERTICES;
     for (int32_t i = 0; i < count; i++) {
-        if (r->psx->pool->cone) {   /* port (headlight_cone): each vertex lit by the cones at its own place */
+        if (r->node_light->pool->cone) {   /* port (headlight_cone): each vertex lit by the cones at its own place */
             const double at[2] = { r->build.world[i][0] / 65536.0, r->build.world[i][2] / 65536.0 };
-            r->light_vertex[i] = psx_light_at_xz(r->psx, r->vertex_node[i], r->vertex_point[i], at);
+            r->light_vertex[i] = track_node_light_at_xz(r->node_light, r->vertex_node[i], r->vertex_point[i], at);
         } else {
-            r->light_vertex[i] = psx_light_at(r->psx, r->vertex_node[i], r->vertex_point[i]);
+            r->light_vertex[i] = track_node_light_at(r->node_light, r->vertex_node[i], r->vertex_point[i]);
         }
-        r->tunnel_vertex[i] = (uint8_t)psx_light_vertex_class(r->psx, r->vertex_node[i], r->vertex_point[i]);
+        r->tunnel_vertex[i] = (uint8_t)track_node_light_vertex_class(r->node_light, r->vertex_node[i], r->vertex_point[i]);
     }
 }
 
@@ -381,7 +381,7 @@ static void point_screen(void *ctx, const int32_t world[3], int32_t camera[3], i
     track_point_screen(g->cam, g->ctx, world, camera, screen);
 }
 
-/* port (PS1 light): the polygon the road's draws paint is a lit one while light_now says so; the sink hears of it for the
+/* port (baked light): the polygon the road's draws paint is a lit one while light_now says so; the sink hears of it for the
  * length of the draw */
 static const uint8_t *light_now_of(const Glue *g) { return g->light_now != NULL ? g->light_now : g->r->light_now; }
 
@@ -458,26 +458,26 @@ static void no_alternate(void *ctx, int32_t segments, int32_t node, int32_t near
     (void)ctx, (void)segments, (void)node, (void)near;
 }
 
-/* port (PS1 light): the object being drawn stands at the walker's node and takes its terrain's light */
+/* port (baked light): the object being drawn stands at the walker's node and takes its terrain's light */
 static void object_light_on(const Glue *g, int32_t resource)
 {
-    if (track_light_hook == NULL || g->r->psx == NULL) return;
+    if (track_light_hook == NULL || g->r->node_light == NULL) return;
     track_light_xz_ok = 0;   /* port (headlight_cone): an object is lit as a whole */
     const uint32_t node = (uint32_t)(g->walk != NULL ? g->walk : &g->r->build.walk)->node;
-    const int cone = g->r->psx->pool != NULL && g->r->psx->pool->cone && track_port_object_at != NULL;   /* port (headlight_cone): the object at its own place in the cones */
+    const int cone = g->r->node_light->pool != NULL && g->r->node_light->pool->cone && track_port_object_at != NULL;   /* port (headlight_cone): the object at its own place in the cones */
     const double at[2] = { cone ? track_port_object_at[0] / 65536.0 : 0.0, cone ? track_port_object_at[2] / 65536.0 : 0.0 };
-    uint8_t v = cone ? psx_light_node_xz(g->r->psx, node, at) : psx_light_node(g->r->psx, node);
-    if (g->r->psx->object_floor > v) v = g->r->psx->object_floor;   /* port (vegas_objects): the buildings stay lit while the road is dark */
-    if (g->r->psx->lamp_n > 0 && track_port_object_at != NULL)   /* port (`lamp`): the object at its own place in the lamps' pools, the rows' bake only reaching its terrain's points */
-        v = psx_light_object_lamp(g->r->psx, node, track_port_object_at[0] / 65536.0, track_port_object_at[2] / 65536.0, v);
-    v = finish_gate_light_level(g->r->psx->gate_board, resource, v);   /* port (finish_gate_light): the stage gate keeps its light */
+    uint8_t v = cone ? track_node_light_node_xz(g->r->node_light, node, at) : track_node_light_node(g->r->node_light, node);
+    if (g->r->node_light->object_floor > v) v = g->r->node_light->object_floor;   /* port (vegas_objects): the buildings stay lit while the road is dark */
+    if (g->r->node_light->lamp_n > 0 && track_port_object_at != NULL)   /* port (`lamp`): the object at its own place in the lamps' pools, the rows' bake only reaching its terrain's points */
+        v = track_node_light_object_lamp(g->r->node_light, node, track_port_object_at[0] / 65536.0, track_port_object_at[2] / 65536.0, v);
+    v = finish_gate_light_level(g->r->node_light->gate_board, resource, v);   /* port (finish_gate_light): the stage gate keeps its light */
     const uint8_t corners[4] = { v, v, v, v };
     track_light_hook(corners);
 }
 
 static void object_light_off(const Glue *g)
 {
-    if (track_light_hook != NULL && g->r->psx != NULL) track_light_hook(NULL);
+    if (track_light_hook != NULL && g->r->node_light != NULL) track_light_hook(NULL);
 }
 
 static void object_model(void *user, int32_t model, const int32_t position[3], int32_t angle)
@@ -646,7 +646,7 @@ void track_render_draw(TrackRender *r, const TrackCamera *cam, const DrawContext
     const TrackFarInputs far = { r->entries, r->build.segment_mask, r->cache, r->vertex_count, mirrored, 0,
                                  { (const int32_t (*)[3])r->world, (const int32_t (*)[3])r->camera,
                                    (const int32_t (*)[2])r->screen, ctx->near, ctx->clip,
-                                   r->psx != NULL ? r->light_vertex : NULL, r->light_now, r->psx != NULL ? r->tunnel_vertex : NULL, r->psx != NULL ? r->vertex_node : NULL },
+                                   r->node_light != NULL ? r->light_vertex : NULL, r->light_now, r->node_light != NULL ? r->tunnel_vertex : NULL, r->node_light != NULL ? r->vertex_node : NULL },
                                  &fence_ops, &objects, &r->quarter };
     /* 00449f50 reads the camera's layout; the clip holds its edges */
     const ViewLayout layout = { 0, 0, 0, 0, 0, 0, ctx->clip.x0, ctx->clip.y0, x_sub(ctx->clip.x1, ctx->clip.x0),

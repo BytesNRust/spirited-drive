@@ -1,5 +1,6 @@
 /* port (car colours): see car_colours.h. */
 #include "game/race/car_colours.h"
+#include "game/race/light_tint.h"
 #include "game/race/car_shine.h"
 #include "game/sys/palette.h"
 #include <math.h>
@@ -20,7 +21,7 @@ enum {
     LIGHT_DARK_WEIGHT_DIV = 2    /* a dark body's lifted tone is wanted half as much: its own tones are the track's few, and at a sixth it lost its slot to the rest */
 };
 
-static const float DARK_STEP[] = { 0.78f, 0.60f };   /* the light ratios the PS1 light's dusk and shadow bring (psx_lit_table) */
+static const float DARK_STEP[] = { 0.78f, 0.60f };   /* the light ratios the baked light's dusk and shadow bring (light_tint_lit_table) */
 static const float LIGHT_STEP[] = { 0.40f, 0.60f };  /* the envmap's lifts (level_t) the middle and upper levels of a flat panel's reflection ask for: levels 8 to 11 */
 
 typedef struct {
@@ -63,7 +64,7 @@ static void add_item(Items *it, const uint8_t rgb6[3], uint32_t weight)
     n->weight = weight;
 }
 
-/* the tone under a darker light: the PS1 light and the shadow take a tone to the nearest colour of its hue, which a palette of the track's
+/* the tone under a darker light: the baked light and the shadow take a tone to the nearest colour of its hue, which a palette of the track's
  * colours has few of, so the darker tones are wanted too */
 static void add_darkened(Items *it, const uint8_t rgb6[3], uint32_t weight)
 {

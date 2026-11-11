@@ -96,7 +96,7 @@ static void test_style(void)
     CHECK_EQ_INT(s->fog[1][50], 50);   /* now a green, nearest itself a step in: remade */
 }
 
-/* the PS1 look's forced dark fog: a light foot (a hazy horizon) gives the dark colour, and the foot's own again when it is cleared */
+/* the light effects' forced dark fog: a light foot (a hazy horizon) gives the dark colour, and the foot's own again when it is cleared */
 static void test_dark_fog_forced(void)
 {
     make_art();
@@ -111,7 +111,7 @@ static void test_dark_fog_forced(void)
     CHECK(s->fog[MODERN_FOG_LEVELS - 1][255] > 40);
 }
 
-/* port (the PS1 look): the weather fog is the distance fog's dark on a dark track, the weather's own colour otherwise */
+/* port (the light effects): the weather fog is the distance fog's dark on a dark track, the weather's own colour otherwise */
 static void test_weather_fog_dark(void)
 {
     make_art();

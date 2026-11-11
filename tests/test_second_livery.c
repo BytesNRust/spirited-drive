@@ -1,4 +1,4 @@
-/* The PS1 second livery's rules on synthetic colours (no CD data): the colour map by luminance rank, the palette remap
+/* The console second livery's rules on synthetic colours (no CD data): the colour map by luminance rank, the palette remap
  * for both palette types, the choice a rival makes, and the extras.cfg and port.cfg keys that switch it on. */
 #include "game/race/car_livery.h"
 #include "game/sys/port_extras.h"
@@ -112,14 +112,14 @@ static void test_pick(void)
 static void test_cfg(void)
 {
     PortExtras d = port_extras_defaults();
-    CHECK_EQ_INT(d.psx_liveries, 0);
-    const char *on = "psx_liveries=1\n";
-    CHECK_EQ_INT(port_extras_parse(on, strlen(on)).psx_liveries, 1);
-    const char *junk = "psx_liveries=2\n";
-    CHECK_EQ_INT(port_extras_parse(junk, strlen(junk)).psx_liveries, 0);
+    CHECK_EQ_INT(d.extra_liveries, 0);
+    const char *on = "extra_liveries=1\n";
+    CHECK_EQ_INT(port_extras_parse(on, strlen(on)).extra_liveries, 1);
+    const char *junk = "extra_liveries=2\n";
+    CHECK_EQ_INT(port_extras_parse(junk, strlen(junk)).extra_liveries, 0);
     char text[1024];
     CHECK(port_extras_format(&d, text, sizeof text) > 0);
-    CHECK(strstr(text, "psx_liveries=0\n") != NULL);
+    CHECK(strstr(text, "extra_liveries=0\n") != NULL);
 
     PortSettings s = port_settings_defaults();
     CHECK_EQ_INT((int)strlen(s.psx_dir), 0);
@@ -147,12 +147,12 @@ static void test_select(void)
     p = port_extras_parse(bad, strlen(bad));
     CHECK_EQ_INT(p.car_paint[0], 1);
     CHECK_EQ_INT(p.car_paint[2], 0);
-    d.car_paint[2] = 4, d.car_paint[11] = PAINT_PS1;
+    d.car_paint[2] = 4, d.car_paint[11] = PAINT_SECOND;
     char text[512];
     CHECK(port_extras_format(&d, text, sizeof text) > 0);
     CHECK(strstr(text, "car_paint=004000000001\n") != NULL);
     CHECK_EQ_INT(port_extras_parse(text, strlen(text)).car_paint[2], 4);
-    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).car_paint[11], PAINT_PS1);
+    CHECK_EQ_INT(port_extras_parse(text, strlen(text)).car_paint[11], PAINT_SECOND);
 
     /* the swatch: the mapped colour the alternate uses most; none when it uses none of them */
     static uint32_t alternate[PSX_COLOURS];

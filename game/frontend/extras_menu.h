@@ -43,7 +43,7 @@ enum { GROUP_CHEATS = 0, GROUP_UNLOCKS, GROUP_IN_RACE, GROUP_MISC };   /* the gr
 enum {
     ROW_EXPLODE = 0, ROW_NITRO, ROW_TURBO, ROW_WARRIOR,                                      /* Cheats */
     ROW_RIVAL, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_LUNAR, ROW_LUNAR_GRAVITY, ROW_UNLOCK,   /* Unlocks & mods */
-    ROW_PSX_LIVERY,                                /* port: Unlocks & mods' last, the car colours: the PS1 liveries and the catalogue paints (port_extras.h) */
+    ROW_EXTRA_LIVERY,                                /* port: Unlocks & mods' last, the car colours: the console version liveries and the catalogue paints (port_extras.h) */
     ROW_UNITS, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS,   /* In-race options */
     ROW_STATS,                                     /* port: In-race options' last, the race's F12 switch */
     ROW_DASH_BOX,                                  /* port: In-race options' the dash's map box (port_extras.h) */

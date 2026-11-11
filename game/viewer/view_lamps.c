@@ -1,4 +1,4 @@
-/* port (the tunnel lamps, psx_lamps.h; psx_flares): the lamp textures of the frame, their tables and the halos drawn round them, moved out of
+/* port (the tunnel lamps, tunnel_lamp_textures.h; lamp_flares): the lamp textures of the frame, their tables and the halos drawn round them, moved out of
  * ported_view.c. The state is the lamps the track file names, the bitmaps they are drawn on and the halos noted while the frame was drawn. */
 #include "game/viewer/view_lamps.h"
 
@@ -10,24 +10,24 @@
 #include <math.h>
 #include <string.h>
 
-/* port (the tunnel lamps, psx_lamps.h): the lamp textures of the frame, by their bitmaps, and the darkening tables that let their fitting's
+/* port (the tunnel lamps, tunnel_lamp_textures.h): the lamp textures of the frame, by their bitmaps, and the darkening tables that let their fitting's
  * colours through; remade with `lit_tables` */
 enum { LAMPS_MAX = 4, LAMP_VARIANTS = 8 };
-static PsxLamp lamp_spec[LAMPS_MAX];
+static TunnelLampTexture lamp_spec[LAMPS_MAX];
 static int lamp_count;
 static const FshEntry *lamp_bitmap[LAMPS_MAX][LAMP_VARIANTS];
 static uint8_t lamp_tables[LAMPS_MAX][MODERN_FOG_LEVELS][256];
 
-void ported_view_set_psx_lamps(const PsxLamp *lamps, int count)
+void ported_view_set_tunnel_lamps(const TunnelLampTexture *lamps, int count)
 {
     lamp_count = lamps != NULL && count > 0 ? (count < LAMPS_MAX ? count : LAMPS_MAX) : 0;
     for (int i = 0; i < lamp_count; i++) lamp_spec[i] = lamps[i];
 }
 
-/* port (psx_flares): the tunnel lamps' glow. Each lamp texture's polygon drawn notes where the lamp's rectangle lies on the screen (the rectangle's centre
+/* port (lamp_flares): the tunnel lamps' glow. Each lamp texture's polygon drawn notes where the lamp's rectangle lies on the screen (the rectangle's centre
  * across the polygon's corners); once the 3D is done a halo is drawn at each that still shows one of the lamp's own colours at that pixel (nothing nearer
  * covers it; the colours stay unchanged through the lamp tables, shared entries or not), by day and by night. */
-static int flare_on;   /* port (psx_flares): a soft halo round a lit brake light and the tunnel lamps (lamp_flare.h) */
+static int flare_on;   /* port (lamp_flares): a soft halo round a lit brake light and the tunnel lamps (lamp_flare.h) */
 enum { TUNNEL_FLARES_MAX = 128 };
 typedef struct { int lamp, x, y, size; } TunnelFlare;
 static TunnelFlare tunnel_flares[TUNNEL_FLARES_MAX];
@@ -40,7 +40,7 @@ void view_lamps_note(const FshEntry *texture, const int32_t uv[8], const int32_t
     if (!flare_on || tunnel_flare_count >= TUNNEL_FLARES_MAX) return;
     const int lamp = view_lamps_of(texture);
     if (lamp < 0) return;
-    const PsxLamp *const l = &lamp_spec[lamp];
+    const TunnelLampTexture *const l = &lamp_spec[lamp];
     const int tw = (int16_t)texture->width, th = (int16_t)texture->height;
     const int x1 = l->rect[2] < tw ? l->rect[2] + 1 : tw, y1 = l->rect[3] < th ? l->rect[3] + 1 : th;
     const double cu = 65536.0 * (l->rect[0] + x1) / 2, cv = 65536.0 * (l->rect[1] + y1) / 2;
@@ -77,7 +77,7 @@ int view_lamps_of(const FshEntry *texture)
     return -1;
 }
 
-/* port (psx_flares): the lamp textures and their colours when the light's tables are not made (the light is off but the lamps are set) */
+/* port (lamp_flares): the lamp textures and their colours when the light's tables are not made (the light is off but the lamps are set) */
 void view_lamps_textures(const TrackArt *art)
 {
     for (int i = 0; i < lamp_count; i++) {
@@ -87,7 +87,7 @@ void view_lamps_textures(const TrackArt *art)
             lamp_bitmap[i][v] = t != NULL && t->present ? &t->bitmap : NULL;
         }
         const FshEntry *t = lamp_bitmap[i][0];
-        psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, lamp_exempt_set[i]);
+        tunnel_lamp_texture_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, lamp_exempt_set[i]);
         int best = -1, best_sum = -1;
         for (int c = 0; c < 256; c++) {
             const uint8_t *const q = art->palette + 3 * c;
@@ -112,8 +112,8 @@ void view_lamps_make_tables(const TrackArt *art, const uint8_t (*tunnel_tables)[
     for (int i = 0; i < lamp_count; i++) {   /* the lamps' tables from the world's and the colours each shows (cheap: a texture and 16 tables) */
         const FshEntry *t = lamp_bitmap[i][0];
         uint8_t exempt[256];
-        psx_lamp_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
-        psx_lamp_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
+        tunnel_lamp_texture_exempt(&lamp_spec[i], t != NULL ? t->payload : NULL, t != NULL ? t->width : 0, t != NULL ? t->height : 0, exempt);
+        tunnel_lamp_texture_tables(exempt, (const uint8_t (*)[256])tunnel_tables, MODERN_FOG_LEVELS, lamp_tables[i]);   /* lamps hang in tunnels: their dim parts are cast too */
         memcpy(lamp_exempt_set[i], exempt, sizeof exempt);
         int best = -1, best_sum = -1;
         for (int c = 0; c < 256; c++) {
@@ -126,7 +126,7 @@ void view_lamps_make_tables(const TrackArt *art, const uint8_t (*tunnel_tables)[
     }
 }
 
-/* port (psx_flares): the halos of the tunnel lamps noted this frame (tunnel_flare_note), over the finished 3D */
+/* port (lamp_flares): the halos of the tunnel lamps noted this frame (tunnel_flare_note), over the finished 3D */
 void view_lamps_draw(const QuadTarget *t, const uint8_t palette[768])
 {
     if (!flare_on || tunnel_flare_count <= 0 || t == NULL || t->pixels == NULL) return;

@@ -249,7 +249,7 @@ static void test_yellow_marks_make_lamps(void)
     write_rgba(ROOT "/env", "TYEL", "slot_08.png", red, 4, 4);   /* a mask of red only: reflective, no lamp */
     setenv("TNFS_TRACK_MASKS", ROOT "/env", 1);
     CHECK_EQ_INT(track_masks_set_race("TYEL", &art, 0), 2);   /* both masks are kept (the yellow one has no reflective texel, as the reflect pass ignores) */
-    const PsxLamp *lamps = NULL;
+    const TunnelLampTexture *lamps = NULL;
     CHECK_EQ_INT(track_lamp_marks("tyel", &lamps), 1);   /* any case */
     if (lamps != NULL) {
         CHECK_EQ_INT(lamps[0].slot, 3);
@@ -261,7 +261,7 @@ static void test_yellow_marks_make_lamps(void)
         CHECK_EQ_INT(lamps[0].idx[0], 9);   /* three texels */
         CHECK_EQ_INT(lamps[0].idx[1], 4);   /* one */
         uint8_t exempt[256];
-        psx_lamp_exempt(&lamps[0], pixels, 4, 4, exempt);
+        tunnel_lamp_texture_exempt(&lamps[0], pixels, 4, 4, exempt);
         CHECK(exempt[9] && exempt[4] && !exempt[7] && !exempt[255]);   /* the colours under the yellow stay bright, the wall's 7 does not (rect or no rect) */
     }
     CHECK_EQ_INT(track_lamp_marks("TOTHER", NULL), 0);   /* another track has none */

@@ -1,6 +1,6 @@
 #include "game/viewer/tunnel_cells.h"
 
-#include "game/race/psx_light.h"
+#include "game/race/track_node_light.h"
 
 #include <math.h>
 
@@ -26,7 +26,7 @@ void tunnel_cells_piece(TunnelPiece *out, int along, int pieces, int across, int
 
 int tunnel_cells_plan(const uint32_t node[4], int *along)
 {
-    const uint32_t none = PSX_LIGHT_NO_NODE;
+    const uint32_t none = TRACK_NODE_LIGHT_NO_NODE;
     if (node[0] == none || node[1] == none || node[2] == none || node[3] == none) return 0;
     uint32_t far_a, far_b;
     if (node[0] == node[3] && node[1] == node[2]) *along = 0, far_a = node[0], far_b = node[1];

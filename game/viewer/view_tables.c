@@ -1,4 +1,4 @@
-/* port (the PS1 look's light on the road): the polygon's darkness level, the street lamps' and windows' boards, the scene tones' and the lamps' tables, the reflectors' shine, taken out of ported_view.c: the draw hooks the track
+/* port (the light effects' light on the road): the polygon's darkness level, the street lamps' and windows' boards, the scene tones' and the lamps' tables, the reflectors' shine, taken out of ported_view.c: the draw hooks the track
  * is drawn through (draw_uv). ported_view.c makes the tables (light_tables_prepare) and hands the hooks to the track; what this file takes of the view is in view_shared.h. */
 
 #include "game/race/reflector.h"
@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* port (the PS1 look's light): the terrain polygon being drawn carries one darkness level, the mean of its corners'
+/* port (the light effects' light): the terrain polygon being drawn carries one darkness level, the mean of its corners'
  * intensities in the fog tables' 16 steps (0 = full light, nothing changes); a lit polygon is drawn through the mappers'
  * remap mode with that level's table, which the recorder keeps by pointer (the tables live until the next frame) */
 uint8_t lit_tables[MODERN_FOG_LEVELS][256];
@@ -44,9 +44,9 @@ void light_hook(const uint8_t corners[4])
     lit_level = ((255 - mean) * (MODERN_FOG_LEVELS - 1) + 127) / 255;
 }
 
-const float NO_CAST[3] = { 1, 1, 1 };   /* (the tunnel's own cast and least light: psx_light_tunnel_look) */
+const float NO_CAST[3] = { 1, 1, 1 };   /* (the tunnel's own cast and least light: track_node_light_tunnel_look) */
 
-/* port (night, psx_headlights; street_lamp.h): the street lamp's board, whose entries of its own the light tables leave alone as the lamps' colours are */
+/* port (night, headlight_beams; street_lamp.h): the street lamp's board, whose entries of its own the light tables leave alone as the lamps' colours are */
 const FshEntry *street_bitmap[STREET_BOARDS];
 int street_scenery[STREET_BOARDS], street_count;
 uint8_t street_entry[3];
@@ -80,16 +80,16 @@ void street_halo_sync(void) { street_halo_boards(street_bitmap, street_count, st
 
 /* port (track light file, `tone`): the tables of a scene tone, one set for the open road and one for a tunnel's polygons, each made when its first polygon asks (a track has 16 tones at most:
  * 4 KB a set, about 2.5 ms to make) from what the table block below saved (the palette and the tints it was made with); the block drops them all when any of that changes */
-static uint8_t tone_tables[PSX_LIGHT_TONES][2][MODERN_FOG_LEVELS][256];
-uint8_t tone_made[PSX_LIGHT_TONES][2];
+static uint8_t tone_tables[TRACK_NODE_LIGHT_TONES][2][MODERN_FOG_LEVELS][256];
+uint8_t tone_made[TRACK_NODE_LIGHT_TONES][2];
 uint8_t tone_palette[768];
 float tone_lit_tint[3], tone_tunnel_tint[3], tone_cast[3];
 int tone_have_cast;
 float tone_min_light;
-float tone_mean;   /* the time's mean tint (drive_light_tint), which a zone's own light is taken over (psx_light_tunnel_look) */
+float tone_mean;   /* the time's mean tint (drive_light_tint), which a zone's own light is taken over (track_node_light_tunnel_look) */
 
 /* the tint a tone gives: each channel 1 at no strength, the tone's own (0..1) at full */
-static void tone_tint_of(const PsxLightTone *tone, float out[3])
+static void tone_tint_of(const TrackNodeLightTone *tone, float out[3])
 {
     const float p = (float)tone->percent / 100.0f;
     for (int k = 0; k < 3; k++) out[k] = 1.0f + ((float)tone->rgb[k] / 255.0f - 1.0f) * p;
@@ -97,12 +97,12 @@ static void tone_tint_of(const PsxLightTone *tone, float out[3])
 
 static uint8_t (*tone_get(int id, int in_tunnel))[256]
 {
-    if (psx_light == NULL || id < 0 || id >= psx_light->tone_count) return NULL;
-    const PsxLightTone *const slot = &psx_light->tone[id];
+    if (light_effects == NULL || id < 0 || id >= light_effects->tone_count) return NULL;
+    const TrackNodeLightTone *const slot = &light_effects->tone[id];
     if (slot->look && !in_tunnel) return NULL;   /* port (tunnel zone looks): a zone's look is a tunnel's tables; a polygon that is not in a tunnel has the road's */
     uint8_t (*t)[256] = tone_tables[id][in_tunnel != 0];
     if (tone_made[id][in_tunnel != 0]) return t;
-    if (slot->look) {   /* the zone's own light and colour, as the time's look is made (psx_light_tunnel_look): the light over the time's own tint, the colour as the cast */
+    if (slot->look) {   /* the zone's own light and colour, as the time's look is made (track_node_light_tunnel_look): the light over the time's own tint, the colour as the cast */
         const float gain = (float)(tone_mean > 0.05f ? (double)slot->light / 100.0 / (double)tone_mean : (double)slot->light / 100.0);
         const float grey[3] = { gain, gain, gain };
         modern_tunnel_tables(tone_palette, grey, slot->cast, 0.0f, t);
@@ -110,7 +110,7 @@ static uint8_t (*tone_get(int id, int in_tunnel))[256]
         return t;
     }
     float tint[3];
-    tone_tint_of(&psx_light->tone[id], tint);
+    tone_tint_of(&light_effects->tone[id], tint);
     if (in_tunnel && tone_have_cast) {   /* a tunnel's polygon: its own cast through the tone */
         const float cast[3] = { tone_cast[0] * tint[0], tone_cast[1] * tint[1], tone_cast[2] * tint[2] };
         modern_tunnel_tables(tone_palette, tone_tunnel_tint, cast, tone_min_light, t);
@@ -171,19 +171,19 @@ static const uint8_t (*lamp_add_get(const float rgb[3], int bucket, int steps, i
  * grades per pixel through the steps as the heat does between the corners. */
 static int lamp_polygon_in(int tunnel, float heat[4], const uint8_t (**top)[256])
 {
-    if (psx_light == NULL || psx_light->lamp_n <= 0 || !track_light_xz_ok || ((track_light_tunnel & 7) == 1) != (tunnel != 0) || !tables_made) return 0;
+    if (light_effects == NULL || light_effects->lamp_n <= 0 || !track_light_xz_ok || ((track_light_tunnel & 7) == 1) != (tunnel != 0) || !tables_made) return 0;
     int idx[LAMP_NEAR];
-    int n = psx_light_lamps_near(psx_light, track_light_node, idx, LAMP_NEAR);
+    int n = track_node_light_lamps_near(light_effects, track_light_node, idx, LAMP_NEAR);
     if (tunnel) {   /* port (tunnel_lamps): a tunnel's polygons take the tunnel's lamps only (the street lamps' light stays out of it) */
         int kept = 0;
         for (int i = 0; i < n; i++)
-            if (psx_light->lamps[idx[i]].tunnel) idx[kept++] = idx[i];
+            if (light_effects->lamps[idx[i]].tunnel) idx[kept++] = idx[i];
         n = kept;
     }
     if (n == 0) return 0;
     float rgb[4][3], strongest = 0.0f, mean[3] = { 0, 0, 0 };
     for (int k = 0; k < 4; k++) {
-        heat[k] = psx_light_lamp_at(psx_light, idx, n, track_light_xz[k][0], track_light_xz[k][1], rgb[k]);
+        heat[k] = track_node_light_lamp_at(light_effects, idx, n, track_light_xz[k][0], track_light_xz[k][1], rgb[k]);
         strongest = heat[k] > strongest ? heat[k] : strongest;
         for (int c = 0; c < 3; c++) mean[c] += rgb[k][c] * heat[k];
     }

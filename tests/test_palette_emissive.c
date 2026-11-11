@@ -2,6 +2,7 @@
 #include "tests/test.h"
 
 #include "game/race/psx_lgs.h"
+#include "game/race/light_tint.h"
 #include "game/sys/palette.h"
 #include "viewer/modern_road.h"
 
@@ -22,12 +23,12 @@ static void test_tint_keeps_the_entry(void)
     const float tint[3] = { 0.875f, 0.8f, 0.7f };
     uint8_t out[768];
     palette_emissive_set(NULL);
-    psx_tint_palette(pal, tint, out);
+    light_tint_palette(pal, tint, out);
     CHECK(out[3 * LAMP] != 251);   /* tinted as any */
     uint8_t exempt[256] = { 0 };
     exempt[LAMP] = 1;
     palette_emissive_set(exempt);
-    psx_tint_palette(pal, tint, out);
+    light_tint_palette(pal, tint, out);
     CHECK_EQ_INT(out[3 * LAMP], 251);
     CHECK_EQ_INT(out[3 * LAMP + 1], 20);
     CHECK_EQ_INT(out[3 * LAMP + 2], 20);
@@ -40,27 +41,27 @@ static void test_lit_table_keeps_the_entry(void)
     const float ratio[3] = { 0.5f, 0.5f, 0.5f };
     uint8_t table[256];
     palette_emissive_set(NULL);
-    psx_lit_table(pal, ratio, table);
+    light_tint_lit_table(pal, ratio, table);
     CHECK(table[LAMP] != LAMP);
     uint8_t exempt[256] = { 0 };
     exempt[LAMP] = 1;
     palette_emissive_set(exempt);
-    psx_lit_table(pal, ratio, table);
+    light_tint_lit_table(pal, ratio, table);
     CHECK_EQ_INT(table[LAMP], LAMP);
     CHECK(table[0x20] != 0x20);
     palette_emissive_set(NULL);
 }
 
-/* port (car_tunnel_match): the any-family table keeps what the table keeps (the emissive entry, the shadow and see-through texels), and with the family on it is psx_lit_table */
+/* port (car_tunnel_match): the any-family table keeps what the table keeps (the emissive entry, the shadow and see-through texels), and with the family on it is light_tint_lit_table */
 static void test_lit_table_any_family(void)
 {
     const float ratio[3] = { 1.6f, 1.6f, 1.6f };
     uint8_t plain[256], family[256], any[256], exempt[256] = { 0 };
     exempt[LAMP] = 1;
     palette_emissive_set(exempt);
-    psx_lit_table(pal, ratio, plain);
-    psx_lit_table_ex(pal, ratio, 0, family);
-    psx_lit_table_ex(pal, ratio, 1, any);
+    light_tint_lit_table(pal, ratio, plain);
+    light_tint_lit_table_ex(pal, ratio, 0, family);
+    light_tint_lit_table_ex(pal, ratio, 1, any);
     CHECK(memcmp(plain, family, sizeof plain) == 0);
     CHECK_EQ_INT(any[LAMP], LAMP);
     CHECK_EQ_INT(any[0xfe], 0xfe);
@@ -77,16 +78,16 @@ static void test_lit_table_floor(void)
     palette_emissive_set(exempt);
     const float ratio[3] = { 1.25f, 1.25f, 1.25f };
     const uint8_t add[3] = { 24, 24, 30 };
-    psx_lit_table_ex(dark, ratio, 1, plain);
-    psx_lit_table_floor(dark, ratio, 1, NULL, none);
-    psx_lit_table_floor(dark, ratio, 1, add, floor_t);
+    light_tint_lit_table_ex(dark, ratio, 1, plain);
+    light_tint_lit_table_floor(dark, ratio, 1, NULL, none);
+    light_tint_lit_table_floor(dark, ratio, 1, add, floor_t);
     CHECK(memcmp(plain, none, sizeof plain) == 0);   /* no floor is the table as before */
     CHECK(dark[3 * plain[0]] < 5);                    /* black stays black without it */
     CHECK(dark[3 * floor_t[0]] >= 20 && dark[3 * floor_t[0] + 2] >= 26);   /* and is lifted by it, a hair bluer */
     CHECK(dark[3 * floor_t[40]] > dark[3 * plain[40]]);
     /* a dark chromatic entry (a tyre, a dark paint's shade) has no lighter neighbour of its own family in a ramp of greys: with a floor it is lifted all the same, not held to itself */
     dark[3 * 10] = 30, dark[3 * 10 + 1] = 8, dark[3 * 10 + 2] = 8;
-    psx_lit_table_floor(dark, ratio, 0, add, floor_t);
+    light_tint_lit_table_floor(dark, ratio, 0, add, floor_t);
     CHECK(floor_t[10] != 10);
     CHECK(dark[3 * floor_t[10]] + dark[3 * floor_t[10] + 1] > 30 + 8);
     CHECK_EQ_INT(floor_t[LAMP], LAMP);

@@ -14,11 +14,11 @@ typedef struct {
     void (*road_contact)(void *ctx, Car *car);  /* 00428918(car, 1): the road plane under it (car_road_contact) */
     /* 004596a8 (car; forward, side, point) for the followed car */
     void (*followed)(void *ctx, Car *car, const int32_t forward[3], const int32_t side[3], const int32_t point[3]);
-    /* port (psx_shadow; NULL the exe's): the box's corners nearer than the view's plane are slid along its edges to it (follow_arm_clip_quad's contract)
+    /* port (car_soft_shadow; NULL the exe's): the box's corners nearer than the view's plane are slid along its edges to it (follow_arm_clip_quad's contract)
      * instead of projected to INT32_MIN, which lost the whole shadow of a car whose centre passes the culls with its back corners behind the lens,
      * and a car whose centre is nearer than 0x20 keeps the front of its box */
     int (*clip_quad)(const int32_t *const in[4], int32_t plane, int32_t out[4][3]);
-    /* port (psx_shadow, with clip_quad): the exe's 45 degree cone (|x| <= z of the car's centre) is the view's own frustum, tested on the box's cut
+    /* port (car_soft_shadow, with clip_quad): the exe's 45 degree cone (|x| <= z of the car's centre) is the view's own frustum, tested on the box's cut
      * corners (a car in a wide field, or just behind the lens, keeps its shadow); 0 the exe's cone */
     int frustum;
 } CarShadowOps;

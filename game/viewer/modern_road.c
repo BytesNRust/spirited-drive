@@ -21,7 +21,7 @@ typedef struct {
     Paint paint;
     uint8_t colour;
     float u_lo, u_hi, v_lo, v_hi;   /* the polygon's own uv: a pixel past its edge (EDGE_GROW) reads no texel beyond */
-    const uint8_t (*lit)[256];      /* port (PS1 light): MODERN_FOG_LEVELS tables a pixel's darkness picks from; NULL none */
+    const uint8_t (*lit)[256];      /* port (baked light): MODERN_FOG_LEVELS tables a pixel's darkness picks from; NULL none */
     float dark[4];                  /* the darkness (0 light .. MODERN_FOG_LEVELS - 1) at each corner, in cam's order */
     const uint8_t (*warm)[256];     /* port (lamp_pool_tint): the tables of a lamp's full warmth, which a pixel takes where its heat says (NULL none: the lit tables alone) */
     float heat[4];                  /* the warmth (0..1) at each corner, in cam's order */
@@ -190,7 +190,7 @@ static int fog_level(float z, int x, int y)
     return l < 0 ? 0 : l >= MODERN_FOG_LEVELS ? MODERN_FOG_LEVELS - 1 : l;
 }
 
-/* port (PS1 light): the level of a pixel whose interpolated darkness is d, a dither between two levels as the fog's */
+/* port (baked light): the level of a pixel whose interpolated darkness is d, a dither between two levels as the fog's */
 static int dark_level(float d, int x, int y)
 {
     const float f = d + BAYER[y & 3][x & 3];
@@ -564,7 +564,7 @@ void modern_road_cell(const QuadTarget *q, const View *view, const FshEntry *tex
     draw_clipped(q, view, uv, cam, 4, &fill);
 }
 
-/* port (PS1 light): a road cell whose corners carry a darkness, drawn through `tables` a pixel at a time (replay_lit keeps
+/* port (baked light): a road cell whose corners carry a darkness, drawn through `tables` a pixel at a time (replay_lit keeps
  * the four floats in the last four words of the command) */
 static void replay_lit(const RasterCmd *c, const QuadTarget *whole, int32_t top, int32_t bottom)
 {

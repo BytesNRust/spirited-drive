@@ -1,4 +1,4 @@
-/* port (psx_flares): the halo round a car's lit lamps (the brake light, the reversing light, the headlights, the police car's red and blue), found in the rectangle of the car's projected vertices after
+/* port (lamp_flares): the halo round a car's lit lamps (the brake light, the reversing light, the headlights, the police car's red and blue), found in the rectangle of the car's projected vertices after
  * the car is drawn, and the pairs of lamps a far traffic or police car is given by its rectangle (traffic_halo, police_halo). */
 #ifndef TNFS_CAR_LAMP_HALO_H
 #define TNFS_CAR_LAMP_HALO_H

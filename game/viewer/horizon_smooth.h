@@ -24,7 +24,7 @@ typedef struct {
  * markers, never chosen. */
 void horizon_smooth_palette(HorizonSmooth *s, const uint8_t palette[768]);
 
-/* port (the PS1 sky, psx_sky_bitmap.h): the bitmap's texels index `decode`, a palette of its own, and the screen gets the colours
+/* port (the console version sky, psx_sky_bitmap.h): the bitmap's texels index `decode`, a palette of its own, and the screen gets the colours
  * of `target` (the race's, tinted as the world is shown): the table is made for `target` and a texel's own colour is the
  * target's nearest to its decode colour. Remade only when either changed; not for the same HorizonSmooth as _palette. */
 void horizon_smooth_sky(HorizonSmooth *s, const uint8_t decode[768], const uint8_t target[768]);

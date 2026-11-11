@@ -64,7 +64,7 @@ int car_repaint_fixed_black(const RepaintBank *bank, const uint8_t black[3], int
  * that is not a body texture is all matte). Nothing in the bank changes. Returns the number of texels marked paint; -1 for a palette type that is not 0x24 or 0x22. */
 int car_repaint_draft(const RepaintBank *bank, int floor, uint8_t *const keep[]);
 
-/* The PS1 livery's map: a colour (5 bits a channel) in `pairs` becomes the pair's `to`; a paint colour no pair names takes the
+/* The console livery's map: a colour (5 bits a channel) in `pairs` becomes the pair's `to`; a paint colour no pair names takes the
  * `to` of the pair whose `from` is nearest in lightness. Returns as above. */
 int car_repaint_pairs(const RepaintBank *bank, const CarLiveryPair *pairs, int count, int floor);
 

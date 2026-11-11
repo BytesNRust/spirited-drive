@@ -88,7 +88,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
 static const char *const ROW_KEY[EXTRAS_ROWS] = {
     "explode", "nitro", "turbo", "warrior",
     "warrior_rival", "mirror", "rally", "vegas", "lunar_springs", "lunar_gravity",
-    NULL, "psx_liveries",
+    NULL, "extra_liveries",
     "units", "no_assists", "bumper_mirror", "bumper_radar",
     "replay_cameras", "car_markers", "stats_overlay", "dash_box", "follow_camera", "difficulty",
     "start", "no_movies", "update_check", NULL, NULL
@@ -100,7 +100,7 @@ static int *flag_of(PortExtras *e, int page, int row)
     if (page == 0) {
         int *const p1[ROWS_P1] = { &e->explode, &e->nitro, &e->turbo, &e->warrior,
                                   &e->warrior_rival, &e->mirror, &e->rally, &e->vegas, &e->lunar_springs, &e->lunar_gravity,
-                                  NULL /* Unlock Level */, &e->psx_liveries };
+                                  NULL /* Unlock Level */, &e->extra_liveries };
         return p1[row];
     }
     int *const p2[ROWS_P2] = { NULL /* Speed units */, &e->no_assists, &e->bumper_mirror, &e->bumper_radar,

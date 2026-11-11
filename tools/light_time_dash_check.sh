@@ -1,21 +1,21 @@
 #!/bin/zsh
-# psx_dash_check.sh BUILD: the PS1 light's time of day on an in-car frame (AL1 entry 1200, view 0), with a synthetic tint of 0.5 a
+# light_time_dash_check.sh BUILD: the baked light's time of day on an in-car frame (AL1 entry 1200, view 0), with a synthetic tint of 0.5 a
 # channel: a dash-art pixel goes to 0.75 of its day colour (half the tint), a tacho needle pixel and a top-bar pixel do not change,
 # a mirror-picture pixel goes to 0.5 (the whole tint). Synthetic LGT/LGS files only.
 set -u
 export PATH=/nix/var/nix/profiles/default/bin:$PATH
 here=${0:a:h}
-bin=${1:?usage: psx_dash_check.sh BUILD}/tnfs
+bin=${1:?usage: light_time_dash_check.sh BUILD}/tnfs
 data=${TNFS_DATA:-$PWD/original}
 work=$(mktemp -d)
 # the player's folder is this run's own: a tnfs with no --user would write its log, settings and replay in the real one
 export TNFS_PREF_DIR=$work/pref
-mkdir -p $work/mods/user $work/psx
-python3 $here/psx_lgs_synthetic.py $work/psx/ZAL1A.LGS 64 64 64
-python3 $here/psx_light_synthetic.py $work/psx/ZAL1A.LGT 2080 full
+mkdir -p $work/mods/user $work/cd
+python3 $here/psx_lgs_synthetic.py $work/cd/ZAL1A.LGS 64 64 64
+python3 $here/psx_light_synthetic.py $work/cd/ZAL1A.LGT 2080 full
 for time in day a; do
-    printf "psx_dir=$work/psx\n" > $work/mods/user/port.cfg
-    env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_PSX_LIGHT=1 TNFS_PSX_TIME=$time TNFS_VIEW=0 timeout -k 5 120 ${bin:a} --data $data --mods $work/mods --drive AL1 --entry 1200 --screenshot $work/$time.ppm >/dev/null 2>&1
+    printf "psx_dir=$work/cd\n" > $work/mods/user/port.cfg
+    env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_LIGHT_EFFECTS=1 TNFS_LIGHT_TIME=$time TNFS_VIEW=0 timeout -k 5 120 ${bin:a} --data $data --mods $work/mods --drive AL1 --entry 1200 --screenshot $work/$time.ppm >/dev/null 2>&1
 done
 python3 - $work/day.ppm $work/a.ppm <<'P'
 import sys

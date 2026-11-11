@@ -27,7 +27,7 @@
 
 DriveWide drive_wide = { SCREEN_W, NULL, { { 0 } }, 0, 0, 1, NULL };
 
-/* port: the PS1 light's time of day tints the 3D alone, which needs the 3D in a buffer of its own under the 2D layer (the wide
+/* port: the baked light's time of day tints the 3D alone, which needs the 3D in a buffer of its own under the 2D layer (the wide
  * path's), whatever the screen's width */
 static int tinted_time(void) { return drive_light_time_tinted(); }   /* kept at the race's start: no port.cfg read a frame */
 
@@ -199,7 +199,7 @@ static void wide_art_placed(const LayerRect *r, const uint8_t *art, uint8_t *int
             const int sx = column[x];
             if (sx < r->left || sx >= r->right) continue;
             const uint8_t p = art[sy * SCREEN_W + sx];
-            if (p != LAYER_KEY) into[(size_t)y * drive_wide.width + x] = as_class ? (uint8_t)PSX_CLASS_DASH : p;
+            if (p != LAYER_KEY) into[(size_t)y * drive_wide.width + x] = as_class ? (uint8_t)LIGHT_CLASS_DASH : p;
         }
     }
 }
@@ -343,7 +343,7 @@ static void compose_banded(const LayerCompose *c, const uint8_t *frame)
     bands_rows(0, c->layer_h, compose_band, (void *)&job);
 }
 
-/* port (the PS1 light's time of day, drive_light.h): which of the 2D layer's pixels are the dash's art (the dash, the wheel, the
+/* port (the baked light's time of day, drive_light.h): which of the 2D layer's pixels are the dash's art (the dash, the wheel, the
  * pillars, the mirror's housing: half the tint) and which the HUD's (the top bar, the map, the gauge, the two dials with their needles
  * and the lights: none). The layer's own frame is classed pixel by pixel, then composed the way the frame is, so each output pixel has
  * its class whatever the piece or the stretch that put it there. */
@@ -400,7 +400,7 @@ static const DashColour *dash_colour_now(void)
     return colour.slot != NULL && colour.count > 0 ? &colour : NULL;
 }
 
-typedef char lit_colour_classes_are_the_dash_slots[DASH_COLOUR_SLOTS == PSX_CLASS_LIT_COLOURS && DASH_COLOUR_SLOTS == PLATFORM_LIT_SLOTS ? 1 : -1];
+typedef char lit_colour_classes_are_the_dash_slots[DASH_COLOUR_SLOTS == LIGHT_CLASS_LIT_COLOURS && DASH_COLOUR_SLOTS == PLATFORM_LIT_SLOTS ? 1 : -1];
 
 int drive_wide_lit_colours(uint8_t (*rgb)[3], int max)
 {
@@ -608,21 +608,21 @@ static void class_row(const ClassJob *j, int y, uint8_t *out)
             if (gauge && wheel_gauge && (wheel_mask[y * SCREEN_W + x] & WHEEL_MASK_FRONT)) gauge = 0;   /* port (gauge_wheel): the wheel in front of the dials is the dash's */
             hud = hud || gauge;
             if (hud && dim_tach && tach_dim_face(drive_hud.art.tach, x, y, v, (uint8_t)drive_hud.needle_colour, LAYER_KEY)) hud = 0;   /* port (tach_dim): the dial's face is half tinted */
-            uint8_t class = v == LAYER_KEY ? LAYER_KEY : hud ? PSX_CLASS_HUD : PSX_CLASS_DASH;
+            uint8_t class = v == LAYER_KEY ? LAYER_KEY : hud ? LIGHT_CLASS_HUD : LIGHT_CLASS_DASH;
             /* port (gauge_light): in the cockpit at night, a dial's bright marks (the numerals, the ticks) are lit: not the needle, not what is the dash's art under the dial (the ellipse's corners) */
-            if (wheel_masked && v != LAYER_KEY && (wheel_mask[y * SCREEN_W + x] & (gauge ? WHEEL_MASK_FRONT : WHEEL_MASK_FRONT | WHEEL_MASK_W))) class = PSX_CLASS_DASH;   /* the wheel: the dash's half tint, whatever the mask says (in a gauge the dial is drawn over the 'w' frame: only the 't' / 's' frames are the wheel there) */
+            if (wheel_masked && v != LAYER_KEY && (wheel_mask[y * SCREEN_W + x] & (gauge ? WHEEL_MASK_FRONT : WHEEL_MASK_FRONT | WHEEL_MASK_W))) class = LIGHT_CLASS_DASH;   /* the wheel: the dash's half tint, whatever the mask says (in a gauge the dial is drawn over the 'w' frame: only the 't' / 's' frames are the wheel there) */
             else if (lit_keyed && v != LAYER_KEY && v != (uint8_t)drive_hud.needle_colour) {
                 if (dash_mask != NULL) {   /* a hand-made mask decides alone: the automatic marks are off */
                     const uint8_t m = dash_mask[y * SCREEN_W + x];
-                    if (m == DASH_MASK_DASH) class = PSX_CLASS_DASH;
-                    else if (m == DASH_MASK_LIT || (m == DASH_MASK_DIAL && lit_pixel(v))) class = PSX_CLASS_LIT;
-                } else if (class == PSX_CLASS_HUD && gauge) {
-                    if (!(dials[y * SCREEN_W + x] & GAUGE_DIAL)) class = PSX_CLASS_DASH;   /* the ellipse's rim holds the dash's art (the speedo's arc): the dash's, not the dial's */
-                    else if (lit_pixel(v)) class = PSX_CLASS_LIT;
+                    if (m == DASH_MASK_DASH) class = LIGHT_CLASS_DASH;
+                    else if (m == DASH_MASK_LIT || (m == DASH_MASK_DIAL && lit_pixel(v))) class = LIGHT_CLASS_LIT;
+                } else if (class == LIGHT_CLASS_HUD && gauge) {
+                    if (!(dials[y * SCREEN_W + x] & GAUGE_DIAL)) class = LIGHT_CLASS_DASH;   /* the ellipse's rim holds the dash's art (the speedo's arc): the dash's, not the dial's */
+                    else if (lit_pixel(v)) class = LIGHT_CLASS_LIT;
                 }
             }
-            if (class == PSX_CLASS_LIT && colour != NULL && colour->slot[y * SCREEN_W + x] != 0)
-                class = (uint8_t)(PSX_CLASS_LIT_COLOUR + colour->slot[y * SCREEN_W + x] - 1);   /* painted: its own colour; else the orange of gauge_light 3 */
+            if (class == LIGHT_CLASS_LIT && colour != NULL && colour->slot[y * SCREEN_W + x] != 0)
+                class = (uint8_t)(LIGHT_CLASS_LIT_COLOUR + colour->slot[y * SCREEN_W + x] - 1);   /* painted: its own colour; else the orange of gauge_light 3 */
             out[x] = class;
     }
 }
@@ -785,7 +785,7 @@ static int wide_pieces(const WideFrame *w, LayerPiece pieces[12])
     return n;
 }
 
-/* the mirror's picture where the layer puts it (and the PS1 light's tint reaching it), the widened mirror's middle, and the strips between the lights or the bar's groups */
+/* the mirror's picture where the layer puts it (and the baked light's tint reaching it), the widened mirror's middle, and the strips between the lights or the bar's groups */
 static void wide_mirror_and_strips(const WideFrame *w, const uint8_t *frame)
 {
     const DriveMirror *m = w->m;
@@ -797,7 +797,7 @@ static void wide_mirror_and_strips(const WideFrame *w, const uint8_t *frame)
         const int out_w = (int)((int64_t)(drive_hud.mirror_x - w->mirror.left + m->width) * w->mirror_scale >> 16) - left;
         const int out_h = (int)((int64_t)(drive_hud.mirror_y - w->mirror.top + m->height) * w->mirror_scale >> 16) - top;
         drive_wide_hires_place(m, a->mirror.x + left, a->mirror.y + top, out_w, out_h);
-        const int s = drive_wide.scale;   /* the picture shows the 3D: the PS1 light's tint reaches it */
+        const int s = drive_wide.scale;   /* the picture shows the 3D: the baked light's tint reaches it */
         drive_light_world_rect(drive_wide.width * s, (a->mirror.x + left) * s, (a->mirror.y + top) * s, out_w * s, out_h * s);
     }
     if (w->mirror_on && m->extra != 0) wide_mirror(frame, m, &w->mirror, a->mirror, &mirror_cs);

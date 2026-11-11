@@ -28,7 +28,7 @@ static double screen_extent(const View *view, const int32_t *const cam[4])
 
 /* The grid's points: the camera space, the uv and the light's darkness of each, from the corners'. */
 static void cone_grid_fill(ConeGrid *g, int n, const int32_t uv[8], const int32_t *const cam[4], const double xz[4][2], const double base[4],
-                           const double lamp[4], const PsxLight *light)
+                           const double lamp[4], const TrackNodeLight *light)
 {
     g->n = n;
     for (int j = 0; j <= n; j++)
@@ -41,13 +41,13 @@ static void cone_grid_fill(ConeGrid *g, int n, const int32_t uv[8], const int32_
             const double z = lerp(lerp(xz[0][1], xz[1][1], a), lerp(xz[3][1], xz[2][1], a), b);
             const double bv = lerp(lerp(base[0], base[1], a), lerp(base[3], base[2], a), b);
             const double lf = lerp(lerp(lamp[0], lamp[1], a), lerp(lamp[3], lamp[2], a), b);
-            double v = bv * psx_light_open_gain_floor(light, headlight_pool_lift_xz(light->pool, x, z), (int)lf) / 256.0;
+            double v = bv * track_node_light_open_gain_floor(light, headlight_pool_lift_xz(light->pool, x, z), (int)lf) / 256.0;
             if (v > 255.0) v = 255.0;
             g->dark[j][i] = (float)((255.0 - v) * (MODERN_FOG_LEVELS - 1) / 255.0);
         }
 }
 
-int cone_cells_grid(ConeGrid *g, const View *view, const FshEntry *texture, const int32_t uv[8], const int32_t *const cam[4], const PsxLight *light, const uint8_t corner[4],
+int cone_cells_grid(ConeGrid *g, const View *view, const FshEntry *texture, const int32_t uv[8], const int32_t *const cam[4], const TrackNodeLight *light, const uint8_t corner[4],
                     const double xz[4][2], const uint32_t node[4])
 {
     (void)texture;   /* the polygon's own corners: its piece of the texture does not place the light */
@@ -87,15 +87,15 @@ int cone_cells_grid(ConeGrid *g, const View *view, const FshEntry *texture, cons
     /* the open night's gain at each corner, to take the row's own byte back out of the light the corner carries; and the lamp's floor there (lamp_pool_bright), interpolated like the rest */
     double base[4], lamp[4];
     for (int k = 0; k < 4; k++) {
-        lamp[k] = psx_light_lamp_floor(light, node[k]);
-        base[k] = corner[k] * 256.0 / psx_light_open_gain_floor(light, lift[k], (int)lamp[k]);
+        lamp[k] = track_node_light_lamp_floor(light, node[k]);
+        base[k] = corner[k] * 256.0 / track_node_light_open_gain_floor(light, lift[k], (int)lamp[k]);
     }
     cone_grid_fill(g, n, uv, cam, xz, base, lamp, light);
     return n;
 }
 
 int cone_cells_draw(const QuadTarget *q, const View *view, const FshEntry *texture, const int32_t uv[8], const int32_t *const cam[4], int transparent,
-                    const uint8_t (*tables)[256], const PsxLight *light, const uint8_t corner[4], const double xz[4][2], const uint32_t node[4])
+                    const uint8_t (*tables)[256], const TrackNodeLight *light, const uint8_t corner[4], const double xz[4][2], const uint32_t node[4])
 {
     ConeGrid g;
     const int n = cone_cells_grid(&g, view, texture, uv, cam, light, corner, xz, node);

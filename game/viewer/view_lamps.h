@@ -1,16 +1,16 @@
-/* the tunnel lamps' textures, tables and halos (view_lamps.c); ported_view.c calls these. ported_view_set_psx_lamps is defined there too (ported_view.h) */
+/* the tunnel lamps' textures, tables and halos (view_lamps.c); ported_view.c calls these. ported_view_set_tunnel_lamps is defined there too (ported_view.h) */
 #ifndef TNFS_VIEW_LAMPS_H
 #define TNFS_VIEW_LAMPS_H
 
 #include "formats/fsh.h"
 #include "game/gfx/quad.h"
-#include "game/race/psx_lamps.h"
+#include "game/race/tunnel_lamp_textures.h"
 #include "game/race/track_art.h"
 #include "game/viewer/modern_road.h"
 
 #include <stdint.h>
 
-void view_lamps_set_flares(int on);     /* psx_flares: the halos round the lit lamps and brake lights */
+void view_lamps_set_flares(int on);     /* lamp_flares: the halos round the lit lamps and brake lights */
 int view_lamps_flares(void);
 int view_lamps_count(void);             /* the lamps the track file names */
 int view_lamps_of(const FshEntry *texture);                  /* the lamp `texture` is, or -1 */

@@ -8,7 +8,7 @@
 #ifndef TNFS_TRACK_BUILD_H
 #define TNFS_TRACK_BUILD_H
 
-#include "game/race/psx_light.h"
+#include "game/race/track_node_light.h"
 #include "game/race/track_object_walk.h"
 
 #include <stdint.h>
@@ -42,9 +42,9 @@ typedef struct {
     int32_t first_segment;         /* 00504214 */
     int32_t first_node;            /* 00504218 */
     int32_t reach;                 /* port: the segments built past the exe's 0x1c ("ultra"); 0 the exe's LODs */
-    uint8_t *light_out;            /* port (PS1 light): the intensity of each point put in `world`, parallel to it; NULL none */
-    const PsxLight *light;         /* port: where it comes from (the node's row, the point's place in it) */
-    uint8_t *tunnel_out;           /* port: 1 for each point of `world` that is in a tunnel's row (psx_light_tunnel), parallel to it; NULL none */
+    uint8_t *light_out;            /* port (baked light): the intensity of each point put in `world`, parallel to it; NULL none */
+    const TrackNodeLight *light;         /* port: where it comes from (the node's row, the point's place in it) */
+    uint8_t *tunnel_out;           /* port: 1 for each point of `world` that is in a tunnel's row (track_node_light_tunnel), parallel to it; NULL none */
     uint32_t *node_out;            /* port (headlight_relight): the node each point of `world` is of, parallel to it; NULL none */
     uint8_t *point_out;            /* and its place in the node's row */
 } TrackBuild;

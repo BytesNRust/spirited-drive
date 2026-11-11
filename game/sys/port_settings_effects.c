@@ -36,7 +36,7 @@ int port_analog_pad(void)
 
 int port_sign_glow(void)
 {
-    if (!port_psx_headlights()) return 0;
+    if (!port_headlight_beams()) return 0;
     const char *v = getenv("TNFS_SIGN_GLOW");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().sign_glow;
@@ -58,7 +58,7 @@ int port_night_tone(void)
 
 int port_city_lift(void)
 {
-    if (!port_psx_light()) return 0;
+    if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_CITY_LIFT");
     if (v != NULL && v[0] >= '0' && v[0] <= '3' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().city_lift;
@@ -66,7 +66,7 @@ int port_city_lift(void)
 
 int port_vegas_lift(void)
 {
-    if (!port_psx_light()) return 0;
+    if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_VEGAS_LIFT");
     if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().vegas_lift;
@@ -74,7 +74,7 @@ int port_vegas_lift(void)
 
 int port_headlight_relight(void)
 {
-    if (!port_psx_headlights()) return 0;
+    if (!port_headlight_beams()) return 0;
     const char *v = getenv("TNFS_HEADLIGHT_RELIGHT");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().headlight_relight;
@@ -82,7 +82,7 @@ int port_headlight_relight(void)
 
 int port_hall_light(void)
 {
-    if (!port_psx_light()) return 0;   /* the PS1 look's */
+    if (!port_light_effects()) return 0;   /* the light effects' */
     const char *v = getenv("TNFS_HALL_LIGHT");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().hall_light;
@@ -196,25 +196,25 @@ int port_car_colours(void)
     return port_settings_load().car_colours;
 }
 
-int port_psx_headlights(void)
+int port_headlight_beams(void)
 {
-    const char *v = getenv("TNFS_PSX_HEADLIGHTS");
+    const char *v = port_env_alias("TNFS_HEADLIGHT_BEAMS", "TNFS_PSX_HEADLIGHTS");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().psx_headlights;
+    return port_settings_load().headlight_beams;
 }
 
-int port_psx_shadow(void)
+int port_car_soft_shadow(void)
 {
-    const char *v = getenv("TNFS_PSX_SHADOW");
+    const char *v = port_env_alias("TNFS_CAR_SOFT_SHADOW", "TNFS_PSX_SHADOW");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().psx_shadow;
+    return port_settings_load().car_soft_shadow;
 }
 
 int port_emissive_lamps(void)
 {
     const char *v = getenv("TNFS_EMISSIVE_LAMPS");   /* a dev override; the game follows the Graphics Light Effects switch */
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_psx_light();
+    return port_light_effects();
 }
 
 int port_body_shine(void)
@@ -224,11 +224,11 @@ int port_body_shine(void)
     return port_settings_load().body_shine;
 }
 
-int port_psx_light(void)
+int port_light_effects(void)
 {
-    const char *v = getenv("TNFS_PSX_LIGHT");
+    const char *v = port_env_alias("TNFS_LIGHT_EFFECTS", "TNFS_PSX_LIGHT");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().psx_light;
+    return port_settings_load().light_effects;
 }
 
 int port_rain_tyre_roll(void)
@@ -255,7 +255,7 @@ int port_handbrake_lamps(void)
 
 int port_reflectors(void)
 {
-    if (!port_psx_headlights()) return 0;
+    if (!port_headlight_beams()) return 0;
     const char *v = getenv("TNFS_REFLECTORS");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().reflectors;

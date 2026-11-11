@@ -197,7 +197,7 @@ static void drive_load_textures(const RaceState *race, int slot, const char *ste
     shine_class_drop_slot(slot);
     if (drive_cars.file[slot] != NULL && port_body_shine()) {   /* port (body shine): the paint texels, from the colours as the file has them */
         int owner = slot;
-        drive_livery_draft(stem, drive_cars.file[slot], size, shine_register, &owner);   /* (the file's own stem: drive_cars.model is only set with psx_liveries) */
+        drive_livery_draft(stem, drive_cars.file[slot], size, shine_register, &owner);   /* (the file's own stem: drive_cars.model is only set with extra_liveries) */
     }
     if (drive_cars.file[slot] != NULL && drive_cars.fixed_black[slot]) {   /* port: a mask's fixed black texels take the car's black, before any paint or livery */
         const CarPaint *black = car_paint_black_of(stem);
@@ -206,12 +206,12 @@ static void drive_load_textures(const RaceState *race, int slot, const char *ste
             if (n > 0) port_log("car_paint: slot %d %s fixed black, %d texels\n", slot, stem, n);
         }
     }
-    if (drive_cars.file[slot] != NULL && drive_cars.livery[slot]) {  /* port: the rival's PS1 livery, in its own CFM */
+    if (drive_cars.file[slot] != NULL && drive_cars.livery[slot]) {  /* port: the rival's console livery, in its own CFM */
         const int player = slot == race_slot(race->player);
         uint8_t main_rgb[3] = { 0 };
         const int count = drive_livery_car(drive_cars.psx_dir, stem, drive_cars.file[slot], size, player ? main_rgb : NULL);
         if (player && count > 0) memcpy(drive_cars.dash_rgb, main_rgb, 3), drive_cars.dash_rgb_on = 1;
-        if (count > 0) port_log("psx_liveries: slot %d %s in the alternate livery (%d colours)\n", slot, stem, count);
+        if (count > 0) port_log("extra_liveries: slot %d %s in the alternate livery (%d colours)\n", slot, stem, count);
     }
     if (drive_cars.file[slot] != NULL && drive_cars.paint_on[slot]) {  /* port: a catalogue paint, in the body textures only */
         const int n = drive_livery_paint(car_model_names[drive_cars.model[slot]], drive_cars.file[slot], size, drive_cars.paint[slot]);
@@ -321,7 +321,7 @@ static PortExtras race_extras(void)
     const SessionRules *r = drive_link_on ? session_rules_active() : NULL;
     if (r == NULL) return e;
     e.difficulty = r->difficulty, e.lunar_springs = r->lunar_springs, e.lunar_gravity = r->lunar_gravity, e.rally_gravel = r->rally_gravel;
-    e.psx_liveries = r->liveries, e.reverse = r->reverse;
+    e.extra_liveries = r->liveries, e.reverse = r->reverse;
     e.nitro = (r->cheats & EXTRAS_MARK_NITRO) != 0, e.explode = (r->cheats & EXTRAS_MARK_EXPLODE) != 0, e.turbo = (r->cheats & EXTRAS_MARK_TURBO) != 0;
     return e;
 }
@@ -340,8 +340,8 @@ static const uint8_t *link_entries(int model, uint32_t *seed, uint32_t *flags)
     return drive_link.exchange(&own, drive_menus_on ? drive_menus.game_state : NULL, &link_wait_ticks, seed, flags);
 }
 
-/* port: the car colours for this race (the mode's file psx_liveries, the CUSTOMIZE switch, and car_paint, the car showcase's Color box):
- * the player's car wears the paint the box picked, whether the PS1 livery (needs port.cfg's psx_dir files) or a catalogue paint
+/* port: the car colours for this race (the mode's file extra_liveries, the CUSTOMIZE switch, and car_paint, the car showcase's Color box):
+ * the player's car wears the paint the box picked, whether the console version livery (needs port.cfg's psx_dir files) or a catalogue paint
  * (car_paint.h); every rival draws its own from the race's seed, so a replay of the seed shows the same colours, and is never the
  * player's when it drives the same car. Off, nobody is repainted.
  * A rival's car is not the field's entry's: race_models.c picks the opponents' cars apart from the entries (a single race's are all the
@@ -350,8 +350,8 @@ static const uint8_t *link_entries(int model, uint32_t *seed, uint32_t *flags)
 static int rival_paint_choice(uint32_t paint_seed, int slot, int car, int player_car, int player_paint, const char *psx_dir)
 {
     uint16_t swatch[2];
-    const int ps1 = psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(psx_dir, car_model_names[car], swatch);
-    return car_paint_pick(paint_seed, slot, car, player_car, player_paint, car_paint_count(car), ps1);
+    const int second = psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(psx_dir, car_model_names[car], swatch);
+    return car_paint_pick(paint_seed, slot, car, player_car, player_paint, car_paint_count(car), second);
 }
 
 static uint8_t race_paint[RACE_PLAYERS];   /* port (replay colours): the paint each slot wears this race, written with its replay (drive_replay_set_paints) */
@@ -367,16 +367,16 @@ static void slot_colours(int slot, int car)
         paint = drive_cars.colours.player_paint;
     } else if (shared && slot < drive_cars.colours.humans && slot < 8 && drive_cars.colours.paint[slot] != 0xff) {   /* port (online): a human's own pick, as its machine sent it */
         uint16_t swatch[2];
-        const int ps1 = drive_cars.psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(drive_cars.psx_dir, car_model_names[car], swatch);
-        paint = car_paint_replayed(drive_cars.colours.paint[slot], car, ps1);
+        const int second = drive_cars.psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(drive_cars.psx_dir, car_model_names[car], swatch);
+        paint = car_paint_replayed(drive_cars.colours.paint[slot], car, second);
     } else {   /* a rival: the race's draw; in a link game the one car it must differ from is the host's, the same on every machine */
         paint = rival_paint_choice(drive_cars.colours.seed, slot, car, shared ? drive_cars.colours.host_car : drive_cars.colours.player_car,
                                    shared ? drive_cars.colours.host_paint : drive_cars.colours.player_paint, drive_cars.psx_dir);
     }
     if (replay_of != NULL && replay_of->paint_known && slot < RACE_PLAYERS) {
         uint16_t swatch[2];
-        const int ps1 = drive_cars.psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(drive_cars.psx_dir, car_model_names[car], swatch);
-        const int saved = car_paint_replayed(replay_of->paint[slot], car, ps1);
+        const int second = drive_cars.psx_dir[0] != '\0' && car >= 0 && car < CAR_PAINT_MODELS && drive_livery_swatch(drive_cars.psx_dir, car_model_names[car], swatch);
+        const int saved = car_paint_replayed(replay_of->paint[slot], car, second);
         if (saved >= 0) paint = saved;
     }
     if (slot < RACE_PLAYERS) {
@@ -384,7 +384,7 @@ static void slot_colours(int slot, int car)
         drive_replay_set_paints(race_paint);
     }
     drive_cars.model[slot] = car;
-    drive_cars.livery[slot] = paint == PAINT_PS1;
+    drive_cars.livery[slot] = paint == PAINT_SECOND;
     drive_cars.fixed_black[slot] = 1;
     drive_cars.paint_on[slot] = 0;
     if (paint >= PAINT_CATALOGUE && car_paint(car, paint - PAINT_CATALOGUE) != NULL) {
@@ -408,11 +408,11 @@ static void rival_liveries(const RaceField *field, int player, const char *track
     drive_replay_set_paints(race_paint);   /* none until a slot's colours are decided (the colours off: none) */
     drive_cars.dash_rgb_on = 0;
     snprintf(drive_cars.psx_dir, sizeof drive_cars.psx_dir, "%s", settings.psx_dir);
-    port_log("car colours: flag %d, psx_dir \"%s\"\n", extras.psx_liveries, settings.psx_dir);
-    if (!extras.psx_liveries) return;
+    port_log("car colours: flag %d, psx_dir \"%s\"\n", extras.extra_liveries, settings.psx_dir);
+    if (!extras.extra_liveries) return;
     const int player_car = field->entries[player].car;
     int player_paint = player_car >= 0 && player_car < CAR_PAINT_SLOTS ? extras.car_paint[player_car] : PAINT_OWN;
-    if ((player_paint == PAINT_PS1 && settings.psx_dir[0] == '\0') || player_paint >= PAINT_CATALOGUE + car_paint_count(player_car))
+    if ((player_paint == PAINT_SECOND && settings.psx_dir[0] == '\0') || player_paint >= PAINT_CATALOGUE + car_paint_count(player_car))
         player_paint = PAINT_OWN;   /* a choice the files or the table no longer have */
     drive_cars.colours.on = 1, drive_cars.colours.seed = paint_seed, drive_cars.colours.player_slot = player;
     drive_cars.colours.player_car = player_car, drive_cars.colours.player_paint = player_paint, drive_cars.colours.racers = field->racers;
@@ -572,7 +572,7 @@ static void drive_field_port(RaceField *field, const char *name, int arcade)
 /* After the field starts: the light, the track's direction and walls, and the free laps. */
 static void drive_start_world(const Track *t, const char *data_root, const char *name, RaceField *field, int laps, int exe_laps, int free_race)
 {
-    drive_light_load(port_psx_light(), port_psx_time(), port_settings_load().psx_dir, name, t->tri.node_count);
+    drive_light_load(port_light_effects(), port_light_time(), port_settings_load().psx_dir, name, t->tri.node_count);
     drive_light_load_synth(&t->tri, name);   /* port: Burnt Sienna and Transtropolis, which the CD has no light for */
     drive_light_load_alt_sky(data_root, name);
     drive_light_set_reversed(t->reversed);   /* port: the light's nodes and sides of the file's own direction */
@@ -731,8 +731,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_snow = snow_race_wanted(replay_of != NULL, replay_of != NULL && replay_of->snow, port_snow_weather()) && track_snow_for(&t->tri, name, NULL);   /* port (snow_weather): a replay's own, else the host's or the setting's */
     ported_view_set_snow(drive_snow);
     drive_replay_set_snow(drive_snow);
-    drive_replay_set_conditions(port_psx_time(), port_weather(), t->reversed);   /* port (replay conditions): what the replay of this race is played with */
-    port_log("%s: time %d, weather %d, reverse %d\n", replay_of != NULL ? (replay_of->conditions_known ? "replay conditions (recorded)" : "replay conditions (the original's)") : "race conditions", port_psx_time(), port_weather(), t->reversed);
+    drive_replay_set_conditions(port_light_time(), port_weather(), t->reversed);   /* port (replay conditions): what the replay of this race is played with */
+    port_log("%s: time %d, weather %d, reverse %d\n", replay_of != NULL ? (replay_of->conditions_known ? "replay conditions (recorded)" : "replay conditions (the original's)") : "race conditions", port_light_time(), port_weather(), t->reversed);
     drive_field_port(&field, name, arcade);
     snow_grip_set(field.port_rally_gravel == RALLY_GRAVEL_SNOW);   /* port (snow_weather): this race's grip is the snow's: no time or record (records_glue_route) */
     field.port_open = drive_wet_open_make(&t->tri, name, t->reversed);   /* port (tunnel_dry): the rain's grip loss stops inside a closed zone, the weather's own */
@@ -899,7 +899,7 @@ static void drive_look_fill(TrackFamInputs *look, const char *data_root, const c
                                              port_extras_load().variant_time, drive_menus.time_of_day);
         drive_time_of_day = drive_menus.time_of_day;
     } else if (track_viewer_fam_missing(data_root, name, look) || getenv("TNFS_MIDDAY") != NULL) {
-        look->time_of_day = 1;   /* port (dev, env only): TNFS_MIDDAY=1 takes the midday art as the menus' race does under the PS1 look */
+        look->time_of_day = 1;   /* port (dev, env only): TNFS_MIDDAY=1 takes the midday art as the menus' race does under the light effects */
     }
     look->port_snow = snow_race_wanted(replay_of != NULL, replay_of != NULL && replay_of->snow, port_snow_weather());   /* port (snow_weather) */
     if (replay_file == NULL && !drive_menus_on && getenv("TNFS_RALLY_ART") != NULL) {   /* port (dev, env only): the headless --drive with the rally's art, as the menus' rally has it (with TNFS_RALLY for the rally's physics) */
@@ -952,7 +952,7 @@ int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, s
     race.snow_known = race_replay_snow_get(file, size, &race.snow);   /* port (snow_weather): whether it ran on snow; a CD's or older file: no */
     race.paint_known = race_replay_paint_get(file, size, race.paint);   /* port (replay colours): the paints the race wore; a CD's or older file has none */
     race.conditions_known = race_replay_conditions_get(file, size, &race.conditions);   /* port (replay conditions): a CD's or older file plays as the original: day, clear, forward */
-    port_conditions_force(1, race.conditions.psx_time, race.conditions.weather);
+    port_conditions_force(1, race.conditions.light_time, race.conditions.weather);
     reverse_track_force(1, race.conditions.reverse);
     replay_of = &race, replay_file = file, replay_request = request;
     const int ok = track_viewer_drive(data_root, race.stem, race.field.entries[0].car, race.field.racers, -1, 0, NULL);

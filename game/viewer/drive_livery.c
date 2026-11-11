@@ -21,7 +21,7 @@ enum { LIVERY_PATH = 512, LIVERY_STEM = 16, SHAPE_DATA = 0x10, LEVELS = 2 };
 
 static const uint8_t PAL_NAME[4] = { '!', 'P', 'A', 'L' }, OWN_NAME[4] = { '!', 'x', 'x', 'x' };
 
-/* The PC palette entries (indices into the car's '!PAL') that are body colour the PS1 textures do not show as body:
+/* The PC palette entries (indices into the car's '!PAL') that are body colour the console version textures do not show as body:
  * the colours both liveries paint, which the count alone leaves unmapped. Found from the PC car's textures: the entries
  * at least four fifths of whose pixels are in the body textures (topv, frnt, rsid, bott, wing), not already mapped, and
  * for TSUPRA red (r > g + 24, r > b + 24). Palette indices only: no colour is copied from the CD. The ANSX's body is
@@ -277,7 +277,7 @@ int drive_livery_car(const char *psx_dir, const char *stem, uint8_t *cfm, size_t
     free(normal);
     free(alternate);
     if (count == 0) {
-        port_log("psx_liveries: no alternate livery for %s in %s\n", stem, psx_dir);
+        port_log("extra_liveries: no alternate livery for %s in %s\n", stem, psx_dir);
         return 0;
     }
     const RepaintJob job = { pairs, count, NULL, glass_floor(upper) };

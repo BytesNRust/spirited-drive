@@ -8,7 +8,7 @@
 #include "game/viewer/view_screen.h"
 #include "game/viewer/weather_hooks.h"
 #include "viewer/drive_light.h"
-#include "viewer/psx_sky_draw.h"
+#include "viewer/sky_art_draw.h"
 #include "viewer/view_light.h"
 #include "viewer/view_spray.h"
 #include "viewer/view_tables.h"
@@ -48,8 +48,8 @@ void cars_stream_style(const Tri *tri, const TrackArt *art, const PortedCamera *
 /* The headlights' pools, the track's rows transformed for the camera, and the models' view of it. */
 void cars_transform(TrackCamera *cam, DrawContext *ctx, View *view)
 {
-    headlights_update();   /* port (psx_headlights): the pools of the cars with their lights on, before the rows are built */
-    if (port_headlight_relight() || (psx_light != NULL && psx_light->pool != NULL && psx_light->pool->cone)) track_render_relight(&render);   /* port (headlight_relight): the road's light with the pools of this frame */
+    headlights_update();   /* port (headlight_beams): the pools of the cars with their lights on, before the rows are built */
+    if (port_headlight_relight() || (light_effects != NULL && light_effects->pool != NULL && light_effects->pool->cone)) track_render_relight(&render);   /* port (headlight_relight): the road's light with the pools of this frame */
     track_render_transform(&render, cam, ctx);
     memcpy(last_near_dir, ctx->near_dir, sizeof last_near_dir);
     last_near = ctx->near;
@@ -78,8 +78,8 @@ void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8_t *pix
         raster_record_set_runner(bands_rows);
         raster_record_begin(&recorder, pixels);
     }
-    if (psx_light == NULL && view_lamps_flares() && view_lamps_count() > 0) view_lamps_textures(art);
-    if (psx_light != NULL) light_tables_prepare(art);
+    if (light_effects == NULL && view_lamps_flares() && view_lamps_count() > 0) view_lamps_textures(art);
+    if (light_effects != NULL) light_tables_prepare(art);
     reflect_frame(art);
     lit_level = 0;
     memset(lit_corner, 255, sizeof lit_corner);

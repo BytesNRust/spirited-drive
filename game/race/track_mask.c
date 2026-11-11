@@ -1,5 +1,5 @@
 #include "game/race/track_mask.h"
-#include "game/race/psx_lamps.h"
+#include "game/race/tunnel_lamp_textures.h"
 #include "game/sys/data_path.h"
 #include "game/sys/port_log.h"
 
@@ -82,12 +82,12 @@ static uint8_t *load_marks(const char *track, const char *name, int width, int h
 uint8_t *track_mask_load(const char *track, const char *name, int width, int height) { return load_marks(track, name, width, height, NULL); }
 
 /* port (the lamps' marks): the lamps the yellow of the last track's slot masks name, one for each slot that has any */
-static PsxLamp marked[MAX_MARKED];
-static uint8_t marked_set[MAX_MARKED][256];   /* the colours under each lamp's yellow (PsxLamp.set) */
+static TunnelLampTexture marked[MAX_MARKED];
+static uint8_t marked_set[MAX_MARKED][256];   /* the colours under each lamp's yellow (TunnelLampTexture.set) */
 static int marked_count;
 static char marked_track[16];
 
-/* the lamp of road texture slot `slot`: its yellow texels' bounding box, and the palette entries they show (all of them are `set`; idx has the most used, at most PSX_LAMP_COLOURS: the transparent and shadow entries are none) */
+/* the lamp of road texture slot `slot`: its yellow texels' bounding box, and the palette entries they show (all of them are `set`; idx has the most used, at most TUNNEL_LAMP_TEXTURE_COLOURS: the transparent and shadow entries are none) */
 static void mark_lamp(int slot, const TrackTexture *t, const uint8_t *lamp)
 {
     const int w = t->bitmap.width, h = t->bitmap.height;
@@ -102,11 +102,11 @@ static void mark_lamp(int slot, const TrackTexture *t, const uint8_t *lamp)
             if (v < 0xFE) count[v]++;
         }
     if (x1 < 0) return;
-    PsxLamp *const l = &marked[marked_count];
+    TunnelLampTexture *const l = &marked[marked_count];
     uint8_t *const set = marked_set[marked_count++];
     for (int c = 0; c < 256; c++) set[c] = count[c] > 0;   /* every colour the yellow shows stays bright (the table of before listed them and the ones only its rectangle showed) */
-    *l = (PsxLamp){ .slot = slot, .rect = { x0, y0, x1, y1 }, .set = set };
-    while (l->count < PSX_LAMP_COLOURS) {
+    *l = (TunnelLampTexture){ .slot = slot, .rect = { x0, y0, x1, y1 }, .set = set };
+    while (l->count < TUNNEL_LAMP_TEXTURE_COLOURS) {
         int best = -1;
         for (int c = 0; c < 256; c++)
             if (count[c] > 0 && (best < 0 || count[c] > count[best])) best = c;
@@ -165,15 +165,15 @@ static int same_track(const char *a, const char *b)
     return *a == *b;
 }
 
-int track_lamp_marks(const char *track, const PsxLamp **out)
+int track_lamp_marks(const char *track, const TunnelLampTexture **out)
 {
     if (track == NULL || marked_count == 0 || !same_track(track, marked_track)) return 0;
     if (out != NULL) *out = marked;
     return marked_count;
 }
 
-int track_lamps_for(const char *track, const PsxLamp **out)
+int track_lamps_for(const char *track, const TunnelLampTexture **out)
 {
     const int n = track_lamp_marks(track, out);
-    return n > 0 ? n : psx_lamps_for(track, out);
+    return n > 0 ? n : tunnel_lamp_textures_for(track, out);
 }

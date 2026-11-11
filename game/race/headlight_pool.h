@@ -1,8 +1,8 @@
-/* port (psx_headlights, the night's second look): a pool of light ahead of each car with headlights. Under the night the world's nodes are dark (HEADLIGHT_FLOOR
+/* port (headlight_beams, the night's second look): a pool of light ahead of each car with headlights. Under the night the world's nodes are dark (HEADLIGHT_FLOOR
  * of their light, 256 = full; a tunnel's less dark, TUNNEL_FLOOR, its own lamps stay on) and the road and the walls ahead of a lit car are lifted back to their own
  * light: nothing at the car itself, rising over HEADLIGHT_START..HEADLIGHT_START + HEADLIGHT_RISE nodes in front of it, full to HEADLIGHT_FULL and falling smoothly to
  * the dark at HEADLIGHT_AHEAD. The car's place is fractional (node + frac / 256), so the pool slides with the car instead of stepping a section at a time. The light
- * bytes psx_light_at gives are scaled by the pool's gain at the node, so the road is lit only ahead of the car, the scenery there takes it (psx_light_node) and the
+ * bytes track_node_light_at gives are scaled by the pool's gain at the node, so the road is lit only ahead of the car, the scenery there takes it (track_node_light_node) and the
  * cars ahead take it too (headlight_pool_gain at their node, as a multiplier of their ambient). Off, nothing is scaled: option 1's look. */
 #ifndef TNFS_HEADLIGHT_POOL_H
 #define TNFS_HEADLIGHT_POOL_H
@@ -32,7 +32,7 @@ typedef struct {
     int8_t cone_car[HEADLIGHT_MAX];                         /* the race slot of the car of each patch (headlight_pool_car_lift_xz tells a car its own patch from the others') */
     double cone_hx[HEADLIGHT_MAX], cone_hz[HEADLIGHT_MAX];  /* and its heading, a unit vector (the nose, not the track's direction) */
     const int32_t *node_xz;        /* cone: the nodes' centres (x, z) in 16.16 metres, two per node: what a caller that knows only a node is lit at; NULL when not known */
-    const uint8_t *tunnel;         /* per node (ring of them), 1 where the road itself is a tunnel (its property bit, psx_light_synth_tunnels); NULL when not known */
+    const uint8_t *tunnel;         /* per node (ring of them), 1 where the road itself is a tunnel (its property bit, light_synth_tunnels); NULL when not known */
 } HeadlightPool;
 
 /* How much of its light a node has (a tunnel node of pool->tunnel with TUNNEL_FLOOR): 256 for full, HEADLIGHT_FLOOR for none of the pool's; the best of the cars' pools. A pool with no cars is all dark. */
@@ -42,7 +42,7 @@ int headlight_pool_gain(const HeadlightPool *pool, uint32_t node);
 int headlight_pool_tunnel(const HeadlightPool *pool, uint32_t node);
 
 /* The share (0..256) of a pool's lift that a point of a node's row takes: the road and its verge whole, the ground beyond falling to nothing, so the pool is as wide as the
- * road and its shoulders (point numbering as psx_light.h: 0, 1, 6 the road, 2 and 7 the shoulders' far edge, 3..5 and 8..10 beyond). */
+ * road and its shoulders (point numbering as track_node_light.h: 0, 1, 6 the road, 2 and 7 the shoulders' far edge, 3..5 and 8..10 beyond). */
 int headlight_pool_width(int point);
 
 /* The gain a car's own colours take from the pool gain `gain` at its node (a car is lit less than the road under its own lamps: HEADLIGHT_CAR_SHARE of the lift). */

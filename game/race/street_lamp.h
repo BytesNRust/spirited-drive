@@ -1,7 +1,7 @@
-/* port (night, psx_headlights): the street lamps of City's first track. Its lamp posts are one scenery board (a 64 x 128 sprite of a post with its arm; the
+/* port (night, headlight_beams): the street lamps of City's first track. Its lamp posts are one scenery board (a 64 x 128 sprite of a post with its arm; the
  * descriptor's resource 40, scenery texture 10; 174 of them along CY1) whose lens is a strip of amber texels at the top right. At night the lens is
  * drawn in an entry of its own the tint leaves alone, and a flare (a warm halo of dithered texels under the lens, on the sprite's transparent texels) is
- * painted round it. The entries are the lamp pool's (drive_light.c); no PS1 data is used. */
+ * painted round it. The entries are the lamp pool's (drive_light.c); no console data is used. */
 #ifndef TNFS_STREET_LAMP_H
 #define TNFS_STREET_LAMP_H
 
@@ -25,7 +25,7 @@ typedef struct {
 enum { STREET_LAMPS_MAX = 3 };   /* the boards a track may have */
 
 /* The nodes of the lamp posts among `scenery` (the track's placements, `descriptors` the descriptors they index): those whose descriptor is a bitmap (type 4 or 6)
- * of the lamp's board (the descriptor's resource id / 4 is `scenery`), in the file's order (a node may repeat). Up to `max`, their count; the made night's pools (psx_light_make_lit) go there. */
+ * of the lamp's board (the descriptor's resource id / 4 is `scenery`), in the file's order (a node may repeat). Up to `max`, their count; the made night's pools (terrain_light_make_lit) go there. */
 size_t street_lamp_nodes(const StreetLamp *lamp, const TriDescriptor *descriptors, uint32_t descriptor_count, const TriScenery *scenery, uint32_t scenery_count, uint32_t *out,
                          size_t max);
 

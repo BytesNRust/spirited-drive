@@ -1,6 +1,6 @@
-/* The headlight pools (headlight_pool.h): the gain by distance from a car, the ring, several cars, and the light bytes of a PsxLight scaled by it. */
+/* The headlight pools (headlight_pool.h): the gain by distance from a car, the ring, several cars, and the light bytes of a TrackNodeLight scaled by it. */
 #include "game/race/headlight_pool.h"
-#include "game/race/psx_light.h"
+#include "game/race/track_node_light.h"
 #include "tests/test.h"
 
 #include <string.h>
@@ -69,12 +69,12 @@ static void test_the_roads_own_tunnel_flags_and_the_car_itself(void)
     CHECK(!headlight_pool_car_at(NULL, 50));
     CHECK_EQ_INT(headlight_pool_beam(&p, 50), 0);
     CHECK_EQ_INT(headlight_pool_beam(&p, 50 + HEADLIGHT_FULL), 256);
-    uint8_t rows[200 * PSX_LIGHT_POINTS];
+    uint8_t rows[200 * TRACK_NODE_LIGHT_POINTS];
     memset(rows, 0, sizeof rows);   /* a tunnel whose own rows are black */
-    PsxLight light = { .data = rows, .nodes = 200, .pool = &p };
-    CHECK_EQ_INT(psx_light_at(&light, 70, 0), 0);                         /* beyond the beam: still black */
+    TrackNodeLight light = { .data = rows, .nodes = 200, .pool = &p };
+    CHECK_EQ_INT(track_node_light_at(&light, 70, 0), 0);                         /* beyond the beam: still black */
     flags[50 + HEADLIGHT_FULL] = 1;
-    CHECK_EQ_INT(psx_light_at(&light, 50 + HEADLIGHT_FULL, 0), TUNNEL_BEAM);   /* in the beam: lit */
+    CHECK_EQ_INT(track_node_light_at(&light, 50 + HEADLIGHT_FULL, 0), TUNNEL_BEAM);   /* in the beam: lit */
 }
 
 static void test_the_ring_and_several_cars(void)
@@ -94,17 +94,17 @@ static void test_apply_and_the_light_bytes(void)
     CHECK_EQ_INT(headlight_pool_apply(200, 256), 200);
     CHECK_EQ_INT(headlight_pool_apply(200, 128), 100);
     CHECK_EQ_INT(headlight_pool_apply(255, 56), 55);
-    uint8_t rows[8 * PSX_LIGHT_POINTS];
+    uint8_t rows[8 * TRACK_NODE_LIGHT_POINTS];
     memset(rows, 255, sizeof rows);
     HeadlightPool p = pool_of(8, 1, 1, 0);
-    PsxLight light = { .data = rows, .nodes = 8 };
-    CHECK_EQ_INT(psx_light_at(&light, 5, 0), 255);                        /* no pool on the light: the file's */
+    TrackNodeLight light = { .data = rows, .nodes = 8 };
+    CHECK_EQ_INT(track_node_light_at(&light, 5, 0), 255);                        /* no pool on the light: the file's */
     light.pool = &p;
-    CHECK_EQ_INT(psx_light_at(&light, 4, 0), 255);                        /* ahead of the car: lit */
-    CHECK_EQ_INT(psx_light_at(&light, 6, 3), headlight_pool_apply(255, HEADLIGHT_FLOOR));   /* far along: dark */
-    CHECK_EQ_INT(psx_light_node(&light, 6), headlight_pool_apply(255, HEADLIGHT_FLOOR));
+    CHECK_EQ_INT(track_node_light_at(&light, 4, 0), 255);                        /* ahead of the car: lit */
+    CHECK_EQ_INT(track_node_light_at(&light, 6, 3), headlight_pool_apply(255, HEADLIGHT_FLOOR));   /* far along: dark */
+    CHECK_EQ_INT(track_node_light_node(&light, 6), headlight_pool_apply(255, HEADLIGHT_FLOOR));
     p.count = 0;                                                          /* the cars gone: all dark */
-    CHECK_EQ_INT(psx_light_at(&light, 4, 0), headlight_pool_apply(255, HEADLIGHT_FLOOR));
+    CHECK_EQ_INT(track_node_light_at(&light, 4, 0), headlight_pool_apply(255, HEADLIGHT_FLOOR));
 }
 
 /* the light is ahead of the car's travel (a reversing car lights the lower nodes), between the nodes it glides, the ground beyond the road takes less, a car less than the road */
@@ -130,14 +130,14 @@ static void test_travel_glide_width_and_cars(void)
     CHECK_EQ_INT(headlight_pool_width(0), 256);
     CHECK(headlight_pool_width(3) < 256 && headlight_pool_width(4) < headlight_pool_width(3) && headlight_pool_width(5) == 0);
     CHECK(headlight_pool_width(8) == headlight_pool_width(3) && headlight_pool_width(10) == 0);
-    uint8_t rows[8 * PSX_LIGHT_POINTS];
+    uint8_t rows[8 * TRACK_NODE_LIGHT_POINTS];
     memset(rows, 255, sizeof rows);
     HeadlightPool one = pool_of(8, 1, 1, 0);
-    PsxLight light = { .data = rows, .nodes = 8 };
+    TrackNodeLight light = { .data = rows, .nodes = 8 };
     light.pool = &one;
-    CHECK_EQ_INT(psx_light_at(&light, 4, 0), 255);
-    CHECK_EQ_INT(psx_light_at(&light, 4, 5), headlight_pool_apply(255, HEADLIGHT_FLOOR));   /* the far ground stays dark even in the beam */
-    CHECK(psx_light_at(&light, 4, 3) < 255 && psx_light_at(&light, 4, 3) > psx_light_at(&light, 4, 5));
+    CHECK_EQ_INT(track_node_light_at(&light, 4, 0), 255);
+    CHECK_EQ_INT(track_node_light_at(&light, 4, 5), headlight_pool_apply(255, HEADLIGHT_FLOOR));   /* the far ground stays dark even in the beam */
+    CHECK(track_node_light_at(&light, 4, 3) < 255 && track_node_light_at(&light, 4, 3) > track_node_light_at(&light, 4, 5));
     CHECK_EQ_INT(headlight_pool_car_gain(256), HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * HEADLIGHT_CAR_SHARE / 256);
     CHECK(headlight_pool_car_gain(256) < 256);
     CHECK_EQ_INT(headlight_pool_car_gain(HEADLIGHT_FLOOR), HEADLIGHT_FLOOR);   /* the dark stays the dark */
@@ -225,24 +225,24 @@ static void test_the_cone_of_several_cars_and_the_old_path(void)
 /* the light bytes with the cone: a point's own place decides, the node's row does not (the road runs along z, a car at z = 0 facing +z, then turned round) */
 static void test_the_light_bytes_with_the_cone(void)
 {
-    uint8_t rows[40 * PSX_LIGHT_POINTS];
+    uint8_t rows[40 * TRACK_NODE_LIGHT_POINTS];
     memset(rows, 255, sizeof rows);
     int32_t xz[2 * 40];
     for (int i = 0; i < 40; i++) xz[2 * i] = 0, xz[2 * i + 1] = i * 6 * 65536;
     HeadlightPool p = cone_of(0, 0, 0, 1);
     p.ring = 40, p.node_xz = xz;
-    PsxLight light = { .data = rows, .nodes = 40, .pool = &p };
+    TrackNodeLight light = { .data = rows, .nodes = 40, .pool = &p };
     const uint8_t dark = headlight_pool_apply(255, HEADLIGHT_FLOOR);
     const double ahead[2] = { 0, 8 }, behind[2] = { 0, -30 }, wide[2] = { 90, 30 };
-    CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, ahead), 255);               /* ahead of the nose: lit, whatever node it is asked as */
-    CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, behind), dark);             /* behind it: dark */
-    CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, wide), dark);               /* far beside the road: dark */
-    CHECK(psx_light_at(&light, 3, 0) > 240);                               /* no place given: the node's centre (18 m on) */
+    CHECK_EQ_INT(track_node_light_at_xz(&light, 5, 0, ahead), 255);               /* ahead of the nose: lit, whatever node it is asked as */
+    CHECK_EQ_INT(track_node_light_at_xz(&light, 5, 0, behind), dark);             /* behind it: dark */
+    CHECK_EQ_INT(track_node_light_at_xz(&light, 5, 0, wide), dark);               /* far beside the road: dark */
+    CHECK(track_node_light_at(&light, 3, 0) > 240);                               /* no place given: the node's centre (18 m on) */
     p.cone_hz[0] = -1;                                                     /* turned round: the same node is dark now, the one behind is lit */
-    CHECK_EQ_INT(psx_light_at(&light, 3, 0), dark);
+    CHECK_EQ_INT(track_node_light_at(&light, 3, 0), dark);
     p.cone = 0;                                                            /* the cone off: the places are ignored, the nodes' pool as it was */
     p.count = 1, p.ring = 40, p.node[0] = 0, p.sub[0] = 0, p.dir[0] = 1;
-    CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, behind), 255);              /* the node 5 ahead along the track is full, the place is not asked */
+    CHECK_EQ_INT(track_node_light_at_xz(&light, 5, 0, behind), 255);              /* the node 5 ahead along the track is full, the place is not asked */
 }
 
 /* a car that is not drawn still lights the road when it is just behind the player's (the camera is in front of it), with the cone only */
@@ -286,78 +286,78 @@ static void test_a_car_is_lit_by_a_rivals_lights_more_than_by_its_own(void)
 static void test_the_lamp_floor(void)
 {
     uint8_t cls[4] = { 0, 2, 4, 1 };
-    PsxLight light = { .nodes = 4, .car_pool = cls, .lamp_bright = 1 };
-    CHECK_EQ_INT(psx_light_lamp_floor(&light, 0), 0);                              /* no lamp there */
-    CHECK_EQ_INT(psx_light_lamp_floor(&light, 2), 256);                            /* the strongest: full */
-    CHECK_EQ_INT(psx_light_lamp_floor(&light, 1), HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * 2 / 4);
-    CHECK_EQ_INT(psx_light_lamp_floor(&light, 6), psx_light_lamp_floor(&light, 2));   /* the nodes wrap round the track */
-    CHECK_EQ_INT(psx_light_lamp_floor(&light, PSX_LIGHT_NO_NODE), 0);              /* no node known: the open floor, the lamp of node 0 or any not read */
+    TrackNodeLight light = { .nodes = 4, .car_pool = cls, .lamp_bright = 1 };
+    CHECK_EQ_INT(track_node_light_lamp_floor(&light, 0), 0);                              /* no lamp there */
+    CHECK_EQ_INT(track_node_light_lamp_floor(&light, 2), 256);                            /* the strongest: full */
+    CHECK_EQ_INT(track_node_light_lamp_floor(&light, 1), HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * 2 / 4);
+    CHECK_EQ_INT(track_node_light_lamp_floor(&light, 6), track_node_light_lamp_floor(&light, 2));   /* the nodes wrap round the track */
+    CHECK_EQ_INT(track_node_light_lamp_floor(&light, TRACK_NODE_LIGHT_NO_NODE), 0);              /* no node known: the open floor, the lamp of node 0 or any not read */
     cls[0] = 4;
-    CHECK_EQ_INT(psx_light_lamp_floor(&light, PSX_LIGHT_NO_NODE), 0);
+    CHECK_EQ_INT(track_node_light_lamp_floor(&light, TRACK_NODE_LIGHT_NO_NODE), 0);
     light.lamp_bright = 0;
-    CHECK_EQ_INT(psx_light_lamp_floor(&light, 2), 0);                              /* the flag off: the exe's */
+    CHECK_EQ_INT(track_node_light_lamp_floor(&light, 2), 0);                              /* the flag off: the exe's */
     light.lamp_bright = 1, light.lamp_local = 1;                                  /* city_lift 3: local pools: full only at the lamp, the outer classes at (about) the night floor */
-    CHECK_EQ_INT(psx_light_lamp_floor(&light, 2), 256);
-    CHECK(psx_light_lamp_floor(&light, 1) < HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * 2 / 4);
-    CHECK(psx_light_lamp_floor(&light, 3) < 140);                                  /* class 1 (node 3) hardly lifts it */
+    CHECK_EQ_INT(track_node_light_lamp_floor(&light, 2), 256);
+    CHECK(track_node_light_lamp_floor(&light, 1) < HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * 2 / 4);
+    CHECK(track_node_light_lamp_floor(&light, 3) < 140);                                  /* class 1 (node 3) hardly lifts it */
     light.lamp_local = 0;
     light.car_pool = NULL;
-    CHECK_EQ_INT(psx_light_lamp_floor(&light, 2), 0);
-    CHECK_EQ_INT(psx_light_lamp_floor(NULL, 2), 0);
+    CHECK_EQ_INT(track_node_light_lamp_floor(&light, 2), 0);
+    CHECK_EQ_INT(track_node_light_lamp_floor(NULL, 2), 0);
 }
 
 /* the follow camera's relight of its vertices: each is the light at its own place, the cone only */
 static void test_the_relight_of_vertices(void)
 {
-    uint8_t rows[40 * PSX_LIGHT_POINTS];
+    uint8_t rows[40 * TRACK_NODE_LIGHT_POINTS];
     memset(rows, 255, sizeof rows);
     HeadlightPool p = cone_of(0, 0, 0, 1);
-    PsxLight light = { .data = rows, .nodes = 40, .pool = &p };
+    TrackNodeLight light = { .data = rows, .nodes = 40, .pool = &p };
     const int32_t world[3][3] = { { 0, 0, 8 * 65536 }, { 0, 0, -30 * 65536 }, { 90 * 65536, 0, 30 * 65536 } };
     const uint32_t node[3] = { 5, 5, 7 };
     const uint8_t point[3] = { 0, 0, 1 };
     uint8_t out[3] = { 7, 7, 7 };
-    psx_light_relight_xz(&light, world, node, point, 3, out);
+    track_node_light_relight_xz(&light, world, node, point, 3, out);
     for (int i = 0; i < 3; i++) {
         const double at[2] = { world[i][0] / 65536.0, world[i][2] / 65536.0 };
-        CHECK_EQ_INT(out[i], psx_light_at_xz(&light, node[i], point[i], at));
+        CHECK_EQ_INT(out[i], track_node_light_at_xz(&light, node[i], point[i], at));
     }
     CHECK(out[0] > out[1]);                                                        /* lit ahead of the nose, dark behind it */
     p.cone = 0;                                                                    /* no cone: nothing written, the build's own bytes stay */
     uint8_t keep[3] = { 7, 7, 7 };
-    psx_light_relight_xz(&light, world, node, point, 3, keep);
+    track_node_light_relight_xz(&light, world, node, point, 3, keep);
     CHECK_EQ_INT(keep[0], 7);
-    psx_light_relight_xz(NULL, world, node, point, 3, keep);
-    psx_light_relight_xz(&light, NULL, node, point, 3, keep);
+    track_node_light_relight_xz(NULL, world, node, point, 3, keep);
+    track_node_light_relight_xz(&light, NULL, node, point, 3, keep);
     CHECK_EQ_INT(keep[2], 7);
 }
 
 /* city_lift's lifted open floor: the beam adds on top of it (it is not lost under it), and 0 lift is the exe's max-of-the-two */
 static void test_the_beam_adds_on_top_of_a_lifted_floor(void)
 {
-    uint8_t rows[40 * PSX_LIGHT_POINTS];
+    uint8_t rows[40 * TRACK_NODE_LIGHT_POINTS];
     memset(rows, 255, sizeof rows);
     int32_t xz[2 * 40];
     for (int i = 0; i < 40; i++) xz[2 * i] = 0, xz[2 * i + 1] = i * 6 * 65536;
     HeadlightPool p = cone_of(0, 0, 0, 1);
     p.ring = 40, p.node_xz = xz;
-    PsxLight light = { .data = rows, .nodes = 40, .pool = &p, .night_lift = 120, .beam_on_top = 1 };
+    TrackNodeLight light = { .data = rows, .nodes = 40, .pool = &p, .night_lift = 120, .beam_on_top = 1 };
     const int floor = HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * 120 / 256;
     double z = 14;
     while (z < 120 && (headlight_pool_lift_xz(&p, 0, z) > 156 || headlight_pool_lift_xz(&p, 0, z) < 100)) z += 0.5;
     const int lift = headlight_pool_lift_xz(&p, 0, z);
     CHECK(lift >= 100 && lift <= 156);
     const double at[2] = { 0, z };
-    CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, at), headlight_pool_apply(255, headlight_pool_gain_at_lift(floor, lift)));   /* the floor and the beam added */
+    CHECK_EQ_INT(track_node_light_at_xz(&light, 5, 0, at), headlight_pool_apply(255, headlight_pool_gain_at_lift(floor, lift)));   /* the floor and the beam added */
     CHECK(headlight_pool_gain_at_lift(floor, lift) > HEADLIGHT_FLOOR + (256 - HEADLIGHT_FLOOR) * lift / 256);              /* more than the beam alone */
     const double behind[2] = { 0, -40 };
-    CHECK_EQ_INT(psx_light_at_xz(&light, 5, 0, behind), headlight_pool_apply(255, floor));                                 /* away from the beam: the floor */
-    CHECK_EQ_INT(psx_light_open_gain_floor(&light, lift, 0), headlight_pool_gain_at_lift(floor, lift));                    /* the cells' gain agrees */
+    CHECK_EQ_INT(track_node_light_at_xz(&light, 5, 0, behind), headlight_pool_apply(255, floor));                                 /* away from the beam: the floor */
+    CHECK_EQ_INT(track_node_light_open_gain_floor(&light, lift, 0), headlight_pool_gain_at_lift(floor, lift));                    /* the cells' gain agrees */
     light.beam_on_top = 0;                                                                                                 /* city_lift 1 and 2, vegas_lift: the larger of the beam's gain and the floor, as it was */
     const int alone = headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift);
-    CHECK_EQ_INT(psx_light_open_gain_floor(&light, lift, 0), alone > floor ? alone : floor);
+    CHECK_EQ_INT(track_node_light_open_gain_floor(&light, lift, 0), alone > floor ? alone : floor);
     light.night_lift = 0;                                                                                                  /* no lift: the exe's */
-    CHECK_EQ_INT(psx_light_open_gain_floor(&light, lift, 0), headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift));
+    CHECK_EQ_INT(track_node_light_open_gain_floor(&light, lift, 0), headlight_pool_gain_at_lift(HEADLIGHT_FLOOR, lift));
 }
 
 /* port (car_night_lift): the car's gain is raised by an eighth or a quarter of itself: nothing at level 0 or an unknown level, the order of the lights kept, a lit car (256) at 288 / 320 */

@@ -20,7 +20,7 @@ enum { SKID_HIGH_RES = 1 };  /* 004fa0c0, as drive_hud's HIGH_RES */
 #include "game/race/row_cars.h"
 #include "viewer/ported_view.h"
 #include "game/race/model_draw.h"
-#include "game/race/psx_light.h"
+#include "game/race/track_node_light.h"
 #include "game/race/puffs.h"
 #include "game/race/race_state.h"
 #include "viewer/object_sink.h"
@@ -44,7 +44,7 @@ extern ObjectSink object_pixels;
 extern int32_t (*puff_rand)(void *ctx, int32_t n);
 extern const PuffArt *puff_art;
 extern const PuffBlend *puff_blend;
-extern const PsxLight *psx_light;   /* the track's light, or NULL */
+extern const TrackNodeLight *light_effects;   /* the track's light, or NULL */
 extern int32_t body_drawn_tick[RACE_CARS];   /* the tick each car's body was last drawn */
 const Car *followed_car(void);
 int world_screen(const int32_t place[3], int32_t camera[3], int32_t screen[2]);

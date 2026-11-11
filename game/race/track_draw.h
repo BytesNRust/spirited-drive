@@ -52,7 +52,7 @@ typedef struct {
                                * bottom); 0 the exe's */
 } DrawContext;
 
-/* port (the PS1 look's light): the renderer's glue calls this, when it is set, with the four corner intensities of the terrain
+/* port (the light effects' light): the renderer's glue calls this, when it is set, with the four corner intensities of the terrain
  * polygon the draw callbacks that follow paint (255 full, 0 black), and with NULL when that polygon is done. The sink
  * (ported_view.c) sets it; NULL, the default, no light. */
 extern void (*track_light_hook)(const uint8_t corners[4]);

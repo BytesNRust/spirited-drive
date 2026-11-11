@@ -126,11 +126,11 @@ void track_build_segment(TrackBuild *b, int32_t first, int32_t segment, int32_t 
             if (b->world_next >= 0 && b->world_next < b->world_capacity)  /* port guard */
                 for (int k = 0; k < 3; k++) b->world[b->world_next][k] = rd32(points + 12 * source + 4 * k);
             if (b->light_out != NULL && b->world_next >= 0 && b->world_next < b->world_capacity)
-                b->light_out[b->world_next] = psx_light_at(b->light, (uint32_t)node, source);   /* port: the PS1's light */
+                b->light_out[b->world_next] = track_node_light_at(b->light, (uint32_t)node, source);   /* port: the the console version's light */
             if (b->node_out != NULL && b->point_out != NULL && b->world_next >= 0 && b->world_next < b->world_capacity)
                 b->node_out[b->world_next] = (uint32_t)node, b->point_out[b->world_next] = (uint8_t)source;
             if (b->tunnel_out != NULL && b->world_next >= 0 && b->world_next < b->world_capacity)
-                b->tunnel_out[b->world_next] = (uint8_t)psx_light_vertex_class(b->light, (uint32_t)node, source);   /* port: the class, and the scene tone of the point (`tone`) */
+                b->tunnel_out[b->world_next] = (uint8_t)track_node_light_vertex_class(b->light, (uint32_t)node, source);   /* port: the class, and the scene tone of the point (`tone`) */
             b->world_next++;
             select++;
         }

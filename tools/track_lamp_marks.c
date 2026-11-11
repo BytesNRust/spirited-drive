@@ -1,11 +1,11 @@
-/* The first yellow layer of the track masks: the lamps of the built-in table (game/race/psx_lamps.c: CY1, CY2, CY3, TR3, TR4) drawn as YELLOW texels (255, 255, 0) in the mask of each lamp's
+/* The first yellow layer of the track masks: the lamps of the built-in table (game/race/tunnel_lamp_textures.c: CY1, CY2, CY3, TR3, TR4) drawn as YELLOW texels (255, 255, 0) in the mask of each lamp's
  * texture, data/track_masks/<TRACK>/slot_<NN>.png, so that the owner corrects the marks in the PSD rather than a table in the code (track_mask.h: a lamp is yellow, red stays reflective).
  * usage: track_lamp_marks <data dir with SIMDATA/ETRACKFM> <output dir (data/track_masks)> [track ...]
  * A mask that is already there is kept (its red and white) and the yellow laid over it; the rest is transparent. The yellow texels are those of the table's rectangle whose colour the table lets
- * stay bright (psx_lamp_exempt): the marks hold no colour of the game and no pixel of it. */
+ * stay bright (tunnel_lamp_texture_exempt): the marks hold no colour of the game and no pixel of it. */
 #include "formats/chunk.h"
 #include "formats/png.h"
-#include "game/race/psx_lamps.h"
+#include "game/race/tunnel_lamp_textures.h"
 #include "game/race/track_art.h"
 
 #include <stdio.h>
@@ -72,8 +72,8 @@ int main(int argc, char **argv)
     int failed = 0;
     for (int i = 0; argc > 3 ? i < argc - 3 : TRACKS[i] != NULL; i++) {
         const char *track = argc > 3 ? argv[3 + i] : TRACKS[i];
-        const PsxLamp *lamps = NULL;
-        const int count = psx_lamps_for(track, &lamps);
+        const TunnelLampTexture *lamps = NULL;
+        const int count = tunnel_lamp_textures_for(track, &lamps);
         char path[700];
         snprintf(path, sizeof path, "%s/SIMDATA/ETRACKFM/%s_001.FAM", argv[1], track);
         size_t size = 0;
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
             const int w = t->bitmap.width, h = t->bitmap.height;
             if (!t->present || w <= 0 || h <= 0 || t->bitmap.payload == NULL) continue;
             uint8_t exempt[256];
-            psx_lamp_exempt(&lamps[l], t->bitmap.payload, w, h, exempt);
+            tunnel_lamp_texture_exempt(&lamps[l], t->bitmap.payload, w, h, exempt);
             snprintf(path, sizeof path, "%s/slot_%02d.png", dir, lamps[l].slot);
             uint8_t *rgba = malloc((size_t)w * (size_t)h * 4);
             if (rgba == NULL) continue;

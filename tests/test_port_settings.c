@@ -93,10 +93,10 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.perspective, b.perspective);
     CHECK_EQ_INT(a.texture_filter, b.texture_filter);
     CHECK_EQ_INT(a.fog, b.fog);
-    CHECK_EQ_INT(a.psx_light, b.psx_light);
-    CHECK_EQ_INT(a.psx_shadow, b.psx_shadow);
-    CHECK_EQ_INT(a.psx_headlights, b.psx_headlights);
-    CHECK_EQ_INT(a.psx_time, b.psx_time);
+    CHECK_EQ_INT(a.light_effects, b.light_effects);
+    CHECK_EQ_INT(a.car_soft_shadow, b.car_soft_shadow);
+    CHECK_EQ_INT(a.headlight_beams, b.headlight_beams);
+    CHECK_EQ_INT(a.light_time, b.light_time);
     CHECK_EQ_INT(a.render_scale, b.render_scale);
     CHECK_EQ_INT(a.laps, b.laps);
     CHECK_EQ_INT(a.weather, b.weather);
@@ -112,7 +112,7 @@ static void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.replay_no_ffb, b.replay_no_ffb);
     CHECK_EQ_INT(a.last_camera, b.last_camera);
     CHECK_EQ_INT(a.camera_kind, b.camera_kind);
-    CHECK_EQ_INT(a.psx_flares, b.psx_flares);
+    CHECK_EQ_INT(a.lamp_flares, b.lamp_flares);
     CHECK_EQ_INT(a.hall_light, b.hall_light);
     CHECK_EQ_INT(a.made_tunnels, b.made_tunnels);
     CHECK_EQ_INT(a.headlight_relight, b.headlight_relight);
@@ -240,7 +240,7 @@ static void test_defaults(void)
     CHECK_EQ_INT(d.trans_shadows, 0);   /* Transtropolis' made light as it was, until asked */
     CHECK_EQ_INT(d.headlight_relight, 0);   /* the road's light as built, until asked */
     CHECK_EQ_INT(d.made_tunnels, 0);    /* a made light keeps no tunnel flags until asked */
-    CHECK_EQ_INT(d.psx_flares, 0);      /* no halo round the lit tail lights until asked */
+    CHECK_EQ_INT(d.lamp_flares, 0);      /* no halo round the lit tail lights until asked */
     CHECK_EQ_INT(d.hall_light, 0);      /* the hall is a tunnel to the car until asked */
     CHECK_EQ_INT(d.free_records, 0);    /* the free races keep no total for a lap count the exe lacks, until asked */
     CHECK_EQ_INT(d.render_bands, -1);   /* the render threads are Auto by default: as many as the logical cores */
@@ -250,7 +250,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1, .psx_headlights = 1, .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .night_sky_hue = 1, .psx_flares = 1, .hall_light = 1, .forest_dark = 1, .night_stretch_clean = 1, .made_tunnels = 1, .headlight_relight = 1, .replay_no_ffb = 1, .last_camera = 1, .camera_kind = 4 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .light_effects = 1, .car_soft_shadow = 1, .headlight_beams = 1, .light_time = LIGHT_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .night_sky_hue = 1, .lamp_flares = 1, .hall_light = 1, .forest_dark = 1, .night_stretch_clean = 1, .made_tunnels = 1, .headlight_relight = 1, .replay_no_ffb = 1, .last_camera = 1, .camera_kind = 4 };
     char text[PORT_CFG_TEXT_MAX];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -274,39 +274,39 @@ static void test_fog_sample_values(void)
     CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).fog_sample, 0);
 }
 
-/* psx_flares: 0/1 in the file, TNFS_PSX_FLARES over it, and only with the Light Effects switch on (the halo is the PS1 look's) */
-static void test_psx_flares_values(void)
+/* lamp_flares: 0/1 in the file, TNFS_LAMP_FLARES over it, and only with the Light Effects switch on (the halo is the light effects') */
+static void test_lamp_flares_values(void)
 {
-    const char *const on = "psx_flares=1\n", *const bad = "psx_flares=2\n";
-    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).psx_flares, 1);
-    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).psx_flares, 0);
-    setenv("TNFS_PSX_LIGHT", "1", 1);
-    setenv("TNFS_PSX_FLARES", "1", 1);
-    CHECK_EQ_INT(port_psx_flares(), 1);
-    setenv("TNFS_PSX_LIGHT", "0", 1);
-    CHECK_EQ_INT(port_psx_flares(), 0);   /* no Light Effects, no halo */
-    setenv("TNFS_PSX_LIGHT", "1", 1);
-    setenv("TNFS_PSX_FLARES", "0", 1);
-    CHECK_EQ_INT(port_psx_flares(), 0);
-    unsetenv("TNFS_PSX_FLARES");
-    unsetenv("TNFS_PSX_LIGHT");
+    const char *const on = "lamp_flares=1\n", *const bad = "lamp_flares=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).lamp_flares, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).lamp_flares, 0);
+    setenv("TNFS_LIGHT_EFFECTS", "1", 1);
+    setenv("TNFS_LAMP_FLARES", "1", 1);
+    CHECK_EQ_INT(port_lamp_flares(), 1);
+    setenv("TNFS_LIGHT_EFFECTS", "0", 1);
+    CHECK_EQ_INT(port_lamp_flares(), 0);   /* no Light Effects, no halo */
+    setenv("TNFS_LIGHT_EFFECTS", "1", 1);
+    setenv("TNFS_LAMP_FLARES", "0", 1);
+    CHECK_EQ_INT(port_lamp_flares(), 0);
+    unsetenv("TNFS_LAMP_FLARES");
+    unsetenv("TNFS_LIGHT_EFFECTS");
 }
 
 /* port (replay conditions): a replay's time of day and weather stand in for the settings' while forced; the variables still win, and unforced they are the settings' again */
 static void test_conditions_force(void)
 {
-    unsetenv("TNFS_PSX_TIME"), unsetenv("TNFS_WEATHER");
-    const int time = port_psx_time(), weather = port_weather();
-    port_conditions_force(1, PSX_TIME_NIGHT == time ? PSX_TIME_DAY : PSX_TIME_NIGHT, weather == 2 ? 0 : 2);
-    CHECK(port_psx_time() != time && port_weather() != weather);
-    setenv("TNFS_PSX_TIME", "dusk", 1);
-    CHECK_EQ_INT(port_psx_time(), PSX_TIME_DUSK);   /* the variable wins */
-    unsetenv("TNFS_PSX_TIME");
+    unsetenv("TNFS_LIGHT_TIME"), unsetenv("TNFS_WEATHER");
+    const int time = port_light_time(), weather = port_weather();
+    port_conditions_force(1, LIGHT_TIME_NIGHT == time ? LIGHT_TIME_DAY : LIGHT_TIME_NIGHT, weather == 2 ? 0 : 2);
+    CHECK(port_light_time() != time && port_weather() != weather);
+    setenv("TNFS_LIGHT_TIME", "dusk", 1);
+    CHECK_EQ_INT(port_light_time(), LIGHT_TIME_DUSK);   /* the variable wins */
+    unsetenv("TNFS_LIGHT_TIME");
     port_conditions_force(0, 0, 0);
-    CHECK(port_psx_time() == time && port_weather() == weather);
+    CHECK(port_light_time() == time && port_weather() == weather);
 }
 
-/* reflectors: 0/1 in the file, TNFS_REFLECTORS over it, and only with the PS1 headlights on (the shine is the headlights') */
+/* reflectors: 0/1 in the file, TNFS_REFLECTORS over it, and only with the headlight beams on (the shine is the headlights') */
 static void test_lamp_halos_values(void)
 {
     const char *const on = "lamp_halos=1\n", *const bad = "lamp_halos=2\n";
@@ -355,7 +355,7 @@ static void test_car_night_lift_values(void)
     unsetenv("TNFS_CAR_NIGHT_LIFT");
 }
 
-/* the tunnel headlight is no longer a setting (always on with the PS1 headlights): an old cfg's line is an unknown key, ignored, and the rest still reads */
+/* the tunnel headlight is no longer a setting (always on with the headlight beams): an old cfg's line is an unknown key, ignored, and the rest still reads */
 static void test_retired_tunnel_headlight_key(void)
 {
     const char *const old = "tunnel_headlight=0\ncanyon_shade=1\n";
@@ -489,16 +489,16 @@ static void test_reflectors_values(void)
     const char *const on = "reflectors=1\n", *const bad = "reflectors=2\n";
     CHECK_EQ_INT(port_settings_parse(on, strlen(on)).reflectors, 1);
     CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).reflectors, 0);
-    setenv("TNFS_PSX_HEADLIGHTS", "1", 1);
+    setenv("TNFS_HEADLIGHT_BEAMS", "1", 1);
     setenv("TNFS_REFLECTORS", "1", 1);
     CHECK_EQ_INT(port_reflectors(), 1);
-    setenv("TNFS_PSX_HEADLIGHTS", "0", 1);
+    setenv("TNFS_HEADLIGHT_BEAMS", "0", 1);
     CHECK_EQ_INT(port_reflectors(), 0);   /* no headlights, no reflectors */
-    setenv("TNFS_PSX_HEADLIGHTS", "1", 1);
+    setenv("TNFS_HEADLIGHT_BEAMS", "1", 1);
     setenv("TNFS_REFLECTORS", "0", 1);
     CHECK_EQ_INT(port_reflectors(), 0);
     unsetenv("TNFS_REFLECTORS");
-    unsetenv("TNFS_PSX_HEADLIGHTS");
+    unsetenv("TNFS_HEADLIGHT_BEAMS");
 }
 
 static void test_replay_no_ffb_values(void)
@@ -725,17 +725,17 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(port_settings_parse(stormy, strlen(stormy)).weather, WEATHER_STORM);
     const char *scaled = "render_scale=2\n";
     CHECK_EQ_INT(port_settings_parse(scaled, strlen(scaled)).render_scale, 2);
-    CHECK_EQ_INT(s.psx_light, 0);
-    CHECK_EQ_INT(s.psx_shadow, 0);
-    const char *shadow = "psx_shadow=1\n";
-    CHECK_EQ_INT(port_settings_parse(shadow, strlen(shadow)).psx_shadow, 1);
-    CHECK_EQ_INT(s.psx_headlights, 0);   /* off by default: the night's first look */
-    const char *headlights = "psx_headlights=1\n";
-    CHECK_EQ_INT(port_settings_parse(headlights, strlen(headlights)).psx_headlights, 1);
-    const char *bad_headlights = "psx_headlights=2\n";
-    CHECK_EQ_INT(port_settings_parse(bad_headlights, strlen(bad_headlights)).psx_headlights, 0);
-    const char *bad_shadow = "psx_shadow=7\n";
-    CHECK_EQ_INT(port_settings_parse(bad_shadow, strlen(bad_shadow)).psx_shadow, 0);
+    CHECK_EQ_INT(s.light_effects, 0);
+    CHECK_EQ_INT(s.car_soft_shadow, 0);
+    const char *shadow = "car_soft_shadow=1\n";
+    CHECK_EQ_INT(port_settings_parse(shadow, strlen(shadow)).car_soft_shadow, 1);
+    CHECK_EQ_INT(s.headlight_beams, 0);   /* off by default: the night's first look */
+    const char *headlights = "headlight_beams=1\n";
+    CHECK_EQ_INT(port_settings_parse(headlights, strlen(headlights)).headlight_beams, 1);
+    const char *bad_headlights = "headlight_beams=2\n";
+    CHECK_EQ_INT(port_settings_parse(bad_headlights, strlen(bad_headlights)).headlight_beams, 0);
+    const char *bad_shadow = "car_soft_shadow=7\n";
+    CHECK_EQ_INT(port_settings_parse(bad_shadow, strlen(bad_shadow)).car_soft_shadow, 0);
     const char *shine = "body_shine=1\n", *strong = "body_shine=3\n", *envmap = "body_shine=4\n", *bad_shine = "body_shine=5\n";
     CHECK_EQ_INT(port_settings_parse(shine, strlen(shine)).body_shine, 4);   /* off or the envmap: an older file's strengths 1..3 are the envmap */
     CHECK_EQ_INT(port_settings_parse(strong, strlen(strong)).body_shine, 4);
@@ -743,33 +743,33 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(port_settings_parse("body_shine=2\n", 13).body_shine, 4);
     CHECK_EQ_INT(port_settings_parse("body_shine=0\n", 13).body_shine, 0);
     CHECK_EQ_INT(port_settings_parse(bad_shine, strlen(bad_shine)).body_shine, 0);
-    const char *lit = "psx_light=1\n";
-    CHECK_EQ_INT(port_settings_parse(lit, strlen(lit)).psx_light, 1);
-    const char *bad = "psx_light=2\n";
-    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).psx_light, 0);
-    CHECK_EQ_INT(s.psx_time, PSX_TIME_DAY);
-    const char *at = "psx_time=A\n", *ct = "psx_time=c\n", *bt = "psx_time=day\n", *no = "psx_time=noon\n";
-    const char *dawn = "psx_time=Dawn\n", *dusk = "psx_time=DUSK\n", *b = "psx_time=B\n";
-    CHECK_EQ_INT(port_settings_parse(at, strlen(at)).psx_time, PSX_TIME_DAWN);
-    CHECK_EQ_INT(port_settings_parse(ct, strlen(ct)).psx_time, PSX_TIME_DUSK);
-    CHECK_EQ_INT(port_settings_parse(bt, strlen(bt)).psx_time, PSX_TIME_DAY);
-    CHECK_EQ_INT(port_settings_parse(b, strlen(b)).psx_time, PSX_TIME_DAY);
-    CHECK_EQ_INT(port_settings_parse(dawn, strlen(dawn)).psx_time, PSX_TIME_DAWN);
-    CHECK_EQ_INT(port_settings_parse(dusk, strlen(dusk)).psx_time, PSX_TIME_DUSK);
-    const char *night = "psx_time=Night\n";
-    CHECK_EQ_INT(port_settings_parse(night, strlen(night)).psx_time, PSX_TIME_NIGHT);
+    const char *lit = "light_effects=1\n";
+    CHECK_EQ_INT(port_settings_parse(lit, strlen(lit)).light_effects, 1);
+    const char *bad = "light_effects=2\n";
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).light_effects, 0);
+    CHECK_EQ_INT(s.light_time, LIGHT_TIME_DAY);
+    const char *at = "light_time=A\n", *ct = "light_time=c\n", *bt = "light_time=day\n", *no = "light_time=noon\n";
+    const char *dawn = "light_time=Dawn\n", *dusk = "light_time=DUSK\n", *b = "light_time=B\n";
+    CHECK_EQ_INT(port_settings_parse(at, strlen(at)).light_time, LIGHT_TIME_DAWN);
+    CHECK_EQ_INT(port_settings_parse(ct, strlen(ct)).light_time, LIGHT_TIME_DUSK);
+    CHECK_EQ_INT(port_settings_parse(bt, strlen(bt)).light_time, LIGHT_TIME_DAY);
+    CHECK_EQ_INT(port_settings_parse(b, strlen(b)).light_time, LIGHT_TIME_DAY);
+    CHECK_EQ_INT(port_settings_parse(dawn, strlen(dawn)).light_time, LIGHT_TIME_DAWN);
+    CHECK_EQ_INT(port_settings_parse(dusk, strlen(dusk)).light_time, LIGHT_TIME_DUSK);
+    const char *night = "light_time=Night\n";
+    CHECK_EQ_INT(port_settings_parse(night, strlen(night)).light_time, LIGHT_TIME_NIGHT);
     /* written as the words */
     char out[PORT_CFG_TEXT_MAX];
     PortSettings w = port_settings_defaults();
-    w.psx_time = PSX_TIME_DAWN;
-    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=dawn\n") != NULL);
-    w.psx_time = PSX_TIME_DUSK;
-    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=dusk\n") != NULL);
-    w.psx_time = PSX_TIME_NIGHT;
-    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=night\n") != NULL);
-    w.psx_time = PSX_TIME_DAY;
-    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "psx_time=day\n") != NULL);
-    CHECK_EQ_INT(port_settings_parse(no, strlen(no)).psx_time, PSX_TIME_DAY);
+    w.light_time = LIGHT_TIME_DAWN;
+    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "light_time=dawn\n") != NULL);
+    w.light_time = LIGHT_TIME_DUSK;
+    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "light_time=dusk\n") != NULL);
+    w.light_time = LIGHT_TIME_NIGHT;
+    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "light_time=night\n") != NULL);
+    w.light_time = LIGHT_TIME_DAY;
+    CHECK(port_settings_format(&w, out, sizeof out) > 0 && strstr(out, "light_time=day\n") != NULL);
+    CHECK_EQ_INT(port_settings_parse(no, strlen(no)).light_time, LIGHT_TIME_DAY);
 }
 
 static void test_bad_input_keeps_defaults(void)
@@ -799,25 +799,25 @@ uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)
 static void test_emissive_lamps_follow_light_effects(void)
 {
     unsetenv("TNFS_EMISSIVE_LAMPS");
-    setenv("TNFS_PSX_LIGHT", "1", 1);
+    setenv("TNFS_LIGHT_EFFECTS", "1", 1);
     CHECK_EQ_INT(port_emissive_lamps(), 1);   /* the Light Effects switch on */
-    setenv("TNFS_PSX_LIGHT", "0", 1);
+    setenv("TNFS_LIGHT_EFFECTS", "0", 1);
     CHECK_EQ_INT(port_emissive_lamps(), 0);   /* off: the exe's */
-    setenv("TNFS_PSX_LIGHT", "1", 1);
+    setenv("TNFS_LIGHT_EFFECTS", "1", 1);
     setenv("TNFS_EMISSIVE_LAMPS", "0", 1);
     CHECK_EQ_INT(port_emissive_lamps(), 0);   /* the dev override */
-    setenv("TNFS_PSX_LIGHT", "0", 1);
+    setenv("TNFS_LIGHT_EFFECTS", "0", 1);
     setenv("TNFS_EMISSIVE_LAMPS", "1", 1);
     CHECK_EQ_INT(port_emissive_lamps(), 1);
     unsetenv("TNFS_EMISSIVE_LAMPS");
-    unsetenv("TNFS_PSX_LIGHT");
+    unsetenv("TNFS_LIGHT_EFFECTS");
 }
 
 static void test_a_longest_psx_dir_round_trips(void)
 {
     PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1, .fov_adjust = -7, .view_ultra = 1,
-                       .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .psx_light = 1, .psx_shadow = 1,
-                       .psx_time = PSX_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .psx_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .chase_height = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1, .lamp_pool_tint = 1, .trans_shadows = 1, .snow_weather = 1, .lamp_halos = 1, .snow_fx = 1, .trail_rise = 1, .canyon_shade = 1, .parking_dark = 1, .forest_neutral = 1, .cavern_dark = 1, .vegas_objects = 1, .close_houses = 1, .brake_over_gas = 1, .lamp_pools = 1, .lamp_car_shade = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .headlight_cone = 1, .rain_fx = 1, .rain_grip = 1, .gauge_light = 3, .finish_gate_light = 1, .lamp_pool_bright = 1, .night_tone = 2, .rain_lamps = 1, .gauge_exterior = 1, .sign_glow = 1, .reflectors = 1, .handbrake_lamps = 1, .rally_spray = 1, .spray_cd_smoke = 1, .wipers = 1, .water_mist = 3, .weather_fog = 2, .car_tunnel_match = 1, .spray_v4 = 1, .car_night_lift = 2, .menu_pad_cancel = 1, .tunnel_lamps = 1 };
+                       .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .light_effects = 1, .car_soft_shadow = 1,
+                       .light_time = LIGHT_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .lamp_flares = 1, .made_tunnels = 1, .headlight_relight = 1, .chase_height = 1, .rally_gravel_shoulder = 1, .car_tunnel_light = 1, .vegas_car_night = 1, .lamp_pool_tint = 1, .trans_shadows = 1, .snow_weather = 1, .lamp_halos = 1, .snow_fx = 1, .trail_rise = 1, .canyon_shade = 1, .parking_dark = 1, .forest_neutral = 1, .cavern_dark = 1, .vegas_objects = 1, .close_houses = 1, .brake_over_gas = 1, .lamp_pools = 1, .lamp_car_shade = 1, .reverse_rows = 1, .city_lift = 2, .vegas_lift = 1, .headlight_cone = 1, .rain_fx = 1, .rain_grip = 1, .gauge_light = 3, .finish_gate_light = 1, .lamp_pool_bright = 1, .night_tone = 2, .rain_lamps = 1, .gauge_exterior = 1, .sign_glow = 1, .reflectors = 1, .handbrake_lamps = 1, .rally_spray = 1, .spray_cd_smoke = 1, .wipers = 1, .water_mist = 3, .weather_fog = 2, .car_tunnel_match = 1, .spray_v4 = 1, .car_night_lift = 2, .menu_pad_cancel = 1, .tunnel_lamps = 1 };
     memset(s.psx_dir, 'd', PSX_DIR_MAX - 1);
     s.psx_dir[0] = '/';
     s.psx_dir[PSX_DIR_MAX - 1] = '\0';
@@ -832,7 +832,7 @@ static void test_a_longest_psx_dir_round_trips(void)
     CHECK_EQ_INT(back.car_colours, 1);
     CHECK_EQ_INT(back.fog_sample, 1);
     CHECK_EQ_INT(back.sky_fill, 1);
-    CHECK_EQ_INT(back.psx_flares, 1);
+    CHECK_EQ_INT(back.lamp_flares, 1);
     CHECK_EQ_INT(back.made_tunnels, 1);
     CHECK_EQ_INT(back.headlight_relight, 1);
     CHECK_EQ_INT(back.car_tunnel_light, 1);
@@ -928,17 +928,17 @@ static void test_rain_grip_needs_the_rain(void)
 static void test_the_hosts_rules_win_while_set(void)
 {
     clear_files();
-    unsetenv("TNFS_WEATHER"), unsetenv("TNFS_REVERSE"), unsetenv("TNFS_RAIN_GRIP"), unsetenv("TNFS_PSX_TIME");
+    unsetenv("TNFS_WEATHER"), unsetenv("TNFS_REVERSE"), unsetenv("TNFS_RAIN_GRIP"), unsetenv("TNFS_LIGHT_TIME");
     session_rules_set(NULL);
-    const int weather = port_weather(), grip = port_rain_grip(), psx = port_psx_time(), reverse = reverse_track_wanted();
+    const int weather = port_weather(), grip = port_rain_grip(), lt = port_light_time(), reverse = reverse_track_wanted();
     SessionRules r;
     memset(&r, 0, sizeof r);
     r.weather = (uint8_t)(weather == WEATHER_STORM ? WEATHER_FOG : WEATHER_STORM);
-    r.rain_grip = (uint8_t)!grip, r.psx_time = (uint8_t)((psx + 1) % 3), r.reverse = (uint8_t)!reverse;
+    r.rain_grip = (uint8_t)!grip, r.light_time = (uint8_t)((lt + 1) % 3), r.reverse = (uint8_t)!reverse;
     session_rules_set(&r);
     CHECK_EQ_INT(port_weather(), r.weather);
     CHECK_EQ_INT(port_rain_grip(), r.rain_grip);
-    CHECK_EQ_INT(port_psx_time(), r.psx_time);
+    CHECK_EQ_INT(port_light_time(), r.light_time);
     CHECK_EQ_INT(reverse_track_wanted(), r.reverse);
     setenv("TNFS_WEATHER", "clear", 1);   /* a dev override stays the strongest */
     CHECK_EQ_INT(port_weather(), WEATHER_CLEAR);
@@ -946,7 +946,7 @@ static void test_the_hosts_rules_win_while_set(void)
     session_rules_set(NULL);
     CHECK_EQ_INT(port_weather(), weather);
     CHECK_EQ_INT(port_rain_grip(), grip);
-    CHECK_EQ_INT(port_psx_time(), psx);
+    CHECK_EQ_INT(port_light_time(), lt);
     CHECK_EQ_INT(reverse_track_wanted(), reverse);
 }
 
@@ -1109,6 +1109,35 @@ static void test_the_host_decides_the_snow(void)
     session_rules_set(NULL);
 }
 
+/* The effects were called psx_* once: a port.cfg, a mode file or an extras.cfg that still says so loads the same values, and a save writes the new names; the old environment variables are read as well. */
+static void test_old_psx_keys_load_as_the_new_names(void)
+{
+    const char *old = "profile=restomod\npsx_dir=/cd\npsx_light=1\npsx_shadow=1\npsx_time=dusk\npsx_headlights=1\npsx_flares=1\n";
+    const char *now = "profile=restomod\npsx_dir=/cd\nlight_effects=1\ncar_soft_shadow=1\nlight_time=dusk\nheadlight_beams=1\nlamp_flares=1\n";
+    const PortSettings a = port_settings_parse(old, strlen(old)), b = port_settings_parse(now, strlen(now));
+    CHECK(a.light_effects == b.light_effects && a.car_soft_shadow == b.car_soft_shadow && a.light_time == b.light_time && a.headlight_beams == b.headlight_beams && a.lamp_flares == b.lamp_flares);
+    CHECK_EQ_INT(a.light_effects, 1);
+    CHECK_EQ_INT(a.car_soft_shadow, 1);
+    CHECK_EQ_INT(a.light_time, LIGHT_TIME_DUSK);
+    CHECK_EQ_INT(a.headlight_beams, 1);
+    CHECK_EQ_INT(a.lamp_flares, 1);
+    CHECK(strcmp(a.psx_dir, "/cd") == 0);   /* the folder of the CD keeps its name */
+    char saved[PORT_CFG_TEXT_MAX];
+    CHECK(port_settings_format(&a, saved, sizeof saved) > 0);
+    CHECK(strstr(saved, "light_effects=1") != NULL && strstr(saved, "psx_light") == NULL && strstr(saved, "psx_time") == NULL && strstr(saved, "psx_dir=/cd") != NULL);
+    const PortExtras e = port_extras_parse("psx_liveries=1\n", 15), f = port_extras_parse("extra_liveries=1\n", 17);
+    CHECK(e.extra_liveries == 1 && f.extra_liveries == 1);
+    PortSettings m = port_settings_defaults();   /* a mode's file read through the profile's reader: the old key is free where the new one is */
+    port_profile_read_free(PROFILE_RESTOMOD, old, strlen(old), port_settings_take, &m);
+    CHECK_EQ_INT(m.light_effects, 1);
+    CHECK_EQ_INT(m.light_time, LIGHT_TIME_DUSK);
+    unsetenv("TNFS_LIGHT_TIME"), setenv("TNFS_PSX_TIME", "night", 1);   /* the old variable still works, and the new one wins */
+    CHECK_EQ_INT(port_light_time(), LIGHT_TIME_NIGHT);
+    setenv("TNFS_LIGHT_TIME", "dawn", 1);
+    CHECK_EQ_INT(port_light_time(), LIGHT_TIME_DAWN);
+    unsetenv("TNFS_LIGHT_TIME"), unsetenv("TNFS_PSX_TIME");
+}
+
 int main(void)
 {
     test_the_host_decides_the_snow();
@@ -1137,7 +1166,7 @@ int main(void)
     test_tach_dim_values();
     test_gauge_wheel_values();
     test_police_glow_values();
-    test_psx_flares_values();
+    test_lamp_flares_values();
     test_conditions_force();
     test_reflectors_values();
     test_rally_spray_values();
@@ -1162,5 +1191,6 @@ int main(void)
     test_load_save();
     test_a_longest_psx_dir_round_trips();
     test_two_sided_is_automatic();
+    test_old_psx_keys_load_as_the_new_names();
     return TEST_REPORT();
 }

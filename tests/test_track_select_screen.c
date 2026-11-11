@@ -1,4 +1,4 @@
-/* The track screen's weather row and PS1 time, driven through track_select_screen with ops that only feed keys:
+/* The track screen's weather row and console time, driven through track_select_screen with ops that only feed keys:
  * Up from Done reaches the weather, Enter cycles it, Escape puts it back, Done keeps it. */
 #include "game/frontend/track_select.h"
 #include "game/sys/palette.h"
@@ -76,15 +76,15 @@ static int32_t key(void *ctx)
     return i % 2 ? 0 : s->keys[i / 2];
 }
 
-/* the screen on track 3 (not a tournament), the keys, and what the weather and the PS1 time are afterwards */
-static void run_on(const uint16_t *keys, int count, int *weather, int *psx_time, int use_psx_time, int *reverse, int track)
+/* the screen on track 3 (not a tournament), the keys, and what the weather and the console version time are afterwards */
+static void run_on(const uint16_t *keys, int count, int *weather, int *light_time, int use_light_time, int *reverse, int track)
 {
     uint8_t config[TRACK_SELECT_CONFIG] = { 0 }, palette[0x300] = { 0 };
     int32_t time_of_day[9] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }, variant_m = 0, variant_r = 0;
     config[TRACK_SELECT_TRACK] = (uint8_t)track;
     config[TRACK_SELECT_LAPS] = 8;
     const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
-    TrackSelectPlus plus = { 0, 0, &variant_m, &variant_r, 0, 1, weather, use_psx_time ? psx_time : NULL, reverse };
+    TrackSelectPlus plus = { 0, 0, &variant_m, &variant_r, 0, 1, weather, use_light_time ? light_time : NULL, reverse };
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
     DialogPointer p = { 0, 0, 0, 0, 0, 0 };
     Script script = { keys, 0, count };
@@ -101,93 +101,93 @@ static void run_on(const uint16_t *keys, int count, int *weather, int *psx_time,
         .car_flags = nothing, .pointer_off = nothing, .music_service = nothing, .deadline_passed = zero,
         .music_fade_out = nothing, .music_end = nothing, .ctx = &script };
     track_select_screen(&in, &st, &p, &ops);
-    CHECK_EQ_INT(time_of_day[3], 1);   /* the art stays at midday under the PS1 look */
+    CHECK_EQ_INT(time_of_day[3], 1);   /* the art stays at midday under the light effects */
 }
 
-static void run(const uint16_t *keys, int count, int *weather, int *psx_time, int use_psx_time)
+static void run(const uint16_t *keys, int count, int *weather, int *light_time, int use_light_time)
 {
-    run_on(keys, count, weather, psx_time, use_psx_time, NULL, 3);
+    run_on(keys, count, weather, light_time, use_light_time, NULL, 3);
 }
 
 static void test_reverse_row(void)
 {
-    int weather = 0, psx_time = 0, reverse = 0;
+    int weather = 0, light_time = 0, reverse = 0;
     /* Up: Weather; Right: Reverse; Enter: on; Down: Done; Done ends */
     const uint16_t on[] = { UP, RIGHT, ENTER, DOWN, ENTER };
-    run_on(on, 5, &weather, &psx_time, 0, &reverse, 3);
+    run_on(on, 5, &weather, &light_time, 0, &reverse, 3);
     CHECK_EQ_INT(reverse, 1);
     CHECK_EQ_INT(weather, 0);
     const uint16_t off[] = { UP, RIGHT, ENTER, ENTER, DOWN, ENTER };   /* on, then off again */
     reverse = 0;
-    run_on(off, 6, &weather, &psx_time, 0, &reverse, 3);
+    run_on(off, 6, &weather, &light_time, 0, &reverse, 3);
     CHECK_EQ_INT(reverse, 0);
     const uint16_t back[] = { UP, RIGHT, LEFT, ENTER, DOWN, ENTER };   /* Left from Reverse is the weather: clear -> fog */
-    run_on(back, 6, &weather, &psx_time, 0, &reverse, 3);
+    run_on(back, 6, &weather, &light_time, 0, &reverse, 3);
     CHECK_EQ_INT(weather, 1);
     CHECK_EQ_INT(reverse, 0);
     reverse = 0, weather = 0;
     const uint16_t esc[] = { UP, RIGHT, ENTER, ESCAPE };   /* Escape puts the pick back */
-    run_on(esc, 4, &weather, &psx_time, 0, &reverse, 3);
+    run_on(esc, 4, &weather, &light_time, 0, &reverse, 3);
     CHECK_EQ_INT(reverse, 0);
     reverse = 0;
     const uint16_t stage[] = { UP, RIGHT, ENTER, DOWN, ENTER };   /* a stage (track 1): no row, nothing set */
-    run_on(stage, 5, &weather, &psx_time, 0, &reverse, 1);
+    run_on(stage, 5, &weather, &light_time, 0, &reverse, 1);
     CHECK_EQ_INT(reverse, 0);
 }
 
 static void test_weather_row(void)
 {
-    int weather = 0, psx_time = 0;
+    int weather = 0, light_time = 0;
     const uint16_t cycle[] = { UP, ENTER, ENTER, DOWN, ENTER };   /* Up: Weather; clear -> fog -> rain; Down: Done; Done ends */
-    run(cycle, 5, &weather, &psx_time, 0);
+    run(cycle, 5, &weather, &light_time, 0);
     CHECK_EQ_INT(weather, 2);
     weather = 0;
     const uint16_t wrap[] = { UP, ENTER, ENTER, ENTER, ENTER, DOWN, ENTER };
-    run(wrap, 7, &weather, &psx_time, 0);
+    run(wrap, 7, &weather, &light_time, 0);
     CHECK_EQ_INT(weather, 0);   /* round */
 }
 
 static void test_escape_puts_them_back(void)
 {
-    int weather = 0, psx_time = 0;
+    int weather = 0, light_time = 0;
     const uint16_t keys[] = { UP, ENTER, UP, ENTER, ESCAPE };   /* Weather -> fog; Time -> dawn; Escape */
-    run(keys, 5, &weather, &psx_time, 1);
+    run(keys, 5, &weather, &light_time, 1);
     CHECK_EQ_INT(weather, 0);
-    CHECK_EQ_INT(psx_time, 0);
+    CHECK_EQ_INT(light_time, 0);
 }
 
-static void test_psx_time_toggle(void)
+static void test_light_time_toggle(void)
 {
-    int weather = 0, psx_time = 0;
+    int weather = 0, light_time = 0;
     const uint16_t keys[] = { UP, UP, ENTER, ENTER, DOWN, DOWN, ENTER };   /* Weather, Time; day -> dawn -> dusk; to Done */
-    run(keys, 7, &weather, &psx_time, 1);
-    CHECK_EQ_INT(psx_time, 2);
+    run(keys, 7, &weather, &light_time, 1);
+    CHECK_EQ_INT(light_time, 2);
     CHECK_EQ_INT(weather, 0);
 }
 
-/* dusk -> night -> day stay on the screen: three steps on the Time item leave psx_time 3 and a fourth wraps to 0, the screen's own exit is Done */
-static void test_psx_time_reaches_night_and_wraps(void)
+/* dusk -> night -> day stay on the screen: three steps on the Time item leave light_time 3 and a fourth wraps to 0, the screen's own exit is Done */
+static void test_light_time_reaches_night_and_wraps(void)
 {
-    int weather = 0, psx_time = 0;
+    int weather = 0, light_time = 0;
     const uint16_t keys3[] = { UP, UP, ENTER, ENTER, ENTER, DOWN, DOWN, ENTER };
-    run(keys3, 8, &weather, &psx_time, 1);
-    CHECK_EQ_INT(psx_time, 3);
-    psx_time = 0;
+    run(keys3, 8, &weather, &light_time, 1);
+    CHECK_EQ_INT(light_time, 3);
+    light_time = 0;
     const uint16_t keys4[] = { UP, UP, ENTER, ENTER, ENTER, ENTER, DOWN, DOWN, ENTER };
-    run(keys4, 9, &weather, &psx_time, 1);
-    CHECK_EQ_INT(psx_time, 0);
+    run(keys4, 9, &weather, &light_time, 1);
+    CHECK_EQ_INT(light_time, 0);
 }
 
 static void test_without_the_row_up_is_the_originals(void)
 {
-    int weather = 0, psx_time = 0;
+    int weather = 0, light_time = 0;
     const uint16_t keys[] = { UP, ENTER, ESCAPE };   /* with no weather pointer: Up leads to the time of day, not the row */
     uint8_t config[TRACK_SELECT_CONFIG] = { 0 }, palette[0x300] = { 0 };
     int32_t time_of_day[9] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }, vm = 0, vr = 0;
     config[TRACK_SELECT_TRACK] = 3;
     TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 0, &weather, NULL, NULL };   /* port_track_weather 0 */
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
-    (void)psx_time;
+    (void)light_time;
     const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
     DialogPointer p = { 0, 0, 0, 0, 0, 0 };
     Script script = { keys, 0, 3 };
@@ -208,7 +208,7 @@ static void test_without_the_row_up_is_the_originals(void)
     CHECK_EQ_INT(time_of_day[3], 2);   /* the toggle is the exe's: midday -> evening */
 }
 
-/* the night (psx_time 3): the evening art's texels moved to darker entries, the transparent one left; dusk draws it as it is */
+/* the night (light_time 3): the evening art's texels moved to darker entries, the transparent one left; dusk draws it as it is */
 /* the night's label is the word Night in the text font over the evening's strip; dusk keeps the art as it is */
 static void test_night_label_is_text(void)
 {
@@ -222,8 +222,8 @@ static void test_night_label_is_text(void)
     after_a_race[200] = after_a_race[250] = 1;
     palette_usable_set(after_a_race);
     for (int night = 0; night < 2; night++) {
-        int psx_time = night ? 3 : 2;
-        TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 1, &weather, &psx_time, NULL };
+        int light_time = night ? 3 : 2;
+        TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 1, &weather, &light_time, NULL };
         TrackSelectState st = { config, time_of_day, 0, palette, &plus };
         const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
         DialogPointer p = { 0, 0, 0, 0, 0, 0 };
@@ -265,8 +265,8 @@ int main(void)
     test_weather_row();
     test_reverse_row();
     test_escape_puts_them_back();
-    test_psx_time_toggle();
-    test_psx_time_reaches_night_and_wraps();
+    test_light_time_toggle();
+    test_light_time_reaches_night_and_wraps();
     test_night_label_is_text();
     test_without_the_row_up_is_the_originals();
     return TEST_REPORT();

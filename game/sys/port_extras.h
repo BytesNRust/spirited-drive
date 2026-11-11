@@ -19,7 +19,7 @@ typedef enum { UNITS_MPH = 0, UNITS_KMH = 1 } SpeedUnits;
  * either and goes back to the chosen mode. */
 typedef enum { DASH_BOX_MAP = 0, DASH_BOX_LEVER = 1, DASH_BOX_HIDDEN = 2 } DashBox;
 
-enum { CAR_PAINT_SLOTS = 12, PAINT_OWN = 0, PAINT_PS1 = 1, PAINT_CATALOGUE = 2 };   /* cars 0..11 (11 the Warrior) */
+enum { CAR_PAINT_SLOTS = 12, PAINT_OWN = 0, PAINT_SECOND = 1, PAINT_CATALOGUE = 2 };   /* cars 0..11 (11 the Warrior) */
 
 typedef struct {
     int mirror, rally, warrior, vegas, explode, nitro, turbo;   /* 0/1: SKCART, EARLYE, CONCEPTCAR, CASINOVILLE, ... */
@@ -38,11 +38,11 @@ typedef struct {
                          * 0 the exe's look, the 4:3 frame in the middle. On. Last, as above. */
     int follow_camera;  /* 0/1: every camera follows the car's heading, the road behind drawn (race_follow.h); 0 the exe's.
                          * Off. Last, as above. */
-    int psx_liveries;   /* 0/1: the car colours (the CUSTOMIZE switch; the key keeps its old name): every car offers its catalogue paints
-                         * (car_paint.h) and, with the port.cfg psx_dir's files, the PS1 game's second livery (car_livery.h); the
+    int extra_liveries;   /* 0/1: the car colours (the CUSTOMIZE switch; the key keeps its old name): every car offers its catalogue paints
+                         * (car_paint.h) and, with the port.cfg psx_dir's files, the console version game's second livery (car_livery.h); the
                          * player's pick is car_paint, the rivals' are drawn from the race's seed; off, the exe's colours. Last, as dash_box. */
     uint8_t car_paint[CAR_PAINT_SLOTS];   /* the player's paint per car (the car showcase's Color box): PAINT_OWN 0 the car's own colour,
-                                           * PAINT_PS1 1 the PS1 livery, PAINT_CATALOGUE + k the k-th catalogue paint
+                                           * PAINT_SECOND 1 the console version livery, PAINT_CATALOGUE + k the k-th catalogue paint
                                            * (car_paint.h). Written as car_paint=<one hex digit a car>. */
     int reverse;        /* 0/1: a circuit driven the other way round (tri_reverse.h: the file's nodes run backwards at load);
                          * 0 the exe's. Off. Last, as car_paint. */

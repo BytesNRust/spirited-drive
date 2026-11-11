@@ -319,15 +319,15 @@ static void track_select(void *ctx)
     const int32_t screen = ea_screen();
     const TrackSelectInputs in = { "", resource_kmh(), cg_g.variant_m, cg_g.variant_r, cg_g.lost_vegas, screen,
                                    ea_picture_shape(screen) };
-    /* port: the weather row, and with the PS1 look the time-of-day item on its psx_time; both written to port.cfg
+    /* port: the weather row, and with the light effects the time-of-day item on its light_time; both written to port.cfg
      * when the screen leaves them changed (the race reads them there, as it does today) */
-    int weather = port_weather(), psx_time = port_psx_time();
+    int weather = port_weather(), light_time = port_light_time();
     int reverse = reverse_track_picked();   /* port: the mode's file's reverse offers the row; the pick is the session's, not saved */
     const PortExtras extras = port_extras_load();
     TrackSelectPlus plus = { cg_g.unlock_m, cg_g.unlock_r, &cg_g.variant_m, &cg_g.variant_r,
                              extras.variant_time,   /* port: variants as entries */
-                             port_settings_profile() == PROFILE_RESTOMOD, &weather, port_psx_light() ? &psx_time : NULL, extras.reverse ? &reverse : NULL };
-    const int was_weather = weather, was_psx_time = psx_time;
+                             port_settings_profile() == PROFILE_RESTOMOD, &weather, port_light_effects() ? &light_time : NULL, extras.reverse ? &reverse : NULL };
+    const int was_weather = weather, was_light_time = light_time;
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), cg_time_of_day, cg_g.inverse, cg_screen_palette, &plus };
     int x, y;
     pointer_position(&x, &y);
@@ -341,10 +341,10 @@ static void track_select(void *ctx)
         cg_deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
     if (extras.reverse) reverse_track_pick(reverse);
-    if (weather != was_weather || psx_time != was_psx_time) {
+    if (weather != was_weather || light_time != was_light_time) {
         PortSettings saved = port_settings_load();
         if (weather != was_weather) saved.weather = weather;
-        if (psx_time != was_psx_time) saved.psx_time = psx_time;
+        if (light_time != was_light_time) saved.light_time = light_time;
         if (!port_settings_save(&saved)) port_log("track select: port.cfg could not be saved\n");
     }
     RaceSettings after = before;

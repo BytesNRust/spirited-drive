@@ -15,7 +15,7 @@ typedef struct {
     int weather, made;
     int snow, variant;   /* port (weather_fog): what falls and the setting the fog was made for */
     int sample, lift;    /* port (fog_sample): the colour's source the fog was made from */
-    int dark;            /* port (the PS1 look): the weather fog was made dark (modern_look_weather_fog) */
+    int dark;            /* port (the light effects): the weather fog was made dark (modern_look_weather_fog) */
     uint8_t fog[3];      /* the fog's colour */
     uint8_t sky[256];    /* the sky's palette moved toward its colour */
     uint8_t levels[MODERN_FOG_LEVELS][256];   /* all its levels: the fog's sky gets the fog's whole at the horizon */

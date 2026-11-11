@@ -9,10 +9,10 @@ trap 'rc=$?; if [ "$rc" -ne 0 ] && [ "${TNFS_KEEP_RUN:-0}" = 1 ]; then echo "kep
 mkdir -p "$WORK/mods/track_light" "$WORK/mods/track" "$WORK/user"
 cp "$REPO/data/track_light/CY1B.txt" "$WORK/mods/track_light/"
 cp "$REPO/data/track/CY1.txt" "$WORK/mods/track/"
-printf 'profile=restomod\npsx_light=1\n' > "$WORK/user/port.cfg"
+printf 'profile=restomod\nlight_effects=1\n' > "$WORK/user/port.cfg"
 LOG="$WORK/user/tnfs.log"
 
-env TNFS_LIGHT_EDIT=1 TNFS_FRAMES=100000 TNFS_PSX_TIME=day TNFS_WEATHER=clear TNFS_VIEW=1 \
+env TNFS_LIGHT_EDIT=1 TNFS_FRAMES=100000 TNFS_LIGHT_TIME=day TNFS_WEATHER=clear TNFS_VIEW=1 \
     SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
     "$TNFS" --data "$DATA" --user "$WORK/user" --mods "$WORK/mods" \
     --drive CY1 --type 1 --car 2 --node 70 > "$WORK/run.out" 2>&1 &

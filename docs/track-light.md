@@ -71,7 +71,7 @@ replaces the zone's look there. The world's tunnel polygons of a zone are tabled
 (`this zone's own` when it is a zone's, `a hall: lit by its lamps` for a hall).
 
 **The car in a tunnel** takes its zone's light and colour in every tunnel: its colours are multiplied by `light / 100 x colour` per channel, above full light too (a `tunnel_tone 215` lights the car 2.15 times as much as a 100 one, as it lights the walls and the road); the excess over 1 comes in with the road's darkening inside the tunnel (the rows' road at 100 of 255), so the open road before a mouth is not brightened, and at 100 and white nothing is different. Under a lamp (even nodes) that is the full look, between two lamps (odd nodes) 40 % of it
-(`PSX_SYNTH_LAMP_GAP_PERCENT`), and it comes in over the 6 nodes outside the mouth (the weather's mouth). A hall keeps the lamps of its own, `car_dim` the one dim tone. There is nothing else to set: `car_disc`, which gave the car the
+(`LIGHT_SYNTH_LAMP_GAP_PERCENT`), and it comes in over the 6 nodes outside the mouth (the weather's mouth). A hall keeps the lamps of its own, `car_dim` the one dim tone. There is nothing else to set: `car_disc`, which gave the car the
 CD's own ratios, is gone (a bad line, and the export does not write it).
 
 **Places and times.** The places are loaded first, then the time's file: a `tunnel` line in a time file adds to the places' tunnels (the union), it never takes one away. A zone with `lit` is a **hall**: a tunnel with a lot of light,
@@ -119,7 +119,7 @@ node's centre.
 ## The tunnels' own lamps (`tunnel_lamps`)
 
 At night, with `tunnel_lamps` (on in Restomod '26; `TNFS_TUNNEL_LAMPS=0/1`), the lamps hanging in a tunnel or a cavern light the walls and the road in a pool under each, as the street lamps do outdoors. Which polygons are lamps
-is the **yellow** of the track's slot masks (`data/track_masks/<TRACK>/slot_<NN>.png`, docs/modding.md: the lamp's texture, its place and colours come from it), and for a track whose masks have none the table of `game/race/psx_lamps.c` (the lamp textures of CY1, CY2, CY3, TR3 and TR4): every even node whose polygons use one of them has a lamp on each side of the road that has such polygons (the lamp textures hang in the strips at the walls), at the middle of those polygons (`game/race/tunnel_lamps.c`). It is made when
+is the **yellow** of the track's slot masks (`data/track_masks/<TRACK>/slot_<NN>.png`, docs/modding.md: the lamp's texture, its place and colours come from it), and for a track whose masks have none the table of `game/race/tunnel_lamp_textures.c` (the lamp textures of CY1, CY2, CY3, TR3 and TR4): every even node whose polygons use one of them has a lamp on each side of the road that has such polygons (the lamp textures hang in the strips at the walls), at the middle of those polygons (`game/race/tunnel_lamps.c`). It is made when
 the track loads; no file lists them, and a `lamp` line is not needed. The lamp is warm, 500 percent, and reaches 1.2 nodes: with the lamps every 2 nodes the road between two keeps the tunnel's own light and each lamp is a pool on the wall and the road.
 
 * The pool is ADDED to the tunnel's own light, whatever `tunnel_tone` is: at 104 a tunnel is lit as before plus its pools, at 50 it is dark between the lamps and each lamp still gives its full pool. Nothing is baked into the light rows

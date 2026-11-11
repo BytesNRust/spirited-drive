@@ -32,7 +32,7 @@ static const char *const LABEL[ROW_IDS] = {
 };
 /* the file key that says whether a row is free in the mode (port_profile_key_free); the view distance is config.dat's, free in every mode (Ultra is view_ultra's) */
 static const char *const ROW_KEY[GRAPHICS_OWN_SETTINGS] = {
-    [GRAPHICS_OWN_PERSPECTIVE] = "perspective", [GRAPHICS_OWN_FILTER] = "texture_filter", [GRAPHICS_OWN_VIEW] = NULL, [GRAPHICS_OWN_FOG] = "fog", [GRAPHICS_OWN_LIGHT] = "psx_light",
+    [GRAPHICS_OWN_PERSPECTIVE] = "perspective", [GRAPHICS_OWN_FILTER] = "texture_filter", [GRAPHICS_OWN_VIEW] = NULL, [GRAPHICS_OWN_FOG] = "fog", [GRAPHICS_OWN_LIGHT] = "light_effects",
     [GRAPHICS_OWN_FOV] = "fov_adjust", [GRAPHICS_OWN_FORMAT] = "format", [GRAPHICS_OWN_REFRESH] = "refresh_hz", [GRAPHICS_OWN_FULLSCREEN] = "fullscreen", [GRAPHICS_OWN_SCALING] = "scale",
     [GRAPHICS_OWN_BANDS] = "render_bands", [GRAPHICS_OWN_SCALE] = "render_scale",
 };
@@ -122,7 +122,7 @@ int graphics_own_live_in_race(int setting, int16_t view, int ultra)
         return 0;
     case GRAPHICS_OWN_VIEW:
         return !(ultra && view == 0);
-    case GRAPHICS_OWN_LIGHT:   /* the PS1 look is read when the race starts (port_psx_light, port_psx_shadow) */
+    case GRAPHICS_OWN_LIGHT:   /* the light effects is read when the race starts (port_light_effects, port_car_soft_shadow) */
         return 0;
     default:
         return 1;
@@ -157,8 +157,8 @@ static void step_scale(PortSettings *s, int direction)
 /* both keys together; a port.cfg that has them mixed shows Off, so the step turns both on */
 static void step_light(PortSettings *s)
 {
-    const int on = !(s->psx_light && s->psx_shadow);
-    s->psx_light = s->psx_shadow = on;
+    const int on = !(s->light_effects && s->car_soft_shadow);
+    s->light_effects = s->car_soft_shadow = on;
 }
 
 void graphics_own_step(PortSettings *s, int setting, int direction, ScreenFormat fullscreen_format)
@@ -209,7 +209,7 @@ void graphics_own_step(PortSettings *s, int setting, int direction, ScreenFormat
 void graphics_own_value(const PortSettings *s, int setting, char out[16])
 {
     switch (setting) {
-    case GRAPHICS_OWN_LIGHT: snprintf(out, 16, "%s", s->psx_light && s->psx_shadow ? "On" : "Off"); break;
+    case GRAPHICS_OWN_LIGHT: snprintf(out, 16, "%s", s->light_effects && s->car_soft_shadow ? "On" : "Off"); break;
     case GRAPHICS_OWN_PERSPECTIVE: snprintf(out, 16, "%s", s->perspective ? "On" : "Off"); break;
     case GRAPHICS_OWN_FILTER: snprintf(out, 16, "%s", s->texture_filter ? "On" : "Off"); break;
     case GRAPHICS_OWN_SCALING: snprintf(out, 16, "%s", s->scale_integer ? "Whole" : "Fill"); break;

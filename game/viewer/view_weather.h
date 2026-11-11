@@ -14,7 +14,7 @@ typedef struct {
 } RainMood;
 
 extern int look_filter, look_fog;
-extern PsxSkyDraw *psx_sky;
+extern SkyArtDraw *psx_sky;
 extern const TrackInfo *psx_sky_info;
 extern int rain_open;
 extern HorizonSmooth smooth;

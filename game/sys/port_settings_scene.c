@@ -21,9 +21,9 @@ PlatformConfig port_platform_config(const char *title)
 
 static int conditions_on, conditions_time, conditions_weather;
 
-void port_conditions_force(int on, int psx_time, int weather)
+void port_conditions_force(int on, int light_time, int weather)
 {
-    conditions_on = on != 0, conditions_time = psx_time, conditions_weather = weather;
+    conditions_on = on != 0, conditions_time = light_time, conditions_weather = weather;
 }
 
 int port_weather(void)
@@ -43,12 +43,12 @@ int port_render_scale(void)
     return port_settings_load().render_scale;
 }
 
-int port_psx_time(void)
+int port_light_time(void)
 {
-    const char *v = getenv("TNFS_PSX_TIME");
-    const int t = v != NULL ? port_settings_psx_time_named(v) : -1;
+    const char *v = port_env_alias("TNFS_LIGHT_TIME", "TNFS_PSX_TIME");
+    const int t = v != NULL ? port_settings_light_time_named(v) : -1;
     const SessionRules *host = session_rules_active();   /* port (online): the host's time of day */
-    return t >= 0 ? t : conditions_on ? conditions_time : host != NULL ? host->psx_time : port_settings_load().psx_time;
+    return t >= 0 ? t : conditions_on ? conditions_time : host != NULL ? host->light_time : port_settings_load().light_time;
 }
 
 int port_fog_sample(void)
@@ -82,23 +82,23 @@ int port_close_boxes(int automatic)
 
 int port_made_tunnels(void)
 {
-    if (!port_psx_light()) return 0;
+    if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_MADE_TUNNELS");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().made_tunnels;
 }
 
-int port_psx_flares(void)
+int port_lamp_flares(void)
 {
-    if (!port_psx_light()) return 0;   /* the halo is the PS1 look's */
-    const char *v = getenv("TNFS_PSX_FLARES");
+    if (!port_light_effects()) return 0;   /* the halo is the light effects' */
+    const char *v = port_env_alias("TNFS_LAMP_FLARES", "TNFS_PSX_FLARES");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().psx_flares;
+    return port_settings_load().lamp_flares;
 }
 
 int port_car_tunnel_light(void)
 {
-    if (!port_psx_light()) return 0;
+    if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_CAR_TUNNEL_LIGHT");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().car_tunnel_light;
@@ -106,7 +106,7 @@ int port_car_tunnel_light(void)
 
 int port_vegas_car_night(void)
 {
-    if (!port_psx_light()) return 0;
+    if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_VEGAS_CAR_NIGHT");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().vegas_car_night;
@@ -128,7 +128,7 @@ int port_chase_height(void)
 
 int port_lamp_pool_tint(void)
 {
-    if (!port_psx_headlights()) return 0;
+    if (!port_headlight_beams()) return 0;
     const char *v = getenv("TNFS_LAMP_POOL_TINT");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().lamp_pool_tint;
@@ -136,7 +136,7 @@ int port_lamp_pool_tint(void)
 
 int port_trans_shadows(void)
 {
-    if (!port_psx_light()) return 0;
+    if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_TRANS_SHADOWS");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().trans_shadows;
@@ -160,7 +160,7 @@ int port_parking_dark(void)
 
 int port_forest_neutral(void)
 {
-    if (!port_psx_light()) return 0;
+    if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_FOREST_NEUTRAL");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().forest_neutral;
@@ -176,7 +176,7 @@ int port_cavern_dark(void)
 
 int port_vegas_objects(void)
 {
-    if (!port_psx_light()) return 0;
+    if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_VEGAS_OBJECTS");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().vegas_objects;
@@ -198,7 +198,7 @@ int port_brake_over_gas(void)
 
 int port_lamp_pools(void)
 {
-    if (!port_psx_headlights()) return 0;
+    if (!port_headlight_beams()) return 0;
     const char *v = getenv("TNFS_LAMP_POOLS");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().lamp_pools;
@@ -206,7 +206,7 @@ int port_lamp_pools(void)
 
 int port_lamp_car_shade(void)
 {
-    if (!port_psx_headlights()) return 0;
+    if (!port_headlight_beams()) return 0;
     const char *v = getenv("TNFS_LAMP_CAR_SHADE");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().lamp_car_shade;
@@ -256,7 +256,7 @@ static int perspective_on(void)
 
 int port_lamp_pool_bright(void)
 {
-    if (!port_psx_headlights()) return 0;
+    if (!port_headlight_beams()) return 0;
     const char *v = getenv("TNFS_LAMP_POOL_BRIGHT");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().lamp_pool_bright;
@@ -264,7 +264,7 @@ int port_lamp_pool_bright(void)
 
 int port_headlight_cone(void)
 {
-    if (!port_psx_headlights() || !perspective_on()) return 0;   /* the cone needs perspective (Modern 3D): without it the node pool, as the exe's */
+    if (!port_headlight_beams() || !perspective_on()) return 0;   /* the cone needs perspective (Modern 3D): without it the node pool, as the exe's */
     const char *v = getenv("TNFS_HEADLIGHT_CONE");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().headlight_cone;

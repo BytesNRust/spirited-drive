@@ -19,7 +19,7 @@ static const char *const SWITCH_KEYS[] = { "mirror", "rally", "warrior", "vegas"
                                             "turbo", "replay_cameras", "warrior_rival", "no_movies", "no_assists",
                                             "bumper_mirror",
                                             "bumper_radar", "variant_time", "stats_overlay", "car_markers",
-                                            "lunar_springs", "movies_wide", "follow_camera", "psx_liveries", "reverse", "lunar_gravity", "rally_gravel", "update_check" };
+                                            "lunar_springs", "movies_wide", "follow_camera", "extra_liveries", "reverse", "lunar_gravity", "rally_gravel", "update_check" };
 enum { SWITCH_COUNT = (int)(sizeof SWITCH_KEYS / sizeof SWITCH_KEYS[0]) };
 
 /* Each switch as one row, so the parse, the format and the checks agree on the order. */
@@ -28,7 +28,7 @@ static void switch_read(const PortExtras *e, int rows[SWITCH_COUNT])
     const int all[] = { e->mirror, e->rally,  e->warrior, e->vegas,  e->explode, e->nitro,
                         e->turbo, e->replay_cameras, e->warrior_rival, e->no_movies, e->no_assists,
                         e->bumper_mirror, e->bumper_radar, e->variant_time,
-                        e->stats_overlay, e->car_markers, e->lunar_springs, e->movies_wide, e->follow_camera, e->psx_liveries, e->reverse, e->lunar_gravity, e->rally_gravel, e->update_check };
+                        e->stats_overlay, e->car_markers, e->lunar_springs, e->movies_wide, e->follow_camera, e->extra_liveries, e->reverse, e->lunar_gravity, e->rally_gravel, e->update_check };
     memcpy(rows, all, sizeof all);
 }
 
@@ -38,7 +38,7 @@ static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
                          &e->turbo, &e->replay_cameras, &e->warrior_rival, &e->no_movies, &e->no_assists,
                          &e->bumper_mirror, &e->bumper_radar,
                          &e->variant_time, &e->stats_overlay, &e->car_markers, &e->lunar_springs, &e->movies_wide,
-                         &e->follow_camera, &e->psx_liveries, &e->reverse, &e->lunar_gravity, &e->rally_gravel, &e->update_check };
+                         &e->follow_camera, &e->extra_liveries, &e->reverse, &e->lunar_gravity, &e->rally_gravel, &e->update_check };
     for (int i = 0; i < SWITCH_COUNT; i++)
         *all[i] = rows[i];
 }
@@ -59,6 +59,7 @@ static bool parse_int(const char *value, long *out)
 static void apply(PortExtras *e, const char *key, const char *value)
 {
     long n;
+    key = port_profile_key_alias(key);   /* the keys an older file has (psx_liveries) */
     if (strcmp(key, "start") == 0) {
         for (int i = 0; i < 3; i++)
             if (strcmp(value, START_NAMES[i]) == 0)

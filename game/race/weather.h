@@ -48,7 +48,7 @@ int weather_sky_level(int32_t x, int32_t y, int32_t cx, int32_t cy, float focal,
  * for comparison: TNFS_FOG_CURVE=line. */
 int weather_fog_curve(void);
 
-/* With the PS1 light's time of day the 3D's pixels go through the tinted palette whole, which turns the fog into a saturated soup. The fog
+/* With the baked light's time of day the 3D's pixels go through the tinted palette whole, which turns the fog into a saturated soup. The fog
  * is made at half the tint instead (as the dash is, the owner's decision): its colour is set so that after the tint it is the day's one with
  * half the tint. */
 /* `fog` for a palette that will be multiplied by `tint` (per channel): fog x (1 + tint) / 2 / tint, at most 255 a channel (a tint far

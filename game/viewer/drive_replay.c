@@ -463,7 +463,7 @@ static int race_snow;   /* port (snow_weather): this race ran on snow */
 void drive_replay_set_snow(int snow) { race_snow = snow != 0; }
 
 static ReplayConditions race_conditions;   /* port (replay conditions): the time of day, weather and direction this race ran with */
-void drive_replay_set_conditions(int psx_time, int weather, int reverse) { race_conditions = (ReplayConditions){ psx_time, weather, reverse != 0 }; }
+void drive_replay_set_conditions(int light_time, int weather, int reverse) { race_conditions = (ReplayConditions){ light_time, weather, reverse != 0 }; }
 
 static int32_t out_close(void *ctx, void *file)
 {

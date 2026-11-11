@@ -32,7 +32,7 @@ typedef enum {
     MAP_OPAQUE = 0,
     MAP_TRANSPARENT = 1,
     MAP_SHADE = 2,
-    /* port (the PS1 look's light, psx_light.h): every texel through the 256-entry table `shade` on its way to the surface
+    /* port (the light effects' light, track_node_light.h): every texel through the 256-entry table `shade` on its way to the surface
      * (a darker palette entry, say); with _TRANSPARENT colour 0xFF is skipped first, as MAP_TRANSPARENT. The exe has no
      * such mapper: the modes above are unchanged. */
     MAP_REMAP = 3,

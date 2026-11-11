@@ -12,7 +12,7 @@
 
 #include <stdint.h>
 
-/* port (psx_flares): the halo round a lit lamp: the brake light, the reversing light, the headlights, the police car's red and blue. A lit lamp's pixels are an emissive
+/* port (lamp_flares): the halo round a lit lamp: the brake light, the reversing light, the headlights, the police car's red and blue. A lit lamp's pixels are an emissive
  * entry of its own (drive_lamps_lit_entry: not tinted, not fogged), found in the rectangle of the car's projected vertices after the car is drawn, so what hides the
  * lamp hides its blobs; the halo is added to the pixels' palette, in the lamp's colour at three strengths over a radius a few times the lamp's own */
 typedef struct {
@@ -130,7 +130,7 @@ static void flare_far_police_pair(const QuadTarget *t, const uint8_t palette[768
 void car_lamp_halo_draw(const Object3D *body, const Car *car, const RaceState *shadow_race, int police_flash_on, const QuadTarget *t, const uint8_t palette[768])
 {
     if (palette == NULL || body == NULL || body->screen == NULL) return;
-    /* the police car is slot 2, past the two cars of an open road's finish_cars: with police_glow its lights get their halo (psx_flares) */
+    /* the police car is slot 2, past the two cars of an open road's finish_cars: with police_glow its lights get their halo (lamp_flares) */
     const int cop = port_police_glow() && police_flash_on && police_lights_on(shadow_race, car);
     const int traffic_ok = port_traffic_halo() && drive_light_night();   /* port (traffic_halo): the traffic's lit lamps get their halo too, at night */
     if (car->index < 0 || car->index >= RACE_CARS || (car->index >= shadow_race->finish_cars && !cop && !traffic_ok)) return;

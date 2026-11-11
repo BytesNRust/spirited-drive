@@ -4,7 +4,7 @@
 #include "game/gfx/flat.h"
 #include "game/viewer/view_screen.h"
 #include "game/viewer/weather_hooks.h"
-#include "viewer/psx_sky_draw.h"
+#include "viewer/sky_art_draw.h"
 #include "viewer/sky_smooth.h"
 #include "viewer/view_sky.h"
 #include "viewer/view_spray.h"
@@ -35,7 +35,7 @@ static void sky_fill(void *user, int32_t x, int32_t y, int32_t w, int32_t h, uin
         if (y1 <= y0) return;
         y = (int32_t)y0, h = (int32_t)(y1 - y0);
     }
-    raster_fill(t->raster, x, y, w, h, t->smooth != NULL ? t->smooth->map[colour] : colour);   /* port: the PS1 / PC alt sky's bitmap index is of its own palette */
+    raster_fill(t->raster, x, y, w, h, t->smooth != NULL ? t->smooth->map[colour] : colour);   /* port: the console version / PC alt sky's bitmap index is of its own palette */
 }
 
 /* 00484389 */

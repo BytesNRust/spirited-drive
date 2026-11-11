@@ -1,4 +1,4 @@
-/* port (port.cfg psx_flares, the PS1 look): a soft red halo round a car's lit brake lights. The lit brake light is a palette entry of its own (the emissive
+/* port (port.cfg lamp_flares, the light effects): a soft red halo round a car's lit brake lights. The lit brake light is a palette entry of its own (the emissive
  * lamps', lamp_emissive.h, not fogged or tinted), so the lamp's visible pixels are the pixels of that index: found in the car's screen rectangle, they are exactly what the car's
  * body and what stands in front of it leave visible, and need no model data. Each blob of them gets a dithered halo in two strengths
  * (the lamp's colour at a fifth and at under half), added to each pixel's colour and put back into the palette, so the glow stays in it. */

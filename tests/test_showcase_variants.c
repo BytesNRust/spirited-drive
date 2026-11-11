@@ -55,10 +55,10 @@ int main(void)
     strcpy(port, "profile=restomod\n");   /* the mode with the car colours */
     port_size = strlen(port);
     const CarVariantCanvas canvas = { NULL, fill, 0, 0, 1, 1 };
-    set_extras("psx_liveries=0\n");
+    set_extras("extra_liveries=0\n");
     CHECK_EQ_INT(car_variant_choices(showcase_variants, showcase_variant_count, 3), 0);   /* the switch off: no box */
 
-    set_extras("psx_liveries=1\n");
+    set_extras("extra_liveries=1\n");
     showcase_variants_reset();
     const int corvette = 3, choices = 1 + car_paint_count(corvette);
     CHECK_EQ_INT(car_variant_choices(showcase_variants, showcase_variant_count, corvette), choices);   /* its own colour + the paints */
@@ -80,7 +80,7 @@ int main(void)
     for (int c = 0; c < CAR_PAINT_SLOTS; c++)
         if (c != corvette) CHECK_EQ_INT(port_extras_car_paint(c), PAINT_OWN);   /* the other cars keep theirs */
 
-    set_extras("psx_liveries=1\ncar_paint=000000000000\n");   /* an old mask in the file: read as the PS1 choice, and no PS1 files */
+    set_extras("extra_liveries=1\ncar_paint=000000000000\n");   /* an old mask in the file: read as the console version choice, and no PS1 files */
     CHECK_EQ_INT(car_variant_choices(showcase_variants, showcase_variant_count, 1), 1 + car_paint_count(1));
     CHECK_EQ_INT(car_variant_choices(showcase_variants, showcase_variant_count, 11), 0);   /* a car with no table (the Warrior) */
     return TEST_REPORT();

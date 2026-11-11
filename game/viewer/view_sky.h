@@ -21,7 +21,7 @@ typedef struct {
     const TrackCamera *cam;
     const PortedCamera *pc;
     const HorizonSmooth *smooth;
-    const FshEntry *horz;      /* the flat horizon's bitmap: the track's, or the PS1 sky's */
+    const FshEntry *horz;      /* the flat horizon's bitmap: the track's, or the console version sky's */
     const FshEntry *ring_horz; /* the ring's: the track's, or the alternative sky's */
     int32_t box_left, box_right, line;
     int ring, flat, banded;

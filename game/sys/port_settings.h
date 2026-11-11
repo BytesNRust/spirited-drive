@@ -11,8 +11,8 @@ typedef enum { SCREEN_4_3 = 0, SCREEN_16_9 = 1, SCREEN_21_9 = 2 } ScreenFormat;
 
 enum { PSX_DIR_MAX = 256 };   /* port: the longest psx_dir kept; a longer one is cut */
 
-/* port: the PS1 time of day the light and its ambient colour come from (the letter of Z<TRACK><letter>.LGT / .LGS is 'B', 'A', 'C') */
-enum { PSX_TIME_DAY = 0, PSX_TIME_DAWN = 1, PSX_TIME_DUSK = 2, PSX_TIME_NIGHT = 3 };   /* the night: the dusk's files and sky, under a darker light and a dark fog (drive_light.c) */
+/* port: the console version time of day the light and its ambient colour come from (the letter of Z<TRACK><letter>.LGT / .LGS is 'B', 'A', 'C') */
+enum { LIGHT_TIME_DAY = 0, LIGHT_TIME_DAWN = 1, LIGHT_TIME_DUSK = 2, LIGHT_TIME_NIGHT = 3 };   /* the night: the dusk's files and sky, under a darker light and a dark fog (drive_light.c) */
 
 typedef struct {
     ScreenFormat format;     /* SCREEN_4_3 */
@@ -27,14 +27,14 @@ typedef struct {
     int f3_ultra;            /* 1: F3 rotates Far, Medium, Close and Ultra (port_f3_ultra); 0 the exe's three; 1 */
     int render_scale;        /* 1, 2 or 3: the 3D world drawn at that many times the frame's size (render-scale-design.md); 1 */
     int laps;                /* 0 the exe's laps, else 1..99 laps in every race (free_laps.h): `laps=N` */
-    /* the folder of the PS1 CD's extracted car files (Z<CAR>.VSM / .WSM) for the mode's file's psx_liveries; "" none, and
+    /* the folder of the PS1 CD's extracted car files (Z<CAR>.VSM / .WSM) for the mode's file's extra_liveries; "" none, and
      * the liveries stay off. Read at each race start. */
     char psx_dir[PSX_DIR_MAX];
-    int psx_light;           /* 1: the PS1's baked light on bridges and tunnels, read from psx_dir (psx_light.h); 0 off */
-    int psx_headlights;      /* with psx_light at night: 1 the night's second look, the road dark and lit by a pool ahead of each car (headlight_pool.h); 0 the first look */
-    int psx_shadow;          /* 1: the PS1 look's soft shadow under each car, weaker in the dark (soft_shadow.h); 0 the exe's quad */
-    int psx_time;            /* with psx_light: the PS1's time of day, PSX_TIME_DAWN (files A), PSX_TIME_DAY (B) or PSX_TIME_DUSK (C):
-                             * `psx_time=dawn|day|dusk` (a, b, c also read) */
+    int light_effects;           /* 1: the the console version's baked light on bridges and tunnels, read from psx_dir (track_node_light.h); 0 off */
+    int headlight_beams;      /* with light_effects at night: 1 the night's second look, the road dark and lit by a pool ahead of each car (headlight_pool.h); 0 the first look */
+    int car_soft_shadow;          /* 1: the light effects' soft shadow under each car, weaker in the dark (soft_shadow.h); 0 the exe's quad */
+    int light_time;            /* with light_effects: the the console version's time of day, LIGHT_TIME_DAWN (files A), LIGHT_TIME_DAY (B) or LIGHT_TIME_DUSK (C):
+                             * `light_time=dawn|day|dusk` (a, b, c also read) */
     int weather;             /* WEATHER_* (weather.h): `weather=clear|fog|rain|storm`, re/notes/weather-design.md; clear */
     /* the render threads: 0 off (the plain path, as the exe draws it), -1 "auto" (as many as the logical cores,
      * at most eight), or a thread count. The TNFS_BANDS environment variable wins over this one. */
@@ -47,37 +47,37 @@ typedef struct {
     int fog_sample;          /* 1: the distance fog's colour from the horizon art's band around its line (modern_look.h); 0: from the
                               * art's last rows, as it was */
     int made_tunnels;        /* 1: with the Light Effects switch, a track whose light is made (no PS1 file: TR6, TR7) takes its tunnels from the road's property bit, so the
-                              * tunnel tables (grey floor, warm cast) and the tunnel's light apply there as on the PS1 tracks; 0: as before */
-    int psx_flares;          /* 1: with the Light Effects switch, a soft halo round a lit brake light in low light (dawn, dusk, night, a tunnel) and in fog
+                              * tunnel tables (grey floor, warm cast) and the tunnel's light apply there as on the console version tracks; 0: as before */
+    int lamp_flares;          /* 1: with the Light Effects switch, a soft halo round a lit brake light in low light (dawn, dusk, night, a tunnel) and in fog
                               * (lamp_flare.h); 0: the exe's */
     int headlight_relight;   /* 1: with the night pools, the road's vertex light is asked again of the pools every frame, not only when the camera changes segment (the beam
                               * lagged and jumped every four nodes); 0: as before */
-    int car_tunnel_light;    /* 1: with the PS1 light on a made-light track (TR6, TR7) that has the road's tunnel flags (made_tunnels), the car's light is the tunnel's alone, with a
+    int car_tunnel_light;    /* 1: with the baked light on a made-light track (TR6, TR7) that has the road's tunnel flags (made_tunnels), the car's light is the tunnel's alone, with a
                               * short ramp at the mouths: the terrain's shade (a canyon) no longer darkens it into the tunnel's light and lamps, and TR6's property-16 stretch after the
                               * mine is no longer taken for a hall (only TR7 has one); 0: as it was */
-    int vegas_car_night;     /* 1: with the Light Effects switch and the night, Lost Vegas with no PS1 light takes its night tint under the same ceiling the CD's nights take,
+    int vegas_car_night;     /* 1: with the Light Effects switch and the night, Lost Vegas with no baked light takes its night tint under the same ceiling the CD's nights take,
                               * so the car is no longer lit as by day in its dark; 0: the fallback's night tint as it was */
     int rally_gravel_shoulder; /* 1: with the mode's file's rally_gravel, the rolling gravel scrubs with the shoulder's own tyre sound (race_sound_tyres, off-road variant, by speed)
                               * and no gravel strikes (those rang like drops); 0: as it was */
     int chase_height;        /* 1: with the mode's file's follow_camera, the chase eye behind the car keeps the flat chase's height above the road at the eye's own place on a climb or a
                               * descent (the exe's half lift left it low on climbs and high on descents); 0: as it was */
-    int lamp_pool_tint;      /* 1: with the night pools, the road under a street lamp takes a warm yellow tint, strongest under the lamp and fading with the pool (psx_light_lamp_classes);
+    int lamp_pool_tint;      /* 1: with the night pools, the road under a street lamp takes a warm yellow tint, strongest under the lamp and fading with the pool (terrain_light_lamp_classes);
                               * 0: the pools only lift the light, as they did */
     int canyon_shade;        /* 1: with car_tunnel_light, the car is 30 % darker in Burnt Sienna's canyon (TR6, the property-16 stretch after the mine, nodes 547..585, where the walls
                               * shade the road); 0: full sun there, as it was */
     int parking_dark;    /* with car_tunnel_light, Transtropolis' parking (nodes 465..570, up to the exit tunnel) keeps the car at the dark tone of the lamps' alternation, steady; 0: the alternation */
-    int forest_neutral;    /* with the PS1 light, TR3's forest road (nodes 852..943, the rows mark its shade like a tunnel) is drawn with the road's neutral light, not the tunnel's olive-orange cast (yellow/orange asphalt); 0: as it was */
+    int forest_neutral;    /* with the baked light, TR3's forest road (nodes 852..943, the rows mark its shade like a tunnel) is drawn with the road's neutral light, not the tunnel's olive-orange cast (yellow/orange asphalt); 0: as it was */
     int cavern_dark;    /* with car_tunnel_light, Burnt Sienna's cavern (nodes 322..546, after the mine's tunnel) keeps the car at the dim tone, steady, no highway-lamp alternation; 0: the alternation */
-    int vegas_objects;    /* with the PS1 light, Lost Vegas' buildings and 3D objects keep almost full light (245 of 255) while the road takes the dark and the headlights, so the lit windows and the neon stand out; 0: they take the road's dark */
+    int vegas_objects;    /* with the baked light, Lost Vegas' buildings and 3D objects keep almost full light (245 of 255) while the road takes the dark and the headlights, so the lit windows and the neon stand out; 0: they take the road's dark */
     int close_houses;    /* TR3's village houses (model 4) and the long building (model 3) */
     int brake_over_gas;    /* 1: with split pedals (a pad's two triggers), a brake held past its dead zone is the pedal and the gas is ignored, so the car brakes and the brake light lights; 0: the exe's, the pedals summed (brake less gas) */
-    int lamp_pools;    /* 1: with the PS1 headlights at night and the CD's own light loaded, the made street-lamp pools are laid over it too (the terrain lifted round each lamp, and with lamp_pool_tint the road's warm tint); 0: the CD's light as it is */
-    int night_tone;   /* 0, 1, 2: the night's flat tint with no PS1 light (no CD .LGS): 0 the fallback's warm brown-green, 1 each track's CD tint, 2 one neutral cool blue-grey; the CD's own light is never touched */
+    int lamp_pools;    /* 1: with the headlight beams at night and the CD's own light loaded, the made street-lamp pools are laid over it too (the terrain lifted round each lamp, and with lamp_pool_tint the road's warm tint); 0: the CD's light as it is */
+    int night_tone;   /* 0, 1, 2: the night's flat tint with no baked light (no CD .LGS): 0 the fallback's warm brown-green, 1 each track's CD tint, 2 one neutral cool blue-grey; the CD's own light is never touched */
     int rain_lamps;    /* 1: with weather=rain every car drives with its headlights on, day included: the lamp texels glow and the wet road shows their reflections; the night beam and pools stay the night's (no cone by day); 0: the exe's (the lamps follow the light only) */
     int gauge_exterior;    /* 1: with gauge_light the gauges are lit whenever the exterior lights are on (night, dusk, and rain with rain_lamps), not at night only; by day dry they stay unlit; 0: at night only, as now */
     int traffic_spray;    /* with weather=rain, the water a traffic or police car throws up is a short wisp (one particle a tick, a tenth of a second) not the long plume; the player's and the rivals' stay; 0 the exe's plume */
     int rally_dry_lamps;    /* with weather=rain in a rally (dirt) race the cars' lamps are not mirrored in the road (dirt is no mirror): the headlights' and tail lights' reflections are left out; 0 the exe's wet-asphalt reflections */
-    int traffic_halo;    /* with the PS1 flares at night, the traffic's lit headlights and brake lights get their halo as the racers' do (the port draws it only for the racers and the police car); 0 as now */
+    int traffic_halo;    /* with the console version flares at night, the traffic's lit headlights and brake lights get their halo as the racers' do (the port draws it only for the racers and the police car); 0 as now */
     int police_halo;    /* the police car's roof lights' halo size: 0 the port's now, 1..3 progressively bigger, near and far */
     int rain_v2;        /* 1: the rain is lighter (half the streaks), the storm is the old rain a little heavier with thunder after each lightning, the wet road's lamp reflections stay on the carriageway, the streaks fall from higher, and the traffic's and police's spray wisp is longer with a minimum at any speed; 0: as it was */
     int track_light_lamp; /* 1: a `lamp` line of a track light file (a street lamp's pool by node, brightness, colour and radius, with the car's light) is read; 0: such lines are ignored, the file's pools are the only lamps (track_light_file.h) */
@@ -85,26 +85,26 @@ typedef struct {
     int rain_tyre_roll;   /* 1: in rain or a storm (rain_v2) a car rolling on open asphalt makes a low wet-tyre roll, by its speed (rain_roll.h); 0: none */
     int shoulder_light; /* 1: at night with the headlights, the shoulder's far edge (rows' points 2 and 7) takes at least the road's own light before the beam and the lamps scale it, so the shoulder and a third lane that lives out there are lit like the road (the made light leaves them near black, and the beam only scales the row's light); 0: as it was */
     int analog_pad;    /* 1: a control bound to an axis (a pad's stick or trigger, a wheel, pedals) steers and works the pedals in proportion, one bound to a key or button keeps its full lock and full pedal (analog_pad.h); 0 the exe's key paths */
-    int sign_glow;         /* 1: at night, with the PS1 headlights, the City's matrix sign (CY1: EXPRESS LANES CLOSED) has its amber bulbs lit like the windows (window_lights.h); 0 the exe's */
-    int lamp_pool_bright;  /* 1: with the PS1 headlights at night, a street lamp's pool is not dimmed by the night's dark floor: under the lamp the road, its shoulders and the scenery take the lamp's light in full, fading with the pool (the headlights' gain no longer swallows it); 0: the pool lifts the light the gain then dims, as now */
-    int headlight_cone;    /* 1: with the PS1 headlights at night, the car's beam is a cone from its position and heading, per vertex of the road and scenery (it follows the nose, a turn, a U-turn); 0: the pool along the track's nodes as it was */
-    int lamp_car_shade;    /* 1: with the PS1 headlights at night, a car under a street lamp's pool is lit by it (half way to a warm light at the lamp, fading with the pool), CD light or made; 0: the car's shade as it was */
+    int sign_glow;         /* 1: at night, with the headlight beams, the City's matrix sign (CY1: EXPRESS LANES CLOSED) has its amber bulbs lit like the windows (window_lights.h); 0 the exe's */
+    int lamp_pool_bright;  /* 1: with the headlight beams at night, a street lamp's pool is not dimmed by the night's dark floor: under the lamp the road, its shoulders and the scenery take the lamp's light in full, fading with the pool (the headlights' gain no longer swallows it); 0: the pool lifts the light the gain then dims, as now */
+    int headlight_cone;    /* 1: with the headlight beams at night, the car's beam is a cone from its position and heading, per vertex of the road and scenery (it follows the nose, a turn, a U-turn); 0: the pool along the track's nodes as it was */
+    int lamp_car_shade;    /* 1: with the headlight beams at night, a car under a street lamp's pool is lit by it (half way to a warm light at the lamp, fading with the pool), CD light or made; 0: the car's shade as it was */
     int reverse_rows;    /* a reversed TR3 reads the tunnel rows in the order their polygon tables were made for, so the roof and walls keep their shape */
-    int city_lift;    /* 0, 1, 2: with the PS1 light and headlights, the City nights (CY1..CY3) are brought under a higher ceiling and their dark floor is lifted (1 mild, 2 more); 0 the exe's darkness (ceiling .35) */
+    int city_lift;    /* 0, 1, 2: with the baked light and headlights, the City nights (CY1..CY3) are brought under a higher ceiling and their dark floor is lifted (1 mild, 2 more); 0 the exe's darkness (ceiling .35) */
     int vegas_lift;    /* 0, 1, 2: the same for Lost Vegas' night (1 mild, 2 more); 0 the exe's */
     int rain_fx;    /* with weather=rain, the rain's streaks follow the car's speed (spokes from the vanishing point) and are lit by the headlights at night; 0 phase 1's fixed streaks */
     int rain_grip;    /* with weather=rain, the road's grip is reduced; records of a wet race are kept apart */
     int finish_gate_light;    /* 1: at night the stage tracks' CHECKPOINT / FINISH gate banner keeps its daylight look, lit against the dark (finish_gate_light.h); 0 the exe's */
     int gauge_light;    /* 0..5: at night the lit parts of the dash gauges take a colour (1 greenish, 2 reddish, 3 orange, 4 bluish, 5 the car's: the colours painted in the dash's dash_color.png, orange where none); 0 the exe's untinted white */
-    int trans_shadows;       /* 1: with the PS1 light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
-                              * (psx_light_synth_trans); 0: the made light as it was */
-    int hall_light;          /* 1: with the PS1 light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
+    int trans_shadows;       /* 1: with the baked light, Transtropolis' made light has no shade of the walls beside the airport's open approach to the truss bridge
+                              * (light_synth_trans); 0: the made light as it was */
+    int hall_light;          /* 1: with the baked light on a made-light track (TR6, TR7), the car and the soft shadow in TR7's foundry hall take the scenery's own
                               * light there, not the tunnel's dark; 0: the hall is a tunnel to the car, as it was */
     int sky_fill;            /* 1: the flat sky's art extended upward until it reaches the view's top (sky_stretch.h);
                               * 0: the exe's, a flat colour above the art's top */
-    int night_sky_hue;       /* 1: the night's sky of the dusk's art takes a blue-black hue at its own luminance (psx_sky_draw_rehue); 0: the art's
+    int night_sky_hue;       /* 1: the night's sky of the dusk's art takes a blue-black hue at its own luminance (sky_art_draw_rehue); 0: the art's
                               * hues under the night's tint, as it was */
-    int forest_dark;         /* 1: Vertigo Ridge's forest before the finish alternates two dark tones (psx_light_forest); 0: the made light as it was */
+    int forest_dark;         /* 1: Vertigo Ridge's forest before the finish alternates two dark tones (terrain_light_forest); 0: the made light as it was */
     int night_stretch_clean; /* 1: the night's sky carried up to the view's top does not carry a star up as a stripe (sky_stretch.h, SKY_FILL_COLUMN_QUIET); 0: as it was */
     int replay_no_ffb;       /* 1: a replay does not move the force-feedback stick or the pad's rumble (race_forces_replay_silent); 0: the exe's, it shakes as in the race */
     int last_camera;         /* 1: a race starts in the camera the player last used (the intro's fly-over lands on it, not on the dash): the game writes camera_kind itself; 0: the exe's, the dash */
@@ -113,15 +113,15 @@ typedef struct {
     int radar_all_views;     /* 1: EXTRAS' police radar (Bumper Radar) shows in every view outside the car, not only the bumper's (drive_radar_view); 0: the bumper view only, as it was */
     int tach_dim;            /* 1: the R&T tachometer of the views outside the car takes the dash's half tint with the time of day (a little darker at night), its needle staying lit (tach_dim.h); 0: untinted, as it was */
     int gauge_wheel;         /* 1: at night the steering wheel in front of the gauges is the dash's (half tint) like the rest of the wheel, not lit with the dials; 0: lit, as it was */
-    int police_glow;         /* 1: the police car's lights have a near-white core of the light's colour, and a stronger halo in poor light (psx_flares on); 0: the flat colour, as it was */
-    int reflectors;    /* 1: at night or in a dark tunnel, with the PS1 headlights, the texels a track mask marks reflective shine in the player's lamp cone out to 200 m (reflector.h); 0 the exe's */
+    int police_glow;         /* 1: the police car's lights have a near-white core of the light's colour, and a stronger halo in poor light (lamp_flares on); 0: the flat colour, as it was */
+    int reflectors;    /* 1: at night or in a dark tunnel, with the headlight beams, the texels a track mask marks reflective shine in the player's lamp cone out to 200 m (reflector.h); 0 the exe's */
     int handbrake_lamps;   /* 1: a brake that is the handbrake's alone (the rally's handbrake is a full brake, car_physics.c) does not light the brake lamps; 0 the exe's */
     int rally_spray;    /* 1: in a rally with rain_fx and rain or snow, every car (the player's too) throws the road's spray, tinted by the road it is on (gravel grey, brown dirt, snow white) and darker than water; 0 the exe's */
     int weather_fog;    /* 0..2: the weather's fog in snow and in the rain storm (modern 3D): 1 snow fog whiter, closer and with the exponential curve (heavier in the snow storm), the rain storm's denser than the rain's; 2 the same, and no dark rain mood over the snow (whiter picture); 0 the exe's */
     int car_tunnel_match;   /* 0..1: the car's light in a tunnel with a look matched to the world's at the same tunnel_tone: the world's gain (over the night's tint), the car at full light's share (brighter than the walls) and a fixed 0.85 lamp gap, and the car's colour table not held to its own hue family above full light, and no headlight-pool floor on it there; 0 the car as before: dimmer than the walls, with the 0.4 gap */
     int spray_v4;      /* 1: the wheels' spray and dust as the generated sprites of each material (water drops and a flat mist, the desert's cottony dust, the snow's powder and lumps, gravel stones and a fine dust), thrown by physics with gravity and landing on the road, born each simulation tick at the wheel's place; replaces rain_fx's spray and the rally's dust; 0 as before */
     int menu_pad_cancel;   /* 0..1: the gamepad's second button (B by default, the exe's Enter) is Escape in the menus and the name box (back / exit / cancel); the first (A) keeps accepting; 0 the exe's: both accept */
-    int tunnel_lamps;   /* 0..1: at night the lamps of the tunnels and caverns (psx_lamps.c's table: CY1/2/3, TR3, TR4) light the walls and the road in a pool under each, ADDED over the tunnel's own light (tunnel_tone), so a dark tunnel still has bright pools; 0 the exe's */
+    int tunnel_lamps;   /* 0..1: at night the lamps of the tunnels and caverns (tunnel_lamp_textures.c's table: CY1/2/3, TR3, TR4) light the walls and the road in a pool under each, ADDED over the tunnel's own light (tunnel_tone), so a dark tunnel still has bright pools; 0 the exe's */
     int car_night_lift;   /* 0..2: the cars' light at night raised at night (every car, the player's too): 1 the headlight pool gain by a quarter and a floor of light on the body, 2 by a quarter and a stronger floor, so a near-black paint is lifted out of black; 0 as before */
     int water_mist;    /* 0..3: the rain's spray as a soft low wide veil of a generated sprite (no CD smoke, no speckle; a dirt road's keeps what it had): 1 the veil, 2 the veil and fine droplet streaks by the tyre, 3 a cooler, flatter, wider, thinner veil with the streaks; every car throws the plume (the traffic's too), with more drops a tick at speed; 0 as before */
     int wipers;        /* 1: in the dash view in rain and snow a wiper blade sweeps the glass (the pace follows what falls), clears the lens drops and snow marks it crosses and hides the blades some dash art draws (a red dash mask colour); 0 as before */
@@ -135,13 +135,13 @@ typedef struct {
 /* The scale the race renders at: TNFS_RENDER_SCALE (1..3) when set, else the mode's render_scale. */
 int port_render_scale(void);
 
-/* 1 when the race draws with the PS1's light: TNFS_PSX_LIGHT=0/1 when set, else the mode's psx_light. */
-int port_psx_light(void);
-/* 1 when the cars have the PS1 look's soft shadow: TNFS_PSX_SHADOW=0/1 when set, else the mode's psx_shadow. */
-int port_psx_shadow(void);
+/* 1 when the race draws with the the console version's light: TNFS_LIGHT_EFFECTS=0/1 when set, else the mode's track_node_light. */
+int port_light_effects(void);
+/* 1 when the cars have the light effects' soft shadow: TNFS_CAR_SOFT_SHADOW=0/1 when set, else the mode's car_soft_shadow. */
+int port_car_soft_shadow(void);
 
-/* 1 when the night is lit by the cars' headlight pools: TNFS_PSX_HEADLIGHTS=0/1 when set, else the mode's psx_headlights. */
-int port_psx_headlights(void);
+/* 1 when the night is lit by the cars' headlight pools: TNFS_HEADLIGHT_BEAMS=0/1 when set, else the mode's headlight_beams. */
+int port_headlight_beams(void);
 /* 1 when a free race's total goes in the per-lap-count tables (free_records.h): TNFS_FREE_RECORDS=0/1 when set, else the mode's free_records. */
 int port_free_records(void);
 /* 1 when the cars' palette slots are fitted to the colours they show (race_palette.h): TNFS_CAR_COLOURS=0/1 when set, else the mode's car_colours. */
@@ -170,9 +170,9 @@ int port_host_allows_radar_and_camera(void);
 
 /* 1 when the police radar shows in every outside view: TNFS_RADAR_ALL_VIEWS=0/1 when set, else the mode's radar_all_views. */
 int port_radar_all_views(void);
-/* 1 when the night's sky is re-hued blue-black (psx_sky_draw.h): TNFS_NIGHT_SKY_HUE=0/1 when set, else the mode's night_sky_hue. */
+/* 1 when the night's sky is re-hued blue-black (sky_art_draw.h): TNFS_NIGHT_SKY_HUE=0/1 when set, else the mode's night_sky_hue. */
 int port_night_sky_hue(void);
-/* 1 when Vertigo Ridge's forest is sombre (psx_light_make.h): TNFS_FOREST_DARK=0/1 when set, else the mode's forest_dark. */
+/* 1 when Vertigo Ridge's forest is sombre (terrain_light.h): TNFS_FOREST_DARK=0/1 when set, else the mode's forest_dark. */
 int port_forest_dark(void);
 /* 1 when the night's stretched sky leaves its stars out of the fill: TNFS_NIGHT_STRETCH_CLEAN=0/1 when set, else the mode's night_stretch_clean. */
 int port_night_stretch_clean(void);
@@ -180,10 +180,10 @@ int port_night_stretch_clean(void);
 int port_replay_no_ffb(void);
 /* 1 when a race starts in the last camera used: TNFS_LAST_CAMERA=0/1 when set, else the mode's last_camera. */
 int port_last_camera(void);
-/* 1 when a lit brake light has its halo (lamp_flare.h): TNFS_PSX_FLARES=0/1 when set, else the mode's psx_flares; never without port_psx_light. */
-int port_psx_flares(void);
+/* 1 when a lit brake light has its halo (lamp_flare.h): TNFS_LAMP_FLARES=0/1 when set, else the mode's lamp_flares; never without port_light_effects. */
+int port_lamp_flares(void);
 
-/* 1 when a made light marks its tunnels from the road (made_tunnels): TNFS_MADE_TUNNELS=0/1 when set, else the mode's made_tunnels; never without port_psx_light. */
+/* 1 when a made light marks its tunnels from the road (made_tunnels): TNFS_MADE_TUNNELS=0/1 when set, else the mode's made_tunnels; never without port_light_effects. */
 int port_made_tunnels(void);
 /* 1 when the scenery's open models draw from behind too: TNFS_TWO_SIDED=0/1 (dev) when set, else `automatic`: the race has a reversed track or the 360 camera
  * on (both show the scenery from behind), decided when the track's models are made. No port.cfg key (an old two_sided_scenery line is ignored). */
@@ -191,40 +191,40 @@ int port_two_sided_scenery(int automatic);
 /* 1 when the L buildings (the two-sided boards) are closed into boxes (track_object_draw.h): TNFS_CLOSE_BOXES=0/1 (dev, for A/B) when set, else `automatic`, the same
  * condition as the open models drawn from behind: a reversed track or the 360 camera. No port.cfg key, no menu. */
 int port_close_boxes(int automatic);
-/* 1 when the foundry hall's car and shadow take the scenery's light (psx_light_synth.h): TNFS_HALL_LIGHT=0/1 when set, else the mode's hall_light; never without port_psx_light. */
+/* 1 when the foundry hall's car and shadow take the scenery's light (light_synth.h): TNFS_HALL_LIGHT=0/1 when set, else the mode's hall_light; never without port_light_effects. */
 int port_hall_light(void);
 
-/* 1 when the road's light is asked again each frame (headlight_relight): TNFS_HEADLIGHT_RELIGHT=0/1 when set, else the mode's; never without port_psx_headlights. */
+/* 1 when the road's light is asked again each frame (headlight_relight): TNFS_HEADLIGHT_RELIGHT=0/1 when set, else the mode's; never without port_headlight_beams. */
 int port_headlight_relight(void);
 
-/* 1 when the car's light of a made light is the tunnel's alone (car_tunnel_light): TNFS_CAR_TUNNEL_LIGHT=0/1 when set, else the mode's; never without port_psx_light. */
+/* 1 when the car's light of a made light is the tunnel's alone (car_tunnel_light): TNFS_CAR_TUNNEL_LIGHT=0/1 when set, else the mode's; never without port_light_effects. */
 int port_car_tunnel_light(void);
-/* 1 when Lost Vegas' made night has the darker tint (vegas_car_night): TNFS_VEGAS_CAR_NIGHT=0/1 when set, else the mode's; never without port_psx_light. */
+/* 1 when Lost Vegas' made night has the darker tint (vegas_car_night): TNFS_VEGAS_CAR_NIGHT=0/1 when set, else the mode's; never without port_light_effects. */
 int port_vegas_car_night(void);
 /* 1 when the rolling rally gravel strikes as the shoulder does (rally_gravel_shoulder): TNFS_RALLY_GRAVEL_SHOULDER=0/1 when set, else the mode's. */
 int port_rally_gravel_shoulder(void);
 /* 1 when every chase eye keeps its height above the road (chase_height): TNFS_CHASE_HEIGHT=0/1 when set, else the mode's; acts only with follow_camera. */
 int port_chase_height(void);
-/* 1 when a street lamp's pool tints the road warm (lamp_pool_tint): TNFS_LAMP_POOL_TINT=0/1 when set, else the mode's; never without port_psx_headlights. */
+/* 1 when a street lamp's pool tints the road warm (lamp_pool_tint): TNFS_LAMP_POOL_TINT=0/1 when set, else the mode's; never without port_headlight_beams. */
 int port_lamp_pool_tint(void);
-/* 1 when Transtropolis' made light is corrected (trans_shadows): TNFS_TRANS_SHADOWS=0/1 when set, else the mode's; never without port_psx_light. */
+/* 1 when Transtropolis' made light is corrected (trans_shadows): TNFS_TRANS_SHADOWS=0/1 when set, else the mode's; never without port_light_effects. */
 int port_trans_shadows(void);
 
 /* 1 when the car is shaded in the canyon (canyon_shade): TNFS_CANYON_SHADE=0/1 when set, else the mode's; never without port_car_tunnel_light. */
 int port_canyon_shade(void);
 /* 1 when parking_dark is on: TNFS_PARKING_DARK=0/1 when set, else the mode's; never without port_car_tunnel_light. */
 int port_parking_dark(void);
-/* 1 when forest_neutral is on: TNFS_FOREST_NEUTRAL=0/1 when set, else the mode's; never without port_psx_light. */
+/* 1 when forest_neutral is on: TNFS_FOREST_NEUTRAL=0/1 when set, else the mode's; never without port_light_effects. */
 int port_forest_neutral(void);
 /* 1 when cavern_dark is on: TNFS_CAVERN_DARK=0/1 when set, else the mode's; never without port_car_tunnel_light. */
 int port_cavern_dark(void);
-/* 1 when vegas_objects is on: TNFS_VEGAS_OBJECTS=0/1 when set, else the mode's; never without port_psx_light. */
+/* 1 when vegas_objects is on: TNFS_VEGAS_OBJECTS=0/1 when set, else the mode's; never without port_light_effects. */
 int port_vegas_objects(void);
-/* 1 when close_houses is on: TNFS_CLOSE_HOUSES=0/1 when set, else the mode's; never without port_psx_light. */
+/* 1 when close_houses is on: TNFS_CLOSE_HOUSES=0/1 when set, else the mode's; never without port_light_effects. */
 int port_close_houses(void);
-/* 1 when lamp_car_shade: TNFS_LAMP_CAR_SHADE=0/1 when set, else the mode's; never without port_psx_headlights(). */
+/* 1 when lamp_car_shade: TNFS_LAMP_CAR_SHADE=0/1 when set, else the mode's; never without port_headlight_beams(). */
 int port_lamp_car_shade(void);
-/* 1 when headlight_cone: TNFS_HEADLIGHT_CONE=0/1 when set, else the mode's; never without port_psx_headlights(). */
+/* 1 when headlight_cone: TNFS_HEADLIGHT_CONE=0/1 when set, else the mode's; never without port_headlight_beams(). */
 int port_headlight_cone(void);
 /* 1 when rain_fx is on: TNFS_RAIN_FX=0/1 when set, else the mode's. */
 int port_rain_fx(void);
@@ -233,9 +233,9 @@ int port_rain_grip(void);
 /* 1 when gauge_light is on: TNFS_GAUGE_LIGHT=0/1 when set, else the mode's. */
 int port_gauge_light(void);
 
-/* 1 when finish_gate_light is on: TNFS_FINISH_GATE_LIGHT=0/1 when set, else the mode's; only acts at night with the PS1 light (psx_headlights). */
+/* 1 when finish_gate_light is on: TNFS_FINISH_GATE_LIGHT=0/1 when set, else the mode's; only acts at night with the baked light (headlight_beams). */
 int port_finish_gate_light(void);
-/* 1 when lamp_pool_bright: TNFS_LAMP_POOL_BRIGHT=0/1 when set, else the mode's; never without port_psx_headlights(). */
+/* 1 when lamp_pool_bright: TNFS_LAMP_POOL_BRIGHT=0/1 when set, else the mode's; never without port_headlight_beams(). */
 int port_lamp_pool_bright(void);
 /* 0, 1 or 2 (night_tone): TNFS_NIGHT_TONE=0/1/2 when set, else the mode's. */
 int port_night_tone(void);
@@ -243,7 +243,7 @@ int port_night_tone(void);
 int port_rain_lamps(void);
 /* 1 when gauge_exterior: TNFS_GAUGE_EXTERIOR=0/1 when set, else the mode's. */
 int port_gauge_exterior(void);
-/* 1 when sign_glow: TNFS_SIGN_GLOW=0/1 when set, else the mode's; never without port_psx_headlights(). */
+/* 1 when sign_glow: TNFS_SIGN_GLOW=0/1 when set, else the mode's; never without port_headlight_beams(). */
 int port_sign_glow(void);
 
 /* 1 when analog_pad: TNFS_ANALOG_PAD=0..1 when set, else the mode's. */
@@ -261,7 +261,7 @@ int port_track_light_lamp(void);
 int port_rain_tyre_roll(void);
 /* 1 when snow_weather: TNFS_SNOW_WEATHER=0..1 when set, else the mode's. */
 int port_snow_weather(void);
-/* 1 when reflectors: TNFS_REFLECTORS=0/1 when set, else the mode's; never without port_psx_headlights(). */
+/* 1 when reflectors: TNFS_REFLECTORS=0/1 when set, else the mode's; never without port_headlight_beams(). */
 int port_reflectors(void);
 
 /* 1 when spray_cd_smoke: TNFS_SPRAY_CD_SMOKE=0/1 when set, else the mode's. */
@@ -299,8 +299,8 @@ int port_lamp_halos(void);
 /* 1 when handbrake_lamps: TNFS_HANDBRAKE_LAMPS=0/1 when set, else the mode's. The lamps only: the physics are the exe's either way. */
 int port_handbrake_lamps(void);
 
-/* port (replay conditions): while `on`, port_psx_time() and port_weather() answer these (a replay plays with the conditions it was recorded with, not the settings'); the TNFS_PSX_TIME / TNFS_WEATHER variables still win. 0 gives them back. */
-void port_conditions_force(int on, int psx_time, int weather);
+/* port (replay conditions): while `on`, port_light_time() and port_weather() answer these (a replay plays with the conditions it was recorded with, not the settings'); the TNFS_LIGHT_TIME / TNFS_WEATHER variables still win. 0 gives them back. */
+void port_conditions_force(int on, int light_time, int weather);
 
 /* the police roof halo's size 0..3: TNFS_POLICE_HALO=0..3 when set, else the mode's. */
 int port_police_halo(void);
@@ -315,13 +315,13 @@ int port_rally_dry_lamps(void);
 int port_traffic_spray(void);
 /* 1 for a wet race: rain_grip on and the weather rain or storm (the grip is reduced and the race's records are not kept; track_gravity.h). */
 int port_rain_grip_active(void);
-/* 1 when reverse_rows is on: TNFS_REVERSE_ROWS=0/1 when set, else the mode's; never without port_psx_light. */
+/* 1 when reverse_rows is on: TNFS_REVERSE_ROWS=0/1 when set, else the mode's; never without port_light_effects. */
 int port_reverse_rows(void);
-/* The city_lift level (0..2): TNFS_CITY_LIFT=0..2 when set, else the mode's; 0 without port_psx_light. */
+/* The city_lift level (0..2): TNFS_CITY_LIFT=0..2 when set, else the mode's; 0 without port_light_effects. */
 int port_city_lift(void);
-/* The vegas_lift level (0..2): TNFS_VEGAS_LIFT=0..2 when set, else the mode's; 0 without port_psx_light. */
+/* The vegas_lift level (0..2): TNFS_VEGAS_LIFT=0..2 when set, else the mode's; 0 without port_light_effects. */
 int port_vegas_lift(void);
-/* 1 when lamp_pools: TNFS_LAMP_POOLS=0/1 when set, else the mode's; never without port_psx_headlights(). */
+/* 1 when lamp_pools: TNFS_LAMP_POOLS=0/1 when set, else the mode's; never without port_headlight_beams(). */
 int port_lamp_pools(void);
 /* 1 when brake_over_gas: TNFS_BRAKE_OVER_GAS=0/1 when set, else the mode's. */
 int port_brake_over_gas(void);
@@ -329,9 +329,9 @@ int port_brake_over_gas(void);
 /* how sky_fill fills the rows above the art (sky_stretch.h's SKY_FILL_*): TNFS_SKY_FILL_MODE=a|b (or 1|2) when set, else the default. */
 enum { SKY_FILL_MODE_DEFAULT = 1 };
 int port_sky_fill_mode(void);
-/* The time of day (PSX_TIME_*): TNFS_PSX_TIME=dawn|day|dusk when set, else the mode's psx_time. */
-int port_psx_time(void);
-/* 1 when the masked lamp texels glow in low light (lamp_emissive.h): the Graphics Light Effects switch (port_psx_light), unless TNFS_EMISSIVE_LAMPS=0/1 is set. */
+/* The time of day (LIGHT_TIME_*): TNFS_LIGHT_TIME=dawn|day|dusk when set, else the mode's light_time. */
+int port_light_time(void);
+/* 1 when the masked lamp texels glow in low light (lamp_emissive.h): the Graphics Light Effects switch (port_light_effects), unless TNFS_EMISSIVE_LAMPS=0/1 is set. */
 int port_emissive_lamps(void);
 
 /* the cars' body shine strength, 0 (the exe's frames) to 4: TNFS_BODY_SHINE=0..4 when set, else the mode's body_shine. */

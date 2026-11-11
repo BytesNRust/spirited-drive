@@ -81,7 +81,7 @@ static void test_a_light_tone_gets_a_slot(void)
     CHECK(seen_teal && seen_dark);
 }
 
-/* a paint tone is wanted darkened too (the PS1 light and the shadow take it to the nearest colour of its hue), a grey is not */
+/* a paint tone is wanted darkened too (the baked light and the shadow take it to the nearest colour of its hue), a grey is not */
 static void test_darker_tones_are_wanted(void)
 {
     screen_setup(0x30, 0x17);

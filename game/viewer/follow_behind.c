@@ -32,7 +32,7 @@ typedef struct {
     int32_t run_key[RUN_CAPACITY];   /* run_node as a distance along the road from the first row (follow_behind_run_key), so the run goes up across the lap seam */
     int32_t runs_drawn;
     int run_count;
-    /* port (the PS1 light): the light of each point of `world`, 1 for those in a tunnel's row, and the corners of the polygon being drawn, as the render's */
+    /* port (the baked light): the light of each point of `world`, 1 for those in a tunnel's row, and the corners of the polygon being drawn, as the render's */
     uint8_t light_vertex[WORLD_CAPACITY], tunnel_vertex[WORLD_CAPACITY], light_now[6];
     uint32_t vertex_node[WORLD_CAPACITY];   /* port (headlight_cone): the node and the place in its row of each point, to light it at its own place */
     uint8_t vertex_point[WORLD_CAPACITY];
@@ -86,8 +86,8 @@ static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_
     b->world = B.world, b->world_capacity = WORLD_CAPACITY, b->segments = B.entries, b->reach = r->build.reach;
     b->object_world = B.object_world, b->object_capacity = OBJECT_CAPACITY;
     b->walk = r->build.walk;
-    B.lit = r->psx != NULL;
-    if (B.lit) b->light = r->psx, b->light_out = B.light_vertex, b->tunnel_out = B.tunnel_vertex, b->node_out = B.vertex_node, b->point_out = B.vertex_point;   /* the same light, per node, as the main pass's */
+    B.lit = r->node_light != NULL;
+    if (B.lit) b->light = r->node_light, b->light_out = B.light_vertex, b->tunnel_out = B.tunnel_vertex, b->node_out = B.vertex_node, b->point_out = B.vertex_point;   /* the same light, per node, as the main pass's */
     track_objects_start(&b->walk, (int32_t)(b->segment_mask & (uint32_t)first));
     for (int32_t s = first; s <= last; s++)
     {
@@ -112,10 +112,10 @@ static int build_range(const TrackRender *r, int32_t first, int32_t last, int32_
     if (B.run_count > 1 && B.run_key[0] > B.run_key[1]) B.run_key[0] = -1;
     static int off = -1;
     if (off < 0) off = getenv("TNFS_FB_RELIGHT_OFF") != NULL;   /* dev: the relight off, for the before / after */
-    if (!off && B.lit && r->psx->pool != NULL && r->psx->pool->cone) {   /* port (headlight_cone): each point lit by the cones at its own place, as the main pass's track_render_relight */
+    if (!off && B.lit && r->node_light->pool != NULL && r->node_light->pool->cone) {   /* port (headlight_cone): each point lit by the cones at its own place, as the main pass's track_render_relight */
         int32_t count = b->world_next;
         if (count > WORLD_CAPACITY) count = WORLD_CAPACITY;
-        psx_light_relight_xz(r->psx, (const int32_t (*)[3])B.world, B.vertex_node, B.vertex_point, count, B.light_vertex);
+        track_node_light_relight_xz(r->node_light, (const int32_t (*)[3])B.world, B.vertex_node, B.vertex_point, count, B.light_vertex);
     }
     return b->vertex_count <= WORLD_CAPACITY && w->vertex_total <= OBJECT_CAPACITY;
 }
@@ -277,7 +277,7 @@ static void draw_cut_cell(const Pass *p, const FshEntry *t, const TrackUv *uv, c
     (void)strip;
 }
 
-/* port (the PS1 light): a polygon's or rail's corners in light_now (track_fence.h's), and the sink told for the length of the draw as the glue's draws tell it;
+/* port (the baked light): a polygon's or rail's corners in light_now (track_fence.h's), and the sink told for the length of the draw as the glue's draws tell it;
  * the draws here that go straight to the sink (the cut cells, the subdivided road) have no glue to do it. Nothing without a light. */
 static TrackFenceInputs lit_inputs(void)
 {

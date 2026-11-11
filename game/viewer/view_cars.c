@@ -2,6 +2,7 @@
  * ported_view.c sets the cars up and calls row_prepare, row_draw and draw_cars; what this file takes of the view is in view_shared.h. */
 
 #include "game/race/car_body_draw.h"
+#include "game/race/light_tint.h"
 #include "game/race/car_render.h"
 #include "game/race/car_shadow.h"
 #include "game/sys/port_settings.h"
@@ -19,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* port (psx_shadow): the soft shadow's flag and its half-way remap, made from the palette and the exe's shade table when either changes */
+/* port (car_soft_shadow): the soft shadow's flag and its half-way remap, made from the palette and the exe's shade table when either changes */
 static int soft_shadow_on;
 
 void ported_view_set_soft_shadow(int on) { soft_shadow_on = on != 0; }
@@ -52,20 +53,20 @@ static const uint8_t *soft_half_shown(void)
     return half;
 }
 
-/* port (lamp_shadow): the car stands in a street lamp's light (the same test as the car's own lamp light, psx_light_lamp_car) */
+/* port (lamp_shadow): the car stands in a street lamp's light (the same test as the car's own lamp light, track_node_light_lamp_car) */
 static int lamp_on_car(const Car *car)
 {
-    if (psx_light == NULL || psx_light->lamp_n <= 0) return 0;
+    if (light_effects == NULL || light_effects->lamp_n <= 0) return 0;
     float lit[3] = { 1.0f, 1.0f, 1.0f };
-    return psx_light_lamp_car(psx_light, psx_ring_node(car->node, psx_light->nodes), car->x / 65536.0, car->z / 65536.0, lit);
+    return track_node_light_lamp_car(light_effects, light_tint_ring_node(car->node, light_effects->nodes), car->x / 65536.0, car->z / 65536.0, lit);
 }
 
 /* port (tunnel look): the car stands in a tunnel whose look lights the road (a file's tunnel_tone): its road's indexes are the shown palette's bright ones too, so the half-way remap is made in the shown palette as lamp_shadow's is
  * (above full light the road was the palette's brightest entries and the shadow a white box) */
 static int look_tunnel_on_car(const Car *car)
 {
-    if (psx_light == NULL) return 0;   /* the soft shadow needs no light (psx_shadow is its own switch): none loaded, no tunnel look */
-    return psx_light_look_tunnel(psx_light, psx_ring_node(car->node, psx_light->nodes));
+    if (light_effects == NULL) return 0;   /* the soft shadow needs no light (car_soft_shadow is its own switch): none loaded, no tunnel look */
+    return track_node_light_look_tunnel(light_effects, light_tint_ring_node(car->node, light_effects->nodes));
 }
 
 /* 0045a724 */
@@ -77,7 +78,7 @@ void row_prepare(void *ctx, Car *car, int pass)
     if (soft_shadow_on && shadow_remap != NULL && object_pixels.palette != NULL) {   /* port: the quad's corners, the shade not drawn (remap NULL) */
         const CarShadowOps cut = { NULL, shadow_contact, shadow_followed, follow_arm_clip_quad, 1 };   /* and the quad cut at the near plane, not lost */
         if (car_prepare(&cut, car, &model_view, pass, car == followed_car(), object_pixels.target, NULL, screen))
-            soft_shadow_draw(object_pixels.target, shadow_remap, lamp_on_car(car) || look_tunnel_on_car(car) ? soft_half_shown() : soft_half(), soft_shadow_level(psx_light_node(psx_light, (uint32_t)car->node)), screen);
+            soft_shadow_draw(object_pixels.target, shadow_remap, lamp_on_car(car) || look_tunnel_on_car(car) ? soft_half_shown() : soft_half(), soft_shadow_level(track_node_light_node(light_effects, (uint32_t)car->node)), screen);
         return;
     }
     car_prepare(&ops, car, &model_view, pass, car == followed_car(), object_pixels.target, shadow_remap, screen);
@@ -196,7 +197,7 @@ static void lamp_state(const Car *car)
     float ratio[3] = { 1, 1, 1 }, tint[3] = { 1, 1, 1 };
     ratio_of_car(car, ratio);
     drive_light_tint(tint);
-    if (view_lamps_flares() && weather == WEATHER_FOG)   /* port (psx_flares): the lamps glow in fog too */
+    if (view_lamps_flares() && weather == WEATHER_FOG)   /* port (lamp_flares): the lamps glow in fog too */
         drive_lamps_frame(car->index, 1, brake_lamp(car), car->gear == LAMP_REVERSE_GEAR);
     else   /* port (rain_lamps): and in rain, day included: by day or dusk only the texels (force 2), no halo; at night as the light says */
         drive_lamps_light_forced(car->index, car->node, tint, ratio, brake_lamp(car), car->gear == LAMP_REVERSE_GEAR,
@@ -216,7 +217,7 @@ static void render_body(void *ctx, Car *car, const int32_t matrix[9], const int3
                                 &flash_tick, &flash };
     lamp_state(car);
     body_draws++;
-    if (car->index >= 0 && car->index < RACE_CARS) body_drawn_tick[car->index] = race->tick + 1;   /* port (psx_headlights): this car was drawn: its pool may light the road */
+    if (car->index >= 0 && car->index < RACE_CARS) body_drawn_tick[car->index] = race->tick + 1;   /* port (headlight_beams): this car was drawn: its pool may light the road */
     b->part = 0;
     car_body_draw(&ops, &in, car, followed_car(), matrix, position);
 }

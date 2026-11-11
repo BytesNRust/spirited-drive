@@ -565,7 +565,7 @@ int car_repaint_paint(const RepaintBank *bank, const uint8_t rgb[3], int floor)
     return changed;
 }
 
-/* ----- the PS1 livery ----- */
+/* ----- the console version livery ----- */
 
 /* a colour darker than this fraction of the lowest pair's lightness is not mapped */
 static const float BELOW_LOWEST = 0.75f;

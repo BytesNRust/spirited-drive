@@ -1,5 +1,5 @@
 /* A car's shadow box in the view (car_shadow.h): the exe's culls and its corners behind the near plane, and the port's cut of the quad at the plane
- * (psx_shadow) that keeps a close car's shadow. */
+ * (car_soft_shadow) that keeps a close car's shadow. */
 #include "game/race/car_shadow.h"
 #include "game/viewer/follow_arm.h"
 #include "test.h"

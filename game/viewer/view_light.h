@@ -1,4 +1,4 @@
-/* the PS1 light as the cars take it (view_light.c); ported_view.c calls these */
+/* the baked light as the cars take it (view_light.c); ported_view.c calls these */
 #ifndef TNFS_VIEW_LIGHT_H
 #define TNFS_VIEW_LIGHT_H
 

@@ -44,8 +44,8 @@ ScreenFormat port_profile_monitor_format(int width, int height)
 typedef struct {
     int widescreen;   /* 1: the monitor's format, else 4:3 */
     int refresh_hz, view_ultra, perspective, texture_filter, fog, f3_ultra, render_scale;
-    int psx_light, psx_headlights, psx_shadow, psx_flares, body_shine, car_colours, fog_sample, sky_fill;
-    int movies_wide, psx_liveries, rally_gravel;   /* the mode's file's */
+    int light_effects, headlight_beams, car_soft_shadow, lamp_flares, body_shine, car_colours, fog_sample, sky_fill;
+    int movies_wide, extra_liveries, rally_gravel;   /* the mode's file's */
     int made_tunnels, hall_light, headlight_relight, night_stretch_clean;   /* port.cfg's, appended after the extras' three */
     int forest_dark;   /* port.cfg's, appended */
     int night_sky_hue;   /* port.cfg's, appended */
@@ -126,6 +126,16 @@ static size_t next_line(const char *text, size_t size, size_t pos, char *line, s
     return pos + 1;
 }
 
+/* The keys the effects had before their names were made neutral: a file that still has one is read as the new name (a save writes the new). */
+const char *port_profile_key_alias(const char *key)
+{
+    static const char *const OLD[][2] = { { "psx_light", "light_effects" }, { "psx_shadow", "car_soft_shadow" }, { "psx_time", "light_time" },
+                                          { "psx_headlights", "headlight_beams" }, { "psx_flares", "lamp_flares" }, { "psx_liveries", "extra_liveries" } };
+    for (size_t i = 0; i < sizeof OLD / sizeof OLD[0]; i++)
+        if (strcmp(key, OLD[i][0]) == 0) return OLD[i][1];
+    return key;
+}
+
 void port_profile_read_free(Profile p, const char *text, size_t size, void (*take)(void *to, const char *key, const char *value), void *to)
 {
     for (size_t pos = 0; pos < size;) {
@@ -134,7 +144,8 @@ void port_profile_read_free(Profile p, const char *text, size_t size, void (*tak
         char *eq = strchr(line, '=');
         if (eq == NULL) continue;
         *eq = '\0';
-        if (port_profile_key_free(p, line)) take(to, line, eq + 1);
+        const char *key = port_profile_key_alias(line);
+        if (port_profile_key_free(p, key)) take(to, key, eq + 1);
     }
 }
 
@@ -186,8 +197,8 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
     s.fullscreen = 1;   /* the three start full screen */
     s.format = t->widescreen ? monitor : SCREEN_4_3;
     s.refresh_hz = t->refresh_hz, s.view_ultra = t->view_ultra, s.perspective = t->perspective, s.texture_filter = t->texture_filter, s.fog = t->fog;
-    s.f3_ultra = t->f3_ultra, s.render_scale = t->render_scale, s.psx_light = t->psx_light, s.psx_headlights = t->psx_headlights, s.psx_shadow = t->psx_shadow;
-    s.psx_flares = t->psx_flares, s.body_shine = t->body_shine, s.car_colours = t->car_colours, s.fog_sample = t->fog_sample, s.sky_fill = t->sky_fill;
+    s.f3_ultra = t->f3_ultra, s.render_scale = t->render_scale, s.light_effects = t->light_effects, s.headlight_beams = t->headlight_beams, s.car_soft_shadow = t->car_soft_shadow;
+    s.lamp_flares = t->lamp_flares, s.body_shine = t->body_shine, s.car_colours = t->car_colours, s.fog_sample = t->fog_sample, s.sky_fill = t->sky_fill;
     s.made_tunnels = t->made_tunnels, s.hall_light = t->hall_light, s.headlight_relight = t->headlight_relight, s.night_stretch_clean = t->night_stretch_clean;
     s.forest_dark = t->forest_dark;
     s.night_sky_hue = t->night_sky_hue;
@@ -217,7 +228,7 @@ PortExtras port_profile_extras(Profile p, PortExtras e)
     const Table *t = &TABLES[p >= 0 && p < PROFILE_COUNT ? p : PROFILE_STOCK];
     e.variant_time = p == PROFILE_RESTOMOD;   /* the time of day also with Mirror and Rally */
     e.reverse = p == PROFILE_RESTOMOD;   /* the track screen offers the way round */
-    e.movies_wide = t->movies_wide, e.psx_liveries = t->psx_liveries, e.rally_gravel = t->rally_gravel;
+    e.movies_wide = t->movies_wide, e.extra_liveries = t->extra_liveries, e.rally_gravel = t->rally_gravel;
     e.bumper_mirror = t->bumper_mirror, e.bumper_radar = t->bumper_radar, e.follow_camera = t->follow_camera;
     return e;
 }

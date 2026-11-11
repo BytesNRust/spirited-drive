@@ -6,7 +6,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}/user" "${WORK}/pref")
 # the night rain setup of an owner's settings, in Restomod's file (the lights, the rain, the street lamps), 21:9 at render scale 2: fewer keys did not show it
-set(keys "format=21:9" "render_scale=2" "psx_time=night" "weather=clear"
+set(keys "format=21:9" "render_scale=2" "light_time=night" "weather=clear"
     "scale=fill"
     "fov_adjust=10"
     "view_ultra=1"
@@ -15,8 +15,8 @@ set(keys "format=21:9" "render_scale=2" "psx_time=night" "weather=clear"
     "fog=1"
     "f3_ultra=1"
     "laps=0"
-    "psx_light=1"
-    "psx_shadow=1"
+    "light_effects=1"
+    "car_soft_shadow=1"
     "body_shine=4"
     "free_records=1"
     "car_colours=1"
@@ -32,8 +32,8 @@ set(keys "format=21:9" "render_scale=2" "psx_time=night" "weather=clear"
     "camera_kind=1"
     "night_sky_hue=1"
     "night_stretch_clean=1"
-    "psx_headlights=1"
-    "psx_flares=1"
+    "headlight_beams=1"
+    "lamp_flares=1"
     "made_tunnels=1"
     "headlight_relight=1"
     "car_tunnel_light=1"
@@ -91,7 +91,7 @@ set(extras
     "lunar_springs=1"
     "movies_wide=1"
     "follow_camera=1"
-    "psx_liveries=1"
+    "extra_liveries=1"
     "reverse=1"
     "lunar_gravity=1"
     "rally_gravel=1"
@@ -104,7 +104,7 @@ file(WRITE "${WORK}/user/restomod.cfg" "${cfg}\n${extras_text}\n")
 set(first "")
 foreach(run 1 2 3 4)
     execute_process(COMMAND ${CMAKE_COMMAND} -E env TNFS_PREF_DIR=${WORK}/pref SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy ASAN_OPTIONS=detect_leaks=0
-                            TNFS_PSX_TIME=night TNFS_WEATHER=rain TNFS_VIEW=1 TNFS_AUTOPILOT=1 TNFS_FRAMES=1 TNFS_BANDS=0
+                            TNFS_LIGHT_TIME=night TNFS_WEATHER=rain TNFS_VIEW=1 TNFS_AUTOPILOT=1 TNFS_FRAMES=1 TNFS_BANDS=0
                             ${TNFS} --data ${REPO}/original --user ${WORK}/user --drive CY2 --node 240 --screenshot ${WORK}/end${run}.ppm
                     WORKING_DIRECTORY "${REPO}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 100)
     if(err MATCHES "AddressSanitizer|runtime error")

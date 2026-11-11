@@ -20,7 +20,7 @@ enum {
                        REPLAY_RECORDS * REPLAY_RECORD_SIZE
 };
 
-/* port (replay colours): the colours the race's cars wore, after the exe's blocks: the 8 bytes "TNFSPNT1" and a paint a slot (PAINT_OWN 0, PAINT_PS1 1, PAINT_CATALOGUE + k; REPLAY_PAINT_NONE: not
+/* port (replay colours): the colours the race's cars wore, after the exe's blocks: the 8 bytes "TNFSPNT1" and a paint a slot (PAINT_OWN 0, PAINT_SECOND 1, PAINT_CATALOGUE + k; REPLAY_PAINT_NONE: not
  * recorded). The exe reads its blocks one at a time and never looks past the records, so it plays such a file as before; a file without them (the CD's, an older port's) has the exact size of the
  * exe's blocks and its cars take the colours the race rules give. */
 enum { REPLAY_PAINT_TRAILER_SIZE = 16, REPLAY_PAINT_NONE = 0xff };
@@ -34,10 +34,10 @@ void race_replay_snow_put(int snow, uint8_t out[REPLAY_SNOW_TRAILER_SIZE]);
 /* 1 when `file` has the snow record (after the paint trailer): `*snow` is it; else 0 and `*snow` 0 */
 int race_replay_snow_get(const uint8_t *file, size_t size, int *snow);
 
-/* port (replay conditions): after the snow record, the 8 bytes "TNFSCND1", the time of day (port_psx_time's 0..3), the weather (0..3) and whether the track ran reversed (0/1), and padding. A file without it (the
+/* port (replay conditions): after the snow record, the 8 bytes "TNFSCND1", the time of day (port_light_time's 0..3), the weather (0..3) and whether the track ran reversed (0/1), and padding. A file without it (the
  * CD's demos, an older port's) was recorded as the original plays: day, clear, forward. */
 enum { REPLAY_CONDITIONS_TRAILER_SIZE = 16 };
-typedef struct { int psx_time, weather, reverse; } ReplayConditions;
+typedef struct { int light_time, weather, reverse; } ReplayConditions;
 void race_replay_conditions_put(const ReplayConditions *c, uint8_t out[REPLAY_CONDITIONS_TRAILER_SIZE]);
 /* 1 when `file` has the conditions record (after the snow trailer): `*c` is it; else 0 and `*c` is day, clear, forward */
 int race_replay_conditions_get(const uint8_t *file, size_t size, ReplayConditions *c);

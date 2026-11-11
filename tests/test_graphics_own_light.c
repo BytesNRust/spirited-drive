@@ -92,33 +92,33 @@ static void test_light_effects_value_and_step(void)
 {
     PortSettings s = port_settings_defaults();
     char out[16];
-    s.psx_light = 0, s.psx_shadow = 0;
+    s.light_effects = 0, s.car_soft_shadow = 0;
     graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
     CHECK(strcmp(out, "Off") == 0);
     graphics_own_step(&s, GRAPHICS_OWN_LIGHT, 1, SCREEN_21_9);
-    CHECK_EQ_INT(s.psx_light, 1);
-    CHECK_EQ_INT(s.psx_shadow, 1);
+    CHECK_EQ_INT(s.light_effects, 1);
+    CHECK_EQ_INT(s.car_soft_shadow, 1);
     graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
     CHECK(strcmp(out, "On") == 0);
     graphics_own_step(&s, GRAPHICS_OWN_LIGHT, -1, SCREEN_21_9);
-    CHECK_EQ_INT(s.psx_light, 0);
-    CHECK_EQ_INT(s.psx_shadow, 0);
+    CHECK_EQ_INT(s.light_effects, 0);
+    CHECK_EQ_INT(s.car_soft_shadow, 0);
 
-    s.psx_light = 1, s.psx_shadow = 0;
+    s.light_effects = 1, s.car_soft_shadow = 0;
     graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
     CHECK(strcmp(out, "Off") == 0);
     graphics_own_step(&s, GRAPHICS_OWN_LIGHT, 1, SCREEN_21_9);
-    CHECK_EQ_INT(s.psx_light, 1);
-    CHECK_EQ_INT(s.psx_shadow, 1);
-    s.psx_light = 0, s.psx_shadow = 1;
+    CHECK_EQ_INT(s.light_effects, 1);
+    CHECK_EQ_INT(s.car_soft_shadow, 1);
+    s.light_effects = 0, s.car_soft_shadow = 1;
     graphics_own_value(&s, GRAPHICS_OWN_LIGHT, out);
     CHECK(strcmp(out, "Off") == 0);
     graphics_own_step(&s, GRAPHICS_OWN_LIGHT, 1, SCREEN_21_9);
-    CHECK_EQ_INT(s.psx_light, 1);
-    CHECK_EQ_INT(s.psx_shadow, 1);
+    CHECK_EQ_INT(s.light_effects, 1);
+    CHECK_EQ_INT(s.car_soft_shadow, 1);
 }
 
-/* the PS1 look is read when the race starts, so the pause menu dims the row */
+/* the light effects is read when the race starts, so the pause menu dims the row */
 static void test_light_effects_live_in_race(void)
 {
     CHECK_EQ_INT(graphics_own_live_in_race(GRAPHICS_OWN_LIGHT, 0, 0), 0);
@@ -129,13 +129,13 @@ static void test_light_effects_write_only_the_light_keys(void)
 {
     Rig r;
     rig_init(&r);
-    r.port.psx_light = 0, r.port.psx_shadow = 0;
-    r.port.psx_time = PSX_TIME_DUSK;
+    r.port.light_effects = 0, r.port.car_soft_shadow = 0;
+    r.port.light_time = LIGHT_TIME_DUSK;
     r.port.weather = WEATHER_RAIN;
     run_script(&r, script_walk(GRAPHICS_OWN_LIGHT, RIGHT, 1, GRAPHICS_OWN_DONE));
-    CHECK_EQ_INT(r.port.psx_light, 1);
-    CHECK_EQ_INT(r.port.psx_shadow, 1);
-    CHECK_EQ_INT(r.port.psx_time, PSX_TIME_DUSK);   /* the track screen's, kept in port.cfg */
+    CHECK_EQ_INT(r.port.light_effects, 1);
+    CHECK_EQ_INT(r.port.car_soft_shadow, 1);
+    CHECK_EQ_INT(r.port.light_time, LIGHT_TIME_DUSK);   /* the track screen's, kept in port.cfg */
     CHECK_EQ_INT(r.port.weather, WEATHER_RAIN);
     CHECK_EQ_INT(r.f.saves, 1);
 }

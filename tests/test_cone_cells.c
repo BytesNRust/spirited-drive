@@ -1,6 +1,6 @@
 /* The cone's cells (cone_cells.h): no cone, nothing; with one, a grid whose outer corners are the polygon's own, and a polygon small on the screen is left whole. */
 #include "game/race/headlight_pool.h"
-#include "game/race/psx_light.h"
+#include "game/race/track_node_light.h"
 #include "game/viewer/cone_cells.h"
 #include "tests/test.h"
 
@@ -45,7 +45,7 @@ static HeadlightPool cone_at(double x, double z, double hx, double hz)
     return h;
 }
 
-static int plan(Poly *p, const PsxLight *light, ConeGrid *g)
+static int plan(Poly *p, const TrackNodeLight *light, ConeGrid *g)
 {
     const int32_t *cam[4] = { p->cam[0], p->cam[1], p->cam[2], p->cam[3] };
     return cone_cells_grid(g, &p->view, &p->texture, p->uv, cam, light, p->corner, p->xz, p->node);
@@ -57,7 +57,7 @@ static void test_without_a_cone_nothing_is_cut(void)
     ConeGrid g;
     memset(&g, 0x5a, sizeof g);
     CHECK_EQ_INT(plan(&p, NULL, &g), 0);                                   /* no light at all */
-    PsxLight light = { 0 };
+    TrackNodeLight light = { 0 };
     CHECK_EQ_INT(plan(&p, &light, &g), 0);                                 /* no pool */
     HeadlightPool h = cone_at(0, 0, 0, 1);
     h.cone = 0;
@@ -72,7 +72,7 @@ static void test_a_polygon_the_beam_does_not_touch_or_covers_is_left_whole(void)
     Poly p = poly_of(1);
     ConeGrid g;
     HeadlightPool far_away = cone_at(0, -500, 0, 1);                       /* the car is far behind: none of the nine points is lit */
-    PsxLight light = { .pool = &far_away };
+    TrackNodeLight light = { .pool = &far_away };
     CHECK_EQ_INT(plan(&p, &light, &g), 0);
     HeadlightPool on_it = cone_at(0, 12, 0, 1);                            /* the nose over the square: the whole of it inside the full patch (12 m hold) */
     for (int k = 0; k < 4; k++) p.xz[k][0] *= 0.1, p.xz[k][1] = 12 + (p.xz[k][1] - 20) * 0.1;
@@ -84,7 +84,7 @@ static void test_a_grid_whose_corners_are_the_polygons(void)
 {
     Poly p = poly_of(1);
     HeadlightPool h = cone_at(0, 0, 0, 1);
-    PsxLight light = { .pool = &h };
+    TrackNodeLight light = { .pool = &h };
     ConeGrid g;
     const int n = plan(&p, &light, &g);
     CHECK(n >= 2 && n <= CONE_CELLS_MAX);
@@ -113,7 +113,7 @@ static void test_a_piece_of_a_texture_keeps_its_corners(void)
     memcpy(p.uv, uv, sizeof uv);
     p.corner[0] = 250, p.corner[1] = 60, p.corner[2] = 60, p.corner[3] = 250;
     HeadlightPool h = cone_at(0, 0, 0, 1);
-    PsxLight light = { .pool = &h };
+    TrackNodeLight light = { .pool = &h };
     ConeGrid g;
     const int n = plan(&p, &light, &g);
     CHECK(n >= 2);
@@ -128,7 +128,7 @@ static void test_a_polygon_small_on_the_screen_is_not_cut(void)
 {
     Poly p = poly_of(1000);                                                /* the same ground, a thousand times farther in the view: a few pixels */
     HeadlightPool h = cone_at(0, 0, 0, 1);
-    PsxLight light = { .pool = &h };
+    TrackNodeLight light = { .pool = &h };
     ConeGrid g;
     CHECK_EQ_INT(plan(&p, &light, &g), 0);
     p = poly_of(1);

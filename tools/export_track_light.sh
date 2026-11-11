@@ -20,7 +20,7 @@ mkdir -p "$mods/user"
 printf 'profile=restomod\npsx_dir=\n' > "$mods/user/port.cfg"
 for track in $tracks; do
   for time in dawn day dusk night; do
-    TNFS_EXPORT_TRACK_LIGHT="$new" TNFS_TRACK_LIGHT_FILE=0 TNFS_PSX_TIME=$time TNFS_AUTOPILOT=1 TNFS_FRAMES=1 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
+    TNFS_EXPORT_TRACK_LIGHT="$new" TNFS_TRACK_LIGHT_FILE=0 TNFS_LIGHT_TIME=$time TNFS_AUTOPILOT=1 TNFS_FRAMES=1 SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
       timeout -k 5 300 "$bin" --data "$original" --user "$mods/user" --drive "$track" --node 30 --screenshot "$mods/shot.ppm" > /dev/null 2>&1 || echo "failed: $track $time" >&2
     # the places are a fact of the track: the four times must give the same file
     if [ -f "$new/$track.places.txt" ]; then

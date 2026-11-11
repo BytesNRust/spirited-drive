@@ -1,9 +1,10 @@
-/* port (the PS1 look's light on the cars): the track's light as the cars take it taken out of ported_view.c: the ambient by segment, the road's tunnels and the rain's roofs, the headlights' cars and cone,
+/* port (the light effects' light on the cars): the track's light as the cars take it taken out of ported_view.c: the ambient by segment, the road's tunnels and the rain's roofs, the headlights' cars and cone,
  * the light a car is drawn in (car_light, car_table). ported_view.c sets it and asks; what this file takes of the view is in view_shared.h. */
 
 #include "game/race/lamp_emissive.h"
+#include "game/race/light_tint.h"
 #include "game/race/police_lights.h"
-#include "game/race/psx_light_synth.h"
+#include "game/race/light_synth.h"
 #include "game/sys/port_settings.h"
 #include "viewer/drive_light.h"
 #include "viewer/view_light.h"
@@ -13,29 +14,29 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* port (the PS1 look's light): the track's light, or NULL for none (the frames are then the exe's, byte for byte) */
-const PsxLight *psx_light;   /* the track's light (set below) */
+/* port (the light effects' light): the track's light, or NULL for none (the frames are then the exe's, byte for byte) */
+const TrackNodeLight *light_effects;   /* the track's light (set below) */
 int light_changed;   /* the light editor's reload put new rows in the same light: the built track is built again */
 
 void ported_view_light_changed(void) { light_changed = 1; }
 
-void ported_view_set_light(const PsxLight *light, const float tint[3])
+void ported_view_set_light(const TrackNodeLight *light, const float tint[3])
 {
-    psx_light = light;
+    light_effects = light;
     for (int k = 0; k < 3; k++) lit_tint[k] = light != NULL && tint != NULL ? tint[k] : 1.0f;
     lit_tinted = lit_tint[0] != 1.0f || lit_tint[1] != 1.0f || lit_tint[2] != 1.0f;
 }
 
-/* port (the PS1 light on the cars): the ambient colour by segment (a node is 4 to a segment) over the world's tint is the ratio each car's
+/* port (the baked light on the cars): the ambient colour by segment (a node is 4 to a segment) over the world's tint is the ratio each car's
  * colours are scaled by, as a table by the nearest palette entry; the ratio is kept to 1/16 and the tables cached by it */
 enum { AMBIENT_TABLES = 8, AMBIENT_STEP = 16 };
 static PsxLgs ambient;
 static int ambient_on;
-static int synth_on;   /* the light is one psx_light_synth made: the cars and the dash take its tunnel factor */
+static int synth_on;   /* the light is one light_synth made: the cars and the dash take its tunnel factor */
 static uint32_t ambient_nodes;
 static float ambient_tint[3] = { 1, 1, 1 };
 
-void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const float tint[3])
+void ported_view_set_light_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const float tint[3])
 {
     ambient_on = lgs != NULL && tint != NULL && ring_nodes >= 4;
     if (!ambient_on) return;
@@ -44,14 +45,14 @@ void ported_view_set_psx_ambient(const PsxLgs *lgs, uint32_t ring_nodes, const f
 }
 
 
-void ported_view_set_psx_synth(int on) { synth_on = on; }
+void ported_view_set_light_synth(int on) { synth_on = on; }
 
-/* port (the PS1 light on the cars and the dash): the exe's light of the road's centre at the car's own node (psx_lgs_car_ratio; the exe gives every car the
+/* port (the baked light on the cars and the dash): the exe's light of the road's centre at the car's own node (light_tint_car_ratio; the exe gives every car the
  * viewer's, the port its own node's), the one factor of the cars and the dash; 0 and `out` untouched when there is no light script. A context's colour is
  * its own tunnel's tint, and a RAMP context's odd / even nodes are the lamps' alternation. */
 static int ratio_of(int32_t node, float out[3]);
 
-/* port (psx_headlights): the nodes the road itself marks a tunnel (its property bit, runs of PSX_SYNTH_MIN_RUN and more: the wooden tunnels and sheds the CD's light
+/* port (headlight_beams): the nodes the road itself marks a tunnel (its property bit, runs of LIGHT_SYNTH_MIN_RUN and more: the wooden tunnels and sheds the CD's light
  * rows do not all mark), made once for the track; NULL when it has no data */
 /* two callers ask with different counts (the light script's and the ring's): a slot each, or they would remake the flags every call, every frame;
  * dropped when the track is forgotten (the next track's race may sit at the same address with as many nodes) */
@@ -80,13 +81,13 @@ const uint8_t *road_tunnels(const RaceState *race, uint32_t nodes)
     uint8_t *property = malloc(nodes);
     if (flags == NULL || property == NULL) { free(property); free(flags); return NULL; }
     for (uint32_t i = 0; i < nodes; i++) property[i] = race_node(race, (int32_t)i).property;
-    psx_light_synth_tunnels(property, nodes, 1, flags);
+    light_synth_tunnels(property, nodes, 1, flags);
     free(property);
     tunnel_slot[at].flags = flags, tunnel_slot[at].have = nodes, tunnel_slot[at].race = race;
     return flags;
 }
 
-/* port (rain_fx): the nodes with a roof over the road for the rain (psx_light_synth_rain_cover), made once for the track like road_tunnels' */
+/* port (rain_fx): the nodes with a roof over the road for the rain (light_synth_rain_cover), made once for the track like road_tunnels' */
 static uint32_t rain_cover_have;
 static const RaceState *rain_cover_race;
 
@@ -99,7 +100,7 @@ const uint8_t *rain_cover(const RaceState *race, uint32_t nodes)
     uint8_t *property = malloc(nodes);
     if (rain_cover_flags == NULL || property == NULL) { free(property); free(rain_cover_flags); rain_cover_flags = NULL; return NULL; }
     for (uint32_t i = 0; i < nodes; i++) property[i] = race_node(race, (int32_t)i).property;
-    psx_light_synth_rain_cover(property, nodes, 1, rain_cover_flags);
+    light_synth_rain_cover(property, nodes, 1, rain_cover_flags);
     free(property);
     rain_cover_have = nodes, rain_cover_race = race;
     return rain_cover_flags;
@@ -142,29 +143,29 @@ static void cone_heading(const Car *car, double *hx, double *hz)
     *hx = sin(a), *hz = cos(a);
 }
 
-/* port (psx_headlights): the tick each car's body was last drawn (its draw distance, the render scale's): a car that is not drawn does not light the road, so no lit road
+/* port (headlight_beams): the tick each car's body was last drawn (its draw distance, the render scale's): a car that is not drawn does not light the road, so no lit road
  * shows far from a car that is not there yet. Stored as tick + 1: 0 is never */
 int32_t body_drawn_tick[RACE_CARS];
 HeadlightPool *pool_fed;   /* the pool headlights_update last fed: its tunnel flags and node table are freed with the track, so it lets go of them then */
 
-/* port (psx_headlights): the cars with their lights on, each frame - the active cars of the race, the player first - are the pools the road is lit in */
+/* port (headlight_beams): the cars with their lights on, each frame - the active cars of the race, the player first - are the pools the road is lit in */
 void headlights_update(void)
 {
-    if (psx_light == NULL || psx_light->pool == NULL) return;
-    HeadlightPool *pool = psx_light->pool;
+    if (light_effects == NULL || light_effects->pool == NULL) return;
+    HeadlightPool *pool = light_effects->pool;
     pool_fed = pool;
     static int32_t seen[RACE_CARS];
     static int8_t travel[RACE_CARS];
     static uint32_t of_ring;
     pool->count = 0;
-    pool->ring = psx_light->nodes;
+    pool->ring = light_effects->nodes;
     reflect_lamps_on = 0;   /* port (reflectors): only the player's lamps */
     if (shadow_race == NULL) return;
     const int32_t ring = (int32_t)pool->ring;
     if (of_ring != pool->ring) of_ring = pool->ring, memset(seen, 0, sizeof seen), memset(travel, 0, sizeof travel);   /* another track */
-    pool->tunnel = road_tunnels(shadow_race, psx_light->nodes);
+    pool->tunnel = road_tunnels(shadow_race, light_effects->nodes);
     pool->cone = port_headlight_cone();
-    pool->node_xz = pool->cone ? cone_node_xz(shadow_race, psx_light->nodes) : NULL;
+    pool->node_xz = pool->cone ? cone_node_xz(shadow_race, light_effects->nodes) : NULL;
     const int32_t n = shadow_race->car_count < RACE_CARS ? shadow_race->car_count : RACE_CARS;
     for (int32_t i = 0; i < n && pool->count < HEADLIGHT_MAX; i++) {
         const Car *car = shadow_race->cars[i];
@@ -202,46 +203,46 @@ void headlights_update(void)
 static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
 {
     int found = ratio_of(node, out);
-    found = headlight_pool_car_ratio_start(found, psx_light != NULL && psx_light->pool != NULL, port_car_night_lift(), out);
+    found = headlight_pool_car_ratio_start(found, light_effects != NULL && light_effects->pool != NULL, port_car_night_lift(), out);
     /* port (car_night_lift): a light with no ratio for the car (no ambient, no synth: CL1's night) left `out` unset, and car_light made the car's table from 0: every texel but the paint's black, a wheel a flat disc. The car's own light is full, and the pool's gain below lights it as it lights the road */
     /* port (car_tunnel_match): a made tunnel with a look keeps the light its look gives (the world's tables are not scaled by the headlight pool's floor there, light_at_dark), so the car is not either: the pool's share took a further 60 % off the car */
-    const int match_tunnel = found && port_car_tunnel_match() >= 1 && psx_light != NULL && psx_light->look_set && psx_light_tunnel(psx_light, psx_ring_node(node, psx_light->nodes));
-    if (found && !match_tunnel && psx_light != NULL && psx_light->pool != NULL) {   /* port (psx_headlights): a car in the dark or in a pool takes its light, as the road under it does */
-        const uint32_t at = psx_ring_node(node, psx_light->nodes);
+    const int match_tunnel = found && port_car_tunnel_match() >= 1 && light_effects != NULL && light_effects->look_set && track_node_light_tunnel(light_effects, light_tint_ring_node(node, light_effects->nodes));
+    if (found && !match_tunnel && light_effects != NULL && light_effects->pool != NULL) {   /* port (headlight_beams): a car in the dark or in a pool takes its light, as the road under it does */
+        const uint32_t at = light_tint_ring_node(node, light_effects->nodes);
         int g;
-        if (psx_light->pool->cone && xz != NULL) {   /* port (headlight_cone): by where the car is in every car's patch of light, its own included (the glow round it): rivals, police and the player alike */
-            const int lift = headlight_pool_car_lift_xz(psx_light->pool, car, xz[0], xz[1]);   /* its own patch limited, the others' added (i097) */
-            g = headlight_pool_car_gain(headlight_pool_gain_at_lift(psx_light_tunnel(psx_light, at) ? TUNNEL_FLOOR : HEADLIGHT_FLOOR, lift));
+        if (light_effects->pool->cone && xz != NULL) {   /* port (headlight_cone): by where the car is in every car's patch of light, its own included (the glow round it): rivals, police and the player alike */
+            const int lift = headlight_pool_car_lift_xz(light_effects->pool, car, xz[0], xz[1]);   /* its own patch limited, the others' added (i097) */
+            g = headlight_pool_car_gain(headlight_pool_gain_at_lift(track_node_light_tunnel(light_effects, at) ? TUNNEL_FLOOR : HEADLIGHT_FLOOR, lift));
         } else {
-            g = headlight_pool_car_at(psx_light->pool, at) ? 256 : headlight_pool_car_gain(psx_light_tunnel(psx_light, at) ? headlight_pool_gain_tunnel(psx_light->pool, at) : headlight_pool_gain(psx_light->pool, at));   /* a car with its lights on keeps its own light: the beam is ahead of it */
+            g = headlight_pool_car_at(light_effects->pool, at) ? 256 : headlight_pool_car_gain(track_node_light_tunnel(light_effects, at) ? headlight_pool_gain_tunnel(light_effects->pool, at) : headlight_pool_gain(light_effects->pool, at));   /* a car with its lights on keeps its own light: the beam is ahead of it */
         }
         g = headlight_pool_car_night_lift(g, port_car_night_lift());   /* port (car_night_lift) */
         const float gain = (float)g / 256.0f;
         for (int k = 0; k < 3; k++) out[k] *= gain;
-        if (port_lamp_car_shade()) (void)psx_light_car_pool(psx_light, at, out);   /* port (lamp_car_shade): and the street lamp's pool lights it */
+        if (port_lamp_car_shade()) (void)track_node_light_car_pool(light_effects, at, out);   /* port (lamp_car_shade): and the street lamp's pool lights it */
     }
-    if (!found && psx_light != NULL && psx_light->car_pool != NULL && port_lamp_car_shade()) {   /* port (lamp_car_shade): a made light with no tunnels gives the car no ratio, so the lamps' pools had nothing to lift: the car's own is neutral, the pool's warm gain on it */
+    if (!found && light_effects != NULL && light_effects->car_pool != NULL && port_lamp_car_shade()) {   /* port (lamp_car_shade): a made light with no tunnels gives the car no ratio, so the lamps' pools had nothing to lift: the car's own is neutral, the pool's warm gain on it */
         static int mode = -1;
         if (mode < 0) mode = getenv("TNFS_LAMP_CAR_MODE") ? atoi(getenv("TNFS_LAMP_CAR_MODE")) : 1;
-        const uint32_t at = psx_ring_node(node, psx_light->nodes);
+        const uint32_t at = light_tint_ring_node(node, light_effects->nodes);
         out[0] = out[1] = out[2] = 1.0f;
         if (mode == 2) {   /* steady: the nearest lamp is within 8 nodes either side, the lift is the weakest pool's all the way along the lamps' stretch */
             int near = 0;
-            for (int d = -8; d <= 8 && !near; d++) near = psx_light->car_pool[psx_ring_node((int32_t)at + d, psx_light->nodes)] != 0;
+            for (int d = -8; d <= 8 && !near; d++) near = light_effects->car_pool[light_tint_ring_node((int32_t)at + d, light_effects->nodes)] != 0;
             if (near) {
-                PsxLight steady = *psx_light;
+                TrackNodeLight steady = *light_effects;
                 uint8_t keep = 2;
                 steady.car_pool = &keep;
                 steady.nodes = 1;
-                return psx_light_car_pool(&steady, 0, out);
+                return track_node_light_car_pool(&steady, 0, out);
             }
             return 0;
         }
-        return psx_light_car_pool(psx_light, at, out);
+        return track_node_light_car_pool(light_effects, at, out);
     }
-    if (psx_light != NULL && psx_light->lamp_n > 0 && xz != NULL) {   /* port (`lamp`): the street lamps add their light to the car by its distance to each */
+    if (light_effects != NULL && light_effects->lamp_n > 0 && xz != NULL) {   /* port (`lamp`): the street lamps add their light to the car by its distance to each */
         float lit[3] = { found ? out[0] : 1.0f, found ? out[1] : 1.0f, found ? out[2] : 1.0f };
-        if (psx_light_lamp_car(psx_light, psx_ring_node(node, psx_light->nodes), xz[0], xz[1], lit)) {
+        if (track_node_light_lamp_car(light_effects, light_tint_ring_node(node, light_effects->nodes), xz[0], xz[1], lit)) {
             memcpy(out, lit, sizeof lit);
             return 1;
         }
@@ -260,21 +261,21 @@ static const float CANYON_SHADE_FACTOR = 0.70f;   /* port (canyon_shade): the ow
 
 static int ratio_of(int32_t node, float out[3])
 {
-    if (synth_on && psx_light != NULL) {   /* port: a light made from the road (psx_light_synth.h): no script, the tunnel's lamp alternation */
-        const uint32_t at = psx_ring_node(node, psx_light->nodes);
-        if (port_car_tunnel_light() || psx_light->from_file) psx_light_synth_car_tunnel_match(psx_light, at, port_car_tunnel_match(), (lit_tint[0] + lit_tint[1] + lit_tint[2]) / 3.0f, out);   /* port (car_tunnel_light, car_tunnel_match) */
-        else psx_light_synth_car(psx_light, at, out);
-        if (psx_light->canyon != NULL && psx_light->canyon[psx_ring_node(node, psx_light->nodes)]) {   /* port (canyon_shade): the walls shade the car in the canyon */
-            const float f = port_canyon_shade() || psx_light->from_file ? CANYON_SHADE_FACTOR : 1.0f;
+    if (synth_on && light_effects != NULL) {   /* port: a light made from the road (light_synth.h): no script, the tunnel's lamp alternation */
+        const uint32_t at = light_tint_ring_node(node, light_effects->nodes);
+        if (port_car_tunnel_light() || light_effects->from_file) light_synth_car_tunnel_match(light_effects, at, port_car_tunnel_match(), (lit_tint[0] + lit_tint[1] + lit_tint[2]) / 3.0f, out);   /* port (car_tunnel_light, car_tunnel_match) */
+        else light_synth_car(light_effects, at, out);
+        if (light_effects->canyon != NULL && light_effects->canyon[light_tint_ring_node(node, light_effects->nodes)]) {   /* port (canyon_shade): the walls shade the car in the canyon */
+            const float f = port_canyon_shade() || light_effects->from_file ? CANYON_SHADE_FACTOR : 1.0f;
             for (int k = 0; k < 3; k++) out[k] *= f;
         }
         return 1;
     }
-    if (!ambient_on || psx_light == NULL) return 0;
-    const int32_t at = (int32_t)psx_ring_node(node, ambient_nodes);
+    if (!ambient_on || light_effects == NULL) return 0;
+    const int32_t at = (int32_t)light_tint_ring_node(node, ambient_nodes);
     /* the script's blocks are of the file's direction: a reversed track asks them at the node's old place */
-    psx_lgs_car_ratio(&ambient, ambient_nodes, (int32_t)psx_light_old_node(psx_light, (uint32_t)at),
-                      psx_light_byte(psx_light, (uint32_t)at, 0), AMBIENT_STEP, out);
+    light_tint_car_ratio(&ambient, ambient_nodes, (int32_t)track_node_light_old_node(light_effects, (uint32_t)at),
+                      track_node_light_byte(light_effects, (uint32_t)at, 0), AMBIENT_STEP, out);
     return 1;
 }
 
@@ -283,28 +284,28 @@ int ported_view_car_ratio(const Car *car, float out[3])
     return car != NULL && ratio_of_car(car, out);
 }
 
-int police_flash_on;   /* port (psx_light): the police car's lights flash (police_lights.h) */
+int police_flash_on;   /* port (light_effects): the police car's lights flash (police_lights.h) */
 void ported_view_set_police_lights(int on) { police_flash_on = on; }
 
 /* the table for a car at `node`, NULL when its ambient is the world's */
 const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t palette[768])
 {
-    if (psx_light == NULL || palette == NULL || !(ambient_on || synth_on || (port_lamp_car_shade() && psx_light->car_pool != NULL) || psx_light->lamp_n > 0 || psx_light->car_tone != NULL)) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
+    if (light_effects == NULL || palette == NULL || !(ambient_on || synth_on || (port_lamp_car_shade() && light_effects->car_pool != NULL) || light_effects->lamp_n > 0 || light_effects->car_tone != NULL)) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
     static struct { int key[8]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];   /* the ratio and the car's tone (track light file's car_tone) */
     static uint8_t made_for[768];
     static int next, valid;
     float ratio[3] = { 0.0f, 0.0f, 0.0f };   /* what a light with no ratio for the car left in it (found 0 left it unset: read as 0, so the car was black), now said */
     ratio_at_xz(node, xz, car, ratio);
     int key[8] = { 0 }, neutral = 1;
-    const int floor_level = psx_light->pool != NULL ? port_car_night_lift() : 0;   /* port (car_night_lift): at night (the headlight pool), a floor of light on the body */
+    const int floor_level = light_effects->pool != NULL ? port_car_night_lift() : 0;   /* port (car_night_lift): at night (the headlight pool), a floor of light on the body */
     key[7] = floor_level, neutral = floor_level == 0;
     const int match_bright = (port_car_tunnel_match() >= 1 || port_car_night_lift() >= 1) && (ratio[0] > 1.0f || ratio[1] > 1.0f || ratio[2] > 1.0f);   /* port (car_tunnel_match): above full light the table has no family */
     for (int k = 0; k < 3; k++) {
         key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
         neutral = neutral && key[k] == AMBIENT_STEP;
     }
-    if (psx_light->car_tone != NULL && psx_light->nodes > 0) {   /* port (track light file, car_tone): the car's own tone at this node */
-        const uint8_t *tone = psx_light->car_tone + 4 * (size_t)psx_ring_node(node, psx_light->nodes);
+    if (light_effects->car_tone != NULL && light_effects->nodes > 0) {   /* port (track light file, car_tone): the car's own tone at this node */
+        const uint8_t *tone = light_effects->car_tone + 4 * (size_t)light_tint_ring_node(node, light_effects->nodes);
         if (tone[3] > 0) {
             for (int k = 0; k < 4; k++) key[3 + k] = tone[k];
             neutral = 0;
@@ -321,10 +322,10 @@ const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t 
     next = (next + 1) % AMBIENT_TABLES;
     memcpy(cache[slot].key, key, sizeof key), cache[slot].used = 1;
     static const uint8_t FLOOR[3][3] = { { 0, 0, 0 }, { 8, 9, 12 }, { 16, 18, 24 } };   /* a cool light, as the night's */
-    psx_lit_table_floor(palette, ratio, match_bright, floor_level > 0 && floor_level < 3 ? FLOOR[floor_level] : NULL, cache[slot].table);
+    light_tint_lit_table_floor(palette, ratio, match_bright, floor_level > 0 && floor_level < 3 ? FLOOR[floor_level] : NULL, cache[slot].table);
     if (key[6] > 0) {
         const uint8_t rgb[3] = { (uint8_t)key[3], (uint8_t)key[4], (uint8_t)key[5] };
-        psx_car_tone_table(palette, cache[slot].table, rgb, key[6], cache[slot].table);   /* in place: each entry reads only its own */
+        light_tint_car_tone_table(palette, cache[slot].table, rgb, key[6], cache[slot].table);   /* in place: each entry reads only its own */
     }
     return cache[slot].table;
 }
