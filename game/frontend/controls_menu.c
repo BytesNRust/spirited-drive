@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "game/sys/port_log.h"
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
@@ -586,6 +587,7 @@ static void chosen(Menu *m, int32_t mode, int over, uint16_t k, const ControlsMe
 /* 00413cb0 */
 int32_t controls_menu(const ControlsMenuState *st, int32_t mode, const ControlsMenuOps *ops)
 {
+    port_log("mark:screen=controls_p1\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     static Menu zero;
     Menu m = zero;
     m.fade = m.redraw = m.armed = m.released = 1;

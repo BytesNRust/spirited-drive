@@ -3,6 +3,7 @@
 #include "game/frontend/central_run.h"
 
 #include <string.h>
+#include "game/sys/port_log.h"
 
 const int16_t CENTRAL_X[CC_ITEMS] = { 482, 175, 444, 211, 45, 228, 400, 570, 0, 372 };
 const int16_t CENTRAL_Y[CC_ITEMS] = { 158, 197, 318, 349, 454, 454, 454, 454, 0, 225 };
@@ -201,6 +202,7 @@ static int turn(CentralRun *r)
 
 int32_t control_central(ControlCentralState *st, const ControlCentralOps *ops)
 {
+    port_log("mark:screen=central\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     CentralRun r;
     memset(&r, 0, sizeof r);
     r.st = st, r.ops = ops;

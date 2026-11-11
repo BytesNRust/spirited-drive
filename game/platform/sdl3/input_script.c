@@ -30,7 +30,7 @@
  * presents nothing either, but reads no pointer) or, on a screen that never stills (a movie, a blinking
  * cursor), after SCRIPT_SETTLE_CAP_MS.
  * ms:WAIT:text:secs (with TNFS_INPUT_SETTLE only): the script holds there, ms after the event before it, until the game logs a line
- * containing `text` (port_log_watch, armed at that moment: a line logged before does not count) -- the game's marks are the
+ * containing `text` (port_log_watch, armed when the event before the WAIT begins, so the mark that event's reaction logs counts; a line logged before it does not) -- the game's marks are the
  * "mark:..." lines (tools/link_loopback.sh) -- and goes on; if no such line comes in `secs` seconds the process says which step
  * it stopped at ("input script: step N: WAIT text timed out after S s") and exits with status 3. */
 enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100, SCRIPT_SETTLE_CAP_MS = 12000, SCRIPT_READ_GAP_MS = 250 };
@@ -45,6 +45,7 @@ typedef struct {
     uint32_t delay; /* TNFS_INPUT_SETTLE: ms after the event before it */
     bool placed;    /* CLICK: the pointer moved there, the press due on the next read */
     bool latched;   /* a key's press latched, as the event of a real one does */
+    bool watched;   /* WAIT: its watch was armed already, when the event before it began (a reaction logged at once counts) */
 } ScriptEvent;
 static ScriptEvent script[SCRIPT_MAX];
 static int script_count;
@@ -144,7 +145,7 @@ void input_script_load(void)
     char *save = NULL;
     for (char *item = SDL_strtok_r(buf, ",", &save); item != NULL && script_count < SCRIPT_MAX;
          item = SDL_strtok_r(NULL, ",", &save)) {
-        ScriptEvent e = { 0, 0, 0, 0, false, false, false, "", 0, false, false };
+        ScriptEvent e = { 0, 0, 0, 0, false, false, false, "", 0, false, false, false };
         char name[16] = "";
         const char *wait = SDL_strstr(item, ":WAIT:");
         const char *last = wait != NULL ? SDL_strrchr(item, ':') : NULL;   /* WAIT: ms:WAIT:text:secs, the text may hold colons */
@@ -213,8 +214,13 @@ static void script_sequence(void)
         if (now < due || (pointer && !still && now < due + SCRIPT_SETTLE_CAP_MS)) return;
         e->at_ms = now;
         if (e->scancode == -4) {   /* WAIT: from now on (its own line first: it holds the text it waits for) */
-            port_log("input script: step %d: waiting for %s\n", script_next + 1, e->text);
-            port_log_watch(e->text);
+            if (e->watched) port_log("input script: step %d: waiting (its watch armed with the event before)\n", script_next + 1);   /* no text: this line must not be the line the watch is for */
+            else port_log("input script: step %d: waiting for %s\n", script_next + 1, e->text), port_log_watch(e->text);
+        } else if (script_next + 1 < script_count && script[script_next + 1].scancode == -4) {
+            /* the event before a WAIT begins: the watch is armed now, not when the WAIT's turn comes, since the screen this event opens logs its mark in
+             * the frame that reads it, before the script gets to the next step (a line logged between the event and the WAIT counts) */
+            port_log_watch(script[script_next + 1].text);
+            script[script_next + 1].watched = true;
         }
         return;
     }

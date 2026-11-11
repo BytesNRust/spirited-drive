@@ -552,6 +552,7 @@ static int32_t close_screen(Screen *s, const GraphicsMenuState *st, const Graphi
 
 int32_t graphics_own(const GraphicsMenuState *st, const GraphicsMenuOps *ops)
 {
+    port_log("mark:screen=graphics\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     /* not armed: the key that opened the screen may still be down */
     static Screen s;   /* its background is 300 KB: not on the stack, the web build's is 64 KB */
     open_screen(&s, st, ops);

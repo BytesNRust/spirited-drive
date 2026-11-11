@@ -1,6 +1,7 @@
 #include "game/frontend/intro.h"
 
 #include <stdio.h>
+#include "game/sys/port_log.h"
 
 enum { REPLAY_PLAYING = 3, COLOURS = 0x100, ROTATION = 3 };
 
@@ -34,6 +35,7 @@ static void black(const uint8_t pal[PALETTE_PUT_BYTES], const IntroOps *ops)
 /* 00441abc */
 int intro_show(IntroState *s, const IntroOps *ops)
 {
+    port_log("mark:screen=intro\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     uint8_t pal[PALETTE_PUT_BYTES];
     ops->pointer_hide(ops->ctx);
     palette_put_clear(pal);

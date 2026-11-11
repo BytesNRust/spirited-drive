@@ -187,6 +187,7 @@ static void pointer_to(const Page *p, const ExtrasMenuOps *o)
 static void turn(Page *p, int page, int row, const ExtrasMenuOps *o)
 {
     p->page = page;
+    port_log("mark:screen=extras_p%d\n", page + 1);   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     p->selected = (int16_t)row;
     p->confirming = 0;
     p->redraw = 1;
@@ -414,6 +415,7 @@ static void draw_page(Page *p, PortExtras *e, int16_t unlock, int32_t bank, cons
 
 int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMenuOps *o)
 {
+    port_log("mark:screen=extras_p1\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     const PortExtras input = *e;
     const int16_t input_unlock = *unlock;
     Page p = { 0, ROW_EXPLODE, 1, 0, 0, 0, 0, -1, 0, 0 };   /* not released: the click that opened it may still be down */

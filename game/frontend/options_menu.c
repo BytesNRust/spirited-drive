@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include "game/sys/port_log.h"
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
@@ -342,6 +343,7 @@ static void step(Menu *m, const OptionsMenuState *st, uint16_t k, const OptionsM
 /* 00444bb0 */
 int32_t options_menu(OptionsMenuState *st, const OptionsMenuOps *ops)
 {
+    port_log("mark:screen=options\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     static Menu zero;
     Menu m = zero;
     m.kept[0] = *st->transmission, m.kept[1] = *st->automatic, m.kept[2] = *st->abs, m.kept[3] = *st->traction;

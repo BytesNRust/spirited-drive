@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "game/sys/port_log.h"
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        INSERT = 0x5200, DELETE = 0x5300, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
@@ -421,10 +422,17 @@ static void clear_action(Run *r, int act, const ControlsMenuState *st)
     r->redraw = 1;
 }
 
+static void mark_page(int page)
+{
+    static const char *const NAME[PAGES] = { "", "controls_keyboard", "controls_actions", "controls_tune" };
+    port_log("mark:screen=%s\n", NAME[page]);   /* port: the headless walk (tools/menu_walk.sh) waits for it */
+}
+
 static void turn(Run *r, int to, const ControlsMenuOps *o)
 {
     if (to < 1 || to > PAGES - 1) return;
     r->page = to;
+    mark_page(to);
     r->selected = 0;
     r->redraw = 1;
     move_to(r, 0, o);
@@ -522,6 +530,7 @@ ControlsPageResult controls_plus_run(const ControlsMenuState *st, const Controls
     Run r = { .page = KEYBOARD_PAGE, .redraw = 1, .released = *st->buttons == 0, .capturing = -1, .gamepad = 1,
               .result = -1, .bank = bank, .options = options, .bgnd = &bgnd, .nav_lit = 0,
               .three = st->plus->port_three_pages != 0, .hide_look_back = st->plus->hide_look_back != 0 };
+    mark_page(KEYBOARD_PAGE);
     if (o->pad_raw(o->ctx, &pad)) r.gamepad = pad.gamepad;
     if (st->controls != NULL && st->german != NULL) port_controls_key_defaults(st->controls, *st->german, r.key_defaults);
     move_to(&r, r.selected, o);
