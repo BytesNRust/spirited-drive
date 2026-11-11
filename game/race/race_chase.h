@@ -67,6 +67,9 @@ void race_chase_tick(RaceState *race, RaceChase *chase);
  * (+0x78) the heading of its eye's road node (+0x38 & 00504208) x 0x400. */
 void race_chase_road_yaw(const RaceState *race, RaceChase *chase);
 
+/* port (wrong_way): the road's heading at `node` as a 24-bit yaw (the node's heading x 0x400), the one race_chase_road_yaw gives the record */
+int32_t race_chase_node_heading(const RaceState *race, int32_t node);
+
 /* 00404630: the step that takes target to `to` in `ticks` ticks (divide
  * set) or by a 2^ticks-th of the way; nothing when ticks is 0. */
 void race_chase_glide(RaceChase *chase, const int32_t to[3], int32_t divide, int32_t ticks);

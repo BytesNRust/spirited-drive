@@ -40,6 +40,8 @@ int text_init(void)
     return 1;
 }
 
+int text_loaded(void) { return font_data != NULL; }
+
 int text_small_init(void)
 {
     size_t size;

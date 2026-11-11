@@ -345,6 +345,13 @@ int port_tunnel_lamps(void)
     return port_settings_load().tunnel_lamps;
 }
 
+int port_wrong_way(void)
+{
+    const char *v = getenv("TNFS_WRONG_WAY");
+    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().wrong_way;
+}
+
 int port_car_night_lift(void)
 {
     const char *v = getenv("TNFS_CAR_NIGHT_LIFT");

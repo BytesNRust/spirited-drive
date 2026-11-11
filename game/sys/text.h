@@ -15,6 +15,7 @@ typedef enum {
 } TextStyle;
 
 int text_init(void);                                    /* 004322f8: load + 00487e10 */
+int text_loaded(void);                                  /* port: graver18 is loaded (text_init ran, no text_free since) */
 void text_free(void);
 
 void text_build_styles(void);                           /* 0046376c, from the current palette */

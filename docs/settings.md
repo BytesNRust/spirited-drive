@@ -120,6 +120,7 @@ The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_tim
 | `car_night_lift` | 0 | 0 | 0..2 (the cars at night, every car's light raised where the headlight pool gives it: 1 by an eighth of its gain, 2 by a half, above the paint's own colour with the lit table not held to its hue family; the player's car with its lights on and the traffic and rivals alike; 0 as before) | none | `TNFS_CAR_NIGHT_LIFT` | 0 / 0 / 1 | `light_effects`, `headlight_beams`, night |
 | `menu_pad_cancel` | 0 | 0 | 0..1 (the gamepad's second button, B by default (the exe's Enter), is Escape in the menus and the name box: back, exit, cancel; the first, A, keeps accepting (Space); 0 the exe's: both accept) | none | `TNFS_MENU_PAD_CANCEL` | 0 / 0 / 1 | a game controller |
 | `tunnel_lamps` | 0 | 0 | 0..2 (1 at night, 2 by day too: the lamps of the tunnels and caverns (the lamp textures of `game/race/tunnel_lamp_textures.c`: CY1, CY2, CY3, TR3, TR4) light the walls and the road in a pool under each lamp, like the street lamps' pools; the light is ADDED over the tunnel's own (`tunnel_tone`), so a dark tunnel still has bright pools under its lamps; the car takes them too, with `car_tunnel_match` 1: its light in the tunnel is the between-lamps level everywhere and each lamp's pool lifts it to full light by its distance to the lamp, in place of the node-parity alternation; 0 the exe's) | none | `TNFS_TUNNEL_LAMPS` | 0 / 0 / 2 | `made_tunnels`, `headlight_beams`, night |
+| `wrong_way` | 0 | 0 | 0..1 (a centred blinking WRONG WAY, FALSCHE RICHTUNG with `--german`, in the upper third when the player's car drives forwards (not in reverse, forward speed above 30 km/h) with its nose more than a quarter turn from the road's heading at its node, not spinning, for 1.5 s; it goes after 0.5 s of anything else; reversing never turns it on, whichever way the nose points; not in the countdown, after the finish or in a replay; 0 the exe's: no warning) | none | `TNFS_WRONG_WAY` | 0 / 0 / 1 | a race |
 
 ### Dash, cameras and replay
 
@@ -199,7 +200,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 ## What each profile sets (`TABLES`)
 
-All 89 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
+All 90 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
 | column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
@@ -292,6 +293,7 @@ All 89 columns of the table. A column that is not here is not touched by any pro
 | `car_night_lift` | settings | 0 | 0 | 1 |
 | `menu_pad_cancel` | settings | 0 | 0 | 1 |
 | `tunnel_lamps` | settings | 0 | 0 | 2 |
+| `wrong_way` | settings | 0 | 0 | 1 |
 
 The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `light_time`, `weather`, `render_bands`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.
 
