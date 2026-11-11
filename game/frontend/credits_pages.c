@@ -45,13 +45,14 @@ static void homage(Page *p)
 
 static void ours(Page *p, const char *version)
 {
-    static const char *const ORIGINAL[] = { "EA Canada", "with Road & Track", "1994-1996" };
-    static const char *const VIDEO[] = { "Pioneer Productions" };
+    /* i055: Pioneer Productions made the 1994 game with EA Canada (no video credit on the original pages); EA Seattle made the PC Special Edition with EA Canada */
+    static const char *const ORIGINAL[] = { "EA Canada", "Pioneer Productions", "with Road & Track", "1994-1996" };
+    static const char *const SPECIAL[] = { "EA Seattle", "with EA Canada" };
     static const char *const RESTOMOD[] = { "Bytes & Rust", "and contributors" };
     static const char *const LICENCE[] = { "Code GPL-3.0-or-later", "Our data CC BY-SA 4.0" };
     static const char *const MADE_WITH[] = { "SDL3" };
-    int y = group(p, LEFT_CX, 140, "Original game", ORIGINAL, 3);
-    group(p, LEFT_CX, y, "Video", VIDEO, 1);
+    int y = group(p, LEFT_CX, 140, "Original game", ORIGINAL, 4);
+    group(p, LEFT_CX, y, "Special Edition", SPECIAL, 2);
     put(p, CREDITS_TITLE, CREDITS_YELLOW, RIGHT_CX, 76, GAME_NAME);
     y = group(p, RIGHT_CX, 120, "Restomod", RESTOMOD, 2);
     y = group(p, RIGHT_CX, y, "Licence", LICENCE, 2);
