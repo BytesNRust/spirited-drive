@@ -30,6 +30,8 @@ static const float SIZE_FADE_FROM = 0.26f, SIZE_FADE_TO = 0.5f;
 static const float BODY_KEEP = 0.2f;   /* the share of a puff's alpha over the body of the car it came from */
 /* the birth: a puff behind its car's centre by less than BIRTH_FROM metres is BIRTH_MIN of its size, growing to the full from the rear bumper (and BIRTH_PAST metres beyond), so the trail starts small at the wheels and is whole past the bumper */
 static const float BIRTH_FROM = 1.0f, BIRTH_MIN = 0.25f, BIRTH_PAST = 0.6f;
+enum { NEAR_VIEW_KIND = 2 };   /* the close chase camera: there the followed car's own gravel (its stones and their dust) is born whole (the owner's pick a, i195): its small births sat in the near fade and showed nothing.
+                                * Every other view and car, and the other kinds (the desert's earth, whole, is as big as the screen and the size fade takes it all), keep BIRTH_MIN */
 static uint8_t LEVEL_AT[KINDS][4][4][256];   /* [kind][y & 3][x & 3][alpha]: the level a pixel of that alpha gets with nothing before it */
 static int RCP[256], DITHER[16];   /* 65536 / (255 - before); the Bayer 4x4 thresholds in 16.16 */
 static void fixed_tables(void)
@@ -48,6 +50,10 @@ static void fixed_tables(void)
 
 static SprayV4 state;
 static SprayV4Host H;
+static int born_whole(const SprayV4Particle *p, const Car *owner)
+{
+    return (p->kind == SPRAY_V4_GRAVEL || p->kind == SPRAY_V4_DUST) && H.race->chase.kind == NEAR_VIEW_KIND && owner == H.race->chase.car;
+}
 static uint8_t identity[256];
 static uint8_t tables[KINDS][LEVELS + 1][256];
 static const uint8_t *rows[KINDS][256];
@@ -452,7 +458,7 @@ void spray_v4_draw_row(int32_t node, int far_side)
             if (fabsf(dx) < half && dy > -1.6f * unit_px && dy < 0.4f * unit_px) keep = BODY_KEEP;
         }
         float birth = 1.0f;   /* small and faint until past the rear bumper */
-        if (owner != NULL) {
+        if (owner != NULL && !born_whole(p, owner)) {
             int32_t heading[2];
             rain_spray_heading(owner->use_matrix, owner->yaw, owner->matrix[6], owner->matrix[8], heading);
             const float behind = -(look.x - (float)owner->x / 65536.0f) * (float)heading[0] / 65536.0f - (look.z - (float)owner->z / 65536.0f) * (float)heading[1] / 65536.0f;

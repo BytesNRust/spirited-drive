@@ -20,6 +20,7 @@
 #include "viewer/race_stats.h"
 #include "viewer/light_edit.h"
 #include "viewer/spray_v4_draw.h"
+#include "viewer/view_spray.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_profile.h"
 #include "game/race/race_follow.h"
@@ -126,6 +127,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
 {
     drive_wide_size(screen_width(drive_screen_format()));
     start_at_node(&drive_sim.race);   /* port (dev, env only): TNFS_START_NODE, as the window run takes it */
+    view_spray_v4_hook();   /* port (spray v4): the trail from the first tick, so a short TNFS_FRAMES has the whole trail the window would have */
     const char *view = getenv("TNFS_VIEW");
     const char *follow = getenv("TNFS_FOLLOW_CAR");   /* port (dev, env only): the chase view follows this slot's car (2: the police car) */
     Car *const followed = follow != NULL && atoi(follow) > 0 && atoi(follow) < RACE_CARS && drive_sim.race.cars[atoi(follow)] != NULL
