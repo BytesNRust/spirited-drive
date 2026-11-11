@@ -6,6 +6,12 @@ static int pick_on;
 static const TrackArt *pick_art;
 static int aim_x, aim_y, target_w, target_h;
 static const FshEntry *found;   /* the last texture drawn over the aim this frame, NULL none */
+static int pointer_x, pointer_y, pointer_w, pointer_h;   /* the mouse on the shown frame (pointer_w 0: none) */
+
+void view_pick_pointer(int x, int y, int width, int height)
+{
+    pointer_x = x, pointer_y = y, pointer_w = width > 0 && height > 0 ? width : 0, pointer_h = height;
+}
 
 void view_pick_set(int on) { pick_on = on != 0; }
 
@@ -14,7 +20,9 @@ void view_pick_frame_start(const View *view, const TrackArt *art, int width, int
     found = NULL;
     pick_art = art;
     target_w = width, target_h = height;
-    if (view != NULL) aim_x = view->centre_x, aim_y = view->centre_y;
+    if (pointer_w > 0 && width > 0 && height > 0)
+        aim_x = (int)((long long)pointer_x * width / pointer_w), aim_y = (int)((long long)pointer_y * height / pointer_h);
+    else if (view != NULL) aim_x = view->centre_x, aim_y = view->centre_y;
 }
 
 /* (x, y) inside the quad (convex, either winding; on an edge counts) */

@@ -90,8 +90,33 @@ static void test_camera_quads_are_projected(void)
     view_pick_set(0);
 }
 
+/* the aim follows the mouse: the pointer on the shown frame (its own size) is mapped to the 3D's target at the next frame's start; none given, the view's centre */
+static void test_the_aim_is_the_pointer(void)
+{
+    reset_art();
+    const View v = view_at(32, 32);
+    view_pick_set(1);
+    view_pick_pointer(50, 30, 128, 64);   /* a frame twice the target's width: x 50 is the target's 25 */
+    view_pick_frame_start(&v, &art, 64, 64);
+    int x = 0, y = 0;
+    CHECK(view_pick_aim(&x, &y) && x == 25 && y == 30);
+    static const int32_t AT_POINTER[8] = { 20, 25, 30, 25, 30, 35, 20, 35 };   /* covers (25, 30), not the centre (32, 32) */
+    view_pick_note(&art.slots[38][0].bitmap, AROUND);
+    int slot = -1, variant = -1;
+    CHECK_EQ_INT(view_pick_found(&slot, &variant), VIEW_PICK_SLOT);   /* AROUND covers both */
+    view_pick_frame_start(&v, &art, 64, 64);
+    view_pick_note(&art.scenery[5].bitmap, AT_POINTER);
+    view_pick_note(&art.slots[38][0].bitmap, BESIDE);
+    CHECK_EQ_INT(view_pick_found(&slot, &variant), VIEW_PICK_SCENERY);
+    view_pick_pointer(0, 0, 0, 0);   /* no frame size: back to the centre */
+    view_pick_frame_start(&v, &art, 64, 64);
+    CHECK(view_pick_aim(&x, &y) && x == 32 && y == 32);
+    view_pick_set(0);
+}
+
 int main(void)
 {
+    test_the_aim_is_the_pointer();
     test_off_finds_nothing();
     test_the_last_polygon_over_the_aim_wins();
     test_camera_quads_are_projected();

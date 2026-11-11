@@ -47,7 +47,7 @@ static void aim_line(char line[96])
     }
 }
 
-/* the aim's cross over the frame (`width` x `height`, the 3D's target scaled to it) in entry `ink` */
+/* the aim's cross (at the pointer) over the frame (`width` x `height`, the 3D's target scaled to it) in entry `ink` */
 static void draw_cross(uint8_t *pixels, int width, int height, uint8_t ink)
 {
     enum { ARM = 8, GAP = 3 };
@@ -105,6 +105,10 @@ int light_edit_poll(LightEdit *e, uint32_t now_ms)
 const uint8_t *light_edit_compose(LightEdit *e, const uint8_t *frame, int width, int height, const uint8_t palette[768], uint32_t node)
 {
     if (!e->on || width <= 0 || width > MAX_WIDTH || height <= 0 || height > MAX_HEIGHT) return frame;
+    int mouse_x = 0, mouse_y = 0;
+    unsigned buttons = 0;
+    platform_mouse(&mouse_x, &mouse_y, &buttons);
+    view_pick_pointer(mouse_x, mouse_y, width, height);   /* the aim: the polygon under the pointer, from the next frame on */
     char lines[LIGHT_EDIT_LINES][96];
     int n = drive_light_edit_lines(node, lines, LIGHT_EDIT_LINES - 2);   /* room for the aim and a message */
     if (n <= 0) return frame;
