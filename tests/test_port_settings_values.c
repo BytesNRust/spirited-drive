@@ -63,6 +63,13 @@ static void test_lamp_halos_values(void)
     unsetenv("TNFS_LAMP_HALOS");
 }
 
+static void test_wrong_way_values(void)
+{
+    const char *const on = "wrong_way=1\n", *const bad = "wrong_way=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).wrong_way, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).wrong_way, 0);
+}
+
 static void test_tunnel_lamps_values(void)
 {
     const char *const on = "tunnel_lamps=1\n", *const day = "tunnel_lamps=2\n", *const bad = "tunnel_lamps=3\n";
@@ -504,6 +511,7 @@ int main(void)
     test_car_night_lift_values();
     test_menu_pad_cancel_values();
     test_tunnel_lamps_values();
+    test_wrong_way_values();
     test_emissive_lamps_follow_light_effects();
     test_bad_render_bands_keeps_the_default();
     test_render_scale_values();

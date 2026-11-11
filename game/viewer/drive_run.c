@@ -18,6 +18,9 @@
 #include "viewer/drive_interp.h"
 #include "viewer/race_stats.h"
 #include "viewer/light_edit.h"
+#include "game/viewer/wrong_way_draw.h"
+#include "game/sys/port_settings.h"
+#include "game/sys/resource.h"
 #include "viewer/spray_v4_draw.h"
 #include "viewer/drive_run_private.h"
 #include "game/sys/port_extras.h"
@@ -35,6 +38,7 @@ static RaceRunWords *drive_link_run;  /* the running race's words (004c5598) the
 static int light_edit_started;         /* a headless run's screenshot starts the editor itself (write_drive_ppm) */
 static LightEdit light_edit;          /* port (light_edit): the live light editor (light_edit.h) */
 static RaceStats race_stats;          /* port: F12's overlay, its figures and its switch (race_stats.h) */
+static WrongWay wrong_way;            /* port (wrong_way): the player's wrong-way warning (wrong_way.h) */
 
 
 /* 004c5360 asked for by F3 (004381f8) or the menu's Esc (004557f4): the frame's detail step takes it */
@@ -82,10 +86,31 @@ static void trace_player(void)
 
 static int32_t drive_steps;  /* port: the sim steps run so far (drive_tick's calls), for the stats overlay's steps a second */
 
+enum { DRIVE_STEP_MS = 1000 / 30 };   /* a drive_tick: one of the timer's 30 steps a second (two race ticks) */
+
+/* port (wrong_way): the player's car judged after each step; the warning goes when the race is not running (the countdown, its finish, a replay) */
+static void wrong_way_tick(void)
+{
+    if (!port_wrong_way()) {
+        wrong_way = (WrongWay){ 0 };
+        return;
+    }
+    const RaceState *race = &drive_sim.race;
+    const Car *car = race->cars[race_slot(race->player)];
+    if (car == NULL) return;
+    const WrongWayInput in = { .running = race->phase == 1 && race->replay == 0 && race->players[race->player].finish == 0,
+                               .road_yaw = race_chase_node_heading(race, car->node), .nose_yaw = car->yaw,
+                               .forward_speed = car->local_velocity_z, .reverse_gear = car->gear == -2, .yaw_rate = car->yaw_rate };
+    const int was = wrong_way.on;
+    if (wrong_way_step(&wrong_way, &in, DRIVE_STEP_MS) != was)
+        port_log("wrong_way: %s at tick %d (node %d)\n", wrong_way.on ? "on" : "off", race->tick, car->node);
+}
+
 void drive_tick(uint32_t input)
 {
     start_clock_fill(&drive_sim.race.start_clock, drive_input.ticks);  /* 004bb8e0, the timer: every race, cheat or not */
     race_sim_tick(&drive_sim, input);
+    wrong_way_tick();
     drive_steps++;
     trace_player();
     drive_cars.ticked = 1;
@@ -484,6 +509,7 @@ int write_drive_ppm(const char *path, const uint8_t *shown, int width, const uin
         if (!light_edit_started) light_edit_start(&light_edit, light_edit_wanted()), light_edit_started = 1;
         shown = light_edit_compose(&light_edit, shown, width, height, palette, followed != NULL ? (uint32_t)followed->node : 0);
     }
+    shown = wrong_way_compose(&wrong_way, shown, width, height, palette, resource_german());   /* port (wrong_way) */
     light_dash_node();   /* the dash's ratio before the mask is asked for (drive_light_needs_split) */
     const uint8_t *mask = drive_light_world_mask(shown, (size_t)width * (size_t)height);
     if (mask == NULL) return track_viewer_write_ppm(path, shown, width, height, palette);
@@ -533,6 +559,7 @@ void present_drive(const Track *t, uint8_t *pixels)
                                  .segments = ported_view_draw_segments(), .modern = ported_view_modern(),
                                  .filter = ported_view_filter_on(), .fog = ported_view_fog_on() };
     shown = race_stats_compose(&race_stats, shown, width, drive_output_height(), t->art.palette, &view);
+    shown = wrong_way_compose(&wrong_way, shown, width, drive_output_height(), t->art.palette, resource_german());   /* port (wrong_way) */
     {   /* port (light_edit) */
         const Car *followed = drive_sim.race.cars[race_slot(drive_sim.race.player)];
         shown = light_edit_compose(&light_edit, shown, width, drive_output_height(), t->art.palette, followed != NULL ? (uint32_t)followed->node : 0);
@@ -632,6 +659,7 @@ int drive_window(const Track *t, uint8_t *pixels)
     drive_clock = r.clock;
     light_edit_start(&light_edit, light_edit_wanted()), light_edit_started = 1;   /* port (light_edit) */
     race_stats_start(&race_stats, port_extras_race_on(RACE_SWITCH_STATS));  /* port: the overlay as the mode's file has it */
+    wrong_way = (WrongWay){ 0 };   /* port (wrong_way): a new race starts with no warning */
     memset(&drive_interp, 0, sizeof drive_interp);
     drive_interp.on = 1;
     const char *hz = getenv("TNFS_REFRESH_HZ");  /* port: port.cfg's rate; the variable overrides it for the checks */
