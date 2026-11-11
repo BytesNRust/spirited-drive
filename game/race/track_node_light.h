@@ -73,6 +73,7 @@ typedef struct {
     int lamp_node_count, lamp_ring;
     TrackNodeLightLamp *lamps;    /* port (track light file, `lamp`): the file's lamps, by node (owned), lamp_n of them; NULL none. Their x / z / reach are set by track_node_light_lamps_place */
     uint8_t *lamp_lift;     /* port (`lamp`): per row point (nodes * TRACK_NODE_LIGHT_POINTS, owned), how much the lamps lift it, 0..255 (the baked pools: the open night's floor rises by it); NULL none */
+    int tunnel_lamp_n;   /* port (tunnel_lamps): how many of the lamps are a tunnel's or cavern's (their `tunnel` set); the car's tunnel light then has no parity alternation, the lamps' pools make it */
     int lamp_n, lamp_placed, lamp_reach_nodes;   /* lamp_placed: x / z / reach are in metres; lamp_reach_nodes: the widest lamp's radius in nodes */
     int pooled;         /* port (lamp_pools): the street lamps' pools are in `data` already (terrain_light_add_pools) */
     int reversed;       /* port: the track runs the other way round (tri_reverse.h): a node and a side are asked as the new file has them, the

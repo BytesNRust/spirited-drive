@@ -726,6 +726,7 @@ static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *
     qsort(list, (size_t)total, sizeof *list, tunnel_lamp_by_node);
     free(made->lamps);
     made->lamps = list, made->lamp_n = total;
+    made->tunnel_lamp_n += (int)n;
     made->lamp_placed = 1;
     made->lamp_ring = tri_is_circuit(tri);
     if (made->lamp_reach_nodes < TUNNEL_LAMP_REACH_NODES) made->lamp_reach_nodes = TUNNEL_LAMP_REACH_NODES;
