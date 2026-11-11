@@ -261,6 +261,46 @@ static void test_a_failed_move(void)
     CHECK(file_text("extras.cfg") == NULL);
 }
 
+/* i192: the lines a player puts in port.cfg by hand stay: light_edit (the machine's, as profile and psx_dir) and a key the game does not know are
+ * not settings to move, and a save of port.cfg (a change of mode) writes them back */
+static void test_hand_lines_survive(void)
+{
+    memset(stored, 0, sizeof stored), port_settings_forget();
+    put_file("port.cfg", "profile=restomod\npsx_dir=/p\nlight_edit=1\nfoo=3\n");
+    const int before = writes;
+    port_old_files_migrate();   /* a start */
+    CHECK_EQ_INT(writes, before);   /* nothing to move */
+    CHECK(file_text("port.cfg.bak") == NULL);
+    CHECK_EQ_INT(port_settings_load().light_edit, 1);
+    CHECK(port_profile_select(PROFILE_STOCK));   /* a save of port.cfg */
+    CHECK(has_line("port.cfg", "profile=stock") && has_line("port.cfg", "psx_dir=/p"));
+    CHECK(has_line("port.cfg", "light_edit=1"));
+    CHECK(has_line("port.cfg", "foo=3"));
+    port_settings_forget();
+    CHECK_EQ_INT(port_settings_load().light_edit, 1);   /* in every mode */
+    CHECK(port_profile_select(PROFILE_RESTOMOD));
+    PortSettings s = port_settings_load();
+    s.camera_kind = 3;
+    CHECK(port_settings_save(&s));   /* a save of the mode's settings: light_edit is not one of them */
+    CHECK(!has_line("restomod.cfg", "light_edit=1"));
+    CHECK(has_line("port.cfg", "light_edit=1") && has_line("port.cfg", "foo=3"));
+}
+
+/* an old port.cfg with settings and hand lines: the settings move, the hand lines stay */
+static void test_move_keeps_hand_lines(void)
+{
+    memset(stored, 0, sizeof stored), port_settings_forget();
+    put_file("port.cfg", "profile=custom\ncamera_kind=3\nlight_edit=1\nfoo=3\n");
+    port_old_files_migrate();
+    CHECK_EQ_INT(port_settings_load().camera_kind, 3);
+    CHECK(!has_line("port.cfg", "camera_kind=3"));
+    CHECK(has_line("port.cfg", "light_edit=1") && has_line("port.cfg", "foo=3"));
+    CHECK_EQ_INT(port_settings_load().light_edit, 1);
+    const int before = writes;
+    port_old_files_migrate();   /* the next start: nothing left to move */
+    CHECK_EQ_INT(writes, before);
+}
+
 int main(void)
 {
     port_settings_set_display_probe(probe);
@@ -273,5 +313,7 @@ int main(void)
     test_mode_file_wins();
     test_clean_port_cfg_stays();
     test_a_failed_move();
+    test_hand_lines_survive();
+    test_move_keeps_hand_lines();
     return TEST_REPORT();
 }

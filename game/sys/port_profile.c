@@ -97,7 +97,7 @@ static const Table TABLES[PROFILE_COUNT] = {
 /* what the player may change in a mode, by file key; Restomod '26 leaves everything free but the machine's own */
 static const char *const FREE_IN_ALL[] = { "fullscreen", "explode", "nitro", "turbo", "warrior", "mirror", "rally", "vegas", "units", "update_check", "scale", NULL };
 static const char *const FREE_IN_RESTORED[] = { "format", "refresh_hz", "render_bands", "stats_overlay", NULL };
-static const char *const MACHINE[] = { "profile", "psx_dir", NULL };
+static const char *const MACHINE[] = { "profile", "psx_dir", "light_edit", NULL };   /* port.cfg's: no mode file holds them */
 
 static int listed(const char *const *list, const char *key)
 {

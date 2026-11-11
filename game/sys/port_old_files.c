@@ -17,8 +17,8 @@
 
 static void mark(void *to, const char *key, const char *value)
 {
-    (void)key, (void)value;
-    *(int *)to = 1;
+    (void)value;
+    if (port_settings_mode_key(key)) *(int *)to = 1;   /* a key of the modes: a hand line the game does not know, or light_edit, is not a setting to move (i192) */
 }
 
 static int carried_settings(const char *text, size_t size)
