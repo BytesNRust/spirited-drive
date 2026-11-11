@@ -1,5 +1,6 @@
 /* The Control Central glue's race start, tournament steps and credits (central_glue.c's third part). */
 #include "game/frontend/central_glue_private.h"
+#include "game/frontend/credits_pages.h"
 
 /* 0047310c for 00427ae0's screen: the last one freed first (the original leaves it) */
 static int32_t race_picture(void *ctx, int32_t w, int32_t h, int32_t flags)
@@ -116,7 +117,7 @@ void cg_credits_tick(void *ctx)
 static void credits_extra(void *ctx)
 {
     (void)ctx;
-    credits_extra_show(TNFS_VERSION, credits_service);
+    credits_pages_show(TNFS_VERSION, credits_service);
 }
 
 /* 004166e0 from Options */

@@ -308,7 +308,8 @@ void text_draw_item_mask(const uint8_t *mask, int w, int h, int x, int y)
     draw_soft(mask, w, h, x, y, text_soft_shadow);
 }
 
-void text_draw_header(const char *text, int x, int y, int num, int den, int underline)
+/* the header's letters at (x, y), its underline from rule_x, rule_len long (the text's width when 0) */
+static void draw_header(const char *text, int x, int y, int num, int den, int rule_x, int rule_len)
 {
     enum { PAD = 2, CAPACITY = 64, UNDERLINE_ROWS = 2 };
     if (font_data == NULL) return;
@@ -335,15 +336,30 @@ void text_draw_header(const char *text, int x, int y, int num, int den, int unde
             if (coverage > 0) *at = coverage >= 15 ? (uint8_t)tan : blended(tan, *at, coverage);
         }
     const int last = text_soft_last_row(mask, mw, mh);
-    const int length = underline > 0 ? underline : mw - 2 * PAD;
+    const int length = rule_len > 0 ? rule_len : mw - 2 * PAD;
     free(mask);
     if (last < 0) return;
     const int line = top + last + TEXT_SOFT_HEADER_UNDERLINE_GAP;
     for (int row = 0; row < UNDERLINE_ROWS; row++) {
         if (line + row < 0 || line + row >= th) continue;
-        for (int tx = x; tx < x + length; tx++)
+        for (int tx = rule_x; tx < rule_x + length; tx++)
             if (tx >= 0 && tx < tw) to[(line + row) * tw + tx] = (uint8_t)(row == 0 ? tan : black);
     }
+}
+
+void text_draw_header(const char *text, int x, int y, int num, int den, int underline)
+{
+    draw_header(text, x, y, num, den, x, underline);
+}
+
+void text_draw_header_column(const char *text, int column_x, int column_w, int y, int num, int den)
+{
+    enum { CAPACITY = 64 };
+    char caps[CAPACITY];
+    size_t n = 0;
+    for (; text[n] != '\0' && n + 1 < CAPACITY; n++) caps[n] = (char)toupper((unsigned char)text[n]);
+    caps[n] = '\0';
+    draw_header(text, column_x + (column_w - text_width_scaled(caps, num, den)) / 2, y, num, den, column_x, column_w);
 }
 
 void text_draw_centered(const char *text, int cx, int y)
