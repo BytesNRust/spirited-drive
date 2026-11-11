@@ -2,7 +2,6 @@
 original/
 .cache/
 build/
-analysis/*.log
 reference/
 !tests/mods/reference/
 __pycache__/

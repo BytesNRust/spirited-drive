@@ -1314,8 +1314,8 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(psx_light_fit PRIVATE tnfs_game)
     target_compile_options(psx_light_fit PRIVATE ${TNFS_WARNINGS})
 
-    # the exe-comparison probes (tools/probe_*.c): each runs a ported function on the cases it is sent, to compare with the exe's own; built only when asked
-    # for (-DTNFS_PROBES=ON)
+    # the exe-comparison probes (tools/probe_*.c, quad_draw, flat_draw, palette_match_run): each runs a ported function on the cases it is sent, to compare
+    # with the exe's own; built only when asked for (-DTNFS_PROBES=ON)
     if(TNFS_PROBES)
         add_executable(probe_3d tools/probe_3d.c)
         target_link_libraries(probe_3d PRIVATE tnfs_game)
@@ -1352,23 +1352,20 @@ if(NOT EMSCRIPTEN)
         add_executable(probe_car tools/probe_car.c)
         target_link_libraries(probe_car PRIVATE tnfs_game)
         target_compile_options(probe_car PRIVATE ${TNFS_WARNINGS})
+        add_executable(quad_draw tools/quad_draw.c)   # the port's side of the rasteriser's and the palette's comparisons
+        target_link_libraries(quad_draw PRIVATE tnfs_game)
+        target_compile_options(quad_draw PRIVATE ${TNFS_WARNINGS})
+        add_executable(flat_draw tools/flat_draw.c)
+        target_link_libraries(flat_draw PRIVATE tnfs_game)
+        target_compile_options(flat_draw PRIVATE ${TNFS_WARNINGS})
+        add_executable(palette_match_run tools/palette_match_run.c)
+        target_link_libraries(palette_match_run PRIVATE tnfs_game)
+        target_compile_options(palette_match_run PRIVATE ${TNFS_WARNINGS})
     endif()
 
     add_executable(qfs_unpack tools/qfs_unpack.c)
     target_link_libraries(qfs_unpack PRIVATE tnfs_core)
     target_compile_options(qfs_unpack PRIVATE ${TNFS_WARNINGS})
-
-    add_executable(quad_draw tools/quad_draw.c)
-    target_link_libraries(quad_draw PRIVATE tnfs_game)
-    target_compile_options(quad_draw PRIVATE ${TNFS_WARNINGS})
-
-    add_executable(flat_draw tools/flat_draw.c)
-    target_link_libraries(flat_draw PRIVATE tnfs_game)
-    target_compile_options(flat_draw PRIVATE ${TNFS_WARNINGS})
-
-    add_executable(palette_match_run tools/palette_match_run.c)
-    target_link_libraries(palette_match_run PRIVATE tnfs_game)
-    target_compile_options(palette_match_run PRIVATE ${TNFS_WARNINGS})
 endif()
 
 # port: no test writes to the player's own folder (the log, the settings, a replay): each one gets a scratch pref dir (platform_user_dir: TNFS_PREF_DIR),
