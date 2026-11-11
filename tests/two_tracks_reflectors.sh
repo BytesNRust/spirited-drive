@@ -19,11 +19,11 @@ d = sys.argv[1]
 for n in ("scenery_00", "scenery_02", "scenery_04"): png(f"{d}/CY1/{n}.png")   # CY1 has these boards (signs): three masks
 png(f"{d}/CY2/scenery_00.png")                                                  # CY2 one
 P
-# a mask is looked up file by file (these first, then the port's data/track_masks), so each track's count is what that track gives alone: run each once by itself
+# "reflectors:" is a detail line (port_log_detail): the runs are verbose. A mask is looked up file by file (these first, then the port's data/track_masks), so each track's count is what that track gives alone: run each once by itself
 race() {   # race TRACK THEN USERDIR: the "reflectors:" lines of a run of TRACK (then THEN, when not empty)
     mkdir -p "$3"
     printf 'profile=restomod\nlight_effects=1\nheadlight_beams=1\n' > "$3/port.cfg"
-    env TNFS_REFLECTORS=1 TNFS_TRACK_MASKS="$WORK/masks" TNFS_LIGHT_TIME=night TNFS_WEATHER=clear ${2:+TNFS_DRIVE_THEN=$2} TNFS_FRAMES=20 \
+    env TNFS_VERBOSE=1 TNFS_REFLECTORS=1 TNFS_TRACK_MASKS="$WORK/masks" TNFS_LIGHT_TIME=night TNFS_WEATHER=clear ${2:+TNFS_DRIVE_THEN=$2} TNFS_FRAMES=20 \
         SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy \
         timeout -k 5 200 "$TNFS" --data "$DATA" --user "$3" --mods "$WORK/mods" --drive "$1" --type 0 --car 2 --node 20 --screenshot "$3/shot.ppm" > "$3/run.out" 2>&1
     grep -a "^reflectors: " "$3/tnfs.log"

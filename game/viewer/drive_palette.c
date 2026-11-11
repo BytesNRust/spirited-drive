@@ -138,10 +138,10 @@ static void fit_cars(RacePalette *p, const RaceState *race, CarLoad *const cars[
     const int changed = car_colours_fit(p, race, art, carpal != NULL && shape_bank_find((uint8_t *)(uintptr_t)carpal, (const uint8_t[4]){ '!', 'P', 'A', 'L' }) != NULL, keep, &report);
     for (int i = 0; i < report.count; i++) {
         const CarFitBlock *b = &report.block[i];
-        port_log("car_colours: entries %d..%d for %s: %d colours, %d new, distance %.1f -> %.1f\n", b->first, b->first + b->count - 1,
+        port_log_detail("car_colours: entries %d..%d for %s: %d colours, %d new, distance %.1f -> %.1f\n", b->first, b->first + b->count - 1,
                  b->car >= 0 ? "one car" : "every car", b->colours, b->changed, b->before, b->after);
     }
-    port_log("car_colours: %d entries fitted\n", changed);
+    port_log_detail("car_colours: %d entries fitted\n", changed);
 }
 
 /* port (car colours): the entries the light effects will want (the police car's four, the cars' lamps' four, the night's tunnel and street lamps'). The fit fills the cars' blocks
@@ -169,7 +169,7 @@ static void reserve_for_lights(RacePalette *p, const RaceState *race, uint8_t us
     }
     for (int i = 0; i < found; i++) used[picked[i]] = 1, p->enabled[picked[i]] = 0;
     if (found > 0 && p->inverse != NULL) race_palette_inverse(p);
-    port_log("car_colours: %d of %d entries kept for the light effects\n", found, want);
+    port_log_detail("car_colours: %d of %d entries kept for the light effects\n", found, want);
 }
 
 /* port (car colours): with the palette as the exe has it at this point (the dash and the search set made), the world is mapped as the exe maps
@@ -237,7 +237,7 @@ static void lamp_set_aside(RacePalette *p, const RaceState *race, CarLoad *const
         if (next < found) entry[k] = free_entries[next++];
         else port_log("emissive_lamps: no free palette entry for the %s: those texels stay as the exe has them\n", name[k]);
     }
-    port_log("emissive_lamps: %d of %d shared entries free (position %d, lit brake %d, headlight %d, reversing %d)\n", found, want, entry[0], entry[1], entry[2], entry[3]);
+    port_log_detail("emissive_lamps: %d of %d shared entries free (position %d, lit brake %d, headlight %d, reversing %d)\n", found, want, entry[0], entry[1], entry[2], entry[3]);
     const uint8_t colour[LAMP_ENTRIES][3] = { { LAMP_POSITION_R, LAMP_POSITION_G, LAMP_POSITION_B }, { LAMP_BRAKE_R, LAMP_BRAKE_G, LAMP_BRAKE_B },
                                               { LAMP_HEADLIGHT_R, LAMP_HEADLIGHT_G, LAMP_HEADLIGHT_B }, { LAMP_REVERSE_R, LAMP_REVERSE_G, LAMP_REVERSE_B } };
     uint8_t hidden[RACE_PALETTE_COLOURS];
@@ -293,7 +293,7 @@ static void emissive_lamps(RacePalette *p, const RaceState *race, CarLoad *const
     drive_lamps_arm();
     for (int i = 0; i < DRIVE_LAMP_SLOTS && i < RACE_CARS; i++)   /* a lamp texel the car's objects do not draw is one the toggle cannot light */
         if (drive_lamps_count(i) > 0 && cars[i] != NULL)
-            port_log("emissive_lamps: slot %d: %d lamp texels, %d in the textures the high detail body draws, %d in the low detail's\n", i,
+            port_log_detail("emissive_lamps: slot %d: %d lamp texels, %d in the textures the high detail body draws, %d in the low detail's\n", i,
                      drive_lamps_count(i), drive_lamps_reached(i, &cars[i]->object[0]), drive_lamps_reached(i, &cars[i]->object[1]));
     for (int i = 0; i < DRIVE_LAMP_SLOTS && i < RACE_CARS; i++)
         if (drive_lamps_count(i) > 0 && cars[i] != NULL && drive_lamps_reached(i, &cars[i]->object[0]) == 0)
@@ -425,7 +425,7 @@ static void palette_finish(RacePalette *p, DriveHud *hud, const DrivePaletteLate
 {
     if (hud != NULL && hud->ready && fitted) {   /* the shade table is copied from the cockpit colours in drive_hud_start, after the fit: its targets the fit gave the cars take the nearest usable entry to their old colour */
         const int moved = shade_refit(hud->shade, before_fit, palette_world_hidden(), p->enabled);
-        port_log("car_colours: %d shade rows pointed at entries given to the cars, matched again\n", moved);
+        port_log_detail("car_colours: %d shade rows pointed at entries given to the cars, matched again\n", moved);
     }
     if (hud != NULL && hud->ready) shade_off_emissive(p, hud->shade);
     /* port: the smoke's blend table (00456948) was matched to the entries the lamps have since set aside and recoloured: a skid's spray over the road came out

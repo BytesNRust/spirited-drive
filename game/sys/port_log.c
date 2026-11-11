@@ -83,6 +83,18 @@ void port_log(const char *format, ...)
     va_end(args);
 }
 
+void port_log_detail(const char *format, ...)
+{
+    if (!port_log_verbose()) return;
+    va_list args, copy;
+    va_start(args, format);
+    va_copy(copy, args);
+    to_file(format, copy);
+    va_end(copy);
+    vfprintf(stderr, format, args);
+    va_end(args);
+}
+
 void port_out(const char *format, ...)
 {
     va_list args, copy;

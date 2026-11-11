@@ -39,7 +39,7 @@ int drive_lamps_find(int slot, const char *stem, uint8_t *file, size_t size)
     Slot *s = &slots[slot];
     s->file = file, s->size = size;
     const int n = drive_livery_lamps(stem, file, size, &s->texels);
-    if (n > 0) port_log("emissive_lamps: slot %d %s: %d lamp texels\n", slot, stem, n);
+    if (n > 0) port_log_detail("emissive_lamps: slot %d %s: %d lamp texels\n", slot, stem, n);
     return n;
 }
 

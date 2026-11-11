@@ -92,12 +92,13 @@ uint8_t *car_mask_load(const char *stem, const char name[4], int level, int widt
         const int ok = mask != NULL && car_mask_parse(file, size, width, height, mask);
         platform_free_file(file);
         if (ok) {
-            port_log("car mask: %s\n", path);   /* the log alone says where a mask came from (the bundle's data, the working directory, ...) */
+            if (r <= 1) port_log("car mask: %s\n", path);   /* a dev override's or a mod's: what a bug report needs */
+            else port_log_detail("car mask: %s\n", path);   /* the port's own data (the bundle's, the working directory, ...): a detail */
             return mask;
         }
         port_log("car mask: cannot read %s: not a %dx%d mask PNG\n", path, width, height);   /* there, but not a mask: said, then the next folder */
         free(mask);
     }
-    port_log("car mask: none for %s/%.4s%s\n", stem, name, suffix);
+    port_log_detail("car mask: none for %s/%.4s%s\n", stem, name, suffix);
     return NULL;
 }

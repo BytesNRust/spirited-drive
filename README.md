@@ -49,7 +49,9 @@ A once from N to D). The results print when the race ends, with `TNFS_VERBOSE=1`
 headless and renders one frame.
 
 The game prints nothing to the console but fatal errors; `TNFS_VERBOSE=1` (or `--verbose`)
-turns on the rest (the race results, a shape or file that could not be read).
+turns on the rest (the race results, a shape or file that could not be read) and adds the details to `tnfs.log`: each mask file
+read from the port's own data, each car's paint and lamp counts. Without it the log keeps what serves a bug report: the version,
+the system, the race, what a mod changed and the errors.
 
 Headless runs: `TNFS_CAPTURE_DIR` writes every n-th presented frame as PPM and
 `TNFS_INPUT_SCRIPT` replays input (`ms:KEY` held until the game reads it,

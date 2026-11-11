@@ -81,7 +81,8 @@ uint8_t *dash_asset_read(const char *stem, const char *name, size_t *size)
         if (r > 0 && !data_path_exists(path)) continue;   /* optional: a data folder without the file is passed over, no "cannot read" line (i191); the dev override is read as named */
         uint8_t *file = platform_read_file(path, size);
         if (file != NULL) {
-            port_log("dash %s: %s\n", name, path);
+            if (r <= 1) port_log("dash %s: %s\n", name, path);   /* a dev override's or a mod's: what a bug report needs */
+            else port_log_detail("dash %s: %s\n", name, path);   /* the port's own data: a detail */
             return file;
         }
     }
@@ -112,6 +113,6 @@ uint8_t *dash_mask_load(const char *stem)
         upper[i] = '\0';
         if (strcmp(upper, stem) != 0) mask = load_stem(upper);
     }
-    if (mask == NULL) port_log("dash mask: none for %s\n", stem);
+    if (mask == NULL) port_log_detail("dash mask: none for %s\n", stem);
     return mask;
 }

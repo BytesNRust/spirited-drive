@@ -104,7 +104,7 @@ static void drive_load_textures(const RaceState *race, int slot, const char *ste
         const CarPaint *black = car_paint_black_of(stem);
         if (black != NULL) {
             const int n = drive_livery_black(stem, drive_cars.file[slot], size, black->rgb);
-            if (n > 0) port_log("car_paint: slot %d %s fixed black, %d texels\n", slot, stem, n);
+            if (n > 0) port_log_detail("car_paint: slot %d %s fixed black, %d texels\n", slot, stem, n);
         }
     }
     if (drive_cars.file[slot] != NULL && drive_cars.livery[slot]) {  /* port: the rival's console livery, in its own CFM */
@@ -116,7 +116,7 @@ static void drive_load_textures(const RaceState *race, int slot, const char *ste
     }
     if (drive_cars.file[slot] != NULL && drive_cars.paint_on[slot]) {  /* port: a catalogue paint, in the body textures only */
         const int n = drive_livery_paint(car_model_names[drive_cars.model[slot]], drive_cars.file[slot], size, drive_cars.paint[slot]);
-        port_log("car_paint: slot %d %s painted %d,%d,%d (%d body texels)\n", slot, stem, drive_cars.paint[slot][0],
+        port_log_detail("car_paint: slot %d %s painted %d,%d,%d (%d body texels)\n", slot, stem, drive_cars.paint[slot][0],
                  drive_cars.paint[slot][1], drive_cars.paint[slot][2], n);
     }
     drive_lamps_clear(slot);   /* port (emissive lamps): the texels the masks mark as lamps, before the loader reads the file */
@@ -236,7 +236,7 @@ void slot_colours(int slot, int car)
         memcpy(drive_cars.paint[slot], car_paint(car, paint - PAINT_CATALOGUE)->rgb, 3);
         drive_cars.paint_on[slot] = 1;
     }
-    port_log("car colours: slot %d (car %d) takes paint %d%s\n", slot, car, paint, is_player ? " (the player's)" : "");
+    port_log_detail("car colours: slot %d (car %d) takes paint %d%s\n", slot, car, paint, is_player ? " (the player's)" : "");
 }
 
 void rival_liveries(const RaceField *field, int player, const char *track, int replay)
@@ -253,7 +253,7 @@ void rival_liveries(const RaceField *field, int player, const char *track, int r
     drive_replay_set_paints(race_paint);   /* none until a slot's colours are decided (the colours off: none) */
     drive_cars.dash_rgb_on = 0;
     snprintf(drive_cars.psx_dir, sizeof drive_cars.psx_dir, "%s", settings.psx_dir);
-    port_log("car colours: flag %d, psx_dir \"%s\"\n", extras.extra_liveries, settings.psx_dir);
+    port_log_detail("car colours: flag %d, psx_dir \"%s\"\n", extras.extra_liveries, settings.psx_dir);
     if (!extras.extra_liveries) return;
     const int player_car = field->entries[player].car;
     int player_paint = player_car >= 0 && player_car < CAR_PAINT_SLOTS ? extras.car_paint[player_car] : PAINT_OWN;
