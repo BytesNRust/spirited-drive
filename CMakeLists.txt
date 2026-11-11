@@ -617,6 +617,7 @@ add_executable(tnfs
     game/viewer/drive_run.c
     game/viewer/drive_run_shot.c
     game/viewer/track_viewer.c
+    game/viewer/track_viewer_cars.c
     game/viewer/viewer_main.c
     ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c
     game/platform/sdl3/first_run_sdl3.c
