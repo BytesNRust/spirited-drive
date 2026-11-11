@@ -3,6 +3,44 @@
 A link game is the original's own: one machine hosts, up to seven join, and every machine runs the race from the same setup and the players' inputs.
 The port carries it over UDP (`--net-port N`, `--net-host IP:PORT` for a game the LAN's broadcast does not reach).
 
+## Playing a network game
+
+Two or more machines race over UDP (the native build only; the web and Windows
+builds have no network yet). Each machine runs its own copy:
+
+```sh
+./build/native/tnfs [--net-port N] [--net-host IP:PORT]...
+```
+
+- `--net-port N`: the UDP port this machine uses, 15000 by default.
+- `--net-host IP:PORT`: also look for games at this address, besides the LAN
+  (up to 8). Needed when the machines are not on the same LAN, or the LAN
+  broadcast does not reach.
+- Without flags, a machine finds games by a broadcast to the LAN on its own
+  port, so on a LAN keep the same port on every machine.
+
+In the menus:
+
+1. Game Mode: **Network**, and enter your name.
+2. Network Setup: Servers is **UDP (LAN / IP)**. Choose **Select game**:
+   - to host: **New Game**;
+   - to join: the host's game in the list.
+3. Control Central: the host sets the race type and location, then chooses
+   **Race** (bottom left); the others start with it.
+
+**View only** on Network Setup (Yes) joins a game to watch it, with no car.
+Set it before Select game.
+
+Firewall: allow incoming UDP on the port (15000) on every machine. Over the
+internet, the host's router must forward that UDP port to the host.
+
+If the machines don't see each other:
+- check they use the same port, or start the joiner with
+  `--net-host HOST_IP:PORT`;
+- check that the firewall lets UDP through on that port, on both machines;
+- run from a terminal: a port that cannot be opened prints
+  `net_udp_open: port N: ...` (for example, already in use).
+
 ## What the host decides
 
 The host's setup (track, race type, laps, cars, seed, track flags) was always sent. The port's own settings used to be read on each machine, so two
