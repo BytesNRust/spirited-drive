@@ -1,5 +1,5 @@
-/* port (wrong_way): the warning drawn on a copy of the shown frame, as race_stats_draw.c draws the stats: the words (wrong_way_text) centred in the
- * upper third, red, in the menus' face (graver18) scaled to the frame's height. The frame is left as it is when the warning is not visible. */
+/* port (wrong_way): the warning drawn on a copy of the shown frame, as race_stats_draw.c draws the stats: the words (wrong_way_text) centred just under
+ * the HUD's top bar, red, in the menus' face (graver18) at its own size on a 480-row frame, scaled with the frame's height. The frame is left as it is when the warning is not visible. */
 #ifndef TNFS_WRONG_WAY_DRAW_H
 #define TNFS_WRONG_WAY_DRAW_H
 
