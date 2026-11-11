@@ -86,7 +86,7 @@ static void test_names_and_monitor(void)
     CHECK_EQ_INT(port_profile_named("fast"), -1);
     CHECK(strcmp(port_profile_title(PROFILE_STOCK), "Stock '96") == 0);
     CHECK(strcmp(port_profile_file(PROFILE_RESTORED), "restored.cfg") == 0);
-    CHECK(strcmp(port_profile_line1(PROFILE_RESTOMOD), "Original block, period-correct mods.") == 0);
+    CHECK(strcmp(port_profile_line1(PROFILE_RESTOMOD), "Original block, modern running gear.") == 0);
     CHECK_EQ_INT(port_profile_monitor_format(3440, 1440), SCREEN_21_9);
     CHECK_EQ_INT(port_profile_monitor_format(1920, 1080), SCREEN_16_9);
     CHECK_EQ_INT(port_profile_monitor_format(2560, 1600), SCREEN_16_9);   /* 16:10 */
