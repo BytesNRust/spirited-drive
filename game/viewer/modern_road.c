@@ -386,9 +386,9 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
     const int steps = fill->warm_steps;
     const float hz = at[4].base + at[4].dx * px + at[4].dy * py, hzdx = at[4].dx;
     const Paint paint = fill->paint;   /* locals: the row's stores (chars) would make every pixel reload them */
-    const uint8_t *const payload = fill->texture->payload;
     int x = xs;
 #if defined(__SSE2__) && !defined(__FMA__)
+    const uint8_t *const payload = fill->texture->payload;   /* only the four-pixel loop reads it: arm64 has no SSE2 */
     /* four pixels at a time through the perspective: the same IEEE operations in the same order, so the same floats
      * (no fused multiply-add on this target), then each lane's texel as below */
     const __m128 abs_mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff)), one = _mm_set1_ps(1.0f);
