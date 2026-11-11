@@ -22,7 +22,7 @@ wait_for() { printf '0:WAIT:mark:screen=%s:%s' "$1" "$step"; }
 click() { printf '300:CLICK:%s:%s' "$1" "$2"; }
 
 # the common way in: the intro skipped, Game Mode, Single, the name box left, Control Central
-to_central="1500:ESC,$(wait_for game_mode),$(click 310 217),$(wait_for name_box),$(click 600 30),$(wait_for central)"
+to_central="1500:ESC,$(wait_for game_mode),$(click 310 217),$(wait_for name_box),500:TEXT:R,500:ENTER,$(wait_for central)"
 to_options="$to_central,$(click 215 450),$(wait_for options)"
 
 case $target in
