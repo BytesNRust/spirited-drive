@@ -1,5 +1,5 @@
 /* The row limits of the rasterizers (quad.h QUAD_MAX_ROWS, flat.h FLAT_MAX_ROWS) were the exe's 768 and 600 rows; they
- * are lifted for the render scale (re/notes/render-scale-design.md). A shape drawn far down a tall surface must be the
+ * are lifted for the render scale. A shape drawn far down a tall surface must be the
  * pixels the same shape makes on a short one: the rows below 768 / 600 are drawn as the rows above, and a target of
  * the new limit is accepted. Needs no exe. */
 #include "game/gfx/flat.h"

@@ -1,5 +1,5 @@
 #!/bin/zsh
-# light_time_layout_check.sh BUILD: turning on the baked light's time of day must not move the HUD (the RE notes (private workshop repo)). With the time
+# light_time_layout_check.sh BUILD: turning on the baked light's time of day must not move the HUD. With the time
 # at A and no LGS/LGT file to read (neutral tint), the frames at 4:3 must equal the frames at day, byte for byte: the same
 # 640 layout, only the wide path's composition differs. TR1 views 1 and 0, AL1 view 0 (the in-car dash and mirror).
 set -u

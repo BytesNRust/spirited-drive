@@ -1,6 +1,5 @@
 /* The race's screen palette and the colour table that maps a car's or a
- * track bank's own colours onto it (00455a5c builds it; see the RE notes
- * (private workshop repo), Race palette). */
+ * track bank's own colours onto it (00455a5c builds it). */
 #ifndef TNFS_RACE_PALETTE_H
 #define TNFS_RACE_PALETTE_H
 

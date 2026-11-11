@@ -1,4 +1,4 @@
-/* port: the console version sky as the race draws it (the RE notes (private workshop repo), psx_sky_bitmap.h): at dawn and dusk the flat horizon is drawn
+/* port: the console version sky as the race draws it (psx_sky_bitmap.h): at dawn and dusk the flat horizon is drawn
  * from the the console version's panorama and gradient instead of the track's own sky and ring, through the smooth horizon (horizon_smooth.h) so
  * the bitmap's own 256 colours reach the screen as the nearest of the race's palette as the world is shown (tinted), dithered. */
 #ifndef TNFS_SKY_ART_DRAW_H

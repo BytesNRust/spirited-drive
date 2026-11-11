@@ -1,6 +1,6 @@
 /* port: the catalogue paints of the eight drivable cars (the mode's file car_paint, the car showcase's Color box). Each car has
  * its own PC colour (the choice 0, the exe's) and up to CAR_PAINT_MAX more, colours its real car came in around the game's
- * years (re/notes/car-paint-catalog.md; hex values are estimates from the colours' names). A paint is applied by recolouring
+ * years (hex values are estimates from the colours' names). A paint is applied by recolouring
  * the body's entries of the car's palette: its hue and saturation come from the paint, its lightness from the paint scaled by
  * each entry's shading against the body's main tone, so the textures keep their light and shade. Nothing is EA data: the
  * table is the port's own. */

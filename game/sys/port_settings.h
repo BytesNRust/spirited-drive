@@ -35,11 +35,11 @@ typedef struct {
     int car_soft_shadow;          /* 1: the light effects' soft shadow under each car, weaker in the dark (soft_shadow.h); 0 the exe's quad */
     int light_time;            /* with light_effects: the the console version's time of day, LIGHT_TIME_DAWN (files A), LIGHT_TIME_DAY (B) or LIGHT_TIME_DUSK (C):
                              * `light_time=dawn|day|dusk` (a, b, c also read) */
-    int weather;             /* WEATHER_* (weather.h): `weather=clear|fog|rain|storm`, re/notes/weather-design.md; clear */
+    int weather;             /* WEATHER_* (weather.h): `weather=clear|fog|rain|storm`; clear */
     /* the render threads: 0 off (the plain path, as the exe draws it), -1 "auto" (as many as the logical cores,
      * at most eight), or a thread count. The TNFS_BANDS environment variable wins over this one. */
     int render_bands;        /* -1 (auto) */
-    int body_shine;          /* 1 subtle, 2 the default look, 3 strong: the horizon shine over the cars' paint (body_shine.h, re/TODO.md); 4 the envmap (car_envmap.h, Gran Turismo style streaks); 0 the exe's frames */
+    int body_shine;          /* 1 subtle, 2 the default look, 3 strong: the horizon shine over the cars' paint (body_shine.h); 4 the envmap (car_envmap.h, Gran Turismo style streaks); 0 the exe's frames */
     int free_records;        /* 1: a free race (laps=N) of a lap count the track lacks keeps its own table of the ten best totals
                               * (free_records.h); 0: no total for it, as the exe has no table */
     int car_colours;         /* 1: the screen palette's slots the cars own are filled with the colours the cars show most (race_palette_fit);

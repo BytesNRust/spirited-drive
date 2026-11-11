@@ -258,7 +258,7 @@ static void test_an_undrawn_car_just_behind_still_lights_the_road(void)
     CHECK_EQ_INT(headlight_car_lights(0, 3, 0), 0);                            /* the cone off: as it was */
 }
 
-/* i097: a car takes its own patch limited to CONE_OWN_SHARE plus the best of the others', at most 256; the ground keeps the best of the patches */
+/* a car takes its own patch limited to CONE_OWN_SHARE plus the best of the others', at most 256; the ground keeps the best of the patches */
 static void test_a_car_is_lit_by_a_rivals_lights_more_than_by_its_own(void)
 {
     HeadlightPool p = cone_of(0, 0, 0, 1);   /* car 0 at the origin heading +z */

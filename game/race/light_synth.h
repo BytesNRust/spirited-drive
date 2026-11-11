@@ -20,7 +20,7 @@ enum {
     LIGHT_SYNTH_FLAG_TUNNEL = 1,       /* light_synth_tunnels' flag of a tunnel's node */
     LIGHT_SYNTH_FLAG_HALL = 2,         /* and of a hall's: not darkened (the pours, the girders keep their light) but the cars and the dash take the lamp alternation */
     LIGHT_SYNTH_LOOK_RAMP = 6,         /* the nodes outside a tunnel's mouth over which a car takes its zone's look (light_synth_car_tunnel with a look): the weather's mouth, WEATHER_MOUTH_NODES */
-    LIGHT_SYNTH_LAMP_GAP_SMOOTH_PERCENT = 75, /* port (car_tunnel_match): the smoothed gap between two lamps (odd nodes; 1.0 under one): the alternation stays, the dark part at 75 in place of 40 (owner, i173), so between two lamps the car is not far below the unlit open road at night, which is the level of a tunnel_tone of about 100 (measured, CY1N) */
+    LIGHT_SYNTH_LAMP_GAP_SMOOTH_PERCENT = 75, /* port (car_tunnel_match): the smoothed gap between two lamps (odd nodes; 1.0 under one): the alternation stays, the dark part at 75 in place of 40 (the owner's choice), so between two lamps the car is not far below the unlit open road at night, which is the level of a tunnel_tone of about 100 (measured, CY1N) */
     LIGHT_SYNTH_LAMP_GAP_PERCENT = 40, /* a tunnel's lamp alternation: the car between two lamps (odd nodes) has this percent of the light it has under one (even nodes) */
     LIGHT_SYNTH_CAR_RAMP = 3,          /* the nodes outside a tunnel's mouth over which the car's light comes back (light_synth_car_tunnel) */
     LIGHT_SYNTH_HALL_POINT = 4,        /* the row point the car's alternation reads (light_synth_car) */

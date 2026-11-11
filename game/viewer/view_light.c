@@ -211,7 +211,7 @@ static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
         const uint32_t at = light_tint_ring_node(node, light_effects->nodes);
         int g;
         if (light_effects->pool->cone && xz != NULL) {   /* port (headlight_cone): by where the car is in every car's patch of light, its own included (the glow round it): rivals, police and the player alike */
-            const int lift = headlight_pool_car_lift_xz(light_effects->pool, car, xz[0], xz[1]);   /* its own patch limited, the others' added (i097) */
+            const int lift = headlight_pool_car_lift_xz(light_effects->pool, car, xz[0], xz[1]);   /* its own patch limited, the others' added */
             g = headlight_pool_car_gain(headlight_pool_gain_at_lift(track_node_light_tunnel(light_effects, at) ? TUNNEL_FLOOR : HEADLIGHT_FLOOR, lift));
         } else {
             g = headlight_pool_car_at(light_effects->pool, at) ? 256 : headlight_pool_car_gain(track_node_light_tunnel(light_effects, at) ? headlight_pool_gain_tunnel(light_effects->pool, at) : headlight_pool_gain(light_effects->pool, at));   /* a car with its lights on keeps its own light: the beam is ahead of it */

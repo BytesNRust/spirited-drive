@@ -3,7 +3,7 @@
 # Options and stay there (a phantom ESC would end on Central). Saves the last frame for a look; no automatic verdict.
 # TNFS_EXTRAS_CFG=<extras.cfg> (optional) is copied into the scratch mods. Headless: dummy drivers, scratch --user, the repo's original/ as data. Needs magick for the frame check.
 BIN=${1:-build/release/tnfs}; BIN=${BIN:A}; HZ=${2:-60}
-DATA=${TNFS_DATA:-original}
+DATA=${TNFS_DATA:-${0:A:h}/../original}
 M=$(mktemp -d); mkdir -p $M/user $M/cap
 [ -n "$TNFS_EXTRAS_CFG" ] && cp "$TNFS_EXTRAS_CFG" $M/user/extras.cfg
 printf "format=4:3\nview_ultra=1\npsx_dir=\n" > $M/user/port.cfg

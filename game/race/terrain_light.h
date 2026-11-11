@@ -1,4 +1,4 @@
-/* port: our own light for a track, made from its terrain (re/notes: the M5 design). The PS1 CD's Z<TRACK><A|B|C>.LGT is the light the light effects reads (track_node_light.h);
+/* port: our own light for a track, made from its terrain. The PS1 CD's Z<TRACK><A|B|C>.LGT is the light the light effects reads (track_node_light.h);
  * a release does not carry the CD, so with none the light is made here at the race's start from the road's own geometry, in memory, deterministic, nothing read
  * from or written to disk. It is the same TrackNodeLight the renderer already reads (11 bytes a node, TriRow order), so nothing downstream changes.
  *

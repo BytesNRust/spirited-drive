@@ -1,4 +1,4 @@
-/* port (body shine, re/TODO.md "Body shine"): the pure parts. A body vertex's shine level comes from its normal reflected about the
+/* port (body shine): the pure parts. A body vertex's shine level comes from its normal reflected about the
  * view, as in an environment map: up-facing panels take a lighter sky band, lower vertical faces stay darker, and soft streaks slide over
  * the panels as the car turns and travels. A level picks one of CAR_SHINE_LEVELS tables, each moving a palette entry to another of its
  * own colour family (8-bit: the screen is indices into one palette), so a red stays a red. */

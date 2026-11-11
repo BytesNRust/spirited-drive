@@ -52,7 +52,7 @@ typedef struct {
 typedef struct {
     int unlock_level;    /* the short 0052ad40 (config.dat) */
     int unknown_4baf1c;  /* 004baf1c: set, Lost Vegas is on outside a tournament whatever the level */
-    int flag_52b312;     /* the short 0052b312 (RaceState.playback on the race side; network races in the RE notes, private workshop repo) */
+    int flag_52b312;     /* the short 0052b312 (RaceState.playback on the race side; network races) */
     int unknown_4faa56;  /* the short 004faa56: 0 lets a 0052b312 game take the opponent from other_car */
     int other_index;     /* the short 004baf20 (the high half of the dword 004baf1e), 0..7 */
     int unknown_4fbb0c;  /* 004fbb0c */

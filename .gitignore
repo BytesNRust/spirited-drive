@@ -2,8 +2,6 @@
 original/
 .cache/
 build/
-ghidra/project/
-analysis/*.log
 reference/
 !tests/mods/reference/
 __pycache__/

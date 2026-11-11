@@ -1,4 +1,4 @@
-/* Render bands (re/notes/render-bands-design.md): a stage of the frame that is a function of rows alone (the sky, the
+/* Render bands: a stage of the frame that is a function of rows alone (the sky, the
  * horizon, the layer's composite) is run over horizontal bands of its rows on several threads. Each band's draw is
  * exactly what the whole draw paints on those rows (tests/test_band_exact.c), so the frame is byte for byte the same
  * with any number of threads; TNFS_BANDS=0 (the default) runs the stage whole on the caller, as before bands. */

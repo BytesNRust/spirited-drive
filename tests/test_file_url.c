@@ -7,8 +7,8 @@
 int main(void)
 {
     char url[128];
-    CHECK(file_url_from_path("/Users/x/Library/Application Support/tnfs/", url, sizeof url) > 0);
-    CHECK(strcmp(url, "file:///Users/x/Library/Application%20Support/tnfs/") == 0);
+    CHECK(file_url_from_path("/home/x/Library/Application Support/tnfs/", url, sizeof url) > 0);
+    CHECK(strcmp(url, "file:///home/x/Library/Application%20Support/tnfs/") == 0);
     CHECK(file_url_from_path("/a, b (c)/\xc3\xa9.log", url, sizeof url) > 0);
     CHECK(strcmp(url, "file:///a%2C%20b%20%28c%29/%C3%A9.log") == 0);
     CHECK_EQ_INT((int)file_url_from_path("/a-b_c.d~e/", url, sizeof url), (int)strlen("file:///a-b_c.d~e/"));

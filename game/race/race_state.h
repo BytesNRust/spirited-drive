@@ -373,7 +373,7 @@ typedef struct {
     /* 004c5f98, 004c5f9c: read by 0047217c (race_sound_tyres) when the
      * first is not negative; 0044df20 sets both to -1 */
     int32_t unknown_4c5f98, unknown_4c5f9c;
-    /* 0052b31e (the German word, see the RE notes in the private workshop repo) and 0052b30e (written at
+    /* 0052b31e (the German word) and 0052b30e (written at
      * 0043234e): the first set and the second 0 keeps 00443820's voices off */
     int16_t unknown_52b31e, unknown_52b30e;
     /* 0044e354's: the minute marks the replay seeks to (005120d8, 0xa2

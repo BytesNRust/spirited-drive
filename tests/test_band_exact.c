@@ -1,4 +1,4 @@
-/* Render bands, phase 0 (re/notes/render-bands-design.md section 3): the claim a band split rests on is that a
+/* Render bands, phase 0: the claim a band split rests on is that a
  * rasterizer clipped to a band of rows paints, inside the band, exactly what the same draw paints unclipped. Every
  * rasterizer the 3D pass uses is drawn over a random background with random primitives (off the clip on every side,
  * degenerate ones too), once with the whole clip box and once as the union of K bands (unequal, random cuts) with the

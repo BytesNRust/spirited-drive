@@ -1,4 +1,4 @@
-/* port: the weather (re/notes/weather-design.md). Pure functions of the setting and the tick: no RNG of the game's, no clock,
+/* port: the weather. Pure functions of the setting and the tick: no RNG of the game's, no clock,
  * so a replay or a screenshot at the same tick draws the same weather. */
 #ifndef TNFS_WEATHER_H
 #define TNFS_WEATHER_H

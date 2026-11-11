@@ -1,7 +1,7 @@
 /* The port's network driver: UDP over the LAN and the internet, in place of
  * the exe's IPX / DirectPlay / modem drivers (port only, not an exe
  * function). Each call does what the IPX driver's slot does (its table at
- * 004c64a0, 004815b8..00481e0c; the RE notes, private workshop repo, "DESIGN of the UDP driver"),
+ * 004c64a0, 004815b8..00481e0c),
  * so the session's driver ops can call it as they are. */
 #ifndef TNFS_NET_UDP_H
 #define TNFS_NET_UDP_H

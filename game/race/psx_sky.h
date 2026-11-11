@@ -1,4 +1,4 @@
-/* port: the PS1 look's sky (re/notes/psx-look.md). At dawn and dusk the PS1 has its own sky per track: Z<TRACK><A|C>.INF, the
+/* port: the PS1 look's sky. At dawn and dusk the PS1 has its own sky per track: Z<TRACK><A|C>.INF, the
  * text of the PC's <TRACK>INFO with a dithering flag and the blend's ratio where the ring type was and no time-of-day line (the
  * gradient's two colours, the ring's offset and height), and Z<TRACK><A|C>.PSH, a SHPP directory whose horizon tiles hrz0..hrz7
  * are 8bpp images each through its own 256-entry CLUT, side by side as the panorama. Read at the race's start from the user's own

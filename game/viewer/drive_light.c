@@ -474,7 +474,7 @@ static int make_light_code(const Tri *tri, const char *track, TrackNodeLight *ou
         uint32_t hall_from = 1, hall_to = 0;
         const int hall_range = port_hall_light() && light_synth_hall(track, &hall_from, &hall_to);
         light_synth_made_tunnels(&made, &tunnels, hall_range ? hall_from : 1, hall_range ? hall_to : 0);
-        made.neutral_cast = light_synth_mine(track) || gallery;   /* i074: the mine keeps its blue, the warm cast stays on TR7's tunnels */
+        made.neutral_cast = light_synth_mine(track) || gallery;   /* the mine keeps its blue, the warm cast stays on TR7's tunnels */
         made.city_tunnel = light_synth_city_track(track);   /* 1 CY1, 2 CY2/CY3, 0 else */
     }
     track_node_light_free(&tunnels);
@@ -610,7 +610,7 @@ static int tunnel_lamp_by_node(const void *a, const void *b)
 enum { TUNNEL_LAMPS_MAX = 1024, TUNNEL_LAMP_REACH_NODES = 3 };
 #define TUNNEL_LAMP_STRENGTH 3.0f   /* 300 percent: at 5.0 the pool saturated the tunnel tables by half its reach and the lamps (every 2 nodes, both sides) joined into one flat band, no pools (chase view, tunnel_tone 50) */
 #define TUNNEL_LAMP_DAY_STRENGTH 1.5f   /* by day (tunnel_lamps 2: dawn, day, dusk) the same pools, at half: the day's tunnel is lit more than the night's, and at 3.0 the road turned strongly amber, brighter than at night (the day captures of 2026-11-11) */
-#define TUNNEL_LAMP_REACH_ALONG 1.3f   /* i193: along the road a pool reaches 1.3 nodes (8 m): the lamps hang every 2 nodes (12 m), so half way to the next a pool has 5 % of its light and the tunnel alternates light and shadow (at 1.8 round the pools overlapped into one even band; at 1.0 the pools were dim slivers); across it keeps TUNNEL_LAMP_REACH, the walls */
+#define TUNNEL_LAMP_REACH_ALONG 1.3f   /* along the road a pool reaches 1.3 nodes (8 m): the lamps hang every 2 nodes (12 m), so half way to the next a pool has 5 % of its light and the tunnel alternates light and shadow (at 1.8 round the pools overlapped into one even band; at 1.0 the pools were dim slivers); across it keeps TUNNEL_LAMP_REACH, the walls */
 #define TUNNEL_LAMP_REACH 1.8f   /* a pool reaches 1.8 nodes (11 m at 6 m a node): CY1's lamp pair hangs 6 m apart in the middle of a 19 m tunnel (strips 4 and 9 are lanes, not walls), so at 1.2 the left wall was out of reach (7 m from its lamp) and only the right one (5.8 m) caught a sliver; at 1.8 both walls and the ceiling are lit and the road still has its gaps between lamps */
 
 static void add_tunnel_lamps(const Tri *tri, const char *track, TrackNodeLight *made)

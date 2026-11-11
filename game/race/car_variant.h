@@ -1,6 +1,6 @@
 /* port: the car variants the car showcase's box steps through (the console version livery first; racing decals and stickers later).
  * A variant is a table entry; the box shows one choice at a time: the car as it is, or one of the variants the car is
- * offered. re/notes/car-variants.md says how to add one. */
+ * offered. */
 #ifndef TNFS_CAR_VARIANT_H
 #define TNFS_CAR_VARIANT_H
 
