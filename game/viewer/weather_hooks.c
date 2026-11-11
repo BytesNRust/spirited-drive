@@ -24,10 +24,11 @@ void ported_view_set_wipers(const WiperBlade *blades, int count)
 
 static const uint8_t *wiper_glass;
 static float wiper_glass_x, wiper_glass_y, wiper_glass_scale = 1.0f;
+static int wiper_glass_w;
 
-void ported_view_set_wiper_glass(const uint8_t *glass, float x, float y, float scale)
+void ported_view_set_wiper_glass(const uint8_t *glass, int width, float x, float y, float scale)
 {
-    wiper_glass = glass, wiper_glass_x = x, wiper_glass_y = y, wiper_glass_scale = scale > 0.0f ? scale : 1.0f;
+    wiper_glass = glass, wiper_glass_w = width, wiper_glass_x = x, wiper_glass_y = y, wiper_glass_scale = scale > 0.0f ? scale : 1.0f;
 }
 
 int weather_hooks_wiper_blades(void) { return wiper_scene_count; }
@@ -42,7 +43,7 @@ const WiperPass *weather_hooks_wiper_pass(WiperPass *out, const int32_t box[4], 
         out->blade[i].x -= (float)box[0], out->blade[i].y -= (float)box[1];
         if (out->blade[i].xmax > 0.0f) out->blade[i].xmax -= (float)box[0];
     }
-    out->glass = wiper_glass, out->glass_x = wiper_glass_x - (float)box[0], out->glass_y = wiper_glass_y - (float)box[1], out->glass_scale = wiper_glass_scale;
+    out->glass = wiper_glass, out->glass_x = wiper_glass_x - (float)box[0], out->glass_y = wiper_glass_y - (float)box[1], out->glass_scale = wiper_glass_scale, out->glass_w = wiper_glass_w;
     out->timing = wiper_timing(f->snow_level != SNOW_NONE ? WIPER_SNOW : f->weather == WEATHER_STORM ? WIPER_STORM : WIPER_RAIN);
     return out;
 }

@@ -2,6 +2,7 @@
 #include "viewer/wiper_draw.h"
 
 #include <math.h>
+#include <stdlib.h>
 #include <stddef.h>
 
 /* what every stamp of a draw shares: the box, the buffer, the glass map's mapping as integers (the buffer's pixel to the layer's: floor((x - gx) / gs); true when they are whole numbers, as they are for every
@@ -22,6 +23,7 @@ static void stamp(const Stamper *st, int cx, int cy, int radius)
     const int y0 = cy - radius < 0 ? 0 : cy - radius, y1 = cy + radius >= st->h ? st->h - 1 : cy + radius;
     const int x0 = cx - radius < 0 ? 0 : cx - radius, x1 = cx + radius >= st->xlim ? st->xlim - 1 : cx + radius, edge = radius * radius + radius;
     const uint8_t *const glass = st->pass->glass;
+    const int gw = st->pass->glass_w > 0 ? st->pass->glass_w : 640;
     for (int y = y0; y <= y1; y++) {
         int ly = 0;
         if (glass != NULL) {
@@ -33,7 +35,7 @@ static void stamp(const Stamper *st, int cx, int cy, int radius)
             if ((x - cx) * (x - cx) + (y - cy) * (y - cy) > edge) continue;
             if (glass != NULL) {   /* only on the glass: not over the wheel, the dash or any art */
                 const int lx = st->whole ? floor_div(x - st->gx, st->gs) : (int)floorf(((float)x - st->pass->glass_x) / st->pass->glass_scale);
-                if (lx < 0 || lx >= 640 || glass[ly * 640 + lx] == 0) continue;
+                if (lx < 0 || lx >= gw || glass[ly * gw + lx] == 0) continue;
             }
             row[x] = st->dark[row[x]];
         }
@@ -54,7 +56,8 @@ static void line(const Stamper *st, float x0, float y0, float x1, float y1, int 
 void wiper_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], const WiperPass *w, uint32_t tick, const uint8_t dark[256])
 {
     if (pixels == NULL || w == NULL || dark == NULL) return;
-    const float frac = wiper_fraction(tick, w->timing), k = (float)(box[3] - box[1]) / 480.0f;
+    const char *pose = getenv("TNFS_WIPER_FRACTION");   /* port (dev, env only): the blades held at this fraction (0 parked .. 1 at the top), for the captures */
+    const float frac = pose != NULL && *pose != '\0' ? fminf(fmaxf(strtof(pose, NULL), 0.0f), 1.0f) : wiper_fraction(tick, w->timing), k = (float)(box[3] - box[1]) / 480.0f;
     const int arm = (int)lrintf(1.4f * k), blade = (int)lrintf(3.0f * k);   /* the arm's and the blade's half widths */
     Stamper st = { pixels, pitch, box[0], box[1], box[2] - box[0], box[3] - box[1], 0, w, 0, 0, 0, 1, dark };
     st.xlim = st.w;

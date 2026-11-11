@@ -27,8 +27,9 @@ typedef struct WiperPass {
     WiperBlade blade[WIPER_BLADES];
     int count;
     WiperTiming timing;
-    const uint8_t *glass;   /* NULL, or 640x480 flags (1 = the windscreen's glass) of the dash layer: a blade pixel is drawn only where it lands on glass; the layer's pixel of a drawn pixel (x, y) is ((x - glass_x) / glass_scale, (y - glass_y) / glass_scale) */
+    const uint8_t *glass;   /* NULL, or glass_w x 480 flags (1 = the windscreen's glass) of the frame (wiper_scene_frame_glass): a blade pixel is drawn only where it lands on glass; the map's pixel of a drawn pixel (x, y) is ((x - glass_x) / glass_scale, (y - glass_y) / glass_scale) */
     float glass_x, glass_y, glass_scale;
+    int glass_w;            /* the map's width; 0: 640 (the dash layer's) */
 } WiperPass;
 
 /* The pace for what falls: light rain slowly with a pause, rain, storm fast, snow in between. WIPER_OFF has period 0. */

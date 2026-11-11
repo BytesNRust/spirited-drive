@@ -96,8 +96,8 @@ void ported_view_set_weather(int weather);
 /* port (wipers): the blades of the dash view's wipers in the 3D buffer's pixels (WiperBlade, wiper.h), set each frame before the draw: none (count 0) when the view is not the dash, the setting is off or the wide path is not on */
 struct WiperBlade;
 void ported_view_set_wipers(const struct WiperBlade *blades, int count);
-/* port (wipers): the dash layer's glass flags (640x480, 1 = glass; NULL for none) the blades are clipped to, and where the layer's origin and scale are in the 3D buffer's pixels, set with the blades */
-void ported_view_set_wiper_glass(const uint8_t *glass, float x, float y, float scale);
+/* port (wipers): the frame's glass flags (`width` x 480, 1 = glass; NULL for none; width 0: 640) the blades are clipped to, and where the map's origin and scale are in the 3D buffer's pixels, set with the blades */
+void ported_view_set_wiper_glass(const uint8_t *glass, int width, float x, float y, float scale);
 /* port (wipers): 1 when this frame's wipers are on (blades set and rain or snow falling): the dash's drawn blades are then hidden (dash_mask.h BLADE) */
 int ported_view_wipers_active(void);
 void ported_view_set_snow(int snow);   /* port (snow_weather): the race's track is a snowy one with the switch on: the rain falls as snow (weather_snow.h) */

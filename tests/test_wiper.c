@@ -79,7 +79,7 @@ static void test_a_pass_is_remembered_from_when_the_blade_crossed_the_point(void
 
 static void test_a_wiped_drop_stays_off_until_its_next_life(void)
 {
-    WiperPass pass = { { blade(), blade() }, 1, wiper_timing(WIPER_STORM), NULL, 0.0f, 0.0f, 1.0f };
+    WiperPass pass = { { blade(), blade() }, 1, wiper_timing(WIPER_STORM), NULL, 0.0f, 0.0f, 1.0f, 0 };
     int found = 0, wiped = 0;
     for (int d = 0; d < 40; d++)
         for (uint32_t tick = 0; tick < 600; tick += 3) {
