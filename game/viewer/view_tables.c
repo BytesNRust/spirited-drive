@@ -138,6 +138,17 @@ enum { TUNNEL_LAMP_CACHE = 8 };
 static LampSlot tunnel_lamp_cache[TUNNEL_LAMP_CACHE];
 int tunnel_lamp_cache_used, tunnel_lamp_cache_next;
 
+/* i193: TNFS_LAMP_HUE=0 (dev only, an A/B override for before / after pictures) matches the tunnel lamps' pools by the plain nearest colour, as before */
+static int lamp_hue_on(void)
+{
+    static int on = -1;
+    if (on < 0) {
+        const char *env = getenv("TNFS_LAMP_HUE");
+        on = env == NULL || atoi(env) != 0;
+    }
+    return on;
+}
+
 /* the blocks of steps 1 .. steps for a colour and bucket, in one run (block s - 1 the step s); NULL when steps is 0. `tunnel`: the tunnel's tables with the colour added, not the open road's */
 static const uint8_t (*lamp_add_get(const float rgb[3], int bucket, int steps, int tunnel))[256]
 {
@@ -160,8 +171,9 @@ static const uint8_t (*lamp_add_get(const float rgb[3], int bucket, int steps, i
         if (cache[slot].made >> s & 1) continue;
         float add[3];
         for (int k = 0; k < 3; k++) add[k] = 255.0f * LAMP_ADD * LAMP_BUCKET[bucket] * (float)key[k] / LAMP_KEY_STEPS * (float)s / LAMP_STEPS;
-        if (tunnel && tone_have_cast) modern_tunnel_tables_add(tone_palette, tone_tunnel_tint, tone_cast, tone_min_light, add, cache[slot].tables[s - 1]);
-        else modern_light_tables_add(tone_palette, tone_lit_tint, add, cache[slot].tables[s - 1]);
+        const int hue = tunnel && lamp_hue_on();   /* i193: the tunnel lamps' pools keep the light's hue */
+        if (tunnel && tone_have_cast) (hue ? modern_tunnel_tables_add_hue : modern_tunnel_tables_add)(tone_palette, tone_tunnel_tint, tone_cast, tone_min_light, add, cache[slot].tables[s - 1]);
+        else (hue ? modern_light_tables_add_hue : modern_light_tables_add)(tone_palette, tone_lit_tint, add, cache[slot].tables[s - 1]);
         cache[slot].made |= 1u << s;
     }
     return cache[slot].tables[0];

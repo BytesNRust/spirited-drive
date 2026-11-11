@@ -380,10 +380,33 @@ static void test_light_tables_add(void)
     CHECK(red[0][0xfe] == 0xfe && red[0][0xff] == 0xff);   /* the shadow and see-through marks stay */
 }
 
+/* i193: a tunnel lamp's warm light, a little of it, on a grey texel: the plain nearest colour is a mauve (its red over green and blue, no yellow: the light's hue turned), the
+ * hue-keeping tables take the grey; a warm entry still wins where it is near */
+static void test_lamp_tables_keep_the_hue(void)
+{
+    enum { GREY = 10, MAUVE = 11, BASE = 12, AMBER = 13 };
+    uint8_t palette[768];
+    memset(palette, 0, sizeof palette);
+    const uint8_t grey[3] = { 118, 118, 118 }, mauve[3] = { 136, 112, 118 }, base[3] = { 100, 100, 100 }, amber[3] = { 175, 150, 105 };
+    memcpy(palette + 3 * GREY, grey, 3), memcpy(palette + 3 * MAUVE, mauve, 3), memcpy(palette + 3 * BASE, base, 3), memcpy(palette + 3 * AMBER, amber, 3);
+    static uint8_t plain[MODERN_FOG_LEVELS][256], hue[MODERN_FOG_LEVELS][256], tunnel[MODERN_FOG_LEVELS][256];
+    const float one[3] = { 1, 1, 1 }, warm[3] = { 30, 20, 8 }, strong[3] = { 75, 50, 5 };   /* the base plus warm: (130, 120, 108); plus strong: (175, 150, 105) */
+    modern_light_tables_add(palette, one, warm, plain);
+    CHECK_EQ_INT(plain[0][BASE], MAUVE);   /* the RGB distance: 200 against the grey's 248 */
+    modern_light_tables_add_hue(palette, one, warm, hue);
+    CHECK_EQ_INT(hue[0][BASE], GREY);
+    modern_tunnel_tables_add_hue(palette, one, one, 0.0f, warm, tunnel);
+    CHECK_EQ_INT(tunnel[0][BASE], GREY);
+    modern_light_tables_add_hue(palette, one, strong, hue);
+    CHECK_EQ_INT(hue[0][BASE], AMBER);   /* a warm entry of the light's own order is taken */
+    CHECK(hue[0][0xfe] == 0xfe && hue[0][0xff] == 0xff);
+}
+
 int main(void)
 {
     exe_tables_for_test();
     test_light_tables_add();
+    test_lamp_tables_keep_the_hue();
     test_lit_warm();
     test_lit_steps();
     test_lit_darkness_out_of_range();
