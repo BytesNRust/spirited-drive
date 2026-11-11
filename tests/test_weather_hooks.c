@@ -79,10 +79,10 @@ static void test_the_wipers_pass(void)
     CHECK(weather_hooks_wiper_pass(&pass, box, &snow) == &pass);
     CHECK(pass.timing.period == wiper_timing(WIPER_SNOW).period);
     static const uint8_t glass[4] = { 1, 0, 0, 1 };
-    ported_view_set_wiper_glass(glass, 5.0f, 6.0f, 2.0f);
+    ported_view_set_wiper_glass(glass, 2, 5.0f, 6.0f, 2.0f);
     CHECK(weather_hooks_wiper_pass(&pass, box, &rain) == &pass);
-    CHECK(pass.glass == glass && pass.glass_x == -5.0f && pass.glass_y == -14.0f && pass.glass_scale == 2.0f);
-    ported_view_set_wiper_glass(NULL, 0, 0, 0);
+    CHECK(pass.glass == glass && pass.glass_x == -5.0f && pass.glass_y == -14.0f && pass.glass_scale == 2.0f && pass.glass_w == 2);
+    ported_view_set_wiper_glass(NULL, 0, 0, 0, 0);
     CHECK(weather_hooks_wiper_pass(&pass, box, &rain) == &pass);
     CHECK(pass.glass == NULL && pass.glass_scale == 1.0f);   /* a scale that is not above 0 is 1 */
     ported_view_set_wipers(NULL, 0);

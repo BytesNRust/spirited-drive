@@ -38,28 +38,35 @@ static const uint8_t *wiper_glass_flags(const uint8_t *art, const uint8_t *mask)
 
 int drive_wide_wiper_scene(const RaceState *race, WiperBlade *out)
 {
-    ported_view_set_wiper_glass(NULL, 0.0f, 0.0f, 1.0f);
+    ported_view_set_wiper_glass(NULL, 0, 0.0f, 0.0f, 1.0f);
     const RaceCamera *camera = race != NULL ? race->chase.camera : NULL;
     if (!port_wipers() || camera == NULL || camera->layout != 0 || drive_hud.police.screen != NULL || drive_hud.cockpit.dash == NULL) return 0;
     const uint8_t *const art = dash_art_layer(&drive_hud.cockpit), *const mask = dash_mask_now();
     const float PI = 3.14159265f, deg = PI / 180.0f;
     const uint8_t *const flags = wiper_glass_flags(art, mask);
-    static const void *measured_for;   /* the geometry on the layer is the dash's alone: measured once per dash */
-    static WiperBlade layer[WIPER_BLADES];
-    static float span;
-    if (measured_for != drive_hud.cockpit.dash) {
-        wiper_scene_measure(art, mask, flags, layer, &span);
-        measured_for = drive_hud.cockpit.dash;
-    }
     const int wide = drive_wide_active();   /* the 640x480 path (the exe's) has its dash at the layer's own coordinates */
-    const float scale = wide ? (float)drive_wide.scale : 1.0f, x0 = wide ? (float)((drive_wide.width - SCREEN_W) / 2) : 0.0f, y0 = wide && drive_wide.width > SCREEN_W ? (float)DASH_DROP : 0.0f;
+    const int width = wide && drive_wide.width > SCREEN_W ? (drive_wide.width < SCREEN_DASH_MOST_WIDTH ? drive_wide.width : SCREEN_DASH_MOST_WIDTH) : SCREEN_W;
+    static uint8_t *map;   /* the glass as the frame shows it (wiper_scene_frame_glass), and the pair on it: made once per dash and width */
+    static const void *measured_for;
+    static int measured_width;
+    static WiperBlade frame[WIPER_BLADES];
+    static float span;
+    if (measured_for != drive_hud.cockpit.dash || measured_width != width) {
+        uint8_t *const grown = realloc(map, (size_t)width * SCREEN_H);
+        if (grown == NULL) return 0;
+        map = grown;
+        wiper_scene_frame_glass(flags, width, map);
+        wiper_scene_measure(map, width, frame, &span);
+        measured_for = drive_hud.cockpit.dash, measured_width = width;
+    }
+    const float scale = wide ? (float)drive_wide.scale : 1.0f;
     for (int i = 0; i < WIPER_BLADES; i++) {
-        WiperBlade b = layer[i];
+        WiperBlade b = frame[i];
         b.top = b.park + span * deg;
-        b.x = (x0 + b.x) * scale, b.y = (y0 + b.y) * scale, b.len *= scale, b.xmax = (x0 + b.xmax) * scale;
+        b.x *= scale, b.y *= scale, b.len *= scale, b.xmax *= scale;
         out[i] = b;
     }
-    ported_view_set_wiper_glass(flags, x0 * scale, y0 * scale, scale);
+    ported_view_set_wiper_glass(map, width, 0.0f, 0.0f, scale);
     return WIPER_BLADES;
 }
 
