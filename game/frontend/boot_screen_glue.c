@@ -91,14 +91,3 @@ void boot_screen_show(void)
     if (!text_small_init()) return;
     show_page(lines, n, HOLD_FRAMES, NULL);
 }
-
-void credits_extra_show(const char *version, void (*tick)(void))
-{
-    enum { PAGE_FRAMES = 300 };
-    BootLine lines[BOOT_LINES_MAX];
-    if (!text_small_init()) return;
-    for (int page = 0; page < CREDITS_EXTRA_PAGES; page++) {
-        const int n = credits_extra_lines(page, version, lines);
-        if (n > 0) show_page(lines, n, PAGE_FRAMES, tick);
-    }
-}
