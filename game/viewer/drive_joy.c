@@ -5,6 +5,7 @@
 #include "game/frontend/save_files.h"
 #include "game/race/race_camera.h"
 #include "game/race/race_forces.h"
+#include "game/sys/port_follow.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/joy_calibrate.h"
 #include "game/sys/joy_pad.h"
@@ -94,6 +95,8 @@ void drive_joy_menu(JoyState **j, int32_t *present, int32_t *device, const JoyOp
 void drive_joy_pad_read(InputPad *pad)
 {
     if (forces_open) (void)quiet();   /* port (replay_no_ffb): the edge, seen even when nothing asks for a force */
+    static PortFollow brake;   /* port (brake_over_gas): the start runs once a game; the mode's or the row's change with no restart is followed */
+    start.brake_wins = port_follow(&brake, port_brake_over_gas);
     joy_pad_read(&joy, &start, &JOY);
     pad->x = joy.pad_x;
     pad->y = joy.pad_y;

@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "game/sys/port_follow.h"
 #include "game/sys/port_settings_private.h"
 
 /* port.cfg: the mode's name and the machine's folder */
@@ -23,9 +24,14 @@ static struct {
     PortSettings mode[PROFILE_COUNT];
 } kept;
 
-/* a file of settings was written or reset (or a test changed what the platform reads): the next read goes to the files */
+static uint32_t generation = 1;   /* port_follow.h: never 0, so a zeroed PortFollow is always behind */
+
+uint32_t port_settings_generation(void) { return generation; }
+
+/* a file of settings was written or reset (or a test changed what the platform reads): the next read goes to the files, and every value kept from them is read again (port_follow.h) */
 void port_settings_forget(void)
 {
+    generation = generation == UINT32_MAX ? 1 : generation + 1;
     memset(&kept.machine_have, 0, sizeof kept.machine_have);
     memset(kept.mode_have, 0, sizeof kept.mode_have);
 }

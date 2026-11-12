@@ -122,6 +122,7 @@ void race_sim_tick_only(RaceSim *sim);
 
 /* port (spray v4, dev): a hook the viewer sets, called after every simulation tick (not every frame drawn) with the race as that tick left it: its emitters see each tick's true wheel places. NULL: none. */
 void race_sim_set_tick_hook(void (*hook)(const RaceState *race));
+void (*race_sim_tick_hook(void))(const RaceState *race);   /* the hook set, NULL when none */
 
 /* 00455a5c's setup and start, their part on the race (race_run does the
  * same through its ops): the start beeps 1, tick, phase, camera hold,

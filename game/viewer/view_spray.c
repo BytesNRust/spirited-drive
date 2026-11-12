@@ -11,7 +11,9 @@
 #include "game/race/rain_spray.h"
 #include "game/race/spray_pace.h"
 #include "game/race/race_sim.h"
+#include "game/sys/port_log.h"
 #include "viewer/spray_v4_draw.h"
+#include "game/viewer/spray_v4_switch.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,12 +38,7 @@ static int32_t spray_car_pace(const RaceState *race, const Car *car, int slot, i
     return car == followed ? kept : spray_pace(&spray_paces[slot], tick, car->x, car->z, kept);   /* the followed car is driven by the player: its pace is real */
 }
 
-static int spray_v4_on(void)
-{
-    static int on = -1;
-    if (on < 0) on = port_spray_v4() != 0;   /* port.cfg's spray_v4, TNFS_SPRAY_V4 over it */
-    return on;
-}
+static int spray_v4_on(void) { return spray_v4_switch_on(); }   /* the mode's spray_v4 (TNFS_SPRAY_V4 over it) as the settings are now: a change with no restart is followed */
 
 static void spray_v4_tick(const RaceState *race)
 {
@@ -602,15 +599,15 @@ void view_spray_frame(const TrackArt *art, const WeatherTables *wt, int wet)
         spray_update();
     }
     dust_update();   /* port (cam_trail) */
-    if (spray_v4_on()) {   /* port (spray v4) */
-        race_sim_set_tick_hook(spray_v4_tick);
-        spray_v4_frame(art);
-    }
+    static int logged = -1;
+    if (spray_v4_on() != logged) port_log("mark:spray_v4=%d\n", logged = spray_v4_on());   /* port: a headless run can tell which dust a race draws */
+    spray_v4_switch_hook(spray_v4_tick);   /* port (spray v4): its emitter while it is on, none left behind when it is off */
+    if (spray_v4_on()) spray_v4_frame(art);
 }
 
 void view_spray_v4_hook(void)
 {
-    if (spray_v4_on()) race_sim_set_tick_hook(spray_v4_tick);
+    spray_v4_switch_hook(spray_v4_tick);
 }
 
 /* a road row's spray and dust: far_side 1 the puffs farther off than their car (before the row's cars), 0 the nearer (after) */
