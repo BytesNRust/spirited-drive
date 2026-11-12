@@ -2,7 +2,8 @@
 /* port: draws the boot screen (boot_screen.h). The picture is made in RGB: the red relief rebuilt from the player's CD (boot_relief.h; black when it
  * cannot be), the banner (data/logo/spirited_logo.png, RGBA, its soft shadow included) laid over it; then quantised once to the palette's first entries
  * (boot_quant.h), the last ones kept for the text's colours, and the words drawn in the menus' font. A fade in, BOOT_HOLD_TICKS on the timer, a fade
- * out; any key, click or pad button of its own (screen_hold.h) ends it early. */
+ * out; any key, click or pad button ends it early (the game's first screen: a press counts from its first look, screen_hold.h), and then it waits for
+ * that press to be let go. */
 #include "game/frontend/boot_screen.h"
 
 #include "formats/png.h"
@@ -196,17 +197,32 @@ static int any_pad_button(void)
     return 0;
 }
 
-/* held BOOT_HOLD_TICKS or until a press of its own; the ticks it stayed */
+/* held BOOT_HOLD_TICKS or until a press; the ticks it stayed. The game's first screen: nothing is held from a screen before, so a press counts from
+ * the first look, a key tapped while the picture was made or faded in too (latched until that look) */
 static uint32_t hold(void)
 {
     const uint32_t start = timer_ticks();
-    ScreenHold h = screen_hold_start(start, BOOT_HOLD_TICKS);
+    ScreenHold h = screen_hold_start_armed(start, BOOT_HOLD_TICKS);
     for (;;) {
         HoldSource src[HOLD_SOURCES];
         const int key = any_key();   /* first: it pumps the events the pointer's buttons are read from */
         boot_screen_sources(key, pointer_read_buttons(), any_pad_button(), src);
         const uint32_t now = timer_ticks();
         if (screen_hold_step(&h, now, src) != HOLD_STAY) return now - start;
+        video_wait_vblank();
+    }
+}
+
+/* after a press ended it: until it is let go (at most BOOT_RELEASE_TICKS), so the same press does not also stop EA's first movie; the ticks waited */
+static uint32_t let_go(void)
+{
+    const uint32_t start = timer_ticks();
+    for (;;) {
+        HoldSource src[HOLD_SOURCES];
+        const int key = any_key();
+        boot_screen_sources(key, pointer_read_buttons(), any_pad_button(), src);
+        const uint32_t now = timer_ticks();
+        if (screen_hold_all_up(src) || now - start >= BOOT_RELEASE_TICKS) return now - start;
         video_wait_vblank();
     }
 }
@@ -240,4 +256,5 @@ void boot_screen_show(void)
     ea_select_default();
     video_clear_back();
     video_flip();
+    port_log("mark:let_go screen=boot ticks=%u\n", (unsigned)let_go());
 }

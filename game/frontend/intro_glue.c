@@ -79,9 +79,10 @@ static int32_t pick(void *ctx)
     return random_pick_of_three((uint32_t)time(NULL), &rand_state);
 }
 static int32_t screen_show(void *ctx, const char *name, int32_t mode, int32_t music) { (void)ctx; return show_screen(name, mode, music); }
+static void boot(void *ctx) { (void)ctx; boot_screen_show(); }   /* port: once a run, in every profile */
 
 static const IntroOps ops = { pointer_hide, drain, window, file_exists, replay, video_reset, palette_set, clear_both,
-                              mode_set, movie, pick, screen_show, NULL };
+                              mode_set, movie, pick, screen_show, NULL, boot };
 
 /* 00441abc's words and config.dat's replay flag and name (copied back: the image is byte-addressed) */
 static IntroState state(int16_t *flag, char *movie_path)
@@ -100,7 +101,6 @@ void glue_intro_show(void)
     IntroState s = state(&flag, path);
     intro_show(&s, &ops);
     memcpy(config_current()->image + REPLAY_FLAG, &flag, sizeof flag);
-    boot_screen_show();   /* port: our own screen after EA's movies, once per run */
 }
 
 void glue_intro_movie(const char *name)

@@ -22,7 +22,7 @@ static int32_t movie(void *ctx, const char *path)
 static void test_a_long_movie_directory_reaches_the_movie(void)
 {
     const IntroOps ops = { nothing, nothing, window, NULL, NULL, nothing, palette_set, nothing, mode_set, movie, NULL,
-                           NULL, NULL };
+                           NULL, NULL, NULL };
     static const char DIR[] = "/home/someone/Library/Application Support/Games/Need for Speed SE/original/FRONTEND/"
                               "MOVIES/";
     char path[INTRO_PATH];

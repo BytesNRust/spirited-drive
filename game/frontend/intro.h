@@ -24,6 +24,7 @@ typedef struct IntroOps {
     int32_t (*random_pick)(void *ctx);                                 /* 00466f34 (random_pick_of_three) */
     int32_t (*screen_show)(void *ctx, const char *name, int32_t mode, int32_t music);  /* 00466f68 */
     void *ctx;
+    void (*boot)(void *ctx);   /* port: our boot screen, first, before EA's movies or title screen; NULL: the exe's intro */
 } IntroOps;
 
 typedef struct IntroState {
@@ -40,7 +41,8 @@ typedef struct IntroState {
                              * the game's own movies (intro_movie) still play while intro_movies is set */
 } IntroState;
 
-/* 00441abc: the screen black; with 0052b2fc the replay (after the first
+/* 00441abc (port: after the pointer is hidden, the boot op first, before the keys are drained, so a key that ended it does
+ * not stop the first movie): the screen black; with 0052b2fc the replay (after the first
  * time: REPLAY1..3.RPL in turn, when it exists, in a 0xc0 x 0x120 window at
  * 0x20, 0xc8), black at 320 x 200, then ea.tgv, attract1..3.tgv (the first
  * picked at random, then in turn) and title.tgv, each only while the ones

@@ -26,7 +26,7 @@ static int32_t movie(void *ctx, const char *path)
 static IntroOps ops_with(int32_t (*screen_show)(void *, const char *, int32_t, int32_t))
 {
     const IntroOps ops = { nothing, nothing, window, no_file, NULL, nothing, palette_set, nothing, mode_set, movie, NULL,
-                           screen_show, NULL };
+                           screen_show, NULL, NULL };
     return ops;
 }
 

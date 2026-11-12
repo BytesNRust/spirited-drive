@@ -25,7 +25,14 @@ typedef struct {
 /* the screen begins at `now`, for `ticks` of the timer */
 ScreenHold screen_hold_start(uint32_t now, uint32_t ticks);
 
+/* the same for the game's first screen: no screen before it, so every source counts from its first look (a key tapped while nothing read the events is
+ * latched until that look) */
+ScreenHold screen_hold_start_armed(uint32_t now, uint32_t ticks);
+
 /* one look at the sources at `now`: what the screen does */
 HoldStep screen_hold_step(ScreenHold *h, uint32_t now, const HoldSource src[HOLD_SOURCES]);
+
+/* 1 when nothing is held on any source, whatever it would do here */
+int screen_hold_all_up(const HoldSource src[HOLD_SOURCES]);
 
 #endif

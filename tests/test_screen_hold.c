@@ -73,8 +73,31 @@ static void a_new_screen_forgets_the_last_ones_presses(void)
     CHECK_EQ_INT(screen_hold_step(&b, 4, held), HOLD_STAY);   /* the same click, not let go yet */
 }
 
+/* port: the boot screen, ended by a press, waits for it to be let go, so the same press does not also stop EA's first movie */
+static void all_up_only_when_nothing_is_held(void)
+{
+    const HoldSource arrow[HOLD_SOURCES] = { { 1, HOLD_STAY }, { 0, HOLD_STAY }, { 0, HOLD_STAY } };
+    const HoldSource pad[HOLD_SOURCES] = { { 0, HOLD_STAY }, { 0, HOLD_STAY }, { 1, HOLD_NEXT } };
+    CHECK_EQ_INT(screen_hold_all_up(UP), 1);
+    CHECK_EQ_INT(screen_hold_all_up(arrow), 0);   /* held counts whatever it does here */
+    CHECK_EQ_INT(screen_hold_all_up(pad), 0);
+}
+
+/* the game's first screen (the boot screen): no screen before it, so a press already down at its first look is its own: a key tapped while nothing read the
+ * events (the picture made, the fade in) is latched until that look and is let go before the next */
+static void the_first_screen_takes_a_press_at_its_first_look(void)
+{
+    const HoldSource tapped[HOLD_SOURCES] = { { 1, HOLD_NEXT }, { 0, HOLD_STAY }, { 0, HOLD_STAY } };
+    ScreenHold h = screen_hold_start_armed(0, 500);
+    CHECK_EQ_INT(screen_hold_step(&h, 1, tapped), HOLD_NEXT);
+    ScreenHold later = screen_hold_start(0, 500);
+    CHECK_EQ_INT(screen_hold_step(&later, 1, tapped), HOLD_STAY);   /* any other screen: held from the one before */
+}
+
 int main(void)
 {
+    the_first_screen_takes_a_press_at_its_first_look();
+    all_up_only_when_nothing_is_held();
     it_stays_its_time_then_goes_on();
     the_time_wraps_with_the_timer();
     a_button_held_from_before_counts_only_after_it_is_let_go();

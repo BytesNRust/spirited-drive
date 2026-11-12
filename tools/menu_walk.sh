@@ -27,8 +27,9 @@ click() { printf '300:CLICK:%s:%s' "$1" "$2"; }
 next_page() { printf '300:MOUSE:%s:%s,300:CLICK:%s:%s' 355 452 355 452; }
 park() { printf '300:MOUSE:%s:%s' 330 405; }
 
-# the common way in: the intro skipped, Game Mode, Single, the name box left, Control Central
-to_central="1500:ESC,$(wait_for game_mode),$(click 310 217),$(wait_for name_box),500:TEXT:R,500:ENTER,$(wait_for central)"
+# the common way in: our boot screen skipped (the first thing the game shows), EA's first movie stopped (which ends the intro), Game Mode, Single, the
+# name box left, Control Central
+to_central="1500:ESC,0:WAIT:mark:movie=:$step,500:ESC,$(wait_for game_mode),$(click 310 217),$(wait_for name_box),500:TEXT:R,500:ENTER,$(wait_for central)"
 to_options="$to_central,$(click 215 450),$(wait_for options)"
 
 case $target in

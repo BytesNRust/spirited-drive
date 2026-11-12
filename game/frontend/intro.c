@@ -38,6 +38,7 @@ int intro_show(IntroState *s, const IntroOps *ops)
     port_log("mark:screen=intro\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     uint8_t pal[PALETTE_PUT_BYTES];
     ops->pointer_hide(ops->ctx);
+    if (ops->boot != NULL) ops->boot(ops->ctx);   /* port: our boot screen is the first thing the game shows */
     palette_put_clear(pal);
     ops->drain(ops->ctx);
     if (s->intro_movies && !s->intro_skip) {

@@ -180,7 +180,9 @@ int tgv_player_play(const char *path)
         memcpy(file, data, size), memset(file + size, 0, SLACK);
         if (walk(file, size, &sound, &sound_size)) {
             if (sound != NULL) menu_audio_movie_sound(sound, sound_size);
+            port_log("mark:movie=%s\n", path);   /* port: a headless walk can tell the order of what the game shows */
             skipped = play(file, size, s);
+            port_log("mark:movie_end skipped=%d\n", skipped);
             if (sound != NULL) menu_audio_movie_sound_stop();
         } else {
             port_log("tgv_player: %s has a chunk past its end\n", path);
