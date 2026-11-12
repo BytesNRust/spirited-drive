@@ -85,8 +85,8 @@ The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_tim
 | `rain_tyre_roll` | 0 | 0 | 0, 1 (in rain or a storm with `rain_v2`, the followed car rolling on open asphalt makes a low wet-tyre roll (data/sounds/rain_tyre_roll.wav) whose level and pitch follow its speed: silent when stopped, on gravel or grass, in the air and inside a closed zone, fading at the zone's mouths; 0 none) | none | `TNFS_RAIN_TYRE_ROLL` | 0 / 0 / 1 | Restomod '26's rain |
 | `snow_weather` | 0 | 0 | 0, 1 (on a track whose places file says `snow 1`, Alpine 3, rain is snow: white flakes falling slowly and drifting, with the weather's openness; the storm is heavier snow with no lightning or thunder; the road stays wet as in rain; in the rally the road and the shoulder are covered in snow with a loose, slidy grip (rally_gravel.h); 0 the rain as it was) | none | `TNFS_SNOW_WEATHER` | 0 / 0 / 1 | Restomod '26's Alpine |
 | `police_halo` | 0 | 0 | 0..3 (the police roof lights' halo size: 0 as now, 1..3 progressively bigger (near and far)) | none | `TNFS_POLICE_HALO` | 0 / 0 / 1 | `police_glow`, `lamp_flares` |
-| `traffic_halo` | 0 | 0 | 0..1 (at night the traffic's lit lamps get a halo as the racers' do; 0 as now) | none | `TNFS_TRAFFIC_HALO` | 0 / 0 / 0 | `lamp_flares`, night |
-| `rally_dry_lamps` | 0 | 0 | 0..1 (in a rally (dirt) race in rain the cars' lamps are not reflected in the road, as dirt is no mirror; 0 the exe's wet-asphalt reflections) | none | `TNFS_RALLY_DRY_LAMPS` | 0 / 0 / 0 | `weather=rain`, `rain_fx`, a rally race |
+| `traffic_halo` | 0 | 0 | 0..1 (at night the traffic's lit lamps get a halo as the racers' do; 0 as now) | none | `TNFS_TRAFFIC_HALO` | 0 / 0 / 1 | `lamp_flares`, night |
+| `rally_dry_lamps` | 0 | 0 | 0..1 (in a rally (dirt) race in rain the cars' lamps are not reflected in the road, as dirt is no mirror; 0 the exe's wet-asphalt reflections) | none | `TNFS_RALLY_DRY_LAMPS` | 0 / 0 / 1 | `weather=rain`, `rain_fx`, a rally race |
 | `traffic_spray` | 0 | 0 | 0..1 (the traffic's and the police's rain spray is a short wisp, not the long plume; the player's and the rivals' keep theirs; 0 the exe's) | none | `TNFS_TRAFFIC_SPRAY` | 0 / 0 / 0 | `weather=rain`, `rain_fx` |
 | `headlight_cone` | 0 | 0 | 0, 1 (the car's own beam is a cone from its position and heading: it follows the nose, the turns and a U-turn, with no jump at section boundaries; 0 the pool along the track's nodes) | none | `TNFS_HEADLIGHT_CONE` | 0 / 0 / 1 | `headlight_beams`, `perspective` (without Perspective Correction the cone counts as 0: the node pool) |
 | `rain_fx` | 0 | 0 | 0, 1 (rain streaks by speed and light) | none | `TNFS_RAIN_FX` | 0 / 0 / 1 | `weather=rain` |
@@ -110,7 +110,7 @@ The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_tim
 | `rally_spray` | 0 | 0 | 0, 1 (in a rally with rain_fx, in rain or snow, every car, the player's too, throws the rain spray tinted by the road under it: grey on gravel, brown on dirt, white on snow; the dust is not drawn over it; 0 as before) | none | `TNFS_RALLY_SPRAY` | 0 / 0 / 1 | none |
 | `spray_cd_smoke` | 0 | 0 | 0, 1, 2 (2: as 1 but the dry dust is the CD's gravel puffs (dir1..4) tinted by the road, and the mud by the wheel too, in place of the cloud and the droplets; 1: the spray and the dust of every car are the CD's smoke sprite, drawn additively and more transparent, tinted by the surface: white on water and snow, the road's brown on mud, beige on dust; water and mud add a few fine droplets stretched along the spray, the mud's darker; dry dust is the cloud only; 0 as before) | none | `TNFS_SPRAY_CD_SMOKE` | 0 / 0 / 1 | none |
 | `trail_rise` | 0 | 0 | 0, 1 (the water spray and the dust of every car rise with their age behind it, up to about a car's height, thinning as they go, as particles in suspension drift up; 0 as before) | none | `TNFS_TRAIL_RISE` | 0 / 0 / 0 | none |
-| `snow_fx` | 0 | 0 | 0, 1 (with snow_weather, the falling snow: soft round flakes, a little less regular, leaning away from the vanishing point with the car's speed at a smaller angle than the rain's streaks, the snowstorm's wind swinging from one side to the other over about a minute, and whiter, rarer marks on the lens; 0 as before) | none | `TNFS_SNOW_FX` | 0 / 0 / 0 | none |
+| `snow_fx` | 0 | 0 | 0, 1 (with snow_weather, the falling snow: soft round flakes, a little less regular, leaning away from the vanishing point with the car's speed at a smaller angle than the rain's streaks, the snowstorm's wind swinging from one side to the other over about a minute, and whiter, rarer marks on the lens; 0 as before) | none | `TNFS_SNOW_FX` | 0 / 0 / 1 | none |
 | `lamp_halos` | 0 | 0 | 0, 1 (at night, the street lamps get the same soft dithered halo as the brake lights and the tunnel lamps: found as the blobs of the lamp boards' emissive entries after the 3D, only where a lamp's own sprite was drawn, the nearest or largest few; the lit windows and the traffic signs the reflectors light never; 0 as before) | none | `TNFS_LAMP_HALOS` | 0 / 0 / 1 | none |
 0 | none | `TNFS_LAMP_HALOS` | 0 / 0 / 0 | none |
 | `wipers` | 0 | 0 | 0, 1 (in the dash view, in rain, storm and snow, two wiper blades sweep the glass, at a pace that follows what falls (rain and snow 1.8 s a cycle, the storm 1.3 s), and park when the cycle is done; each pass clears the lens drops and the snow's marks it crosses; a dash whose art draws wiper blades (the P911's, a red `dash_mask.png` colour) shows them only when the wipers are off; needs the wide path (a wide format or render_scale above 1); 0 as before) | none | `TNFS_WIPERS` | 0 / 0 / 1 | none |
@@ -268,8 +268,8 @@ All 90 columns of the table. A column that is not here is not touched by any pro
 | `track_light_lamp` | settings | 0 | 0 | 1 |
 | `rain_tyre_roll` | settings | 0 | 0 | 1 |
 | `snow_weather` | settings | 0 | 0 | 1 |
-| `traffic_halo` | settings | 0 | 0 | 0 |
-| `rally_dry_lamps` | settings | 0 | 0 | 0 |
+| `traffic_halo` | settings | 0 | 0 | 1 |
+| `rally_dry_lamps` | settings | 0 | 0 | 1 |
 | `traffic_spray` | settings | 0 | 0 | 0 |
 | `reverse_rows` | settings | 0 | 0 | 1 |
 | `city_lift` | settings | 0 | 0 | 3 |
@@ -284,7 +284,7 @@ All 90 columns of the table. A column that is not here is not touched by any pro
 | `rally_spray` | settings | 0 | 0 | 1 |
 | `spray_cd_smoke` | settings | 0 | 0 | 1 |
 | `trail_rise` | settings | 0 | 0 | 0 |
-| `snow_fx` | settings | 0 | 0 | 0 |
+| `snow_fx` | settings | 0 | 0 | 1 |
 | `lamp_halos` | settings | 0 | 0 | 1 |
 | `wipers` | settings | 0 | 0 | 1 |
 | `water_mist` | settings | 0 | 0 | 2 |

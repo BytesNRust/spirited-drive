@@ -121,6 +121,9 @@ static void test_tables(void)
     CHECK_EQ_INT(s.rally_spray, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.trail_rise, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.snow_fx, 0);   /* off in every profile until the owner approves it */
+    CHECK_EQ_INT(s.traffic_halo, 0);   /* Restomod's only */
+    CHECK_EQ_INT(s.rally_dry_lamps, 0);   /* Restomod's only */
+    CHECK_EQ_INT(s.traffic_spray, 0);
     CHECK_EQ_INT(s.lamp_halos, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.spray_cd_smoke, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.wipers, 0);   /* Stock keeps the exe's */
@@ -160,6 +163,9 @@ static void test_tables(void)
     CHECK_EQ_INT(s.rally_spray, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.trail_rise, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.snow_fx, 0);   /* off in every profile until the owner approves it */
+    CHECK_EQ_INT(s.traffic_halo, 0);   /* Restomod's only */
+    CHECK_EQ_INT(s.rally_dry_lamps, 0);   /* Restomod's only */
+    CHECK_EQ_INT(s.traffic_spray, 0);
     CHECK_EQ_INT(s.lamp_halos, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.spray_cd_smoke, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.wipers, 0);   /* Restored keeps the exe's */
@@ -200,6 +206,10 @@ static void test_tables(void)
     CHECK_EQ_INT(s.rain_grip, 1);   /* the owner: less grip in the rain is Restomod's default */
     CHECK_EQ_INT(s.gauge_light, 5);   /* the owner: the dash's own colours ("Car") are Restomod's default; orange where the car paints none */
     CHECK_EQ_INT(s.police_halo, 1);   /* the owner: one size under the 2 he tried */
+    CHECK_EQ_INT(s.traffic_halo, 1);      /* the owner: the traffic's lit headlights keep their halo at night, as the racers' do */
+    CHECK_EQ_INT(s.rally_dry_lamps, 1);   /* the owner (2026-11-06): no lamp reflections on a rally's dirt in the rain */
+    CHECK_EQ_INT(s.snow_fx, 1);           /* the owner (2026-11-08): "nieve bien" */
+    CHECK_EQ_INT(s.traffic_spray, 0);     /* dead under spray_v4 (on here): rain_spray's wisp is not run, so it stays 0 */
     CHECK_EQ_INT(s.rain_v2, 1);   /* the owner: the lighter rain, the storm's thunder, the carriageway reflections */
     CHECK_EQ_INT(s.track_light_lamp, 1);   /* the lamp lines of the track light files */
     CHECK_EQ_INT(s.rain_tyre_roll, 1);     /* the wet-tyre roll in the rain */
@@ -208,7 +218,6 @@ static void test_tables(void)
     CHECK_EQ_INT(s.handbrake_lamps, 1);   /* Restomod: the handbrake never lights the brake lamps */
     CHECK_EQ_INT(s.rally_spray, 1);   /* on in Restomod (owner 2026-11-08): every car throws the tinted trail in a rally */
     CHECK_EQ_INT(s.trail_rise, 0);   /* off in every profile until the owner approves it */
-    CHECK_EQ_INT(s.snow_fx, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.lamp_halos, 1);   /* on in Restomod (owner 2026-11-08): the street lamps' halo; Stock and Restored keep 0 */
     CHECK_EQ_INT(s.spray_cd_smoke, 1);   /* on in Restomod (owner 2026-11-08): the CD smoke variant, not 2 */
     CHECK_EQ_INT(s.wipers, 1);   /* on in Restomod (owner 2026-11-08) */
