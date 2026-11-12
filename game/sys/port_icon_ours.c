@@ -93,3 +93,12 @@ void port_icon_ours_free(PortIconImage *images, int count)
         images[i].rgba = NULL;
     }
 }
+
+int port_icon_sets_window(void)
+{
+#ifdef __APPLE__
+    return 0;
+#else
+    return 1;
+#endif
+}

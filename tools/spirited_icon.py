@@ -5,7 +5,8 @@ table in front of you, over the red of the 1996 title screen. The small sizes sh
 
     tools/spirited_icon.py [--out data/icon] [--only SIZE]
 
-Writes spirited_<size>.png for every size, spirited.ico (Windows) and tnfs.icns (macOS, the name the packaging looks for). Needs Pillow and rsvg-convert. The same input always gives the same files.
+Writes spirited_<size>.png for every size, spirited.ico (Windows) and tnfs.icns (macOS, the name the packaging looks for;
+its pictures sit on Apple's icon grid, with margin and shadow, so the icon is the size of the others in the Dock). Needs Pillow and rsvg-convert. The same input always gives the same files.
 """
 import argparse
 import io
@@ -185,6 +186,27 @@ def scene_small():
     return framed(thick(on_table(flat(at(keys(), 32, 30, -14, 1.28, 35, 34), "-10 -10 84 84"), .16, .98, .12), 5, (20, 12, 8)))
 
 
+def pixelate(scene, drawn, finish_size):
+    """The scene at `drawn` pixels with the grain and short palette FINISH gives `finish_size`."""
+    colours, speck = FINISH[finish_size]
+    im = scene.resize((drawn, drawn), Image.Resampling.LANCZOS)
+    px = im.load()
+    for y in range(drawn):
+        for x in range(drawn):
+            n = grain(x, y) * speck
+            px[x, y] = tuple(max(0, min(255, round(v + n))) for v in px[x, y])
+    return im.quantize(colours, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.FLOYDSTEINBERG).convert("RGBA")
+
+
+def round_off(im, radius):
+    """Corners cut with a hard edge, `radius` a fraction of the side."""
+    side = im.width
+    mask = Image.new("L", (side * 4, side * 4), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, side * 4 - 1, side * 4 - 1), radius=side * 4 * radius, fill=255)
+    im.putalpha(mask.resize((side, side), Image.Resampling.LANCZOS).point(lambda v: 255 if v >= 128 else 0))
+    return im
+
+
 def finish(scene, size):
     """1996: the game's resolution, grain, a short palette, hard pixels; the corners rounded off."""
     if size == 16:
@@ -192,26 +214,40 @@ def finish(scene, size):
         im.putdata([INKS_16[c] + (255,) for row in PIXELS_16 for c in row])
         return im
     drawn = min(size, GRID)
-    colours, speck = FINISH[drawn]
-    im = scene.resize((drawn, drawn), Image.Resampling.LANCZOS)
-    px = im.load()
-    for y in range(drawn):
-        for x in range(drawn):
-            n = grain(x, y) * speck
-            px[x, y] = tuple(max(0, min(255, round(v + n))) for v in px[x, y])
-    im = im.quantize(colours, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.FLOYDSTEINBERG).convert("RGBA")
+    im = pixelate(scene, drawn, drawn)
     if drawn >= 48:
-        mask = Image.new("L", (drawn * 4, drawn * 4), 0)
-        ImageDraw.Draw(mask).rounded_rectangle((0, 0, drawn * 4 - 1, drawn * 4 - 1), radius=drawn * 4 * .14, fill=255)
-        im.putalpha(mask.resize((drawn, drawn), Image.Resampling.LANCZOS).point(lambda v: 255 if v >= 128 else 0))
+        im = round_off(im, .14)
     return im.resize((size, size), Image.Resampling.NEAREST)
 
 
-def pack(made, out):
-    """The same pictures as Windows and macOS want them: one .ico, one .icns."""
+# macOS (Big Sur and later) puts every app icon on one grid: on a 1024 canvas, an 824 x 824 rounded body, centred, so
+# 100 px of margin, corners of about 185 px, and a soft shadow under it (about 28 px of blur, 10 px down, half black).
+MAC_BODY = 824 / 1024
+MAC_RADIUS = 185 / 824
+MAC_SHADOW = (28 / 1024, 10 / 1024, 128)   # blur and drop as fractions of the canvas, alpha
+MAC_DRAWN = 103                            # the body's pixels at 128 and above: 824 = 8 x 103, so they stay whole
+
+
+def mac_icon(scene, size):
+    """The icon as macOS shows it: the body on Apple's grid, with its margin and shadow, at `size`."""
+    body = round(size * MAC_BODY)
+    margin = (size - body) // 2
+    drawn = min(body, MAC_DRAWN)
+    look = min(FINISH, key=lambda k: abs(k - drawn))
+    im = round_off(pixelate(scene, drawn, look), MAC_RADIUS).resize((body, body), Image.Resampling.NEAREST)
+    blur, drop, alpha = MAC_SHADOW
+    shade = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    shade.paste((0, 0, 0, alpha), (margin, margin + round(size * drop)), im.split()[3])
+    out = shade.filter(ImageFilter.GaussianBlur(size * blur / 2))
+    out.alpha_composite(im, (margin, margin))
+    return out
+
+
+def pack(made, mac, out):
+    """The same pictures as Windows and macOS want them: one .ico, and one .icns on Apple's grid."""
     ico = [made[n] for n in (16, 32, 48, 256)]
     ico[-1].save(out / "spirited.ico", format="ICO", sizes=[im.size for im in ico], append_images=ico[:-1])
-    icns = [made[n] for n in (16, 32, 64, 128, 256, 512, 1024)]
+    icns = [mac[n] for n in (16, 32, 64, 128, 256, 512, 1024)]
     icns[-1].save(out / "tnfs.icns", format="ICNS", append_images=icns[:-1])
     print(out / "spirited.ico")
     print(out / "tnfs.icns")
@@ -233,7 +269,8 @@ def main(argv):
         made[size].save(path, optimize=True)
         print(path)
     if not args.only:
-        pack(made, args.out)
+        mac = {n: mac_icon(scenes["small" if n in SMALL else "large"], n) for n in (16, 32, 64, 128, 256, 512, 1024)}
+        pack(made, mac, args.out)
     return 0
 
 
