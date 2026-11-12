@@ -31,6 +31,7 @@
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_old_files.h"
+#include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/port_stats.h"
 #include "game/sys/port_icon.h"
@@ -207,6 +208,16 @@ static int run_drive(const Options *opt)
     drive_variants(opt->drive, &variant_m, &variant_r);
     glue_drive_race(track, race_sim_track_variant(opt->drive), opt->car,
                     opt->race_type >= 0 ? opt->race_type : FULL_FIELD, variant_m, variant_r);
+#ifdef TNFS_SOURCE_DIR   /* development builds only: TNFS_DRIVE_AGAIN=stock|restored|restomod races once more after that mode is made the one in use, as Game Mode's Yes does
+                          * (port_profile_select): a change of mode with no restart, headless (tests/live_mode_switch_race.cmake) */
+    const char *const again = getenv("TNFS_DRIVE_AGAIN");
+    const int again_mode = again != NULL ? port_profile_named(again) : -1;
+    if (again_mode >= 0 && port_profile_select(again_mode)) {
+        port_log("mark:mode=%s\n", again);
+        glue_drive_race(track, race_sim_track_variant(opt->drive), opt->car,
+                        opt->race_type >= 0 ? opt->race_type : FULL_FIELD, variant_m, variant_r);
+    }
+#endif
     menu_audio_close();
     text_free();
     pointer_free();

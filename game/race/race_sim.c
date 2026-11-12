@@ -462,6 +462,8 @@ static void (*tick_hook)(const RaceState *race);
 
 void race_sim_set_tick_hook(void (*hook)(const RaceState *race)) { tick_hook = hook; }
 
+void (*race_sim_tick_hook(void))(const RaceState *race) { return tick_hook; }
+
 static void sim_tick(void *ctx)
 {
     static const RaceTickOps ops = { NULL, sim_replay, sim_controller, sim_window, sim_window_set, sim_finish,
