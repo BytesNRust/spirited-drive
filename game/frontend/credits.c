@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-enum { PAGES = 5, ALL = 0x100, PAGE_TICKS = 2000 };
+enum { PAGES = 5, ALL = 0x100, PAGE_TICKS = CREDITS_PAGE_TICKS };
 enum { SPACE = 0x20, ENTER = 0xd, ESCAPE = 0x1b, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 
 /* one page: Escape, the right button or 0050a5b6 leave (1); Space, Enter, the left button or the time go on (0) */
@@ -19,6 +19,7 @@ static int page(int16_t n, const uint8_t *rgb, int32_t bank, int *released, cons
     o->flip(o->ctx);
     o->fade_in(o->ctx, 0, ALL, rgb);
     *st->idle = 0;
+    if (st->port_buttons_per_page) *released = 0;   /* port: a click is one page (credits.h) */
     for (;;) {
         o->music(o->ctx);
         if (*st->pointer_active) *st->buttons = (int16_t)o->pointer_read(o->ctx);

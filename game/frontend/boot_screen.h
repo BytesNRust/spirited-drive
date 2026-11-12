@@ -5,11 +5,14 @@
 #ifndef TNFS_BOOT_SCREEN_H
 #define TNFS_BOOT_SCREEN_H
 
+#include "game/frontend/screen_hold.h"
+
 enum {
     BOOT_LINES_MAX = 8,
     BOOT_LINE_CHARS = 96,
     /* the banner (data/logo/spirited_logo.png, RGBA, drawn 1:1): where it goes and the size it must have */
-    BOOT_BANNER_X = 30, BOOT_BANNER_Y = 150, BOOT_BANNER_W = 580, BOOT_BANNER_H = 140
+    BOOT_BANNER_X = 30, BOOT_BANNER_Y = 150, BOOT_BANNER_W = 580, BOOT_BANNER_H = 140,
+    BOOT_HOLD_TICKS = 500   /* how long it stays between its fades, on the timer (100 a second): five seconds */
 };
 
 typedef enum {
@@ -30,7 +33,11 @@ typedef struct {
  * among them; the drawing leaves it out when it has the banner. */
 int boot_screen_lines(const char *version, BootLine out[BOOT_LINES_MAX]);
 
-/* port (boot_screen_glue.c): shows it, fades in and out, about 3 seconds, any key or click ends it early. Once per run: later calls do nothing. */
+/* What skips it: any key held (`key`), any of the pointer's buttons, any button of a pad; each a press of its own (screen_hold.h). */
+void boot_screen_sources(int key, int buttons, int pad, HoldSource out[HOLD_SOURCES]);
+
+/* port (boot_screen_glue.c): shows it, fades in and out, BOOT_HOLD_TICKS between; any key, click or pad button ends it early. Once per run: later
+ * calls do nothing. */
 void boot_screen_show(void);
 
 #endif

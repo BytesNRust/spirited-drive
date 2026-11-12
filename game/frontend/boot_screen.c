@@ -30,3 +30,10 @@ int boot_screen_lines(const char *version, BootLine out[BOOT_LINES_MAX])
     }
     return n;
 }
+
+void boot_screen_sources(int key, int buttons, int pad, HoldSource out[HOLD_SOURCES])
+{
+    out[HOLD_KEYS] = (HoldSource){ key != 0, HOLD_NEXT };
+    out[HOLD_BUTTONS] = (HoldSource){ buttons != 0, HOLD_NEXT };
+    out[HOLD_PAD] = (HoldSource){ pad != 0, HOLD_NEXT };
+}

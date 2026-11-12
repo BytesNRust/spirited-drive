@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* port: draws our credits pages (credits_pages.h) over the credits' relief without its text (credits_relief.h), composed once per run from the player's CD:
- * each page faded in, held until a key or a click (or about 12 seconds), faded out. Over black when the relief cannot be composed. */
+ * each page faded in, held as the original pages are (CREDITS_OURS_PAGE_TICKS on the timer, or a press of its own: credits_pages_sources), faded out.
+ * Over black when the relief cannot be composed. */
 #include "game/frontend/credits_pages.h"
 
 #include "formats/fsh.h"
@@ -13,12 +14,13 @@
 #include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
+#include "game/sys/timer.h"
 #include "game/sys/video.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-enum { SCREEN_W = 640, SCREEN_H = 480, PALETTE_COLOURS = 256, PAGE_FRAMES = 300, RAMP = 128 };   /* video runs at 25 frames a second: 12 s a page */
+enum { SCREEN_W = 640, SCREEN_H = 480, PALETTE_COLOURS = 256, RAMP = 128 };
 
 static uint8_t *relief;   /* SCREEN_W x SCREEN_H, NULL when it could not be composed */
 static uint8_t relief_pal[768];
@@ -113,13 +115,27 @@ static void draw_item(const CreditsItem *it)
     text_draw_smooth(it->text, it->cx - text_width_scaled(it->text, num, den) / 2, it->y, num, den);
 }
 
-static int skipped(void)
+/* held CREDITS_OURS_PAGE_TICKS or until a press of its own moves it on; HOLD_NEXT or HOLD_LEAVE */
+static HoldStep hold(int page, void (*tick)(void))
 {
-    input_pump();
-    return input_next_char() != 0 || pointer_read_buttons() != 0;
+    const uint32_t start = timer_ticks();
+    ScreenHold h = screen_hold_start(start, CREDITS_OURS_PAGE_TICKS);
+    for (;;) {
+        if (tick != NULL) tick();
+        HoldSource src[HOLD_SOURCES];
+        const int32_t key = input_get_key();   /* first: it pumps the events the pointer's buttons are read from */
+        credits_pages_sources(key, pointer_read_buttons(), input_menu_button(), src);
+        const uint32_t now = timer_ticks();
+        const HoldStep step = screen_hold_step(&h, now, src);
+        if (step != HOLD_STAY) {
+            port_log("mark:hold screen=credits_ours page=%d ticks=%u\n", page, (unsigned)(now - start));   /* port: what a headless walk measures */
+            return step;
+        }
+        video_wait_vblank();
+    }
 }
 
-static void show_page(const CreditsItem *items, int n, void (*tick)(void))
+static HoldStep show_page(int page, const CreditsItem *items, int n, void (*tick)(void))
 {
     uint8_t rgb[768], black[768] = { 0 };
     if (relief != NULL)
@@ -138,14 +154,12 @@ static void show_page(const CreditsItem *items, int n, void (*tick)(void))
     for (int i = 0; i < n; i++) draw_item(&items[i]);
     video_flip();
     video_fade_in(0, PALETTE_COLOURS, rgb);
-    for (int frame = 0; frame < PAGE_FRAMES && !skipped(); frame++) {
-        if (tick != NULL) tick();
-        video_wait_vblank();
-    }
+    const HoldStep step = hold(page, tick);
     video_fade_out(0, PALETTE_COLOURS);
     ea_select_default();
     video_clear_back();
     video_flip();
+    return step;
 }
 
 void credits_pages_show(const char *version, void (*tick)(void))
@@ -155,6 +169,6 @@ void credits_pages_show(const char *version, void (*tick)(void))
     CreditsItem items[CREDITS_ITEMS_MAX];
     for (int page = 0; page < CREDITS_PAGES; page++) {
         const int n = credits_page(page, version, items);
-        if (n > 0) show_page(items, n, tick);
+        if (n > 0 && show_page(page, items, n, tick) == HOLD_LEAVE) break;
     }
 }

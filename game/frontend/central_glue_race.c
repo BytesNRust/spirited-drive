@@ -120,14 +120,21 @@ static void credits_extra(void *ctx)
     credits_pages_show(TNFS_VERSION, credits_service);
 }
 
+/* 00463e7c for 004166e0: a page's fade in, its time in the log (port: what a headless walk measures the pages by) */
+static void credits_fade_in(void *ctx, int32_t first, int32_t count, const uint8_t *rgb)
+{
+    port_log("mark:credits_page at=%u\n", (unsigned)timer_ticks());
+    fade_in(ctx, first, count, rgb);
+}
+
 /* 004166e0 from Options */
 void cg_credits(void *ctx, int32_t mode)
 {
     (void)mode;
     const CreditsOps ops = { load_art, shape, cg_palette_set, music_feed, select_picture, blit, select_default,
-                             picture_shape, blit_at, nothing, flip, fade_in, cg_credits_tick, read_buttons, cg_key, fade_out,
+                             picture_shape, blit_at, nothing, flip, credits_fade_in, cg_credits_tick, read_buttons, cg_key, fade_out,
                              free_handle_inverse, music_fade_out, music_end, free_bank, mark, ctx, credits_extra };
-    const CreditsState st = { ea_screen_slot(), pointer_active_word(), &cg_g.buttons, stage_word(), &cg_credits_idle };
+    const CreditsState st = { ea_screen_slot(), pointer_active_word(), &cg_g.buttons, stage_word(), &cg_credits_idle, 1 };
     cg_credits_last = timer_ticks();
     credits_show(&st, &ops);
 }

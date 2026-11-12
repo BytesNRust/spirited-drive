@@ -4,7 +4,8 @@
 
 #include <stdint.h>
 
-enum { CREDITS_PALETTE = 0x300 }; /* 004166e0's palette on its stack */
+enum { CREDITS_PALETTE = 0x300,  /* 004166e0's palette on its stack */
+       CREDITS_PAGE_TICKS = 2000 }; /* a page's time on 004bb8dc: 20 seconds */
 
 typedef struct CreditsOps {
     int32_t (*load_art)(void *ctx, const char *name);                        /* 00466c34: eax the name; the bank */
@@ -41,13 +42,18 @@ typedef struct CreditsState {
     int16_t *buttons;               /* the short 00524792 */
     const int16_t *quit;            /* the short 0050a5b6: 1 leaves */
     int32_t *idle;                  /* 004bb8dc: counted up by the timer (0043b9e8), 100 a second */
+    /* port, last so the original's initializers leave it 0 (as the exe): 1, each page counts the buttons only once it has seen them up. The port
+     * reads the pointer before it pumps the events and nothing pumps them during the fades, so the click that left a page was read again, still
+     * down, on the next: one click went two pages. */
+    int32_t port_buttons_per_page;
 } CreditsState;
 
 /* 004166e0 (all registers kept; options passes eax 0, unused): credits.fsh's
  * pages bgn1..bgn5 drawn and faded in one after another; Space, Enter, the
  * left button or 2000 ticks of 004bb8dc go on to the next, Escape, the right
  * button or 0050a5b6 == 1 leave. The buttons count only once they have been
- * seen up, and stay counted for the pages after. */
+ * seen up, and stay counted for the pages after (port_buttons_per_page: seen up
+ * on each page). */
 void credits_show(const CreditsState *st, const CreditsOps *ops);
 
 #endif

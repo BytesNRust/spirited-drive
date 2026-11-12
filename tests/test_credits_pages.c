@@ -1,5 +1,8 @@
 /* Our credits pages: the homage and ours, the words the owner approved (i030), where they stand, and that they fit. */
 #include "game/frontend/credits_pages.h"
+#include "game/frontend/credits.h"
+#include "game/sys/input.h"
+#include "game/sys/pointer.h"
 #include "test.h"
 
 #include <string.h>
@@ -90,8 +93,28 @@ static void only_two_pages_and_everything_on_screen(void)
     }
 }
 
+/* the owner: our pages went by on their own in under a second each; they stay as the original five do (credits.h: 2000 ticks) and take the
+ * same keys and buttons: Space, Enter, the left button and the pad's first button the next page, Escape, the right button and the pad's second
+ * leave */
+static void our_pages_stay_and_move_on_as_the_originals(void)
+{
+    CHECK_EQ_INT(CREDITS_OURS_PAGE_TICKS, CREDITS_PAGE_TICKS);
+    HoldSource s[HOLD_SOURCES];
+    static const struct { int32_t key, buttons, pad; int source; HoldStep step; } CASES[] = {
+        { KEY_SPACE, 0, 0, HOLD_KEYS, HOLD_NEXT },   { KEY_ENTER, 0, 0, HOLD_KEYS, HOLD_NEXT },   { KEY_ESCAPE, 0, 0, HOLD_KEYS, HOLD_LEAVE },
+        { KEY_UP, 0, 0, HOLD_KEYS, HOLD_STAY },      { 0, POINTER_BUTTON_SELECT, 0, HOLD_BUTTONS, HOLD_NEXT },
+        { 0, POINTER_BUTTON_BACK, 0, HOLD_BUTTONS, HOLD_LEAVE }, { 0, 0, KEY_SPACE, HOLD_PAD, HOLD_NEXT }, { 0, 0, KEY_ESCAPE, HOLD_PAD, HOLD_LEAVE } };
+    for (size_t i = 0; i < sizeof CASES / sizeof CASES[0]; i++) {
+        credits_pages_sources(CASES[i].key, CASES[i].buttons, CASES[i].pad, s);
+        CHECK(s[CASES[i].source].down);
+        CHECK_EQ_INT(s[CASES[i].source].press, CASES[i].step);
+        for (int k = 0; k < HOLD_SOURCES; k++) CHECK(k == CASES[i].source || !s[k].down);
+    }
+}
+
 int main(void)
 {
+    our_pages_stay_and_move_on_as_the_originals();
     the_homage_is_the_owners_words();
     ours_is_set_in_two_columns();
     the_version_line_is_optional();
