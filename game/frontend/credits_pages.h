@@ -5,7 +5,13 @@
 #ifndef TNFS_CREDITS_PAGES_H
 #define TNFS_CREDITS_PAGES_H
 
-enum { CREDITS_PAGES = 2, CREDITS_ITEMS_MAX = 24, CREDITS_ITEM_CHARS = 80, CREDITS_COLUMN_W = 196 };
+#include "game/frontend/credits.h"
+#include "game/frontend/screen_hold.h"
+
+#include <stdint.h>
+
+enum { CREDITS_PAGES = 2, CREDITS_ITEMS_MAX = 24, CREDITS_ITEM_CHARS = 80, CREDITS_COLUMN_W = 196,
+       CREDITS_OURS_PAGE_TICKS = CREDITS_PAGE_TICKS };   /* a page stays as long as one of the original five, 20 seconds */
 
 typedef enum {
     CREDITS_BIG,      /* graver18 at twice its size: the homage's two lines */
@@ -28,8 +34,13 @@ typedef struct {
 /* page (from 0) for `version` (NULL or empty: no version line) into out; the item count, 0 when there is no such page */
 int credits_page(int page, const char *version, CreditsItem out[CREDITS_ITEMS_MAX]);
 
-/* port (credits_pages_glue.c): shows the pages one after another, each faded in and out, until a key or a click (or about 12 seconds); `tick` (may be NULL)
- * is called every frame, for the credits' music. Over the relief when it can be composed, over black when it cannot. */
+/* What moves a page on, as on the original five: `key` (00464bd0's, input.h) Space or Enter, the left button, the pad's first button (`pad`, the
+ * menus' key for it) the next page; Escape, the right button, the pad's second leave the rest. Each a press of its own (screen_hold.h). */
+void credits_pages_sources(int32_t key, int32_t buttons, int32_t pad, HoldSource out[HOLD_SOURCES]);
+
+/* port (credits_pages_glue.c): shows the pages one after another, each faded in and out, held CREDITS_OURS_PAGE_TICKS or until a press moves it on
+ * (credits_pages_sources); `tick` (may be NULL) is called every frame, for the credits' music. Over the relief when it can be composed, over black when
+ * it cannot. */
 void credits_pages_show(const char *version, void (*tick)(void));
 
 #endif

@@ -2,6 +2,8 @@
 /* port: see credits_pages.h. The positions are the owner's approved mockups' (i030). */
 #include "game/frontend/credits_pages.h"
 #include "game/sys/game_name.h"
+#include "game/sys/input.h"
+#include "game/sys/pointer.h"
 
 #include <stdio.h>
 
@@ -76,4 +78,16 @@ int credits_page(int page, const char *version, CreditsItem out[CREDITS_ITEMS_MA
     else if (page == 1)
         ours(&p, version);
     return p.n;
+}
+
+static HoldStep key_step(int32_t key)
+{
+    return key == KEY_SPACE || key == KEY_ENTER ? HOLD_NEXT : key == KEY_ESCAPE ? HOLD_LEAVE : HOLD_STAY;
+}
+
+void credits_pages_sources(int32_t key, int32_t buttons, int32_t pad, HoldSource out[HOLD_SOURCES])
+{
+    out[HOLD_KEYS] = (HoldSource){ key != 0, key_step(key) };
+    out[HOLD_BUTTONS] = (HoldSource){ buttons != 0, buttons == POINTER_BUTTON_SELECT ? HOLD_NEXT : buttons == POINTER_BUTTON_BACK ? HOLD_LEAVE : HOLD_STAY };
+    out[HOLD_PAD] = (HoldSource){ pad != 0, key_step(pad) };
 }

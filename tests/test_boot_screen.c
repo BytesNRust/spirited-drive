@@ -1,5 +1,6 @@
 /* The boot screen's words and places: who presents it, the game's name for when there is no banner, what it is, whose game it is, the version. */
 #include "game/frontend/boot_screen.h"
+#include "game/sys/pointer.h"
 #include "test.h"
 
 #include <string.h>
@@ -63,8 +64,36 @@ static void every_line_ends_and_fits(void)
     }
 }
 
+/* the owner: it went by too fast (a second); it stays five, and every key, the pointer's buttons and every button of a pad skip it */
+static void it_stays_five_seconds_and_anything_skips_it(void)
+{
+    CHECK_EQ_INT(BOOT_HOLD_TICKS, 500);
+    HoldSource s[HOLD_SOURCES];
+    boot_screen_sources(0, 0, 0, s);
+    CHECK(!s[HOLD_KEYS].down && !s[HOLD_BUTTONS].down && !s[HOLD_PAD].down);
+    boot_screen_sources(1, 0, 0, s);
+    CHECK(s[HOLD_KEYS].down && s[HOLD_KEYS].press == HOLD_NEXT);
+    boot_screen_sources(0, POINTER_BUTTON_BACK, 0, s);
+    CHECK(s[HOLD_BUTTONS].down && s[HOLD_BUTTONS].press == HOLD_NEXT);
+    boot_screen_sources(0, 0, 1, s);
+    CHECK(s[HOLD_PAD].down && s[HOLD_PAD].press == HOLD_NEXT);
+    /* a key still held from the movies does not skip it; a press of its own does */
+    ScreenHold h = screen_hold_start(0, BOOT_HOLD_TICKS);
+    boot_screen_sources(1, 0, 0, s);
+    CHECK_EQ_INT(screen_hold_step(&h, 10, s), HOLD_STAY);
+    boot_screen_sources(0, 0, 0, s);
+    CHECK_EQ_INT(screen_hold_step(&h, 20, s), HOLD_STAY);
+    CHECK_EQ_INT(screen_hold_step(&h, 30, s), HOLD_STAY);
+    boot_screen_sources(0, 0, 1, s);
+    CHECK_EQ_INT(screen_hold_step(&h, 40, s), HOLD_NEXT);
+    boot_screen_sources(0, 0, 0, s);
+    CHECK_EQ_INT(screen_hold_step(&h, 499, s), HOLD_STAY);
+    CHECK_EQ_INT(screen_hold_step(&h, 500, s), HOLD_NEXT);
+}
+
 int main(void)
 {
+    it_stays_five_seconds_and_anything_skips_it();
     says_what_it_is_and_whose_it_is();
     the_places_are_the_mockups();
     the_version_line_is_optional();

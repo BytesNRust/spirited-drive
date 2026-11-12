@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* port: draws the boot screen (boot_screen.h). The picture is made in RGB: the red relief rebuilt from the player's CD (boot_relief.h; black when it
  * cannot be), the banner (data/logo/spirited_logo.png, RGBA, its soft shadow included) laid over it; then quantised once to the palette's first entries
- * (boot_quant.h), the last ones kept for the text's colours, and the words drawn in the menus' font. A fade in, about 3 seconds, a fade out. */
+ * (boot_quant.h), the last ones kept for the text's colours, and the words drawn in the menus' font. A fade in, BOOT_HOLD_TICKS on the timer, a fade
+ * out; any key, click or pad button of its own (screen_hold.h) ends it early. */
 #include "game/frontend/boot_screen.h"
 
 #include "formats/png.h"
@@ -9,19 +10,22 @@
 #include "game/frontend/boot_relief.h"
 #include "game/frontend/ea_lib.h"
 #include "game/sys/art_cache.h"
+#include "game/sys/control_map.h"
 #include "game/sys/data_path.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_log.h"
 #include "game/sys/text.h"
+#include "game/sys/timer.h"
 #include "game/sys/video.h"
+#include "platform/platform.h"
 #include "tnfs_version.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-enum { SCREEN_W = 640, SCREEN_H = 480, HOLD_FRAMES = 60, PALETTE_COLOURS = 256, TEXT_COLOURS = 18, PRESENTS_GAP = 8 };   /* 25 frames a second */
+enum { SCREEN_W = 640, SCREEN_H = 480, PALETTE_COLOURS = 256, TEXT_COLOURS = 18, PRESENTS_GAP = 8, SCANCODES = 0x80 };
 
 /* the text's colours and their antialiasing ramps toward the red, kept out of the quantiser's reach (the approved mockup's) */
 static const uint8_t TEXT_RGB[TEXT_COLOURS][3] = {
@@ -170,10 +174,41 @@ static void draw(const BootLine *lines, int n, int banner)
     }
 }
 
-static int skipped(void)
+/* any key held now: 00464bd0's (it pumps the events) or any other, by its set-1 scancode (the extended ones by their BIOS numbers, platform.h) */
+static int any_key(void)
 {
-    input_pump();
-    return input_next_char() != 0 || pointer_read_buttons() != 0;
+    if (input_get_key() != 0) return 1;
+    for (int sc = 1; sc < SCANCODES; sc++)
+        if (platform_key_down(sc)) return 1;
+    return 0;
+}
+
+/* any button of any pad or wheel held now */
+static int any_pad_button(void)
+{
+    const int pads = platform_joy_count();
+    for (int d = 0; d < pads; d++) {
+        RawPad raw;
+        if (!platform_joy_raw(d, &raw)) continue;
+        for (int b = 0; b < raw.buttons && b < RAW_MAX_BUTTONS; b++)
+            if (raw.button[b]) return 1;
+    }
+    return 0;
+}
+
+/* held BOOT_HOLD_TICKS or until a press of its own; the ticks it stayed */
+static uint32_t hold(void)
+{
+    const uint32_t start = timer_ticks();
+    ScreenHold h = screen_hold_start(start, BOOT_HOLD_TICKS);
+    for (;;) {
+        HoldSource src[HOLD_SOURCES];
+        const int key = any_key();   /* first: it pumps the events the pointer's buttons are read from */
+        boot_screen_sources(key, pointer_read_buttons(), any_pad_button(), src);
+        const uint32_t now = timer_ticks();
+        if (screen_hold_step(&h, now, src) != HOLD_STAY) return now - start;
+        video_wait_vblank();
+    }
 }
 
 void boot_screen_show(void)
@@ -200,7 +235,7 @@ void boot_screen_show(void)
     draw(lines, n, banner);
     video_flip();
     video_fade_in(0, PALETTE_COLOURS, palette);
-    for (int frame = 0; frame < HOLD_FRAMES && !skipped(); frame++) video_wait_vblank();
+    port_log("mark:hold screen=boot ticks=%u\n", (unsigned)hold());   /* port: what a headless walk measures it by */
     video_fade_out(0, PALETTE_COLOURS);
     ea_select_default();
     video_clear_back();
