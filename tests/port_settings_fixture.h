@@ -125,6 +125,7 @@ static inline void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.vegas_car_night, b.vegas_car_night);
     CHECK_EQ_INT(a.rally_gravel_shoulder, b.rally_gravel_shoulder);
     CHECK_EQ_INT(a.chase_height, b.chase_height);
+    CHECK_EQ_INT(a.chase_steady, b.chase_steady);
     CHECK_EQ_INT(a.lamp_pool_tint, b.lamp_pool_tint);
     CHECK_EQ_INT(a.trans_shadows, b.trans_shadows);
     CHECK_EQ_INT(a.canyon_shade, b.canyon_shade);

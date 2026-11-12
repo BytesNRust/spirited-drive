@@ -91,6 +91,7 @@ struct RaceField {
     int port_rally_road;                /* port: RaceState's port_rally_road: the race is a rally (dirt) */
     int port_rally_shoulder_sound;      /* port: RaceState's port_rally_shoulder_sound for this race (port.cfg's rally_gravel_shoulder) */
     int port_chase_height;              /* port: RaceState's port_chase_height for this race (port.cfg's chase_height) */
+    int port_chase_steady;              /* port: RaceState's port_chase_steady for this race (port.cfg's chase_steady) */
     int mirrored;                       /* 004fbad8: the "m" tracks (SKCART), read in place by the race */
     int port_reverse;                   /* port: the track runs the other way round (tri_reverse.h); read by the grid at the start */
     /* 004571e8's showing, after each of its picks: picture 0..6 of the followed player's car (`user` the load's);

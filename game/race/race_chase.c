@@ -19,6 +19,7 @@ enum {
     KIND_PASSED_COP = 7,        /* slot 2's car just behind */
     KIND_REPLAY = 10,
     KIND_ALT = 8,               /* takes alt_target whatever the last kind */
+    STEADY_LIFT_STEPS = 8,      /* port (chase_steady): chase_height's lift reaches the eye an eighth a tick */
     CAMERA2 = 2,                /* 004b78e8 */
     LOOK_NODES = 12,            /* the road's direction from 12 nodes either side */
     NEAR_NODES = 0x10,          /* the eye jumps to the car beyond this many nodes */
@@ -344,6 +345,7 @@ static void take_view(RaceState *race, RaceChase *chase, int32_t kind, int recor
         (last < 4 || kind == KIND_ALT))
         memcpy(chase->target, row->alt_target, sizeof chase->target);
     memset(chase->turn, 0, sizeof chase->turn);
+    chase->port_height_held = 0;   /* port (chase_steady): the new view's eye starts where chase_height puts it */
     race_chase_tick(race, chase);
     if (chase->camera != NULL && chase->camera->view >= 0 && race->select_view != NULL)
         race->select_view(race->view_user, race->chase.camera, chase->camera->view, race->window_size);
@@ -463,6 +465,19 @@ static int32_t slope_lift(const RaceState *race, const RaceChase *chase, int32_t
     return race_chase_slope_lift(race_node(race, chase->car->node).slope, race_node(race, add(chase->car->node, 1)).slope, blend, rest, along);
 }
 
+/* port (chase_steady): chase_height's lift over the eye the exe would place, `wanted` this tick, as it reaches the eye: an
+ * eighth of the way a tick (a quarter of a second), so the slope's change comes through and the car's bounce does not */
+int32_t race_chase_steady_lift(RaceChase *chase, int32_t wanted)
+{
+    if (chase->port_height_held == 0) {
+        chase->port_height_held = 1;
+        chase->port_height_lift = wanted;
+    } else {
+        chase->port_height_lift = add(chase->port_height_lift, (int32_t)(((int64_t)wanted - chase->port_height_lift) / STEADY_LIFT_STEPS));
+    }
+    return chase->port_height_lift;
+}
+
 /* The eye is kept between the node's barriers. */
 static void inside_barriers(const RaceState *race, RaceChase *chase)
 {
@@ -556,7 +571,20 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
         int32_t eye_node = chase->node;
         point_find_node(at_eye, race, &eye_node);
         const int32_t eye_y = race_chase_look_back_y(race_chase_road_height(race, eye_node, at_eye), race_chase_road_height(race, car->node, at_car), chase->base->y, flat_y);
-        chase->offset[1] = sub(eye_y, chase->base->y);
+        if (race->port_chase_steady && chase->port_look_back == 0) {
+            /* port (chase_steady): the lift over the exe's eye follows the slope, not every bump, and is turned with the car as the
+             * exe's offset is, so the eye stays rigid with the car's pitch and roll and the car keeps its place in the picture */
+            const int32_t lift[3] = { 0, race_chase_steady_lift(chase, sub(eye_y, add(chase->base->y, chase->offset[1]))), 0 };
+            int32_t turned[3];
+            race_chase_unturn(lift, turned, row->mode == 3 ? a->pitch : 0, row->mode == 3 ? a->roll : 0, yaw);
+            for (int i = 0; i < 3; i++) chase->offset[i] = add(chase->offset[i], turned[i]);
+            chase->eye[0] = add(chase->base->x, chase->offset[0]);
+        } else {
+            chase->port_height_held = 0;
+            chase->offset[1] = sub(eye_y, chase->base->y);
+        }
+    } else {
+        chase->port_height_held = 0;
     }
     chase->eye[1] = add(chase->base->y, chase->offset[1]);
     chase->eye[2] = add(chase->base->z, chase->offset[2]);
@@ -579,6 +607,9 @@ static int follow_road(RaceState *race, RaceChase *chase, ChaseKind *row)
         (row->mode == 3 || row->mode == 4 || chase->kind == KIND_REPLAY || chase->kind == KIND_NO_ROAD)) {
         turn_yaw = chase->yaw;
     }
+    /* port (chase_steady): the chase rows keep the follow yaw as their heading, as the exe's keep theirs (the eye's own yaw), so the
+     * camera turns with the eye it is set from; aimed at a point ahead it swung with every roll that moves the eye sideways */
+    if (race->port_follow_camera && race->port_chase_steady && row->mode == 3) turn_yaw = road_yaw;
     /* the chase rows (mode 3) tilt with the car by a quarter more than it pitches, with or without the follow camera:
      * its look-at point at the car's height gave a different tilt on the crests and the dips (the camera sat lower) */
     if (row->mode == 3) pitch = mul(a->pitch, 5) / 4;

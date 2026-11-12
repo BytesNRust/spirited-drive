@@ -132,6 +132,7 @@ The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_tim
 | `gauge_wheel` | 0 | 0 | 0, 1 (at night the wheel in front of the gauges takes the dash's half tint) | none | `TNFS_GAUGE_WHEEL` | 0 / 0 / 1 |
 | `replay_no_ffb` | 0 | 0 | 0, 1 (a replay leaves the force-feedback stick and the pad's rumble still) | none | `TNFS_REPLAY_NO_FFB` | 0 / 0 / 1 |
 | `chase_height` | 0 | 0 | 0, 1 (the chase eye behind the car keeps the flat chase's height above the road on a climb or a descent; acts only with extras `follow_camera`) | none | `TNFS_CHASE_HEIGHT` | 0 / 0 / 1 |
+| `chase_steady` | 0 | 0 | 0, 1 (the chase eye holds the car still in the picture as it bounces: the chase views' heading is the follow yaw, not aimed at a point ahead from an eye the car's roll swings sideways, and `chase_height`'s lift reaches the eye an eighth a tick, turned with the car's pitch and roll; 0 the follow camera's as it was, the car jumping about the screen on a bumpy road; acts only with extras `follow_camera`) | none | `TNFS_CHASE_STEADY` | 0 / 0 / 1 |
 | `last_camera` | 0 | 0 (a race starts in the dash) | 0, 1 (a race starts in the last camera used) | none | `TNFS_LAST_CAMERA` | 0 / 0 / 1 |
 | `camera_kind` | -1 | -1 | -1 (none yet), 0..5 | none; the game writes it, read only with `last_camera` | none | not set |
 
@@ -201,7 +202,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 ## What each profile sets (`TABLES`)
 
-All 90 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
+All 91 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
 | column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
@@ -245,6 +246,7 @@ All 90 columns of the table. A column that is not here is not touched by any pro
 | `vegas_car_night` | settings | 0 | 0 | 1 |
 | `rally_gravel_shoulder` | settings | 0 | 0 | 1 |
 | `chase_height` | settings | 0 | 0 | 1 |
+| `chase_steady` | settings | 0 | 0 | 1 |
 | `lamp_pool_tint` | settings | 0 | 0 | 1 |
 | `trans_shadows` | settings | 0 | 0 | 1 |
 | `canyon_shade` | settings | 0 | 0 | 1 |

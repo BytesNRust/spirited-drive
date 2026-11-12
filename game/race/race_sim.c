@@ -282,6 +282,7 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     race->port_rally_road = field->port_rally_road;
     race->port_rally_shoulder_sound = field->port_rally_shoulder_sound;
     race->port_chase_height = field->port_chase_height;
+    race->port_chase_steady = field->port_chase_steady;
     race->race_type = field->race_type;
     race->racers = field->racers < 1 ? 1 : field->racers > RACE_PLAYERS ? RACE_PLAYERS : field->racers;
     race->cops = field->cops < 0 ? 0 : field->cops;

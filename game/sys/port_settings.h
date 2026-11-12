@@ -61,6 +61,7 @@ typedef struct {
                               * and no gravel strikes (those rang like drops); 0: as it was */
     int chase_height;        /* 1: with the mode's file's follow_camera, the chase eye behind the car keeps the flat chase's height above the road at the eye's own place on a climb or a
                               * descent (the exe's half lift left it low on climbs and high on descents); 0: as it was */
+    int chase_steady;        /* 1: with follow_camera, the chase eye holds the car still in the picture as it bounces: the chase views' heading is the follow yaw, not aimed from an eye the car's roll swings, and chase_height's lift reaches the eye smoothly, turned with the car; 0 the follow camera's as it was (the exe has no follow camera) */
     int lamp_pool_tint;      /* 1: with the night pools, the road under a street lamp takes a warm yellow tint, strongest under the lamp and fading with the pool (terrain_light_lamp_classes);
                               * 0: the pools only lift the light, as they did */
     int canyon_shade;        /* 1: with car_tunnel_light, the car is 30 % darker in Burnt Sienna's canyon (TR6, the property-16 stretch after the mine, nodes 547..585, where the walls
@@ -207,6 +208,8 @@ int port_vegas_car_night(void);
 int port_rally_gravel_shoulder(void);
 /* 1 when every chase eye keeps its height above the road (chase_height): TNFS_CHASE_HEIGHT=0/1 when set, else the mode's; acts only with follow_camera. */
 int port_chase_height(void);
+/* 1 when chase_steady: TNFS_CHASE_STEADY=0/1 when set, else the mode's; acts only with follow_camera. */
+int port_chase_steady(void);
 /* 1 when a street lamp's pool tints the road warm (lamp_pool_tint): TNFS_LAMP_POOL_TINT=0/1 when set, else the mode's; never without port_headlight_beams. */
 int port_lamp_pool_tint(void);
 /* 1 when Transtropolis' made light is corrected (trans_shadows): TNFS_TRANS_SHADOWS=0/1 when set, else the mode's; never without port_light_effects. */

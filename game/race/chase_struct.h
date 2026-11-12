@@ -77,6 +77,8 @@ typedef struct {
     int32_t port_look_fast;     /* the look back's quicker spring is on: while it is held and until the camera is back behind the car */
     int32_t port_look_swapped;  /* the look back took the interior view for the bumper's (race_look_back_view); the release gives it back */
     int32_t port_look_back;     /* port (port_follow_camera): the look back key is held: the camera's target is the car's heading turned half a turn */
+    int32_t port_height_lift;   /* port (chase_steady): chase_height's lift over the eye the exe would place, as it has reached the eye so far */
+    int32_t port_height_held;   /* port_height_lift is running: 0 after a view change and while chase_height is not acting */
 } RaceChase;
 
 #endif

@@ -449,6 +449,7 @@ typedef struct {
     int32_t port_rally_gravel;      /* port: RALLY_GRAVEL_* (rally_gravel.h), the rally's gravel noise and dust; 0 the exe's */
     int32_t port_rally_shoulder_sound;   /* port: with port_rally_gravel, the rolling car strikes the gravel sample as the shoulder does (race_sound.c), not the crunch's faster double strike; 0 the crunch */
     int32_t port_chase_height;      /* port: with port_follow_camera, the chase eye behind the car keeps the flat chase's height above the road at its own place on slopes (race_chase.c); 0 the exe's lift */
+    int32_t port_chase_steady;      /* port: with port_follow_camera, the chase eye holds the car still in the picture as it bounces: the heading is the follow yaw, not aimed from an eye the roll swings, and chase_height's lift reaches the eye smoothly (race_chase.c); 0 as the follow camera had it */
     int32_t port_follow_camera;     /* port: the experimental extra: every camera follows the car's heading (race_follow.h); 0 the exe's */
     int32_t port_follow_ring;       /* port: with port_follow_camera, the segment cache's ring is TRACK_CACHE_RECORDS_MAX records, not the exe's 64 (the arm behind keeps more); 0 the exe's */
     int32_t port_time_of_day;       /* port: 004fbae0[track], the menus' time of day (0..2) a replay's setup keeps */

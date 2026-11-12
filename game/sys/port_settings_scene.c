@@ -126,6 +126,13 @@ int port_chase_height(void)
     return port_settings_load().chase_height;
 }
 
+int port_chase_steady(void)
+{
+    const char *v = getenv("TNFS_CHASE_STEADY");
+    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
+    return port_settings_load().chase_steady;
+}
+
 int port_lamp_pool_tint(void)
 {
     if (!port_headlight_beams()) return 0;
