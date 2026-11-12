@@ -22,4 +22,8 @@ int port_icon_ours(PortIconImage out[PORT_ICON_SIZES]);
 
 void port_icon_ours_free(PortIconImage *images, int count);
 
+/* Whether the game sets a window icon at all: not on macOS, where it would replace the Dock icon while the game runs and these full-bleed pictures would show
+ * bigger than other apps'; there the bundle's .icns, drawn on Apple's icon grid, gives the Dock icon. */
+int port_icon_sets_window(void);
+
 #endif

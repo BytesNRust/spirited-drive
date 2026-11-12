@@ -35,6 +35,7 @@ static void apply_cd_icon(void)
 
 void port_icon_apply(void)
 {
+    if (!port_icon_sets_window()) return;   /* macOS: the bundle's .icns is the Dock icon */
     PortIconImage ours[PORT_ICON_SIZES];
     const int n = port_icon_ours(ours);
     if (n == 0) {

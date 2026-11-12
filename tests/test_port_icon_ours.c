@@ -91,8 +91,20 @@ static void test_a_mods_copy_first_and_bad_files_passed_over(void)
     port_icon_ours_free(icons, 1);
 }
 
+/* on macOS the window icon replaces the Dock icon while the game runs, and these full-bleed pictures would show bigger than every other app's: the bundle's
+ * .icns, on Apple's grid, already gives the Dock icon there */
+static void test_the_window_icon_left_to_the_bundle_on_macos(void)
+{
+#ifdef __APPLE__
+    CHECK_EQ_INT(port_icon_sets_window(), 0);
+#else
+    CHECK_EQ_INT(port_icon_sets_window(), 1);
+#endif
+}
+
 int main(void)
 {
+    test_the_window_icon_left_to_the_bundle_on_macos();
     snprintf(root, sizeof root, "%s", "/tmp/tnfs_test_icon.XXXXXX");
     if (mkdtemp(root) == NULL) {
         perror("mkdtemp");
