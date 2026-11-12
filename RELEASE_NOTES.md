@@ -4,7 +4,7 @@ You need your own copy of the game: the PC Special Edition CD, a folder with its
 
 ## Install
 
-1. Download `Spirited-Drive-0.9.0-beta.1-macos.dmg` below. One app for Apple Silicon and Intel, macOS 11 or later.
+1. Download `Spirited-Drive-0.9.0-macos.dmg` below. One app for Apple Silicon and Intel, macOS 11 or later.
 2. Open it and drag **Spirited Drive** to Applications.
 3. **The first time only**, macOS will say it cannot check the app: this beta is not notarized by Apple. Right-click the app, choose **Open**, then **Open** again. On recent macOS: try to open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
 4. On first start, point it at your game. It copies what it needs, and you can put the CD away.
