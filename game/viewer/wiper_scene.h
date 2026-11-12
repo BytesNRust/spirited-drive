@@ -17,6 +17,9 @@ void wiper_scene_glass_flags(const uint8_t *art, const uint8_t *mask, uint8_t *f
 #define WIPER_LEFT_SHARE 0.243f
 #define WIPER_RIGHT_SHARE 0.634f
 #define WIPER_LEN_SHARE 0.535f
+/* The pivots' distance either side of the steering wheel's middle, a share of the frame's height (the dash is drawn 1:1 at every width): the owner's marks on the CZR1's glass, 2026-11-12, about 127 of the
+ * dash's pixels each way. The shares of the glass above place the pair on a dash with no wheel. */
+#define WIPER_PIVOT_SHARE 0.265f
 
 /* The glass as the frame shows it, `width` columns by 480 rows into `map`: at 640 the layer's flags; wider, each pixel the layer's pixel the dash is drawn from there (screen_dash_x / screen_dash_y: its middle
  * as it is, its sides stretched, dropped by DASH_DROP), so the blades are placed and drawn on the glass the player sees. */
@@ -34,7 +37,14 @@ int wiper_scene_glass_row(const uint8_t *map, int width);
 /* How far (degrees, at most max_span) a blade turns from its park and stays on the glass. */
 float wiper_scene_blade_fit(const uint8_t *map, int width, const WiperBlade *b, float max_span);
 
-/* The pair of blades on a glass map `width` wide (its pixels) and how far they sweep (degrees). */
-void wiper_scene_measure(const uint8_t *map, int width, WiperBlade blades[WIPER_BLADES], float *span);
+/* The steering wheel's middle column on the 640 dash: the middle of the columns its frames reach in any pose (`zone`, wheel_front_zone's 640x480 flags); -1 when it reaches none. */
+float wiper_scene_wheel_x(const uint8_t *zone);
+
+/* The column of a frame `width` wide that shows the dash's column `dash_x` (of the dash's 1:1 middle, screen_dash_x): dash_x itself at 640. */
+float wiper_scene_frame_x(int width, float dash_x);
+
+/* The pair of blades on a glass map `width` wide (its pixels) and how far they sweep (degrees): the pivots WIPER_PIVOT_SHARE of the frame's height either side of `wheel_x` (the wheel's middle on the
+ * frame, wiper_scene_frame_x), or at the glass's shares when it is negative (no wheel). */
+void wiper_scene_measure(const uint8_t *map, int width, float wheel_x, WiperBlade blades[WIPER_BLADES], float *span);
 
 #endif

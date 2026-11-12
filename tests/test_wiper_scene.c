@@ -67,7 +67,7 @@ static void check_pair(const uint8_t *m, int width, int gl)
 {
     WiperBlade b[WIPER_BLADES];
     float span = 0.0f;
-    wiper_scene_measure(m, width, b, &span);
+    wiper_scene_measure(m, width, -1.0f, b, &span);
     const float seen = (float)(width - 1 - gl);
     CHECK(fabsf(b[0].x - ((float)gl + WIPER_LEFT_SHARE * seen)) < 1.0f);
     CHECK(fabsf(b[1].x - ((float)gl + WIPER_RIGHT_SHARE * seen)) < 1.0f);
@@ -87,7 +87,7 @@ static void check_pair(const uint8_t *m, int width, int gl)
     CHECK(span >= 50.0f && span <= 120.5f);
     float again = 0.0f;
     WiperBlade copy[WIPER_BLADES];
-    wiper_scene_measure(m, width, copy, &again);   /* the same glass, the same measure */
+    wiper_scene_measure(m, width, -1.0f, copy, &again);   /* the same glass, the same measure */
     CHECK(again == span && memcmp(copy, b, sizeof copy) == 0);
 }
 
@@ -101,8 +101,8 @@ static void test_the_pair_is_placed_on_the_glass_the_frame_shows(void)
     check_pair(map, WIDE, gl);
     WiperBlade narrow[WIPER_BLADES], wide[WIPER_BLADES];
     float s0, s1;
-    wiper_scene_measure(flags, SCREEN_W, narrow, &s0);
-    wiper_scene_measure(map, WIDE, wide, &s1);
+    wiper_scene_measure(flags, SCREEN_W, -1.0f, narrow, &s0);
+    wiper_scene_measure(map, WIDE, -1.0f, wide, &s1);
     CHECK(wide[1].x + wide[1].len > (float)(WIDE + SCREEN_W) / 2.0f);   /* 21:9: the right blade at rest reaches past where the 640 layer's right edge is, into the stretched side */
     CHECK(wide[0].len == narrow[0].len);   /* the same blades at any width */
 }
@@ -113,10 +113,10 @@ static void test_the_sweep_passes_behind_the_mirror(void)
     make_dash();
     WiperBlade b[WIPER_BLADES];
     float open = 0.0f, hung = 0.0f;
-    wiper_scene_measure(flags, SCREEN_W, b, &open);
+    wiper_scene_measure(flags, SCREEN_W, -1.0f, b, &open);
     for (int y = GTOP + 5; y < GTOP + 60; y++)   /* a mirror hung inside the glass, over the right blade's way up */
         for (int x = (int)b[1].x - 120; x < (int)b[1].x + 40; x++) flags[y * SCREEN_W + x] = 0;
-    wiper_scene_measure(flags, SCREEN_W, b, &hung);
+    wiper_scene_measure(flags, SCREEN_W, -1.0f, b, &hung);
     CHECK(hung == open);
     const float before = wiper_scene_blade_fit(flags, SCREEN_W, &b[0], 120.0f);
     CHECK(before > 24.0f && before < 120.0f);   /* the roof stops it short of the most it may turn */
@@ -126,8 +126,53 @@ static void test_the_sweep_passes_behind_the_mirror(void)
     CHECK(cut < before);
 }
 
+/* the wheel's middle is the middle of the columns its frames reach in any pose (wheel_front_zone): -1 with no wheel */
+static void test_the_wheel_is_found_in_its_zone(void)
+{
+    static uint8_t zone[SCREEN_W * SCREEN_H];
+    memset(zone, 0, sizeof zone);
+    CHECK(wiper_scene_wheel_x(zone) < 0.0f);
+    for (int y = 330; y < 470; y++)
+        for (int x = 150; x <= 500; x++) zone[y * SCREEN_W + x] = 1;
+    CHECK(fabsf(wiper_scene_wheel_x(zone) - 325.0f) < 0.01f);
+}
+
+/* the dash's column on the frame: as it is at 640, moved by half the extra width in the dash's middle on a wide frame */
+static void test_a_dash_column_on_the_frame(void)
+{
+    CHECK(wiper_scene_frame_x(SCREEN_W, 326.5f) == 326.5f);
+    const float wide = wiper_scene_frame_x(WIDE, 326.5f);
+    CHECK(fabsf(wide - (326.5f + (float)(WIDE - SCREEN_W) / 2.0f)) < 0.01f);
+    CHECK_EQ_INT(screen_dash_x(WIDE, (int)wide), 326);
+}
+
+/* the owner's rule: the pivots either side of the steering wheel, the same distance each way (a share of the dash's height: the dash is drawn 1:1 at any width), on the glass's bottom edge,
+ * wherever the wheel is and at any width */
+static void test_the_pivots_flank_the_wheel(void)
+{
+    make_dash();
+    wiper_scene_frame_glass(flags, WIDE, map);
+    const struct { const uint8_t *m; int width; float wheel; } cases[] = {
+        { flags, SCREEN_W, 320.0f }, { flags, SCREEN_W, 300.0f }, { map, WIDE, 560.0f }, { map, WIDE, 590.0f }
+    };
+    for (size_t i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        WiperBlade b[WIPER_BLADES];
+        float span = 0.0f;
+        wiper_scene_measure(cases[i].m, cases[i].width, cases[i].wheel, b, &span);
+        const float spread = WIPER_PIVOT_SHARE * (float)SCREEN_H;
+        CHECK(fabsf(b[0].x - (cases[i].wheel - spread)) < 1.0f);
+        CHECK(fabsf(b[1].x - (cases[i].wheel + spread)) < 1.0f);
+        CHECK(fabsf((b[0].x + b[1].x) / 2.0f - cases[i].wheel) < 1.0f);   /* symmetric about the wheel */
+        CHECK(fabsf(b[0].y - b[1].y) < 1.0f && b[0].y >= (float)(GBOT + (cases[i].width > SCREEN_W ? DASH_DROP : 0)) - 3.0f);   /* on the glass's bottom edge */
+        CHECK(span >= 50.0f);
+    }
+}
+
 int main(void)
 {
+    test_the_wheel_is_found_in_its_zone();
+    test_a_dash_column_on_the_frame();
+    test_the_pivots_flank_the_wheel();
     test_the_sweep_passes_behind_the_mirror();
     test_the_flags_are_the_windscreen_alone();
     test_the_frame_glass_is_the_dash_as_the_screen_places_it();

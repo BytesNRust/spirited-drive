@@ -36,6 +36,19 @@ static const uint8_t *wiper_glass_flags(const uint8_t *art, const uint8_t *mask)
     return flags;
 }
 
+/* port (wipers): the steering wheel's middle on the 640 dash (wiper_scene_wheel_x), cached per dash art; -1 with no wheel */
+static float wiper_wheel_x(const uint8_t *art)
+{
+    static uint8_t zone[SCREEN_W * SCREEN_H];
+    static const uint8_t *made_for;
+    static float wheel_x = -1.0f;
+    if (made_for == drive_hud.cockpit.dash) return wheel_x;
+    wheel_front_zone(&drive_hud.cockpit, art, zone);
+    wheel_x = wiper_scene_wheel_x(zone);
+    made_for = drive_hud.cockpit.dash;
+    return wheel_x;
+}
+
 int drive_wide_wiper_scene(const RaceState *race, WiperBlade *out)
 {
     ported_view_set_wiper_glass(NULL, 0, 0.0f, 0.0f, 1.0f);
@@ -56,7 +69,8 @@ int drive_wide_wiper_scene(const RaceState *race, WiperBlade *out)
         if (grown == NULL) return 0;
         map = grown;
         wiper_scene_frame_glass(flags, width, map);
-        wiper_scene_measure(map, width, frame, &span);
+        const float wheel = wiper_wheel_x(art);   /* the pivots either side of the wheel (wiper_scene.h) */
+        wiper_scene_measure(map, width, wheel >= 0.0f ? wiper_scene_frame_x(width, wheel) : -1.0f, frame, &span);
         measured_for = drive_hud.cockpit.dash, measured_width = width;
     }
     const float scale = wide ? (float)drive_wide.scale : 1.0f;
