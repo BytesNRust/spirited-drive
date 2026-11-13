@@ -97,7 +97,7 @@ static void api_commands_are_bounded(void)
 {
     char cmd[512];
     CHECK_EQ_INT(update_api_command(cmd, sizeof cmd, NULL, "0.9.0-beta.1+abc"), 1);
-    CHECK(strstr(cmd, "\"" UPDATE_API_BASE "/latest?v=0.9.0-beta.1\"") != NULL);
+    CHECK(strstr(cmd, "\"" UPDATE_API_BASE "/latest?v=0.9.0-beta.1&p=" UPDATE_API_PLATFORM "\"") != NULL);
     CHECK(strstr(cmd, "\"https://api.bytesnrust.com/spirited-drive/v1/latest?v=") != NULL);   /* the game's own path and agent */
     CHECK(strstr(cmd, "-A spirited-drive ") != NULL);
     CHECK(strstr(cmd, "--max-time 5") != NULL);
@@ -106,7 +106,7 @@ static void api_commands_are_bounded(void)
     CHECK(strstr(cmd, "POST") == NULL);
     CHECK_EQ_INT(update_api_command(cmd, sizeof cmd, "first_race", "0.9.0"), 1);
     CHECK(strstr(cmd, "-X POST") != NULL);
-    CHECK(strstr(cmd, "/event?e=first_race&v=0.9.0\"") != NULL);
+    CHECK(strstr(cmd, "/event?e=first_race&v=0.9.0&p=" UPDATE_API_PLATFORM "\"") != NULL);
     CHECK(strstr(cmd, "/spirited-drive/v1/event?") != NULL && strstr(cmd, "-A spirited-drive ") != NULL);
     CHECK(strstr(cmd, "--max-time 5") != NULL);
     CHECK(strstr(cmd, "--proto =https") != NULL);
@@ -116,12 +116,26 @@ static void api_commands_are_bounded(void)
     CHECK_EQ_INT(update_api_command(cmd, 40, "first_race", "0.9.0"), 0);                /* does not fit */
 }
 
+/* the system the API is told: the one this build is for, one of the three the Worker keeps */
+static void api_platform_is_the_build_s(void)
+{
+    CHECK(strcmp(UPDATE_API_PLATFORM, "macos") == 0 || strcmp(UPDATE_API_PLATFORM, "windows") == 0 || strcmp(UPDATE_API_PLATFORM, "linux") == 0);
+#if defined(__APPLE__)
+    CHECK(strcmp(UPDATE_API_PLATFORM, "macos") == 0);
+#elif defined(_WIN32)
+    CHECK(strcmp(UPDATE_API_PLATFORM, "windows") == 0);
+#elif defined(__linux__)
+    CHECK(strcmp(UPDATE_API_PLATFORM, "linux") == 0);
+#endif
+}
+
 int main(void)
 {
     api_parse_reads_latest();
     api_parse_rejects_garbage();
     api_version_loses_the_build();
     api_commands_are_bounded();
+    api_platform_is_the_build_s();
     parses_the_tag();
     rejects_what_is_not_a_tag();
     orders_versions();

@@ -16,6 +16,15 @@
 #define UPDATE_API_NAME "spirited-drive"
 #define UPDATE_API_BASE "https://api.bytesnrust.com/" UPDATE_API_NAME "/v1"
 
+/* The system this build is for, sent with each request as p=<system> (the Worker keeps daily totals per system). */
+#if defined(_WIN32)
+#define UPDATE_API_PLATFORM "windows"
+#elif defined(__APPLE__)
+#define UPDATE_API_PLATFORM "macos"
+#else
+#define UPDATE_API_PLATFORM "linux"
+#endif
+
 /* the system's curl, never one earlier on PATH (Windows 10 1803 and later ship System32's) */
 #if defined(_WIN32)
 #define UPDATE_CURL "curl.exe"
@@ -35,8 +44,8 @@ int update_parse_api_latest(const char *json, char *out, size_t cap);
 int update_api_version(const char *version, char *out, size_t cap);
 
 /* The curl command line (a constant shape: nothing but the three event names and a checked version goes into it).
- * event NULL: GET /latest?v=<version>, the answer on stdout. Else event is "first_start", "data_ready" or "first_race":
- * POST /event?e=<event>&v=<version>, the answer thrown away. --max-time 5 and https only. 1 when it fits in `cap`. */
+ * event NULL: GET /latest?v=<version>&p=<system>, the answer on stdout. Else event is "first_start", "data_ready" or "first_race":
+ * POST /event?e=<event>&v=<version>&p=<system>, the answer thrown away (system: UPDATE_API_PLATFORM). --max-time 5 and https only. 1 when it fits in `cap`. */
 int update_api_command(char *out, size_t cap, const char *event, const char *version);
 
 /* The "tag_name" of a GitHub release JSON, without a leading 'v' ("v0.9.1" -> "0.9.1").

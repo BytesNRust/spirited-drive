@@ -2,6 +2,7 @@
  * sending, nothing from a dev build or with the switch Off. The sender is a seam: no test touches the network. */
 #include "game/sys/port_stats.h"
 #include "game/sys/port_extras.h"
+#include "core/update/update_check.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -131,9 +132,9 @@ static void stats_command_is_bounded(void)
     CHECK(strstr(cmd, "e=first_race") != NULL);
     CHECK(strstr(cmd, "v=0.9.0") != NULL);
     const char *v = strstr(cmd, "v=") + 2;
-    for (; *v != '"' && *v != 0; v++) CHECK(strchr("0123456789.-", *v) != NULL || (*v >= 'A' && *v <= 'Z') || (*v >= 'a' && *v <= 'z'));
+    for (; *v != '&' && *v != '"' && *v != 0; v++) CHECK(strchr("0123456789.-", *v) != NULL || (*v >= 'A' && *v <= 'Z') || (*v >= 'a' && *v <= 'z'));
     cmd = stats_command_for_tests(STATS_FIRST_START, "0.9.0-beta.1+abc");
-    CHECK(cmd != NULL && strstr(cmd, "v=0.9.0-beta.1\"") != NULL && strstr(cmd, "+abc") == NULL);
+    CHECK(cmd != NULL && strstr(cmd, "v=0.9.0-beta.1&p=" UPDATE_API_PLATFORM "\"") != NULL && strstr(cmd, "+abc") == NULL);   /* the system last */
     CHECK(stats_command_for_tests(STATS_FIRST_START, "0.9.0;ls") == NULL);
 }
 
