@@ -7,7 +7,7 @@
 
 #include <stdint.h>
 
-/* The blades of `w` (in the box's pixels, from its left top) at `tick`. `dark` maps a pixel to the one drawn over it; pixels outside the box are left alone. A blade at the park is drawn too. */
+/* The blades of `w` (in the box's pixels, from its left top) at `tick`, over the nose of `w` (painted first, where the map has it: 3D, nose, blades, then the 2D layer). `dark` maps a pixel to the one drawn over it; pixels outside the box are left alone. A blade at the park is drawn too. */
 void wiper_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], const WiperPass *w, uint32_t tick, const uint8_t dark[256]);
 
 #endif

@@ -84,6 +84,10 @@ Colours of the `mask` layer:
 | green `00ff00` | inside a dial: its bright marks (numerals, ticks) are lit, its dark face is not |
 | yellow `ffff00` (white also works) | always lit, whatever its brightness (a warning lamp) |
 | blue `0000ff` | the dash's art: never lit (the speedo's rim) |
+| red `ff0000` | a wiper blade the dash's art draws: with the wipers on (rain or snow) it is not drawn; on the glass the view shows through, on the nose (cyan) the nose is made again under it from the nose round it |
+| cyan `00ffff` | the car's nose seen through the windscreen: with the wipers on the sweeping blades are drawn over it (the 3D, then the nose, then the blades, then the rest of the dash); never lit |
+
+Do not leave stray cyan pixels inside the red: each red pixel takes the side, glass or nose, of the nearest glass or nose pixel, so a lone cyan pixel left inside a blade (a leftover of the wiper's pivot, say) claims all the red round it, and a disc of filled nose in its colour grows there over the glass. Paint the cyan only where the nose really shows, up to the blade's edge, and keep the blade's red solid.
 
 The **`color`** layer: paint over the lit parts in the colour each is to glow (the strongest channel sets the hue; the dash's art gives the brightness). Transparent or black means no colour: it glows orange. The game folds the colours into twelve flat ones, so use a few. `TNFS_DASH_MASKS=<dir of <CAR>/dash_mask.png>` tries a folder without installing it.
 
@@ -164,7 +168,7 @@ The masks are painted in PSDs and read back by scripts in `tools/`. The Python o
 
 **`tools/dash_mask_psd.py <dump dir> <output dir>`** writes the dash PSDs. The dump is made by the game: run a night race in the car's cockpit with `TNFS_DASH_DUMP=<dump dir>`; it writes, once per dash, `<STEM>.ppm` (the dash without the wheel), `<STEM>.mask.png` (a draft of the two gauge ellipses as dials) and the steering frames the dash is rebuilt from. `<output dir>/<CAR>/dash.psd` has the layers `dash` (locked), `volante` (the straight-ahead wheel, hidden, a guide), `nunca visible` (what no steering pose shows: paint there does nothing) and the empty `mask` at 50%. **An existing file is never touched**: a new draft goes beside it as `dash_draft.psd`, `dash_draft_2.psd`, and so on. After a new dump, `--update <dump dir> <PSD dir> <output dir>` rewrites only the `dash`, `volante` and `nunca visible` layers of the PSDs you painted and copies every other layer (`mask`, `color`, `limpia`) byte for byte, into the output dir, which must not be your PSD dir.
 
-**`tools/dash_mask_from_psd.py <dir of CAR/dash.psd> [<output dir>]`** reads the `mask` layer into `dash_mask.png` (colours in the Dash masks table above; a pixel with alpha under 128 or black is not marked, yellow, white or light grey is lit, blue is the dash's art, green a dial, red a wiper blade the dash draws) and, if the PSD has a **`color`** layer, `dash_color.png` too (a PSD without one gets none, and an old `dash_color.png` there is deleted). A layer named `limpia` (or `wipers`) holds the wiper blades: whatever is painted on it, in any colour but black, is a blade.
+**`tools/dash_mask_from_psd.py <dir of CAR/dash.psd> [<output dir>]`** reads the `mask` layer into `dash_mask.png` (colours in the Dash masks table above; a pixel with alpha under 128 or black is not marked, yellow, white or light grey is lit, blue is the dash's art, green a dial, red a wiper blade the dash draws, cyan the nose seen through the windscreen) and, if the PSD has a **`color`** layer, `dash_color.png` too (a PSD without one gets none, and an old `dash_color.png` there is deleted). A layer named `limpia` (or `wipers`) holds the wiper blades: whatever is painted on it, in any colour but black, is a blade.
 
 ## Settings and launchers
 

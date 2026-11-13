@@ -2,6 +2,8 @@
  * the game keeps from them: the next race behaves as the settings are now, never as they were when the game started. The settings files are kept in memory here (the
  * platform's user files); the mode is changed with port_profile_select, as Game Mode's Yes and Options' row do (menu_glue.c's profile_apply), and a row with
  * port_settings_save / port_extras_save, as Options, Graphics, CUSTOMIZE and EXTRAS do. */
+#include "game/race/dash_mask.h"
+#include "game/race/dash_nose.h"
 #include "game/race/race_sim.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_follow.h"
@@ -177,6 +179,40 @@ static void test_switches_follow_the_mode(void)
     CHECK_EQ_INT(port_vegas_lift(), 1);
 }
 
+/* dep49: the nose under the wipers (dash_nose.h) follows the wipers' switch through a change of mode with no restart: Restomod has them on, Stock off, and back in Restomod
+ * the nose is made again; one row (wipers=0) inside Restomod turns it off too */
+static void test_wiper_nose_follows_the_mode(void)
+{
+    enum { NW = 8, NH = 6 };
+    static uint8_t art[NW * NH], mask[NW * NH], palette[768];
+    for (int i = 0; i < NW * NH; i++) {
+        const int y = i / NW;
+        art[i] = y < 2 ? 0xff : (uint8_t)(10 + y), mask[i] = y < 2 ? DASH_MASK_AUTO : y == 2 ? DASH_MASK_BLADE : DASH_MASK_NOSE;
+    }
+    for (int k = 0; k < 256; k++) palette[3 * k] = palette[3 * k + 1] = palette[3 * k + 2] = (uint8_t)k;
+    DashNoseCache c;
+    memset(&c, 0, sizeof c);
+    port_profile_reset(PROFILE_STOCK), port_profile_reset(PROFILE_RESTOMOD);
+    unsetenv("TNFS_WIPERS");
+    mode(PROFILE_RESTOMOD);
+    DashNoseKey k = dash_nose_key(art, mask, palette);
+    CHECK(dash_nose_cached(&c, &k, art, mask, NW, NH, 0xff) != NULL);
+    const unsigned first = c.builds;
+    mode(PROFILE_STOCK);   /* no restart: the key read now has the wipers off */
+    k = dash_nose_key(art, mask, palette);
+    CHECK(dash_nose_cached(&c, &k, art, mask, NW, NH, 0xff) == NULL);
+    mode(PROFILE_RESTOMOD);
+    k = dash_nose_key(art, mask, palette);
+    CHECK(dash_nose_cached(&c, &k, art, mask, NW, NH, 0xff) != NULL);
+    CHECK(c.builds > first);   /* made again, not kept from before */
+    PortSettings s = port_settings_load();   /* the row alone */
+    s.wipers = 0;
+    CHECK(port_settings_save(&s));
+    k = dash_nose_key(art, mask, palette);
+    CHECK(dash_nose_cached(&c, &k, art, mask, NW, NH, 0xff) == NULL);
+    dash_nose_cache_free(&c);
+}
+
 int main(void)
 {
     unsetenv("TNFS_SPRAY_V4"), unsetenv("TNFS_BRAKE_OVER_GAS");
@@ -190,5 +226,6 @@ int main(void)
     test_spray_v4_follows_a_row();
     test_brake_over_gas_follows();
     test_switches_follow_the_mode();
+    test_wiper_nose_follows_the_mode();
     return TEST_REPORT();
 }

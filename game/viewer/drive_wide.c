@@ -710,9 +710,10 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
     const LayerRect map = { DRIVE_MAP_X, DRIVE_MAP_Y, DRIVE_MAP_X + DRIVE_MAP_W, DRIVE_MAP_Y + DRIVE_MAP_H };
     if (w.in_car && w.box_on) wide_art_placed(&map, dash_art_layer(&drive_hud.cockpit), drive_wide_canvas(), 0);  /* the dash where the map was */
     const LayerCompose c = { SCREEN_W, SCREEN_H, drive_wide.width, w.mirror_scale, w.in_car, pieces, n };
-    const uint8_t *const shown = w.in_car && ported_view_wipers_active() ? blades_hidden(frame) : frame;   /* port (wipers): the dash art's own blades are not there when ours sweep */
+    const int wipers_on = w.in_car && ported_view_wipers_active();
+    const uint8_t *const shown = wipers_on ? blades_hidden(frame) : frame;   /* port (wipers): the dash art's own blades are not there when ours sweep (dep49: nor the nose, the 3D's under them) */
     compose_banded(&c, shown);
-    if (drive_light_active()) compose_classes(&c, shown, w.in_car, w.in_car && w.box_on ? &map : NULL, w.map_on);
+    if (drive_light_active()) compose_classes(&c, wipers_on ? nose_classed(shown) : shown, w.in_car, w.in_car && w.box_on ? &map : NULL, w.map_on);   /* the nose keeps the dash's light */
     wide_mirror_and_strips(&w, frame);
     drive_wide.ready = 1;
 }
