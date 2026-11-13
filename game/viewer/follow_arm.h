@@ -30,13 +30,6 @@ typedef struct {
     int low_lod;                 /* the rear mirror's: no segment at a finer level than the far one (follow_behind.h) */
 } FollowArm;
 
-enum { FOLLOW_ARM_BEHIND, FOLLOW_ARM_AHEAD };
-
-/* The arm drawn into the sink's target (its draws are the main view's, so recorded for the bands and the render scale's
- * as the track's are). `segments` at most FOLLOW_ARM_MAX. The behind arm is the segments before the camera's, the ahead
- * one, for the mirror of a car that points back along the track, the camera's and those after it, the farthest first. */
-void follow_arm_draw(const FollowArm *a, int32_t segments, int ahead);
-
 /* port, the classic sink: a quad's corners nearer than `plane` slid along its edges to it, toward a corner in front (an
  * adjacent one, else the opposite; two adjacent ones are averaged), so a quad across the camera still projects as a quad.
  * 0 when no corner is in front. */

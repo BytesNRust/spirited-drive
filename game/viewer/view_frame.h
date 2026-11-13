@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 
-void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8_t *pixels);
+void cars_frame_begin(const TrackArt *art, uint8_t *pixels);
 void cars_stream_style(const Tri *tri, const TrackArt *art, const PortedCamera *pc, const WeatherTables *wt);
 void cars_take_list(const TrackArt *art, const PortedCar *list, int count, QuadTarget *quad, View *view);
 void cars_transform(TrackCamera *cam, DrawContext *ctx, View *view);

@@ -1,72 +1,7 @@
-/* The water the cars throw up as particles of the world (rain_spray.h): dropped once a tick where the wheels pass, left there, widening and thinning, gone by their life. */
+/* The wheels the spray and the dust come from (rain_spray.h): a car's heading by its yaw or its matrix, its rear wheels, and the pace of a car whose physics does not run. */
 #include "game/race/rain_spray.h"
 #include "test.h"
 
-#include <stdlib.h>
-#include <string.h>
-
-static int live_count(const RainSpray *s)
-{
-    int n = 0;
-    for (int i = 0; i < RAIN_SPRAY_MAX; i++) n += s->p[i].live;
-    return n;
-}
-
-static void test_dropped_once_a_tick_and_left_behind(void)
-{
-    static RainSpray s;
-    rain_spray_clear(&s);
-    const int32_t right[2] = { 0, -65536 };
-    const int32_t left[3] = { 0, 0, 0 }, wheel[3] = { 0, 0, 0 };
-    CHECK_EQ_INT(rain_spray_step(&s, 0, 100, left, wheel, right, 5, 20 << 16, 1), 2);
-    CHECK_EQ_INT(rain_spray_step(&s, 0, 100, left, wheel, right, 5, 20 << 16, 1), 0);   /* the same tick drawn again: nothing new */
-    const int32_t moved_l[3] = { 0, 0, 5 << 16 }, moved_r[3] = { 0, 0, 5 << 16 };
-    CHECK_EQ_INT(rain_spray_step(&s, 0, 101, moved_l, moved_r, right, 6, 20 << 16, 1), 2);
-    CHECK_EQ_INT(live_count(&s), 4);
-    int32_t place[3], radius, a_place[3], a_radius;
-    int density, a_density;
-    const RainSprayParticle first = s.p[0];
-    CHECK(rain_spray_look(&first, 101, 16, 0, place, &radius, &density));
-    CHECK(rain_spray_look(&first, 101 + RAIN_SPRAY_LIFE - 2, 16, 0, a_place, &a_radius, &a_density));
-    CHECK(a_radius > radius);                 /* it widens */
-    CHECK(a_density <= density);              /* and thins */
-    CHECK(abs(a_place[2] - place[2]) < (2 << 16) && abs(a_place[1] - place[1]) < (1 << 16));   /* it stays where it was dropped: the car's 5 m on does not carry it; it lifts only a little */
-    CHECK(!rain_spray_look(&first, 100 + RAIN_SPRAY_LIFE, 16, 0, place, &radius, &density));       /* gone at the end of its life */
-    CHECK(!rain_spray_look(&first, 99, 16, 0, place, &radius, &density));                          /* and not before it was dropped */
-}
-
-static void test_a_wisp_is_one_short_particle(void)
-{
-    static RainSpray s;
-    rain_spray_clear(&s);
-    const int32_t right[2] = { 0, -65536 };
-    const int32_t left[3] = { -65536, 0, 0 }, wheel[3] = { 65536, 0, 0 };
-    CHECK_EQ_INT(rain_spray_step_wisp(&s, 0, 100, left, wheel, right, 5, 20 << 16, 1), 1);
-    CHECK_EQ_INT(rain_spray_step_wisp(&s, 0, 100, left, wheel, right, 5, 20 << 16, 1), 0);   /* the same tick again: nothing new */
-    CHECK_EQ_INT(rain_spray_step_wisp(&s, 0, 101, left, wheel, right, 5, 5 << 16, 1), 0);    /* slow: nothing */
-    CHECK_EQ_INT(live_count(&s), 1);
-    int32_t place[3], radius;
-    int density;
-    CHECK(rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_WISP_LIFE - 1, 16, 0, place, &radius, &density));
-    CHECK(!rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_WISP_LIFE, 16, 0, place, &radius, &density));   /* gone in a tenth of a second */
-    CHECK(abs(s.p[0].x) < (1 << 16));        /* dropped between the wheels */
-    rain_spray_clear(&s);
-    CHECK_EQ_INT(rain_spray_step(&s, 0, 100, left, wheel, right, 5, 20 << 16, 1), 2);   /* the plume is as before */
-    CHECK(rain_spray_look(&s.p[0], 100 + RAIN_SPRAY_LIFE - 1, 16, 0, place, &radius, &density));
-}
-
-static void test_nothing_dry_or_slow(void)
-{
-    static RainSpray s;
-    rain_spray_clear(&s);
-    const int32_t right[2] = { 65536, 0 }, w[3] = { 0, 0, 0 };
-    CHECK_EQ_INT(rain_spray_step(&s, 1, 10, w, w, right, 1, 20 << 16, 0), 0);   /* off the road or in the air */
-    CHECK_EQ_INT(rain_spray_step(&s, 1, 11, w, w, right, 1, 5 << 16, 1), 0);    /* slow */
-    CHECK_EQ_INT(live_count(&s), 0);
-    CHECK_EQ_INT(rain_spray_step(&s, 99, 12, w, w, right, 1, 20 << 16, 1), 0);  /* a car that does not exist */
-}
-
-/* a rival is drawn with its matrix and its yaw stays 0: its wheels follow the matrix's heading, on the road's bends, the left and the right wheel either side of it */
 static void test_a_matrix_car_has_its_wheels_where_it_heads(void)
 {
     const int32_t at[3] = { 100 << 16, 0, 200 << 16 };
@@ -92,53 +27,6 @@ static void test_a_matrix_car_has_its_wheels_where_it_heads(void)
     CHECK(len > 0.999 && len < 1.001);
 }
 
-static void test_a_tunnel_leaves_no_spray(void)
-{
-    static RainSpray s;
-    rain_spray_clear(&s);
-    const int32_t right[2] = { 65536, 0 }, w[3] = { 0, 0, 0 };
-    rain_spray_step(&s, 0, 10, w, w, right, 1, 30 << 16, 1);
-    int32_t open_place[3], mouth_place[3], shut_place[3], open_radius, mouth_radius, shut_radius;
-    int open_density, mouth_density, shut_density;
-    CHECK(rain_spray_look(&s.p[0], 18, 16, 0, open_place, &open_radius, &open_density));
-    CHECK(rain_spray_look(&s.p[0], 18, 8, 0, mouth_place, &mouth_radius, &mouth_density));
-    CHECK(mouth_radius < open_radius && mouth_density <= open_density);   /* at a mouth: smaller and thinner */
-    CHECK(mouth_place[1] <= open_place[1]);                               /* and lower */
-    CHECK(!rain_spray_look(&s.p[0], 18, 0, 0, shut_place, &shut_radius, &shut_density));   /* port (tunnel_dry): inside a closed zone the road is dry, there is none */
-}
-
-static void test_a_clock_that_goes_back_clears_the_trail(void)
-{
-    static RainSpray s;
-    rain_spray_clear(&s);
-    const int32_t right[2] = { 65536, 0 }, w[3] = { 0, 0, 0 };
-    rain_spray_step(&s, 0, 500, w, w, right, 1, 30 << 16, 1);
-    CHECK_EQ_INT(live_count(&s), 2);
-    rain_spray_step(&s, 0, 3, w, w, right, 1, 30 << 16, 1);   /* a restart */
-    CHECK_EQ_INT(live_count(&s), 2);                          /* only the new ones */
-}
-
-static void test_wisp2(void)
-{
-    RainSpray s;
-    rain_spray_clear(&s);
-    const int32_t left[3] = { 0, 0, 0 }, wheel[3] = { 0x20000, 0, 0 }, right[2] = { 0x10000, 0 };
-    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 100, left, wheel, right, 5, 2 << 16, 1), 2);   /* slow, still a wisp: two metres a second */
-    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 100, left, wheel, right, 5, 2 << 16, 1), 0);   /* the same tick again */
-    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 101, left, wheel, right, 5, 1 << 15, 1), 0);   /* under a metre a second: none */
-    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 102, left, wheel, right, 5, 20 << 16, 0), 0);  /* off the wet road: none */
-    int32_t place[3], radius, density;
-    int alive = 0;
-    for (int i = 0; i < RAIN_SPRAY_MAX; i++)
-        if (s.p[i].live) {
-            CHECK_EQ_INT(s.p[i].life, RAIN_SPRAY_WISP2_LIFE);   /* longer than the wisp's, shorter than the plume's */
-            CHECK(RAIN_SPRAY_WISP2_LIFE > RAIN_SPRAY_WISP_LIFE && RAIN_SPRAY_WISP2_LIFE < RAIN_SPRAY_LIFE);
-            CHECK(s.p[i].size >= 120);   /* the slow one is not a speck */
-            alive += rain_spray_look(&s.p[i], 100, 16, 0, place, &radius, &density);
-        }
-    CHECK_EQ_INT(alive, 2);
-}
-
 static void test_a_car_without_a_speed_goes_by_its_velocity(void)
 {
     /* the traffic's physics never runs: its `speed` (0x070) stays 0 while it drives along the road at the pace of its velocity (AL1: about (-4, 16) m/s) */
@@ -146,91 +34,11 @@ static void test_a_car_without_a_speed_goes_by_its_velocity(void)
     CHECK_EQ_INT(rain_spray_speed(0, -4 * 65536, 16 << 16), (16 << 16) + (4 << 16) / 4); /* 00430cb0's: the larger component and a quarter of the smaller */
     CHECK_EQ_INT(rain_spray_speed(0, 16 << 16, -4 * 65536), (16 << 16) + (4 << 16) / 4); /* whichever way it points */
     CHECK_EQ_INT(rain_spray_speed(0, 0, 0), 0);                                    /* a car that stands is still */
-    static RainSpray s;
-    rain_spray_clear(&s);
-    const int32_t right[2] = { 0, -65536 };
-    const int32_t left[3] = { 0, 0, 0 }, wheel[3] = { 0, 0, 0 };
-    CHECK_EQ_INT(rain_spray_step_wisp(&s, 2, 100, left, wheel, right, 5, rain_spray_speed(0, -4 * 65536, 16 << 16), 1), 1);   /* so the traffic's wisp is dropped */
-    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 3, 100, left, wheel, right, 5, rain_spray_speed(0, -4 * 65536, 16 << 16), 1), 2);
-}
-
-static void test_dense_drops_fill_the_way_at_speed(void)
-{
-    static RainSpray slow, fast, plain;
-    rain_spray_clear(&slow), rain_spray_clear(&fast), rain_spray_clear(&plain);
-    const int32_t right[2] = { 0, -65536 }, left[3] = { 0, 0, 0 }, wheel[3] = { 0, 0, 0 };   /* heading +x... right (0,-1): forward is (1, 0) */
-    CHECK_EQ_INT(rain_spray_step_dense(&slow, 0, 100, left, wheel, right, 5, 20 << 16, 1), rain_spray_step(&plain, 0, 100, left, wheel, right, 5, 20 << 16, 1));   /* slow: the plume as it was */
-    CHECK_EQ_INT(rain_spray_step_dense(&fast, 0, 100, left, wheel, right, 5, 75 << 16, 1), 2 + 2 * 1);   /* 2.5 m a tick: two drops a wheel */
-    CHECK_EQ_INT(rain_spray_step_dense(&fast, 0, 100, left, wheel, right, 5, 75 << 16, 1), 0);   /* the same tick again: nothing */
-    CHECK(live_count(&fast) == 4);
-    int behind = 0;
-    for (int i = 0; i < RAIN_SPRAY_MAX; i++)
-        if (fast.p[i].live && fast.p[i].x < -65536) behind++;   /* the extra ones lie behind the wheel, on the way it came */
-    CHECK_EQ_INT(behind, 2);
-}
-
-static void test_ticks_without_a_frame_are_laid_on_the_way(void)
-{
-    static RainSpray s;
-    rain_spray_clear(&s);
-    const int32_t right[2] = { 0, -65536 }, left[3] = { 0, 0, 0 }, wheel[3] = { 0, 0, 0 };   /* forward is +x */
-    CHECK_EQ_INT(rain_spray_step(&s, 0, 100, left, wheel, right, 5, 30 << 16, 1), 2);
-    CHECK_EQ_INT(rain_spray_step(&s, 0, 104, left, wheel, right, 5, 30 << 16, 1), 2);   /* three ticks with no frame */
-    CHECK_EQ_INT(live_count(&s), 2 + 2 + 3 * 2);
-    int32_t lowest = 0;   /* a metre a tick: the oldest of them three metres back */
-    for (int i = 0; i < RAIN_SPRAY_MAX; i++)
-        if (s.p[i].live && s.p[i].born == 101 && (lowest == 0 || s.p[i].x < lowest)) lowest = s.p[i].x;
-    CHECK(lowest < -2 * 65536 - 2 * 0x4000 && lowest > -4 * 65536);
-    rain_spray_clear(&s);
-    CHECK_EQ_INT(rain_spray_step(&s, 0, 100, left, wheel, right, 5, 30 << 16, 1), 2);
-    CHECK_EQ_INT(rain_spray_step(&s, 0, 400, left, wheel, right, 5, 30 << 16, 1), 2);   /* a long stop: no more than the life's worth */
-    CHECK_EQ_INT(live_count(&s), 2 + 2 * RAIN_SPRAY_LIFE);
-}
-
-static void test_missed_ticks_of_a_wisp_are_capped_by_its_life(void)
-{
-    static RainSpray s;
-    rain_spray_clear(&s);
-    const int32_t right[2] = { 0, -65536 }, left[3] = { 0, 0, 0 }, wheel[3] = { 0, 0, 0 };
-    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 100, left, wheel, right, 5, 30 << 16, 1), 2);
-    CHECK_EQ_INT(rain_spray_step_wisp2(&s, 0, 103, left, wheel, right, 5, 30 << 16, 1), 2);   /* two ticks with no frame */
-    CHECK_EQ_INT(live_count(&s), 2 + 2 + 2 * 2);
-    rain_spray_clear(&s);
-    CHECK_EQ_INT(rain_spray_step_wisp(&s, 1, 100, left, wheel, right, 5, 30 << 16, 1), 1);
-    CHECK_EQ_INT(rain_spray_step_wisp(&s, 1, 150, left, wheel, right, 5, 30 << 16, 1), 1);   /* a long stop: a wisp lives 3 ticks, so two missed ones at most */
-    CHECK_EQ_INT(live_count(&s), 1 + 1 + (RAIN_SPRAY_WISP_LIFE - 1));
-    rain_spray_clear(&s);
-    CHECK_EQ_INT(rain_spray_step(&s, 2, 100, left, wheel, right, 5, 0, 1), 0);   /* not moving: no drops, missed or not */
-    CHECK_EQ_INT(rain_spray_step(&s, 2, 110, left, wheel, right, 5, 0, 1), 0);
-    CHECK_EQ_INT(live_count(&s), 0);
-}
-
-static void test_the_dense_drops_never_overrun_the_ring(void)
-{
-    static RainSpray s;
-    rain_spray_clear(&s);
-    const int32_t right[2] = { 0, -65536 }, left[3] = { 0, 0, 0 }, wheel[3] = { 0, 0, 0 };
-    for (int car = 0; car < 9; car++)
-        for (uint32_t tick = 100; tick < 400; tick++) {   /* nine cars at 200 m/s for 300 ticks: far more than the ring holds */
-            CHECK(rain_spray_step_dense(&s, car, tick, left, wheel, right, 5, 200 << 16, 1) >= 2);
-        }
-    CHECK(live_count(&s) <= RAIN_SPRAY_MAX);
-    for (int i = 0; i < RAIN_SPRAY_MAX; i++) CHECK(!s.p[i].live || s.p[i].life == RAIN_SPRAY_LIFE);   /* the ring's slots hold whole particles */
 }
 
 int main(void)
 {
-    test_dropped_once_a_tick_and_left_behind();
-    test_a_wisp_is_one_short_particle();
-    test_nothing_dry_or_slow();
     test_a_matrix_car_has_its_wheels_where_it_heads();
-    test_a_tunnel_leaves_no_spray();
-    test_a_clock_that_goes_back_clears_the_trail();
-    test_wisp2();
     test_a_car_without_a_speed_goes_by_its_velocity();
-    test_dense_drops_fill_the_way_at_speed();
-    test_ticks_without_a_frame_are_laid_on_the_way();
-    test_missed_ticks_of_a_wisp_are_capped_by_its_life();
-    test_the_dense_drops_never_overrun_the_ring();
     return TEST_REPORT();
 }

@@ -78,7 +78,7 @@ typedef struct {
     const TrackNodeLight *node_light;
     uint8_t light_now[6];   /* the four corners, 1 when the polygon is lit, 1 when its corners are all in a tunnel's rows */
     uint8_t tunnel_vertex[TRACK_MAX_VERTICES];   /* 1 for the points of `world` in a tunnel's row */
-    uint32_t vertex_node[TRACK_MAX_VERTICES];    /* port (headlight_relight): the node and the row point each point of `world` is of */
+    uint32_t vertex_node[TRACK_MAX_VERTICES];    /* port (headlight_beams): the node and the row point each point of `world` is of */
     uint8_t vertex_point[TRACK_MAX_VERTICES];
 } TrackRender;
 
@@ -135,7 +135,7 @@ void track_render_set_ring(TrackRender *r, int32_t records);
 /* port: the the console version's baked light on the terrain's polygons (NULL none): the track is built again with it at the next frame */
 void track_render_set_light(TrackRender *r, const TrackNodeLight *light);
 
-/* port (headlight_relight): the light and tunnel flag of every point the track was built with, asked again of the light as it is now (the pools move each tick, the build only
+/* port (headlight_beams): the light and tunnel flag of every point the track was built with, asked again of the light as it is now (the pools move each tick, the build only
  * when the camera changes segment) */
 void track_render_relight(TrackRender *r);
 void track_render_transform(TrackRender *r, const TrackCamera *cam, DrawContext *ctx);

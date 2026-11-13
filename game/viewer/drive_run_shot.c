@@ -212,9 +212,9 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     view_pick_set(light_edit_wanted());   /* port (light_edit): the screenshot's lines name the texture at the aim, noted as this frame is drawn (the editor itself starts at the screenshot; this run has no window, so no mouse: the aim is the view's centre) */
     render_drive(t, pixels);
     if (skip_env != NULL) {   /* port (dev, env only): the trails' continuity, for the frame-skip test */
-        int rain_ticks, dust_ticks;
-        ported_view_trail_stats(&rain_ticks, &dust_ticks);
-        printf("trail ticks: rain %d dust %d\n", rain_ticks, dust_ticks);
+        int dust_ticks;
+        ported_view_trail_stats(&dust_ticks);
+        printf("trail ticks: dust %d\n", dust_ticks);
     }
     printf("segments %d\n", (int)ported_view_draw_segments());  /* the F12 overlay's "View n segments" (drive_run.c) */
     int width;

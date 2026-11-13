@@ -45,7 +45,7 @@ typedef struct {
     uint8_t *light_out;            /* port (baked light): the intensity of each point put in `world`, parallel to it; NULL none */
     const TrackNodeLight *light;         /* port: where it comes from (the node's row, the point's place in it) */
     uint8_t *tunnel_out;           /* port: 1 for each point of `world` that is in a tunnel's row (track_node_light_tunnel), parallel to it; NULL none */
-    uint32_t *node_out;            /* port (headlight_relight): the node each point of `world` is of, parallel to it; NULL none */
+    uint32_t *node_out;            /* port (headlight_beams): the node each point of `world` is of, parallel to it; NULL none */
     uint8_t *point_out;            /* and its place in the node's row */
 } TrackBuild;
 

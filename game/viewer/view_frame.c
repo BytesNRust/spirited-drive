@@ -49,7 +49,7 @@ void cars_stream_style(const Tri *tri, const TrackArt *art, const PortedCamera *
 void cars_transform(TrackCamera *cam, DrawContext *ctx, View *view)
 {
     headlights_update();   /* port (headlight_beams): the pools of the cars with their lights on, before the rows are built */
-    if (port_headlight_relight() || (light_effects != NULL && light_effects->pool != NULL && light_effects->pool->cone)) track_render_relight(&render);   /* port (headlight_relight): the road's light with the pools of this frame */
+    if (light_effects != NULL && light_effects->pool != NULL) track_render_relight(&render);   /* port (headlight_beams): the road's light with the pools of this frame */
     track_render_transform(&render, cam, ctx);
     memcpy(last_near_dir, ctx->near_dir, sizeof last_near_dir);
     last_near = ctx->near;
@@ -72,7 +72,7 @@ void cars_take_list(const TrackArt *art, const PortedCar *list, int count, QuadT
 }
 
 /* The frame's recording by bands (with threads), the lamps' and the light's tables, and the rain's spray. */
-void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8_t *pixels)
+void cars_frame_begin(const TrackArt *art, uint8_t *pixels)
 {
     if (bands_threads() != 0) {
         raster_record_set_runner(bands_rows);
@@ -83,5 +83,5 @@ void cars_frame_begin(const TrackArt *art, const WeatherTables *wt, uint8_t *pix
     reflect_frame(art);
     lit_level = 0;
     memset(lit_corner, 255, sizeof lit_corner);
-    view_spray_frame(art, wt, weather_wet(weather));
+    view_spray_frame(art);
 }

@@ -318,10 +318,9 @@ void ported_view_render_cars(const Tri *tri, const TrackArt *art, const TrackInf
     skid_node = pc->node;
     /* port (render bands P2, P3): with threads the track's draws (road, scenery, cars, shadows, skid marks, smoke) are
      * recorded by the rasterizers, which find the recorder in the target, and replayed by bands at the end, in order */
-    cars_frame_begin(art, wt, pixels);
+    cars_frame_begin(art, pixels);
     view_pick_frame_start(&view, art, view_screen_w, view_screen_h);   /* port (light_edit): the aim, the view's centre */
     const int ahead = draw_track(tri, pc, &cam, &ctx);
-    view_spray_frame_end();
     track_light_hook = NULL;
     lit_active = 0;
     if (shadow_race != NULL && shadow_race->port_follow_camera) draw_followed_car(pc, ahead);

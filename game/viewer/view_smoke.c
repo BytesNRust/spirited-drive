@@ -89,5 +89,5 @@ void smoke_draw(void *ctx, int in_car)
     int slot = -1;
     for (int32_t i = 0; i < RACE_CARS && slot < 0; i++)
         if (shadow_race->cars[i] == car) slot = (int)i;
-    if (slot >= 0 && (car == followed_car() || (shadow_race->port_rally_road != 0 && port_rally_spray()))) view_spray_dust_draw(car, slot);   /* port (rally_spray): every car's dust, not only the followed one's */
+    if (slot >= 0 && (car == followed_car() || (shadow_race->port_rally_road != 0 && port_rally_spray()))) view_spray_dust_draw(slot);   /* port (rally_spray): every car's dust, not only the followed one's */
 }

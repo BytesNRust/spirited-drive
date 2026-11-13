@@ -221,17 +221,3 @@ TsvResult tsv_get_hex(const TsvRow *row, int index, uint8_t *out, size_t cap, si
     *n = len / 2;
     return TSV_OK;
 }
-
-const char *tsv_result_str(TsvResult result)
-{
-    switch (result) {
-    case TSV_OK: return "ok";
-    case TSV_END: return "end of table";
-    case TSV_ERR_MISSING: return "missing cell";
-    case TSV_ERR_NUMBER: return "not a 32-bit number";
-    case TSV_ERR_HEX: return "not a hex byte string";
-    case TSV_ERR_CAPACITY: return "too many bytes";
-    case TSV_ERR_ROW: return "row too long or out of memory";
-    }
-    return "unknown error";
-}

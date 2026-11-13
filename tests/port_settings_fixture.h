@@ -120,7 +120,6 @@ static inline void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.lamp_flares, b.lamp_flares);
     CHECK_EQ_INT(a.hall_light, b.hall_light);
     CHECK_EQ_INT(a.made_tunnels, b.made_tunnels);
-    CHECK_EQ_INT(a.headlight_relight, b.headlight_relight);
     CHECK_EQ_INT(a.car_tunnel_light, b.car_tunnel_light);
     CHECK_EQ_INT(a.vegas_car_night, b.vegas_car_night);
     CHECK_EQ_INT(a.rally_gravel_shoulder, b.rally_gravel_shoulder);
@@ -154,12 +153,9 @@ static inline void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.reflectors, b.reflectors);
     CHECK_EQ_INT(a.handbrake_lamps, b.handbrake_lamps);
     CHECK_EQ_INT(a.rally_spray, b.rally_spray);
-    CHECK_EQ_INT(a.trail_rise, b.trail_rise);
     CHECK_EQ_INT(a.snow_fx, b.snow_fx);
     CHECK_EQ_INT(a.lamp_halos, b.lamp_halos);
-    CHECK_EQ_INT(a.spray_cd_smoke, b.spray_cd_smoke);
     CHECK_EQ_INT(a.wipers, b.wipers);
-    CHECK_EQ_INT(a.water_mist, b.water_mist);
     CHECK_EQ_INT(a.weather_fog, b.weather_fog);
     CHECK_EQ_INT(a.car_tunnel_match, b.car_tunnel_match);
     CHECK_EQ_INT(a.spray_v4, b.spray_v4);

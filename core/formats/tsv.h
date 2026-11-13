@@ -60,6 +60,4 @@ TsvResult tsv_get_int(const TsvRow *row, int index, int32_t *out);
 TsvResult tsv_get_uint(const TsvRow *row, int index, uint32_t *out);
 TsvResult tsv_get_hex(const TsvRow *row, int index, uint8_t *out, size_t cap, size_t *n);
 
-const char *tsv_result_str(TsvResult result);
-
 #endif

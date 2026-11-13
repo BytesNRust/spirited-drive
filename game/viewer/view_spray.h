@@ -18,11 +18,10 @@
 enum { SPRAY_DIV = 0x14000, VIEW_WORLD_SHIFT = 11 };   /* SPRAY_DIV: a spray puff's pixel radius is depth x size / SPRAY_DIV; VIEW_WORLD_SHIFT is ported_view.c's WORLD_SHIFT (004c52bc) */
 
 /* ---- ported_view.c calls ---- */
-void view_spray_frame(const TrackArt *art, const WeatherTables *wt, int wet);
-void view_spray_frame_end(void);
+void view_spray_frame(const TrackArt *art);
 void view_spray_v4_hook(void);   /* spray v4's emitter on the sim's ticks now, not at the first frame drawn (the headless shot ticks before it draws) */
 void view_spray_row(int32_t node, int far_side);   /* far_side 1: before the row's cars; 0: after them */
-void view_spray_dust_draw(const Car *car, int slot);
+void view_spray_dust_draw(int slot);
 void view_spray_trail_puff(void *ctx, int32_t scale, int32_t x, int32_t y);
 
 #endif

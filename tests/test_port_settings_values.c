@@ -161,19 +161,6 @@ static void test_spray_v4_values(void)
     unsetenv("TNFS_SPRAY_V4");
 }
 
-static void test_water_mist_values(void)
-{
-    const char *const on = "water_mist=2\n", *const bad = "water_mist=4\n";
-    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).water_mist, 2);
-    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).water_mist, 0);
-    setenv("TNFS_WATER_MIST", "3", 1);
-    CHECK_EQ_INT(port_water_mist(), 3);
-    setenv("TNFS_WATER_MIST", "0", 1);
-    CHECK_EQ_INT(port_water_mist(), 0);
-    setenv("TNFS_WATER_MIST", "7", 1);   /* not a variant: the file's */
-    CHECK_EQ_INT(port_water_mist(), 0);
-    unsetenv("TNFS_WATER_MIST");
-}
 
 static void test_wipers_values(void)
 {
@@ -199,32 +186,7 @@ static void test_snow_fx_values(void)
     unsetenv("TNFS_SNOW_FX");
 }
 
-static void test_spray_cd_smoke_values(void)
-{
-    const char *const on = "spray_cd_smoke=1\n", *const bad = "spray_cd_smoke=3\n";
-    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).spray_cd_smoke, 1);
-    CHECK_EQ_INT(port_settings_parse("spray_cd_smoke=2\n", 17).spray_cd_smoke, 2);   /* the CD's gravel puffs variant */
-    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).spray_cd_smoke, 0);
-    setenv("TNFS_SPRAY_CD_SMOKE", "1", 1);
-    CHECK_EQ_INT(port_spray_cd_smoke(), 1);
-    setenv("TNFS_SPRAY_CD_SMOKE", "2", 1);
-    CHECK_EQ_INT(port_spray_cd_smoke(), 2);
-    setenv("TNFS_SPRAY_CD_SMOKE", "0", 1);
-    CHECK_EQ_INT(port_spray_cd_smoke(), 0);
-    unsetenv("TNFS_SPRAY_CD_SMOKE");
-}
 
-static void test_trail_rise_values(void)
-{
-    const char *const on = "trail_rise=1\n", *const bad = "trail_rise=2\n";
-    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).trail_rise, 1);
-    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).trail_rise, 0);
-    setenv("TNFS_TRAIL_RISE", "1", 1);
-    CHECK_EQ_INT(port_trail_rise(), 1);
-    setenv("TNFS_TRAIL_RISE", "0", 1);
-    CHECK_EQ_INT(port_trail_rise(), 0);
-    unsetenv("TNFS_TRAIL_RISE");
-}
 
 static void test_rally_spray_values(void)
 {
@@ -498,12 +460,9 @@ int main(void)
     test_conditions_force();
     test_reflectors_values();
     test_rally_spray_values();
-    test_trail_rise_values();
     test_snow_fx_values();
     test_lamp_halos_values();
-    test_spray_cd_smoke_values();
     test_wipers_values();
-    test_water_mist_values();
     test_weather_fog_values();
     test_car_tunnel_match_values();
     test_retired_tunnel_headlight_key();

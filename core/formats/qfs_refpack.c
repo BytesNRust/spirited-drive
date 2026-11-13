@@ -91,8 +91,3 @@ QfsResult qfs_refpack_decode_at(const uint8_t *src, size_t src_len, size_t data_
     if (at) *at = d.in;
     return d.out == dst_len ? QFS_OK : QFS_ERR_SIZE;
 }
-
-QfsResult qfs_refpack_decode(const uint8_t *src, size_t src_len, size_t data_start, uint8_t *dst, size_t dst_len)
-{
-    return qfs_refpack_decode_at(src, src_len, data_start, dst, dst_len, NULL);
-}
