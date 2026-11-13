@@ -1,4 +1,4 @@
-/* port (rain_fx, spray v4, traffic_spray): the pace a car's spray goes by. A car's own `speed` (or, when that is 0, its world velocity: rain_spray_speed) is what the game keeps; a traffic car
+/* port (rain_fx, spray v4): the pace a car's spray goes by. A car's own `speed` (or, when that is 0, its world velocity: rain_spray_speed) is what the game keeps; a traffic car
  * that waits (held in its pool at the start, parked, or not yet driven) keeps the pace it will have too, so it threw spray every tick from the one spot, a cloud that stays on the road. The pace
  * is therefore capped by how far the car really goes: its place is noted once a SPRAY_PACE_WINDOW ticks and the speed it made over the last window is what it may have, with a little slack
  * (twice it and SPRAY_PACE_SLACK_MS). A car not seen for a window yet is taken as standing. A car that jumped farther than SPRAY_PACE_TELEPORT_M in a window (a traffic car recycled to

@@ -291,13 +291,6 @@ int port_rain_lamps(void)
     return port_settings_load().rain_lamps;
 }
 
-int port_traffic_spray(void)
-{
-    const char *v = getenv("TNFS_TRAFFIC_SPRAY");
-    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().traffic_spray;
-}
-
 int port_rally_dry_lamps(void)
 {
     const char *v = getenv("TNFS_RALLY_DRY_LAMPS");

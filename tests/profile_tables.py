@@ -110,7 +110,7 @@ def sabotage(profile, settings, doc):
     row = re.search(r"\[PROFILE_STOCK\]\s*=\s*\{[^\n]*?\},", profile).group(0)
     cell = "| `lamp_halos` | settings | 0 | 0 | 1 |"
     head_end = doc.index("## What each profile sets")   # every row of the key above the TABLES table: a key may have a second row (the table of the settings Restomod leaves with no visible effect)
-    no_key_row = re.sub(r"^\| `spray_cd_smoke` \|[^\n]*\n", "", doc[:head_end], flags=re.M) + doc[head_end:]
+    no_key_row = re.sub(r"^\| `wipers` \|[^\n]*\n", "", doc[:head_end], flags=re.M) + doc[head_end:]
     cases = {
         "a value dropped from a TABLES row": (profile.replace(row, re.sub(r",\s*\d+\s*\},?$", " },", row), 1), settings, doc),
         "a value added to a TABLES row": (profile.replace(row, row.replace("{ ", "{ 0, ", 1), 1), settings, doc),

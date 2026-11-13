@@ -22,13 +22,10 @@ Object3DSink object_sink(ObjectSink *s);
 /* port (the light effects' light): a 256-byte table the objects drawn from now on go through (every texel and flat colour), or
  * NULL for none; the shadow's shade mode is left as it is. */
 void object_sink_set_light(const uint8_t *table);
-/* port (body shine): while `tables` is set (car_shine_tables for the palette, kept by pointer until the frame is flushed), a textured polygon
- * the class maps know (shine_class.h) that carries vertex normals gets the shine's second pass after its own draw (shine_draw.h), `up` the
- * world's up in the camera's space (the shine's fixed horizon; NULL: the camera's y); NULL tables for none, and the draws are the exe's. */
-void object_sink_set_shine(ShineTables tables, const float *up);
-void object_sink_set_shine_strength(int strength);   /* 1..3 (car_shine.h); 1 until set */
+/* port (body shine): the world's up in the camera's space, the fixed horizon the envmap's sphere map is looked up against (NULL: the camera's y) */
+void object_sink_set_shine_up(const float *up);
 /* port (body_shine 4): while set, a textured polygon the class maps know that carries vertex normals takes the envmap pass (shine_draw.h's
- * EnvShine, kept by pointer until the frame is flushed) instead of the classic one; NULL for none. */
+ * EnvShine, kept by pointer until the frame is flushed); NULL for none, and the draws are the exe's. */
 void object_sink_set_envmap(const EnvShine *env);
 void object_sink_shade(const uint8_t palette[768], uint8_t shade[256]);
 

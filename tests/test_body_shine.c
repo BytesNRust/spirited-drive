@@ -1,5 +1,5 @@
-/* port (body shine): the per-car state the drawing sets around a car's body (body_shine.h): the tables made for the palette in use, the
- * world's up in the camera's space, and nothing at all while the flag is off. */
+/* port (body shine): the per-car state the drawing sets around a car's body (body_shine.h): the envmap made for the palette in use, the world's
+ * up in the camera's space, and nothing at all while the flag is off. */
 #include "viewer/body_shine.h"
 #include "test.h"
 
@@ -14,38 +14,39 @@ static void test_off_sets_nothing(void)
     body_shine_enable(0);
     CHECK(!body_shine_enabled());
     body_shine_begin(palette_a, IDENTITY);
-    CHECK(body_shine_tables() == NULL);
+    CHECK(body_shine_env() == NULL);
     body_shine_end();
 }
 
-static void test_on_makes_tables_for_the_palette_and_keeps_them(void)
+/* a palette met again keeps its envmap; another palette in the frame gets its own, the first still valid */
+static void test_on_makes_the_envmap_for_the_palette_and_keeps_it(void)
 {
     memset(palette_a, 0, sizeof palette_a), memset(palette_b, 0, sizeof palette_b);
     palette_a[3 * 10] = 170, palette_a[3 * 10 + 1] = 20, palette_a[3 * 10 + 2] = 20;
     palette_a[3 * 11] = 225, palette_a[3 * 11 + 1] = 70, palette_a[3 * 11 + 2] = 60;
     palette_b[3 * 10] = 20, palette_b[3 * 10 + 1] = 20, palette_b[3 * 10 + 2] = 170;
-    body_shine_enable(2);
+    body_shine_enable(4);
     CHECK(body_shine_enabled());
     body_shine_begin(palette_a, IDENTITY);
-    ShineTables first = body_shine_tables();
+    const EnvShine *first = body_shine_env();
     CHECK(first != NULL);
-    CHECK_EQ_INT(first[CAR_SHINE_NEUTRAL][10], 10);
-    CHECK_EQ_INT(first[CAR_SHINE_LEVELS - 1][10], 11);   /* the lighter red of palette_a */
+    CHECK_EQ_INT(first->paint[CAR_SHINE_NEUTRAL][10], 10);
+    CHECK_EQ_INT(first->paint[CAR_SHINE_LEVELS - 1][10], 11);   /* the lighter red of palette_a */
     body_shine_end();
-    CHECK(body_shine_tables() == NULL);
+    CHECK(body_shine_env() == NULL);
     body_shine_begin(palette_a, IDENTITY);
-    CHECK(body_shine_tables() == first);                 /* the same palette: the same tables, not made again */
+    CHECK(body_shine_env() == first);                           /* the same palette: the same tables, not made again */
     body_shine_begin(palette_b, IDENTITY);
-    ShineTables second = body_shine_tables();
-    CHECK(second != first);                              /* another palette in the frame: its own, the first still valid */
-    CHECK_EQ_INT(first[CAR_SHINE_LEVELS - 1][10], 11);
+    const EnvShine *second = body_shine_env();
+    CHECK(second != first);
+    CHECK_EQ_INT(first->paint[CAR_SHINE_LEVELS - 1][10], 11);
     body_shine_end();
 }
 
 /* the camera matrix takes the world's up to the camera's space (as the weather's sky does): the shine's horizon is the world's */
 static void test_the_worlds_up_in_the_cameras_space(void)
 {
-    body_shine_enable(2);
+    body_shine_enable(4);
     body_shine_begin(palette_a, IDENTITY);
     CHECK(fabsf(body_shine_up()[0]) < 0.001f && fabsf(body_shine_up()[1] - 1.0f) < 0.001f && fabsf(body_shine_up()[2]) < 0.001f);
     int32_t pitched[9];   /* a camera tipped 30 degrees: the world's up leans in its space */
@@ -59,27 +60,26 @@ static void test_the_worlds_up_in_the_cameras_space(void)
     body_shine_end();
 }
 
-/* strength 4 is the envmap: its tables (paint and glass) come with the image, and the classic tables are not made; 0..3 make no envmap */
-static void test_strength_four_is_the_envmap(void)
+/* any level is the envmap: a file's 1..3 are read as 4 (port_settings.c), and so is an env var's */
+static void test_any_level_is_the_envmap(void)
 {
-    body_shine_enable(4);
+    body_shine_enable(1);
     body_shine_begin(palette_a, IDENTITY);
     CHECK(body_shine_env() != NULL && body_shine_env()->image != NULL);
     CHECK(body_shine_env()->paint != NULL && body_shine_env()->glass != NULL);
-    CHECK(body_shine_tables() == NULL);
     body_shine_end();
     CHECK(body_shine_env() == NULL);
-    body_shine_enable(3);
+    body_shine_enable(0);
     body_shine_begin(palette_a, IDENTITY);
-    CHECK(body_shine_env() == NULL && body_shine_tables() != NULL);
+    CHECK(body_shine_env() == NULL);
     body_shine_end();
 }
 
 int main(void)
 {
     test_off_sets_nothing();
-    test_on_makes_tables_for_the_palette_and_keeps_them();
+    test_on_makes_the_envmap_for_the_palette_and_keeps_it();
     test_the_worlds_up_in_the_cameras_space();
-    test_strength_four_is_the_envmap();
+    test_any_level_is_the_envmap();
     return TEST_REPORT();
 }

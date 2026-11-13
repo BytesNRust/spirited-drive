@@ -315,11 +315,6 @@ void video_blit_at_own_position(const FshEntry *shape)
     video_blit(shape, shape->misc[2], shape->misc[3]);
 }
 
-void video_copy_front_to_back(void)
-{
-    memcpy(back, front, VIDEO_WIDTH * VIDEO_HEIGHT);
-}
-
 /* Clips a block to the target; returns 0 when nothing is left. */
 static int clip(int *x, int *y, int *w, int *h, int *skip_x, int *skip_y)
 {
@@ -340,39 +335,4 @@ void video_read_rect(int x, int y, int w, int h, uint8_t *out)
     int sx, sy;
     if (!clip(&x, &y, &w, &h, &sx, &sy)) return;
     for (int row = 0; row < h; row++) memcpy(out + (size_t)(row + sy) * stride + sx, drawn() + (y + row) * target_w + x, (size_t)w);
-}
-
-void video_write_rect(int x, int y, int w, int h, const uint8_t *in)
-{
-    const int stride = w;
-    int sx, sy;
-    if (!clip(&x, &y, &w, &h, &sx, &sy)) return;
-    for (int row = 0; row < h; row++) memcpy(drawn() + (y + row) * target_w + x, in + (size_t)(row + sy) * stride + sx, (size_t)w);
-}
-
-void video_shade_rect(int x, int y, int w, int h, const uint8_t table[256])
-{
-    int sx, sy;
-    if (!clip(&x, &y, &w, &h, &sx, &sy)) return;
-    for (int row = 0; row < h; row++) {
-        uint8_t *p = drawn() + (y + row) * target_w + x;
-        for (int col = 0; col < w; col++) p[col] = table[p[col]];
-    }
-}
-
-static void plot(int x, int y, uint8_t color)
-{
-    if (x >= 0 && x < target_w && y >= 0 && y < target_h) drawn()[y * target_w + x] = color;
-}
-
-void video_frame_rect(int x0, int y0, int x1, int y1, uint8_t color)
-{
-    for (int x = x0; x <= x1; x++) {
-        plot(x, y0, color);
-        plot(x, y1, color);
-    }
-    for (int y = y0; y <= y1; y++) {
-        plot(x0, y, color);
-        plot(x1, y, color);
-    }
 }

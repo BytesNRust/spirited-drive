@@ -54,20 +54,19 @@ static int rewritten(const uint8_t *table, int count, int stride)
 
 static int count_all(void)
 {
-    uint8_t fog[MODERN_FOG_LEVELS][256], light[MODERN_FOG_LEVELS][256], lit[256], shine[CAR_SHINE_LEVELS][256];
+    uint8_t fog[MODERN_FOG_LEVELS][256], light[MODERN_FOG_LEVELS][256], lit[256];
     uint8_t paint[CAR_SHINE_LEVELS][256], glass[CAR_SHINE_LEVELS][256];
     static const uint8_t maroon[3] = { 60, 12, 12 };
     static const float tint[3] = { 1.0f, 1.0f, 1.0f }, half[3] = { 0.5f, 0.5f, 0.5f };
     modern_fog_tables(palette, maroon, fog);
     modern_light_tables(palette, tint, light);
     light_tint_lit_table(palette, half, lit);
-    car_shine_tables(palette, shine);
     car_envmap_tables(palette, paint, glass);
     memset(&smooth, 0, sizeof smooth);
     horizon_smooth_palette(&smooth, palette);
     return rewritten(&fog[0][0], sizeof fog, 256) + rewritten(&light[0][0], sizeof light, 256) + rewritten(lit, 256, 256) +
-           rewritten(&shine[0][0], sizeof shine, 256) + rewritten(&paint[0][0], sizeof paint, 256) +
-           rewritten(&glass[0][0], sizeof glass, 256) + rewritten(smooth.nearest, HORIZON_SMOOTH_CELLS, HORIZON_SMOOTH_CELLS);
+           rewritten(&paint[0][0], sizeof paint, 256) + rewritten(&glass[0][0], sizeof glass, 256) +
+           rewritten(smooth.nearest, HORIZON_SMOOTH_CELLS, HORIZON_SMOOTH_CELLS);
 }
 
 static void test_the_tables_leave_the_lamp_alone(void)

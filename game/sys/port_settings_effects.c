@@ -72,14 +72,6 @@ int port_vegas_lift(void)
     return port_settings_load().vegas_lift;
 }
 
-int port_headlight_relight(void)
-{
-    if (!port_headlight_beams()) return 0;
-    const char *v = getenv("TNFS_HEADLIGHT_RELIGHT");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().headlight_relight;
-}
-
 int port_hall_light(void)
 {
     if (!port_light_effects()) return 0;   /* the light effects' */
@@ -261,13 +253,6 @@ int port_reflectors(void)
     return port_settings_load().reflectors;
 }
 
-int port_spray_cd_smoke(void)
-{
-    const char *v = getenv("TNFS_SPRAY_CD_SMOKE");
-    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().spray_cd_smoke;
-}
-
 int port_rally_spray(void)
 {
     const char *v = getenv("TNFS_RALLY_SPRAY");
@@ -282,25 +267,11 @@ int port_wipers(void)
     return port_settings_load().wipers;
 }
 
-int port_water_mist(void)
-{
-    const char *v = getenv("TNFS_WATER_MIST");
-    if (v != NULL && v[0] >= '0' && v[0] <= '3' && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().water_mist;
-}
-
 int port_spray_v4(void)
 {
     const char *v = getenv("TNFS_SPRAY_V4");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().spray_v4;
-}
-
-int port_trail_rise(void)
-{
-    const char *v = getenv("TNFS_TRAIL_RISE");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().trail_rise;
 }
 
 int port_snow_fx(void)
