@@ -38,7 +38,7 @@ You can switch modes at any time from Game Mode, and each mode keeps its own set
 
 ## Customize Game: the garage door is open
 
-One screen, in every mode, for everything the original hid behind typed codes and for what we added. Open it from Game Mode or from Options.
+One screen, in every mode, for everything the original hid behind typed codes and for what we added. Open it from Options.
 
 - **The original cheats, as switches**: Explode, Nitro, Turbo and the Warrior. The typed codes still work, and races run with a cheat keep their own record table.
 - **The hidden tracks**: Lost Vegas, and **Lunar Springs**, the moon track cut from the 1996 game, recovered and drivable, with moon gravity if you want it.
