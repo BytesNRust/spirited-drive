@@ -494,6 +494,7 @@ static uint8_t *music_ring;
 static uint8_t *music_file;
 static char music_path[512];
 static uint32_t music_ticks_ms;
+static int music_lost_told;  /* music_lost_check's: once a play */
 
 /* 00475c14(0): the sound kept going - the lock let go meanwhile, so the device's thread mixes and ticks (00464568
  * waits here for a fade to stop the music's voice) */
@@ -590,10 +591,20 @@ void drive_audio_music_set(int16_t setting, int16_t volume, int16_t small)
     music_ticks_ms = platform_ticks_ms();
 }
 
-void drive_audio_music_play(const char *name) { lock(), race_music_play(&music_ops, &music, name), unlock(); }
+void drive_audio_music_play(const char *name) { port_log("mark:music play=%s\n", name), lock(), music_lost_told = 0, race_music_play(&music_ops, &music, name), unlock(); }
 void drive_audio_music_fill(void) { lock(), race_music_fill(&music_ops, &music), unlock(); }
-void drive_audio_music_pump(void) { lock(), race_music_pump(&music_ops, &music), unlock(); }
-void drive_audio_music_volume(int16_t volume) { lock(), race_music_volume(&music_ops, &music, volume), unlock(); }
+/* port (diagnostic): the music went quiet with no call that stops it (the owner's menus, 2026-11-13, not seen headless): logged once a play,
+ * with the stream's state, its channel and the bytes queued, so the next log shows what took it */
+static void music_lost_check(void)
+{
+    if (music_lost_told || !music.open || !music.started || !sound_handle_stopped(&driver.channels, music.handle)) return;
+    music_lost_told = 1;
+    const SoundChannel *c = driver.stream.channel >= 0 ? &driver.channels.channel[driver.stream.channel] : NULL;
+    port_log("mark:music lost state=%d channel=%d busy=%d kind=%d queued=%d\n", driver.stream.state, driver.stream.channel, c != NULL ? c->busy : -1,
+             c != NULL ? c->kind : -1, sound_stream_queued(&driver.stream, SOUND_STREAM_BYTES));
+}
+void drive_audio_music_pump(void) { lock(), race_music_pump(&music_ops, &music), music_lost_check(), unlock(); }
+void drive_audio_music_volume(int16_t volume) { port_log("mark:music volume=%d\n", volume), lock(), race_music_volume(&music_ops, &music, volume), unlock(); }
 void drive_audio_music_volume_now(int16_t volume)
 {
     lock(), race_music_volume_now(&music_ops, &music, volume), unlock();
@@ -607,6 +618,7 @@ static int music_playing(void) { return music.unknown_52b31e == 0 && music.setti
 
 void drive_audio_music_cut(void)
 {
+    port_log("mark:music cut\n");
     lock();
     if (music_playing()) music_stop(NULL, music.handle);
     unlock();
@@ -614,15 +626,17 @@ void drive_audio_music_cut(void)
 
 void drive_audio_music_fade(void)
 {
+    port_log("mark:music fade\n");
     lock();
     if (music_playing()) music_ramp(NULL, music.handle, MUSIC_FADE_STEPS, MUSIC_FADE_TO_STOP);
     unlock();
 }
 
-void drive_audio_music_stop(void) { lock(), race_music_stop(&music_ops, &music), unlock(); }
+void drive_audio_music_stop(void) { port_log("mark:music stop\n"), lock(), race_music_stop(&music_ops, &music), unlock(); }
 
 void drive_audio_close(void)
 {
+    port_log("mark:music close\n");
     lock();
     if (music.open) music_stop(NULL, music.handle), race_music_stop(&music_ops, &music);
     music_close(NULL, MUSIC_READER);
