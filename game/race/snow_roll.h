@@ -1,22 +1,24 @@
-/* port (snow crunch): the roll of a car on the snowy rally (RALLY_GRAVEL_SNOW, Alpine 3): the crunch of packed snow (data/sounds/snow_crunch.wav) in place of the exe's gravel sample, which the snow's rally no
- * longer strikes. Pure functions of the rally's kind, the speed and whether the car is on the ground; the audio side is game/audio/wet_roll.h (the same looping voice as the wet-tyre roll's). Its level follows the
- * gravel roll's own curve (rally_gravel_tyre_skid: 1.5 a metre a second, from RALLY_TYRE_MOVING, up to RALLY_TYRE_TOP), and its pitch rises with the speed the same way. */
+/* port (snow): the roll of the followed car on the snowy rally's track (RALLY_GRAVEL_SNOW, Alpine 3; snow falling elsewhere is the rain's wet road, rain_roll.h): a looping drag over snow (data/sounds/snow_roll.wav) that sounds like a
+ * friction rising with speed, its level and pitch rising more steeply than the wet roll's (rain_roll.h). Silent when the car stands or is in the air, and where nothing falls (the weather's openness 0,
+ * a closed zone); the cockpit hears it 6 dB lower. The snowy rally's gravel sample is not struck (race_sound.c). Pure functions; the audio side is game/audio/wet_roll.h (the same looping voice). */
 #ifndef TNFS_SNOW_ROLL_H
 #define TNFS_SNOW_ROLL_H
 
 #include <stdint.h>
 
 enum {
-    SNOW_ROLL_MAX_PERCENT = 70,   /* of the sample's level, at the top of the gravel roll's curve */
-    SNOW_ROLL_PITCH_SLOW = 850,   /* the sample's rate, permille, at a walking pace ... */
-    SNOW_ROLL_PITCH_FAST = 1250   /* ... and at the top of the curve and beyond */
+    SNOW_ROLL_MOVING = 0x20000,    /* 2 m/s (16.16): below it the car is standing, silent */
+    SNOW_ROLL_FULL = 0x320000,     /* 50 m/s (180 km/h): the loudest and highest */
+    SNOW_ROLL_MAX_PERCENT = 90,    /* of the sample's level (-18 dBFS RMS), outside, at SNOW_ROLL_FULL and beyond */
+    SNOW_ROLL_PITCH_SLOW = 700,    /* the sample's rate, permille, as it starts to move ... */
+    SNOW_ROLL_PITCH_FAST = 1600    /* ... and at SNOW_ROLL_FULL and beyond */
 };
 
-/* The level, percent 0..SNOW_ROLL_MAX_PERCENT: `kind` the rally's gravel kind (RALLY_GRAVEL_*; only the snow's makes it), `speed` the car's (16.16 metres a second, either sign), `on_ground` the car is not in the
- * air. 0 for another kind, a standing car or one in the air. */
-int snow_roll_volume(int kind, int32_t speed, int on_ground);
+/* The level, percent 0..SNOW_ROLL_MAX_PERCENT: `snow` the car is on the snowy rally's track, `open` 0..16 (weather_open where snow falls, else 16), `speed` the car's (16.16 metres a second, either
+ * sign), `on_ground` the car is not in the air, `cockpit` the view is the dash. Rises from 0 at SNOW_ROLL_MOVING to the top at SNOW_ROLL_FULL. */
+int snow_roll_volume(int snow, int open, int32_t speed, int on_ground, int cockpit);
 
-/* The sample's playing rate for `speed`, permille of its own. */
+/* The sample's playing rate for `speed`, permille of its own (SNOW_ROLL_PITCH_SLOW up to SNOW_ROLL_MOVING, SNOW_ROLL_PITCH_FAST at SNOW_ROLL_FULL and beyond). */
 int snow_roll_pitch(int32_t speed);
 
 #endif

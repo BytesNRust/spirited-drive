@@ -41,7 +41,7 @@ void race_sound_tyres(RaceState *race)
             ? TYRE_ON_ROAD : TYRE_OFF_ROAD;
     }
     int32_t front = car->skid_front, rear = car->skid_rear;
-    if (race->port_rally_gravel != 0 && race->port_rally_gravel != RALLY_GRAVEL_SNOW && race->port_rally_shoulder_sound != 0 && car->node_flag_4aa == 0 && car->node_flag_4c6 == 0) {   /* port (snow crunch): the snow's roll is its own voice, not the off-road tyre sound */
+    if (race->port_rally_gravel != 0 && race->port_rally_gravel != RALLY_GRAVEL_SNOW && race->port_rally_shoulder_sound != 0 && car->node_flag_4aa == 0 && car->node_flag_4c6 == 0) {   /* port (snow): the snow's roll is its own voice, not the off-road tyre sound */
         /* port (rally_gravel_shoulder): the rolling rally gravel scrubs as the shoulder does: the same tyre sound, its off-road variant, fed by speed */
         const int on_ground = car->airborne_ticks == 0;
         front = rally_gravel_tyre_skid(race->port_rally_gravel, car->speed, front, on_ground);

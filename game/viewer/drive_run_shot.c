@@ -48,6 +48,11 @@ uint32_t screenshot_input(uint32_t i, uint32_t ticks)
         return (into < SPIN_BRAKE_TICKS ? 0x8000u : 0u) | 0u;
     }
     if (script != NULL && strcmp(script, "brake") == 0 && i + 40 >= ticks) return 0x20u | (0x3fu << 6);   /* TNFS_SCRIPT=brake: the brake held over the last 40 steps (the lamps' captures) */
+    unsigned coast_from = 0, coast_to = 0;   /* TNFS_SCRIPT=coast:from:to / neutral:from:to: off the throttle (the pedal at rest) over those steps; neutral also taps gear down (every other step)
+                                              * until the gear is neutral (-1), so the sounds under the engine are heard alone */
+    const int neutral = script != NULL && sscanf(script, "neutral:%u:%u", &coast_from, &coast_to) == 2;
+    if ((neutral || (script != NULL && sscanf(script, "coast:%u:%u", &coast_from, &coast_to) == 2)) && i >= coast_from && i < coast_to)
+        return 0x20u | (0x1eu << 6) | (neutral && own != NULL && own->gear >= 0 && (i - coast_from) % 2 == 0 ? 0x2000u : 0u);
     const char *steer_env = getenv("TNFS_STEER");
     const uint32_t lock = steer_env == NULL ? 0x20 : strcmp(steer_env, "left") == 0 ? 0 : 0x3f;
     const int tap = drive_sim.race.tick >= 320 && drive_sim.race.tick < 328;

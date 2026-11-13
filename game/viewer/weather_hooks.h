@@ -1,5 +1,5 @@
 /* port (weather): what a frame of weather does besides draw the sky and the rain: the wipers' blades (the dash view's, in the 3D buffer's pixels) and the table they are drawn with, the thunder after
- * each strike, the lightning's brightness, and the wet-tyre and snow-crunch voices of the car the camera follows. The caller says what the frame's weather is (WeatherFrame). */
+ * each strike, the lightning's brightness, and the rain's and the snow's roll voices of the car the camera follows. The caller says what the frame's weather is (WeatherFrame). */
 #ifndef TNFS_WEATHER_HOOKS_H
 #define TNFS_WEATHER_HOOKS_H
 
@@ -29,7 +29,7 @@ const uint8_t *weather_hooks_wiper_dark(const uint8_t palette[768]);
 /* the thunder after each strike since the last call (once a frame) */
 void weather_hooks_thunder(const WeatherFrame *f);
 
-/* the wet-tyre roll and the snow's crunch of the followed car, once a frame */
+/* the rain's layers and the roll on snow of the followed car, once a frame */
 void weather_hooks_rain_roll(const WeatherFrame *f);
 void weather_hooks_snow_roll(const WeatherFrame *f);
 

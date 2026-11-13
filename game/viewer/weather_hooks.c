@@ -9,6 +9,7 @@
 #include "game/race/weather_snow.h"
 #include "game/sys/port_settings.h"
 #include "game/viewer/drive_audio.h"
+#include "game/viewer/drive_bumper.h"
 
 #include <string.h>
 
@@ -85,31 +86,41 @@ void weather_hooks_thunder(const WeatherFrame *f)
     last = tick;
 }
 
-/* port (rain_tyre_roll): the wet-tyre roll of the car the camera follows (as the tyre sounds are), once a frame: its level and pitch by its speed (rain_roll.h), only in rain or a storm with rain_v2,
- * on open asphalt (not the rally's gravel, a road shoulder or the air) and by the rain's openness (silent inside a closed zone). The voice falls silent by itself when the frames stop. */
-void weather_hooks_rain_roll(const WeatherFrame *f)
+/* the followed car's view is the dash (DRIVE_DASH_KIND): the rain on the roof, the roll muffled */
+static int in_cockpit(const RaceState *race) { return race->chase.kind == DRIVE_DASH_KIND; }
+
+/* the ground the rain's moving layer is heard on (rain_roll.h): none in the air, on grass or a shoulder; on the rally, its gravel where the gravel roll is (road_noise, race_sound_engine.c: off
+ * the shoulder's node flags); else the asphalt of an on-road surface */
+static int wet_ground(const RaceState *race, const Car *car)
 {
-    int percent = 0, pitch = RAIN_ROLL_PITCH_SLOW;
-    if (f->race != NULL && port_rain_tyre_roll() && port_rain_v2() && weather_wet(f->weather)) {
-        const Car *const car = f->race->cars[race_slot(f->race->viewed)];
-        if (car != NULL) {
-            const int asphalt = car->airborne_ticks == 0 && f->race->port_rally_gravel == 0 && (uint32_t)car->surface < RACE_SURFACES && f->race->surfaces[car->surface].off_road == 0;
-            percent = rain_roll_volume(1, f->rain_open, car->speed, asphalt);
-            pitch = rain_roll_pitch(car->speed);
-        }
-    }
-    drive_audio_wet_roll(percent, pitch);
+    if (car->airborne_ticks != 0) return RAIN_ROLL_OFF;
+    if (race->port_rally_gravel != 0) return car->node_flag_4aa == 0 && car->node_flag_4c6 == 0 ? RAIN_ROLL_GRAVEL : RAIN_ROLL_OFF;
+    return (uint32_t)car->surface < RACE_SURFACES && race->surfaces[car->surface].off_road == 0 ? RAIN_ROLL_ASPHALT : RAIN_ROLL_OFF;
 }
 
-/* port (snow crunch): the crunch of the car the camera follows on the snowy rally (RALLY_GRAVEL_SNOW), once a frame: its level and pitch by its speed (snow_roll.h), the gravel roll's curve; the exe's gravel
- * sample is not struck there (race_sound.c). The voice falls silent by itself when the frames stop. */
+/* port (rain_tyre_roll): what the car the camera follows hears of the rain (as the tyre sounds are), once a frame (rain_roll.h), in rain or a storm with rain_v2: the stopped layer (outside or in
+ * the cockpit, rain only: falling snow is silent) giving way to the wet road by its speed, on asphalt, or under the gravel roll on the rally; all by the openness (silent inside a closed zone). The snowy
+ * rally's track is snow, not water: none of it there (snow_roll.h). The voices fall silent by themselves when the frames stop. */
+void weather_hooks_rain_roll(const WeatherFrame *f)
+{
+    RainRoll r = rain_roll_levels(RAIN_ROLL_DRY, 0, 0, RAIN_ROLL_OFF, 0);
+    if (f->race != NULL && port_rain_tyre_roll() && port_rain_v2() && weather_wet(f->weather) && f->race->port_rally_gravel != RALLY_GRAVEL_SNOW) {
+        const Car *const car = f->race->cars[race_slot(f->race->viewed)];
+        if (car != NULL)
+            r = rain_roll_levels(f->snow_level != SNOW_NONE ? RAIN_ROLL_SNOW : RAIN_ROLL_RAIN, f->rain_open, car->speed, wet_ground(f->race, car), in_cockpit(f->race));
+    }
+    drive_audio_rain_roll(r.out, r.in, r.moving, r.pitch);
+}
+
+/* port (snow): the roll of the car the camera follows on the snowy rally's track (RALLY_GRAVEL_SNOW), once a frame: its level and pitch by its speed (snow_roll.h), by the openness where snow falls,
+ * 6 dB lower in the cockpit; the exe's gravel sample is not struck there (race_sound.c). Snow falling elsewhere is the rain's wet road (rain_roll.h). The voice falls silent by itself when the frames stop. */
 void weather_hooks_snow_roll(const WeatherFrame *f)
 {
     int percent = 0, pitch = SNOW_ROLL_PITCH_SLOW;
     if (f->race != NULL && f->race->port_rally_gravel == RALLY_GRAVEL_SNOW) {
         const Car *const car = f->race->cars[race_slot(f->race->viewed)];
         if (car != NULL) {
-            percent = snow_roll_volume(f->race->port_rally_gravel, car->speed, car->airborne_ticks == 0);
+            percent = snow_roll_volume(1, f->snow_level != SNOW_NONE ? f->rain_open : 16, car->speed, car->airborne_ticks == 0, in_cockpit(f->race));
             pitch = snow_roll_pitch(car->speed);
         }
     }

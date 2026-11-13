@@ -40,9 +40,11 @@ static int mixing;           /* the driver set up: the device's thread mixes it 
 static uint32_t tick_frames;  /* the frames mixed since the last tick, x 100 */
 static Thunder thunder;                                    /* port (rain_v2): the storm's thunder, over the mix */
 static int thunder_tried;
-static WetRoll wet_roll;                                   /* port (rain_tyre_roll): the wet-tyre roll, over the mix */
+static WetRoll wet_roll;                                   /* port (rain_tyre_roll): the wet road under the tyres, over the mix */
 static int wet_roll_tried;
-static WetRoll snow_roll;                                  /* port (snow crunch): the snowy rally's crunch, the same voice with another sample */
+static WetRoll rain_out, rain_in;                          /* port (rain_tyre_roll): the rain round a stopped car, outside and on the roof */
+static int rain_out_tried, rain_in_tried;
+static WetRoll snow_roll;                                  /* port (snow): the roll on snow, the same voice with another sample */
 static int snow_roll_tried;
 static SoundQueue speech;                                  /* 004c7b60 */
 static SoundSample speech_sample[SOUND_QUEUE_ENTRIES];     /* each queued file's header, by the writer it took */
@@ -133,6 +135,8 @@ static void mix(void *user, int16_t *frames, uint32_t count)
         sound_mix_frames(&driver.mixer, frames, (int32_t)n);
         thunder_mix(&thunder, frames, n);
         wet_roll_mix(&wet_roll, frames, n);
+        wet_roll_mix(&rain_out, frames, n);
+        wet_roll_mix(&rain_in, frames, n);
         wet_roll_mix(&snow_roll, frames, n);
         frames += 2 * n, count -= n;
         for (tick_frames += n * TICKS_PER_SECOND; tick_frames >= MIX_RATE; tick_frames -= MIX_RATE) {
@@ -205,7 +209,7 @@ static void thunder_read(void)
     port_log("thunder: no sounds/thunder.wav: the storm is silent\n");
 }
 
-/* port (rain_tyre_roll, snow crunch): a roll voice's sample, read once from data/sounds/<file> (a missing or unusable file leaves it silent, logged once). The caller holds the lock. */
+/* port (rain_tyre_roll, snow): a roll voice's sample, read once from data/sounds/<file> (a missing or unusable file leaves it silent, logged once). The caller holds the lock. */
 static void roll_read(WetRoll *voice, int *tried, const char *file)
 {
     if (*tried) return;
@@ -227,12 +231,16 @@ static void roll_read(WetRoll *voice, int *tried, const char *file)
     port_log("wet_roll: no %s: the roll is silent\n", rel);
 }
 
-void drive_audio_wet_roll(int volume_percent, int pitch_permille)
+void drive_audio_rain_roll(int out_percent, int in_percent, int moving_percent, int pitch_permille)
 {
     if (!open_) return;
     lock();
-    if (volume_percent > 0) roll_read(&wet_roll, &wet_roll_tried, "rain_tyre_roll.wav");
-    wet_roll_set(&wet_roll, volume_percent, pitch_permille);
+    if (out_percent > 0) roll_read(&rain_out, &rain_out_tried, "rain_stopped_out.wav");
+    if (in_percent > 0) roll_read(&rain_in, &rain_in_tried, "rain_stopped_in.wav");
+    if (moving_percent > 0) roll_read(&wet_roll, &wet_roll_tried, "rain_tyre_roll.wav");
+    wet_roll_set(&rain_out, out_percent, 1000);
+    wet_roll_set(&rain_in, in_percent, 1000);
+    wet_roll_set(&wet_roll, moving_percent, pitch_permille);
     unlock();
 }
 
@@ -240,7 +248,7 @@ void drive_audio_snow_roll(int volume_percent, int pitch_permille)
 {
     if (!open_) return;
     lock();
-    if (volume_percent > 0) roll_read(&snow_roll, &snow_roll_tried, "snow_crunch.wav");
+    if (volume_percent > 0) roll_read(&snow_roll, &snow_roll_tried, "snow_roll.wav");
     wet_roll_set(&snow_roll, volume_percent, pitch_permille);
     unlock();
 }
@@ -436,6 +444,8 @@ void drive_audio_offline_tick(void)
         sound_mix_frames(&driver.mixer, frames, (int32_t)n);
         thunder_mix(&thunder, frames, n);
         wet_roll_mix(&wet_roll, frames, n);
+        wet_roll_mix(&rain_out, frames, n);
+        wet_roll_mix(&rain_in, frames, n);
         wet_roll_mix(&snow_roll, frames, n);
         fwrite(frames, sizeof frames[0], 2 * n, drive_dump_file);
         drive_dump_frames += n, left -= n;

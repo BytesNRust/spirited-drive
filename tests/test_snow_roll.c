@@ -1,7 +1,7 @@
-/* port (snow crunch): the snowy rally's roll (snow_roll.h): its level follows the gravel roll's curve and only the snow's rally makes it; the sample and its licence entry. */
+/* port (snow): the roll on snow (snow_roll.h): silent standing, rising with speed more steeply than the wet roll, 6 dB lower in the cockpit; the sample and its licence entry. */
 #include "game/race/snow_roll.h"
 
-#include "game/race/rally_gravel.h"
+#include "game/race/rain_roll.h"
 #include "tests/test.h"
 
 #include <stdio.h>
@@ -10,40 +10,49 @@
 
 static int32_t metres(int m) { return m * 0x10000; }
 
+enum { OPEN = 16 };
+
 static void test_volume_curve(void)
 {
-    CHECK_EQ_INT(snow_roll_volume(RALLY_GRAVEL_SNOW, 0, 1), 0);                   /* standing */
-    CHECK_EQ_INT(snow_roll_volume(RALLY_GRAVEL_SNOW, metres(1), 1), 0);           /* under RALLY_TYRE_MOVING */
-    CHECK(snow_roll_volume(RALLY_GRAVEL_SNOW, metres(RALLY_TYRE_MOVING), 1) > 0);
+    CHECK_EQ_INT(snow_roll_volume(1, OPEN, 0, 1, 0), 0);                  /* standing: silent */
+    CHECK_EQ_INT(snow_roll_volume(1, OPEN, SNOW_ROLL_MOVING, 1, 0), 0);   /* creeping */
     int last = 0;
-    for (int m = RALLY_TYRE_MOVING; m <= 40; m++) {   /* rises with speed, never falls */
-        const int v = snow_roll_volume(RALLY_GRAVEL_SNOW, metres(m), 1);
-        CHECK(v >= last);
+    for (int m = 3; m <= 60; m++) {   /* rises with speed, never falls */
+        const int v = snow_roll_volume(1, OPEN, metres(m), 1, 0);
+        CHECK(v > 0 && v >= last);
         last = v;
     }
-    CHECK_EQ_INT(snow_roll_volume(RALLY_GRAVEL_SNOW, metres(RALLY_TYRE_TOP * 2 / RALLY_TYRE_PER_METRE_X2), 1), SNOW_ROLL_MAX_PERCENT);   /* the top of the gravel roll's curve */
-    CHECK_EQ_INT(snow_roll_volume(RALLY_GRAVEL_SNOW, metres(100), 1), SNOW_ROLL_MAX_PERCENT);   /* and no louder beyond it */
-    CHECK_EQ_INT(snow_roll_volume(RALLY_GRAVEL_SNOW, -metres(20), 1), snow_roll_volume(RALLY_GRAVEL_SNOW, metres(20), 1));   /* reversing counts as speed */
-    CHECK_EQ_INT(snow_roll_volume(RALLY_GRAVEL_SNOW, metres(20), 0), 0);   /* in the air: nothing */
-    /* the others' rallies and the asphalt do not make it */
-    CHECK_EQ_INT(snow_roll_volume(RALLY_GRAVEL_OFF, metres(20), 1), 0);
-    CHECK_EQ_INT(snow_roll_volume(RALLY_GRAVEL_COMPACT, metres(20), 1), 0);
-    CHECK_EQ_INT(snow_roll_volume(RALLY_GRAVEL_DUST, metres(20), 1), 0);
-    CHECK_EQ_INT(snow_roll_volume(RALLY_GRAVEL_REGOLITH, metres(20), 1), 0);
+    CHECK_EQ_INT(snow_roll_volume(1, OPEN, SNOW_ROLL_FULL, 1, 0), SNOW_ROLL_MAX_PERCENT);
+    CHECK_EQ_INT(snow_roll_volume(1, OPEN, metres(100), 1, 0), SNOW_ROLL_MAX_PERCENT);   /* and no louder beyond it */
+    CHECK_EQ_INT(snow_roll_volume(1, OPEN, -metres(20), 1, 0), snow_roll_volume(1, OPEN, metres(20), 1, 0));   /* reversing counts as speed */
+    CHECK_EQ_INT(snow_roll_volume(1, OPEN, metres(20), 0, 0), 0);   /* in the air: nothing */
+    CHECK_EQ_INT(snow_roll_volume(0, OPEN, metres(20), 1, 0), 0);   /* not on snow */
+    CHECK_EQ_INT(snow_roll_volume(1, 0, metres(20), 1, 0), 0);      /* a closed zone */
+    CHECK_EQ_INT(snow_roll_volume(1, OPEN / 2, metres(40), 1, 0), snow_roll_volume(1, OPEN, metres(40), 1, 0) / 2);
 }
 
-/* the same curve as the gravel roll's own floor: the level is in proportion to rally_gravel_tyre_skid's on the snow's rally */
-static void test_follows_the_gravel_roll(void)
+/* louder outside, 6 dB lower in the cockpit */
+static void test_cockpit_is_quieter(void)
 {
-    for (int m = 0; m <= 40; m++) {
-        const int32_t floor = rally_gravel_tyre_skid(RALLY_GRAVEL_SNOW, metres(m), 0, 1);
-        CHECK_EQ_INT(snow_roll_volume(RALLY_GRAVEL_SNOW, metres(m), 1), SNOW_ROLL_MAX_PERCENT * floor / RALLY_TYRE_TOP);
+    for (int m = 5; m <= 60; m += 5) {
+        const int out = snow_roll_volume(1, OPEN, metres(m), 1, 0), in = snow_roll_volume(1, OPEN, metres(m), 1, 1);
+        CHECK(in == out / 2 && in > 0);
     }
+}
+
+/* a friction rising with speed: the level climbs from nothing and the pitch spans more than the wet roll's (rain_roll.h) */
+static void test_rises_more_than_the_wet_roll(void)
+{
+    CHECK(SNOW_ROLL_PITCH_FAST - SNOW_ROLL_PITCH_SLOW > RAIN_ROLL_PITCH_FAST - RAIN_ROLL_PITCH_SLOW);
+    const int slow = snow_roll_volume(1, OPEN, metres(15), 1, 0), fast = snow_roll_volume(1, OPEN, metres(50), 1, 0);
+    const int wet_slow = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, metres(15), RAIN_ROLL_ASPHALT, 0).moving, wet_fast = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, metres(50), RAIN_ROLL_ASPHALT, 0).moving;
+    CHECK(fast * wet_slow > wet_fast * slow);   /* fast / slow above the wet roll's, from 54 to 180 km/h */
 }
 
 static void test_pitch(void)
 {
     CHECK_EQ_INT(snow_roll_pitch(0), SNOW_ROLL_PITCH_SLOW);
+    CHECK_EQ_INT(snow_roll_pitch(SNOW_ROLL_FULL), SNOW_ROLL_PITCH_FAST);
     CHECK_EQ_INT(snow_roll_pitch(metres(100)), SNOW_ROLL_PITCH_FAST);
     CHECK(snow_roll_pitch(metres(20)) > snow_roll_pitch(metres(10)) && snow_roll_pitch(-metres(20)) == snow_roll_pitch(metres(20)));
 }
@@ -60,7 +69,7 @@ static void test_licence_entry(void)
     const size_t n = fread(text, 1, (1 << 16) - 1, f);
     fclose(f);
     text[n] = '\0';
-    const char *entry = strstr(text, "## snow_crunch.wav");
+    const char *entry = strstr(text, "## snow_roll.wav");
     CHECK(entry != NULL);
     if (entry != NULL) {
         const char *next = strstr(entry + 3, "\n## ");
@@ -70,7 +79,7 @@ static void test_licence_entry(void)
         free(part);
     }
     free(text);
-    snprintf(path, sizeof path, "%s/data/sounds/snow_crunch.wav", TNFS_SOURCE_DIR);   /* and the file is a 16-bit mono WAV at 22050 Hz */
+    snprintf(path, sizeof path, "%s/data/sounds/snow_roll.wav", TNFS_SOURCE_DIR);   /* and the file is a 16-bit mono WAV at 22050 Hz */
     f = fopen(path, "rb");
     CHECK(f != NULL);
     if (f == NULL) return;
@@ -83,7 +92,8 @@ static void test_licence_entry(void)
 int main(void)
 {
     test_volume_curve();
-    test_follows_the_gravel_roll();
+    test_cockpit_is_quieter();
+    test_rises_more_than_the_wet_roll();
     test_pitch();
     test_licence_entry();
     return TEST_REPORT();

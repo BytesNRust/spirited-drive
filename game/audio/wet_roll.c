@@ -19,7 +19,7 @@ void wet_roll_free(WetRoll *w)
 
 void wet_roll_set(WetRoll *w, int percent, int pitch_permille)
 {
-    w->target = (percent < 0 ? 0 : percent > 100 ? 100 : percent) * UNIT;
+    w->target = (percent < 0 ? 0 : percent > WET_ROLL_MAX_PERCENT ? WET_ROLL_MAX_PERCENT : percent) * UNIT;
     w->idle = 0;
     w->pitch = pitch_permille < 100 ? 100 : pitch_permille > 4000 ? 4000 : pitch_permille;
 }

@@ -6,6 +6,7 @@
 #include "game/race/rally_gravel.h"
 #include "game/race/snow_roll.h"
 #include "game/race/weather_snow.h"
+#include "game/viewer/drive_bumper.h"
 #include "tests/test.h"
 
 #include <stdlib.h>
@@ -22,13 +23,13 @@ void platform_free_file(uint8_t *data) { free(data); }
 
 /* the audio the hooks drive is the exe's (drive_audio.c): recorded here */
 static int thunder_calls, thunder_delay[64], thunder_volume[64];
-static int wet_percent = -1, wet_pitch = -1, snow_percent = -1, snow_pitch = -1;
+static int out_percent = -1, in_percent = -1, wet_percent = -1, wet_pitch = -1, snow_percent = -1, snow_pitch = -1;
 void drive_audio_thunder(int delay_ticks, int volume_percent)
 {
     if (thunder_calls < 64) thunder_delay[thunder_calls] = delay_ticks, thunder_volume[thunder_calls] = volume_percent;
     thunder_calls++;
 }
-void drive_audio_wet_roll(int volume_percent, int pitch_permille) { wet_percent = volume_percent, wet_pitch = pitch_permille; }
+void drive_audio_rain_roll(int out, int in, int moving, int pitch_permille) { out_percent = out, in_percent = in, wet_percent = moving, wet_pitch = pitch_permille; }
 void drive_audio_snow_roll(int volume_percent, int pitch_permille) { snow_percent = volume_percent, snow_pitch = pitch_permille; }
 
 static WeatherFrame frame(int weather, int snow, int open)
@@ -147,10 +148,10 @@ static void test_the_voices_are_silent_without_a_race(void)
 {
     setenv("TNFS_RAIN_TYRE_ROLL", "1", 1);
     const WeatherFrame f = frame(WEATHER_RAIN, SNOW_NONE, 16);   /* no race: no car to follow */
-    wet_percent = snow_percent = -1;
+    out_percent = in_percent = wet_percent = snow_percent = -1;
     weather_hooks_rain_roll(&f);
     weather_hooks_snow_roll(&f);
-    CHECK_EQ_INT(wet_percent, 0);
+    CHECK(out_percent == 0 && in_percent == 0 && wet_percent == 0);
     CHECK_EQ_INT(wet_pitch, RAIN_ROLL_PITCH_SLOW);
     CHECK_EQ_INT(snow_percent, 0);
     CHECK_EQ_INT(snow_pitch, SNOW_ROLL_PITCH_SLOW);
@@ -163,31 +164,71 @@ static void test_the_voices_follow_the_viewed_car(void)
     memset(&race, 0, sizeof race), memset(&car, 0, sizeof car);
     setenv("TNFS_RAIN_V2", "1", 1), setenv("TNFS_RAIN_TYRE_ROLL", "1", 1);
     race.cars[0] = &car, race.viewed = 0;
+    race.chase.kind = 1;   /* a view outside the car */
     car.speed = 40 << 16;
     WeatherFrame f = frame(WEATHER_RAIN, SNOW_NONE, 16);
     f.race = &race;
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, rain_roll_volume(1, 16, car.speed, 1));   /* on asphalt */
-    CHECK_EQ_INT(wet_pitch, rain_roll_pitch(car.speed));
-    CHECK(wet_percent > 0);
-    car.airborne_ticks = 3;
+    RainRoll r = rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_ASPHALT, 0);   /* on asphalt, outside */
+    CHECK(out_percent == r.out && in_percent == r.in && wet_percent == r.moving && wet_pitch == r.pitch && wet_percent > 0);
+    race.chase.kind = DRIVE_DASH_KIND;   /* the cockpit: 6 dB lower */
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, rain_roll_volume(1, 16, car.speed, 0));   /* in the air: not on asphalt */
+    CHECK_EQ_INT(wet_percent, rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_ASPHALT, 1).moving);
+    car.speed = 0;   /* stopped in the cockpit: the rain on the roof */
+    weather_hooks_rain_roll(&f);
+    CHECK(in_percent == RAIN_ROLL_IN_PERCENT && out_percent == 0 && wet_percent == 0);
+    race.chase.kind = 1;   /* stopped outside: the rain round the car */
+    weather_hooks_rain_roll(&f);
+    CHECK(out_percent == RAIN_ROLL_OUT_PERCENT && in_percent == 0);
+    car.speed = 40 << 16, car.airborne_ticks = 3;
+    weather_hooks_rain_roll(&f);
+    CHECK_EQ_INT(wet_percent, 0);   /* in the air: not on asphalt */
     car.airborne_ticks = 0, race.port_rally_gravel = RALLY_GRAVEL_COMPACT;
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, rain_roll_volume(1, 16, car.speed, 0));   /* the rally's gravel */
+    CHECK(wet_percent == rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_GRAVEL, 0).moving && wet_percent > 0);   /* the rally's gravel: under the gravel roll */
+    race.surfaces[0].off_road = 1;   /* the rally's road counts by the gravel roll's rule, not the surface's */
+    weather_hooks_rain_roll(&f);
+    CHECK_EQ_INT(wet_percent, rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_GRAVEL, 0).moving);
+    car.node_flag_4aa = 1;   /* the rally's shoulder: the shoulder's own sound */
+    weather_hooks_rain_roll(&f);
+    CHECK_EQ_INT(wet_percent, 0);
+    car.node_flag_4aa = 0, race.surfaces[0].off_road = 0;
+    race.port_rally_gravel = 0;
     f.weather = WEATHER_CLEAR;
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, 0);                                         /* dry: silent */
+    CHECK(out_percent == 0 && in_percent == 0 && wet_percent == 0);   /* dry: silent */
     CHECK_EQ_INT(wet_pitch, RAIN_ROLL_PITCH_SLOW);
-    race.port_rally_gravel = RALLY_GRAVEL_SNOW;
+    /* snow falling: silent standing, the rain's wet road moving (it melts), no roll on snow off the snowy rally */
+    f.weather = WEATHER_RAIN, f.snow_level = SNOW_HEAVY;
+    car.speed = 0;
+    weather_hooks_rain_roll(&f);
     weather_hooks_snow_roll(&f);
-    CHECK_EQ_INT(snow_percent, snow_roll_volume(RALLY_GRAVEL_SNOW, car.speed, 1));
+    CHECK(out_percent == 0 && in_percent == 0 && wet_percent == 0 && snow_percent == 0);
+    car.speed = 40 << 16;
+    weather_hooks_rain_roll(&f);
+    weather_hooks_snow_roll(&f);
+    CHECK(wet_percent == rain_roll_levels(RAIN_ROLL_SNOW, 16, car.speed, RAIN_ROLL_ASPHALT, 0).moving && wet_percent > 0 && out_percent == 0 && snow_percent == 0);
+    race.port_rally_gravel = RALLY_GRAVEL_COMPACT;   /* snow falling on a rally: as rain, under the gravel roll */
+    weather_hooks_rain_roll(&f);
+    CHECK_EQ_INT(wet_percent, rain_roll_levels(RAIN_ROLL_SNOW, 16, car.speed, RAIN_ROLL_GRAVEL, 0).moving);
+    /* the snowy rally's track: the roll on snow alone, no wet road */
+    race.port_rally_gravel = RALLY_GRAVEL_SNOW;
+    weather_hooks_rain_roll(&f);
+    weather_hooks_snow_roll(&f);
+    CHECK(wet_percent == 0 && out_percent == 0 && snow_percent == snow_roll_volume(1, 16, car.speed, 1, 0) && snow_percent > 0);
     CHECK_EQ_INT(snow_pitch, snow_roll_pitch(car.speed));
-    CHECK(snow_percent > 0);
+    f.rain_open = 0;   /* a closed zone where snow falls */
+    weather_hooks_snow_roll(&f);
+    CHECK_EQ_INT(snow_percent, 0);
+    f.snow_level = SNOW_NONE, f.rain_open = 16, f.weather = WEATHER_CLEAR;   /* nothing falling: the track is still snow */
+    weather_hooks_snow_roll(&f);
+    CHECK(snow_percent == snow_roll_volume(1, 16, car.speed, 1, 0) && snow_percent > 0);
+    race.chase.kind = DRIVE_DASH_KIND;
+    weather_hooks_snow_roll(&f);
+    CHECK_EQ_INT(snow_percent, snow_roll_volume(1, 16, car.speed, 1, 1));
     race.port_rally_gravel = RALLY_GRAVEL_DUST;
     weather_hooks_snow_roll(&f);
-    CHECK_EQ_INT(snow_percent, 0);                                        /* not the snowy rally */
+    CHECK_EQ_INT(snow_percent, 0);   /* not the snowy rally */
     CHECK_EQ_INT(snow_pitch, SNOW_ROLL_PITCH_SLOW);
 }
 

@@ -38,7 +38,7 @@ static int32_t gravel_roll_noise(RaceState *race, const Car *car, int32_t level)
     e->pitch = 0x5e;
     /* and the exe's own gravel sample struck on the rolling car (rally_gravel_crunch): the road voice alone is sample 0x29, the same low murmur the asphalt has */
     if (race->port_rally_shoulder_sound != 0 || race->port_rally_gravel == RALLY_GRAVEL_SNOW) {
-        /* port (rally_gravel_shoulder): the shoulder's own tyre sound carries the roll (race_sound_tyres), so no strike of the 0x50 sample here; the snow's crunch is its own voice (snow_roll.h) */
+        /* port (rally_gravel_shoulder): the shoulder's own tyre sound carries the roll (race_sound_tyres), so no strike of the 0x50 sample here; the snow's roll is its own voice (snow_roll.h) */
         return level;
     }
     const int32_t crunch = rally_gravel_crunch(race->port_rally_gravel, car->speed, race_rand(race) & 0xffffu);
