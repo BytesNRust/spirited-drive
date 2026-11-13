@@ -251,8 +251,8 @@ static void draw_sky(const TrackArt *art, const TrackInfo *info, const PortedCam
     const int night_fill = drive_light_night();
     if (stage.flat && (port_sky_fill() || night_fill))
         stage.horz = sky_stretch(&stretch, stage.horz, horizon->scale, stage.line, ctx->clip.y0,
-                                 night_fill && port_night_stretch_clean() ? SKY_FILL_COLUMN_QUIET : port_sky_fill() ? port_sky_fill_mode() : SKY_FILL_COLUMN,
-                                 night_fill && port_night_stretch_clean() && own != NULL ? own->bitmap.palette : art->palette);   /* the sky's texels index its own palette */   /* port (night_stretch_clean): no star carried up as a stripe */
+                                 night_fill && port_light_effects() ? SKY_FILL_COLUMN_QUIET : port_sky_fill() ? port_sky_fill_mode() : SKY_FILL_COLUMN,
+                                 night_fill && port_light_effects() && own != NULL ? own->bitmap.palette : art->palette);   /* the sky's texels index its own palette */   /* port (night_stretch_clean): no star carried up as a stripe */
     static SkyStretch below;   /* port (sky_fill_below): and downward, to the view's bottom, in 16:9 and 21:9 */
     if (stage.flat && port_sky_fill_below()) stage.horz = sky_stretch_below(&below, stage.horz, horizon->scale, stage.line, ctx->clip.y1);
     bands_rows(box[1] < 0 ? 0 : box[1], box[3] < view_screen_h ? box[3] : view_screen_h, sky_stage_band, &stage);

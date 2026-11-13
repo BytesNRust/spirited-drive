@@ -13,13 +13,6 @@
 #include <string.h>
 #include "game/sys/port_settings_private.h"
 
-int port_track_light_lamp(void)
-{
-    const char *v = getenv("TNFS_TRACK_LIGHT_LAMP");
-    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().track_light_lamp;
-}
-
 int port_police_halo(void)
 {
     const char *v = getenv("TNFS_POLICE_HALO");
@@ -70,14 +63,6 @@ int port_vegas_lift(void)
     const char *v = getenv("TNFS_VEGAS_LIFT");
     if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().vegas_lift;
-}
-
-int port_hall_light(void)
-{
-    if (!port_light_effects()) return 0;   /* the light effects' */
-    const char *v = getenv("TNFS_HALL_LIGHT");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().hall_light;
 }
 
 int port_replay_no_ffb(void)
@@ -143,27 +128,6 @@ int port_sky_fill(void)
     const char *v = getenv("TNFS_SKY_FILL");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().sky_fill;
-}
-
-int port_night_sky_hue(void)
-{
-    const char *v = getenv("TNFS_NIGHT_SKY_HUE");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().night_sky_hue;
-}
-
-int port_forest_dark(void)
-{
-    const char *v = getenv("TNFS_FOREST_DARK");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().forest_dark;
-}
-
-int port_night_stretch_clean(void)
-{
-    const char *v = getenv("TNFS_NIGHT_STRETCH_CLEAN");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().night_stretch_clean;
 }
 
 int port_sky_fill_mode(void)
@@ -293,13 +257,6 @@ int port_weather_fog(void)
     const char *v = getenv("TNFS_WEATHER_FOG");
     if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().weather_fog;
-}
-
-int port_car_tunnel_match(void)
-{
-    const char *v = getenv("TNFS_CAR_TUNNEL_MATCH");
-    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().car_tunnel_match;
 }
 
 int port_menu_pad_cancel(void)

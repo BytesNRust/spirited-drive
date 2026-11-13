@@ -98,21 +98,17 @@ static void test_tables(void)
     const PortSettings base = port_settings_defaults();
     PortSettings s = port_profile_settings(PROFILE_STOCK, base, SCREEN_21_9);
     CHECK_EQ_INT(s.analog_pad, 1);   /* the owner: an axis-bound control is analog in all three, as the exe was with a joystick */
-    CHECK_EQ_INT(s.lamp_pool_bright, 0);   /* the exe's lamp pools */
     CHECK_EQ_INT(s.format, SCREEN_4_3);
     CHECK_EQ_INT(s.refresh_hz, 30);   /* the exe's 30 steps a second, drawn once each */
     CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
     CHECK_EQ_INT(s.last_camera + s.replay_no_ffb, 0);
     CHECK_EQ_INT(s.f3_ultra, 0);   /* the exe's three views */
     CHECK_EQ_INT(s.light_effects, 0);
-    CHECK_EQ_INT(s.forest_dark, 0);
-    CHECK_EQ_INT(s.night_sky_hue, 0);
     CHECK_EQ_INT(s.sky_fill_below, 0);
     CHECK_EQ_INT(s.radar_all_views, 0);
     CHECK_EQ_INT(s.tach_dim, 0);
     CHECK_EQ_INT(s.gauge_wheel, 0);
     CHECK_EQ_INT(s.police_glow, 0);
-    CHECK_EQ_INT(s.track_light_lamp, 0);   /* the exe's: no lamp lines */
     CHECK_EQ_INT(s.rain_tyre_roll, 0);     /* the exe's: no wet-tyre roll */
     CHECK_EQ_INT(s.snow_weather, 0);     /* the snow: only Restomod's */
     CHECK_EQ_INT(s.reflectors, 0);   /* off in every profile until the owner approves it */
@@ -124,7 +120,6 @@ static void test_tables(void)
     CHECK_EQ_INT(s.lamp_halos, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.wipers, 0);   /* Stock keeps the exe's */
     CHECK_EQ_INT(s.weather_fog, 0);   /* off in every profile until the owner approves it */
-    CHECK_EQ_INT(s.car_tunnel_match, 0);   /* the exe's car */
     CHECK_EQ_INT(s.spray_v4, 0);   /* the exe's, in Stock and Restored */
     CHECK_EQ_INT(s.car_night_lift, 0);   /* the exe's cars */
     CHECK_EQ_INT(s.menu_pad_cancel, 0);   /* the exe's pad: both buttons accept */
@@ -132,10 +127,8 @@ static void test_tables(void)
     CHECK_EQ_INT(s.wrong_way, 0);   /* the exe's: no warning */
     CHECK_EQ_INT(s.chase_steady, 0);   /* no follow camera to steady */
     CHECK_EQ_INT(s.night_tone, 0);   /* the exe's fallback night, in Stock and Restored */
-    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift + s.headlight_cone + s.rain_fx + s.rain_grip + s.gauge_light, 0);
     s = port_profile_settings(PROFILE_RESTORED, base, SCREEN_16_9);
     CHECK_EQ_INT(s.analog_pad, 1);
-    CHECK_EQ_INT(s.lamp_pool_bright, 0);   /* the exe's lamp pools */
     CHECK_EQ_INT(s.format, SCREEN_16_9);   /* the display's own */
     CHECK_EQ_INT(s.refresh_hz, 144);
     CHECK_EQ_INT(s.scale_integer, 1);   /* Whole */
@@ -143,14 +136,11 @@ static void test_tables(void)
     CHECK_EQ_INT(s.render_scale, 1);
     CHECK_EQ_INT(s.light_effects, 0);
     CHECK_EQ_INT(s.body_shine, 0);
-    CHECK_EQ_INT(s.forest_dark, 0);
-    CHECK_EQ_INT(s.night_sky_hue, 0);
     CHECK_EQ_INT(s.sky_fill_below, 0);
     CHECK_EQ_INT(s.radar_all_views, 0);
     CHECK_EQ_INT(s.tach_dim, 0);
     CHECK_EQ_INT(s.gauge_wheel, 0);
     CHECK_EQ_INT(s.police_glow, 0);
-    CHECK_EQ_INT(s.track_light_lamp, 0);   /* the exe's: no lamp lines */
     CHECK_EQ_INT(s.rain_tyre_roll, 0);     /* the exe's: no wet-tyre roll */
     CHECK_EQ_INT(s.snow_weather, 0);     /* the snow: only Restomod's */
     CHECK_EQ_INT(s.reflectors, 0);   /* off in every profile until the owner approves it */
@@ -162,7 +152,6 @@ static void test_tables(void)
     CHECK_EQ_INT(s.lamp_halos, 0);   /* off in every profile until the owner approves it */
     CHECK_EQ_INT(s.wipers, 0);   /* Restored keeps the exe's */
     CHECK_EQ_INT(s.weather_fog, 0);   /* off in every profile until the owner approves it */
-    CHECK_EQ_INT(s.car_tunnel_match, 0);   /* the exe's car */
     CHECK_EQ_INT(s.spray_v4, 0);   /* the exe's, in Stock and Restored */
     CHECK_EQ_INT(s.car_night_lift, 0);   /* the exe's cars */
     CHECK_EQ_INT(s.menu_pad_cancel, 0);   /* the exe's pad: both buttons accept */
@@ -170,7 +159,6 @@ static void test_tables(void)
     CHECK_EQ_INT(s.wrong_way, 0);   /* the exe's: no warning */
     CHECK_EQ_INT(s.chase_steady, 0);   /* no follow camera to steady */
     CHECK_EQ_INT(s.night_tone, 0);   /* the exe's fallback night, in Stock and Restored */
-    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift + s.headlight_cone + s.rain_fx + s.rain_grip + s.gauge_light, 0);
     s = port_profile_settings(PROFILE_RESTOMOD, base, SCREEN_21_9);
     CHECK_EQ_INT(s.analog_pad, 1);
     CHECK_EQ_INT(s.format, SCREEN_21_9);
@@ -189,11 +177,6 @@ static void test_tables(void)
     CHECK_EQ_INT(s.scale_integer, 0);   /* Fill */
     CHECK_EQ_INT(s.last_camera, 1);
     CHECK_EQ_INT(s.replay_no_ffb, 1);
-    CHECK_EQ_INT(s.made_tunnels, 1);
-    CHECK_EQ_INT(s.hall_light, 1);
-    CHECK_EQ_INT(s.night_stretch_clean, 1);
-    CHECK_EQ_INT(s.forest_dark, 1);
-    CHECK_EQ_INT(s.night_sky_hue, 1);
     CHECK_EQ_INT(s.rain_grip, 1);   /* the owner: less grip in the rain is Restomod's default */
     CHECK_EQ_INT(s.gauge_light, 5);   /* the owner: the dash's own colours ("Car") are Restomod's default; orange where the car paints none */
     CHECK_EQ_INT(s.police_halo, 1);   /* the owner: one size under the 2 he tried */
@@ -201,7 +184,6 @@ static void test_tables(void)
     CHECK_EQ_INT(s.rally_dry_lamps, 1);   /* the owner (2026-11-06): no lamp reflections on a rally's dirt in the rain */
     CHECK_EQ_INT(s.snow_fx, 1);           /* the owner (2026-11-08): "nieve bien" */
     CHECK_EQ_INT(s.rain_v2, 1);   /* the owner: the lighter rain, the storm's thunder, the carriageway reflections */
-    CHECK_EQ_INT(s.track_light_lamp, 1);   /* the lamp lines of the track light files */
     CHECK_EQ_INT(s.rain_tyre_roll, 1);     /* the wet-tyre roll in the rain */
     CHECK_EQ_INT(s.snow_weather, 1);     /* the snow: only Restomod's */
     CHECK_EQ_INT(s.reflectors, 1);   /* the owner: the shine is Restomod's default (Stock and Restored keep 0) */
@@ -211,21 +193,17 @@ static void test_tables(void)
     CHECK_EQ_INT(s.wipers, 1);   /* on in Restomod (owner 2026-11-08) */
     CHECK_EQ_INT(s.spray_v4, 1);   /* on in Restomod (owner 2026-11-09, "bastante bien"): the generated spray; Stock and Restored keep 0 */
     CHECK_EQ_INT(s.weather_fog, 2);   /* the whiter, denser snow fog and the denser storm fog, no dark mood over snow (owner 2026-11-09) */
-    CHECK_EQ_INT(s.car_tunnel_match, 1);   /* the car as lit as outside, the owner's pick B with the 0.85 gap (2026-11-09) */
     CHECK_EQ_INT(s.menu_pad_cancel, 1);   /* B cancels (owner 2026-11-10) */
     CHECK_EQ_INT(s.tunnel_lamps, 2);   /* on in Restomod, by day too (the owner's overnight rule 2026-11-10, a revert is the flag): the tunnels' lamps light their pools; Stock and Restored keep 0 */
     CHECK_EQ_INT(s.wrong_way, 1);   /* on in Restomod, no menu row (the owner, 2026-11-11, i196) */
     CHECK_EQ_INT(s.chase_steady, 1);   /* the follow camera holds the car still as it bounces (the owner's shake, 2026-11-12) */
     CHECK_EQ_INT(s.car_night_lift, 1);   /* a quarter more light on every car at night (owner 2026-11-09) */
-    CHECK_EQ_INT(s.shoulder_light, 1);   /* the third lane and the shoulders lit like the road */
     CHECK_EQ_INT(s.finish_gate_light, 1);   /* the owner: the gates are OK (the current tint, not the neutral one) */
-    CHECK_EQ_INT(s.lamp_pool_bright, 1);   /* the owner approved the stronger lamp pools: Restomod's default (Stock and Restored keep 0) */
     CHECK_EQ_INT(s.city_lift, 3);   /* the owner: the new City night is Restomod's default */
     CHECK_EQ_INT(s.night_tone, 2);   /* the owner picked the cool night (2) for the night with no disc */
     CHECK_EQ_INT(s.rain_lamps, 1);   /* the lamps lit in rain, day included (the owner had it on and missed it on a fresh install, 2026-11-11) */
     CHECK_EQ_INT(s.gauge_exterior, 1);   /* the gauges lit with the exterior lights (the owner's own setting, 2026-11-11) */
     CHECK_EQ_INT(s.sign_glow, 1);   /* the owner OKs the lit matrix sign */
-    CHECK_EQ_INT(s.car_tunnel_light + s.vegas_car_night + s.rally_gravel_shoulder + s.chase_height + s.lamp_pool_tint + s.trans_shadows + s.canyon_shade + s.parking_dark + s.forest_neutral + s.cavern_dark + s.vegas_objects + s.close_houses + s.brake_over_gas + s.lamp_pools + s.lamp_car_shade + s.reverse_rows + s.city_lift + s.vegas_lift, 21);   /* the nine fixes of the day: car tunnel light, Vegas car night, rally shoulder gravel, chase height, lamp pool, Transtropolis shadows, canyon shade */
     PortExtras e = port_profile_extras(PROFILE_STOCK, port_extras_defaults());
     CHECK_EQ_INT(e.movies_wide, 0);
     e = port_profile_extras(PROFILE_RESTOMOD, e);

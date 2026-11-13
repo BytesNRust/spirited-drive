@@ -113,8 +113,8 @@ static int city_made_scale(const char *track)
 /* port (city_lift): the light's City fields, the same for the CD's light and for the one made from the terrain (a player with no PS1 disc) */
 static void city_fields(TrackNodeLight *l, const char *track)
 {
-    l->shoulder_road = headlights_on ? port_shoulder_light() : 0;   /* shoulder_light */
-    l->lamp_bright = headlights_on ? (port_lamp_pool_bright() || city_night3) : 0;   /* lamp_pool_bright; city_lift 3 has it in the City: the lamps' pools stand out of the darker base */
+    l->shoulder_road = headlights_on;   /* shoulder_light */
+    l->lamp_bright = headlights_on;   /* lamp_pool_bright: the lamps' pools stand out of the darker base */
     l->beam_on_top = city_night3;   /* the beam adds over the raised floor */
     l->lamp_local = city_night3;   /* local lamp pools */
     l->beam_open = city_night3 ? city_beam_open(track) : 0;   /* a visible patch of the beams on the dark City road */
@@ -225,7 +225,7 @@ static void load_without_cd_light(int time, const char *track, int have_dir, con
     else port_log("light_effects: no PS1 directory, the port's own effects only\n");
     made_wanted = 1;   /* port (own light): no CD light, the light is made from the terrain */
     if (time != LIGHT_TIME_DAY) use_fallback_tint(time, track);
-    if (time == LIGHT_TIME_NIGHT && is_lost_vegas(track) && port_vegas_car_night() && night_tone_mode() == 0) {   /* port (vegas_car_night): the car was lit as by day against Lost Vegas' dark; the tint of the CD's own night (ZTR4C's, under the ceiling) */
+    if (time == LIGHT_TIME_NIGHT && is_lost_vegas(track) && port_light_effects() && night_tone_mode() == 0) {   /* port (vegas_car_night): the car was lit as by day against Lost Vegas' dark; the tint of the CD's own night (ZTR4C's, under the ceiling) */
         static const float VEGAS_NIGHT[3] = { 0.27f, 0.33f, 0.34f };
         const float lift_k = VEGAS_CEILING[port_vegas_lift()] / VEGAS_CEILING[0];   /* port (vegas_lift): the CD's tint rides its ceiling (the CD's own is above every level's); level 0 is as it was */
         for (int c = 0; c < 3; c++) tint[c] = VEGAS_NIGHT[c] * lift_k;
@@ -260,9 +260,9 @@ static void light_adopt(const TrackNodeLight *parsed, const char *track, const c
 {
     light = *parsed;
     light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
-    light.forest_road = port_forest_neutral() && terrain_light_forest_road_range(track, &light.forest_from, &light.forest_to);   /* port (forest_neutral): the forest's shade is not drawn as a tunnel */
+    light.forest_road = port_light_effects() && terrain_light_forest_road_range(track, &light.forest_from, &light.forest_to);   /* port (forest_neutral): the forest's shade is not drawn as a tunnel */
     light.beam_tunnel = headlights_on ? TRACK_NODE_LIGHT_BEAM_TUNNEL : 0;
-    light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
+    light.object_floor = is_lost_vegas(track) && port_light_effects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
     light.pool = headlights_on ? &headlight_pool : NULL;
     city_fields(&light, track);   /* port (city_lift) */
     load_tint(psx_dir, track, letter, time == LIGHT_TIME_NIGHT, is_city(track) ? CITY_CEILING[port_city_lift()] : is_lost_vegas(track) ? VEGAS_CEILING[port_vegas_lift()] : NIGHT_TINT_CEILING);   /* port (city_lift, vegas_lift) */
@@ -306,7 +306,7 @@ void drive_light_load(int enabled, int time, const char *psx_dir, const char *tr
         if (time != LIGHT_TIME_DAY) use_fallback_tint(time, track);
         return;
     }
-    if (port_forest_dark()) terrain_light_forest_apply(&parsed, track);   /* port (forest_dark): the CD's light too, in the file's node order */
+    if (port_light_effects()) terrain_light_forest_apply(&parsed, track);   /* port (forest_dark): the CD's light too, in the file's node order */
     light_adopt(&parsed, track, psx_dir, letter, time, ring_nodes);
     const TunnelLampTexture *lamps = NULL;
     const int lamp_count = track_lamps_for(track, &lamps);   /* the tunnel's lamps stay bright under the light */
@@ -365,11 +365,11 @@ static void apply_rules_file(const char *track, TrackNodeLight *made)
 /* port (lamp_pool_tint, lamp_car_shade, lamp_pool_bright): which nodes a street lamp's pool lies on, for the road's warm tint and for the car's light */
 static void lamp_pool_classes(const Tri *tri, TrackNodeLight *made, const uint32_t *lamp_nodes, size_t lamps)
 {
-    if (lamps > 0 && port_lamp_pool_tint()) {   /* port (lamp_pool_tint): which nodes a pool lies on, for the warm tint of the road there */
+    if (lamps > 0 && port_headlight_beams()) {   /* port (lamp_pool_tint): which nodes a pool lies on, for the warm tint of the road there */
         made->pool_class = malloc(made->nodes);
         if (made->pool_class != NULL) terrain_light_lamp_classes(made->pool_class, made->nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
     }
-    if (lamps > 0 && (port_lamp_car_shade() || port_lamp_pool_bright() || city_night3)) {   /* port (lamp_car_shade, lamp_pool_bright): and the same classes for the car's light, and for the pool's own light */
+    if (lamps > 0 && (port_headlight_beams() || city_night3)) {   /* port (lamp_car_shade, lamp_pool_bright): and the same classes for the car's light, and for the pool's own light */
         made->car_pool = malloc(made->nodes);
         if (made->car_pool != NULL) terrain_light_lamp_classes(made->car_pool, made->nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
     }
@@ -383,7 +383,7 @@ static void trans_closed_run(TrackNodeLight *made, TrackNodeLight *tunnels, cons
     uint32_t closed_from = 1, closed_to = 0, closed_row = 0;
     if (trans && light_synth_trans_closed(track, &closed_from, &closed_to, &closed_row) && tunnels->data != NULL && tunnels->nodes == made->nodes && closed_to < made->nodes) {
         uint32_t hall_from = 1, hall_to = 0;   /* port (trans_shadows): the parking's deck roofs nodes 465..470 too: the interior shade of its marked run, the hall's points beyond the foot kept as the hall keeps them */
-        const int hall = port_hall_light() && light_synth_hall(track, &hall_from, &hall_to);
+        const int hall = port_light_effects() && light_synth_hall(track, &hall_from, &hall_to);
         for (uint32_t n = closed_from; n <= closed_to; n++)
             for (int p = 0; p < TRACK_NODE_LIGHT_POINTS; p++) {
                 const int beyond = p == 3 || p == 4 || p == 5 || p >= 8;
@@ -400,12 +400,12 @@ static void trans_closed_run(TrackNodeLight *made, TrackNodeLight *tunnels, cons
 static void car_dim_runs(TrackNodeLight *made, const char *track)
 {
     uint32_t park_from = 1, park_to = 0;
-    if (port_parking_dark() && light_synth_parking(track, &park_from, &park_to) && park_to < made->nodes) {   /* port (parking_dark): the car keeps the hall's dark tone from the deck's first node to the exit tunnel */
+    if (port_light_effects() && light_synth_parking(track, &park_from, &park_to) && park_to < made->nodes) {   /* port (parking_dark): the car keeps the hall's dark tone from the deck's first node to the exit tunnel */
         made->car_dim = calloc(made->nodes, 1);
         if (made->car_dim != NULL) memset(made->car_dim + park_from, 1, park_to - park_from + 1);
     }
     uint32_t cave_from = 1, cave_to = 0;
-    if (port_cavern_dark() && light_synth_cavern(track, &cave_from, &cave_to) && cave_to < made->nodes) {   /* port (cavern_dark): the car keeps one dim tone through TR6's cavern */
+    if (port_light_effects() && light_synth_cavern(track, &cave_from, &cave_to) && cave_to < made->nodes) {   /* port (cavern_dark): the car keeps one dim tone through TR6's cavern */
         if (made->car_dim == NULL) made->car_dim = calloc(made->nodes, 1);
         if (made->car_dim != NULL) memset(made->car_dim + cave_from, 1, cave_to - cave_from + 1);
     }
@@ -431,8 +431,8 @@ static void made_hall_canyon(TrackNodeLight *made, TrackNodeLight *tunnels, cons
         if (made->hall != NULL)
             for (uint32_t n = 0; n < made->nodes; n++) made->hall[n] = tunnels->data[(size_t)n * TRACK_NODE_LIGHT_POINTS + LIGHT_SYNTH_HALL_POINT] == LIGHT_SYNTH_HALL_MARK;
     }
-    if (port_car_tunnel_light() && !light_synth_hall(track, NULL, NULL)) {   /* port (car_tunnel_light): only TR7 has a hall; TR6's property-16 stretch after the mine is open road in the sun, not an orange hall */
-        if (port_canyon_shade() && tunnels->tunnel != NULL && tunnels->nodes == made->nodes) {   /* port (canyon_shade): remember the canyon's nodes before the flag is cleared */
+    if (port_light_effects() && !light_synth_hall(track, NULL, NULL)) {   /* port (car_tunnel_light): only TR7 has a hall; TR6's property-16 stretch after the mine is open road in the sun, not an orange hall */
+        if (port_light_effects() && tunnels->tunnel != NULL && tunnels->nodes == made->nodes) {   /* port (canyon_shade): remember the canyon's nodes before the flag is cleared */
             made->canyon = calloc(made->nodes, 1);
             if (made->canyon != NULL)
                 for (uint32_t n = 0; n < made->nodes; n++) made->canyon[n] = tunnels->tunnel[n] == LIGHT_SYNTH_FLAG_HALL;
@@ -454,11 +454,11 @@ static int make_light_code(const Tri *tri, const char *track, TrackNodeLight *ou
     lamp_pool_classes(tri, &made, lamp_nodes, lamps);
     TrackNodeLight tunnels = { 0 };
     uint32_t open_from = 1, open_to = 0;
-    const int trans = port_trans_shadows() && light_synth_trans(track, &open_from, &open_to);
-    const int gallery = port_made_tunnels() && port_car_tunnel_light() && light_synth_gallery_track(track);   /* port (made_tunnels, car_tunnel_light): CL2's galleries (property 7) are tunnels of its light, as the CD's is */
+    const int trans = port_light_effects() && light_synth_trans(track, &open_from, &open_to);
+    const int gallery = port_light_effects() && port_light_effects() && light_synth_gallery_track(track);   /* port (made_tunnels, car_tunnel_light): CL2's galleries (property 7) are tunnels of its light, as the CD's is */
     if (light_synth_ex(tri, synth_time, gallery, &tunnels) && tunnels.nodes == made.nodes) {
         uint32_t hall_from = 1, hall_to = 0;
-        const int hall = port_hall_light() && light_synth_hall(track, &hall_from, &hall_to);
+        const int hall = port_light_effects() && light_synth_hall(track, &hall_from, &hall_to);
         for (size_t i = 0; i < (size_t)made.nodes * TRACK_NODE_LIGHT_POINTS; i++) {
             const uint32_t node = (uint32_t)(i / TRACK_NODE_LIGHT_POINTS), point = (uint32_t)(i % TRACK_NODE_LIGHT_POINTS);
             const int beyond = point == 3 || point == 4 || point == 5 || point >= 8;   /* the points beyond the foot: the scenery's side */
@@ -470,9 +470,9 @@ static int make_light_code(const Tri *tri, const char *track, TrackNodeLight *ou
     car_dim_runs(&made, track);
     open_approach(&made, trans, open_from, open_to);
     made_hall_canyon(&made, &tunnels, track);
-    if (tunnels.tunnel != NULL && tunnels.nodes == made.nodes && port_made_tunnels()) {   /* port (made_tunnels): the road's own tunnel nodes, as the PS1 files' rows mark theirs */
+    if (tunnels.tunnel != NULL && tunnels.nodes == made.nodes && port_light_effects()) {   /* port (made_tunnels): the road's own tunnel nodes, as the PS1 files' rows mark theirs */
         uint32_t hall_from = 1, hall_to = 0;
-        const int hall_range = port_hall_light() && light_synth_hall(track, &hall_from, &hall_to);
+        const int hall_range = port_light_effects() && light_synth_hall(track, &hall_from, &hall_to);
         light_synth_made_tunnels(&made, &tunnels, hall_range ? hall_from : 1, hall_range ? hall_to : 0);
         made.neutral_cast = light_synth_mine(track) || gallery;   /* the mine keeps its blue, the warm cast stays on TR7's tunnels */
         made.city_tunnel = light_synth_city_track(track);   /* 1 CY1, 2 CY2/CY3, 0 else */
@@ -485,8 +485,8 @@ static int make_light_code(const Tri *tri, const char *track, TrackNodeLight *ou
 /* the port's flags that make_light_code reads (and the direction the track runs), as the bits a track light file is made for: a file is read only where they are the same */
 static uint32_t track_light_flags(void)
 {
-    const int bits[] = { port_trans_shadows(), port_made_tunnels(), port_car_tunnel_light(), port_hall_light(), port_parking_dark(), port_cavern_dark(), port_canyon_shade(),
-                         port_lamp_pool_tint(), port_lamp_car_shade(), port_lamp_pool_bright(), city_night3, street_lamp_on, reverse_track_wanted() };
+    const int bits[] = { port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(),
+                         port_headlight_beams(), port_headlight_beams(), port_headlight_beams(), city_night3, street_lamp_on, reverse_track_wanted() };
     uint32_t flags = 0;
     for (size_t i = 0; i < sizeof bits / sizeof *bits; i++) flags |= (bits[i] != 0 ? 1u : 0u) << i;
     return flags;
@@ -698,7 +698,7 @@ static int make_light(const Tri *tri, const char *track, TrackNodeLight *out)
         }
     }
     if (have) {
-        track_light_apply(&file.tweaks, &made, port_track_light_lamp() && light_letter == 'N', tri_is_circuit(tri));   /* a file's own retouches (the code's light has none); its `lamp` lines with track_light_lamp, at night only: the lamps do nothing in the dawn, day and dusk files */
+        track_light_apply(&file.tweaks, &made, port_light_effects() && light_letter == 'N', tri_is_circuit(tri));   /* a file's own retouches (the code's light has none); its `lamp` lines with track_light_lamp, at night only: the lamps do nothing in the dawn, day and dusk files */
         place_lamps(tri, &made);
     }
     track_light_file_free(&file);
@@ -718,7 +718,7 @@ static void pool_cd_light(const Tri *tri)
 {
     cd_lamp_count = 0;
     if (tri == NULL || light.data == NULL || light.pooled || synth_on || made_wanted || !headlights_on || synth_time != LIGHT_SYNTH_NIGHT) return;
-    if (!port_lamp_pools() && !port_lamp_car_shade() && !port_lamp_pool_bright()) return;
+    if (!port_headlight_beams() && !port_headlight_beams() && !port_headlight_beams()) return;
     cd_lamp_count = street_lamp_pool_nodes(tri, cd_lamp_nodes);
     cd_lamp_ring = tri_is_circuit(tri);
 }
@@ -726,7 +726,7 @@ static void pool_cd_light(const Tri *tri)
 static void lay_cd_pools(void)
 {
     if (cd_lamp_count == 0 || light.data == NULL || light.pooled) return;
-    if (terrain_light_add_pools(&light, cd_lamp_ring, cd_lamp_nodes, (int)cd_lamp_count, port_lamp_pools(), port_lamp_pools() && port_lamp_pool_tint(), port_lamp_car_shade() || port_lamp_pool_bright() || city_night3))
+    if (terrain_light_add_pools(&light, cd_lamp_ring, cd_lamp_nodes, (int)cd_lamp_count, port_headlight_beams(), port_headlight_beams() && port_headlight_beams(), port_headlight_beams() || port_headlight_beams() || city_night3))
         port_log("light_effects: %zu street lamp pools over the CD's light\n", cd_lamp_count);
     cd_lamp_count = 0;
 }
@@ -735,7 +735,7 @@ static void lay_cd_pools(void)
  * has as the CD's has, the pools; `made` is taken */
 static void install_made(TrackNodeLight *made, const char *track, int tunnel_track)
 {
-    if (port_forest_dark()) terrain_light_forest_apply(made, track);
+    if (port_light_effects()) terrain_light_forest_apply(made, track);
     if (city_night3 && made->data != NULL) {   /* port (city_lift 3): the open rows darkened to the CD's; a tunnel's own light stays */
         const int share = city_made_scale(track);
         if (share < 256)
@@ -748,12 +748,12 @@ static void install_made(TrackNodeLight *made, const char *track, int tunnel_tra
     light.gate_board = headlights_on && port_finish_gate_light() ? finish_gate_board(track) + 1 : 0;   /* port (finish_gate_light) */
     light.beam_tunnel = headlights_on ? TRACK_NODE_LIGHT_BEAM_TUNNEL : 0;
     city_fields(&light, track);   /* port (city_lift): the made light has the City's fields as the CD's has (lamp_pool_bright included) */
-    light.object_floor = is_lost_vegas(track) && port_vegas_objects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects): the made light's buildings and objects keep their light as the CD's do */
+    light.object_floor = is_lost_vegas(track) && port_light_effects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects): the made light's buildings and objects keep their light as the CD's do */
     light.pool = headlights_on ? &headlight_pool : NULL;   /* port (headlight_beams): the made light's open nodes go to the night's, a tunnel keeps the dusk's, the pools lift */
     synth_on = 1;
     split = 1;   /* the dash takes the lamps' light as a script's does: its own ambient, the 3D and the 2D told apart */
     ported_view_set_light(&light, NULL);
-    ported_view_set_light_synth(tunnel_track || (light.tunnel != NULL && port_car_tunnel_light()));   /* the tunnel tracks' car and dash light follows their tunnels; so does any made light's that has tunnels (car_tunnel_light), as the CD's rows do */
+    ported_view_set_light_synth(tunnel_track || (light.tunnel != NULL && port_light_effects()));   /* the tunnel tracks' car and dash light follows their tunnels; so does any made light's that has tunnels (car_tunnel_light), as the CD's rows do */
 }
 
 const Tri *made_tri;       /* the race's track, kept for the light editor's reload (drive_light_reload) */
