@@ -4,6 +4,8 @@
 #define TNFS_GAME_NAME_H
 
 #define GAME_NAME "Spirited Drive"
+#define GAME_REPO_URL "https://github.com/BytesNRust/spirited-drive"   /* the project's page: the Star us on GitHub row opens it, the credits show it */
+#define GAME_REPO_SHOWN "github.com/BytesNRust/spirited-drive"       /* the same, as the credits print it */
 #define GAME_LOG_FILE "spirited-drive.log"   /* in the player's folder; the last run's beside it with ".1" */
 
 #endif

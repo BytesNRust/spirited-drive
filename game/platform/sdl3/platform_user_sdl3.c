@@ -6,6 +6,7 @@
 #include "game/sys/key_latch.h"
 #include "game/sys/data_path.h"
 #include "game/sys/file_url.h"
+#include "game/sys/game_name.h"
 #include "game/sys/port_log.h"
 #include "tnfs_version.h"
 #include "platform/sdl3/input_script.h"
@@ -60,6 +61,11 @@ int platform_open_user_dir(void)
     char dir[1200], url[3700];
     if (sdl3_user_dir(dir, sizeof dir) == NULL || file_url_from_path(dir, url, sizeof url) == 0) return 0;
     return SDL_OpenURL(url) ? 1 : 0;
+}
+
+int platform_open_repo_page(void)
+{
+    return SDL_OpenURL(GAME_REPO_URL) ? 1 : 0;
 }
 
 const char *sdl3_user_path(const char *name, char *out, size_t out_size)

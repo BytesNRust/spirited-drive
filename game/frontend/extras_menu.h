@@ -26,7 +26,8 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *                               Dash box (Map / Gear lever / Hidden), 360 Camera,
  *                               Difficulty (Easy / Original / Hard)
  *  page 3  Miscellaneous      Start Screen, Intro video, a blank line (extras_menu.c's BLANK_AFTER), Updates and anonymous stats,
- *                              Open the log folder and Restore profile defaults (actions, no value)
+ *                              Open the log folder and Star us on GitHub (actions, no value), a second blank line, Restore profile
+ *                              defaults (an action too, apart because it forgets what was changed)
  *
  * Pages 2 and 3 have one group each, so one header; page 1 has two.
  *
@@ -53,6 +54,7 @@ enum {
     ROW_START, ROW_MOVIES,                                                                   /* Miscellaneous */
     ROW_UPDATE,                                    /* port: Miscellaneous' last, Check for updates (port_extras.h's update_check, platform/update.h) */
     ROW_LOG_FOLDER,                                /* port: Miscellaneous' last, Open the log folder: an action row (ExtrasMenuOps.open_log_folder), for bug reports */
+    ROW_STAR,                                      /* port: Star us on GitHub: an action row (ExtrasMenuOps.open_repo), the project's page in the browser */
     ROW_RESET,                                     /* port (modes): Miscellaneous' last, Restore profile defaults: an action row (ExtrasMenuOps.reset_profile) */
     EXTRAS_ROWS                                    /* every switch on both pages, in the order above */
 };
@@ -131,6 +133,9 @@ typedef struct ExtrasMenuOps {
     int profile;
     /* port (modes): the Restore row's action, on the second Return: the mode's file emptied and `e` set to what it now reads. NULL: the row does nothing */
     void (*reset_profile)(void *ctx, PortExtras *e);
+    /* port: the Star us on GitHub row's action, run as the log folder's is (Return, Space or a click, not the arrows): the project's page in the player's
+     * browser. NULL: the row does nothing. */
+    void (*open_repo)(void *ctx);
 } ExtrasMenuOps;
 
 /* The two pages, run sequentially over the screen's live picture. 1 on Done (extras_save was called),

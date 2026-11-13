@@ -1,6 +1,7 @@
 /* Our credits pages: the homage and ours, the words the owner approved (i030), where they stand, and that they fit. */
 #include "game/frontend/credits_pages.h"
 #include "game/frontend/credits.h"
+#include "game/sys/game_name.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "test.h"
@@ -67,6 +68,23 @@ static void ours_is_set_in_two_columns(void)
     CHECK(find(it, n, "v0.9.0") != NULL);
 }
 
+/* the ask for a star: two centred lines under both columns and over the legal lines, the words in yellow and the address under them */
+static void ours_asks_for_a_star(void)
+{
+    CreditsItem it[CREDITS_ITEMS_MAX];
+    const int n = credits_page(1, "0.9.0", it);
+    const CreditsItem *const star = find(it, n, "Star us on GitHub"), *const where = find(it, n, "github.com/BytesNRust/spirited-drive");
+    CHECK(star != NULL && where != NULL);
+    if (star == NULL || where == NULL) return;
+    CHECK_EQ_INT(star->cx, 320);
+    CHECK_EQ_INT(where->cx, 320);
+    CHECK(star->colour == CREDITS_YELLOW && where->kind == CREDITS_NOTE);
+    CHECK(star->y > find(it, n, "SDL3")->y + 30 && star->y > find(it, n, "with EA Canada")->y + 30);
+    CHECK(where->y > star->y);
+    CHECK(where->y + 30 < find(it, n, "Unofficial. Not affiliated with Electronic Arts")->y);
+    CHECK(strstr(GAME_REPO_URL, where->text) != NULL);   /* the address shown is the one the Customize Game row opens */
+}
+
 static void the_version_line_is_optional(void)
 {
     CreditsItem a[CREDITS_ITEMS_MAX], b[CREDITS_ITEMS_MAX], c[CREDITS_ITEMS_MAX];
@@ -117,6 +135,7 @@ int main(void)
     our_pages_stay_and_move_on_as_the_originals();
     the_homage_is_the_owners_words();
     ours_is_set_in_two_columns();
+    ours_asks_for_a_star();
     the_version_line_is_optional();
     only_two_pages_and_everything_on_screen();
     return TEST_REPORT();
