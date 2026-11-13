@@ -31,7 +31,6 @@ typedef struct {
      * the liveries stay off. Read at each race start. */
     char psx_dir[PSX_DIR_MAX];
     int light_effects;           /* 1: the the console version's baked light on bridges and tunnels, read from psx_dir (track_node_light.h); 0 off */
-    int headlight_beams;      /* with light_effects at night: 1 the night's second look, the road dark and lit by a pool ahead of each car (headlight_pool.h); 0 the first look */
     int car_soft_shadow;          /* 1: the light effects' soft shadow under each car, weaker in the dark (soft_shadow.h); 0 the exe's quad */
     int light_time;            /* with light_effects: the the console version's time of day, LIGHT_TIME_DAWN (files A), LIGHT_TIME_DAY (B) or LIGHT_TIME_DUSK (C):
                              * `light_time=dawn|day|dusk` (a, b, c also read) */
@@ -101,8 +100,6 @@ int port_light_effects(void);
 /* 1 when the cars have the light effects' soft shadow: TNFS_CAR_SOFT_SHADOW=0/1 when set, else the mode's car_soft_shadow. */
 int port_car_soft_shadow(void);
 
-/* 1 when the night is lit by the cars' headlight pools: TNFS_HEADLIGHT_BEAMS=0/1 when set, else the mode's headlight_beams. */
-int port_headlight_beams(void);
 
 /* 1 when the headlight beam is a cone from the car's position and heading (it follows the nose, a turn, a U-turn): the headlight beams with Perspective Correction (Modern 3D); without it the
  * pool along the track's nodes. Not a setting of its own. */
@@ -161,13 +158,13 @@ int port_rain_grip(void);
 /* 1 when gauge_light is on: TNFS_GAUGE_LIGHT=0/1 when set, else the mode's. */
 int port_gauge_light(void);
 
-/* 1 when finish_gate_light is on: TNFS_FINISH_GATE_LIGHT=0/1 when set, else the mode's; only acts at night with the baked light (headlight_beams). */
+/* 1 when finish_gate_light is on: TNFS_FINISH_GATE_LIGHT=0/1 when set, else the mode's; only acts at night with the baked light (the light effects, the headlight beams with them). */
 int port_finish_gate_light(void);
 /* 1 when rain_lamps: TNFS_RAIN_LAMPS=0/1 when set, else the mode's; acts with weather=rain or storm. */
 int port_rain_lamps(void);
 /* 1 when gauge_exterior: TNFS_GAUGE_EXTERIOR=0/1 when set, else the mode's. */
 int port_gauge_exterior(void);
-/* 1 when sign_glow: TNFS_SIGN_GLOW=0/1 when set, else the mode's; never without port_headlight_beams(). */
+/* 1 when sign_glow: TNFS_SIGN_GLOW=0/1 when set, else the mode's; never without port_light_effects(). */
 int port_sign_glow(void);
 
 /* 1 when analog_pad: TNFS_ANALOG_PAD=0..1 when set, else the mode's. 1 in every mode, Stock too
@@ -182,7 +179,7 @@ int port_rain_v2(void);
 int port_rain_tyre_roll(void);
 /* 1 when snow_weather: TNFS_SNOW_WEATHER=0..1 when set, else the mode's. */
 int port_snow_weather(void);
-/* 1 when reflectors: TNFS_REFLECTORS=0/1 when set, else the mode's; never without port_headlight_beams(). */
+/* 1 when reflectors: TNFS_REFLECTORS=0/1 when set, else the mode's; never without port_light_effects(). */
 int port_reflectors(void);
 
 /* 1 when rally_spray: TNFS_RALLY_SPRAY=0/1 when set, else the mode's. */

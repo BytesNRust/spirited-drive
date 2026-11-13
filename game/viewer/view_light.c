@@ -219,9 +219,9 @@ static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
         g = headlight_pool_car_night_lift(g, port_light_effects());   /* port (car_night_lift) */
         const float gain = (float)g / 256.0f;
         for (int k = 0; k < 3; k++) out[k] *= gain;
-        if (port_headlight_beams()) (void)track_node_light_car_pool(light_effects, at, out);   /* port (lamp_car_shade): and the street lamp's pool lights it */
+        if (port_light_effects()) (void)track_node_light_car_pool(light_effects, at, out);   /* port (lamp_car_shade): and the street lamp's pool lights it */
     }
-    if (!found && light_effects != NULL && light_effects->car_pool != NULL && port_headlight_beams()) {   /* port (lamp_car_shade): a made light with no tunnels gives the car no ratio, so the lamps' pools had nothing to lift: the car's own is neutral, the pool's warm gain on it */
+    if (!found && light_effects != NULL && light_effects->car_pool != NULL && port_light_effects()) {   /* port (lamp_car_shade): a made light with no tunnels gives the car no ratio, so the lamps' pools had nothing to lift: the car's own is neutral, the pool's warm gain on it */
         static int mode = -1;
         if (mode < 0) mode = getenv("TNFS_LAMP_CAR_MODE") ? atoi(getenv("TNFS_LAMP_CAR_MODE")) : 1;
         const uint32_t at = light_tint_ring_node(node, light_effects->nodes);
@@ -290,7 +290,7 @@ void ported_view_set_police_lights(int on) { police_flash_on = on; }
 /* the table for a car at `node`, NULL when its ambient is the world's */
 const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t palette[768])
 {
-    if (light_effects == NULL || palette == NULL || !(ambient_on || synth_on || (port_headlight_beams() && light_effects->car_pool != NULL) || light_effects->lamp_n > 0 || light_effects->car_tone != NULL)) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
+    if (light_effects == NULL || palette == NULL || !(ambient_on || synth_on || (port_light_effects() && light_effects->car_pool != NULL) || light_effects->lamp_n > 0 || light_effects->car_tone != NULL)) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
     static struct { int key[8]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];   /* the ratio and the car's tone (track light file's car_tone) */
     static uint8_t made_for[768];
     static int next, valid;

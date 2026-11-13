@@ -153,7 +153,7 @@ static int perspective_on(void)
 
 int port_headlight_cone(void)
 {
-    return port_headlight_beams() && perspective_on();   /* the cone needs perspective (Modern 3D): without it the node pool, as the exe's */
+    return port_light_effects() && perspective_on();   /* the cone needs perspective (Modern 3D): without it the node pool, as the exe's */
 }
 
 int port_reverse_rows(void)

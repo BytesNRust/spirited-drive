@@ -100,7 +100,6 @@ static inline void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.fog, b.fog);
     CHECK_EQ_INT(a.light_effects, b.light_effects);
     CHECK_EQ_INT(a.car_soft_shadow, b.car_soft_shadow);
-    CHECK_EQ_INT(a.headlight_beams, b.headlight_beams);
     CHECK_EQ_INT(a.light_time, b.light_time);
     CHECK_EQ_INT(a.render_scale, b.render_scale);
     CHECK_EQ_INT(a.laps, b.laps);

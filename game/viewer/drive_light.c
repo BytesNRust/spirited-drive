@@ -201,10 +201,10 @@ static void load_without_cd_light(int time, const char *track, int have_dir, con
 /* The light effects of the track at this time of day: the headlights, the city's lift, the street lamps, the boards, the synth's time and the dark fog. */
 static void light_effects_set(int time, const char *track)
 {
-    headlights_on = (time == LIGHT_TIME_NIGHT || is_lost_vegas(track)) && port_headlight_beams();
+    headlights_on = (time == LIGHT_TIME_NIGHT || is_lost_vegas(track)) && port_light_effects();
     city_night3 = headlights_on && is_city(track) && port_city_lift() != 0;
     street_lamp_count = headlights_on ? street_lamps_for(track, street_lamps, STREET_LAMPS_MAX)
-                                      : port_headlight_beams() ? street_lamps_for_day(track, street_lamps, STREET_LAMPS_MAX) : 0;   /* port: the Light Effects' lamps lit by day too (street_lamp.h) */
+                                      : port_light_effects() ? street_lamps_for_day(track, street_lamps, STREET_LAMPS_MAX) : 0;   /* port: the Light Effects' lamps lit by day too (street_lamp.h) */
     street_lamp_by_day = !headlights_on;
     street_lamp_on = street_lamp_count > 0;
     window_board_count = headlights_on ? window_boards_for(track, &window_boards) : 0;
@@ -325,11 +325,11 @@ static void apply_rules_file(const char *track, TrackNodeLight *made)
 /* port (lamp_pool_tint, lamp_car_shade, lamp_pool_bright): which nodes a street lamp's pool lies on, for the road's warm tint and for the car's light */
 static void lamp_pool_classes(const Tri *tri, TrackNodeLight *made, const uint32_t *lamp_nodes, size_t lamps)
 {
-    if (lamps > 0 && port_headlight_beams()) {   /* port (lamp_pool_tint): which nodes a pool lies on, for the warm tint of the road there */
+    if (lamps > 0 && port_light_effects()) {   /* port (lamp_pool_tint): which nodes a pool lies on, for the warm tint of the road there */
         made->pool_class = malloc(made->nodes);
         if (made->pool_class != NULL) terrain_light_lamp_classes(made->pool_class, made->nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
     }
-    if (lamps > 0 && (port_headlight_beams() || city_night3)) {   /* port (lamp_car_shade, lamp_pool_bright): and the same classes for the car's light, and for the pool's own light */
+    if (lamps > 0 && (port_light_effects() || city_night3)) {   /* port (lamp_car_shade, lamp_pool_bright): and the same classes for the car's light, and for the pool's own light */
         made->car_pool = malloc(made->nodes);
         if (made->car_pool != NULL) terrain_light_lamp_classes(made->car_pool, made->nodes, tri_is_circuit(tri), lamp_nodes, (int)lamps);
     }
@@ -415,7 +415,7 @@ static int make_light_code(const Tri *tri, const char *track, TrackNodeLight *ou
     TrackNodeLight tunnels = { 0 };
     uint32_t open_from = 1, open_to = 0;
     const int trans = port_light_effects() && light_synth_trans(track, &open_from, &open_to);
-    const int gallery = port_light_effects() && port_light_effects() && light_synth_gallery_track(track);   /* port (made_tunnels, car_tunnel_light): CL2's galleries (property 7) are tunnels of its light, as the CD's is */
+    const int gallery = port_light_effects() && light_synth_gallery_track(track);   /* port (made_tunnels, car_tunnel_light): CL2's galleries (property 7) are tunnels of its light, as the CD's is */
     if (light_synth_ex(tri, synth_time, gallery, &tunnels) && tunnels.nodes == made.nodes) {
         uint32_t hall_from = 1, hall_to = 0;
         const int hall = port_light_effects() && light_synth_hall(track, &hall_from, &hall_to);
@@ -446,7 +446,7 @@ static int make_light_code(const Tri *tri, const char *track, TrackNodeLight *ou
 static uint32_t track_light_flags(void)
 {
     const int bits[] = { port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(), port_light_effects(),
-                         port_headlight_beams(), port_headlight_beams(), port_headlight_beams(), city_night3, street_lamp_on, reverse_track_wanted() };
+                         port_light_effects(), port_light_effects(), port_light_effects(), city_night3, street_lamp_on, reverse_track_wanted() };
     uint32_t flags = 0;
     for (size_t i = 0; i < sizeof bits / sizeof *bits; i++) flags |= (bits[i] != 0 ? 1u : 0u) << i;
     return flags;
@@ -678,7 +678,7 @@ static void pool_cd_light(const Tri *tri)
 {
     cd_lamp_count = 0;
     if (tri == NULL || light.data == NULL || light.pooled || synth_on || made_wanted || !headlights_on || synth_time != LIGHT_SYNTH_NIGHT) return;
-    if (!port_headlight_beams() && !port_headlight_beams() && !port_headlight_beams()) return;
+    if (!port_light_effects() && !port_light_effects() && !port_light_effects()) return;
     cd_lamp_count = street_lamp_pool_nodes(tri, cd_lamp_nodes);
     cd_lamp_ring = tri_is_circuit(tri);
 }
@@ -686,7 +686,7 @@ static void pool_cd_light(const Tri *tri)
 static void lay_cd_pools(void)
 {
     if (cd_lamp_count == 0 || light.data == NULL || light.pooled) return;
-    if (terrain_light_add_pools(&light, cd_lamp_ring, cd_lamp_nodes, (int)cd_lamp_count, port_headlight_beams(), port_headlight_beams(), port_headlight_beams() || city_night3))
+    if (terrain_light_add_pools(&light, cd_lamp_ring, cd_lamp_nodes, (int)cd_lamp_count, port_light_effects(), port_light_effects(), port_light_effects() || city_night3))
         port_log("light_effects: %zu street lamp pools over the CD's light\n", cd_lamp_count);
     cd_lamp_count = 0;
 }

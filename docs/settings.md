@@ -48,23 +48,22 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 
 ### Light effects (light, night, sky)
 
-The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_time`, `psx_headlights`, `psx_flares`, `psx_liveries`, and the variables `TNFS_PSX_*`); a file or a variable that still uses one is read as the new name, and a save writes the new one. `psx_dir` is the folder of the PS1 CD's extracted files; the baked light and the second liveries read from it at each race start.
+The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_time`, `psx_flares`, `psx_liveries`, and the variables `TNFS_PSX_*`; `psx_headlights` went with `headlight_beams`, now part of `light_effects`); a file or a variable that still uses one is read as the new name, and a save writes the new one. `psx_dir` is the folder of the PS1 CD's extracted files; the baked light and the second liveries read from it at each race start.
 
 | key | default | exe | range | menu | env | Stock / Restored / Restomod | needs |
 |---|---|---|---|---|---|---|---|
 | `psx_dir` | empty | empty | a folder path | none (edit the file) | none | not set | |
 | `light_edit` | 0 | 0 | 0, 1 (the live light editor in a race: the node, the light file's values, the texture under the pointer; F10 holds the race, F11 copies a line; `docs/track-light.md`). The machine's, in `port.cfg` beside `profile` and `psx_dir`: the same in every mode, no mode file holds it | none (edit `port.cfg`) | `TNFS_LIGHT_EDIT` | 0 in every mode | |
-| `light_effects` (older files: `psx_light`) | 0 | 0 | 0, 1 | Graphics Detail: Light Effects (switches `light_effects` and `car_soft_shadow` together) | `TNFS_LIGHT_EFFECTS` (`TNFS_PSX_LIGHT` is read too) | 0 / 0 / 1 | |
+| `light_effects` (older files: `psx_light`) | 0 | 0 | 0, 1 (with it, at night, the night's second look: the road dark and lit by a pool ahead of each car, the headlight beams; the older `headlight_beams` / `psx_headlights` key is ignored) | Graphics Detail: Light Effects (switches `light_effects` and `car_soft_shadow` together) | `TNFS_LIGHT_EFFECTS` (`TNFS_PSX_LIGHT` is read too) | 0 / 0 / 1 | |
 | `car_soft_shadow` (older files: `psx_shadow`) | 0 | 0 | 0, 1 | same row as `light_effects` | `TNFS_CAR_SOFT_SHADOW` (`TNFS_PSX_SHADOW` is read too) | 0 / 0 / 1 | |
 | `light_time` (older files: `psx_time`) | `day` | `day` | `dawn`, `day`, `dusk` (`a`, `b`, `c` also read) | Track Select: time of day, with the baked light on | `TNFS_LIGHT_TIME` (`TNFS_PSX_TIME` is read too) | not set | `light_effects` |
-| `headlight_beams` (older files: `psx_headlights`) | 0 | 0 | 0, 1 (the night's second look: dark road, pool of light ahead of each car) | none | `TNFS_HEADLIGHT_BEAMS` (`TNFS_PSX_HEADLIGHTS` is read too) | 0 / 0 / 1 | `light_effects`, night |
 | `lamp_flares` (older files: `psx_flares`) | 0 | 0 | 0, 1 (a soft halo round lit brake lights and tunnel lamps in low light and fog) | none | `TNFS_LAMP_FLARES` (`TNFS_PSX_FLARES` is read too) | 0 / 0 / 1 | `light_effects` |
 | `police_glow` | 0 | 0 | 0, 1 (a near-white core in the police lights, a stronger halo in poor light) | none | `TNFS_POLICE_GLOW` | 0 / 0 / 1 | `lamp_flares` for the halo |
 | `sky_fill` | 0 | 0 | 0, 1 (the flat sky's art carried up to the view's top) | none | `TNFS_SKY_FILL` (`TNFS_SKY_FILL_MODE` a/b, dev) | 0 / 0 / 1 | |
 | `sky_fill_below` | 0 | 0 | 0, 1 (the same carried down to the view's bottom; 16:9 and 21:9 only, never 4:3) | none | `TNFS_SKY_FILL_BELOW` | 0 / 0 / 1 | |
 | `rally_gravel_shoulder` | 0 | 0 | 0, 1 (the rolling gravel scrubs with the shoulder's own tyre sound, by speed, no gravel strikes) | none | `TNFS_RALLY_GRAVEL_SHOULDER` | 0 / 0 / 1 | extras `rally_gravel` |
 | `brake_over_gas` | 0 | 0 | 0, 1 (a pad's brake past its dead zone beats the gas: the car brakes and the brake light lights; 0 sums them as the exe does) | none | `TNFS_BRAKE_OVER_GAS` | 0 / 0 / 1 | none |
-| `sign_glow` | 0 | 0 | 0, 1 (at night, with `headlight_beams`, the City's matrix sign, EXPRESS LANES CLOSED (CY1), has its amber bulbs lit like the windows; 0 the exe's) | none | `TNFS_SIGN_GLOW` | 0 / 0 / 1 | `headlight_beams`, CY1 |
+| `sign_glow` | 0 | 0 | 0, 1 (at night, with `light_effects` (the headlight beams are part of it), the City's matrix sign, EXPRESS LANES CLOSED (CY1), has its amber bulbs lit like the windows; 0 the exe's) | none | `TNFS_SIGN_GLOW` | 0 / 0 / 1 | `headlight_beams`, CY1 |
 | `analog_pad` | 0 | 0 | 0, 1 (a control bound to an axis (pad stick or trigger, wheel, pedals) steers and works the pedals in proportion, a key or button keeps full travel; 0 the exe's key paths) | none | `TNFS_ANALOG_PAD` | 1 / 1 / 1 | a game controller |
 | `rain_v2` | 0 | 0 | 0, 1 (with `weather=rain` the rain has half the streaks, with `weather=storm` it has the old rain's count plus a quarter, with thunder after each lightning (0.5 to 4 s later, quieter the later; the sample is `data/sounds/thunder.wav`, CC0 by WuxiaScrub, see `data/sounds/LICENSES.md`), the streaks fall from higher, the wet road's lamp reflections show on the carriageway only, and the traffic's and police's spray wisp is a little longer and never gone at low speed; 0 as before) | none | `TNFS_RAIN_V2` | 0 / 0 / 1 | `weather=rain` or `storm`, `rain_fx` |
 | `rain_tyre_roll` | 0 | 0 | 0, 1 (in rain or a storm with `rain_v2`, the followed car rolling on open asphalt makes a low wet-tyre roll (data/sounds/rain_tyre_roll.wav) whose level and pitch follow its speed: silent when stopped, on gravel or grass, in the air and inside a closed zone, fading at the zone's mouths; 0 none) | none | `TNFS_RAIN_TYRE_ROLL` | 0 / 0 / 1 | Restomod '26's rain |
@@ -74,7 +73,7 @@ The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_tim
 | `rain_fx` | 0 | 0 | 0, 1 (rain streaks by speed and light) | none | `TNFS_RAIN_FX` | 0 / 0 / 1 | `weather=rain` |
 | `rain_grip` | 0 | 0 | 0, 1 (with `weather=rain` the road grips at 4/5 and the race's times and records are not kept, provisionally; the shoulder keeps its grip) | none | `TNFS_RAIN_GRIP` | 0 / 0 / 1 | `weather=rain` |
 | `gauge_light` | 0 | 0 | 0..5 (at night the lit parts of the dash gauges take a colour: 1 greenish, 2 reddish, 3 orange, 4 bluish, 5 "Del coche": the colour painted at each pixel in the dash's `dash_color.png` (below), orange where none or the car has no file; 0 the exe's untinted white; Graphics options page; a hand-made mask per dash, `data/dash_masks/<CAR>/dash_mask.png` or `$TNFS_DASH_MASKS`, from `tools/dash_mask_from_psd.py`, marks the lit parts: blue the dash, green a dial, yellow ffff00 or white always lit. The optional PSD layer "color" gives `data/dash_masks/<CAR>/dash_color.png` (same tool, `$TNFS_DASH_MASKS` too): paint the lit parts in the colour each is to glow, a different one per dial if wanted; only the strongest channel sets the hue, the dash's art the brightness; transparent or black = no colour (orange); up to 12 distinct colours; no menu row: the player does not pick it, the car's own colours do; Restomod defaults to 5) | none | `TNFS_GAUGE_LIGHT` | 0 / 0 / 5 | `weather=rain` |
-| `finish_gate_light` | 0 | 0 | 0, 1 (at night, with `headlight_beams`, the stage tracks' gate that ends a stage (CY, CL, AL; CHECKPOINT, FINISH on the third stage) keeps its daylight light against the dark; 0 the exe's) | none | `TNFS_FINISH_GATE_LIGHT` | 0 / 0 / 1 | `headlight_beams`, CY/CL/AL |
+| `finish_gate_light` | 0 | 0 | 0, 1 (at night, with `light_effects` (the headlight beams are part of it), the stage tracks' gate that ends a stage (CY, CL, AL; CHECKPOINT, FINISH on the third stage) keeps its daylight light against the dark; 0 the exe's) | none | `TNFS_FINISH_GATE_LIGHT` | 0 / 0 / 1 | `headlight_beams`, CY/CL/AL |
 | `reverse_rows` | 0 | 0 | 0, 1 (a reversed circuit's rows are read the way the forward circuit's are (the exe's reverse swaps the two chains of each row, which bends a tunnel's roof into a slab and lays its wall down as a hillside): the tunnels keep their walls and roof; 0 the rows swapped as the exe's reverse has them) | none | `TNFS_REVERSE_ROWS` | 0 / 0 / 1 | none |
 | `city_lift` | 0 | 0 | 0, 1 (with the baked light and headlights the City nights CY1..CY3 are lifted: a ceiling of .42 over the exe's .35, a little of the dark floor raised, brighter tunnels and lamp pools, the beams standing out on top; an older file's 2 or 3 reads as 1; 0 the exe's darkness) | none | `TNFS_CITY_LIFT` | 0 / 0 / 1 | `light_effects` |
 | `vegas_lift` | 0 | 0 | 0, 1 (the same for Lost Vegas' night: a ceiling of .80 and its dark floor raised; an older file's 2 reads as 1; 0 the exe's) | none | `TNFS_VEGAS_LIFT` | 0 / 0 / 1 | `light_effects` |
@@ -165,7 +164,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 ## What each profile sets (`TABLES`)
 
-All 60 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
+All 59 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
 | column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
@@ -178,7 +177,6 @@ All 60 columns of the table. A column that is not here is not touched by any pro
 | `f3_ultra` | settings | 0 | 0 | 1 |
 | `render_scale` | settings | 1 | 1 | 2 |
 | `light_effects` | settings | 0 | 0 | 1 |
-| `headlight_beams` | settings | 0 | 0 | 1 |
 | `car_soft_shadow` | settings | 0 | 0 | 1 |
 | `lamp_flares` | settings | 0 | 0 | 1 |
 | `body_shine` | settings | 0 | 0 | 4 |

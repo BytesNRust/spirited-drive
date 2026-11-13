@@ -164,7 +164,6 @@ static void test_switches_follow_the_mode(void)
         const int restomod = pass != 1;
         mode(restomod ? PROFILE_RESTOMOD : PROFILE_STOCK);
         CHECK_EQ_INT(port_light_effects(), restomod);
-        CHECK_EQ_INT(port_headlight_beams(), restomod);
         CHECK_EQ_INT(port_city_lift(), restomod);
         CHECK_EQ_INT(port_vegas_lift(), restomod);
         CHECK_EQ_INT(port_weather_fog(), restomod);
@@ -182,7 +181,7 @@ int main(void)
 {
     unsetenv("TNFS_SPRAY_V4"), unsetenv("TNFS_BRAKE_OVER_GAS");
     {
-        static const char *const ENV[] = { "TNFS_LIGHT_EFFECTS", "TNFS_PSX_LIGHT", "TNFS_HEADLIGHT_BEAMS", "TNFS_PSX_HEADLIGHTS", "TNFS_CITY_LIFT", "TNFS_VEGAS_LIFT", "TNFS_WEATHER_FOG", "TNFS_TUNNEL_LAMPS", "TNFS_POLICE_GLOW" };
+        static const char *const ENV[] = { "TNFS_LIGHT_EFFECTS", "TNFS_PSX_LIGHT", "TNFS_CITY_LIFT", "TNFS_VEGAS_LIFT", "TNFS_WEATHER_FOG", "TNFS_TUNNEL_LAMPS", "TNFS_POLICE_GLOW" };
         for (size_t i = 0; i < sizeof ENV / sizeof *ENV; i++) unsetenv(ENV[i]);
     }
     test_every_write_moves_the_generation();

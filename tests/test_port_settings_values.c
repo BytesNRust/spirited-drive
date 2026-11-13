@@ -107,14 +107,14 @@ static void test_retired_keys_are_ignored(void)
                                            "car_tunnel_light", "canyon_shade", "parking_dark", "cavern_dark", "trans_shadows", "forest_neutral", "forest_dark", "vegas_car_night",
                                            "vegas_objects", "car_tunnel_match", "lamp_pools", "lamp_pool_tint", "lamp_pool_bright", "lamp_car_shade", "shoulder_light",
                                            "track_light_lamp", "night_stretch_clean", "night_sky_hue", "night_tone", "police_halo",
-                                           "car_night_lift", "headlight_cone", "chase_height", "chase_steady" };
-    const char *const kept = "light_effects=1\nheadlight_beams=1\nlaps=7\nweather_fog=2\n";
+                                           "car_night_lift", "headlight_cone", "chase_height", "chase_steady", "headlight_beams", "psx_headlights" };
+    const char *const kept = "light_effects=1\nlaps=7\nweather_fog=2\n";
     char text[4096] = "light_effects=1\n";
     for (size_t i = 0; i < sizeof RETIRED / sizeof *RETIRED; i++) {
         char line[64];
         snprintf(line, sizeof line, "%s=%d\n", RETIRED[i], (int)(i % 2));
         strcat(text, line);
-        if (i == 8) strcat(text, "headlight_beams=1\nlaps=7\n");   /* known keys between the old ones */
+        if (i == 8) strcat(text, "laps=7\n");   /* known keys between the old ones */
     }
     strcat(text, "weather_fog=2\n");
     check_same(port_settings_parse(text, strlen(text)), port_settings_parse(kept, strlen(kept)));
@@ -215,16 +215,15 @@ static void test_reflectors_values(void)
     const char *const on = "reflectors=1\n", *const bad = "reflectors=2\n";
     CHECK_EQ_INT(port_settings_parse(on, strlen(on)).reflectors, 1);
     CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).reflectors, 0);
-    setenv("TNFS_HEADLIGHT_BEAMS", "1", 1);
     setenv("TNFS_REFLECTORS", "1", 1);
+    setenv("TNFS_LIGHT_EFFECTS", "1", 1);
     CHECK_EQ_INT(port_reflectors(), 1);
-    setenv("TNFS_HEADLIGHT_BEAMS", "0", 1);
+    setenv("TNFS_LIGHT_EFFECTS", "0", 1);
     CHECK_EQ_INT(port_reflectors(), 0);   /* no headlights, no reflectors */
-    setenv("TNFS_HEADLIGHT_BEAMS", "1", 1);
+    unsetenv("TNFS_LIGHT_EFFECTS");
     setenv("TNFS_REFLECTORS", "0", 1);
     CHECK_EQ_INT(port_reflectors(), 0);
     unsetenv("TNFS_REFLECTORS");
-    unsetenv("TNFS_HEADLIGHT_BEAMS");
 }
 
 static void test_replay_no_ffb_values(void)

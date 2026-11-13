@@ -163,7 +163,6 @@ static void test_tables(void)
     CHECK_EQ_INT(s.tach_dim, 1);
     CHECK_EQ_INT(s.gauge_wheel, 1);
     CHECK_EQ_INT(s.police_glow, 1);
-    CHECK_EQ_INT(s.headlight_beams, 1);
     CHECK_EQ_INT(s.perspective, 1);
     CHECK_EQ_INT(s.body_shine, 4);   /* the envmap */
     CHECK_EQ_INT(s.render_scale, 2);

@@ -22,7 +22,7 @@ int port_analog_pad(void)
 
 int port_sign_glow(void)
 {
-    if (!port_headlight_beams()) return 0;
+    if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_SIGN_GLOW");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().sign_glow;
@@ -138,13 +138,6 @@ int port_car_colours(void)
     return port_settings_load().car_colours;
 }
 
-int port_headlight_beams(void)
-{
-    const char *v = port_env_alias("TNFS_HEADLIGHT_BEAMS", "TNFS_PSX_HEADLIGHTS");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().headlight_beams;
-}
-
 int port_car_soft_shadow(void)
 {
     const char *v = port_env_alias("TNFS_CAR_SOFT_SHADOW", "TNFS_PSX_SHADOW");
@@ -197,7 +190,7 @@ int port_handbrake_lamps(void)
 
 int port_reflectors(void)
 {
-    if (!port_headlight_beams()) return 0;
+    if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_REFLECTORS");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().reflectors;

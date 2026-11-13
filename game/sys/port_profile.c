@@ -44,7 +44,7 @@ ScreenFormat port_profile_monitor_format(int width, int height)
 typedef struct {
     int widescreen;   /* 1: the monitor's format, else 4:3 */
     int refresh_hz, view_ultra, perspective, texture_filter, fog, f3_ultra, render_scale;
-    int light_effects, headlight_beams, car_soft_shadow, lamp_flares, body_shine, car_colours, fog_sample, sky_fill;
+    int light_effects, car_soft_shadow, lamp_flares, body_shine, car_colours, fog_sample, sky_fill;
     int movies_wide, extra_liveries, rally_gravel;   /* the mode's file's */
     int bumper_mirror, bumper_radar, follow_camera;   /* the mode's file's, appended */
     int scale_integer;   /* port.cfg's, appended: 1 whole multiples only, 0 fill */
@@ -78,9 +78,9 @@ typedef struct {
 } Table;
 
 static const Table TABLES[PROFILE_COUNT] = {
-    [PROFILE_STOCK]    = { 0, 30, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   /* 30: the exe's 30 steps a second, each drawn once */
-    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
+    [PROFILE_STOCK]    = { 0, 30, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   /* 30: the exe's 30 steps a second, each drawn once */
+    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
 };
 
 /* what the player may change in a mode, by file key; Restomod '26 leaves everything free but the machine's own */
@@ -119,7 +119,7 @@ static size_t next_line(const char *text, size_t size, size_t pos, char *line, s
 const char *port_profile_key_alias(const char *key)
 {
     static const char *const OLD[][2] = { { "psx_light", "light_effects" }, { "psx_shadow", "car_soft_shadow" }, { "psx_time", "light_time" },
-                                          { "psx_headlights", "headlight_beams" }, { "psx_flares", "lamp_flares" }, { "psx_liveries", "extra_liveries" } };
+                                          { "psx_flares", "lamp_flares" }, { "psx_liveries", "extra_liveries" } };
     for (size_t i = 0; i < sizeof OLD / sizeof OLD[0]; i++)
         if (strcmp(key, OLD[i][0]) == 0) return OLD[i][1];
     return key;
@@ -186,7 +186,7 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
     s.fullscreen = 1;   /* the three start full screen */
     s.format = t->widescreen ? monitor : SCREEN_4_3;
     s.refresh_hz = t->refresh_hz, s.view_ultra = t->view_ultra, s.perspective = t->perspective, s.texture_filter = t->texture_filter, s.fog = t->fog;
-    s.f3_ultra = t->f3_ultra, s.render_scale = t->render_scale, s.light_effects = t->light_effects, s.headlight_beams = t->headlight_beams, s.car_soft_shadow = t->car_soft_shadow;
+    s.f3_ultra = t->f3_ultra, s.render_scale = t->render_scale, s.light_effects = t->light_effects, s.car_soft_shadow = t->car_soft_shadow;
     s.lamp_flares = t->lamp_flares, s.body_shine = t->body_shine, s.car_colours = t->car_colours, s.fog_sample = t->fog_sample, s.sky_fill = t->sky_fill;
     s.scale_integer = t->scale_integer;
     s.last_camera = t->last_camera, s.replay_no_ffb = t->replay_no_ffb;

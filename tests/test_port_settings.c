@@ -60,7 +60,7 @@ static void test_defaults(void)
 static void test_round_trip(void)
 {
     const PortSettings s = { .format = SCREEN_21_9, .refresh_hz = 144, .scale_integer = 1, .fullscreen = 1,
-                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .light_effects = 1, .car_soft_shadow = 1, .headlight_beams = 1, .light_time = LIGHT_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .lamp_flares = 1, .replay_no_ffb = 1, .last_camera = 1, .camera_kind = 4 };
+                             .fov_adjust = -7, .view_ultra = 1, .perspective = 1, .texture_filter = 1, .fog = 1, .render_scale = 3, .laps = 25, .light_effects = 1, .car_soft_shadow = 1, .light_time = LIGHT_TIME_DUSK, .weather = WEATHER_RAIN, .render_bands = 4, .body_shine = 4, .free_records = 1, .car_colours = 1, .fog_sample = 1, .sky_fill = 1, .lamp_flares = 1, .replay_no_ffb = 1, .last_camera = 1, .camera_kind = 4 };
     char text[PORT_CFG_TEXT_MAX];
     const size_t n = port_settings_format(&s, text, sizeof text);
     CHECK(n > 0 && n < sizeof text);
@@ -93,11 +93,6 @@ static void test_parse_keys(void)
     CHECK_EQ_INT(s.car_soft_shadow, 0);
     const char *shadow = "car_soft_shadow=1\n";
     CHECK_EQ_INT(port_settings_parse(shadow, strlen(shadow)).car_soft_shadow, 1);
-    CHECK_EQ_INT(s.headlight_beams, 0);   /* off by default: the night's first look */
-    const char *headlights = "headlight_beams=1\n";
-    CHECK_EQ_INT(port_settings_parse(headlights, strlen(headlights)).headlight_beams, 1);
-    const char *bad_headlights = "headlight_beams=2\n";
-    CHECK_EQ_INT(port_settings_parse(bad_headlights, strlen(bad_headlights)).headlight_beams, 0);
     const char *bad_shadow = "car_soft_shadow=7\n";
     CHECK_EQ_INT(port_settings_parse(bad_shadow, strlen(bad_shadow)).car_soft_shadow, 0);
     const char *shine = "body_shine=1\n", *strong = "body_shine=3\n", *envmap = "body_shine=4\n", *bad_shine = "body_shine=5\n";
@@ -277,11 +272,10 @@ static void test_old_psx_keys_load_as_the_new_names(void)
     const char *old = "profile=restomod\npsx_dir=/cd\npsx_light=1\npsx_shadow=1\npsx_time=dusk\npsx_headlights=1\npsx_flares=1\n";
     const char *now = "profile=restomod\npsx_dir=/cd\nlight_effects=1\ncar_soft_shadow=1\nlight_time=dusk\nheadlight_beams=1\nlamp_flares=1\n";
     const PortSettings a = port_settings_parse(old, strlen(old)), b = port_settings_parse(now, strlen(now));
-    CHECK(a.light_effects == b.light_effects && a.car_soft_shadow == b.car_soft_shadow && a.light_time == b.light_time && a.headlight_beams == b.headlight_beams && a.lamp_flares == b.lamp_flares);
+    CHECK(a.light_effects == b.light_effects && a.car_soft_shadow == b.car_soft_shadow && a.light_time == b.light_time && a.lamp_flares == b.lamp_flares);   /* psx_headlights and headlight_beams: gone with the beams' fold, both ignored */
     CHECK_EQ_INT(a.light_effects, 1);
     CHECK_EQ_INT(a.car_soft_shadow, 1);
     CHECK_EQ_INT(a.light_time, LIGHT_TIME_DUSK);
-    CHECK_EQ_INT(a.headlight_beams, 1);
     CHECK_EQ_INT(a.lamp_flares, 1);
     CHECK(strcmp(a.psx_dir, "/cd") == 0);   /* the folder of the CD keeps its name */
     char saved[PORT_CFG_TEXT_MAX];
