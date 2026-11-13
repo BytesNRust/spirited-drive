@@ -95,20 +95,6 @@ int port_rally_gravel_shoulder(void)
     return port_settings_load().rally_gravel_shoulder;
 }
 
-int port_chase_height(void)
-{
-    const char *v = getenv("TNFS_CHASE_HEIGHT");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().chase_height;
-}
-
-int port_chase_steady(void)
-{
-    const char *v = getenv("TNFS_CHASE_STEADY");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().chase_steady;
-}
-
 int port_close_houses(void)
 {
     const char *v = getenv("TNFS_CLOSE_HOUSES");
@@ -167,10 +153,7 @@ static int perspective_on(void)
 
 int port_headlight_cone(void)
 {
-    if (!port_headlight_beams() || !perspective_on()) return 0;   /* the cone needs perspective (Modern 3D): without it the node pool, as the exe's */
-    const char *v = getenv("TNFS_HEADLIGHT_CONE");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().headlight_cone;
+    return port_headlight_beams() && perspective_on();   /* the cone needs perspective (Modern 3D): without it the node pool, as the exe's */
 }
 
 int port_reverse_rows(void)

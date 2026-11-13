@@ -69,18 +69,15 @@ The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_tim
 | `rain_v2` | 0 | 0 | 0, 1 (with `weather=rain` the rain has half the streaks, with `weather=storm` it has the old rain's count plus a quarter, with thunder after each lightning (0.5 to 4 s later, quieter the later; the sample is `data/sounds/thunder.wav`, CC0 by WuxiaScrub, see `data/sounds/LICENSES.md`), the streaks fall from higher, the wet road's lamp reflections show on the carriageway only, and the traffic's and police's spray wisp is a little longer and never gone at low speed; 0 as before) | none | `TNFS_RAIN_V2` | 0 / 0 / 1 | `weather=rain` or `storm`, `rain_fx` |
 | `rain_tyre_roll` | 0 | 0 | 0, 1 (in rain or a storm with `rain_v2`, the followed car rolling on open asphalt makes a low wet-tyre roll (data/sounds/rain_tyre_roll.wav) whose level and pitch follow its speed: silent when stopped, on gravel or grass, in the air and inside a closed zone, fading at the zone's mouths; 0 none) | none | `TNFS_RAIN_TYRE_ROLL` | 0 / 0 / 1 | Restomod '26's rain |
 | `snow_weather` | 0 | 0 | 0, 1 (on a track whose places file says `snow 1`, Alpine 3, rain is snow: white flakes falling slowly and drifting, with the weather's openness; the storm is heavier snow with no lightning or thunder; the road stays wet as in rain; in the rally the road and the shoulder are covered in snow with a loose, slidy grip (rally_gravel.h); 0 the rain as it was) | none | `TNFS_SNOW_WEATHER` | 0 / 0 / 1 | Restomod '26's Alpine |
-| `police_halo` | 0 | 0 | 0..3 (the police roof lights' halo size: 0 as now, 1..3 progressively bigger (near and far)) | none | `TNFS_POLICE_HALO` | 0 / 0 / 1 | `police_glow`, `lamp_flares` |
 | `traffic_halo` | 0 | 0 | 0..1 (at night the traffic's lit lamps get a halo as the racers' do; 0 as now) | none | `TNFS_TRAFFIC_HALO` | 0 / 0 / 1 | `lamp_flares`, night |
 | `rally_dry_lamps` | 0 | 0 | 0..1 (in a rally (dirt) race in rain the cars' lamps are not reflected in the road, as dirt is no mirror; 0 the exe's wet-asphalt reflections) | none | `TNFS_RALLY_DRY_LAMPS` | 0 / 0 / 1 | `weather=rain`, `rain_fx`, a rally race |
-| `headlight_cone` | 0 | 0 | 0, 1 (the car's own beam is a cone from its position and heading: it follows the nose, the turns and a U-turn, with no jump at section boundaries; 0 the pool along the track's nodes) | none | `TNFS_HEADLIGHT_CONE` | 0 / 0 / 1 | `headlight_beams`, `perspective` (without Perspective Correction the cone counts as 0: the node pool) |
 | `rain_fx` | 0 | 0 | 0, 1 (rain streaks by speed and light) | none | `TNFS_RAIN_FX` | 0 / 0 / 1 | `weather=rain` |
 | `rain_grip` | 0 | 0 | 0, 1 (with `weather=rain` the road grips at 4/5 and the race's times and records are not kept, provisionally; the shoulder keeps its grip) | none | `TNFS_RAIN_GRIP` | 0 / 0 / 1 | `weather=rain` |
 | `gauge_light` | 0 | 0 | 0..5 (at night the lit parts of the dash gauges take a colour: 1 greenish, 2 reddish, 3 orange, 4 bluish, 5 "Del coche": the colour painted at each pixel in the dash's `dash_color.png` (below), orange where none or the car has no file; 0 the exe's untinted white; Graphics options page; a hand-made mask per dash, `data/dash_masks/<CAR>/dash_mask.png` or `$TNFS_DASH_MASKS`, from `tools/dash_mask_from_psd.py`, marks the lit parts: blue the dash, green a dial, yellow ffff00 or white always lit. The optional PSD layer "color" gives `data/dash_masks/<CAR>/dash_color.png` (same tool, `$TNFS_DASH_MASKS` too): paint the lit parts in the colour each is to glow, a different one per dial if wanted; only the strongest channel sets the hue, the dash's art the brightness; transparent or black = no colour (orange); up to 12 distinct colours; no menu row: the player does not pick it, the car's own colours do; Restomod defaults to 5) | none | `TNFS_GAUGE_LIGHT` | 0 / 0 / 5 | `weather=rain` |
 | `finish_gate_light` | 0 | 0 | 0, 1 (at night, with `headlight_beams`, the stage tracks' gate that ends a stage (CY, CL, AL; CHECKPOINT, FINISH on the third stage) keeps its daylight light against the dark; 0 the exe's) | none | `TNFS_FINISH_GATE_LIGHT` | 0 / 0 / 1 | `headlight_beams`, CY/CL/AL |
 | `reverse_rows` | 0 | 0 | 0, 1 (a reversed circuit's rows are read the way the forward circuit's are (the exe's reverse swaps the two chains of each row, which bends a tunnel's roof into a slab and lays its wall down as a hillside): the tunnels keep their walls and roof; 0 the rows swapped as the exe's reverse has them) | none | `TNFS_REVERSE_ROWS` | 0 / 0 / 1 | none |
-| `city_lift` | 0 | 0 | 0, 1, 2, 3 (with the baked light and headlights the City nights CY1..CY3 are brightened: 1 mild, 2 more, by raising the night tint's ceiling and the open night's dark floor, the beams added on top of that floor; 3 a darker base than 1 with brighter tunnels and lamp pools, so the beams stand out; 0 the exe's darkness) | none | `TNFS_CITY_LIFT` | 0 / 0 / 3 | `light_effects` |
-| `vegas_lift` | 0 | 0 | 0, 1, 2 (the same for Lost Vegas' night: 1 mild, 2 more; 0 the exe's) | none | `TNFS_VEGAS_LIFT` | 0 / 0 / 2 | `light_effects` |
-| `night_tone` | 0 | 0 | 0, 1, 2 (the night's flat tint of a track with no baked light, i.e. with no disc or no light file for it: 0 the fallback's warm brown-green; 1 each track's own CD night tint (constants, no console data), brought under the City's and Lost Vegas' lift ceilings as on the CD path, with a brightness match to the CD's road; 2 one neutral cool blue-grey, the City's and Lost Vegas' following `city_lift` and `vegas_lift` from the look at city_lift 3 / vegas_lift 2; the CD's own light and tints are never changed) | none | `TNFS_NIGHT_TONE` | 0 / 0 / 2 | `light_effects`, night |
+| `city_lift` | 0 | 0 | 0, 1 (with the baked light and headlights the City nights CY1..CY3 are lifted: a ceiling of .42 over the exe's .35, a little of the dark floor raised, brighter tunnels and lamp pools, the beams standing out on top; an older file's 2 or 3 reads as 1; 0 the exe's darkness) | none | `TNFS_CITY_LIFT` | 0 / 0 / 1 | `light_effects` |
+| `vegas_lift` | 0 | 0 | 0, 1 (the same for Lost Vegas' night: a ceiling of .80 and its dark floor raised; an older file's 2 reads as 1; 0 the exe's) | none | `TNFS_VEGAS_LIFT` | 0 / 0 / 1 | `light_effects` |
 | `rain_lamps` | 0 | 0 | 0, 1 (with `weather=rain` or `storm` every car drives with its headlights on, day included: lit front lamps and their warm reflections on the wet road; no night beam or pools by day) | none | `TNFS_RAIN_LAMPS` | 0 / 0 / 1 | `weather=rain` |
 | `gauge_exterior` | 0 | 0 | 0, 1 (with `gauge_light`, the gauges are lit whenever the exterior lights are on: night, dusk, and rain or storm with `rain_lamps`; by day dry they stay unlit; 0 at night only) | none | `TNFS_GAUGE_EXTERIOR` | 0 / 0 / 1 | `gauge_light` |
 | `close_houses` | 0 | 0 | 0, 1 (the TR3 village houses get their right wall, back wall and back roof slope, the long building its far end cap; 0 they are open as in the exe) | none | `TNFS_CLOSE_HOUSES` | 0 / 0 / 1 | none |
@@ -91,11 +88,10 @@ The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_tim
 | `lamp_halos` | 0 | 0 | 0, 1 (at night, the street lamps get the same soft dithered halo as the brake lights and the tunnel lamps: found as the blobs of the lamp boards' emissive entries after the 3D, only where a lamp's own sprite was drawn, the nearest or largest few; the lit windows and the traffic signs the reflectors light never; 0 as before) | none | `TNFS_LAMP_HALOS` | 0 / 0 / 1 | none |
 0 | none | `TNFS_LAMP_HALOS` | 0 / 0 / 0 | none |
 | `wipers` | 0 | 0 | 0, 1 (in the dash view, in rain, storm and snow, two wiper blades sweep the glass, at a pace that follows what falls (rain and snow 1.8 s a cycle, the storm 1.3 s), and park when the cycle is done; each pass clears the lens drops and the snow's marks it crosses; a dash whose art draws wiper blades (the P911's, a red `dash_mask.png` colour) shows them only when the wipers are off; needs the wide path (a wide format or render_scale above 1); 0 as before) | none | `TNFS_WIPERS` | 0 / 0 / 1 | none |
-| `weather_fog` | 0 | 0 | 0..2 (the weather's fog in snow and in the rain storm, with Modern 3D: 1 the snow's fog is whiter and denser (a snow-white colour, closer, with the fog weather's exponential curve, denser in the snow storm) and the rain storm's fog is denser than the rain's; 2 the same, and the rain's dark grey mood is not laid over the snow, so the picture is whiter; 0 the same fog as the rain in all four) | none | `TNFS_WEATHER_FOG` | 0 / 0 / 2 | `modern_3d` |
+| `weather_fog` | 0 | 0 | 0, 1 (the weather's fog in snow and in the rain storm, with Modern 3D: 1 the snow's fog is whiter and denser (a snow-white colour, closer, with the fog weather's exponential curve, denser in the snow storm), the rain storm's fog is denser than the rain's, and the rain's dark grey mood is not laid over the snow, so the picture is whiter; an older file's 2 reads as 1; 0 the same fog as the rain in all four) | none | `TNFS_WEATHER_FOG` | 0 / 0 / 1 | `modern_3d` |
 | `spray_v4` | 0 | 0 | 0, 1 (the wheels' spray and dust as the generated sprites of each material, born every simulation tick at the wheel's own place and height: on a wet road small drops thrown back and up in a fan that fall under gravity and vanish where they touch the road, and a low flat mist; the desert's dust a slow cottony cloud; the snow's powder and small lumps; gravel and the shoulder small angular stones with a fine dust; replaces rain_fx's spray and the rally's dust; 0 as before) | none | `TNFS_SPRAY_V4` | 0 / 0 / 1 | `weather=rain`, or a rally's dust, gravel or snow, or the shoulder |
-| `car_night_lift` | 0 | 0 | 0..2 (the cars at night, every car's light raised where the headlight pool gives it: 1 by an eighth of its gain, 2 by a half, above the paint's own colour with the lit table not held to its hue family; the player's car with its lights on and the traffic and rivals alike; 0 as before) | none | `TNFS_CAR_NIGHT_LIFT` | 0 / 0 / 1 | `light_effects`, `headlight_beams`, night |
 | `menu_pad_cancel` | 0 | 0 | 0..1 (the gamepad's second button, B by default (the exe's Enter), is Escape in the menus and the name box: back, exit, cancel; the first, A, keeps accepting (Space); 0 the exe's: both accept) | none | `TNFS_MENU_PAD_CANCEL` | 0 / 0 / 1 | a game controller |
-| `tunnel_lamps` | 0 | 0 | 0..2 (1 at night, 2 by day too: the lamps of the tunnels and caverns (the lamp textures of `game/race/tunnel_lamp_textures.c`: CY1, CY2, CY3, TR3, TR4) light the walls and the road in a pool under each lamp, like the street lamps' pools; the light is ADDED over the tunnel's own (`tunnel_tone`), so a dark tunnel still has bright pools under its lamps; the car takes them too: its light in the tunnel is the between-lamps level everywhere and each lamp's pool lifts it to full light by its distance to the lamp, in place of the node-parity alternation; 0 the exe's) | none | `TNFS_TUNNEL_LAMPS` | 0 / 0 / 2 | `light_effects`, `headlight_beams`, night |
+| `tunnel_lamps` | 0 | 0 | 0, 1 (by day and at night; an older file's 2 reads as 1: the lamps of the tunnels and caverns (the lamp textures of `game/race/tunnel_lamp_textures.c`: CY1, CY2, CY3, TR3, TR4) light the walls and the road in a pool under each lamp, like the street lamps' pools; the light is ADDED over the tunnel's own (`tunnel_tone`), so a dark tunnel still has bright pools under its lamps; the car takes them too: its light in the tunnel is the between-lamps level everywhere and each lamp's pool lifts it to full light by its distance to the lamp, in place of the node-parity alternation; 0 the exe's) | none | `TNFS_TUNNEL_LAMPS` | 0 / 0 / 1 | `light_effects`, `headlight_beams`, night |
 | `wrong_way` | 0 | 0 | 0..1 (a centred blinking WRONG WAY, FALSCHE RICHTUNG with `--german`, in the upper third when the player's car drives forwards (not in reverse, forward speed above 30 km/h) with its nose more than a quarter turn from the road's heading at its node, not spinning, for 1.5 s; it goes after 0.5 s of anything else; reversing never turns it on, whichever way the nose points; not in the countdown, after the finish or in a replay; 0 the exe's: no warning) | none | `TNFS_WRONG_WAY` | 0 / 0 / 1 | a race |
 
 ### Dash, cameras and replay
@@ -106,8 +102,6 @@ The effects' keys used to be called `psx_*` (`psx_light`, `psx_shadow`, `psx_tim
 | `tach_dim` | 0 | 0 | 0, 1 (the outside views' tachometer takes the dash's half tint) | none | `TNFS_TACH_DIM` | 0 / 0 / 1 |
 | `gauge_wheel` | 0 | 0 | 0, 1 (at night the wheel in front of the gauges takes the dash's half tint) | none | `TNFS_GAUGE_WHEEL` | 0 / 0 / 1 |
 | `replay_no_ffb` | 0 | 0 | 0, 1 (a replay leaves the force-feedback stick and the pad's rumble still) | none | `TNFS_REPLAY_NO_FFB` | 0 / 0 / 1 |
-| `chase_height` | 0 | 0 | 0, 1 (the chase eye behind the car keeps the flat chase's height above the road on a climb or a descent; acts only with extras `follow_camera`) | none | `TNFS_CHASE_HEIGHT` | 0 / 0 / 1 |
-| `chase_steady` | 0 | 0 | 0, 1 (the chase eye holds the car still in the picture as it bounces: the chase views' heading is the follow yaw, not aimed at a point ahead from an eye the car's roll swings sideways, and `chase_height`'s lift reaches the eye an eighth a tick, turned with the car's pitch and roll; 0 the follow camera's as it was, the car jumping about the screen on a bumpy road; acts only with extras `follow_camera`) | none | `TNFS_CHASE_STEADY` | 0 / 0 / 1 |
 | `last_camera` | 0 | 0 (a race starts in the dash) | 0, 1 (a race starts in the last camera used) | none | `TNFS_LAST_CAMERA` | 0 / 0 / 1 |
 | `camera_kind` | -1 | -1 | -1 (none yet), 0..5 | none; the game writes it, read only with `last_camera` | none | not set |
 
@@ -171,7 +165,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 ## What each profile sets (`TABLES`)
 
-All 66 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
+All 60 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
 | column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
@@ -206,26 +200,21 @@ All 66 columns of the table. A column that is not here is not touched by any pro
 | `gauge_wheel` | settings | 0 | 0 | 1 |
 | `police_glow` | settings | 0 | 0 | 1 |
 | `rally_gravel_shoulder` | settings | 0 | 0 | 1 |
-| `chase_height` | settings | 0 | 0 | 1 |
-| `chase_steady` | settings | 0 | 0 | 1 |
 | `close_houses` | settings | 0 | 0 | 1 |
-| `headlight_cone` | settings | 0 | 0 | 1 |
 | `rain_fx` | settings | 0 | 0 | 1 |
 | `rain_grip` | settings | 0 | 0 | 1 |
 | `gauge_light` | settings | 0 | 0 | 5 |
 | `finish_gate_light` | settings | 0 | 0 | 1 |
 | `sign_glow` | settings | 0 | 0 | 1 |
 | `analog_pad` | settings | 1 | 1 | 1 |
-| `police_halo` | settings | 0 | 0 | 1 |
 | `rain_v2` | settings | 0 | 0 | 1 |
 | `rain_tyre_roll` | settings | 0 | 0 | 1 |
 | `snow_weather` | settings | 0 | 0 | 1 |
 | `traffic_halo` | settings | 0 | 0 | 1 |
 | `rally_dry_lamps` | settings | 0 | 0 | 1 |
 | `reverse_rows` | settings | 0 | 0 | 1 |
-| `city_lift` | settings | 0 | 0 | 3 |
-| `vegas_lift` | settings | 0 | 0 | 2 |
-| `night_tone` | settings | 0 | 0 | 2 |
+| `city_lift` | settings | 0 | 0 | 1 |
+| `vegas_lift` | settings | 0 | 0 | 1 |
 | `rain_lamps` | settings | 0 | 0 | 1 |
 | `gauge_exterior` | settings | 0 | 0 | 1 |
 | `brake_over_gas` | settings | 0 | 0 | 1 |
@@ -235,11 +224,10 @@ All 66 columns of the table. A column that is not here is not touched by any pro
 | `snow_fx` | settings | 0 | 0 | 1 |
 | `lamp_halos` | settings | 0 | 0 | 1 |
 | `wipers` | settings | 0 | 0 | 1 |
-| `weather_fog` | settings | 0 | 0 | 2 |
+| `weather_fog` | settings | 0 | 0 | 1 |
 | `spray_v4` | settings | 0 | 0 | 1 |
-| `car_night_lift` | settings | 0 | 0 | 1 |
 | `menu_pad_cancel` | settings | 0 | 0 | 1 |
-| `tunnel_lamps` | settings | 0 | 0 | 2 |
+| `tunnel_lamps` | settings | 0 | 0 | 1 |
 | `wrong_way` | settings | 0 | 0 | 1 |
 
 The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `light_time`, `weather`, `render_bands`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.

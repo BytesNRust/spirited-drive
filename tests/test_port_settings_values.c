@@ -76,12 +76,12 @@ static void test_tunnel_lamps_values(void)
 {
     const char *const on = "tunnel_lamps=1\n", *const day = "tunnel_lamps=2\n", *const bad = "tunnel_lamps=3\n";
     CHECK_EQ_INT(port_settings_parse(on, strlen(on)).tunnel_lamps, 1);
-    CHECK_EQ_INT(port_settings_parse(day, strlen(day)).tunnel_lamps, 2);   /* also by day */
+    CHECK_EQ_INT(port_settings_parse(day, strlen(day)).tunnel_lamps, 1);   /* an older file's "by day too" is the switch's 1 */
     CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).tunnel_lamps, 0);
     setenv("TNFS_TUNNEL_LAMPS", "1", 1);
     CHECK_EQ_INT(port_tunnel_lamps(), 1);
     setenv("TNFS_TUNNEL_LAMPS", "2", 1);
-    CHECK_EQ_INT(port_tunnel_lamps(), 2);
+    CHECK_EQ_INT(port_tunnel_lamps(), 1);
     setenv("TNFS_TUNNEL_LAMPS", "3", 1);
     CHECK_EQ_INT(port_tunnel_lamps(), 0);
     unsetenv("TNFS_TUNNEL_LAMPS");
@@ -99,17 +99,6 @@ static void test_menu_pad_cancel_values(void)
     unsetenv("TNFS_MENU_PAD_CANCEL");
 }
 
-static void test_car_night_lift_values(void)
-{
-    const char *const on = "car_night_lift=2\n", *const bad = "car_night_lift=3\n";
-    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).car_night_lift, 2);
-    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).car_night_lift, 0);
-    setenv("TNFS_CAR_NIGHT_LIFT", "1", 1);
-    CHECK_EQ_INT(port_car_night_lift(), 1);
-    setenv("TNFS_CAR_NIGHT_LIFT", "9", 1);
-    CHECK_EQ_INT(port_car_night_lift(), 0);
-    unsetenv("TNFS_CAR_NIGHT_LIFT");
-}
 
 /* the keys that are no longer settings (their effect is one with its parent's, or gone): an older cfg that still has them reads as if they were not there, the keys round them as written */
 static void test_retired_keys_are_ignored(void)
@@ -117,7 +106,8 @@ static void test_retired_keys_are_ignored(void)
     static const char *const RETIRED[] = { "tunnel_headlight", "water_mist", "trail_rise", "traffic_spray", "spray_cd_smoke", "headlight_relight", "made_tunnels", "hall_light",
                                            "car_tunnel_light", "canyon_shade", "parking_dark", "cavern_dark", "trans_shadows", "forest_neutral", "forest_dark", "vegas_car_night",
                                            "vegas_objects", "car_tunnel_match", "lamp_pools", "lamp_pool_tint", "lamp_pool_bright", "lamp_car_shade", "shoulder_light",
-                                           "track_light_lamp", "night_stretch_clean", "night_sky_hue" };
+                                           "track_light_lamp", "night_stretch_clean", "night_sky_hue", "night_tone", "police_halo",
+                                           "car_night_lift", "headlight_cone", "chase_height", "chase_steady" };
     const char *const kept = "light_effects=1\nheadlight_beams=1\nlaps=7\nweather_fog=2\n";
     char text[4096] = "light_effects=1\n";
     for (size_t i = 0; i < sizeof RETIRED / sizeof *RETIRED; i++) {
@@ -134,18 +124,37 @@ static void test_retired_keys_are_ignored(void)
 
 static void test_weather_fog_values(void)
 {
-    const char *const on = "weather_fog=2\n", *const bad = "weather_fog=3\n";
-    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).weather_fog, 2);
+    const char *const on = "weather_fog=1\n", *const older = "weather_fog=2\n", *const bad = "weather_fog=3\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).weather_fog, 1);
+    CHECK_EQ_INT(port_settings_parse(older, strlen(older)).weather_fog, 1);   /* an older file's 2 is the switch's 1 */
     CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).weather_fog, 0);
     setenv("TNFS_WEATHER_FOG", "1", 1);
     CHECK_EQ_INT(port_weather_fog(), 1);
     setenv("TNFS_WEATHER_FOG", "2", 1);
-    CHECK_EQ_INT(port_weather_fog(), 2);
+    CHECK_EQ_INT(port_weather_fog(), 1);
     setenv("TNFS_WEATHER_FOG", "0", 1);
     CHECK_EQ_INT(port_weather_fog(), 0);
-    setenv("TNFS_WEATHER_FOG", "7", 1);   /* not a variant: the file's */
+    setenv("TNFS_WEATHER_FOG", "7", 1);   /* not a step: the file's */
     CHECK_EQ_INT(port_weather_fog(), 0);
     unsetenv("TNFS_WEATHER_FOG");
+}
+
+/* an older port.cfg with the selectors' higher steps and the keys folded away loads quietly: each selector is the switch's 1 (0 stays 0), the gone keys change nothing */
+static void test_old_selector_file_loads_as_switches(void)
+{
+    const char *const old = "night_tone=1\ncity_lift=2\nvegas_lift=2\nweather_fog=1\ntunnel_lamps=1\npolice_halo=1\ncar_night_lift=2\nheadlight_cone=1\nchase_height=1\nchase_steady=0\nlaps=6\n";
+    const char *const now = "city_lift=1\nvegas_lift=1\nweather_fog=1\ntunnel_lamps=1\nlaps=6\n";
+    check_same(port_settings_parse(old, strlen(old)), port_settings_parse(now, strlen(now)));
+    const char *const top = "city_lift=3\nvegas_lift=2\nweather_fog=2\ntunnel_lamps=2\n", *const off = "city_lift=0\nvegas_lift=0\nweather_fog=0\ntunnel_lamps=0\n";
+    const PortSettings t = port_settings_parse(top, strlen(top)), o = port_settings_parse(off, strlen(off));
+    CHECK(t.city_lift == 1 && t.vegas_lift == 1 && t.weather_fog == 1 && t.tunnel_lamps == 1);
+    CHECK(o.city_lift == 0 && o.vegas_lift == 0 && o.weather_fog == 0 && o.tunnel_lamps == 0);
+    setenv("TNFS_LIGHT_EFFECTS", "1", 1);   /* the lifts act under the light effects */
+    setenv("TNFS_CITY_LIFT", "3", 1);
+    CHECK_EQ_INT(port_city_lift(), 1);
+    setenv("TNFS_VEGAS_LIFT", "2", 1);
+    CHECK_EQ_INT(port_vegas_lift(), 1);
+    unsetenv("TNFS_CITY_LIFT"), unsetenv("TNFS_VEGAS_LIFT"), unsetenv("TNFS_LIGHT_EFFECTS");
 }
 
 static void test_spray_v4_values(void)
@@ -466,8 +475,8 @@ int main(void)
     test_wipers_values();
     test_weather_fog_values();
     test_retired_keys_are_ignored();
+    test_old_selector_file_loads_as_switches();
     test_spray_v4_values();
-    test_car_night_lift_values();
     test_menu_pad_cancel_values();
     test_tunnel_lamps_values();
     test_wrong_way_values();

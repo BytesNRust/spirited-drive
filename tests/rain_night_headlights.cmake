@@ -35,7 +35,6 @@ set(keys "format=21:9" "render_scale=2" "light_time=night" "weather=clear"
     "rally_gravel_shoulder=1"
     "close_houses=1"
     "brake_over_gas=1"
-    "headlight_cone=1"
     "rain_fx=1"
     "rain_grip=1"
     "gauge_light=3"
@@ -43,7 +42,6 @@ set(keys "format=21:9" "render_scale=2" "light_time=night" "weather=clear"
     "reverse_rows=1"
     "city_lift=3"
     "vegas_lift=2"
-    "chase_height=1"
 )
 string(REPLACE ";" "\n" cfg "${keys}")
 file(WRITE "${WORK}/user/port.cfg" "profile=restomod\npsx_dir=\n")

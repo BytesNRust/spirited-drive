@@ -323,8 +323,8 @@ static void drive_field_port(RaceField *field, const char *name, int arcade)
         field->port_rally_road = arcade != 0;
         field->port_analog_pad = port_analog_pad();
         field->port_rally_shoulder_sound = port_rally_gravel_shoulder();
-        field->port_chase_height = port_chase_height();
-        field->port_chase_steady = port_chase_steady();
+        field->port_chase_height = 1;   /* the follow camera's chase eye (they act only with port_follow_camera; 0 is kept for test_chase_steady's comparison) */
+        field->port_chase_steady = 1;
     }
 }
 

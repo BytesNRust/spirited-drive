@@ -115,7 +115,7 @@ static void flare_far_traffic_pair(const QuadTarget *t, const uint8_t palette[76
     flare_halo(t, palette, &lamp, rect[0] + w * 3 / 4, cy, radius);
 }
 
-/* port (police_halo): a strong red and blue pair over the roof by the car's rectangle, as big as its width reads at that distance; far_percent is the size setting's */
+/* port (police_glow): a strong red and blue pair over the roof by the car's rectangle, as big as its width reads at that distance; far_percent is the size setting's */
 static void flare_far_police_pair(const QuadTarget *t, const uint8_t palette[768], const int rect[4], int red, int blue, int far_percent, const RaceState *shadow_race)
 {
     const int w = rect[2] - rect[0] + 1, h = rect[3] - rect[1] + 1, phase = police_lights_phase(shadow_race->tick);
@@ -152,10 +152,9 @@ void car_lamp_halo_draw(const Object3D *body, const Car *car, const RaceState *s
     if (!flare_body_rect(body, t, rect, &behind)) return;
     raster_record_sync(t);   /* what the render bands hold for the target is drawn before its pixels are read (one flush, only for a lit lamp) */
     const int glow = port_police_glow(), low = glow && drive_lamps_low(car->index);
-    static const int POLICE_REACH[4] = { BIG_REACH_POLICE, 400, 600, 900 }, POLICE_FAR[4] = { 100, 160, 240, 360 };   /* port (police_halo): the roof lights' halo size, near (percent of the lamp) and far (percent of the pair's) */
-    const int size = port_police_halo() < 0 ? 0 : port_police_halo() > 3 ? 3 : port_police_halo();
-    const FlareLamp copred = { red, red != 0 ? police_lights_own_centre(1) : 0, { police_glow_percent(low, 0), police_glow_percent(low, 1), police_glow_percent(low, 2) }, POLICE_REACH[size] };
-    const FlareLamp copblue = { blue, blue != 0 ? police_lights_own_centre(0) : 0, { copred.percent[0], copred.percent[1], copred.percent[2] }, POLICE_REACH[size] };
+    enum { POLICE_REACH = 400, POLICE_FAR = 160 };   /* port (police_glow): the roof lights' halo size, near (percent of the lamp) and far (percent of the pair's) */
+    const FlareLamp copred = { red, red != 0 ? police_lights_own_centre(1) : 0, { police_glow_percent(low, 0), police_glow_percent(low, 1), police_glow_percent(low, 2) }, POLICE_REACH };
+    const FlareLamp copblue = { blue, blue != 0 ? police_lights_own_centre(0) : 0, { copred.percent[0], copred.percent[1], copred.percent[2] }, POLICE_REACH };
     if (red != 0 && !far_police) lamps[n++] = glow ? copred : (FlareLamp){ red, 0, { 30, 60, 100 }, 100 };
     if (blue != 0 && !far_police) lamps[n++] = glow ? copblue : (FlareLamp){ blue, 0, { 30, 60, 100 }, 100 };
     int siren_blobs = 0;
@@ -165,9 +164,9 @@ void car_lamp_halo_draw(const Object3D *body, const Car *car, const RaceState *s
         if (lamps[i].entry != 0 && (lamps[i].entry == red || lamps[i].entry == blue)) siren_blobs += found;
     }
     if (far_traffic && head != 0 && !no_halo && !behind && faces_camera(body) && rect[2] > rect[0] && rect[3] > rect[1]) flare_far_traffic_pair(t, palette, rect, head, car);
-    /* port (police_halo): the siren's lamp texels are a pixel or two a long way off and then nothing is found, while the headlights' still are: a lit police car whose
+    /* port (police_glow): the siren's lamp texels are a pixel or two a long way off and then nothing is found, while the headlights' still are: a lit police car whose
      * lights gave no blob has the pair halo by its rectangle, as the low detail model does, so the siren shows as far as the headlights */
     if ((far_police || (cop && !far_traffic && siren_blobs == 0 && (red != 0 || blue != 0))) && !behind && rect[2] > rect[0] && rect[3] > rect[1])   /* a strong red and blue pair over the roof, as big as the car's width reads at that distance */
-        flare_far_police_pair(t, palette, rect, red, blue, POLICE_FAR[size], shadow_race);
+        flare_far_police_pair(t, palette, rect, red, blue, POLICE_FAR, shadow_race);
 }
 

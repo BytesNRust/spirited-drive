@@ -155,13 +155,41 @@ static void test_brake_over_gas_follows(void)
     CHECK_EQ_INT(port_follow(&brake, port_brake_over_gas), !restomod);
 }
 
+/* the selectors made switches and the keys folded into their parent (city_lift, vegas_lift, weather_fog, tunnel_lamps; police_glow; the beams' cone and the night lift under the light
+ * effects): read at each race's load from the settings as they are now, so Restomod, then Stock, then Restomod again gives Restomod's, the exe's, and Restomod's again */
+static void test_switches_follow_the_mode(void)
+{
+    port_profile_reset(PROFILE_STOCK), port_profile_reset(PROFILE_RESTOMOD);
+    for (int pass = 0; pass < 3; pass++) {
+        const int restomod = pass != 1;
+        mode(restomod ? PROFILE_RESTOMOD : PROFILE_STOCK);
+        CHECK_EQ_INT(port_light_effects(), restomod);
+        CHECK_EQ_INT(port_headlight_beams(), restomod);
+        CHECK_EQ_INT(port_city_lift(), restomod);
+        CHECK_EQ_INT(port_vegas_lift(), restomod);
+        CHECK_EQ_INT(port_weather_fog(), restomod);
+        CHECK_EQ_INT(port_tunnel_lamps(), restomod);
+        CHECK_EQ_INT(port_police_glow(), restomod);
+    }
+    PortSettings s = port_settings_load();   /* one row inside Restomod: its switch alone */
+    s.city_lift = 0;
+    CHECK(port_settings_save(&s));
+    CHECK_EQ_INT(port_city_lift(), 0);
+    CHECK_EQ_INT(port_vegas_lift(), 1);
+}
+
 int main(void)
 {
     unsetenv("TNFS_SPRAY_V4"), unsetenv("TNFS_BRAKE_OVER_GAS");
+    {
+        static const char *const ENV[] = { "TNFS_LIGHT_EFFECTS", "TNFS_PSX_LIGHT", "TNFS_HEADLIGHT_BEAMS", "TNFS_PSX_HEADLIGHTS", "TNFS_CITY_LIFT", "TNFS_VEGAS_LIFT", "TNFS_WEATHER_FOG", "TNFS_TUNNEL_LAMPS", "TNFS_POLICE_GLOW" };
+        for (size_t i = 0; i < sizeof ENV / sizeof *ENV; i++) unsetenv(ENV[i]);
+    }
     test_every_write_moves_the_generation();
     test_follow_reads_after_a_change();
     test_spray_v4_follows_the_mode();
     test_spray_v4_follows_a_row();
     test_brake_over_gas_follows();
+    test_switches_follow_the_mode();
     return TEST_REPORT();
 }

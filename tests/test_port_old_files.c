@@ -118,7 +118,7 @@ static void test_custom_goes_to_restomod(void)
     CHECK_EQ_INT(s.fog, 0);
     CHECK_EQ_INT(s.fullscreen, 0);
     CHECK(strcmp(s.psx_dir, "/second") == 0);
-    CHECK_EQ_INT(s.city_lift, 3);   /* what the old file did not carry takes the mode's value */
+    CHECK_EQ_INT(s.city_lift, 1);   /* what the old file did not carry takes the mode's value */
     const PortExtras e = port_extras_load();
     CHECK_EQ_INT(e.nitro, 1);
     CHECK_EQ_INT(e.follow_camera, 0);
@@ -198,7 +198,7 @@ static void test_named_mode_keeps_its_table(void)
     port_old_files_migrate();
     const PortSettings s = port_settings_load();
     CHECK_EQ_INT(s.profile, PROFILE_RESTOMOD);
-    CHECK_EQ_INT(s.city_lift, 3);   /* a snapshot of an older table: never the player's choice */
+    CHECK_EQ_INT(s.city_lift, 1);   /* a snapshot of an older table: never the player's choice */
     CHECK_EQ_INT(s.refresh_hz, 144);
     CHECK_EQ_INT(s.camera_kind, 3);
     CHECK_EQ_INT(s.fullscreen, 0);

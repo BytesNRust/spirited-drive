@@ -13,13 +13,6 @@
 #include <string.h>
 #include "game/sys/port_settings_private.h"
 
-int port_police_halo(void)
-{
-    const char *v = getenv("TNFS_POLICE_HALO");
-    if (v != NULL && v[0] >= '0' && v[0] <= '3' && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().police_halo;
-}
-
 int port_analog_pad(void)
 {
     const char *v = getenv("TNFS_ANALOG_PAD");
@@ -42,18 +35,11 @@ int port_gauge_exterior(void)
     return port_settings_load().gauge_exterior;
 }
 
-int port_night_tone(void)
-{
-    const char *v = getenv("TNFS_NIGHT_TONE");
-    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().night_tone;
-}
-
 int port_city_lift(void)
 {
     if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_CITY_LIFT");
-    if (v != NULL && v[0] >= '0' && v[0] <= '3' && v[1] == '\0') return v[0] - '0';
+    if (v != NULL && v[0] >= '0' && v[0] <= '3' && v[1] == '\0') return v[0] != '0';   /* a switch: an older higher step is 1 */
     return port_settings_load().city_lift;
 }
 
@@ -61,7 +47,7 @@ int port_vegas_lift(void)
 {
     if (!port_light_effects()) return 0;
     const char *v = getenv("TNFS_VEGAS_LIFT");
-    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
+    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] != '0';   /* a switch: an older higher step is 1 */
     return port_settings_load().vegas_lift;
 }
 
@@ -255,7 +241,7 @@ int port_lamp_halos(void)
 int port_weather_fog(void)
 {
     const char *v = getenv("TNFS_WEATHER_FOG");
-    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
+    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] != '0';   /* a switch: an older higher step is 1 */
     return port_settings_load().weather_fog;
 }
 
@@ -276,7 +262,7 @@ int port_light_edit(void)
 int port_tunnel_lamps(void)
 {
     const char *v = getenv("TNFS_TUNNEL_LAMPS");
-    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
+    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] != '0';   /* a switch: an older higher step is 1 */
     return port_settings_load().tunnel_lamps;
 }
 
@@ -285,11 +271,4 @@ int port_wrong_way(void)
     const char *v = getenv("TNFS_WRONG_WAY");
     if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().wrong_way;
-}
-
-int port_car_night_lift(void)
-{
-    const char *v = getenv("TNFS_CAR_NIGHT_LIFT");
-    if (v != NULL && v[0] >= '0' && v[0] <= '2' && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().car_night_lift;
 }

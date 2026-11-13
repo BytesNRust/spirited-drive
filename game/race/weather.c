@@ -74,7 +74,7 @@ void weather_sky_colour_for(int weather, int snow, int variant, const uint8_t fo
 
 int weather_sky_is_wet_dark(int weather, int snow, int variant) { return weather_wet(weather) && !(whiter_snow(snow, variant)); }
 
-int weather_fog_snow_mood(int snow, int variant) { return !(snow > 0 && variant >= 2); }
+int weather_fog_snow_mood(int snow, int variant) { return !(snow > 0 && variant >= 1); }
 
 void weather_fog_shape(int weather, int snow, int variant, WeatherFogShape *out)
 {
