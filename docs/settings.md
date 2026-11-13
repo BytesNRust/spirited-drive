@@ -158,7 +158,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 | `difficulty` | 1 | 1 | page 2: Difficulty | 0 Easy, 1 Original, 2 Hard (rivals, police and traffic together) | not set |
 | `start` | `game_mode` | `game_mode` | page 3: Start Screen | `game_mode`, `network`, `central` | not set |
 | `no_movies` | 0 | 0 | page 3: Intro video (inverted) | | not set |
-| `update_check` | 1 | not applicable | page 3: Updates and anonymous stats | the update check and the three anonymous counters | not set |
+| `update_check` | 1 | not applicable | page 3: Updates and anonymous stats | the update check and the three anonymous counters; each sends the version and the system (macOS, Windows, Linux), the API works out the country from the connection and keeps only daily totals | not set |
 
 ### Keys with no EXTRAS row
 

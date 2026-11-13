@@ -52,7 +52,7 @@ Spirited Drive contains no EA content. You need your own copy of ***The Need for
 ## Questions
 
 - **Can I play it like the original?** Yes: pick **Stock '96**.
-- **Does it send anything?** An update check at start-up and three anonymous counters, nothing else. Turn them off in **Customize Game**, page 3, **Updates and anonymous stats**.
+- **Does it send anything?** An update check at start-up and three anonymous counters. Each carries the game's version and your system (macOS, Windows or Linux); the API works out the country from the connection and keeps only daily totals: no IP, no ID. Turn them off in **Customize Game**, page 3, **Updates and anonymous stats**.
 
 ## Help and feedback
 
