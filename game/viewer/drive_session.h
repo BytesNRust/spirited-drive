@@ -128,6 +128,8 @@ void drive_bumper_draw(const RaceState *race, uint8_t *pixels, int mirror);
 /* drive_run.c: the window's race, TNFS_RUN's headless one and the plain screenshot's */
 int drive_window(const Track *t, uint8_t *pixels);
 int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot);
+/* the headless frames' width: TNFS_WIDE_WIDTH (dev) when set, else the screen format's */
+int drive_headless_width(void);
 int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot);
 void drive_link_stand_in(int16_t player);
 /* port: the frames' refresh rate, set again when the pause menu's Graphics screen closes (track_viewer.c) */

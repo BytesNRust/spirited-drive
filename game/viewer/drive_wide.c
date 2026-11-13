@@ -246,7 +246,9 @@ static void wide_mirror(const uint8_t *frame, const DriveMirror *m, const LayerR
 {
     const int mid = drive_hud.mirror_x + (m->width - m->extra) / 2;
     const int x0 = at.x + (int)((int64_t)(mid - r->left) * cs->scale >> 16);
-    const int gap = (int)((int64_t)m->extra * cs->scale >> 16);
+    /* to where the right half starts (wide_pieces' `apart`), from the same sum: the extra scaled on its own came up a
+     * column short of it now and then, and the top and bottom lines had a notch at the seam */
+    const int gap = at.x + (int)((int64_t)(mid - r->left + m->extra) * cs->scale >> 16) - x0;
     const int rows = (int)((int64_t)(r->bottom - r->top) * cs->scale >> 16);
     for (int y = 0; y < rows; y++) {
         const int sy = r->top + (int)(((int64_t)y << 16) / cs->scale), dy = at.y + y;

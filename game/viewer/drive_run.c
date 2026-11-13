@@ -703,7 +703,7 @@ int drive_window(const Track *t, uint8_t *pixels)
  * window or a clock, until the race tick reaches `ticks`. */
 int drive_run_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
 {
-    drive_wide_size(screen_width(drive_screen_format()));
+    drive_wide_size(drive_headless_width());
     RaceRunWords w = { 0 };
     w.queues = drive_input.queues;
     w.music_on = DRIVE_MUSIC_SETTING;  /* the track drawn as the window draws it (no sound here) */
