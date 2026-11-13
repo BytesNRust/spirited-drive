@@ -69,6 +69,8 @@ static int units_row(void) { return ROW_UNITS - ROW_FIRST_P2; }
 static int difficulty_row(void) { return ROW_DIFFICULTY - ROW_FIRST_P2; }
 /* Open the log folder is an action row: no value, Return runs it */
 static int log_row(void) { return ROW_LOG_FOLDER - ROW_FIRST_P3; }
+/* Star us on GitHub too */
+static int star_row(void) { return ROW_STAR - ROW_FIRST_P3; }
 /* Restore profile defaults too */
 static int reset_row(void) { return ROW_RESET - ROW_FIRST_P3; }
 static int shows_kmh(const PortExtras *e) { return e->units == UNITS_KMH; }
@@ -81,7 +83,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
     "Unlock Level", "Car Colours",
     "Speed units", "No driving assists", "Bumper view mirror", "Exterior views police radar",
     "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera", "Difficulty",
-    "Start Screen", "Intro video", "Updates and anonymous stats", "Open the log folder", "Restore profile defaults"
+    "Start Screen", "Intro video", "Updates and anonymous stats", "Open the log folder", "Star us on GitHub", "Restore profile defaults"
 };
 
 /* the file key that says whether a row is free in the mode (port_profile_key_free); NULL: in every mode. Unlock Level is config.dat's, shared */
@@ -91,7 +93,7 @@ static const char *const ROW_KEY[EXTRAS_ROWS] = {
     NULL, "extra_liveries",
     "units", "no_assists", "bumper_mirror", "bumper_radar",
     "replay_cameras", "car_markers", "stats_overlay", "dash_box", "follow_camera", "difficulty",
-    "start", "no_movies", "update_check", NULL, NULL
+    "start", "no_movies", "update_check", NULL, NULL, NULL
 };
 
 /* a switch's field, NULL for the rows with more than two values (Unlock, Start) */
@@ -106,7 +108,8 @@ static int *flag_of(PortExtras *e, int page, int row)
     int *const p2[ROWS_P2] = { NULL /* Speed units */, &e->no_assists, &e->bumper_mirror, &e->bumper_radar,
                                &e->replay_cameras, &e->car_markers, &e->stats_overlay, NULL /* Dash box */, &e->follow_camera, NULL /* Difficulty */ };
     if (page == 1) return p2[row];
-    int *const p3[ROWS_P3] = { NULL /* Start Screen */, &e->no_movies, &e->update_check, NULL /* Open the log folder: an action */, NULL /* Restore: an action */ };
+    int *const p3[ROWS_P3] = { NULL /* Start Screen */, &e->no_movies, &e->update_check, NULL /* Open the log folder: an action */, NULL /* Star us: an action */,
+                               NULL /* Restore: an action */ };
     return p3[row];
 }
 
@@ -139,7 +142,7 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16]
     else if (page == 0 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
     else if (page == 1 && row == dash_box_row()) snprintf(out, 16, "%s", DASH_BOX[(unsigned)e->dash_box % 3]);
     else if (page == 1 && row == difficulty_row()) snprintf(out, 16, "%s", DIFFICULTY[(unsigned)e->difficulty % 3]);
-    else if (page == 2 && (row == log_row() || row == reset_row())) out[0] = '\0';
+    else if (page == 2 && (row == log_row() || row == star_row() || row == reset_row())) out[0] = '\0';
     else snprintf(out, 16, "%s", START[(unsigned)e->start % 3]);
 }
 
@@ -156,12 +159,16 @@ static int header_line(int page, int group) { return group == 0 ? 0 : SECOND_GRO
 /* port: the owner's blank line on page 3, after Intro video, splitting Miscellaneous in two (Start Screen and Intro
  * video, then the updates, the log folder and the restore): one empty line of the pitch, no header. It is only room on
  * the screen, never a row: the rows stay extras_menu.h's list, so Up / Down step from Intro video straight to Updates and
- * the pointer finds no band there. -1: the page has none. */
-static const int BLANK_AFTER[EXTRAS_PAGES] = { -1, -1, ROW_MOVIES - ROW_FIRST_P3 };
+ * the pointer finds no band there. A second one after Star us on GitHub sets Restore profile defaults apart from the rows
+ * that change nothing. -1: no blank. */
+enum { BLANKS = 2 };
+static const int BLANK_AFTER[EXTRAS_PAGES][BLANKS] = { { -1, -1 }, { -1, -1 }, { ROW_MOVIES - ROW_FIRST_P3, ROW_STAR - ROW_FIRST_P3 } };
 static int line_of(int page, int row)
 {
-    const int line = row < SECOND_GROUP[page] ? row + 1 : row + 2;
-    return BLANK_AFTER[page] >= 0 && row > BLANK_AFTER[page] ? line + 1 : line;
+    int line = row < SECOND_GROUP[page] ? row + 1 : row + 2;
+    for (int i = 0; i < BLANKS; i++)
+        if (BLANK_AFTER[page][i] >= 0 && row > BLANK_AFTER[page][i]) line++;
+    return line;
 }
 
 typedef struct Page {
@@ -236,7 +243,7 @@ static void follow(Page *p, const ExtrasMenuOps *o)
 static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const ExtrasMenuOps *o)
 {
     int *const flag = flag_of(e, p->page, p->selected);
-    if (p->page == 2 && (p->selected == log_row() || p->selected == reset_row())) return;   /* an action: only Return, Space or a click run it (choose) */
+    if (p->page == 2 && (p->selected == log_row() || p->selected == star_row() || p->selected == reset_row())) return;   /* an action: only Return, Space or a click run it (choose) */
     if (fixed_by_level(e, *unlock, p->page, p->selected) || fixed_by_mode(o, p->page, p->selected)) {
         o->sound(o->ctx, MOVED);   /* the level or the mode holds it: nothing to change */
         return;
@@ -280,6 +287,9 @@ static void choose(Page *p, PortExtras *e, int16_t *unlock, const ExtrasMenuOps 
     } else if (p->page == 2 && p->selected == log_row()) {   /* port: the log folder opens in the file browser */
         o->sound(o->ctx, CHOSEN);
         if (o->open_log_folder != NULL) o->open_log_folder(o->ctx);
+    } else if (p->page == 2 && p->selected == star_row()) {   /* port: the project's page opens in the browser */
+        o->sound(o->ctx, CHOSEN);
+        if (o->open_repo != NULL) o->open_repo(o->ctx);
     } else if (p->page == 2 && p->selected == reset_row()) {   /* port (modes): on the second Return, since it forgets what was changed in this mode */
         o->sound(o->ctx, CHOSEN);
         if (p->confirming && o->reset_profile != NULL) o->reset_profile(o->ctx, e);

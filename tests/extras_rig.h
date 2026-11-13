@@ -31,6 +31,7 @@ typedef struct Fake {
     int key_count, key_next;
     int saves;
     int log_opens;   /* the Open the log folder row's action, run */
+    int repo_opens;   /* the Star us on GitHub row's action, run */
     PortExtras saved;
     int16_t saved_unlock;
     char drawn[512][40];
@@ -193,6 +194,11 @@ static inline void f_open_log(void *ctx)
     Fake *f = ctx;
     f->log_opens++;
 }
+static inline void f_open_repo(void *ctx)
+{
+    Fake *f = ctx;
+    f->repo_opens++;
+}
 static inline void f_save(void *ctx, const PortExtras *e, int16_t unlock)
 {
     Fake *f = ctx;
@@ -272,7 +278,8 @@ static inline void run_with(Rig *r, const int *keys, int count, void (*smooth)(v
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
         .plus_text_smooth = smooth, .plus_title = f_title, .plus_header = f_header,
-        .extras_save = f_save, .ctx = &r->fake, .open_log_folder = f_open_log, .profile = r->profile, .reset_profile = f_reset };
+        .extras_save = f_save, .ctx = &r->fake, .open_log_folder = f_open_log, .profile = r->profile, .reset_profile = f_reset,
+        .open_repo = f_open_repo };
     (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
 
