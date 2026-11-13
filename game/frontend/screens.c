@@ -38,11 +38,14 @@ static int find_art(const Fsh *fsh, FshEntry *palette, FshEntry *background)
 static int wait_for_skip(int ticks, int music)
 {
     timer_set_deadline(ticks);
+    int key_armed = 0, buttons_armed = 0;   /* port (fresh press, title.c): what was held before the screen counts once let go */
     while (!timer_deadline_passed()) {
         if (music) menu_audio_music_service();
         int buttons = 0;
         if (pointer_active()) pointer_sync_from_os(), buttons = pointer_buttons_unseen();
-        if (is_skip_key(input_get_key()) || buttons != 0) return 1;
+        const int key = input_get_key();
+        key_armed |= key == 0, buttons_armed |= buttons == 0;
+        if ((is_skip_key(key) && key_armed) || (buttons != 0 && buttons_armed)) return 1;
     }
     return 0;
 }
@@ -71,7 +74,10 @@ int show_screen(const char *name, int mode, int music)
 
     int skipped = 0;
     if (mode == SCREEN_WAIT) {
+        port_log("mark:screen=%s\n", name);   /* port: a headless walk can wait for it and measure it */
+        const uint32_t start = timer_ticks();
         skipped = wait_for_skip(music ? WAIT_TICKS_MUSIC : WAIT_TICKS, music);
+        port_log("mark:hold screen=%s ticks=%u skipped=%d\n", name, (unsigned)(timer_ticks() - start), skipped);
         video_fade_out(0, PALETTE_COLORS);
     }
     resource_free(data);
