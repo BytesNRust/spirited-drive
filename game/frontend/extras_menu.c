@@ -2,8 +2,14 @@
  * grouped under the four headers the owner named. Up / Down walk a page's rows and its Done (Done rounds back to the
  * first row); Enter, Space, Left or Right change a switch (Unlock and Start step through their values); Left / Right
  * swap Done and Cancel, Right on Cancel turns to the next page and Left on Done back to the one before; a click on the
- * page indicator or PageDown turns to the next, round to the first. Mirror and Rally exclude each other, unless
- * ExtrasMenuOps.port_combine_variants lets them both stay on. Done saves; Cancel and Escape put the input back. */
+ * page indicator's left triangle turns back a page and on its right one on a page, and PageDown turns to the next,
+ * round to the first. Mirror and Rally exclude each other, unless ExtrasMenuOps.port_combine_variants lets them both
+ * stay on. Done saves; Cancel and Escape put the input back.
+ *
+ * port: the selection is the pointer's or the keys', never left over from the other. The screen opens with nothing
+ * selected unless the pointer is on a row; while the pointer is on nothing (or on the page indicator) nothing is
+ * selected, and a click acts on what is under the pointer alone. The first key with nothing selected brings the
+ * selection to the page's first row and does nothing else, so a key never changes a row the player could not see. */
 #include "game/frontend/extras_menu.h"
 #include "game/frontend/page_arrows.h"
 #include "game/sys/port_log.h"
@@ -171,6 +177,8 @@ static int line_of(int page, int row)
     return line;
 }
 
+enum { NONE = -1 };   /* port: no row selected */
+
 typedef struct Page {
     int page;
     int16_t selected;
@@ -189,7 +197,7 @@ static void select_row(Page *p, int row, const ExtrasMenuOps *o)
     p->selected = (int16_t)row;
     p->confirming = 0;
     p->redraw = 1;
-    o->sound(o->ctx, MOVED);
+    if (row != NONE) o->sound(o->ctx, MOVED);
 }
 
 /* the keys take the pointer along to the row they select, so the pointer's band keeps it (as Options' move_to) */
@@ -201,6 +209,8 @@ static void pointer_to(const Page *p, const ExtrasMenuOps *o)
     else o->pointer_move_to(o->ctx, LABEL_X + 40, line_y(p->page, line_of(p->page, p->selected)) + HALF_ROW);
 }
 
+/* the keys turn the page onto `row` and take the pointer there; a click on the indicator turns it with NONE, the
+ * pointer left on the triangle it clicked */
 static void turn(Page *p, int page, int row, const ExtrasMenuOps *o)
 {
     p->page = page;
@@ -209,7 +219,7 @@ static void turn(Page *p, int page, int row, const ExtrasMenuOps *o)
     p->confirming = 0;
     p->redraw = 1;
     o->sound(o->ctx, CHOSEN);
-    pointer_to(p, o);
+    if (row != NONE) pointer_to(p, o);
 }
 
 /* port: the page indicator on this screen's text and triangles */
@@ -220,23 +230,36 @@ static PageNavOps nav_ops(const ExtrasMenuOps *o)
     return n;
 }
 
-/* the first band the pointer is in becomes the selection; the page indicator selects nothing, but lights the
- * triangle the pointer is on */
+/* the row (or Done, or Cancel) under the pointer: the first band it is in; NONE on the page indicator or on nothing */
+static int row_at(const Page *p, const ExtrasMenuOps *o)
+{
+    if (o->pointer_in_rect(o->ctx, EXTRAS_NAV_X0, EXTRAS_NAV_X1, EXTRAS_NAV_Y0, EXTRAS_NAV_Y1)) return NONE;
+    for (int row = 0; row < rows_of(p->page); row++) {
+        const int top = line_y(p->page, line_of(p->page, row));
+        if (o->pointer_in_rect(o->ctx, 0, WIDE, top, top + ROW_TALL)) return row;
+    }
+    if (o->pointer_in_rect(o->ctx, 0, DONE_X1, BUTTONS_Y0, BUTTONS_Y1)) return done_of(p->page);
+    if (o->pointer_in_rect(o->ctx, CANCEL_X0, WIDE, BUTTONS_Y0, BUTTONS_Y1)) return cancel_of(p->page);
+    return NONE;
+}
+
+/* port: what is under the pointer is the selection, and nothing when it is on nothing: the page indicator lights
+ * the triangle the pointer is on and leaves no row lit beside it. The keys take the pointer along (pointer_to), so
+ * the row they select is the one under it. */
 static void follow(Page *p, const ExtrasMenuOps *o)
 {
     const PageNavOps nav = nav_ops(o);
     const int lit = page_nav_lit(&nav, p->page, EXTRAS_PAGES);
     if (lit != p->nav_lit) p->nav_lit = lit, p->redraw = 1;
-    if (o->pointer_in_rect(o->ctx, EXTRAS_NAV_X0, EXTRAS_NAV_X1, EXTRAS_NAV_Y0, EXTRAS_NAV_Y1)) return;
-    for (int row = 0; row < rows_of(p->page); row++) {
-        const int top = line_y(p->page, line_of(p->page, row));
-        if (o->pointer_in_rect(o->ctx, 0, WIDE, top, top + ROW_TALL)) {
-            select_row(p, row, o);
-            return;
-        }
-    }
-    if (o->pointer_in_rect(o->ctx, 0, DONE_X1, BUTTONS_Y0, BUTTONS_Y1)) select_row(p, done_of(p->page), o);
-    else if (o->pointer_in_rect(o->ctx, CANCEL_X0, WIDE, BUTTONS_Y0, BUTTONS_Y1)) select_row(p, cancel_of(p->page), o);
+    select_row(p, row_at(p, o), o);
+}
+
+/* port: the first key with nothing selected: the page's first row, and the pointer on it */
+static void wake(Page *p, const ExtrasMenuOps *o)
+{
+    o->pointer_off(o->ctx);
+    select_row(p, 0, o);
+    pointer_to(p, o);
 }
 
 /* a switch row changed by `step` (+1 or -1): flags flip, Unlock and Start step through their three values */
@@ -271,12 +294,20 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
     o->sound(o->ctx, CHOSEN);
 }
 
-/* Space, Enter or the left button */
-static void choose(Page *p, PortExtras *e, int16_t *unlock, const ExtrasMenuOps *o)
+/* Space, Enter or the left button. A click acts on what is under the pointer and on nothing else: on a triangle of
+ * the page indicator it turns the page that way, on nothing it does nothing. */
+static void choose(Page *p, PortExtras *e, int16_t *unlock, int clicked, const ExtrasMenuOps *o)
 {
     o->pointer_click(o->ctx);
-    if (o->pointer_in_rect(o->ctx, EXTRAS_NAV_X0, EXTRAS_NAV_X1, EXTRAS_NAV_Y0, EXTRAS_NAV_Y1)) {
-        turn(p, (p->page + 1) % EXTRAS_PAGES, 0, o);
+    const PageNavOps nav = nav_ops(o);
+    const int lit = page_nav_lit(&nav, p->page, EXTRAS_PAGES);
+    if (lit != 0) {
+        turn(p, lit == 1 ? p->page - 1 : p->page + 1, NONE, o);
+        return;
+    }
+    if (clicked) select_row(p, row_at(p, o), o);
+    if (p->selected == NONE) {
+        if (!clicked) wake(p, o);
     } else if (p->selected == done_of(p->page)) {
         o->sound(o->ctx, CHOSEN);
         o->extras_save(o->ctx, e, *unlock);
@@ -309,6 +340,8 @@ static void step(Page *p, uint16_t k, PortExtras *e, int16_t *unlock, const Extr
         p->result = 0;
     } else if (k == PAGE_DOWN) {
         turn(p, (p->page + 1) % EXTRAS_PAGES, 0, o);
+    } else if (p->selected == NONE) {
+        if (k == UP || k == DOWN || k == LEFT || k == RIGHT) wake(p, o);
     } else if (k == UP || k == DOWN) {
         o->pointer_off(o->ctx);
         /* the walk is the exe's: Down runs the page's switches and stops at Done, then round to the first switch, and
@@ -438,7 +471,9 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
     port_log("mark:screen=extras_p1\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     const PortExtras input = *e;
     const int16_t input_unlock = *unlock;
-    Page p = { 0, ROW_EXPLODE, 1, 0, 0, 0, 0, -1, 0, 0 };   /* not released: the click that opened it may still be down */
+    /* port: nothing selected until the pointer is on a row or a key is pressed. Not released: the click that opened it
+     * may still be down */
+    Page p = { 0, NONE, 1, 0, 0, 0, 0, -1, 0, 0 };
     static Bgnd bgnd;   /* 300 KB: not on the stack, the web build's is 64 KB */
     bgnd.ready = 0;
     background(&bgnd, o);
@@ -448,7 +483,6 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
      * ramp built from that menu's own palette. Options fades this screen's picture out behind it when its palette goes
      * up again; Game Mode does not fade at all, so without this its next frame is drawn in the palette this screen
      * just put there. */
-    pointer_to(&p, o);
     while (p.result < 0) {
         follow(&p, o);
         if (p.redraw) draw_page(&p, e, *unlock, bank, &bgnd, o);
@@ -461,7 +495,7 @@ int extras_menu_run(PortExtras *e, int16_t *unlock, int32_t bank, const ExtrasMe
         o->pointer_activate_if_moved(o->ctx);
         const uint16_t k = (uint16_t)o->key(o->ctx);
         const int clicked = buttons == LEFT_BUTTON && p.released;
-        if ((k == SPACE || k == ENTER || clicked) && p.armed) choose(&p, e, unlock, o);
+        if ((k == SPACE || k == ENTER || clicked) && p.armed) choose(&p, e, unlock, clicked, o);
         else if (k != 0 && p.armed) step(&p, k, e, unlock, o);
         if (clicked) p.released = 0;
         if (k != 0 || clicked) p.armed = 0, p.rest = 0;

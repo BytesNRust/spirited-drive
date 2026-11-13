@@ -24,12 +24,12 @@ static void test_mirror_toggle_excludes_rally(void)
 static void test_escape_restores_input(void)
 {
     Rig r;
-    const int keys[] = { SPACE, DOWN, SPACE, DOWN, SPACE, ESCAPE };  /* toggle off Explode, Nitro, Turbo and quit */
+    const int keys[] = { DOWN, SPACE, DOWN, SPACE, DOWN, SPACE, ESCAPE };  /* to Explode, toggle off it, Nitro, Turbo and quit */
     setup(&r);
     r.e.explode = 1;
     r.e.nitro = 1;
     r.e.turbo = 1;
-    run(&r, keys, 6);
+    run(&r, keys, 7);
     CHECK_EQ_INT(r.e.explode, 1);
     CHECK_EQ_INT(r.e.nitro, 1);
     CHECK_EQ_INT(r.e.turbo, 1);
@@ -149,7 +149,7 @@ static void test_page_one_has_thirteen_rows(void)
 {
     Rig r;
     int keys[48];
-    int n = downs(keys, 0, ROWS_P1);                       /* down to Done, past the thirteen */
+    int n = downs(keys, 0, 1 + ROWS_P1);                   /* to the first row, then down to Done past the thirteen */
     keys[n++] = ENTER;
     CHECK_EQ_INT(ROWS_P1, 12);
     setup(&r);
@@ -447,7 +447,7 @@ static void test_right_from_done_reaches_cancel(void)
 {
     Rig r;
     int keys[48];
-    int n = downs(keys, 0, ROWS_P1);                       /* Done */
+    int n = downs(keys, 0, 1 + ROWS_P1);                   /* the first row, then Done */
     keys[n++] = RIGHT;                                     /* Cancel */
     keys[n++] = ENTER;
     CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
@@ -617,9 +617,9 @@ static void test_difficulty_row_cycles_saves_and_escapes(void)
 static void test_done_writes_extras_cfg(void)
 {
     Rig r;
-    /* the first row (Explode) is the initial selection, so ROWS_P1 DOWNs land on Done. */
+    /* the first DOWN selects the first row (Explode), so ROWS_P1 more land on Done. */
     int keys[48] = {0};
-    int n = downs(keys, 0, ROWS_P1);
+    int n = downs(keys, 0, 1 + ROWS_P1);
     keys[n++] = ENTER;
     setup(&r);
     run(&r, keys, n);

@@ -235,6 +235,7 @@ typedef struct MenuFake {
     int key_count, key_next;
     int saves;
     PortExtras saved;
+    int32_t px, py;   /* where the pointer is: the screen's keys take it to their row; (0, 0) is on nothing */
 } MenuFake;
 
 static int32_t mf_key(void *ctx)
@@ -252,7 +253,11 @@ static void mf_six(void *ctx, uint8_t *a, int32_t b, int32_t c, const uint8_t *d
 {
     (void)ctx, (void)a, (void)b, (void)c, (void)d, (void)e;
 }
-static void mf_move(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }
+static void mf_move(void *ctx, int32_t x, int32_t y)
+{
+    MenuFake *f = ctx;
+    f->px = x, f->py = y;
+}
 static int32_t mf_art(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
 static const uint8_t *mf_shape(void *ctx, int32_t bank, const char *tag)
 {
@@ -262,8 +267,8 @@ static const uint8_t *mf_shape(void *ctx, int32_t bank, const char *tag)
 }
 static int32_t mf_in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 {
-    (void)ctx, (void)x0, (void)x1, (void)y0, (void)y1;
-    return 0;
+    const MenuFake *f = ctx;
+    return x0 <= f->px && f->px <= x1 && y0 <= f->py && f->py <= y1;
 }
 static int32_t mf_picture(void *ctx, int32_t p) { (void)ctx; return p; }
 static int32_t mf_nothing_int(void *ctx) { (void)ctx; return 0; }
@@ -312,12 +317,13 @@ static int downs(int *keys, int n, int count)
     return n;
 }
 
-/* the keys from the screen's first row to `row`: on page 1, DOWN to it; on page 2, DOWN to page 1's Done, RIGHT to
- * Cancel, RIGHT round to page 2's first row, then DOWN to `row`. Returns how many keys were written. */
+/* the keys from the screen's first row to `row`: the first DOWN selects the first row (the screen opens with none);
+ * on page 1, DOWN to it; on page 2, DOWN to page 1's Done, RIGHT to Cancel, RIGHT round to page 2's first row, then
+ * DOWN to `row`. Returns how many keys were written. */
 static int keys_to_row(int *keys, int row)
 {
-    if (row < ROW_FIRST_P2) return downs(keys, 0, row);
-    int n = downs(keys, 0, ROWS_P1);
+    if (row < ROW_FIRST_P2) return downs(keys, 0, 1 + row);
+    int n = downs(keys, 0, 1 + ROWS_P1);
     keys[n++] = RIGHT, keys[n++] = RIGHT;
     return downs(keys, n, row - ROW_FIRST_P2);
 }

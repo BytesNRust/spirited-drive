@@ -31,12 +31,12 @@ static void test_the_groups_have_headers(void)
 static void test_headers_are_red_and_never_lit(void)
 {
     Rig r;
-    const int keys[] = { ESCAPE };
+    const int keys[] = { DOWN, ESCAPE };
     setup(&r);
-    run(&r, keys, 1);
+    run(&r, keys, 2);
     CHECK_EQ_INT(style_in(&r.fake, "Cheats"), STYLE_RED);
     CHECK_EQ_INT(style_in(&r.fake, "Unlocks & mods"), STYLE_RED);
-    CHECK_EQ_INT(style_in(&r.fake, "Explode mode"), STYLE_YELLOW);   /* the first row is selected */
+    CHECK_EQ_INT(style_in(&r.fake, "Explode mode"), STYLE_YELLOW);   /* the first key selects the first row */
     CHECK_EQ_INT(style_in(&r.fake, "Nitro mode"), STYLE_CREAM);
 }
 
