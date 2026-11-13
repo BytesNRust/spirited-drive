@@ -9,7 +9,7 @@ All five are 16-bit mono WAVs at the mixer's rate (22050 Hz) in `data/sounds/`, 
 | Thunder | `thunder.wav`, 13.4 s | in a storm, after each lightning | `rain_v2` (`TNFS_RAIN_V2`), with `weather=storm` | `## thunder.wav` (WuxiaScrub, opengameart.org, CC0) |
 | Rain, stopped, outside | `rain_stopped_out.wav`, 26.7 s loop | in rain or a storm, the followed car stopped, a view outside | `rain_tyre_roll` (`TNFS_RAIN_TYRE_ROLL`), with `rain_v2` | `## rain_stopped_out.wav` (Ylmir, opengameart.org, CC0) |
 | Rain, stopped, cockpit | `rain_stopped_in.wav`, 22.5 s loop | in rain or a storm, the followed car stopped, the dash view | the same | `## rain_stopped_in.wav` (Nox_Sound, freesound.org, CC0) |
-| Wet road | `rain_tyre_roll.wav`, 10.15 s loop | in rain, a storm or snow falling, the followed car moving on asphalt (under the gravel roll on a rally) | the same | `## rain_tyre_roll.wav` (DreamArtSoundDesigners, freesound.org, CC0) |
+| Wet road | `rain_tyre_roll.wav`, 16 s loop | in rain, a storm or snow falling, the followed car moving on asphalt (under the gravel roll on a rally) | the same | `## rain_tyre_roll.wav` (goose278, freesound.org, CC0) |
 | Roll on snow | `snow_roll.wav`, 5.3 s loop | on the snowy rally (Alpine 3) only, the followed car moving on the ground | `snow_weather` (`TNFS_SNOW_WEATHER`); no flag of its own | `## snow_roll.wav` (kyles, freesound.org, CC0) |
 
 ## Thunder
