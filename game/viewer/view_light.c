@@ -206,7 +206,7 @@ static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
     found = headlight_pool_car_ratio_start(found, light_effects != NULL && light_effects->pool != NULL, port_car_night_lift(), out);
     /* port (car_night_lift): a light with no ratio for the car (no ambient, no synth: CL1's night) left `out` unset, and car_light made the car's table from 0: every texel but the paint's black, a wheel a flat disc. The car's own light is full, and the pool's gain below lights it as it lights the road */
     /* port (car_tunnel_match): a made tunnel with a look keeps the light its look gives (the world's tables are not scaled by the headlight pool's floor there, light_at_dark), so the car is not either: the pool's share took a further 60 % off the car */
-    const int match_tunnel = found && port_car_tunnel_match() >= 1 && light_effects != NULL && light_effects->look_set && track_node_light_tunnel(light_effects, light_tint_ring_node(node, light_effects->nodes));
+    const int match_tunnel = found && port_light_effects() >= 1 && light_effects != NULL && light_effects->look_set && track_node_light_tunnel(light_effects, light_tint_ring_node(node, light_effects->nodes));
     if (found && !match_tunnel && light_effects != NULL && light_effects->pool != NULL) {   /* port (headlight_beams): a car in the dark or in a pool takes its light, as the road under it does */
         const uint32_t at = light_tint_ring_node(node, light_effects->nodes);
         int g;
@@ -219,9 +219,9 @@ static int ratio_at_xz(int32_t node, const double *xz, int car, float out[3])
         g = headlight_pool_car_night_lift(g, port_car_night_lift());   /* port (car_night_lift) */
         const float gain = (float)g / 256.0f;
         for (int k = 0; k < 3; k++) out[k] *= gain;
-        if (port_lamp_car_shade()) (void)track_node_light_car_pool(light_effects, at, out);   /* port (lamp_car_shade): and the street lamp's pool lights it */
+        if (port_headlight_beams()) (void)track_node_light_car_pool(light_effects, at, out);   /* port (lamp_car_shade): and the street lamp's pool lights it */
     }
-    if (!found && light_effects != NULL && light_effects->car_pool != NULL && port_lamp_car_shade()) {   /* port (lamp_car_shade): a made light with no tunnels gives the car no ratio, so the lamps' pools had nothing to lift: the car's own is neutral, the pool's warm gain on it */
+    if (!found && light_effects != NULL && light_effects->car_pool != NULL && port_headlight_beams()) {   /* port (lamp_car_shade): a made light with no tunnels gives the car no ratio, so the lamps' pools had nothing to lift: the car's own is neutral, the pool's warm gain on it */
         static int mode = -1;
         if (mode < 0) mode = getenv("TNFS_LAMP_CAR_MODE") ? atoi(getenv("TNFS_LAMP_CAR_MODE")) : 1;
         const uint32_t at = light_tint_ring_node(node, light_effects->nodes);
@@ -263,10 +263,10 @@ static int ratio_of(int32_t node, float out[3])
 {
     if (synth_on && light_effects != NULL) {   /* port: a light made from the road (light_synth.h): no script, the tunnel's lamp alternation */
         const uint32_t at = light_tint_ring_node(node, light_effects->nodes);
-        if (port_car_tunnel_light() || light_effects->from_file) light_synth_car_tunnel_match(light_effects, at, port_car_tunnel_match(), (lit_tint[0] + lit_tint[1] + lit_tint[2]) / 3.0f, out);   /* port (car_tunnel_light, car_tunnel_match) */
+        if (port_light_effects() || light_effects->from_file) light_synth_car_tunnel_match(light_effects, at, port_light_effects(), (lit_tint[0] + lit_tint[1] + lit_tint[2]) / 3.0f, out);   /* port (car_tunnel_light, car_tunnel_match) */
         else light_synth_car(light_effects, at, out);
         if (light_effects->canyon != NULL && light_effects->canyon[light_tint_ring_node(node, light_effects->nodes)]) {   /* port (canyon_shade): the walls shade the car in the canyon */
-            const float f = port_canyon_shade() || light_effects->from_file ? CANYON_SHADE_FACTOR : 1.0f;
+            const float f = port_light_effects() || light_effects->from_file ? CANYON_SHADE_FACTOR : 1.0f;
             for (int k = 0; k < 3; k++) out[k] *= f;
         }
         return 1;
@@ -290,7 +290,7 @@ void ported_view_set_police_lights(int on) { police_flash_on = on; }
 /* the table for a car at `node`, NULL when its ambient is the world's */
 const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t palette[768])
 {
-    if (light_effects == NULL || palette == NULL || !(ambient_on || synth_on || (port_lamp_car_shade() && light_effects->car_pool != NULL) || light_effects->lamp_n > 0 || light_effects->car_tone != NULL)) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
+    if (light_effects == NULL || palette == NULL || !(ambient_on || synth_on || (port_headlight_beams() && light_effects->car_pool != NULL) || light_effects->lamp_n > 0 || light_effects->car_tone != NULL)) return NULL;   /* port (lamp_car_shade): a made light with no tunnels has the lamps' pools to give its cars too */
     static struct { int key[8]; uint8_t table[256]; int used; } cache[AMBIENT_TABLES];   /* the ratio and the car's tone (track light file's car_tone) */
     static uint8_t made_for[768];
     static int next, valid;
@@ -299,7 +299,7 @@ const uint8_t *car_light(int32_t node, const double *xz, int car, const uint8_t 
     int key[8] = { 0 }, neutral = 1;
     const int floor_level = light_effects->pool != NULL ? port_car_night_lift() : 0;   /* port (car_night_lift): at night (the headlight pool), a floor of light on the body */
     key[7] = floor_level, neutral = floor_level == 0;
-    const int match_bright = (port_car_tunnel_match() >= 1 || port_car_night_lift() >= 1) && (ratio[0] > 1.0f || ratio[1] > 1.0f || ratio[2] > 1.0f);   /* port (car_tunnel_match): above full light the table has no family */
+    const int match_bright = (port_light_effects() >= 1 || port_car_night_lift() >= 1) && (ratio[0] > 1.0f || ratio[1] > 1.0f || ratio[2] > 1.0f);   /* port (car_tunnel_match): above full light the table has no family */
     for (int k = 0; k < 3; k++) {
         key[k] = (int)(ratio[k] * AMBIENT_STEP + 0.5f);
         neutral = neutral && key[k] == AMBIENT_STEP;

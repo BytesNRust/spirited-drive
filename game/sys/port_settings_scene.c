@@ -80,36 +80,12 @@ int port_close_boxes(int automatic)
     return automatic != 0;
 }
 
-int port_made_tunnels(void)
-{
-    if (!port_light_effects()) return 0;
-    const char *v = getenv("TNFS_MADE_TUNNELS");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().made_tunnels;
-}
-
 int port_lamp_flares(void)
 {
     if (!port_light_effects()) return 0;   /* the halo is the light effects' */
     const char *v = port_env_alias("TNFS_LAMP_FLARES", "TNFS_PSX_FLARES");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().lamp_flares;
-}
-
-int port_car_tunnel_light(void)
-{
-    if (!port_light_effects()) return 0;
-    const char *v = getenv("TNFS_CAR_TUNNEL_LIGHT");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().car_tunnel_light;
-}
-
-int port_vegas_car_night(void)
-{
-    if (!port_light_effects()) return 0;
-    const char *v = getenv("TNFS_VEGAS_CAR_NIGHT");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().vegas_car_night;
 }
 
 int port_rally_gravel_shoulder(void)
@@ -133,62 +109,6 @@ int port_chase_steady(void)
     return port_settings_load().chase_steady;
 }
 
-int port_lamp_pool_tint(void)
-{
-    if (!port_headlight_beams()) return 0;
-    const char *v = getenv("TNFS_LAMP_POOL_TINT");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().lamp_pool_tint;
-}
-
-int port_trans_shadows(void)
-{
-    if (!port_light_effects()) return 0;
-    const char *v = getenv("TNFS_TRANS_SHADOWS");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().trans_shadows;
-}
-
-int port_canyon_shade(void)
-{
-    if (!port_car_tunnel_light()) return 0;
-    const char *v = getenv("TNFS_CANYON_SHADE");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().canyon_shade;
-}
-
-int port_parking_dark(void)
-{
-    if (!port_car_tunnel_light()) return 0;
-    const char *v = getenv("TNFS_PARKING_DARK");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().parking_dark;
-}
-
-int port_forest_neutral(void)
-{
-    if (!port_light_effects()) return 0;
-    const char *v = getenv("TNFS_FOREST_NEUTRAL");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().forest_neutral;
-}
-
-int port_cavern_dark(void)
-{
-    if (!port_car_tunnel_light()) return 0;
-    const char *v = getenv("TNFS_CAVERN_DARK");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().cavern_dark;
-}
-
-int port_vegas_objects(void)
-{
-    if (!port_light_effects()) return 0;
-    const char *v = getenv("TNFS_VEGAS_OBJECTS");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().vegas_objects;
-}
-
 int port_close_houses(void)
 {
     const char *v = getenv("TNFS_CLOSE_HOUSES");
@@ -201,22 +121,6 @@ int port_brake_over_gas(void)
     const char *v = getenv("TNFS_BRAKE_OVER_GAS");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
     return port_settings_load().brake_over_gas;
-}
-
-int port_lamp_pools(void)
-{
-    if (!port_headlight_beams()) return 0;
-    const char *v = getenv("TNFS_LAMP_POOLS");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().lamp_pools;
-}
-
-int port_lamp_car_shade(void)
-{
-    if (!port_headlight_beams()) return 0;
-    const char *v = getenv("TNFS_LAMP_CAR_SHADE");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().lamp_car_shade;
 }
 
 int port_rain_grip_active(void)
@@ -261,14 +165,6 @@ static int perspective_on(void)
     return port_settings_load().perspective;
 }
 
-int port_lamp_pool_bright(void)
-{
-    if (!port_headlight_beams()) return 0;
-    const char *v = getenv("TNFS_LAMP_POOL_BRIGHT");
-    if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().lamp_pool_bright;
-}
-
 int port_headlight_cone(void)
 {
     if (!port_headlight_beams() || !perspective_on()) return 0;   /* the cone needs perspective (Modern 3D): without it the node pool, as the exe's */
@@ -310,11 +206,4 @@ int port_rain_v2(void)
     const char *v = getenv("TNFS_RAIN_V2");
     if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
     return port_settings_load().rain_v2;
-}
-
-int port_shoulder_light(void)
-{
-    const char *v = getenv("TNFS_SHOULDER_LIGHT");
-    if (v != NULL && v[0] >= '0' && v[0] <= '1' && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().shoulder_light;
 }

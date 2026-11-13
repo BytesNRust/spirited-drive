@@ -1,6 +1,8 @@
 /* The port's settings, one by one: what each value of a setting reads as, what a bad one leaves alone, and the environment over the file. (The fixture is port_settings_fixture.h.) */
 #include "port_settings_fixture.h"
 
+#include <stdio.h>
+
 /* the render threads: the number of threads the bands use, 0 for off (the plain path) and -1 for "auto" (as many as
  * the logical cores, at most eight). The file names them "render_bands=0|auto|2|4". */
 static void test_gauge_light_values(void)
@@ -109,27 +111,26 @@ static void test_car_night_lift_values(void)
     unsetenv("TNFS_CAR_NIGHT_LIFT");
 }
 
-/* the tunnel headlight is no longer a setting (always on with the headlight beams): an old cfg's line is an unknown key, ignored, and the rest still reads */
-static void test_retired_tunnel_headlight_key(void)
+/* the keys that are no longer settings (their effect is one with its parent's, or gone): an older cfg that still has them reads as if they were not there, the keys round them as written */
+static void test_retired_keys_are_ignored(void)
 {
-    const char *const old = "tunnel_headlight=0\ncanyon_shade=1\n";
-    const PortSettings s = port_settings_parse(old, strlen(old));
-    CHECK_EQ_INT(s.canyon_shade, 1);
+    static const char *const RETIRED[] = { "tunnel_headlight", "water_mist", "trail_rise", "traffic_spray", "spray_cd_smoke", "headlight_relight", "made_tunnels", "hall_light",
+                                           "car_tunnel_light", "canyon_shade", "parking_dark", "cavern_dark", "trans_shadows", "forest_neutral", "forest_dark", "vegas_car_night",
+                                           "vegas_objects", "car_tunnel_match", "lamp_pools", "lamp_pool_tint", "lamp_pool_bright", "lamp_car_shade", "shoulder_light",
+                                           "track_light_lamp", "night_stretch_clean", "night_sky_hue" };
+    const char *const kept = "light_effects=1\nheadlight_beams=1\nlaps=7\nweather_fog=2\n";
+    char text[4096] = "light_effects=1\n";
+    for (size_t i = 0; i < sizeof RETIRED / sizeof *RETIRED; i++) {
+        char line[64];
+        snprintf(line, sizeof line, "%s=%d\n", RETIRED[i], (int)(i % 2));
+        strcat(text, line);
+        if (i == 8) strcat(text, "headlight_beams=1\nlaps=7\n");   /* known keys between the old ones */
+    }
+    strcat(text, "weather_fog=2\n");
+    check_same(port_settings_parse(text, strlen(text)), port_settings_parse(kept, strlen(kept)));
+    CHECK_EQ_INT(port_settings_parse(text, strlen(text)).laps, 7);
 }
 
-static void test_car_tunnel_match_values(void)
-{
-    const char *const on = "car_tunnel_match=1\n", *const bad = "car_tunnel_match=2\n";
-    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).car_tunnel_match, 1);
-    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).car_tunnel_match, 0);
-    setenv("TNFS_CAR_TUNNEL_MATCH", "1", 1);
-    CHECK_EQ_INT(port_car_tunnel_match(), 1);
-    setenv("TNFS_CAR_TUNNEL_MATCH", "0", 1);
-    CHECK_EQ_INT(port_car_tunnel_match(), 0);
-    setenv("TNFS_CAR_TUNNEL_MATCH", "9", 1);   /* not a level: the file's */
-    CHECK_EQ_INT(port_car_tunnel_match(), 0);
-    unsetenv("TNFS_CAR_TUNNEL_MATCH");
-}
 
 static void test_weather_fog_values(void)
 {
@@ -464,8 +465,7 @@ int main(void)
     test_lamp_halos_values();
     test_wipers_values();
     test_weather_fog_values();
-    test_car_tunnel_match_values();
-    test_retired_tunnel_headlight_key();
+    test_retired_keys_are_ignored();
     test_spray_v4_values();
     test_car_night_lift_values();
     test_menu_pad_cancel_values();

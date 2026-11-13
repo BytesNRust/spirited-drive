@@ -87,7 +87,7 @@ void sky_scale_night(void)
     float mul[3];
     for (int k = 0; k < 3; k++) mul[k] = headlights_on ? light_tint_night[k] * light_tint_night[k] / NIGHT_PALETTE[k] : light_tint_night[k];
     sky_art_draw_scale(&sky_draw, mul);
-    if (port_night_sky_hue()) sky_art_draw_rehue(&sky_draw, NIGHT_SKY_RAMP);   /* port (night_sky_hue): not the dusk art's orange and olive */
+    if (port_light_effects()) sky_art_draw_rehue(&sky_draw, NIGHT_SKY_RAMP);   /* port (night_sky_hue): not the dusk art's orange and olive */
     if (headlights_on) {   /* port (headlight_beams): the night's stars in the dark of the sky */
         const int stars = sky_art_draw_stars(&sky_draw, NIGHT_STARS_SEED);
         port_log("psx_sky: stars %d, band rows 0..%d of horizon row %d (bitmap %dx%d), %d columns of land reach the band\n", stars, sky_draw.star_rows,
