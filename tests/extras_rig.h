@@ -23,6 +23,11 @@ void platform_free_file(uint8_t *data) { (void)data; }
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000,
        PAGE_DOWN = 0x5100 };
+/* the player's hand in a key script, read where a key would be and answered as no key: AT(x, y) puts the pointer
+ * there, CLICK has the left button down at the next poll (and up again after it), IDLE is a pass with nothing */
+enum { SCRIPT_AT = 0x40000000, SCRIPT_CLICK = 0x20000000, IDLE = 0x10000000 };
+#define AT(x, y) (SCRIPT_AT | ((x) << 12) | (y))
+#define CLICK SCRIPT_CLICK
 /* the game's text styles (text.h): 0 cream, 1 yellow, 2 red, 3 white */
 enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2, STYLE_DIM = 4 };
 
@@ -49,6 +54,9 @@ typedef struct Fake {
     char events[16];         /* the order of the fades and the flips: I fade in, O fade out, F flip */
     int event_count;
     int pointer_in_nav;
+    int32_t px, py;   /* where the pointer is: the screen's own moves and the script's AT; (0, 0) is on nothing */
+    int click;        /* the left button down at the next poll */
+    int clicks;       /* clicks the screen took (pointer_click) */
     int bgnd_asks;   /* how many times the screen asked for the clean background */
     int panel_after_bgnd;   /* the background was put on the screen */
     int panel_before_bgnd;  /* the dark panel was drawn before it, over the caller's picture */
@@ -63,7 +71,10 @@ typedef struct Fake {
 static inline int32_t f_key(void *ctx)
 {
     Fake *f = ctx;
-    return f->key_next < f->key_count ? f->keys[f->key_next++] : ESCAPE;
+    const int k = f->key_next < f->key_count ? f->keys[f->key_next++] : ESCAPE;
+    if (k & SCRIPT_AT) f->px = (k >> 12) & 0xfff, f->py = k & 0xfff;
+    if (k == SCRIPT_CLICK) f->click = 1;
+    return k & (SCRIPT_AT | SCRIPT_CLICK | IDLE) ? 0 : k;
 }
 static inline void f_styles(void *ctx)
 {
@@ -77,7 +88,11 @@ static inline int32_t f_ticks(void *ctx) { (void)ctx; return 100; }
 static inline int32_t f_zero(void *ctx) { (void)ctx; return 0; }
 static inline void f_void(void *ctx) { (void)ctx; }
 static inline void f_one(void *ctx, int32_t v) { (void)ctx, (void)v; }
-static inline void f_move(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }
+static inline void f_move(void *ctx, int32_t x, int32_t y)
+{
+    Fake *f = ctx;
+    f->px = x, f->py = y;
+}
 static inline int32_t f_art(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
 static const uint8_t *f_shape(void *ctx, int32_t bank, const char *tag)
 {
@@ -92,7 +107,9 @@ static inline void f_palette(void *ctx, uint8_t *rgb, int32_t first, int32_t cou
 static inline int32_t f_in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 {
     Fake *f = ctx;
-    return f->pointer_in_nav && x0 == EXTRAS_NAV_X0 && x1 == EXTRAS_NAV_X1 && y0 == EXTRAS_NAV_Y0 && y1 == EXTRAS_NAV_Y1;
+    if (f->pointer_in_nav)
+        return x0 == EXTRAS_NAV_X0 && x1 == EXTRAS_NAV_X1 && y0 == EXTRAS_NAV_Y0 && y1 == EXTRAS_NAV_Y1;
+    return x0 <= f->px && f->px <= x1 && y0 <= f->py && f->py <= y1;
 }
 /* The screen starts a redraw by putting the caller's picture up, so that is where the log of words begins again:
  * the rig keeps the last frame the screen drew, which is the page as it stands, not every page it passed through. */
@@ -148,7 +165,14 @@ static inline void f_fade_out(void *ctx, int32_t first, int32_t count)
     f->fade_outs++;
     f->events[f->event_count < 16 ? f->event_count++ : 15] = 'O';
 }
-static inline int32_t f_buttons(void *ctx) { (void)ctx; return 0; }
+static inline int32_t f_buttons(void *ctx)
+{
+    Fake *f = ctx;
+    const int down = f->click;
+    f->click = 0;
+    return down;
+}
+static inline void f_click(void *ctx) { ((Fake *)ctx)->clicks++; }
 static inline void f_text(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
     Fake *f = ctx;
@@ -274,7 +298,7 @@ static inline void run_with(Rig *r, const int *keys, int count, void (*smooth)(v
         .pointer_buttons = f_buttons, .text_styles = f_styles, .fade_in = f_fade_in, .deadline_set = f_one,
         .fade_out = f_fade_out,
         .deadline_passed = f_zero, .sound = f_one, .ticks = f_ticks, .pointer_activate_if_moved = f_void,
-        .key = f_key, .pointer_click = f_void, .pointer_off = f_void, .music = f_void,
+        .key = f_key, .pointer_click = f_click, .pointer_off = f_void, .music = f_void,
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
         .plus_text_smooth = smooth, .plus_title = f_title, .plus_header = f_header,
@@ -304,11 +328,13 @@ static inline int rows_on(int row) { return rows_of_page(page_of(row)); }
 /* the DOWNs from a row to its page's Done, which is the row past the page's last switch */
 static inline int downs_to_done(int row) { return rows_on(row) - index_of(row); }
 
-/* the keys from the screen's first row to `row`: for each page before its own, DOWN to Done, RIGHT to Cancel, RIGHT round to the next page's first row; then DOWN to
- * the row. Returns how many keys were written. */
+/* the keys from the screen's first row to `row`: the first DOWN brings the selection to the first row (the screen opens
+ * with none), then for each page before its own, DOWN to Done, RIGHT to Cancel, RIGHT round to the next page's first
+ * row; then DOWN to the row. Returns how many keys were written. */
 static inline int keys_to_row(int *keys, int row)
 {
     int n = 0;
+    keys[n++] = DOWN;
     for (int page = 0; page < page_of(row); page++) {
         n = downs(keys, n, rows_of_page(page));
         keys[n++] = RIGHT, keys[n++] = RIGHT;
