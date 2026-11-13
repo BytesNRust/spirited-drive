@@ -61,6 +61,9 @@ static void ours(Page *p, const char *version)
     y = group(p, RIGHT_CX, 120, "Restomod", RESTOMOD, 2);
     y = group(p, RIGHT_CX, y, "Licence", LICENCE, 2);
     group(p, RIGHT_CX, y, "Made with", MADE_WITH, 1);
+    /* the ask for a star, centred in the room under both columns: the words, and where (the Customize Game row opens it) */
+    put(p, CREDITS_NAME, CREDITS_YELLOW, SCREEN_CX, 338, "Star us on GitHub");
+    put(p, CREDITS_NOTE, CREDITS_CREAM, SCREEN_CX, 358, GAME_REPO_SHOWN);
     put(p, CREDITS_NOTE, CREDITS_CREAM, SCREEN_CX, 418, "Unofficial. Not affiliated with Electronic Arts");
     put(p, CREDITS_NOTE, CREDITS_CREAM, SCREEN_CX, 436, "The Need for Speed SE (1996) is (c) Electronic Arts.  GPL-3.0");
     if (version != NULL && version[0] != '\0') {

@@ -121,6 +121,8 @@ void platform_set_user_dir(const char *dir);
 bool platform_user_dir(char *out, size_t out_size);
 /* Opens that folder (the one holding the log, spirited-drive.log) in the OS file browser, for bug reports. 1 when the OS took the request, 0 when there is no folder or it could not. */
 int platform_open_user_dir(void);
+/* Opens the project's page (game_name.h's GAME_REPO_URL) in the player's browser. 1 when the OS took the request, 0 when it could not. */
+int platform_open_repo_page(void);
 /* Moves what `from` holds into `to` once: an item `to` lacks is moved (a folder item by item), one it has stays, and the old copy with it. Returns the items moved
  * (0 when `from` is not there). The program uses it for the folders this one replaced and for <mods>/user/. */
 int platform_move_user_files(const char *from, const char *to);

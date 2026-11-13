@@ -311,7 +311,7 @@ static void test_page_three_is_miscellaneous(void)
     int n = keys_to_row(keys, ROW_FIRST_P3);
     n = downs(keys, n, ROWS_P3);
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P3, 5);
+    CHECK_EQ_INT(ROWS_P3, 6);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Miscellaneous"));
@@ -319,6 +319,8 @@ static void test_page_three_is_miscellaneous(void)
     CHECK(shown(&r.fake, "Intro video"));
     CHECK(shown(&r.fake, "Updates and anonymous stats"));
     CHECK(shown(&r.fake, "Open the log folder"));
+    CHECK(shown(&r.fake, "Star us on GitHub"));
+    CHECK(shown(&r.fake, "Restore profile defaults"));
     CHECK(!shown(&r.fake, "Speed units"));
     CHECK_EQ_INT(r.fake.saves, 1);
 }
@@ -424,10 +426,12 @@ static void test_up_from_cancel_reaches_the_last_switch(void)
     n = downs(keys, n, ROWS_P3);                           /* page 3's Done */
     keys[n++] = RIGHT;                                     /* page 3's Cancel */
     keys[n++] = UP;                                        /* Restore profile defaults, the last row */
+    keys[n++] = UP;                                        /* Star us on GitHub */
     keys[n++] = UP;                                        /* Open the log folder */
     keys[n++] = UP;                                        /* Updates and anonymous stats, the last switch */
     keys[n++] = RIGHT;                                     /* off */
     keys[n++] = DOWN;                                      /* the log folder row */
+    keys[n++] = DOWN;                                      /* the Star row */
     keys[n++] = DOWN;                                      /* the Restore row */
     keys[n++] = DOWN;                                      /* Done */
     keys[n++] = ENTER;                                     /* save */
@@ -533,7 +537,7 @@ static void test_follow_camera_row_toggles_and_saves(void)
     keys[n++] = ENTER;
     n = downs(keys, n, downs_to_done(ROW_FOLLOW_CAMERA));
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, EXTRAS_ROWS - 7);   /* before Difficulty and Rain with storm, the last rows of In-race options, and Miscellaneous' four */
+    CHECK_EQ_INT(ROW_FOLLOW_CAMERA, EXTRAS_ROWS - 8);   /* before Difficulty, the last row of In-race options, and Miscellaneous' six */
     setup(&r);
     CHECK_EQ_INT(r.e.follow_camera, 0);
     run(&r, keys, n);
@@ -669,7 +673,9 @@ static void test_the_log_folder_row_without_the_op(void)
     int keys[48];
     int n = keys_to_row(keys, ROW_LOG_FOLDER);
     keys[n++] = ENTER;
-    keys[n++] = DOWN, keys[n++] = DOWN, keys[n++] = ENTER;
+    keys[n++] = DOWN, keys[n++] = ENTER;                     /* the Star row, with no op either */
+    n = downs(keys, n, downs_to_done(ROW_STAR));
+    keys[n++] = ENTER;
     setup(&r);
     r.fake.keys = keys;
     r.fake.key_count = n;
@@ -682,7 +688,32 @@ static void test_the_log_folder_row_without_the_op(void)
                           .extras_save = f_save, .ctx = &r.fake };
     (void)extras_menu_run(&r.e, &r.unlock, 1, &ops);
     CHECK_EQ_INT(r.fake.log_opens, 0);
+    CHECK_EQ_INT(r.fake.repo_opens, 0);
     CHECK_EQ_INT(r.fake.saves, 1);
+}
+
+/* port: Star us on GitHub is an action row, between Open the log folder and Restore profile defaults. Return runs the op once; the arrows do not; it shows no
+ * value and Done still saves */
+static void test_extras_has_a_star_us_row(void)
+{
+    Rig r;
+    int keys[48];
+    int n = keys_to_row(keys, ROW_STAR);
+    keys[n++] = ENTER;
+    keys[n++] = RIGHT, keys[n++] = LEFT;                     /* the arrows turn nothing on an action */
+    n = downs(keys, n, downs_to_done(ROW_STAR));
+    keys[n++] = ENTER;
+    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
+    setup(&r);
+    run(&r, keys, n);
+    CHECK(shown(&r.fake, "Star us on GitHub"));
+    CHECK_EQ_INT(r.fake.repo_opens, 1);
+    CHECK_EQ_INT(r.fake.log_opens, 0);
+    CHECK_EQ_INT(r.fake.resets, 0);
+    CHECK_EQ_INT(r.fake.saved.start, port_extras_defaults().start);   /* the arrows on it did not reach the Start Screen's value */
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK_EQ_INT(ROW_STAR, ROW_LOG_FOLDER + 1);
+    CHECK_EQ_INT(ROW_RESET, ROW_STAR + 1);
 }
 
 int main(void)
@@ -695,6 +726,7 @@ int main(void)
     test_page_three_is_miscellaneous();
     test_extras_has_open_log_folder_row();
     test_the_log_folder_row_without_the_op();
+    test_extras_has_a_star_us_row();
     test_escape_restores_input();
     test_right_turns_to_page_two();
     test_rally_excludes_mirror();

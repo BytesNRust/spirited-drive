@@ -214,7 +214,8 @@ static void test_page_3_has_a_blank_line_after_intro_video(void)
     CHECK_EQ_INT(y_in(&r.fake, "Intro video") - y_in(&r.fake, "Start Screen"), PITCH);
     CHECK_EQ_INT(y_in(&r.fake, "Updates and anonymous stats") - y_in(&r.fake, "Intro video"), 2 * PITCH);   /* the blank */
     CHECK_EQ_INT(y_in(&r.fake, "Open the log folder") - y_in(&r.fake, "Updates and anonymous stats"), PITCH);
-    CHECK_EQ_INT(y_in(&r.fake, "Restore profile defaults") - y_in(&r.fake, "Open the log folder"), PITCH);
+    CHECK_EQ_INT(y_in(&r.fake, "Star us on GitHub") - y_in(&r.fake, "Open the log folder"), PITCH);
+    CHECK_EQ_INT(y_in(&r.fake, "Restore profile defaults") - y_in(&r.fake, "Star us on GitHub"), 2 * PITCH);   /* the second blank: Restore stands apart */
     CHECK(y_in(&r.fake, "Restore profile defaults") + LINE <= BUTTONS_TOP);
 
     Rig up;
@@ -225,6 +226,15 @@ static void test_page_3_has_a_blank_line_after_intro_video(void)
     run(&up, keys, n);
     CHECK_EQ_INT(style_in(&up.fake, "Intro video"), STYLE_YELLOW);
     CHECK_EQ_INT(style_in(&up.fake, "Updates and anonymous stats"), STYLE_CREAM);
+
+    Rig star;                                            /* the second blank is not a row either: Down from Star lands on Restore */
+    n = keys_to_row(keys, ROW_STAR);
+    keys[n++] = DOWN;
+    keys[n++] = ESCAPE;
+    setup(&star);
+    run(&star, keys, n);
+    CHECK_EQ_INT(style_in(&star.fake, "Restore profile defaults"), STYLE_YELLOW);
+    CHECK_EQ_INT(style_in(&star.fake, "Star us on GitHub"), STYLE_CREAM);
 }
 
 int main(void)

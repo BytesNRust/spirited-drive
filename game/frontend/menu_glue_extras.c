@@ -14,6 +14,13 @@ static void open_log_folder_glue(void *ctx)
     if (!platform_open_user_dir()) port_log("extras: the log folder could not be opened\n");
 }
 
+/* port: the Star us on GitHub row of the EXTRAS screen: the project's page in the player's browser */
+static void open_repo_glue(void *ctx)
+{
+    (void)ctx;
+    if (!platform_open_repo_page()) port_log("extras: the project's page could not be opened\n");
+}
+
 static void extras_save_glue(void *ctx, const PortExtras *e, int16_t unlock)
 {
     (void)ctx;
@@ -189,6 +196,7 @@ static ExtrasMenuOps extras_menu_ops(void)
         open_log_folder_glue, /* open_log_folder: the Open the log folder row */
         port_settings_profile(), /* profile: the mode in use, which says what can be changed */
         extras_reset_glue,  /* reset_profile: the Restore row's action */
+        open_repo_glue,     /* open_repo: the Star us on GitHub row */
     };
 }
 
