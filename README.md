@@ -36,6 +36,19 @@ You can switch modes at any time from Game Mode, and each mode keeps its own set
 - **Race friends**: network races over your LAN or the internet.
 - **Make it yours** *(work in progress)*: mods load from a folder, without touching your game files. The light, the lamps and the masks of every track are plain files you can edit.
 
+## Customize Game: the garage door is open
+
+One screen, in every mode, for everything the original hid behind typed codes and for what we added. Open it from Game Mode or from Options.
+
+- **The original cheats, as switches**: Explode, Nitro, Turbo and the Warrior. The typed codes still work, and races run with a cheat keep their own record table.
+- **The hidden tracks**: Lost Vegas, and **Lunar Springs**, the moon track cut from the 1996 game, recovered and drivable, with moon gravity if you want it.
+- **Every track again**: mirrored, as a rally stage, and the circuits in reverse (pick Reverse in Track Select).
+- **The Warrior as your rival**, not only as your car.
+- **Car colours**: more paints for every car.
+- **Difficulty**: Easy, Original or Hard, for rivals, police and traffic together.
+- **More cameras**: a 360 camera that looks all around the car, the replay cameras while you race, a mirror in the bumper view, and the police radar in the exterior views.
+- **Your dash**: speed in mph or km/h, and the map, the gear lever or nothing in the dash box.
+
 ## Install (macOS)
 
 1. Download the `.dmg` from the [latest release](https://github.com/BytesNRust/spirited-drive/releases/latest). It is one app for both Apple Silicon and Intel Macs, macOS 11 or later.
