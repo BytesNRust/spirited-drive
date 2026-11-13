@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-enum { OPEN_FULL = 16 };
+enum { OPEN_FULL = 16, RAIN_ROLL_VIEW_GLIDE_SNAP = 15 };   /* permille */
 
 static int32_t magnitude(int32_t speed) { return speed < 0 ? -speed : speed; }
 
@@ -25,13 +25,27 @@ RainRoll rain_roll_levels(int falling, int open, int32_t speed, int ground, int 
     if (ground == RAIN_ROLL_ASPHALT || ground == RAIN_ROLL_GRAVEL) {
         const double rise = RAIN_ROLL_MOVE_LOW_PERCENT + (RAIN_ROLL_MOVE_TOP_PERCENT - RAIN_ROLL_MOVE_LOW_PERCENT) * between(v, RAIN_ROLL_CROSSED, RAIN_ROLL_FULL);
         const double under = ground == RAIN_ROLL_GRAVEL ? RAIN_ROLL_GRAVEL_PERCENT / 100.0 : 1.0;   /* under the gravel roll */
-        r.moving = scaled(rise * moving * under * (cockpit ? 0.5 : 1.0), open);                       /* the cockpit: 6 dB lower */
+        r.moving = scaled(rise * moving * under, open);
     }
     return r;
 }
 
 int rain_roll_pitch(int32_t speed)
 {
-    const int32_t v = magnitude(speed) > RAIN_ROLL_FULL ? RAIN_ROLL_FULL : magnitude(speed);
-    return RAIN_ROLL_PITCH_SLOW + (int)((int64_t)(RAIN_ROLL_PITCH_FAST - RAIN_ROLL_PITCH_SLOW) * v / RAIN_ROLL_FULL);
+    const int32_t v = magnitude(speed);
+    if (v <= RAIN_ROLL_PITCH_MID_SPEED) return (int)lround(RAIN_ROLL_PITCH_SLOW + (RAIN_ROLL_PITCH_MID - RAIN_ROLL_PITCH_SLOW) * between(v, 0, RAIN_ROLL_PITCH_MID_SPEED));
+    return (int)lround(RAIN_ROLL_PITCH_MID + (RAIN_ROLL_PITCH_FAST - RAIN_ROLL_PITCH_MID) * between(v, RAIN_ROLL_PITCH_MID_SPEED, RAIN_ROLL_FULL));
+}
+
+int rain_roll_view_permille(int cockpit, int32_t eye_distance)
+{
+    if (cockpit) return RAIN_ROLL_VIEW_COCKPIT_PERMILLE;
+    const double far_db = 20.0 * log10(RAIN_ROLL_VIEW_FAR_PERMILLE / 1000.0);
+    return (int)lround(1000.0 * pow(10.0, far_db * between(eye_distance, RAIN_ROLL_VIEW_NEAR, RAIN_ROLL_VIEW_FAR) / 20.0));
+}
+
+int rain_roll_view_glide(int from, int to, uint32_t ticks)
+{
+    const double left = (from - to) * exp(-(double)ticks / RAIN_ROLL_VIEW_GLIDE_TICKS);
+    return fabs(left) < RAIN_ROLL_VIEW_GLIDE_SNAP ? to : to + (int)(left > 0 ? floor(left) : ceil(left));   /* the last step (under 0.3 dB) taken at once: it arrives */
 }

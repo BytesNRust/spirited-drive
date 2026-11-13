@@ -20,10 +20,10 @@ static void test_stopped_and_moving_layers(void)
     CHECK(r.out == 0 && r.in == RAIN_ROLL_IN_PERCENT && r.moving == 0);
     r = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_MOVING, RAIN_ROLL_ASPHALT, 0);   /* creeping is still stopped */
     CHECK(r.out == RAIN_ROLL_OUT_PERCENT && r.moving == 0);
-    /* past the cross-fade: the moving layer alone, 6 dB lower in the cockpit */
+    /* past the cross-fade: the moving layer alone, the same in and out (the view's own level is rain_roll_view_permille's) */
     r = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_CROSSED, RAIN_ROLL_ASPHALT, 0);
     CHECK(r.out == 0 && r.in == 0 && r.moving == RAIN_ROLL_MOVE_LOW_PERCENT);
-    CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_CROSSED, RAIN_ROLL_ASPHALT, 1).moving, RAIN_ROLL_MOVE_LOW_PERCENT / 2);
+    CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_CROSSED, RAIN_ROLL_ASPHALT, 1).moving, RAIN_ROLL_MOVE_LOW_PERCENT);
     CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_FULL, RAIN_ROLL_ASPHALT, 0).moving, RAIN_ROLL_MOVE_TOP_PERCENT);
     CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_FULL * 2, RAIN_ROLL_ASPHALT, 0).moving, RAIN_ROLL_MOVE_TOP_PERCENT);   /* the top holds */
     CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, -RAIN_ROLL_FULL, RAIN_ROLL_ASPHALT, 0).moving, RAIN_ROLL_MOVE_TOP_PERCENT);      /* reversing is as loud */
@@ -84,13 +84,64 @@ static void test_gravel_is_under_the_roll(void)
     CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, 0, RAIN_ROLL_GRAVEL, 0).out, RAIN_ROLL_OUT_PERCENT);
 }
 
+/* the hiss already sounds at a middle speed: its own rate at RAIN_ROLL_PITCH_MID_SPEED (25 m/s), lower below it (0.8 standing), a little higher above (at most 1.1) */
 static void test_pitch(void)
 {
-    CHECK_EQ_INT(rain_roll_pitch(0), RAIN_ROLL_PITCH_SLOW);
-    CHECK_EQ_INT(rain_roll_pitch(RAIN_ROLL_FULL), RAIN_ROLL_PITCH_FAST);
-    CHECK_EQ_INT(rain_roll_pitch(RAIN_ROLL_FULL * 3), RAIN_ROLL_PITCH_FAST);
-    CHECK(rain_roll_pitch(20 * 0x10000) > rain_roll_pitch(10 * 0x10000) && rain_roll_pitch(-30 * 0x10000) == rain_roll_pitch(30 * 0x10000));
+    CHECK_EQ_INT(rain_roll_pitch(0), 800);
+    CHECK_EQ_INT(rain_roll_pitch(ms(25)), 1000);
+    CHECK_EQ_INT(rain_roll_pitch(RAIN_ROLL_FULL), 1100);
+    CHECK_EQ_INT(rain_roll_pitch(RAIN_ROLL_FULL * 3), 1100);
+    CHECK_EQ_INT(rain_roll_pitch(-ms(25)), 1000);   /* reversing as forwards */
+    int last = 0;
+    for (int m = 0; m <= 80; m++) {   /* rises, steeply to 25 m/s, gently after */
+        const int p = rain_roll_pitch(ms(m));
+        CHECK(p >= last && p >= 800 && p <= 1100);
+        last = p;
+    }
+    CHECK(rain_roll_pitch(ms(12)) - rain_roll_pitch(ms(2)) > rain_roll_pitch(ms(50)) - rain_roll_pitch(ms(40)));
     CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(30), RAIN_ROLL_ASPHALT, 0).pitch, rain_roll_pitch(ms(30)));
+}
+
+/* the moving layer by the view: the cockpit 3 dB lower; outside, 0 dB up to the near chase camera's distance and -6 dB from the far one's on, in dB between them */
+static void test_view_level(void)
+{
+    CHECK_EQ_INT(rain_roll_view_permille(1, 0), RAIN_ROLL_VIEW_COCKPIT_PERMILLE);
+    CHECK_EQ_INT(rain_roll_view_permille(1, RAIN_ROLL_VIEW_FAR * 3), RAIN_ROLL_VIEW_COCKPIT_PERMILLE);   /* the dash is the dash whatever the eye */
+    CHECK(RAIN_ROLL_VIEW_COCKPIT_PERMILLE >= 700 && RAIN_ROLL_VIEW_COCKPIT_PERMILLE <= 710);             /* -3 dB */
+    CHECK_EQ_INT(rain_roll_view_permille(0, 0), 1000);                         /* the bumper, nearer than the near camera */
+    CHECK_EQ_INT(rain_roll_view_permille(0, RAIN_ROLL_VIEW_NEAR), 1000);
+    CHECK_EQ_INT(rain_roll_view_permille(0, RAIN_ROLL_VIEW_FAR), RAIN_ROLL_VIEW_FAR_PERMILLE);
+    CHECK_EQ_INT(rain_roll_view_permille(0, RAIN_ROLL_VIEW_FAR * 3), RAIN_ROLL_VIEW_FAR_PERMILLE);   /* the replay's far cameras: no lower */
+    CHECK(RAIN_ROLL_VIEW_FAR_PERMILLE >= 498 && RAIN_ROLL_VIEW_FAR_PERMILLE <= 503);                 /* -6 dB */
+    const int mid = rain_roll_view_permille(0, (RAIN_ROLL_VIEW_NEAR + RAIN_ROLL_VIEW_FAR) / 2);
+    CHECK(mid >= 703 && mid <= 713);   /* halfway in distance, halfway in dB: -3 */
+    int last = 1001;
+    for (int32_t d = 0; d <= RAIN_ROLL_VIEW_FAR + 0x10000; d += 0x4000) {
+        const int p = rain_roll_view_permille(0, d);
+        CHECK(p <= last);
+        last = p;
+    }
+    CHECK(RAIN_ROLL_VIEW_NEAR > 0x40000 && RAIN_ROLL_VIEW_NEAR < 0x48000 && RAIN_ROLL_VIEW_FAR > 0x6a000 && RAIN_ROLL_VIEW_FAR < 0x70000);   /* 4.35 m, 6.8 m: kinds 2 and 3 */
+}
+
+/* a change of view glides: no step, most of the way in RAIN_ROLL_VIEW_GLIDE_TICKS and there within a second */
+static void test_view_glide(void)
+{
+    CHECK_EQ_INT(rain_roll_view_glide(708, 708, 5), 708);
+    CHECK_EQ_INT(rain_roll_view_glide(1000, 501, 0), 1000);   /* no tick, no move */
+    const int one = rain_roll_view_glide(1000, 501, 1);
+    CHECK(one < 1000 && one > 960);                             /* one tick: a small step */
+    const int tau = rain_roll_view_glide(1000, 501, RAIN_ROLL_VIEW_GLIDE_TICKS);
+    CHECK(tau > 501 + (1000 - 501) * 30 / 100 && tau < 501 + (1000 - 501) * 45 / 100);   /* e^-1 of the way left */
+    CHECK_EQ_INT(rain_roll_view_glide(1000, 501, 60), 501);    /* a second on: there */
+    CHECK_EQ_INT(rain_roll_view_glide(501, 1000, 600), 1000);
+    int g = 501;
+    for (int i = 0; i < 120; i++) {   /* tick by tick it gets there too, and never overshoots */
+        const int next = rain_roll_view_glide(g, 1000, 1);
+        CHECK(next >= g && next <= 1000);
+        g = next;
+    }
+    CHECK_EQ_INT(g, 1000);
 }
 
 /* the sample and its licence entry: Only CC0 or public domain goes in data/sounds, with what, how it was made, the source, the author, the licence and the check date */
@@ -134,6 +185,8 @@ int main(void)
     test_silent_and_scaled();
     test_gravel_is_under_the_roll();
     test_pitch();
+    test_view_level();
+    test_view_glide();
     licence_entry("rain_stopped_out.wav");
     licence_entry("rain_stopped_in.wav");
     licence_entry("rain_tyre_roll.wav");

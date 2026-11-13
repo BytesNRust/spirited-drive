@@ -1,6 +1,7 @@
 /* The weather's frame hooks (weather_hooks.h): the lightning's level, the wipers' pass in the box's pixels, and the blades' darkening table. */
 #include "game/viewer/weather_hooks.h"
 #include "game/platform/platform.h"
+#include "game/race/tick_rate.h"
 #include "game/race/weather.h"
 #include "game/race/rain_roll.h"
 #include "game/race/rally_gravel.h"
@@ -157,6 +158,50 @@ static void test_the_voices_are_silent_without_a_race(void)
     CHECK_EQ_INT(snow_pitch, SNOW_ROLL_PITCH_SLOW);
 }
 
+/* a change of view in a race (the view key): the moving layer glides to the new view's level by the race's ticks, from the near chase camera to the far one, to the
+ * dash and back; the eye's real distance counts (a camera still gliding to its place is between the two levels) */
+static void test_the_wet_road_follows_the_view_live(void)
+{
+    static RaceState race;
+    static Car car;
+    memset(&race, 0, sizeof race), memset(&car, 0, sizeof car);
+    setenv("TNFS_RAIN_V2", "1", 1), setenv("TNFS_RAIN_TYRE_ROLL", "1", 1);
+    race.cars[0] = &car, race.viewed = 0, race.tick = 1000;
+    car.speed = 40 << 16, car.x = 100 << 16, car.z = 200 << 16;
+    WeatherFrame f = frame(WEATHER_RAIN, SNOW_NONE, 16);
+    f.race = &race;
+    const int full = rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_ASPHALT, 0).moving;
+    #define AT(kind_, metres) (race.chase.kind = (kind_), race.chase.position[0] = car.x, race.chase.position[1] = car.y, race.chase.position[2] = car.z - (int32_t)((metres) * 65536.0))
+    AT(2, 4.35);   /* the near chase camera: the race starts there, no glide */
+    weather_hooks_rain_roll(&f);
+    CHECK_EQ_INT(wet_percent, full);
+    AT(3, 6.8);    /* the far one: down towards -6 dB, not at once */
+    race.tick += 1;
+    weather_hooks_rain_roll(&f);
+    CHECK(wet_percent < full && wet_percent > full * 9 / 10);
+    for (int i = 0; i < RACE_TICKS_A_SECOND; i++) race.tick++, weather_hooks_rain_roll(&f);
+    CHECK(abs(wet_percent - full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000) <= 1);
+    weather_hooks_rain_roll(&f);   /* frames with no new tick: it holds */
+    CHECK(abs(wet_percent - full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000) <= 1);
+    AT(DRIVE_DASH_KIND, 1.1);   /* the dash: up to -3 dB, gliding */
+    race.tick += RACE_TICKS_A_SECOND;
+    weather_hooks_rain_roll(&f);
+    CHECK(abs(wet_percent - full * RAIN_ROLL_VIEW_COCKPIT_PERMILLE / 1000) <= 1);
+    AT(1, 0.9);    /* the bumper: 0 dB */
+    race.tick += RACE_TICKS_A_SECOND;
+    weather_hooks_rain_roll(&f);
+    CHECK_EQ_INT(wet_percent, full);
+    AT(3, 5.5);    /* a camera on its way out: between the two */
+    race.tick += RACE_TICKS_A_SECOND;
+    weather_hooks_rain_roll(&f);
+    CHECK(wet_percent < full && wet_percent > full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000);
+    race.tick = 10;   /* a new race (the clock gone back): the level is the view's at once */
+    AT(3, 6.8);
+    weather_hooks_rain_roll(&f);
+    CHECK(abs(wet_percent - full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000) <= 1);
+    #undef AT
+}
+
 static void test_the_voices_follow_the_viewed_car(void)
 {
     static RaceState race;
@@ -171,13 +216,14 @@ static void test_the_voices_follow_the_viewed_car(void)
     weather_hooks_rain_roll(&f);
     RainRoll r = rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_ASPHALT, 0);   /* on asphalt, outside */
     CHECK(out_percent == r.out && in_percent == r.in && wet_percent == r.moving && wet_pitch == r.pitch && wet_percent > 0);
-    race.chase.kind = DRIVE_DASH_KIND;   /* the cockpit: 6 dB lower */
+    race.chase.kind = DRIVE_DASH_KIND;   /* the cockpit: 3 dB lower, once the change of view has glided */
+    race.tick += RACE_TICKS_A_SECOND;
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_ASPHALT, 1).moving);
+    CHECK_EQ_INT(wet_percent, (rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_ASPHALT, 1).moving * RAIN_ROLL_VIEW_COCKPIT_PERMILLE + 500) / 1000);
     car.speed = 0;   /* stopped in the cockpit: the rain on the roof */
     weather_hooks_rain_roll(&f);
     CHECK(in_percent == RAIN_ROLL_IN_PERCENT && out_percent == 0 && wet_percent == 0);
-    race.chase.kind = 1;   /* stopped outside: the rain round the car */
+    race.chase.kind = 1, race.tick += RACE_TICKS_A_SECOND;   /* stopped outside: the rain round the car (and the view's level glided back) */
     weather_hooks_rain_roll(&f);
     CHECK(out_percent == RAIN_ROLL_OUT_PERCENT && in_percent == 0);
     car.speed = 40 << 16, car.airborne_ticks = 3;
@@ -240,5 +286,6 @@ int main(void)
     test_the_thunder_follows_the_strikes();
     test_the_voices_are_silent_without_a_race();
     test_the_voices_follow_the_viewed_car();
+    test_the_wet_road_follows_the_view_live();
     return TEST_REPORT();
 }

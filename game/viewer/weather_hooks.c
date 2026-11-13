@@ -11,6 +11,8 @@
 #include "game/viewer/drive_audio.h"
 #include "game/viewer/drive_bumper.h"
 
+#include <math.h>
+#include <stdint.h>
 #include <string.h>
 
 /* port (wipers): the dash view's blades (the 3D buffer's pixels), what falls fixes their pace, and the darkening table the blades are drawn with */
@@ -98,16 +100,41 @@ static int wet_ground(const RaceState *race, const Car *car)
     return (uint32_t)car->surface < RACE_SURFACES && race->surfaces[car->surface].off_road == 0 ? RAIN_ROLL_ASPHALT : RAIN_ROLL_OFF;
 }
 
+/* the camera's eye from the followed car, 16.16 metres (the chase's position is the eye as last placed, the sounds' listener) */
+static int32_t eye_distance(const RaceState *race, const Car *car)
+{
+    const double dx = (double)race->chase.position[0] - car->x, dy = (double)race->chase.position[1] - car->y, dz = (double)race->chase.position[2] - car->z;
+    const double d = sqrt(dx * dx + dy * dy + dz * dz);
+    return d > INT32_MAX ? INT32_MAX : (int32_t)d;
+}
+
+/* the moving layer's level for the view (rain_roll_view_permille), glided over the race's ticks on a change of view; a new race, a clock gone back or a jump of more than a few seconds
+ * takes the view's level at once. Kept here only as the voice's state: the view and its distance are read each frame. */
+static int view_level(const RaceState *race, const Car *car)
+{
+    static uint32_t last;
+    static int level, have;
+    const int target = rain_roll_view_permille(in_cockpit(race), eye_distance(race, car));
+    const uint32_t tick = (uint32_t)race->tick;
+    if (!have || tick < last || tick - last > 3 * RACE_TICKS_A_SECOND) level = target, have = 1;
+    else level = rain_roll_view_glide(level, target, tick - last);
+    last = tick;
+    return level;
+}
+
 /* port (rain_tyre_roll): what the car the camera follows hears of the rain (as the tyre sounds are), once a frame (rain_roll.h), in rain or a storm with rain_v2: the stopped layer (outside or in
- * the cockpit, rain only: falling snow is silent) giving way to the wet road by its speed, on asphalt, or under the gravel roll on the rally; all by the openness (silent inside a closed zone). The snowy
+ * the cockpit, rain only: falling snow is silent) giving way to the wet road by its speed, on asphalt, or under the gravel roll on the rally, at the view's level (view_level); all by the openness
+ * (silent inside a closed zone). The snowy
  * rally's track is snow, not water: none of it there (snow_roll.h). The voices fall silent by themselves when the frames stop. */
 void weather_hooks_rain_roll(const WeatherFrame *f)
 {
     RainRoll r = rain_roll_levels(RAIN_ROLL_DRY, 0, 0, RAIN_ROLL_OFF, 0);
     if (f->race != NULL && port_rain_tyre_roll() && port_rain_v2() && weather_wet(f->weather) && f->race->port_rally_gravel != RALLY_GRAVEL_SNOW) {
         const Car *const car = f->race->cars[race_slot(f->race->viewed)];
-        if (car != NULL)
+        if (car != NULL) {
             r = rain_roll_levels(f->snow_level != SNOW_NONE ? RAIN_ROLL_SNOW : RAIN_ROLL_RAIN, f->rain_open, car->speed, wet_ground(f->race, car), in_cockpit(f->race));
+            r.moving = (r.moving * view_level(f->race, car) + 500) / 1000;   /* the cockpit 3 dB lower, the chase cameras lower the farther */
+        }
     }
     drive_audio_rain_roll(r.out, r.in, r.moving, r.pitch);
 }
