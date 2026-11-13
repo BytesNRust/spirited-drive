@@ -97,8 +97,10 @@ static void test_pitch_and_saturation(void)
     int wrapped = 0;
     for (size_t i = 0; i < sizeof out / sizeof *out; i++) wrapped |= out[i] < 0;
     CHECK_EQ_INT(wrapped, 0);
-    wet_roll_set(&w, 500, 50);   /* clamped: the level at 100, the pitch at its floor */
-    CHECK(w.target == 100 * 256 && w.pitch >= 100);
+    wet_roll_set(&w, 280, 1000);   /* above 100 lifts a quiet sample */
+    CHECK_EQ_INT(w.target, 280 * 256);
+    wet_roll_set(&w, WET_ROLL_MAX_PERCENT + 100, 50);   /* clamped: the level at the cap, the pitch at its floor */
+    CHECK(w.target == WET_ROLL_MAX_PERCENT * 256 && w.pitch >= 100);
     wet_roll_free(&w);
 }
 
