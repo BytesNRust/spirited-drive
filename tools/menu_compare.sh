@@ -6,7 +6,7 @@
 # For each target one line:   <target>: same   |   <target>: differs <N> px (diff: <outdir>/diff/<target>.png)   |   <target>: walk failed (A|B|A+B), see <outdir>/<A|B>/<target>.log
 # then a summary line. Exit 0 every target the same, 1 some differ, 3 some walk failed (a failure outranks a difference), 2 bad arguments or no magick.
 #   TARGETS (default: every menu_walk.sh target)   JOBS (default 2: walks running at once; each is one headless game)
-#   DATA, STEP_TIMEOUT, SETTLE: as menu_walk.sh
+#   DATA, STEP_TIMEOUT, SETTLE, FORMAT: as menu_walk.sh (FORMAT=21:9 compares the menus as a 21:9 screen shows them)
 # The pictures are the walk's last frame (the pointer included), so a run of the same binary twice is "same". The eight targets take about 6 minutes
 # on the 4-thread dev machine with JOBS=2 (16 walks of 40 s).
 set -u
