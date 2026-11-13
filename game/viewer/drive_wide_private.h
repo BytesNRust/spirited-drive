@@ -11,6 +11,7 @@ int in_gauge(const Cockpit *k, int x, int y);
 int in_dial(const Cockpit *k, int x, int y);
 void dash_dump(const Cockpit *k, const uint8_t *art);
 const uint8_t *blades_hidden(const uint8_t *frame);
+const uint8_t *nose_classed(const uint8_t *shown);
 const uint8_t *dash_art_layer(const Cockpit *k);
 const uint8_t *dash_mask_now(void);
 

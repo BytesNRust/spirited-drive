@@ -1,4 +1,4 @@
-/* The hand-made dash masks (dash_mask.h): the four colours class as they are painted, a draft written as a PNG reads back as it was, a mask of another size is
+/* The hand-made dash masks (dash_mask.h): the colours class as they are painted, a draft written as a PNG reads back as it was, a mask of another size is
  * scaled by nearest neighbour, the lookup finds <root>/<CAR>/dash_mask.png (as given or in upper case), and what is not a PNG is refused. */
 #include "formats/png.h"
 #include "game/race/dash_mask.h"
@@ -48,6 +48,10 @@ static void test_colours(void)
     CHECK_EQ_INT(dash_mask_class(white), DASH_MASK_LIT);
     CHECK_EQ_INT(dash_mask_class(grey), DASH_MASK_LIT);
     CHECK_EQ_INT(dash_mask_class(red), DASH_MASK_BLADE);      /* red: a wiper blade the dash art draws (hidden in rain and snow) */
+    const uint8_t cyan[3] = { 0, 255, 255 }, palecyan[3] = { 40, 220, 200 }, darkcyan[3] = { 0, 150, 150 };
+    CHECK_EQ_INT(dash_mask_class(cyan), DASH_MASK_NOSE);      /* cyan: the nose through the windscreen (dep49; it read as AUTO before) */
+    CHECK_EQ_INT(dash_mask_class(palecyan), DASH_MASK_NOSE);
+    CHECK_EQ_INT(dash_mask_class(darkcyan), DASH_MASK_AUTO);  /* a dark cyan is not a mark */
     CHECK_EQ_INT(dash_mask_class(orange), DASH_MASK_AUTO);    /* any other colour: not marked */
     CHECK_EQ_INT(dash_mask_class(yellow), DASH_MASK_LIT);     /* yellow ffff00 is LIT too: it contrasts on the dash */
     CHECK_EQ_INT(dash_mask_class(paleyellow), DASH_MASK_LIT);
@@ -60,8 +64,8 @@ static void test_colours(void)
 static void test_round_trip_and_scale(void)
 {
     uint8_t mask[W * H], back[W * H];
-    static const uint8_t CLASSES[5] = { DASH_MASK_AUTO, DASH_MASK_DASH, DASH_MASK_DIAL, DASH_MASK_LIT, DASH_MASK_BLADE };
-    for (int i = 0; i < W * H; i++) mask[i] = CLASSES[(i * 3 + i / W) % 5];
+    static const uint8_t CLASSES[6] = { DASH_MASK_AUTO, DASH_MASK_DASH, DASH_MASK_DIAL, DASH_MASK_LIT, DASH_MASK_BLADE, DASH_MASK_NOSE };
+    for (int i = 0; i < W * H; i++) mask[i] = CLASSES[(i * 5 + i / W) % 6];
     uint8_t *png = NULL;
     size_t len = 0;
     CHECK(dash_mask_write(mask, W, H, &png, &len));

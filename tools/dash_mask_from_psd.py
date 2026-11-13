@@ -10,6 +10,8 @@ The PSD is a dash's 640 x 480 2D layer (tools/dash_mask_psd.py makes the drafts)
   green-dominant (green > red, blue)               128  DIAL: inside a dial, its bright marks (numerals, ticks) are lit, its dark face is not
   red (red >= 192, green and blue <= 64)           192  BLADE: a wiper blade the dash's art draws; with port_wipers it is not drawn in rain or snow. An optional layer named "limpia" (or "wipers") holds them:
                                                         whatever is painted on it (any colour but black) is BLADE
+  cyan (green and blue >= 192, red <= 64)          160  NOSE: the car's body seen through the windscreen (the nose); with port_wipers the sweeping blades go over it in rain or snow,
+                                                        and a BLADE pixel on it is made again from the nose round it
   anything else                                    0    AUTO
 The layer's own opacity is ignored: it is only how the mask shows over the dash.
 
@@ -19,7 +21,7 @@ or a black one (every channel < 24) has no colour: a lit part there glows orange
 make lit stays unlit whatever the colour. The game folds the colours into 12 flat ones (a colour within 48 of an earlier one, by the sum of its channels' differences, shares its
 slot), so paint with a few flat colours. The layer's opacity is ignored. The file is RGBA, the layer's colour and 255 or 0 for its alpha; a dash whose PSD has no "color" layer
 gets no dash_color.png (an old one is deleted).
- The PNG is indexed (black, blue, green, white: a yellow LIT is written white), the colours dash_mask.h reads.
+ The PNG is indexed (black, blue, green, white, red, cyan: a yellow LIT is written white), the colours dash_mask.h reads.
 A PSD of another size is written at its own size (the game scales a mask to 640 x 480 by nearest neighbour).
 
 usage: dash_mask_from_psd.py <dir of CAR/dash.psd> [<output dir, default data/dash_masks next to tools/>]
@@ -30,8 +32,8 @@ import sys
 
 from PIL import Image
 
-AUTO, DASH, DIAL, BLADE, LIT = 0, 64, 128, 192, 255   # game/race/dash_mask.h's classes
-PALETTE = {AUTO: (0, 0, 0), DASH: (0, 0, 255), DIAL: (0, 255, 0), LIT: (255, 255, 255), BLADE: (255, 0, 0)}
+AUTO, DASH, DIAL, NOSE, BLADE, LIT = 0, 64, 128, 160, 192, 255   # game/race/dash_mask.h's classes
+PALETTE = {AUTO: (0, 0, 0), DASH: (0, 0, 255), DIAL: (0, 255, 0), LIT: (255, 255, 255), BLADE: (255, 0, 0), NOSE: (0, 255, 255)}
 BLADE_LAYERS = ("limpia", "wipers")   # the optional layer of the wiper blades the dash's art draws (hidden in rain and snow)
 PSD_NAME = "dash.psd"
 PNG_NAME = "dash_mask.png"
@@ -47,6 +49,8 @@ def mask_class(r, g, b, a=255):
         return LIT
     if r >= 192 and g <= 64 and b <= 64:   # red: a wiper blade the dash's art draws
         return BLADE
+    if g >= 192 and b >= 192 and r <= 64:   # cyan: the nose through the windscreen
+        return NOSE
     if b > r and b > g:
         return DASH
     if g > r and g > b:
@@ -106,9 +110,9 @@ def psd_color(psd):
 
 def save_mask(classes, path):
     """The class image as the indexed PNG dash_mask.h reads."""
-    index = {AUTO: 0, DASH: 1, DIAL: 2, LIT: 3, BLADE: 4}
+    index = {AUTO: 0, DASH: 1, DIAL: 2, LIT: 3, BLADE: 4, NOSE: 5}
     img = Image.frombytes("P", classes.size, bytes(index.get(v, 0) for v in classes.tobytes()))
-    img.putpalette([c for v in (AUTO, DASH, DIAL, LIT, BLADE) for c in PALETTE[v]])
+    img.putpalette([c for v in (AUTO, DASH, DIAL, LIT, BLADE, NOSE) for c in PALETTE[v]])
     img.save(path, optimize=True)
 
 

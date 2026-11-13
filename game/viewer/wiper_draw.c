@@ -1,6 +1,8 @@
 /* port (wipers): see wiper_draw.h. */
 #include "viewer/wiper_draw.h"
 
+#include "viewer/layer_compose.h"
+
 #include <math.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -35,7 +37,9 @@ static void stamp(const Stamper *st, int cx, int cy, int radius)
             if ((x - cx) * (x - cx) + (y - cy) * (y - cy) > edge) continue;
             if (glass != NULL) {   /* only on the glass: not over the wheel, the dash or any art */
                 const int lx = st->whole ? floor_div(x - st->gx, st->gs) : (int)floorf(((float)x - st->pass->glass_x) / st->pass->glass_scale);
-                if (lx < 0 || lx >= gw || glass[ly * gw + lx] == 0) continue;
+                if (lx < 0 || lx >= gw) continue;
+                const uint8_t *const nose = st->pass->nose;
+                if (glass[ly * gw + lx] == 0 && (nose == NULL || nose[ly * gw + lx] == LAYER_KEY)) continue;   /* the nose under the glass is swept too (dash_nose.h) */
             }
             row[x] = st->dark[row[x]];
         }
@@ -53,6 +57,32 @@ static void line(const Stamper *st, float x0, float y0, float x1, float y1, int 
     }
 }
 
+/* the map's pixel under the buffer's (bx, by) of the box, by the stamper's mapping */
+static int map_of(const Stamper *st, int v, int origin, float forigin)
+{
+    return st->whole ? floor_div(v - origin, st->gs) : (int)floorf(((float)v - forigin) / st->pass->glass_scale);
+}
+
+/* the nose (dash_nose.h) into the box where the map has it, the rows and columns of its extent only */
+static void nose_paint(const Stamper *st)
+{
+    const WiperPass *const w = st->pass;
+    const int gw = w->glass_w > 0 ? w->glass_w : 640;
+    const float s = w->glass_scale;
+    const int y0 = (int)floorf(w->glass_y + (float)w->nose_box[1] * s), y1 = (int)ceilf(w->glass_y + (float)w->nose_box[3] * s);
+    const int x0 = (int)floorf(w->glass_x + (float)w->nose_box[0] * s), x1 = (int)ceilf(w->glass_x + (float)w->nose_box[2] * s);
+    for (int y = y0 < 0 ? 0 : y0; y < y1 && y < st->h; y++) {
+        const int ly = map_of(st, y, st->gy, w->glass_y);
+        if (ly < 0 || ly >= 480) continue;
+        const uint8_t *const from = w->nose + (size_t)ly * (size_t)gw;
+        uint8_t *const row = st->pixels + (size_t)(st->by + y) * (size_t)st->pitch + (size_t)st->bx;
+        for (int x = x0 < 0 ? 0 : x0; x < x1 && x < st->w; x++) {
+            const int lx = map_of(st, x, st->gx, w->glass_x);
+            if (lx >= 0 && lx < gw && from[lx] != LAYER_KEY) row[x] = from[lx];
+        }
+    }
+}
+
 void wiper_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], const WiperPass *w, uint32_t tick, const uint8_t dark[256])
 {
     if (pixels == NULL || w == NULL || dark == NULL) return;
@@ -63,6 +93,7 @@ void wiper_draw(uint8_t *pixels, int32_t pitch, const int32_t box[4], const Wipe
     st.xlim = st.w;
     st.whole = w->glass != NULL && w->glass_scale >= 1.0f && w->glass_x == floorf(w->glass_x) && w->glass_y == floorf(w->glass_y) && w->glass_scale == floorf(w->glass_scale);
     if (st.whole) st.gx = (int)w->glass_x, st.gy = (int)w->glass_y, st.gs = (int)w->glass_scale;
+    if (w->glass != NULL && w->nose != NULL) nose_paint(&st);   /* the nose first: the blades are drawn over it */
     for (int i = 0; i < w->count && i < WIPER_BLADES; i++) {
         const WiperBlade *b = &w->blade[i];
         const float a = wiper_angle(b, frac);

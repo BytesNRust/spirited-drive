@@ -1,10 +1,12 @@
 /* port (gauge_light): the hand-made mask of a dash's 2D layer (640 x 480, the layer's own frame): which pixels are a lit gauge, in <root>/<CAR>/dash_mask.png
- * (data/dash_masks in the source tree). Four values, by the colour painted in the PSD (tools/dash_mask_from_psd.py) or the grey the tool writes:
+ * (data/dash_masks in the source tree). Six values, by the colour painted in the PSD (tools/dash_mask_from_psd.py) or the grey the tool writes:
  *   black   0   AUTO  not marked: the cockpit's own gauge ellipses decide, as without a mask
  *   blue   64   DASH  the dash's art: never lit (the speedo's rim, the dash round a dial)
  *   green 128   DIAL  inside a dial: its bright marks (numerals, ticks) are lit, its dark face is not
+ *   cyan  160   NOSE  the car's body seen through the windscreen (the nose, the hood): with the wipers on the sweeping blades are drawn over it, and a BLADE pixel on it is
+ *                         made again from the nose round it (dash_nose.h); otherwise it is the dash's art as it was, never lit (as AUTO with the dash's own rules)
  *   red   192   BLADE a wiper blade the dash's art draws (the P911's): with the wipers on (port_wipers, in rain or snow) it is not drawn, the view shows through as it does at the
- *                         windscreen; otherwise it is the dash's art as it was, and never lit
+ *                         windscreen (or the nose, where it lies on the nose); otherwise it is the dash's art as it was, and never lit
  *   yellow or white 255   LIT   lit whatever its brightness (a warning lamp, a lit window); yellow (red and green >= 192, blue <= 64) contrasts on the dash, white still reads
  *                         for what was painted with it
  * A pixel the needle's colour draws is never lit. The masks hold no colour of the art. A dash with a mask is decided by it alone (the automatic
@@ -15,7 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { DASH_MASK_AUTO = 0, DASH_MASK_DASH = 64, DASH_MASK_DIAL = 128, DASH_MASK_BLADE = 192, DASH_MASK_LIT = 255 };
+enum { DASH_MASK_AUTO = 0, DASH_MASK_DASH = 64, DASH_MASK_DIAL = 128, DASH_MASK_NOSE = 160, DASH_MASK_BLADE = 192, DASH_MASK_LIT = 255 };
 enum { DASH_MASK_W = 640, DASH_MASK_H = 480 };
 
 /* The class of a mask colour (RGB). */
@@ -24,7 +26,7 @@ int dash_mask_class(const uint8_t rgb[3]);
 /* Decodes a mask PNG into `out` (width x height bytes of DASH_MASK_*), scaled from the image's own size by nearest neighbour. 1 when it reads. */
 int dash_mask_parse(const uint8_t *png, size_t len, int width, int height, uint8_t *out);
 
-/* Writes `mask` (width x height of DASH_MASK_*) as a PNG: indexed, black, blue, green, white. `*out` is freed with png_free. 0 when it cannot. */
+/* Writes `mask` (width x height of DASH_MASK_*) as a PNG: indexed, black, blue, green, white, red, cyan. `*out` is freed with png_free. 0 when it cannot. */
 int dash_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, size_t *len);
 
 /* The mask of the dash `stem` ("TSUPRA", as the dash's files are named; tried as given and in upper case) at DASH_MASK_W x DASH_MASK_H, from the first of
