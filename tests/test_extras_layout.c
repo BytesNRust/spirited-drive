@@ -196,6 +196,37 @@ static void test_rows_are_drawn_without_a_smooth_op(void)
     CHECK(shown(&r.fake, "Explode mode"));
 }
 
+/* port: the owner's blank line on page 3: Start Screen and Intro video, an empty line, then Updates, the log folder and
+ * Restore. The rows keep the pitch, the blank is one more of it, the page still ends above DONE/CANCEL, and the blank is
+ * never the selection: Down from Intro video lands on Updates, Up from Updates on Intro video. */
+static void test_page_3_has_a_blank_line_after_intro_video(void)
+{
+    enum { BUTTONS_TOP = 430 };
+    Rig r;
+    int keys[64];
+    int n = keys_to_row(keys, ROW_MOVIES);
+    keys[n++] = DOWN;                                    /* Intro video to the next row: Updates */
+    keys[n++] = ESCAPE;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(style_in(&r.fake, "Updates and anonymous stats"), STYLE_YELLOW);
+    CHECK_EQ_INT(style_in(&r.fake, "Intro video"), STYLE_CREAM);
+    CHECK_EQ_INT(y_in(&r.fake, "Intro video") - y_in(&r.fake, "Start Screen"), PITCH);
+    CHECK_EQ_INT(y_in(&r.fake, "Updates and anonymous stats") - y_in(&r.fake, "Intro video"), 2 * PITCH);   /* the blank */
+    CHECK_EQ_INT(y_in(&r.fake, "Open the log folder") - y_in(&r.fake, "Updates and anonymous stats"), PITCH);
+    CHECK_EQ_INT(y_in(&r.fake, "Restore profile defaults") - y_in(&r.fake, "Open the log folder"), PITCH);
+    CHECK(y_in(&r.fake, "Restore profile defaults") + LINE <= BUTTONS_TOP);
+
+    Rig up;
+    n = keys_to_row(keys, ROW_UPDATE);
+    keys[n++] = UP;                                      /* Updates back up: Intro video, over the blank */
+    keys[n++] = ESCAPE;
+    setup(&up);
+    run(&up, keys, n);
+    CHECK_EQ_INT(style_in(&up.fake, "Intro video"), STYLE_YELLOW);
+    CHECK_EQ_INT(style_in(&up.fake, "Updates and anonymous stats"), STYLE_CREAM);
+}
+
 int main(void)
 {
     test_the_groups_have_headers();
@@ -208,5 +239,6 @@ int main(void)
     test_the_headers_go_through_the_header_op();
     test_text_is_drawn_over_the_background();
     test_rows_are_drawn_without_a_smooth_op();
+    test_page_3_has_a_blank_line_after_intro_video();
     return TEST_REPORT();
 }

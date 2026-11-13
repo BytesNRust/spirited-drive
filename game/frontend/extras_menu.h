@@ -25,7 +25,8 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12),
  *                               Dash box (Map / Gear lever / Hidden), 360 Camera,
  *                               Difficulty (Easy / Original / Hard)
- *  page 3  Miscellaneous      Start Screen, Intro video, Updates and anonymous stats, Open the log folder and Restore profile defaults (actions, no value)
+ *  page 3  Miscellaneous      Start Screen, Intro video, a blank line (extras_menu.c's BLANK_AFTER), Updates and anonymous stats,
+ *                              Open the log folder and Restore profile defaults (actions, no value)
  *
  * Pages 2 and 3 have one group each, so one header; page 1 has two.
  *

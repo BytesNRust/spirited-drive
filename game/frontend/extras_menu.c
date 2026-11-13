@@ -144,15 +144,25 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16]
 }
 
 /* port: where a line of a page goes. Line 0 is the first group's header, and every line from the second header's own
- * line down carries the extra GROUP_GAP. */
+ * line down carries the extra GROUP_GAP; a page with one header has none (page 3's blank line moves its last rows past
+ * SECOND_GROUP's end-of-page mark, and they keep the pitch). */
 static int line_y(int page, int line)
 {
-    return ROW_TOP + line * ROW_PITCH + (line > SECOND_GROUP[page] ? GROUP_GAP : 0);
+    return ROW_TOP + line * ROW_PITCH + (HEADERS[page][1] != NULL && line > SECOND_GROUP[page] ? GROUP_GAP : 0);
 }
 
 /* the header of a group sits on the line before its first row; the first group keeps line 0 for its header */
 static int header_line(int page, int group) { return group == 0 ? 0 : SECOND_GROUP[page] + 1; }
-static int line_of(int page, int row) { return row < SECOND_GROUP[page] ? row + 1 : row + 2; }
+/* port: the owner's blank line on page 3, after Intro video, splitting Miscellaneous in two (Start Screen and Intro
+ * video, then the updates, the log folder and the restore): one empty line of the pitch, no header. It is only room on
+ * the screen, never a row: the rows stay extras_menu.h's list, so Up / Down step from Intro video straight to Updates and
+ * the pointer finds no band there. -1: the page has none. */
+static const int BLANK_AFTER[EXTRAS_PAGES] = { -1, -1, ROW_MOVIES - ROW_FIRST_P3 };
+static int line_of(int page, int row)
+{
+    const int line = row < SECOND_GROUP[page] ? row + 1 : row + 2;
+    return BLANK_AFTER[page] >= 0 && row > BLANK_AFTER[page] ? line + 1 : line;
+}
 
 typedef struct Page {
     int page;
