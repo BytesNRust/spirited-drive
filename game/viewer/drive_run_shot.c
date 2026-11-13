@@ -128,9 +128,18 @@ static void spray_stats_add(void)
     spray_frames++;
 }
 
+/* port (dev, env only): TNFS_WIDE_WIDTH=n (640..2000) draws the headless frames n wide, as a window of that shape would (the window takes its platform's width, the
+ * headless run its format's): the layouts between the three formats, a 16:10 screen's 768 among them; otherwise the format's */
+int drive_headless_width(void)
+{
+    const char *v = getenv("TNFS_WIDE_WIDTH");
+    const int n = v != NULL ? atoi(v) : 0;
+    return n >= SCREEN_W && n <= 2000 ? n : screen_width(drive_screen_format());
+}
+
 int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char *screenshot)
 {
-    drive_wide_size(screen_width(drive_screen_format()));
+    drive_wide_size(drive_headless_width());
     start_at_node(&drive_sim.race);   /* port (dev, env only): TNFS_START_NODE, as the window run takes it */
     view_spray_v4_hook();   /* port (spray v4): the trail from the first tick, so a short TNFS_FRAMES has the whole trail the window would have */
     const char *view = getenv("TNFS_VIEW");
