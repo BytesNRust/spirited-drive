@@ -44,7 +44,7 @@ ScreenFormat port_profile_monitor_format(int width, int height)
 typedef struct {
     int widescreen;   /* 1: the monitor's format, else 4:3 */
     int refresh_hz, view_ultra, perspective, texture_filter, fog, f3_ultra, render_scale;
-    int light_effects, headlight_beams, car_soft_shadow, lamp_flares, body_shine, car_colours, fog_sample, sky_fill;
+    int light_effects, car_soft_shadow, lamp_flares, body_shine, car_colours, fog_sample, sky_fill;
     int movies_wide, extra_liveries, rally_gravel;   /* the mode's file's */
     int bumper_mirror, bumper_radar, follow_camera;   /* the mode's file's, appended */
     int scale_integer;   /* port.cfg's, appended: 1 whole multiples only, 0 fill */
@@ -54,13 +54,12 @@ typedef struct {
     int tach_dim;   /* port.cfg's, appended */
     int gauge_wheel;   /* port.cfg's, appended */
     int police_glow;   /* port.cfg's, appended */
-    int rally_gravel_shoulder, chase_height;   /* port.cfg's, appended */
+    int rally_gravel_shoulder;   /* port.cfg's, appended */
     int close_houses;   /* port.cfg's, appended */
-    int brake_over_gas, reverse_rows, city_lift, vegas_lift, headlight_cone, rain_fx, rain_grip, gauge_light, finish_gate_light;   /* port.cfg's, appended */
-    int night_tone, rain_lamps, gauge_exterior, sign_glow;   /* port.cfg's, appended */
+    int brake_over_gas, reverse_rows, city_lift, vegas_lift, rain_fx, rain_grip, gauge_light, finish_gate_light;   /* port.cfg's, appended */
+    int rain_lamps, gauge_exterior, sign_glow;   /* port.cfg's, appended */
     int rally_dry_lamps;   /* port.cfg's, appended */
     int traffic_halo;   /* port.cfg's, appended */
-    int police_halo;   /* port.cfg's, appended */
     int analog_pad;   /* port.cfg's, appended */
     int rain_v2;   /* port.cfg's, appended */
     int rain_tyre_roll;
@@ -73,17 +72,15 @@ typedef struct {
     int wipers;   /* port.cfg's, appended */
     int weather_fog;   /* port.cfg's, appended */
     int spray_v4;   /* port.cfg's, appended */
-    int car_night_lift;   /* port.cfg's, appended */
     int menu_pad_cancel;   /* port.cfg's, appended */
     int tunnel_lamps;   /* port.cfg's, appended */
     int wrong_way;   /* port.cfg's, appended */
-    int chase_steady;   /* port.cfg's, appended */
 } Table;
 
 static const Table TABLES[PROFILE_COUNT] = {
-    [PROFILE_STOCK]    = { 0, 30, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , 0, 0, 0, 0 },   /* 30: the exe's 30 steps a second, each drawn once */
-    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 , 0, 0, 0, 0 },
-    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 1, 1, 1, 5, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1 , 1, 2, 1, 1 },   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
+    [PROFILE_STOCK]    = { 0, 30, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   /* 30: the exe's 30 steps a second, each drawn once */
+    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
 };
 
 /* what the player may change in a mode, by file key; Restomod '26 leaves everything free but the machine's own */
@@ -122,7 +119,7 @@ static size_t next_line(const char *text, size_t size, size_t pos, char *line, s
 const char *port_profile_key_alias(const char *key)
 {
     static const char *const OLD[][2] = { { "psx_light", "light_effects" }, { "psx_shadow", "car_soft_shadow" }, { "psx_time", "light_time" },
-                                          { "psx_headlights", "headlight_beams" }, { "psx_flares", "lamp_flares" }, { "psx_liveries", "extra_liveries" } };
+                                          { "psx_flares", "lamp_flares" }, { "psx_liveries", "extra_liveries" } };
     for (size_t i = 0; i < sizeof OLD / sizeof OLD[0]; i++)
         if (strcmp(key, OLD[i][0]) == 0) return OLD[i][1];
     return key;
@@ -189,7 +186,7 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
     s.fullscreen = 1;   /* the three start full screen */
     s.format = t->widescreen ? monitor : SCREEN_4_3;
     s.refresh_hz = t->refresh_hz, s.view_ultra = t->view_ultra, s.perspective = t->perspective, s.texture_filter = t->texture_filter, s.fog = t->fog;
-    s.f3_ultra = t->f3_ultra, s.render_scale = t->render_scale, s.light_effects = t->light_effects, s.headlight_beams = t->headlight_beams, s.car_soft_shadow = t->car_soft_shadow;
+    s.f3_ultra = t->f3_ultra, s.render_scale = t->render_scale, s.light_effects = t->light_effects, s.car_soft_shadow = t->car_soft_shadow;
     s.lamp_flares = t->lamp_flares, s.body_shine = t->body_shine, s.car_colours = t->car_colours, s.fog_sample = t->fog_sample, s.sky_fill = t->sky_fill;
     s.scale_integer = t->scale_integer;
     s.last_camera = t->last_camera, s.replay_no_ffb = t->replay_no_ffb;
@@ -199,14 +196,14 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
     s.gauge_wheel = t->gauge_wheel;
     s.police_glow = t->police_glow;
     s.rally_gravel_shoulder = t->rally_gravel_shoulder;
-    s.chase_height = t->chase_height, s.close_houses = t->close_houses, s.brake_over_gas = t->brake_over_gas, s.reverse_rows = t->reverse_rows, s.city_lift = t->city_lift, s.vegas_lift = t->vegas_lift, s.headlight_cone = t->headlight_cone, s.rain_fx = t->rain_fx, s.rain_grip = t->rain_grip, s.gauge_light = t->gauge_light, s.finish_gate_light = t->finish_gate_light, s.night_tone = t->night_tone, s.rain_lamps = t->rain_lamps, s.gauge_exterior = t->gauge_exterior, s.sign_glow = t->sign_glow, s.analog_pad = t->analog_pad, s.rain_v2 = t->rain_v2, s.rain_tyre_roll = t->rain_tyre_roll, s.police_halo = t->police_halo, s.traffic_halo = t->traffic_halo, s.rally_dry_lamps = t->rally_dry_lamps;
+    s.close_houses = t->close_houses, s.brake_over_gas = t->brake_over_gas, s.reverse_rows = t->reverse_rows, s.city_lift = t->city_lift, s.vegas_lift = t->vegas_lift, s.rain_fx = t->rain_fx, s.rain_grip = t->rain_grip, s.gauge_light = t->gauge_light, s.finish_gate_light = t->finish_gate_light, s.rain_lamps = t->rain_lamps, s.gauge_exterior = t->gauge_exterior, s.sign_glow = t->sign_glow, s.analog_pad = t->analog_pad, s.rain_v2 = t->rain_v2, s.rain_tyre_roll = t->rain_tyre_roll, s.traffic_halo = t->traffic_halo, s.rally_dry_lamps = t->rally_dry_lamps;
     s.snow_weather = t->snow_weather;
     s.reflectors = t->reflectors;
     s.handbrake_lamps = t->handbrake_lamps;
     s.rally_spray = t->rally_spray;
     s.snow_fx = t->snow_fx;
     s.lamp_halos = t->lamp_halos;
-    s.wipers = t->wipers, s.weather_fog = t->weather_fog, s.spray_v4 = t->spray_v4, s.car_night_lift = t->car_night_lift, s.menu_pad_cancel = t->menu_pad_cancel, s.tunnel_lamps = t->tunnel_lamps, s.wrong_way = t->wrong_way, s.chase_steady = t->chase_steady;
+    s.wipers = t->wipers, s.weather_fog = t->weather_fog, s.spray_v4 = t->spray_v4, s.menu_pad_cancel = t->menu_pad_cancel, s.tunnel_lamps = t->tunnel_lamps, s.wrong_way = t->wrong_way;
     return s;
 }
 

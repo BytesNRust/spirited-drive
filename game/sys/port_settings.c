@@ -60,7 +60,6 @@ static const PortSettingsKey INT_KEYS[] = {
     { "texture_filter", offsetof(PortSettings, texture_filter), 0, 1 },
     { "fog", offsetof(PortSettings, fog), 0, 1 },
     { "light_effects", offsetof(PortSettings, light_effects), 0, 1 },
-    { "headlight_beams", offsetof(PortSettings, headlight_beams), 0, 1 },
     { "car_soft_shadow", offsetof(PortSettings, car_soft_shadow), 0, 1 },
     { "free_records", offsetof(PortSettings, free_records), 0, 1 },
     { "fog_sample", offsetof(PortSettings, fog_sample), 0, 1 },
@@ -71,24 +70,20 @@ static const PortSettingsKey INT_KEYS[] = {
     { "gauge_wheel", offsetof(PortSettings, gauge_wheel), 0, 1 },
     { "police_glow", offsetof(PortSettings, police_glow), 0, 1 },
     { "rally_gravel_shoulder", offsetof(PortSettings, rally_gravel_shoulder), 0, 1 },
-    { "chase_height", offsetof(PortSettings, chase_height), 0, 1 },
     { "brake_over_gas", offsetof(PortSettings, brake_over_gas), 0, 1 },
-    { "headlight_cone", offsetof(PortSettings, headlight_cone), 0, 1 },
     { "close_houses", offsetof(PortSettings, close_houses), 0, 1 },
     { "reverse_rows", offsetof(PortSettings, reverse_rows), 0, 1 },
     { "rain_lamps", offsetof(PortSettings, rain_lamps), 0, 1 },
     { "gauge_exterior", offsetof(PortSettings, gauge_exterior), 0, 1 },
     { "rally_dry_lamps", offsetof(PortSettings, rally_dry_lamps), 0, 1 },
     { "traffic_halo", offsetof(PortSettings, traffic_halo), 0, 1 },
-    { "police_halo", offsetof(PortSettings, police_halo), 0, 3 },
     { "rain_v2", offsetof(PortSettings, rain_v2), 0, 1 },
     { "rain_tyre_roll", offsetof(PortSettings, rain_tyre_roll), 0, 1 },
     { "snow_weather", offsetof(PortSettings, snow_weather), 0, 1 },
     { "analog_pad", offsetof(PortSettings, analog_pad), 0, 1 },
     { "sign_glow", offsetof(PortSettings, sign_glow), 0, 1 },
-    { "night_tone", offsetof(PortSettings, night_tone), 0, 2 },
-    { "city_lift", offsetof(PortSettings, city_lift), 0, 3 },
-    { "vegas_lift", offsetof(PortSettings, vegas_lift), 0, 2 },
+    { "city_lift", offsetof(PortSettings, city_lift), 0, 1 },
+    { "vegas_lift", offsetof(PortSettings, vegas_lift), 0, 1 },
     { "rain_fx", offsetof(PortSettings, rain_fx), 0, 1 },
     { "rain_grip", offsetof(PortSettings, rain_grip), 0, 1 },
     { "finish_gate_light", offsetof(PortSettings, finish_gate_light), 0, 1 },
@@ -102,14 +97,12 @@ static const PortSettingsKey INT_KEYS[] = {
     { "handbrake_lamps", offsetof(PortSettings, handbrake_lamps), 0, 1 },
     { "rally_spray", offsetof(PortSettings, rally_spray), 0, 1 },
     { "wipers", offsetof(PortSettings, wipers), 0, 1 },
-    { "weather_fog", offsetof(PortSettings, weather_fog), 0, 2 },
+    { "weather_fog", offsetof(PortSettings, weather_fog), 0, 1 },
     { "spray_v4", offsetof(PortSettings, spray_v4), 0, 1 },
-    { "car_night_lift", offsetof(PortSettings, car_night_lift), 0, 2 },
     { "menu_pad_cancel", offsetof(PortSettings, menu_pad_cancel), 0, 1 },
-    { "tunnel_lamps", offsetof(PortSettings, tunnel_lamps), 0, 2 },
+    { "tunnel_lamps", offsetof(PortSettings, tunnel_lamps), 0, 1 },
     { "wrong_way", offsetof(PortSettings, wrong_way), 0, 1 },
     { "light_edit", offsetof(PortSettings, light_edit), 0, 1 },
-    { "chase_steady", offsetof(PortSettings, chase_steady), 0, 1 },
     { "snow_fx", offsetof(PortSettings, snow_fx), 0, 1 },
     { "lamp_halos", offsetof(PortSettings, lamp_halos), 0, 1 },
 };
@@ -160,15 +153,24 @@ static void apply_named(PortSettings *s, const char *key, const char *value)
     }
 }
 
+/* the selectors that are a switch now (0 the exe's, 1 the port's): the top step an older file may still hold, read as 1; 0 for any other key */
+static int old_top(const char *key)
+{
+    static const struct { const char *key; int top; } OLD[] = { { "weather_fog", 2 }, { "city_lift", 3 }, { "vegas_lift", 2 }, { "tunnel_lamps", 2 } };
+    for (size_t i = 0; i < sizeof OLD / sizeof OLD[0]; i++)
+        if (strcmp(key, OLD[i].key) == 0) return OLD[i].top;
+    return 0;
+}
+
 static void apply(PortSettings *s, const char *key, const char *value)
 {
     key = port_profile_key_alias(key);   /* the keys an older file has (psx_light, psx_time ...) */
     for (size_t i = 0; i < sizeof INT_KEYS / sizeof INT_KEYS[0]; i++) {
         if (strcmp(key, INT_KEYS[i].key) != 0) continue;
         long n;
-        if (parse_int(value, &n) && n >= INT_KEYS[i].min && n <= INT_KEYS[i].max) {
+        if (parse_int(value, &n) && n >= INT_KEYS[i].min && (n <= INT_KEYS[i].max || n <= old_top(key))) {
             int *const field = (int *)(void *)((char *)s + INT_KEYS[i].offset);
-            *field = (int)n;
+            *field = n > INT_KEYS[i].max ? INT_KEYS[i].max : (int)n;   /* an older file's higher step */
         }
         return;
     }
@@ -212,11 +214,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\nlight_effects=%d\ncar_soft_shadow=%d\nlight_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nheadlight_beams=%d\nlamp_flares=%d\nrally_gravel_shoulder=%d\nclose_houses=%d\nbrake_over_gas=%d\nheadlight_cone=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nfinish_gate_light=%d\nnight_tone=%d\nrain_lamps=%d\ngauge_exterior=%d\nsign_glow=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nchase_height=%d\nrally_dry_lamps=%d\ntraffic_halo=%d\npolice_halo=%d\nanalog_pad=%d\nrain_v2=%d\nrain_tyre_roll=%d\nsnow_weather=%d\nreflectors=%d\nhandbrake_lamps=%d\nrally_spray=%d\nsnow_fx=%d\nlamp_halos=%d\nwipers=%d\nweather_fog=%d\nspray_v4=%d\ncar_night_lift=%d\nmenu_pad_cancel=%d\ntunnel_lamps=%d\nwrong_way=%d\nlight_edit=%d\nchase_steady=%d\nprofile=%s\n",
+                           "render_bands=%s\nbody_shine=%d\nfree_records=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nlamp_flares=%d\nrally_gravel_shoulder=%d\nclose_houses=%d\nbrake_over_gas=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nfinish_gate_light=%d\nrain_lamps=%d\ngauge_exterior=%d\nsign_glow=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nrally_dry_lamps=%d\ntraffic_halo=%d\nanalog_pad=%d\nrain_v2=%d\nrain_tyre_roll=%d\nsnow_weather=%d\nreflectors=%d\nhandbrake_lamps=%d\nrally_spray=%d\nsnow_fx=%d\nlamp_halos=%d\nwipers=%d\nweather_fog=%d\nspray_v4=%d\nmenu_pad_cancel=%d\ntunnel_lamps=%d\nwrong_way=%d\nlight_edit=%d\nprofile=%s\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->light_effects, s->car_soft_shadow, LIGHT_TIME_NAMES[s->light_time], weather_name(s->weather), bands, s->body_shine,
-                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->headlight_beams, s->lamp_flares, s->rally_gravel_shoulder, s->close_houses, s->brake_over_gas, s->headlight_cone, s->rain_fx, s->rain_grip, s->gauge_light, s->finish_gate_light, s->night_tone, s->rain_lamps, s->gauge_exterior, s->sign_glow, s->reverse_rows, s->city_lift, s->vegas_lift, s->chase_height, s->rally_dry_lamps, s->traffic_halo, s->police_halo, s->analog_pad, s->rain_v2, s->rain_tyre_roll, s->snow_weather, s->reflectors, s->handbrake_lamps, s->rally_spray, s->snow_fx, s->lamp_halos, s->wipers, s->weather_fog, s->spray_v4, s->car_night_lift, s->menu_pad_cancel, s->tunnel_lamps, s->wrong_way, s->light_edit, s->chase_steady, port_profile_key((Profile)s->profile));
+                           s->free_records, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->lamp_flares, s->rally_gravel_shoulder, s->close_houses, s->brake_over_gas, s->rain_fx, s->rain_grip, s->gauge_light, s->finish_gate_light, s->rain_lamps, s->gauge_exterior, s->sign_glow, s->reverse_rows, s->city_lift, s->vegas_lift, s->rally_dry_lamps, s->traffic_halo, s->analog_pad, s->rain_v2, s->rain_tyre_roll, s->snow_weather, s->reflectors, s->handbrake_lamps, s->rally_spray, s->snow_fx, s->lamp_halos, s->wipers, s->weather_fog, s->spray_v4, s->menu_pad_cancel, s->tunnel_lamps, s->wrong_way, s->light_edit, port_profile_key((Profile)s->profile));
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 

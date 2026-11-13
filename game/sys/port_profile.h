@@ -28,7 +28,7 @@ PortExtras port_profile_extras(Profile p, PortExtras e);
 /* 1 when the player may change the setting of file key `key` in mode `p`: then its file's value counts. The machine's keys (profile, psx_dir) are never a mode's. */
 int port_profile_key_free(Profile p, const char *key);
 
-/* `key` under today's name: the effects' old psx_* keys read as the new ones (light_effects, car_soft_shadow, light_time, headlight_beams, lamp_flares, extra_liveries); any other key as it is. */
+/* `key` under today's name: the effects' old psx_* keys read as the new ones (light_effects, car_soft_shadow, light_time, lamp_flares, extra_liveries; psx_headlights went with headlight_beams, now part of light_effects); any other key as it is. */
 const char *port_profile_key_alias(const char *key);
 /* `take` on each "key=value" line of `text` whose key is free in `p` */
 void port_profile_read_free(Profile p, const char *text, size_t size, void (*take)(void *to, const char *key, const char *value), void *to);

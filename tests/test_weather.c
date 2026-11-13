@@ -435,9 +435,9 @@ static void test_weather_fog_variants(void)
             /* clear and fog never change with the setting */
             if (!weather_wet(w)) {
                 WeatherFogShape s2;
-                weather_fog_shape(w, snow, 2, &s2);
+                weather_fog_shape(w, snow, 1, &s2);
                 CHECK(memcmp(&sh, &s2, sizeof sh) == 0);
-                weather_fog_colour_for(w, snow, 2, base, b);
+                weather_fog_colour_for(w, snow, 1, base, b);
                 CHECK(memcmp(a, b, 3) == 0);
             }
         }
@@ -453,7 +453,7 @@ static void test_weather_fog_variants(void)
     weather_fog_colour_for(WEATHER_RAIN, 1, 0, base, c0), weather_fog_colour_for(WEATHER_RAIN, 1, 1, base, c1);
     CHECK(c1[0] > c0[0] && c1[1] > c0[1] && c1[2] > c0[2]);
     CHECK(!weather_sky_is_wet_dark(WEATHER_RAIN, 1, 1) && weather_sky_is_wet_dark(WEATHER_RAIN, 0, 1));
-    CHECK(weather_fog_snow_mood(1, 1) && !weather_fog_snow_mood(1, 2) && weather_fog_snow_mood(0, 2));
+    CHECK(!weather_fog_snow_mood(1, 1) && weather_fog_snow_mood(1, 0) && weather_fog_snow_mood(0, 1));   /* on: no dark mood over snow */
 }
 
 int main(void)
