@@ -40,6 +40,7 @@ void menu_audio_open(void)
 
 void menu_audio_close(void)
 {
+    port_log("menu_audio: close\n");
     menu_audio_track_free();
     drive_audio_close();
     banks = (RaceSoundBanks){ 0 };
@@ -98,9 +99,9 @@ void menu_audio_music_start(const char *name)
  * 363771 queued, the reader at 0), so the menus feed it a block at a time as 00464240 does */
 void menu_audio_music_feed(void) { drive_audio_music_pump(), drive_audio_pump(); }
 void menu_audio_music_service(void) { drive_audio_music_pump(), drive_audio_pump(); }
-void menu_audio_music_fade_out(void) { drive_audio_music_fade(); }
-void menu_audio_music_end(void) { drive_audio_music_stop(); }
-void menu_audio_music_cut(void) { drive_audio_music_cut(); }
+void menu_audio_music_fade_out(void) { port_log("menu_audio: music fade\n"), drive_audio_music_fade(); }
+void menu_audio_music_end(void) { port_log("menu_audio: music stop\n"), drive_audio_music_stop(); }
+void menu_audio_music_cut(void) { port_log("menu_audio: music cut\n"), drive_audio_music_cut(); }
 void menu_audio_music_fade_to(int32_t volume) { drive_audio_music_volume((int16_t)volume); }
 
 /* 004c55ac */
