@@ -326,6 +326,9 @@ void glue_title_screen(int32_t state)
     DialogPointer p = { pointer_active(), 0, 0, 0, 0, 0 };
     const TitleOps ops = { deadline_set, screen_show, menu_glue_banner_wait, buttons, music, deadline_passed, key, fade_out,
                            NULL };
+    port_log("mark:screen=title\n");   /* port: a headless walk measures it */
+    const uint32_t start = timer_ticks();
     title_screen_show(state, &s, &p, &ops);
+    port_log("mark:hold screen=title ticks=%u\n", (unsigned)(timer_ticks() - start));
     menu_words.link_game = (int16_t)s.link_game, menu_words.link_lost = (int16_t)s.link_lost;
 }

@@ -13,9 +13,16 @@ void title_screen_show(int32_t state, TitleState *s, DialogPointer *p, const Tit
         s->link_lost = 0, s->link_game = 0;
         ops->banner_wait(ops->ctx, s->german ? "Verbindung abgebrochen" : "Connection Terminated", NO_WAIT);
     }
+    /* port (fresh press): a key or a button counts once it was seen up on this screen. The exe's 00464bd0 and [004c6194] read what is held, and the
+     * press that stopped EA's movie was let go during its mode switch and this screen's fade; here they take no time, and the same press (or its
+     * latch, key_latch.h) closed this screen too */
+    int key_armed = 0, buttons_armed = 0, key = 0;
     do {
         if (p->active) p->buttons = (int16_t)ops->pointer_poll(ops->ctx);
         ops->music_service(ops->ctx);
-    } while (!ops->deadline_passed(ops->ctx) && !ops->key(ops->ctx) && p->buttons == 0);
+        if (ops->deadline_passed(ops->ctx)) break;
+        key = ops->key(ops->ctx);
+        key_armed |= key == 0, buttons_armed |= p->buttons == 0;
+    } while (!(key != 0 && key_armed) && !(p->buttons != 0 && buttons_armed));
     if (!s->music_off) ops->fade_out(ops->ctx, 0, FADE_COUNT);
 }
