@@ -183,6 +183,17 @@ static HudFrame view_frame(const RaceState *race)
                        : (HudFrame){ 0, 0, 0, 0 };
 }
 
+/* port: the top row's labels into the strip. The exe draws the top row (00421e40) on the frame itself, so 004218d0's
+ * full redraw puts its labels over whatever the top row held, the start lights too. The port keeps the top row in its
+ * own strip and copies it over the frame, so the redraw's labels never reached it: a redraw (a change of view) in the
+ * ticks after the lights went out reset the HUD (lights_until), the keys' labels then never came, and the green lights
+ * stayed under the numbers for the whole race. So the labels a full redraw draws go into the strip as well. */
+static void labels_into_strip(DriveHud *h, const RaceState *race)
+{
+    const QuadTarget strip = { h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
+    hud_draw_labels(&strip, &h->hud, &h->art, race, race->splits.gap, race->splits.gap_shown, HIGH_RES, h->strip_colour);
+}
+
 void drive_hud_tiles(DriveHud *h, const RaceState *race)
 {
     if (!h->ready) return;
@@ -190,6 +201,7 @@ void drive_hud_tiles(DriveHud *h, const RaceState *race)
     const HudRedrawInputs in = {
         view_frame(race), 1, DRIVE_VIEW_W, DRIVE_VIEW_H, race->splits.gap, race->splits.gap_shown, HIGH_RES, h->strip_colour };
     hud_redraw(&t, &h->hud, &h->art, race, &in);
+    labels_into_strip(h, race);
 }
 
 uint8_t *drive_hud_view(DriveHud *h, uint8_t *pixels)
@@ -260,9 +272,7 @@ static QuadTarget *cockpit_select(void *ctx, HudSurface s)
 static void cockpit_labels(void *ctx)
 {
     CockpitSurfaces *c = ctx;
-    const QuadTarget strip = { c->h->strip, DRIVE_HUD_W, 0, 0, DRIVE_HUD_W, DRIVE_HUD_H };
-    hud_draw_labels(&strip, &c->h->hud, &c->h->art, c->race, c->race->splits.gap, c->race->splits.gap_shown,
-                    HIGH_RES, c->h->strip_colour);
+    labels_into_strip(c->h, c->race);
 }
 
 static void cockpit_grab(void *ctx, uint8_t *back_shape)
@@ -651,6 +661,7 @@ static void hud_tiles(void *ctx)
     const HudRedrawInputs in = { view_frame(c->s->race), 1, c->width, c->height, c->s->race->splits.gap,
                                  c->s->race->splits.gap_shown, HIGH_RES, h->strip_colour };
     hud_redraw(&c->s->screen, &h->hud, &h->art, c->s->race, &in);
+    labels_into_strip(h, c->s->race);
 }
 
 static void hud_mask(void *ctx, int32_t changed)
