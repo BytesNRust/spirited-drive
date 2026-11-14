@@ -7,6 +7,8 @@
 #include "game/sys/port_settings.h"
 #include "game/sys/reverse_track.h"
 #include "game/viewer/drive_session.h"
+#include "game/frontend/config.h"
+#include "game/frontend/unlock_level.h"
 
 #include <string.h>
 
@@ -21,7 +23,7 @@ static uint8_t clamp(int v, int top) { return (uint8_t)(v < 0 ? 0 : v > top ? to
 
 void link_rules_compose(const uint8_t *records, int humans, SessionRules *out)
 {
-    const PortExtras e = port_extras_load();
+    const PortExtras e = unlock_level_extras(config_current());   /* the host's level gates its Lunar Springs Track */
     memset(out, 0xff, sizeof *out);   /* the paints not asked for: the race's own draw */
     out->mode = clamp(port_settings_profile(), SESSION_RESTOMOD);
     out->difficulty = clamp(e.difficulty, 2);

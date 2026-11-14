@@ -6,6 +6,7 @@
 #include "game/race/lunar_springs.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/resource.h"
+#include "game/frontend/unlock_level.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -87,8 +88,12 @@ static void track_art(CentralRun *r)
 {
     ControlCentralState *st = r->st;
     char path[0x50];
+    /* port: the moon's picture follows the Lunar Springs Track switch and the level as they are now, so the rally's word
+     * carries them too (bit 8): a change in Customize Game redraws the card though the track and variants are the same */
+    const int lunar_now = unlock_level_gate(port_extras_load(), *st->unlock_level).lunar_springs != 0;
+    const int r_now = (*st->variant_r != 0) | lunar_now << 8;
     if (st->was[WAS_TRACK] != *st->track || (int16_t)st->was[WAS_M] != *st->variant_m ||
-        (int16_t)st->was[WAS_R] != *st->variant_r) {
+        (int16_t)st->was[WAS_R] != r_now) {
         /* the records and the picture follow the rally when both variants are on (variant_rule.h) */
         const int base = central_track_art_base(*st->variant_m, *st->variant_r, *st->variant_m != 0 && *st->variant_r != 0);
         if (st->art[ART_TRACK] != 0) r->ops->free(r->ops->ctx, st->art[ART_TRACK]);
@@ -99,10 +104,10 @@ static void track_art(CentralRun *r)
         /* port: Lunar Springs (lunar_springs.h) shows the moon's picture for the rally on Rusty Springs, from the German
          * art directory whatever the language */
         char moon[64];
-        const int lunar = lunar_springs_picture(at, port_extras_load().lunar_springs, moon, sizeof moon);
+        const int lunar = lunar_springs_picture(at, lunar_now, moon, sizeof moon);
         st->art[ART_TRACK] = r->ops->load_bank(r->ops->ctx, lunar ? moon : path, 0);
         st->was[WAS_TRACK] = *st->track;
-        st->was[WAS_R] = (int16_t)*st->variant_r;
+        st->was[WAS_R] = (int16_t)r_now;
         st->was[WAS_M] = (int16_t)*st->variant_m;
     }
     r->ops->blit(r->ops->ctx, shape(r, ART_TRACK, "0000"));

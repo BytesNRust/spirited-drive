@@ -4,6 +4,7 @@
  * port_profile_select as Game Mode's Yes does). */
 #include "game/frontend/config_dat.h"
 #include "game/frontend/unlock_level.h"
+#include "game/race/lunar_springs.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
@@ -160,8 +161,39 @@ static void test_what_each_level_gives(void)
     }
 }
 
+/* Lunar Springs Track is level 2's: below it the rally on Rusty Springs is the desert's (TR5 and its own art), the moon's
+ * FAM and picture not taken, whatever the file says; at 2 the switch decides, On the moon, Off the desert */
+static void test_lunar_or_desert(void)
+{
+    PortExtras on = port_extras_defaults();
+    on.lunar_springs = 1, on.lunar_gravity = LUNAR_GRAVITY_SPRINGS;
+    char fam[256];
+    for (int level = 0; level <= 2; level++) {
+        const PortExtras g = unlock_level_gate(on, level);
+        CHECK_EQ_INT(g.lunar_springs, level == 2);
+        CHECK_EQ_INT(g.lunar_gravity, LUNAR_GRAVITY_SPRINGS);   /* the rest as it was */
+        CHECK_EQ_INT(lunar_springs_fam("/cd", LUNAR_TRACK_RUSTY, 1, g.lunar_springs, fam, sizeof fam), level == 2);
+        CHECK_EQ_INT(lunar_gravity_active(LUNAR_TRACK_RUSTY, 1, g.lunar_springs, g.lunar_gravity), level == 2);
+    }
+    PortExtras off = on;
+    off.lunar_springs = 0;
+    CHECK_EQ_INT(lunar_springs_fam("/cd", LUNAR_TRACK_RUSTY, 1, unlock_level_gate(off, 2).lunar_springs, fam, sizeof fam), 0);
+    /* in Restomod the mode's own level gates the file's switch, read live */
+    static ConfigDat c;
+    fresh(&c);
+    mode(PROFILE_RESTOMOD);
+    PortExtras e = port_extras_load();
+    e.lunar_springs = 1;
+    CHECK(port_extras_save(&e));
+    CHECK_EQ_INT(unlock_level_extras(&c).lunar_springs, 1);   /* level 2, Restomod's default */
+    unlock_level_put(&c, 1);
+    CHECK_EQ_INT(unlock_level_extras(&c).lunar_springs, 0);
+    CHECK_EQ_INT(port_extras_load().lunar_springs, 1);   /* the file keeps the player's choice */
+}
+
 int main(void)
 {
+    test_lunar_or_desert();
     test_stock_and_restored_are_config_dats();
     test_restomod_keeps_its_own();
     test_the_round_trip();

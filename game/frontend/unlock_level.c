@@ -17,6 +17,17 @@ int unlock_level_get(const ConfigDat *c)
     return config_dat_unlock_level(c);
 }
 
+PortExtras unlock_level_gate(PortExtras e, int level)
+{
+    if (level < 2) e.lunar_springs = 0;
+    return e;
+}
+
+PortExtras unlock_level_extras(const ConfigDat *c)
+{
+    return unlock_level_gate(port_extras_load(), unlock_level_get(c));
+}
+
 void unlock_level_put(ConfigDat *c, int level)
 {
     if (!unlock_level_own()) {
