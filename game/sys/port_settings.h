@@ -57,7 +57,7 @@ typedef struct {
     int traffic_halo;    /* with the console version flares at night, the traffic's lit headlights and brake lights get their halo as the racers' do (the port draws it only for the racers and the police car); 0 as now */
     int rain_v2;        /* 1: the rain is lighter (half the streaks), the storm is the old rain a little heavier with thunder after each lightning, the wet road's lamp reflections stay on the carriageway, the streaks fall from higher, and the traffic's and police's spray wisp is longer with a minimum at any speed; 0: as it was */
     int snow_weather;     /* 1: on a track whose places file says `snow 1` (Alpine 3) the rain is snow: flakes for streaks, no lightning or thunder in the storm, and the rally's road and shoulder are covered in snow (rally_gravel.h); 0 the rain as it was */
-    int rain_tyre_roll;   /* 1: in rain or a storm (rain_v2) a car rolling on open asphalt makes a low wet-tyre roll, by its speed (rain_roll.h); 0: none */
+    int rain_tyre_roll;   /* 1: in rain or a storm (rain_v2) the rain round the followed car, every car's tyre spray and puddle splashes (rain_roll.h, rain_cars.h); 0: none */
     int analog_pad;    /* 1: a control bound to an axis (a pad's stick or trigger, a wheel, pedals) steers and works the pedals in proportion, one bound to a key or button keeps its full lock and full pedal (analog_pad.h); 0 the exe's key paths */
     int sign_glow;         /* 1: at night, with the headlight beams, the City's matrix sign (CY1: EXPRESS LANES CLOSED) has its amber bulbs lit like the windows (window_lights.h); 0 the exe's */
     int reverse_rows;    /* a reversed TR3 reads the tunnel rows in the order their polygon tables were made for, so the roof and walls keep their shape */

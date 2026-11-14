@@ -3,13 +3,16 @@
 #include "game/platform/platform.h"
 #include "game/race/tick_rate.h"
 #include "game/race/weather.h"
+#include "game/race/rain_cars.h"
 #include "game/race/rain_roll.h"
+#include "game/audio/wet_roll.h"
 #include "game/race/rally_gravel.h"
 #include "game/race/snow_roll.h"
 #include "game/race/weather_snow.h"
 #include "game/viewer/drive_bumper.h"
 #include "tests/test.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -24,18 +27,44 @@ void platform_free_file(uint8_t *data) { free(data); }
 
 /* the audio the hooks drive is the exe's (drive_audio.c): recorded here */
 static int thunder_calls, thunder_delay[64], thunder_volume[64];
-static int out_percent = -1, in_percent = -1, wet_percent = -1, wet_pitch = -1, snow_percent = -1, snow_pitch = -1;
+static int out_percent = -1, in_percent = -1, bed_percent = -1, move_in_percent = -1, snow_percent = -1, snow_pitch = -1;
+static int spray_percent[RAIN_CARS_VOICES], spray_pitch[RAIN_CARS_VOICES], spray_pan[RAIN_CARS_VOICES], spray_starts, puddles, puddle_level[1024], puddle_pan[1024];
 void drive_audio_thunder(int delay_ticks, int volume_percent)
 {
     if (thunder_calls < 64) thunder_delay[thunder_calls] = delay_ticks, thunder_volume[thunder_calls] = volume_percent;
     thunder_calls++;
 }
-void drive_audio_rain_roll(int out, int in, int moving, int pitch_permille) { out_percent = out, in_percent = in, wet_percent = moving, wet_pitch = pitch_permille; }
+void drive_audio_rain_roll(int out, int in, int bed, int move_in) { out_percent = out, in_percent = in, bed_percent = bed, move_in_percent = move_in; }
+void drive_audio_rain_spray(int voice, int percent, int pitch_permille, int pan, int start_permille)
+{
+    CHECK(voice >= 0 && voice < RAIN_CARS_VOICES && start_permille >= -1 && start_permille < 1000);
+    spray_percent[voice] = percent, spray_pitch[voice] = pitch_permille, spray_pan[voice] = pan, spray_starts += start_permille >= 0;
+}
+int drive_audio_rain_puddle_clips(void) { return 7; }
+void drive_audio_rain_puddle(int clip, int percent, int pitch_permille, int pan)
+{
+    CHECK(clip >= 0 && clip < 7 && percent > 0 && pitch_permille >= 950 && pitch_permille <= 1050);
+    if (puddles < 1024) puddle_level[puddles] = percent, puddle_pan[puddles] = pan;
+    puddles++;
+}
+/* the voices heard: their levels summed (the followed car alone: its voice's) */
+static int sprays(void)
+{
+    int sum = 0;
+    for (int v = 0; v < RAIN_CARS_VOICES; v++) sum += spray_percent[v];
+    return sum;
+}
+static int voices_on(void)
+{
+    int n = 0;
+    for (int v = 0; v < RAIN_CARS_VOICES; v++) n += spray_percent[v] > 0;
+    return n;
+}
 void drive_audio_snow_roll(int volume_percent, int pitch_permille) { snow_percent = volume_percent, snow_pitch = pitch_permille; }
 
 static WeatherFrame frame(int weather, int snow, int open)
 {
-    return (WeatherFrame){ weather, snow, open, NULL, 1000 };
+    return (WeatherFrame){ weather, snow, open, NULL, 1000, NULL };
 }
 
 static void test_the_flash_is_the_storms_alone(void)
@@ -149,56 +178,58 @@ static void test_the_voices_are_silent_without_a_race(void)
 {
     setenv("TNFS_RAIN_TYRE_ROLL", "1", 1);
     const WeatherFrame f = frame(WEATHER_RAIN, SNOW_NONE, 16);   /* no race: no car to follow */
-    out_percent = in_percent = wet_percent = snow_percent = -1;
+    out_percent = in_percent = bed_percent = move_in_percent = snow_percent = -1;
+    for (int v = 0; v < RAIN_CARS_VOICES; v++) spray_percent[v] = -1;
     weather_hooks_rain_roll(&f);
     weather_hooks_snow_roll(&f);
-    CHECK(out_percent == 0 && in_percent == 0 && wet_percent == 0);
-    CHECK_EQ_INT(wet_pitch, RAIN_ROLL_PITCH_SLOW);
+    CHECK(out_percent == 0 && in_percent == 0 && bed_percent == 0 && move_in_percent == 0 && sprays() == 0);
     CHECK_EQ_INT(snow_percent, 0);
     CHECK_EQ_INT(snow_pitch, SNOW_ROLL_PITCH_SLOW);
 }
 
-/* a change of view in a race (the view key): the moving layer glides to the new view's level by the race's ticks, from the near chase camera to the far one, to the
- * dash and back; the eye's real distance counts (a camera still gliding to its place is between the two levels) */
+/* a change of view in a race (the view key): the followed car's spray glides to the new view's level by the race's ticks, from the near chase camera to the far one and back; in
+ * the cockpit it is in the cockpit's own layer. The eye's real distance counts (a camera still gliding to its place is between the two levels) */
 static void test_the_wet_road_follows_the_view_live(void)
 {
     static RaceState race;
     static Car car;
     memset(&race, 0, sizeof race), memset(&car, 0, sizeof car);
     setenv("TNFS_RAIN_V2", "1", 1), setenv("TNFS_RAIN_TYRE_ROLL", "1", 1);
-    race.cars[0] = &car, race.viewed = 0, race.tick = 1000;
+    race.cars[0] = &car, race.car_count = 1, race.viewed = 0, race.tick = 1000;
     car.speed = 40 << 16, car.x = 100 << 16, car.z = 200 << 16;
     WeatherFrame f = frame(WEATHER_RAIN, SNOW_NONE, 16);
     f.race = &race;
-    const int full = rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_ASPHALT, 0).moving;
+    const int full = rain_roll_spray(16, car.speed, RAIN_ROLL_ASPHALT);
     #define AT(kind_, metres) (race.chase.kind = (kind_), race.chase.position[0] = car.x, race.chase.position[1] = car.y, race.chase.position[2] = car.z - (int32_t)((metres) * 65536.0))
     AT(2, 4.35);   /* the near chase camera: the race starts there, no glide */
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, full);
+    CHECK_EQ_INT(sprays(), full);
+    CHECK_EQ_INT(spray_pitch[0], rain_roll_pitch(car.speed));
+    CHECK(abs(spray_pan[0] - WET_ROLL_PAN_CENTRE) <= 1);   /* the car straight ahead of the eye */
     AT(3, 6.8);    /* the far one: down towards -6 dB, not at once */
     race.tick += 1;
     weather_hooks_rain_roll(&f);
-    CHECK(wet_percent < full && wet_percent > full * 9 / 10);
+    CHECK(sprays() < full && sprays() > full * 9 / 10);
     for (int i = 0; i < RACE_TICKS_A_SECOND; i++) race.tick++, weather_hooks_rain_roll(&f);
-    CHECK(abs(wet_percent - full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000) <= 1);
+    CHECK(abs(sprays() - full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000) <= 1);
     weather_hooks_rain_roll(&f);   /* frames with no new tick: it holds */
-    CHECK(abs(wet_percent - full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000) <= 1);
-    AT(DRIVE_DASH_KIND, 1.1);   /* the dash: up to -3 dB, gliding */
+    CHECK(abs(sprays() - full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000) <= 1);
+    AT(DRIVE_DASH_KIND, 1.1);   /* the dash: the car's own spray is in the cockpit's layer */
     race.tick += RACE_TICKS_A_SECOND;
     weather_hooks_rain_roll(&f);
-    CHECK(abs(wet_percent - full * RAIN_ROLL_VIEW_COCKPIT_PERMILLE / 1000) <= 1);
+    CHECK(sprays() == 0 && move_in_percent == rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_ASPHALT, 1).move_in && move_in_percent > 0 && bed_percent == 0);
     AT(1, 0.9);    /* the bumper: 0 dB */
     race.tick += RACE_TICKS_A_SECOND;
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, full);
+    CHECK(sprays() == full && move_in_percent == 0 && bed_percent == RAIN_ROLL_BED_PERCENT);
     AT(3, 5.5);    /* a camera on its way out: between the two */
     race.tick += RACE_TICKS_A_SECOND;
     weather_hooks_rain_roll(&f);
-    CHECK(wet_percent < full && wet_percent > full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000);
+    CHECK(sprays() < full && sprays() > full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000);
     race.tick = 10;   /* a new race (the clock gone back): the level is the view's at once */
     AT(3, 6.8);
     weather_hooks_rain_roll(&f);
-    CHECK(abs(wet_percent - full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000) <= 1);
+    CHECK(abs(sprays() - full * RAIN_ROLL_VIEW_FAR_PERMILLE / 1000) <= 1);
     #undef AT
 }
 
@@ -208,60 +239,70 @@ static void test_the_voices_follow_the_viewed_car(void)
     static Car car;
     memset(&race, 0, sizeof race), memset(&car, 0, sizeof car);
     setenv("TNFS_RAIN_V2", "1", 1), setenv("TNFS_RAIN_TYRE_ROLL", "1", 1);
-    race.cars[0] = &car, race.viewed = 0;
-    race.chase.kind = 1;   /* a view outside the car */
+    race.cars[0] = &car, race.car_count = 1, race.viewed = 0;
+    race.chase.kind = 1;   /* a view outside the car, the eye on it */
     car.speed = 40 << 16;
     WeatherFrame f = frame(WEATHER_RAIN, SNOW_NONE, 16);
     f.race = &race;
     weather_hooks_rain_roll(&f);
     RainRoll r = rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_ASPHALT, 0);   /* on asphalt, outside */
-    CHECK(out_percent == r.out && in_percent == r.in && wet_percent == r.moving && wet_pitch == r.pitch && wet_percent > 0);
-    race.chase.kind = DRIVE_DASH_KIND;   /* the cockpit: 3 dB lower, once the change of view has glided */
+    CHECK(out_percent == r.out && in_percent == r.in && bed_percent == r.bed && move_in_percent == 0 && sprays() == r.spray && sprays() > 0);
+    race.chase.kind = DRIVE_DASH_KIND;   /* the cockpit */
     race.tick += RACE_TICKS_A_SECOND;
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, (rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_ASPHALT, 1).moving * RAIN_ROLL_VIEW_COCKPIT_PERMILLE + 500) / 1000);
+    CHECK(move_in_percent == rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_ASPHALT, 1).move_in && sprays() == 0 && bed_percent == 0);
     car.speed = 0;   /* stopped in the cockpit: the rain on the roof */
     weather_hooks_rain_roll(&f);
-    CHECK(in_percent == RAIN_ROLL_IN_PERCENT && out_percent == 0 && wet_percent == 0);
+    CHECK(in_percent == RAIN_ROLL_IN_PERCENT && out_percent == 0 && move_in_percent == 0 && sprays() == 0);
     race.chase.kind = 1, race.tick += RACE_TICKS_A_SECOND;   /* stopped outside: the rain round the car (and the view's level glided back) */
     weather_hooks_rain_roll(&f);
-    CHECK(out_percent == RAIN_ROLL_OUT_PERCENT && in_percent == 0);
+    CHECK(out_percent == RAIN_ROLL_OUT_PERCENT && in_percent == 0 && bed_percent == 0);
     car.speed = 40 << 16, car.airborne_ticks = 3;
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, 0);   /* in the air: not on asphalt */
+    CHECK(sprays() == 0 && bed_percent == RAIN_ROLL_BED_PERCENT);   /* in the air: no spray, the rain still round the car */
     car.airborne_ticks = 0, race.port_rally_gravel = RALLY_GRAVEL_COMPACT;
     weather_hooks_rain_roll(&f);
-    CHECK(wet_percent == rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_GRAVEL, 0).moving && wet_percent > 0);   /* the rally's gravel: under the gravel roll */
+    CHECK(sprays() == rain_roll_spray(16, car.speed, RAIN_ROLL_GRAVEL) && sprays() > 0);   /* the rally's gravel: under the gravel roll */
     race.surfaces[0].off_road = 1;   /* the rally's road counts by the gravel roll's rule, not the surface's */
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, rain_roll_levels(RAIN_ROLL_RAIN, 16, car.speed, RAIN_ROLL_GRAVEL, 0).moving);
+    CHECK_EQ_INT(sprays(), rain_roll_spray(16, car.speed, RAIN_ROLL_GRAVEL));
     car.node_flag_4aa = 1;   /* the rally's shoulder: the shoulder's own sound */
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, 0);
+    CHECK_EQ_INT(sprays(), 0);
     car.node_flag_4aa = 0, race.surfaces[0].off_road = 0;
     race.port_rally_gravel = 0;
     f.weather = WEATHER_CLEAR;
     weather_hooks_rain_roll(&f);
-    CHECK(out_percent == 0 && in_percent == 0 && wet_percent == 0);   /* dry: silent */
-    CHECK_EQ_INT(wet_pitch, RAIN_ROLL_PITCH_SLOW);
-    /* snow falling: silent standing, the rain's wet road moving (it melts), no roll on snow off the snowy rally */
-    f.weather = WEATHER_RAIN, f.snow_level = SNOW_HEAVY;
+    CHECK(out_percent == 0 && in_percent == 0 && bed_percent == 0 && move_in_percent == 0 && sprays() == 0);   /* dry: silent */
+    f.weather = WEATHER_RAIN;
+    setenv("TNFS_RAIN_TYRE_ROLL", "0", 1);   /* the switch off (Stock, Restored): silent, live */
+    weather_hooks_rain_roll(&f);
+    CHECK(out_percent == 0 && bed_percent == 0 && sprays() == 0);
+    setenv("TNFS_RAIN_TYRE_ROLL", "1", 1);
+    weather_hooks_rain_roll(&f);
+    CHECK(bed_percent > 0 && sprays() > 0);
+    /* snow falling: silent standing, the spray moving (it melts), in the cockpit too; no roll on snow off the snowy rally */
+    f.snow_level = SNOW_HEAVY;
     car.speed = 0;
     weather_hooks_rain_roll(&f);
     weather_hooks_snow_roll(&f);
-    CHECK(out_percent == 0 && in_percent == 0 && wet_percent == 0 && snow_percent == 0);
+    CHECK(out_percent == 0 && in_percent == 0 && sprays() == 0 && snow_percent == 0);
     car.speed = 40 << 16;
     weather_hooks_rain_roll(&f);
     weather_hooks_snow_roll(&f);
-    CHECK(wet_percent == rain_roll_levels(RAIN_ROLL_SNOW, 16, car.speed, RAIN_ROLL_ASPHALT, 0).moving && wet_percent > 0 && out_percent == 0 && snow_percent == 0);
+    CHECK(sprays() == rain_roll_spray(16, car.speed, RAIN_ROLL_ASPHALT) && sprays() > 0 && out_percent == 0 && bed_percent == 0 && snow_percent == 0);
+    race.chase.kind = DRIVE_DASH_KIND, race.tick += RACE_TICKS_A_SECOND;
+    weather_hooks_rain_roll(&f);
+    CHECK(sprays() == (rain_roll_spray(16, car.speed, RAIN_ROLL_ASPHALT) * RAIN_ROLL_VIEW_COCKPIT_PERMILLE + 500) / 1000 && move_in_percent == 0);
+    race.chase.kind = 1, race.tick += RACE_TICKS_A_SECOND;
     race.port_rally_gravel = RALLY_GRAVEL_COMPACT;   /* snow falling on a rally: as rain, under the gravel roll */
     weather_hooks_rain_roll(&f);
-    CHECK_EQ_INT(wet_percent, rain_roll_levels(RAIN_ROLL_SNOW, 16, car.speed, RAIN_ROLL_GRAVEL, 0).moving);
-    /* the snowy rally's track: the roll on snow alone, no wet road */
+    CHECK_EQ_INT(sprays(), rain_roll_spray(16, car.speed, RAIN_ROLL_GRAVEL));
+    /* the snowy rally's track: the roll on snow alone, no spray */
     race.port_rally_gravel = RALLY_GRAVEL_SNOW;
     weather_hooks_rain_roll(&f);
     weather_hooks_snow_roll(&f);
-    CHECK(wet_percent == 0 && out_percent == 0 && snow_percent == snow_roll_volume(1, 16, car.speed, 1, 0) && snow_percent > 0);
+    CHECK(sprays() == 0 && out_percent == 0 && snow_percent == snow_roll_volume(1, 16, car.speed, 1, 0) && snow_percent > 0);
     CHECK_EQ_INT(snow_pitch, snow_roll_pitch(car.speed));
     f.rain_open = 0;   /* a closed zone where snow falls */
     weather_hooks_snow_roll(&f);
@@ -278,6 +319,64 @@ static void test_the_voices_follow_the_viewed_car(void)
     CHECK_EQ_INT(snow_pitch, SNOW_ROLL_PITCH_SLOW);
 }
 
+/* the road's openness by node: node 7 is in a tunnel */
+static int open_at(int32_t node) { return node == 7 ? 0 : 16; }
+
+/* the other cars (rivals, traffic): each its spray where it is, by its pace (how far it really goes), quieter the farther, on the side it is; none in a tunnel; the loudest
+ * RAIN_CARS_VOICES at once; splashes at random, more the faster, none slow */
+static void test_every_car_sprays(void)
+{
+    static RaceState race;
+    static Car car[RACE_CARS];
+    memset(&race, 0, sizeof race), memset(car, 0, sizeof car);
+    setenv("TNFS_RAIN_V2", "1", 1), setenv("TNFS_RAIN_TYRE_ROLL", "1", 1);
+    race.car_count = 2, race.viewed = 0, race.tick = 5000, race.chase.kind = 2;
+    for (int i = 0; i < RACE_CARS; i++) race.cars[i] = &car[i], car[i].speed = 40 << 16, car[i].z = 0;
+    car[1].x = 20 << 16;   /* 20 m to the side of the eye */
+    race.chase.position[2] = -(int32_t)(4.35 * 65536);
+    WeatherFrame f = frame(WEATHER_RAIN, SNOW_NONE, 16);
+    f.race = &race, f.open_at = open_at;
+    #define DRIVE(ticks) for (int t_ = 0; t_ < (ticks); t_++) { race.tick++; for (int i_ = 0; i_ < RACE_CARS; i_++) car[i_].z += car[i_].speed / RACE_TICKS_A_SECOND; race.chase.position[2] += car[0].speed / RACE_TICKS_A_SECOND; weather_hooks_rain_roll(&f); }
+    weather_hooks_rain_roll(&f);
+    CHECK_EQ_INT(voices_on(), 1);   /* the rival not seen going yet: standing */
+    DRIVE(40);
+    CHECK_EQ_INT(voices_on(), 2);
+    const int32_t d = (int32_t)sqrt(pow(20.0, 2) + pow(4.35, 2)) * 65536;
+    int rival = -1, own = -1;
+    for (int v = 0; v < RAIN_CARS_VOICES; v++) {
+        if (spray_percent[v] == rain_roll_spray(16, car[0].speed, RAIN_ROLL_ASPHALT)) own = v;
+        else if (spray_percent[v] > 0) rival = v;
+    }
+    CHECK(own >= 0 && rival >= 0);
+    if (rival >= 0) {
+        const int want = rain_roll_spray(16, car[1].speed, RAIN_ROLL_ASPHALT) * rain_roll_view_permille(0, d) / 1000;
+        CHECK(abs(spray_percent[rival] - want) <= want / 20 + 2 && spray_percent[rival] < spray_percent[own]);
+        CHECK(spray_pan[rival] != WET_ROLL_PAN_CENTRE && abs(spray_pan[rival] - WET_ROLL_PAN_CENTRE) > 20);   /* off to one side */
+    }
+    CHECK(spray_starts >= 2);   /* each voice taken started somewhere in its loop */
+    car[1].node = 7;   /* the rival in a tunnel: silent */
+    DRIVE(30);
+    CHECK_EQ_INT(voices_on(), 1);
+    car[1].node = 0;
+    /* nine cars near: the loudest four */
+    race.car_count = RACE_CARS;
+    for (int i = 1; i < RACE_CARS; i++) car[i].x = (i * 3) << 16, car[i].z = car[0].z;
+    DRIVE(60);
+    CHECK_EQ_INT(voices_on(), RAIN_CARS_VOICES);
+    /* splashes: about one a second at full speed per car heard, none slow */
+    for (int i = 0; i < RACE_CARS; i++) car[i].speed = RAIN_ROLL_FULL;
+    DRIVE(30);
+    puddles = 0;
+    DRIVE(RACE_TICKS_A_SECOND * 20);
+    CHECK(puddles > 20 * RAIN_CARS_VOICES / 2 && puddles < 20 * RAIN_CARS_VOICES * 2);
+    for (int i = 0; i < RACE_CARS; i++) car[i].speed = RAIN_PUDDLE_FROM;
+    DRIVE(30);
+    puddles = 0;
+    DRIVE(RACE_TICKS_A_SECOND * 10);
+    CHECK_EQ_INT(puddles, 0);
+    #undef DRIVE
+}
+
 int main(void)
 {
     test_the_flash_is_the_storms_alone();
@@ -287,5 +386,6 @@ int main(void)
     test_the_voices_are_silent_without_a_race();
     test_the_voices_follow_the_viewed_car();
     test_the_wet_road_follows_the_view_live();
+    test_every_car_sprays();
     return TEST_REPORT();
 }

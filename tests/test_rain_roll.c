@@ -1,4 +1,4 @@
-/* the rain's three layers (rain_roll.h): stopped outside, stopped in the cockpit, the wet road moving; and the samples' licence entries */
+/* the rain's layers (rain_roll.h): stopped and moving, outside and in the cockpit, and a car's spray by where it is heard from; and the samples' licence entries */
 #include "tests/test.h"
 
 #include "game/race/rain_roll.h"
@@ -13,39 +13,49 @@ static int32_t ms(int m) { return m * 0x10000; }
 
 static void test_stopped_and_moving_layers(void)
 {
-    /* stopped: the rain round the car outside, on the roof in the cockpit; no wet road yet */
+    /* stopped: the rain round the car outside, on the roof in the cockpit; nothing moving yet */
     RainRoll r = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, 0, RAIN_ROLL_ASPHALT, 0);
-    CHECK(r.out == RAIN_ROLL_OUT_PERCENT && r.in == 0 && r.moving == 0);
+    CHECK(r.out == RAIN_ROLL_OUT_PERCENT && r.in == 0 && r.bed == 0 && r.move_in == 0 && r.spray == 0);
     r = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, 0, RAIN_ROLL_ASPHALT, 1);
-    CHECK(r.out == 0 && r.in == RAIN_ROLL_IN_PERCENT && r.moving == 0);
+    CHECK(r.out == 0 && r.in == RAIN_ROLL_IN_PERCENT && r.bed == 0 && r.move_in == 0 && r.spray == 0);
     r = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_MOVING, RAIN_ROLL_ASPHALT, 0);   /* creeping is still stopped */
-    CHECK(r.out == RAIN_ROLL_OUT_PERCENT && r.moving == 0);
-    /* past the cross-fade: the moving layer alone, the same in and out (the view's own level is rain_roll_view_permille's) */
+    CHECK(r.out == RAIN_ROLL_OUT_PERCENT && r.bed == 0 && r.spray == 0);
+    /* past the cross-fade outside: the rain round a moving car and the car's spray */
     r = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_CROSSED, RAIN_ROLL_ASPHALT, 0);
-    CHECK(r.out == 0 && r.in == 0 && r.moving == RAIN_ROLL_MOVE_LOW_PERCENT);
-    CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_CROSSED, RAIN_ROLL_ASPHALT, 1).moving, RAIN_ROLL_MOVE_LOW_PERCENT);
-    CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_FULL, RAIN_ROLL_ASPHALT, 0).moving, RAIN_ROLL_MOVE_TOP_PERCENT);
-    CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_FULL * 2, RAIN_ROLL_ASPHALT, 0).moving, RAIN_ROLL_MOVE_TOP_PERCENT);   /* the top holds */
-    CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, -RAIN_ROLL_FULL, RAIN_ROLL_ASPHALT, 0).moving, RAIN_ROLL_MOVE_TOP_PERCENT);      /* reversing is as loud */
+    CHECK(r.out == 0 && r.in == 0 && r.move_in == 0 && r.bed == RAIN_ROLL_BED_PERCENT && r.spray == RAIN_ROLL_SPRAY_LOW_PERCENT);
+    r = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_FULL, RAIN_ROLL_ASPHALT, 0);
+    CHECK(r.bed == RAIN_ROLL_BED_PERCENT && r.spray == RAIN_ROLL_SPRAY_TOP_PERCENT);   /* the rain round the car does not rise: the spray does */
+    CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_FULL * 2, RAIN_ROLL_ASPHALT, 0).spray, RAIN_ROLL_SPRAY_TOP_PERCENT);   /* the top holds */
+    CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, -RAIN_ROLL_FULL, RAIN_ROLL_ASPHALT, 0).spray, RAIN_ROLL_SPRAY_TOP_PERCENT);      /* reversing is as loud */
+    /* in the cockpit: the rain on the moving car, its own spray in it (no spray of its own) */
+    r = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_CROSSED, RAIN_ROLL_ASPHALT, 1);
+    CHECK(r.in == 0 && r.out == 0 && r.bed == 0 && r.spray == 0 && r.move_in == RAIN_ROLL_MOVE_IN_LOW_PERCENT);
+    CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, RAIN_ROLL_FULL, RAIN_ROLL_ASPHALT, 1).move_in, RAIN_ROLL_MOVE_IN_TOP_PERCENT);
+    /* the followed car's spray is any car's */
+    for (int m = 0; m <= 70; m += 5) CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(m), RAIN_ROLL_ASPHALT, 0).spray, rain_roll_spray(OPEN, ms(m), RAIN_ROLL_ASPHALT));
 }
 
-/* the cross-fade is equal power: the stopped layer falls as the moving one rises, the sum of their squares (each against its own end) stays 1 */
+/* each cross-fade is equal power: the stopped layer falls as its moving one rises, the sum of their squares (each against its own end) stays 1 */
 static void test_equal_power_cross_fade(void)
 {
-    int last_out = RAIN_ROLL_OUT_PERCENT + 1, last_moving = -1;
-    for (int32_t v = RAIN_ROLL_MOVING; v <= RAIN_ROLL_CROSSED; v += 0x8000) {
-        const RainRoll r = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, v, RAIN_ROLL_ASPHALT, 0);
-        CHECK(r.out <= last_out && r.moving >= last_moving);
-        last_out = r.out, last_moving = r.moving;
-        const double a = (double)r.out / RAIN_ROLL_OUT_PERCENT, b = (double)r.moving / RAIN_ROLL_MOVE_LOW_PERCENT, sum = a * a + b * b;
-        CHECK(sum > 0.9 && sum < 1.1);
+    for (int cockpit = 0; cockpit <= 1; cockpit++) {
+        int last_stopped = 1000, last_moving = -1;
+        for (int32_t v = RAIN_ROLL_MOVING; v <= RAIN_ROLL_CROSSED; v += 0x8000) {
+            const RainRoll r = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, v, RAIN_ROLL_ASPHALT, cockpit);
+            const int stopped = cockpit ? r.in : r.out, moving = cockpit ? r.move_in : r.bed;
+            CHECK(stopped <= last_stopped && moving >= last_moving);
+            last_stopped = stopped, last_moving = moving;
+            const double a = (double)stopped / (cockpit ? RAIN_ROLL_IN_PERCENT : RAIN_ROLL_OUT_PERCENT), b = (double)moving / (cockpit ? RAIN_ROLL_MOVE_IN_LOW_PERCENT : RAIN_ROLL_BED_PERCENT);
+            CHECK(a * a + b * b > 0.9 && a * a + b * b < 1.1);
+        }
     }
-    int last = 0;
-    for (int m = 15; m <= 70; m++) {   /* past it the moving layer only rises */
-        const int level = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(m), RAIN_ROLL_ASPHALT, 0).moving;
-        CHECK(level >= last && level <= RAIN_ROLL_MOVE_TOP_PERCENT);
-        last = level;
+    int last = 0, last_in = 0;
+    for (int m = 15; m <= 70; m++) {   /* past it the spray and the cockpit's layer only rise */
+        const int level = rain_roll_spray(OPEN, ms(m), RAIN_ROLL_ASPHALT), in = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(m), RAIN_ROLL_ASPHALT, 1).move_in;
+        CHECK(level >= last && level <= RAIN_ROLL_SPRAY_TOP_PERCENT && in >= last_in && in <= RAIN_ROLL_MOVE_IN_TOP_PERCENT);
+        last = level, last_in = in;
     }
+    CHECK(RAIN_ROLL_SPRAY_TOP_PERCENT <= 600 && RAIN_ROLL_MOVE_IN_TOP_PERCENT <= 600);   /* within what the voice takes (WET_ROLL_MAX_PERCENT) */
 }
 
 static void test_silent_and_scaled(void)
@@ -53,34 +63,37 @@ static void test_silent_and_scaled(void)
     for (int cockpit = 0; cockpit <= 1; cockpit++)
         for (int m = 0; m <= 60; m += 10) {
             RainRoll r = rain_roll_levels(RAIN_ROLL_DRY, OPEN, ms(m), RAIN_ROLL_ASPHALT, cockpit);   /* dry (clear, fog) */
-            CHECK(r.out == 0 && r.in == 0 && r.moving == 0);
+            CHECK(r.out == 0 && r.in == 0 && r.bed == 0 && r.move_in == 0 && r.spray == 0);
             r = rain_roll_levels(RAIN_ROLL_RAIN, 0, ms(m), RAIN_ROLL_ASPHALT, cockpit);               /* inside a closed zone */
-            CHECK(r.out == 0 && r.in == 0 && r.moving == 0);
+            CHECK(r.out == 0 && r.in == 0 && r.bed == 0 && r.move_in == 0 && r.spray == 0);
+            CHECK_EQ_INT(rain_roll_spray(0, ms(m), RAIN_ROLL_ASPHALT), 0);
         }
-    /* off the asphalt (gravel, grass, the air) the wet road is silent, the rain still falls */
-    const RainRoll off = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(5), RAIN_ROLL_OFF, 0);
-    CHECK(off.moving == 0 && off.out > 0);
-    /* falling snow is silent standing, but melts on the road: the wet road as in rain, no stopped layer */
+    /* off the asphalt (grass, a shoulder, the air) the spray is silent; the rain still falls, on a moving car too */
+    const RainRoll off = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(40), RAIN_ROLL_OFF, 0);
+    CHECK(off.spray == 0 && off.bed == RAIN_ROLL_BED_PERCENT);
+    CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(40), RAIN_ROLL_OFF, 1).move_in, rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(40), RAIN_ROLL_ASPHALT, 1).move_in);
+    /* falling snow is silent standing, but melts on the road: the spray as in rain, in the cockpit too, no rain layer */
     for (int cockpit = 0; cockpit <= 1; cockpit++) {
         const RainRoll still = rain_roll_levels(RAIN_ROLL_SNOW, OPEN, 0, RAIN_ROLL_ASPHALT, cockpit), moving = rain_roll_levels(RAIN_ROLL_SNOW, OPEN, ms(40), RAIN_ROLL_ASPHALT, cockpit);
-        CHECK(still.out == 0 && still.in == 0 && still.moving == 0);
-        CHECK(moving.out == 0 && moving.in == 0 && moving.moving == rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(40), RAIN_ROLL_ASPHALT, cockpit).moving);
+        CHECK(still.out == 0 && still.in == 0 && still.spray == 0);
+        CHECK(moving.out == 0 && moving.in == 0 && moving.bed == 0 && moving.move_in == 0 && moving.spray == rain_roll_spray(OPEN, ms(40), RAIN_ROLL_ASPHALT) && moving.spray > 0);
     }
     /* the mouth of a closed zone: the openness scales every layer */
     const RainRoll full = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(40), RAIN_ROLL_ASPHALT, 0), half = rain_roll_levels(RAIN_ROLL_RAIN, OPEN / 2, ms(40), RAIN_ROLL_ASPHALT, 0);
-    CHECK(half.moving == (full.moving + 1) / 2 || half.moving == full.moving / 2);
+    CHECK(half.spray == (full.spray + 1) / 2 || half.spray == full.spray / 2);
+    CHECK(half.bed == (full.bed + 1) / 2 || half.bed == full.bed / 2);
     CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN / 2, 0, RAIN_ROLL_ASPHALT, 1).in, RAIN_ROLL_IN_PERCENT / 2);
 }
 
-/* on the rally's gravel the wet road is a layer under the gravel roll: RAIN_ROLL_GRAVEL_PERCENT of the asphalt's, the stopped layer as on asphalt */
+/* on the rally's gravel the spray is a layer under the gravel roll: RAIN_ROLL_GRAVEL_PERCENT of the asphalt's, the rain's layers as on asphalt */
 static void test_gravel_is_under_the_roll(void)
 {
-    for (int m = 10; m <= 60; m += 10)
-        for (int cockpit = 0; cockpit <= 1; cockpit++) {
-            const int asphalt = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(m), RAIN_ROLL_ASPHALT, cockpit).moving, gravel = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(m), RAIN_ROLL_GRAVEL, cockpit).moving;
-            CHECK(gravel > 0 && gravel < asphalt && abs(gravel - asphalt * RAIN_ROLL_GRAVEL_PERCENT / 100) <= 1);
-            CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_SNOW, OPEN, ms(m), RAIN_ROLL_GRAVEL, cockpit).moving, gravel);   /* snow falling on the rally: the same */
-        }
+    for (int m = 10; m <= 60; m += 10) {
+        const int asphalt = rain_roll_spray(OPEN, ms(m), RAIN_ROLL_ASPHALT), gravel = rain_roll_spray(OPEN, ms(m), RAIN_ROLL_GRAVEL);
+        CHECK(gravel > 0 && gravel < asphalt && abs(gravel - asphalt * RAIN_ROLL_GRAVEL_PERCENT / 100) <= 1);
+        CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_SNOW, OPEN, ms(m), RAIN_ROLL_GRAVEL, 0).spray, gravel);   /* snow falling on the rally: the same */
+        CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(m), RAIN_ROLL_GRAVEL, 0).bed, rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(m), RAIN_ROLL_ASPHALT, 0).bed);
+    }
     CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, 0, RAIN_ROLL_GRAVEL, 0).out, RAIN_ROLL_OUT_PERCENT);
 }
 
@@ -102,21 +115,25 @@ static void test_pitch(void)
     CHECK_EQ_INT(rain_roll_levels(RAIN_ROLL_RAIN, OPEN, ms(30), RAIN_ROLL_ASPHALT, 0).pitch, rain_roll_pitch(ms(30)));
 }
 
-/* the moving layer by the view: the cockpit 3 dB lower; outside, 0 dB up to the near chase camera's distance and -6 dB from the far one's on, in dB between them */
+/* a spray by where it is heard from: the cockpit 3 dB lower; 0 dB up to the near chase camera's distance and -6 dB at the far one's, in dB between; 1/distance beyond, gone by 60 m */
 static void test_view_level(void)
 {
     CHECK_EQ_INT(rain_roll_view_permille(1, 0), RAIN_ROLL_VIEW_COCKPIT_PERMILLE);
-    CHECK_EQ_INT(rain_roll_view_permille(1, RAIN_ROLL_VIEW_FAR * 3), RAIN_ROLL_VIEW_COCKPIT_PERMILLE);   /* the dash is the dash whatever the eye */
     CHECK(RAIN_ROLL_VIEW_COCKPIT_PERMILLE >= 700 && RAIN_ROLL_VIEW_COCKPIT_PERMILLE <= 710);             /* -3 dB */
     CHECK_EQ_INT(rain_roll_view_permille(0, 0), 1000);                         /* the bumper, nearer than the near camera */
     CHECK_EQ_INT(rain_roll_view_permille(0, RAIN_ROLL_VIEW_NEAR), 1000);
     CHECK_EQ_INT(rain_roll_view_permille(0, RAIN_ROLL_VIEW_FAR), RAIN_ROLL_VIEW_FAR_PERMILLE);
-    CHECK_EQ_INT(rain_roll_view_permille(0, RAIN_ROLL_VIEW_FAR * 3), RAIN_ROLL_VIEW_FAR_PERMILLE);   /* the replay's far cameras: no lower */
     CHECK(RAIN_ROLL_VIEW_FAR_PERMILLE >= 498 && RAIN_ROLL_VIEW_FAR_PERMILLE <= 503);                 /* -6 dB */
     const int mid = rain_roll_view_permille(0, (RAIN_ROLL_VIEW_NEAR + RAIN_ROLL_VIEW_FAR) / 2);
     CHECK(mid >= 703 && mid <= 713);   /* halfway in distance, halfway in dB: -3 */
+    const int twice = rain_roll_view_permille(0, RAIN_ROLL_VIEW_FAR * 2);
+    CHECK(abs(twice - RAIN_ROLL_VIEW_FAR_PERMILLE / 2) <= 1);                  /* twice as far: -6 dB more */
+    CHECK(abs(rain_roll_view_permille(1, RAIN_ROLL_VIEW_FAR * 2) - twice * RAIN_ROLL_VIEW_COCKPIT_PERMILLE / 1000) <= 1);   /* another car heard from the cockpit */
+    CHECK_EQ_INT(rain_roll_view_permille(0, RAIN_ROLL_HEARD), 0);
+    CHECK_EQ_INT(rain_roll_view_permille(0, RAIN_ROLL_HEARD * 3), 0);
+    CHECK(rain_roll_view_permille(0, RAIN_ROLL_HEARD_FADE) > 0);
     int last = 1001;
-    for (int32_t d = 0; d <= RAIN_ROLL_VIEW_FAR + 0x10000; d += 0x4000) {
+    for (int32_t d = 0; d <= RAIN_ROLL_HEARD + 0x10000; d += 0x4000) {
         const int p = rain_roll_view_permille(0, d);
         CHECK(p <= last);
         last = p;
@@ -189,6 +206,18 @@ int main(void)
     test_view_glide();
     licence_entry("rain_stopped_out.wav");
     licence_entry("rain_stopped_in.wav");
-    licence_entry("rain_tyre_roll.wav");
+    licence_entry("rain_moving_out.wav");
+    licence_entry("rain_moving_in.wav");
+    licence_entry("rain_spray.wav");
+    for (int n = 1; n <= 7; n++) {
+        char name[32];
+        snprintf(name, sizeof name, "rain_puddle_%d.wav", n);
+        licence_entry(name);
+    }
+    char path[1024];   /* the wet-tyre roll is retired: the spray replaced it */
+    snprintf(path, sizeof path, "%s/data/sounds/rain_tyre_roll.wav", TNFS_SOURCE_DIR);
+    FILE *old = fopen(path, "rb");
+    CHECK(old == NULL);
+    if (old != NULL) fclose(old);
     return TEST_REPORT();
 }

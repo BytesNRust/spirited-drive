@@ -24,9 +24,16 @@ int drive_audio_device_open(const char *data_root);
 int32_t drive_audio_sound(int32_t sound, int32_t pan, int32_t volume, int32_t pitch);
 /* port (rain_v2): a thunder clap `delay_ticks` (30 a second) from now at `volume_percent`, over the race's own mix; nothing without a device or without data/sounds/thunder.wav */
 void drive_audio_thunder(int delay_ticks, int volume_percent);
-/* port (rain_tyre_roll): the rain's three layers (rain_roll.h), each at its percent (0 silent) and eased: `out_percent` the rain round a stopped car (data/sounds/rain_stopped_out.wav), `in_percent` the rain
- * on the roof (rain_stopped_in.wav), `moving_percent` the wet road (rain_tyre_roll.wav) at `pitch_permille` of its own rate; nothing without a device or without the file */
-void drive_audio_rain_roll(int out_percent, int in_percent, int moving_percent, int pitch_permille);
+/* port (rain_tyre_roll): the rain's layers (rain_roll.h), each at its percent (0 silent) and eased: `out_percent` the rain round a stopped car (data/sounds/rain_stopped_out.wav), `in_percent` the rain
+ * on its roof (rain_stopped_in.wav), `bed_percent` the rain round a moving car (rain_moving_out.wav), `move_in_percent` the rain on a moving car with its tyres' hiss, heard in the cockpit
+ * (rain_moving_in.wav); nothing without a device or without the file */
+void drive_audio_rain_roll(int out_percent, int in_percent, int bed_percent, int move_in_percent);
+/* port (rain_tyre_roll): the tyre spray (rain_spray.wav) of voice `voice` (0..RAIN_CARS_VOICES - 1, rain_cars.h) at `percent`, `pitch_permille` of its rate and `pan` (WET_ROLL_PAN_*), eased;
+ * `start_permille` 0..999 plays on from there in the loop (a voice taken by another car), -1 where it is */
+void drive_audio_rain_spray(int voice, int percent, int pitch_permille, int pan, int start_permille);
+/* port (rain_tyre_roll): the puddle splashes there are (data/sounds/rain_puddle_1.wav on, read once), 0 without a device; one played once at `percent`, `pitch_permille` and `pan` */
+int drive_audio_rain_puddle_clips(void);
+void drive_audio_rain_puddle(int clip, int percent, int pitch_permille, int pan);
 /* port (snow): the roll on snow (snow_roll.h) at `volume_percent` (0 silent) and `pitch_permille` of its own rate, eased; nothing without a device or without data/sounds/snow_roll.wav */
 void drive_audio_snow_roll(int volume_percent, int pitch_permille);
 
