@@ -205,7 +205,7 @@ static void test_without_the_row_up_is_the_originals(void)
     uint8_t config[TRACK_SELECT_CONFIG] = { 0 }, palette[0x300] = { 0 };
     int32_t time_of_day[9] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }, vm = 0, vr = 0;
     config[TRACK_SELECT_TRACK] = 3;
-    TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 0, &weather, NULL, NULL };   /* port_track_weather 0 */
+    TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 0, &weather, NULL, NULL, NULL };   /* port_track_weather 0 */
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
     (void)light_time;
     const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
@@ -243,7 +243,7 @@ static void test_night_label_is_text(void)
     palette_usable_set(after_a_race);
     for (int night = 0; night < 2; night++) {
         int light_time = night ? 3 : 2;
-        TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 1, &weather, &light_time, NULL };
+        TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 1, &weather, &light_time, NULL, NULL };
         TrackSelectState st = { config, time_of_day, 0, palette, &plus };
         const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
         DialogPointer p = { 0, 0, 0, 0, 0, 0 };
