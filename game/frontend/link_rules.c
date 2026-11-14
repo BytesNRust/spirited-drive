@@ -36,6 +36,8 @@ void link_rules_compose(const uint8_t *records, int humans, SessionRules *out)
     out->liveries = e.extra_liveries != 0;
     out->time_of_day = clamp(drive_menus_on ? drive_menus.time_of_day : 1, 2);
     out->light_time = clamp(port_light_time(), 2);
+    out->variants = 1;   /* port (dep56): the host's variants, as its race runs them */
+    out->mirror = drive_menus_on && drive_menus.variant_m != 0, out->rally = drive_menus_on && drive_menus.variant_r != 0;
     for (int i = 0; i < humans && i < SESSION_SLOTS; i++) {
         const uint8_t pick = records[i * RACE_NET_INFO + 2 + offsetof(RaceEntry, paint_pick)];
         out->paint[i] = out->liveries && pick != 0 ? (uint8_t)(pick - 1) : 0xff;
