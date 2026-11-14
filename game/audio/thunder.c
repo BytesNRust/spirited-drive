@@ -1,5 +1,7 @@
 #include "game/audio/thunder.h"
 
+#include "game/audio/hush.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -60,7 +62,15 @@ void thunder_schedule(Thunder *t, int delay_ticks, int volume_percent)
     t->voice[pick].live = 1;
 }
 
-void thunder_mix(Thunder *t, int16_t *out, uint32_t frames)
+void thunder_mix(Thunder *t, int16_t *out, uint32_t frames) { thunder_mix_gained(t, out, frames, NULL); }
+
+void thunder_quiet(Thunder *t)
+{
+    for (int v = 0; t != NULL && v < THUNDER_VOICES; v++)
+        if (t->voice[v].wait == 0) t->voice[v].live = 0;
+}
+
+void thunder_mix_gained(Thunder *t, int16_t *out, uint32_t frames, const int32_t *gain)
 {
     if (t == NULL || t->pcm == NULL) return;
     for (int v = 0; v < THUNDER_VOICES; v++) {
@@ -69,9 +79,9 @@ void thunder_mix(Thunder *t, int16_t *out, uint32_t frames)
         const uint32_t skip = t->voice[v].wait < frames ? t->voice[v].wait : frames;
         t->voice[v].wait -= skip, i = skip;
         if (t->voice[v].wait > 0) continue;
-        const int gain = t->voice[v].volume * THUNDER_GAIN_PERCENT / 100;   /* percent */
+        const int level = t->voice[v].volume * THUNDER_GAIN_PERCENT / 100;   /* percent */
         for (; i < frames && t->voice[v].at < t->frames; i++, t->voice[v].at++) {
-            const int s = t->pcm[t->voice[v].at] * gain / 100;
+            const int s = (int)((int64_t)(t->pcm[t->voice[v].at] * level / 100) * (gain != NULL ? gain[i] : HUSH_UNITY) / HUSH_UNITY);
             for (int c = 0; c < 2; c++) {
                 const int m = out[2 * i + (uint32_t)c] + s;
                 out[2 * i + (uint32_t)c] = (int16_t)(m > 32767 ? 32767 : m < -32768 ? -32768 : m);

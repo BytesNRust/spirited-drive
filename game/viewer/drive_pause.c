@@ -90,7 +90,7 @@ static void pause(PauseCtx *c)
 static void call(void *ctx, int which)
 {
     PauseCtx *c = ctx;
-    if (which == RACE_SCHEDULE_PAUSE || (which == RACE_SCHEDULE_MENU && c->p->menu != NULL)) drive_audio_rain_hush((int32_t)c->race->tick);   /* port (rain_tyre_roll) */
+    if (which == RACE_SCHEDULE_PAUSE || (which == RACE_SCHEDULE_MENU && c->p->menu != NULL)) drive_audio_weather_hush((int32_t)c->race->tick);   /* port (rain_tyre_roll) */
     if (which == RACE_SCHEDULE_PAUSE) pause(c);
     if (which == RACE_SCHEDULE_MENU && c->p->menu != NULL) {
         const uint32_t start = platform_ticks_ms();
