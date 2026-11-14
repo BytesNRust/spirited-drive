@@ -79,6 +79,27 @@ static void test_rgba(void)
     free(file);
 }
 
+/* a mod's mask (fuzz/masks.c): a chunk whose length runs past the file made stb_image grow its buffer to the length (2 GB from
+ * 85 bytes) before it found the bytes missing; such a file is refused before stb_image sees it */
+static void test_chunk_past_the_end(void)
+{
+    enum { W = 5, H = 4 };
+    uint8_t px[W * H * 4] = { 0 };
+    uint8_t *file = NULL;
+    size_t len = 0;
+    CHECK_EQ_INT(png_write_rgba(px, W, H, &file, &len), PNG_OK);
+    CHECK(len > 12 && memcmp(file + len - 8, "IEND", 4) == 0);
+    uint8_t *end = file + len - 12;   /* IEND's length: now an IDAT of 1 GB that is not there */
+    end[0] = 0x40, end[1] = end[2] = end[3] = 0;
+    memcpy(end + 4, "IDAT", 4);
+    PngImage img;
+    CHECK_EQ_INT(png_read(file, len, &img), PNG_ERR_CORRUPT);
+    CHECK(img.pixels == NULL);
+    /* the file ending inside that chunk, its CRC missing too */
+    CHECK_EQ_INT(png_read(file, (size_t)(end - file) + 9, &img), PNG_ERR_CORRUPT);
+    free(file);
+}
+
 /* An 8-bit indexed 2x2 image as an external encoder might write it: Paeth and Sub filters. */
 static void test_filters(void)
 {
@@ -104,6 +125,7 @@ int main(void)
     test_indexed();
     test_large_and_sizes();
     test_rgba();
+    test_chunk_past_the_end();
     test_filters();
     return TEST_REPORT();
 }

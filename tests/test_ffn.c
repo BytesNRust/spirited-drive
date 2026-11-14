@@ -118,8 +118,30 @@ static void test_corrupt(void)
     free(data);
 }
 
+/* a mod's font (fuzz/ffn.c): a glyph 0 pixels wide or high scaled reads at -1, and a level asked outside the glyph
+ * reads outside the atlas; both are blank now */
+static void test_empty_glyph(void)
+{
+    size_t size;
+    uint8_t *data = build_font(&size);
+    if (data == NULL) return;
+    data[RECORDS_AT + 2] = 0, data[RECORDS_AT + 3] = 0;   /* ' ' 0x0 at atlas (0,0) */
+    Ffn font;
+    FfnGlyph g;
+    CHECK_EQ_INT(ffn_open(&font, data, size), FFN_OK);
+    CHECK(ffn_glyph(&font, ' ', &g));
+    CHECK_EQ_INT(ffn_glyph_level_scaled(&font, &g, 0, 0, 3, 2), 0);
+    CHECK(ffn_glyph(&font, 'A', &g));
+    CHECK_EQ_INT(ffn_glyph_level(&font, &g, -1, -1), 0);
+    CHECK_EQ_INT(ffn_glyph_level(&font, &g, 0, 2), 0);
+    CHECK_EQ_INT(ffn_glyph_level(&font, &g, 3, 0), 0);
+    CHECK_EQ_INT(ffn_glyph_level(&font, &g, 0, 0), 0xF);   /* inside: as before */
+    free(data);
+}
+
 int main(void)
 {
+    test_empty_glyph();
     test_scaled_levels();
     test_open_and_glyphs();
     test_text_width();

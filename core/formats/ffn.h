@@ -40,6 +40,7 @@ typedef struct {
 
 FfnResult ffn_open(Ffn *font, const uint8_t *data, size_t size);
 int ffn_glyph(const Ffn *font, unsigned code, FfnGlyph *out);
+/* the glyph's level (0..15) at (x, y); 0 outside the glyph */
 int ffn_glyph_level(const Ffn *font, const FfnGlyph *glyph, int x, int y);
 
 /* port: the level at (x, y) of the glyph drawn num/den times its size (bilinear between atlas pixels, clamped to the

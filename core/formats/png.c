@@ -6,6 +6,7 @@
 #define STBI_ONLY_PNG
 #define STBI_NO_STDIO
 #define STBI_NO_LINEAR
+#define STBI_MAX_DIMENSIONS 16384   /* MAX_DIMENSION: refused before the pixels are allocated */
 #define STB_IMAGE_IMPLEMENTATION
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -213,12 +214,26 @@ static int read_indexed(const uint8_t *data, size_t len, PngImage *image)
     return status;
 }
 
+/* port: every chunk within the file, up to IEND. stb_image grows its buffer to an IDAT's stated length before it reads the
+ * bytes, so a few bytes that state 2 GB (a damaged or hostile mod) asked for 2 GB; such a file is refused here. */
+static int chunks_fit(const uint8_t *data, size_t len)
+{
+    if (len < 8 || memcmp(data, signature, 8) != 0) return 1;   /* not a PNG: stb_image says so */
+    for (size_t at = 8; at + 8 <= len;) {   /* a chunk whose length and type are there must be there whole, with its CRC */
+        const uint32_t n = get_be32(data + at);
+        if (len - at < 12 || n > len - at - 12) return 0;
+        if (memcmp(data + at + 4, "IEND", 4) == 0) break;
+        at += 12 + (size_t)n;
+    }
+    return 1;
+}
+
 PngResult png_read(const uint8_t *data, size_t len, PngImage *image)
 {
     memset(image, 0, sizeof *image);
     const int r = read_indexed(data, len, image);
     if (r == 1) return PNG_OK;
-    if (r < 0) return PNG_ERR_CORRUPT;
+    if (r < 0 || !chunks_fit(data, len)) return PNG_ERR_CORRUPT;
     int w, h, channels;
     uint8_t *rgba = stbi_load_from_memory(data, (int)len, &w, &h, &channels, 4);
     if (rgba == NULL) return PNG_ERR_FORMAT;

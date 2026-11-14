@@ -80,6 +80,7 @@ int ffn_glyph(const Ffn *font, unsigned code, FfnGlyph *out)
 
 int ffn_glyph_level(const Ffn *font, const FfnGlyph *glyph, int x, int y)
 {
+    if (x < 0 || y < 0 || x >= glyph->width || y >= glyph->height) return 0;   /* port: a 0-wide glyph scaled asks for -1 */
     const size_t pixel = (size_t)(glyph->atlas_y + y) * font->atlas_width + glyph->atlas_x + x;
     const uint8_t b = font->atlas[pixel / 2];
     return (pixel & 1) ? (b & 0x0F) : (b >> 4);
