@@ -2,7 +2,7 @@
  * seven other models as computer racers, each with its PDN. Every computer
  * racer must get going and travel along the road (checks the computer cars,
  * the manager and the contacts hold together in the race loop; the parts
- * are checked one by one against the original by tools/oracle_car.py).
+ * are checked one by one against the original).
  *   test_race SIMDATA_DIR [TRACK] */
 #include "formats/tri.h"
 #include "game/race/car_body.h"

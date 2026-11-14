@@ -1,6 +1,6 @@
 /* The TGV frames (tgv_frame.h) where the port parts from the original: the frames it refuses (short, over 256
  * colours, a picture that does not unpack, a move out of the last picture) decode nothing. The decoding itself is
- * oracle_movie's (movie). */
+ * checked against the original's. */
 #include "game/frontend/tgv_frame.h"
 #include "test.h"
 

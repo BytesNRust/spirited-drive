@@ -38,7 +38,7 @@ configure_file(${CMAKE_SOURCE_DIR}/game/tnfs_version.h.in ${CMAKE_BINARY_DIR}/ge
 
 # Release builds (the packaged app) never look in the source tree for data.
 option(TNFS_RELEASE "Build for distribution: no source-tree data fallbacks" OFF)
-option(TNFS_PROBES "Build the exe-comparison probes (tools/probe_*.c)" OFF)
+option(TNFS_PROBES "Build the exe-comparison probes (their sources are not in this repository)" OFF)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -1367,16 +1367,16 @@ if(NOT EMSCRIPTEN)
     target_compile_options(psx_light_fit PRIVATE ${TNFS_WARNINGS})
 
     # the exe-comparison probes (probe_*.c, quad_draw, flat_draw, palette_match_run): each runs a ported function on the cases it is sent, to compare
-    # with the exe's own; built only when asked for (-DTNFS_PROBES=ON), from the private workshop's tools/ (-DTNFS_WORKSHOP=DIR or the TNFS_WORKSHOP variable)
+    # with the exe's own; built only when asked for (-DTNFS_PROBES=ON), from a checkout of their sources, which are not in this repository (-DTNFS_WORKSHOP=DIR or the TNFS_WORKSHOP variable)
     if(TNFS_PROBES)
-        set(TNFS_WORKSHOP "" CACHE PATH "The private workshop checkout the probes' sources are in (its tools/); empty: the TNFS_WORKSHOP environment variable")
+        set(TNFS_WORKSHOP "" CACHE PATH "The checkout the probes' sources are in (its tools/); empty: the TNFS_WORKSHOP environment variable")
         set(TNFS_PROBE_WORKSHOP "${TNFS_WORKSHOP}")
         if(TNFS_PROBE_WORKSHOP STREQUAL "")
             set(TNFS_PROBE_WORKSHOP "$ENV{TNFS_WORKSHOP}")
         endif()
         set(TNFS_PROBE_TOOLS "${TNFS_PROBE_WORKSHOP}/tools")
         if(TNFS_PROBE_WORKSHOP STREQUAL "" OR NOT EXISTS "${TNFS_PROBE_TOOLS}/probe_frontend.c")
-            message(FATAL_ERROR "TNFS_PROBES=ON needs the workshop checkout with the probes' sources: pass -DTNFS_WORKSHOP=DIR "
+            message(FATAL_ERROR "TNFS_PROBES=ON needs a checkout with the probes' sources: pass -DTNFS_WORKSHOP=DIR "
                                 "or set the TNFS_WORKSHOP environment variable to a directory whose tools/ holds probe_frontend.c "
                                 "(now: '${TNFS_PROBE_WORKSHOP}')")
         endif()

@@ -1,9 +1,9 @@
 /* Quad and triangle mapper tests. Every expected value comes from the original
  * code (NFS_WIN.EXE 00487180, 00486950, 00487a10, 004879b0, 00486720, 004864f0, 00486400, 004858f0)
- * run under Unicorn by `tools/emu_oracle.py quad-golden`: the CRC-32 of the
- * whole 640 x 480 surface plus 8 guard rows above and below, and for two
- * cases the drawn pixels themselves. The random comparison against the
- * original is `emu_oracle.py quad-check`; this test needs no exe. */
+ * run under an emulator: the CRC-32 of the whole 640 x 480 surface plus 8
+ * guard rows above and below, and for two cases the drawn pixels themselves.
+ * The port was also compared with the original on random cases; this test
+ * needs no exe. */
 #include "game/gfx/quad.h"
 #include "test.h"
 

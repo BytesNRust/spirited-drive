@@ -99,7 +99,7 @@ The owner chose option C of the old proposal: the port's fixes are **deliberatel
 | Fix | Verdict | Evidence |
 |---|---|---|
 | Horn/skid voice (`port_stop_replaced`) | Exe | `0044404c` writes the channel's record (`0050a4cc/d0`) over a playing voice without stopping it (read in the decompile; no sound oracle) |
-| ESC gap (`port_resume_keys`) | Exe | `004557e8` stores the tick in `00513e54`, `004557f4` needs `+ 0xb4`; `tools/oracle_input.py` `menukeys` runs the exe's `0x4557F4` |
+| ESC gap (`port_resume_keys`) | Exe | `004557e8` stores the tick in `00513e54`, `004557f4` needs `+ 0xb4`; measured by running the exe's `0x4557F4` |
 | Wait leaving a replay (`port_resume`) | **Port regression, flag removed** | the exe's `0044fe84` (lines 60-61) puts `004c5590` back with the timer; the `--drive` host did not (`8ecf685f` broke it, `c66eae0a` fixed it). Its "0" was never the exe. Branch `fix/resume-no-flag` drops the flag and keeps the fix always on |
 | NITRO start in replays (`port_replay_launch`) | Extension | the exe's launch needs `playback == 0` |
 | Wide board (`TNFS_WIDE_BOARD`) | Exe cull | `0044a450` rejects a board with a corner past +-0x800 |

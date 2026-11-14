@@ -6,7 +6,7 @@ Written 2026-10-10 on branch `feat/studio-a`. Nothing here changes code.
 Evidence tags used throughout:
 
 - **[D]** checked against the files in `original/` by a script over every file of the type.
-- **[X]** read from the EXE (decompilation, `strings.tsv`, `tools/peek.py`); the address is given.
+- **[X]** read from the EXE; the address is given.
 - **[S]** already documented in the port's sources (`src/formats/*.h`, `docs/*.tsv`) and ported/verified there.
 - **[A]** stated only by `reference/nfsspecs-auroux-1996.txt` (DOS, 1995). Not evidence for this EXE.
 - **[?]** open: needs RE (see §9).

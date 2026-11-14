@@ -1,6 +1,6 @@
 /* The race globals the car simulation reads and writes, gathered in one
- * place. Each field names the original's address; tools/probe_car.c maps them
- * back for the oracle. */
+ * place. Each field names the original's address, by which the comparison
+ * against the original maps them back. */
 #ifndef TNFS_RACE_STATE_H
 #define TNFS_RACE_STATE_H
 
@@ -389,7 +389,7 @@ typedef struct {
     /* 004c5fb0..004c5fbc (00472560): the siren playing (channels 9 / 11),
      * the second siren's count (3 as the exe starts), the police car's
      * node last heard, the siren's pitch (0x40 as the exe starts). In this
-     * order: probe_car copies them as one block. */
+     * order: the comparison against the original copies them as one block. */
     int32_t siren_on, siren_count, siren_node, siren_pitch;
     /* 004c5fc0, 004c5fc4: the cars last heard on channels 2 and 3 (00472560) */
     const Car *sound_loud, *sound_second;

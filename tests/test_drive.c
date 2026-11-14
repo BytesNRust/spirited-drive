@@ -1,7 +1,7 @@
 /* Drives each car down a track headless: an automatic put into drive after
  * the start, full throttle, the wheel straight. The car must get going and
  * travel along the road (checks the race loop holds together; the parts are
- * checked one by one against the original by tools/oracle_car.py).
+ * checked one by one against the original).
  *   test_drive SIMDATA_DIR [TRACK] */
 #include "formats/tri.h"
 #include "game/race/car_load.h"

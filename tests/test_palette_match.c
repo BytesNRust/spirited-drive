@@ -1,7 +1,6 @@
 /* Palette matcher tests. The expected indices come from the original
- * (NFS_WIN.EXE 00473140 with an 8-bit surface) run under Unicorn by
- * `tools/flat_oracle.py palette-golden`; the random comparison is
- * `flat_oracle.py palette-check`. */
+ * (NFS_WIN.EXE 00473140 with an 8-bit surface) run under an emulator; the
+ * port was also compared with the original on random cases. */
 #include "game/gfx/palette_match.h"
 #include "test.h"
 

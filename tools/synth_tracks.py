@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic tracks for oracle runs that real tracks do not cover.
+"""Synthetic tracks for checks against the original that real tracks do not cover.
 
     synth_tracks.py SIMDATA_MISC OUT_DIR
 
@@ -8,7 +8,7 @@ the police spawn bit (node +0x1a bit 0) with random bits 1..4 (the far side,
 the stay bit, the four odds types; real tracks only use types 1 and 2), and
 the closing node (node_count; node 0 on a circuit) is a spawn node too.
 TRPOL2 also gets random lane nibbles (node +4, 0..3 each) so node 0's lanes
-differ from the spawn node's. Used by 0046b950 (oracle_car `copplace`)."""
+differ from the spawn node's. Used to check 0046b950 (the police spawn's place)."""
 import random
 import struct
 import sys

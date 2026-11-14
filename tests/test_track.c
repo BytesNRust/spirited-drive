@@ -235,7 +235,7 @@ static void on_flat(void *user, uint32_t rgb, const Object3DCorners *c)
 }
 
 /* TR1 model 0 (three textured quads) 50 m straight ahead, as the original
- * draws it (tools/oracle_object3d.py checks the general case). */
+ * draws it (the general case is checked against the original). */
 static void test_object3d(const char *dir)
 {
     size_t size = 0;

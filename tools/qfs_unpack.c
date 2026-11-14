@@ -1,5 +1,5 @@
 /* Decompresses QFS files with the port's decoder: qfs_unpack OUTDIR FILE...
- * writes OUTDIR/<basename>.bin, the same layout as tools/emu_oracle.py qfs. */
+ * writes OUTDIR/<basename>.bin, one decompressed file each. */
 #include "formats/qfs.h"
 
 #include <stdio.h>
