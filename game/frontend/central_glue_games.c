@@ -1,6 +1,7 @@
 /* Control Central's glue for the saved games, the replays and the menus after a race and between segments (split from central_glue.c). */
 #include "game/frontend/central_glue_private.h"
 #include "game/frontend/unlock_level.h"
+#include "game/frontend/tournament_variants.h"
 
 /* 0042ae9c's and 0042c498's words: the shorts 004fa9ac (check/'s art) and 004bad00 (a highlight), the names
  * 004fa1dc, the game state kept 00524838, 004fbad8's bytes kept around a replay */
@@ -10,7 +11,14 @@ static uint8_t game_kept[GAME_LIST_STATE];
 static uint8_t replay_race[LOAD_SAVE_RACE];
 static int16_t replay_kind;  /* config.dat's short 00524e9f, aligned while 0042c498 runs */
 
-static void game_load(void *ctx, const char *name) { (void)ctx; game_file_load(name, cg_game_state, &save_files_ops); }
+/* port (dep56): the save's own variants file is read with it, every load (tournament_variants.h) */
+static void game_load(void *ctx, const char *name)
+{
+    (void)ctx;
+    game_file_load(name, cg_game_state, &save_files_ops);
+    tournament_variants_load(name);
+    cg_races_from_state();
+}
 
 /* 0042ae9c on config.dat's image and the menus' game state */
 static int32_t game_list(void *ctx, int32_t mode)
@@ -25,7 +33,9 @@ static int32_t game_list(void *ctx, int32_t mode)
         select_default, nothing, blit_word, blit_at, nothing, flip, show, cg_deadline_passed, nothing, buttons,
         activate, music, cg_key, click, glue_yes_no, remove_save, glue_banner_wait, game_load, music_fade_to,
         redraw_pointer, off, blit_masked, picture_free, free_bank, ctx };
-    return game_list_screen(mode, &st, &ops);
+    const int32_t result = game_list_screen(mode, &st, &ops);
+    cg_tournament_variants_apply();   /* port (dep56): a game loaded runs its own variants */
+    return result;
 }
 static void save_box(void *ctx, char *name)
 {

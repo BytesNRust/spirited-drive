@@ -63,6 +63,7 @@ void cg_race(void *ctx)
 {
     (void)ctx;
     cg_extras_apply();   /* port: a tournament's start (central_select.c) clears rally, explode, warrior and turbo */
+    cg_tournament_variants_apply();   /* port (dep56): a Restomod tournament runs its variants, whatever 00433c58 cleared */
     ConfigDat *const config = config_current();
     const RaceSettings before = cg_settings_of();
     config_dat_set_race(config, &before);
@@ -97,6 +98,7 @@ void cg_race(void *ctx)
     cg_g.unlock_level = (int16_t)unlock_level_get(config);
     cg_races_from_state();
     cg_extras_apply();   /* port: get_race zeroes the variants; the next race from the same Control Central keeps them */
+    cg_tournament_variants_apply();
 }
 
 /* port: a race run to its end (not one given up or lost): the first one of an install is counted, if the switch is On */

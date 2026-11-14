@@ -1,5 +1,7 @@
 /* The checked menus' boxes: the banner, the yes/no and name boxes, the save and replay boxes (menu_glue.h; split from menu_glue.c by responsibility). */
 #include "game/frontend/menu_glue_private.h"
+#include "game/frontend/tournament_variants.h"
+#include "game/frontend/variant_rule.h"
 
 static const MessageBannerOps BANNER = { width, picture_new, picture_shape, shade_table, select_picture,
                                          select_default, grab, shade_set, shade_polygon, colour, frame, styles,
@@ -111,8 +113,16 @@ int32_t menu_glue_name_box(void *ctx, char *name)
 /* 0042a680 / 0042a9f8's calls: ctx the game state; the saves' and replays' directory the player's ("") */
 int16_t ask(void *ctx, const char *text) { return (int16_t)menu_glue_yes_no(ctx, text); }
 static int32_t exists(void *ctx, const char *path) { (void)ctx; return save_files_exists(path); }
-static void remove_file(void *ctx, const char *path) { (void)ctx; save_files_remove(path); }
-static int32_t save_game(void *ctx, const char *path) { return game_file_save(path, ctx, &save_files_ops); }
+static void remove_file(void *ctx, const char *path) { (void)ctx; save_files_remove(path); tournament_variants_remove(path); }
+/* port (dep56): Restomod writes the tournament's variants next to the save, every save; Stock and Restored leave none
+ * (one a former save of the same name left is removed, so a load never reads another tournament's) */
+static int32_t save_game(void *ctx, const char *path)
+{
+    const int32_t saved = game_file_save(path, ctx, &save_files_ops);
+    if (saved && variant_switches_on()) tournament_variants_save(path);
+    else if (saved) tournament_variants_remove(path);
+    return saved;
+}
 static int32_t save_replay(void *ctx, const char *path) { (void)ctx; return game_file_copy_replay(path, &save_files_ops); }
 static void redraw(void *ctx, int32_t eax, int32_t edx) { (void)ctx, (void)eax, (void)edx; pointer_show(); }
 

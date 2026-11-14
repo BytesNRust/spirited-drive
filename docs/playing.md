@@ -42,6 +42,10 @@ What you change is kept for that mode alone. The additions:
 - **Track variants**: in Stock and Restored the mirror and rally versions are entries of their own on the track
   screen. In Restomod they are switches on the track screen (Mirror, Inverse, Rally, over the track length), Control
   Central's arrows step the tracks alone, and the track card shows the layout letters, weather, time of day and laps.
+  A Restomod tournament takes its variants from the same switches before its first race; from then on every race
+  runs them (Lost Vegas without mirror and rally) and the switches show them without turning. A saved tournament
+  keeps them in `NAME.VAR` beside `NAME.SAV`; a save without one loads with the plain track. Stock and Restored
+  tournaments are the original's, with no variants.
 - **Records**: Stock and Restored keep the original's records in `config.dat`, every race in the same table.
   Restomod keeps its own in `race_records.dat`: a table per track, layout (normal, mirror, reverse, rally and their
   mixes), cheats or none, and lap count, saved after every race of every mode. A race with Explode, Nitro, Turbo,

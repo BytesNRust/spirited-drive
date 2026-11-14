@@ -33,5 +33,8 @@ int records_glue_cheats(RouteOp op, const uint8_t *image);
 BestTimesPlus *records_glue_best_plus(const uint8_t *image, int variant_m, int variant_r, int explode, int nitro, int turbo, int car);
 /* The table's words for the standings (NULL with port_records_unified off) */
 const char *records_glue_line(RouteOp op, const uint8_t *image);
+/* port (dep56): the same words with `layout` (LAYOUT_*) for the race's: a Restomod tournament's standings name its variants, which a
+ * tournament loaded and not yet raced in this session has no race of */
+const char *records_glue_line_layout(RouteOp op, const uint8_t *image, int layout);
 
 #endif

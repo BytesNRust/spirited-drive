@@ -3,6 +3,7 @@
 #include "game/sys/text.h"
 #include "game/frontend/unlock_level.h"
 #include "game/frontend/variant_rule.h"
+#include "game/frontend/tournament_variants.h"
 
 CentralGlobals cg_g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
 
@@ -122,15 +123,38 @@ static void car_flags(void *ctx)
     cg_extras_apply();   /* port: after 00465ec8 / 00432974 */
 }
 
+void cg_tournament_variants_apply(void)
+{
+    if (cg_g.race_type != RACE_TOURNAMENT) return;
+    TournamentVariants v;
+    if (!tournament_variants_settings(tournament_variants_get(), cg_g.track, variant_switches_on(), cg_g.unlock_m, cg_g.unlock_r,
+                                      cg_g.unlock_level, &v))
+        return;
+    cg_g.variant_m = v.mirror, cg_g.variant_r = v.rally;
+    reverse_track_pick(v.inverse);
+}
+
+/* port (dep56): a Restomod tournament entered from another race type takes the switches as they were as its variants
+ * (race_settings_type_changed clears them, as the exe's 00432974), unless its races have begun (a game loaded); either
+ * way the tournament's are put back on */
+static void tournament_entered(int was_type, int was_m, int was_r)
+{
+    if (variant_switches_on() && cg_g.race_type == RACE_TOURNAMENT && was_type != RACE_TOURNAMENT && !tournament_variants_locked(cg_g.races))
+        tournament_variants_set((TournamentVariants){ was_m != 0, reverse_track_picked(), was_r != 0 });
+    cg_tournament_variants_apply();
+}
+
 static void type_changed(void *ctx)
 {
     (void)ctx;
     RaceSettings s = cg_settings_of();
+    const int was_type = s.race_type, was_m = s.variant_m, was_r = s.variant_r;
     Unlocks u = cg_unlocks_of();
     FrontendSession f = session_of();
     race_settings_type_changed(&s, &u, &f);
     cg_settings_put(&s), cg_unlocks_put(&u), session_put(&f);
     cg_extras_apply();   /* port: the type change clears the variants */
+    tournament_entered(was_type, was_m, was_r);
 }
 
 static void track_forward(void *ctx)
@@ -141,6 +165,7 @@ static void track_forward(void *ctx)
     if (variant_switches_on()) race_settings_track_step(&s, &u, 1);   /* port (dep56): the variants are the track screen's switches */
     else race_settings_track_forward(&s, &u);
     cg_settings_put(&s);
+    cg_tournament_variants_apply();   /* a tournament's are its own on every track (Lost Vegas: none) */
 }
 
 static void track_backward(void *ctx)
@@ -151,6 +176,7 @@ static void track_backward(void *ctx)
     if (variant_switches_on()) race_settings_track_step(&s, &u, -1);
     else race_settings_track_backward(&s, &u);
     cg_settings_put(&s);
+    cg_tournament_variants_apply();
 }
 
 /* port (dep56): the track card's words in Restomod (card_marks.h), from the settings as they are at this draw, at half size */
@@ -177,10 +203,13 @@ static int quit_tournament(int german, void *ctx)
 static void step_race_type(void *ctx, int32_t cg_key)
 {
     RaceSettings s = cg_settings_of();
+    const int was_type = s.race_type, was_m = s.variant_m, was_r = s.variant_r;
     Unlocks u = cg_unlocks_of();
     FrontendSession f = session_of();
     race_settings_type_step(&s, &u, &f, cg_game_state, config_current(), cg_key, quit_tournament, ctx);
     cg_settings_put(&s), cg_unlocks_put(&u), session_put(&f);
+    if (s.race_type == RACE_TOURNAMENT && was_type != RACE_TOURNAMENT) cg_races_from_state();   /* a new tournament's: none run */
+    tournament_entered(was_type, was_m, was_r);
 }
 
 /* 00432884 on the art's handles */
@@ -342,6 +371,8 @@ static void track_select(void *ctx)
     const RaceSettings before = cg_settings_of();
     port_log("mark:screen=track_select\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     config_dat_set_race(config, &before);
+    cg_tournament_variants_apply();   /* port (dep56): a tournament's variants on its switches */
+    const int tournament = variant_switches_on() && cg_g.race_type == RACE_TOURNAMENT;
     const int32_t screen = ea_screen();
     const TrackSelectInputs in = { "", resource_kmh(), cg_g.variant_m, cg_g.variant_r, cg_g.lost_vegas, screen,
                                    ea_picture_shape(screen) };
@@ -356,7 +387,7 @@ static void track_select(void *ctx)
     TrackSelectPlus plus = { cg_g.unlock_m, cg_g.unlock_r, &cg_g.variant_m, &cg_g.variant_r,
                              extras.variant_time,   /* port: variants as entries */
                              port_settings_profile() == PROFILE_RESTOMOD, &weather, port_light_effects() ? &light_time : NULL, reverse_offered ? &reverse : NULL,
-                             port_records_unified() ? &laps : NULL, variant_switches_on() };
+                             port_records_unified() ? &laps : NULL, variant_switches_on(), tournament && tournament_variants_locked(cg_g.races) };
     const int was_weather = weather, was_light_time = light_time;
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), cg_time_of_day, cg_g.inverse, cg_screen_palette, &plus };
     int x, y;
@@ -385,6 +416,10 @@ static void track_select(void *ctx)
         after.variant_m = cg_g.variant_m, after.variant_r = cg_g.variant_r;   /* port: as the screen left them (get_race zeroes them) */
         cg_settings_put(&after);
     }
+    if (tournament && !tournament_variants_locked(cg_g.races))   /* port (dep56): before its first race, the switches are its variants */
+        tournament_variants_set(tournament_variants_follow(tournament_variants_get(), cg_g.track, cg_g.variant_m,
+                                                           reverse_offered ? reverse : tournament_variants_get().inverse, cg_g.variant_r));
+    cg_tournament_variants_apply();
 }
 
 void cg_fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
@@ -561,6 +596,7 @@ static void options(void *ctx)
     cg_opt_in();
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) cg_settings_put(&after);
+    cg_tournament_variants_apply();   /* port (dep56): get_race zeroes the variants; a tournament (one loaded too) runs its own */
 }
 
 /* config.dat's race settings and unlock level into the globals, as the draft read them */
@@ -588,6 +624,7 @@ void glue_game_reset(void)
     tournament_new(cg_game_state, &s, config_current(), &f);
     cg_settings_put(&s);
     session_put(&f);
+    tournament_variants_reset();   /* port (dep56): a new tournament's are the base until chosen */
     config_dat_set_race(config_current(), &s);
     /* the original's settings are config.dat's own words, so tournament_reset's variant = 0 clears 00524e83 */
     config_dat_new_session(config_current());

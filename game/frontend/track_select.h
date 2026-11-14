@@ -104,8 +104,11 @@ typedef struct TrackSelectPlus {
     /* port (dep56): 1 (Restomod) makes the variants switches on this screen instead of entries of their own: Mirror (with
      * `unlock_m`), Inverse (the `reverse` value, where the Reverse row would be offered) and Rally (with `unlock_r`), rows over
      * the track's length; Prev and Next step the tracks alone, the switches kept (Lost Vegas has neither mirror nor rally, so
-     * a step onto it clears them). 0 is the entries, as Stock and Restored have them. */
+     * a step onto it clears them). 0 is the entries, as Stock and Restored have them. A tournament shows them too: they are
+     * its variants (tournament_variants.h). */
     int variant_switches;
+    /* port (dep56): 1 once a race of the tournament is run: the switch rows show the tournament's variants and do not turn */
+    int variants_locked;
 } TrackSelectPlus;
 /* port (dep55): the next custom lap count for `direction` 1 or -1: 0 (the menu's), 1..99, round */
 int track_select_laps_step(int laps, int direction);
@@ -116,7 +119,7 @@ enum { TRACK_SELECT_KEY_UP = 0x4800, TRACK_SELECT_KEY_LEFT = 0x4b00, TRACK_SELEC
 
 /* port (dep56): the switch rows TrackSelectPlus.variant_switches shows, in their order on the screen (Mirror, Inverse, Rally): how
  * many, written to `rows` */
-int track_select_switch_rows(const TrackSelectPlus *plus, int track, int tournament, int rows[3]);
+int track_select_switch_rows(const TrackSelectPlus *plus, int track, int rows[3]);
 
 /* port: the next weather (WEATHER_*: clear, fog, rain) and console time (LIGHT_TIME_*: day, dawn, dusk) for `direction` 1 or -1,
  * round; the art index (0 morning, 1 midday, 2 evening) a console time lights on the time-of-day item. */

@@ -234,10 +234,10 @@ static int reverse_on(const TrackSelectState *st)
 }
 
 /* port (dep56): the switch rows (TrackSelectPlus.variant_switches) */
-int track_select_switch_rows(const TrackSelectPlus *plus, int track, int tournament, int rows[3])
+int track_select_switch_rows(const TrackSelectPlus *plus, int track, int rows[3])
 {
     int n = 0;
-    if (plus == NULL || !plus->variant_switches || tournament) return 0;
+    if (plus == NULL || !plus->variant_switches) return 0;   /* a tournament's too: its variants, chosen before its first race */
     if (track != LOST_VEGAS && plus->unlock_m) rows[n++] = TRACK_SELECT_MIRROR;
     if (plus->reverse != NULL && track >= CIRCUIT) rows[n++] = TRACK_SELECT_INVERSE;
     if (track != LOST_VEGAS && plus->unlock_r) rows[n++] = TRACK_SELECT_RALLY;
@@ -248,7 +248,7 @@ static int switches_on(const TrackSelectState *st) { return st->plus && st->plus
 
 static int switch_rows(const TrackSelectState *st, int rows[3])
 {
-    return track_select_switch_rows(st->plus, track_of(st), g16(st->config, TRACK_SELECT_RACE_TYPE) == TOURNAMENT, rows);
+    return track_select_switch_rows(st->plus, track_of(st), rows);
 }
 
 static int is_switch(int item) { return item >= TRACK_SELECT_MIRROR && item <= TRACK_SELECT_RALLY; }
@@ -285,6 +285,9 @@ static int switch_value(const TrackSelectState *st, int item)
                                                                                                    : *st->plus->reverse != 0;
 }
 
+/* a switch row that turns: shown, and not a tournament's once its first race is run */
+static int switch_turns(const TrackSelectState *st, int item) { return switch_shown(st, item) && !st->plus->variants_locked; }
+
 static void switch_toggle(TrackSelectState *st, int item)
 {
     if (item == TRACK_SELECT_MIRROR) *st->plus->variant_m = !*st->plus->variant_m;
@@ -308,7 +311,7 @@ static int has_variant(const TrackSelectPlus *plus, int track, int variant)
 void track_select_entry(int track, int variant, int direction, int lost_vegas, int unlock_m, int unlock_r,
                         int *to_track, int *to_variant)
 {
-    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, 0 };
+    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, 0, 0 };
     const int last = lost_vegas ? LOST_VEGAS : LOST_VEGAS - 1;
     for (int v = variant + direction; v >= 0 && v <= 2; v += direction)
         if (has_variant(&plus, track, v)) {
@@ -382,7 +385,7 @@ static void draw_texts(const TrackSelectInputs *in, const TrackSelectState *st, 
     const int switches = switch_rows(st, rows);
     static const char *const SWITCH_NAME[3] = { "Mirror", "Inverse", "Rally" };
     for (int i = 0; i < switches; i++) {   /* port (dep56): the variants as switches, in the game's text like the weather */
-        ops->text_select(ops->ctx, item == rows[i] ? 1 : 0);
+        ops->text_select(ops->ctx, item == rows[i] && !st->plus->variants_locked ? 1 : 0);   /* fixed: never lit */
         ops->text_shadowed(ops->ctx, SWITCH_NAME[rows[i] - TRACK_SELECT_MIRROR], SWITCH_X, switch_y(st, rows[i]));
         ops->text_shadowed(ops->ctx, switch_value(st, rows[i]) ? "On" : "Off", SWITCH_VALUE_X, switch_y(st, rows[i]));
     }
@@ -556,7 +559,7 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
     } else if (item == TRACK_SELECT_REVERSE && reverse_row(st)) {
         *st->plus->reverse = !*st->plus->reverse;
         *changed = 1;
-    } else if (is_switch(item) && switch_shown(st, item)) {   /* port (dep56) */
+    } else if (is_switch(item) && switch_turns(st, item)) {   /* port (dep56) */
         switch_toggle(st, item);
         *redraw = 1;
     } else if (item == TIME_OF_DAY && track != LOST_VEGAS && st->plus && st->plus->light_time) {
@@ -698,7 +701,7 @@ int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, Dialo
                 *st->plus->laps = track_select_laps_step(*st->plus->laps, key == KEY_LEFT ? -1 : 1);
                 ops->sound(ops->ctx, SOUND_MOVE);
                 redraw = 1;
-            } else if (is_switch(item) && switch_shown(st, item) && (key == KEY_LEFT || key == KEY_RIGHT)) {   /* port (dep56) */
+            } else if (is_switch(item) && switch_turns(st, item) && (key == KEY_LEFT || key == KEY_RIGHT)) {   /* port (dep56) */
                 switch_toggle(st, item);
                 ops->sound(ops->ctx, SOUND_MOVE);
                 redraw = 1;

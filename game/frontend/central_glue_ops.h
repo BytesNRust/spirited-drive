@@ -4,6 +4,7 @@
 #define TNFS_CENTRAL_GLUE_OPS_H
 
 #include "game/frontend/menu_glue.h"
+#include "game/frontend/tournament_variants.h"
 #include "game/frontend/central_split.h"
 #include "game/frontend/audio_menu.h"
 #include "game/frontend/best_times.h"
@@ -199,7 +200,7 @@ static inline void no_chdir(void *ctx, const char *path) { (void)ctx, (void)path
 static inline const char *find_first(void *ctx, const char *pattern) { (void)ctx; return save_files_first(pattern); }
 static inline const char *find_next(void *ctx) { (void)ctx; return save_files_next(); }
 static inline void masked_at(void *ctx, const uint8_t *s, int32_t x, int32_t y) { (void)ctx; ea_blit_masked_at(s, x, y); }
-static inline void remove_save(void *ctx, const char *path) { (void)ctx; save_files_remove(path); }
+static inline void remove_save(void *ctx, const char *path) { (void)ctx; save_files_remove(path); tournament_variants_remove(path); }
 static inline void redraw_pointer(void *ctx) { (void)ctx; pointer_show(); }
 static inline void replay_box(void *ctx, char *name) { (void)ctx; glue_replay_box(name, config_current()->image); }
 static inline void clear_one(void *ctx) { (void)ctx; ea_select_default(), video_clear_back(), video_flip(); }
