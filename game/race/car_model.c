@@ -1,6 +1,5 @@
 #include "game/race/car_model.h"
 
-#include "game/sys/shape_bank.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,6 +10,7 @@ enum {
     TRAFFIC_FILES = 12, RACER_FILES = 12,
     OTHER_SET = 100, HUMAN_SET = 200, POLICE_SET = 400,
     PALETTE_BYTES = 0x300, PALETTE_TYPE_8BIT = 0x24, SHAPE_DATA = 0x10,
+    OWN_READ = 0x17 * 3,   /* race_palette.c's largest SLOT_COUNT (004c56f8), 3 bytes a colour */
     COP_FLAG = 8,
     PART_LIMIT = 8, PART_MISSING = 999,
     TYRE_REFS = 4, TYRE_FRAME_BOUND = 3,
@@ -74,11 +74,26 @@ void car_load_pdn_path(const char *dir, const char *stem, char path[CAR_LOAD_PAT
     snprintf(path, CAR_LOAD_PATH, "%s%s.PDN", dir, stem);
 }
 
+/* 004732dd's search through the bank fsh_open checked: the first shape of that name, as the original finds it. port: taken only when
+ * what is read and written of it is inside the bank (a damaged or hostile car, fuzz/car_model.c, pointed it anywhere): the
+ * width x height bytes race_palette_tint_shape tints (signed 16-bit sizes there), the PALETTE_BYTES palette_ready makes 6-bit on a
+ * 0x24 shape and the race's palette takes from '!PAL', and the OWN_READ bytes the race queues from '!xxx' (the CD's: 256 x 1, 256). */
+uint8_t *car_model_bank_shape(const Fsh *bank, const uint8_t name[4])
+{
+    uint32_t index;
+    FshEntry e;
+    if (fsh_find(bank, (const char *)name, &index) != FSH_OK || fsh_entry(bank, index, &e) != FSH_OK) return NULL;
+    if (e.width >= 0x8000 || e.height >= 0x8000) return NULL;
+    const size_t need = e.type == PALETTE_TYPE_8BIT || memcmp(name, PAL_NAME, 4) == 0 ? PALETTE_BYTES : OWN_READ;
+    if (e.payload_size < need || (size_t)e.width * e.height > e.payload_size) return NULL;
+    return (uint8_t *)(uintptr_t)(e.payload - SHAPE_DATA);
+}
+
 /* A shape found by name in a level's bank, writable in the file. */
 static uint8_t *bank_shape(const CarLoad *m, int level, const uint8_t name[4])
 {
     if (!m->has_bank[level]) return NULL;
-    return shape_bank_find((uint8_t *)(uintptr_t)m->bank[level].data, name);
+    return car_model_bank_shape(&m->bank[level], name);
 }
 
 /* A 0x24 palette is made 6-bit (each byte >> 2), then the shape is tinted

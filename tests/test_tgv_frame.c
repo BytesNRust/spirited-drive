@@ -86,6 +86,11 @@ static void frames(void)
     n = move_frame(m, 0, -2);                                /* two lines up: the header, still inside */
     CHECK(tgv_frame(s, m, n) == 1 && memcmp(s->shape + 0x10, s->previous, 4) == 0);
 
+    /* a mod's movie (fuzz/tgv.c): a code past the frame's moves and blocks read a raw block that is not there */
+    n = move_frame(m, 0, 0);
+    memset(m + 0x18, 0xff, 4);                               /* every block's code 1: one move, no raw blocks */
+    CHECK(tgv_frame(s, m, n) == 0);
+
     uint8_t *const last = s->shape;
     memcpy(m, "junk", 4);
     CHECK(tgv_decode(s, m, n) == last);                      /* neither tag: the last picture */
@@ -94,8 +99,31 @@ static void frames(void)
     tgv_close(NULL);
 }
 
+/* a mod's movie (fuzz/tgv.c): a key frame of 65535 x 65535 asked for 4 GB; a picture past 2048 x 2048 (the CD's are 320 x 240 at
+ * most) or of no size is refused, and the size the movie had is kept */
+static void huge_key_frame(void)
+{
+    static uint8_t f[0x200];
+    TgvState *s = tgv_open();
+    CHECK(s != NULL);
+    CHECK(tgv_key_frame(s, f, key_frame(f)));
+    CHECK_EQ_INT(s->width, W);
+    size_t n = header(f, "kVGT", 0xffff, 0xffff, 0, 0, 1);
+    CHECK(!tgv_key_frame(s, f, n + 16));
+    n = header(f, "kVGT", 2049, 8, 0, 0, 1);
+    CHECK(!tgv_key_frame(s, f, n + 16));
+    n = header(f, "kVGT", 0, 8, 0, 0, 1);
+    CHECK(!tgv_key_frame(s, f, n + 16));
+    CHECK_EQ_INT(s->width, W);
+    CHECK_EQ_INT(s->height, H);
+    n = header(f, "kVGT", 2048, 2048, 0, 0, 1);
+    CHECK(tgv_key_frame(s, f, n + 16));   /* the largest taken */
+    tgv_close(s);
+}
+
 int main(void)
 {
+    huge_key_frame();
     key_frames();
     frames();
     return TEST_REPORT();

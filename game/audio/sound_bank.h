@@ -15,7 +15,8 @@ enum {
     SOUND_BANK_TAKEN = -17,
     SOUND_BANK_NONE = -6,
     SOUND_BANK_NOT_HERE = -18,
-    SOUND_BANK_ALL = -1
+    SOUND_BANK_ALL = -1,
+    SOUND_BANK_PAD = 4            /* port: zero bytes after the file (sound_bank_register) */
 };
 
 /* A registered bank: its records and headers read from the file. */
@@ -33,7 +34,11 @@ typedef struct SoundBank {
  * port reads into `bank`; the entry set and returned. A NULL file: -6.
  * The port refuses (-6) a file whose offsets run past `size`, where the
  * original reads past it; no CD bank shares a record or header between
- * numbers, which the original would relocate twice. */
+ * numbers, which the original would relocate twice. port: a sample's frames
+ * and loop are cut to the bytes there (a number with none stays free), and
+ * the file must be followed by SOUND_BANK_PAD zero bytes: a loop that ends
+ * at the sample's end (30 of the CD's samples end at their file's end) is
+ * read a frame past it, a frame of 16-bit stereo at most. */
 int32_t sound_bank_register(SoundDriver *d, SoundBank *bank, const uint8_t *file, size_t size);
 
 /* 0048edfc (eax the entry): -1 takes back the 5 in turn and returns 0;

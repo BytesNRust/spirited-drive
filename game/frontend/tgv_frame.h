@@ -10,7 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { TGV_SHAPE_HEADER = 0x10, TGV_PALETTE = 0x300 };
+enum { TGV_SHAPE_HEADER = 0x10, TGV_PALETTE = 0x300, TGV_MOST_SIDE = 2048 /* port: the CD's movies are 320 x 240 at most */ };
 
 /* 0048e888's 0x344 bytes */
 typedef struct TgvState {
