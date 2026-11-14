@@ -41,6 +41,11 @@ int32_t sound_driver_init(SoundDriver *d, uint32_t rate);
  * (0048e018); 0. Else -1. */
 int32_t sound_stop(SoundDriver *d, int32_t handle);
 
+/* port: 00473c68 only when the handle names a sound of that kind (SOUND_KIND_*), else -1. A handle kept for one
+ * sound outlives it (0 before any was played, or a number taken again since) and may name another by then: the
+ * stops of kept handles go through this so they never cut the music's stream. */
+int32_t sound_stop_kind(SoundDriver *d, int32_t handle, int32_t kind);
+
 /* 00497640 (eax the channel mask, edx the priority): from the cursor
  * 004c7f24 round, the first channel in the mask that is free (+0x12 0);
  * else the first whose priority (+0x10) is at most `priority`, its sound

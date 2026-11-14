@@ -401,14 +401,18 @@ int32_t drive_audio_sound(int32_t sound, int32_t pan, int32_t volume, int32_t pi
     return voice;
 }
 
+/* the front end's kept handles: a bank's samples only, never the music's stream that may hold the number by now */
 void drive_audio_voice_stop(int32_t voice)
 {
-    if (open_) voice_stop(NULL, voice);
+    if (open_) lock(), sound_stop_kind(&driver, voice, SOUND_KIND_SAMPLE), unlock();
 }
 
 void drive_audio_voice_volume(int32_t voice, int32_t volume)
 {
-    if (open_) voice_volume(NULL, voice, volume);
+    if (!open_) return;
+    lock();
+    if (sound_handle_kind(&driver.channels, voice) == SOUND_KIND_SAMPLE) sound_set_volume(&driver, voice, volume);
+    unlock();
 }
 
 int32_t drive_audio_voice_stopped(int32_t voice)
@@ -719,7 +723,7 @@ static void music_lost_check(void)
     if (music_lost_told || !music.open || !music.started || !sound_handle_stopped(&driver.channels, music.handle)) return;
     music_lost_told = 1;
     const SoundChannel *c = driver.stream.channel >= 0 ? &driver.channels.channel[driver.stream.channel] : NULL;
-    port_log("mark:music lost state=%d channel=%d busy=%d kind=%d queued=%d\n", driver.stream.state, driver.stream.channel, c != NULL ? c->busy : -1,
+    port_log("mark:music lost handle=%d state=%d channel=%d busy=%d kind=%d queued=%d\n", (int)music.handle, driver.stream.state, driver.stream.channel, c != NULL ? c->busy : -1,
              c != NULL ? c->kind : -1, sound_stream_queued(&driver.stream, SOUND_STREAM_BYTES));
 }
 void drive_audio_music_pump(void) { lock(), race_music_pump(&music_ops, &music), music_lost_check(), unlock(); }

@@ -92,6 +92,12 @@ int32_t sound_handle_stopped(const SoundChannels *s, int32_t handle)
     return sound_handle_check(s, handle) < 0;
 }
 
+/* port */
+int32_t sound_handle_kind(const SoundChannels *s, int32_t handle)
+{
+    return sound_handle_check(s, handle) < 0 ? -1 : s->channel[s->handle[handle]].kind;
+}
+
 /* 00497b34 */
 void sound_channels_reset(SoundChannels *s)
 {

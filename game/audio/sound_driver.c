@@ -40,6 +40,12 @@ int32_t sound_stop(SoundDriver *d, int32_t handle)
     return 0;
 }
 
+/* port */
+int32_t sound_stop_kind(SoundDriver *d, int32_t handle, int32_t kind)
+{
+    return sound_handle_kind(&d->channels, handle) == kind ? sound_stop(d, handle) : -1;
+}
+
 enum { NO_CHANNEL = -20 };
 
 static int32_t channel_take(SoundDriver *d, uint32_t ch)
@@ -154,7 +160,7 @@ int32_t sound_frames_left(const SoundDriver *d, int32_t handle)
     return sound_voice_left(d, d->channels.handle[handle]); /* 00497a1c */
 }
 
-enum { QUEUE_ID = 0xff, QUEUE_CENTRE = 0x40, QUEUE_PRIORITY = 0x65, QUEUE_VOLUME = 0x7f, SOUND_KIND_QUEUE = 3 };
+enum { QUEUE_ID = 0xff, QUEUE_CENTRE = 0x40, QUEUE_PRIORITY = 0x65, QUEUE_VOLUME = 0x7f };
 
 /* 004a4bd8 */
 int32_t sound_play_on(SoundDriver *d, SoundSample *s, int32_t channel, uint8_t pan, uint8_t volume)

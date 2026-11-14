@@ -30,8 +30,8 @@ typedef struct {
 
 enum { SOUND_CHANNELS = 16, SOUND_HANDLES = 100, SOUND_HANDLE_FREE = -1 };
 
-/* A channel's +0xd */
-enum { SOUND_KIND_SAMPLE = 1, SOUND_KIND_STREAM = 2 };
+/* A channel's +0xd: a bank's sample, the music's stream, the speech queue's sample (004a4bd8) */
+enum { SOUND_KIND_SAMPLE = 1, SOUND_KIND_STREAM = 2, SOUND_KIND_QUEUE = 3 };
 
 /* The channels and the handles that name them */
 typedef struct {
@@ -74,6 +74,9 @@ SoundChannel *sound_handle_channel(SoundChannels *s, int32_t handle);
 /* 00473d20 (eax the handle): 1 when 00497a34 fails it (the sound has
  * stopped, or the handle names nothing), else 0. */
 int32_t sound_handle_stopped(const SoundChannels *s, int32_t handle);
+
+/* port: the kind (+0xd) of the sound a handle names while it plays (00497a34 passes it), else -1 */
+int32_t sound_handle_kind(const SoundChannels *s, int32_t handle);
 
 /* 00497980 (eax the handle): a handle (0..99) naming a channel (0..15)
  * frees both (+0x12 = 0, the handle -1), 0; else -1. */
