@@ -3,6 +3,8 @@
 #include "formats/qfs.h"
 #include "test.h"
 
+#include <time.h>
+
 static void test_header(void)
 {
     const uint8_t plain[] = { 0x10, 0xFB, 0x01, 0x02, 0x03, 0xFC };
@@ -144,6 +146,36 @@ static void test_huffman(void)
     CHECK_EQ_INT(qfs_decompress(run_first, sizeof run_first, out, sizeof out), QFS_ERR_CORRUPT);
 }
 
+/* MSB-first bits into p from bit *at */
+static void put_bits(uint8_t *p, size_t *at, uint32_t v, unsigned count)
+{
+    for (unsigned i = count; i-- > 0; (*at)++)
+        if (v >> i & 1) p[*at >> 3] |= (uint8_t)(0x80 >> (*at & 7));
+}
+
+/* a mod's packed file (fuzz/records.c): a symbol's skip of ~2^30 walked the 256 byte values one step at a time, ten
+ * seconds for 30 bytes; the skip wraps over the unused values, so the same symbol comes in at most 256 steps */
+static void test_huffman_huge_skip(void)
+{
+    uint8_t src[40] = { 0x30, 0xFB, 0x00, 0x00, 0x01 };
+    size_t at = 5 * 8;
+    put_bits(src, &at, 'B', 8);            /* the clue */
+    put_bits(src, &at, 0x6, 3);            /* length 1: 2 symbols, the code space full */
+    put_bits(src, &at, 0, 1 + 26);         /* the first symbol's skip: 26 more zeros make it 29 bits */
+    put_bits(src, &at, 1, 1);
+    put_bits(src, &at, 0x1FFFFF45, 29);    /* 0x3FFFFF41 skipped: 'A' after the wrap */
+    put_bits(src, &at, 0x4, 3);            /* the second's skip 0: 'B' */
+    put_bits(src, &at, 0, 1);              /* data: 'A' */
+    put_bits(src, &at, 1, 1);              /* the clue */
+    put_bits(src, &at, 0x4, 3);            /* run 0 */
+    put_bits(src, &at, 1, 1);              /* the end */
+    uint8_t out[1];
+    const clock_t start = clock();
+    CHECK_EQ_INT(qfs_decompress(src, (at + 7) / 8, out, sizeof out), QFS_OK);
+    CHECK((double)(clock() - start) / CLOCKS_PER_SEC < 0.5);   /* microseconds now; a second and more before */
+    CHECK_EQ_INT(out[0], 'A');
+}
+
 static void test_unsupported_codes(void)
 {
     const uint8_t unknown[] = { 0x20, 0xFB, 0x00, 0x00, 0x01, 0xFC };
@@ -186,6 +218,7 @@ int main(void)
     test_long_copy();
     test_btree();
     test_huffman();
+    test_huffman_huge_skip();
     test_unsupported_codes();
     test_corrupt_input();
     return TEST_REPORT();

@@ -1487,6 +1487,8 @@ if(NOT EMSCRIPTEN)
     endif()
 endif()
 
+include(fuzz/fuzz.cmake)
+
 # port: every test, whenever it was registered above, gets a scratch pref dir, so a test that starts tnfs with no --user (or forgets one) writes in the build, never in the player's own
 # folder; pref_guard fails when a test has none (tests/pref_guard.cmake)
 if(NOT EMSCRIPTEN)

@@ -98,6 +98,9 @@ static QfsResult read_code(Bits *b, Code *c)
     for (uint32_t i = 0; i < total; i++) {
         uint32_t skip;
         if (!read_num(b, &skip)) return QFS_ERR_TRUNCATED;
+        /* port: the walk wraps over the 256 - i values not used yet, so a skip of up to 2^31 (a damaged or hostile file)
+         * lands where its remainder does: the same symbol in at most 256 steps instead of billions */
+        skip %= 256 - i;
         for (skip += 1; skip > 0;) {
             symbol++;
             if (!used[symbol]) skip--;
