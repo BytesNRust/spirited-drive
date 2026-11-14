@@ -94,8 +94,8 @@ static void track_art(CentralRun *r)
         if (st->art[ART_TRACK] != 0) r->ops->free(r->ops->ctx, st->art[ART_TRACK]);
         /* "r"'s past the tenth track is the colours' first, 9, read as a name: the original faults there */
         const int at = base + *st->track;
-        sprintf(path, "%scontrol/%s", st->paths, at < 28 ? TRACK_NAMES[at] : "");
-        strcat(path, ".qfs");
+        snprintf(path, sizeof path, "%scontrol/%s", st->paths, at < 28 ? TRACK_NAMES[at] : "");
+        strncat(path, ".qfs", sizeof path - strlen(path) - 1);
         /* port: Lunar Springs (lunar_springs.h) shows the moon's picture for the rally on Rusty Springs, from the German
          * art directory whatever the language */
         char moon[64];
@@ -114,7 +114,7 @@ static void car_art(CentralRun *r)
     ControlCentralState *st = r->st;
     char path[0x50];
     if (st->was[WAS_CAR] != *st->player_car) {
-        sprintf(path, "%scontrol/%s.qfs", st->paths, CAR_NAMES[*st->player_car]);
+        snprintf(path, sizeof path, "%scontrol/%s.qfs", st->paths, CAR_NAMES[*st->player_car]);
         reload(r, ART_CAR, path);
         st->was[WAS_CAR] = *st->player_car;
     }
@@ -129,14 +129,14 @@ static void opponent_art(CentralRun *r)
     if (st->lost != 0 && *st->race_type == 1) *st->opponent = st->other_car[1 - st->net_side];
     if (st->was[WAS_OPPONENT] != *st->opponent) {
         if (st->art[ART_OPPONENT] != 0) r->ops->free(r->ops->ctx, st->art[ART_OPPONENT]);
-        sprintf(path, "%scontrol/%s", st->paths, OPPONENT_NAMES[*st->opponent]);
+        snprintf(path, sizeof path, "%scontrol/%s", st->paths, OPPONENT_NAMES[*st->opponent]);
         if (*st->race_type == 3 && (*st->net_self != 0 || st->lost == 0))
-            sprintf(path, *st->player_car < 3 ? "%scontrol/tourny3" : *st->player_car < 6 ? "%scontrol/tourny2"
-                                                                                           : "%scontrol/tourny1",
+            snprintf(path, sizeof path, *st->player_car < 3 ? "%scontrol/tourny3" : *st->player_car < 6 ? "%scontrol/tourny2"
+                                                                                                        : "%scontrol/tourny1",
                     st->paths);
         else if (*st->race_type == 2 && st->lost != 0 && *st->net_self != 0)
-            sprintf(path, "%scontrol/%s", st->paths, OPPONENT_NAMES[*st->net_car]);
-        strcat(path, ".qfs");
+            snprintf(path, sizeof path, "%scontrol/%s", st->paths, OPPONENT_NAMES[*st->net_car]);
+        strncat(path, ".qfs", sizeof path - strlen(path) - 1);
         st->art[ART_OPPONENT] = r->ops->load_bank(r->ops->ctx, path, 0);
         st->was[WAS_OPPONENT] = *st->opponent;
     }
@@ -150,7 +150,7 @@ static void race_art(CentralRun *r)
     if (st->was[WAS_RACE] != *st->race_type) {
         if (st->art[ART_RACE] != 0) r->ops->free(r->ops->ctx, st->art[ART_RACE]);
         const char *name = *st->race_type == 1 && *st->nomercy != 0 ? RACE_NAMES[4] : RACE_NAMES[*st->race_type];
-        sprintf(path, "%scontrol/%s.qfs", st->paths, name);
+        snprintf(path, sizeof path, "%scontrol/%s.qfs", st->paths, name);
         st->art[ART_RACE] = r->ops->load_bank(r->ops->ctx, path, 0);
         st->was[WAS_RACE] = *st->race_type;
     }
@@ -197,7 +197,7 @@ static void intro(CentralRun *r)
         player_boxes(r, 0);
         if (f != 8) {
             char tag[0x10];
-            sprintf(tag, "r&t%d", f);
+            snprintf(tag, sizeof tag, "r&t%d", f);
             o->blit_masked(o->ctx, shape(r, ART_ANI, tag));
         }
         o->deadline_set(o->ctx, 0xf);
