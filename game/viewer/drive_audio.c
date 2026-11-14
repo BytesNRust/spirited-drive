@@ -2,6 +2,7 @@
 #include "game/viewer/drive_audio.h"
 
 #include "game/audio/music_reader.h"
+#include "game/audio/rain_bus.h"
 #include "game/audio/sound_bank.h"
 #include "game/audio/sound_driver.h"
 #include "game/audio/sound_queue.h"
@@ -127,15 +128,18 @@ static void voice_stats(uint32_t count)
     voice_frames = 0;
 }
 
-/* port (rain_tyre_roll): the rain's voices over the mix */
+/* port (rain_tyre_roll): the rain's voices over the mix, through their own bus (rain_bus.h) */
 static void rain_mix(int16_t *frames, uint32_t n)
 {
-    wet_roll_mix(&rain_out, frames, n);
-    wet_roll_mix(&rain_in, frames, n);
-    wet_roll_mix(&rain_bed, frames, n);
-    wet_roll_mix(&rain_move_in, frames, n);
-    for (int i = 0; i < RAIN_CARS_VOICES; i++) wet_roll_mix(&spray[i], frames, n);
-    splash_mix(&puddles, frames, n);
+    int32_t bus[2 * TICK_FRAMES];
+    memset(bus, 0, sizeof bus);
+    wet_roll_mix32(&rain_out, bus, n);
+    wet_roll_mix32(&rain_in, bus, n);
+    wet_roll_mix32(&rain_bed, bus, n);
+    wet_roll_mix32(&rain_move_in, bus, n);
+    for (int i = 0; i < RAIN_CARS_VOICES; i++) wet_roll_mix32(&spray[i], bus, n);
+    splash_mix32(&puddles, bus, n);
+    rain_bus_meet(frames, bus, n);
 }
 
 static void mix(void *user, int16_t *frames, uint32_t count)

@@ -30,6 +30,8 @@ void splash_play(Splash *s, int clip, int percent, int pitch_permille, int pan);
 
 /* Adds the splashes' next `frames` stereo frames into `out` (interleaved), saturating. */
 void splash_mix(Splash *s, int16_t *out, uint32_t frames);
+/* The same into a 32-bit bus, not saturated */
+void splash_mix32(Splash *s, int32_t *out, uint32_t frames);
 
 /* How many are playing. */
 int splash_active(const Splash *s);

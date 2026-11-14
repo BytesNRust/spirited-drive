@@ -55,6 +55,21 @@ static int eased(int now, int target, int step) { return now < target ? (now + s
 
 void wet_roll_mix(WetRoll *w, int16_t *out, uint32_t frames)
 {
+    int32_t bus[2 * 256];
+    for (uint32_t done = 0; done < frames;) {
+        const uint32_t n = frames - done < 256 ? frames - done : 256;
+        memset(bus, 0, sizeof bus);
+        wet_roll_mix32(w, bus, n);
+        for (uint32_t i = 0; i < 2 * n; i++) {
+            const int32_t sum = out[2 * done + i] + bus[i];
+            out[2 * done + i] = (int16_t)(sum > 32767 ? 32767 : sum < -32768 ? -32768 : sum);
+        }
+        done += n;
+    }
+}
+
+void wet_roll_mix32(WetRoll *w, int32_t *out, uint32_t frames)
+{
     const Thunder *const t = w->shared != NULL ? w->shared : &w->sample;
     if (t->pcm == NULL || t->frames < 2 || (w->level == 0 && w->target == 0)) return;
     const int step = 100 * UNIT / (int)(t->rate / EASE_SECONDS_DIV) + 1, pan_step = WET_ROLL_PAN_RIGHT * UNIT / (int)(t->rate / EASE_SECONDS_DIV) + 1;
@@ -68,9 +83,7 @@ void wet_roll_mix(WetRoll *w, int16_t *out, uint32_t frames)
         const uint32_t at = (uint32_t)(w->position >> 16), next = at + 1 < t->frames ? at + 1 : 0, frac = (uint32_t)(w->position & 0xffff);
         const int32_t sample = t->pcm[at] + (int32_t)(((int64_t)(t->pcm[next] - t->pcm[at]) * frac) >> 16);
         for (int c = 0; c < 2; c++) {
-            const int32_t add = (int32_t)((int64_t)sample * w->level * wet_roll_pan_gain(w->pan_now / UNIT, c) / (100 * UNIT * GAIN_FULL));
-            const int32_t sum = out[2 * i + (uint32_t)c] + add;
-            out[2 * i + (uint32_t)c] = (int16_t)(sum > 32767 ? 32767 : sum < -32768 ? -32768 : sum);
+            out[2 * i + (uint32_t)c] += (int32_t)((int64_t)sample * w->level * wet_roll_pan_gain(w->pan_now / UNIT, c) / (100 * UNIT * GAIN_FULL));
         }
         w->position = (w->position + advance) % length;
     }
