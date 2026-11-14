@@ -17,9 +17,9 @@ enum {
      * words in the gap between the time and the car */
     NAME_X = 8, NAME_WIDTH = 0xd4, MARK_X = 0xe0, TIME_X = 0x118, COND_END = 0x1da, CAR_X = 0x1e0, SHIFT_X = 0x24e,
     ROW_Y = 0x73, ROW_STEP = 0x16, TOP_Y = 0x17c, SMALL_DROP = 5,
-    /* the strip, at three quarters the words' size (the longest table runs some 500 px): the page's line in the top band, right-aligned
-     * above the track's name, the table's line right of the "Best times" header */
-    STRIP_NUM = 3, STRIP_DEN = 4, STRIP_SMALL_DEN = 5, STRIP_RIGHT = 0x27c, PAGE_RIGHT = 0x278, PAGE_Y = 0x01, TABLE_X = 0x8c, TABLE_Y = 0x4c, HIT_ABOVE = 4, HIT_BELOW = 16, HIT_PAD = 5,
+    /* the strip, at three quarters the words' size (the longest table runs some 500 px): the page's line centred just above the
+     * footer's Road & Track item (between its arrows, so their hit rects stay apart), the table's line right of the "Best times" header */
+    STRIP_NUM = 3, STRIP_DEN = 4, STRIP_SMALL_DEN = 5, STRIP_RIGHT = 0x27c, PAGE_CENTRE_X = 311, PAGE_Y = 430, TABLE_X = 0x8c, TABLE_Y = 0x4c, HIT_ABOVE = 4, HIT_BELOW = 16, HIT_PAD = 5,
     NO_RECORDS_Y = ROW_Y + 4 * ROW_STEP, CENTRE_X = 320
 };
 
@@ -161,13 +161,13 @@ static void strip(const BestTimesState *st, int track, int lit, BestPagesHits *h
         x = word(ops, text, x, TABLE_Y, on_laps, hits, -1) + gap;
         (void)word(ops, ">", x, TABLE_Y, on_laps || lit == BEST_PAGES_LAPS_UP, hits, BEST_PAGES_LAPS_UP);
     }
-    /* the page's line, right-aligned at the top, over the track name's band */
+    /* the page's line, centred just above the footer's Road & Track item (its arrows' pointer spots 231 and 390) */
     strip_den = STRIP_DEN;
     gap = ops->plus_scaled_width(ops->ctx, " ", STRIP_NUM, strip_den);
     const int on_page = p->focus == BEST_FOCUS_PAGE;
     const char *const name = PAGE_NAME[is_stage(track)][p->page];
     const int arrow = ops->plus_scaled_width(ops->ctx, ">", STRIP_NUM, STRIP_DEN);
-    x = PAGE_RIGHT - (2 * arrow + 2 * gap + ops->plus_scaled_width(ops->ctx, name, STRIP_NUM, STRIP_DEN));
+    x = PAGE_CENTRE_X - (2 * arrow + 2 * gap + ops->plus_scaled_width(ops->ctx, name, STRIP_NUM, STRIP_DEN)) / 2;
     x = word(ops, "<", x, PAGE_Y, on_page || lit == BEST_PAGES_PAGE_DOWN, hits, BEST_PAGES_PAGE_DOWN) + gap;
     x = word(ops, name, x, PAGE_Y, on_page, hits, -1) + gap;
     (void)word(ops, ">", x, PAGE_Y, on_page || lit == BEST_PAGES_PAGE_UP, hits, BEST_PAGES_PAGE_UP);
