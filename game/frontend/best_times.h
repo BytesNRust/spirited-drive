@@ -55,9 +55,10 @@ typedef struct BestTimesOps {
     void (*music_end)(void *ctx);                              /* 00464568 */
     void *ctx;
     /* port: NULL unless the state has a `plus` */
-    int32_t (*plus_toggle)(void *ctx);   /* 1 once a Tab (or the like) went down: the other table */
-    void (*plus_text)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);  /* the cheats item: 1 lit, 0 idle */
+    void (*plus_text)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);  /* the pages' words: TEXT_* style (1 lit) */
     int32_t (*plus_text_width)(void *ctx, const char *text);
+    void (*plus_scaled)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);  /* num/den the size */
+    int32_t (*plus_scaled_width)(void *ctx, const char *text, int32_t num, int32_t den);
 } BestTimesOps;
 
 enum {
@@ -88,17 +89,15 @@ typedef struct BestTimesInputs {
     const uint8_t *records;    /* 00524f8f, BEST_TIMES_RECORDS bytes */
 } BestTimesInputs;
 
-/* port: the two tables a track's records can be shown as (records_route.h): the one without cheats and the one with, each
- * laid out as the records at 00524f8f are (BEST_TIMES_RECORDS bytes, nine tracks 0xa6b apart), and the marks of the one
- * with cheats (a byte per slot of records_route.h, a table per track) */
+/* port (dep55): Restomod's records pages (race_records.h, best_times_pages.h). A fixed title strip under the track's name: the table
+ * shown ("< MIRROR > - < NO CHEATS > - < 6 LAPS >") and the page ("< TOP 10 >"); the pages: the ten best totals with each row's
+ * marks, then a circuit's best lap or a stage's segments; the top speed under both. */
 typedef struct BestTimesPlus {
-    const uint8_t *records[2];
-    const uint8_t *marks[9];
-    int cheats;   /* the table shown now: 0 or 1 */
-    /* port (free records): 1 puts a lap-count item between the arrows on a circuit (free_records.h's tables, for the record variant) */
-    int laps_select;
-    int variant;  /* RecordVariant of the tables shown */
+    int layout, cheats, laps;   /* the table shown: LAYOUT_* bits, 0/1, the lap count (0 on a stage) */
+    int page;                   /* 0 the ten best, 1 a circuit's best lap or a stage's segments */
+    int focus;                  /* the row the keys are on: BEST_FOCUS_* */
 } BestTimesPlus;
+enum { BEST_FOCUS_LAYOUT = 0, BEST_FOCUS_CHEATS = 1, BEST_FOCUS_LAPS = 2, BEST_FOCUS_PAGE = 3, BEST_FOCUS_FOOTER = 4 };
 
 typedef struct BestTimesState {
     uint8_t *config;           /* 00524df9, TRACK_SELECT_CONFIG bytes (track_select.h's offsets) */
@@ -114,8 +113,10 @@ typedef struct BestTimesState {
  * loaded again under the data path) or back; Enter, space or the left
  * button (once armed) act; Escape, the timer and the right button go back.
  * Returns 1 for Done (the track screen ends too), else 0.
- * port: with a `plus`, Tab, Up, Down (and the right button, which no longer goes back) show the other table, and a
- * footer item between Done and the left arrow (Right from Done, Left from the arrow, the pointer, Enter) does the same. */
+ * port (dep55): with a `plus` (Restomod's records) the title strip and the pages: Up and Down move the keys' row through the strip's
+ * fields (layout, cheats, laps, page) and the footer; on a field Left and Right step it (the arrows drawn round it; Enter steps it on),
+ * on the footer they move between its items as the exe's; Tab and Page Down turn the page on, Page Up back; the pointer clicks the
+ * arrows, the cheats word and the page's. */
 int32_t best_times_screen(const BestTimesInputs *in, BestTimesState *st, DialogPointer *p, const BestTimesOps *ops);
 
 #endif

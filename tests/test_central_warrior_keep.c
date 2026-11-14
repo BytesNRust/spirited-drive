@@ -13,6 +13,13 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
     return false;
 }
 void platform_free_file(uint8_t *data) { (void)data; }
+bool platform_user_file_exists(const char *name)
+{
+    size_t size = 0;
+    uint8_t *data = platform_read_user_file(name, &size);
+    if (data != NULL) platform_free_file(data);
+    return data != NULL;
+}
 
 static int16_t start(int16_t car, int16_t warrior, const int16_t *keep)
 {

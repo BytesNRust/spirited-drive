@@ -6,6 +6,7 @@
 #include "game/frontend/track_results.h"
 #include "game/frontend/lap_times.h"
 #include "game/frontend/records_route.h"
+#include "game/sys/extras_marks.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -22,6 +23,13 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
     return false;
 }
 void platform_free_file(uint8_t *data) { (void)data; }
+bool platform_user_file_exists(const char *name)
+{
+    size_t size = 0;
+    uint8_t *data = platform_read_user_file(name, &size);
+    if (data != NULL) platform_free_file(data);
+    return data != NULL;
+}
 
 enum { DRAWN_MAX = 512, TEXT_MAX = 40, X_MARKS = 0xd7, Y_SEGMENT = 0x136, Y_TOP = 0x17c, Y_BEST = 0x6e };
 enum { TITLE_X = 232, TITLE_BEST_Y = 283, TITLE_TOP_Y = 354 };   /* where a suffix on the segment screen's art titles would go */
@@ -233,7 +241,7 @@ static void test_segment_normal_table_is_unchanged(void)
 static void test_segment_cheats_banner_on_any_cheats_race(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0 };
+    ResultsMarks marks = { slots, 0, NULL };
     memset(slots, 0, sizeof slots);
     run_segment(&marks);
     CHECK(found("(CHEATS)", CHEATS_BANNER_X, CHEATS_BANNER_Y));
@@ -243,7 +251,7 @@ static void test_segment_cheats_banner_on_any_cheats_race(void)
 static void test_segment_speed_row_marks_come_from_its_own_slot(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0 };
+    ResultsMarks marks = { slots, 0, NULL };
     memset(slots, 0, sizeof slots);
     slots[SLOT_TOP] = EXTRAS_MARK_TURBO;
     run_segment(&marks);
@@ -257,7 +265,7 @@ static void test_segment_speed_row_marks_come_from_its_own_slot(void)
 static void test_segment_cheats_title_and_marks(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0 };
+    ResultsMarks marks = { slots, 0, NULL };
     memset(slots, 0, sizeof slots);
     slots[SLOT_SEGMENT + 0] = EXTRAS_MARK_NITRO;
     slots[SLOT_SPEED_SEGMENT + 0] = EXTRAS_MARK_TURBO | EXTRAS_MARK_WARRIOR;
@@ -275,7 +283,7 @@ static void test_segment_cheats_title_and_marks(void)
 static void test_segment_no_mark_when_slot_is_clear(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0 };
+    ResultsMarks marks = { slots, 0, NULL };
     memset(slots, 0, sizeof slots);
     run_segment(&marks);
     CHECK(any_text("Best Time (c)"));
@@ -287,7 +295,7 @@ static void test_best_totals_marks_each_row(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0 };
+    ResultsMarks marks = { slots, 0, NULL };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -324,7 +332,7 @@ static void test_track_results_header_and_best_row(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0 };
+    ResultsMarks marks = { slots, 0, NULL };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -360,7 +368,7 @@ static void test_circuit_results_header_and_best_row(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 1 };
+    ResultsMarks marks = { slots, 1, NULL };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -396,7 +404,7 @@ static void test_best_totals_banner_on_cheats_race(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0 };
+    ResultsMarks marks = { slots, 0, NULL };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -418,7 +426,7 @@ static void test_lap_times_banner_follows_cheats(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0 };
+    ResultsMarks marks = { slots, 0, NULL };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -435,8 +443,22 @@ static void test_lap_times_banner_follows_cheats(void)
     CHECK(!any_text("(CHEATS)"));
 }
 
+/* Restomod's results name the race's table under the header; without a line (Stock, Restored) nothing is there */
+static void test_the_table_line(void)
+{
+    static uint8_t slots[RECORDS_MARK_SLOTS];
+    memset(slots, 0, sizeof slots);
+    ResultsMarks marks = { slots, 0, "MIRROR - NO CHEATS - 6 LAPS" };
+    run_segment(&marks);
+    CHECK(found("MIRROR - NO CHEATS - 6 LAPS", RESULTS_LINE_X, RESULTS_LINE_Y));
+    marks.line = NULL;
+    run_segment(&marks);
+    CHECK(!any_text("MIRROR - NO CHEATS - 6 LAPS"));
+}
+
 int main(void)
 {
+    test_the_table_line();
     test_segment_normal_table_is_unchanged();
     test_segment_cheats_title_and_marks();
     test_segment_no_mark_when_slot_is_clear();

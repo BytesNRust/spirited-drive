@@ -193,7 +193,7 @@ static void draw_page(const ResultsInputs *in, int32_t bank, int16_t row, int16_
     ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "bgnd"));
     if (circuit < 6) ops->blit(ops->ctx, ops->shape(ops->ctx, bank, TRACK_TAG[circuit]));
     ops->text_select(ops->ctx, 1);
-    if (results_cheats(in)) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
+    results_header_marks(in, ops);   /* port: "(CHEATS)" and the table line */
     draw_place(in, out, ops);
     draw_heads(in, ops);
     draw_totals(in, out, ops);

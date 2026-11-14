@@ -97,7 +97,13 @@ typedef struct TrackSelectPlus {
     /* port: non-NULL shows the Reverse row (item 11) on the circuits, outside a tournament: the value is 0 / 1, the way round the
      * race is run (reverse_track.h). It sits right of the weather row, or alone where the weather is off. */
     int *reverse;
+    /* port (dep55): non-NULL (Restomod) makes the laps row's count settable: Left and Right on the row step it through the menu's
+     * (0, the choice's count shown) and 1..99, round; Enter and the pointer go on cycling the choice, which puts it back to the menu's.
+     * The value is port.cfg's laps (free_laps.h); a tournament keeps the exe's row. */
+    int *laps;
 } TrackSelectPlus;
+/* port (dep55): the next custom lap count for `direction` 1 or -1: 0 (the menu's), 1..99, round */
+int track_select_laps_step(int laps, int direction);
 
 enum { TRACK_SELECT_KEY_UP = 0x4800, TRACK_SELECT_KEY_LEFT = 0x4b00, TRACK_SELECT_KEY_RIGHT = 0x4d00,
        TRACK_SELECT_KEY_DOWN = 0x5000, TRACK_SELECT_WEATHER = 10,

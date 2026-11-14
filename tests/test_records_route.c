@@ -1,12 +1,20 @@
-/* Where a finished race's records go (records_route.c): config.dat's image for a normal race without cheats, the
- * port's tables for a variant or a cheat, the marks that follow the rows. record_check.c's own routines run on them. */
+/* Where a finished race's records go (records_route.c, records_glue.c). With the original's records (Stock, Restored: records_unified 0)
+ * config.dat's image takes every race, mixed, byte for byte as record_check.c's routines alone would, and no file is written. With
+ * Restomod's (race_records.h) each race takes the table of its track, layout (all eight), cheats and laps, every row with its marks (the
+ * cheats, the Warrior, the moon's gravity, the weather, the time of day, the difficulty); the best lap is shared by every lap count; a
+ * stage keeps its segments; a table that changed is saved at once. */
 #include "tests/exe_tables_install.h"
 #include "game/frontend/config_dat.h"
 #include "game/frontend/records_glue.h"
 #include "game/frontend/records_route.h"
 #include "game/race/difficulty.h"
+#include "game/race/weather_snow.h"
+#include "game/race/weather.h"
+#include "game/sys/extras_marks.h"
 #include "game/sys/free_laps.h"
-#include "game/sys/free_records.h"
+#include "game/sys/port_settings.h"
+#include "game/sys/race_records.h"
+#include "game/sys/reverse_track.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -14,565 +22,417 @@
 #include <stdlib.h>
 #include <string.h>
 
-static char stored_name[32];
-static uint8_t stored[0x40000];
-static size_t stored_size;
-static int stored_present, saves;
+enum { FILES = 6 };
+static struct {
+    char name[32];
+    uint8_t *data;
+    size_t size;
+} files[FILES];
+static int writes;
+
+static int slot_of(const char *name, int make)
+{
+    for (int i = 0; i < FILES; i++)
+        if (files[i].data != NULL && strcmp(files[i].name, name) == 0) return i;
+    if (!make) return -1;
+    for (int i = 0; i < FILES; i++)
+        if (files[i].data == NULL) return snprintf(files[i].name, sizeof files[i].name, "%s", name), i;
+    return -1;
+}
 
 uint8_t *platform_read_user_file(const char *name, size_t *size)
 {
-    if (!stored_present || strcmp(name, stored_name) != 0) return NULL;
-    uint8_t *copy = malloc(stored_size);
-    memcpy(copy, stored, stored_size);
-    *size = stored_size;
+    const int i = slot_of(name, 0);
+    if (i < 0) return NULL;
+    uint8_t *copy = malloc(files[i].size ? files[i].size : 1);
+    memcpy(copy, files[i].data, files[i].size);
+    *size = files[i].size;
     return copy;
 }
 
 bool platform_write_user_file(const char *name, const uint8_t *data, size_t size)
 {
-    if (size > sizeof stored) return false;
-    snprintf(stored_name, sizeof stored_name, "%s", name);
-    memcpy(stored, data, size);
-    stored_size = size;
-    stored_present = 1;
-    saves++;
+    const int i = slot_of(name, 1);
+    if (i < 0) return false;
+    free(files[i].data);
+    files[i].data = malloc(size ? size : 1);
+    memcpy(files[i].data, data, size);
+    files[i].size = size;
+    writes++;
     return true;
 }
 
 void platform_free_file(uint8_t *data) { free(data); }
+bool platform_user_file_exists(const char *name)
+{
+    size_t size = 0;
+    uint8_t *data = platform_read_user_file(name, &size);
+    if (data != NULL) platform_free_file(data);
+    return data != NULL;
+}
+uint8_t *platform_read_file(const char *path, size_t *size) { (void)path, *size = 0; return NULL; }
 bool platform_key_down(int scancode) { (void)scancode; return false; }
 
-enum { TR1 = 3, WARRIOR = 0xb, ME = 0x95, LAPS = 9, TOP = 0x6d, TOTAL = 0x65, FIRST = 0xb5 };
+static void files_clear(void)
+{
+    for (int i = 0; i < FILES; i++) free(files[i].data), files[i].data = NULL;
+    writes = 0;
+}
 
-typedef struct { uint8_t image[RECORD_CHECK_IMAGE]; uint8_t game[RECORD_CHECK_GAME]; } Race;
+enum { TR1 = 3, COASTAL = 1, WARRIOR = 0xb, ME = 0x95, LAPS = 9, TIME = 0x59, SPEED = 0x61, TOP = 0x6d, TOTAL = 0x65 };
+
+typedef struct {
+    uint8_t image[RECORD_CHECK_IMAGE];
+    uint8_t game[RECORD_CHECK_GAME];
+} Race;
 
 static void p16(uint8_t *at, int v) { at[0] = (uint8_t)v, at[1] = (uint8_t)(v >> 8); }
 static void p32(uint8_t *at, int32_t v) { memcpy(at, &v, 4); }
-static int32_t g32(const uint8_t *at) { int32_t v; memcpy(&v, at, 4); return v; }
+static int32_t g32(const uint8_t *at)
+{
+    int32_t v;
+    memcpy(&v, at, 4);
+    return v;
+}
 
-/* a fresh image (the defaults) and a race on a circuit with one lap of `lap` ticks, a top speed and a total */
-static void race(Race *r, int car, int difficulty, int lap, int top, int total)
+/* a fresh image (the defaults) and a race on `track` by car `car`, laps choice 1, with a lap of `lap` ticks, a top speed, a total, a
+ * segment's time and speed */
+static void race(Race *r, int track, int car, int lap, int top, int total)
 {
     ConfigDat c;
     config_dat_defaults(&c, 0);
     memcpy(r->image, c.image, sizeof r->image);
     memset(r->game, 0, sizeof r->game);
-    p16(r->image + 0x95, TR1);
+    p16(r->image + 0x95, track);
     p16(r->image + 0x9b, car);
-    p16(r->image + 0xb3, difficulty);
+    p16(r->image + 0xb3, 1);
+    p16(r->image + 0x93, 1);
     memcpy(r->game, "ME", 3);
     for (int i = 0; i < 20; i++) p32(r->game + ME * 0 + LAPS + 4 * i, 0x7fffffff);
     p32(r->game + LAPS, lap);
     p32(r->game + TOP, top);
     p32(r->game + TOTAL, total);
+    p32(r->game + TIME, total / 3);
+    p32(r->game + SPEED, top);
 }
 
-static const uint8_t *block_of(const uint8_t *image) { return image + FIRST + RECORDS_BLOCK * TR1; }
-
-static void fresh(void)
+static void unified(int on)
 {
-    stored_present = 0;
-    saves = 0;
-    unsetenv("TNFS_FREE_RECORDS");
-    free_records_reset();
-    port_records_load();
-}
-
-static void test_a_normal_race_without_cheats_takes_the_images_table(void)
-{
-    fresh();
-    Race r;
-    race(&r, 0, 0, 1, 99999, 1);
-    const Race before = r;
-    RaceKind kind = { RECORDS_NORMAL, 0 };
-    CHECK_EQ_INT(records_route(kind, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
-    CHECK(memcmp(block_of(r.image), block_of(before.image), RECORDS_BLOCK) != 0);   /* config.dat's */
-    CHECK_EQ_INT(g32(block_of(r.image) + 0xd0 - FIRST), 1);
-    CHECK_EQ_INT(saves, 0);                                                          /* the port's file untouched */
-    CHECK(memcmp(port_records_block(TR1, RECORDS_MIRROR, 0), block_of(before.image), RECORDS_BLOCK) == 0);
-}
-
-/* port (difficulty.h): a race on Easy or Hard keeps no record, in the image's table or the port's; Original (the zero) keeps them again */
-static void test_a_race_outside_original_keeps_no_record(void)
-{
-    const RaceDifficulty levels[] = { difficulty_from_extras(0), difficulty_from_extras(2) };
-    for (int i = 0; i < 2; i++) {
-        fresh();
-        difficulty_running_set(&levels[i]);
-        Race r;
-        race(&r, 0, 0, 1, 99999, 1);
-        const Race before = r;
-        const RaceKind plain = { RECORDS_NORMAL, 0 }, nitro = { RECORDS_NORMAL, EXTRAS_MARK_NITRO }, mirror = { RECORDS_MIRROR, 0 };
-        CHECK_EQ_INT(records_route(plain, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
-        CHECK_EQ_INT(records_route(nitro, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
-        CHECK_EQ_INT(records_route(mirror, ROUTE_TOTALS, r.image, r.game, 0, NULL), RECORD_CHECK_NONE);
-        CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
-        CHECK_EQ_INT(saves, 0);
-        const RaceDifficulty original = difficulty_from_extras(1);
-        difficulty_running_set(&original);
-        CHECK_EQ_INT(records_route(plain, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
-    }
-}
-
-static void test_a_mirror_race_leaves_the_images_table(void)
-{
-    fresh();
-    Race r;
-    race(&r, 0, 0, 1, 99999, 1);
-    const Race before = r;
-    RaceKind kind = { RECORDS_MIRROR, 0 };
-    CHECK_EQ_INT(records_route(kind, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
-    CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);                                  /* config.dat's image */
-    CHECK_EQ_INT(g32(port_records_block(TR1, RECORDS_MIRROR, 0) + 0xd0 - FIRST), 1);
-    CHECK(memcmp(port_records_block(TR1, RECORDS_RALLY, 0), block_of(before.image), RECORDS_BLOCK) == 0);
-    CHECK(memcmp(port_records_block(TR1, RECORDS_NORMAL, 1), block_of(before.image), RECORDS_BLOCK) == 0);
-    CHECK_EQ_INT(saves, 1);
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_MIRROR)[SLOT_SEGMENT], 0);                       /* no cheats, no mark */
-}
-
-static void test_a_race_with_nitro_goes_to_the_cheats_table_with_its_mark(void)
-{
-    fresh();
-    Race r;
-    race(&r, 0, 0, 1, 99999, 1);
-    const Race before = r;
-    RaceKind kind = { RECORDS_NORMAL, EXTRAS_MARK_NITRO };
-    CHECK_EQ_INT(records_route(kind, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
-    CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
-    CHECK_EQ_INT(g32(port_records_block(TR1, RECORDS_NORMAL, 1) + 0xd0 - FIRST), 1);
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_SEGMENT], EXTRAS_MARK_NITRO);
-    kind.marks = EXTRAS_MARK_NITRO | EXTRAS_MARK_TURBO;
-    race(&r, 0, 0, 1, 99999, 1);   /* not better than the 1 now there: not taken */
-    CHECK_EQ_INT(records_route(kind, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_SEGMENT], EXTRAS_MARK_NITRO);
-}
-
-/* A segment check marks the rows it takes and no others: a cheats race that beats only the segment's top speed sets the
- * speed row's slot, and the time row keeps the mark of the record it still holds */
-static void test_a_segment_check_marks_only_the_rows_it_takes(void)
-{
-    fresh();
-    Race r;
-    race(&r, 0, 0, 1, 99999, 1);
-    p16(r.image + 0x93, 1);           /* segment 1 */
-    p32(r.game + 0x59, 0x7fffffff);   /* the time: no record */
-    p32(r.game + 0x61, 0x7fffffff);   /* the top speed: beats the segment's */
-    RaceKind kind = { RECORDS_NORMAL, EXTRAS_MARK_NITRO };
-    CHECK_EQ_INT(records_route(kind, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 2);
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_SEGMENT], 0);
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_SPEED_SEGMENT + 0], EXTRAS_MARK_NITRO);
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_TOP], 0);
-    p32(r.game + 0x59, 1);            /* a time that beats the segment's, and a top speed that does not */
-    p32(r.game + 0x61, 0);
-    CHECK_EQ_INT(records_route(kind, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 1);
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_SEGMENT], EXTRAS_MARK_NITRO);
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_SPEED_SEGMENT + 0], EXTRAS_MARK_NITRO);
-}
-
-static void test_totals_marks_follow_their_rows(void)
-{
-    fresh();
-    Race r;
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    RaceKind nitro = { RECORDS_NORMAL, EXTRAS_MARK_NITRO }, turbo = { RECORDS_NORMAL, EXTRAS_MARK_TURBO };
-    race(&r, 0, 1, 5000, 99999, 100);
-    CHECK_EQ_INT(records_route(nitro, ROUTE_TOTALS, r.image, r.game, 0, times), 0);   /* the first row */
-    race(&r, 0, 1, 5000, 99999, 50);
-    CHECK_EQ_INT(records_route(turbo, ROUTE_TOTALS, r.image, r.game, 0, times), 0);   /* in front of it */
-    const uint8_t *marks = port_records_marks(TR1, RECORDS_NORMAL);
-    const int base = records_slot_totals(TR1, 1, 0);
-    CHECK_EQ_INT(base, SLOT_TOTALS + SLOT_CHOICE);
-    CHECK_EQ_INT(marks[base], EXTRAS_MARK_TURBO);
-    CHECK_EQ_INT(marks[base + 1], EXTRAS_MARK_NITRO);
-    CHECK_EQ_INT(marks[base + 2], 0);
-    CHECK_EQ_INT(marks[records_slot_totals(TR1, 0, 0)], 0);   /* the other laps choice has its own */
-}
-
-/* The Warrior (car 11) records nothing in the original (record_check's early return). The port keeps its times on the
- * cheats table, with the W mark, and config.dat's normal table stays as it is. */
-static void test_the_warrior_goes_to_the_cheats_table_with_its_mark(void)
-{
-    fresh();
-    Race r;
-    race(&r, WARRIOR, 0, 1, 99999, 1);
-    static uint8_t before[RECORD_CHECK_IMAGE];
-    memcpy(before, r.image, sizeof before);
-    RaceKind kind = { RECORDS_NORMAL, 0 };
-    CHECK_EQ_INT(records_route(kind, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
-    CHECK(memcmp(r.image, before, sizeof before) == 0);
-    CHECK(memcmp(port_records_block(TR1, RECORDS_NORMAL, 1), "ME", 3) == 0);
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[0], EXTRAS_MARK_WARRIOR);
-    CHECK_EQ_INT(saves, 1);
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    fresh();
-    race(&r, WARRIOR, 0, 1, 99999, 1);
-    CHECK(records_route(kind, ROUTE_TOTALS, r.image, r.game, 0, times) != RECORD_CHECK_NONE);
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[SLOT_TOTALS], EXTRAS_MARK_WARRIOR);
-}
-
-/* A Warrior rival with the player's own car changes nothing: the normal race's table is config.dat's and no mark */
-static void test_a_warrior_rival_changes_nothing(void)
-{
-    fresh();
-    Race r;
-    race(&r, 6, 0, 1, 99999, 1);
-    p16(r.image + 0x91, WARRIOR);   /* the opponent */
-    RaceKind kind = { RECORDS_NORMAL, 0 };
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[0], 0);
-    records_route(kind, ROUTE_LAP, r.image, r.game, 0, NULL);
-    CHECK_EQ_INT(port_records_marks(TR1, RECORDS_NORMAL)[0], 0);
-    CHECK(memcmp(port_records_block(TR1, RECORDS_NORMAL, 1), "ME", 3) != 0);
-}
-
-/* the letters of a row's marks: N, E, T, then W for the Warrior */
-static void test_the_warrior_mark_is_a_letter(void)
-{
-    char text[8];
-    records_mark_text(EXTRAS_MARK_WARRIOR, text);
-    CHECK(strcmp(text, "W") == 0);
-    records_mark_text(EXTRAS_MARK_NITRO | EXTRAS_MARK_TURBO | EXTRAS_MARK_WARRIOR, text);
-    CHECK(strcmp(text, "NTW") == 0);
-}
-
-static void test_a_track_with_no_table_is_not_taken(void)
-{
-    fresh();
-    Race r;
-    race(&r, 0, 0, 1, 99999, 1);
-    p16(r.image + 0x95, 9);
-    RaceKind kind = { RECORDS_RALLY, 0 };
-    CHECK_EQ_INT(records_route(kind, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
-    CHECK_EQ_INT(saves, 0);
-}
-
-static void test_the_kind_comes_from_the_flags(void)
-{
-    RaceKind k = records_race_kind(0, 0, 0, 0, 0);
-    CHECK_EQ_INT(k.variant, RECORDS_NORMAL);
-    CHECK_EQ_INT(k.marks, 0);
-    k = records_race_kind(1, 0, 1, 1, 8);
-    CHECK_EQ_INT(k.variant, RECORDS_MIRROR);
-    CHECK_EQ_INT(k.marks, EXTRAS_MARK_NITRO | EXTRAS_MARK_EXPLODE | EXTRAS_MARK_TURBO);
-    CHECK_EQ_INT(records_race_kind(1, 1, 0, 0, 0).variant, RECORDS_RALLY);
-    CHECK_EQ_INT(records_race_kind(0, 0, 0, 0, 0).marks, 0);
-}
-
-
-/* The results screen shows the table its race was checked on: a race with a cheat shows the cheats table's rows, so
- * the row it highlights is the one it set, and a normal race shows config.dat's (owner's case: TJD's 1:58.5 is the
- * normal table's; a 2:00.4 cheats race beats the cheats table's seed and must show that row, not the normal one). */
-static void test_the_results_show_the_table_the_race_was_checked_on(void)
-{
-    static ConfigDat config;
-    static uint8_t shown[RECORD_CHECK_IMAGE];
-    static uint8_t game[RECORD_CHECK_GAME];
-    static const uint8_t no_races[18];
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    config_dat_defaults(&config, 0);
-    uint8_t *const image = config.image;
-    fresh();
-    memset(game, 0, sizeof game);
-    memcpy(game, "TJD", 4);
-    p32(game + 0x59, 7224);   /* 2:00.4 */
-    p32(game + 0x61, 5932531);
-    p32(game + 0x6d, 5932531);
-    memcpy(image + 0xb5, "TJD", 4);   /* the normal table's segment 1 (config.dat's, 1:58.5) */
-    p32(image + 0xd0, 7112);
-    p32(image + 0x149, 5932531);   /* its top speed, as the owner's: equal to this race's */
-    image[0x93] = 1;   /* segment 1 */
-
-    records_glue_begin(0, no_races, 0, 0, 0, 1, 0);   /* a race with NITRO */
-    records_glue_shown(shown, image);
-    CHECK_EQ_INT(records_glue_route(ROUTE_SEGMENT, image, game, 0, times), 3);
-    records_glue_shown(shown, image);
-    CHECK(memcmp(shown + 0xb5, "TJD", 4) == 0);
-    CHECK_EQ_INT(g32(shown + 0xd0), 7224);
-    CHECK_EQ_INT(g32(image + 0xd0), 7112);   /* the normal table is not the cheats race's */
-
-    records_glue_begin(0, no_races, 0, 0, 0, 0, 0);   /* a normal race: the results show config.dat's */
-    records_glue_shown(shown, image);
-    CHECK(memcmp(shown, image, RECORD_CHECK_IMAGE) == 0);
-    CHECK_EQ_INT(records_glue_route(ROUTE_SEGMENT, image, game, 0, times), 0);   /* 2:00.4 does not beat 1:58.5 */
-    records_glue_shown(shown, image);
-    CHECK_EQ_INT(g32(shown + 0xd0), 7112);
-}
-
-/* A tournament begun with cheats and taken up without: its totals screen shows the table with the cheats it began with,
- * the segment screens the race's own (without) */
-static void test_tournament_totals_show_the_tournaments_table(void)
-{
-    static uint8_t shown[RECORD_CHECK_IMAGE], image[RECORD_CHECK_IMAGE];
-    static const uint8_t first[18];
-    uint8_t later[18] = { 1 };
-    fresh();
-    memset(image, 0, sizeof image);
-    records_glue_begin(3, first, 0, 0, 0, 1, 0);   /* the tournament's first race: NITRO, begun on */
-    records_glue_begin(3, later, 0, 0, 0, 0, 0);   /* a later race without cheats */
-    records_glue_shown_as(ROUTE_TOTALS, shown, image);
-    CHECK(memcmp(shown + 0xb5, port_records_block(0, RECORDS_NORMAL, 1), RECORDS_BLOCK) == 0);
-    records_glue_shown_as(ROUTE_SEGMENT, shown, image);
-    CHECK(memcmp(shown, image, RECORD_CHECK_IMAGE) == 0);
-}
-
-/* The CD's files are not read by this test (the tables start as the built-in defaults). */
-uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
-
-/* ----- a free race (free_laps.h): the best lap and the top speed always count; its total counts only when its laps are
- * one of the track's own, in that choice's table, whatever laps choice the menu holds ----- */
-
-static const uint8_t *totals_of(const uint8_t *image, int track, int choice)
-{
-    return image + FIRST + RECORDS_BLOCK * track + 0xea + 0x186 * choice;
-}
-
-static void test_a_free_race_keeps_its_lap_and_top_speed(void)
-{
-    fresh();
-    Race r;
-    race(&r, 0, 2, 1, 0x3fffffff, 1);   /* the menu's laps choice is 2: 16 laps */
-    free_laps_set(7);
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOP, r.image, r.game, 0, NULL), 1);
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
-    CHECK_EQ_INT(g32(block_of(r.image) + 0xd0 - FIRST), 1);
+    setenv("TNFS_RECORDS_UNIFIED", on ? "1" : "0", 1);
+    files_clear();
+    race_records_reset();
     free_laps_set(0);
+    reverse_track_set(0);
+    race_records_lunar_set(0);
+    race_records_conditions_set(race_records_conditions_of(WEATHER_CLEAR, 0, 0, LIGHT_TIME_DAY, 0, 0, 0));
 }
 
-static void test_a_free_race_on_the_tracks_own_count_takes_that_choices_totals(void)
+static const int32_t TIMES[RECORD_CHECK_TIMES] = { 0, 11, 12, 13, 21, 22, 23 };
+
+/* The original's records, in Stock and Restored alike: every kind of race, every op, the image ends as record_check.c's routines alone
+ * leave it, and no file is written */
+static void test_the_originals_records_are_the_exes_byte_for_byte(void)
 {
-    fresh();
-    Race r;
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    race(&r, 0, 2, 5000, 99999, 100);   /* the menu holds choice 2; N = 8 is choice 1 */
-    const Race before = r;
-    free_laps_set(8);
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
-    free_laps_set(0);
-    CHECK(memcmp(totals_of(r.image, TR1, 1), totals_of(before.image, TR1, 1), 0x186) != 0);
-    CHECK(memcmp(totals_of(r.image, TR1, 2), totals_of(before.image, TR1, 2), 0x186) == 0);
-    CHECK(memcmp(totals_of(r.image, TR1, 0), totals_of(before.image, TR1, 0), 0x186) == 0);
-    CHECK_EQ_INT(r.image[0xb3] | r.image[0xb4] << 8, 2);   /* the menu's choice is left as it was */
+    const RaceKind kinds[] = { { LAYOUT_NORMAL, 0 }, { LAYOUT_MIRROR, 0 }, { LAYOUT_RALLY, EXTRAS_MARK_NITRO }, { LAYOUT_MIRROR | LAYOUT_RALLY, EXTRAS_MARK_TURBO } };
+    const int cars[] = { 0, WARRIOR };
+    for (size_t k = 0; k < sizeof kinds / sizeof kinds[0]; k++)
+        for (int c = 0; c < 2; c++)
+            for (int track = 0; track < 9; track += 4) {   /* a stage and two circuits */
+                unified(0);
+                static Race r, direct;
+                race(&r, track, cars[c], 1, 99999, 2);
+                direct = r;
+                const int32_t a[4] = { records_route(kinds[k], ROUTE_SEGMENT, r.image, r.game, 0, NULL),
+                                       records_route(kinds[k], ROUTE_LAP, r.image, r.game, 0, NULL),
+                                       records_route(kinds[k], ROUTE_TOP, r.image, r.game, 0, NULL),
+                                       records_route(kinds[k], ROUTE_TOTALS, r.image, r.game, 0, TIMES) };
+                const int32_t b[4] = { record_check(direct.image, direct.game, 0), record_check_lap(direct.image, direct.game, 0),
+                                       record_check_top(direct.image, direct.game, 0), record_check_totals(direct.image, direct.game, 0, TIMES) };
+                CHECK(memcmp(a, b, sizeof a) == 0);
+                CHECK(memcmp(r.image, direct.image, sizeof r.image) == 0);
+                CHECK_EQ_INT(writes, 0);
+            }
 }
 
-static void test_a_free_race_on_another_count_keeps_no_total(void)
+/* The original's: a free race on a count its track has goes to that choice's table; another count keeps no total, no segment */
+static void test_the_originals_free_race(void)
 {
-    fresh();
-    Race r;
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    race(&r, 0, 1, 5000, 99999, 100);
-    const Race before = r;
-    free_laps_set(7);
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
-    free_laps_set(16 - 0);   /* the long tracks' count on a short track: track 4 counts 2, 6, 12 */
-    p16(r.image + 0x95, 4);
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
-    free_laps_set(0);
-    CHECK(memcmp(r.image + FIRST, before.image + FIRST, RECORDS_BLOCK * 9) == 0);
-}
-
-static void test_a_free_race_with_a_cheat_marks_the_remapped_choice_or_nothing(void)
-{
-    fresh();
-    Race r;
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    const RaceKind nitro = { RECORDS_NORMAL, EXTRAS_MARK_NITRO };
-    race(&r, 0, 0, 5000, 99999, 100);
+    unified(0);
+    static Race r, before;
+    race(&r, TR1, 0, 1, 99999, 2);   /* TR1's counts: 4, 8, 16 */
+    p16(r.image + 0xb3, 0);
     free_laps_set(16);
-    CHECK_EQ_INT(records_route(nitro, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
-    const uint8_t *marks = port_records_marks(TR1, RECORDS_NORMAL);
-    CHECK_EQ_INT(marks[records_slot_totals(TR1, 2, 0)], EXTRAS_MARK_NITRO);
-    CHECK_EQ_INT(marks[records_slot_totals(TR1, 0, 0)], 0);
+    before = r;
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK_EQ_INT(g32(r.image + 0xb5 + 0xa6b * TR1 + 0xea + 0x186 * 2 + 0x1b), 2);   /* choice 2's table, not the menu's 0 */
+    CHECK_EQ_INT(g32(r.image + 0xb5 + 0xa6b * TR1 + 0xea + 0x1b), g32(before.image + 0xb5 + 0xa6b * TR1 + 0xea + 0x1b));
     free_laps_set(7);
-    race(&r, 0, 0, 5000, 99999, 50);
-    CHECK_EQ_INT(records_route(nitro, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
-    CHECK_EQ_INT(marks[records_slot_totals(TR1, 0, 0)], 0);   /* nothing written, nothing before the table either */
-    CHECK_EQ_INT(marks[SLOT_TOTALS - 1], 0);
-    free_laps_set(0);
+    before = r;
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 0);
+    CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
+    CHECK_EQ_INT(writes, 0);
 }
 
-static void test_a_free_race_keeps_no_segment_record(void)
+/* the race now running as the original could not run it: one of a reversed track, Easy, snow (k 0..2); -1 all back */
+static void unusual(int k)
 {
-    fresh();
-    Race r;
-    race(&r, 0, 0, 1, 99999, 1);
-    free_laps_set(8);
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 0);
-    free_laps_set(0);
+    const RaceDifficulty original = difficulty_from_extras(1), easy = difficulty_from_extras(0);   /* extras levels: 0 Easy, 1 Original */
+    reverse_track_set(k == 0);
+    difficulty_running_set(k == 1 ? &easy : &original);
+    snow_grip_set(k == 2);
 }
 
-/* ----- port (free records): with the flag, a free race's total goes in its own lap count's table, apart from the exe's ----- */
-
-static void flag_on(void) { setenv("TNFS_FREE_RECORDS", "1", 1); }
-
-static void test_a_free_race_takes_its_own_lap_counts_table_with_the_flag(void)
+/* The original's: a race the original could not run (reversed, not Original difficulty, snow) keeps nothing in its mixed tables;
+ * Restomod's keeps it in the race's own table */
+static void test_the_originals_keep_no_race_it_could_not_run(void)
 {
-    fresh();
-    flag_on();
-    Race r;
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    race(&r, 0, 1, 5000, 99999, 100);   /* TR1 counts 4, 8, 16: 7 is none of them */
-    const Race before = r;
+    for (int k = 0; k < 3; k++) {
+        unified(0);
+        unusual(k);
+        static Race r, before;
+        race(&r, TR1, 0, 1, 99999, 2);
+        before = r;
+        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
+        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
+        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOP, r.image, r.game, 0, NULL), 0);
+        CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
+        CHECK_EQ_INT(writes, 0);
+        unified(1);
+        unusual(k);
+        race(&r, TR1, 0, 1, 99999, 2);
+        CHECK_EQ_INT(records_route((RaceKind){ k == 0 ? LAYOUT_REVERSE : 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+        CHECK(race_records_find(TR1, k == 0 ? LAYOUT_REVERSE : 0, 0, 8) != NULL);
+    }
+    unusual(-1);
+}
+
+/* Restomod's: all eight layouts, with and without cheats, are sixteen tables; config.dat's image is not touched */
+static void test_every_layout_and_cheats_is_its_own_table(void)
+{
+    unified(1);
+    static Race r, before;
+    int total = 1000;
+    for (int layout = 0; layout < RACE_RECORDS_LAYOUTS; layout++)
+        for (int cheats = 0; cheats < 2; cheats++) {
+            race(&r, TR1, 0, 1, 99999, ++total);
+            before = r;
+            const RaceKind kind = { layout, cheats ? EXTRAS_MARK_EXPLODE : 0 };
+            CHECK_EQ_INT(records_route(kind, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+            CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
+        }
+    total = 1000;
+    for (int layout = 0; layout < RACE_RECORDS_LAYOUTS; layout++)
+        for (int cheats = 0; cheats < 2; cheats++) {
+            const RecordTable *t = race_records_find(TR1, layout, cheats, 8);   /* choice 1 on TR1: 8 laps */
+            CHECK(t != NULL);
+            if (t == NULL) continue;
+            CHECK_EQ_INT(g32(t->totals[0].row + RECORD_ROW_TIME), ++total);
+            CHECK(!race_records_row_set(&t->totals[1]));   /* one race each: one row */
+            CHECK_EQ_INT(t->totals[0].marks.cheats, cheats ? EXTRAS_MARK_EXPLODE : 0);
+        }
+}
+
+/* Every row keeps the marks of the race that set it, and they follow the rows down */
+static void test_rows_keep_their_marks(void)
+{
+    unified(1);
+    static Race r;
+    const RecordMarks wet = race_records_conditions_of(WEATHER_RAIN, 0, 1, LIGHT_TIME_DUSK, 2, 2, 2);
+    race_records_conditions_set(wet);
+    race(&r, TR1, 0, 1, 99999, 500);
+    CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_MIRROR, EXTRAS_MARK_NITRO }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    race_records_conditions_set(race_records_conditions_of(WEATHER_CLEAR, 1, 0, LIGHT_TIME_NIGHT, 0, 1, 0));
+    race(&r, TR1, 0, 1, 99999, 400);
+    CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_MIRROR, EXTRAS_MARK_TURBO }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    const RecordTable *t = race_records_find(TR1, LAYOUT_MIRROR, 1, 8);
+    CHECK(t != NULL);
+    if (t == NULL) return;
+    CHECK_EQ_INT(t->totals[0].marks.cheats, EXTRAS_MARK_TURBO);
+    CHECK_EQ_INT(t->totals[0].marks.weather, RECORD_MARK_KNOWN | WEATHER_CLEAR | RECORD_WEATHER_SNOW);
+    CHECK_EQ_INT(t->totals[0].marks.time, RECORD_MARK_KNOWN | LIGHT_TIME_NIGHT);
+    CHECK_EQ_INT(t->totals[0].marks.difficulty, RECORD_MARK_KNOWN | 1 << 2);
+    CHECK_EQ_INT(t->totals[1].marks.cheats, EXTRAS_MARK_NITRO);   /* pushed down with its row */
+    CHECK_EQ_INT(t->totals[1].marks.weather, wet.weather);
+    CHECK_EQ_INT(t->totals[1].marks.time, wet.time);
+    CHECK_EQ_INT(t->totals[1].marks.difficulty, wet.difficulty);
+    CHECK_EQ_INT(g32(t->totals[1].row + RECORD_ROW_TIME), 500);
+}
+
+/* The Warrior's times are kept, on the cheats table with W; the moon's gravity is a cheat too (L), through the glue */
+static void test_the_warrior_and_the_moon_are_cheats(void)
+{
+    unified(1);
+    static Race r;
+    race(&r, TR1, WARRIOR, 1, 99999, 300);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    const RecordTable *t = race_records_find(TR1, 0, 1, 8);
+    CHECK(t != NULL && t->totals[0].marks.cheats == EXTRAS_MARK_WARRIOR);
+    CHECK(race_records_find(TR1, 0, 0, 8) == NULL);
+    records_glue_begin(r.image, 1, (const uint8_t[18]){ 0 }, 0, 0, 0, 0, 0);
+    race_records_lunar_set(1);
+    race(&r, TR1, 0, 1, 99999, 200);
+    CHECK_EQ_INT(records_glue_route(ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    t = race_records_find(TR1, 0, 1, 8);
+    CHECK(t != NULL && t->totals[0].marks.cheats == EXTRAS_MARK_LUNAR);
+    char letters[6];
+    records_mark_text(EXTRAS_MARK_NITRO | EXTRAS_MARK_WARRIOR | EXTRAS_MARK_LUNAR, letters);
+    CHECK(strcmp(letters, "NWL") == 0);
+}
+
+/* A tournament's totals take the cheats it began with, the moon's gravity of its first race among them */
+static void test_a_tournament_keeps_its_cheats(void)
+{
+    unified(1);
+    static Race r;
+    race(&r, TR1, 0, 1, 99999, 200);
+    const uint8_t first[18] = { 0 }, later[18] = { 1 };
+    records_glue_begin(r.image, RECORDS_TOURNAMENT, first, 0, 0, 0, 1, 0);   /* nitro on */
+    race_records_lunar_set(1);
+    CHECK_EQ_INT(records_glue_kind(ROUTE_TOTALS).marks, EXTRAS_MARK_NITRO | EXTRAS_MARK_LUNAR);
+    records_glue_begin(r.image, RECORDS_TOURNAMENT, later, 0, 0, 0, 0, 0);   /* the cheats cleared, no moon: the tournament's still */
+    race_records_lunar_set(0);
+    CHECK_EQ_INT(records_glue_kind(ROUTE_TOTALS).marks, EXTRAS_MARK_NITRO | EXTRAS_MARK_LUNAR);
+    CHECK_EQ_INT(records_glue_kind(ROUTE_LAP).marks, 0);   /* its own race's lap: its own cheats */
+}
+
+/* The layout as raced: the reversed track (known once it ran) is a bit of its own, both variants together too */
+static void test_the_layout_comes_from_the_flags_and_the_race(void)
+{
+    unified(1);
+    static Race r;
+    race(&r, TR1, 0, 1, 99999, 200);
+    records_glue_begin(r.image, 1, (const uint8_t[18]){ 0 }, 1, 1, 0, 0, 0);
+    reverse_track_set(1);
+    CHECK_EQ_INT(records_glue_kind(ROUTE_TOTALS).layout, LAYOUT_MIRROR | LAYOUT_REVERSE | LAYOUT_RALLY);
+    reverse_track_set(0);
+    CHECK_EQ_INT(records_race_kind(0, 1, 0, 1, 0, 1).layout, LAYOUT_RALLY);
+    CHECK_EQ_INT(records_race_kind(0, 1, 0, 1, 0, 1).marks, EXTRAS_MARK_EXPLODE | EXTRAS_MARK_TURBO);
+}
+
+/* The best lap is the track's, layout's and cheats', whatever the lap count; the tables are the lap count's */
+static void test_the_best_lap_is_shared_by_every_lap_count(void)
+{
+    unified(1);
+    static Race r;
+    race(&r, TR1, 0, 700, 99999, 9000);
     free_laps_set(7);
-    CHECK(free_records_find(TR1, RECORDS_NORMAL, 0, 7) == NULL);
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
-    CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);   /* config.dat's tables are as they were */
-    const FreeTable *t = free_records_find(TR1, RECORDS_NORMAL, 0, 7);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    race(&r, TR1, 0, 800, 99999, 9500);
+    free_laps_set(9);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 0);   /* slower: the 7-lap race's stays */
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);   /* its own table's first */
+    race(&r, TR1, 0, 650, 99999, 9600);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
+    const RecordRow *lap = race_records_lap_find(TR1, 0, 0);
+    CHECK(lap != NULL && g32(lap->row + RECORD_ROW_TIME) == 650);
+    CHECK(race_records_find(TR1, 0, 0, 7) != NULL && race_records_find(TR1, 0, 0, 9) != NULL);
+    int laps[4];
+    CHECK_EQ_INT(race_records_laps(TR1, 0, 0, laps, 4), 2);
+    CHECK_EQ_INT(records_race_laps(r.image), 9);
+    free_laps_set(0);
+    CHECK_EQ_INT(records_race_laps(r.image), 8);   /* the menu's choice 1 */
+}
+
+/* A stage keeps its segments' times and speeds (no laps); the circuit's segment check and the stage's lap check take nothing */
+static void test_a_stage_keeps_its_segments(void)
+{
+    unified(1);
+    static Race r;
+    race(&r, COASTAL, 0, 1, 99999, 3000);
+    p16(r.image + 0x93, 2);   /* the second segment */
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 3);
+    const RecordTable *t = race_records_find(COASTAL, 0, 0, 0);
     CHECK(t != NULL);
     if (t != NULL) {
-        CHECK(memcmp(t->rows, "ME", 3) == 0);
-        CHECK_EQ_INT(g32(t->rows + FREE_RECORDS_TIME), 100);
+        CHECK_EQ_INT(g32(t->segment_time[1].row + RECORD_ROW_TIME), 1000);
+        CHECK_EQ_INT(g32(t->segment_speed[1].row + RECORD_ROW_SPEED), 99999);
+        CHECK(!race_records_row_set(&t->segment_time[0]));
     }
-    CHECK(strcmp(stored_name, "free_records.dat") == 0);
-    CHECK(free_records_find(TR1, RECORDS_NORMAL, 0, 9) == NULL);   /* another count has its own */
-    const int after_first = saves;
-    race(&r, 0, 1, 5000, 99999, 2000000000);   /* slower than all ten rows: nothing taken, nothing saved */
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
-    CHECK_EQ_INT(saves, after_first);
-    race(&r, 0, 1, 5000, 99999, 99);    /* better: row 0, the old one down a row */
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
-    t = free_records_find(TR1, RECORDS_NORMAL, 0, 7);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
     if (t != NULL) {
-        CHECK_EQ_INT(g32(t->rows + FREE_RECORDS_TIME), 99);
-        CHECK_EQ_INT(g32(t->rows + FREE_RECORDS_ROW + FREE_RECORDS_TIME), 100);
+        CHECK_EQ_INT(t->stage_speeds[0], 11);
+        CHECK_EQ_INT(t->stage_totals[2], 23);
     }
-    free_laps_set(0);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
+    race(&r, TR1, 0, 1, 99999, 3000);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 0);
 }
 
-static void test_without_the_flag_a_free_race_keeps_no_total(void)
+/* A row taken is saved at once: the file holds it */
+static void test_a_record_is_saved_at_once(void)
 {
-    fresh();
-    Race r;
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    race(&r, 0, 1, 5000, 99999, 100);
-    free_laps_set(7);
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
-    CHECK(free_records_find(TR1, RECORDS_NORMAL, 0, 7) == NULL);
-    free_laps_set(0);
+    unified(1);
+    static Race r;
+    race(&r, TR1, 0, 1, 99999, 1234);
+    CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_REVERSE, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK(slot_of("race_records.dat", 0) >= 0);
+    race_records_reset();
+    CHECK_EQ_INT(race_records_load(), RACE_RECORDS_LOADED);
+    const RecordTable *t = race_records_find(TR1, LAYOUT_REVERSE, 0, 8);
+    CHECK(t != NULL && g32(t->totals[0].row + RECORD_ROW_TIME) == 1234);
 }
 
-static void test_the_flag_leaves_the_exes_counts_and_races_alone(void)
+/* The results show the race's table: its rows in the first choice's place (the choice word 0), its cheats in the slots, its words */
+static void test_the_results_show_the_races_table(void)
 {
-    fresh();
-    flag_on();
-    Race r;
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    race(&r, 0, 2, 5000, 99999, 100);
-    free_laps_set(8);   /* the track's own count: config.dat's table of choice 1, as before */
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
-    free_laps_set(0);
-    CHECK(free_records_find(TR1, RECORDS_NORMAL, 0, 8) == NULL);
-    race(&r, 0, 1, 5000, 99999, 100);   /* not a free race at all: the exe's, whatever the flag */
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
-    CHECK(free_records_laps(TR1, RECORDS_NORMAL, 0, (int[4]){ 0 }, 4) == 0);
-}
-
-static void test_a_free_race_with_cheats_or_a_variant_has_its_own_tables(void)
-{
-    fresh();
-    flag_on();
-    Race r;
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    free_laps_set(7);
-    race(&r, 0, 1, 5000, 99999, 100);
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, EXTRAS_MARK_NITRO }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
-    race(&r, 0, 1, 5000, 99999, 100);
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_MIRROR, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
-    const FreeTable *cheats = free_records_find(TR1, RECORDS_NORMAL, 1, 7), *mirror = free_records_find(TR1, RECORDS_MIRROR, 0, 7);
-    CHECK(cheats != NULL && mirror != NULL);
-    CHECK(free_records_find(TR1, RECORDS_NORMAL, 0, 7) == NULL);
-    if (cheats != NULL) CHECK_EQ_INT(cheats->marks[0], EXTRAS_MARK_NITRO);
-    if (mirror != NULL) CHECK_EQ_INT(mirror->marks[0], 0);   /* no cheats, no mark */
-    free_laps_set(0);
-}
-
-static void test_a_stage_or_the_warrior_keeps_no_free_total(void)
-{
-    fresh();
-    flag_on();
-    Race r;
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    free_laps_set(7);
-    race(&r, 0, 1, 5000, 99999, 100);
-    p16(r.image + 0x95, 1);   /* a stage */
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), RECORD_CHECK_NONE);
-    race(&r, WARRIOR, 1, 5000, 99999, 100);   /* the Warrior's times are the port's, on the cheats table with its mark */
-    CHECK_EQ_INT(records_route((RaceKind){ RECORDS_NORMAL, 0 }, ROUTE_TOTALS, r.image, r.game, 0, times), 0);
-    const FreeTable *t = free_records_find(TR1, RECORDS_NORMAL, 1, 7);
-    CHECK(t != NULL);
-    if (t != NULL) CHECK_EQ_INT(t->marks[0], EXTRAS_MARK_WARRIOR);
-    free_laps_set(0);
-}
-
-/* the results show the table the race was checked against: the free count's, in the first choice's place of the image the screens read */
-static void test_the_results_show_the_free_table_the_race_took_a_row_in(void)
-{
+    unified(1);
+    static Race r;
     static uint8_t shown[RECORD_CHECK_IMAGE];
-    static const uint8_t no_races[18];
-    static uint8_t game[RECORD_CHECK_GAME];
-    Race r;
-    int32_t times[RECORD_CHECK_TIMES] = { 0 };
-    fresh();
-    flag_on();
-    race(&r, 0, 2, 5000, 99999, 100);   /* the menu's choice is 2 */
-    memcpy(game, r.game, sizeof game);
-    records_glue_begin(0, no_races, 0, 0, 0, 1, 0);   /* NITRO: the cheats table */
-    free_laps_set(7);
-    CHECK_EQ_INT(records_glue_route(ROUTE_TOTALS, r.image, game, 0, times), 0);
-    records_glue_shown_as(ROUTE_TOTALS, shown, r.image);
-    CHECK_EQ_INT(records_choice(shown), 0);   /* the table the screens read is the first choice's of the shown image */
-    CHECK(memcmp(shown + FIRST + RECORDS_BLOCK * TR1 + 0xea, "ME", 3) == 0);
-    CHECK_EQ_INT(g32(shown + FIRST + RECORDS_BLOCK * TR1 + 0xea + FREE_RECORDS_TIME), 100);
-    ResultsMarks marks;
-    records_glue_marks_as(ROUTE_TOTALS, r.image, &marks);
-    CHECK_EQ_INT(marks.choice, 0);
-    CHECK(marks.slots != NULL);
-    if (marks.slots != NULL) CHECK_EQ_INT(marks.slots[records_slot_totals(TR1, 0, 0)], EXTRAS_MARK_NITRO);
-    free_laps_set(8);   /* a race of the track's own count shows that choice's table, as it always did */
-    records_glue_shown_as(ROUTE_TOTALS, shown, r.image);
-    CHECK_EQ_INT(records_choice(shown), 1);
-    free_laps_set(0);
+    uint8_t slots[RECORDS_MARK_SLOTS];
+    race(&r, TR1, 0, 1, 99999, 777);
+    CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_RALLY, EXTRAS_MARK_NITRO }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    records_route_shown((RaceKind){ LAYOUT_RALLY, EXTRAS_MARK_NITRO }, r.image, shown, slots);
+    CHECK_EQ_INT(g32(shown + 0xb5 + 0xa6b * TR1 + 0xea + 0x1b), 777);
+    CHECK_EQ_INT(shown[0xb3], 0);
+    CHECK_EQ_INT(slots[records_slot_totals(TR1, 0, 0)], EXTRAS_MARK_NITRO);
+    CHECK_EQ_INT(records_choice(r.image), 0);
+    char line[64];
+    records_table_line(LAYOUT_MIRROR | LAYOUT_RALLY, 0, 6, line, sizeof line);
+    CHECK(strcmp(line, "MIRROR + RALLY - NO CHEATS - 6 LAPS") == 0);
+    records_table_line(LAYOUT_NORMAL, 1, 0, line, sizeof line);
+    CHECK(strcmp(line, "NORMAL - CHEATS") == 0);
+    records_table_line(LAYOUT_REVERSE, 0, 1, line, sizeof line);
+    CHECK(strcmp(line, "REVERSE - NO CHEATS - 1 LAP") == 0);
+    /* the original's: the image as it is, no marks, no words */
+    unified(0);
+    records_route_shown((RaceKind){ LAYOUT_RALLY, EXTRAS_MARK_NITRO }, r.image, shown, slots);
+    CHECK(memcmp(shown, r.image, sizeof shown) == 0);
+    CHECK(records_glue_line(ROUTE_TOTALS, r.image) == NULL);
+    CHECK_EQ_INT(records_glue_cheats(ROUTE_TOTALS, r.image), 0);
 }
 
-static void test_the_records_screen_gets_the_selector_only_with_the_flag(void)
+/* The conditions are the race's: the original's own time of day maps to the nearest */
+static void test_the_conditions(void)
 {
-    static uint8_t image[RECORD_CHECK_IMAGE];
-    fresh();
-    BestTimesPlus *plus = records_glue_best_plus(image, 1, 0);
-    CHECK_EQ_INT(plus->laps_select, 0);
-    CHECK_EQ_INT(plus->variant, RECORDS_MIRROR);
-    flag_on();
-    plus = records_glue_best_plus(image, 0, 1);
-    CHECK_EQ_INT(plus->laps_select, 1);
-    CHECK_EQ_INT(plus->variant, RECORDS_RALLY);
-    CHECK_EQ_INT(records_glue_best_plus(image, 0, 0)->variant, RECORDS_NORMAL);
+    CHECK_EQ_INT(race_records_original_time(0), LIGHT_TIME_DAWN);
+    CHECK_EQ_INT(race_records_original_time(1), LIGHT_TIME_DAY);
+    CHECK_EQ_INT(race_records_original_time(2), LIGHT_TIME_DUSK);
+    const RecordMarks m = race_records_conditions_of(WEATHER_STORM, 0, 1, LIGHT_TIME_DAWN, 1, 1, 1);
+    CHECK_EQ_INT(m.weather, RECORD_MARK_KNOWN | WEATHER_STORM | RECORD_WEATHER_WET);
+    CHECK_EQ_INT(m.time, RECORD_MARK_KNOWN | LIGHT_TIME_DAWN);
+    CHECK_EQ_INT(m.difficulty, RECORD_MARK_KNOWN | 1 | 1 << 2 | 1 << 4);
+    CHECK_EQ_INT(m.cheats, 0);
 }
 
 int main(void)
 {
     exe_tables_for_test();
-    test_the_results_show_the_table_the_race_was_checked_on();
-    test_a_free_race_keeps_its_lap_and_top_speed();
-    test_a_free_race_on_the_tracks_own_count_takes_that_choices_totals();
-    test_a_free_race_on_another_count_keeps_no_total();
-    test_a_free_race_with_a_cheat_marks_the_remapped_choice_or_nothing();
-    test_a_free_race_keeps_no_segment_record();
-    test_a_free_race_takes_its_own_lap_counts_table_with_the_flag();
-    test_without_the_flag_a_free_race_keeps_no_total();
-    test_the_flag_leaves_the_exes_counts_and_races_alone();
-    test_a_free_race_with_cheats_or_a_variant_has_its_own_tables();
-    test_a_stage_or_the_warrior_keeps_no_free_total();
-    test_the_results_show_the_free_table_the_race_took_a_row_in();
-    test_the_records_screen_gets_the_selector_only_with_the_flag();
-    test_a_normal_race_without_cheats_takes_the_images_table();
-    test_a_race_outside_original_keeps_no_record();
-    test_a_mirror_race_leaves_the_images_table();
-    test_a_race_with_nitro_goes_to_the_cheats_table_with_its_mark();
-    test_a_segment_check_marks_only_the_rows_it_takes();
-    test_totals_marks_follow_their_rows();
-    test_the_warrior_goes_to_the_cheats_table_with_its_mark();
-    test_a_warrior_rival_changes_nothing();
-    test_the_warrior_mark_is_a_letter();
-    test_a_track_with_no_table_is_not_taken();
-    test_the_kind_comes_from_the_flags();
-    test_tournament_totals_show_the_tournaments_table();
+    test_the_originals_records_are_the_exes_byte_for_byte();
+    test_the_originals_free_race();
+    test_the_originals_keep_no_race_it_could_not_run();
+    test_every_layout_and_cheats_is_its_own_table();
+    test_rows_keep_their_marks();
+    test_the_warrior_and_the_moon_are_cheats();
+    test_a_tournament_keeps_its_cheats();
+    test_the_layout_comes_from_the_flags_and_the_race();
+    test_the_best_lap_is_shared_by_every_lap_count();
+    test_a_stage_keeps_its_segments();
+    test_a_record_is_saved_at_once();
+    test_the_results_show_the_races_table();
+    test_the_conditions();
+    files_clear();
+    free_laps_set(0);
     return TEST_REPORT();
 }

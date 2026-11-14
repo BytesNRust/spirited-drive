@@ -70,6 +70,7 @@ typedef struct StandingsInputs {
     int32_t screen;             /* 00524834 */
     int32_t screen_shape;       /* [00524834] + 0x2c */
     int cheats;                 /* port: 1 when the race ran with cheats: the header band's "(CHEATS)" (records_glue_cheats) */
+    const char *line;           /* port (dep55): the table's words under it (records_glue_line); NULL: none */
 } StandingsInputs;
 
 typedef struct StandingsState {

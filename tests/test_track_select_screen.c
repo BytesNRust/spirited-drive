@@ -76,6 +76,8 @@ static int32_t key(void *ctx)
     return i % 2 ? 0 : s->keys[i / 2];
 }
 
+static int *custom_laps;   /* dep55: Restomod's laps row (TrackSelectPlus.laps); NULL the exe's */
+
 /* the screen on track 3 (not a tournament), the keys, and what the weather and the console version time are afterwards */
 static void run_on(const uint16_t *keys, int count, int *weather, int *light_time, int use_light_time, int *reverse, int track)
 {
@@ -84,7 +86,7 @@ static void run_on(const uint16_t *keys, int count, int *weather, int *light_tim
     config[TRACK_SELECT_TRACK] = (uint8_t)track;
     config[TRACK_SELECT_LAPS] = 8;
     const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
-    TrackSelectPlus plus = { 0, 0, &variant_m, &variant_r, 0, 1, weather, use_light_time ? light_time : NULL, reverse };
+    TrackSelectPlus plus = { 0, 0, &variant_m, &variant_r, 0, 1, weather, use_light_time ? light_time : NULL, reverse, custom_laps };
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
     DialogPointer p = { 0, 0, 0, 0, 0, 0 };
     Script script = { keys, 0, count };
@@ -154,6 +156,24 @@ static void test_escape_puts_them_back(void)
     run(keys, 5, &weather, &light_time, 1);
     CHECK_EQ_INT(weather, 0);
     CHECK_EQ_INT(light_time, 0);
+}
+
+/* dep55: Left and Right on the laps row step Restomod's custom count; Done keeps it, Escape puts it back as it came */
+static void test_custom_laps_and_escape(void)
+{
+    int weather = 0, light_time = 0, laps = 5;
+    custom_laps = &laps;
+    const uint16_t keep[] = { DOWN, RIGHT, RIGHT, UP, ENTER };   /* Done -> the laps row; 5 -> 7; back to Done */
+    run(keep, 5, &weather, &light_time, 0);
+    CHECK_EQ_INT(laps, 7);
+    const uint16_t esc[] = { DOWN, LEFT, LEFT, LEFT, ESCAPE };
+    run(esc, 5, &weather, &light_time, 0);
+    CHECK_EQ_INT(laps, 7);
+    laps = 1;
+    const uint16_t wrap[] = { DOWN, LEFT, LEFT, UP, ENTER };   /* 1 -> the menu's (0) -> 99, round */
+    run(wrap, 5, &weather, &light_time, 0);
+    CHECK_EQ_INT(laps, 99);
+    custom_laps = NULL;
 }
 
 static void test_light_time_toggle(void)
@@ -265,6 +285,7 @@ int main(void)
     test_weather_row();
     test_reverse_row();
     test_escape_puts_them_back();
+    test_custom_laps_and_escape();
     test_light_time_toggle();
     test_light_time_reaches_night_and_wraps();
     test_night_label_is_text();

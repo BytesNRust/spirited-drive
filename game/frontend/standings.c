@@ -27,10 +27,11 @@ static int32_t g32(const uint8_t *game, int at)
 }
 
 /* port: the header band's "(CHEATS)", right of the Road & Track logo, the place results_screen.h's banner is at */
-static void draw_banner(const StandingsOps *ops)
+static void draw_banner(const StandingsInputs *in, const StandingsOps *ops)
 {
     ops->text_select(ops->ctx, 1);
-    ops->text_boxed(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
+    if (in->cheats) ops->text_boxed(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
+    if (in->line != NULL) ops->text_boxed(ops->ctx, in->line, RESULTS_LINE_X, RESULTS_LINE_Y);   /* port (dep55): the table's words */
 }
 
 static void draw_segment(const StandingsInputs *in, int32_t bank, int segment, const StandingsOps *ops)
@@ -123,7 +124,7 @@ void standings_screen(int segment_mode, const StandingsInputs *in, StandingsStat
             ops->select(ops->ctx, in->screen);
             if (first) {
                 ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "bgnd"));
-                if (in->cheats) draw_banner(ops);
+                draw_banner(in, ops);
                 if (selected == 0) ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "Donl"));
                 if (segment_mode) draw_segment(in, bank, segment, ops);
                 else draw_totals(in, ops);

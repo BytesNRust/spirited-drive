@@ -12,14 +12,13 @@ int16_t cg_car_points[GAME_STATE_PLAYERS];
  * 0; 0045b73c, 0045b6c8 on the game state */
 /* the records the finishing player takes are this machine's (004fbb08: the slot in a link game, 0 alone) */
 /* the records a results screen shows: its image is config.dat's with the race's table in its track block, refreshed after
- * each check so that the row a check set is the row shown (records_glue_shown) */
+ * each check so that the row a check set is the row shown (records_glue_shown_as) */
 static uint8_t shown_image[RECORD_CHECK_IMAGE];
 static ResultsMarks shown_marks;   /* port: the cheats of the same table, refreshed with it */
 static int32_t records_checked(RouteOp op, int32_t *times)
 {
     const int32_t answer = records_glue_route(op, config_current()->image, cg_game_state, menu_words.single, times);
-    records_glue_shown_as(op, shown_image, config_current()->image);
-    records_glue_marks_as(op, config_current()->image, &shown_marks);
+    records_glue_shown_as(op, shown_image, config_current()->image, &shown_marks);
     return answer;
 }
 static int32_t records(void *ctx) { (void)ctx; return records_checked(ROUTE_SEGMENT, NULL); }
@@ -54,8 +53,7 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
     static const char *const CAR_NAMES[RESULTS_CARS] = { "RX-7", "NSX", "SUPRA", "911", "ZR-1", "VIPER",
                                                          "512TR", "DIABLO", "PACK", "CLOCK", "CLASS", "WARRIOR" };
     const int32_t screen = ea_screen();
-    records_glue_shown(shown_image, config_current()->image);
-    records_glue_marks_as(ROUTE_SEGMENT, config_current()->image, &shown_marks);
+    records_glue_shown_as(ROUTE_SEGMENT, shown_image, config_current()->image, &shown_marks);
     ResultsInputs in = { cg_game_state, shown_image, r->dropped, menu_words.single, r->place, r->rival_place,
                                r->rival, r->rival_car, resource_german(), resource_kmh(), 0, screen, ea_picture_shape(screen),
                                CAR_NAMES, cg_g.lost_vegas, cg_g.variant_r, r->player_place, r->shown_place, finish, &shown_marks };
@@ -98,7 +96,7 @@ void cg_drive(void *ctx, int32_t argc, char *const *argv)
                                      (uint32_t)menu_cheats.keys_506, cg_g.explode, cg_g.nitro, port_extras_load().replay_cameras,
                                      (const char *)config_current()->image, cg_g.track,
                                      config_current()->image + OPTIONS_AT };
-    records_glue_begin(cg_g.race_type, cg_game_state + 0x592, cg_g.variant_m, cg_g.variant_r, cg_g.explode, cg_g.nitro,
+    records_glue_begin(config_current()->image, cg_g.race_type, cg_game_state + 0x592, cg_g.variant_m, cg_g.variant_r, cg_g.explode, cg_g.nitro,
                        (menu_cheats.keys_506 & 8) != 0);   /* port: which table its records go to */
     menu_audio_close();  /* the drive opens the device itself (drive_audio_open); its pause menu uses the menus' layer */
     track_viewer_drive_menus(&menus);
@@ -121,7 +119,8 @@ void cg_standings(void *ctx, int32_t segment)
     const int32_t screen = ea_screen();
     StandingsInputs in = { cg_game_state, finish, cg_car_points, cg_image_short(0x95), cg_image_short(0x93),
                                  cg_image_short(0xb1), resource_german(), cg_g.unlock_level, 0, screen,
-                                 ea_picture_shape(screen), records_glue_cheats(ROUTE_SEGMENT, config_current()->image) };
+                                 ea_picture_shape(screen), records_glue_cheats(ROUTE_SEGMENT, config_current()->image),
+                                 records_glue_line(ROUTE_SEGMENT, config_current()->image) };
     StandingsState st = { cg_g.inverse, cg_screen_palette };
     int x, y;
     pointer_position(&x, &y);

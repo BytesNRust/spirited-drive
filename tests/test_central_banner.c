@@ -4,6 +4,8 @@
 #include "game/frontend/records_route.h"
 #include "test.h"
 
+#include <stdlib.h>
+
 #include <string.h>
 
 /* central_banner.c reaches records_route.c and its port tables, which read files through the platform; the test has no
@@ -15,6 +17,13 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
     return false;
 }
 void platform_free_file(uint8_t *data) { (void)data; }
+bool platform_user_file_exists(const char *name)
+{
+    size_t size = 0;
+    uint8_t *data = platform_read_user_file(name, &size);
+    if (data != NULL) platform_free_file(data);
+    return data != NULL;
+}
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
 
 typedef struct {
@@ -83,7 +92,7 @@ static void test_agrees_with_routing(void)
         ControlCentralState st;
         bind(&st, &f);
         const RaceKind kind = records_kind_with_car(
-            records_race_kind(f.variant_m, f.variant_r, f.explode, f.nitro, (f.track_flags & 8) != 0), f.car);
+            records_race_kind(f.variant_m, f.variant_r, 0, f.explode, f.nitro, (f.track_flags & 8) != 0), f.car);
         CHECK_EQ_INT(central_cheats_on(&st), records_has_cheats(kind));
     }
 }
@@ -159,8 +168,41 @@ static void test_flag_off_is_the_exe(void)
     CHECK_EQ_INT(central_banner_stale(&r), 0);   /* still, so no redraw is asked for */
 }
 
+/* Stock and Restored keep the original's records, every race mixed: with every cheat on and the banner's flag set, nothing
+ * is drawn; a live switch to Restomod (and back) is seen at the next look, and asks for a redraw */
+static void test_only_restomod_warns(void)
+{
+    ControlCentralOps ops;
+    CentralRun r;
+    Drawn d = { 0 };
+    ControlCentralState st;
+    Flags f = none();
+    f.explode = 1, f.nitro = 1, f.track_flags = 8, f.car = 11;
+    memset(&ops, 0, sizeof ops);
+    ops.ctx = &d, ops.plus_text = plus_text, ops.port_banner = 1;
+    bind(&st, &f);
+    memset(&r, 0, sizeof r);
+    r.st = &st, r.ops = &ops;
+    setenv("TNFS_RECORDS_UNIFIED", "0", 1);
+    CHECK_EQ_INT(central_cheats_on(&st), 0);
+    CHECK_EQ_INT(central_banner_stale(&r), 0);
+    central_banner(&r);
+    CHECK_EQ_INT(d.calls, 0);
+    setenv("TNFS_RECORDS_UNIFIED", "1", 1);   /* switched to Restomod */
+    CHECK_EQ_INT(central_banner_stale(&r), 1);
+    central_banner(&r);
+    CHECK_EQ_INT(d.calls, 1);
+    CHECK(strcmp(d.text, "CHEATS ENABLED") == 0);
+    r.banner_shown = 1;
+    setenv("TNFS_RECORDS_UNIFIED", "0", 1);   /* and back: the banner goes */
+    CHECK_EQ_INT(central_banner_stale(&r), 1);
+    setenv("TNFS_RECORDS_UNIFIED", "1", 1);
+}
+
 int main(void)
 {
+    setenv("TNFS_RECORDS_UNIFIED", "1", 1);   /* the banner's own tests: Restomod's records */
+    test_only_restomod_warns();
     test_predicate();
     test_agrees_with_routing();
     test_draw();

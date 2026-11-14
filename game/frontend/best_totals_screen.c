@@ -51,7 +51,7 @@ static void draw_table(const ResultsInputs *in, int32_t bank, int16_t row, int16
     /* port guard: the original indexes its nine names with any short */
     if ((uint16_t)track < TRACKS) ops->blit(ops->ctx, ops->shape(ops->ctx, bank, TRACK_TAG[track]));
     ops->text_select(ops->ctx, 1);
-    if (results_cheats(in)) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
+    results_header_marks(in, ops);   /* port: "(CHEATS)" and the table line */
     for (int i = 0; i < ROWS; i++) {
         const uint8_t *best = table + BEST_ROW * i;
         const int32_t y = ROW_STEP * i + ROW_Y;

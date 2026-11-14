@@ -71,12 +71,13 @@ typedef struct ResultsOps {
 
 enum { RESULTS_GAME = 0x5bc, RESULTS_IMAGE = 0x5f34, RESULTS_CARS = 12 };
 
-/* port: the cheats a records table's rows were set with (port_records.h's marks of the track in the table shown) and
- * the laps choice its circuit totals take (records_slot_totals), with the x the letters start at: after the longest
- * car name (the car is drawn at 0x1d6). Shown after a row's car and before its gearbox mark. */
+/* port: the cheats a records table's rows were set with (records_route_shown's slots of the table shown) and the laps choice its
+ * circuit totals take (records_slot_totals); and, with Restomod's records, the table's words ("MIRROR - NO CHEATS - 6 LAPS") drawn under
+ * the header band (RESULTS_LINE_*). */
 typedef struct ResultsMarks {
     const uint8_t *slots;   /* RECORDS_MARK_SLOTS bytes, EXTRAS_MARK_* a slot */
     int choice;
+    const char *line;       /* NULL: none (Stock, Restored) */
 } ResultsMarks;
 
 /* port: the letters start here, in the gap after the record's name (names on the cheats table fit 200, to 207) and
@@ -112,6 +113,10 @@ static inline int results_cheats(const ResultsInputs *in) { return in->marks != 
  * art ends near x 270); the same place on the segment, totals, circuit, track, lap and best-totals screens */
 #define CHEATS_BANNER "(CHEATS)"
 enum { CHEATS_BANNER_X = 0x122, CHEATS_BANNER_Y = 0x14 };
+/* port (dep55): the table line, under the banner's place */
+enum { RESULTS_LINE_X = 0x122, RESULTS_LINE_Y = 0x28 };
+/* port (dep55): the banner and the table line of the records shown, as every post-race screen draws them */
+void results_header_marks(const ResultsInputs *in, const ResultsOps *ops);
 
 typedef struct ResultsState {
     int32_t inverse;            /* 004c5ff4 */

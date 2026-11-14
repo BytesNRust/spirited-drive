@@ -44,7 +44,7 @@ An older `port.cfg` that still carries settings moves once at startup to the mod
 | `body_shine` | 0 | 0 | 0, 4 (the envmap; 0 the exe's frames; 1..3 in a file or `TNFS_BODY_SHINE` read as 4) | none | `TNFS_BODY_SHINE` | 0 / 0 / 4 |
 | `car_colours` | 0 | 0 | 0, 1 (the screen palette's car slots fitted to the colours the cars show; up to 12 palette entries are kept out of the fit for the police lights, the cars' lamps and the night lamps) | none (the CUSTOMIZE "Car Colours" row is extras.cfg's `extra_liveries`) | `TNFS_CAR_COLOURS` | 0 / 0 / 1 |
 | `laps` | 0 | 0 (the exe's laps) | 0, 1..99 | none (the track screen's lap count follows it) | `TNFS_LAPS` | not set |
-| `free_records` | 0 | 0 (no table for a free lap count) | 0, 1 | none | `TNFS_FREE_RECORDS` | not set |
+| `records_unified` | 0 | 0 (the original's records: config.dat's tables, every race mixed, the Warrior's kept nowhere; a laps=N race only on a count the track has) | 0, 1 (`race_records.dat`: a table per track, layout (mirror, reverse, rally, all eight), cheats and lap count, every row with its cheats, weather, time of day and difficulty; the best lap shared by every lap count; every race mode, saved after each race; the first run imports config.dat's, `records.dat`'s and `free_records.dat`'s records and leaves those files as they were; the CHEATS ENABLED banner and the results' table line) | none | `TNFS_RECORDS_UNIFIED` | 0 / 0 / 1 |
 
 ### Light effects (light, night, sky)
 
@@ -164,7 +164,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 ## What each profile sets (`TABLES`)
 
-All 59 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
+All 60 columns of the table. A column that is not here is not touched by any profile. "group" is the section above the key is in.
 
 | column | group | Stock | Restored | Restomod |
 |---|---|---|---|---|
@@ -227,8 +227,9 @@ All 59 columns of the table. A column that is not here is not touched by any pro
 | `menu_pad_cancel` | settings | 0 | 0 | 1 |
 | `tunnel_lamps` | settings | 0 | 0 | 1 |
 | `wrong_way` | settings | 0 | 0 | 1 |
+| `records_unified` | settings | 0 | 0 | 1 |
 
-The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `free_records`, `psx_dir`, `light_time`, `weather`, `render_bands`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.
+The profile does not set: `fullscreen`, `fov_adjust`, `laps`, `psx_dir`, `light_time`, `weather`, `render_bands`, `camera_kind`, and extras' `mirror`, `rally`, `warrior`, `vegas`, the cheats, `lunar_*`, `reverse`, `units`, `difficulty`, `start`, `no_movies`, `no_assists`, `replay_cameras`, `car_markers`, `stats_overlay`, `dash_box`, `variant_time`, `car_paint`, `update_check`.
 
 ## Development-only variables
 

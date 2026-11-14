@@ -15,6 +15,7 @@
 #include "game/sys/port_extras.h"
 #include "game/sys/free_laps.h"
 #include "game/race/track_wall.h"
+#include "game/sys/race_records.h"
 #include "game/sys/reverse_track.h"
 #include "game/race/race_schedule.h"
 #include "game/sys/port_settings.h"
@@ -341,9 +342,13 @@ static void drive_start_world(const Track *t, const char *data_root, const char 
     track_wall_set_inner(t->reversed);   /* the walls where they were */
     track_wall_set_rows(port_reverse_rows());   /* port (reverse_rows) */
     difficulty_running_set(&field->port_difficulty);
+    /* port (dep55): the conditions the race's records are marked with (race_records.h) */
+    race_records_conditions_set(race_records_conditions_of(port_weather(), drive_snow, field->port_rain_grip, port_light_effects() ? port_light_time() : race_records_original_time(drive_time_of_day),
+                                                           field->port_difficulty.rivals, field->port_difficulty.police, field->port_difficulty.traffic));
+    race_records_lunar_set(field->port_lunar_gravity);   /* port (dep55): the moon's gravity is a cheat for the records */
     race_schedule_port_wrap = free_race;
     free_laps_set(free_race ? laps : 0);
-    if (free_race) port_log("free laps: %d laps (the exe's would be %d), no record is kept\n", laps, exe_laps);
+    if (free_race) port_log("free laps: %d laps (the exe's would be %d)\n", laps, exe_laps);
 }
 
 /* The race's port words: the camera, the cheats, the replay's launch and the config.dat words it reads in place. */

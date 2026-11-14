@@ -1,6 +1,7 @@
 /* port: Control Central's CHEATS ENABLED banner beside the RACE item: on while a cheat that sends the race's records to
  * the cheats table is on, the records routing's own predicate (records_route.h's records_has_cheats over the kind the
- * flags make). Mirror and rally are variants, not cheats, so they alone show nothing. */
+ * flags make). Mirror and rally are variants, not cheats, so they alone show nothing. Restomod's only (port_records_unified): Stock and
+ * Restored keep the original's mixed records and show nothing. */
 #ifndef TNFS_CENTRAL_BANNER_H
 #define TNFS_CENTRAL_BANNER_H
 

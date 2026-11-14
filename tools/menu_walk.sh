@@ -3,6 +3,12 @@
 #
 #   targets: options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
 #            graphics  extras (page 1/3)  extras-p2  extras-p3
+#            track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
+#            best-circuit-p2  best-cheats (Coastal, the table with cheats: none)
+#        KEYS (track and best-times: more steps after the screen opens, e.g. 1500:UP,800:RIGHT) and TAIL (the seconds they take)
+#        USER_FILES (a folder whose files the walk starts with in its user folder: a race_records.dat)
+#        PROFILE (stock, restored or restomod; default the game's own first run): the mode the walk runs in (Best Times' pages are
+#        Restomod's)
 #
 # Every step waits for the game's own "mark:screen=NAME" log line (the front end logs one as each screen opens), not for a time; the clicks wait for
 # the screen to be still (TNFS_INPUT_SETTLE). A step that does not come in time stops the run and says which ("input script: step N: WAIT ... timed
@@ -10,6 +16,7 @@
 #   env: DATA (the game data folder, default <repo>/original)  STEP_TIMEOUT (60 s a step)  SETTLE (1500 ms)  KEEP=1 (keep the scratch dir, for a look)
 #        FORMAT (4:3, 16:9 or 21:9; default 4:3): the screen format the walk runs in. The 640x480 menus sit centred on a wider screen, so every click
 #        and pointer move is shifted right by the menu's left edge there ((width - 640) / 2: 107 at 16:9, 240 at 21:9)
+# A target that goes on with keys after its screen's mark (Best Times' pages) waits `tail` seconds for them before the picture.
 # The picture is the page the game ended on: the walk checks that the last screen the game logged is the target's, and fails (exit 4) when it is not,
 # so a saved <target>.png is always that page.
 # exit: 0 reached and saved; 3 a step timed out; 4 the game went on past the target (the last screen logged is another); 2 bad arguments, no binary
@@ -45,6 +52,11 @@ park() { printf '300:MOUSE:%s:%s' $(( 330 + dx )) 405; }
 # name box left, Control Central
 to_central="1500:ESC,0:WAIT:mark:movie=:$step,500:ESC,$(wait_for game_mode),$(click 310 217),$(wait_for name_box),500:TEXT:R,500:ENTER,$(wait_for central)"
 to_options="$to_central,$(click 215 450),$(wait_for options)"
+to_track="$to_central,$(click 400 320),$(wait_for track_select)"
+to_best="$to_track,$(click 560 460),$(wait_for best_times),$(park)"
+# the footer's right arrow (the next track) and the pages' keys: Page Down the next page, Up thrice to the cheats field and Right to turn it
+next_track="300:MOUSE:$(( 390 + dx )):455,300:CLICK:$(( 390 + dx )):455,3000:MOUSE:$(( 330 + dx )):405"
+page_on="1500:PGDN"
 
 case $target in
 options)      script="$to_options"; final=options ;;
@@ -55,6 +67,13 @@ graphics)     script="$to_options,$(click 80 250),$(wait_for graphics)"; final=g
 extras)       script="$to_options,$(click 100 392),$(wait_for extras_p1)"; final=extras_p1 ;;
 extras-p2)    script="$to_options,$(click 100 392),$(wait_for extras_p1),$(next_page),$(wait_for extras_p2),$(park)"; final=extras_p2 ;;
 extras-p3)    script="$to_options,$(click 100 392),$(wait_for extras_p1),$(next_page),$(wait_for extras_p2),$(next_page),$(wait_for extras_p3),$(park)"; final=extras_p3 ;;
+track)         script="$to_track${KEYS:+,$KEYS}"; final=track_select; tail=${TAIL:-3} ;;
+best-times)    script="$to_best${KEYS:+,$KEYS}"; final=best_times; tail=${TAIL:-4} ;;
+best-times-p2) script="$to_best,$page_on"; final=best_times; tail=6 ;;
+best-times-p3) script="$to_best,$page_on,$page_on"; final=best_times; tail=8 ;;
+best-circuit)  script="$to_best,$next_track,$next_track"; final=best_times; tail=12 ;;
+best-circuit-p2) script="$to_best,$next_track,$next_track,$page_on"; final=best_times; tail=14 ;;
+best-cheats)   script="$to_best,1500:UP,800:UP,800:UP,800:RIGHT"; final=best_times; tail=9 ;;
 *) echo "unknown target: $target" >&2; exit 2 ;;
 esac
 
@@ -62,6 +81,8 @@ mkdir -p "$out" || exit 1
 work=$(mktemp -d "${TMPDIR:-/tmp}/menu_walk.XXXXXX") || exit 1
 mkdir -p "$work/user" "$work/cap"
 printf 'format=%s\n' "$format" > "$work/user/port.cfg"   # the clicks above are shifted for it
+[ -n "$PROFILE" ] && printf 'profile=%s\n' "$PROFILE" >> "$work/user/port.cfg"
+[ -n "$USER_FILES" ] && cp "$USER_FILES"/* "$work/user/"   # files the walk starts with in the user folder (a race_records.dat)
 limit=$(( step * 12 + 60 ))
 (cd "$work" && env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_CAPTURE_DIR="$work/cap" TNFS_CAPTURE_EVERY=${EVERY:-1} \
     TNFS_INPUT_SETTLE=$settle TNFS_INPUT_SCRIPT="$script" \
@@ -70,7 +91,7 @@ limit=$(( step * 12 + 60 ))
 rc=1 waited=0
 while [ $waited -lt $limit ]; do
     sleep 1; waited=$((waited + 1))
-    if grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null; then sleep 3; rc=0; break; fi
+    if grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null; then sleep ${tail:-3}; rc=0; break; fi
     if grep -q "input script: step.*timed out" "$work/user/spirited-drive.log" 2>/dev/null; then rc=3; break; fi
     pgrep -f "$work/user" >/dev/null 2>&1 || { [ $waited -gt 3 ] && break; }   # the game ended on its own (a crash, or the script's end)
 done

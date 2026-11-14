@@ -1,9 +1,14 @@
-/* The best times screen (best_times.c) with fake ops: the footer's cheats item (port), its label and the table it shows.
+/* The best times screen (best_times.c) with fake ops: without a plus the exe's screen; with one (Restomod's records) the strip of
+ * the table shown and its page, the keys through the strip's fields and the footer, the rows with their cheats and conditions.
  * The screen runs its loop on a key script; once the script is spent the deadline ends it. */
 #include "game/frontend/best_times.h"
 #include "game/frontend/track_select.h"
 #include "game/frontend/yes_no_box.h"
-#include "game/sys/free_records.h"
+#include "game/frontend/best_times_pages.h"
+#include "game/race/weather.h"
+#include "game/sys/extras_marks.h"
+#include "game/sys/port_settings.h"
+#include "game/sys/race_records.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -19,25 +24,22 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
     return false;
 }
 void platform_free_file(uint8_t *data) { (void)data; }
+bool platform_user_file_exists(const char *name)
+{
+    size_t size = 0;
+    uint8_t *data = platform_read_user_file(name, &size);
+    if (data != NULL) platform_free_file(data);
+    return data != NULL;
+}
 
-enum { ENTER = 0xd, ESCAPE = 0x1b, LEFT = 0x4b00, RIGHT = 0x4d00, UP = 0x4800, DOWN = 0x5000, TAB = 0x0f };
+enum { ENTER = 0xd, ESCAPE = 0x1b, LEFT = 0x4b00, RIGHT = 0x4d00, UP = 0x4800, DOWN = 0x5000, TAB = 9, PAGE_UP = 0x4900, SHIFT_NOTHING = 0 };
 enum { STYLE_CREAM = 0, STYLE_YELLOW = 1 };
 enum { DRAWN_MAX = 256, TEXT_MAX = 40 };
-/* the footer's cheats item: its pointer, the label's centre and text top (best_times.c), and the rect the pointer finds
- * it in. Done's words end at 76 and the left arrow starts at 221; Done's capitals are rows 449..460, so the label's
- * capitals (which sit 6 rows below its top) must be at the same baseline. */
-enum { CHEATS_POINTER_X = 148, CHEATS_POINTER_Y = 455, CHEATS_RECT_X0 = 130, CHEATS_RECT_X1 = 200 };
-enum { CHEATS_TEXT_TOP = 443, DONE_RIGHT = 76, ARROW_LEFT = 221, MIN_GAP = 12 };
-/* the words' widths as the game's font sets them (measured on the capture, 2026-10-23): the gaps left are 33 and 34
- * for "Cheats" and 14 and 15 for "No cheats" */
-enum { CHEATS_WIDTH = 78, NO_CHEATS_WIDTH = 116 };
 
 typedef struct Fake {
     const int *keys;
     int key_count, key_next;
     int calls;
-    int tab_at;              /* the key call on which Tab is pressed (-1: never) */
-    int tab_pending;
     char labels[DRAWN_MAX][TEXT_MAX];
     int32_t label_style[DRAWN_MAX];
     int32_t label_x[DRAWN_MAX], label_y[DRAWN_MAX];
@@ -130,12 +132,6 @@ static int32_t f_deadline_passed(void *ctx)
     (void)ctx;
     return fk.key_next >= fk.key_count && fk.calls > 0;
 }
-static int32_t f_plus_toggle(void *ctx)
-{
-    (void)ctx;
-    if (fk.calls - 1 == fk.tab_at && !fk.tab_pending) return fk.tab_pending = 1;
-    return 0;
-}
 static void f_plus_text(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
     (void)ctx;
@@ -148,17 +144,17 @@ static void f_plus_text(void *ctx, int32_t style, const char *text, int32_t x, i
 static int32_t f_plus_text_width(void *ctx, const char *text)
 {
     (void)ctx;
-    if (strcmp(text, "Cheats") == 0) return CHEATS_WIDTH;
-    if (strcmp(text, "No cheats") == 0) return NO_CHEATS_WIDTH;
     return (int32_t)strlen(text) * 8;
 }
-
-/* the label's gaps: clear of Done's words on the left and of the left arrow on the right, by at least MIN_GAP */
-static void check_gaps(int i, int32_t width)
+static void f_plus_scaled(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
 {
-    CHECK(fk.label_x[i] - DONE_RIGHT >= MIN_GAP);
-    CHECK(ARROW_LEFT - (fk.label_x[i] + width) >= MIN_GAP);
-    CHECK_EQ_INT(fk.label_y[i], CHEATS_TEXT_TOP);
+    (void)num, (void)den;
+    f_plus_text(ctx, style, text, x, y);
+}
+static int32_t f_plus_scaled_width(void *ctx, const char *text, int32_t num, int32_t den)
+{
+    (void)ctx;
+    return (int32_t)strlen(text) * 8 * num / den;
 }
 
 static const BestTimesOps OPS = {
@@ -207,208 +203,26 @@ static const BestTimesOps OPS = {
     .deadline_passed = f_deadline_passed,
     .music_fade_out = f_nothing,
     .music_end = f_nothing,
-    .plus_toggle = f_plus_toggle,
     .plus_text = f_plus_text,
     .plus_text_width = f_plus_text_width,
+    .plus_scaled = f_plus_scaled,
+    .plus_scaled_width = f_plus_scaled_width,
 };
 
-/* a fresh run: the keys to press (the call on which Tab goes down, or -1), the table shown first */
-static void reset(const int *keys, int count, int tab_at)
+enum { STAGE = 1, CIRCUIT = 3 };   /* Coastal; Rusty Springs (4, 8, 16 laps) */
+
+static void reset(const int *keys, int count)
 {
     memset(&fk, 0, sizeof fk);
-    fk.keys = keys, fk.key_count = count, fk.tab_at = tab_at;
+    fk.keys = keys, fk.key_count = count;
 }
 
-/* the screen on track 0 with empty tables: the plain one and, with a plus, the one with cheats shown first or not */
-static int32_t run(BestTimesPlus *plus, int cheats)
+/* the screen on `track`, the menu's laps choice 1 */
+static int32_t run(BestTimesPlus *plus, int track)
 {
     static uint8_t config[TRACK_SELECT_CONFIG];
     static uint8_t screen_palette[0x300];
     static uint8_t records[BEST_TIMES_RECORDS];
-    static uint8_t cheat_records[BEST_TIMES_RECORDS];
-    const BestTimesInputs in = { "", 0, 0, 0, 0, records };
-    BestTimesState st = { config, 0, screen_palette, plus };
-    DialogPointer p = { 0 };
-    p.active = fk.active;   /* an active pointer keeps where the test put it (no move to Back at the start) */
-    memset(config, 0, sizeof config);
-    if (plus) {
-        plus->cheats = cheats;
-        plus->laps_select = 0, plus->variant = 0;
-        plus->records[0] = records, plus->records[1] = cheat_records;
-        for (int t = 0; t < 9; t++) plus->marks[t] = NULL;
-    }
-    return best_times_screen(&in, &st, &p, &OPS);
-}
-
-static int label_index(const char *text)
-{
-    for (int i = fk.label_count - 1; i >= 0; i--)
-        if (strcmp(fk.labels[i], text) == 0) return i;
-    return -1;
-}
-
-/* without a plus the screen is the original: no label, and Right from Back goes to Done as before */
-static void test_no_plus_is_original(void)
-{
-    static const int keys[] = { RIGHT, ENTER };
-    reset(keys, 2, -1);
-    CHECK_EQ_INT(run(NULL, 0), 1);
-    CHECK_EQ_INT(fk.label_count, 0);
-}
-
-/* with a plus the label shows what the Tab would show: "Cheats" while the plain table is up */
-static void test_label_says_cheats_when_plain(void)
-{
-    static const int keys[] = { ESCAPE };
-    BestTimesPlus plus;
-    reset(keys, 1, -1);
-    CHECK_EQ_INT(run(&plus, 0), 0);
-    const int i = label_index("Cheats");
-    CHECK(i >= 0);
-    if (i >= 0) {
-        CHECK_EQ_INT(fk.label_style[i], STYLE_CREAM);
-        check_gaps(i, CHEATS_WIDTH);
-    }
-}
-
-/* the label changes with the table: "No cheats" once the cheats table is up, and that table's name is drawn */
-static void test_label_says_no_cheats_when_cheats(void)
-{
-    static const int keys[] = { ESCAPE };
-    BestTimesPlus plus;
-    reset(keys, 1, -1);
-    CHECK_EQ_INT(run(&plus, 1), 0);
-    const int i = label_index("No cheats");
-    CHECK(i >= 0);
-    if (i >= 0) check_gaps(i, NO_CHEATS_WIDTH);
-    CHECK(label_index("Cheats") < 0);
-    int named = 0;
-    for (int i = 0; i < fk.shadowed_count; i++) named |= strcmp(fk.shadowed[i], "Records (cheats)") == 0;
-    CHECK(named);
-}
-
-/* Tab still toggles, and the label follows the table (an idle frame passes so the screen draws the change) */
-static void test_tab_toggles_label(void)
-{
-    static const int keys[] = { 0, ESCAPE };
-    BestTimesPlus plus;
-    reset(keys, 2, 0);
-    CHECK_EQ_INT(run(&plus, 0), 0);
-    CHECK_EQ_INT(plus.cheats, 1);
-    CHECK(label_index("No cheats") >= 0);
-}
-
-/* the arrows reach the cheats item from Done (Right), it lights in yellow, and Enter toggles the table */
-static void test_arrows_reach_cheats_and_enter_toggles(void)
-{
-    static const int keys[] = { RIGHT, RIGHT, ENTER, ESCAPE };
-    BestTimesPlus plus;
-    reset(keys, 4, -1);
-    CHECK_EQ_INT(run(&plus, 0), 0);
-    CHECK_EQ_INT(plus.cheats, 1);
-    int lit = 0;
-    for (int i = 0; i < fk.label_count; i++) lit |= fk.label_style[i] == STYLE_YELLOW;
-    CHECK(lit);
-}
-
-/* the pointer over the item lights it; Enter then acts on it */
-static void test_pointer_lights_cheats_item(void)
-{
-    static const int keys[] = { ENTER, ESCAPE };
-    BestTimesPlus plus;
-    reset(keys, 2, -1);
-    fk.active = 1, fk.pointer_on = 1, fk.pointer_x = CHEATS_POINTER_X, fk.pointer_y = CHEATS_POINTER_Y;
-    CHECK_EQ_INT(run(&plus, 0), 0);
-    CHECK_EQ_INT(plus.cheats, 1);
-    CHECK(CHEATS_RECT_X0 < CHEATS_POINTER_X && CHEATS_POINTER_X < CHEATS_RECT_X1);
-}
-
-/* Left from the left arrow steps onto the cheats item (lit), and Enter toggles it */
-static void test_left_from_arrow_reaches_cheats(void)
-{
-    static const int keys[] = { LEFT, LEFT, LEFT, ENTER, ESCAPE };   /* back, next, the left arrow, cheats */
-    BestTimesPlus plus;
-    reset(keys, 5, -1);
-    CHECK_EQ_INT(run(&plus, 0), 0);
-    CHECK_EQ_INT(plus.cheats, 1);
-}
-
-/* Up and Down on the cheats item toggle the table too (the item is lit when they are pressed) */
-static void test_up_and_down_toggle_on_cheats(void)
-{
-    static const int keys[] = { RIGHT, RIGHT, UP, DOWN, ESCAPE };
-    BestTimesPlus plus;
-    reset(keys, 5, -1);
-    CHECK_EQ_INT(run(&plus, 0), 0);
-    CHECK_EQ_INT(plus.cheats, 0);   /* up, then down: back where it was */
-    static const int once[] = { RIGHT, RIGHT, DOWN, ESCAPE };
-    reset(once, 4, -1);
-    CHECK_EQ_INT(run(&plus, 0), 0);
-    CHECK_EQ_INT(plus.cheats, 1);
-}
-
-/* the lit label is the last one drawn in yellow once the item is selected */
-static void test_lit_label_is_yellow(void)
-{
-    static const int keys[] = { RIGHT, RIGHT, ESCAPE };
-    BestTimesPlus plus;
-    reset(keys, 3, -1);
-    CHECK_EQ_INT(run(&plus, 0), 0);
-    CHECK(fk.label_count > 0);
-    if (fk.label_count > 0) CHECK_EQ_INT(fk.label_style[fk.label_count - 1], STYLE_YELLOW);
-}
-
-/* The CD's files are not read by this test (the tables start as the built-in defaults). */
-uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
-
-/* the screen as run(), with the cheats table given: its track 0 holds the one row, set by the Warrior (car 11) */
-static int32_t run_with_cheats_view(BestTimesPlus *plus, const uint8_t *cheat_view)
-{
-    static uint8_t config[TRACK_SELECT_CONFIG];
-    static uint8_t screen_palette[0x300];
-    static uint8_t records[BEST_TIMES_RECORDS];
-    const BestTimesInputs in = { "", 0, 0, 0, 0, records };
-    BestTimesState st = { config, 0, screen_palette, plus };
-    DialogPointer p = { 0 };
-    p.active = fk.active;
-    memset(config, 0, sizeof config);
-    plus->cheats = 1;
-    plus->laps_select = 0, plus->variant = 0;
-    plus->records[0] = records, plus->records[1] = cheat_view;
-    for (int t = 0; t < 9; t++) plus->marks[t] = NULL;
-    return best_times_screen(&in, &st, &p, &OPS);
-}
-
-static int was_drawn(const char *text)
-{
-    for (int i = 0; i < fk.shadowed_count; i++)
-        if (strcmp(fk.shadowed[i], text) == 0) return 1;
-    return 0;
-}
-
-/* the cars are named as the records hold them: the Warrior (11) on the cheats table, not past the eight names */
-static void test_the_warrior_is_named_on_the_cheats_table(void)
-{
-    static const int keys[] = { ESCAPE };
-    static uint8_t view[BEST_TIMES_RECORDS];
-    BestTimesPlus plus;
-    memset(view, 0, sizeof view);
-    memcpy(view, "ME", 3);
-    view[0xf] = 11;   /* the row's car, a dword */
-    reset(keys, 1, -1);
-    run_with_cheats_view(&plus, view);
-    CHECK(was_drawn("WARRIOR"));
-}
-
-/* ----- port (free records): the lap-count control on the header's row ----- */
-
-/* a circuit (track 3, counts 4, 8, 16) with the menu's laps choice 1 (8 laps) and the selector on or off */
-static int32_t run_laps(BestTimesPlus *plus, int track, int select)
-{
-    static uint8_t config[TRACK_SELECT_CONFIG];
-    static uint8_t screen_palette[0x300];
-    static uint8_t records[BEST_TIMES_RECORDS];
-    static uint8_t cheat_records[BEST_TIMES_RECORDS];
     const BestTimesInputs in = { "", 0, 0, 0, 0, records };
     BestTimesState st = { config, 0, screen_palette, plus };
     DialogPointer p = { 0 };
@@ -416,94 +230,144 @@ static int32_t run_laps(BestTimesPlus *plus, int track, int select)
     memset(config, 0, sizeof config);
     config[TRACK_SELECT_TRACK] = (uint8_t)track;
     config[TRACK_SELECT_LAPS_CHOICE] = 1;
-    plus->cheats = 0;
-    plus->laps_select = select, plus->variant = 0;
-    plus->records[0] = records, plus->records[1] = cheat_records;
-    for (int t = 0; t < 9; t++) plus->marks[t] = NULL;
     return best_times_screen(&in, &st, &p, &OPS);
 }
 
-static int fitted_name(const char *text)
+static int was_drawn(const char *text)
 {
+    for (int i = 0; i < fk.label_count; i++)
+        if (strcmp(fk.labels[i], text) == 0) return 1;
+    for (int i = 0; i < fk.shadowed_count; i++)
+        if (strcmp(fk.shadowed[i], text) == 0) return 1;
     for (int i = 0; i < fk.fitted_count; i++)
         if (strcmp(fk.fitted[i], text) == 0) return 1;
     return 0;
 }
 
-static void test_the_selector_shows_the_menus_lap_count_on_a_circuit(void)
+/* without a plus the screen is the original: no words of the port's, and Right from Back goes to Done as before */
+static void test_no_plus_is_original(void)
 {
-    static const int keys[] = { ESCAPE };
-    BestTimesPlus plus;
-    free_records_reset();
-    reset(keys, 1, -1);
-    CHECK_EQ_INT(run_laps(&plus, 3, 1), 0);
-    CHECK(label_index("Laps: 8") >= 0);
-    reset(keys, 1, -1);
-    CHECK_EQ_INT(run_laps(&plus, 3, 0), 0);   /* the flag off: no item */
-    CHECK(label_index("Laps: 8") < 0);
-    reset(keys, 1, -1);
-    CHECK_EQ_INT(run_laps(&plus, 1, 1), 0);   /* a stage has no laps */
-    CHECK(label_index("Laps: 8") < 0);
+    static const int keys[] = { RIGHT, ENTER };
+    reset(keys, 2);
+    CHECK_EQ_INT(run(NULL, CIRCUIT), 1);
+    CHECK_EQ_INT(fk.label_count, 0);
 }
 
-static void test_enter_on_the_selector_steps_through_the_counts_and_shows_a_free_table(void)
+/* the strip names the table shown and the page; an empty table says so, the top speed's row too */
+static void test_the_strip_names_the_table(void)
 {
-    static const int keys[] = { LEFT, LEFT, ENTER, ENTER, ENTER, ESCAPE };   /* back, next, the selector; 8 -> 16 -> 4 -> 7 */
+    race_records_reset();
     BestTimesPlus plus;
-    uint8_t seed[FREE_RECORDS_TABLE] = { 0 };
-    free_records_reset();
-    FreeTable *t = free_records_make(3, RECORDS_NORMAL, 0, 7, seed);
+    best_times_pages_open(&plus, CIRCUIT, LAYOUT_MIRROR | LAYOUT_RALLY, 0, 0, 1);
+    static const int keys[] = { SHIFT_NOTHING };
+    reset(keys, 1);
+    (void)run(&plus, CIRCUIT);
+    CHECK(was_drawn("MIRROR + RALLY"));
+    CHECK(was_drawn("NO CHEATS"));
+    CHECK(was_drawn("8 LAPS"));
+    CHECK(was_drawn("TOP 10"));
+    CHECK(was_drawn("NO RECORDS"));
+    CHECK(!was_drawn("PAGE 1/2:"));
+    /* a stage: open road, no laps */
+    best_times_pages_open(&plus, STAGE, 0, 1, 0, 1);
+    reset(keys, 1);
+    (void)run(&plus, STAGE);
+    CHECK(was_drawn("NORMAL"));
+    CHECK(was_drawn("CHEATS"));
+    CHECK(was_drawn("OPEN ROAD"));
+    CHECK(!was_drawn("8 LAPS"));
+}
+
+/* Tab and Page Down turn the page on, Page Up back, round both ways: a circuit's best lap, a stage's segments */
+static void test_tab_turns_the_page(void)
+{
+    race_records_reset();
+    BestTimesPlus plus;
+    best_times_pages_open(&plus, CIRCUIT, 0, 0, 0, 1);
+    static const int one[] = { TAB, SHIFT_NOTHING };
+    reset(one, 2);
+    (void)run(&plus, CIRCUIT);
+    CHECK_EQ_INT(plus.page, 1);
+    CHECK(was_drawn("BEST LAP"));
+    static const int back[] = { PAGE_UP, PAGE_UP, SHIFT_NOTHING };
+    reset(back, 3);
+    (void)run(&plus, CIRCUIT);
+    CHECK_EQ_INT(plus.page, 1);   /* 1 -> 0 -> 1 round */
+    best_times_pages_open(&plus, STAGE, 0, 0, 0, 1);
+    reset(one, 2);
+    (void)run(&plus, STAGE);
+    CHECK(was_drawn("SEGMENTS"));
+    CHECK(was_drawn("SEGMENT 3"));
+}
+
+/* Up from the footer climbs the strip (page, laps, cheats, layout); Left and Right step the field the keys are on; Enter steps it on */
+static void test_the_keys_step_the_fields(void)
+{
+    race_records_reset();
+    BestTimesPlus plus;
+    best_times_pages_open(&plus, CIRCUIT, 0, 0, 0, 1);
+    static const int keys[] = { UP, RIGHT, UP, LEFT, UP, RIGHT, UP, LEFT, SHIFT_NOTHING };
+    reset(keys, sizeof keys / sizeof keys[0]);
+    (void)run(&plus, CIRCUIT);
+    CHECK_EQ_INT(plus.page, 1);
+    CHECK_EQ_INT(plus.laps, 4);
+    CHECK_EQ_INT(plus.cheats, 1);
+    CHECK_EQ_INT(plus.layout, RACE_RECORDS_LAYOUTS - 1);   /* round from NORMAL */
+    CHECK_EQ_INT(plus.focus, BEST_FOCUS_LAYOUT);
+    static const int enter[] = { DOWN, ENTER, SHIFT_NOTHING };   /* down to the cheats: Enter turns them over */
+    reset(enter, 3);
+    (void)run(&plus, CIRCUIT);
+    CHECK_EQ_INT(plus.cheats, 0);
+}
+
+/* on the footer Left and Right are the exe's: Right from Back to Done, Enter leaves; the strip as it was */
+static void test_the_footer_keeps_the_exes_keys(void)
+{
+    race_records_reset();
+    BestTimesPlus plus;
+    best_times_pages_open(&plus, CIRCUIT, 0, 0, 0, 1);
+    const BestTimesPlus before = plus;
+    static const int keys[] = { RIGHT, ENTER };
+    reset(keys, 2);
+    CHECK_EQ_INT(run(&plus, CIRCUIT), 1);
+    CHECK(memcmp(&plus, &before, sizeof plus) == 0);
+}
+
+/* a row: its name, its cheats' letters (the Warrior's W), its conditions' words, its car */
+static void test_a_row_shows_its_marks(void)
+{
+    race_records_reset();
+    RecordTable *t = race_records_make(CIRCUIT, 0, 1, 8);
     CHECK(t != NULL);
-    if (t != NULL) memcpy(t->rows, "SEVEN", 6);
-    reset(keys, 6, -1);
-    CHECK_EQ_INT(run_laps(&plus, 3, 1), 0);
-    CHECK(label_index("Laps: 16") >= 0);
-    CHECK(label_index("Laps: 4") >= 0);
-    CHECK(label_index("Laps: 7") >= 0);
-    CHECK(fitted_name("SEVEN"));
-    free_records_reset();
-    static const int none[] = { LEFT, LEFT, ENTER, ENTER, ENTER, ESCAPE };
-    reset(none, 6, -1);
-    CHECK_EQ_INT(run_laps(&plus, 3, 1), 0);
-    CHECK(label_index("Laps: 7") < 0);        /* no table, no count: 8 -> 16 -> 4 -> 8 */
-    CHECK(!fitted_name("SEVEN"));
-}
-
-static void test_the_selector_sits_in_the_ring_between_the_arrows(void)
-{
-    /* back -> done -> cheats -> left arrow -> the lap count's left arrow (the previous count: 8 -> 4) */
-    static const int keys[] = { RIGHT, RIGHT, RIGHT, RIGHT, ENTER, ESCAPE };
+    if (t == NULL) return;
+    RecordRow *r = &t->totals[0];
+    race_records_row_empty(r);
+    snprintf((char *)r->row, RECORD_ROW_NAME_MAX, "%s", "ACE");
+    const int32_t car = 11, set = 1, time = 9000;
+    memcpy(r->row + RECORD_ROW_CAR, &car, 4);
+    memcpy(r->row + RECORD_ROW_SET, &set, 4);
+    memcpy(r->row + RECORD_ROW_TIME, &time, 4);
+    r->marks = race_records_conditions_of(WEATHER_RAIN, 0, 0, LIGHT_TIME_DUSK, 2, 2, 2);
+    r->marks.cheats = EXTRAS_MARK_WARRIOR | EXTRAS_MARK_LUNAR;
     BestTimesPlus plus;
-    free_records_reset();
-    reset(keys, 6, -1);
-    CHECK_EQ_INT(run_laps(&plus, 3, 1), 0);
-    CHECK(label_index("Laps: 4") >= 0);
-    CHECK(label_index("Laps: 16") < 0);
-    static const int up[] = { RIGHT, RIGHT, RIGHT, RIGHT, RIGHT, ENTER, ESCAPE };   /* one more: its right arrow (the next count: 8 -> 16) */
-    reset(up, 7, -1);
-    CHECK_EQ_INT(run_laps(&plus, 3, 1), 0);
-    CHECK(label_index("Laps: 16") >= 0);
-    static const int skip[] = { RIGHT, RIGHT, RIGHT, RIGHT, ESCAPE };   /* without it: the right arrow */
-    reset(skip, 5, -1);
-    CHECK_EQ_INT(run_laps(&plus, 3, 0), 0);
-    CHECK(label_index("Laps: 8") < 0);
+    best_times_pages_open(&plus, CIRCUIT, 0, 1, 0, 1);
+    static const int keys[] = { SHIFT_NOTHING };
+    reset(keys, 1);
+    (void)run(&plus, CIRCUIT);
+    CHECK(was_drawn("ACE"));
+    CHECK(was_drawn("WL"));
+    CHECK(was_drawn("RAIN DUSK H"));
+    CHECK(was_drawn("WARRIOR"));
+    race_records_reset();
 }
 
 int main(void)
 {
-    free_records_reset();
-    test_the_warrior_is_named_on_the_cheats_table();
     test_no_plus_is_original();
-    test_label_says_cheats_when_plain();
-    test_label_says_no_cheats_when_cheats();
-    test_tab_toggles_label();
-    test_arrows_reach_cheats_and_enter_toggles();
-    test_pointer_lights_cheats_item();
-    test_left_from_arrow_reaches_cheats();
-    test_up_and_down_toggle_on_cheats();
-    test_lit_label_is_yellow();
-    test_the_selector_shows_the_menus_lap_count_on_a_circuit();
-    test_enter_on_the_selector_steps_through_the_counts_and_shows_a_free_table();
-    test_the_selector_sits_in_the_ring_between_the_arrows();
+    test_the_strip_names_the_table();
+    test_tab_turns_the_page();
+    test_the_keys_step_the_fields();
+    test_the_footer_keeps_the_exes_keys();
+    test_a_row_shows_its_marks();
     return TEST_REPORT();
 }
