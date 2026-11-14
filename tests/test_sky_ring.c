@@ -1,5 +1,5 @@
-/* Sky ring tests (0043abfc, 0043b298, 0043b0c8). The byte-exact check
- * against the original runs in tools/oracle_3d.py; these cover the layout
+/* Sky ring tests (0043abfc, 0043b298, 0043b0c8). The port is checked
+ * byte for byte against the original; these cover the layout
  * on hand-computed values. */
 #include "game/race/sky_ring.h"
 #include "game/gfx/flat.h"

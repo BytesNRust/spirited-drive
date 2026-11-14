@@ -1,8 +1,8 @@
 /* Flat-colour polygon and line tests. Every checksum comes from the original
- * code (NFS_WIN.EXE 0048434e, 00484377, 00484389, 00484254) run under Unicorn
- * by `tools/flat_oracle.py golden`: the CRC-32 of the whole 640 x 480 surface
- * plus 8 guard rows above and below. The random comparison against the
- * original is `flat_oracle.py check`; this test needs no exe. */
+ * code (NFS_WIN.EXE 0048434e, 00484377, 00484389, 00484254) run under an
+ * emulator: the CRC-32 of the whole 640 x 480 surface plus 8 guard rows above
+ * and below. The port was also compared with the original on random cases;
+ * this test needs no exe. */
 #include "game/gfx/flat.h"
 #include "test.h"
 

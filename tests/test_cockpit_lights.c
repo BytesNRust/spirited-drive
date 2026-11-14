@@ -1,7 +1,7 @@
 /* The per-car cockpit's "big + 5 small" lights (004212d4, game/race/cockpit_draw.c):
  * the four FSH shapes draw at dash_points[2..7] based on the count 004b92d4 and the
- * toggle 004f9b48. The exe matches the oracle (tools/oracle_dash.py cplights_case)
- * across 200+ cases; this test pins the port's drawing semantics:
+ * toggle 004f9b48. The port matches the original, measured against it across
+ * 200+ cases; this test pins the port's drawing semantics:
  *
  *   count == 0:    bgdk at point 2, smdk at points 3..7 (the count is just redrawn
  *                 when *shown == 0 already).

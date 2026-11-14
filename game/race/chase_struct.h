@@ -1,6 +1,6 @@
 /* The follow camera's records: the one in use (004f801c) and the view kinds
- * (004b6bb0). The port's layout differs where there are pointers;
- * tools/probe_car.c maps them back to the original's offsets. */
+ * (004b6bb0). The port's layout differs where there are pointers; the
+ * comparison against the original maps them back to its offsets. */
 #ifndef TNFS_CHASE_STRUCT_H
 #define TNFS_CHASE_STRUCT_H
 

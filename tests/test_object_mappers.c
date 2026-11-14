@@ -1,9 +1,9 @@
 /* Object-engine mapper tests. Every expected CRC comes from the original code
  * (NFS_WIN.EXE 004aa510, 004aa600, 004ab060, 00486804, 004865d4, 004aaf14 and
- * the 15 table thunks 004a34e7 to 004a4205 that 00491a82 calls) run under
- * Unicorn by `tools/emu_oracle.py object-golden`: the CRC-32 of the whole
- * 640 x 480 surface plus 8 guard rows above and below. The random comparison
- * is `emu_oracle.py quad-check`; this test needs no exe. */
+ * the 15 table thunks 004a34e7 to 004a4205 that 00491a82 calls) run under an
+ * emulator: the CRC-32 of the whole 640 x 480 surface plus 8 guard rows above
+ * and below. The port was also compared with the original on random cases;
+ * this test needs no exe. */
 #include "game/gfx/object_mappers.h"
 #include "test.h"
 
