@@ -1,4 +1,5 @@
 #include "game/frontend/central_glue_private.h"
+#include "game/frontend/unlock_level.h"
 
 CentralGlobals cg_g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
 
@@ -33,7 +34,7 @@ void cg_settings_put(const RaceSettings *s)
 
 /* The short 0052ad40 is config.dat's (00524df0 + 0x5f50): the level a cheat raised (central_keys.c) back into the image
  * before a path that reads it from there, and before the image is saved (0042a504) */
-void cg_level_to_image(void) { config_dat_set_unlock_level(config_current(), cg_g.unlock_level); }
+void cg_level_to_image(void) { unlock_level_put(config_current(), cg_g.unlock_level); }   /* Restomod: its own (unlock_level.h) */
 
 /* 0052b2d6..0052b2e8, the tournament's races by track that 00432ff4 sums: the menus' game state's (+0x592) */
 void cg_races_from_state(void) { memcpy(cg_g.races, cg_game_state + 0x592, sizeof cg_g.races); }
@@ -95,8 +96,9 @@ void cg_extras_apply(void)
     const PortExtras e = port_extras_load();
     /* port: the level, the switches and the cheats typed in the session decide what is on: a switch turned off in
      * CUSTOMIZE takes its flag away, a cheat typed stays for the session and is never written to the mode's file (the
-     * switch is the player's default, not a veto on the cheat); Mirror and Rally both on stay both on */
+     * switch is the player's default, not a veto on the cheat); mirror, rally and Lost Vegas are the level's alone */
     extras_settle(&e, cg_g.unlock_level, &f, &extras_session);
+    if (cg_g.unlock_level < 2) reverse_track_pick(0);   /* port: the way round (INVERSE) is level 2's, as the rally */
     /* cheat_codes writes the globals, so they are read back and put into g again after the reapply */
     cg_g.unlock_m = *f.unlock_m, cg_g.unlock_r = *f.unlock_r, cg_g.variant_m = *f.variant_m, cg_g.variant_r = *f.variant_r;
     cg_g.explode = *f.explode, cg_g.nitro = *f.nitro, cg_g.vegas_cheat = *f.vegas_cheat, cg_g.lost_vegas = *f.lost_vegas;
@@ -326,9 +328,10 @@ static void track_select(void *ctx)
     int laps = port_settings_load().laps;   /* port (dep55): Restomod's custom laps on the laps row, written back to port.cfg */
     const int was_laps = laps;
     const PortExtras extras = port_extras_load();
+    const int reverse_offered = extras.reverse && cg_g.unlock_level >= 2;   /* port: INVERSE is level 2's */
     TrackSelectPlus plus = { cg_g.unlock_m, cg_g.unlock_r, &cg_g.variant_m, &cg_g.variant_r,
                              extras.variant_time,   /* port: variants as entries */
-                             port_settings_profile() == PROFILE_RESTOMOD, &weather, port_light_effects() ? &light_time : NULL, extras.reverse ? &reverse : NULL,
+                             port_settings_profile() == PROFILE_RESTOMOD, &weather, port_light_effects() ? &light_time : NULL, reverse_offered ? &reverse : NULL,
                              port_records_unified() ? &laps : NULL };
     const int was_weather = weather, was_light_time = light_time;
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), cg_time_of_day, cg_g.inverse, cg_screen_palette, &plus };
@@ -343,7 +346,7 @@ static void track_select(void *ctx)
         off_dialog, music,
         cg_deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
-    if (extras.reverse) reverse_track_pick(reverse);
+    if (reverse_offered) reverse_track_pick(reverse);
     if (weather != was_weather || light_time != was_light_time || laps != was_laps) {
         PortSettings saved = port_settings_load();
         if (weather != was_weather) saved.weather = weather;
@@ -505,8 +508,8 @@ static void options_extras(void *ctx)
 {
     (void)ctx;
     ConfigDat *const config = config_current();
-    glue_extras_screen((int16_t)config_dat_unlock_level(config));
-    cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    glue_extras_screen((int16_t)unlock_level_get(config));
+    cg_g.unlock_level = (int16_t)unlock_level_get(config);
     cg_extras_apply();
 }
 
@@ -544,7 +547,7 @@ static void load(void)
         config_dat_get_race(&defaults, &s);
     }
     cg_settings_put(&s);
-    cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    cg_g.unlock_level = (int16_t)unlock_level_get(config);
     cg_races_from_state();
 }
 

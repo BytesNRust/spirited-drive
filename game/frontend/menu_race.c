@@ -171,8 +171,10 @@ static void tournament_end(const MenuRaceState *st, const MenuRaceOps *ops)
     }
     if (*st->lost_vegas ? won != 9 : won != 8) return;
     if (ops->champion(ops->ctx, 0) != 0) {
-        if (*st->lost_vegas) p16(st->image + LEVEL, 2);
-        else if (g16(st->image + LEVEL) < 2) p16(st->image + LEVEL, 1);
+        const int level = st->level != NULL ? *st->level : g16(st->image + LEVEL);
+        const int raised = *st->lost_vegas ? 2 : level < 2 ? 1 : level;
+        if (st->level != NULL) *st->level = (int16_t)raised;
+        else if (raised != level) p16(st->image + LEVEL, (int16_t)raised);
         ops->unlocks(ops->ctx);
     }
     ops->game_reset(ops->ctx);

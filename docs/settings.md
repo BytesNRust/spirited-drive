@@ -125,6 +125,8 @@ Two more of the 34 settings checked are not in this table because they are not o
 
 Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
+Mirror, Rally and Lost Vegas have no switch: they come from the Unlock Level, as in the exe (1: the mirror tracks, the Warrior and Lost Vegas; 2: the rally tracks too). The `mirror`, `rally` and `vegas` keys of an older file are not read, and are dropped the next time the file is saved.
+
 ### Menu rows (EXTRAS)
 
 | key | default | exe | menu | note | Stock / Restored / Restomod |
@@ -132,10 +134,7 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 | `explode`, `nitro`, `turbo` | 0 | 0 | page 1 Cheats: Explode / Nitro / Turbo mode | a race run with them is filed apart from the normal records | not set |
 | `warrior` | 0 | 0 | page 1: Warrior Player Car | forced on by Unlock Level 1 or more, as the exe does | not set |
 | `warrior_rival` | 0 | 0 | page 1: Warrior Rival Car | | not set |
-| `mirror` | 0 | 0 | page 1: Mirror track mode | | not set |
-| `rally` | 0 | 0 | page 1: Rally track mode | | not set |
-| `vegas` | 0 | 0 | page 1: Lost Vegas Track | | not set |
-| `lunar_springs` | 0 | 0 | page 1: Lunar Springs Track | | not set |
+| `lunar_springs` | 0 | 0 | page 1: Lunar Springs Track | changes only at Unlock Level 2 (dimmed below it) | not set |
 | `lunar_gravity` | 0 | 0 | page 1: Lunar Gravity | a third of the pull, two thirds of the grip, on the moon | not set |
 | `variant_time` | 0 | 0 | none | the time of day offered with Mirror or Rally; set by the mode (Restomod only) | not set |
 | `extra_liveries` (older files: `psx_liveries`) | 0 | 0 | page 1: Car Colours | catalogue paints for every car, the console version second livery with `psx_dir`; the player's pick is `car_paint` | 0 / 0 / 1 |
@@ -157,7 +156,8 @@ Switches are `0`/`1`. Defaults are from `port_extras_defaults`.
 
 | key | default | exe | where it is set | note | Stock / Restored / Restomod |
 |---|---|---|---|---|---|
-| `reverse` | 0 | 0 | Track Select: Reverse (offered when this is on); `TNFS_REVERSE=0\|1` overrides | circuits run the other way round; the tunnel/LOD byte and the models are handled in `tri_reverse` | not set |
+| `reverse` | 0 | 0 | Track Select: Reverse (offered when this is on, at Unlock Level 2); `TNFS_REVERSE=0\|1` overrides | circuits run the other way round; the tunnel/LOD byte and the models are handled in `tri_reverse` | not set |
+| `unlock_level` | 0 | config.dat's word | Customize Game: Unlock Level, in Restomod only | Restomod's own unlock level, 0..2; Stock and Restored use config.dat's (as the exe) and never read this key | 0 / 0 / 2 |
 | `rally_gravel` | 0 | 0 | none | gravel noise all along the rally and dust from the desert's tyres | 0 / 0 / 1 |
 | `movies_wide` | 1 | 0 (the 4:3 frame in the middle) | none | on a wide screen a movie fills the width, top and bottom cropped | 0 / 1 / 1 |
 | `car_paint` | all 0 | all 0 | the car showcase's Color box | one hex digit a car (cars 0..11): 0 own, 1 console livery, 2+ the catalogue's paints | not set |

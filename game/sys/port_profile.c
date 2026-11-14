@@ -85,7 +85,7 @@ static const Table TABLES[PROFILE_COUNT] = {
 };
 
 /* what the player may change in a mode, by file key; Restomod '26 leaves everything free but the machine's own */
-static const char *const FREE_IN_ALL[] = { "fullscreen", "explode", "nitro", "turbo", "warrior", "mirror", "rally", "vegas", "units", "update_check", "scale", NULL };
+static const char *const FREE_IN_ALL[] = { "fullscreen", "explode", "nitro", "turbo", "warrior", "units", "update_check", "scale", NULL };
 static const char *const FREE_IN_RESTORED[] = { "format", "refresh_hz", "render_bands", "stats_overlay", NULL };
 static const char *const MACHINE[] = { "profile", "psx_dir", "light_edit", NULL };   /* port.cfg's: no mode file holds them */
 
@@ -213,6 +213,7 @@ PortExtras port_profile_extras(Profile p, PortExtras e)
     const Table *t = &TABLES[p >= 0 && p < PROFILE_COUNT ? p : PROFILE_STOCK];
     e.variant_time = p == PROFILE_RESTOMOD;   /* the time of day also with Mirror and Rally */
     e.reverse = p == PROFILE_RESTOMOD;   /* the track screen offers the way round */
+    e.unlock_level = p == PROFILE_RESTOMOD ? 2 : 0;   /* Restomod's own level (unlock_level.h); the others read config.dat's */
     e.movies_wide = t->movies_wide, e.extra_liveries = t->extra_liveries, e.rally_gravel = t->rally_gravel;
     e.bumper_mirror = t->bumper_mirror, e.bumper_radar = t->bumper_radar, e.follow_camera = t->follow_camera;
     return e;

@@ -3,8 +3,7 @@
  * first row); Enter, Space, Left or Right change a switch (Unlock and Start step through their values); Left / Right
  * swap Done and Cancel, Right on Cancel turns to the next page and Left on Done back to the one before; a click on the
  * page indicator's left triangle turns back a page and on its right one on a page, and PageDown turns to the next,
- * round to the first. Mirror and Rally exclude each other, unless ExtrasMenuOps.port_combine_variants lets them both
- * stay on. Done saves; Cancel and Escape put the input back.
+ * round to the first. Done saves; Cancel and Escape put the input back.
  *
  * port: the selection is the pointer's or the keys', never left over from the other. The screen opens with nothing
  * selected unless the pointer is on a row; while the pointer is on nothing (or on the page indicator) nothing is
@@ -85,7 +84,7 @@ static int shows_kmh(const PortExtras *e) { return e->units == UNITS_KMH; }
  * them and page 2 the rest, so a group's rows are a range and a group's header is the one over it. */
 static const char *const LABEL[EXTRAS_ROWS] = {
     "Explode mode", "Nitro mode", "Turbo mode", "Warrior Player Car",
-    "Warrior Rival Car", "Mirror track mode", "Rally track mode", "Lost Vegas Track", "Lunar Springs Track", "Lunar Gravity",
+    "Warrior Rival Car", "Lunar Springs Track", "Lunar Gravity",
     "Unlock Level", "Car Colours",
     "Speed units", "No driving assists", "Bumper view mirror", "Exterior views police radar",
     "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera", "Difficulty",
@@ -95,7 +94,7 @@ static const char *const LABEL[EXTRAS_ROWS] = {
 /* the file key that says whether a row is free in the mode (port_profile_key_free); NULL: in every mode. Unlock Level is config.dat's, shared */
 static const char *const ROW_KEY[EXTRAS_ROWS] = {
     "explode", "nitro", "turbo", "warrior",
-    "warrior_rival", "mirror", "rally", "vegas", "lunar_springs", "lunar_gravity",
+    "warrior_rival", "lunar_springs", "lunar_gravity",
     NULL, "extra_liveries",
     "units", "no_assists", "bumper_mirror", "bumper_radar",
     "replay_cameras", "car_markers", "stats_overlay", "dash_box", "follow_camera", "difficulty",
@@ -107,7 +106,7 @@ static int *flag_of(PortExtras *e, int page, int row)
 {
     if (page == 0) {
         int *const p1[ROWS_P1] = { &e->explode, &e->nitro, &e->turbo, &e->warrior,
-                                  &e->warrior_rival, &e->mirror, &e->rally, &e->vegas, &e->lunar_springs, &e->lunar_gravity,
+                                  &e->warrior_rival, &e->lunar_springs, &e->lunar_gravity,
                                   NULL /* Unlock Level */, &e->extra_liveries };
         return p1[row];
     }
@@ -121,9 +120,20 @@ static int *flag_of(PortExtras *e, int page, int row)
 
 /* port: Unlock Level 1 or more gives the Warrior, as the exe does (extras_apply.c's settle), whatever the switch says:
  * the row shows that, dimmed and with its reason, instead of a switch that goes back by itself */
-static int fixed_by_level(PortExtras *e, int16_t unlock, int page, int row)
+static int warrior_by_level(PortExtras *e, int16_t unlock, int page, int row)
 {
     return page == 0 && unlock >= 1 && flag_of(e, page, row) == &e->warrior;
+}
+
+/* port: Lunar Springs Track is level 2's (the rally's): below it the row is dimmed, Off, with its reason */
+static int lunar_below_level(PortExtras *e, int16_t unlock, int page, int row)
+{
+    return page == 0 && unlock < 2 && flag_of(e, page, row) == &e->lunar_springs;
+}
+
+static int fixed_by_level(PortExtras *e, int16_t unlock, int page, int row)
+{
+    return warrior_by_level(e, unlock, page, row) || lunar_below_level(e, unlock, page, row);
 }
 
 /* port (modes): the mode does not leave the row free: dimmed, its value the mode's */
@@ -142,7 +152,8 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16]
     /* port: the movies switch reads the other way round, "Intro video" On while the mode's file's no_movies is 0, so the
      * file keeps its meaning */
     const int on = flag != NULL && (flag == &e->no_movies ? !*flag : *flag);
-    if (fixed_by_level(e, unlock, page, row)) snprintf(out, 16, "On (level)");
+    if (warrior_by_level(e, unlock, page, row)) snprintf(out, 16, "On (level)");
+    else if (lunar_below_level(e, unlock, page, row)) snprintf(out, 16, "Off (level 2)");
     else if (flag != NULL) snprintf(out, 16, "%s", on ? "On" : "Off");
     else if (page == 1 && row == units_row()) snprintf(out, 16, "%s", shows_kmh(e) ? "km/h" : "mph");
     else if (page == 0 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
@@ -273,12 +284,6 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
     }
     if (flag != NULL) {
         *flag = !*flag;
-        /* port: with the two allowed together, turning one on leaves the other as it is; the exe's screen clears
-         * it, so the pair stays behind the flag. */
-        if (o->port_combine_variants == 0) {
-            if (*flag && flag == &e->mirror) e->rally = 0;
-            if (*flag && flag == &e->rally) e->mirror = 0;
-        }
     } else if (p->page == 0 && p->selected == unlock_row()) {
         *unlock = (int16_t)((*unlock + step + 3) % 3);
     } else if (p->page == 1 && p->selected == dash_box_row()) {

@@ -2,22 +2,17 @@
  * are exercised with fake ops and a key script, the same shape as test_graphics_plus.c. */
 #include "extras_rig.h"
 
-/* Edit Mirror (on page 1, then Done) turns it on and turns Rally off when Rally was on */
-static void test_mirror_toggle_excludes_rally(void)
+/* Mirror, Rally and Lost Vegas are no rows: they come from the Unlock Level, as in the exe */
+static void test_no_variant_rows(void)
 {
     Rig r;
-    int keys[48];
-    int n = keys_to_row(keys, ROW_MIRROR);
-    keys[n++] = ENTER;                                             /* Mirror on */
-    n = downs(keys, n, downs_to_done(ROW_MIRROR));
-    keys[n++] = ENTER;                                             /* Done */
-    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
+    const int keys[] = { ESCAPE };
     setup(&r);
-    r.e.rally = 1;
-    run(&r, keys, n);
-    CHECK_EQ_INT(r.e.mirror, 1);
-    CHECK_EQ_INT(r.e.rally, 0);
-    CHECK_EQ_INT(r.fake.saves, 1);
+    run(&r, keys, 1);
+    CHECK(shown(&r.fake, "Lunar Springs Track"));
+    CHECK(!shown(&r.fake, "Mirror track mode"));
+    CHECK(!shown(&r.fake, "Rally track mode"));
+    CHECK(!shown(&r.fake, "Lost Vegas Track"));
 }
 
 /* Escape restores the input PortExtras */
@@ -47,24 +42,6 @@ static void test_right_turns_to_page_two(void)
     run(&r, keys, n);
     CHECK(shown(&r.fake, "< 2/3 >"));
     CHECK(shown(&r.fake, "Speed units"));
-}
-
-/* Rally on with Mirror on turns Mirror off (both on page 1) */
-static void test_rally_excludes_mirror(void)
-{
-    Rig r;
-    int keys[48];
-    int n = keys_to_row(keys, ROW_RALLY);
-    keys[n++] = SPACE;                                             /* Rally on */
-    n = downs(keys, n, downs_to_done(ROW_RALLY));
-    keys[n++] = ENTER;                                             /* Done */
-    CHECK(n <= (int)(sizeof keys / sizeof keys[0]));
-    setup(&r);
-    r.e.mirror = 1;
-    run(&r, keys, n);
-    CHECK_EQ_INT(r.fake.saves, 1);
-    CHECK_EQ_INT(r.fake.saved.rally, 1);
-    CHECK_EQ_INT(r.fake.saved.mirror, 0);
 }
 
 /* Warrior Player Car (CHEATS, page 1) and Start changed, Done saves them; Start Screen is the Miscellaneous row */
@@ -145,13 +122,13 @@ static void test_the_graphics_settings_are_gone(void)
 
 /* CHEATS and UNLOCKS & MODS on page 1: thirteen switches, Car Colours the last one. Walk the whole page down
  * and they are all of them */
-static void test_page_one_has_thirteen_rows(void)
+static void test_page_one_has_nine_rows(void)
 {
     Rig r;
     int keys[48];
-    int n = downs(keys, 0, 1 + ROWS_P1);                   /* to the first row, then down to Done past the thirteen */
+    int n = downs(keys, 0, 1 + ROWS_P1);                   /* to the first row, then down to Done past the nine */
     keys[n++] = ENTER;
-    CHECK_EQ_INT(ROWS_P1, 12);
+    CHECK_EQ_INT(ROWS_P1, 9);
     setup(&r);
     run(&r, keys, n);
     CHECK(shown(&r.fake, "Explode mode"));
@@ -159,10 +136,8 @@ static void test_page_one_has_thirteen_rows(void)
     CHECK(shown(&r.fake, "Turbo mode"));
     CHECK(shown(&r.fake, "Warrior Player Car"));
     CHECK(shown(&r.fake, "Warrior Rival Car"));
-    CHECK(shown(&r.fake, "Mirror track mode"));
-    CHECK(shown(&r.fake, "Rally track mode"));
-    CHECK(shown(&r.fake, "Lost Vegas Track"));
     CHECK(shown(&r.fake, "Lunar Springs Track"));
+    CHECK(shown(&r.fake, "Lunar Gravity"));
     CHECK(shown(&r.fake, "Unlock Level"));
     CHECK(!shown(&r.fake, "Time with variants"));
     CHECK(shown(&r.fake, "Car Colours"));
@@ -239,6 +214,7 @@ static void change_then_done(Rig *r, int row, int profile)
     keys[n++] = ENTER;
     setup(r);
     r->profile = profile;
+    r->unlock = 2;   /* Lunar Springs Track is the level's: free at 2 */
     run(r, keys, n);
 }
 
@@ -247,7 +223,7 @@ static void test_the_mode_holds_its_rows(void)
 {
     static const int HELD_IN_STOCK[] = { ROW_RIVAL, ROW_LUNAR, ROW_LUNAR_GRAVITY, ROW_EXTRA_LIVERY, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS, ROW_STATS, ROW_DASH_BOX,
                                          ROW_FOLLOW_CAMERA, ROW_DIFFICULTY, ROW_START, ROW_MOVIES };
-    static const int FREE_IN_STOCK[] = { ROW_EXPLODE, ROW_NITRO, ROW_TURBO, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_UNITS, ROW_UPDATE };
+    static const int FREE_IN_STOCK[] = { ROW_EXPLODE, ROW_NITRO, ROW_TURBO, ROW_UNITS, ROW_UPDATE };
     for (size_t i = 0; i < sizeof HELD_IN_STOCK / sizeof HELD_IN_STOCK[0]; i++) {
         Rig r;
         change_then_done(&r, HELD_IN_STOCK[i], PROFILE_STOCK);
@@ -511,7 +487,7 @@ static void test_escape_on_page_one_restores(void)
     CHECK_EQ_INT(r.fake.saves, 0);
 }
 
-/* Lunar Springs Track is the Unlocks row under Lost Vegas: Enter turns it on and Done keeps it */
+/* Lunar Springs Track, the first row under Warrior Rival Car: at level 2 Enter turns it on and Done keeps it */
 static void test_lunar_row_is_saved_on_done(void)
 {
     Rig r;
@@ -521,10 +497,30 @@ static void test_lunar_row_is_saved_on_done(void)
     n = downs(keys, n, downs_to_done(ROW_LUNAR));
     keys[n++] = ENTER;
     setup(&r);
+    r.unlock = 2;
     run(&r, keys, n);
     CHECK_EQ_INT(r.e.lunar_springs, 1);
-    CHECK_EQ_INT(r.e.vegas, 0);
     CHECK_EQ_INT(r.fake.saves, 1);
+}
+
+/* below level 2 the row is the level's: dimmed, "Off (level 2)", Enter changes nothing */
+static void test_lunar_row_waits_for_level_two(void)
+{
+    for (int level = 0; level < 2; level++) {
+        Rig r;
+        int keys[48] = {0};
+        int n = keys_to_row(keys, ROW_LUNAR);
+        keys[n++] = ENTER;
+        n = downs(keys, n, downs_to_done(ROW_LUNAR));
+        keys[n++] = ENTER;
+        setup(&r);
+        r.profile = PROFILE_RESTOMOD;
+        r.unlock = (int16_t)level;
+        run(&r, keys, n);
+        CHECK_EQ_INT(r.fake.saves, 1);
+        CHECK_EQ_INT(r.fake.saved.lunar_springs, 0);
+        CHECK(shown(&r.fake, "Off (level 2)"));
+    }
 }
 
 /* port: 360 Camera, the last row of In-race options: off to start with, Enter turns it on and Done saves it (the
@@ -719,7 +715,7 @@ static void test_extras_has_a_star_us_row(void)
 int main(void)
 {
     test_check_for_updates_switch();
-    test_mirror_toggle_excludes_rally();
+    test_no_variant_rows();
     test_the_radar_row_name();
     test_the_mode_holds_its_rows();
     test_restore_takes_two_returns();
@@ -729,16 +725,16 @@ int main(void)
     test_extras_has_a_star_us_row();
     test_escape_restores_input();
     test_right_turns_to_page_two();
-    test_rally_excludes_mirror();
     test_warrior_row_is_fixed_by_the_level();
     test_warrior_row_toggles_at_level_zero();
     test_page_two_switches_saved();
     test_the_graphics_settings_are_gone();
-    test_page_one_has_thirteen_rows();
+    test_page_one_has_nine_rows();
     test_page_two_has_ten_rows();
     test_second_livery_row_is_saved_on_done();
     test_race_switch_rows_save_with_done();
     test_lunar_row_is_saved_on_done();
+    test_lunar_row_waits_for_level_two();
     test_follow_camera_row_toggles_and_saves();
     test_follow_camera_row_escape_restores();
     test_difficulty_row_cycles_saves_and_escapes();

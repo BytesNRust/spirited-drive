@@ -15,7 +15,7 @@ static const char *const UNIT_NAMES[] = { "mph", "kmh" };
 static const char *const DASH_BOX_NAMES[] = { "map", "lever", "hidden" };
 
 /* The switches, in the order they are written. */
-static const char *const SWITCH_KEYS[] = { "mirror", "rally", "warrior", "vegas", "explode", "nitro",
+static const char *const SWITCH_KEYS[] = { "warrior", "explode", "nitro",
                                             "turbo", "replay_cameras", "warrior_rival", "no_movies", "no_assists",
                                             "bumper_mirror",
                                             "bumper_radar", "variant_time", "stats_overlay", "car_markers",
@@ -25,7 +25,7 @@ enum { SWITCH_COUNT = (int)(sizeof SWITCH_KEYS / sizeof SWITCH_KEYS[0]) };
 /* Each switch as one row, so the parse, the format and the checks agree on the order. */
 static void switch_read(const PortExtras *e, int rows[SWITCH_COUNT])
 {
-    const int all[] = { e->mirror, e->rally,  e->warrior, e->vegas,  e->explode, e->nitro,
+    const int all[] = { e->warrior, e->explode, e->nitro,
                         e->turbo, e->replay_cameras, e->warrior_rival, e->no_movies, e->no_assists,
                         e->bumper_mirror, e->bumper_radar, e->variant_time,
                         e->stats_overlay, e->car_markers, e->lunar_springs, e->movies_wide, e->follow_camera, e->extra_liveries, e->reverse, e->lunar_gravity, e->rally_gravel, e->update_check };
@@ -34,7 +34,7 @@ static void switch_read(const PortExtras *e, int rows[SWITCH_COUNT])
 
 static void switch_write(PortExtras *e, const int rows[SWITCH_COUNT])
 {
-    int *const all[] = { &e->mirror, &e->rally,  &e->warrior, &e->vegas,  &e->explode, &e->nitro,
+    int *const all[] = { &e->warrior, &e->explode, &e->nitro,
                          &e->turbo, &e->replay_cameras, &e->warrior_rival, &e->no_movies, &e->no_assists,
                          &e->bumper_mirror, &e->bumper_radar,
                          &e->variant_time, &e->stats_overlay, &e->car_markers, &e->lunar_springs, &e->movies_wide,
@@ -93,6 +93,11 @@ static void apply(PortExtras *e, const char *key, const char *value)
             e->difficulty = (int)n;
         return;
     }
+    if (strcmp(key, "unlock_level") == 0) {
+        if (parse_int(value, &n) && n >= 0 && n <= 2)
+            e->unlock_level = (int)n;
+        return;
+    }
     for (int i = 0; i < SWITCH_COUNT; i++)
         if (strcmp(key, SWITCH_KEYS[i]) == 0) {
             if (parse_int(value, &n) && (n == 0 || n == 1)) {
@@ -147,7 +152,8 @@ size_t port_extras_format(const PortExtras *e, char *out, size_t size)
     char paint[CAR_PAINT_SLOTS + 1];
     for (int c = 0; c < CAR_PAINT_SLOTS; c++) paint[c] = "0123456789abcdef"[e->car_paint[c] & 15];
     paint[CAR_PAINT_SLOTS] = '\0';
-    const int w = snprintf(out + n, size - (size_t)n, "car_paint=%s\ndifficulty=%d\n", paint, e->difficulty);
+    const int w = snprintf(out + n, size - (size_t)n, "car_paint=%s\ndifficulty=%d\nunlock_level=%d\n", paint, e->difficulty,
+                           e->unlock_level);
     if (w < 0 || (size_t)w >= size - (size_t)n)
         return 0;
     return (size_t)(n + w);

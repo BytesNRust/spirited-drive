@@ -1,6 +1,7 @@
 /* The Control Central glue's race start, tournament steps and credits (central_glue.c's third part). */
 #include "game/frontend/central_glue_private.h"
 #include "game/frontend/credits_pages.h"
+#include "game/frontend/unlock_level.h"
 
 /* 0047310c for 00427ae0's screen: the last one freed first (the original leaves it) */
 static int32_t race_picture(void *ctx, int32_t w, int32_t h, int32_t flags)
@@ -44,13 +45,13 @@ static int32_t champion(void *ctx, int32_t player) { (void)ctx; return tournamen
 /* the short 004c5cc4 while 00427ae0 runs */
 static int32_t race_warrior;
 
-/* 00432e48 at a tournament won: the unlocks raised to config.dat's level, as 00427ae0 just set it */
+/* 00432e48 at a tournament won: the unlocks raised to the mode's level (unlock_level.h), as 00427ae0 just set it */
 static void raise_unlocks(void *ctx)
 {
     (void)ctx;
     Unlocks u = cg_unlocks_of();
     u.warrior = race_warrior;
-    unlocks_raise(&u, config_dat_unlock_level(config_current()));
+    unlocks_raise(&u, unlock_level_get(config_current()));
     cg_unlocks_put(&u);
     race_warrior = cg_g.warrior;
 }
@@ -72,13 +73,15 @@ void cg_race(void *ctx)
     static const int16_t no_link = 0;
     static const int32_t player = 0, font = 0, host = 0;
     int16_t link_done = 0;
+    int16_t own_level = (int16_t)unlock_level_get(config);   /* port: Restomod's, raised by a tournament won (menu_race.h) */
     race_warrior = cg_g.warrior;
     const int linked = menu_words.link_game != 0;
     const MenuRaceState st = {
         config->image, cg_game_state, cg_word_52b302(), cg_race_times, ghost,
         linked ? &menu_words.link_game : &no_link, linked ? &menu_words.link_lost : &no_link, pointer_active_word(),
         linked ? &menu_words.single : &player, &font, ea_screen_slot(), &race_warrior, &cg_g.unlock_m, &cg_g.unlock_r,
-        &cg_g.lost_vegas, linked ? &menu_words.intro_seen : &host, linked ? &link_game.flags_a[7] : &link_done };
+        &cg_g.lost_vegas, linked ? &menu_words.intro_seen : &host, linked ? &link_game.flags_a[7] : &link_done,
+        unlock_level_own() ? &own_level : NULL };
     const MenuRaceOps ops = {
         no_mode, hide, nothing, clip, nothing, cg_drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
         nothing, music_pick, cops, won, sound_load, race_picture, cg_circuit_results, cg_segment_results, cg_standings, cg_track_results,
@@ -90,7 +93,8 @@ void cg_race(void *ctx)
     *slot = 0;
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) cg_settings_put(&after);
-    cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    if (unlock_level_own()) unlock_level_put(config, own_level);
+    cg_g.unlock_level = (int16_t)unlock_level_get(config);
     cg_races_from_state();
     cg_extras_apply();   /* port: get_race zeroes the variants; the next race from the same Control Central keeps them */
 }

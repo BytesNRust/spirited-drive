@@ -1,5 +1,6 @@
 /* Control Central's glue for the saved games, the replays and the menus after a race and between segments (split from central_glue.c). */
 #include "game/frontend/central_glue_private.h"
+#include "game/frontend/unlock_level.h"
 
 /* 0042ae9c's and 0042c498's words: the shorts 004fa9ac (check/'s art) and 004bad00 (a highlight), the names
  * 004fa1dc, the game state kept 00524838, 004fbad8's bytes kept around a replay */
@@ -84,7 +85,7 @@ void cg_load_save(void *ctx, int32_t mode)
     pointer_bind_active(was);
     memcpy(config->image + 0x93, &variant, sizeof variant), memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
     cg_opt_out();
-    cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    cg_g.unlock_level = (int16_t)unlock_level_get(config);
     cg_races_from_state();
 }
 
@@ -118,7 +119,7 @@ void cg_load_save2(void *ctx, int32_t mode)
     pointer_bind_active(was);
     memcpy(config->image + 0xaf, &replay_kind, sizeof replay_kind);
     cg_opt_out();
-    cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    cg_g.unlock_level = (int16_t)unlock_level_get(config);
     cg_races_from_state();
 }
 
