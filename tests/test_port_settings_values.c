@@ -334,11 +334,11 @@ static void test_sky_fill_values(void)
     CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).sky_fill, 0);
 }
 
-static void test_free_records_values(void)
+static void test_records_unified_values(void)
 {
-    const char *const on = "free_records=1\n", *const bad = "free_records=2\n";
-    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).free_records, 1);
-    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).free_records, 0);
+    const char *const on = "records_unified=1\n", *const bad = "records_unified=2\n";
+    CHECK_EQ_INT(port_settings_parse(on, strlen(on)).records_unified, 1);
+    CHECK_EQ_INT(port_settings_parse(bad, strlen(bad)).records_unified, 0);
 }
 
 static void test_render_bands_values(void)
@@ -454,7 +454,7 @@ int main(void)
 {
     clear_files();
     test_render_bands_values();
-    test_free_records_values();
+    test_records_unified_values();
     test_gauge_light_values();
     test_fog_sample_values();
     test_sky_fill_values();

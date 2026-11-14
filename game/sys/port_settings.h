@@ -39,8 +39,8 @@ typedef struct {
      * at most eight), or a thread count. The TNFS_BANDS environment variable wins over this one. */
     int render_bands;        /* -1 (auto) */
     int body_shine;          /* 4 the envmap over the cars' paint (car_envmap.h, Gran Turismo style streaks); 0 the exe's frames; a file's 1..3 are read as 4 */
-    int free_records;        /* 1: a free race (laps=N) of a lap count the track lacks keeps its own table of the ten best totals
-                              * (free_records.h); 0: no total for it, as the exe has no table */
+    int records_unified;     /* 1: every race's records go in race_records.dat's tables by track, layout, cheats and laps (race_records.h);
+                              * 0: config.dat's, mixed, as the exe keeps them (the Warrior none) */
     int car_colours;         /* 1: the screen palette's slots the cars own are filled with the colours the cars show most (race_palette_fit);
                               * 0: the exe's own slots, whose nearest colours turn a body's light tones to grey */
     int fog_sample;          /* 1: the distance fog's colour from the horizon art's band around its line (modern_look.h); 0: from the
@@ -104,8 +104,9 @@ int port_car_soft_shadow(void);
 /* 1 when the headlight beam is a cone from the car's position and heading (it follows the nose, a turn, a U-turn): the headlight beams with Perspective Correction (Modern 3D); without it the
  * pool along the track's nodes. Not a setting of its own. */
 int port_headlight_cone(void);
-/* 1 when a free race's total goes in the per-lap-count tables (free_records.h): TNFS_FREE_RECORDS=0/1 when set, else the mode's free_records. */
-int port_free_records(void);
+/* 1 when the records are race_records.h's (Restomod's): TNFS_RECORDS_UNIFIED=0/1 when set, else the mode's records_unified. Read on every
+ * call (nothing keeps it), so a change of mode reaches the records at once. */
+int port_records_unified(void);
 /* 1 when the cars' palette slots are fitted to the colours they show (race_palette.h): TNFS_CAR_COLOURS=0/1 when set, else the mode's car_colours. */
 int port_car_colours(void);
 /* 1 when the distance fog takes its colour from the band around the horizon's line: TNFS_FOG_SAMPLE=0/1 when set, else the mode's fog_sample. */

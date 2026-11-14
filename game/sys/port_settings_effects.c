@@ -124,11 +124,11 @@ int port_sky_fill_mode(void)
     return SKY_FILL_MODE_DEFAULT;
 }
 
-int port_free_records(void)
+int port_records_unified(void)
 {
-    const char *v = getenv("TNFS_FREE_RECORDS");
+    const char *v = getenv("TNFS_RECORDS_UNIFIED");
     if (v != NULL && (v[0] == '0' || v[0] == '1') && v[1] == '\0') return v[0] - '0';
-    return port_settings_load().free_records;
+    return port_settings_load().records_unified;
 }
 
 int port_car_colours(void)

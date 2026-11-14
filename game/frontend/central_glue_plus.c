@@ -11,6 +11,7 @@ void cg_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int3
     text_draw_smooth(text, x, y, 1, 1);
 }
 
+
 void cg_plus_panel(void *ctx, const uint8_t *rgb, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t framed)
 {
     enum { DARK = 0x1000, RED = 0xff0000, CORNERS = 4 };

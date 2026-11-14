@@ -243,7 +243,7 @@ static int has_variant(const TrackSelectPlus *plus, int track, int variant)
 void track_select_entry(int track, int variant, int direction, int lost_vegas, int unlock_m, int unlock_r,
                         int *to_track, int *to_variant)
 {
-    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0, 0, NULL, NULL, NULL };
+    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL };
     const int last = lost_vegas ? LOST_VEGAS : LOST_VEGAS - 1;
     for (int v = variant + direction; v >= 0 && v <= 2; v += direction)
         if (has_variant(&plus, track, v)) {
@@ -271,6 +271,24 @@ static void plain(int32_t bank, const char *tag, const TrackSelectOps *ops)
     ops->blit(ops->ctx, ops->shape(ops->ctx, bank, tag));
 }
 
+int track_select_laps_step(int laps, int direction)
+{
+    enum { COUNTS = 100 };   /* 0 the menu's, 1..99 */
+    return ((laps + direction) % COUNTS + COUNTS) % COUNTS;
+}
+
+/* port (dep55): the laps row's own count is on: Restomod, outside a tournament */
+static int laps_on(const TrackSelectState *st)
+{
+    return st->plus && st->plus->laps && g16(st->config, TRACK_SELECT_RACE_TYPE) != TOURNAMENT;
+}
+
+/* the laps row's value: the custom count when one is set, else the choice's */
+static int laps_shown(const TrackSelectState *st)
+{
+    return laps_on(st) && *st->plus->laps > 0 ? *st->plus->laps : g16(st->config, TRACK_SELECT_LAPS);
+}
+
 /* the length, the laps and the segment's art */
 static void draw_texts(const TrackSelectInputs *in, const TrackSelectState *st, int32_t bank, int item,
                        int segment, const TrackSelectOps *ops)
@@ -281,7 +299,7 @@ static void draw_texts(const TrackSelectInputs *in, const TrackSelectState *st, 
     if (track > 2) {
         ops->text_shadowed(ops->ctx, (in->kmh ? KM : MILES)[track - 3], 0xc8, 0x153);
         if (item == LAPS) ops->text_select(ops->ctx, 1);
-        snprintf(text, sizeof text, "%d", g16(st->config, TRACK_SELECT_LAPS));
+        snprintf(text, sizeof text, "%d", laps_shown(st));
         ops->text_shadowed(ops->ctx, text, 0xdc, 0x16b);
     } else {
         const char *const *lengths = in->kmh ? KM_SEGMENTED : MILES_SEGMENTED;
@@ -452,6 +470,7 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
             const int choice = (g16(st->config, TRACK_SELECT_LAPS_CHOICE) + 1) % 3;
             p16(st->config, TRACK_SELECT_LAPS_CHOICE, choice);
             set_laps(st, (int16_t)choice);
+            if (laps_on(st)) *st->plus->laps = 0;   /* port (dep55): the choice's count again */
         }
         *changed = 1;
     } else if (item == TRACK_SELECT_WEATHER && weather_on(st)) {
@@ -498,6 +517,7 @@ int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, Dialo
     const int saved_weather = weather_on(st) ? *st->plus->weather : 0;
     const int saved_reverse = st->plus && st->plus->reverse ? *st->plus->reverse : 0;
     const int saved_light_time = st->plus && st->plus->light_time ? *st->plus->light_time : 0;
+    const int saved_laps = laps_on(st) ? *st->plus->laps : 0;   /* port (dep55) */
     if (st->plus && st->plus->light_time)   /* port: the art is midday whatever the exe's toggle was left at */
         for (int t = 0; t < TRACKS; t++) st->time_of_day[t] = 1;
     int quit = 0, refresh = 1, redraw = 1, changed = 0, was = 0, item = DONE, keys_armed = 1, buttons_armed = 1;
@@ -569,8 +589,13 @@ int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, Dialo
                 if (weather_on(st)) *st->plus->weather = saved_weather;
                 if (st->plus && st->plus->reverse) *st->plus->reverse = saved_reverse;
                 if (st->plus && st->plus->light_time) *st->plus->light_time = saved_light_time;
+                if (laps_on(st)) *st->plus->laps = saved_laps;   /* port (dep55): the custom count as it came */
                 ops->sound(ops->ctx, SOUND_SELECT);
                 quit = 1;
+            } else if (item == LAPS && laps_on(st) && (key == KEY_LEFT || key == KEY_RIGHT)) {   /* port (dep55): the custom count */
+                *st->plus->laps = track_select_laps_step(*st->plus->laps, key == KEY_LEFT ? -1 : 1);
+                ops->sound(ops->ctx, SOUND_MOVE);
+                redraw = 1;
             } else if (key == KEY_LEFT || key == KEY_RIGHT || key == KEY_UP || key == KEY_DOWN) {
                 ops->pointer_off(ops->ctx);
                 was = item;

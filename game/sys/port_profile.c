@@ -75,12 +75,13 @@ typedef struct {
     int menu_pad_cancel;   /* port.cfg's, appended */
     int tunnel_lamps;   /* port.cfg's, appended */
     int wrong_way;   /* port.cfg's, appended */
+    int records_unified;   /* port.cfg's, appended: race_records.h's tables (Restomod), else config.dat's as the exe */
 } Table;
 
 static const Table TABLES[PROFILE_COUNT] = {
-    [PROFILE_STOCK]    = { 0, 30, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   /* 30: the exe's 30 steps a second, each drawn once */
-    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
+    [PROFILE_STOCK]    = { 0, 30, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   /* 30: the exe's 30 steps a second, each drawn once */
+    [PROFILE_RESTORED] = { 1, 144, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    [PROFILE_RESTOMOD] = { 1, 144, 1, 1, 1, 1, 1, 2, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},   /* render_scale 2; body_shine 4: the envmap, the owner's pick */
 };
 
 /* what the player may change in a mode, by file key; Restomod '26 leaves everything free but the machine's own */
@@ -203,7 +204,7 @@ PortSettings port_profile_settings(Profile p, PortSettings s, ScreenFormat monit
     s.rally_spray = t->rally_spray;
     s.snow_fx = t->snow_fx;
     s.lamp_halos = t->lamp_halos;
-    s.wipers = t->wipers, s.weather_fog = t->weather_fog, s.spray_v4 = t->spray_v4, s.menu_pad_cancel = t->menu_pad_cancel, s.tunnel_lamps = t->tunnel_lamps, s.wrong_way = t->wrong_way;
+    s.wipers = t->wipers, s.weather_fog = t->weather_fog, s.spray_v4 = t->spray_v4, s.menu_pad_cancel = t->menu_pad_cancel, s.tunnel_lamps = t->tunnel_lamps, s.wrong_way = t->wrong_way, s.records_unified = t->records_unified;
     return s;
 }
 

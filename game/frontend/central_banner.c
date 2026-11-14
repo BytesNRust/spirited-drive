@@ -2,6 +2,7 @@
 #include "game/frontend/central_banner.h"
 
 #include "game/frontend/records_route.h"
+#include "game/sys/port_settings.h"
 #include "game/sys/text.h"
 
 /* above the RACE item, its left edge (x 7..71, y 445..458 on the frame): about 220 px of words, which do not fit
@@ -12,8 +13,9 @@ static const char BANNER_TEXT[] = "CHEATS ENABLED";
 int central_cheats_on(const ControlCentralState *st)
 {
     enum { TURBO_BIT = 8 };
+    if (!port_records_unified()) return 0;   /* the original's records mix every race: no table with cheats, nothing to warn of */
     const RaceKind kind = records_kind_with_car(
-        records_race_kind(0, 0, *st->explode, *st->nitro, (*st->track_flags & TURBO_BIT) != 0), *st->player_car);
+        records_race_kind(0, 0, 0, *st->explode, *st->nitro, (*st->track_flags & TURBO_BIT) != 0), *st->player_car);
     return records_has_cheats(kind);
 }
 

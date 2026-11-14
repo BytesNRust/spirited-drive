@@ -134,7 +134,7 @@ static void draw_page(const ResultsInputs *in, int32_t bank, int16_t record, con
         if (track != RUSTY_SPRINGS || !time_trial) ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "no5w"));
     }
     ops->text_select(ops->ctx, 1);
-    if (results_cheats(in)) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
+    results_header_marks(in, ops);   /* port: "(CHEATS)" and the table line */
     if (track == RUSTY_SPRINGS && time_trial && in->variant_r == 0) draw_rust(in, ops);
     draw_laps(in, ops);
     draw_record(in, record, ops);

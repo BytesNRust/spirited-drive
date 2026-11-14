@@ -314,6 +314,7 @@ static void track_select(void *ctx)
     (void)ctx;
     ConfigDat *const config = config_current();
     const RaceSettings before = cg_settings_of();
+    port_log("mark:screen=track_select\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     config_dat_set_race(config, &before);
     const int32_t screen = ea_screen();
     const TrackSelectInputs in = { "", resource_kmh(), cg_g.variant_m, cg_g.variant_r, cg_g.lost_vegas, screen,
@@ -322,10 +323,13 @@ static void track_select(void *ctx)
      * when the screen leaves them changed (the race reads them there, as it does today) */
     int weather = port_weather(), light_time = port_light_time();
     int reverse = reverse_track_picked();   /* port: the mode's file's reverse offers the row; the pick is the session's, not saved */
+    int laps = port_settings_load().laps;   /* port (dep55): Restomod's custom laps on the laps row, written back to port.cfg */
+    const int was_laps = laps;
     const PortExtras extras = port_extras_load();
     TrackSelectPlus plus = { cg_g.unlock_m, cg_g.unlock_r, &cg_g.variant_m, &cg_g.variant_r,
                              extras.variant_time,   /* port: variants as entries */
-                             port_settings_profile() == PROFILE_RESTOMOD, &weather, port_light_effects() ? &light_time : NULL, extras.reverse ? &reverse : NULL };
+                             port_settings_profile() == PROFILE_RESTOMOD, &weather, port_light_effects() ? &light_time : NULL, extras.reverse ? &reverse : NULL,
+                             port_records_unified() ? &laps : NULL };
     const int was_weather = weather, was_light_time = light_time;
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), cg_time_of_day, cg_g.inverse, cg_screen_palette, &plus };
     int x, y;
@@ -340,10 +344,11 @@ static void track_select(void *ctx)
         cg_deadline_passed, music_fade_out, music_end, &p };
     track_select_screen(&in, &st, &p, &ops);
     if (extras.reverse) reverse_track_pick(reverse);
-    if (weather != was_weather || light_time != was_light_time) {
+    if (weather != was_weather || light_time != was_light_time || laps != was_laps) {
         PortSettings saved = port_settings_load();
         if (weather != was_weather) saved.weather = weather;
         if (light_time != was_light_time) saved.light_time = light_time;
+        if (laps != was_laps) saved.laps = laps;
         if (!port_settings_save(&saved)) port_log("track select: port.cfg could not be saved\n");
     }
     RaceSettings after = before;
@@ -370,18 +375,23 @@ static int32_t best_times(void *ctx)
 {
     uint8_t *const image = config_current()->image;
     const int32_t screen = ea_screen();
+    port_log("mark:screen=best_times\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     const BestTimesInputs in = { "", resource_german(), cg_g.lost_vegas, screen, ea_picture_shape(screen),
                                  image + (0x524f8f - 0x524df0) };
     BestTimesState st = { image + (0x524df9 - 0x524df0), cg_g.inverse, cg_screen_palette,
-                          records_glue_best_plus(image, cg_g.variant_m, cg_g.variant_r) };   /* port: the tables with cheats */
+                          records_glue_best_plus(image, cg_g.variant_m, cg_g.variant_r, cg_g.explode, cg_g.nitro, (menu_cheats.keys_506 & 8) != 0,
+                                                 cg_g.player_car) };   /* port (dep55): Restomod's pages; NULL the exe's screen */
     const BestTimesOps ops = {
         move_to, load_art, no_inverse, music_feed, shape, cg_flush, set_palette, nothing, styles, cg_poll_pointer, cg_mark_at,
         in_rect, select_picture, blit, blit_masked, blit_word, style, cg_fit, time_text, speed_text, shadowed,
         select_default, hide, nothing, nothing, flip, show_dialog, buttons, fade_in, deadline_set, sound, ticks,
         activate_dialog, cg_key, click, cg_image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off_dialog,
         music,
-        cg_deadline_passed, music_fade_out, music_end, ctx, records_glue_toggle, cg_plus_text, plus_text_width };   /* port: the cheats item */
-    return best_times_screen(&in, &st, ctx, &ops);
+        cg_deadline_passed, music_fade_out, music_end, ctx, cg_plus_text, plus_text_width, glue_plus_text_scaled, glue_plus_text_width_scaled };   /* port (dep55): the pages' words */
+    input_page_keys(st.plus != NULL);   /* port (dep55): Page Up / Page Down turn the pages */
+    const int32_t result = best_times_screen(&in, &st, ctx, &ops);
+    input_page_keys(0);
+    return result;
 }
 /* Cancel or Escape: the settings back as they were on entry, and the config.dat image with them -- the view distance
  * is one of the screen's shorts there, not in port.cfg, so the kept image is what puts it back. Both are kept for as

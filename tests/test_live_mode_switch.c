@@ -2,6 +2,7 @@
  * the game keeps from them: the next race behaves as the settings are now, never as they were when the game started. The settings files are kept in memory here (the
  * platform's user files); the mode is changed with port_profile_select, as Game Mode's Yes and Options' row do (menu_glue.c's profile_apply), and a row with
  * port_settings_save / port_extras_save, as Options, Graphics, CUSTOMIZE and EXTRAS do. */
+#include "game/frontend/records_route.h"
 #include "game/race/dash_mask.h"
 #include "game/race/dash_nose.h"
 #include "game/race/race_sim.h"
@@ -9,6 +10,7 @@
 #include "game/sys/port_follow.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
+#include "game/sys/race_records.h"
 #include "game/viewer/spray_v4_switch.h"
 #include "test.h"
 
@@ -54,6 +56,13 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
 }
 
 void platform_free_file(uint8_t *data) { free(data); }
+bool platform_user_file_exists(const char *name)
+{
+    size_t size = 0;
+    uint8_t *data = platform_read_user_file(name, &size);
+    if (data != NULL) platform_free_file(data);
+    return data != NULL;
+}
 
 static void mode(Profile p)
 {
@@ -213,6 +222,51 @@ static void test_wiper_nose_follows_the_mode(void)
     dash_nose_cache_free(&c);
 }
 
+static int stored_file(const char *name)
+{
+    for (int i = 0; i < FILES; i++)
+        if (stored[i].present && strcmp(name, stored[i].name) == 0) return 1;
+    return 0;
+}
+
+/* dep55: the records follow the mode with no restart. Restored keeps the original's (config.dat's image, no file of its own); Restomod
+ * the race's table in race_records.dat, the image untouched; back in Restored the image again */
+static void test_records_follow_the_mode(void)
+{
+    static uint8_t image[RECORD_CHECK_IMAGE], game[RECORD_CHECK_GAME], before[RECORD_CHECK_IMAGE];
+    enum { TRACK = 0x95, TOP = 0x6d, TOP_ROW = 0xb5 + 0xa6b * 3 + 0x57c + RECORD_ROW_SPEED };
+    port_profile_reset(PROFILE_RESTORED), port_profile_reset(PROFILE_RESTOMOD);
+    unsetenv("TNFS_RECORDS_UNIFIED");
+    race_records_reset();
+    memset(image, 0, sizeof image), memset(game, 0, sizeof game);
+    image[TRACK] = 3;
+    const int32_t top = 123456;
+    memcpy(game + TOP, &top, 4);
+    const RaceKind kind = { LAYOUT_MIRROR, 0 };
+    for (int pass = 0; pass < 3; pass++) {
+        const int restomod = pass == 1;
+        mode(restomod ? PROFILE_RESTOMOD : PROFILE_RESTORED);
+        CHECK_EQ_INT(port_records_unified(), restomod);
+        memset(image + TOP_ROW, 0, 4);
+        memcpy(before, image, sizeof image);
+        CHECK(records_route(kind, ROUTE_TOP, image, game, 0, NULL) >= 0);
+        if (restomod) {
+            CHECK(memcmp(image, before, sizeof image) == 0);
+            const RecordTable *t = race_records_find(3, LAYOUT_MIRROR, 0, records_race_laps(image));
+            int32_t kept = 0;
+            if (t != NULL) memcpy(&kept, t->top.row + RECORD_ROW_SPEED, 4);
+            CHECK_EQ_INT(kept, top);
+            CHECK(stored_file("race_records.dat"));
+        } else {
+            int32_t kept;
+            memcpy(&kept, image + TOP_ROW, 4);
+            CHECK_EQ_INT(kept, top);
+            CHECK_EQ_INT(stored_file("race_records.dat"), pass == 2);   /* Restored writes none of its own */
+        }
+    }
+    race_records_reset();
+}
+
 int main(void)
 {
     unsetenv("TNFS_SPRAY_V4"), unsetenv("TNFS_BRAKE_OVER_GAS");
@@ -227,5 +281,6 @@ int main(void)
     test_brake_over_gas_follows();
     test_switches_follow_the_mode();
     test_wiper_nose_follows_the_mode();
+    test_records_follow_the_mode();
     return TEST_REPORT();
 }

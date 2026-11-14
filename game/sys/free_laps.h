@@ -1,6 +1,7 @@
-/* port: free laps. `laps=N` (port.cfg, TNFS_LAPS) sets a race's lap count to any 1..99 instead of the
- * exe's 2/4/6/8/12/16 of the difficulty; 0, the default, is the exe's. A race whose laps are not the exe's is a free race:
- * the code the lap count would break guards itself (RaceState.port_free_laps) and no record is written for it. */
+/* port: free laps. `laps=N` (port.cfg, TNFS_LAPS, Restomod's track screen row) sets a race's lap count to any 1..99 instead of the
+ * exe's 2/4/6/8/12/16 of the difficulty; 0, the default, is the exe's. A race whose laps are not the exe's is a free race: the code the
+ * lap count would break guards itself (RaceState.port_free_laps). Its records (records_route.h): with Restomod's records its lap count's
+ * own table; with the original's (Stock, Restored) its choice's table when the track has its lap count, else none. */
 #ifndef TNFS_FREE_LAPS_H
 #define TNFS_FREE_LAPS_H
 

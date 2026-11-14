@@ -38,10 +38,16 @@ static const uint8_t *track_at(const ResultsInputs *in) { return in->image + TRA
 
 static const char *dnf(const ResultsInputs *in) { return in->german ? "Abbruch" : "DNF"; }
 
+void results_header_marks(const ResultsInputs *in, const ResultsOps *ops)
+{
+    if (results_cheats(in)) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
+    if (in->marks != NULL && in->marks->line != NULL) ops->text_at(ops->ctx, in->marks->line, RESULTS_LINE_X, RESULTS_LINE_Y);
+}
+
 /* port: a row's cheat letters at the marks' x, when the table shown is the one with cheats */
 void results_mark_slot(const ResultsInputs *in, int slot, int32_t y, const ResultsOps *ops)
 {
-    char letters[5];
+    char letters[6];
     if (!results_cheats(in) || slot < 0 || slot >= RECORDS_MARK_SLOTS) return;
     records_mark_text(in->marks->slots[slot], letters);
     if (letters[0] != '\0') ops->text_at(ops->ctx, letters, RESULTS_MARK_X, y);
@@ -174,7 +180,7 @@ static void draw_page(const ResultsInputs *in, int32_t bank, int segment, int be
     ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "bgnd"));
     if (track < 3) ops->blit(ops->ctx, ops->shape(ops->ctx, bank, TRACK_TAG[track]));
     ops->text_select(ops->ctx, 1);
-    if (results_cheats(in)) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
+    results_header_marks(in, ops);   /* port: "(CHEATS)" and the table line */
     draw_place(in, segment, ops);
     draw_heads(in, segment, ops);
     draw_times(in, segment, ops);

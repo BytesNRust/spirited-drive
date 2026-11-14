@@ -106,7 +106,7 @@ static inline void check_same(PortSettings a, PortSettings b)
     CHECK_EQ_INT(a.weather, b.weather);
     CHECK_EQ_INT(a.render_bands, b.render_bands);
     CHECK_EQ_INT(a.body_shine, b.body_shine);
-    CHECK_EQ_INT(a.free_records, b.free_records);
+    CHECK_EQ_INT(a.records_unified, b.records_unified);
     CHECK_EQ_INT(a.car_colours, b.car_colours);
     CHECK_EQ_INT(a.fog_sample, b.fog_sample);
     CHECK_EQ_INT(a.sky_fill, b.sky_fill);

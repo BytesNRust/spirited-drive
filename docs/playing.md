@@ -35,9 +35,15 @@ What you change is kept for that mode alone. The additions:
     camera, difficulty (Easy, Original, Hard);
   - Page 3 — Miscellaneous: start screen (Game Mode, Network or Control Central), intro videos, updates and anonymous
     stats, open the log folder, restore the mode's defaults.
-  The typed cheat codes still work. With a cheat on, Control Central shows CHEATS ENABLED.
-- **Records**: mirror and rally have their own tables. A race with Explode, Nitro, Turbo or the Warrior goes to a
-  separate "cheats" table, each time marked N / E / T / W (Best Times' "Cheats" footer item shows it).
+  The typed cheat codes still work. In Restomod, with a cheat on, Control Central shows CHEATS ENABLED.
+- **Records**: Stock and Restored keep the original's records in `config.dat`, every race in the same table.
+  Restomod keeps its own in `race_records.dat`: a table per track, layout (normal, mirror, reverse, rally and their
+  mixes), cheats or none, and lap count, saved after every race of every mode. A race with Explode, Nitro, Turbo,
+  the Warrior or the moon's gravity goes to the cheats table, each time marked N / E / T / W / L; every row also
+  keeps its weather, time of day and difficulty. The best lap is shared by every lap count. Best Times picks the
+  table on the strip under the track's name (Up and Down to a field, Left and Right to change it, Tab for the next
+  page: the ten best, then the best lap or a stage's segments). The first Restomod run imports what `config.dat`,
+  `records.dat` and `free_records.dat` hold and leaves those files as they were.
 - **Keys in a race**: F1 / F2 the bumper view's mirror and radar, F3 view distance, F5 sound, F6 rival car markers,
   F7 / F8 HUD, F9 replay, F12 the 3D render stats overlay. With the Nitro cheat, hold N (or the pad's Nitro button)
   at the start for the launch.
@@ -63,7 +69,7 @@ Anything the earlier folders held (`TNFS Restomod/`, then `tnfs/tnfs/`, in the s
 | `stock.cfg`, `restored.cfg`, `restomod.cfg` | What the player changed in that mode, and only that |
 | `controls.cfg` | the bindings and axis settings |
 | `extras.cfg` | Customize Game's switches |
-| `records.dat` | the records the original has no place for: variants and the cheats table |
+| `race_records.dat` | Restomod's records (`records.dat` and `free_records.dat`, from earlier versions, are only read once, to import them) |
 | `config.dat`, `Replay.rpl`, saved games | the game's own player file, the last replay and the saves |
 | `spirited-drive.log` | what the last run said (send it with a bug report; Customize Game's page 3, Open the log folder, shows it) |
 | `gamedata/` | your copy of the game's files, made at the first start from your CD, a folder or an ISO image |
