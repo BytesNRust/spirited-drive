@@ -42,7 +42,8 @@ What you change is kept for that mode alone. The additions:
   the Warrior or the moon's gravity goes to the cheats table, each time marked N / E / T / W / L; every row also
   keeps its weather, time of day and difficulty. The best lap is shared by every lap count. Best Times picks the
   table on the strip under the track's name (Up and Down to a field, Left and Right to change it, Tab for the next
-  page: the ten best, then the best lap or a stage's segments). The first Restomod run imports what `config.dat`,
+  page: the ten best, then the best lap or a stage's segments; the page's selector sits over Road/Track). With the
+  mouse, the arrows step a field either way and a click on its word steps it on. The first Restomod run imports what `config.dat`,
   `records.dat` and `free_records.dat` hold and leaves those files as they were.
 - **Keys in a race**: F1 / F2 the bumper view's mirror and radar, F3 view distance, F5 sound, F6 rival car markers,
   F7 / F8 HUD, F9 replay, F12 the 3D render stats overlay. With the Nitro cheat, hold N (or the pad's Nitro button)

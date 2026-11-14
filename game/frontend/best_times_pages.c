@@ -17,9 +17,12 @@ enum {
      * words in the gap between the time and the car */
     NAME_X = 8, NAME_WIDTH = 0xd4, MARK_X = 0xe0, TIME_X = 0x118, COND_END = 0x1da, CAR_X = 0x1e0, SHIFT_X = 0x24e,
     ROW_Y = 0x73, ROW_STEP = 0x16, TOP_Y = 0x17c, SMALL_DROP = 5,
-    /* the strip, at three quarters the words' size (the longest table runs some 500 px): the page's line centred just above the
-     * footer's Road & Track item (between its arrows, so their hit rects stay apart), the table's line right of the "Best times" header */
-    STRIP_NUM = 3, STRIP_DEN = 4, STRIP_SMALL_DEN = 5, STRIP_RIGHT = 0x27c, PAGE_CENTRE_X = 311, PAGE_Y = 430, TABLE_X = 0x8c, TABLE_Y = 0x4c, HIT_ABOVE = 4, HIT_BELOW = 16, HIT_PAD = 5,
+    /* the strip. The table's line at three quarters the words' size (three fifths when that does not fit), its capitals' last row on the
+     * art's "Best times" title's, centred in the room past the title; the page's selector in the same small words, a secondary line
+     * centred just over the footer's Road & Track item, its rects between the footer's arrows' */
+    CAP_TOP = 7, CAP_BOTTOM = 16,   /* a capital's first and last rows in the font's 1/1 cell */
+    TITLE_BASE = 90, TITLE_END = 125, TITLE_GAP = 20, STRIP_RIGHT = 0x270, STRIP_NUM = 3, STRIP_DEN = 4, STRIP_SMALL_DEN = 5,
+    PAGE_CENTRE_X = 311, PAGE_Y = 428, HIT_PAD_Y = 3, FOOTER_PREV_X1 = 0xfa, FOOTER_NEXT_X0 = 0x172, HEADER_WORDS = 12,
     NO_RECORDS_Y = ROW_Y + 4 * ROW_STEP, CENTRE_X = 320
 };
 
@@ -67,12 +70,15 @@ void best_times_pages_act(BestTimesPlus *plus, int track, int item)
 {
     switch (item) {
     case BEST_PAGES_LAYOUT_DOWN: plus->layout = round_step(plus->layout, -1, RACE_RECORDS_LAYOUTS); break;
+    case BEST_PAGES_LAYOUT:
     case BEST_PAGES_LAYOUT_UP: plus->layout = round_step(plus->layout, 1, RACE_RECORDS_LAYOUTS); break;
     case BEST_PAGES_CHEATS:
     case BEST_PAGES_CHEATS_DOWN:
     case BEST_PAGES_CHEATS_UP: plus->cheats ^= 1; break;
     case BEST_PAGES_PAGE_DOWN: plus->page = round_step(plus->page, -1, best_times_pages_count(track)); break;
+    case BEST_PAGES_PAGE:
     case BEST_PAGES_PAGE_UP: plus->page = round_step(plus->page, 1, best_times_pages_count(track)); break;
+    case BEST_PAGES_LAPS:
     case BEST_PAGES_LAPS_DOWN:
     case BEST_PAGES_LAPS_UP: {
         if (is_stage(track)) break;
@@ -80,7 +86,7 @@ void best_times_pages_act(BestTimesPlus *plus, int track, int item)
         const int n = lap_counts(plus, track, counts);
         for (int i = 0; i < n; i++)
             if (counts[i] == plus->laps) at = i;
-        plus->laps = counts[round_step(at, item == BEST_PAGES_LAPS_UP ? 1 : -1, n)];
+        plus->laps = counts[round_step(at, item == BEST_PAGES_LAPS_DOWN ? -1 : 1, n)];
         break;
     }
     default: break;
@@ -119,58 +125,102 @@ void best_times_conditions_text(RecordMarks m, char *out, int size)
     snprintf(out, (size_t)size, "%s %s %s", weather, time, level);
 }
 
-/* a word of the strip at x, lit or not, its hit rect kept; the x after it */
-static int strip_den = STRIP_DEN;   /* the size the strip's line now drawn takes (STRIP_NUM / strip_den) */
+/* a line of the strip: its text's y, its size, the room between its words */
+typedef struct {
+    int y, num, den, gap;
+} Line;
 
-static int word(const BestTimesOps *ops, const char *text, int x, int y, int lit, BestPagesHits *hits, int item)
+static int scaled(int v, const Line *l) { return v * l->num / l->den; }
+
+/* an item's rect, inclusive */
+static void hit(BestPagesHits *hits, int item, int x0, int x1, int y0, int y1)
 {
-    const int w = ops->plus_scaled_width(ops->ctx, text, STRIP_NUM, strip_den);
-    ops->plus_scaled(ops->ctx, lit ? TEXT_YELLOW : TEXT_CREAM, text, x, y, STRIP_NUM, strip_den);
-    if (item >= 0) {
-        hits->x0[item] = (int16_t)(x - HIT_PAD), hits->x1[item] = (int16_t)(x + w + HIT_PAD);
-        hits->y0[item] = (int16_t)(y - HIT_ABOVE), hits->y1[item] = (int16_t)(y + HIT_BELOW);
+    if (item < 0) return;
+    hits->x0[item] = (int16_t)x0, hits->x1[item] = (int16_t)x1;
+    hits->y0[item] = (int16_t)y0, hits->y1[item] = (int16_t)y1;
+}
+
+/* an element w wide at x: its rect half the gap past each side, so that neighbours' rects meet and never overlap; the next x */
+static int place(const Line *l, BestPagesHits *hits, int item, int x, int w, int y0, int y1)
+{
+    hit(hits, item, x - l->gap / 2, x + w + (l->gap - l->gap / 2) - 1, y0, y1);
+    return x + w + l->gap;
+}
+
+/* a word at x, lit or not, its rect over its capitals; the next x */
+static int word(const BestTimesOps *ops, const Line *l, const char *text, int x, int lit, BestPagesHits *hits, int item)
+{
+    const int w = ops->plus_scaled_width(ops->ctx, text, l->num, l->den);
+    ops->plus_scaled(ops->ctx, lit ? TEXT_YELLOW : TEXT_CREAM, text, x, l->y, l->num, l->den);
+    return place(l, hits, item, x, w, l->y + scaled(CAP_TOP, l) - HIT_PAD_Y, l->y + scaled(CAP_BOTTOM, l) + HIT_PAD_Y);
+}
+
+typedef struct {
+    const char *text;
+    int item, lit;
+} Word;
+
+static int words_width(const BestTimesOps *ops, const Word *w, int n, int num, int den)
+{
+    const int gap = ops->plus_scaled_width(ops->ctx, " ", num, den);
+    int width = gap * (n - 1);
+    for (int i = 0; i < n; i++) width += ops->plus_scaled_width(ops->ctx, w[i].text, num, den);
+    return width;
+}
+
+/* the table's line: "< MIRROR > - < NO CHEATS > - < 4 LAPS >", each field's arrows and word lit with the keys on it or the pointer */
+static void header(const BestTimesPlus *p, int track, int lit, BestPagesHits *hits, const BestTimesOps *ops)
+{
+    char layout[TEXT], laps[TEXT];
+    Word w[HEADER_WORDS];
+    int n = 0;
+    const int on_layout = p->focus == BEST_FOCUS_LAYOUT, on_cheats = p->focus == BEST_FOCUS_CHEATS, on_laps = p->focus == BEST_FOCUS_LAPS;
+    records_layout_text(p->layout, layout, sizeof layout);
+    w[n++] = (Word){ "<", BEST_PAGES_LAYOUT_DOWN, on_layout || lit == BEST_PAGES_LAYOUT_DOWN };
+    w[n++] = (Word){ layout, BEST_PAGES_LAYOUT, on_layout || lit == BEST_PAGES_LAYOUT };
+    w[n++] = (Word){ ">", BEST_PAGES_LAYOUT_UP, on_layout || lit == BEST_PAGES_LAYOUT_UP };
+    w[n++] = (Word){ "-", -1, 0 };
+    w[n++] = (Word){ "<", BEST_PAGES_CHEATS_DOWN, on_cheats || lit == BEST_PAGES_CHEATS_DOWN };
+    w[n++] = (Word){ p->cheats ? "CHEATS" : "NO CHEATS", BEST_PAGES_CHEATS, on_cheats || lit == BEST_PAGES_CHEATS };
+    w[n++] = (Word){ ">", BEST_PAGES_CHEATS_UP, on_cheats || lit == BEST_PAGES_CHEATS_UP };
+    w[n++] = (Word){ "-", -1, 0 };
+    if (is_stage(track)) {
+        w[n++] = (Word){ "OPEN ROAD", -1, 0 };
+    } else {
+        snprintf(laps, sizeof laps, "%d LAP%s", p->laps, p->laps == 1 ? "" : "S");
+        w[n++] = (Word){ "<", BEST_PAGES_LAPS_DOWN, on_laps || lit == BEST_PAGES_LAPS_DOWN };
+        w[n++] = (Word){ laps, BEST_PAGES_LAPS, on_laps || lit == BEST_PAGES_LAPS };
+        w[n++] = (Word){ ">", BEST_PAGES_LAPS_UP, on_laps || lit == BEST_PAGES_LAPS_UP };
     }
-    return x + w;
+    const int left = TITLE_END + TITLE_GAP, room = STRIP_RIGHT - left;
+    const int den = words_width(ops, w, n, STRIP_NUM, STRIP_DEN) > room ? STRIP_SMALL_DEN : STRIP_DEN;
+    Line l = { 0, STRIP_NUM, den, ops->plus_scaled_width(ops->ctx, " ", STRIP_NUM, den) };
+    l.y = TITLE_BASE - scaled(CAP_BOTTOM, &l);   /* the same last row at either size */
+    const int width = words_width(ops, w, n, STRIP_NUM, den);
+    int x = left + (width < room ? (room - width) / 2 : 0);
+    for (int i = 0; i < n; i++) x = word(ops, &l, w[i].text, x, w[i].lit, hits, w[i].item);
+}
+
+/* the page's selector: "< TOP 10 >" in the table's line's small words, centred just over Road & Track */
+static void page_selector(const BestTimesPlus *p, int track, int lit, BestPagesHits *hits, const BestTimesOps *ops)
+{
+    const int on = p->focus == BEST_FOCUS_PAGE;
+    const Word w[3] = { { "<", BEST_PAGES_PAGE_DOWN, on || lit == BEST_PAGES_PAGE_DOWN },
+                        { PAGE_NAME[is_stage(track)][p->page], BEST_PAGES_PAGE, on || lit == BEST_PAGES_PAGE },
+                        { ">", BEST_PAGES_PAGE_UP, on || lit == BEST_PAGES_PAGE_UP } };
+    const Line l = { PAGE_Y, STRIP_NUM, STRIP_DEN, ops->plus_scaled_width(ops->ctx, " ", STRIP_NUM, STRIP_DEN) };
+    int x = PAGE_CENTRE_X - words_width(ops, w, 3, STRIP_NUM, STRIP_DEN) / 2;
+    for (int i = 0; i < 3; i++) x = word(ops, &l, w[i].text, x, w[i].lit, hits, w[i].item);
+    /* the line runs down beside the footer's arrows: its rects stay between theirs */
+    if (hits->x0[BEST_PAGES_PAGE_DOWN] <= FOOTER_PREV_X1) hits->x0[BEST_PAGES_PAGE_DOWN] = FOOTER_PREV_X1 + 1;
+    if (hits->x1[BEST_PAGES_PAGE_UP] >= FOOTER_NEXT_X0) hits->x1[BEST_PAGES_PAGE_UP] = FOOTER_NEXT_X0 - 1;
 }
 
 static void strip(const BestTimesState *st, int track, int lit, BestPagesHits *hits, const BestTimesOps *ops)
 {
-    const BestTimesPlus *const p = st->plus;
-    char text[TEXT], layout[TEXT], whole[2 * TEXT];
-    /* the table's line at three quarters, or at three fifths when that runs past the right edge (all three layouts) */
-    records_layout_text(p->layout, layout, sizeof layout);
-    snprintf(whole, sizeof whole, "< %s > - < %s > - < 99 LAPS >", layout, p->cheats ? "CHEATS" : "NO CHEATS");
-    strip_den = TABLE_X + ops->plus_scaled_width(ops->ctx, whole, STRIP_NUM, STRIP_DEN) > STRIP_RIGHT ? STRIP_SMALL_DEN : STRIP_DEN;
-    int gap = ops->plus_scaled_width(ops->ctx, " ", STRIP_NUM, strip_den);
-    int x = TABLE_X;
-    const int on_layout = p->focus == BEST_FOCUS_LAYOUT, on_cheats = p->focus == BEST_FOCUS_CHEATS, on_laps = p->focus == BEST_FOCUS_LAPS;
-    x = word(ops, "<", x, TABLE_Y, on_layout || lit == BEST_PAGES_LAYOUT_DOWN, hits, BEST_PAGES_LAYOUT_DOWN) + gap;
-    x = word(ops, layout, x, TABLE_Y, on_layout, hits, -1) + gap;
-    x = word(ops, ">", x, TABLE_Y, on_layout || lit == BEST_PAGES_LAYOUT_UP, hits, BEST_PAGES_LAYOUT_UP) + gap;
-    x = word(ops, "-", x, TABLE_Y, 0, hits, -1) + gap;
-    x = word(ops, "<", x, TABLE_Y, on_cheats || lit == BEST_PAGES_CHEATS_DOWN, hits, BEST_PAGES_CHEATS_DOWN) + gap;
-    x = word(ops, p->cheats ? "CHEATS" : "NO CHEATS", x, TABLE_Y, on_cheats || lit == BEST_PAGES_CHEATS, hits, BEST_PAGES_CHEATS) + gap;
-    x = word(ops, ">", x, TABLE_Y, on_cheats || lit == BEST_PAGES_CHEATS_UP, hits, BEST_PAGES_CHEATS_UP) + gap;
-    x = word(ops, "-", x, TABLE_Y, 0, hits, -1) + gap;
-    if (is_stage(track)) {
-        (void)word(ops, "OPEN ROAD", x, TABLE_Y, 0, hits, -1);
-        hits->x0[BEST_PAGES_LAPS_DOWN] = hits->x1[BEST_PAGES_LAPS_DOWN] = hits->x0[BEST_PAGES_LAPS_UP] = hits->x1[BEST_PAGES_LAPS_UP] = -1;
-    } else {
-        x = word(ops, "<", x, TABLE_Y, on_laps || lit == BEST_PAGES_LAPS_DOWN, hits, BEST_PAGES_LAPS_DOWN) + gap;
-        snprintf(text, sizeof text, "%d LAP%s", p->laps, p->laps == 1 ? "" : "S");
-        x = word(ops, text, x, TABLE_Y, on_laps, hits, -1) + gap;
-        (void)word(ops, ">", x, TABLE_Y, on_laps || lit == BEST_PAGES_LAPS_UP, hits, BEST_PAGES_LAPS_UP);
-    }
-    /* the page's line, centred just above the footer's Road & Track item (its arrows' pointer spots 231 and 390) */
-    strip_den = STRIP_DEN;
-    gap = ops->plus_scaled_width(ops->ctx, " ", STRIP_NUM, strip_den);
-    const int on_page = p->focus == BEST_FOCUS_PAGE;
-    const char *const name = PAGE_NAME[is_stage(track)][p->page];
-    const int arrow = ops->plus_scaled_width(ops->ctx, ">", STRIP_NUM, STRIP_DEN);
-    x = PAGE_CENTRE_X - (2 * arrow + 2 * gap + ops->plus_scaled_width(ops->ctx, name, STRIP_NUM, STRIP_DEN)) / 2;
-    x = word(ops, "<", x, PAGE_Y, on_page || lit == BEST_PAGES_PAGE_DOWN, hits, BEST_PAGES_PAGE_DOWN) + gap;
-    x = word(ops, name, x, PAGE_Y, on_page, hits, -1) + gap;
-    (void)word(ops, ">", x, PAGE_Y, on_page || lit == BEST_PAGES_PAGE_UP, hits, BEST_PAGES_PAGE_UP);
+    for (int i = 0; i < BEST_PAGES_ITEMS; i++) hits->x0[i] = hits->x1[i] = hits->y0[i] = hits->y1[i] = -1;   /* none not drawn */
+    header(st->plus, track, lit, hits, ops);
+    page_selector(st->plus, track, lit, hits, ops);
 }
 
 /* the gearbox's mark: 0 automatic, 1 manual */
@@ -233,7 +283,7 @@ static void page_segments(const BestTimesInputs *in, const RecordTable *t, const
     for (int k = 0; k < RACE_RECORDS_SEGMENTS; k++) {
         const int32_t y = (3 * k) * ROW_STEP + ROW_Y;
         snprintf(text, sizeof text, "SEGMENT %d", k + 1);
-        label(ops, text, y);
+        ops->plus_text(ops->ctx, TEXT_RED, text, NAME_X, y);   /* the column titles' red */
         if (t != NULL && race_records_row_set(&t->segment_time[k])) record_row(in, &t->segment_time[k], y + ROW_STEP, 0, ops);
         else centred(ops, TEXT_CREAM, "NO RECORDS", y + ROW_STEP);
         if (t != NULL && race_records_row_set(&t->segment_speed[k])) record_row(in, &t->segment_speed[k], y + 2 * ROW_STEP, 1, ops);
