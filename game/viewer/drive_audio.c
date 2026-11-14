@@ -5,10 +5,12 @@
 #include "game/audio/sound_bank.h"
 #include "game/audio/sound_driver.h"
 #include "game/audio/sound_queue.h"
+#include "game/audio/splash.h"
 #include "game/audio/thunder.h"
 #include "game/audio/wet_roll.h"
 #include "game/sys/data_path.h"
 #include "game/race/race_music.h"
+#include "game/race/rain_cars.h"
 #include "platform/platform.h"
 
 #include <ctype.h>
@@ -40,10 +42,15 @@ static int mixing;           /* the driver set up: the device's thread mixes it 
 static uint32_t tick_frames;  /* the frames mixed since the last tick, x 100 */
 static Thunder thunder;                                    /* port (rain_v2): the storm's thunder, over the mix */
 static int thunder_tried;
-static WetRoll wet_roll;                                   /* port (rain_tyre_roll): the wet road under the tyres, over the mix */
-static int wet_roll_tried;
 static WetRoll rain_out, rain_in;                          /* port (rain_tyre_roll): the rain round a stopped car, outside and on the roof */
 static int rain_out_tried, rain_in_tried;
+static WetRoll rain_bed, rain_move_in;                     /* port (rain_tyre_roll): the rain round a moving car, outside (once) and in the cockpit */
+static int rain_bed_tried, rain_move_in_tried;
+static WetRoll spray_source;                               /* port (rain_tyre_roll): the tyre spray's sample, never mixed itself ... */
+static WetRoll spray[RAIN_CARS_VOICES];                    /* ... but by the cars' voices (rain_cars.h), each where its car is */
+static int spray_tried;
+static Splash puddles;                                     /* port (rain_tyre_roll): the cars' puddle splashes */
+static int puddles_tried;
 static WetRoll snow_roll;                                  /* port (snow): the roll on snow, the same voice with another sample */
 static int snow_roll_tried;
 static SoundQueue speech;                                  /* 004c7b60 */
@@ -120,6 +127,17 @@ static void voice_stats(uint32_t count)
     voice_frames = 0;
 }
 
+/* port (rain_tyre_roll): the rain's voices over the mix */
+static void rain_mix(int16_t *frames, uint32_t n)
+{
+    wet_roll_mix(&rain_out, frames, n);
+    wet_roll_mix(&rain_in, frames, n);
+    wet_roll_mix(&rain_bed, frames, n);
+    wet_roll_mix(&rain_move_in, frames, n);
+    for (int i = 0; i < RAIN_CARS_VOICES; i++) wet_roll_mix(&spray[i], frames, n);
+    splash_mix(&puddles, frames, n);
+}
+
 static void mix(void *user, int16_t *frames, uint32_t count)
 {
     (void)user;
@@ -134,9 +152,7 @@ static void mix(void *user, int16_t *frames, uint32_t count)
         voice_stats(n);
         sound_mix_frames(&driver.mixer, frames, (int32_t)n);
         thunder_mix(&thunder, frames, n);
-        wet_roll_mix(&wet_roll, frames, n);
-        wet_roll_mix(&rain_out, frames, n);
-        wet_roll_mix(&rain_in, frames, n);
+        rain_mix(frames, n);
         wet_roll_mix(&snow_roll, frames, n);
         frames += 2 * n, count -= n;
         for (tick_frames += n * TICKS_PER_SECOND; tick_frames >= MIX_RATE; tick_frames -= MIX_RATE) {
@@ -231,17 +247,68 @@ static void roll_read(WetRoll *voice, int *tried, const char *file)
     port_log("wet_roll: no %s: the roll is silent\n", rel);
 }
 
-void drive_audio_rain_roll(int out_percent, int in_percent, int moving_percent, int pitch_permille)
+void drive_audio_rain_roll(int out_percent, int in_percent, int bed_percent, int move_in_percent)
 {
     if (!open_) return;
     lock();
     if (out_percent > 0) roll_read(&rain_out, &rain_out_tried, "rain_stopped_out.wav");
     if (in_percent > 0) roll_read(&rain_in, &rain_in_tried, "rain_stopped_in.wav");
-    if (moving_percent > 0) roll_read(&wet_roll, &wet_roll_tried, "rain_tyre_roll.wav");
+    if (bed_percent > 0) roll_read(&rain_bed, &rain_bed_tried, "rain_moving_out.wav");
+    if (move_in_percent > 0) roll_read(&rain_move_in, &rain_move_in_tried, "rain_moving_in.wav");
     wet_roll_set(&rain_out, out_percent, 1000);
     wet_roll_set(&rain_in, in_percent, 1000);
-    wet_roll_set(&wet_roll, moving_percent, pitch_permille);
+    wet_roll_set(&rain_bed, bed_percent, 1000);
+    wet_roll_set(&rain_move_in, move_in_percent, 1000);
     unlock();
+}
+
+void drive_audio_rain_spray(int voice, int percent, int pitch_permille, int pan, int start_permille)
+{
+    if (!open_ || voice < 0 || voice >= RAIN_CARS_VOICES) return;
+    lock();
+    if (percent > 0 && !spray_tried) {
+        roll_read(&spray_source, &spray_tried, "rain_spray.wav");
+        for (int i = 0; i < RAIN_CARS_VOICES; i++) wet_roll_share(&spray[i], &spray_source.sample);
+    }
+    if (start_permille >= 0) wet_roll_seek(&spray[voice], start_permille);
+    wet_roll_set(&spray[voice], percent, pitch_permille);
+    wet_roll_pan(&spray[voice], pan);
+    unlock();
+}
+
+int drive_audio_rain_puddle_clips(void)
+{
+    if (!open_) return 0;
+    lock();
+    if (!puddles_tried) {
+        puddles_tried = 1;
+        for (int n = 1; n <= RAIN_PUDDLE_MAX_CLIPS && n <= SPLASH_CLIPS; n++) {   /* rain_puddle_1.wav on, up to the first missing */
+            char rel[64], found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
+            snprintf(rel, sizeof rel, "sounds/rain_puddle_%d.wav", n);
+            (void)data_path_candidates(rel, found);
+            int ok = 0;
+            for (int i = 0; i < DATA_PATH_CANDIDATES && !ok; i++) {
+                if (found[i][0] == '\0') continue;
+                size_t size = 0;
+                uint8_t *bytes = platform_read_file(found[i], &size);
+                if (bytes == NULL) continue;
+                ok = splash_load(&puddles, bytes, size, MIX_RATE);
+                platform_free_file(bytes);
+                port_log("splash: %s: %s\n", found[i], ok ? "loaded" : "not a 16-bit mono WAV at the mixer's rate");
+            }
+            if (!ok) break;
+        }
+        port_log("splash: %d puddle splashes\n", puddles.clips);
+    }
+    const int clips = puddles.clips;
+    unlock();
+    return clips;
+}
+
+void drive_audio_rain_puddle(int clip, int percent, int pitch_permille, int pan)
+{
+    if (!open_) return;
+    lock(), splash_play(&puddles, clip, percent, pitch_permille, pan), unlock();
 }
 
 void drive_audio_snow_roll(int volume_percent, int pitch_permille)
@@ -443,9 +510,7 @@ void drive_audio_offline_tick(void)
         const uint32_t n = left < TICK_FRAMES ? left : TICK_FRAMES;
         sound_mix_frames(&driver.mixer, frames, (int32_t)n);
         thunder_mix(&thunder, frames, n);
-        wet_roll_mix(&wet_roll, frames, n);
-        wet_roll_mix(&rain_out, frames, n);
-        wet_roll_mix(&rain_in, frames, n);
+        rain_mix(frames, n);
         wet_roll_mix(&snow_roll, frames, n);
         fwrite(frames, sizeof frames[0], 2 * n, drive_dump_file);
         drive_dump_frames += n, left -= n;

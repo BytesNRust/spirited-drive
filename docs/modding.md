@@ -140,14 +140,17 @@ With `body_shine` 4 the cars' paint and glass take their light from an environme
 
 ## Sounds
 
-`data/sounds/` holds the sounds the port added, five 16-bit mono WAVs at the mixer's rate (22050 Hz); [sounds.md](sounds.md) says when each plays and which flag turns it on.
+`data/sounds/` holds the sounds the port added, 16-bit mono WAVs at the mixer's rate (22050 Hz); [sounds.md](sounds.md) says when each plays and which flag turns it on.
 
 | File | What | Plays |
 |------|------|-------|
 | `thunder.wav` | the storm's thunder | `weather=storm` with `rain_v2` |
 | `rain_stopped_out.wav` | the rain round a stopped car, a loop | rain or storm, `rain_v2` and `rain_tyre_roll`, the followed car stopped, a view outside |
 | `rain_stopped_in.wav` | the rain on the roof, a loop | the same, the dash view |
-| `rain_tyre_roll.wav` | the wet road under the tyres, a loop | the same or snow falling, the followed car moving on asphalt (lower under a rally's gravel roll) |
+| `rain_moving_out.wav` | the rain round a moving car, a loop | the same, the followed car moving, a view outside |
+| `rain_moving_in.wav` | the rain on a moving car with its tyres' hiss, a loop | the same, the dash view |
+| `rain_spray.wav` | a car's tyre spray, a loop | the same or snow falling, every car moving on asphalt, where the car is (lower under a rally's gravel roll) |
+| `rain_puddle_1.wav` .. | puddle splashes, played once each | the same cars at random, more the faster; `rain_puddle_<n>.wav` from 1 up to the first missing (at most 8), so a mod can add more |
 | `snow_roll.wav` | the roll on snow, a loop | the snowy rally (Alpine 3, `snow_weather`) only, the followed car moving |
 
 A mod's `<mod>/sounds/<file>` is used instead of the one in `data/`, under the same name. The WAV must be 16-bit mono PCM at 22050 Hz; a file that is not (another rate, stereo, 8 or 24 bit) is skipped, `spirited-drive.log` says so once (`wet_roll: <path>: not a 16-bit mono WAV at the mixer's rate`, `thunder: ...` for the thunder) and the next candidate is tried, then the sound stays silent (`wet_roll: no sounds/<file>: the roll is silent`). Nothing else breaks. The rolls loop, so make the file's end meet its start (a click at the seam is heard every few seconds). The sounds play only in Restomod: Stock and Restored keep the exe's.

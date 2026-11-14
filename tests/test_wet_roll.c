@@ -1,4 +1,4 @@
-/* the wet-tyre roll's voice (wet_roll.h) */
+/* the rain's and the roll's looping voice (wet_roll.h) */
 #include "tests/test.h"
 
 #include "game/audio/wet_roll.h"

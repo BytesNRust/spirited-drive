@@ -45,7 +45,7 @@ static void test_rises_more_than_the_wet_roll(void)
 {
     CHECK(SNOW_ROLL_PITCH_FAST - SNOW_ROLL_PITCH_SLOW > RAIN_ROLL_PITCH_FAST - RAIN_ROLL_PITCH_SLOW);
     const int slow = snow_roll_volume(1, OPEN, metres(15), 1, 0), fast = snow_roll_volume(1, OPEN, metres(50), 1, 0);
-    const int wet_slow = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, metres(15), RAIN_ROLL_ASPHALT, 0).moving, wet_fast = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, metres(50), RAIN_ROLL_ASPHALT, 0).moving;
+    const int wet_slow = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, metres(15), RAIN_ROLL_ASPHALT, 0).spray, wet_fast = rain_roll_levels(RAIN_ROLL_RAIN, OPEN, metres(50), RAIN_ROLL_ASPHALT, 0).spray;
     CHECK(fast * wet_slow > wet_fast * slow);   /* fast / slow above the wet roll's, from 54 to 180 km/h */
 }
 

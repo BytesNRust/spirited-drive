@@ -29,14 +29,95 @@ Only CC0 or public domain samples go here, each with its source, author and lice
 - Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
 - Checked on the page on 2026-11-13: the licence listed is Creative Commons 0.
 
-## rain_tyre_roll.wav
+## rain_moving_out.wav
 
-- What: the wet road under the tyres of a moving car in rain or falling snow (`rain_tyre_roll`, with `rain_v2`), a seamless loop, mono, 16-bit, 22050 Hz, 16.00 s. Its level and pitch rise with speed; it is 3 dB lower in the cockpit, lower the farther the chase camera, and lower still under a rally's gravel roll.
-- Made from: "cars passing close by wet road.WAV" (the page's HQ mp3 preview, 113.2 s), the spray of real cars passing on a wet road. Decoded to mono at 44.1 kHz; a high-pass at 500 Hz and a low-pass at 12 kHz (Butterworth, order 8, zero-phase). Five stretches where the tyres' spray is louder than the engines (1-8 kHz at least 2 dB over 60-400 Hz) are kept: seconds 12.00-18.25, 18.75-19.75, 23.25-25.25, 36.75-37.50 and 94.75-96.00, each brought to the same level, with its few clicks above 2.8 times that level softened over 1 ms. From them, 23 grains of 0.6 to 1.6 s, drawn at random (seed 20261115), each within ±1.5 dB, follow each other round a 16 s ring with equal-power cross-fades of 40-50 % of the shorter grain, the last one fading into the first so the loop has no seam; the slow level (a 0.35 s Gaussian) is flattened; a high shelf of +3 dB at 4 kHz. Below 400 Hz the sound is kept steady (flattened on its own, its average level kept); above it, a puddle layer (seed 20261116) adds five swells of +2.2 to +3.8 dB (held 1.3 to 2.6 s) and eight short dips of 3 to 6 dB (0.15 to 0.4 s), never silent. The level set to -18 dBFS RMS, no limiter (peaks -3.5 dBFS). Then resampled to 22050 Hz as one period (FFT, so the loop stays seamless) and its RMS kept at -18 dBFS, the level of the clip it replaced. Nothing else changed.
+- What: the rain round a moving car, heard outside (`rain_tyre_roll`, with `rain_v2`), played once whatever cars there are; a seamless loop, mono, 16-bit, 22050 Hz, 12.0 s. The rain round a stopped car gives way to it as the followed car moves off.
+- Made from: "Raining outside" (the page's HQ mp3 preview (128 kbps; the original needs a login), 84.8 s), decoded to mono at 22050 Hz; seconds 14.5 to 27.5 (the 13 s window whose level moves most like a real outside-rain reference), looped with a 1 s equal-power cross-fade of its end into its start (12 s). Equalised (a circular FFT filter) to the 1/3-octave curve of a reference recording of rain outside, the reference's 250 Hz hum peak capped, and below 100 Hz the curve continued down at the reference's own slope so the source's low rumble (an engine far off) is gone. Limited to -3.2 dBFS with a gain shared with rain_spray.wav. No sample of the reference is in the file. Nothing else changed.
+- Source: https://freesound.org/s/518547/
+- Author: TeTeNoise (https://freesound.org/people/TeTeNoise/)
+- Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
+- Checked on the page on 2026-11-14: the licence listed is Creative Commons 0.
+
+## rain_moving_in.wav
+
+- What: the rain on a moving car with the hiss of its own tyres, heard in the cockpit (`rain_tyre_roll`, with `rain_v2`); a seamless loop, mono, 16-bit, 22050 Hz, 12.0 s. The rain on the roof of a stopped car gives way to it as the car moves off; its level rises with speed.
+- Made from: "Rain_insideCar" (the page's HQ mp3 preview (128 kbps; the original needs a login), 97.5 s), decoded to mono at 22050 Hz; seconds 55.5 to 68.5, looped with a 1 s equal-power cross-fade of its end into its start (12 s); equalised (a circular FFT filter) to the 1/3-octave curve of a reference recording inside a car driven in the rain; limited to -3.2 dBFS. No sample of the reference is in the file. Nothing else changed.
+- Source: https://freesound.org/s/855678/
+- Author: Brikaro (https://freesound.org/people/Brikaro/)
+- Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
+- Checked on the page on 2026-11-14: the licence listed is Creative Commons 0.
+
+## rain_spray.wav
+
+- What: the tyre spray of a car on a wet road (`rain_tyre_roll`, with `rain_v2`), every car's (the player's, the rivals', the traffic's) heard where the car is; a seamless loop, mono, 16-bit, 22050 Hz, 12.0 s. Its level and pitch rise with speed; lower the farther the car, lower in the cockpit, lower still under a rally's gravel roll.
+- Made from: "cars passing close by wet road.WAV" (the page's HQ mp3 preview (128 kbps; the original needs a login), 113.2 s): only the stretches where the tyres' spray is louder than the engines, cut into grains and joined round a ring with equal-power cross-fades, so the loop has no seam (the steps of the clip it replaced, rain_tyre_roll.wav, the same recording); equalised to the 1/3-octave curve of a reference recording of rain outside, at 40 % of its power, and limited with the gain it shares with rain_moving_out.wav (peaks -6.9 dBFS). No sample of the reference is in the file. Nothing else changed.
 - Source: https://freesound.org/people/goose278/sounds/174820/
 - Author: goose278 (https://freesound.org/people/goose278/), uploaded 2013-01-19
 - Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
-- Checked on the page on 2026-11-13: the licence listed is Creative Commons 0.
+- Checked on the page on 2026-11-14: the licence listed is Creative Commons 0.
+
+## rain_puddle_1.wav
+
+- What: a puddle splash thrown up by a car's tyres (`rain_tyre_roll`, with `rain_v2`), played once at random, more often the faster the car; mono, 16-bit, 22050 Hz. One of 7.
+- Made from: "Water Puddle Splash" (the page's HQ mp3 preview (128 kbps; the original needs a login)), decoded to mono at 22050 Hz; the first splash; a 40 Hz high-pass, an 8 ms fade-in and a 60 ms cosine fade-out; the peak set to -4 dBFS. Nothing else changed.
+- Source: https://freesound.org/s/563021/
+- Author: cookies+policy (https://freesound.org/people/cookies+policy/)
+- Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
+- Checked on the page on 2026-11-14: the licence listed is Creative Commons 0.
+
+## rain_puddle_2.wav
+
+- What: a puddle splash thrown up by a car's tyres (`rain_tyre_roll`, with `rain_v2`), played once at random, more often the faster the car; mono, 16-bit, 22050 Hz. One of 7.
+- Made from: "Water Puddle Splash" (the page's HQ mp3 preview (128 kbps; the original needs a login)), decoded to mono at 22050 Hz; the second splash; a 40 Hz high-pass, an 8 ms fade-in and a 60 ms cosine fade-out; the peak set to -4 dBFS. Nothing else changed.
+- Source: https://freesound.org/s/563021/
+- Author: cookies+policy (https://freesound.org/people/cookies+policy/)
+- Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
+- Checked on the page on 2026-11-14: the licence listed is Creative Commons 0.
+
+## rain_puddle_3.wav
+
+- What: a puddle splash thrown up by a car's tyres (`rain_tyre_roll`, with `rain_v2`), played once at random, more often the faster the car; mono, 16-bit, 22050 Hz. One of 7.
+- Made from: "Small Puddle Splash" (the page's HQ mp3 preview (128 kbps; the original needs a login)), decoded to mono at 22050 Hz; the whole clip, 0.41 s; a 40 Hz high-pass, an 8 ms fade-in and a 60 ms cosine fade-out; the peak set to -4 dBFS. Nothing else changed.
+- Source: https://freesound.org/s/841834/
+- Author: Robo9418 (https://freesound.org/people/Robo9418/)
+- Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
+- Checked on the page on 2026-11-14: the licence listed is Creative Commons 0.
+
+## rain_puddle_4.wav
+
+- What: a puddle splash thrown up by a car's tyres (`rain_tyre_roll`, with `rain_v2`), played once at random, more often the faster the car; mono, 16-bit, 22050 Hz. One of 7.
+- Made from: "water splash and flounder about in a puddle" (the page's HQ mp3 preview (128 kbps; the original needs a login)), decoded to mono at 22050 Hz; seconds 1.10 to 2.10 (the first splash); a 40 Hz high-pass, an 8 ms fade-in and a 60 ms cosine fade-out; the peak set to -4 dBFS. Nothing else changed.
+- Source: https://freesound.org/s/249929/
+- Author: launemax (https://freesound.org/people/launemax/)
+- Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
+- Checked on the page on 2026-11-14: the licence listed is Creative Commons 0.
+
+## rain_puddle_5.wav
+
+- What: a puddle splash thrown up by a car's tyres (`rain_tyre_roll`, with `rain_v2`), played once at random, more often the faster the car; mono, 16-bit, 22050 Hz. One of 7.
+- Made from: "Water Splashes" (the page's HQ mp3 preview (128 kbps; the original needs a login)), decoded to mono at 22050 Hz; seconds 1.15 to 1.65; a 40 Hz high-pass, an 8 ms fade-in and a 60 ms cosine fade-out; the peak set to -4 dBFS. Nothing else changed.
+- Source: https://freesound.org/s/207371/
+- Author: Phil25 (https://freesound.org/people/Phil25/)
+- Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
+- Checked on the page on 2026-11-14: the licence listed is Creative Commons 0.
+
+## rain_puddle_6.wav
+
+- What: a puddle splash thrown up by a car's tyres (`rain_tyre_roll`, with `rain_v2`), played once at random, more often the faster the car; mono, 16-bit, 22050 Hz. One of 7.
+- Made from: "PuddleSplash.wav" (the page's HQ mp3 preview (128 kbps; the original needs a login)), decoded to mono at 22050 Hz; seconds 1.10 to 1.85; a 40 Hz high-pass, an 8 ms fade-in and a 60 ms cosine fade-out; the peak set to -4 dBFS. Nothing else changed.
+- Source: https://freesound.org/s/207139/
+- Author: ahill86 (https://freesound.org/people/ahill86/)
+- Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
+- Checked on the page on 2026-11-14: the licence listed is Creative Commons 0.
+
+## rain_puddle_7.wav
+
+- What: a puddle splash thrown up by a car's tyres (`rain_tyre_roll`, with `rain_v2`), played once at random, more often the faster the car; mono, 16-bit, 22050 Hz. One of 7.
+- Made from: "Walking through puddle" (the page's HQ mp3 preview (128 kbps; the original needs a login)), decoded to mono at 22050 Hz; seconds 2.40 to 3.10 (a step into a puddle); a 40 Hz high-pass, an 8 ms fade-in and a 60 ms cosine fade-out; the peak set to -4 dBFS. Nothing else changed.
+- Source: https://freesound.org/s/553238/
+- Author: NachtmahrTV (https://freesound.org/people/NachtmahrTV/)
+- Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
+- Checked on the page on 2026-11-14: the licence listed is Creative Commons 0.
 
 ## snow_roll.wav
 

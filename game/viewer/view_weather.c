@@ -215,7 +215,7 @@ void draw_full_alt(void *user, const FshEntry *texture, const int32_t screen[8])
 
 
 /* port (weather): the frame's weather as weather_hooks.h asks for it; the thunder, the voices of the followed car and the lightning are there */
-WeatherFrame weather_frame(void) { return (WeatherFrame){ weather, snow_level(), rain_open, shadow_race, anim_tick }; }
+WeatherFrame weather_frame(void) { return (WeatherFrame){ weather, snow_level(), rain_open, shadow_race, anim_tick, rain_open_at }; }
 
 void storm_thunder_update(void) { const WeatherFrame f = weather_frame(); weather_hooks_thunder(&f); }
 void rain_roll_update(void) { const WeatherFrame f = weather_frame(); weather_hooks_rain_roll(&f); }

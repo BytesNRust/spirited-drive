@@ -15,6 +15,7 @@ typedef struct {
     int rain_open;               /* 0..16: how much weather there is where the eye is */
     const RaceState *race;       /* NULL outside a race */
     int32_t anim_tick;           /* the clock when there is no race */
+    int (*open_at)(int32_t node);   /* how much weather there is at a road node, 0..16 (a car's spray in a tunnel); NULL: rain_open everywhere */
 } WeatherFrame;
 
 /* ported_view_set_wipers / ported_view_set_wiper_glass (ported_view.h) keep the scene here; the number of blades set */
@@ -29,7 +30,7 @@ const uint8_t *weather_hooks_wiper_dark(const uint8_t palette[768]);
 /* the thunder after each strike since the last call (once a frame) */
 void weather_hooks_thunder(const WeatherFrame *f);
 
-/* the rain's layers and the roll on snow of the followed car, once a frame */
+/* the rain's layers of the followed car with every car's spray and splashes (weather_rain.c), and the roll on snow of the followed car, once a frame */
 void weather_hooks_rain_roll(const WeatherFrame *f);
 void weather_hooks_snow_roll(const WeatherFrame *f);
 
