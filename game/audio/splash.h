@@ -28,6 +28,9 @@ void splash_free(Splash *s);
 /* A splash of `clip` at `percent` (0..SPLASH_MAX_PERCENT), `pitch_permille` of its rate and `pan` (WET_ROLL_PAN_*). Nothing for a clip not loaded or a level of 0. */
 void splash_play(Splash *s, int clip, int percent, int pitch_permille, int pan);
 
+/* Every splash stopped (the rain's bus hushed: rain_bus.h) */
+void splash_quiet(Splash *s);
+
 /* Adds the splashes' next `frames` stereo frames into `out` (interleaved), saturating. */
 void splash_mix(Splash *s, int16_t *out, uint32_t frames);
 /* The same into a 32-bit bus, not saturated */

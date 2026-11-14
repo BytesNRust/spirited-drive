@@ -36,6 +36,8 @@ void wet_roll_set(WetRoll *w, int percent, int pitch_permille)
     w->pitch = pitch_permille < 100 ? 100 : pitch_permille > 4000 ? 4000 : pitch_permille;
 }
 
+void wet_roll_quiet(WetRoll *w) { w->level = 0, w->target = 0; }
+
 void wet_roll_pan(WetRoll *w, int pan) { w->pan = pan < WET_ROLL_PAN_LEFT ? WET_ROLL_PAN_LEFT : pan > WET_ROLL_PAN_RIGHT ? WET_ROLL_PAN_RIGHT : pan; }
 
 void wet_roll_seek(WetRoll *w, int permille)

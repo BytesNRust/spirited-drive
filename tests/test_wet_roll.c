@@ -82,6 +82,27 @@ static void test_stale_falls_silent(void)
     wet_roll_free(&w);
 }
 
+/* hushed (rain_bus.h): silent at once, nothing held to come back; set again it eases in from silence */
+static void test_quiet_drops_the_level(void)
+{
+    WetRoll w;
+    load(&w);
+    wet_roll_set(&w, 200, 1000);
+    int16_t out[2 * RATE];
+    memset(out, 0, sizeof out);
+    wet_roll_mix(&w, out, RATE / 4);
+    CHECK_EQ_INT(w.level, 200 * 256);
+    wet_roll_quiet(&w);
+    CHECK(w.level == 0 && w.target == 0);
+    memset(out, 0, sizeof out);
+    wet_roll_mix(&w, out, 64);
+    CHECK(out[0] == 0 && out[2 * 63] == 0);
+    wet_roll_set(&w, 200, 1000);
+    wet_roll_mix(&w, out, 4);
+    CHECK(w.level > 0 && w.level < 10 * 256);   /* back by the ease, not at once */
+    wet_roll_free(&w);
+}
+
 static void test_pitch_and_saturation(void)
 {
     WetRoll w;
@@ -110,5 +131,6 @@ int main(void)
     test_level_eases_and_loops();
     test_stale_falls_silent();
     test_pitch_and_saturation();
+    test_quiet_drops_the_level();
     return TEST_REPORT();
 }

@@ -37,6 +37,8 @@ void wet_roll_free(WetRoll *w);
 void wet_roll_set(WetRoll *w, int percent, int pitch_permille);
 /* The pan it eases to (a tenth of a second across), WET_ROLL_PAN_LEFT .. _RIGHT; WET_ROLL_PAN_CENTRE unless set. */
 void wet_roll_pan(WetRoll *w, int pan);
+/* Silent at once, its level and the level asked dropped (the rain's bus hushed: rain_bus.h); a later wet_roll_set eases it back from silence. */
+void wet_roll_quiet(WetRoll *w);
 /* Play on from `permille` of the loop (a voice taken by another car starts elsewhere, so the cars do not sound in phase). */
 void wet_roll_seek(WetRoll *w, int permille);
 
