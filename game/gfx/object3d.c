@@ -545,6 +545,9 @@ int object3d_section_list(const Object3D *obj, int section, Object3DList *out)
     out->order = NULL;
     if (section < 0 || mesh_section_b(obj->mesh, (uint32_t)section, &b) != MESH_OK) return 0;
     const uint32_t start = b.unknown[1], count = b.unknown[2];
+    /* port: the section's slots inside the vertex map before they are taken (a damaged or hostile car's count asked for 16 GB
+     * that the map's end then refused) */
+    if (count != 0 && (uint64_t)start + count > obj->mesh->vertex_map_slots) return 0;
     out->order = calloc(count ? count : 1, sizeof *out->order);
     if (out->order == NULL) return 0;
     for (uint32_t i = 0; i < count; i++) {

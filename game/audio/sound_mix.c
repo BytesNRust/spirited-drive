@@ -308,9 +308,18 @@ int32_t sound_span_loop(MixVoice *v, int32_t left)
 
 /* 004983c5 / 00498198 / 004982a5's tail: `n` frames' source decoded into
  * the buffer. The original writes past 004f38ac when the count passes the
- * buffer; the port holds it to the buffer. */
+ * buffer; the port holds it to the buffer, and holds `n` to the frames whose
+ * source the buffer holds (the mixer reads them from it): a rate of billions
+ * (a damaged or hostile file) steps over hundreds of frames a frame. The
+ * CD's rates move a frame or two a frame, far inside it. */
 static int32_t decode_span(MixVoice *v, int32_t n)
 {
+    const uint32_t held = (v->flags & VOICE_STEREO) != 0 ? SOUND_DECODE_SAMPLES / 2 : SOUND_DECODE_SAMPLES;
+    if (v->step.step != 0) {
+        const uint64_t most = ((uint64_t)(held - 2) << STEP_FRACTION_BITS) / v->step.step;   /* less the fraction's carry */
+        if ((uint64_t)n > most) n = (int32_t)most;
+        if (n == 0) return 0;
+    }
     const uint64_t moved = (uint64_t)(uint32_t)n * v->step.step;
     const uint32_t part = (uint32_t)moved << (32 - STEP_FRACTION_BITS);
     uint32_t count = (uint32_t)(moved >> STEP_FRACTION_BITS);
@@ -372,6 +381,34 @@ static uint32_t block_word(const uint8_t *b, uint32_t at)
     return (uint32_t)b[at] | (uint32_t)b[at + 1] << 8 | (uint32_t)b[at + 2] << 16 | (uint32_t)b[at + 3] << 24;
 }
 
+/* port: a block's step index, a word of the file, held to the 89 steps (0..88: the decoder's table, sound_adpcm.c); a damaged or
+ * hostile stream's read past the table. The CD's are within it. */
+static uint32_t block_step(const uint8_t *b, uint32_t at)
+{
+    const uint32_t step = block_word(b, at);
+    return step < SOUND_ADPCM_INDEX_MAX / 64 ? step : SOUND_ADPCM_INDEX_MAX / 64;
+}
+
+/* port: a block's samples (+0), a word of the file, held to what its bytes hold: `said` (what its chunk says it holds after the
+ * block's header) and no more than the ring holds after the block's data; a byte a frame in stereo and two frames a byte in mono. A
+ * damaged or hostile stream decoded past its block and the ring; every block of the CD's music holds what it says. */
+static uint32_t block_samples(const MixVoice *v, const uint8_t *block, uint32_t said)
+{
+    const SoundRing *r = &v->stream->ring;
+    const uint8_t *data = block + BLOCK_DATA, *ring_end = r->bytes + r->size;
+    const uint32_t in_ring = data < ring_end ? (uint32_t)(ring_end - data) : 0;
+    const uint32_t bytes = said < in_ring ? said : in_ring, samples = block_word(block, BLOCK_SAMPLES);
+    const uint64_t most = (v->flags & VOICE_STEREO) != 0 ? bytes : 2 * (uint64_t)bytes;
+    return samples < most ? samples : (uint32_t)most;
+}
+
+/* a '1SNd' block's bytes after its header: its chunk's size (+4, the word before its data) less the chunk's 8 */
+static uint32_t chunk_said(const uint8_t *block)
+{
+    const uint32_t size = block_word(block - 4, 0);
+    return size > 8 + BLOCK_DATA ? size - 8 - BLOCK_DATA : 0;
+}
+
 int32_t sound_span_packed_stream(MixVoice *v, int32_t left)
 {
     const uint8_t *last = NULL;
@@ -390,9 +427,9 @@ int32_t sound_span_packed_stream(MixVoice *v, int32_t left)
         if (block == last) return 0; /* the original spins */
         last = block;
         v->src = block + BLOCK_DATA;
-        v->src_end = block_word(block, BLOCK_SAMPLES);
+        v->src_end = block_samples(v, block, chunk_said(block));
         v->src_pos = 0;
-        v->index = block_word(block, BLOCK_INDEX_L) << 6 | block_word(block, BLOCK_INDEX_R) << 22;
+        v->index = block_step(block, BLOCK_INDEX_L) << 6 | block_step(block, BLOCK_INDEX_R) << 22;
         v->sample = (block_word(block, BLOCK_SAMPLE_L) & 0xffff) | block_word(block, BLOCK_SAMPLE_R) << 16;
     }
 }
@@ -473,7 +510,8 @@ static int32_t (*voice_span(uint32_t flags, int looped))(MixVoice *, int32_t)
 }
 
 /* 00497d5b's compressed words: the source from its start, the loop; a
- * header's data is a stream block's (its samples - 1, the data at +0x14;
+ * header's data is a stream block's (its samples - 1, held to the ring by
+ * block_samples, the data at +0x14;
  * the decoder's state starts at 0, not from the block) */
 static void voice_packed(MixVoice *v, const SoundStart *s)
 {
@@ -482,7 +520,7 @@ static void voice_packed(MixVoice *v, const SoundStart *s)
     v->src_loop_end = s->loop_start + s->loop_frames;
     v->src_end = s->frames;
     v->src = s->data;
-    if (v->has_header) v->src_end = block_word(s->data, BLOCK_SAMPLES) - 1, v->src = s->data + BLOCK_DATA;
+    if (v->has_header) v->src_end = block_samples(v, s->data, UINT32_MAX) - 1, v->src = s->data + BLOCK_DATA;
     v->decode = (s->flags & VOICE_STEREO) != 0 ? sound_adpcm_stereo : sound_adpcm_mono; /* 00497f9e */
 }
 

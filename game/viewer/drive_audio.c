@@ -445,7 +445,12 @@ static uint8_t *read_bank(const char *name, size_t *size)
     int n = snprintf(path, sizeof path, "%s/SIMDATA/SOUNDBNK/", root);
     for (int i = 0; name[i] != '\0' && n < (int)sizeof path - 1; i++) path[n++] = (char)toupper((unsigned char)name[i]);
     path[n] = '\0';
-    return platform_read_file(path, size);
+    uint8_t *file = platform_read_file(path, size);
+    /* port: the bank in a copy with SOUND_BANK_PAD zero bytes after it, which the mixer reads a frame past a loop's end */
+    uint8_t *padded = file != NULL ? calloc(1, *size + SOUND_BANK_PAD) : NULL;
+    if (padded != NULL) memcpy(padded, file, *size);
+    platform_free_file(file);
+    return padded;
 }
 
 void drive_audio_load(void *user, const char *name)
@@ -460,7 +465,7 @@ void drive_audio_load(void *user, const char *name)
     unlock();
     if (slot < 0) {  /* the original stops the game here (004c6f88) */
         port_log("drive_audio: bank %s not loaded (%d)\n", name, slot);
-        platform_free_file(file);
+        free(file);
         return;
     }
     files[i] = file, file_sizes[i] = size;
@@ -488,7 +493,7 @@ static void bank_free(void *ctx, uint32_t file)
         const MixVoice *v = driver.mixer.voice[k];
         if (v != NULL && v->on && v->data >= from && v->data < to) sound_voice_stop(&driver.mixer, k);
     }
-    platform_free_file(files[file]);
+    free(files[file]);
     files[file] = NULL, file_sizes[file] = 0;
     unlock();
 }
@@ -673,7 +678,7 @@ static uint32_t music_open(void *ctx, int32_t ring)
 {
     (void)ctx;
     music_close(NULL, MUSIC_READER);
-    music_ring = calloc((size_t)ring, 1);
+    music_ring = calloc((size_t)ring + SOUND_RING_PAD, 1);
     reader.ring = (SoundRing){ music_ring, MUSIC_RING_BASE, music_ring != NULL ? (uint32_t)ring : 0 };
     return MUSIC_READER;
 }

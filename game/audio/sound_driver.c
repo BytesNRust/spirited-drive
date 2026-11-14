@@ -86,7 +86,9 @@ void sound_sample_start(SoundDriver *d, SoundSample *s)
                      (s->compression == SAMPLE_WIDE ? FLAG_COMPRESSED : 0);
     if (s->type >= 0) {
         flags |= FLAG_HEADER;
-        s->channel = (uint8_t)s->type;
+        /* port: the type names the channel, a byte of a bank's or a stream's header; past the 16 (a damaged or hostile file: the
+         * original reads past its channels) the sample keeps the channel it was given. The CD's name one of the 16. */
+        if (s->type < SOUND_CHANNELS) s->channel = (uint8_t)s->type;
     }
     sound_channel_mix_volume(&d->channels.channel[s->channel]); /* 00497750, inline */
     const SoundStart start = { s->data, s->frames, s->loop_start, s->loop_frames, s->rate, named->pan,
@@ -303,6 +305,9 @@ int32_t sound_stream_header(SoundDriver *d, uint32_t block)
     const uint32_t bytes = sound_ring_get(r, block + 4) - STREAM_DATA;
     s->channel = ch;
     s->header = h;
+    /* port: 00497784 reads its first channel from the header's +0x1c, a byte of the file; past the 16 (a damaged or hostile
+     * stream: the original reads past its channels) it is the stream's own (the CD's streams have 0 there, their channel) */
+    if (*sound_ring_at(r, h + 0x1c) >= SOUND_CHANNELS) *sound_ring_at(r, h + 0x1c) = (uint8_t)ch;
     sound_ring_put(r, h + 0x10, 0xffffffffu); /* no loop */
     s->frame_bytes = (int32_t)frame_bytes;
     sound_ring_put(r, h + 0x14, 0);

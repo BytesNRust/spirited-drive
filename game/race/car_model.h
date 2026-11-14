@@ -66,6 +66,10 @@ CarLoadResult car_load_setup(Car *car, RaceState *race, RacePalette *pal, const 
  * body file read into 00517580[slot]. */
 void car_load_pdn_path(const char *dir, const char *stem, char path[CAR_LOAD_PATH]);
 
+/* The palette shape `name` ('!PAL', '!xxx') of a CFM's bank, writable in the file: the 16-byte header, then the colours the load
+ * makes 6-bit and tints in place. NULL when there is none. */
+uint8_t *car_model_bank_shape(const Fsh *bank, const uint8_t name[4]);
+
 void car_load_free(CarLoad *m);
 
 #endif

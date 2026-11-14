@@ -31,6 +31,11 @@ libFuzzer with AddressSanitizer and UndefinedBehaviorSanitizer.
 | `sound_wav` | `thunder_load`, `wet_roll_load`, `splash_load` | `data/sounds/*.wav` |
 | `title_art` | `title_art_screen` | the title screens |
 | `replay_trailer` | the replay's conditions, paints, snow and setup; `session_rules_get` | `.RPL` files, the network's rules record |
+| `car_model` | `car_load_setup` (the player's car: tyres, signals and lights too) | cars (`.cfm`) |
+| `track_art` | `track_art_load`, `track_art_load_animated` | track art (`.fam`) |
+| `sound_bank` | `sound_bank_register`, every sound played through the mixer | sound banks (`.bnk`) |
+| `music_stream` | the music reader, the stream queue and the mixer | music (`.asf`, `.as4`) |
+| `tgv` | `tgv_decode` on each key frame and frame found in the input | movies (`.tgv`) |
 
 ## Every build: the kept cases
 

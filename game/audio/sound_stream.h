@@ -14,6 +14,10 @@ typedef struct SoundRing {
     uint32_t size;
 } SoundRing;
 
+/* port: zero bytes the ring is given after its `size`: a compressed block's last span decodes a frame or two past the block (the
+ * fraction's carry, as the original), past the ring when the block ends at its end */
+enum { SOUND_RING_PAD = 4 };
+
 /* A ring address's byte, and its 32-bit word read and written */
 uint8_t *sound_ring_at(const SoundRing *r, uint32_t address);
 uint32_t sound_ring_get(const SoundRing *r, uint32_t address);

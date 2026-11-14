@@ -61,8 +61,12 @@ int tgv_key_frame(TgvState *s, const uint8_t *frame, size_t size)
 {
     const uint32_t colors = size >= AT_DATA ? u16_at(frame + AT_D) : 0;
     if (size < AT_DATA || colors > TGV_PALETTE / 3 || size < AT_DATA + 3 * (size_t)colors) return 0;
+    /* port: a picture of no size or past TGV_MOST_SIDE a side (a damaged or hostile movie: 65535 x 65535 asked for 4 GB) is refused,
+     * the movie's size as it was */
+    const uint32_t w = u16_at(frame + AT_A), h = u16_at(frame + AT_B);
+    if (w == 0 || h == 0 || w > TGV_MOST_SIDE || h > TGV_MOST_SIDE) return 0;
     const int32_t old_w = s->width, old_h = s->height;
-    s->width = (int32_t)u16_at(frame + AT_A), s->height = (int32_t)u16_at(frame + AT_B);
+    s->width = (int32_t)w, s->height = (int32_t)h;
     s->unknown_8 = (int32_t)u16_at(frame + AT_C), s->colors = (int32_t)colors;
     memcpy(s->palette, frame + AT_DATA, 3 * (size_t)colors);
     const uint32_t bytes = picture_bytes(s);
@@ -100,14 +104,17 @@ static int frame_work(TgvState *s)
 
 /* Whether every block the codes move stays inside the last picture's buffer, its header included. A row of blocks
  * starts 4 x cols + 3 x pitch bytes after the one before, as 004a2ad0 steps (not 4 lines when the width is not a
- * multiple of 4). */
+ * multiple of 4). port: and every code names a move or one of the frame's raw blocks (copies and twos): past them
+ * (a damaged or hostile movie) 004a2ad0 reads a block that is not there. */
 static int moves_inside(const TgvState *s, int32_t cols, int32_t rows)
 {
     const int64_t pitch = s->width, end = (int64_t)picture_bytes(s);
+    const int64_t codes = (int64_t)s->moves + s->copies + s->twos;
     for (int32_t y = 0; y < rows; y++)
         for (int32_t x = 0; x < cols; x++) {
             const int32_t code = s->codes[y * cols + x];
-            if (code < 0 || code >= s->moves) continue;
+            if (code < 0 || code >= codes) return 0;
+            if (code >= s->moves) continue;
             const int64_t from = y * (4 * (int64_t)cols + 3 * pitch) + 4 * x + s->work[code];
             if (from < -TGV_SHAPE_HEADER || from + 3 * pitch + 4 > end) return 0;
         }
