@@ -133,9 +133,9 @@ Mirror, Rally and Lost Vegas have no switch: they come from the Unlock Level, as
 |---|---|---|---|---|---|
 | `explode`, `nitro`, `turbo` | 0 | 0 | page 1 Cheats: Explode / Nitro / Turbo mode | a race run with them is filed apart from the normal records | not set |
 | `warrior` | 0 | 0 | page 1: Warrior Player Car | forced on by Unlock Level 1 or more, as the exe does | not set |
+| `lunar_gravity` | 0 | 0 | page 1 Cheats: Lunar Gravity | a third of the pull, two thirds of the grip: 0 Off, 1 Lunar Springs (the moon's race alone; an older file's 1), 2 All Tracks; a race run with it is filed apart | not set (Off in every mode) |
 | `warrior_rival` | 0 | 0 | page 1: Warrior Rival Car | | not set |
 | `lunar_springs` | 0 | 0 | page 1: Lunar Springs Track | changes only at Unlock Level 2 (dimmed below it) | not set |
-| `lunar_gravity` | 0 | 0 | page 1: Lunar Gravity | a third of the pull, two thirds of the grip, on the moon | not set |
 | `variant_time` | 0 | 0 | none | the time of day offered with Mirror or Rally; set by the mode (Restomod only) | not set |
 | `extra_liveries` (older files: `psx_liveries`) | 0 | 0 | page 1: Car Colours | catalogue paints for every car, the console version second livery with `psx_dir`; the player's pick is `car_paint` | 0 / 0 / 1 |
 | `units` | `mph` | `mph` | page 2: Speed units | `mph`, `kmh`; an old `language` reads as `mph` | not set |

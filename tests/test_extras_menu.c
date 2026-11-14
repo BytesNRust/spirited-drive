@@ -503,6 +503,35 @@ static void test_lunar_row_is_saved_on_done(void)
     CHECK_EQ_INT(r.fake.saves, 1);
 }
 
+/* Lunar Gravity, the Cheats' last row: Off, Lunar Springs, All Tracks and round; Left goes back; Done saves it */
+static void test_gravity_steps_through_three_values(void)
+{
+    static const char *const WORDS[3] = { "Off", "Lunar Springs", "All Tracks" };
+    for (int presses = 0; presses < 4; presses++) {
+        Rig r;
+        int keys[48];
+        int n = keys_to_row(keys, ROW_LUNAR_GRAVITY);
+        for (int i = 0; i < presses; i++) keys[n++] = RIGHT;
+        n = downs(keys, n, downs_to_done(ROW_LUNAR_GRAVITY));
+        keys[n++] = ENTER;
+        setup(&r);
+        run(&r, keys, n);
+        CHECK_EQ_INT(r.fake.saves, 1);
+        CHECK_EQ_INT(r.fake.saved.lunar_gravity, presses % 3);
+        CHECK(shown(&r.fake, WORDS[presses % 3]));
+    }
+    Rig r;
+    int keys[48];
+    int n = keys_to_row(keys, ROW_LUNAR_GRAVITY);
+    keys[n++] = LEFT;
+    n = downs(keys, n, downs_to_done(ROW_LUNAR_GRAVITY));
+    keys[n++] = ENTER;
+    setup(&r);
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.saved.lunar_gravity, LUNAR_GRAVITY_ALL);   /* Off back round to All Tracks */
+    CHECK(ROW_LUNAR_GRAVITY == ROW_WARRIOR + 1 && ROW_LUNAR_GRAVITY + 1 == ROW_RIVAL);   /* after Warrior, the Cheats' last */
+}
+
 /* below level 2 the row is the level's: dimmed, "Off (level 2)", Enter changes nothing */
 static void test_lunar_row_waits_for_level_two(void)
 {
@@ -735,6 +764,7 @@ int main(void)
     test_race_switch_rows_save_with_done();
     test_lunar_row_is_saved_on_done();
     test_lunar_row_waits_for_level_two();
+    test_gravity_steps_through_three_values();
     test_follow_camera_row_toggles_and_saves();
     test_follow_camera_row_escape_restores();
     test_difficulty_row_cycles_saves_and_escapes();

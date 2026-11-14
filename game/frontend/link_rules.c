@@ -27,7 +27,7 @@ void link_rules_compose(const uint8_t *records, int humans, SessionRules *out)
     out->difficulty = clamp(e.difficulty, 2);
     out->weather = clamp(port_weather(), 3);
     out->reverse = reverse_track_wanted() != 0;
-    out->lunar_springs = e.lunar_springs != 0, out->lunar_gravity = e.lunar_gravity != 0, out->rally_gravel = e.rally_gravel != 0;
+    out->lunar_springs = e.lunar_springs != 0, out->lunar_gravity = clamp(e.lunar_gravity, LUNAR_GRAVITY_ALL), out->rally_gravel = e.rally_gravel != 0;
     out->cheats = (uint8_t)(port_extras_cheat_marks(&e) & 7);
     out->rain_grip = port_rain_grip() != 0;
     out->snow_weather = port_snow_weather() != 0;

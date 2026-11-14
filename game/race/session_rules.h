@@ -16,7 +16,7 @@ typedef struct {
     uint8_t weather;         /* WEATHER_* (weather.h) */
     uint8_t reverse;         /* the circuit driven the other way round */
     uint8_t lunar_springs;   /* the moon's textures on Rusty Springs' rally */
-    uint8_t lunar_gravity;   /* the moon's pull and grip */
+    uint8_t lunar_gravity;   /* the moon's pull and grip: LunarGravity (port_extras.h), 0 off, 1 the moon's race, 2 every track */
     uint8_t rally_gravel;    /* gravel noise and dust */
     uint8_t cheats;          /* EXTRAS_MARK_* (extras_marks.h): NITRO 1, EXPLODE 2, TURBO 4 */
     uint8_t rain_grip;       /* with wet weather the road's grip is reduced */
