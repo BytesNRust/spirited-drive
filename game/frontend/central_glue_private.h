@@ -139,6 +139,8 @@ void cg_poll_pointer(void *ctx);
 void cg_mark_at(void *ctx, DialogPointer *p);
 extern int32_t cg_time_of_day[10];
 void cg_fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width);
+/* port: results_screen.h's band_text: the font's size, or the largest smaller one that fits `room` */
+void cg_band_text(void *ctx, const char *text, int32_t x, int32_t y_mid, int32_t room);
 void cg_average_text(void *ctx, char *out, int32_t time, int32_t distance);
 extern int32_t cg_race_times[MENU_RACE_TIMES];
 extern int16_t cg_car_points[GAME_STATE_PLAYERS];

@@ -6,10 +6,11 @@
 #include "game/frontend/best_times.h"
 #include "game/sys/race_records.h"
 
-/* the strip's items the pointer can be on (best_times.c's items past its own), and their hit rects as the last draw placed them */
+/* the strip's items the pointer can be on (best_times.c's items past its own), and their hit rects as the last draw placed them (inclusive,
+ * none overlapping): each field's arrows and its word, a word's click the right arrow's */
 enum {
     BEST_PAGES_LAYOUT_DOWN = 0, BEST_PAGES_LAYOUT_UP, BEST_PAGES_CHEATS, BEST_PAGES_LAPS_DOWN, BEST_PAGES_LAPS_UP, BEST_PAGES_PAGE_DOWN,
-    BEST_PAGES_PAGE_UP, BEST_PAGES_CHEATS_DOWN, BEST_PAGES_CHEATS_UP, BEST_PAGES_ITEMS
+    BEST_PAGES_PAGE_UP, BEST_PAGES_CHEATS_DOWN, BEST_PAGES_CHEATS_UP, BEST_PAGES_LAYOUT, BEST_PAGES_LAPS, BEST_PAGES_PAGE, BEST_PAGES_ITEMS
 };
 typedef struct {
     int16_t x0[BEST_PAGES_ITEMS], x1[BEST_PAGES_ITEMS], y0[BEST_PAGES_ITEMS], y1[BEST_PAGES_ITEMS];

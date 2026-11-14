@@ -67,6 +67,9 @@ typedef struct ResultsOps {
     void (*results_order)(void *ctx);                          /* 0045b6c8: the finishers (finish) by total */
     int32_t (*lap_times)(void *ctx, int32_t record, int32_t tune);  /* 0046067c: eax, edx; ax */
     void *ctx;
+    /* port: a word of the header band (results_header_marks): `text` from x, its letters' middle on y_mid, at the font's size or
+     * smaller so it stays within `room` pixels (central_glue's cg_band_text). NULL: text_at at RESULTS_LINE_* as before. */
+    void (*band_text)(void *ctx, const char *text, int32_t x, int32_t y_mid, int32_t room);
 } ResultsOps;
 
 enum { RESULTS_GAME = 0x5bc, RESULTS_IMAGE = 0x5f34, RESULTS_CARS = 12 };
@@ -113,8 +116,20 @@ static inline int results_cheats(const ResultsInputs *in) { return in->marks != 
  * art ends near x 270); the same place on the segment, totals, circuit, track, lap and best-totals screens */
 #define CHEATS_BANNER "(CHEATS)"
 enum { CHEATS_BANNER_X = 0x122, CHEATS_BANNER_Y = 0x14 };
-/* port (dep55): the table line, under the banner's place */
+/* port (dep55): the table line, under the banner's place (drawn there only without a band_text op) */
 enum { RESULTS_LINE_X = 0x122, RESULTS_LINE_Y = 0x28 };
+/* port: the header band right of the Road & Track logo and above the separator under it (y 57): the banner and the table line
+ * are drawn in it, the line alone with its middle on the band's, the two stacked when there is a banner; never wider than the
+ * band from x to the right margin */
+enum { RESULTS_BAND_X = 0x122, RESULTS_BAND_ROOM = 0x27a - 0x122, RESULTS_BAND_MID = 0x1c, RESULTS_BAND_TOP_MID = 0x10,
+       RESULTS_BAND_LOW_MID = 0x2a };
+/* port: where in the band the banner and the line go (their letters' middles), 0 when not drawn; inline, as the standings use it
+ * without the results screens */
+static inline void results_band_places(int banner, int line, int32_t *banner_mid, int32_t *line_mid)
+{
+    *banner_mid = !banner ? 0 : line ? RESULTS_BAND_TOP_MID : RESULTS_BAND_MID;
+    *line_mid = !line ? 0 : banner ? RESULTS_BAND_LOW_MID : RESULTS_BAND_MID;
+}
 /* port (dep55): the banner and the table line of the records shown, as every post-race screen draws them */
 void results_header_marks(const ResultsInputs *in, const ResultsOps *ops);
 

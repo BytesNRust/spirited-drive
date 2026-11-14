@@ -33,7 +33,7 @@ bool platform_user_file_exists(const char *name)
 }
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, LEFT = 0x4b00, RIGHT = 0x4d00, UP = 0x4800, DOWN = 0x5000, TAB = 9, PAGE_UP = 0x4900, SHIFT_NOTHING = 0 };
-enum { STYLE_CREAM = 0, STYLE_YELLOW = 1 };
+enum { STYLE_CREAM = 0, STYLE_YELLOW = 1, STYLE_RED = 2 };
 enum { DRAWN_MAX = 256, TEXT_MAX = 40 };
 
 typedef struct Fake {
@@ -42,8 +42,9 @@ typedef struct Fake {
     int calls;
     char labels[DRAWN_MAX][TEXT_MAX];
     int32_t label_style[DRAWN_MAX];
-    int32_t label_x[DRAWN_MAX], label_y[DRAWN_MAX];
+    int32_t label_x[DRAWN_MAX], label_y[DRAWN_MAX], label_num[DRAWN_MAX], label_den[DRAWN_MAX];
     int label_count;
+    int char_w;              /* a letter's width at 1/1 (8 when 0) */
     char shadowed[DRAWN_MAX][TEXT_MAX];
     int shadowed_count;
     char fitted[DRAWN_MAX][TEXT_MAX];   /* the names the screen fits (the rows' first words) */
@@ -139,24 +140,24 @@ static void f_plus_text(void *ctx, int32_t style, const char *text, int32_t x, i
     snprintf(fk.labels[fk.label_count], TEXT_MAX, "%s", text);
     fk.label_style[fk.label_count] = style;
     fk.label_x[fk.label_count] = x, fk.label_y[fk.label_count] = y;
+    fk.label_num[fk.label_count] = 1, fk.label_den[fk.label_count] = 1;
     fk.label_count++;
 }
 static int32_t f_plus_text_width(void *ctx, const char *text)
 {
     (void)ctx;
-    return (int32_t)strlen(text) * 8;
+    return (int32_t)strlen(text) * (fk.char_w ? fk.char_w : 8);
 }
 static void f_plus_scaled(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
 {
-    (void)num, (void)den;
     f_plus_text(ctx, style, text, x, y);
+    if (fk.label_count > 0) fk.label_num[fk.label_count - 1] = num, fk.label_den[fk.label_count - 1] = den;
 }
 static int32_t f_plus_scaled_width(void *ctx, const char *text, int32_t num, int32_t den)
 {
     (void)ctx;
-    return (int32_t)strlen(text) * 8 * num / den;
+    return (int32_t)strlen(text) * (fk.char_w ? fk.char_w : 8) * num / den;
 }
-
 static const BestTimesOps OPS = {
     .pointer_move_to = f_move_to,
     .load_art = f_load_art,
@@ -361,6 +362,183 @@ static void test_a_row_shows_its_marks(void)
     race_records_reset();
 }
 
+/* the strip drawn on its own, as the screen draws it over the art: `lit` the pointer's item */
+static void draw_strip(BestTimesPlus *plus, int track, int lit, BestPagesHits *hits, const BestTimesOps *ops)
+{
+    static uint8_t config[TRACK_SELECT_CONFIG];
+    static uint8_t screen_palette[0x300];
+    static uint8_t records[BEST_TIMES_RECORDS];
+    const BestTimesInputs in = { "", 0, 0, 0, 0, records };
+    const BestTimesState st = { config, 0, screen_palette, plus };
+    memset(config, 0, sizeof config);
+    config[TRACK_SELECT_TRACK] = (uint8_t)track;
+    best_times_pages_draw(&in, &st, lit, hits, ops);
+}
+
+/* the style `text` was last drawn in, -1 when it was not */
+static int last_style(const char *text)
+{
+    for (int i = fk.label_count - 1; i >= 0; i--)
+        if (strcmp(fk.labels[i], text) == 0) return fk.label_style[i];
+    return -1;
+}
+static int label_at(const char *text)
+{
+    for (int i = 0; i < fk.label_count; i++)
+        if (strcmp(fk.labels[i], text) == 0) return i;
+    return -1;
+}
+
+enum { TITLE_BASE = 90, TITLE_END = 125 };
+/* the footer's items' rects (best_times.c's follow): Done, the track before, the track after, Description */
+static const int16_t FOOTER[4][4] = { { 0, 0x82, 0x1b3, 0x1e0 }, { 0xc8, 0xfa, 0x1b3, 0x1e0 }, { 0x172, 0x1a4, 0x1b3, 0x1e0 },
+                                      { 0x1e0, 0x280, 0x1b3, 0x1df } };
+
+static int has_rect(const BestPagesHits *h, int i) { return h->x1[i] > h->x0[i]; }
+
+/* no two items' rects (inclusive) share a pixel, nor one the footer's items'; a stage's laps have none, everything else one */
+static void check_rects_apart(const BestPagesHits *h, int stage)
+{
+    for (int i = 0; i < BEST_PAGES_ITEMS; i++) {
+        const int laps = i == BEST_PAGES_LAPS || i == BEST_PAGES_LAPS_DOWN || i == BEST_PAGES_LAPS_UP;
+        CHECK_EQ_INT(has_rect(h, i), !(stage && laps));
+        if (!has_rect(h, i)) continue;
+        for (int f = 0; f < 4; f++) {
+            const int apart = h->x1[i] < FOOTER[f][0] || FOOTER[f][1] < h->x0[i] || h->y1[i] < FOOTER[f][2] || FOOTER[f][3] < h->y0[i];
+            if (!apart) printf("rect %d meets the footer's %d\n", i, f);
+            CHECK(apart);
+        }
+        for (int j = i + 1; j < BEST_PAGES_ITEMS; j++) {
+            if (!has_rect(h, j)) continue;
+            const int apart = h->x1[i] < h->x0[j] || h->x1[j] < h->x0[i] || h->y1[i] < h->y0[j] || h->y1[j] < h->y0[i];
+            if (!apart) printf("rects %d and %d overlap\n", i, j);
+            CHECK(apart);
+        }
+    }
+}
+
+/* every item's rect apart from the others' and the footer's, on a circuit and a stage, every layout, at the font's width and narrower */
+static void test_the_hit_rects_stay_apart(void)
+{
+    race_records_reset();
+    BestTimesPlus plus;
+    BestPagesHits h;
+    for (int stage = 0; stage < 2; stage++)
+        for (int layout = 0; layout < RACE_RECORDS_LAYOUTS; layout++)
+            for (int page = 0; page < 2; page++)
+                for (int char_w = 8; char_w <= 14; char_w += 6) {
+                    reset(NULL, 0);
+                    fk.char_w = char_w;
+                    best_times_pages_open(&plus, stage ? STAGE : CIRCUIT, layout, 0, 0, 1);
+                    plus.page = page;
+                    draw_strip(&plus, stage ? STAGE : CIRCUIT, -1, &h, &OPS);
+                    check_rects_apart(&h, stage);
+                }
+}
+
+/* the page's selector is the table's line's small words, under it: a secondary line */
+static void test_the_page_selector_is_small(void)
+{
+    race_records_reset();
+    BestTimesPlus plus;
+    BestPagesHits h;
+    reset(NULL, 0);
+    best_times_pages_open(&plus, CIRCUIT, 0, 0, 0, 1);
+    draw_strip(&plus, CIRCUIT, -1, &h, &OPS);
+    const int i = label_at("TOP 10");
+    CHECK(i >= 0 && fk.label_num[i] == 3 && fk.label_den[i] == 4);
+}
+
+/* a stage's segments page: each "SEGMENT N" in the column titles' red, its rows under it as the others */
+static void test_the_segments_headers_are_red(void)
+{
+    race_records_reset();
+    BestTimesPlus plus;
+    BestPagesHits h;
+    reset(NULL, 0);
+    best_times_pages_open(&plus, STAGE, 0, 0, 0, 1);
+    plus.page = 1;
+    draw_strip(&plus, STAGE, -1, &h, &OPS);
+    CHECK_EQ_INT(last_style("SEGMENT 1"), STYLE_RED);
+    CHECK_EQ_INT(last_style("SEGMENT 3"), STYLE_RED);
+}
+
+/* the table's line: its capitals' last row the title's at three quarters and at three fifths, past the title with room between */
+static void test_the_header_sits_on_the_titles_line(void)
+{
+    race_records_reset();
+    BestTimesPlus plus;
+    BestPagesHits h;
+    for (int long_line = 0; long_line < 2; long_line++) {
+        reset(NULL, 0);
+        fk.char_w = 12;   /* the font's width: all three layouts do not fit at three quarters */
+        best_times_pages_open(&plus, CIRCUIT, long_line ? RACE_RECORDS_LAYOUTS - 1 : 0, 0, 0, 1);
+        draw_strip(&plus, CIRCUIT, -1, &h, &OPS);
+        const int i = label_at("NO CHEATS");
+        CHECK(i >= 0);
+        if (i < 0) continue;
+        CHECK_EQ_INT(fk.label_den[i], long_line ? 5 : 4);
+        CHECK_EQ_INT(fk.label_y[i] + 16 * fk.label_num[i] / fk.label_den[i], TITLE_BASE);
+        CHECK(fk.label_x[0] >= TITLE_END + 16);   /* the first word, its "<" */
+    }
+}
+
+/* the pointer on a field's word lights that word (and nothing else of the strip); on the page's name, the name */
+static void test_the_pointer_lights_each_word(void)
+{
+    race_records_reset();
+    BestTimesPlus plus;
+    BestPagesHits h;
+    static const struct { int item; const char *text; } WORDS[] = {
+        { BEST_PAGES_LAYOUT, "NORMAL" }, { BEST_PAGES_CHEATS, "NO CHEATS" }, { BEST_PAGES_LAPS, "8 LAPS" }, { BEST_PAGES_PAGE, "TOP 10" }
+    };
+    for (int w = 0; w < 4; w++) {
+        reset(NULL, 0);
+        best_times_pages_open(&plus, CIRCUIT, 0, 0, 0, 1);
+        draw_strip(&plus, CIRCUIT, WORDS[w].item, &h, &OPS);
+        for (int k = 0; k < 4; k++) CHECK_EQ_INT(last_style(WORDS[k].text), k == w ? STYLE_YELLOW : STYLE_CREAM);
+        CHECK_EQ_INT(last_style("<"), STYLE_CREAM);
+    }
+}
+
+/* the screen: the pointer on a word lights it; a click there steps the field on (as its right arrow); the arrows step as before */
+static void test_a_click_on_a_word_steps_it_on(void)
+{
+    static const struct { int item; int laps, layout, page; } CLICKS[] = {
+        { BEST_PAGES_LAPS, 16, 0, 0 }, { BEST_PAGES_LAYOUT, 8, 1, 0 }, { BEST_PAGES_PAGE, 8, 0, 1 }, { BEST_PAGES_LAPS_DOWN, 4, 0, 0 }
+    };
+    static const int keys[] = { SHIFT_NOTHING, ENTER };
+    for (int c = 0; c < 4; c++) {
+        race_records_reset();
+        BestTimesPlus plus;
+        BestPagesHits h;
+        best_times_pages_open(&plus, CIRCUIT, 0, 0, 0, 1);
+        reset(NULL, 0);
+        draw_strip(&plus, CIRCUIT, -1, &h, &OPS);
+        const int i = CLICKS[c].item;
+        reset(keys, 2);
+        fk.active = 1, fk.pointer_on = 1;
+        fk.pointer_x = (h.x0[i] + h.x1[i]) / 2, fk.pointer_y = (h.y0[i] + h.y1[i]) / 2;
+        (void)run(&plus, CIRCUIT);
+        CHECK_EQ_INT(plus.laps, CLICKS[c].laps);
+        CHECK_EQ_INT(plus.layout, CLICKS[c].layout);
+        CHECK_EQ_INT(plus.page, CLICKS[c].page);
+    }
+    race_records_reset();
+    BestTimesPlus plus;
+    BestPagesHits h;
+    best_times_pages_open(&plus, CIRCUIT, 0, 0, 0, 1);
+    reset(NULL, 0);
+    draw_strip(&plus, CIRCUIT, -1, &h, &OPS);
+    static const int still[] = { SHIFT_NOTHING, SHIFT_NOTHING, SHIFT_NOTHING };   /* drawn, the pointer seen, drawn again */
+    reset(still, 3);
+    fk.active = 1, fk.pointer_on = 1;
+    fk.pointer_x = (h.x0[BEST_PAGES_LAYOUT] + h.x1[BEST_PAGES_LAYOUT]) / 2, fk.pointer_y = (h.y0[BEST_PAGES_LAYOUT] + h.y1[BEST_PAGES_LAYOUT]) / 2;
+    (void)run(&plus, CIRCUIT);
+    CHECK_EQ_INT(last_style("NORMAL"), STYLE_YELLOW);
+    CHECK_EQ_INT(last_style("NO CHEATS"), STYLE_CREAM);
+}
+
 int main(void)
 {
     test_no_plus_is_original();
@@ -369,5 +547,11 @@ int main(void)
     test_the_keys_step_the_fields();
     test_the_footer_keeps_the_exes_keys();
     test_a_row_shows_its_marks();
+    test_the_hit_rects_stay_apart();
+    test_the_page_selector_is_small();
+    test_the_segments_headers_are_red();
+    test_the_header_sits_on_the_titles_line();
+    test_the_pointer_lights_each_word();
+    test_a_click_on_a_word_steps_it_on();
     return TEST_REPORT();
 }

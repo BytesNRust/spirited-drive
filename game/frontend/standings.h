@@ -53,6 +53,9 @@ typedef struct StandingsOps {
     void (*free)(void *ctx, int32_t bank);                     /* 00475260 (cdecl) */
     void (*free_inverse)(void *ctx);                           /* 00474558 */
     void *ctx;
+    /* port: a word of the header band, as ResultsOps.band_text (results_screen.h's RESULTS_BAND_*); NULL: text_boxed at the
+     * dep55 places */
+    void (*band_text)(void *ctx, const char *text, int32_t x, int32_t y_mid, int32_t room);
 } StandingsOps;
 
 enum { STANDINGS_GAME = 0x5bc };

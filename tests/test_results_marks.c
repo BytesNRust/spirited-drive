@@ -54,6 +54,14 @@ static void f_text_at(void *ctx, const char *text, int32_t x, int32_t y)
     drawn.x[drawn.count] = x, drawn.y[drawn.count] = y;
     drawn.count++;
 }
+/* the band's words (ResultsOps.band_text), recorded as text at (x, y_mid) with the room they were given */
+static int band_on;
+static int32_t band_room;
+static void f_band_text(void *ctx, const char *text, int32_t x, int32_t y_mid, int32_t room)
+{
+    band_room = room;
+    f_text_at(ctx, text, x, y_mid);
+}
 static void f_text_fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
 {
     (void)width;
@@ -123,6 +131,7 @@ static ResultsOps fake_ops(void)
     ops.text_select = f_text_select;
     ops.text_at = f_text_at;
     ops.text_fit = f_text_fit;
+    ops.band_text = band_on ? f_band_text : NULL;
     ops.time_text = f_time_text;
     ops.average_text = f_average_text;
     ops.speed_text = f_speed_text;
@@ -456,8 +465,40 @@ static void test_the_table_line(void)
     CHECK(!any_text("MIRROR - NO CHEATS - 6 LAPS"));
 }
 
+/* the band right of the logo: the line alone with its middle on the band's; with the banner the two stacked, both in the band
+ * (above the separator under the logo, y 57), never wider than its room to the right margin; the lap times page as the segment's */
+static void test_the_line_is_in_the_logo_band(void)
+{
+    static uint8_t slots[RECORDS_MARK_SLOTS];
+    memset(slots, 0, sizeof slots);
+    band_on = 1;
+    ResultsMarks marks = { NULL, 0, "NORMAL - NO CHEATS - 1 LAP" };
+    run_segment(&marks);
+    CHECK(found("NORMAL - NO CHEATS - 1 LAP", RESULTS_BAND_X, RESULTS_BAND_MID));
+    CHECK(!any_text("(CHEATS)"));
+    CHECK(RESULTS_BAND_X + band_room <= 640 - 6);
+    slots[0] = 1;
+    marks.slots = slots, marks.line = "MIRROR - CHEATS - 8 LAPS";
+    run_segment(&marks);
+    CHECK(found("(CHEATS)", RESULTS_BAND_X, RESULTS_BAND_TOP_MID));
+    CHECK(found("MIRROR - CHEATS - 8 LAPS", RESULTS_BAND_X, RESULTS_BAND_LOW_MID));
+    CHECK(RESULTS_BAND_TOP_MID < RESULTS_BAND_LOW_MID && RESULTS_BAND_LOW_MID + 8 < 57);   /* both above the separator */
+    static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
+    ResultsInputs in;
+    ResultsState st = { 0, screen_palette, 0 };
+    DialogPointer p;
+    ResultsOps ops = fake_ops();
+    setup_inputs(&in, game, image, &marks);
+    memset(&p, 0, sizeof p);
+    reset();
+    lap_times_screen(0, 0, &in, &st, &p, &ops);
+    CHECK(found("MIRROR - CHEATS - 8 LAPS", RESULTS_BAND_X, RESULTS_BAND_LOW_MID));
+    band_on = 0;
+}
+
 int main(void)
 {
+    test_the_line_is_in_the_logo_band();
     test_the_table_line();
     test_segment_normal_table_is_unchanged();
     test_segment_cheats_title_and_marks();

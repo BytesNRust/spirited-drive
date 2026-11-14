@@ -116,7 +116,7 @@ typedef struct BestTimesState {
  * port (dep55): with a `plus` (Restomod's records) the title strip and the pages: Up and Down move the keys' row through the strip's
  * fields (layout, cheats, laps, page) and the footer; on a field Left and Right step it (the arrows drawn round it; Enter steps it on),
  * on the footer they move between its items as the exe's; Tab and Page Down turn the page on, Page Up back; the pointer clicks the
- * arrows, the cheats word and the page's. */
+ * arrows and every field's word (a word's click its right arrow's), each lit while the pointer is on it. */
 int32_t best_times_screen(const BestTimesInputs *in, BestTimesState *st, DialogPointer *p, const BestTimesOps *ops);
 
 #endif

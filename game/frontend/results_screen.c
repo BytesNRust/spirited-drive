@@ -40,8 +40,16 @@ static const char *dnf(const ResultsInputs *in) { return in->german ? "Abbruch" 
 
 void results_header_marks(const ResultsInputs *in, const ResultsOps *ops)
 {
-    if (results_cheats(in)) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
-    if (in->marks != NULL && in->marks->line != NULL) ops->text_at(ops->ctx, in->marks->line, RESULTS_LINE_X, RESULTS_LINE_Y);
+    const int banner = results_cheats(in), line = in->marks != NULL && in->marks->line != NULL;
+    if (ops->band_text == NULL) {   /* the place dep55 drew them */
+        if (banner) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
+        if (line) ops->text_at(ops->ctx, in->marks->line, RESULTS_LINE_X, RESULTS_LINE_Y);
+        return;
+    }
+    int32_t banner_mid, line_mid;
+    results_band_places(banner, line, &banner_mid, &line_mid);
+    if (banner) ops->band_text(ops->ctx, CHEATS_BANNER, RESULTS_BAND_X, banner_mid, RESULTS_BAND_ROOM);
+    if (line) ops->band_text(ops->ctx, in->marks->line, RESULTS_BAND_X, line_mid, RESULTS_BAND_ROOM);
 }
 
 /* port: a row's cheat letters at the marks' x, when the table shown is the one with cheats */

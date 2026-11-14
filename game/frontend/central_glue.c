@@ -364,6 +364,16 @@ void cg_fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
     static const TextFitOps ops = { fit_width, fit_ramp, fit_draw, NULL };
     text_fit_shadowed(text, x, y, width, &ops);
 }
+void cg_band_text(void *ctx, const char *text, int32_t x, int32_t y_mid, int32_t room)
+{
+    (void)ctx;
+    static const int SCALES[][2] = { { 1, 1 }, { 7, 8 }, { 3, 4 }, { 2, 3 }, { 1, 2 } };
+    enum { SCALE_COUNT = (int)(sizeof SCALES / sizeof SCALES[0]) };
+    int k = 0;
+    while (k < SCALE_COUNT - 1 && text_width_scaled(text, SCALES[k][0], SCALES[k][1]) > room) k++;
+    const int height = text_line_height() * SCALES[k][0] / SCALES[k][1];
+    text_draw_smooth(text, x, y_mid - height / 2, SCALES[k][0], SCALES[k][1]);
+}
 void cg_average_text(void *ctx, char *out, int32_t time, int32_t distance)
 {
     (void)ctx;
