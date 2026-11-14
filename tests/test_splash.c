@@ -50,6 +50,11 @@ static void test_plays_once_panned(void)
     CHECK_EQ_INT(splash_active(&s), 0);
     for (int i = 0; i < SPLASH_VOICES + 3; i++) splash_play(&s, 0, 100, 1000, WET_ROLL_PAN_CENTRE);   /* more than the voices: the oldest give way */
     CHECK_EQ_INT(splash_active(&s), SPLASH_VOICES);
+    splash_quiet(&s);   /* hushed (rain_bus.h): every splash stopped, none to finish later */
+    CHECK_EQ_INT(splash_active(&s), 0);
+    memset(out, 0, sizeof out);
+    splash_mix(&s, out, 100);
+    CHECK(out[0] == 0 && out[199] == 0);
     splash_free(&s);
     CHECK_EQ_INT(s.clips, 0);
 }

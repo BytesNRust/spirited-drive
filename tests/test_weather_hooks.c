@@ -34,7 +34,9 @@ void drive_audio_thunder(int delay_ticks, int volume_percent)
     if (thunder_calls < 64) thunder_delay[thunder_calls] = delay_ticks, thunder_volume[thunder_calls] = volume_percent;
     thunder_calls++;
 }
-void drive_audio_rain_roll(int out, int in, int bed, int move_in) { out_percent = out, in_percent = in, bed_percent = bed, move_in_percent = move_in; }
+static int audio_calls, wake_call = -1, wake_tick = -1, roll_call = -1;   /* the order the hook calls in */
+void drive_audio_rain_wake(int32_t tick) { wake_call = audio_calls++, wake_tick = (int)tick; }
+void drive_audio_rain_roll(int out, int in, int bed, int move_in) { roll_call = audio_calls++, out_percent = out, in_percent = in, bed_percent = bed, move_in_percent = move_in; }
 void drive_audio_rain_spray(int voice, int percent, int pitch_permille, int pan, int start_permille)
 {
     CHECK(voice >= 0 && voice < RAIN_CARS_VOICES && start_permille >= -1 && start_permille < 1000);
@@ -233,6 +235,32 @@ static void test_the_wet_road_follows_the_view_live(void)
     #undef AT
 }
 
+/* every frame of a race, its flags on or off, the hook tells the rain the race's tick before its levels: back from the pause or the menu (a flag or the mode maybe changed there)
+ * the rain wakes with what voices held dropped, and the frame's own levels follow */
+static void test_the_rain_wakes_before_its_levels(void)
+{
+    static RaceState race;
+    static Car car;
+    memset(&race, 0, sizeof race), memset(&car, 0, sizeof car);
+    race.cars[0] = &car, race.car_count = 1, race.viewed = 0, race.tick = 4321, race.chase.kind = 1;
+    car.speed = 40 << 16;
+    WeatherFrame f = frame(WEATHER_RAIN, SNOW_NONE, 16);
+    f.race = &race;
+    for (int on = 1; on >= 0; on--) {
+        setenv("TNFS_RAIN_V2", "1", 1), setenv("TNFS_RAIN_TYRE_ROLL", on ? "1" : "0", 1);
+        wake_call = roll_call = wake_tick = -1;
+        weather_hooks_rain_roll(&f);
+        CHECK(wake_call >= 0 && wake_call < roll_call && wake_tick == (int)race.tick);
+        CHECK(on ? bed_percent > 0 : (bed_percent == 0 && sprays() == 0 && out_percent == 0));
+        race.tick++;
+    }
+    const WeatherFrame none = frame(WEATHER_RAIN, SNOW_NONE, 16);   /* no race: nothing to wake by */
+    wake_call = -1;
+    weather_hooks_rain_roll(&none);
+    CHECK_EQ_INT(wake_call, -1);
+    setenv("TNFS_RAIN_TYRE_ROLL", "1", 1);
+}
+
 static void test_the_voices_follow_the_viewed_car(void)
 {
     static RaceState race;
@@ -387,5 +415,6 @@ int main(void)
     test_the_voices_follow_the_viewed_car();
     test_the_wet_road_follows_the_view_live();
     test_every_car_sprays();
+    test_the_rain_wakes_before_its_levels();
     return TEST_REPORT();
 }

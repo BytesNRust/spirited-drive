@@ -40,6 +40,11 @@ void splash_play(Splash *s, int clip, int percent, int pitch_permille, int pan)
     for (int c = 0; c < 2; c++) s->voice[v].gain[c] = p * wet_roll_pan_gain(pan, c);
 }
 
+void splash_quiet(Splash *s)
+{
+    for (int v = 0; v < SPLASH_VOICES; v++) s->voice[v].live = 0;
+}
+
 void splash_mix(Splash *s, int16_t *out, uint32_t frames)
 {
     int32_t bus[2 * 256];

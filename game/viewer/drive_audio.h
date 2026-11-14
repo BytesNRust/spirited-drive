@@ -34,6 +34,10 @@ void drive_audio_rain_spray(int voice, int percent, int pitch_permille, int pan,
 /* port (rain_tyre_roll): the puddle splashes there are (data/sounds/rain_puddle_1.wav on, read once), 0 without a device; one played once at `percent`, `pitch_permille` and `pan` */
 int drive_audio_rain_puddle_clips(void);
 void drive_audio_rain_puddle(int clip, int percent, int pitch_permille, int pan);
+/* port (rain_tyre_roll): the pause or the in-race menu at the race's `tick`: the rain falls silent in a few ms (rain_bus.h); awake again once a frame sees the tick move
+ * (drive_audio_rain_wake, called by the rain's hook before its levels) */
+void drive_audio_rain_hush(int32_t tick);
+void drive_audio_rain_wake(int32_t tick);
 /* port (snow): the roll on snow (snow_roll.h) at `volume_percent` (0 silent) and `pitch_permille` of its own rate, eased; nothing without a device or without data/sounds/snow_roll.wav */
 void drive_audio_snow_roll(int volume_percent, int pitch_permille);
 

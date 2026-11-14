@@ -166,9 +166,10 @@ static void cars_frame(const WeatherFrame *f, int falling, int followed_level)
 /* port (rain_tyre_roll): what the car the camera follows hears of the rain, once a frame, in rain or a storm with rain_v2: the stopped layer (outside or in the cockpit, rain only:
  * falling snow is silent) giving way by its speed to the moving one (outside, the rain round a moving car; in the cockpit, the rain on the car with its own spray), by the openness
  * where the eye is (silent inside a closed zone); and every car's spray and splashes (cars_frame). The snowy rally's track is snow, not water: none of it there (snow_roll.h). The
- * voices fall silent by themselves when the frames stop. */
+ * voices fall silent by themselves when the frames stop, and at once in the pause and the in-race menu (drive_audio_rain_hush). */
 void weather_hooks_rain_roll(const WeatherFrame *f)
 {
+    if (f->race != NULL) drive_audio_rain_wake((int32_t)f->race->tick);   /* back from the pause or the menu once the race moves */
     RainRoll r = rain_roll_levels(RAIN_ROLL_DRY, 0, 0, RAIN_ROLL_OFF, 0);
     const Car *const car = f->race != NULL ? f->race->cars[race_slot(f->race->viewed)] : NULL;
     if (car != NULL && port_rain_tyre_roll() && port_rain_v2() && weather_wet(f->weather) && f->race->port_rally_gravel != RALLY_GRAVEL_SNOW) {
