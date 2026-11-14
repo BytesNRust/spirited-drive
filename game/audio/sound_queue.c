@@ -50,8 +50,8 @@ void sound_queue_stop(SoundDriver *d, SoundQueue *q)
 {
     if (!d->channels.open || !q->ready) return;
     q->playing = 0;
-    sound_stop(d, q->last);
-    sound_stop(d, q->handle);
+    sound_stop_kind(d, q->last, SOUND_KIND_QUEUE);   /* port: kept handles, 0 before it played (sound_driver.h) */
+    sound_stop_kind(d, q->handle, SOUND_KIND_QUEUE);
     queue_clear(q);
     q->ready = 0;
 }
