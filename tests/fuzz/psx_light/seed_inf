@@ -1,0 +1,28 @@
+# vert offset near
+0.5
+# vert offset far
+0.25
+# zoffset near
+1
+# zoffset far
+2
+# height near
+3
+# height far
+4
+# radius near
+5
+# radius far
+6
+# colour top
+48 42 26
+# colour bottom
+84 69 40
+# dithering flag
+1
+# ratio of the blend
+32
+# ring y offset
+-12
+# ring height
+100
