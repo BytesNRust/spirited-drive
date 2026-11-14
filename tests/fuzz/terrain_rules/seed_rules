@@ -1,0 +1,4 @@
+# node_from node_to point_from point_to value
+0 10 0 10 128
+20 40 2 8 255
+100 90 0 0 0

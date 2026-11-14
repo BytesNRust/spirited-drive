@@ -21,6 +21,16 @@ libFuzzer with AddressSanitizer and UndefinedBehaviorSanitizer.
 | `psx_bigf` | `psx_bigf_member`, `psx_shpp_image8`, `psx_shpp_colours` | the PlayStation liveries and skies |
 | `doc` | `doc_parse_chunks`, `doc_parse_shpi` and write | the studio's editor |
 | `validate` | `validate_file` (its first byte picks the file name) | the check every mod file goes through |
+| `track_light` | `track_light_parse` | `track_light/<TRK><L>.txt` |
+| `track_places` | `track_light_place_parse` | `data/track/<TRK>.txt` |
+| `terrain_rules` | `terrain_light_rules_parse` | a track's light rules |
+| `settings_cfg` | `port_settings_parse`, `port_extras_parse`, `port_controls_parse` | `port.cfg`, the modes' files, `controls.cfg` |
+| `config_dat` | `config_dat_parse` | `config.dat` |
+| `psx_light` | `psx_lgs_parse`, `psx_lgt_parse`, `psx_sky_inf_parse`, `psx_sky_panorama` (first byte picks) | the PlayStation light and sky files |
+| `masks` | `car_mask_parse`, `track_mask_parse`, `dash_mask_parse`, `dash_color_parse` (first byte picks the reader and a size) | the mask PNGs |
+| `sound_wav` | `thunder_load`, `wet_roll_load`, `splash_load` | `data/sounds/*.wav` |
+| `title_art` | `title_art_screen` | the title screens |
+| `replay_trailer` | the replay's conditions, paints, snow and setup; `session_rules_get` | `.RPL` files, the network's rules record |
 
 ## Every build: the kept cases
 
