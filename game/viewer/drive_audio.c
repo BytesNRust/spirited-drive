@@ -2,6 +2,7 @@
 #include "game/viewer/drive_audio.h"
 
 #include "game/audio/music_reader.h"
+#include "game/audio/hush.h"
 #include "game/audio/rain_bus.h"
 #include "game/audio/sound_bank.h"
 #include "game/audio/sound_driver.h"
@@ -51,10 +52,10 @@ static WetRoll spray_source;                               /* port (rain_tyre_ro
 static WetRoll spray[RAIN_CARS_VOICES];                    /* ... but by the cars' voices (rain_cars.h), each where its car is */
 static int spray_tried;
 static Splash puddles;                                     /* port (rain_tyre_roll): the cars' puddle splashes */
-static RainBus rain_bus;                                   /* port (rain_tyre_roll): where the rain meets the mix, hushed by the pause and the in-race menu */
 static int puddles_tried;
 static WetRoll snow_roll;                                  /* port (snow): the roll on snow, the same voice with another sample */
 static int snow_roll_tried;
+static Hush hush;                                          /* port (rain_tyre_roll): the thunder, the rain and the roll on snow hushed by the pause and the in-race menu (hush.h) */
 static SoundQueue speech;                                  /* 004c7b60 */
 static SoundSample speech_sample[SOUND_QUEUE_ENTRIES];     /* each queued file's header, by the writer it took */
 
@@ -129,16 +130,18 @@ static void voice_stats(uint32_t count)
     voice_frames = 0;
 }
 
-/* port (rain_tyre_roll): every rain voice silent at once, what it held dropped. The caller holds the lock. */
-static void rain_quiet(void)
+/* port (rain_tyre_roll): the weather's sounds (the thunder's claps sounding, every rain voice, the roll on snow) silent at once, what they held dropped. The caller holds the lock. */
+static void weather_quiet(void)
 {
+    thunder_quiet(&thunder);
     wet_roll_quiet(&rain_out), wet_roll_quiet(&rain_in), wet_roll_quiet(&rain_bed), wet_roll_quiet(&rain_move_in);
     for (int i = 0; i < RAIN_CARS_VOICES; i++) wet_roll_quiet(&spray[i]);
     splash_quiet(&puddles);
+    wet_roll_quiet(&snow_roll);
 }
 
-/* port (rain_tyre_roll): the rain's voices over the mix, through their own bus (rain_bus.h): the rain round a stopped car as it is, the moving rain at the bus' gain */
-static void rain_mix(int16_t *frames, uint32_t n)
+/* port (rain_tyre_roll): the rain's voices over the mix, through their own bus (rain_bus.h): the rain round a stopped car as it is, the moving rain at the bus' gain, at the hush's gains */
+static void rain_mix(int16_t *frames, uint32_t n, const int32_t *gain)
 {
     int32_t still[2 * TICK_FRAMES], moving[2 * TICK_FRAMES];
     memset(still, 0, sizeof still), memset(moving, 0, sizeof moving);
@@ -148,8 +151,20 @@ static void rain_mix(int16_t *frames, uint32_t n)
     wet_roll_mix32(&rain_move_in, moving, n);
     for (int i = 0; i < RAIN_CARS_VOICES; i++) wet_roll_mix32(&spray[i], moving, n);
     splash_mix32(&puddles, moving, n);
-    rain_bus_meet(&rain_bus, frames, still, moving, n, MIX_RATE);
-    if (rain_bus_silent(&rain_bus)) rain_quiet();   /* hushed: nothing kept to sound again on the way back */
+    rain_bus_meet(frames, still, moving, gain, n);
+}
+
+/* port (rain_v2, rain_tyre_roll, snow): the weather's sounds over the race's mix, each at the hush's gains; hushed and silent, nothing kept to sound again on the way back but the
+ * claps still to come, which wait on the race (their delay is the storm's distance, counted on the race's clock) */
+static void weather_mix(int16_t *frames, uint32_t n)
+{
+    int32_t gain[TICK_FRAMES];
+    const int still = hush_silent(&hush);
+    hush_gains(&hush, gain, n, MIX_RATE);
+    if (!still) thunder_mix_gained(&thunder, frames, n, gain);
+    rain_mix(frames, n, gain);
+    wet_roll_mix_gained(&snow_roll, frames, n, gain);
+    if (hush_silent(&hush)) weather_quiet();
 }
 
 static void mix(void *user, int16_t *frames, uint32_t count)
@@ -165,9 +180,7 @@ static void mix(void *user, int16_t *frames, uint32_t count)
         const uint32_t n = count < TICK_FRAMES ? count : TICK_FRAMES;
         voice_stats(n);
         sound_mix_frames(&driver.mixer, frames, (int32_t)n);
-        thunder_mix(&thunder, frames, n);
-        rain_mix(frames, n);
-        wet_roll_mix(&snow_roll, frames, n);
+        weather_mix(frames, n);
         frames += 2 * n, count -= n;
         for (tick_frames += n * TICKS_PER_SECOND; tick_frames >= MIX_RATE; tick_frames -= MIX_RATE) {
             if (speech.ready) sound_queue_tick(&driver, &speech);  /* 004a4ac0: 00492330 first, while 004c7b60 */
@@ -325,21 +338,21 @@ void drive_audio_rain_puddle(int clip, int percent, int pitch_permille, int pan)
     lock(), splash_play(&puddles, clip, percent, pitch_permille, pan), unlock();
 }
 
-void drive_audio_rain_hush(int32_t tick)
+void drive_audio_weather_hush(int32_t tick)
 {
     if (!open_) return;
-    lock(), rain_bus_hush(&rain_bus, tick), unlock();
-    port_log("rain: hushed at tick %d\n", (int)tick);
+    lock(), hush_at(&hush, tick), unlock();
+    port_log("weather: hushed at tick %d\n", (int)tick);
 }
 
-void drive_audio_rain_wake(int32_t tick)
+void drive_audio_weather_wake(int32_t tick)
 {
     if (!open_) return;
     lock();
-    const int woke = rain_bus_wake(&rain_bus, tick);
-    if (woke) rain_quiet();   /* what the voices held while hushed (a frame drawn by the menu) is not heard: the frame's own levels follow */
+    const int woke = hush_wake(&hush, tick);
+    if (woke) weather_quiet();   /* what the sounds held while hushed (a frame drawn by the menu) is not heard: the frame's own levels follow */
     unlock();
-    if (woke) port_log("rain: awake at tick %d\n", (int)tick);
+    if (woke) port_log("weather: awake at tick %d\n", (int)tick);
 }
 
 void drive_audio_snow_roll(int volume_percent, int pitch_permille)
@@ -372,7 +385,7 @@ int drive_audio_device_open(const char *data_root)
         sound_driver_init(&driver, MIX_RATE);
         driver.channels.open = 1;  /* 004c7b54 */
         tick_frames = 0;
-        rain_bus = (RainBus){ 0 }, rain_quiet();
+        hush = (Hush){ 0 }, weather_quiet();
         mixing = 1;
     }
     unlock();
@@ -520,7 +533,7 @@ int drive_audio_offline_open(RaceState *race, const char *data_root, const char 
     sound_driver_init(&driver, MIX_RATE);
     driver.channels.open = 1;
     open_ = 1, mixing = 0;
-    rain_bus = (RainBus){ 0 }, rain_quiet();
+    hush = (Hush){ 0 }, weather_quiet();
     RaceEntry *followed = &race->entries[race_slot(race->player)];
     followed->sound_volume = SOUND_VOLUME, followed->music_volume = 0, followed->sound_mode = 0, followed->sound_on = 1;
     race->unknown_52b30e = 1;
@@ -542,9 +555,7 @@ void drive_audio_offline_tick(void)
     for (uint32_t left = MIX_RATE / STEPS_PER_SECOND; left > 0;) {
         const uint32_t n = left < TICK_FRAMES ? left : TICK_FRAMES;
         sound_mix_frames(&driver.mixer, frames, (int32_t)n);
-        thunder_mix(&thunder, frames, n);
-        rain_mix(frames, n);
-        wet_roll_mix(&snow_roll, frames, n);
+        weather_mix(frames, n);
         fwrite(frames, sizeof frames[0], 2 * n, drive_dump_file);
         drive_dump_frames += n, left -= n;
         for (tick_frames += n * TICKS_PER_SECOND; tick_frames >= MIX_RATE; tick_frames -= MIX_RATE) sound_driver_tick(&driver);

@@ -1,7 +1,9 @@
 /* the storm's thunder voices (thunder.h) */
 #include "tests/test.h"
 
+#include "game/audio/hush.h"
 #include "game/audio/thunder.h"
+#include "game/race/tick_rate.h"
 
 #include <string.h>
 
@@ -90,11 +92,45 @@ static void test_voices_replaced(void)
     thunder_free(&t);
 }
 
+/* the weather's hush (hush.h): whole, the clap as it was, to the sample; at half, half; quiet, the claps sounding stopped and the ones to come still to come */
+static void test_hushed(void)
+{
+    static uint8_t wav[44 + 4 * SAMPLE_FRAMES];
+    Thunder a, b;
+    memset(&a, 0, sizeof a), memset(&b, 0, sizeof b);
+    thunder_load(&a, wav, make_wav(wav, SAMPLE_FRAMES, 30000, RATE, 1), RATE);
+    thunder_load(&b, wav, make_wav(wav, SAMPLE_FRAMES, 30000, RATE, 1), RATE);
+    thunder_schedule(&a, 0, 100), thunder_schedule(&a, 0, 100);   /* two at once: over full scale, clipped as before */
+    thunder_schedule(&b, 0, 100), thunder_schedule(&b, 0, 100);
+    static int16_t plain[2 * 200], gained[2 * 200];
+    static int32_t whole[200], half[200];
+    for (int i = 0; i < 200; i++) whole[i] = HUSH_UNITY, half[i] = HUSH_UNITY / 2, plain[2 * i] = plain[2 * i + 1] = gained[2 * i] = gained[2 * i + 1] = (int16_t)(i * 50);
+    thunder_mix(&a, plain, 100);
+    thunder_mix_gained(&b, gained, 100, whole);
+    CHECK(memcmp(plain, gained, sizeof plain) == 0);
+    memset(gained, 0, sizeof gained);
+    thunder_mix_gained(&b, gained, 1, half);
+    CHECK_EQ_INT(gained[0], 2 * (30000 * 70 / 100 / 2));   /* each clap at half */
+    thunder_schedule(&b, 3, 100);   /* one to come in 3 race ticks */
+    CHECK(thunder_active(&b) == 3);
+    thunder_quiet(&b);   /* the two sounding stop; the one to come waits on */
+    CHECK_EQ_INT(thunder_active(&b), 1);
+    memset(gained, 0, sizeof gained);
+    thunder_mix(&b, gained, 200);
+    CHECK(gained[0] == 0 && gained[399] == 0);   /* nothing until its time */
+    static int16_t later[2 * RATE];
+    thunder_mix(&b, later, RATE / 5);
+    const int due = 3 * RATE / RACE_TICKS_A_SECOND - 200;   /* its delay less the 200 frames already mixed */
+    CHECK(later[2 * (due - 1)] == 0 && later[2 * due] == 30000 * 70 / 100);   /* then the clap, whole, on time */
+    thunder_free(&a), thunder_free(&b);
+}
+
 int main(void)
 {
     test_load();
     test_play();
     test_volume_and_sum();
     test_voices_replaced();
+    test_hushed();
     return TEST_REPORT();
 }

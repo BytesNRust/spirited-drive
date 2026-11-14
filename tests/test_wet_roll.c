@@ -1,6 +1,7 @@
 /* the rain's and the roll's looping voice (wet_roll.h) */
 #include "tests/test.h"
 
+#include "game/audio/hush.h"
 #include "game/audio/wet_roll.h"
 
 #include <string.h>
@@ -125,6 +126,25 @@ static void test_pitch_and_saturation(void)
     wet_roll_free(&w);
 }
 
+/* the weather's hush (hush.h) on the roll on snow: whole, as it was to the sample (saturating the same); none, nothing added */
+static void test_hush_gain(void)
+{
+    WetRoll a, b;
+    load(&a), load(&b);
+    wet_roll_set(&a, 600, 1000), wet_roll_set(&b, 600, 1000);
+    static int16_t plain[2 * 3000], gained[2 * 3000];
+    static int32_t whole[3000], none[3000];
+    for (int i = 0; i < 3000; i++) whole[i] = HUSH_UNITY, none[i] = 0, plain[2 * i] = plain[2 * i + 1] = gained[2 * i] = gained[2 * i + 1] = (int16_t)(i * 9);
+    wet_roll_mix(&a, plain, 3000);
+    wet_roll_mix_gained(&b, gained, 3000, whole);
+    CHECK(memcmp(plain, gained, sizeof plain) == 0);
+    int16_t before[2 * 300];
+    memcpy(before, gained, sizeof before);
+    wet_roll_mix_gained(&b, gained, 300, none);
+    CHECK(memcmp(before, gained, sizeof before) == 0);
+    wet_roll_free(&a), wet_roll_free(&b);
+}
+
 int main(void)
 {
     test_silent_adds_nothing();
@@ -132,5 +152,6 @@ int main(void)
     test_stale_falls_silent();
     test_pitch_and_saturation();
     test_quiet_drops_the_level();
+    test_hush_gain();
     return TEST_REPORT();
 }

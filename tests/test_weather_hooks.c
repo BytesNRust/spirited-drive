@@ -29,13 +29,15 @@ void platform_free_file(uint8_t *data) { free(data); }
 static int thunder_calls, thunder_delay[64], thunder_volume[64];
 static int out_percent = -1, in_percent = -1, bed_percent = -1, move_in_percent = -1, snow_percent = -1, snow_pitch = -1;
 static int spray_percent[RAIN_CARS_VOICES], spray_pitch[RAIN_CARS_VOICES], spray_pan[RAIN_CARS_VOICES], spray_starts, puddles, puddle_level[1024], puddle_pan[1024];
+static int audio_calls, wake_call = -1, wake_tick = -1, roll_call = -1;   /* the order the hook calls in */
+static int snow_call = -1, thunder_call = -1;
 void drive_audio_thunder(int delay_ticks, int volume_percent)
 {
+    thunder_call = audio_calls++;
     if (thunder_calls < 64) thunder_delay[thunder_calls] = delay_ticks, thunder_volume[thunder_calls] = volume_percent;
     thunder_calls++;
 }
-static int audio_calls, wake_call = -1, wake_tick = -1, roll_call = -1;   /* the order the hook calls in */
-void drive_audio_rain_wake(int32_t tick) { wake_call = audio_calls++, wake_tick = (int)tick; }
+void drive_audio_weather_wake(int32_t tick) { wake_call = audio_calls++, wake_tick = (int)tick; }
 void drive_audio_rain_roll(int out, int in, int bed, int move_in) { roll_call = audio_calls++, out_percent = out, in_percent = in, bed_percent = bed, move_in_percent = move_in; }
 void drive_audio_rain_spray(int voice, int percent, int pitch_permille, int pan, int start_permille)
 {
@@ -62,7 +64,7 @@ static int voices_on(void)
     for (int v = 0; v < RAIN_CARS_VOICES; v++) n += spray_percent[v] > 0;
     return n;
 }
-void drive_audio_snow_roll(int volume_percent, int pitch_permille) { snow_percent = volume_percent, snow_pitch = pitch_permille; }
+void drive_audio_snow_roll(int volume_percent, int pitch_permille) { snow_call = audio_calls++, snow_percent = volume_percent, snow_pitch = pitch_permille; }
 
 static WeatherFrame frame(int weather, int snow, int open)
 {
@@ -261,6 +263,39 @@ static void test_the_rain_wakes_before_its_levels(void)
     setenv("TNFS_RAIN_TYRE_ROLL", "1", 1);
 }
 
+/* the storm's thunder and the roll on snow wake the weather's sounds too, before their own calls: whichever hook a frame runs first (a dry race has no rain, a snowy rally no thunder) */
+static void test_the_thunder_and_the_snow_wake_too(void)
+{
+    static RaceState race;
+    static Car car;
+    memset(&race, 0, sizeof race), memset(&car, 0, sizeof car);
+    race.cars[0] = &car, race.car_count = 1, race.viewed = 0, race.tick = 9000, race.chase.kind = 1, race.port_rally_gravel = RALLY_GRAVEL_SNOW;
+    car.speed = 30 << 16;
+    setenv("TNFS_RAIN_V2", "1", 1);
+    WeatherFrame f = frame(WEATHER_CLEAR, SNOW_NONE, 16);   /* no storm: the thunder's hook wakes all the same */
+    f.race = &race;
+    wake_call = wake_tick = -1;
+    weather_hooks_thunder(&f);
+    CHECK(wake_call >= 0 && wake_tick == 9000);
+    WeatherFrame storm = frame(WEATHER_STORM, SNOW_NONE, 16);
+    storm.race = &race;
+    weather_hooks_thunder(&storm);   /* afresh */
+    int woken_first = 1, claps = 0;
+    for (int i = 0; i < 3000; i++) {
+        race.tick++, thunder_call = -1, wake_call = -1;
+        weather_hooks_thunder(&storm);
+        if (thunder_call >= 0) claps++, woken_first &= wake_call >= 0 && wake_call < thunder_call && wake_tick == (int)race.tick;
+    }
+    CHECK(claps > 0 && woken_first);
+    wake_call = snow_call = -1, race.tick++;
+    weather_hooks_snow_roll(&f);
+    CHECK(wake_call >= 0 && wake_call < snow_call && wake_tick == (int)race.tick && snow_percent > 0);
+    const WeatherFrame none = frame(WEATHER_STORM, SNOW_NONE, 16);   /* no race: nothing to wake by */
+    wake_call = -1;
+    weather_hooks_thunder(&none), weather_hooks_snow_roll(&none);
+    CHECK_EQ_INT(wake_call, -1);
+}
+
 static void test_the_voices_follow_the_viewed_car(void)
 {
     static RaceState race;
@@ -416,5 +451,6 @@ int main(void)
     test_the_wet_road_follows_the_view_live();
     test_every_car_sprays();
     test_the_rain_wakes_before_its_levels();
+    test_the_thunder_and_the_snow_wake_too();
     return TEST_REPORT();
 }

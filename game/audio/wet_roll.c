@@ -1,5 +1,7 @@
 #include "game/audio/wet_roll.h"
 
+#include "game/audio/hush.h"
+
 #include <string.h>
 
 enum { EASE_SECONDS_DIV = 10, UNIT = 256, ONE_FRAME = 65536, GAIN_FULL = 0x7f, PAN_SIDE_SPAN = 0x3e };   /* a change takes a tenth of a second */
@@ -55,7 +57,9 @@ int wet_roll_pan_gain(int pan, int channel)
 
 static int eased(int now, int target, int step) { return now < target ? (now + step < target ? now + step : target) : (now - step > target ? now - step : target); }
 
-void wet_roll_mix(WetRoll *w, int16_t *out, uint32_t frames)
+void wet_roll_mix(WetRoll *w, int16_t *out, uint32_t frames) { wet_roll_mix_gained(w, out, frames, NULL); }
+
+void wet_roll_mix_gained(WetRoll *w, int16_t *out, uint32_t frames, const int32_t *gain)
 {
     int32_t bus[2 * 256];
     for (uint32_t done = 0; done < frames;) {
@@ -63,7 +67,7 @@ void wet_roll_mix(WetRoll *w, int16_t *out, uint32_t frames)
         memset(bus, 0, sizeof bus);
         wet_roll_mix32(w, bus, n);
         for (uint32_t i = 0; i < 2 * n; i++) {
-            const int32_t sum = out[2 * done + i] + bus[i];
+            const int32_t sum = out[2 * done + i] + (int32_t)(gain != NULL ? (int64_t)bus[i] * gain[done + i / 2] / HUSH_UNITY : bus[i]);
             out[2 * done + i] = (int16_t)(sum > 32767 ? 32767 : sum < -32768 ? -32768 : sum);
         }
         done += n;

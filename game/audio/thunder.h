@@ -29,6 +29,10 @@ void thunder_schedule(Thunder *t, int delay_ticks, int volume_percent);
 
 /* Adds the voices' next `frames` stereo frames into `out` (interleaved), saturating. */
 void thunder_mix(Thunder *t, int16_t *out, uint32_t frames);
+/* The same with each frame's `gain` (0..HUSH_UNITY, hush.h) on the voices; NULL whole */
+void thunder_mix_gained(Thunder *t, int16_t *out, uint32_t frames, const int32_t *gain);
+/* The claps sounding stopped; the ones still to come wait on (the weather hushed: hush.h) */
+void thunder_quiet(Thunder *t);
 
 /* How many voices are waiting or playing. */
 int thunder_active(const Thunder *t);

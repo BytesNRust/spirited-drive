@@ -47,6 +47,8 @@ int wet_roll_pan_gain(int pan, int channel);
 
 /* Adds the next `frames` stereo frames into `out` (interleaved), saturating. Nothing while silent. */
 void wet_roll_mix(WetRoll *w, int16_t *out, uint32_t frames);
+/* The same with each frame's `gain` (0..HUSH_UNITY, hush.h) on the voice; NULL whole */
+void wet_roll_mix_gained(WetRoll *w, int16_t *out, uint32_t frames, const int32_t *gain);
 /* The same into a 32-bit bus, not saturated (the caller sums the bus with the race's mix: drive_audio.c) */
 void wet_roll_mix32(WetRoll *w, int32_t *out, uint32_t frames);
 
