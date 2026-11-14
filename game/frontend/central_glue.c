@@ -1,5 +1,8 @@
 #include "game/frontend/central_glue_private.h"
+#include "game/frontend/card_marks.h"
+#include "game/sys/text.h"
 #include "game/frontend/unlock_level.h"
+#include "game/frontend/variant_rule.h"
 
 CentralGlobals cg_g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
 
@@ -135,7 +138,8 @@ static void track_forward(void *ctx)
     (void)ctx;
     RaceSettings s = cg_settings_of();
     const Unlocks u = cg_unlocks_of();
-    race_settings_track_forward(&s, &u);
+    if (variant_switches_on()) race_settings_track_step(&s, &u, 1);   /* port (dep56): the variants are the track screen's switches */
+    else race_settings_track_forward(&s, &u);
     cg_settings_put(&s);
 }
 
@@ -144,8 +148,25 @@ static void track_backward(void *ctx)
     (void)ctx;
     RaceSettings s = cg_settings_of();
     const Unlocks u = cg_unlocks_of();
-    race_settings_track_backward(&s, &u);
+    if (variant_switches_on()) race_settings_track_step(&s, &u, -1);
+    else race_settings_track_backward(&s, &u);
     cg_settings_put(&s);
+}
+
+/* port (dep56): the track card's words in Restomod (card_marks.h), from the settings as they are at this draw, at half size */
+static void card_marks(void *ctx, int32_t right, int32_t y)
+{
+    (void)ctx;
+    if (!variant_switches_on()) return;
+    char out[48];
+    const RaceSettings s = cg_settings_of();
+    enum { FIRST_CIRCUIT = 3 };
+    const int circuit = s.track >= FIRST_CIRCUIT;
+    const int own = port_records_unified() ? port_settings_load().laps : 0;   /* the laps row's custom count (dep55) */
+    card_marks_text(s.variant_m, circuit && reverse_track_picked(), s.variant_r, port_weather(),
+                    port_light_effects() ? port_light_time() : -1, circuit ? (own > 0 ? own : s.laps) : 0, out, sizeof out);
+    text_select(TEXT_YELLOW);
+    text_draw_smooth(out, right - text_width_scaled(out, 1, 2), y, 1, 2);
 }
 
 static int quit_tournament(int german, void *ctx)
@@ -310,6 +331,9 @@ void cg_image_car_flags(void *ctx)
 
 /* 004687d0 on config.dat's image (00524df9..), the globals written to it first and read back after */
 static int32_t best_times(void *ctx);
+/* port (dep56): the track screen's way round while it is open (its Inverse or Reverse row), so Best Times opened from it reads the
+ * layout the screen shows; NULL when the screen is closed or offers none. The pick itself is stored as the screen closes. */
+static const int *track_screen_reverse;
 static int32_t plus_text_width(void *ctx, const char *text);
 static void track_select(void *ctx)
 {
@@ -332,7 +356,7 @@ static void track_select(void *ctx)
     TrackSelectPlus plus = { cg_g.unlock_m, cg_g.unlock_r, &cg_g.variant_m, &cg_g.variant_r,
                              extras.variant_time,   /* port: variants as entries */
                              port_settings_profile() == PROFILE_RESTOMOD, &weather, port_light_effects() ? &light_time : NULL, reverse_offered ? &reverse : NULL,
-                             port_records_unified() ? &laps : NULL };
+                             port_records_unified() ? &laps : NULL, variant_switches_on() };
     const int was_weather = weather, was_light_time = light_time;
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), cg_time_of_day, cg_g.inverse, cg_screen_palette, &plus };
     int x, y;
@@ -345,7 +369,9 @@ static void track_select(void *ctx)
         cg_key, click, track_stop, track_free, fade_out, free_bank, free_handle_inverse, best_times, cg_image_car_flags,
         off_dialog, music,
         cg_deadline_passed, music_fade_out, music_end, &p };
+    track_screen_reverse = reverse_offered ? &reverse : NULL;
     track_select_screen(&in, &st, &p, &ops);
+    track_screen_reverse = NULL;
     if (reverse_offered) reverse_track_pick(reverse);
     if (weather != was_weather || light_time != was_light_time || laps != was_laps) {
         PortSettings saved = port_settings_load();
@@ -389,6 +415,7 @@ static int32_t best_times(void *ctx)
     uint8_t *const image = config_current()->image;
     const int32_t screen = ea_screen();
     port_log("mark:screen=best_times\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
+    if (track_screen_reverse != NULL) reverse_track_pick(*track_screen_reverse);   /* port (dep56): the screen's layout as it shows it */
     const BestTimesInputs in = { "", resource_german(), cg_g.lost_vegas, screen, ea_picture_shape(screen),
                                  image + (0x524f8f - 0x524df0) };
     BestTimesState st = { image + (0x524df9 - 0x524df0), cg_g.inverse, cg_screen_palette,
@@ -595,7 +622,7 @@ int32_t glue_central(void)
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, cg_standings, track_select, art_free, options,
         cg_chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, cg_flush, cg_race, off,
-        cg_plus_text, NULL, 1, pad_buttons, palette_colour };
+        cg_plus_text, NULL, 1, pad_buttons, palette_colour, card_marks };
     load();
     ControlCentralState st = {
         &cg_g.race_type, &cg_g.opponent, &cg_g.track, &cg_g.player_car, cg_g.other_car, &cg_g.net_car, &cg_g.laps, cg_g.difficulty,

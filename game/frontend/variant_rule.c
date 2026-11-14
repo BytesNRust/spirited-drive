@@ -1,9 +1,17 @@
 /* port: see variant_rule.h. */
 #include "game/frontend/variant_rule.h"
 
+#include "game/sys/port_profile.h"
+#include "game/sys/port_settings.h"
+
 /* Rusty Springs, the setup's track 3 (00524e85 / +6), whose rally variant is a track of its own */
 enum { TRACK_TR1 = 3 };
 static const char TR5[4] = "TR5";
+
+int variant_switches_on(void)
+{
+    return port_settings_profile() == PROFILE_RESTOMOD;
+}
 
 int variant_rule_rally(int variant_m, int variant_r, int combine)
 {

@@ -112,6 +112,8 @@ static void track_art(CentralRun *r)
     }
     r->ops->blit(r->ops->ctx, shape(r, ART_TRACK, "0000"));
     if (*st->race_type == 3 && st->races[*st->track] != 0) masked(r, "flad");
+    enum { MARKS_RIGHT = 0x21e, MARKS_Y = 0x103 };   /* the card's top right, clear of the variant's own word at its left */
+    if (r->ops->card_marks != NULL) r->ops->card_marks(r->ops->ctx, MARKS_RIGHT, MARKS_Y);   /* port (dep56): what the track screen set */
 }
 
 static void car_art(CentralRun *r)
