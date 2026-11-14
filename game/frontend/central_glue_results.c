@@ -67,7 +67,7 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
         select_default, hide, nothing, blit_word, nothing, flip, show_dialog, cg_mark_at, buttons, track_music, track_play,
         deadline_set, sound, ticks, activate_dialog, cg_key, click, off_dialog, music, cg_deadline_passed, track_stop, track_free, fade_out,
         free_bank, free_handle_inverse, blit_masked, totals, top_record, leads, best_totals, lap_record,
-        results_order, lap_times, &c };
+        results_order, lap_times, &c, cg_band_text };
     c.ops = &ops;
     cg_stage_in = &in.unknown_50a5b6;
     screen_of(mode, &in, &st, &c.p, &ops);
@@ -131,7 +131,7 @@ void cg_standings(void *ctx, int32_t segment)
         glue_boxed, time_text, results_order, nothing, nothing, flip, show_dialog, cg_mark_at, buttons, fade_in,
         fade_out_bank, deadline_set, sound, ticks, activate_dialog, cg_key, click, off_dialog, music, cg_deadline_passed,
         free_bank,
-        free_handle_inverse, &p };
+        free_handle_inverse, &p, cg_band_text };
     cg_stage_in = &in.unknown_50a5b6;
     standings_screen(segment, &in, &st, &p, &ops);
     cg_stage_in = NULL;
