@@ -26,7 +26,7 @@ You need your own copy of the game: the PC Special Edition CD, a folder with its
 ## Known issues
 
 - The app is not notarized: macOS asks you to allow it the first time (see Install).
-- Only the Mac app is packaged and tested. The code also targets Linux and Windows; you can build it from source ([docs/building.md](https://github.com/BytesNRust/spirited-drive/blob/main/docs/building.md)), but it is untested there.
+- Only the Mac app is available for now. Windows and Linux builds are on the way.
 - Network races have been tested between Macs only.
 - On one Mac the menu music went quiet as Control Central opened. The log now records every stop and fade of the music: if it happens to you, please send us `spirited-drive.log`.
 
