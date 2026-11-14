@@ -23,7 +23,7 @@ enum { SAMPLE_WIDE = 2, PACKED_BLOCK = 0x14 };   /* sound_driver.c's 2 (16-bit, 
 
 /* port: the sample's frames and loop cut to the `room` bytes from its data to the file's end, where the original reads on past a
  * damaged or hostile bank's (fuzz/sound_bank.c). 0 when there is not one frame to play (no frames: the mixer's end would wrap), or a
- * compressed sample's own block counts more than is there. A sample that fits is kept as it is. Five of the CD's run past their file
+ * compressed sample's own block counts more than is there. A sample that fits is kept as it is. Six of the CD's run past their file
  * too, where the port read past its buffer: COLL_SB.BNK's 43, 45, 56 and 58 (their loop, by 405 frames), OSUPMB3D.BNK's 70 and
  * TESTBANK.BNK's 3 (a loop of 64930 frames on 3014); they now end at the file's end. */
 static int sample_within(SoundSample *s, size_t room)
