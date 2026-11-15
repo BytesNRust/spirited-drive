@@ -384,7 +384,7 @@ static void draw_texts(const TrackSelectInputs *in, const TrackSelectState *st, 
     }
     int rows[3];
     const int switches = switch_rows(st, rows);
-    static const char *const SWITCH_NAME[3] = { "Mirror", "Inverse", "Rally" };
+    static const char *const SWITCH_NAME[3] = { "Mirror", "Reverse", "Rally" };
     for (int i = 0; i < switches; i++) {   /* port (dep56): the variants as switches, in the game's text like the weather */
         ops->text_select(ops->ctx, item == rows[i] && !st->plus->variants_locked ? 1 : 0);   /* fixed: never lit */
         ops->text_shadowed(ops->ctx, SWITCH_NAME[rows[i] - TRACK_SELECT_MIRROR], SWITCH_X, switch_y(st, rows[i]));
