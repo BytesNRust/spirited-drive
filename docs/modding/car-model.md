@@ -99,7 +99,16 @@ An `SHPI` with directory id `WRAP` in all 78 (*checked*). Each entry: a 16-byte 
 - **Order.** `!PAL` is the first entry in 31 of the 39 high banks and in all 39 low ones; in the others it is 2nd to 13th. The `!xxx` entry (the car's own colours) is in the high banks. The entries lie in the directory's order in 76 banks; in F512M and F512TR the file holds `circ` last though the directory names it first.
 - **Gaps.** The first entry follows the directory in 75 banks, 2 bytes after it in 3.
 - **After the data.** In 84 bitmaps an 8-byte record follows the pixels, starting with `0x7c` (an attachment); their block size is then 16 + the data. Otherwise 0 to 3 bytes of no meaning follow (and 4 to 8 in a few), and the block size is 0 (201 entries) or a value with no relation to the entry (`0xFFxxxx`, 272 bitmaps). A writer writes 0, or 16 + the data when it adds an attachment.
-- **Pixels.** Indexes `0xFA`..`0xFF` are used by 374 of the 464 bitmaps: `0xFA`..`0xFD` are colours the race sets itself (the police lights, `game/race/race_palette.c`), `0xFE` the car's own colour, `0xFF` transparent. A builder must accept them; the up-to-250 colours of a texture are `0x00`..`0xF9`.
+- **Pixels.** Indexes `0xFA`..`0xFF` are used by 374 of the 464 bitmaps, so a builder accepts every index; `0x00`..`0xF9` are the colours a texture may use freely. What the race does with each, when it fits a car's bank to the screen palette (`race_palette_remap_bank`, `game/race/race_palette.c`, after `0048f220`):
+
+  | Index | What it is |
+  |-------|------------|
+  | `0x00`..`0xF9` | the bank's own colours (its `!PAL`), each matched to the nearest screen colour |
+  | `0xFA`..`0xFD` | left as they are; on the police car (slot 2) they are the four lights the race animates |
+  | `0xFE` | the car's own colour: the race puts there the screen colour it gave the car's slot (`slot_colours`) |
+  | `0xFF` | transparent (`game/gfx/quad.c`, 00486950) |
+
+  How much `0xFE` the CD's high-detail textures hold: on the race cars only `rsid` (the side seen from the right), and little: 1 % of its pixels on ANSX, CZR1, DVIPER, F512TR, F512M and TESTA, under 1 % on LDIABL, MRX7, P911 and TSUPRA. The rivals' reduced models put it on `rear`: 8 % (MANSX), 7 % (MCZR1, MDVIPER), 5 % (MMRX7, MP911), 2 % (MTSUPRA), 1 % (MLDIABL, MTRAFFC). TRAFFC's `lite` is 15 %. The other cars hold it in a few pixels of `rear`, `side`, `bott`, `frnt`, `topp`, and the Warrior in its tyres (1 %). So the body's paint is not `0xFE`: it is the bank's own colours (`!PAL`, and `!xxx`, the car's own colours, `game/race/car_model.c` `own_colours`); `0xFE` marks a few pixels, most on the rival models' rear, that take the slot's colour. An importer can leave `0xFE` out of a new texture.
 - The declared length equals the chunk's extent but in 4 high banks, where the CFM's padding follows.
 
 ## Exceptions
