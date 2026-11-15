@@ -109,6 +109,51 @@ An `SHPI` with directory id `WRAP` in all 78 (*checked*). Each entry: a 16-byte 
   | `0xFF` | transparent (`game/gfx/quad.c`, 00486950) |
 
   How much `0xFE` the CD's high-detail textures hold: on the race cars only `rsid` (the side seen from the right), and little: 1 % of its pixels on ANSX, CZR1, DVIPER, F512TR, F512M and TESTA, under 1 % on LDIABL, MRX7, P911 and TSUPRA. The rivals' reduced models put it on `rear`: 8 % (MANSX), 7 % (MCZR1, MDVIPER), 5 % (MMRX7, MP911), 2 % (MTSUPRA), 1 % (MLDIABL, MTRAFFC). TRAFFC's `lite` is 15 %. The other cars hold it in a few pixels of `rear`, `side`, `bott`, `frnt`, `topp`, and the Warrior in its tyres (1 %). So the body's paint is not `0xFE`: it is the bank's own colours (`!PAL`, and `!xxx`, the car's own colours, `game/race/car_model.c` `own_colours`); `0xFE` marks a few pixels, most on the rival models' rear, that take the slot's colour. An importer can leave `0xFE` out of a new texture.
+
+  Every car, the bitmaps that hold `0xFE` (a share of the bitmap's pixels from 1 %, else a count of pixels; *checked*, all 39 CFMs):
+
+  | Car | High bank | Low bank |
+  |-----|-----------|----------|
+  | ANSX | `rsid` 1 % | — |
+  | AXXESS | `rear` 18 px | — |
+  | BMW | `rear` 1 px | — |
+  | COPMUST | — | — |
+  | CRX | `rear` 8 px, `bott` 3 px | `side` 1 px |
+  | CZR1 | `rsid` 1 % | — |
+  | DVIPER | `rsid` 1 % | — |
+  | F512M | `rsid` 1 % | — |
+  | F512TR | `rsid` 1 % | — |
+  | JEEP | `rear` 8 px, `side` 2 px | — |
+  | JETTA | — | — |
+  | LDIABL | `rsid` 50 px | — |
+  | LDIABLO | `rsid` 17 px | `frnt` 2 px, `back` 1 %, `side` 15 px |
+  | LEMANS | — | — |
+  | MANSX | `rear` 8 % | — |
+  | MCZR1 | `rear` 7 % | — |
+  | MDVIPER | `rear` 7 %, `side` 109 px | — |
+  | MF512M | — | — |
+  | MF512TR | `frnt` 1 px, `rear` 7 px, `topp` 18 px, `bott` 9 px | — |
+  | MLDIABL | `rear` 1 % | — |
+  | MMRX7 | `topp` 1 px, `rear` 5 % | — |
+  | MP911 | `rear` 5 %, `side` 15 px | — |
+  | MP911T | `FRON` 2 px, `REAR` 17 px, `TRPR` 2 px, `TOP.` 18 px | — |
+  | MRX7 | `rsid` 134 px | — |
+  | MTRAFFC | `rear` 1 % | — |
+  | MTSUPRA | `rear` 2 %, `topp` 4 px | — |
+  | P911 | `rsid` 109 px | — |
+  | P911T | `rsid` 115 px | — |
+  | PICKUP | — | — |
+  | PROBE | — | `frnt` 1 px |
+  | RODEO | `back` 33 px | `back` 1 px |
+  | SUNBIRD | `frnt` 2 px, `rear` 3 px | — |
+  | TESTA | `rsid` 1 % | `back` 4 %, `side` 11 px |
+  | TRAFFC | `lite` 15 % | `rear` 29 px |
+  | TSUPRA | `rsid` 87 px | — |
+  | VANDURA | `back` 1 px | — |
+  | WAGON | — | — |
+  | WARIOR | `frnt` 2 px, `rear` 11 px, `bott` 3 px, `tyr4` 1 %, `tyr1` 6 px, `tyr2` 1 %, `tyr3` 5 px, `rty4` 6 px, `rty1` 5 px, `rty2` 1 %, `rty3` 5 px, `topp` 17 px, `side` 49 px | — |
+  | WARRIOR | `side` 51 px, `topp` 17 px, `frnt` 2 px, `rear` 11 px, `lite` 1 px, `bott` 3 px, `tyr4` 1 %, `tyr1` 6 px, `tyr2` 1 %, `tyr3` 5 px, `rty4` 6 px, `rty1` 5 px, `rty2` 1 %, `rty3` 5 px | — |
+
 - The declared length equals the chunk's extent but in 4 high banks, where the CFM's padding follows.
 
 ## What the game accepts
