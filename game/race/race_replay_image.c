@@ -1,8 +1,12 @@
 #include "game/race/race_replay_image.h"
 
+#include "formats/mod_ini.h"
+#include "game/race/car_registry.h"
 #include "game/race/difficulty.h"
 
 #include <ctype.h>
+#include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 
 enum {
@@ -123,6 +127,79 @@ int race_replay_conditions_get(const uint8_t *file, size_t size, ReplayCondition
     if (file[at + 8] > 3 || file[at + 9] > 3) return 0;   /* not a value of ours */
     c->light_time = file[at + 8], c->weather = file[at + 9], c->reverse = file[at + 10] == 1;
     return 1;
+}
+
+static const char CARS_MAGIC[REPLAY_CARS_MAGIC] = { 'T', 'N', 'F', 'S', 'C', 'A', 'R', '1' };
+enum { CARS_ENTRY = REPLAY_CARS_ID + 4 };
+
+void race_replay_cars_write(uint8_t block[REPLAY_CARS_BLOCK], const RaceField *field)
+{
+    memset(block, 0, REPLAY_CARS_BLOCK);
+    memcpy(block, CARS_MAGIC, REPLAY_CARS_MAGIC);
+    for (int i = 0; i < RACE_PLAYERS; i++) {
+        const CarPiece *p = car_registry_piece(field->entries[i].car);
+        if (p == NULL) continue;
+        uint8_t *const at = block + REPLAY_CARS_MAGIC + CARS_ENTRY * i;
+        memcpy(at, p->id, strnlen(p->id, REPLAY_CARS_ID - 1));
+        put32(at, REPLAY_CARS_ID, (int32_t)p->fingerprint);
+    }
+}
+
+/* entry `i` of `block`: 0 an original's (all zeros), 1 an added car's (its id in `id`), -1 neither */
+static int cars_entry(const uint8_t block[REPLAY_CARS_BLOCK], int i, char id[REPLAY_CARS_ID], uint32_t *print)
+{
+    const uint8_t *const at = block + REPLAY_CARS_MAGIC + CARS_ENTRY * i;
+    *print = (uint32_t)get32(at, REPLAY_CARS_ID);
+    if (at[0] == 0) {
+        for (int k = 0; k < CARS_ENTRY; k++)
+            if (at[k] != 0) return -1;
+        return 0;
+    }
+    if (memchr(at, 0, REPLAY_CARS_ID) == NULL) return -1;
+    memcpy(id, at, REPLAY_CARS_ID);
+    return mod_ini_id_ok(id) ? 1 : -1;
+}
+
+ReplayCars race_replay_cars_read(const uint8_t block[REPLAY_CARS_BLOCK], RaceField *field, char *id_out)
+{
+    int car[RACE_PLAYERS];
+    id_out[0] = '\0';
+    if (memcmp(block, CARS_MAGIC, REPLAY_CARS_MAGIC) != 0) return REPLAY_CARS_BAD;
+    for (int i = 0; i < RACE_PLAYERS; i++) {   /* the whole block first: a bad one changes nothing */
+        char id[REPLAY_CARS_ID];
+        uint32_t print = 0;
+        const int kind = cars_entry(block, i, id, &print);
+        if (kind < 0) return REPLAY_CARS_BAD;
+        car[i] = field->entries[i].car;
+        if (kind == 0) continue;
+        car[i] = car_registry_find(id);
+        const CarPiece *p = car_registry_piece(car[i]);
+        if (p == NULL || p->fingerprint != print) {
+            snprintf(id_out, REPLAY_CARS_ID, "%s", id);
+            return p == NULL ? REPLAY_CARS_MISSING : REPLAY_CARS_CHANGED;
+        }
+    }
+    for (int i = 0; i < RACE_PLAYERS; i++) field->entries[i].car = car[i];
+    return REPLAY_CARS_OK;
+}
+
+ReplayCars race_replay_image_race_cars(const uint8_t setup[REPLAY_SETUP_SIZE], const uint8_t block[REPLAY_CARS_BLOCK], ReplayRace *out,
+                                       char *id_out)
+{
+    static uint8_t copy[REPLAY_SETUP_SIZE];
+    id_out[0] = '\0';
+    memset(out, 0, sizeof *out);
+    if (memcmp(block, CARS_MAGIC, REPLAY_CARS_MAGIC) != 0) return REPLAY_CARS_BAD;
+    memcpy(copy, setup, sizeof copy);
+    for (int i = 0; i < RACE_PLAYERS; i++) {   /* a named entry's car word is the run's number: 0 for the setup's own check */
+        char id[REPLAY_CARS_ID];
+        uint32_t print = 0;
+        const int kind = cars_entry(block, i, id, &print);
+        if (kind < 0) return REPLAY_CARS_BAD;
+        if (kind == 1) put32(copy, AT_ENTRIES + (int)(sizeof(RaceEntry) * (size_t)i + offsetof(RaceEntry, car)), 0);
+    }
+    if (!race_replay_image_race(copy, out)) return REPLAY_CARS_BAD;
+    return race_replay_cars_read(block, &out->field, id_out);
 }
 
 void race_replay_apply_cheats(RaceState *race, const ReplayRace *replay)
