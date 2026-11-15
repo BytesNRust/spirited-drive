@@ -178,6 +178,7 @@ static void test_the_look(void)
     drive_skin_choose(&c, &(CarLook){ "stripes", "Blue" }, &l);
     CHECK(strcmp(l.skin_dir, "/mods/test-car/skins/stripes") == 0 && strcmp(l.mask_dir, "/mods/test-car/skins/stripes") == 0);
     CHECK(l.paint_on && l.rgb[0] == 0x10 && l.rgb[1] == 0x40 && l.rgb[2] == 0xc0);
+    CHECK(strcmp(l.worn.skin, "stripes") == 0 && strcmp(l.worn.paint, "Blue") == 0);   /* what a replay keeps */
     drive_skin_choose(&c, &(CarLook){ "", "Blue" }, &l);   /* the stock skin has no masks here: Color is off, the colour kept for later */
     CHECK(l.skin_dir[0] == '\0' && strcmp(l.mask_dir, "/mods/test-car/car_masks/TESTCAR") == 0 && !l.paint_on);
     c.skin_masked[0] = 1;
@@ -185,6 +186,7 @@ static void test_the_look(void)
     CHECK(l.skin_dir[0] == '\0' && l.paint_on && l.rgb[0] == 0xc8);
     drive_skin_choose(&c, &(CarLook){ "gone", "Pink" }, &l);   /* a skin and a paint the piece no longer has: the stock skin, its own colour */
     CHECK(l.skin_dir[0] == '\0' && !l.paint_on);
+    CHECK(l.worn.skin[0] == '\0' && l.worn.paint[0] == '\0');   /* the fallback is what was worn */
     drive_skin_choose(&c, &(CarLook){ "stripes", "" }, &l);
     CHECK(strcmp(l.skin_dir, "/mods/test-car/skins/stripes") == 0 && !l.paint_on);
     drive_skin_choose(&c, NULL, &l);   /* a rival: the stock skin and its own colour */

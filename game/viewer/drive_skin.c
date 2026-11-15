@@ -96,6 +96,7 @@ void drive_skin_choose(const CarPieceCard *card, const CarLook *look, DriveSkinL
         if (skin == 0) port_log("car skin: %s has no skin %s now: the skin as it comes\n", card->info.id, look->skin);
     }
     if (skin > 0) {
+        snprintf(out->worn.skin, sizeof out->worn.skin, "%s", card->skin[skin]);
         snprintf(out->skin_dir, sizeof out->skin_dir, "%s/skins/%s", card->dir, card->skin[skin]);
         snprintf(out->mask_dir, sizeof out->mask_dir, "%s", out->skin_dir);
     } else {
@@ -109,17 +110,18 @@ void drive_skin_choose(const CarPieceCard *card, const CarLook *look, DriveSkinL
         port_log("car skin: %s has no paint %s now: its own colour\n", card->info.id, look->paint);
         return;
     }
+    snprintf(out->worn.paint, sizeof out->worn.paint, "%s", card->info.paints[paint].name);
     if (!car_pieces_colour_on(card, skin)) return;   /* the colour kept for a skin with masks */
     out->paint_on = 1;
     memcpy(out->rgb, card->info.paints[paint].rgb, 3);
 }
 
-int drive_skin_look(int car, int player, DriveSkinLook *out)
+int drive_skin_look(int car, int player, const CarLook *recorded, DriveSkinLook *out)
 {
     memset(out, 0, sizeof *out);
     CarPieceCard card;
     if (!car_registry_is_added(car) || !car_pieces_card(car, &card)) return 0;
-    const CarLook look = car_looks_get(card.info.id);
-    drive_skin_choose(&card, player ? &look : NULL, out);
+    const CarLook look = recorded != NULL ? *recorded : car_looks_get(card.info.id);
+    drive_skin_choose(&card, recorded != NULL || player ? &look : NULL, out);
     return 1;
 }

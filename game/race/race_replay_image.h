@@ -6,6 +6,8 @@
 #ifndef TNFS_RACE_REPLAY_IMAGE_H
 #define TNFS_RACE_REPLAY_IMAGE_H
 
+#include "formats/car_piece.h"
+#include "formats/mod_ini.h"
 #include "game/race/race_replay_file.h"
 #include "game/race/race_replay_seek.h"
 #include "game/race/race_sim.h"
@@ -42,6 +44,20 @@ void race_replay_conditions_put(const ReplayConditions *c, uint8_t out[REPLAY_CO
 /* 1 when `file` has the conditions record (after the snow trailer): `*c` is it; else 0 and `*c` is day, clear, forward */
 int race_replay_conditions_get(const uint8_t *file, size_t size, ReplayConditions *c);
 
+/* port (dep59 step 3): after the cars' block, the looks the added cars wore: the 8 bytes "TNFSLOK1" and, for each of the RACE_PLAYERS
+ * entries, its skin's name (REPLAY_LOOK_SKIN bytes, NUL-padded; "" the skin as it comes) and its paint's (REPLAY_LOOK_PAINT; "" its own
+ * colour); an original car's entry is all zeros. A Replay.rpx without it (dep59 1b's) shows each added car as it is picked now. */
+enum { REPLAY_LOOK_SKIN = CAR_PIECE_SKIN_NAME_MAX + 1, REPLAY_LOOK_PAINT = MOD_INI_PAINT_NAME_MAX + 1,
+       REPLAY_LOOKS_BLOCK = 8 + RACE_PLAYERS * (REPLAY_LOOK_SKIN + REPLAY_LOOK_PAINT) };
+typedef struct {
+    char skin[REPLAY_LOOK_SKIN];
+    char paint[REPLAY_LOOK_PAINT];
+} ReplayLook;
+void race_replay_looks_put(const ReplayLook looks[RACE_PLAYERS], uint8_t out[REPLAY_LOOKS_BLOCK]);
+/* 1 with `looks` from `block`; 0 and all "" for a block that is not one of ours (a name with no end, or a byte that is not printable
+ * ASCII) */
+int race_replay_looks_get(const uint8_t block[REPLAY_LOOKS_BLOCK], ReplayLook looks[RACE_PLAYERS]);
+
 /* A replay's race as its setup tells it */
 typedef struct {
     char stem[REPLAY_TRACK_NAME + 1];  /* upper case, as the CD's names */
@@ -56,6 +72,8 @@ typedef struct {
     int conditions_known;              /* ... 1 when the file has them */
     int snow, snow_known;              /* port (snow_weather): the race ran on snow (race_replay_snow_get), when the file says */
     int paint_known;                   /* ... 1 when the file has them (race_replay_paint_get) */
+    ReplayLook looks[RACE_PLAYERS];    /* port (dep59 step 3): each added car's skin and paint as the race wore them */
+    int looks_known;                   /* ... 1 when the Replay.rpx has them (race_replay_looks_get) */
     int explode;                       /* port: 004c5cd4, the race's EXPLODE cheat, stamped in the setup's two bytes at
                                         * +0x3c (0 in the CD's replays and the exe's own); the horn then spins out cars */
 } ReplayRace;

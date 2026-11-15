@@ -18,6 +18,7 @@ typedef struct {
     char mask_dir[DRIVE_SKIN_DIR_MAX];   /* where its masks are: the skin's folder, or the piece's car_masks/<STEM> */
     int paint_on;                        /* 1: the body takes `rgb` */
     uint8_t rgb[3];
+    CarLook worn;                        /* the names of the skin and paint found ("" the skin as it comes, its own colour): what a replay keeps */
 } DriveSkinLook;
 
 /* each texture of `skin_dir` (<tex>.png high detail, <tex>_lo.png low) put over the entry of that name and size in the CFM's banks, as
@@ -29,8 +30,8 @@ int drive_skin_apply(const char *skin_dir, uint8_t *cfm, size_t size);
 /* the look of the piece `card` for a pick `look` (NULL: a rival's, the skin as it comes and its own colour) */
 void drive_skin_choose(const CarPieceCard *card, const CarLook *look, DriveSkinLook *out);
 
-/* the look of the registered added car `car` in this race: the player's pick when `player`, else as a rival's; 0 when `car` is not
- * an added car or its card no longer reads */
-int drive_skin_look(int car, int player, DriveSkinLook *out);
+/* the look of the registered added car `car` in this race: `recorded` when not NULL (a replay's), else the player's pick when
+ * `player`, else as a rival's; 0 when `car` is not an added car or its card no longer reads */
+int drive_skin_look(int car, int player, const CarLook *recorded, DriveSkinLook *out);
 
 #endif
