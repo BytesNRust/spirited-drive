@@ -12,7 +12,8 @@
  *   +0C  u32 always 0 in the file; the game stores a runtime value here
  *   +10  u32 vertex count
  *   +14  u32 unknown, <= vertex count (109 of 125 on DVIPER: looks like the
- *        count of the body vertices before the turn signal ones)
+ *        count of the body vertices before the front wheels' displaced ones,
+ *        docs/modding/car-model.md)
  *   +18  u32 vertex offset [rebased]          12 bytes each: i32 x, y, z
  *   +1C  u32 uv count
  *   +20  u32 uv offset [rebased]              8 bytes each: i32 u, v

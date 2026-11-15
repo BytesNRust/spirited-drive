@@ -63,6 +63,9 @@ add_library(tnfs_core STATIC
     core/formats/fixed_record.c
     core/formats/fsh.c
     core/formats/mesh.c
+    core/formats/mesh_build.c
+    core/formats/shpi_build.c
+    core/formats/cfm_build.c
     core/formats/mesh_exchange.c
     core/formats/modpath.c
     core/formats/mod_check.c
@@ -711,6 +714,9 @@ endif()
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
     add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c studio/car_new.c studio/mod_validate.c studio/mod_pack.c)
+    add_executable(model_build_piece tests/model_build_piece.c)
+    target_link_libraries(model_build_piece PRIVATE tnfs_core)
+    target_compile_options(model_build_piece PRIVATE ${TNFS_WARNINGS})
     target_include_directories(tnfs-studio PRIVATE .)
     target_link_libraries(tnfs-studio PRIVATE tnfs_core)
     target_compile_options(tnfs-studio PRIVATE ${TNFS_WARNINGS})
@@ -721,7 +727,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_list)
+    foreach(name qfs qfs_encode car_piece mesh_layout mesh_build shpi_build cfm_build doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_list)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -741,6 +747,10 @@ foreach(name port_old_files car_registry car_registry_race car_registry_names ca
     # the CD check of the clean configuration background runs when original/ is there
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_piece PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_mesh_layout PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_mesh_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_shpi_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_cfm_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_paint_cfm PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_rain_roll PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_snow_roll PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -1175,6 +1185,7 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(car_piece_race PROPERTIES TIMEOUT 600)
         add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
         add_test(NAME car_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_new.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:tnfs>)
+        add_test(NAME model_build COMMAND sh ${CMAKE_SOURCE_DIR}/tests/model_build.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> $<TARGET_FILE:model_build_piece> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands
@@ -1564,7 +1575,7 @@ set(TNFS_GAME_TEST_TIMEOUT 120)
 if(CMAKE_C_FLAGS MATCHES "-fsanitize")
     set(TNFS_GAME_TEST_TIMEOUT 300)
 endif()
-foreach(name mods_overlay track_new car_new reference_mod two_tracks_reflectors trail_frame_skip rain_lamps_masked old_files_startup dev_data_default
+foreach(name mods_overlay track_new car_new model_build reference_mod two_tracks_reflectors trail_frame_skip rain_lamps_masked old_files_startup dev_data_default
              rain_night_headlights hud_lights_view_change menu_music_kept variant_choice_kept shadow_without_light day_plain_present light_edit_reload light_edit_places wipers)
     if(TEST ${name})
         set_tests_properties(${name} PROPERTIES TIMEOUT ${TNFS_GAME_TEST_TIMEOUT})
