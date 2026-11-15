@@ -14,6 +14,7 @@
 # the screen to be still (TNFS_INPUT_SETTLE). A step that does not come in time stops the run and says which ("input script: step N: WAIT ... timed
 # out"), exit 3. The run is the visible-run kind: dummy SDL drivers, timeout -k, a scratch --mods and --user, the repo's original/ as the game data.
 #   env: DATA (the game data folder, default <repo>/original)  STEP_TIMEOUT (60 s a step)  SETTLE (1500 ms)  KEEP=1 (keep the scratch dir, for a look)
+#        STILL (30): the most seconds the walk waits, after the target's mark and its tail, for the screen to stop changing
 #        FORMAT (4:3, 16:9 or 21:9; default 4:3): the screen format the walk runs in. The 640x480 menus sit centred on a wider screen, so every click
 #        and pointer move is shifted right by the menu's left edge there ((width - 640) / 2: 107 at 16:9, 240 at 21:9)
 # A target that goes on with keys after its screen's mark (Best Times' pages) waits `tail` seconds for them before the picture.
@@ -95,6 +96,16 @@ while [ $waited -lt $limit ]; do
     if grep -q "input script: step.*timed out" "$work/user/spirited-drive.log" 2>/dev/null; then rc=3; break; fi
     pgrep -f "$work/user" >/dev/null 2>&1 || { [ $waited -gt 3 ] && break; }   # the game ended on its own (a crash, or the script's end)
 done
+# the screen still before the game is stopped: two frames in a row the same (the newest left out: it may still be being written). Under load a
+# fade-in outlasts the tail, and the picture was taken mid-fade (a different picture each run); STILL tries a second each (default 30)
+if [ $rc -eq 0 ]; then
+    tries=0
+    while [ $tries -lt ${STILL:-30} ]; do
+        pair=($(ls "$work/cap" | sort | tail -3 | head -2))
+        [ ${#pair[@]} -eq 2 ] && cmp -s "$work/cap/${pair[1]}" "$work/cap/${pair[2]}" && break
+        sleep 1; tries=$((tries + 1))
+    done
+fi
 pkill -TERM -f "$work/user" 2>/dev/null; sleep 1; pkill -KILL -f "$work/user" 2>/dev/null
 # the screen the game ended on: a key or click that went on past the target (a repeat) leaves another page up, and its picture is not the target's
 if [ $rc -eq 0 ]; then
@@ -103,7 +114,9 @@ if [ $rc -eq 0 ]; then
     if [ "$ended" != "$final" ]; then rc=4; echo "menu_walk $target: the game went on to $ended after $final; no picture saved" >&2; fi
 fi
 if [ $rc -eq 0 ]; then
-    last=$(ls "$work/cap" | sort | tail -1)
+    # the frame before the last: the game is killed while it writes frames, and the last one can be cut short (under load the walk's PNG then
+    # failed to convert); the one before was closed before the next was opened, and shows the same screen this long after its mark
+    last=$(ls "$work/cap" | sort | tail -2 | head -1)
     if [ -n "$last" ]; then
         magick "$work/cap/$last" "$out/$target.png" || { rc=1; echo "the frame did not convert to $out/$target.png" >&2; }
     else rc=1; echo "reached mark:screen=$final but no frame was captured" >&2; fi
