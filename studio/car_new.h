@@ -11,7 +11,10 @@
 
 #include "formats/exchange.h"
 
-/* argv[0] is "car". 0 with `err` filled on failure. */
+/* the race model 0..7 of `template`, a race car's word (viper) or its stem on the CD (DVIPER), any case; -1 otherwise */
+int car_template_model(const char *template);
+
+/* argv[0] is "car"; argv[1] "new", or "import" (studio/car_import.h). 0 with `err` filled on failure. */
 int car_command(int argc, char **argv, ExchangeError *err);
 
 #endif

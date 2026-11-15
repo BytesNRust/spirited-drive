@@ -152,6 +152,41 @@ static void write_mtl(const Mesh *mesh, const MeshTextureBank *banks, size_t ban
     }
 }
 
+/* one row of NAME.lists.tsv: kind, record index, its name to the NUL, the `count` map values from `slot` (as far as the map goes) */
+static void list_row(Text *t, const Mesh *m, const char *kind, uint32_t index, const char *name, size_t name_size, uint32_t slot, uint32_t count)
+{
+    text_printf(t, "%s\t%u\t", kind, index);
+    for (size_t i = 0; i < name_size && name[i] != '\0'; i++) {
+        const char c = name[i];
+        text_put(t, isprint((unsigned char)c) && c != '\t' ? &c : "_", 1);
+    }
+    text_put(t, "\t", 1);
+    uint32_t v;
+    for (uint32_t k = 0; k < count && mesh_vertex_map(m, slot + k, &v) == MESH_OK; k++) text_printf(t, k ? " %u" : "%u", v);
+    text_put(t, "\n", 1);
+}
+
+/* NAME.lists.tsv: each part's vertex list (its words 0, the count, and 1, the slot) and each group's polygon list (words 2 and 1) */
+static int add_lists(const Mesh *m, const char *stem, FileSet *out, ExchangeError *err)
+{
+    Text t = {0};
+    text_printf(&t, "# lists: kind\tindex\tname\tvalues (a part's vertices, a group's polygons, as the vertex map holds them)\n");
+    for (uint32_t i = 0; i < m->section_a_count; i++) {
+        MeshSectionA a;
+        if (mesh_section_a(m, i, &a) == MESH_OK) list_row(&t, m, "part", i, a.name, sizeof a.name, a.unknown[1], a.unknown[0]);
+    }
+    for (uint32_t i = 0; i < m->section_b_count; i++) {
+        MeshSectionB b;
+        if (mesh_section_b(m, i, &b) == MESH_OK) list_row(&t, m, "group", i, b.name, sizeof b.name, b.unknown[1], b.unknown[2]);
+    }
+    char *name = named(stem, ".lists.tsv");
+    const int ok = !t.failed && name != NULL && fileset_add(out, name, (uint8_t *)t.data, t.len);
+    if (!ok) exchange_fail(err, "%s: cannot write the lists", stem);
+    free(name);
+    free(t.data);
+    return ok;
+}
+
 int mesh_export(const uint8_t *orip, size_t size, const char *stem, const MeshTextureBank *banks, size_t bank_count, FileSet *out,
                 ExchangeError *err)
 {
@@ -232,10 +267,31 @@ int mesh_export(const uint8_t *orip, size_t size, const char *stem, const MeshTe
            add_table(&parts_spec, orip, mesh.section_a_offset, mesh.section_a_count, stem, out, err) &&
            add_table(&groups_spec, orip, mesh.section_b_offset, mesh.section_b_count, stem, out, err) &&
            add_table(&sectionc_spec, orip, mesh.section_c_offset, mesh.section_c_count, stem, out, err) &&
-           add_table(&labels_spec, orip, mesh.label_offset, mesh.label_count, stem, out, err);
+           add_table(&labels_spec, orip, mesh.label_offset, mesh.label_count, stem, out, err) &&
+           add_lists(&mesh, stem, out, err);
 }
 
 /* ---------------------------------------------------------------- import */
+
+int mesh_table_read(const FileSet *in, const char *stem, MeshTable table, uint8_t **records, size_t *rows, ExchangeError *err)
+{
+    static const TableSpec *const SPECS[] = { NULL, &polygons_spec, &textures_spec, &parts_spec, &groups_spec, &sectionc_spec, &labels_spec };
+    *records = NULL, *rows = 0;
+    if ((size_t)table >= COUNT(SPECS)) { exchange_fail(err, "no table %d", (int)table); return 0; }
+    const TableSpec *spec = SPECS[table];
+    const size_t stride = spec != NULL ? spec->stride : 0x70, cap = spec != NULL ? MESH_TABLE_MAX_ROWS : 1;
+    char *name = named(stem, spec != NULL ? spec->suffix : ".header.tsv");
+    uint8_t *buf = name != NULL ? calloc(cap, stride) : NULL;
+    int ok = buf != NULL;
+    if (!ok) exchange_fail(err, "out of memory");
+    else if (fileset_find(in, name) == NULL) exchange_fail(err, "%s not found", name), ok = 0;
+    else if (spec == NULL) ok = record_import(buf, stride, header_fields, COUNT(header_fields), in, name, err), *rows = 1;
+    else ok = table_import(buf, stride, 0, cap, spec->fields, spec->field_count, in, name, rows, err);
+    free(name);
+    if (!ok) { free(buf); *rows = 0; return 0; }
+    *records = buf;
+    return 1;
+}
 
 static void put_u32(uint8_t *p, uint32_t v) { for (int i = 0; i < 4; ++i) p[i] = (uint8_t)(v >> (8 * i)); }
 

@@ -136,7 +136,7 @@ static void test_identity(void)
     CHECK(mesh_export(orip, sizeof orip, "m/body", banks, 2, &files, &err));
     if (files.count == 0) fprintf(stderr, "export: %s\n", err.message);
     const char *names[] = { "m/body.obj", "m/body.mtl", "m/body.header.tsv", "m/body.polygons.tsv", "m/body.textures.tsv",
-                            "m/body.parts.tsv", "m/body.groups.tsv", "m/body.sectionc.tsv", "m/body.labels.tsv" };
+                            "m/body.parts.tsv", "m/body.groups.tsv", "m/body.sectionc.tsv", "m/body.labels.tsv", "m/body.lists.tsv" };
     for (size_t i = 0; i < sizeof names / sizeof names[0]; ++i) must(&files, names[i]);
     char *obj = copy_text(must(&files, "m/body.obj"));
     CHECK(strstr(obj, "v -5 0 70000\n") != NULL);                  /* vertex 2 */
@@ -232,6 +232,7 @@ static void test_edits(void)
 
 /* every ORIP leaf in a document tree */
 static int cd_meshes, cd_bad;
+static int viper_rows;
 
 static void walk(const DocNode *node, const char *path)
 {
@@ -249,6 +250,13 @@ static void walk(const DocNode *node, const char *path)
         ++cd_meshes;
         const int ok = mesh_export(b, n, "m", NULL, 0, &files, &err) && mesh_import(b, n, "m", &files, &back, &back_len, &err);
         if (!ok) fprintf(stderr, "%s: %s\n", path, err.message);
+        const SetFile *lists = fileset_find(&files, "m.lists.tsv");
+        CHECK(lists != NULL);
+        if (lists != NULL && strstr(path, "DVIPER.CFM") != NULL) {   /* the left wheel's list, docs/modding/car-model.md "Section A" */
+            char *text = copy_text(lists);
+            viper_rows += strstr(text, "\npart\t0\tleft_tur\t108 107 106 105 88 87 86 85\n") != NULL;
+            free(text);
+        }
         if (!ok || back_len != declared || memcmp(back, b, declared) != 0) {
             fprintf(stderr, "%s: export then import does not reproduce the mesh\n", path);
             CHECK(0);
@@ -294,5 +302,7 @@ int main(int argc, char **argv)
         free(file);
     }
     if (argc > 1) fprintf(stderr, "%d meshes round-tripped (%d with a longer declared length than their extent)\n", cd_meshes, cd_bad);
+    for (int a = 1; a < argc; ++a)
+        if (strstr(argv[a], "DVIPER.CFM") != NULL) CHECK_EQ_INT(viper_rows, 1);   /* the high mesh's row; the low mesh has no part */
     return TEST_REPORT();
 }

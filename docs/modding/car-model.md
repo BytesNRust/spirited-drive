@@ -68,7 +68,7 @@ Two parts, `left_tur` and `right_tu` (the names are 8 bytes: `left_turn` and `ri
 | 1 | the map slot where its list of those vertices starts |
 | 2 | its first displaced vertex: the first part's is `+14`, the next one's follows; the last part's run ends at the vertex count |
 
-The displaced vertices are not positions: each is an **offset** added to the matching vertex of the list, scaled by the steering (`object3d_morph_part`). Measured on all 15 (a least-squares fit, residual 1.6 units at most): the offsets turn the wheel's vertices about a vertical axis (y offset 0, except the RX-7 and the 911 by 1 to 4 units) by 22 to 37 degrees, through a point on the wheel's outer side halfway along it (DVIPER: left wheel 26.7 degrees about x -121, z 180; right 29.0 degrees about x 123, z 181). The list holds the wheel's vertices in descending order: one run (ANSX: 63, 62, ... 56) in 20 of the 30 parts, two runs of 4 in the other 10 (DVIPER's left wheel: 108..105 then 88..85).
+The displaced vertices are not positions: each is an **offset** added to the matching vertex of the list, scaled by the steering (`object3d_morph_part`). Measured on all 15 (a least-squares fit in x z, `formats/car_steer.h`: the largest distance between a turned vertex and its offset's place is 1.84 units, MRX7's right wheel): the offsets turn the wheel's vertices about a vertical axis (y offset 0, except the RX-7 and the 911 by 1 to 4 units) by 22 to 37 degrees, through a point on the wheel's outer side halfway along it (within 2.4 units in x and 1.9 in z on the 24 wheels of 8 vertices; the flat wheels of 4 vertices of TRAFFC and the Warrior turn about a point 30 units inside) (DVIPER: left wheel 26.7 degrees about x -121, z 180; right 29.0 degrees about x 123, z 181). The list holds the wheel's vertices in descending order: one run (ANSX: 63, 62, ... 56) in 20 of the 30 parts, two runs of 4 in the other 10 (DVIPER's left wheel: 108..105 then 88..85).
 
 ### Section B: the groups
 
@@ -78,7 +78,7 @@ Measured: every polygon is in a group, in every mesh. In 20 high meshes some pol
 
 ### Section C: the points
 
-High meshes only. `smok` (the exhaust, 15 meshes), `fl0 fl1 fr0 fr1 rl0 rl1 rr0 rr1` (the lights' points, 13), `d` (5) and one nameless record. *Checked*: each value is a vertex index. Relative to the model's box (0 the least, 1 the most, x y z), typically: `fl*` at x 0.02, `fr*` at x 0.98, the `*0` points at z 0.84..0.89 (front) and 0.28..0.34 (rear), the `*1` points at z 0.70..0.73 and 0.14..0.18, y 0 for all; `smok` at x 0.5, y about 0.75, z 0.18 or 0.8 (the exhaust's end of the car).
+High meshes only. `smok` (the exhaust, 15 meshes), `fl0 fl1 fr0 fr1 rl0 rl1 rr0 rr1` (13; the race calls them the lights' points, but they are the wheel quads' corners, "Importing a model"), `d` (5) and one nameless record. *Checked*: each value is a vertex index. Relative to the model's box (0 the least, 1 the most, x y z), typically: `fl*` at x 0.02, `fr*` at x 0.98, the `*0` points at z 0.84..0.89 (front) and 0.28..0.34 (rear), the `*1` points at z 0.70..0.73 and 0.14..0.18, y 0 for all; `smok` at x 0.5, y about 0.75, z 0.18 or 0.8 (the exhaust's end of the car).
 
 ### Labels
 
@@ -106,7 +106,7 @@ An `SHPI` with directory id `WRAP` in all 78 (*checked*). Each entry: a 16-byte 
   | `0x00`..`0xF9` | the bank's own colours (its `!PAL`), each matched to the nearest screen colour |
   | `0xFA`..`0xFD` | left as they are; on the police car (slot 2) they are the four lights the race animates |
   | `0xFE` | the car's own colour: the race puts there the screen colour it gave the car's slot (`slot_colours`) |
-  | `0xFF` | transparent (`game/gfx/quad.c`, 00486950) |
+  | `0xFF` | transparent (`game/gfx/quad.c`, 00486950), on a polygon drawn with the transparent mapper: mode 1 in bits 3..6 of its flag byte (`game/gfx/object3d.c` `draw_polygon`; the Viper's `0x8C`, 10 of its 81 polygons, against `0x84`). With mode 0 the race draws `0xFF` as the palette's colour (black), so an importer gives mode 1 to the polygons of a bitmap with a clear texel |
 
   How much `0xFE` the CD's high-detail textures hold: on the race cars only `rsid` (the side seen from the right), and little: 1 % of its pixels on ANSX, CZR1, DVIPER, F512TR, F512M and TESTA, under 1 % on LDIABL, MRX7, P911 and TSUPRA. The rivals' reduced models put it on `rear`: 8 % (MANSX), 7 % (MCZR1, MDVIPER), 5 % (MMRX7, MP911), 2 % (MTSUPRA), 1 % (MLDIABL, MTRAFFC). TRAFFC's `lite` is 15 %. The other cars hold it in a few pixels of `rear`, `side`, `bott`, `frnt`, `topp`, and the Warrior in its tyres (1 %). So the body's paint is not `0xFE`: it is the bank's own colours (`!PAL`, and `!xxx`, the car's own colours, `game/race/car_model.c` `own_colours`); `0xFE` marks a few pixels, most on the rival models' rear, that take the slot's colour. An importer can leave `0xFE` out of a new texture.
 
@@ -166,13 +166,31 @@ Shown with the port by `tests/model_build.sh`: a piece made with `tnfs-studio ca
 - **Size**: the body cut in 4 twice over, 996 polygons and 1490 vertices (the Viper has 81 and 125), draws and races.
 - Through all of them the PDN, the low mesh and its bank are the Viper's.
 
+Shown by `tests/car_import.sh` with `tnfs-studio car import` (`formats/car_import.h`):
+
+- **A car modelled outside the game** (`tests/car_import/box.obj`: a body, a glass cabin clear in the middle, a seat inside, four wheels of 8 sides; nothing of the CD) validates with no finding, races, and draws another frame than the template's. Its far model is its near one. The clear texels show the body through the glass once the polygons take the transparent mapper (the `0xFF` row above).
+- **The Viper back.** Its meshes unpacked and imported with `--raw` give, unpacked again, the same OBJ and tables (names included) and the same bitmaps and palettes byte for byte; the banks' order is the importer's (the palettes first, then as the references name them), so the CFM is not the Viper's bytes. The measured half sizes are within 0.2 % of its PDN's.
+- **Not shown:** the low-detail model of the player's car. No camera of the command line puts it past `car_draw_far_z` (the 14 view kinds, `TNFS_VIEW`, with a low body three times taller: none draws it); the race draws it for a rival far ahead, and a piece cannot be a rival yet.
+
+## Importing a model
+
+What an importer has to turn a model into, measured by `tests/test_car_import_layout.c` on the 39 CFMs (77 meshes: LDIABLO's low mesh left out, see Exceptions) and the 8 race cars' PDNs.
+
+- **Axes.** `y` is up, `-x` is the car's left, `+z` its front. *Checked* on the 8 race cars: the left front wheel (`left_tur`) is at negative `x` and the right one at positive, both wheels below the middle of the model's box, both at positive `z` like the `frnt` texture's polygons. That is a left-handed frame. An OBJ from Blender's defaults (Y up, -Z forward) has the car's right at `+x`, up at `+y`, its front at `-z`: an importer negates `z` and nothing else.
+- **Winding.** A polygon whose byte 1 lacks bit `0x02` lists its corners clockwise seen from outside: `(v1 - v0) x (v2 - v0)` points into the car for 945 of the 1001 such polygons (3 or 4 corners), and for most of them in every one of the 77 meshes. With bit `0x02` set it is the other way: 882 point out, 51 in. The race culls by that winding (`game/gfx/object3d.c`, `draw_polygon`). An OBJ face is counter-clockwise from outside; negating `z` mirrors it to clockwise, so its corners keep their order.
+- **Texture coordinates.** In pixels, as integers: `u` across, `v` down the bitmap's rows from the first one stored (the PNG's top; the texel is `u + v * row` from the start of the pixels, `game/gfx/quad.c` `texel_offset`). Of the 343 texture references used with uvs, 182 stay within `0..w-1` x `0..h-1` and 159 reach `w` or `h`: the range is `0..w` x `0..h`, edges included. Two exceed it, both a reduced model's roof (MF512M `topp` and MP911T `TOP.`, 171 wide, `u` to 234). An OBJ's `vt u v` (0..1, `v` up) becomes `u * w`, `(1 - v) * h`, rounded.
+- **The wheels.** On the 8 race cars, TRAFFC and the Warrior, `frntires` and `rertires` each texture 2 quads, with no uvs (the whole bitmap), in the group `outside`: one at `+x` and one at `-x`, flat across `x` (within 5 units), so a wheel is one quad seen from the side. Of each pair, one has byte 1 bit `0x02`, the other not. The race puts the tyre frames on them (`game/race/car_model.c`, `tyres`). On the race cars these two references name no bank entry; `tire1`..`tire4` name `tyr1`..`tyr4` (38 to 60 pixels a side, the frames); on TESTA both name `tyre`, on TRAFFC and the Warrior `tyr4` and `rty4`.
+- **The points.** `fl0`..`rr1` are corners of the wheel quads, all 8, on those 10 cars: the bottom corners of each wheel, two per wheel. The port stores them and reads them nowhere else (`game/race/car_model.c`, `signals`). `smok` is a vertex some polygon uses on all 10; the race takes the exhaust's place from that vertex (`game/race/car_render.c`). So an importer takes the 8 points from the wheel quads it builds, and `smok` from a vertex of the body.
+- **The collision box.** The PDN's words 0, 4 and 8 are the model's half sizes in `x`, `y`, `z` as the race measures them (the first `+14` vertices, their extent `<< 9`, halved: `car_piece_check`'s `PIECE.BODY_SIZE`): within 2 % for all 24 on the 8 race cars, and within 0.1 % for 22 (ANSX and CZR1 are 1.7 % and 1.6 % over in `y`).
+- **Palettes.** `!PAL` is of type `0x22` (6-bit colours) in 21 banks and `0x24` (8-bit) in 57. `!xxx`, the car's own colours, is `0x22` in 12 banks, `0x24` in 3, and a `0x7b` bitmap in 25. A quantizer compares colours in the scale of the bank's `!PAL`.
+
 ## Exceptions
 
 - **LDIABLO.CFM, low mesh**: its texture references are 19 bytes long, not 20, so every table after them sits 3 bytes early and the map does not end on a slot. The game never opens LDIABLO (the race's Diablo is LDIABL; LDIABLO is not in the executable's names). The layout test leaves it out by name.
 
 ## Unresolved
 
-- What polygon flags, bytes 1 and 3, the texture references' two words and section B's word 0 mean for the renderer: carried from a donor.
+- What polygon flags, byte 1 but its bit `0x02` (the winding, "Importing a model"), byte 3, the texture references' two words and section B's word 0 mean for the renderer: carried from a donor.
 - Section C's `d` point and the nameless one; the labels other than the lights.
 - The rule, if any, behind the steering angle of each wheel (22 to 37 degrees, left and right differ on the same car).
 - The `0x7c` attachment's meaning, and the "block size" values that relate to nothing.

@@ -1,4 +1,5 @@
 #include "studio/car_new.h"
+#include "studio/car_import.h"
 
 #include "formats/car_piece.h"
 #include "formats/mod_ini.h"
@@ -40,8 +41,7 @@ static int parse(int argc, char **argv, Args *a, ExchangeError *err)
     return 1;
 }
 
-/* the race model of `template`, a race car's word or its stem on the CD (any case); -1 otherwise */
-static int template_model(const char *template)
+int car_template_model(const char *template)
 {
     const int model = car_piece_model_of_word(template);
     if (model >= 0) return model;
@@ -108,7 +108,7 @@ static int add_masks(FileSet *set, const char *port, const char *kind, const cha
 
 static int car_new(const Args *a, ExchangeError *err)
 {
-    const int model = template_model(a->template);
+    const int model = car_template_model(a->template);
     if (model < 0) { exchange_fail(err, "--template '%s' is not one of the eight race cars (a word such as viper, or a stem such as DVIPER)", a->template); return 0; }
     if (!mod_ini_id_ok(a->id)) { exchange_fail(err, "--id '%s' must be up to %d of a-z, 0-9 and '-', not first", a->id, MOD_INI_ID_MAX); return 0; }
     if (!car_piece_stem_ok(a->stem)) {
@@ -135,7 +135,8 @@ static int car_new(const Args *a, ExchangeError *err)
 
 int car_command(int argc, char **argv, ExchangeError *err)
 {
-    if (argc < 2 || strcmp(argv[1], "new") != 0) { exchange_fail(err, USAGE); return 0; }
+    if (argc >= 2 && strcmp(argv[1], "import") == 0) return car_import_command(argc, argv, err);
+    if (argc < 2 || strcmp(argv[1], "new") != 0) { exchange_fail(err, USAGE " | tnfs-studio car import PIECE_DIR --obj FILE.obj ..."); return 0; }
     Args a;
     return parse(argc, argv, &a, err) && car_new(&a, err);
 }
