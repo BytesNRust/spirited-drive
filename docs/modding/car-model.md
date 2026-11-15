@@ -166,6 +166,12 @@ Shown with the port by `tests/model_build.sh`: a piece made with `tnfs-studio ca
 - **Size**: the body cut in 4 twice over, 996 polygons and 1490 vertices (the Viper has 81 and 125), draws and races.
 - Through all of them the PDN, the low mesh and its bank are the Viper's.
 
+Shown by `tests/car_import.sh` with `tnfs-studio car import` (`formats/car_import.h`):
+
+- **A car modelled outside the game** (`tests/car_import/box.obj`: a body, a glass cabin clear in the middle, a seat inside, four wheels of 8 sides; nothing of the CD) validates with no finding, races, and draws another frame than the template's. Its far model is its near one. The clear texels show the body through the glass once the polygons take the transparent mapper (the `0xFF` row above).
+- **The Viper back.** Its meshes unpacked and imported with `--raw` give, unpacked again, the same OBJ and tables (names included) and the same bitmaps and palettes byte for byte; the banks' order is the importer's (the palettes first, then as the references name them), so the CFM is not the Viper's bytes. The measured half sizes are within 0.2 % of its PDN's.
+- **Not shown:** the low-detail model of the player's car. No camera of the command line puts it past `car_draw_far_z` (the 14 view kinds, `TNFS_VIEW`, with a low body three times taller: none draws it); the race draws it for a rival far ahead, and a piece cannot be a rival yet.
+
 ## Importing a model
 
 What an importer has to turn a model into, measured by `tests/test_car_import_layout.c` on the 39 CFMs (77 meshes: LDIABLO's low mesh left out, see Exceptions) and the 8 race cars' PDNs.

@@ -197,6 +197,9 @@ fi
 # PDN's first three words the body's measured half sizes, and no high-detail masks left
 fixture=$(dirname "$0")/car_import
 port=$(dirname "$0")/../data
+"$studio" --help | grep -q "tnfs-studio car import PIECE_DIR" || fail "--help does not list car import"
+grep -q "Geometry cannot be replaced yet" "$(dirname "$0")/../docs/modding.md" && fail "docs/modding.md still says geometry cannot be replaced"
+grep -q "^#### Importing a model" "$(dirname "$0")/../docs/modding.md" || fail "docs/modding.md has no Importing a model section"
 "$studio" car import "$work/ci" >/dev/null 2>"$work/err" && fail "car import with no --obj exited 0"
 grep -q "usage: tnfs-studio car import" "$work/err" || fail "car import with no --obj does not print its usage: $(cat "$work/err")"
 mkdir -p "$work/ci/empty"

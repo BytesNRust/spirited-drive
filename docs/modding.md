@@ -205,7 +205,7 @@ Three commands take you from "a car based on the Viper" to a zip the game instal
 
 To race it before packing: `tnfs --mods mycar --drive TR1 --car my-car` in Restomod.
 
-To change the car, edit its files with `tnfs-studio unpack` and `tnfs-studio pack` (the textures as PNG, the specs and the PDN as text), then `validate` again. Geometry cannot be replaced yet: `pack` keeps the template's vertex, uv and polygon counts.
+To change the car, edit its files with `tnfs-studio unpack` and `tnfs-studio pack` (the textures as PNG, the specs and the PDN as text), then `validate` again. `pack` keeps the template's vertex, uv and polygon counts; a model of your own goes in with `car import` (Importing a model, below).
 
 What the game asks of a car's model (the checks `validate` makes, `PIECE.*` and `CFM.*` in its output):
 
@@ -223,6 +223,40 @@ What the game asks of a car's model (the checks `validate` makes, `PIECE.*` and 
 | Named parts and points | tyres (`tire1`..`tire4`, `frntires`, `rertires`), `left_turn`, `right_turn`, `inside` and `surface` (at an index under 8), the exhaust point `smok`, the four lights `lt_frnt` `rt_frnt` `lt_rear` `rt_rear` and their points `fl0` `fl1` `fr0` `fr1` `rl0` `rl1` `rr0` `rr1` (`CFM.REQUIRED_NAME`, `PIECE.MODEL_NAME`) | hard: the race hangs without them |
 | Meshes | a high-detail and a low-detail one (the CD's low ones: 6 faces, 3 textures, seen from afar) | hard |
 | Collision body (PDN) | its three half sizes match the model's (measured as the race does, x 512) within a tenth, or are 0 (`PIECE.BODY_SIZE`, a warning) | should match |
+
+
+#### Importing a model
+
+`car import` puts a model made in any 3D editor into a piece made with `car new`: an OBJ, its MTL and its PNG textures become the piece's CFM (both meshes and both texture banks), and the body's size goes into its PDN.
+
+    tnfs-studio car new --template viper --id my-car --stem MYCAR --out mycar --name "My Car"
+    tnfs-studio car import mycar --obj mycar.obj --scale 130
+    tnfs-studio validate mycar
+    tnfs --mods mycar --drive TR1 --car my-car
+    tnfs-studio mod pack mycar my-car.zip
+
+**Name the objects.** The OBJ's objects (`o` or `g`, any case; a Blender number after a dot is ignored, so `wheel_fl.001` is a second `wheel_fl`) say what they are:
+
+| Object | What it becomes |
+|--------|-----------------|
+| `wheel_fl`, `wheel_fr`, `wheel_rl`, `wheel_rr` | the wheels, each exactly once. The front two turn with the steering (`left_turn`, `right_turn`); every face of a wheel shows the race's tyre frames, the whole bitmap on each face, so model a wheel as the game's cars do: one flat face on each side |
+| `inside...` | polygons drawn inside the car (the seats, the dash seen through the glass) |
+| `outside...` | polygons drawn last, outside the body (spoilers, mirrors) |
+| anything else | the body (`surface`) |
+| `smok`, `fl0` `fl1` `fr0` `fr1` `rl0` `rl1` `rr0` `rr1` | a point: an object with no face, its first vertex the place. `smok` is the exhaust |
+| `lt_frnt`, `rt_frnt`, `lt_rear`, `rt_rear` | a light: its first face is the lamp's polygon |
+
+A point or a light the OBJ does not name is made, and the import says so (`made the point smok ...`): `fl0`..`rr1` at each wheel's bottom front and back corners, `smok` at the back of the body near the ground, each light on the body's polygon nearest its corner. A wheel missing or named twice stops the import: the race hangs without both front wheels.
+
+**Axes and size.** Export from Blender with its defaults (Y up, -Z forward): the car's front towards -Z, its right towards +X, the wheels' bottom at the ground. The importer turns that into the game's frame (it negates z). The game's units are about 130 to a metre (the Viper's body is 578 long for its 4.45 m); the CD's race cars measure 229 to 258 wide, 140 to 166 high and 539 to 601 long. `--scale` multiplies the OBJ's coordinates: `--scale 130` for a model in metres. The import prints the body's size in units.
+
+**Textures.** Each material's `map_Kd` names a PNG, found beside the MTL or below `--textures DIR`. Its colours are fitted to the template's palette (the import says how many pixels moved); a pixel with alpha under 128 becomes transparent (the race draws through it: the import marks the polygons that use that bitmap). A PNG with the bank's own palette keeps its indexes, so the race's special colours (`0xFA`..`0xFE`, docs/modding/car-model.md) come only that way. The material's first four letters name the bitmap, so the car's masks (Car masks, above) can name it too; the import removes the template's masks, which painted the template's textures. Texture coordinates are clamped at the bitmap's edge, never repeated.
+
+**What else is made.** The polygons' flag bytes, the texture references' other words and the header's unknown words are copied from the template (the donor; `--donor` picks another of the eight race cars, by default the card's `sound_from`). The front wheels turn by the donor's angle (`--steer DEGREES` for another; the CD's turn 22 to 37). The tyre frames are the donor's. Faces of more than 4 corners are cut into triangles. Without `--low`, the far model is the same as the near one (the race draws it beyond about 6400 units: a rival far ahead); `--low FILE.obj` (with `--low-textures DIR`) gives one of your own, with the same names, its polygons drawn in one group. The PDN's three half sizes are measured from the model (`--keep-pdn` leaves the PDN as it was, and the import prints the sizes it would have written); the rest of the PDN stays the template's.
+
+**Round trip.** `tnfs-studio unpack` writes a CFM's meshes as OBJ with their tables (`.tsv`) beside them; `car import --raw --obj d/c0/mesh.obj --low d/c2/mesh.obj` takes them back, everything the OBJ does not carry from the tables, so a car of the CD comes back with the same meshes and bitmaps. Raw mode keeps the template's banks and masks; edit the geometry in the OBJ (a face's row in `mesh.polygons.tsv` goes with it, in order).
+
+**Overwriting.** The import replaces the piece's CFM only while it is the one `car new` copied; once you have imported, `--force` replaces it again. Everything is read and made before anything is written, so a refused import leaves the piece as it was.
 
 ## The mask tools
 
