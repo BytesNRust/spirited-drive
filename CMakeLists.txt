@@ -1510,8 +1510,11 @@ if(NOT EMSCRIPTEN)
         add_test(NAME light_edit_places COMMAND ${CMAKE_SOURCE_DIR}/tests/light_edit_places.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/light_edit_places)
         set_tests_properties(light_edit_places PROPERTIES TIMEOUT 240)
         # a replay plays with the conditions it was recorded with (a CD's demo: day and clear), not the settings'
-        add_test(NAME replay_conditions COMMAND ${CMAKE_SOURCE_DIR}/tests/replay_conditions.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/replay_conditions)
-        set_tests_properties(replay_conditions PROPERTIES TIMEOUT 300)
+        # (a case per test, so they run in parallel; each ends its replay with Esc and TNFS_REPLAY_EXIT=1)
+        foreach(replay_case cd recorded)
+            add_test(NAME replay_conditions_${replay_case} COMMAND ${CMAKE_SOURCE_DIR}/tests/replay_conditions.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/replay_conditions ${replay_case})
+            set_tests_properties(replay_conditions_${replay_case} PROPERTIES TIMEOUT 60)
+        endforeach()
         # two races in one process (TNFS_DRIVE_THEN): the second track registers its own reflector masks, not the first's
         add_test(NAME two_tracks_reflectors COMMAND ${CMAKE_SOURCE_DIR}/tests/two_tracks_reflectors.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/two_tracks_reflectors)
         set_tests_properties(two_tracks_reflectors PROPERTIES TIMEOUT 300)

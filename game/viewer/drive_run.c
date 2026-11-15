@@ -1,6 +1,7 @@
 /* --drive's loop: race_run's calls on the sim (00455a5c), the window, TNFS_RUN's headless run, the screenshots and a link
  * race's messages. */
 #include "game/sys/port_log.h"
+#include "viewer/track_viewer_cars.h"
 #include "viewer/drive_autopilot.h"
 #include "viewer/track_viewer.h"
 #include "viewer/drive_session.h"
@@ -145,6 +146,14 @@ static void run_none(void *ctx) { (void)ctx; }
 static void run_none_i(void *ctx, int32_t a) { (void)ctx, (void)a; }
 static void present_blended(DriveRun *r);
 
+/* port (dev, env only): TNFS_REPLAY_EXIT=1 ends a --replay when its recording is played out (the original races on from there) or it is
+ * left with Escape, without the last picture, so a headless check exits by itself; unset, the window plays and holds it as always */
+static int replay_exit_wanted(void)
+{
+    const char *v = getenv("TNFS_REPLAY_EXIT");
+    return replay_of != NULL && v != NULL && strcmp(v, "1") == 0;
+}
+
 static void run_service(void *ctx)
 {
     DriveRun *r = ctx;
@@ -158,6 +167,10 @@ static void run_service(void *ctx)
     if (!platform_poll_events()) r->quit = 1;
     for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)  /* Esc is the menu's (004557f4) */
         if (key == PLATFORM_KEY_ESCAPE && drive_pause.menu == NULL) r->quit = 1;
+    if (replay_exit_wanted() && drive_replay.dir.end_clock > 0 && drive_sim.race.tick >= drive_replay.dir.end_clock && !r->quit) {
+        port_log("replay: the recording is played out (TNFS_REPLAY_EXIT)\n");
+        r->quit = 1;
+    }
     if (r->quit) r->w->running = 0;
     const uint32_t now = platform_ticks_ms();
     /* the timer written elsewhere (the start zeroes it): count on from its value */
@@ -680,6 +693,10 @@ int drive_window(const Track *t, uint8_t *pixels)
     drive_results.end_state = drive_sim.race.end_state;  /* also a replay left before its race was over */
     drive_menu.words = NULL, drive_menu.music_start = NULL, drive_menu.music_user = NULL;
     drive_replay.pace = drive_replay.timer = drive_replay.due = drive_replay.done = NULL;
+    if (replay_exit_wanted()) {
+        port_log("replay: over, the process ends (TNFS_REPLAY_EXIT)\n");
+        r.quit = 1;
+    }
     while (!drive_menus_on && !r.quit && platform_poll_events()) {  /* the race over: its last picture until Escape */
         for (PlatformKey key; (key = platform_next_key()) != PLATFORM_KEY_NONE;)
             if (key == PLATFORM_KEY_ESCAPE) r.quit = 1;
