@@ -5,11 +5,14 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "formats/mod_list.h"
 #include "game/platform/platform.h"
 
 typedef enum { SCREEN_4_3 = 0, SCREEN_16_9 = 1, SCREEN_21_9 = 2 } ScreenFormat;
 
 enum { PSX_DIR_MAX = 256 };   /* port: the longest psx_dir kept; a longer one is cut */
+/* port: the longest line of a settings file read whole: a psx_dir or a mods line (dep59), the other keys are short */
+enum { PORT_LINE_MAX = (PSX_DIR_MAX > MOD_LIST_TEXT_MAX ? PSX_DIR_MAX : MOD_LIST_TEXT_MAX) + 32 };
 
 /* port: the console version time of day the light and its ambient colour come from (the letter of Z<TRACK><letter>.LGT / .LGS is 'B', 'A', 'C') */
 enum { LIGHT_TIME_DAY = 0, LIGHT_TIME_DAWN = 1, LIGHT_TIME_DUSK = 2, LIGHT_TIME_NIGHT = 3 };   /* the night: the dusk's files and sky, under a darker light and a dark fog (drive_light.c) */
@@ -94,6 +97,9 @@ typedef struct {
      * variants, so a track that does not take one never loses it for the next. `variant_mirror=`, `variant_rally=`,
      * `variant_reverse=`; 0 */
     int variant_mirror, variant_rally, variant_reverse;
+    /* port (dep59 n4): the active mods of <player folder>/mods/, `mods=id1,id2` (mod_list.h): the first listed wins. Free in Restomod only,
+     * so Stock and Restored load none (`--mods DIR` still loads in every mode, above the list); "" none */
+    char mods[MOD_LIST_TEXT_MAX];
     int profile;             /* a Profile (port_profile.h): the mode in use, `profile=stock|restored|restomod` in port.cfg, Stock without the line. Last, so the positional initialisers keep their meaning. */
 } PortSettings;
 
@@ -271,7 +277,7 @@ PortSettings port_settings_defaults(void);
 PortSettings port_settings_parse(const char *text, size_t size);
 /* Writes the text form, NUL-terminated; returns its length, or 0 when it does not fit. */
 /* the room the mode's text needs: every key, a psx_dir of PSX_DIR_MAX bytes, and space for the keys still to come */
-enum { PORT_CFG_TEXT_MAX = 2048 };
+enum { PORT_CFG_TEXT_MAX = 4096 };
 size_t port_settings_format(const PortSettings *s, char *out, size_t size);
 /* The settings of the mode in use: its table's values, with what its file says for what is free in it. */
 /* what port_old_files.c builds a mode's file from: mode `p`'s values with the machine's folder, one key=value over a PortSettings, and port.cfg's two lines */

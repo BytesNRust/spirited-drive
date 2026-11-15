@@ -294,6 +294,40 @@ static void test_old_psx_keys_load_as_the_new_names(void)
     unsetenv("TNFS_LIGHT_TIME"), unsetenv("TNFS_PSX_TIME");
 }
 
+/* dep59 n4 phase 2: the active mods, `mods=` in Restomod's file: read and saved back whole at its longest (MOD_LIST_MAX ids of the longest
+ * length), cleaned when read (a bad id or a repeat left out), and never taken from Stock's or Restored's file */
+static void test_the_active_mods_list(void)
+{
+    clear_files();
+    char list[MOD_LIST_TEXT_MAX] = "", file[MOD_LIST_TEXT_MAX + 16];
+    for (int i = 0; i < MOD_LIST_MAX; i++) {
+        char id[MOD_INI_ID_MAX + 2];
+        snprintf(id, sizeof id, "%s%02d%s", i > 0 ? "," : "", i, "-a-mod-with-the-longest-name-");
+        strcat(list, id);
+    }
+    CHECK(strlen(list) > 1000);
+    snprintf(file, sizeof file, "mods=%s\n", list);
+    put_file("port.cfg", "profile=restomod\n");
+    put_file("restomod.cfg", file);
+    PortSettings s = port_settings_load();
+    CHECK(strcmp(s.mods, list) == 0);
+    s.fov_adjust = 3;   /* another row saved: the list stays whole */
+    CHECK(port_settings_save(&s));
+    const PortSettings back = port_settings_load();
+    CHECK(strcmp(back.mods, list) == 0);
+    CHECK_EQ_INT(back.fov_adjust, 3);
+    const char *const dirty = "mods= b ,Bad,b,../x,legacy\n";
+    CHECK(strcmp(port_settings_parse(dirty, strlen(dirty)).mods, "b,legacy") == 0);
+    CHECK(strcmp(port_settings_defaults().mods, "") == 0);
+    put_file("port.cfg", "profile=stock\n");
+    put_file("stock.cfg", "mods=b\n");
+    CHECK(strcmp(port_settings_load().mods, "") == 0);   /* Stock reads no list */
+    put_file("port.cfg", "profile=restored\n");
+    put_file("restored.cfg", "mods=b\n");
+    CHECK(strcmp(port_settings_load().mods, "") == 0);
+    clear_files();
+}
+
 int main(void)
 {
     test_every_int_key_round_trips();
@@ -306,5 +340,6 @@ int main(void)
     test_a_longest_psx_dir_round_trips();
     test_two_sided_is_automatic();
     test_old_psx_keys_load_as_the_new_names();
+    test_the_active_mods_list();
     return TEST_REPORT();
 }
