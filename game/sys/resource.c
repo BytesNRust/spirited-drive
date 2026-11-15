@@ -59,14 +59,18 @@ const char *resource_dir(GamePath which)
 }
 
 /* The CD is ISO 9660 (upper case) while the game asks for lower-case names;
- * case-sensitive file systems need the upper-cased fallback. */
+ * case-sensitive file systems need the upper-cased fallback. Only the part below the data root is upper-cased (the root is a
+ * folder of the player's, in its own case): the retry is then still a data file, and a mod's copy refused for the first name
+ * is refused for this one too, never swapped for the data root's copy. */
 static uint8_t *read_any_case(const char *path, size_t *size)
 {
     uint8_t *data = platform_read_file(path, size);
     if (data != NULL) return data;
     char upper[PATH_MAX_LEN];
     snprintf(upper, sizeof upper, "%s", path);
-    for (char *c = upper; *c; c++) *c = (char)toupper((unsigned char)*c);
+    const size_t root_len = strlen(root);
+    const size_t from = root_len > 0 && strncmp(upper, root, root_len) == 0 ? root_len : 0;
+    for (char *c = upper + from; *c; c++) *c = (char)toupper((unsigned char)*c);
     return platform_read_file(upper, size);
 }
 
