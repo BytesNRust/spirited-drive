@@ -237,7 +237,8 @@ void validate_car_piece_cfm(const uint8_t *d, size_t n, const char *name, Report
     if (car_root(d, n, &root, &why)) car_checks(&root, name, 1, r);   /* else validate_car_cfm has said so */
 }
 
-/* the checks of a model the race opens; a race car's (one the player may drive) also needs its turn signals and tyres */
+/* the checks of a model the race opens; a race car's (one the player may drive) also needs its steered front wheels
+ * (left_turn, right_turn) and tyres */
 static void car_checks(const Chunk *root_chunk, const char *name, int race_car, Report *r)
 {
     const Chunk root = *root_chunk;
@@ -285,7 +286,7 @@ static void car_checks(const Chunk *root_chunk, const char *name, int race_car, 
             report_add(r, "CFM.ELEMENT_INDEX", found, "%s: element '%s' is number %d", name, elements[e], found);
     }
     if (!race_car) return;
-    /* race cars: the parts the player's car needs (section A) and the tyre labels (texture references) */
+    /* race cars: the front wheels the steering turns (section A) and the tyre labels (texture references) */
     static const char *const parts[] = { "left_turn", "right_turn" };
     for (int p = 0; p < 2; ++p) {
         int found = 0;
