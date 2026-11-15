@@ -132,6 +132,16 @@ void cg_extras_apply(void);
 /* port (dep56): a Restomod tournament's variants (tournament_variants.h) onto the settings for the track set; in Stock and
  * Restored a tournament's are the exe's (none), so a profile changed mid-run drops them until Restomod is back */
 void cg_tournament_variants_apply(void);
+/* port (dep65, central_glue_choice.c): Restomod's switches kept as the player's choice in the mode's file. _apply puts on the
+ * globals what the track in hand runs from it (outside a tournament); _keep writes the switches the track screen left as the
+ * choice (kept_m / kept_r the screen's TrackSelectPlus.kept_*, for a screen ended on Lost Vegas; reverse NULL when the row was
+ * not offered). cg_reverse_offered: 1 when the Reverse row is offered (the mode's file's reverse, level 2). */
+void cg_variant_choice_apply(void);
+void cg_variant_choice_keep(int kept_m, int kept_r, const int *reverse);
+/* ControlCentralOps.variants_chosen: a code typed in Control Central put a variant on; Restomod keeps the variants as it left them as
+ * the choice, the same way as the switches, then puts on what the track runs of them */
+void cg_variants_chosen(void *ctx);
+int cg_reverse_offered(void);
 int16_t cg_image_short(int at);
 void cg_palette_set(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode);
 void cg_flush(void *ctx);

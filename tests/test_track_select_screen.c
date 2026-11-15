@@ -80,6 +80,7 @@ static int *custom_laps;   /* dep55: Restomod's laps row (TrackSelectPlus.laps);
 /* dep56: Restomod's switch rows (TrackSelectPlus.variant_switches) with both variants unlocked, and the variants after the run */
 static int switches, locked;   /* locked: a tournament past its first race (TrackSelectPlus.variants_locked) */
 static int32_t variant_m_in, variant_r_in, variant_m_out, variant_r_out;
+static int kept_m_in, kept_r_in, kept_m_out, kept_r_out;   /* dep65: the choice kept through Lost Vegas (TrackSelectPlus.kept_m) */
 static int track_out;
 
 /* the screen on track 3 (not a tournament), the keys, and what the weather and the console version time are afterwards */
@@ -91,7 +92,7 @@ static void run_on(const uint16_t *keys, int count, int *weather, int *light_tim
     config[TRACK_SELECT_LAPS] = 8;
     const TrackSelectInputs in = { "", 0, 0, 0, 1, 1, 1 };   /* Lost Vegas on */
     TrackSelectPlus plus = { switches, switches, &variant_m, &variant_r, 0, 1, weather, use_light_time ? light_time : NULL, reverse, custom_laps,
-                             switches, locked };
+                             switches, locked, kept_m_in, kept_r_in };
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
     DialogPointer p = { 0, 0, 0, 0, 0, 0 };
     Script script = { keys, 0, count };
@@ -110,6 +111,7 @@ static void run_on(const uint16_t *keys, int count, int *weather, int *light_tim
     track_select_screen(&in, &st, &p, &ops);
     CHECK_EQ_INT(time_of_day[3], 1);   /* the art stays at midday under the light effects */
     variant_m_out = variant_m, variant_r_out = variant_r, track_out = config[TRACK_SELECT_TRACK];
+    kept_m_out = plus.kept_m, kept_r_out = plus.kept_r;
 }
 
 static void run(const uint16_t *keys, int count, int *weather, int *light_time, int use_light_time)
@@ -211,7 +213,7 @@ static void test_without_the_row_up_is_the_originals(void)
     uint8_t config[TRACK_SELECT_CONFIG] = { 0 }, palette[0x300] = { 0 };
     int32_t time_of_day[9] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }, vm = 0, vr = 0;
     config[TRACK_SELECT_TRACK] = 3;
-    TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 0, &weather, NULL, NULL, NULL, 0, 0 };   /* port_track_weather 0 */
+    TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 0, &weather, NULL, NULL, NULL, 0, 0, 0, 0 };   /* port_track_weather 0 */
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
     (void)light_time;
     const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
@@ -249,7 +251,7 @@ static void test_night_label_is_text(void)
     palette_usable_set(after_a_race);
     for (int night = 0; night < 2; night++) {
         int light_time = night ? 3 : 2;
-        TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 1, &weather, &light_time, NULL, NULL, 0, 0 };
+        TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 1, &weather, &light_time, NULL, NULL, 0, 0, 0, 0 };
         TrackSelectState st = { config, time_of_day, 0, palette, &plus };
         const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
         DialogPointer p = { 0, 0, 0, 0, 0, 0 };
@@ -329,13 +331,40 @@ static void test_switch_rows(void)
     switches = 0;
 }
 
+/* dep65: the player's mirror and rally go through Lost Vegas: cleared on it, back on the track after it, and kept for the
+ * caller when the screen ends on it */
+static void test_the_switches_come_back_after_lost_vegas(void)
+{
+    int weather = 0, light_time = 0, reverse = 0;
+    switches = 1;
+    variant_m_in = variant_r_in = 1;
+    const uint16_t through[] = { RIGHT, RIGHT, ENTER, ENTER, LEFT, LEFT, ENTER };   /* Next twice (7 -> 8 -> 0), back to Done */
+    run_on(through, 7, &weather, &light_time, 0, &reverse, 7);
+    CHECK_EQ_INT(track_out, 0);
+    CHECK_EQ_INT(variant_m_out, 1);
+    CHECK_EQ_INT(variant_r_out, 1);
+    const uint16_t onto[] = { RIGHT, RIGHT, ENTER, LEFT, LEFT, ENTER };   /* Next once, ending on Lost Vegas */
+    run_on(onto, 6, &weather, &light_time, 0, &reverse, 7);
+    CHECK_EQ_INT(track_out, 8);
+    CHECK_EQ_INT(variant_m_out + variant_r_out, 0);   /* the race on it has neither */
+    CHECK_EQ_INT(kept_m_out, 1);   /* the choice, for the caller to keep */
+    CHECK_EQ_INT(kept_r_out, 1);
+    variant_m_in = variant_r_in = 0, kept_m_in = kept_r_in = 1;   /* opened on Lost Vegas with the choice kept */
+    run_on(onto, 6, &weather, &light_time, 0, &reverse, 8);
+    CHECK_EQ_INT(track_out, 0);
+    CHECK_EQ_INT(variant_m_out, 1);
+    CHECK_EQ_INT(variant_r_out, 1);
+    kept_m_in = kept_r_in = 0;
+    switches = 0;
+}
+
 /* which rows show: Restomod's only, Mirror and Rally with their unlocks and never on Lost Vegas, Inverse with the reverse value
  * on the circuits (Lost Vegas too); a tournament's the same (they are its variants) */
 static void test_which_rows(void)
 {
     int reverse = 0, rows[3];
     int32_t vm = 0, vr = 0;
-    TrackSelectPlus plus = { 1, 1, &vm, &vr, 0, 1, NULL, NULL, &reverse, NULL, 1, 0 };
+    TrackSelectPlus plus = { 1, 1, &vm, &vr, 0, 1, NULL, NULL, &reverse, NULL, 1, 0, 0, 0 };
     CHECK_EQ_INT(track_select_switch_rows(&plus, 3, rows), 3);
     CHECK(rows[0] == TRACK_SELECT_MIRROR && rows[1] == TRACK_SELECT_INVERSE && rows[2] == TRACK_SELECT_RALLY);
     CHECK_EQ_INT(track_select_switch_rows(&plus, 1, rows), 2);   /* a stage */
@@ -378,6 +407,7 @@ static void test_locked_rows_do_not_turn(void)
 int main(void)
 {
     test_switch_rows();
+    test_the_switches_come_back_after_lost_vegas();
     test_locked_rows_do_not_turn();
     test_which_rows();
     test_weather_row();

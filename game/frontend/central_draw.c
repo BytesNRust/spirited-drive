@@ -2,6 +2,7 @@
 #include "game/frontend/central_banner.h"
 #include "game/frontend/central_run.h"
 
+#include "game/frontend/card_marks.h"
 #include "game/frontend/variant_rule.h"
 #include "game/race/lunar_springs.h"
 #include "game/sys/port_extras.h"
@@ -9,6 +10,7 @@
 #include "game/frontend/unlock_level.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* the frame's name tables (00432050.., copied to esp+400.. and read past their ends as the stack has them):
@@ -84,18 +86,41 @@ static void reload(CentralRun *r, int slot, const char *path)
     r->st->art[slot] = o->load_bank(o->ctx, path, 0);
 }
 
+/* port (dep64): Restomod's mirror card, its white word wiped with the normal picture's texels (card_word_wiped). Made when the
+ * mirror picture or the track changes and kept, as the banks are, from one Control Central to the next; the normal picture's bank
+ * is loaded for it and freed at once. */
+static const uint8_t *mirror_wiped(CentralRun *r, const uint8_t *mirror)
+{
+    static uint8_t *kept;
+    static const uint8_t *kept_of;
+    static int kept_track = -1;
+    const int track = *r->st->track;
+    if (kept != NULL && kept_of == mirror && kept_track == track) return kept;
+    free(kept);
+    char path[0x50];
+    snprintf(path, sizeof path, "%scontrol/%s.qfs", r->st->paths, track >= 0 && track < 10 ? TRACK_NAMES[track] : "");
+    const int32_t bank = r->ops->load_bank(r->ops->ctx, path, 0);
+    kept = card_word_wiped(mirror, bank != 0 ? r->ops->shape(r->ops->ctx, bank, "0000") : NULL);
+    if (bank != 0) r->ops->free(r->ops->ctx, bank);
+    kept_of = mirror, kept_track = track;
+    return kept;
+}
+
 static void track_art(CentralRun *r)
 {
     ControlCentralState *st = r->st;
     char path[0x50];
+    enum { MIRROR_ART = 10, RALLY_ART = 19 };   /* the mirror's and the rally's first entries in TRACK_NAMES (Lunar Springs reads the rally's) */
+    const int plain = r->ops->card_plain != NULL && r->ops->card_plain(r->ops->ctx);   /* port (dep64): Restomod's card */
     /* port: the moon's picture follows the Lunar Springs Track switch and the level as they are now, so the rally's word
      * carries them too (bit 8): a change in Customize Game redraws the card though the track and variants are the same */
     const int lunar_now = unlock_level_gate(port_extras_load(), *st->unlock_level).lunar_springs != 0;
-    const int r_now = (*st->variant_r != 0) | lunar_now << 8;
+    const int r_now = (*st->variant_r != 0) | lunar_now << 8 | plain << 9;   /* port (dep64): and the card's kind, Restomod's or the exe's */
     if (st->was[WAS_TRACK] != *st->track || (int16_t)st->was[WAS_M] != *st->variant_m ||
         (int16_t)st->was[WAS_R] != r_now) {
-        /* the records and the picture follow the rally when both variants are on (variant_rule.h) */
-        const int base = central_track_art_base(*st->variant_m, *st->variant_r, *st->variant_m != 0 && *st->variant_r != 0);
+        /* the records and the picture follow the rally when both variants are on (variant_rule.h); Restomod's card is the track's
+         * own picture, or the exe's mirror art when the mirror is on, whatever the rest (dep64) */
+        const int base = plain ? (*st->variant_m != 0 ? MIRROR_ART : 0) : central_track_art_base(*st->variant_m, *st->variant_r, *st->variant_m != 0 && *st->variant_r != 0);
         if (st->art[ART_TRACK] != 0) r->ops->free(r->ops->ctx, st->art[ART_TRACK]);
         /* "r"'s past the tenth track is the colours' first, 9, read as a name: the original faults there */
         const int at = base + *st->track;
@@ -104,16 +129,21 @@ static void track_art(CentralRun *r)
         /* port: Lunar Springs (lunar_springs.h) shows the moon's picture for the rally on Rusty Springs, from the German
          * art directory whatever the language */
         char moon[64];
-        const int lunar = lunar_springs_picture(at, lunar_now, moon, sizeof moon);
+        const int lunar = lunar_springs_picture(plain && *st->variant_m == 0 && *st->variant_r != 0 ? RALLY_ART + *st->track : at, lunar_now,
+                                                moon, sizeof moon);
         st->art[ART_TRACK] = r->ops->load_bank(r->ops->ctx, lunar ? moon : path, 0);
         st->was[WAS_TRACK] = *st->track;
         st->was[WAS_R] = (int16_t)r_now;
         st->was[WAS_M] = (int16_t)*st->variant_m;
     }
-    r->ops->blit(r->ops->ctx, shape(r, ART_TRACK, "0000"));
+    const uint8_t *picture = shape(r, ART_TRACK, "0000");
+    const uint8_t *wiped = plain && *st->variant_m != 0 ? mirror_wiped(r, picture) : NULL;   /* port (dep64): MIRROR is written over it */
+    r->ops->blit(r->ops->ctx, wiped != NULL ? wiped : picture);
     if (*st->race_type == 3 && st->races[*st->track] != 0) masked(r, "flad");
-    enum { MARKS_RIGHT = 0x21e, MARKS_Y = 0x103 };   /* the card's top right, clear of the variant's own word at its left */
-    if (r->ops->card_marks != NULL) r->ops->card_marks(r->ops->ctx, MARKS_RIGHT, MARKS_Y);   /* port (dep56): what the track screen set */
+    /* the card's top corners, the yellow 7 px in from the picture's edges on all three sides (the picture is 341..548 x 255..; the
+     * small text's first column falls a pixel right of x, its last 5 px left of the given right end, its top 7 px under y) */
+    enum { MARKS_LEFT = 0x15b, MARKS_RIGHT = 0x220, MARKS_Y = 0x103 };
+    if (r->ops->card_marks != NULL) r->ops->card_marks(r->ops->ctx, MARKS_LEFT, MARKS_RIGHT, MARKS_Y);   /* port (dep56): what the track screen set */
 }
 
 static void car_art(CentralRun *r)

@@ -89,6 +89,11 @@ typedef struct {
     int wipers;        /* 1: in the dash view in rain and snow a wiper blade sweeps the glass (the pace follows what falls), clears the lens drops and snow marks it crosses and hides the blades some dash art draws (a red dash mask colour); 0 as before */
     int snow_fx;    /* 1: with snow_weather, the falling snow has more depth: flakes less regular and soft, leaning with the car's speed (a smaller angle than the rain's), a snowstorm whose wind swings from side to side, and white marks on the lens (fewer than the rain's drops); 0 as before */
     int lamp_halos;    /* 1: at night the street lamps (the lamp boards' emissive entries) get a soft halo like the brake lights' (never the windows'); 0 as before */
+    /* port (dep65): the player's choice on Restomod's track screen switches, kept as the time and the weather are: 1 on. What each
+     * track runs is worked out from them (Lost Vegas takes no mirror or rally, a stage no reverse) where Control Central reads the
+     * variants, so a track that does not take one never loses it for the next. `variant_mirror=`, `variant_rally=`,
+     * `variant_reverse=`; 0 */
+    int variant_mirror, variant_rally, variant_reverse;
     int profile;             /* a Profile (port_profile.h): the mode in use, `profile=stock|restored|restomod` in port.cfg, Stock without the line. Last, so the positional initialisers keep their meaning. */
 } PortSettings;
 
