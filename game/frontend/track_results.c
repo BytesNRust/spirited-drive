@@ -93,7 +93,7 @@ static void draw_heads(const ResultsInputs *in, const ResultsOps *ops)
     if (type == 0) {
         snprintf(text, sizeof text, in->german ? "Bestzeit%s" : "Best Time%s", results_cheats(in) ? " (c)" : "");
         ops->text_at(ops->ctx, text, RIGHT, 0x5a);
-        ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(track_at(in) + BEST_CAR)], RIGHT, 0x6e);
+        if (results_row_shown(in, track_at(in) + BEST_NAME)) ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(track_at(in) + BEST_CAR)], RIGHT, 0x6e);
     } else if (type == 2 || type == 3) {
         ops->text_at(ops->ctx, (const char *)player_at(in, in->rival) + NAME, RIGHT, 0x5a);
         ops->text_at(ops->ctx, in->car_names[in->rival_car], RIGHT, 0x6e);
@@ -126,7 +126,7 @@ static void draw_totals(const ResultsInputs *in, const ResultsOps *ops)
               finished ? g32(me + TOP) : 0, ops);
     if (g16(in->image + RACE_TYPE) == 0) {
         const uint8_t *best = track_at(in);
-        draw_rows(RIGHT, g32(best + BEST_TOTAL), g32(best + BEST_TOTAL), g32(me + DISTANCE), g32(best + BEST_TOP), ops);
+        if (results_row_shown(in, best + BEST_NAME)) draw_rows(RIGHT, g32(best + BEST_TOTAL), g32(best + BEST_TOTAL), g32(me + DISTANCE), g32(best + BEST_TOP), ops);
     } else {
         char text[TEXT];
         const uint8_t *rival = player_at(in, in->rival);
@@ -141,19 +141,24 @@ static void draw_records(const ResultsInputs *in, int16_t row, int16_t top, cons
     const uint8_t *rec = track_at(in);
     const int32_t best_mark = g32(rec + BEST_MARK), top_mark = g32(rec + TOP_MARK);
     ops->text_select(ops->ctx, row == 0 ? 3 : 1);
-    ops->text_fit(ops->ctx, (const char *)rec + BEST_NAME, 7, 0x11d, 200);
-    ops->time_text(ops->ctx, text, g32(rec + BEST_TOTAL));
-    ops->text_at(ops->ctx, text, LEFT, 0x11d);
-    ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(rec + BEST_CAR)], RIGHT, 0x11d);
-    results_mark_total(in, 0, 0x11d, ops);
-    if (best_mark == 0 || best_mark == 1)
-        ops->text_at(ops->ctx, in->german ? (best_mark ? "  d" : "  z") : (best_mark ? "h.h." : "t.t."), 0x23f, 0x11d);
+    if (results_row_shown(in, rec + BEST_NAME)) {
+        ops->text_fit(ops->ctx, (const char *)rec + BEST_NAME, 7, 0x11d, 200);
+        ops->time_text(ops->ctx, text, g32(rec + BEST_TOTAL));
+        ops->text_at(ops->ctx, text, LEFT, 0x11d);
+        ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(rec + BEST_CAR)], RIGHT, 0x11d);
+        results_mark_total(in, 0, 0x11d, ops);
+        results_conditions(in, records_slot_totals(g16(in->image + TRACK), in->marks != NULL ? in->marks->choice : 0, 0), 0x11d, 0, ops);
+        if (best_mark == 0 || best_mark == 1)
+            ops->text_at(ops->ctx, in->german ? (best_mark ? "  d" : "  z") : (best_mark ? "h.h." : "t.t."), 0x23f, 0x11d);
+    }
     ops->text_select(ops->ctx, top == 1 ? 3 : 1);
+    if (!results_row_shown(in, rec + TOP_NAME)) return;
     ops->text_fit(ops->ctx, (const char *)rec + TOP_NAME, 7, 0x177, 200);
     ops->speed_text(ops->ctx, text, g32(rec + TOP_SPEED));
     ops->text_at(ops->ctx, text, LEFT, 0x177);
     ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(rec + TOP_CAR)], RIGHT, 0x177);
     results_mark_slot(in, SLOT_TOP, 0x177, ops);
+    results_conditions(in, SLOT_TOP, 0x177, 1, ops);
     /* the original's English mark is "t.t." for both */
     if (top_mark == 0 || top_mark == 1) ops->text_at(ops->ctx, in->german ? (top_mark ? "  d" : "  z") : "t.t.", 0x23f, 0x177);
 }

@@ -59,6 +59,7 @@ typedef struct BestTimesOps {
     int32_t (*plus_text_width)(void *ctx, const char *text);
     void (*plus_scaled)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);  /* num/den the size */
     int32_t (*plus_scaled_width)(void *ctx, const char *text, int32_t num, int32_t den);
+    void (*plus_ink)(void *ctx, const char *text, int32_t num, int32_t den, int32_t *top, int32_t *bottom);   /* the letters' rows (text_ink_scaled) */
 } BestTimesOps;
 
 enum {

@@ -1,6 +1,7 @@
 /* port (dep55): see best_times_pages.h. */
 #include "game/frontend/best_times_pages.h"
 
+#include "game/frontend/record_conditions.h"
 #include "game/frontend/records_route.h"
 #include "game/race/weather.h"
 #include "game/sys/free_laps.h"
@@ -16,7 +17,7 @@ enum {
     /* the exe's columns and rows (best_times.c), and the pages' own: the cheats' letters after a shortened name, the conditions in small
      * words in the gap between the time and the car */
     NAME_X = 8, NAME_WIDTH = 0xd4, MARK_X = 0xe0, TIME_X = 0x118, COND_END = 0x1da, CAR_X = 0x1e0, SHIFT_X = 0x24e,
-    ROW_Y = 0x73, ROW_STEP = 0x16, TOP_Y = 0x17c, SMALL_DROP = 5,
+    ROW_Y = 0x73, ROW_STEP = 0x16, TOP_Y = 0x17c,
     /* the strip. The table's line at three quarters the words' size (three fifths when that does not fit), its capitals' last row on the
      * art's "Best times" title's, centred in the room past the title; the page's selector in the same small words, a secondary line
      * centred just over the footer's Road & Track item, its rects between the footer's arrows' */
@@ -105,24 +106,6 @@ void best_times_pages_focus(BestTimesPlus *plus, int track, int dir)
 {
     plus->focus = round_step(plus->focus, dir, BEST_FOCUS_FOOTER + 1);
     if (is_stage(track) && plus->focus == BEST_FOCUS_LAPS) plus->focus = round_step(plus->focus, dir, BEST_FOCUS_FOOTER + 1);
-}
-
-void best_times_conditions_text(RecordMarks m, char *out, int size)
-{
-    static const char *const WEATHER[4] = { "CLR", "FOG", "RAIN", "STRM" };   /* four letters at most: the gap before the car is some 105 px */
-    static const char *const TIME[4] = { "DAY", "DAWN", "DUSK", "NGT" };
-    static const char *const LEVEL[3] = { "O", "E", "H" };   /* Original, Easy, Hard */
-    if (!(m.weather & RECORD_MARK_KNOWN)) {
-        snprintf(out, (size_t)size, "-");
-        return;
-    }
-    const int kind = m.weather & RECORD_WEATHER_KIND;
-    const char *weather = m.weather & RECORD_WEATHER_SNOW ? "SNOW" : m.weather & RECORD_WEATHER_WET ? "WET" : kind < 4 ? WEATHER[kind] : "?";
-    const int t = m.time & 0x0f;
-    const char *time = t < 4 ? TIME[t] : "?";
-    const int rivals = m.difficulty & 3, police = m.difficulty >> 2 & 3, traffic = m.difficulty >> 4 & 3;
-    const char *level = rivals == police && police == traffic && rivals < 3 ? LEVEL[rivals] : "M";
-    snprintf(out, (size_t)size, "%s %s %s", weather, time, level);
 }
 
 /* a line of the strip: its text's y, its size, the room between its words */
@@ -230,6 +213,23 @@ static void shift(const BestTimesInputs *in, int32_t gearbox, int32_t y, const B
     else if (gearbox == 1) ops->text_shadowed(ops->ctx, in->german ? "  d" : "h.h.", SHIFT_X, y);
 }
 
+/* the conditions' pen (record_conditions.h): the pages' cream words at their scale */
+static void cream_scaled(void *ctx, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    const BestTimesOps *ops = ctx;
+    ops->plus_scaled(ops->ctx, TEXT_CREAM, text, x, y, num, den);
+}
+static int32_t scaled_width(void *ctx, const char *text, int32_t num, int32_t den)
+{
+    const BestTimesOps *ops = ctx;
+    return ops->plus_scaled_width(ops->ctx, text, num, den);
+}
+static void ink(void *ctx, const char *text, int32_t num, int32_t den, int32_t *top, int32_t *bottom)
+{
+    const BestTimesOps *ops = ctx;
+    ops->plus_ink(ops->ctx, text, num, den, top, bottom);
+}
+
 /* a record's row at y: the name, its cheats, the time (or the speed), its conditions, the car, the gearbox */
 static void record_row(const BestTimesInputs *in, const RecordRow *r, int32_t y, int speed, const BestTimesOps *ops)
 {
@@ -241,10 +241,9 @@ static void record_row(const BestTimesInputs *in, const RecordRow *r, int32_t y,
     if (speed) ops->speed_text(ops->ctx, text, d32(r->row + RECORD_ROW_SPEED));
     else ops->time_text(ops->ctx, text, d32(r->row + RECORD_ROW_TIME));
     ops->text_shadowed(ops->ctx, text, TIME_X, y);
-    best_times_conditions_text(r->marks, text, sizeof text);
     /* right against the car's column, half size (two fifths after a speed, which runs wider than a time) */
-    const int num = speed ? 2 : 1, den = speed ? 5 : 2;
-    ops->plus_scaled(ops->ctx, TEXT_CREAM, text, COND_END - ops->plus_scaled_width(ops->ctx, text, num, den), y + SMALL_DROP, num, den);
+    const ConditionsPen pen = { (void *)ops, cream_scaled, scaled_width, ink };
+    record_conditions_draw(r->marks, COND_END, y, speed ? 2 : 1, speed ? 5 : 2, &pen);
     ops->text_shadowed(ops->ctx, car_name(d32(r->row + RECORD_ROW_CAR)), CAR_X, y);
     shift(in, d32(r->row + RECORD_ROW_GEARBOX), y, ops);
 }

@@ -55,6 +55,7 @@ static void draw_table(const ResultsInputs *in, int32_t bank, int16_t row, int16
     for (int i = 0; i < ROWS; i++) {
         const uint8_t *best = table + BEST_ROW * i;
         const int32_t y = ROW_STEP * i + ROW_Y;
+        if (!results_row_shown(in, best + BEST_NAME)) continue;
         if (i == row) ops->text_select(ops->ctx, 3);
         ops->text_fit(ops->ctx, (const char *)best + BEST_NAME, NAME_X, y, results_cheats(in) ? CHEATS_NAME_WIDTH : NAME_WIDTH);
         ops->time_text(ops->ctx, text, g32(best + BEST_TOTAL));
@@ -65,6 +66,7 @@ static void draw_table(const ResultsInputs *in, int32_t bank, int16_t row, int16
         if (i == row) ops->text_select(ops->ctx, 1);
     }
     ops->text_select(ops->ctx, top_beaten ? 3 : 1);
+    if (!results_row_shown(in, records + TOP_NAME)) return;
     ops->text_fit(ops->ctx, (const char *)records + TOP_NAME, NAME_X, TOP_Y, results_cheats(in) ? CHEATS_NAME_WIDTH : NAME_WIDTH);
     ops->speed_text(ops->ctx, text, g32(records + TOP_SPEED));
     ops->text_at(ops->ctx, text, TIME_X, TOP_Y);

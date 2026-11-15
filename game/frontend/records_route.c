@@ -177,10 +177,12 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
     return route_unified(kind, op, image, game, player, times);
 }
 
-void records_route_shown(RaceKind kind, const uint8_t image[RECORD_CHECK_IMAGE], uint8_t out[RECORD_CHECK_IMAGE], uint8_t slots[RECORDS_MARK_SLOTS])
+void records_route_shown(RaceKind kind, const uint8_t image[RECORD_CHECK_IMAGE], uint8_t out[RECORD_CHECK_IMAGE], uint8_t slots[RECORDS_MARK_SLOTS],
+                         RecordMarks conds[RECORDS_MARK_SLOTS])
 {
     memcpy(out, image, RECORD_CHECK_IMAGE);
     memset(slots, 0, RECORDS_MARK_SLOTS);
+    if (conds != NULL) memset(conds, 0, sizeof(RecordMarks) * RECORDS_MARK_SLOTS);
     if (!port_records_unified()) return;
     const int track = g16(image + TRACK);
     kind = records_kind_with_car(kind, g16(image + CAR));
@@ -199,11 +201,15 @@ void records_route_shown(RaceKind kind, const uint8_t image[RECORD_CHECK_IMAGE],
     uint8_t *const block = out + FIRST_BLOCK + BLOCK * track;
     block_from(block, track, t, lap);
     out[DIFFICULTY] = 0, out[DIFFICULTY + 1] = 0;
-    if (lap != NULL) slots[SLOT_SEGMENT] = lap->marks.cheats;
+    RecordMarks all[RECORDS_MARK_SLOTS];
+    memset(all, 0, sizeof all);
+    if (lap != NULL) all[SLOT_SEGMENT] = lap->marks;
     if (is_stage(track))
-        for (int k = 0; k < SEGMENTS; k++) slots[SLOT_SEGMENT + k] = t->segment_time[k].marks.cheats, slots[SLOT_SPEED_SEGMENT + k] = t->segment_speed[k].marks.cheats;
-    slots[SLOT_TOP] = t->top.marks.cheats;
-    for (int i = 0; i < ROWS; i++) slots[records_slot_totals(track, 0, i)] = t->totals[i].marks.cheats;
+        for (int k = 0; k < SEGMENTS; k++) all[SLOT_SEGMENT + k] = t->segment_time[k].marks, all[SLOT_SPEED_SEGMENT + k] = t->segment_speed[k].marks;
+    all[SLOT_TOP] = t->top.marks;
+    for (int i = 0; i < ROWS; i++) all[records_slot_totals(track, 0, i)] = t->totals[i].marks;
+    for (int s = 0; s < RECORDS_MARK_SLOTS; s++) slots[s] = all[s].cheats;
+    if (conds != NULL) memcpy(conds, all, sizeof all);
 }
 
 void records_layout_text(int layout, char *out, int size)

@@ -45,7 +45,8 @@ int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAG
 /* The image a screen shows the race's records in: `image`, and with port_records_unified its track block made from the race's table (its
  * totals in the first choice's place, the choice word 0), so the row a check set is the row shown; and the marks of that table's rows in
  * the slots above (`slots`, RECORDS_MARK_SLOTS bytes; all 0 without cheats). */
-void records_route_shown(RaceKind kind, const uint8_t image[RECORD_CHECK_IMAGE], uint8_t out[RECORD_CHECK_IMAGE], uint8_t slots[RECORDS_MARK_SLOTS]);
+void records_route_shown(RaceKind kind, const uint8_t image[RECORD_CHECK_IMAGE], uint8_t out[RECORD_CHECK_IMAGE], uint8_t slots[RECORDS_MARK_SLOTS],
+                         RecordMarks conds[RECORDS_MARK_SLOTS]);   /* conds: the same slots' rows' whole marks, NULL for none */
 
 /* The race's table as a line of words, "MIRROR + RALLY - CHEATS - 6 LAPS" (a stage's without laps); `laps` 0 for none */
 void records_table_line(int layout, int cheats, int laps, char *out, int size);

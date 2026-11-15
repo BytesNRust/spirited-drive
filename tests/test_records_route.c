@@ -383,7 +383,7 @@ static void test_the_results_show_the_races_table(void)
     uint8_t slots[RECORDS_MARK_SLOTS];
     race(&r, TR1, 0, 1, 99999, 777);
     CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_RALLY, EXTRAS_MARK_NITRO }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
-    records_route_shown((RaceKind){ LAYOUT_RALLY, EXTRAS_MARK_NITRO }, r.image, shown, slots);
+    records_route_shown((RaceKind){ LAYOUT_RALLY, EXTRAS_MARK_NITRO }, r.image, shown, slots, NULL);
     CHECK_EQ_INT(g32(shown + 0xb5 + 0xa6b * TR1 + 0xea + 0x1b), 777);
     CHECK_EQ_INT(shown[0xb3], 0);
     CHECK_EQ_INT(slots[records_slot_totals(TR1, 0, 0)], EXTRAS_MARK_NITRO);
@@ -397,7 +397,7 @@ static void test_the_results_show_the_races_table(void)
     CHECK(strcmp(line, "REVERSE - NO CHEATS - 1 LAP") == 0);
     /* the original's: the image as it is, no marks, no words */
     unified(0);
-    records_route_shown((RaceKind){ LAYOUT_RALLY, EXTRAS_MARK_NITRO }, r.image, shown, slots);
+    records_route_shown((RaceKind){ LAYOUT_RALLY, EXTRAS_MARK_NITRO }, r.image, shown, slots, NULL);
     CHECK(memcmp(shown, r.image, sizeof shown) == 0);
     CHECK(records_glue_line(ROUTE_TOTALS, r.image) == NULL);
     CHECK_EQ_INT(records_glue_cheats(ROUTE_TOTALS, r.image), 0);

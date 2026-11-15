@@ -5,6 +5,7 @@
 #include "game/frontend/results_screen.h"
 #include "game/frontend/track_results.h"
 #include "game/frontend/lap_times.h"
+#include "game/frontend/record_conditions.h"
 #include "game/frontend/records_route.h"
 #include "game/sys/extras_marks.h"
 #include "test.h"
@@ -33,7 +34,7 @@ bool platform_user_file_exists(const char *name)
 
 enum { DRAWN_MAX = 512, TEXT_MAX = 40, X_MARKS = 0xd7, Y_SEGMENT = 0x136, Y_TOP = 0x17c, Y_BEST = 0x6e };
 enum { TITLE_X = 232, TITLE_BEST_Y = 283, TITLE_TOP_Y = 354 };   /* where a suffix on the segment screen's art titles would go */
-enum { Y_BEST_ROW = 0x11d, Y_TRACK_TOP = 0x177, Y_HEAD = 0x5a, BEST_LEFT = 0x1d6, ROW_Y = 0x82, ROW_STEP = 0x15 };
+enum { Y_BEST_ROW = 0x11d, Y_TRACK_TOP = 0x177, Y_HEAD = 0x5a, BEST_LEFT = 0x1d6, ROW_Y = 0x82, ROW_STEP = 0x15, LEFT_TIME = 0x131 };
 
 typedef struct Drawn {
     char text[DRAWN_MAX][TEXT_MAX];
@@ -61,6 +62,22 @@ static void f_band_text(void *ctx, const char *text, int32_t x, int32_t y_mid, i
 {
     band_room = room;
     f_text_at(ctx, text, x, y_mid);
+}
+/* the records' conditions (ResultsOps.small_text), recorded as text at (x, y) with their size */
+static void f_small_text(void *ctx, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    (void)num, (void)den;
+    f_text_at(ctx, text, x, y);
+}
+static int32_t f_small_width(void *ctx, const char *text, int32_t num, int32_t den)
+{
+    (void)ctx;
+    return (int32_t)strlen(text) * 16 * num / den;
+}
+static void f_small_ink(void *ctx, const char *text, int32_t num, int32_t den, int32_t *top, int32_t *bottom)
+{
+    (void)ctx, (void)text;
+    *top = 4 * num / den, *bottom = 18 * num / den;
 }
 static void f_text_fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
 {
@@ -132,6 +149,9 @@ static ResultsOps fake_ops(void)
     ops.text_at = f_text_at;
     ops.text_fit = f_text_fit;
     ops.band_text = band_on ? f_band_text : NULL;
+    ops.small_text = f_small_text;
+    ops.small_width = f_small_width;
+    ops.small_ink = f_small_ink;
     ops.time_text = f_time_text;
     ops.average_text = f_average_text;
     ops.speed_text = f_speed_text;
@@ -250,7 +270,7 @@ static void test_segment_normal_table_is_unchanged(void)
 static void test_segment_cheats_banner_on_any_cheats_race(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, NULL };
+    ResultsMarks marks = { slots, 0, NULL, NULL };
     memset(slots, 0, sizeof slots);
     run_segment(&marks);
     CHECK(found("(CHEATS)", CHEATS_BANNER_X, CHEATS_BANNER_Y));
@@ -260,7 +280,7 @@ static void test_segment_cheats_banner_on_any_cheats_race(void)
 static void test_segment_speed_row_marks_come_from_its_own_slot(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, NULL };
+    ResultsMarks marks = { slots, 0, NULL, NULL };
     memset(slots, 0, sizeof slots);
     slots[SLOT_TOP] = EXTRAS_MARK_TURBO;
     run_segment(&marks);
@@ -274,7 +294,7 @@ static void test_segment_speed_row_marks_come_from_its_own_slot(void)
 static void test_segment_cheats_title_and_marks(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, NULL };
+    ResultsMarks marks = { slots, 0, NULL, NULL };
     memset(slots, 0, sizeof slots);
     slots[SLOT_SEGMENT + 0] = EXTRAS_MARK_NITRO;
     slots[SLOT_SPEED_SEGMENT + 0] = EXTRAS_MARK_TURBO | EXTRAS_MARK_WARRIOR;
@@ -292,7 +312,7 @@ static void test_segment_cheats_title_and_marks(void)
 static void test_segment_no_mark_when_slot_is_clear(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, NULL };
+    ResultsMarks marks = { slots, 0, NULL, NULL };
     memset(slots, 0, sizeof slots);
     run_segment(&marks);
     CHECK(any_text("Best Time (c)"));
@@ -304,7 +324,7 @@ static void test_best_totals_marks_each_row(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, NULL };
+    ResultsMarks marks = { slots, 0, NULL, NULL };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -341,7 +361,7 @@ static void test_track_results_header_and_best_row(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, NULL };
+    ResultsMarks marks = { slots, 0, NULL, NULL };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -377,7 +397,7 @@ static void test_circuit_results_header_and_best_row(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 1, NULL };
+    ResultsMarks marks = { slots, 1, NULL, NULL };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -413,7 +433,7 @@ static void test_best_totals_banner_on_cheats_race(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, NULL };
+    ResultsMarks marks = { slots, 0, NULL, NULL };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -435,7 +455,7 @@ static void test_lap_times_banner_follows_cheats(void)
 {
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     static uint8_t slots[RECORDS_MARK_SLOTS];
-    ResultsMarks marks = { slots, 0, NULL };
+    ResultsMarks marks = { slots, 0, NULL, NULL };
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
     DialogPointer p;
@@ -457,7 +477,7 @@ static void test_the_table_line(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
     memset(slots, 0, sizeof slots);
-    ResultsMarks marks = { slots, 0, "MIRROR - NO CHEATS - 6 LAPS" };
+    ResultsMarks marks = { slots, 0, "MIRROR - NO CHEATS - 6 LAPS", NULL };
     run_segment(&marks);
     CHECK(found("MIRROR - NO CHEATS - 6 LAPS", RESULTS_LINE_X, RESULTS_LINE_Y));
     marks.line = NULL;
@@ -472,7 +492,7 @@ static void test_the_line_is_in_the_logo_band(void)
     static uint8_t slots[RECORDS_MARK_SLOTS];
     memset(slots, 0, sizeof slots);
     band_on = 1;
-    ResultsMarks marks = { NULL, 0, "NORMAL - NO CHEATS - 1 LAP" };
+    ResultsMarks marks = { NULL, 0, "NORMAL - NO CHEATS - 1 LAP", NULL };
     run_segment(&marks);
     CHECK(found("NORMAL - NO CHEATS - 1 LAP", RESULTS_BAND_X, RESULTS_BAND_MID));
     CHECK(!any_text("(CHEATS)"));
@@ -496,8 +516,179 @@ static void test_the_line_is_in_the_logo_band(void)
     band_on = 0;
 }
 
+/* Restomod's empty rows (race_records_row_empty: no name, the longest time, car 0, gearbox 0, the set word 0) are not drawn on
+ * any screen: no time, no car, no marks; a row with a record is. Stock and Restored (no table line) draw every row as before. */
+enum { ROW_SET = 0x17, BLOCK_BYTES = 0xa6b, BEST_AT = 0x19f, TOP_AT = 0x631, SEG_TIME_AT = 0xb5, SEG_SPEED_AT = 0x12a,
+       Y_LAP_RECORD = 0x144, Y_RIGHT_CAR = 0x6e, Y_RIGHT_TOTAL = 0x9d, MARK_COLUMN = 0x23f };
+static const char *const LINE = "REVERSE - NO CHEATS - 2 LAPS";
+
+static void row_set(uint8_t *image, int at) { image[at + ROW_SET] = 1; }
+
+static int drawn_at_y(int32_t y)
+{
+    for (int i = 0; i < drawn.count; i++)
+        if (drawn.y[i] == y) return 1;
+    return 0;
+}
+
+typedef void (*Screen)(ResultsInputs *in, ResultsState *st, DialogPointer *p, const ResultsOps *ops);
+static void s_circuit(ResultsInputs *in, ResultsState *st, DialogPointer *p, const ResultsOps *ops) { circuit_results_screen(0, in, st, p, ops); }
+static void s_track(ResultsInputs *in, ResultsState *st, DialogPointer *p, const ResultsOps *ops) { track_results_screen(0, in, st, p, ops); }
+static void s_segment(ResultsInputs *in, ResultsState *st, DialogPointer *p, const ResultsOps *ops) { results_screen(0, in, st, p, ops); }
+static void s_totals(ResultsInputs *in, ResultsState *st, DialogPointer *p, const ResultsOps *ops) { best_totals_screen(0, 0, in, st, p, ops); }
+static void s_laps(ResultsInputs *in, ResultsState *st, DialogPointer *p, const ResultsOps *ops) { lap_times_screen(0, 0, in, st, p, ops); }
+
+/* the screen run on `track` with an empty table (the set words in `set`, NULL none), a DNF when `dnf` */
+static const RecordMarks *row_conds;   /* the marks' conditions run_rows gives (NULL none) */
+static void run_rows(Screen screen, int track, const char *line, const int *set, int n, int dnf)
+{
+    static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
+    static ResultsMarks marks;
+    ResultsInputs in;
+    ResultsState st = { 0, screen_palette, 0 };
+    DialogPointer p;
+    ResultsOps ops = fake_ops();
+    marks.slots = NULL, marks.choice = 0, marks.line = line, marks.conds = row_conds;
+    setup_inputs(&in, game, image, &marks);
+    image[TRACK_WORD] = (uint8_t)track;
+    if (dnf) game[GAME_RACED] = 0;
+    for (int i = 0; i < n; i++) row_set(image, BLOCK_BYTES * track + set[i]);
+    memset(&p, 0, sizeof p);
+    reset();
+    screen(&in, &st, &p, &ops);
+}
+
+static void test_restomod_empty_rows_are_blank_after_a_dnf(void)
+{
+    run_rows(s_circuit, 3, LINE, NULL, 0, 1);
+    CHECK(any_text("DNF"));
+    CHECK(!drawn_at_y(Y_BEST_ROW));      /* BEST TIME: no 596523:14.1, RX-7, t.t. */
+    CHECK(!drawn_at_y(Y_TRACK_TOP));     /* TOP SPEED: no N/A, RX-7, t.t. */
+    CHECK(!found("RX-7", BEST_LEFT, Y_RIGHT_CAR));   /* the Best Time column: no car, no time */
+    CHECK(!found("t", BEST_LEFT, Y_RIGHT_TOTAL));
+    CHECK(any_text("Best Time"));
+    run_rows(s_track, 0, LINE, NULL, 0, 1);
+    CHECK(!drawn_at_y(Y_BEST_ROW));
+    CHECK(!drawn_at_y(Y_TRACK_TOP));
+    CHECK(!found("RX-7", BEST_LEFT, Y_RIGHT_CAR));
+    CHECK(!found("t", BEST_LEFT, Y_RIGHT_TOTAL));
+    run_rows(s_segment, 0, LINE, NULL, 0, 1);
+    CHECK(!drawn_at_y(Y_SEGMENT));
+    CHECK(!drawn_at_y(Y_TOP));
+    run_rows(s_laps, 3, LINE, NULL, 0, 1);
+    CHECK(!drawn_at_y(Y_LAP_RECORD));
+}
+
+static void test_restomod_set_rows_are_drawn(void)
+{
+    const int circuit[2] = { BEST_AT, TOP_AT }, segment[2] = { SEG_TIME_AT, SEG_SPEED_AT }, lap[1] = { SEG_TIME_AT };
+    run_rows(s_circuit, 3, LINE, circuit, 2, 0);
+    CHECK(found("t", LEFT_TIME, Y_BEST_ROW) && found("RX-7", BEST_LEFT, Y_BEST_ROW) && found("t.t.", MARK_COLUMN, Y_BEST_ROW));
+    CHECK(found("s", LEFT_TIME, Y_TRACK_TOP) && found("RX-7", BEST_LEFT, Y_TRACK_TOP));
+    CHECK(found("RX-7", BEST_LEFT, Y_RIGHT_CAR) && found("t", BEST_LEFT, Y_RIGHT_TOTAL));
+    run_rows(s_track, 0, LINE, circuit, 2, 0);
+    CHECK(found("t", LEFT_TIME, Y_BEST_ROW) && found("s", LEFT_TIME, Y_TRACK_TOP));
+    CHECK(found("RX-7", BEST_LEFT, Y_RIGHT_CAR));
+    run_rows(s_segment, 0, LINE, segment, 2, 0);
+    CHECK(found("t", LEFT_TIME, Y_SEGMENT) && found("s", LEFT_TIME, Y_TOP));
+    run_rows(s_laps, 3, LINE, lap, 1, 0);
+    CHECK(found("t", LEFT_TIME, Y_LAP_RECORD) && found("RX-7", BEST_LEFT, Y_LAP_RECORD));
+}
+
+/* Best Times after a finish: the one record's row is drawn, the nine empty ones are not, nor the empty top speed */
+static void test_restomod_best_totals_draw_only_records(void)
+{
+    const int first[1] = { BEST_AT };
+    run_rows(s_totals, 3, LINE, first, 1, 0);
+    CHECK(found("t", LEFT_TIME, ROW_Y) && found("RX-7", BEST_LEFT, ROW_Y) && found("t.t.", MARK_COLUMN, ROW_Y));
+    for (int i = 1; i < 10; i++) CHECK(!drawn_at_y(ROW_STEP * i + ROW_Y));
+    CHECK(!drawn_at_y(Y_TRACK_TOP));
+}
+
+/* Stock and Restored: the original's rows are all drawn, set word or not */
+static void test_original_rows_are_all_drawn(void)
+{
+    run_rows(s_totals, 3, NULL, NULL, 0, 0);
+    for (int i = 0; i < 10; i++) CHECK(found("t", LEFT_TIME, ROW_STEP * i + ROW_Y) && found("RX-7", BEST_LEFT, ROW_STEP * i + ROW_Y));
+    CHECK(found("s", LEFT_TIME, Y_TRACK_TOP));
+    run_rows(s_circuit, 3, NULL, NULL, 0, 1);
+    CHECK(found("t", LEFT_TIME, Y_BEST_ROW) && found("s", LEFT_TIME, Y_TRACK_TOP) && found("RX-7", BEST_LEFT, Y_RIGHT_CAR));
+    run_rows(s_track, 0, NULL, NULL, 0, 1);
+    CHECK(found("t", LEFT_TIME, Y_BEST_ROW) && found("s", LEFT_TIME, Y_TRACK_TOP));
+    run_rows(s_segment, 0, NULL, NULL, 0, 1);
+    CHECK(found("t", LEFT_TIME, Y_SEGMENT) && found("s", LEFT_TIME, Y_TOP));
+    run_rows(s_laps, 3, NULL, NULL, 0, 1);
+    CHECK(found("t", LEFT_TIME, Y_LAP_RECORD));
+}
+
+/* Restomod's results show each record's conditions as Best Times does (record_conditions_draw): a small block of two lines, the weather and
+ * time over the difficulty's word, ending just left of the car's column and within the row's line; the speed's smaller. Empty rows show
+ * none, nor do Stock and Restored. */
+enum { COND_END_X = 0x1d6 - 6 };
+static RecordMarks conds[RECORDS_MARK_SLOTS];
+
+static int drawn_index(const char *text)
+{
+    for (int i = 0; i < drawn.count; i++)
+        if (strcmp(drawn.text[i], text) == 0) return i;
+    return -1;
+}
+
+/* the block `first` over `second` on the row at row_y, at num/den: its wider line ends on COND_END_X, the other centred on it, the two
+ * RECORD_CONDITIONS_GAP rows apart (the fake font's capitals fill rows 4..18 at full size) */
+static int found_block(const char *first, const char *second, int32_t row_y, int num, int den)
+{
+    const int a = drawn_index(first), b = drawn_index(second);
+    if (a < 0 || b < 0) return 0;
+    const int32_t w1 = (int32_t)strlen(first) * 16 * num / den, w2 = (int32_t)strlen(second) * 16 * num / den, wide = w1 > w2 ? w1 : w2;
+    const int32_t top = 4 * num / den, bottom = 18 * num / den;
+    const int32_t middle = ((drawn.y[a] + top) + (drawn.y[b] + bottom)) / 2;
+    return drawn.x[a] == COND_END_X - wide + (wide - w1) / 2 && drawn.x[b] == COND_END_X - wide + (wide - w2) / 2 &&
+           (drawn.y[b] + top) - (drawn.y[a] + bottom) == RECORD_CONDITIONS_GAP && middle >= row_y + 10 && middle <= row_y + 12;
+}
+
+static void set_conds(void)
+{
+    memset(conds, 0, sizeof conds);
+    conds[records_slot_totals(3, 0, 0)] = race_records_conditions_of(2, 0, 0, 2, 1, 1, 1);   /* RAIN DUSK / EASY (a stage's first total
+                                                                                              * is the same slot: FOG DAY below) */
+    conds[SLOT_TOP] = race_records_conditions_of(0, 1, 0, 3, 2, 2, 2);                       /* SNOW NGT / HARD */
+    conds[SLOT_SEGMENT] = race_records_conditions_of(3, 0, 0, 2, 0, 0, 0);                   /* STRM DUSK / ORIGINAL */
+    conds[SLOT_SPEED_SEGMENT] = race_records_conditions_of(0, 0, 1, 0, 0, 1, 2);             /* WET DAY / MIXED */
+    row_conds = conds;
+}
+
+static void test_restomod_results_show_record_conditions(void)
+{
+    const int circuit[2] = { BEST_AT, TOP_AT }, segment[2] = { SEG_TIME_AT, SEG_SPEED_AT };
+    set_conds();
+    run_rows(s_circuit, 3, LINE, circuit, 2, 0);
+    CHECK(found_block("RAIN DUSK", "EASY", Y_BEST_ROW, 1, 2));
+    CHECK(found_block("SNOW NGT", "HARD", Y_TRACK_TOP, 2, 5));
+    conds[records_slot_totals(0, 0, 0)] = race_records_conditions_of(1, 0, 0, 0, 0, 0, 0);   /* FOG DAY / ORIGINAL */
+    run_rows(s_track, 0, LINE, circuit, 2, 0);
+    CHECK(found_block("FOG DAY", "ORIGINAL", Y_BEST_ROW, 1, 2));
+    CHECK(found_block("SNOW NGT", "HARD", Y_TRACK_TOP, 2, 5));
+    set_conds();
+    run_rows(s_segment, 0, LINE, segment, 2, 0);
+    CHECK(found_block("STRM DUSK", "ORIGINAL", Y_SEGMENT, 1, 2));
+    CHECK(found_block("WET DAY", "MIXED", Y_TOP, 2, 5));
+    run_rows(s_circuit, 3, LINE, NULL, 0, 1);   /* empty rows: nothing */
+    CHECK(drawn_index("RAIN DUSK") < 0 && drawn_index("SNOW NGT") < 0 && drawn_index("-") < 0);
+    run_rows(s_circuit, 3, NULL, circuit, 2, 0);   /* Stock, Restored: no conditions */
+    CHECK(drawn_index("RAIN DUSK") < 0 && drawn_index("SNOW NGT") < 0);
+    run_rows(s_segment, 0, NULL, segment, 2, 0);
+    CHECK(drawn_index("STRM DUSK") < 0 && drawn_index("WET DAY") < 0);
+    row_conds = NULL;
+}
+
 int main(void)
 {
+    test_restomod_results_show_record_conditions();
+    test_restomod_empty_rows_are_blank_after_a_dnf();
+    test_restomod_set_rows_are_drawn();
+    test_restomod_best_totals_draw_only_records();
+    test_original_rows_are_all_drawn();
     test_the_line_is_in_the_logo_band();
     test_the_table_line();
     test_segment_normal_table_is_unchanged();
