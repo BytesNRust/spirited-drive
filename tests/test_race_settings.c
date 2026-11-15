@@ -2,6 +2,7 @@
  * helpers 00432720/00432974 (race type), 00432c40/00432d48/00432cd4 (track),
  * 00465ec8 (car flags) and the per-panel arrow handling. */
 #include "game/frontend/race_settings.h"
+#include "game/race/car_registry.h"
 #include "test.h"
 
 static const Unlocks NONE = { 0, 0, 0, 0, 0 };
@@ -134,6 +135,34 @@ static void test_laps(void)
     CHECK_EQ_INT(s.laps, 16);
 }
 
+/* Review Focus 8: an added car's flags are those of the car its AI comes from, never a read past the tables of 12 */
+static void test_added_car_flags(void)
+{
+    car_registry_clear();
+    CHECK_EQ_INT(car_registry_add(&(CarPiece){ .id = "a", .stem = "A1", .sound_model = 0, .ai_model = 5, .dash_model = -1 }, NULL, 0), 16);
+    RaceSettings s, want;
+    race_settings_init(&s), race_settings_init(&want);
+    want.player_car = 5;
+    race_settings_car_flags(&want);
+    s.player_car = 16;
+    race_settings_car_flags(&s);
+    CHECK_EQ_INT(s.car_flag_a, want.car_flag_a);
+    CHECK_EQ_INT(s.car_flag_b, want.car_flag_b);
+    want.player_car = 0;   /* one not registered, or past every range: car 0's */
+    race_settings_car_flags(&want);
+    for (int car = 12; car <= 200; car += 4) {
+        s.player_car = car;
+        race_settings_car_flags(&s);
+        if (car == 16) continue;
+        CHECK_EQ_INT(s.car_flag_a, want.car_flag_a);
+        CHECK_EQ_INT(s.car_flag_b, want.car_flag_b);
+    }
+    s.player_car = -3;
+    race_settings_car_flags(&s);
+    CHECK_EQ_INT(s.car_flag_a, want.car_flag_a);
+    car_registry_clear();
+}
+
 int main(void)
 {
     test_init();
@@ -143,5 +172,6 @@ int main(void)
     test_opponent();
     test_tracks();
     test_laps();
+    test_added_car_flags();
     return TEST_REPORT();
 }

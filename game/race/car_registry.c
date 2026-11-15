@@ -57,6 +57,14 @@ const CarPiece *car_registry_piece(int car)
     return car_registry_is_added(car) ? &pieces[car - CAR_ADDED_FIRST] : NULL;
 }
 
+int car_registry_cars(int16_t out[], int cap)
+{
+    int n = 0;
+    for (int k = 0; k < CAR_ADDED_MAX && n < cap; k++)
+        if (used[k]) out[n++] = (int16_t)(CAR_ADDED_FIRST + k);
+    return n;
+}
+
 int car_registry_find(const char *id)
 {
     if (id == NULL) return -1;

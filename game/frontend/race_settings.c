@@ -1,5 +1,6 @@
 #include "game/frontend/race_settings.h"
 #include "game/frontend/central.h"
+#include "game/race/car_registry.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -10,11 +11,15 @@ static const int TOURNAMENT_CAR[10] = { 0, 3, 6, 0, 3, 3, 6, 6, 7, 3 };
 static const int CAR_TABLE_A[12] = { 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0 };
 static const int CAR_TABLE_B[12] = { 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
 
-/* 00465ec8 */
+/* 00465ec8; port (dep59): an added car takes the flags of the car its AI comes from, and a car past the tables (one no longer
+ * registered) car 0's, never a read past them */
 void race_settings_car_flags(RaceSettings *s)
 {
-    s->car_flag_a = CAR_TABLE_A[s->player_car] ? 0 : 2;
-    s->car_flag_b = (CAR_TABLE_B[s->player_car] == 0) + 1;
+    int car = s->player_car;
+    if (car_registry_is_added(car)) car = car_registry_ai_model(car);
+    if (car < 0 || car >= (int)(sizeof CAR_TABLE_A / sizeof CAR_TABLE_A[0])) car = 0;
+    s->car_flag_a = CAR_TABLE_A[car] ? 0 : 2;
+    s->car_flag_b = (CAR_TABLE_B[car] == 0) + 1;
 }
 
 static int short_track(int track)
