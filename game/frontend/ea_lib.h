@@ -9,7 +9,8 @@
 int32_t ea_bank_load(const char *name);                       /* 00466c34: 0 when it cannot be read */
 int32_t ea_bank_load_path(const char *path);  /* 00476268: a path from the working directory */
 void ea_bank_free(int32_t bank);                              /* 00475260 on a bank */
-const uint8_t *ea_shape(int32_t bank, const char *tag);       /* 004732dd: NULL when it has none */
+const uint8_t *ea_shape(int32_t bank, const char *tag);       /* 004732dd: NULL when it has none; port: "!pal" never NULL
+                                                               * (a grey ramp for a bank missing, refused or without one) */
 
 int32_t ea_picture_new(int32_t w, int32_t h);                 /* 0047310c: 0 when there is no room */
 void ea_picture_free(int32_t picture);                        /* 004746a0 */

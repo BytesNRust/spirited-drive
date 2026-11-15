@@ -16,7 +16,9 @@
 #include "game/race/race_sound.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
+#include "game/sys/shape_bank.h"
 #include "game/sys/text.h"
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
@@ -166,10 +168,16 @@ static void music(void *ctx, const char *name)
     drive_audio_music_play(name);
 }
 
+/* port: a bank the menu cannot read within its bytes (shape_bank_valid) is refused as a missing one */
 static uint8_t *load(void *ctx, const char *name)
 {
-    size_t size;
-    return (void)ctx, resource_load_art(name, &size);
+    (void)ctx;
+    size_t size = 0;
+    uint8_t *bank = resource_load_art(name, &size);
+    if (bank == NULL || shape_bank_valid(bank, size)) return bank;
+    port_log("drive_menu: %s is not a shape bank the game can read\n", name);
+    resource_free(bank);
+    return NULL;
 }
 
 static uint32_t load_inventory(void *ctx, const char *name) { return (void)ctx, (void)name, 0; }

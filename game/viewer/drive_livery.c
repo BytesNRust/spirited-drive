@@ -71,7 +71,7 @@ static int cfm_palette(uint8_t *cfm, size_t size, int *type, uint8_t **palette)
     Fsh bank;
     if (chunk_open(&file, cfm, size) != CHUNK_OK) return 0;
     if (chunk_child(&file, 1, &shpi) != CHUNK_OK || shpi.kind != CHUNK_KIND_BITMAP) return 0;
-    if (fsh_open(&bank, shpi.data, shpi.size) != FSH_OK) return 0;
+    if (fsh_open(&bank, shpi.data, shpi.size) != FSH_OK || !shape_bank_valid(shpi.data, shpi.size)) return 0;
     uint8_t *shape = shape_bank_find((uint8_t *)(uintptr_t)bank.data, PAL_NAME);
     if (shape == NULL) return 0;
     *type = shape[0];
@@ -177,7 +177,7 @@ static int repaint_cfm(uint8_t *cfm, size_t size, const char *stem, const char *
         Chunk shpi;
         Fsh bank;
         if (chunk_child(&file, 2 * level + 1, &shpi) != CHUNK_OK || shpi.kind != CHUNK_KIND_BITMAP) continue;
-        if (fsh_open(&bank, shpi.data, shpi.size) != FSH_OK) continue;
+        if (fsh_open(&bank, shpi.data, shpi.size) != FSH_OK || !shape_bank_valid(shpi.data, shpi.size)) continue;
         uint8_t *data = (uint8_t *)(uintptr_t)bank.data;
         uint8_t *pal = shape_bank_find(data, PAL_NAME), *own = shape_bank_find(data, OWN_NAME);
         if (pal == NULL) continue;
@@ -305,16 +305,17 @@ static const uint8_t DASH_NAME[4] = { 'd', 'a', 's', 'h' }, DASH_PAL_NAME[4] = {
 
 static uint32_t word_at(const uint8_t *b) { return (uint32_t)b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24; }
 
-/* the bank's palette as cockpit_load finds it: a '!pal' shape, else the one that follows the 'dash' shape's pixels. NULL when there is none. */
-static uint8_t *dash_palette(uint8_t *bank)
+/* the bank's palette as cockpit_load finds it: a '!pal' shape, else the one that follows the 'dash' shape's pixels. NULL when there is
+ * none, or (port) when the bank is not one the game can read (shape_bank_valid) or that palette runs past it. */
+static uint8_t *dash_palette(uint8_t *bank, size_t size)
 {
+    if (!shape_bank_valid(bank, size)) return NULL;
     uint8_t *shape = shape_bank_find(bank, DASH_PAL_NAME);
-    if (shape == NULL) {
-        uint8_t *dash = shape_bank_find(bank, DASH_NAME);
-        if (dash == NULL) return NULL;
-        shape = dash + (word_at(dash) >> 8);
-    }
-    return shape;
+    if (shape != NULL) return shape;
+    uint8_t *dash = shape_bank_find(bank, DASH_NAME);
+    if (dash == NULL) return NULL;
+    const size_t at = (size_t)(dash - bank) + (word_at(dash) >> 8);
+    return at <= size && size - at >= PALETTE_HEADER + 768 ? bank + at : NULL;
 }
 
 int drive_livery_black(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3])
@@ -363,7 +364,7 @@ int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const uint8_
     for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
     upper[i] = '\0';
     Fsh fsh;
-    uint8_t *const pal = dash_palette(bank);
+    uint8_t *const pal = dash_palette(bank, size);
     if (pal == NULL || fsh_open(&fsh, bank, size) != FSH_OK || pal + PALETTE_HEADER + 768 > bank + size) return 0;
     RepaintTexture textures[DASH_TEXTURES];
     uint8_t *masks[DASH_TEXTURES] = { NULL };

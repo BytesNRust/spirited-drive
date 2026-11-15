@@ -37,6 +37,7 @@ patterns() {
         sound_bank) echo "*.bnk" ;;
         music_stream) echo "*.asf *.as4" ;;
         tgv) echo "*.tgv" ;;
+        shape_bank) echo "*.fsh" ;;
         *) echo "" ;;
     esac
 }

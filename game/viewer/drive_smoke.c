@@ -3,6 +3,7 @@
 
 #include "game/gfx/palette_match.h"
 #include "game/sys/port_log.h"
+#include "game/sys/shape_bank.h"
 #include "game/sys/resource.h"
 
 #include <ctype.h>
@@ -25,9 +26,14 @@ static uint8_t *load(void *ctx, const char *path)
     char full[sizeof s->root + 0x50];  /* the root, then 00456a7c's 80 bytes */
     snprintf(full, sizeof full, "%s/%s", s->root, path);
     uint8_t *file = resource_load(full, &size);
-    if (file != NULL) return file;
-    for (size_t i = strlen(s->root) + 1 + strlen(s->misc_dir); full[i] != '\0'; i++) full[i] = (char)toupper((unsigned char)full[i]);
-    return resource_load(full, &size);
+    if (file == NULL) {
+        for (size_t i = strlen(s->root) + 1 + strlen(s->misc_dir); full[i] != '\0'; i++) full[i] = (char)toupper((unsigned char)full[i]);
+        file = resource_load(full, &size);
+    }
+    if (file == NULL || shape_bank_valid(file, size)) return file;
+    port_log("drive_smoke: %s is not a shape bank the game can read\n", full);   /* port: refused as a missing one */
+    resource_free(file);
+    return NULL;
 }
 
 /* 00473140 on the race's screen palette */

@@ -35,9 +35,14 @@ static const uint8_t TRACK_PAL[4] = { '!', 'p', 'a', 'l' };
 static const uint8_t MODEL_PAL[4] = { '!', 'P', 'A', 'L' };
 
 /* The buffers are the caller's, read from files: writable. */
+/* port: NULL too for a bank the palette's readers cannot read within its bytes (shape_bank_valid: a damaged or hostile mod's
+ * track); its colours are then left as they are */
 static uint8_t *bank_of(const Chunk *c)
 {
-    return c->kind == CHUNK_KIND_BITMAP ? (uint8_t *)(uintptr_t)c->data : NULL;
+    if (c->kind != CHUNK_KIND_BITMAP) return NULL;
+    if (shape_bank_valid(c->data, c->size)) return (uint8_t *)(uintptr_t)c->data;
+    port_log("drive_palette: a track bank is not one the game can read\n");
+    return NULL;
 }
 
 /* A track bank's palette as 6 bits a channel: 0044c36c turns a type 0x24
@@ -58,6 +63,7 @@ static const uint8_t *palette6(uint8_t *bank, const uint8_t name[4])
 /* (with `used` set nothing is remapped: the entries the banks, as mapped, show are marked) */
 static void map_track_bank(RacePalette *p, uint8_t *bank, const uint8_t *palette, uint8_t *used)
 {
+    if (bank == NULL) return;
     if (used != NULL) race_palette_bank_entries(bank, used);
     else race_palette_remap_track_bank(p, bank, palette);
 }

@@ -36,6 +36,7 @@ libFuzzer with AddressSanitizer and UndefinedBehaviorSanitizer.
 | `sound_bank` | `sound_bank_register`, every sound played through the mixer | sound banks (`.bnk`) |
 | `music_stream` | the music reader, the stream queue and the mixer | music (`.asf`, `.as4`) |
 | `tgv` | `tgv_decode` on each key frame and frame found in the input | movies (`.tgv`) |
+| `shape_bank` | `shape_bank_valid`, then `shape_bank_find` on each name | every art bank the menus, the HUD, the cockpit, the smoke, the cars and the tracks search |
 
 ## Every build: the kept cases
 

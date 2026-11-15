@@ -180,6 +180,7 @@ static void masked(int32_t bank, const char *tag, const TrackSelectOps *ops);
  * a margin for its shadow; they take the strip's own texels from its left end, where there is no word, so the grain goes on. */
 static void night_label(const uint8_t *shape, int lit, const TrackSelectState *st, const TrackSelectOps *ops)
 {
+    if (shape == NULL) return;   /* the strip missing from the bank (a mod's) */
     const int width = shape[4] | shape[5] << 8, height = shape[6] | shape[7] << 8;
     uint8_t *copy = st->screen_palette ? malloc(SHAPE_HEADER + (size_t)width * (size_t)height) : NULL;
     if (copy != NULL) {
