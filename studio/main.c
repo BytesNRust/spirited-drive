@@ -5,7 +5,7 @@
  *   tnfs-studio slot list|replace|undo ...        (studio/slot.h)
  *   tnfs-studio track new LAYOUT --template SLOT --out DIR ...   (studio/track_new.h)
  *   tnfs-studio car new --template CAR --id ID --stem STEM --out DIR ...   (studio/car_new.h)
- *   tnfs-studio car card PIECE_DIR --generic [--force]   (studio/car_card.h)
+ *   tnfs-studio car card PIECE_DIR --generic | --tnfs BIN ...   (studio/car_card.h)
  *   tnfs-studio car import PIECE_DIR --obj FILE.obj ...   (studio/car_import.h)
  *   tnfs-studio mod pack DIR OUT.zip [--force]   (studio/mod_pack.h)
  * `export` and `import` are the same two commands. Packing needs the original file: edits overlay it, and
@@ -55,6 +55,7 @@ static void usage(FILE *to)
           "  tnfs-studio track new LAYOUT --template SLOT --out DIR [--stem NAME] [--data DIR] [--force]\n"
           "  tnfs-studio car new --template CAR --id ID --stem STEM --out DIR [--name NAME] [--data DIR] [--port-data DIR] [--force]\n"
           "  tnfs-studio car card PIECE_DIR --generic [--force]\n"
+          "  tnfs-studio car card PIECE_DIR --tnfs BIN [--data DIR] [--track TR1] [--node N] [--time day|dawn|dusk|night] [--force]\n"
           "  tnfs-studio car import PIECE_DIR --obj FILE.obj [--low FILE.obj] [--textures DIR] [--low-textures DIR] [--raw] [--scale S]\n"
           "                         [--steer DEGREES] [--donor CAR] [--keep-pdn] [--data DIR] [--force]\n"
           "  tnfs-studio mod pack DIR OUT.zip [--force]\n"
