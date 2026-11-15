@@ -47,7 +47,10 @@ The game prints nothing to the console but fatal errors; `TNFS_VERBOSE=1` (or `-
 that could not be read). The other development variables are in [settings.md](settings.md).
 
 Headless runs: `TNFS_CAPTURE_DIR` writes every n-th presented frame as PPM and `TNFS_INPUT_SCRIPT` replays input (`ms:KEY` held until the game
-reads it, `ms:MOUSE:x:y`). Example: boot, move down twice, then choose Exit with the mouse:
+reads it, `ms:MOUSE:x:y`). The pointer's x and y are the frame's: 640x480 headless (the dummy display is 4:3), but a real window
+follows the monitor's shape in Restomod (854x480 on a 16:10 or 16:9 display, the 4:3 menus centred 107 to the right), so a window
+run's clicks need the frame it got (the `--verbose` log's "presentation rect ... for WxH"). Example: boot, move down twice, then choose
+Exit with the mouse:
 
 ```sh
 SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software TNFS_CAPTURE_DIR=/tmp/frames \
