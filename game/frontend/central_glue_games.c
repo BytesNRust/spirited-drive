@@ -42,12 +42,29 @@ static void save_box(void *ctx, char *name)
     (void)ctx;
     glue_save_box(name, config_current()->image, cg_game_state, (int16_t)cg_g.lost_vegas);
 }
+/* 004275f8 on a replay's bytes, in the menus' window with their volumes and no game state to write; `added`: a Replay.rpx's
+ * (track_viewer.h) */
+static void play(uint8_t *file, size_t size, const char *name, int added)
+{
+    enum { FROM_START = 4, HIGHLIGHTS = 5 };
+    const TrackViewerMenus menus = { 1, 1, 1, 0, 0, cg_image_short(0x73), cg_image_short(0x75), cg_image_short(0x79),
+                                     cg_image_short(0x71), NULL, 0, 0, 0, 0, 0, 0, 0, NULL, -1,
+                                     config_current()->image + OPTIONS_AT };  /* the time of day and the flags: the replay's setup */
+    const int request = replay_kind == 2 ? HIGHLIGHTS : FROM_START;
+    menu_audio_close();
+    track_viewer_drive_menus(&menus);
+    if (!(added ? track_viewer_drive_replay_added_data(resource_root(), file, size, request)
+                : track_viewer_drive_replay_data(resource_root(), file, size, request)))
+        port_log("load_save: the replay %s could not play\n", name);
+    menu_audio_open();
+    platform_free_file(file);
+}
+
 /* 004275f8 for a replay (0042c498's eax 2): config.dat's name 00524e2b, played as kind 00524e9f asks (1 the
- * replay from the start, 0044f534(4); 2 the highlights, 5), the player's file else the CD's; in the menus' window
- * with their volumes and no game state to write */
+ * replay from the start, 0044f534(4); 2 the highlights, 5), the player's file else the CD's */
 static void replay(void *ctx, int32_t mode, const char *path)
 {
-    enum { NAME_AT = 0x3b, NAME = 0x14, FROM_START = 4, HIGHLIGHTS = 5 };
+    enum { NAME_AT = 0x3b, NAME = 0x14 };
     (void)ctx, (void)mode, (void)path;
     char name[NAME + 1] = { 0 };
     memcpy(name, config_current()->image + NAME_AT, NAME);
@@ -57,15 +74,24 @@ static void replay(void *ctx, int32_t mode, const char *path)
         port_log("load_save: no replay %s\n", name);
         return;
     }
-    const TrackViewerMenus menus = { 1, 1, 1, 0, 0, cg_image_short(0x73), cg_image_short(0x75), cg_image_short(0x79),
-                                     cg_image_short(0x71), NULL, 0, 0, 0, 0, 0, 0, 0, NULL, -1,
-                                     config_current()->image + OPTIONS_AT };  /* the time of day and the flags: the replay's setup */
-    menu_audio_close();
-    track_viewer_drive_menus(&menus);
-    if (!track_viewer_drive_replay_data(resource_root(), file, size, replay_kind == 2 ? HIGHLIGHTS : FROM_START))
-        port_log("load_save: the replay %s could not play\n", name);
-    menu_audio_open();
-    platform_free_file(file);
+    play(file, size, name, 0);
+}
+
+/* port (dep59 1b): 0040c710's replay of the race just run: its Replay.rpx when it had an added car (config.dat keeps naming
+ * REPLAY.RPL, the original's), else as Load/Save's */
+static void after_replay(void *ctx, int32_t mode, const char *path)
+{
+    if (!track_viewer_last_replay_added()) {
+        replay(ctx, mode, path);
+        return;
+    }
+    size_t size = 0;
+    uint8_t *file = platform_read_user_file(TRACK_VIEWER_ADDED_REPLAY, &size);
+    if (file == NULL) {
+        port_log("load_save: no replay %s\n", TRACK_VIEWER_ADDED_REPLAY);
+        return;
+    }
+    play(file, size, TRACK_VIEWER_ADDED_REPLAY, 1);
 }
 
 /* 0042c498 from Options (mode 0) on config.dat's image, its shorts copied around it to aligned ones */
@@ -189,7 +215,7 @@ static AfterRaceOps after_race_ops(void (*options)(void *, int32_t), void *ctx)
         move_to, load_art, no_inverse, music_feed, palette_clear, shape, cg_palette_set, poll, mark, cg_net_service, in_rect,
         chat_waiting, select_picture, blit, blit_masked, select_default, hide, picture_shape, flip, show, buttons, fade_in,
         styles, deadline_set, sound, nothing, ticks, activate, cg_key, click, music_fade_out, fade_out, music_end,
-        free_bank, free_handle_inverse, picture_free, sound_free, clear_one, clip, replay, nothing, set_palette,
+        free_bank, free_handle_inverse, picture_free, sound_free, clear_one, clip, after_replay, nothing, set_palette,
         no_mode_set, no_mode, picture_new, sound_load, music_pick, options, cg_standings, cg_circuit_results,
         cg_segment_results, cg_track_results, cg_chat, off, cg_credits_tick, cg_deadline_passed, ctx };
 }

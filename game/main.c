@@ -12,7 +12,7 @@
  *                                          ending in m or r (TR1m, CY2r) takes the track's "m" or "r" art and layout
  *   tnfs --drive NAME [--car N] [--racers N] --node TICKS --screenshot OUT.ppm   a headless frame
  *                                          (--car takes a number, or in Restomod an added car's id: docs/modding.md)
- *   tnfs --replay FILE.RPL                 play a replay back in the drive (development)
+ *   tnfs --replay FILE.RPL|FILE.RPX        play a replay back in the drive (development); a .RPX needs its added cars' mods
  *   tnfs --movie FILE.TGV                  play a TGV movie in the menus' window (development) */
 #include "game/frontend/config.h"
 #include "game/race/car_registry.h"
@@ -83,7 +83,7 @@ static int bad_usage(const char *program)
     port_fatal("usage: %s [--data DIR] [--mods DIR] [--user DIR] [--german] [--verbose] [--net-port N] [--net-host IP:PORT]... | --view FILE [--entry N] [--screenshot OUT.ppm]\n"
                     "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
                     "       %s [--data DIR] --drive NAME[m|r|mr] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
-                    "       %s [--data DIR] --replay FILE.RPL\n"
+                    "       %s [--data DIR] [--mods DIR] --replay FILE.RPL|FILE.RPX\n"
                     "       %s [--data DIR] --movie FILE.TGV\n",
             program, program, program, program, program);
     return 0;
