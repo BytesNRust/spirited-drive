@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 
 enum { REL_MAX = 600 };
@@ -147,7 +148,8 @@ static int unpack(const uint8_t *zip, size_t size, const ModCheck *c, const char
     int ok = platform_user_mkdirs(staging) ? 1 : refuse(why, cap, "the folder %s cannot be made", staging);
     for (size_t i = 0; i < c->entry_count && ok; i++) {
         char rel[REL_MAX], dir[REL_MAX];
-        snprintf(rel, sizeof rel, "%s/%s", staging, c->entries[i].path);
+        const char *path = strcasecmp(c->entries[i].path, "mod.ini") == 0 ? "mod.ini" : c->entries[i].path;   /* the card as the game reads it */
+        snprintf(rel, sizeof rel, "%s/%s", staging, path);
         snprintf(dir, sizeof dir, "%s", rel);
         *strrchr(dir, '/') = '\0';
         uint8_t *data = NULL;
@@ -192,8 +194,9 @@ int mod_store_install(const char *zip_path, char *id_out, size_t id_cap, char *o
     if (!mod_check_zip(zip, size, &c, why, why_cap)) return free(zip), 0;
     ModInfo installed;
     int has_card = 0;
-    ModInstallPlan p;
+    ModInstallPlan p = { 0 };
     int ok = plan_for(&c, &installed, &has_card, &p, why, why_cap);
+    const int planned = ok;   /* only a plan made names a staging folder to clean */
     if (ok && (!platform_user_mkdirs("mods/.staging") || !platform_user_remove_tree(p.staging)))   /* one left by a run that stopped */
         ok = refuse(why, why_cap, "the folder mods/.staging cannot be made ready");
     ok = ok && unpack(zip, size, &c, p.staging, why, why_cap);
@@ -207,7 +210,7 @@ int mod_store_install(const char *zip_path, char *id_out, size_t id_cap, char *o
         ok = refuse(why, why_cap, "%s cannot be put in place", p.target);
         if (update && !platform_user_rename(p.backup, p.target)) port_log("mods: %s could not be put back from %s\n", p.target, p.backup);
     }
-    if (p.staging[0] != '\0' && !platform_user_remove_tree(p.staging)) port_log("mods: %s could not be removed\n", p.staging);
+    if (planned && !platform_user_remove_tree(p.staging)) port_log("mods: %s could not be removed\n", p.staging);
     if (ok) {
         if (update) trim_backups(c.info.id, MOD_BACKUPS_KEPT);
         list_put_first(c.info.id);   /* port (dep59, temporary until step 4): installing makes it active */
@@ -229,6 +232,7 @@ int mod_store_uninstall(const char *id, char *why, size_t why_cap)
     ModInfo card;
     if (!platform_user_is_dir(target)) return refuse(why, why_cap, "%s is not installed", id);
     if (!card_at(target, &card)) return refuse(why, why_cap, "%s has no mod.ini: it was not installed by the game, and is left alone", target);
+    if (strcmp(card.id, id) != 0) return refuse(why, why_cap, "%s says it is %s: it was not installed by the game, and is left alone", target, card.id);
     if (!back_up(target, &card, backup, sizeof backup, why, why_cap)) return 0;
     trim_backups(id, MOD_BACKUPS_KEPT);
     list_take_out(id);
@@ -254,13 +258,17 @@ int mod_store_restore(const char *id, char *why, size_t why_cap)
     char from[REL_MAX], target[REL_MAX], backup[REL_MAX];
     if (!newest_backup(id, from, sizeof from)) return refuse(why, why_cap, "%s has no backup", id);
     snprintf(target, sizeof target, "mods/%s", id);
+    backup[0] = '\0';
     if (platform_user_exists(target)) {
         ModInfo card;
-        if (!platform_user_is_dir(target) || !card_at(target, &card))
+        if (!platform_user_is_dir(target) || !card_at(target, &card) || strcmp(card.id, id) != 0)
             return refuse(why, why_cap, "%s is there and was not installed by the game: it is not replaced", target);
         if (!back_up(target, &card, backup, sizeof backup, why, why_cap)) return 0;
     }
-    if (!platform_user_mkdirs("mods") || !platform_user_rename(from, target)) return refuse(why, why_cap, "%s cannot be put back", from);
+    if (!platform_user_mkdirs("mods") || !platform_user_rename(from, target)) {
+        if (backup[0] != '\0' && !platform_user_rename(backup, target)) port_log("mods: %s could not be put back from %s\n", target, backup);
+        return refuse(why, why_cap, "%s cannot be put back", from);
+    }
     trim_backups(id, MOD_BACKUPS_KEPT);
     list_put_first(id);   /* port (dep59, temporary until step 4) */
     port_log("mods: restored %s from %s\n", id, from);

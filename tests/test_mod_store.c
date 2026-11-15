@@ -1,7 +1,9 @@
 /* dep59 step 2: the installed mods (game/sys/mod_store.h), each case on a scratch player folder: an install lands in mods/<id>/ with the
  * zip's bytes and nothing in mods/.staging, first in the list; an update keeps the old one as a backup, three at most; a staging folder
  * left by a stopped run is cleaned; a folder put there by hand, a zip the check refuses, mods/ as a file or as a link: nothing written;
- * uninstall moves to a backup and takes the mod out of the list, restore brings it back; dropping the backups drops only that id's. */
+ * uninstall moves to a backup and takes the mod out of the list, restore brings it back; dropping the backups drops only that id's;
+ * a folder whose card names another id is left alone; a card spelt MOD.INI lands as mod.ini; the tree changes nothing outside mods/
+ * and mods_backup/. */
 #include "formats/mod_list.h"
 #include "game/sys/mod_set.h"
 #include "game/sys/mod_store.h"
@@ -13,6 +15,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <dirent.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -217,6 +220,61 @@ static void test_uninstall_and_restore(void)
     CHECK(!mod_store_uninstall("../x", why, sizeof why));
 }
 
+/* the card under the name the game reads, whatever the zip spelt: listed by its exact name (a case-blind folder would find either) */
+static void test_the_card_lands_as_mod_ini(void)
+{
+    fresh();
+    const ZbEntry e[] = { zb_text("MOD.INI", "id=twk\nname=Test Tweak\nversion=1\n"), zb_text("track_light/TR1B.txt", "track TR1 B\n") };
+    const size_t size = zb_build(e, 2, buf, sizeof buf);
+    char path[400];
+    snprintf(path, sizeof path, "%s/upper.zip", zips);
+    FILE *f = fopen(path, "wb");
+    if (f != NULL) fwrite(buf, 1, size, f), fclose(f);
+    CHECK(mod_store_install(path, id, sizeof id, old, sizeof old, why, sizeof why));
+    char dir_path[700];
+    snprintf(dir_path, sizeof dir_path, "%s/mods/twk", pref);
+    int lower = 0, upper = 0;
+    DIR *d = opendir(dir_path);
+    CHECK(d != NULL);
+    for (struct dirent *de; d != NULL && (de = readdir(d)) != NULL;)
+        lower += strcmp(de->d_name, "mod.ini") == 0, upper += strcmp(de->d_name, "MOD.INI") == 0;
+    if (d != NULL) closedir(d);
+    CHECK(lower == 1 && upper == 0);
+    ModStoreEntry got[2];
+    CHECK_EQ_INT(mod_store_list(got, 2), 1);
+}
+
+static void test_a_card_of_another_id_is_left_alone(void)
+{
+    fresh();
+    write_at("mods/twk/mod.ini", "id=other\nname=Other\nversion=1\n");
+    CHECK(!mod_store_uninstall("twk", why, sizeof why));
+    CHECK(strstr(why, "not installed by the game") != NULL);
+    CHECK(file_is("mods/twk/mod.ini", "id=other\nname=Other\nversion=1\n") && !exists("mods_backup"));
+    write_at("mods_backup/twk-1-20260101-000000/mod.ini", "id=twk\nname=Test Tweak\nversion=1\n");
+    CHECK(!mod_store_restore("twk", why, sizeof why));   /* nor replaced by a restore */
+    CHECK(file_is("mods/twk/mod.ini", "id=other\nname=Other\nversion=1\n"));
+}
+
+/* what changes the player's folder changes only mods/ and mods_backup/, whatever a caller asks */
+static void test_the_tree_changes_only_mods(void)
+{
+    fresh();
+    write_at("settings.ini", "kept\n");
+    write_at("mods/a/x.txt", "x");
+    const uint8_t data[] = "y";
+    CHECK(!platform_user_mkdirs("elsewhere") && !exists("elsewhere"));
+    CHECK(!platform_user_mkdirs("modsx/a") && !exists("modsx"));
+    CHECK(!platform_user_write_file_at("settings.ini", data, 1) && file_is("settings.ini", "kept\n"));
+    CHECK(!platform_user_remove_tree("settings.ini") && exists("settings.ini"));
+    CHECK(!platform_user_rename("settings.ini", "mods/settings.ini") && exists("settings.ini"));
+    CHECK(!platform_user_rename("mods/a", "a") && exists("mods/a/x.txt"));
+    CHECK(platform_user_mkdirs("mods_backup/b") && platform_user_rename("mods/a", "mods_backup/b/a"));
+    CHECK(platform_user_write_file_at("mods/y.txt", data, 1) && file_is("mods/y.txt", "y"));
+    CHECK(platform_user_remove_tree("mods_backup/b") && !exists("mods_backup/b"));
+    CHECK(platform_user_is_dir("mods") && !platform_user_is_dir("settings.ini"));   /* reading is not limited */
+}
+
 int main(void)
 {
     snprintf(base, sizeof base, "%s/tnfs_mod_store_test_%d", getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp", (int)getpid());
@@ -231,6 +289,9 @@ int main(void)
     test_what_is_never_replaced();
     test_mods_not_a_folder();
     test_uninstall_and_restore();
+    test_the_card_lands_as_mod_ini();
+    test_a_card_of_another_id_is_left_alone();
+    test_the_tree_changes_only_mods();
     mod_set_stop();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);

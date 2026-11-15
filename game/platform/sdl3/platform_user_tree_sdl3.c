@@ -28,11 +28,19 @@ static bool is_link(const char *path)
 #endif
 }
 
-/* `rel` below the player's folder into `out`: a clean relative path, none of its parts that exist a link */
-static bool tree_path(const char *rel, char out[TREE_PATH])
+/* `rel` below the player's folder into `out`: a clean relative path, none of its parts that exist a link; one that is changed (`change`)
+ * only in mods/ or mods_backup/ (or one of those two itself), whatever its caller asks */
+static bool tree_path_for(const char *rel, char out[TREE_PATH], bool change)
 {
     char clean[1024], dir[1200];
     if (rel == NULL || !modpath_clean(rel, clean, sizeof clean) || strcmp(clean, rel) != 0) return false;
+    if (change) {
+        const size_t first = strcspn(clean, "/");
+        if (!(first == 4 && strncmp(clean, "mods", 4) == 0) && !(first == 11 && strncmp(clean, "mods_backup", 11) == 0)) {
+            port_log("platform: %s is not below mods/ or mods_backup/: not changed\n", clean);
+            return false;
+        }
+    }
     if (sdl3_user_dir(dir, sizeof dir) == NULL) return false;
     if (SDL_snprintf(out, TREE_PATH, "%s%s", dir, clean) >= TREE_PATH) return false;
     const size_t base = strlen(dir);
@@ -50,6 +58,9 @@ static bool tree_path(const char *rel, char out[TREE_PATH])
     }
     return true;
 }
+
+static bool tree_path(const char *rel, char out[TREE_PATH]) { return tree_path_for(rel, out, false); }
+static bool tree_change_path(const char *rel, char out[TREE_PATH]) { return tree_path_for(rel, out, true); }
 
 static bool path_is_dir(const char *path)
 {
@@ -81,7 +92,7 @@ bool platform_user_exists(const char *rel)
 bool platform_user_mkdirs(const char *rel)
 {
     char path[TREE_PATH], dir[1200];
-    if (!tree_path(rel, path) || sdl3_user_dir(dir, sizeof dir) == NULL) return false;
+    if (!tree_change_path(rel, path) || sdl3_user_dir(dir, sizeof dir) == NULL) return false;
     for (size_t i = strlen(dir); ; i++) {
         if (path[i] != '/' && path[i] != '\0') continue;
         const char keep = path[i];
@@ -97,7 +108,7 @@ bool platform_user_mkdirs(const char *rel)
 bool platform_user_rename(const char *from_rel, const char *to_rel)
 {
     char from[TREE_PATH], to[TREE_PATH];
-    if (!tree_path(from_rel, from) || !tree_path(to_rel, to) || !path_exists(from) || path_exists(to)) return false;
+    if (!tree_change_path(from_rel, from) || !tree_change_path(to_rel, to) || !path_exists(from) || path_exists(to)) return false;
     if (SDL_RenamePath(from, to)) return true;
     port_log("platform: cannot move %s to %s: %s\n", from, to, SDL_GetError());
     return false;
@@ -129,23 +140,29 @@ static bool remove_path(const char *path)
 bool platform_user_remove_tree(const char *rel)
 {
     char path[TREE_PATH];
-    if (!tree_path(rel, path)) return false;
+    if (!tree_change_path(rel, path)) return false;
     return !path_exists(path) || remove_path(path);
 }
 
 typedef struct {
-    const char *dir;
-    char names[256][256];
-    int count;
+    char (*names)[256];
+    int count, cap;
+    bool failed;
 } DirList;
 
 static SDL_EnumerationResult list_entry(void *userdata, const char *dirname, const char *name)
 {
     DirList *l = userdata;
     char path[TREE_PATH];
-    if (l->count < 256 && strlen(name) < sizeof l->names[0] && SDL_snprintf(path, sizeof path, "%s%s", dirname, name) < (int)sizeof path &&
-        path_is_dir(path))
-        SDL_snprintf(l->names[l->count++], sizeof l->names[0], "%s", name);
+    if (strlen(name) >= sizeof l->names[0] || SDL_snprintf(path, sizeof path, "%s%s", dirname, name) >= (int)sizeof path || !path_is_dir(path))
+        return SDL_ENUM_CONTINUE;
+    if (l->count == l->cap) {   /* as many as there are: a list cut short would miss the newest backup */
+        const int cap = l->cap > 0 ? l->cap * 2 : 64;
+        char (*grown)[256] = SDL_realloc(l->names, sizeof *grown * (size_t)cap);
+        if (grown == NULL) return l->failed = true, SDL_ENUM_FAILURE;
+        l->names = grown, l->cap = cap;
+    }
+    SDL_snprintf(l->names[l->count++], sizeof l->names[0], "%s", name);
     return SDL_ENUM_CONTINUE;
 }
 
@@ -159,6 +176,7 @@ char **platform_user_list_dirs(const char *rel, int *count)
     DirList *l = SDL_calloc(1, sizeof *l);
     if (l == NULL) return NULL;
     SDL_EnumerateDirectory(path, list_entry, l);
+    if (l->failed) port_log("platform: the folders of %s could not all be listed (out of memory)\n", path);
     size_t bytes = sizeof(char *) * (size_t)(l->count + 1);
     for (int i = 0; i < l->count; i++) bytes += strlen(l->names[i]) + 1;
     char **out = l->count > 0 ? SDL_malloc(bytes) : NULL;   /* one block, as SDL_GlobDirectory's: platform_free_names frees it */
@@ -173,6 +191,7 @@ char **platform_user_list_dirs(const char *rel, int *count)
         SDL_qsort(out, (size_t)l->count, sizeof *out, compare_names);
         *count = l->count;
     }
+    SDL_free(l->names);
     SDL_free(l);
     return out;
 }
@@ -190,7 +209,7 @@ uint8_t *platform_user_read_file_at(const char *rel, size_t *size)
 bool platform_user_write_file_at(const char *rel, const uint8_t *data, size_t size)
 {
     char path[TREE_PATH], folder[TREE_PATH];
-    if (!tree_path(rel, path)) return false;
+    if (!tree_change_path(rel, path)) return false;
     SDL_snprintf(folder, sizeof folder, "%s", path);
     char *slash = strrchr(folder, '/');
     if (slash == NULL || (*slash = '\0', !path_is_dir(folder)) || (path_exists(path) && !SDL_RemovePath(path))) return false;

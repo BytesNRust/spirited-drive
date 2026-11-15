@@ -160,7 +160,8 @@ void platform_free_names(char **names);
 /* port (dep59 step 2): folders below the player's folder, for the installed mods (game/sys/mod_store.h). `rel` is a clean relative path
  * (modpath_clean's rules: no "..", not absolute) below the player's folder; none of these follows a symbolic link: a link anywhere on the
  * way (the player's folder's own path apart) makes the call fail, and remove_tree removes a link inside the tree as a link, never what
- * it points at. */
+ * it points at. What changes the tree (mkdirs, rename, remove_tree, write_file_at) changes only mods/ and mods_backup/ and what is in them:
+ * any other `rel` fails with a line in the log. */
 bool platform_user_mkdirs(const char *rel);                          /* each missing folder of `rel`; true when it is a folder after */
 bool platform_user_rename(const char *from_rel, const char *to_rel);   /* atomic within the folder; `to_rel` must not exist */
 bool platform_user_remove_tree(const char *rel);                     /* true when it is gone (or was never there) */
