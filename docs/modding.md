@@ -157,6 +157,38 @@ A mod's `<mod>/sounds/<file>` is used instead of the one in `data/`, under the s
 
 Only CC0 or public-domain samples go in the repository, each with its source, author and licence written in [`data/sounds/LICENSES.md`](../data/sounds/LICENSES.md): add the entry there in the same change as the file (what it is made from, what was changed, the URL, the author, the licence and the date it was checked on the page). A mod of your own is free to use any sound it has the right to.
 
+## Adding a car (development)
+
+In Restomod a mod can add a car beside the twelve of the original game: a folder whose `mod.ini` says `type=car`. Stock and Restored never load one. For now it is raced from the command line only: the car screens, records and replays come later (see *What it does not do yet*).
+
+    mycar/mod.ini
+    mycar/SIMDATA/CARFAMS/MYCAR.CFM        the 3D model and its textures
+    mycar/SIMDATA/CARFAMS/MYCAR.PDN        its performance data
+    mycar/SIMDATA/CARSPECS/MYCAR.PBS       its specs
+    mycar/car_masks/MYCAR/...              its car masks (optional, see Car masks)
+
+    tnfs --mods mycar --drive TR1 --car my-car
+
+`mod.ini`:
+
+| Key | What | Rule |
+|-----|------|------|
+| `id`, `name`, `version` | as every mod's | `id` is what `--car` takes |
+| `type` | `car` | required for a car |
+| `stem` | the name its three files go by (`MYCAR` above) | 1 to 8 of `A-Z 0-9`; not the stem of a car, traffic or police car of the CD, nor `M` and one (the CD's smaller rival models) |
+| `short_name` | what the results show | up to 8 characters; the stem when not given |
+| `sound_from` | the original car whose engine it plays | required: `supra`, `diablo`, `911`, `zr1`, `512tr`, `viper`, `nsx` or `rx7` |
+| `ai_from` | the original car whose pace a computer driver keeps in it | required, the same words |
+| `dash_from` | the original car whose cockpit it shows | optional, the same words; `sound_from`'s when not given |
+
+The car is checked before it may race, with the same checks `tnfs-studio` uses: the three files are there (in any case), each passes the original executable's limits, and the specs can run a race (the PBS checksum, a power above 0, `unknown_320` and `force_scale` not 0, and 1 to 58 torque points). One line in `spirited-drive.log` says what happened to each car piece: `car piece: my-car is car 16`, or `car piece: my-car refused: <why>`. A refused car, or one asked for in Stock or Restored, stops `--drive` with `--drive: no car my-car`; nothing else changes.
+
+The car takes its lamp colours from `sound_from`'s car. The original game has a few habits that belong to one car only (one car's throttle and gear changes, two cars' tyre frames); an added car has none of them and drives as its PBS says.
+
+Several cars can be added, up to 64, one folder each, in the mods in effect (`--mods`, then Restomod's list). Two folders with the same `id` or `stem`: the first one counts and the other is refused. A car's number (16 and up) holds for that run only; changing the list keeps the number of every car that stays.
+
+**What it does not do yet:** a race with an added car keeps no record and no replay (`race_records.dat`, `config.dat` and `Replay.rpl` hold only the original cars, and the log says so); the car is not on the car screens and cannot be a rival; it brings no engine sound or cockpit of its own; the paint catalogue (the extra colours) has none for it.
+
 ## The mask tools
 
 The masks are painted in PSDs and read back by scripts in `tools/`. The Python ones need Pillow; the `from_psd` ones also `psd-tools` (`pip install psd-tools`). The two programs are built with the game (`track_mask_draft`, `track_lamp_marks`).

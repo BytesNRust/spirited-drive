@@ -11,9 +11,12 @@
  *   tnfs --drive NAME [--car N] [--type 0..3]   a race as the menus run it, ending on the results screens; NAME
  *                                          ending in m or r (TR1m, CY2r) takes the track's "m" or "r" art and layout
  *   tnfs --drive NAME [--car N] [--racers N] --node TICKS --screenshot OUT.ppm   a headless frame
+ *                                          (--car takes a number, or in Restomod an added car's id: docs/modding.md)
  *   tnfs --replay FILE.RPL                 play a replay back in the drive (development)
  *   tnfs --movie FILE.TGV                  play a TGV movie in the menus' window (development) */
 #include "game/frontend/config.h"
+#include "game/race/car_registry.h"
+#include "game/sys/car_pieces.h"
 #include "game/frontend/frontend.h"
 #include "game/frontend/link_game.h"
 #include "game/frontend/menu_audio.h"
@@ -71,6 +74,7 @@ typedef struct {
     int net_port;
     const char *net_hosts[NET_UDP_HOSTS + 1];  /* NULL-terminated */
     int net_host_count;
+    const char *car_text;   /* --car as given: a number, or an added car's id (resolved after the mods start, resolve_car) */
 } Options;
 
 /* the usage message, as a fatal; returns 0 for a caller that goes on */
@@ -88,7 +92,7 @@ static int bad_usage(const char *program)
 static int parse_args(int argc, char **argv, Options *opt)
 {
     *opt = (Options){ "original", 0, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0, 0, { NULL },
-                      0 };
+                      0, NULL };
     for (int i = 1; i < argc; i++) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--data") == 0 && has_value) {
@@ -117,7 +121,7 @@ static int parse_args(int argc, char **argv, Options *opt)
         } else if (strcmp(argv[i], "--type") == 0 && has_value) {
             opt->race_type = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--car") == 0 && has_value) {
-            opt->car = atoi(argv[++i]);
+            opt->car_text = argv[++i];
         } else if ((strcmp(argv[i], "--entry") == 0 || strcmp(argv[i], "--node") == 0) && has_value) {
             opt->entry = (uint32_t)strtoul(argv[++i], NULL, 10);
         } else if (strcmp(argv[i], "--screenshot") == 0 && has_value) {
@@ -178,6 +182,24 @@ static void drive_variants(const char *name, int *variant_m, int *variant_r)
         else if (c == 'r') *variant_r = 1, n--;
         else break;
     }
+}
+
+/* port (dep59): --car as a number, as before, or the id of an added car of the mods in effect (car_pieces.h); 0 when it is neither */
+static int resolve_car(Options *opt)
+{
+    const char *t = opt->car_text;
+    if (t == NULL) return 1;
+    size_t i = t[0] == '-' ? 1 : 0;
+    while (t[i] >= '0' && t[i] <= '9') i++;
+    if (t[i] == '\0' && i > 0) {
+        opt->car = atoi(t);
+        return 1;
+    }
+    car_pieces_follow();
+    opt->car = car_registry_find(t);
+    if (opt->car >= 0) return 1;
+    port_fatal("--drive: no car %s\n", t);
+    return 0;
 }
 
 static int run_drive(const Options *opt)
@@ -329,6 +351,7 @@ int main(int argc, char **argv)
     }
     port_old_files_migrate();   /* before any setting is read, and before there are threads */
     if (!mod_set_start(opt.data_root, opt.mods)) return EXIT_FAILURE;   /* port: --mods DIR, then the mode's list; followed with the settings (mod_set.h) */
+    if (!resolve_car(&opt)) return EXIT_FAILURE;
     if (data_copied) port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On); stats.cfg goes to the player's folder (--user DIR) */
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);
     else if (opt.replay != NULL) ok = track_viewer_drive_replay(opt.data_root, opt.replay);

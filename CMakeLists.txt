@@ -1165,6 +1165,8 @@ if(NOT EMSCRIPTEN)
     endif()
     if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
         add_test(NAME mods_overlay COMMAND sh ${CMAKE_SOURCE_DIR}/tests/mods_overlay.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
+        add_test(NAME car_piece_race COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_piece_race.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
+        set_tests_properties(car_piece_race PROPERTIES TIMEOUT 600)
         add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
     endif()
     # port: the job pool and the row splitter of the render bands

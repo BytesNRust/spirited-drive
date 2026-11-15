@@ -3,6 +3,7 @@
 
 #include "game/gfx/x86_int.h"
 #include "game/race/race_palette.h"
+#include "game/race/car_registry.h"
 
 enum { BRAKE_LIT = 10, LIT_ROWS = 13, POLICE_SLOT = 2, POLICE_FLAGS = 0xc, FLASH_TICKS = 15, POLICE_FIRST = 0xfa,
        POLICE_COLOURS = 4 };
@@ -13,7 +14,9 @@ void car_lights(const CarLightOps *ops, const CarLightInputs *in, const Car *car
     if (in->notice[0] == 0 && in->notice[1] == 0) {
         const uint8_t entry = in->slot_colours[slot];
         if (entry == 0 || slot >= in->finish_cars) return;
-        const int32_t row = car->model + (car->brake > BRAKE_LIT ? LIT_ROWS : 0);
+        const int32_t lamp = car_registry_lamp_model(car->model);   /* port (dep59): an added car's are its sound_from's */
+        const int32_t row = lamp + (car->brake > BRAKE_LIT ? LIT_ROWS : 0);
+        if (lamp < 0 || row >= RACE_PALETTE_MODEL_LIGHTS) return;   /* port guard: the original reads past the table */
         ops->write(ops->ctx, entry, 1, race_palette_model_light + 3 * row);
         return;
     }

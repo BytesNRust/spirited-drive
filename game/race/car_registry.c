@@ -129,6 +129,20 @@ int car_registry_sound_model(int car)
     return p != NULL ? p->sound_model : -1;
 }
 
+int car_registry_dash_model(int car)
+{
+    if (car >= 0 && car < CAR_MODELS) return car;
+    const CarPiece *p = car_registry_piece(car);
+    return p == NULL ? -1 : p->dash_model >= 0 ? p->dash_model : p->sound_model;
+}
+
+int car_registry_lamp_model(int car)
+{
+    if (car >= 0 && car < CAR_MODELS) return car;
+    const CarPiece *p = car_registry_piece(car);
+    return p != NULL ? p->sound_model : -1;
+}
+
 int car_registry_ai_model(int car)
 {
     if (car >= 0 && car < CAR_ORIGINAL_MODELS) return car;

@@ -41,6 +41,10 @@ static void test_originals_unchanged(void)
     CHECK(car_registry_stem(12) == NULL && car_registry_stem(16) == NULL && car_registry_stem(-1) == NULL);
     CHECK_EQ_INT(car_registry_sound_model(16), -1);
     CHECK_EQ_INT(car_registry_ai_model(16), -1);
+    CHECK_EQ_INT(car_registry_dash_model(16), -1);
+    CHECK_EQ_INT(car_registry_lamp_model(16), -1);
+    for (int car = 0; car < CAR_MODELS; car++) CHECK_EQ_INT(car_registry_dash_model(car), car);
+    for (int car = 0; car < CAR_MODELS; car++) CHECK_EQ_INT(car_registry_lamp_model(car), car);
     CHECK_EQ_INT(car_registry_is_added(16), 0);
 }
 
@@ -53,9 +57,16 @@ static void test_add_and_look_up(void)
     CHECK(strcmp(car_registry_stem(16), "F40") == 0);
     CHECK_EQ_INT(car_registry_sound_model(16), 4);
     CHECK_EQ_INT(car_registry_ai_model(16), 1);
+    CHECK_EQ_INT(car_registry_dash_model(16), 4);   /* no dash_from: its sound_from's */
+    CHECK_EQ_INT(car_registry_lamp_model(16), 4);
     CHECK_EQ_INT(car_registry_is_added(16), 1);
     CHECK(car_registry_piece(16) != NULL && strcmp(car_registry_piece(16)->id, "f40") == 0);
     CHECK_EQ_INT(add("cobra", "COBRA", 0, 0, why), 17);
+    CarPiece dashed = piece("dashed", "DASHED", 2, 3);
+    dashed.dash_model = 6;
+    CHECK_EQ_INT(car_registry_add(&dashed, why, sizeof why), 18);
+    CHECK_EQ_INT(car_registry_dash_model(18), 6);   /* its dash_from */
+    CHECK_EQ_INT(car_registry_remove("dashed"), 1);
     CHECK_EQ_INT(car_registry_count(), 2);
     CHECK_EQ_INT(car_registry_find("nope"), -1);
     CHECK_EQ_INT(car_registry_find(NULL), -1);

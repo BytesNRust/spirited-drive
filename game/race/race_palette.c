@@ -5,6 +5,7 @@
 #include "game/sys/fixed_math.h"
 #include "game/sys/palette.h"
 #include "game/sys/shape_bank.h"
+#include "game/race/car_registry.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -231,7 +232,8 @@ void race_palette_tint_shape(RacePalette *p, uint8_t *shape)
 
 static const uint8_t *model_light(const Car *car)
 {
-    return car != NULL && (uint32_t)car->model < RACE_PALETTE_MODEL_LIGHTS ? race_palette_model_light + 3 * car->model : NULL;
+    const int32_t lamp = car != NULL ? car_registry_lamp_model(car->model) : -1;   /* port (dep59): an added car's are its sound_from's */
+    return lamp >= 0 && lamp < RACE_PALETTE_MODEL_LIGHTS ? race_palette_model_light + 3 * lamp : NULL;
 }
 
 static void cars_each_own(RacePalette *p, const RaceState *race, const uint8_t *const own[RACE_CARS])
