@@ -87,7 +87,7 @@ static void test_every_write_moves_the_generation(void)
     CHECK(port_settings_generation() != was);
     was = port_settings_generation();
     PortExtras e = port_extras_load();
-    e.rally = !e.rally;
+    e.turbo = !e.turbo;
     CHECK(port_extras_save(&e));   /* a row of CUSTOMIZE or EXTRAS */
     CHECK(port_settings_generation() != was);
     was = port_settings_generation();

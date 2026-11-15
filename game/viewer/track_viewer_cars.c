@@ -37,6 +37,8 @@
 #include "game/viewer/scenery_dump.h"
 #include "game/race/wet_zones.h"
 #include "game/race/weather_snow.h"
+#include "game/frontend/config.h"
+#include "game/frontend/unlock_level.h"
 #include <string.h>
 #include <time.h>
 #include "viewer/track_viewer_cars.h"
@@ -176,7 +178,7 @@ int32_t link_wait_ticks;  /* 004fbac8: 00410d80's, a link race's queue wait */
  * (a guest without them, from an older host, keeps its own as before) */
 PortExtras race_extras(void)
 {
-    PortExtras e = port_extras_load();
+    PortExtras e = unlock_level_extras(config_current());   /* port: Lunar Springs Track is level 2's */
     const SessionRules *r = drive_link_on ? session_rules_active() : NULL;
     if (r == NULL) return e;
     e.difficulty = r->difficulty, e.lunar_springs = r->lunar_springs, e.lunar_gravity = r->lunar_gravity, e.rally_gravel = r->rally_gravel;

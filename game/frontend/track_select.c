@@ -10,12 +10,15 @@
 
 enum {
     SHAPE_HEADER = 0x10, TRANSPARENT = 0xff,   /* a bank entry's header; the masked blit's skipped texel */
-    TRACKS = 9, ITEMS = 12, DONE = 0, PREV = 1, NEXT = 2, BEST = 3, SEGMENT_1 = 4, LAPS = 7, NOTHING = 8,
+    TRACKS = 9, ITEMS = 15, DONE = 0, PREV = 1, NEXT = 2, BEST = 3, SEGMENT_1 = 4, LAPS = 7, NOTHING = 8,
     TIME_OF_DAY = 9, LOST_VEGAS = 8, TOURNAMENT = 3, OPPONENT_TOURNAMENT = 10, SOUND_MOVE = 0x47,
     SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20, KEY_ENTER = 0xd, KEY_ESCAPE = 0x1b, KEY_UP = TRACK_SELECT_KEY_UP,
     KEY_LEFT = TRACK_SELECT_KEY_LEFT, KEY_RIGHT = TRACK_SELECT_KEY_RIGHT, KEY_DOWN = TRACK_SELECT_KEY_DOWN, PATH = 0x100, TEXT = 0x28, VARIANT_X = 0xc8,
     VARIANT_Y = 0x13c, WEATHER_X = 6, WEATHER_VALUE_X = 0xc3, WEATHER_Y = 0x19c,
-    REVERSE_X = 0x150, REVERSE_VALUE_X = 0x1f0, CIRCUIT = 3
+    REVERSE_X = 0x150, REVERSE_VALUE_X = 0x1f0, CIRCUIT = 3,
+    /* port (dep56): the switch rows, in the column over the track's length (the map takes the right half): Rally where the
+     * variant's name was, Inverse and Mirror a row above each; the value left of the stages' segment boxes (213) */
+    SWITCH_X = 6, SWITCH_VALUE_X = 0x82, SWITCH_HIT_X1 = 0xd0, SWITCH_PITCH = 0x18
 };
 
 /* the tracks' files (0046751c) and music (00467540) */
@@ -43,13 +46,13 @@ static const int32_t TIME_OTHER[TRACKS] = { 0, 2, 2, 2, 0, 2, 2, 2, 2 };
 static const char *const LIT[8] = { "donl", "prel", "nexl", "besl", "ssg1", "ssg2", "ssg3", "lapl" };
 static const char *const DIM[4] = { "dond", "pred", "nexd", "besd" };
 /* where the pointer goes per item (004674f4, 00467508) */
-static const int16_t POINTER_X[ITEMS] = { 38, 231, 390, 568, 256, 256, 256, 80, 0, 80, 80, 340 };
-static const int16_t POINTER_Y[ITEMS] = { 455, 455, 455, 455, 275, 205, 119, 380, 0, 404, 428, 428 };
+static const int16_t POINTER_X[ITEMS] = { 38, 231, 390, 568, 256, 256, 256, 80, 0, 80, 80, 340, 60, 60, 60 };
+static const int16_t POINTER_Y[ITEMS] = { 455, 455, 455, 455, 275, 205, 119, 380, 0, 404, 428, 428, 0, 0, 0 };   /* the switch rows': switch_y */
 /* the arrows' moves per item, past the first three tracks and on them */
-static const int16_t UP[2][ITEMS] = { { 9, 9, 9, 9, 9, 9, 9, 0, 0, 7, 9, 9 }, { 9, 9, 9, 9, 5, 6, 0, 0, 0, 4, 9, 9 } };
-static const int16_t DOWN[2][ITEMS] = { { 7, 7, 7, 7, 9, 9, 9, 9, 0, 0, 0, 0 }, { 6, 6, 6, 6, 9, 4, 5, 0, 0, 0, 0, 0 } };
-static const int16_t LEFT[2][ITEMS] = { { 3, 0, 1, 2, 9, 9, 9, 3, 0, 3, 3, 3 }, { 3, 0, 1, 2, 0, 0, 0, 0, 0, 3, 3, 3 } };
-static const int16_t RIGHT[2][ITEMS] = { { 1, 2, 3, 0, 9, 9, 9, 2, 0, 2, 2, 2 }, { 1, 2, 3, 0, 2, 2, 2, 0, 0, 2, 2, 2 } };
+static const int16_t UP[2][ITEMS] = { { 9, 9, 9, 9, 9, 9, 9, 0, 0, 7, 9, 9, 0, 0, 0 }, { 9, 9, 9, 9, 5, 6, 0, 0, 0, 4, 9, 9, 0, 0, 0 } };
+static const int16_t DOWN[2][ITEMS] = { { 7, 7, 7, 7, 9, 9, 9, 9, 0, 0, 0, 0, 0, 0, 0 }, { 6, 6, 6, 6, 9, 4, 5, 0, 0, 0, 0, 0, 0, 0, 0 } };
+static const int16_t LEFT[2][ITEMS] = { { 3, 0, 1, 2, 9, 9, 9, 3, 0, 3, 3, 3, 0, 0, 0 }, { 3, 0, 1, 2, 0, 0, 0, 0, 0, 3, 3, 3, 0, 0, 0 } };
+static const int16_t RIGHT[2][ITEMS] = { { 1, 2, 3, 0, 9, 9, 9, 2, 0, 2, 2, 2, 0, 0, 0 }, { 1, 2, 3, 0, 2, 2, 2, 0, 0, 2, 2, 2, 0, 0, 0 } };
 /* the segments' boxes per track: x (00467684, 00467696), y from and to (00467618, 0046764e) */
 static const int16_t SEGMENT_X0[TRACKS] = { 228, 213, 212, 213, 213, 213, 213, 213, 213 };
 static const int16_t SEGMENT_X1[TRACKS] = { 301, 301, 300, 301, 301, 301, 301, 301, 301 };
@@ -231,6 +234,71 @@ static int reverse_on(const TrackSelectState *st)
     return st->plus && st->plus->reverse && track_of(st) >= CIRCUIT && g16(st->config, TRACK_SELECT_RACE_TYPE) != TOURNAMENT;
 }
 
+/* port (dep56): the switch rows (TrackSelectPlus.variant_switches) */
+int track_select_switch_rows(const TrackSelectPlus *plus, int track, int rows[3])
+{
+    int n = 0;
+    if (plus == NULL || !plus->variant_switches) return 0;   /* a tournament's too: its variants, chosen before its first race */
+    if (track != LOST_VEGAS && plus->unlock_m) rows[n++] = TRACK_SELECT_MIRROR;
+    if (plus->reverse != NULL && track >= CIRCUIT) rows[n++] = TRACK_SELECT_INVERSE;
+    if (track != LOST_VEGAS && plus->unlock_r) rows[n++] = TRACK_SELECT_RALLY;
+    return n;
+}
+
+static int switches_on(const TrackSelectState *st) { return st->plus && st->plus->variant_switches; }
+
+static int switch_rows(const TrackSelectState *st, int rows[3])
+{
+    return track_select_switch_rows(st->plus, track_of(st), rows);
+}
+
+static int is_switch(int item) { return item >= TRACK_SELECT_MIRROR && item <= TRACK_SELECT_RALLY; }
+
+static int switch_shown(const TrackSelectState *st, int item)
+{
+    int rows[3];
+    const int n = switch_rows(st, rows);
+    for (int i = 0; i < n; i++)
+        if (rows[i] == item) return 1;
+    return 0;
+}
+
+/* the rows stack up from where the variant's name was, the last shown lowest, so a missing one leaves no gap */
+static int switch_y(const TrackSelectState *st, int item)
+{
+    int rows[3];
+    const int n = switch_rows(st, rows);
+    int at = n - 1;
+    while (at > 0 && rows[at] != item) at--;
+    return VARIANT_Y - (n - 1 - at) * SWITCH_PITCH;
+}
+
+/* where the keys take the pointer for `item`: the table's, or a switch row's own line */
+static void pointer_to_item(const TrackSelectState *st, int item, const TrackSelectOps *ops)
+{
+    if (is_switch(item)) ops->pointer_move_to(ops->ctx, POINTER_X[item], switch_y(st, item) + 8);
+    else ops->pointer_move_to(ops->ctx, POINTER_X[item], POINTER_Y[item]);
+}
+
+static int switch_value(const TrackSelectState *st, int item)
+{
+    return item == TRACK_SELECT_MIRROR ? *st->plus->variant_m != 0 : item == TRACK_SELECT_RALLY ? *st->plus->variant_r != 0
+                                                                                                   : *st->plus->reverse != 0;
+}
+
+/* a switch row that turns: shown, and not a tournament's once its first race is run */
+static int switch_turns(const TrackSelectState *st, int item) { return switch_shown(st, item) && !st->plus->variants_locked; }
+
+static void switch_toggle(TrackSelectState *st, int item)
+{
+    if (item == TRACK_SELECT_MIRROR) *st->plus->variant_m = !*st->plus->variant_m;
+    else if (item == TRACK_SELECT_RALLY) *st->plus->variant_r = !*st->plus->variant_r;
+    else *st->plus->reverse = !*st->plus->reverse;
+}
+
+/* the Reverse row right of the weather: the entries' screens; with the switches it is the Inverse row */
+static int reverse_row(const TrackSelectState *st) { return reverse_on(st) && !switches_on(st); }
+
 static const char *weather_text(int weather)
 {
     return weather == WEATHER_FOG ? "Fog" : weather == WEATHER_RAIN ? "Rain" : weather == WEATHER_STORM ? "Storm" : "Clear";
@@ -244,7 +312,7 @@ static int has_variant(const TrackSelectPlus *plus, int track, int variant)
 void track_select_entry(int track, int variant, int direction, int lost_vegas, int unlock_m, int unlock_r,
                         int *to_track, int *to_variant)
 {
-    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL };
+    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, 0, 0 };
     const int last = lost_vegas ? LOST_VEGAS : LOST_VEGAS - 1;
     for (int v = variant + direction; v >= 0 && v <= 2; v += direction)
         if (has_variant(&plus, track, v)) {
@@ -307,14 +375,22 @@ static void draw_texts(const TrackSelectInputs *in, const TrackSelectState *st, 
         ops->text_shadowed(ops->ctx, lengths[4 * track + segment], 0xc8, 0x153);
         ops->text_shadowed(ops->ctx, lengths[4 * track], 0xaf, 0x16a);
     }
-    if (st->plus && variant_of(st) != 0)   /* port: the variant's name, with the game's text routine */
+    if (st->plus && variant_of(st) != 0 && !switches_on(st))   /* port: the variant's name, with the game's text routine */
         ops->text_shadowed(ops->ctx, variant_of(st) == 1 ? "Mirror" : "Rally", VARIANT_X, VARIANT_Y);
     if (weather_on(st)) {   /* port: the weather row, in the game's text like the laps */
         ops->text_select(ops->ctx, item == TRACK_SELECT_WEATHER ? 1 : 0);
         ops->text_shadowed(ops->ctx, "Weather", WEATHER_X, WEATHER_Y);
         ops->text_shadowed(ops->ctx, weather_text(*st->plus->weather), WEATHER_VALUE_X, WEATHER_Y);
     }
-    if (reverse_on(st)) {   /* port: the way round, in the game's text like the weather */
+    int rows[3];
+    const int switches = switch_rows(st, rows);
+    static const char *const SWITCH_NAME[3] = { "Mirror", "Inverse", "Rally" };
+    for (int i = 0; i < switches; i++) {   /* port (dep56): the variants as switches, in the game's text like the weather */
+        ops->text_select(ops->ctx, item == rows[i] && !st->plus->variants_locked ? 1 : 0);   /* fixed: never lit */
+        ops->text_shadowed(ops->ctx, SWITCH_NAME[rows[i] - TRACK_SELECT_MIRROR], SWITCH_X, switch_y(st, rows[i]));
+        ops->text_shadowed(ops->ctx, switch_value(st, rows[i]) ? "On" : "Off", SWITCH_VALUE_X, switch_y(st, rows[i]));
+    }
+    if (reverse_row(st)) {   /* port: the way round, in the game's text like the weather */
         ops->text_select(ops->ctx, item == TRACK_SELECT_REVERSE ? 1 : 0);
         ops->text_shadowed(ops->ctx, "Reverse", REVERSE_X, WEATHER_Y);
         ops->text_shadowed(ops->ctx, *st->plus->reverse ? "On" : "Off", REVERSE_VALUE_X, WEATHER_Y);
@@ -393,7 +469,10 @@ static int pointed(const TrackSelectInputs *in, const TrackSelectState *st, cons
     if (ops->pointer_in_rect(ops->ctx, 0, 0x140, 0x15e, 0x183) && track > 2) return LAPS;
     if (ops->pointer_in_rect(ops->ctx, 0, 0x140, 0x184, 0x1a0) && !no_time_of_day(in, st, track)) return TIME_OF_DAY;
     if (weather_on(st) && ops->pointer_in_rect(ops->ctx, 0, 0x140, 0x1a1, 0x1b2)) return TRACK_SELECT_WEATHER;
-    if (reverse_on(st) && ops->pointer_in_rect(ops->ctx, 0x140, 0x280, 0x1a1, 0x1b2)) return TRACK_SELECT_REVERSE;
+    if (reverse_row(st) && ops->pointer_in_rect(ops->ctx, 0x140, 0x280, 0x1a1, 0x1b2)) return TRACK_SELECT_REVERSE;
+    for (int item = TRACK_SELECT_MIRROR; item <= TRACK_SELECT_RALLY; item++)   /* port (dep56) */
+        if (switch_shown(st, item) && ops->pointer_in_rect(ops->ctx, 0, SWITCH_HIT_X1, switch_y(st, item) - 2, switch_y(st, item) + SWITCH_PITCH - 3))
+            return item;
     return NOTHING;
 }
 
@@ -424,7 +503,7 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
 {
     const int track = track_of(st);
     if (item == DONE) return 1;
-    if ((item == PREV || item == NEXT) && offered(st, track)) {   /* port: the track's variants are entries too */
+    if ((item == PREV || item == NEXT) && offered(st, track) && !switches_on(st)) {   /* port: the track's variants are entries too */
         int to, variant;
         track_select_entry(track, variant_of(st), item == PREV ? -1 : 1, in->lost_vegas, st->plus->unlock_m,
                            st->plus->unlock_r, &to, &variant);
@@ -445,6 +524,7 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
         } else {
             to = (int16_t)((track + 1) % (in->lost_vegas ? 9 : 8));
         }
+        if (switches_on(st) && to == LOST_VEGAS) *st->plus->variant_m = 0, *st->plus->variant_r = 0;   /* port (dep56): it has neither */
         *bank = change_track(in, st, *bank, to, pal, ops);
         *redraw = 1;
         return -1;
@@ -477,9 +557,12 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
     } else if (item == TRACK_SELECT_WEATHER && weather_on(st)) {
         *st->plus->weather = track_select_weather_step(*st->plus->weather, 1);
         *changed = 1;
-    } else if (item == TRACK_SELECT_REVERSE && reverse_on(st)) {
+    } else if (item == TRACK_SELECT_REVERSE && reverse_row(st)) {
         *st->plus->reverse = !*st->plus->reverse;
         *changed = 1;
+    } else if (is_switch(item) && switch_turns(st, item)) {   /* port (dep56) */
+        switch_toggle(st, item);
+        *redraw = 1;
     } else if (item == TIME_OF_DAY && track != LOST_VEGAS && st->plus && st->plus->light_time) {
         *st->plus->light_time = track_select_light_time_step(*st->plus->light_time, 1);
         *changed = 1;
@@ -491,12 +574,34 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
     return 0;
 }
 
-/* an arrow: the item it leads to (9, the time of day, skipped where there is none) */
+static int arrow_items(const TrackSelectInputs *in, const TrackSelectState *st, int key, int item);
+
+/* port (dep56): the switch rows sit over the column's first item: Down from Done goes to the first of them and on to the
+ * exe's first, Up from that back through them to Done. Left and Right on a row turn it (the key loop), not here. */
 static int arrow(const TrackSelectInputs *in, const TrackSelectState *st, int key, int item)
+{
+    int rows[3];
+    const int n = switch_rows(st, rows);
+    if (n == 0) return arrow_items(in, st, key, item);
+    const int below = arrow_items(in, st, KEY_DOWN, DONE);   /* the column's first item, under the switches */
+    if (is_switch(item)) {
+        int at = 0;
+        while (at < n - 1 && rows[at] != item) at++;
+        if (key == KEY_UP) return at == 0 ? DONE : rows[at - 1];
+        if (key == KEY_DOWN) return at == n - 1 ? below : rows[at + 1];
+        return item;
+    }
+    if (key == KEY_DOWN && item == DONE) return rows[0];
+    if (key == KEY_UP && item == below && arrow_items(in, st, KEY_UP, item) == DONE) return rows[n - 1];
+    return arrow_items(in, st, key, item);
+}
+
+/* an arrow: the item it leads to (9, the time of day, skipped where there is none) */
+static int arrow_items(const TrackSelectInputs *in, const TrackSelectState *st, int key, int item)
 {
     const int track = track_of(st), low = track <= 2;
     int to;
-    const int rev = reverse_on(st);
+    const int rev = reverse_row(st);
     if (key == KEY_LEFT) return track_select_arrow_reverse(key, item, LEFT[low][item], track_select_arrow_plus(key, item, LEFT[low][item], weather_on(st)), weather_on(st), rev);
     if (key == KEY_RIGHT) return track_select_arrow_reverse(key, item, RIGHT[low][item], track_select_arrow_plus(key, item, RIGHT[low][item], weather_on(st)), weather_on(st), rev);
     if (key == KEY_UP) {
@@ -597,12 +702,16 @@ int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, Dialo
                 *st->plus->laps = track_select_laps_step(*st->plus->laps, key == KEY_LEFT ? -1 : 1);
                 ops->sound(ops->ctx, SOUND_MOVE);
                 redraw = 1;
+            } else if (is_switch(item) && switch_turns(st, item) && (key == KEY_LEFT || key == KEY_RIGHT)) {   /* port (dep56) */
+                switch_toggle(st, item);
+                ops->sound(ops->ctx, SOUND_MOVE);
+                redraw = 1;
             } else if (key == KEY_LEFT || key == KEY_RIGHT || key == KEY_UP || key == KEY_DOWN) {
                 ops->pointer_off(ops->ctx);
                 was = item;
                 item = arrow(in, st, key, item);
                 changed = 1;
-                ops->pointer_move_to(ops->ctx, POINTER_X[item], POINTER_Y[item]);
+                pointer_to_item(st, item, ops);
             }
             keys_armed = 0, waited = 0;
             ops->ticks(ops->ctx);

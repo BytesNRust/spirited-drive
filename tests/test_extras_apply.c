@@ -49,59 +49,19 @@ static void clear_all(void)
     track_flags = 0;
 }
 
-static PortExtras extras_of(int mirror, int rally)
+/* 00432ff4 and the tournament clear the variants; no switch brings them back: they are the level's and the player's
+ * pick, as in the exe */
+static void test_reapply_leaves_the_variants_alone(void)
 {
+    ExtrasFlags f;
+    clear_all();
+    flags(&f);
     PortExtras e = port_extras_defaults();
-    e.mirror = mirror;
-    e.rally = rally;
-    return e;
-}
-
-#define WITH_EXTRAS(mirror, rally) const PortExtras e_ = extras_of(mirror, rally), *const e = &e_
-
-/* 00432ff4 and the tournament clear the variants; the switch brings mirror back, rally stays out. */
-static void test_mirror_comes_back_alone(void)
-{
-    ExtrasFlags f;
-    clear_all();
-    flags(&f);
-    {
-        WITH_EXTRAS(1, 0);
-        extras_reapply(e, &f);
-    }
-    CHECK_EQ_INT(unlock_m, 1);
-    CHECK_EQ_INT(variant_m, 1);
-    CHECK_EQ_INT(variant_r, 0);
-    CHECK_EQ_INT(unlock_r, 0);
-}
-
-static void test_rally_comes_back_alone(void)
-{
-    ExtrasFlags f;
-    clear_all();
-    flags(&f);
-    {
-        WITH_EXTRAS(0, 1);
-        extras_reapply(e, &f);
-    }
-    CHECK_EQ_INT(unlock_r, 1);
-    CHECK_EQ_INT(variant_r, 1);
-    CHECK_EQ_INT(variant_m, 0);
-    CHECK_EQ_INT(unlock_m, 0);
-}
-
-/* Both on in PortExtras is not reachable from the screen; mirror wins, as in cheat_codes. */
-static void test_both_on_takes_mirror(void)
-{
-    ExtrasFlags f;
-    clear_all();
-    flags(&f);
-    {
-        WITH_EXTRAS(1, 1);
-        extras_reapply(e, &f);
-    }
-    CHECK_EQ_INT(variant_m, 1);
-    CHECK_EQ_INT(variant_r, 0);
+    e.warrior = e.explode = 1;
+    extras_reapply(&e, &f);
+    CHECK_EQ_INT(unlock_m + unlock_r + variant_m + variant_r + vegas_cheat + lost_vegas, 0);
+    CHECK_EQ_INT(warrior, 1);
+    CHECK_EQ_INT(explode, 1);
 }
 
 static void test_turbo_only_touches_bit_8(void)
@@ -148,7 +108,7 @@ static void test_reapply_is_idempotent(void)
     ExtrasFlags f;
     clear_all();
     flags(&f);
-    PortExtras e = extras_of(1, 0);
+    PortExtras e = port_extras_defaults();
     e.nitro = 1;
     e.warrior = 1;
     extras_reapply(&e, &f);
@@ -159,30 +119,6 @@ static void test_reapply_is_idempotent(void)
     CHECK_EQ_INT(variant_m, vm);
     CHECK_EQ_INT(variant_r, vr);
     CHECK_EQ_INT(nitro, 1);
-}
-
-/* The cheat codes write straight into the flags; reading back gives the screen what to show. */
-static void test_from_flags_after_a_typed_code(void)
-{
-    ExtrasFlags f;
-    clear_all();
-    flags(&f);
-    variant_m = 1;                              /* SKCART just typed */
-    const PortExtras e = extras_from_flags(&(PortExtras){ .start = START_GAME_MODE }, &f);
-    CHECK_EQ_INT(e.mirror, 1);
-    CHECK_EQ_INT(e.rally, 0);
-}
-
-static void test_from_flags_rally_wins_over_mirror(void)
-{
-    ExtrasFlags f;
-    clear_all();
-    flags(&f);
-    unlock_r = 1;
-    variant_r = 1;
-    const PortExtras e = extras_from_flags(&(PortExtras){ .start = START_GAME_MODE }, &f);
-    CHECK_EQ_INT(e.rally, 1);
-    CHECK_EQ_INT(e.mirror, 0);
 }
 
 static void test_from_flags_reads_the_rest(void)
@@ -200,7 +136,6 @@ static void test_from_flags_reads_the_rest(void)
     CHECK_EQ_INT(e.nitro, 1);
     CHECK_EQ_INT(e.turbo, 1);
     CHECK_EQ_INT(e.warrior, 1);
-    CHECK_EQ_INT(e.vegas, 1);
     CHECK_EQ_INT(port_extras_cheat_marks(&e), 7);
 }
 
@@ -209,7 +144,7 @@ static void test_from_flags_keeps_the_untouched_switches(void)
     ExtrasFlags f;
     clear_all();
     flags(&f);
-    PortExtras e = extras_of(0, 0);
+    PortExtras e = port_extras_defaults();
     e.no_movies = 1;
     e.replay_cameras = 1;
     e.start = START_NETWORK;
@@ -217,7 +152,6 @@ static void test_from_flags_keeps_the_untouched_switches(void)
     CHECK_EQ_INT(r.no_movies, 1);
     CHECK_EQ_INT(r.replay_cameras, 1);
     CHECK_EQ_INT(r.start, START_NETWORK);
-    CHECK_EQ_INT(r.mirror, 0);
 }
 
 /* the options screen's ABS_LIT order: 0 On, 1 Off, 2 N/A */
@@ -241,7 +175,7 @@ static void test_no_assists_turns_the_aids_off_and_leaves_not_offered(void)
     CHECK_EQ_INT(traction, 1);
 }
 
-/* A switch that was on and is turned off takes its flag away, the variant with it; the others stay. */
+/* A switch that was on and is turned off takes its flag away; the others stay. */
 static void test_switch_off_takes_the_flag_away(void)
 {
     ExtrasFlags f;
@@ -250,24 +184,61 @@ static void test_switch_off_takes_the_flag_away(void)
     clear_all();
     flags(&f);
     memset(&s, 0, sizeof s);
-    e.mirror = 1;
     e.explode = 1;
-    e.vegas = 1;
+    e.nitro = 1;
     extras_settle(&e, 0, &f, &s);
-    CHECK_EQ_INT(unlock_m, 1);
-    CHECK_EQ_INT(variant_m, 1);
     CHECK_EQ_INT(explode, 1);
+    CHECK_EQ_INT(nitro, 1);
+    e.explode = 0;
+    extras_settle(&e, 0, &f, &s);
+    CHECK_EQ_INT(explode, 0);
+    CHECK_EQ_INT(nitro, 1);
+}
+
+/* The level alone unlocks, as 00432ff4: 0 nothing, 1 the mirror, the Warrior and Lost Vegas, 2 the rally too; a lower
+ * level takes back what it no longer gives, the variant with its unlock */
+static void test_the_level_alone_unlocks(void)
+{
+    ExtrasFlags f;
+    ExtrasSession s;
+    const PortExtras e = port_extras_defaults();
+    clear_all();
+    flags(&f);
+    memset(&s, 0, sizeof s);
+    extras_settle(&e, 0, &f, &s);
+    CHECK_EQ_INT(unlock_m + unlock_r + warrior + lost_vegas, 0);
+    lost_vegas = 1;   /* central.c's start of Control Central: lost_vegas = level */
+    extras_settle(&e, 1, &f, &s);
+    CHECK_EQ_INT(unlock_m, 1);
+    CHECK_EQ_INT(unlock_r, 0);
+    CHECK_EQ_INT(warrior, 1);
+    CHECK_EQ_INT(lost_vegas, 1);
+    extras_settle(&e, 2, &f, &s);
+    CHECK_EQ_INT(unlock_r, 1);
+    variant_r = 1;
+    extras_settle(&e, 1, &f, &s);
+    CHECK_EQ_INT(unlock_r, 0);
+    CHECK_EQ_INT(variant_r, 0);
+    CHECK_EQ_INT(unlock_m, 1);
+    extras_settle(&e, 0, &f, &s);
+    CHECK_EQ_INT(unlock_m + warrior + lost_vegas, 0);
+}
+
+/* CASINOVILLE typed: Lost Vegas for the session at level 0, never a switch */
+static void test_typed_vegas_lasts_the_session(void)
+{
+    ExtrasFlags f;
+    ExtrasSession s;
+    const PortExtras e = port_extras_defaults();
+    clear_all();
+    flags(&f);
+    memset(&s, 0, sizeof s);
+    extras_settle(&e, 0, &f, &s);
+    vegas_cheat = 1, lost_vegas = 1;
+    extras_settle(&e, 0, &f, &s);
+    extras_settle(&e, 0, &f, &s);
     CHECK_EQ_INT(vegas_cheat, 1);
     CHECK_EQ_INT(lost_vegas, 1);
-    e.mirror = 0;
-    e.explode = 0;
-    e.vegas = 0;
-    extras_settle(&e, 0, &f, &s);
-    CHECK_EQ_INT(unlock_m, 0);
-    CHECK_EQ_INT(variant_m, 0);
-    CHECK_EQ_INT(explode, 0);
-    CHECK_EQ_INT(vegas_cheat, 0);
-    CHECK_EQ_INT(lost_vegas, 0);
 }
 
 /* A cheat typed with its switch off lasts the session and is neither a switch nor undone by the settle. */
@@ -289,7 +260,6 @@ static void test_typed_cheat_survives_and_is_not_a_switch(void)
     CHECK_EQ_INT(unlock_r, 1);
     CHECK_EQ_INT((int)(track_flags & 8), 8);
     CHECK_EQ_INT(e.nitro, 0);
-    CHECK_EQ_INT(e.rally, 0);
     CHECK_EQ_INT(e.turbo, 0);
 }
 
@@ -340,13 +310,12 @@ static void test_switches_off_save_and_restart_cycle(void)
     clear_all();
     flags(&f);
     memset(&s, 0, sizeof s);
-    e.mirror = e.warrior = e.vegas = e.explode = e.turbo = 1;
+    e.warrior = e.explode = e.turbo = 1;
     extras_settle(&e, 0, &f, &s);
-    CHECK_EQ_INT(unlock_m, 1);
     CHECK_EQ_INT(warrior, 1);
-    CHECK_EQ_INT(lost_vegas, 1);
+    CHECK_EQ_INT(explode, 1);
     /* CUSTOMIZE: all off, Done saves the file */
-    e.mirror = e.warrior = e.vegas = e.explode = e.turbo = 0;
+    e.warrior = e.explode = e.turbo = 0;
     CHECK(port_extras_format(&e, text, sizeof text) > 0);
     extras_settle(&e, 0, &f, &s);
     CHECK_EQ_INT(unlock_m + variant_m + warrior + lost_vegas + vegas_cheat + explode, 0);
@@ -370,17 +339,15 @@ uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)
 int main(void)
 {
     test_no_assists_turns_the_aids_off_and_leaves_not_offered();
-    test_mirror_comes_back_alone();
-    test_rally_comes_back_alone();
-    test_both_on_takes_mirror();
+    test_reapply_leaves_the_variants_alone();
     test_turbo_only_touches_bit_8();
     test_all_flags_off_changes_nothing();
     test_reapply_is_idempotent();
-    test_from_flags_after_a_typed_code();
-    test_from_flags_rally_wins_over_mirror();
     test_from_flags_reads_the_rest();
     test_from_flags_keeps_the_untouched_switches();
     test_switch_off_takes_the_flag_away();
+    test_the_level_alone_unlocks();
+    test_typed_vegas_lasts_the_session();
     test_typed_cheat_survives_and_is_not_a_switch();
     test_level_keeps_its_flags();
     test_everything_off_settles_to_nothing();

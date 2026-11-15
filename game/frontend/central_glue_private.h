@@ -129,6 +129,9 @@ int16_t *cg_word_52b302(void);
 Unlocks cg_unlocks_of(void);
 void cg_unlocks_put(const Unlocks *u);
 void cg_extras_apply(void);
+/* port (dep56): a Restomod tournament's variants (tournament_variants.h) onto the settings for the track set; in Stock and
+ * Restored a tournament's are the exe's (none), so a profile changed mid-run drops them until Restomod is back */
+void cg_tournament_variants_apply(void);
 int16_t cg_image_short(int at);
 void cg_palette_set(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode);
 void cg_flush(void *ctx);

@@ -97,6 +97,11 @@ void race_settings_track_forward(RaceSettings *s, const Unlocks *u);       /* 00
 
 /* 00432d48: the same order backwards. */
 void race_settings_track_backward(RaceSettings *s, const Unlocks *u);
+
+/* port (dep56): the next (`dir` 1) or previous (-1) track alone, with the original's wrap (the hidden track, Lost Vegas when
+ * unlocked), the variants kept as they are where unlocked (variant_rule.h's switches); Lost Vegas and the hidden track have
+ * none, so they clear them. */
+void race_settings_track_step(RaceSettings *s, const Unlocks *u, int dir);
 void track_changed(RaceSettings *s);                               /* laps, tournament car */
 
 #endif

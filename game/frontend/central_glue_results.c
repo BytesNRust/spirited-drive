@@ -1,5 +1,7 @@
 /* The Control Central glue's best times, results and standings screens (central_glue.c's second part). */
 #include "game/frontend/central_glue_private.h"
+#include "game/frontend/tournament_variants.h"
+#include "game/frontend/variant_rule.h"
 
 /* 004fa0cc..: the segments' top speeds and totals (menu_race fills them); 0051dccc and 0051dcec..: 0045b6c8's;
  * the shorts 0051ce24 + 0x1d2 x player, the cars' points (0045aec8's) */
@@ -117,10 +119,14 @@ void cg_standings(void *ctx, int32_t segment)
 {
     (void)ctx;
     const int32_t screen = ea_screen();
+    const uint8_t *const image = config_current()->image;
+    const TournamentVariants v = tournament_variants_get();   /* port (dep56): a Restomod tournament's standings name its variants */
+    const char *const line = variant_switches_on() && cg_g.race_type == RACE_TOURNAMENT
+                                 ? records_glue_line_layout(ROUTE_SEGMENT, image, records_race_kind(v.mirror, v.rally, v.inverse, 0, 0, 0).layout)
+                                 : records_glue_line(ROUTE_SEGMENT, image);
     StandingsInputs in = { cg_game_state, finish, cg_car_points, cg_image_short(0x95), cg_image_short(0x93),
                                  cg_image_short(0xb1), resource_german(), cg_g.unlock_level, 0, screen,
-                                 ea_picture_shape(screen), records_glue_cheats(ROUTE_SEGMENT, config_current()->image),
-                                 records_glue_line(ROUTE_SEGMENT, config_current()->image) };
+                                 ea_picture_shape(screen), records_glue_cheats(ROUTE_SEGMENT, image), line };
     StandingsState st = { cg_g.inverse, cg_screen_palette };
     int x, y;
     pointer_position(&x, &y);

@@ -82,13 +82,19 @@ static RaceKind shown_kind(RouteOp op, const uint8_t *image)
 
 int records_glue_cheats(RouteOp op, const uint8_t *image) { return port_records_unified() && records_has_cheats(shown_kind(op, image)); }
 
-const char *records_glue_line(RouteOp op, const uint8_t *image)
+const char *records_glue_line_layout(RouteOp op, const uint8_t *image, int layout)
 {
     static char line[64];
     if (!port_records_unified()) return NULL;
     const RaceKind kind = shown_kind(op, image);
-    records_table_line(kind.layout, records_has_cheats(kind), records_race_laps(image), line, sizeof line);
+    records_table_line(layout, records_has_cheats(kind), records_race_laps(image), line, sizeof line);
     return line;
+}
+
+const char *records_glue_line(RouteOp op, const uint8_t *image)
+{
+    if (!port_records_unified()) return NULL;
+    return records_glue_line_layout(op, image, shown_kind(op, image).layout);
 }
 
 BestTimesPlus *records_glue_best_plus(const uint8_t *image, int variant_m, int variant_r, int explode, int nitro, int turbo, int car)

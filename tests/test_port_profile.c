@@ -207,11 +207,11 @@ static void test_tables(void)
 /* what is free, by mode */
 static void test_free_keys(void)
 {
-    static const char *const ALL[] = { "fullscreen", "explode", "nitro", "turbo", "warrior", "mirror", "rally", "vegas", "units", "update_check", "scale" };
+    static const char *const ALL[] = { "fullscreen", "explode", "nitro", "turbo", "warrior", "units", "update_check", "scale" };
     static const char *const RESTORED[] = { "format", "refresh_hz", "render_bands", "stats_overlay" };
     static const char *const RESTOMOD[] = { "perspective", "texture_filter", "fog", "light_effects", "fov_adjust", "render_scale", "view_ultra", "weather", "light_time", "laps", "reverse", "car_paint", "extra_liveries",
                                             "lunar_springs", "lunar_gravity", "warrior_rival", "no_assists", "bumper_mirror", "bumper_radar", "replay_cameras", "car_markers", "dash_box", "follow_camera",
-                                            "difficulty", "start", "no_movies", "body_shine" };
+                                            "difficulty", "start", "no_movies", "body_shine", "unlock_level" };
     for (size_t i = 0; i < sizeof ALL / sizeof ALL[0]; i++)
         for (int p = 0; p < PROFILE_COUNT; p++) CHECK(port_profile_key_free((Profile)p, ALL[i]));
     for (size_t i = 0; i < sizeof RESTORED / sizeof RESTORED[0]; i++) {
@@ -252,11 +252,11 @@ static void test_reading(void)
     CHECK_EQ_INT(port_settings_load().format, SCREEN_4_3);
     CHECK_EQ_INT(port_settings_load().refresh_hz, 30);
     /* a fixed key in the file of Stock is not believed; a free one is */
-    put_file("stock.cfg", "format=16:9\nfog=1\nfullscreen=0\nmirror=1\ndifficulty=2\n");
+    put_file("stock.cfg", "format=16:9\nfog=1\nfullscreen=0\nwarrior=1\ndifficulty=2\n");
     CHECK_EQ_INT(port_settings_load().format, SCREEN_4_3);
     CHECK_EQ_INT(port_settings_load().fog, 0);
     CHECK_EQ_INT(port_settings_load().fullscreen, 0);
-    CHECK_EQ_INT(port_extras_load().mirror, 1);
+    CHECK_EQ_INT(port_extras_load().warrior, 1);
     CHECK_EQ_INT(port_extras_load().difficulty, 1);
     /* the same in Restored: its own free ones count */
     put_file("port.cfg", "profile=restored\n");
@@ -329,10 +329,10 @@ static void test_saving(void)
     CHECK(port_settings_save(&s));   /* the rest is written, what is fixed goes to the log */
     CHECK(strcmp(file_text("stock.cfg"), "fullscreen=0\n") == 0);
     e = port_extras_load();
-    e.lunar_springs = 1, e.mirror = 1;
+    e.lunar_springs = 1, e.warrior = 1;
     CHECK(port_extras_save(&e));
     CHECK(strstr(file_text("stock.cfg"), "lunar_springs") == NULL);
-    CHECK(strstr(file_text("stock.cfg"), "mirror=1\n") != NULL);
+    CHECK(strstr(file_text("stock.cfg"), "warrior=1\n") != NULL);
     /* F6 in Stock: the race's own, nothing kept */
     CHECK(!port_extras_set_race_switch(RACE_SWITCH_MARKERS, 0));
     CHECK_EQ_INT(port_extras_race_on(RACE_SWITCH_MARKERS), 1);

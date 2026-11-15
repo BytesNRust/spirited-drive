@@ -18,9 +18,9 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
 
 /* port: the two pages, and the four groups the owner named, verbatim:
  *
- *   page 1  Cheats             Explode mode, Nitro mode, Turbo mode, Warrior Player Car
- *            Unlocks & mods     Warrior Rival Car, Mirror track mode, Rally track mode, Lost Vegas Track,
- *                               Lunar Springs Track, Lunar Gravity, Unlock Level, Car Colours
+ *   page 1  Cheats             Explode mode, Nitro mode, Turbo mode, Warrior Player Car,
+ *                               Lunar Gravity (Lunar Springs / All Tracks / Off)
+ *            Unlocks & mods     Warrior Rival Car, Lunar Springs Track, Unlock Level, Car Colours
  *   page 2  In-race options    Speed units, No driving assists, Bumper view mirror, Exterior views police radar,
  *                               Replay cameras in race mode, Rival car markers (F6), 3D render stats (F12),
  *                               Dash box (Map / Gear lever / Hidden), 360 Camera,
@@ -32,7 +32,9 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
  * Pages 2 and 3 have one group each, so one header; page 1 has two.
  *
  * (Rival car markers and 3D render stats are the race's switches: the mode's file's car_markers and stats_overlay. Page 1
- * is thirteen rows and two headers, fifteen lines, which is what the 20 pitch fits.)
+ * is nine rows and two headers, eleven lines: Mirror, Rally and Lost Vegas are no rows, they come from the Unlock Level as
+ * in the exe. Lunar Springs Track is the level's too: it changes only at level 2, dimmed below it. Lunar Gravity is a Cheat:
+ * it changes how a race runs, and a race run with it is filed apart from the normal records.)
  *
  * The rows below are that list in order, page 1's first, so a page is the first ROWS_P1 of them and page 2 the rest,
  * and a group is a range of them. The list is the switches only: Done and Cancel are the clean background's own words,
@@ -43,8 +45,8 @@ enum { EXTRAS_NAV_X0 = 270, EXTRAS_NAV_X1 = 370, EXTRAS_NAV_Y0 = 432, EXTRAS_NAV
 enum { EXTRAS_PAGES = 3, EXTRAS_GROUPS = 2 };
 enum { GROUP_CHEATS = 0, GROUP_UNLOCKS, GROUP_IN_RACE, GROUP_MISC };   /* the groups, in the pages' order */
 enum {
-    ROW_EXPLODE = 0, ROW_NITRO, ROW_TURBO, ROW_WARRIOR,                                      /* Cheats */
-    ROW_RIVAL, ROW_MIRROR, ROW_RALLY, ROW_VEGAS, ROW_LUNAR, ROW_LUNAR_GRAVITY, ROW_UNLOCK,   /* Unlocks & mods */
+    ROW_EXPLODE = 0, ROW_NITRO, ROW_TURBO, ROW_WARRIOR, ROW_LUNAR_GRAVITY,                   /* Cheats */
+    ROW_RIVAL, ROW_LUNAR, ROW_UNLOCK,                                                        /* Unlocks & mods */
     ROW_EXTRA_LIVERY,                                /* port: Unlocks & mods' last, the car colours: the console version liveries and the catalogue paints (port_extras.h) */
     ROW_UNITS, ROW_ASSISTS, ROW_BUMPER_MIRROR, ROW_BUMPER_RADAR, ROW_REPLAY, ROW_MARKERS,   /* In-race options */
     ROW_STATS,                                     /* port: In-race options' last, the race's F12 switch */
@@ -118,9 +120,6 @@ typedef struct ExtrasMenuOps {
     void (*plus_header)(void *ctx, const char *text, int32_t x, int32_t y, int32_t width);
     /* port: persist the on-screen state — the mode's file from `e` and the unlock level. The caller decides the files. */
     void (*extras_save)(void *ctx, const PortExtras *e, int16_t unlock);
-    /* port: 1 lets Mirror and Rally both stay on (the race runs the mirror's geometry on the rally's track),
-     * where the exe's screen switches one off as the other is turned on. 0 is the exe. */
-    int port_combine_variants;
     void *ctx;
     /* port: the page indicator's triangles (page_arrows.h): a mask's size, 0 when the CD gives none, and one drawn in
      * a style's colours (lit yellow, else cream). Both NULL keeps the text "1/2 >". */

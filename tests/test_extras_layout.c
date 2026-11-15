@@ -50,7 +50,8 @@ static void test_the_rows_sit_under_their_groups(void)
     run(&one, here, 1);
     CHECK(y_in(&one.fake, "Cheats") < y_in(&one.fake, "Explode mode"));
     CHECK(y_in(&one.fake, "Explode mode") < y_in(&one.fake, "Warrior Player Car"));
-    CHECK(y_in(&one.fake, "Warrior Player Car") < y_in(&one.fake, "Unlocks & mods"));
+    CHECK(y_in(&one.fake, "Warrior Player Car") < y_in(&one.fake, "Lunar Gravity"));
+    CHECK(y_in(&one.fake, "Lunar Gravity") < y_in(&one.fake, "Unlocks & mods"));   /* a Cheat, the group's last */
     CHECK(y_in(&one.fake, "Unlocks & mods") < y_in(&one.fake, "Warrior Rival Car"));
     CHECK(y_in(&one.fake, "Warrior Rival Car") < y_in(&one.fake, "Unlock Level"));
 
@@ -91,10 +92,10 @@ static void test_both_pages_share_one_layout(void)
     turn[n++] = ESCAPE;
     run(&two, turn, n);
 
-    /* the first header of each page is line 0; the second header is line 5 on page 1 and line 11 on page 2 (the lines
+    /* the first header of each page is line 0; the second header is line 6 on page 1 and line 11 on page 2 (the lines
      * are PITCH apart, with the gap of 14 added from the second header down) */
     CHECK_EQ_INT(y_in(&two.fake, "In-race options"), y_in(&one.fake, "Cheats"));
-    CHECK_EQ_INT(y_in(&one.fake, "Unlocks & mods"), 100 + 5 * PITCH + 14);
+    CHECK_EQ_INT(y_in(&one.fake, "Unlocks & mods"), 100 + 6 * PITCH + 14);
     Rig three;
     setup(&three);
     n = keys_to_row(turn, ROW_FIRST_P3);
@@ -106,7 +107,7 @@ static void test_both_pages_share_one_layout(void)
     CHECK_EQ_INT(y_in(&one.fake, "Nitro mode") - y_in(&one.fake, "Explode mode"), PITCH);
     CHECK_EQ_INT(y_in(&two.fake, "No driving assists") - y_in(&two.fake, "Speed units"), PITCH);
     /* the gap: the second header starts further down than the first group's last row, by more than a row's pitch */
-    CHECK_EQ_INT(y_in(&one.fake, "Unlocks & mods") - y_in(&one.fake, "Warrior Player Car"), PITCH + 14);
+    CHECK_EQ_INT(y_in(&one.fake, "Unlocks & mods") - y_in(&one.fake, "Lunar Gravity"), PITCH + 14);
 }
 
 /* The page must fit between the title and the DONE/CANCEL band without covering either: the last row's text has to end

@@ -1,6 +1,7 @@
 /* The cheat codes typed in Control Central (central_keys.c's cheat_codes, through central_cheats) and the EXTRAS
- * switches they show afterwards: each code turns its own switch on, read back the way extras_reflect saves it
- * (extras_from_flags_port over the flags), and the saved switches come back on the next visit (extras_reapply_port).
+ * switches they show afterwards: each code that has a switch turns it on, read back the way extras_reflect saves it
+ * (extras_from_flags over the flags), and the saved switches come back on the next visit (extras_reapply). SKCART,
+ * EARALLYE and CASINOVILLE have no switch: mirror, rally and Lost Vegas are the unlock level's, the codes the session's.
  * cheat_step is the test's own (the letters' spelling is central_glue.c's table), so this checks the mapping from a
  * code to its switch, not the strings. */
 #include "game/frontend/central.h"
@@ -85,36 +86,50 @@ static PortExtras switches_of(Flags *f)
 {
     const PortExtras before = port_extras_defaults();
     ExtrasFlags e = flags_of(f);
-    return extras_from_flags_port(&before, &e);
+    return extras_from_flags(&before, &e);
 }
 
 /* one code typed on a fresh Control Central: the switches it turns on, in the order of PortExtras' fields used here */
-static void check_only(int code, int mirror, int rally, int explode, int nitro, int vegas, int warrior, int turbo)
+static void check_only(int code, int explode, int nitro, int warrior, int turbo)
 {
     Flags f;
     ControlCentralState st;
     fresh(&f, &st);
     type(&st, &f, code);
     const PortExtras s = switches_of(&f);
-    CHECK_EQ_INT(s.mirror, mirror);
-    CHECK_EQ_INT(s.rally, rally);
     CHECK_EQ_INT(s.explode, explode);
     CHECK_EQ_INT(s.nitro, nitro);
-    CHECK_EQ_INT(s.vegas, vegas);
     CHECK_EQ_INT(s.warrior, warrior);
     CHECK_EQ_INT(s.turbo, turbo);
 }
 
-static void test_skcart_is_the_mirror_switch(void) { check_only(CENTRAL_SKCART, 1, 0, 0, 0, 0, 0, 0); }
-
-static void test_earallye_is_the_rally_switch(void) { check_only(CENTRAL_EARALLYE, 0, 1, 0, 0, 0, 0, 0); }
-
-static void test_explode_nitro_casinovegas_turbo_each_their_own(void)
+/* SKCART, EARALLYE and CASINOVILLE set their flags for the session, as the exe, and are no switch */
+static void test_the_variant_codes_are_the_sessions(void)
 {
-    check_only(CENTRAL_EXPLODE, 0, 0, 1, 0, 0, 0, 0);
-    check_only(CENTRAL_NITRO, 0, 0, 0, 1, 0, 0, 0);
-    check_only(CENTRAL_CASINOVILLE, 0, 0, 0, 0, 1, 0, 0);
-    check_only(CENTRAL_TURBO, 0, 0, 0, 0, 0, 0, 1);
+    Flags f;
+    ControlCentralState st;
+    fresh(&f, &st);
+    type(&st, &f, CENTRAL_SKCART);
+    CHECK_EQ_INT(f.unlock_m, 1);
+    CHECK_EQ_INT(f.variant_m, 1);
+    check_only(CENTRAL_SKCART, 0, 0, 0, 0);
+    fresh(&f, &st);
+    type(&st, &f, CENTRAL_EARALLYE);
+    CHECK_EQ_INT(f.unlock_r, 1);
+    CHECK_EQ_INT(f.variant_r, 1);
+    check_only(CENTRAL_EARALLYE, 0, 0, 0, 0);
+    fresh(&f, &st);
+    type(&st, &f, CENTRAL_CASINOVILLE);
+    CHECK_EQ_INT(f.vegas_cheat, 1);
+    CHECK_EQ_INT(f.lost_vegas, 1);
+    check_only(CENTRAL_CASINOVILLE, 0, 0, 0, 0);
+}
+
+static void test_explode_nitro_turbo_each_their_own(void)
+{
+    check_only(CENTRAL_EXPLODE, 1, 0, 0, 0);
+    check_only(CENTRAL_NITRO, 0, 1, 0, 0);
+    check_only(CENTRAL_TURBO, 0, 0, 0, 1);
 }
 
 /* CONCEPTCAR is the Warrior: its switch, and the Warrior as the player's car (11) */
@@ -126,7 +141,7 @@ static void test_conceptcar_is_the_warrior_switch(void)
     type(&st, &f, CENTRAL_CONCEPTCAR);
     CHECK_EQ_INT(f.player_car, 11);
     CHECK_EQ_INT(switches_of(&f).warrior, 1);
-    CHECK_EQ_INT(switches_of(&f).mirror, 0);
+    CHECK_EQ_INT(switches_of(&f).explode, 0);
 }
 
 /* ROCKYROAD steps the unlock level: 1 gives the Warrior and the mirror's unlock, 2 the rally's */
@@ -145,7 +160,7 @@ static void test_rockyroad_steps_the_unlock_level(void)
     CHECK_EQ_INT(f.unlock_r, 1);
 }
 
-/* the codes typed, saved as the switches, come back on the next visit (extras_reapply_port) */
+/* the codes typed, saved as the switches, come back on the next visit (extras_reapply); the mirror typed does not */
 static void test_typed_codes_come_back_on_the_next_visit(void)
 {
     Flags f;
@@ -158,18 +173,16 @@ static void test_typed_codes_come_back_on_the_next_visit(void)
     ControlCentralState st2;
     fresh(&next, &st2);
     ExtrasFlags e = flags_of(&next);
-    extras_reapply_port(&saved, &e);
-    CHECK_EQ_INT(next.variant_m, 1);
-    CHECK_EQ_INT(next.unlock_m, 1);
+    extras_reapply(&saved, &e);
+    CHECK_EQ_INT(next.variant_m, 0);
+    CHECK_EQ_INT(next.unlock_m, 0);
     CHECK_EQ_INT(next.nitro, 1);
-    CHECK_EQ_INT(next.variant_r, 0);
 }
 
 int main(void)
 {
-    test_skcart_is_the_mirror_switch();
-    test_earallye_is_the_rally_switch();
-    test_explode_nitro_casinovegas_turbo_each_their_own();
+    test_the_variant_codes_are_the_sessions();
+    test_explode_nitro_turbo_each_their_own();
     test_conceptcar_is_the_warrior_switch();
     test_rockyroad_steps_the_unlock_level();
     test_typed_codes_come_back_on_the_next_visit();

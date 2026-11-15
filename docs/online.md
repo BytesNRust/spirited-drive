@@ -55,7 +55,8 @@ Spirited Drive's, so that no two machines run different physics or draw a differ
 | weather, rain grip | clear, fog, rain or storm, and whether wet roads grip less |
 | time of day | the exe's (morning, midday, evening) and the baked light's |
 | reverse | the circuit driven the other way round |
-| the moon | Lunar Springs' textures, the moon's gravity, rally gravel |
+| mirror, rally | the track's variants as the host's race runs them (its switches, or its tournament's) |
+| the moon | Lunar Springs' textures, the moon's gravity (off, Lunar Springs or every track), rally gravel |
 | cheats | NITRO, EXPLODE and TURBO |
 | car colours | whether CUSTOMIZE colours are on, and the paint of each human's car |
 
@@ -80,7 +81,8 @@ car a rival must differ from is the host's.
 
 The setup goes in chunks `{1, 0, chunk, bytes}` of up to 0xf7 bytes, then `{1}`. The host's rules are one more chunk, number 4, before the end. A receiver
 that knows no rules drops it, because chunk 4 lies past the end of the setup. A guest whose host sent none (an older version) keeps what it did before:
-Original difficulty, no reverse, its own settings.
+Original difficulty, no reverse, its own settings; from a host before the variants (record version 2) it keeps the mirror and
+rally Control Central's link settings gave it.
 
 The record is `TNFSSYN1`, a version byte, then one byte per field in the order of `game/race/session_rules.h`; a later version may add fields at the end.
 

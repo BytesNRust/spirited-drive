@@ -27,15 +27,25 @@ What you change is kept for that mode alone. The additions:
   gears, camera, handbrake, horn, pause, view, Nitro) to keys, pad buttons, triggers or axes. They also set the dead
   zone, sensitivity and force feedback.
 - **Customize Game** (Game Mode, or Options), three pages:
-  - Page 1 — Cheats: Explode, Nitro, Turbo, Warrior player car; Unlocks & mods: Warrior as a rival, mirror and rally
-    tracks, Lost Vegas, Lunar Springs (the cut moon track, run as Rusty Springs' rally) and its moon gravity, unlock
-    level, car colours;
+  - Page 1 — Cheats: Explode, Nitro, Turbo, Warrior player car, Lunar Gravity (Off, Lunar Springs only, or All
+    Tracks); Unlocks & mods: Warrior as a rival, Lunar Springs (the cut moon track, run as Rusty Springs' rally, from
+    unlock level 2), unlock level, car colours;
   - Page 2 — In-race options: speed units, no driving assists, bumper-view mirror, police radar in the exterior views,
     replay cameras in races, rival car markers, 3D render stats, dash box (the map, the gear lever or neither), 360
     camera, difficulty (Easy, Original, Hard);
   - Page 3 — Miscellaneous: start screen (Game Mode, Network or Control Central), intro videos, updates and anonymous
     stats, open the log folder, restore the mode's defaults.
   The typed cheat codes still work. In Restomod, with a cheat on, Control Central shows CHEATS ENABLED.
+- **Unlock level**: as in the original, level 1 opens the mirror tracks, the Warrior and Lost Vegas; level 2 adds the
+  rally tracks, the reverse way round (Restomod) and the Lunar Springs switch. Stock and Restored keep the level in
+  `config.dat`; Restomod keeps its own, 2 until you change it on Customize Game.
+- **Track variants**: in Stock and Restored the mirror and rally versions are entries of their own on the track
+  screen. In Restomod they are switches on the track screen (Mirror, Inverse, Rally, over the track length), Control
+  Central's arrows step the tracks alone, and the track card shows the layout letters, weather, time of day and laps.
+  A Restomod tournament takes its variants from the same switches before its first race; from then on every race
+  runs them (Lost Vegas without mirror and rally) and the switches show them without turning. A saved tournament
+  keeps them in `NAME.VAR` beside `NAME.SAV`; a save without one loads with the plain track. Stock and Restored
+  tournaments are the original's, with no variants.
 - **Records**: Stock and Restored keep the original's records in `config.dat`, every race in the same table.
   Restomod keeps its own in `race_records.dat`: a table per track, layout (normal, mirror, reverse, rally and their
   mixes), cheats or none, and lap count, saved after every race of every mode. A race with Explode, Nitro, Turbo,

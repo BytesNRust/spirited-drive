@@ -1,4 +1,9 @@
 #include "game/frontend/central_glue_private.h"
+#include "game/frontend/card_marks.h"
+#include "game/sys/text.h"
+#include "game/frontend/unlock_level.h"
+#include "game/frontend/variant_rule.h"
+#include "game/frontend/tournament_variants.h"
 
 CentralGlobals cg_g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
 
@@ -33,7 +38,7 @@ void cg_settings_put(const RaceSettings *s)
 
 /* The short 0052ad40 is config.dat's (00524df0 + 0x5f50): the level a cheat raised (central_keys.c) back into the image
  * before a path that reads it from there, and before the image is saved (0042a504) */
-void cg_level_to_image(void) { config_dat_set_unlock_level(config_current(), cg_g.unlock_level); }
+void cg_level_to_image(void) { unlock_level_put(config_current(), cg_g.unlock_level); }   /* Restomod: its own (unlock_level.h) */
 
 /* 0052b2d6..0052b2e8, the tournament's races by track that 00432ff4 sums: the menus' game state's (+0x592) */
 void cg_races_from_state(void) { memcpy(cg_g.races, cg_game_state + 0x592, sizeof cg_g.races); }
@@ -95,8 +100,9 @@ void cg_extras_apply(void)
     const PortExtras e = port_extras_load();
     /* port: the level, the switches and the cheats typed in the session decide what is on: a switch turned off in
      * CUSTOMIZE takes its flag away, a cheat typed stays for the session and is never written to the mode's file (the
-     * switch is the player's default, not a veto on the cheat); Mirror and Rally both on stay both on */
+     * switch is the player's default, not a veto on the cheat); mirror, rally and Lost Vegas are the level's alone */
     extras_settle(&e, cg_g.unlock_level, &f, &extras_session);
+    if (cg_g.unlock_level < 2) reverse_track_pick(0);   /* port: the way round (INVERSE) is level 2's, as the rally */
     /* cheat_codes writes the globals, so they are read back and put into g again after the reapply */
     cg_g.unlock_m = *f.unlock_m, cg_g.unlock_r = *f.unlock_r, cg_g.variant_m = *f.variant_m, cg_g.variant_r = *f.variant_r;
     cg_g.explode = *f.explode, cg_g.nitro = *f.nitro, cg_g.vegas_cheat = *f.vegas_cheat, cg_g.lost_vegas = *f.lost_vegas;
@@ -117,15 +123,38 @@ static void car_flags(void *ctx)
     cg_extras_apply();   /* port: after 00465ec8 / 00432974 */
 }
 
+void cg_tournament_variants_apply(void)
+{
+    if (cg_g.race_type != RACE_TOURNAMENT) return;
+    TournamentVariants v;
+    if (!tournament_variants_settings(tournament_variants_get(), cg_g.track, variant_switches_on(), cg_g.unlock_m, cg_g.unlock_r,
+                                      cg_g.unlock_level, &v))
+        return;
+    cg_g.variant_m = v.mirror, cg_g.variant_r = v.rally;
+    reverse_track_pick(v.inverse);
+}
+
+/* port (dep56): a Restomod tournament entered from another race type takes the switches as they were as its variants
+ * (race_settings_type_changed clears them, as the exe's 00432974), unless its races have begun (a game loaded); either
+ * way the tournament's are put back on */
+static void tournament_entered(int was_type, int was_m, int was_r)
+{
+    if (variant_switches_on() && cg_g.race_type == RACE_TOURNAMENT && was_type != RACE_TOURNAMENT && !tournament_variants_locked(cg_g.races))
+        tournament_variants_set((TournamentVariants){ was_m != 0, reverse_track_picked(), was_r != 0 });
+    cg_tournament_variants_apply();
+}
+
 static void type_changed(void *ctx)
 {
     (void)ctx;
     RaceSettings s = cg_settings_of();
+    const int was_type = s.race_type, was_m = s.variant_m, was_r = s.variant_r;
     Unlocks u = cg_unlocks_of();
     FrontendSession f = session_of();
     race_settings_type_changed(&s, &u, &f);
     cg_settings_put(&s), cg_unlocks_put(&u), session_put(&f);
     cg_extras_apply();   /* port: the type change clears the variants */
+    tournament_entered(was_type, was_m, was_r);
 }
 
 static void track_forward(void *ctx)
@@ -133,8 +162,10 @@ static void track_forward(void *ctx)
     (void)ctx;
     RaceSettings s = cg_settings_of();
     const Unlocks u = cg_unlocks_of();
-    race_settings_track_forward(&s, &u);
+    if (variant_switches_on()) race_settings_track_step(&s, &u, 1);   /* port (dep56): the variants are the track screen's switches */
+    else race_settings_track_forward(&s, &u);
     cg_settings_put(&s);
+    cg_tournament_variants_apply();   /* a tournament's are its own on every track (Lost Vegas: none) */
 }
 
 static void track_backward(void *ctx)
@@ -142,8 +173,26 @@ static void track_backward(void *ctx)
     (void)ctx;
     RaceSettings s = cg_settings_of();
     const Unlocks u = cg_unlocks_of();
-    race_settings_track_backward(&s, &u);
+    if (variant_switches_on()) race_settings_track_step(&s, &u, -1);
+    else race_settings_track_backward(&s, &u);
     cg_settings_put(&s);
+    cg_tournament_variants_apply();
+}
+
+/* port (dep56): the track card's words in Restomod (card_marks.h), from the settings as they are at this draw, at half size */
+static void card_marks(void *ctx, int32_t right, int32_t y)
+{
+    (void)ctx;
+    if (!variant_switches_on()) return;
+    char out[48];
+    const RaceSettings s = cg_settings_of();
+    enum { FIRST_CIRCUIT = 3 };
+    const int circuit = s.track >= FIRST_CIRCUIT;
+    const int own = port_records_unified() ? port_settings_load().laps : 0;   /* the laps row's custom count (dep55) */
+    card_marks_text(s.variant_m, circuit && reverse_track_picked(), s.variant_r, port_weather(),
+                    port_light_effects() ? port_light_time() : -1, circuit ? (own > 0 ? own : s.laps) : 0, out, sizeof out);
+    text_select(TEXT_YELLOW);
+    text_draw_smooth(out, right - text_width_scaled(out, 1, 2), y, 1, 2);
 }
 
 static int quit_tournament(int german, void *ctx)
@@ -154,10 +203,13 @@ static int quit_tournament(int german, void *ctx)
 static void step_race_type(void *ctx, int32_t cg_key)
 {
     RaceSettings s = cg_settings_of();
+    const int was_type = s.race_type, was_m = s.variant_m, was_r = s.variant_r;
     Unlocks u = cg_unlocks_of();
     FrontendSession f = session_of();
     race_settings_type_step(&s, &u, &f, cg_game_state, config_current(), cg_key, quit_tournament, ctx);
     cg_settings_put(&s), cg_unlocks_put(&u), session_put(&f);
+    if (s.race_type == RACE_TOURNAMENT && was_type != RACE_TOURNAMENT) cg_races_from_state();   /* a new tournament's: none run */
+    tournament_entered(was_type, was_m, was_r);
 }
 
 /* 00432884 on the art's handles */
@@ -308,6 +360,9 @@ void cg_image_car_flags(void *ctx)
 
 /* 004687d0 on config.dat's image (00524df9..), the globals written to it first and read back after */
 static int32_t best_times(void *ctx);
+/* port (dep56): the track screen's way round while it is open (its Inverse or Reverse row), so Best Times opened from it reads the
+ * layout the screen shows; NULL when the screen is closed or offers none. The pick itself is stored as the screen closes. */
+static const int *track_screen_reverse;
 static int32_t plus_text_width(void *ctx, const char *text);
 static void track_select(void *ctx)
 {
@@ -316,6 +371,8 @@ static void track_select(void *ctx)
     const RaceSettings before = cg_settings_of();
     port_log("mark:screen=track_select\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     config_dat_set_race(config, &before);
+    cg_tournament_variants_apply();   /* port (dep56): a tournament's variants on its switches */
+    const int tournament = variant_switches_on() && cg_g.race_type == RACE_TOURNAMENT;
     const int32_t screen = ea_screen();
     const TrackSelectInputs in = { "", resource_kmh(), cg_g.variant_m, cg_g.variant_r, cg_g.lost_vegas, screen,
                                    ea_picture_shape(screen) };
@@ -326,10 +383,11 @@ static void track_select(void *ctx)
     int laps = port_settings_load().laps;   /* port (dep55): Restomod's custom laps on the laps row, written back to port.cfg */
     const int was_laps = laps;
     const PortExtras extras = port_extras_load();
+    const int reverse_offered = extras.reverse && cg_g.unlock_level >= 2;   /* port: INVERSE is level 2's */
     TrackSelectPlus plus = { cg_g.unlock_m, cg_g.unlock_r, &cg_g.variant_m, &cg_g.variant_r,
                              extras.variant_time,   /* port: variants as entries */
-                             port_settings_profile() == PROFILE_RESTOMOD, &weather, port_light_effects() ? &light_time : NULL, extras.reverse ? &reverse : NULL,
-                             port_records_unified() ? &laps : NULL };
+                             port_settings_profile() == PROFILE_RESTOMOD, &weather, port_light_effects() ? &light_time : NULL, reverse_offered ? &reverse : NULL,
+                             port_records_unified() ? &laps : NULL, variant_switches_on(), tournament && tournament_variants_locked(cg_g.races) };
     const int was_weather = weather, was_light_time = light_time;
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), cg_time_of_day, cg_g.inverse, cg_screen_palette, &plus };
     int x, y;
@@ -342,8 +400,10 @@ static void track_select(void *ctx)
         cg_key, click, track_stop, track_free, fade_out, free_bank, free_handle_inverse, best_times, cg_image_car_flags,
         off_dialog, music,
         cg_deadline_passed, music_fade_out, music_end, &p };
+    track_screen_reverse = reverse_offered ? &reverse : NULL;
     track_select_screen(&in, &st, &p, &ops);
-    if (extras.reverse) reverse_track_pick(reverse);
+    track_screen_reverse = NULL;
+    if (reverse_offered) reverse_track_pick(reverse);
     if (weather != was_weather || light_time != was_light_time || laps != was_laps) {
         PortSettings saved = port_settings_load();
         if (weather != was_weather) saved.weather = weather;
@@ -356,6 +416,10 @@ static void track_select(void *ctx)
         after.variant_m = cg_g.variant_m, after.variant_r = cg_g.variant_r;   /* port: as the screen left them (get_race zeroes them) */
         cg_settings_put(&after);
     }
+    if (tournament && !tournament_variants_locked(cg_g.races))   /* port (dep56): before its first race, the switches are its variants */
+        tournament_variants_set(tournament_variants_follow(tournament_variants_get(), cg_g.track, cg_g.variant_m,
+                                                           reverse_offered ? reverse : tournament_variants_get().inverse, cg_g.variant_r));
+    cg_tournament_variants_apply();
 }
 
 void cg_fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
@@ -386,6 +450,7 @@ static int32_t best_times(void *ctx)
     uint8_t *const image = config_current()->image;
     const int32_t screen = ea_screen();
     port_log("mark:screen=best_times\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
+    if (track_screen_reverse != NULL) reverse_track_pick(*track_screen_reverse);   /* port (dep56): the screen's layout as it shows it */
     const BestTimesInputs in = { "", resource_german(), cg_g.lost_vegas, screen, ea_picture_shape(screen),
                                  image + (0x524f8f - 0x524df0) };
     BestTimesState st = { image + (0x524df9 - 0x524df0), cg_g.inverse, cg_screen_palette,
@@ -505,8 +570,8 @@ static void options_extras(void *ctx)
 {
     (void)ctx;
     ConfigDat *const config = config_current();
-    glue_extras_screen((int16_t)config_dat_unlock_level(config));
-    cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    glue_extras_screen((int16_t)unlock_level_get(config));
+    cg_g.unlock_level = (int16_t)unlock_level_get(config);
     cg_extras_apply();
 }
 
@@ -531,6 +596,7 @@ static void options(void *ctx)
     cg_opt_in();
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) cg_settings_put(&after);
+    cg_tournament_variants_apply();   /* port (dep56): get_race zeroes the variants; a tournament (one loaded too) runs its own */
 }
 
 /* config.dat's race settings and unlock level into the globals, as the draft read them */
@@ -544,7 +610,7 @@ static void load(void)
         config_dat_get_race(&defaults, &s);
     }
     cg_settings_put(&s);
-    cg_g.unlock_level = (int16_t)config_dat_unlock_level(config);
+    cg_g.unlock_level = (int16_t)unlock_level_get(config);
     cg_races_from_state();
 }
 
@@ -558,6 +624,7 @@ void glue_game_reset(void)
     tournament_new(cg_game_state, &s, config_current(), &f);
     cg_settings_put(&s);
     session_put(&f);
+    tournament_variants_reset();   /* port (dep56): a new tournament's are the base until chosen */
     config_dat_set_race(config_current(), &s);
     /* the original's settings are config.dat's own words, so tournament_reset's variant = 0 clears 00524e83 */
     config_dat_new_session(config_current());
@@ -592,7 +659,7 @@ int32_t glue_central(void)
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, cg_standings, track_select, art_free, options,
         cg_chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, cg_flush, cg_race, off,
-        cg_plus_text, NULL, 1, pad_buttons, palette_colour };
+        cg_plus_text, NULL, 1, pad_buttons, palette_colour, card_marks };
     load();
     ControlCentralState st = {
         &cg_g.race_type, &cg_g.opponent, &cg_g.track, &cg_g.player_car, cg_g.other_car, &cg_g.net_car, &cg_g.laps, cg_g.difficulty,

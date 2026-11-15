@@ -3,8 +3,7 @@
  * first row); Enter, Space, Left or Right change a switch (Unlock and Start step through their values); Left / Right
  * swap Done and Cancel, Right on Cancel turns to the next page and Left on Done back to the one before; a click on the
  * page indicator's left triangle turns back a page and on its right one on a page, and PageDown turns to the next,
- * round to the first. Mirror and Rally exclude each other, unless ExtrasMenuOps.port_combine_variants lets them both
- * stay on. Done saves; Cancel and Escape put the input back.
+ * round to the first. Done saves; Cancel and Escape put the input back.
  *
  * port: the selection is the pointer's or the keys', never left over from the other. The screen opens with nothing
  * selected unless the pointer is on a row; while the pointer is on nothing (or on the page indicator) nothing is
@@ -33,10 +32,11 @@ enum { LABEL_X = 16, VALUE_RIGHT = 600 };
  * everything under it carry GROUP_GAP as well, which is the owner's "shorter than a row" on screen: a header takes
  * less height than a row, and the room it leaves reads as a gap rather than as another row.
  *
- * The pitch is 20 because page 1 is the fuller of the two now -- fifteen lines, thirteen rows and two headers -- and has
+ * The pitch is 20, set when page 1 was fifteen lines (thirteen rows and two headers) and had
  * to fit between the title's band (config_bgnd.c's BANDS[0], bottom 95) and the background's own DONE/CANCEL (its
  * CORNERS, top 430). At 22 its last line would sit at 422 and end at 444, on the buttons; at 20 it sits at 394 and ends
- * at 414. ROW_TALL, the selection and hit height, is no taller than the pitch, so a selected row's band never reaches
+ * at 414. Page 1 is eleven lines now (nine rows, two headers; dep56 took Mirror, Rally and Lost Vegas off) and keeps the
+ * pitch, so its rows stay where the player knows them. ROW_TALL, the selection and hit height, is no taller than the pitch, so a selected row's band never reaches
  * the next row.
  *
  * The fallback panel runs that band, 96..422, so it never reaches the words it did not draw. */
@@ -64,8 +64,9 @@ static int first_of(int page) { return page == 0 ? ROW_EXPLODE : page == 1 ? ROW
 static int rows_of(int page) { return page == 0 ? ROWS_P1 : page == 1 ? ROWS_P2 : ROWS_P3; }
 static int done_of(int page) { return rows_of(page); }
 static int cancel_of(int page) { return rows_of(page) + 1; }
-/* Unlock Level is the one switch on page 1 with three values rather than two */
+/* Unlock Level and Lunar Gravity are the rows on page 1 with three values rather than two */
 static int unlock_row(void) { return ROW_UNLOCK - ROW_EXPLODE; }
+static int gravity_row(void) { return ROW_LUNAR_GRAVITY - ROW_EXPLODE; }
 /* Dash box is the other with three values on page 2: Map, Gear lever, None */
 static int dash_box_row(void) { return ROW_DASH_BOX - ROW_FIRST_P2; }
 /* Speed units is the other, with its own values: mph (until chosen) and km/h. It sits
@@ -84,8 +85,8 @@ static int shows_kmh(const PortExtras *e) { return e->units == UNITS_KMH; }
 /* port: the switches' words, in extras_menu.h's order, which is the owner's order: page 1 is the first ROWS_P1 of
  * them and page 2 the rest, so a group's rows are a range and a group's header is the one over it. */
 static const char *const LABEL[EXTRAS_ROWS] = {
-    "Explode mode", "Nitro mode", "Turbo mode", "Warrior Player Car",
-    "Warrior Rival Car", "Mirror track mode", "Rally track mode", "Lost Vegas Track", "Lunar Springs Track", "Lunar Gravity",
+    "Explode mode", "Nitro mode", "Turbo mode", "Warrior Player Car", "Lunar Gravity",
+    "Warrior Rival Car", "Lunar Springs Track",
     "Unlock Level", "Car Colours",
     "Speed units", "No driving assists", "Bumper view mirror", "Exterior views police radar",
     "Replay cameras in race mode", "Rival car markers", "3D render stats", "Dash box", "360 Camera", "Difficulty",
@@ -94,8 +95,8 @@ static const char *const LABEL[EXTRAS_ROWS] = {
 
 /* the file key that says whether a row is free in the mode (port_profile_key_free); NULL: in every mode. Unlock Level is config.dat's, shared */
 static const char *const ROW_KEY[EXTRAS_ROWS] = {
-    "explode", "nitro", "turbo", "warrior",
-    "warrior_rival", "mirror", "rally", "vegas", "lunar_springs", "lunar_gravity",
+    "explode", "nitro", "turbo", "warrior", "lunar_gravity",
+    "warrior_rival", "lunar_springs",
     NULL, "extra_liveries",
     "units", "no_assists", "bumper_mirror", "bumper_radar",
     "replay_cameras", "car_markers", "stats_overlay", "dash_box", "follow_camera", "difficulty",
@@ -106,8 +107,8 @@ static const char *const ROW_KEY[EXTRAS_ROWS] = {
 static int *flag_of(PortExtras *e, int page, int row)
 {
     if (page == 0) {
-        int *const p1[ROWS_P1] = { &e->explode, &e->nitro, &e->turbo, &e->warrior,
-                                  &e->warrior_rival, &e->mirror, &e->rally, &e->vegas, &e->lunar_springs, &e->lunar_gravity,
+        int *const p1[ROWS_P1] = { &e->explode, &e->nitro, &e->turbo, &e->warrior, NULL /* Lunar Gravity: three values */,
+                                  &e->warrior_rival, &e->lunar_springs,
                                   NULL /* Unlock Level */, &e->extra_liveries };
         return p1[row];
     }
@@ -121,9 +122,20 @@ static int *flag_of(PortExtras *e, int page, int row)
 
 /* port: Unlock Level 1 or more gives the Warrior, as the exe does (extras_apply.c's settle), whatever the switch says:
  * the row shows that, dimmed and with its reason, instead of a switch that goes back by itself */
-static int fixed_by_level(PortExtras *e, int16_t unlock, int page, int row)
+static int warrior_by_level(PortExtras *e, int16_t unlock, int page, int row)
 {
     return page == 0 && unlock >= 1 && flag_of(e, page, row) == &e->warrior;
+}
+
+/* port: Lunar Springs Track is level 2's (the rally's): below it the row is dimmed, Off, with its reason */
+static int lunar_below_level(PortExtras *e, int16_t unlock, int page, int row)
+{
+    return page == 0 && unlock < 2 && flag_of(e, page, row) == &e->lunar_springs;
+}
+
+static int fixed_by_level(PortExtras *e, int16_t unlock, int page, int row)
+{
+    return warrior_by_level(e, unlock, page, row) || lunar_below_level(e, unlock, page, row);
 }
 
 /* port (modes): the mode does not leave the row free: dimmed, its value the mode's */
@@ -138,14 +150,17 @@ static void value(PortExtras *e, int16_t unlock, int page, int row, char out[16]
     static const char *const START[3] = { "Game Mode", "Network", "Control Central" };
     static const char *const DASH_BOX[3] = { "Map", "Gear lever", "Hidden" };
     static const char *const DIFFICULTY[3] = { "Easy", "Original", "Hard" };
+    static const char *const GRAVITY[3] = { "Off", "Lunar Springs", "All Tracks" };   /* LunarGravity's order */
     const int *const flag = flag_of(e, page, row);
     /* port: the movies switch reads the other way round, "Intro video" On while the mode's file's no_movies is 0, so the
      * file keeps its meaning */
     const int on = flag != NULL && (flag == &e->no_movies ? !*flag : *flag);
-    if (fixed_by_level(e, unlock, page, row)) snprintf(out, 16, "On (level)");
+    if (warrior_by_level(e, unlock, page, row)) snprintf(out, 16, "On (level)");
+    else if (lunar_below_level(e, unlock, page, row)) snprintf(out, 16, "Off (level 2)");
     else if (flag != NULL) snprintf(out, 16, "%s", on ? "On" : "Off");
     else if (page == 1 && row == units_row()) snprintf(out, 16, "%s", shows_kmh(e) ? "km/h" : "mph");
     else if (page == 0 && row == unlock_row()) snprintf(out, 16, "%d", unlock);
+    else if (page == 0 && row == gravity_row()) snprintf(out, 16, "%s", GRAVITY[(unsigned)e->lunar_gravity % 3]);
     else if (page == 1 && row == dash_box_row()) snprintf(out, 16, "%s", DASH_BOX[(unsigned)e->dash_box % 3]);
     else if (page == 1 && row == difficulty_row()) snprintf(out, 16, "%s", DIFFICULTY[(unsigned)e->difficulty % 3]);
     else if (page == 2 && (row == log_row() || row == star_row() || row == reset_row())) out[0] = '\0';
@@ -273,14 +288,10 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
     }
     if (flag != NULL) {
         *flag = !*flag;
-        /* port: with the two allowed together, turning one on leaves the other as it is; the exe's screen clears
-         * it, so the pair stays behind the flag. */
-        if (o->port_combine_variants == 0) {
-            if (*flag && flag == &e->mirror) e->rally = 0;
-            if (*flag && flag == &e->rally) e->mirror = 0;
-        }
     } else if (p->page == 0 && p->selected == unlock_row()) {
         *unlock = (int16_t)((*unlock + step + 3) % 3);
+    } else if (p->page == 0 && p->selected == gravity_row()) {
+        e->lunar_gravity = (e->lunar_gravity + step + 3) % 3;
     } else if (p->page == 1 && p->selected == dash_box_row()) {
         e->dash_box = (DashBox)((e->dash_box + step + 3) % 3);
     } else if (p->page == 1 && p->selected == difficulty_row()) {

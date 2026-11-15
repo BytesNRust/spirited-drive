@@ -24,12 +24,9 @@ typedef struct {
 } ExtrasFlags;
 
 /* After every place the original clears the flags: 00432ff4 (central_run's start), the tournament's start,
- * 00432974 and 00465ec8. Mirror and rally exclude each other as in cheat_codes, and only the active one runs. */
+ * 00432974 and 00465ec8: the switches that are on (Warrior, Explode, Nitro, Turbo). Mirror, rally and Lost Vegas
+ * are the unlock level's, as in the exe (extras_settle). */
 void extras_reapply(const PortExtras *e, const ExtrasFlags *f);
-
-/* port: as extras_reapply, but with both switches on the two variants stay on (each unlocked), so the race can
- * run the mirror's geometry on the rally's track. A single switch is the same answer as the exe's. */
-void extras_reapply_port(const PortExtras *e, const ExtrasFlags *f);
 
 /* port: what the flags are for, kept across the visits: the switches and the unlock level say what is on, and a flag
  * that is on with neither saying so was typed (a cheat code): it stays on for the session, but is never a switch, so it
@@ -41,7 +38,7 @@ typedef struct {
     int32_t typed_m, typed_r, typed_vegas, typed_warrior, typed_explode, typed_nitro, typed_turbo;
 } ExtrasSession;
 
-/* port: puts the flags in line with `level` (config.dat's unlock level, the live short), the switches and the cheats
+/* port: puts the flags in line with `level` (the mode's unlock level, unlock_level.h), the switches and the cheats
  * typed in the session: on for each of those that asks, off for a switch that was on and now is not, and left alone
  * otherwise. The unlock of Mirror or Rally switched off takes its variant off too. The variants are otherwise the
  * player's own choice and are not touched, and neither are the other flags. Idempotent. */
@@ -50,10 +47,6 @@ void extras_settle(const PortExtras *e, int level, const ExtrasFlags *f, ExtrasS
 /* After a cheat code has been typed into the flags: what the screen should now show. The switches the flags do
  * not own (the cameras, the Warrior as a rival, the movies, the aids, the start screen) are kept as they were. */
 PortExtras extras_from_flags(const PortExtras *e, const ExtrasFlags *f);
-
-/* port: as extras_from_flags, but a state with both variants set shows both switches, where the exe's read
- * gives the first branch and so shows the mirror alone. */
-PortExtras extras_from_flags_port(const PortExtras *e, const ExtrasFlags *f);
 
 /* After 00465ec8 with "no driving aids" on: ABS and traction control Off (1, the options screen's order On 0, Off 1,
  * N/A 2) in the cars that have them; a car without them (2) and the gearbox stay as they are. */

@@ -62,6 +62,9 @@ typedef struct MenuRaceState {
     int32_t *lost_vegas;     /* 004baf18 */
     const int32_t *host;     /* 004fbb0c */
     int16_t *link_done;      /* the short 0050a5ba */
+    /* port, last so the original's initializers leave it NULL: the unlock level a tournament won raises, where the mode in
+     * use keeps its own (unlock_level.h, Restomod); NULL: config.dat's word in `image`, as the exe */
+    int16_t *level;
 } MenuRaceState;
 
 /* 00427ae0: while not done: config.dat's 0xac bytes from 00524df9 and the

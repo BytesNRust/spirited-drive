@@ -9,8 +9,9 @@ static SessionRules sample(void)
 {
     SessionRules r;
     memset(&r, 0, sizeof r);
-    r.mode = SESSION_RESTOMOD, r.difficulty = 2, r.weather = 2, r.reverse = 1, r.lunar_springs = 1, r.lunar_gravity = 1, r.rally_gravel = 1, r.cheats = 5, r.rain_grip = 1, r.liveries = 1, r.time_of_day = 2, r.light_time = 1;
+    r.mode = SESSION_RESTOMOD, r.difficulty = 2, r.weather = 2, r.reverse = 1, r.lunar_springs = 1, r.lunar_gravity = 2, r.rally_gravel = 1, r.cheats = 5, r.rain_grip = 1, r.liveries = 1, r.time_of_day = 2, r.light_time = 1;
     r.snow_weather = 1;
+    r.variants = 1, r.mirror = 1, r.rally = 1;
     for (int i = 0; i < SESSION_SLOTS; i++) r.paint[i] = (uint8_t)(i + 1);
     return r;
 }
@@ -58,7 +59,7 @@ static void test_snow_weather_rides_at_the_end(void)
     uint8_t buf[SESSION_RULES_SIZE];
     SessionRules r = sample(), got;
     session_rules_put(&r, buf);
-    CHECK_EQ_INT(buf[SESSION_VERSION_AT], 2);
+    CHECK_EQ_INT(buf[SESSION_VERSION_AT], 3);
     CHECK_EQ_INT(buf[SESSION_SNOW_AT], 1);
     CHECK_EQ_INT(session_rules_get(buf, sizeof buf, &got), 1);
     CHECK_EQ_INT(got.snow_weather, 1);
@@ -160,9 +161,37 @@ static void test_a_host_without_the_trailer_clears_a_stale_one(void)
     CHECK_EQ_INT(trailer_size, 0);                                              /* two races in a row: the second does not wear the first's rules */
 }
 
+/* dep56: the host's mirror and rally ride after the snow (version 3); a version 2 record, an older host's, has none and the
+ * guest keeps its own; Lunar Gravity's three states (LUNAR_GRAVITY_ALL is 2) all go through */
+static void test_the_variants_ride_after_the_snow(void)
+{
+    uint8_t buf[SESSION_RULES_SIZE];
+    SessionRules r = sample(), got;
+    r.mirror = 1, r.rally = 0;
+    CHECK_EQ_INT(session_rules_put(&r, buf), 32);
+    CHECK_EQ_INT(buf[SESSION_MIRROR_AT], 1);
+    CHECK_EQ_INT(buf[SESSION_RALLY_AT], 0);
+    CHECK_EQ_INT(session_rules_get(buf, sizeof buf, &got), 1);
+    CHECK(got.variants == 1 && got.mirror == 1 && got.rally == 0);
+    CHECK_EQ_INT(got.lunar_gravity, 2);
+    buf[14] = 3;                                                             /* not a gravity state */
+    CHECK_EQ_INT(session_rules_get(buf, sizeof buf, &got), 0);
+    session_rules_put(&r, buf);
+    buf[SESSION_RALLY_AT] = 2;                                               /* not a switch */
+    CHECK_EQ_INT(session_rules_get(buf, sizeof buf, &got), 0);
+    session_rules_put(&r, buf);
+    CHECK_EQ_INT(session_rules_get(buf, SESSION_RULES_SIZE_V2, &got), 0);   /* a version 3 record cut short */
+    buf[SESSION_VERSION_AT] = 2;                                             /* an older host's: 30 bytes, no variants */
+    got.mirror = 7;
+    CHECK_EQ_INT(session_rules_get(buf, SESSION_RULES_SIZE_V2, &got), 1);
+    CHECK(got.variants == 0 && got.mirror == 0 && got.rally == 0);
+    CHECK_EQ_INT(got.snow_weather, 1);
+}
+
 int main(void)
 {
     test_round_trip();
+    test_the_variants_ride_after_the_snow();
     test_refuses_what_is_not_the_record();
     test_snow_weather_rides_at_the_end();
     test_a_later_version_still_reads();

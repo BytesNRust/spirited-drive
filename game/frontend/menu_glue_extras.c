@@ -1,5 +1,6 @@
 /* The EXTRAS screen's glue (the Game Mode MODEM slot's) and Game Mode's text over the live art (menu_glue.h; split from menu_glue.c by responsibility). */
 #include "game/frontend/menu_glue_private.h"
+#include "game/frontend/unlock_level.h"
 
 /* port: the EXTRAS dispatcher the Game Mode's MODEM slot calls when the original modem flow is gone. It opens the
  * EXTRAS screen over the live Game Mode picture and saves the mode's file and the unlock level on Done. */
@@ -26,7 +27,7 @@ static void extras_save_glue(void *ctx, const PortExtras *e, int16_t unlock)
     (void)ctx;
     port_extras_save(e);
     resource_set_units(e->units);   /* the speeds and distances on the screens and in the race, as saved */
-    config_dat_set_unlock_level(config_current(), unlock);
+    unlock_level_put(config_current(), unlock);   /* Restomod: its own, in its mode's file (unlock_level.h) */
     config_save();   /* port: Done stores the level now, not whenever the menus next save config.dat */
 }
 
@@ -189,7 +190,6 @@ static ExtrasMenuOps extras_menu_ops(void)
         own_title_text,     /* plus_title */
         own_header_text,    /* plus_header */
         extras_save_glue,   /* extras_save */
-        1,                  /* port_combine_variants: turning Mirror or Rally on leaves the other on (0 the exe) */
         NULL,               /* ctx */
         glue_plus_arrow_size, /* plus_arrow_size: the page indicator's triangles */
         own_panel_arrow,    /* plus_arrow */

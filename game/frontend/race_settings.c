@@ -189,6 +189,21 @@ void race_settings_track_backward(RaceSettings *s, const Unlocks *u)
     else if (u->variant_m) s->variant_m = 1;
 }
 
+void race_settings_track_step(RaceSettings *s, const Unlocks *u, int dir)
+{
+    const int m = s->variant_m, r = s->variant_r;
+    if (dir > 0) {
+        race_settings_next_track(s, u);
+    } else {
+        const int last = u->lost_vegas ? TRACK_LOST_VEGAS : TRACK_COUNT - 1;
+        s->track = s->track == TRACK_HIDDEN ? last : (int16_t)(s->track - 1);   /* as 00432d48 */
+        if (s->track < 0) s->track = u->hidden ? TRACK_HIDDEN : last;
+    }
+    const int plain = s->track == TRACK_LOST_VEGAS || s->track == TRACK_HIDDEN;
+    s->variant_m = !plain && m && u->variant_m;
+    s->variant_r = !plain && r && u->variant_r;
+}
+
 /* 00432e48 */
 void unlocks_raise(Unlocks *u, int level)
 {

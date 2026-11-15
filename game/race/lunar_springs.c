@@ -1,5 +1,6 @@
 /* port: see lunar_springs.h. */
 #include "game/race/lunar_springs.h"
+#include "game/sys/port_extras.h"
 
 #include <stdio.h>
 
@@ -24,7 +25,8 @@ int lunar_springs_active(int track, int variant_r, int lunar)
 
 int lunar_gravity_active(int track, int variant_r, int lunar, int lunar_gravity)
 {
-    return lunar_gravity != 0 && lunar_springs_active(track, variant_r, lunar);
+    if (lunar_gravity == LUNAR_GRAVITY_ALL) return 1;
+    return lunar_gravity == LUNAR_GRAVITY_SPRINGS && lunar_springs_active(track, variant_r, lunar);
 }
 
 int lunar_springs_fam(const char *data_root, int track, int variant_r, int lunar, char *out, size_t size)

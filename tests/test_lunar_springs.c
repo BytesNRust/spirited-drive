@@ -44,7 +44,7 @@ static void test_switch_round_trips_through_extras_cfg(void)
     const PortExtras back = port_extras_parse(text, n);
     CHECK_EQ_INT(back.lunar_springs, 1);
     CHECK_EQ_INT(back.start, START_GAME_MODE);   /* the other fields are not disturbed by the new one */
-    CHECK_EQ_INT(back.vegas, 0);
+    CHECK_EQ_INT(back.warrior, 0);
 }
 
 static void test_switch_reads_only_zero_or_one(void)

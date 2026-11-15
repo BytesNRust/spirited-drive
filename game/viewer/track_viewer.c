@@ -639,6 +639,8 @@ static void drive_early_link(int model)
         early.entries = link_entries(model, &early.seed, &early.flags), early.done = 1;
         const SessionRules *rules = session_rules_active();
         if (rules != NULL && drive_menus_on) drive_menus.time_of_day = rules->time_of_day;
+        if (rules != NULL && drive_menus_on && rules->variants)   /* port (dep56): the host's mirror and rally (an older host's: the guest's own) */
+            drive_menus.variant_m = rules->mirror, drive_menus.variant_r = rules->rally;
     }
 }
 

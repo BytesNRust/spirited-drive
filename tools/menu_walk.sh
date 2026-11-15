@@ -1,7 +1,7 @@
 #!/bin/zsh
 # tools/menu_walk.sh <bin> <outdir> <target>: walk the front end headless to a menu screen and save its picture as <outdir>/<target>.png.
 #
-#   targets: options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
+#   targets: central (Control Central, KEYS after it)  options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
 #            graphics  extras (page 1/3)  extras-p2  extras-p3
 #            track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
 #            best-circuit-p2  best-cheats (Coastal, the table with cheats: none)
@@ -59,6 +59,7 @@ next_track="300:MOUSE:$(( 390 + dx )):455,300:CLICK:$(( 390 + dx )):455,3000:MOU
 page_on="1500:PGDN"
 
 case $target in
+central)      script="$to_central${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3} ;;
 options)      script="$to_options"; final=options ;;
 controls)     script="$to_options,$(click 80 285),$(wait_for controls_keyboard)"; final=controls_keyboard ;;
 controls-p2)  script="$to_options,$(click 80 285),$(wait_for controls_keyboard),$(next_page),$(wait_for controls_actions),$(park)"; final=controls_actions ;;

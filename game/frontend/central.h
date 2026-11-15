@@ -95,6 +95,9 @@ typedef struct ControlCentralOps {
                                                                 * the car select's Color line reads bit 2 (central_livery.c) */
     int32_t (*palette_colour)(void *ctx, int32_t rgb);         /* port: ea_colour, the screen palette's index nearest an RGB
                                                                 * (the Color line's swatch; frame_rect takes the index) */
+    /* port (dep56): the words along the top of the track card (card_marks.h), as the settings are now, drawn small and ending at
+     * `right`, their top at `y`; nothing when there is nothing to say. NULL: the exe's card, nothing on it. */
+    void (*card_marks)(void *ctx, int32_t right, int32_t y);
 } ControlCentralOps;
 
 /* The globals 00432ff4 reads and writes; a pointer is written, a value only read. */

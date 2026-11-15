@@ -19,10 +19,14 @@ typedef enum { UNITS_MPH = 0, UNITS_KMH = 1 } SpeedUnits;
  * either and goes back to the chosen mode. */
 typedef enum { DASH_BOX_MAP = 0, DASH_BOX_LEVER = 1, DASH_BOX_HIDDEN = 2 } DashBox;
 
+/* port: Customize Game's Lunar Gravity: where the moon's pull applies (lunar_springs.h's lunar_gravity_active) */
+typedef enum { LUNAR_GRAVITY_OFF = 0, LUNAR_GRAVITY_SPRINGS = 1, LUNAR_GRAVITY_ALL = 2 } LunarGravity;
+
 enum { CAR_PAINT_SLOTS = 12, PAINT_OWN = 0, PAINT_SECOND = 1, PAINT_CATALOGUE = 2 };   /* cars 0..11 (11 the Warrior) */
 
 typedef struct {
-    int mirror, rally, warrior, vegas, explode, nitro, turbo;   /* 0/1: SKCART, EARLYE, CONCEPTCAR, CASINOVILLE, ... */
+    int warrior, explode, nitro, turbo;   /* 0/1: CONCEPTCAR, ...; mirror, rally and Lost Vegas come from the unlock level
+                                           * (unlock_level.h), as in the exe: an older file's mirror/rally/vegas keys are not read */
     int replay_cameras, warrior_rival, no_movies, no_assists;   /* 0/1 */
     int bumper_mirror, bumper_radar;   /* 0/1: the rear-view mirror and the radar detector in the bumper view, under
                                         * the scoreboard (F1 / F2 turn them over in a race) */
@@ -46,12 +50,15 @@ typedef struct {
                                            * (car_paint.h). Written as car_paint=<one hex digit a car>. */
     int reverse;        /* 0/1: a circuit driven the other way round (tri_reverse.h: the file's nodes run backwards at load);
                          * 0 the exe's. Off. Last, as car_paint. */
-    int lunar_gravity;  /* 0/1: the moon's race (lunar_springs, track_gravity.h) pulls a car a third as hard and grips at two
-                         * thirds; 0 the exe's gravity and grip. Off. Last, after reverse. */
+    int lunar_gravity;  /* LunarGravity: a third of the pull and two thirds of the grip (track_gravity.h) on the moon's race alone
+                         * (lunar_springs.h) or on every track; LUNAR_GRAVITY_OFF the exe's gravity and grip, the default in every mode.
+                         * An older file's 1 meant the moon's race alone, and still does. Last, after reverse. */
     int difficulty;     /* 0 Easy, 1 Original, 2 Hard (difficulty.h): the rivals', the police's and the traffic's together; 1 the exe's. Last,
                          * after lunar_gravity. */
     int rally_gravel;   /* 0/1: the rally rolls on gravel (rally_gravel.h): a gravel noise all along, and dust from the desert's tyres; 0 the
                          * exe's. Off. Last, after lunar_gravity. */
+    int unlock_level;   /* 0..2: Restomod's own unlock level (unlock_level.h), 2 its default; the other modes keep config.dat's, as the exe,
+                         * and never read this. Last, after update_check. */
     int update_check;   /* 0/1: THE switch for the update check (one request to our API at start, platform/update.h) and the three anonymous one-shot counters (port_stats.h); On; the EXTRAS row reads "Updates and anonymous stats". Last, after rally_gravel. */
 } PortExtras;
 

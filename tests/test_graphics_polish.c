@@ -206,7 +206,7 @@ static void test_extras_done_row_blits_capitalised(void)
         .deadline_passed = f_zero, .sound = f_void_v, .ticks = f_ticks_100, .pointer_activate_if_moved = f_void,
         .key = ex_key, .pointer_click = f_void, .pointer_off = f_void, .music = f_void,
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
-        .extras_save = f_save_e, .port_combine_variants = 0, .ctx = &f };
+        .extras_save = f_save_e, .ctx = &f };
     PortExtras e = { 0 };
     int16_t unlock = 0;
     ex_key_n = 0;
@@ -235,7 +235,7 @@ static void test_extras_blit_own_forwards(void)
         .deadline_passed = f_zero, .sound = f_void_v, .ticks = f_ticks_100, .pointer_activate_if_moved = f_void,
         .key = ex_key, .pointer_click = f_void, .pointer_off = f_void, .music = f_void,
         .plus_text = f_text, .plus_text_width = f_text_width, .plus_panel = f_panel,
-        .extras_save = f_save_e, .port_combine_variants = 0, .ctx = &f };
+        .extras_save = f_save_e, .ctx = &f };
     PortExtras e = { 0 };
     int16_t unlock = 0;
     ex_key_n = 0;

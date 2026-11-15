@@ -48,10 +48,8 @@ void platform_free_file(uint8_t *data) { free(data); }
 
 static void check_same(PortExtras a, PortExtras b)
 {
-    CHECK_EQ_INT(a.mirror, b.mirror);
-    CHECK_EQ_INT(a.rally, b.rally);
     CHECK_EQ_INT(a.warrior, b.warrior);
-    CHECK_EQ_INT(a.vegas, b.vegas);
+    CHECK_EQ_INT(a.unlock_level, b.unlock_level);
     CHECK_EQ_INT(a.explode, b.explode);
     CHECK_EQ_INT(a.nitro, b.nitro);
     CHECK_EQ_INT(a.turbo, b.turbo);
@@ -178,7 +176,7 @@ static void test_units_round_trip(void)
 
 static void test_round_trip(void)
 {
-    const PortExtras e = { .mirror = 1, .rally = 1, .warrior = 1, .vegas = 1, .explode = 1, .nitro = 1, .turbo = 1,
+    const PortExtras e = { .warrior = 1, .explode = 1, .nitro = 1, .turbo = 1, .unlock_level = 1,
                             .replay_cameras = 1, .warrior_rival = 1, .no_movies = 1, .no_assists = 1,
                             .bumper_mirror = 1, .bumper_radar = 1, .variant_time = 1,
                             .stats_overlay = 1, .car_markers = 1, .follow_camera = 1, .start = START_CENTRAL };
@@ -191,21 +189,36 @@ static void test_round_trip(void)
 
 static void test_parse_keys(void)
 {
-    const char *text = "mirror=1\nturbo=1\nbumper_radar=1\nstart=network\n";
+    const char *text = "turbo=1\nbumper_radar=1\nstart=network\nunlock_level=1\n";
     const PortExtras e = port_extras_parse(text, strlen(text));
     CHECK_EQ_INT(e.bumper_radar, 1);
     CHECK_EQ_INT(e.bumper_mirror, 0);
     CHECK_EQ_INT(e.variant_time, 0);
     CHECK_EQ_INT(port_extras_parse("variant_time=1\n", 15).variant_time, 1);
-    CHECK_EQ_INT(e.mirror, 1);
     CHECK_EQ_INT(e.turbo, 1);
-    CHECK_EQ_INT(e.rally, 0);          /* untouched keys keep the default */
+    CHECK_EQ_INT(e.nitro, 0);          /* untouched keys keep the default */
     CHECK_EQ_INT(e.start, START_NETWORK);
+    CHECK_EQ_INT(e.unlock_level, 1);
+}
+
+/* an older file's mirror, rally and vegas switches are not read (the unlock level gives them), and not written back */
+static void test_old_variant_keys_are_dropped(void)
+{
+    const char *text = "mirror=1\nrally=1\nvegas=1\nwarrior=1\n";
+    const PortExtras e = port_extras_parse(text, strlen(text));
+    PortExtras want = port_extras_defaults();
+    want.warrior = 1;
+    check_same(e, want);
+    char out[1024];
+    const size_t n = port_extras_format(&e, out, sizeof out);
+    CHECK(n > 0);
+    CHECK(strstr(out, "\nmirror=") == NULL && strstr(out, "\nrally=") == NULL && strstr(out, "\nvegas=") == NULL);
+    CHECK(strstr(out, "unlock_level=0") != NULL);
 }
 
 static void test_bad_input_keeps_defaults(void)
 {
-    const char *text = "start=7\nno equals sign\nwarp=9\nmirror=2\n";
+    const char *text = "start=7\nno equals sign\nwarp=9\nwarrior=2\nunlock_level=3\nunlock_level=-1\n";
     check_same(port_extras_parse(text, strlen(text)), port_extras_defaults());
     check_same(port_extras_parse("", 0), port_extras_defaults());
 }
@@ -229,7 +242,7 @@ static void test_load_save(void)
 {
     check_same(port_extras_load(), port_profile_extras(PROFILE_RESTOMOD, port_extras_defaults()));   /* no file yet: the mode's */
     PortExtras e = port_extras_load();
-    e.mirror = 1, e.explode = 1, e.nitro = 1, e.turbo = 1, e.replay_cameras = 1, e.no_assists = 1, e.stats_overlay = 1, e.start = START_NETWORK;
+    e.unlock_level = 1, e.explode = 1, e.nitro = 1, e.turbo = 1, e.replay_cameras = 1, e.no_assists = 1, e.stats_overlay = 1, e.start = START_NETWORK;
     CHECK(port_extras_save(&e));
     CHECK(strcmp(stored_name, "restomod.cfg") == 0);
     check_same(port_extras_load(), e);
@@ -240,7 +253,8 @@ static void test_fullest_file_saves(void)
 {
     PortExtras e = port_extras_defaults();
     e.start = START_NETWORK, e.units = UNITS_KMH, e.dash_box = DASH_BOX_HIDDEN, e.difficulty = 2;
-    int *const flags[] = { &e.mirror, &e.rally, &e.warrior, &e.vegas, &e.explode, &e.nitro, &e.turbo, &e.replay_cameras, &e.warrior_rival,
+    e.unlock_level = 2;
+    int *const flags[] = { &e.warrior, &e.explode, &e.nitro, &e.turbo, &e.replay_cameras, &e.warrior_rival,
                            &e.no_movies, &e.no_assists, &e.bumper_mirror, &e.bumper_radar,
                            &e.variant_time, &e.stats_overlay, &e.car_markers, &e.lunar_springs, &e.movies_wide, &e.follow_camera,
                            &e.extra_liveries, &e.reverse, &e.lunar_gravity };
@@ -283,6 +297,7 @@ int main(void)
     test_units_round_trip();
     test_round_trip();
     test_parse_keys();
+    test_old_variant_keys_are_dropped();
     test_bad_input_keeps_defaults();
     test_cheat_marks();
     test_load_save();
