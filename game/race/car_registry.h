@@ -36,5 +36,8 @@ const char *car_registry_stem(int car);
 int car_registry_sound_model(int car);
 /* the original whose pace the AI drives it at: 0..7 for those (itself), the piece's for an added car; -1 otherwise */
 int car_registry_ai_model(int car);
+/* the name the results and records show for `car` out of `names`, a screen's own table of `count` originals: names[car] for 0..count-1,
+ * an added car's short_name, "" for anything else */
+const char *car_registry_short_name(int car, const char *const names[], int count);
 
 #endif

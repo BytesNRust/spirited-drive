@@ -1,3 +1,4 @@
+#include "game/race/car_registry.h"
 #include "game/race/race_models.h"
 
 #include <stdint.h>
@@ -22,7 +23,8 @@ int32_t race_head_to_head_model(int16_t pick)
 {
     /* cwde, then ax from the table: the high half is the pick's sign */
     const uint32_t high = pick < 0 ? 0xffff0000u : 0;
-    const int16_t model = pick >= 0 && pick < 16 ? HEAD_TO_HEAD[pick] : 0;  /* port guard */
+    const int16_t model = car_registry_is_added(pick) ? pick   /* port (dep59): an added car is the same number in both */
+                        : pick >= 0 && pick < 16 ? HEAD_TO_HEAD[pick] : 0;  /* port guard */
     return (int32_t)(high | (uint16_t)model);
 }
 

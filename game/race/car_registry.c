@@ -110,3 +110,10 @@ int car_registry_ai_model(int car)
     const CarPiece *p = car_registry_piece(car);
     return p != NULL ? p->ai_model : -1;
 }
+
+const char *car_registry_short_name(int car, const char *const names[], int count)
+{
+    if (car >= 0 && car < count) return names[car];
+    const CarPiece *p = car_registry_piece(car);
+    return p != NULL ? p->short_name : "";
+}

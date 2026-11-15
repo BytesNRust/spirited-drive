@@ -4,6 +4,7 @@
 
 #include "game/frontend/palette_put.h"
 #include "game/frontend/yes_no_box.h"
+#include "game/race/car_registry.h"
 #include "game/sys/race_records.h"
 
 #include <stddef.h>
@@ -108,7 +109,7 @@ typedef struct ResultsInputs {
     int unknown_50a5b6;         /* the short 0050a5b6: 1 ends the screen */
     int32_t screen;             /* 00524834 */
     int32_t screen_shape;       /* [00524834] + 0x2c */
-    const char *const *car_names;  /* 004c5c84: RESULTS_CARS short names */
+    const char *const *car_names;  /* 004c5c84: RESULTS_CARS short names; read through results_car_name */
     int32_t lost_vegas;         /* 004baf18: 0045de08's, a ninth track counted */
     int32_t variant_r;          /* 004fbadc: 0046067c's, the track's "r" layout */
     int circuit_place;          /* the short 0051dcc4: 0045eff4's player's place, from 0 */
@@ -171,5 +172,12 @@ void results_conditions(const ResultsInputs *in, int slot, int32_t y, int speed,
  * timer (0047336d), the right button and 0050a5b6. */
 void results_screen(int32_t ask_records, const ResultsInputs *in, ResultsState *st, DialogPointer *p,
                     const ResultsOps *ops);
+
+/* port (dep59): the short name of `car` the screens show: car_names' for the twelve, an added car's own, "" for a number that is no car
+ * (car_registry_short_name: never what lies after the table) */
+static inline const char *results_car_name(const ResultsInputs *in, int car)
+{
+    return car_registry_short_name(car, in->car_names, RESULTS_CARS);
+}
 
 #endif

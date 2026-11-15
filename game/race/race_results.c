@@ -1,4 +1,5 @@
 /* The race's results (race_results.h). */
+#include "game/race/car_registry.h"
 #include "game/race/race_results.h"
 
 enum { SHORT_NAME_ORDER_SIZE = 16 };
@@ -11,7 +12,8 @@ int32_t race_short_name_index(int16_t model)
 {
     /* cwde, then ax from the table: the high half is the model's sign */
     const uint32_t high = model < 0 ? 0xffff0000u : 0;
-    const int16_t index = model >= 0 && model < SHORT_NAME_ORDER_SIZE ? SHORT_NAME_ORDER[model] : 0;  /* port guard: the original reads its stack past the table */
+    const int16_t index = car_registry_is_added(model) ? model   /* port (dep59): an added car is the same number in both */
+                        : model >= 0 && model < SHORT_NAME_ORDER_SIZE ? SHORT_NAME_ORDER[model] : 0;  /* port guard: the original reads its stack past the table */
     return (int32_t)(high | (uint16_t)index);
 }
 
