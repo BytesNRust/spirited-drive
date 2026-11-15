@@ -4,6 +4,7 @@
 
 #include "game/frontend/palette_put.h"
 #include "game/frontend/yes_no_box.h"
+#include "game/sys/race_records.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -70,6 +71,9 @@ typedef struct ResultsOps {
     /* port: a word of the header band (results_header_marks): `text` from x, its letters' middle on y_mid, at the font's size or
      * smaller so it stays within `room` pixels (central_glue's cg_band_text). NULL: text_at at RESULTS_LINE_* as before. */
     void (*band_text)(void *ctx, const char *text, int32_t x, int32_t y_mid, int32_t room);
+    /* port (dep55): a record's conditions in the row's style at num/den of the font's size from (x, y), and their width (NULL: none drawn) */
+    void (*small_text)(void *ctx, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);
+    int32_t (*small_width)(void *ctx, const char *text, int32_t num, int32_t den);
 } ResultsOps;
 
 enum { RESULTS_GAME = 0x5bc, RESULTS_IMAGE = 0x5f34, RESULTS_CARS = 12 };
@@ -81,6 +85,7 @@ typedef struct ResultsMarks {
     const uint8_t *slots;   /* RECORDS_MARK_SLOTS bytes, EXTRAS_MARK_* a slot */
     int choice;
     const char *line;       /* NULL: none (Stock, Restored) */
+    const RecordMarks *conds;   /* RECORDS_MARK_SLOTS, each slot's row's conditions (Restomod's records); NULL: none */
 } ResultsMarks;
 
 /* port: the letters start here, in the gap after the record's name (names on the cheats table fit 200, to 207) and
@@ -143,6 +148,13 @@ typedef struct ResultsState {
  * row of the track's totals (row 0: the best time) with its laps choice */
 void results_mark_slot(const ResultsInputs *in, int slot, int32_t y, const ResultsOps *ops);
 void results_mark_total(const ResultsInputs *in, int row, int32_t y, const ResultsOps *ops);
+/* port (dep55): a record row of the image (`row` at its name) is drawn: every row in Stock and Restored (the original's file, no
+ * table line); in Restomod a row with a record only (its set word, race_records_row_set), as an empty row's longest time, car 0
+ * and gearbox 0 are no record (the original's empty table shows nothing either) */
+int results_row_shown(const ResultsInputs *in, const uint8_t *row);
+/* port (dep55): Restomod's record row's conditions (best_times_conditions_text) as Best Times shows them: small, ending just left of the
+ * car's column, a little under the row's y; a speed's (`speed`) smaller, as it runs wider than a time. Nothing in Stock and Restored. */
+void results_conditions(const ResultsInputs *in, int slot, int32_t y, int speed, const ResultsOps *ops);
 
 /* 0045cea0 (ax: ask 0045bad8 for the records beaten): stats/standseg.qfs
  * for the segment (00524e83, the last but one when 0) on the track: the

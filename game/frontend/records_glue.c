@@ -111,9 +111,11 @@ BestTimesPlus *records_glue_best_plus(const uint8_t *image, int variant_m, int v
 void records_glue_shown_as(RouteOp op, uint8_t out[RECORD_CHECK_IMAGE], const uint8_t *image, ResultsMarks *marks)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
+    static RecordMarks conds[RECORDS_MARK_SLOTS];
     records_glue_load(image);
-    records_route_shown(shown_kind(op, image), image, out, slots);
+    records_route_shown(shown_kind(op, image), image, out, slots, conds);
     marks->slots = records_glue_cheats(op, image) ? slots : NULL;
     marks->choice = records_choice(image);
     marks->line = records_glue_line(op, image);
+    marks->conds = marks->line != NULL ? conds : NULL;
 }

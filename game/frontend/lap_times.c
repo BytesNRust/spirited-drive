@@ -116,6 +116,7 @@ static void draw_record(const ResultsInputs *in, int16_t record, const ResultsOp
     const uint8_t *rec = in->image + TRACK_RECORDS * g16(in->image + TRACK);
     const int32_t mark = g32(rec + LAP_MARK);
     ops->text_select(ops->ctx, record == 1 ? 3 : 1);
+    if (!results_row_shown(in, rec + LAP_NAME)) return;
     ops->text_fit(ops->ctx, (const char *)rec + LAP_NAME, 7, 0x144, 200);
     ops->time_text(ops->ctx, text, g32(rec + LAP_TIME));
     ops->text_at(ops->ctx, text, 0x131, 0x144);

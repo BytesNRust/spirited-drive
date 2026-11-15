@@ -17,6 +17,17 @@ int16_t cg_car_points[GAME_STATE_PLAYERS];
  * each check so that the row a check set is the row shown (records_glue_shown_as) */
 static uint8_t shown_image[RECORD_CHECK_IMAGE];
 static ResultsMarks shown_marks;   /* port: the cheats of the same table, refreshed with it */
+/* port (dep55): a record's conditions, in the row's style (the screen's text_select) at num/den of its size */
+static void results_small_text(void *ctx, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    (void)ctx;
+    text_draw_smooth(text, x, y, num, den);
+}
+static int32_t results_small_width(void *ctx, const char *text, int32_t num, int32_t den)
+{
+    (void)ctx;
+    return text_width_scaled(text, num, den);
+}
 static int32_t records_checked(RouteOp op, int32_t *times)
 {
     const int32_t answer = records_glue_route(op, config_current()->image, cg_game_state, menu_words.single, times);
@@ -69,7 +80,7 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
         select_default, hide, nothing, blit_word, nothing, flip, show_dialog, cg_mark_at, buttons, track_music, track_play,
         deadline_set, sound, ticks, activate_dialog, cg_key, click, off_dialog, music, cg_deadline_passed, track_stop, track_free, fade_out,
         free_bank, free_handle_inverse, blit_masked, totals, top_record, leads, best_totals, lap_record,
-        results_order, lap_times, &c, cg_band_text };
+        results_order, lap_times, &c, cg_band_text, results_small_text, results_small_width };
     c.ops = &ops;
     cg_stage_in = &in.unknown_50a5b6;
     screen_of(mode, &in, &st, &c.p, &ops);
