@@ -1,5 +1,6 @@
 /* Control Central (00432ff4): Enter, space or the left button on an item (00435120..004360bc). */
 #include "game/frontend/central_run.h"
+#include "game/frontend/showcase.h"
 
 #include <stddef.h>
 
@@ -122,6 +123,11 @@ static void showcase_start(CentralRun *r)
     r->st->was[WAS_OPPONENT] = 0x14;
 }
 
+/* port: the gallery has the 8 cars (showcase.c), the field (8) showing car 0; the original opened it on any rival and
+ * read past its names with the Warrior (11, the port's Warrior-as-a-rival extra), which now leaves the card as the
+ * player's own card does with the Warrior */
+static int rival_shown(int16_t opponent) { return opponent >= 0 && opponent <= SHOWCASE_CARS; }
+
 static void opponent_item(CentralRun *r)
 {
     ControlCentralState *st = r->st;
@@ -132,7 +138,7 @@ static void opponent_item(CentralRun *r)
         central_opponent_down(r, 1);
     } else if (st->lost != 0) {
         if (st->net_host != 0 && *st->net_player != 0 && *st->net_self == 0) o->kick(o->ctx, *st->net_player);
-    } else if (st->no_music == 0 && *st->player_car != 11) {
+    } else if (st->no_music == 0 && *st->player_car != 11 && rival_shown(*st->opponent)) {
         showcase_start(r);
         const int16_t car = *st->player_car;
         *st->player_car = *st->opponent == 8 ? 0 : *st->opponent;
