@@ -42,4 +42,9 @@ void boot_screen_sources(int key, int buttons, int pad, HoldSource out[HOLD_SOUR
  * that press to be let go (BOOT_RELEASE_TICKS at most) so EA's first movie does not take it. Once per run: later calls do nothing. */
 void boot_screen_show(void);
 
+/* the port's own pages' text colours and their antialiasing ramps (the boot screen's, an added car's gallery's: added_gallery_glue.c),
+ * kept out of a quantised picture's reach; [5] is black */
+enum { BOOT_TEXT_COLOURS = 18 };
+extern const uint8_t BOOT_TEXT_RGB[BOOT_TEXT_COLOURS][3];
+
 #endif

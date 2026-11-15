@@ -178,6 +178,21 @@ static void opponent_item(CentralRun *r)
     }
 }
 
+/* port (dep59 step 3): an added car's gallery; when its Previous / Next went to one of the eight, that car's gallery after it (the
+ * Warrior has none: back here). The car it ends on is the player's. Nothing without the op. */
+static void added_gallery(CentralRun *r)
+{
+    ControlCentralState *st = r->st;
+    const ControlCentralOps *o = r->ops;
+    if (o->added_gallery == NULL) return;
+    showcase_start(r);
+    if (o->added_gallery(o->ctx, st->player_car, *st->warrior != 0, r->palette) && *st->player_car >= 0 && *st->player_car < SHOWCASE_CARS)
+        o->showcase(o->ctx);
+    o->showcase_after(o->ctx);
+    o->car_flags(o->ctx);
+    again(r);
+}
+
 static void car_item(CentralRun *r)
 {
     ControlCentralState *st = r->st;
@@ -186,6 +201,8 @@ static void car_item(CentralRun *r)
         central_car_up(r);
     } else if (in(r, 0x15, 0x28, 0xba, 0xd1)) {
         central_car_down(r);
+    } else if (st->lost == 0 && car_registry_is_added(*st->player_car)) {
+        added_gallery(r);   /* port (dep59): an added car's own gallery */
     } else if (st->lost == 0 && *st->player_car >= 0 && *st->player_car < SHOWCASE_CARS) {   /* port (dep59): not 11, nor an added car */
         showcase_start(r);
         o->showcase(o->ctx);

@@ -1,7 +1,8 @@
 #!/bin/zsh
 # tools/menu_walk.sh <bin> <outdir> <target>: walk the front end headless to a menu screen and save its picture as <outdir>/<target>.png.
 #
-#   targets: central (Control Central, KEYS after it)  showcase (the gallery, from a click on Control Central's car card)  options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
+#   targets: central (Control Central, KEYS after it)  showcase (the gallery, from a click on Control Central's car card)
+#            added-gallery (an added car's gallery: the same click with an added car picked, KEYS after it)  options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
 #            graphics  extras (page 1/3)  extras-p2  extras-p3
 #            track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
 #            best-circuit-p2  best-cheats (Coastal, the table with cheats: none)
@@ -64,6 +65,7 @@ page_on="1500:PGDN"
 case $target in
 central)      script="$to_central${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3} ;;
 showcase)     script="$to_central,$(click 180 200),$(wait_for showcase)"; final=showcase ;;
+added-gallery) script="$to_central,$(click 180 200),$(wait_for added_gallery)${KEYS:+,$KEYS}"; final=added_gallery; tail=${TAIL:-3} ;;
 options)      script="$to_options"; final=options ;;
 controls)     script="$to_options,$(click 80 285),$(wait_for controls_keyboard)"; final=controls_keyboard ;;
 controls-p2)  script="$to_options,$(click 80 285),$(wait_for controls_keyboard),$(next_page),$(wait_for controls_actions),$(park)"; final=controls_actions ;;

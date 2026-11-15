@@ -84,26 +84,52 @@ static void test_no_art_is_no_car(void)
     CHECK(was[WAS_OPPONENT] < 0 || was[WAS_OPPONENT] >= CAR_ADDED_FIRST + CAR_ADDED_MAX);
 }
 
-/* port (dep59): the player's own card with an added car picked opens nothing yet (the gallery has the 8 cars; an added car's own
- * page comes with dep59 step 3's Task 9), never the gallery read past its names */
+/* dep59 step 3, Task 9: the player's own card with an added car picked opens its own gallery (added_gallery), never the 8 cars' read past
+ * their names; when its Previous / Next go to an original, that car's gallery opens; the Warrior's (none) leaves to Control Central */
+static void add(const char *id, const char *stem);
+static int added_shown, added_to;
+static int32_t added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t palette[768])
+{
+    (void)ctx, (void)warrior, (void)palette;
+    added_shown++;
+    if (added_to < 0) return 0;
+    *car = (int16_t)added_to;
+    return 1;
+}
+
 static void test_an_added_car_card_opens_nothing(void)
 {
     static const uint8_t pal[0x20];
     ControlCentralOps o = { 0 };
     o.pointer_click = nothing, o.sound = sound, o.in_rect = outside, o.music_fade_out = nothing, o.fade_out = fade_out;
     o.music_end = nothing, o.music_start = music_start, o.showcase = gallery, o.showcase_after = nothing;
-    o.palette_put = palette_put, o.pointer_move_to = move_to;
+    o.palette_put = palette_put, o.pointer_move_to = move_to, o.car_flags = nothing;
     ControlCentralState st = { 0 };
+    static int16_t warrior;
     st.player_car = &player_car, st.opponent = &opponent, st.race_type = &race_type, st.net_second = &net_second, st.was = was;
+    st.warrior = &warrior;
     CentralRun r = { 0 };
     r.st = &st, r.ops = &o, r.pal = pal, r.item = CC_CAR, r.keys_armed = 1;
-    player_car = 16, opponent = 3, shown = 0;
-    central_select(&r);
+    car_registry_clear();
+    add("a", "A1");   /* 16 */
+    player_car = 16, opponent = 3, shown = 0, added_shown = 0, added_to = -1;
+    central_select(&r);   /* no op: nothing opens */
     CHECK_EQ_INT(shown, 0);
     CHECK_EQ_INT(player_car, 16);
+    o.added_gallery = added_gallery;
+    central_select(&r);   /* its own page, left with Done */
+    CHECK(added_shown == 1 && shown == 0 && player_car == 16);
+    added_to = 2;          /* Next went round to an original: that car's gallery */
+    central_select(&r);
+    CHECK(added_shown == 2 && shown == 1 && player_car == 2);
+    player_car = 16, added_to = 11;   /* to the Warrior: back to Control Central, the Warrior picked */
+    central_select(&r);
+    CHECK(added_shown == 3 && shown == 1 && player_car == 11);
     player_car = 4;
     central_select(&r);
-    CHECK_EQ_INT(shown, 1);   /* an original's still opens it */
+    CHECK_EQ_INT(shown, 2);   /* an original's still opens the 8 cars' */
+    CHECK_EQ_INT(added_shown, 3);
+    car_registry_clear();
 }
 
 /* dep59 step 3, Task 8: an added car's card and rival card come from its pictures (load_added_card), never from a bank of the CD's;

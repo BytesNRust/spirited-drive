@@ -156,3 +156,55 @@ void car_pieces_follow(void)
     const int count = mod_set_dirs(dirs, DIRS_MAX);
     car_pieces_load(dirs, count, port_settings_load().profile == PROFILE_RESTOMOD);
 }
+
+/* 1 when `s` is a skin's folder name: 1..16 of a-z 0-9 '-' */
+static int skin_name_ok(const char *s)
+{
+    const size_t n = strlen(s);
+    if (n == 0 || n > CAR_PIECE_SKIN_NAME_MAX) return 0;
+    for (size_t i = 0; i < n; i++)
+        if (!((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9') || s[i] == '-')) return 0;
+    return 1;
+}
+
+/* how many files of `dir` match `pattern` */
+static int files_in(const char *dir, const char *pattern)
+{
+    int count = 0;
+    char **names = platform_list_files(dir, pattern, &count);
+    if (names != NULL) platform_free_names(names);
+    return count;
+}
+
+int car_pieces_card(int car, CarPieceCard *out)
+{
+    memset(out, 0, sizeof *out);
+    const CarPiece *p = car_registry_piece(car);
+    if (p == NULL || p->dir[0] == '\0') return 0;
+    char path[PATH_MAX_LEN], why[160];
+    snprintf(path, sizeof path, "%s/mod.ini", p->dir);
+    size_t size = 0;
+    uint8_t *text = platform_read_file(path, &size);
+    const int parsed = text != NULL && mod_ini_parse(text, size, &out->info, why, sizeof why);
+    if (text != NULL) platform_free_file(text);
+    if (!parsed) return port_log("car piece: %s: its mod.ini is no longer read\n", p->id), memset(out, 0, sizeof *out), 0;
+    if (strcmp(out->info.id, p->id) != 0)   /* changed since the registry read it: its looks would be kept under another id */
+        return port_log("car piece: %s: its mod.ini now names %s\n", p->id, out->info.id), memset(out, 0, sizeof *out), 0;
+    snprintf(out->dir, sizeof out->dir, "%s", p->dir);
+    out->skins = 1;
+    snprintf(path, sizeof path, "%s/car_masks/%s", p->dir, p->stem);
+    out->skin_masked[0] = files_in(path, "*_mask.png") > 0;
+    int count = 0;
+    snprintf(path, sizeof path, "%s/skins", p->dir);
+    char **names = platform_list_files(path, "*", &count);
+    for (int i = 0; i < count && out->skins <= CAR_PIECE_SKINS_MAX; i++) {
+        char folder[PATH_MAX_LEN];
+        if (!skin_name_ok(names[i]) || snprintf(folder, sizeof folder, "%s/skins/%s", p->dir, names[i]) >= (int)sizeof folder ||
+            files_in(folder, "*.png") == 0)
+            continue;
+        snprintf(out->skin[out->skins], sizeof out->skin[0], "%s", names[i]);
+        out->skin_masked[out->skins++] = files_in(folder, "*_mask.png") > 0;
+    }
+    if (names != NULL) platform_free_names(names);
+    return 1;
+}

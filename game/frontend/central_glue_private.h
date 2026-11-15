@@ -127,6 +127,8 @@ void cg_settings_put(const RaceSettings *s);
 void cg_picks_save(void);
 /* port (dep59 step 3): ControlCentralOps.load_added_card (added_card_glue.c) */
 int32_t cg_load_added_card(void *ctx, int car, int rival, const uint8_t palette[768]);
+/* port (dep59 step 3): ControlCentralOps.added_gallery (added_gallery_glue.c) */
+int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t screen[768]);
 void cg_level_to_image(void);
 void cg_races_from_state(void);
 int16_t *cg_word_52b302(void);

@@ -225,6 +225,38 @@ static void test_the_fingerprint(void)
     CHECK(changed != 0 && changed != first);
 }
 
+/* dep59 step 3: what an added car's gallery reads of its piece (car_pieces_card): its card again, its skins/ folders in name order after
+ * the skin as it comes, and which of them have masks (Color applies); 0 for an original or a number not registered */
+static void test_the_card(void)
+{
+    char d[400], skins[500];
+    CHECK(piece("carded", "card-car", "CARDCAR", "sound_from=viper\nai_from=viper\nyear=1992\npaints=Red:c8102e,Blue:1040c0\n", "", d));
+    snprintf(skins, sizeof skins, "%s/skins/stripes", d);
+    write_text(skins, "topv.png", "x");
+    write_text(skins, "topv_mask.png", "x");
+    snprintf(skins, sizeof skins, "%s/skins/plain", d);
+    write_text(skins, "topv.png", "x");
+    snprintf(skins, sizeof skins, "%s/skins/Bad_Name", d);   /* not a skin's name: not offered */
+    write_text(skins, "topv.png", "x");
+    car_registry_clear();
+    CHECK_EQ_INT(load1(d, 1), 1);
+    CarPieceCard c;
+    CHECK(car_pieces_card(16, &c));
+    CHECK(strcmp(c.info.id, "card-car") == 0 && strcmp(c.info.year, "1992") == 0 && c.info.paint_count == 2);
+    CHECK(strcmp(c.dir, d) == 0);
+    CHECK_EQ_INT(c.skins, 3);
+    CHECK(c.skin[0][0] == '\0' && strcmp(c.skin[1], "plain") == 0 && strcmp(c.skin[2], "stripes") == 0);
+    CHECK(c.skin_masked[0] == 0 && c.skin_masked[1] == 0 && c.skin_masked[2] == 1);   /* no car_masks/CARDCAR/: the skin as it comes has none */
+    snprintf(skins, sizeof skins, "%s/car_masks/CARDCAR", d);
+    write_text(skins, "topv_mask.png", "x");
+    CHECK(car_pieces_card(16, &c));
+    CHECK_EQ_INT(c.skin_masked[0], 1);
+    CHECK(!car_pieces_card(3, &c) && !car_pieces_card(17, &c));
+    write_text(d, "mod.ini", "id=other-car\nname=O\nversion=1\ntype=car\nstem=CARDCAR\nshort_name=T\n");   /* swapped since the load */
+    CHECK(!car_pieces_card(16, &c) && c.info.id[0] == '\0');
+    car_registry_clear();
+}
+
 int main(void)
 {
     char probe[600];
@@ -244,6 +276,7 @@ int main(void)
     test_numbers_stay_across_reloads();
     test_it_follows_the_mods();
     test_the_fingerprint();
+    test_the_card();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);
     if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", base);

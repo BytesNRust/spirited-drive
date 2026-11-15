@@ -6,11 +6,12 @@
 #ifndef TNFS_CAR_LOOKS_H
 #define TNFS_CAR_LOOKS_H
 
+#include "formats/car_piece.h"
 #include "formats/mod_ini.h"
 
 #include <stdbool.h>
 
-enum { CAR_LOOKS_SKIN_NAME_MAX = 16, CAR_LOOKS_NOT_LOADED = -2 };   /* a skin's folder name: 1..16 of a-z 0-9 '-' (the piece's check says which there are) */
+enum { CAR_LOOKS_SKIN_NAME_MAX = CAR_PIECE_SKIN_NAME_MAX, CAR_LOOKS_NOT_LOADED = -2 };   /* a skin's folder name: 1..16 of a-z 0-9 '-' (the piece's check says which there are) */
 
 typedef struct {
     char skin[CAR_LOOKS_SKIN_NAME_MAX + 1];    /* "" the skin as it comes */
