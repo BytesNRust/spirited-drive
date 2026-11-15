@@ -186,7 +186,7 @@ static int read_indexed(const uint8_t *data, size_t len, PngImage *image)
     if (status == 1) {
         int out_len = 0;
         uint8_t *raw = NULL;
-        if (!indexed || !have_palette || w == 0 || h == 0 || w > MAX_DIMENSION || h > MAX_DIMENSION) status = -1;
+        if (!indexed || !have_palette || idat == NULL || idat_len == 0 || w == 0 || h == 0 || w > MAX_DIMENSION || h > MAX_DIMENSION) status = -1;
         else raw = (uint8_t *)stbi_zlib_decode_malloc((const char *)idat, (int)idat_len, &out_len);
         if (status == 1 && (raw == NULL || (size_t)out_len != (1 + (size_t)w) * h || !unfilter(raw, w, h))) status = -1;
         if (status == 1) {

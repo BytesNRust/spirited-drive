@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Every push to main and every pull request: build and run the tests on macOS (Apple Silicon and Intel).
+# Every push to any branch and every pull request: build and run the tests on macOS (Apple Silicon and Intel),
+# once in Release and once with AddressSanitizer + UndefinedBehaviorSanitizer. A compiler warning fails the build.
 # Tests that need the CD's data skip themselves (there is no game data in CI).
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
 
 permissions:
@@ -21,8 +22,21 @@ jobs:
       fail-fast: false
       matrix:
         runner: [macos-15, macos-15-intel]     # Apple Silicon and Intel
+        build: [release, sanitizers]
+        include:
+          - build: release
+            cmake: -DCMAKE_BUILD_TYPE=Release
+          - build: sanitizers
+            cmake: -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer"
+    name: ${{ matrix.runner }} ${{ matrix.build }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      ASAN_OPTIONS: detect_leaks=0
+      SDL_VIDEO_DRIVER: dummy
+      SDL_AUDIO_DRIVER: dummy
+      SDL_AUDIODRIVER: dummy
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4
         with:
@@ -30,8 +44,15 @@ jobs:
       - name: Install tools
         run: brew install ninja sdl3
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -G Ninja ${{ matrix.cmake }}
       - name: Build
-        run: cmake --build build
+        run: |
+          set -o pipefail
+          cmake --build build 2>&1 | tee build.log
+      - name: No compiler warnings
+        run: |
+          if grep 'warning:' build.log | grep -v '^ld: warning' | sort -u | grep .; then
+            echo "::error::the build has compiler warnings"; exit 1
+          fi
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build --output-on-failure -j "$(sysctl -n hw.ncpu)"
