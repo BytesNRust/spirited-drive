@@ -1,6 +1,7 @@
 #include "game/frontend/showcase.h"
 
 #include "game/frontend/palette_put.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 
@@ -298,6 +299,7 @@ static void keys(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
 /* 00408724 */
 int32_t showcase(ShowcaseState *st, const ShowcaseOps *o)
 {
+    port_log("mark:screen=showcase\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     Show s = { .selected = VIDEO, .previous = VIDEO, .redraw = 1, .fade = 1, .armed = 1, .released = 1 };
     if (*st->pointer_active == 0) move_to(VIDEO, o);
     load(&s, st, o);
