@@ -3,12 +3,14 @@
 # template's under the new stem, its mod.ini says what it is, the port's masks come along; a stem of the CD's or a folder already
 # holding the piece is refused before anything is written, and nothing in the data roots is touched. validate checks a piece as the
 # game will load it (car_piece_check), and a card it cannot read is an error. mod pack makes the zip the game installs, the same bytes
-# each time, refusing a file the installation would refuse and writing nothing then.
-# usage: car_new.sh STUDIO ORIGINAL_DIR PORT_DATA_DIR
+# each time, refusing a file the installation would refuse and writing nothing then. With the game: the piece races in Restomod and
+# draws the frame the Viper draws (skipped when the game does not take a car's id in --car).
+# usage: car_new.sh STUDIO ORIGINAL_DIR PORT_DATA_DIR [TNFS]
 set -u
 studio=$1
 orig=$2
 port=$3
+tnfs=${4:-}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 failures=0
@@ -126,6 +128,34 @@ cksum < "$work/test-car.zip" | cmp -s - "$work/before" || fail "a refused pack c
 "$studio" mod pack "$p" "$work/test-car.zip" --force >/dev/null 2>&1 || fail "--force was refused"
 "$studio" mod pack "$work/other" "$work/other.zip" >/dev/null 2>"$work/log" && fail "the OTHER.PBS piece was packed"
 [ -e "$work/other.zip" ] && fail "a piece that fails validate left a zip"
+
+# the game: the piece made from the Viper races with --car test-car and, alone on the road with the mode's liveries off (as
+# car_piece_race.sh), draws the Viper's own frame; that is why car new copies the masks
+export SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy ASAN_OPTIONS=detect_leaks=0
+restomod() {
+    rm -rf "$work/user"
+    mkdir -p "$work/user" && echo "profile=restomod" > "$work/user/port.cfg" && echo "extra_liveries=0" > "$work/user/restomod.cfg"
+}
+# a game that takes an id in --car answers an unknown one with "no car <id>" (its --help shows only N)
+takes_id=0
+if [ -n "$tnfs" ]; then
+    restomod
+    timeout -k 5 60 "$tnfs" --data "$orig" --user "$work/user" --drive TR1 --car no-such-car --node 1 --screenshot "$work/probe.ppm" \
+        >/dev/null 2>"$work/err"
+    grep -q "no car no-such-car" "$work/err" && takes_id=1
+fi
+if [ "$takes_id" -eq 1 ]; then
+    restomod
+    timeout -k 5 120 "$tnfs" --data "$orig" --user "$work/user" --mods "$p" --drive TR1 --car test-car --racers 1 --node 200 \
+        --screenshot "$work/a.ppm" >/dev/null 2>"$work/err" || fail "the piece did not race: $(tail -3 "$work/err")"
+    [ -s "$work/a.ppm" ] || fail "no frame of the piece"
+    restomod
+    timeout -k 5 120 "$tnfs" --data "$orig" --user "$work/user" --drive TR1 --car 5 --racers 1 --node 200 \
+        --screenshot "$work/b.ppm" >/dev/null 2>"$work/err" || fail "the Viper did not race: $(tail -3 "$work/err")"
+    cmp -s "$work/a.ppm" "$work/b.ppm" || fail "the piece made from the Viper does not look like the Viper"
+else
+    echo "car_new: the game's --car takes no id (or no game given): the race is skipped"
+fi
 
 [ "$failures" -eq 0 ] || exit 1
 echo "car_new: ok"

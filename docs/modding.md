@@ -189,6 +189,39 @@ Several cars can be added, up to 64, one folder each, in the mods in effect (`--
 
 **What it does not do yet:** a race with an added car keeps no record and no replay (`race_records.dat`, `config.dat` and `Replay.rpl` hold only the original cars, and the log says so); the car is not on the car screens and cannot be a rival; it brings no engine sound or cockpit of its own; the paint catalogue (the extra colours) has none for it.
 
+### Making a car with tnfs-studio
+
+Three commands take you from "a car based on the Viper" to a zip the game installs. The car starts as an exact copy of its template; you change it afterwards.
+
+    tnfs-studio car new --template viper --id my-car --stem MYCAR --out mycar --name "My Car"
+    tnfs-studio validate mycar
+    tnfs-studio mod pack mycar my-car.zip
+
+- `car new` takes one of the eight race cars, by its word (`viper`) or its stem on the CD (`DVIPER`), from the CD in `original` (`--data` for another folder). It writes `mod.ini` (`type=car`, the stem, and `sound_from`, `ai_from` and `dash_from` set to the template's word), the template's CFM, PDN and PBS under the new stem, and the port's car and dash masks of the template from `data` (`--port-data` for another folder). A stem of the CD's, a bad id, or an output folder that already holds the piece stop it before anything is written; `--force` replaces the piece's files.
+- `validate` on a folder with a `mod.ini` reads the card (a card it cannot read is an error) and checks a car piece exactly as the game does before it lets the car race, plus what the race looks up in the model and the original executable's limits for the rest. On a `.zip` it makes the installation's own check first. `--port-only` turns errors into warnings, as for any file.
+- `mod pack` checks the folder as `validate` does and writes the zip only if it passes: `mod.ini` first, the rest by name, nothing compressed, so the same folder always gives the same zip. A file the game does not install (a `.docx`, an `.exe`) stops it and is named; what macOS and Windows add on their own (`.DS_Store`, `Thumbs.db`) is left out. An existing zip is kept unless `--force`.
+
+To race it before packing: `tnfs --mods mycar --drive TR1 --car my-car` in Restomod.
+
+To change the car, edit its files with `tnfs-studio unpack` and `tnfs-studio pack` (the textures as PNG, the specs and the PDN as text), then `validate` again. Geometry cannot be replaced yet: `pack` keeps the template's vertex, uv and polygon counts.
+
+What the game asks of a car's model (the checks `validate` makes, `PIECE.*` and `CFM.*` in its output):
+
+| What | Limit | Kind |
+|------|-------|------|
+| Vertices, polygons, uvs | no cap but memory (the CD's cars reach 132 vertices and 86 polygons) | soft |
+| Polygons in one draw list | past 1000 the rest are drawn unsorted | soft |
+| Sides of a polygon | 3 or 4 | hard |
+| Textures in one mesh | 256 (one byte a polygon); every index inside its table (`PIECE.MODEL_INDEX`) | hard |
+| Texture size | any, not a power of two; a side under 32768 (the CD's run from 4x1 to 334x102) | soft |
+| Texture repeat | none: coordinates are clamped at the edge | hard |
+| Texture format | 8-bit with a palette | hard |
+| Colours | up to 250 indexes, fitted on screen to the race's palette: about 23 of the car's own for the player's car (8 for a rival), 72 shared by the cars, and the track's | soft: it loses colour, never fails |
+| Polygon groups | every polygon of the high-detail mesh in `inside`, `surface`, `outside` or `convex`, or it is not drawn close up (`PIECE.MODEL_GROUPS`, a warning) | hard |
+| Named parts and points | tyres (`tire1`..`tire4`, `frntires`, `rertires`), `left_turn`, `right_turn`, `inside` and `surface` (at an index under 8), the exhaust point `smok`, the four lights `lt_frnt` `rt_frnt` `lt_rear` `rt_rear` and their points `fl0` `fl1` `fr0` `fr1` `rl0` `rl1` `rr0` `rr1` (`CFM.REQUIRED_NAME`, `PIECE.MODEL_NAME`) | hard: the race hangs without them |
+| Meshes | a high-detail and a low-detail one (the CD's low ones: 6 faces, 3 textures, seen from afar) | hard |
+| Collision body (PDN) | its three half sizes match the model's (measured as the race does, x 512) within a tenth, or are 0 (`PIECE.BODY_SIZE`, a warning) | should match |
+
 ## The mask tools
 
 The masks are painted in PSDs and read back by scripts in `tools/`. The Python ones need Pillow; the `from_psd` ones also `psd-tools` (`pip install psd-tools`). The two programs are built with the game (`track_mask_draft`, `track_lamp_marks`).

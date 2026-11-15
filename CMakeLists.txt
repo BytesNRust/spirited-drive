@@ -1168,7 +1168,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME car_piece_race COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_piece_race.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
         set_tests_properties(car_piece_race PROPERTIES TIMEOUT 600)
         add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
-        add_test(NAME car_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_new.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
+        add_test(NAME car_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_new.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:tnfs>)
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands
@@ -1555,7 +1555,7 @@ set(TNFS_GAME_TEST_TIMEOUT 120)
 if(CMAKE_C_FLAGS MATCHES "-fsanitize")
     set(TNFS_GAME_TEST_TIMEOUT 300)
 endif()
-foreach(name mods_overlay track_new reference_mod two_tracks_reflectors trail_frame_skip rain_lamps_masked old_files_startup dev_data_default
+foreach(name mods_overlay track_new car_new reference_mod two_tracks_reflectors trail_frame_skip rain_lamps_masked old_files_startup dev_data_default
              rain_night_headlights hud_lights_view_change menu_music_kept variant_choice_kept shadow_without_light day_plain_present light_edit_reload light_edit_places wipers)
     if(TEST ${name})
         set_tests_properties(${name} PROPERTIES TIMEOUT ${TNFS_GAME_TEST_TIMEOUT})
