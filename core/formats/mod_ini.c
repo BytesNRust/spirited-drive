@@ -47,6 +47,34 @@ static void trim(const char **s, const char **e)
     while (*e > *s && ((*e)[-1] == ' ' || (*e)[-1] == '\t' || (*e)[-1] == '\r')) (*e)--;
 }
 
+/* 0 when `s` is not UTF-8 (overlong forms and surrogates included), or holds what would change or hide what the player reads: a C0 or
+ * C1 control, DEL, or a bidirectional mark (U+061C, U+200E-200F, U+202A-202E, U+2066-2069) */
+static int text_clean(const unsigned char *s, size_t n)
+{
+    for (size_t i = 0; i < n;) {
+        uint32_t c = s[i];
+        size_t len;
+        if (c < 0x80) {
+            if (c < 0x20 || c == 0x7f) return 0;
+            i++;
+            continue;
+        }
+        if (c >= 0xc2 && c <= 0xdf) len = 2, c &= 0x1f;
+        else if (c >= 0xe0 && c <= 0xef) len = 3, c &= 0x0f;
+        else if (c >= 0xf0 && c <= 0xf4) len = 4, c &= 0x07;
+        else return 0;
+        if (len > n - i) return 0;
+        for (size_t k = 1; k < len; k++) {
+            if ((s[i + k] & 0xc0) != 0x80) return 0;
+            c = c << 6 | (s[i + k] & 0x3f);
+        }
+        if ((len == 3 && c < 0x800) || (len == 4 && (c < 0x10000 || c > 0x10ffff)) || (c >= 0xd800 && c <= 0xdfff)) return 0;
+        if (c <= 0x9f || c == 0x61c || c == 0x200e || c == 0x200f || (c >= 0x202a && c <= 0x202e) || (c >= 0x2066 && c <= 0x2069)) return 0;
+        i += len;
+    }
+    return 1;
+}
+
 /* one `key=value` line into `out`; 0 with `why` set when it is refused */
 static int take_line(const char *line, const char *end, ModInfo *out, int seen[FIELD_COUNT], char *why, size_t cap)
 {
@@ -55,11 +83,11 @@ static int take_line(const char *line, const char *end, ModInfo *out, int seen[F
     const char *ks = line, *ke = eq, *vs = eq + 1, *ve = end;
     trim(&ks, &ke), trim(&vs, &ve);
     const size_t klen = (size_t)(ke - ks), vlen = (size_t)(ve - vs);
-    for (const char *c = vs; c < ve; c++)
-        if ((unsigned char)*c < 0x20 || *c == 0x7f) return refuse(why, cap, "mod.ini: %.*s has a control character", (int)klen, ks);
-    for (int f = 0; f < FIELD_COUNT; f++) {
+    for (int f = 0; f < FIELD_COUNT; f++) {   /* only a key the game knows is read, and only its name is ever said back */
         if (strlen(FIELDS[f].key) != klen || memcmp(FIELDS[f].key, ks, klen) != 0) continue;
         if (seen[f]) return refuse(why, cap, "mod.ini: %s is given twice", FIELDS[f].key);
+        if (!text_clean((const unsigned char *)vs, vlen))
+            return refuse(why, cap, "mod.ini: %s is not UTF-8 text, or holds a control or direction character", FIELDS[f].key);
         if (vlen == 0) return refuse(why, cap, "mod.ini: %s is empty", FIELDS[f].key);
         if (vlen >= FIELDS[f].cap) return refuse(why, cap, "mod.ini: %s is longer than %zu characters", FIELDS[f].key, FIELDS[f].cap - 1);
         char *field = (char *)out + FIELDS[f].offset;

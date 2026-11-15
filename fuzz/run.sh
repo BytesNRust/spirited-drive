@@ -38,6 +38,8 @@ patterns() {
         music_stream) echo "*.asf *.as4" ;;
         tgv) echo "*.tgv" ;;
         shape_bank) echo "*.fsh" ;;
+        zip|mod_check) echo "*.zip" ;;
+        mod_ini) echo "*.ini" ;;
         *) echo "" ;;
     esac
 }

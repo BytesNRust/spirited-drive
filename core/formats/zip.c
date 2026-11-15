@@ -11,7 +11,7 @@
 
 enum {
     EOCD_SIG = 0x06054b50, EOCD_SIZE = 22, CDH_SIG = 0x02014b50, CDH_SIZE = 46, LFH_SIG = 0x04034b50, LFH_SIZE = 30,
-    MAX_COMMENT = 0xffff, FLAG_ENCRYPTED = 1, HOST_UNIX = 3, MODE_TYPE = 0170000, MODE_LINK = 0120000
+    MAX_COMMENT = 0xffff, FLAG_ENCRYPTED = 1, HOST_UNIX = 3, HOST_OSX = 19, MODE_TYPE = 0170000, MODE_FILE = 0100000, MODE_DIR = 0040000
 };
 
 static uint32_t le16(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8; }
@@ -29,11 +29,32 @@ static const uint8_t *find_eocd(const uint8_t *data, size_t size)
     return NULL;
 }
 
+/* a component Windows keeps for a device (CON, PRN, AUX, NUL, COM0-9, LPT0-9), with or without an extension */
+static int is_device(const uint8_t *c, size_t len)
+{
+    size_t n = 0;
+    while (n < len && c[n] != '.') n++;
+    char b[5] = { 0 };
+    if (n < 3 || n > 4) return 0;
+    for (size_t i = 0; i < n; i++) b[i] = (char)(c[i] >= 'a' && c[i] <= 'z' ? c[i] - 32 : c[i]);
+    if (n == 3) return !memcmp(b, "CON", 3) || !memcmp(b, "PRN", 3) || !memcmp(b, "AUX", 3) || !memcmp(b, "NUL", 3);
+    return (!memcmp(b, "COM", 3) || !memcmp(b, "LPT", 3)) && b[3] >= '0' && b[3] <= '9';
+}
+
+/* printable ASCII without what Windows refuses in a name; no component a device's, nor ending with '.' or ' ' (Windows drops those, so
+ * "A", "A." and "A " would be one file) */
 static int name_ok(const uint8_t *name, size_t len)
 {
     if (len == 0 || len > ZIP_NAME_MAX) return 0;
     for (size_t i = 0; i < len; i++)
-        if (name[i] < 0x20 || name[i] == 0x7f || name[i] == '\\' || name[i] == ':') return 0;
+        if (name[i] < 0x20 || name[i] > 0x7e || strchr("\\:*?\"<>|", name[i]) != NULL) return 0;
+    for (size_t start = 0; start < len;) {
+        size_t end = start;
+        while (end < len && name[end] != '/') end++;
+        const size_t n = end - start;
+        if (n > 0 && (name[end - 1] == '.' || name[end - 1] == ' ' || is_device(name + start, n))) return 0;
+        start = end + 1;
+    }
     return 1;
 }
 
@@ -56,12 +77,43 @@ static size_t read_header(const uint8_t *p, size_t left, ZipEntry *e, ZipResult 
     if (!name_ok(p + CDH_SIZE, name_len)) return *err = ZIP_ERR_NAME, 0;
     memcpy(e->name, p + CDH_SIZE, name_len);
     e->is_dir = p[CDH_SIZE + name_len - 1] == '/';
-    e->is_link = host == HOST_UNIX && (mode & MODE_TYPE) == MODE_LINK;
+    const uint32_t type = mode & MODE_TYPE;   /* only Unix and OS X write a mode there; 0 when they wrote none */
+    e->is_special = (host == HOST_UNIX || host == HOST_OSX) && type != 0 && type != MODE_FILE && type != MODE_DIR;
     if (e->usize > ZIP_MAX_FILE) return *err = ZIP_ERR_FILE_TOO_BIG, 0;
     if (e->method == 0 && e->csize != e->usize) return 0;
     if (e->method == 8 && e->usize > 0 && (uint64_t)e->usize > (uint64_t)e->csize * ZIP_MAX_RATIO) return *err = ZIP_ERR_RATIO, 0;
     *err = ZIP_OK;
     return total;
+}
+
+typedef struct {
+    uint64_t start, end;   /* an entry's local header and bytes */
+} Span;
+
+static int span_order(const void *a, const void *b)
+{
+    const uint64_t x = ((const Span *)a)->start, y = ((const Span *)b)->start;
+    return x < y ? -1 : x > y;
+}
+
+/* each entry's local header is there, and its header and bytes lie before the central directory, apart from every other entry's: the
+ * overlapping bomb (many entries over one run of bytes) is refused */
+static ZipResult spans_ok(const uint8_t *data, uint64_t cd_offset, const ZipEntry *e, size_t count)
+{
+    Span *s = malloc((count > 0 ? count : 1) * sizeof *s);
+    if (s == NULL) return ZIP_ERR_MEMORY;
+    for (size_t i = 0; i < count; i++) {
+        const uint64_t at = e[i].local_offset;
+        if (at + LFH_SIZE > cd_offset || le32(data + at) != LFH_SIG) return free(s), ZIP_ERR_TRUNCATED;
+        s[i].start = at;
+        s[i].end = at + LFH_SIZE + le16(data + at + 26) + le16(data + at + 28) + e[i].csize;
+        if (s[i].end > cd_offset) return free(s), ZIP_ERR_OVERLAP;
+    }
+    qsort(s, count, sizeof *s, span_order);
+    for (size_t i = 1; i < count; i++)
+        if (s[i].start < s[i - 1].end) return free(s), ZIP_ERR_OVERLAP;
+    free(s);
+    return ZIP_OK;
 }
 
 ZipResult zip_open(const uint8_t *data, size_t size, ZipArchive *out)
@@ -88,6 +140,8 @@ ZipResult zip_open(const uint8_t *data, size_t size, ZipArchive *out)
         if (total > ZIP_MAX_TOTAL) return free(entries), ZIP_ERR_TOTAL_TOO_BIG;
         p += used, left -= used;
     }
+    const ZipResult spans = spans_ok(data, cd_offset, entries, count);
+    if (spans != ZIP_OK) return free(entries), spans;
     out->data = data, out->size = size, out->entries = entries, out->count = count;
     return ZIP_OK;
 }
@@ -146,6 +200,7 @@ const char *zip_result_text(ZipResult r)
     case ZIP_ERR_RATIO: return "an entry would grow too much when unpacked";
     case ZIP_ERR_INFLATE: return "an entry's compressed data is damaged";
     case ZIP_ERR_CRC: return "an entry fails its checksum";
+    case ZIP_ERR_OVERLAP: return "entries share their bytes (a crafted zip)";
     case ZIP_ERR_MEMORY: return "out of memory";
     }
     return "unknown zip error";

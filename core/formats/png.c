@@ -231,6 +231,16 @@ PngResult png_read(const uint8_t *data, size_t len, PngImage *image)
     return PNG_OK;
 }
 
+PngResult png_size(const uint8_t *data, size_t len, uint32_t *width, uint32_t *height)
+{
+    *width = *height = 0;
+    if (data == NULL || len < 24 || memcmp(data, signature, 8) != 0 || get_be32(data + 8) != 13 || memcmp(data + 12, "IHDR", 4) != 0)
+        return PNG_ERR_FORMAT;
+    *width = get_be32(data + 16);
+    *height = get_be32(data + 20);
+    return PNG_OK;
+}
+
 void png_free(void *buffer)
 {
     free(buffer);

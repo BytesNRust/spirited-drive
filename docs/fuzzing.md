@@ -21,6 +21,9 @@ libFuzzer with AddressSanitizer and UndefinedBehaviorSanitizer.
 | `psx_bigf` | `psx_bigf_member`, `psx_shpp_image8`, `psx_shpp_colours` | the PlayStation liveries and skies |
 | `doc` | `doc_parse_chunks`, `doc_parse_shpi` and write | the studio's editor |
 | `validate` | `validate_file` (its first byte picks the file name) | the check every mod file goes through |
+| `zip` | `zip_open`, `zip_extract` on every entry | a mod's zip, before anything is installed |
+| `mod_ini` | `mod_ini_parse` | a mod's card (`mod.ini`) |
+| `mod_check` | `mod_check_zip`, `mod_check_install_path` on every entry | the whole install check of a mod's zip |
 | `track_light` | `track_light_parse` | `track_light/<TRK><L>.txt` |
 | `track_places` | `track_light_place_parse` | `data/track/<TRK>.txt` |
 | `terrain_rules` | `terrain_light_rules_parse` | a track's light rules |

@@ -1,8 +1,10 @@
 /* The zip a mod is installed from (dep59 n4). The central directory is read once and every limit checked on it, before anything is
  * unpacked: the archive's size, the count of entries, each file's size, their total and how much a deflated entry may grow (a bomb).
  * Only stored and deflated entries, one disk, no zip64, no encryption. An entry's bytes are unpacked into a buffer of exactly the size the
- * directory gives (stb_image's inflate), and their CRC checked. Names are kept as written (with '/'), refused only when they are empty, too
- * long, or hold a control character, a backslash or a colon; whether a path is safe and wanted is the mod check's (mod_check.h). */
+ * directory gives (stb_image's inflate), and their CRC checked. Every entry's local header and bytes must lie before the central
+ * directory and apart from every other entry's (no overlapping bomb). Names are kept as written (with '/'), and refused when they are
+ * empty or too long, hold anything but printable ASCII, or what Windows cannot hold (\ : * ? " < > |, a component ending with '.' or
+ * ' ', a device's name such as CON or COM1); whether a path is safe and wanted is the mod check's (mod_check.h). */
 #ifndef TNFS_ZIP_H
 #define TNFS_ZIP_H
 
@@ -34,13 +36,14 @@ typedef enum {
     ZIP_ERR_RATIO,          /* a deflated entry that would grow more than ZIP_MAX_RATIO times */
     ZIP_ERR_INFLATE,        /* the deflated bytes are damaged or do not give the size the directory says */
     ZIP_ERR_CRC,
+    ZIP_ERR_OVERLAP,        /* two entries' bytes overlap, or one runs into the central directory */
     ZIP_ERR_MEMORY
 } ZipResult;
 
 typedef struct {
     char name[ZIP_NAME_MAX + 1];
     int is_dir;          /* the name ends with '/' */
-    int is_link;         /* made on Unix with a symbolic link's mode */
+    int is_special;      /* its mode says neither a file nor a folder: a link, a device, a pipe */
     uint16_t method;     /* 0 stored, 8 deflated */
     uint32_t crc, csize, usize, local_offset;
 } ZipEntry;

@@ -68,10 +68,55 @@ static void test_utf8_text_is_kept(void)
     CHECK(strcmp(m.name, "Noche en la costa — Ñ") == 0);
 }
 
+/* review of 4977a5c5, 8: a value must be UTF-8 with nothing that reorders or hides what the player reads (bidi controls, C1 controls) */
+static void test_values_are_clean_utf8(void)
+{
+    static const char *const BAD[] = {
+        "id=a\nname=\xff\nversion=1\n",                   /* not UTF-8 */
+        "id=a\nname=a\xc3\nversion=1\n",                  /* cut short */
+        "id=a\nname=\xc0\xaf\nversion=1\n",               /* overlong */
+        "id=a\nname=\xe0\x80\xaf\nversion=1\n",
+        "id=a\nname=\xe0\x83\xa9\nversion=1\n",           /* U+00E9 overlong: refused by its form, not its value */
+        "id=a\nname=\xf0\x8f\xbf\xbf\nversion=1\n",
+        "id=a\nname=\xed\xa0\x80\nversion=1\n",           /* a surrogate */
+        "id=a\nname=\xf4\x90\x80\x80\nversion=1\n",       /* over U+10FFFF */
+        "id=a\nname=a\xe2\x80\xae" "b\nversion=1\n",      /* U+202E */
+        "id=a\nname=a\xe2\x80\xaa" "b\nversion=1\n",      /* U+202A */
+        "id=a\nname=a\xe2\x81\xa6" "b\nversion=1\n",      /* U+2066 */
+        "id=a\nname=a\xe2\x81\xa9" "b\nversion=1\n",      /* U+2069 */
+        "id=a\nname=a\xc2\x9b" "b\nversion=1\n",          /* C1 CSI */
+        "id=a\nname=A\nversion=1\nauthor=\x1b[31mx\n",    /* ESC */
+    };
+    ModInfo m;
+    char why[160];
+    for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) CHECK_EQ_INT(parse(BAD[i], &m, why), 0);
+    CHECK_EQ_INT(parse("id=a\nname=\xf0\x9f\x8f\x81 \xe2\x80\x8b\nversion=1\n", &m, why), 1);   /* four bytes, and U+200B are fine */
+}
+
+/* review of 4977a5c5, 8: what the card says back never carries its own bytes for a key the game does not know */
+static void test_messages_hold_no_control_bytes(void)
+{
+    static const char *const CARDS[] = {
+        "id=a\nname=A\nversion=1\n\x1b]0;owned\x07=\x01\n",
+        "id=a\nname=A\nversion=1\n\x1b[2J\n",
+        "\x1b[2Jname=A\n",
+    };
+    ModInfo m;
+    char why[160];
+    for (size_t i = 0; i < sizeof CARDS / sizeof CARDS[0]; i++) {
+        why[0] = '\0';
+        parse(CARDS[i], &m, why);
+        for (const char *c = why; *c; c++) CHECK((unsigned char)*c >= 0x20 && *c != 0x7f);
+    }
+    CHECK_EQ_INT(parse(CARDS[0], &m, why), 1);   /* a key the game does not know is left alone, whatever it holds */
+}
+
 int main(void)
 {
     test_a_full_card();
     test_refusals();
     test_utf8_text_is_kept();
+    test_values_are_clean_utf8();
+    test_messages_hold_no_control_bytes();
     return TEST_REPORT();
 }

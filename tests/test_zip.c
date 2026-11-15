@@ -74,11 +74,11 @@ static void test_refuses_encryption_methods_and_links(void)
     CHECK_EQ_INT(open_entries(&e, 1, &z), ZIP_ERR_METHOD);
     e.method = 0, e.ext_attr = 0120777u << 16;   /* a symbolic link, made on Unix */
     CHECK_EQ_INT(open_entries(&e, 1, &z), ZIP_OK);
-    CHECK(z.entries[0].is_link);
+    CHECK(z.entries[0].is_special);
     zip_close(&z);
     e.host = 0;   /* made on DOS: the high bits are not a mode */
     CHECK_EQ_INT(open_entries(&e, 1, &z), ZIP_OK);
-    CHECK(!z.entries[0].is_link);
+    CHECK(!z.entries[0].is_special);
     zip_close(&z);
 }
 
@@ -95,6 +95,76 @@ static void test_refuses_names(void)
     longer[sizeof longer - 1] = '\0';
     ZbEntry e = zb_text(longer, "x");
     CHECK_EQ_INT(open_entries(&e, 1, &z), ZIP_ERR_NAME);
+}
+
+/* review of 4977a5c5, 4: names a Windows player could not unpack, or that would collide there, are refused; only printable ASCII */
+static void test_refuses_names_windows_cannot_hold(void)
+{
+    static const char *const BAD[] = { "a*b", "a?b", "a\"b", "a<b", "a>b", "a|b", "x.", "x ", "dir./x", "dir /x", "CON", "con.txt",
+                                       "SIMDATA/NUL.QFS", "com1", "COM0.x", "LPT9.TXT", "aux/x", "Prn", "caf\xc3\xa9", "a\177b" };
+    ZipArchive z;
+    for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) {
+        ZbEntry e = zb_text(BAD[i], "x");
+        CHECK_EQ_INT(open_entries(&e, 1, &z), ZIP_ERR_NAME);
+        if (z.entries != NULL) zip_close(&z);
+    }
+    static const char *const GOOD[] = { "CONFIG.DAT", "console.txt", "COM10", "BY_R&T", "My Mod/mod.ini", "dir/", ".hidden", "a..b" };
+    for (size_t i = 0; i < sizeof GOOD / sizeof GOOD[0]; i++) {
+        ZbEntry e = zb_text(GOOD[i], "x");
+        CHECK_EQ_INT(open_entries(&e, 1, &z), ZIP_OK);
+        zip_close(&z);
+    }
+}
+
+/* review of 4977a5c5, 5: an entry that is neither a file nor a folder is marked special: a link made on Unix or on OS X (host 19), a
+ * device or a pipe; no mode at all is a plain file */
+static void test_special_entries(void)
+{
+    static const struct { uint8_t host; uint32_t mode; int special; } CASES[] = {
+        { 3, 0120777u, 1 }, { 19, 0120777u, 1 }, { 3, 0020644u, 1 }, { 3, 0010644u, 1 }, { 19, 0060644u, 1 },
+        { 3, 0100644u, 0 }, { 19, 0100644u, 0 }, { 3, 0040755u, 0 }, { 3, 0u, 0 }, { 0, 0120777u, 0 },
+    };
+    ZipArchive z;
+    for (size_t i = 0; i < sizeof CASES / sizeof CASES[0]; i++) {
+        ZbEntry e = zb_text("a.txt", "x");
+        e.host = CASES[i].host, e.ext_attr = CASES[i].mode << 16;
+        CHECK_EQ_INT(open_entries(&e, 1, &z), ZIP_OK);
+        CHECK_EQ_INT(z.entries[0].is_special, CASES[i].special);
+        zip_close(&z);
+    }
+}
+
+/* the central directory record of entry `k` in the archive of `size` bytes in buf */
+static uint8_t *cd_record(size_t size, int k)
+{
+    uint8_t *p = buf + (buf[size - 6] | buf[size - 5] << 8 | buf[size - 4] << 16 | (uint32_t)buf[size - 3] << 24);
+    for (int i = 0; i < k; i++) p += 46 + (p[28] | p[29] << 8) + (p[30] | p[31] << 8) + (p[32] | p[33] << 8);
+    return p;
+}
+
+/* review of 4977a5c5, 6: entries whose bytes overlap (the overlapping bomb), or run into the central directory, or past the archive,
+ * are refused when the zip is opened */
+static void test_refuses_overlapping_entries(void)
+{
+    ZipArchive z;
+    ZbEntry e[2] = { zb_text("a.txt", "hello"), zb_text("b.txt", "world") };
+    size_t size = zb_build(e, 2, buf, sizeof buf);
+    zb_32(cd_record(size, 1) + 42, 0);   /* b's local header is a's */
+    CHECK_EQ_INT(zip_open(buf, size, &z), ZIP_ERR_OVERLAP);
+    size = zb_build(e, 2, buf, sizeof buf);
+    zb_32(cd_record(size, 1) + 42, 3);   /* inside a's bytes */
+    CHECK_EQ_INT(zip_open(buf, size, &z), ZIP_ERR_TRUNCATED);   /* no local header there */
+    size = zb_build(e, 2, buf, sizeof buf);
+    uint8_t *r = cd_record(size, 0);
+    zb_32(r + 20, 5 + 30 + 5 + 3), zb_32(r + 24, 5 + 30 + 5 + 3);   /* a's bytes said to run over b's */
+    CHECK_EQ_INT(zip_open(buf, size, &z), ZIP_ERR_OVERLAP);
+    size = zb_build(e, 2, buf, sizeof buf);
+    r = cd_record(size, 1);
+    zb_32(r + 20, 5 + 10), zb_32(r + 24, 5 + 10);   /* b's bytes said to run into the central directory */
+    CHECK_EQ_INT(zip_open(buf, size, &z), ZIP_ERR_OVERLAP);
+    size = zb_build(e, 2, buf, sizeof buf);
+    CHECK_EQ_INT(zip_open(buf, size, &z), ZIP_OK);   /* untouched, it opens */
+    zip_close(&z);
 }
 
 static void test_limits(void)
@@ -156,6 +226,9 @@ int main(void)
     test_refuses_what_is_not_a_zip();
     test_refuses_encryption_methods_and_links();
     test_refuses_names();
+    test_refuses_names_windows_cannot_hold();
+    test_special_entries();
+    test_refuses_overlapping_entries();
     test_limits();
     test_damage_is_refused_when_read();
     return TEST_REPORT();

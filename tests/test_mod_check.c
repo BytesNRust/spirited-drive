@@ -1,11 +1,13 @@
 /* dep59: the install check of a mod's zip (formats/mod_check.h): a good mod passes with its card, kinds and root; every refusal refuses the
  * whole mod and says why (zip-slip names, links, case twins, files the game does not read, bad content, no card); the system's litter is
  * left out; the zip of a folder takes that folder as its root. */
+#include "formats/crc32.h"
 #include "formats/mod_check.h"
 #include "formats/png.h"
 #include "test.h"
 #include "zip_build.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,7 +28,7 @@ static int check(const ZbEntry *e, int n, ModCheck *c)
 /* a 2 x 2 PNG, `w` x `h` when asked */
 static ZbEntry png_entry(const char *name, int w, int h, uint8_t **keep)
 {
-    static uint8_t px[600 * 300];
+    static uint8_t px[1024 * 1024];
     uint8_t pal[768] = { 0 };
     size_t len = 0;
     *keep = NULL;
@@ -51,16 +53,19 @@ static void test_a_good_mod(void)
     ModCheck c;
     CHECK_EQ_INT(check(e, (int)(sizeof e / sizeof e[0]), &c), 1);
     CHECK(strcmp(c.info.id, "test-mod") == 0 && strcmp(c.info.version, "1.0") == 0);
-    CHECK_EQ_INT((int)c.files, 5);   /* the card, the light, the mask, the preview and the README; the folder entry and the litter not */
+    CHECK_EQ_INT((int)c.entry_count, 5);   /* the card, the light, the mask, the preview and the README; the folder entry and the litter not */
     CHECK_EQ_INT((int)c.kinds[MOD_KIND_TEXT], 1);
     CHECK_EQ_INT((int)c.kinds[MOD_KIND_PNG], 2);
     CHECK_EQ_INT((int)c.kinds[MOD_KIND_CARD], 1);
     CHECK_EQ_INT((int)c.kinds[MOD_KIND_DOC], 1);
     CHECK_EQ_INT(c.has_preview, 1);
     CHECK(c.root[0] == '\0');
-    char rel[300];
-    CHECK_EQ_INT(mod_check_install_path(&c, "track_light/CY1N.txt", rel, sizeof rel), 1);
-    CHECK(strcmp(rel, "track_light/CY1N.txt") == 0);
+    static const struct { size_t index; const char *path; } WANT[] = {
+        { 0, "mod.ini" }, { 1, "track_light/CY1N.txt" }, { 3, "car_masks/NSX/body_mask.png" }, { 4, "preview.png" }, { 5, "README.md" },
+    };
+    for (size_t i = 0; i < 5; i++) CHECK(c.entries[i].index == WANT[i].index && strcmp(c.entries[i].path, WANT[i].path) == 0);
+    mod_check_free(&c);
+    CHECK(c.entries == NULL && c.entry_count == 0);
     free(png), free(preview);
 }
 
@@ -71,11 +76,10 @@ static void test_the_zip_of_a_folder(void)
     ModCheck c;
     CHECK_EQ_INT(check(e, 4, &c), 1);
     CHECK(strcmp(c.root, "My Mod/") == 0);
-    CHECK_EQ_INT((int)c.files, 2);
-    char rel[300];
-    CHECK_EQ_INT(mod_check_install_path(&c, "My Mod/track/CY1.txt", rel, sizeof rel), 1);
-    CHECK(strcmp(rel, "track/CY1.txt") == 0);
-    CHECK_EQ_INT(mod_check_install_path(&c, "Other/track/CY1.txt", rel, sizeof rel), 0);
+    CHECK_EQ_INT((int)c.entry_count, 2);   /* only the card and the track: never the folder's own entry nor the litter */
+    CHECK(c.entries[0].index == 1 && strcmp(c.entries[0].path, "mod.ini") == 0);
+    CHECK(c.entries[1].index == 2 && strcmp(c.entries[1].path, "track/CY1.txt") == 0);
+    mod_check_free(&c);
     ZbEntry two[] = { zb_text("A/mod.ini", CARD), zb_text("B/track/CY1.txt", "track CY1\n") };   /* a file outside the folder */
     CHECK_EQ_INT(check(two, 2, &c), 0);
 }
@@ -138,11 +142,86 @@ static void test_kinds(void)
     CHECK_EQ_INT(mod_file_kind("notes.txt"), MOD_KIND_NONE);
 }
 
+/* the PNG `src` (from png_write_indexed) with its header saying `w` x `h`, its CRC made right: what a bomb's header looks like */
+static uint8_t *png_claiming(const uint8_t *src, size_t len, uint32_t w, uint32_t h)
+{
+    uint8_t *p = malloc(len);
+    memcpy(p, src, len);
+    for (int i = 0; i < 4; i++) p[16 + i] = (uint8_t)(w >> (24 - 8 * i)), p[20 + i] = (uint8_t)(h >> (24 - 8 * i));
+    const uint32_t crc = crc32_update(0, p + 12, 17);
+    for (int i = 0; i < 4; i++) p[29 + i] = (uint8_t)(crc >> (24 - 8 * i));
+    return p;
+}
+
+/* review of 4977a5c5, 1: a picture's size is read from its header and refused before it is unpacked: the preview over 512 x 256, any
+ * other over MOD_PNG_MAX_SIDE a side, and all of them together over MOD_PNG_MAX_PIXELS */
+static void test_pictures_are_measured_before_they_are_read(void)
+{
+    uint8_t *small = NULL;
+    ZbEntry s = png_entry("x", 2, 2, &small);
+    ModCheck c;
+    static const struct { const char *name; uint32_t w, h; } HUGE[] = {
+        { "preview.png", 16384, 16384 }, { "car_envmap.png", 16384, 16384 }, { "car_masks/NSX/body_mask.png", 16384, 16384 },
+        { "track_masks/CY1/slot_03.png", MOD_PNG_MAX_SIDE + 1, 1 }, { "dash_masks/NSX/dash_color.png", 1, MOD_PNG_MAX_SIDE + 1 },
+    };
+    for (size_t i = 0; i < sizeof HUGE / sizeof HUGE[0]; i++) {
+        uint8_t *bomb = png_claiming(s.data, s.csize, HUGE[i].w, HUGE[i].h);
+        ZbEntry e[2] = { zb_text("mod.ini", CARD), { HUGE[i].name, bomb, s.csize, 0, 0, 0, 0, 3, 0100644u << 16 } };
+        CHECK_EQ_INT(check(e, 2, &c), 0);
+        CHECK(strstr(why, "larger than") != NULL);   /* refused by its header, not as a picture that would not read */
+        free(bomb);
+    }
+    uint8_t *edge = NULL;   /* a real picture at the side's limit passes */
+    ZbEntry at_limit[2] = { zb_text("mod.ini", CARD), png_entry("car_masks/NSX/body_mask.png", MOD_PNG_MAX_SIDE, 2, &edge) };
+    CHECK_EQ_INT(check(at_limit, 2, &c), 1);
+    mod_check_free(&c);
+    free(edge);
+    enum { N = MOD_PNG_MAX_PIXELS / (MOD_PNG_MAX_SIDE * MOD_PNG_MAX_SIDE) + 1 };   /* headers at the side's limit, more than the total */
+    uint8_t *tile = png_claiming(s.data, s.csize, MOD_PNG_MAX_SIDE, MOD_PNG_MAX_SIDE);
+    static char names[N][40];
+    ZbEntry many[N + 1];
+    many[0] = zb_text("mod.ini", CARD);
+    for (int i = 0; i < N; i++) {
+        snprintf(names[i], sizeof names[i], "car_masks/C%02d/body_mask.png", i);
+        ZbEntry e = { names[i], tile, s.csize, 0, 0, 0, 0, 3, 0100644u << 16 };
+        many[i + 1] = e;
+    }
+    CHECK_EQ_INT(check(many, N + 1, &c), 0);
+    CHECK(strstr(why, "add up") != NULL);   /* measured all before any is read */
+    free(tile);
+    free(small);
+}
+
+/* review of 4977a5c5, 2: a file of the game's tree only in a folder the CD has, with an extension that folder holds there */
+static void test_game_files_only_where_the_cd_has_them(void)
+{
+    static const char *const BAD[] = { "SIMDATA/x.dll", "SIMDATA/MISC/x.dll", "FRONTEND/ART/evil.exe", "SIMDATA/TR1.TRI",
+                                       "SIMDATA/NEW/TR1.TRI", "GAMEDATA/CONFIG/x.sav", "FRONTEND/MUSIC/x.QFS", "SIMDATA/MISC/sub/TR1.TRI" };
+    for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) CHECK_EQ_INT(mod_file_kind(BAD[i]), MOD_KIND_NONE);
+    static const char *const GOOD[] = { "SIMDATA/MISC/TR1.TRI", "simdata/misc/tr1.tri", "SIMDATA/MISC/TR1INFO", "SIMDATA/MISC/X.B21",
+                                        "SIMDATA/CARSPECS/BY_R&T", "FRONTEND/ART/IART/x.TXT", "FRONTEND/GART/FONTS/a.ffn",
+                                        "FRONTEND/MUSIC/x.as4", "GAMEDATA/REPLAY/x.RPL", "SIMDATA/GDASH/x.FMM", "FRONTEND/MOVIE/x.TGV" };
+    for (size_t i = 0; i < sizeof GOOD / sizeof GOOD[0]; i++) CHECK_EQ_INT(mod_file_kind(GOOD[i]), MOD_KIND_GAME);
+}
+
+/* review of 4977a5c5, 7: a file and a folder of the same name could not both be unpacked */
+static void test_a_file_and_a_folder_of_one_name(void)
+{
+    ModCheck c;
+    ZbEntry dir[] = { zb_text("mod.ini", CARD), zb_text("track/CY1.txt", "track CY1\n"), zb_text("TRACK/cy1.txt/", "") };
+    CHECK_EQ_INT(check(dir, 3, &c), 0);
+    ZbEntry card_dir[] = { zb_text("mod.ini", CARD), zb_text("mod.ini/", "") };
+    CHECK_EQ_INT(check(card_dir, 2, &c), 0);
+}
+
 int main(void)
 {
     test_kinds();
     test_a_good_mod();
     test_the_zip_of_a_folder();
     test_refusals();
+    test_pictures_are_measured_before_they_are_read();
+    test_game_files_only_where_the_cd_has_them();
+    test_a_file_and_a_folder_of_one_name();
     return TEST_REPORT();
 }
