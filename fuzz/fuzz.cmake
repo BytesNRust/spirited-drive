@@ -5,7 +5,7 @@ set(TNFS_FUZZ_SECONDS 600 CACHE STRING "Seconds the fuzz target gives each reade
 set(TNFS_FUZZ_SEEDS "" CACHE PATH "A folder of the player's own files to seed from (never committed): fuzz/run.sh picks each reader's by extension")
 
 # the readers in tnfs_core, then those in tnfs_game
-set(TNFS_FUZZ_CORE qfs fsh chunk tri bnk wav png ico ffn records psx_bigf doc validate)
+set(TNFS_FUZZ_CORE qfs fsh chunk tri bnk wav png ico ffn records psx_bigf doc validate zip mod_ini mod_check)
 set(TNFS_FUZZ_GAME track_light track_places terrain_rules settings_cfg config_dat psx_light masks sound_wav title_art replay_trailer car_model track_art sound_bank music_stream tgv shape_bank)
 
 if(NOT EMSCRIPTEN AND NOT WIN32)
