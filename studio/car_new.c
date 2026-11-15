@@ -4,6 +4,7 @@
 #include "formats/car_piece.h"
 #include "formats/mod_ini.h"
 #include "formats/slots.h"
+#include "studio/car_card.h"
 #include "studio/fsio.h"
 
 #include <limits.h>
@@ -106,6 +107,16 @@ static int add_masks(FileSet *set, const char *port, const char *kind, const cha
     return ok;
 }
 
+/* port (dep59 step 3): the generic card.png, the car's name on a plain ground (studio/car_card.h) */
+static int add_generic_card(FileSet *set, const Args *a, ExchangeError *err)
+{
+    uint8_t *png = NULL;
+    size_t len = 0;
+    if (!car_card_generic_png(a->name != NULL ? a->name : a->id, &png, &len, err)) return 0;
+    if (!fileset_add_owned(set, "card.png", png, len)) { free(png); exchange_fail(err, "out of memory"); return 0; }
+    return 1;
+}
+
 static int car_new(const Args *a, ExchangeError *err)
 {
     const int model = car_template_model(a->template);
@@ -118,7 +129,7 @@ static int car_new(const Args *a, ExchangeError *err)
     const char *word = car_piece_word_of_model(model), *from = slot_stems(SLOT_CAR)[model];
     FileSet set;
     fileset_init(&set);
-    int ok = add_card(&set, a, word, err) && add_files(&set, a->data, from, a->stem, err);
+    int ok = add_card(&set, a, word, err) && add_files(&set, a->data, from, a->stem, err) && add_generic_card(&set, a, err);
     if (ok && !fsio_exists(a->port)) {
         fprintf(stderr, "car new: no port data at %s: the piece has no car or dash masks\n", a->port);
     } else if (ok) {
@@ -135,8 +146,9 @@ static int car_new(const Args *a, ExchangeError *err)
 
 int car_command(int argc, char **argv, ExchangeError *err)
 {
+    if (argc >= 2 && strcmp(argv[1], "card") == 0) return car_card_command(argc, argv, err);
     if (argc >= 2 && strcmp(argv[1], "import") == 0) return car_import_command(argc, argv, err);
-    if (argc < 2 || strcmp(argv[1], "new") != 0) { exchange_fail(err, USAGE " | tnfs-studio car import PIECE_DIR --obj FILE.obj ..."); return 0; }
+    if (argc < 2 || strcmp(argv[1], "new") != 0) { exchange_fail(err, USAGE " | tnfs-studio car import PIECE_DIR --obj FILE.obj ... | tnfs-studio car card PIECE_DIR --generic"); return 0; }
     Args a;
     return parse(argc, argv, &a, err) && car_new(&a, err);
 }

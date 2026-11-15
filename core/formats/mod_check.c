@@ -111,7 +111,7 @@ ModFileKind mod_file_kind(const char *rel)
     if (p.count == 2 && is(p.first, "sounds") && is(p.ext, "wav")) return MOD_KIND_WAV;
     if (p.count == 1) {
         if (is(rel, "mod.ini")) return MOD_KIND_CARD;
-        if (is(rel, "car_envmap.png") || is(rel, "preview.png")) return MOD_KIND_PNG;
+        if (is(rel, "car_envmap.png") || is(rel, "preview.png") || is(rel, "card.png")) return MOD_KIND_PNG;   /* card.png: dep59 step 3 */
         static const char *const DOCS[] = { "README", "README.txt", "README.md", "LICENSE", "LICENSE.txt", "LICENSE.md" };
         for (size_t i = 0; i < sizeof DOCS / sizeof DOCS[0]; i++)
             if (is(rel, DOCS[i])) return MOD_KIND_DOC;
@@ -160,10 +160,11 @@ ModFileRule mod_file_rule(int type, const char *stem, const char *rel)
         car_piece_paths(stem, paths);
         for (int i = 0; i < CAR_PIECE_FILES; i++)
             if (is(rel, paths[i])) return MOD_FILE_OK;
+        if (kind == MOD_KIND_PNG && is(rel, "card.png")) return MOD_FILE_OK;   /* port (dep59 step 3): Control Central's picture of it */
         const int mask = kind == MOD_KIND_PNG && (in_stem_folder(rel, &p, "car_masks", stem) || in_stem_folder(rel, &p, "dash_masks", stem));
         return mask ? MOD_FILE_OK : MOD_FILE_FOREIGN;
     }
-    if (kind < 0) return MOD_FILE_FOREIGN;
+    if (kind < 0 || is(rel, "card.png")) return MOD_FILE_FOREIGN;   /* a car's picture: no tweak brings one */
     return changes_the_race(rel, &p) ? MOD_FILE_RACE : MOD_FILE_OK;
 }
 

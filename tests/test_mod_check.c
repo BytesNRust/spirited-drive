@@ -236,6 +236,12 @@ static void test_rules(void)
     CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "", "SIMDATA/CARFAMS/.CFM"), MOD_FILE_FOREIGN);   /* no stem: none of its files is its own */
     CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "X", "mod.ini"), MOD_FILE_NOT_YET);
     CHECK_EQ_INT(mod_file_kind("GAMEDATA/CONFIG/CONFIG.DAT"), MOD_KIND_NONE);
+    /* dep59 step 3: a car piece's card.png (Control Central's picture), at its root only, and only in a car */
+    CHECK_EQ_INT(mod_file_kind("card.png"), MOD_KIND_PNG);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", "card.png"), MOD_FILE_OK);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", "CARD.PNG"), MOD_FILE_OK);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", "pics/card.png"), MOD_FILE_FOREIGN);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TWEAK, "", "card.png"), MOD_FILE_FOREIGN);
 }
 
 static const char CAR_CARD[] = "id=test-car\nname=Test Car\nversion=0.1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n";
