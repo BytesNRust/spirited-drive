@@ -192,5 +192,47 @@ if [ -n "$pbs" ]; then
     grep -q "text inside the EXE" "$work/out" || fail "the car name limit is not mentioned"
 fi
 
+# 8. car import (dep59 tools B2): an OBJ on a piece of car new. No --obj is the usage; a folder with no mod.ini and an OBJ with no
+# wheels are refused and explained; the test car (tests/car_import, tests/test_car_import.c's) gives a piece validate passes, the
+# PDN's first three words the body's measured half sizes, and no high-detail masks left
+fixture=$(dirname "$0")/car_import
+port=$(dirname "$0")/../data
+"$studio" car import "$work/ci" >/dev/null 2>"$work/err" && fail "car import with no --obj exited 0"
+grep -q "usage: tnfs-studio car import" "$work/err" || fail "car import with no --obj does not print its usage: $(cat "$work/err")"
+mkdir -p "$work/ci/empty"
+"$studio" car import "$work/ci/empty" --obj "$fixture/car.obj" --data "$orig" >/dev/null 2>"$work/err" && fail "car import into a folder with no mod.ini exited 0"
+grep -q "mod.ini" "$work/err" || fail "a folder with no mod.ini is not explained: $(cat "$work/err")"
+if [ -n "$(find_one DVIPER.CFM)" ]; then
+    "$studio" car new --template viper --id import-test --stem IMPTEST --out "$work/ci/p" --data "$orig" --port-data "$port" >/dev/null 2>"$work/err" ||
+        fail "car new for car import: $(cat "$work/err")"
+    sed '/^o wheel_fl/,$d' "$fixture/car.obj" > "$work/ci/nowheels.obj"
+    cp "$fixture/car.mtl" "$fixture/paint.png" "$fixture/seat.png" "$work/ci/"
+    cp "$work/ci/p/SIMDATA/CARFAMS/IMPTEST.CFM" "$work/ci/before.CFM"
+    "$studio" car import "$work/ci/p" --obj "$work/ci/nowheels.obj" --data "$orig" >/dev/null 2>"$work/err" && fail "an OBJ with no wheels was imported"
+    grep -q "wheel_fl" "$work/err" || fail "an OBJ with no wheels is not explained: $(cat "$work/err")"
+    cmp -s "$work/ci/before.CFM" "$work/ci/p/SIMDATA/CARFAMS/IMPTEST.CFM" || fail "a refused import changed the CFM"
+    "$studio" car import "$work/ci/p" --obj "$fixture/car.obj" --data "$orig" >"$work/out" 2>&1 || fail "car import of the test car: $(cat "$work/out")"
+    grep -q "try it: tnfs --mods $work/ci/p --car import-test" "$work/out" || fail "car import does not say how to try it: $(cat "$work/out")"
+    "$studio" validate "$work/ci/p" >"$work/v.out" 2>&1 || fail "validate refused the imported piece: $(cat "$work/v.out")"
+    grep -q "no findings" "$work/v.out" || fail "validate found something in the imported piece: $(cat "$work/v.out")"
+    "$studio" unpack "$work/ci/p/SIMDATA/CARFAMS/IMPTEST.PDN" "$work/ci/pdn" >/dev/null 2>&1 || fail "the imported piece's PDN does not unpack"
+    grep -q "^0x000	unknown_000	i32	61440	33280	133120$" "$work/ci/pdn/pdn.tsv" ||
+        fail "the PDN does not hold the body's half sizes: $(grep '^0x000' "$work/ci/pdn/pdn.tsv")"
+    ls "$work/ci/p/car_masks/IMPTEST" 2>/dev/null | grep -q . && fail "the template's car masks are still in the piece"
+    # a second import over an imported CFM needs --force, and gives the same file
+    cp "$work/ci/p/SIMDATA/CARFAMS/IMPTEST.CFM" "$work/ci/first.CFM"
+    "$studio" car import "$work/ci/p" --obj "$fixture/car.obj" --data "$orig" >/dev/null 2>"$work/err" && fail "car import overwrote an imported CFM without --force"
+    grep -q -- "--force" "$work/err" || fail "the refusal does not mention --force: $(cat "$work/err")"
+    "$studio" car import "$work/ci/p" --obj "$fixture/car.obj" --data "$orig" --force >/dev/null 2>"$work/err" || fail "car import --force: $(cat "$work/err")"
+    cmp -s "$work/ci/first.CFM" "$work/ci/p/SIMDATA/CARFAMS/IMPTEST.CFM" || fail "importing twice does not give the same CFM"
+    # raw: unpack's high mesh of the template back in; its bank is the donor's bitmaps, so only the low masks go
+    "$studio" car new --template viper --id import-raw --stem IMPRAW --out "$work/ci/r" --data "$orig" --port-data "$port" >/dev/null 2>&1
+    "$studio" unpack "$(find_one DVIPER.CFM)" "$work/ci/u" >/dev/null 2>&1
+    "$studio" car import "$work/ci/r" --obj "$work/ci/u/c0/mesh.obj" --raw --data "$orig" >"$work/out" 2>&1 || fail "car import --raw: $(cat "$work/out")"
+    "$studio" validate "$work/ci/r" 2>&1 | grep -q "no findings" || fail "validate found something in the raw import"
+    ls "$work/ci/r/car_masks/IMPRAW" | grep -q "_lo_mask.png" && fail "raw without --low kept the low masks"
+    ls "$work/ci/r/car_masks/IMPRAW" | grep -v "_lo_" | grep -q "_mask.png" || fail "raw removed the high masks of the donor's bank"
+fi
+
 [ "$failures" -eq 0 ] && echo "studio_cli: all checks passed"
 exit "$failures"

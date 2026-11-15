@@ -1,0 +1,4 @@
+newmtl paint
+map_Kd paint.png
+newmtl seat
+map_Kd seat.png
