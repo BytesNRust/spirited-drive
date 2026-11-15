@@ -78,6 +78,18 @@ static void test_numbers_stay(void)
     CHECK_EQ_INT(add("d", "D1", 0, 0, why), 16);  /* a new one takes the free number */
     CHECK_EQ_INT(add("a", "A1", 0, 0, why), 19);
     CHECK_EQ_INT(add("e", "A1", 0, 0, why), -1);  /* a removed car's stem is free only while it is removed */
+    CarPiece p = piece("b", "B2", 4, 3);           /* a piece that stays, its card changed: the same number */
+    CHECK_EQ_INT(car_registry_update(&p, why, sizeof why), 17);
+    CHECK(strcmp(car_registry_stem(17), "B2") == 0);
+    CHECK_EQ_INT(car_registry_sound_model(17), 4);
+    p = piece("b", "B2", 4, 3);                    /* its own stem again is no clash */
+    CHECK_EQ_INT(car_registry_update(&p, why, sizeof why), 17);
+    p = piece("b", "C1", 0, 0);                    /* another's stem: refused, left as it was */
+    CHECK_EQ_INT(car_registry_update(&p, why, sizeof why), -1);
+    CHECK(strcmp(car_registry_stem(17), "B2") == 0);
+    p = piece("zz", "ZZ", 0, 0);                   /* not registered */
+    CHECK_EQ_INT(car_registry_update(&p, why, sizeof why), -1);
+    CHECK_EQ_INT(car_registry_count(), 4);
 }
 
 static void test_refusals(void)

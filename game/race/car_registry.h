@@ -22,6 +22,9 @@ typedef struct {
 void car_registry_clear(void);
 /* `piece` registered (its stem car_piece_stem_ok's and no other added car's): its number, the lowest free one, or -1 with the reason (English, for the log) in `why` */
 int car_registry_add(const CarPiece *piece, char *why, size_t why_cap);
+/* the registered car of `piece`'s id made `piece`, keeping its number (a reload of a piece that stays: car_pieces.h); its number, or -1
+ * with the reason in `why` (then it is as it was) */
+int car_registry_update(const CarPiece *piece, char *why, size_t why_cap);
 /* the car of id `id` taken out, its number set free; 1 when there was one */
 int car_registry_remove(const char *id);
 int car_registry_count(void);

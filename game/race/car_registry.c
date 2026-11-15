@@ -65,11 +65,21 @@ int car_registry_find(const char *id)
     return -1;
 }
 
-/* 1 when another added car has `stem`, whatever the case */
-static int stem_added(const char *stem)
+/* 1 when an added car other than slot `self` (-1: any) has `stem`, whatever the case */
+static int stem_added(const char *stem, int self)
 {
     for (int k = 0; k < CAR_ADDED_MAX; k++)
-        if (used[k] && strcasecmp(stem, pieces[k].stem) == 0) return 1;
+        if (k != self && used[k] && strcasecmp(stem, pieces[k].stem) == 0) return 1;
+    return 0;
+}
+
+/* -1 with the reason when `piece` may not be car `self`'s (-1: a new car's), else 0 */
+static int piece_ok(const CarPiece *piece, int self, char *why, size_t why_cap)
+{
+    if (!car_piece_stem_ok(piece->stem)) return refuse(why, why_cap, "the stem \"%s\" is not 1 to 8 of A-Z and 0-9, or is an original car's", piece->stem);
+    if (stem_added(piece->stem, self)) return refuse(why, why_cap, "the stem %s is another added car's", piece->stem);
+    if (piece->sound_model < 0 || piece->sound_model >= CAR_MODELS) return refuse(why, why_cap, "sound_from is no original car");
+    if (piece->ai_model < 0 || piece->ai_model >= CAR_ORIGINAL_MODELS) return refuse(why, why_cap, "ai_from is no original car");
     return 0;
 }
 
@@ -77,10 +87,7 @@ int car_registry_add(const CarPiece *piece, char *why, size_t why_cap)
 {
     if (piece == NULL || piece->id[0] == '\0') return refuse(why, why_cap, "a car piece has no id");
     if (car_registry_find(piece->id) >= 0) return refuse(why, why_cap, "the id %s is a car already", piece->id);
-    if (!car_piece_stem_ok(piece->stem)) return refuse(why, why_cap, "the stem \"%s\" is not 1 to 8 of A-Z and 0-9, or is an original car's", piece->stem);
-    if (stem_added(piece->stem)) return refuse(why, why_cap, "the stem %s is another added car's", piece->stem);
-    if (piece->sound_model < 0 || piece->sound_model >= CAR_MODELS) return refuse(why, why_cap, "sound_from is no original car");
-    if (piece->ai_model < 0 || piece->ai_model >= CAR_ORIGINAL_MODELS) return refuse(why, why_cap, "ai_from is no original car");
+    if (piece_ok(piece, -1, why, why_cap) < 0) return -1;
     for (int k = 0; k < CAR_ADDED_MAX; k++) {
         if (used[k]) continue;
         pieces[k] = *piece;
@@ -88,6 +95,15 @@ int car_registry_add(const CarPiece *piece, char *why, size_t why_cap)
         return CAR_ADDED_FIRST + k;
     }
     return refuse(why, why_cap, "there are %d added cars already, the most there may be", CAR_ADDED_MAX);
+}
+
+int car_registry_update(const CarPiece *piece, char *why, size_t why_cap)
+{
+    const int car = piece != NULL ? car_registry_find(piece->id) : -1;
+    if (car < 0) return refuse(why, why_cap, "no added car has the id %s", piece != NULL ? piece->id : "");
+    if (piece_ok(piece, car - CAR_ADDED_FIRST, why, why_cap) < 0) return -1;
+    pieces[car - CAR_ADDED_FIRST] = *piece;
+    return car;
 }
 
 int car_registry_remove(const char *id)

@@ -238,6 +238,7 @@ add_library(tnfs_game STATIC
     game/race/car_setup.c
     game/race/car_load.c
     game/race/car_registry.c
+    game/sys/car_pieces.c
     game/race/car_body.c
     game/race/car_crash.c
     game/race/car_crash_tick.c
@@ -1204,6 +1205,14 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_mod_set PRIVATE ${TNFS_WARNINGS})
     add_test(NAME mod_set COMMAND test_mod_set)
+    add_executable(test_car_pieces tests/test_car_pieces.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_car_pieces PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_car_pieces PRIVATE m)
+    endif()
+    target_compile_definitions(test_car_pieces PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_options(test_car_pieces PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME car_pieces COMMAND test_car_pieces)
     add_executable(test_platform_cfg_cache tests/test_platform_cfg_cache.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_cfg_cache PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)

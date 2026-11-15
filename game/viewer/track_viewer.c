@@ -8,6 +8,7 @@
 #include "viewer/track_viewer_cars.h"
 #include "viewer/shine_class.h"
 #include "game/race/car_registry.h"
+#include "game/sys/car_pieces.h"
 #include "game/race/car_load.h"
 #include "game/race/single_rival.h"
 #include "game/race/race_chase.h"
@@ -688,6 +689,7 @@ static void drive_look_fill(TrackFamInputs *look, const char *data_root, const c
 int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,
                        const char *screenshot)
 {
+    car_pieces_follow();   /* port (dep59): the added cars of the mods in effect, before the car is checked or anything of the race reads them; never during one */
     drive_time_of_day = 1;
     early.done = 0;
     drive_early_link(model);
