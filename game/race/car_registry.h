@@ -6,6 +6,7 @@
 #define TNFS_CAR_REGISTRY_H
 
 #include "formats/mod_ini.h"
+#include "game/race/race_state.h"
 
 #include <stddef.h>
 
@@ -39,5 +40,12 @@ int car_registry_ai_model(int car);
 /* the name the results and records show for `car` out of `names`, a screen's own table of `count` originals: names[car] for 0..count-1,
  * an added car's short_name, "" for anything else */
 const char *car_registry_short_name(int car, const char *const names[], int count);
+
+/* 1 when one of the first `count` entries drives a registered added car */
+int car_registry_entries_added(const RaceEntry *entries, int count);
+/* The race running has an added car (set at each race's start, track_viewer.c): it keeps no record and no replay in the game's own
+ * files, whose formats name a car by its number (plan 1b gives it files of its own) */
+void car_registry_race_set(int has_added);
+int car_registry_race_has_added(void);
 
 #endif

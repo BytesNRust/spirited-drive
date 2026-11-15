@@ -11,6 +11,7 @@
 
 static CarPiece pieces[CAR_ADDED_MAX];
 static int used[CAR_ADDED_MAX];
+static int race_has_added;
 
 static int refuse(char *why, size_t cap, const char *format, ...) __attribute__((format(printf, 3, 4)));
 static int refuse(char *why, size_t cap, const char *format, ...)
@@ -117,3 +118,14 @@ const char *car_registry_short_name(int car, const char *const names[], int coun
     const CarPiece *p = car_registry_piece(car);
     return p != NULL ? p->short_name : "";
 }
+
+int car_registry_entries_added(const RaceEntry *entries, int count)
+{
+    if (entries == NULL) return 0;
+    for (int i = 0; i < count && i < RACE_PLAYERS; i++)
+        if (car_registry_is_added(entries[i].car)) return 1;
+    return 0;
+}
+
+void car_registry_race_set(int has_added) { race_has_added = has_added != 0; }
+int car_registry_race_has_added(void) { return race_has_added; }

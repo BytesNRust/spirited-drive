@@ -497,8 +497,11 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     int arcade = drive_menus_on ? drive_menus.variant_r != 0 : getenv("TNFS_RALLY") != NULL;
     field.load = drive_load;
     field.slide = drive_menus_on ? drive_slide : NULL;  /* the front end's screen is up only with the menus */
+    car_registry_race_set(0);
     if (!drive_field_entries(&field, data_root, model, racers, entries)) return 0;
     if (!drive_field_replay(&field, &arcade, data_root)) return 0;
+    car_registry_race_set(car_registry_entries_added(field.entries, field.racers));   /* port (dep59): no record or replay of it (car_registry.h) */
+    if (car_registry_race_has_added()) port_log("records: a race with an added car is not kept yet\n");
     drive_snow = snow_race_wanted(replay_of != NULL, replay_of != NULL && replay_of->snow, port_snow_weather()) && track_snow_for(&t->tri, name, NULL);   /* port (snow_weather): a replay's own, else the host's or the setting's */
     ported_view_set_snow(drive_snow);
     drive_replay_set_snow(drive_snow);

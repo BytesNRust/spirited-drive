@@ -7,6 +7,7 @@
 #include "game/frontend/config_dat.h"
 #include "game/frontend/records_glue.h"
 #include "game/frontend/records_route.h"
+#include "game/race/car_registry.h"
 #include "game/race/difficulty.h"
 #include "game/race/weather_snow.h"
 #include "game/race/weather.h"
@@ -205,6 +206,30 @@ static void test_the_originals_keep_no_race_it_could_not_run(void)
         CHECK(race_records_find(TR1, k == 0 ? LAYOUT_REVERSE : 0, 0, 8) != NULL);
     }
     unusual(-1);
+}
+
+/* port (dep59): a race with an added car keeps no record in either's tables (the original's config.dat image, Restomod's race_records.dat):
+ * their format names a car by its number, and an added car's is for the run only */
+static void test_a_race_with_an_added_car_keeps_none(void)
+{
+    for (int on = 0; on < 2; on++) {
+        unified(on);
+        car_registry_race_set(1);
+        static Race r, before;
+        race(&r, TR1, 0, 1, 99999, 2);
+        before = r;
+        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
+        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 0);
+        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
+        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOP, r.image, r.game, 0, NULL), 0);
+        CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
+        CHECK_EQ_INT(writes, 0);
+        CHECK(race_records_find(TR1, 0, 0, 8) == NULL);
+        car_registry_race_set(0);   /* the next race, all originals: kept again */
+        CHECK(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES) != RECORD_CHECK_NONE || on == 0);
+        if (on) CHECK(race_records_find(TR1, 0, 0, 8) != NULL);
+        else CHECK(memcmp(r.image, before.image, sizeof r.image) != 0);
+    }
 }
 
 /* Restomod's: all eight layouts, with and without cheats, are sixteen tables; config.dat's image is not touched */
@@ -422,6 +447,7 @@ int main(void)
     test_the_originals_records_are_the_exes_byte_for_byte();
     test_the_originals_free_race();
     test_the_originals_keep_no_race_it_could_not_run();
+    test_a_race_with_an_added_car_keeps_none();
     test_every_layout_and_cheats_is_its_own_table();
     test_rows_keep_their_marks();
     test_the_warrior_and_the_moon_are_cheats();
