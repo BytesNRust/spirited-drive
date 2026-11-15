@@ -1,5 +1,6 @@
 /* Control Central (00432ff4): Enter, space or the left button on an item (00435120..004360bc). */
 #include "game/frontend/central_run.h"
+#include "game/frontend/car_list.h"
 #include "game/frontend/showcase.h"
 
 #include <stddef.h>
@@ -10,6 +11,17 @@ static int in(CentralRun *r, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 }
 
 static int warrior_rival(const ControlCentralState *st) { return st->warrior_rival != NULL && *st->warrior_rival != 0; }
+
+/* port (dep59): the added cars are offered in Restomod, outside a link game */
+static int added_on(const ControlCentralState *st) { return st->restomod != NULL && *st->restomod != 0 && st->lost == 0; }
+
+/* port (dep59): `*car` stepped round the menus' list (car_list.h), the Warrior in it when `warrior` */
+static void list_step(int16_t *car, int warrior, int step)
+{
+    CarList l;
+    car_list_build(&l, 1, warrior);
+    *car = car_list_step(&l, *car, step);
+}
 
 /* the opponent (in a link game the player picked, or a single race's car) one on */
 void central_opponent_up(CentralRun *r, int mouse)
@@ -23,8 +35,10 @@ void central_opponent_up(CentralRun *r, int mouse)
         else if (++*st->opponent > 8) *st->opponent = 0;
     } else if (*st->race_type == 2) {
         if (*st->net_self == 0) return;
-        st->was[WAS_OPPONENT] = 0x14;
+        st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
         *st->net_car = (int16_t)((*st->net_car + 1) % 9);
+    } else if (*st->race_type == 1 && added_on(st)) {
+        list_step(st->opponent, warrior_rival(st), 1);   /* port (dep59): the head to head rival may be an added car */
     } else if (*st->opponent == 11) {
         *st->opponent = 0;
     } else if (++*st->opponent > 7) {
@@ -45,8 +59,10 @@ void central_opponent_down(CentralRun *r, int mouse)
         if (*st->opponent < 0) *st->opponent = 8;
     } else if (*st->race_type == 2) {
         if (*st->net_self == 0) return;
-        st->was[WAS_OPPONENT] = 0x14;
+        st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
         if (--*st->net_car < 0) *st->net_car = 8;
+    } else if (*st->race_type == 1 && added_on(st)) {
+        list_step(st->opponent, warrior_rival(st), -1);
     } else {
         *st->opponent = *st->opponent == 11 ? 7 : (int16_t)(*st->opponent - 1);
         if (*st->opponent < 0) *st->opponent = warrior_rival(st) ? 11 : 7;  /* port: the extra */
@@ -54,18 +70,24 @@ void central_opponent_down(CentralRun *r, int mouse)
     r->redraw = 1;
 }
 
-/* the screen's start sends the Warrior (11) back to car 0; port: not when the extra keeps it and it is on offer */
+/* the screen's start sends the Warrior (11) back to car 0; port: not when the extra keeps it and it is on offer. port (dep59): an added
+ * car no longer offered (its mod gone, or out of Restomod) back to car 0 too, the player's and the rival's */
 void central_car_start(ControlCentralState *st)
 {
     const int keep = st->warrior_keep != NULL && *st->warrior_keep != 0 && *st->warrior != 0;
     if (*st->player_car == 11 && !keep) *st->player_car = 0;
+    const int offered = st->restomod != NULL && *st->restomod != 0;
+    if (*st->player_car >= CAR_ADDED_FIRST && !(offered && car_registry_is_added(*st->player_car))) *st->player_car = 0;
+    if (st->opponent != NULL && *st->opponent >= CAR_ADDED_FIRST && !(offered && car_registry_is_added(*st->opponent))) *st->opponent = 0;
 }
 
 /* the player's car one on: a tournament's class by track (0..2, 3..5, 6..7), else 0..7 and the Warrior */
 void central_car_up(CentralRun *r)
 {
     ControlCentralState *st = r->st;
-    if (*st->race_type == 3) {
+    if (*st->race_type != 3 && added_on(st)) {
+        list_step(st->player_car, *st->warrior != 0, 1);   /* port (dep59): the added cars after the eight */
+    } else if (*st->race_type == 3) {
         const int16_t t = *st->track;
         ++*st->player_car;
         if (t == 0 || t == 3) {
@@ -87,6 +109,12 @@ void central_car_up(CentralRun *r)
 void central_car_down(CentralRun *r)
 {
     ControlCentralState *st = r->st;
+    if (*st->race_type != 3 && added_on(st)) {
+        list_step(st->player_car, *st->warrior != 0, -1);
+        r->ops->car_flags(r->ops->ctx);
+        r->redraw = 1;
+        return;
+    }
     *st->player_car = *st->player_car == 11 ? 7 : (int16_t)(*st->player_car - 1);
     if (*st->race_type == 3) {
         const int16_t t = *st->track;
@@ -120,7 +148,7 @@ static void showcase_start(CentralRun *r)
     o->fade_out(o->ctx, 0, 0x100);
     o->music_end(o->ctx);
     o->music_start(o->ctx, "showcase.asf");
-    r->st->was[WAS_OPPONENT] = 0x14;
+    r->st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
 }
 
 /* port: the gallery has the 8 cars (showcase.c), the field (8) showing car 0; the original opened it on any rival and
@@ -158,7 +186,7 @@ static void car_item(CentralRun *r)
         central_car_up(r);
     } else if (in(r, 0x15, 0x28, 0xba, 0xd1)) {
         central_car_down(r);
-    } else if (st->lost == 0 && *st->player_car != 11) {
+    } else if (st->lost == 0 && *st->player_car >= 0 && *st->player_car < SHOWCASE_CARS) {   /* port (dep59): not 11, nor an added car */
         showcase_start(r);
         o->showcase(o->ctx);
         o->showcase_after(o->ctx);
@@ -207,7 +235,7 @@ static void race_type_item(CentralRun *r)
         return;
     }
     r->panel = panel;
-    st->was[WAS_OPPONENT] = 0x14;
+    st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
     r->redraw = 1;
 }
 
@@ -297,7 +325,7 @@ static int race_item(CentralRun *r)
     }
     o->race(o->ctx);
     *st->nomercy = 0;
-    st->was[WAS_RACE] = 0x14;
+    st->was[WAS_RACE] = CENTRAL_NO_ART;
     *st->track_flags &= 0xfffb;
     *st->pointer_active = 1;
     *st->screen = o->picture_new(o->ctx, 0x280, 0x1e0, 0);
@@ -332,7 +360,7 @@ int central_select(CentralRun *r)
     }
     switch ((uint16_t)r->item) {
     case CC_PLAYERS:
-        st->was[WAS_OPPONENT] = 0x14;
+        st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
         *st->net_self ^= 1;
         central_move(r);
         r->panel++;

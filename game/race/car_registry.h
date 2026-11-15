@@ -34,6 +34,8 @@ int car_registry_count(void);
 int car_registry_is_added(int car);
 /* an added car's piece; NULL for an original or a number not registered */
 const CarPiece *car_registry_piece(int car);
+/* the registered added cars' numbers, lowest first, into `out` (up to `cap`); how many were put there */
+int car_registry_cars(int16_t out[], int cap);
 /* the number of the car of id `id`, or -1 */
 int car_registry_find(const char *id);
 /* the root its files are named by: an original's car_model_names[car], an added car's stem; NULL otherwise */

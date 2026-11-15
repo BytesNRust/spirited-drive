@@ -23,7 +23,7 @@ typedef struct ControlCentralArtOps {
 
 /* 00432884: frees 004bafcc, 004bafc0, 004bafc4, 004bafc8 and clears them,
  * frees 004bafd0 and keeps it, frees and clears 004bafd4 / 004bafd8 only
- * when set; the six shorts 004bafb4..004bafbe become 0x14; then
+ * when set; the six shorts 004bafb4..004bafbe become 0x14 (port: CENTRAL_NO_ART); then
  * 00474558. */
 void control_central_art_free(ControlCentralArt *a, FrontendSession *f, const ControlCentralArtOps *ops);
 

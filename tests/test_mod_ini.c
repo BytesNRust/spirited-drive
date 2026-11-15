@@ -4,6 +4,7 @@
 #include "formats/mod_ini.h"
 #include "test.h"
 
+#include <stdio.h>
 #include <string.h>
 
 static int parse(const char *text, ModInfo *m, char *why)
@@ -152,6 +153,56 @@ static void test_piece_fields(void)
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nsound_from=lada\n", &m, why), 1);   /* the word is the registry's to check */
 }
 
+/* dep59 step 3: a car's figures, shown as written, and its paints, the Color selector's choices (Review Focus 3) */
+static void test_figures_and_paints(void)
+{
+    ModInfo m;
+    char why[160];
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\n", &m, why), 1);
+    CHECK(m.year[0] == '\0' && m.power[0] == '\0' && m.weight[0] == '\0' && m.paint_count == 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nyear=1987\npower=478 hp\nweight=1100 kg\n"
+                       "paints=Rosso Corsa:c8102e, Giallo:FFD100\n", &m, why), 1);
+    CHECK(strcmp(m.year, "1987") == 0 && strcmp(m.power, "478 hp") == 0 && strcmp(m.weight, "1100 kg") == 0);
+    CHECK_EQ_INT(m.paint_count, 2);
+    CHECK(strcmp(m.paints[0].name, "Rosso Corsa") == 0 && m.paints[0].rgb[0] == 0xc8 && m.paints[0].rgb[1] == 0x10 && m.paints[0].rgb[2] == 0x2e);
+    CHECK(strcmp(m.paints[1].name, "Giallo") == 0 && m.paints[1].rgb[0] == 0xff && m.paints[1].rgb[1] == 0xd1 && m.paints[1].rgb[2] == 0x00);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\npower=12345678901234567\n", &m, why), 0);   /* 17 */
+    CHECK(strstr(why, "power") != NULL);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\nweight=1234567890123456\n", &m, why), 1);   /* 16 */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\npaints=Ñandú negro:000000\n", &m, why), 1);   /* text, as a name is */
+    CHECK(strcmp(m.paints[0].name, "Ñandú negro") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\npaints=ABCDEFGHIJKLMNOPQRSTUVWX:000000\n", &m, why), 1);   /* 24 */
+
+    char paints[600] = "id=a\nname=A\nversion=1\npaints=";
+    for (int i = 0; i < 16; i++) snprintf(paints + strlen(paints), sizeof paints - strlen(paints), "%sP%d:%06x", i ? "," : "", i, i);
+    CHECK_EQ_INT(parse(paints, &m, why), 1);
+    CHECK_EQ_INT(m.paint_count, 16);
+    CHECK(strcmp(m.paints[15].name, "P15") == 0 && m.paints[15].rgb[2] == 15);
+    strcat(paints, ",P16:000010");
+    CHECK_EQ_INT(parse(paints, &m, why), 0);   /* 17 */
+    CHECK(strstr(why, "16") != NULL);
+
+    static const char *const BAD[][2] = {
+        { "Rosso:c8102", "Rosso" },       /* five digits */
+        { "Rosso:zz102e", "Rosso" },      /* not hex */
+        { "Rosso:c8102e0", "Rosso" },     /* seven */
+        { ":c8102e", ":c8102e" },         /* no name */
+        { "A:b:c8102e", "A:b:c8102e" },   /* a ':' in the name */
+        { "Rosso", "Rosso" },             /* no colour */
+        { "Rosso:c8102e,rosso:000000", "rosso" },   /* two alike in any case */
+        { "Rosso:c8102e,,Blu:0000ff", "empty" },
+        { "ABCDEFGHIJKLMNOPQRSTUVWXY:000000", "ABCDEFGHIJKLMNOPQRSTUVWXY" },   /* 25 */
+    };
+    for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) {
+        char text[200];
+        snprintf(text, sizeof text, "id=a\nname=A\nversion=1\npaints=%s\n", BAD[i][0]);
+        why[0] = '\0';
+        CHECK_EQ_INT(parse(text, &m, why), 0);
+        CHECK(strstr(why, "paints") != NULL && strstr(why, BAD[i][1]) != NULL);   /* the reason names the entry */
+        CHECK_EQ_INT(m.paint_count, 0);
+    }
+}
+
 int main(void)
 {
     test_a_full_card();
@@ -160,5 +211,6 @@ int main(void)
     test_values_are_clean_utf8();
     test_messages_hold_no_control_bytes();
     test_piece_fields();
+    test_figures_and_paints();
     return TEST_REPORT();
 }

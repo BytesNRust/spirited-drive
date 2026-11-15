@@ -1,12 +1,13 @@
 #!/bin/zsh
 # tools/menu_walk.sh <bin> <outdir> <target>: walk the front end headless to a menu screen and save its picture as <outdir>/<target>.png.
 #
-#   targets: central (Control Central, KEYS after it)  options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
+#   targets: central (Control Central, KEYS after it)  showcase (the gallery, from a click on Control Central's car card)  options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
 #            graphics  extras (page 1/3)  extras-p2  extras-p3
 #            track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
 #            best-circuit-p2  best-cheats (Coastal, the table with cheats: none)
 #        KEYS (track and best-times: more steps after the screen opens, e.g. 1500:UP,800:RIGHT) and TAIL (the seconds they take)
 #        USER_FILES (a folder whose files the walk starts with in its user folder: a race_records.dat)
+#        MODS (a folder copied as the walk's --mods: a mod piece the walk runs with; default an empty one)
 #        PROFILE (stock, restored or restomod; default the game's own first run): the mode the walk runs in (Best Times' pages are
 #        Restomod's)
 #
@@ -62,6 +63,7 @@ page_on="1500:PGDN"
 
 case $target in
 central)      script="$to_central${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3} ;;
+showcase)     script="$to_central,$(click 180 200),$(wait_for showcase)"; final=showcase ;;
 options)      script="$to_options"; final=options ;;
 controls)     script="$to_options,$(click 80 285),$(wait_for controls_keyboard)"; final=controls_keyboard ;;
 controls-p2)  script="$to_options,$(click 80 285),$(wait_for controls_keyboard),$(next_page),$(wait_for controls_actions),$(park)"; final=controls_actions ;;
@@ -82,14 +84,15 @@ esac
 
 mkdir -p "$out" || exit 1
 work=$(mktemp -d "${TMPDIR:-/tmp}/menu_walk.XXXXXX") || exit 1
-mkdir -p "$work/user" "$work/cap"
+mkdir -p "$work/user" "$work/cap" "$work/mods"
+[ -n "$MODS" ] && cp -R "$MODS"/. "$work/mods/"   # a mod piece the walk runs with
 printf 'format=%s\n' "$format" > "$work/user/port.cfg"   # the clicks above are shifted for it
 [ -n "$PROFILE" ] && printf 'profile=%s\n' "$PROFILE" >> "$work/user/port.cfg"
 [ -n "$USER_FILES" ] && cp "$USER_FILES"/* "$work/user/"   # files the walk starts with in the user folder (a race_records.dat)
 limit=$(( step * 12 + 60 ))
 (cd "$work" && env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_CAPTURE_DIR="$work/cap" TNFS_CAPTURE_EVERY=${EVERY:-1} \
     TNFS_INPUT_SETTLE=$settle TNFS_INPUT_SCRIPT="$script" \
-    timeout -k 5 $limit "$bin" --data "$data" --mods "$work" --user "$work/user" > "$work/log" 2>&1 &)
+    timeout -k 5 $limit "$bin" --data "$data" --mods "$work/mods" --user "$work/user" > "$work/log" 2>&1 &)
 # the game runs on its own: watch its log for the last mark, then let the screen settle a moment and stop it
 rc=1 waited=0
 while [ $waited -lt $limit ]; do

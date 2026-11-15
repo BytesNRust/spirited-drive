@@ -4,6 +4,10 @@
 
 #include <stdint.h>
 
+/* port (dep59): the art's last values' (004bafb4..) "no art shown", 0x14 in the exe: car 20 is an added car now, so the mark is out of
+ * every car's, track's and race type's range. Only written, never compared with: a value no car has makes the next draw load the art. */
+enum { CENTRAL_NO_ART = 0x7fff };
+
 /* The cheat codes in the order 00432ff4 steps them (00437258 gets each one's position and letters). */
 enum {
     CENTRAL_SKCART, CENTRAL_EARALLYE, CENTRAL_EXPLODE, CENTRAL_NITRO, CENTRAL_CASINOVILLE, CENTRAL_CONCEPTCAR,
@@ -164,6 +168,8 @@ typedef struct ControlCentralState {
     const int16_t *warrior_keep;   /* port: the extra (the mode's file) "Warrior Player Car": a Warrior picked for the
                                     * player stays picked when the screen starts again (central_car_start); NULL or 0
                                     * the original's, which sends it to car 0 */
+    const int16_t *restomod;       /* port (dep59): the mode is Restomod, where the added cars follow the eight in the player's car's
+                                    * and the head to head rival's arrows (car_list.h); NULL or 0 the original's */
 } ControlCentralState;
 
 /* 00432ff4: Control Central. The pointer, the arrows, Enter / space / the left button pick and change the

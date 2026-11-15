@@ -141,10 +141,18 @@ static void track_art(CentralRun *r)
     if (r->ops->card_marks != NULL) r->ops->card_marks(r->ops->ctx, MARKS_LEFT, MARKS_RIGHT, MARKS_Y);   /* port (dep56): what the track screen set */
 }
 
+/* port (dep59): a car the exe's card names reach (0..11); an added car has no card here yet (its own comes with dep59 step 3's Task 8):
+ * none is drawn, never a name read past the table */
+static int named(int16_t car) { return car >= 0 && car < (int16_t)(sizeof CAR_NAMES / sizeof CAR_NAMES[0]); }
+
 static void car_art(CentralRun *r)
 {
     ControlCentralState *st = r->st;
     char path[0x50];
+    if (!named(*st->player_car)) {
+        st->was[WAS_CAR] = *st->player_car;
+        return;
+    }
     if (st->was[WAS_CAR] != *st->player_car) {
         snprintf(path, sizeof path, "%scontrol/%s.qfs", st->paths, CAR_NAMES[*st->player_car]);
         reload(r, ART_CAR, path);
@@ -159,6 +167,10 @@ static void opponent_art(CentralRun *r)
     char path[0x50];
     if (st->lost != 0 && *st->net_self == 0) *st->opponent = st->other_car[*st->net_player];
     if (st->lost != 0 && *st->race_type == 1) *st->opponent = st->other_car[1 - st->net_side];
+    if (!named(*st->opponent)) {   /* port (dep59): an added rival, as an added car above */
+        st->was[WAS_OPPONENT] = *st->opponent;
+        return;
+    }
     if (st->was[WAS_OPPONENT] != *st->opponent) {
         if (st->art[ART_OPPONENT] != 0) r->ops->free(r->ops->ctx, st->art[ART_OPPONENT]);
         snprintf(path, sizeof path, "%scontrol/%s", st->paths, OPPONENT_NAMES[*st->opponent]);

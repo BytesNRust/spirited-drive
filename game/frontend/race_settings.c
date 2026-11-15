@@ -1,4 +1,6 @@
 #include "game/frontend/race_settings.h"
+#include "game/frontend/central.h"
+#include "game/race/car_registry.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -9,11 +11,15 @@ static const int TOURNAMENT_CAR[10] = { 0, 3, 6, 0, 3, 3, 6, 6, 7, 3 };
 static const int CAR_TABLE_A[12] = { 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0 };
 static const int CAR_TABLE_B[12] = { 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
 
-/* 00465ec8 */
+/* 00465ec8; port (dep59): an added car takes the flags of the car its AI comes from, and a car past the tables (one no longer
+ * registered) car 0's, never a read past them */
 void race_settings_car_flags(RaceSettings *s)
 {
-    s->car_flag_a = CAR_TABLE_A[s->player_car] ? 0 : 2;
-    s->car_flag_b = (CAR_TABLE_B[s->player_car] == 0) + 1;
+    int car = s->player_car;
+    if (car_registry_is_added(car)) car = car_registry_ai_model(car);
+    if (car < 0 || car >= (int)(sizeof CAR_TABLE_A / sizeof CAR_TABLE_A[0])) car = 0;
+    s->car_flag_a = CAR_TABLE_A[car] ? 0 : 2;
+    s->car_flag_b = (CAR_TABLE_B[car] == 0) + 1;
 }
 
 static int short_track(int track)
@@ -40,7 +46,7 @@ void race_settings_type_changed(RaceSettings *s, Unlocks *u, FrontendSession *f)
     const int other = f->flag_52b312 && !f->unknown_4faa56;
     switch (s->race_type) {
     case RACE_TIME_TRIAL:
-        f->unknown_4c5cc2 = 0, f->unknown_4bafb4[1] = 0x14;
+        f->unknown_4c5cc2 = 0, f->unknown_4bafb4[1] = CENTRAL_NO_ART;
         s->opponent = OPPONENT_CLOCK;
         u->lost_vegas = earned;
         break;
@@ -49,13 +55,13 @@ void race_settings_type_changed(RaceSettings *s, Unlocks *u, FrontendSession *f)
         if (s->opponent >= OPPONENT_FIELD && s->opponent <= OPPONENT_TOURNAMENT) s->opponent = s->player_car;
         break;
     case RACE_SINGLE:
-        f->unknown_4c5cc2 = 0, f->unknown_4bafb4[1] = 0x14;
+        f->unknown_4c5cc2 = 0, f->unknown_4bafb4[1] = CENTRAL_NO_ART;
         u->lost_vegas = earned;
         if (f->flag_52b312 && f->unknown_4fbb0c) s->unknown_524e9d = 8;
         s->opponent = other ? s->other_car[f->other_index] : OPPONENT_FIELD;
         break;
     case RACE_TOURNAMENT:
-        f->unknown_4c5cc2 = 0, f->unknown_4bafb4[1] = 0x14;
+        f->unknown_4c5cc2 = 0, f->unknown_4bafb4[1] = CENTRAL_NO_ART;
         s->variant_m = s->variant_r = 0;
         if (f->flag_52b312 || !f->unlock_level) u->lost_vegas = 0;
         if (!u->lost_vegas && s->track == TRACK_LOST_VEGAS) s->track = 0;

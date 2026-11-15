@@ -5,7 +5,10 @@
  * no control character (C0, DEL, C1) and no bidirectional mark that could change what the player reads.
  * port (dep59): what the piece is (notes/dep59-content-model-design.md). type: tweak (also when not given), car or track. A car's keys:
  * stem (its files' root, 1..8 of A-Z 0-9), short_name (text, up to 8), and sound_from, ai_from, dash_from (an original car's word, 1..8 of
- * a-z 0-9; which words name a car is the registry's to say). Whether a car piece has what it needs is the loader's to say, not the card's. */
+ * a-z 0-9; which words name a car is the registry's to say). Whether a car piece has what it needs is the loader's to say, not the card's.
+ * port (dep59 step 3): a car's figures for its gallery, year, power and weight (text up to 16, shown as written: "1987", "478 hp"), and
+ * paints=Name:rrggbb,Name:rrggbb, its Color choices: up to 16, a name 1..24 of text without ':' or ',', six hex digits in any case, no two
+ * names alike in any case. */
 #ifndef TNFS_MOD_INI_H
 #define TNFS_MOD_INI_H
 
@@ -21,8 +24,16 @@ enum {
     MOD_INI_DESCRIPTION_MAX = 400,
     MOD_INI_STEM_MAX = 8,
     MOD_INI_SHORT_MAX = 8,
-    MOD_INI_FROM_MAX = 8
+    MOD_INI_FROM_MAX = 8,
+    MOD_INI_FIGURE_MAX = 16,
+    MOD_INI_PAINTS_MAX = 16,
+    MOD_INI_PAINT_NAME_MAX = 24
 };
+
+typedef struct {
+    char name[MOD_INI_PAINT_NAME_MAX + 1];
+    uint8_t rgb[3];
+} ModPaint;
 
 enum { MOD_TYPE_TWEAK = 0, MOD_TYPE_CAR = 1, MOD_TYPE_TRACK = 2 };
 
@@ -36,6 +47,10 @@ typedef struct {
     char stem[MOD_INI_STEM_MAX + 1];   /* "" when not given, as the ones below */
     char short_name[MOD_INI_SHORT_MAX + 1];
     char sound_from[MOD_INI_FROM_MAX + 1], ai_from[MOD_INI_FROM_MAX + 1], dash_from[MOD_INI_FROM_MAX + 1];
+    /* the author's figures, as written; "" when not given */
+    char year[MOD_INI_FIGURE_MAX + 1], power[MOD_INI_FIGURE_MAX + 1], weight[MOD_INI_FIGURE_MAX + 1];
+    ModPaint paints[MOD_INI_PAINTS_MAX];   /* paints=, in its order */
+    int paint_count;
 } ModInfo;
 
 /* 1 and `out` filled when the card is good; 0 with the reason in `why` (English, for the player) otherwise. */

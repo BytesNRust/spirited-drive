@@ -1,11 +1,13 @@
 #include "game/frontend/central_glue_private.h"
 #include "game/frontend/card_marks.h"
+#include "game/frontend/car_pick.h"
+#include "game/sys/car_pieces.h"
 #include "game/sys/text.h"
 #include "game/frontend/unlock_level.h"
 #include "game/frontend/variant_rule.h"
 #include "game/frontend/tournament_variants.h"
 
-CentralGlobals cg_g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
+CentralGlobals cg_g = { .was = { CENTRAL_NO_ART, CENTRAL_NO_ART, CENTRAL_NO_ART, CENTRAL_NO_ART, CENTRAL_NO_ART, CENTRAL_NO_ART } };  /* 004bafb4..'s data: no art shown yet */
 
 enum { MOVIES_AT = 0x5b8 };                        /* 0052b2fc: 2, the movies offered (the original's default) */
 uint8_t cg_game_state[GAME_STATE_SIZE] = { [MOVIES_AT] = 2 };  /* 0052b2c0..: the tournament's */
@@ -19,18 +21,27 @@ int16_t glue_movies(void)
 static uint8_t keys[0x100];                       /* 004c693c: by scancode, refreshed at each key (00464bd0) */
 uint8_t cg_screen_palette[PALETTE_PUT_BYTES];
 
+/* port (dep59): the player's car and the rival as picked (an added car among them) and as config.dat's image holds them (car_pick.h) */
+static CarPick pick_player, pick_opponent;
+
 RaceSettings cg_settings_of(void)
 {
-    RaceSettings s = { cg_g.race_type, cg_g.track, cg_g.variant_m, cg_g.variant_r, cg_g.player_car, cg_g.opponent, cg_g.laps,
-                       cg_g.difficulty, cg_g.car_flag_a, cg_g.car_flag_b, cg_g.variant, { 0 }, cg_g.net_car };
+    RaceSettings s = { cg_g.race_type, cg_g.track, cg_g.variant_m, cg_g.variant_r, car_pick_to_image(&pick_player, cg_g.player_car),
+                       car_pick_to_image(&pick_opponent, cg_g.opponent), cg_g.laps, cg_g.difficulty, cg_g.car_flag_a, cg_g.car_flag_b,
+                       cg_g.variant, { 0 }, cg_g.net_car };
     for (int i = 0; i < 8; i++) s.other_car[i] = cg_g.other_car[i];
     return s;
 }
 
+/* port (dep59): an added pick comes back only where one is offered: the player's car outside a tournament (whose class sets the car), the
+ * rival in a head to head */
 void cg_settings_put(const RaceSettings *s)
 {
-    cg_g.race_type = (int16_t)s->race_type, cg_g.track = (int16_t)s->track, cg_g.player_car = (int16_t)s->player_car;
-    cg_g.variant_m = s->variant_m, cg_g.variant_r = s->variant_r, cg_g.opponent = (int16_t)s->opponent;
+    const int16_t player = (int16_t)s->player_car, opponent = (int16_t)s->opponent;
+    cg_g.race_type = (int16_t)s->race_type, cg_g.track = (int16_t)s->track;
+    cg_g.player_car = s->race_type == RACE_TOURNAMENT ? player : car_pick_from_image(&pick_player, player);
+    cg_g.variant_m = s->variant_m, cg_g.variant_r = s->variant_r;
+    cg_g.opponent = s->race_type == RACE_HEAD_TO_HEAD ? car_pick_from_image(&pick_opponent, opponent) : opponent;
     cg_g.laps = (int16_t)s->laps, cg_g.difficulty = (int16_t)s->difficulty, cg_g.variant = (int16_t)s->variant;
     cg_g.car_flag_a = (int16_t)s->car_flag_a, cg_g.car_flag_b = (int16_t)s->car_flag_b, cg_g.net_car = (int16_t)s->unknown_524e9d;
     for (int i = 0; i < 8; i++) cg_g.other_car[i] = (int16_t)s->other_car[i];
@@ -90,6 +101,7 @@ static void extras_flags(ExtrasFlags *f)
  * opponent arrows through ControlCentralState.warrior_rival. Kept up to date with the mode's file by extras_apply. */
 static ExtrasSession extras_session;
 static int16_t warrior_rival_flag, warrior_keep_flag;   /* and the Warrior kept as the player's car */
+static int16_t restomod_flag;   /* port (dep59): ControlCentralState.restomod, the added cars offered */
 
 /* port: called after every place the original clears the flags, so a switch stays on across races and the
  * tournament. With the mode's file absent this reads the defaults and changes nothing. */
@@ -111,6 +123,8 @@ void cg_extras_apply(void)
     if (e.no_assists) extras_no_assists(&cg_g.car_flag_a, &cg_g.car_flag_b);   /* after 00465ec8 */
     warrior_rival_flag = (int16_t)(e.warrior_rival != 0);
     warrior_keep_flag = (int16_t)(e.warrior != 0);
+    restomod_flag = (int16_t)(port_settings_profile() == PROFILE_RESTOMOD);
+    car_pieces_follow();   /* port (dep59): the added cars of the mods in effect, for the arrows (car_list.h); loaded again only when they change */
     cg_variant_choice_apply();   /* port (dep65): Restomod's switches back from the player's choice, after every place they are cleared */
 }
 
@@ -119,6 +133,7 @@ static void car_flags(void *ctx)
 {
     (void)ctx;
     RaceSettings s = cg_settings_of();
+    s.player_car = cg_g.player_car;   /* port (dep59): the car picked, an added one too (race_settings_car_flags takes it) */
     race_settings_car_flags(&s);
     cg_settings_put(&s);
     cg_extras_apply();   /* port: after 00465ec8 / 00432974 */
@@ -709,7 +724,7 @@ int32_t glue_central(void)
         &cg_g.unlock_level, &cg_g.unlock_m, &cg_g.unlock_r, &cg_g.lost_vegas, &cg_g.vegas_cheat, &cg_g.net_player, &cg_g.net_player_was,
         cg_g.was, cg_g.art, &cg_g.variant_m, &cg_g.variant_r, menu_words.single, menu_words.intro_seen, &cg_g.nomercy, &cg_g.warrior,
         &cg_g.explode, menu_audio_silent(), &cg_g.inverse, &cg_g.nitro, &cg_g.net_hover, &cg_g.net_self, &cg_g.net_second, &cg_g.letter_held,
-        link_humans(), link_names(), pointer_active_word(), &cg_g.buttons, ea_screen_slot(), "", keys, &warrior_rival_flag, &warrior_keep_flag };
+        link_humans(), link_names(), pointer_active_word(), &cg_g.buttons, ea_screen_slot(), "", keys, &warrior_rival_flag, &warrior_keep_flag, &restomod_flag };
     const LinkMenu link_menu = { &cg_g.race_type, &cg_g.track, &cg_g.laps, &cg_g.difficulty, &cg_g.net_car, &cg_g.nomercy, &cg_g.tournament,
                                  &cg_g.player_car, cg_g.other_car, &cg_g.variant_m, &cg_g.variant_r };
     link_central_bind(&link_menu);

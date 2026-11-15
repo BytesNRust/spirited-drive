@@ -4,6 +4,7 @@
  * as the player's own card does with the Warrior. */
 #include "game/frontend/central_run.h"
 #include "game/frontend/showcase.h"
+#include "game/race/car_registry.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -70,8 +71,42 @@ static int click(int16_t rival)
     return shown;
 }
 
+/* port (dep59): the opponent's "no art shown" mark (what a click on the card leaves, so the card is loaded again) is no car's number: in
+ * the exe it was 0x14, and car 20 is an added car now, whose card would never be loaded again (Review Focus 1) */
+static void test_no_art_is_no_car(void)
+{
+    was[WAS_OPPONENT] = 5;
+    click(5);
+    CHECK(was[WAS_OPPONENT] != 20);
+    CHECK(was[WAS_OPPONENT] < 0 || was[WAS_OPPONENT] >= CAR_ADDED_FIRST + CAR_ADDED_MAX);
+}
+
+/* port (dep59): the player's own card with an added car picked opens nothing yet (the gallery has the 8 cars; an added car's own
+ * page comes with dep59 step 3's Task 9), never the gallery read past its names */
+static void test_an_added_car_card_opens_nothing(void)
+{
+    static const uint8_t pal[0x20];
+    ControlCentralOps o = { 0 };
+    o.pointer_click = nothing, o.sound = sound, o.in_rect = outside, o.music_fade_out = nothing, o.fade_out = fade_out;
+    o.music_end = nothing, o.music_start = music_start, o.showcase = gallery, o.showcase_after = nothing;
+    o.palette_put = palette_put, o.pointer_move_to = move_to;
+    ControlCentralState st = { 0 };
+    st.player_car = &player_car, st.opponent = &opponent, st.race_type = &race_type, st.net_second = &net_second, st.was = was;
+    CentralRun r = { 0 };
+    r.st = &st, r.ops = &o, r.pal = pal, r.item = CC_CAR, r.keys_armed = 1;
+    player_car = 16, opponent = 3, shown = 0;
+    central_select(&r);
+    CHECK_EQ_INT(shown, 0);
+    CHECK_EQ_INT(player_car, 16);
+    player_car = 4;
+    central_select(&r);
+    CHECK_EQ_INT(shown, 1);   /* an original's still opens it */
+}
+
 int main(void)
 {
+    test_no_art_is_no_car();
+    test_an_added_car_card_opens_nothing();
     CHECK_EQ_INT(click(5), 1);
     CHECK(shown_name != NULL && shown_name == CARS[5]);
     CHECK_EQ_INT(player_car, 3);
