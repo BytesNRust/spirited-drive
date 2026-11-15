@@ -5,7 +5,7 @@ static int round_step(int v, int count, int step) { return count > 0 ? ((v + ste
 
 int added_gallery_colour_on(const CarPieceCard *c, const GalleryState *s)
 {
-    return s->skin >= 0 && s->skin < c->skins && s->skin <= CAR_PIECE_SKINS_MAX && c->skin_masked[s->skin] != 0;
+    return car_pieces_colour_on(c, s->skin);
 }
 
 /* the item `step` (1 down, -1 up) from `item`, Color passed over while it is off */

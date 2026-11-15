@@ -531,6 +531,7 @@ add_library(tnfs_game STATIC
     game/viewer/screen_layout.c
     game/viewer/dash_box.c
     game/viewer/drive_livery.c
+    game/viewer/drive_skin.c
     game/viewer/drive_lamps.c
     game/viewer/reflect_pass.c
     game/viewer/street_halo.c
@@ -1269,6 +1270,14 @@ if(NOT EMSCRIPTEN)
     target_compile_definitions(test_car_pieces PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_options(test_car_pieces PRIVATE ${TNFS_WARNINGS})
     add_test(NAME car_pieces COMMAND test_car_pieces)
+    # port (dep59 step 3): an added car's skin and colour in the race, on synthetic files (reads them through the platform)
+    add_executable(test_drive_skin tests/test_drive_skin.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_drive_skin PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_drive_skin PRIVATE m)
+    endif()
+    target_compile_options(test_drive_skin PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME drive_skin COMMAND test_drive_skin)
     add_executable(test_platform_cfg_cache tests/test_platform_cfg_cache.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_cfg_cache PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)

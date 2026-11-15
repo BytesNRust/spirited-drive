@@ -33,4 +33,10 @@ typedef struct {
  * original, a number not registered, or a card no longer read. */
 int car_pieces_card(int car, CarPieceCard *out);
 
+/* 1 when the Color choice applies to the skin `skin` of `card` (0 the skin as it comes): it has masks */
+static inline int car_pieces_colour_on(const CarPieceCard *card, int skin)
+{
+    return skin >= 0 && skin < card->skins && skin <= CAR_PIECE_SKINS_MAX && card->skin_masked[skin] != 0;
+}
+
 #endif
