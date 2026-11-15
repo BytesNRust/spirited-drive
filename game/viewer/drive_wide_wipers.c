@@ -25,28 +25,29 @@
 #include <string.h>
 #include "viewer/drive_wide_private.h"
 
-/* port (wipers): the windscreen's glass of the dash's art (wiper_scene.h), flags (1 = glass) cached per dash art */
+/* port (wipers): the windscreen's glass of the dash's art (wiper_scene.h), flags (1 = glass) cached per read of the dash (drive_hud.dash_serial: its art's
+ * address may come back for another dash, dep59) */
 static const uint8_t *wiper_glass_flags(const uint8_t *art, const uint8_t *mask)
 {
     static uint8_t flags[SCREEN_W * SCREEN_H];
     static int stack[SCREEN_W * SCREEN_H];
-    static const uint8_t *made_for;
-    if (made_for == drive_hud.cockpit.dash) return flags;
+    static unsigned made_for;
+    if (made_for == drive_hud.dash_serial) return flags;
     wiper_scene_glass_flags(art, mask, flags, stack);
-    made_for = drive_hud.cockpit.dash;
+    made_for = drive_hud.dash_serial;
     return flags;
 }
 
-/* port (wipers): the steering wheel's middle on the 640 dash (wiper_scene_wheel_x), cached per dash art; -1 with no wheel */
+/* port (wipers): the steering wheel's middle on the 640 dash (wiper_scene_wheel_x), cached per read of the dash; -1 with no wheel */
 static float wiper_wheel_x(const uint8_t *art)
 {
     static uint8_t zone[SCREEN_W * SCREEN_H];
-    static const uint8_t *made_for;
+    static unsigned made_for;
     static float wheel_x = -1.0f;
-    if (made_for == drive_hud.cockpit.dash) return wheel_x;
+    if (made_for == drive_hud.dash_serial) return wheel_x;
     wheel_front_zone(&drive_hud.cockpit, art, zone);
     wheel_x = wiper_scene_wheel_x(zone);
-    made_for = drive_hud.cockpit.dash;
+    made_for = drive_hud.dash_serial;
     return wheel_x;
 }
 
@@ -58,7 +59,7 @@ static const uint8_t *wiper_nose_now(unsigned *builds)
     const uint8_t *const mask = dash_mask_now();
     const uint8_t *nose = NULL;
     if (drive_hud.cockpit.dash != NULL && mask != NULL && drive_hud.rgb != NULL) {
-        const DashNoseKey key = dash_nose_key(drive_hud.cockpit.dash, mask, drive_hud.rgb);
+        const DashNoseKey key = dash_nose_key((const void *)(uintptr_t)drive_hud.dash_serial, mask, drive_hud.rgb);   /* the read, not the address (dep59) */
         nose = dash_nose_cached(&cache, &key, dash_art_layer(&drive_hud.cockpit), mask, SCREEN_W, SCREEN_H, LAYER_KEY);
     } else if (cache.made) dash_nose_cache_free(&cache);
     if (builds != NULL) *builds = cache.builds;
@@ -104,19 +105,19 @@ int drive_wide_wiper_scene(const RaceState *race, WiperBlade *out)
     const uint8_t *const flags = wiper_glass_flags(art, mask);
     const int wide = drive_wide_active();   /* the 640x480 path (the exe's) has its dash at the layer's own coordinates */
     const int width = wide && drive_wide.width > SCREEN_W ? (drive_wide.width < SCREEN_DASH_MOST_WIDTH ? drive_wide.width : SCREEN_DASH_MOST_WIDTH) : SCREEN_W;
-    static uint8_t *map;   /* the glass as the frame shows it (wiper_scene_frame_glass), and the pair on it: made once per dash and width */
-    static const void *measured_for;
+    static uint8_t *map;   /* the glass as the frame shows it (wiper_scene_frame_glass), and the pair on it: made once per read of the dash and width */
+    static unsigned measured_for;
     static int measured_width;
     static WiperBlade frame[WIPER_BLADES];
     static float span;
-    if (measured_for != drive_hud.cockpit.dash || measured_width != width) {
+    if (measured_for != drive_hud.dash_serial || measured_width != width) {
         uint8_t *const grown = realloc(map, (size_t)width * SCREEN_H);
         if (grown == NULL) return 0;
         map = grown;
         wiper_scene_frame_glass(flags, width, map);
         const float wheel = wiper_wheel_x(art);   /* the pivots either side of the wheel (wiper_scene.h) */
         wiper_scene_measure(map, width, wheel >= 0.0f ? wiper_scene_frame_x(width, wheel) : -1.0f, frame, &span);
-        measured_for = drive_hud.cockpit.dash, measured_width = width;
+        measured_for = drive_hud.dash_serial, measured_width = width;
     }
     const float scale = wide ? (float)drive_wide.scale : 1.0f;
     for (int i = 0; i < WIPER_BLADES; i++) {

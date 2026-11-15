@@ -67,6 +67,7 @@ add_library(tnfs_core STATIC
     core/formats/modpath.c
     core/formats/mod_check.c
     core/formats/mod_ini.c
+    core/formats/mod_list.c
     core/formats/pbs.c
     core/formats/psx_bigf.c
     core/formats/pbs_fields.c
@@ -328,6 +329,8 @@ add_library(tnfs_game STATIC
     game/race/dash_nose.c
     game/race/dash_color.c
     game/sys/data_path.c
+    game/sys/mod_generation.c
+    game/sys/mod_set.c
     game/sys/art_cache.c
     game/sys/sha256.c
     game/sys/data_check.c
@@ -714,7 +717,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check)
+    foreach(name qfs qfs_encode doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_list)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -1191,6 +1194,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_platform_mods PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_mods COMMAND test_platform_mods)
+    add_executable(test_mod_set tests/test_mod_set.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_mod_set PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_mod_set PRIVATE m)
+    endif()
+    target_compile_options(test_mod_set PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME mod_set COMMAND test_mod_set)
     add_executable(test_platform_cfg_cache tests/test_platform_cfg_cache.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_cfg_cache PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
@@ -1498,6 +1508,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(input_script_wait PROPERTIES TIMEOUT 150)
         add_test(NAME live_mode_switch_race COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/live_mode_switch_race -P ${CMAKE_SOURCE_DIR}/tests/live_mode_switch_race.cmake)
         set_tests_properties(live_mode_switch_race PROPERTIES TIMEOUT 450)
+        add_test(NAME mods_live_switch_race COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/mods_live_switch_race -P ${CMAKE_SOURCE_DIR}/tests/mods_live_switch_race.cmake)
+        set_tests_properties(mods_live_switch_race PROPERTIES TIMEOUT 550)
         add_test(NAME boot_skip_chain COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/boot_skip_chain -P ${CMAKE_SOURCE_DIR}/tests/boot_skip_chain.cmake)
         set_tests_properties(boot_skip_chain PROPERTIES TIMEOUT 360)
     endif()

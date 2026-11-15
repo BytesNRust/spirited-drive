@@ -56,6 +56,8 @@ typedef struct {
     char dash_path[COCKPIT_PATH], misc_dir[COCKPIT_PATH];  /* the dash bank (004217a8 reloads it); SIMDATA/MISC/ */
     char root[512];             /* the data root those two lie under */
     char dash_stem[COCKPIT_NAME];
+    unsigned dash_serial;       /* port (dep59): moves on each time the dash bank is read, never the same twice: what is kept from the dash's art keys on it, not on
+                                 * the art's address, which a later read (another car, another mod) can give again */
     size_t dash_dir_length;
     int (*dash_paint)(void *user, uint8_t *bank, size_t size);   /* port: recolours the dash bank just read (the car's paint), NULL none */
     RacePalette *palette;       /* the race palette, kept for the police screen and the reload */

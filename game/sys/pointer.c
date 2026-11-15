@@ -2,6 +2,7 @@
 
 #include "formats/fsh.h"
 #include "game/sys/input.h"
+#include "game/sys/mod_set.h"
 #include "game/sys/pointer_state.h"
 #include "game/sys/port_log.h"
 #include "game/sys/resource.h"
@@ -19,6 +20,8 @@ enum {
 };
 
 static uint8_t *data;
+static int data_variant;         /* port (dep59): which file `data` is (gmouse.fsh: 1), and the mods' generation it was read under (mod_set.h) */
+static uint32_t data_mods;
 static Fsh fsh;
 static FshEntry sprite;          /* ptr0 */
 static PointerState ptr = { .x = 320, .y = 240 };
@@ -49,6 +52,7 @@ int pointer_load(int variant)
 {
     pointer_free();
     size_t size;
+    data_variant = variant, data_mods = mod_set_generation();
     data = resource_load_art(variant ? "gmouse.fsh" : "mouse.fsh", &size);
     uint32_t index;
     if (data == NULL || fsh_open(&fsh, data, size) != FSH_OK || fsh_find(&fsh, "ptr0", &index) != FSH_OK
@@ -162,8 +166,19 @@ int pointer_active(void)
 
 static void (*wait_service)(void);  /* 0046417c, the music, while the click waits */
 
+/* port (dep59): the pointer read again once the mods in effect changed (a mod's mouse.fsh may replace it), shown or hidden as it was */
+static void follow(void)
+{
+    if (data == NULL || data_mods == mod_set_generation()) return;
+    const int16_t was = ptr.active;
+    port_log("pointer: the mods changed: %s is read again\n", data_variant ? "gmouse.fsh" : "mouse.fsh");
+    (void)pointer_load(data_variant);
+    active_set(was);
+}
+
 static void draw(void)
 {
+    follow();
     video_set_overlay(data != NULL ? &sprite : NULL, ptr.x, ptr.y);
     ptr.mark_x = ptr.x;
     ptr.mark_y = ptr.y;
@@ -213,6 +228,7 @@ void pointer_position(int *x, int *y)
 
 void pointer_colours_used(uint8_t used[256])
 {
+    follow();
     if (data == NULL) return;
     size_t n = (size_t)sprite.width * sprite.height;
     if (n > sprite.payload_size) n = sprite.payload_size;
@@ -223,6 +239,7 @@ const uint8_t *pointer_shape(int which)
 {
     enum { ENTRY_HEADER = 16 };
     const char name[4] = { 'p', 't', 'r', (char)('0' + which) };
+    follow();
     uint32_t index;
     FshEntry e;
     if (data == NULL || which < 0 || which > 2 || fsh_find(&fsh, name, &index) != FSH_OK

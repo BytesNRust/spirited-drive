@@ -140,7 +140,7 @@ static void test_mod_before_data(void)
     CHECK(m != NULL && m[0] == 1);
     free(m);
     write_rgba(ROOT "/mod/track_masks", "TORD", "slot_03.png", black, 2, 2);   /* a mod's: nothing */
-    data_path_set_mod(ROOT "/mod");
+    data_path_set_mods((const char *[]){ ROOT "/mod" }, 1);
     m = track_mask_load("TORD", "slot_03", 2, 2);
     CHECK(m != NULL && m[0] == 0);   /* the mod's, not the port's */
     free(m);
@@ -150,7 +150,7 @@ static void test_mod_before_data(void)
     CHECK(m != NULL && m[0] == 1);   /* the dev override before both */
     free(m);
     unsetenv("TNFS_TRACK_MASKS");
-    data_path_set_mod(NULL);
+    data_path_set_mods(NULL, 0);
     data_path_set_base(NULL);
 }
 
@@ -161,7 +161,7 @@ static void test_missing_masks_are_quiet(void)
     make_dirs(ROOT "/quiet/data/track_masks/TQUI"), make_dirs(ROOT "/quiet_mod");
     write_rgba(ROOT "/quiet/data/track_masks", "TQUI", "slot_04.png", white, 2, 2);
     data_path_set_base(ROOT "/quiet");
-    data_path_set_mod(ROOT "/quiet_mod");   /* a mods folder without track_masks/ */
+    data_path_set_mods((const char *[]){ ROOT "/quiet_mod" }, 1);   /* a mods folder without track_masks/ */
     unsetenv("TNFS_TRACK_MASKS");
     read_misses = 0;
     uint8_t *m = track_mask_load("TQUI", "slot_04", 2, 2);
@@ -175,7 +175,7 @@ static void test_missing_masks_are_quiet(void)
     port_log_watch("cannot read");
     CHECK(track_mask_load("TQUI", "slot_06", 2, 2) == NULL);
     CHECK(port_log_watch_hit());
-    data_path_set_mod(NULL);
+    data_path_set_mods(NULL, 0);
     data_path_set_base(NULL);
 }
 

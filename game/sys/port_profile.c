@@ -129,7 +129,7 @@ const char *port_profile_key_alias(const char *key)
 void port_profile_read_free(Profile p, const char *text, size_t size, void (*take)(void *to, const char *key, const char *value), void *to)
 {
     for (size_t pos = 0; pos < size;) {
-        char line[PSX_DIR_MAX + 32];
+        char line[PORT_LINE_MAX];
         pos = next_line(text, size, pos, line, sizeof line);
         char *eq = strchr(line, '=');
         if (eq == NULL) continue;
@@ -143,7 +143,7 @@ static int has_line(const char *text, const char *line)
 {
     const size_t size = strlen(text);
     for (size_t pos = 0; pos < size;) {
-        char other[PSX_DIR_MAX + 32];
+        char other[PORT_LINE_MAX];
         pos = next_line(text, size, pos, other, sizeof other);
         if (strcmp(other, line) == 0) return 1;
     }
@@ -156,7 +156,7 @@ long port_profile_differences(Profile p, const char *base, const char *now, cons
     const size_t size = strlen(now);
     if (room > 0) out[0] = '\0';
     for (size_t pos = 0; pos < size;) {
-        char line[PSX_DIR_MAX + 32], key[64];
+        char line[PORT_LINE_MAX], key[64];
         pos = next_line(now, size, pos, line, sizeof line);
         const char *eq = strchr(line, '=');
         if (eq == NULL || (size_t)(eq - line) >= sizeof key) continue;

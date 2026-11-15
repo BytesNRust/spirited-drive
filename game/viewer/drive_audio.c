@@ -1,4 +1,5 @@
 #include "game/sys/port_log.h"
+#include "game/sys/mod_set.h"
 #include "game/viewer/drive_audio.h"
 
 #include "game/audio/music_reader.h"
@@ -55,6 +56,7 @@ static Splash puddles;                                     /* port (rain_tyre_ro
 static int puddles_tried;
 static WetRoll snow_roll;                                  /* port (snow): the roll on snow, the same voice with another sample */
 static int snow_roll_tried;
+static uint32_t weather_sounds_mods;   /* port (dep59): the mods' generation the samples above were read under (mod_set.h); 0 none yet */
 static Hush hush;                                          /* port (rain_tyre_roll): the thunder, the rain and the roll on snow hushed by the pause and the in-race menu (hush.h) */
 static SoundQueue speech;                                  /* 004c7b60 */
 static SoundSample speech_sample[SOUND_QUEUE_ENTRIES];     /* each queued file's header, by the writer it took */
@@ -232,9 +234,28 @@ static int32_t voice_stopped(void *user, int32_t voice)
     return stopped;
 }
 
+/* port (dep59): the weather's samples are read again once the mods in effect changed (a mod's sounds/ may replace them): the ones read
+ * before are let go and their voices start over. The caller holds the lock, so the device's thread is not mixing them. */
+static void weather_sounds_follow(void)
+{
+    const uint32_t now = mod_set_generation();
+    if (weather_sounds_mods == now) return;
+    if (weather_sounds_mods != 0) {
+        thunder_free(&thunder);
+        wet_roll_free(&rain_out), wet_roll_free(&rain_in), wet_roll_free(&rain_bed), wet_roll_free(&rain_move_in), wet_roll_free(&snow_roll);
+        for (int i = 0; i < RAIN_CARS_VOICES; i++) wet_roll_free(&spray[i]);
+        wet_roll_free(&spray_source);
+        splash_free(&puddles);
+        thunder_tried = rain_out_tried = rain_in_tried = rain_bed_tried = rain_move_in_tried = spray_tried = puddles_tried = snow_roll_tried = 0;
+        port_log("sounds: the mods changed: the weather's samples are read again\n");
+    }
+    weather_sounds_mods = now;
+}
+
 /* port (rain_v2): the thunder sample, read once from data/sounds/thunder.wav (a missing or unusable file leaves the storm silent, logged once). The caller holds the lock. */
 static void thunder_read(void)
 {
+    weather_sounds_follow();
     if (thunder_tried) return;
     thunder_tried = 1;
     char found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
@@ -255,6 +276,7 @@ static void thunder_read(void)
 /* port (rain_tyre_roll, snow): a roll voice's sample, read once from data/sounds/<file> (a missing or unusable file leaves it silent, logged once). The caller holds the lock. */
 static void roll_read(WetRoll *voice, int *tried, const char *file)
 {
+    weather_sounds_follow();
     if (*tried) return;
     *tried = 1;
     char rel[64];
@@ -293,6 +315,7 @@ void drive_audio_rain_spray(int voice, int percent, int pitch_permille, int pan,
 {
     if (!open_ || voice < 0 || voice >= RAIN_CARS_VOICES) return;
     lock();
+    weather_sounds_follow();
     if (percent > 0 && !spray_tried) {
         roll_read(&spray_source, &spray_tried, "rain_spray.wav");
         for (int i = 0; i < RAIN_CARS_VOICES; i++) wet_roll_share(&spray[i], &spray_source.sample);
@@ -307,6 +330,7 @@ int drive_audio_rain_puddle_clips(void)
 {
     if (!open_) return 0;
     lock();
+    weather_sounds_follow();
     if (!puddles_tried) {
         puddles_tried = 1;
         for (int n = 1; n <= RAIN_PUDDLE_MAX_CLIPS && n <= SPLASH_CLIPS; n++) {   /* rain_puddle_1.wav on, up to the first missing */

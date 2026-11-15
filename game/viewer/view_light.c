@@ -61,10 +61,13 @@ static struct { uint8_t *flags; uint32_t have; const RaceState *race; } tunnel_s
 static int tunnel_next;
 
 static uint8_t *rain_cover_flags;   /* rain_cover, below */
+static int32_t *cone_xz;            /* cone_node_xz, below */
 void road_tunnels_forget(void)
 {
     free(rain_cover_flags);
     rain_cover_flags = NULL;
+    free(cone_xz);   /* dep59: the next track (a mod's own TRI among them) may have as many nodes, at the same address */
+    cone_xz = NULL;
     for (int i = 0; i < TUNNEL_SLOTS; i++) free(tunnel_slot[i].flags), tunnel_slot[i].flags = NULL;
 }
 
@@ -117,23 +120,23 @@ static uint8_t headlight_frac(const RaceState *race, const Car *car)
     return (uint8_t)(t <= 0.0 ? 0 : t >= 1.0 ? 255 : t * 256.0);
 }
 
-/* port (headlight_cone): the nodes' centres (x, z in 16.16 metres), once per track: what the objects and the cars, lit by the node, take the cones at */
+/* port (headlight_cone): the nodes' centres (x, z in 16.16 metres), once per track (dropped with it: road_tunnels_forget): what the objects and the cars, lit by
+ * the node, take the cones at */
 static const int32_t *cone_node_xz(const RaceState *race, uint32_t nodes)
 {
-    static int32_t *xz;
     static uint32_t have;
     static const RaceState *for_race;
     if (nodes == 0) return NULL;
-    if (xz != NULL && have == nodes && for_race == race) return xz;
-    free(xz);
-    xz = malloc(sizeof *xz * 2 * nodes);
-    if (xz == NULL) return NULL;
+    if (cone_xz != NULL && have == nodes && for_race == race) return cone_xz;
+    free(cone_xz);
+    cone_xz = malloc(sizeof *cone_xz * 2 * nodes);
+    if (cone_xz == NULL) return NULL;
     for (uint32_t i = 0; i < nodes; i++) {
         const TriNode n = race_node(race, (int32_t)i);
-        xz[2 * i] = n.position.x, xz[2 * i + 1] = n.position.z;
+        cone_xz[2 * i] = n.position.x, cone_xz[2 * i + 1] = n.position.z;
     }
     have = nodes, for_race = race;
-    return xz;
+    return cone_xz;
 }
 
 /* port (headlight_cone): a car's heading as a unit vector on the ground from its yaw (24 bits a turn) */

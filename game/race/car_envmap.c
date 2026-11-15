@@ -1,6 +1,7 @@
 /* port (body shine, envmap): see car_envmap.h. The image is signed around the neutral byte (128): above it a lift (the sky, the clouds, the sun),
  * below it a shade (the band under the horizon, the ground). */
 #include "game/race/car_envmap.h"
+#include "game/sys/mod_set.h"
 #include "game/sys/data_path.h"
 
 #include "formats/png.h"
@@ -227,8 +228,8 @@ void car_envmap_build(uint8_t *image)
 const uint8_t *car_envmap_image(void)
 {
     static uint8_t image[SIZE * SIZE];
-    static int made;
-    if (!made) car_envmap_build(image), made = 1;
+    static uint32_t made;   /* port (dep59): the mods' generation it was made under (a mod's car_envmap.png may replace it: mod_set.h); 0 never */
+    if (made != mod_set_generation()) car_envmap_build(image), made = mod_set_generation();
     return image;
 }
 

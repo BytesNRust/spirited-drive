@@ -262,7 +262,7 @@ static void test_mod_before_data(void)
     CHECK(m != NULL && m[0] == CAR_MASK_MATTE);   /* no mod: the port's */
     free(m);
     write_mask_in(ROOT "/mod/car_masks", stem, "rsid_mask.png", paint, W, H);
-    data_path_set_mod(ROOT "/mod");
+    data_path_set_mods((const char *[]){ ROOT "/mod" }, 1);
     m = car_mask_load(stem, "rsid", 0, W, H);
     CHECK(m != NULL && m[0] == CAR_MASK_PAINT);   /* the mod's first */
     free(m);
@@ -272,7 +272,7 @@ static void test_mod_before_data(void)
     CHECK(m != NULL && m[0] == CAR_MASK_SHINE);   /* the env override before both */
     free(m);
     unsetenv("TNFS_CAR_MASKS");
-    data_path_set_mod(NULL), data_path_set_base(NULL);
+    data_path_set_mods(NULL, 0), data_path_set_base(NULL);
 }
 
 /* i191: the candidates without the file are not read (no "cannot read" line each on a clean install); a file that is there and is not a mask is logged */
@@ -283,7 +283,7 @@ static void test_missing_masks_are_quiet(void)
     make_dirs(ROOT "/quiet/data/car_masks/TQuiet"), make_dirs(ROOT "/quiet_mod");
     write_mask_in(ROOT "/quiet/data/car_masks", "TQuiet", "rsid_mask.png", matte, W, H);
     data_path_set_base(ROOT "/quiet");
-    data_path_set_mod(ROOT "/quiet_mod");   /* a mods folder without car_masks/ */
+    data_path_set_mods((const char *[]){ ROOT "/quiet_mod" }, 1);   /* a mods folder without car_masks/ */
     unsetenv("TNFS_CAR_MASKS");
     read_misses = 0;
     uint8_t *m = car_mask_load("TQuiet", "rsid", 0, W, H);
@@ -297,7 +297,7 @@ static void test_missing_masks_are_quiet(void)
     port_log_watch("cannot read");
     CHECK(car_mask_load("TQuiet", "topv", 0, W, H) == NULL);
     CHECK(port_log_watch_hit());
-    data_path_set_mod(NULL), data_path_set_base(NULL);
+    data_path_set_mods(NULL, 0), data_path_set_base(NULL);
 }
 
 int main(void)

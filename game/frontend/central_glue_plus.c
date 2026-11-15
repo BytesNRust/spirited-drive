@@ -1,5 +1,6 @@
 /* The Control Central glue's plus text and own panel: the port's text and dark panels over the original menus' art (central_glue.c's fifth part). */
 #include "game/frontend/central_glue_private.h"
+#include "game/sys/mod_set.h"
 
 /* port: the text and the dark panels of graphics_plus.c, controls_plus.c and extras_menu.c, through the game's own
  * routines (0046376c's styles, the name box's shade table and frame); the text in the menu art's look
@@ -54,8 +55,8 @@ void cg_plus_save(void *ctx, const PortSettings *settings)
 }
 
 /* port: the Graphics screen's own background (graphics_own.c). config_bgnd_load reads the ten configuration screens
- * off the CD and composes them, which takes about half a second, so it is done once per process and kept -- it does
- * not depend on anything but the CD.
+ * off the CD and composes them, which takes about half a second, so it is done once and kept -- it depends on nothing
+ * but the CD and the mods in effect, and is composed again when those change (dep59, mod_set.h).
  *
  * The screen always puts this palette on, in OPTIONS' palette, whatever screen brought it up: entered from Game Mode
  * its art is the Game Mode picture, and blitting the Options background over that with Game Mode's palette is what
@@ -63,14 +64,16 @@ void cg_plus_save(void *ctx, const PortSettings *settings)
 static uint8_t *own_shape;
 static uint8_t own_pixels[CONFIG_BGND_W * CONFIG_BGND_H];
 static uint8_t own_palette[768];
-static int own_tried, own_ok;
+static int own_ok;
+static uint32_t own_made;   /* the mods' generation it was composed under; 0 never */
 
-/* compose once, into the caller's buffers, and keep a copy: the EXTRAS screen asks for the same background
- * (menu_glue.c), and reading the ten CD screens twice would cost another half second for nothing */
-static void own_compose(uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t palette[768])
+/* compose once and keep it, again when the mods in effect changed */
+static void own_follow(void)
 {
-    if (!own_tried) {
-        own_tried = 1;
+    if (own_made != mod_set_generation()) {
+        own_made = mod_set_generation();
+        free(own_shape);
+        own_shape = NULL;
         own_ok = config_bgnd_load(resource_load_art, CONFIG_BGND_OPTIONS, 1, own_pixels, own_palette);
         if (own_ok) {
             own_shape = malloc(CONFIG_BGND_SHAPE_HEADER + CONFIG_BGND_W * CONFIG_BGND_H);
@@ -83,6 +86,13 @@ static void own_compose(uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t p
             own_shape = NULL;
         }
     }
+}
+
+/* the background into the caller's buffers, from the copy kept: the EXTRAS screen asks for the same background (menu_glue.c), and reading
+ * the ten CD screens twice would cost another half second for nothing */
+static void own_compose(uint8_t pixels[CONFIG_BGND_W * CONFIG_BGND_H], uint8_t palette[768])
+{
+    own_follow();
     memcpy(pixels, own_pixels, sizeof own_pixels);
     memcpy(palette, own_palette, sizeof own_palette);
 }
@@ -98,6 +108,7 @@ int32_t cg_own_bgnd(uint8_t pixels[640 * 480], uint8_t palette[768])
 int32_t cg_own_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const uint8_t palette[768])
 {
     (void)ctx, (void)pixels;
+    own_follow();
     if (own_shape == NULL) return 0;
     /* RAW, into the screen's own copy rather than back into own_palette: config_bgnd.c read this palette through
      * fsh_palette_rgb, which shifts the CD's 6-bit values left by one on the way, so it is already display-ready
@@ -157,15 +168,16 @@ void cg_own_note_text(void *ctx, const char *text, int32_t x, int32_t y)
 }
 
 /* port: the titles in the original titles' letters (title_art.h), cut from the CD the first time each is drawn and
- * kept; a title the CD cannot give is drawn in the font */
+ * kept while the mods in effect stay; a title the CD cannot give is drawn in the font */
 static const uint8_t *title_mask(const char *text, int *w)
 {
     static uint8_t masks[TITLE_ART_COUNT][TITLE_ART_MAX_W * TITLE_ART_H];
-    static int widths[TITLE_ART_COUNT], tried[TITLE_ART_COUNT], ok[TITLE_ART_COUNT];
+    static int widths[TITLE_ART_COUNT], ok[TITLE_ART_COUNT];
+    static uint32_t made[TITLE_ART_COUNT];   /* port (dep59): the mods' generation each was cut under (mod_set.h); 0 never */
     const TitleArtId id = title_art_for(text);
     if (id == TITLE_ART_COUNT) return NULL;
-    if (!tried[id]) {
-        tried[id] = 1;
+    if (made[id] != mod_set_generation()) {
+        made[id] = mod_set_generation();
         ok[id] = title_art_load(resource_load_art, id, masks[id], &widths[id]);
         if (!ok[id]) port_log("title: \"%s\" not on the CD, drawn in the font\n", text);
     }

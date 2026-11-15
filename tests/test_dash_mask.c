@@ -165,18 +165,18 @@ static void test_mod_before_data(void)
     data_path_set_base(under("/order/base"));
     unsetenv("TNFS_DASH_MASKS");
     CHECK(note_is("base"));   /* no mod: the port's */
-    data_path_set_mod(under("/order/empty_mod"));   /* i191: a mods folder without dash_masks/ is passed over without a read */
+    data_path_set_mods((const char *[]){ under("/order/empty_mod") }, 1);   /* i191: a mods folder without dash_masks/ is passed over without a read */
     read_misses = 0;
     CHECK(note_is("base"));
     CHECK_EQ_INT(read_misses, 0);
     put(under("/order/mod/dash_masks/TORDER"), "mod");
-    data_path_set_mod(under("/order/mod"));
+    data_path_set_mods((const char *[]){ under("/order/mod") }, 1);
     CHECK(note_is("mod"));    /* the mod's first */
     put(under("/order/env/TORDER"), "env");
     setenv("TNFS_DASH_MASKS", under("/order/env"), 1);
     CHECK(note_is("env"));    /* the env override before both */
     unsetenv("TNFS_DASH_MASKS");
-    data_path_set_mod(NULL), data_path_set_base(NULL);
+    data_path_set_mods(NULL, 0), data_path_set_base(NULL);
 }
 
 int main(void)

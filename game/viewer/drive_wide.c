@@ -3,6 +3,7 @@
 #include "viewer/track_viewer.h"
 #include "viewer/drive_session.h"
 #include "viewer/drive_wide_private.h"
+#include "game/sys/mod_set.h"
 #include "game/gfx/blit.h"
 #include "game/sys/backdrop.h"
 #include "viewer/layer_compose.h"
@@ -373,32 +374,34 @@ static int in_ellipse(int x, int y, int left, int top, int w, int h)
     return dx * dx * h * h + dy * dy * w * w <= (long)w * w * h * h;
 }
 
-/* port (gauge_light): the hand-made mask of the dash on screen (dash_mask.h), loaded once per dash; NULL when it has none */
+/* port (gauge_light): the hand-made mask of the dash on screen (dash_mask.h), loaded once per dash and per mods in effect (a mod's dash_masks/
+ * may replace it: mod_set.h); NULL when it has none */
 const uint8_t *dash_mask_now(void)
 {
     static uint8_t *mask;
     static char loaded[sizeof drive_hud.dash_stem];
-    static int tried;
-    if (!tried || strcmp(loaded, drive_hud.dash_stem) != 0) {
+    static uint32_t mods;   /* the mods' generation it was loaded under; 0 never */
+    if (mods != mod_set_generation() || strcmp(loaded, drive_hud.dash_stem) != 0) {
         free(mask);
         mask = dash_mask_load(drive_hud.dash_stem);
         snprintf(loaded, sizeof loaded, "%s", drive_hud.dash_stem);
-        tried = 1;
+        mods = mod_set_generation();
     }
     return mask;
 }
 
-/* port (gauge_light = 5): the colours painted for the dash on screen (dash_color.h), loaded once per dash; NULL when it paints none */
+/* port (gauge_light = 5): the colours painted for the dash on screen (dash_color.h), loaded once per dash and per mods in effect; NULL when
+ * it paints none */
 static const DashColour *dash_colour_now(void)
 {
     static DashColour colour;
     static char loaded[sizeof drive_hud.dash_stem];
-    static int tried;
-    if (!tried || strcmp(loaded, drive_hud.dash_stem) != 0) {
+    static uint32_t mods;   /* the mods' generation it was loaded under; 0 never */
+    if (mods != mod_set_generation() || strcmp(loaded, drive_hud.dash_stem) != 0) {
         dash_color_free(&colour);
         (void)dash_color_load(drive_hud.dash_stem, &colour);
         snprintf(loaded, sizeof loaded, "%s", drive_hud.dash_stem);
-        tried = 1;
+        mods = mod_set_generation();
     }
     return colour.slot != NULL && colour.count > 0 ? &colour : NULL;
 }

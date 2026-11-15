@@ -40,7 +40,8 @@ int main(int argc, char **argv)
 
     CHECK(load_specs(data, "DVIPER", &original, original_record));   /* before the overlay: the data root's file */
     CHECK(load_specs(data, "ANSX", &other_original, scratch));
-    CHECK(platform_set_mods(data, mods));
+    const char *dirs[] = { mods };
+    CHECK(platform_set_mods(data, dirs, 1));
     CHECK(platform_mods_error() == NULL || platform_mods_error()[0] == '\0');
     CHECK(load_specs(data, "DVIPER", &edited, edited_record));
     CHECK(load_specs(data, "ANSX", &other_edited, scratch));

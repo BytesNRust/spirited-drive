@@ -140,6 +140,10 @@ static void apply_named(PortSettings *s, const char *key, const char *value)
         if (t >= 0) s->light_time = t;
     } else if (strcmp(key, "psx_dir") == 0) {
         snprintf(s->psx_dir, sizeof s->psx_dir, "%s", value);
+    } else if (strcmp(key, "mods") == 0) {   /* port (dep59): kept clean, so what is written back is what is read */
+        ModList list;
+        mod_list_parse(value, &list);
+        mod_list_format(&list, s->mods, sizeof s->mods);
     } else if (strcmp(key, "render_bands") == 0) {
         /* the render threads: "auto" for as many as the logical cores, or a count. Anything else keeps the default
          * (auto), so a damaged file cannot turn the threads off by accident. */
@@ -188,7 +192,7 @@ PortSettings port_settings_parse(const char *text, size_t size)
     PortSettings s = port_settings_defaults();
     size_t pos = 0;
     while (pos < size) {
-        char line[PSX_DIR_MAX + 32];   /* port: wide enough for a psx_dir line, the other keys are short */
+        char line[PORT_LINE_MAX];   /* port: wide enough for a psx_dir or a mods line, the other keys are short */
         size_t len = 0;
         while (pos < size && text[pos] != '\n') {
             if (len < sizeof line - 1)
@@ -217,11 +221,11 @@ size_t port_settings_format(const PortSettings *s, char *out, size_t size)
     const int n = snprintf(out, size,
                            "format=%s\nrefresh_hz=%d\nscale=%s\nfullscreen=%d\nfov_adjust=%d\nview_ultra=%d\n"
                            "perspective=%d\ntexture_filter=%d\nfog=%d\nf3_ultra=%d\nrender_scale=%d\nlaps=%d\npsx_dir=%s\nlight_effects=%d\ncar_soft_shadow=%d\nlight_time=%s\nweather=%s\n"
-                           "render_bands=%s\nbody_shine=%d\nrecords_unified=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nlamp_flares=%d\nrally_gravel_shoulder=%d\nclose_houses=%d\nbrake_over_gas=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nfinish_gate_light=%d\nrain_lamps=%d\ngauge_exterior=%d\nsign_glow=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nrally_dry_lamps=%d\ntraffic_halo=%d\nanalog_pad=%d\nrain_v2=%d\nrain_tyre_roll=%d\nsnow_weather=%d\nreflectors=%d\nhandbrake_lamps=%d\nrally_spray=%d\nsnow_fx=%d\nlamp_halos=%d\nwipers=%d\nweather_fog=%d\nspray_v4=%d\nmenu_pad_cancel=%d\ntunnel_lamps=%d\nwrong_way=%d\nlight_edit=%d\nvariant_mirror=%d\nvariant_rally=%d\nvariant_reverse=%d\nprofile=%s\n",
+                           "render_bands=%s\nbody_shine=%d\nrecords_unified=%d\ncar_colours=%d\nfog_sample=%d\nsky_fill=%d\nsky_fill_below=%d\nradar_all_views=%d\ntach_dim=%d\ngauge_wheel=%d\npolice_glow=%d\nreplay_no_ffb=%d\nlast_camera=%d\ncamera_kind=%d\nlamp_flares=%d\nrally_gravel_shoulder=%d\nclose_houses=%d\nbrake_over_gas=%d\nrain_fx=%d\nrain_grip=%d\ngauge_light=%d\nfinish_gate_light=%d\nrain_lamps=%d\ngauge_exterior=%d\nsign_glow=%d\nreverse_rows=%d\ncity_lift=%d\nvegas_lift=%d\nrally_dry_lamps=%d\ntraffic_halo=%d\nanalog_pad=%d\nrain_v2=%d\nrain_tyre_roll=%d\nsnow_weather=%d\nreflectors=%d\nhandbrake_lamps=%d\nrally_spray=%d\nsnow_fx=%d\nlamp_halos=%d\nwipers=%d\nweather_fog=%d\nspray_v4=%d\nmenu_pad_cancel=%d\ntunnel_lamps=%d\nwrong_way=%d\nlight_edit=%d\nvariant_mirror=%d\nvariant_rally=%d\nvariant_reverse=%d\nmods=%s\nprofile=%s\n",
                            FORMAT_NAMES[s->format], s->refresh_hz, s->scale_integer ? "integer" : "fill",
                            s->fullscreen, s->fov_adjust, s->view_ultra, s->perspective, s->texture_filter, s->fog, s->f3_ultra,
                            s->render_scale, s->laps, s->psx_dir, s->light_effects, s->car_soft_shadow, LIGHT_TIME_NAMES[s->light_time], weather_name(s->weather), bands, s->body_shine,
-                           s->records_unified, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->lamp_flares, s->rally_gravel_shoulder, s->close_houses, s->brake_over_gas, s->rain_fx, s->rain_grip, s->gauge_light, s->finish_gate_light, s->rain_lamps, s->gauge_exterior, s->sign_glow, s->reverse_rows, s->city_lift, s->vegas_lift, s->rally_dry_lamps, s->traffic_halo, s->analog_pad, s->rain_v2, s->rain_tyre_roll, s->snow_weather, s->reflectors, s->handbrake_lamps, s->rally_spray, s->snow_fx, s->lamp_halos, s->wipers, s->weather_fog, s->spray_v4, s->menu_pad_cancel, s->tunnel_lamps, s->wrong_way, s->light_edit, s->variant_mirror, s->variant_rally, s->variant_reverse, port_profile_key((Profile)s->profile));
+                           s->records_unified, s->car_colours, s->fog_sample, s->sky_fill, s->sky_fill_below, s->radar_all_views, s->tach_dim, s->gauge_wheel, s->police_glow, s->replay_no_ffb, s->last_camera, s->camera_kind, s->lamp_flares, s->rally_gravel_shoulder, s->close_houses, s->brake_over_gas, s->rain_fx, s->rain_grip, s->gauge_light, s->finish_gate_light, s->rain_lamps, s->gauge_exterior, s->sign_glow, s->reverse_rows, s->city_lift, s->vegas_lift, s->rally_dry_lamps, s->traffic_halo, s->analog_pad, s->rain_v2, s->rain_tyre_roll, s->snow_weather, s->reflectors, s->handbrake_lamps, s->rally_spray, s->snow_fx, s->lamp_halos, s->wipers, s->weather_fog, s->spray_v4, s->menu_pad_cancel, s->tunnel_lamps, s->wrong_way, s->light_edit, s->variant_mirror, s->variant_rally, s->variant_reverse, s->mods, port_profile_key((Profile)s->profile));
     return n > 0 && (size_t)n < size ? (size_t)n : 0;
 }
 

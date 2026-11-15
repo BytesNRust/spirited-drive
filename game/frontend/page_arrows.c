@@ -1,5 +1,6 @@
 /* port: see page_arrows.h. */
 #include "game/frontend/page_arrows.h"
+#include "game/sys/mod_set.h"
 
 #include "formats/fsh.h"
 #include "game/frontend/item_art.h"
@@ -78,9 +79,10 @@ int page_arrows_load(ConfigBgndRead read, PageArrowMasks *m)
 const PageArrowMasks *page_arrows_shared(ConfigBgndRead read)
 {
     static PageArrowMasks masks;
-    static int tried, ok;
-    if (!tried) {
-        tried = 1;
+    static int ok;
+    static uint32_t made;   /* port (dep59): the mods' generation they were cut under (mod_set.h); 0 never */
+    if (made != mod_set_generation()) {
+        made = mod_set_generation();
         ok = page_arrows_load(read, &masks);
         if (!ok) port_log("page arrows: not on the CD, drawn as text\n");
     }

@@ -23,6 +23,7 @@
 #include "game/platform/update.h"
 #include "game/sys/art_cache.h"
 #include "game/sys/data_path.h"
+#include "game/sys/mod_set.h"
 #include "game/sys/data_root.h"
 #include "game/sys/game_name.h"
 #include "game/exe/exe_tables.h"
@@ -326,9 +327,8 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
     }
-    if (!platform_set_mods(opt.data_root, opt.mods)) return EXIT_FAILURE;   /* port: --mods DIR, else <user folder>/mods/ when it exists */
-    data_path_set_mod(platform_mods_dir());   /* port: a mod's own copy of a data file (track_light/, car_masks/, dash_masks/, sounds/, car_envmap.png) comes before the port's data/ */
     port_old_files_migrate();   /* before any setting is read, and before there are threads */
+    if (!mod_set_start(opt.data_root, opt.mods)) return EXIT_FAILURE;   /* port: --mods DIR, then the mode's list; followed with the settings (mod_set.h) */
     if (data_copied) port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On); stats.cfg goes to the player's folder (--user DIR) */
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);
     else if (opt.replay != NULL) ok = track_viewer_drive_replay(opt.data_root, opt.replay);

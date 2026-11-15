@@ -1,5 +1,6 @@
 /* port: the Options rows' text over the screen's own picture, moved out of central_glue.c */
 #include "game/frontend/central_split.h"
+#include "game/sys/mod_set.h"
 
 #include "formats/fsh.h"
 #include "game/frontend/config_bgnd.h"
@@ -14,8 +15,10 @@ void central_options_plus_text(void *ctx, int32_t style_id, const char *text, in
 {
     enum { MARGIN = 2, SHADOW_ROOM = 6 };
     static int32_t bank;
+    static uint32_t bank_mods;   /* port (dep59): the mods' generation the bank was read under (a mod's options.qfs may replace it: mod_set.h) */
     (void)ctx;
-    if (bank == 0) bank = ea_bank_load("option/options.qfs");
+    if (bank != 0 && bank_mods != mod_set_generation()) ea_bank_free(bank), bank = 0;
+    if (bank == 0) bank = ea_bank_load("option/options.qfs"), bank_mods = mod_set_generation();
     const uint8_t *const bgnd = bank != 0 ? ea_shape(bank, "bgnd") : NULL;
     const int left = x - MARGIN, top = y - MARGIN;
     const int w = text_width(text) + MARGIN + SHADOW_ROOM, h = text_line_height() + MARGIN + SHADOW_ROOM;

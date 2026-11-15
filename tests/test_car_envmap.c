@@ -5,6 +5,11 @@
 #include "game/race/car_envmap.h"
 #include "game/race/car_shine.h"
 #include "test.h"
+#include "game/sys/data_path.h"
+#include "game/sys/mod_set.h"
+
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <math.h>
 #include <stdio.h>
@@ -293,6 +298,27 @@ static void test_the_override_falls_back_when_missing_or_invalid(void)
     remove(NOT_PNG);
 }
 
+/* dep59: the image is kept while the mods in effect stay, and made again from a mod's car_envmap.png when they change, and back */
+static void test_the_image_follows_the_mods(void)
+{
+    static uint8_t procedural[S * S];
+    memcpy(procedural, car_envmap_image(), sizeof procedural);
+    const uint8_t grey[2 * 2 * 4] = { 200, 200, 200, 255, 200, 200, 200, 255, 200, 200, 200, 255, 200, 200, 200, 255 };
+    mkdir("envmap_mod_test", 0777);
+    write_png("envmap_mod_test/car_envmap.png", grey, 2, 2);
+    const char *const dirs[] = { "envmap_mod_test" };
+    data_path_set_mods(dirs, 1);
+    CHECK(memcmp(car_envmap_image(), procedural, sizeof procedural) == 0);   /* the same mods' generation: kept */
+    mod_set_generation_move();
+    CHECK_EQ_INT(car_envmap_image()[0], 200);   /* the mods changed: the mod's */
+    CHECK_EQ_INT(car_envmap_image()[S * S - 1], 200);
+    data_path_set_mods(NULL, 0);
+    mod_set_generation_move();
+    CHECK(memcmp(car_envmap_image(), procedural, sizeof procedural) == 0);   /* and back */
+    remove("envmap_mod_test/car_envmap.png");
+    rmdir("envmap_mod_test");
+}
+
 int main(void)
 {
     unsetenv("TNFS_CAR_ENVMAP");
@@ -312,5 +338,6 @@ int main(void)
     test_the_level_follows_the_byte();
     test_the_png_override_is_used_when_present();
     test_the_override_falls_back_when_missing_or_invalid();
+    test_the_image_follows_the_mods();
     return TEST_REPORT();
 }

@@ -25,6 +25,9 @@ static struct {
 } kept;
 
 static uint32_t generation = 1;   /* port_follow.h: never 0, so a zeroed PortFollow is always behind */
+static void (*forget_hook)(void);
+
+void port_settings_on_forget(void (*hook)(void)) { forget_hook = hook; }
 
 uint32_t port_settings_generation(void) { return generation; }
 
@@ -34,6 +37,7 @@ void port_settings_forget(void)
     generation = generation == UINT32_MAX ? 1 : generation + 1;
     memset(&kept.machine_have, 0, sizeof kept.machine_have);
     memset(kept.mode_have, 0, sizeof kept.mode_have);
+    if (forget_hook != NULL) forget_hook();
 }
 
 static PortSettings machine_read(void)

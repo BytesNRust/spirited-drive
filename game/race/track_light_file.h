@@ -23,7 +23,7 @@
  * The header's flags are a record of which of the port's settings the rows were generated with. In Restomod '26 the file rules whatever they say (a difference is one log line, track_light_diff names it);
  * Stock and Restored do not read the files. See docs/track-light.md.
  *
- * track_light_find looks for the file first in a mod's folder (<mods folder>/track_light/<file>, data_path_set_mod), then in the game's data. */
+ * track_light_find looks for the file first in a mod's folder (<mod>/track_light/<file> of the first mod in effect that has it, data_path_set_mods), then in the game's data. */
 #ifndef TNFS_TRACK_LIGHT_FILE_H
 #define TNFS_TRACK_LIGHT_FILE_H
 

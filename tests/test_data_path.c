@@ -4,6 +4,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #define CHECK_EQ_STR(a, b) CHECK(strcmp((a), (b)) == 0)
 
@@ -47,10 +49,9 @@ static void test_the_platform_base(void)
     CHECK(n >= 2);
     CHECK_EQ_STR(p[1], "/Applications/X.app/Contents/Resources/data/car_envmap.png");
     CHECK_EQ_STR(p[0], "");   /* no mods folder yet */
-    data_path_set_mod("/u/mods");
+    data_path_set_mods(NULL, 0);
     data_path_candidates("car_envmap.png", p);
-    CHECK_EQ_STR(p[0], "/u/mods/car_envmap.png");
-    data_path_set_mod(NULL);
+    CHECK_EQ_STR(p[0], "");
     data_path_set_base(NULL);
     CHECK_EQ_STR((data_path_candidates("car_envmap.png", p), p[1]), "");   /* no base: not tried */
 }
@@ -71,11 +72,47 @@ static void test_exists(void)
     CHECK(!data_path_exists(NULL));
 }
 
+static void put(const char *dir, const char *name)
+{
+    char path[256];
+    snprintf(path, sizeof path, "%s/%s", dir, name);
+    mkdir(dir, 0777);
+    FILE *f = fopen(path, "wb");
+    CHECK(f != NULL);
+    if (f != NULL) fputs("x", f), fclose(f);
+}
+
+/* dep59 n4: several mods, highest first: the mod's candidate is the first of them that has the file; none has it, none */
+static void test_several_mods(void)
+{
+    char p[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
+    const char *const a = "data_path_mod_a", *const b = "data_path_mod_b";
+    put(a, "both.png"), put(b, "both.png"), put(b, "only_b.png");
+    const char *const dirs[] = { a, b };
+    data_path_set_mods(dirs, 2);
+    data_path_candidates("both.png", p);
+    CHECK_EQ_STR(p[0], "data_path_mod_a/both.png");
+    data_path_candidates("only_b.png", p);
+    CHECK_EQ_STR(p[0], "data_path_mod_b/only_b.png");
+    data_path_candidates("none.png", p);
+    CHECK_EQ_STR(p[0], "");
+    const char *const swapped[] = { b, a };
+    data_path_set_mods(swapped, 2);
+    data_path_candidates("both.png", p);
+    CHECK_EQ_STR(p[0], "data_path_mod_b/both.png");
+    data_path_set_mods(NULL, 0);
+    data_path_candidates("both.png", p);
+    CHECK_EQ_STR(p[0], "");
+    remove("data_path_mod_a/both.png"), remove("data_path_mod_b/both.png"), remove("data_path_mod_b/only_b.png");
+    rmdir(a), rmdir(b);
+}
+
 int main(void)
 {
     test_exists();
     test_order_and_slashes();
     test_no_base_and_bad_input();
     test_the_platform_base();
+    test_several_mods();
     return TEST_REPORT();
 }

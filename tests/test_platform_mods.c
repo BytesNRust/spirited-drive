@@ -143,9 +143,16 @@ int main(void)
     CHECK(same(d, size, "from the cd"));
     platform_free_file(d);
 
-    CHECK(!platform_set_mods(cd, (snprintf(path, sizeof path, "%s/nope", base), path)));        /* a missing directory */
+    snprintf(path, sizeof path, "%s/nope", base);
+    const char *missing[] = { mods, path };
+    CHECK(!platform_set_mods(cd, missing, 2));                                                   /* a missing directory: none set */
     CHECK(strstr(platform_mods_error(), "does not exist") != NULL);
-    CHECK(platform_set_mods(cd, mods));
+    snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/NOTE.TXT", cd);
+    d = platform_read_file(asked, &size);
+    CHECK(same(d, size, "from the cd"));
+    platform_free_file(d);
+    const char *one[] = { mods };
+    CHECK(platform_set_mods(cd, one, 1));
     CHECK(strcmp(platform_mods_error(), "") == 0);
 
     /* the mod's copy wins, the rest comes from the data root */
@@ -264,22 +271,36 @@ int main(void)
     CHECK_EQ_INT(platform_move_user_files("/nonexistent_tnfs_dir", new_dir), 0);
     test_older_folders(base);
 
-    /* the default mods directory: <user folder>/mods/ when it is there */
-    char default_misc[420];
-    snprintf(default_misc, sizeof default_misc, "%s/mods/SIMDATA/MISC", pref);
-    CHECK(platform_set_mods(cd, NULL) && platform_mods_dir() == NULL);                        /* no folder, no mods */
-    write_file(default_misc, "NOTE.TXT", "from the default mods", 21);
-    CHECK(platform_set_mods(cd, NULL) && platform_mods_dir() != NULL);
+    /* several mods: the first that has its own copy wins, a file only a later one has comes from it, and one refused in an earlier mod
+     * stays refused (never a later mod's or the data root's copy) */
+    char second[300], second_misc[400];
+    snprintf(second, sizeof second, "%s/second", base);
+    snprintf(second_misc, sizeof second_misc, "%s/SIMDATA/MISC", second);
+    write_file(second_misc, "NOTE.TXT", "from the second", 15);
+    write_file(second_misc, "ONLYCD.TXT", "second only", 11);
+    write_file(second_misc, "TR2.TRI", "second tri", 10);
+    const char *two[] = { mods, second };
+    CHECK(platform_set_mods(cd, two, 2));
     snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/NOTE.TXT", cd);
     d = platform_read_file(asked, &size);
-    CHECK(same(d, size, "from the default mods"));
+    CHECK(same(d, size, "from the mod"));
     platform_free_file(d);
-    snprintf(path, sizeof path, "%s/NOTE.TXT", default_misc);
-    unlink(path);                                                                              /* the folder stays, empty: the CD's again */
+    snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/ONLYCD.TXT", cd);
+    d = platform_read_file(asked, &size);
+    CHECK(same(d, size, "second only"));
+    platform_free_file(d);
+    snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/TR2.TRI", cd);
+    CHECK(platform_read_file(asked, &size) == NULL);
+    const char *swapped[] = { second, mods };
+    CHECK(platform_set_mods(cd, swapped, 2));
+    snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/NOTE.TXT", cd);
+    d = platform_read_file(asked, &size);
+    CHECK(same(d, size, "from the second"));
+    platform_free_file(d);
 
     /* the data root was not written */
     CHECK(tree_sum(cd) == cd_before);
-    CHECK(platform_set_mods(cd, NULL));
+    CHECK(platform_set_mods(cd, NULL, 0));
     snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/NOTE.TXT", cd);
     d = platform_read_file(asked, &size);
     CHECK(same(d, size, "from the cd"));                                                       /* overlay off again */
