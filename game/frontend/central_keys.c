@@ -1,6 +1,8 @@
 /* Control Central (00432ff4): the letters typed (00434cdf..00434ff8) and the other keys (004360df..0043700e). */
 #include "game/frontend/central_run.h"
 
+#include <stddef.h>
+
 /* the first of 'A'..'Z' held, or 0 */
 static int32_t letter(CentralRun *r)
 {
@@ -16,6 +18,12 @@ static int cheat(CentralRun *r, int which)
 
 static void ding(CentralRun *r) { r->ops->sound(r->ops->ctx, 0x48); }
 
+/* port (dep65): the variants a code put on, for Restomod to keep as the player's choice (ControlCentralOps.variants_chosen) */
+static void variants_chosen(CentralRun *r)
+{
+    if (r->ops->variants_chosen != NULL) r->ops->variants_chosen(r->ops->ctx);
+}
+
 /* 00434d3d..00434ff8: each code stepped with the new letter, while its effect is off */
 static void cheat_codes(CentralRun *r)
 {
@@ -24,12 +32,12 @@ static void cheat_codes(CentralRun *r)
     if (*st->unlock_m == 0 && (st->lost == 0 || st->e7b != 0) && cheat(r, CENTRAL_SKCART)) {
         *st->unlock_m = 1;
         ding(r);
-        if (!race3) *st->variant_m = 1, *st->variant_r = 0, r->redraw = 1;
+        if (!race3) *st->variant_m = 1, *st->variant_r = 0, r->redraw = 1, variants_chosen(r);
     }
     if (*st->unlock_r == 0 && (st->lost == 0 || st->e7b != 0) && cheat(r, CENTRAL_EARALLYE)) {
         *st->unlock_r = 1;
         ding(r);
-        if (!race3) *st->variant_r = 1, *st->variant_m = 0, r->redraw = 1;
+        if (!race3) *st->variant_r = 1, *st->variant_m = 0, r->redraw = 1, variants_chosen(r);
     }
     if (*st->explode == 0 && !race3 && cheat(r, CENTRAL_EXPLODE)) *st->explode = 1, ding(r);
     if (*st->nitro == 0 && *st->race_type != 3 && st->lost == 0 && cheat(r, CENTRAL_NITRO)) *st->nitro = 1, ding(r);

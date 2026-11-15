@@ -39,6 +39,16 @@ typedef struct {
 
 static int typed;   /* the code the player types this time: its CENTRAL_* index */
 
+static int chosen_calls;   /* dep65: the variants_chosen calls, and the variants as each found them */
+static int32_t chosen_m, chosen_r;
+static const Flags *chosen_flags;
+static void variants_chosen(void *ctx)
+{
+    (void)ctx;
+    chosen_calls++;
+    chosen_m = chosen_flags->variant_m, chosen_r = chosen_flags->variant_r;
+}
+
 static int32_t scancode(void *ctx, int32_t c) { (void)ctx; return c; }
 static int32_t cheat_step(void *ctx, int which) { (void)ctx; return which == typed; }
 static void sound(void *ctx, int32_t s) { (void)ctx, (void)s; }
@@ -64,7 +74,8 @@ static ExtrasFlags flags_of(Flags *f)
 /* One key pressed: the letter A held, the code's step taken, then the letter let go. */
 static void type(ControlCentralState *st, Flags *f, int code)
 {
-    static const ControlCentralOps ops = { .scancode = scancode, .cheat_step = cheat_step, .sound = sound };
+    static const ControlCentralOps ops = { .scancode = scancode, .cheat_step = cheat_step, .sound = sound, .variants_chosen = variants_chosen };
+    chosen_flags = f;
     CentralRun r;
     memset(&r, 0, sizeof r);
     r.st = st, r.ops = &ops;
@@ -179,8 +190,33 @@ static void test_typed_codes_come_back_on_the_next_visit(void)
     CHECK_EQ_INT(next.nitro, 1);
 }
 
+/* dep65: a code that puts a variant on says so (variants_chosen), so Restomod keeps it as the player's choice, the way the
+ * track screen's switches are kept; a tournament's codes put none on, and a code whose variant is already unlocked does nothing */
+static void test_the_variant_codes_are_chosen(void)
+{
+    Flags f;
+    ControlCentralState st;
+    fresh(&f, &st);
+    f.race_type = 1;
+    chosen_calls = 0;
+    type(&st, &f, CENTRAL_SKCART);
+    CHECK_EQ_INT(chosen_calls, 1);
+    CHECK(chosen_m == 1 && chosen_r == 0);
+    type(&st, &f, CENTRAL_EARALLYE);
+    CHECK_EQ_INT(chosen_calls, 2);
+    CHECK(chosen_m == 0 && chosen_r == 1);
+    type(&st, &f, CENTRAL_SKCART);   /* the mirror already unlocked: the code does nothing */
+    CHECK_EQ_INT(chosen_calls, 2);
+    fresh(&f, &st);
+    f.race_type = 3;   /* a tournament: the code unlocks, puts no variant on */
+    type(&st, &f, CENTRAL_SKCART);
+    CHECK_EQ_INT(chosen_calls, 2);
+    CHECK_EQ_INT(f.variant_m, 0);
+}
+
 int main(void)
 {
+    test_the_variant_codes_are_chosen();
     test_the_variant_codes_are_the_sessions();
     test_explode_nitro_turbo_each_their_own();
     test_conceptcar_is_the_warrior_switch();

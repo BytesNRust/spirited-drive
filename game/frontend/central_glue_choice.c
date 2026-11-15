@@ -21,16 +21,30 @@ void cg_variant_choice_apply(void)
     reverse_track_pick(s.variant_reverse && cg_reverse_offered());
 }
 
+/* the choice written: mirror and rally where the level offers them (a switch not offered was not shown, its choice stays as it
+ * was), the reverse unless NULL */
+static void choice_write(int mirror, int rally, const int *reverse)
+{
+    const PortSettings was = port_settings_load();
+    PortSettings s = was;
+    if (cg_g.unlock_m) s.variant_mirror = mirror != 0;
+    if (cg_g.unlock_r) s.variant_rally = rally != 0;
+    if (reverse != NULL) s.variant_reverse = *reverse != 0;
+    if (s.variant_mirror == was.variant_mirror && s.variant_rally == was.variant_rally && s.variant_reverse == was.variant_reverse) return;
+    if (!port_settings_save(&s)) port_log("variants: the switches could not be saved\n");
+}
+
 void cg_variant_choice_keep(int kept_m, int kept_r, const int *reverse)
 {
     if (!choice_on()) return;
-    const PortSettings was = port_settings_load();
-    PortSettings s = was;
     const int takes = variant_choice_takes(cg_g.track);
-    /* a switch the level does not offer was not shown: its choice stays as it was */
-    if (cg_g.unlock_m) s.variant_mirror = (takes ? cg_g.variant_m : kept_m) != 0;
-    if (cg_g.unlock_r) s.variant_rally = (takes ? cg_g.variant_r : kept_r) != 0;
-    if (reverse != NULL) s.variant_reverse = *reverse != 0;
-    if (s.variant_mirror == was.variant_mirror && s.variant_rally == was.variant_rally && s.variant_reverse == was.variant_reverse) return;
-    if (!port_settings_save(&s)) port_log("track select: the switches could not be saved\n");
+    choice_write(takes ? cg_g.variant_m : kept_m, takes ? cg_g.variant_r : kept_r, reverse);
+}
+
+void cg_variants_chosen(void *ctx)
+{
+    (void)ctx;
+    if (!choice_on()) return;
+    choice_write(cg_g.variant_m, cg_g.variant_r, NULL);   /* as the code left them, on any track */
+    cg_variant_choice_apply();   /* and what this track runs of them (Lost Vegas: neither) */
 }

@@ -102,6 +102,9 @@ typedef struct ControlCentralOps {
     /* port (dep64): 1 when the card is Restomod's: the track's own picture, or the exe's mirror art when the mirror is on, never the
      * rally's. NULL or 0: the exe's choice of art. */
     int (*card_plain)(void *ctx);
+    /* port (dep65): called when a code typed here puts a variant on (SKCART, EARALLYE), the variants as it left them: Restomod keeps
+     * them as the player's choice, the way the track screen's switches are kept. NULL: nothing (the exe). */
+    void (*variants_chosen)(void *ctx);
 } ControlCentralOps;
 
 /* The globals 00432ff4 reads and writes; a pointer is written, a value only read. */
