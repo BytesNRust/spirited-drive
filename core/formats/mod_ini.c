@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 
 static int refuse(char *why, size_t cap, const char *format, ...) __attribute__((format(printf, 3, 4)));
 static int refuse(char *why, size_t cap, const char *format, ...)
@@ -27,7 +28,7 @@ int mod_ini_id_ok(const char *id)
     return 1;
 }
 
-enum { KIND_TEXT, KIND_STEM, KIND_WORD, KIND_TYPE };   /* what a value may hold: text; A-Z 0-9; a-z 0-9; a type's name */
+enum { KIND_TEXT, KIND_STEM, KIND_WORD, KIND_TYPE, KIND_PAINTS };   /* what a value may hold: text; A-Z 0-9; a-z 0-9; a type's name; paints */
 
 typedef struct {
     const char *key;
@@ -47,6 +48,10 @@ static const Field FIELDS[] = {
     { "sound_from", offsetof(ModInfo, sound_from), sizeof ((ModInfo *)0)->sound_from, KIND_WORD },
     { "ai_from", offsetof(ModInfo, ai_from), sizeof ((ModInfo *)0)->ai_from, KIND_WORD },
     { "dash_from", offsetof(ModInfo, dash_from), sizeof ((ModInfo *)0)->dash_from, KIND_WORD },
+    { "year", offsetof(ModInfo, year), sizeof ((ModInfo *)0)->year, KIND_TEXT },
+    { "power", offsetof(ModInfo, power), sizeof ((ModInfo *)0)->power, KIND_TEXT },
+    { "weight", offsetof(ModInfo, weight), sizeof ((ModInfo *)0)->weight, KIND_TEXT },
+    { "paints", 0, 0, KIND_PAINTS },
 };
 
 static const char *const TYPE_NAMES[] = { [MOD_TYPE_TWEAK] = "tweak", [MOD_TYPE_CAR] = "car", [MOD_TYPE_TRACK] = "track" };
@@ -107,6 +112,59 @@ static int text_clean(const unsigned char *s, size_t n)
     return 1;
 }
 
+static void trim(const char **s, const char **e);
+
+static int hex_digit(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+/* one `Name:rrggbb` (`s` .. `e`, trimmed) into `p`; 0 with `why` naming it when it is refused */
+static int take_paint(const char *s, const char *e, ModPaint *p, char *why, size_t cap)
+{
+    const int n = (int)(e - s);
+    if (n == 0) return refuse(why, cap, "mod.ini: paints has an empty entry");
+    const char *colon = memchr(s, ':', (size_t)n);
+    if (colon == NULL || memchr(colon + 1, ':', (size_t)(e - colon - 1)) != NULL)
+        return refuse(why, cap, "mod.ini: paints: \"%.*s\" is not Name:rrggbb", n, s);
+    const char *ns = s, *ne = colon, *hs = colon + 1, *he = e;
+    trim(&ns, &ne), trim(&hs, &he);
+    const size_t name_len = (size_t)(ne - ns);
+    if (name_len == 0 || name_len > MOD_INI_PAINT_NAME_MAX)
+        return refuse(why, cap, "mod.ini: paints: \"%.*s\" needs a name of 1 to %d characters", n, s, MOD_INI_PAINT_NAME_MAX);
+    if (he - hs != 6) return refuse(why, cap, "mod.ini: paints: %.*s's colour is not six hex digits", (int)name_len, ns);
+    for (int i = 0; i < 3; i++) {
+        const int hi = hex_digit(hs[2 * i]), lo = hex_digit(hs[2 * i + 1]);
+        if (hi < 0 || lo < 0) return refuse(why, cap, "mod.ini: paints: %.*s's colour is not six hex digits", (int)name_len, ns);
+        p->rgb[i] = (uint8_t)(hi << 4 | lo);
+    }
+    memcpy(p->name, ns, name_len);
+    p->name[name_len] = '\0';
+    return 1;
+}
+
+/* paints=, the value `s` .. `e`, into `out`; 0 with `why` naming the entry when one is refused */
+static int take_paints(const char *s, const char *e, ModInfo *out, char *why, size_t cap)
+{
+    for (const char *p = s; p <= e;) {
+        const char *comma = memchr(p, ',', (size_t)(e - p));
+        const char *end = comma != NULL ? comma : e, *es = p, *ee = end;
+        trim(&es, &ee);
+        if (out->paint_count == MOD_INI_PAINTS_MAX) return refuse(why, cap, "mod.ini: paints has more than %d entries", MOD_INI_PAINTS_MAX);
+        ModPaint paint;
+        if (!take_paint(es, ee, &paint, why, cap)) return 0;
+        for (int k = 0; k < out->paint_count; k++)
+            if (strcasecmp(out->paints[k].name, paint.name) == 0) return refuse(why, cap, "mod.ini: paints names %s twice", paint.name);
+        out->paints[out->paint_count++] = paint;
+        if (comma == NULL) break;
+        p = comma + 1;
+    }
+    return 1;
+}
+
 /* one `key=value` line into `out`; 0 with `why` set when it is refused */
 static int take_line(const char *line, const char *end, ModInfo *out, int seen[FIELD_COUNT], char *why, size_t cap)
 {
@@ -122,6 +180,7 @@ static int take_line(const char *line, const char *end, ModInfo *out, int seen[F
             return refuse(why, cap, "mod.ini: %s is not UTF-8 text, or holds a control or direction character", FIELDS[f].key);
         if (vlen == 0) return refuse(why, cap, "mod.ini: %s is empty", FIELDS[f].key);
         seen[f] = 1;
+        if (FIELDS[f].kind == KIND_PAINTS) return take_paints(vs, ve, out, why, cap);
         if (FIELDS[f].kind == KIND_TYPE) {
             out->type = type_named(vs, vlen);
             return out->type >= 0 ? 1 : refuse(why, cap, "mod.ini: type is not tweak, car or track");
