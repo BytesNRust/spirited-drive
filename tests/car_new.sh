@@ -1,7 +1,8 @@
 #!/bin/sh
 # tnfs-studio car new (dep59 tools, stage A): a car piece made from one of the game's cars. The piece's three files are the
 # template's under the new stem, its mod.ini says what it is, the port's masks come along; a stem of the CD's or a folder already
-# holding the piece is refused before anything is written, and nothing in the data roots is touched.
+# holding the piece is refused before anything is written, and nothing in the data roots is touched. validate checks a piece as the
+# game will load it (car_piece_check), and a card it cannot read is an error.
 # usage: car_new.sh STUDIO ORIGINAL_DIR PORT_DATA_DIR
 set -u
 studio=$1
@@ -70,6 +71,28 @@ grep -q "usage" "$work/log" || fail "no --out does not print the usage: $(cat "$
 # 6. the data roots are only read
 newer=$(find -H "$orig" "$port" -newer "$work/marker" -print 2>/dev/null | head -3)
 [ -z "$newer" ] || fail "car new wrote into a data root: $newer"
+
+# validate: the piece passes; a PBS under another stem, a stem of the CD's, a card with no id are refused, the first two only as
+# warnings with --port-only; a folder with no mod.ini is validated as before (studio_cli.sh)
+"$studio" validate "$p" >"$work/log" 2>&1 || fail "validate of the new piece: $(cat "$work/log")"
+grep -q "no findings" "$work/log" || fail "the new piece has findings: $(cat "$work/log")"
+cp -R "$p" "$work/other"
+mv "$work/other/SIMDATA/CARSPECS/TESTCAR.PBS" "$work/other/SIMDATA/CARSPECS/OTHER.PBS"
+"$studio" validate "$work/other" >"$work/log" 2>&1 && fail "a piece with OTHER.PBS passed validate"
+grep -q "PIECE.FILE_MISSING" "$work/log" || fail "no PIECE.FILE_MISSING for OTHER.PBS: $(cat "$work/log")"
+grep -q "SIMDATA/CARSPECS/TESTCAR.PBS" "$work/log" || fail "the missing PBS is not named: $(cat "$work/log")"
+"$studio" validate --port-only "$work/other" >"$work/log" 2>&1 || fail "--port-only refused the OTHER.PBS piece: $(cat "$work/log")"
+grep -q "^warning PIECE.FILE_MISSING" "$work/log" || fail "--port-only did not warn of the missing PBS: $(cat "$work/log")"
+cp -R "$p" "$work/cdstem"
+sed 's/^stem=TESTCAR$/stem=DVIPER/' "$p/mod.ini" > "$work/cdstem/mod.ini"
+"$studio" validate "$work/cdstem" >"$work/log" 2>&1 && fail "a piece with stem=DVIPER passed validate"
+grep -q "PIECE.STEM" "$work/log" || fail "no PIECE.STEM for stem=DVIPER: $(cat "$work/log")"
+"$studio" validate --port-only "$work/cdstem" >"$work/log" 2>&1 || fail "--port-only refused stem=DVIPER: $(cat "$work/log")"
+grep -q "^warning PIECE.STEM" "$work/log" || fail "--port-only did not warn of stem=DVIPER: $(cat "$work/log")"
+cp -R "$p" "$work/noid"
+grep -v '^id=' "$p/mod.ini" > "$work/noid/mod.ini"
+"$studio" validate "$work/noid" >"$work/log" 2>&1 && fail "a card with no id passed validate"
+grep -q "mod.ini" "$work/log" && grep -qi "id" "$work/log" || fail "the refusal of a card with no id does not say why: $(cat "$work/log")"
 
 [ "$failures" -eq 0 ] || exit 1
 echo "car_new: ok"
