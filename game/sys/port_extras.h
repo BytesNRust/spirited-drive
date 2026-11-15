@@ -79,6 +79,8 @@ size_t port_extras_format(const PortExtras *e, char *out, size_t size);
 /* one key=value over a PortExtras */
 void port_extras_take(void *to, const char *key, const char *value);
 PortExtras port_extras_load(void);
+/* mode `profile`'s, whichever mode is in use (port_settings_of_profile's twin) */
+PortExtras port_extras_of_profile(int profile);
 /* in the file of the mode in use, what differs from its values and is free in it */
 bool port_extras_save(const PortExtras *e);
 enum { PORT_EXTRAS_TEXT_MAX = 1024 };

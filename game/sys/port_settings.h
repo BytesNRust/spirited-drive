@@ -98,7 +98,7 @@ typedef struct {
      * `variant_reverse=`; 0 */
     int variant_mirror, variant_rally, variant_reverse;
     /* port (dep59 n4): the active mods of <player folder>/mods/, `mods=id1,id2` (mod_list.h): the first listed wins. Free in Restomod only,
-     * so Stock and Restored load none (`--mods DIR` still loads in every mode, above the list); "" none */
+     * so Stock and Restored load none (nor `--mods DIR`, which is Restomod's too, above the list: mod_set.h); "" none */
     char mods[MOD_LIST_TEXT_MAX];
     int profile;             /* a Profile (port_profile.h): the mode in use, `profile=stock|restored|restomod` in port.cfg, Stock without the line. Last, so the positional initialisers keep their meaning. */
 } PortSettings;
@@ -296,6 +296,8 @@ bool port_machine_save(int profile, const char *psx_dir);
 PortSettings port_settings_of_profile(int profile);
 /* port (frame budget): the settings are read from the files once and kept; the writers here drop what is kept. A test that changes what the platform reads calls this. */
 void port_settings_forget(void);
+/* port (dep59): `hook` runs after every port_settings_forget, on the thread that wrote: what follows the settings eagerly (mod_set.h). NULL: none. */
+void port_settings_on_forget(void (*hook)(void));
 PortSettings port_settings_load(void);
 /* the mode's name and folder as `s` has them, and in the file of `s`'s mode what differs from its values and is free in it. */
 bool port_settings_save(const PortSettings *s);

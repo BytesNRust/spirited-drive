@@ -103,17 +103,16 @@ enum {
  * the mouse moved since the previous call. */
 bool platform_mouse(int *x, int *y, unsigned *buttons);
 
-/* Mods overlay (BYTES-0009). With a mods directory set, a file the game asks for under `data_root` is read from
- * the mods directory when the mod has its own copy (the same relative name, else its upper-case form, else its lower-case form: modpath_find), else
- * from `data_root`. A mod file is validated against the original executable's limits first (formats/validate.h):
- * an invalid one is not handed to the game, and platform_mods_error() says which file failed and why. Names
- * that would leave the mods directory (.. components, absolute names, symbolic links out of it) are refused.
- * mods_dir NULL or "": the default, <user folder>/mods/ when that folder exists (no folder, no mods). The mods directory
- * only says where mods are: the player's files (config, saves, replays) go to the player's folder, below, so the CD data and
- * the mod's own files are never written. Returns false when a given directory does not exist. */
-bool platform_set_mods(const char *data_root, const char *mods_dir);
-/* The mods directory in use (given or the default), or NULL when there is none. */
-const char *platform_mods_dir(void);
+/* Mods overlay (BYTES-0009, dep59 n4). With mods folders set (`dirs`, highest first: the ones mod_set.h puts in effect), a file the game
+ * asks for under `data_root` is read from the first folder that has its own copy (the same relative name, else its upper-case form, else
+ * its lower-case form: modpath_find), else from `data_root`. A mod file is validated against the original executable's limits first
+ * (formats/validate.h): an invalid one is not handed to the game, nor a later mod's or the data root's copy in its place, and
+ * platform_mods_error() says which file failed and why. Names that would leave a mod's folder (.. components, absolute names, symbolic
+ * links out of it) are refused. The folders only say where mods are: the player's files (config, saves, replays) go to the player's
+ * folder, below, so the CD data and the mods' own files are never written. `count` 0: no mods. Returns false, with none set, when a
+ * folder does not exist or there are more than PLATFORM_MODS_MAX. */
+enum { PLATFORM_MODS_MAX = 40 };
+bool platform_set_mods(const char *data_root, const char *const *dirs, int count);
 /* --user DIR: the player's folder is DIR (a portable install, a test); call before platform_open_log. NULL or "": not set. */
 void platform_set_user_dir(const char *dir);
 /* The player's writable folder with its trailing '/': --user DIR, else $TNFS_PREF_DIR (tests, modders), else the OS's own, one folder named after the game

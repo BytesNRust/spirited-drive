@@ -329,6 +329,7 @@ add_library(tnfs_game STATIC
     game/race/dash_nose.c
     game/race/dash_color.c
     game/sys/data_path.c
+    game/sys/mod_set.c
     game/sys/art_cache.c
     game/sys/sha256.c
     game/sys/data_check.c
@@ -1192,6 +1193,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_platform_mods PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_mods COMMAND test_platform_mods)
+    add_executable(test_mod_set tests/test_mod_set.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_mod_set PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_mod_set PRIVATE m)
+    endif()
+    target_compile_options(test_mod_set PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME mod_set COMMAND test_mod_set)
     add_executable(test_platform_cfg_cache tests/test_platform_cfg_cache.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_cfg_cache PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)

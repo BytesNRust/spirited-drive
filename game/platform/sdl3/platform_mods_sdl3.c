@@ -30,46 +30,45 @@
 
 char sdl3_user_override[1024];   /* --user DIR */
 static char mods_data_root[1024];
-static char mods_dir_path[1024];
-static char mods_real_path[1100];
+static struct {
+    char dir[1024];
+    char real[1100];
+} mods[PLATFORM_MODS_MAX];
+static int mods_count;
 static char mods_error[1024];
 
 /* ---- mods overlay: the rules are in formats/modpath.c, the validation in formats/validate.c */
 
-
-bool platform_set_mods(const char *data_root, const char *mods_dir)
+bool platform_set_mods(const char *data_root, const char *const *dirs, int count)
 {
     mods_error[0] = '\0';
-    char fallback[1200];
-    if (mods_dir == NULL || mods_dir[0] == '\0') {   /* the default: <user folder>/mods/, when it is there; no folder, no mods */
-        mods_dir_path[0] = '\0';
-        if (sdl3_user_dir(fallback, sizeof fallback) == NULL || strlen(fallback) + sizeof "mods" >= sizeof fallback) return true;
-        strcat(fallback, "mods");
-        SDL_PathInfo found;
-        if (!SDL_GetPathInfo(fallback, &found) || found.type != SDL_PATHTYPE_DIRECTORY) return true;
-        mods_dir = fallback;
-    }
-    SDL_PathInfo info;
-    if (!SDL_GetPathInfo(mods_dir, &info) || info.type != SDL_PATHTYPE_DIRECTORY) {
-        SDL_snprintf(mods_error, sizeof mods_error, "mods directory %s does not exist", mods_dir);
+    mods_count = 0;
+    if (count > PLATFORM_MODS_MAX) {
+        SDL_snprintf(mods_error, sizeof mods_error, "%d mods folders, more than %d", count, PLATFORM_MODS_MAX);
         port_fatal("platform: %s\n", mods_error);
         return false;
     }
-    SDL_snprintf(mods_data_root, sizeof mods_data_root, "%s", data_root);
-    SDL_snprintf(mods_dir_path, sizeof mods_dir_path, "%s", mods_dir);
+    for (int i = 0; i < count; i++) {
+        SDL_PathInfo info;
+        if (!SDL_GetPathInfo(dirs[i], &info) || info.type != SDL_PATHTYPE_DIRECTORY) {
+            SDL_snprintf(mods_error, sizeof mods_error, "mods directory %s does not exist", dirs[i]);
+            port_fatal("platform: %s\n", mods_error);
+            return false;
+        }
+    }
+    for (int i = 0; i < count; i++) {
+        SDL_snprintf(mods[i].dir, sizeof mods[i].dir, "%s", dirs[i]);
 #ifdef TNFS_HAVE_REALPATH
-    char real[PATH_MAX];
-    if (realpath(mods_dir, real) == NULL) { port_fatal("platform: cannot resolve %s\n", mods_dir); mods_dir_path[0] = '\0'; return false; }
-    SDL_snprintf(mods_real_path, sizeof mods_real_path, "%s", real);
+        char real[PATH_MAX];
+        if (realpath(dirs[i], real) == NULL) { port_fatal("platform: cannot resolve %s\n", dirs[i]); return false; }
+        SDL_snprintf(mods[i].real, sizeof mods[i].real, "%s", real);
 #else
-    SDL_snprintf(mods_real_path, sizeof mods_real_path, "%s", mods_dir);
+        SDL_snprintf(mods[i].real, sizeof mods[i].real, "%s", dirs[i]);
 #endif
+    }
+    SDL_snprintf(mods_data_root, sizeof mods_data_root, "%s", data_root != NULL ? data_root : "");
+    mods_count = count;
     return true;
-}
-
-const char *platform_mods_dir(void)
-{
-    return mods_dir_path[0] != '\0' ? mods_dir_path : NULL;
 }
 
 /* ---- the player's folder moves: an item of `from` the destination lacks is moved there (a folder item by item); one the destination has stays where
@@ -198,17 +197,19 @@ static int is_file(const char *path, void *ctx)
     return SDL_GetPathInfo(path, &info) && info.type == SDL_PATHTYPE_FILE;
 }
 
-/* The mod's copy of `path`, validated; *refused is set when there is a copy the game must not get. */
+/* The first mod's copy of `path`, validated; *refused is set when there is a copy the game must not get. */
 static uint8_t *read_mod_file(const char *path, size_t *size, bool *refused)
 {
     char rel[512], candidate[1600], found[512];
     *refused = false;
     if (!modpath_relative(mods_data_root, path, rel, sizeof rel)) return NULL;
     if (rel[0] == '\0') return NULL;
-    if (!modpath_find(mods_dir_path, rel, is_file, NULL, candidate, sizeof candidate, found, sizeof found)) return NULL;
+    int m = 0;
+    while (m < mods_count && !modpath_find(mods[m].dir, rel, is_file, NULL, candidate, sizeof candidate, found, sizeof found)) m++;
+    if (m == mods_count) return NULL;
 #ifdef TNFS_HAVE_REALPATH
     char real[PATH_MAX];
-    if (realpath(candidate, real) == NULL || !modpath_inside(mods_real_path, real)) {
+    if (realpath(candidate, real) == NULL || !modpath_inside(mods[m].real, real)) {
         SDL_snprintf(mods_error, sizeof mods_error, "mod file %s leaves the mods directory (symbolic link)", found);
         port_fatal("platform: %s\n", mods_error);
         *refused = true;
@@ -241,7 +242,7 @@ static uint8_t *read_mod_file(const char *path, size_t *size, bool *refused)
 
 uint8_t *platform_read_file(const char *path, size_t *size)
 {
-    if (mods_dir_path[0] != '\0') {
+    if (mods_count > 0) {
         bool refused;
         uint8_t *mod = read_mod_file(path, size, &refused);
         if (mod != NULL || refused) return mod;

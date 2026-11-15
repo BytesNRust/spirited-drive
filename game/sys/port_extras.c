@@ -166,9 +166,11 @@ size_t port_extras_format(const PortExtras *e, char *out, size_t size)
 
 void port_extras_take(void *to, const char *key, const char *value) { apply(to, key, value); }
 
-PortExtras port_extras_load(void)
+PortExtras port_extras_load(void) { return port_extras_of_profile(port_settings_profile()); }
+
+PortExtras port_extras_of_profile(int profile)
 {
-    const Profile p = (Profile)port_settings_profile();
+    const Profile p = (Profile)profile;
     PortExtras e = port_profile_extras(p, port_extras_defaults());
     size_t size = 0;
     uint8_t *data = platform_read_user_file(port_profile_file(p), &size);

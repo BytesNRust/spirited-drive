@@ -316,8 +316,8 @@ static void test_the_active_mods_list(void)
     const PortSettings back = port_settings_load();
     CHECK(strcmp(back.mods, list) == 0);
     CHECK_EQ_INT(back.fov_adjust, 3);
-    const char *const dirty = "mods= b ,Bad,b,../x,legacy\n";
-    CHECK(strcmp(port_settings_parse(dirty, strlen(dirty)).mods, "b,legacy") == 0);
+    const char *const dirty = "mods= b ,Bad,b,../x,c-2\n";
+    CHECK(strcmp(port_settings_parse(dirty, strlen(dirty)).mods, "b,c-2") == 0);
     CHECK(strcmp(port_settings_defaults().mods, "") == 0);
     put_file("port.cfg", "profile=stock\n");
     put_file("stock.cfg", "mods=b\n");

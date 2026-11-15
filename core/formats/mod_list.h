@@ -1,6 +1,6 @@
 /* The active mods (dep59 n4): `mods=` in a mode's file, the ids of the mods in <player folder>/mods/ the game reads, in their order: the
  * first one listed wins over the ones after it. Ids are separated by commas, with spaces round them dropped. An id is a mod's (mod_ini.h's
- * rule) or "legacy", the folder the loose files of before were moved to. */
+ * rule). Provisional: the content model's profile replaces it (notes/dep59-content-model-design.md). */
 #ifndef TNFS_MOD_LIST_H
 #define TNFS_MOD_LIST_H
 
@@ -25,7 +25,7 @@ int mod_list_format(const ModList *l, char *out, size_t cap);
 /* The place of `id` in `l`, or -1 */
 int mod_list_index(const ModList *l, const char *id);
 
-/* 1 when `id` may be in the list: a mod's id, or "legacy" */
+/* 1 when `id` may be in the list: a mod's id */
 int mod_list_id_ok(const char *id);
 
 #endif

@@ -11,7 +11,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 # the player's folder is this run's own: the render depends on its settings (a profile, the baked light), and the default folder is shared with every other run on the machine (a gate, a game being played) -- a change in it between the four renders made "a node far from the edit changed"
 user=$work/user
-mkdir -p "$user"
+mkdir -p "$user" && echo "profile=restomod" > "$user/port.cfg"   # mods load in Restomod only (dep59): the four renders all in it
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 export SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software

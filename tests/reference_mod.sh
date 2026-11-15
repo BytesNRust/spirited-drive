@@ -15,6 +15,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 # the player's folder is this run's own: a tnfs with no --user would write its log, settings and replay in the real one
 export TNFS_PREF_DIR="$work/pref"
+mkdir -p "$work/pref" && echo "profile=restomod" > "$work/pref/port.cfg"   # mods load in Restomod only (dep59)
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 export SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software

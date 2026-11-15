@@ -1,7 +1,8 @@
 /* port (the packaged app): where the game's own data files (car_masks/<CAR>/..., car_envmap.png, the light maps) are looked for. An app opened from Finder has / as its
  * working directory, so a relative "data/..." finds nothing; the data lives beside the program instead (on macOS SDL_GetBasePath() is the bundle's Contents/Resources/, our
  * files Contents/Resources/data/). The candidates, in the order they are tried:
- *   0. <mod>/<relative>                  a mod's own copy (the mods folder, one overlay: data_path_set_mod); the path has no data/ in it, as in the game's own data/ folder
+ *   0. <mod>/<relative>                  a mod's own copy: the first of the mods in effect that has the file (data_path_set_mods, highest first); the path has no data/ in
+ *                                        it, as in the game's own data/ folder
  *   1. <base>data/<relative>             the program's own data (the platform sets the base once: data_path_set_base)
  *   2. data/<relative>                   the working directory (a program run from the repository)
  *   3. <source_dir>/data/<relative>      a development build's source tree; the release build has none (TNFS_RELEASE passes NULL)
@@ -16,8 +17,9 @@ enum { DATA_PATH_MAX = 1024, DATA_PATH_CANDIDATES = 4 };
 /* The program's base directory (with or without its trailing slash), kept for data_path_candidates; NULL or "" for none. */
 void data_path_set_base(const char *base);
 
-/* The mods folder, kept for data_path_candidates; NULL or "" for none. */
-void data_path_set_mod(const char *mod);
+/* The mods folders in effect, highest first (mod_set.h), kept for data_path_candidates; `count` 0 for none. */
+enum { DATA_PATH_MODS_MAX = 40 };
+void data_path_set_mods(const char *const *dirs, int count);
 
 /* The candidate paths of `relative` for the mod folder, the base and `source_dir` (each NULL: none) in that order, into `paths` (the skipped ones are left empty); returns how many there are.
  * A path that would not fit is skipped. */

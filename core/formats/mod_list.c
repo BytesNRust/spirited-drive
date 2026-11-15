@@ -6,7 +6,7 @@
 
 int mod_list_id_ok(const char *id)
 {
-    return id != NULL && (mod_ini_id_ok(id) || strcmp(id, "legacy") == 0);
+    return id != NULL && mod_ini_id_ok(id);
 }
 
 int mod_list_index(const ModList *l, const char *id)

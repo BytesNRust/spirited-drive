@@ -10,9 +10,9 @@
 static void test_reads_in_order(void)
 {
     ModList l;
-    CHECK_EQ_INT(mod_list_parse("coastal-night, legacy ,b2", &l), 0);
+    CHECK_EQ_INT(mod_list_parse("coastal-night, night-two ,b2", &l), 0);
     CHECK_EQ_INT(l.count, 3);
-    CHECK(strcmp(l.ids[0], "coastal-night") == 0 && strcmp(l.ids[1], "legacy") == 0 && strcmp(l.ids[2], "b2") == 0);
+    CHECK(strcmp(l.ids[0], "coastal-night") == 0 && strcmp(l.ids[1], "night-two") == 0 && strcmp(l.ids[2], "b2") == 0);
     CHECK_EQ_INT(mod_list_parse("", &l), 0);
     CHECK_EQ_INT(l.count, 0);
     CHECK_EQ_INT(mod_list_parse(NULL, &l), 0);
@@ -46,9 +46,9 @@ static void test_writes_back(void)
 {
     ModList l;
     char text[MOD_LIST_TEXT_MAX];
-    mod_list_parse(" b , legacy,a ", &l);
+    mod_list_parse(" b , c-2,a ", &l);
     CHECK_EQ_INT(mod_list_format(&l, text, sizeof text), 1);
-    CHECK(strcmp(text, "b,legacy,a") == 0);
+    CHECK(strcmp(text, "b,c-2,a") == 0);
     l.count = 0;
     CHECK_EQ_INT(mod_list_format(&l, text, sizeof text), 1);
     CHECK(strcmp(text, "") == 0);
