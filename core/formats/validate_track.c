@@ -206,17 +206,41 @@ static int cfm_is_opened(const char *base)
     return 0;
 }
 
+/* the model's root, 1 when it is a readable wwww table of 4 children; else 0 and `why` says what is wrong */
+static int car_root(const uint8_t *d, size_t n, Chunk *root, const char **why)
+{
+    ChunkResult cr = chunk_open(root, d, n);
+    ChunkTotals totals;
+    if (cr == CHUNK_OK) cr = chunk_survey(root, &totals);
+    *why = cr != CHUNK_OK ? chunk_result_str(cr) : "a car model is a wwww table of 4 children";
+    return cr == CHUNK_OK && root->kind == CHUNK_KIND_HEADER && root->count >= 4;
+}
+
+static void car_checks(const Chunk *root, const char *name, int race_car, Report *r);
+
 void validate_car_cfm(const uint8_t *d, size_t n, const char *name, Report *r)
 {
     Chunk root;
-    ChunkResult cr = chunk_open(&root, d, n);
-    ChunkTotals totals;
-    if (cr == CHUNK_OK) cr = chunk_survey(&root, &totals);
-    if (cr != CHUNK_OK || root.kind != CHUNK_KIND_HEADER || root.count < 4) {
-        report_add(r, "FILE.READABLE", 0, "%s: %s (file is %zu bytes)", name, cr != CHUNK_OK ? chunk_result_str(cr) : "a car model is a wwww table of 4 children", n);
+    const char *why;
+    if (!car_root(d, n, &root, &why)) {
+        report_add(r, "FILE.READABLE", 0, "%s: %s (file is %zu bytes)", name, why, n);
         return;
     }
-    if (!cfm_is_opened(validate_base_name(name))) return;
+    const char *base = validate_base_name(name);
+    if (cfm_is_opened(base)) car_checks(&root, name, is_race_car(base), r);
+}
+
+void validate_car_piece_cfm(const uint8_t *d, size_t n, const char *name, Report *r)
+{
+    Chunk root;
+    const char *why;
+    if (car_root(d, n, &root, &why)) car_checks(&root, name, 1, r);   /* else validate_car_cfm has said so */
+}
+
+/* the checks of a model the race opens; a race car's (one the player may drive) also needs its turn signals and tyres */
+static void car_checks(const Chunk *root_chunk, const char *name, int race_car, Report *r)
+{
+    const Chunk root = *root_chunk;
     Chunk high, high_bitmaps, low, low_bitmaps;
     chunk_child(&root, CFM_CHILD_MESH_HIGH, &high);
     chunk_child(&root, CFM_CHILD_BITMAPS_HIGH, &high_bitmaps);
@@ -260,8 +284,7 @@ void validate_car_cfm(const uint8_t *d, size_t n, const char *name, Report *r)
         else if (found > limit_find("CFM.ELEMENT_INDEX")->max)
             report_add(r, "CFM.ELEMENT_INDEX", found, "%s: element '%s' is number %d", name, elements[e], found);
     }
-    const char *base = validate_base_name(name);
-    if (!is_race_car(base)) return;
+    if (!race_car) return;
     /* race cars: the parts the player's car needs (section A) and the tyre labels (texture references) */
     static const char *const parts[] = { "left_turn", "right_turn" };
     for (int p = 0; p < 2; ++p) {

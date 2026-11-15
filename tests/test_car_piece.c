@@ -1,14 +1,20 @@
 /* dep59: the rules of a car piece (formats/car_piece.h), one for the game and the studio: the eight words of the original race models,
- * the stems an added car may take, the paths of its three files. */
+ * the stems an added car may take, the paths of its three files. The model's checks (tools stage A): the names the race looks up
+ * (PIECE.MODEL_NAME and the race car's CFM.REQUIRED_NAME), the indexes the polygons hold (PIECE.MODEL_INDEX), the polygons no group
+ * draws (PIECE.MODEL_GROUPS, a warning) and a PDN body that does not match the model (PIECE.BODY_SIZE, a warning). */
 #include "formats/car_piece.h"
+#include "formats/chunk.h"
+#include "formats/mesh.h"
 #include "formats/mod_ini.h"
 #include "formats/pbs.h"
+#include "formats/pdn.h"
 #include "formats/validate.h"
 #include "test.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 static void test_words(void)
 {
@@ -196,11 +202,136 @@ static void test_the_check(void)
     }
 }
 
+/* ---- the model: the Viper's CFM and PDN edited in place */
+
+typedef enum { TABLE_A, TABLE_B, TABLE_C, TABLE_LABEL } Table;
+
+/* the high-detail mesh of the CFM in `cfm` (raw, as the CD's) */
+static int high_mesh(uint8_t *cfm, size_t size, Mesh *mesh)
+{
+    Chunk root, high;
+    return chunk_open(&root, cfm, size) == CHUNK_OK && chunk_child(&root, CFM_CHILD_MESH_HIGH, &high) == CHUNK_OK &&
+           mesh_open(mesh, &high) == MESH_OK;
+}
+
+/* the record of `table` named `name` (any case) gets the name `to`; 1 when one was found */
+static int rename_record(uint8_t *cfm, size_t size, Table table, const char *name, const char *to)
+{
+    Mesh m;
+    if (!high_mesh(cfm, size, &m)) return 0;
+    static const uint32_t SIZE[] = { 20, 28, 12, 12 };
+    const uint32_t offset[] = { m.section_a_offset, m.section_b_offset, m.section_c_offset, m.label_offset };
+    const uint32_t count[] = { m.section_a_count, m.section_b_count, m.section_c_count, m.label_count };
+    for (uint32_t i = 0; i < count[table]; i++) {
+        uint8_t *p = (uint8_t *)m.base + offset[table] + (size_t)i * SIZE[table];
+        char stored[9] = { 0 };
+        memcpy(stored, p, 8);
+        if (strcasecmp(stored, name) != 0) continue;
+        memset(p, 0, 8);
+        memcpy(p, to, strlen(to) < 8 ? strlen(to) : 8);
+        return 1;
+    }
+    return 0;
+}
+
+static const char *model_edit_name;
+
+static void no_smoke(uint8_t *cfm, size_t n) { model_edit_name = rename_record(cfm, n, TABLE_C, "smok", "smog") ? "smok" : NULL; }
+static void no_light(uint8_t *cfm, size_t n) { model_edit_name = rename_record(cfm, n, TABLE_LABEL, "lt_frnt", "lt_frnx") ? "lt_frnt" : NULL; }
+static void no_point(uint8_t *cfm, size_t n) { model_edit_name = rename_record(cfm, n, TABLE_C, "fl0", "fl9") ? "fl0" : NULL; }
+static void no_turn(uint8_t *cfm, size_t n) { model_edit_name = rename_record(cfm, n, TABLE_A, "left_tur", "left_tux") ? "left_turn" : NULL; }
+static void no_inside(uint8_t *cfm, size_t n) { model_edit_name = rename_record(cfm, n, TABLE_B, "inside", "insidx") ? "inside" : NULL; }
+/* polygon 0's texture past the table */
+static void bad_texture(uint8_t *cfm, size_t n)
+{
+    Mesh m;
+    model_edit_name = NULL;
+    if (!high_mesh(cfm, n, &m) || m.texture_count >= 0xff) return;
+    ((uint8_t *)m.base + m.polygon_offset)[2] = 0xff;
+    model_edit_name = "texture";
+}
+/* polygon 0's first corner past the vertex table */
+static void bad_vertex(uint8_t *cfm, size_t n)
+{
+    Mesh m;
+    MeshPolygon p;
+    model_edit_name = NULL;
+    if (!high_mesh(cfm, n, &m) || mesh_polygon(&m, 0, &p) != MESH_OK || p.vertex_slot >= m.vertex_map_slots) return;
+    uint8_t *slot = (uint8_t *)m.base + m.vertex_map_offset + (size_t)p.vertex_slot * 4;
+    slot[0] = slot[1] = slot[2] = 0xff, slot[3] = 0;
+    model_edit_name = "vertex";
+}
+/* the groups the race can do without (outside, convex) unnamed: what only they drew is in no group */
+static void lone_inside(uint8_t *cfm, size_t n)
+{
+    const int b = rename_record(cfm, n, TABLE_B, "outside", "outsidx"), c = rename_record(cfm, n, TABLE_B, "convex", "convexx");
+    model_edit_name = b || c ? "group" : NULL;
+}
+
+/* car_piece_check of the good card on the Viper's files, its CFM given to `cfm_edit` and its PDN's first word multiplied by `pdn_scale` */
+static int check_model(void (*cfm_edit)(uint8_t *, size_t), int pdn_scale, Report *r)
+{
+    FileSet set;
+    report_init(r);
+    source = "DVIPER";
+    if (!piece(&set, CFM, PDN, PBS, NULL)) return -1;
+    SetFile *cfm = (SetFile *)fileset_find(&set, CFM), *pdn = (SetFile *)fileset_find(&set, PDN);
+    if (cfm_edit != NULL) cfm_edit(cfm->data, cfm->size);
+    if (pdn_scale != 1) {
+        uint8_t rec[PDN_SIZE];
+        size_t len = 0;
+        static uint8_t packed[4096];
+        CHECK(pdn_read(rec, pdn->data, pdn->size));
+        const int32_t x = pdn_i32(rec, 0) * pdn_scale;
+        rec[0] = (uint8_t)x, rec[1] = (uint8_t)(x >> 8), rec[2] = (uint8_t)(x >> 16), rec[3] = (uint8_t)(x >> 24);
+        CHECK(pdn_pack(rec, packed, sizeof packed, &len) == QFS_OK);
+        free(pdn->data);
+        pdn->data = malloc(len), pdn->size = len;
+        memcpy(pdn->data, packed, len);
+    }
+    const ModInfo m = card(GOOD);
+    const int ok = car_piece_check(&m, &set, r);
+    fileset_free(&set);
+    return ok;
+}
+
+static void test_the_model(void)
+{
+    Report r;
+    if (check_model(NULL, 1, &r) < 0) {
+        report_free(&r);
+        return;
+    }
+    CHECK_EQ_INT((int)r.count, 0);
+    report_free(&r);
+    static const struct { void (*edit)(uint8_t *, size_t); const char *id; } FATAL[] = {
+        { no_smoke, "PIECE.MODEL_NAME" }, { no_light, "PIECE.MODEL_NAME" }, { no_point, "PIECE.MODEL_NAME" },
+        { no_turn, "CFM.REQUIRED_NAME" }, { no_inside, "CFM.REQUIRED_NAME" },
+        { bad_texture, "PIECE.MODEL_INDEX" }, { bad_vertex, "PIECE.MODEL_INDEX" },
+    };
+    for (size_t i = 0; i < sizeof FATAL / sizeof FATAL[0]; i++) {
+        const int ok = check_model(FATAL[i].edit, 1, &r);
+        CHECK(model_edit_name != NULL);   /* the Viper has what the edit changes */
+        CHECK_EQ_INT(ok, 0);
+        if (model_edit_name != NULL && !has(&r, FATAL[i].id, model_edit_name))
+            fprintf(stderr, "model %zu: no %s naming %s\n", i, FATAL[i].id, model_edit_name);
+        CHECK(model_edit_name != NULL && has(&r, FATAL[i].id, model_edit_name));
+        report_free(&r);
+    }
+    CHECK_EQ_INT(check_model(lone_inside, 1, &r), 1);   /* a warning: those polygons are not drawn close up */
+    CHECK(model_edit_name != NULL && has(&r, "PIECE.MODEL_GROUPS", NULL));
+    report_free(&r);
+    CHECK_EQ_INT(check_model(NULL, 2, &r), 1);   /* the body twice as wide as the model: a warning */
+    CHECK(has(&r, "PIECE.BODY_SIZE", PDN));
+    report_free(&r);
+}
+
 int main(void)
 {
     test_words();
     test_stems();
     test_paths();
     test_the_check();
+    test_the_model();
     return TEST_REPORT();
 }

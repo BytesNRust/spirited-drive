@@ -56,6 +56,10 @@ const Limit limit_table[] = {
     { "PIECE.STEM", "a car piece's stem is 1..8 of A-Z 0-9 and no original car's (nor 'M' + one)", 8, "port (dep59): car_piece_check, 004c5660 (the racers' names)", 1, 0 },
     { "PIECE.FROM", "sound_from and ai_from are given, and they and dash_from name one of the eight original cars", 0, "port (dep59): car_piece_check", 1, 0 },
     { "PIECE.FILE_MISSING", "a car piece holds its CFM, PDN and PBS under its stem", 0, "port (dep59): car_piece_check, 00457d40 (the loader)", 1, 0 },
+    { "PIECE.MODEL_NAME", "a car piece's model has the exhaust point 'smok', the lights' labels lt_frnt rt_frnt lt_rear rt_rear and their points fl0 fl1 fr0 fr1 rl0 rl1 rr0 rr1 (else the race hangs)", 0, "00457d40 (car_model.c signals)", 1, 0 },
+    { "PIECE.MODEL_INDEX", "every polygon of a car piece's model names a texture, vertices and uvs inside their tables", 0, "port (dep59): car_piece_check", 1, 0 },
+    { "PIECE.MODEL_GROUPS", "every polygon of a car piece's high-detail model is in a group (inside, outside, surface, convex); one in none is not drawn close up", 0, "00457d40 (the parts)", 0, 0 },
+    { "PIECE.BODY_SIZE", "a car piece's PDN body half sizes, those not 0, are within a tenth of the model's (the race collides with the PDN's)", 0, "0040fa3c (car_body.c)", 0, 0 },
     { "PIECE.SPECS", "a car piece's PBS has its checksum, power > 0, unknown_320 and force_scale not 0 (divisors), torque_points 1..58 (the curve's room before shift_rpm)", 58, "004400f4 (checksum), 00409a04 (torque curve), 0042f138 (force_scale)", 1, 0 },
 
     /* installation */
