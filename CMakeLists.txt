@@ -105,6 +105,7 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 add_library(tnfs_game STATIC
     game/frontend/best_times.c
     game/frontend/best_times_pages.c
+    game/frontend/record_conditions.c
     game/frontend/cheat_code.c
     game/frontend/config_dat.c
     game/frontend/extras_apply.c

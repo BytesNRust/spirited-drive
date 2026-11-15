@@ -1,6 +1,6 @@
 #include "game/frontend/results_screen.h"
 
-#include "game/frontend/best_times_pages.h"
+#include "game/frontend/record_conditions.h"
 #include "game/frontend/records_route.h"
 
 #include <stdio.h>
@@ -79,13 +79,11 @@ int results_row_shown(const ResultsInputs *in, const uint8_t *row)
 
 void results_conditions(const ResultsInputs *in, int slot, int32_t y, int speed, const ResultsOps *ops)
 {
-    enum { CAR_COLUMN = 0x1d6, GAP = 6, DROP = 5 };   /* Best Times' gap before the car and drop under the row */
-    char text[TEXT];
+    enum { CAR_COLUMN = 0x1d6, GAP = 6 };   /* Best Times' gap before the car */
     if (in->marks == NULL || in->marks->line == NULL || in->marks->conds == NULL || ops->small_text == NULL) return;
     if (slot < 0 || slot >= RECORDS_MARK_SLOTS) return;
-    best_times_conditions_text(in->marks->conds[slot], text, sizeof text);
-    const int32_t num = speed ? 2 : 1, den = speed ? 5 : 2;
-    ops->small_text(ops->ctx, text, CAR_COLUMN - GAP - ops->small_width(ops->ctx, text, num, den), y + DROP, num, den);
+    const ConditionsPen pen = { ops->ctx, ops->small_text, ops->small_width, ops->small_height };
+    record_conditions_draw(in->marks->conds[slot], CAR_COLUMN - GAP, y, speed ? 2 : 1, speed ? 5 : 2, &pen);
 }
 
 static void place_text(int place, int32_t x, const ResultsOps *ops)

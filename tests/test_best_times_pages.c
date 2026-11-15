@@ -2,6 +2,7 @@
  * first the last), the keys' row through the strip and the footer (a stage has no laps), a new track's laps and page, and the short
  * words of a row's conditions. */
 #include "game/frontend/best_times_pages.h"
+#include "game/frontend/record_conditions.h"
 #include "game/race/weather.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
@@ -146,27 +147,69 @@ static void test_another_track(void)
     CHECK_EQ_INT(p.laps, 9);
 }
 
-/* the short words: weather (snow and the wet grip over the sky), time, difficulty (M when the axes differ), "-" for an imported row */
+/* the block's words: weather (snow and the wet grip over the sky) and time on the first line, the difficulty's word on the second (MIXED
+ * when the axes differ), "-" and nothing for an imported row */
+static void check_lines(RecordMarks m, const char *first, const char *second)
+{
+    char a[16], b[16];
+    record_conditions_lines(m, a, b, sizeof a);
+    CHECK(strcmp(a, first) == 0);
+    CHECK(strcmp(b, second) == 0);
+}
+
 static void test_the_conditions_words(void)
 {
-    char text[24];
-    best_times_conditions_text(race_records_conditions_of(WEATHER_RAIN, 0, 0, LIGHT_TIME_DUSK, 2, 2, 2), text, sizeof text);
-    CHECK(strcmp(text, "RAIN DUSK H") == 0);
-    best_times_conditions_text(race_records_conditions_of(WEATHER_CLEAR, 0, 0, LIGHT_TIME_DAY, 0, 0, 0), text, sizeof text);
-    CHECK(strcmp(text, "CLR DAY O") == 0);
-    best_times_conditions_text(race_records_conditions_of(WEATHER_CLEAR, 1, 0, LIGHT_TIME_NIGHT, 1, 1, 1), text, sizeof text);
-    CHECK(strcmp(text, "SNOW NGT E") == 0);
-    best_times_conditions_text(race_records_conditions_of(WEATHER_FOG, 0, 1, LIGHT_TIME_DAWN, 0, 1, 2), text, sizeof text);
-    CHECK(strcmp(text, "WET DAWN M") == 0);
-    best_times_conditions_text(race_records_conditions_of(WEATHER_STORM, 0, 0, LIGHT_TIME_DAY, 1, 1, 1), text, sizeof text);
-    CHECK(strcmp(text, "STRM DAY E") == 0);
+    check_lines(race_records_conditions_of(WEATHER_RAIN, 0, 0, LIGHT_TIME_DUSK, 2, 2, 2), "RAIN DUSK", "HARD");
+    check_lines(race_records_conditions_of(WEATHER_CLEAR, 0, 0, LIGHT_TIME_DAY, 0, 0, 0), "CLR DAY", "ORIGINAL");
+    check_lines(race_records_conditions_of(WEATHER_CLEAR, 1, 0, LIGHT_TIME_NIGHT, 1, 1, 1), "SNOW NGT", "EASY");
+    check_lines(race_records_conditions_of(WEATHER_FOG, 0, 1, LIGHT_TIME_DAWN, 0, 1, 2), "WET DAWN", "MIXED");
+    check_lines(race_records_conditions_of(WEATHER_STORM, 0, 0, LIGHT_TIME_DUSK, 0, 0, 0), "STRM DUSK", "ORIGINAL");
     const RecordMarks old = { 0 };
-    best_times_conditions_text(old, text, sizeof text);
-    CHECK(strcmp(text, "-") == 0);
+    check_lines(old, "-", "");
+}
+
+/* the block drawn: right edge on `right`, the second line centred under the first, both within the row's full-size line */
+static struct { char text[4][16]; int32_t x[4], y[4], num[4], den[4]; int n; } pen_drawn;
+static void pen_text(void *ctx, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    (void)ctx;
+    if (pen_drawn.n >= 4) return;
+    snprintf(pen_drawn.text[pen_drawn.n], 16, "%s", text);
+    pen_drawn.x[pen_drawn.n] = x, pen_drawn.y[pen_drawn.n] = y, pen_drawn.num[pen_drawn.n] = num, pen_drawn.den[pen_drawn.n] = den;
+    pen_drawn.n++;
+}
+static int32_t pen_width(void *ctx, const char *text, int32_t num, int32_t den) { (void)ctx; return (int32_t)strlen(text) * 16 * num / den; }
+static int32_t pen_height(void *ctx) { (void)ctx; return 20; }
+
+static void test_the_conditions_block(void)
+{
+    const ConditionsPen pen = { NULL, pen_text, pen_width, pen_height };
+    memset(&pen_drawn, 0, sizeof pen_drawn);
+    record_conditions_draw(race_records_conditions_of(WEATHER_STORM, 0, 0, LIGHT_TIME_DUSK, 0, 0, 0), 400, 100, 1, 2, &pen);
+    CHECK_EQ_INT(pen_drawn.n, 2);
+    CHECK(strcmp(pen_drawn.text[0], "STRM DUSK") == 0 && strcmp(pen_drawn.text[1], "ORIGINAL") == 0);
+    CHECK_EQ_INT(pen_drawn.x[0], 400 - 72);                  /* the wider line ends on `right` */
+    CHECK_EQ_INT(pen_drawn.x[1], 400 - 72 + (72 - 64) / 2);  /* the second centred under it */
+    CHECK_EQ_INT(pen_drawn.y[0], 100);                       /* two half lines fill the row's line */
+    CHECK_EQ_INT(pen_drawn.y[1], 110);
+    CHECK(pen_drawn.num[1] == 1 && pen_drawn.den[1] == 2);
+    memset(&pen_drawn, 0, sizeof pen_drawn);
+    record_conditions_draw(race_records_conditions_of(WEATHER_CLEAR, 0, 0, LIGHT_TIME_DAY, 1, 1, 1), 400, 100, 2, 5, &pen);
+    CHECK_EQ_INT(pen_drawn.x[0], 400 - 44);                  /* "CLR DAY" at 2/5 is the wider: "EASY" centred under it */
+    CHECK_EQ_INT(pen_drawn.x[1], 400 - 44 + (44 - 25) / 2);
+    CHECK_EQ_INT(pen_drawn.y[0], 102);
+    CHECK_EQ_INT(pen_drawn.y[1], 110);
+    CHECK(pen_drawn.y[1] + 8 <= 100 + 20);                   /* within the row's line: the next row is untouched */
+    memset(&pen_drawn, 0, sizeof pen_drawn);
+    const RecordMarks old = { 0 };
+    record_conditions_draw(old, 400, 100, 1, 2, &pen);
+    CHECK_EQ_INT(pen_drawn.n, 1);
+    CHECK(strcmp(pen_drawn.text[0], "-") == 0 && pen_drawn.x[0] == 400 - 8 && pen_drawn.y[0] == 105);
 }
 
 int main(void)
 {
+    test_the_conditions_block();
     test_the_layout_is_a_carousel();
     test_the_cheats_turn_over_from_every_item();
     test_the_laps_are_a_carousel_of_the_counts_there_are();

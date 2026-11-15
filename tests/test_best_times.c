@@ -158,6 +158,7 @@ static int32_t f_plus_scaled_width(void *ctx, const char *text, int32_t num, int
     (void)ctx;
     return (int32_t)strlen(text) * (fk.char_w ? fk.char_w : 8) * num / den;
 }
+static int32_t f_plus_line_height(void *ctx) { (void)ctx; return 20; }
 static const BestTimesOps OPS = {
     .pointer_move_to = f_move_to,
     .load_art = f_load_art,
@@ -208,6 +209,7 @@ static const BestTimesOps OPS = {
     .plus_text_width = f_plus_text_width,
     .plus_scaled = f_plus_scaled,
     .plus_scaled_width = f_plus_scaled_width,
+    .plus_line_height = f_plus_line_height,
 };
 
 enum { STAGE = 1, CIRCUIT = 3 };   /* Coastal; Rusty Springs (4, 8, 16 laps) */
@@ -357,7 +359,8 @@ static void test_a_row_shows_its_marks(void)
     (void)run(&plus, CIRCUIT);
     CHECK(was_drawn("ACE"));
     CHECK(was_drawn("WL"));
-    CHECK(was_drawn("RAIN DUSK H"));
+    CHECK(was_drawn("RAIN DUSK"));
+    CHECK(was_drawn("HARD"));
     CHECK(was_drawn("WARRIOR"));
     race_records_reset();
 }

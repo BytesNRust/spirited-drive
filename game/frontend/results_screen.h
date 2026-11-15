@@ -71,9 +71,11 @@ typedef struct ResultsOps {
     /* port: a word of the header band (results_header_marks): `text` from x, its letters' middle on y_mid, at the font's size or
      * smaller so it stays within `room` pixels (central_glue's cg_band_text). NULL: text_at at RESULTS_LINE_* as before. */
     void (*band_text)(void *ctx, const char *text, int32_t x, int32_t y_mid, int32_t room);
-    /* port (dep55): a record's conditions in the row's style at num/den of the font's size from (x, y), and their width (NULL: none drawn) */
+    /* port (dep55): a record's conditions in the row's style at num/den of the font's size from (x, y), their width and the font's line
+     * at full size (record_conditions.h's pen; NULL: none drawn) */
     void (*small_text)(void *ctx, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);
     int32_t (*small_width)(void *ctx, const char *text, int32_t num, int32_t den);
+    int32_t (*small_height)(void *ctx);
 } ResultsOps;
 
 enum { RESULTS_GAME = 0x5bc, RESULTS_IMAGE = 0x5f34, RESULTS_CARS = 12 };
@@ -152,8 +154,8 @@ void results_mark_total(const ResultsInputs *in, int row, int32_t y, const Resul
  * table line); in Restomod a row with a record only (its set word, race_records_row_set), as an empty row's longest time, car 0
  * and gearbox 0 are no record (the original's empty table shows nothing either) */
 int results_row_shown(const ResultsInputs *in, const uint8_t *row);
-/* port (dep55): Restomod's record row's conditions (best_times_conditions_text) as Best Times shows them: small, ending just left of the
- * car's column, a little under the row's y; a speed's (`speed`) smaller, as it runs wider than a time. Nothing in Stock and Restored. */
+/* port (dep55): Restomod's record row's conditions as Best Times shows them (record_conditions_draw): the small two-line block ending just
+ * left of the car's column, within the row's line; a speed's (`speed`) smaller, as it runs wider than a time. Nothing in Stock and Restored. */
 void results_conditions(const ResultsInputs *in, int slot, int32_t y, int speed, const ResultsOps *ops);
 
 /* 0045cea0 (ax: ask 0045bad8 for the records beaten): stats/standseg.qfs

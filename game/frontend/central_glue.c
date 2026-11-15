@@ -444,6 +444,13 @@ void cg_average_text(void *ctx, char *out, int32_t time, int32_t distance)
     stat_average_speed_text(out, resource_kmh(), time, distance);
 }
 
+/* port (dep55): the font's line at full size, for the records' conditions block */
+static int32_t line_height(void *ctx)
+{
+    (void)ctx;
+    return text_line_height();
+}
+
 /* 004676d8 from the track screen on config.dat's image and its records; ctx is the track screen's pointer */
 static int32_t best_times(void *ctx)
 {
@@ -462,7 +469,8 @@ static int32_t best_times(void *ctx)
         select_default, hide, nothing, nothing, flip, show_dialog, buttons, fade_in, deadline_set, sound, ticks,
         activate_dialog, cg_key, click, cg_image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off_dialog,
         music,
-        cg_deadline_passed, music_fade_out, music_end, ctx, cg_plus_text, plus_text_width, glue_plus_text_scaled, glue_plus_text_width_scaled };   /* port (dep55): the pages' words */
+        cg_deadline_passed, music_fade_out, music_end, ctx, cg_plus_text, plus_text_width, glue_plus_text_scaled, glue_plus_text_width_scaled,
+        line_height };   /* port (dep55): the pages' words */
     input_page_keys(st.plus != NULL);   /* port (dep55): Page Up / Page Down turn the pages */
     const int32_t result = best_times_screen(&in, &st, ctx, &ops);
     input_page_keys(0);

@@ -36,9 +36,4 @@ void best_times_pages_focus(BestTimesPlus *plus, int track, int dir);
  * items' rects */
 void best_times_pages_draw(const BestTimesInputs *in, const BestTimesState *st, int lit, BestPagesHits *hits, const BestTimesOps *ops);
 
-/* The words of a row's conditions, four letters each: weather (CLR FOG RAIN STRM, SNOW, WET for the wet grip), time of day (DAWN DAY DUSK
- * NGT), difficulty (O Original, E Easy, H Hard, M when the axes differ): "RAIN DUSK H"; "-" for a row from
- * before them */
-void best_times_conditions_text(RecordMarks m, char *out, int size);
-
 #endif
