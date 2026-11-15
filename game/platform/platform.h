@@ -113,6 +113,10 @@ bool platform_mouse(int *x, int *y, unsigned *buttons);
  * folder does not exist or there are more than PLATFORM_MODS_MAX. */
 enum { PLATFORM_MODS_MAX = 40 };
 bool platform_set_mods(const char *data_root, const char *const *dirs, int count);
+/* port (dep59 step 2): whether the folder `index` of platform_set_mods' may serve the game's file `rel` (its path below the data root, as
+ * the game asked for it); a folder that may not is passed over, as if it had no such file. NULL (the default): every file. */
+typedef bool (*PlatformModServe)(int index, const char *rel);
+void platform_set_mod_serve(PlatformModServe serve);
 /* --user DIR: the player's folder is DIR (a portable install, a test); call before platform_open_log. NULL or "": not set. */
 void platform_set_user_dir(const char *dir);
 /* The player's writable folder with its trailing '/': --user DIR, else $TNFS_PREF_DIR (tests, modders), else the OS's own, one folder named after the game
@@ -152,6 +156,20 @@ char **platform_list_user_files(const char *pattern, int *count);
 /* The same for the files of a directory of the data (the CD's own, read only) */
 char **platform_list_files(const char *dir, const char *pattern, int *count);
 void platform_free_names(char **names);
+
+/* port (dep59 step 2): folders below the player's folder, for the installed mods (game/sys/mod_store.h). `rel` is a clean relative path
+ * (modpath_clean's rules: no "..", not absolute) below the player's folder; none of these follows a symbolic link: a link anywhere on the
+ * way (the player's folder's own path apart) makes the call fail, and remove_tree removes a link inside the tree as a link, never what
+ * it points at. What changes the tree (mkdirs, rename, remove_tree, write_file_at) changes only mods/ and mods_backup/ and what is in them:
+ * any other `rel` fails with a line in the log. */
+bool platform_user_mkdirs(const char *rel);                          /* each missing folder of `rel`; true when it is a folder after */
+bool platform_user_rename(const char *from_rel, const char *to_rel);   /* atomic within the folder; `to_rel` must not exist */
+bool platform_user_remove_tree(const char *rel);                     /* true when it is gone (or was never there) */
+bool platform_user_is_dir(const char *rel);
+bool platform_user_exists(const char *rel);                          /* anything there, a link too */
+char **platform_user_list_dirs(const char *rel, int *count);          /* its folders' names, sorted; free with platform_free_names */
+uint8_t *platform_user_read_file_at(const char *rel, size_t *size);   /* release with platform_free_file */
+bool platform_user_write_file_at(const char *rel, const uint8_t *data, size_t size);   /* its folder must exist; never over a link */
 
 /* Shows an 8-bit indexed framebuffer of config->width x config->height. */
 void platform_present(const uint8_t *pixels, const PlatformColor palette[256]);

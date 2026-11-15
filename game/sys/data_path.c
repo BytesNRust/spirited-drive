@@ -7,7 +7,11 @@
 
 static char base_dir[DATA_PATH_MAX];
 static char mod_dirs[DATA_PATH_MODS_MAX][DATA_PATH_MAX];
+static int mod_index[DATA_PATH_MODS_MAX];   /* each one's index in data_path_set_mods' list */
 static int mod_count;
+static DataPathServe mod_serve;
+
+void data_path_set_serve(DataPathServe serve) { mod_serve = serve; }
 
 void data_path_set_base(const char *base)
 {
@@ -19,7 +23,7 @@ void data_path_set_mods(const char *const *dirs, int count)
 {
     mod_count = 0;
     for (int i = 0; i < count && mod_count < DATA_PATH_MODS_MAX; i++)
-        if (dirs[i] != NULL && dirs[i][0] != '\0' && strlen(dirs[i]) < DATA_PATH_MAX) snprintf(mod_dirs[mod_count++], DATA_PATH_MAX, "%s", dirs[i]);
+        if (dirs[i] != NULL && dirs[i][0] != '\0' && strlen(dirs[i]) < DATA_PATH_MAX) mod_index[mod_count] = i, snprintf(mod_dirs[mod_count++], DATA_PATH_MAX, "%s", dirs[i]);
 }
 
 static int join(char *out, const char *dir, const char *middle, const char *relative)
@@ -49,7 +53,7 @@ static const char *mod_with(const char *relative)
 {
     char path[DATA_PATH_MAX];
     for (int i = 0; relative != NULL && relative[0] != '\0' && i < mod_count; i++)
-        if (join(path, mod_dirs[i], "", relative) && data_path_exists(path)) return mod_dirs[i];
+        if (join(path, mod_dirs[i], "", relative) && data_path_exists(path) && (mod_serve == NULL || mod_serve(mod_index[i], relative))) return mod_dirs[i];
     return NULL;
 }
 

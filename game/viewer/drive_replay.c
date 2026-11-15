@@ -10,6 +10,7 @@
 #include "game/race/race_chase.h"
 #include "game/race/race_replay.h"
 #include "game/race/race_replay_image.h"
+#include "game/sys/mod_set.h"
 #include "game/sys/reverse_track.h"
 #include "game/race/race_sound.h"
 #include "game/race/dash_controls.h"
@@ -506,6 +507,10 @@ static void save(void *ctx)
         records[REPLAY_RECORDS * REPLAY_RECORD_SIZE];
     RaceState *race = &r->sim->race;
     if (r->recording == NULL || reverse_track_running()) return;   /* port: a reversed race's file would play on the track's own way round */
+    if (mod_set_session_modified()) {   /* port (dep59, temporary until step 5): --mods served a file that changes the race */
+        port_log("replay: not kept: --mods served a file that changes the race\n");
+        return;
+    }
     race_replay_image_setup(race, r->seed, setup);
     race_replay_image_put(race, &r->dir, cuts, seek, records);
     const RaceReplaySave in = { race->unknown_4fbb0c, race->playback, "", setup, race->player, cuts, r->recording,

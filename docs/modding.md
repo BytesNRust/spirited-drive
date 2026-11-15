@@ -9,11 +9,52 @@ How to change the game's data without touching the CD: where files live, what a 
 | **Game data** (`--data DIR`, or the player's copy `<player folder>/gamedata/`, or `./original` in a development build) | The original CD's files: `SIMDATA/`, `GAMEDATA/`, `FRONTEND/`, the `NFS_WIN.EXE`. Read only. | Never |
 | **The port's data** (`data/` beside the program; in a source tree `data/` at the repository root) | What the port ships: `car_masks/`, `dash_masks/`, `track_masks/`, `track/`, `track_light/`, `sounds/`, the car environment map. Looked up as `<mod>/...` first (see below), then `<program folder>/data/...`, then `./data/...`, then (development builds) the source tree's `data/...`. | Never |
 | **The player's folder** | `port.cfg`, `stock.cfg`, `restored.cfg`, `restomod.cfg`, `controls.cfg`, `extras.cfg`, `race_records.dat`, `config.dat`, `Replay.rpl`, saved games, `spirited-drive.log`, `gamedata/`, `mods/`. | Yes: all of it |
-| **A mod** (`--mods DIR`, else `<player folder>/mods/`) | A folder of files that replace the game's. One overlay. | Never |
+| **A mod** (`--mods DIR`, else `<player folder>/mods/<id>/`) | A folder of files that replace the game's. One overlay. | Never while it runs; `--install` and `--uninstall` put a mod in `mods/` and take it out (*Installing a mod*) |
 
 The player's folder is `~/Library/Application Support/Spirited Drive/` on macOS, `%APPDATA%\Spirited Drive\` on Windows and `~/.local/share/Spirited Drive/` on Linux. `--user DIR` puts it at `DIR` for that run (a portable install, a test: `tnfs --user ./user`); `TNFS_PREF_DIR=DIR` does the same and is what the test suite uses. `--mods` has no say in where the player's files go. The EXTRAS page's *Open folder* shows the player's folder; `spirited-drive.log` in it is what to send with a bug report.
 
 If you used an older build: what `TNFS Restomod/` or `tnfs/tnfs/` (the old folder names, the newer first) or `<mods>/user/` held moves to the new folder the first time, one line in `spirited-drive.log` says so, and a file that already exists in the new place is kept (the old copy stays where it was).
+
+## Installing a mod
+
+A mod made for others comes as a zip with a `mod.ini` at its root (`tnfs-studio mod pack FOLDER OUT.zip` makes one). Three commands
+handle the installed ones. None of them opens a window or needs the game data, and each exits with 0, or with 1 and `tnfs: <reason>`:
+
+    tnfs --install FILE.zip     installs it, or updates the installed one with the same id: "installed <id> <version>",
+                                "updated <id> <old> -> <new>"
+    tnfs --uninstall ID         moves it to the backups: "uninstalled <id> (backup kept)"
+    tnfs --mods-list            one line per installed mod: id, version, type, on or off, name (tab-separated)
+
+`--user DIR` before them works on that player's folder. What happens:
+
+* **Everything is checked before anything is written** (the names, the kinds of file, each file's content with the game's own readers,
+  and what the mod's kind may carry, below). A refused zip leaves the player's folder as it was.
+* The mod is unpacked into `<player folder>/mods/.staging/<id>/`, then renamed to `mods/<id>/`. A staging folder left by a run that
+  stopped is cleaned the next time. A folder `mods/<id>/` with no `mod.ini` was put there by hand and is never replaced.
+* **An update** moves the installed folder to `<player folder>/mods_backup/<id>-<version>-<date>/` first. Uninstalling moves it there
+  too: nothing is deleted except backups beyond the last 3 of each id.
+* Nothing is written outside `mods/` and `mods_backup/`, and no symbolic link is followed.
+
+What a mod may carry depends on its `type` in `mod.ini`:
+
+| Type | May carry |
+|------|-----------|
+| `tweak` (or no `type`) | how the game looks and sounds: art, fonts, music, sounds, dashboards, car models (CFM), track scenery (FAM), the sky (`<TRACK>INFO`), `track_light/`, the masks, `car_envmap.png`. **Never** what changes a race: a track's `.TRI` and the rest of `SIMDATA/MISC` (but its INFO), `SIMDATA/CARSPECS/`, a car's `.PDN`, `track/<TRACK>.txt`. [modding/inventory.md](modding/inventory.md) §12 says why for each |
+| `car` | its own three files (its stem's CFM, PDN and PBS) and `car_masks/<STEM>/`, `dash_masks/<STEM>/`, and nothing else (see *Adding a car*) |
+| `track` | nothing yet: "this version cannot install tracks yet" |
+
+Every type may also carry `mod.ini`, `preview.png` and a README or LICENSE. `GAMEDATA/` (the player's config, replays and saves) is never
+part of a mod. A folder in `mods/` that holds a file its type may not carry, put there by hand, still runs: that file is not given to the
+game, and the log says so once (`mods: <id>: <file> is left out: <why>`).
+
+Two behaviours are **temporary**:
+
+* **Installing makes the mod active**: it goes first in Restomod's list (`mods=` in `restomod.cfg`), and uninstalling takes it out. When
+  the profiles come (dep59 step 4), installing will only make a mod available.
+* **`--mods DIR` still serves the files that change a race**, so that a changed track can be tried as today, but that run keeps no
+  record and no replay. The log says `mods: --mods serves <file>, which changes the race: this run keeps no records and no replays`.
+  A car piece's own files given as `--mods` are not such a change: its races keep their records (see *Adding a car*). This goes away
+  when tracks can be pieces of their own (dep59 step 5).
 
 ## How a mod replaces a file
 

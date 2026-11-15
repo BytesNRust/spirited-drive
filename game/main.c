@@ -13,7 +13,9 @@
  *   tnfs --drive NAME [--car N] [--racers N] --node TICKS --screenshot OUT.ppm   a headless frame
  *                                          (--car takes a number, or in Restomod an added car's id: docs/modding.md)
  *   tnfs --replay FILE.RPL|FILE.RPX        play a replay back in the drive (development); a .RPX needs its added cars' mods
- *   tnfs --movie FILE.TGV                  play a TGV movie in the menus' window (development) */
+ *   tnfs --movie FILE.TGV                  play a TGV movie in the menus' window (development)
+ *   tnfs [--user DIR] --install FILE.zip | --uninstall ID | --mods-list
+ *                                          install, update or uninstall a mod, or list them (game/sys/mod_commands.h) */
 #include "game/frontend/config.h"
 #include "game/race/car_registry.h"
 #include "game/sys/car_pieces.h"
@@ -26,6 +28,7 @@
 #include "game/platform/update.h"
 #include "game/sys/art_cache.h"
 #include "game/sys/data_path.h"
+#include "game/sys/mod_commands.h"
 #include "game/sys/mod_set.h"
 #include "game/sys/data_root.h"
 #include "game/sys/game_name.h"
@@ -75,6 +78,9 @@ typedef struct {
     const char *net_hosts[NET_UDP_HOSTS + 1];  /* NULL-terminated */
     int net_host_count;
     const char *car_text;   /* --car as given: a number, or an added car's id (resolved after the mods start, resolve_car) */
+    const char *install;     /* --install FILE.zip */
+    const char *uninstall;   /* --uninstall ID */
+    int mods_list;           /* --mods-list */
 } Options;
 
 /* the usage message, as a fatal; returns 0 for a caller that goes on */
@@ -84,15 +90,16 @@ static int bad_usage(const char *program)
                     "       %s [--data DIR] --track NAME [--node N] [--screenshot OUT.ppm]\n"
                     "       %s [--data DIR] --drive NAME[m|r|mr] [--car N] [--racers 1..8 | --type 0..3] [--node TICKS --screenshot OUT.ppm]\n"
                     "       %s [--data DIR] [--mods DIR] --replay FILE.RPL|FILE.RPX\n"
-                    "       %s [--data DIR] --movie FILE.TGV\n",
-            program, program, program, program, program);
+                    "       %s [--data DIR] --movie FILE.TGV\n"
+                    "       %s [--user DIR] --install FILE.zip | --uninstall ID | --mods-list\n",
+            program, program, program, program, program, program);
     return 0;
 }
 
 static int parse_args(int argc, char **argv, Options *opt)
 {
     *opt = (Options){ "original", 0, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, TRACK_VIEWER_RACERS, -1, NULL, 0, 0, { NULL },
-                      0, NULL };
+                      0, NULL, NULL, NULL, 0 };
     for (int i = 1; i < argc; i++) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--data") == 0 && has_value) {
@@ -114,6 +121,12 @@ static int parse_args(int argc, char **argv, Options *opt)
             opt->drive = argv[++i];
         } else if (strcmp(argv[i], "--replay") == 0 && has_value) {
             opt->replay = argv[++i];
+        } else if (strcmp(argv[i], "--install") == 0 && has_value) {
+            opt->install = argv[++i];
+        } else if (strcmp(argv[i], "--uninstall") == 0 && has_value) {
+            opt->uninstall = argv[++i];
+        } else if (strcmp(argv[i], "--mods-list") == 0) {
+            opt->mods_list = 1;
         } else if (strcmp(argv[i], "--movie") == 0 && has_value) {
             opt->movie = argv[++i];
         } else if (strcmp(argv[i], "--racers") == 0 && has_value) {
@@ -333,6 +346,11 @@ int main(int argc, char **argv)
     set_stats_sender();
     platform_set_user_dir(opt.user);   /* port: before the log opens in it */
     platform_open_log(opt.mods);   /* before anything can stop the run: the report of a run with no game data is in spirited-drive.log too */
+    if (opt.install != NULL || opt.uninstall != NULL || opt.mods_list) {   /* port (dep59 step 2): the installed mods, no window nor game data */
+        port_old_files_migrate();
+        return opt.install != NULL ? mod_commands_install(opt.install) : opt.uninstall != NULL ? mod_commands_uninstall(opt.uninstall)
+                                                                                                : mod_commands_list();
+    }
     {   /* port: the pictures made from the CD's art are kept in <user folder>/cache/ (art_cache.h) */
         char cache[1100];
         if (platform_user_dir(cache, sizeof cache - 8)) art_cache_set_dir(strcat(cache, "cache/"));

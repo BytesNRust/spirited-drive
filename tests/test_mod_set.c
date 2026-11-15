@@ -4,6 +4,7 @@
 #include "formats/mod_list.h"
 #include "game/sys/data_path.h"
 #include "game/sys/mod_set.h"
+#include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "platform/platform.h"
@@ -41,7 +42,7 @@ static int note_is(const char *text)
 {
     char asked[400];
     size_t size = 0;
-    snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/NOTE.TXT", cd);
+    snprintf(asked, sizeof asked, "%s/FRONTEND/ART/IART/NOTE.TXT", cd);
     uint8_t *d = platform_read_file(asked, &size);
     const int same = d != NULL && size == strlen(text) && memcmp(d, text, size) == 0;
     platform_free_file(d);
@@ -51,7 +52,7 @@ static int note_is(const char *text)
 static void mod_note(const char *id, const char *text)
 {
     char dir[400];
-    snprintf(dir, sizeof dir, "%s/mods/%s/SIMDATA/MISC", pref, id);
+    snprintf(dir, sizeof dir, "%s/mods/%s/FRONTEND/ART/IART", pref, id);
     write_file(dir, "NOTE.TXT", text);
 }
 
@@ -113,7 +114,7 @@ static void test_stock_and_restored_read_no_list(void)
 static void test_the_command_line_folder_comes_first(void)
 {
     char cli[400];
-    snprintf(cli, sizeof cli, "%s/cli/SIMDATA/MISC", base);
+    snprintf(cli, sizeof cli, "%s/cli/FRONTEND/ART/IART", base);
     write_file(cli, "NOTE.TXT", "from the command line");
     snprintf(cli, sizeof cli, "%s/cli", base);
     char missing[400];
@@ -134,19 +135,113 @@ static void test_the_command_line_folder_comes_first(void)
     CHECK(note_is("from a"));
 }
 
+/* the game's file `rel` as the overlay gives it, compared with `text` */
+static int game_file_is(const char *rel, const char *text)
+{
+    char asked[400];
+    size_t size = 0;
+    snprintf(asked, sizeof asked, "%s/%s", cd, rel);
+    uint8_t *d = platform_read_file(asked, &size);
+    const int same = d != NULL && size == strlen(text) && memcmp(d, text, size) == 0;
+    platform_free_file(d);
+    return same;
+}
+
+/* the port's data file `rel` as data_path finds it: 1 when the first candidate is in `dir` */
+static int data_from(const char *rel, const char *dir)
+{
+    char found[DATA_PATH_CANDIDATES][DATA_PATH_MAX];
+    data_path_candidates(rel, found);
+    return strstr(found[0], dir) != NULL;
+}
+
+/* dep59 step 2: an installed folder serves only what its kind of piece may carry (mod_file_rule), saying once per generation what it
+ * leaves out; --mods serves everything, and the first file that changes the race marks the run (no records, no replays) */
+static void test_what_a_folder_may_serve(void)
+{
+    CHECK(port_profile_select(PROFILE_RESTOMOD));
+    char dir[400];
+    snprintf(dir, sizeof dir, "%s/mods/twk/SIMDATA/MISC", pref);
+    write_file(dir, "NOTE.B21", "from twk");
+    snprintf(dir, sizeof dir, "%s/mods/twk/track_light", pref);
+    write_file(dir, "TR1B.txt", "track TR1 B\n");
+    snprintf(dir, sizeof dir, "%s/mods/car1", pref);
+    write_file(dir, "mod.ini", "id=car1\nname=Car One\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n");
+    snprintf(dir, sizeof dir, "%s/mods/car1/track_light", pref);
+    write_file(dir, "TR2B.txt", "track TR2 B\n");
+    CHECK(mod_set_start(cd, NULL));
+    save_list("twk,car1");
+    CHECK(!mod_set_session_modified());
+    port_log_watch("twk: SIMDATA/MISC/NOTE.B21 is left out");
+    CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from the cd"));   /* an installed tweak never serves what changes the race */
+    CHECK(port_log_watch_hit());
+    port_log_watch("is left out");
+    CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from the cd"));
+    CHECK(game_file_is("simdata/misc/note.b21", "from the cd"));
+    CHECK(!port_log_watch_hit());   /* said once, not at every read */
+    CHECK(data_from("track_light/TR1B.txt", "/mods/twk/"));   /* its look is served */
+    CHECK(!data_from("track_light/TR2B.txt", "/mods/car1/"));   /* a car's folder serves its own files only */
+    CHECK(!mod_set_session_modified());
+
+    char cli[400];
+    snprintf(cli, sizeof cli, "%s/mods/twk", pref);
+    port_log_watch("which changes the race: this run keeps no records and no replays");
+    CHECK(mod_set_start(cd, cli));   /* the same folder as --mods */
+    CHECK(!mod_set_session_modified());
+    CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from twk"));
+    CHECK(mod_set_session_modified());
+    CHECK(port_log_watch_hit());
+    port_log_watch("which changes the race");
+    CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from twk"));
+    CHECK(!port_log_watch_hit());   /* once */
+    mod_set_stop();
+    CHECK(!mod_set_session_modified());   /* a new start is a new run */
+
+    snprintf(dir, sizeof dir, "%s/light_only/track_light", base);
+    write_file(dir, "TR1B.txt", "track TR1 B\n");
+    snprintf(cli, sizeof cli, "%s/light_only", base);
+    CHECK(mod_set_start(cd, cli));
+    CHECK(data_from("track_light/TR1B.txt", "/light_only/"));
+    CHECK(!mod_set_session_modified());   /* a --mods folder with a light only changes nothing that races */
+
+    snprintf(dir, sizeof dir, "%s/car_cli/SIMDATA/CARSPECS", base);   /* a car piece given as --mods: its own files are no change */
+    write_file(dir, "TESTCAR.PBS", "specs");
+    snprintf(dir, sizeof dir, "%s/car_cli", base);
+    write_file(dir, "mod.ini", "id=car-cli\nname=Car Cli\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n");
+    snprintf(cli, sizeof cli, "%s/car_cli", base);
+    CHECK(mod_set_start(cd, cli));
+    CHECK(data_from("track_light/TR1B.txt", "/mods/twk/"));   /* the list still in effect below it */
+    char asked[400];
+    size_t size = 0;
+    snprintf(asked, sizeof asked, "%s/SIMDATA/CARSPECS/TESTCAR.PBS", cd);
+    platform_free_file(platform_read_file(asked, &size));   /* served (then refused by the original's limits: it is no PBS) */
+    CHECK(!mod_set_session_modified());
+
+    CHECK(port_profile_select(PROFILE_STOCK));
+    CHECK(mod_set_start(cd, cli));
+    CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from the cd"));   /* Stock serves nothing */
+    CHECK(!mod_set_session_modified());
+    CHECK(port_profile_select(PROFILE_RESTOMOD));
+    save_list("");
+    mod_set_stop();
+}
+
 int main(void)
 {
     snprintf(base, sizeof base, "%s/tnfs_mod_set_test_%d", getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp", (int)getpid());
     snprintf(cd, sizeof cd, "%s/cd", base);
     snprintf(pref, sizeof pref, "%s/pref", base);
-    char cd_misc[400];
-    snprintf(cd_misc, sizeof cd_misc, "%s/SIMDATA/MISC", cd);
-    write_file(cd_misc, "NOTE.TXT", "from the cd");
+    char cd_dir[400];
+    snprintf(cd_dir, sizeof cd_dir, "%s/FRONTEND/ART/IART", cd);   /* a file a tweak may carry (look) */
+    write_file(cd_dir, "NOTE.TXT", "from the cd");
+    snprintf(cd_dir, sizeof cd_dir, "%s/SIMDATA/MISC", cd);   /* one it may not: in MISC with no reader, so race (mod_file_rule) */
+    write_file(cd_dir, "NOTE.B21", "from the cd");
     make_dirs(pref);
     setenv("TNFS_PREF_DIR", pref, 1);
     test_the_list_in_its_order();
     test_stock_and_restored_read_no_list();
     test_the_command_line_folder_comes_first();
+    test_what_a_folder_may_serve();
     mod_set_stop();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);

@@ -36,6 +36,9 @@ static struct {
 } mods[PLATFORM_MODS_MAX];
 static int mods_count;
 static char mods_error[1024];
+static PlatformModServe mods_serve;
+
+void platform_set_mod_serve(PlatformModServe serve) { mods_serve = serve; }
 
 /* ---- mods overlay: the rules are in formats/modpath.c, the validation in formats/validate.c */
 
@@ -205,7 +208,9 @@ static uint8_t *read_mod_file(const char *path, size_t *size, bool *refused)
     if (!modpath_relative(mods_data_root, path, rel, sizeof rel)) return NULL;
     if (rel[0] == '\0') return NULL;
     int m = 0;
-    while (m < mods_count && !modpath_find(mods[m].dir, rel, is_file, NULL, candidate, sizeof candidate, found, sizeof found)) m++;
+    while (m < mods_count && !(modpath_find(mods[m].dir, rel, is_file, NULL, candidate, sizeof candidate, found, sizeof found) &&
+                               (mods_serve == NULL || mods_serve(m, rel))))
+        m++;
     if (m == mods_count) return NULL;
 #ifdef TNFS_HAVE_REALPATH
     char real[PATH_MAX];

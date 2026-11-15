@@ -1,6 +1,8 @@
 /* See mod_set.h. */
 #include "game/sys/mod_set.h"
 
+#include "formats/mod_check.h"
+#include "formats/mod_ini.h"
 #include "game/platform/platform.h"
 #include "game/sys/data_path.h"
 #include "game/sys/port_extras.h"
@@ -10,6 +12,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 
 enum { MOD_SET_MAX = MOD_LIST_MAX + 1, DIR_MAX = 1100 };   /* the list, and --mods above it */
@@ -25,6 +28,21 @@ static struct {
     char cli[1024];
     Folders now;
 } set;
+
+/* port (dep59 step 2): what each folder in effect is, by its card (none: a tweak), so that it serves only what its kind may carry
+ * (mod_file_rule); --mods serves everything */
+typedef struct {
+    char id[MOD_INI_ID_MAX + 1];   /* the card's, else the folder's name */
+    int type;
+    char stem[MOD_INI_STEM_MAX + 1];
+    bool cli;
+} Piece;
+enum { SAID_MAX = 64, SAID_LEN = 300 };
+static struct {
+    Piece pieces[MOD_SET_MAX];
+    char said[SAID_MAX][SAID_LEN];   /* "<id>/<file>" left out and said in this generation */
+    int said_count;
+} serving;
 
 static bool is_dir(const char *path)
 {
@@ -71,9 +89,70 @@ static bool same(const Folders *a, const Folders *b)
     return true;
 }
 
+/* the piece in folder `dir`: its card's id, type and stem; a folder with no card, or one that does not parse, is a tweak by its name */
+static Piece piece_of(const char *dir, bool cli)
+{
+    Piece p = { "", MOD_TYPE_TWEAK, "", cli };
+    const char *name = strrchr(dir, '/');
+    snprintf(p.id, sizeof p.id, "%s", name != NULL && name[1] != '\0' ? name + 1 : dir);
+    char path[DIR_MAX + 16];
+    snprintf(path, sizeof path, "%s/mod.ini", dir);
+    FILE *file = fopen(path, "rb");
+    if (file == NULL) return p;
+    static uint8_t text[MOD_INI_MAX_SIZE + 1];
+    const size_t n = fread(text, 1, sizeof text, file);
+    fclose(file);
+    ModInfo card;
+    char why[160];
+    if (n > MOD_INI_MAX_SIZE || !mod_ini_parse(text, n, &card, why, sizeof why)) {
+        port_log("mods: %s: its mod.ini is not read (%s): taken as a tweak\n", p.id, n > MOD_INI_MAX_SIZE ? "too long" : why);
+        return p;
+    }
+    snprintf(p.id, sizeof p.id, "%s", card.id);
+    snprintf(p.stem, sizeof p.stem, "%s", card.stem);
+    p.type = card.type;
+    return p;
+}
+
+/* an installed folder's file left out, said once in each generation */
+static void say_left_out(const Piece *p, const char *rel, ModFileRule rule)
+{
+    char key[SAID_LEN];
+    snprintf(key, sizeof key, "%s/%s", p->id, rel);
+    for (int i = 0; i < serving.said_count; i++)
+        if (strcasecmp(serving.said[i], key) == 0) return;
+    if (serving.said_count < SAID_MAX) snprintf(serving.said[serving.said_count++], SAID_LEN, "%s", key);
+    port_log("mods: %s: %s is left out: %s\n", p->id, rel,
+             rule == MOD_FILE_RACE ? "it changes the race, which an installed tweak may not"
+             : rule == MOD_FILE_NOT_YET ? "this version loads no tracks yet" : "it is not one of this piece's files");
+}
+
+static bool serve(int index, const char *rel)
+{
+    if (index < 0 || index >= set.now.count) return true;
+    const Piece *p = &serving.pieces[index];
+    const ModFileRule rule = mod_file_rule(p->type, p->stem, rel);
+    if (rule == MOD_FILE_OK) return true;
+    if (p->cli) {   /* port (dep59, temporary until step 5): --mods serves it; one that changes the race keeps this run's results out */
+        if (mod_file_rule(MOD_TYPE_TWEAK, "", rel) == MOD_FILE_RACE && !mod_set_session_modified()) {
+            mod_set_session_mark_modified();
+            port_log("mods: --mods serves %s, which changes the race: this run keeps no records and no replays\n", rel);
+        }
+        return true;
+    }
+    say_left_out(p, rel, rule);
+    return false;
+}
+
+static int serve_data(int index, const char *relative) { return serve(index, relative); }
+
 /* `f` given to the overlay and the port's data; the generation moves on */
 static void put_in_effect(const Folders *f)
 {
+    for (int i = 0; i < f->count; i++) serving.pieces[i] = piece_of(f->dirs[i], i == 0 && set.cli[0] != '\0');
+    serving.said_count = 0;
+    platform_set_mod_serve(serve);
+    data_path_set_serve(serve_data);
     const char *dirs[MOD_SET_MAX];
     for (int i = 0; i < f->count; i++) dirs[i] = f->dirs[i];
     if (!platform_set_mods(set.data_root, dirs, f->count)) {   /* a folder gone since it was looked at: none, rather than some */
@@ -108,6 +187,7 @@ bool mod_set_start(const char *data_root, const char *cli_dir)
     snprintf(set.data_root, sizeof set.data_root, "%s", data_root != NULL ? data_root : "");
     snprintf(set.cli, sizeof set.cli, "%s", cli_dir != NULL ? cli_dir : "");
     set.started = true;
+    mod_set_session_clear();   /* a new run */
     port_settings_on_forget(follow);
     const Folders f = wanted(true);
     put_in_effect(&f);   /* always, so a new start is told to the overlay even with the same folders */
@@ -119,6 +199,7 @@ void mod_set_stop(void)
     port_settings_on_forget(NULL);
     set.started = false;
     set.now.count = 0;
+    mod_set_session_clear();
     platform_set_mods(set.data_root, NULL, 0);
     data_path_set_mods(NULL, 0);
     mod_set_generation_move();

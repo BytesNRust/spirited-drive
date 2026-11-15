@@ -71,6 +71,7 @@ add_library(tnfs_core STATIC
     core/formats/mod_check.c
     core/formats/mod_ini.c
     core/formats/mod_list.c
+    core/formats/mod_install.c
     core/formats/pbs.c
     core/formats/psx_bigf.c
     core/formats/pbs_fields.c
@@ -338,6 +339,9 @@ add_library(tnfs_game STATIC
     game/sys/data_path.c
     game/sys/mod_generation.c
     game/sys/mod_set.c
+    game/sys/mod_set_session.c
+    game/sys/mod_store.c
+    game/sys/mod_commands.c
     game/sys/art_cache.c
     game/sys/sha256.c
     game/sys/data_check.c
@@ -549,6 +553,7 @@ set(TNFS_SDL3_PLATFORM
     game/platform/sdl3/platform_input_sdl3.c
     game/platform/sdl3/platform_mods_sdl3.c
     game/platform/sdl3/platform_user_sdl3.c
+    game/platform/sdl3/platform_user_tree_sdl3.c
     game/platform/sdl3/platform_present_sdl3.c
     game/platform/sdl3/platform_pool_sdl3.c)   # platform_sdl3.c split by responsibility; the tests that link the platform list them all
 add_executable(tnfs
@@ -727,7 +732,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece mesh_layout mesh_build shpi_build cfm_build doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_list)
+    foreach(name qfs qfs_encode car_piece mesh_layout mesh_build shpi_build cfm_build doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_list mod_install)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -751,6 +756,7 @@ foreach(name port_old_files car_registry car_registry_race car_registry_names ca
     target_compile_definitions(test_mesh_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_shpi_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_cfm_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_mod_check PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_paint_cfm PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_rain_roll PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_snow_roll PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -1186,6 +1192,8 @@ if(NOT EMSCRIPTEN)
         add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
         add_test(NAME car_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_new.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:tnfs>)
         add_test(NAME model_build COMMAND sh ${CMAKE_SOURCE_DIR}/tests/model_build.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> $<TARGET_FILE:model_build_piece> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
+        add_test(NAME mod_install_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/mod_install.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
+        set_tests_properties(mod_install_game PROPERTIES TIMEOUT 600)
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands
@@ -1225,6 +1233,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_mod_set PRIVATE ${TNFS_WARNINGS})
     add_test(NAME mod_set COMMAND test_mod_set)
+    add_executable(test_mod_store tests/test_mod_store.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_mod_store PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_mod_store PRIVATE m)
+    endif()
+    target_compile_options(test_mod_store PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME mod_store COMMAND test_mod_store)
     add_executable(test_car_pieces tests/test_car_pieces.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_car_pieces PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)

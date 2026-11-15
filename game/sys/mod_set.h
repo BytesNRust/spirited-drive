@@ -28,6 +28,14 @@ void mod_set_generation_move(void);
  * how many were put there. 0 in Stock and Restored. */
 int mod_set_dirs(const char *dirs[], int cap);
 
+/* port (dep59, temporary until step 5): 1 once --mods has served a file that changes the race (mod_file_rule) in this run: the race keeps
+ * no record and no replay. An installed folder never serves one: it serves only what its kind of piece may carry, and says once in each
+ * generation what it leaves out. mod_set_start and mod_set_stop start a new run. */
+bool mod_set_session_modified(void);
+/* what serving such a file does, and a new run (mod_set_session.c: no more than the flag, so what reads it needs nothing else) */
+void mod_set_session_mark_modified(void);
+void mod_set_session_clear(void);
+
 /* Restomod's list written as `l` (whichever mode is in use); true when its file was written. The folders follow at once. */
 bool mod_set_save_list(const ModList *l);
 
