@@ -1,5 +1,6 @@
 /* The EXTRAS screen's glue (the Game Mode MODEM slot's) and Game Mode's text over the live art (menu_glue.h; split from menu_glue.c by responsibility). */
 #include "game/frontend/menu_glue_private.h"
+#include "game/sys/mod_set.h"
 #include "game/frontend/unlock_level.h"
 
 /* port: the EXTRAS dispatcher the Game Mode's MODEM slot calls when the original modem flow is gone. It opens the
@@ -86,16 +87,17 @@ static void extras_text_styles_glue(void *ctx)
     else text_build_styles();
 }
 
-/* port: a label the items' own letters give (item_art.h: "Customize game"), cut from the CD the first time and kept;
+/* port: a label the items' own letters give (item_art.h: "Customize game"), cut from the CD the first time and kept while the mods stay;
  * a label the CD cannot give is drawn in the font */
 static const uint8_t *item_mask(const char *text, int *w)
 {
     static uint8_t masks[ITEM_ART_COUNT][ITEM_ART_MAX_W * ITEM_ART_H];
-    static int widths[ITEM_ART_COUNT], tried[ITEM_ART_COUNT], ok[ITEM_ART_COUNT];
+    static int widths[ITEM_ART_COUNT], ok[ITEM_ART_COUNT];
+    static uint32_t made[ITEM_ART_COUNT];   /* port (dep59): the mods' generation each was cut under (mod_set.h); 0 never */
     const ItemArtId id = item_art_for(text);
     if (id == ITEM_ART_COUNT) return NULL;
-    if (!tried[id]) {
-        tried[id] = 1;
+    if (made[id] != mod_set_generation()) {
+        made[id] = mod_set_generation();
         ok[id] = item_art_load(resource_load_art, id, masks[id], &widths[id]);
         if (!ok[id]) port_log("item: \"%s\" not on the CD, drawn in the font\n", text);
     }

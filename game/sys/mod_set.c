@@ -24,8 +24,7 @@ static struct {
     char data_root[1024];
     char cli[1024];
     Folders now;
-    uint32_t generation;
-} set = { .generation = 1 };
+} set;
 
 static bool is_dir(const char *path)
 {
@@ -84,7 +83,7 @@ static void put_in_effect(const Folders *f)
         set.now = *f;
     }
     data_path_set_mods(dirs, set.now.count);
-    set.generation = set.generation == UINT32_MAX ? 1 : set.generation + 1;
+    mod_set_generation_move();
     char line[600] = "";
     for (int i = 0; i < set.now.count; i++) {
         const char *name = strrchr(set.now.dirs[i], '/');
@@ -122,10 +121,9 @@ void mod_set_stop(void)
     set.now.count = 0;
     platform_set_mods(set.data_root, NULL, 0);
     data_path_set_mods(NULL, 0);
-    set.generation = set.generation == UINT32_MAX ? 1 : set.generation + 1;
+    mod_set_generation_move();
 }
 
-uint32_t mod_set_generation(void) { return set.generation; }
 
 int mod_set_dirs(const char *dirs[], int cap)
 {

@@ -65,6 +65,13 @@ static uint8_t *read_bank(const char *root, const char *path, size_t dir_length,
     return NULL;
 }
 
+
+/* port (dep59): the dash bank's reads, counted: drive_hud.dash_serial */
+static unsigned next_dash_serial(void)
+{
+    static unsigned reads;
+    return ++reads != 0 ? reads : ++reads;
+}
 int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const char *stem)
 {
     char dir[COCKPIT_PATH];
@@ -80,6 +87,7 @@ int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const
     snprintf(h->misc_dir, sizeof h->misc_dir, "SIMDATA/MISC/");
     h->dash_dir_length = (size_t)n;
     h->dash_bank = read_bank(h->root, files.bank, (size_t)n, &bank_size);
+    h->dash_serial = next_dash_serial();
     if (h->dash_bank != NULL && h->dash_paint != NULL) h->dash_paint(h, h->dash_bank, bank_size);
     h->dash_fmm = read_sized(h->root, files.fmm, (size_t)n, &fmm_size);
     h->cockpit_ready = h->dash_bank != NULL && h->dash_fmm != NULL && fmm_size >= 0x18 &&
@@ -392,6 +400,7 @@ static void reload_load(void *ctx)
     DriveHud *h = s->h;
     size_t size = 0;
     h->dash_bank = read_bank(h->root, h->dash_path, h->dash_dir_length, &size);
+    h->dash_serial = next_dash_serial();
     if (h->dash_bank != NULL && h->dash_paint != NULL) h->dash_paint(h, h->dash_bank, size);
     if (h->dash_bank == NULL || cockpit_load(&h->cockpit, &h->cockpit_world, &h->hud, s->race, &h->keys.dash_camera,
                                              h->dash_bank, size, h->dash_fmm, h->dash_stem, HIGH_RES, 0) != 0) {

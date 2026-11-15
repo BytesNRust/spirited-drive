@@ -1,5 +1,6 @@
 /* The checked menus over game/sys and ea_lib (menu_glue.h): Game Mode, the profile row and the start screen; the boxes, screens and EXTRAS glue are in menu_glue_dialogs.c, menu_glue_screens.c and menu_glue_extras.c */
 #include "game/frontend/menu_glue_private.h"
+#include "game/sys/mod_set.h"
 
 MenuWords menu_words;
 MenuCheats menu_cheats;
@@ -39,14 +40,15 @@ static int32_t mode_network_game(void *ctx)
 }
 
 /* port: the Modem item's words covered with the configuration screens' clean background in Game Mode's palette,
- * built once (it takes a while) and kept */
+ * built once (it takes a while) and kept while the mods in effect stay */
 static void mode_cover(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h)
 {
     static uint8_t *pixels;   /* the clean background, kept: it takes a while to compose, and each rectangle asked (the Modem words, the profile strip) is cut from it */
-    static int tried;
+    static uint32_t made;     /* port (dep59): the mods' generation it was composed under (mod_set.h); 0 never */
     (void)ctx;
-    if (!tried) {
-        tried = 1;
+    if (made != mod_set_generation()) {
+        made = mod_set_generation();
+        free(pixels);
         pixels = malloc(CONFIG_BGND_W * CONFIG_BGND_H);
         menu_glue_mode_palette_known = pixels != NULL && config_bgnd_load(resource_load_art, CONFIG_BGND_GAME_MODE, 0, pixels,
                                                                 menu_glue_mode_palette);

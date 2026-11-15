@@ -3,6 +3,7 @@
  * each page faded in, held as the original pages are (CREDITS_OURS_PAGE_TICKS on the timer, or a press of its own: credits_pages_sources), faded out.
  * Over black when the relief cannot be composed. */
 #include "game/frontend/credits_pages.h"
+#include "game/sys/mod_set.h"
 
 #include "formats/fsh.h"
 #include "game/frontend/config_bgnd.h"
@@ -56,12 +57,15 @@ static void relief_key(ArtCacheKey *key)
     config_bgnd_key(resource_load_art, key);
 }
 
-/* the relief, once per run: from the cache when it was made before from the same files */
+/* the relief, once per run and again when the mods in effect changed (dep59, mod_set.h): from the cache when it was made before from the
+ * same files (its key is their bytes, so a mod's credits.fsh has its own) */
 static void relief_compose(void)
 {
-    static int tried;
-    if (tried) return;
-    tried = 1;
+    static uint32_t made;   /* the mods' generation it was composed under; 0 never */
+    if (made == mod_set_generation()) return;
+    made = mod_set_generation();
+    free(relief);
+    relief = NULL;
     ArtCacheKey key;
     relief_key(&key);
     relief = malloc((size_t)SCREEN_W * SCREEN_H + 768);

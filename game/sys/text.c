@@ -1,3 +1,4 @@
+#include "game/sys/mod_set.h"
 #include "game/sys/port_log.h"
 #include "game/sys/text.h"
 
@@ -18,6 +19,7 @@ static uint8_t *font_data;   /* 00524824 */
 static Ffn font;
 static uint8_t *small_data;  /* port: the CD's small face (FRONTEND/ART/MAIN18.FFN), loaded for the stats overlay alone */
 static Ffn small;
+static uint32_t fonts_mods;   /* port (dep59): the mods' generation the faces were read under (a mod's FRONTEND/ART fonts may replace them: mod_set.h) */
 static uint8_t styles[STYLE_COUNT][16];
 static int styles_fg[STYLE_COUNT];   /* port: each style's own colour, which its ramp's level 15 only nears */
 static uint8_t shadow[16];   /* 0051fd98 */
@@ -31,6 +33,7 @@ static uint8_t blend_known[256][256];
 int text_init(void)
 {
     size_t size;
+    fonts_mods = mod_set_generation();
     font_data = resource_load_art("fonts/graver18.ffn", &size);
     if (font_data == NULL || ffn_open(&font, font_data, size) != FFN_OK) {
         port_fatal("text: cannot load fonts/graver18.ffn\n");
@@ -41,6 +44,16 @@ int text_init(void)
 }
 
 int text_loaded(void) { return font_data != NULL; }
+
+/* port (dep59): the faces read again once the mods in effect changed; the small one only when it was loaded */
+static void fonts_follow(void)
+{
+    if (font_data == NULL || fonts_mods == mod_set_generation()) return;
+    const int had_small = small_data != NULL;
+    text_free();
+    port_log("text: the mods changed: the fonts are read again\n");
+    if (text_init() && had_small) (void)text_small_init();
+}
 
 int text_small_init(void)
 {
@@ -104,11 +117,13 @@ void text_select(TextStyle style)
 
 int text_width(const char *text)
 {
+    fonts_follow();
     return font_data != NULL ? ffn_text_width(&font, text) : 0;
 }
 
 int text_line_height(void)
 {
+    fonts_follow();
     return font_data != NULL ? font.line_height : 0;
 }
 
@@ -131,6 +146,7 @@ static void draw_glyph(const Ffn *f, const FfnGlyph *g, int pen_x, int pen_y, co
  * space's, '\n' moves down a line and back to x = 0, NUL ends. */
 static void draw_with(const Ffn *f, const char *text, int x, int y, const uint8_t ramp[16])
 {
+    fonts_follow();   /* `f` is one of the two faces, read again in place */
     if (f->data == NULL) return;
     FfnGlyph space = { 0 };
     ffn_glyph(f, ' ', &space);
@@ -170,11 +186,13 @@ void text_draw_shadowed(const char *text, int x, int y)
 /* port: the small face's words, in the style and ramp text_select and text_ramp give text_draw */
 int text_small_width(const char *text)
 {
+    fonts_follow();
     return small_data != NULL ? ffn_text_width(&small, text) : 0;
 }
 
 int text_small_line_height(void)
 {
+    fonts_follow();
     return small_data != NULL ? small.line_height : 0;
 }
 
@@ -232,6 +250,7 @@ void text_ink_scaled(const char *text, int num, int den, int *top, int *bottom)
 {
     int first = 1;
     *top = *bottom = 0;
+    fonts_follow();
     if (font_data == NULL) return;
     for (const unsigned char *c = (const unsigned char *)text; *c; c++) {
         FfnGlyph g;
@@ -304,6 +323,7 @@ static void draw_soft(const uint8_t *mask, int mw, int mh, int left, int top,
 void text_draw_smooth(const char *text, int x, int y, int num, int den)
 {
     enum { PAD = 1 + TEXT_SOFT_SHADOW_DEPTH };
+    fonts_follow();
     if (font_data == NULL) return;
     const int mw = text_width_scaled(text, num, den) + 2 * PAD, mh = text_rows(text) * num / den + 2 * PAD;
     uint8_t *const mask = calloc((size_t)mw * mh, 1);
@@ -327,6 +347,7 @@ void text_draw_item_mask(const uint8_t *mask, int w, int h, int x, int y)
 static void draw_header(const char *text, int x, int y, int num, int den, int rule_x, int rule_len)
 {
     enum { PAD = 2, CAPACITY = 64, UNDERLINE_ROWS = 2 };
+    fonts_follow();
     if (font_data == NULL) return;
     char caps[CAPACITY];
     size_t n = 0;

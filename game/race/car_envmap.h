@@ -26,7 +26,7 @@ void car_envmap_unpack(int32_t packed, float uv[2]);
 #define CAR_ENVMAP_HARD_STEP 48.0f
 void car_envmap_hard(const uint8_t palette[768], const uint8_t tables[16][256], uint8_t hard[16][256]);
 
-/* the image, made on the first call (CAR_ENVMAP_SIZE^2 bytes, kept for the run): car_envmap_build's */
+/* the image, made on the first call and again when the mods in effect change (CAR_ENVMAP_SIZE^2 bytes, mod_set.h): car_envmap_build's */
 const uint8_t *car_envmap_image(void);
 
 /* the image the lookup chain gives into `image` (CAR_ENVMAP_SIZE squared bytes): the first of TNFS_CAR_ENVMAP (a full path), data/car_envmap.png

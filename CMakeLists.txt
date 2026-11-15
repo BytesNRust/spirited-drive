@@ -329,6 +329,7 @@ add_library(tnfs_game STATIC
     game/race/dash_nose.c
     game/race/dash_color.c
     game/sys/data_path.c
+    game/sys/mod_generation.c
     game/sys/mod_set.c
     game/sys/art_cache.c
     game/sys/sha256.c
@@ -1507,6 +1508,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(input_script_wait PROPERTIES TIMEOUT 150)
         add_test(NAME live_mode_switch_race COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/live_mode_switch_race -P ${CMAKE_SOURCE_DIR}/tests/live_mode_switch_race.cmake)
         set_tests_properties(live_mode_switch_race PROPERTIES TIMEOUT 450)
+        add_test(NAME mods_live_switch_race COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/mods_live_switch_race -P ${CMAKE_SOURCE_DIR}/tests/mods_live_switch_race.cmake)
+        set_tests_properties(mods_live_switch_race PROPERTIES TIMEOUT 550)
         add_test(NAME boot_skip_chain COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/boot_skip_chain -P ${CMAKE_SOURCE_DIR}/tests/boot_skip_chain.cmake)
         set_tests_properties(boot_skip_chain PROPERTIES TIMEOUT 360)
     endif()

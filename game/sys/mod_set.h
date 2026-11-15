@@ -21,6 +21,8 @@ void mod_set_stop(void);
 
 /* never 0; moves on whenever the folders in effect change */
 uint32_t mod_set_generation(void);
+/* moves the generation on: mod_set.c's when the folders change; a cache's test calls it to stand for a change (mod_generation.c) */
+void mod_set_generation_move(void);
 
 /* The folders in effect, highest first, into `dirs` (up to `cap`; the pointers stay good until the folders change, mod_set_generation);
  * how many were put there. 0 in Stock and Restored. */
