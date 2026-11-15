@@ -44,7 +44,7 @@ for name in TR1.TRI DVIPER.CFM VIPERSW.BNK DVIPER.PBS; do
         [ "$bytes" -lt "$size" ] || continue
         cut="$work/cut_$bytes/$name"
         mkdir -p "$work/cut_$bytes"
-        head -c "$bytes" "$f" > "$cut"
+        if [ "$bytes" -eq 0 ]; then : > "$cut"; else head -c "$bytes" "$f" > "$cut"; fi   # BSD head refuses -c 0
         "$studio" unpack "$cut" "$work/cut_$bytes.d" >"$work/out" 2>"$work/err"
         status=$?
         if [ "$status" -eq 0 ]; then fail "$name cut to $bytes bytes was accepted"; fi
