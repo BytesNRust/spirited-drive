@@ -140,7 +140,9 @@ static void track_art(CentralRun *r)
     const uint8_t *wiped = plain && *st->variant_m != 0 ? mirror_wiped(r, picture) : NULL;   /* port (dep64): MIRROR is written over it */
     r->ops->blit(r->ops->ctx, wiped != NULL ? wiped : picture);
     if (*st->race_type == 3 && st->races[*st->track] != 0) masked(r, "flad");
-    enum { MARKS_LEFT = 0x157, MARKS_RIGHT = 0x21e, MARKS_Y = 0x103 };   /* the card's top corners; MIRROR where the mirror art's word was */
+    /* the card's top corners, the yellow 7 px in from the picture's edges on all three sides (the picture is 341..548 x 255..; the
+     * small text's first column falls a pixel right of x, its last 5 px left of the given right end, its top 7 px under y) */
+    enum { MARKS_LEFT = 0x15b, MARKS_RIGHT = 0x220, MARKS_Y = 0x103 };
     if (r->ops->card_marks != NULL) r->ops->card_marks(r->ops->ctx, MARKS_LEFT, MARKS_RIGHT, MARKS_Y);   /* port (dep56): what the track screen set */
 }
 
