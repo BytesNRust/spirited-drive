@@ -20,7 +20,8 @@
  * starting ms milliseconds after platform_init, and longer if the game has
  * not polled it yet (slow frame capture must not drop presses); MOUSE moves
  * the pointer; ms:CLICK:x:y moves it there and, from the next read on (so the move is taken first), holds the
- * left button 100 ms;
+ * left button 100 ms (x and y are the frame's: 640 x 480 headless, 854 x 480 in a window on a 16:10 or 16:9 display, where
+ * Restomod follows the monitor's shape and centres the 4:3 menus);
  * ms:TEXT:abc types abc (ASCII). ENTER and ESC also reach the
  * typed-text queue, and the arrows, ENTER, ESC and SPACE the key queue (platform_next_key).
  * TNFS_INPUT_SETTLE=N: the events one after another, each ms after the last one is done (a key let go, a click
