@@ -1,6 +1,8 @@
 /* The dashboard's colours at the race start (0041f818). */
 #include "game/race/cockpit.h"
 
+#include "game/race/car_registry.h"
+
 enum { MODEL_ROWS = 12, LINE_SHIFT = 16 };
 
 /* 004b91d0: per car model red, green, blue (then two words 0x20000 not read here) */
@@ -13,7 +15,7 @@ void cockpit_colours(RacePalette *p, const RaceState *race, const Cockpit *c, co
                      CockpitColours *out)
 {
     const Car *car = race->cars[race_slot(race->player)];
-    const int32_t model = car != NULL ? car->model : 0;
+    const int32_t model = car != NULL ? car_registry_dash_model(car->model) : 0;   /* port (dep59): an added car's cockpit's (car_registry.h) */
     const int32_t *rgb = model_colours[model >= 0 && model < MODEL_ROWS ? model : 0];
     race_palette_read(p, 0, RACE_PALETTE_COLOURS, p->copy);
     race_palette_enable(p, race);

@@ -60,7 +60,7 @@ static void draw_table(const ResultsInputs *in, int32_t bank, int16_t row, int16
         ops->text_fit(ops->ctx, (const char *)best + BEST_NAME, NAME_X, y, results_cheats(in) ? CHEATS_NAME_WIDTH : NAME_WIDTH);
         ops->time_text(ops->ctx, text, g32(best + BEST_TOTAL));
         ops->text_at(ops->ctx, text, TIME_X, y);
-        ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(best + BEST_CAR)], CAR_X, y);
+        ops->text_at(ops->ctx, results_car_name(in, (int)(uint32_t)g32(best + BEST_CAR)), CAR_X, y);
         results_mark_total(in, i, y, ops);
         draw_mark(in, g32(best + BEST_MARK), y, ops);
         if (i == row) ops->text_select(ops->ctx, 1);
@@ -70,7 +70,7 @@ static void draw_table(const ResultsInputs *in, int32_t bank, int16_t row, int16
     ops->text_fit(ops->ctx, (const char *)records + TOP_NAME, NAME_X, TOP_Y, results_cheats(in) ? CHEATS_NAME_WIDTH : NAME_WIDTH);
     ops->speed_text(ops->ctx, text, g32(records + TOP_SPEED));
     ops->text_at(ops->ctx, text, TIME_X, TOP_Y);
-    ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(records + TOP_CAR)], CAR_X, TOP_Y);
+    ops->text_at(ops->ctx, results_car_name(in, (int)(uint32_t)g32(records + TOP_CAR)), CAR_X, TOP_Y);
     results_mark_slot(in, SLOT_TOP, TOP_Y, ops);
     draw_mark(in, g32(records + TOP_MARK), TOP_Y, ops);
 }

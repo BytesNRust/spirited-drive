@@ -120,7 +120,7 @@ static void draw_record(const ResultsInputs *in, int16_t record, const ResultsOp
     ops->text_fit(ops->ctx, (const char *)rec + LAP_NAME, 7, 0x144, 200);
     ops->time_text(ops->ctx, text, g32(rec + LAP_TIME));
     ops->text_at(ops->ctx, text, 0x131, 0x144);
-    ops->text_at(ops->ctx, in->car_names[(uint32_t)g32(rec + LAP_CAR)], 0x1d6, 0x144);
+    ops->text_at(ops->ctx, results_car_name(in, (int)(uint32_t)g32(rec + LAP_CAR)), 0x1d6, 0x144);
     if (mark == 0 || mark == 1)
         ops->text_at(ops->ctx, in->german ? (mark ? "  d" : "  z") : (mark ? "h.h." : "t.t."), 0x23f, 0x144);
 }

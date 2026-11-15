@@ -4,6 +4,7 @@
 
 #include "viewer/drive_audio.h"
 #include "game/race/car_held.h"
+#include "game/race/car_registry.h"
 #include "game/race/car_scenery.h"
 #include "game/race/crash_trail.h"
 #include "game/race/race_chase.h"
@@ -491,6 +492,10 @@ static void save(void *ctx)
         records[REPLAY_RECORDS * REPLAY_RECORD_SIZE];
     RaceState *race = &r->sim->race;
     if (r->recording == NULL || reverse_track_running()) return;   /* port: a reversed race's file would play on the track's own way round */
+    if (car_registry_race_has_added()) {   /* port (dep59): Replay.rpl names a car by its number, and an added car's is for the run only */
+        port_log("replay: a race with an added car is not kept yet\n");
+        return;
+    }
     race_replay_image_setup(race, r->seed, setup);
     race_replay_image_put(race, &r->dir, cuts, seek, records);
     const RaceReplaySave in = { race->unknown_4fbb0c, race->playback, "", setup, race->player, cuts, r->recording,

@@ -1,4 +1,5 @@
 #include "game/race/car_model.h"
+#include "game/race/car_registry.h"
 
 
 #include <stdio.h>
@@ -52,6 +53,11 @@ int car_load_path(Car *car, RaceState *race, const char *dir, char path[CAR_LOAD
     if (model >= POLICE_SET) {
         name = POLICE;
         race->models[slot] = model - POLICE_SET;
+    } else if (car_registry_is_added(model - HUMAN_SET) || car_registry_is_added(model - OTHER_SET)) {
+        /* port (dep59): an added car, the player's or a rival's, has one model, its full CFM (car_registry.h) */
+        const int added = car_registry_is_added(model - HUMAN_SET) ? model - HUMAN_SET : model - OTHER_SET;
+        name = car_registry_stem(added);
+        car->model = added;
     } else if (model >= HUMAN_SET) {
         if (model - HUMAN_SET >= RACER_FILES) return 0;  /* port guard */
         name = RACERS[model - HUMAN_SET];

@@ -700,8 +700,8 @@ int main(void)
     test_info();
     test_report();
     for (size_t i = 0; i < limit_count; ++i) {
-        /* MOD.CARSPECS_WRITABLE needs a real directory: tests/studio_cli.sh covers it */
-        if (!hit[i] && strcmp(limit_table[i].id, "MOD.CARSPECS_WRITABLE") != 0) {
+        /* MOD.CARSPECS_WRITABLE needs a real directory: tests/studio_cli.sh covers it; a car piece's (PIECE.*), tests/test_car_piece.c */
+        if (!hit[i] && strcmp(limit_table[i].id, "MOD.CARSPECS_WRITABLE") != 0 && strncmp(limit_table[i].id, "PIECE.", 6) != 0) {
             fprintf(stderr, "no test reaches %s\n", limit_table[i].id);
             CHECK(0);
         }

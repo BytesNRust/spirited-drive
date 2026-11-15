@@ -182,6 +182,73 @@ void zip_close(ZipArchive *z)
     memset(z, 0, sizeof *z);
 }
 
+static void put16(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v, p[1] = (uint8_t)(v >> 8); }
+static void put32(uint8_t *p, uint32_t v) { put16(p, v & 0xffff), put16(p + 2, v >> 16); }
+
+enum { VERSION = 20, DOS_DATE_1980 = 0x21 };
+
+/* the fields a local header and a central directory header share, from `p` (the version needed) on */
+static void put_common(uint8_t *p, uint32_t crc, uint32_t size, size_t name_len)
+{
+    put16(p, VERSION), put16(p + 2, 0), put16(p + 4, 0), put16(p + 6, 0), put16(p + 8, DOS_DATE_1980);
+    put32(p + 10, crc), put32(p + 14, size), put32(p + 18, size), put16(p + 22, (uint32_t)name_len), put16(p + 24, 0);
+}
+
+/* the archive's size for `set`, 0 when a name or the whole would not be read back */
+static size_t written_size(const FileSet *set)
+{
+    if (set == NULL || set->count == 0 || set->count > ZIP_MAX_ENTRIES) return 0;
+    uint64_t total = EOCD_SIZE;
+    for (size_t i = 0; i < set->count; i++) {
+        const size_t len = strlen(set->file[i].name);
+        if (len == 0 || len > ZIP_NAME_MAX || set->file[i].size > ZIP_MAX_FILE) return 0;
+        total += (uint64_t)LFH_SIZE + CDH_SIZE + 2 * len + set->file[i].size;
+        if (total > ZIP_MAX_SIZE) return 0;
+    }
+    return (size_t)total;
+}
+
+uint8_t *zip_write_stored(const FileSet *set, size_t *size)
+{
+    *size = 0;
+    const size_t total = written_size(set);
+    if (total == 0) return NULL;
+    uint8_t *out = malloc(total);
+    uint32_t *crc = malloc(set->count * sizeof *crc), *offset = malloc(set->count * sizeof *offset);
+    if (out == NULL || crc == NULL || offset == NULL) return free(out), free(crc), free(offset), NULL;
+    size_t at = 0;
+    for (size_t i = 0; i < set->count; i++) {
+        const SetFile *f = &set->file[i];
+        const size_t len = strlen(f->name);
+        crc[i] = crc32_update(0, f->data, f->size), offset[i] = (uint32_t)at;
+        put32(out + at, LFH_SIG);
+        put_common(out + at + 4, crc[i], (uint32_t)f->size, len);
+        memcpy(out + at + LFH_SIZE, f->name, len);
+        if (f->size > 0) memcpy(out + at + LFH_SIZE + len, f->data, f->size);
+        at += LFH_SIZE + len + f->size;
+    }
+    const size_t cd = at;
+    for (size_t i = 0; i < set->count; i++) {
+        const SetFile *f = &set->file[i];
+        const size_t len = strlen(f->name);
+        memset(out + at, 0, CDH_SIZE);
+        put32(out + at, CDH_SIG), put16(out + at + 4, VERSION);   /* made by MS-DOS: no mode in the attributes */
+        put_common(out + at + 6, crc[i], (uint32_t)f->size, len);
+        put32(out + at + 42, offset[i]);
+        memcpy(out + at + CDH_SIZE, f->name, len);
+        at += CDH_SIZE + len;
+    }
+    memset(out + at, 0, EOCD_SIZE);
+    put32(out + at, EOCD_SIG), put16(out + at + 8, (uint32_t)set->count), put16(out + at + 10, (uint32_t)set->count);
+    put32(out + at + 12, (uint32_t)(at - cd)), put32(out + at + 16, (uint32_t)cd);
+    free(crc), free(offset);
+    ZipArchive z;
+    if (zip_open(out, total, &z) != ZIP_OK) return free(out), NULL;   /* a name the reader refuses, or a total over its limit */
+    zip_close(&z);
+    *size = total;
+    return out;
+}
+
 const char *zip_result_text(ZipResult r)
 {
     switch (r) {

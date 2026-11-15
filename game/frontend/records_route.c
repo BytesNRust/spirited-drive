@@ -1,6 +1,7 @@
 /* port: see records_route.h. */
 #include "game/frontend/records_route.h"
 
+#include "game/race/car_registry.h"
 #include "game/race/difficulty.h"
 #include "game/race/weather_snow.h"
 #include "game/sys/extras_marks.h"
@@ -167,6 +168,7 @@ static int32_t route_unified(RaceKind kind, RouteOp op, uint8_t *image, const ui
 int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player,
                       const int32_t times[RECORD_CHECK_TIMES])
 {
+    if (car_registry_race_has_added()) return nothing(op);   /* port (dep59): either's tables name a car by its number (car_registry.h) */
     if (!port_records_unified()) {
         /* the original's tables mix every race, so a race the original could not run keeps no record there: a reversed track, Easy or
          * Hard, a wet race or a rally on snow (Restomod's own tables keep them, as their layout and marks) */

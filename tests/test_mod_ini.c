@@ -111,6 +111,40 @@ static void test_messages_hold_no_control_bytes(void)
     CHECK_EQ_INT(parse(CARDS[0], &m, why), 1);   /* a key the game does not know is left alone, whatever it holds */
 }
 
+static void test_piece_fields(void)
+{
+    ModInfo m;
+    char why[160];
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\n", &m, why), 1);
+    CHECK_EQ_INT(m.type, MOD_TYPE_TWEAK);   /* no type line: a tweak */
+    CHECK(m.stem[0] == '\0' && m.short_name[0] == '\0' && m.sound_from[0] == '\0' && m.ai_from[0] == '\0' && m.dash_from[0] == '\0');
+    CHECK_EQ_INT(parse("id=f40\nname=F40\nversion=1\ntype=car\nstem=F40\nshort_name=F40\n"
+                       "sound_from=512tr\nai_from=diablo\ndash_from=512tr\n", &m, why), 1);
+    CHECK_EQ_INT(m.type, MOD_TYPE_CAR);
+    CHECK(strcmp(m.stem, "F40") == 0 && strcmp(m.short_name, "F40") == 0);
+    CHECK(strcmp(m.sound_from, "512tr") == 0 && strcmp(m.ai_from, "diablo") == 0 && strcmp(m.dash_from, "512tr") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=tweak\n", &m, why), 1);
+    CHECK_EQ_INT(m.type, MOD_TYPE_TWEAK);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\n", &m, why), 1);
+    CHECK_EQ_INT(m.type, MOD_TYPE_TRACK);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=plane\n", &m, why), 0);   /* an unknown type */
+    CHECK(strstr(why, "type") != NULL);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=Car\n", &m, why), 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\ntype=car\n", &m, why), 0);   /* twice */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nstem=f40\n", &m, why), 0);   /* lower case */
+    CHECK(strstr(why, "stem") != NULL);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nstem=TOOLONG99\n", &m, why), 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nstem=A/B\n", &m, why), 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nstem=..\n", &m, why), 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nstem=ABCDEFGH\n", &m, why), 1);   /* 8 */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nshort_name=ABCDEFGHI\n", &m, why), 0);   /* 9 */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nshort_name=T\x1b[2J\n", &m, why), 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nsound_from=Viper\n", &m, why), 0);   /* a-z 0-9 only */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nai_from=rx-7\n", &m, why), 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\ndash_from=aaaaaaaaa\n", &m, why), 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nsound_from=lada\n", &m, why), 1);   /* the word is the registry's to check */
+}
+
 int main(void)
 {
     test_a_full_card();
@@ -118,5 +152,6 @@ int main(void)
     test_utf8_text_is_kept();
     test_values_are_clean_utf8();
     test_messages_hold_no_control_bytes();
+    test_piece_fields();
     return TEST_REPORT();
 }

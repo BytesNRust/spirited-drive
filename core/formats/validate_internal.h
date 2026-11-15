@@ -11,6 +11,9 @@ const char *validate_base_name(const char *name);
 void validate_tri(const uint8_t *data, size_t size, const char *name, Report *r);
 void validate_track_fam(const uint8_t *data, size_t size, const char *name, Report *r);
 void validate_car_cfm(const uint8_t *data, size_t size, const char *name, Report *r);
+/* port (dep59): an added car's model (unpacked), checked as a race car's whatever its name; nothing when it is unreadable, which
+ * validate_car_cfm reports */
+void validate_car_piece_cfm(const uint8_t *data, size_t size, const char *name, Report *r);
 void validate_shpi(const uint8_t *data, size_t size, const char *name, Report *r);
 void validate_bnk(const uint8_t *data, size_t size, const char *name, Report *r);
 void validate_info(const uint8_t *data, size_t size, const char *name, Report *r);

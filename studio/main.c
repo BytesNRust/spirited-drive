@@ -1,9 +1,11 @@
 /* tnfs-studio: unpacks the game's files into editable trees (PNG, OBJ+MTL, TSV, WAV) and packs them back.
  *   tnfs-studio unpack FILE DIR [--palette FILE] [--force]
  *   tnfs-studio pack   DIR OUT --from ORIGINAL [--palette FILE] [--force]
- *   tnfs-studio validate [--compat | --port-only] [--check-install] FILE_OR_DIR
+ *   tnfs-studio validate [--compat | --port-only] [--check-install] FILE_OR_DIR   (a mod's folder or zip: studio/mod_validate.h)
  *   tnfs-studio slot list|replace|undo ...        (studio/slot.h)
  *   tnfs-studio track new LAYOUT --template SLOT --out DIR ...   (studio/track_new.h)
+ *   tnfs-studio car new --template CAR --id ID --stem STEM --out DIR ...   (studio/car_new.h)
+ *   tnfs-studio mod pack DIR OUT.zip [--force]   (studio/mod_pack.h)
  * `export` and `import` are the same two commands. Packing needs the original file: edits overlay it, and
  * an untouched file comes back byte for byte (a packed file keeps its original stream). Nothing is
  * overwritten without --force. validate checks a file or a mod directory against the limits of the original
@@ -16,12 +18,16 @@
 #include "formats/resource_exchange.h"
 #include "formats/validate.h"
 #include "studio/fsio.h"
+#include "studio/mod_pack.h"
+#include "studio/mod_validate.h"
 #include "studio/slot.h"
+#include "studio/car_new.h"
 #include "studio/track_new.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -45,6 +51,8 @@ static void usage(FILE *to)
           "  tnfs-studio slot replace track|car SLOT SOURCE_DIR --mods DIR [--data DIR] [--stem OLD] [--also REL]...\n"
           "  tnfs-studio slot undo --mods DIR [--all] [--force]\n"
           "  tnfs-studio track new LAYOUT --template SLOT --out DIR [--stem NAME] [--data DIR] [--force]\n"
+          "  tnfs-studio car new --template CAR --id ID --stem STEM --out DIR [--name NAME] [--data DIR] [--port-data DIR] [--force]\n"
+          "  tnfs-studio mod pack DIR OUT.zip [--force]\n"
           "  (export = unpack, import = pack)\n"
           "Level 1 limit: a replaced car's short name on the results and records screens stays the original model's\n"
           "  (EXE text); its full name on the selection screens is a bitmap and can be replaced (docs/modding/limitations.md)\n"
@@ -196,8 +204,7 @@ static int do_validate(const Args *a, ExchangeError *err)
     if (is_directory(target)) {
         FileSet set;
         fileset_init(&set);
-        if (!fsio_read_tree(target, &set, err)) { fileset_free(&set); report_free(&report); return 0; }
-        validate_tree(&set, &report);
+        if (!fsio_read_tree(target, &set, err) || !mod_validate_tree(&set, &report, err)) { fileset_free(&set); report_free(&report); return 0; }
         if (a->check_install) check_carspecs(target, &set, &report);
         printf("%s: %zu files checked\n", target, set.count);
         fileset_free(&set);
@@ -205,7 +212,10 @@ static int do_validate(const Args *a, ExchangeError *err)
         size_t size = 0;
         uint8_t *file = fsio_read_file(target, &size, err);
         if (file == NULL) { report_free(&report); return 0; }
-        validate_file(file, size, target, &report);
+        const size_t len = strlen(target);
+        const int zip = len > 4 && strcasecmp(target + len - 4, ".zip") == 0;
+        if (zip && !mod_validate_zip(file, size, &report, err)) { free(file); report_free(&report); return 0; }
+        if (!zip) validate_file(file, size, target, &report);
         printf("%s: checked\n", target);
         free(file);
     }
@@ -236,6 +246,18 @@ int main(int argc, char **argv)
         ExchangeError track_err = {{0}};
         if (track_command(argc - 1, argv + 1, &track_err)) return 0;
         fprintf(stderr, "tnfs-studio: %s\n", track_err.message);
+        return 1;
+    }
+    if (strcmp(command, "mod") == 0) {
+        ExchangeError mod_err = {{0}};
+        if (mod_command(argc - 1, argv + 1, &mod_err)) return 0;
+        fprintf(stderr, "tnfs-studio: %s\n", mod_err.message);
+        return 1;
+    }
+    if (strcmp(command, "car") == 0) {
+        ExchangeError car_err = {{0}};
+        if (car_command(argc - 1, argv + 1, &car_err)) return 0;
+        fprintf(stderr, "tnfs-studio: %s\n", car_err.message);
         return 1;
     }
     const int unpack = strcmp(command, "unpack") == 0 || strcmp(command, "export") == 0;

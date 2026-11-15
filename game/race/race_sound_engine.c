@@ -1,4 +1,5 @@
 /* The race's engine sound: the node and road noise, the second voice, the engine and the banks and the voices at the start (race_sound.h). */
+#include "game/race/car_registry.h"
 #include "game/race/race_sound_private.h"
 #include "game/race/rally_gravel.h"
 #include "game/race/car_walls.h"
@@ -179,10 +180,11 @@ static const char *const opponent_banks[12] = { "OSupmb.bnk", "ODiamb.bnk", "O91
 void race_sound_load_banks(RaceState *race, void (*load)(void *user, const char *name), void *user)
 {
     if (race->entries[race_slot(race->player)].sound_on == 0) return;
-    const uint32_t car = (uint32_t)race->entries[race_slot(race->player)].car;
-    if (car < 12) load(user, player_banks[car]);
-    const uint32_t other = (uint32_t)race->entries[race->player == 0 ? 1 : 0].car;
-    if (other < 12) load(user, opponent_banks[other]);
+    /* port (dep59): an added car sounds as the original it names (car_registry_sound_model); the twelve as they were */
+    const int car = car_registry_sound_model(race->entries[race_slot(race->player)].car);
+    if (car >= 0 && car < 12) load(user, player_banks[car]);
+    const int other = car_registry_sound_model(race->entries[race->player == 0 ? 1 : 0].car);
+    if (other >= 0 && other < 12) load(user, opponent_banks[other]);
     load(user, race->track == 7 ? "COLLSWMT.BNK" : "COLLSWWT.BNK");
     load(user, "NFS_FMmb.bnk");
     race_sound_start_voices(race);

@@ -26,18 +26,49 @@ int mod_ini_id_ok(const char *id)
     return 1;
 }
 
+enum { KIND_TEXT, KIND_STEM, KIND_WORD, KIND_TYPE };   /* what a value may hold: text; A-Z 0-9; a-z 0-9; a type's name */
+
 typedef struct {
     const char *key;
-    size_t offset, cap;   /* the field in ModInfo and its size, with the NUL */
+    size_t offset, cap;   /* the field in ModInfo and its size, with the NUL (KIND_TYPE: the longest name's) */
+    int kind;
 } Field;
 
 static const Field FIELDS[] = {
-    { "id", offsetof(ModInfo, id), sizeof ((ModInfo *)0)->id },
-    { "name", offsetof(ModInfo, name), sizeof ((ModInfo *)0)->name },
-    { "version", offsetof(ModInfo, version), sizeof ((ModInfo *)0)->version },
-    { "author", offsetof(ModInfo, author), sizeof ((ModInfo *)0)->author },
-    { "description", offsetof(ModInfo, description), sizeof ((ModInfo *)0)->description },
+    { "id", offsetof(ModInfo, id), sizeof ((ModInfo *)0)->id, KIND_TEXT },
+    { "name", offsetof(ModInfo, name), sizeof ((ModInfo *)0)->name, KIND_TEXT },
+    { "version", offsetof(ModInfo, version), sizeof ((ModInfo *)0)->version, KIND_TEXT },
+    { "author", offsetof(ModInfo, author), sizeof ((ModInfo *)0)->author, KIND_TEXT },
+    { "description", offsetof(ModInfo, description), sizeof ((ModInfo *)0)->description, KIND_TEXT },
+    { "type", 0, sizeof "track", KIND_TYPE },
+    { "stem", offsetof(ModInfo, stem), sizeof ((ModInfo *)0)->stem, KIND_STEM },
+    { "short_name", offsetof(ModInfo, short_name), sizeof ((ModInfo *)0)->short_name, KIND_TEXT },
+    { "sound_from", offsetof(ModInfo, sound_from), sizeof ((ModInfo *)0)->sound_from, KIND_WORD },
+    { "ai_from", offsetof(ModInfo, ai_from), sizeof ((ModInfo *)0)->ai_from, KIND_WORD },
+    { "dash_from", offsetof(ModInfo, dash_from), sizeof ((ModInfo *)0)->dash_from, KIND_WORD },
 };
+
+static const char *const TYPE_NAMES[] = { [MOD_TYPE_TWEAK] = "tweak", [MOD_TYPE_CAR] = "car", [MOD_TYPE_TRACK] = "track" };
+
+/* 1 when every one of the `n` characters of `s` is one of `kind`'s */
+static int chars_ok(const char *s, size_t n, int kind)
+{
+    for (size_t i = 0; i < n; i++) {
+        const char c = s[i];
+        const int digit = c >= '0' && c <= '9';
+        if (kind == KIND_STEM && !(digit || (c >= 'A' && c <= 'Z'))) return 0;
+        if (kind == KIND_WORD && !(digit || (c >= 'a' && c <= 'z'))) return 0;
+    }
+    return 1;
+}
+
+/* the type named by `s` (`n` long), or -1 */
+static int type_named(const char *s, size_t n)
+{
+    for (int t = 0; t < (int)(sizeof TYPE_NAMES / sizeof TYPE_NAMES[0]); t++)
+        if (strlen(TYPE_NAMES[t]) == n && memcmp(TYPE_NAMES[t], s, n) == 0) return t;
+    return -1;
+}
 enum { FIELD_COUNT = sizeof FIELDS / sizeof FIELDS[0], REQUIRED = 3 };   /* id, name and version, the first three */
 
 /* `s` .. `e` without the spaces round it */
@@ -89,11 +120,17 @@ static int take_line(const char *line, const char *end, ModInfo *out, int seen[F
         if (!text_clean((const unsigned char *)vs, vlen))
             return refuse(why, cap, "mod.ini: %s is not UTF-8 text, or holds a control or direction character", FIELDS[f].key);
         if (vlen == 0) return refuse(why, cap, "mod.ini: %s is empty", FIELDS[f].key);
+        seen[f] = 1;
+        if (FIELDS[f].kind == KIND_TYPE) {
+            out->type = type_named(vs, vlen);
+            return out->type >= 0 ? 1 : refuse(why, cap, "mod.ini: type is not tweak, car or track");
+        }
         if (vlen >= FIELDS[f].cap) return refuse(why, cap, "mod.ini: %s is longer than %zu characters", FIELDS[f].key, FIELDS[f].cap - 1);
+        if (!chars_ok(vs, vlen, FIELDS[f].kind))
+            return refuse(why, cap, "mod.ini: %s may hold only %s", FIELDS[f].key, FIELDS[f].kind == KIND_STEM ? "A-Z and 0-9" : "a-z and 0-9");
         char *field = (char *)out + FIELDS[f].offset;
         memcpy(field, vs, vlen);
         field[vlen] = '\0';
-        seen[f] = 1;
         return 1;
     }
     return 1;   /* a key of a later version */

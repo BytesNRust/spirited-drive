@@ -7,6 +7,8 @@
 #include "viewer/drive_session.h"
 #include "viewer/track_viewer_cars.h"
 #include "viewer/shine_class.h"
+#include "game/race/car_registry.h"
+#include "game/sys/car_pieces.h"
 #include "game/race/car_load.h"
 #include "game/race/single_rival.h"
 #include "game/race/race_chase.h"
@@ -489,15 +491,18 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     int own = model;  /* the dash (0041f9a0) is this machine's car's: in a link race its slot's in the setup */
     if (entries != NULL) memcpy(&own, entries + sizeof(RaceEntry) * (size_t)drive_link.slot + offsetof(RaceEntry, car), sizeof own);
     char stem[16];
-    car_stem(own, stem);
+    car_stem(car_registry_dash_model(own), stem);   /* port (dep59): an added car shows an original's cockpit (car_registry.h) */
     RaceField field;
     racers = drive_field_init(&field, name, racers, race_type, seed, flags);
     /* port (dev, env only): TNFS_RALLY=1 runs the headless --drive as the rally (the menus' variant), for the lunar gravity's trace and the rally gravel's captures */
     int arcade = drive_menus_on ? drive_menus.variant_r != 0 : getenv("TNFS_RALLY") != NULL;
     field.load = drive_load;
     field.slide = drive_menus_on ? drive_slide : NULL;  /* the front end's screen is up only with the menus */
+    car_registry_race_set(0);
     if (!drive_field_entries(&field, data_root, model, racers, entries)) return 0;
     if (!drive_field_replay(&field, &arcade, data_root)) return 0;
+    car_registry_race_set(car_registry_entries_added(field.entries, field.racers));   /* port (dep59): no record or replay of it (car_registry.h) */
+    if (car_registry_race_has_added()) port_log("records: a race with an added car is not kept yet\n");
     drive_snow = snow_race_wanted(replay_of != NULL, replay_of != NULL && replay_of->snow, port_snow_weather()) && track_snow_for(&t->tri, name, NULL);   /* port (snow_weather): a replay's own, else the host's or the setting's */
     ported_view_set_snow(drive_snow);
     drive_replay_set_snow(drive_snow);
@@ -616,14 +621,15 @@ void drive_end(void)
         const int slot = drive_sim.race.results_order[i];
         if (slot >= drive_sim.race.racers) continue;
         const Car *c = slot >= 0 ? drive_sim.race.cars[slot] : NULL;
-        port_out(" %d.%s", ++place, c == NULL ? "?" : slot == 0 ? "Player" : car_model_names[c->model & 7]);
+        port_out(" %d.%s", ++place, c == NULL ? "?" : slot == 0 ? "Player"
+                 : car_registry_is_added(c->model) ? car_registry_stem(c->model) : car_model_names[c->model & 7]);   /* port (dep59): an added rival's stem */
     }
     port_out("\n");
     /* port, for the checks: each racer's model and finish (the tick - 300, 0 still racing; 00440c30) */
     port_out("finish:");
     for (int slot = 0; slot < drive_sim.race.racers && slot < RACE_PLAYERS; slot++) {
         const Car *c = drive_sim.race.cars[slot];
-        port_out(" %d=%s:%d", slot, c != NULL && c->model >= 0 && c->model < CAR_MODELS ? car_model_names[c->model] : "?",
+        port_out(" %d=%s:%d", slot, c != NULL && car_registry_stem(c->model) != NULL ? car_registry_stem(c->model) : "?",
                drive_sim.race.players[slot].finish);
     }
     port_out("\n");
@@ -683,6 +689,7 @@ static void drive_look_fill(TrackFamInputs *look, const char *data_root, const c
 int track_viewer_drive(const char *data_root, const char *name, int model, int racers, int race_type, uint32_t ticks,
                        const char *screenshot)
 {
+    car_pieces_follow();   /* port (dep59): the added cars of the mods in effect, before the car is checked or anything of the race reads them; never during one */
     drive_time_of_day = 1;
     early.done = 0;
     drive_early_link(model);
@@ -692,7 +699,7 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     TrackFamInputs look = { .time_of_day = 0, .variant_m = 0, .variant_r = 0, .track = race_sim_track_index(name),
                             .stem = NULL, .dir = NULL, .dir_midday = NULL, .port_both_variants = 0 };
     drive_look_fill(&look, data_root, name);
-    int ok = model >= 0 && model < CAR_MODELS && racers >= 1 && racers <= RACE_PLAYERS && race_type <= 3 &&
+    int ok = ((model >= 0 && model < CAR_MODELS) || car_registry_is_added(model)) && racers >= 1 && racers <= RACE_PLAYERS && race_type <= 3 &&
              track_viewer_load(&t, data_root, name, &look);
     ok = ok && start_drive(&t, data_root, name, model, racers, race_type);
     uint8_t *pixels = ok ? malloc(SCREEN_W * SCREEN_H) : NULL;

@@ -1,3 +1,4 @@
+#include "game/race/car_registry.h"
 #include "game/race/ai_manager.h"
 
 #include "game/gfx/x86_int.h"
@@ -437,7 +438,7 @@ void ai_finish_and_revs(Car *car, RaceState *race, int32_t lane, int32_t wish[3]
     for (; gear < GEARS; gear++) {
         const int32_t over = car->ai_speed - car->pdn_1ac[gear];
         if (over > 0 && over < SHIFT_WINDOW && car->ai_speed >> 16 != 0 && car->coast_timer == 0)
-            car->coast_timer = car->model >= 0 && car->model < 8 ? COAST_TICKS[car->model] : 0;  /* port guard */
+            car->coast_timer = car_registry_ai_model(car->model) >= 0 ? COAST_TICKS[car_registry_ai_model(car->model)] : 0;  /* port guard; port (dep59): an added car's ai_from */
         if (car->ai_speed < car->pdn_1ac[gear]) break;
     }
     int32_t revs = COAST_REVS;
@@ -462,7 +463,7 @@ static int32_t traffic_pace(const Car *car, const RaceState *race)
 {
     const Car *lead = race->cars[0];
     int32_t speed = segment_speed(race, car->node);
-    if (lead->model >= 0 && lead->model <= 7) speed = fx_mul_round(speed, MODEL_PACE[lead->model]);
+    if (car_registry_ai_model(lead->model) >= 0) speed = fx_mul_round(speed, MODEL_PACE[car_registry_ai_model(lead->model)]);   /* port (dep59): an added car's ai_from */
     return lead->crashed_hard != 0 ? 0 : speed;
 }
 

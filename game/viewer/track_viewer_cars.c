@@ -2,6 +2,7 @@
 #include "viewer/track_viewer.h"
 #include "viewer/drive_session.h"
 #include "viewer/shine_class.h"
+#include "game/race/car_registry.h"
 #include "game/race/car_load.h"
 #include "game/race/single_rival.h"
 #include "game/race/race_chase.h"
@@ -51,8 +52,9 @@ int32_t le32_at(const uint8_t *p)
 void car_stem(int model, char stem[16])
 {
     memset(stem, 0, 16);
-    for (int i = 0; car_model_names[model][i] != '\0' && i < 15; i++)
-        stem[i] = (char)toupper((unsigned char)car_model_names[model][i]);
+    const char *const name = car_registry_stem(model);   /* port (dep59): an added car's own; "" for no car */
+    for (int i = 0; name != NULL && name[i] != '\0' && i < 15; i++)
+        stem[i] = (char)toupper((unsigned char)name[i]);
 }
 
 /* A file the original names in mixed case ("TSupra.cfm"); the CD's are
@@ -116,8 +118,8 @@ static void drive_load_textures(const RaceState *race, int slot, const char *ste
         if (player && count > 0) memcpy(drive_cars.dash_rgb, main_rgb, 3), drive_cars.dash_rgb_on = 1;
         if (count > 0) port_log("extra_liveries: slot %d %s in the alternate livery (%d colours)\n", slot, stem, count);
     }
-    if (drive_cars.file[slot] != NULL && drive_cars.paint_on[slot]) {  /* port: a catalogue paint, in the body textures only */
-        const int n = drive_livery_paint(car_model_names[drive_cars.model[slot]], drive_cars.file[slot], size, drive_cars.paint[slot]);
+    if (drive_cars.file[slot] != NULL && drive_cars.paint_on[slot] && car_registry_stem(drive_cars.model[slot]) != NULL) {  /* port: a catalogue paint, in the body textures only */
+        const int n = drive_livery_paint(car_registry_stem(drive_cars.model[slot]), drive_cars.file[slot], size, drive_cars.paint[slot]);
         port_log_detail("car_paint: slot %d %s painted %d,%d,%d (%d body texels)\n", slot, stem, drive_cars.paint[slot][0],
                  drive_cars.paint[slot][1], drive_cars.paint[slot][2], n);
     }
@@ -278,7 +280,8 @@ int paint_dash(void *user, uint8_t *bank, size_t size)
     (void)user;
     const int slot = race_slot(drive_sim.race.player);
     if (slot < 0 || slot >= RACE_CARS) return 0;
-    const char *stem = car_model_names[drive_cars.model[slot]];
+    const char *stem = car_registry_stem(drive_cars.model[slot]);   /* port (dep59): an added car's own */
+    if (stem == NULL) return 0;
     if (drive_cars.livery[slot] && drive_cars.dash_rgb_on) return drive_livery_dash(stem, bank, size, drive_cars.dash_rgb);
     if (drive_cars.paint_on[slot]) return drive_livery_dash(stem, bank, size, drive_cars.paint[slot]);
     return 0;
