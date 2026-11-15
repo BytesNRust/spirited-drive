@@ -10,6 +10,7 @@
 #include "game/sys/key_codes.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
+#include "game/sys/shape_bank.h"
 #include "game/sys/resource.h"
 #include "game/race/dash_controls.h"
 #include "game/race/dash_load.h"
@@ -53,6 +54,17 @@ static uint8_t *read_named(const char *root, const char *path, size_t dir_length
     return read_sized(root, path, dir_length, &size);
 }
 
+/* port: a shape bank read as read_sized does, refused as a missing one when the HUD and the cockpit cannot read it within its
+ * bytes (shape_bank_valid: a damaged or hostile mod's) */
+static uint8_t *read_bank(const char *root, const char *path, size_t dir_length, size_t *size)
+{
+    uint8_t *bank = read_sized(root, path, dir_length, size);
+    if (bank == NULL || shape_bank_valid(bank, *size)) return bank;
+    port_log("drive_hud: %s is not a shape bank the game can read\n", path);
+    platform_free_file(bank);
+    return NULL;
+}
+
 int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const char *stem)
 {
     char dir[COCKPIT_PATH];
@@ -67,7 +79,7 @@ int drive_hud_cockpit(DriveHud *h, RaceState *race, const char *data_root, const
     snprintf(h->dash_stem, sizeof h->dash_stem, "%s", stem);
     snprintf(h->misc_dir, sizeof h->misc_dir, "SIMDATA/MISC/");
     h->dash_dir_length = (size_t)n;
-    h->dash_bank = read_sized(h->root, files.bank, (size_t)n, &bank_size);
+    h->dash_bank = read_bank(h->root, files.bank, (size_t)n, &bank_size);
     if (h->dash_bank != NULL && h->dash_paint != NULL) h->dash_paint(h, h->dash_bank, bank_size);
     h->dash_fmm = read_sized(h->root, files.fmm, (size_t)n, &fmm_size);
     h->cockpit_ready = h->dash_bank != NULL && h->dash_fmm != NULL && fmm_size >= 0x18 &&
@@ -92,7 +104,8 @@ int drive_hud_read(DriveHud *h, const char *data_root)
     snprintf(h->root, sizeof h->root, "%s", data_root);
     DashFiles files;
     if (n < 0 || n >= (int)sizeof dir || dash_load_paths(&files, dir, (int16_t)resource_german(), HIGH_RES) != 0) return 0;
-    h->bank = read_named(h->root, files.bank, (size_t)n);
+    size_t bank_size = 0;
+    h->bank = read_bank(h->root, files.bank, (size_t)n, &bank_size);
     h->mmb = read_named(h->root, files.mmb, (size_t)n);
     if (h->bank == NULL || h->mmb == NULL) {
         port_log("drive_hud: no %s or %s\n", files.bank, files.mmb);
@@ -110,7 +123,7 @@ int drive_hud_read(DriveHud *h, const char *data_root)
     /* port: the distance unit's word comes from the bank of the units' language when that is not the language's */
     DashFiles units;
     if (resource_kmh() != resource_german() && dash_load_paths(&units, dir, (int16_t)resource_kmh(), HIGH_RES) == 0)
-        h->units_bank = read_named(h->root, units.bank, (size_t)n);
+        h->units_bank = read_bank(h->root, units.bank, (size_t)n, &bank_size);
     return 1;
 }
 
@@ -322,9 +335,14 @@ static uint8_t *police_load(void *ctx, const char *name)
     snprintf(path, sizeof path, "%s/%s%s", h->root, h->misc_dir, name);
     size_t size = 0;
     uint8_t *file = resource_load(path, &size);
-    if (file != NULL) return file;
-    for (size_t i = dir; path[i] != '\0'; i++) path[i] = (char)toupper((unsigned char)path[i]);
-    return resource_load(path, &size);
+    if (file == NULL) {
+        for (size_t i = dir; path[i] != '\0'; i++) path[i] = (char)toupper((unsigned char)path[i]);
+        file = resource_load(path, &size);
+    }
+    if (file == NULL || shape_bank_valid(file, size)) return file;
+    port_log("drive_hud: %s is not a shape bank the game can read\n", path);   /* port: refused as a missing one */
+    resource_free(file);
+    return NULL;
 }
 
 static void police_palette_read(void *ctx)
@@ -373,7 +391,7 @@ static void reload_load(void *ctx)
     CockpitSurfaces *s = ctx;
     DriveHud *h = s->h;
     size_t size = 0;
-    h->dash_bank = read_sized(h->root, h->dash_path, h->dash_dir_length, &size);
+    h->dash_bank = read_bank(h->root, h->dash_path, h->dash_dir_length, &size);
     if (h->dash_bank != NULL && h->dash_paint != NULL) h->dash_paint(h, h->dash_bank, size);
     if (h->dash_bank == NULL || cockpit_load(&h->cockpit, &h->cockpit_world, &h->hud, s->race, &h->keys.dash_camera,
                                              h->dash_bank, size, h->dash_fmm, h->dash_stem, HIGH_RES, 0) != 0) {

@@ -59,13 +59,16 @@ int cockpit_paths(CockpitFiles *files, const char *dir, const char *name, int32_
     return a < 0 || a >= (int)sizeof files->bank || b < 0 || b >= (int)sizeof files->fmm ? -1 : 0;
 }
 
-static int find_palette(Cockpit *c, uint8_t *bank)
+static int find_palette(Cockpit *c, uint8_t *bank, size_t bank_size)
 {
     uint8_t *pal = find(bank, "!pal");
     if (pal == NULL) {
         uint8_t *dash = shape_bank_find(bank, (const uint8_t *)"dash");
         if (dash == NULL) return -1;  /* 004732dd aborts */
-        c->palette = dash + (le32(dash) >> 8) + PAL_HEADER;
+        /* port: the palette after the 'dash' shape's block (its +0 >> 8) must be in the bank; a damaged or hostile mod's ran past */
+        const size_t at = (size_t)(dash - bank) + ((uint32_t)le32(dash) >> 8) + PAL_HEADER;
+        if (at > bank_size || bank_size - at < PAL_BYTES) return -1;
+        c->palette = bank + at;
         return 0;
     }
     c->palette = pal + PAL_HEADER;
@@ -209,7 +212,7 @@ int cockpit_load(Cockpit *c, CockpitWorld *w, HudState *hud, RaceState *race, in
     w->height = high ? 480 : 200;
     c->bank = bank;
     const Car *car = race->cars[race_slot(race->player)];
-    if (car == NULL || find_palette(c, bank) != 0 || find_shapes(c, bank, high, car->model) != 0) return -1;
+    if (car == NULL || find_palette(c, bank, bank_size) != 0 || find_shapes(c, bank, high, car->model) != 0) return -1;
     if (full) {
         gauge_boxes(c);
         if (read_points(c, bank, bank_size) != 0 || fmm == NULL) return -1;

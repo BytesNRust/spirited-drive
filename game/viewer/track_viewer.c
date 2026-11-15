@@ -32,6 +32,7 @@
 #include "viewer/drive_joy.h"
 #include "viewer/drive_smoke.h"
 #include "game/sys/port_log.h"
+#include "game/sys/shape_bank.h"
 #include "game/race/lunar_springs.h"
 #include "game/race/session_rules.h"
 #include "game/sys/extras_marks.h"
@@ -447,6 +448,11 @@ static void drive_start_hud(Track *t, const char *data_root, const char *stem)
     static const char *const CARPAL[] = { ".FSH", ".fsh", NULL };
     size_t carpal_size = 0;
     drive_cars.carpal = track_viewer_read_any(data_root, "CARFAMS", "CARPAL", CARPAL, &carpal_size);
+    if (drive_cars.carpal != NULL && !shape_bank_valid(drive_cars.carpal, carpal_size)) {   /* port: refused as a missing one */
+        port_log("track_viewer: CARPAL is not a shape bank the game can read\n");
+        platform_free_file(drive_cars.carpal);
+        drive_cars.carpal = NULL;
+    }
     CarLoad *cars[RACE_CARS] = { 0 };
     for (int i = 0; i < RACE_CARS; i++) cars[i] = drive_cars.loaded[i] ? &drive_cars.load[i] : NULL;
     if (!drive_hud_read(&drive_hud, data_root)) port_log("track_viewer: no HUD\n");

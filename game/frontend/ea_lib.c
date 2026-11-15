@@ -33,8 +33,15 @@ static uint8_t *picture_of(int32_t picture)
     return picture > PICTURE_BASE && picture <= PICTURE_BASE + PICTURES ? pictures[picture - PICTURE_BASE - 1] : NULL;
 }
 
-static int32_t bank_put(uint8_t *data, const char *name)
+/* port: a bank the search and the menus cannot read within its bytes (shape_bank_valid: a damaged or hostile mod's) is refused as
+ * a missing one is */
+static int32_t bank_put(uint8_t *data, size_t size, const char *name)
 {
+    if (data != NULL && !shape_bank_valid(data, size)) {
+        port_log("ea_bank_load: %s is not a shape bank the game can read\n", name);
+        resource_free(data);
+        return 0;
+    }
     for (int i = 0; i < BANKS; i++) {
         if (banks[i] != NULL) continue;
         banks[i] = data;
@@ -49,13 +56,15 @@ static int32_t bank_put(uint8_t *data, const char *name)
 int32_t ea_bank_load(const char *name)
 {
     size_t size;
-    return bank_put(resource_load_art(name, &size), name);
+    uint8_t *const data = resource_load_art(name, &size);
+    return bank_put(data, size, name);
 }
 
 int32_t ea_bank_load_path(const char *path)
 {
     size_t size;
-    return bank_put(resource_load(path, &size), path);
+    uint8_t *const data = resource_load(path, &size);
+    return bank_put(data, size, path);
 }
 
 void ea_bank_free(int32_t bank)
@@ -66,12 +75,27 @@ void ea_bank_free(int32_t bank)
     banks[bank - 1] = NULL;
 }
 
+enum { GREY_TYPE = 0x22 };   /* a palette, 6 bits a channel */
+
+/* port: the '!pal' of a menu whose bank is missing, refused (shape_bank_valid) or has none: a grey ramp, 6 bits a channel as the
+ * CD's. Every menu reads its '!pal' as it is; the original aborts the game. */
+static const uint8_t *grey_palette(void)
+{
+    static uint8_t shape[ENTRY_HEADER + PALETTE_BYTES];
+    if (shape[0] == 0) {
+        shape[0] = GREY_TYPE, shape[4] = 0, shape[5] = 1, shape[6] = 1;   /* 256 x 1 */
+        for (int i = 0; i < PALETTE_BYTES; i++) shape[ENTRY_HEADER + i] = (uint8_t)(i / 3 >> 2);
+    }
+    return shape;
+}
+
 const uint8_t *ea_shape(int32_t bank, const char *tag)
 {
     uint8_t *const b = bank_of(bank);
     const uint8_t *const s = b != NULL ? shape_bank_find(b, (const uint8_t *)tag) : NULL;
-    if (s == NULL) port_log("ea_shape: no %.4s\n", tag);
-    return s;
+    if (s != NULL) return s;
+    port_log("ea_shape: no %.4s\n", tag);
+    return memcmp(tag, "!pal", 4) == 0 ? grey_palette() : NULL;
 }
 
 int32_t ea_picture_new(int32_t w, int32_t h)

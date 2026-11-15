@@ -109,6 +109,7 @@ static void load_art(Menu *m)
 static void art_palette(Menu *m)
 {
     const uint8_t *pal = shape(m->art, "!pal");
+    if (pal == NULL) return;   /* port: art missing, refused or without its palette (a mod's): the palette kept (the original aborts) */
     m->ops->palette(m->ops->ctx, m->palette, pal + 0x10, (int16_t)(pal[0] & 0xff));
 }
 

@@ -86,6 +86,7 @@ def main():
     repo = sys.argv[1]
     seeds = {
         'fsh': {'seed_two_entries': fsh()},
+        'shape_bank': {'seed_two_entries': fsh()},
         'ffn': {'seed_two_glyphs': ffn()},
         'wav': {'seed_mono': wav(), 'seed_stereo': wav(44100, 2, 32)},
         'psx_bigf': {'seed_sky_shpp': shpp(), 'seed_bigf': bigf(b'a.psh', shpp())},
