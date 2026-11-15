@@ -1,8 +1,9 @@
 /* The mods overlay of the platform layer (BYTES-0009 AC8), on a scratch directory: the mod's copy replaces the
  * data root's, everything else comes from the data root, an invalid mod file is refused with the file and the
- * reason, nothing can leave the mods directory, and the player's files go to the player's folder (never beside the mod, never into the data
+ * reason (absent, also through resource_load's upper-case retry: never the data root's copy instead), nothing can leave the mods directory, and the player's files go to the player's folder (never beside the mod, never into the data
  * root), which --user moves and the older folders feed once. No window is opened. */
 #include "platform/platform.h"
+#include "sys/resource.h"
 #include "test.h"
 
 #include <dirent.h>
@@ -118,6 +119,7 @@ int main(void)
     write_file(cd_misc, "NOTE.TXT", "from the cd", 11);
     write_file(cd_misc, "ONLYCD.TXT", "cd only", 7);
     write_file(cd_misc, "TR2.TRI", "cd tri", 6);
+    write_file(cd_misc, "TR3.TRI", "cd tri 3", 8);
     write_file(mod_misc, "NOTE.TXT", "from the mod", 12);
     write_file(mod_misc, "TR2.TRI", "short", 5);                       /* not a TRI: invalid */
     write_file(cd_misc, "ESCAPE.TXT", "cd copy", 7);
@@ -162,6 +164,26 @@ int main(void)
     CHECK(strstr(platform_mods_error(), "SIMDATA/MISC/TR2.TRI") != NULL);
     CHECK(strstr(platform_mods_error(), "FILE.READABLE") != NULL);
     CHECK(strstr(platform_mods_error(), "0043e4e0") != NULL);                                  /* with the EXE address */
+
+    /* through resource_load and a lower-case name: its upper-case retry passes the overlay too and is refused there, never the data root's copy;
+     * two refused files one after the other stay refused; with the bad file taken out of the mod, the data root's copy comes back */
+    resource_init(cd, 0);
+    char asked2[400];
+    write_file(mod_misc, "TR3.TRI", "bad", 3);                         /* not a TRI either */
+    snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/tr2.tri", cd);
+    snprintf(asked2, sizeof asked2, "%s/SIMDATA/MISC/tr3.tri", cd);
+    d = resource_load(asked, &size);
+    CHECK(d == NULL);
+    d = resource_load(asked2, &size);
+    CHECK(d == NULL);
+    CHECK(strstr(platform_mods_error(), "TR3.TRI") != NULL || strstr(platform_mods_error(), "tr3.tri") != NULL);
+    d = resource_load(asked, &size);
+    CHECK(d == NULL);
+    snprintf(path, sizeof path, "%s/TR3.TRI", mod_misc);
+    CHECK(unlink(path) == 0);
+    d = resource_load(asked2, &size);
+    CHECK(same(d, size, "cd tri 3"));
+    resource_free(d);
 
     /* a symbolic link out of the mods directory is refused */
     snprintf(asked, sizeof asked, "%s/SIMDATA/MISC/ESCAPE.TXT", cd);
