@@ -57,12 +57,23 @@ int modpath_join(const char *mods, const char *rel, char *out, size_t cap)
     return 1;
 }
 
-int modpath_upper(const char *rel, char *out, size_t cap)
+int modpath_find(const char *mods, const char *rel, ModpathIsFile is_file, void *ctx, char *out, size_t out_cap, char *name, size_t name_cap)
 {
+    enum { AS_ASKED, UPPER, LOWER, FORMS };
+    if (mods == NULL || rel == NULL || is_file == NULL || name_cap == 0) return 0;
     const size_t n = strlen(rel);
-    if (n + 1 > cap) return 0;
-    for (size_t i = 0; i <= n; ++i) out[i] = (char)toupper((unsigned char)rel[i]);
-    return 1;
+    if (n + 1 > name_cap) return 0;
+    for (int form = 0; form < FORMS; ++form) {
+        for (size_t i = 0; i <= n; ++i) {
+            const int c = (unsigned char)rel[i];
+            name[i] = (char)(form == UPPER ? toupper(c) : form == LOWER ? tolower(c) : c);
+        }
+        /* a form the same as the name asked is not asked again (UPPER and LOWER are the same only when the name has no letters, and then
+         * both are the name asked) */
+        if (form != AS_ASKED && strcmp(name, rel) == 0) continue;
+        if (modpath_join(mods, name, out, out_cap) && is_file(out, ctx)) return 1;
+    }
+    return 0;
 }
 
 int modpath_inside(const char *real_root, const char *real_path)

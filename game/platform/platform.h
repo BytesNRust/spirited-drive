@@ -104,7 +104,7 @@ enum {
 bool platform_mouse(int *x, int *y, unsigned *buttons);
 
 /* Mods overlay (BYTES-0009). With a mods directory set, a file the game asks for under `data_root` is read from
- * the mods directory when the mod has its own copy (the same relative name, or its upper-case form), else
+ * the mods directory when the mod has its own copy (the same relative name, else its upper-case form, else its lower-case form: modpath_find), else
  * from `data_root`. A mod file is validated against the original executable's limits first (formats/validate.h):
  * an invalid one is not handed to the game, and platform_mods_error() says which file failed and why. Names
  * that would leave the mods directory (.. components, absolute names, symbolic links out of it) are refused.

@@ -17,7 +17,7 @@ If you used an older build: what `TNFS Restomod/` or `tnfs/tnfs/` (the old folde
 
 ## How a mod replaces a file
 
-Run with `--mods DIR` (or leave the files in `<player folder>/mods/`). When the game asks for a file of the game data, say `SIMDATA/MISC/TR1.TRI`, it looks in the mod first, at the same path (`DIR/SIMDATA/MISC/TR1.TRI`, or the upper-case form of it), and then in the game data. A file the mod does not have comes from the game data, so a mod holds only what it changes.
+Run with `--mods DIR` (or leave the files in `<player folder>/mods/`). When the game asks for a file of the game data, say `SIMDATA/MISC/TR1.TRI`, it looks in the mod first, at the same path (`DIR/SIMDATA/MISC/TR1.TRI`), then its upper-case form, then its lower-case form (`DIR/simdata/misc/tr1.tri`), always in that order, and then in the game data. On Linux, where names differ by case, the mod's files can be named in either case; keep one copy of each file. A file the mod does not have comes from the game data, so a mod holds only what it changes.
 
 * The mod's file is checked against what the original executable accepts (`tnfs-studio` has the same checks). A file that fails is **not** given to the game and the run says which file and why (`platform_mods_error`, also in `spirited-drive.log`).
 * Names that leave the mods folder (`..`, absolute paths, symbolic links out of it) are refused.
