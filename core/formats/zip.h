@@ -67,6 +67,9 @@ void zip_close(ZipArchive *z);
  * would pass the reader's size limit, or memory ran out: what it writes, zip_open reads. No clock goes in (every entry's time is
  * 1980-01-01 00:00), so the same set gives the same bytes. */
 uint8_t *zip_write_stored(const FileSet *set, size_t *size);
+/* 1 when the `len` bytes at `name` (one component, no '/') are a name Windows keeps for a device: CON, PRN, AUX, NUL, COM0-9 or
+ * LPT0-9, in any case, with or without an extension. What a zip's names and a mod's id both refuse. */
+int zip_name_is_device(const char *name, size_t len);
 /* A short English phrase for the result, for the player and the log */
 const char *zip_result_text(ZipResult r);
 

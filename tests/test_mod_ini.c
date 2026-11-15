@@ -1,5 +1,6 @@
 /* dep59: a mod's card, mod.ini (formats/mod_ini.h): key=value lines, '#' comments, id / name / version required, each value within its
- * length, nothing that is not text; an id the folder can be named after (a-z, 0-9, '-'), "legacy" kept for the loose files moved there. */
+ * length, nothing that is not text; an id the folder can be named after (a-z, 0-9, '-'), "legacy" kept for the loose files moved there, no name Windows keeps for a
+ * device (con, nul, com0-9, ...). */
 #include "formats/mod_ini.h"
 #include "test.h"
 
@@ -22,7 +23,9 @@ static void test_a_full_card(void)
     CHECK(strcmp(m.version, "1.2") == 0);
     CHECK(strcmp(m.author, "Someone") == 0);
     CHECK(strcmp(m.description, "Darker nights on the coast.") == 0);
-    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1", &m, why), 1);   /* no last line end, no author or description */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1", &m, why), 1);
+    CHECK_EQ_INT(parse("id=console\nname=A\nversion=1\n", &m, why), 1);   /* a device's name only as the whole id */
+    CHECK_EQ_INT(parse("id=com10\nname=A\nversion=1\n", &m, why), 1);   /* no last line end, no author or description */
     CHECK(m.author[0] == '\0' && m.description[0] == '\0');
 }
 
@@ -37,6 +40,10 @@ static void test_refusals(void)
         "id=-a\nname=A\nversion=1\n",                           /* a leading dash */
         "id=../x\nname=A\nversion=1\n",
         "id=legacy\nname=A\nversion=1\n",                       /* kept for the loose files */
+        "id=con\nname=A\nversion=1\n",                          /* Windows keeps these names for devices */
+        "id=nul\nname=A\nversion=1\n",
+        "id=com0\nname=A\nversion=1\n",
+        "id=lpt9\nname=A\nversion=1\n",
         "id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nname=A\nversion=1\n",   /* 33 */
         "id=a\nid=b\nname=A\nversion=1\n",                      /* twice */
         "id=a\nname=A\nversion=1\nno equals sign\n",

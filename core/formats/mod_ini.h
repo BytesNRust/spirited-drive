@@ -1,6 +1,6 @@
 /* A mod's card (dep59 n4): mod.ini at the root of its zip and of its folder. Lines `key=value` (spaces round both trimmed, CR LF or LF),
  * blank lines and lines starting with '#'. Keys: id (required; a-z, 0-9 and '-', not first; up to MOD_INI_ID_MAX; the folder's name, so
- * "legacy" is kept for the loose files moved there), name and version (required), author and description; a key the game does not know is
+ * "legacy" is kept for the loose files moved there, and no name Windows keeps for a device: con, prn, aux, nul, com0-9, lpt0-9), name and version (required), author and description; a key the game does not know is
  * left for a later version, whatever it holds, and is never said back; a key twice is refused. Values are UTF-8 text kept as it is, with
  * no control character (C0, DEL, C1) and no bidirectional mark that could change what the player reads.
  * port (dep59): what the piece is (notes/dep59-content-model-design.md). type: tweak (also when not given), car or track. A car's keys:
