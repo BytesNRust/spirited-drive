@@ -1,0 +1,239 @@
+/* dep59 step 2: the installed mods (game/sys/mod_store.h), each case on a scratch player folder: an install lands in mods/<id>/ with the
+ * zip's bytes and nothing in mods/.staging, first in the list; an update keeps the old one as a backup, three at most; a staging folder
+ * left by a stopped run is cleaned; a folder put there by hand, a zip the check refuses, mods/ as a file or as a link: nothing written;
+ * uninstall moves to a backup and takes the mod out of the list, restore brings it back; dropping the backups drops only that id's. */
+#include "formats/mod_list.h"
+#include "game/sys/mod_set.h"
+#include "game/sys/mod_store.h"
+#include "game/sys/port_profile.h"
+#include "game/sys/port_settings.h"
+#include "platform/platform.h"
+#include "test.h"
+#include "zip_build.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static char base[256], pref[300], cd[300], zips[300];
+static char why[256], id[64], old[32];
+static uint8_t buf[1 << 16];
+
+static void make_dirs(const char *path)
+{
+    char b[1024];
+    snprintf(b, sizeof b, "%s", path);
+    for (char *p = b + 1; *p; ++p)
+        if (*p == '/') { *p = '\0'; mkdir(b, 0777); *p = '/'; }
+    mkdir(b, 0777);
+}
+
+static int exists(const char *rel)
+{
+    char path[700];
+    struct stat st;
+    snprintf(path, sizeof path, "%s/%s", pref, rel);
+    return lstat(path, &st) == 0;
+}
+
+static int file_is(const char *rel, const char *text)
+{
+    char path[700], got[256] = "";
+    snprintf(path, sizeof path, "%s/%s", pref, rel);
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return 0;
+    const size_t n = fread(got, 1, sizeof got - 1, f);
+    fclose(f);
+    got[n] = '\0';
+    return strcmp(got, text) == 0;
+}
+
+static void write_at(const char *rel, const char *text)
+{
+    char path[700], dir[700];
+    snprintf(path, sizeof path, "%s/%s", pref, rel);
+    snprintf(dir, sizeof dir, "%s", path);
+    *strrchr(dir, '/') = '\0';
+    make_dirs(dir);
+    FILE *f = fopen(path, "wb");
+    if (f != NULL) fputs(text, f), fclose(f);
+}
+
+/* a tweak's zip, `id` at `version`, with a track light saying `light`; its path */
+static const char *tweak_zip(const char *name, const char *mod_id, const char *version, const char *light)
+{
+    static char path[400], card[200];
+    snprintf(card, sizeof card, "id=%s\nname=Test Tweak\nversion=%s\n", mod_id, version);
+    const ZbEntry e[] = { zb_text("mod.ini", card), zb_text("track_light/TR1B.txt", light), zb_text("README.md", "# test\n") };
+    const size_t size = zb_build(e, 3, buf, sizeof buf);
+    snprintf(path, sizeof path, "%s/%s", zips, name);
+    FILE *f = fopen(path, "wb");
+    CHECK(f != NULL && size > 0);
+    if (f != NULL) fwrite(buf, 1, size, f), fclose(f);
+    return path;
+}
+
+static const char *list_text(void)
+{
+    static char text[MOD_LIST_TEXT_MAX];
+    snprintf(text, sizeof text, "%s", port_settings_of_profile(PROFILE_RESTOMOD).mods);
+    return text;
+}
+
+static int backups_of(const char *mod_id)
+{
+    int count = 0, n = 0;
+    char **names = platform_user_list_dirs("mods_backup", &count);
+    for (int i = 0; i < count; i++)
+        if (strncmp(names[i], mod_id, strlen(mod_id)) == 0 && names[i][strlen(mod_id)] == '-') n++;
+    platform_free_names(names);
+    return n;
+}
+
+static void fresh(void)
+{
+    char cmd[400];
+    snprintf(cmd, sizeof cmd, "rm -rf '%s'", pref);
+    CHECK(system(cmd) == 0);
+    make_dirs(pref);
+    port_settings_forget();
+    CHECK(port_profile_select(PROFILE_RESTOMOD));
+}
+
+static void test_install_and_update(void)
+{
+    fresh();
+    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B one\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(strcmp(id, "twk") == 0 && old[0] == '\0');
+    CHECK(file_is("mods/twk/track_light/TR1B.txt", "track TR1 B one\n") && file_is("mods/twk/README.md", "# test\n"));
+    CHECK(!exists("mods/.staging/twk"));
+    CHECK(strcmp(list_text(), "twk") == 0);
+    ModStoreEntry e[4];
+    CHECK_EQ_INT(mod_store_list(e, 4), 1);
+    CHECK(strcmp(e[0].info.id, "twk") == 0 && e[0].active && e[0].backups == 0);
+    CHECK(mod_store_install(tweak_zip("b.zip", "twk", "0.2", "track TR1 B two\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(strcmp(old, "0.1") == 0);
+    CHECK(file_is("mods/twk/track_light/TR1B.txt", "track TR1 B two\n"));
+    CHECK_EQ_INT(backups_of("twk"), 1);
+    int count = 0;
+    char **names = platform_user_list_dirs("mods_backup", &count);
+    CHECK(count == 1 && strncmp(names[0], "twk-0.1-", 8) == 0);
+    char rel[400];
+    snprintf(rel, sizeof rel, "mods_backup/%s/track_light/TR1B.txt", count == 1 ? names[0] : "x");
+    CHECK(file_is(rel, "track TR1 B one\n"));   /* the old files, in the backup */
+    platform_free_names(names);
+    CHECK(strcmp(list_text(), "twk") == 0);   /* never twice */
+    for (int i = 3; i <= 6; i++) {   /* four more updates, in the same second: three backups stay */
+        char version[8];
+        snprintf(version, sizeof version, "0.%d", i);
+        CHECK(mod_store_install(tweak_zip("c.zip", "twk", version, "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    }
+    CHECK_EQ_INT(backups_of("twk"), 3);
+    CHECK(mod_store_install(tweak_zip("same.zip", "twk", "0.6", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(strcmp(old, "0.6") == 0);   /* the same version again: reinstalled, with its backup */
+    CHECK_EQ_INT(backups_of("twk"), 3);
+}
+
+static void test_a_stopped_install_is_cleaned(void)
+{
+    fresh();
+    write_at("mods/.staging/twk/junk", "left by a run that stopped");
+    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(!exists("mods/.staging/twk/junk") && !exists("mods/twk/junk"));
+}
+
+static void test_what_is_never_replaced(void)
+{
+    fresh();
+    write_at("mods/twk/mine.txt", "put here by hand");   /* no mod.ini */
+    CHECK(!mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(strstr(why, "not installed by the game") != NULL);
+    CHECK(file_is("mods/twk/mine.txt", "put here by hand") && !exists("mods/twk/mod.ini") && !exists("mods_backup"));
+    CHECK(!mod_store_uninstall("twk", why, sizeof why));
+    CHECK(file_is("mods/twk/mine.txt", "put here by hand"));
+    fresh();
+    static const char *const BAD[][2] = { { "../x", "x" }, { "run.exe", "MZ" }, { "SIMDATA/MISC/TR1.TRI", "x" } };
+    for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) {
+        const ZbEntry e[] = { zb_text("mod.ini", "id=bad\nname=Bad\nversion=1\n"), zb_text(BAD[i][0], BAD[i][1]) };
+        const size_t size = zb_build(e, 2, buf, sizeof buf);
+        char path[400];
+        snprintf(path, sizeof path, "%s/bad.zip", zips);
+        FILE *f = fopen(path, "wb");
+        if (f != NULL) fwrite(buf, 1, size, f), fclose(f);
+        CHECK(!mod_store_install(path, id, sizeof id, old, sizeof old, why, sizeof why));
+        CHECK(!exists("mods") && !exists("mods_backup"));   /* refused before anything is written */
+    }
+    char missing[400];
+    snprintf(missing, sizeof missing, "%s/none.zip", zips);
+    CHECK(!mod_store_install(missing, id, sizeof id, old, sizeof old, why, sizeof why));
+}
+
+static void test_mods_not_a_folder(void)
+{
+    fresh();
+    write_at("mods", "a file");
+    CHECK(!mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(file_is("mods", "a file"));
+    fresh();
+    char elsewhere[400], link_path[400];
+    snprintf(elsewhere, sizeof elsewhere, "%s/elsewhere", base);
+    make_dirs(elsewhere);
+    snprintf(link_path, sizeof link_path, "%s/mods", pref);
+    CHECK(symlink(elsewhere, link_path) == 0);
+    CHECK(!mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    char inside[500];
+    snprintf(inside, sizeof inside, "%s/twk", elsewhere);
+    struct stat st;
+    CHECK(stat(inside, &st) != 0);   /* nothing written through the link */
+    snprintf(inside, sizeof inside, "%s/.staging", elsewhere);
+    CHECK(stat(inside, &st) != 0);
+}
+
+static void test_uninstall_and_restore(void)
+{
+    fresh();
+    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B one\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(mod_store_install(tweak_zip("o.zip", "other", "1", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(strcmp(list_text(), "other,twk") == 0);
+    CHECK(mod_store_uninstall("twk", why, sizeof why));
+    CHECK(!exists("mods/twk") && backups_of("twk") == 1);
+    CHECK(strcmp(list_text(), "other") == 0);
+    ModStoreEntry e[4];
+    CHECK_EQ_INT(mod_store_list(e, 4), 1);
+    CHECK(!mod_store_uninstall("twk", why, sizeof why));   /* not installed */
+    CHECK(strstr(why, "not installed") != NULL);
+    CHECK(mod_store_restore("twk", why, sizeof why));
+    CHECK(file_is("mods/twk/track_light/TR1B.txt", "track TR1 B one\n") && backups_of("twk") == 0);
+    CHECK(strcmp(list_text(), "twk,other") == 0);
+    CHECK(!mod_store_restore("twk", why, sizeof why));   /* no backup left */
+    CHECK(mod_store_uninstall("other", why, sizeof why) && mod_store_uninstall("twk", why, sizeof why));
+    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.2", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(mod_store_uninstall("twk", why, sizeof why));
+    CHECK(backups_of("twk") == 2 && backups_of("other") == 1);
+    CHECK(mod_store_drop_backups("twk", why, sizeof why));
+    CHECK(backups_of("twk") == 0 && backups_of("other") == 1);   /* only that id's */
+    CHECK(!mod_store_uninstall("../x", why, sizeof why));
+}
+
+int main(void)
+{
+    snprintf(base, sizeof base, "%s/tnfs_mod_store_test_%d", getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp", (int)getpid());
+    snprintf(pref, sizeof pref, "%s/pref", base);
+    snprintf(cd, sizeof cd, "%s/cd", base);
+    snprintf(zips, sizeof zips, "%s/zips", base);
+    make_dirs(pref), make_dirs(cd), make_dirs(zips);
+    setenv("TNFS_PREF_DIR", pref, 1);
+    CHECK(mod_set_start(cd, NULL));
+    test_install_and_update();
+    test_a_stopped_install_is_cleaned();
+    test_what_is_never_replaced();
+    test_mods_not_a_folder();
+    test_uninstall_and_restore();
+    mod_set_stop();
+    char cmd[400];
+    snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);
+    if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", base);
+    return TEST_REPORT();
+}

@@ -337,6 +337,7 @@ add_library(tnfs_game STATIC
     game/sys/mod_generation.c
     game/sys/mod_set.c
     game/sys/mod_set_session.c
+    game/sys/mod_store.c
     game/sys/art_cache.c
     game/sys/sha256.c
     game/sys/data_check.c
@@ -548,6 +549,7 @@ set(TNFS_SDL3_PLATFORM
     game/platform/sdl3/platform_input_sdl3.c
     game/platform/sdl3/platform_mods_sdl3.c
     game/platform/sdl3/platform_user_sdl3.c
+    game/platform/sdl3/platform_user_tree_sdl3.c
     game/platform/sdl3/platform_present_sdl3.c
     game/platform/sdl3/platform_pool_sdl3.c)   # platform_sdl3.c split by responsibility; the tests that link the platform list them all
 add_executable(tnfs
@@ -1217,6 +1219,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_mod_set PRIVATE ${TNFS_WARNINGS})
     add_test(NAME mod_set COMMAND test_mod_set)
+    add_executable(test_mod_store tests/test_mod_store.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_mod_store PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_mod_store PRIVATE m)
+    endif()
+    target_compile_options(test_mod_store PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME mod_store COMMAND test_mod_store)
     add_executable(test_car_pieces tests/test_car_pieces.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_car_pieces PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
