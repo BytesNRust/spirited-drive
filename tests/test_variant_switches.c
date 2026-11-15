@@ -1,10 +1,11 @@
 /* dep56, Restomod's variants as switches inside one track: Control Central's arrows step the tracks alone and keep the switches
  * (race_settings_track_step), where Stock and Restored step base -> mirror -> rally (race_settings_track_forward, unchanged); and
- * the words along the top of the track card (card_marks_text). */
+ * Restomod's track card's words (card_words_of), dep64. */
 #include "game/frontend/card_marks.h"
 #include "game/frontend/race_settings.h"
 #include "test.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 static RaceSettings at(int track, int m, int r)
@@ -61,17 +62,96 @@ static void test_the_exe_order_is_kept(void)
 
 static void test_the_card_words(void)
 {
-    char out[48];
-    card_marks_text(1, 1, 1, 2, 2, 8, out, sizeof out);
-    CHECK(strcmp(out, "MIR  RAIN DUSK 8 LAPS") == 0);
-    card_marks_text(0, 0, 0, 0, 0, 4, out, sizeof out);
-    CHECK(strcmp(out, "CLR DAY 4 LAPS") == 0);
-    card_marks_text(1, 0, 0, 3, -1, 0, out, sizeof out);   /* a stage, no light effects */
-    CHECK(strcmp(out, "M  STRM") == 0);
-    card_marks_text(0, 1, 0, 1, 3, 1, out, sizeof out);
-    CHECK(strcmp(out, "I  FOG NGT 1 LAP") == 0);
-    card_marks_text(1, 1, 1, 2, 2, 99, out, 6);   /* cut to its room, NUL-ended */
-    CHECK_EQ_INT((int)strlen(out), 5);
+    CardWords w = card_words_of(1, 1, 1, 2, 3, 8);   /* every variant, rain, night */
+    CHECK_EQ_INT(w.left_count, 3);
+    CHECK(strcmp(w.left[0], "MIRROR") == 0 && strcmp(w.left[1], "REVERSE") == 0 && strcmp(w.left[2], "RALLY") == 0);
+    CHECK_EQ_INT(w.right_count, 3);
+    CHECK(strcmp(w.right[0], "8 LAPS") == 0 && strcmp(w.right[1], "NIGHT") == 0 && strcmp(w.right[2], "RAIN") == 0);
+    w = card_words_of(0, 0, 0, 0, 0, 4);   /* none, clear, midday: the laps alone */
+    CHECK_EQ_INT(w.left_count, 0);
+    CHECK_EQ_INT(w.right_count, 1);
+    CHECK(strcmp(w.right[0], "4 LAPS") == 0);
+    w = card_words_of(0, 1, 0, 1, 1, 1);
+    CHECK(w.left_count == 1 && strcmp(w.left[0], "REVERSE") == 0);
+    CHECK(w.right_count == 3 && strcmp(w.right[0], "1 LAP") == 0 && strcmp(w.right[1], "MORNING") == 0 && strcmp(w.right[2], "FOG") == 0);
+    w = card_words_of(0, 0, 1, 3, 2, 99);
+    CHECK(w.left_count == 1 && strcmp(w.left[0], "RALLY") == 0);
+    CHECK(w.right_count == 3 && strcmp(w.right[0], "99 LAPS") == 0 && strcmp(w.right[1], "EVENING") == 0 && strcmp(w.right[2], "STORM") == 0);
+    w = card_words_of(1, 0, 0, 3, -1, 0);   /* a stage, no light effects: no laps, no time */
+    CHECK(w.left_count == 1 && strcmp(w.left[0], "MIRROR") == 0);
+    CHECK(w.right_count == 1 && strcmp(w.right[0], "STORM") == 0);
+    w = card_words_of(0, 0, 0, 0, -1, 0);   /* nothing to say */
+    CHECK_EQ_INT(w.left_count + w.right_count, 0);
+}
+
+enum { PIC_W = 2 * CARD_WORD_W + 4, PIC_H = CARD_WORD_Y1 + 3 };
+
+/* a bitmap entry PIC_W x PIC_H at (341, y), its texels from `texel` */
+static void picture(uint8_t *shape, int y, uint8_t (*texel)(int i, int j))
+{
+    memset(shape, 0, 16);
+    shape[0] = 0x7b, shape[4] = PIC_W, shape[6] = PIC_H, shape[12] = 341 & 0xff, shape[13] = 341 >> 8, shape[14] = (uint8_t)y;
+    for (int j = 0; j < PIC_H; j++)
+        for (int i = 0; i < PIC_W; i++) shape[16 + j * PIC_W + i] = texel(i, j);
+}
+
+static uint8_t mirror_texel(int i, int j) { return (uint8_t)(i < CARD_WORD_W ? 0xfe : j); }   /* the word's white; a sky per row */
+static uint8_t normal_texel(int i, int j) { return (uint8_t)(i * 3 + j * 7); }
+
+static int in_box(int i, int j) { return i <= CARD_WORD_X1 && j >= CARD_WORD_Y0 && j <= CARD_WORD_Y1; }
+
+/* outside the box the mirror picture as it was */
+static int changed_outside(const uint8_t *out, const uint8_t *mirror)
+{
+    int n = memcmp(out, mirror, 16) != 0;
+    for (int j = 0; j < PIC_H; j++)
+        for (int i = 0; i < PIC_W; i++) n += !in_box(i, j) && out[16 + j * PIC_W + i] != mirror[16 + j * PIC_W + i];
+    return n;
+}
+
+/* the word takes the normal picture's texels, turned and lined up by the pictures' places on the screen */
+static void test_the_mirror_word_takes_the_normal_picture(void)
+{
+    static uint8_t mirror[16 + PIC_W * PIC_H], normal[16 + PIC_W * PIC_H];
+    picture(mirror, 254, mirror_texel);
+    picture(normal, 255, normal_texel);   /* a row lower on the screen, as Vertigo Ridge's */
+    uint8_t *out = card_word_wiped(mirror, normal);
+    CHECK(out != NULL);
+    if (out != NULL) {
+        int wrong = 0;
+        for (int j = CARD_WORD_Y0; j <= CARD_WORD_Y1; j++)
+            for (int i = 0; i <= CARD_WORD_X1; i++) wrong += out[16 + j * PIC_W + i] != normal_texel(PIC_W - 1 - i, j - 1);
+        CHECK_EQ_INT(wrong, 0);
+        CHECK_EQ_INT(changed_outside(out, mirror), 0);
+        free(out);
+    }
+    CHECK_EQ_INT(mirror[16 + CARD_WORD_Y0 * PIC_W], 0xfe);   /* the bank's own entry is left as it was */
+}
+
+/* no normal picture that lines up (none, another width): the sky beside the word, as the Night label */
+static void test_the_mirror_word_takes_the_sky_without_it(void)
+{
+    static uint8_t mirror[16 + PIC_W * PIC_H], normal[16 + PIC_W * PIC_H];
+    picture(mirror, 255, mirror_texel);
+    picture(normal, 255, normal_texel);
+    normal[4] = PIC_W - 1;
+    const uint8_t *const others[2] = { NULL, normal };
+    for (int n = 0; n < 2; n++) {
+        uint8_t *out = card_word_wiped(mirror, others[n]);
+        CHECK(out != NULL);
+        if (out == NULL) continue;
+        int white_left = 0;
+        for (int j = CARD_WORD_Y0; j <= CARD_WORD_Y1; j++)
+            for (int i = 0; i <= CARD_WORD_X1; i++) white_left += out[16 + j * PIC_W + i] != j;
+        CHECK_EQ_INT(white_left, 0);
+        CHECK_EQ_INT(changed_outside(out, mirror), 0);
+        free(out);
+    }
+    mirror[0] = 0x7d;
+    CHECK(card_word_wiped(mirror, NULL) == NULL);
+    mirror[0] = 0x7b, mirror[4] = CARD_WORD_W;   /* too narrow to have sky beside the word */
+    CHECK(card_word_wiped(mirror, NULL) == NULL);
+    CHECK(card_word_wiped(NULL, normal) == NULL);
 }
 
 int main(void)
@@ -79,5 +159,7 @@ int main(void)
     test_the_arrows_step_the_tracks_alone();
     test_the_exe_order_is_kept();
     test_the_card_words();
+    test_the_mirror_word_takes_the_normal_picture();
+    test_the_mirror_word_takes_the_sky_without_it();
     return TEST_REPORT();
 }

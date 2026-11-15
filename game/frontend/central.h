@@ -95,9 +95,13 @@ typedef struct ControlCentralOps {
                                                                 * the car select's Color line reads bit 2 (central_livery.c) */
     int32_t (*palette_colour)(void *ctx, int32_t rgb);         /* port: ea_colour, the screen palette's index nearest an RGB
                                                                 * (the Color line's swatch; frame_rect takes the index) */
-    /* port (dep56): the words along the top of the track card (card_marks.h), as the settings are now, drawn small and ending at
-     * `right`, their top at `y`; nothing when there is nothing to say. NULL: the exe's card, nothing on it. */
-    void (*card_marks)(void *ctx, int32_t right, int32_t y);
+    /* port (dep56, dep64): Restomod's track card (card_marks.h): the words over it as the settings are now, drawn small, the
+     * variants' lines from `left` and the laps, time and weather lines ending at `right`, the first line's top at `y`. NULL: the
+     * exe's card, nothing on it. */
+    void (*card_marks)(void *ctx, int32_t left, int32_t right, int32_t y);
+    /* port (dep64): 1 when the card is Restomod's: the track's own picture, or the exe's mirror art when the mirror is on, never the
+     * rally's. NULL or 0: the exe's choice of art. */
+    int (*card_plain)(void *ctx);
 } ControlCentralOps;
 
 /* The globals 00432ff4 reads and writes; a pointer is written, a value only read. */
