@@ -63,6 +63,7 @@ add_library(tnfs_core STATIC
     core/formats/fixed_record.c
     core/formats/fsh.c
     core/formats/mesh.c
+    core/formats/mesh_build.c
     core/formats/mesh_exchange.c
     core/formats/modpath.c
     core/formats/mod_check.c
@@ -720,7 +721,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece mesh_layout doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_list)
+    foreach(name qfs qfs_encode car_piece mesh_layout mesh_build doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_list)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -741,6 +742,7 @@ foreach(name port_old_files car_registry car_registry_race car_registry_names ca
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_piece PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_mesh_layout PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_mesh_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_paint_cfm PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_rain_roll PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_snow_roll PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
