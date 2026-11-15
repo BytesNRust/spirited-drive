@@ -709,7 +709,7 @@ endif()
 
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
-    add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c)
+    add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c studio/car_new.c)
     target_include_directories(tnfs-studio PRIVATE .)
     target_link_libraries(tnfs-studio PRIVATE tnfs_core)
     target_compile_options(tnfs-studio PRIVATE ${TNFS_WARNINGS})
@@ -1168,6 +1168,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME car_piece_race COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_piece_race.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original)
         set_tests_properties(car_piece_race PROPERTIES TIMEOUT 600)
         add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
+        add_test(NAME car_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_new.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands
