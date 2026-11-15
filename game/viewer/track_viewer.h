@@ -28,6 +28,12 @@ int track_viewer_drive_replay(const char *data_root, const char *path);
 /* The same on a replay's bytes (REPLAY_FILE_SIZE, the caller's) and 004275f8's request for its kind (00524e9f 1:
  * 4, from the start; 2: 5, the highlights); in the menus' window when track_viewer_drive_menus came first */
 int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, size_t size, int request);
+/* port (dep59 1b): the same on a Replay.rpx's bytes (drive_replay.h): its added cars must be loaded and unchanged, or it does not
+ * play and says which mod */
+int track_viewer_drive_replay_added_data(const char *data_root, const uint8_t *file, size_t size, int request);
+/* port (dep59 1b): the player's file a race with an added car keeps its replay in, and 1 when the last replay this run kept is it */
+#define TRACK_VIEWER_ADDED_REPLAY "Replay.rpx"
+int track_viewer_last_replay_added(void);
 
 /* The front end's race (glue standing in for what 00427ae0 / 004275f8 take
  * from config.dat): the player's gearbox and aids, the laps, the head to

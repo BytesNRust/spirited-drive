@@ -159,7 +159,7 @@ Only CC0 or public-domain samples go in the repository, each with its source, au
 
 ## Adding a car (development)
 
-In Restomod a mod can add a car beside the twelve of the original game: a folder whose `mod.ini` says `type=car`. Stock and Restored never load one. For now it is raced from the command line only: the car screens, records and replays come later (see *What it does not do yet*).
+In Restomod a mod can add a car beside the twelve of the original game: a folder whose `mod.ini` says `type=car`. Stock and Restored never load one. For now it is raced from the command line only: the car screens come later (see *What it does not do yet*).
 
     mycar/mod.ini
     mycar/SIMDATA/CARFAMS/MYCAR.CFM        the 3D model and its textures
@@ -187,7 +187,9 @@ The car takes its lamp colours from `sound_from`'s car. The original game has a 
 
 Several cars can be added, up to 64, one folder each, in the mods in effect (`--mods`, then Restomod's list). Two folders with the same `id` or `stem`: the first one counts and the other is refused. A car's number (16 and up) holds for that run only; changing the list keeps the number of every car that stays.
 
-**What it does not do yet:** a race with an added car keeps no record and no replay (`race_records.dat`, `config.dat` and `Replay.rpl` hold only the original cars, and the log says so); the car is not on the car screens and cannot be a rival; it brings no engine sound or cockpit of its own; the paint catalogue (the extra colours) has none for it.
+**Records and replays.** A race with an added car never writes to the original game's files: `race_records.dat`, `config.dat` and `Replay.rpl` stay as they were. Its records go to `race_records_added.dat`, with a table per car named by its `id`, so each added car keeps its own best times; uninstalling or turning off the car never deletes them. Its replay is kept as `Replay.rpx` (the original's blocks, then a last one naming each added car by its `id` and a fingerprint of its PBS and PDN), and plays back with `tnfs --mods mycar --replay Replay.rpx`. It does not play, and says why, when the car's mod is not loaded (`replay: needs the mod my-car`) or when its PBS or PDN changed since the race (`replay: the mod my-car has changed since this replay was made`): a replay re-runs the race from the players' inputs, so different physics would drive a different race. Changing the CFM or the masks keeps the replay.
+
+**What it does not do yet:** the car is not on the car screens and cannot be a rival; the replay list and the save box of the menus do not show `.RPX` files, and Best Times does not show the added cars' tables; it brings no engine sound or cockpit of its own; the paint catalogue (the extra colours) has none for it.
 
 ### Making a car with tnfs-studio
 

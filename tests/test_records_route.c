@@ -15,6 +15,7 @@
 #include "game/sys/free_laps.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
+#include "game/sys/race_records_added.h"
 #include "game/sys/reverse_track.h"
 #include "test.h"
 
@@ -208,28 +209,86 @@ static void test_the_originals_keep_no_race_it_could_not_run(void)
     unusual(-1);
 }
 
-/* port (dep59): a race with an added car keeps no record in either's tables (the original's config.dat image, Restomod's race_records.dat):
- * their format names a car by its number, and an added car's is for the run only */
-static void test_a_race_with_an_added_car_keeps_none(void)
+/* port (dep59): the race's player in the added car `car` (16, "f40", registered) or an original (-1: none added) */
+static void driving(int car)
 {
-    for (int on = 0; on < 2; on++) {
-        unified(on);
-        car_registry_race_set(1);
-        static Race r, before;
-        race(&r, TR1, 0, 1, 99999, 2);
-        before = r;
-        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
-        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 0);
-        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
-        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOP, r.image, r.game, 0, NULL), 0);
-        CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
-        CHECK_EQ_INT(writes, 0);
-        CHECK(race_records_find(TR1, 0, 0, 8) == NULL);
-        car_registry_race_set(0);   /* the next race, all originals: kept again */
-        CHECK(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES) != RECORD_CHECK_NONE || on == 0);
-        if (on) CHECK(race_records_find(TR1, 0, 0, 8) != NULL);
-        else CHECK(memcmp(r.image, before.image, sizeof r.image) != 0);
-    }
+    car_registry_clear();
+    CarPiece p;
+    memset(&p, 0, sizeof p);
+    snprintf(p.id, sizeof p.id, "f40");
+    snprintf(p.stem, sizeof p.stem, "F40");
+    snprintf(p.short_name, sizeof p.short_name, "F40");
+    p.sound_model = 4, p.ai_model = 1, p.dash_model = -1;
+    CHECK_EQ_INT(car_registry_add(&p, NULL, 0), 16);
+    race_records_added_reset();
+    car_registry_race_set(car >= 16);
+    car_registry_race_player_set(car >= 16 ? car : 5);
+}
+
+static int32_t row_word(const RecordRow *r, int at)
+{
+    int32_t v;
+    memcpy(&v, r->row + at, 4);
+    return v;
+}
+
+/* port (dep59): in Restomod a race in an added car is ranked in that car's own table (race_records_added.h), its rows' car words 0 on
+ * disk and its number on the screens; the original store is not touched. Stock's records (the original's, config.dat) keep none of it. */
+static void test_an_added_car_has_its_own_table(void)
+{
+    unified(1);
+    driving(16);
+    static Race r, before;
+    race(&r, TR1, 0, 1, 99999, 500);
+    p16(r.game + 0x53a, 3), p16(r.game + 0x536, 3);   /* the menus' car words: not the added car's */
+    before = r;
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
+    const RecordTable *t = race_records_added_find(TR1, 0, 0, 8, "f40");
+    CHECK(t != NULL && g32(t->totals[0].row + RECORD_ROW_TIME) == 500);
+    CHECK(t != NULL && row_word(&t->totals[0], RECORD_ROW_CAR) == 0 && row_word(&t->totals[0], RECORD_ROW_CAR_B) == 0);   /* by its table's id */
+    CHECK(race_records_added_lap_find(TR1, 0, 0, "f40") != NULL);
+    CHECK(race_records_find(TR1, 0, 0, 8) == NULL && race_records_lap_find(TR1, 0, 0) == NULL);   /* the original store: nothing */
+    CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
+    CHECK(slot_of("race_records_added.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0);
+    p32(r.game + TOTAL, 400);   /* a better time: first, the other second */
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK(t != NULL && g32(t->totals[0].row + RECORD_ROW_TIME) == 400 && g32(t->totals[1].row + RECORD_ROW_TIME) == 500);
+    static uint8_t shown[RECORD_CHECK_IMAGE];   /* the screens': its number now */
+    uint8_t slots[RECORDS_MARK_SLOTS];
+    records_route_shown((RaceKind){ 0, 0 }, r.image, shown, slots, NULL);
+    enum { FIRST_BLOCK = 0xb5, BLOCK = 0xa6b, TOTALS_AT = 0xea };   /* records_route.c's: the track's block, its first totals row */
+    const uint8_t *first = shown + FIRST_BLOCK + BLOCK * TR1 + TOTALS_AT;
+    CHECK_EQ_INT(g32(first + RECORD_ROW_TIME), 400);
+    CHECK_EQ_INT(g32(first + RECORD_ROW_CAR), 16);
+    CHECK_EQ_INT(g32(first + RECORD_ROW_CAR_B), 16);
+    CHECK(row_word(&t->totals[0], RECORD_ROW_CAR) == 0);   /* the store is left as it was */
+    /* an original car in the same key: the original store, no added table */
+    driving(-1);
+    race(&r, TR1, 0, 1, 99999, 700);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK(race_records_find(TR1, 0, 0, 8) != NULL);
+    CHECK(race_records_added_find(TR1, 0, 0, 8, "f40") == NULL);
+    /* Stock (the original's records): the added car keeps nothing anywhere */
+    unified(0);
+    driving(16);
+    race(&r, TR1, 0, 1, 99999, 2);
+    before = r;
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOP, r.image, r.game, 0, NULL), 0);
+    CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
+    CHECK_EQ_INT(writes, 0);
+    CHECK(race_records_added_find(TR1, 0, 0, 8, "f40") == NULL);
+    /* a race with an added rival and an original player (none yet: step 3) keeps nothing either */
+    unified(1);
+    driving(16);
+    car_registry_race_player_set(5);
+    race(&r, TR1, 0, 1, 99999, 2);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
+    CHECK_EQ_INT(writes, 0);
+    car_registry_race_set(0);
+    car_registry_clear();
 }
 
 /* Restomod's: all eight layouts, with and without cheats, are sixteen tables; config.dat's image is not touched */
@@ -447,7 +506,7 @@ int main(void)
     test_the_originals_records_are_the_exes_byte_for_byte();
     test_the_originals_free_race();
     test_the_originals_keep_no_race_it_could_not_run();
-    test_a_race_with_an_added_car_keeps_none();
+    test_an_added_car_has_its_own_table();
     test_every_layout_and_cheats_is_its_own_table();
     test_rows_keep_their_marks();
     test_the_warrior_and_the_moon_are_cheats();

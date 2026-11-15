@@ -1,0 +1,42 @@
+/* port (dep59, 1b): the records of the cars a mod adds (car_registry.h), in a store of their own, "race_records_added.dat", beside
+ * race_records.dat (Restomod's; Stock and Restored read neither). A table is keyed as race_records.h's and by the car's id: a car's
+ * times are ranked in its own table, by the original's routines, and one car never pushes another's out. On disk a car is its id; a row
+ * keeps its car word 0, and the car's number is put back for the screens (an id with no piece loaded has none). A record is never
+ * dropped because its car is not installed any more. */
+#ifndef TNFS_RACE_RECORDS_ADDED_H
+#define TNFS_RACE_RECORDS_ADDED_H
+
+#include "game/sys/race_records.h"
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+enum { RECORDS_ADDED_ID = 33, RECORDS_ADDED_SHORT = 9 };   /* an id and a short name with their NUL (mod_ini.h's sizes) */
+
+/* the table of a key (race_records_find's range) for the car `id`, or NULL */
+RecordTable *race_records_added_find(int track, int layout, int cheats, int laps, const char *id);
+/* the same, made empty when it is not there (nothing is saved); `short_name` is kept with it, the latest one given. NULL out of range,
+ * when `id` is not a mod's id, or without memory */
+RecordTable *race_records_added_make(int track, int layout, int cheats, int laps, const char *id, const char *short_name);
+/* the best lap of (track, layout, cheats) for `id`; find and make as the tables' */
+RecordRow *race_records_added_lap_find(int track, int layout, int cheats, const char *id);
+RecordRow *race_records_added_lap_make(int track, int layout, int cheats, const char *id, const char *short_name);
+/* the short name kept with a table, "" when there is none */
+const char *race_records_added_short_name(int track, int layout, int cheats, int laps, const char *id);
+
+/* The file's bytes (malloc'd): "TNFSRRA1", the tables' and the laps' counts (u32 LE), then each table (its key's four bytes, its id and
+ * short name NUL-padded, the table as race_records.dat writes one) and each lap (key with laps 0, id, short name, the row), ascending
+ * by key, then id as bytes. NULL without memory */
+uint8_t *race_records_added_image(size_t *size);
+/* the store made the file in `file` (emptied first): 1; 0, and the store empty, for anything that is not exactly a good file */
+int race_records_added_parse(const uint8_t *file, size_t size);
+/* drops every table and lap */
+void race_records_added_reset(void);
+/* <player folder>/race_records_added.dat into the store, as race_records_load does race_records.dat: a damaged one is kept as
+ * race_records_added.bad (.bad2 ..) and the store starts empty; with no copy kept, or a file there that could not be read, saving stays
+ * off for the session */
+RaceRecordsLoad race_records_added_load(void);
+bool race_records_added_save(void);
+
+#endif

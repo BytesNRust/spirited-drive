@@ -501,8 +501,9 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     car_registry_race_set(0);
     if (!drive_field_entries(&field, data_root, model, racers, entries)) return 0;
     if (!drive_field_replay(&field, &arcade, data_root)) return 0;
-    car_registry_race_set(car_registry_entries_added(field.entries, field.racers));   /* port (dep59): no record or replay of it (car_registry.h) */
-    if (car_registry_race_has_added()) port_log("records: a race with an added car is not kept yet\n");
+    car_registry_race_set(car_registry_entries_added(field.entries, field.racers));   /* port (dep59): its records and replay go to files of their own */
+    car_registry_race_player_set(own);
+    drive_replay_set_cars(&field);
     drive_snow = snow_race_wanted(replay_of != NULL, replay_of != NULL && replay_of->snow, port_snow_weather()) && track_snow_for(&t->tri, name, NULL);   /* port (snow_weather): a replay's own, else the host's or the setting's */
     ported_view_set_snow(drive_snow);
     drive_replay_set_snow(drive_snow);
@@ -720,11 +721,33 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     return ok;
 }
 
-int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, size_t size, int request)
+/* port (dep59 1b): a Replay.rpx's race: its setup with today's number of each added car its last block names; 0 with the reason
+ * logged (a mod it needs not loaded, or changed since) */
+static int added_race(const uint8_t *file, size_t size, ReplayRace *race)
+{
+    char id[REPLAY_CARS_ID];
+    if (size != (size_t)REPLAY_CARS_AT + REPLAY_CARS_BLOCK) {
+        port_log("track_viewer: not a replay\n");
+        return 0;
+    }
+    car_pieces_follow();   /* the added cars of the mods in effect now */
+    switch (race_replay_image_race_cars(file, file + REPLAY_CARS_AT, race, id)) {
+    case REPLAY_CARS_OK: return 1;
+    case REPLAY_CARS_MISSING: port_fatal("replay: needs the mod %s\n", id); return 0;
+    case REPLAY_CARS_CHANGED: port_fatal("replay: the mod %s has changed since this replay was made\n", id); return 0;
+    case REPLAY_CARS_BAD: break;
+    }
+    port_log("track_viewer: not a replay\n");
+    return 0;
+}
+
+static int play_replay(const char *data_root, const uint8_t *file, size_t size, int request, int added)
 {
     static ReplayRace race;
-    if (file == NULL || size < REPLAY_FILE_SIZE || !race_replay_image_race(file, &race)) {
-        port_log("track_viewer: not a replay\n");
+    const int known = file != NULL && (added ? added_race(file, size, &race)
+                                             : size >= REPLAY_FILE_SIZE && race_replay_image_race(file, &race));
+    if (!known) {
+        if (!added) port_log("track_viewer: not a replay\n");
         drive_menus_on = 0;
         return 0;
     }
@@ -741,6 +764,26 @@ int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, s
     return ok;
 }
 
+int track_viewer_drive_replay_data(const char *data_root, const uint8_t *file, size_t size, int request)
+{
+    return play_replay(data_root, file, size, request, 0);
+}
+
+int track_viewer_drive_replay_added_data(const char *data_root, const uint8_t *file, size_t size, int request)
+{
+    return play_replay(data_root, file, size, request, 1);
+}
+
+int track_viewer_last_replay_added(void) { return drive_replay_kept_added(); }
+
+/* port (dep59 1b): a path ending in .rpx (any case) is a race with an added car's */
+static int is_rpx(const char *path)
+{
+    const size_t n = strlen(path);
+    return n >= 4 && path[n - 4] == '.' && tolower((unsigned char)path[n - 3]) == 'r' && tolower((unsigned char)path[n - 2]) == 'p' &&
+           tolower((unsigned char)path[n - 1]) == 'x';
+}
+
 int track_viewer_drive_replay(const char *data_root, const char *path)
 {
     enum { FROM_START = 4 };
@@ -749,7 +792,7 @@ int track_viewer_drive_replay(const char *data_root, const char *path)
     const int request = asked != NULL && (atoi(asked) == 5 || atoi(asked) == 8) ? atoi(asked) : FROM_START;
     size_t size = 0;
     uint8_t *file = platform_read_file(path, &size);
-    const int ok = track_viewer_drive_replay_data(data_root, file, size, request);
+    const int ok = play_replay(data_root, file, size, request, is_rpx(path));
     platform_free_file(file);
     return ok;
 }

@@ -63,6 +63,23 @@ typedef struct {
 /* The setup's race; 0 when the setup does not hold one (no stem, counts out of range, a slot's car not a car) */
 int race_replay_image_race(const uint8_t setup[REPLAY_SETUP_SIZE], ReplayRace *out);
 
+/* port (dep59 1b): a race with an added car is kept as Replay.rpx: the same blocks and trailers, then this one, last: the 8 bytes
+ * "TNFSCAR1" and, for each of the RACE_PLAYERS entries, the id of its added car (NUL-padded) and that car's fingerprint (u32 LE,
+ * car_registry.h); an original car's entry is all zeros. The setup holds the added car's number of the run it was made in; reading puts
+ * today's number of each id there. */
+enum { REPLAY_CARS_MAGIC = 8, REPLAY_CARS_ID = 33, REPLAY_CARS_BLOCK = REPLAY_CARS_MAGIC + RACE_PLAYERS * (REPLAY_CARS_ID + 4),
+       REPLAY_CARS_AT = REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE + REPLAY_SNOW_TRAILER_SIZE + REPLAY_CONDITIONS_TRAILER_SIZE };
+typedef enum { REPLAY_CARS_OK, REPLAY_CARS_BAD, REPLAY_CARS_MISSING, REPLAY_CARS_CHANGED } ReplayCars;
+/* the block for `field` */
+void race_replay_cars_write(uint8_t block[REPLAY_CARS_BLOCK], const RaceField *field);
+/* today's number of each added car `block` names, into `field`'s entries; MISSING (no such car now) or CHANGED (its fingerprint is
+ * another) with the id in `id_out` (REPLAY_CARS_ID bytes); BAD for a block that is not exactly one of ours */
+ReplayCars race_replay_cars_read(const uint8_t block[REPLAY_CARS_BLOCK], RaceField *field, char *id_out);
+/* race_replay_image_race of a setup whose added cars `block` names: BAD when the setup is no race, or names a car past the twelve the
+ * block does not */
+ReplayCars race_replay_image_race_cars(const uint8_t setup[REPLAY_SETUP_SIZE], const uint8_t block[REPLAY_CARS_BLOCK], ReplayRace *out,
+                                       char *id_out);
+
 /* A race started from a replay's setup, after race_sim_start_field: the cheat words the setup's recording was made with
  * that the exe's setup does not hold (the EXPLODE cheat), put back so the cars play as they did. */
 void race_replay_apply_cheats(RaceState *race, const ReplayRace *replay);

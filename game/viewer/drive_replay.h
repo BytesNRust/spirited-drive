@@ -70,4 +70,10 @@ void drive_replay_set_snow(int snow);
 /* port (replay conditions): the time of day (port_light_time), weather and direction of this race, written after the snow record when the replay is saved */
 void drive_replay_set_conditions(int light_time, int weather, int reverse);
 
+/* port (dep59 1b): the race's field: with an added car its replay is saved as Replay.rpx, the cars' block (race_replay_cars_write) last,
+ * and Replay.rpl is left as it was */
+void drive_replay_set_cars(const RaceField *field);
+/* 1 when the last replay this run kept was a Replay.rpx */
+int drive_replay_kept_added(void);
+
 #endif
