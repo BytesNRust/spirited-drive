@@ -2,6 +2,7 @@
 #include "game/sys/car_pieces.h"
 
 #include "formats/car_piece.h"
+#include "formats/crc32.h"
 #include "formats/mod_ini.h"
 #include "formats/validate.h"
 #include "game/race/car_registry.h"
@@ -12,6 +13,7 @@
 #include "platform/platform.h"
 
 #include <ctype.h>
+#include <strings.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -34,6 +36,17 @@ static void take_file(FileSet *set, const char *dir, const char *rel)
         platform_free_file(data);
         if (ok) return;
     }
+}
+
+/* port (dep59 1b): the CRC-32 of the PBS then the PDN in `set` (their paths in `paths`, any case), 1 for a 0 */
+static uint32_t fingerprint(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH])
+{
+    uint32_t crc = 0;
+    static const int ORDER[2] = { 2, 1 };   /* car_piece_paths': the PBS, then the PDN */
+    for (int k = 0; k < 2; k++)
+        for (size_t i = 0; i < set->count; i++)
+            if (strcasecmp(set->file[i].name, paths[ORDER[k]]) == 0) crc = crc32_update(crc, set->file[i].data, set->file[i].size);
+    return crc != 0 ? crc : 1;
 }
 
 /* the first fatal finding of `r`, as the log says it */
@@ -72,9 +85,11 @@ static int read_piece(const char *dir, ModInfo *card, CarPiece *out, char *why, 
     const int ok = car_piece_check(card, &set, &r);
     if (!ok) first_fatal(&r, why, why_cap);
     report_free(&r);
+    const uint32_t print = ok ? fingerprint(&set, paths) : 0;
     fileset_free(&set);
     if (!ok) return 0;
     memset(out, 0, sizeof *out);
+    out->fingerprint = print;
     snprintf(out->id, sizeof out->id, "%s", card->id);
     snprintf(out->name, sizeof out->name, "%s", card->name);
     snprintf(out->stem, sizeof out->stem, "%s", card->stem);

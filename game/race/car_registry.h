@@ -9,13 +9,15 @@
 #include "game/race/race_state.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 enum { CAR_ADDED_FIRST = 16, CAR_ADDED_MAX = 64, CAR_ORIGINAL_MODELS = 8 };
 
 typedef struct {
     char id[MOD_INI_ID_MAX + 1], name[MOD_INI_NAME_MAX + 1], stem[MOD_INI_STEM_MAX + 1], short_name[MOD_INI_SHORT_MAX + 1];
     int sound_model, ai_model;   /* the original race models (0..7, sound 0..11) it takes them from while it brings none of its own */
-    int dash_model;              /* the same for the cockpit; -1 when not given (not used yet) */
+    int dash_model;              /* the same for the cockpit; -1 when not given (then sound_model's: car_registry_dash_model) */
+    uint32_t fingerprint;        /* the CRC-32 of its PBS then its PDN as on disk, never 0: what decides how it drives (a replay's check) */
 } CarPiece;
 
 /* no added car */

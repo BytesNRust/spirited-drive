@@ -2,6 +2,7 @@
  * whose files pass car_piece_check is a car, in Restomod only; one that does not is refused with one log line, and a folder of another
  * type, or with no mod.ini, is passed over. A reload keeps the numbers of the cars that stay; car_pieces_follow loads again only when the
  * mods in effect changed (mod_set_generation). The pieces are copies of the CD's Viper (skipped without the CD, as test_models). */
+#include "formats/pbs.h"
 #include "game/race/car_registry.h"
 #include "game/sys/car_pieces.h"
 #include "game/sys/mod_set.h"
@@ -168,6 +169,61 @@ static void test_it_follows_the_mods(void)
     mod_set_stop();
 }
 
+/* `path`'s bytes, all of them, into a new buffer (*size); NULL when it cannot be read */
+static uint8_t *slurp(const char *path, size_t *size)
+{
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return NULL;
+    fseek(f, 0, SEEK_END);
+    const long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t *d = malloc(n > 0 ? (size_t)n : 1);
+    if (d != NULL && fread(d, 1, (size_t)n, f) != (size_t)n) free(d), d = NULL;
+    fclose(f);
+    *size = (size_t)n;
+    return d;
+}
+
+static void spill(const char *path, const uint8_t *d, size_t size)
+{
+    FILE *f = fopen(path, "wb");
+    if (f != NULL) fwrite(d, 1, size, f), fclose(f);
+}
+
+/* port (dep59 1b): a piece's fingerprint is the CRC-32 of its PBS then its PDN, as on disk: what decides how it drives, not its look */
+static uint32_t fingerprint_of(const char *dir)
+{
+    car_registry_clear();
+    CHECK_EQ_INT(load1(dir, 1), 1);
+    const CarPiece *p = car_registry_piece(car_registry_find("print-car"));
+    return p != NULL ? p->fingerprint : 0;
+}
+
+static void test_the_fingerprint(void)
+{
+    char a[400], path[600];
+    CHECK(piece("print", "print-car", "PRINT", FROM, "", a));
+    const uint32_t first = fingerprint_of(a);
+    CHECK(first != 0);
+    CHECK_EQ_INT((int)fingerprint_of(a), (int)first);   /* the same files, the same print */
+    snprintf(path, sizeof path, "%s/SIMDATA/CARFAMS/PRINT.CFM", a);   /* the look changed: the same print */
+    size_t size = 0;
+    uint8_t *cfm = slurp(path, &size);
+    CHECK(cfm != NULL && size > 100);
+    if (cfm != NULL) cfm[size - 1] ^= 0x01, spill(path, cfm, size), free(cfm);
+    CHECK_EQ_INT((int)fingerprint_of(a), (int)first);
+    snprintf(path, sizeof path, "%s/SIMDATA/CARSPECS/PRINT.PBS", a);   /* the specs changed, still sealed: another print */
+    uint8_t *pbs = slurp(path, &size);
+    uint8_t record[PBS_SIZE];
+    CHECK(pbs != NULL && pbs_read(record, pbs, size));
+    free(pbs);
+    record[0x40] ^= 0x01;   /* the word after power (+0x3c) */
+    pbs_seal(record);
+    spill(path, record, PBS_SIZE);
+    const uint32_t changed = fingerprint_of(a);
+    CHECK(changed != 0 && changed != first);
+}
+
 int main(void)
 {
     char probe[600];
@@ -186,6 +242,7 @@ int main(void)
     test_refused_and_passed_over();
     test_numbers_stay_across_reloads();
     test_it_follows_the_mods();
+    test_the_fingerprint();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);
     if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", base);
