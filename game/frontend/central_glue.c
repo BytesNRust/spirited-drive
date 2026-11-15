@@ -111,6 +111,7 @@ void cg_extras_apply(void)
     if (e.no_assists) extras_no_assists(&cg_g.car_flag_a, &cg_g.car_flag_b);   /* after 00465ec8 */
     warrior_rival_flag = (int16_t)(e.warrior_rival != 0);
     warrior_keep_flag = (int16_t)(e.warrior != 0);
+    cg_variant_choice_apply();   /* port (dep65): Restomod's switches back from the player's choice, after every place they are cleared */
 }
 
 /* 00465ec8, 00432974, 00432c40, 00432d48 and 00432720 on the shorts */
@@ -165,6 +166,7 @@ static void track_forward(void *ctx)
     if (variant_switches_on()) race_settings_track_step(&s, &u, 1);   /* port (dep56): the variants are the track screen's switches */
     else race_settings_track_forward(&s, &u);
     cg_settings_put(&s);
+    cg_variant_choice_apply();   /* port (dep65): the choice on the new track (Lost Vegas takes no mirror or rally, the next does) */
     cg_tournament_variants_apply();   /* a tournament's are its own on every track (Lost Vegas: none) */
 }
 
@@ -176,7 +178,25 @@ static void track_backward(void *ctx)
     if (variant_switches_on()) race_settings_track_step(&s, &u, -1);
     else race_settings_track_backward(&s, &u);
     cg_settings_put(&s);
+    cg_variant_choice_apply();
     cg_tournament_variants_apply();
+}
+
+/* port (dep65): the card's words in the log when they change, "mark:card=<track> <left words>|<right words>", each list joined by
+ * '+' (an input script's steps are split at commas), for the walks that check what Control Central says after a screen or a step
+ * (tests/variant_choice_kept.cmake) */
+static void card_marks_log(const CardWords *w, int track)
+{
+    static char logged[128];
+    char now[128];
+    int n = snprintf(now, sizeof now, "%d ", track);
+    for (int i = 0; i < w->left_count && n > 0 && (size_t)n < sizeof now; i++)
+        n += snprintf(now + n, sizeof now - (size_t)n, "%s%s", i > 0 ? "+" : "", w->left[i]);
+    for (int i = 0; i < w->right_count && n > 0 && (size_t)n < sizeof now; i++)
+        n += snprintf(now + n, sizeof now - (size_t)n, "%s%s", i > 0 ? "+" : "|", w->right[i]);
+    if (strcmp(now, logged) == 0) return;
+    snprintf(logged, sizeof logged, "%s", now);
+    port_log("mark:card=%s\n", now);
 }
 
 /* port (dep56, dep64): Restomod's track card (card_marks.h): its words from the settings as they are at this draw, at half size,
@@ -190,6 +210,7 @@ static void card_marks(void *ctx, int32_t left, int32_t right, int32_t y)
     const int own = port_records_unified() ? port_settings_load().laps : 0;   /* the laps row's custom count (dep55) */
     const CardWords w = card_words_of(s.track, s.variant_m, reverse_track_picked(), s.variant_r, port_weather(),
                                       port_light_effects() ? port_light_time() : -1, own > 0 ? own : s.laps);
+    card_marks_log(&w, s.track);
     text_select(TEXT_YELLOW);
     for (int i = 0; i < w.left_count; i++) text_draw_smooth(w.left[i], left, y + i * LINE, 1, 2);
     for (int i = 0; i < w.right_count; i++) text_draw_smooth(w.right[i], right - text_width_scaled(w.right[i], 1, 2), y + i * LINE, 1, 2);
@@ -385,15 +406,17 @@ static void track_select(void *ctx)
     /* port: the weather row, and with the light effects the time-of-day item on its light_time; both written to port.cfg
      * when the screen leaves them changed (the race reads them there, as it does today) */
     int weather = port_weather(), light_time = port_light_time();
-    int reverse = reverse_track_picked();   /* port: the mode's file's reverse offers the row; the pick is the session's, not saved */
+    int reverse = reverse_track_picked();   /* port: the mode's file's reverse offers the row; Restomod keeps the pick as its choice (dep65) */
     int laps = port_settings_load().laps;   /* port (dep55): Restomod's custom laps on the laps row, written back to port.cfg */
     const int was_laps = laps;
     const PortExtras extras = port_extras_load();
-    const int reverse_offered = extras.reverse && cg_g.unlock_level >= 2;   /* port: INVERSE is level 2's */
+    const int reverse_offered = cg_reverse_offered();
+    const PortSettings choice = port_settings_load();   /* port (dep65): the switches' choice, kept through Lost Vegas */
     TrackSelectPlus plus = { cg_g.unlock_m, cg_g.unlock_r, &cg_g.variant_m, &cg_g.variant_r,
                              extras.variant_time,   /* port: variants as entries */
                              port_settings_profile() == PROFILE_RESTOMOD, &weather, port_light_effects() ? &light_time : NULL, reverse_offered ? &reverse : NULL,
-                             port_records_unified() ? &laps : NULL, variant_switches_on(), tournament && tournament_variants_locked(cg_g.races) };
+                             port_records_unified() ? &laps : NULL, variant_switches_on(), tournament && tournament_variants_locked(cg_g.races),
+                             choice.variant_mirror, choice.variant_rally };
     const int was_weather = weather, was_light_time = light_time;
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), cg_time_of_day, cg_g.inverse, cg_screen_palette, &plus };
     int x, y;
@@ -422,6 +445,7 @@ static void track_select(void *ctx)
         after.variant_m = cg_g.variant_m, after.variant_r = cg_g.variant_r;   /* port: as the screen left them (get_race zeroes them) */
         cg_settings_put(&after);
     }
+    cg_variant_choice_keep(plus.kept_m, plus.kept_r, reverse_offered ? &reverse : NULL);   /* port (dep65): Restomod keeps them */
     if (tournament && !tournament_variants_locked(cg_g.races))   /* port (dep56): before its first race, the switches are its variants */
         tournament_variants_set(tournament_variants_follow(tournament_variants_get(), cg_g.track, cg_g.variant_m,
                                                            reverse_offered ? reverse : tournament_variants_get().inverse, cg_g.variant_r));
@@ -602,6 +626,7 @@ static void options(void *ctx)
     cg_opt_in();
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) cg_settings_put(&after);
+    cg_variant_choice_apply();   /* port (dep65): get_race zeroes the variants; Restomod's come back from the player's choice */
     cg_tournament_variants_apply();   /* port (dep56): get_race zeroes the variants; a tournament (one loaded too) runs its own */
 }
 

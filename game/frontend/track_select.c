@@ -312,7 +312,7 @@ static int has_variant(const TrackSelectPlus *plus, int track, int variant)
 void track_select_entry(int track, int variant, int direction, int lost_vegas, int unlock_m, int unlock_r,
                         int *to_track, int *to_variant)
 {
-    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, 0, 0 };
+    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, 0, 0, 0, 0 };
     const int last = lost_vegas ? LOST_VEGAS : LOST_VEGAS - 1;
     for (int v = variant + direction; v >= 0 && v <= 2; v += direction)
         if (has_variant(&plus, track, v)) {
@@ -497,6 +497,18 @@ static int32_t change_track(const TrackSelectInputs *in, TrackSelectState *st, i
     return load_track(in, st, pal, 1, ops);
 }
 
+/* port (dep56, dep65): a step between tracks with the switches: onto Lost Vegas the mirror and rally are kept and cleared (it takes
+ * neither), off it they come back as kept, with their unlocks */
+static void lost_vegas_step(TrackSelectPlus *plus, int from, int to)
+{
+    if (to == LOST_VEGAS && from != LOST_VEGAS) {
+        plus->kept_m = *plus->variant_m != 0, plus->kept_r = *plus->variant_r != 0;
+        *plus->variant_m = 0, *plus->variant_r = 0;
+    } else if (from == LOST_VEGAS && to != LOST_VEGAS) {
+        *plus->variant_m = plus->kept_m && plus->unlock_m, *plus->variant_r = plus->kept_r && plus->unlock_r;
+    }
+}
+
 /* the item lit acted on: 0 when the screen goes on, else 1 (Done, or Best's screen said so) */
 static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer *p, int32_t *bank, int item,
                int *segment, int16_t *best, uint8_t *pal, int *redraw, int *changed, const TrackSelectOps *ops)
@@ -524,7 +536,7 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
         } else {
             to = (int16_t)((track + 1) % (in->lost_vegas ? 9 : 8));
         }
-        if (switches_on(st) && to == LOST_VEGAS) *st->plus->variant_m = 0, *st->plus->variant_r = 0;   /* port (dep56): it has neither */
+        if (switches_on(st)) lost_vegas_step(st->plus, track, to);   /* port (dep56, dep65): it has neither; the choice comes back after it */
         *bank = change_track(in, st, *bank, to, pal, ops);
         *redraw = 1;
         return -1;

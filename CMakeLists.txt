@@ -552,6 +552,7 @@ add_executable(tnfs
     game/frontend/link_race.c
     game/frontend/link_rules.c
     game/frontend/central_glue.c
+    game/frontend/central_glue_choice.c
     game/frontend/central_glue_games.c
     game/frontend/central_glue_results.c
     game/frontend/central_glue_race.c
@@ -1460,6 +1461,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(hud_lights_view_change PROPERTIES TIMEOUT 400)
         # the menus' music still playing in Control Central: the front end's bank freed on the way stops its own voices, not the music's stream
         add_test(NAME menu_music_kept COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/menu_music_kept -P ${CMAKE_SOURCE_DIR}/tests/menu_music_kept.cmake)
+        # dep65: Restomod's switches kept as the player's choice through Options and Lost Vegas, and the card saying what each track runs
+        add_test(NAME variant_choice_kept COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/variant_choice_kept -P ${CMAKE_SOURCE_DIR}/tests/variant_choice_kept.cmake)
         # the soft shadow with the light off: a car row drawn with no light loaded (car_soft_shadow is its own switch)
         add_test(NAME shadow_without_light COMMAND ${CMAKE_COMMAND} -DTNFS=$<TARGET_FILE:tnfs> -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/shadow_without_light -P ${CMAKE_SOURCE_DIR}/tests/shadow_without_light.cmake)
         set_tests_properties(shadow_without_light PROPERTIES TIMEOUT 120)
@@ -1521,7 +1524,7 @@ if(CMAKE_C_FLAGS MATCHES "-fsanitize")
     set(TNFS_GAME_TEST_TIMEOUT 300)
 endif()
 foreach(name mods_overlay track_new reference_mod two_tracks_reflectors trail_frame_skip rain_lamps_masked old_files_startup dev_data_default
-             rain_night_headlights hud_lights_view_change menu_music_kept shadow_without_light day_plain_present light_edit_reload light_edit_places wipers)
+             rain_night_headlights hud_lights_view_change menu_music_kept variant_choice_kept shadow_without_light day_plain_present light_edit_reload light_edit_places wipers)
     if(TEST ${name})
         set_tests_properties(${name} PROPERTIES TIMEOUT ${TNFS_GAME_TEST_TIMEOUT})
     endif()

@@ -104,11 +104,15 @@ typedef struct TrackSelectPlus {
     /* port (dep56): 1 (Restomod) makes the variants switches on this screen instead of entries of their own: Mirror (with
      * `unlock_m`), Inverse (the `reverse` value, where the Reverse row would be offered) and Rally (with `unlock_r`), rows over
      * the track's length; Prev and Next step the tracks alone, the switches kept (Lost Vegas has neither mirror nor rally, so
-     * a step onto it clears them). 0 is the entries, as Stock and Restored have them. A tournament shows them too: they are
+     * a step onto it clears them, and a step off it puts them back: kept_m, kept_r). 0 is the entries, as Stock and Restored have them. A tournament shows them too: they are
      * its variants (tournament_variants.h). */
     int variant_switches;
     /* port (dep56): 1 once a race of the tournament is run: the switch rows show the tournament's variants and do not turn */
     int variants_locked;
+    /* port (dep65): with variant_switches, the mirror and rally the player chose, kept while Lost Vegas (which takes neither) is
+     * up: a step onto it keeps the switches here and clears them, a step off puts them back (with their unlocks). The caller
+     * sets them to the choice it keeps (the mode's file's) and reads them when the screen ends on Lost Vegas. */
+    int kept_m, kept_r;
 } TrackSelectPlus;
 /* port (dep55): the next custom lap count for `direction` 1 or -1: 0 (the menu's), 1..99, round */
 int track_select_laps_step(int laps, int direction);

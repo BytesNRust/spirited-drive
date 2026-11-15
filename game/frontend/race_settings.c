@@ -222,3 +222,11 @@ void track_step(RaceSettings *s, const Unlocks *u, int dir)
     else race_settings_track_backward(s, u);
     if (s->track != track) track_changed(s);
 }
+
+int variant_choice_takes(int track) { return track != TRACK_LOST_VEGAS && track != TRACK_HIDDEN; }
+
+VariantPair variant_choice_on_track(int track, int chosen_m, int chosen_r, int unlock_m, int unlock_r)
+{
+    const int takes = variant_choice_takes(track);
+    return (VariantPair){ takes && chosen_m && unlock_m, takes && chosen_r && unlock_r };
+}

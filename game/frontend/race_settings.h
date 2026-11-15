@@ -104,4 +104,16 @@ void race_settings_track_backward(RaceSettings *s, const Unlocks *u);
 void race_settings_track_step(RaceSettings *s, const Unlocks *u, int dir);
 void track_changed(RaceSettings *s);                               /* laps, tournament car */
 
+/* port (dep65): Restomod keeps the player's switches (the mode's file's variant_mirror / variant_rally) apart from what a track
+ * runs. The mirror and rally a track runs from that choice: none on Lost Vegas (8) and the hidden track (9), which take neither,
+ * and each only with its unlock. */
+typedef struct {
+    int mirror, rally;
+} VariantPair;
+VariantPair variant_choice_on_track(int track, int chosen_m, int chosen_r, int unlock_m, int unlock_r);
+
+/* 1 when `track` takes the mirror and the rally (not Lost Vegas, not the hidden track): there the switches as they stand are the
+ * player's choice to keep; elsewhere the choice is kept as it was. */
+int variant_choice_takes(int track);
+
 #endif

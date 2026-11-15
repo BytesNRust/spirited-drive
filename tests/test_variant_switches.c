@@ -169,11 +169,26 @@ static void test_the_mirror_word_takes_the_sky_without_it(void)
     CHECK(card_word_wiped(NULL, normal) == NULL);
 }
 
+/* dep65: what a track runs from the player's choice, which itself is never cleared */
+static void test_the_choice_on_each_track(void)
+{
+    VariantPair v = variant_choice_on_track(4, 1, 1, 1, 1);
+    CHECK(v.mirror == 1 && v.rally == 1);
+    v = variant_choice_on_track(8, 1, 1, 1, 1);   /* Lost Vegas: neither */
+    CHECK(v.mirror == 0 && v.rally == 0);
+    v = variant_choice_on_track(9, 1, 1, 1, 1);   /* the hidden track: neither */
+    CHECK(v.mirror == 0 && v.rally == 0);
+    v = variant_choice_on_track(0, 1, 1, 1, 0);   /* the rally not unlocked */
+    CHECK(v.mirror == 1 && v.rally == 0);
+    CHECK(variant_choice_takes(7) && !variant_choice_takes(8) && !variant_choice_takes(9));
+}
+
 int main(void)
 {
     test_the_arrows_step_the_tracks_alone();
     test_the_exe_order_is_kept();
     test_the_card_words();
+    test_the_choice_on_each_track();
     test_the_card_words_are_the_tracks();
     test_the_mirror_word_takes_the_normal_picture();
     test_the_mirror_word_takes_the_sky_without_it();
