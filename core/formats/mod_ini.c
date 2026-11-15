@@ -1,5 +1,6 @@
 /* See mod_ini.h. */
 #include "formats/mod_ini.h"
+#include "formats/zip.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -20,7 +21,7 @@ static int refuse(char *why, size_t cap, const char *format, ...)
 int mod_ini_id_ok(const char *id)
 {
     const size_t n = strlen(id);
-    if (n == 0 || n > MOD_INI_ID_MAX || id[0] == '-' || strcmp(id, "legacy") == 0) return 0;
+    if (n == 0 || n > MOD_INI_ID_MAX || id[0] == '-' || strcmp(id, "legacy") == 0 || zip_name_is_device(id, n)) return 0;
     for (size_t i = 0; i < n; i++)
         if (!((id[i] >= 'a' && id[i] <= 'z') || (id[i] >= '0' && id[i] <= '9') || id[i] == '-')) return 0;
     return 1;

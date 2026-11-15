@@ -29,9 +29,10 @@ static const uint8_t *find_eocd(const uint8_t *data, size_t size)
     return NULL;
 }
 
-/* a component Windows keeps for a device (CON, PRN, AUX, NUL, COM0-9, LPT0-9), with or without an extension */
-static int is_device(const uint8_t *c, size_t len)
+/* See zip.h. */
+int zip_name_is_device(const char *name, size_t len)
 {
+    const unsigned char *c = (const unsigned char *)name;
     size_t n = 0;
     while (n < len && c[n] != '.') n++;
     char b[5] = { 0 };
@@ -52,7 +53,7 @@ static int name_ok(const uint8_t *name, size_t len)
         size_t end = start;
         while (end < len && name[end] != '/') end++;
         const size_t n = end - start;
-        if (n > 0 && (name[end - 1] == '.' || name[end - 1] == ' ' || is_device(name + start, n))) return 0;
+        if (n > 0 && (name[end - 1] == '.' || name[end - 1] == ' ' || zip_name_is_device((const char *)name + start, n))) return 0;
         start = end + 1;
     }
     return 1;
