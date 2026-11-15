@@ -1,8 +1,9 @@
 /* dep59: the zip reader a mod is installed from (formats/zip.h). Stored and deflated entries read back whole with their CRC checked; what
  * the reader refuses it refuses before anything is unpacked: not a zip, zip64, more than one disk, too many entries, encryption, another
  * method, a bad name, a file or a total over the limits, a deflated entry that grows too much; and an entry whose bytes are damaged is
- * refused when it is read. */
+ * refused when it is read. The writer (zip_write_stored) gives a set's files back as a zip the reader reads, the same bytes each time. */
 #include "formats/crc32.h"
+#include "formats/exchange.h"
 #include "formats/zip.h"
 #include "test.h"
 #include "zip_build.h"
@@ -219,6 +220,70 @@ static void test_crc32(void)
     CHECK_EQ_INT((int)(crc32_update(crc32_update(0, (const uint8_t *)"1234", 4), (const uint8_t *)"56789", 5) == 0xCBF43926u), 1);
 }
 
+/* a set's files written as a zip: the reader opens it, its entries are the set's in order with the same bytes, and the bytes do not
+ * change from one writing to the next (no clock in them) */
+static void test_writes_stored(void)
+{
+    FileSet set;
+    fileset_init(&set);
+    fileset_add(&set, "mod.ini", (const uint8_t *)"id=x\n", 5);
+    fileset_add(&set, "empty.txt", (const uint8_t *)"", 0);
+    fileset_add(&set, "SIMDATA/CARFAMS/F40.CFM", (const uint8_t *)"hello hello", 11);
+    size_t size = 0, again_size = 0;
+    uint8_t *zip = zip_write_stored(&set, &size);
+    CHECK(zip != NULL);
+    ZipArchive z;
+    CHECK_EQ_INT(zip != NULL ? zip_open(zip, size, &z) : ZIP_ERR_NOT_ZIP, ZIP_OK);
+    if (zip != NULL && z.count == 3) {
+        for (size_t i = 0; i < 3; i++) {
+            CHECK_EQ_INT(strcmp(z.entries[i].name, set.file[i].name), 0);
+            CHECK_EQ_INT(z.entries[i].method, 0);
+            CHECK_EQ_INT(z.entries[i].is_special, 0);
+            uint8_t *out = NULL;
+            size_t n = 0;
+            CHECK_EQ_INT(zip_extract(&z, i, &out, &n), ZIP_OK);
+            CHECK_EQ_INT((int)n, (int)set.file[i].size);
+            CHECK(out != NULL && memcmp(out, set.file[i].data, n) == 0);
+            free(out);
+        }
+    }
+    if (zip != NULL) {
+        CHECK_EQ_INT((int)z.count, 3);
+        zip_close(&z);
+    }
+    uint8_t *again = zip_write_stored(&set, &again_size);
+    CHECK(again != NULL && again_size == size && memcmp(again, zip, size) == 0);
+    free(again);
+    free(zip);
+    fileset_free(&set);
+}
+
+/* what the reader would refuse is not written: an empty set, a name past ZIP_NAME_MAX, a name the reader refuses */
+static void test_write_refusals(void)
+{
+    FileSet set;
+    size_t size = 1;
+    fileset_init(&set);
+    CHECK(zip_write_stored(&set, &size) == NULL);
+    char name[ZIP_NAME_MAX + 2];
+    memset(name, 'a', ZIP_NAME_MAX + 1);
+    name[ZIP_NAME_MAX + 1] = 0;
+    fileset_add(&set, name, (const uint8_t *)"x", 1);
+    CHECK(zip_write_stored(&set, &size) == NULL);
+    fileset_free(&set);
+    fileset_init(&set);
+    name[ZIP_NAME_MAX] = 0;
+    fileset_add(&set, name, (const uint8_t *)"x", 1);
+    uint8_t *zip = zip_write_stored(&set, &size);
+    CHECK(zip != NULL);
+    free(zip);
+    fileset_free(&set);
+    fileset_init(&set);
+    fileset_add(&set, "CON.txt", (const uint8_t *)"x", 1);
+    CHECK(zip_write_stored(&set, &size) == NULL);
+    fileset_free(&set);
+}
+
 int main(void)
 {
     test_crc32();
@@ -231,5 +296,7 @@ int main(void)
     test_refuses_overlapping_entries();
     test_limits();
     test_damage_is_refused_when_read();
+    test_writes_stored();
+    test_write_refusals();
     return TEST_REPORT();
 }

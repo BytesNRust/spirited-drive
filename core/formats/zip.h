@@ -8,6 +8,8 @@
 #ifndef TNFS_ZIP_H
 #define TNFS_ZIP_H
 
+#include "formats/exchange.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -60,6 +62,11 @@ ZipResult zip_open(const uint8_t *data, size_t size, ZipArchive *out);
 /* Entry `i` unpacked into a new buffer (the caller frees it; never NULL on ZIP_OK, even for an empty file); on any other result *out is NULL. */
 ZipResult zip_extract(const ZipArchive *z, size_t i, uint8_t **out, size_t *out_size);
 void zip_close(ZipArchive *z);
+/* The files of `set` as a zip, every entry stored (no compression), in the set's order, names as they are; malloc'd, its size in
+ * `size`. NULL when a name does not fit ZIP_NAME_MAX, the set is empty or holds more than the reader's entry limit, the archive
+ * would pass the reader's size limit, or memory ran out: what it writes, zip_open reads. No clock goes in (every entry's time is
+ * 1980-01-01 00:00), so the same set gives the same bytes. */
+uint8_t *zip_write_stored(const FileSet *set, size_t *size);
 /* A short English phrase for the result, for the player and the log */
 const char *zip_result_text(ZipResult r);
 
