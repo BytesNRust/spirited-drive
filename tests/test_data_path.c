@@ -57,6 +57,8 @@ static void test_the_platform_base(void)
 }
 
 /* i191: a candidate is tried only when the file is there; a folder is not a file */
+static int not_the_first(int index, const char *relative) { (void)relative; return index != 0; }
+
 static void test_exists(void)
 {
     const char *const path = "data_path_exists_test.txt";
@@ -100,6 +102,12 @@ static void test_several_mods(void)
     data_path_set_mods(swapped, 2);
     data_path_candidates("both.png", p);
     CHECK_EQ_STR(p[0], "data_path_mod_b/both.png");
+    data_path_set_serve(not_the_first);   /* dep59 step 2: a folder that may not serve a file is passed over */
+    data_path_candidates("both.png", p);
+    CHECK_EQ_STR(p[0], "data_path_mod_a/both.png");
+    data_path_candidates("only_b.png", p);
+    CHECK_EQ_STR(p[0], "");
+    data_path_set_serve(NULL);
     data_path_set_mods(NULL, 0);
     data_path_candidates("both.png", p);
     CHECK_EQ_STR(p[0], "");

@@ -113,6 +113,10 @@ bool platform_mouse(int *x, int *y, unsigned *buttons);
  * folder does not exist or there are more than PLATFORM_MODS_MAX. */
 enum { PLATFORM_MODS_MAX = 40 };
 bool platform_set_mods(const char *data_root, const char *const *dirs, int count);
+/* port (dep59 step 2): whether the folder `index` of platform_set_mods' may serve the game's file `rel` (its path below the data root, as
+ * the game asked for it); a folder that may not is passed over, as if it had no such file. NULL (the default): every file. */
+typedef bool (*PlatformModServe)(int index, const char *rel);
+void platform_set_mod_serve(PlatformModServe serve);
 /* --user DIR: the player's folder is DIR (a portable install, a test); call before platform_open_log. NULL or "": not set. */
 void platform_set_user_dir(const char *dir);
 /* The player's writable folder with its trailing '/': --user DIR, else $TNFS_PREF_DIR (tests, modders), else the OS's own, one folder named after the game

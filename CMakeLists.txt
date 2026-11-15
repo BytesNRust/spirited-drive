@@ -335,6 +335,7 @@ add_library(tnfs_game STATIC
     game/sys/data_path.c
     game/sys/mod_generation.c
     game/sys/mod_set.c
+    game/sys/mod_set_session.c
     game/sys/art_cache.c
     game/sys/sha256.c
     game/sys/data_check.c

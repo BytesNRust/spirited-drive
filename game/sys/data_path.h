@@ -20,6 +20,10 @@ void data_path_set_base(const char *base);
 /* The mods folders in effect, highest first (mod_set.h), kept for data_path_candidates; `count` 0 for none. */
 enum { DATA_PATH_MODS_MAX = 40 };
 void data_path_set_mods(const char *const *dirs, int count);
+/* port (dep59 step 2): whether the folder `index` of data_path_set_mods' may serve `relative`; a folder that may not is passed over.
+ * NULL (the default): every file. */
+typedef int (*DataPathServe)(int index, const char *relative);
+void data_path_set_serve(DataPathServe serve);
 
 /* The candidate paths of `relative` for the mod folder, the base and `source_dir` (each NULL: none) in that order, into `paths` (the skipped ones are left empty); returns how many there are.
  * A path that would not fit is skipped. */

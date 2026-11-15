@@ -104,6 +104,13 @@ static void test_older_folders(const char *base)
     CHECK_EQ_INT(platform_migrate_user_folders(lone), 0);   /* no old folders: nothing, and nothing made */
 }
 
+static char served_rel[512];
+static bool not_the_first(int index, const char *rel)
+{
+    snprintf(served_rel, sizeof served_rel, "%s", rel);
+    return index != 0;
+}
+
 int main(void)
 {
     char base[256];
@@ -297,6 +304,12 @@ int main(void)
     d = platform_read_file(asked, &size);
     CHECK(same(d, size, "from the second"));
     platform_free_file(d);
+    platform_set_mod_serve(not_the_first);   /* dep59 step 2: a folder that may not serve a file is passed over, as if it had none */
+    d = platform_read_file(asked, &size);
+    CHECK(same(d, size, "from the mod"));
+    platform_free_file(d);
+    CHECK(strcmp(served_rel, "SIMDATA/MISC/NOTE.TXT") == 0);   /* asked with its path below the data root */
+    platform_set_mod_serve(NULL);
 
     /* the data root was not written */
     CHECK(tree_sum(cd) == cd_before);

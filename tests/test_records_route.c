@@ -13,6 +13,7 @@
 #include "game/race/weather.h"
 #include "game/sys/extras_marks.h"
 #include "game/sys/free_laps.h"
+#include "game/sys/mod_set.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
 #include "game/sys/race_records_added.h"
@@ -500,6 +501,29 @@ static void test_the_conditions(void)
     CHECK_EQ_INT(m.cheats, 0);
 }
 
+/* dep59 step 2 (temporary until step 5): a run whose --mods served a file that changes the race keeps no record, in any store */
+static void test_a_modified_run_keeps_nothing(void)
+{
+    unified(1);
+    static Race r, before;
+    race(&r, TR1, 0, 1, 99999, 600);
+    before = r;
+    files_clear();
+    const int written = writes;
+    mod_set_session_mark_modified();
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 0);
+    CHECK_EQ_INT(writes, written);
+    CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
+    unified(0);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
+    CHECK_EQ_INT(writes, written);
+    mod_set_session_clear();
+    unified(1);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);   /* a clean run keeps it again */
+    CHECK(writes > written);
+}
+
 int main(void)
 {
     exe_tables_for_test();
@@ -517,6 +541,7 @@ int main(void)
     test_a_record_is_saved_at_once();
     test_the_results_show_the_races_table();
     test_the_conditions();
+    test_a_modified_run_keeps_nothing();
     files_clear();
     free_laps_set(0);
     return TEST_REPORT();
