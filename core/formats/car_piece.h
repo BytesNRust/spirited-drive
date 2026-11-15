@@ -6,7 +6,7 @@
 #include "formats/mod_ini.h"
 #include "formats/validate.h"
 
-enum { CAR_PIECE_FILES = 3, CAR_PIECE_PATH = 64 };
+enum { CAR_PIECE_FILES = 3, CAR_PIECE_PATH = 64, CAR_PIECE_DIR_MAX = 512 };   /* CAR_PIECE_DIR_MAX: a piece's folder, with the NUL (dep59 step 3) */
 /* where the PBS's fields the check reads lie (docs/car_specs.tsv; the game's CarSpecs is tied to them, car_registry.c) */
 enum { CAR_PIECE_PBS_POWER = 0x03c, CAR_PIECE_PBS_TORQUE_POINTS = 0x088, CAR_PIECE_PBS_TORQUE_CURVE = 0x0b8, CAR_PIECE_PBS_SHIFT_RPM = 0x288,
        CAR_PIECE_PBS_UNKNOWN_320 = 0x320, CAR_PIECE_PBS_FORCE_SCALE = 0x328,

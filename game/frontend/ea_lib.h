@@ -4,10 +4,14 @@
 #ifndef TNFS_EA_LIB_H
 #define TNFS_EA_LIB_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 int32_t ea_bank_load(const char *name);                       /* 00466c34: 0 when it cannot be read */
 int32_t ea_bank_load_path(const char *path);  /* 00476268: a path from the working directory */
+/* port (dep59): a bank made in memory (malloc'd: the bank owns it from here, freed as any bank), checked as a file's is; 0 when it is
+ * refused or there is no room (then it is freed). `name` is for the log. */
+int32_t ea_bank_put(uint8_t *data, size_t size, const char *name);
 void ea_bank_free(int32_t bank);                              /* 00475260 on a bank */
 const uint8_t *ea_shape(int32_t bank, const char *tag);       /* 004732dd: NULL when it has none; port: "!pal" never NULL
                                                                * (a grey ramp for a bank missing, refused or without one) */

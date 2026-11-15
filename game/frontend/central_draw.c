@@ -1,6 +1,7 @@
 /* Control Central (00432ff4): the screen drawn again (00433cd5..00434b54) and an item's change (00434b69..). */
 #include "game/frontend/central_banner.h"
 #include "game/frontend/central_run.h"
+#include "game/race/car_registry.h"
 
 #include "game/frontend/card_marks.h"
 #include "game/frontend/variant_rule.h"
@@ -141,14 +142,32 @@ static void track_art(CentralRun *r)
     if (r->ops->card_marks != NULL) r->ops->card_marks(r->ops->ctx, MARKS_LEFT, MARKS_RIGHT, MARKS_Y);   /* port (dep56): what the track screen set */
 }
 
-/* port (dep59): a car the exe's card names reach (0..11); an added car has no card here yet (its own comes with dep59 step 3's Task 8):
- * none is drawn, never a name read past the table */
+/* port (dep59): a car the exe's card names reach (0..11); past them, only a registered added car has a card (its own pictures), and a
+ * number neither is drawn none, never a name read past the table */
 static int named(int16_t car) { return car >= 0 && car < (int16_t)(sizeof CAR_NAMES / sizeof CAR_NAMES[0]); }
 
-static void car_art(CentralRun *r)
+/* port (dep59 step 3): an added car's card (`rival` 0) or rival card (1) in slot `slot`, made again when the car changed
+ * (load_added_card: its card.png / rival.png in the screen's palette); drawn when there is one */
+static void added_art(CentralRun *r, int slot, int which, int16_t car, int rival)
+{
+    ControlCentralState *st = r->st;
+    const ControlCentralOps *o = r->ops;
+    if (st->was[which] != car) {
+        if (st->art[slot] != 0) o->free(o->ctx, st->art[slot]);
+        st->art[slot] = o->load_added_card != NULL ? o->load_added_card(o->ctx, car, rival, r->palette) : 0;
+        st->was[which] = car;
+    }
+    if (st->art[slot] != 0) o->blit(o->ctx, shape(r, slot, "0000"));
+}
+
+void central_car_art(CentralRun *r)
 {
     ControlCentralState *st = r->st;
     char path[0x50];
+    if (car_registry_is_added(*st->player_car)) {
+        added_art(r, ART_CAR, WAS_CAR, *st->player_car, 0);
+        return;
+    }
     if (!named(*st->player_car)) {
         st->was[WAS_CAR] = *st->player_car;
         return;
@@ -161,13 +180,17 @@ static void car_art(CentralRun *r)
     r->ops->blit(r->ops->ctx, shape(r, ART_CAR, "0000"));
 }
 
-static void opponent_art(CentralRun *r)
+void central_opponent_art(CentralRun *r)
 {
     ControlCentralState *st = r->st;
     char path[0x50];
     if (st->lost != 0 && *st->net_self == 0) *st->opponent = st->other_car[*st->net_player];
     if (st->lost != 0 && *st->race_type == 1) *st->opponent = st->other_car[1 - st->net_side];
-    if (!named(*st->opponent)) {   /* port (dep59): an added rival, as an added car above */
+    if (st->lost == 0 && *st->race_type == 1 && car_registry_is_added(*st->opponent)) {   /* port (dep59): an added head to head rival */
+        added_art(r, ART_OPPONENT, WAS_OPPONENT, *st->opponent, 1);
+        return;
+    }
+    if (!named(*st->opponent)) {   /* port (dep59): a number no card is for */
         st->was[WAS_OPPONENT] = *st->opponent;
         return;
     }
@@ -271,12 +294,12 @@ void central_draw(CentralRun *r)
     o->music(o->ctx);
     if ((int16_t)r->first == 0 && st->lost != 0) panel(r);
     track_art(r);
-    car_art(r);
+    central_car_art(r);
     if (st->view_only != 0 && (int16_t)r->first == 0) {
         o->text_select(o->ctx, 2);
         o->text_at(o->ctx, "view only", 0x20, 0x7a);
     }
-    opponent_art(r);
+    central_opponent_art(r);
     race_art(r);
     highlight(r);
     central_banner(r);   /* port: after the frame is blanked above, so a banner that goes leaves nothing */

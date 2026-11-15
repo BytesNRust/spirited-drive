@@ -50,6 +50,9 @@ void central_laps(CentralRun *r);                  /* the laps by difficulty and
 void central_follow(CentralRun *r);                /* 00433301..00433ad9: the pointer picks the item */
 void central_after_follow(CentralRun *r);          /* 00433ad9..00433cc6 */
 void central_draw(CentralRun *r);                  /* 00433cd5..00434b54 */
+/* the player's card and the rival card as central_draw draws them (port, dep59: an added car's from its pictures) */
+void central_car_art(CentralRun *r);
+void central_opponent_art(CentralRun *r);
 void central_changed(CentralRun *r);               /* 00434b69..00434c88 */
 void central_cheats(CentralRun *r);                /* 00434cdf..00434ff8 */
 int central_select(CentralRun *r);                 /* 00435120..004360bc; 1 to return the frame's result */

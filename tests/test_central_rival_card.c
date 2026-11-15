@@ -5,6 +5,9 @@
 #include "game/frontend/central_run.h"
 #include "game/frontend/showcase.h"
 #include "game/race/car_registry.h"
+
+#include <stdio.h>
+#include <string.h>
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -103,9 +106,77 @@ static void test_an_added_car_card_opens_nothing(void)
     CHECK_EQ_INT(shown, 1);   /* an original's still opens it */
 }
 
+/* dep59 step 3, Task 8: an added car's card and rival card come from its pictures (load_added_card), never from a bank of the CD's;
+ * Review Focus 1: the fifth added car (20) is loaded again after the no-art mark, as any other */
+static int loads, added_loads, added_car, added_rival, blits, frees;
+static int32_t load_bank(void *ctx, const char *path, int32_t flags) { (void)ctx, (void)path, (void)flags; return loads++, 5; }
+static int32_t load_added(void *ctx, int car, int rival, const uint8_t palette[768])
+{
+    (void)ctx, (void)palette;
+    added_loads++, added_car = car, added_rival = rival;
+    return 9;
+}
+static const uint8_t *shape(void *ctx, int32_t bank, const char *tag) { (void)ctx, (void)bank, (void)tag; static const uint8_t s[16]; return s; }
+static void blit(void *ctx, const uint8_t *s) { (void)ctx, (void)s; blits++; }
+static void art_free(void *ctx, int32_t handle) { (void)ctx, (void)handle; frees++; }
+
+static void cards(int16_t player, int16_t rival, int16_t was_car, int16_t was_rival)
+{
+    static int32_t art[8];
+    static const uint8_t pal[0x20];
+    static int16_t net_self, net_car;
+    ControlCentralOps o = { 0 };
+    o.load_bank = load_bank, o.load_added_card = load_added, o.shape = shape, o.blit = blit, o.free = art_free;
+    ControlCentralState st = { 0 };
+    st.player_car = &player_car, st.opponent = &opponent, st.race_type = &race_type, st.net_self = &net_self, st.net_car = &net_car;
+    st.was = was, st.art = art, st.paths = "";
+    CentralRun r = { 0 };
+    r.st = &st, r.ops = &o, r.pal = pal;
+    player_car = player, opponent = rival, was[WAS_CAR] = was_car, was[WAS_OPPONENT] = was_rival;
+    loads = added_loads = blits = frees = 0, added_car = added_rival = -1;
+    central_car_art(&r);
+    central_opponent_art(&r);
+}
+
+static void add(const char *id, const char *stem)
+{
+    CarPiece p;
+    memset(&p, 0, sizeof p);
+    snprintf(p.id, sizeof p.id, "%s", id);
+    snprintf(p.stem, sizeof p.stem, "%s", stem);
+    p.dash_model = -1;
+    CHECK(car_registry_add(&p, NULL, 0) >= CAR_ADDED_FIRST);
+}
+
+static void test_added_cards(void)
+{
+    car_registry_clear();
+    add("a", "A1"), add("b", "B1"), add("c", "C1"), add("d", "D1"), add("e", "E1");   /* 16..20 */
+    race_type = 1;
+    cards(16, 3, CENTRAL_NO_ART, CENTRAL_NO_ART);
+    CHECK_EQ_INT(added_loads, 1);
+    CHECK(added_car == 16 && added_rival == 0);
+    CHECK_EQ_INT(loads, 1);   /* the rival's, an original's */
+    CHECK_EQ_INT(blits, 2);
+    cards(3, 17, CENTRAL_NO_ART, CENTRAL_NO_ART);
+    CHECK_EQ_INT(added_loads, 1);
+    CHECK(added_car == 17 && added_rival == 1);
+    cards(3, 20, 3, CENTRAL_NO_ART);   /* Review Focus 1: the fifth added car, its card loaded again */
+    CHECK_EQ_INT(added_loads, 1);
+    CHECK(added_car == 20 && added_rival == 1);
+    CHECK_EQ_INT(loads, 0);   /* the player's card was there already */
+    cards(3, 20, 3, 20);      /* nothing changed: nothing loaded */
+    CHECK_EQ_INT(added_loads + loads, 0);
+    cards(40, 3, CENTRAL_NO_ART, 3);   /* a number not registered: no card, nothing read past a table; the rival's as it was */
+    CHECK_EQ_INT(added_loads + loads, 0);
+    CHECK_EQ_INT(blits, 1);
+    car_registry_clear();
+}
+
 int main(void)
 {
     test_no_art_is_no_car();
+    test_added_cards();
     test_an_added_car_card_opens_nothing();
     CHECK_EQ_INT(click(5), 1);
     CHECK(shown_name != NULL && shown_name == CARS[5]);

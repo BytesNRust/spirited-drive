@@ -125,6 +125,8 @@ RaceSettings cg_settings_of(void);
 void cg_settings_put(const RaceSettings *s);
 /* port (dep59): the added car picked and the head to head rival kept in restomod.cfg when they changed (car_looks.h) */
 void cg_picks_save(void);
+/* port (dep59 step 3): ControlCentralOps.load_added_card (added_card_glue.c) */
+int32_t cg_load_added_card(void *ctx, int car, int rival, const uint8_t palette[768]);
 void cg_level_to_image(void);
 void cg_races_from_state(void);
 int16_t *cg_word_52b302(void);

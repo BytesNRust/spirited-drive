@@ -132,6 +132,7 @@ static void test_numbers_stay_across_reloads(void)
     CHECK_EQ_INT(car_pieces_load(both, 2, 1), 2);
     CHECK_EQ_INT(car_registry_find("car-a"), 16);
     CHECK_EQ_INT(car_registry_find("car-b"), 17);
+    CHECK(strcmp(car_registry_piece(16)->dir, a) == 0 && strcmp(car_registry_piece(17)->dir, b) == 0);   /* dep59 step 3: its folder, for its pictures */
     CHECK_EQ_INT(car_pieces_load(both, 2, 1), 2);   /* the same folders: the same numbers */
     CHECK_EQ_INT(car_registry_find("car-b"), 17);
     const char *second[1] = { b };

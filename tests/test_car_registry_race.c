@@ -5,6 +5,7 @@
 #include "game/race/car_load.h"
 #include "game/race/car_model.h"
 #include "game/race/car_registry.h"
+#include "game/race/race_models.h"
 #include "game/race/race_sound.h"
 #include "game/race/race_state.h"
 #include "test.h"
@@ -120,8 +121,31 @@ static void test_the_pace(void)
     CHECK_EQ_INT(ai_profile_row(&race, 0x55), 0x55);     /* not registered: the fallback, as before */
 }
 
+/* dep59 step 3: 00426fec's pick (004fbad0) may be a registered added car, the same number (race_head_to_head_model); one past the
+ * table not registered is no pick (-1), as before. A single race with two humans races it. */
+static void test_the_pick(void)
+{
+    register_f40();
+    enum { SINGLE_RACE = 2, RACERS = 4 };
+    RaceState *r = &race;
+    memset(r, 0, sizeof *r);
+    r->race_type = SINGLE_RACE, r->humans = 2, r->racers = RACERS, r->player = 0;
+    r->entries[0].car = 4, r->entries[1].car = 3;
+    r->unknown_4fbad0 = 16;
+    race_models(r);
+    for (int i = 2; i < RACERS; i++) CHECK_EQ_INT(r->models[i], 16 + HUMAN_SET);
+    memset(r, 0, sizeof *r);
+    r->race_type = SINGLE_RACE, r->humans = 2, r->racers = RACERS, r->player = 0;
+    r->entries[0].car = 4, r->entries[1].car = 3;
+    r->unknown_4fbad0 = 40;   /* not registered */
+    race_models(r);
+    for (int i = 2; i < RACERS; i++) CHECK_EQ_INT(r->models[i], 0);   /* left unset, as a pick past the table */
+    car_registry_clear();
+}
+
 int main(void)
 {
+    test_the_pick();
     test_the_files();
     test_the_sound();
     test_the_pace();
