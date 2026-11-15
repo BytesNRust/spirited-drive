@@ -8,6 +8,9 @@
  *   NAME.header.tsv   header words and the 12-byte name;  NAME.polygons.tsv, NAME.textures.tsv, NAME.parts.tsv
  *   (section A), NAME.groups.tsv (section B), NAME.sectionc.tsv, NAME.labels.tsv: the tables the OBJ does not
  *   carry, one row per record.
+ *   NAME.lists.tsv    what the parts' and groups' map slots point at: each part's vertex list and each group's polygon
+ *                     list, one row per record (for an importer that builds a new mesh, dep59; the import here reads
+ *                     the lists from the original and ignores this file).
  * An import overlays them on the original chunk and keeps its size: vertex, uv and polygon counts, corner
  * counts and every table length are the original's (moving vertices, changing uvs, textures and the other
  * fields is supported; adding or removing geometry is not yet). Float OBJ values are rounded to integers. */
