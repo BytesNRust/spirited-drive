@@ -135,7 +135,7 @@ static void race_type_key(CentralRun *r, int32_t key)
     const ControlCentralOps *o = r->ops;
     ding(r);
     o->race_type_step(o->ctx, key);
-    r->st->was[WAS_OPPONENT] = 0x14;
+    r->st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
     r->redraw = 1;
     r->panel++;
     central_move(r);
@@ -200,7 +200,7 @@ static void left(CentralRun *r)
         if (*st->race_type == 3) {
             *st->player_car = CENTRAL_TOURNAMENT_CAR[*st->track];
             o->car_flags(o->ctx);
-            st->was[WAS_OPPONENT] = 0x14;
+            st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
             *st->opponent = 10;
         }
         central_laps(r);

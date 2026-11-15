@@ -4,6 +4,10 @@
 
 #include <stdint.h>
 
+/* port (dep59): the art's last values' (004bafb4..) "no art shown", 0x14 in the exe: car 20 is an added car now, so the mark is out of
+ * every car's, track's and race type's range. Only written, never compared with: a value no car has makes the next draw load the art. */
+enum { CENTRAL_NO_ART = 0x7fff };
+
 /* The cheat codes in the order 00432ff4 steps them (00437258 gets each one's position and letters). */
 enum {
     CENTRAL_SKCART, CENTRAL_EARALLYE, CENTRAL_EXPLODE, CENTRAL_NITRO, CENTRAL_CASINOVILLE, CENTRAL_CONCEPTCAR,

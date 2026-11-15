@@ -4,6 +4,7 @@
  * as the player's own card does with the Warrior. */
 #include "game/frontend/central_run.h"
 #include "game/frontend/showcase.h"
+#include "game/race/car_registry.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -70,8 +71,19 @@ static int click(int16_t rival)
     return shown;
 }
 
+/* port (dep59): the opponent's "no art shown" mark (what a click on the card leaves, so the card is loaded again) is no car's number: in
+ * the exe it was 0x14, and car 20 is an added car now, whose card would never be loaded again (Review Focus 1) */
+static void test_no_art_is_no_car(void)
+{
+    was[WAS_OPPONENT] = 5;
+    click(5);
+    CHECK(was[WAS_OPPONENT] != 20);
+    CHECK(was[WAS_OPPONENT] < 0 || was[WAS_OPPONENT] >= CAR_ADDED_FIRST + CAR_ADDED_MAX);
+}
+
 int main(void)
 {
+    test_no_art_is_no_car();
     CHECK_EQ_INT(click(5), 1);
     CHECK(shown_name != NULL && shown_name == CARS[5]);
     CHECK_EQ_INT(player_car, 3);

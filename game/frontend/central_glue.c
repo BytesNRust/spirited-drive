@@ -5,7 +5,7 @@
 #include "game/frontend/variant_rule.h"
 #include "game/frontend/tournament_variants.h"
 
-CentralGlobals cg_g = { .was = { 0x14, 0x14, 0x14, 0x14, 0x14, 0x14 } };  /* 004bafb4..'s data: no art shown yet */
+CentralGlobals cg_g = { .was = { CENTRAL_NO_ART, CENTRAL_NO_ART, CENTRAL_NO_ART, CENTRAL_NO_ART, CENTRAL_NO_ART, CENTRAL_NO_ART } };  /* 004bafb4..'s data: no art shown yet */
 
 enum { MOVIES_AT = 0x5b8 };                        /* 0052b2fc: 2, the movies offered (the original's default) */
 uint8_t cg_game_state[GAME_STATE_SIZE] = { [MOVIES_AT] = 2 };  /* 0052b2c0..: the tournament's */

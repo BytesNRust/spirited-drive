@@ -1,4 +1,5 @@
 #include "game/frontend/control_central_art.h"
+#include "game/frontend/central.h"
 
 #include <stddef.h>
 
@@ -12,6 +13,6 @@ void control_central_art_free(ControlCentralArt *a, FrontendSession *f, const Co
     ops->free(ops->ctx, a->art_4bafd0);
     if (a->art_4bafd4 != NULL) ops->free(ops->ctx, a->art_4bafd4), a->art_4bafd4 = NULL;
     if (a->art_4bafd8 != NULL) ops->free(ops->ctx, a->art_4bafd8), a->art_4bafd8 = NULL;
-    for (int i = 0; i < 6; i++) f->unknown_4bafb4[i] = 0x14;
+    for (int i = 0; i < 6; i++) f->unknown_4bafb4[i] = CENTRAL_NO_ART;
     ops->free_inverse(ops->ctx);
 }

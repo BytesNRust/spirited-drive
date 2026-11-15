@@ -47,7 +47,7 @@ static void players(CentralRun *r)
         *st->net_player = i;
         r->item = CC_OPPONENT;
         *st->net_self = 0;
-        st->was[WAS_OPPONENT] = 0x14;
+        st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
         *st->opponent = st->other_car[i];
         r->changed = 1;
     }
@@ -120,7 +120,7 @@ void central_after_follow(CentralRun *r)
         if (*st->race_type == 3) {
             *st->player_car = CENTRAL_TOURNAMENT_CAR[r->track_was];
             o->car_flags(o->ctx);
-            st->was[WAS_OPPONENT] = 0x14;
+            st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
             if (*st->net_self != 0) *st->opponent = 10;
         }
         central_laps(r);

@@ -97,9 +97,9 @@ static void loop_end(CentralRun *r)
             if (st->e7b == 0 && *st->race_type == 1 && *st->net_self != 0) {
                 if (r->item == CC_PLAYERS) r->item = 1;
                 *st->net_self = 0;
-                st->was[WAS_OPPONENT] = 0x14;
+                st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
             }
-            if (*st->net_self != 0) st->was[WAS_OPPONENT] = 0x14;
+            if (*st->net_self != 0) st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
             r->redraw = 5;
         } else {
             *st->redraw_asked = 0;
@@ -150,12 +150,12 @@ static void no_mercy(CentralRun *r)
         if (*st->nomercy == 0) {
             *st->nomercy = 1;
             r->redraw = 1;
-            st->was[WAS_RACE] = 0x14;
+            st->was[WAS_RACE] = CENTRAL_NO_ART;
             *st->track_flags |= 4;
         }
     } else if (*st->nomercy != 0) {
         *st->nomercy = 0;
-        st->was[WAS_RACE] = 0x14;
+        st->was[WAS_RACE] = CENTRAL_NO_ART;
         *st->track_flags &= 0xfffb;
         r->redraw = 1;
     }

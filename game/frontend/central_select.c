@@ -23,7 +23,7 @@ void central_opponent_up(CentralRun *r, int mouse)
         else if (++*st->opponent > 8) *st->opponent = 0;
     } else if (*st->race_type == 2) {
         if (*st->net_self == 0) return;
-        st->was[WAS_OPPONENT] = 0x14;
+        st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
         *st->net_car = (int16_t)((*st->net_car + 1) % 9);
     } else if (*st->opponent == 11) {
         *st->opponent = 0;
@@ -45,7 +45,7 @@ void central_opponent_down(CentralRun *r, int mouse)
         if (*st->opponent < 0) *st->opponent = 8;
     } else if (*st->race_type == 2) {
         if (*st->net_self == 0) return;
-        st->was[WAS_OPPONENT] = 0x14;
+        st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
         if (--*st->net_car < 0) *st->net_car = 8;
     } else {
         *st->opponent = *st->opponent == 11 ? 7 : (int16_t)(*st->opponent - 1);
@@ -120,7 +120,7 @@ static void showcase_start(CentralRun *r)
     o->fade_out(o->ctx, 0, 0x100);
     o->music_end(o->ctx);
     o->music_start(o->ctx, "showcase.asf");
-    r->st->was[WAS_OPPONENT] = 0x14;
+    r->st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
 }
 
 /* port: the gallery has the 8 cars (showcase.c), the field (8) showing car 0; the original opened it on any rival and
@@ -207,7 +207,7 @@ static void race_type_item(CentralRun *r)
         return;
     }
     r->panel = panel;
-    st->was[WAS_OPPONENT] = 0x14;
+    st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
     r->redraw = 1;
 }
 
@@ -297,7 +297,7 @@ static int race_item(CentralRun *r)
     }
     o->race(o->ctx);
     *st->nomercy = 0;
-    st->was[WAS_RACE] = 0x14;
+    st->was[WAS_RACE] = CENTRAL_NO_ART;
     *st->track_flags &= 0xfffb;
     *st->pointer_active = 1;
     *st->screen = o->picture_new(o->ctx, 0x280, 0x1e0, 0);
@@ -332,7 +332,7 @@ int central_select(CentralRun *r)
     }
     switch ((uint16_t)r->item) {
     case CC_PLAYERS:
-        st->was[WAS_OPPONENT] = 0x14;
+        st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
         *st->net_self ^= 1;
         central_move(r);
         r->panel++;
