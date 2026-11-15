@@ -28,7 +28,8 @@ int mod_ini_id_ok(const char *id)
     return 1;
 }
 
-enum { KIND_TEXT, KIND_STEM, KIND_WORD, KIND_TYPE, KIND_PAINTS };   /* what a value may hold: text; A-Z 0-9; a-z 0-9; a type's name; paints */
+/* what a value may hold: text; printable ASCII (drawn raw in the game's big face, GRAVER18); A-Z 0-9; a-z 0-9; a type's name; paints */
+enum { KIND_TEXT, KIND_PLAIN, KIND_STEM, KIND_WORD, KIND_TYPE, KIND_PAINTS };
 
 typedef struct {
     const char *key;
@@ -38,13 +39,13 @@ typedef struct {
 
 static const Field FIELDS[] = {
     { "id", offsetof(ModInfo, id), sizeof ((ModInfo *)0)->id, KIND_TEXT },
-    { "name", offsetof(ModInfo, name), sizeof ((ModInfo *)0)->name, KIND_TEXT },
+    { "name", offsetof(ModInfo, name), sizeof ((ModInfo *)0)->name, KIND_PLAIN },
     { "version", offsetof(ModInfo, version), sizeof ((ModInfo *)0)->version, KIND_TEXT },
     { "author", offsetof(ModInfo, author), sizeof ((ModInfo *)0)->author, KIND_TEXT },
     { "description", offsetof(ModInfo, description), sizeof ((ModInfo *)0)->description, KIND_TEXT },
     { "type", 0, sizeof "track", KIND_TYPE },
     { "stem", offsetof(ModInfo, stem), sizeof ((ModInfo *)0)->stem, KIND_STEM },
-    { "short_name", offsetof(ModInfo, short_name), sizeof ((ModInfo *)0)->short_name, KIND_TEXT },
+    { "short_name", offsetof(ModInfo, short_name), sizeof ((ModInfo *)0)->short_name, KIND_PLAIN },
     { "sound_from", offsetof(ModInfo, sound_from), sizeof ((ModInfo *)0)->sound_from, KIND_WORD },
     { "ai_from", offsetof(ModInfo, ai_from), sizeof ((ModInfo *)0)->ai_from, KIND_WORD },
     { "dash_from", offsetof(ModInfo, dash_from), sizeof ((ModInfo *)0)->dash_from, KIND_WORD },
@@ -123,7 +124,15 @@ static int hex_digit(char c)
 }
 
 /* one `Name:rrggbb` (`s` .. `e`, trimmed) into `p`; 0 with `why` naming it when it is refused */
-static int take_paint(const char *s, const char *e, ModPaint *p, char *why, size_t cap)
+/* the position (from 1) of the first of the `n` bytes of `s` that is not printable ASCII (0x20..0x7e); 0 when there is none */
+static size_t not_plain_at(const char *s, size_t n)
+{
+    for (size_t i = 0; i < n; i++)
+        if ((unsigned char)s[i] < 0x20 || (unsigned char)s[i] > 0x7e) return i + 1;
+    return 0;
+}
+
+static int take_paint(const char *s, const char *e, int entry, ModPaint *p, char *why, size_t cap)
 {
     const int n = (int)(e - s);
     if (n == 0) return refuse(why, cap, "mod.ini: paints has an empty entry");
@@ -135,6 +144,8 @@ static int take_paint(const char *s, const char *e, ModPaint *p, char *why, size
     const size_t name_len = (size_t)(ne - ns);
     if (name_len == 0 || name_len > MOD_INI_PAINT_NAME_MAX)
         return refuse(why, cap, "mod.ini: paints: \"%.*s\" needs a name of 1 to %d characters", n, s, MOD_INI_PAINT_NAME_MAX);
+    const size_t bad = not_plain_at(ns, name_len);   /* said by its place: the name itself is not something to print back */
+    if (bad != 0) return refuse(why, cap, "mod.ini: paints: entry %d's name has a byte that is not printable ASCII at %zu", entry, bad);
     if (he - hs != 6) return refuse(why, cap, "mod.ini: paints: %.*s's colour is not six hex digits", (int)name_len, ns);
     for (int i = 0; i < 3; i++) {
         const int hi = hex_digit(hs[2 * i]), lo = hex_digit(hs[2 * i + 1]);
@@ -155,7 +166,7 @@ static int take_paints(const char *s, const char *e, ModInfo *out, char *why, si
         trim(&es, &ee);
         if (out->paint_count == MOD_INI_PAINTS_MAX) return refuse(why, cap, "mod.ini: paints has more than %d entries", MOD_INI_PAINTS_MAX);
         ModPaint paint;
-        if (!take_paint(es, ee, &paint, why, cap)) return 0;
+        if (!take_paint(es, ee, out->paint_count + 1, &paint, why, cap)) return 0;
         for (int k = 0; k < out->paint_count; k++)
             if (strcasecmp(out->paints[k].name, paint.name) == 0) return refuse(why, cap, "mod.ini: paints names %s twice", paint.name);
         out->paints[out->paint_count++] = paint;
@@ -176,6 +187,8 @@ static int take_line(const char *line, const char *end, ModInfo *out, int seen[F
     for (int f = 0; f < FIELD_COUNT; f++) {   /* only a key the game knows is read, and only its name is ever said back */
         if (strlen(FIELDS[f].key) != klen || memcmp(FIELDS[f].key, ks, klen) != 0) continue;
         if (seen[f]) return refuse(why, cap, "mod.ini: %s is given twice", FIELDS[f].key);
+        const size_t bad = FIELDS[f].kind == KIND_PLAIN ? not_plain_at(vs, vlen) : 0;
+        if (bad != 0) return refuse(why, cap, "mod.ini: %s has a byte that is not printable ASCII at %zu", FIELDS[f].key, bad);
         if (!text_clean((const unsigned char *)vs, vlen))
             return refuse(why, cap, "mod.ini: %s is not UTF-8 text, or holds a control or direction character", FIELDS[f].key);
         if (vlen == 0) return refuse(why, cap, "mod.ini: %s is empty", FIELDS[f].key);
