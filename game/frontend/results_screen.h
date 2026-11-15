@@ -71,11 +71,11 @@ typedef struct ResultsOps {
     /* port: a word of the header band (results_header_marks): `text` from x, its letters' middle on y_mid, at the font's size or
      * smaller so it stays within `room` pixels (central_glue's cg_band_text). NULL: text_at at RESULTS_LINE_* as before. */
     void (*band_text)(void *ctx, const char *text, int32_t x, int32_t y_mid, int32_t room);
-    /* port (dep55): a record's conditions in the row's style at num/den of the font's size from (x, y), their width and the font's line
-     * at full size (record_conditions.h's pen; NULL: none drawn) */
+    /* port (dep55): a record's conditions in the row's style at num/den of the font's size from (x, y), their width and their letters'
+     * rows (record_conditions.h's pen; NULL: none drawn) */
     void (*small_text)(void *ctx, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);
     int32_t (*small_width)(void *ctx, const char *text, int32_t num, int32_t den);
-    int32_t (*small_height)(void *ctx);
+    void (*small_ink)(void *ctx, const char *text, int32_t num, int32_t den, int32_t *top, int32_t *bottom);
 } ResultsOps;
 
 enum { RESULTS_GAME = 0x5bc, RESULTS_IMAGE = 0x5f34, RESULTS_CARS = 12 };

@@ -82,7 +82,7 @@ void results_conditions(const ResultsInputs *in, int slot, int32_t y, int speed,
     enum { CAR_COLUMN = 0x1d6, GAP = 6 };   /* Best Times' gap before the car */
     if (in->marks == NULL || in->marks->line == NULL || in->marks->conds == NULL || ops->small_text == NULL) return;
     if (slot < 0 || slot >= RECORDS_MARK_SLOTS) return;
-    const ConditionsPen pen = { ops->ctx, ops->small_text, ops->small_width, ops->small_height };
+    const ConditionsPen pen = { ops->ctx, ops->small_text, ops->small_width, ops->small_ink };
     record_conditions_draw(in->marks->conds[slot], CAR_COLUMN - GAP, y, speed ? 2 : 1, speed ? 5 : 2, &pen);
 }
 

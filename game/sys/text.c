@@ -228,6 +228,21 @@ int text_width_scaled(const char *text, int num, int den)
     return text_width(text) * num / den;
 }
 
+void text_ink_scaled(const char *text, int num, int den, int *top, int *bottom)
+{
+    int first = 1;
+    *top = *bottom = 0;
+    if (font_data == NULL) return;
+    for (const unsigned char *c = (const unsigned char *)text; *c; c++) {
+        FfnGlyph g;
+        if (*c < 0x21 || !ffn_glyph(&font, *c, &g) || g.height <= 0) continue;
+        const int t = g.y_offset * num / den, b = t + ffn_scaled(g.height, num, den);
+        if (first || t < *top) *top = t;
+        if (first || b > *bottom) *bottom = b;
+        first = 0;
+    }
+}
+
 /* port: the rows the text's glyphs reach, the line's height at least: '%' stands below the line (y 5..20 of 18) */
 static int text_rows(const char *text)
 {

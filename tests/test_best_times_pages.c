@@ -168,7 +168,8 @@ static void test_the_conditions_words(void)
     check_lines(old, "-", "");
 }
 
-/* the block drawn: right edge on `right`, the second line centred under the first, both within the row's full-size line */
+/* the block drawn: right edge on `right`, the second line centred under the first and RECORD_CONDITIONS_GAP rows under its letters at
+ * every size, the block's letters centred on the row's capitals; a fake font whose capitals fill rows 4..18 at full size */
 static struct { char text[4][16]; int32_t x[4], y[4], num[4], den[4]; int n; } pen_drawn;
 static void pen_text(void *ctx, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
 {
@@ -179,32 +180,53 @@ static void pen_text(void *ctx, const char *text, int32_t x, int32_t y, int32_t 
     pen_drawn.n++;
 }
 static int32_t pen_width(void *ctx, const char *text, int32_t num, int32_t den) { (void)ctx; return (int32_t)strlen(text) * 16 * num / den; }
-static int32_t pen_height(void *ctx) { (void)ctx; return 20; }
+static void pen_ink(void *ctx, const char *text, int32_t num, int32_t den, int32_t *top, int32_t *bottom)
+{
+    (void)ctx;
+    const int dash = strcmp(text, "-") == 0;   /* the dash sits mid-line */
+    *top = (dash ? 10 : 4) * num / den, *bottom = (dash ? 12 : 18) * num / den;
+}
+enum { ROW = 100, ROW_MIDDLE = ROW + (4 + 18) / 2 };
+
+/* the rows between line 1's letters and line 2's, and the middle of the block's letters */
+static void block_rows(int32_t *gap, int32_t *middle)
+{
+    int32_t t1, b1, t2, b2;
+    pen_ink(NULL, pen_drawn.text[0], pen_drawn.num[0], pen_drawn.den[0], &t1, &b1);
+    pen_ink(NULL, pen_drawn.text[1], pen_drawn.num[1], pen_drawn.den[1], &t2, &b2);
+    *gap = (pen_drawn.y[1] + t2) - (pen_drawn.y[0] + b1);
+    *middle = ((pen_drawn.y[0] + t1) + (pen_drawn.y[1] + b2)) / 2;
+}
 
 static void test_the_conditions_block(void)
 {
-    const ConditionsPen pen = { NULL, pen_text, pen_width, pen_height };
+    const ConditionsPen pen = { NULL, pen_text, pen_width, pen_ink };
+    int32_t gap, middle;
     memset(&pen_drawn, 0, sizeof pen_drawn);
-    record_conditions_draw(race_records_conditions_of(WEATHER_STORM, 0, 0, LIGHT_TIME_DUSK, 0, 0, 0), 400, 100, 1, 2, &pen);
+    record_conditions_draw(race_records_conditions_of(WEATHER_STORM, 0, 0, LIGHT_TIME_DUSK, 0, 0, 0), 400, ROW, 1, 2, &pen);
     CHECK_EQ_INT(pen_drawn.n, 2);
     CHECK(strcmp(pen_drawn.text[0], "STRM DUSK") == 0 && strcmp(pen_drawn.text[1], "ORIGINAL") == 0);
     CHECK_EQ_INT(pen_drawn.x[0], 400 - 72);                  /* the wider line ends on `right` */
     CHECK_EQ_INT(pen_drawn.x[1], 400 - 72 + (72 - 64) / 2);  /* the second centred under it */
-    CHECK_EQ_INT(pen_drawn.y[0], 100);                       /* two half lines fill the row's line */
-    CHECK_EQ_INT(pen_drawn.y[1], 110);
+    block_rows(&gap, &middle);
+    CHECK_EQ_INT(gap, RECORD_CONDITIONS_GAP);
+    CHECK(middle >= ROW_MIDDLE - 1 && middle <= ROW_MIDDLE + 1);
     CHECK(pen_drawn.num[1] == 1 && pen_drawn.den[1] == 2);
+    /* the speed's smaller block: the same rows between its lines */
     memset(&pen_drawn, 0, sizeof pen_drawn);
-    record_conditions_draw(race_records_conditions_of(WEATHER_CLEAR, 0, 0, LIGHT_TIME_DAY, 1, 1, 1), 400, 100, 2, 5, &pen);
+    record_conditions_draw(race_records_conditions_of(WEATHER_CLEAR, 0, 0, LIGHT_TIME_DAY, 1, 1, 1), 400, ROW, 2, 5, &pen);
     CHECK_EQ_INT(pen_drawn.x[0], 400 - 44);                  /* "CLR DAY" at 2/5 is the wider: "EASY" centred under it */
     CHECK_EQ_INT(pen_drawn.x[1], 400 - 44 + (44 - 25) / 2);
-    CHECK_EQ_INT(pen_drawn.y[0], 102);
-    CHECK_EQ_INT(pen_drawn.y[1], 110);
-    CHECK(pen_drawn.y[1] + 8 <= 100 + 20);                   /* within the row's line: the next row is untouched */
+    block_rows(&gap, &middle);
+    CHECK_EQ_INT(gap, RECORD_CONDITIONS_GAP);
+    CHECK(middle >= ROW_MIDDLE - 1 && middle <= ROW_MIDDLE + 1);
+    /* an imported row: the dash alone, on the row's middle */
     memset(&pen_drawn, 0, sizeof pen_drawn);
     const RecordMarks old = { 0 };
-    record_conditions_draw(old, 400, 100, 1, 2, &pen);
+    record_conditions_draw(old, 400, ROW, 1, 2, &pen);
     CHECK_EQ_INT(pen_drawn.n, 1);
-    CHECK(strcmp(pen_drawn.text[0], "-") == 0 && pen_drawn.x[0] == 400 - 8 && pen_drawn.y[0] == 105);
+    CHECK(strcmp(pen_drawn.text[0], "-") == 0 && pen_drawn.x[0] == 400 - 8);
+    CHECK(pen_drawn.y[0] + 5 >= ROW_MIDDLE - 1 && pen_drawn.y[0] + 6 <= ROW_MIDDLE + 1);
 }
 
 int main(void)

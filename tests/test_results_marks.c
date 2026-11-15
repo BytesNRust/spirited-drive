@@ -5,6 +5,7 @@
 #include "game/frontend/results_screen.h"
 #include "game/frontend/track_results.h"
 #include "game/frontend/lap_times.h"
+#include "game/frontend/record_conditions.h"
 #include "game/frontend/records_route.h"
 #include "game/sys/extras_marks.h"
 #include "test.h"
@@ -73,7 +74,11 @@ static int32_t f_small_width(void *ctx, const char *text, int32_t num, int32_t d
     (void)ctx;
     return (int32_t)strlen(text) * 16 * num / den;
 }
-static int32_t f_small_height(void *ctx) { (void)ctx; return 20; }
+static void f_small_ink(void *ctx, const char *text, int32_t num, int32_t den, int32_t *top, int32_t *bottom)
+{
+    (void)ctx, (void)text;
+    *top = 4 * num / den, *bottom = 18 * num / den;
+}
 static void f_text_fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
 {
     (void)width;
@@ -146,7 +151,7 @@ static ResultsOps fake_ops(void)
     ops.band_text = band_on ? f_band_text : NULL;
     ops.small_text = f_small_text;
     ops.small_width = f_small_width;
-    ops.small_height = f_small_height;
+    ops.small_ink = f_small_ink;
     ops.time_text = f_time_text;
     ops.average_text = f_average_text;
     ops.speed_text = f_speed_text;
@@ -619,7 +624,7 @@ static void test_original_rows_are_all_drawn(void)
 /* Restomod's results show each record's conditions as Best Times does (record_conditions_draw): a small block of two lines, the weather and
  * time over the difficulty's word, ending just left of the car's column and within the row's line; the speed's smaller. Empty rows show
  * none, nor do Stock and Restored. */
-enum { COND_END_X = 0x1d6 - 6, LINE_FULL = 20 };
+enum { COND_END_X = 0x1d6 - 6 };
 static RecordMarks conds[RECORDS_MARK_SLOTS];
 
 static int drawn_index(const char *text)
@@ -629,15 +634,17 @@ static int drawn_index(const char *text)
     return -1;
 }
 
-/* the block `first` over `second` on the row at row_y, at num/den: its wider line ends on COND_END_X, the other centred on it */
+/* the block `first` over `second` on the row at row_y, at num/den: its wider line ends on COND_END_X, the other centred on it, the two
+ * RECORD_CONDITIONS_GAP rows apart (the fake font's capitals fill rows 4..18 at full size) */
 static int found_block(const char *first, const char *second, int32_t row_y, int num, int den)
 {
     const int a = drawn_index(first), b = drawn_index(second);
     if (a < 0 || b < 0) return 0;
     const int32_t w1 = (int32_t)strlen(first) * 16 * num / den, w2 = (int32_t)strlen(second) * 16 * num / den, wide = w1 > w2 ? w1 : w2;
-    const int32_t line = LINE_FULL * num / den, top = row_y + (LINE_FULL - 2 * line) / 2;
-    return drawn.x[a] == COND_END_X - wide + (wide - w1) / 2 && drawn.x[b] == COND_END_X - wide + (wide - w2) / 2 && drawn.y[a] == top &&
-           drawn.y[b] == top + line;   /* the places follow from the size */
+    const int32_t top = 4 * num / den, bottom = 18 * num / den;
+    const int32_t middle = ((drawn.y[a] + top) + (drawn.y[b] + bottom)) / 2;
+    return drawn.x[a] == COND_END_X - wide + (wide - w1) / 2 && drawn.x[b] == COND_END_X - wide + (wide - w2) / 2 &&
+           (drawn.y[b] + top) - (drawn.y[a] + bottom) == RECORD_CONDITIONS_GAP && middle >= row_y + 10 && middle <= row_y + 12;
 }
 
 static void set_conds(void)

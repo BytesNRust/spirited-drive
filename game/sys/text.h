@@ -31,6 +31,9 @@ void text_draw_centered(const char *text, int cx, int y); /* 00463c60: same, cen
  * under them in the palette text_build_styles* last used */
 int text_width_scaled(const char *text, int num, int den);
 void text_draw_smooth(const char *text, int x, int y, int num, int den);
+/* port: where text_draw_smooth's letters of `text` at num/den start and end below its y (the glyphs' own rows, not the line's); both 0
+ * for no letters */
+void text_ink_scaled(const char *text, int num, int den, int *top, int *bottom);
 /* port: a title's own letters, a w x h coverage mask (0..15, as title_art.h cuts them), drawn as text_draw_smooth
  * draws its letters in the current style but with the original titles' shadow (text_soft_title_shadow), the mask's
  * (0, 0) at (x, y) */

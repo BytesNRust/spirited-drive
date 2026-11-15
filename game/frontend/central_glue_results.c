@@ -28,10 +28,12 @@ static int32_t results_small_width(void *ctx, const char *text, int32_t num, int
     (void)ctx;
     return text_width_scaled(text, num, den);
 }
-static int32_t results_small_height(void *ctx)
+static void results_small_ink(void *ctx, const char *text, int32_t num, int32_t den, int32_t *top, int32_t *bottom)
 {
     (void)ctx;
-    return text_line_height();
+    int t, b;
+    text_ink_scaled(text, num, den, &t, &b);
+    *top = t, *bottom = b;
 }
 static int32_t records_checked(RouteOp op, int32_t *times)
 {
@@ -85,7 +87,7 @@ static void results(ResultsShow *screen_of, const TrackViewerResults *r, int32_t
         select_default, hide, nothing, blit_word, nothing, flip, show_dialog, cg_mark_at, buttons, track_music, track_play,
         deadline_set, sound, ticks, activate_dialog, cg_key, click, off_dialog, music, cg_deadline_passed, track_stop, track_free, fade_out,
         free_bank, free_handle_inverse, blit_masked, totals, top_record, leads, best_totals, lap_record,
-        results_order, lap_times, &c, cg_band_text, results_small_text, results_small_width, results_small_height };
+        results_order, lap_times, &c, cg_band_text, results_small_text, results_small_width, results_small_ink };
     c.ops = &ops;
     cg_stage_in = &in.unknown_50a5b6;
     screen_of(mode, &in, &st, &c.p, &ops);

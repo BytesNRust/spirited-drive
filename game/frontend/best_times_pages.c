@@ -224,10 +224,10 @@ static int32_t scaled_width(void *ctx, const char *text, int32_t num, int32_t de
     const BestTimesOps *ops = ctx;
     return ops->plus_scaled_width(ops->ctx, text, num, den);
 }
-static int32_t line_height(void *ctx)
+static void ink(void *ctx, const char *text, int32_t num, int32_t den, int32_t *top, int32_t *bottom)
 {
     const BestTimesOps *ops = ctx;
-    return ops->plus_line_height(ops->ctx);
+    ops->plus_ink(ops->ctx, text, num, den, top, bottom);
 }
 
 /* a record's row at y: the name, its cheats, the time (or the speed), its conditions, the car, the gearbox */
@@ -242,7 +242,7 @@ static void record_row(const BestTimesInputs *in, const RecordRow *r, int32_t y,
     else ops->time_text(ops->ctx, text, d32(r->row + RECORD_ROW_TIME));
     ops->text_shadowed(ops->ctx, text, TIME_X, y);
     /* right against the car's column, half size (two fifths after a speed, which runs wider than a time) */
-    const ConditionsPen pen = { (void *)ops, cream_scaled, scaled_width, line_height };
+    const ConditionsPen pen = { (void *)ops, cream_scaled, scaled_width, ink };
     record_conditions_draw(r->marks, COND_END, y, speed ? 2 : 1, speed ? 5 : 2, &pen);
     ops->text_shadowed(ops->ctx, car_name(d32(r->row + RECORD_ROW_CAR)), CAR_X, y);
     shift(in, d32(r->row + RECORD_ROW_GEARBOX), y, ops);

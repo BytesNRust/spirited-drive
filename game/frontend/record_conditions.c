@@ -25,10 +25,15 @@ void record_conditions_draw(RecordMarks m, int32_t right, int32_t row_y, int32_t
 {
     char first[16], second[16];
     record_conditions_lines(m, first, second, sizeof first);
-    const int32_t w1 = pen->width(pen->ctx, first, num, den), w2 = second[0] != '\0' ? pen->width(pen->ctx, second, num, den) : 0;
+    const int two = second[0] != '\0';
+    const int32_t w1 = pen->width(pen->ctx, first, num, den), w2 = two ? pen->width(pen->ctx, second, num, den) : 0;
     const int32_t wide = w1 > w2 ? w1 : w2, left = right - wide;
-    const int32_t full = pen->line_height(pen->ctx), line = full * num / den;
-    const int32_t top = row_y + (full - (second[0] != '\0' ? 2 : 1) * line) / 2;
-    pen->text(pen->ctx, first, left + (wide - w1) / 2, top, num, den);
-    if (second[0] != '\0') pen->text(pen->ctx, second, left + (wide - w2) / 2, top + line, num, den);
+    int32_t row_top, row_bottom, t1, b1, t2 = 0, b2 = 0;
+    pen->ink(pen->ctx, "X", 1, 1, &row_top, &row_bottom);   /* the row's capitals */
+    pen->ink(pen->ctx, first, num, den, &t1, &b1);
+    if (two) pen->ink(pen->ctx, second, num, den, &t2, &b2);
+    const int32_t height = (b1 - t1) + (two ? RECORD_CONDITIONS_GAP + (b2 - t2) : 0);
+    const int32_t y1 = row_y + (row_top + row_bottom - height) / 2 - t1;   /* the block's letters on the middle of the row's */
+    pen->text(pen->ctx, first, left + (wide - w1) / 2, y1, num, den);
+    if (two) pen->text(pen->ctx, second, left + (wide - w2) / 2, y1 + b1 + RECORD_CONDITIONS_GAP - t2, num, den);
 }
