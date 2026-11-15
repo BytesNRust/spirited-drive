@@ -50,11 +50,11 @@ Only CC0 or public domain samples go here, each with its source, author and lice
 ## rain_spray.wav
 
 - What: the tyre spray of a car on a wet road (`rain_tyre_roll`, with `rain_v2`), every car's (the player's, the rivals', the traffic's) heard where the car is; a seamless loop, mono, 16-bit, 22050 Hz, 12.0 s. Its level and pitch rise with speed; lower the farther the car, lower in the cockpit, lower still under a rally's gravel roll.
-- Made from: "cars passing close by wet road.WAV" (the page's HQ mp3 preview (128 kbps; the original needs a login), 113.2 s): only the stretches where the tyres' spray is louder than the engines, cut into grains and joined round a ring with equal-power cross-fades, so the loop has no seam (the steps of the clip it replaced, rain_tyre_roll.wav, the same recording); equalised to the 1/3-octave curve of a reference recording of rain outside, at 40 % of its power, and limited with the gain it shares with rain_moving_out.wav (peaks -6.9 dBFS). No sample of the reference is in the file. Nothing else changed.
-- Source: https://freesound.org/people/goose278/sounds/174820/
-- Author: goose278 (https://freesound.org/people/goose278/), uploaded 2013-01-19
-- Licence: Creative Commons 0 (public domain dedication), http://creativecommons.org/publicdomain/zero/1.0/ . No attribution is required; it is given here anyway.
-- Checked on the page on 2026-11-14: the licence listed is Creative Commons 0.
+- Made from: a recording of cars passing a standing microphone on a wet road (mp3, 44.1 kHz stereo, 2 min 13 s; not in the repository), decoded to mono at 22050 Hz. The 8 passes at least 15 dB over the background, the stretch of each within 6 dB of its peak (at most 1.2 s); in the 3 passes where the pitch falls as a car going away (1 to 12 % from the first third to the last) that fall is taken off as a ramp, the closest point's pitch kept; each pass's swell divided out (a 120 ms envelope) and every pass set to the same level; cut into 0.45 s grains joined round a 12 s ring with 150 ms equal-power cross-fades, in an order fixed dice choose, so the loop has no seam; mixed at half the power with noise of the passes' own average spectrum (a 1025-tap FIR), swelling slowly by up to 2 dB, so the grains' repetition is not heard. Set to -23.4 dBFS RMS, the loop it replaces, peaks rounded softly (tanh) under -6.9 dBFS (they reach -9.3). No metadata in the file.
+- Made with: tools/rain_spray_from_passes.py (ffmpeg and the Python standard library; the same file each run).
+- Source: a recording by the port's author, 2026-11-15 (dep66); it replaces the loop made from goose278's "cars passing close by wet road.WAV".
+- Author: the port's author
+- Licence: Creative Commons 0 (CC0 1.0 Universal, public domain dedication), https://creativecommons.org/publicdomain/zero/1.0/ , given by the author for this file.
 
 ## rain_puddle_1.wav
 

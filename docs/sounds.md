@@ -11,7 +11,7 @@ All are 16-bit mono WAVs at the mixer's rate (22050 Hz) in `data/sounds/`, read 
 | Rain, stopped, cockpit | `rain_stopped_in.wav`, 22.5 s loop | in rain or a storm, the followed car stopped, the dash view | the same | `## rain_stopped_in.wav` (Nox_Sound, freesound.org, CC0) |
 | Rain, moving, outside | `rain_moving_out.wav`, 12 s loop | in rain or a storm, the followed car moving, a view outside; once | the same | `## rain_moving_out.wav` (TeTeNoise, freesound.org, CC0) |
 | Rain, moving, cockpit | `rain_moving_in.wav`, 12 s loop | in rain or a storm, the followed car moving, the dash view (its own tyres' hiss is in it) | the same | `## rain_moving_in.wav` (Brikaro, freesound.org, CC0) |
-| Tyre spray | `rain_spray.wav`, 12 s loop | in rain, a storm or snow falling, every car moving on asphalt (under the gravel roll on a rally), where the car is | the same | `## rain_spray.wav` (goose278, freesound.org, CC0) |
+| Tyre spray | `rain_spray.wav`, 12 s loop | in rain, a storm or snow falling, every car moving on asphalt (under the gravel roll on a rally), where the car is | the same | `## rain_spray.wav` (the port author's recording, CC0; `tools/rain_spray_from_passes.py`) |
 | Puddle splashes | `rain_puddle_1.wav` .. `rain_puddle_7.wav`, 0.4-1.2 s | the same cars, on asphalt, at random, more the faster | the same | `## rain_puddle_1.wav` .. `## rain_puddle_7.wav` (freesound.org, CC0) |
 | Roll on snow | `snow_roll.wav`, 5.3 s loop | on the snowy rally (Alpine 3) only, the followed car moving on the ground | `snow_weather` (`TNFS_SNOW_WEATHER`); no flag of its own | `## snow_roll.wav` (kyles, freesound.org, CC0) |
 

@@ -162,6 +162,32 @@ static void test_view_glide(void)
 }
 
 /* the sample and its licence entry: Only CC0 or public domain goes in data/sounds, with what, how it was made, the source, the author, the licence and the check date */
+/* the entry of `name` says it is the port author's own recording, made with `tool`, and the tool is there */
+static void own_recording(const char *name, const char *tool)
+{
+    char path[1024];
+    snprintf(path, sizeof path, "%s/data/sounds/LICENSES.md", TNFS_SOURCE_DIR);
+    FILE *f = fopen(path, "rb");
+    CHECK(f != NULL);
+    if (f == NULL) return;
+    char *text = calloc(1, 1 << 16);
+    const size_t n = fread(text, 1, (1 << 16) - 1, f);
+    fclose(f);
+    text[n] = '\0';
+    char heading[64], made[256];
+    snprintf(heading, sizeof heading, "## %s", name);
+    snprintf(made, sizeof made, "- Made with: %s", tool);
+    const char *entry = strstr(text, heading), *next = entry != NULL ? strstr(entry + 3, "\n## ") : NULL;
+    char *part = entry != NULL ? strndup(entry, next != NULL ? (size_t)(next - entry) : strlen(entry)) : NULL;
+    CHECK(part != NULL && strstr(part, "- Source: a recording by the port's author") != NULL && strstr(part, made) != NULL);
+    free(part);
+    free(text);
+    snprintf(path, sizeof path, "%s/%s", TNFS_SOURCE_DIR, tool);
+    f = fopen(path, "rb");
+    CHECK(f != NULL);
+    if (f != NULL) fclose(f);
+}
+
 static void licence_entry(const char *name)
 {
     char path[1024];
@@ -180,7 +206,12 @@ static void licence_entry(const char *name)
     if (entry != NULL) {
         const char *next = strstr(entry + 3, "\n## ");
         char *part = strndup(entry, next != NULL ? (size_t)(next - entry) : strlen(entry));
-        CHECK(strstr(part, "- What:") && strstr(part, "- Made from:") && strstr(part, "- Source: https://") && strstr(part, "- Author:") && strstr(part, "- Licence:") && strstr(part, "Checked on the page on 20"));
+        /* a sample from the web names its page and when its licence was checked there; the port author's own recording names
+         * the tool that makes the file from it, so it can be made again (the recording itself is not in the repository) */
+        const int own = strstr(part, "- Source: a recording by the port's author") != NULL;
+        CHECK(strstr(part, "- What:") && strstr(part, "- Made from:") && strstr(part, "- Author:") && strstr(part, "- Licence:"));
+        if (own) CHECK(strstr(part, "- Made with: tools/") != NULL);
+        else CHECK(strstr(part, "- Source: https://") && strstr(part, "Checked on the page on 20"));
         CHECK(strstr(part, "Creative Commons 0") != NULL && strstr(part, "creativecommons.org/publicdomain/zero/1.0") != NULL);
         free(part);
     }
@@ -209,6 +240,7 @@ int main(void)
     licence_entry("rain_moving_out.wav");
     licence_entry("rain_moving_in.wav");
     licence_entry("rain_spray.wav");
+    own_recording("rain_spray.wav", "tools/rain_spray_from_passes.py");   /* dep66: the owner's recording of cars passing on a wet road */
     for (int n = 1; n <= 7; n++) {
         char name[32];
         snprintf(name, sizeof name, "rain_puddle_%d.wav", n);
