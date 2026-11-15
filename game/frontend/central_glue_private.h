@@ -123,6 +123,8 @@ extern uint8_t cg_game_state[GAME_STATE_SIZE];
 extern uint8_t cg_screen_palette[PALETTE_PUT_BYTES];
 RaceSettings cg_settings_of(void);
 void cg_settings_put(const RaceSettings *s);
+/* port (dep59): the added car picked and the head to head rival kept in restomod.cfg when they changed (car_looks.h) */
+void cg_picks_save(void);
 void cg_level_to_image(void);
 void cg_races_from_state(void);
 int16_t *cg_word_52b302(void);

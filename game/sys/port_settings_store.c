@@ -5,6 +5,7 @@
 #include "game/race/weather.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
+#include "game/sys/car_looks.h"
 #include "game/sys/port_profile.h"
 #include "game/viewer/screen_layout.h"
 #include <stddef.h>
@@ -185,6 +186,28 @@ bool port_settings_profile_chosen(void)
     return chosen;
 }
 
+/* port (dep59): the lines of `keep` that are car_looks.h's (the added car picked, its look), into `out`; their length. One that does not
+ * fit is left out with a line in the log. */
+static size_t kept_car_looks(const char *keep, char *out, size_t room)
+{
+    size_t n = 0;
+    for (const char *p = keep; *p != '\0';) {
+        const char *nl = strchr(p, '\n'), *end = nl != NULL ? nl : p + strlen(p);
+        const char *eq = memchr(p, '=', (size_t)(end - p));
+        char key[64];
+        if (end > p && end[-1] == '\r') end--;
+        if (eq != NULL && (size_t)(eq - p) < sizeof key) {
+            memcpy(key, p, (size_t)(eq - p));
+            key[eq - p] = '\0';
+            const size_t len = (size_t)(end - p);
+            if (car_looks_key(key) && n + len + 2 <= room) memcpy(out + n, p, len), n += len, out[n++] = '\n', out[n] = '\0';
+            else if (car_looks_key(key)) port_log("settings: %s does not fit in %s, not kept\n", key, port_profile_file(PROFILE_RESTOMOD));
+        }
+        p = nl != NULL ? nl + 1 : end + strlen(end);
+    }
+    return n;
+}
+
 bool port_mode_write(const PortSettings *s, const PortExtras *e, const char *keep, int *dropped)
 {
     const Profile p = (Profile)s->profile;
@@ -199,6 +222,7 @@ bool port_mode_write(const PortSettings *s, const PortExtras *e, const char *kee
     const long extras = port_profile_differences(p, extras_was, extras_now, keep, out + settings, sizeof out - (size_t)settings, dropped);
     if (extras < 0) return false;
     size_t n = (size_t)settings + (size_t)extras;
+    if (p == PROFILE_RESTOMOD && keep != NULL) n += kept_car_looks(keep, out + n, sizeof out - n);   /* port (dep59): not settings, kept as they were */
     if (n == 0) out[n++] = '\n';   /* nothing changed: an empty file, the mode's values */
     const bool written = platform_write_user_file(port_profile_file(p), (const uint8_t *)out, n);
     port_settings_forget();
