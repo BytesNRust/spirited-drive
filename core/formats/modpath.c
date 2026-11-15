@@ -9,6 +9,8 @@ static const char *skip_dot_slash(const char *p)
     return p;
 }
 
+static int clean_components(const char *rest, char *rel, size_t cap);
+
 static size_t trimmed_length(const char *p)
 {
     size_t n = strlen(p);
@@ -27,7 +29,18 @@ int modpath_relative(const char *data_root, const char *path, char *rel, size_t 
     if (*rest != '/' && *rest != '\0') return 0;          /* "originals/x" is not under "original" */
     while (*rest == '/') ++rest;
     if (*rest == '\0') { rel[0] = '\0'; return 1; }
+    return clean_components(rest, rel, cap);
+}
 
+int modpath_clean(const char *name, char *rel, size_t cap)
+{
+    if (name == NULL || rel == NULL || cap == 0 || name[0] == '/') return 0;
+    return clean_components(name, rel, cap) && rel[0] != '\0';
+}
+
+/* `rest`'s components, '/' between them, into `rel`: a doubled slash and "." dropped, ".." or a backslash refused */
+static int clean_components(const char *rest, char *rel, size_t cap)
+{
     if (strchr(rest, '\\') != NULL) return 0;
     size_t out = 0;
     const char *p = rest;

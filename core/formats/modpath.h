@@ -17,6 +17,10 @@
  * (not under the root, or unsafe). `data_root` may end with '/'. A leading "./" is dropped from both. */
 int modpath_relative(const char *data_root, const char *path, char *rel, size_t cap);
 
+/* 1 and `rel` filled when `name` (a zip entry's, a path inside a mod) is a safe relative path by the same rules: not absolute, no
+ * backslash, no ".." component; "." and doubled slashes dropped, a trailing '/' too. 0 for an unsafe name or one that is left empty. */
+int modpath_clean(const char *name, char *rel, size_t cap);
+
 /* mods + '/' + rel. 0 when it does not fit. `rel` must have passed modpath_relative. */
 int modpath_join(const char *mods, const char *rel, char *out, size_t cap);
 

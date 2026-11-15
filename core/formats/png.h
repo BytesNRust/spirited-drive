@@ -26,6 +26,9 @@ PngResult png_write_indexed(const uint8_t *indices, uint32_t width, uint32_t hei
                             uint8_t **out, size_t *out_len);
 PngResult png_write_rgba(const uint8_t *rgba, uint32_t width, uint32_t height, uint8_t **out, size_t *out_len);
 PngResult png_read(const uint8_t *data, size_t len, PngImage *image);
+/* The width and height the PNG's header (IHDR, its first chunk) says, read without unpacking anything: what a reader that must bound the
+ * pixels asks before png_read. PNG_ERR_FORMAT when there is no such header. */
+PngResult png_size(const uint8_t *data, size_t len, uint32_t *width, uint32_t *height);
 void png_free(void *buffer);
 
 const char *png_result_str(PngResult result);

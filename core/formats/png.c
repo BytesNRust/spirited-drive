@@ -1,5 +1,7 @@
 #include "formats/png.h"
 
+#include "formats/crc32.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -29,21 +31,6 @@ enum {
 };
 
 static const uint8_t signature[8] = { 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A };
-
-static uint32_t crc32_update(uint32_t crc, const uint8_t *p, size_t n)
-{
-    static uint32_t table[256];
-    if (table[1] == 0) {
-        for (uint32_t i = 0; i < 256; ++i) {
-            uint32_t c = i;
-            for (int k = 0; k < 8; ++k) c = (c & 1) ? 0xEDB88320u ^ (c >> 1) : c >> 1;
-            table[i] = c;
-        }
-    }
-    crc = ~crc;
-    for (size_t i = 0; i < n; ++i) crc = table[(crc ^ p[i]) & 0xFF] ^ (crc >> 8);
-    return ~crc;
-}
 
 static void put_be32(uint8_t *p, uint32_t v)
 {
@@ -241,6 +228,16 @@ PngResult png_read(const uint8_t *data, size_t len, PngImage *image)
     image->width = (uint32_t)w;
     image->height = (uint32_t)h;
     image->pixels = rgba;
+    return PNG_OK;
+}
+
+PngResult png_size(const uint8_t *data, size_t len, uint32_t *width, uint32_t *height)
+{
+    *width = *height = 0;
+    if (data == NULL || len < 24 || memcmp(data, signature, 8) != 0 || get_be32(data + 8) != 13 || memcmp(data + 12, "IHDR", 4) != 0)
+        return PNG_ERR_FORMAT;
+    *width = get_be32(data + 16);
+    *height = get_be32(data + 20);
     return PNG_OK;
 }
 
