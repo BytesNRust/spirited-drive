@@ -18,9 +18,11 @@ typedef struct {
     char right[CARD_WORDS_MAX][CARD_WORD_SIZE];
 } CardWords;
 
-/* weather a WEATHER_* (weather.h), light_time a LIGHT_TIME_* (port_settings.h) or -1 (no light effects: left out), laps 0 for a
- * stage (left out) */
-CardWords card_words_of(int mirror, int reverse, int rally, int weather, int light_time, int laps);
+/* The words for `track` (0..9, the menus') as the race on it will be, from the player's choices: weather a WEATHER_* (weather.h),
+ * light_time a LIGHT_TIME_* (port_settings.h) or -1 (no light effects: left out), laps the circuits' count. What the track does
+ * not take is left out: a stage (0..2) has no reverse and no laps, Lost Vegas (8) and the hidden track (9) no mirror and no
+ * rally, and Lost Vegas is always the night, whatever time was picked. */
+CardWords card_words_of(int track, int mirror, int reverse, int rally, int weather, int light_time, int laps);
 
 /* The mirror art's own white "Mirror" wiped: a copy of the mirror picture (a bank's bitmap entry: 16-byte header, the
  * size at 4 and 6, the place at 12 and 14, then width x height texels) whose box CARD_WORD_X0..X1 x CARD_WORD_Y0..Y1 takes the

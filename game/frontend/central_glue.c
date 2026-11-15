@@ -187,11 +187,9 @@ static void card_marks(void *ctx, int32_t left, int32_t right, int32_t y)
     if (!variant_switches_on()) return;
     enum { LINE = 9 };
     const RaceSettings s = cg_settings_of();
-    enum { FIRST_CIRCUIT = 3 };
-    const int circuit = s.track >= FIRST_CIRCUIT;
     const int own = port_records_unified() ? port_settings_load().laps : 0;   /* the laps row's custom count (dep55) */
-    const CardWords w = card_words_of(s.variant_m, circuit && reverse_track_picked(), s.variant_r, port_weather(),
-                                      port_light_effects() ? port_light_time() : -1, circuit ? (own > 0 ? own : s.laps) : 0);
+    const CardWords w = card_words_of(s.track, s.variant_m, reverse_track_picked(), s.variant_r, port_weather(),
+                                      port_light_effects() ? port_light_time() : -1, own > 0 ? own : s.laps);
     text_select(TEXT_YELLOW);
     for (int i = 0; i < w.left_count; i++) text_draw_smooth(w.left[i], left, y + i * LINE, 1, 2);
     for (int i = 0; i < w.right_count; i++) text_draw_smooth(w.right[i], right - text_width_scaled(w.right[i], 1, 2), y + i * LINE, 1, 2);

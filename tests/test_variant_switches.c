@@ -62,26 +62,41 @@ static void test_the_exe_order_is_kept(void)
 
 static void test_the_card_words(void)
 {
-    CardWords w = card_words_of(1, 1, 1, 2, 3, 8);   /* every variant, rain, night */
+    CardWords w = card_words_of(3, 1, 1, 1, 2, 3, 8);   /* Rusty Springs, every variant, rain, night */
     CHECK_EQ_INT(w.left_count, 3);
     CHECK(strcmp(w.left[0], "MIRROR") == 0 && strcmp(w.left[1], "REVERSE") == 0 && strcmp(w.left[2], "RALLY") == 0);
     CHECK_EQ_INT(w.right_count, 3);
     CHECK(strcmp(w.right[0], "8 LAPS") == 0 && strcmp(w.right[1], "NIGHT") == 0 && strcmp(w.right[2], "RAIN") == 0);
-    w = card_words_of(0, 0, 0, 0, 0, 4);   /* none, clear, midday: the laps alone */
+    w = card_words_of(4, 0, 0, 0, 0, 0, 4);   /* none, clear, midday: the laps alone */
     CHECK_EQ_INT(w.left_count, 0);
     CHECK_EQ_INT(w.right_count, 1);
     CHECK(strcmp(w.right[0], "4 LAPS") == 0);
-    w = card_words_of(0, 1, 0, 1, 1, 1);
+    w = card_words_of(5, 0, 1, 0, 1, 1, 1);
     CHECK(w.left_count == 1 && strcmp(w.left[0], "REVERSE") == 0);
     CHECK(w.right_count == 3 && strcmp(w.right[0], "1 LAP") == 0 && strcmp(w.right[1], "MORNING") == 0 && strcmp(w.right[2], "FOG") == 0);
-    w = card_words_of(0, 0, 1, 3, 2, 99);
+    w = card_words_of(7, 0, 0, 1, 3, 2, 99);
     CHECK(w.left_count == 1 && strcmp(w.left[0], "RALLY") == 0);
     CHECK(w.right_count == 3 && strcmp(w.right[0], "99 LAPS") == 0 && strcmp(w.right[1], "EVENING") == 0 && strcmp(w.right[2], "STORM") == 0);
-    w = card_words_of(1, 0, 0, 3, -1, 0);   /* a stage, no light effects: no laps, no time */
+    w = card_words_of(1, 1, 0, 0, 3, -1, 0);   /* a stage, no light effects: no laps, no time */
     CHECK(w.left_count == 1 && strcmp(w.left[0], "MIRROR") == 0);
     CHECK(w.right_count == 1 && strcmp(w.right[0], "STORM") == 0);
-    w = card_words_of(0, 0, 0, 0, -1, 0);   /* nothing to say */
+    w = card_words_of(0, 0, 0, 0, 0, -1, 0);   /* nothing to say */
     CHECK_EQ_INT(w.left_count + w.right_count, 0);
+}
+
+/* dep64: a card says what its track will run, not what was picked: what the track does not take is left out */
+static void test_the_card_words_are_the_tracks(void)
+{
+    CardWords w = card_words_of(8, 1, 1, 1, 0, 1, 8);   /* Lost Vegas with the mirror, reverse, rally and the morning picked */
+    CHECK(w.left_count == 1 && strcmp(w.left[0], "REVERSE") == 0);
+    CHECK(w.right_count == 2 && strcmp(w.right[0], "8 LAPS") == 0 && strcmp(w.right[1], "NIGHT") == 0);
+    w = card_words_of(8, 0, 0, 0, 2, -1, 3);   /* no light effects: still its night */
+    CHECK(w.right_count == 3 && strcmp(w.right[1], "NIGHT") == 0 && strcmp(w.right[2], "RAIN") == 0);
+    w = card_words_of(9, 1, 0, 1, 0, 0, 2);   /* the hidden track: no variants */
+    CHECK_EQ_INT(w.left_count, 0);
+    w = card_words_of(2, 1, 1, 1, 0, 1, 8);   /* a stage: no reverse, no laps */
+    CHECK(w.left_count == 2 && strcmp(w.left[0], "MIRROR") == 0 && strcmp(w.left[1], "RALLY") == 0);
+    CHECK(w.right_count == 1 && strcmp(w.right[0], "MORNING") == 0);
 }
 
 enum { PIC_W = 2 * CARD_WORD_W + 4, PIC_H = CARD_WORD_Y1 + 3 };
@@ -159,6 +174,7 @@ int main(void)
     test_the_arrows_step_the_tracks_alone();
     test_the_exe_order_is_kept();
     test_the_card_words();
+    test_the_card_words_are_the_tracks();
     test_the_mirror_word_takes_the_normal_picture();
     test_the_mirror_word_takes_the_sky_without_it();
     return TEST_REPORT();

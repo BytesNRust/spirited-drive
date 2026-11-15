@@ -16,10 +16,15 @@ static void add(char words[][CARD_WORD_SIZE], int *count, const char *word)
     (*count)++;
 }
 
-CardWords card_words_of(int mirror, int reverse, int rally, int weather, int light_time, int laps)
+enum { FIRST_CIRCUIT = 3, LOST_VEGAS = 8, HIDDEN = 9 };   /* the menus' tracks (race_settings.h) */
+
+CardWords card_words_of(int track, int mirror, int reverse, int rally, int weather, int light_time, int laps)
 {
     static const char *const WEATHER[WEATHER_COUNT] = { NULL, "FOG", "RAIN", "STORM" };   /* the Weather row's words; clear says nothing */
     static const char *const TIME[4] = { NULL, "MORNING", "EVENING", "NIGHT" };            /* LIGHT_TIME_*'s, the track screen's; midday says nothing */
+    const int circuit = track >= FIRST_CIRCUIT, plain = track == LOST_VEGAS || track == HIDDEN;
+    mirror = mirror && !plain, rally = rally && !plain, reverse = reverse && circuit, laps = circuit ? laps : 0;
+    if (track == LOST_VEGAS) light_time = LIGHT_TIME_NIGHT;   /* its only time (drive_light.c) */
     CardWords w;
     memset(&w, 0, sizeof w);
     if (mirror) add(w.left, &w.left_count, "MIRROR");
