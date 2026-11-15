@@ -338,6 +338,7 @@ add_library(tnfs_game STATIC
     game/sys/mod_set.c
     game/sys/mod_set_session.c
     game/sys/mod_store.c
+    game/sys/mod_commands.c
     game/sys/art_cache.c
     game/sys/sha256.c
     game/sys/data_check.c
@@ -1180,6 +1181,8 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(car_piece_race PROPERTIES TIMEOUT 600)
         add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
         add_test(NAME car_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_new.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:tnfs>)
+        add_test(NAME mod_install_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/mod_install.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
+        set_tests_properties(mod_install_game PROPERTIES TIMEOUT 600)
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands
