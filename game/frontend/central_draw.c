@@ -86,24 +86,18 @@ static void reload(CentralRun *r, int slot, const char *path)
     r->st->art[slot] = o->load_bank(o->ctx, path, 0);
 }
 
-/* port (dep64): Restomod's mirror card, its white word wiped with the normal picture's texels (card_word_wiped). Made when the
- * mirror picture or the track changes and kept, as the banks are, from one Control Central to the next; the normal picture's bank
- * is loaded for it and freed at once. */
-static const uint8_t *mirror_wiped(CentralRun *r, const uint8_t *mirror)
+/* port (dep64): Restomod's mirror card, its white word wiped with the normal picture's texels (card_word_wiped), made at each draw
+ * (Control Central draws again only on a change) and freed after it: nothing is kept that a change of mods or settings could leave
+ * stale. The normal picture's bank is loaded for it and freed at once. The caller frees the copy; NULL: the picture as it is. */
+static uint8_t *mirror_wiped(CentralRun *r, const uint8_t *mirror)
 {
-    static uint8_t *kept;
-    static const uint8_t *kept_of;
-    static int kept_track = -1;
     const int track = *r->st->track;
-    if (kept != NULL && kept_of == mirror && kept_track == track) return kept;
-    free(kept);
     char path[0x50];
     snprintf(path, sizeof path, "%scontrol/%s.qfs", r->st->paths, track >= 0 && track < 10 ? TRACK_NAMES[track] : "");
     const int32_t bank = r->ops->load_bank(r->ops->ctx, path, 0);
-    kept = card_word_wiped(mirror, bank != 0 ? r->ops->shape(r->ops->ctx, bank, "0000") : NULL);
+    uint8_t *const wiped = card_word_wiped(mirror, bank != 0 ? r->ops->shape(r->ops->ctx, bank, "0000") : NULL);
     if (bank != 0) r->ops->free(r->ops->ctx, bank);
-    kept_of = mirror, kept_track = track;
-    return kept;
+    return wiped;
 }
 
 static void track_art(CentralRun *r)
@@ -137,8 +131,9 @@ static void track_art(CentralRun *r)
         st->was[WAS_M] = (int16_t)*st->variant_m;
     }
     const uint8_t *picture = shape(r, ART_TRACK, "0000");
-    const uint8_t *wiped = plain && *st->variant_m != 0 ? mirror_wiped(r, picture) : NULL;   /* port (dep64): MIRROR is written over it */
+    uint8_t *wiped = plain && *st->variant_m != 0 ? mirror_wiped(r, picture) : NULL;   /* port (dep64): MIRROR is written over it */
     r->ops->blit(r->ops->ctx, wiped != NULL ? wiped : picture);
+    free(wiped);
     if (*st->race_type == 3 && st->races[*st->track] != 0) masked(r, "flad");
     /* the card's top corners, the yellow 7 px in from the picture's edges on all three sides (the picture is 341..548 x 255..; the
      * small text's first column falls a pixel right of x, its last 5 px left of the given right end, its top 7 px under y) */
