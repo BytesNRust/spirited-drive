@@ -35,4 +35,12 @@ int mesh_export(const uint8_t *orip, size_t size, const char *stem, const MeshTe
 int mesh_import(const uint8_t *orip, size_t size, const char *stem, const FileSet *in, uint8_t **out, size_t *out_len,
                 ExchangeError *err);
 
+/* One of the tables mesh_export writes beside NAME.obj, read back as the chunk's own records (dep59, the car importer's --raw): the
+ * header as its 0x70 bytes (the fields not in the table zero), the others one record a row, at the chunk's stride. `records`
+ * malloc'd, `rows` the count; 0 with the reason in `err` (no such file, a bad row). */
+typedef enum { MESH_TABLE_HEADER, MESH_TABLE_POLYGONS, MESH_TABLE_TEXTURES, MESH_TABLE_PARTS, MESH_TABLE_GROUPS, MESH_TABLE_SECTIONC,
+               MESH_TABLE_LABELS } MeshTable;
+enum { MESH_TABLE_MAX_ROWS = 1 << 16 };
+int mesh_table_read(const FileSet *in, const char *stem, MeshTable table, uint8_t **records, size_t *rows, ExchangeError *err);
+
 #endif

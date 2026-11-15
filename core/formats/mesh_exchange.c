@@ -273,6 +273,26 @@ int mesh_export(const uint8_t *orip, size_t size, const char *stem, const MeshTe
 
 /* ---------------------------------------------------------------- import */
 
+int mesh_table_read(const FileSet *in, const char *stem, MeshTable table, uint8_t **records, size_t *rows, ExchangeError *err)
+{
+    static const TableSpec *const SPECS[] = { NULL, &polygons_spec, &textures_spec, &parts_spec, &groups_spec, &sectionc_spec, &labels_spec };
+    *records = NULL, *rows = 0;
+    if ((size_t)table >= COUNT(SPECS)) { exchange_fail(err, "no table %d", (int)table); return 0; }
+    const TableSpec *spec = SPECS[table];
+    const size_t stride = spec != NULL ? spec->stride : 0x70, cap = spec != NULL ? MESH_TABLE_MAX_ROWS : 1;
+    char *name = named(stem, spec != NULL ? spec->suffix : ".header.tsv");
+    uint8_t *buf = name != NULL ? calloc(cap, stride) : NULL;
+    int ok = buf != NULL;
+    if (!ok) exchange_fail(err, "out of memory");
+    else if (fileset_find(in, name) == NULL) exchange_fail(err, "%s not found", name), ok = 0;
+    else if (spec == NULL) ok = record_import(buf, stride, header_fields, COUNT(header_fields), in, name, err), *rows = 1;
+    else ok = table_import(buf, stride, 0, cap, spec->fields, spec->field_count, in, name, rows, err);
+    free(name);
+    if (!ok) { free(buf); *rows = 0; return 0; }
+    *records = buf;
+    return 1;
+}
+
 static void put_u32(uint8_t *p, uint32_t v) { for (int i = 0; i < 4; ++i) p[i] = (uint8_t)(v >> (8 * i)); }
 
 static int parse_int(const char *s, char **end, int32_t *out)
