@@ -166,4 +166,7 @@ int car_registry_entries_added(const RaceEntry *entries, int count)
 }
 
 void car_registry_race_set(int has_added) { race_has_added = has_added != 0; }
+static int race_player = -1;
+void car_registry_race_player_set(int car) { race_player = car; }
+int car_registry_race_player(void) { return race_player; }
 int car_registry_race_has_added(void) { return race_has_added; }

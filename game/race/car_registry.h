@@ -57,5 +57,8 @@ int car_registry_entries_added(const RaceEntry *entries, int count);
  * files, whose formats name a car by its number (plan 1b gives it files of its own) */
 void car_registry_race_set(int has_added);
 int car_registry_race_has_added(void);
+/* the car this machine's player drives in the race running (set at its start with the mark above); -1 before any */
+void car_registry_race_player_set(int car);
+int car_registry_race_player(void);
 
 #endif

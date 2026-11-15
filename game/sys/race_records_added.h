@@ -34,7 +34,8 @@ int race_records_added_parse(const uint8_t *file, size_t size);
 /* drops every table and lap */
 void race_records_added_reset(void);
 /* <player folder>/race_records_added.dat into the store, as race_records_load does race_records.dat: a damaged one is kept as
- * race_records_added.bad (.bad2 ..) and the store starts empty; with no copy kept, saving stays off for the session */
+ * race_records_added.bad (.bad2 ..) and the store starts empty; with no copy kept, or a file there that could not be read, saving stays
+ * off for the session */
 RaceRecordsLoad race_records_added_load(void);
 bool race_records_added_save(void);
 

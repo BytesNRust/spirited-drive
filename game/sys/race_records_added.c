@@ -228,6 +228,10 @@ RaceRecordsLoad race_records_added_load(void)
     race_records_added_reset();
     size_t size = 0;
     uint8_t *data = platform_read_user_file(FILE_NAME, &size);
+    if (data == NULL && platform_user_file_exists(FILE_NAME)) {   /* there, but not read (locked, an I/O error): not made again over it */
+        held = 1;
+        port_log("records: %s could not be read; the added cars' records are not saved this session\n", FILE_NAME);
+    }
     if (data == NULL) return RACE_RECORDS_NO_FILE;
     const int ok = race_records_added_parse(data, size);
     if (!ok && !race_records_keep_bad("race_records_added", data, size)) {
