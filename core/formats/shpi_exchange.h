@@ -13,6 +13,13 @@
 /* external_palette: 768 RGB bytes or NULL. 1 on success; 0 with err filled. */
 int shpi_export(const uint8_t *data, size_t size, const uint8_t *external_palette, FileSet *out, ExchangeError *err);
 
+enum { SHPI_FILE_NAME_SIZE = 24 };   /* 10 digits, _, 4, .png */
+
+/* The file shpi_export writes for the bitmap entry named `name` (the first of that name in the directory): NNNN_LABEL.png, its
+ * directory index and its name made file-name safe. 1 when the SHPI has such a bitmap; 0 otherwise (`file` empty). The MTL of a
+ * mesh's export names its textures by it (mesh_exchange.h). */
+int shpi_entry_file(const uint8_t *data, size_t size, const char name[4], char file[SHPI_FILE_NAME_SIZE]);
+
 /* Writes the new SHPI in *out (malloc'd, free with free()). Pixels from RGBA or from an indexed PNG whose
  * palette differs from the resource's are moved to the nearest palette colour and counted in stats. */
 int shpi_import(const uint8_t *original, size_t size, const uint8_t *external_palette, const FileSet *in,

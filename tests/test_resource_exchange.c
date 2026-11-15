@@ -171,7 +171,45 @@ static int read_all(const char *path, uint8_t **buf, size_t *size)
     return ok;
 }
 
-static int cd_files, cd_trees;
+static int cd_files, cd_trees, cd_links, cd_broken;
+
+/* `rel` from the folder of `from` (a file of the set), with "../" taken back: the name the set holds it under */
+static void resolve(const char *from, const char *rel, char *out, size_t cap)
+{
+    const char *slash = strrchr(from, '/');
+    int dir = slash != NULL ? (int)(slash - from) : 0;
+    while (strncmp(rel, "../", 3) == 0 && dir > 0) {
+        rel += 3;
+        while (dir > 0 && from[dir - 1] != '/') dir--;
+        if (dir > 0) dir--;
+    }
+    if (dir > 0) snprintf(out, cap, "%.*s/%s", dir, from, rel);
+    else snprintf(out, cap, "%s", rel);
+}
+
+/* dep69: every map_Kd of every MTL of an unpack names a file the unpack wrote (what a 3D editor opens) */
+static void check_mtl_links(const char *path, const FileSet *files)
+{
+    for (size_t i = 0; i < files->count; ++i) {
+        const SetFile *f = &files->file[i];
+        const size_t len = strlen(f->name);
+        if (len < 4 || strcmp(f->name + len - 4, ".mtl") != 0) continue;
+        char *text = malloc(f->size + 1), *save = NULL;
+        if (text == NULL) { CHECK(0); return; }
+        memcpy(text, f->data, f->size);
+        text[f->size] = '\0';
+        for (char *line = strtok_r(text, "\n", &save); line != NULL; line = strtok_r(NULL, "\n", &save)) {
+            if (strncmp(line, "map_Kd ", 7) != 0) continue;
+            char target[600];
+            resolve(f->name, line + 7, target, sizeof target);
+            ++cd_links;
+            if (fileset_find(files, target) == NULL) {
+                if (cd_broken++ < 5) fprintf(stderr, "%s: %s: map_Kd %s: no file %s\n", path, f->name, line + 7, target);
+            }
+        }
+        free(text);
+    }
+}
 
 static void check_file(const char *path)
 {
@@ -192,6 +230,7 @@ static void check_file(const char *path)
         CHECK(0);
     }
     if (fileset_find(&files, "tree.tsv") != NULL) ++cd_trees;
+    check_mtl_links(path, &files);
     free(back);
     free(file);
     fileset_free(&files);
@@ -202,6 +241,10 @@ int main(int argc, char **argv)
     test_pbs_packed();
     test_tree();
     for (int a = 1; a < argc; ++a) check_file(argv[a]);
-    if (argc > 1) fprintf(stderr, "%d game files round-tripped (%d chunk trees)\n", cd_files, cd_trees);
+    if (argc > 1) {
+        fprintf(stderr, "%d game files round-tripped (%d chunk trees); %d texture links in the MTLs, %d to no file\n", cd_files, cd_trees, cd_links, cd_broken);
+        CHECK(cd_links > 0);
+        CHECK_EQ_INT(cd_broken, 0);
+    }
     return TEST_REPORT();
 }

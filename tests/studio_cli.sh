@@ -1,5 +1,6 @@
 #!/bin/sh
-# tnfs-studio command line tests against the CD data: unpack then pack gives the original back, damaged
+# tnfs-studio command line tests against the CD data: unpack then pack gives the original back, a mesh's MTL names the PNGs
+# the unpack wrote, damaged
 # files end with exit 1 and a message naming the file (never a crash), nothing is overwritten without
 # --force, and an edit made in a table reaches the packed file.
 # usage: studio_cli.sh STUDIO_BINARY ORIGINAL_DIR
@@ -19,6 +20,12 @@ for name in DVIPER.CFM TR1.TRI VIPERSW.BNK DVIPER.PBS DVIPER.PDN TR1_001.FAM CAR
     [ -n "$f" ] || { echo "skip $name (not on this CD)"; continue; }
     d="$work/$name.d"
     "$studio" unpack "$f" "$d" >/dev/null 2>"$work/err" || { fail "unpack $name: $(cat "$work/err")"; continue; }
+    # dep69: every texture an MTL names is a PNG the unpack wrote, so a 3D editor shows the model textured
+    for mtl in $(find "$d" -name '*.mtl'); do
+        for tex in $(sed -n 's/^map_Kd //p' "$mtl"); do
+            [ -f "$(dirname "$mtl")/$tex" ] || fail "$name: ${mtl#$d/} names $tex, which the unpack did not write"
+        done
+    done
     "$studio" pack "$d" "$work/$name.out" --from "$f" >/dev/null 2>"$work/err" || { fail "pack $name: $(cat "$work/err")"; continue; }
     cmp -s "$f" "$work/$name.out" || fail "$name does not come back identical"
 done

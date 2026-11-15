@@ -156,10 +156,69 @@ static int seen_add(SeenList *l, const DocNode *n, const char *path)
 }
 
 static int is_orip(const uint8_t *b, size_t n) { return n >= 8 && memcmp(b, "ORIP", 4) == 0 && (size_t)le_u32(b + 4) <= n; }
+static int is_shpi(const uint8_t *b, size_t n) { return n >= 4 && memcmp(b, "SHPI", 4) == 0; }
+
+/* ---- the banks a mesh's MTL points at (dep69) */
+
+enum { MAX_BANKS = 128, BANK_DIR_SIZE = 320 };
+
+typedef struct {
+    MeshTextureBank bank[MAX_BANKS];
+    char dir[MAX_BANKS][BANK_DIR_SIZE];
+    size_t count;
+} BankList;
+
+/* the export folder `to` seen from the folder `from` (both relative to the export's root) */
+static void relative_dir(const char *from, const char *to, char *out, size_t cap)
+{
+    size_t common = 0;
+    for (size_t i = 0;; ++i) {
+        const int from_end = from[i] == '/' || from[i] == '\0', to_end = to[i] == '/' || to[i] == '\0';
+        if (from_end && to_end) common = i;
+        if (from[i] != to[i] || from[i] == '\0') break;
+    }
+    const char *up = from + common, *rest = to + common;
+    if (*up == '/') up++;
+    if (*rest == '/') rest++;
+    size_t ups = *up != '\0', at = 0;
+    for (const char *c = up; *c != '\0'; ++c) ups += *c == '/';
+    out[0] = '\0';
+    for (size_t k = 0; k < ups && at + 3 < cap; ++k, at += 3) memcpy(out + at, "../", 4);
+    snprintf(out + at, cap - at, "%s", rest);
+}
+
+static void bank_add(BankList *l, const DocNode *node, const char *bank_path, const char *mesh_path)
+{
+    size_t n = 0;
+    const uint8_t *b = node != NULL && !doc_is_container(node) ? doc_bytes(node, &n) : NULL;
+    if (b == NULL || !is_shpi(b, n) || l->count == MAX_BANKS) return;
+    for (size_t i = 0; i < l->count; ++i)
+        if (l->bank[i].shpi == b) return;
+    relative_dir(mesh_path, bank_path, l->dir[l->count], BANK_DIR_SIZE);
+    l->bank[l->count] = (MeshTextureBank){ b, n, l->dir[l->count] };
+    l->count++;
+}
+
+/* The banks the mesh at `index` of `parent` sees, in the order the race looks them up: its own (the next entry: a car's
+ * body and its bitmaps, a track object's pair), then every bank exported before it (a track's terrain, scenery and
+ * horizon banks) */
+static void mesh_banks(const DocNode *parent, const char *parent_path, uint32_t index, const char *mesh_path, const SeenList *seen, BankList *out)
+{
+    out->count = 0;
+    DocNode *next = NULL;
+    if (index + 1 < doc_entry_count(parent) && doc_entry(parent, index + 1, &next) == DOC_OK && next != NULL) {
+        const Seen *earlier = seen_find(seen, next);
+        char next_path[300];
+        snprintf(next_path, sizeof next_path, parent_path[0] ? "%s/c%u" : "%s" "c%u", parent_path, index + 1);
+        bank_add(out, next, earlier != NULL ? earlier->path : next_path, mesh_path);
+    }
+    for (size_t i = 0; i < seen->count; ++i) bank_add(out, seen->seen[i].node, seen->seen[i].path, mesh_path);
+}
 
 static int tree_export(const DocNode *node, const char *path, const uint8_t *palette, FileSet *out, TsvWriter *manifest, SeenList *seen, ExchangeError *err);
 
-static int leaf_export(const DocNode *node, const char *path, const uint8_t *palette, FileSet *out, TsvWriter *manifest, ExchangeError *err)
+static int leaf_export(const DocNode *node, const char *path, const uint8_t *palette, const BankList *banks, FileSet *out, TsvWriter *manifest,
+                       ExchangeError *err)
 {
     size_t n = 0;
     const uint8_t *b = doc_bytes(node, &n);
@@ -169,7 +228,7 @@ static int leaf_export(const DocNode *node, const char *path, const uint8_t *pal
     int ok;
     if (is_orip(b, n)) {
         kind = "orip";
-        ok = mesh_export(b, n, "mesh", "textures", &tmp, err);
+        ok = mesh_export(b, n, "mesh", banks->bank, banks->count, &tmp, err);
     } else if (n >= 4 && memcmp(b, "SHPI", 4) == 0) {
         kind = "shpi";
         ok = shpi_export(b, n, palette, &tmp, err);
@@ -207,8 +266,13 @@ static int tree_export(const DocNode *node, const char *path, const uint8_t *pal
             tsv_str(manifest, "tree");
             tsv_row(manifest);
             if (!tree_export(child, child_path, palette, out, manifest, seen, err)) return 0;
-        } else if (!leaf_export(child, child_path, palette, out, manifest, err)) {
-            return 0;
+        } else {
+            BankList *banks = malloc(sizeof *banks);
+            if (banks == NULL) { exchange_fail(err, "out of memory"); return 0; }
+            mesh_banks(node, path, i, child_path, seen, banks);
+            const int ok = leaf_export(child, child_path, palette, banks, out, manifest, err);
+            free(banks);
+            if (!ok) return 0;
         }
     }
     return 1;
