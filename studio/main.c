@@ -5,6 +5,7 @@
  *   tnfs-studio slot list|replace|undo ...        (studio/slot.h)
  *   tnfs-studio track new LAYOUT --template SLOT --out DIR ...   (studio/track_new.h)
  *   tnfs-studio car new --template CAR --id ID --stem STEM --out DIR ...   (studio/car_new.h)
+ *   tnfs-studio mod pack DIR OUT.zip [--force]   (studio/mod_pack.h)
  * `export` and `import` are the same two commands. Packing needs the original file: edits overlay it, and
  * an untouched file comes back byte for byte (a packed file keeps its original stream). Nothing is
  * overwritten without --force. validate checks a file or a mod directory against the limits of the original
@@ -17,6 +18,7 @@
 #include "formats/resource_exchange.h"
 #include "formats/validate.h"
 #include "studio/fsio.h"
+#include "studio/mod_pack.h"
 #include "studio/mod_validate.h"
 #include "studio/slot.h"
 #include "studio/car_new.h"
@@ -50,6 +52,7 @@ static void usage(FILE *to)
           "  tnfs-studio slot undo --mods DIR [--all] [--force]\n"
           "  tnfs-studio track new LAYOUT --template SLOT --out DIR [--stem NAME] [--data DIR] [--force]\n"
           "  tnfs-studio car new --template CAR --id ID --stem STEM --out DIR [--name NAME] [--data DIR] [--port-data DIR] [--force]\n"
+          "  tnfs-studio mod pack DIR OUT.zip [--force]\n"
           "  (export = unpack, import = pack)\n"
           "Level 1 limit: a replaced car's short name on the results and records screens stays the original model's\n"
           "  (EXE text); its full name on the selection screens is a bitmap and can be replaced (docs/modding/limitations.md)\n"
@@ -243,6 +246,12 @@ int main(int argc, char **argv)
         ExchangeError track_err = {{0}};
         if (track_command(argc - 1, argv + 1, &track_err)) return 0;
         fprintf(stderr, "tnfs-studio: %s\n", track_err.message);
+        return 1;
+    }
+    if (strcmp(command, "mod") == 0) {
+        ExchangeError mod_err = {{0}};
+        if (mod_command(argc - 1, argv + 1, &mod_err)) return 0;
+        fprintf(stderr, "tnfs-studio: %s\n", mod_err.message);
         return 1;
     }
     if (strcmp(command, "car") == 0) {

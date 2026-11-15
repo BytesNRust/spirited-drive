@@ -2,7 +2,8 @@
 # tnfs-studio car new (dep59 tools, stage A): a car piece made from one of the game's cars. The piece's three files are the
 # template's under the new stem, its mod.ini says what it is, the port's masks come along; a stem of the CD's or a folder already
 # holding the piece is refused before anything is written, and nothing in the data roots is touched. validate checks a piece as the
-# game will load it (car_piece_check), and a card it cannot read is an error.
+# game will load it (car_piece_check), and a card it cannot read is an error. mod pack makes the zip the game installs, the same bytes
+# each time, refusing a file the installation would refuse and writing nothing then.
 # usage: car_new.sh STUDIO ORIGINAL_DIR PORT_DATA_DIR
 set -u
 studio=$1
@@ -93,6 +94,38 @@ cp -R "$p" "$work/noid"
 grep -v '^id=' "$p/mod.ini" > "$work/noid/mod.ini"
 "$studio" validate "$work/noid" >"$work/log" 2>&1 && fail "a card with no id passed validate"
 grep -q "mod.ini" "$work/log" && grep -qi "id" "$work/log" || fail "the refusal of a card with no id does not say why: $(cat "$work/log")"
+
+# mod pack: the piece's zip validates; mod.ini comes first; a file the game cannot take is refused and named, with no zip; the system's
+# litter is left out; the same piece gives the same zip; an existing zip is kept without --force; a piece that fails validate is refused
+"$studio" mod pack "$p" "$work/test-car.zip" >"$work/log" 2>&1 || fail "mod pack: $(cat "$work/log")"
+"$studio" validate "$work/test-car.zip" >"$work/log" 2>&1 || fail "the packed zip does not validate: $(cat "$work/log")"
+if command -v unzip >/dev/null 2>&1; then
+    unzip -Z1 "$work/test-car.zip" > "$work/list" 2>/dev/null
+    [ "$(head -1 "$work/list")" = "mod.ini" ] || fail "mod.ini is not the zip's first entry: $(head -3 "$work/list")"
+    for f in SIMDATA/CARFAMS/TESTCAR.CFM SIMDATA/CARFAMS/TESTCAR.PDN SIMDATA/CARSPECS/TESTCAR.PBS; do
+        grep -qx "$f" "$work/list" || fail "the zip lacks $f"
+    done
+    unzip -tq "$work/test-car.zip" >/dev/null 2>&1 || fail "unzip finds the zip damaged"
+fi
+cp -R "$p" "$work/docx"
+echo notes > "$work/docx/notes.docx"
+"$studio" mod pack "$work/docx" "$work/test-car2.zip" >/dev/null 2>"$work/log" && fail "a piece with notes.docx was packed"
+grep -q "notes.docx" "$work/log" || fail "the refusal does not name notes.docx: $(cat "$work/log")"
+[ -e "$work/test-car2.zip" ] && fail "a refused pack left test-car2.zip"
+cp -R "$p" "$work/litter"
+echo x > "$work/litter/.DS_Store"
+"$studio" mod pack "$work/litter" "$work/litter.zip" >"$work/log" 2>&1 || fail "a .DS_Store refused the pack: $(cat "$work/log")"
+if command -v unzip >/dev/null 2>&1; then
+    unzip -Z1 "$work/litter.zip" 2>/dev/null | grep -q "DS_Store" && fail "the zip carries .DS_Store"
+fi
+"$studio" mod pack "$p" "$work/again.zip" >/dev/null 2>&1 || fail "the second pack failed"
+cmp -s "$work/test-car.zip" "$work/again.zip" || fail "two packs of one piece differ"
+cksum < "$work/test-car.zip" > "$work/before"
+"$studio" mod pack "$work/litter" "$work/test-car.zip" >/dev/null 2>&1 && fail "an existing zip was overwritten without --force"
+cksum < "$work/test-car.zip" | cmp -s - "$work/before" || fail "a refused pack changed the existing zip"
+"$studio" mod pack "$p" "$work/test-car.zip" --force >/dev/null 2>&1 || fail "--force was refused"
+"$studio" mod pack "$work/other" "$work/other.zip" >/dev/null 2>"$work/log" && fail "the OTHER.PBS piece was packed"
+[ -e "$work/other.zip" ] && fail "a piece that fails validate left a zip"
 
 [ "$failures" -eq 0 ] || exit 1
 echo "car_new: ok"
