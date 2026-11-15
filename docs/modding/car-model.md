@@ -111,6 +111,16 @@ An `SHPI` with directory id `WRAP` in all 78 (*checked*). Each entry: a 16-byte 
   How much `0xFE` the CD's high-detail textures hold: on the race cars only `rsid` (the side seen from the right), and little: 1 % of its pixels on ANSX, CZR1, DVIPER, F512TR, F512M and TESTA, under 1 % on LDIABL, MRX7, P911 and TSUPRA. The rivals' reduced models put it on `rear`: 8 % (MANSX), 7 % (MCZR1, MDVIPER), 5 % (MMRX7, MP911), 2 % (MTSUPRA), 1 % (MLDIABL, MTRAFFC). TRAFFC's `lite` is 15 %. The other cars hold it in a few pixels of `rear`, `side`, `bott`, `frnt`, `topp`, and the Warrior in its tyres (1 %). So the body's paint is not `0xFE`: it is the bank's own colours (`!PAL`, and `!xxx`, the car's own colours, `game/race/car_model.c` `own_colours`); `0xFE` marks a few pixels, most on the rival models' rear, that take the slot's colour. An importer can leave `0xFE` out of a new texture.
 - The declared length equals the chunk's extent but in 4 high banks, where the CFM's padding follows.
 
+## What the game accepts
+
+Shown with the port by `tests/model_build.sh`: a piece made with `tnfs-studio car new` from the Viper, its CFM rewritten through the builders (`formats/mesh_build.h`, `shpi_build.h`, `cfm_build.h`) by `tests/model_build_piece.c`, validates with no finding and races in Restomod. The original executable was not run on these files.
+
+- **Nothing changed**: describing the Viper and building it again gives its CFM byte for byte, and the same frame.
+- **New geometry**: 8 vertices and 6 quads (a wing over the tail) are drawn. The vertices go after the last one, past the wheels' offsets: the port moves every vertex of the model, and the parts' words stay as they were. The quads go in `surface`. A polygon is culled by its winding on screen (`game/gfx/object3d.c`, `draw_polygon`), so each face's corners must turn as the donor's do seen from outside: the wing's take the turn of the roof's top, measured on the car. Byte 1 bit `0x02` draws a polygon when its winding is the other way (the Viper's `topv`, `rsid` and `frnt` polygons come in two sets, one with it and one without); the wing copies a roof quad without it.
+- **A new texture**: a 48 x 20 bitmap `xfin` added at the end of the high bank and of its directory, a texture reference naming it added after the 22 the Viper has (copying the roof's other fields), and the wing's quads pointing at it. Its pixels are indexes of the car's own palette, 0x00..0xF9.
+- **Size**: the body cut in 4 twice over, 996 polygons and 1490 vertices (the Viper has 81 and 125), draws and races.
+- Through all of them the PDN, the low mesh and its bank are the Viper's.
+
 ## Exceptions
 
 - **LDIABLO.CFM, low mesh**: its texture references are 19 bytes long, not 20, so every table after them sits 3 bytes early and the map does not end on a slot. The game never opens LDIABLO (the race's Diablo is LDIABL; LDIABLO is not in the executable's names). The layout test leaves it out by name.
