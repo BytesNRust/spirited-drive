@@ -191,52 +191,52 @@ const char *platform_mods_error(void)
     return mods_error;
 }
 
+static int is_file(const char *path, void *ctx)
+{
+    (void)ctx;
+    SDL_PathInfo info;
+    return SDL_GetPathInfo(path, &info) && info.type == SDL_PATHTYPE_FILE;
+}
+
 /* The mod's copy of `path`, validated; *refused is set when there is a copy the game must not get. */
 static uint8_t *read_mod_file(const char *path, size_t *size, bool *refused)
 {
-    char rel[512], candidate[1600], upper[512];
+    char rel[512], candidate[1600], found[512];
     *refused = false;
     if (!modpath_relative(mods_data_root, path, rel, sizeof rel)) return NULL;
     if (rel[0] == '\0') return NULL;
-    const char *names[2] = { rel, upper };
-    if (!modpath_upper(rel, upper, sizeof upper)) return NULL;
-    for (int k = 0; k < 2; ++k) {
-        if (!modpath_join(mods_dir_path, names[k], candidate, sizeof candidate)) continue;
-        SDL_PathInfo info;
-        if (!SDL_GetPathInfo(candidate, &info) || info.type != SDL_PATHTYPE_FILE) continue;
+    if (!modpath_find(mods_dir_path, rel, is_file, NULL, candidate, sizeof candidate, found, sizeof found)) return NULL;
 #ifdef TNFS_HAVE_REALPATH
-        char real[PATH_MAX];
-        if (realpath(candidate, real) == NULL || !modpath_inside(mods_real_path, real)) {
-            SDL_snprintf(mods_error, sizeof mods_error, "mod file %s leaves the mods directory (symbolic link)", names[k]);
-            port_fatal("platform: %s\n", mods_error);
-            *refused = true;
-            return NULL;
-        }
-#endif
-        uint8_t *data = SDL_LoadFile(candidate, size);
-        if (data == NULL) {
-            SDL_snprintf(mods_error, sizeof mods_error, "mod file %s cannot be read: %s", names[k], SDL_GetError());
-            port_fatal("platform: %s\n", mods_error);
-            *refused = true;
-            return NULL;
-        }
-        Report report;
-        report_init(&report);
-        validate_file(data, *size, names[k], &report);
-        if (report_fatal_count(&report) > 0) {
-            char text[700];
-            report_text(&report, VALIDATE_COMPATIBLE, text, sizeof text);
-            SDL_snprintf(mods_error, sizeof mods_error, "mod file %s is not valid for the original game: %s", names[k], text);
-            port_fatal("platform: %s\n", mods_error);
-            SDL_free(data);
-            report_free(&report);
-            *refused = true;
-            return NULL;
-        }
-        report_free(&report);
-        return data;
+    char real[PATH_MAX];
+    if (realpath(candidate, real) == NULL || !modpath_inside(mods_real_path, real)) {
+        SDL_snprintf(mods_error, sizeof mods_error, "mod file %s leaves the mods directory (symbolic link)", found);
+        port_fatal("platform: %s\n", mods_error);
+        *refused = true;
+        return NULL;
     }
-    return NULL;
+#endif
+    uint8_t *data = SDL_LoadFile(candidate, size);
+    if (data == NULL) {
+        SDL_snprintf(mods_error, sizeof mods_error, "mod file %s cannot be read: %s", found, SDL_GetError());
+        port_fatal("platform: %s\n", mods_error);
+        *refused = true;
+        return NULL;
+    }
+    Report report;
+    report_init(&report);
+    validate_file(data, *size, found, &report);
+    if (report_fatal_count(&report) > 0) {
+        char text[700];
+        report_text(&report, VALIDATE_COMPATIBLE, text, sizeof text);
+        SDL_snprintf(mods_error, sizeof mods_error, "mod file %s is not valid for the original game: %s", found, text);
+        port_fatal("platform: %s\n", mods_error);
+        SDL_free(data);
+        report_free(&report);
+        *refused = true;
+        return NULL;
+    }
+    report_free(&report);
+    return data;
 }
 
 uint8_t *platform_read_file(const char *path, size_t *size)
