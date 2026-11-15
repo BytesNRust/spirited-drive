@@ -6,10 +6,12 @@
  *    a file and a folder of one name, refuse the mod.
  *  - The zip of a folder: when the root has no mod.ini but one folder holds everything and its own mod.ini, that folder is the root.
  *  - What a mod may carry, and nothing else (mod_file_kind): the game's files, in a folder the CD has and with an extension that folder
- *    holds there (SIMDATA/, GAMEDATA/, FRONTEND/: docs/modding/inventory.md), the port's (track_light/ and track/ text, car_masks/
+ *    holds there (SIMDATA/, FRONTEND/: docs/modding/inventory.md; never GAMEDATA/, the player's own), the port's (track_light/ and track/ text, car_masks/
  *    dash_masks/ track_masks/ PNG, sounds/ WAV, car_envmap.png), its card (mod.ini, required), its picture (preview.png, up to
  *    MOD_PREVIEW_W x MOD_PREVIEW_H) and a README or LICENSE (.txt, .md or none). What macOS and Windows add on their own (__MACOSX/,
  *    .DS_Store, ._*, Thumbs.db, desktop.ini) is left out, not refused, and never installed.
+ *  - What its kind of piece may carry (mod_file_rule), from its card, read first: a tweak's file that changes the race, a car's file that
+ *    is not its own, or a track at all, refuse the mod; a car passes car_piece_check as well.
  *  - Content: a game file passes the original's limits (validate_file, as the overlay checks it at load), a PNG's size is read from its
  *    header and kept within its limits before it is unpacked and read (png_read), a WAV reads (wav_read), the text has no NUL and keeps
  *    within its size, and the card parses (mod_ini.h). */
@@ -45,6 +47,18 @@ typedef enum {
 
 /* The kind of the file at `rel` (a cleaned path from the mod's root) */
 ModFileKind mod_file_kind(const char *rel);
+
+/* dep59 step 2: what each kind of piece may carry, one table for the zip check and the folders the game loads */
+typedef enum {
+    MOD_FILE_OK,
+    MOD_FILE_RACE,      /* changes the race: not in a tweak (docs/modding/inventory.md, "Files that change the race") */
+    MOD_FILE_FOREIGN,   /* not one of this piece's own files */
+    MOD_FILE_NOT_YET    /* a type this version cannot install (track) */
+} ModFileRule;
+/* whether a piece of `type` (MOD_TYPE_*) whose stem is `stem` ("" for a tweak) may carry the file at `rel` (a cleaned path from its root,
+ * any case). A tweak: anything mod_file_kind takes but what changes the race. A car: its card, preview and README / LICENSE, its three
+ * files (car_piece_paths) and car_masks/<STEM>/, dash_masks/<STEM>/. A track: nothing yet. */
+ModFileRule mod_file_rule(int type, const char *stem, const char *rel);
 
 /* One entry to install: the zip entry's index and the path below the mod's folder ('/' between parts, no "." or ".."). */
 typedef struct {

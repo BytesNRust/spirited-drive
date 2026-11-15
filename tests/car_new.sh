@@ -128,6 +128,13 @@ cksum < "$work/test-car.zip" | cmp -s - "$work/before" || fail "a refused pack c
 "$studio" mod pack "$p" "$work/test-car.zip" --force >/dev/null 2>&1 || fail "--force was refused"
 "$studio" mod pack "$work/other" "$work/other.zip" >/dev/null 2>"$work/log" && fail "the OTHER.PBS piece was packed"
 [ -e "$work/other.zip" ] && fail "a piece that fails validate left a zip"
+# a tweak (no type) carrying a track's TRI changes the race: refused, the file named, no zip (dep59 step 2)
+mkdir -p "$work/tri_tweak/SIMDATA/MISC" "$work/tri_tweak/track_light"
+printf 'id=tri-tweak\nname=TRI Tweak\nversion=1\n' > "$work/tri_tweak/mod.ini"
+cp "$orig/SIMDATA/MISC/TR1.TRI" "$work/tri_tweak/SIMDATA/MISC/TR1.TRI"
+"$studio" mod pack "$work/tri_tweak" "$work/tri_tweak.zip" >/dev/null 2>"$work/log" && fail "a tweak with a TRI was packed"
+grep -q "TR1.TRI" "$work/log" && grep -q "race" "$work/log" || fail "the refusal of a tweak with a TRI does not say why: $(cat "$work/log")"
+[ -e "$work/tri_tweak.zip" ] && fail "a refused tweak with a TRI left a zip"
 
 # the game: the piece made from the Viper races with --car test-car and, alone on the road with the mode's liveries off (as
 # car_piece_race.sh), draws the Viper's own frame; that is why car new copies the masks

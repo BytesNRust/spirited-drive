@@ -1,6 +1,8 @@
 /* See mod_check.h. */
 #include "formats/mod_check.h"
 
+#include "formats/car_piece.h"
+#include "formats/exchange.h"
 #include "formats/modpath.h"
 #include "formats/png.h"
 #include "formats/validate.h"
@@ -56,7 +58,8 @@ static int litter(const Parts *p)
 }
 
 /* The folders of the CD's tree and the extensions each holds there, "-" for a name without one (docs/modding/inventory.md §1): a game
- * file anywhere else, or of another type, is nothing the game would ask for. */
+ * file anywhere else, or of another type, is nothing the game would ask for. GAMEDATA/ is the player's (config, replays, modem), never a
+ * mod's (dep59 step 2). */
 static const struct {
     const char *dir, *exts;
 } GAME_FOLDERS[] = {
@@ -71,8 +74,6 @@ static const struct {
     { "FRONTEND/SHOW", " QFS " },                           { "FRONTEND/GSHOW", " QFS " },
     { "FRONTEND/SPEECH", " EAS " },                         { "FRONTEND/GSPEECH", " EAS " },
     { "FRONTEND/MOVIE", " TGV " },                          { "FRONTEND/MUSIC", " AS4 ASF " },
-    { "GAMEDATA/CONFIG", " DAT " },                         { "GAMEDATA/MODEM", " CFG " },
-    { "GAMEDATA/REPLAY", " RPL " },
     { "SIMDATA/CARFAMS", " - CFG CFM FSH OUT PDN " },       { "SIMDATA/CARSPECS", " - PBS " },
     { "SIMDATA/DASH", " FMM FSH " },                        { "SIMDATA/GDASH", " FMM FSH " },
     { "SIMDATA/ETRACKFM", " FAM " },                        { "SIMDATA/GTRACKFM", " FAM " },
@@ -102,7 +103,7 @@ ModFileKind mod_file_kind(const char *rel)
 {
     const Parts p = parts_of(rel);
     if (litter(&p)) return MOD_KIND_SKIP;
-    if (p.count >= 3 && (is(p.first, "SIMDATA") || is(p.first, "GAMEDATA") || is(p.first, "FRONTEND")))
+    if (p.count >= 3 && (is(p.first, "SIMDATA") || is(p.first, "FRONTEND")))
         return game_file(&p, rel) ? MOD_KIND_GAME : MOD_KIND_NONE;
     if (p.count == 2 && (is(p.first, "track_light") || is(p.first, "track")) && is(p.ext, "txt")) return MOD_KIND_TEXT;
     if (p.count == 3 && (is(p.first, "car_masks") || is(p.first, "dash_masks") || is(p.first, "track_masks")) && is(p.ext, "png"))
@@ -116,6 +117,54 @@ ModFileKind mod_file_kind(const char *rel)
             if (is(rel, DOCS[i])) return MOD_KIND_DOC;
     }
     return MOD_KIND_NONE;
+}
+
+/* ---- what each kind of piece may carry */
+
+/* whether `rel` is <dir>/<name>/<file> with `name` `stem` (any case) */
+static int in_stem_folder(const char *rel, const Parts *p, const char *dir, const char *stem)
+{
+    if (p->count != 3 || !is(p->first, dir)) return 0;
+    const char *name = rel + strlen(p->first) + 1;
+    const size_t n = (size_t)(p->last - name) - 1;
+    return n == strlen(stem) && strncasecmp(name, stem, n) == 0;
+}
+
+/* whether `rel` is in the game folder `dir` (one level below it) with the extension `ext` ("" any) */
+static int in_game_folder(const char *rel, const Parts *p, const char *dir, const char *ext)
+{
+    const size_t n = strlen(dir);
+    return p->count == 3 && strncasecmp(rel, dir, n) == 0 && rel[n] == '/' && (ext[0] == '\0' || is(p->ext, ext));
+}
+
+/* the files a tweak may not carry: what the race reads to run (docs/modding/inventory.md, "Files that change the race"): the track's TRI
+ * and the rest of SIMDATA/MISC but its INFO (the B*, FSB, MMB, FSH and QFS there have no reader: in doubt, race), a car's PBS and PDN,
+ * and the port's track/<TRACK>.txt (its tunnel, canyon and snow lines change the grip) */
+static int changes_the_race(const char *rel, const Parts *p)
+{
+    const size_t n = strlen(p->last);
+    const int info = n > 4 && p->ext[0] == '\0' && strncasecmp(p->last + n - 4, "INFO", 4) == 0;   /* <TRACK>INFO: the sky, look only */
+    return (in_game_folder(rel, p, "SIMDATA/MISC", "") && !info) || in_game_folder(rel, p, "SIMDATA/CARSPECS", "") ||
+           in_game_folder(rel, p, "SIMDATA/CARFAMS", "PDN") || (p->count == 2 && is(p->first, "track") && is(p->ext, "txt"));
+}
+
+ModFileRule mod_file_rule(int type, const char *stem, const char *rel)
+{
+    if (type == MOD_TYPE_TRACK) return MOD_FILE_NOT_YET;
+    const Parts p = parts_of(rel);
+    const ModFileKind kind = mod_file_kind(rel);
+    if (kind == MOD_KIND_CARD || kind == MOD_KIND_DOC || (kind == MOD_KIND_PNG && is(rel, "preview.png"))) return MOD_FILE_OK;
+    if (type == MOD_TYPE_CAR) {
+        if (!car_piece_stem_ok(stem)) return MOD_FILE_FOREIGN;
+        char paths[CAR_PIECE_FILES][CAR_PIECE_PATH];
+        car_piece_paths(stem, paths);
+        for (int i = 0; i < CAR_PIECE_FILES; i++)
+            if (is(rel, paths[i])) return MOD_FILE_OK;
+        const int mask = kind == MOD_KIND_PNG && (in_stem_folder(rel, &p, "car_masks", stem) || in_stem_folder(rel, &p, "dash_masks", stem));
+        return mask ? MOD_FILE_OK : MOD_FILE_FOREIGN;
+    }
+    if (kind < 0) return MOD_FILE_FOREIGN;
+    return changes_the_race(rel, &p) ? MOD_FILE_RACE : MOD_FILE_OK;
 }
 
 /* the folder that is the mod's root: "" when the card is at the zip's root, else the one top folder that holds the card and everything
@@ -284,6 +333,71 @@ static int contents_ok(const ZipArchive *z, ModCheck *c, char (*rels)[ZIP_NAME_M
     return c->kinds[MOD_KIND_CARD] == 1 ? 1 : refuse(why, cap, "the mod has no mod.ini");
 }
 
+/* the card read before any other file: what the piece is decides what it may carry */
+static int card_first(const ZipArchive *z, ModCheck *c, const int *kinds, char *why, size_t cap)
+{
+    for (size_t i = 0; i < z->count; i++) {
+        if (kinds[i] != MOD_KIND_CARD) continue;
+        uint8_t *data = NULL;
+        size_t size = 0;
+        const ZipResult r = zip_extract(z, i, &data, &size);
+        if (r != ZIP_OK) return refuse(why, cap, "mod.ini: %s", zip_result_text(r));
+        const int parsed = mod_ini_parse(data, size, &c->info, why, cap);
+        free(data);
+        return parsed;
+    }
+    return refuse(why, cap, "the mod has no mod.ini");
+}
+
+/* every file one its kind of piece may carry */
+static int rules_ok(const ZipArchive *z, const ModCheck *c, char (*rels)[ZIP_NAME_MAX + 1], const int *kinds, char *why, size_t cap)
+{
+    if (c->info.type == MOD_TYPE_TRACK) return refuse(why, cap, "%s is a track: this version cannot install tracks yet", c->info.id);
+    for (size_t i = 0; i < z->count; i++) {
+        if (kinds[i] < 0) continue;
+        switch (mod_file_rule(c->info.type, c->info.stem, rels[i])) {
+        case MOD_FILE_OK: break;
+        case MOD_FILE_RACE: return refuse(why, cap, "%s changes the race: a tweak cannot carry it", rels[i]);
+        case MOD_FILE_FOREIGN: return refuse(why, cap, "%s is not one of the files of the car %s", rels[i], c->info.stem);
+        case MOD_FILE_NOT_YET: return refuse(why, cap, "%s: this version cannot install tracks yet", rels[i]);
+        }
+    }
+    return 1;
+}
+
+/* a car: the check the game makes before it lets it race (car_piece_check), on its files as the zip has them */
+static int car_ok(const ZipArchive *z, const ModCheck *c, char (*rels)[ZIP_NAME_MAX + 1], const int *kinds, char *why, size_t cap)
+{
+    if (c->info.type != MOD_TYPE_CAR) return 1;
+    FileSet set;
+    fileset_init(&set);
+    int ok = 1;
+    for (size_t i = 0; i < z->count && ok; i++) {
+        if (kinds[i] != MOD_KIND_GAME) continue;
+        uint8_t *data = NULL;
+        size_t size = 0;
+        const ZipResult r = zip_extract(z, i, &data, &size);
+        ok = r == ZIP_OK ? fileset_add_owned(&set, rels[i], data, size) : refuse(why, cap, "%s: %s", rels[i], zip_result_text(r));
+        if (r == ZIP_OK && !ok) free(data), refuse(why, cap, "out of memory");
+    }
+    if (ok) {
+        Report report;
+        report_init(&report);
+        ok = car_piece_check(&c->info, &set, &report);
+        if (!ok) {
+            refuse(why, cap, "the car is not good");
+            for (size_t i = 0; i < report.count; i++)
+                if (report.item[i].limit->fatal) {
+                    refuse(why, cap, "%s: %s", report.item[i].limit->id, report.item[i].item);
+                    break;
+                }
+        }
+        report_free(&report);
+    }
+    fileset_free(&set);
+    return ok;
+}
+
 int mod_check_zip(const uint8_t *zip, size_t size, ModCheck *out, char *why, size_t why_cap)
 {
     memset(out, 0, sizeof *out);
@@ -295,8 +409,9 @@ int mod_check_zip(const uint8_t *zip, size_t size, ModCheck *out, char *why, siz
     int *kinds = calloc(z.count > 0 ? z.count : 1, sizeof *kinds);
     out->entries = calloc(z.count > 0 ? z.count : 1, sizeof *out->entries);
     int ok = rels != NULL && kinds != NULL && out->entries != NULL ? 1 : refuse(why, why_cap, "out of memory");
-    ok = ok && names_ok(&z, out, rels, kinds, why, why_cap) && pictures_ok(&z, rels, kinds, why, why_cap) &&
-         contents_ok(&z, out, rels, kinds, why, why_cap);
+    ok = ok && names_ok(&z, out, rels, kinds, why, why_cap) && card_first(&z, out, kinds, why, why_cap) &&
+         rules_ok(&z, out, rels, kinds, why, why_cap) && pictures_ok(&z, rels, kinds, why, why_cap) &&
+         contents_ok(&z, out, rels, kinds, why, why_cap) && car_ok(&z, out, rels, kinds, why, why_cap);
     free(rels), free(kinds);
     zip_close(&z);
     if (!ok) mod_check_free(out);
