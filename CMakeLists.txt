@@ -738,6 +738,7 @@ foreach(name port_old_files car_registry car_registry_race car_registry_names ca
     add_test(NAME iso9660 COMMAND test_iso9660)
     # the CD check of the clean configuration background runs when original/ is there
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_car_piece PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_paint_cfm PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_rain_roll PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_snow_roll PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

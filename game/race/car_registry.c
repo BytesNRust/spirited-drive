@@ -3,11 +3,19 @@
 
 #include "formats/car_piece.h"
 #include "game/race/car_load.h"
+#include "game/race/car_specs.h"
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
+
+#include <stddef.h>
+
+/* the PBS fields car_piece_check reads are the ones the race reads (formats/car_piece.h) */
+typedef char car_piece_offsets_are_the_races[offsetof(CarSpecs, power) == CAR_PIECE_PBS_POWER && offsetof(CarSpecs, torque_points) == CAR_PIECE_PBS_TORQUE_POINTS
+                                             && offsetof(CarSpecs, torque_curve) == CAR_PIECE_PBS_TORQUE_CURVE && offsetof(CarSpecs, shift_rpm) == CAR_PIECE_PBS_SHIFT_RPM
+                                             && offsetof(CarSpecs, unknown_320) == CAR_PIECE_PBS_UNKNOWN_320 && offsetof(CarSpecs, force_scale) == CAR_PIECE_PBS_FORCE_SCALE ? 1 : -1];
 
 static CarPiece pieces[CAR_ADDED_MAX];
 static int used[CAR_ADDED_MAX];

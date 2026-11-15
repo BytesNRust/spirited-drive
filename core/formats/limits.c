@@ -51,6 +51,13 @@ const Limit limit_table[] = {
     { "INFO.COLOUR", "the two sky colour lines (data lines 9 and 10) hold three integers a b c packed a<<10 | b<<5 | c without masking: each 0..31", 31, "0043a370", 1, 0 },
     { "INFO.REQUIRED", "a track stem outside the built-in list needs its INFO file (else the loader reads a NULL row)", 0, "0043a370", 1, 0 },
 
+    /* port (dep59): a car piece, a mod adding a car (car_piece.h); the port's rules, as the exe has no added car */
+    { "PIECE.TYPE", "a car piece's mod.ini says type=car", 0, "port (dep59): car_piece_check", 1, 0 },
+    { "PIECE.STEM", "a car piece's stem is 1..8 of A-Z 0-9 and no original car's (nor 'M' + one)", 8, "port (dep59): car_piece_check, 004c5660 (the racers' names)", 1, 0 },
+    { "PIECE.FROM", "sound_from and ai_from are given, and they and dash_from name one of the eight original cars", 0, "port (dep59): car_piece_check", 1, 0 },
+    { "PIECE.FILE_MISSING", "a car piece holds its CFM, PDN and PBS under its stem", 0, "port (dep59): car_piece_check, 00457d40 (the loader)", 1, 0 },
+    { "PIECE.SPECS", "a car piece's PBS has its checksum, power > 0, unknown_320 and force_scale not 0 (divisors), torque_points 1..58 (the curve's room before shift_rpm)", 58, "004400f4 (checksum), 00409a04 (torque curve), 0042f138 (force_scale)", 1, 0 },
+
     /* installation */
     { "MOD.CARSPECS_WRITABLE", "when the CARSPECS directory is writable the EXE overwrites By_R&T and zeroes every car's power", 0, "004400f4", 1, 0 },
 };
