@@ -109,6 +109,18 @@ static char *copy_text(const SetFile *f)
     return s;
 }
 
+/* a bank of two 1 x 1 bitmaps, `a` then `b` (directory indexes 0 and 1): the header, the directory, two entries of 16 + 1 */
+enum { TINY_BANK = 16 + 16 + 2 * 17 };
+
+static void tiny_bank(uint8_t bank[TINY_BANK], const char *a, const char *b)
+{
+    memset(bank, 0, TINY_BANK);
+    memcpy(bank, "SHPI", 4), bank[4] = TINY_BANK, bank[8] = 2, memcpy(bank + 12, "WRAP", 4);
+    memcpy(bank + 16, a, 4), bank[20] = 32;
+    memcpy(bank + 24, b, 4), bank[28] = 32 + 17;
+    for (int at = 32; at < TINY_BANK; at += 17) bank[at] = 0x7b, bank[at + 4] = 1, bank[at + 6] = 1;
+}
+
 static void test_identity(void)
 {
     uint8_t orip[SAMPLE_SIZE], *back = NULL;
@@ -117,7 +129,11 @@ static void test_identity(void)
     FileSet files;
     fileset_init(&files);
     ExchangeError err = {{0}};
-    CHECK(mesh_export(orip, sizeof orip, "m/body", "textures", &files, &err));
+    uint8_t own[TINY_BANK], other[TINY_BANK];
+    tiny_bank(own, "side", "topv");     /* topv is entry 1 of the mesh's own bank */
+    tiny_bank(other, "topv", "side");   /* and entry 0 of a later one, which the MTL does not use */
+    const MeshTextureBank banks[] = { { own, sizeof own, "../c1" }, { other, sizeof other, "../../c0" } };
+    CHECK(mesh_export(orip, sizeof orip, "m/body", banks, 2, &files, &err));
     if (files.count == 0) fprintf(stderr, "export: %s\n", err.message);
     const char *names[] = { "m/body.obj", "m/body.mtl", "m/body.header.tsv", "m/body.polygons.tsv", "m/body.textures.tsv",
                             "m/body.parts.tsv", "m/body.groups.tsv", "m/body.sectionc.tsv", "m/body.labels.tsv" };
@@ -131,7 +147,8 @@ static void test_identity(void)
     free(obj);
     char *mtl = copy_text(must(&files, "m/body.mtl"));
     CHECK(strstr(mtl, "newmtl t0_topv") != NULL);
-    CHECK(strstr(mtl, "map_Kd textures/topv.png") != NULL);
+    CHECK(strstr(mtl, "map_Kd ../c1/0001_topv.png\n") != NULL);   /* the name shpi_export gives it */
+    CHECK(strstr(mtl, "c0/0000_topv") == NULL);
     free(mtl);
     CHECK(mesh_import(orip, sizeof orip, "m/body", &files, &back, &back_len, &err));
     CHECK(back_len == sizeof orip && memcmp(back, orip, sizeof orip) == 0);
@@ -155,7 +172,7 @@ static void test_edits(void)
     FileSet files;
     fileset_init(&files);
     ExchangeError err = {{0}};
-    CHECK(mesh_export(orip, sizeof orip, "b", NULL, &files, &err));
+    CHECK(mesh_export(orip, sizeof orip, "b", NULL, 0, &files, &err));
     char *obj = copy_text(must(&files, "b.obj"));
 
     /* vertex 0 moved with floats: rounded to integers, nothing else changes */
@@ -210,7 +227,7 @@ static void test_edits(void)
         fileset_free(&fs);
     }
     fileset_free(&files);
-    CHECK(!mesh_export((const uint8_t *)"nope", 4, "x", NULL, &files, &err));
+    CHECK(!mesh_export((const uint8_t *)"nope", 4, "x", NULL, 0, &files, &err));
 }
 
 /* every ORIP leaf in a document tree */
@@ -230,7 +247,7 @@ static void walk(const DocNode *node, const char *path)
         uint8_t *back = NULL;
         size_t back_len = 0;
         ++cd_meshes;
-        const int ok = mesh_export(b, n, "m", "t", &files, &err) && mesh_import(b, n, "m", &files, &back, &back_len, &err);
+        const int ok = mesh_export(b, n, "m", NULL, 0, &files, &err) && mesh_import(b, n, "m", &files, &back, &back_len, &err);
         if (!ok) fprintf(stderr, "%s: %s\n", path, err.message);
         if (!ok || back_len != declared || memcmp(back, b, declared) != 0) {
             fprintf(stderr, "%s: export then import does not reproduce the mesh\n", path);

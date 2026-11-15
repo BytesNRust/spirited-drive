@@ -3,6 +3,7 @@
 #include "formats/chunk.h"
 #include "formats/le.h"
 #include "formats/mesh.h"
+#include "formats/shpi_exchange.h"
 #include "formats/table_exchange.h"
 
 #include <ctype.h>
@@ -133,7 +134,26 @@ static int add_table(const TableSpec *spec, const uint8_t *base, uint32_t offset
     return ok;
 }
 
-int mesh_export(const uint8_t *orip, size_t size, const char *stem, const char *texture_dir, FileSet *out, ExchangeError *err)
+/* one newmtl per texture reference; map_Kd at the first bank that has the entry */
+static void write_mtl(const Mesh *mesh, const MeshTextureBank *banks, size_t bank_count, Text *mtl)
+{
+    for (uint32_t i = 0; i < mesh->texture_count; ++i) {
+        MeshTexture t;
+        char label[5], file[SHPI_FILE_NAME_SIZE];
+        mesh_texture(mesh, i, &t);
+        texture_label(&t, label);
+        text_printf(mtl, "newmtl t%u_%s\nKd 1 1 1\n", i, label);
+        for (size_t b = 0; t.name[0] != '\0' && b < bank_count; ++b) {
+            if (!shpi_entry_file(banks[b].shpi, banks[b].size, t.name, file)) continue;
+            text_printf(mtl, "map_Kd %s/%s\n", banks[b].dir, file);
+            break;
+        }
+        text_put(mtl, "\n", 1);
+    }
+}
+
+int mesh_export(const uint8_t *orip, size_t size, const char *stem, const MeshTextureBank *banks, size_t bank_count, FileSet *out,
+                ExchangeError *err)
 {
     Chunk chunk;
     Mesh mesh;
@@ -190,15 +210,7 @@ int mesh_export(const uint8_t *orip, size_t size, const char *stem, const char *
         }
         text_put(&obj, "\n", 1);
     }
-    for (uint32_t i = 0; ok && i < mesh.texture_count; ++i) {
-        MeshTexture t;
-        char label[5];
-        mesh_texture(&mesh, i, &t);
-        texture_label(&t, label);
-        text_printf(&mtl, "newmtl t%u_%s\nKd 1 1 1\n", i, label);
-        if (texture_dir != NULL && t.name[0] != '\0') text_printf(&mtl, "map_Kd %s/%s.png\n", texture_dir, label);
-        text_put(&mtl, "\n", 1);
-    }
+    if (ok) write_mtl(&mesh, banks, bank_count, &mtl);
     if (ok && (obj.failed || mtl.failed)) { exchange_fail(err, "out of memory"); ok = 0; }
     if (ok) {
         char *f1 = named(stem, ".obj"), *f2 = named(stem, ".mtl");

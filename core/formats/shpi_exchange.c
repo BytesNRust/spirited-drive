@@ -45,6 +45,30 @@ static void expand_palette(uint8_t type, const uint8_t *payload, uint8_t rgb[PAL
 
 /* ------------------------------------------------------------------ export */
 
+/* the one rule for an entry's file: its directory index and label */
+static void entry_file(uint32_t index, const uint8_t name[4], int bitmap, char file[SHPI_FILE_NAME_SIZE])
+{
+    char label[5];
+    label_of(name, label);
+    snprintf(file, SHPI_FILE_NAME_SIZE, "%04u_%s.%s", (unsigned)index, label, bitmap ? "png" : "bin");
+}
+
+int shpi_entry_file(const uint8_t *data, size_t size, const char name[4], char file[SHPI_FILE_NAME_SIZE])
+{
+    file[0] = '\0';
+    if (size < 16 || memcmp(data, "SHPI", 4) != 0) return 0;
+    const uint32_t count = le_u32(data + 8);
+    for (uint32_t i = 0; i < count && 16 + 8 * (size_t)i + 8 <= size; ++i) {
+        const uint8_t *dir = data + 16 + 8 * (size_t)i;
+        const uint32_t at = le_u32(dir + 4);
+        if (memcmp(dir, name, 4) != 0) continue;
+        if (at >= size || !is_bitmap(data[at])) return 0;
+        entry_file(i, dir, 1, file);
+        return 1;
+    }
+    return 0;
+}
+
 int shpi_export(const uint8_t *data, size_t size, const uint8_t *external_palette, FileSet *out, ExchangeError *err)
 {
     DocNode *doc = NULL;
@@ -91,7 +115,7 @@ int shpi_export(const uint8_t *data, size_t size, const uint8_t *external_palett
         const uint8_t type = b[0];
         const uint32_t block_size = (uint32_t)b[1] | (uint32_t)b[2] << 8 | (uint32_t)b[3] << 16;
         const uint16_t w = (uint16_t)(b[4] | b[5] << 8), h = (uint16_t)(b[6] | b[7] << 8);
-        char label[5], file[40];
+        char label[5], file[SHPI_FILE_NAME_SIZE];
         label_of(name, label);
         const size_t pixels = (size_t)w * h;
         const int bitmap = is_bitmap(type);
@@ -107,7 +131,7 @@ int shpi_export(const uint8_t *data, size_t size, const uint8_t *external_palett
             ok = 0;
             break;
         }
-        snprintf(file, sizeof file, "%04u_%s.%s", i, label, bitmap ? "png" : "bin");
+        entry_file(i, name, bitmap, file);
         if (bitmap) {
             uint8_t *png = NULL;
             size_t png_len = 0;
