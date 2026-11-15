@@ -201,6 +201,15 @@ static MeshDescPolygon template_of(const MeshDesc *d, const uint8_t *dg, int cor
 
 static int group_of_kind(Kind k) { return k == KIND_INSIDE ? 0 : k == KIND_OUTSIDE || k == KIND_WHEEL ? 2 : 1; }
 
+/* a bitmap with a clear texel (0xFF): its polygons take the transparent mapper, mode 1 in the flag byte's bits 3..6
+ * (game/gfx/object3d.c draw_polygon; the Viper's 0x8C against its 0x84), or the race draws 0xFF as a colour */
+enum { POLY_MODE_MASK = 0x78, POLY_MODE_TRANSPARENT = 0x08 };
+static int has_clear(const ShpiDescEntry *e)
+{
+    if (e == NULL || e->type != 0x7b || e->data == NULL) return 0;
+    return memchr(e->data, 0xFF, (size_t)e->width * e->height) != NULL;
+}
+
 /* a uv of the texture `t` (w x h): 0..1 from the bottom to texels from the top, kept to 0..w x 0..h */
 static uint32_t add_uv(Build *b, const ShpiDescEntry *t, ObjVec2 uv, uint32_t *clamped)
 {
@@ -225,7 +234,9 @@ static int add_polygon(Build *b, uint32_t f, const uint32_t *c, int n, uint32_t 
     MeshDescPolygon p = template_of(b->donor, b->donor_group, n, has_uv, group_of_kind(b->kind[face->object]));
     p.has_uv = (uint8_t)has_uv;
     p.texture = (uint8_t)(wheel ? (front ? 0 : 1) : b->material_ref[face->material]);   /* frntires and rertires come first */
-    const ShpiDescEntry *t = has_uv ? ci_bank_find(b->bank->entry, b->bank->count, m->textures[p.texture].name) : NULL;
+    const ShpiDescEntry *bitmap = ci_bank_find(b->bank->entry, b->bank->count, m->textures[p.texture].name);
+    const ShpiDescEntry *t = has_uv ? bitmap : NULL;
+    if (!wheel && has_clear(bitmap)) p.flags = (uint8_t)((p.flags & ~POLY_MODE_MASK) | POLY_MODE_TRANSPARENT);
     if (!ci_grow((void **)&m->polygons, m->polygon_count + 1, sizeof *m->polygons, b->err) ||
         !ci_grow((void **)&m->uvs, m->uv_count + 4, sizeof *m->uvs, b->err) ||
         !ci_grow((void **)&b->polygon_group, m->polygon_count + 1, 1, b->err))

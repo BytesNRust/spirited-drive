@@ -106,7 +106,7 @@ An `SHPI` with directory id `WRAP` in all 78 (*checked*). Each entry: a 16-byte 
   | `0x00`..`0xF9` | the bank's own colours (its `!PAL`), each matched to the nearest screen colour |
   | `0xFA`..`0xFD` | left as they are; on the police car (slot 2) they are the four lights the race animates |
   | `0xFE` | the car's own colour: the race puts there the screen colour it gave the car's slot (`slot_colours`) |
-  | `0xFF` | transparent (`game/gfx/quad.c`, 00486950) |
+  | `0xFF` | transparent (`game/gfx/quad.c`, 00486950), on a polygon drawn with the transparent mapper: mode 1 in bits 3..6 of its flag byte (`game/gfx/object3d.c` `draw_polygon`; the Viper's `0x8C`, 10 of its 81 polygons, against `0x84`). With mode 0 the race draws `0xFF` as the palette's colour (black), so an importer gives mode 1 to the polygons of a bitmap with a clear texel |
 
   How much `0xFE` the CD's high-detail textures hold: on the race cars only `rsid` (the side seen from the right), and little: 1 % of its pixels on ANSX, CZR1, DVIPER, F512TR, F512M and TESTA, under 1 % on LDIABL, MRX7, P911 and TSUPRA. The rivals' reduced models put it on `rear`: 8 % (MANSX), 7 % (MCZR1, MDVIPER), 5 % (MMRX7, MP911), 2 % (MTSUPRA), 1 % (MLDIABL, MTRAFFC). TRAFFC's `lite` is 15 %. The other cars hold it in a few pixels of `rear`, `side`, `bott`, `frnt`, `topp`, and the Warrior in its tyres (1 %). So the body's paint is not `0xFE`: it is the bank's own colours (`!PAL`, and `!xxx`, the car's own colours, `game/race/car_model.c` `own_colours`); `0xFE` marks a few pixels, most on the rival models' rear, that take the slot's colour. An importer can leave `0xFE` out of a new texture.
 

@@ -1197,6 +1197,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
         add_test(NAME car_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_new.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:tnfs>)
         add_test(NAME model_build COMMAND sh ${CMAKE_SOURCE_DIR}/tests/model_build.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> $<TARGET_FILE:model_build_piece> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
+        add_test(NAME car_import_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_import.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/tests/car_import ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands

@@ -93,10 +93,10 @@ static uint8_t *read_cd(const char *file, size_t *size)
     return d;
 }
 
-static void add_png(FileSet *set, const char *name, int w, int h, uint8_t r, uint8_t g, uint8_t b)
+static void add_png(FileSet *set, const char *name, int w, int h, uint8_t r, uint8_t g, uint8_t b, uint8_t alpha)
 {
     uint8_t *rgba = malloc((size_t)w * h * 4), *png = NULL;
-    for (int k = 0; k < w * h; k++) rgba[4 * k] = r, rgba[4 * k + 1] = g, rgba[4 * k + 2] = b, rgba[4 * k + 3] = 255;
+    for (int k = 0; k < w * h; k++) rgba[4 * k] = r, rgba[4 * k + 1] = g, rgba[4 * k + 2] = b, rgba[4 * k + 3] = k == 0 ? alpha : 255;
     size_t len = 0;
     CHECK(png_write_rgba(rgba, (uint32_t)w, (uint32_t)h, &png, &len) == PNG_OK && fileset_add_owned(set, name, png, len));
     free(rgba);
@@ -164,6 +164,16 @@ static void check_mesh(const MeshDesc *m, uint32_t obj_vertices)
     CHECK_EQ_INT((int)m->label_count, 4);
 }
 
+/* the race draws a polygon with the transparent mapper when its flag byte's bits 3..6 say 1 (object3d.c draw_polygon): the seat,
+ * whose texture has a clear texel, so; the body, all opaque, not */
+static void check_modes(const MeshDesc *m)
+{
+    const int inside = group_index(m, "inside"), surface = group_index(m, "surface");
+    if (inside < 0 || surface < 0) return;
+    for (uint32_t k = 0; k < m->groups[inside].count; k++) CHECK_EQ_INT((m->polygons[m->groups[inside].polygons[k]].flags >> 3) & 0xF, 1);
+    for (uint32_t k = 0; k < m->groups[surface].count; k++) CHECK_EQ_INT((m->polygons[m->groups[surface].polygons[k]].flags >> 3) & 0xF, 0);
+}
+
 /* the CFM as a piece with the donor's PDN (its body sizes the new ones) and PBS */
 static void check_piece(const uint8_t *cfm, size_t len, const int32_t half[3])
 {
@@ -207,6 +217,7 @@ static void test_obj(const uint8_t *donor, size_t donor_len, const FileSet *pngs
     if (err.message[0] == '\0') {
         check_mesh(&m, obj.vertex_count);
         CHECK_EQ_INT(made_notes, 13);
+        check_modes(&m);
         mesh_desc_free(&m);
         car_import_bank_free(&bank);
     }
@@ -425,8 +436,8 @@ int main(void)
     }
     FileSet pngs;
     fileset_init(&pngs);
-    add_png(&pngs, "paint.png", 16, 8, 200, 30, 30);
-    add_png(&pngs, "seat.png", 8, 8, 60, 60, 60);
+    add_png(&pngs, "paint.png", 16, 8, 200, 30, 30, 255);
+    add_png(&pngs, "seat.png", 8, 8, 60, 60, 60, 0);   /* one clear texel */
     test_obj(donor, n, &pngs);
     refused_obj(donor, n, &pngs, 1, 0, "wheel_fl");
     refused_obj(donor, n, &pngs, 0, 1, "wheel_fr");
