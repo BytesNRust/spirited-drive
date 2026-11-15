@@ -387,3 +387,26 @@ Each is a fact read from the EXE between two functions; the details are in §7 u
 - PBS/PDN: decompressed with the port's `qfs_unpack` — sizes and the PBS checksum for all 9 PBS files.
 - QFS/SHPI/INV: headers, directory ids, entry types, INV sizes; rendering of two screens to read their text.
 - Not done: any change to the code, any comparison of exported bytes (that is phase 2).
+
+## 12. Files that change the race
+
+A *tweak* (a mod with `type=tweak`, or with no `type`) may change how the game looks and sounds, never how a race runs: a record or a
+replay made with it must be one the game without it would make (dep59 step 2). A file "changes the race" when the simulation reads it:
+physics, collisions, the AI, the laps and the finish, or the conditions a record is filed under. `mod_file_rule` (`core/formats/mod_check.h`)
+holds this table; the zip check and the folders the game loads apply it. What could not be settled is treated as race.
+
+| File | Race or look | Why (port source) |
+|------|--------------|-------------------|
+| `SIMDATA/MISC/<TRACK>.TRI` | race | the road, its nodes and the scenery records the car can knock (`track_load.c`, `car_scenery.c:27-33,108-125`, `race_contacts.c:71`) |
+| `SIMDATA/MISC/<TRACK>INFO` | look | sky and tint only (`track_load.c:263-266`, `track_info.h`, `view_sky.c:62`) |
+| `SIMDATA/MISC/*.B00`..`B23`, `FSB`, `MMB`, `FSH`, `QFS` | race (undetermined) | the port has no reader for them; in doubt, a tweak does not carry them |
+| `SIMDATA/CARSPECS/*` | race | the car's specs (`car_load.c:102-103`) |
+| `SIMDATA/CARFAMS/*.PDN` | race | the body's extents, mass and factors the collisions and the AI use (`car_body.c:59-91`, `race_contacts.c:52`, `car_held.c:85`, `car_crash_tick.c:340`) |
+| `SIMDATA/CARFAMS/*.CFM` of a car of the CD | look | its parts, wheels and lamps are drawn; its size enters the body only when a PDN extent is 0 (`car_body.c:87-96`), and the CD's PDNs carry all three. The size also decides which scenery the car knocks over (`car_scenery.c:82-85`), and that changes only what stands, the sound and the force feedback, not the car's motion |
+| `SIMDATA/{E,G,N}TRACKFM/*.FAM` | look | the scenery objects are drawn only (`track_objects.c:58-70`, `track_build.c`, called from `track_render.c:194` and `follow_behind.c:97`); the race knocks the TRI's scenery records, not these |
+| `SIMDATA/DASH`, `GDASH`, `SLIDES`, `GSLIDES`, `SOUNDBNK`, `FRONTEND/` | look | drawn or heard |
+| `track/<TRACK>.txt` (the port's) | race | `tunnel` and `canyon` close nodes to the rain's grip loss (`wet_zones.c:11`, `race_state.c:66-71`); `snow 1` makes the rally's snow grip and files the record under snow (`track_viewer.c:349,507`, `rally_gravel.c:11-17`). Its `snow_map` and `car_dim` are look, but the file goes as one |
+| `track_light/`, `car_masks/`, `dash_masks/`, `track_masks/`, `sounds/`, `car_envmap.png` | look | lighting, masks and sounds (`drive_light.c:619`; `wet_zones.h:4-5`: the light files are not read by the race) |
+
+A *car* piece carries its own three files (its CFM, PDN and PBS under its stem) and its masks, and nothing else: what it changes is its
+own race, which its records and replays are kept apart for (see `docs/modding.md`, *Adding a car*).
