@@ -1,6 +1,7 @@
 #include "game/frontend/menu_race.h"
 
 #include "game/frontend/palette_put.h"
+#include "game/sys/free_laps.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -83,7 +84,8 @@ static void keep_times(const MenuRaceState *st)
         st->times[run] = g32(me + SPEED);
     }
     const int32_t lap = g32(me + LAP);
-    if (track_of(st) > 2) p32(me + TRACK_TOTAL, lap > 0 ? (int32_t)((uint32_t)g16(st->image + LAPS) * (uint32_t)lap) : 0);
+    /* port: the laps run, a free race's own count (the exe's LAPS made a laps=1 race's average speed eight times too high) */
+    if (track_of(st) > 2) p32(me + TRACK_TOTAL, free_laps_distance(g16(st->image + LAPS), lap));
     else p32(me + TRACK_TOTAL, lap > 0 ? (int32_t)((uint32_t)g32(me + TRACK_TOTAL) + (uint32_t)lap) : 0);
     if (g32(me + TOP) < g32(me + SPEED)) p32(me + TOP, g32(me + SPEED));
 }

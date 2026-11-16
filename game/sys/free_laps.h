@@ -5,6 +5,8 @@
 #ifndef TNFS_FREE_LAPS_H
 #define TNFS_FREE_LAPS_H
 
+#include <stdint.h>
+
 enum {
     FREE_LAPS_MAX = 99,      /* config.dat takes 1..99, the HUD shows two digits, lap_marks holds 108 */
     FREE_LAPS_SLOTS = 20     /* the lap times the game state keeps a player (the exe's 20 slots) */
@@ -27,5 +29,7 @@ void free_laps_set(int laps);
 int free_laps_count(void);
 /* `exe_laps` as a screen would show it, or the free count when a free race is the last one. */
 int free_laps_or(int exe_laps);
+/* A circuit's distance after its race: `lap` (a lap's distance) times the laps run, free_laps_or(exe_laps); 0 for no lap. */
+int32_t free_laps_distance(int exe_laps, int32_t lap);
 
 #endif
