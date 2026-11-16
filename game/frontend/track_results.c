@@ -1,4 +1,5 @@
 #include "game/frontend/track_results.h"
+#include "game/sys/port_log.h"
 
 #include "game/frontend/records_route.h"
 
@@ -266,6 +267,7 @@ void track_results_screen(int32_t ask, const ResultsInputs *in, ResultsState *st
                 won_tune = fanfare(in, asked, row, top, st, ops);
                 ops->fade_in(ops->ctx, 0, 0x100, pal);
                 first = 0;
+                port_log("mark:results=track\n");   /* port (test harness): faded in, its keys read from here on (a walk presses Enter after it); the log only */
                 if (music && (with_record || won_tune)) ops->track_play(ops->ctx);
             }
             ops->delay(ops->ctx, WAIT);

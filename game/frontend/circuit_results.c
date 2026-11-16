@@ -1,4 +1,5 @@
 #include "game/frontend/circuit_results.h"
+#include "game/sys/port_log.h"
 
 #include "game/frontend/records_route.h"
 #include "game/sys/free_laps.h"
@@ -310,6 +311,7 @@ void circuit_results_screen(int32_t ask, const ResultsInputs *in, ResultsState *
                 if (fanfare(in, asked, row, top, out.won, music_off, st, ops)) won_tune = 1;
                 ops->fade_in(ops->ctx, 0, 0x100, pal);
                 first = 0;
+                port_log("mark:results=circuit\n");   /* port (test harness): faded in, its keys read from here on (a walk presses Enter after it); the log only */
                 if (playing(in, row, top, won_tune, music_off)) ops->track_play(ops->ctx);
             }
             ops->delay(ops->ctx, WAIT);
