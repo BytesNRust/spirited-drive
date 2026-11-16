@@ -43,7 +43,7 @@ static const char *dnf(const ResultsInputs *in) { return in->german ? "Abbruch" 
 
 void results_header_marks(const ResultsInputs *in, const ResultsOps *ops)
 {
-    const int banner = results_cheats(in), line = in->marks != NULL && in->marks->line != NULL;
+    const int line = in->marks != NULL && in->marks->line != NULL, banner = results_banner_shown(results_cheats(in), line ? in->marks->line : NULL);
     if (ops->band_text == NULL) {   /* the place dep55 drew them */
         if (banner) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
         if (line) ops->text_at(ops->ctx, in->marks->line, RESULTS_LINE_X, RESULTS_LINE_Y);
@@ -55,11 +55,17 @@ void results_header_marks(const ResultsInputs *in, const ResultsOps *ops)
     if (line) ops->band_text(ops->ctx, in->marks->line, RESULTS_BAND_X, line_mid, RESULTS_BAND_ROOM);
 }
 
-/* port: a row's cheat letters at the marks' x, when the table shown is the one with cheats */
+/* port: a row's cheat letters at the marks' x, when the table shown is the one with cheats; port (owner, 2026-11-16): with the table line
+ * (Restomod) its words in the conditions' style instead, centred in the gap between the name and the time */
 void results_mark_slot(const ResultsInputs *in, int slot, int32_t y, const ResultsOps *ops)
 {
     char letters[6];
     if (!results_cheats(in) || slot < 0 || slot >= RECORDS_MARK_SLOTS) return;
+    if (in->marks->line != NULL && ops->small_text != NULL) {
+        const ConditionsPen pen = { ops->ctx, ops->small_text, ops->small_width, ops->small_ink };
+        record_cheat_draw(in->marks->slots[slot], RESULTS_TAGS_CENTRE, RESULTS_TAGS_ROOM, y, &pen);
+        return;
+    }
     records_mark_text(in->marks->slots[slot], letters);
     if (letters[0] != '\0') ops->text_at(ops->ctx, letters, RESULTS_MARK_X, y);
 }

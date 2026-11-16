@@ -340,7 +340,8 @@ static void test_the_footer_keeps_the_exes_keys(void)
     CHECK(memcmp(&plus, &before, sizeof plus) == 0);
 }
 
-/* a row: its name, its cheats' letters (the Warrior's W), its conditions' words, its car */
+/* a row: its name, its cheats as words (port, owner 2026-11-16: LUNAR; the Warrior's never, its car says it), its conditions' words, its
+ * car */
 static void test_a_row_shows_its_marks(void)
 {
     race_records_reset();
@@ -362,7 +363,8 @@ static void test_a_row_shows_its_marks(void)
     reset(keys, 1);
     (void)run(&plus, CIRCUIT);
     CHECK(was_drawn("ACE"));
-    CHECK(was_drawn("WL"));
+    CHECK(was_drawn("LUNAR"));
+    CHECK(!was_drawn("WL") && !was_drawn("L"));
     CHECK(was_drawn("RAIN DUSK"));
     CHECK(was_drawn("HARD"));
     CHECK(was_drawn("WARRIOR"));

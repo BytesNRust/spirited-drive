@@ -1,6 +1,6 @@
 /* The standings screens after a race (00461540) with fake ops: the "(CHEATS)" banner is in the header band, right of the
  * Road & Track logo, on the segment's ranking and on the totals' standings of a race with cheats, and on neither of a
- * normal race. */
+ * normal race. port (owner, 2026-11-16): with the table line (Restomod), which says CHEATS already, no banner. */
 #include "game/frontend/standings.h"
 #include "test.h"
 
@@ -130,6 +130,7 @@ static int any_text(const char *text)
 }
 
 /* one screen of the standings: a segment's ranking (segment_mode) or the totals, of a race with cheats or without */
+static const char *line;   /* the table line run gives (NULL: none, Stock and Restored) */
 static void run(int segment_mode, int cheats)
 {
     static uint8_t game[STANDINGS_GAME];
@@ -144,7 +145,7 @@ static void run(int segment_mode, int cheats)
     memset(&p, 0, sizeof p);
     in.game = game, in.finish = finish, in.car_points = car_points, in.track = 0, in.segment = 1, in.laps = 1;
     in.german = 0, in.level = 0, in.unknown_50a5b6 = 0, in.screen = 0, in.screen_shape = 0;
-    in.cheats = cheats;
+    in.cheats = cheats, in.line = line;
     drawn.count = 0;
     standings_screen(segment_mode, &in, &st, &p, &ops);
 }
@@ -175,11 +176,23 @@ static void test_totals_standings_has_no_banner_on_normal_race(void)
     CHECK(!any_text("(CHEATS)"));
 }
 
+static void test_no_banner_with_the_table_line(void)
+{
+    line = "NORMAL - CHEATS";
+    run(1, 1);
+    CHECK(!any_text("(CHEATS)"));
+    CHECK(any_text("NORMAL - CHEATS"));
+    run(0, 1);
+    CHECK(!any_text("(CHEATS)"));
+    line = NULL;
+}
+
 int main(void)
 {
     test_segment_ranking_banner_on_cheats_race();
     test_segment_ranking_has_no_banner_on_normal_race();
     test_totals_standings_banner_on_cheats_race();
     test_totals_standings_has_no_banner_on_normal_race();
+    test_no_banner_with_the_table_line();
     return TEST_REPORT();
 }

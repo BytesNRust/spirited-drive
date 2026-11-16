@@ -27,18 +27,20 @@ static int32_t g32(const uint8_t *game, int at)
                      (uint32_t)game[at + 3] << 24);
 }
 
-/* port: the header band's "(CHEATS)", right of the Road & Track logo, the place results_screen.h's banner is at */
+/* port: the header band's "(CHEATS)", right of the Road & Track logo, the place results_screen.h's banner is at; not with the table
+ * line, which says CHEATS already (results_banner_shown) */
 static void draw_banner(const StandingsInputs *in, const StandingsOps *ops)
 {
+    const int cheats = results_banner_shown(in->cheats, in->line);
     ops->text_select(ops->ctx, 1);
     if (ops->band_text == NULL) {
-        if (in->cheats) ops->text_boxed(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
+        if (cheats) ops->text_boxed(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);
         if (in->line != NULL) ops->text_boxed(ops->ctx, in->line, RESULTS_LINE_X, RESULTS_LINE_Y);   /* port (dep55): the table's words */
         return;
     }
     int32_t banner_mid, line_mid;   /* port: in the band right of the logo, as the results screens */
-    results_band_places(in->cheats != 0, in->line != NULL, &banner_mid, &line_mid);
-    if (in->cheats) ops->band_text(ops->ctx, CHEATS_BANNER, RESULTS_BAND_X, banner_mid, RESULTS_BAND_ROOM);
+    results_band_places(cheats != 0, in->line != NULL, &banner_mid, &line_mid);
+    if (cheats) ops->band_text(ops->ctx, CHEATS_BANNER, RESULTS_BAND_X, banner_mid, RESULTS_BAND_ROOM);
     if (in->line != NULL) ops->band_text(ops->ctx, in->line, RESULTS_BAND_X, line_mid, RESULTS_BAND_ROOM);
 }
 
