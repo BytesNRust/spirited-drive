@@ -212,8 +212,10 @@ static int raw_build(const ObjModel *obj, const FileSet *t, const char *stem, co
     return ok;
 }
 
-/* the texture references' bitmap sizes, from the donor's bank of the level (the bitmaps raw mode keeps): 1 x 1 for a reference with
- * no name or a bitmap of no size (as mesh_export), 0 x 0 for a name the bank does not hold (mesh_blender.h) */
+/* the texture references' bitmap sizes, from the donor's bank of the level (the bitmaps raw mode keeps), of the bitmap each shows
+ * (mesh_blender_shown, as mesh_export: a tyre reference with no name, tyr1's): 1 x 1 for a reference that shows none, a bitmap of no
+ * size, or a tyre reference whose tyr1 the bank does not hold (as mesh_export); 0 x 0 for a name of its own the bank does not hold
+ * (mesh_blender.h) */
 static MeshBlenderSize *bitmap_sizes(const FileSet *t, const char *stem, const ShpiDescEntry *bank, size_t n, size_t *rows, ExchangeError *err)
 {
     uint8_t *rec = NULL;
@@ -221,10 +223,12 @@ static MeshBlenderSize *bitmap_sizes(const FileSet *t, const char *stem, const S
     MeshBlenderSize *sizes = malloc((*rows ? *rows : 1) * sizeof *sizes);
     if (sizes == NULL) exchange_fail(err, "out of memory");
     for (size_t i = 0; sizes != NULL && i < *rows; i++) {
-        const char *name = (const char *)rec + 20 * i + 8;
-        const ShpiDescEntry *e = name[0] != '\0' ? ci_bank_find(bank, n, name) : NULL;
-        if (name[0] == '\0') sizes[i] = (MeshBlenderSize){ 1, 1 };
-        else if (e == NULL || e->type != 0x7b) sizes[i] = (MeshBlenderSize){ 0, 0 };
+        const char *label = (const char *)rec + 20 * i, *name = label + 8;
+        char shown[4];
+        mesh_blender_shown(label, name, shown);
+        const ShpiDescEntry *e = shown[0] != '\0' ? ci_bank_find(bank, n, shown) : NULL;
+        if (shown[0] == '\0') sizes[i] = (MeshBlenderSize){ 1, 1 };
+        else if (e == NULL || e->type != 0x7b) sizes[i] = name[0] != '\0' ? (MeshBlenderSize){ 0, 0 } : (MeshBlenderSize){ 1, 1 };
         else sizes[i] = e->width > 0 && e->height > 0 ? (MeshBlenderSize){ e->width, e->height } : (MeshBlenderSize){ 1, 1 };
     }
     free(rec);

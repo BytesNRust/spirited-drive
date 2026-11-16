@@ -11,11 +11,15 @@
  *   NAME.lists.tsv    what the parts' and groups' map slots point at: each part's vertex list and each group's polygon
  *                     list, one row per record (for an importer that builds a new mesh, dep59; the import here reads
  *                     the lists from the original and ignores this file).
- *   NAME.blender.obj  (dep71) the same mesh for Blender, with NAME.mtl: one object, the vertices in metres (MESH_BLENDER_UNITS
- *                     a metre) with z negated (Y up, -Z forward: car_import.h's frame), every textured corner its own vt as
- *                     0..1 of its bitmap from the bottom (the size of the first of `banks` holding it, 1 x 1 when none
- *                     does), faces and vertices in the mesh's order. `car import --raw` takes it back with these tables
- *                     (mesh_blender.h); mesh_import ignores it.
+ *   NAME.blender.obj  (dep71) the same mesh for Blender, with NAME.blender.mtl: one object, the vertices in metres
+ *                     (MESH_BLENDER_UNITS a metre) with z negated (Y up, -Z forward: car_import.h's frame), every textured corner its
+ *                     own vt as 0..1 of the bitmap its reference shows (mesh_blender_shown; the size of the first of `banks` holding
+ *                     it, 1 x 1 when none does), from the bottom, faces and vertices in the mesh's order. `car import --raw` takes
+ *                     it back with these tables (mesh_blender.h); mesh_import ignores it.
+ *   NAME.blender.mtl  (fix/blender-preview) Blender's preview only, the same materials as NAME.mtl: each shows its reference's
+ *                     bitmap (mesh_blender_shown), as NAME.mtl's map_Kd, or, when it has the banks' transparent key (palette
+ *                     index 255), from NAME.blender.<label>.png beside it: an RGBA copy with the key transparent, as map_Kd and
+ *                     map_d. The bank's PNGs and NAME.mtl are not touched.
  * An import overlays them on the original chunk and keeps its size: vertex, uv and polygon counts, corner
  * counts and every table length are the original's (moving vertices, changing uvs, textures and the other
  * fields is supported; adding or removing geometry is not yet). Float OBJ values are rounded to integers. */
@@ -25,6 +29,11 @@
 #include "formats/exchange.h"
 
 enum { MESH_BLENDER_UNITS = 130 };   /* mesh units a metre in NAME.blender.obj (car import's --scale 130) */
+
+/* fix/blender-preview: the bitmap a texture reference (its label and name, mesh.h's MeshTexture) shows in Blender: its own; for one with
+ * none that the car binds the tyre frames to (frntires, rertires: car_wheels.h), "tyr1", the first frame. NAME.blender.obj's uvs are 0..1
+ * of that bitmap and the raw import reads them back with the same, so the round trip keeps them. `shown` all zero: none */
+void mesh_blender_shown(const char label[8], const char name[4], char shown[4]);
 
 /* A texture bank a mesh can see, and the folder of its export relative to the mesh's (its map_Kd prefix). */
 typedef struct {
