@@ -2,7 +2,11 @@
  * race_records.dat (Restomod's; Stock and Restored read neither). A table is keyed as race_records.h's and by the car's id: a car's
  * times are ranked in its own table, by the original's routines, and one car never pushes another's out. On disk a car is its id; a row
  * keeps its car word 0, and the car's number is put back for the screens (an id with no piece loaded has none). A record is never
- * dropped because its car is not installed any more. */
+ * dropped because its car is not installed any more.
+ * port (dep59 step 4): the records by car, the stock cars' too (by their ids, formats/stock_content.h; a stock car's rows keep its number):
+ * every Restomod race writes its car's table as well as race_records.dat. The file is race_records_cars.dat; step 3's,
+ * race_records_added.dat, is read while there is no new one, and left as it was. The standard rows are copied in once
+ * (race_records_cars_import), and the file says so. The race_records_added_* names stay. */
 #ifndef TNFS_RACE_RECORDS_ADDED_H
 #define TNFS_RACE_RECORDS_ADDED_H
 
@@ -25,16 +29,24 @@ RecordRow *race_records_added_lap_make(int track, int layout, int cheats, const 
 /* the short name kept with a table, "" when there is none */
 const char *race_records_added_short_name(int track, int layout, int cheats, int laps, const char *id);
 
-/* The file's bytes (malloc'd): "TNFSRRA1", the tables' and the laps' counts (u32 LE), then each table (its key's four bytes, its id and
+/* The file's bytes (malloc'd): "TNFSRRA2", its flags (u32 LE: 1, the standard rows copied in), the tables' and the laps' counts (u32 LE), then each table (its key's four bytes, its id and
  * short name NUL-padded, the table as race_records.dat writes one) and each lap (key with laps 0, id, short name, the row), ascending
  * by key, then id as bytes. NULL without memory */
 uint8_t *race_records_added_image(size_t *size);
-/* the store made the file in `file` (emptied first): 1; 0, and the store empty, for anything that is not exactly a good file */
+/* the store made the file in `file` (emptied first): 1; 0, and the store empty, for anything that is not exactly a good file. Step 3's
+ * file (TNFSRRA1: no flags) is read too */
 int race_records_added_parse(const uint8_t *file, size_t size);
-/* drops every table and lap */
+/* drops every table and lap, and the flag below */
 void race_records_added_reset(void);
-/* <player folder>/race_records_added.dat into the store, as race_records_load does race_records.dat: a damaged one is kept as
- * race_records_added.bad (.bad2 ..) and the store starts empty; with no copy kept, or a file there that could not be read, saving stays
+/* port (dep59 step 4): the standard store's rows (race_records.h) copied into their cars' tables: each totals row, top speed, segment row
+ * and best lap whose car is a stock car's (0..7, the Warrior), after the rows there, with its marks; a table's best run's figures with its
+ * first row. A row of 8 PACK, 9 CLOCK or 10 CLASS stays only in the standard store, which is not changed. 1 copied (the flag then set);
+ * 0 the flag was set already. Nothing is saved */
+int race_records_cars_import(void);
+int race_records_cars_imported(void);
+void race_records_cars_set_imported(int on);
+/* <player folder>/race_records_cars.dat (race_records_added.dat when there is none) into the store, as race_records_load does
+ * race_records.dat: a damaged one is kept as race_records_cars.bad (race_records_added.bad; .bad2 ..) and the store starts empty; with no copy kept, or a file there that could not be read, saving stays
  * off for the session */
 RaceRecordsLoad race_records_added_load(void);
 bool race_records_added_save(void);

@@ -23,19 +23,21 @@ void records_glue_load(const uint8_t config_image[RECORD_CHECK_IMAGE])
 {
     if (loaded || !port_records_unified() || config_image == NULL) return;
     loaded = 1;
-    (void)race_records_added_load();   /* port (dep59): the added cars' (race_records_added.h), Restomod's too */
+    (void)race_records_added_load();   /* port (dep59): the records by car (race_records_added.h), Restomod's too */
     switch (race_records_load()) {
     case RACE_RECORDS_LOADED: break;
     case RACE_RECORDS_NO_FILE:
         if (platform_user_file_exists("race_records.dat")) {   /* there, but not read (locked, an I/O error): not made again over it */
             race_records_hold(1);
             port_log("records: race_records.dat could not be read; the records are not saved this session\n");
-            break;
+            return;   /* (nor copied into the records by car: they are copied once, from the whole file) */
         }
         records_import(config_image);
         break;
     case RACE_RECORDS_DAMAGED: records_import(config_image); break;   /* started again as on the first run (the damaged file's copy kept) */
     }
+    /* port (dep59 step 4): the standard rows into their cars' tables, once */
+    if (race_records_cars_import() && !race_records_added_save()) port_log("records: race_records_cars.dat could not be saved\n");
 }
 
 void records_glue_begin(const uint8_t config_image[RECORD_CHECK_IMAGE], int race_type, const uint8_t *races, int variant_m,

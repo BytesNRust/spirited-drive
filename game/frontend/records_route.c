@@ -1,6 +1,7 @@
 /* port: see records_route.h. */
 #include "game/frontend/records_route.h"
 
+#include "formats/stock_content.h"
 #include "game/race/car_registry.h"
 #include "game/race/difficulty.h"
 #include "game/race/weather_snow.h"
@@ -156,11 +157,49 @@ static void table_car_words(RecordTable *t, RecordRow *lap, int32_t car)
     if (lap != NULL) car_words(lap, car);
 }
 
-/* Restomod's: the race's table into a copy of the image's track block, the original's check on it, what it took back with the marks.
- * port (dep59): the table is the added car's own when the player drives one (race_records_added.h) */
-static int32_t route_unified(RaceKind kind, RouteOp op, uint8_t *image, const uint8_t *game, int32_t player, const int32_t *times)
+/* the original's check on a copy of the image whose track block holds `t` and `lap`, what it took back into them with `m`. The car word is
+ * the original's no-records car's for the Warrior (record_check's early return: its times are kept here, with its mark) and an added car
+ * (`car_zero`): the check runs as a car the original records (the car word is read by nothing else in the check) */
+static int32_t check_table(RouteOp op, const uint8_t *image, const uint8_t *game, int32_t player, const int32_t *times, int car_zero,
+                           RecordMarks m, RecordTable *t, RecordRow *lap)
 {
     static uint8_t scratch[RECORD_CHECK_IMAGE];
+    const int track = g16(image + TRACK);
+    memcpy(scratch, image, sizeof scratch);
+    uint8_t *const block = scratch + FIRST_BLOCK + BLOCK * track;
+    block_from(block, track, t, lap);
+    scratch[DIFFICULTY] = 0, scratch[DIFFICULTY + 1] = 0;
+    if (car_zero) scratch[CAR] = 0, scratch[CAR + 1] = 0;
+    const int32_t answer = original(op, scratch, game, player, times);
+    if (answer == nothing(op)) return answer;
+    const int segment_word = g16(image + SEGMENT);
+    block_to(block, track, op, answer, segment_word ? segment_word - 1 : 2, m, t, lap);
+    return answer;
+}
+
+/* port (dep59 step 4): a stock car's race into its car's own table too (race_records_added.h), ranked on its own; a car with no id (a
+ * records column that is no car) keeps nothing there */
+static void route_stock_car(RaceKind kind, RouteOp op, const uint8_t *image, const uint8_t *game, int32_t player, const int32_t *times)
+{
+    const int track = g16(image + TRACK), car = g16(image + CAR);
+    const char *const id = stock_car_id(car);
+    if (id == NULL) return;
+    const int cheats = records_has_cheats(kind), laps = records_race_laps(image);
+    RecordTable *const t = race_records_added_make(track, kind.layout, cheats, laps, id, NULL);
+    RecordRow *const lap = is_stage(track) ? NULL : race_records_added_lap_make(track, kind.layout, cheats, id, NULL);
+    if (t == NULL || (!is_stage(track) && lap == NULL)) {
+        port_log("records: no table of %s for track %d layout %d cheats %d laps %d\n", id, track, kind.layout, cheats, laps);
+        return;
+    }
+    if (check_table(op, image, game, player, times, car == WARRIOR, records_row_marks(kind), t, lap) != nothing(op) && !race_records_added_save())
+        port_log("records: race_records_cars.dat could not be saved\n");
+}
+
+/* Restomod's: the race's table into a copy of the image's track block, the original's check on it, what it took back with the marks.
+ * port (dep59): the table is the added car's own when the player drives one (race_records_added.h); a stock car's race goes to its own
+ * table too (dep59 step 4), and the answer is race_records.dat's */
+static int32_t route_unified(RaceKind kind, RouteOp op, uint8_t *image, const uint8_t *game, int32_t player, const int32_t *times)
+{
     const int track = g16(image + TRACK);
     if (op == ROUTE_SEGMENT && !is_stage(track)) return nothing(op);   /* (the exe checks segments on a stage only) */
     if (op == ROUTE_LAP && is_stage(track)) return nothing(op);
@@ -176,23 +215,15 @@ static int32_t route_unified(RaceKind kind, RouteOp op, uint8_t *image, const ui
         port_log("records: no table for track %d layout %d cheats %d laps %d\n", track, kind.layout, cheats, records_race_laps(image));
         return nothing(op);
     }
-    memcpy(scratch, image, sizeof scratch);
-    uint8_t *const block = scratch + FIRST_BLOCK + BLOCK * track;
-    block_from(block, track, t, lap);
-    scratch[DIFFICULTY] = 0, scratch[DIFFICULTY + 1] = 0;
-    /* record_check's early return is the original's no-records car: the Warrior's times are kept here, with its mark, so the check runs
-     * as a car the original records (the car word is read by nothing else in the check) */
-    if (g16(scratch + CAR) == WARRIOR || added != NULL) scratch[CAR] = 0, scratch[CAR + 1] = 0;
-    const int32_t answer = original(op, scratch, game, player, times);
-    if (answer == nothing(op)) return answer;
-    const int segment_word = g16(image + SEGMENT);
-    block_to(block, track, op, answer, segment_word ? segment_word - 1 : 2, records_row_marks(kind), t, lap);
-    if (added == NULL) {
-        if (!race_records_save()) port_log("records: race_records.dat could not be saved\n");
+    const int32_t answer = check_table(op, image, game, player, times, g16(image + CAR) == WARRIOR || added != NULL, records_row_marks(kind), t, lap);
+    if (added == NULL) {   /* race_records.dat as before, then the car's own table */
+        if (answer != nothing(op) && !race_records_save()) port_log("records: race_records.dat could not be saved\n");
+        route_stock_car(kind, op, image, game, player, times);
         return answer;
     }
+    if (answer == nothing(op)) return answer;
     table_car_words(t, lap, 0);
-    if (!race_records_added_save()) port_log("records: race_records_added.dat could not be saved\n");
+    if (!race_records_added_save()) port_log("records: race_records_cars.dat could not be saved\n");
     return answer;
 }
 

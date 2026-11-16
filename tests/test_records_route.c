@@ -124,6 +124,7 @@ static void unified(int on)
     setenv("TNFS_RECORDS_UNIFIED", on ? "1" : "0", 1);
     files_clear();
     race_records_reset();
+    race_records_added_reset();
     free_laps_set(0);
     reverse_track_set(0);
     race_records_lunar_set(0);
@@ -251,7 +252,7 @@ static void test_an_added_car_has_its_own_table(void)
     CHECK(race_records_added_lap_find(TR1, 0, 0, "f40") != NULL);
     CHECK(race_records_find(TR1, 0, 0, 8) == NULL && race_records_lap_find(TR1, 0, 0) == NULL);   /* the original store: nothing */
     CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
-    CHECK(slot_of("race_records_added.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0);
+    CHECK(slot_of("race_records_cars.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0);
     p32(r.game + TOTAL, 400);   /* a better time: first, the other second */
     CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
     CHECK(t != NULL && g32(t->totals[0].row + RECORD_ROW_TIME) == 400 && g32(t->totals[1].row + RECORD_ROW_TIME) == 500);
@@ -290,6 +291,61 @@ static void test_an_added_car_has_its_own_table(void)
     CHECK_EQ_INT(writes, 0);
     car_registry_race_set(0);
     car_registry_clear();
+}
+
+/* port (dep59 step 4): in Restomod a stock car's race keeps its rows in race_records.dat as before and in its car's own table too (by its
+ * id, formats/stock_content.h), each ranked on its own; the Warrior's in the cheats tables as its mark says; a records column that is no
+ * car (8, PACK) only in race_records.dat; Stock keeps none of it */
+/* a race on TR1 by the stock car `car` (the menus' and the race's car words alike) with a total of `total` */
+static void car_race(Race *r, int car, int total)
+{
+    race(r, TR1, car, 1, 99999, total);
+    p16(r->game + 0x53a, car), p16(r->game + 0x536, car);
+}
+
+static void test_a_stock_car_keeps_its_rows_by_car_too(void)
+{
+    unified(1);
+    static Race r;
+    car_race(&r, 5, 500);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOP, r.image, r.game, 0, NULL), 1);
+    const RecordTable *std = race_records_find(TR1, 0, 0, 8), *viper = race_records_added_find(TR1, 0, 0, 8, "viper");
+    CHECK(std != NULL && g32(std->totals[0].row + RECORD_ROW_TIME) == 500);
+    CHECK(viper != NULL && g32(viper->totals[0].row + RECORD_ROW_TIME) == 500);
+    CHECK(viper != NULL && row_word(&viper->totals[0], RECORD_ROW_CAR) == 5);   /* a stock car's rows keep its number */
+    CHECK(viper != NULL && race_records_row_set(&viper->top));
+    CHECK(race_records_added_lap_find(TR1, 0, 0, "viper") != NULL && race_records_lap_find(TR1, 0, 0) != NULL);
+    CHECK(slot_of("race_records.dat", 0) >= 0 && slot_of("race_records_cars.dat", 0) >= 0);
+    /* another car's better time: first in race_records.dat, alone in its own table; the viper's table does not see it */
+    car_race(&r, 0, 400);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK(g32(std->totals[0].row + RECORD_ROW_TIME) == 400 && g32(std->totals[1].row + RECORD_ROW_TIME) == 500);
+    const RecordTable *rx7 = race_records_added_find(TR1, 0, 0, 8, "rx7");
+    CHECK(rx7 != NULL && g32(rx7->totals[0].row + RECORD_ROW_TIME) == 400 && !race_records_row_set(&rx7->totals[1]));
+    CHECK(viper != NULL && g32(viper->totals[0].row + RECORD_ROW_TIME) == 500 && !race_records_row_set(&viper->totals[1]));
+    /* a slower viper: second in both of its tables, and the answer is race_records.dat's place */
+    car_race(&r, 5, 600);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 2);
+    CHECK(viper != NULL && g32(viper->totals[1].row + RECORD_ROW_TIME) == 600);
+    /* the Warrior: the cheats tables, by its id */
+    car_race(&r, WARRIOR, 300);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    const RecordTable *warrior = race_records_added_find(TR1, 0, 1, 8, "warrior");
+    CHECK(warrior != NULL && g32(warrior->totals[0].row + RECORD_ROW_TIME) == 300 && warrior->totals[0].marks.cheats == EXTRAS_MARK_WARRIOR);
+    CHECK(race_records_added_find(TR1, 0, 0, 8, "warrior") == NULL);
+    /* no car of the store's: race_records.dat only */
+    car_race(&r, 8, 100);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK(g32(std->totals[0].row + RECORD_ROW_TIME) == 100);
+    CHECK(g32(rx7->totals[0].row + RECORD_ROW_TIME) == 400 && g32(viper->totals[0].row + RECORD_ROW_TIME) == 500);
+    /* Stock: config.dat's image as the exe would, and no file */
+    unified(0);
+    car_race(&r, 5, 500);
+    (void)records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES);
+    CHECK_EQ_INT(writes, 0);
+    CHECK(race_records_added_find(TR1, 0, 0, 8, "viper") == NULL);
 }
 
 /* Restomod's: all eight layouts, with and without cheats, are sixteen tables; config.dat's image is not touched */
@@ -531,6 +587,7 @@ int main(void)
     test_the_originals_free_race();
     test_the_originals_keep_no_race_it_could_not_run();
     test_an_added_car_has_its_own_table();
+    test_a_stock_car_keeps_its_rows_by_car_too();
     test_every_layout_and_cheats_is_its_own_table();
     test_rows_keep_their_marks();
     test_the_warrior_and_the_moon_are_cheats();

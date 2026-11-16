@@ -1,7 +1,11 @@
-/* dep59 1b: the records of added cars (game/sys/race_records_added.h), a store of its own beside race_records.dat: a table per key and car
+/* dep59 1b: the records by car (game/sys/race_records_added.h), a store of its own beside race_records.dat: a table per key and car
  * id, so the original's ranking runs in each car's table; its file read back byte for byte, anything that is not exactly a good file
- * refused, a damaged one set aside as race_records_added.bad. */
+ * refused, a damaged one set aside as race_records_cars.bad.
+ * dep59 step 4: the stock cars' ids too (formats/stock_content.h); the file is race_records_cars.dat (TNFSRRA2, with the flag that the
+ * standard rows were copied in), and the step-3 file, race_records_added.dat (TNFSRRA1), is read when there is no new one; the standard
+ * store's rows go to their cars' tables once (race_records_cars_import). */
 #include "game/sys/race_records_added.h"
+#include "game/sys/race_records.h"
 #include "game/sys/race_records_io.h"
 #include "test.h"
 
@@ -70,14 +74,14 @@ static int32_t time_of(const RecordRow *r)
     return t;
 }
 
-enum { TR1 = 3, HEADER = 16 };
+enum { TR1 = 3, HEADER = 20 };
 
 static void test_empty(void)
 {
     race_records_added_reset();
     size_t size = 0;
     uint8_t *img = race_records_added_image(&size);
-    CHECK(img != NULL && size == HEADER && memcmp(img, "TNFSRRA1", 8) == 0);
+    CHECK(img != NULL && size == HEADER && memcmp(img, "TNFSRRA2", 8) == 0);
     CHECK_EQ_INT(race_records_added_parse(img, size), 1);
     free(img);
 }
@@ -151,7 +155,8 @@ static int parse_edited(void (*edit)(uint8_t *img, size_t *size))
 }
 
 enum { TABLE_ENTRY = 4 + 33 + 9 + RACE_RECORDS_TABLE_BYTES };   /* key, id, short name, the table */
-static void bad_magic(uint8_t *img, size_t *size) { (void)size, img[7] = '2'; }
+static void bad_magic(uint8_t *img, size_t *size) { (void)size, img[7] = '3'; }
+static void bad_flags(uint8_t *img, size_t *size) { (void)size, img[8] = 2; }   /* a flag this version does not know */
 static void one_short(uint8_t *img, size_t *size) { (void)img, (*size)--; }
 static void one_more(uint8_t *img, size_t *size) { img[*size] = 0, (*size)++; }
 static void swapped(uint8_t *img, size_t *size)   /* the first two tables, (TR1 f40) and (TR1 alpine) sorted as alpine then f40, swapped */
@@ -172,7 +177,7 @@ static void lap_with_laps(uint8_t *img, size_t *size) { img[*size - (4 + 33 + 9 
 
 static void test_parse_refuses(void)
 {
-    void (*const BAD[])(uint8_t *, size_t *) = { bad_magic, one_short, one_more, swapped, twice, track_9, layout_8, id_no_nul, id_capital,
+    void (*const BAD[])(uint8_t *, size_t *) = { bad_magic, bad_flags, one_short, one_more, swapped, twice, track_9, layout_8, id_no_nul, id_capital,
                                                  short_no_nul, lap_with_laps };
     for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) {
         if (parse_edited(BAD[i]) != 0) fprintf(stderr, "bad image %zu parsed\n", i);
@@ -188,10 +193,10 @@ static void test_a_damaged_file_is_set_aside(void)
     CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_NO_FILE);
     size_t size = 0;
     uint8_t *img = two_tables_and_a_lap(&size);
-    CHECK(platform_write_user_file("race_records_added.dat", img, size - 5));   /* truncated */
+    CHECK(platform_write_user_file("race_records_cars.dat", img, size - 5));   /* truncated */
     free(img);
     CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_DAMAGED);
-    CHECK(platform_user_file_exists("race_records_added.bad"));
+    CHECK(platform_user_file_exists("race_records_cars.bad"));
     CHECK(race_records_added_find(TR1, 0, 0, 4, "f40") == NULL);
     set_time(&race_records_added_make(TR1, 0, 0, 4, "f40", "F40")->totals[0], 777);
     CHECK(race_records_added_save());
@@ -201,6 +206,146 @@ static void test_a_damaged_file_is_set_aside(void)
     CHECK(!platform_user_file_exists("race_records.dat"));   /* the original store's file is not this one's */
 }
 
+/* the image of the store in step 3's file (TNFSRRA1: no flags) */
+static uint8_t *as_v1(const uint8_t *img, size_t size, size_t *v1_size)
+{
+    *v1_size = size - 4;
+    uint8_t *v1 = malloc(*v1_size);
+    memcpy(v1, "TNFSRRA1", 8);
+    memcpy(v1 + 8, img + 12, size - 12);
+    return v1;
+}
+
+static void test_the_step_3_file_is_read(void)
+{
+    size_t size = 0, v1_size = 0;
+    uint8_t *img = two_tables_and_a_lap(&size);
+    uint8_t *v1 = as_v1(img, size, &v1_size);
+    CHECK_EQ_INT(race_records_added_parse(v1, v1_size), 1);
+    CHECK_EQ_INT(time_of(&race_records_added_find(TR1, 0, 0, 4, "f40")->totals[0]), 1234);
+    CHECK_EQ_INT(race_records_cars_imported(), 0);
+    /* in a file of its own, with no new one: read, and saved as the new one (the old one left as it was) */
+    files_clear();
+    CHECK(platform_write_user_file("race_records_added.dat", v1, v1_size));
+    race_records_added_reset();
+    CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_LOADED);
+    CHECK_EQ_INT(time_of(race_records_added_lap_find(TR1, 1, 0, "f40")), 4321);
+    CHECK(race_records_added_save());
+    CHECK(platform_user_file_exists("race_records_cars.dat"));
+    const int old = slot_of("race_records_added.dat", 0);
+    CHECK(old >= 0 && files[old].size == v1_size && memcmp(files[old].data, v1, v1_size) == 0);
+    /* the new one there: the old one is not read any more */
+    race_records_added_reset();
+    set_time(&race_records_added_make(TR1, 0, 0, 4, "f40", "F40")->totals[0], 55);
+    CHECK(race_records_added_save());
+    race_records_added_reset();
+    CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_LOADED);
+    CHECK_EQ_INT(time_of(&race_records_added_find(TR1, 0, 0, 4, "f40")->totals[0]), 55);
+    CHECK(race_records_added_lap_find(TR1, 1, 0, "f40") == NULL);
+    /* a damaged old one with no new one is set aside under its own name */
+    files_clear();
+    CHECK(platform_write_user_file("race_records_added.dat", v1, v1_size - 3));
+    CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_DAMAGED);
+    CHECK(platform_user_file_exists("race_records_added.bad"));
+    free(v1);
+    free(img);
+}
+
+static void test_the_imported_flag_is_kept(void)
+{
+    race_records_added_reset();
+    CHECK_EQ_INT(race_records_cars_imported(), 0);
+    race_records_cars_set_imported(1);
+    size_t size = 0;
+    uint8_t *img = race_records_added_image(&size);
+    CHECK(img != NULL && img[8] == 1);
+    race_records_added_reset();
+    CHECK_EQ_INT(race_records_cars_imported(), 0);
+    CHECK_EQ_INT(race_records_added_parse(img, size), 1);
+    CHECK_EQ_INT(race_records_cars_imported(), 1);
+    free(img);
+}
+
+static void test_the_stock_cars_have_tables(void)
+{
+    race_records_added_reset();
+    CHECK(race_records_added_make(TR1, 0, 0, 4, "rx7", NULL) != NULL);
+    CHECK(race_records_added_make(TR1, 0, 1, 4, "warrior", NULL) != NULL);
+    CHECK(race_records_added_make(TR1, 0, 0, 4, "911", NULL) != NULL);
+    CHECK(race_records_added_lap_make(TR1, 0, 0, "512tr", NULL) != NULL);
+}
+
+static void set_car(RecordRow *r, int32_t car)
+{
+    memcpy(r->row + RECORD_ROW_CAR, &car, 4);
+    memcpy(r->row + RECORD_ROW_CAR_B, &car, 4);
+}
+
+/* a standard table's row at `i`: its time and car */
+static void standard_row(RecordTable *t, int i, int32_t time, int32_t car)
+{
+    set_time(&t->totals[i], time);
+    set_car(&t->totals[i], car);
+    t->totals[i].marks.cheats = (uint8_t)(i + 1);
+}
+
+static void test_the_standard_rows_are_copied_once(void)
+{
+    files_clear();
+    race_records_reset();
+    race_records_added_reset();
+    RecordTable *t = race_records_make(TR1, 0, 0, 4);
+    standard_row(t, 0, 100, 0);    /* rx7 */
+    standard_row(t, 1, 200, 5);    /* viper */
+    standard_row(t, 2, 300, 8);    /* PACK: no car of the store's */
+    standard_row(t, 3, 400, 11);   /* warrior */
+    standard_row(t, 4, 500, 0);    /* rx7 again */
+    set_time(&t->top, 9), set_car(&t->top, 5);
+    RecordRow *lap = race_records_lap_make(TR1, 0, 0);
+    set_time(lap, 77), set_car(lap, 2);
+    RecordTable *stage = race_records_make(0, LAYOUT_MIRROR, 1, 0);
+    standard_row(stage, 0, 1000, 6);
+    set_time(&stage->segment_time[1], 333), set_car(&stage->segment_time[1], 7);
+    stage->stage_totals[0] = 11, stage->stage_speeds[2] = 22;   /* the best run's, whose car is 512tr's */
+    CHECK(race_records_save());
+    const int std = slot_of("race_records.dat", 0);
+    CHECK(std >= 0);
+    const size_t std_size = files[std].size;
+    uint8_t *std_before = malloc(std_size);
+    memcpy(std_before, files[std].data, std_size);
+
+    CHECK_EQ_INT(race_records_cars_import(), 1);
+    CHECK_EQ_INT(race_records_cars_imported(), 1);
+    const RecordTable *rx7 = race_records_added_find(TR1, 0, 0, 4, "rx7");
+    CHECK(rx7 != NULL && time_of(&rx7->totals[0]) == 100 && time_of(&rx7->totals[1]) == 500 && !race_records_row_set(&rx7->totals[2]));
+    CHECK(rx7 != NULL && rx7->totals[1].marks.cheats == 5);   /* its marks kept */
+    const RecordTable *viper = race_records_added_find(TR1, 0, 0, 4, "viper");
+    CHECK(viper != NULL && time_of(&viper->totals[0]) == 200 && time_of(&viper->top) == 9);
+    CHECK(rx7 != NULL && !race_records_row_set(&rx7->top));
+    const RecordTable *warrior = race_records_added_find(TR1, 0, 0, 4, "warrior");
+    CHECK(warrior != NULL && time_of(&warrior->totals[0]) == 400);
+    CHECK(race_records_added_lap_find(TR1, 0, 0, "supra") != NULL && time_of(race_records_added_lap_find(TR1, 0, 0, "supra")) == 77);
+    CHECK(race_records_added_lap_find(TR1, 0, 0, "rx7") == NULL);
+    const RecordTable *tr512 = race_records_added_find(0, LAYOUT_MIRROR, 1, 0, "512tr");
+    CHECK(tr512 != NULL && time_of(&tr512->totals[0]) == 1000 && tr512->stage_totals[0] == 11 && tr512->stage_speeds[2] == 22);
+    const RecordTable *diablo = race_records_added_find(0, LAYOUT_MIRROR, 1, 0, "diablo");
+    CHECK(diablo != NULL && time_of(&diablo->segment_time[1]) == 333 && !race_records_row_set(&diablo->totals[0]));
+    CHECK(diablo != NULL && diablo->stage_totals[0] == 0);   /* not its best run */
+    /* the standard store, and its file, as they were */
+    CHECK(race_records_save());
+    CHECK(files[std].size == std_size && memcmp(files[std].data, std_before, std_size) == 0);
+    CHECK(time_of(&race_records_find(TR1, 0, 0, 4)->totals[2]) == 300);
+    /* saved with the flag: a second time copies nothing */
+    CHECK(race_records_added_save());
+    race_records_added_reset();
+    CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_LOADED);
+    CHECK_EQ_INT(race_records_cars_import(), 0);
+    rx7 = race_records_added_find(TR1, 0, 0, 4, "rx7");
+    CHECK(rx7 != NULL && time_of(&rx7->totals[1]) == 500 && !race_records_row_set(&rx7->totals[2]));
+    free(std_before);
+    race_records_reset();
+}
+
 int main(void)
 {
     test_empty();
@@ -208,6 +353,10 @@ int main(void)
     test_there_and_back();
     test_parse_refuses();
     test_a_damaged_file_is_set_aside();
+    test_the_step_3_file_is_read();
+    test_the_imported_flag_is_kept();
+    test_the_stock_cars_have_tables();
+    test_the_standard_rows_are_copied_once();
     files_clear();
     race_records_added_reset();
     return TEST_REPORT();
