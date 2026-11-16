@@ -2,6 +2,7 @@
 
 #include "game/frontend/file_list.h"
 #include "game/frontend/replay_label.h"
+#include "game/sys/port_log.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -408,6 +409,14 @@ int32_t game_list_screen(int32_t mode, GameListState *st, const GameListOps *ops
     if (l.count > 0 && l.item == CANCEL) l.item = l.was = 1;   /* ... the first lit when they are the only ones */
     if (l.mode == GAME_LIST_DELETE_REPLAY) file_list_drop_replays(st->names, &l.count);
     added_status(&l, st, ops);
+    /* port (test harness): the list as it opens, and each row's words in a verbose log only (the player's own file names), for a walk
+     * to check (tests/car_card_menus.sh) */
+    port_log("mark:screen=game_list\n");
+    for (int16_t i = 0; i < l.count; i++) {
+        char text[TEXT];
+        row_text(&l, name_at(st, i), i, text, sizeof text);
+        port_log_detail("mark:list_row=%s\n", text);
+    }
     /* the saved game's or the replay's name lit, the page scrolled to it */
     for (int16_t i = 0; i < l.count; i++) {
         char want[GAME_LIST_PATH];
