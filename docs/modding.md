@@ -70,7 +70,16 @@ says which one is in use (docs/settings.md). Without it the game is the standard
   then, or whose file is missing or damaged, is not used: the standard edition is, and the log says why.
 * The folders the game reads are `--mods DIR`, then the edition's tweaks in their order, then its added cars.
 
-Control Central's car arrows and its head to head rival's step through the edition's `cars` in its order; the Warrior is there only when the edition lists it, and a car it does not list (one picked before) becomes its first car. The standard edition's arrows are the original's: the eight race cars, and the Warrior when it is on offer. What an edition changes in the track menus, its records and its unlocks comes with the rest of dep59 step 4.
+Control Central's car arrows and its head to head rival's step through the edition's `cars` in its order; the Warrior is there only when the edition lists it, and a car it does not list (one picked before) becomes its first car. The standard edition's arrows are the original's: the eight race cars, and the Warrior when it is on offer. What an edition changes in the track menus and its records comes with the rest of dep59 step 4.
+
+An edition unlocks everything itself, whatever the unlock level and the cheat codes say: the mirror, the rally and the way round, Lost
+Vegas, the Warrior when `cars` lists it, and Lunar Springs when `tracks` lists `rusty`. Its unlock level is 2 and is never written, and
+Customize Game shows the rows it decides dimmed, with the reason. The codes that unlock (SKCART, EARALLYE, CASINOVILLE, CONCEPTCAR,
+ROCKYROAD) do nothing in it; NITRO, EXPLODE and TURBO work as always.
+
+* Tournament needs the stock cars and tracks: an edition whose `cars` and `tracks` are the eight race cars and the eight tracks (in any
+  order, the Warrior, `vegas` and `hidden` allowed too) has the tournament; any other, and Control Central's race type arrows pass it.
+* Multiplayer needs the standard edition: in an edition Game Mode shows it dimmed, and choosing it says so.
 
 One behaviour is **temporary**:
 

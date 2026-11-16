@@ -44,6 +44,19 @@ typedef struct {
  * player's own choice and are not touched, and neither are the other flags. Idempotent. */
 void extras_settle(const PortExtras *e, int level, const ExtrasFlags *f, ExtrasSession *s);
 
+/* port (dep59 step 4): what is expected on besides the switches: the mirror's and the rally's unlocks, the Warrior, and Lost Vegas kept
+ * (without it, and with no CASINOVILLE typed, Lost Vegas is taken off). The level's (extras_expect_level: 1 the mirror, the Warrior and
+ * Lost Vegas, 2 the rally too), or an edition's (edition_rules.h). */
+typedef struct {
+    int m, r, warrior, vegas;
+} ExtrasExpect;
+ExtrasExpect extras_expect_level(int level);
+/* extras_settle with the expectation given: extras_settle(e, level, ...) is extras_settle_to(e, extras_expect_level(level), ...) */
+void extras_settle_to(const PortExtras *e, ExtrasExpect want, const ExtrasFlags *f, ExtrasSession *s);
+/* port (dep59 step 4): a new session, when the edition in use changes: nothing typed any more, and what is on now counts as expected
+ * the time before, so the next settle takes off what the new edition (or level) does not give */
+void extras_session_restart(const ExtrasFlags *f, ExtrasSession *s);
+
 /* After a cheat code has been typed into the flags: what the screen should now show. The switches the flags do
  * not own (the cameras, the Warrior as a rival, the movies, the aids, the start screen) are kept as they were. */
 PortExtras extras_from_flags(const PortExtras *e, const ExtrasFlags *f);

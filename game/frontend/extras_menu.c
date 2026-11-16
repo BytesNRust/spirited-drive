@@ -10,7 +10,9 @@
  * selected, and a click acts on what is under the pointer alone. The first key with nothing selected brings the
  * selection to the page's first row and does nothing else, so a key never changes a row the player could not see. */
 #include "game/frontend/extras_menu.h"
+#include "game/frontend/edition_rules.h"
 #include "game/frontend/page_arrows.h"
+#include "game/frontend/unlock_level.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
 
@@ -133,9 +135,29 @@ static int lunar_below_level(PortExtras *e, int16_t unlock, int page, int row)
     return page == 0 && unlock < 2 && flag_of(e, page, row) == &e->lunar_springs;
 }
 
+/* port (dep59 step 4): an edition of the player's own decides the unlocks itself (edition_rules.h): the level (2), the Warrior as the
+ * player's car and as the rival (by cars=), and Lunar Springs Track without rusty are held, dimmed with the reason; 1 and the value in
+ * `out` (NULL: only the answer). The level holds nothing there. */
+static int held_by_edition(const ExtrasMenuOps *o, int page, int row, char out[16])
+{
+    char scratch[16];
+    char *const v = out != NULL ? out : scratch;
+    if (o->edition == NULL || page != 0) return 0;
+    if (row == ROW_UNLOCK) return snprintf(v, 16, "%d (edition)", UNLOCK_LEVEL_EDITION), 1;
+    if (row == ROW_WARRIOR || row == ROW_RIVAL) return snprintf(v, 16, "%s (edition)", edition_unlocks(o->edition).warrior ? "On" : "Off"), 1;
+    if (row == ROW_LUNAR && !edition_lunar_springs(o->edition)) return snprintf(v, 16, "Off (no Rusty)"), 1;
+    return 0;
+}
+
 static int fixed_by_level(PortExtras *e, int16_t unlock, int page, int row)
 {
     return warrior_by_level(e, unlock, page, row) || lunar_below_level(e, unlock, page, row);
+}
+
+/* held by the edition or, in the standard one, by the level */
+static int fixed_by_unlocks(const ExtrasMenuOps *o, PortExtras *e, int16_t unlock, int page, int row)
+{
+    return o->edition != NULL ? held_by_edition(o, page, row, NULL) : fixed_by_level(e, unlock, page, row);
 }
 
 /* port (modes): the mode does not leave the row free: dimmed, its value the mode's */
@@ -282,7 +304,7 @@ static void change(Page *p, PortExtras *e, int16_t *unlock, int step, const Extr
 {
     int *const flag = flag_of(e, p->page, p->selected);
     if (p->page == 2 && (p->selected == log_row() || p->selected == star_row() || p->selected == reset_row())) return;   /* an action: only Return, Space or a click run it (choose) */
-    if (fixed_by_level(e, *unlock, p->page, p->selected) || fixed_by_mode(o, p->page, p->selected)) {
+    if (fixed_by_unlocks(o, e, *unlock, p->page, p->selected) || fixed_by_mode(o, p->page, p->selected)) {
         o->sound(o->ctx, MOVED);   /* the level or the mode holds it: nothing to change */
         return;
     }
@@ -428,10 +450,10 @@ static void draw_rows(Page *p, PortExtras *e, int16_t unlock, const ExtrasMenuOp
     for (int row = 0; row < rows_of(p->page); row++) {
         char v[16];
         const int lit = p->selected == row;
-        value(e, unlock, p->page, row, v);
+        if (!held_by_edition(o, p->page, row, v)) value(e, unlock, p->page, row, v);
         if (p->page == 2 && row == reset_row() && p->confirming) snprintf(v, sizeof v, "Return again");
         const int y = line_y(p->page, line_of(p->page, row));
-        const int held = fixed_by_level(e, unlock, p->page, row) || fixed_by_mode(o, p->page, row);
+        const int held = fixed_by_unlocks(o, e, unlock, p->page, row) || fixed_by_mode(o, p->page, row);
         text(o, lit ? STYLE_YELLOW : held ? STYLE_DIM : STYLE_CREAM, LABEL[first_of(p->page) + row], LABEL_X, y);
         if (held) text(o, lit ? STYLE_YELLOW : STYLE_DIM, v, VALUE_RIGHT - o->plus_text_width(o->ctx, v), y);
         else text_right(o, lit, v, VALUE_RIGHT, y);

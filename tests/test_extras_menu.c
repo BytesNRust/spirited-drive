@@ -2,6 +2,9 @@
  * are exercised with fake ops and a key script, the same shape as test_graphics_plus.c. */
 #include "extras_rig.h"
 
+#include <stdio.h>
+#include <string.h>
+
 /* Mirror, Rally and Lost Vegas are no rows: they come from the Unlock Level, as in the exe */
 static void test_no_variant_rows(void)
 {
@@ -741,8 +744,69 @@ static void test_extras_has_a_star_us_row(void)
     CHECK_EQ_INT(ROW_RESET, ROW_STAR + 1);
 }
 
+static Edition edition_of(const char *cars, const char *tracks)
+{
+    Edition e;
+    memset(&e, 0, sizeof e);
+    snprintf(e.name, sizeof e.name, "Own");
+    char list[256];
+    snprintf(list, sizeof list, "%s", cars);
+    for (char *id = strtok(list, ","); id != NULL; id = strtok(NULL, ",")) snprintf(e.car[e.cars++], sizeof e.car[0], "%s", id);
+    snprintf(list, sizeof list, "%s", tracks);
+    for (char *id = strtok(list, ","); id != NULL; id = strtok(NULL, ",")) snprintf(e.track[e.tracks++], sizeof e.track[0], "%s", id);
+    return e;
+}
+
+/* one row's value after a toggle tried on it, in `edition`: the row held (dimmed, `shows`) and nothing changed in what Done saves */
+static void check_held(const Edition *edition, int row, const char *shows, int16_t level)
+{
+    Rig r;
+    int keys[48] = {0};
+    int n = keys_to_row(keys, row);
+    keys[n++] = ENTER;
+    n = downs(keys, n, downs_to_done(row));
+    keys[n++] = ENTER;
+    setup(&r);
+    r.unlock = level;
+    r.edition = edition;
+    const PortExtras before = r.e;
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.saves, 1);
+    CHECK(memcmp(&r.fake.saved, &before, sizeof before) == 0);
+    CHECK_EQ_INT(r.fake.saved_unlock, level);
+    CHECK(shown(&r.fake, shows));
+    CHECK_EQ_INT(style_in(&r.fake, shows), STYLE_DIM);
+}
+
+/* dep59 step 4, T7: in an edition of the player's own the rows it decides are held, dimmed with the reason: the level (2), the Warrior as
+ * the player's car and as the rival (by cars=), Lunar Springs Track without rusty; with rusty, and Lunar Gravity, are the player's */
+static void test_an_edition_holds_its_unlock_rows(void)
+{
+    static Edition plain, warrior;
+    plain = edition_of("rx7", "city,coastal");
+    warrior = edition_of("rx7,warrior", "city,rusty");
+    check_held(&plain, ROW_UNLOCK, "2 (edition)", 2);
+    check_held(&plain, ROW_WARRIOR, "Off (edition)", 2);
+    check_held(&plain, ROW_RIVAL, "Off (edition)", 2);
+    check_held(&warrior, ROW_WARRIOR, "On (edition)", 2);
+    check_held(&plain, ROW_LUNAR, "Off (no Rusty)", 2);
+    Rig r;
+    int keys[48] = {0};
+    int n = keys_to_row(keys, ROW_LUNAR);
+    keys[n++] = ENTER;
+    n = downs(keys, n, downs_to_done(ROW_LUNAR));
+    keys[n++] = ENTER;
+    setup(&r);
+    r.unlock = 2;
+    r.edition = &warrior;
+    run(&r, keys, n);
+    CHECK_EQ_INT(r.fake.saved.lunar_springs, 1);   /* rusty listed: the player's switch */
+    CHECK(!shown(&r.fake, "On (level)"));   /* the level holds nothing in an edition */
+}
+
 int main(void)
 {
+    test_an_edition_holds_its_unlock_rows();
     test_check_for_updates_switch();
     test_no_variant_rows();
     test_the_radar_row_name();

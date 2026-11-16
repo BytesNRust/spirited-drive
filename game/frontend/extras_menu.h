@@ -6,6 +6,7 @@
 #ifndef TNFS_EXTRAS_MENU_H
 #define TNFS_EXTRAS_MENU_H
 
+#include "formats/edition_ini.h"
 #include "game/sys/port_extras.h"
 
 #include <stdint.h>
@@ -135,6 +136,9 @@ typedef struct ExtrasMenuOps {
     /* port: the Star us on GitHub row's action, run as the log folder's is (Return, Space or a click, not the arrows): the project's page in the player's
      * browser. NULL: the row does nothing. */
     void (*open_repo)(void *ctx);
+    /* port (dep59 step 4): the edition in use, NULL the standard one: its rows the edition decides are held, dimmed with the reason
+     * (edition_rules.h) */
+    const Edition *edition;
 } ExtrasMenuOps;
 
 /* The two pages, run sequentially over the screen's live picture. 1 on Done (extras_save was called),

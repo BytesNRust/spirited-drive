@@ -38,6 +38,9 @@ typedef struct CentralRun {
     uint8_t palette[0x300];  /* esp+0 */
 } CentralRun;
 
+/* port (dep59 step 4): the edition in use (ControlCentralState.edition), NULL for the standard one */
+const Edition *central_edition_of(const ControlCentralState *st);
+
 /* the pointer's places, by item (004baed0, 004baee4) */
 extern const int16_t CENTRAL_X[CC_ITEMS], CENTRAL_Y[CC_ITEMS];
 /* a tournament's car by track (004baef8) */

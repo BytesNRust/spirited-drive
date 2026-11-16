@@ -2,6 +2,8 @@
  * helpers 00432720/00432974 (race type), 00432c40/00432d48/00432cd4 (track),
  * 00465ec8 (car flags) and the per-panel arrow handling. */
 #include "game/frontend/race_settings.h"
+#include "game/frontend/config_dat.h"
+#include "game/frontend/tournament.h"
 #include "game/race/car_registry.h"
 #include "test.h"
 
@@ -164,9 +166,36 @@ static void test_added_car_flags(void)
     car_registry_clear();
 }
 
+static int never_asked(int german, void *ctx) { (void)german, (void)ctx; return 0; }
+
+/* dep59 step 4, T7: an edition that closes the tournament (FrontendSession.no_tournament): Control Central's race type arrows pass it both
+ * ways, and leave nothing of it behind (the car, the difficulty); without it, as the exe */
+static void test_the_arrows_pass_a_closed_tournament(void)
+{
+    enum { LEFT = 0x4b00, RIGHT = 0x4d00 };
+    static uint8_t state[GAME_STATE_SIZE];
+    static ConfigDat config;
+    RaceSettings s;
+    race_settings_init(&s);
+    Unlocks u = { 0, 0, 0, 0, 0 };
+    FrontendSession f = { 0 };
+    f.no_tournament = 1;
+    s.race_type = RACE_SINGLE, s.player_car = 5, s.difficulty = 2;
+    race_settings_type_step(&s, &u, &f, state, &config, RIGHT, never_asked, NULL);
+    CHECK_EQ_INT(s.race_type, RACE_TIME_TRIAL);
+    CHECK_EQ_INT(s.player_car, 5);
+    CHECK_EQ_INT(s.difficulty, 2);
+    race_settings_type_step(&s, &u, &f, state, &config, LEFT, never_asked, NULL);
+    CHECK_EQ_INT(s.race_type, RACE_SINGLE);
+    f.no_tournament = 0;
+    race_settings_type_step(&s, &u, &f, state, &config, RIGHT, never_asked, NULL);
+    CHECK_EQ_INT(s.race_type, RACE_TOURNAMENT);
+}
+
 int main(void)
 {
     test_init();
+    test_the_arrows_pass_a_closed_tournament();
     test_race_type_cycle();
     test_tournament_sets_car_class();
     test_player_car();

@@ -59,6 +59,11 @@ bool platform_user_file_exists(const char *name)
     return data != NULL;
 }
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path, (void)size; return NULL; }
+/* edition_file.c's (dep59 step 4): no player folder here, so no edition is in use */
+bool platform_user_dir(char *out, size_t out_size) { (void)out, (void)out_size; return false; }
+char **platform_list_files(const char *dir, const char *pattern, int *count) { (void)dir, (void)pattern, *count = 0; return NULL; }
+void platform_free_names(char **names) { (void)names; }
+uint8_t *platform_user_read_file_at(const char *rel, size_t *size) { return platform_read_user_file(rel, size); }
 
 static const char *file_text(const char *name)
 {
@@ -169,7 +174,7 @@ static void test_lunar_or_desert(void)
     on.lunar_springs = 1, on.lunar_gravity = LUNAR_GRAVITY_SPRINGS;
     char fam[256];
     for (int level = 0; level <= 2; level++) {
-        const PortExtras g = unlock_level_gate(on, level);
+        const PortExtras g = unlock_level_gate(on, level, NULL);
         CHECK_EQ_INT(g.lunar_springs, level == 2);
         CHECK_EQ_INT(g.lunar_gravity, LUNAR_GRAVITY_SPRINGS);   /* the rest as it was */
         CHECK_EQ_INT(lunar_springs_fam("/cd", LUNAR_TRACK_RUSTY, 1, g.lunar_springs, fam, sizeof fam), level == 2);
@@ -177,7 +182,7 @@ static void test_lunar_or_desert(void)
     }
     PortExtras off = on;
     off.lunar_springs = 0;
-    CHECK_EQ_INT(lunar_springs_fam("/cd", LUNAR_TRACK_RUSTY, 1, unlock_level_gate(off, 2).lunar_springs, fam, sizeof fam), 0);
+    CHECK_EQ_INT(lunar_springs_fam("/cd", LUNAR_TRACK_RUSTY, 1, unlock_level_gate(off, 2, NULL).lunar_springs, fam, sizeof fam), 0);
     /* in Restomod the mode's own level gates the file's switch, read live */
     static ConfigDat c;
     fresh(&c);

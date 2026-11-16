@@ -5,6 +5,7 @@
 #include "game/sys/edition_file.h"
 #include "game/sys/car_looks.h"
 #include "game/sys/text.h"
+#include "game/frontend/edition_rules.h"
 #include "game/frontend/unlock_level.h"
 #include "game/frontend/variant_rule.h"
 #include "game/frontend/tournament_variants.h"
@@ -69,10 +70,15 @@ void cg_unlocks_put(const Unlocks *u)
     cg_g.warrior = (int16_t)u->warrior;
 }
 
+static Edition central_edition;   /* port (dep59 step 4): ControlCentralState.edition, read again with the switches (cg_extras_apply) */
+
+/* port (dep59 step 4): 1 when the edition in use closes the tournament (edition_rules.h) */
+static int tournament_closed(void) { return central_edition.cars > 0 && !edition_gate(&central_edition).tournament; }
+
 static FrontendSession session_of(void)
 {
     FrontendSession f = { cg_g.unlock_level, cg_g.vegas_cheat, menu_words.link_game, cg_g.net_self, cg_g.net_player,
-                          menu_words.intro_seen, cg_g.nomercy, { 0 }, cg_g.tournament, resource_german(), 0 };
+                          menu_words.intro_seen, cg_g.nomercy, { 0 }, cg_g.tournament, resource_german(), 0, tournament_closed() };
     for (int i = 0; i < 6; i++) f.unknown_4bafb4[i] = cg_g.was[i];
     return f;
 }
@@ -104,7 +110,6 @@ static void extras_flags(ExtrasFlags *f)
 static ExtrasSession extras_session;
 static int16_t warrior_rival_flag, warrior_keep_flag;   /* and the Warrior kept as the player's car */
 static int16_t restomod_flag;   /* port (dep59): Restomod, where restomod.cfg keeps an added car picked */
-static Edition central_edition;   /* port (dep59 step 4): ControlCentralState.edition, read again with the switches (cg_extras_apply) */
 
 /* port (dep59): an added car picked comes back from restomod.cfg as Control Central opens (car_looks.h): the player's car, and the head
  * to head rival; one whose mod is gone gives car 0. No line: config.dat's car, as before. Restomod only, never in a link game. */
@@ -142,11 +147,19 @@ void cg_extras_apply(void)
 {
     ExtrasFlags f;
     extras_flags(&f);
-    const PortExtras e = port_extras_load();
+    /* port (dep59 step 4): an edition of the player's own settles to what it lists instead (edition_rules.h); the standard edition (or one
+     * that cannot be used) leaves central_edition with no cars */
+    const int own = edition_active(&central_edition) == 1;
+    static Edition session_edition;   /* the edition the session's typed cheats belong to; zero, the standard one */
+    if (memcmp(&central_edition, &session_edition, sizeof central_edition) != 0) {   /* another edition: a new session */
+        extras_session_restart(&f, &extras_session);
+        session_edition = central_edition;
+    }
+    const PortExtras saved = port_extras_load(), e = own ? edition_extras(&central_edition, saved) : saved;
     /* port: the level, the switches and the cheats typed in the session decide what is on: a switch turned off in
      * CUSTOMIZE takes its flag away, a cheat typed stays for the session and is never written to the mode's file (the
      * switch is the player's default, not a veto on the cheat); mirror, rally and Lost Vegas are the level's alone */
-    extras_settle(&e, cg_g.unlock_level, &f, &extras_session);
+    extras_settle_to(&e, own ? edition_expect(&central_edition) : extras_expect_level(cg_g.unlock_level), &f, &extras_session);
     if (cg_g.unlock_level < 2) reverse_track_pick(0);   /* port: the way round (INVERSE) is level 2's, as the rally */
     /* cheat_codes writes the globals, so they are read back and put into g again after the reapply */
     cg_g.unlock_m = *f.unlock_m, cg_g.unlock_r = *f.unlock_r, cg_g.variant_m = *f.variant_m, cg_g.variant_r = *f.variant_r;
@@ -157,7 +170,6 @@ void cg_extras_apply(void)
     warrior_rival_flag = (int16_t)(e.warrior_rival != 0);
     warrior_keep_flag = (int16_t)(e.warrior != 0);
     restomod_flag = (int16_t)(port_settings_profile() == PROFILE_RESTOMOD);
-    (void)edition_active(&central_edition);   /* the standard edition (or one that cannot be used) leaves it with no cars */
     car_pieces_follow();   /* port (dep59): the added cars of the mods in effect, for the arrows (car_list.h); loaded again only when they change */
     cg_variant_choice_apply();   /* port (dep65): Restomod's switches back from the player's choice, after every place they are cleared */
 }
@@ -205,6 +217,16 @@ static void type_changed(void *ctx)
     cg_settings_put(&s), cg_unlocks_put(&u), session_put(&f);
     cg_extras_apply();   /* port: the type change clears the variants */
     tournament_entered(was_type, was_m, was_r);
+}
+
+/* port (dep59 step 4): Control Central opening on a tournament (config.dat's, or a game loaded) in an edition that closes it opens on
+ * Time Trial (the tournament no longer under way; its game state is left as it is); so does one loaded in Options */
+static void tournament_leave_closed(void)
+{
+    if (cg_g.race_type != RACE_TOURNAMENT || !tournament_closed()) return;
+    port_log("mark:race_type=no_tournament\n");
+    cg_g.race_type = RACE_TIME_TRIAL, cg_g.tournament = 0;
+    type_changed(NULL);
 }
 
 static void track_forward(void *ctx)
@@ -685,6 +707,7 @@ static void options(void *ctx)
     cg_opt_in();
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) cg_settings_put(&after);
+    tournament_leave_closed();   /* port (dep59 step 4): a tournament game loaded in an edition that closes it */
     cg_variant_choice_apply();   /* port (dep65): get_race zeroes the variants; Restomod's come back from the player's choice */
     cg_tournament_variants_apply();   /* port (dep56): get_race zeroes the variants; a tournament (one loaded too) runs its own */
 }
@@ -764,6 +787,7 @@ int32_t glue_central(void)
     link_central_bind(&link_menu);
     cg_extras_apply();   /* port: the switches are on from the first key, not after the first car change */
     picks_restore();
+    tournament_leave_closed();
     central_up = 1, central_state = &st;
     cg_volumes_sync();
     const int32_t result = control_central(&st, &OPS);

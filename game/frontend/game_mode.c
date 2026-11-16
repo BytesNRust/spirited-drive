@@ -127,13 +127,18 @@ static void manage_row(const Menu *m, const GameModeOps *o)
                         ROW[MANAGE].cy - 6, SMALL_NUM, SMALL_DEN);
 }
 
-/* the rows over the clean background */
+/* port (dep59 step 4): why Multiplayer is closed, NULL when open */
+static const char *network_closed(const GameModeOps *o) { return o->network_closed != NULL ? o->network_closed(o->ctx) : NULL; }
+
+/* the rows over the clean background; Multiplayer dimmed while it is closed */
 static void rows_draw(const Menu *m, const GameModeOps *o)
 {
     static const char *const WORDS[2] = { "Single Player", "Multiplayer" };
     cover_art(o);
-    for (int16_t i = SINGLE; i <= NETWORK; i++)
-        o->plus_text(o->ctx, m->selected == i, WORDS[i], LABEL_X - o->plus_text_width(o->ctx, WORDS[i]) / 2, ROW[i].cy - TEXT_HALF_HEIGHT);
+    for (int16_t i = SINGLE; i <= NETWORK; i++) {
+        const int32_t style = i == NETWORK && network_closed(o) != NULL ? TEXT_DIM_STYLE : m->selected == i;
+        o->plus_text(o->ctx, style, WORDS[i], LABEL_X - o->plus_text_width(o->ctx, WORDS[i]) / 2, ROW[i].cy - TEXT_HALF_HEIGHT);
+    }
     choice_row(m, o);
     manage_row(m, o);
     o->plus_text(o->ctx, m->selected == EXIT, "Exit", EXIT_RIGHT - o->plus_text_width(o->ctx, "Exit"), EXIT_TOP);
@@ -322,6 +327,12 @@ static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
         m->done = 1;
         break;
     case NETWORK:
+        if (network_closed(o) != NULL) {   /* port (dep59 step 4): an edition of the player's own: why, and nothing opened */
+            port_log("mark:game_mode=network_closed\n");
+            o->banner_wait(o->ctx, network_closed(o), TOLD);
+            m->redraw = 1;
+            break;
+        }
         if (!o->network_found(o->ctx)) {
             m->redraw = 1;
             o->deadline_set(o->ctx, WAIT);

@@ -275,6 +275,7 @@ typedef struct Rig {
     PortExtras saved;
     int16_t saved_unlock;
     int profile;
+    const Edition *edition;   /* dep59 step 4: the edition in use, NULL the standard one */
 } Rig;
 
 static inline void setup(Rig *r)
@@ -303,7 +304,7 @@ static inline void run_with(Rig *r, const int *keys, int count, void (*smooth)(v
         .plus_bgnd = f_bgnd, .plus_bgnd_shape = f_bgnd_shape,
         .plus_text_smooth = smooth, .plus_title = f_title, .plus_header = f_header,
         .extras_save = f_save, .ctx = &r->fake, .open_log_folder = f_open_log, .profile = r->profile, .reset_profile = f_reset,
-        .open_repo = f_open_repo };
+        .open_repo = f_open_repo, .edition = r->edition };
     (void)extras_menu_run(&r->e, &r->unlock, 1, &ops);
 }
 

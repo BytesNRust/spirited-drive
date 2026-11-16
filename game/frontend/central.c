@@ -1,6 +1,7 @@
 /* Control Central (00432ff4): its frame, its start and its loop's end. */
 #include "game/frontend/central_banner.h"
 #include "game/frontend/central_run.h"
+#include "game/frontend/edition_rules.h"
 
 #include <string.h>
 #include "game/sys/port_log.h"
@@ -63,7 +64,9 @@ static void start(CentralRun *r)
     *st->lost_vegas = 0, *st->vegas_cheat = 0, *st->unlock_m = 0, *st->unlock_r = 0;
     *st->variant_m = 0, *st->variant_r = 0;
     *st->lost_vegas = *st->unlock_level;
-    if (*st->unlock_level >= 1) *st->warrior = 1, *st->unlock_m = 1;
+    if (*st->unlock_level >= 1) *st->unlock_m = 1;
+    /* port (dep59 step 4): in an edition the Warrior comes from its cars= (edition_rules.h), whatever the level */
+    if (*st->unlock_level >= 1 && (central_edition_of(st) == NULL || edition_unlocks(central_edition_of(st)).warrior)) *st->warrior = 1;
     if (*st->unlock_level >= 2) *st->unlock_r = 1;
     if (*st->lost_vegas == 0 && *st->track == 8) *st->track = 0;
     central_car_start(st);

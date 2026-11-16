@@ -24,6 +24,8 @@ typedef struct Fake {
     uint32_t clock, ms_per_call;                  /* the fake clock: it advances with every ask for a key */
     int clicks;                                   /* a bit per menu turn with the left button down */
     int exits_asked, names_asked, networks_asked, banners, manage_banner;
+    const char *network_why;                      /* dep59 step 4: the reason Multiplayer is closed (an edition in use), NULL open */
+    int network_banner, multi_style;
     int said_customize;
     char last_title[64];
     Rect single, multi, title, manage, exit, version, notice;
@@ -74,7 +76,9 @@ static void f_banner(void *c, const char *t, int32_t n)
     (void)n;
     f->banners++;
     f->manage_banner += strcmp(t, "Editions are managed in a later version") == 0;
+    f->network_banner += f->network_why != NULL && strcmp(t, f->network_why) == 0;
 }
+static const char *f_network_closed(void *c) { return ((Fake *)c)->network_why; }
 static int32_t f_name(void *c, char *n) { (void)n; ((Fake *)c)->names_asked++; return 1; }
 static void f_fade_out(void *c, int32_t a, int32_t n) { (void)c, (void)a, (void)n; }
 static int32_t f_yes(void *c, const char *t)
@@ -92,7 +96,7 @@ static void f_text(void *c, int32_t style, const char *t, int32_t x, int32_t y)
     const int w = (int)strlen(t) * 16;
     if (strncmp(t, "<  ", 3) == 0) note(&f->title, x, y, w), snprintf(f->last_title, sizeof f->last_title, "%s", t);
     else if (strcmp(t, "Single Player") == 0) note(&f->single, x, y, w);
-    else if (strcmp(t, "Multiplayer") == 0) note(&f->multi, x, y, w);
+    else if (strcmp(t, "Multiplayer") == 0) note(&f->multi, x, y, w), f->multi_style = style;
     else if (strcmp(t, "Exit") == 0) note(&f->exit, x, y, w), f->exit_style = style;
     f->said_customize += strcmp(t, "Customize game") == 0;
 }
@@ -158,7 +162,7 @@ static int32_t run(Fake *f, const int *keys, int count)
         .name_box = f_name, .fade_out = f_fade_out, .free_inverse = f_void, .modem = f_zero, .network_found = f_network_found, .network_game = f_zero, .yes_no = f_yes,
         .drain = f_void, .pointer_off = f_void, .music = f_void, .deadline_passed = f_zero, .sound_free = f_void, .free = f_free, .ctx = f,
         .plus_text = f_text, .plus_text_width = f_width, .extras_cover = f_cover, .choice = f_choice, .plus_text_scaled = f_text_scaled,
-        .plus_text_width_scaled = f_width_scaled, .footer = f_footer, .open_notice = f_open };
+        .plus_text_width_scaled = f_width_scaled, .footer = f_footer, .open_notice = f_open, .network_closed = f_network_closed };
     if (!f->no_clock) ops.clock_ms = f_clock, ops.fade_out_quick = f_quick_out, ops.fade_in_quick = f_quick_in;
     return game_mode_menu(0, &st, &ops);
 }
@@ -349,6 +353,23 @@ static void test_manage(void)
     CHECK_EQ_INT(f.names_asked, 0);
 }
 
+/* dep59 step 4, T7: in an edition Multiplayer is dimmed; Return on it says why and opens nothing; in the standard edition it is as before */
+static void test_multiplayer_in_an_edition(void)
+{
+    Fake f;
+    const int enter[] = { ENTER, ESCAPE };
+    rig(&f, 320, ROW_MULTI, 1);
+    f.network_why = "Multiplayer needs the standard edition";
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.network_banner, 1);
+    CHECK_EQ_INT(f.networks_asked + f.names_asked, 0);
+    CHECK_EQ_INT(f.multi_style, STYLE_DIM);
+    rig(&f, 320, ROW_MULTI, 1);
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.networks_asked, 1);
+    CHECK(f.multi_style != STYLE_DIM);
+}
+
 /* the rows' rects: Return on each does its row's work; a click outside every rect (the version, the empty left of the bottom) does nothing */
 static void test_the_pointer_rects(void)
 {
@@ -450,6 +471,7 @@ int main(void)
     test_the_fade_only_when_the_picture_changes();
     test_clicks_show_and_the_name_applies();
     test_manage();
+    test_multiplayer_in_an_edition();
     test_the_pointer_rects();
     test_the_foot_line();
     test_the_notice_is_its_own_text();

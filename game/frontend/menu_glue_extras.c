@@ -1,6 +1,7 @@
 /* The EXTRAS screen's glue (the Game Mode MODEM slot's) and Game Mode's text over the live art (menu_glue.h; split from menu_glue.c by responsibility). */
 #include "game/frontend/menu_glue_private.h"
 #include "game/sys/mod_set.h"
+#include "game/sys/edition_file.h"
 #include "game/frontend/unlock_level.h"
 
 /* port: the EXTRAS dispatcher the Game Mode's MODEM slot calls when the original modem flow is gone. It opens the
@@ -199,6 +200,7 @@ static ExtrasMenuOps extras_menu_ops(void)
         port_settings_profile(), /* profile: the mode in use, which says what can be changed */
         extras_reset_glue,  /* reset_profile: the Restore row's action */
         open_repo_glue,     /* open_repo: the Star us on GitHub row */
+        NULL,               /* edition: glue_extras_screen's */
     };
 }
 
@@ -209,7 +211,9 @@ int32_t glue_extras_screen(int16_t unlock)
      * afterwards. The Options menu loaded its bank before calling here too, but a separate load keeps each side
      * independent. */
     const int32_t options_bank = load_art(NULL, "option/options.qfs");
-    const ExtrasMenuOps ops = extras_menu_ops();
+    ExtrasMenuOps ops = extras_menu_ops();
+    static Edition edition;   /* port (dep59 step 4): read as the screen opens, nothing kept across */
+    ops.edition = edition_in_use(&edition);
     mode_extras_screen = ea_screen();
     /* port: the page keys, so PageDown turns the page as the screen's own words promise (extras_menu.c's header).
      * They were read for the Graphics screen alone (central_glue.c's graphics()); without this the PageDown branch

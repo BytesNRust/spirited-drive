@@ -29,31 +29,32 @@ static void cheat_codes(CentralRun *r)
 {
     ControlCentralState *st = r->st;
     const int race3 = *st->race_type == 3;
-    if (*st->unlock_m == 0 && (st->lost == 0 || st->e7b != 0) && cheat(r, CENTRAL_SKCART)) {
+    const int unlocks = central_edition_of(st) == NULL;   /* port (dep59 step 4): an edition unlocks what it lists, the unlock codes nothing */
+    if (unlocks && *st->unlock_m == 0 && (st->lost == 0 || st->e7b != 0) && cheat(r, CENTRAL_SKCART)) {
         *st->unlock_m = 1;
         ding(r);
         if (!race3) *st->variant_m = 1, *st->variant_r = 0, r->redraw = 1, variants_chosen(r);
     }
-    if (*st->unlock_r == 0 && (st->lost == 0 || st->e7b != 0) && cheat(r, CENTRAL_EARALLYE)) {
+    if (unlocks && *st->unlock_r == 0 && (st->lost == 0 || st->e7b != 0) && cheat(r, CENTRAL_EARALLYE)) {
         *st->unlock_r = 1;
         ding(r);
         if (!race3) *st->variant_r = 1, *st->variant_m = 0, r->redraw = 1, variants_chosen(r);
     }
     if (*st->explode == 0 && !race3 && cheat(r, CENTRAL_EXPLODE)) *st->explode = 1, ding(r);
     if (*st->nitro == 0 && *st->race_type != 3 && st->lost == 0 && cheat(r, CENTRAL_NITRO)) *st->nitro = 1, ding(r);
-    if (*st->vegas_cheat == 0 && *st->race_type != 3 && cheat(r, CENTRAL_CASINOVILLE)) {
+    if (unlocks && *st->vegas_cheat == 0 && *st->race_type != 3 && cheat(r, CENTRAL_CASINOVILLE)) {
         *st->vegas_cheat = 1;
         *st->lost_vegas = 1;
         if (st->net_host != 0) *st->track = 8, r->redraw = 1;
     }
-    if (*st->race_type != 3 && cheat(r, CENTRAL_CONCEPTCAR)) {
+    if (unlocks && *st->race_type != 3 && cheat(r, CENTRAL_CONCEPTCAR)) {
         *st->warrior = 1;
         r->redraw = 1;
         *st->player_car = 11;
         ding(r);
     }
     if (st->lost == 0 && *st->race_type != 3 && cheat(r, CENTRAL_TURBO)) *st->track_flags |= 8, ding(r);
-    if (*st->race_type != 3 && cheat(r, CENTRAL_ROCKYROAD)) {
+    if (unlocks && *st->race_type != 3 && cheat(r, CENTRAL_ROCKYROAD)) {
         *st->unlock_level = (int16_t)((*st->unlock_level == 1) + 1);
         if (*st->lost_vegas == 0) *st->lost_vegas = *st->unlock_level;
         if (*st->unlock_level >= 1) *st->warrior = 1, *st->unlock_m = 1;
