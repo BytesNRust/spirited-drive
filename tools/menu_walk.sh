@@ -28,7 +28,8 @@
 # A target that goes on with keys after its screen's mark (Best Times' pages) waits `tail` seconds for them before the picture.
 # The picture is the page the game ended on: the walk checks that the last screen the game logged is the target's, and fails (exit 4) when it is not,
 # so a saved <target>.png is always that page.
-# exit: 0 reached and saved; 3 a step timed out; 4 the game went on past the target (the last screen logged is another); 2 bad arguments, no binary
+# exit: 0 reached and saved; 3 a step timed out; 4 the game went on past the target (the last screen logged is another); 5 every frame captured
+#       was one colour (a fade to black that never ended: no picture); 2 bad arguments, no binary
 # or no magick; 1 anything else (the log is printed).
 bin=$1 out=$2 target=$3
 [ -n "$bin" ] && [ -n "$out" ] && [ -n "$target" ] || { echo "usage: $0 <bin> <outdir> <target>" >&2; exit 2; }
@@ -145,6 +146,8 @@ done
 # QUIET seconds without a new frame is still, and its newest frame, written long since, is the picture. A screen that keeps presenting (a blinking
 # cursor) is still once two frames in a row are the same (the newest left out: it may still be being written), and that frame is the picture.
 # Under load a fade-in outlasts the tail; STILL (default 30) is the most seconds this waits, and then the frame before the newest is taken
+# a one-colour frame (all black, a fade's flat grey) is a fade caught, never still: the wait goes on past it (tools/frame_pick.py)
+one_colour() { python3 -I "$here/frame_pick.py" --one-colour "$1" 2>/dev/null; }
 pick=""
 if [ $rc -eq 0 ]; then
     ticks=0 calm=0 seen=""
@@ -153,9 +156,10 @@ if [ $rc -eq 0 ]; then
         newest=${frames[-1]:-}
         if [ -n "$newest" ] && [ "$newest" = "$seen" ]; then
             calm=$((calm + 1))
-            [ $calm -ge $(( ${QUIET:-2} * 2 )) ] && { pick=$newest; break; }
+            [ $calm -ge $(( ${QUIET:-2} * 2 )) ] && ! one_colour "$work/cap/$newest" && { pick=$newest; break; }
         else calm=0 seen=$newest; fi
-        [ ${#frames[@]} -eq 3 ] && cmp -s "$work/cap/${frames[1]}" "$work/cap/${frames[2]}" && { pick=${frames[2]}; break; }
+        [ ${#frames[@]} -eq 3 ] && cmp -s "$work/cap/${frames[1]}" "$work/cap/${frames[2]}" && ! one_colour "$work/cap/${frames[2]}" &&
+            { pick=${frames[2]}; break; }
         sleep 0.5; ticks=$((ticks + 1))
     done
 fi
@@ -176,11 +180,12 @@ if [ $rc -eq 0 ] && [ $(( car_clicks + opponent_clicks )) -gt 0 ]; then
     fi
 fi
 if [ $rc -eq 0 ]; then
-    # the still frame, else the frame before the last: the game is killed while it writes frames, and the last one can be cut short (under load
-    # the walk's PNG then failed to convert); the one before was closed before the next was opened
-    last=${pick:-$(ls "$work/cap" | sort | tail -2 | head -1)}
+    # the still frame, else the newest before the last that is not one colour: the game is killed while it writes frames, and the last one
+    # can be cut short (under load the walk's PNG then failed to convert); the one before was closed before the next was opened
+    last=${pick:-$(python3 -I "$here/frame_pick.py" --fallback "$work/cap" 2>"$work/pick.err")}
     if [ -n "$last" ]; then
         magick "$work/cap/$last" "$out/$target.png" || { rc=1; echo "the frame did not convert to $out/$target.png" >&2; }
+    elif [ -n "$(ls "$work/cap" 2>/dev/null)" ]; then rc=5; echo "menu_walk $target: $(cat "$work/pick.err"); no picture saved" >&2
     else rc=1; echo "reached mark:screen=$final but no frame was captured" >&2; fi
 fi
 if [ $rc -ne 0 ]; then
