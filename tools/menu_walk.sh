@@ -6,7 +6,11 @@
 #            graphics  extras (page 1/3)  extras-p2  extras-p3
 #            track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
 #            best-circuit-p2  best-cheats (Coastal, the table with cheats: none)
-#        KEYS (track and best-times: more steps after the screen opens, e.g. 1500:UP,800:RIGHT) and TAIL (the seconds they take)
+#        KEYS (track and best-times: more steps after the screen opens, e.g. 1500:UP,800:RIGHT) and TAIL (a pause, in seconds, after the
+#        target's mark before the walk looks for the still screen; the walk also waits for the game's "input script: done", the last step taken,
+#        so KEYS that outlast TAIL are no longer cut short). On central, the items car+ car- opponent+ opponent- are a click on that arrow and a
+#        wait for the game's mark that the choice changed (mark:car= / mark:opponent=, logged once the card shows it); the walk then checks
+#        that each such click changed the choice once (exit 4 if not)
 #        USER_FILES (a folder whose files the walk starts with in its user folder: a race_records.dat)
 #        MODS (a folder copied as the walk's --mods: a mod piece the walk runs with; default an empty one)
 #        PROFILE (stock, restored or restomod; default the game's own first run): the mode the walk runs in (Best Times' pages are
@@ -62,6 +66,29 @@ to_best="$to_track,$(click 560 460),$(wait_for best_times),$(park)"
 next_track="300:MOUSE:$(( 390 + dx )):455,300:CLICK:$(( 390 + dx )):455,3000:MOUSE:$(( 330 + dx )):405"
 page_on="1500:PGDN"
 
+# KEYS' arrow items: the click and its mark (the arrows' hit boxes, central_select.c: the car's at y 186..209, x 310..329 and 21..40; the
+# opponent's at y 145..168, x 605..624 and 341..362)
+expand_keys() {
+    local item out=""
+    for item in ${(s:,:)1}; do
+        case $item in
+        car+)      item="$(click 319 197),0:WAIT:mark:car=:$step" ;;
+        car-)      item="$(click 30 197),0:WAIT:mark:car=:$step" ;;
+        opponent+) item="$(click 614 156),0:WAIT:mark:opponent=:$step" ;;
+        opponent-) item="$(click 351 156),0:WAIT:mark:opponent=:$step" ;;
+        esac
+        out+="${out:+,}$item"
+    done
+    print -r -- "$out"
+}
+car_clicks=0 opponent_clicks=0
+if [ -n "$KEYS" ]; then
+    for item in ${(s:,:)KEYS}; do
+        case $item in car[+-]) car_clicks=$((car_clicks + 1)) ;; opponent[+-]) opponent_clicks=$((opponent_clicks + 1)) ;; esac
+    done
+    KEYS=$(expand_keys "$KEYS")
+fi
+
 case $target in
 central)      script="$to_central${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3} ;;
 showcase)     script="$to_central,$(click 180 200),$(wait_for showcase)"; final=showcase ;;
@@ -99,7 +126,9 @@ limit=$(( step * 12 + 60 ))
 rc=1 waited=0
 while [ $waited -lt $limit ]; do
     sleep 1; waited=$((waited + 1))
-    if grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null; then sleep ${tail:-3}; rc=0; break; fi
+    # the target's screen, and every step of the script taken (the game logs "input script: done")
+    if grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null &&
+       grep -q "input script: done" "$work/user/spirited-drive.log" 2>/dev/null; then sleep ${tail:-3}; rc=0; break; fi
     if grep -q "input script: step.*timed out" "$work/user/spirited-drive.log" 2>/dev/null; then rc=3; break; fi
     pgrep -f "$work/user" >/dev/null 2>&1 || { [ $waited -gt 3 ] && break; }   # the game ended on its own (a crash, or the script's end)
 done
@@ -127,6 +156,15 @@ if [ $rc -eq 0 ]; then
     ended=$(grep -o "mark:screen=[a-z_0-9]*" "$work/user/spirited-drive.log" | tail -1)
     ended=${ended#mark:screen=}
     if [ "$ended" != "$final" ]; then rc=4; echo "menu_walk $target: the game went on to $ended after $final; no picture saved" >&2; fi
+fi
+# each arrow click changed its choice once: the marks after Control Central's last opening, the first frame's own one apart
+if [ $rc -eq 0 ] && [ $(( car_clicks + opponent_clicks )) -gt 0 ]; then
+    since=$(grep -n "^mark:screen=central" "$work/user/spirited-drive.log" | tail -1 | cut -d: -f1)
+    cars=$(tail -n +${since:-1} "$work/user/spirited-drive.log" | grep -c "^mark:car=")
+    opps=$(tail -n +${since:-1} "$work/user/spirited-drive.log" | grep -c "^mark:opponent=")
+    if [ $cars -ne $(( car_clicks + 1 )) ] || { [ $opponent_clicks -gt 0 ] && [ $opps -ne $(( opponent_clicks + 1 )) ]; }; then
+        rc=4; echo "menu_walk $target: $car_clicks car and $opponent_clicks opponent clicks, but $((cars - 1)) car and $((opps - 1)) opponent changes; no picture saved" >&2
+    fi
 fi
 if [ $rc -eq 0 ]; then
     # the still frame, else the frame before the last: the game is killed while it writes frames, and the last one can be cut short (under load
