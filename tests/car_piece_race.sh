@@ -4,11 +4,12 @@
 # Restomod without the piece, has no such car and says so; nothing is written below the data root. Plan 1b: a race with it keeps its
 # record in race_records_added.dat and its replay as Replay.rpx, never in the original's files; the replay plays back only with the
 # piece as it was. Step 3: the replay keeps the skin and paint the added car wore (TNFSLOK1) and plays them whatever is picked now.
-# usage: car_piece_race.sh TNFS REPO ORIGINAL_DIR
+# usage: car_piece_race.sh TNFS REPO ORIGINAL_DIR STUDIO
 set -u
 tnfs=$1
 repo=$2
 orig=$3
+studio=$4
 [ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 0; }
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -24,6 +25,7 @@ cp "$orig/SIMDATA/CARFAMS/DVIPER.PDN" "$piece/SIMDATA/CARFAMS/TESTCAR.PDN"
 cp "$orig/SIMDATA/CARSPECS/DVIPER.PBS" "$piece/SIMDATA/CARSPECS/TESTCAR.PBS"
 cp -R "$repo/data/car_masks/DVIPER" "$piece/car_masks/TESTCAR"
 cp -R "$repo/data/dash_masks/DVIPER" "$piece/dash_masks/TESTCAR"
+"$studio" car card "$piece" --generic >/dev/null || { echo "FAIL: tnfs-studio car card --generic made no card.png" >&2; exit 1; }   # dep59 step 3: every piece brings its card
 
 # a player folder in mode $1, fresh
 user_in() {

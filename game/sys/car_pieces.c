@@ -6,6 +6,7 @@
 #include "formats/mod_ini.h"
 #include "formats/validate.h"
 #include "game/race/car_registry.h"
+#include "game/sys/data_path.h"
 #include "game/sys/mod_set.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
@@ -36,6 +37,51 @@ static void take_file(FileSet *set, const char *dir, const char *rel)
         platform_free_file(data);
         if (ok) return;
     }
+}
+
+/* port (dep59 step 3): the file `rel` of `dir` into `set` by that name alone (a piece's pictures: the game reads them so). One that is
+ * not a regular file or is larger than a picture may be goes in empty, so the check refuses it as no PNG; one not there stays out */
+static void take_exact(FileSet *set, const char *dir, const char *rel)
+{
+    char path[PATH_MAX_LEN];
+    if (snprintf(path, sizeof path, "%s/%s", dir, rel) >= (int)sizeof path) return;
+    size_t size = 0;
+    const int there = data_path_file_size(path, &size);
+    if (there == 0) return;
+    if (there < 0 || size > CAR_PIECE_PICTURE_BYTES_MAX) {
+        port_log("car piece: %s is not a picture's file of up to %d MB\n", path, CAR_PIECE_PICTURE_BYTES_MAX >> 20);
+        fileset_add(set, rel, (const uint8_t *)"", 0);
+        return;
+    }
+    uint8_t *data = platform_read_file(path, &size);
+    if (data == NULL) return;
+    fileset_add(set, rel, data, size);
+    platform_free_file(data);
+}
+
+/* port (dep59 step 3): the piece's pictures and the PNGs of each folder of its skins/, for car_piece_check; one folder past the most it
+ * may have is read, so the check says there are too many */
+static void take_pictures(FileSet *set, const char *dir)
+{
+    static const char *const PICTURES[] = { "card.png", "rival.png", "gallery.png" };
+    for (size_t i = 0; i < sizeof PICTURES / sizeof PICTURES[0]; i++) take_exact(set, dir, PICTURES[i]);
+    char path[PATH_MAX_LEN];
+    if (snprintf(path, sizeof path, "%s/skins", dir) >= (int)sizeof path) return;
+    int count = 0, taken = 0;
+    char **names = platform_list_files(path, "*", &count);
+    for (int i = 0; i < count && taken <= CAR_PIECE_SKINS_MAX; i++) {
+        char folder[PATH_MAX_LEN];
+        if (snprintf(folder, sizeof folder, "%s/skins/%s", dir, names[i]) >= (int)sizeof folder) continue;
+        int files = 0;
+        char **pngs = platform_list_files(folder, "*.png", &files);
+        for (int k = 0; k < files && k <= CAR_PIECE_SKIN_FILES_MAX; k++) {   /* one past the most: the check says so */
+            char rel[CAR_PIECE_PATH];
+            if (snprintf(rel, sizeof rel, "skins/%s/%s", names[i], pngs[k]) < (int)sizeof rel) take_exact(set, dir, rel);
+        }
+        if (pngs != NULL) platform_free_names(pngs);
+        taken += files > 0;
+    }
+    if (names != NULL) platform_free_names(names);
 }
 
 /* port (dep59 1b): the CRC-32 of the PBS then the PDN in `set` (their paths in `paths`, any case), 1 for a 0 */
@@ -80,6 +126,7 @@ static int read_piece(const char *dir, ModInfo *card, CarPiece *out, char *why, 
         car_piece_paths(card->stem, paths);
         for (int i = 0; i < CAR_PIECE_FILES; i++) take_file(&set, dir, paths[i]);
     }
+    take_pictures(&set, dir);
     Report r;
     report_init(&r);
     const int ok = car_piece_check(card, &set, &r);
@@ -157,16 +204,6 @@ void car_pieces_follow(void)
     car_pieces_load(dirs, count, port_settings_load().profile == PROFILE_RESTOMOD);
 }
 
-/* 1 when `s` is a skin's folder name: 1..16 of a-z 0-9 '-' */
-static int skin_name_ok(const char *s)
-{
-    const size_t n = strlen(s);
-    if (n == 0 || n > CAR_PIECE_SKIN_NAME_MAX) return 0;
-    for (size_t i = 0; i < n; i++)
-        if (!((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9') || s[i] == '-')) return 0;
-    return 1;
-}
-
 /* how many files of `dir` match `pattern` */
 static int files_in(const char *dir, const char *pattern)
 {
@@ -199,7 +236,7 @@ int car_pieces_card(int car, CarPieceCard *out)
     char **names = platform_list_files(path, "*", &count);
     for (int i = 0; i < count && out->skins <= CAR_PIECE_SKINS_MAX; i++) {
         char folder[PATH_MAX_LEN];
-        if (!skin_name_ok(names[i]) || snprintf(folder, sizeof folder, "%s/skins/%s", p->dir, names[i]) >= (int)sizeof folder ||
+        if (!car_piece_skin_name_ok(names[i], strlen(names[i])) || snprintf(folder, sizeof folder, "%s/skins/%s", p->dir, names[i]) >= (int)sizeof folder ||
             files_in(folder, "*.png") == 0)
             continue;
         snprintf(out->skin[out->skins], sizeof out->skin[0], "%s", names[i]);

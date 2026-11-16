@@ -8,9 +8,11 @@
 #include <string.h>
 #include <strings.h>
 
-/* 1 when `name` is one of the piece's three files, in any case (car_piece_check finds them so) */
+/* 1 when `name` is one of the piece's three files, in any case (car_piece_check finds them so), or one of its pictures and skins
+ * (car_piece_picture: car_piece_check measures them) */
 static int piece_file(const ModInfo *card, const char *name)
 {
+    if (car_piece_picture(name)) return 1;
     char paths[CAR_PIECE_FILES][CAR_PIECE_PATH];
     car_piece_paths(card->stem, paths);
     for (int i = 0; i < CAR_PIECE_FILES; i++)
