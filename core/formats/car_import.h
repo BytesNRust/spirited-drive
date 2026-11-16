@@ -10,7 +10,8 @@
  *
  * The OBJ is Blender's (Y up, -Z forward, faces counter-clockwise from outside, uvs 0..1 from the bottom left); the mesh negates z
  * and scales, which makes its faces clockwise as the race wants them, and gives uvs in texels from the top. In raw mode the OBJ
- * is mesh_export's and its tables (`.tsv`, with lists.tsv) beside it give everything the OBJ does not carry. */
+ * is mesh_export's and its tables (`.tsv`, with lists.tsv) beside it give everything the OBJ does not carry; a raw OBJ that is not
+ * mesh_export's is Blender's export of NAME.blender.obj (dep71), turned back on the tables' own NAME.obj (formats/mesh_blender.h). */
 #ifndef TNFS_CAR_IMPORT_H
 #define TNFS_CAR_IMPORT_H
 
@@ -28,7 +29,7 @@ typedef struct {
     const uint8_t *donor_cfm;
     size_t donor_cfm_len;                  /* the donor car's CFM from the CD */
     const ObjModel *high, *low;            /* low NULL: the high mesh and its bank in the low-detail slot too (decision 3) */
-    const FileSet *high_tables, *low_tables;   /* raw: mesh_export's tables beside each OBJ (any stem); else NULL */
+    const FileSet *high_tables, *low_tables;   /* raw: mesh_export's tables (any stem), and its NAME.obj for a Blender OBJ; else NULL */
     const FileSet *high_pngs, *low_pngs;   /* the textures, each under its map_Kd path as the MTL writes it */
     int raw;                               /* the OBJ is mesh_export's: the mesh's frame, units and texel uvs */
     double scale;                          /* mesh units per OBJ unit when not raw */

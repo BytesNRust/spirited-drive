@@ -13,6 +13,7 @@
 #include "formats/pdn.h"
 #include "formats/png.h"
 #include "test.h"
+#include "blender_like.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -316,6 +317,23 @@ static int raw_mesh(const uint8_t *donor, size_t n, const FileSet *files, MeshDe
     return ok;
 }
 
+/* raw with `obj` (an OBJ's text) as the high mesh and `files` the tables beside it */
+static int raw_mesh_from(const uint8_t *donor, size_t n, const char *obj, const FileSet *files, MeshDesc *m, ExchangeError *err)
+{
+    ObjModel model;
+    if (!obj_read((const uint8_t *)obj, strlen(obj), NULL, 0, &model, err)) return 0;
+    CarImportIn in = input(donor, n, &model, NULL);
+    in.raw = 1, in.high_tables = files;
+    Donor d;
+    CarImportBank bank;
+    int ok = donor_of(donor, n, &d);
+    ok = ok && car_import_mesh(&in, 0, &d.mesh, d.bank, d.bank_n, m, &bank, err);
+    if (ok) car_import_bank_free(&bank);
+    mesh_desc_free(&d.mesh);
+    obj_free(&model);
+    return ok;
+}
+
 static int same_mesh(const MeshDesc *a, const MeshDesc *b)
 {
     int same = a->vertex_count == b->vertex_count && a->uv_count == b->uv_count && a->polygon_count == b->polygon_count &&
@@ -427,6 +445,72 @@ static void test_raw(const uint8_t *donor, size_t n)
     mesh_desc_free(&d.mesh);
 }
 
+/* dep71: the Viper's high mesh through Blender (tests/blender_like.h; also with its faces by material) and back with raw comes back the Viper's; a vertex moved a metre
+ * up comes back 130 units up; without the tables' mesh.obj it is refused, saying so */
+static void test_blender(const uint8_t *donor, size_t n)
+{
+    Donor d;
+    CHECK(donor_of(donor, n, &d));
+    const uint8_t *child[CFM_CHILDREN];
+    size_t len[CFM_CHILDREN];
+    ExchangeError err = { { 0 } };
+    FileSet files;
+    fileset_init(&files);
+    CHECK(cfm_describe(donor, n, child, len, &err));
+    const MeshTextureBank banks[] = { { child[1], len[1], "../c1" } };
+    CHECK(mesh_export(child[0], len[0], "mesh", banks, 1, &files, &err));
+    const SetFile *f = fileset_find(&files, "mesh.blender.obj");
+    CHECK(f != NULL);
+    if (f != NULL) {
+        char *text = malloc(f->size + 1);
+        memcpy(text, f->data, f->size), text[f->size] = '\0';
+        char *blender = blender_like(text);
+        MeshDesc m;
+        CHECK(raw_mesh_from(donor, n, blender, &files, &m, &err));
+        if (err.message[0]) fprintf(stderr, "car_import: Blender: %s\n", err.message);
+        else {
+            CHECK(same_mesh(&m, &d.mesh));
+            mesh_desc_free(&m);
+        }
+        /* the faces in material blocks, as Blender's exporter may write them: the same mesh */
+        char *grouped = by_material(text), *sorted = blender_like(grouped);
+        CHECK(strcmp(grouped, text) != 0);   /* the Viper's materials do interleave */
+        CHECK(raw_mesh_from(donor, n, sorted, &files, &m, &err));
+        if (err.message[0]) fprintf(stderr, "car_import: Blender by material: %s\n", err.message);
+        else {
+            CHECK(same_mesh(&m, &d.mesh));
+            mesh_desc_free(&m);
+        }
+        free(grouped), free(sorted);
+        /* vertex 1 a metre up */
+        char *v = strstr(blender, "\nv "), *end = v != NULL ? strchr(v + 1, '\n') : NULL;
+        double x, y, z;
+        CHECK(end != NULL && sscanf(v + 1, "v %lf %lf %lf", &x, &y, &z) == 3);
+        if (end != NULL) {
+            char line[96];
+            const size_t cap = strlen(blender) + sizeof line;
+            char *moved = malloc(cap);
+            snprintf(line, sizeof line, "\nv %.6f %.6f %.6f", x, y + 1, z);
+            snprintf(moved, cap, "%.*s%s%s", (int)(v - blender), blender, line, end);
+            CHECK(raw_mesh_from(donor, n, moved, &files, &m, &err));
+            if (err.message[0] == '\0') {
+                CHECK(m.vertices[0].y == d.mesh.vertices[0].y + 130 && m.vertices[0].x == d.mesh.vertices[0].x);
+                mesh_desc_free(&m);
+            }
+            free(moved);
+        }
+        FileSet bare;
+        fileset_init(&bare);
+        for (size_t i = 0; i < files.count; i++)
+            if (strcmp(files.file[i].name, "mesh.obj") != 0) fileset_add(&bare, files.file[i].name, files.file[i].data, files.file[i].size);
+        CHECK(!raw_mesh_from(donor, n, blender, &bare, &m, &err) && strstr(err.message, "mesh.obj") != NULL);
+        fileset_free(&bare);
+        free(blender), free(text);
+    }
+    fileset_free(&files);
+    mesh_desc_free(&d.mesh);
+}
+
 int main(void)
 {
     size_t n = 0;
@@ -444,6 +528,7 @@ int main(void)
     refused_obj(donor, n, &pngs, 0, 1, "wheel_fr");
     test_twins(donor, n, &pngs);
     test_raw(donor, n);
+    test_blender(donor, n);
     fileset_free(&pngs);
     free(donor);
     return TEST_REPORT();

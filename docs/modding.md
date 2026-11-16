@@ -347,6 +347,16 @@ A point or a light the OBJ does not name is made, and the import says so (`made 
 
 **Round trip.** `tnfs-studio unpack` writes a CFM's meshes as OBJ with their tables (`.tsv`) beside them; `car import --raw --obj d/c0/mesh.obj --low d/c2/mesh.obj` takes them back, everything the OBJ does not carry from the tables, so a car of the CD comes back with the same meshes and bitmaps. Raw mode keeps the template's banks and masks; edit the geometry in the OBJ (a face's row in `mesh.polygons.tsv` goes with it, in order).
 
+**Through Blender.** Beside each `mesh.obj`, `unpack` writes `mesh.blender.obj`: the same mesh for Blender, in metres (130 units to a metre), Y up and −Z forward, every texture coordinate 0..1 of its bitmap, with `mesh.mtl`'s textures. To change a car's shape or its texture mapping:
+
+    tnfs-studio car new --template viper --id my-car --stem MYCAR --out mycar --name "My Car"
+    tnfs-studio unpack mycar/SIMDATA/CARFAMS/MYCAR.CFM d
+    (Blender: File > Import > Wavefront OBJ, d/c0/mesh.blender.obj with the defaults; edit; File > Export > Wavefront OBJ, high.obj, with the defaults)
+    tnfs-studio car import mycar --raw --obj high.obj --tables d/c0
+    tnfs-studio validate mycar
+
+The textures show in Blender's Material Preview; set each image's interpolation to Closest to see its texels. Move vertices and texture coordinates freely, and change a face's material to another of the car's (`t<number>_...`); Blender may write the faces in another order, which does not matter. Do not add, delete, split or flip faces or vertices, and leave the triangulate option off: the parts, groups, lights and points name vertices and polygons by their place, so the import refuses another count, a face on vertices that are no face of the car, and a flipped face (flip it back), pointing to the import without `--raw` for a new shape. Everything the OBJ does not carry comes from `d/c0`'s tables, and `d/c0/mesh.obj` must stay as `unpack` wrote it: each texture coordinate goes back on its own row there, so an unchanged mesh comes back the same. `--low low.obj --low-tables d/c2` does the far model the same way (export `d/c2/mesh.blender.obj` untouched to keep it: without `--low` the far model is the near one, as in any import). The body's half sizes are measured again as for any import; `--keep-pdn` keeps the PDN's.
+
 **Overwriting.** The import replaces the piece's CFM only while it is the one `car new` copied; once you have imported, `--force` replaces it again. Everything is read and made before anything is written, so a refused import leaves the piece as it was.
 
 ## The mask tools
