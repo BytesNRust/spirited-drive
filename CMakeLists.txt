@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(tnfs VERSION 0.9.0 LANGUAGES C)
+project(tnfs VERSION 0.9.1 LANGUAGES C)
 
 # The version players see: the git tag when the tree sits on one (v0.9.0 -> 0.9.0), else
 # <project version>-dev+<short hash>. TNFS_VERSION_OVERRIDE (e.g. from CI) wins over both.
