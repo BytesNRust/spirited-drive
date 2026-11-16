@@ -120,7 +120,11 @@ static int32_t mode_footer(void *ctx, int32_t line, char *text, size_t cap)
         state = UPDATE_NEWER;
     }
 #endif
-    return version_footer_line(text, cap, line, TNFS_VERSION, state, latest);
+    const char *version = TNFS_VERSION;
+#ifdef TNFS_SOURCE_DIR   /* development builds only: TNFS_VERSION_TEXT (tools/menu_walk.sh sets it) stands for the version, so two builds' pictures compare */
+    version = version_footer_text(version, getenv("TNFS_VERSION_TEXT"));
+#endif
+    return version_footer_line(text, cap, line, version, state, latest);
 }
 
 static uint32_t mode_clock_ms(void *ctx) { (void)ctx; return platform_ticks_ms(); }

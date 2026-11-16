@@ -18,3 +18,12 @@ int version_footer_line(char *out, size_t cap, int line, const char *version, Up
     }
     return 0;
 }
+
+const char *version_footer_text(const char *built, const char *override)
+{
+    if (override == NULL || override[0] == 0) return built;
+    size_t n = 0;
+    for (; override[n] != 0; n++)
+        if (n >= VERSION_TEXT_MAX || (unsigned char)override[n] < 0x20 || (unsigned char)override[n] > 0x7e) return built;
+    return override;
+}

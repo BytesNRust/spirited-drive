@@ -123,7 +123,9 @@ printf 'format=%s\n' "$format" > "$work/user/port.cfg"   # the clicks above are 
 [ -n "$PROFILE" ] && printf 'profile=%s\n' "$PROFILE" >> "$work/user/port.cfg"
 [ -n "$USER_FILES" ] && cp "$USER_FILES"/* "$work/user/"   # files the walk starts with in the user folder (a race_records.dat)
 limit=$(( step * 12 + 60 ))
-(cd "$work" && env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_CAPTURE_DIR="$work/cap" TNFS_CAPTURE_EVERY=${EVERY:-1} \
+# TNFS_VERSION_TEXT: Game Mode's footer shows "vwalk", not the build's commit, so two builds' game-mode pictures compare (a binary from
+# before it ignores it, and its footer differs)
+(cd "$work" && env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERSION_TEXT=walk TNFS_CAPTURE_DIR="$work/cap" TNFS_CAPTURE_EVERY=${EVERY:-1} \
     TNFS_INPUT_SETTLE=$settle TNFS_INPUT_SCRIPT="$script" \
     timeout -k 5 $limit "$bin" --data "$data" --mods "$work/mods" --user "$work/user" > "$work/log" 2>&1 &)
 # the game runs on its own: watch its log for the last mark, then let the screen settle a moment and stop it
