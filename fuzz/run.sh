@@ -39,7 +39,7 @@ patterns() {
         tgv) echo "*.tgv" ;;
         shape_bank) echo "*.fsh" ;;
         zip|mod_check) echo "*.zip" ;;
-        mod_ini) echo "*.ini" ;;
+        mod_ini|edition_ini) echo "*.ini" ;;
         *) echo "" ;;
     esac
 }

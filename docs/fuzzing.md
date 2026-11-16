@@ -23,6 +23,7 @@ libFuzzer with AddressSanitizer and UndefinedBehaviorSanitizer.
 | `validate` | `validate_file` (its first byte picks the file name) | the check every mod file goes through |
 | `zip` | `zip_open`, `zip_extract` on every entry | a mod's zip, before anything is installed |
 | `mod_ini` | `mod_ini_parse` | a mod's card (`mod.ini`) |
+| `edition_ini` | `edition_parse`, then `edition_format` and `edition_parse` again, which must give the same | a Restomod edition (`editions/<id>.ini`) |
 | `mod_check` | `mod_check_zip`, `mod_check_install_path` on every entry | the whole install check of a mod's zip |
 | `track_light` | `track_light_parse` | `track_light/<TRK><L>.txt` |
 | `track_places` | `track_light_place_parse` | `data/track/<TRK>.txt` |
