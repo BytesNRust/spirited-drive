@@ -268,10 +268,18 @@ static void test_the_carousel(void)
         CHECK(seen_count == 2 && seen[0] == 7 && seen[1] == 0);
         CHECK_EQ_INT(player_car, 0);
     }
-    {   /* the Warrior has no page yet: passed over */
-        static const int s[] = { 1, 0 };
-        carousel("diablo,warrior,rx7", 1, 7, s, NULL);
-        CHECK(seen_count == 2 && seen[1] == 0);
+    {   /* dep59 section 8: the Warrior's page (as an added car's: the added_gallery op), Done there picks it */
+        static const int s[] = { 1 };
+        static const int16_t h[] = { -1 };
+        carousel("diablo,warrior,rx7", 1, 7, s, h);
+        CHECK(seen_count == 2 && seen[0] == 7 && seen[1] == 111);
+        CHECK_EQ_INT(player_car, 11);
+    }
+    {   /* the Warrior's own card opens the carousel at its page */
+        static const int16_t h[] = { -1 };
+        carousel("diablo,warrior,rx7", 1, 11, NULL, h);
+        CHECK(seen_count == 1 && seen[0] == 111);
+        CHECK_EQ_INT(plain_calls, 0);
     }
     {   /* the added car's own card opens the carousel too: its page hands back on an original, Done there */
         static const int s[] = { 0 };

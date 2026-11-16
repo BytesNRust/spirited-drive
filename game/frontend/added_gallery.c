@@ -8,11 +8,12 @@ int added_gallery_colour_on(const CarPieceCard *c, const GalleryState *s)
     return car_pieces_colour_on(c, s->skin);
 }
 
-/* the item `step` (1 down, -1 up) from `item`, Color passed over while it is off */
+/* the item `step` (1 down, -1 up) from `item`, Color passed over while it is off, both boxes on a fixed page */
 static int item_step(const CarPieceCard *c, const GalleryState *s, int step)
 {
     int item = round_step(s->item, GALLERY_ITEMS, step);
-    if (item == GALLERY_COLOUR && !added_gallery_colour_on(c, s)) item = round_step(item, GALLERY_ITEMS, step);
+    while ((item == GALLERY_COLOUR && (s->fixed || !added_gallery_colour_on(c, s))) || (item == GALLERY_SKIN && s->fixed))
+        item = round_step(item, GALLERY_ITEMS, step);
     return item;
 }
 
@@ -28,7 +29,11 @@ int added_gallery_input(const CarPieceCard *c, GalleryState *s, int key)
 {
     if (s->skin < 0 || s->skin >= c->skins) s->skin = 0;   /* a piece that changed since the pick */
     if (s->paint < 0 || s->paint > c->info.paint_count) s->paint = 0;
-    if (s->item < 0 || s->item >= GALLERY_ITEMS) s->item = GALLERY_SKIN;
+    if (s->item < 0 || s->item >= GALLERY_ITEMS) s->item = s->fixed ? GALLERY_NEXT : GALLERY_SKIN;
+    if (s->fixed && s->item < GALLERY_PREVIOUS) {   /* port (dep59 section 8): a fixed page's boxes take no key */
+        s->item = GALLERY_NEXT;
+        return key == GALLERY_KEY_ESCAPE ? GALLERY_LEAVE : GALLERY_STAY;
+    }
     switch (key) {
     case GALLERY_KEY_ESCAPE: return GALLERY_LEAVE;
     case GALLERY_KEY_UP: s->item = item_step(c, s, -1); break;

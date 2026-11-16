@@ -90,21 +90,25 @@ static void test_the_galleries_step(void)
     CarList l;
     Edition e = edition_of((const char *const[]){ "diablo", "a", "warrior" }, 3);
     car_list_build(&l, &e, 0);
-    CHECK_EQ_INT(car_list_step_gallery(&l, 16, 1), 7);    /* over the Warrior, round to the Diablo */
+    CHECK_EQ_INT(car_list_step_gallery(&l, 16, 1), 11);   /* dep59 section 8: the Warrior has its page */
     CHECK_EQ_INT(car_list_step_gallery(&l, 16, -1), 7);
-    CHECK_EQ_INT(car_list_step_gallery(&l, 7, -1), 16);   /* back over the Warrior */
+    CHECK_EQ_INT(car_list_step_gallery(&l, 7, -1), 11);   /* round back to it */
     e = edition_of((const char *const[]){ "a", "warrior", "rx7", "nsx" }, 4);
     car_list_build(&l, &e, 0);
-    CHECK_EQ_INT(car_list_step_gallery(&l, 16, 1), 0);
-    CHECK_EQ_INT(car_list_step_gallery(&l, 0, -1), 16);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 16, 1), 11);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 0, -1), 11);
     CHECK_EQ_INT(car_list_step_gallery(&l, 0, 1), 1);
     e = edition_of((const char *const[]){ "a", "warrior" }, 2);
     car_list_build(&l, &e, 0);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 16, 1), 11);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 16, -1), 11);
+    e = edition_of((const char *const[]){ "a" }, 1);
+    car_list_build(&l, &e, 0);
     CHECK_EQ_INT(car_list_step_gallery(&l, 16, 1), 16);   /* no other gallery: the car's own again */
-    CHECK_EQ_INT(car_list_step_gallery(&l, 16, -1), 16);
     car_list_build(&l, NULL, 1);
-    CHECK_EQ_INT(car_list_step_gallery(&l, 7, 1), 0);     /* the standard edition: 7, the Warrior, 0 */
-    CHECK_EQ_INT(car_list_step_gallery(&l, 0, -1), 7);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 7, 1), 11);    /* the standard edition: 7, the Warrior, 0 */
+    CHECK_EQ_INT(car_list_step_gallery(&l, 11, 1), 0);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 0, -1), 11);
     car_registry_clear();
 }
 

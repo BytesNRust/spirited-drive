@@ -20,7 +20,7 @@ static CarPieceCard card(int skins, int paints, int own_masked)
 int main(void)
 {
     CarPieceCard c = card(3, 3, 1);
-    GalleryState s = { GALLERY_SKIN, 0, 0 };
+    GalleryState s = { GALLERY_SKIN, 0, 0, 0 };
     CHECK_EQ_INT(added_gallery_colour_on(&c, &s), 1);
     CHECK_EQ_INT(added_gallery_input(&c, &s, GALLERY_KEY_RIGHT), GALLERY_STAY);
     CHECK_EQ_INT(s.skin, 1);
@@ -32,29 +32,29 @@ int main(void)
     CHECK_EQ_INT(s.skin, 2);
     CHECK_EQ_INT(added_gallery_colour_on(&c, &s), 0);   /* skin 2 has no masks */
 
-    s = (GalleryState){ GALLERY_COLOUR, 0, 0 };   /* 3 paints: 0 -> 1 -> 2 -> 3 -> 0 */
+    s = (GalleryState){ GALLERY_COLOUR, 0, 0, 0 };   /* 3 paints: 0 -> 1 -> 2 -> 3 -> 0 */
     for (int want = 1; want <= 4; want++) {
         added_gallery_input(&c, &s, GALLERY_KEY_RIGHT);
         CHECK_EQ_INT(s.paint, want % 4);
     }
     added_gallery_input(&c, &s, GALLERY_KEY_LEFT);
     CHECK_EQ_INT(s.paint, 3);
-    s = (GalleryState){ GALLERY_COLOUR, 2, 1 };   /* off: nothing changes, the paint kept */
+    s = (GalleryState){ GALLERY_COLOUR, 2, 1, 0 };   /* off: nothing changes, the paint kept */
     added_gallery_input(&c, &s, GALLERY_KEY_RIGHT);
     CHECK_EQ_INT(s.paint, 1);
-    s = (GalleryState){ GALLERY_SKIN, 2, 1 };     /* Down passes Color over while it is off */
+    s = (GalleryState){ GALLERY_SKIN, 2, 1, 0 };     /* Down passes Color over while it is off */
     added_gallery_input(&c, &s, GALLERY_KEY_DOWN);
     CHECK_EQ_INT(s.item, GALLERY_PREVIOUS);
     added_gallery_input(&c, &s, GALLERY_KEY_UP);
     CHECK_EQ_INT(s.item, GALLERY_SKIN);
-    s = (GalleryState){ GALLERY_SKIN, 0, 0 };
+    s = (GalleryState){ GALLERY_SKIN, 0, 0, 0 };
     added_gallery_input(&c, &s, GALLERY_KEY_DOWN);
     CHECK_EQ_INT(s.item, GALLERY_COLOUR);
     added_gallery_input(&c, &s, GALLERY_KEY_UP);
     added_gallery_input(&c, &s, GALLERY_KEY_UP);
     CHECK_EQ_INT(s.item, GALLERY_DONE);   /* round */
 
-    s = (GalleryState){ GALLERY_PREVIOUS, 0, 0 };   /* the bottom row: Left and Right between its three */
+    s = (GalleryState){ GALLERY_PREVIOUS, 0, 0, 0 };   /* the bottom row: Left and Right between its three */
     added_gallery_input(&c, &s, GALLERY_KEY_RIGHT);
     CHECK_EQ_INT(s.item, GALLERY_NEXT);
     CHECK_EQ_INT(added_gallery_input(&c, &s, GALLERY_KEY_ENTER), GALLERY_GO_NEXT);
@@ -68,16 +68,38 @@ int main(void)
     CHECK_EQ_INT(s.skin, 1);
 
     CarPieceCard bare = card(1, 0, 0);   /* no skins, no paints, no masks */
-    s = (GalleryState){ GALLERY_SKIN, 0, 0 };
+    s = (GalleryState){ GALLERY_SKIN, 0, 0, 0 };
     added_gallery_input(&bare, &s, GALLERY_KEY_RIGHT);
     CHECK_EQ_INT(s.skin, 0);
     CHECK_EQ_INT(added_gallery_colour_on(&bare, &s), 0);
-    s = (GalleryState){ GALLERY_COLOUR, 0, 0 };
+    s = (GalleryState){ GALLERY_COLOUR, 0, 0, 0 };
     CarPieceCard masked = card(1, 0, 1);   /* masks but no paints: own colour only */
     added_gallery_input(&masked, &s, GALLERY_KEY_RIGHT);
     CHECK_EQ_INT(s.paint, 0);
-    s = (GalleryState){ GALLERY_SKIN, 9, 40 };   /* a state out of range (a piece that changed) is brought back */
+    s = (GalleryState){ GALLERY_SKIN, 9, 40, 0 };   /* a state out of range (a piece that changed) is brought back */
     added_gallery_input(&c, &s, 0);
     CHECK(s.skin == 0 && s.paint == 0);
+    /* dep59 section 8: a fixed look (the Warrior's): Skin and Color shown but never changed nor visited, keys on them doing nothing */
+    CarPieceCard w = card(1, 1, 0);
+    GalleryState f = { GALLERY_SKIN, 0, 1, 1 };
+    CHECK_EQ_INT(added_gallery_input(&w, &f, GALLERY_KEY_RIGHT), GALLERY_STAY);
+    CHECK(f.skin == 0 && f.paint == 1);
+    CHECK_EQ_INT(f.item, GALLERY_NEXT);   /* a fixed page's item is never a box: brought to Next */
+    f.item = GALLERY_COLOUR;
+    added_gallery_input(&w, &f, GALLERY_KEY_LEFT);
+    CHECK(f.paint == 1 && f.item == GALLERY_NEXT);
+    f.item = GALLERY_COLOUR;
+    CHECK_EQ_INT(added_gallery_input(&w, &f, GALLERY_KEY_ENTER), GALLERY_STAY);   /* a key on a box does nothing, Enter too */
+    CHECK(f.paint == 1 && f.item == GALLERY_NEXT);
+    f.item = GALLERY_NEXT;
+    added_gallery_input(&w, &f, GALLERY_KEY_DOWN);
+    CHECK_EQ_INT(f.item, GALLERY_DONE);
+    added_gallery_input(&w, &f, GALLERY_KEY_DOWN);
+    CHECK_EQ_INT(f.item, GALLERY_PREVIOUS);   /* round, past Skin and Color */
+    added_gallery_input(&w, &f, GALLERY_KEY_UP);
+    CHECK_EQ_INT(f.item, GALLERY_DONE);       /* and back, past them */
+    added_gallery_input(&w, &f, GALLERY_KEY_RIGHT);
+    CHECK_EQ_INT(f.item, GALLERY_PREVIOUS);   /* the bottom row as on any page */
+    CHECK(f.skin == 0 && f.paint == 1);
     return TEST_REPORT();
 }
