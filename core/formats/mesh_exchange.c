@@ -3,6 +3,7 @@
 #include "formats/chunk.h"
 #include "formats/le.h"
 #include "formats/mesh.h"
+#include "formats/png.h"
 #include "formats/shpi_exchange.h"
 #include "formats/table_exchange.h"
 
@@ -152,6 +153,59 @@ static void write_mtl(const Mesh *mesh, const MeshTextureBank *banks, size_t ban
     }
 }
 
+void mesh_blender_shown(const char label[8], const char name[4], char shown[4])
+{
+    static const char ZERO[4];
+    memcpy(shown, name, 4);
+    if (memcmp(name, ZERO, 4) == 0 && (strncmp(label, "frntires", 8) == 0 || strncmp(label, "rertires", 8) == 0)) memcpy(shown, "tyr1", 4);
+}
+
+enum { BANK_KEY = 0xff };   /* the car banks' transparent key (car_texture.c's TRANSPARENT) */
+
+/* fix/blender-preview: NAME.blender.mtl, Blender's own: each reference shows its bitmap (mesh_blender_shown), from the first bank that holds
+ * it, or, when it has the key colour, from an RGBA copy NAME.blender.<label>.png beside the OBJ with the key transparent (map_Kd and
+ * map_d). `stem` the files' stem, `base` its last part. 0 when memory runs out */
+static int write_blender_mtl(const Mesh *mesh, const MeshTextureBank *banks, size_t bank_count, const char *stem, const char *base, Text *mtl,
+                             FileSet *out)
+{
+    for (uint32_t i = 0; i < mesh->texture_count; ++i) {
+        MeshTexture t;
+        char label[5], file[SHPI_FILE_NAME_SIZE], shown[4];
+        mesh_texture(mesh, i, &t);
+        texture_label(&t, label);
+        mesh_blender_shown(t.label, t.name, shown);
+        text_printf(mtl, "newmtl t%u_%s\nKd 1 1 1\n", i, label);
+        for (size_t b = 0; shown[0] != '\0' && b < bank_count; ++b) {
+            if (!shpi_entry_file(banks[b].shpi, banks[b].size, shown, file)) continue;
+            uint8_t *rgba = NULL, *png = NULL;
+            uint32_t w, h, keyed;
+            size_t png_len = 0;
+            if (!shpi_entry_rgba(banks[b].shpi, banks[b].size, shown, BANK_KEY, &rgba, &w, &h, &keyed) || keyed == 0) {
+                free(rgba);
+                text_printf(mtl, "map_Kd %s/%s\n", banks[b].dir, file);
+                break;
+            }
+            MeshTexture as = t;
+            memcpy(as.name, shown, 4);
+            char shown_label[5], suffix[32];
+            texture_label(&as, shown_label);
+            snprintf(suffix, sizeof suffix, ".blender.%s.png", shown_label);
+            char *copy = named(stem, suffix);
+            int ok = copy != NULL;
+            if (ok && fileset_find(out, copy) == NULL) {   /* one copy a bitmap, however many references show it */
+                ok = png_write_rgba(rgba, w, h, &png, &png_len) == PNG_OK && fileset_add_owned(out, copy, png, png_len);
+                if (!ok) free(png);
+            }
+            free(rgba), free(copy);
+            if (!ok) return 0;
+            text_printf(mtl, "map_Kd %s%s\nmap_d %s%s\n", base, suffix, base, suffix);
+            break;
+        }
+        text_put(mtl, "\n", 1);
+    }
+    return 1;
+}
+
 /* the size of the bitmap `name` in the first of `banks` that holds it (its entry header's words 4 and 6); 1 x 1 when none does */
 static void bitmap_size(const MeshTextureBank *banks, size_t bank_count, const char name[4], uint32_t *w, uint32_t *h)
 {
@@ -199,7 +253,9 @@ static int blender_obj(const Mesh *mesh, const char *name, const char *mtl, cons
                 return 0;
             }
             const int corners = poly.flags & 7, with_uv = poly.uv_slot != poly.vertex_slot;
-            bitmap_size(banks, bank_count, t.name, &w, &h);
+            char shown[4];
+            mesh_blender_shown(t.label, t.name, shown);
+            bitmap_size(banks, bank_count, shown, &w, &h);
             if (pass == 1 && poly.texture != current) {
                 char label[5];
                 texture_label(&t, label);
@@ -324,12 +380,16 @@ int mesh_export(const uint8_t *orip, size_t size, const char *stem, const MeshTe
     }
     free(obj.data);
     free(mtl.data);
-    if (ok) {   /* dep71: the same mesh for Blender, with the same MTL */
-        Text blender = { 0 };
-        char *mtl_name = named(strchr(stem, '/') ? strrchr(stem, '/') + 1 : stem, ".mtl"), *f = named(stem, ".blender.obj");
-        ok = mtl_name && f && blender_obj(&mesh, name, mtl_name, banks, bank_count, &blender, err);
-        if (ok && (blender.failed || !fileset_add(out, f, (uint8_t *)blender.data, blender.len))) exchange_fail(err, "%s: cannot write the Blender OBJ", stem), ok = 0;
-        free(mtl_name), free(f), free(blender.data);
+    if (ok) {   /* dep71: the same mesh for Blender, with its own MTL (fix/blender-preview) */
+        Text blender = { 0 }, bmtl = { 0 };
+        const char *const base = strchr(stem, '/') ? strrchr(stem, '/') + 1 : stem;
+        char *mtl_name = named(base, ".blender.mtl"), *f = named(stem, ".blender.obj"), *fm = named(stem, ".blender.mtl");
+        ok = mtl_name && f && fm && blender_obj(&mesh, name, mtl_name, banks, bank_count, &blender, err);
+        if (ok && !write_blender_mtl(&mesh, banks, bank_count, stem, base, &bmtl, out)) exchange_fail(err, "%s: cannot write the Blender previews", stem), ok = 0;
+        if (ok && (blender.failed || bmtl.failed || !fileset_add(out, f, (uint8_t *)blender.data, blender.len) ||
+                   !fileset_add(out, fm, (uint8_t *)bmtl.data, bmtl.len)))
+            exchange_fail(err, "%s: cannot write the Blender OBJ", stem), ok = 0;
+        free(mtl_name), free(f), free(fm), free(blender.data), free(bmtl.data);
     }
     if (ok) {
         char *hname = named(stem, ".header.tsv");

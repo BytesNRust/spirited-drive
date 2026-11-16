@@ -69,6 +69,49 @@ int shpi_entry_file(const uint8_t *data, size_t size, const char name[4], char f
     return 0;
 }
 
+/* the SHPI's first palette entry as RGB (shpi_export's reference palette with no external one), else the grey ramp */
+static void first_palette(const uint8_t *data, size_t size, uint8_t rgb[PALETTE_BYTES])
+{
+    const uint32_t count = le_u32(data + 8);
+    for (uint32_t i = 0; i < count && 16 + 8 * (size_t)i + 8 <= size; ++i) {
+        const uint32_t at = le_u32(data + 16 + 8 * (size_t)i + 4);
+        if ((size_t)at < size && size - at >= ENTRY_HEADER + PALETTE_BYTES && is_palette(data[at])) {
+            expand_palette(data[at], data + at + ENTRY_HEADER, rgb);
+            return;
+        }
+    }
+    grey_ramp(rgb);
+}
+
+int shpi_entry_rgba(const uint8_t *data, size_t size, const char name[4], uint8_t key, uint8_t **rgba, uint32_t *w, uint32_t *h,
+                    uint32_t *keyed)
+{
+    *rgba = NULL, *w = *h = 0, *keyed = 0;
+    if (size < 16 || memcmp(data, "SHPI", 4) != 0) return 0;
+    const uint32_t count = le_u32(data + 8);
+    for (uint32_t i = 0; i < count && 16 + 8 * (size_t)i + 8 <= size; ++i) {
+        const uint32_t at = le_u32(data + 16 + 8 * (size_t)i + 4);
+        if (memcmp(data + 16 + 8 * (size_t)i, name, 4) != 0) continue;
+        if ((size_t)at >= size || size - at < ENTRY_HEADER || !is_bitmap(data[at])) return 0;
+        const uint32_t bw = (uint32_t)(data[at + 4] | data[at + 5] << 8), bh = (uint32_t)(data[at + 6] | data[at + 7] << 8);
+        const size_t n = (size_t)bw * bh;
+        if (n == 0 || size - at - ENTRY_HEADER < n) return 0;
+        uint8_t *out = malloc(4 * n);
+        if (out == NULL) return 0;
+        uint8_t rgb[PALETTE_BYTES];
+        first_palette(data, size, rgb);
+        const uint8_t *px = data + at + ENTRY_HEADER;
+        for (size_t k = 0; k < n; ++k) {
+            memcpy(out + 4 * k, rgb + 3 * (size_t)px[k], 3);
+            out[4 * k + 3] = px[k] == key ? 0 : 0xff;
+            *keyed += px[k] == key;
+        }
+        *rgba = out, *w = bw, *h = bh;
+        return 1;
+    }
+    return 0;
+}
+
 int shpi_export(const uint8_t *data, size_t size, const uint8_t *external_palette, FileSet *out, ExchangeError *err)
 {
     DocNode *doc = NULL;

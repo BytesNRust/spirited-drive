@@ -3,6 +3,7 @@
  * refused with file and line. With CD files every ORIP in every FAM and CFM round-trips. */
 #include "formats/doc.h"
 #include "formats/mesh_exchange.h"
+#include "formats/png.h"
 #include "formats/qfs.h"
 #include "test.h"
 
@@ -176,7 +177,7 @@ static void test_blender_obj(void)
     if (f != NULL) {
         char *obj = copy_text(f);
         CHECK(strncmp(obj, "# ORIP mesh", 11) != 0);   /* not mesh_export's NAME.obj: the importer reads it in Blender's frame */
-        static const char BODY[] = "mtllib body.mtl\no _TEST\n"
+        static const char BODY[] = "mtllib body.blender.mtl\no _TEST\n"
                                    "v 0.000000 0.000000 0.000000\nv 0.000000 0.000000 0.000000\nv -0.038462 0.000000 -538.461538\n"
                                    "vt 3.000000 1.500000\nvt 0.000000 1.000000\nvt 3.000000 1.500000\nvt 0.000000 1.000000\n"
                                    "usemtl t1_side\nf 1/1 2/2 3/3 1/4\nusemtl t0_topv\nf 2 1 2\n";
@@ -197,6 +198,73 @@ static void test_blender_obj(void)
         CHECK(strstr(obj, "vt 12.000000 2.000000\n") != NULL);
         free(obj);
     }
+    fileset_free(&files);
+}
+
+/* fix/blender-preview: the bank of test_blender_preview, no palette (a grey ramp): "side" 2 x 1 with texels 0x10 and 0xff (the key), "tyr1"
+ * 2 x 1 with 0x20 0x20 */
+enum { PREVIEW_BANK = 16 + 16 + 2 * 18 };
+
+static void preview_bank(uint8_t bank[PREVIEW_BANK])
+{
+    memset(bank, 0, PREVIEW_BANK);
+    memcpy(bank, "SHPI", 4), bank[4] = PREVIEW_BANK, bank[8] = 2, memcpy(bank + 12, "WRAP", 4);
+    memcpy(bank + 16, "side", 4), bank[20] = 32;
+    memcpy(bank + 24, "tyr1", 4), bank[28] = 32 + 18;
+    for (int at = 32; at < PREVIEW_BANK; at += 18) bank[at] = 0x7b, bank[at + 4] = 2, bank[at + 6] = 1;
+    bank[32 + 16] = 0x10, bank[32 + 17] = 0xff;
+    bank[50 + 16] = 0x20, bank[50 + 17] = 0x20;
+}
+
+/* Blender's preview (mesh.blender.mtl, its own: mesh.mtl, which NAME.obj and the import without --raw read, is as before): a reference with
+ * no bitmap that the car binds the tyre frames to (frntires, rertires) shows tyr1, its uvs as 0..1 of tyr1's size, which the raw import
+ * reads back with the same size (mesh_blender_shown); a bitmap with the key colour (palette index 255) is shown from an RGBA copy beside
+ * the OBJ with the key transparent, as map_Kd and map_d; the bank's own PNGs are not touched */
+static void test_blender_preview(void)
+{
+    char shown[4];
+    mesh_blender_shown("frntires", "\0\0\0\0", shown);
+    CHECK(memcmp(shown, "tyr1", 4) == 0);
+    mesh_blender_shown("rertires", "\0\0\0\0", shown);
+    CHECK(memcmp(shown, "tyr1", 4) == 0);
+    mesh_blender_shown("rertires", "body", shown);
+    CHECK(memcmp(shown, "body", 4) == 0);   /* a reference with a bitmap shows it */
+    mesh_blender_shown("tire1\0\0\0", "\0\0\0\0", shown);
+    CHECK(memcmp(shown, "\0\0\0\0", 4) == 0);   /* any other with none, nothing */
+
+    uint8_t orip[SAMPLE_SIZE];
+    build_sample(orip);
+    memset(orip + TEXTURE_AT, 0, 12), memcpy(orip + TEXTURE_AT, "frntires", 8);   /* texture 0: the front tyres', no bitmap */
+    memcpy(orip + TEXTURE_AT + 20 + 8, "side", 4);                                 /* texture 1: side */
+    orip[POLY_AT + 2] = 0;                                                         /* polygon 0, with uvs, on the tyres */
+    orip[POLY_AT + 12 + 2] = 1;                                                    /* polygon 1 on side */
+    uint8_t bank[PREVIEW_BANK];
+    preview_bank(bank);
+    const MeshTextureBank banks[] = { { bank, sizeof bank, "../c1" } };
+    FileSet files;
+    fileset_init(&files);
+    ExchangeError err = { { 0 } };
+    CHECK(mesh_export(orip, sizeof orip, "m/body", banks, 1, &files, &err));
+    const SetFile *obj = fileset_find(&files, "m/body.blender.obj"), *mtl = fileset_find(&files, "m/body.blender.mtl"),
+                  *plain = fileset_find(&files, "m/body.mtl"), *copy = fileset_find(&files, "m/body.blender.side.png");
+    CHECK(obj != NULL && mtl != NULL && plain != NULL && copy != NULL);
+    if (obj == NULL || mtl == NULL || plain == NULL || copy == NULL) { fileset_free(&files); return; }
+    char *o = copy_text(obj), *m = copy_text(mtl), *p = copy_text(plain);
+    CHECK(strstr(o, "mtllib body.blender.mtl\n") != NULL);
+    CHECK(strstr(o, "vt 6.000000 2.000000\n") != NULL);   /* uv (12, -1) of tyr1's 2 x 1 */
+    CHECK(strstr(m, "newmtl t0_____\nKd 1 1 1\nmap_Kd ../c1/0001_tyr1.png\n") != NULL);
+    CHECK(strstr(m, "newmtl t1_side\nKd 1 1 1\nmap_Kd body.blender.side.png\nmap_d body.blender.side.png\n") != NULL);
+    CHECK(strstr(p, "newmtl t0_____\nKd 1 1 1\n\n") != NULL && strstr(p, "map_Kd ../c1/0000_side.png\n") != NULL);   /* mesh.mtl as before */
+    PngImage img;
+    CHECK(png_read(copy->data, copy->size, &img) == PNG_OK);
+    CHECK(!img.indexed && img.width == 2 && img.height == 1);
+    if (!img.indexed && img.width == 2) {
+        CHECK(img.pixels[0] == 0x10 && img.pixels[3] == 0xff);   /* grey 0x10, opaque */
+        CHECK(img.pixels[7] == 0);                               /* the key: transparent */
+    }
+    png_free(img.pixels);
+    CHECK(fileset_find(&files, "m/body.blender.tyr1.png") == NULL);   /* tyr1 has no key: the bank's own PNG */
+    free(o), free(m), free(p);
     fileset_free(&files);
 }
 
@@ -350,6 +418,7 @@ int main(int argc, char **argv)
     test_identity();
     test_edits();
     test_blender_obj();
+    test_blender_preview();
     test_material_texture();
     for (int a = 1; a < argc; ++a) {
         uint8_t *file = NULL;
