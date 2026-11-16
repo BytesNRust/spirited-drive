@@ -8,8 +8,14 @@
 /* the palette's bytes (004376ac's 0x300 on its stack) */
 enum { GAME_MODE_PALETTE = 0x300 };
 
-/* the profile op's steps for a profile n steps along without (PEEK) and with (APPLY) changing it; a step is the code + n, n from -3 to 3 */
+/* the profile steps Options' row (glue_profile) shares: a profile n steps along without (PEEK) and with (APPLY) changing it; a step is the code + n, n from -3 to 3 */
 enum { GAME_MODE_PROFILE_PEEK = 0x100, GAME_MODE_PROFILE_APPLY = 0x200, GAME_MODE_PROFILE_LOOK = 0x300 };
+
+/* port (dep59 step 4): the selector's op (`choice`), by index into the choices (mode_choices.h: the three modes, then the editions).
+ * READ: the one in use, its index (`index` not read). PEEK: choice `index`'s text; 1 when it can be applied, 0 when not (its line says
+ * why). APPLY: it made the one in use; 1 done. LOOK: 1 when applying it changes the image's format or internal resolution. COUNT: how
+ * many there are. -1 for an index that is none. text[0] the name, text[1] and text[2] the lines under it ("" none). */
+enum { GAME_MODE_CHOICE_READ, GAME_MODE_CHOICE_PEEK, GAME_MODE_CHOICE_APPLY, GAME_MODE_CHOICE_LOOK, GAME_MODE_CHOICE_COUNT };
 
 typedef struct GameModeOps {
     void (*palette_clear)(void *ctx, uint8_t *rgb);                          /* 00463df0: eax */
@@ -61,17 +67,15 @@ typedef struct GameModeOps {
     /* port: the picture's own background put back over the w x h at (x, y) (the Modem item's words); NULL leaves
      * the label over them */
     void (*extras_cover)(void *ctx, int32_t x, int32_t y, int32_t w, int32_t h);
-    /* port (modes): the Profile row, "<  name  >" with two lines about it. step 0 reads the mode in use; GAME_MODE_PROFILE_PEEK + n reads the one n steps along the cycle (n -2..2) without changing anything, and returns 2 when that
-     * is not the one in use, 1 when it is (the cycle came round); GAME_MODE_PROFILE_APPLY + n makes it the mode. text[0] the name, text[1] and text[2] the lines. */
-    int32_t (*profile)(void *ctx, int32_t step, const char *text[3]);
+    /* port (dep59 step 4): the selector, "<  name  >" with its lines under it: the modes and the editions (GAME_MODE_CHOICE_*). NULL: no selector */
+    int32_t (*choice)(void *ctx, int32_t op, int32_t index, const char *text[3]);
     /* port (profiles): the same text at num/den of its size, for the two lines under the name (the long ones are wider than the screen at full size) */
     void (*plus_text_scaled)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);
     int32_t (*plus_text_width_scaled)(void *ctx, const char *text, int32_t num, int32_t den);
-    /* port: line 0 (the version) and 1 (the update notice, drawn above it) at the foot, into text (cap bytes); 1 when there is one. Asked every
-     * pass: the menu is drawn again when the line changes. NULL: none */
+    /* port: line 0 (the version) and 1 (the update notice, drawn on the same foot line to its right) into text (cap bytes); 1 when there is
+     * one. Asked every pass: the menu is drawn again when the line changes. NULL: none */
     int32_t (*footer)(void *ctx, int32_t line, char *text, size_t cap);
-    /* port: a left click on the update notice opens the releases page (the notice is inside Exit's band, so it is
-     * taken before the choosing). NULL: the notice is not clickable */
+    /* port: a left click on the update notice's own text opens the releases page. NULL: the notice is not clickable */
     void (*open_notice)(void *ctx);
     /* port (modes): the arrows apply the mode on the row once they rest. clock_ms: a monotonic clock in ms (NULL: apply at once). GAME_MODE_PROFILE_LOOK + n
      * returns 1 when applying the mode n steps along changes the image's format or its internal resolution, which the short fades (a fade out of the whole
@@ -96,12 +100,14 @@ typedef struct GameModeState {
 } GameModeState;
 
 /* 004376ac (all registers kept; the language the short 0052b31c): the menu
- * of control/gamemode.qfs over four bands of the pointer (y 0..0xb1,
- * 0xb2..0xfd, 0xfe..0x149, 0x14a..0x1e0), Up / Down moving the pointer to
- * the next option's centre (0x140; 0x91, 0xda, 0x122, 0x16f), Enter, Space
- * or the left button choosing once the keys rest (no key, or 0x19 ticks of
- * one other than those); Escape or the right button ask "Exit to system ?".
- * Gives 0 to race, 1 to leave, 2 when the 0x1194 ticks run out. */
+ * of control/gamemode.qfs, its art's words covered by the port's own rows
+ * (L2b, dep59 step 4): Single Player and Multiplayer on top, the selector of
+ * the modes and editions under them, "Manage content..." under it, Exit at
+ * the bottom right; each row a rect of the pointer, Up / Down moving the
+ * pointer to the next row, Enter, Space or the left button (on a row)
+ * choosing once the keys rest (no key, or 0x19 ticks of one other than
+ * those); Escape or the right button ask "Exit to system ?". Gives 0 to
+ * race, 1 to leave, 2 when the 0x1194 ticks run out. */
 int32_t game_mode_menu(int german, GameModeState *st, const GameModeOps *ops);
 
 #endif
