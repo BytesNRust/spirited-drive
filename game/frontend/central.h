@@ -2,6 +2,8 @@
 #ifndef TNFS_CENTRAL_H
 #define TNFS_CENTRAL_H
 
+#include "formats/edition_ini.h"
+
 #include <stdint.h>
 
 /* port (dep59): the art's last values' (004bafb4..) "no art shown", 0x14 in the exe: car 20 is an added car now, so the mark is out of
@@ -176,8 +178,8 @@ typedef struct ControlCentralState {
     const int16_t *warrior_keep;   /* port: the extra (the mode's file) "Warrior Player Car": a Warrior picked for the
                                     * player stays picked when the screen starts again (central_car_start); NULL or 0
                                     * the original's, which sends it to car 0 */
-    const int16_t *restomod;       /* port (dep59): the mode is Restomod, where the added cars follow the eight in the player's car's
-                                    * and the head to head rival's arrows (car_list.h); NULL or 0 the original's */
+    const Edition *edition;        /* port (dep59 step 4): the edition in use, whose cars the player's car's and the head to head rival's
+                                    * arrows step through (car_list.h); NULL or no cars: the standard edition, the original's arrows */
 } ControlCentralState;
 
 /* 00432ff4: Control Central. The pointer, the arrows, Enter / space / the left button pick and change the

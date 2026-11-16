@@ -1,9 +1,10 @@
-/* dep59 step 3: the menus' cars (game/frontend/car_list.h): the eight, then in Restomod the added ones lowest first, then the Warrior
- * when it is on offer; Stock and Restored never list an added car. The pick config.dat's image takes (car_pick.h): never an added car,
+/* dep59 step 3/4: the menus' cars (game/frontend/car_list.h): the standard edition's are the original's (the eight, then the Warrior
+ * when it is on offer), an edition's are its cars= in its order (T6). The pick config.dat's image takes (car_pick.h): never an added car,
  * the last original held standing for it while the image keeps it. */
 #include "game/frontend/car_list.h"
 #include "game/frontend/car_pick.h"
 #include "game/race/car_registry.h"
+#include "formats/edition_ini.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -41,32 +42,44 @@ static void test_registry_cars(void)
     CHECK(out[0] == 17 && out[1] == 18);
 }
 
+/* an edition of `n` cars by id */
+static Edition edition_of(const char *const *ids, int n)
+{
+    Edition e;
+    memset(&e, 0, sizeof e);
+    for (int i = 0; i < n; i++) snprintf(e.car[i], sizeof e.car[i], "%s", ids[i]);
+    e.cars = n;
+    return e;
+}
+
 static void test_the_list(void)
 {
     car_registry_clear();
-    add("a", "A1"), add("b", "B1");
+    add("a", "A1"), add("b", "B1");   /* 16 and 17 */
     CarList l;
-    car_list_build(&l, 0, 1);   /* Stock and Restored: never an added car */
+    car_list_build(&l, NULL, 1);   /* the standard edition: the original's, never an added car */
     CHECK(listed(&l, (const int16_t[]){ 0, 1, 2, 3, 4, 5, 6, 7, 11 }, 9));
-    car_list_build(&l, 0, 0);
+    car_list_build(&l, NULL, 0);
     CHECK(listed(&l, (const int16_t[]){ 0, 1, 2, 3, 4, 5, 6, 7 }, 8));
-    car_list_build(&l, 1, 0);
-    CHECK(listed(&l, (const int16_t[]){ 0, 1, 2, 3, 4, 5, 6, 7, 16, 17 }, 10));
-    CHECK_EQ_INT(car_list_step(&l, 7, 1), 16);
-    CHECK_EQ_INT(car_list_step(&l, 17, 1), 0);
-    CHECK_EQ_INT(car_list_step(&l, 0, -1), 17);
-    CHECK_EQ_INT(car_list_step(&l, 16, -1), 7);
-    CHECK_EQ_INT(car_list_step(&l, 99, 1), 0);   /* not in the list: its first */
-    CHECK_EQ_INT(car_list_step(&l, 11, -1), 0);
-    car_list_build(&l, 1, 1);
-    CHECK(listed(&l, (const int16_t[]){ 0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 11 }, 11));
-    CHECK_EQ_INT(car_list_step(&l, 17, 1), 11);
-    CHECK_EQ_INT(car_list_step(&l, 11, 1), 0);
-    CHECK_EQ_INT(car_list_step(&l, 0, -1), 11);
-    CHECK_EQ_INT(car_list_step(&l, 11, -1), 17);
+    CHECK_EQ_INT(car_list_step(&l, 7, 1), 0);
+    CHECK_EQ_INT(car_list_step(&l, 0, -1), 7);
+    /* an edition: its cars in its order, the stock ones by number, the added ones by their registered number, the missing ones out;
+     * the Warrior when it lists it, whatever `warrior` says */
+    Edition e = edition_of((const char *const[]){ "supra", "rx7", "warrior" }, 3);
+    car_list_build(&l, &e, 0);
+    CHECK(listed(&l, (const int16_t[]){ 2, 0, 11 }, 3));
+    e = edition_of((const char *const[]){ "b", "viper", "gone", "a" }, 4);
+    car_list_build(&l, &e, 1);
+    CHECK(listed(&l, (const int16_t[]){ 17, 5, 16 }, 3));
+    CHECK_EQ_INT(car_list_step(&l, 16, 1), 17);
+    CHECK_EQ_INT(car_list_step(&l, 17, -1), 16);
+    CHECK_EQ_INT(car_list_step(&l, 3, 1), 17);   /* not in the list: its first */
+    e = edition_of((const char *const[]){ "rx7", "nsx" }, 2);
+    car_list_build(&l, &e, 1);
+    CHECK(listed(&l, (const int16_t[]){ 0, 1 }, 2));
+    CHECK_EQ_INT(car_list_step(&l, 0, 1), 1);
+    CHECK_EQ_INT(car_list_step(&l, 1, 1), 0);
     car_registry_clear();
-    car_list_build(&l, 1, 0);   /* Restomod with nothing added: the original's */
-    CHECK(listed(&l, (const int16_t[]){ 0, 1, 2, 3, 4, 5, 6, 7 }, 8));
 }
 
 /* Review Focus 7: config.dat's image only ever holds an original */

@@ -1,6 +1,6 @@
 /* The head to head opponent's arrows (central_select.c): 0..7 as the original steps them, and the Warrior (11)
- * between 7 and 0 with the port's Warrior-as-a-rival extra. dep59 step 3: in Restomod the added cars after the eight, for the player's
- * car and the head to head rival; a single race, a tournament, a link game, Stock and Restored as they were. */
+ * between 7 and 0 with the port's Warrior-as-a-rival extra. dep59 step 4 (T6): in an edition its cars (car_list.h), for the player's
+ * car and the head to head rival; a single race, a tournament, a link game and the standard edition as they were. */
 #include "game/frontend/central_run.h"
 #include "game/race/car_registry.h"
 #include "test.h"
@@ -27,12 +27,13 @@ bool platform_user_file_exists(const char *name)
     return data != NULL;
 }
 
-static int16_t race_type = 1, opponent, net_self, rival, restomod, player_car, warrior, track, warrior_keep = 1;
+static int16_t race_type = 1, opponent, net_self, rival, player_car, warrior, track, warrior_keep = 1;
+static Edition edition;   /* cars 0: the standard edition */
 static int16_t lost;
 
 static void bind(ControlCentralState *st)
 {
-    st->race_type = &race_type, st->opponent = &opponent, st->net_self = &net_self, st->warrior_rival = &rival, st->restomod = &restomod;
+    st->race_type = &race_type, st->opponent = &opponent, st->net_self = &net_self, st->warrior_rival = &rival, st->edition = &edition;
     st->player_car = &player_car, st->warrior = &warrior, st->track = &track, st->warrior_keep = &warrior_keep, st->lost = lost;
 }
 
@@ -85,40 +86,46 @@ static void add(const char *id, const char *stem)
     CHECK(car_registry_add(&p, NULL, 0) >= CAR_ADDED_FIRST);
 }
 
-static void test_added_cars(void)
+static void edition_of(const char *const *ids, int n)
+{
+    memset(&edition, 0, sizeof edition);
+    for (int i = 0; i < n; i++) snprintf(edition.car[i], sizeof edition.car[i], "%s", ids[i]);
+    edition.cars = n;
+}
+
+/* dep59 step 4 T6: the standard edition's arrows are the original's; an edition's step through its cars (car_list.h), the player's
+ * car's and the head to head rival's */
+static void test_edition_cars(void)
 {
     car_registry_clear();
     add("a", "A1"), add("b", "B1");   /* 16 and 17 */
     race_type = 1, rival = 0, warrior = 0, lost = 0;
-    restomod = 0;   /* Stock and Restored: as the original, the added cars never offered */
+    edition_of(NULL, 0);   /* the standard edition: the added cars never offered */
     CHECK_EQ_INT(up(7), 0);
     CHECK_EQ_INT(down(0), 7);
     CHECK_EQ_INT(car(7, 1), 0);
     CHECK_EQ_INT(car(0, -1), 7);
-    restomod = 1;
-    CHECK_EQ_INT(up(7), 16);   /* head to head */
-    CHECK_EQ_INT(up(16), 17);
-    CHECK_EQ_INT(up(17), 0);
-    CHECK_EQ_INT(down(0), 17);
-    CHECK_EQ_INT(down(16), 7);
-    rival = 1;   /* with the Warrior as a rival: 7, 16, 17, 11, 0 */
-    CHECK_EQ_INT(up(7), 16);
-    CHECK_EQ_INT(up(17), 11);
-    CHECK_EQ_INT(up(11), 0);
-    CHECK_EQ_INT(down(0), 11);
-    CHECK_EQ_INT(down(11), 17);
-    rival = 0;
-    CHECK_EQ_INT(car(7, 1), 16);   /* the player's car */
-    CHECK_EQ_INT(car(17, 1), 0);
-    CHECK_EQ_INT(car(0, -1), 17);
-    warrior = 1;
-    CHECK_EQ_INT(car(17, 1), 11);
-    CHECK_EQ_INT(car(11, 1), 0);
-    CHECK_EQ_INT(car(11, -1), 17);
-    CHECK_EQ_INT(car(0, -1), 11);
-    warrior = 0;
+    edition_of((const char *const[]){ "rx7", "nsx" }, 2);
+    CHECK_EQ_INT(up(0), 1);   /* head to head */
+    CHECK_EQ_INT(up(1), 0);
+    CHECK_EQ_INT(down(0), 1);
+    CHECK_EQ_INT(car(0, 1), 1);
+    CHECK_EQ_INT(car(0, -1), 1);
+    CHECK_EQ_INT(up(5), 0);   /* a car it does not list: its first */
+    edition_of((const char *const[]){ "viper", "a", "b" }, 3);
+    CHECK_EQ_INT(up(5), 16);
+    CHECK_EQ_INT(up(17), 5);
+    CHECK_EQ_INT(down(5), 17);
+    rival = 1, warrior = 1;   /* the Warrior only when the edition lists it */
+    CHECK_EQ_INT(up(17), 5);
+    CHECK_EQ_INT(car(17, 1), 5);
+    edition_of((const char *const[]){ "viper", "warrior" }, 2);
+    CHECK_EQ_INT(up(5), 11);
+    CHECK_EQ_INT(car(11, 1), 5);
+    rival = 0, warrior = 0;
+    edition_of((const char *const[]){ "viper", "a", "b" }, 3);
     race_type = 0;   /* a time trial: the player's car only, no rival */
-    CHECK_EQ_INT(car(7, 1), 16);
+    CHECK_EQ_INT(car(5, 1), 16);
     race_type = 2;   /* a single race: the opponent keeps its 0..8 (the field), the player's car its list */
     CHECK_EQ_INT(up(8), 0);
     CHECK_EQ_INT(down(0), 8);
@@ -129,20 +136,23 @@ static void test_added_cars(void)
     CHECK_EQ_INT(car(7, 1), 0);
     CHECK_EQ_INT(car(0, -1), 7);
     lost = 0, net_self = 0;
-    /* the screen's start: an added car no longer registered goes back to car 0, one that is stays */
+    /* the screen's start: a car the edition lists stays; one it does not becomes its first, the player's and the head to head rival */
     ControlCentralState st = { 0 };
     bind(&st);
-    player_car = 17;
+    player_car = 17, opponent = 16;
     central_car_start(&st);
-    CHECK_EQ_INT(player_car, 17);
-    player_car = 40;
+    CHECK(player_car == 17 && opponent == 16);
+    player_car = 3, opponent = 40;
     central_car_start(&st);
-    CHECK_EQ_INT(player_car, 0);
-    restomod = 0, player_car = 17;   /* nor in Stock and Restored */
+    CHECK(player_car == 5 && opponent == 5);
+    race_type = 2, opponent = 8;   /* a single race's opponent is the field's, not a car */
     central_car_start(&st);
-    CHECK_EQ_INT(player_car, 0);
-    car_registry_clear();
+    CHECK_EQ_INT(opponent, 8);
     race_type = 1;
+    edition_of(NULL, 0), player_car = 17, opponent = 16;   /* the standard edition: an added car goes back to car 0 */
+    central_car_start(&st);
+    CHECK(player_car == 0 && opponent == 0);
+    car_registry_clear();
 }
 
 /* The CD's files are not read by this test (the tables start as the built-in defaults). */
@@ -166,6 +176,6 @@ int main(void)
     race_type = 2;
     CHECK_EQ_INT(up(8), 0);
     CHECK_EQ_INT(down(0), 8);
-    test_added_cars();
+    test_edition_cars();
     return TEST_REPORT();
 }

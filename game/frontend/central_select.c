@@ -12,14 +12,17 @@ static int in(CentralRun *r, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 
 static int warrior_rival(const ControlCentralState *st) { return st->warrior_rival != NULL && *st->warrior_rival != 0; }
 
-/* port (dep59): the added cars are offered in Restomod, outside a link game */
-static int added_on(const ControlCentralState *st) { return st->restomod != NULL && *st->restomod != 0 && st->lost == 0; }
+/* port (dep59 step 4): the edition in use, NULL for the standard one */
+static const Edition *edition_of(const ControlCentralState *st) { return st->edition != NULL && st->edition->cars > 0 ? st->edition : NULL; }
 
-/* port (dep59): `*car` stepped round the menus' list (car_list.h), the Warrior in it when `warrior` */
-static void list_step(int16_t *car, int warrior, int step)
+/* port (dep59): an edition's cars are the arrows', outside a link game */
+static int added_on(const ControlCentralState *st) { return edition_of(st) != NULL && st->lost == 0; }
+
+/* port (dep59): `*car` stepped round the edition's cars (car_list.h) */
+static void list_step(const ControlCentralState *st, int16_t *car, int step)
 {
     CarList l;
-    car_list_build(&l, 1, warrior);
+    car_list_build(&l, edition_of(st), 0);
     *car = car_list_step(&l, *car, step);
 }
 
@@ -38,7 +41,7 @@ void central_opponent_up(CentralRun *r, int mouse)
         st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
         *st->net_car = (int16_t)((*st->net_car + 1) % 9);
     } else if (*st->race_type == 1 && added_on(st)) {
-        list_step(st->opponent, warrior_rival(st), 1);   /* port (dep59): the head to head rival may be an added car */
+        list_step(st, st->opponent, 1);   /* port (dep59): the head to head rival from the edition's cars */
     } else if (*st->opponent == 11) {
         *st->opponent = 0;
     } else if (++*st->opponent > 7) {
@@ -62,7 +65,7 @@ void central_opponent_down(CentralRun *r, int mouse)
         st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
         if (--*st->net_car < 0) *st->net_car = 8;
     } else if (*st->race_type == 1 && added_on(st)) {
-        list_step(st->opponent, warrior_rival(st), -1);
+        list_step(st, st->opponent, -1);
     } else {
         *st->opponent = *st->opponent == 11 ? 7 : (int16_t)(*st->opponent - 1);
         if (*st->opponent < 0) *st->opponent = warrior_rival(st) ? 11 : 7;  /* port: the extra */
@@ -71,14 +74,23 @@ void central_opponent_down(CentralRun *r, int mouse)
 }
 
 /* the screen's start sends the Warrior (11) back to car 0; port: not when the extra keeps it and it is on offer. port (dep59): an added
- * car no longer offered (its mod gone, or out of Restomod) back to car 0 too, the player's and the rival's */
+ * car (the standard edition offers none) back to car 0 too, the player's and the rival's. port (dep59 step 4): in an edition, a car it
+ * does not list becomes its first, the player's and the head to head rival */
 void central_car_start(ControlCentralState *st)
 {
+    const Edition *e = edition_of(st);
+    if (e != NULL) {
+        CarList l;
+        car_list_build(&l, e, 0);
+        const int16_t first = car_list_step(&l, -1, 1);   /* (no car is -1: the list's first, or 0 for none) */
+        if (!car_list_has(&l, *st->player_car)) *st->player_car = first;
+        if (st->opponent != NULL && st->race_type != NULL && *st->race_type == 1 && !car_list_has(&l, *st->opponent)) *st->opponent = first;
+        return;
+    }
     const int keep = st->warrior_keep != NULL && *st->warrior_keep != 0 && *st->warrior != 0;
     if (*st->player_car == 11 && !keep) *st->player_car = 0;
-    const int offered = st->restomod != NULL && *st->restomod != 0;
-    if (*st->player_car >= CAR_ADDED_FIRST && !(offered && car_registry_is_added(*st->player_car))) *st->player_car = 0;
-    if (st->opponent != NULL && *st->opponent >= CAR_ADDED_FIRST && !(offered && car_registry_is_added(*st->opponent))) *st->opponent = 0;
+    if (*st->player_car >= CAR_ADDED_FIRST) *st->player_car = 0;
+    if (st->opponent != NULL && *st->opponent >= CAR_ADDED_FIRST) *st->opponent = 0;
 }
 
 /* the player's car one on: a tournament's class by track (0..2, 3..5, 6..7), else 0..7 and the Warrior */
@@ -86,7 +98,7 @@ void central_car_up(CentralRun *r)
 {
     ControlCentralState *st = r->st;
     if (*st->race_type != 3 && added_on(st)) {
-        list_step(st->player_car, *st->warrior != 0, 1);   /* port (dep59): the added cars after the eight */
+        list_step(st, st->player_car, 1);   /* port (dep59): the edition's cars */
     } else if (*st->race_type == 3) {
         const int16_t t = *st->track;
         ++*st->player_car;
@@ -110,7 +122,7 @@ void central_car_down(CentralRun *r)
 {
     ControlCentralState *st = r->st;
     if (*st->race_type != 3 && added_on(st)) {
-        list_step(st->player_car, *st->warrior != 0, -1);
+        list_step(st, st->player_car, -1);
         r->ops->car_flags(r->ops->ctx);
         r->redraw = 1;
         return;

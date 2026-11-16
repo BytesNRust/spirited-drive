@@ -15,6 +15,7 @@
 #include "game/platform/platform.h"
 #include "game/race/car_registry.h"
 #include "game/sys/car_looks.h"
+#include "game/sys/edition_file.h"
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_log.h"
@@ -258,7 +259,8 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         memset(&p, 0, sizeof p);
         if (!car_pieces_card(*car, &p.card)) return 0;
         CarList l;
-        car_list_build(&l, 1, warrior);
+        Edition e;   /* port (dep59 step 4): the arrows' cars are the edition's */
+        car_list_build(&l, edition_active(&e) == 1 ? &e : NULL, warrior);
         p.car = *car, p.cars = l.count;
         for (int i = 0; i < l.count; i++)
             if (l.car[i] == *car) p.place = i + 1;
