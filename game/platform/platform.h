@@ -56,6 +56,15 @@ typedef enum {
 /* Pumps OS events. Returns false once the user asked to quit. */
 bool platform_poll_events(void);
 
+/* port (dep59 step 4b): the files dropped on the window, oldest first (the CONTENT screen installs them). The next one's path into `out`
+ * and true; false when none is waiting. The queue keeps PLATFORM_DROPPED_MAX; one more is left out, as is one whose path does not fit
+ * `out`, each with a line in the log. The input script's ms:DROP:name drops TNFS_DROP_DIR/name (input_script.c). */
+enum { PLATFORM_DROPPED_MAX = 8 };
+bool platform_dropped_file(char *out, size_t out_size);
+/* port (dep59 step 4b): the system's open dialog for a mod's zip, over the game's window, waited for: its path into `out` and true; false
+ * when none is picked, the dialog fails, the path does not fit, or there is no window to show it over (a headless run) */
+bool platform_pick_zip(char *out, size_t out_size);
+
 /* Next key pressed since the last call, or PLATFORM_KEY_NONE. */
 PlatformKey platform_next_key(void);
 
@@ -160,7 +169,8 @@ void platform_free_names(char **names);
 /* port (dep59 step 2): folders below the player's folder, for the installed mods (game/sys/mod_store.h). `rel` is a clean relative path
  * (modpath_clean's rules: no "..", not absolute) below the player's folder; none of these follows a symbolic link: a link anywhere on the
  * way (the player's folder's own path apart) makes the call fail, and remove_tree removes a link inside the tree as a link, never what
- * it points at. What changes the tree (mkdirs, rename, remove_tree, write_file_at) changes only mods/ and mods_backup/ and what is in them:
+ * it points at. What changes the tree (mkdirs, rename, remove_tree, write_file_at) changes only mods/, mods_backup/ and (dep59 step 4b)
+ * editions/ and what is in them:
  * any other `rel` fails with a line in the log. */
 bool platform_user_mkdirs(const char *rel);                          /* each missing folder of `rel`; true when it is a folder after */
 bool platform_user_rename(const char *from_rel, const char *to_rel);   /* atomic within the folder; `to_rel` must not exist */

@@ -38,16 +38,18 @@
  * ms:SHOT:name (with TNFS_INPUT_SETTLE only; port, test harness): once the screen is still, as a click waits for it, and N ms have passed
  * since the step before it was done (its reaction drawn), the frame on screen is
  * written as TNFS_SHOT_DIR/name.ppm and the log says "input script: shot name"; a name is 1..15 of a-z 0-9 _ - (no path). A shot that cannot
- * be written stops the run with status 3, as a WAIT that times out does. */
+ * be written stops the run with status 3, as a WAIT that times out does.
+ * ms:DROP:name (port, dep59 step 4b): the file TNFS_DROP_DIR/name dropped on the window, as a player drags one there (platform.h's
+ * platform_dropped_file); a name is 1..31 of a-z 0-9 _ - . and does not start with a dot (no path). */
 enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100, SCRIPT_SETTLE_CAP_MS = 12000, SCRIPT_READ_GAP_MS = 250 };
 typedef struct {
     uint32_t at_ms;
-    int scancode;  /* set-1, 0 for mouse moves, -2 text, -3 clicks, -4 WAIT, -5 SHOT */
+    int scancode;  /* set-1, 0 for mouse moves, -2 text, -3 clicks, -4 WAIT, -5 SHOT, -6 DROP */
     int x, y;
     bool seen;     /* held until the game has read it at least once */
     bool queued;   /* text / editing code already pushed to the text queue */
     bool keyed;    /* pushed to the key queue, as a real press is */
-    char text[32]; /* TEXT events; WAIT: the log line's text */
+    char text[32]; /* TEXT events; WAIT: the log line's text; SHOT, DROP: the name */
     uint32_t delay; /* TNFS_INPUT_SETTLE: ms after the event before it */
     bool placed;    /* CLICK: the pointer moved there, the press due on the next read */
     bool latched;   /* a key's press latched, as the event of a real one does */
@@ -76,6 +78,43 @@ static bool shot_item(const char *item, ScriptEvent *e)
     SDL_memcpy(e->text, name, n + 1);
     e->scancode = -5;
     return true;
+}
+
+static void script_sequence(void);
+
+/* `item` a DROP, "ms:DROP:name", into `e`: 1 when it is one with a name of 1..31 of a-z 0-9 _ - . not starting with a dot */
+static bool drop_item(const char *item, ScriptEvent *e)
+{
+    int at = -1;
+    if (SDL_sscanf(item, "%u:DROP:%n", &e->at_ms, &at) != 1 || at < 0) return false;
+    const char *name = item + at;
+    const size_t n = SDL_strlen(name);
+    if (n == 0 || n >= sizeof e->text || name[0] == '.') return false;
+    for (size_t i = 0; i < n; i++)
+        if (!((name[i] >= 'a' && name[i] <= 'z') || (name[i] >= '0' && name[i] <= '9') || name[i] == '_' || name[i] == '-' || name[i] == '.'))
+            return false;
+    SDL_memcpy(e->text, name, n + 1);
+    e->scancode = -6;
+    return true;
+}
+
+void input_script_apply_drops(void)
+{
+    script_sequence();
+    const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
+    const char *const dir = SDL_getenv("TNFS_DROP_DIR");
+    for (int i = 0; i < script_count; i++) {
+        ScriptEvent *e = &script[i];
+        if (e->scancode != -6 || e->queued || now < e->at_ms) continue;
+        e->queued = true;
+        char path[1100];
+        if (dir == NULL || SDL_snprintf(path, sizeof path, "%s/%s", dir, e->text) >= (int)sizeof path) {
+            port_log("input script: step %d: DROP %s: no TNFS_DROP_DIR, or too long a path\n", i + 1, e->text);
+            continue;
+        }
+        port_log("input script: drop %s\n", e->text);
+        sdl3_drop_push(path);
+    }
 }
 
 /* a SHOT armed: the frame on screen written as TNFS_SHOT_DIR/<name>.ppm, or the run stopped */
@@ -193,6 +232,8 @@ void input_script_load(void)
             SDL_memcpy(e.text, wait + 6, (size_t)(last - (wait + 6)));
             e.scancode = -4;
             script[script_count++] = e;
+        } else if (drop_item(item, &e)) {
+            script[script_count++] = e;
         } else if (shot_item(item, &e)) {
             script_shots = true;
             script[script_count++] = e;
@@ -228,6 +269,7 @@ static bool script_done(const ScriptEvent *e, uint32_t now)
     if (e->scancode == -1) return true;                       /* a mouse move, consumed */
     if (e->scancode == -4) return port_log_watch_hit() != 0;  /* WAIT: the game logged its line */
     if (e->scancode == -5) return e->seen;                    /* SHOT: written */
+    if (e->scancode == -6) return e->queued;                  /* DROP: queued */
     if (e->scancode == -3 || e->scancode == -2) return e->seen || (e->scancode == -2 && e->queued);
     return now >= e->at_ms + SCRIPT_HOLD_MS && (e->seen || e->keyed || e->queued);
 }
@@ -297,7 +339,7 @@ void input_script_apply_text(void)
     const uint32_t now = (uint32_t)SDL_GetTicks() - script_start_ms;
     for (int i = 0; i < script_count; i++) {
         ScriptEvent *e = &script[i];
-        if (e->queued || e->scancode == -3 || now < e->at_ms) continue;
+        if (e->queued || e->scancode == -3 || e->scancode == -6 || now < e->at_ms) continue;   /* a DROP is input_script_apply_drops's */
         if (e->scancode == -2) sdl3_text_push_utf8(e->text);
         if (e->scancode == 0x1C) sdl3_text_push(PLATFORM_TEXT_ENTER);
         if (e->scancode == 0x01) sdl3_text_push(PLATFORM_TEXT_ESCAPE);

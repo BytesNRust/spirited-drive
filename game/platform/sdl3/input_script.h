@@ -12,7 +12,8 @@ void input_script_apply_keys(void);
 void input_script_apply_text(void);
 void input_script_apply_mouse(void);
 bool input_script_key_down(int scancode);
-bool input_script_shots(void);                         /* the script takes SHOTs: the present keeps the frame in its buffer */
+bool input_script_shots(void);
+void input_script_apply_drops(void);                   /* the DROP items due: their files queued as dropped (platform_dropped_file) */                         /* the script takes SHOTs: the present keeps the frame in its buffer */
 void input_script_note_present(void);                  /* a frame was presented */
 void input_script_log_window_event(Uint32 type);       /* --verbose */
 void input_script_watch_key_event(const SDL_Event *event);

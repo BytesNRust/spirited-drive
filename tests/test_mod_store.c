@@ -281,7 +281,7 @@ static void test_a_card_of_another_id_is_left_alone(void)
     CHECK(file_is("mods/twk/mod.ini", "id=other\nname=Other\nversion=1\n"));
 }
 
-/* what changes the player's folder changes only mods/ and mods_backup/, whatever a caller asks */
+/* what changes the player's folder changes only mods/, mods_backup/ and editions/, whatever a caller asks */
 static void test_the_tree_changes_only_mods(void)
 {
     fresh();
@@ -298,6 +298,12 @@ static void test_the_tree_changes_only_mods(void)
     CHECK(platform_user_write_file_at("mods/y.txt", data, 1) && file_is("mods/y.txt", "y"));
     CHECK(platform_user_remove_tree("mods_backup/b") && !exists("mods_backup/b"));
     CHECK(platform_user_is_dir("mods") && !platform_user_is_dir("settings.ini"));   /* reading is not limited */
+    /* dep59 step 4b: editions/ too (the editions the CONTENT screen writes), and nothing beside it */
+    CHECK(platform_user_mkdirs("editions") && platform_user_write_file_at("editions/a.ini", data, 1) && file_is("editions/a.ini", "y"));
+    CHECK(platform_user_rename("editions/a.ini", "editions/b.ini") && file_is("editions/b.ini", "y") && !exists("editions/a.ini"));
+    CHECK(!platform_user_rename("editions/b.ini", "b.ini") && exists("editions/b.ini"));
+    CHECK(!platform_user_mkdirs("editionsx") && !exists("editionsx"));
+    CHECK(platform_user_remove_tree("editions/b.ini") && !exists("editions/b.ini"));
 }
 
 int main(void)
