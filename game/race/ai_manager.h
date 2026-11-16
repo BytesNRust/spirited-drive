@@ -65,6 +65,11 @@ void ai_place_police(RaceState *race);
  * 6..8), its velocity's x negated, every term 8.8 by 8.8. */
 int32_t ai_road_speed(const Car *car);
 
+/* port (dep59 3b): the coast (ticks, 004c5d00's) and the pace (16.16, 004c5ce0's) the AI drives car `car` at: an original's tables for
+ * 0..7, an added car's own (car_registry_ai); -1 for any other number */
+int32_t ai_coast_ticks(int car);
+int32_t ai_model_pace(int car);
+
 /* 0046bfb0: for each human car: a car at `node` (the car's, from 0046c278)
  * up to the profile's block_reach ahead of it, with `progress` past 0x86,
  * whose human is at least block_gap behind along the road adds 7.0 to the

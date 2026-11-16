@@ -63,7 +63,7 @@ int32_t ai_profile_row(const RaceState *race, int32_t fallback)
         return race->cars[2]->model == race->cars[3]->model ? 4 : 3;
     case 3:
         if (race->cars[0] == NULL) return fallback & 0xff;  /* port guard */
-        if ((uint32_t)car_registry_ai_model(race->cars[0]->model) <= 7) return ROW_BY_MODEL[car_registry_ai_model(race->cars[0]->model)];   /* port (dep59): an added car's ai_from */
+        if ((uint32_t)car_registry_ai_model(race->cars[0]->model) <= 7) return ROW_BY_MODEL[car_registry_ai_model(race->cars[0]->model)];   /* port (dep59 3b): an added car (-1) takes the fallback */
         return fallback & 0xff;
     default:
         return fallback & 0xff;

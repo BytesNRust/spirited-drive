@@ -135,19 +135,20 @@ static void test_laps(void)
     CHECK_EQ_INT(s.laps, 16);
 }
 
-/* Review Focus 8: an added car's flags are those of the car its AI comes from, never a read past the tables of 12 */
+/* Review Focus 8; 3b Decision 5: an added car's flags are CAR_FLAGS_ADDED_A/B (the originals' majority), whatever it is made from, never a
+ * read past the tables of 12 */
 static void test_added_car_flags(void)
 {
     car_registry_clear();
-    CHECK_EQ_INT(car_registry_add(&(CarPiece){ .id = "a", .stem = "A1", .sound_model = 0, .ai_model = 5, .dash_model = -1 }, NULL, 0), 16);
+    CHECK_EQ_INT(car_registry_add(&(CarPiece){ .id = "a", .stem = "A1", .sound_model = 5, .ai = { CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, .dash_model = -1 }, NULL, 0), 16);
     RaceSettings s, want;
     race_settings_init(&s), race_settings_init(&want);
-    want.player_car = 5;
-    race_settings_car_flags(&want);
     s.player_car = 16;
     race_settings_car_flags(&s);
-    CHECK_EQ_INT(s.car_flag_a, want.car_flag_a);
-    CHECK_EQ_INT(s.car_flag_b, want.car_flag_b);
+    CHECK_EQ_INT(s.car_flag_a, CAR_FLAGS_ADDED_A ? 0 : 2);   /* A = 1, B = 0: flag a 0, flag b 2 (the Viper, car 5, would give 2 and 2) */
+    CHECK_EQ_INT(s.car_flag_b, (CAR_FLAGS_ADDED_B == 0) + 1);
+    CHECK_EQ_INT(CAR_FLAGS_ADDED_A, 1);
+    CHECK_EQ_INT(CAR_FLAGS_ADDED_B, 0);
     want.player_car = 0;   /* one not registered, or past every range: car 0's */
     race_settings_car_flags(&want);
     for (int car = 12; car <= 200; car += 4) {

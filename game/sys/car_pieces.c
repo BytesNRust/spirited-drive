@@ -1,9 +1,11 @@
 /* See car_pieces.h. */
 #include "game/sys/car_pieces.h"
 
+#include "formats/car_ai.h"
 #include "formats/car_piece.h"
 #include "formats/crc32.h"
 #include "formats/mod_ini.h"
+#include "formats/pdn.h"
 #include "formats/validate.h"
 #include "game/race/car_registry.h"
 #include "game/sys/data_path.h"
@@ -84,15 +86,37 @@ static void take_pictures(FileSet *set, const char *dir)
     if (names != NULL) platform_free_names(names);
 }
 
-/* port (dep59 1b): the CRC-32 of the PBS then the PDN in `set` (their paths in `paths`, any case), 1 for a 0 */
-static uint32_t fingerprint(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH])
+/* the file of `set` at `path` (any case), NULL when there is none */
+static const SetFile *file_at(const FileSet *set, const char *path)
+{
+    for (size_t i = 0; i < set->count; i++)
+        if (strcasecmp(set->file[i].name, path) == 0) return &set->file[i];
+    return NULL;
+}
+
+/* port (dep59 1b): the CRC-32 of the PBS then the PDN in `set` (their paths in `paths`), then (3b) `ai`'s pace and coast, 4 bytes LE each:
+ * what decides how the car drives; 1 for a 0 */
+static uint32_t fingerprint(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH], const CarAiTuning *ai)
 {
     uint32_t crc = 0;
     static const int ORDER[2] = { 2, 1 };   /* car_piece_paths': the PBS, then the PDN */
-    for (int k = 0; k < 2; k++)
-        for (size_t i = 0; i < set->count; i++)
-            if (strcasecmp(set->file[i].name, paths[ORDER[k]]) == 0) crc = crc32_update(crc, set->file[i].data, set->file[i].size);
+    for (int k = 0; k < 2; k++) {
+        const SetFile *f = file_at(set, paths[ORDER[k]]);
+        if (f != NULL) crc = crc32_update(crc, f->data, f->size);
+    }
+    uint8_t tail[8];
+    for (int i = 0; i < 4; i++) tail[i] = (uint8_t)((uint32_t)ai->pace >> (8 * i)), tail[4 + i] = (uint8_t)((uint32_t)ai->coast >> (8 * i));
+    crc = crc32_update(crc, tail, sizeof tail);
     return crc != 0 ? crc : 1;
+}
+
+/* port (dep59 3b): the AI tuning of the piece: from its PDN (`paths`[1] in `set`) */
+static int piece_ai(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH], CarAiTuning *out, char *why, size_t why_cap)
+{
+    const SetFile *f = file_at(set, paths[1]);
+    uint8_t pdn[PDN_SIZE];
+    if (f == NULL || !pdn_read(pdn, f->data, f->size)) return snprintf(why, why_cap, "its PDN cannot be read"), 0;
+    return car_ai_tuning(pdn, NULL, out, why, why_cap);
 }
 
 /* the first fatal finding of `r`, as the log says it */
@@ -129,20 +153,22 @@ static int read_piece(const char *dir, ModInfo *card, CarPiece *out, char *why, 
     take_pictures(&set, dir);
     Report r;
     report_init(&r);
-    const int ok = car_piece_check(card, &set, &r);
+    int ok = car_piece_check(card, &set, &r);
     if (!ok) first_fatal(&r, why, why_cap);
     report_free(&r);
-    const uint32_t print = ok ? fingerprint(&set, paths) : 0;
+    CarAiTuning ai = { 0, 0 };
+    ok = ok && piece_ai(&set, paths, &ai, why, why_cap);
+    const uint32_t print = ok ? fingerprint(&set, paths, &ai) : 0;
     fileset_free(&set);
     if (!ok) return 0;
     memset(out, 0, sizeof *out);
     out->fingerprint = print;
+    out->ai = ai;
     snprintf(out->id, sizeof out->id, "%s", card->id);
     snprintf(out->name, sizeof out->name, "%s", card->name);
     snprintf(out->stem, sizeof out->stem, "%s", card->stem);
     snprintf(out->short_name, sizeof out->short_name, "%s", card->short_name[0] != '\0' ? card->short_name : card->stem);
     out->sound_model = car_piece_model_of_word(card->sound_from);
-    out->ai_model = car_piece_model_of_word(card->ai_from);
     out->dash_model = card->dash_from[0] != '\0' ? car_piece_model_of_word(card->dash_from) : -1;
     if (snprintf(out->dir, sizeof out->dir, "%s", dir) >= (int)sizeof out->dir)
         return snprintf(why, why_cap, "its folder's path is longer than %d characters", CAR_PIECE_DIR_MAX - 1), 0;

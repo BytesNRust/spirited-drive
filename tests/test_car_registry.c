@@ -16,7 +16,7 @@ static CarPiece piece(const char *id, const char *stem, int sound, int ai)
     snprintf(p.name, sizeof p.name, "%s", id);
     snprintf(p.stem, sizeof p.stem, "%s", stem);
     snprintf(p.short_name, sizeof p.short_name, "%s", stem);
-    p.sound_model = sound, p.ai_model = ai, p.dash_model = -1;
+    p.sound_model = sound, p.ai = (CarAiTuning){ CAR_AI_PACE_MIN + ai, CAR_AI_COAST_DEFAULT }, p.dash_model = -1;   /* 3b: its own AI */
     return p;
 }
 
@@ -56,7 +56,9 @@ static void test_add_and_look_up(void)
     CHECK_EQ_INT(car_registry_find("f40"), 16);
     CHECK(strcmp(car_registry_stem(16), "F40") == 0);
     CHECK_EQ_INT(car_registry_sound_model(16), 4);
-    CHECK_EQ_INT(car_registry_ai_model(16), 1);
+    CHECK_EQ_INT(car_registry_ai_model(16), -1);   /* 3b: an added car has no original's AI... */
+    CHECK(car_registry_ai(16) != NULL && car_registry_ai(16)->pace == CAR_AI_PACE_MIN + 1);   /* ...but its own */
+    CHECK(car_registry_ai(3) == NULL);
     CHECK_EQ_INT(car_registry_dash_model(16), -1);   /* no dash_from: no cockpit (port_no_cockpit), not its sound_from's */
     CHECK_EQ_INT(car_registry_lamp_model(16), CAR_LAMP_STANDARD);   /* the standard red, not its sound_from's */
     CHECK_EQ_INT(car_registry_is_added(16), 1);
@@ -119,8 +121,7 @@ static void test_refusals(void)
     CHECK_EQ_INT(add("", "X1", 0, 0, why), -1);
     CHECK_EQ_INT(add("x", "X1", 12, 0, why), -1);   /* the sound of a car past the twelve */
     CHECK_EQ_INT(add("x", "X1", -1, 0, why), -1);
-    CHECK_EQ_INT(add("x", "X1", 0, 8, why), -1);    /* the pace of one past the eight */
-    CHECK_EQ_INT(add("x", "X1", 0, -1, why), -1);
+    /* 3b: no ai_from rule: an added car's AI is its own tuning, not an original's number */
     CHECK_EQ_INT(car_registry_count(), 1);
     car_registry_clear();
     for (int i = 0; i < CAR_ADDED_MAX; i++) {

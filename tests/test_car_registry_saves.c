@@ -18,7 +18,7 @@ static void register_f40(void)
     memset(&p, 0, sizeof p);
     snprintf(p.id, sizeof p.id, "f40");
     snprintf(p.stem, sizeof p.stem, "F40");
-    p.sound_model = 4, p.ai_model = 1, p.dash_model = -1;
+    p.sound_model = 4, p.ai = (CarAiTuning){ CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, p.dash_model = -1;
     char why[160];
     car_registry_clear();
     CHECK_EQ_INT(car_registry_add(&p, why, sizeof why), 16);

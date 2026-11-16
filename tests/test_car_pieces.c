@@ -2,7 +2,10 @@
  * whose files pass car_piece_check is a car, in Restomod only; one that does not is refused with one log line, and a folder of another
  * type, or with no mod.ini, is passed over. A reload keeps the numbers of the cars that stay; car_pieces_follow loads again only when the
  * mods in effect changed (mod_set_generation). The pieces are copies of the CD's Viper (skipped without the CD, as test_models). */
+#include "formats/car_ai.h"
+#include "formats/crc32.h"
 #include "formats/pbs.h"
+#include "formats/pdn.h"
 #include "formats/png.h"
 #include "game/race/car_registry.h"
 #include "game/sys/car_pieces.h"
@@ -102,7 +105,8 @@ static void test_one_piece(void)
     CHECK_EQ_INT(car_registry_find("test-car"), 16);
     CHECK(strcmp(car_registry_stem(16), "TESTCAR") == 0);
     CHECK_EQ_INT(car_registry_sound_model(16), 5);
-    CHECK_EQ_INT(car_registry_ai_model(16), 5);
+    CHECK_EQ_INT(car_registry_ai_model(16), -1);   /* 3b: no original's AI, its own (the Viper's PDN: 60026, coast 4) */
+    CHECK(car_registry_ai(16) != NULL && car_registry_ai(16)->pace == 60026 && car_registry_ai(16)->coast == CAR_AI_COAST_DEFAULT);
     CHECK_EQ_INT(load1(a, 1), 1);   /* again: the same */
     CHECK_EQ_INT(car_registry_find("test-car"), 16);
     CHECK_EQ_INT(load1(a, 0), 0);   /* not Restomod: none */
@@ -176,7 +180,7 @@ static void test_it_follows_the_mods(void)
     CHECK_EQ_INT(car_registry_find("follow-car"), -1);
     CHECK(port_profile_select(PROFILE_STOCK));   /* Stock: no mods, no added car */
     car_registry_clear();
-    CHECK(car_registry_add(&(CarPiece){ .id = "stale", .stem = "STALE", .sound_model = 0, .ai_model = 0, .dash_model = -1 }, NULL, 0) == 16);
+    CHECK(car_registry_add(&(CarPiece){ .id = "stale", .stem = "STALE", .sound_model = 0, .ai = { CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, .dash_model = -1 }, NULL, 0) == 16);
     car_pieces_follow();
     CHECK_EQ_INT(car_registry_count(), 0);
     CHECK(port_profile_select(PROFILE_RESTOMOD));
@@ -206,7 +210,8 @@ static void spill(const char *path, const uint8_t *d, size_t size)
     if (f != NULL) fwrite(d, 1, size, f), fclose(f);
 }
 
-/* port (dep59 1b): a piece's fingerprint is the CRC-32 of its PBS then its PDN, as on disk: what decides how it drives, not its look */
+/* port (dep59 1b): a piece's fingerprint is the CRC-32 of its PBS then its PDN, as on disk, then (3b) its AI's pace and coast, 4 bytes LE
+ * each: what decides how it drives, not its look */
 static uint32_t fingerprint_of(const char *dir)
 {
     car_registry_clear();
@@ -221,6 +226,19 @@ static void test_the_fingerprint(void)
     CHECK(piece("print", "print-car", "PRINT", FROM, "", a));
     const uint32_t first = fingerprint_of(a);
     CHECK(first != 0);
+    size_t pbs_len = 0, pdn_len = 0;   /* the print as the files and the pace make it */
+    snprintf(path, sizeof path, "%s/SIMDATA/CARSPECS/PRINT.PBS", a);
+    uint8_t *pbs_file = slurp(path, &pbs_len);
+    snprintf(path, sizeof path, "%s/SIMDATA/CARFAMS/PRINT.PDN", a);
+    uint8_t *pdn_file = slurp(path, &pdn_len), pdn[PDN_SIZE];
+    CarAiTuning ai = { 0, 0 };
+    char why[96];
+    CHECK(pbs_file != NULL && pdn_file != NULL && pdn_read(pdn, pdn_file, pdn_len) && car_ai_tuning(pdn, NULL, &ai, why, sizeof why));
+    uint8_t tail[8];
+    for (int i = 0; i < 4; i++) tail[i] = (uint8_t)((uint32_t)ai.pace >> (8 * i)), tail[4 + i] = (uint8_t)((uint32_t)ai.coast >> (8 * i));
+    const uint32_t made = crc32_update(crc32_update(crc32_update(0, pbs_file, pbs_len), pdn_file, pdn_len), tail, sizeof tail);
+    CHECK_EQ_INT((int)first, (int)made);
+    free(pbs_file), free(pdn_file);
     CHECK_EQ_INT((int)fingerprint_of(a), (int)first);   /* the same files, the same print */
     snprintf(path, sizeof path, "%s/SIMDATA/CARFAMS/PRINT.CFM", a);   /* the look changed: the same print */
     size_t size = 0;

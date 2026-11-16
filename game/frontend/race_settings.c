@@ -11,15 +11,16 @@ static const int TOURNAMENT_CAR[10] = { 0, 3, 6, 0, 3, 3, 6, 6, 7, 3 };
 static const int CAR_TABLE_A[12] = { 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0 };
 static const int CAR_TABLE_B[12] = { 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
 
-/* 00465ec8; port (dep59): an added car takes the flags of the car its AI comes from, and a car past the tables (one no longer
- * registered) car 0's, never a read past them */
+/* 00465ec8; port (dep59 3b): an added car takes CAR_FLAGS_ADDED_A/B (the originals' majority, nothing of a car it is made from), and a
+ * car past the tables (one no longer registered) car 0's, never a read past them */
 void race_settings_car_flags(RaceSettings *s)
 {
     int car = s->player_car;
-    if (car_registry_is_added(car)) car = car_registry_ai_model(car);
+    const int added = car_registry_is_added(car);
     if (car < 0 || car >= (int)(sizeof CAR_TABLE_A / sizeof CAR_TABLE_A[0])) car = 0;
-    s->car_flag_a = CAR_TABLE_A[car] ? 0 : 2;
-    s->car_flag_b = (CAR_TABLE_B[car] == 0) + 1;
+    const int a = added ? CAR_FLAGS_ADDED_A : CAR_TABLE_A[car], b = added ? CAR_FLAGS_ADDED_B : CAR_TABLE_B[car];
+    s->car_flag_a = a ? 0 : 2;
+    s->car_flag_b = (b == 0) + 1;
 }
 
 static int short_track(int track)

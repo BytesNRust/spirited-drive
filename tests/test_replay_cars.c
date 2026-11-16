@@ -15,7 +15,7 @@ static void register_car(const char *id, const char *stem, uint32_t print, int w
     memset(&p, 0, sizeof p);
     snprintf(p.id, sizeof p.id, "%s", id);
     snprintf(p.stem, sizeof p.stem, "%s", stem);
-    p.sound_model = 5, p.ai_model = 5, p.dash_model = -1, p.fingerprint = print;
+    p.sound_model = 5, p.ai = (CarAiTuning){ CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, p.dash_model = -1, p.fingerprint = print;
     CHECK_EQ_INT(car_registry_add(&p, NULL, 0), want);
 }
 

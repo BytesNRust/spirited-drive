@@ -15,7 +15,7 @@ static void add(const char *id, const char *stem)
     memset(&p, 0, sizeof p);
     snprintf(p.id, sizeof p.id, "%s", id);
     snprintf(p.stem, sizeof p.stem, "%s", stem);
-    p.sound_model = 0, p.ai_model = 3, p.dash_model = -1;
+    p.sound_model = 0, p.ai = (CarAiTuning){ CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, p.dash_model = -1;
     CHECK(car_registry_add(&p, NULL, 0) >= CAR_ADDED_FIRST);
 }
 
