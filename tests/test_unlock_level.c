@@ -59,11 +59,7 @@ bool platform_user_file_exists(const char *name)
     return data != NULL;
 }
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path, (void)size; return NULL; }
-/* edition_file.c's (dep59 step 4): no player folder here, so no edition is in use */
-bool platform_user_dir(char *out, size_t out_size) { (void)out, (void)out_size; return false; }
-char **platform_list_files(const char *dir, const char *pattern, int *count) { (void)dir, (void)pattern, *count = 0; return NULL; }
-void platform_free_names(char **names) { (void)names; }
-uint8_t *platform_user_read_file_at(const char *rel, size_t *size) { return platform_read_user_file(rel, size); }
+/* edition_file.c's player-folder reads (dep59 step 4): tests/platform_user_tree_stub.c, over the files above */
 
 static const char *file_text(const char *name)
 {

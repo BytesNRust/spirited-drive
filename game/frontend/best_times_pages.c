@@ -7,6 +7,7 @@
 #include "game/sys/free_laps.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
+#include "game/sys/race_records_merge.h"
 #include "game/sys/text.h"
 
 #include <stdio.h>
@@ -57,7 +58,7 @@ static int lap_counts(const BestTimesPlus *plus, int track, int out[RACE_RECORDS
 {
     int have[RACE_RECORDS_LAPS_MAX + 1] = { 0 }, tables[RACE_RECORDS_LAPS_MAX], n = 0;
     for (int choice = 0; choice < 3; choice++) have[free_laps_exe_laps(track, choice)] = 1;
-    const int k = race_records_laps(track, plus->layout, plus->cheats, tables, RACE_RECORDS_LAPS_MAX);
+    const int k = race_records_shown_laps(track, plus->layout, plus->cheats, tables, RACE_RECORDS_LAPS_MAX);   /* port (dep59 step 4) */
     for (int i = 0; i < k; i++) have[tables[i]] = 1;
     if (plus->laps >= 1 && plus->laps <= RACE_RECORDS_LAPS_MAX) have[plus->laps] = 1;
     for (int laps = 1; laps <= RACE_RECORDS_LAPS_MAX; laps++)
@@ -296,10 +297,10 @@ void best_times_pages_draw(const BestTimesInputs *in, const BestTimesState *st, 
 {
     const int track = (int16_t)(st->config[TRACK_SELECT_TRACK] | st->config[TRACK_SELECT_TRACK + 1] << 8);
     const BestTimesPlus *const p = st->plus;
-    const RecordTable *const t = race_records_find(track, p->layout, p->cheats, p->laps);
+    const RecordTable *const t = race_records_shown(track, p->layout, p->cheats, p->laps);   /* port (dep59 step 4): an edition's cars' */
     strip(st, track, lit, hits, ops);
     if (p->page == 0) page_totals(in, t, ops);
     else if (is_stage(track)) page_segments(in, t, ops);
-    else page_lap(in, race_records_lap_find(track, p->layout, p->cheats), ops);
+    else page_lap(in, race_records_shown_lap(track, p->layout, p->cheats), ops);
     top_speed(in, t, ops);   /* the art's "Top speed" under every page */
 }

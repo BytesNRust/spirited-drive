@@ -28,7 +28,6 @@ bool platform_user_file_exists(const char *name)
     return data != NULL;
 }
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
-uint8_t *platform_user_read_file_at(const char *rel, size_t *size) { (void)rel, (void)size; return NULL; }   /* no edition file (dep59 step 4) */
 
 /* the gallery's own names (showcase.c CARS), read by the car the gallery is opened on */
 static const char *const CARS[SHOWCASE_CARS] = { "rx7", "nsx", "supra", "911", "vette", "viper", "512tr", "diablo" };
