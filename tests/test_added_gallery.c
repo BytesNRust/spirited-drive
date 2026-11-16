@@ -1,0 +1,83 @@
+/* dep59 step 3: an added car's gallery, its state and keys (game/frontend/added_gallery.h): Right and Left go round the skins and the
+ * paints; Color does nothing and is passed over while the skin has no masks, its paint kept; Up and Down go round the items; Enter on
+ * Previous / Next / Done, and Escape, say what to do. */
+#include "game/frontend/added_gallery.h"
+#include "test.h"
+
+#include <string.h>
+
+static CarPieceCard card(int skins, int paints, int own_masked)
+{
+    CarPieceCard c;
+    memset(&c, 0, sizeof c);
+    c.skins = skins;
+    for (int k = 1; k < skins; k++) c.skin[k][0] = (char)('a' + k), c.skin_masked[k] = k % 2;   /* 1 masked, 2 not, 3 masked */
+    c.skin_masked[0] = (uint8_t)own_masked;
+    c.info.paint_count = paints;
+    return c;
+}
+
+int main(void)
+{
+    CarPieceCard c = card(3, 3, 1);
+    GalleryState s = { GALLERY_SKIN, 0, 0 };
+    CHECK_EQ_INT(added_gallery_colour_on(&c, &s), 1);
+    CHECK_EQ_INT(added_gallery_input(&c, &s, GALLERY_KEY_RIGHT), GALLERY_STAY);
+    CHECK_EQ_INT(s.skin, 1);
+    added_gallery_input(&c, &s, GALLERY_KEY_RIGHT);
+    CHECK_EQ_INT(s.skin, 2);
+    added_gallery_input(&c, &s, GALLERY_KEY_RIGHT);
+    CHECK_EQ_INT(s.skin, 0);   /* round */
+    added_gallery_input(&c, &s, GALLERY_KEY_LEFT);
+    CHECK_EQ_INT(s.skin, 2);
+    CHECK_EQ_INT(added_gallery_colour_on(&c, &s), 0);   /* skin 2 has no masks */
+
+    s = (GalleryState){ GALLERY_COLOUR, 0, 0 };   /* 3 paints: 0 -> 1 -> 2 -> 3 -> 0 */
+    for (int want = 1; want <= 4; want++) {
+        added_gallery_input(&c, &s, GALLERY_KEY_RIGHT);
+        CHECK_EQ_INT(s.paint, want % 4);
+    }
+    added_gallery_input(&c, &s, GALLERY_KEY_LEFT);
+    CHECK_EQ_INT(s.paint, 3);
+    s = (GalleryState){ GALLERY_COLOUR, 2, 1 };   /* off: nothing changes, the paint kept */
+    added_gallery_input(&c, &s, GALLERY_KEY_RIGHT);
+    CHECK_EQ_INT(s.paint, 1);
+    s = (GalleryState){ GALLERY_SKIN, 2, 1 };     /* Down passes Color over while it is off */
+    added_gallery_input(&c, &s, GALLERY_KEY_DOWN);
+    CHECK_EQ_INT(s.item, GALLERY_PREVIOUS);
+    added_gallery_input(&c, &s, GALLERY_KEY_UP);
+    CHECK_EQ_INT(s.item, GALLERY_SKIN);
+    s = (GalleryState){ GALLERY_SKIN, 0, 0 };
+    added_gallery_input(&c, &s, GALLERY_KEY_DOWN);
+    CHECK_EQ_INT(s.item, GALLERY_COLOUR);
+    added_gallery_input(&c, &s, GALLERY_KEY_UP);
+    added_gallery_input(&c, &s, GALLERY_KEY_UP);
+    CHECK_EQ_INT(s.item, GALLERY_DONE);   /* round */
+
+    s = (GalleryState){ GALLERY_PREVIOUS, 0, 0 };   /* the bottom row: Left and Right between its three */
+    added_gallery_input(&c, &s, GALLERY_KEY_RIGHT);
+    CHECK_EQ_INT(s.item, GALLERY_NEXT);
+    CHECK_EQ_INT(added_gallery_input(&c, &s, GALLERY_KEY_ENTER), GALLERY_GO_NEXT);
+    s.item = GALLERY_PREVIOUS;
+    CHECK_EQ_INT(added_gallery_input(&c, &s, GALLERY_KEY_ENTER), GALLERY_GO_PREVIOUS);
+    s.item = GALLERY_DONE;
+    CHECK_EQ_INT(added_gallery_input(&c, &s, GALLERY_KEY_ENTER), GALLERY_LEAVE);
+    s.item = GALLERY_SKIN;
+    CHECK_EQ_INT(added_gallery_input(&c, &s, GALLERY_KEY_ESCAPE), GALLERY_LEAVE);
+    CHECK_EQ_INT(added_gallery_input(&c, &s, GALLERY_KEY_ENTER), GALLERY_STAY);   /* Enter on a selector steps it */
+    CHECK_EQ_INT(s.skin, 1);
+
+    CarPieceCard bare = card(1, 0, 0);   /* no skins, no paints, no masks */
+    s = (GalleryState){ GALLERY_SKIN, 0, 0 };
+    added_gallery_input(&bare, &s, GALLERY_KEY_RIGHT);
+    CHECK_EQ_INT(s.skin, 0);
+    CHECK_EQ_INT(added_gallery_colour_on(&bare, &s), 0);
+    s = (GalleryState){ GALLERY_COLOUR, 0, 0 };
+    CarPieceCard masked = card(1, 0, 1);   /* masks but no paints: own colour only */
+    added_gallery_input(&masked, &s, GALLERY_KEY_RIGHT);
+    CHECK_EQ_INT(s.paint, 0);
+    s = (GalleryState){ GALLERY_SKIN, 9, 40 };   /* a state out of range (a piece that changed) is brought back */
+    added_gallery_input(&c, &s, 0);
+    CHECK(s.skin == 0 && s.paint == 0);
+    return TEST_REPORT();
+}

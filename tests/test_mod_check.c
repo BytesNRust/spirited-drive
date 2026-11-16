@@ -239,9 +239,23 @@ static void test_rules(void)
     /* dep59 step 3: a car piece's card.png (Control Central's picture), at its root only, and only in a car */
     CHECK_EQ_INT(mod_file_kind("card.png"), MOD_KIND_PNG);
     CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", "card.png"), MOD_FILE_OK);
-    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", "CARD.PNG"), MOD_FILE_OK);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", "CARD.PNG"), MOD_FILE_FOREIGN);   /* Task 4: by its name in lower case, as the game reads it */
     CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", "pics/card.png"), MOD_FILE_FOREIGN);
     CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TWEAK, "", "card.png"), MOD_FILE_FOREIGN);
+    /* Task 4: rival.png, gallery.png and the skins' PNGs too: a car's alone (their names and sizes are car_piece_check's) */
+    static const char *const PICTURES[] = { "rival.png", "gallery.png", "skins/race/topv.png", "skins/race/topv_lo_mask.png", "skins/Bad/x.png" };   /* Bad: PIECE.SKIN's */
+    for (size_t i = 0; i < sizeof PICTURES / sizeof PICTURES[0]; i++) {
+        CHECK_EQ_INT(mod_file_kind(PICTURES[i]), MOD_KIND_PNG);
+        CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", PICTURES[i]), MOD_FILE_OK);
+        CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TWEAK, "", PICTURES[i]), MOD_FILE_FOREIGN);
+    }
+    CHECK_EQ_INT(mod_file_kind("skins/race/readme.txt"), MOD_KIND_NONE);
+    CHECK_EQ_INT(mod_file_kind("skins/topv.png"), MOD_KIND_NONE);
+    CHECK_EQ_INT(mod_file_kind("skins/a/b/topv.png"), MOD_KIND_NONE);
+    CHECK_EQ_INT(mod_file_kind("skins//topv.png"), MOD_KIND_NONE);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", "SKINS/race/topv.png"), MOD_FILE_FOREIGN);   /* the security review of Task 4: no case past the checks */
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", "Rival.png"), MOD_FILE_FOREIGN);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", "skins/race/topv.PNG"), MOD_FILE_FOREIGN);
 }
 
 static const char CAR_CARD[] = "id=test-car\nname=Test Car\nversion=0.1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n";
@@ -287,11 +301,20 @@ static void test_rules_in_the_zip(void)
     uint8_t *cfm = read_cd("SIMDATA/CARFAMS/DVIPER.CFM", &cfm_n), *pdn = read_cd("SIMDATA/CARFAMS/DVIPER.PDN", &pdn_n),
             *pbs = read_cd("SIMDATA/CARSPECS/DVIPER.PBS", &pbs_n), *other = read_cd("SIMDATA/CARSPECS/CZR1.PBS", &other_n);
     if (cfm != NULL && pdn != NULL && pbs != NULL && other != NULL) {   /* the CD's files: the car piece as tnfs-studio car new makes it */
+        uint8_t *card_png = NULL, *topv_png = NULL;
+        const ZbEntry card = png_entry("card.png", 309, 166, &card_png), topv = png_entry("skins/race/topv.png", 297, 105, &topv_png);
         ZbEntry car[] = { zb_text("mod.ini", CAR_CARD), raw("SIMDATA/CARFAMS/TESTCAR.CFM", cfm, cfm_n), raw("SIMDATA/CARFAMS/TESTCAR.PDN", pdn, pdn_n),
-                          raw("SIMDATA/CARSPECS/TESTCAR.PBS", pbs, pbs_n) };
-        CHECK_EQ_INT(check(car, 4, &c), 1);
+                          raw("SIMDATA/CARSPECS/TESTCAR.PBS", pbs, pbs_n), card, topv };
+        CHECK_EQ_INT(check(car, 6, &c), 1);
         CHECK_EQ_INT(c.info.type, MOD_TYPE_CAR);
         mod_check_free(&c);
+        CHECK_EQ_INT(check(car, 4, &c), 0);   /* no card.png: car_piece_check's PIECE.CARD */
+        CHECK(strstr(why, "card.png") != NULL);
+        uint8_t *zzzz_png = NULL;
+        ZbEntry skin[] = { car[0], car[1], car[2], car[3], card, png_entry("skins/race/zzzz.png", 297, 105, &zzzz_png) };
+        CHECK_EQ_INT(check(skin, 6, &c), 0);   /* a texture the CFM has not */
+        CHECK(strstr(why, "PIECE.SKIN") != NULL && strstr(why, "zzzz") != NULL);
+        free(card_png), free(topv_png), free(zzzz_png);
         ZbEntry foreign[] = { zb_text("mod.ini", CAR_CARD), raw("SIMDATA/CARFAMS/TESTCAR.CFM", cfm, cfm_n), raw("SIMDATA/CARFAMS/TESTCAR.PDN", pdn, pdn_n),
                               raw("SIMDATA/CARSPECS/TESTCAR.PBS", pbs, pbs_n), raw("SIMDATA/CARSPECS/CZR1.PBS", other, other_n) };
         CHECK_EQ_INT(check(foreign, 5, &c), 0);   /* a PBS of another stem */

@@ -186,6 +186,7 @@ static void check_piece(const uint8_t *cfm, size_t len, const int32_t half[3])
     fileset_init(&set);
     CHECK(fileset_add(&set, "SIMDATA/CARFAMS/TESTCAR.CFM", cfm, len) && fileset_add(&set, "SIMDATA/CARFAMS/TESTCAR.PDN", rec, PDN_SIZE) &&
           fileset_add(&set, "SIMDATA/CARSPECS/TESTCAR.PBS", pbs, n));
+    add_png(&set, "card.png", 309, 166, 40, 40, 40, 255);   /* dep59 step 3: a piece brings its card (car new writes one) */
     static const char GOOD[] = "id=test-car\nname=Test Car\nversion=1\ntype=car\nstem=TESTCAR\nshort_name=TEST\nsound_from=viper\nai_from=viper\n";
     ModInfo card;
     char why[200];

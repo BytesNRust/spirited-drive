@@ -28,11 +28,11 @@ int32_t race_head_to_head_model(int16_t pick)
     return (int32_t)(high | (uint16_t)model);
 }
 
-/* 00426fec(004fbad0); -1 past its table (the original reads its stack). */
+/* 00426fec(004fbad0); -1 past its table (the original reads its stack). port (dep59): a registered added car is its own number */
 static int32_t head_to_head(const RaceState *race)
 {
     const int16_t at = (int16_t)race->unknown_4fbad0;
-    return at >= 0 && at < 16 ? (int16_t)race_head_to_head_model(at) : -1;
+    return (at >= 0 && at < 16) || car_registry_is_added(at) ? (int16_t)race_head_to_head_model(at) : -1;
 }
 
 static void set_model(RaceState *race, int32_t slot, int32_t model)

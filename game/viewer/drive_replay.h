@@ -5,6 +5,7 @@
 
 #include "game/race/dash_art.h"
 #include "game/race/hud.h"
+#include "game/race/race_replay_image.h"
 #include "game/race/race_replay_seek.h"
 #include "game/race/race_sim.h"
 #include "game/race/race_view.h"
@@ -73,6 +74,9 @@ void drive_replay_set_conditions(int light_time, int weather, int reverse);
 /* port (dep59 1b): the race's field: with an added car its replay is saved as Replay.rpx, the cars' block (race_replay_cars_write) last,
  * and Replay.rpl is left as it was */
 void drive_replay_set_cars(const RaceField *field);
+/* port (dep59 step 3): the skin and paint each slot's added car wears (race_replay_image.h's ReplayLook; all "" an original's), written
+ * after the cars' block of a Replay.rpx */
+void drive_replay_set_looks(const ReplayLook looks[RACE_PLAYERS]);
 /* 1 when the last replay this run kept was a Replay.rpx */
 int drive_replay_kept_added(void);
 

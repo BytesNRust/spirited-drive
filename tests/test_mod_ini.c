@@ -72,33 +72,52 @@ static void test_utf8_text_is_kept(void)
 {
     ModInfo m;
     char why[160];
-    CHECK_EQ_INT(parse("id=a\nname=Noche en la costa — Ñ\nversion=1\n", &m, why), 1);
-    CHECK(strcmp(m.name, "Noche en la costa — Ñ") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=Noche\nversion=1\ndescription=Noche en la costa — Ñ\n", &m, why), 1);
+    CHECK(strcmp(m.description, "Noche en la costa — Ñ") == 0);
+}
+
+/* dep59 step 3: the fields the game draws raw in its big face (GRAVER18: name, short_name, paint names) hold printable ASCII alone;
+ * the refusal names the field and where the first byte that is not is */
+static void test_drawn_names_are_ascii(void)
+{
+    ModInfo m;
+    char why[160];
+    CHECK_EQ_INT(parse("id=a\nname=Peugeot 205\nversion=1\nshort_name=205 GTI\npaints=Rojo:ff0000\n", &m, why), 1);
+    CHECK(strcmp(m.name, "Peugeot 205") == 0 && strcmp(m.short_name, "205 GTI") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=Citro\xc3\xabn\nversion=1\n", &m, why), 0);
+    CHECK(strstr(why, "name") != NULL && strstr(why, "6") != NULL);
+    CHECK_EQ_INT(parse("id=a\nname=A\tB\nversion=1\n", &m, why), 0);
+    CHECK(strstr(why, "name") != NULL && strstr(why, "2") != NULL);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\nshort_name=Citro\xc3\xabn\n", &m, why), 0);
+    CHECK(strstr(why, "short_name") != NULL && strstr(why, "6") != NULL);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\npaints=Azul:0000ff,Rojo \xc3\xa9:ff0000\n", &m, why), 0);
+    CHECK(strstr(why, "paints") != NULL && strstr(why, "Rojo") == NULL && strstr(why, "6") != NULL);
+    CHECK_EQ_INT(parse("id=a\nname=A~ !\nversion=1\n", &m, why), 1);   /* the ends of the range */
 }
 
 /* review of 4977a5c5, 8: a value must be UTF-8 with nothing that reorders or hides what the player reads (bidi controls, C1 controls) */
 static void test_values_are_clean_utf8(void)
 {
     static const char *const BAD[] = {
-        "id=a\nname=\xff\nversion=1\n",                   /* not UTF-8 */
-        "id=a\nname=a\xc3\nversion=1\n",                  /* cut short */
-        "id=a\nname=\xc0\xaf\nversion=1\n",               /* overlong */
-        "id=a\nname=\xe0\x80\xaf\nversion=1\n",
-        "id=a\nname=\xe0\x83\xa9\nversion=1\n",           /* U+00E9 overlong: refused by its form, not its value */
-        "id=a\nname=\xf0\x8f\xbf\xbf\nversion=1\n",
-        "id=a\nname=\xed\xa0\x80\nversion=1\n",           /* a surrogate */
-        "id=a\nname=\xf4\x90\x80\x80\nversion=1\n",       /* over U+10FFFF */
-        "id=a\nname=a\xe2\x80\xae" "b\nversion=1\n",      /* U+202E */
-        "id=a\nname=a\xe2\x80\xaa" "b\nversion=1\n",      /* U+202A */
-        "id=a\nname=a\xe2\x81\xa6" "b\nversion=1\n",      /* U+2066 */
-        "id=a\nname=a\xe2\x81\xa9" "b\nversion=1\n",      /* U+2069 */
-        "id=a\nname=a\xc2\x9b" "b\nversion=1\n",          /* C1 CSI */
+        "id=a\nname=A\nauthor=\xff\nversion=1\n",                   /* not UTF-8 */
+        "id=a\nname=A\nauthor=a\xc3\nversion=1\n",                  /* cut short */
+        "id=a\nname=A\nauthor=\xc0\xaf\nversion=1\n",               /* overlong */
+        "id=a\nname=A\nauthor=\xe0\x80\xaf\nversion=1\n",
+        "id=a\nname=A\nauthor=\xe0\x83\xa9\nversion=1\n",           /* U+00E9 overlong: refused by its form, not its value */
+        "id=a\nname=A\nauthor=\xf0\x8f\xbf\xbf\nversion=1\n",
+        "id=a\nname=A\nauthor=\xed\xa0\x80\nversion=1\n",           /* a surrogate */
+        "id=a\nname=A\nauthor=\xf4\x90\x80\x80\nversion=1\n",       /* over U+10FFFF */
+        "id=a\nname=A\nauthor=a\xe2\x80\xae" "b\nversion=1\n",      /* U+202E */
+        "id=a\nname=A\nauthor=a\xe2\x80\xaa" "b\nversion=1\n",      /* U+202A */
+        "id=a\nname=A\nauthor=a\xe2\x81\xa6" "b\nversion=1\n",      /* U+2066 */
+        "id=a\nname=A\nauthor=a\xe2\x81\xa9" "b\nversion=1\n",      /* U+2069 */
+        "id=a\nname=A\nauthor=a\xc2\x9b" "b\nversion=1\n",          /* C1 CSI */
         "id=a\nname=A\nversion=1\nauthor=\x1b[31mx\n",    /* ESC */
     };
     ModInfo m;
     char why[160];
     for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) CHECK_EQ_INT(parse(BAD[i], &m, why), 0);
-    CHECK_EQ_INT(parse("id=a\nname=\xf0\x9f\x8f\x81 \xe2\x80\x8b\nversion=1\n", &m, why), 1);   /* four bytes, and U+200B are fine */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\nauthor=\xf0\x9f\x8f\x81 \xe2\x80\x8b\n", &m, why), 1);   /* four bytes, and U+200B are fine */
 }
 
 /* review of 4977a5c5, 8: what the card says back never carries its own bytes for a key the game does not know */
@@ -169,8 +188,8 @@ static void test_figures_and_paints(void)
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\npower=12345678901234567\n", &m, why), 0);   /* 17 */
     CHECK(strstr(why, "power") != NULL);
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\nweight=1234567890123456\n", &m, why), 1);   /* 16 */
-    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\npaints=Ñandú negro:000000\n", &m, why), 1);   /* text, as a name is */
-    CHECK(strcmp(m.paints[0].name, "Ñandú negro") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\npaints=Nandu negro:000000\n", &m, why), 1);   /* ASCII, as a name is */
+    CHECK(strcmp(m.paints[0].name, "Nandu negro") == 0);
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\npaints=ABCDEFGHIJKLMNOPQRSTUVWX:000000\n", &m, why), 1);   /* 24 */
 
     char paints[600] = "id=a\nname=A\nversion=1\npaints=";
@@ -208,6 +227,7 @@ int main(void)
     test_a_full_card();
     test_refusals();
     test_utf8_text_is_kept();
+    test_drawn_names_are_ascii();
     test_values_are_clean_utf8();
     test_messages_hold_no_control_bytes();
     test_piece_fields();

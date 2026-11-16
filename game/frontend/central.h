@@ -109,6 +109,14 @@ typedef struct ControlCentralOps {
     /* port (dep65): called when a code typed here puts a variant on (SKCART, EARALLYE), the variants as it left them: Restomod keeps
      * them as the player's choice, the way the track screen's switches are kept. NULL: nothing (the exe). */
     void (*variants_chosen)(void *ctx);
+    /* port (dep59 step 3): an added car's card (`rival` 0: card.png, 309x166) or rival card (1: rival.png, 284x117, or card.png's
+     * middle) as a bank whose "0000" shape() reads, in `palette` (the screen's, 8 bits a channel; its pointer colour and 0xff never
+     * used); 0 when it cannot be made (the reason in the log). NULL: no added car has a card. */
+    int32_t (*load_added_card)(void *ctx, int car, int rival, const uint8_t palette[768]);
+    /* port (dep59 step 3): an added car's gallery (added_gallery.h) for `*car`, the Warrior in the list when `warrior`, from Control
+     * Central's `palette`; its Previous and Next change `*car`. 1 when they went to an original, whose own gallery opens next; 0 back
+     * to Control Central. NULL: an added car's card opens nothing. */
+    int32_t (*added_gallery)(void *ctx, int16_t *car, int warrior, const uint8_t palette[768]);
 } ControlCentralOps;
 
 /* The globals 00432ff4 reads and writes; a pointer is written, a value only read. */

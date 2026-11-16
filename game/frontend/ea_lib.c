@@ -60,6 +60,11 @@ int32_t ea_bank_load(const char *name)
     return bank_put(data, size, name);
 }
 
+int32_t ea_bank_put(uint8_t *data, size_t size, const char *name)
+{
+    return bank_put(data, size, name);   /* resource_free is free() */
+}
+
 int32_t ea_bank_load_path(const char *path)
 {
     size_t size;

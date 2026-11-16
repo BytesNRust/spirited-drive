@@ -3,12 +3,13 @@
 # TESTCAR, with copies of its masks) races with --car test-car in Restomod and draws the same frame as the Viper itself; Stock, or
 # Restomod without the piece, has no such car and says so; nothing is written below the data root. Plan 1b: a race with it keeps its
 # record in race_records_added.dat and its replay as Replay.rpx, never in the original's files; the replay plays back only with the
-# piece as it was.
-# usage: car_piece_race.sh TNFS REPO ORIGINAL_DIR
+# piece as it was. Step 3: the replay keeps the skin and paint the added car wore (TNFSLOK1) and plays them whatever is picked now.
+# usage: car_piece_race.sh TNFS REPO ORIGINAL_DIR STUDIO
 set -u
 tnfs=$1
 repo=$2
 orig=$3
+studio=$4
 [ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 0; }
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -18,12 +19,13 @@ export SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software SDL_AUDIO_DRIVER=dummy 
 
 piece=$work/piece
 mkdir -p "$piece/SIMDATA/CARFAMS" "$piece/SIMDATA/CARSPECS" "$piece/car_masks" "$piece/dash_masks"
-printf 'id=test-car\nname=Test Car\nversion=1\ntype=car\nstem=TESTCAR\nshort_name=TEST\nsound_from=viper\nai_from=viper\n' > "$piece/mod.ini"
+printf 'id=test-car\nname=Test Car\nversion=1\ntype=car\nstem=TESTCAR\nshort_name=TEST\nsound_from=viper\nai_from=viper\npaints=Blue:1040c0\n' > "$piece/mod.ini"
 cp "$orig/SIMDATA/CARFAMS/DVIPER.CFM" "$piece/SIMDATA/CARFAMS/TESTCAR.CFM"
 cp "$orig/SIMDATA/CARFAMS/DVIPER.PDN" "$piece/SIMDATA/CARFAMS/TESTCAR.PDN"
 cp "$orig/SIMDATA/CARSPECS/DVIPER.PBS" "$piece/SIMDATA/CARSPECS/TESTCAR.PBS"
 cp -R "$repo/data/car_masks/DVIPER" "$piece/car_masks/TESTCAR"
 cp -R "$repo/data/dash_masks/DVIPER" "$piece/dash_masks/TESTCAR"
+"$studio" car card "$piece" --generic >/dev/null || { echo "FAIL: tnfs-studio car card --generic made no card.png" >&2; exit 1; }   # dep59 step 3: every piece brings its card
 
 # a player folder in mode $1, fresh
 user_in() {
@@ -96,6 +98,7 @@ find "$work/user" -iname 'replay.rpl' | grep -q . && fail "the whole race with t
 # original's files are as they were before it (race_records.dat, made at the start, the same bytes; no config.dat or Replay.rpl)
 cp "$work/user/race_records.dat" "$work/records.before" 2>/dev/null || fail "the given-up race made no race_records.dat to compare"
 [ -e "$work/user/config.dat" ] && fail "a race with the piece wrote config.dat"
+echo "look.test-car=-,Blue" >> "$work/user/restomod.cfg"   # step 3: the paint picked in its gallery (the skin as it comes has masks)
 script="0:WAIT:mark:race_over:240"
 for i in 1 2 3 4 5 6 7 8; do script="$script,3000:ENTER"; done
 TNFS_BANDS=0 TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_TRACE_PLAYER=30 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
@@ -106,6 +109,8 @@ grep -q "test-car" "$work/user/race_records_added.dat" 2>/dev/null || fail "race
 cmp -s "$work/records.before" "$work/user/race_records.dat" || fail "the finished race with the piece changed race_records.dat"
 [ -e "$work/user/config.dat" ] && fail "the finished race with the piece wrote config.dat"
 find "$work/user" -iname 'replay.rpl' | grep -q . && fail "the finished race with the piece wrote Replay.rpl"
+grep -q "car_paint: slot 0 TESTCAR painted 16,64,192" "$work/user/spirited-drive.log" || fail "the race did not paint the piece the Blue picked"
+[ "$(tail -c 344 "$work/user/Replay.rpx" | head -c 8)" = "TNFSLOK1" ] || fail "Replay.rpx does not end with the looks' block"
 cp "$work/user/Replay.rpx" "$work/kept.rpx"
 
 # 9. its replay with the piece: it plays the race it recorded (the trace of every tick both logged is the same), then Esc and Enter end it
@@ -116,9 +121,12 @@ replay() {   # the replay file $1, the mods folder $2 (none: no --mods): the sta
     TNFS_BANDS=0 TNFS_VERBOSE=1 TNFS_TRACE_PLAYER=30 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
         timeout -k 5 120 "$tnfs" --data "$orig" --user "$work/user" "$@" --replay "$file" >"$work/replay.out" 2>"$work/err"
 }
+sed 's/^look\.test-car=.*/look.test-car=-,-/' "$work/user/restomod.cfg" > "$work/cfg" && cp "$work/cfg" "$work/user/restomod.cfg"   # its own colour picked now
+rm -f "$work/user/spirited-drive.log"
 replay "$work/user/Replay.rpx" "$piece"
 rc=$?
 [ "$rc" -eq 0 ] || fail "Replay.rpx with the piece ended with status $rc: $(tail -3 "$work/err")"
+grep -q "car_paint: slot 0 TESTCAR painted 16,64,192" "$work/user/spirited-drive.log" || fail "the replay did not paint the piece the Blue it raced in"
 python3 "$repo/tools/replay_sync.py" race "$work/race.out" "$work/replay.out" >"$work/sync" || fail "Replay.rpx is not in sync: $(cat "$work/sync")"
 
 # 10. without the piece it does not play, and says which mod it needs

@@ -107,11 +107,39 @@ static void test_the_setup_needs_the_block(void)
     CHECK_EQ_INT(race_replay_image_race_cars(setup, block, &r, id), REPLAY_CARS_BAD);
 }
 
+/* dep59 step 3: the looks the added cars wore (TNFSLOK1, after the cars' block): back as written; a block that is not one of ours, or a
+ * name with no end or a byte that is not printable ASCII, is refused and says nothing */
+static void test_the_looks(void)
+{
+    ReplayLook looks[RACE_PLAYERS], back[RACE_PLAYERS];
+    uint8_t block[REPLAY_LOOKS_BLOCK];
+    memset(looks, 0, sizeof looks);
+    snprintf(looks[0].skin, sizeof looks[0].skin, "stripes");
+    snprintf(looks[0].paint, sizeof looks[0].paint, "Blue");
+    snprintf(looks[3].paint, sizeof looks[3].paint, "Rosso Corsa");
+    race_replay_looks_put(looks, block);
+    CHECK(memcmp(block, "TNFSLOK1", 8) == 0);
+    CHECK(race_replay_looks_get(block, back));
+    CHECK(strcmp(back[0].skin, "stripes") == 0 && strcmp(back[0].paint, "Blue") == 0);
+    CHECK(back[3].skin[0] == '\0' && strcmp(back[3].paint, "Rosso Corsa") == 0 && back[7].paint[0] == '\0');
+
+    uint8_t bad[REPLAY_LOOKS_BLOCK];
+    memcpy(bad, block, sizeof bad), bad[7] = '2';   /* another block */
+    CHECK(!race_replay_looks_get(bad, back) && back[0].skin[0] == '\0');
+    memcpy(bad, block, sizeof bad), memset(bad + 8, 'a', REPLAY_LOOK_SKIN);   /* a skin's name with no end */
+    CHECK(!race_replay_looks_get(bad, back));
+    memcpy(bad, block, sizeof bad), bad[8 + 1] = 0x1b;   /* ESC in a name */
+    CHECK(!race_replay_looks_get(bad, back));
+    memcpy(bad, block, sizeof bad), bad[8 + REPLAY_LOOK_SKIN + 1] = 0xc3;   /* a paint's name that is not ASCII */
+    CHECK(!race_replay_looks_get(bad, back));
+}
+
 int main(void)
 {
     test_there_and_back();
     test_bad_blocks();
     test_the_setup_needs_the_block();
+    test_the_looks();
     car_registry_clear();
     return TEST_REPORT();
 }

@@ -66,6 +66,15 @@ int data_path_candidates(const char *relative, char paths[DATA_PATH_CANDIDATES][
 #endif
 }
 
+int data_path_file_size(const char *path, size_t *size)
+{
+    struct stat st;
+    if (path == NULL || path[0] == '\0' || stat(path, &st) != 0) return 0;
+    if ((st.st_mode & S_IFMT) != S_IFREG || st.st_size < 0) return -1;
+    *size = (size_t)st.st_size;
+    return 1;
+}
+
 int data_path_exists(const char *path)
 {
     struct stat st;

@@ -109,9 +109,10 @@ ModFileKind mod_file_kind(const char *rel)
     if (p.count == 3 && (is(p.first, "car_masks") || is(p.first, "dash_masks") || is(p.first, "track_masks")) && is(p.ext, "png"))
         return MOD_KIND_PNG;
     if (p.count == 2 && is(p.first, "sounds") && is(p.ext, "wav")) return MOD_KIND_WAV;
+    if (p.count == 3 && is(p.first, "skins") && car_piece_picture(rel)) return MOD_KIND_PNG;   /* a car piece's skin (dep59 step 3) */
     if (p.count == 1) {
         if (is(rel, "mod.ini")) return MOD_KIND_CARD;
-        if (is(rel, "car_envmap.png") || is(rel, "preview.png") || is(rel, "card.png")) return MOD_KIND_PNG;   /* card.png: dep59 step 3 */
+        if (is(rel, "car_envmap.png") || is(rel, "preview.png") || car_piece_picture(rel)) return MOD_KIND_PNG;   /* a car's pictures: dep59 step 3 */
         static const char *const DOCS[] = { "README", "README.txt", "README.md", "LICENSE", "LICENSE.txt", "LICENSE.md" };
         for (size_t i = 0; i < sizeof DOCS / sizeof DOCS[0]; i++)
             if (is(rel, DOCS[i])) return MOD_KIND_DOC;
@@ -160,11 +161,11 @@ ModFileRule mod_file_rule(int type, const char *stem, const char *rel)
         car_piece_paths(stem, paths);
         for (int i = 0; i < CAR_PIECE_FILES; i++)
             if (is(rel, paths[i])) return MOD_FILE_OK;
-        if (kind == MOD_KIND_PNG && is(rel, "card.png")) return MOD_FILE_OK;   /* port (dep59 step 3): Control Central's picture of it */
+        if (kind == MOD_KIND_PNG && car_piece_picture(rel)) return MOD_FILE_OK;   /* port (dep59 step 3): its pictures and skins */
         const int mask = kind == MOD_KIND_PNG && (in_stem_folder(rel, &p, "car_masks", stem) || in_stem_folder(rel, &p, "dash_masks", stem));
         return mask ? MOD_FILE_OK : MOD_FILE_FOREIGN;
     }
-    if (kind < 0 || is(rel, "card.png")) return MOD_FILE_FOREIGN;   /* a car's picture: no tweak brings one */
+    if (kind < 0 || (kind == MOD_KIND_PNG && car_piece_picture(rel))) return MOD_FILE_FOREIGN;   /* a car's picture: no tweak brings one */
     return changes_the_race(rel, &p) ? MOD_FILE_RACE : MOD_FILE_OK;
 }
 
@@ -374,7 +375,7 @@ static int car_ok(const ZipArchive *z, const ModCheck *c, char (*rels)[ZIP_NAME_
     fileset_init(&set);
     int ok = 1;
     for (size_t i = 0; i < z->count && ok; i++) {
-        if (kinds[i] != MOD_KIND_GAME) continue;
+        if (kinds[i] != MOD_KIND_GAME && !(kinds[i] == MOD_KIND_PNG && car_piece_picture(rels[i]))) continue;   /* its files and pictures */
         uint8_t *data = NULL;
         size_t size = 0;
         const ZipResult r = zip_extract(z, i, &data, &size);

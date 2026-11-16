@@ -6,7 +6,13 @@
 #include "formats/mod_ini.h"
 #include "formats/validate.h"
 
-enum { CAR_PIECE_FILES = 3, CAR_PIECE_PATH = 64 };
+enum { CAR_PIECE_FILES = 3, CAR_PIECE_PATH = 64, CAR_PIECE_DIR_MAX = 512, CAR_PIECE_SKINS_MAX = 15, CAR_PIECE_SKIN_NAME_MAX = 16 };   /* CAR_PIECE_DIR_MAX: a piece's folder, with the NUL (dep59 step 3) */
+/* port (dep59 step 3): a piece's pictures, each of its exact size (the game does not scale): Control Central's card, the head to head
+ * rival's card, the gallery's picture; a skin's mask is no larger than CAR_PIECE_MASK_MAX_SIDE a side */
+enum { CAR_PIECE_CARD_W = 309, CAR_PIECE_CARD_H = 166, CAR_PIECE_RIVAL_W = 284, CAR_PIECE_RIVAL_H = 117, CAR_PIECE_GALLERY_W = 320,
+       CAR_PIECE_GALLERY_H = 200, CAR_PIECE_MASK_MAX_SIDE = 1024,
+       CAR_PIECE_SKIN_FILES_MAX = 256,           /* a skin's files: four for each texture of the two banks at most */
+       CAR_PIECE_PICTURE_BYTES_MAX = 8 << 20 };  /* a picture's file, read from a folder (a zip's are its own limits) */   /* the mask: an installed mod's pictures' side (MOD_PNG_MAX_SIDE) */
 /* where the PBS's fields the check reads lie (docs/car_specs.tsv; the game's CarSpecs is tied to them, car_registry.c) */
 enum { CAR_PIECE_PBS_POWER = 0x03c, CAR_PIECE_PBS_TORQUE_POINTS = 0x088, CAR_PIECE_PBS_TORQUE_CURVE = 0x0b8, CAR_PIECE_PBS_SHIFT_RPM = 0x288,
        CAR_PIECE_PBS_UNKNOWN_320 = 0x320, CAR_PIECE_PBS_FORCE_SCALE = 0x328,
@@ -23,9 +29,18 @@ const char *car_piece_word_of_model(int model);
 int car_piece_stem_ok(const char *stem);
 /* the three files of the car `stem`, as paths below the piece's root: its CFM, its PDN, its PBS */
 void car_piece_paths(const char *stem, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH]);
+/* port (dep59 step 3): 1 when `rel` is one of a car piece's own pictures, by these names in lower case as the game reads them:
+ * card.png, rival.png, gallery.png, or a PNG of a folder of skins/ (skins/<name>/<file>.png; which names and files are a skin's is
+ * car_piece_check's PIECE.SKIN to say) */
+int car_piece_picture(const char *rel);
+/* 1 when `name` may name a skin's folder: 1..CAR_PIECE_SKIN_NAME_MAX of a-z 0-9 '-' */
+int car_piece_skin_name_ok(const char *name, size_t n);
 /* Everything the game asks of a car piece before it lets it race: the card's fields (PIECE.TYPE, PIECE.STEM, PIECE.FROM), the three
- * files (PIECE.FILE_MISSING; found whatever their case), each one's own limits (validate_file) and the specs' (PIECE.SPECS). Findings go
- * to `r`; 1 when none of them is fatal. `files` holds the piece's files by their path below its root. */
+ * files (PIECE.FILE_MISSING; found whatever their case), each one's own limits (validate_file) and the specs' (PIECE.SPECS); its
+ * pictures (PIECE.CARD: card.png there and 309 x 166; PIECE.PICTURE: rival.png and gallery.png of their sizes when there) and its skins
+ * (PIECE.SKIN: up to CAR_PIECE_SKINS_MAX folders of a skin's name, each file <tex>[_lo][_mask].png of a texture the CFM's high (low,
+ * _lo) bank has, of its size; a mask a readable PNG). Findings go to `r`; 1 when none of them is fatal. `files` holds the piece's files
+ * by their path below its root. */
 int car_piece_check(const ModInfo *card, const FileSet *files, Report *r);
 
 #endif

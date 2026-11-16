@@ -447,7 +447,7 @@ static void *out_open(void *ctx, const char *name, const char *mode)
 {
     (void)ctx, (void)mode;
     free(out);
-    out = malloc(REPLAY_CARS_AT + REPLAY_CARS_BLOCK), out_size = 0;
+    out = malloc(REPLAY_CARS_AT + REPLAY_CARS_BLOCK + REPLAY_LOOKS_BLOCK), out_size = 0;
     snprintf(out_name, sizeof out_name, "%s", name);
     const size_t n = strlen(out_name);
     if (race_cars_on && n >= 4 && out_name[n - 4] == '.') memcpy(out_name + n - 3, "rpx", 3);   /* port (dep59 1b): Replay.rpl stays the original's */
@@ -469,6 +469,9 @@ static void out_write(void *ctx, const void *buffer, uint32_t size, uint32_t cou
     out_size += n;
 }
 
+static ReplayLook race_looks[RACE_PLAYERS];   /* port (dep59 step 3): the added cars' skins and paints */
+void drive_replay_set_looks(const ReplayLook looks[RACE_PLAYERS]) { memcpy(race_looks, looks, sizeof race_looks); }
+
 static uint8_t race_paints[RACE_PLAYERS] = { REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE, REPLAY_PAINT_NONE };
 
 void drive_replay_set_paints(const uint8_t paint[8]) { memcpy(race_paints, paint, sizeof race_paints); }
@@ -489,7 +492,10 @@ static int32_t out_close(void *ctx, void *file)
         out_size += REPLAY_SNOW_TRAILER_SIZE;
         race_replay_conditions_put(&race_conditions, out + out_size);   /* and the conditions it ran in */
         out_size += REPLAY_CONDITIONS_TRAILER_SIZE;
-        if (race_cars_on) memcpy(out + out_size, race_cars, REPLAY_CARS_BLOCK), out_size += REPLAY_CARS_BLOCK;   /* the added cars it ran with */
+        if (race_cars_on) {   /* the added cars it ran with, and the skins and paints they wore */
+            memcpy(out + out_size, race_cars, REPLAY_CARS_BLOCK), out_size += REPLAY_CARS_BLOCK;
+            race_replay_looks_put(race_looks, out + out_size), out_size += REPLAY_LOOKS_BLOCK;
+        }
     }
     const int ok = file != NULL && platform_write_user_file(out_name, out, out_size);
     if (file != NULL && !ok) port_log("drive_replay: %s not written\n", out_name);

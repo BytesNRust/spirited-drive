@@ -26,10 +26,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { SCREEN_W = 640, SCREEN_H = 480, PALETTE_COLOURS = 256, TEXT_COLOURS = 18, PRESENTS_GAP = 8, SCANCODES = 0x80 };
+enum { SCREEN_W = 640, SCREEN_H = 480, PALETTE_COLOURS = 256, TEXT_COLOURS = BOOT_TEXT_COLOURS, PRESENTS_GAP = 8, SCANCODES = 0x80 };
 
 /* the text's colours and their antialiasing ramps toward the red, kept out of the quantiser's reach (the approved mockup's) */
-static const uint8_t TEXT_RGB[TEXT_COLOURS][3] = {
+const uint8_t BOOT_TEXT_RGB[BOOT_TEXT_COLOURS][3] = {
     { 255, 255, 255 }, { 232, 211, 183 }, { 255, 206, 6 }, { 255, 6, 6 },     { 165, 133, 97 }, { 0, 0, 0 },     { 140, 130, 115 },
     { 200, 200, 200 }, { 150, 150, 150 }, { 100, 100, 100 }, { 60, 60, 60 },  { 30, 30, 30 },   { 240, 170, 20 }, { 200, 120, 20 },
     { 180, 20, 20 },   { 120, 10, 10 },   { 220, 190, 160 }, { 190, 160, 130 } };
@@ -95,7 +95,7 @@ static int make(uint8_t *pixels, uint8_t palette[768])
     banner = lay_banner(rgb);
     const int quantised = boot_quant(rgb, SCREEN_W * SCREEN_H, PALETTE_COLOURS - TEXT_COLOURS, palette, pixels) != 0;
     if (!quantised) memset(pixels, 0, (size_t)SCREEN_W * SCREEN_H);
-    memcpy(palette + 3 * (PALETTE_COLOURS - TEXT_COLOURS), TEXT_RGB, sizeof TEXT_RGB);
+    memcpy(palette + 3 * (PALETTE_COLOURS - TEXT_COLOURS), BOOT_TEXT_RGB, sizeof BOOT_TEXT_RGB);
     free(rgb);
     return (banner ? MADE_BANNER : 0) | (relief && quantised ? MADE_RELIEF : 0);
 }

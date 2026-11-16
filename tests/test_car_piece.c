@@ -8,6 +8,7 @@
 #include "formats/mod_ini.h"
 #include "formats/pbs.h"
 #include "formats/pdn.h"
+#include "formats/png.h"
 #include "formats/validate.h"
 #include "test.h"
 
@@ -79,6 +80,32 @@ static const char GOOD[] = "id=test-car\nname=Test Car\nversion=1\ntype=car\nste
 
 static const char *source = "DVIPER";   /* the CD car whose files the piece is made of */
 
+/* dep59 step 3: the pictures every piece below brings besides its three files: card.png of 309 x 166 (unless `no_card`), then `extras` */
+typedef struct { const char *name; int w, h; } Picture;
+static const Picture *extras;
+static size_t extra_count;
+static int no_card;
+
+/* a w x h grey PNG named `name` into `set` */
+static void add_png(FileSet *set, const char *name, int w, int h)
+{
+    uint8_t *px = calloc((size_t)w * h, 1), pal[768] = { 0 }, *png = NULL;
+    size_t len = 0;
+    for (int i = 0; i < 768; i++) pal[i] = (uint8_t)(i / 3);
+    if (px != NULL && png_write_indexed(px, (uint32_t)w, (uint32_t)h, pal, &png, &len) == PNG_OK) {
+        uint8_t *own = malloc(len);
+        memcpy(own, png, len);
+        if (!fileset_add_owned(set, name, own, len)) free(own);
+    }
+    png_free(png), free(px);
+}
+
+static void add_pictures(FileSet *set)
+{
+    if (!no_card) add_png(set, "card.png", CAR_PIECE_CARD_W, CAR_PIECE_CARD_H);
+    for (size_t i = 0; i < extra_count; i++) add_png(set, extras[i].name, extras[i].w, extras[i].h);
+}
+
 /* the piece's three files, `source`'s (the Viper's), named `cfm`, `pdn`, `pbs` (NULL: left out); the PBS as its raw record, `edit` applied */
 static int piece(FileSet *set, const char *cfm, const char *pdn, const char *pbs, void (*edit)(uint8_t *record))
 {
@@ -103,6 +130,7 @@ static int piece(FileSet *set, const char *cfm, const char *pdn, const char *pbs
         }
         if (names[i] == NULL || !fileset_add_owned(set, names[i], d, size)) free(d);
     }
+    add_pictures(set);
     return 1;
 }
 
@@ -326,6 +354,76 @@ static void test_the_model(void)
     report_free(&r);
 }
 
+/* dep59 step 3: card.png there and of its size (Review Focus 4), rival.png and gallery.png of theirs, the skins' names, count and files
+ * against the CFM (Review Focus 5) */
+static int check_pictures(const Picture *p, size_t n, Report *r)
+{
+    extras = p, extra_count = n;
+    const int ok = check(GOOD, CFM, PDN, PBS, NULL, r);
+    extras = NULL, extra_count = 0;
+    return ok;
+}
+
+static void test_the_pictures(void)
+{
+    Report r;
+    const int cd = check_pictures(NULL, 0, &r);
+    report_free(&r);
+    if (cd < 0) return;
+    no_card = 1;
+    CHECK_EQ_INT(check_pictures(NULL, 0, &r), 0);
+    CHECK(has(&r, "PIECE.CARD", "card.png"));
+    report_free(&r);
+    const Picture wide_card[] = { { "card.png", 310, 166 } };
+    CHECK_EQ_INT(check_pictures(wide_card, 1, &r), 0);
+    CHECK(has(&r, "PIECE.CARD", "310x166"));
+    report_free(&r);
+    no_card = 0;
+    const Picture good[] = { { "rival.png", 284, 117 }, { "gallery.png", 320, 200 }, { "skins/race/topv.png", 297, 105 },
+                             { "skins/race/topv_mask.png", 297, 105 }, { "skins/race-2/topv_mask.png", 50, 20 } };
+    CHECK_EQ_INT(check_pictures(good, 5, &r), 1);
+    CHECK_EQ_INT((int)r.count, 0);
+    report_free(&r);
+    static const struct { Picture p; const char *id, *a, *b; } BAD[] = {
+        { { "rival.png", 284, 118 }, "PIECE.PICTURE", "rival.png", "284x118" },
+        { { "gallery.png", 640, 400 }, "PIECE.PICTURE", "gallery.png", "640x400" },
+        { { "skins/race/zzzz.png", 297, 105 }, "PIECE.SKIN", "race", "zzzz" },
+        { { "skins/race/topv.png", 296, 105 }, "PIECE.SKIN", "race", "296x105" },
+        { { "skins/race/zzzz_lo.png", 10, 10 }, "PIECE.SKIN", "low-detail", "zzzz" },
+        { { "skins/race/topv_hi.png", 297, 105 }, "PIECE.SKIN", "topv_hi", NULL },
+        { { "skins/Race/topv.png", 297, 105 }, "PIECE.SKIN", "Race", NULL },
+        { { "skins/race/topv_mask.png", 3000, 1 }, "PIECE.SKIN", "mask", NULL },
+    };
+    for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) {
+        CHECK_EQ_INT(check_pictures(&BAD[i].p, 1, &r), 0);
+        const int named = has(&r, BAD[i].id, BAD[i].a) && (BAD[i].b == NULL || has(&r, BAD[i].id, BAD[i].b));
+        if (!named) fprintf(stderr, "picture %zu: no %s naming %s\n", i, BAD[i].id, BAD[i].p.name);
+        CHECK(named);
+        report_free(&r);
+    }
+    Picture skins[16];
+    static char names[16][32];
+    for (int i = 0; i < 16; i++) snprintf(names[i], sizeof names[i], "skins/s%d/topv.png", i), skins[i] = (Picture){ names[i], 297, 105 };
+    CHECK_EQ_INT(check_pictures(skins, 15, &r), 1);   /* fifteen: the most */
+    report_free(&r);
+    CHECK_EQ_INT(check_pictures(skins, 16, &r), 0);
+    CHECK(has(&r, "PIECE.SKIN", "15"));
+    report_free(&r);
+    static Picture many[CAR_PIECE_SKIN_FILES_MAX + 1];   /* a skin's files: up to 256 */
+    static char many_names[CAR_PIECE_SKIN_FILES_MAX + 1][32];
+    for (int i = 0; i <= CAR_PIECE_SKIN_FILES_MAX; i++)
+        snprintf(many_names[i], sizeof many_names[i], "skins/race/t%03d.png", i), many[i] = (Picture){ many_names[i], 1, 1 };
+    CHECK_EQ_INT(check_pictures(many, CAR_PIECE_SKIN_FILES_MAX + 1, &r), 0);
+    CHECK(has(&r, "PIECE.SKIN", "more than 256 files"));
+    report_free(&r);
+    CHECK(car_piece_picture("card.png") && car_piece_picture("rival.png") && car_piece_picture("gallery.png"));
+    CHECK(!car_piece_picture("CARD.PNG") && !car_piece_picture("SKINS/race/topv.png") && !car_piece_picture("skins/race/topv.PNG"));
+    CHECK(car_piece_picture("skins/race/topv.png") && car_piece_picture("skins/Bad/x.png"));
+    CHECK(!car_piece_picture("skins//x.png") && !car_piece_picture("skins/race/"));
+    CHECK(!car_piece_picture("skins/race/readme.txt") && !car_piece_picture("skins/topv.png") && !car_piece_picture("skins/a/b/c.png"));
+    CHECK(!car_piece_picture("preview.png") && !car_piece_picture("car_masks/TESTCAR/topv_mask.png"));
+}
+
 int main(void)
 {
     test_words();
@@ -333,5 +431,6 @@ int main(void)
     test_paths();
     test_the_check();
     test_the_model();
+    test_the_pictures();
     return TEST_REPORT();
 }

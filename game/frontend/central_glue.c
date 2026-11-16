@@ -2,6 +2,7 @@
 #include "game/frontend/card_marks.h"
 #include "game/frontend/car_pick.h"
 #include "game/sys/car_pieces.h"
+#include "game/sys/car_looks.h"
 #include "game/sys/text.h"
 #include "game/frontend/unlock_level.h"
 #include "game/frontend/variant_rule.h"
@@ -102,6 +103,36 @@ static void extras_flags(ExtrasFlags *f)
 static ExtrasSession extras_session;
 static int16_t warrior_rival_flag, warrior_keep_flag;   /* and the Warrior kept as the player's car */
 static int16_t restomod_flag;   /* port (dep59): ControlCentralState.restomod, the added cars offered */
+
+/* port (dep59): an added car picked comes back from restomod.cfg as Control Central opens (car_looks.h): the player's car, and the head
+ * to head rival; one whose mod is gone gives car 0. No line: config.dat's car, as before. Restomod only, never in a link game. */
+static void picks_restore(void)
+{
+    if (restomod_flag == 0 || menu_words.link_game != 0) return;
+    const int car = car_looks_saved_car(0);
+    if (car >= 0) cg_g.player_car = (int16_t)car;
+    else if (car == CAR_LOOKS_NOT_LOADED) cg_g.player_car = 0;
+    if (cg_g.race_type != RACE_HEAD_TO_HEAD) return;
+    const int rival = car_looks_saved_car(1);
+    if (rival >= 0) cg_g.opponent = (int16_t)rival;
+    else if (rival == CAR_LOOKS_NOT_LOADED) cg_g.opponent = 0;
+}
+
+/* port (dep59): the picks kept in restomod.cfg when they changed: an added car by its id, an original's line taken out (config.dat
+ * has it). As Control Central closes and as a race starts. */
+void cg_picks_save(void)
+{
+    if (restomod_flag == 0 || menu_words.link_game != 0) return;
+    const int car = car_looks_saved_car(0);
+    if (car != cg_g.player_car && (car >= 0 || car_registry_is_added(cg_g.player_car) || car == CAR_LOOKS_NOT_LOADED) &&
+        !car_looks_save_car(0, cg_g.player_car))
+        port_log("car looks: the car picked was not kept\n");
+    if (cg_g.race_type != RACE_HEAD_TO_HEAD) return;
+    const int rival = car_looks_saved_car(1);
+    if (rival != cg_g.opponent && (rival >= 0 || car_registry_is_added(cg_g.opponent) || rival == CAR_LOOKS_NOT_LOADED) &&
+        !car_looks_save_car(1, cg_g.opponent))
+        port_log("car looks: the rival picked was not kept\n");
+}
 
 /* port: called after every place the original clears the flags, so a switch stays on across races and the
  * tournament. With the mode's file absent this reads the defaults and changes nothing. */
@@ -715,7 +746,7 @@ int32_t glue_central(void)
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, cg_standings, track_select, art_free, options,
         cg_chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, cg_flush, cg_race, off,
-        cg_plus_text, NULL, 1, pad_buttons, palette_colour, card_marks, card_plain, cg_variants_chosen };
+        cg_plus_text, NULL, 1, pad_buttons, palette_colour, card_marks, card_plain, cg_variants_chosen, cg_load_added_card, cg_added_gallery };
     load();
     ControlCentralState st = {
         &cg_g.race_type, &cg_g.opponent, &cg_g.track, &cg_g.player_car, cg_g.other_car, &cg_g.net_car, &cg_g.laps, cg_g.difficulty,
@@ -729,6 +760,7 @@ int32_t glue_central(void)
                                  &cg_g.player_car, cg_g.other_car, &cg_g.variant_m, &cg_g.variant_r };
     link_central_bind(&link_menu);
     cg_extras_apply();   /* port: the switches are on from the first key, not after the first car change */
+    picks_restore();
     central_up = 1, central_state = &st;
     cg_volumes_sync();
     const int32_t result = control_central(&st, &OPS);
@@ -736,6 +768,7 @@ int32_t glue_central(void)
     central_up = 0, central_state = NULL;
     link_central_bind(NULL);
     cg_extras_apply();   /* port: 00432ff4's start clears the cheats; the switches come back for the race */
+    cg_picks_save();
     video_set_overlay(NULL, 0, 0);
     const RaceSettings s = cg_settings_of();
     config_dat_set_race(config_current(), &s);

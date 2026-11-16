@@ -31,4 +31,8 @@ int car_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, si
  * there is none or it does not read: the texture then follows the rules. */
 uint8_t *car_mask_load(const char *stem, const char name[4], int level, int width, int height);
 
+/* port (dep59 step 3): the same from <dir>/<tex>[_lo]_mask.png alone, an added car's skin's folder or its car_masks/<STEM>: no search,
+ * $TNFS_CAR_MASKS not read. NULL when there is none or it does not read. */
+uint8_t *car_mask_load_dir(const char *dir, const char name[4], int level, int width, int height);
+
 #endif

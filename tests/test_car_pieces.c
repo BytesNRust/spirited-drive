@@ -3,6 +3,7 @@
  * type, or with no mod.ini, is passed over. A reload keeps the numbers of the cars that stay; car_pieces_follow loads again only when the
  * mods in effect changed (mod_set_generation). The pieces are copies of the CD's Viper (skipped without the CD, as test_models). */
 #include "formats/pbs.h"
+#include "formats/png.h"
 #include "game/race/car_registry.h"
 #include "game/sys/car_pieces.h"
 #include "game/sys/mod_set.h"
@@ -51,6 +52,19 @@ static void write_text(const char *dir, const char *name, const char *text)
     if (f != NULL) fputs(text, f), fclose(f);
 }
 
+/* a w x h PNG `name` in `dir` (dep59 step 3: a piece's pictures and skins are of their exact sizes) */
+static void write_png(const char *dir, const char *name, int w, int h)
+{
+    uint8_t *px = calloc((size_t)w * h, 1), pal[768] = { 0 }, *png = NULL;
+    size_t len = 0;
+    char path[1200];
+    make_dirs(dir);
+    snprintf(path, sizeof path, "%s/%s", dir, name);
+    FILE *f = px != NULL && png_write_indexed(px, (uint32_t)w, (uint32_t)h, pal, &png, &len) == PNG_OK ? fopen(path, "wb") : NULL;
+    if (f != NULL) fwrite(png, 1, len, f), fclose(f);
+    png_free(png), free(px);
+}
+
 /* a piece folder <base>/<folder> of id `id` and stem `stem`: its card (`extra` lines after it) and the Viper's files, those of `leave`
  * ("CFM", "PDN", "PBS" or "") left out; its path in `out` */
 static int piece(const char *folder, const char *id, const char *stem, const char *extra, const char *leave, char out[400])
@@ -59,6 +73,7 @@ static int piece(const char *folder, const char *id, const char *stem, const cha
     snprintf(out, 400, "%s/%s", base, folder);
     snprintf(card, sizeof card, "id=%s\nname=%s\nversion=1\ntype=car\nstem=%s\nshort_name=T\n%s", id, id, stem, extra);
     write_text(out, "mod.ini", card);
+    write_png(out, "card.png", 309, 166);   /* dep59 step 3: every piece brings its card */
     static const char *const KIND[3] = { "CFM", "PDN", "PBS" };
     for (int i = 0; i < 3; i++) {
         if (strcmp(leave, KIND[i]) == 0) continue;
@@ -132,6 +147,7 @@ static void test_numbers_stay_across_reloads(void)
     CHECK_EQ_INT(car_pieces_load(both, 2, 1), 2);
     CHECK_EQ_INT(car_registry_find("car-a"), 16);
     CHECK_EQ_INT(car_registry_find("car-b"), 17);
+    CHECK(strcmp(car_registry_piece(16)->dir, a) == 0 && strcmp(car_registry_piece(17)->dir, b) == 0);   /* dep59 step 3: its folder, for its pictures */
     CHECK_EQ_INT(car_pieces_load(both, 2, 1), 2);   /* the same folders: the same numbers */
     CHECK_EQ_INT(car_registry_find("car-b"), 17);
     const char *second[1] = { b };
@@ -224,6 +240,68 @@ static void test_the_fingerprint(void)
     CHECK(changed != 0 && changed != first);
 }
 
+/* dep59 step 3: what an added car's gallery reads of its piece (car_pieces_card): its card again, its skins/ folders in name order after
+ * the skin as it comes, and which of them have masks (Color applies); 0 for an original or a number not registered */
+static void test_the_card(void)
+{
+    char d[400], skins[500];
+    CHECK(piece("carded", "card-car", "CARDCAR", "sound_from=viper\nai_from=viper\nyear=1992\npaints=Red:c8102e,Blue:1040c0\n", "", d));
+    snprintf(skins, sizeof skins, "%s/skins/stripes", d);
+    write_png(skins, "topv.png", 297, 105);   /* the Viper's topv */
+    write_png(skins, "topv_mask.png", 297, 105);
+    snprintf(skins, sizeof skins, "%s/skins/plain", d);
+    write_png(skins, "topv.png", 297, 105);
+    car_registry_clear();
+    CHECK_EQ_INT(load1(d, 1), 1);
+    CarPieceCard c;
+    CHECK(car_pieces_card(16, &c));
+    CHECK(strcmp(c.info.id, "card-car") == 0 && strcmp(c.info.year, "1992") == 0 && c.info.paint_count == 2);
+    CHECK(strcmp(c.dir, d) == 0);
+    CHECK_EQ_INT(c.skins, 3);
+    CHECK(c.skin[0][0] == '\0' && strcmp(c.skin[1], "plain") == 0 && strcmp(c.skin[2], "stripes") == 0);
+    CHECK(c.skin_masked[0] == 0 && c.skin_masked[1] == 0 && c.skin_masked[2] == 1);   /* no car_masks/CARDCAR/: the skin as it comes has none */
+    snprintf(skins, sizeof skins, "%s/car_masks/CARDCAR", d);
+    write_png(skins, "topv_mask.png", 297, 105);
+    CHECK(car_pieces_card(16, &c));
+    CHECK_EQ_INT(c.skin_masked[0], 1);
+    CHECK(!car_pieces_card(3, &c) && !car_pieces_card(17, &c));
+    write_text(d, "mod.ini", "id=other-car\nname=O\nversion=1\ntype=car\nstem=CARDCAR\nshort_name=T\n");   /* swapped since the load */
+    CHECK(!car_pieces_card(16, &c) && c.info.id[0] == '\0');
+    car_registry_clear();
+}
+
+/* dep59 step 3 (Task 4): a piece without its card, with a skin of a bad name or a texture of another size, is refused when the game
+ * loads it, as at its installation (car_piece_check) */
+static void test_pictures_at_load(void)
+{
+    char d[400], path[500];
+    CHECK(piece("nocard", "no-card", "NOCARD", FROM, "", d));
+    snprintf(path, sizeof path, "%s/card.png", d);
+    unlink(path);
+    car_registry_clear();
+    CHECK_EQ_INT(load1(d, 1), 0);
+    CHECK(piece("badskin", "bad-skin", "BADSKIN", FROM, "", d));
+    snprintf(path, sizeof path, "%s/skins/Bad_Name", d);
+    write_png(path, "topv.png", 297, 105);
+    car_registry_clear();
+    CHECK_EQ_INT(load1(d, 1), 0);
+    CHECK(piece("wideskin", "wide-skin", "WIDESKIN", FROM, "", d));
+    snprintf(path, sizeof path, "%s/skins/race", d);
+    write_png(path, "topv.png", 296, 105);
+    car_registry_clear();
+    CHECK_EQ_INT(load1(d, 1), 0);
+    write_png(path, "topv.png", 297, 105);   /* its size: it races */
+    car_registry_clear();
+    CHECK_EQ_INT(load1(d, 1), 1);
+    snprintf(path, sizeof path, "%s/card.png", d);   /* a card that is no file (a folder; a device or a pipe alike): not read, refused */
+    unlink(path);
+    mkdir(path, 0777);
+    car_registry_clear();
+    CHECK_EQ_INT(load1(d, 1), 0);
+    rmdir(path);
+    car_registry_clear();
+}
+
 int main(void)
 {
     char probe[600];
@@ -243,6 +321,8 @@ int main(void)
     test_numbers_stay_across_reloads();
     test_it_follows_the_mods();
     test_the_fingerprint();
+    test_the_card();
+    test_pictures_at_load();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);
     if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", base);

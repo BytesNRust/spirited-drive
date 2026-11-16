@@ -100,6 +100,8 @@ static void shine_register(void *user, int level, const char name[4], int width,
 static void drive_load_textures(const RaceState *race, int slot, const char *stem, size_t size)
 {
     shine_class_drop_slot(slot);
+    if (drive_cars.file[slot] != NULL && drive_cars.skin[slot].skin_dir[0] != '\0')   /* port (dep59): an added car's skin, before anything reads its colours */
+        drive_skin_apply(drive_cars.skin[slot].skin_dir, drive_cars.file[slot], size);
     if (drive_cars.file[slot] != NULL && port_body_shine()) {   /* port (body shine): the paint texels, from the colours as the file has them */
         int owner = slot;
         drive_livery_draft(stem, drive_cars.file[slot], size, shine_register, &owner);   /* (the file's own stem: drive_cars.model is only set with extra_liveries) */
@@ -119,7 +121,8 @@ static void drive_load_textures(const RaceState *race, int slot, const char *ste
         if (count > 0) port_log("extra_liveries: slot %d %s in the alternate livery (%d colours)\n", slot, stem, count);
     }
     if (drive_cars.file[slot] != NULL && drive_cars.paint_on[slot] && car_registry_stem(drive_cars.model[slot]) != NULL) {  /* port: a catalogue paint, in the body textures only */
-        const int n = drive_livery_paint(car_registry_stem(drive_cars.model[slot]), drive_cars.file[slot], size, drive_cars.paint[slot]);
+        const char *const masks = drive_cars.skin[slot].mask_dir[0] != '\0' ? drive_cars.skin[slot].mask_dir : NULL;   /* an added car's: its skin's own */
+        const int n = drive_livery_paint_masks(car_registry_stem(drive_cars.model[slot]), masks, drive_cars.file[slot], size, drive_cars.paint[slot]);
         port_log_detail("car_paint: slot %d %s painted %d,%d,%d (%d body texels)\n", slot, stem, drive_cars.paint[slot][0],
                  drive_cars.paint[slot][1], drive_cars.paint[slot][2], n);
     }
@@ -204,6 +207,30 @@ static int rival_paint_choice(uint32_t paint_seed, int slot, int car, int player
 }
 
 static uint8_t race_paint[RACE_PLAYERS];   /* port (replay colours): the paint each slot wears this race, written with its replay (drive_replay_set_paints) */
+static ReplayLook race_look[RACE_PLAYERS];  /* port (dep59 step 3): the skin and paint each slot's added car wears, written with its Replay.rpx */
+
+/* port (dep59 step 3): `slot`'s added car `car`'s skin and paint: the replay's when it recorded them, else the player's pick or a rival's
+ * as it comes; kept for the replay this race writes */
+static void slot_skin(int slot, int car, int is_player)
+{
+    CarLook recorded;
+    const int replayed = replay_of != NULL && replay_of->looks_known && slot < RACE_PLAYERS;
+    if (replayed) {
+        snprintf(recorded.skin, sizeof recorded.skin, "%s", replay_of->looks[slot].skin);
+        snprintf(recorded.paint, sizeof recorded.paint, "%s", replay_of->looks[slot].paint);
+    }
+    memset(&drive_cars.skin[slot], 0, sizeof drive_cars.skin[slot]);
+    if (drive_skin_look(car, is_player, replayed ? &recorded : NULL, &drive_cars.skin[slot])) {
+        drive_cars.livery[slot] = 0;
+        drive_cars.paint_on[slot] = drive_cars.skin[slot].paint_on;
+        memcpy(drive_cars.paint[slot], drive_cars.skin[slot].rgb, 3);
+    }
+    if (slot >= RACE_PLAYERS) return;
+    memset(&race_look[slot], 0, sizeof race_look[slot]);
+    snprintf(race_look[slot].skin, sizeof race_look[slot].skin, "%s", drive_cars.skin[slot].worn.skin);
+    snprintf(race_look[slot].paint, sizeof race_look[slot].paint, "%s", drive_cars.skin[slot].worn.paint);
+    drive_replay_set_looks(race_look);
+}
 
 /* the colours of `slot`, which drives `car` (a race model, car_model_names' order). In a replay whose file recorded them they are the race's own: the seed a stage set keeps, the player's choice
  * and the PS1 files may be other now, and a draw again would give other colours. */
@@ -240,6 +267,7 @@ void slot_colours(int slot, int car)
         memcpy(drive_cars.paint[slot], car_paint(car, paint - PAINT_CATALOGUE)->rgb, 3);
         drive_cars.paint_on[slot] = 1;
     }
+    slot_skin(slot, car, is_player);   /* port (dep59): an added car's skin and paint */
     port_log_detail("car colours: slot %d (car %d) takes paint %d%s\n", slot, car, paint, is_player ? " (the player's)" : "");
 }
 
@@ -252,6 +280,9 @@ void rival_liveries(const RaceField *field, int player, const char *track, int r
     memset(drive_cars.livery, 0, sizeof drive_cars.livery);
     memset(drive_cars.paint_on, 0, sizeof drive_cars.paint_on);
     memset(drive_cars.fixed_black, 0, sizeof drive_cars.fixed_black);
+    memset(drive_cars.skin, 0, sizeof drive_cars.skin);   /* Car Colours off: an added car as it comes */
+    memset(race_look, 0, sizeof race_look);
+    drive_replay_set_looks(race_look);
     memset(&drive_cars.colours, 0, sizeof drive_cars.colours);
     memset(race_paint, REPLAY_PAINT_NONE, sizeof race_paint);
     drive_replay_set_paints(race_paint);   /* none until a slot's colours are decided (the colours off: none) */

@@ -5,6 +5,7 @@
 #ifndef TNFS_CAR_REGISTRY_H
 #define TNFS_CAR_REGISTRY_H
 
+#include "formats/car_piece.h"
 #include "formats/mod_ini.h"
 #include "game/race/race_state.h"
 
@@ -18,6 +19,7 @@ typedef struct {
     int sound_model, ai_model;   /* the original race models (0..7, sound 0..11) it takes them from while it brings none of its own */
     int dash_model;              /* the same for the cockpit; -1 when not given (then sound_model's: car_registry_dash_model) */
     uint32_t fingerprint;        /* the CRC-32 of its PBS then its PDN as on disk, never 0: what decides how it drives (a replay's check) */
+    char dir[CAR_PIECE_DIR_MAX]; /* dep59 step 3: the folder it was read from, for its pictures and skins ("" for one not read from a folder) */
 } CarPiece;
 
 /* no added car */

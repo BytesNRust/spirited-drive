@@ -165,6 +165,8 @@ Mirror, Rally and Lost Vegas have no switch: they come from the Unlock Level, as
 | `rally_gravel` | 0 | 0 | none | gravel noise all along the rally and dust from the desert's tyres | 0 / 0 / 1 |
 | `movies_wide` | 1 | 0 (the 4:3 frame in the middle) | none | on a wide screen a movie fills the width, top and bottom cropped | 0 / 1 / 1 |
 | `car_paint` | all 0 | all 0 | the car showcase's Color box | one hex digit a car (cars 0..11): 0 own, 1 console livery, 2+ the catalogue's paints | not set |
+| `car`, `opponent` | none | none | Control Central's car and head to head rival arrows | the added car picked, by its mod's id (`car=test-car`); an original's is config.dat's and takes the line out. One whose mod is gone opens Control Central with car 0, and the line stays until another car is picked. Restomod's file only | not set |
+| `look.<id>` | none | none | an added car's gallery: Skin and Color | `<skin>,<paint>` by name, `-` for the skin as it comes or the car's own colour (`look.test-car=stripes,Blue`); kept when the car's mod is gone. Restomod's file only | not set |
 
 ## What each profile sets (`TABLES`)
 

@@ -289,3 +289,41 @@ void race_replay_image_get(RaceState *race, RaceReplayDirector *dir, const uint8
     memcpy((uint8_t *)race->players + RECORDS_SKIP, records, sizeof race->players - RECORDS_SKIP);
     race->results_unknown_cbc = (int16_t)(records[AT_CBC] | records[AT_CBC + 1] << 8);
 }
+
+static const char LOOKS_MAGIC[8] = { 'T', 'N', 'F', 'S', 'L', 'O', 'K', '1' };
+enum { LOOK_ENTRY = REPLAY_LOOK_SKIN + REPLAY_LOOK_PAINT };
+
+void race_replay_looks_put(const ReplayLook looks[RACE_PLAYERS], uint8_t out[REPLAY_LOOKS_BLOCK])
+{
+    memset(out, 0, REPLAY_LOOKS_BLOCK);
+    memcpy(out, LOOKS_MAGIC, sizeof LOOKS_MAGIC);
+    for (int i = 0; i < RACE_PLAYERS; i++) {
+        uint8_t *const at = out + sizeof LOOKS_MAGIC + LOOK_ENTRY * i;
+        memcpy(at, looks[i].skin, strnlen(looks[i].skin, REPLAY_LOOK_SKIN - 1));
+        memcpy(at + REPLAY_LOOK_SKIN, looks[i].paint, strnlen(looks[i].paint, REPLAY_LOOK_PAINT - 1));
+    }
+}
+
+/* the name of `n` bytes at `at` into `out`: 0 when it has no end or a byte before it that is not printable ASCII */
+static int look_name(const uint8_t *at, size_t n, char *out)
+{
+    const uint8_t *const end = memchr(at, 0, n);
+    if (end == NULL) return 0;
+    for (const uint8_t *c = at; c < end; c++)
+        if (*c < 0x20 || *c > 0x7e) return 0;
+    memcpy(out, at, (size_t)(end - at) + 1);
+    return 1;
+}
+
+int race_replay_looks_get(const uint8_t block[REPLAY_LOOKS_BLOCK], ReplayLook looks[RACE_PLAYERS])
+{
+    ReplayLook got[RACE_PLAYERS];
+    memset(looks, 0, sizeof(ReplayLook) * RACE_PLAYERS);
+    if (memcmp(block, LOOKS_MAGIC, sizeof LOOKS_MAGIC) != 0) return 0;
+    for (int i = 0; i < RACE_PLAYERS; i++) {   /* the whole block first: a bad one says nothing */
+        const uint8_t *const at = block + sizeof LOOKS_MAGIC + LOOK_ENTRY * i;
+        if (!look_name(at, REPLAY_LOOK_SKIN, got[i].skin) || !look_name(at + REPLAY_LOOK_SKIN, REPLAY_LOOK_PAINT, got[i].paint)) return 0;
+    }
+    memcpy(looks, got, sizeof got);
+    return 1;
+}

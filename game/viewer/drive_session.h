@@ -13,6 +13,7 @@
 #include "viewer/drive_menu.h"
 #include "viewer/drive_pause.h"
 #include "viewer/drive_palette.h"
+#include "viewer/drive_skin.h"
 #include "viewer/ported_view.h"
 
 
@@ -31,6 +32,7 @@ typedef struct {
     int model[RACE_CARS];       /* port: the slot's race model (car_model_names), for its catalogue paint */
     uint8_t paint[RACE_CARS][3]; /* port: the slot's catalogue paint (car_paint.h), valid where paint_on */
     int paint_on[RACE_CARS];
+    DriveSkinLook skin[RACE_CARS]; /* port (dep59 step 3): an added car's skin and the masks its paint follows ("" none: an original's) */
     int fixed_black[RACE_CARS]; /* port: the car's masks' fixed black texels (car_mask.h) are repainted with its catalogue black; set with the car colours (the mode's file extra_liveries) */
     uint8_t dash_rgb[3];        /* port: the player's console livery's main colour, for the dash art's body (drive_livery_dash), valid where dash_rgb_on */
     int dash_rgb_on;

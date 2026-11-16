@@ -6,6 +6,8 @@
 #include "formats/mesh.h"
 #include "formats/pbs.h"
 #include "formats/pdn.h"
+#include "formats/fsh.h"
+#include "formats/png.h"
 #include "formats/qfs.h"
 #include "formats/slots.h"
 #include "formats/validate_internal.h"
@@ -270,6 +272,146 @@ static void model_ok(const SetFile *f, const char *path, int64_t half[3], Report
     free(unpacked);
 }
 
+/* ---- the pictures and skins (dep59 step 3) */
+
+int car_piece_skin_name_ok(const char *name, size_t n)
+{
+    if (n == 0 || n > CAR_PIECE_SKIN_NAME_MAX) return 0;
+    for (size_t i = 0; i < n; i++)
+        if (!((name[i] >= 'a' && name[i] <= 'z') || (name[i] >= '0' && name[i] <= '9') || name[i] == '-')) return 0;
+    return 1;
+}
+
+/* `rel` as skins/<name>/<file>: the name's and the file's starts and lengths; 0 when it is not of that shape */
+static int skin_parts(const char *rel, const char **name, size_t *name_n, const char **file)
+{
+    if (strncmp(rel, "skins/", 6) != 0) return 0;
+    *name = rel + 6;
+    const char *slash = strchr(*name, '/');
+    if (slash == NULL || slash == *name || strchr(slash + 1, '/') != NULL || slash[1] == '\0') return 0;
+    *name_n = (size_t)(slash - *name);
+    *file = slash + 1;
+    return 1;
+}
+
+static int ends_with(const char *s, const char *tail)
+{
+    const size_t n = strlen(s), t = strlen(tail);
+    return n >= t && strcasecmp(s + n - t, tail) == 0;
+}
+
+int car_piece_picture(const char *rel)
+{
+    if (strcmp(rel, "card.png") == 0 || strcmp(rel, "rival.png") == 0 || strcmp(rel, "gallery.png") == 0) return 1;
+    const char *name, *file;
+    size_t n;
+    return skin_parts(rel, &name, &n, &file) && strcmp(file + strlen(file) - (strlen(file) >= 4 ? 4 : 0), ".png") == 0;
+}
+
+/* the picture `rel` of `files`, when there, is w x h; `required` says a missing one is a finding */
+static void picture_ok(const FileSet *files, const char *rel, int w, int h, int required, const char *limit, Report *r)
+{
+    const SetFile *f = fileset_find(files, rel);
+    if (f == NULL) {
+        if (required) report_add(r, limit, 0, "%s is not in the piece", rel);
+        return;
+    }
+    uint32_t pw = 0, ph = 0;
+    if (png_size(f->data, f->size, &pw, &ph) != PNG_OK) report_add(r, limit, 0, "%s is not a readable PNG", rel);
+    else if (pw != (uint32_t)w || ph != (uint32_t)h) report_add(r, limit, (int64_t)pw, "%s is %ux%u, not %dx%d", rel, (unsigned)pw, (unsigned)ph, w, h);
+}
+
+/* the size of the texture `tex` (4 letters) in the bank of `level` (0 high, 1 low) of the CFM `d`; 0 when it has none */
+static int texture_size(const uint8_t *d, size_t n, int level, const char *tex, uint32_t *w, uint32_t *h)
+{
+    Chunk root, shpi;
+    Fsh bank;
+    if (chunk_open(&root, d, n) != CHUNK_OK || chunk_child(&root, 2 * (uint32_t)level + 1, &shpi) != CHUNK_OK || shpi.kind != CHUNK_KIND_BITMAP)
+        return 0;
+    if (fsh_open(&bank, shpi.data, shpi.size) != FSH_OK) return 0;
+    for (uint32_t i = 0; i < bank.count; i++) {
+        FshEntry e;
+        if (fsh_entry(&bank, i, &e) == FSH_OK && e.type == FSH_TYPE_BITMAP && memcmp(e.name, tex, 4) == 0) {
+            *w = e.width, *h = e.height;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* one file of a skin, skins/<name>/<file>, against the CFM `d` (NULL: not readable, nothing to compare) */
+static void skin_file_ok(const SetFile *f, const char *file, const uint8_t *d, size_t n, Report *r)
+{
+    const size_t len = strlen(file);
+    const int mask = ends_with(file, "_mask.png"), png = ends_with(file, ".png");
+    const size_t stem = png ? len - (mask ? 9 : 4) : 0;   /* <tex> or <tex>_lo */
+    const int lo = stem == 7 && strncmp(file + 4, "_lo", 3) == 0;
+    int plain = stem == 4 || lo;
+    for (int i = 0; plain && i < 4; i++) plain = isalnum((unsigned char)file[i]);
+    if (!plain) {
+        report_add(r, "PIECE.SKIN", 0, "%s is not <tex>.png, <tex>_lo.png or their _mask.png", f->name);
+        return;
+    }
+    uint32_t tw = 0, th = 0, pw = 0, ph = 0;
+    if (d != NULL && !texture_size(d, n, lo, file, &tw, &th)) {
+        report_add(r, "PIECE.SKIN", 0, "%s: the CFM's %s bank has no texture %.4s", f->name, lo ? "low-detail" : "high-detail", file);
+        return;
+    }
+    if (mask) {
+        PngImage img;
+        const int sized = png_size(f->data, f->size, &pw, &ph) == PNG_OK && pw <= CAR_PIECE_MASK_MAX_SIDE && ph <= CAR_PIECE_MASK_MAX_SIDE;
+        const int read = sized && png_read(f->data, f->size, &img) == PNG_OK;
+        if (read) png_free(img.pixels);
+        if (!read) report_add(r, "PIECE.SKIN", 0, "%s is not a mask PNG of up to %d a side", f->name, CAR_PIECE_MASK_MAX_SIDE);
+        return;
+    }
+    if (png_size(f->data, f->size, &pw, &ph) != PNG_OK) report_add(r, "PIECE.SKIN", 0, "%s is not a readable PNG", f->name);
+    else if (d != NULL && (pw != tw || ph != th))
+        report_add(r, "PIECE.SKIN", (int64_t)pw, "%s is %ux%u, its texture %.4s is %ux%u", f->name, (unsigned)pw, (unsigned)ph, file, (unsigned)tw, (unsigned)th);
+}
+
+/* the skins: their names and count, each file against the CFM `cfm` (NULL: missing, said already) */
+static void skins_ok(const FileSet *files, const SetFile *cfm, Report *r)
+{
+    const uint8_t *d = NULL;
+    size_t n = 0, unpacked_size = 0;
+    uint8_t *unpacked = NULL;
+    if (cfm != NULL) {
+        d = cfm->data, n = cfm->size;
+        if (qfs_is_compressed(d, n)) {
+            const int ok = qfs_decompressed_size(d, n, &unpacked_size) == QFS_OK && (unpacked = malloc(unpacked_size ? unpacked_size : 1)) != NULL &&
+                           qfs_decompress(d, n, unpacked, unpacked_size) == QFS_OK;
+            d = ok ? unpacked : NULL, n = ok ? unpacked_size : 0;
+        }
+    }
+    char names[CAR_PIECE_SKINS_MAX + 1][CAR_PIECE_SKIN_NAME_MAX + 1];
+    int count = 0, files_of[CAR_PIECE_SKINS_MAX + 1] = { 0 };
+    for (size_t i = 0; i < files->count; i++) {
+        const char *name, *file;
+        size_t name_n;
+        if (!skin_parts(files->file[i].name, &name, &name_n, &file)) continue;
+        if (!car_piece_skin_name_ok(name, name_n)) {
+            report_add(r, "PIECE.SKIN", 0, "skins/%.*s is not a skin's name: 1 to %d of a-z, 0-9 and '-'", (int)(name_n > 40 ? 40 : name_n), name,
+                       CAR_PIECE_SKIN_NAME_MAX);
+            continue;
+        }
+        int at = -1;
+        for (int k = 0; k < count && at < 0; k++)
+            if (strlen(names[k]) == name_n && strncmp(names[k], name, name_n) == 0) at = k;
+        if (at < 0 && count <= CAR_PIECE_SKINS_MAX) memcpy(names[count], name, name_n), names[count][name_n] = '\0', at = count++;
+        if (count > CAR_PIECE_SKINS_MAX) {
+            report_add(r, "PIECE.SKIN", count, "the piece has more than %d skins", CAR_PIECE_SKINS_MAX);
+            break;
+        }
+        if (++files_of[at] > CAR_PIECE_SKIN_FILES_MAX) {
+            report_add(r, "PIECE.SKIN", files_of[at], "skins/%s has more than %d files", names[at], CAR_PIECE_SKIN_FILES_MAX);
+            break;
+        }
+        skin_file_ok(&files->file[i], file, d, n, r);
+    }
+    free(unpacked);
+}
+
 int car_piece_check(const ModInfo *card, const FileSet *files, Report *r)
 {
     const size_t fatal_before = report_fatal_count(r);
@@ -297,5 +439,9 @@ int car_piece_check(const ModInfo *card, const FileSet *files, Report *r)
         if (i == CAR_PIECE_FILES - 1) specs_ok(f, paths[i], r);
         found[i] = 1;
     }
+    picture_ok(files, "card.png", CAR_PIECE_CARD_W, CAR_PIECE_CARD_H, 1, "PIECE.CARD", r);
+    picture_ok(files, "rival.png", CAR_PIECE_RIVAL_W, CAR_PIECE_RIVAL_H, 0, "PIECE.PICTURE", r);
+    picture_ok(files, "gallery.png", CAR_PIECE_GALLERY_W, CAR_PIECE_GALLERY_H, 0, "PIECE.PICTURE", r);
+    skins_ok(files, found[0] ? find_any_case(files, paths[0]) : NULL, r);
     return report_fatal_count(r) == fatal_before;
 }
