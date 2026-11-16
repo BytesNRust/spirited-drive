@@ -20,12 +20,16 @@ typedef struct Fake {
     uint32_t clock, ms_per_call;   /* the fake clock: it advances with every ask for a key */
     int look, no_clock, fade_outs, fade_ins, said_return;   /* look: applying the mode changes the picture */
     int foot_big, foot_small, foot_low, foot_high_y, foot_right, foot_left, notice_y, version_y;   /* the foot lines as drawn: full size / small, below the row's top, ... */
+    int notice_x, notice_w, version_x, version_w, opens;   /* where the notice and the version went, and how often the notice opened the releases page */
+    int notice_hot, notice_plain, notice_last, version_hot;   /* the notice drawn highlighted / plain, the style of its last draw, the version highlighted (never) */
+    int move_at, move_x, move_y;   /* at that ask for a key (when not 0) the pointer moves there */
 } Fake;
 
 static int32_t f_key(void *c)
 {
     Fake *f = c;
     f->clock += f->ms_per_call;
+    if (f->move_at != 0 && f->key_calls == f->move_at) f->pointer_x = f->move_x, f->pointer_y = f->move_y;
     const int turn = f->key_calls++ / 2;   /* a key, then a turn with none (the menu takes a key only once the last one is let go) */
     if (turn % 2 != 0) return 0;
     return turn / 2 < f->key_count ? f->keys[turn / 2] : ESCAPE;
@@ -85,8 +89,10 @@ static void note_foot(Fake *f, const char *t, int32_t x, int32_t y, int32_t w);
 static int32_t f_width(void *c, const char *t) { (void)c; return (int32_t)strlen(t) * 8; }
 static void f_text_scaled(void *c, int32_t s, const char *t, int32_t x, int32_t y, int32_t n, int32_t d)
 {
-    (void)s;
-    ((Fake *)c)->said_return += strstr(t, "Return") != NULL;
+    Fake *f = c;
+    f->said_return += strstr(t, "Return") != NULL;
+    if (t[0] == 'v') f->version_hot += s != 0;
+    else if (strncmp(t, "Update", 6) == 0) f->notice_hot += s != 0, f->notice_plain += s == 0, f->notice_last = s;
     if (t[0] == 'v' || strncmp(t, "Update", 6) == 0) note_foot(c, t, x, y, (int32_t)strlen(t) * 8 * n / d);
 }
 static void note_foot(Fake *f, const char *t, int32_t x, int32_t y, int32_t w)
@@ -96,7 +102,8 @@ static void note_foot(Fake *f, const char *t, int32_t x, int32_t y, int32_t w)
     if (y > f->foot_high_y) f->foot_high_y = y;
     if (x + w > f->foot_right) f->foot_right = x + w;
     if (f->foot_left == 0 || x < f->foot_left) f->foot_left = x;
-    if (t[0] == 'v') f->version_y = y; else f->notice_y = y;
+    if (t[0] == 'v') f->version_y = y, f->version_x = x, f->version_w = w;
+    else f->notice_y = y, f->notice_x = x, f->notice_w = w;
 }
 static int32_t f_footer(void *c, int32_t line, char *text, size_t cap)
 {
@@ -105,7 +112,7 @@ static int32_t f_footer(void *c, int32_t line, char *text, size_t cap)
     snprintf(text, cap, "%s", line == 0 ? "v0.9.0-dev+abcdef0" : "Update available: v9.9.9");
     return 1;
 }
-static void f_open(void *c) { (void)c; }
+static void f_open(void *c) { ((Fake *)c)->opens++; }
 static int32_t f_width_scaled(void *c, const char *t, int32_t n, int32_t d) { (void)c; return (int32_t)strlen(t) * 8 * n / d; }
 static void f_cover(void *c, int32_t x, int32_t y, int32_t w, int32_t h) { (void)c, (void)x, (void)y, (void)w, (void)h; }
 static int mod3(int n) { return ((n % 3) + 3) % 3; }
@@ -311,7 +318,8 @@ static void test_the_pointer_bands(void)
     CHECK(f.key_calls > 2);
 }
 
-/* the version and the update notice: at the foot in the small subtitle size, with a margin from the left edge and the bottom, the notice above the version */
+/* the version and the update notice: one foot line in the small subtitle size, with a margin from the left edge and the bottom, the version
+ * first and the notice to its right after a gap of two spaces (the owner's, dep59 step 4) */
 static void test_the_foot_lines(void)
 {
     Fake f;
@@ -323,8 +331,68 @@ static void test_the_foot_lines(void)
     CHECK(f.foot_low >= 2);
     CHECK(f.foot_left >= 12);   /* a margin from the left edge */
     CHECK(f.version_y + 20 <= 480 - 10);   /* and from the bottom, the small line being about 17 high */
-    CHECK(f.notice_y < f.version_y);
-    CHECK(f.version_y - f.notice_y >= 17);   /* the lines do not touch */
+    CHECK_EQ_INT(f.notice_y, f.version_y);   /* one line */
+    CHECK_EQ_INT(f.version_x, f.foot_left);   /* the version first */
+    CHECK_EQ_INT(f.notice_x, f.version_x + f.version_w + 2 * 8 * 3 / 5);   /* then two spaces' width, at the line's scale */
+}
+
+/* a click opens the releases page only on the notice's own text: not on the version, not past the notice's end, not above or below its line */
+static int opens_at(int x, int y)
+{
+    Fake f;
+    const int idle[] = { 0, 0, 0, 0 };
+    rig(&f, x, y, 1);
+    f.clicks = 1 << 3;
+    run_with(&f, idle, 4, 1, 1);
+    return f.opens;
+}
+
+static void test_the_notice_is_its_own_text(void)
+{
+    Fake f;
+    const int none[] = { ESCAPE };
+    rig(&f, 320, ROW_SINGLE, 0);
+    run_with(&f, none, 1, 1, 1);
+    const int x = f.notice_x, w = f.notice_w, y = f.notice_y;
+    CHECK(w > 0);
+    CHECK_EQ_INT(opens_at(x, y + 5), 1);
+    CHECK_EQ_INT(opens_at(x + w - 1, y + 5), 1);
+    CHECK_EQ_INT(opens_at(x + w, y + 5), 0);   /* past its end */
+    CHECK_EQ_INT(opens_at(x - 1, y + 5), 0);   /* the gap */
+    CHECK_EQ_INT(opens_at(f.version_x + 2, y + 5), 0);   /* the version */
+    CHECK_EQ_INT(opens_at(x + 4, y - 1), 0);   /* above the line */
+    CHECK_EQ_INT(opens_at(x + 4, y + 21), 0);   /* below it */
+}
+
+/* the notice looks clickable: highlighted (the items' selected style) while the pointer is on it, plain off it, redrawn when that changes;
+ * the version never */
+static void test_the_notice_lights_under_the_pointer(void)
+{
+    Fake f;
+    const int none[] = { ESCAPE };
+    rig(&f, 320, ROW_SINGLE, 0);
+    run_with(&f, none, 1, 1, 1);
+    const int x = f.notice_x, y = f.notice_y;
+    CHECK(f.notice_plain > 0);
+    CHECK_EQ_INT(f.notice_hot, 0);
+    const int idle[] = { 0, 0, 0, 0, 0, 0 };
+    rig(&f, x + 4, y + 5, 1);   /* on it from the start */
+    run_with(&f, idle, 6, 1, 1);
+    CHECK(f.notice_hot > 0);
+    CHECK(f.notice_last != 0);
+    CHECK_EQ_INT(f.version_hot, 0);
+    rig(&f, 320, ROW_SINGLE, 1);   /* off it, then moved onto it: drawn again, lit */
+    f.move_at = 6, f.move_x = x + 4, f.move_y = y + 5;
+    run_with(&f, idle, 6, 1, 1);
+    CHECK(f.notice_plain > 0);
+    CHECK(f.notice_hot > 0);
+    CHECK(f.notice_last != 0);
+    rig(&f, x + 4, y + 5, 1);   /* on it, then moved off: lit, then drawn plain again */
+    f.move_at = 6, f.move_x = 320, f.move_y = ROW_SINGLE;
+    run_with(&f, idle, 6, 1, 1);
+    CHECK(f.notice_hot > 0);
+    CHECK_EQ_INT(f.notice_last, 0);
+    CHECK_EQ_INT(f.version_hot, 0);
 }
 
 int main(void)
@@ -340,5 +408,7 @@ int main(void)
     test_clicks_show_and_the_name_applies();
     test_the_pointer_bands();
     test_the_foot_lines();
+    test_the_notice_is_its_own_text();
+    test_the_notice_lights_under_the_pointer();
     return TEST_REPORT();
 }
