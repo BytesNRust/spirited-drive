@@ -33,7 +33,7 @@ typedef struct {
     int kind;                                /* CONTENT_ROW_* */
     int on;                                  /* named by the edition (the box ticked) */
     int switchable;                          /* the box can change: not locked, not removed */
-    int movable;                             /* the arrows can move it: on, and not locked */
+    int movable;                             /* the arrows can move it: on, not missing, and not locked */
     int backup;                              /* the mod has a backup: its Previous version is offered */
 } ContentRow;
 
