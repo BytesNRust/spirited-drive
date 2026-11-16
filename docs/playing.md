@@ -83,7 +83,7 @@ Anything the earlier folders held (`TNFS Restomod/`, then `tnfs/tnfs/`, in the s
 | `race_records.dat` | Restomod's records (`records.dat` and `free_records.dat`, from earlier versions, are only read once, to import them) |
 | `race_records_added.dat` | Restomod's records of races in an added car (see `docs/modding.md`, *Adding a car*), a table per car by its `id` |
 | `config.dat`, `Replay.rpl`, saved games | the game's own player file, the last replay and the saves |
-| `Replay.rpx` | the last replay of a race with an added car; it plays back only with that car's mod loaded and unchanged |
+| `Replay.rpx` | the last replay of a race with an added car; it plays back only with that car's mod loaded and unchanged, and with a game whose rules for added cars are those it was made with |
 | `spirited-drive.log` | what the last run said (send it with a bug report; Customize Game's page 3, Open the log folder, shows it) |
 | `gamedata/` | your copy of the game's files, made at the first start from your CD, a folder or an ISO image |
 | `mods/` | the default place for a mod (an overlay of the game's files) |
