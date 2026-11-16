@@ -33,6 +33,8 @@ const char *sdl3_user_dir(char *out, size_t out_size);
 const char *sdl3_user_path(const char *name, char *out, size_t out_size);
 void sdl3_open_log(void);
 void sdl3_cursor_apply(void);
+/* the frame last presented through the buffer (a capture's, a script SHOT's) as a PPM at `path`; false when it could not be written */
+bool sdl3_write_frame(const char *path);
 #ifndef __EMSCRIPTEN__
 void sdl3_pool_stop(void);
 #endif
