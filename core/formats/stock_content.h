@@ -22,4 +22,9 @@ const char *stock_track_id(int track);
 /* the number of the stock track whose id is `id`; -1 when none */
 int stock_track_of_id(const char *id);
 
+/* port (dep59 step 4b): the English names the CONTENT screen shows the stock pieces by; NULL when `car` or `track` is none of them, and for
+ * the hidden track, which is never listed */
+const char *stock_car_name(int car);
+const char *stock_track_name(int track);
+
 #endif
