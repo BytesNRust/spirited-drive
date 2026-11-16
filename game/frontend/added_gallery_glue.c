@@ -35,7 +35,8 @@ enum {
     BLACK = TEXT_FIRST + 5,
     WORDS_X = 364, WORDS_W = 252, WORDS_LINES = 9,
     SKIN_Y = 316, COLOUR_Y = 356, FIGURES_Y = 292, FOOT_Y = 436,
-    ARROW_LEFT_X = 150, ARROW_RIGHT_X = 470, ARROW_W = 30, ROW_H = 30
+    ARROW_LEFT_X = 150, ARROW_RIGHT_X = 470, ARROW_W = 30, ROW_H = 30,
+    RELEASE_FRAMES = 300                             /* a button held longer than this (5 s at 60 Hz) is let be */
 };
 
 typedef struct {
@@ -216,6 +217,18 @@ static void look_keep(const Page *p)
     if (!car_looks_set(p->card.info.id, &l)) port_log("car looks: %s's skin and colour were not kept\n", p->card.info.id);
 }
 
+/* the keys and the pointer's button let go (or RELEASE_FRAMES gone) before the page closes: a press it acted on, still held, is not taken
+ * by the screen after it (the showcase takes a held button or Enter at once: a click on Previous as its Done, which sits there; Enter
+ * on Next as the photo under the pointer) */
+static void let_go(void)
+{
+    for (int i = 0; i < RELEASE_FRAMES; i++) {
+        const int key = input_get_key();   /* first: it pumps the events the buttons are read from */
+        if (key == 0 && (pointer_read_buttons() & POINTER_BUTTON_SELECT) == 0) return;
+        video_wait_vblank();
+    }
+}
+
 /* one car's page until it is left or another is asked for: GALLERY_LEAVE, GALLERY_GO_PREVIOUS or GALLERY_GO_NEXT */
 static int run_page(Page *p)
 {
@@ -247,6 +260,7 @@ static int run_page(Page *p)
         }
         video_wait_vblank();
     }
+    let_go();
     return result;
 }
 
@@ -271,7 +285,7 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         look_keep(&p);
         free(p.pixels);
         if (result == GALLERY_LEAVE) return 0;
-        *car = car_list_step(&l, *car, result == GALLERY_GO_NEXT ? 1 : -1);
+        *car = car_list_step_gallery(&l, *car, result == GALLERY_GO_NEXT ? 1 : -1);   /* the Warrior, without one, passed over */
         if (!car_registry_is_added(*car)) return 1;   /* an original's: its own gallery */
     }
 }

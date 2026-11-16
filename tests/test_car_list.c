@@ -82,6 +82,32 @@ static void test_the_list(void)
     car_registry_clear();
 }
 
+/* the gallery's Previous and Next: the cars with a gallery (an original's 0..7, an added car's), the Warrior (none yet) passed over */
+static void test_the_galleries_step(void)
+{
+    car_registry_clear();
+    add("a", "A1");   /* 16 */
+    CarList l;
+    Edition e = edition_of((const char *const[]){ "diablo", "a", "warrior" }, 3);
+    car_list_build(&l, &e, 0);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 16, 1), 7);    /* over the Warrior, round to the Diablo */
+    CHECK_EQ_INT(car_list_step_gallery(&l, 16, -1), 7);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 7, -1), 16);   /* back over the Warrior */
+    e = edition_of((const char *const[]){ "a", "warrior", "rx7", "nsx" }, 4);
+    car_list_build(&l, &e, 0);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 16, 1), 0);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 0, -1), 16);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 0, 1), 1);
+    e = edition_of((const char *const[]){ "a", "warrior" }, 2);
+    car_list_build(&l, &e, 0);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 16, 1), 16);   /* no other gallery: the car's own again */
+    CHECK_EQ_INT(car_list_step_gallery(&l, 16, -1), 16);
+    car_list_build(&l, NULL, 1);
+    CHECK_EQ_INT(car_list_step_gallery(&l, 7, 1), 0);     /* the standard edition: 7, the Warrior, 0 */
+    CHECK_EQ_INT(car_list_step_gallery(&l, 0, -1), 7);
+    car_registry_clear();
+}
+
 /* Review Focus 7: config.dat's image only ever holds an original */
 static void test_the_pick(void)
 {
@@ -106,6 +132,7 @@ int main(void)
 {
     test_registry_cars();
     test_the_list();
+    test_the_galleries_step();
     test_the_pick();
     return TEST_REPORT();
 }

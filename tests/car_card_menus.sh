@@ -10,6 +10,9 @@
 #            again, restomod.cfg keeps car=test-car and look.test-car=stripes,Red, Control Central opens on car 16, and config.dat's car is an
 #            original (0..7).
 #   modes    Stock and Restored with the piece in --mods: no added car, the same picture as without it, no restomod.cfg.
+#   steps    Restomod: the gallery's Previous and Next go to the next car's gallery, whatever it is. Previous clicked from car 16 opens
+#            the Diablo's showcase, which stays open (the click's button, still down, is not taken there as Done) until Escape; Next from
+#            car 16 passes over the Warrior (no gallery) to the RX-7's showcase rather than back to Control Central.
 #   replays  a whole race of car 16 against car 16 from the menus (Race): the replay list shows its Replay.rpx, restomod.cfg keeps the
 #            rival; without the piece the row says which mod it needs.
 # usage: car_card_menus.sh TNFS STUDIO REPO ORIGINAL_DIR [PART] (no PART: all of them, in turn)
@@ -19,7 +22,7 @@ tnfs=$(abs "$1")
 studio=$(abs "$2")
 repo=$(abs "$3")
 orig=$(abs "$4")
-parts=${5:-cards modes replays}
+parts=${5:-cards modes steps replays}
 [ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 0; }
 work=$(mktemp -d)
 trap 'find "$work" -delete' EXIT
@@ -143,6 +146,17 @@ part_cards() {
     has_shot o16 && ! rival_box r16 o16 && fail "car 16's rival card box does not follow its card.png"
 }
 
+part_steps() {
+    # Previous by a click (the footer's left, over the showcase's Done): the Diablo's showcase, left by Escape only. A showcase closed by
+    # the click logs car=7 before the Escape, and the WAIT for it, armed by the Escape, never comes
+    steps="$(click 180 200),$(wait_for screen=added_gallery),$(click 40 445),$(wait_for screen=showcase),1500:ESC,$(wait_for car=7)"
+    # Next by the keys: Color, Previous, Next, Enter; the Warrior passed over, the RX-7's showcase, Escape back to Control Central on it
+    steps="$steps,$(car_on),$(click 180 200),$(wait_for screen=added_gallery),$(key DOWN '1 0 0'),$(key DOWN '2 0 0'),$(key DOWN '3 0 0')"
+    steps="$steps,300:ENTER,$(wait_for screen=showcase),1500:ESC,$(wait_for car=0)"
+    user_in restomod
+    walk "$piece" "$to_central,$car_16,$steps" || fail "Restomod: the gallery's Previous and Next open the next car's gallery"
+}
+
 part_modes() {
     for mode in stock restored; do
         user_in $mode
@@ -180,7 +194,7 @@ part_replays() {
 
 for part in $parts; do
     case $part in
-    cards|modes|replays) "part_$part" ;;
+    cards|modes|steps|replays) "part_$part" ;;
     *) echo "FAIL: no part $part" >&2; exit 2 ;;
     esac
 done
