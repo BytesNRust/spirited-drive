@@ -11,6 +11,7 @@
 
 #include "game/platform/platform.h"
 
+#include <stdio.h>
 #include <string.h>
 
 uint8_t *platform_read_user_file(const char *name, size_t *size) { (void)name, (void)size; return NULL; }
@@ -28,6 +29,7 @@ bool platform_user_file_exists(const char *name)
     return data != NULL;
 }
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
+uint8_t *platform_user_read_file_at(const char *rel, size_t *size) { (void)rel, (void)size; return NULL; }   /* no edition file (dep59 step 4) */
 
 /* the flags Control Central holds, as the state points at them */
 typedef struct {
@@ -214,8 +216,50 @@ static void test_the_variant_codes_are_chosen(void)
     CHECK_EQ_INT(f.variant_m, 0);
 }
 
+/* dep59 step 4, T7: in an edition of the player's own the unlock codes do nothing (it unlocks what it lists itself); the effect codes
+ * still work. The standard edition (no edition, or one with no cars) keeps them all. */
+static void test_an_edition_ignores_the_unlock_codes(void)
+{
+    static Edition own;
+    memset(&own, 0, sizeof own);
+    snprintf(own.name, sizeof own.name, "Own");
+    own.cars = 1, own.tracks = 1;
+    snprintf(own.car[0], sizeof own.car[0], "rx7");
+    snprintf(own.track[0], sizeof own.track[0], "city");
+    const int codes[] = { CENTRAL_SKCART, CENTRAL_EARALLYE, CENTRAL_CASINOVILLE, CENTRAL_CONCEPTCAR, CENTRAL_ROCKYROAD };
+    for (size_t i = 0; i < sizeof codes / sizeof codes[0]; i++) {
+        Flags f, before;
+        ControlCentralState st;
+        fresh(&f, &st);
+        st.edition = &own;
+        memcpy(&before, &f, sizeof f);
+        type(&st, &f, codes[i]);
+        f.letter_held = before.letter_held, f.keys['A'] = 0;
+        CHECK(memcmp(&f, &before, sizeof f) == 0);
+    }
+    const int effects[] = { CENTRAL_EXPLODE, CENTRAL_NITRO, CENTRAL_TURBO };
+    for (size_t i = 0; i < sizeof effects / sizeof effects[0]; i++) {
+        Flags f;
+        ControlCentralState st;
+        fresh(&f, &st);
+        st.edition = &own;
+        type(&st, &f, effects[i]);
+        CHECK_EQ_INT(f.explode, effects[i] == CENTRAL_EXPLODE);
+        CHECK_EQ_INT(f.nitro, effects[i] == CENTRAL_NITRO);
+        CHECK_EQ_INT((f.track_flags & 8) != 0, effects[i] == CENTRAL_TURBO);
+    }
+    static const Edition none;   /* no cars: the standard edition */
+    Flags f;
+    ControlCentralState st;
+    fresh(&f, &st);
+    st.edition = &none;
+    type(&st, &f, CENTRAL_ROCKYROAD);
+    CHECK_EQ_INT(f.unlock_level, 1);
+}
+
 int main(void)
 {
+    test_an_edition_ignores_the_unlock_codes();
     test_the_variant_codes_are_chosen();
     test_the_variant_codes_are_the_sessions();
     test_explode_nitro_turbo_each_their_own();

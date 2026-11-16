@@ -1,6 +1,8 @@
 /* The checked menus over game/sys and ea_lib (menu_glue.h): Game Mode, the profile row and the start screen; the boxes, screens and EXTRAS glue are in menu_glue_dialogs.c, menu_glue_screens.c and menu_glue_extras.c */
 #include "game/frontend/menu_glue_private.h"
+#include "game/frontend/edition_rules.h"
 #include "game/frontend/mode_choices.h"
+#include "game/sys/edition_file.h"
 #include "game/sys/mod_set.h"
 #include "game/sys/text.h"
 
@@ -167,6 +169,14 @@ static void mode_open_notice(void *ctx)
     if (!platform_open_releases_page()) port_log("update: the releases page could not be opened\n");
 }
 
+/* port (dep59 step 4): Multiplayer closed by the edition in use (edition_rules.h), read at each ask: the selector may change it */
+static const char *mode_network_closed(void *ctx)
+{
+    (void)ctx;
+    Edition e;
+    return edition_gate(edition_in_use(&e)).network_why;
+}
+
 /* 004376ac (game_mode.c) */
 int32_t glue_game_mode(void)
 {
@@ -177,7 +187,7 @@ int32_t glue_game_mode(void)
                               mode_network_game, menu_glue_yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL,
                               menu_glue_extras_text_glue, menu_glue_extras_text_width_glue, mode_cover, glue_choice,
                               glue_plus_text_scaled, glue_plus_text_width_scaled, mode_footer, mode_open_notice,
-                              mode_clock_ms, mode_fade_out_quick, mode_fade_in_quick };
+                              mode_clock_ms, mode_fade_out_quick, mode_fade_in_quick, mode_network_closed };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };

@@ -83,6 +83,9 @@ typedef struct GameModeOps {
     uint32_t (*clock_ms)(void *ctx);
     void (*fade_out_quick)(void *ctx);
     void (*fade_in_quick)(void *ctx, const uint8_t *rgb);
+    /* port (dep59 step 4): the reason Multiplayer cannot be chosen (an edition of the player's own in use, edition_rules.h), NULL when it
+     * can; asked at each draw and choice, the selector may have changed the edition. NULL: always open */
+    const char *(*network_closed)(void *ctx);
 } GameModeOps;
 
 typedef struct GameModeState {

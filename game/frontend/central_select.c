@@ -12,17 +12,16 @@ static int in(CentralRun *r, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 
 static int warrior_rival(const ControlCentralState *st) { return st->warrior_rival != NULL && *st->warrior_rival != 0; }
 
-/* port (dep59 step 4): the edition in use, NULL for the standard one */
-static const Edition *edition_of(const ControlCentralState *st) { return st->edition != NULL && st->edition->cars > 0 ? st->edition : NULL; }
+const Edition *central_edition_of(const ControlCentralState *st) { return st->edition != NULL && st->edition->cars > 0 ? st->edition : NULL; }
 
 /* port (dep59): an edition's cars are the arrows', outside a link game */
-static int added_on(const ControlCentralState *st) { return edition_of(st) != NULL && st->lost == 0; }
+static int added_on(const ControlCentralState *st) { return central_edition_of(st) != NULL && st->lost == 0; }
 
 /* port (dep59): `*car` stepped round the edition's cars (car_list.h) */
 static void list_step(const ControlCentralState *st, int16_t *car, int step)
 {
     CarList l;
-    car_list_build(&l, edition_of(st), 0);
+    car_list_build(&l, central_edition_of(st), 0);
     *car = car_list_step(&l, *car, step);
 }
 
@@ -78,7 +77,7 @@ void central_opponent_down(CentralRun *r, int mouse)
  * does not list becomes its first, the player's and the head to head rival */
 void central_car_start(ControlCentralState *st)
 {
-    const Edition *e = edition_of(st);
+    const Edition *e = central_edition_of(st);
     if (e != NULL) {
         CarList l;
         car_list_build(&l, e, 0);

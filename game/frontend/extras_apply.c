@@ -23,13 +23,20 @@ static int settle_one(int cur, int expected, int *was_expected, int *typed)
     return expected || *typed;
 }
 
+ExtrasExpect extras_expect_level(int level) { return (ExtrasExpect){ level > 0, level > 1, level > 0, level != 0 }; }
+
 void extras_settle(const PortExtras *e, int level, const ExtrasFlags *f, ExtrasSession *s)
 {
-    const int m = settle_one(*f->unlock_m != 0, level > 0, &s->on_m, &s->typed_m);
-    const int r = settle_one(*f->unlock_r != 0, level > 1, &s->on_r, &s->typed_r);
+    extras_settle_to(e, extras_expect_level(level), f, s);
+}
+
+void extras_settle_to(const PortExtras *e, ExtrasExpect want, const ExtrasFlags *f, ExtrasSession *s)
+{
+    const int m = settle_one(*f->unlock_m != 0, want.m, &s->on_m, &s->typed_m);
+    const int r = settle_one(*f->unlock_r != 0, want.r, &s->on_r, &s->typed_r);
     /* Lost Vegas: the cheat flag is only ever typed (CASINOVILLE); the level sets the other half alone */
     const int v = settle_one(*f->vegas_cheat != 0, 0, &s->on_vegas, &s->typed_vegas);
-    const int w = settle_one(*f->warrior != 0, level > 0 || e->warrior, &s->on_warrior, &s->typed_warrior);
+    const int w = settle_one(*f->warrior != 0, want.warrior || e->warrior, &s->on_warrior, &s->typed_warrior);
     const int x = settle_one(*f->explode != 0, e->explode != 0, &s->on_explode, &s->typed_explode);
     const int n = settle_one(*f->nitro != 0, e->nitro != 0, &s->on_nitro, &s->typed_nitro);
     const int t = settle_one((*f->track_flags & 8) != 0, e->turbo != 0, &s->on_turbo, &s->typed_turbo);
@@ -37,7 +44,7 @@ void extras_settle(const PortExtras *e, int level, const ExtrasFlags *f, ExtrasS
     if (*f->unlock_r != 0 && !r) *f->unlock_r = 0, *f->variant_r = 0;
     *f->vegas_cheat = v;
     if (v && *f->lost_vegas == 0) *f->lost_vegas = 1;
-    if (!v && level == 0) *f->lost_vegas = 0;
+    if (!v && !want.vegas) *f->lost_vegas = 0;
     *f->warrior = (int16_t)w;
     *f->explode = x;
     *f->nitro = n;
@@ -63,4 +70,11 @@ void extras_no_assists(int16_t *abs, int16_t *traction)
     enum { OFF = 1, NOT_OFFERED = 2 };
     if (*abs < NOT_OFFERED) *abs = OFF;
     if (*traction < NOT_OFFERED) *traction = OFF;
+}
+
+void extras_session_restart(const ExtrasFlags *f, ExtrasSession *s)
+{
+    s->typed_m = s->typed_r = s->typed_vegas = s->typed_warrior = s->typed_explode = s->typed_nitro = s->typed_turbo = 0;
+    s->on_m = *f->unlock_m != 0, s->on_r = *f->unlock_r != 0, s->on_vegas = *f->vegas_cheat != 0, s->on_warrior = *f->warrior != 0;
+    s->on_explode = *f->explode != 0, s->on_nitro = *f->nitro != 0, s->on_turbo = (*f->track_flags & 8) != 0;
 }

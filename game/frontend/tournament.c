@@ -1,5 +1,7 @@
 #include "game/frontend/tournament.h"
 
+#include "game/sys/port_log.h"
+
 #include <string.h>
 
 enum {
@@ -149,6 +151,10 @@ void race_settings_type_step(RaceSettings *s, Unlocks *u, FrontendSession *f, ui
             if (s->race_type == RACE_TIME_TRIAL) s->race_type = right ? RACE_HEAD_TO_HEAD : RACE_TOURNAMENT;
             if (s->race_type == RACE_HEAD_TO_HEAD && f->unknown_4f81d2 > 2)
                 s->race_type = right ? RACE_SINGLE : RACE_TOURNAMENT;
+        }
+        if (f->no_tournament && s->race_type == RACE_TOURNAMENT) {   /* port (dep59 step 4): the next one on */
+            s->race_type = (int16_t)((s->race_type + (right ? 1 : 3)) % 4);
+            port_log("mark:race_type=no_tournament\n");
         }
     }
     race_settings_type_changed(s, u, f);

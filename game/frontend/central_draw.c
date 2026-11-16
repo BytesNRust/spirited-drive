@@ -108,9 +108,9 @@ static void track_art(CentralRun *r)
     char path[0x50];
     enum { MIRROR_ART = 10, RALLY_ART = 19 };   /* the mirror's and the rally's first entries in TRACK_NAMES (Lunar Springs reads the rally's) */
     const int plain = r->ops->card_plain != NULL && r->ops->card_plain(r->ops->ctx);   /* port (dep64): Restomod's card */
-    /* port: the moon's picture follows the Lunar Springs Track switch and the level as they are now, so the rally's word
+    /* port: the moon's picture follows the Lunar Springs Track switch and the level (or the edition) as they are now, so the rally's word
      * carries them too (bit 8): a change in Customize Game redraws the card though the track and variants are the same */
-    const int lunar_now = unlock_level_gate(port_extras_load(), *st->unlock_level).lunar_springs != 0;
+    const int lunar_now = unlock_level_gate(port_extras_load(), *st->unlock_level, central_edition_of(st)).lunar_springs != 0;
     const int r_now = (*st->variant_r != 0) | lunar_now << 8 | plain << 9;   /* port (dep64): and the card's kind, Restomod's or the exe's */
     if (st->was[WAS_TRACK] != *st->track || (int16_t)st->was[WAS_M] != *st->variant_m ||
         (int16_t)st->was[WAS_R] != r_now) {

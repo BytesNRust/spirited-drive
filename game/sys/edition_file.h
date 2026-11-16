@@ -12,6 +12,8 @@
 /* 0 the standard edition; 1 the edition in use, into `out`; -1 an edition= that cannot be used (logged once per id and reason): the
  * standard edition is used */
 int edition_active(Edition *out);
+/* edition_active's edition in `buf`, or NULL for the standard edition (and for one that cannot be used) */
+const Edition *edition_in_use(Edition *buf);
 
 /* editions/<id>.ini into `out`: 1; 0 with the reason in `why` (its file missing, or edition_parse's) */
 int edition_load(const char *id, Edition *out, char *why, size_t why_cap);
