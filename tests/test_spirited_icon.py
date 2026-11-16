@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """The icon's tool (tools/spirited_icon.py) and the files it ships under data/icon: the hand-drawn 16 px picture is a full 16 x 16 grid of known inks, every size has its
-PNG at that size, the .ico holds the sizes Windows asks for and the .icns is where the macOS packaging looks. Skipped (exit 0) when Pillow is not installed."""
+PNG at that size, the .ico holds the sizes Windows asks for and the .icns is where the macOS packaging looks. Skipped (exit 0) when Pillow or rsvg-convert
+(which the tool draws the big pictures with) is not installed."""
 import importlib.util
 import os
+import shutil
 import sys
 
 here = os.path.dirname(os.path.abspath(__file__))
@@ -13,6 +15,9 @@ try:
     from PIL import Image
 except ImportError as error:
     print("test_spirited_icon: skipped (%s)" % error)
+    sys.exit(0)
+if shutil.which("rsvg-convert") is None:
+    print("test_spirited_icon: skipped (no rsvg-convert)")
     sys.exit(0)
 
 failures = 0
