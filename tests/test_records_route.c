@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { FILES = 6 };
+enum { FILES = 10 };
 static struct {
     char name[32];
     uint8_t *data;
@@ -301,6 +301,61 @@ static void car_race(Race *r, int car, int total)
 {
     race(r, TR1, car, 1, 99999, total);
     p16(r->game + 0x53a, car), p16(r->game + 0x536, car);
+}
+
+/* Restomod with the edition `id` in use (its file `ini`), or the standard edition ("") */
+static void edition_in_use(const char *id, const char *ini)
+{
+    char line[64];
+    const int n = snprintf(line, sizeof line, id[0] ? "edition=%s\n" : "\n", id);
+    CHECK(platform_write_user_file("port.cfg", (const uint8_t *)"profile=restomod\n", 17));
+    CHECK(platform_write_user_file("restomod.cfg", (const uint8_t *)line, (size_t)n));
+    if (ini != NULL) {
+        char rel[64];
+        snprintf(rel, sizeof rel, "editions/%s.ini", id);
+        CHECK(platform_write_user_file(rel, (const uint8_t *)ini, strlen(ini)));
+    }
+    port_settings_forget();
+}
+
+static int32_t shown_total(const uint8_t *shown, int row) { return g32(shown + 0xb5 + 0xa6b * TR1 + 0xea + 0x27 * row + 0x1b); }
+
+/* port (dep59 step 4): in an edition of its own the answer, the row the results light, is the race's place among its cars' rows, which
+ * the results show: a time 11th in race_records.dat is first in an edition whose cars set none of the ten above it; a car not in it lights
+ * nothing there. The standard edition answers race_records.dat's place */
+static void test_an_edition_answers_its_own_place(void)
+{
+    unified(1);
+    edition_in_use("duo", "name=Duo\ncars=viper,supra\ntracks=rusty\n");
+    static Race r;
+    static uint8_t shown[RECORD_CHECK_IMAGE];
+    uint8_t slots[RECORDS_MARK_SLOTS];
+    for (int i = 0; i < 10; i++) {   /* the rx7, not in the edition: race_records.dat's ten */
+        car_race(&r, 0, 100 + i);
+        CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
+    }
+    car_race(&r, 5, 500);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    const RecordTable *std = race_records_find(TR1, 0, 0, 8);
+    CHECK(std != NULL && g32(std->totals[9].row + RECORD_ROW_TIME) == 109);   /* 11th there: not in it */
+    records_route_shown((RaceKind){ 0, 0 }, r.image, shown, slots, NULL);
+    CHECK_EQ_INT(shown_total(shown, 0), 500);
+    car_race(&r, 2, 600);   /* the supra: second among the edition's */
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 1);
+    records_route_shown((RaceKind){ 0, 0 }, r.image, shown, slots, NULL);
+    CHECK_EQ_INT(shown_total(shown, 1), 600);
+    car_race(&r, 0, 50);   /* the rx7's best: first in race_records.dat, nothing in the edition */
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
+    CHECK(g32(std->totals[0].row + RECORD_ROW_TIME) == 50);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 0);   /* nor its lap */
+    /* the standard edition: race_records.dat's place and table */
+    edition_in_use("", NULL);
+    car_race(&r, 5, 105);   /* after the 105 there (a time beats only a slower one) */
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 7);
+    records_route_shown((RaceKind){ 0, 0 }, r.image, shown, slots, NULL);
+    CHECK_EQ_INT(shown_total(shown, 0), 50);
+    files_clear();
+    port_settings_forget();
 }
 
 static void test_a_stock_car_keeps_its_rows_by_car_too(void)
@@ -588,6 +643,7 @@ int main(void)
     test_the_originals_keep_no_race_it_could_not_run();
     test_an_added_car_has_its_own_table();
     test_a_stock_car_keeps_its_rows_by_car_too();
+    test_an_edition_answers_its_own_place();
     test_every_layout_and_cheats_is_its_own_table();
     test_rows_keep_their_marks();
     test_the_warrior_and_the_moon_are_cheats();

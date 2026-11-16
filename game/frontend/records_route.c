@@ -11,6 +11,7 @@
 #include "game/sys/port_log.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records_added.h"
+#include "game/sys/race_records_merge.h"
 #include "game/sys/reverse_track.h"
 
 #include <stdio.h>
@@ -179,20 +180,56 @@ static int32_t check_table(RouteOp op, const uint8_t *image, const uint8_t *game
 
 /* port (dep59 step 4): a stock car's race into its car's own table too (race_records_added.h), ranked on its own; a car with no id (a
  * records column that is no car) keeps nothing there */
-static void route_stock_car(RaceKind kind, RouteOp op, const uint8_t *image, const uint8_t *game, int32_t player, const int32_t *times)
+static int32_t route_stock_car(RaceKind kind, RouteOp op, const uint8_t *image, const uint8_t *game, int32_t player, const int32_t *times,
+                               RecordTable **table, RecordRow **best_lap)
 {
     const int track = g16(image + TRACK), car = g16(image + CAR);
     const char *const id = stock_car_id(car);
-    if (id == NULL) return;
+    *table = NULL, *best_lap = NULL;
+    if (id == NULL) return nothing(op);
     const int cheats = records_has_cheats(kind), laps = records_race_laps(image);
     RecordTable *const t = race_records_added_make(track, kind.layout, cheats, laps, id, NULL);
     RecordRow *const lap = is_stage(track) ? NULL : race_records_added_lap_make(track, kind.layout, cheats, id, NULL);
     if (t == NULL || (!is_stage(track) && lap == NULL)) {
         port_log("records: no table of %s for track %d layout %d cheats %d laps %d\n", id, track, kind.layout, cheats, laps);
-        return;
+        return nothing(op);
     }
-    if (check_table(op, image, game, player, times, car == WARRIOR, records_row_marks(kind), t, lap) != nothing(op) && !race_records_added_save())
-        port_log("records: race_records_cars.dat could not be saved\n");
+    *table = t, *best_lap = lap;
+    const int32_t answer = check_table(op, image, game, player, times, car == WARRIOR, records_row_marks(kind), t, lap);
+    if (answer != nothing(op) && !race_records_added_save()) port_log("records: race_records_cars.dat could not be saved\n");
+    return answer;
+}
+
+/* port (dep59 step 4): in an edition of its own, what the check on the car's own table (`t`, `lap`) took, read against the edition's
+ * table (race_records_merge.h), which the results screens show: a total's place among its cars' rows (none when it is not in their ten),
+ * a lap, top speed or segment kept only while it is still their best. The standard edition: `answer` as it is */
+static int32_t edition_answer(RouteOp op, const uint8_t *image, RaceKind kind, int32_t answer, const RecordTable *t, const RecordRow *lap,
+                              int32_t standard)
+{
+    static Edition e;
+    const char *ids[EDITION_LIST_MAX];
+    const int n = race_records_edition_cars(&e, ids, EDITION_LIST_MAX);
+    if (n == 0) return standard;
+    if (answer == nothing(op) || t == NULL) return nothing(op);
+    const int track = g16(image + TRACK), cheats = records_has_cheats(kind), laps = records_race_laps(image);
+    if (op == ROUTE_LAP) {
+        RecordRow best;
+        return lap != NULL && race_records_cars_lap_merge(track, kind.layout, cheats, ids, n, &best) && race_records_row_index(&best, 1, lap) == 0
+                   ? answer : nothing(op);
+    }
+    static RecordTable joined;
+    if (!race_records_cars_merge(track, kind.layout, cheats, laps, ids, n, &joined)) return nothing(op);
+    if (op == ROUTE_TOTALS) {
+        const int at = answer >= 0 && answer < ROWS ? race_records_row_index(joined.totals, ROWS, &t->totals[answer]) : -1;
+        return at >= 0 ? at : nothing(op);
+    }
+    if (op == ROUTE_TOP) return race_records_row_index(&joined.top, 1, &t->top) == 0 ? answer : nothing(op);
+    const int word = g16(image + SEGMENT), k = word ? word - 1 : 2;   /* check_table's segment */
+    if (k < 0 || k >= SEGMENTS) return nothing(op);
+    int32_t kept = 0;
+    if ((answer & 1) && race_records_row_index(&joined.segment_time[k], 1, &t->segment_time[k]) == 0) kept |= 1;
+    if ((answer & 2) && race_records_row_index(&joined.segment_speed[k], 1, &t->segment_speed[k]) == 0) kept |= 2;
+    return kept;
 }
 
 /* Restomod's: the race's table into a copy of the image's track block, the original's check on it, what it took back with the marks.
@@ -216,15 +253,17 @@ static int32_t route_unified(RaceKind kind, RouteOp op, uint8_t *image, const ui
         return nothing(op);
     }
     const int32_t answer = check_table(op, image, game, player, times, g16(image + CAR) == WARRIOR || added != NULL, records_row_marks(kind), t, lap);
-    if (added == NULL) {   /* race_records.dat as before, then the car's own table */
+    if (added == NULL) {   /* race_records.dat as before, then the car's own table; in an edition, read against the edition's */
         if (answer != nothing(op) && !race_records_save()) port_log("records: race_records.dat could not be saved\n");
-        route_stock_car(kind, op, image, game, player, times);
-        return answer;
+        RecordTable *own;
+        RecordRow *own_lap;
+        const int32_t car_answer = route_stock_car(kind, op, image, game, player, times, &own, &own_lap);
+        return edition_answer(op, image, kind, car_answer, own, own_lap, answer);
     }
     if (answer == nothing(op)) return answer;
     table_car_words(t, lap, 0);
     if (!race_records_added_save()) port_log("records: race_records_cars.dat could not be saved\n");
-    return answer;
+    return edition_answer(op, image, kind, answer, t, lap, answer);
 }
 
 int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player,
@@ -261,11 +300,17 @@ void records_route_shown(RaceKind kind, const uint8_t image[RECORD_CHECK_IMAGE],
     const int cheats = records_has_cheats(kind);
     static RecordTable empty, shown;
     static RecordRow no_lap, shown_lap;
+    static Edition e;
+    const char *ids[EDITION_LIST_MAX];
+    const int cars = race_records_edition_cars(&e, ids, EDITION_LIST_MAX);
     RecordTable *t = added != NULL ? race_records_added_find(track, kind.layout, cheats, records_race_laps(image), added->id)
                                    : race_records_find(track, kind.layout, cheats, records_race_laps(image));
     RecordRow *lap = is_stage(track) ? NULL : added != NULL ? race_records_added_lap_find(track, kind.layout, cheats, added->id)
                                                             : race_records_lap_find(track, kind.layout, cheats);
-    if (added != NULL && t != NULL) {   /* port (dep59): a copy, its rows naming the car by its number now */
+    if (cars > 0) {   /* port (dep59 step 4): an edition of its own shows its cars' records joined (race_records_merge.h) */
+        t = race_records_cars_merge(track, kind.layout, cheats, records_race_laps(image), ids, cars, &shown) ? &shown : NULL;
+        lap = !is_stage(track) && race_records_cars_lap_merge(track, kind.layout, cheats, ids, cars, &shown_lap) ? &shown_lap : NULL;
+    } else if (added != NULL && t != NULL) {   /* port (dep59): a copy, its rows naming the car by its number now */
         shown = *t, t = &shown;
         if (lap != NULL) shown_lap = *lap, lap = &shown_lap;
         table_car_words(t, lap, car_registry_race_player());

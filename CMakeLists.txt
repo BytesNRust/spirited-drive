@@ -265,6 +265,7 @@ add_library(tnfs_game STATIC
     game/race/car_registry.c
     game/sys/car_pieces.c
     game/sys/race_records_added.c
+    game/sys/race_records_merge.c
     game/race/car_body.c
     game/race/car_crash.c
     game/race/car_crash_tick.c
@@ -1298,6 +1299,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_mod_set PRIVATE ${TNFS_WARNINGS})
     add_test(NAME mod_set COMMAND test_mod_set)
+    add_executable(test_race_records_merge tests/test_race_records_merge.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_race_records_merge PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_race_records_merge PRIVATE m)
+    endif()
+    target_compile_options(test_race_records_merge PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME race_records_merge COMMAND test_race_records_merge)
     add_executable(test_edition_file tests/test_edition_file.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_edition_file PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
@@ -1680,6 +1688,14 @@ endif()
 foreach(name config_dat screen_layout records_route records_import config_name mirror_on_dash modern_road follow_behind_rows race_sound_trace)
     if(TARGET test_${name})
         target_compile_definitions(test_${name} PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    endif()
+endforeach()
+# the tests that link the game alone keep the player's files in memory (their own platform_read_user_file): the folder's tree reads that
+# store, for the edition in use the records read (race_records_merge.h)
+foreach(name records_route records_import records_glue_load records_glue_import best_times best_times_pages results_marks central_banner
+        central_opponent central_rival_card central_warrior_keep cheat_switches live_mode_switch tournament_variants unlock_level)
+    if(TARGET test_${name})
+        target_sources(test_${name} PRIVATE tests/platform_user_tree_stub.c)
     endif()
 endforeach()
 # the tests that run the real game take the tables from the exe at its start-up: a hang (a poisoned or missing table) ends them in two minutes

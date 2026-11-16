@@ -157,7 +157,6 @@ static void test_edition_cars(void)
 
 /* The CD's files are not read by this test (the tables start as the built-in defaults). */
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
-uint8_t *platform_user_read_file_at(const char *rel, size_t *size) { (void)rel, (void)size; return NULL; }   /* no edition file (dep59 step 4) */
 
 int main(void)
 {
