@@ -63,8 +63,67 @@ static void test_compose(void)
     CHECK(mixed(630, 470, 0, 0));                                                            /* the rest: the background */
     CHECK(mixed(GL_COLUMN_X + 40, GL_FIGURES_Y + GL_FIGURES_H + 4, 0, 0));                  /* the gap under the panel */
     /* the right column ends level with the picture */
-    CHECK_EQ_INT(GL_COLOUR_Y + GL_BOX_H, GL_PICTURE_Y + GL_PICTURE_H);
+    CHECK_EQ_INT(GL_COLOUR_Y + GL_BOX_H - 1, GL_OUTER_Y1);
     CHECK_EQ_INT(GL_SKIN_Y - (GL_FIGURES_Y + GL_FIGURES_H), GL_COLOUR_Y - (GL_SKIN_Y + GL_BOX_H));   /* the gaps even */
+}
+
+/* the outer box (the frame's outside) of the element whose pixels at row y / column x differ from the flat ground: first and last x of row y
+ * from x_from, first and last y of column x from y_from, stopping at the first pixel that is the ground again */
+static const uint8_t GROUND[3] = { 200, 180, 150 };
+static int ground(int x, int y) { return memcmp(at(out, x, y), GROUND, 3) == 0; }
+static int shade(int x, int y) { return mixed(x, y, 0, GL_SHADOW_ALPHA); }
+
+/* how many shadow pixels run from (x, y) in the direction (dx, dy) */
+static int run(int x, int y, int dx, int dy)
+{
+    int n = 0;
+    while (x >= 0 && y >= 0 && x < GL_W && y < GL_H && shade(x, y)) n++, x += dx, y += dy;
+    return n;
+}
+
+/* the owner's: the picture and the right column line up by the frames' outsides, and every shadow falls the same way, as deep */
+static void test_edges_and_shadows(void)
+{
+    for (int i = 0; i < GL_W * GL_H; i++) memcpy(bgnd + 3 * i, GROUND, 3);
+    for (int i = 0; i < GL_PICTURE_W * GL_PICTURE_H; i++) picture[3 * i] = 10, picture[3 * i + 1] = 200, picture[3 * i + 2] = 10;
+    gallery_compose(bgnd, picture, out);
+    /* the picture's frame, outside: scanned from the middle of the picture outwards */
+    const int mx = GL_PICTURE_X + GL_PICTURE_W / 2, my = GL_PICTURE_Y + GL_PICTURE_H / 2;
+    int top = my, bottom = my, left = mx, right = mx;
+    while (!ground(mx, top - 1) && !shade(mx, top - 1)) top--;
+    while (!shade(mx, bottom + 1)) bottom++;
+    while (!ground(left - 1, my) && !shade(left - 1, my)) left--;
+    while (!shade(right + 1, my)) right++;
+    /* the Color box, outside: its fill scanned from inside to its last pixel before the shadow */
+    const int cy = GL_COLOUR_Y + GL_BOX_H / 2;
+    int c_bottom = cy, c_right = GL_COLUMN_X + GL_COLUMN_W / 2;
+    while (!shade(c_right + 1, cy)) c_right++;
+    while (!shade(GL_COLUMN_X + 40, c_bottom + 1)) c_bottom++;
+    int f_top = GL_FIGURES_Y + 10;   /* the technical data's panel, its top edge */
+    while (!ground(GL_COLUMN_X + 40, f_top - 1)) f_top--;
+    CHECK_EQ_INT(c_bottom, bottom);   /* the right column's foot level with the picture frame's outside */
+    CHECK_EQ_INT(f_top, top);         /* and its top */
+    int foot_left = GL_FOOT_X0 + 50, foot_right = GL_FOOT_X0 + 50, fy = GL_FOOT_Y0 + 20;
+    while (!ground(foot_left - 1, fy)) foot_left--;
+    while (!ground(foot_right + 1, fy)) foot_right++;
+    CHECK_EQ_INT(foot_left, left);    /* the foot's band from the picture frame's outside to the column's */
+    CHECK_EQ_INT(foot_right, c_right);
+    /* the shadows: as deep right and down, starting as far down and right of each one's corner */
+    CHECK_EQ_INT(run(right + 1, my, 1, 0), GL_SHADOW);
+    CHECK_EQ_INT(run(c_right + 1, cy, 1, 0), GL_SHADOW);
+    CHECK_EQ_INT(run(mx, bottom + 1, 0, 1), GL_SHADOW);
+    CHECK_EQ_INT(run(GL_COLUMN_X + 40, c_bottom + 1, 0, 1), GL_SHADOW);
+    int p_from = top, c_from = GL_COLOUR_Y;   /* the right strips start GL_SHADOW below each top */
+    while (!shade(right + 1, p_from)) p_from++;
+    while (!shade(c_right + 1, c_from)) c_from++;
+    CHECK_EQ_INT(p_from - top, GL_SHADOW);
+    CHECK_EQ_INT(c_from - GL_COLOUR_Y, GL_SHADOW);
+    int p_x = left, c_x = GL_COLUMN_X;        /* the bottom strips start GL_SHADOW right of each left */
+    while (!shade(p_x, bottom + 1)) p_x++;
+    while (!shade(c_x, c_bottom + 1)) c_x++;
+    CHECK_EQ_INT(p_x - left, GL_SHADOW);
+    CHECK_EQ_INT(c_x - GL_COLUMN_X, GL_SHADOW);
+    CHECK(memcmp(at(out, right + 2, my), at(out, c_right + 2, cy), 3) == 0);   /* as dark, on the same ground */
 }
 
 static void test_quantise(void)
@@ -142,6 +201,7 @@ static void test_hit(void)
 int main(void)
 {
     test_compose();
+    test_edges_and_shadows();
     test_quantise();
     test_lean();
     test_bottom_row();

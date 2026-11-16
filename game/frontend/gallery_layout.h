@@ -17,17 +17,20 @@ enum {
     GL_BAND_W = 285, GL_BAND_H = 56, GL_BAND_FROM_X = 300,
     /* the picture (320x200) and its frame (FRAME px outside it); SHADOW px down and right, the depth of every shadow on the page */
     GL_PICTURE_X = 24, GL_PICTURE_Y = 100, GL_PICTURE_W = 320, GL_PICTURE_H = 200, GL_FRAME = 2, GL_SHADOW = 6,
-    /* the right column: the technical data, then Skin and Color, its foot level with the picture's */
+    /* the picture frame's outside (the owner's: what the other elements line up with), ends included */
+    GL_OUTER_X0 = GL_PICTURE_X - GL_FRAME, GL_OUTER_Y0 = GL_PICTURE_Y - GL_FRAME,                    /* 22, 98 */
+    GL_OUTER_Y1 = GL_PICTURE_Y + GL_PICTURE_H - 1 + GL_FRAME,                                      /* 301 */
+    /* the right column, its top and foot level with the picture frame's outside: the technical data, then Skin and Color */
     GL_COLUMN_X = 364, GL_COLUMN_W = 252,
-    GL_FIGURES_Y = 100, GL_FIGURES_ROWS = 3, GL_FIGURES_ROW = 18, GL_FIGURES_PAD = 7,
-    GL_FIGURES_H = 2 * GL_FIGURES_PAD + GL_FIGURES_ROWS * GL_FIGURES_ROW,   /* 68: 100 .. 168 */
+    GL_FIGURES_Y = GL_OUTER_Y0, GL_FIGURES_ROWS = 3, GL_FIGURES_ROW = 18, GL_FIGURES_PAD = 7,
+    GL_FIGURES_H = 2 * GL_FIGURES_PAD + GL_FIGURES_ROWS * GL_FIGURES_ROW,   /* 68: 98 .. 165 */
     GL_GAP = 16,
-    GL_BOX_H = (GL_PICTURE_Y + GL_PICTURE_H - (GL_FIGURES_Y + GL_FIGURES_H) - 2 * GL_GAP) / 2,   /* 50 */
-    GL_SKIN_Y = GL_FIGURES_Y + GL_FIGURES_H + GL_GAP,                                       /* 184 */
-    GL_COLOUR_Y = GL_SKIN_Y + GL_BOX_H + GL_GAP,                                            /* 250: ends at 300 */
+    GL_BOX_H = (GL_OUTER_Y1 + 1 - (GL_FIGURES_Y + GL_FIGURES_H) - 2 * GL_GAP) / 2,           /* 52 */
+    GL_SKIN_Y = GL_FIGURES_Y + GL_FIGURES_H + GL_GAP,                                       /* 182 */
+    GL_COLOUR_Y = GL_SKIN_Y + GL_BOX_H + GL_GAP,                                            /* 250: ends at 301 */
     GL_ARROW_W = 9, GL_ARROW_H = 14, GL_ARROW_IN = 8,
     /* the foot band: the description, the author at its left and the version at its right */
-    GL_FOOT_X0 = 24, GL_FOOT_X1 = 616, GL_FOOT_Y0 = 326, GL_FOOT_Y1 = 420, GL_FOOT_PAD = 10, GL_FOOT_LINES = 3,
+    GL_FOOT_X0 = GL_OUTER_X0, GL_FOOT_X1 = GL_COLUMN_X + GL_COLUMN_W - 1, GL_FOOT_Y0 = 326, GL_FOOT_Y1 = 420, GL_FOOT_PAD = 10, GL_FOOT_LINES = 3,
     /* the bottom row: DONE at the left, "< NEXT CAR >" in the middle */
     GL_DONE_X = 8, GL_BOTTOM_Y = 442, GL_BOTTOM_H = 30, GL_NEXT_GAP = 8,
     /* the palette: the picture's entries first, then the still part's */
