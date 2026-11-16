@@ -261,8 +261,9 @@ static void print_note(void *ctx, const char *text)
     printf("car import: %s\n", text);
 }
 
-/* the piece's car masks (car_masks/STEM) of a bank that is no longer the donor's removed (R9): the high ones (TEX_mask.png) unless
- * raw, whose high bank is the donor's bitmaps; the low ones (TEX_lo_mask.png) unless raw with a low OBJ. The count removed */
+/* the piece's car masks (car_masks/STEM) of a bank that is no longer the donor's removed (R9): the high ones (TEX_mask.png) and the
+ * low ones (TEX_lo_mask.png), unless raw, whose banks are the donor's as they are (and, without a low OBJ, its far model too). The
+ * count removed */
 static int remove_masks(const char *piece, const char *stem, int keep_high, int keep_low)
 {
     char rel[64], dir[PATH_MAX], parent[PATH_MAX];
@@ -325,7 +326,7 @@ static int write_out(const Args *a, const ModInfo *info, const Made *m, Exchange
     } else {
         fprintf(stderr, "car import: --keep-pdn: the PDN keeps the template's body size; the model's half sizes are %d %d %d\n", m->half[0], m->half[1], m->half[2]);
     }
-    const int removed = remove_masks(a->piece, info->stem, a->raw, a->raw && a->low != NULL);
+    const int removed = remove_masks(a->piece, info->stem, a->raw, a->raw);
     if (removed > 0) printf("car import: removed %d masks of car_masks/%s: they paint the template's textures\n", removed, info->stem);
     printf("try it: tnfs --mods %s --car %s\n", a->piece, info->id);
     return 1;

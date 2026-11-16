@@ -1,6 +1,7 @@
 /* The car importer (formats/car_import.h): the donor taken apart, each level's mesh and bank made (car_import_mesh.c from the
  * author's OBJ, car_import_tables.c in raw mode), and the CFM put together again. Without a low OBJ the low slot holds the high
- * mesh and its bank (the owner's decision 3). */
+ * mesh and its bank (the owner's decision 3); in raw mode, which retouches the donor, the donor's own far model and bank stay. Raw
+ * mode's banks are the donor's chunks byte for byte (fix/raw-import-banks): it only names the donor's bitmaps. */
 #include "formats/car_import_internal.h"
 #include "formats/cfm_build.h"
 #include "formats/chunk.h"
@@ -14,6 +15,8 @@ typedef struct {
     MeshDesc mesh;
     ShpiDescEntry bank[DONOR_BANK_CAP];
     size_t bank_count;
+    const uint8_t *shpi;   /* the level's SHPI chunk as the donor has it */
+    size_t shpi_len;
 } DonorLevel;
 
 static int donor_level(const uint8_t *const child[CFM_CHILDREN], const size_t len[CFM_CHILDREN], int level, DonorLevel *d, ExchangeError *err)
@@ -25,6 +28,7 @@ static int donor_level(const uint8_t *const child[CFM_CHILDREN], const size_t le
         exchange_fail(err, "the donor's %s mesh does not open", level == 0 ? "high" : "low");
         return 0;
     }
+    d->shpi = child[2 * level + 1], d->shpi_len = len[2 * level + 1];
     return mesh_describe(&m, &d->mesh, err) && shpi_describe(child[2 * level + 1], len[2 * level + 1], d->bank, DONOR_BANK_CAP, &d->bank_count, err);
 }
 
@@ -56,7 +60,14 @@ static int level_chunks(const CarImportIn *in, int level, const DonorLevel *d, u
     MeshDesc m;
     CarImportBank bank;
     if (!car_import_mesh(in, level, &d->mesh, d->bank, d->bank_count, &m, &bank, err)) return 0;
-    const int ok = mesh_build(&m, mesh, mesh_len, err) && shpi_build(bank.entry, bank.count, shpi, shpi_len, err);
+    int ok = mesh_build(&m, mesh, mesh_len, err);
+    if (ok && in->raw) {   /* the donor's bank as it is */
+        *shpi = malloc(d->shpi_len ? d->shpi_len : 1);
+        if (*shpi == NULL) exchange_fail(err, "out of memory"), ok = 0;
+        else memcpy(*shpi, d->shpi, d->shpi_len), *shpi_len = d->shpi_len;
+    } else if (ok) {
+        ok = shpi_build(bank.entry, bank.count, shpi, shpi_len, err);
+    }
     if (ok && half != NULL) car_import_halves(&m, half);
     mesh_desc_free(&m);
     car_import_bank_free(&bank);
@@ -78,9 +89,12 @@ int car_import(const CarImportIn *in, uint8_t **cfm, size_t *cfm_len, int32_t ha
     if (ok && in->low != NULL)
         ok = donor_level(child, len, 1, &d[1], err) && level_chunks(in, 1, &d[1], &made[2], &made_len[2], &made[3], &made_len[3], NULL, err);
     if (ok) {
-        const uint8_t *const parts[CFM_CHILDREN] = { made[0], made[1], in->low != NULL ? made[2] : made[0], in->low != NULL ? made[3] : made[1] };
-        const size_t parts_len[CFM_CHILDREN] = { made_len[0], made_len[1], in->low != NULL ? made_len[2] : made_len[0],
-                                                 in->low != NULL ? made_len[3] : made_len[1] };
+        /* the low slot: the low OBJ's; without one, raw keeps the donor's, and an OBJ import repeats the high level */
+        const int own_low = in->low != NULL, donor_low = !own_low && in->raw;
+        const uint8_t *const parts[CFM_CHILDREN] = { made[0], made[1], own_low ? made[2] : donor_low ? child[2] : made[0],
+                                                     own_low ? made[3] : donor_low ? child[3] : made[1] };
+        const size_t parts_len[CFM_CHILDREN] = { made_len[0], made_len[1], own_low ? made_len[2] : donor_low ? len[2] : made_len[0],
+                                                 own_low ? made_len[3] : donor_low ? len[3] : made_len[1] };
         ok = cfm_build(parts, parts_len, cfm, cfm_len, err);
     }
     for (int k = 0; k < CFM_CHILDREN; k++) free(made[k]);

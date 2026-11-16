@@ -11,7 +11,8 @@
  * The OBJ is Blender's (Y up, -Z forward, faces counter-clockwise from outside, uvs 0..1 from the bottom left); the mesh negates z
  * and scales, which makes its faces clockwise as the race wants them, and gives uvs in texels from the top. In raw mode the OBJ
  * is mesh_export's and its tables (`.tsv`, with lists.tsv) beside it give everything the OBJ does not carry; a raw OBJ that is not
- * mesh_export's is Blender's export of NAME.blender.obj (dep71), turned back on the tables' own NAME.obj (formats/mesh_blender.h). */
+ * mesh_export's is Blender's export of NAME.blender.obj (dep71), turned back on the tables' own NAME.obj (formats/mesh_blender.h). Raw
+ * mode retouches the donor: its banks are the donor's chunks byte for byte, and without a low OBJ the donor's far model stays. */
 #ifndef TNFS_CAR_IMPORT_H
 #define TNFS_CAR_IMPORT_H
 
@@ -28,7 +29,8 @@ typedef void (*CarImportNote)(void *ctx, const char *text);   /* what was genera
 typedef struct {
     const uint8_t *donor_cfm;
     size_t donor_cfm_len;                  /* the donor car's CFM from the CD */
-    const ObjModel *high, *low;            /* low NULL: the high mesh and its bank in the low-detail slot too (decision 3) */
+    const ObjModel *high, *low;            /* low NULL: the high mesh and its bank in the low-detail slot too (decision 3); raw: the
+                                            * donor's own low-detail mesh and bank, untouched */
     const FileSet *high_tables, *low_tables;   /* raw: mesh_export's tables (any stem), and its NAME.obj for a Blender OBJ; else NULL */
     const FileSet *high_pngs, *low_pngs;   /* the textures, each under its map_Kd path as the MTL writes it */
     int raw;                               /* the OBJ is mesh_export's: the mesh's frame, units and texel uvs */
@@ -50,7 +52,8 @@ typedef struct {
  * `err` */
 int car_import(const CarImportIn *in, uint8_t **cfm, size_t *cfm_len, int32_t half[3], ExchangeError *err);
 
-/* the steps, for the tests: a mesh (level 0 high, 1 low) and its bank from the OBJ, the donor's mesh and bank of that level */
+/* the steps, for the tests: a mesh (level 0 high, 1 low) and its bank from the OBJ, the donor's mesh and bank of that level; raw makes
+ * no bank (an empty one): car_import writes the donor's SHPI chunk of the level as it is */
 int car_import_mesh(const CarImportIn *in, int level, const MeshDesc *donor, const ShpiDescEntry *donor_bank, size_t donor_count,
                     MeshDesc *out, CarImportBank *bank, ExchangeError *err);
 void car_import_bank_free(CarImportBank *bank);

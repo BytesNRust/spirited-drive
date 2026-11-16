@@ -192,17 +192,6 @@ static int raw_geometry(const ObjModel *obj, MeshDesc *m, ExchangeError *err)
     return 1;
 }
 
-/* the bank: the donor's palettes, then each bitmap a reference names (the donor's) */
-static int raw_bank(const MeshDesc *m, int level, const ShpiDescEntry *donor_bank, size_t donor_count, CarImportBank *bank, ExchangeError *err)
-{
-    if (!ci_bank_start(bank, level, donor_bank, donor_count, err)) return 0;
-    for (uint32_t i = 0; i < m->texture_count; i++) {
-        const ShpiDescEntry *e = m->textures[i].name[0] != '\0' ? ci_bank_find(donor_bank, donor_count, m->textures[i].name) : NULL;
-        if (e != NULL && !ci_bank_keep(bank, e, err)) return 0;
-    }
-    return 1;
-}
-
 static int raw_build(const ObjModel *obj, const FileSet *t, const char *stem, const Lists *lists, MeshDesc *m, ExchangeError *err)
 {
     uint8_t *rec[7] = { NULL };
@@ -281,8 +270,7 @@ int ci_raw_mesh(const CarImportIn *in, int level, const MeshDesc *donor, const S
     ObjModel back;
     const int blender = !obj->from_exporter;
     const int converted = blender && from_blender(obj, t, stem, donor_bank, donor_count, &back, err);
-    int ok = (!blender || converted) && raw_build(blender ? &back : obj, t, stem, &lists, out, err) &&
-             raw_bank(out, level, donor_bank, donor_count, bank, err);
+    int ok = (!blender || converted) && raw_build(blender ? &back : obj, t, stem, &lists, out, err);   /* the bank: the donor's (car_import.c) */
     if (converted) obj_free(&back);
     lists_free(&lists);
     if (!ok) mesh_desc_free(out), car_import_bank_free(bank);
