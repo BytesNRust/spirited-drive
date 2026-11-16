@@ -4,6 +4,7 @@
 #include "game/sys/palette.h"
 #include "test.h"
 
+#include <stdio.h>
 #include <string.h>
 
 enum { UP = TRACK_SELECT_KEY_UP, DOWN = TRACK_SELECT_KEY_DOWN, LEFT = TRACK_SELECT_KEY_LEFT, RIGHT = TRACK_SELECT_KEY_RIGHT, ENTER = 0xd, ESCAPE = 0x1b };
@@ -82,6 +83,7 @@ static int switches, locked;   /* locked: a tournament past its first race (Trac
 static int32_t variant_m_in, variant_r_in, variant_m_out, variant_r_out;
 static int kept_m_in, kept_r_in, kept_m_out, kept_r_out;   /* dep65: the choice kept through Lost Vegas (TrackSelectPlus.kept_m) */
 static int track_out;
+static const Edition *edition_in;   /* port (dep59 step 4): the edition the screen walks, NULL the standard one */
 
 /* the screen on track 3 (not a tournament), the keys, and what the weather and the console version time are afterwards */
 static void run_on(const uint16_t *keys, int count, int *weather, int *light_time, int use_light_time, int *reverse, int track)
@@ -90,7 +92,7 @@ static void run_on(const uint16_t *keys, int count, int *weather, int *light_tim
     int32_t time_of_day[9] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }, variant_m = variant_m_in, variant_r = variant_r_in;
     config[TRACK_SELECT_TRACK] = (uint8_t)track;
     config[TRACK_SELECT_LAPS] = 8;
-    const TrackSelectInputs in = { "", 0, 0, 0, 1, 1, 1 };   /* Lost Vegas on */
+    const TrackSelectInputs in = { "", 0, 0, 0, 1, 1, 1, edition_in };   /* Lost Vegas on (the standard edition's; an edition lists its own) */
     TrackSelectPlus plus = { switches, switches, &variant_m, &variant_r, 0, 1, weather, use_light_time ? light_time : NULL, reverse, custom_laps,
                              switches, locked, kept_m_in, kept_r_in };
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
@@ -216,7 +218,7 @@ static void test_without_the_row_up_is_the_originals(void)
     TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 0, &weather, NULL, NULL, NULL, 0, 0, 0, 0 };   /* port_track_weather 0 */
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
     (void)light_time;
-    const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
+    const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1, NULL };
     DialogPointer p = { 0, 0, 0, 0, 0, 0 };
     Script script = { keys, 0, 3 };
     const TrackSelectOps ops = {
@@ -253,7 +255,7 @@ static void test_night_label_is_text(void)
         int light_time = night ? 3 : 2;
         TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 1, &weather, &light_time, NULL, NULL, 0, 0, 0, 0 };
         TrackSelectState st = { config, time_of_day, 0, palette, &plus };
-        const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1 };
+        const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1, NULL };
         DialogPointer p = { 0, 0, 0, 0, 0, 0 };
         const uint16_t keys[1] = { ESCAPE };
         Script script = { keys, 0, 0 };
@@ -333,6 +335,31 @@ static void test_switch_rows(void)
 
 /* dep65: the player's mirror and rally go through Lost Vegas: cleared on it, back on the track after it, and kept for the
  * caller when the screen ends on it */
+/* port (dep59 step 4): Prev and Next walk the edition's tracks: with city,vegas the next of City is Lost Vegas, and so is the one before it */
+static void test_an_edition_walks_its_tracks(void)
+{
+    int weather = 0, light_time = 0, reverse = 0;
+    Edition e;
+    memset(&e, 0, sizeof e);
+    e.tracks = 2;
+    snprintf(e.track[0], sizeof e.track[0], "city"), snprintf(e.track[1], sizeof e.track[1], "vegas");
+    edition_in = &e;
+    const uint16_t next[] = { RIGHT, RIGHT, ENTER, LEFT, LEFT, ENTER };   /* Next once, back to Done */
+    run_on(next, 6, &weather, &light_time, 0, &reverse, 0);
+    CHECK_EQ_INT(track_out, 8);
+    const uint16_t prev[] = { RIGHT, ENTER, LEFT, ENTER };   /* Prev once, back to Done */
+    run_on(prev, 4, &weather, &light_time, 0, &reverse, 0);
+    CHECK_EQ_INT(track_out, 8);
+    switches = 1;   /* Restomod's switch rows: the same walk */
+    run_on(next, 6, &weather, &light_time, 0, &reverse, 0);
+    CHECK_EQ_INT(track_out, 8);
+    switches = 0;
+    snprintf(e.track[1], sizeof e.track[1], "hidden");   /* the hidden track is never listed: City alone */
+    run_on(next, 6, &weather, &light_time, 0, &reverse, 0);
+    CHECK_EQ_INT(track_out, 0);
+    edition_in = NULL;
+}
+
 static void test_the_switches_come_back_after_lost_vegas(void)
 {
     int weather = 0, light_time = 0, reverse = 0;
@@ -408,6 +435,7 @@ int main(void)
 {
     test_switch_rows();
     test_the_switches_come_back_after_lost_vegas();
+    test_an_edition_walks_its_tracks();
     test_locked_rows_do_not_turn();
     test_which_rows();
     test_weather_row();

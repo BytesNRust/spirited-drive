@@ -69,6 +69,7 @@ static void start(CentralRun *r)
     if (*st->unlock_level >= 1 && (central_edition_of(st) == NULL || edition_unlocks(central_edition_of(st)).warrior)) *st->warrior = 1;
     if (*st->unlock_level >= 2) *st->unlock_r = 1;
     if (*st->lost_vegas == 0 && *st->track == 8) *st->track = 0;
+    central_track_start(st);   /* port (dep59 step 4): an edition's tracks */
     central_car_start(st);
     o->wait(o->ctx, 0);
     o->music(o->ctx);
