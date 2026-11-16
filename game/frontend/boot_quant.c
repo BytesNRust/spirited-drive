@@ -47,6 +47,7 @@ static int split(const long *hist, Box *b, Box *out)
         acc += box_count(hist, &slab);
         if (2 * acc >= b->count) break;
     }
+    if (cut >= b->hi[axis]) cut = b->hi[axis] - 1;   /* the last layer holds more than half: it is the new box (never an empty one) */
     *out = *b;
     b->hi[axis] = cut, out->lo[axis] = cut + 1;
     box_count(hist, b);
