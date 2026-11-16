@@ -1,7 +1,7 @@
 #!/bin/zsh
 # tools/menu_walk.sh <bin> <outdir> <target>: walk the front end headless to a menu screen and save its picture as <outdir>/<target>.png.
 #
-#   targets: central (Control Central, KEYS after it)  showcase (the gallery, from a click on Control Central's car card)
+#   targets: game-mode (Game Mode, the first menu after the intro: our boot screen and EA's movie skipped)  central (Control Central, KEYS after it)  showcase (the gallery, from a click on Control Central's car card)
 #            added-gallery (an added car's gallery: the same click with an added car picked, KEYS after it)  options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
 #            graphics  extras (page 1/3)  extras-p2  extras-p3
 #            track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
@@ -58,9 +58,10 @@ click() { printf '300:CLICK:%s:%s' $(( $1 + dx )) "$2"; }
 next_page() { printf '300:MOUSE:%s:%s,300:CLICK:%s:%s' $(( 355 + dx )) 452 $(( 355 + dx )) 452; }
 park() { printf '300:MOUSE:%s:%s' $(( 330 + dx )) 405; }
 
-# the common way in: our boot screen skipped (the first thing the game shows), EA's first movie stopped (which ends the intro), Game Mode, Single, the
-# name box left, Control Central
-to_central="1500:ESC,0:WAIT:mark:movie=:$step,500:ESC,$(wait_for game_mode),$(click 310 217),$(wait_for name_box),500:TEXT:R,500:ENTER,$(wait_for central)"
+# the common way in: our boot screen skipped (the first thing the game shows), EA's first movie stopped (which ends the intro), Game Mode; then
+# Single, the name box left, Control Central
+to_game_mode="1500:ESC,0:WAIT:mark:movie=:$step,500:ESC,$(wait_for game_mode)"
+to_central="$to_game_mode,$(click 310 217),$(wait_for name_box),500:TEXT:R,500:ENTER,$(wait_for central)"
 to_options="$to_central,$(click 215 450),$(wait_for options)"
 to_track="$to_central,$(click 400 320),$(wait_for track_select)"
 to_best="$to_track,$(click 560 460),$(wait_for best_times),$(park)"
@@ -92,6 +93,7 @@ if [ -n "$KEYS" ]; then
 fi
 
 case $target in
+game-mode)    script="$to_game_mode${KEYS:+,$KEYS}"; final=game_mode; tail=${TAIL:-3} ;;
 central)      script="$to_central${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3} ;;
 showcase)     script="$to_central,$(click 180 200),$(wait_for showcase)"; final=showcase ;;
 added-gallery) script="$to_central,$(click 180 200),$(wait_for added_gallery)${KEYS:+,$KEYS}"; final=added_gallery; tail=${TAIL:-3} ;;
