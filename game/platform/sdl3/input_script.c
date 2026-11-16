@@ -7,6 +7,7 @@
 #include "platform/sdl3/input_script.h"
 #include "platform/sdl3/input_shared.h"
 #include "platform/sdl3/pad_keys.h"
+#include "platform/sdl3/platform_sdl3_private.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -33,11 +34,15 @@
  * ms:WAIT:text:secs (with TNFS_INPUT_SETTLE only): the script holds there, ms after the event before it, until the game logs a line
  * containing `text` (port_log_watch, armed when the event before the WAIT begins, so the mark that event's reaction logs counts; a line logged before it does not) -- the game's marks are the
  * "mark:..." lines (tools/link_loopback.sh) -- and goes on; if no such line comes in `secs` seconds the process says which step
- * it stopped at ("input script: step N: WAIT text timed out after S s") and exits with status 3. */
+ * it stopped at ("input script: step N: WAIT text timed out after S s") and exits with status 3.
+ * ms:SHOT:name (with TNFS_INPUT_SETTLE only; port, test harness): once the screen is still, as a click waits for it, and N ms have passed
+ * since the step before it was done (its reaction drawn), the frame on screen is
+ * written as TNFS_SHOT_DIR/name.ppm and the log says "input script: shot name"; a name is 1..15 of a-z 0-9 _ - (no path). A shot that cannot
+ * be written stops the run with status 3, as a WAIT that times out does. */
 enum { SCRIPT_MAX = 64, SCRIPT_HOLD_MS = 100, SCRIPT_SETTLE_CAP_MS = 12000, SCRIPT_READ_GAP_MS = 250 };
 typedef struct {
     uint32_t at_ms;
-    int scancode;  /* set-1, 0 for mouse moves, -2 text, -3 clicks */
+    int scancode;  /* set-1, 0 for mouse moves, -2 text, -3 clicks, -4 WAIT, -5 SHOT */
     int x, y;
     bool seen;     /* held until the game has read it at least once */
     bool queued;   /* text / editing code already pushed to the text queue */
@@ -54,6 +59,39 @@ static uint32_t script_start_ms;
 static uint32_t settle_ms, last_present_ms, script_last_ms;  /* TNFS_INPUT_SETTLE */
 static uint32_t last_read_ms, reading_since_ms;               /* the pointer read with no gap since */
 static int script_next;
+static bool script_shots;   /* a SHOT in the script */
+
+bool input_script_shots(void) { return script_shots; }
+
+/* `item` a SHOT, "ms:SHOT:name", into `e`: 1 when it is one with a name of 1..15 of a-z 0-9 _ - */
+static bool shot_item(const char *item, ScriptEvent *e)
+{
+    int at = -1;
+    if (SDL_sscanf(item, "%u:SHOT:%n", &e->at_ms, &at) != 1 || at < 0) return false;
+    const char *name = item + at;
+    const size_t n = SDL_strlen(name);
+    if (n == 0 || n > 15) return false;
+    for (size_t i = 0; i < n; i++)
+        if (!((name[i] >= 'a' && name[i] <= 'z') || (name[i] >= '0' && name[i] <= '9') || name[i] == '_' || name[i] == '-')) return false;
+    SDL_memcpy(e->text, name, n + 1);
+    e->scancode = -5;
+    return true;
+}
+
+/* a SHOT armed: the frame on screen written as TNFS_SHOT_DIR/<name>.ppm, or the run stopped */
+static void shot_take(ScriptEvent *e, int step)
+{
+    const char *dir = SDL_getenv("TNFS_SHOT_DIR");
+    char path[1024];
+    if (dir != NULL && SDL_snprintf(path, sizeof path, "%s/%s.ppm", dir, e->text) < (int)sizeof path && sdl3_write_frame(path)) {
+        port_log("input script: shot %s\n", e->text);
+        e->seen = true;
+        return;
+    }
+    port_log("input script: step %d: SHOT %s not written (TNFS_SHOT_DIR %s)\n", step, e->text, dir != NULL ? dir : "unset");
+    fprintf(stderr, "input script: step %d: SHOT %s not written (TNFS_SHOT_DIR %s)\n", step, e->text, dir != NULL ? dir : "unset");
+    exit(3);
+}
 
 /* port (--verbose): the window's focus and visibility changes, to see what releases a held key (SDL lets every key go when the window loses the focus) */
 void input_script_log_window_event(Uint32 type)
@@ -155,6 +193,9 @@ void input_script_load(void)
             SDL_memcpy(e.text, wait + 6, (size_t)(last - (wait + 6)));
             e.scancode = -4;
             script[script_count++] = e;
+        } else if (shot_item(item, &e)) {
+            script_shots = true;
+            script[script_count++] = e;
         } else if (SDL_sscanf(item, "%u:MOUSE:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
             script[script_count++] = e;
         } else if (SDL_sscanf(item, "%u:CLICK:%d:%d", &e.at_ms, &e.x, &e.y) == 3) {
@@ -174,7 +215,9 @@ void input_script_load(void)
     settle_ms = settle != NULL ? (uint32_t)SDL_atoi(settle) : 0;
     if (settle_ms == 0) {
         for (int i = 0; i < script_count; i++)
-            if (script[i].scancode == -4) port_log("platform: WAIT %s in TNFS_INPUT_SCRIPT needs TNFS_INPUT_SETTLE; it does nothing\n", script[i].text);
+            if (script[i].scancode == -4 || script[i].scancode == -5)
+                port_log("platform: %s %s in TNFS_INPUT_SCRIPT needs TNFS_INPUT_SETTLE; it does nothing\n", script[i].scancode == -4 ? "WAIT" : "SHOT",
+                         script[i].text);
         return;
     }
     for (int i = 0; i < script_count; i++) script[i].delay = script[i].at_ms, script[i].at_ms = UINT32_MAX;
@@ -184,6 +227,7 @@ static bool script_done(const ScriptEvent *e, uint32_t now)
 {
     if (e->scancode == -1) return true;                       /* a mouse move, consumed */
     if (e->scancode == -4) return port_log_watch_hit() != 0;  /* WAIT: the game logged its line */
+    if (e->scancode == -5) return e->seen;                    /* SHOT: written */
     if (e->scancode == -3 || e->scancode == -2) return e->seen || (e->scancode == -2 && e->queued);
     return now >= e->at_ms + SCRIPT_HOLD_MS && (e->seen || e->keyed || e->queued);
 }
@@ -209,11 +253,14 @@ static void script_sequence(void)
             script_next++, script_last_ms = now;
             continue;
         }
-        const bool pointer = e->scancode == 0 || e->scancode == -3;
+        const bool pointer = e->scancode == 0 || e->scancode == -3 || e->scancode == -5;   /* a SHOT waits for the still screen too */
         const uint32_t due = script_last_ms + e->delay;
-        const bool still = now - last_present_ms >= settle_ms && now - reading_since_ms >= settle_ms;
+        /* a SHOT also gives the step before it settle_ms to show: a move or a key whose frame is not presented yet leaves the screen "still" */
+        const bool still = now - last_present_ms >= settle_ms && now - reading_since_ms >= settle_ms &&
+                           (e->scancode != -5 || now - script_last_ms >= settle_ms);
         if (now < due || (pointer && !still && now < due + SCRIPT_SETTLE_CAP_MS)) return;
         e->at_ms = now;
+        if (e->scancode == -5) shot_take(e, script_next + 1);
         if (e->scancode == -4) {   /* WAIT: from now on (its own line first: it holds the text it waits for) */
             if (e->watched) port_log("input script: step %d: waiting (its watch armed with the event before)\n", script_next + 1);   /* no text: this line must not be the line the watch is for */
             else port_log("input script: step %d: waiting for %s\n", script_next + 1, e->text), port_log_watch(e->text);

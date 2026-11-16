@@ -1,4 +1,5 @@
 #include "game/frontend/results_screen.h"
+#include "game/sys/port_log.h"
 
 #include "game/frontend/record_conditions.h"
 #include "game/frontend/records_route.h"
@@ -276,6 +277,7 @@ void results_screen(int32_t ask_records, const ResultsInputs *in, ResultsState *
                 }
                 ops->fade_in(ops->ctx, 0, 0x100, pal);
                 first = 0;
+                port_log("mark:results=segment\n");   /* port (test harness): faded in, its keys read from here on (a walk presses Enter after it); the log only */
                 if (fanfare) ops->track_play(ops->ctx);
             }
             ops->delay(ops->ctx, WAIT);

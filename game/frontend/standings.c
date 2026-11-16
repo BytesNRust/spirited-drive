@@ -1,4 +1,5 @@
 #include "game/frontend/standings.h"
+#include "game/sys/port_log.h"
 #include "game/frontend/results_screen.h"
 
 #include <stdio.h>
@@ -152,6 +153,7 @@ void standings_screen(int segment_mode, const StandingsInputs *in, StandingsStat
                 if (p->active) ops->pointer_buttons(ops->ctx);
                 ops->fade_in(ops->ctx, 0, 0x100, pal);
                 first = 0;
+                port_log("mark:results=standings\n");   /* port (test harness): faded in, its keys read from here on (a walk presses Enter after it); the log only */
             }
             ops->delay(ops->ctx, WAIT);
             redraw = 0, moved = 0;

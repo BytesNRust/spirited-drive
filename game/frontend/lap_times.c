@@ -1,4 +1,5 @@
 #include "game/frontend/lap_times.h"
+#include "game/sys/port_log.h"
 
 #include "game/frontend/stat_text.h"
 #include "game/sys/free_laps.h"
@@ -199,6 +200,7 @@ int32_t lap_times_screen(int32_t record, int32_t tune, const ResultsInputs *in, 
                 }
                 ops->fade_in(ops->ctx, 0, 0x100, pal);
                 first = 0;
+                port_log("mark:results=lap_times\n");   /* port (test harness): faded in, its keys read from here on (a walk presses Enter after it); the log only */
                 if (fanfare) ops->track_play(ops->ctx);
             }
             ops->delay(ops->ctx, WAIT);

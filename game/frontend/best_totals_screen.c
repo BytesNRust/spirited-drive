@@ -1,4 +1,5 @@
 #include "game/frontend/best_totals_screen.h"
+#include "game/sys/port_log.h"
 
 #include "game/frontend/records_route.h"
 
@@ -127,6 +128,7 @@ void best_totals_screen(int32_t row, int32_t top_beaten, const ResultsInputs *in
                 }
                 ops->fade_in(ops->ctx, 0, 0x100, pal);
                 first = 0;
+                port_log("mark:results=best_totals\n");   /* port (test harness): faded in, its keys read from here on (a walk presses Enter after it); the log only */
                 if (fanfare) ops->track_play(ops->ctx);
             }
             ops->delay(ops->ctx, WAIT);

@@ -30,19 +30,25 @@
 
 static uint64_t next_frontend_ns;
 
+bool sdl3_write_frame(const char *path)
+{
+    if (sdl3_rgb_buffer == NULL) return false;
+    FILE *f = fopen(path, "wb");
+    if (f == NULL) return false;
+    bool ok = fprintf(f, "P6\n%d %d\n255\n", sdl3_fb_width, sdl3_fb_height) > 0;
+    for (int i = 0; ok && i < sdl3_fb_width * sdl3_fb_height; i++) {
+        const uint8_t px[3] = { (uint8_t)(sdl3_rgb_buffer[i] >> 16), (uint8_t)(sdl3_rgb_buffer[i] >> 8), (uint8_t)sdl3_rgb_buffer[i] };
+        ok = fwrite(px, 1, 3, f) == 3;
+    }
+    return fclose(f) == 0 && ok;
+}
+
 static void capture_frame(void)
 {
     if (sdl3_capture_dir == NULL || sdl3_presented_frames++ % (unsigned)sdl3_capture_every != 0 || sdl3_presented_frames <= sdl3_capture_from) return;
     char path[1024];
     SDL_snprintf(path, sizeof path, "%s/frame_%05u.ppm", sdl3_capture_dir, sdl3_presented_frames - 1);
-    FILE *f = fopen(path, "wb");
-    if (f == NULL) return;
-    fprintf(f, "P6\n%d %d\n255\n", sdl3_fb_width, sdl3_fb_height);
-    for (int i = 0; i < sdl3_fb_width * sdl3_fb_height; i++) {
-        const uint8_t px[3] = { (uint8_t)(sdl3_rgb_buffer[i] >> 16), (uint8_t)(sdl3_rgb_buffer[i] >> 8), (uint8_t)sdl3_rgb_buffer[i] };
-        fwrite(px, 1, 3, f);
-    }
-    fclose(f);
+    sdl3_write_frame(path);
 }
 
 /* One step of the pacing: the time of the next boundary (`next`, 0 at the first), after one `period`; resynced when more than a period behind. *wait_ns is how long to sleep from `now`. */
@@ -170,9 +176,9 @@ static void present_frame(const uint8_t *pixels, const PlatformColor palette[256
     void *locked = NULL;
     int pitch = 0;
     /* the frame goes straight into the texture's memory, no second copy; a capture needs rgb_buffer, the web build keeps
-     * the upload, and a failed lock falls back to it */
+     * the upload, and a failed lock falls back to it; a script's SHOT needs it too (the frame on screen, kept) */
 #ifndef __EMSCRIPTEN__
-    if (sdl3_capture_dir == NULL && present_lock && SDL_LockTexture(sdl3_texture, NULL, &locked, &pitch)) {
+    if (sdl3_capture_dir == NULL && !input_script_shots() && present_lock && SDL_LockTexture(sdl3_texture, NULL, &locked, &pitch)) {
         if (mask != NULL)
             platform_palette_to_xrgb_split_pitch(pixels, palette, world_palette, half_palette, mask, locked, pitch, sdl3_fb_width, sdl3_fb_height,
                                                  present_threads);
