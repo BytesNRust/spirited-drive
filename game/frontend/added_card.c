@@ -40,7 +40,7 @@ uint8_t *added_card_bank(const PngImage *img, int rival, int from_card, const ui
     uint8_t *pixels = malloc((size_t)w * h);
     uint8_t *bank = NULL;
     if (rgba != NULL && pixels != NULL) {
-        picture_palette_nearest(rgba, w * h, palette, usable, pixels);
+        picture_palette_dither(rgba, w, h, palette, usable, pixels);
         const ShpiDescEntry e[2] = {
             { .name = { '0', '0', '0', '0' }, .type = BITMAP, .width = (uint16_t)w, .height = (uint16_t)h,
               .misc = { 0, 0, (int16_t)(rival ? ADDED_RIVAL_X : ADDED_CARD_X), (int16_t)(rival ? ADDED_RIVAL_Y : ADDED_CARD_Y) },
