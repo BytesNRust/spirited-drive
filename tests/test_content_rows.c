@@ -132,7 +132,7 @@ static void test_an_own_editions_rows(void)
     CHECK_EQ_STR(gone->name, "gone-car");
     CHECK_EQ_INT(gone->on, 1);
     CHECK_EQ_INT(gone->switchable, 1);   /* switched off it leaves the list */
-    CHECK_EQ_INT(gone->movable, 1);
+    CHECK_EQ_INT(gone->movable, 0);   /* no arrows on a missing one (the mock-up's); the others still move past it */
     CHECK_EQ_INT(row_of(&r, "test-car")->backup, 1);
     CHECK_EQ_INT(row_of(&r, "porsche-993")->backup, 0);
     CHECK_EQ_INT(row_of(&r, "nsx")->on, 0);
@@ -234,7 +234,8 @@ static void test_the_arrows(void)
     content_rows_build(&r, &e, CONTENT_CARS, &mods);
     CHECK_EQ_INT(content_rows_move(&e, &out, CONTENT_CARS, &r, index_of(&r, "diablo"), -1), 1);
     CHECK_EQ_STR(list(&out, CONTENT_CARS), "diablo,test-car,gone-car,rx7");
-    CHECK_EQ_INT(content_rows_move(&e, &out, CONTENT_CARS, &r, index_of(&r, "gone-car"), 1), 1);
+    CHECK_EQ_INT(content_rows_move(&e, &out, CONTENT_CARS, &r, index_of(&r, "gone-car"), 1), 0);   /* missing: no arrows */
+    CHECK_EQ_INT(content_rows_move(&e, &out, CONTENT_CARS, &r, index_of(&r, "rx7"), -1), 1);       /* past the missing one */
     CHECK_EQ_STR(list(&out, CONTENT_CARS), "test-car,diablo,rx7,gone-car");
     CHECK_EQ_INT(content_rows_move(&e, &out, CONTENT_CARS, &r, index_of(&r, "test-car"), -1), 0);   /* the first: no further up */
     CHECK_EQ_INT(content_rows_move(&e, &out, CONTENT_CARS, &r, index_of(&r, "rx7"), 1), 0);         /* the last on: no further down */

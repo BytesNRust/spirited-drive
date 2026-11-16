@@ -73,7 +73,7 @@ static ContentRow *add(ContentRows *out, const char *id, const char *name, const
     snprintf(r->version, sizeof r->version, "%s", version);
     r->kind = kind, r->on = on;
     r->switchable = !out->locked && kind != CONTENT_ROW_REMOVED;
-    r->movable = !out->locked && on;
+    r->movable = !out->locked && on && kind != CONTENT_ROW_MISSING;   /* a missing one has no arrows */
     return r;
 }
 
