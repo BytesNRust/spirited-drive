@@ -219,7 +219,7 @@ static void driving(int car)
     snprintf(p.id, sizeof p.id, "f40");
     snprintf(p.stem, sizeof p.stem, "F40");
     snprintf(p.short_name, sizeof p.short_name, "F40");
-    p.sound_model = 4, p.ai_model = 1, p.dash_model = -1;
+    p.sound_model = 4, p.ai = (CarAiTuning){ CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, p.dash_model = -1;
     CHECK_EQ_INT(car_registry_add(&p, NULL, 0), 16);
     race_records_added_reset();
     car_registry_race_set(car >= 16);

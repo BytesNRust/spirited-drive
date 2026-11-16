@@ -54,7 +54,8 @@ const Limit limit_table[] = {
     /* port (dep59): a car piece, a mod adding a car (car_piece.h); the port's rules, as the exe has no added car */
     { "PIECE.TYPE", "a car piece's mod.ini says type=car", 0, "port (dep59): car_piece_check", 1, 0 },
     { "PIECE.STEM", "a car piece's stem is 1..8 of A-Z 0-9 and no original car's (nor 'M' + one)", 8, "port (dep59): car_piece_check, 004c5660 (the racers' names)", 1, 0 },
-    { "PIECE.FROM", "sound_from and ai_from are given, and they and dash_from name one of the eight original cars", 0, "port (dep59): car_piece_check", 1, 0 },
+    { "PIECE.FROM", "sound_from is given, it and dash_from name one of the eight original cars, and there is no ai_from (an added car's AI is its own)", 0, "port (dep59): car_piece_check", 1, 0 },
+    { "PIECE.AI", "a car piece's ai_level, when given, is slow, medium, fast or top", 0, "port (dep59 3b): car_piece_check, car_ai.h", 1, 0 },
     { "PIECE.FILE_MISSING", "a car piece holds its CFM, PDN and PBS under its stem", 0, "port (dep59): car_piece_check, 00457d40 (the loader)", 1, 0 },
     { "PIECE.CARD", "a car piece holds card.png, Control Central's picture of it, of 309 x 166 (the game does not scale)", 0, "port (dep59 step 3): car_piece_check", 1, 0 },
     { "PIECE.PICTURE", "a car piece's rival.png is 284 x 117 and its gallery.png 320 x 200, when it has them", 0, "port (dep59 step 3): car_piece_check", 1, 0 },

@@ -87,7 +87,6 @@ static int piece_ok(const CarPiece *piece, int self, char *why, size_t why_cap)
     if (!car_piece_stem_ok(piece->stem)) return refuse(why, why_cap, "the stem \"%s\" is not 1 to 8 of A-Z and 0-9, or is an original car's", piece->stem);
     if (stem_added(piece->stem, self)) return refuse(why, why_cap, "the stem %s is another added car's", piece->stem);
     if (piece->sound_model < 0 || piece->sound_model >= CAR_MODELS) return refuse(why, why_cap, "sound_from is no original car");
-    if (piece->ai_model < 0 || piece->ai_model >= CAR_ORIGINAL_MODELS) return refuse(why, why_cap, "ai_from is no original car");
     return 0;
 }
 
@@ -152,9 +151,13 @@ int car_registry_lamp_model(int car)
 
 int car_registry_ai_model(int car)
 {
-    if (car >= 0 && car < CAR_ORIGINAL_MODELS) return car;
+    return car >= 0 && car < CAR_ORIGINAL_MODELS ? car : -1;   /* port (dep59 3b): an added car's AI is its own (car_registry_ai) */
+}
+
+const CarAiTuning *car_registry_ai(int car)
+{
     const CarPiece *p = car_registry_piece(car);
-    return p != NULL ? p->ai_model : -1;
+    return p != NULL ? &p->ai : NULL;
 }
 
 const char *car_registry_short_name(int car, const char *const names[], int count)

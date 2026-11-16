@@ -170,6 +170,14 @@ static void test_piece_fields(void)
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nai_from=rx-7\n", &m, why), 0);
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\ndash_from=aaaaaaaaa\n", &m, why), 0);
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nsound_from=lada\n", &m, why), 1);   /* the word is the registry's to check */
+    /* 3b: ai_level, a word (which words are levels is car_ai's to say); ai_from is still read, so a piece that has it is refused with why */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nai_level=top\n", &m, why), 1);
+    CHECK(strcmp(m.ai_level, "top") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nai_level=turbo\n", &m, why), 1);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nai_level=Fast\n", &m, why), 0);   /* a-z 0-9 only */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nai_level=top\nai_level=top\n", &m, why), 0);   /* twice */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\n", &m, why), 1);
+    CHECK(m.ai_level[0] == '\0');
 }
 
 /* dep59 step 3: a car's figures, shown as written, and its paints, the Color selector's choices (Review Focus 3) */

@@ -301,7 +301,7 @@ static void test_rules(void)
     CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", "skins/race/topv.PNG"), MOD_FILE_FOREIGN);
 }
 
-static const char CAR_CARD[] = "id=test-car\nname=Test Car\nversion=0.1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n";
+static const char CAR_CARD[] = "id=test-car\nname=Test Car\nversion=0.1\ntype=car\nstem=TESTCAR\nsound_from=viper\n";
 
 /* the Viper's file `rel` from the CD (NULL without it) */
 static uint8_t *read_cd(const char *rel, size_t *size)

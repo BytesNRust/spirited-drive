@@ -166,7 +166,7 @@ static void test_what_a_folder_may_serve(void)
     snprintf(dir, sizeof dir, "%s/mods/twk/track_light", pref);
     write_file(dir, "TR1B.txt", "track TR1 B\n");
     snprintf(dir, sizeof dir, "%s/mods/car1", pref);
-    write_file(dir, "mod.ini", "id=car1\nname=Car One\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n");
+    write_file(dir, "mod.ini", "id=car1\nname=Car One\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\n");
     snprintf(dir, sizeof dir, "%s/mods/car1/track_light", pref);
     write_file(dir, "TR2B.txt", "track TR2 B\n");
     CHECK(mod_set_start(cd, NULL));
@@ -207,7 +207,7 @@ static void test_what_a_folder_may_serve(void)
     snprintf(dir, sizeof dir, "%s/car_cli/SIMDATA/CARSPECS", base);   /* a car piece given as --mods: its own files are no change */
     write_file(dir, "TESTCAR.PBS", "specs");
     snprintf(dir, sizeof dir, "%s/car_cli", base);
-    write_file(dir, "mod.ini", "id=car-cli\nname=Car Cli\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n");
+    write_file(dir, "mod.ini", "id=car-cli\nname=Car Cli\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\n");
     snprintf(cli, sizeof cli, "%s/car_cli", base);
     CHECK(mod_set_start(cd, cli));
     CHECK(data_from("track_light/TR1B.txt", "/mods/twk/"));   /* the list still in effect below it */

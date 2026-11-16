@@ -59,8 +59,8 @@ static int add_card(FileSet *set, const Args *a, const char *word, ExchangeError
 {
     char card[MOD_INI_MAX_SIZE];
     const int n = snprintf(card, sizeof card,
-                           "id=%s\nname=%s\nversion=0.1\ntype=car\nstem=%s\nshort_name=%s\nsound_from=%s\nai_from=%s\ndash_from=%s\n", a->id,
-                           a->name != NULL ? a->name : a->id, a->stem, a->stem, word, word, word);
+                           "id=%s\nname=%s\nversion=0.1\ntype=car\nstem=%s\nshort_name=%s\nsound_from=%s\ndash_from=%s\n", a->id,
+                           a->name != NULL ? a->name : a->id, a->stem, a->stem, word, word);
     ModInfo info;
     char why[160];
     if (n < 0 || (size_t)n >= sizeof card) { exchange_fail(err, "the card does not fit mod.ini's %d bytes", MOD_INI_MAX_SIZE); return 0; }

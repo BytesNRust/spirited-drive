@@ -19,7 +19,7 @@ export SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software SDL_AUDIO_DRIVER=dummy 
 
 piece=$work/piece
 mkdir -p "$piece/SIMDATA/CARFAMS" "$piece/SIMDATA/CARSPECS" "$piece/car_masks" "$piece/dash_masks"
-printf 'id=test-car\nname=Test Car\nversion=1\ntype=car\nstem=TESTCAR\nshort_name=TEST\nsound_from=viper\nai_from=viper\ndash_from=viper\npaints=Blue:1040c0\n' > "$piece/mod.ini"
+printf 'id=test-car\nname=Test Car\nversion=1\ntype=car\nstem=TESTCAR\nshort_name=TEST\nsound_from=viper\ndash_from=viper\npaints=Blue:1040c0\n' > "$piece/mod.ini"
 cp "$orig/SIMDATA/CARFAMS/DVIPER.CFM" "$piece/SIMDATA/CARFAMS/TESTCAR.CFM"
 cp "$orig/SIMDATA/CARFAMS/DVIPER.PDN" "$piece/SIMDATA/CARFAMS/TESTCAR.PDN"
 cp "$orig/SIMDATA/CARSPECS/DVIPER.PBS" "$piece/SIMDATA/CARSPECS/TESTCAR.PBS"

@@ -76,7 +76,7 @@ static ModInfo card(const char *text)
     return m;
 }
 
-static const char GOOD[] = "id=test-car\nname=Test Car\nversion=1\ntype=car\nstem=TESTCAR\nshort_name=TEST\nsound_from=viper\nai_from=viper\n";
+static const char GOOD[] = "id=test-car\nname=Test Car\nversion=1\ntype=car\nstem=TESTCAR\nshort_name=TEST\nsound_from=viper\n";
 
 static const char *source = "DVIPER";   /* the CD car whose files the piece is made of */
 
@@ -199,14 +199,15 @@ static void test_the_check(void)
     CHECK(has(&r, "PIECE.FILE_MISSING", "TESTCAR.PBS"));
     report_free(&r);
     static const struct { const char *text, *id; } CARDS[] = {
-        { "id=t\nname=T\nversion=1\ntype=tweak\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n", "PIECE.TYPE" },
-        { "id=t\nname=T\nversion=1\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n", "PIECE.TYPE" },
-        { "id=t\nname=T\nversion=1\ntype=car\nsound_from=viper\nai_from=viper\n", "PIECE.STEM" },
-        { "id=t\nname=T\nversion=1\ntype=car\nstem=DVIPER\nsound_from=viper\nai_from=viper\n", "PIECE.STEM" },
-        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\n", "PIECE.FROM" },
-        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nai_from=viper\n", "PIECE.FROM" },
-        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=lada\nai_from=viper\n", "PIECE.FROM" },
-        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\ndash_from=lada\n", "PIECE.FROM" },
+        { "id=t\nname=T\nversion=1\ntype=tweak\nstem=TESTCAR\nsound_from=viper\n", "PIECE.TYPE" },
+        { "id=t\nname=T\nversion=1\nstem=TESTCAR\nsound_from=viper\n", "PIECE.TYPE" },
+        { "id=t\nname=T\nversion=1\ntype=car\nsound_from=viper\n", "PIECE.STEM" },
+        { "id=t\nname=T\nversion=1\ntype=car\nstem=DVIPER\nsound_from=viper\n", "PIECE.STEM" },
+        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\n", "PIECE.FROM" },
+        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=lada\n", "PIECE.FROM" },
+        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\ndash_from=lada\n", "PIECE.FROM" },
+        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n", "PIECE.FROM" },   /* 3b: gone */
+        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_level=turbo\n", "PIECE.AI" },
     };
     for (size_t i = 0; i < sizeof CARDS / sizeof CARDS[0]; i++) {
         CHECK_EQ_INT(check(CARDS[i].text, CFM, PDN, PBS, NULL, &r), 0);
@@ -214,9 +215,23 @@ static void test_the_check(void)
         CHECK(has(&r, CARDS[i].id, NULL));
         report_free(&r);
     }
+    /* 3b: the reasons say what to write instead (Review Focus 2, 3); no ai_level, or one of the four, is a good card */
+    CHECK_EQ_INT(check("id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n", CFM, PDN, PBS, NULL, &r), 0);
+    CHECK(has(&r, "PIECE.FROM", "ai_from is gone: a car's AI is its own, ai_level= picks one of slow, medium, fast or top"));
+    report_free(&r);
+    CHECK_EQ_INT(check("id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_level=turbo\n", CFM, PDN, PBS, NULL, &r), 0);
+    CHECK(has(&r, "PIECE.AI", "ai_level=turbo is not slow, medium, fast or top"));
+    report_free(&r);
+    static const char *const LEVELS[] = { "", "ai_level=slow\n", "ai_level=medium\n", "ai_level=fast\n", "ai_level=top\n" };
+    for (size_t i = 0; i < sizeof LEVELS / sizeof LEVELS[0]; i++) {
+        char card[200];
+        snprintf(card, sizeof card, "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\n%s", LEVELS[i]);
+        CHECK_EQ_INT(check(card, CFM, PDN, PBS, NULL, &r), 1);
+        report_free(&r);
+    }
     CHECK_EQ_INT(check(GOOD, CFM, PDN, PBS, most_points, &r), 1);   /* the whole room */
     report_free(&r);
-    CHECK_EQ_INT(check("id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=512tr\nai_from=diablo\ndash_from=nsx\n", CFM, PDN, PBS, NULL, &r), 1);
+    CHECK_EQ_INT(check("id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=512tr\ndash_from=nsx\n", CFM, PDN, PBS, NULL, &r), 1);
     report_free(&r);
     static const struct { void (*edit)(uint8_t *); const char *text; } SPECS[] = {
         { no_force, "force_scale" }, { no_320, "unknown_320" }, { no_power, "power" }, { many_points, "torque_points" },

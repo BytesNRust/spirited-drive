@@ -438,7 +438,7 @@ void ai_finish_and_revs(Car *car, RaceState *race, int32_t lane, int32_t wish[3]
     for (; gear < GEARS; gear++) {
         const int32_t over = car->ai_speed - car->pdn_1ac[gear];
         if (over > 0 && over < SHIFT_WINDOW && car->ai_speed >> 16 != 0 && car->coast_timer == 0)
-            car->coast_timer = car_registry_ai_model(car->model) >= 0 ? COAST_TICKS[car_registry_ai_model(car->model)] : 0;  /* port guard; port (dep59): an added car's ai_from */
+            car->coast_timer = ai_coast_ticks(car->model) >= 0 ? ai_coast_ticks(car->model) : 0;  /* port guard; port (dep59 3b): an added car's own */
         if (car->ai_speed < car->pdn_1ac[gear]) break;
     }
     int32_t revs = COAST_REVS;
@@ -452,6 +452,20 @@ void ai_finish_and_revs(Car *car, RaceState *race, int32_t lane, int32_t wish[3]
     ai_watch_humans(car, race, lane, wish, node, progress);
 }
 
+int32_t ai_coast_ticks(int car)
+{
+    if (car >= 0 && car < CAR_ORIGINAL_MODELS) return COAST_TICKS[car];
+    const CarAiTuning *t = car_registry_ai(car);
+    return t != NULL ? t->coast : -1;
+}
+
+int32_t ai_model_pace(int car)
+{
+    if (car >= 0 && car < CAR_ORIGINAL_MODELS) return MODEL_PACE[car];
+    const CarAiTuning *t = car_registry_ai(car);
+    return t != NULL ? t->pace : -1;
+}
+
 /* The track's speed byte for the node's segment, as 16.16. */
 static int32_t segment_speed(const RaceState *race, int32_t node)
 {
@@ -463,7 +477,8 @@ static int32_t traffic_pace(const Car *car, const RaceState *race)
 {
     const Car *lead = race->cars[0];
     int32_t speed = segment_speed(race, car->node);
-    if (car_registry_ai_model(lead->model) >= 0) speed = fx_mul_round(speed, MODEL_PACE[car_registry_ai_model(lead->model)]);   /* port (dep59): an added car's ai_from */
+    const int32_t pace = ai_model_pace(lead->model);   /* port (dep59 3b): an added car's own */
+    if (pace >= 0) speed = fx_mul_round(speed, pace);
     return lead->crashed_hard != 0 ? 0 : speed;
 }
 

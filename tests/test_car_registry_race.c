@@ -25,7 +25,7 @@ static void register_f40(void)
     snprintf(p.id, sizeof p.id, "f40");
     snprintf(p.stem, sizeof p.stem, "F40");
     snprintf(p.short_name, sizeof p.short_name, "F40");
-    p.sound_model = 4, p.ai_model = 1, p.dash_model = -1;
+    p.sound_model = 4, p.ai = (CarAiTuning){ CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, p.dash_model = -1;
     char why[160];
     car_registry_clear();
     CHECK_EQ_INT(car_registry_add(&p, why, sizeof why), 16);
@@ -115,8 +115,9 @@ static void test_the_pace(void)
     race.cars[0] = &lead;
     lead.model = 1;
     const int32_t diablo = ai_profile_row(&race, 0x55);
+    CHECK(diablo != 0x55);
     lead.model = 16;
-    CHECK_EQ_INT(ai_profile_row(&race, 0x55), diablo);   /* ai_from=diablo */
+    CHECK_EQ_INT(ai_profile_row(&race, 0x55), 0x55);     /* 3b: an added car takes the fallback, not an original's row */
     lead.model = 17;
     CHECK_EQ_INT(ai_profile_row(&race, 0x55), 0x55);     /* not registered: the fallback, as before */
 }

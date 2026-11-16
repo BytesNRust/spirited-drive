@@ -5,6 +5,7 @@
 #ifndef TNFS_CAR_REGISTRY_H
 #define TNFS_CAR_REGISTRY_H
 
+#include "formats/car_ai.h"
 #include "formats/car_piece.h"
 #include "formats/mod_ini.h"
 #include "game/race/race_state.h"
@@ -16,9 +17,11 @@ enum { CAR_ADDED_FIRST = 16, CAR_ADDED_MAX = 64, CAR_ORIGINAL_MODELS = 8 };
 
 typedef struct {
     char id[MOD_INI_ID_MAX + 1], name[MOD_INI_NAME_MAX + 1], stem[MOD_INI_STEM_MAX + 1], short_name[MOD_INI_SHORT_MAX + 1];
-    int sound_model, ai_model;   /* the original race models (0..7, sound 0..11) it takes them from while it brings none of its own */
+    int sound_model;             /* the original (0..11) whose engine sound it plays while it brings none of its own */
+    CarAiTuning ai;              /* port (dep59 3b): the pace and coast the AI drives it at, its own (car_ai.h: its PDN, or its ai_level) */
     int dash_model;              /* the same for the cockpit; -1 when not given (then sound_model's: car_registry_dash_model) */
-    uint32_t fingerprint;        /* the CRC-32 of its PBS then its PDN as on disk, never 0: what decides how it drives (a replay's check) */
+    uint32_t fingerprint;        /* the CRC-32 of its PBS then its PDN as on disk, then ai.pace and ai.coast (4 bytes LE each), never 0:
+                                  * what decides how it drives (a replay's check) */
     char dir[CAR_PIECE_DIR_MAX]; /* dep59 step 3: the folder it was read from, for its pictures and skins ("" for one not read from a folder) */
 } CarPiece;
 
@@ -57,8 +60,12 @@ enum { CAR_HUD_STAND_IN = 0 };
  * (whatever its sound_from); -1 otherwise. The exe's quirks of one car (the 512TR's throttle and shift, the Diablo's and 911T's tyres) stay
  * with that car's number: an added car drives as its PBS says */
 int car_registry_lamp_model(int car);
-/* the original whose pace the AI drives it at: 0..7 for those (itself), the piece's for an added car; -1 otherwise */
+/* the original whose pace the AI drives it at: 0..7 for those (itself); -1 for an added car (3b: its own, car_registry_ai) and otherwise */
 int car_registry_ai_model(int car);
+/* port (dep59 3b): the AI tuning of an added car; NULL for an original (its tables, ai_manager.c) and for a number not registered */
+const CarAiTuning *car_registry_ai(int car);
+/* port (dep59 3b, Decision 5): an added car's entries of the menus' car tables (race_settings_car_flags): the originals' majority */
+enum { CAR_FLAGS_ADDED_A = 1, CAR_FLAGS_ADDED_B = 0 };
 /* the name the results and records show for `car` out of `names`, a screen's own table of `count` originals: names[car] for 0..count-1,
  * an added car's short_name, "" for anything else */
 const char *car_registry_short_name(int car, const char *const names[], int count);

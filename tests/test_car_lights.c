@@ -28,7 +28,7 @@ static int add_piece(const char *id, const char *stem, int sound)
     snprintf(p.name, sizeof p.name, "%s", id);
     snprintf(p.stem, sizeof p.stem, "%s", stem);
     snprintf(p.short_name, sizeof p.short_name, "%s", stem);
-    p.sound_model = sound, p.ai_model = 0, p.dash_model = -1;
+    p.sound_model = sound, p.ai = (CarAiTuning){ CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, p.dash_model = -1;
     char why[160] = "";
     return car_registry_add(&p, why, sizeof why);
 }

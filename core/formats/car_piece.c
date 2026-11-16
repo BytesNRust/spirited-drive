@@ -1,5 +1,6 @@
 /* See car_piece.h. */
 #include "formats/car_piece.h"
+#include "formats/car_ai.h"
 
 #include "formats/mod_ini.h"
 #include "formats/chunk.h"
@@ -417,8 +418,10 @@ int car_piece_check(const ModInfo *card, const FileSet *files, Report *r)
     const size_t fatal_before = report_fatal_count(r);
     if (card->type != MOD_TYPE_CAR) report_add(r, "PIECE.TYPE", card->type, "mod.ini: type is not car");
     from_ok("sound_from", card->sound_from, 1, r);
-    from_ok("ai_from", card->ai_from, 1, r);
+    if (card->ai_from[0] != '\0')   /* port (dep59 3b): a car's AI is its own */
+        report_add(r, "PIECE.FROM", 0, "mod.ini: ai_from is gone: a car's AI is its own, ai_level= picks one of slow, medium, fast or top");
     from_ok("dash_from", card->dash_from, 0, r);
+    if (!car_ai_level_ok(card->ai_level)) report_add(r, "PIECE.AI", 0, "mod.ini: ai_level=%s is not slow, medium, fast or top", card->ai_level);
     if (!car_piece_stem_ok(card->stem)) {
         report_add(r, "PIECE.STEM", (int64_t)strlen(card->stem), "mod.ini: stem \"%s\" is not 1..8 of A-Z 0-9, or is an original car's", card->stem);
         return 0;   /* no files to look for */
