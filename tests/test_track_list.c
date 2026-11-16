@@ -38,6 +38,7 @@ static void test_standard(void)
     CHECK_EQ_INT(track_list_step(&l, 3, 1), 4);
     CHECK_EQ_INT(track_list_step(&l, 3, -1), 2);
     CHECK_EQ_INT(track_list_step(&l, 8, 1), 0);   /* Lost Vegas still locked: not in the list, its first */
+    CHECK(track_list_has(&l, 7) && !track_list_has(&l, 8) && !track_list_has(&l, 9));
     CHECK_EQ_INT(track_list_step(&l, 9, 1), 0);   /* the hidden track, never listed in the standard edition */
 }
 

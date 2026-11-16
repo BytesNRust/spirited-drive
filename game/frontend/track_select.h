@@ -2,7 +2,9 @@
 #ifndef TNFS_TRACK_SELECT_H
 #define TNFS_TRACK_SELECT_H
 
+#include "formats/edition_ini.h"
 #include "game/frontend/palette_put.h"
+#include "game/frontend/track_list.h"
 #include "game/frontend/yes_no_box.h"
 
 #include <stdint.h>
@@ -78,6 +80,8 @@ typedef struct TrackSelectInputs {
     int32_t lost_vegas;  /* 004baf18 */
     int32_t screen;      /* 00524834 */
     int32_t screen_shape;  /* [00524834] + 0x2c */
+    const Edition *edition;  /* port (dep59 step 4): the edition in use, whose tracks Prev and Next walk (track_list.h); NULL or no tracks: the
+                              * standard edition, the original's 0..7 and Lost Vegas when it is on */
 } TrackSelectInputs;
 
 /* port: a track's variants as entries of their own, right after it: Prev and Next step through the track, its mirror
@@ -148,9 +152,10 @@ typedef struct TrackSelectState {
     TrackSelectPlus *plus;    /* port: NULL is the original screen exactly */
 } TrackSelectState;
 
-/* port: the entry `direction` (1 next, -1 previous) from a track and variant (0 normal, 1 mirror, 2 rally), with the
- * original's wrap (to Lost Vegas when it is on): the track, then its variants in that order where offered. */
-void track_select_entry(int track, int variant, int direction, int lost_vegas, int unlock_m, int unlock_r,
+/* port: the entry `direction` (1 next, -1 previous) from a track and variant (0 normal, 1 mirror, 2 rally) round `tracks` (the
+ * original's wrap for the standard edition's list, to Lost Vegas when it is on; an edition's own order, dep59 step 4): the track, then its
+ * variants in that order where offered. */
+void track_select_entry(int track, int variant, int direction, const TrackList *tracks, int unlock_m, int unlock_r,
                         int *to_track, int *to_variant);
 
 /* 004687d0: the track screen (tracksel/<track>sel.qfs and .inv): the

@@ -1,6 +1,7 @@
 /* Control Central (00432ff4): Enter, space or the left button on an item (00435120..004360bc). */
 #include "game/frontend/central_run.h"
 #include "game/frontend/car_list.h"
+#include "game/frontend/track_list.h"
 #include "game/frontend/showcase.h"
 
 #include <stddef.h>
@@ -90,6 +91,16 @@ void central_car_start(ControlCentralState *st)
     if (*st->player_car == 11 && !keep) *st->player_car = 0;
     if (*st->player_car >= CAR_ADDED_FIRST) *st->player_car = 0;
     if (st->opponent != NULL && *st->opponent >= CAR_ADDED_FIRST) *st->opponent = 0;
+}
+
+/* port (dep59 step 4): the screen's start in an edition: a track it does not list becomes its first (track_list.h); the standard edition
+ * leaves the track to the original's start */
+void central_track_start(ControlCentralState *st)
+{
+    if (st->edition == NULL || st->edition->tracks == 0 || st->track == NULL) return;
+    TrackList l;
+    track_list_build(&l, st->edition, 0);
+    if (l.count > 0 && !track_list_has(&l, *st->track)) *st->track = l.track[0];
 }
 
 /* the player's car one on: a tournament's class by track (0..2, 3..5, 6..7), else 0..7 and the Warrior */

@@ -27,3 +27,10 @@ int16_t track_list_step(const TrackList *l, int16_t track, int step)
         if (l->track[i] == track) return l->track[(i + (step < 0 ? l->count - 1 : 1)) % l->count];
     return l->track[0];
 }
+
+int track_list_has(const TrackList *l, int16_t track)
+{
+    for (int i = 0; i < l->count; i++)
+        if (l->track[i] == track) return 1;
+    return 0;
+}

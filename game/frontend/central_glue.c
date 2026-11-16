@@ -229,13 +229,23 @@ static void tournament_leave_closed(void)
     type_changed(NULL);
 }
 
+/* port (dep59 step 4): the edition's tracks Control Central's arrows walk (track_list.h), into `l`; NULL in the standard edition */
+static const TrackList *edition_tracks(TrackList *l)
+{
+    if (central_edition.tracks == 0) return NULL;
+    track_list_build(l, &central_edition, 0);
+    return l;
+}
+
 static void track_forward(void *ctx)
 {
     (void)ctx;
     RaceSettings s = cg_settings_of();
     const Unlocks u = cg_unlocks_of();
-    if (variant_switches_on()) race_settings_track_step(&s, &u, 1);   /* port (dep56): the variants are the track screen's switches */
-    else race_settings_track_forward(&s, &u);
+    TrackList l;
+    const TrackList *tracks = edition_tracks(&l);
+    if (variant_switches_on()) race_settings_track_step(&s, &u, tracks, 1);   /* port (dep56): the variants are the track screen's switches */
+    else race_settings_track_forward(&s, &u, tracks);
     cg_settings_put(&s);
     cg_variant_choice_apply();   /* port (dep65): the choice on the new track (Lost Vegas takes no mirror or rally, the next does) */
     cg_tournament_variants_apply();   /* a tournament's are its own on every track (Lost Vegas: none) */
@@ -246,8 +256,10 @@ static void track_backward(void *ctx)
     (void)ctx;
     RaceSettings s = cg_settings_of();
     const Unlocks u = cg_unlocks_of();
-    if (variant_switches_on()) race_settings_track_step(&s, &u, -1);
-    else race_settings_track_backward(&s, &u);
+    TrackList l;
+    const TrackList *tracks = edition_tracks(&l);
+    if (variant_switches_on()) race_settings_track_step(&s, &u, tracks, -1);
+    else race_settings_track_backward(&s, &u, tracks);
     cg_settings_put(&s);
     cg_variant_choice_apply();
     cg_tournament_variants_apply();
@@ -473,7 +485,7 @@ static void track_select(void *ctx)
     const int tournament = variant_switches_on() && cg_g.race_type == RACE_TOURNAMENT;
     const int32_t screen = ea_screen();
     const TrackSelectInputs in = { "", resource_kmh(), cg_g.variant_m, cg_g.variant_r, cg_g.lost_vegas, screen,
-                                   ea_picture_shape(screen) };
+                                   ea_picture_shape(screen), &central_edition };   /* port (dep59 step 4): its tracks the arrows walk */
     /* port: the weather row, and with the light effects the time-of-day item on its light_time; both written to port.cfg
      * when the screen leaves them changed (the race reads them there, as it does today) */
     int weather = port_weather(), light_time = port_light_time();

@@ -144,8 +144,12 @@ void opponent_step(RaceSettings *s, int dir)
     }
 }
 
-void race_settings_next_track(RaceSettings *s, const Unlocks *u)
+void race_settings_next_track(RaceSettings *s, const Unlocks *u, const TrackList *tracks)
 {
+    if (tracks != NULL) {   /* port (dep59 step 4): the edition's order */
+        s->track = track_list_step(tracks, (int16_t)s->track, 1);
+        return;
+    }
     if (s->track == TRACK_HIDDEN) {
         s->track = 0;
         return;
@@ -154,7 +158,7 @@ void race_settings_next_track(RaceSettings *s, const Unlocks *u)
     if (u->hidden && s->track == 0) s->track = TRACK_HIDDEN;
 }
 
-void race_settings_track_forward(RaceSettings *s, const Unlocks *u)
+void race_settings_track_forward(RaceSettings *s, const Unlocks *u, const TrackList *tracks)
 {
     const int variants_allowed = s->race_type != RACE_TOURNAMENT;
     if (s->variant_m) {
@@ -172,13 +176,26 @@ void race_settings_track_forward(RaceSettings *s, const Unlocks *u)
         s->variant_r = 1;
         return;
     }
-    race_settings_next_track(s, u);
+    race_settings_next_track(s, u, tracks);
+}
+
+/* 00432d48's step back: the hidden track to the last, 0 to the hidden track once unlocked, else to the last (Lost Vegas when it is
+ * on); port (dep59 step 4): an edition's, its order */
+static void previous_track(RaceSettings *s, const Unlocks *u, const TrackList *tracks)
+{
+    if (tracks != NULL) {
+        s->track = track_list_step(tracks, (int16_t)s->track, -1);
+        return;
+    }
+    const int last = u->lost_vegas ? TRACK_LOST_VEGAS : TRACK_COUNT - 1;
+    /* the short's dec: -32768 wraps to 32767 */
+    s->track = s->track == TRACK_HIDDEN ? last : (int16_t)(s->track - 1);
+    if (s->track < 0) s->track = u->hidden ? TRACK_HIDDEN : last;
 }
 
 /* 00432d48: the same order backwards. */
-void race_settings_track_backward(RaceSettings *s, const Unlocks *u)
+void race_settings_track_backward(RaceSettings *s, const Unlocks *u, const TrackList *tracks)
 {
-    const int last = u->lost_vegas ? TRACK_LOST_VEGAS : TRACK_COUNT - 1;
     if (s->variant_r) {
         s->variant_r = 0;
         if (u->variant_m) s->variant_m = 1;
@@ -188,24 +205,17 @@ void race_settings_track_backward(RaceSettings *s, const Unlocks *u)
         s->variant_m = 0;
         return;
     }
-    /* the short's dec: -32768 wraps to 32767 */
-    s->track = s->track == TRACK_HIDDEN ? last : (int16_t)(s->track - 1);
-    if (s->track < 0) s->track = u->hidden ? TRACK_HIDDEN : last;
+    previous_track(s, u, tracks);
     if (s->track == TRACK_HIDDEN || s->race_type == RACE_TOURNAMENT) return;
     if (u->variant_r) s->variant_r = 1;
     else if (u->variant_m) s->variant_m = 1;
 }
 
-void race_settings_track_step(RaceSettings *s, const Unlocks *u, int dir)
+void race_settings_track_step(RaceSettings *s, const Unlocks *u, const TrackList *tracks, int dir)
 {
     const int m = s->variant_m, r = s->variant_r;
-    if (dir > 0) {
-        race_settings_next_track(s, u);
-    } else {
-        const int last = u->lost_vegas ? TRACK_LOST_VEGAS : TRACK_COUNT - 1;
-        s->track = s->track == TRACK_HIDDEN ? last : (int16_t)(s->track - 1);   /* as 00432d48 */
-        if (s->track < 0) s->track = u->hidden ? TRACK_HIDDEN : last;
-    }
+    if (dir > 0) race_settings_next_track(s, u, tracks);
+    else previous_track(s, u, tracks);   /* as 00432d48 */
     const int plain = s->track == TRACK_LOST_VEGAS || s->track == TRACK_HIDDEN;
     s->variant_m = !plain && m && u->variant_m;
     s->variant_r = !plain && r && u->variant_r;
@@ -225,8 +235,8 @@ void unlocks_raise(Unlocks *u, int level)
 void track_step(RaceSettings *s, const Unlocks *u, int dir)
 {
     const int track = s->track;
-    if (dir > 0) race_settings_track_forward(s, u);
-    else race_settings_track_backward(s, u);
+    if (dir > 0) race_settings_track_forward(s, u, NULL);
+    else race_settings_track_backward(s, u, NULL);
     if (s->track != track) track_changed(s);
 }
 

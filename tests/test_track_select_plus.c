@@ -1,14 +1,61 @@
 /* The track screen's variant entries (track_select.c's port additions): the order Prev and Next step through. */
+#include "game/frontend/track_list.h"
 #include "game/frontend/track_select.h"
 #include "game/race/track_fam.h"
 #include "test.h"
 
+#include <stdio.h>
+#include <string.h>
+
+/* the standard edition's tracks (Lost Vegas when `lost`) */
 static void step(int track, int variant, int direction, int lost, int m, int r, int want_track, int want_variant)
 {
+    TrackList l;
+    track_list_build(&l, NULL, lost);
     int t = -1, v = -1;
-    track_select_entry(track, variant, direction, lost, m, r, &t, &v);
+    track_select_entry(track, variant, direction, &l, m, r, &t, &v);
     CHECK_EQ_INT(t, want_track);
     CHECK_EQ_INT(v, want_variant);
+}
+
+/* an edition whose tracks= is `ids` (commas between) */
+static Edition edition_of(const char *ids)
+{
+    Edition e;
+    memset(&e, 0, sizeof e);
+    char buf[256];
+    snprintf(buf, sizeof buf, "%s", ids);
+    for (char *id = strtok(buf, ","); id != NULL && e.tracks < EDITION_TRACKS_MAX; id = strtok(NULL, ","))
+        snprintf(e.track[e.tracks++], sizeof e.track[0], "%s", id);
+    return e;
+}
+
+static void edition_step(const char *ids, int track, int variant, int direction, int m, int r, int want_track, int want_variant)
+{
+    const Edition e = edition_of(ids);
+    TrackList l;
+    track_list_build(&l, &e, 0);
+    int t = -1, v = -1;
+    track_select_entry(track, variant, direction, &l, m, r, &t, &v);
+    CHECK_EQ_INT(t, want_track);
+    CHECK_EQ_INT(v, want_variant);
+}
+
+/* port (dep59 step 4): an edition's tracks in its order: with city,vegas the next of City is Lost Vegas and so is the one before it;
+ * the hidden track listed is never stepped to; the variants still come before the track changes, Lost Vegas has none */
+static void test_an_edition_walks_its_tracks(void)
+{
+    edition_step("city,vegas", 0, 0, 1, 0, 0, 8, 0);
+    edition_step("city,vegas", 0, 0, -1, 0, 0, 8, 0);
+    edition_step("city,vegas", 8, 0, 1, 0, 0, 0, 0);
+    edition_step("city,hidden,coastal", 0, 0, 1, 0, 0, 1, 0);
+    edition_step("city,hidden,coastal", 1, 0, 1, 0, 0, 0, 0);
+    edition_step("rusty,city", 3, 0, 1, 1, 0, 3, 1);   /* Rusty's mirror first */
+    edition_step("rusty,city", 3, 1, 1, 1, 0, 0, 0);
+    edition_step("rusty,city", 3, 0, -1, 1, 0, 0, 1);  /* back: City's mirror */
+    edition_step("vegas,city", 8, 0, 1, 1, 1, 0, 0);
+    edition_step("city,vegas", 0, 0, -1, 1, 1, 8, 0);   /* back onto Lost Vegas: no variant */
+    edition_step("coastal", 1, 0, 1, 0, 0, 1, 0);   /* a single track: itself */
 }
 
 static void test_without_variants_it_is_the_originals_walk(void)
@@ -107,6 +154,7 @@ static void test_weather_in_the_arrow_chain(void)
 
 int main(void)
 {
+    test_an_edition_walks_its_tracks();
     test_weather_and_time_cycles();
     test_weather_in_the_arrow_chain();
     test_without_variants_it_is_the_originals_walk();

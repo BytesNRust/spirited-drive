@@ -155,6 +155,31 @@ static void test_edition_cars(void)
     car_registry_clear();
 }
 
+/* dep59 step 4 T8: the screen's start: a track the edition lists stays, one it does not becomes its first (the hidden track is never
+ * listed); the standard edition leaves the track to the original's start */
+static void test_edition_tracks_at_the_start(void)
+{
+    ControlCentralState st = { 0 };
+    bind(&st);
+    memset(&edition, 0, sizeof edition);
+    edition.cars = 1, snprintf(edition.car[0], sizeof edition.car[0], "rx7");
+    edition.tracks = 2, snprintf(edition.track[0], sizeof edition.track[0], "rusty"), snprintf(edition.track[1], sizeof edition.track[1], "vegas");
+    track = 8;
+    central_track_start(&st);
+    CHECK_EQ_INT(track, 8);
+    track = 0;
+    central_track_start(&st);
+    CHECK_EQ_INT(track, 3);
+    snprintf(edition.track[1], sizeof edition.track[1], "hidden");
+    track = 9;
+    central_track_start(&st);
+    CHECK_EQ_INT(track, 3);
+    memset(&edition, 0, sizeof edition);   /* the standard edition */
+    track = 5;
+    central_track_start(&st);
+    CHECK_EQ_INT(track, 5);
+}
+
 /* The CD's files are not read by this test (the tables start as the built-in defaults). */
 uint8_t *platform_read_file(const char *path, size_t *size) { (void)path; (void)size; return NULL; }
 uint8_t *platform_user_read_file_at(const char *rel, size_t *size) { (void)rel, (void)size; return NULL; }   /* no edition file (dep59 step 4) */
@@ -178,5 +203,6 @@ int main(void)
     CHECK_EQ_INT(up(8), 0);
     CHECK_EQ_INT(down(0), 8);
     test_edition_cars();
+    test_edition_tracks_at_the_start();
     return TEST_REPORT();
 }

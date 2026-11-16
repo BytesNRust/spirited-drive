@@ -5,6 +5,7 @@
 #include "game/frontend/race_settings.h"
 #include "test.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -20,30 +21,30 @@ static void test_the_arrows_step_the_tracks_alone(void)
 {
     const Unlocks u = { .variant_m = 1, .variant_r = 1, .warrior = 1, .lost_vegas = 1 };
     RaceSettings s = at(3, 1, 1);
-    race_settings_track_step(&s, &u, 1);
+    race_settings_track_step(&s, &u, NULL, 1);
     CHECK_EQ_INT(s.track, 4);
     CHECK_EQ_INT(s.variant_m, 1);
     CHECK_EQ_INT(s.variant_r, 1);
-    race_settings_track_step(&s, &u, -1);
-    race_settings_track_step(&s, &u, -1);
+    race_settings_track_step(&s, &u, NULL, -1);
+    race_settings_track_step(&s, &u, NULL, -1);
     CHECK_EQ_INT(s.track, 2);
     CHECK_EQ_INT(s.variant_m + s.variant_r, 2);
     s = at(7, 1, 0);
-    race_settings_track_step(&s, &u, 1);   /* onto Lost Vegas: it has neither */
+    race_settings_track_step(&s, &u, NULL, 1);   /* onto Lost Vegas: it has neither */
     CHECK_EQ_INT(s.track, TRACK_LOST_VEGAS);
     CHECK_EQ_INT(s.variant_m + s.variant_r, 0);
-    race_settings_track_step(&s, &u, 1);   /* the wrap, as 00432cd4 */
+    race_settings_track_step(&s, &u, NULL, 1);   /* the wrap, as 00432cd4 */
     CHECK_EQ_INT(s.track, 0);
-    race_settings_track_step(&s, &u, -1);
+    race_settings_track_step(&s, &u, NULL, -1);
     CHECK_EQ_INT(s.track, TRACK_LOST_VEGAS);
     const Unlocks level1 = { .variant_m = 1, .warrior = 1, .lost_vegas = 1 };
     s = at(3, 1, 1);   /* a rally left on with no unlock (a lower level): not kept */
-    race_settings_track_step(&s, &level1, 1);
+    race_settings_track_step(&s, &level1, NULL, 1);
     CHECK_EQ_INT(s.variant_m, 1);
     CHECK_EQ_INT(s.variant_r, 0);
     const Unlocks none = { 0 };
     s = at(7, 0, 0);
-    race_settings_track_step(&s, &none, 1);   /* no Lost Vegas: 7 wraps to 0 */
+    race_settings_track_step(&s, &none, NULL, 1);   /* no Lost Vegas: 7 wraps to 0 */
     CHECK_EQ_INT(s.track, 0);
 }
 
@@ -52,12 +53,50 @@ static void test_the_exe_order_is_kept(void)
 {
     const Unlocks u = { .variant_m = 1, .variant_r = 1, .warrior = 1, .lost_vegas = 1 };
     RaceSettings s = at(3, 0, 0);
-    race_settings_track_forward(&s, &u);
+    race_settings_track_forward(&s, &u, NULL);
     CHECK(s.track == 3 && s.variant_m == 1 && s.variant_r == 0);
-    race_settings_track_forward(&s, &u);
+    race_settings_track_forward(&s, &u, NULL);
     CHECK(s.track == 3 && s.variant_m == 0 && s.variant_r == 1);
-    race_settings_track_forward(&s, &u);
+    race_settings_track_forward(&s, &u, NULL);
     CHECK(s.track == 4 && s.variant_m == 0 && s.variant_r == 0);
+}
+
+/* port (dep59 step 4): an edition's tracks in its order (track_list.h): with city,vegas the next of City is Lost Vegas and so is the one
+ * before it, the switches kept where the track has them; Stock's order (the variants first) walks the same list */
+static void test_an_edition_walks_its_tracks(void)
+{
+    Edition e;
+    memset(&e, 0, sizeof e);
+    e.tracks = 2;
+    snprintf(e.track[0], sizeof e.track[0], "city"), snprintf(e.track[1], sizeof e.track[1], "vegas");
+    TrackList l;
+    track_list_build(&l, &e, 0);
+    const Unlocks u = { .variant_m = 1, .variant_r = 1, .warrior = 1, .lost_vegas = 0 };   /* Lost Vegas listed: there whatever the level */
+    RaceSettings s = at(0, 1, 0);
+    race_settings_track_step(&s, &u, &l, 1);
+    CHECK(s.track == TRACK_LOST_VEGAS && s.variant_m == 0 && s.variant_r == 0);
+    race_settings_track_step(&s, &u, &l, 1);
+    CHECK_EQ_INT(s.track, 0);
+    race_settings_track_step(&s, &u, &l, -1);
+    CHECK_EQ_INT(s.track, TRACK_LOST_VEGAS);
+    s = at(0, 0, 0);
+    race_settings_track_forward(&s, &u, &l);
+    CHECK(s.track == 0 && s.variant_m == 1);
+    race_settings_track_forward(&s, &u, &l);
+    CHECK(s.track == 0 && s.variant_r == 1);
+    race_settings_track_forward(&s, &u, &l);
+    CHECK(s.track == TRACK_LOST_VEGAS && s.variant_m + s.variant_r == 0);
+    s = at(0, 0, 0);
+    race_settings_track_backward(&s, &u, &l);
+    CHECK_EQ_INT(s.track, TRACK_LOST_VEGAS);
+    snprintf(e.track[1], sizeof e.track[1], "hidden");   /* never listed: City alone */
+    track_list_build(&l, &e, 0);
+    const Unlocks hidden = { .hidden = 1 };
+    s = at(0, 0, 0);
+    race_settings_track_step(&s, &hidden, &l, 1);
+    CHECK_EQ_INT(s.track, 0);
+    race_settings_next_track(&s, &hidden, &l);
+    CHECK_EQ_INT(s.track, 0);
 }
 
 static void test_the_card_words(void)
@@ -187,6 +226,7 @@ int main(void)
 {
     test_the_arrows_step_the_tracks_alone();
     test_the_exe_order_is_kept();
+    test_an_edition_walks_its_tracks();
     test_the_card_words();
     test_the_choice_on_each_track();
     test_the_card_words_are_the_tracks();

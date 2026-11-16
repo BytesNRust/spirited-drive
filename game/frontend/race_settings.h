@@ -4,6 +4,8 @@
 #ifndef TNFS_RACE_SETTINGS_H
 #define TNFS_RACE_SETTINGS_H
 
+#include "game/frontend/track_list.h"
+
 enum {
     RACE_TIME_TRIAL = 0,
     RACE_HEAD_TO_HEAD = 1,
@@ -88,21 +90,24 @@ void player_car_step(RaceSettings *s, const Unlocks *u, int dir);  /* player arr
 void opponent_step(RaceSettings *s, int dir);                      /* opponent arrows */
 void track_step(RaceSettings *s, const Unlocks *u, int dir);
 
+/* port (dep59 step 4): `tracks` below is the edition's (track_list.h), whose order the arrows walk; NULL is the standard edition's, the
+ * original's walk with its unlocks (Lost Vegas, the hidden track) */
+
 /* 00432cd4: the hidden track goes to 0; else track + 1 mod 8 (9 with Lost
  * Vegas), and 0 becomes the hidden track once it is unlocked. */
-void race_settings_next_track(RaceSettings *s, const Unlocks *u);
+void race_settings_next_track(RaceSettings *s, const Unlocks *u, const TrackList *tracks);
 
 /* 00432c40: base -> "m" -> "r" -> the next track (00432cd4), a variant
  * only when unlocked and never in a tournament. */
-void race_settings_track_forward(RaceSettings *s, const Unlocks *u);       /* 00432c40 */
+void race_settings_track_forward(RaceSettings *s, const Unlocks *u, const TrackList *tracks);       /* 00432c40 */
 
 /* 00432d48: the same order backwards. */
-void race_settings_track_backward(RaceSettings *s, const Unlocks *u);
+void race_settings_track_backward(RaceSettings *s, const Unlocks *u, const TrackList *tracks);
 
 /* port (dep56): the next (`dir` 1) or previous (-1) track alone, with the original's wrap (the hidden track, Lost Vegas when
  * unlocked), the variants kept as they are where unlocked (variant_rule.h's switches); Lost Vegas and the hidden track have
  * none, so they clear them. */
-void race_settings_track_step(RaceSettings *s, const Unlocks *u, int dir);
+void race_settings_track_step(RaceSettings *s, const Unlocks *u, const TrackList *tracks, int dir);
 void track_changed(RaceSettings *s);                               /* laps, tournament car */
 
 /* port (dep65): Restomod keeps the player's switches (the mode's file's variant_mirror / variant_rally) apart from what a track

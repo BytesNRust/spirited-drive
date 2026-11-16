@@ -21,5 +21,7 @@ typedef struct {
 void track_list_build(TrackList *out, const Edition *e, int lost_vegas);
 /* the track `step` (1 on, -1 back) from `track` round the list; a track not in it gives the list's first (0 for an empty list) */
 int16_t track_list_step(const TrackList *l, int16_t track, int step);
+/* 1 when `track` is in the list */
+int track_list_has(const TrackList *l, int16_t track);
 
 #endif
