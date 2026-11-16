@@ -2,6 +2,7 @@
 #include "game/sys/race_records_added.h"
 
 #include "formats/mod_ini.h"
+#include "formats/stock_content.h"
 #include "game/platform/platform.h"
 #include "game/sys/port_log.h"
 #include "game/sys/race_records_io.h"
@@ -10,12 +11,13 @@
 #include <string.h>
 
 enum {
-    MAGIC_SIZE = 8, HEADER = MAGIC_SIZE + 8, KEY = 4, NAMES = RECORDS_ADDED_ID + RECORDS_ADDED_SHORT,
+    MAGIC_SIZE = 8, HEADER_V1 = MAGIC_SIZE + 8, HEADER = MAGIC_SIZE + 12, KEY = 4, FLAG_IMPORTED = 1, NAMES = RECORDS_ADDED_ID + RECORDS_ADDED_SHORT,
     TABLE_ENTRY = KEY + NAMES + RACE_RECORDS_TABLE_BYTES, LAP_ENTRY = KEY + NAMES + RACE_RECORDS_ROW_BYTES, LAP_KEY = 0
 };
 
-static const char MAGIC[MAGIC_SIZE] = { 'T', 'N', 'F', 'S', 'R', 'R', 'A', '1' };
-static const char FILE_NAME[] = "race_records_added.dat";
+static const char MAGIC[MAGIC_SIZE] = { 'T', 'N', 'F', 'S', 'R', 'R', 'A', '2' };
+static const char MAGIC_V1[MAGIC_SIZE] = { 'T', 'N', 'F', 'S', 'R', 'R', 'A', '1' };   /* step 3's: no flags */
+static const char FILE_NAME[] = "race_records_cars.dat", FILE_NAME_V1[] = "race_records_added.dat";
 
 typedef struct {
     uint8_t key[KEY];   /* track, layout, cheats, laps */
@@ -33,7 +35,7 @@ typedef struct {
 } List;
 
 static List tables, laps_list;
-static int held;
+static int held, imported;
 
 static int compare(const uint8_t key[KEY], const char *id, const Entry *e)
 {
@@ -159,7 +161,11 @@ void race_records_added_reset(void)
 {
     list_free(&tables);
     list_free(&laps_list);
+    imported = 0;
 }
+
+int race_records_cars_imported(void) { return imported; }
+void race_records_cars_set_imported(int on) { imported = on != 0; }
 
 static uint8_t *put_names(uint8_t *at, const Entry *e)
 {
@@ -176,6 +182,7 @@ uint8_t *race_records_added_image(size_t *size)
     uint8_t *out = malloc(*size), *at = out;
     if (out == NULL) return NULL;
     memcpy(at, MAGIC, MAGIC_SIZE), at += MAGIC_SIZE;
+    at = race_records_put32(at, imported ? FLAG_IMPORTED : 0);
     at = race_records_put32(at, (uint32_t)tables.count);
     at = race_records_put32(at, (uint32_t)laps_list.count);
     for (int i = 0; i < tables.count; i++) at = race_records_put_table(put_names(at, tables.at[i]), &tables.at[i]->u.table);
@@ -214,11 +221,19 @@ static int read_list(List *l, const uint8_t **at, uint32_t count, int laps)
 int race_records_added_parse(const uint8_t *file, size_t size)
 {
     race_records_added_reset();
-    if (file == NULL || size < HEADER || memcmp(file, MAGIC, MAGIC_SIZE) != 0) return 0;
-    const uint32_t n_tables = race_records_get32(file + MAGIC_SIZE), n_laps = race_records_get32(file + MAGIC_SIZE + 4);
-    if (HEADER + (uint64_t)n_tables * TABLE_ENTRY + (uint64_t)n_laps * LAP_ENTRY != size) return 0;
-    const uint8_t *at = file + HEADER;
-    if (read_list(&tables, &at, n_tables, 0) && read_list(&laps_list, &at, n_laps, 1)) return 1;
+    if (file == NULL || size < HEADER_V1) return 0;
+    const int v1 = memcmp(file, MAGIC_V1, MAGIC_SIZE) == 0;
+    if (!v1 && (size < HEADER || memcmp(file, MAGIC, MAGIC_SIZE) != 0)) return 0;
+    const uint32_t flags = v1 ? 0 : race_records_get32(file + MAGIC_SIZE);
+    const uint8_t *const counts = file + (v1 ? MAGIC_SIZE : MAGIC_SIZE + 4);
+    const uint32_t n_tables = race_records_get32(counts), n_laps = race_records_get32(counts + 4);
+    const size_t header = v1 ? HEADER_V1 : HEADER;
+    if ((flags & ~(uint32_t)FLAG_IMPORTED) != 0 || header + (uint64_t)n_tables * TABLE_ENTRY + (uint64_t)n_laps * LAP_ENTRY != size) return 0;
+    const uint8_t *at = file + header;
+    if (read_list(&tables, &at, n_tables, 0) && read_list(&laps_list, &at, n_laps, 1)) {
+        imported = (flags & FLAG_IMPORTED) != 0;
+        return 1;
+    }
     race_records_added_reset();
     return 0;
 }
@@ -226,17 +241,19 @@ int race_records_added_parse(const uint8_t *file, size_t size)
 RaceRecordsLoad race_records_added_load(void)
 {
     race_records_added_reset();
+    /* the file, or step 3's when there is none (read once: the next save makes the new one, the old one left as it was) */
+    const char *name = platform_user_file_exists(FILE_NAME) || !platform_user_file_exists(FILE_NAME_V1) ? FILE_NAME : FILE_NAME_V1;
     size_t size = 0;
-    uint8_t *data = platform_read_user_file(FILE_NAME, &size);
-    if (data == NULL && platform_user_file_exists(FILE_NAME)) {   /* there, but not read (locked, an I/O error): not made again over it */
+    uint8_t *data = platform_read_user_file(name, &size);
+    if (data == NULL && platform_user_file_exists(name)) {   /* there, but not read (locked, an I/O error): not made again over it */
         held = 1;
-        port_log("records: %s could not be read; the added cars' records are not saved this session\n", FILE_NAME);
+        port_log("records: %s could not be read; the records by car are not saved this session\n", name);
     }
     if (data == NULL) return RACE_RECORDS_NO_FILE;
     const int ok = race_records_added_parse(data, size);
-    if (!ok && !race_records_keep_bad("race_records_added", data, size)) {
+    if (!ok && !race_records_keep_bad(name == FILE_NAME ? "race_records_cars" : "race_records_added", data, size)) {
         held = 1;
-        port_log("records: %s is damaged and no copy of it could be kept; the added cars' records are not saved this session\n", FILE_NAME);
+        port_log("records: %s is damaged and no copy of it could be kept; the records by car are not saved this session\n", name);
     }
     platform_free_file(data);
     return ok ? RACE_RECORDS_LOADED : RACE_RECORDS_DAMAGED;
@@ -251,4 +268,62 @@ bool race_records_added_save(void)
     const bool ok = platform_write_user_file(FILE_NAME, out, size);
     free(out);
     return ok;
+}
+
+/* port (dep59 step 4): a standard row into its car's table, after the rows there (a table's rows come best first, so each car's stay in
+ * order); 0 when the row's car has no id (8 PACK, 9 CLOCK, 10 CLASS) or the table cannot be made */
+static int32_t row_car(const RecordRow *r)
+{
+    int32_t car;
+    memcpy(&car, r->row + RECORD_ROW_CAR, 4);
+    return car;
+}
+
+static RecordTable *car_table(int track, int layout, int cheats, int laps, const RecordRow *r)
+{
+    const char *const id = stock_car_id(row_car(r));
+    return id != NULL && race_records_row_set(r) ? race_records_added_make(track, layout, cheats, laps, id, NULL) : NULL;
+}
+
+static void import_table(int track, int layout, int cheats, int laps, const RecordTable *from)
+{
+    for (int i = 0; i < RACE_RECORDS_ROWS; i++) {
+        RecordTable *const to = car_table(track, layout, cheats, laps, &from->totals[i]);
+        if (to == NULL) continue;
+        int at = 0;
+        while (at < RACE_RECORDS_ROWS && race_records_row_set(&to->totals[at])) at++;
+        if (at == RACE_RECORDS_ROWS) continue;
+        to->totals[at] = from->totals[i];
+        if (i == 0)   /* the best run's figures go with its row */
+            for (int k = 0; k < RACE_RECORDS_SEGMENTS; k++) to->stage_speeds[k] = from->stage_speeds[k], to->stage_totals[k] = from->stage_totals[k];
+    }
+    RecordTable *const top = car_table(track, layout, cheats, laps, &from->top);
+    if (top != NULL) top->top = from->top;
+    for (int k = 0; k < RACE_RECORDS_SEGMENTS; k++) {
+        RecordTable *const time = car_table(track, layout, cheats, laps, &from->segment_time[k]);
+        if (time != NULL) time->segment_time[k] = from->segment_time[k];
+        RecordTable *const speed = car_table(track, layout, cheats, laps, &from->segment_speed[k]);
+        if (speed != NULL) speed->segment_speed[k] = from->segment_speed[k];
+    }
+}
+
+int race_records_cars_import(void)
+{
+    if (imported) return 0;
+    for (int track = 0; track < RACE_RECORDS_TRACKS; track++)
+        for (int layout = 0; layout < RACE_RECORDS_LAYOUTS; layout++)
+            for (int cheats = 0; cheats < 2; cheats++) {
+                int laps[RACE_RECORDS_LAPS_MAX + 1] = { 0 };
+                const int n = track < RACE_RECORDS_FIRST_CIRCUIT ? 1 : race_records_laps(track, layout, cheats, laps, RACE_RECORDS_LAPS_MAX);
+                for (int i = 0; i < n; i++) {
+                    const RecordTable *const t = race_records_find(track, layout, cheats, laps[i]);
+                    if (t != NULL) import_table(track, layout, cheats, laps[i], t);
+                }
+                const RecordRow *const lap = track < RACE_RECORDS_FIRST_CIRCUIT ? NULL : race_records_lap_find(track, layout, cheats);
+                const char *const id = lap != NULL && race_records_row_set(lap) ? stock_car_id(row_car(lap)) : NULL;
+                RecordRow *const to = id != NULL ? race_records_added_lap_make(track, layout, cheats, id, NULL) : NULL;
+                if (to != NULL) *to = *lap;
+            }
+    imported = 1;
+    return 1;
 }

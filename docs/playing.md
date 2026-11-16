@@ -81,7 +81,7 @@ Anything the earlier folders held (`TNFS Restomod/`, then `tnfs/tnfs/`, in the s
 | `controls.cfg` | the bindings and axis settings |
 | `extras.cfg` | Customize Game's switches |
 | `race_records.dat` | Restomod's records (`records.dat` and `free_records.dat`, from earlier versions, are only read once, to import them) |
-| `race_records_added.dat` | Restomod's records of races in an added car (see `docs/modding.md`, *Adding a car*), a table per car by its `id` |
+| `race_records_cars.dat` | Restomod's records by car: every race's records in a table per car by its `id` (`rx7`, `viper`, `warrior` for the stock cars; an added car's own, see `docs/modding.md`, *Adding a car*), beside `race_records.dat`, which still gets every race. The first time, `race_records.dat`'s rows are copied in, each to its car's table. `race_records_added.dat`, from the version before, is only read while there is no `race_records_cars.dat` |
 | `config.dat`, `Replay.rpl`, saved games | the game's own player file, the last replay and the saves |
 | `Replay.rpx` | the last replay of a race with an added car; it plays back only with that car's mod loaded and unchanged, and with a game whose rules for added cars are those it was made with |
 | `spirited-drive.log` | what the last run said (send it with a bug report; Customize Game's page 3, Open the log folder, shows it) |
