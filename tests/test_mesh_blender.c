@@ -63,8 +63,9 @@ static char *edited(const char *text, const char *from, const char *to)
     const char *hit = strstr(text, from);
     CHECK(hit != NULL);
     if (hit == NULL) return strdup(text);
-    char *out = malloc(strlen(text) + strlen(to) + 1);
-    sprintf(out, "%.*s%s%s", (int)(hit - text), text, to, hit + strlen(from));
+    const size_t cap = strlen(text) + strlen(to) + 1;
+    char *out = malloc(cap);
+    snprintf(out, cap, "%.*s%s%s", (int)(hit - text), text, to, hit + strlen(from));
     return out;
 }
 

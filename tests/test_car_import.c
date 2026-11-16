@@ -487,9 +487,11 @@ static void test_blender(const uint8_t *donor, size_t n)
         double x, y, z;
         CHECK(end != NULL && sscanf(v + 1, "v %lf %lf %lf", &x, &y, &z) == 3);
         if (end != NULL) {
-            char line[96], *moved = malloc(strlen(blender) + 96);
+            char line[96];
+            const size_t cap = strlen(blender) + sizeof line;
+            char *moved = malloc(cap);
             snprintf(line, sizeof line, "\nv %.6f %.6f %.6f", x, y + 1, z);
-            sprintf(moved, "%.*s%s%s", (int)(v - blender), blender, line, end);
+            snprintf(moved, cap, "%.*s%s%s", (int)(v - blender), blender, line, end);
             CHECK(raw_mesh_from(donor, n, moved, &files, &m, &err));
             if (err.message[0] == '\0') {
                 CHECK(m.vertices[0].y == d.mesh.vertices[0].y + 130 && m.vertices[0].x == d.mesh.vertices[0].x);
