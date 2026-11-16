@@ -348,6 +348,16 @@ int mesh_export(const uint8_t *orip, size_t size, const char *stem, const MeshTe
 
 /* ---------------------------------------------------------------- import */
 
+int mesh_material_texture(const char *name)
+{
+    if (name[0] != 't' || !isdigit((unsigned char)name[1])) return -1;
+    int index = 0;
+    const char *p = name + 1;
+    for (; isdigit((unsigned char)*p); p++)
+        if ((index = index * 10 + (*p - '0')) > 255) return -2;
+    return *p == '_' ? index : -2;
+}
+
 int mesh_table_read(const FileSet *in, const char *stem, MeshTable table, uint8_t **records, size_t *rows, ExchangeError *err)
 {
     static const TableSpec *const SPECS[] = { NULL, &polygons_spec, &textures_spec, &parts_spec, &groups_spec, &sectionc_spec, &labels_spec };

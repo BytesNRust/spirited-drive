@@ -200,6 +200,21 @@ static void test_blender_obj(void)
     fileset_free(&files);
 }
 
+/* fix/raw-polygons-bounds: a material's texture reference, strictly t<0..255>_ */
+static void test_material_texture(void)
+{
+    CHECK_EQ_INT(mesh_material_texture("t0_topv"), 0);
+    CHECK_EQ_INT(mesh_material_texture("t255_x"), 255);
+    CHECK_EQ_INT(mesh_material_texture("t12_"), 12);
+    CHECK_EQ_INT(mesh_material_texture("Material.001"), -1);   /* not ours: the face keeps its row's texture */
+    CHECK_EQ_INT(mesh_material_texture("tire"), -1);
+    CHECK_EQ_INT(mesh_material_texture(""), -1);
+    CHECK_EQ_INT(mesh_material_texture("t5x"), -2);            /* ours in shape, not in fact: refused */
+    CHECK_EQ_INT(mesh_material_texture("t5"), -2);
+    CHECK_EQ_INT(mesh_material_texture("t256_x"), -2);
+    CHECK_EQ_INT(mesh_material_texture("t99999999999999999999_x"), -2);
+}
+
 static int replace_once(char *out, size_t cap, const char *text, const char *from, const char *to)
 {
     const char *hit = strstr(text, from);
@@ -335,6 +350,7 @@ int main(int argc, char **argv)
     test_identity();
     test_edits();
     test_blender_obj();
+    test_material_texture();
     for (int a = 1; a < argc; ++a) {
         uint8_t *file = NULL;
         size_t size = 0;

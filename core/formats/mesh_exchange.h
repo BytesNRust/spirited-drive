@@ -38,6 +38,10 @@ typedef struct {
 int mesh_export(const uint8_t *orip, size_t size, const char *stem, const MeshTextureBank *banks, size_t bank_count, FileSet *out,
                 ExchangeError *err);
 
+/* The texture reference an OBJ material names, as the exports write them: "t<index>_<label>", index 0..255; -1 for a name that is not
+ * one of them (no 't' and digit first); -2 for one that starts so but is not (no '_' after the number, or the number past 255). */
+int mesh_material_texture(const char *name);
+
 /* Writes a copy of the declared chunk length in *out (malloc'd). */
 int mesh_import(const uint8_t *orip, size_t size, const char *stem, const FileSet *in, uint8_t **out, size_t *out_len,
                 ExchangeError *err);

@@ -116,8 +116,16 @@ static int raw_polygons(const ObjModel *obj, const uint8_t *rec, size_t rows, Me
             exchange_fail(err, "line %u: a face of %u corners on a row of polygons.tsv saying %d", face->line, face->corners, p->flags & 7);
             return 0;
         }
-        int index;
-        if (face->material >= 0 && sscanf(obj->materials[face->material].name, "t%d_", &index) == 1) p->texture = (uint8_t)index;
+        if (face->corners > 4) {   /* a polygon holds 4 corners (MeshDescPolygon); the row and the face agreeing on more is refused */
+            exchange_fail(err, "line %u: a polygon of %u corners: the race's have 3 or 4", face->line, face->corners);
+            return 0;
+        }
+        const int texture = face->material >= 0 ? mesh_material_texture(obj->materials[face->material].name) : -1;
+        if (texture == -2) {
+            exchange_fail(err, "line %u: the material %s is not one of the mesh's (t<0..255>_<name>)", face->line, obj->materials[face->material].name);
+            return 0;
+        }
+        if (texture >= 0) p->texture = (uint8_t)texture;
         p->has_uv = 1;
         for (uint32_t k = 0; k < face->corners; k++) p->has_uv &= obj->corner_uv[face->first + k] >= 0;
         for (uint32_t k = 0; k < face->corners; k++) {

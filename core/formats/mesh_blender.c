@@ -84,15 +84,10 @@ static int same_topology(const ObjModel *b, const ObjModel *o, Match *m, Exchang
 /* a coordinate in mesh units or texels that fits the mesh's 32-bit words */
 static int fits(double v) { return v >= -2147483647.0 && v <= 2147483647.0; }
 
-/* the texture reference a face's material names (t<i>_..., i 0..255), or -1 */
+/* the texture reference a face's material names (mesh_material_texture: -1 not one, -2 malformed) */
 static int texture_of(const ObjModel *m, const ObjFace *face)
 {
-    if (face->material < 0) return -1;
-    const char *name = m->materials[face->material].name;
-    char *end;
-    if (name[0] != 't' || name[1] < '0' || name[1] > '9') return -1;
-    const long index = strtol(name + 1, &end, 10);
-    return *end == '_' && index <= 255 ? (int)index : -1;
+    return face->material >= 0 ? mesh_material_texture(m->materials[face->material].name) : -1;
 }
 
 static void *copy_of(const void *from, size_t n, size_t item)
@@ -158,6 +153,11 @@ int mesh_blender_back(const ObjModel *blender, const ObjModel *original, const M
     for (uint32_t f = 0; ok && f < original->face_count; f++) {
         const ObjFace *bf = &blender->faces[m.from[f]], *of = &original->faces[f];
         int t = texture_of(blender, bf);
+        if (t == -2) {
+            exchange_fail(err, "line %u: the material %s is not one of the mesh's (t<0..255>_<name>)", bf->line, blender->materials[bf->material].name);
+            ok = 0;
+            break;
+        }
         if (t < 0) t = texture_of(original, of);
         if (t >= 0 && (uint32_t)t >= size_count) {
             exchange_fail(err, "line %u: face %u's material names t%d, a texture the mesh does not have (it has %u)", bf->line, f, t, size_count);
