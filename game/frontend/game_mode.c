@@ -15,11 +15,14 @@ enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x1194, REST = 0x19, TOLD = 0x12c, WI
 typedef struct {
     int16_t x0, x1, y0, y1, cx, cy;
 } Row;
+/* port (dep59 step 4, the owner's L2b mockup): Single Player and Multiplayer high, an empty gap (no row: a click there does nothing), the
+ * selector and Manage content low, Exit at the foot; the text centres at y 138, 190, 318 (the selector's title; its lines 340 and 358)
+ * and 383 */
 static const Row ROW[ROWS] = {
-    { 0, 0x280, 100, 181, 0x140, 0x91 },     /* Single Player: the art's first place */
-    { 0, 0x280, 182, 245, 0x140, 0xda },     /* Multiplayer: its second */
-    { 0, 0x280, 246, 327, 0x140, 290 },      /* the selector: its title, its lines */
-    { 160, 480, 328, 362, 0x140, 345 },      /* Manage content...: its small words */
+    { 0, 0x280, 100, 163, 0x140, 138 },      /* Single Player */
+    { 0, 0x280, 164, 216, 0x140, 190 },      /* Multiplayer */
+    { 0, 0x280, 296, 365, 0x140, 333 },      /* the selector: its title, its lines */
+    { 160, 480, 366, 400, 0x140, 383 },      /* Manage content...: its small words */
     { 500, 0x280, 410, 0x1e0, 580, 449 }     /* Exit: the bottom right, clear of the foot line */
 };
 /* 0043213c: the art's four words, covered by the port's rows */

@@ -175,7 +175,8 @@ static void rig(Fake *f, int x, int y, int pinned)
     f->count = 5, f->in_use = 2, f->unusable = -1;   /* the three modes and two editions; Restomod '26 in use */
 }
 
-enum { ROW_SINGLE = 0x91, ROW_MULTI = 0xda, ROW_CHOICE = 290, ROW_MANAGE = 345, EXIT_X = 580, ROW_EXIT = 449 };
+/* the rows' centres (the owner's L2b mockup: the two on top, an empty gap, the selector and Manage content low, Exit at the foot) */
+enum { ROW_SINGLE = 138, ROW_MULTI = 190, ROW_CHOICE = 333, ROW_MANAGE = 383, EXIT_X = 580, ROW_EXIT = 449, GAP = 255 };
 
 /* Single Player first; Down runs Multiplayer, the selector, Manage, Exit and round; Up from Single Player is Exit */
 static void test_the_order(void)
@@ -208,6 +209,12 @@ static void test_the_layout(void)
     CHECK(f.single.set && f.multi.set && f.title.set && f.manage.set && f.exit.set && f.version.set && f.notice.set);
     CHECK(f.single.y < f.multi.y && f.multi.y < f.title.y && f.title.y < f.manage.y);
     CHECK(f.manage.y < 400);
+    /* the mockup's text centres: a big word's centre is 20 pixels below where it is drawn, a small line's 6 */
+    CHECK_EQ_INT(f.single.y + 20, 137);
+    CHECK_EQ_INT(f.multi.y + 20, 189);
+    CHECK_EQ_INT(f.title.y + 20, 318);
+    CHECK_EQ_INT(f.manage.y + 6, 383);
+    CHECK(f.title.y - (f.multi.y + 42) >= 80);   /* the empty gap between Multiplayer and the selector */
     CHECK(f.exit.x + f.exit.w <= 640 - 14);   /* the right margin the version keeps on the left */
     CHECK(f.exit.y > 400);
     CHECK(f.exit.x > f.notice.x + f.notice.w);   /* clear of the foot line's notice */
@@ -391,6 +398,10 @@ static void test_the_pointer_rects(void)
     CHECK_EQ_INT(f.names_asked + f.networks_asked + f.opens + f.banners, 0);
     CHECK_EQ_INT(f.exits_asked, 1);   /* only the script's Escape at its end */
     rig(&f, 320, 470, 1);   /* the bottom's middle: nothing */
+    f.clicks = 1 << 3;
+    run(&f, idle, 4);
+    CHECK_EQ_INT(f.names_asked + f.networks_asked + f.opens + f.banners, 0);
+    rig(&f, 320, GAP, 1);   /* the gap between Multiplayer and the selector: nothing */
     f.clicks = 1 << 3;
     run(&f, idle, 4);
     CHECK_EQ_INT(f.names_asked + f.networks_asked + f.opens + f.banners, 0);
