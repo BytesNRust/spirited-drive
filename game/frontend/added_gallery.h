@@ -2,8 +2,8 @@
  * Central: its picture, its words and figures, and two selectors, Skin (the skin as it comes, then the piece's skins/ folders) and
  * Color (its own colour, then its paints=), the pair kept by id (car_looks.h). Color is off, grey and without arrows, when the skin has
  * no masks: a colour is painted through a skin's masks (the skin as it comes has them when the piece brings car_masks/<STEM>/); the
- * paint picked is kept while it is off, not applied. Previous and Next go round the menus' cars (car_list.h). This is the page's state
- * and its keys, with no drawing and no files (added_gallery_glue.c draws it). */
+ * paint picked is kept while it is off, not applied. Previous and Next go round the menus' cars with a gallery (car_list.h: the Warrior
+ * passed over). This is the page's state and its keys, with no drawing and no files (added_gallery_glue.c draws it). */
 #ifndef TNFS_ADDED_GALLERY_H
 #define TNFS_ADDED_GALLERY_H
 

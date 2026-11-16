@@ -34,3 +34,13 @@ int16_t car_list_step(const CarList *l, int16_t car, int step)
         if (l->car[i] == car) return l->car[(i + (step < 0 ? l->count - 1 : 1)) % l->count];
     return l->car[0];
 }
+
+int16_t car_list_step_gallery(const CarList *l, int16_t car, int step)
+{
+    int16_t to = car;
+    for (int i = 0; i < l->count; i++) {
+        to = car_list_step(l, to, step);
+        if (to == car || (to >= 0 && to < CAR_ORIGINAL_MODELS) || car_registry_is_added(to)) return to;
+    }
+    return car;
+}

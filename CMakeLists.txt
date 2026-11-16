@@ -1240,7 +1240,7 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(car_piece_race_finish PROPERTIES FIXTURES_REQUIRED car_piece_giveup FIXTURES_SETUP car_piece_finish)
         set_tests_properties(car_piece_race_replay car_piece_race_refusals car_piece_race_stock PROPERTIES FIXTURES_REQUIRED car_piece_finish)
         # dep59 step 3: an added car in the menus, one test per part so they run side by side
-        foreach(part cards modes replays)
+        foreach(part cards modes steps replays)
             add_test(NAME car_card_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_card_menus.sh $<TARGET_FILE:tnfs>
                      $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original ${part})
             set_tests_properties(car_card_menus_${part} PROPERTIES TIMEOUT 600)

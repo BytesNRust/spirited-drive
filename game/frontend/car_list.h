@@ -23,5 +23,8 @@ void car_list_build(CarList *out, const Edition *e, int warrior);
 int car_list_has(const CarList *l, int16_t car);
 /* the car `step` (1 on, -1 back) from `car` round the list; a car not in it gives the list's first */
 int16_t car_list_step(const CarList *l, int16_t car, int step);
+/* the gallery's Previous and Next: the car `step` from `car` round the list that has a gallery (an original, 0..7, or an added car),
+ * the Warrior and any other passed over; `car` itself when no other car has one */
+int16_t car_list_step_gallery(const CarList *l, int16_t car, int step);
 
 #endif
