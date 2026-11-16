@@ -2,6 +2,7 @@
 
 #include "formats/crc32.h"
 
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -148,7 +149,7 @@ static int unfilter(uint8_t *raw, uint32_t width, uint32_t height)
     return 1;
 }
 
-/* 8-bit indexed, no interlace: 1 handled, 0 not of that kind, -1 damaged. */
+/* 8-bit indexed, no interlace: 1 handled, 0 not of that kind, -1 damaged, -2 over PNG_MAX_PIXELS. */
 static int read_indexed(const uint8_t *data, size_t len, PngImage *image)
 {
     if (len < 8 + 25 || memcmp(data, signature, 8) != 0) return 0;
@@ -183,12 +184,19 @@ static int read_indexed(const uint8_t *data, size_t len, PngImage *image)
         }
         at += 12 + n;
     }
+    if (status == 1 && indexed && (uint64_t)w * h > PNG_MAX_PIXELS) status = -2;
     if (status == 1) {
-        int out_len = 0;
+        /* port: inflated into exactly the rows' size, never a buffer stb_image grows (a few bytes of IDAT could ask for GBs); a stream
+         * that runs past that size or ends short is damage */
+        const size_t raw_len = (1 + (size_t)w) * h;
         uint8_t *raw = NULL;
-        if (!indexed || !have_palette || idat == NULL || idat_len == 0 || w == 0 || h == 0 || w > MAX_DIMENSION || h > MAX_DIMENSION) status = -1;
-        else raw = (uint8_t *)stbi_zlib_decode_malloc((const char *)idat, (int)idat_len, &out_len);
-        if (status == 1 && (raw == NULL || (size_t)out_len != (1 + (size_t)w) * h || !unfilter(raw, w, h))) status = -1;
+        if (!indexed || !have_palette || idat == NULL || idat_len == 0 || idat_len > INT_MAX || w == 0 || h == 0 || w > MAX_DIMENSION ||
+            h > MAX_DIMENSION)
+            status = -1;
+        else if ((raw = malloc(raw_len)) == NULL)
+            status = -1;
+        else if (stbi_zlib_decode_buffer((char *)raw, (int)raw_len, (const char *)idat, (int)idat_len) != (int)raw_len || !unfilter(raw, w, h))
+            status = -1;
         if (status == 1) {
             image->pixels = malloc((size_t)w * h);
             if (image->pixels == NULL) status = -1;
@@ -215,12 +223,83 @@ static int chunks_fit(const uint8_t *data, size_t len)
     return 1;
 }
 
+/* the bytes a non-indexed-8 image's IDAT stream inflates to: in each pass (one, or Adam7's seven) its rows, a filter byte and the packed
+ * samples each; 0 for a colour type and bit depth PNG does not have */
+static size_t raw_size(uint32_t w, uint32_t h, int depth, int color, int interlace)
+{
+    static const int8_t channels[7] = { 1, 0, 3, 1, 2, 0, 4 };
+    static const uint8_t adam7[7][4] = { { 0, 0, 8, 8 }, { 4, 0, 8, 8 }, { 0, 4, 4, 8 }, { 2, 0, 4, 4 }, { 0, 2, 2, 4 }, { 1, 0, 2, 2 }, { 0, 1, 1, 2 } };
+    static const uint8_t whole[1][4] = { { 0, 0, 1, 1 } };
+    const int depth_ok = depth == 1 || depth == 2 || depth == 4 || depth == 8 || depth == 16;
+    if (color < 0 || color > 6 || channels[color] == 0 || !depth_ok || (color == 3 && depth == 16) || ((color & 3) == 2 && depth < 8) ||
+        (color == 4 && depth < 8) || interlace > 1)
+        return 0;
+    const uint8_t(*pass)[4] = interlace ? adam7 : whole;
+    size_t total = 0;
+    for (int p = 0; p < (interlace ? 7 : 1); p++) {
+        const size_t cols = w > pass[p][0] ? (w - pass[p][0] + pass[p][2] - 1) / pass[p][2] : 0;
+        const size_t rows = h > pass[p][1] ? (h - pass[p][1] + pass[p][3] - 1) / pass[p][3] : 0;
+        if (cols > 0 && rows > 0) total += rows * (1 + (cols * (size_t)(depth * channels[color]) + 7) / 8);
+    }
+    return total;
+}
+
+/* port: stb_image inflates the IDAT stream into a buffer it grows as it goes, so a small file (a mod's card, mask or skin) could ask
+ * for GBs. Before stb_image sees a file, its stream is inflated here into a buffer of exactly the size its header implies; one that runs
+ * past it or ends short is damaged, a header over PNG_MAX_PIXELS is refused before anything is allocated. `data` passed chunks_fit. */
+static PngResult inflate_fits(const uint8_t *data, size_t len)
+{
+    if (len < 8 || memcmp(data, signature, 8) != 0) return PNG_OK;   /* not a PNG: stb_image says so */
+    const uint8_t *ihdr = NULL;
+    int apple = 0;   /* CgBI (Apple's PNG), anywhere before IEND as stb_image takes it: a deflate stream with no zlib header */
+    uint8_t *idat = NULL;
+    size_t idat_len = 0, at = 8;
+    PngResult r = PNG_OK;
+    while (at + 12 <= len && r == PNG_OK) {
+        const uint32_t n = get_be32(data + at);
+        const uint8_t *type = data + at + 4, *body = data + at + 8;
+        if (n > len - at - 12) { r = PNG_ERR_CORRUPT; break; }   /* chunks_fit's already; kept local */
+        if (memcmp(type, "CgBI", 4) == 0) apple = 1;   /* stb_image's is_iphone: the same stream read the same way here */
+        else if (memcmp(type, "IHDR", 4) == 0) {
+            if (ihdr != NULL || n != 13) r = PNG_ERR_FORMAT;
+            ihdr = body;
+        } else if (ihdr == NULL) r = PNG_ERR_FORMAT;   /* stb_image wants IHDR before any chunk but CgBI */
+        else if (memcmp(type, "IDAT", 4) == 0) {
+            uint8_t *grown = realloc(idat, idat_len + n + 1);
+            if (grown == NULL) r = PNG_ERR_MEMORY;
+            else memcpy((idat = grown) + idat_len, body, n), idat_len += n;
+        } else if (memcmp(type, "IEND", 4) == 0) break;
+        at += 12 + (size_t)n;
+    }
+    if (r == PNG_OK && (ihdr == NULL || idat_len == 0)) r = PNG_ERR_FORMAT;
+    if (r != PNG_OK) { free(idat); return r; }
+    const uint32_t w = get_be32(ihdr), h = get_be32(ihdr + 4);
+    const size_t want = raw_size(w, h, ihdr[8], ihdr[9], ihdr[12]);
+    if (w == 0 || h == 0 || w > MAX_DIMENSION || h > MAX_DIMENSION || (uint64_t)w * h > PNG_MAX_PIXELS) r = PNG_ERR_SIZE;
+    else if (want == 0) r = PNG_ERR_FORMAT;
+    else if (want > INT_MAX || idat_len > INT_MAX) r = PNG_ERR_SIZE;
+    uint8_t *raw = r == PNG_OK ? malloc(want) : NULL;
+    if (r == PNG_OK && raw == NULL) r = PNG_ERR_MEMORY;
+    if (r == PNG_OK) {
+        const int got = apple ? stbi_zlib_decode_noheader_buffer((char *)raw, (int)want, (const char *)idat, (int)idat_len)
+                              : stbi_zlib_decode_buffer((char *)raw, (int)want, (const char *)idat, (int)idat_len);
+        if (got != (int)want) r = PNG_ERR_CORRUPT;
+    }
+    free(raw);
+    free(idat);
+    return r;
+}
+
 PngResult png_read(const uint8_t *data, size_t len, PngImage *image)
 {
     memset(image, 0, sizeof *image);
+    if (len > INT_MAX) return PNG_ERR_SIZE;   /* stb_image takes the length as an int */
     const int r = read_indexed(data, len, image);
     if (r == 1) return PNG_OK;
+    if (r == -2) return PNG_ERR_SIZE;
     if (r < 0 || !chunks_fit(data, len)) return PNG_ERR_CORRUPT;
+    const PngResult fits = inflate_fits(data, len);
+    if (fits != PNG_OK) return fits;
     int w, h, channels;
     uint8_t *rgba = stbi_load_from_memory(data, (int)len, &w, &h, &channels, 4);
     if (rgba == NULL) return PNG_ERR_FORMAT;
@@ -251,7 +330,7 @@ const char *png_result_str(PngResult result)
     switch (result) {
     case PNG_OK: return "ok";
     case PNG_ERR_MEMORY: return "out of memory";
-    case PNG_ERR_SIZE: return "image size is zero or over 16384";
+    case PNG_ERR_SIZE: return "image size is zero, over 16384 a side or over 4096 x 4096 pixels";
     case PNG_ERR_FORMAT: return "not a readable PNG";
     case PNG_ERR_CORRUPT: return "damaged PNG (chunk, checksum or filter)";
     }

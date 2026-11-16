@@ -7,6 +7,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* the most pixels a PNG may have (width x height) to be read: a mod's picture is far smaller; more is refused (PNG_ERR_SIZE) before
+ * anything is allocated */
+enum { PNG_MAX_PIXELS = 4096 * 4096 };
+
 typedef enum {
     PNG_OK = 0,
     PNG_ERR_MEMORY,
