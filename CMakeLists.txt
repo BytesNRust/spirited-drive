@@ -361,6 +361,7 @@ add_library(tnfs_game STATIC
     game/sys/data_path.c
     game/sys/mod_generation.c
     game/sys/edition_file.c
+    game/sys/edition.c
     game/sys/edition_list.c
     game/frontend/mode_choices.c
     game/sys/mod_set.c
@@ -1068,6 +1069,11 @@ foreach(name port_old_files car_registry car_lights ai_added car_list track_list
     target_link_libraries(test_cheat_switches PRIVATE tnfs_game)
     target_compile_options(test_cheat_switches PRIVATE ${TNFS_WARNINGS})
     add_test(NAME cheat_switches COMMAND test_cheat_switches)
+    add_executable(test_game_list_edition tests/test_game_list_edition.c)
+    target_include_directories(test_game_list_edition PRIVATE game .)
+    target_link_libraries(test_game_list_edition PRIVATE tnfs_game)
+    target_compile_options(test_game_list_edition PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME game_list_edition COMMAND test_game_list_edition)
     add_executable(test_config_name tests/test_config_name.c game/frontend/config.c)
     target_include_directories(test_config_name PRIVATE game .)
     target_link_libraries(test_config_name PRIVATE tnfs_game)
@@ -1320,6 +1326,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_edition_rules PRIVATE ${TNFS_WARNINGS})
     add_test(NAME edition_rules COMMAND test_edition_rules)
+    add_executable(test_live_edition tests/test_live_edition.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_live_edition PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_live_edition PRIVATE m)
+    endif()
+    target_compile_options(test_live_edition PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME live_edition COMMAND test_live_edition)
     add_executable(test_game_mode_choices tests/test_game_mode_choices.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_game_mode_choices PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)

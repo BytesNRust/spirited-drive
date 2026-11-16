@@ -2,6 +2,7 @@
  * id; an edition that cannot be used shown with its reason and never applied; applying one selects its mode and sets Restomod's
  * edition=; a name too wide or too long for the selector refused. The player folder is a scratch one (TNFS_PREF_DIR). */
 #include "game/frontend/mode_choices.h"
+#include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "test.h"
@@ -117,6 +118,24 @@ static void test_applying(void)
     CHECK_EQ_INT(mode_choices_in_use(), 2);
 }
 
+/* a mode that cannot be saved: the edition stays as it was and no mark:edition= is said (a walk WAITing on it would go on with the old
+ * mode). port.cfg made a folder, the mode's save cannot replace it; the mode read before is kept */
+static void test_a_mode_not_saved_changes_no_edition(void)
+{
+    CHECK(mode_choices_apply(2));   /* Restomod '26, the standard edition */
+    CHECK(port_profile_select(PROFILE_STOCK));
+    char cfg[400];
+    snprintf(cfg, sizeof cfg, "%s/port.cfg", pref);
+    CHECK_EQ_INT(unlink(cfg), 0);
+    CHECK_EQ_INT(mkdir(cfg, 0777), 0);
+    write_file("editions/europa.ini", "name=Europa 80\ncars=supra,rx7,gone-car\ntracks=city\n");   /* test_applying removed it */
+    port_log_watch("mark:edition=");
+    CHECK(!mode_choices_apply(3));
+    CHECK(!port_log_watch_hit());
+    CHECK(restomod_edition()[0] == 0);
+    CHECK_EQ_INT(rmdir(cfg), 0);
+}
+
 static int wide(const char *text, int num, int den) { (void)num, (void)den; return (int)strlen(text) * 40; }
 
 static void test_the_name_fits(void)
@@ -151,6 +170,7 @@ int main(void)
     test_the_modes_alone();
     test_the_editions();
     test_applying();
+    test_a_mode_not_saved_changes_no_edition();
     test_the_name_fits();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);

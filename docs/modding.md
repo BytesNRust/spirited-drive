@@ -80,6 +80,11 @@ ROCKYROAD) do nothing in it; NITRO, EXPLODE and TURBO work as always.
 * Tournament needs the stock cars and tracks: an edition whose `cars` and `tracks` are the eight race cars and the eight tracks (in any
   order, the Warrior, `vegas` and `hidden` allowed too) has the tournament; any other, and Control Central's race type arrows pass it.
 * Multiplayer needs the standard edition: in an edition Game Mode shows it dimmed, and choosing it says so.
+* A saved game is a tournament: in an edition without the tournament, Load Game says so and loads nothing.
+
+Game Mode's selector changes the edition at once, with no restart: the mod folders in effect, Control Central's cars, tracks and unlocks,
+and Customize Game's rows are the new edition's from the next screen on, and nothing typed or kept in the edition before (a cheat code, a
+Warrior) carries over. The log says `mark:edition=<id>` (`-` for the standard edition).
 
 One behaviour is **temporary**:
 
