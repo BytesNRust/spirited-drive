@@ -308,11 +308,11 @@ void rival_liveries(const RaceField *field, int player, const char *track, int r
 /* port: the player's livery or paint on the dash art's body, for the HUD's loads of the dash bank (drive_hud.dash_paint) */
 int paint_dash(void *user, uint8_t *bank, size_t size)
 {
-    (void)user;
     const int slot = race_slot(drive_sim.race.player);
-    if (slot < 0 || slot >= RACE_CARS) return 0;
-    const char *stem = car_registry_stem(drive_cars.model[slot]);   /* port (dep59): an added car's own */
-    if (stem == NULL) return 0;
+    if (user == NULL || slot < 0 || slot >= RACE_CARS || car_registry_stem(drive_cars.model[slot]) == NULL) return 0;
+    /* port (dep59 3b): the bank is the loaded cockpit's (its dash_from's for an added car), and its name decides the glass's floor
+     * (drive_livery_dash: ANSX's 72); the paint is the car's own */
+    const char *stem = ((const DriveHud *)user)->dash_stem;
     if (drive_cars.livery[slot] && drive_cars.dash_rgb_on) return drive_livery_dash(stem, bank, size, drive_cars.dash_rgb);
     if (drive_cars.paint_on[slot]) return drive_livery_dash(stem, bank, size, drive_cars.paint[slot]);
     return 0;

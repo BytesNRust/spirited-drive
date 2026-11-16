@@ -19,7 +19,7 @@ export SDL_VIDEO_DRIVER=dummy SDL_RENDER_DRIVER=software SDL_AUDIO_DRIVER=dummy 
 
 piece=$work/piece
 mkdir -p "$piece/SIMDATA/CARFAMS" "$piece/SIMDATA/CARSPECS" "$piece/car_masks" "$piece/dash_masks"
-printf 'id=test-car\nname=Test Car\nversion=1\ntype=car\nstem=TESTCAR\nshort_name=TEST\nsound_from=viper\nai_from=viper\npaints=Blue:1040c0\n' > "$piece/mod.ini"
+printf 'id=test-car\nname=Test Car\nversion=1\ntype=car\nstem=TESTCAR\nshort_name=TEST\nsound_from=viper\nai_from=viper\ndash_from=viper\npaints=Blue:1040c0\n' > "$piece/mod.ini"
 cp "$orig/SIMDATA/CARFAMS/DVIPER.CFM" "$piece/SIMDATA/CARFAMS/TESTCAR.CFM"
 cp "$orig/SIMDATA/CARFAMS/DVIPER.PDN" "$piece/SIMDATA/CARFAMS/TESTCAR.PDN"
 cp "$orig/SIMDATA/CARSPECS/DVIPER.PBS" "$piece/SIMDATA/CARSPECS/TESTCAR.PBS"
@@ -58,6 +58,23 @@ user_in restomod
 echo "extra_liveries=0" > "$work/user/restomod.cfg"
 run --drive TR1 --car 5 --racers 1 --node 200 --screenshot "$work/b1.ppm" || fail "the Viper did not race: $(cat "$work/err")"
 cmp -s "$work/a1.ppm" "$work/b1.ppm" || fail "the piece's frame is not the Viper's: something still reads the car by its number"
+
+# 2b. 3b Task 5: a piece without dash_from has no cockpit: asked for the cockpit's view (TNFS_VIEW=0, through race_chase_follow), it
+# draws the first outside view's frame (TNFS_VIEW=1); with dash_from=viper the cockpit's view is its own frame
+dashless=$work/dashless
+cp -R "$piece" "$dashless"
+grep -v '^dash_from=' "$piece/mod.ini" > "$dashless/mod.ini"
+for v in 0 1; do
+    user_in restomod
+    echo "extra_liveries=0" > "$work/user/restomod.cfg"
+    TNFS_VIEW=$v run --mods "$dashless" --drive TR1 --car test-car --racers 1 --node 200 --screenshot "$work/n$v.ppm" ||
+        fail "the piece without dash_from did not race in view $v: $(cat "$work/err")"
+done
+cmp -s "$work/n0.ppm" "$work/n1.ppm" || fail "the piece without dash_from drew a view of its own for the cockpit's"
+user_in restomod
+echo "extra_liveries=0" > "$work/user/restomod.cfg"
+TNFS_VIEW=0 run --mods "$piece" --drive TR1 --car test-car --racers 1 --node 200 --screenshot "$work/v0.ppm" || fail "the piece's cockpit view did not race"
+cmp -s "$work/v0.ppm" "$work/n1.ppm" && fail "the piece with dash_from=viper drew no cockpit"
 
 # 3. Stock: no added car, --mods ignored, a clean refusal
 user_in stock

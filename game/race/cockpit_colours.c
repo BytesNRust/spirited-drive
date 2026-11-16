@@ -16,7 +16,7 @@ void cockpit_colours(RacePalette *p, const RaceState *race, const Cockpit *c, co
 {
     const Car *car = race->cars[race_slot(race->player)];
     const int32_t model = car != NULL ? car_registry_dash_model(car->model) : 0;   /* port (dep59): an added car's cockpit's (car_registry.h) */
-    const int32_t *rgb = model_colours[model >= 0 && model < MODEL_ROWS ? model : 0];
+    const int32_t *rgb = model_colours[model >= 0 && model < MODEL_ROWS ? model : CAR_HUD_STAND_IN];   /* port (dep59 3b): no dash_from: the stand-in's */
     race_palette_read(p, 0, RACE_PALETTE_COLOURS, p->copy);
     race_palette_enable(p, race);
     race_palette_inverse(p);
