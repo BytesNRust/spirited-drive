@@ -96,6 +96,7 @@ if [ -n "$KEYS" ]; then
     KEYS=$(expand_keys "$KEYS")
 fi
 
+steps_after=""   # set by the targets whose own steps go on after their mark (the done wait below)
 case $target in
 game-mode)    script="$to_game_mode${KEYS:+,$KEYS}"; final=game_mode; tail=${TAIL:-3} ;;
 central)      script="$to_central${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3} ;;
@@ -111,11 +112,11 @@ extras-p2)    script="$to_options,$(click 100 392),$(wait_for extras_p1),$(next_
 extras-p3)    script="$to_options,$(click 100 392),$(wait_for extras_p1),$(next_page),$(wait_for extras_p2),$(next_page),$(wait_for extras_p3),$(park)"; final=extras_p3 ;;
 track)         script="$to_track${KEYS:+,$KEYS}"; final=track_select; tail=${TAIL:-3} ;;
 best-times)    script="$to_best${KEYS:+,$KEYS}"; final=best_times; tail=${TAIL:-4} ;;
-best-times-p2) script="$to_best,$page_on"; final=best_times; tail=6 ;;
-best-times-p3) script="$to_best,$page_on,$page_on"; final=best_times; tail=8 ;;
-best-circuit)  script="$to_best,$next_track,$next_track"; final=best_times; tail=12 ;;
-best-circuit-p2) script="$to_best,$next_track,$next_track,$page_on"; final=best_times; tail=14 ;;
-best-cheats)   script="$to_best,1500:UP,800:UP,800:UP,800:RIGHT"; final=best_times; tail=9 ;;
+best-times-p2) script="$to_best,$page_on"; final=best_times; steps_after=1; tail=6 ;;
+best-times-p3) script="$to_best,$page_on,$page_on"; final=best_times; steps_after=1; tail=8 ;;
+best-circuit)  script="$to_best,$next_track,$next_track"; final=best_times; steps_after=1; tail=12 ;;
+best-circuit-p2) script="$to_best,$next_track,$next_track,$page_on"; final=best_times; steps_after=1; tail=14 ;;
+best-cheats)   script="$to_best,1500:UP,800:UP,800:UP,800:RIGHT"; final=best_times; steps_after=1; tail=9 ;;
 *) echo "unknown target: $target" >&2; exit 2 ;;
 esac
 
@@ -138,7 +139,9 @@ limit=$(( step * 12 + 60 ))
     TNFS_INPUT_SETTLE=$settle TNFS_INPUT_SCRIPT="$script" \
     timeout -k 5 $limit "$bin" --data "$data" --mods "$work/mods" --user "$work/user" > "$work/log" 2>&1 &)
 # the game runs on its own: watch its log for the last mark, then let the screen settle a moment and stop it
-# with KEYS (steps after the target's own script) the walk also waits for the script's end ("input script: done"), at most DONE_WAIT seconds
+# with KEYS (steps after the target's own script), or a target whose own steps go on after its mark (steps_after: Best Times' pages and
+# tracks, whose last step can come after the tail when a track's art is slow to load), the walk also waits for the script's end
+# ("input script: done"), at most DONE_WAIT seconds
 # past the target's mark: a binary from before that line (a menu_compare against an older build, a bisect) never logs it, and the walk then
 # says so and goes on as without KEYS
 rc=1 waited=0 marked=-1
@@ -146,7 +149,7 @@ while [ $waited -lt $limit ]; do
     sleep 1; waited=$((waited + 1))
     if [ $marked -lt 0 ] && grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null; then marked=$waited; fi
     if [ $marked -ge 0 ]; then
-        if [ -z "$KEYS" ] || grep -q "input script: done" "$work/user/spirited-drive.log" 2>/dev/null; then sleep ${tail:-3}; rc=0; break; fi
+        if [ -z "$KEYS$steps_after" ] || grep -q "input script: done" "$work/user/spirited-drive.log" 2>/dev/null; then sleep ${tail:-3}; rc=0; break; fi
         if [ $(( waited - marked )) -ge ${DONE_WAIT:-30} ]; then
             echo "menu_walk: no 'input script: done' from this binary" >&2
             sleep ${tail:-3}; rc=0; break
