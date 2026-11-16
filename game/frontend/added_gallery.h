@@ -23,6 +23,7 @@ typedef struct {
     int item;    /* GALLERY_* */
     int skin;    /* 0 as it comes, k the k-th of skin[] */
     int paint;   /* 0 its own colour, k the k-th of paints= */
+    int fixed;   /* port (dep59 section 8): 1 the look cannot change (the Warrior's): Skin and Color shown, never visited nor stepped */
 } GalleryState;
 
 /* 1 when Color applies: the skin picked has masks */

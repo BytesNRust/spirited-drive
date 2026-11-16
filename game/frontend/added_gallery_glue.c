@@ -7,9 +7,13 @@
  * DONE at the bottom left, "< NEXT CAR >" in the middle. The pair picked is kept by id as the page closes (car_looks.h). */
 #include "game/frontend/added_gallery.h"
 
+#include "formats/fsh.h"
+#include "formats/pbs.h"
 #include "formats/png.h"
+#include "formats/stock_content.h"
 #include "game/frontend/boot_quant.h"
 #include "game/frontend/boot_screen.h"
+#include "game/frontend/car_figures.h"
 #include "game/frontend/car_list.h"
 #include "game/frontend/central_glue_private.h"
 #include "game/frontend/config_bgnd.h"
@@ -36,17 +40,25 @@ enum {
     TEXT_FIRST = 256 - KEPT - BOOT_TEXT_COLOURS,     /* the text's colours (BOOT_TEXT_RGB's order) */
     SWATCH = TEXT_FIRST - 1,                         /* the Color swatch's entry */
     STILL_COLOURS = SWATCH,                          /* the still part's: 0 .. SWATCH - 1 */
-    WHITE = TEXT_FIRST, CREAM = TEXT_FIRST + 1, YELLOW = TEXT_FIRST + 2, BLACK = TEXT_FIRST + 5,
+    WHITE = TEXT_FIRST, CREAM = TEXT_FIRST + 1, YELLOW = TEXT_FIRST + 2, BLACK = TEXT_FIRST + 5, DIM = TEXT_FIRST + 6,
     LEAN_NUM = 2, LEAN_DEN = 9,                      /* the name's slant: 2 px across for 9 up */
     RELEASE_FRAMES = 300                             /* a button held longer than this (5 s at 60 Hz) is let be */
 };
 
 static const char DONE_WORD[] = "DONE", NEXT_WORD[] = "Next car";
 
+/* port (dep59 section 8, the owner's): the Warrior's page. Its year as the owner gave it; its power and weight from its physics
+ * (CARSPECS/TRAFFC.PBS, the race's car_model_names[11]); its look fixed: the skin as it comes and its own dark purple, sampled from its
+ * Control Central card (CONTROL/WAR1.QFS on Central's palette: the mean of the body's purple, #581C54); its picture that card */
+static const char WARRIOR_YEAR[] = "1994", WARRIOR_SPECS[] = "SIMDATA/CARSPECS/TRAFFC.PBS", WARRIOR_CARD[] = "control/war1.qfs";
+static const char WARRIOR_PAINT[] = "Purple";
+static const uint8_t WARRIOR_RGB[3] = { 0x58, 0x1c, 0x54 };
+
 typedef struct {
     CarPieceCard card;
     GalleryState state;
     int car;
+    int warrior;                     /* the Warrior's page: its card from the CD, its look fixed */
     uint8_t *still;                  /* the still part in the page's palette, GL_W x GL_H */
     uint8_t palette[768];
 } Page;
@@ -93,6 +105,59 @@ static void background_rgb(uint8_t *rgb)
     free(pixels);
 }
 
+/* the Warrior's Control Central card (an 8-bit picture on Central's palette `screen`) as RGB in the middle of the picture's box; 0 when
+ * it cannot be read */
+static int warrior_picture(const uint8_t screen[768], uint8_t *rgb)
+{
+    size_t size = 0;
+    uint8_t *data = resource_load_art(WARRIOR_CARD, &size);
+    Fsh fsh;
+    uint32_t index;
+    FshEntry e;
+    const int ok = data != NULL && fsh_open(&fsh, data, size) == FSH_OK && fsh_find(&fsh, "0000", &index) == FSH_OK &&
+                   fsh_entry(&fsh, index, &e) == FSH_OK && e.width <= GL_PICTURE_W && e.height <= GL_PICTURE_H &&
+                   e.payload_size >= (size_t)e.width * e.height;
+    if (ok) {
+        const int x0 = (GL_PICTURE_W - e.width) / 2, y0 = (GL_PICTURE_H - e.height) / 2;
+        memset(rgb, 0, (size_t)GL_PICTURE_W * GL_PICTURE_H * 3);
+        for (int y = 0; y < e.height; y++)
+            for (int x = 0; x < e.width; x++)
+                memcpy(rgb + 3 * ((size_t)(y0 + y) * GL_PICTURE_W + (size_t)(x0 + x)), screen + 3 * e.payload[(size_t)y * e.width + x], 3);
+    } else {
+        port_log("added gallery: the Warrior's card %s was not read\n", WARRIOR_CARD);
+    }
+    resource_free(data);
+    return ok;
+}
+
+/* the Warrior's page's card: its name, year, figures from its physics, one skin and its one colour */
+static void warrior_card(Page *p)
+{
+    CarPieceCard *c = &p->card;
+    memset(c, 0, sizeof *c);
+    snprintf(c->info.id, sizeof c->info.id, "%s", stock_car_id(STOCK_CAR_WARRIOR));
+    snprintf(c->info.name, sizeof c->info.name, "%s", stock_car_name(STOCK_CAR_WARRIOR));
+    snprintf(c->info.year, sizeof c->info.year, "%s", WARRIOR_YEAR);
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s", resource_root(), WARRIOR_SPECS);
+    size_t size = 0;
+    uint8_t *data = resource_load(path, &size), record[PBS_SIZE];
+    int hp, kg;
+    if (data != NULL && pbs_read(record, data, size) && car_figures_pbs(record, &hp, &kg)) {
+        snprintf(c->info.power, sizeof c->info.power, "%d hp", hp);
+        snprintf(c->info.weight, sizeof c->info.weight, "%d kg", kg);
+    } else {
+        port_log("added gallery: the Warrior's figures were not read from %s\n", WARRIOR_SPECS);
+    }
+    resource_free(data);
+    c->skins = 1;
+    c->info.paint_count = 1;
+    snprintf(c->info.paints[0].name, sizeof c->info.paints[0].name, "%s", WARRIOR_PAINT);
+    memcpy(c->info.paints[0].rgb, WARRIOR_RGB, 3);
+    p->warrior = 1;
+    p->state = (GalleryState){ GALLERY_NEXT, 0, 1, 1 };
+}
+
 /* the page's still part and palette (Control Central's palette `screen` gives the kept entries) */
 static void page_still(Page *p, const uint8_t screen[768])
 {
@@ -101,8 +166,9 @@ static void page_still(Page *p, const uint8_t screen[768])
     p->still = calloc((size_t)GL_W * GL_H, 1);
     memset(p->palette, 0, sizeof p->palette);
     if (picture != NULL && bgnd != NULL && rgb != NULL && p->still != NULL) {
-        if (!picture_rgb(p->card.dir, "gallery.png", picture) && !picture_rgb(p->card.dir, "card.png", picture))
-            memset(picture, 0, (size_t)GL_PICTURE_W * GL_PICTURE_H * 3);
+        const int read = p->warrior ? warrior_picture(screen, picture)
+                                    : picture_rgb(p->card.dir, "gallery.png", picture) || picture_rgb(p->card.dir, "card.png", picture);
+        if (!read) memset(picture, 0, (size_t)GL_PICTURE_W * GL_PICTURE_H * 3);
         background_rgb(bgnd);
         gallery_compose(bgnd, picture, rgb);
         if (!gallery_quantise(rgb, STILL_COLOURS, p->palette, p->still)) port_log("added gallery: the page was not quantised\n");
@@ -189,8 +255,9 @@ static void figures(const Page *p)
     }
 }
 
-/* a selector's box: its frame (yellow when lit), its label and value centred, its arrows at its sides (none when it is off) */
-static void box(const Target *t, int y, const char *label, const char *value, int lit, int on, int swatch)
+/* a selector's box: its frame (yellow when lit), its label and value centred, its arrows at its sides (none when it is off, dim when
+ * the look is fixed) */
+static void box(const Target *t, int y, const char *label, const char *value, int lit, int on, int swatch, int fixed)
 {
     const int x1 = GL_COLUMN_X + GL_COLUMN_W - 1, cx = GL_COLUMN_X + GL_COLUMN_W / 2;
     if (swatch) fill(t, GL_COLUMN_X, y, x1, y + GL_BOX_H - 1, SWATCH);
@@ -202,7 +269,7 @@ static void box(const Target *t, int y, const char *label, const char *value, in
     text_select(!on ? TEXT_DIM : TEXT_WHITE);
     small_centred(said, cx, y + GL_BOX_H - 23);
     if (!on) return;
-    const int ay = y + (GL_BOX_H - GL_ARROW_H) / 2, index = lit ? YELLOW : CREAM;
+    const int ay = y + (GL_BOX_H - GL_ARROW_H) / 2, index = fixed ? DIM : lit ? YELLOW : CREAM;
     arrow(t, GL_COLUMN_X + GL_ARROW_IN, ay, 1, index);
     arrow(t, x1 - GL_ARROW_IN - GL_ARROW_W, ay, 0, index);
 }
@@ -257,10 +324,10 @@ static void draw(const Page *p)
     text_draw_smooth("Car Showcase", GL_HEADING_X, GL_HEADING_Y, GL_HEADING_NUM, GL_HEADING_DEN);
     figures(p);
     const GalleryState *s = &p->state;
-    const int on = added_gallery_colour_on(&p->card, s);
-    box(&t, GL_SKIN_Y, "Skin", s->skin == 0 ? "Default" : p->card.skin[s->skin], s->item == GALLERY_SKIN, 1, 0);
+    const int on = s->fixed || added_gallery_colour_on(&p->card, s);
+    box(&t, GL_SKIN_Y, "Skin", s->skin == 0 ? "Default" : p->card.skin[s->skin], s->item == GALLERY_SKIN, 1, 0, s->fixed);
     box(&t, GL_COLOUR_Y, "Color", s->paint == 0 ? "Default" : p->card.info.paints[s->paint - 1].name, s->item == GALLERY_COLOUR, on,
-        on && s->paint > 0);
+        on && s->paint > 0, s->fixed);
     foot(p);
     bottom(&t, s->item);
 }
@@ -280,7 +347,7 @@ static int click_key(GalleryState *s)
     int x, y, step;
     pointer_position(&x, &y);
     const int item = gallery_hit(x, y, text_width(NEXT_WORD), text_width(DONE_WORD), &step);
-    if (item < 0) return 0;
+    if (item < 0 || (s->fixed && item < GALLERY_PREVIOUS)) return 0;   /* a fixed page's boxes take no click */
     s->item = item;
     if (item == GALLERY_SKIN || item == GALLERY_COLOUR) return step < 0 ? GALLERY_KEY_LEFT : step > 0 ? GALLERY_KEY_RIGHT : 0;
     return GALLERY_KEY_ENTER;
@@ -290,7 +357,7 @@ static int click_key(GalleryState *s)
 static void state_from_look(Page *p)
 {
     const CarLook l = car_looks_get(p->card.info.id);
-    p->state = (GalleryState){ GALLERY_SKIN, 0, 0 };
+    p->state = (GalleryState){ GALLERY_SKIN, 0, 0, 0 };
     for (int k = 1; k < p->card.skins; k++)
         if (strcmp(p->card.skin[k], l.skin) == 0) p->state.skin = k;
     for (int k = 0; k < p->card.info.paint_count; k++)
@@ -359,19 +426,20 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
     for (;;) {
         Page p;
         memset(&p, 0, sizeof p);
-        if (!car_pieces_card(*car, &p.card)) return 0;
+        if (*car == STOCK_CAR_WARRIOR) warrior_card(&p);   /* port (dep59 section 8): the Warrior's page */
+        else if (!car_pieces_card(*car, &p.card)) return 0;
+        else state_from_look(&p);
         CarList l;
         Edition e;   /* port (dep59 step 4): the arrows' cars are the edition's */
         car_list_build(&l, edition_active(&e) == 1 ? &e : NULL, warrior);
         p.car = *car;
-        state_from_look(&p);
         page_still(&p, screen);
         port_log("mark:screen=added_gallery\n");   /* port: the headless walk waits for it */
         const int result = run_page(&p);
-        look_keep(&p);
+        if (!p.warrior) look_keep(&p);   /* the Warrior's look is fixed: nothing kept */
         free(p.still);
         if (result == GALLERY_LEAVE) return 0;
-        *car = car_list_step_gallery(&l, *car, result == GALLERY_GO_NEXT ? 1 : -1);   /* the Warrior, without one, passed over */
-        if (!car_registry_is_added(*car)) return 1;   /* an original's: its own gallery */
+        *car = car_list_step_gallery(&l, *car, result == GALLERY_GO_NEXT ? 1 : -1);
+        if (!car_registry_is_added(*car) && *car != STOCK_CAR_WARRIOR) return 1;   /* an original's: its own gallery */
     }
 }

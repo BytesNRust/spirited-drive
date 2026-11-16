@@ -215,6 +215,9 @@ static void added_gallery(CentralRun *r)
     again(r);
 }
 
+/* port (dep59 section 8): a car whose page is the added_gallery op's: an added car's, the Warrior's */
+static int has_page(int16_t car) { return car_registry_is_added(car) || car == 11; }
+
 /* port (dep59 section 4): the owner's carousel, in Restomod (an edition in use) outside a tournament and not lost, with both pages' ops */
 static int carousel_on(const ControlCentralState *st, const ControlCentralOps *o)
 {
@@ -222,8 +225,8 @@ static int carousel_on(const ControlCentralState *st, const ControlCentralOps *o
 }
 
 /* one carousel over the edition's lineup from the player's car: an original's showcase, which leaves on Next / Previous; an added car's
- * page, which goes round the added cars itself and hands back on an original; the next car in the edition's order after a showcase (the
- * Warrior, with no page, passed over). The car shown when Done is taken is the player's */
+ * page or the Warrior's, which go round those pages themselves and hand back on an original; the next car in the edition's order after a
+ * showcase. The car shown when Done is taken is the player's */
 static void carousel(CentralRun *r)
 {
     ControlCentralState *st = r->st;
@@ -234,7 +237,7 @@ static void carousel(CentralRun *r)
     car_list_build(&l, central_edition_of(st), warrior);
     showcase_start(r);
     for (;;) {
-        if (car_registry_is_added(*car) && !o->added_gallery(o->ctx, car, warrior, r->palette)) break;
+        if (has_page(*car) && !o->added_gallery(o->ctx, car, warrior, r->palette)) break;
         if (*car < 0 || *car >= SHOWCASE_CARS) break;   /* only an original's showcase from here */
         const int step = o->showcase_carousel(o->ctx);
         if (step == 0) break;
@@ -253,7 +256,7 @@ static void car_item(CentralRun *r)
         central_car_up(r);
     } else if (in(r, 0x15, 0x28, 0xba, 0xd1)) {
         central_car_down(r);
-    } else if (carousel_on(st, o) && (car_registry_is_added(*st->player_car) || (*st->player_car >= 0 && *st->player_car < SHOWCASE_CARS))) {
+    } else if (carousel_on(st, o) && (has_page(*st->player_car) || (*st->player_car >= 0 && *st->player_car < SHOWCASE_CARS))) {
         carousel(r);   /* port (dep59 section 4) */
     } else if (st->lost == 0 && car_registry_is_added(*st->player_car)) {
         added_gallery(r);   /* port (dep59): an added car's own gallery */
