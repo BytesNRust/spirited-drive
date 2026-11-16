@@ -48,10 +48,27 @@ static void test_ids_fit_an_edition(void)
     for (int track = 0; track < 10; track++) CHECK_EQ_INT(edition_id_ok(stock_track_id(track)), 1);
 }
 
+/* dep59 step 4b: the English names the CONTENT screen shows them by; none for a number that is no stock piece, nor for the hidden track */
+static void test_names(void)
+{
+    static const char *const CARS[] = { "Mazda RX-7", "Acura NSX", "Toyota Supra Turbo", "Porsche 911 Carrera", "Chevrolet Corvette ZR-1",
+                                        "Dodge Viper RT/10", "Ferrari 512TR", "Lamborghini Diablo VT" };
+    for (int car = 0; car < 8; car++) CHECK(stock_car_name(car) != NULL && strcmp(stock_car_name(car), CARS[car]) == 0);
+    CHECK(stock_car_name(11) != NULL && strcmp(stock_car_name(11), "Warrior PTO E/2") == 0);
+    for (int car = 8; car <= 10; car++) CHECK(stock_car_name(car) == NULL);
+    CHECK(stock_car_name(-1) == NULL && stock_car_name(12) == NULL);
+    static const char *const TRACKS[] = { "City", "Coastal", "Alpine", "Rusty Springs", "Autumn Valley", "Burnt Sienna", "Vertigo Ridge",
+                                          "Transtropolis", "Lost Vegas" };
+    for (int track = 0; track < 9; track++) CHECK(stock_track_name(track) != NULL && strcmp(stock_track_name(track), TRACKS[track]) == 0);
+    CHECK(stock_track_name(9) == NULL);   /* the hidden track: never listed */
+    CHECK(stock_track_name(-1) == NULL && stock_track_name(10) == NULL);
+}
+
 int main(void)
 {
     test_cars();
     test_tracks();
     test_ids_fit_an_edition();
+    test_names();
     return TEST_REPORT();
 }
