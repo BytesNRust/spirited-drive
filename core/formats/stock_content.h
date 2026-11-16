@@ -2,7 +2,9 @@
  * must mean the same pieces in every later version (notes/dep59-step4-editions-plan.md, sections 1 and 2).
  *   cars, by their number in the menus: 0 rx7, 1 nsx, 2 supra, 3 911, 4 zr1, 5 viper, 6 512tr, 7 diablo, 11 warrior (8 PACK, 9 CLOCK and
  *        10 CLASS are the records' columns, no car)
- *   tracks, by theirs: 0 city, 1 coastal, 2 alpine, 3 rusty, 4 autumn, 5 burnt, 6 vertigo, 7 transtropolis, 8 vegas, 9 hidden */
+ *   tracks, by theirs: 0 city, 1 coastal, 2 alpine, 3 rusty, 4 autumn, 5 burnt, 6 vertigo, 7 transtropolis, 8 vegas, 9 hidden
+ *        (rusty covers Lunar Springs: a switch on its rally, not a track of its own; hidden, the cut moon track, has no geometry on the
+ *        CD and is never listed: its id is kept so that it never means anything else) */
 #ifndef TNFS_STOCK_CONTENT_H
 #define TNFS_STOCK_CONTENT_H
 
