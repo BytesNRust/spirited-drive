@@ -58,7 +58,7 @@ static void test_add_and_look_up(void)
     CHECK_EQ_INT(car_registry_sound_model(16), 4);
     CHECK_EQ_INT(car_registry_ai_model(16), 1);
     CHECK_EQ_INT(car_registry_dash_model(16), 4);   /* no dash_from: its sound_from's */
-    CHECK_EQ_INT(car_registry_lamp_model(16), 4);
+    CHECK_EQ_INT(car_registry_lamp_model(16), CAR_LAMP_STANDARD);   /* the standard red, not its sound_from's */
     CHECK_EQ_INT(car_registry_is_added(16), 1);
     CHECK(car_registry_piece(16) != NULL && strcmp(car_registry_piece(16)->id, "f40") == 0);
     CHECK_EQ_INT(add("cobra", "COBRA", 0, 0, why), 17);

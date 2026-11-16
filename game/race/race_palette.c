@@ -232,7 +232,7 @@ void race_palette_tint_shape(RacePalette *p, uint8_t *shape)
 
 static const uint8_t *model_light(const Car *car)
 {
-    const int32_t lamp = car != NULL ? car_registry_lamp_model(car->model) : -1;   /* port (dep59): an added car's are its sound_from's */
+    const int32_t lamp = car != NULL ? car_registry_lamp_model(car->model) : -1;   /* port (dep59 3b): an added car's are the standard red */
     return lamp >= 0 && lamp < RACE_PALETTE_MODEL_LIGHTS ? race_palette_model_light + 3 * lamp : NULL;
 }
 

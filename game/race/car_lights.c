@@ -14,7 +14,7 @@ void car_lights(const CarLightOps *ops, const CarLightInputs *in, const Car *car
     if (in->notice[0] == 0 && in->notice[1] == 0) {
         const uint8_t entry = in->slot_colours[slot];
         if (entry == 0 || slot >= in->finish_cars) return;
-        const int32_t lamp = car_registry_lamp_model(car->model);   /* port (dep59): an added car's are its sound_from's */
+        const int32_t lamp = car_registry_lamp_model(car->model);   /* port (dep59 3b): an added car's are the standard red */
         const int32_t row = lamp + (car->brake > BRAKE_LIT ? LIT_ROWS : 0);
         if (lamp < 0 || row >= RACE_PALETTE_MODEL_LIGHTS) return;   /* port guard: the original reads past the table */
         ops->write(ops->ctx, entry, 1, race_palette_model_light + 3 * row);
