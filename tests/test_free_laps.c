@@ -70,11 +70,26 @@ static void test_running_race(void)
     CHECK_EQ_INT(free_laps_or(4), 4);
 }
 
+/* a circuit's distance after the race (menu_race.c keep_times): the laps run times the lap's, the free count when the race was a
+ * free one (a laps=1 race on a choice of 8 laps is one lap long, not eight: its average speed was eight times too high) */
+static void test_circuit_distance(void)
+{
+    free_laps_set(0);
+    CHECK_EQ_INT(free_laps_distance(8, 1000), 8000);   /* the exe's laps */
+    free_laps_set(1);
+    CHECK_EQ_INT(free_laps_distance(8, 1000), 1000);
+    free_laps_set(2);
+    CHECK_EQ_INT(free_laps_distance(8, 1000), 2000);
+    CHECK_EQ_INT(free_laps_distance(8, 0), 0);          /* no lap: none */
+    free_laps_set(0);
+}
+
 int main(void)
 {
     test_exe_counts();
     test_choice();
     test_environment();
     test_running_race();
+    test_circuit_distance();
     return TEST_REPORT();
 }

@@ -41,3 +41,8 @@ int port_laps(void)
 void free_laps_set(int laps) { running = laps > 0 && laps <= FREE_LAPS_MAX ? laps : 0; }
 int free_laps_count(void) { return running; }
 int free_laps_or(int exe_laps) { return running != 0 ? running : exe_laps; }
+
+int32_t free_laps_distance(int exe_laps, int32_t lap)
+{
+    return lap > 0 ? (int32_t)((uint32_t)free_laps_or(exe_laps) * (uint32_t)lap) : 0;
+}
