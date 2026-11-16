@@ -49,10 +49,15 @@ cmp -s "$piece/card.png" "$other/card.png" && { echo "FAIL: the other card is th
 nomods=$work/nomods
 mkdir -p "$nomods" "$work/shots"
 
-# a player folder in mode $1, fresh
+# a player folder in mode $1, fresh. In Restomod with the edition "walk" (dep59 step 4: the arrows step through an edition's cars, the
+# standard edition's are the original's): the eight, the piece, the Warrior, as the arrows went before editions
 user_in() {
     [ -d "$work/user" ] && find "$work/user" -delete
     mkdir -p "$work/user" && printf 'profile=%s\n' "$1" > "$work/user/port.cfg"
+    [ "$1" = restomod ] || return 0
+    mkdir -p "$work/user/editions" && printf 'edition=walk\n' > "$work/user/restomod.cfg"
+    printf 'name=Walk\ncars=rx7,nsx,supra,911,zr1,viper,512tr,diablo,test-car,warrior\ntracks=city,coastal,alpine,rusty,autumn,burnt,vertigo,transtropolis,vegas\n' \
+        > "$work/user/editions/walk.ini"
 }
 log() { grep -v "^input script" "$work/user/spirited-drive.log" 2>/dev/null; }
 wait_for() { printf '0:WAIT:mark:%s:%s' "$1" "$step"; }

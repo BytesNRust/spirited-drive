@@ -2,6 +2,7 @@
 #include "game/frontend/card_marks.h"
 #include "game/frontend/car_pick.h"
 #include "game/sys/car_pieces.h"
+#include "game/sys/edition_file.h"
 #include "game/sys/car_looks.h"
 #include "game/sys/text.h"
 #include "game/frontend/unlock_level.h"
@@ -102,7 +103,8 @@ static void extras_flags(ExtrasFlags *f)
  * opponent arrows through ControlCentralState.warrior_rival. Kept up to date with the mode's file by extras_apply. */
 static ExtrasSession extras_session;
 static int16_t warrior_rival_flag, warrior_keep_flag;   /* and the Warrior kept as the player's car */
-static int16_t restomod_flag;   /* port (dep59): ControlCentralState.restomod, the added cars offered */
+static int16_t restomod_flag;   /* port (dep59): Restomod, where restomod.cfg keeps an added car picked */
+static Edition central_edition;   /* port (dep59 step 4): ControlCentralState.edition, read again with the switches (cg_extras_apply) */
 
 /* port (dep59): an added car picked comes back from restomod.cfg as Control Central opens (car_looks.h): the player's car, and the head
  * to head rival; one whose mod is gone gives car 0. No line: config.dat's car, as before. Restomod only, never in a link game. */
@@ -155,6 +157,7 @@ void cg_extras_apply(void)
     warrior_rival_flag = (int16_t)(e.warrior_rival != 0);
     warrior_keep_flag = (int16_t)(e.warrior != 0);
     restomod_flag = (int16_t)(port_settings_profile() == PROFILE_RESTOMOD);
+    (void)edition_active(&central_edition);   /* the standard edition (or one that cannot be used) leaves it with no cars */
     car_pieces_follow();   /* port (dep59): the added cars of the mods in effect, for the arrows (car_list.h); loaded again only when they change */
     cg_variant_choice_apply();   /* port (dep65): Restomod's switches back from the player's choice, after every place they are cleared */
 }
@@ -755,7 +758,7 @@ int32_t glue_central(void)
         &cg_g.unlock_level, &cg_g.unlock_m, &cg_g.unlock_r, &cg_g.lost_vegas, &cg_g.vegas_cheat, &cg_g.net_player, &cg_g.net_player_was,
         cg_g.was, cg_g.art, &cg_g.variant_m, &cg_g.variant_r, menu_words.single, menu_words.intro_seen, &cg_g.nomercy, &cg_g.warrior,
         &cg_g.explode, menu_audio_silent(), &cg_g.inverse, &cg_g.nitro, &cg_g.net_hover, &cg_g.net_self, &cg_g.net_second, &cg_g.letter_held,
-        link_humans(), link_names(), pointer_active_word(), &cg_g.buttons, ea_screen_slot(), "", keys, &warrior_rival_flag, &warrior_keep_flag, &restomod_flag };
+        link_humans(), link_names(), pointer_active_word(), &cg_g.buttons, ea_screen_slot(), "", keys, &warrior_rival_flag, &warrior_keep_flag, &central_edition };
     const LinkMenu link_menu = { &cg_g.race_type, &cg_g.track, &cg_g.laps, &cg_g.difficulty, &cg_g.net_car, &cg_g.nomercy, &cg_g.tournament,
                                  &cg_g.player_car, cg_g.other_car, &cg_g.variant_m, &cg_g.variant_r };
     link_central_bind(&link_menu);

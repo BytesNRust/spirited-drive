@@ -70,7 +70,7 @@ says which one is in use (docs/settings.md). Without it the game is the standard
   then, or whose file is missing or damaged, is not used: the standard edition is, and the log says why.
 * The folders the game reads are `--mods DIR`, then the edition's tweaks in their order, then its added cars.
 
-What an edition changes in the menus, its records and its unlocks comes with the rest of dep59 step 4.
+Control Central's car arrows and its head to head rival's step through the edition's `cars` in its order; the Warrior is there only when the edition lists it, and a car it does not list (one picked before) becomes its first car. The standard edition's arrows are the original's: the eight race cars, and the Warrior when it is on offer. What an edition changes in the track menus, its records and its unlocks comes with the rest of dep59 step 4.
 
 One behaviour is **temporary**:
 
@@ -223,7 +223,7 @@ Only CC0 or public-domain samples go in the repository, each with its source, au
 
 ## Adding a car (development)
 
-In Restomod a mod can add a car beside the twelve of the original game: a folder whose `mod.ini` says `type=car`. Stock and Restored never load one. It is picked on Control Central after the eight race cars (and as the head to head rival), shown in its own gallery, and raced from the menus or the command line.
+In Restomod a mod can add a car beside the twelve of the original game: a folder whose `mod.ini` says `type=car`. Stock and Restored never load one. It is picked on Control Central when the edition in use lists it (Editions, above: the arrows step through the edition's cars, the player's and the head to head rival's), shown in its own gallery, and raced from the menus or the command line.
 
     mycar/mod.ini
     mycar/SIMDATA/CARFAMS/MYCAR.CFM        the 3D model and its textures
