@@ -138,6 +138,41 @@ static void test_exchange(void)
     fileset_free(&files);
 }
 
+/* the front drive and brake shares by name (16.16: 0 rear-wheel drive, 65536 front-wheel drive); a table that still says unknown_018 /
+ * unknown_01c, as exports before the names did, is read as them */
+static void test_share_names(void)
+{
+    uint8_t rec[PBS_SIZE], edited[PBS_SIZE];
+    memset(rec, 0, sizeof rec);
+    pbs_seal(rec);
+    FileSet files;
+    fileset_init(&files);
+    ExchangeError err = { { 0 } };
+    CHECK(pbs_export(rec, &files, &err));
+    const SetFile *tsv = fileset_find(&files, "specs.tsv");
+    CHECK(tsv != NULL);
+    if (tsv != NULL) {
+        char *text = malloc(tsv->size + 1);
+        memcpy(text, tsv->data, tsv->size), text[tsv->size] = '\0';
+        CHECK(strstr(text, "0x018\tfront_drive_share\ti32\t") != NULL && strstr(text, "0x01c\tfront_brake_share\ti32\t") != NULL);
+        CHECK(strstr(text, "unknown_018") == NULL && strstr(text, "unknown_01c") == NULL);
+        free(text);
+    }
+    fileset_free(&files);
+    const char *rows[] = { "0x018\tfront_drive_share\ti32\t22937\n0x01c\tfront_brake_share\ti32\t40000\n",
+                           "0x018\tunknown_018\ti32\t22937\n0x01c\tunknown_01c\ti32\t40000\n" };
+    for (size_t i = 0; i < 2; i++) {
+        fileset_init(&files);
+        CHECK(fileset_add(&files, "specs.tsv", (const uint8_t *)rows[i], strlen(rows[i])));
+        memcpy(edited, rec, PBS_SIZE);
+        CHECK(pbs_import(edited, &files, &err));
+        if (err.message[0]) fprintf(stderr, "pbs: %s\n", err.message);
+        CHECK_EQ_INT((int32_t)(edited[0x18] | edited[0x19] << 8 | edited[0x1a] << 16 | (uint32_t)edited[0x1b] << 24), 22937);
+        CHECK_EQ_INT((int32_t)(edited[0x1c] | edited[0x1d] << 8 | edited[0x1e] << 16 | (uint32_t)edited[0x1f] << 24), 40000);
+        fileset_free(&files);
+    }
+}
+
 static void test_cd(int argc, char **argv)
 {
     for (int a = 1; a < argc; ++a) {
@@ -178,6 +213,7 @@ int main(int argc, char **argv)
     test_qfs_stream();
     test_pack();
     test_exchange();
+    test_share_names();
     test_cd(argc, argv);
     return TEST_REPORT();
 }

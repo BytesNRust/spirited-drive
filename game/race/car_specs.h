@@ -15,8 +15,8 @@ typedef struct {
     int32_t unknown_00c;  /* 0x00c */
     int32_t unknown_010;  /* 0x010 */
     int32_t mass;  /* 0x014 0042ff60: times the shares, and the drag (+0x34) by it once */
-    int32_t unknown_018;  /* 0x018 00430cb0: share of the front drive force (8.8) */
-    int32_t unknown_01c;  /* 0x01c 00430cb0: share of the front brake force (8.8) */
+    int32_t front_drive_share;  /* 0x018 00430cb0: the front wheels' share of the drive force, 16.16: 0 rear-wheel drive, 65536 front-wheel drive (the Diablo's 22937: 35 %); exports before 2026-11-16 call it unknown_018 */
+    int32_t front_brake_share;  /* 0x01c 00430cb0: the front wheels' share of the brake force, 16.16 as front_drive_share; exports before 2026-11-16 call it unknown_01c */
     uint8_t pad_020[0x4];
     int32_t unknown_024;  /* 0x024 x 3/2 in arcade mode */
     int32_t unknown_028;  /* 0x028 halved in arcade mode */
@@ -98,8 +98,8 @@ CAR_SPECS_CHECK(unknown_008, offsetof(CarSpecs, unknown_008) == 0x8);
 CAR_SPECS_CHECK(unknown_00c, offsetof(CarSpecs, unknown_00c) == 0xc);
 CAR_SPECS_CHECK(unknown_010, offsetof(CarSpecs, unknown_010) == 0x10);
 CAR_SPECS_CHECK(mass, offsetof(CarSpecs, mass) == 0x14);
-CAR_SPECS_CHECK(unknown_018, offsetof(CarSpecs, unknown_018) == 0x18);
-CAR_SPECS_CHECK(unknown_01c, offsetof(CarSpecs, unknown_01c) == 0x1c);
+CAR_SPECS_CHECK(front_drive_share, offsetof(CarSpecs, front_drive_share) == 0x18);
+CAR_SPECS_CHECK(front_brake_share, offsetof(CarSpecs, front_brake_share) == 0x1c);
 CAR_SPECS_CHECK(unknown_024, offsetof(CarSpecs, unknown_024) == 0x24);
 CAR_SPECS_CHECK(unknown_028, offsetof(CarSpecs, unknown_028) == 0x28);
 CAR_SPECS_CHECK(unknown_02c, offsetof(CarSpecs, unknown_02c) == 0x2c);

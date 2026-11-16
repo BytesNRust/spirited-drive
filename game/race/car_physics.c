@@ -141,14 +141,14 @@ static void axle_forces(Car *car, const CarSpecs *specs, RaceState *race, Forces
     f->drive = force;
     if (car->traction_active != 0 && car->gear == 0) f->drive -= force / 4;
     car->unknown_40d = 0;
-    f->front_drive = (f->drive >> 8) * (specs->unknown_018 >> 8);
+    f->front_drive = (f->drive >> 8) * (specs->front_drive_share >> 8);
     f->rear_drive = f->drive - f->front_drive;
     if (car->brake > 0xf0) {
         f->front_brake = FULL_BRAKE;
         f->rear_brake = FULL_BRAKE;
     } else {
         const int32_t total = ((car->brake * 330) >> 8) * ((car->axle_load_b + car->axle_load_a) >> 8);
-        f->front_brake = (total >> 8) * (specs->unknown_01c >> 8);
+        f->front_brake = (total >> 8) * (specs->front_brake_share >> 8);
         f->rear_brake = total - f->front_brake;
     }
     if (car->handbrake == 1) {
