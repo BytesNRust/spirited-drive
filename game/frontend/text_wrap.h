@@ -16,4 +16,7 @@ int text_wrap(const char *text, int width, int (*measure)(void *ctx, const char 
  * a u with two dots), a control character made a space; `out` NUL-terminated; how many bytes */
 int text_small_words(const char *text, char *out, int size);
 
+/* the same for the main face (GRAVER18.FFN), whose ',' is a comma: kept */
+int text_words(const char *text, char *out, int size);
+
 #endif

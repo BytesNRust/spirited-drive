@@ -228,6 +228,24 @@ static void test_the_card(void)
     CHECK(fk.previews > 0);
 }
 
+/* a mod's own words (its name, author, description) and an edition's name drawn as the face draws them right: a UTF-8 character
+ * dropped whole, a control character a space, ',' kept */
+static void test_mod_words(void)
+{
+    static const int keys[] = { RIGHT, RIGHT, RIGHT };
+    reset(keys, 3);
+    installed[0] = mod("porsche-993", "Porsch\xc3\xa9 993,\tRS", "1.2", "\xe2\x82\xac" "Ed", MOD_TYPE_CAR);
+    snprintf(installed[0].description, sizeof installed[0].description, "%s", "Light,\nfast");
+    snprintf(fk.own[0].name, sizeof fk.own[0].name, "%s", "Min\xc3\xa9");
+    int32_t edition = 1;
+    content_screen_run(&OPS, &edition);
+    CHECK(drawn_at("Porsch 993, RS", CONTENT_NAME_X, CONTENT_LIST_Y + CONTENT_LINE, CONTENT_CREAM));
+    CHECK(drawn_at("Porsch 993, RS", CONTENT_CARD_X0, CONTENT_CARD_NAME_Y, CONTENT_YELLOW));
+    CHECK(drawn("v1.2 - by Ed") != NULL);
+    CHECK(drawn_at("Light, fast", CONTENT_CARD_X0, CONTENT_CARD_TEXT_Y, CONTENT_CREAM));
+    CHECK(drawn("<  Min  >") != NULL);
+}
+
 /* Done kept shut while no car can be raced; the selector to the standard edition, then Done */
 static void test_the_rule(void)
 {
@@ -259,6 +277,7 @@ int main(void)
     test_the_standard_edition();
     test_an_own_edition();
     test_the_card();
+    test_mod_words();
     test_the_rule();
     test_the_foot_and_the_selector();
     return TEST_REPORT();

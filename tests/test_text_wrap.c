@@ -53,5 +53,14 @@ int main(void)
     CHECK(strcmp(w, "abc") == 0);
     CHECK_EQ_INT(text_small_words("\xff\xfe", w, sizeof w), 0);
     CHECK(strcmp(w, "") == 0);
+    /* the main face (GRAVER18.FFN): its ',' is a comma, kept; the rest as the small face's */
+    CHECK_EQ_INT(text_words("Fast, light; red.", w, sizeof w), 17);
+    CHECK(strcmp(w, "Fast, light; red.") == 0);
+    CHECK_EQ_INT(text_words("Ni\xc3\xb1o,\t\xe2\x82\xac" "5\x7f", w, sizeof w), 7);
+    CHECK(strcmp(w, "Nio, 5 ") == 0);
+    CHECK_EQ_INT(text_words("abcdef", w, 4), 3);
+    CHECK(strcmp(w, "abc") == 0);
+    CHECK_EQ_INT(text_words("\xc3", w, sizeof w), 0);   /* a character cut short at the end: dropped, nothing read past it */
+    CHECK(strcmp(w, "") == 0);
     return TEST_REPORT();
 }

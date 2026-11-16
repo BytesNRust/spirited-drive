@@ -29,6 +29,13 @@ static const char *fit(const ContentOps *o, const char *text, int num, int den, 
     return out;
 }
 
+/* a mod's or an edition's own words as the main face draws them right (text_words), into `out` */
+static const char *clean(const char *text, char *out, int cap)
+{
+    text_words(text, out, cap);
+    return out;
+}
+
 static void rule(const ContentOps *o, int x0, int y0, int x1, int y1) { o->fill(o->ctx, x0, y0, x1, y1, CONTENT_RULE_RGB); }
 
 /* a button's style: grey when it cannot be taken, yellow under the selection */
@@ -36,9 +43,9 @@ static int button_style(int on, int lit) { return !on ? CONTENT_DIM : lit ? CONT
 
 static void top(const ContentOps *o, const ContentPage *p)
 {
-    char line[96];
+    char line[96], name[64];
     o->title(o->ctx, "Content", CONTENT_TITLE_X, CONTENT_TITLE_Y);
-    snprintf(line, sizeof line, "<  %s  >", p->edition);
+    snprintf(line, sizeof line, "<  %s  >", clean(p->edition, name, sizeof name));
     o->text(o->ctx, p->nav->at == CONTENT_AT_SELECTOR ? CONTENT_YELLOW : CONTENT_CREAM, line,
             CONTENT_SELECTOR_X - o->text_width(o->ctx, line, 1, 1) / 2, CONTENT_SELECTOR_Y, 1, 1);
     for (int t = 0; t < CONTENT_TABS; t++) {
@@ -62,13 +69,14 @@ static void row_line(const ContentOps *o, const ContentPage *p, const ContentRow
     const ContentNav *n = p->nav;
     const int y = CONTENT_LIST_Y + line * CONTENT_LINE, lit = n->at == CONTENT_AT_LIST && n->line == line;
     int vstyle;
-    const char *version = version_of(r, &vstyle);
+    char words[sizeof r->name > sizeof r->version ? sizeof r->name : sizeof r->version];
+    const char *version = clean(version_of(r, &vstyle), words, sizeof words);
     const int vw = version[0] != 0 ? o->text_width(o->ctx, version, SMALL_NUM, SMALL_DEN) : 0;
-    char name[64];
+    char name[64], plain[sizeof r->name];
     o->text(o->ctx, !r->switchable ? CONTENT_DIM : lit && n->item == CONTENT_ITEM_BOX ? CONTENT_YELLOW : CONTENT_CREAM, r->on ? "[x]" : "[ ]",
             CONTENT_BOX_X, y, ROW_NUM, ROW_DEN);
     o->text(o->ctx, lit ? CONTENT_YELLOW : r->kind == CONTENT_ROW_REMOVED || p->view->rows->locked ? CONTENT_DIM : CONTENT_CREAM,
-            fit(o, r->name, ROW_NUM, ROW_DEN, CONTENT_VERSION_RIGHT - vw - GAP - CONTENT_NAME_X, name, sizeof name), CONTENT_NAME_X, y, ROW_NUM,
+            fit(o, clean(r->name, plain, sizeof plain), ROW_NUM, ROW_DEN, CONTENT_VERSION_RIGHT - vw - GAP - CONTENT_NAME_X, name, sizeof name), CONTENT_NAME_X, y, ROW_NUM,
             ROW_DEN);
     if (vw > 0) o->text(o->ctx, vstyle, version, CONTENT_VERSION_RIGHT - vw, y + VERSION_DY, SMALL_NUM, SMALL_DEN);
     if (r->movable) {
@@ -133,15 +141,16 @@ static int small_width(void *ctx, const char *s, int len)
 
 static void card_words(const ContentOps *o, const ModInfo *m)
 {
-    char line[160];
+    char line[160], version[sizeof m->version], author[sizeof m->author], description[sizeof m->description];
     TextLine lines[CARD_LINES];
-    if (m->author[0] != 0) snprintf(line, sizeof line, "v%s - by %s", m->version, m->author);
-    else snprintf(line, sizeof line, "v%s", m->version);
+    clean(m->version, version, sizeof version), clean(m->author, author, sizeof author), clean(m->description, description, sizeof description);
+    if (author[0] != 0) snprintf(line, sizeof line, "v%s - by %s", version, author);
+    else snprintf(line, sizeof line, "v%s", version);
     o->text(o->ctx, CONTENT_DIM, line, CONTENT_CARD_X0, CONTENT_CARD_BY_Y, SMALL_NUM, SMALL_DEN);
     measured = o;
-    const int n = text_wrap(m->description, CONTENT_CARD_X1 - CONTENT_CARD_X0, small_width, NULL, lines, CARD_LINES);
+    const int n = text_wrap(description, CONTENT_CARD_X1 - CONTENT_CARD_X0, small_width, NULL, lines, CARD_LINES);
     for (int i = 0; i < n; i++) {
-        snprintf(line, sizeof line, "%.*s", lines[i].len, m->description + lines[i].start);
+        snprintf(line, sizeof line, "%.*s", lines[i].len, description + lines[i].start);
         o->text(o->ctx, CONTENT_CREAM, line, CONTENT_CARD_X0, CONTENT_CARD_TEXT_Y + i * CONTENT_CARD_TEXT_LINE, SMALL_NUM, SMALL_DEN);
     }
 }
@@ -154,8 +163,8 @@ static void card(const ContentOps *o, const ContentPage *p)
     o->fill(o->ctx, CONTENT_CARD_X0, CONTENT_PREVIEW_Y0, CONTENT_CARD_X1, CONTENT_PREVIEW_Y1, CONTENT_RULE_RGB);
     o->fill(o->ctx, CONTENT_CARD_X0 + 1, CONTENT_PREVIEW_Y0 + 1, CONTENT_CARD_X1 - 1, CONTENT_PREVIEW_Y1 - 1, CONTENT_PANEL_RGB);
     o->preview(o->ctx, p->nav->tab, r->id, CONTENT_CARD_X0 + 1, CONTENT_PREVIEW_Y0 + 1, CONTENT_CARD_X1 - 1, CONTENT_PREVIEW_Y1 - 1);
-    char text[64];
-    o->text(o->ctx, CONTENT_YELLOW, fit(o, r->name, 1, 1, CONTENT_CARD_X1 - CONTENT_CARD_X0, text, sizeof text), CONTENT_CARD_X0,
+    char text[64], plain[sizeof r->name];
+    o->text(o->ctx, CONTENT_YELLOW, fit(o, clean(r->name, plain, sizeof plain), 1, 1, CONTENT_CARD_X1 - CONTENT_CARD_X0, text, sizeof text), CONTENT_CARD_X0,
             CONTENT_CARD_NAME_Y, 1, 1);
     const ModInfo *m = card_mod(p, r);
     if (m != NULL) card_words(o, m);

@@ -44,7 +44,8 @@ int text_wrap(const char *text, int width, int (*measure)(void *ctx, const char 
     return count;
 }
 
-int text_small_words(const char *text, char *out, int size)
+/* the bytes a face draws right: printable ASCII, ',' unless the face's 0x2c is not a comma */
+static int words(const char *text, char *out, int size, int keep_comma)
 {
     int n = 0;
     for (const unsigned char *p = (const unsigned char *)text; *p != '\0' && n < size - 1; p++) {
@@ -52,9 +53,13 @@ int text_small_words(const char *text, char *out, int size)
             while ((p[1] & 0xc0) == 0x80) p++;   /* the rest of the character */
             continue;
         }
-        if (*p == ',') continue;
+        if (*p == ',' && !keep_comma) continue;
         out[n++] = *p < 0x20 || *p == 0x7f ? ' ' : (char)*p;
     }
     if (size > 0) out[n] = '\0';
     return n;
 }
+
+int text_small_words(const char *text, char *out, int size) { return words(text, out, size, 0); }
+
+int text_words(const char *text, char *out, int size) { return words(text, out, size, 1); }
