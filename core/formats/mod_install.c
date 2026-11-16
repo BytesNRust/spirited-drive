@@ -29,7 +29,7 @@ void mod_install_plan(const ModCheck *check, const ModInfo *installed, int folde
     memset(out, 0, sizeof *out);
     const char *id = check->info.id;
     out->kind = MOD_INSTALL_REFUSED;
-    if (!mod_list_id_ok(id)) {
+    if (!mod_ini_id_ok(id)) {
         snprintf(out->why, sizeof out->why, "the id \"%.40s\" is not one a mod may have", id);
         return;
     }
@@ -79,22 +79,4 @@ int mod_backups_to_drop(const char *id, const char *const names[], int count, in
     int out = 0;
     for (int i = 0; i < n - (keep > 0 ? keep : 0) && out < cap; i++) drop[out++] = mine[i];
     return out;
-}
-
-void mod_list_take_out(ModList *l, const char *id)
-{
-    const int at = mod_list_id_ok(id) ? mod_list_index(l, id) : -1;
-    if (at < 0) return;
-    for (int i = at; i + 1 < l->count; i++) memcpy(l->ids[i], l->ids[i + 1], sizeof l->ids[i]);
-    l->count--;
-}
-
-void mod_list_put_first(ModList *l, const char *id)
-{
-    if (!mod_list_id_ok(id)) return;
-    mod_list_take_out(l, id);
-    if (l->count == MOD_LIST_MAX) l->count--;   /* full: the last one drops off */
-    for (int i = l->count; i > 0; i--) memcpy(l->ids[i], l->ids[i - 1], sizeof l->ids[i]);
-    snprintf(l->ids[0], sizeof l->ids[0], "%s", id);
-    l->count++;
 }

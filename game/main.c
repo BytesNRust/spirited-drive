@@ -368,7 +368,7 @@ int main(int argc, char **argv)
         }
     }
     port_old_files_migrate();   /* before any setting is read, and before there are threads */
-    if (!mod_set_start(opt.data_root, opt.mods)) return EXIT_FAILURE;   /* port: --mods DIR, then the mode's list; followed with the settings (mod_set.h) */
+    if (!mod_set_start(opt.data_root, opt.mods)) return EXIT_FAILURE;   /* port: --mods DIR, then the edition in use's; followed with the settings (mod_set.h) */
     if (!resolve_car(&opt)) return EXIT_FAILURE;
     if (data_copied) port_stats_event(STATS_DATA_READY);   /* port: the CD's data copied and ready (once per install, the switch On); stats.cfg goes to the player's folder (--user DIR) */
     if (opt.view != NULL) ok = asset_viewer_main(opt.view, opt.entry, opt.screenshot);

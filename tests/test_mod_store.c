@@ -1,12 +1,13 @@
 /* dep59 step 2: the installed mods (game/sys/mod_store.h), each case on a scratch player folder: an install lands in mods/<id>/ with the
- * zip's bytes and nothing in mods/.staging, first in the list; an update keeps the old one as a backup, three at most; a staging folder
+ * zip's bytes and nothing in mods/.staging, and only made available (dep59 step 4: no edition changes); an update keeps the old one as a backup, three at most; a staging folder
  * left by a stopped run is cleaned; a folder put there by hand, a zip the check refuses, mods/ as a file or as a link: nothing written;
- * uninstall moves to a backup and takes the mod out of the list, restore brings it back; dropping the backups drops only that id's;
+ * uninstall moves to a backup (the editions that name it left as they are), restore brings it back; --mods-list's "on" is a mod the
+ * edition in use names; dropping the backups drops only that id's;
  * a folder whose card names another id is left alone; a card spelt MOD.INI lands as mod.ini; the tree changes nothing outside mods/
  * and mods_backup/. */
-#include "formats/mod_list.h"
 #include "game/sys/mod_set.h"
 #include "game/sys/mod_store.h"
+#include "game/sys/port_extras.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "platform/platform.h"
@@ -78,11 +79,31 @@ static const char *tweak_zip(const char *name, const char *mod_id, const char *v
     return path;
 }
 
-static const char *list_text(void)
+/* Restomod's edition= */
+static const char *edition_text(void)
 {
-    static char text[MOD_LIST_TEXT_MAX];
-    snprintf(text, sizeof text, "%s", port_settings_of_profile(PROFILE_RESTOMOD).mods);
+    static char text[EDITION_ID_MAX + 1];
+    snprintf(text, sizeof text, "%s", port_settings_of_profile(PROFILE_RESTOMOD).edition);
     return text;
+}
+
+/* editions/<id>.ini naming these tweaks, in use */
+static void use_edition(const char *id, const char *tweaks)
+{
+    char text[200], rel[80];
+    snprintf(text, sizeof text, "name=Test\ncars=rx7\ntracks=city\ntweaks=%s\n", tweaks);
+    snprintf(rel, sizeof rel, "editions/%s.ini", id);
+    char path[700];   /* (the tree writes only below mods/ and mods_backup/: written as the player would) */
+    snprintf(path, sizeof path, "%s/editions", pref);
+    make_dirs(path);
+    snprintf(path, sizeof path, "%s/%s", pref, rel);
+    FILE *f = fopen(path, "wb");
+    CHECK(f != NULL);
+    if (f != NULL) fputs(text, f), fclose(f);
+    PortSettings s = port_settings_of_profile(PROFILE_RESTOMOD);
+    const PortExtras e = port_extras_of_profile(PROFILE_RESTOMOD);
+    snprintf(s.edition, sizeof s.edition, "%s", id);
+    CHECK(port_mode_save(&s, &e));
 }
 
 static int backups_of(const char *mod_id)
@@ -112,10 +133,13 @@ static void test_install_and_update(void)
     CHECK(strcmp(id, "twk") == 0 && old[0] == '\0');
     CHECK(file_is("mods/twk/track_light/TR1B.txt", "track TR1 B one\n") && file_is("mods/twk/README.md", "# test\n"));
     CHECK(!exists("mods/.staging/twk"));
-    CHECK(strcmp(list_text(), "twk") == 0);
+    CHECK(strcmp(edition_text(), "") == 0);   /* available, in no edition */
     ModStoreEntry e[4];
     CHECK_EQ_INT(mod_store_list(e, 4), 1);
-    CHECK(strcmp(e[0].info.id, "twk") == 0 && e[0].active && e[0].backups == 0);
+    CHECK(strcmp(e[0].info.id, "twk") == 0 && !e[0].active && e[0].backups == 0);
+    use_edition("mine", "twk");   /* on: the edition in use names it */
+    CHECK_EQ_INT(mod_store_list(e, 4), 1);
+    CHECK(e[0].active);
     CHECK(mod_store_install(tweak_zip("b.zip", "twk", "0.2", "track TR1 B two\n"), id, sizeof id, old, sizeof old, why, sizeof why));
     CHECK(strcmp(old, "0.1") == 0);
     CHECK(file_is("mods/twk/track_light/TR1B.txt", "track TR1 B two\n"));
@@ -127,7 +151,7 @@ static void test_install_and_update(void)
     snprintf(rel, sizeof rel, "mods_backup/%s/track_light/TR1B.txt", count == 1 ? names[0] : "x");
     CHECK(file_is(rel, "track TR1 B one\n"));   /* the old files, in the backup */
     platform_free_names(names);
-    CHECK(strcmp(list_text(), "twk") == 0);   /* never twice */
+    CHECK(strcmp(edition_text(), "mine") == 0);   /* an update changes no edition */
     for (int i = 3; i <= 6; i++) {   /* four more updates, in the same second: three backups stay */
         char version[8];
         snprintf(version, sizeof version, "0.%d", i);
@@ -199,17 +223,18 @@ static void test_uninstall_and_restore(void)
     fresh();
     CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B one\n"), id, sizeof id, old, sizeof old, why, sizeof why));
     CHECK(mod_store_install(tweak_zip("o.zip", "other", "1", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
-    CHECK(strcmp(list_text(), "other,twk") == 0);
+    use_edition("both", "twk,other");
     CHECK(mod_store_uninstall("twk", why, sizeof why));
     CHECK(!exists("mods/twk") && backups_of("twk") == 1);
-    CHECK(strcmp(list_text(), "other") == 0);
+    CHECK(strcmp(edition_text(), "both") == 0);   /* the edition, and its file, as they were: it skips the missing piece */
+    CHECK(file_is("editions/both.ini", "name=Test\ncars=rx7\ntracks=city\ntweaks=twk,other\n"));
     ModStoreEntry e[4];
     CHECK_EQ_INT(mod_store_list(e, 4), 1);
     CHECK(!mod_store_uninstall("twk", why, sizeof why));   /* not installed */
     CHECK(strstr(why, "not installed") != NULL);
     CHECK(mod_store_restore("twk", why, sizeof why));
     CHECK(file_is("mods/twk/track_light/TR1B.txt", "track TR1 B one\n") && backups_of("twk") == 0);
-    CHECK(strcmp(list_text(), "twk,other") == 0);
+    CHECK(strcmp(edition_text(), "both") == 0);
     CHECK(!mod_store_restore("twk", why, sizeof why));   /* no backup left */
     CHECK(mod_store_uninstall("other", why, sizeof why) && mod_store_uninstall("twk", why, sizeof why));
     CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.2", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));

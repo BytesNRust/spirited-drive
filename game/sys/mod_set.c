@@ -3,8 +3,10 @@
 
 #include "formats/mod_check.h"
 #include "formats/mod_ini.h"
+#include "formats/stock_content.h"
 #include "game/platform/platform.h"
 #include "game/sys/data_path.h"
+#include "game/sys/edition_file.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
@@ -15,7 +17,7 @@
 #include <strings.h>
 #include <sys/stat.h>
 
-enum { MOD_SET_MAX = MOD_LIST_MAX + 1, DIR_MAX = 1100 };   /* the list, and --mods above it */
+enum { MOD_SET_MAX = 1 + EDITION_TWEAKS_MAX + EDITION_LIST_MAX, DIR_MAX = 1100, FOLDERS_MAX = MOD_SET_MAX };   /* --mods, an edition's tweaks and cars */
 
 typedef struct {
     int count;
@@ -58,25 +60,34 @@ static void mods_root(char *out, size_t cap)
     if (platform_user_dir(user, sizeof user)) snprintf(out, cap, "%smods/", user);
 }
 
-/* the folders that should be in effect: in Restomod, --mods then the list (a listed mod with no folder left out); in Stock and Restored
- * none, --mods neither. What is left out is said in the log when `say`. */
-static Folders wanted(bool say)
+/* the folders that should be in effect: in Restomod, --mods, then the edition in use's (edition_file.h): its tweaks in their order, then
+ * its added cars' folders (a piece with no folder left out; a stock car has none); in Stock and Restored none, --mods neither. What is
+ * left out is said in the log when `say`. */
+/* (into `out`: a Folders is large, kept off the stack) */
+static const Folders *wanted(bool say, Folders *out)
 {
-    Folders f = { 0 };
+    Folders *const f = out;
+    f->count = 0;
     const PortSettings s = port_settings_load();
     if (s.profile != PROFILE_RESTOMOD) {
         if (say && set.cli[0] != '\0') port_log("mods: --mods %s is ignored: %s loads no mods (Restomod only)\n", set.cli, port_profile_key((Profile)s.profile));
         return f;
     }
-    if (set.cli[0] != '\0') snprintf(f.dirs[f.count++], DIR_MAX, "%s", set.cli);
-    ModList list;
-    mod_list_parse(s.mods, &list);
+    if (set.cli[0] != '\0') snprintf(f->dirs[f->count++], DIR_MAX, "%s", set.cli);
+    static Edition e;
+    if (edition_active(&e) != 1) return f;
     char root[1024];
     mods_root(root, sizeof root);
-    for (int i = 0; i < list.count && root[0] != '\0'; i++) {
-        snprintf(f.dirs[f.count], DIR_MAX, "%s%s", root, list.ids[i]);
-        if (is_dir(f.dirs[f.count])) f.count++;
-        else if (say) port_log("mods: %s is in the list but %s is not a folder: left out\n", list.ids[i], f.dirs[f.count]);
+    for (int i = 0; i < e.tweaks + e.cars && root[0] != '\0' && f->count < FOLDERS_MAX; i++) {
+        const int tweak = i < e.tweaks;
+        const char *const id = tweak ? e.tweak[i] : e.car[i - e.tweaks];
+        if (!tweak && (stock_car_of_id(id) >= 0 || !edition_car_present(id))) {
+            if (say && stock_car_of_id(id) < 0) port_log("mods: the car %s of the edition is not installed: left out\n", id);
+            continue;
+        }
+        snprintf(f->dirs[f->count], DIR_MAX, "%s%s", root, id);
+        if (is_dir(f->dirs[f->count])) f->count++;
+        else if (say) port_log("mods: %s of the edition is not installed (%s is not a folder): left out\n", id, f->dirs[f->count]);
     }
     return f;
 }
@@ -174,8 +185,8 @@ static void put_in_effect(const Folders *f)
 static void follow(void)
 {
     if (!set.started) return;
-    const Folders f = wanted(false);
-    if (!same(&f, &set.now)) put_in_effect((wanted(true), &f));
+    static Folders f;
+    if (!same(wanted(false, &f), &set.now)) put_in_effect(wanted(true, &f));
 }
 
 bool mod_set_start(const char *data_root, const char *cli_dir)
@@ -189,7 +200,8 @@ bool mod_set_start(const char *data_root, const char *cli_dir)
     set.started = true;
     mod_set_session_clear();   /* a new run */
     port_settings_on_forget(follow);
-    const Folders f = wanted(true);
+    static Folders f;
+    wanted(true, &f);
     put_in_effect(&f);   /* always, so a new start is told to the overlay even with the same folders */
     return true;
 }
@@ -213,10 +225,4 @@ int mod_set_dirs(const char *dirs[], int cap)
     return n;
 }
 
-bool mod_set_save_list(const ModList *l)
-{
-    PortSettings s = port_settings_of_profile(PROFILE_RESTOMOD);
-    const PortExtras e = port_extras_of_profile(PROFILE_RESTOMOD);
-    if (!mod_list_format(l, s.mods, sizeof s.mods)) return false;
-    return port_mode_save(&s, &e);   /* its write moves the settings on, and the folders follow */
-}
+

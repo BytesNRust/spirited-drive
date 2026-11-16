@@ -1,14 +1,14 @@
 /* port (dep59 n4): the mods in effect, one place for every reader. Only Restomod loads mods: in Stock and Restored there are none, and
  * `--mods DIR` is ignored there with a line in the log. In Restomod the folders the game reads mod files from, highest first, are
- * `--mods DIR`, then Restomod's list (`mods=` in its file, mod_list.h; provisional until the content model's profile replaces it,
- * notes/dep59-content-model-design.md) as <player folder>/mods/<id>/, a listed mod with no folder left out. They follow the settings: every write of a settings file (port_settings_forget, on the thread that writes)
- * works them out again, and a change of list or of mode is in effect for the next file read. The overlay (platform_set_mods) and the
+ * `--mods DIR`, then the edition in use's (port (dep59 step 4): edition_file.h; the standard edition has none, whatever is installed):
+ * its tweaks in their order, then its added cars, each as <player folder>/mods/<id>/, a piece with no folder left out. They follow the
+ * settings: every write of a settings file (port_settings_forget, on the thread that writes) works them out again, and a change of
+ * edition or of mode is in effect for the next file read. The overlay (platform_set_mods) and the
  * port's data (data_path_set_mods) are given the same folders. mod_set_generation moves on only when the folders change: what is kept
  * from a mod file keeps the generation it was made under and is made again when it moved (as PortFollow does for a setting). */
 #ifndef TNFS_MOD_SET_H
 #define TNFS_MOD_SET_H
 
-#include "formats/mod_list.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -36,7 +36,5 @@ bool mod_set_session_modified(void);
 void mod_set_session_mark_modified(void);
 void mod_set_session_clear(void);
 
-/* Restomod's list written as `l` (whichever mode is in use); true when its file was written. The folders follow at once. */
-bool mod_set_save_list(const ModList *l);
 
 #endif

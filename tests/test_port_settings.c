@@ -294,37 +294,47 @@ static void test_old_psx_keys_load_as_the_new_names(void)
     unsetenv("TNFS_LIGHT_TIME"), unsetenv("TNFS_PSX_TIME");
 }
 
-/* dep59 n4 phase 2: the active mods, `mods=` in Restomod's file: read and saved back whole at its longest (MOD_LIST_MAX ids of the longest
- * length), cleaned when read (a bad id or a repeat left out), and never taken from Stock's or Restored's file */
-static void test_the_active_mods_list(void)
+/* dep59 step 4: the edition in use, `edition=<id>` in Restomod's file (formats/edition_ini.h's id): read and saved back, "" the standard
+ * edition, which writes no line; an id that cannot be one left out; never taken from Stock's or Restored's file. step 2's `mods=` list is
+ * gone: a file that still has it is read as if it had not */
+static void test_the_edition_in_use(void)
 {
     clear_files();
-    char list[MOD_LIST_TEXT_MAX] = "", file[MOD_LIST_TEXT_MAX + 16];
-    for (int i = 0; i < MOD_LIST_MAX; i++) {
-        char id[MOD_INI_ID_MAX + 2];
-        snprintf(id, sizeof id, "%s%02d%s", i > 0 ? "," : "", i, "-a-mod-with-the-longest-name-");
-        strcat(list, id);
-    }
-    CHECK(strlen(list) > 1000);
-    snprintf(file, sizeof file, "mods=%s\n", list);
     put_file("port.cfg", "profile=restomod\n");
-    put_file("restomod.cfg", file);
+    put_file("restomod.cfg", "edition=europa-80\n");
     PortSettings s = port_settings_load();
-    CHECK(strcmp(s.mods, list) == 0);
-    s.fov_adjust = 3;   /* another row saved: the list stays whole */
+    CHECK(strcmp(s.edition, "europa-80") == 0);
+    s.fov_adjust = 3;   /* another row saved: the edition kept */
     CHECK(port_settings_save(&s));
     const PortSettings back = port_settings_load();
-    CHECK(strcmp(back.mods, list) == 0);
+    CHECK(strcmp(back.edition, "europa-80") == 0);
     CHECK_EQ_INT(back.fov_adjust, 3);
-    const char *const dirty = "mods= b ,Bad,b,../x,c-2\n";
-    CHECK(strcmp(port_settings_parse(dirty, strlen(dirty)).mods, "b,c-2") == 0);
-    CHECK(strcmp(port_settings_defaults().mods, "") == 0);
+    char longest[EDITION_ID_MAX + 1];
+    memset(longest, 'e', EDITION_ID_MAX), longest[EDITION_ID_MAX] = '\0';
+    char line[EDITION_ID_MAX + 16];
+    snprintf(line, sizeof line, "edition=%s\n", longest);
+    CHECK(strcmp(port_settings_parse(line, strlen(line)).edition, longest) == 0);
+    const char *const bad[] = { "edition=Europa\n", "edition=original\n", "edition=../x\n", "edition=a,b\n",
+                                "edition=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n" /* 33 */ };
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) CHECK(strcmp(port_settings_parse(bad[i], strlen(bad[i])).edition, "") == 0);
+    CHECK(strcmp(port_settings_defaults().edition, "") == 0);
+    s.edition[0] = '\0';   /* the standard edition: no line */
+    CHECK(port_settings_save(&s));
+    size_t size = 0;
+    uint8_t *text = platform_read_user_file("restomod.cfg", &size);
+    char copy[PORT_CFG_TEXT_MAX] = "";
+    if (text != NULL && size < sizeof copy) memcpy(copy, text, size);
+    CHECK(text != NULL && strstr(copy, "edition") == NULL);
+    platform_free_file(text);
+    put_file("restomod.cfg", "mods=a,b\nfov_adjust=1\n");   /* step 2's list: nothing of it */
+    CHECK(strcmp(port_settings_load().edition, "") == 0);
+    CHECK_EQ_INT(port_settings_load().fov_adjust, 1);
     put_file("port.cfg", "profile=stock\n");
-    put_file("stock.cfg", "mods=b\n");
-    CHECK(strcmp(port_settings_load().mods, "") == 0);   /* Stock reads no list */
+    put_file("stock.cfg", "edition=europa-80\n");
+    CHECK(strcmp(port_settings_load().edition, "") == 0);   /* Stock reads no edition */
     put_file("port.cfg", "profile=restored\n");
-    put_file("restored.cfg", "mods=b\n");
-    CHECK(strcmp(port_settings_load().mods, "") == 0);
+    put_file("restored.cfg", "edition=europa-80\n");
+    CHECK(strcmp(port_settings_load().edition, "") == 0);
     clear_files();
 }
 
@@ -340,6 +350,6 @@ int main(void)
     test_a_longest_psx_dir_round_trips();
     test_two_sided_is_automatic();
     test_old_psx_keys_load_as_the_new_names();
-    test_the_active_mods_list();
+    test_the_edition_in_use();
     return TEST_REPORT();
 }

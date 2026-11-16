@@ -77,7 +77,6 @@ add_library(tnfs_core STATIC
     core/formats/modpath.c
     core/formats/mod_check.c
     core/formats/mod_ini.c
-    core/formats/mod_list.c
     core/formats/edition_ini.c
     core/formats/stock_content.c
     core/formats/mod_install.c
@@ -359,6 +358,7 @@ add_library(tnfs_game STATIC
     game/race/dash_color.c
     game/sys/data_path.c
     game/sys/mod_generation.c
+    game/sys/edition_file.c
     game/sys/mod_set.c
     game/sys/mod_set_session.c
     game/sys/mod_store.c
@@ -754,7 +754,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_list mod_install edition_ini stock_content)
+    foreach(name qfs qfs_encode car_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_install edition_ini stock_content)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -1292,6 +1292,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_mod_set PRIVATE ${TNFS_WARNINGS})
     add_test(NAME mod_set COMMAND test_mod_set)
+    add_executable(test_edition_file tests/test_edition_file.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_edition_file PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_edition_file PRIVATE m)
+    endif()
+    target_compile_options(test_edition_file PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME edition_file COMMAND test_edition_file)
     add_executable(test_mod_store tests/test_mod_store.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_mod_store PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)

@@ -5,14 +5,14 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "formats/mod_list.h"
+#include "formats/edition_ini.h"
 #include "game/platform/platform.h"
 
 typedef enum { SCREEN_4_3 = 0, SCREEN_16_9 = 1, SCREEN_21_9 = 2 } ScreenFormat;
 
 enum { PSX_DIR_MAX = 256 };   /* port: the longest psx_dir kept; a longer one is cut */
-/* port: the longest line of a settings file read whole: a psx_dir or a mods line (dep59), the other keys are short */
-enum { PORT_LINE_MAX = (PSX_DIR_MAX > MOD_LIST_TEXT_MAX ? PSX_DIR_MAX : MOD_LIST_TEXT_MAX) + 32 };
+/* port: the longest line of a settings file read whole: a psx_dir, the other keys are short */
+enum { PORT_LINE_MAX = PSX_DIR_MAX + 32 };
 
 /* port: the console version time of day the light and its ambient colour come from (the letter of Z<TRACK><letter>.LGT / .LGS is 'B', 'A', 'C') */
 enum { LIGHT_TIME_DAY = 0, LIGHT_TIME_DAWN = 1, LIGHT_TIME_DUSK = 2, LIGHT_TIME_NIGHT = 3 };   /* the night: the dusk's files and sky, under a darker light and a dark fog (drive_light.c) */
@@ -97,9 +97,10 @@ typedef struct {
      * variants, so a track that does not take one never loses it for the next. `variant_mirror=`, `variant_rally=`,
      * `variant_reverse=`; 0 */
     int variant_mirror, variant_rally, variant_reverse;
-    /* port (dep59 n4): the active mods of <player folder>/mods/, `mods=id1,id2` (mod_list.h): the first listed wins. Free in Restomod only,
-     * so Stock and Restored load none (nor `--mods DIR`, which is Restomod's too, above the list: mod_set.h); "" none */
-    char mods[MOD_LIST_TEXT_MAX];
+    /* port (dep59 step 4): Restomod's edition in use, `edition=<id>`: <player folder>/editions/<id>.ini (edition_ini.h, edition_file.h);
+     * "" the standard edition (no line). Free in Restomod only, so Stock and Restored have none and load no mods (nor `--mods DIR`, which
+     * is Restomod's too: mod_set.h). It replaces step 2's `mods=` list, which is read as if it were not there */
+    char edition[EDITION_ID_MAX + 1];
     int profile;             /* a Profile (port_profile.h): the mode in use, `profile=stock|restored|restomod` in port.cfg, Stock without the line. Last, so the positional initialisers keep their meaning. */
 } PortSettings;
 
