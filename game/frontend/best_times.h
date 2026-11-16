@@ -2,6 +2,7 @@
 #ifndef TNFS_BEST_TIMES_H
 #define TNFS_BEST_TIMES_H
 
+#include "game/frontend/track_list.h"
 #include "game/frontend/track_select.h"
 
 #include <stdint.h>
@@ -88,6 +89,7 @@ typedef struct BestTimesInputs {
     int32_t screen;            /* 00524834 */
     int32_t screen_shape;      /* [00524834] + 0x2c */
     const uint8_t *records;    /* 00524f8f, BEST_TIMES_RECORDS bytes */
+    const TrackList *tracks;   /* port (dep59 step 4): an own edition's tracks the arrows walk (track_list.h); NULL the original's walk */
 } BestTimesInputs;
 
 /* port (dep55): Restomod's records pages (race_records.h, best_times_pages.h). A fixed title strip under the track's name: the table

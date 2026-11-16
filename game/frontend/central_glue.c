@@ -573,8 +573,9 @@ static int32_t best_times(void *ctx)
     const int32_t screen = ea_screen();
     port_log("mark:screen=best_times\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     if (track_screen_reverse != NULL) reverse_track_pick(*track_screen_reverse);   /* port (dep56): the screen's layout as it shows it */
+    TrackList l;
     const BestTimesInputs in = { "", resource_german(), cg_g.lost_vegas, screen, ea_picture_shape(screen),
-                                 image + (0x524f8f - 0x524df0) };
+                                 image + (0x524f8f - 0x524df0), edition_tracks(&l) };
     BestTimesState st = { image + (0x524df9 - 0x524df0), cg_g.inverse, cg_screen_palette,
                           records_glue_best_plus(image, cg_g.variant_m, cg_g.variant_r, cg_g.explode, cg_g.nitro, (menu_cheats.keys_506 & 8) != 0,
                                                  cg_g.player_car) };   /* port (dep55): Restomod's pages; NULL the exe's screen */
