@@ -228,12 +228,12 @@ if [ -n "$(find_one DVIPER.CFM)" ]; then
     grep -q -- "--force" "$work/err" || fail "the refusal does not mention --force: $(cat "$work/err")"
     "$studio" car import "$work/ci/p" --obj "$fixture/car.obj" --data "$orig" --force >/dev/null 2>"$work/err" || fail "car import --force: $(cat "$work/err")"
     cmp -s "$work/ci/first.CFM" "$work/ci/p/SIMDATA/CARFAMS/IMPTEST.CFM" || fail "importing twice does not give the same CFM"
-    # raw: unpack's high mesh of the template back in; its bank is the donor's bitmaps, so only the low masks go
+    # raw: unpack's high mesh of the template back in; its banks and, without --low, its far model are the donor's, so its masks stay
     "$studio" car new --template viper --id import-raw --stem IMPRAW --out "$work/ci/r" --data "$orig" --port-data "$port" >/dev/null 2>&1
     "$studio" unpack "$(find_one DVIPER.CFM)" "$work/ci/u" >/dev/null 2>&1
     "$studio" car import "$work/ci/r" --obj "$work/ci/u/c0/mesh.obj" --raw --data "$orig" >"$work/out" 2>&1 || fail "car import --raw: $(cat "$work/out")"
     "$studio" validate "$work/ci/r" 2>&1 | grep -q "no findings" || fail "validate found something in the raw import"
-    ls "$work/ci/r/car_masks/IMPRAW" | grep -q "_lo_mask.png" && fail "raw without --low kept the low masks"
+    ls "$work/ci/r/car_masks/IMPRAW" | grep -q "_lo_mask.png" || fail "raw without --low removed the low masks of the donor's far model"
     ls "$work/ci/r/car_masks/IMPRAW" | grep -v "_lo_" | grep -q "_mask.png" || fail "raw removed the high masks of the donor's bank"
 fi
 

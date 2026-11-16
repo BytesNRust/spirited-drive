@@ -536,6 +536,70 @@ static void test_blender(const uint8_t *donor, size_t n)
     mesh_desc_free(&d.mesh);
 }
 
+/* raw import of `donor` with its own meshes as exported (the low one too when `low`): the CFM made, malloc'd; NULL when it failed */
+static uint8_t *raw_again(const uint8_t *donor, size_t n, int low, size_t *out_len)
+{
+    const uint8_t *child[CFM_CHILDREN];
+    size_t len[CFM_CHILDREN];
+    ExchangeError err = { { 0 } };
+    FileSet hi, lo;
+    fileset_init(&hi), fileset_init(&lo);
+    ObjModel high, far;
+    memset(&high, 0, sizeof high), memset(&far, 0, sizeof far);
+    uint8_t *cfm = NULL;
+    *out_len = 0;
+    int ok = cfm_describe(donor, n, child, len, &err) && mesh_export(child[0], len[0], "mesh", NULL, 0, &hi, &err) &&
+             mesh_export(child[2], len[2], "mesh", NULL, 0, &lo, &err);
+    const SetFile *ho = ok ? fileset_find(&hi, "mesh.obj") : NULL, *lw = ok ? fileset_find(&lo, "mesh.obj") : NULL;
+    ok = ok && ho != NULL && lw != NULL && obj_read(ho->data, ho->size, NULL, 0, &high, &err) && obj_read(lw->data, lw->size, NULL, 0, &far, &err);
+    if (ok) {
+        CarImportIn in = input(donor, n, &high, NULL);
+        in.raw = 1, in.high_tables = &hi;
+        if (low) in.low = &far, in.low_tables = &lo;
+        int32_t half[3];
+        ok = car_import(&in, &cfm, out_len, half, &err);
+    }
+    if (!ok) fprintf(stderr, "car_import: raw again: %s\n", err.message);
+    obj_free(&high), obj_free(&far);
+    fileset_free(&hi), fileset_free(&lo);
+    if (!ok) {
+        free(cfm);
+        return NULL;
+    }
+    return cfm;
+}
+
+static int same_child(const uint8_t *a, size_t an, const uint8_t *b, size_t bn, int k)
+{
+    const uint8_t *ca[CFM_CHILDREN], *cb[CFM_CHILDREN];
+    size_t la[CFM_CHILDREN], lb[CFM_CHILDREN];
+    ExchangeError err = { { 0 } };
+    return cfm_describe(a, an, ca, la, &err) && cfm_describe(b, bn, cb, lb, &err) && la[k] == lb[k] && memcmp(ca[k], cb[k], la[k]) == 0;
+}
+
+/* fix/raw-import-banks: raw keeps the donor's banks byte for byte (their order, block sizes, leads and tails), so an unchanged export of a
+ * car the importer made comes back byte-identical; without a low OBJ the donor's far model and its bank stay as they were */
+static void test_raw_keeps_the_banks(const uint8_t *viper, size_t viper_len)
+{
+    size_t n1 = 0, n2 = 0, n3 = 0;
+    uint8_t *made = raw_again(viper, viper_len, 1, &n1);
+    CHECK(made != NULL);
+    if (made == NULL) return;
+    CHECK(same_child(made, n1, viper, viper_len, 1));   /* the Viper's banks, as the CD has them */
+    CHECK(same_child(made, n1, viper, viper_len, 3));
+    uint8_t *again = raw_again(made, n1, 1, &n2);
+    CHECK(again != NULL && n2 == n1 && memcmp(again, made, n1) == 0);
+    /* without the low OBJ: the far model and its bank are the donor's, not the near ones */
+    uint8_t *near_only = raw_again(viper, viper_len, 0, &n3);
+    CHECK(near_only != NULL);
+    if (near_only != NULL) {
+        CHECK(same_child(near_only, n3, viper, viper_len, 2));
+        CHECK(same_child(near_only, n3, viper, viper_len, 3));
+        CHECK(same_child(near_only, n3, made, n1, 0) && same_child(near_only, n3, made, n1, 1));
+    }
+    free(made), free(again), free(near_only);
+}
+
 int main(void)
 {
     size_t n = 0;
@@ -554,6 +618,7 @@ int main(void)
     test_twins(donor, n, &pngs);
     test_raw(donor, n);
     test_blender(donor, n);
+    test_raw_keeps_the_banks(donor, n);
     fileset_free(&pngs);
     free(donor);
     return TEST_REPORT();
