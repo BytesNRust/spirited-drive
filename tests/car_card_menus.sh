@@ -66,7 +66,7 @@ shot() { printf '0:SHOT:%s' "$1"; }   # the frame on screen once it is still, as
 # the way in: our boot screen, EA's first movie, the title (a key ends its wait), Game Mode, Single, the name box, Control Central
 # (the boot screen logs its mark before the script's first step is armed: the first key goes at a time)
 to_central="1500:ESC,$(wait_for movie=),300:ESC,$(wait_for screen=title),300:ESC,$(wait_for screen=game_mode)"
-to_central="$to_central,$(click 310 145),$(wait_for screen=name_box),300:TEXT:R,300:ENTER,$(wait_for screen=central)"
+to_central="$to_central,$(click 310 170),$(wait_for screen=name_box),300:TEXT:R,300:ENTER,$(wait_for screen=central)"
 car_on() { printf '%s,%s' "$(click 319 197)" "$(wait_for car=)"; }   # the car arrow's right (central_select.c), the mark its card logs
 # a fresh player starts on car 6, the head to head rival 7; Restomod's list goes 0..7, the added cars, the Warrior (11): two on is car 16
 car_16="$(car_on),$(click 319 197),$(wait_for car=16)"
