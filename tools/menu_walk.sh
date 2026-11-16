@@ -7,8 +7,9 @@
 #            track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
 #            best-circuit-p2  best-cheats (Coastal, the table with cheats: none)
 #        KEYS (track and best-times: more steps after the screen opens, e.g. 1500:UP,800:RIGHT) and TAIL (a pause, in seconds, after the
-#        target's mark before the walk looks for the still screen; the walk also waits for the game's "input script: done", the last step taken,
-#        so KEYS that outlast TAIL are no longer cut short). On central, the items car+ car- opponent+ opponent- are a click on that arrow and a
+#        target's mark before the walk looks for the still screen; with KEYS the walk also waits for the game's "input script: done", the last
+#        step taken, so KEYS that outlast TAIL are no longer cut short: at most DONE_WAIT seconds, default 30, past the mark, as a binary from
+#        before that line never logs it; the walk then says so and goes on). On central, the items car+ car- opponent+ opponent- are a click on that arrow and a
 #        wait for the game's mark that the choice changed (mark:car= / mark:opponent=, logged once the card shows it); the walk then checks
 #        that each such click changed the choice once (exit 4 if not)
 #        USER_FILES (a folder whose files the walk starts with in its user folder: a race_records.dat)
@@ -123,12 +124,20 @@ limit=$(( step * 12 + 60 ))
     TNFS_INPUT_SETTLE=$settle TNFS_INPUT_SCRIPT="$script" \
     timeout -k 5 $limit "$bin" --data "$data" --mods "$work/mods" --user "$work/user" > "$work/log" 2>&1 &)
 # the game runs on its own: watch its log for the last mark, then let the screen settle a moment and stop it
-rc=1 waited=0
+# with KEYS (steps after the target's own script) the walk also waits for the script's end ("input script: done"), at most DONE_WAIT seconds
+# past the target's mark: a binary from before that line (a menu_compare against an older build, a bisect) never logs it, and the walk then
+# says so and goes on as without KEYS
+rc=1 waited=0 marked=-1
 while [ $waited -lt $limit ]; do
     sleep 1; waited=$((waited + 1))
-    # the target's screen, and every step of the script taken (the game logs "input script: done")
-    if grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null &&
-       grep -q "input script: done" "$work/user/spirited-drive.log" 2>/dev/null; then sleep ${tail:-3}; rc=0; break; fi
+    if [ $marked -lt 0 ] && grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null; then marked=$waited; fi
+    if [ $marked -ge 0 ]; then
+        if [ -z "$KEYS" ] || grep -q "input script: done" "$work/user/spirited-drive.log" 2>/dev/null; then sleep ${tail:-3}; rc=0; break; fi
+        if [ $(( waited - marked )) -ge ${DONE_WAIT:-30} ]; then
+            echo "menu_walk: no 'input script: done' from this binary" >&2
+            sleep ${tail:-3}; rc=0; break
+        fi
+    fi
     if grep -q "input script: step.*timed out" "$work/user/spirited-drive.log" 2>/dev/null; then rc=3; break; fi
     pgrep -f "$work/user" >/dev/null 2>&1 || { [ $waited -gt 3 ] && break; }   # the game ended on its own (a crash, or the script's end)
 done
