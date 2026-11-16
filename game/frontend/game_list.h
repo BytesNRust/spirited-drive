@@ -60,6 +60,9 @@ typedef struct GameListOps {
     void (*blit_masked)(void *ctx, const uint8_t *shape);                  /* 00473ab4 (cdecl) */
     void (*picture_free)(void *ctx, int32_t picture);                      /* 004746a0 (cdecl) */
     void (*free)(void *ctx, int32_t bank);                                 /* 00475260 (cdecl) */
+    /* port (dep59 step 3): the Replay.rpx `name`'s cars against the mods in effect (race_replay_file_cars: a ReplayCars), the id it
+     * names in `id` (REPLAY_CARS_ID bytes) */
+    int32_t (*replay_cars)(void *ctx, const char *name, char *id);
     void *ctx;
 } GameListOps;
 
@@ -80,10 +83,13 @@ typedef struct GameListState {
     uint8_t *controls;          /* 0052ad26: the controls, 0x1a bytes */
     int32_t *lost_vegas;        /* 004baf18 */
     int16_t *tournament;        /* the short 0052b310 */
+    int added_replays;          /* port (dep59 step 3): Restomod: the races with an added car, *.RPX, listed after the *.RPL */
 } GameListState;
 
 /* 0042ae9c: the names matching *.SAV in the saves' directory (modes 2, 3) or
- * *.RPL in the replays' (0, 1; the system replays dropped in 1), ten at a
+ * *.RPL in the replays' (0, 1; the system replays dropped in 1; port: then
+ * *.RPX with added_replays, each said by replay_label, and one that cannot
+ * play said again when picked instead of loaded), ten at a
  * time in a window that opens and closes in seven frames; the pointer or
  * the arrows pick a name, the scroll arrows or Cancel; Enter, space or a
  * button act: mode 0 asks to load the replay (its name to 00524e2b, 1), 1

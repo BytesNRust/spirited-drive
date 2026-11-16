@@ -327,3 +327,14 @@ int race_replay_looks_get(const uint8_t block[REPLAY_LOOKS_BLOCK], ReplayLook lo
     memcpy(looks, got, sizeof got);
     return 1;
 }
+
+ReplayCars race_replay_file_cars(const uint8_t *file, size_t size, ReplayRace *out, char *id_out)
+{
+    const size_t cars_end = (size_t)REPLAY_CARS_AT + REPLAY_CARS_BLOCK;
+    const int looks = size == cars_end + REPLAY_LOOKS_BLOCK;
+    id_out[0] = '\0';
+    if (file == NULL || (size != cars_end && !looks)) return memset(out, 0, sizeof *out), REPLAY_CARS_BAD;
+    const ReplayCars r = race_replay_image_race_cars(file, file + REPLAY_CARS_AT, out, id_out);
+    if (r == REPLAY_CARS_OK) out->looks_known = looks && race_replay_looks_get(file + cars_end, out->looks);
+    return r;
+}

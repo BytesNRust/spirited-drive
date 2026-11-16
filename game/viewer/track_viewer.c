@@ -726,17 +726,11 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
 static int added_race(const uint8_t *file, size_t size, ReplayRace *race)
 {
     char id[REPLAY_CARS_ID];
-    const size_t cars_end = (size_t)REPLAY_CARS_AT + REPLAY_CARS_BLOCK;
-    const int looks = size == cars_end + REPLAY_LOOKS_BLOCK;   /* port (dep59 step 3): the looks the cars wore; 1b's files have none */
-    if (size != cars_end && !looks) {
-        port_log("track_viewer: not a replay\n");
-        return 0;
-    }
     car_pieces_follow();   /* the added cars of the mods in effect now */
-    switch (race_replay_image_race_cars(file, file + REPLAY_CARS_AT, race, id)) {
+    switch (race_replay_file_cars(file, size, race, id)) {
     case REPLAY_CARS_OK:
-        race->looks_known = looks && race_replay_looks_get(file + cars_end, race->looks);
-        if (looks && !race->looks_known) port_log("replay: its cars' looks do not read: each as picked now\n");
+        if (size > (size_t)REPLAY_CARS_AT + REPLAY_CARS_BLOCK && !race->looks_known)
+            port_log("replay: its cars' looks do not read: each as picked now\n");
         return 1;
     case REPLAY_CARS_MISSING: port_fatal("replay: needs the mod %s\n", id); return 0;
     case REPLAY_CARS_CHANGED: port_fatal("replay: the mod %s has changed since this replay was made\n", id); return 0;

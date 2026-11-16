@@ -16,7 +16,8 @@ int file_list_same_name(const uint8_t *a, const char *b)
 void file_list_drop_replays(uint8_t *names, int16_t *count)
 {
     /* 004aeff8, 004af004, 004af010, 004af01c */
-    static const char *const REPLAY[] = { "REPLAY.RPL", "REPLAY1.RPL", "REPLAY2.RPL", "REPLAY3.RPL" };
+    static const char *const REPLAY[] = { "REPLAY.RPL", "REPLAY1.RPL", "REPLAY2.RPL", "REPLAY3.RPL",
+                                          "REPLAY.RPX" };   /* port (dep59 1b): a race with an added car's own */
     for (int i = 0; i < *count; i++) {
         uint8_t *name = names + FILE_LIST_NAME * (size_t)i;
         int drop = 0;

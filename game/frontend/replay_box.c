@@ -10,7 +10,7 @@ void replay_box_show(char *name, int german, const MessageBannerInputs *in, uint
                      const SaveBoxOps *ops)
 {
     enum { W = 0x1e0, H = 0x64, X = 0x50, Y = 0xbe, DARK = 0x9000, RED = 0xff0000, LENGTH = 8, SOUND = 0x48,
-           CUT = 0xf, REPLAY_NAME = 0x3b, SAVED_SHOWN = 100 };
+           CUT = 0xf, REPLAY_NAME = REPLAY_BOX_NAME_AT, SAVED_SHOWN = 100 };
     /* 004aef38.. */
     static const char *const SYSTEM[] = { "REPLAY", "REPLAY1", "REPLAY2", "REPLAY3" };
     const MessageBannerOps *d = ops->draw;

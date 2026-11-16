@@ -8,7 +8,8 @@
 #include <stdint.h>
 
 /* the original's path buffer (esp + 0x100, below the two pictures): dir + name + ".rpl" must fit */
-enum { REPLAY_BOX_PATH = 0x50 };
+enum { REPLAY_BOX_PATH = 0x50,
+       REPLAY_BOX_NAME_AT = 0x3b, REPLAY_BOX_NAME_SIZE = 0x14 };   /* config.dat's replay name (00524e2b), with its NUL */
 
 /* 0042a9f8: as 0042a680 (save_box_show) with a 0x1e0 x 0x64 box at 0x50,
  * 0xbe, "Save replay as" ("Wiederholung speichern als") centred at 0xf0,

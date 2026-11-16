@@ -105,6 +105,29 @@ static void test_the_setup_needs_the_block(void)
     RaceField originals = field_of(3, 5);   /* the block says slot 0 is an original: the setup's 16 is no car */
     race_replay_cars_write(block, &originals);
     CHECK_EQ_INT(race_replay_image_race_cars(setup, block, &r, id), REPLAY_CARS_BAD);
+
+    /* Task 11: a whole Replay.rpx (the setup first, the exe's blocks and trailers, the cars' block, the looks' block or none) */
+    static uint8_t file[REPLAY_CARS_AT + REPLAY_CARS_BLOCK + REPLAY_LOOKS_BLOCK];
+    register_car("f40", "F40", 0x1234, 16);
+    memset(file, 0, sizeof file);
+    memcpy(file, setup, sizeof setup);
+    race_replay_cars_write(file + REPLAY_CARS_AT, &f);
+    CHECK_EQ_INT(race_replay_file_cars(file, REPLAY_CARS_AT + REPLAY_CARS_BLOCK, &r, id), REPLAY_CARS_OK);   /* 1b's: no looks */
+    CHECK(!r.looks_known && r.field.entries[0].car == 16);
+    ReplayLook looks[RACE_PLAYERS];
+    memset(looks, 0, sizeof looks);
+    strcpy(looks[0].paint, "Blue");
+    race_replay_looks_put(looks, file + REPLAY_CARS_AT + REPLAY_CARS_BLOCK);
+    CHECK_EQ_INT(race_replay_file_cars(file, sizeof file, &r, id), REPLAY_CARS_OK);
+    CHECK(r.looks_known && strcmp(r.looks[0].paint, "Blue") == 0);
+    file[REPLAY_CARS_AT + REPLAY_CARS_BLOCK] = 'X';   /* looks that do not read: the replay still plays, each car as picked now */
+    CHECK_EQ_INT(race_replay_file_cars(file, sizeof file, &r, id), REPLAY_CARS_OK);
+    CHECK(!r.looks_known);
+    CHECK_EQ_INT(race_replay_file_cars(file, sizeof file - 1, &r, id), REPLAY_CARS_BAD);   /* any other size: no Replay.rpx */
+    CHECK_EQ_INT(race_replay_file_cars(file, REPLAY_CARS_AT, &r, id), REPLAY_CARS_BAD);
+    car_registry_clear();
+    CHECK_EQ_INT(race_replay_file_cars(file, sizeof file, &r, id), REPLAY_CARS_MISSING);
+    CHECK(strcmp(id, "f40") == 0);
 }
 
 /* dep59 step 3: the looks the added cars wore (TNFSLOK1, after the cars' block): back as written; a block that is not one of ours, or a

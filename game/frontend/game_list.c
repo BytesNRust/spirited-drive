@@ -1,6 +1,7 @@
 #include "game/frontend/game_list.h"
 
 #include "game/frontend/file_list.h"
+#include "game/frontend/replay_label.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -35,6 +36,8 @@ typedef struct List {
     int32_t result;   /* esp + 0x13c */
     int32_t rest;     /* esp + 0x138: the ticks summed, compared as a short */
     char cwd[GAME_LIST_PATH];  /* esp + 0 */
+    int8_t cars[GAME_LIST_NAMES];                  /* port (dep59 step 3): each Replay.rpx's ReplayCars */
+    char ids[GAME_LIST_NAMES][REPLAY_CARS_ID];     /* ... and the id it names */
 } List;
 
 static uint8_t *name_at(const GameListState *st, int i)
@@ -62,6 +65,38 @@ static void read_names(List *l, GameListState *st, const char *pattern, const Ga
         if (!found) break;
         put_name(st, i, found);
     }
+}
+
+/* port (dep59 step 3): the races with an added car, *.RPX, after the names already read */
+static void read_added(List *l, GameListState *st, const GameListOps *ops)
+{
+    if (!st->added_replays) return;
+    int16_t i = l->count;
+    for (const char *found = ops->find_first(ops->ctx, "*.RPX"); found != NULL && i < GAME_LIST_NAMES; found = ops->find_next(ops->ctx))
+        put_name(st, i++, found);
+    l->count = i;
+}
+
+/* port (dep59 step 3): what each Replay.rpx of the list needs, once the list is as it is shown */
+static void added_status(List *l, const GameListState *st, const GameListOps *ops)
+{
+    for (int16_t k = 0; k < l->count; k++) {
+        l->ids[k][0] = '\0';
+        l->cars[k] = replay_label_added((const char *)name_at(st, k)) ? (int8_t)ops->replay_cars(ops->ctx, (const char *)name_at(st, k), l->ids[k])
+                                                                      : (int8_t)REPLAY_CARS_OK;
+    }
+}
+
+/* the row's words: the name to its '.', or what replay_label says of a Replay.rpx */
+static void row_text(const List *l, const uint8_t *name, int16_t i, char *text, size_t cap)
+{
+    if (replay_label_added((const char *)name)) {
+        replay_label((const char *)name, (ReplayCars)l->cars[i], l->ids[i], text, cap);
+        return;
+    }
+    int16_t n = 0;
+    for (; name[n] != '.'; n++) text[n] = (char)name[n];
+    text[n] = 0;
 }
 
 /* the path: the working directory, '/', the saves' or replays' directory, '/' made '\', its last character cut */
@@ -139,9 +174,7 @@ static void draw(List *l, const GameListState *st, const GameListOps *ops)
         for (int16_t row = 0; row < ROWS; row++) {
             const uint8_t *name = name_at(st, l->top + row);
             if (!name[0]) continue;
-            int16_t n = 0;
-            for (; name[n] != '.'; n++) text[n] = (char)name[n];
-            text[n] = 0;
+            row_text(l, name, (int16_t)(l->top + row), text, sizeof text);
             if (row + 1 != l->item) {
                 ops->text_fit(ops->ctx, text, 0x23, y, 0x7d);
             } else {
@@ -197,7 +230,9 @@ static int16_t ask(const char *german, const char *english, const GameListState 
 static void listed_again(List *l, GameListState *st, const char *pattern, const GameListOps *ops)
 {
     read_names(l, st, pattern, ops);
+    if (l->mode == GAME_LIST_DELETE_REPLAY) read_added(l, st, ops);   /* port (dep59 step 3) */
     if (l->mode == GAME_LIST_DELETE_REPLAY) file_list_drop_replays(st->names, &l->count);
+    added_status(l, st, ops);
     l->item = l->was = l->count == 0 ? CANCEL : 1;
     if (l->count - l->top < ROWS && l->top > 0) l->top--;
     l->redraw = 1;
@@ -262,7 +297,14 @@ static void pick(List *l, GameListState *st, const GameListOps *ops)
         } else if (l->mode == GAME_LIST_LOAD_REPLAY) {
             const char *q = st->german ? (st->highlight ? "Highlight laden ?" : "Wiederholung laden ?")
                                        : (st->highlight ? "Load highlight ?" : "Load replay ?");
-            if ((int16_t)ops->yes_no(ops->ctx, q)) {
+            const int16_t at = (int16_t)(l->item + l->top - 1);
+            if (replay_label_added((const char *)name) && !replay_label_plays((ReplayCars)l->cars[at])) {   /* port (dep59 step 3) */
+                char text[TEXT];
+                replay_label((const char *)name, (ReplayCars)l->cars[at], l->ids[at], text, sizeof text);
+                tell(l, st, text, ops);
+                l->redraw = 1;
+                untell(l, st, ops);
+            } else if ((int16_t)ops->yes_no(ops->ctx, q)) {
                 strcpy(st->replay, (const char *)name);  /* sprintf "%s": the whole name, its NUL too */
                 l->result = 1;
                 l->done = 1;
@@ -362,7 +404,10 @@ int32_t game_list_screen(int32_t mode, GameListState *st, const GameListOps *ops
             put_name(st, i, found);
         }
     }
+    if (!saves) read_added(&l, st, ops);   /* port (dep59 step 3): Restomod's *.RPX after them */
+    if (l.count > 0 && l.item == CANCEL) l.item = l.was = 1;   /* ... the first lit when they are the only ones */
     if (l.mode == GAME_LIST_DELETE_REPLAY) file_list_drop_replays(st->names, &l.count);
+    added_status(&l, st, ops);
     /* the saved game's or the replay's name lit, the page scrolled to it */
     for (int16_t i = 0; i < l.count; i++) {
         char want[GAME_LIST_PATH];
