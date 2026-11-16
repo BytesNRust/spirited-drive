@@ -245,12 +245,16 @@ static void act(Screen *s, const BestTimesInputs *in, BestTimesState *st, const 
     case PREV: {
         int16_t to = (int16_t)(track - 1);
         if (to < 0) to = in->lost_vegas ? LOST_VEGAS : 7;
+        if (in->tracks != NULL) to = track_list_step(in->tracks, (int16_t)track, -1);   /* port (dep59 step 4) */
         change_track(s, in, st, to, ops);
         break;
     }
-    case NEXT:
-        change_track(s, in, st, (int16_t)((track + 1) % (in->lost_vegas ? 9 : 8)), ops);
+    case NEXT: {
+        int16_t to = (int16_t)((track + 1) % (in->lost_vegas ? 9 : 8));
+        if (in->tracks != NULL) to = track_list_step(in->tracks, (int16_t)track, 1);   /* port (dep59 step 4) */
+        change_track(s, in, st, to, ops);
         break;
+    }
     case BACK:
         s->result = 0;
         s->done = 1;

@@ -5,6 +5,7 @@
 #include "game/frontend/track_select.h"
 #include "game/frontend/yes_no_box.h"
 #include "game/frontend/best_times_pages.h"
+#include "game/frontend/track_list.h"
 #include "game/race/weather.h"
 #include "game/sys/extras_marks.h"
 #include "game/sys/port_settings.h"
@@ -224,20 +225,62 @@ static void reset(const int *keys, int count)
     fk.keys = keys, fk.key_count = count;
 }
 
-/* the screen on `track`, the menu's laps choice 1 */
-static int32_t run(BestTimesPlus *plus, int track)
+static uint8_t run_config[TRACK_SELECT_CONFIG];
+
+/* the screen on `track`, the menu's laps choice 1, its arrows walking `tracks` (NULL the original's walk), Lost Vegas `lost_vegas` */
+static int32_t run_walk(BestTimesPlus *plus, int track, const TrackList *tracks, int lost_vegas)
 {
-    static uint8_t config[TRACK_SELECT_CONFIG];
+    uint8_t *const config = run_config;
     static uint8_t screen_palette[0x300];
     static uint8_t records[BEST_TIMES_RECORDS];
-    const BestTimesInputs in = { "", 0, 0, 0, 0, records };
+    const BestTimesInputs in = { "", 0, lost_vegas, 0, 0, records, tracks };
     BestTimesState st = { config, 0, screen_palette, plus };
     DialogPointer p = { 0 };
     p.active = fk.active;
-    memset(config, 0, sizeof config);
+    memset(config, 0, sizeof run_config);
     config[TRACK_SELECT_TRACK] = (uint8_t)track;
     config[TRACK_SELECT_LAPS_CHOICE] = 1;
     return best_times_screen(&in, &st, &p, &OPS);
+}
+
+static int32_t run(BestTimesPlus *plus, int track) { return run_walk(plus, track, NULL, 0); }
+
+/* the track the screen ends on after `steps` presses of an arrow from `track` (Right from Back: Done, then the track before, then after) */
+static int arrow_from(int track, int next, int steps, const TrackList *tracks, int lost_vegas)
+{
+    int keys[2 + 3 * 8];
+    int n = 0;
+    keys[n++] = RIGHT, keys[n++] = RIGHT;
+    if (next) keys[n++] = RIGHT;
+    for (int i = 0; i < steps; i++) keys[n++] = ENTER;
+    reset(keys, n);
+    run_walk(NULL, track, tracks, lost_vegas);
+    return run_config[TRACK_SELECT_TRACK];
+}
+
+/* port (dep59 step 4): without an edition's tracks the arrows walk the original's 0..7, and Lost Vegas when it is unlocked */
+static void test_the_standard_arrows_walk_the_original(void)
+{
+    CHECK_EQ_INT(arrow_from(7, 1, 1, NULL, 0), 0);
+    CHECK_EQ_INT(arrow_from(0, 0, 1, NULL, 0), 7);
+    CHECK_EQ_INT(arrow_from(7, 1, 1, NULL, 1), 8);
+    CHECK_EQ_INT(arrow_from(8, 1, 1, NULL, 1), 0);
+    CHECK_EQ_INT(arrow_from(0, 0, 1, NULL, 1), 8);
+    CHECK_EQ_INT(arrow_from(CIRCUIT, 1, 1, NULL, 0), CIRCUIT + 1);
+}
+
+/* port (dep59 step 4): an own edition's arrows walk its tracks in its order, round the list both ways */
+static void test_an_editions_arrows_walk_its_tracks(void)
+{
+    const TrackList city_vegas = { { 5, 8 }, 2 };
+    CHECK_EQ_INT(arrow_from(5, 1, 1, &city_vegas, 0), 8);
+    CHECK_EQ_INT(arrow_from(5, 0, 1, &city_vegas, 0), 8);
+    CHECK_EQ_INT(arrow_from(8, 1, 1, &city_vegas, 0), 5);
+    CHECK_EQ_INT(arrow_from(5, 1, 2, &city_vegas, 0), 5);
+    const TrackList three = { { 3, 0, 6 }, 3 };
+    CHECK_EQ_INT(arrow_from(3, 1, 1, &three, 0), 0);
+    CHECK_EQ_INT(arrow_from(3, 0, 1, &three, 0), 6);
+    CHECK_EQ_INT(arrow_from(6, 1, 1, &three, 1), 3);
 }
 
 static int was_drawn(const char *text)
@@ -377,7 +420,7 @@ static void draw_strip(BestTimesPlus *plus, int track, int lit, BestPagesHits *h
     static uint8_t config[TRACK_SELECT_CONFIG];
     static uint8_t screen_palette[0x300];
     static uint8_t records[BEST_TIMES_RECORDS];
-    const BestTimesInputs in = { "", 0, 0, 0, 0, records };
+    const BestTimesInputs in = { "", 0, 0, 0, 0, records, NULL };
     const BestTimesState st = { config, 0, screen_palette, plus };
     memset(config, 0, sizeof config);
     config[TRACK_SELECT_TRACK] = (uint8_t)track;
@@ -551,6 +594,8 @@ static void test_a_click_on_a_word_steps_it_on(void)
 int main(void)
 {
     test_no_plus_is_original();
+    test_the_standard_arrows_walk_the_original();
+    test_an_editions_arrows_walk_its_tracks();
     test_the_strip_names_the_table();
     test_tab_turns_the_page();
     test_the_keys_step_the_fields();
