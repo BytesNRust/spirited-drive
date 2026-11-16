@@ -312,6 +312,11 @@ int race_chase_remembers(const RaceState *race, const RaceChase *chase, int32_t 
 static void take_view(RaceState *race, RaceChase *chase, int32_t kind, int record)
 {
     if (chase->car == NULL) return;  /* port guard: the original reads the car unchecked */
+    if (kind == 0 && race->port_no_cockpit != 0) {   /* port (dep59 3b): no cockpit (an added car without dash_from): the first outside view, */
+        chase->next_kind = 1;                        /* as a replay takes it below, and not kept as the next race's camera */
+        kind = 1;
+        record = 0;
+    }
     if ((kind < 4 || kind == KIND_REPLAY || kind == KIND_REPLAY + 1) && !faces_road(race, chase->car)) {
         kind = KIND_NO_ROAD;
         chase->yaw = node_heading(race, chase->car->node);

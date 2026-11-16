@@ -491,7 +491,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     int own = model;  /* the dash (0041f9a0) is this machine's car's: in a link race its slot's in the setup */
     if (entries != NULL) memcpy(&own, entries + sizeof(RaceEntry) * (size_t)drive_link.slot + offsetof(RaceEntry, car), sizeof own);
     char stem[16];
-    car_stem(car_registry_dash_model(own), stem);   /* port (dep59): an added car shows an original's cockpit (car_registry.h) */
+    const int dash = car_registry_dash_model(own);   /* port (dep59): an added car shows its dash_from's cockpit (car_registry.h)... */
+    car_stem(dash >= 0 ? dash : CAR_HUD_STAND_IN, stem);   /* ...or, with none, a fixed one for the HUD alone, never shown (3b) */
     RaceField field;
     racers = drive_field_init(&field, name, racers, race_type, seed, flags);
     /* port (dev, env only): TNFS_RALLY=1 runs the headless --drive as the rally (the menus' variant), for the lunar gravity's trace and the rally gravel's captures */
@@ -523,6 +524,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     race_sim_start_field(&drive_sim, &t->tri, name, &specs, &field, laps, arcade);
     drive_start_world(t, data_root, name, &field, laps, exe_laps, free_race);
     drive_start_race_words(name, laps);
+    drive_sim.race.port_no_cockpit = dash < 0;   /* port (dep59 3b): the chase never takes view 0 for it */
     drive_start_input();
     drive_start_views(field.seed);
     drive_start_hud(t, data_root, stem);

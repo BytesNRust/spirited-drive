@@ -436,6 +436,7 @@ typedef struct {
     RaceSounds sounds;
     int32_t port_last_camera;       /* port (last_camera): 1 the race's intro fly-over lands on the camera the player last used, and the live player's view changes are kept in port_start_camera; 0 the exe's */
     int32_t port_start_camera;      /* port: that camera's chase kind + 1 (0 none yet); read and written by race_chase.c, loaded and saved by the viewer */
+    int32_t port_no_cockpit;        /* port (dep59 3b): 1 the player's car has no cockpit (an added car without dash_from): the chase takes view 1 for 0 and keeps no camera for it; 0 the exe's */
     int32_t port_replay_cameras;    /* port: the extra (the mode's file): the own live car's view key goes the replay's way */
     RaceDifficulty port_difficulty;  /* port: the race's difficulty (the mode's file's difficulty, difficulty.h); all Original (0) the exe's */
     int32_t port_grip_dry[RACE_SURFACES];   /* port (tunnel_dry): each surface's grip before the wet road's (race_surfaces_init); a car inside a closed zone has this */
