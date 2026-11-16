@@ -1219,8 +1219,16 @@ if(NOT EMSCRIPTEN)
     endif()
     if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
         add_test(NAME mods_overlay COMMAND sh ${CMAKE_SOURCE_DIR}/tests/mods_overlay.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
-        add_test(NAME car_piece_race COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_piece_race.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/original $<TARGET_FILE:tnfs-studio>)
-        set_tests_properties(car_piece_race PROPERTIES TIMEOUT 600)
+        # one test per part, so they run side by side; finish starts from giveup's player folder, replay, refusals and stock from
+        # finish's (ctest's fixtures: asking for one runs those it starts from first)
+        foreach(part quick giveup finish replay refusals stock)
+            add_test(NAME car_piece_race_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_piece_race.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
+                     ${CMAKE_SOURCE_DIR}/original $<TARGET_FILE:tnfs-studio> ${part} ${CMAKE_CURRENT_BINARY_DIR}/car_piece_race_fixture)
+            set_tests_properties(car_piece_race_${part} PROPERTIES TIMEOUT 600)
+        endforeach()
+        set_tests_properties(car_piece_race_giveup PROPERTIES FIXTURES_SETUP car_piece_giveup)
+        set_tests_properties(car_piece_race_finish PROPERTIES FIXTURES_REQUIRED car_piece_giveup FIXTURES_SETUP car_piece_finish)
+        set_tests_properties(car_piece_race_replay car_piece_race_refusals car_piece_race_stock PROPERTIES FIXTURES_REQUIRED car_piece_finish)
         # dep59 step 3: an added car in the menus, one test per part so they run side by side
         foreach(part central gallery kept rival modes replays)
             add_test(NAME car_card_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_card_menus.sh $<TARGET_FILE:tnfs>
