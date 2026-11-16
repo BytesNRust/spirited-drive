@@ -294,7 +294,15 @@ static void pick(List *l, GameListState *st, const GameListOps *ops)
                 delete_file(l, st, name, "*.rpl", ops);
             }
         } else if (l->mode == GAME_LIST_LOAD_GAME) {
-            if ((int16_t)ops->yes_no(ops->ctx, st->german ? "Spiel laden ?" : "Load game ?")) load_game(l, st, name, ops);
+            const char *const why = ops->load_refused != NULL ? ops->load_refused(ops->ctx) : NULL;
+            if (why != NULL) {   /* port (dep59 step 4): an edition that closes the tournament: why, and nothing loaded */
+                port_log("mark:game_list=load_refused\n");
+                tell(l, st, why, ops);
+                l->redraw = 1;
+                untell(l, st, ops);
+            } else if ((int16_t)ops->yes_no(ops->ctx, st->german ? "Spiel laden ?" : "Load game ?")) {
+                load_game(l, st, name, ops);
+            }
         } else if (l->mode == GAME_LIST_LOAD_REPLAY) {
             const char *q = st->german ? (st->highlight ? "Highlight laden ?" : "Wiederholung laden ?")
                                        : (st->highlight ? "Load highlight ?" : "Load replay ?");

@@ -6,6 +6,7 @@
 #include "game/race/dash_mask.h"
 #include "game/race/dash_nose.h"
 #include "game/race/race_sim.h"
+#include "game/sys/edition.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_follow.h"
 #include "game/sys/port_profile.h"
@@ -92,6 +93,12 @@ static void test_every_write_moves_the_generation(void)
     CHECK(port_settings_generation() != was);
     was = port_settings_generation();
     CHECK(port_profile_reset(PROFILE_RESTOMOD));   /* the mode's Restore */
+    CHECK(port_settings_generation() != was);
+    was = port_settings_generation();
+    CHECK_EQ_INT(edition_set("night"), 1);   /* an edition chosen in Game Mode */
+    CHECK(port_settings_generation() != was);
+    was = port_settings_generation();
+    CHECK_EQ_INT(edition_set(NULL), 1);   /* back to the standard edition */
     CHECK(port_settings_generation() != was);
     was = port_settings_generation();
     (void)port_settings_load(), (void)port_extras_load();   /* reads move nothing */

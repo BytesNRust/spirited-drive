@@ -1,6 +1,8 @@
 /* Control Central's glue for the saved games, the replays and the menus after a race and between segments (split from central_glue.c). */
 #include "game/frontend/central_glue_private.h"
+#include "game/frontend/edition_rules.h"
 #include "game/frontend/unlock_level.h"
+#include "game/sys/edition_file.h"
 #include "game/frontend/tournament_variants.h"
 #include "game/frontend/replay_label.h"
 #include "game/race/race_replay_image.h"
@@ -37,6 +39,14 @@ static ReplayCars added_cars(const char *name, char *id)
 static int32_t replay_cars(void *ctx, const char *name, char *id) { (void)ctx; return (int32_t)added_cars(name, id); }
 
 /* 0042ae9c on config.dat's image and the menus' game state */
+/* port (dep59 step 4): a saved game is a tournament, which an edition may close (edition_rules.h): its reason, read at the pick */
+static const char *load_refused(void *ctx)
+{
+    (void)ctx;
+    Edition e;
+    return edition_gate(edition_in_use(&e)).tournament_why;
+}
+
 static int32_t game_list(void *ctx, int32_t mode)
 {
     uint8_t *const image = config_current()->image;
@@ -49,7 +59,7 @@ static int32_t game_list(void *ctx, int32_t mode)
         find_next, clip, move_to, ticks, in_rect, sound, deadline_set, shape, audio_blit_at, style, cg_fit, masked_at,
         select_default, nothing, blit_word, blit_at, nothing, flip, show, cg_deadline_passed, nothing, buttons,
         activate, music, cg_key, click, glue_yes_no, remove_save, glue_banner_wait, game_load, music_fade_to,
-        redraw_pointer, off, blit_masked, picture_free, free_bank, replay_cars, ctx };
+        redraw_pointer, off, blit_masked, picture_free, free_bank, replay_cars, ctx, load_refused };
     const int32_t result = game_list_screen(mode, &st, &ops);
     cg_tournament_variants_apply();   /* port (dep56): a game loaded runs its own variants */
     return result;

@@ -64,6 +64,9 @@ typedef struct GameListOps {
      * names in `id` (REPLAY_CARS_ID bytes) */
     int32_t (*replay_cars)(void *ctx, const char *name, char *id);
     void *ctx;
+    /* port (dep59 step 4): why a saved game (a tournament) cannot be loaded in the edition in use (edition_rules.h), NULL when it can; NULL
+     * op: always */
+    const char *(*load_refused)(void *ctx);
 } GameListOps;
 
 typedef struct GameListState {
@@ -94,7 +97,8 @@ typedef struct GameListState {
  * the arrows pick a name, the scroll arrows or Cancel; Enter, space or a
  * button act: mode 0 asks to load the replay (its name to 00524e2b, 1), 1
  * and 3 to delete the file (the list read again; not a system replay), 2 to
- * load the game (the state kept at 00524838, the players' records cleared,
+ * load the game (port: unless load_refused gives a reason, which is told
+ * instead) (the state kept at 00524838, the players' records cleared,
  * the config, controls and Lost Vegas from it, a tournament, the music's
  * volume; 1 when the track is below 3 and 00524e83 above 0). Escape, the
  * right button or Cancel leave. The working directory is put back. */

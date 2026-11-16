@@ -1,5 +1,6 @@
 /* See mode_choices.h. */
 #include "game/frontend/mode_choices.h"
+#include "game/sys/edition.h"
 #include "game/sys/edition_file.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
@@ -106,26 +107,13 @@ int mode_choices_in_use(void)
     return PROFILE_RESTOMOD;
 }
 
-/* Restomod's edition= set to `id` ("" the standard edition), its file written only when it changes */
-static int edition_put(const char *id)
-{
-    PortSettings s = port_settings_of_profile(PROFILE_RESTOMOD);
-    if (strcmp(s.edition, id) == 0) return 1;
-    snprintf(s.edition, sizeof s.edition, "%s", id);
-    const PortExtras x = port_extras_of_profile(PROFILE_RESTOMOD);
-    if (port_mode_save(&s, &x)) return 1;
-    port_log("port (dep59): edition: restomod.cfg could not be saved\n");
-    return 0;
-}
-
 int mode_choices_apply(int index)
 {
     ModeChoice c;
     if (!mode_choices_get(index, &c) || !c.usable) return 0;
-    if (c.profile == PROFILE_RESTOMOD && !edition_put(c.id)) return 0;
-    if (port_settings_load().profile != c.profile && !port_profile_select(c.profile)) {
+    if (port_settings_load().profile != c.profile && !port_profile_select(c.profile)) {   /* the mode first: unsaved, nothing else changes */
         port_log("profile: the file could not be saved\n");
         return 0;
     }
-    return 1;
+    return c.profile != PROFILE_RESTOMOD || edition_set(c.id) >= 0;   /* edition.h: written only when it changes */
 }
