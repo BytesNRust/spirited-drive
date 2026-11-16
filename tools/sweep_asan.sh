@@ -72,7 +72,7 @@ run() {
 # menu NAME SCRIPT: the full game with SCRIPT after the way to Control Central, on a copy of MODS
 # each screen's mark waited for, as tests/car_card_menus.sh does: Esc past the boot, the movie and the title, then Single Player
 # (L2b: on top; 310,218 is Multiplayer now), the name box (a click is Enter), Central
-TO_CENTRAL="1500:ESC,0:WAIT:mark:movie=:60,300:ESC,0:WAIT:mark:screen=title:60,300:ESC,0:WAIT:mark:screen=game_mode:60,0:CLICK:310:145,0:WAIT:mark:screen=name_box:60,0:CLICK:600:30,0:WAIT:mark:screen=central:60"
+TO_CENTRAL="1500:ESC,0:WAIT:mark:movie=:60,300:ESC,0:WAIT:mark:screen=title:60,300:ESC,0:WAIT:mark:screen=game_mode:60,0:CLICK:310:170,0:WAIT:mark:screen=name_box:60,0:CLICK:600:30,0:WAIT:mark:screen=central:60"
 OPTIONS="3000:CLICK:215:450"
 OUT_OF_CENTRAL="3000:CLICK:575:450,0:WAIT:mark:screen=game_mode:60,0:CLICK:580:449"   # Cancel, then Game Mode's Exit (L2b: the bottom right)
 menu() {

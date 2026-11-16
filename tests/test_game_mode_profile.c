@@ -175,8 +175,9 @@ static void rig(Fake *f, int x, int y, int pinned)
     f->count = 5, f->in_use = 2, f->unusable = -1;   /* the three modes and two editions; Restomod '26 in use */
 }
 
-/* the rows' centres (the owner's L2b mockup: the two on top, an empty gap, the selector and Manage content low, Exit at the foot) */
-enum { ROW_SINGLE = 138, ROW_MULTI = 190, ROW_CHOICE = 333, ROW_MANAGE = 383, EXIT_X = 580, ROW_EXIT = 449, GAP = 255 };
+/* the rows' centres (the owner's L2b: Single Player and Multiplayer centred as a pair between the title band and the selector, the
+ * selector and Manage content low, Exit at the foot) */
+enum { ROW_SINGLE = 170, ROW_MULTI = 222, ROW_CHOICE = 333, ROW_MANAGE = 383, EXIT_X = 580, ROW_EXIT = 449, GAP = 270 };
 
 /* Single Player first; Down runs Multiplayer, the selector, Manage, Exit and round; Up from Single Player is Exit */
 static void test_the_order(void)
@@ -210,11 +211,13 @@ static void test_the_layout(void)
     CHECK(f.single.y < f.multi.y && f.multi.y < f.title.y && f.title.y < f.manage.y);
     CHECK(f.manage.y < 400);
     /* the mockup's text centres: a big word's centre is 20 pixels below where it is drawn, a small line's 6 */
-    CHECK_EQ_INT(f.single.y + 20, 137);
-    CHECK_EQ_INT(f.multi.y + 20, 189);
+    CHECK_EQ_INT(f.single.y + 20, 169);
+    CHECK_EQ_INT(f.multi.y + 20, 221);
     CHECK_EQ_INT(f.title.y + 20, 318);
     CHECK_EQ_INT(f.manage.y + 6, 383);
-    CHECK(f.title.y - (f.multi.y + 42) >= 80);   /* the empty gap between Multiplayer and the selector */
+    const int pair_middle = (f.single.y + f.multi.y) / 2 + 20, space_middle = (88 + 303) / 2;   /* under the title band, above the selector */
+    CHECK(pair_middle >= space_middle - 2 && pair_middle <= space_middle + 2);
+    CHECK(f.title.y - (f.multi.y + 42) >= 40);   /* an empty gap between Multiplayer and the selector */
     CHECK(f.exit.x + f.exit.w <= 640 - 14);   /* the right margin the version keeps on the left */
     CHECK(f.exit.y > 400);
     CHECK(f.exit.x > f.notice.x + f.notice.w);   /* clear of the foot line's notice */
