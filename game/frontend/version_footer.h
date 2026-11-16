@@ -11,4 +11,9 @@
  * Writes into out (cut to cap - 1 characters). 1 when there is such a line; 0 for none or no room */
 int version_footer_line(char *out, size_t cap, int line, const char *version, UpdateState state, const char *latest);
 
+/* port (dep59 step 4): the version line 0 shows: `override` (TNFS_VERSION_TEXT, which tools/menu_walk.sh sets so two builds' Game Mode
+ * pictures compare) when it is 1..VERSION_TEXT_MAX printable ASCII characters, else `built` */
+enum { VERSION_TEXT_MAX = 31 };
+const char *version_footer_text(const char *built, const char *override);
+
 #endif
