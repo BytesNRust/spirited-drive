@@ -45,8 +45,11 @@ int car_registry_sound_model(int car);
 /* the original whose cockpit it shows (SIMDATA/DASH/<stem>DH): itself for an original, an added car's dash_from, or its sound_from
  * when it names none (step 6 gives a piece a cockpit of its own); -1 otherwise */
 int car_registry_dash_model(int car);
-/* the original whose lamp colours it takes (race_palette_model_light's rows): itself for an original, an added car's sound_from, the
- * car it is made from; -1 otherwise. The exe's quirks of one car (the 512TR's throttle and shift, the Diablo's and 911T's tyres) stay
+/* port (dep59 3b): the lamp row of an added car: race_palette_model_light's row 0, (15,3,3) off and (62,5,5) lit (row 13), the red ten of
+ * the twelve originals share */
+enum { CAR_LAMP_STANDARD = 0 };
+/* the row of lamp colours it takes (race_palette_model_light's rows): itself for an original, CAR_LAMP_STANDARD for an added car
+ * (whatever its sound_from); -1 otherwise. The exe's quirks of one car (the 512TR's throttle and shift, the Diablo's and 911T's tyres) stay
  * with that car's number: an added car drives as its PBS says */
 int car_registry_lamp_model(int car);
 /* the original whose pace the AI drives it at: 0..7 for those (itself), the piece's for an added car; -1 otherwise */
