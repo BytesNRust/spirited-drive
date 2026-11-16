@@ -228,6 +228,8 @@ static int run_page(Page *p)
             video_flip();
             pointer_show();
             changed = 0;
+            /* port (test harness): the page as shown, for a walk to wait on after each key (tests/car_card_menus.sh); the log only */
+            port_log("mark:gallery=%d %d %d\n", p->state.item, p->state.skin, p->state.paint);   /* item skin paint: a WAIT's text is < 32 */
         }
         const int key = input_get_key();   /* first: it pumps the events the pointer's buttons are read from */
         const int buttons = pointer_read_buttons();

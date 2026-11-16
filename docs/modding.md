@@ -200,12 +200,15 @@ Only CC0 or public-domain samples go in the repository, each with its source, au
 
 ## Adding a car (development)
 
-In Restomod a mod can add a car beside the twelve of the original game: a folder whose `mod.ini` says `type=car`. Stock and Restored never load one. For now it is raced from the command line only: the car screens come later (see *What it does not do yet*).
+In Restomod a mod can add a car beside the twelve of the original game: a folder whose `mod.ini` says `type=car`. Stock and Restored never load one. It is picked on Control Central after the eight race cars (and as the head to head rival), shown in its own gallery, and raced from the menus or the command line.
 
     mycar/mod.ini
     mycar/SIMDATA/CARFAMS/MYCAR.CFM        the 3D model and its textures
     mycar/SIMDATA/CARFAMS/MYCAR.PDN        its performance data
     mycar/SIMDATA/CARSPECS/MYCAR.PBS       its specs
+    mycar/card.png                         its card on Control Central (required)
+    mycar/rival.png, mycar/gallery.png     its rival card and gallery picture (optional)
+    mycar/skins/<name>/...                 its skins (optional, see Pictures, skins and paints)
     mycar/car_masks/MYCAR/...              its car masks (optional, see Car masks)
 
     tnfs --mods mycar --drive TR1 --car my-car
@@ -217,10 +220,12 @@ In Restomod a mod can add a car beside the twelve of the original game: a folder
 | `id`, `name`, `version` | as every mod's | `id` is what `--car` takes |
 | `type` | `car` | required for a car |
 | `stem` | the name its three files go by (`MYCAR` above) | 1 to 8 of `A-Z 0-9`; not the stem of a car, traffic or police car of the CD, nor `M` and one (the CD's smaller rival models) |
-| `short_name` | what the results show | up to 8 characters; the stem when not given |
+| `short_name` | what the results show | up to 8 characters of printable ASCII; the stem when not given |
+| `year`, `power`, `weight` | the figures its gallery shows, as written (`1992`, `400 hp`, `1500 kg`) | optional, up to 16 bytes each, drawn in the menus' small face (see The gallery) |
+| `paints` | its gallery's Color choices: `Name:rrggbb,Name:rrggbb` | optional; up to 16, a name of 1 to 24 printable ASCII characters without `:` or `,`, six hex digits, no two names alike in any case |
 | `sound_from` | the original car whose engine it plays | required: `supra`, `diablo`, `911`, `zr1`, `512tr`, `viper`, `nsx` or `rx7` |
 | `ai_from` | the original car whose pace a computer driver keeps in it | required, the same words |
-| `dash_from` | the original car whose cockpit it shows | optional, the same words; `sound_from`'s when not given |
+| `dash_from` | the original car whose cockpit it shows | optional, the same words; without it the car has no cockpit view (the camera passes it over) |
 
 The car is checked before it may race, with the same checks `tnfs-studio` uses: the three files are there (in any case), each passes the original executable's limits, and the specs can run a race (the PBS checksum, a power above 0, `unknown_320` and `force_scale` not 0, and 1 to 58 torque points). One line in `spirited-drive.log` says what happened to each car piece: `car piece: my-car is car 16`, or `car piece: my-car refused: <why>`. A refused car, or one asked for in Stock or Restored, stops `--drive` with `--drive: no car my-car`; nothing else changes.
 
@@ -228,9 +233,29 @@ The car takes its lamp colours from `sound_from`'s car. The original game has a 
 
 Several cars can be added, up to 64, one folder each, in the mods in effect (`--mods`, then Restomod's list). Two folders with the same `id` or `stem`: the first one counts and the other is refused. A car's number (16 and up) holds for that run only; changing the list keeps the number of every car that stays.
 
-**Records and replays.** A race with an added car never writes to the original game's files: `race_records.dat`, `config.dat` and `Replay.rpl` stay as they were. Its records go to `race_records_added.dat`, with a table per car named by its `id`, so each added car keeps its own best times; uninstalling or turning off the car never deletes them. Its replay is kept as `Replay.rpx` (the original's blocks, then a last one naming each added car by its `id` and a fingerprint of its PBS and PDN), and plays back with `tnfs --mods mycar --replay Replay.rpx`. It does not play, and says why, when the car's mod is not loaded (`replay: needs the mod my-car`) or when its PBS or PDN changed since the race (`replay: the mod my-car has changed since this replay was made`): a replay re-runs the race from the players' inputs, so different physics would drive a different race. Changing the CFM or the masks keeps the replay.
+**Records and replays.** A race with an added car never writes to the original game's files: `race_records.dat`, `config.dat` and `Replay.rpl` stay as they were. Its records go to `race_records_added.dat`, with a table per car named by its `id`, so each added car keeps its own best times; uninstalling or turning off the car never deletes them. Its replay is kept as `Replay.rpx` (the original's blocks, then a last one naming each added car by its `id` and a fingerprint of its PBS and PDN), and plays back with `tnfs --mods mycar --replay Replay.rpx`. It does not play, and says why, when the car's mod is not loaded (`replay: needs the mod my-car`) or when its PBS or PDN changed since the race (`replay: the mod my-car has changed since this replay was made`): a replay re-runs the race from the players' inputs, so different physics would drive a different race. Changing the CFM or the masks keeps the replay. The replay keeps the skin and colour the car wore, and plays them back whatever is picked now. In the menus (Restomod, outside a link game) the Load/Save list shows `.RPX` replays beside the original's: a row that cannot play says why (`RACE1 - needs my-car`, `RACE1 - my-car changed`) and is not loaded, and the save box keeps a race with an added car as `<name>.RPX`.
 
-**What it does not do yet:** the car is not on the car screens and cannot be a rival; the replay list and the save box of the menus do not show `.RPX` files, and Best Times does not show the added cars' tables; it brings no engine sound or cockpit of its own; the paint catalogue (the extra colours) has none for it.
+### Pictures, skins and paints
+
+The game never scales a picture: each is a PNG of its exact size, named in lower case as below.
+
+| File | Size | What |
+|------|------|------|
+| `card.png` | 309 x 166 | the car's card on Control Central. Required: a piece without it is refused (`PIECE.CARD`) |
+| `rival.png` | 284 x 117 | the head to head rival's card; the middle 284 x 117 of `card.png` when there is none |
+| `gallery.png` | 320 x 200 | the gallery's picture; `card.png`, centred, when there is none |
+
+The cards are fitted to Control Central's palette by nearest colour, the gallery's picture to the gallery's own. `tnfs-studio car card DIR --generic` makes a plain `card.png` (the car's name on a plain ground); a piece made before the pictures came has no card and stops loading until it has one (`car piece: my-car refused: ...`, `PIECE.CARD`): run that command on it.
+
+**The gallery.** A click on the added car's card opens its gallery: its name, picture, author, version and description, its figures, and two choices, Skin and Color. Leaving the gallery (Done, Escape, or Previous and Next to another car) keeps the pair in `restomod.cfg` (`look.my-car=stripes,Blue`, docs/settings.md) and the next race wears it. The author, description and figures are drawn in the menus' small face, which has no comma and no accents: commas and any byte outside ASCII are left out there. The mod's `name`, `short_name` and the paint names must be printable ASCII (the big face draws them as they are); a mod with anything else is refused.
+
+**Skins.** A skin is a folder `skins/<name>/` (1 to 16 of `a-z 0-9 -`; up to 15 skins) holding textures to lay over the CFM's: `<tex>.png` over the high-detail bank's texture `<tex>`, `<tex>_lo.png` over the low-detail one's, each the size of the texture it replaces. An indexed PNG is taken as it is: its indexes are read as the bank's, whatever palette the file carries (so make it with the bank's, as `tnfs-studio unpack` writes it; the race's special colours `0xFA`..`0xFF` come only this way). An RGB one is fitted to the bank's palette by nearest colour, never to the special colours. Skin is "As it comes" (the CFM's own textures) or one of these folders.
+
+**Paints.** Color is "Own colour" or one of `paints=`. A paint shows only where the skin has masks: `<tex>_mask.png` (and `<tex>_lo_mask.png`) in the skin's folder, as Car masks describes; the skin as it comes takes the masks in `car_masks/<STEM>/`. With no masks the Color choice is passed over. With the Car Colours switch off, and for an added car racing as a rival, the car wears its skin as it comes and its own colour.
+
+`validate` and the game check the skins as they check the rest (`PIECE.SKIN`, `PIECE.PICTURE`): every file a texture the bank has, of its size; a mask a PNG no larger than 1024 a side; up to 256 files a skin.
+
+**What it does not do yet:** the added cars are not in the grid of a single race or a tournament, and Best Times does not show their tables; a car brings no engine sound, cockpit or dash paint of its own (`dash_from` borrows a stock car's cockpit); the original gallery's Previous and Next do not reach them.
 
 ### Making a car with tnfs-studio
 
