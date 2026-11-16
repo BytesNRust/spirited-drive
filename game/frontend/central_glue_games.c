@@ -2,6 +2,9 @@
 #include "game/frontend/central_glue_private.h"
 #include "game/frontend/unlock_level.h"
 #include "game/frontend/tournament_variants.h"
+#include "game/frontend/replay_label.h"
+#include "game/race/race_replay_image.h"
+#include "game/sys/car_pieces.h"
 
 /* 0042ae9c's and 0042c498's words: the shorts 004fa9ac (check/'s art) and 004bad00 (a highlight), the names
  * 004fa1dc, the game state kept 00524838, 004fbad8's bytes kept around a replay */
@@ -20,19 +23,33 @@ static void game_load(void *ctx, const char *name)
     cg_races_from_state();
 }
 
+/* port (dep59 step 3): a Replay.rpx's cars against the mods in effect (game_list's replay_cars) */
+static ReplayCars added_cars(const char *name, char *id)
+{
+    static ReplayRace race;
+    size_t size = 0;
+    uint8_t *file = save_files_read_replay(name, &size);
+    car_pieces_follow();
+    const ReplayCars r = race_replay_file_cars(file, size, &race, id);
+    if (file != NULL) platform_free_file(file);
+    return r;
+}
+static int32_t replay_cars(void *ctx, const char *name, char *id) { (void)ctx; return (int32_t)added_cars(name, id); }
+
 /* 0042ae9c on config.dat's image and the menus' game state */
 static int32_t game_list(void *ctx, int32_t mode)
 {
     uint8_t *const image = config_current()->image;
     GameListState st = { resource_german(), list_check, list_highlight, ea_screen(), "", "", list_names,
                          pointer_active_word(), &cg_g.buttons, image + 9, (char *)image + 0x3b, cg_game_state, game_kept,
-                         image + CONTROLS_AT, &cg_g.lost_vegas, &cg_g.tournament };
+                         image + CONTROLS_AT, &cg_g.lost_vegas, &cg_g.tournament,
+                         port_settings_profile() == PROFILE_RESTOMOD && menu_words.link_game == 0 };   /* port (dep59 step 3): *.RPX */
     const GameListOps ops = {
         styles, picture_new, picture_shape, select_picture, grab, load_art, music_feed, no_cwd, no_chdir, find_first,
         find_next, clip, move_to, ticks, in_rect, sound, deadline_set, shape, audio_blit_at, style, cg_fit, masked_at,
         select_default, nothing, blit_word, blit_at, nothing, flip, show, cg_deadline_passed, nothing, buttons,
         activate, music, cg_key, click, glue_yes_no, remove_save, glue_banner_wait, game_load, music_fade_to,
-        redraw_pointer, off, blit_masked, picture_free, free_bank, ctx };
+        redraw_pointer, off, blit_masked, picture_free, free_bank, replay_cars, ctx };
     const int32_t result = game_list_screen(mode, &st, &ops);
     cg_tournament_variants_apply();   /* port (dep56): a game loaded runs its own variants */
     return result;
@@ -69,12 +86,17 @@ static void replay(void *ctx, int32_t mode, const char *path)
     char name[NAME + 1] = { 0 };
     memcpy(name, config_current()->image + NAME_AT, NAME);
     size_t size = 0;
+    char id[REPLAY_CARS_ID];
+    if (replay_label_added(name) && !replay_label_plays(added_cars(name, id))) {   /* port (dep59 step 3): one that cannot play is not tried */
+        port_log("load_save: the replay %s cannot play: %s\n", name, id[0] != '\0' ? id : "not a replay");
+        return;
+    }
     uint8_t *file = save_files_read_replay(name, &size);
     if (file == NULL) {
         port_log("load_save: no replay %s\n", name);
         return;
     }
-    play(file, size, name, 0);
+    play(file, size, name, replay_label_added(name));
 }
 
 /* port (dep59 1b): 0040c710's replay of the race just run: its Replay.rpx when it had an added car (config.dat keeps naming

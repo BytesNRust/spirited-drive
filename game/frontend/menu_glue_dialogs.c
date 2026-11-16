@@ -2,6 +2,10 @@
 #include "game/frontend/menu_glue_private.h"
 #include "game/frontend/tournament_variants.h"
 #include "game/frontend/variant_rule.h"
+#include "game/viewer/track_viewer.h"
+
+#include <string.h>
+#include <strings.h>
 
 static const MessageBannerOps BANNER = { width, picture_new, picture_shape, shade_table, select_picture,
                                          select_default, grab, shade_set, shade_polygon, colour, frame, styles,
@@ -124,6 +128,33 @@ static int32_t save_game(void *ctx, const char *path)
     return saved;
 }
 static int32_t save_replay(void *ctx, const char *path) { (void)ctx; return game_file_copy_replay(path, &save_files_ops); }
+/* port (dep59 step 3): a race with an added car is kept as NAME.RPX, from its Replay.rpx: the box's NAME.rpl made so */
+static void added_path(const char *path, char *out, size_t cap)
+{
+    const size_t n = strlen(path);
+    snprintf(out, cap, "%.*s.RPX", (int)(n >= 4 && strcasecmp(path + n - 4, ".rpl") == 0 ? n - 4 : n), path);
+}
+static int32_t exists_added(void *ctx, const char *path)
+{
+    char named[GAME_FILE_PATH];
+    (void)ctx;
+    added_path(path, named, sizeof named);
+    return save_files_exists(named);
+}
+static int added_saved;   /* the box kept a NAME.RPX */
+static int32_t save_replay_added(void *ctx, const char *path)
+{
+    char named[GAME_FILE_PATH];
+    (void)ctx;
+    added_path(path, named, sizeof named);
+    size_t size = 0;
+    uint8_t *file = platform_read_user_file(TRACK_VIEWER_ADDED_REPLAY, &size);
+    const int ok = file != NULL && platform_write_user_file(named, file, size);
+    if (file != NULL) platform_free_file(file);
+    if (!ok) port_log("replay box: %s not written\n", named);
+    added_saved = ok;
+    return ok ? (int32_t)size : 0;
+}
 static void redraw(void *ctx, int32_t eax, int32_t edx) { (void)ctx, (void)eax, (void)edx; pointer_show(); }
 
 /* 0042a680 (save_box.c) */
@@ -143,9 +174,16 @@ void glue_replay_box(char *name, uint8_t *config)
 {
     video_get_palette(banner_palette);
     const MessageBannerInputs in = { ea_screen(), banner_palette };
-    const SaveBoxOps ops = { &BANNER, text_field, sound, exists, ask, remove_file, save_replay, menu_glue_banner_wait, redraw,
-                             NULL };
+    const int added = track_viewer_last_replay_added();   /* port (dep59 step 3): its Replay.rpx, kept as NAME.RPX */
+    const SaveBoxOps ops = { &BANNER, text_field, sound, added ? exists_added : exists, ask, remove_file, added ? save_replay_added : save_replay,
+                             menu_glue_banner_wait, redraw, NULL };
+    added_saved = 0;
     replay_box_show(name, resource_german(), &in, config, "", &ops);
+    if (added_saved) {   /* config.dat names it with its .RPX, so Load Replay plays it (a Replay.rpx's way) */
+        char *const kept = (char *)config + REPLAY_BOX_NAME_AT;
+        const size_t n = strnlen(kept, REPLAY_BOX_NAME_SIZE);
+        if (strchr(kept, '.') == NULL && n + 5 <= REPLAY_BOX_NAME_SIZE) memcpy(kept + n, ".RPX", 5);
+    }
 }
 
 void glue_banner_wait(void *ctx, const char *text, int32_t time) { menu_glue_banner_wait(ctx, text, time); }

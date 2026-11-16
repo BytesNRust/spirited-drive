@@ -97,6 +97,10 @@ ReplayCars race_replay_cars_read(const uint8_t block[REPLAY_CARS_BLOCK], RaceFie
  * block does not */
 ReplayCars race_replay_image_race_cars(const uint8_t setup[REPLAY_SETUP_SIZE], const uint8_t block[REPLAY_CARS_BLOCK], ReplayRace *out,
                                        char *id_out);
+/* port (dep59 step 3): a whole Replay.rpx of `size` bytes: race_replay_image_race_cars of its setup and its cars' block, and its looks
+ * (`out->looks_known` 0 for 1b's files, which have none, or a looks' block that does not read); BAD for any other size. Call it with
+ * the added cars of the mods in effect registered. */
+ReplayCars race_replay_file_cars(const uint8_t *file, size_t size, ReplayRace *out, char *id_out);
 
 /* A race started from a replay's setup, after race_sim_start_field: the cheat words the setup's recording was made with
  * that the exe's setup does not hold (the EXPLODE cheat), put back so the cars play as they did. */
