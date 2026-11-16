@@ -160,7 +160,7 @@ cp "$orig/SIMDATA/CARSPECS/CZR1.PBS" "$changed/SIMDATA/CARSPECS/TESTCAR.PBS"
 replay "$work/user/Replay.rpx" "$changed"
 rc=$?
 { [ "$rc" -ne 0 ] && [ "$rc" -lt 128 ]; } || fail "Replay.rpx with the piece changed: status $rc, not a clean failure"
-grep -q "replay: the mod test-car has changed since this replay was made" "$work/err" || fail "Replay.rpx with the piece changed did not say so"
+grep -q "replay: the mod test-car has changed since this replay was made, or the game's rules for added cars have" "$work/err" || fail "Replay.rpx with the piece changed did not say so"
 
 # 12. the same file named as the original's: the setup's car number is no car of the twelve, so not a replay
 cp "$work/user/Replay.rpx" "$work/X.RPL"
