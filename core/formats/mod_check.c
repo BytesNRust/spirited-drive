@@ -226,7 +226,8 @@ static int content_ok(ModFileKind kind, const char *rel, const uint8_t *data, si
     case MOD_KIND_DOC: return text_ok(data, size, MOD_DOC_MAX) ? 1 : refuse(why, cap, "%s is not a text file of up to 64 KB", rel);
     case MOD_KIND_PNG: {
         PngImage image;
-        if (png_read(data, size, &image) != PNG_OK) return refuse(why, cap, "%s is not a readable PNG", rel);
+        const PngResult read = png_read(data, size, &image);
+        if (read != PNG_OK) return refuse(why, cap, "%s is not a readable PNG (png: %s)", rel, png_result_str(read));
         png_free(image.pixels);
         if (is(rel, "preview.png")) c->has_preview = 1;
         return 1;

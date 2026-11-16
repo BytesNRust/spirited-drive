@@ -7,12 +7,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* the most pixels a PNG may have (width x height) to be read: a mod's picture is far smaller; more is refused (PNG_ERR_SIZE) before
+ * anything is allocated */
+enum { PNG_MAX_PIXELS = 2048 * 2048 };
+
 typedef enum {
     PNG_OK = 0,
     PNG_ERR_MEMORY,
     PNG_ERR_SIZE,      /* zero or oversized dimensions */
     PNG_ERR_FORMAT,    /* not a PNG, or a PNG stb_image cannot read */
-    PNG_ERR_CORRUPT    /* chunk, checksum or filter damage in an indexed image */
+    PNG_ERR_CORRUPT,   /* chunk, checksum or filter damage, or pixel data short of the image's rows */
+    PNG_ERR_PAST_ROWS  /* pixel data that inflates past the rows the header implies (an odd encoder, or a bomb): re-save the picture */
 } PngResult;
 
 typedef struct {

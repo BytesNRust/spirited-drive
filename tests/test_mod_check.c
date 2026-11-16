@@ -153,6 +153,49 @@ static uint8_t *png_claiming(const uint8_t *src, size_t len, uint32_t w, uint32_
     return p;
 }
 
+/* a 2 x 2 indexed PNG whose IDAT (one stored block) inflates to `raw` zero bytes: its rows are 6 */
+static uint8_t *png_inflating_to(uint32_t raw, size_t *len)
+{
+    uint8_t *p = calloc(8 + 25 + 12 + 3 + 12 + 2 + 5 + raw + 4 + 12, 1);
+    static const uint8_t sig[8] = { 0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a };
+    memcpy(p, sig, 8);
+    size_t at = 8;
+    const struct { const char *type; uint32_t n; } CHUNKS[4] = { { "IHDR", 13 }, { "PLTE", 3 }, { "IDAT", 2 + 5 + raw + 4 }, { "IEND", 0 } };
+    for (int c = 0; c < 4; c++) {
+        uint8_t *q = p + at, *body = q + 8;
+        for (int i = 0; i < 4; i++) q[i] = (uint8_t)(CHUNKS[c].n >> (24 - 8 * i));
+        memcpy(q + 4, CHUNKS[c].type, 4);
+        if (c == 0) body[3] = 2, body[7] = 2, body[8] = 8, body[9] = 3;   /* 2 x 2, 8-bit, indexed */
+        if (c == 2) {   /* zlib, a final stored block of `raw` zeros, Adler-32: a = 1, b = raw */
+            body[0] = 0x78, body[1] = 0x01, body[2] = 1;
+            body[3] = (uint8_t)raw, body[4] = (uint8_t)(raw >> 8), body[5] = (uint8_t)~raw, body[6] = (uint8_t)(~raw >> 8);
+            uint8_t *adler = body + 7 + raw;
+            adler[0] = (uint8_t)(raw >> 8), adler[1] = (uint8_t)raw, adler[2] = 0, adler[3] = 1;
+        }
+        const uint32_t crc = crc32_update(0, q + 4, 4 + CHUNKS[c].n);
+        for (int i = 0; i < 4; i++) body[CHUNKS[c].n + i] = (uint8_t)(crc >> (24 - 8 * i));
+        at += 12 + CHUNKS[c].n;
+    }
+    *len = at;
+    return p;
+}
+
+/* a picture whose data runs past its rows (an odd encoder, or a bomb) is refused, and the reason says so: the author re-saves it */
+static void test_picture_data_past_the_rows(void)
+{
+    ModCheck c;
+    for (uint32_t raw = 6; raw <= 7; raw++) {
+        size_t len = 0;
+        uint8_t *png = png_inflating_to(raw, &len);
+        ZbEntry e[2] = { zb_text("mod.ini", CARD), { "car_masks/NSX/body_mask.png", png, (uint32_t)len, 0, 0, 0, 0, 3, 0100644u << 16 } };
+        const int ok = check(e, 2, &c);
+        CHECK_EQ_INT(ok, raw == 6);
+        if (ok) mod_check_free(&c);
+        else CHECK(strstr(why, "body_mask.png is not a readable PNG (png: data past the image rows") != NULL);
+        free(png);
+    }
+}
+
 /* review of 4977a5c5, 1: a picture's size is read from its header and refused before it is unpacked: the preview over 512 x 256, any
  * other over MOD_PNG_MAX_SIDE a side, and all of them together over MOD_PNG_MAX_PIXELS */
 static void test_pictures_are_measured_before_they_are_read(void)
@@ -337,6 +380,7 @@ int main(void)
     test_the_zip_of_a_folder();
     test_refusals();
     test_pictures_are_measured_before_they_are_read();
+    test_picture_data_past_the_rows();
     test_game_files_only_where_the_cd_has_them();
     test_a_file_and_a_folder_of_one_name();
     return TEST_REPORT();
