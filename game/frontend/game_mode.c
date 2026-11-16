@@ -333,6 +333,7 @@ static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
         if (network_closed(o) != NULL) {   /* port (dep59 step 4): an edition of the player's own: why, and nothing opened */
             port_log("mark:game_mode=network_closed\n");
             o->banner_wait(o->ctx, network_closed(o), TOLD);
+            o->deadline_set(o->ctx, WAIT);   /* the banner waited the shared deadline out: else the screen times out to the demo at once */
             m->redraw = 1;
             break;
         }
@@ -359,6 +360,7 @@ static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
         if (!restomod_in_use(m)) break;
         port_log("mark:game_mode=manage\n");
         o->banner_wait(o->ctx, MANAGE_LATER, TOLD);
+        o->deadline_set(o->ctx, WAIT);   /* as Multiplayer's banner */
         m->redraw = 1;
         break;
     }
