@@ -84,6 +84,7 @@ add_library(tnfs_core STATIC
     core/formats/pbs_fields.c
     core/formats/limits.c
     core/formats/pdn.c
+    core/formats/car_ai.c
     core/formats/crc32.c
     core/formats/png.c
     core/formats/zip.c
@@ -741,7 +742,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import doc fsh ffn ico chunk mesh pbs pdn bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_list mod_install)
+    foreach(name qfs qfs_encode car_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_list mod_install)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -1345,6 +1346,7 @@ if(NOT EMSCRIPTEN)
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/CARFAMS/*.pdn")
     if(TNFS_PDN_FILES)
         add_test(NAME pdn_cd COMMAND test_pdn ${TNFS_PDN_FILES})
+        add_test(NAME car_ai_cd COMMAND test_car_ai ${TNFS_PDN_FILES})
     endif()
     file(GLOB TNFS_BNK_FILES "${CMAKE_SOURCE_DIR}/original/SIMDATA/SOUNDBNK/*.BNK"
         "${CMAKE_SOURCE_DIR}/original/SIMDATA/SOUNDBNK/*.bnk")
