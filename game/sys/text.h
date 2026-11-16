@@ -34,6 +34,10 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den);
 /* port: where text_draw_smooth's letters of `text` at num/den start and end below its y (the glyphs' own rows, not the line's); both 0
  * for no letters */
 void text_ink_scaled(const char *text, int num, int den, int *top, int *bottom);
+/* port: text_draw_smooth's coverage (0..15) of `text` at num/den into `mask` (mw x mh, cleared first), its pen from (0, 0); the size it
+ * needs is text_width_scaled wide and text_mask_rows high. 0 when the font is not loaded */
+int text_mask_rows(const char *text, int num, int den);
+int text_mask_scaled(const char *text, int num, int den, uint8_t *mask, int mw, int mh);
 /* port: a title's own letters, a w x h coverage mask (0..15, as title_art.h cuts them), drawn as text_draw_smooth
  * draws its letters in the current style but with the original titles' shadow (text_soft_title_shadow), the mask's
  * (0, 0) at (x, y) */

@@ -1,8 +1,10 @@
-/* port (dep59 step 3): an added car's gallery drawn and run (added_gallery.h holds its state and keys). A page of its own palette: the
- * picture (gallery.png, 320x200, or card.png in the middle of that box when the piece has none) quantised once (boot_quant), the port's
- * text colours (BOOT_TEXT_RGB), one entry for the Color swatch, and Control Central's last entries kept as they were for the pointer.
- * Its name and place in the list on top; the picture on the left, the author, version and description on the right; Skin and Color
- * under them with the figures; Previous, Next and Done at the foot. The pair picked is kept by id as the page closes (car_looks.h). */
+/* port (dep59 step 3; the owner's v3b, notes/dep59-added-gallery-showcase-plan.md sections 5-7): an added car's gallery drawn and run
+ * (added_gallery.h holds its state and keys), laid out like the Car Showcase (gallery_layout.h). A page of its own palette: the still
+ * part (the clean configuration background, the picture, gallery.png 320x200 or card.png in the middle of that box, its frame and the
+ * panels) quantised once, the picture's entries apart from the rest's; the port's text colours (BOOT_TEXT_RGB), one entry for the Color
+ * swatch, and Control Central's last entries kept as they were for the pointer. Its name big and leant on top, "Car Showcase" under it;
+ * the picture on the left; the technical data, Skin and Color on the right; the description, author and version in the foot's band;
+ * DONE at the bottom left, "< NEXT CAR >" in the middle. The pair picked is kept by id as the page closes (car_looks.h). */
 #include "game/frontend/added_gallery.h"
 
 #include "formats/png.h"
@@ -10,7 +12,9 @@
 #include "game/frontend/boot_screen.h"
 #include "game/frontend/car_list.h"
 #include "game/frontend/central_glue_private.h"
+#include "game/frontend/config_bgnd.h"
 #include "game/frontend/ea_lib.h"
+#include "game/frontend/gallery_layout.h"
 #include "game/frontend/text_wrap.h"
 #include "game/platform/platform.h"
 #include "game/race/car_registry.h"
@@ -19,6 +23,7 @@
 #include "game/sys/input.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_log.h"
+#include "game/sys/resource.h"
 #include "game/sys/text.h"
 #include "game/sys/video.h"
 
@@ -27,28 +32,27 @@
 #include <string.h>
 
 enum {
-    SCREEN_W = 640, SCREEN_H = 480, PICTURE_W = 320, PICTURE_H = 200, PICTURE_X = 24, PICTURE_Y = 76,
     KEPT = 18,                                       /* Control Central's last entries, kept for the pointer */
-    TEXT_FIRST = 256 - KEPT - BOOT_TEXT_COLOURS,     /* the text's colours */
+    TEXT_FIRST = 256 - KEPT - BOOT_TEXT_COLOURS,     /* the text's colours (BOOT_TEXT_RGB's order) */
     SWATCH = TEXT_FIRST - 1,                         /* the Color swatch's entry */
-    PICTURE_COLOURS = SWATCH,                        /* the picture's: 0 .. SWATCH - 1 */
-    BLACK = TEXT_FIRST + 5,
-    WORDS_X = 364, WORDS_W = 252, WORDS_LINES = 9,
-    SKIN_Y = 316, COLOUR_Y = 356, FIGURES_Y = 292, FOOT_Y = 436,
-    ARROW_LEFT_X = 150, ARROW_RIGHT_X = 470, ARROW_W = 30, ROW_H = 30,
+    STILL_COLOURS = SWATCH,                          /* the still part's: 0 .. SWATCH - 1 */
+    WHITE = TEXT_FIRST, CREAM = TEXT_FIRST + 1, YELLOW = TEXT_FIRST + 2, BLACK = TEXT_FIRST + 5,
+    LEAN_NUM = 2, LEAN_DEN = 9,                      /* the name's slant: 2 px across for 9 up */
     RELEASE_FRAMES = 300                             /* a button held longer than this (5 s at 60 Hz) is let be */
 };
+
+static const char DONE_WORD[] = "DONE", NEXT_WORD[] = "Next car";
 
 typedef struct {
     CarPieceCard card;
     GalleryState state;
-    int car, place, cars;            /* the car, its place in the menus' list (1..) and the list's length */
-    uint8_t *pixels;                 /* the picture in the page's palette, PICTURE_W x PICTURE_H */
+    int car;
+    uint8_t *still;                  /* the still part in the page's palette, GL_W x GL_H */
     uint8_t palette[768];
 } Page;
 
-/* `name` of the piece as RGB in a PICTURE_W x PICTURE_H box (a smaller picture in its middle, the rest black); 0 when it is not there or
- * is larger than the box */
+/* `name` of the piece as RGB in a GL_PICTURE_W x GL_PICTURE_H box (a smaller picture in its middle, the rest black); 0 when it is not
+ * there or is larger than the box */
 static int picture_rgb(const char *dir, const char *name, uint8_t *rgb)
 {
     char path[CAR_PIECE_DIR_MAX + 16];
@@ -57,37 +61,53 @@ static int picture_rgb(const char *dir, const char *name, uint8_t *rgb)
     uint8_t *data = platform_read_file(path, &size);
     uint32_t w = 0, h = 0;
     const int sized = data != NULL && png_size(data, size, &w, &h) == PNG_OK;
-    const int fits = sized && w <= PICTURE_W && h <= PICTURE_H;   /* before the pixels: a hostile size is never decoded */
+    const int fits = sized && w <= GL_PICTURE_W && h <= GL_PICTURE_H;   /* before the pixels: a hostile size is never decoded */
     PngImage img;
     const int read = fits && png_read(data, size, &img) == PNG_OK;
     if (data != NULL) platform_free_file(data);
-    if (sized && !fits) port_log("car piece: %s is larger than %dx%d: not shown\n", name, PICTURE_W, PICTURE_H);
+    if (sized && !fits) port_log("car piece: %s is larger than %dx%d: not shown\n", name, GL_PICTURE_W, GL_PICTURE_H);
     if (!read) return 0;
     if (img.width != w || img.height != h) return png_free(img.pixels), 0;
-    const int x0 = (PICTURE_W - (int)img.width) / 2, y0 = (PICTURE_H - (int)img.height) / 2;
-    memset(rgb, 0, (size_t)PICTURE_W * PICTURE_H * 3);
+    const int x0 = (GL_PICTURE_W - (int)img.width) / 2, y0 = (GL_PICTURE_H - (int)img.height) / 2;
+    memset(rgb, 0, (size_t)GL_PICTURE_W * GL_PICTURE_H * 3);
     for (int y = 0; y < (int)img.height; y++)
         for (int x = 0; x < (int)img.width; x++) {
             const size_t at = (size_t)y * img.width + (size_t)x;
             const uint8_t *s = img.indexed ? img.palette + 3 * img.pixels[at] : img.pixels + 4 * at;
-            memcpy(rgb + 3 * ((size_t)(y0 + y) * PICTURE_W + (size_t)(x0 + x)), s, 3);
+            memcpy(rgb + 3 * ((size_t)(y0 + y) * GL_PICTURE_W + (size_t)(x0 + x)), s, 3);
         }
     png_free(img.pixels);
     return 1;
 }
 
-/* the page's picture and palette (Control Central's palette `screen` gives the kept entries) */
-static void page_picture(Page *p, const uint8_t screen[768])
+/* the configuration screens' clean background as RGB; a flat brown when it cannot be composed */
+static void background_rgb(uint8_t *rgb)
 {
-    uint8_t *rgb = malloc((size_t)PICTURE_W * PICTURE_H * 3);
-    p->pixels = calloc((size_t)PICTURE_W * PICTURE_H, 1);
-    memset(p->palette, 0, sizeof p->palette);
-    if (rgb != NULL && p->pixels != NULL) {
-        if (!picture_rgb(p->card.dir, "gallery.png", rgb) && !picture_rgb(p->card.dir, "card.png", rgb))
-            memset(rgb, 0, (size_t)PICTURE_W * PICTURE_H * 3);
-        if (boot_quant(rgb, PICTURE_W * PICTURE_H, PICTURE_COLOURS, p->palette, p->pixels) == 0) memset(p->pixels, 0, (size_t)PICTURE_W * PICTURE_H);
+    uint8_t *pixels = malloc((size_t)GL_W * GL_H), palette[768];
+    const int ok = pixels != NULL && config_bgnd_load(resource_load_art, CONFIG_BGND_OPTIONS, 0, pixels, palette);
+    if (!ok) port_log("added gallery: no clean background: a flat one\n");
+    for (int i = 0; i < GL_W * GL_H; i++) {
+        static const uint8_t FLAT[3] = { 58, 44, 30 };
+        memcpy(rgb + 3 * i, ok ? palette + 3 * pixels[i] : FLAT, 3);
     }
-    free(rgb);
+    free(pixels);
+}
+
+/* the page's still part and palette (Control Central's palette `screen` gives the kept entries) */
+static void page_still(Page *p, const uint8_t screen[768])
+{
+    uint8_t *picture = malloc((size_t)GL_PICTURE_W * GL_PICTURE_H * 3), *bgnd = malloc((size_t)GL_W * GL_H * 3);
+    uint8_t *rgb = malloc((size_t)GL_W * GL_H * 3);
+    p->still = calloc((size_t)GL_W * GL_H, 1);
+    memset(p->palette, 0, sizeof p->palette);
+    if (picture != NULL && bgnd != NULL && rgb != NULL && p->still != NULL) {
+        if (!picture_rgb(p->card.dir, "gallery.png", picture) && !picture_rgb(p->card.dir, "card.png", picture))
+            memset(picture, 0, (size_t)GL_PICTURE_W * GL_PICTURE_H * 3);
+        background_rgb(bgnd);
+        gallery_compose(bgnd, picture, rgb);
+        if (!gallery_quantise(rgb, STILL_COLOURS, p->palette, p->still)) port_log("added gallery: the page was not quantised\n");
+    }
+    free(picture), free(bgnd), free(rgb);
     memcpy(p->palette + 3 * TEXT_FIRST, BOOT_TEXT_RGB, sizeof BOOT_TEXT_RGB);
     memcpy(p->palette + 3 * (256 - KEPT), screen + 3 * (256 - KEPT), 3 * KEPT);
 }
@@ -100,75 +120,149 @@ static int small_width(void *ctx, const char *s, int len)
     return text_small_width(run);
 }
 
-static void say(TextStyle style, const char *text, int x, int y)
+typedef struct {
+    uint8_t *to;
+    int w, h;
+} Target;
+
+/* x0..x1, y0..y1 (ends included) in entry `index` */
+static void fill(const Target *t, int x0, int y0, int x1, int y1, int index)
 {
-    text_select(style);
-    text_draw(text, x, y);
+    for (int y = y0 < 0 ? 0 : y0; y <= y1 && y < t->h; y++)
+        for (int x = x0 < 0 ? 0 : x0; x <= x1 && x < t->w; x++) t->to[y * t->w + x] = (uint8_t)index;
 }
 
-/* a selector's row: its label, the arrows (none when off) and the value */
-static void selector(const char *label, const char *value, int y, int lit, int on)
+static void edge(const Target *t, int x0, int y0, int x1, int y1, int width, int index)
 {
-    const TextStyle style = !on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM;
-    say(style, label, PICTURE_X, y);
-    if (on) say(style, "<", ARROW_LEFT_X, y), say(style, ">", ARROW_RIGHT_X, y);
-    say(style, value, ARROW_LEFT_X + ARROW_W + 8, y);
+    fill(t, x0, y0, x1, y0 + width - 1, index), fill(t, x0, y1 - width + 1, x1, y1, index);
+    fill(t, x0, y0, x0 + width - 1, y1, index), fill(t, x1 - width + 1, y0, x1, y1, index);
 }
 
-/* the words: author, version, the description in lines, and the figures */
-static void words(const Page *p)
+/* an arrow GL_ARROW_W x GL_ARROW_H pointing left or right, its top left at (x, y), over a black one a pixel down and right */
+static void arrow(const Target *t, int x, int y, int left, int index)
 {
-    char line[160];
-    int y = PICTURE_Y;
-    text_select(TEXT_CREAM);
-    char said[sizeof p->card.info.description];   /* the mod's words as the small face draws them (text_small_words) */
-    if (text_small_words(p->card.info.author, said, sizeof said) > 0)
-        snprintf(line, sizeof line, "by %s", said), text_small_draw(line, WORDS_X, y), y += text_small_line_height();
-    text_small_words(p->card.info.version, said, sizeof said);
-    snprintf(line, sizeof line, "version %s", said);
-    text_small_draw(line, WORDS_X, y), y += text_small_line_height() * 3 / 2;
-    TextLine lines[WORDS_LINES];
-    text_small_words(p->card.info.description, said, sizeof said);
-    const char *const d = said;
-    const int n = text_wrap(d, WORDS_W, small_width, NULL, lines, WORDS_LINES);
-    text_select(TEXT_WHITE);
-    for (int i = 0; i < n; i++, y += text_small_line_height()) {
-        snprintf(line, sizeof line, "%.*s", lines[i].len, d + lines[i].start);
-        text_small_draw(line, WORDS_X, y);
+    for (int pass = 0; pass < 2; pass++)
+        for (int i = 0; i <= GL_ARROW_H; i++) {
+            const int half = i <= GL_ARROW_H / 2 ? i : GL_ARROW_H - i, span = half * GL_ARROW_W / (GL_ARROW_H / 2);
+            const int d = pass == 0 ? 1 : 0, x0 = left ? x + GL_ARROW_W - span : x;
+            fill(t, x0 + d, y + i + d, x0 + span + d, y + i + d, pass == 0 ? BLACK : index);
+        }
+}
+
+/* `text` in the small face centred on cx */
+static void small_centred(const char *text, int cx, int y) { text_small_draw(text, cx - text_small_width(text) / 2, y); }
+
+/* the name big and leant, white, with the original titles' shadow; smaller when it would not fit the screen */
+static void name(const Page *p)
+{
+    char said[sizeof p->card.info.name];
+    text_words(p->card.info.name, said, sizeof said);   /* the main face: its ',' is a comma */
+    static const int SIZES[3][2] = { { GL_NAME_NUM, GL_NAME_DEN }, { 3, 2 }, { 1, 1 } };
+    for (int k = 0; k < 3; k++) {
+        const int num = SIZES[k][0], den = SIZES[k][1], w = text_width_scaled(said, num, den) + 2, h = text_mask_rows(said, num, den);
+        const int ow = w + h * LEAN_NUM / LEAN_DEN + 2;
+        if (h <= 0 || (GL_NAME_X + ow > GL_W - GL_NAME_X && k < 2)) continue;
+        uint8_t *mask = malloc((size_t)w * h), *leant = malloc((size_t)ow * h);
+        if (mask != NULL && leant != NULL && text_mask_scaled(said, num, den, mask, w, h)) {
+            gallery_lean(mask, w, h, LEAN_NUM, LEAN_DEN, leant, ow);
+            text_select(TEXT_WHITE);
+            text_draw_mask(leant, ow, h, GL_NAME_X, GL_NAME_Y);
+        }
+        free(mask), free(leant);
+        return;
     }
-    const char *fig[3] = { p->card.info.year, p->card.info.power, p->card.info.weight };
-    line[0] = '\0';
-    for (int i = 0; i < 3; i++)
-        if (text_small_words(fig[i], said, sizeof said) > 0)
-            snprintf(line + strlen(line), sizeof line - strlen(line), "%s%s", line[0] != '\0' ? "  /  " : "", said);
-    text_select(TEXT_CREAM);
-    text_small_draw(line, PICTURE_X, FIGURES_Y);
+}
+
+/* the technical data, labelled, in its panel */
+static void figures(const Page *p)
+{
+    static const char *const LABEL[GL_FIGURES_ROWS] = { "Year", "Power", "Weight" };
+    const char *value[GL_FIGURES_ROWS] = { p->card.info.year, p->card.info.power, p->card.info.weight };
+    char said[64];
+    for (int i = 0; i < GL_FIGURES_ROWS; i++) {
+        const int y = GL_FIGURES_Y + GL_FIGURES_PAD + i * GL_FIGURES_ROW - 2;
+        text_select(TEXT_DIM);
+        text_small_draw(LABEL[i], GL_COLUMN_X + 10, y);
+        if (text_small_words(value[i], said, sizeof said) == 0) snprintf(said, sizeof said, "-");
+        text_select(TEXT_CREAM);
+        text_small_draw(said, GL_COLUMN_X + GL_COLUMN_W - 10 - text_small_width(said), y);
+    }
+}
+
+/* a selector's box: its frame (yellow when lit), its label and value centred, its arrows at its sides (none when it is off) */
+static void box(const Target *t, int y, const char *label, const char *value, int lit, int on, int swatch)
+{
+    const int x1 = GL_COLUMN_X + GL_COLUMN_W - 1, cx = GL_COLUMN_X + GL_COLUMN_W / 2;
+    if (swatch) fill(t, GL_COLUMN_X, y, x1, y + GL_BOX_H - 1, SWATCH);
+    edge(t, GL_COLUMN_X, y, x1, y + GL_BOX_H - 1, 2, lit ? YELLOW : BLACK);
+    text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM);
+    text_draw_smooth(label, cx - text_width_scaled(label, 3, 4) / 2, y + 5, 3, 4);
+    char said[64];
+    text_small_words(value, said, sizeof said);
+    text_select(!on ? TEXT_DIM : TEXT_WHITE);
+    small_centred(said, cx, y + GL_BOX_H - 23);
+    if (!on) return;
+    const int ay = y + (GL_BOX_H - GL_ARROW_H) / 2, index = lit ? YELLOW : CREAM;
+    arrow(t, GL_COLUMN_X + GL_ARROW_IN, ay, 1, index);
+    arrow(t, x1 - GL_ARROW_IN - GL_ARROW_W, ay, 0, index);
+}
+
+/* the foot's band: the description in lines, the author at its left, the version at its right */
+static void foot(const Page *p)
+{
+    char said[sizeof p->card.info.description], line[160];
+    TextLine lines[GL_FOOT_LINES];
+    text_small_words(p->card.info.description, said, sizeof said);
+    const int n = text_wrap(said, GL_FOOT_X1 - GL_FOOT_X0 - 2 * GL_FOOT_PAD, small_width, NULL, lines, GL_FOOT_LINES);
+    text_select(TEXT_WHITE);
+    for (int i = 0; i < n; i++) {
+        snprintf(line, sizeof line, "%.*s", lines[i].len, said + lines[i].start);
+        text_small_draw(line, GL_FOOT_X0 + GL_FOOT_PAD, GL_FOOT_Y0 + 6 + i * text_small_line_height());
+    }
+    const int y = GL_FOOT_Y1 - 22;
+    text_select(TEXT_DIM);
+    if (text_small_words(p->card.info.author, said, sizeof said) > 0)
+        snprintf(line, sizeof line, "by %s", said), text_small_draw(line, GL_FOOT_X0 + GL_FOOT_PAD, y);
+    if (text_small_words(p->card.info.version, said, sizeof said) > 0) {
+        snprintf(line, sizeof line, "version %s", said);
+        text_small_draw(line, GL_FOOT_X1 - GL_FOOT_PAD - text_small_width(line), y);
+    }
+}
+
+/* DONE at the left; "< NEXT CAR >" in the middle, its arrows level with the words' middle */
+static void bottom(const Target *t, int item)
+{
+    text_select(item == GALLERY_DONE ? TEXT_YELLOW : TEXT_CREAM);
+    text_draw_shadowed(DONE_WORD, GL_DONE_X, GL_BOTTOM_Y);
+    int l, x, r, top, under;
+    gallery_next_place(text_width(NEXT_WORD), &l, &x, &r);
+    text_select(item == GALLERY_NEXT ? TEXT_YELLOW : TEXT_CREAM);
+    text_draw_shadowed(NEXT_WORD, x, GL_BOTTOM_Y);
+    text_ink_scaled(NEXT_WORD, 1, 1, &top, &under);
+    const int ay = GL_BOTTOM_Y + (top + under) / 2 - GL_ARROW_H / 2;
+    arrow(t, l, ay, 1, item == GALLERY_PREVIOUS ? YELLOW : CREAM);
+    arrow(t, r, ay, 0, item == GALLERY_NEXT ? YELLOW : CREAM);
 }
 
 /* the page into the back buffer */
 static void draw(const Page *p)
 {
-    int w, h;
-    uint8_t *to = video_target(&w, &h);
-    for (int y = 0; y < SCREEN_H && y < h; y++) memset(&to[y * w], BLACK, (size_t)(w < SCREEN_W ? w : SCREEN_W));
-    for (int y = 0; p->pixels != NULL && w >= PICTURE_X + PICTURE_W && y < PICTURE_H && PICTURE_Y + y < h; y++)
-        memcpy(&to[(PICTURE_Y + y) * w + PICTURE_X], &p->pixels[y * PICTURE_W], PICTURE_W);
-    char line[96];
-    say(TEXT_YELLOW, p->card.info.name, PICTURE_X, 24);
-    snprintf(line, sizeof line, "< %d / %d >", p->place, p->cars);
-    say(TEXT_CREAM, line, SCREEN_W - 24 - text_width(line), 24);
-    words(p);
+    Target t;
+    t.to = video_target(&t.w, &t.h);
+    for (int y = 0; y < GL_H && y < t.h; y++)
+        if (p->still != NULL) memcpy(&t.to[y * t.w], &p->still[y * GL_W], (size_t)(t.w < GL_W ? t.w : GL_W));
+        else memset(&t.to[y * t.w], BLACK, (size_t)(t.w < GL_W ? t.w : GL_W));
+    name(p);
+    text_select(TEXT_RED);
+    text_draw_smooth("Car Showcase", GL_HEADING_X, GL_HEADING_Y, GL_HEADING_NUM, GL_HEADING_DEN);
+    figures(p);
     const GalleryState *s = &p->state;
     const int on = added_gallery_colour_on(&p->card, s);
-    selector("Skin", s->skin == 0 ? "As it comes" : p->card.skin[s->skin], SKIN_Y, s->item == GALLERY_SKIN, 1);
-    selector("Color", s->paint == 0 ? "Own colour" : p->card.info.paints[s->paint - 1].name, COLOUR_Y, s->item == GALLERY_COLOUR, on);
-    if (on && s->paint > 0) {
-        const int x = ARROW_RIGHT_X - 28;
-        for (int y = COLOUR_Y + 4; y < COLOUR_Y + 20 && y < h; y++) memset(&to[y * w + x], SWATCH, 18);
-    }
-    say(s->item == GALLERY_PREVIOUS ? TEXT_YELLOW : TEXT_CREAM, "Previous", PICTURE_X, FOOT_Y);
-    say(s->item == GALLERY_NEXT ? TEXT_YELLOW : TEXT_CREAM, "Next", 280, FOOT_Y);
-    say(s->item == GALLERY_DONE ? TEXT_YELLOW : TEXT_CREAM, "Done", SCREEN_W - 24 - text_width("Done"), FOOT_Y);
+    box(&t, GL_SKIN_Y, "Skin", s->skin == 0 ? "Default" : p->card.skin[s->skin], s->item == GALLERY_SKIN, 1, 0);
+    box(&t, GL_COLOUR_Y, "Color", s->paint == 0 ? "Default" : p->card.info.paints[s->paint - 1].name, s->item == GALLERY_COLOUR, on,
+        on && s->paint > 0);
+    foot(p);
+    bottom(&t, s->item);
 }
 
 /* the palette with the swatch's colour, on screen */
@@ -183,18 +277,12 @@ static void palette_now(Page *p)
 /* a click: the key it stands for, the item moved to the one clicked; 0 for none */
 static int click_key(GalleryState *s)
 {
-    int x, y;
+    int x, y, step;
     pointer_position(&x, &y);
-    const int rows[2] = { SKIN_Y, COLOUR_Y };
-    for (int i = 0; i < 2; i++) {
-        if (y < rows[i] - 4 || y >= rows[i] + ROW_H) continue;
-        s->item = i == 0 ? GALLERY_SKIN : GALLERY_COLOUR;
-        if (x >= ARROW_LEFT_X - 6 && x < ARROW_LEFT_X + ARROW_W) return GALLERY_KEY_LEFT;
-        if (x >= ARROW_RIGHT_X - 6 && x < ARROW_RIGHT_X + ARROW_W) return GALLERY_KEY_RIGHT;
-        return 0;
-    }
-    if (y < FOOT_Y - 6 || y >= FOOT_Y + ROW_H) return 0;
-    s->item = x < 200 ? GALLERY_PREVIOUS : x < 420 ? GALLERY_NEXT : GALLERY_DONE;
+    const int item = gallery_hit(x, y, text_width(NEXT_WORD), text_width(DONE_WORD), &step);
+    if (item < 0) return 0;
+    s->item = item;
+    if (item == GALLERY_SKIN || item == GALLERY_COLOUR) return step < 0 ? GALLERY_KEY_LEFT : step > 0 ? GALLERY_KEY_RIGHT : 0;
     return GALLERY_KEY_ENTER;
 }
 
@@ -275,15 +363,13 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         CarList l;
         Edition e;   /* port (dep59 step 4): the arrows' cars are the edition's */
         car_list_build(&l, edition_active(&e) == 1 ? &e : NULL, warrior);
-        p.car = *car, p.cars = l.count;
-        for (int i = 0; i < l.count; i++)
-            if (l.car[i] == *car) p.place = i + 1;
+        p.car = *car;
         state_from_look(&p);
-        page_picture(&p, screen);
+        page_still(&p, screen);
         port_log("mark:screen=added_gallery\n");   /* port: the headless walk waits for it */
         const int result = run_page(&p);
         look_keep(&p);
-        free(p.pixels);
+        free(p.still);
         if (result == GALLERY_LEAVE) return 0;
         *car = car_list_step_gallery(&l, *car, result == GALLERY_GO_NEXT ? 1 : -1);   /* the Warrior, without one, passed over */
         if (!car_registry_is_added(*car)) return 1;   /* an original's: its own gallery */

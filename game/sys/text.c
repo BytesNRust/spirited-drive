@@ -333,6 +333,21 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den)
     free(mask);
 }
 
+int text_mask_rows(const char *text, int num, int den)
+{
+    fonts_follow();
+    return font_data != NULL ? text_rows(text) * num / den + 1 : 0;
+}
+
+int text_mask_scaled(const char *text, int num, int den, uint8_t *mask, int mw, int mh)
+{
+    fonts_follow();
+    if (font_data == NULL || mw <= 0 || mh <= 0) return 0;
+    memset(mask, 0, (size_t)mw * mh);
+    mask_text(text, 0, 0, num, den, mask, mw, mh);
+    return 1;
+}
+
 void text_draw_mask(const uint8_t *mask, int w, int h, int x, int y)
 {
     draw_soft(mask, w, h, x, y, text_soft_title_shadow);
