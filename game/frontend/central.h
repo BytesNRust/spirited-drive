@@ -119,6 +119,9 @@ typedef struct ControlCentralOps {
      * Central's `palette`; its Previous and Next change `*car`. 1 when they went to an original, whose own gallery opens next; 0 back
      * to Control Central. NULL: an added car's card opens nothing. */
     int32_t (*added_gallery)(void *ctx, int16_t *car, int warrior, const uint8_t palette[768]);
+    /* port (dep59 section 4, the owner's carousel): the showcase (as `showcase`) whose Next and Previous leave it, the car kept: 1 Next,
+     * -1 Previous, 0 Done. NULL: no carousel, an original's Next and Previous go round the eight in the showcase as the original's do */
+    int32_t (*showcase_carousel)(void *ctx);
 } ControlCentralOps;
 
 /* The globals 00432ff4 reads and writes; a pointer is written, a value only read. */

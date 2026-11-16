@@ -229,6 +229,11 @@ static void take(Show *s, const ShowcaseState *st, const ShowcaseOps *o, int by_
         break;
     case NEXT:
     case PREVIOUS:
+        if (st->leave_step != NULL) {   /* port (dep59 section 4): the carousel takes the next car's page */
+            *st->leave_step = s->selected == NEXT ? 1 : -1;
+            s->quit = 1;
+            break;
+        }
         step_car(s->selected == NEXT, st);
         o->car_flags(o->ctx);
         o->fade_out(o->ctx, 0, ALL);

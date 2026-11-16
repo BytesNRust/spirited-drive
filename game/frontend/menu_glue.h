@@ -85,6 +85,7 @@ typedef struct ShowcaseGlue {
     int16_t *buttons;
     void (*car_flags)(void *ctx);
     void *ctx;
+    int16_t *leave_step;   /* port (dep59 section 4): ShowcaseState.leave_step, NULL for the original's Next / Previous */
 } ShowcaseGlue;
 void glue_showcase(const ShowcaseGlue *in);
 

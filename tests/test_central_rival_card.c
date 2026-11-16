@@ -3,6 +3,7 @@
  * Warrior (11) the port's Warrior-as-a-rival extra offers or a race type's 9 and 10, leaves the card doing nothing,
  * as the player's own card does with the Warrior. */
 #include "game/frontend/central_run.h"
+#include "formats/edition_ini.h"
 #include "game/frontend/showcase.h"
 #include "game/race/car_registry.h"
 
@@ -199,8 +200,101 @@ static void test_added_cards(void)
     car_registry_clear();
 }
 
+/* dep59 section 4 (the owner's carousel): in Restomod outside a tournament the player's card opens one carousel over the edition's lineup.
+ * An original's showcase leaves on its Next / Previous (showcase_carousel), an added car's page hands back on an original (added_gallery),
+ * and the next car in the edition's order (wrapping, the Warrior passed over: no page yet) opens; Done ends on the car shown, picked. In
+ * a tournament, with no edition, or lost, the original's showcase as it was */
+static int carousel_calls, plain_calls, seen_count;
+static int16_t seen[16];
+static const int *steps;      /* the showcases' answers in turn: 1 Next, -1 Previous, 0 Done */
+static const int16_t *hands;  /* the added pages' in turn: the original they hand back on, or -1 for Done */
+static int step_at, hand_at;
+static void see(char kind, int16_t car)
+{
+    if (seen_count < 16) seen[seen_count++] = (int16_t)(kind == 'S' ? car : 100 + car);
+}
+static int32_t carousel_show(void *ctx) { (void)ctx, carousel_calls++, see('S', player_car); return steps[step_at++]; }
+static void plain_show(void *ctx) { (void)ctx, plain_calls++, see('S', player_car); }
+static int32_t page(void *ctx, int16_t *car, int warrior, const uint8_t palette[768])
+{
+    (void)ctx, (void)warrior, (void)palette;
+    see('A', *car);
+    const int16_t to = hands[hand_at++];
+    if (to < 0) return 0;
+    *car = to;
+    return 1;
+}
+
+static void carousel(const char *cars, int16_t type, int16_t from, const int *s, const int16_t *h)
+{
+    static const uint8_t pal[0x20];
+    static int16_t warrior = 1, rival = 3, kind;
+    static Edition e;
+    char text[256], why[64];
+    snprintf(text, sizeof text, "name=Walk\ncars=%s\ntracks=city\n", cars);
+    CHECK(edition_parse((const uint8_t *)text, strlen(text), &e, why, sizeof why));
+    ControlCentralOps o = { 0 };
+    o.pointer_click = nothing, o.sound = sound, o.in_rect = outside, o.music_fade_out = nothing, o.fade_out = fade_out;
+    o.music_end = nothing, o.music_start = music_start, o.showcase = plain_show, o.showcase_after = nothing;
+    o.palette_put = palette_put, o.pointer_move_to = move_to, o.car_flags = nothing;
+    o.added_gallery = page, o.showcase_carousel = carousel_show;
+    ControlCentralState st = { 0 };
+    kind = type;
+    st.player_car = &player_car, st.opponent = &rival, st.race_type = &kind, st.net_second = &net_second, st.was = was;
+    st.warrior = &warrior, st.edition = cars[0] != 0 ? &e : NULL;
+    CentralRun r = { 0 };
+    r.st = &st, r.ops = &o, r.pal = pal, r.item = CC_CAR, r.keys_armed = 1;
+    player_car = from, steps = s, hands = h, step_at = hand_at = carousel_calls = plain_calls = seen_count = 0;
+    central_select(&r);
+}
+
+static void test_the_carousel(void)
+{
+    car_registry_clear();
+    add("a", "A1");   /* 16 */
+    {   /* the Diablo, Next to the added car, whose Next hands back on the RX-7, Previous from it to the added car again, Done there */
+        static const int s[] = { 1, -1 };
+        static const int16_t h[] = { 0, -1 };
+        carousel("diablo,a,rx7", 1, 7, s, h);
+        static const int16_t want[] = { 7, 116, 0, 116 };
+        CHECK_EQ_INT(seen_count, 4);
+        CHECK(memcmp(seen, want, sizeof want) == 0);
+        CHECK_EQ_INT(player_car, 16);
+        CHECK_EQ_INT(plain_calls, 0);
+    }
+    {   /* Previous from the first wraps round to the last; Done there */
+        static const int s[] = { -1, 0 };
+        carousel("diablo,a,rx7", 1, 7, s, NULL);
+        CHECK(seen_count == 2 && seen[0] == 7 && seen[1] == 0);
+        CHECK_EQ_INT(player_car, 0);
+    }
+    {   /* the Warrior has no page yet: passed over */
+        static const int s[] = { 1, 0 };
+        carousel("diablo,warrior,rx7", 1, 7, s, NULL);
+        CHECK(seen_count == 2 && seen[1] == 0);
+    }
+    {   /* the added car's own card opens the carousel too: its page hands back on an original, Done there */
+        static const int s[] = { 0 };
+        static const int16_t h[] = { 7 };
+        carousel("diablo,a,rx7", 1, 16, s, h);
+        CHECK(seen_count == 2 && seen[0] == 116 && seen[1] == 7);
+        CHECK_EQ_INT(player_car, 7);
+        CHECK_EQ_INT(plain_calls, 0);
+    }
+    {   /* a tournament: the original's showcase as it was */
+        carousel("diablo,a,rx7", 3, 7, NULL, NULL);
+        CHECK(plain_calls == 1 && carousel_calls == 0);
+    }
+    {   /* no edition (Stock, Restored): the original's showcase as it was */
+        carousel("", 1, 7, NULL, NULL);
+        CHECK(plain_calls == 1 && carousel_calls == 0);
+    }
+    car_registry_clear();
+}
+
 int main(void)
 {
+    test_the_carousel();
     test_no_art_is_no_car();
     test_added_cards();
     test_an_added_car_card_opens_nothing();
