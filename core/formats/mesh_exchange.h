@@ -11,6 +11,11 @@
  *   NAME.lists.tsv    what the parts' and groups' map slots point at: each part's vertex list and each group's polygon
  *                     list, one row per record (for an importer that builds a new mesh, dep59; the import here reads
  *                     the lists from the original and ignores this file).
+ *   NAME.blender.obj  (dep71) the same mesh for Blender, with NAME.mtl: one object, the vertices in metres (MESH_BLENDER_UNITS
+ *                     a metre) with z negated (Y up, -Z forward: car_import.h's frame), every textured corner its own vt as
+ *                     0..1 of its bitmap from the bottom (the size of the first of `banks` holding it, 1 x 1 when none
+ *                     does), faces and vertices in the mesh's order. `car import --raw` takes it back with these tables
+ *                     (mesh_blender.h); mesh_import ignores it.
  * An import overlays them on the original chunk and keeps its size: vertex, uv and polygon counts, corner
  * counts and every table length are the original's (moving vertices, changing uvs, textures and the other
  * fields is supported; adding or removing geometry is not yet). Float OBJ values are rounded to integers. */
@@ -18,6 +23,8 @@
 #define TNFS_MESH_EXCHANGE_H
 
 #include "formats/exchange.h"
+
+enum { MESH_BLENDER_UNITS = 130 };   /* mesh units a metre in NAME.blender.obj (car import's --scale 130) */
 
 /* A texture bank a mesh can see, and the folder of its export relative to the mesh's (its map_Kd prefix). */
 typedef struct {

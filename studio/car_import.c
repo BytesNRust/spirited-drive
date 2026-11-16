@@ -16,10 +16,11 @@
 
 #define USAGE                                                                                                                       \
     "usage: tnfs-studio car import PIECE_DIR --obj FILE.obj [--low FILE.obj] [--textures DIR] [--low-textures DIR] [--raw] "        \
+    "[--tables DIR] [--low-tables DIR] "                                                                                            \
     "[--scale S] [--steer DEGREES] [--donor CAR] [--keep-pdn] [--data DIR] [--force]"
 
 typedef struct {
-    const char *piece, *obj, *low, *textures, *low_textures, *donor, *data;
+    const char *piece, *obj, *low, *textures, *low_textures, *donor, *data, *tables, *low_tables;
     double scale, steer;
     int raw, keep_pdn, force;
 } Args;
@@ -48,6 +49,8 @@ static int parse(int argc, char **argv, Args *a, ExchangeError *err)
         else if (strcmp(argv[i], "--low") == 0 && has_value) a->low = argv[++i];
         else if (strcmp(argv[i], "--textures") == 0 && has_value) a->textures = argv[++i];
         else if (strcmp(argv[i], "--low-textures") == 0 && has_value) a->low_textures = argv[++i];
+        else if (strcmp(argv[i], "--tables") == 0 && has_value) a->tables = argv[++i];
+        else if (strcmp(argv[i], "--low-tables") == 0 && has_value) a->low_tables = argv[++i];
         else if (strcmp(argv[i], "--donor") == 0 && has_value) a->donor = argv[++i];
         else if (strcmp(argv[i], "--data") == 0 && has_value) a->data = argv[++i];
         else if (strcmp(argv[i], "--scale") == 0 && has_value) {
@@ -64,6 +67,8 @@ static int parse(int argc, char **argv, Args *a, ExchangeError *err)
         else { exchange_fail(err, "unexpected argument '%s'; %s", argv[i], USAGE); return 0; }
     }
     if (a->piece == NULL || a->obj == NULL) { exchange_fail(err, USAGE); return 0; }
+    if (!a->raw && (a->tables != NULL || a->low_tables != NULL)) { exchange_fail(err, "--tables and --low-tables go with --raw"); return 0; }
+    if (a->low_tables != NULL && a->low == NULL) { exchange_fail(err, "--low-tables goes with --low"); return 0; }
     return 1;
 }
 
@@ -121,7 +126,8 @@ static int read_obj(const char *path, ObjModel *model, char *mtl_dir, size_t cap
     return ok;
 }
 
-/* the .tsv files beside the OBJ (unpack's tables, lists.tsv among them) */
+/* the .tsv files in `dir` (unpack's tables, lists.tsv among them) and its .obj files (the mesh's own NAME.obj, which a Blender OBJ is
+ * read back on: formats/mesh_blender.h) */
 static int read_tables(const char *dir, FileSet *set, ExchangeError *err)
 {
     DIR *d = opendir(dir);
@@ -129,7 +135,8 @@ static int read_tables(const char *dir, FileSet *set, ExchangeError *err)
     int ok = 1;
     for (struct dirent *e; ok && (e = readdir(d)) != NULL;) {
         const size_t n = strlen(e->d_name);
-        if (n < 5 || strcmp(e->d_name + n - 4, ".tsv") != 0) continue;
+        if (n < 5 || (strcmp(e->d_name + n - 4, ".tsv") != 0 && strcmp(e->d_name + n - 4, ".obj") != 0)) continue;
+        if (n > 12 && strcmp(e->d_name + n - 12, ".blender.obj") == 0) continue;   /* only the mesh's own NAME.obj is wanted */
         char path[PATH_MAX];
         size_t size = 0;
         join(path, sizeof path, dir, e->d_name);
@@ -158,14 +165,14 @@ static int read_pngs(const ObjModel *m, const char *base, FileSet *set, Exchange
     return 1;
 }
 
-static int load(const char *obj, const char *textures, int raw, Source *s, ExchangeError *err)
+static int load(const char *obj, const char *textures, const char *tables, int raw, Source *s, ExchangeError *err)
 {
     char mtl_dir[PATH_MAX], obj_dir[PATH_MAX];
     fileset_init(&s->tables), fileset_init(&s->pngs);
     if (!read_obj(obj, &s->model, mtl_dir, sizeof mtl_dir, err)) return 0;
     s->loaded = 1;
     dir_of(obj, obj_dir, sizeof obj_dir);
-    return raw ? read_tables(obj_dir, &s->tables, err) : read_pngs(&s->model, textures != NULL ? textures : mtl_dir, &s->pngs, err);
+    return raw ? read_tables(tables != NULL ? tables : obj_dir, &s->tables, err) : read_pngs(&s->model, textures != NULL ? textures : mtl_dir, &s->pngs, err);
 }
 
 static void unload(Source *s)
@@ -333,7 +340,7 @@ int car_import_command(int argc, char **argv, ExchangeError *err)
     memset(&high, 0, sizeof high), memset(&low, 0, sizeof low);
     Made m;
     memset(&m, 0, sizeof m);
-    int ok = load(a.obj, a.textures, a.raw, &high, err) && (a.low == NULL || load(a.low, a.low_textures, a.raw, &low, err)) &&
+    int ok = load(a.obj, a.textures, a.tables, a.raw, &high, err) && (a.low == NULL || load(a.low, a.low_textures, a.low_tables, a.raw, &low, err)) &&
              make(&a, &info, &high, a.low != NULL ? &low : NULL, &m, err) && write_out(&a, &info, &m, err);
     unload(&high), unload(&low);
     free(m.cfm), free(m.pdn);

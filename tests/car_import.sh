@@ -9,14 +9,19 @@
 #    its meshes' OBJ and tables are the Viper's, each bitmap and palette has the Viper's bytes (the banks' order is the importer's:
 #    palettes first, then as the references name them), its MTLs differ only in those file numbers, and the PDN's measured half
 #    sizes are within a tenth of the Viper's.
+# 4. dep71: every race car of the CD through Blender and back: a piece of it, unpacked, both meshes' mesh.blender.obj rewritten as
+#    Blender's exporter writes them (blender_like_tool: tests/blender_like.h; half the cars with their faces in material blocks), taken
+#    back with --raw --tables --keep-pdn; unpacked again,
+#    its meshes' OBJs and tables are the car's.
 # With a sanitizer build, no report.
-# usage: car_import.sh TNFS STUDIO FIXTURE_DIR ORIGINAL_DIR PORT_DATA_DIR
+# usage: car_import.sh TNFS STUDIO FIXTURE_DIR ORIGINAL_DIR PORT_DATA_DIR BLENDER_LIKE_TOOL
 set -u
 tnfs=$1
 studio=$2
 fixture=$3
 orig=$4
 port=$5
+blender_like=$6
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 failures=0
@@ -103,6 +108,36 @@ done
 paste "$work/pv/pdn.tsv" "$work/pn/pdn.tsv" | awk -F'\t' '$1 == "0x000" { for (k = 4; k <= 6; k++) { d = $k - $(k + 6); if (d < 0) d = -d;
     if (d * 10 > $(k + 6)) bad = 1 } found = 1 } END { exit !(found && !bad) }' ||
     fail "the imported Viper's half sizes are not within a tenth of the Viper's: $(grep '^0x000' "$work/pn/pdn.tsv")"
+
+# 4. every race car through Blender and back, half of them with their faces in material blocks (as Blender's exporter may write them)
+for car in rx7 nsx supra 911 zr1 viper 512tr diablo; do
+    b=$work/bl_$car
+    case $car in rx7 | supra | zr1 | 512tr) grouped=--by-material ;; *) grouped= ;; esac
+    "$studio" car new --template "$car" --id "bl-$car" --stem BLCAR --out "$b/piece" --data "$orig" --port-data "$port" >"$work/log" 2>&1 ||
+        { fail "car new of $car: $(cat "$work/log")"; continue; }
+    "$studio" unpack "$b/piece/SIMDATA/CARFAMS/BLCAR.CFM" "$b/d" >/dev/null 2>&1 || { fail "unpack of $car"; continue; }
+    "$blender_like" $grouped "$b/d/c0/mesh.blender.obj" "$b/high.obj" && "$blender_like" $grouped "$b/d/c2/mesh.blender.obj" "$b/low.obj" ||
+        { fail "$car: blender_like_tool"; continue; }
+    "$studio" car import "$b/piece" --raw --obj "$b/high.obj" --tables "$b/d/c0" --low "$b/low.obj" --low-tables "$b/d/c2" --keep-pdn \
+        --data "$orig" --force >"$work/log" 2>&1 || { fail "car import of $car's Blender OBJs: $(cat "$work/log")"; continue; }
+    clean "$work/log" || fail "car import of $car's Blender OBJs: a sanitizer report"
+    "$studio" unpack "$b/piece/SIMDATA/CARFAMS/BLCAR.CFM" "$b/n" >/dev/null 2>&1 || { fail "unpack of $car back"; continue; }
+    for mesh in c0 c2; do
+        for f in "$b/d/$mesh"/*.obj "$b/d/$mesh"/*.tsv; do
+            cmp -s "$f" "$b/n/$mesh/${f##*/}" || fail "$car through Blender: its $mesh/${f##*/} is not the car's"
+        done
+    done
+done
+# the import does write: the Viper's first vertex a metre up in Blender comes back 130 units up, the only line of mesh.obj that differs
+b=$work/bl_viper
+awk '!done && /^v / { $3 = sprintf("%.6f", $3 + 1); done = 1 } { print }' "$b/high.obj" > "$b/moved.obj" && cp "$b/high.mtl" "$b/moved.mtl"
+"$studio" car import "$b/piece" --raw --obj "$b/moved.obj" --tables "$b/d/c0" --keep-pdn --data "$orig" --force >"$work/log" 2>&1 ||
+    fail "car import of the Viper with a vertex moved: $(cat "$work/log")"
+"$studio" unpack "$b/piece/SIMDATA/CARFAMS/BLCAR.CFM" "$b/m" >/dev/null 2>&1 || fail "unpack of the moved Viper"
+was=$(grep -m1 '^v ' "$b/d/c0/mesh.obj") now=$(grep -m1 '^v ' "$b/m/c0/mesh.obj")
+[ "$(diff "$b/d/c0/mesh.obj" "$b/m/c0/mesh.obj" | grep -c '^[<>]')" -eq 2 ] &&
+    [ "$(echo "$now" | awk '{ print $3 }')" -eq $(( $(echo "$was" | awk '{ print $3 }') + 130 )) ] ||
+    fail "the Viper's first vertex moved a metre up in Blender is '$now' (was '$was')"
 
 [ "$failures" -eq 0 ] || exit 1
 echo "car_import: ok"

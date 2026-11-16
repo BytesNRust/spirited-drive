@@ -156,6 +156,50 @@ static void test_identity(void)
     fileset_free(&files);
 }
 
+/* dep71: NAME.blender.obj beside NAME.obj, for Blender: metres (MESH_BLENDER_UNITS a metre), z negated, one vt a corner as 0..1 of its
+ * bitmap from the bottom (the bank's size; 1 x 1 for a reference no bank holds), the MTL of NAME.obj */
+static void test_blender_obj(void)
+{
+    uint8_t orip[SAMPLE_SIZE];
+    build_sample(orip);
+    memcpy(orip + TEXTURE_AT + 20 + 8, "side", 4);   /* texture 1, polygon 0's: "side", 4 x 2 below */
+    uint8_t bank[TINY_BANK];
+    tiny_bank(bank, "side", "topv");
+    bank[32 + 4] = 4, bank[32 + 6] = 2;              /* side's header says 4 x 2 */
+    const MeshTextureBank banks[] = { { bank, sizeof bank, "../c1" } };
+    FileSet files;
+    fileset_init(&files);
+    ExchangeError err = { { 0 } };
+    CHECK(mesh_export(orip, sizeof orip, "m/body", banks, 1, &files, &err));
+    const SetFile *f = fileset_find(&files, "m/body.blender.obj");
+    CHECK(f != NULL);
+    if (f != NULL) {
+        char *obj = copy_text(f);
+        CHECK(strncmp(obj, "# ORIP mesh", 11) != 0);   /* not mesh_export's NAME.obj: the importer reads it in Blender's frame */
+        static const char BODY[] = "mtllib body.mtl\no _TEST\n"
+                                   "v 0.000000 0.000000 0.000000\nv 0.000000 0.000000 0.000000\nv -0.038462 0.000000 -538.461538\n"
+                                   "vt 3.000000 1.500000\nvt 0.000000 1.000000\nvt 3.000000 1.500000\nvt 0.000000 1.000000\n"
+                                   "usemtl t1_side\nf 1/1 2/2 3/3 1/4\nusemtl t0_topv\nf 2 1 2\n";
+        const char *nl = strchr(obj, '\n');
+        CHECK(nl != NULL && strcmp(nl + 1, BODY) == 0);
+        if (nl != NULL && strcmp(nl + 1, BODY) != 0) fprintf(stderr, "blender.obj:\n%s\n", obj);
+        free(obj);
+    }
+    fileset_free(&files);
+    /* a bank whose entry for "side" points past 4 GiB (the offset + 8 wraps in 32 bits): read as no bitmap, 1 x 1, nothing past the bank */
+    tiny_bank(bank, "side", "topv");
+    bank[20] = 0xfc, bank[21] = 0xff, bank[22] = 0xff, bank[23] = 0xff;
+    fileset_init(&files);
+    CHECK(mesh_export(orip, sizeof orip, "m/body", banks, 1, &files, &err));
+    f = fileset_find(&files, "m/body.blender.obj");
+    if (f != NULL) {
+        char *obj = copy_text(f);
+        CHECK(strstr(obj, "vt 12.000000 2.000000\n") != NULL);
+        free(obj);
+    }
+    fileset_free(&files);
+}
+
 static int replace_once(char *out, size_t cap, const char *text, const char *from, const char *to)
 {
     const char *hit = strstr(text, from);
@@ -290,6 +334,7 @@ int main(int argc, char **argv)
 {
     test_identity();
     test_edits();
+    test_blender_obj();
     for (int a = 1; a < argc; ++a) {
         uint8_t *file = NULL;
         size_t size = 0;

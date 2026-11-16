@@ -152,6 +152,74 @@ static void write_mtl(const Mesh *mesh, const MeshTextureBank *banks, size_t ban
     }
 }
 
+/* the size of the bitmap `name` in the first of `banks` that holds it (its entry header's words 4 and 6); 1 x 1 when none does */
+static void bitmap_size(const MeshTextureBank *banks, size_t bank_count, const char name[4], uint32_t *w, uint32_t *h)
+{
+    *w = 1, *h = 1;
+    for (size_t b = 0; name[0] != '\0' && b < bank_count; ++b) {
+        const uint8_t *d = banks[b].shpi;
+        const size_t size = banks[b].size;
+        if (size < 16 || memcmp(d, "SHPI", 4) != 0) continue;
+        for (uint32_t i = 0; i < le_u32(d + 8) && 16 + 8 * (size_t)i + 8 <= size; ++i) {
+            const uint32_t at = le_u32(d + 16 + 8 * (size_t)i + 4);
+            if (memcmp(d + 16 + 8 * (size_t)i, name, 4) != 0 || (size_t)at + 8 > size || d[at] != 0x7b) continue;
+            const uint32_t bw = (uint32_t)(d[at + 4] | d[at + 5] << 8), bh = (uint32_t)(d[at + 6] | d[at + 7] << 8);
+            if (bw > 0 && bh > 0) *w = bw, *h = bh;
+            return;
+        }
+    }
+}
+
+/* +0.0 for -0.0: the same text for a zero either way */
+static double unsigned_zero(double v) { return v + 0.0; }
+
+/* dep71: NAME.blender.obj (mesh_exchange.h); `mtl` the MTL's file name. 0 with the reason in `err` */
+static int blender_obj(const Mesh *mesh, const char *name, const char *mtl, const MeshTextureBank *banks, size_t bank_count, Text *obj,
+                       ExchangeError *err)
+{
+    text_printf(obj, "# Spirited Drive mesh '%s' for Blender: metres (%d units), Y up, -Z forward; car import --raw takes it back\n",
+                name, MESH_BLENDER_UNITS);
+    text_printf(obj, "mtllib %s\no %s\n", mtl, name[0] ? name : "mesh");
+    for (uint32_t i = 0; i < mesh->vertex_count; ++i) {
+        MeshVertex v;
+        mesh_vertex(mesh, i, &v);
+        text_printf(obj, "v %.6f %.6f %.6f\n", unsigned_zero((double)v.x / MESH_BLENDER_UNITS), unsigned_zero((double)v.y / MESH_BLENDER_UNITS),
+                    unsigned_zero(-(double)v.z / MESH_BLENDER_UNITS));
+    }
+    for (int pass = 0; pass < 2; ++pass) {   /* every corner's vt, then the faces */
+        uint32_t corner_vt = 0;
+        int current = -1;
+        for (uint32_t p = 0; p < mesh->polygon_count; ++p) {
+            MeshPolygon poly;
+            MeshTexture t;
+            uint32_t vi[4], ui[4], w, h;
+            if (mesh_polygon(mesh, p, &poly) != MESH_OK || mesh_polygon_corners(mesh, &poly, vi, ui) != MESH_OK ||
+                mesh_texture(mesh, poly.texture, &t) != MESH_OK) {
+                exchange_fail(err, "%s: polygon %u: not readable", name, p);
+                return 0;
+            }
+            const int corners = poly.flags & 7, with_uv = poly.uv_slot != poly.vertex_slot;
+            bitmap_size(banks, bank_count, t.name, &w, &h);
+            if (pass == 1 && poly.texture != current) {
+                char label[5];
+                texture_label(&t, label);
+                text_printf(obj, "usemtl t%d_%s\n", poly.texture, label);
+                current = poly.texture;
+            }
+            if (pass == 1) text_put(obj, corners == 2 ? "l" : "f", 1);
+            for (int k = 0; k < corners; ++k) {
+                MeshUv uv = { 0, 0 };
+                if (with_uv) mesh_uv(mesh, ui[k], &uv);
+                if (pass == 0 && with_uv) text_printf(obj, "vt %.6f %.6f\n", unsigned_zero((double)uv.u / w), unsigned_zero(1.0 - (double)uv.v / h));
+                else if (pass == 1 && with_uv) text_printf(obj, " %u/%u", vi[k] + 1, ++corner_vt);
+                else if (pass == 1) text_printf(obj, " %u", vi[k] + 1);
+            }
+            if (pass == 1) text_put(obj, "\n", 1);
+        }
+    }
+    return 1;
+}
+
 /* one row of NAME.lists.tsv: kind, record index, its name to the NUL, the `count` map values from `slot` (as far as the map goes) */
 static void list_row(Text *t, const Mesh *m, const char *kind, uint32_t index, const char *name, size_t name_size, uint32_t slot, uint32_t count)
 {
@@ -256,6 +324,13 @@ int mesh_export(const uint8_t *orip, size_t size, const char *stem, const MeshTe
     }
     free(obj.data);
     free(mtl.data);
+    if (ok) {   /* dep71: the same mesh for Blender, with the same MTL */
+        Text blender = { 0 };
+        char *mtl_name = named(strchr(stem, '/') ? strrchr(stem, '/') + 1 : stem, ".mtl"), *f = named(stem, ".blender.obj");
+        ok = mtl_name && f && blender_obj(&mesh, name, mtl_name, banks, bank_count, &blender, err);
+        if (ok && (blender.failed || !fileset_add(out, f, (uint8_t *)blender.data, blender.len))) exchange_fail(err, "%s: cannot write the Blender OBJ", stem), ok = 0;
+        free(mtl_name), free(f), free(blender.data);
+    }
     if (ok) {
         char *hname = named(stem, ".header.tsv");
         ok = hname && record_export(orip, 0x70, header_fields, COUNT(header_fields), "ORIP header words", out, hname, err);
