@@ -26,6 +26,7 @@ typedef struct {
     const uint8_t (*warm)[256];     /* port (lamp_pool_tint): the tables of a lamp's full warmth, which a pixel takes where its heat says (NULL none: the lit tables alone) */
     float heat[4];                  /* the warmth (0..1) at each corner, in cam's order */
     int warm_steps;                 /* port (`lamp`): 0 the warm tables are one, taken by the ordered dither; else `warm` holds that many tables' blocks, a pixel takes the one its heat rounds to (no dither) */
+    float heat_lo, heat_hi;         /* the corners' least and greatest heat: a pixel past an edge (EDGE_GROW) of a sliver extrapolates far beyond them (to -54 and, past 1 / z = 0, millions on TR4) */
 } Fill;
 
 static void uv_box(Fill *fill, const int32_t uv[8], int corners)
@@ -221,10 +222,10 @@ static inline const uint8_t (*warm_pick(const uint8_t (*lit)[256], const uint8_t
 {
     if (warm == NULL) return lit;
     if (steps == 0) return warm_pixel(h, x, y) ? warm : lit;
-    int s = (int)(h * (float)steps + 0.5f);
-    if (s < 1) return lit;   /* NaN converts to a value the test above does not keep either way: clamp both ends */
-    if (s > steps) s = steps;
-    return warm + (size_t)(s - 1) * MODERN_FOG_LEVELS;
+    float f = h * (float)steps + 0.5f;
+    if (!(f >= 1.0f)) return lit;   /* NaN too; clamped in float, so no heat converts out of the int range */
+    if (f > (float)steps) f = (float)steps;
+    return warm + (size_t)((int)f - 1) * MODERN_FOG_LEVELS;
 }
 
 #if defined(__SSE2__) && !defined(__FMA__)
@@ -384,7 +385,7 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
     const float lz = at[3].base + at[3].dx * px + at[3].dy * py, lzdx = at[3].dx;
     const uint8_t (*warm)[256] = lit != NULL ? fill->warm : NULL;   /* port (lamp_pool_tint) */
     const int steps = fill->warm_steps;
-    const float hz = at[4].base + at[4].dx * px + at[4].dy * py, hzdx = at[4].dx;
+    const float hz = at[4].base + at[4].dx * px + at[4].dy * py, hzdx = at[4].dx, heat_lo = fill->heat_lo, heat_hi = fill->heat_hi;
     const Paint paint = fill->paint;   /* locals: the row's stores (chars) would make every pixel reload them */
     int x = xs;
 #if defined(__SSE2__) && !defined(__FMA__)
@@ -422,7 +423,9 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
         if (lit != NULL) {   /* (lz + lzdx k) r a lane each, as the scalar tail computes it */
             const __m128 kl = _mm_add_ps(_mm_set1_ps((float)(x - xs)), _mm_setr_ps(0, 1, 2, 3));
             _mm_storeu_si128((__m128i *)dl, dark_levels(_mm_mul_ps(_mm_add_ps(_mm_set1_ps(lz), _mm_mul_ps(_mm_set1_ps(lzdx), kl)), rv), x, y));
-            if (warm != NULL) _mm_storeu_ps(hl, _mm_mul_ps(_mm_add_ps(_mm_set1_ps(hz), _mm_mul_ps(_mm_set1_ps(hzdx), kl)), rv));   /* the scalar tail's (hz + hzdx k) r */
+            if (warm != NULL)   /* the scalar tail's (hz + hzdx k) r within the corners' heat (max takes the bound for a NaN, as fmaxf) */
+                _mm_storeu_ps(hl, _mm_min_ps(_mm_max_ps(_mm_mul_ps(_mm_add_ps(_mm_set1_ps(hz), _mm_mul_ps(_mm_set1_ps(hzdx), kl)), rv), _mm_set1_ps(heat_lo)),
+                                             _mm_set1_ps(heat_hi)));
         }
         for (int j = 0; j < 4; j++) {
             uint8_t c = payload[at4[j]];
@@ -446,7 +449,7 @@ static void span(const QuadTarget *q, int y, int x0, int x1, const float w[3][3]
         }
         uint8_t c = texel(fill, u, v);
         if (fog != NULL && c < MAP_SHADE_TEXEL) c = fog[fog_level(r, x, y)][c];
-        if (lit != NULL && c < MAP_SHADE_TEXEL) c = warm_pick(lit, warm, steps, (hz + hzdx * k) * r, x, y)[dark_level((lz + lzdx * k) * r, x, y)][c];
+        if (lit != NULL && c < MAP_SHADE_TEXEL) c = warm_pick(lit, warm, steps, fminf(fmaxf((hz + hzdx * k) * r, heat_lo), heat_hi), x, y)[dark_level((lz + lzdx * k) * r, x, y)][c];
         paint_texel(&paint, &row[x], c);
     }
 }
@@ -569,7 +572,7 @@ void modern_road_cell(const QuadTarget *q, const View *view, const FshEntry *tex
         keep(c, view, uv, cam, 4);
         return;
     }
-    Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 }, 0 };
+    Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 }, 0, 0, 0 };
     uv_box(&fill, uv, 4);
     draw_clipped(q, view, uv, cam, 4, &fill);
 }
@@ -615,8 +618,12 @@ void modern_road_cell_lit_warm(const QuadTarget *q, const View *view, const FshE
         return;
     }
     Fill fill = { texture, { transparent ? MAP_TRANSPARENT : MAP_OPAQUE, NULL }, 0, 0, 0, 0, 0, tables,
-                  { dark[0], dark[1], dark[2], dark[3] }, warm, { 0 }, warm != NULL ? steps : 0 };
-    if (warm != NULL) memcpy(fill.heat, heat, sizeof fill.heat);
+                  { dark[0], dark[1], dark[2], dark[3] }, warm, { 0 }, warm != NULL ? steps : 0, 0, 0 };
+    if (warm != NULL) {
+        memcpy(fill.heat, heat, sizeof fill.heat);
+        fill.heat_lo = fminf(fminf(heat[0], heat[1]), fminf(heat[2], heat[3]));
+        fill.heat_hi = fmaxf(fmaxf(heat[0], heat[1]), fmaxf(heat[2], heat[3]));
+    }
     uv_box(&fill, uv, 4);
     draw_clipped(q, view, uv, cam, 4, &fill);
 }
@@ -625,7 +632,7 @@ void modern_polygon(const QuadTarget *q, const View *view, const FshEntry *textu
                     const int32_t *const cam[4], int corners, MapMode mode, const uint8_t *shade)
 {
     if (texture == NULL || (corners != 3 && corners != 4)) return;
-    Fill fill = { texture, { mode, shade }, 0, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 }, 0 };
+    Fill fill = { texture, { mode, shade }, 0, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 }, 0, 0, 0 };
     if (!paint_valid(&fill.paint)) return;
     struct RasterRecorder *rec = raster_recorder_for(q);
     if (rec != NULL) {
@@ -649,7 +656,7 @@ void modern_flat(const QuadTarget *q, const View *view, uint8_t colour, const in
         keep(c, view, uv, cam, corners);
         return;
     }
-    const Fill fill = { NULL, { MAP_OPAQUE, NULL }, colour, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 }, 0 };
+    const Fill fill = { NULL, { MAP_OPAQUE, NULL }, colour, 0, 0, 0, 0, NULL, { 0 }, NULL, { 0 }, 0, 0, 0 };
     draw_clipped(q, view, uv, cam, corners, &fill);
 }
 

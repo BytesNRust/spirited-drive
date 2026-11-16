@@ -358,6 +358,71 @@ static void test_lit_darkness_out_of_range(void)
     CHECK(memcmp(level0, screen, sizeof level0) == 0);
 }
 
+/* the heat a pixel takes stays within its polygon's corners: a sliver under half a pixel tall, a polygon of TR4's road seen nearly edge on (its screen corners as the race
+ * drew them, 640 left and 160 up), reaches a pixel past its edges (EDGE_GROW) where the interpolated heat ran to -54 and, with 1 / z extrapolated past 0 there (r = 1 / IZ_MIN), to
+ * 3.8e6 (long_TR4, UBSan: "-4.64e9 is outside the range of type int" in warm_pick); its corners' 0.31 .. 0.58 at three steps are blocks 1 and 2 alone */
+enum { MARK_LIT = 10, MARK_STEP = 20 };
+static uint8_t mark_warm[3][16][256];
+
+static int sliver_strays(const View *view, QuadTarget *q, const float heat[4], int allowed_lo, int allowed_hi, int *drawn)
+{
+    static const float screen_at[4][3] = { { 957.539185f, 447.177307f, 19910 }, { 962.104187f, 447.54364f, 19941 },
+                                           { 961.511414f, 447.494659f, 19809 }, { 956.960999f, 447.125793f, 19778 } };
+    static int32_t c[4][3];
+    for (int i = 0; i < 4; i++) {   /* the corners back through this view's projection */
+        const float z = screen_at[i][2], f = (float)view->focal_x;
+        c[i][0] = (int32_t)lroundf((screen_at[i][0] - 640 - (float)view->centre_x) * z / f);
+        c[i][1] = (int32_t)lroundf(((float)view->centre_y - (screen_at[i][1] - 160)) * z / f);
+        c[i][2] = (int32_t)z;
+    }
+    const int32_t *const cam[4] = { c[0], c[1], c[2], c[3] };
+    const int32_t uv[8] = { 0, 255 << 16, 255 << 16, 255 << 16, 255 << 16, 0, 0, 0 };
+    const float dark[4] = { 0, 0, 0, 0 };
+    const FshEntry t = texture();
+    memset(screen, UNTOUCHED, sizeof screen);
+    modern_road_cell_lit_warm(q, view, &t, uv, cam, 0, lit_tab, dark, mark_warm[0], heat, 3);
+    int strays = 0;
+    *drawn = 0;
+    for (int i = 0; i < W * H; i++) {
+        if (screen[i] == UNTOUCHED) continue;
+        const int step = screen[i] == MARK_LIT ? 0 : screen[i] - MARK_STEP;
+        *drawn += 1, strays += step < allowed_lo || step > allowed_hi;
+    }
+    return strays;
+}
+
+static void test_lit_heat_in_range(void)
+{
+    for (int l = 0; l < 16; l++)
+        for (int c = 0; c < 256; c++) {
+            lit_tab[l][c] = MARK_LIT;
+            for (int s = 0; s < 3; s++) mark_warm[s][l][c] = (uint8_t)(MARK_STEP + 1 + s);
+        }
+    static View view;
+    view_init(&view, 0, 0, W, H, 90, 90);
+    QuadTarget q = { screen, W, 0, 0, W, H };
+    const float pool[4] = { 0.575373828f, 0.578117669f, 0.312782824f, 0.315129966f };
+    int drawn = 0;
+    CHECK_EQ_INT(sliver_strays(&view, &q, pool, 1, 2, &drawn), 0);
+    CHECK(drawn > 0);
+    /* the scalar tail alone (every column on its own) the same */
+    int tail_strays = 0, tail_drawn = 0;
+    for (int x = 0; x < W; x++) {
+        int d = 0;
+        q.clip_left = x, q.clip_right = x + 1;
+        tail_strays += sliver_strays(&view, &q, pool, 1, 2, &d), tail_drawn += d;
+    }
+    CHECK_EQ_INT(tail_strays, 0);
+    CHECK_EQ_INT(tail_drawn, drawn);
+    q.clip_left = 0, q.clip_right = W;
+    /* a heat out of the int range at the corners is the last step, a NaN the lit tables: no float to int overflow in warm_pick */
+    const float huge[4] = { 3.38e9f, 3.38e9f, 3.38e9f, 3.38e9f }, nan[4] = { NAN, NAN, NAN, NAN };
+    CHECK_EQ_INT(sliver_strays(&view, &q, huge, 3, 3, &drawn), 0);
+    CHECK(drawn > 0);
+    CHECK_EQ_INT(sliver_strays(&view, &q, nan, 0, 0, &drawn), 0);
+    CHECK(drawn > 0);
+}
+
 /* port (`lamp`): the tables with a colour added brighten toward it and never darken what the plain tables give; a zero add is the plain tables */
 static void test_light_tables_add(void)
 {
@@ -410,6 +475,7 @@ int main(void)
     test_lit_warm();
     test_lit_steps();
     test_lit_darkness_out_of_range();
+    test_lit_heat_in_range();
     test_t_junction_covered();
     test_perspective_correct();
     test_near_clip_and_box();
