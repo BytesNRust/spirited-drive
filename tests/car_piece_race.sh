@@ -47,10 +47,18 @@ run() { timeout -k 5 120 "$tnfs" --data "$orig" --user "$work/user" "$@" >/dev/n
 touch "$work/marker"
 sleep 1
 
-give_up() {   # the mark the race logs once it runs ($1), then the pause menu's Quit and Enter through the results
-    script="0:WAIT:mark:$1:120,8000:ESC,2000:UP,2000:ENTER,2000:Y"
-    for i in 1 2 3 4 5 6 7 8; do script="$script,3000:ENTER"; done
-    echo "$script"
+# Enter on each results screen in turn once it has faded in (its mark:results=NAME): the screens a race of its kind shows, no more. Headless
+# the pointer is not over Done at first: on the first screen one Enter wakes it there and a second takes Done; on the next ones it is there
+through() {
+    first=1
+    for name in "$@"; do
+        printf ',0:WAIT:mark:results=%s:120,300:ENTER' "$name"
+        [ $first -eq 1 ] && printf ',300:ENTER'
+        first=0
+    done
+}
+give_up() {   # the mark the race logs once it runs ($1), then the pause menu's Quit and Enter through the results (a race given up: its one)
+    echo "0:WAIT:mark:$1:120,8000:ESC,2000:UP,2000:ENTER,2000:Y$(through circuit)"
 }
 
 replay() {   # the replay file $1, the mods folder $2 (none: no --mods): the status
@@ -156,8 +164,7 @@ part_finish() {
     cp "$work/user/race_records.dat" "$work/records.before" 2>/dev/null || fail "the given-up race made no race_records.dat to compare"
     [ -e "$work/user/config.dat" ] && fail "a race with the piece wrote config.dat"
     echo "look.test-car=-,Blue" >> "$work/user/restomod.cfg"   # step 3: the paint picked in its gallery (the skin as it comes has masks)
-    script="0:WAIT:mark:race_over:240"
-    for i in 1 2 3 4 5 6 7 8; do script="$script,3000:ENTER"; done
+    script="0:WAIT:mark:results=circuit:240,300:ENTER,300:ENTER,0:WAIT:mark:results=best_totals:120,300:ENTER"   # its results, the best totals   # a race run to its finish: its results and the best totals
     TNFS_BANDS=0 TNFS_VERBOSE=1 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_TRACE_PLAYER=30 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
         timeout -k 5 300 "$tnfs" --data "$orig" --mods "$piece" --user "$work/user" --drive TR1 --car test-car --type 0 >"$work/race.out" 2>"$work/err"
     rc=$?

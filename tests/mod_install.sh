@@ -29,6 +29,16 @@ mkdir -p "$U" && echo profile=restomod > "$U/port.cfg"
 touch "$work/marker"
 sleep 1
 cmd() { timeout -k 5 60 "$tnfs" --user "$U" "$@" >"$work/out" 2>"$work/err"; }
+# Enter on each results screen in turn once it has faded in (its mark:results=NAME): the screens a race of its kind shows, no more. Headless
+# the pointer is not over Done at first: on the first screen one Enter wakes it there and a second takes Done; on the next ones it is there
+through() {
+    first=1
+    for name in "$@"; do
+        printf ',0:WAIT:mark:results=%s:120,300:ENTER' "$name"
+        [ $first -eq 1 ] && printf ',300:ENTER'
+        first=0
+    done
+}
 frame() { timeout -k 5 120 "$tnfs" --data "$orig" --user "$U" --drive TR1 --node 200 --screenshot "$work/f.ppm" "$@" >/dev/null 2>"$work/err"; }
 
 # the car piece's zip, version 0.1 (1)
@@ -100,8 +110,7 @@ with zipfile.ZipFile(sys.argv[1], "w") as z:
 # 7. --mods with a TRI: a race run to its finish keeps no record and no replay (temporary until step 5). A race first without it
 # makes race_records.dat and Replay.rpl, which must come out of the second the same bytes
 part_before() {
-    script="0:WAIT:mark:spray_v4=1:120,8000:ESC,2000:UP,2000:ENTER,2000:Y"
-    for i in 1 2 3 4 5 6 7 8; do script="$script,3000:ENTER"; done
+    script="0:WAIT:mark:spray_v4=1:120,8000:ESC,2000:UP,2000:ENTER,2000:Y$(through circuit)"
     TNFS_BANDS=0 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
         timeout -k 5 300 "$tnfs" --data "$orig" --user "$U" --drive TR1 --car 5 --type 0 >/dev/null 2>"$work/err" ||
         fail "the race without --mods ended badly: $(tail -3 "$work/err")"
@@ -117,8 +126,7 @@ part_tri() {
     cp "$U/race_records.dat" "$work/records.before" 2>/dev/null || fail "no race_records.dat to compare"
     cp "$U/Replay.rpl" "$work/replay.before" 2>/dev/null || fail "no Replay.rpl to compare"
     mkdir -p "$work/tri_dev/SIMDATA/MISC" && cp "$orig/SIMDATA/MISC/TR1.TRI" "$work/tri_dev/SIMDATA/MISC/TR1.TRI"
-    script="0:WAIT:mark:race_over:240"
-    for i in 1 2 3 4 5 6 7 8; do script="$script,3000:ENTER"; done
+    script="0:WAIT:mark:results=circuit:240,300:ENTER,300:ENTER,0:WAIT:mark:results=best_totals:120,300:ENTER"   # its results, the best totals
     TNFS_BANDS=0 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
         timeout -k 5 300 "$tnfs" --data "$orig" --user "$U" --mods "$work/tri_dev" --drive TR1 --car 5 --type 0 >/dev/null 2>"$work/err" ||
         fail "the race with --mods ended badly: $(tail -3 "$work/err")"

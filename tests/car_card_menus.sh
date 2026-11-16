@@ -154,9 +154,10 @@ part_modes() {
 # the replay list: Options, Load/Save, View replay
 replays="$(click 215 450),$(wait_for screen=options),$(click 240 324),300:MOUSE:155:280,$(click 155 280),$(wait_for screen=game_list)"
 # Rusty Springs (track 3: a circuit, one race; Coastal's three segments would go on), the track arrow twice from a fresh player's 1; one
-# lap with the harness's autopilot; three Enters through the results to Control Central again
+# lap with the harness's autopilot; Enter on each results screen once it has faded in (its mark:results=NAME), to Control Central again
+# (headless the pointer is not over Done at first: on the first screen one Enter wakes it there and a second takes Done)
 rusty="$(click 535 319),$(wait_for card=),$(click 535 319),$(wait_for card=3)"
-results="0:WAIT:mark:race_over:300,5000:ENTER,5000:ENTER,5000:ENTER,$(wait_for car=16)"
+results="0:WAIT:mark:results=circuit:300,300:ENTER,300:ENTER,$(wait_for results=best_totals),300:ENTER,$(wait_for car=16)"
 
 part_replays() {
     user_in restomod
