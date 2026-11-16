@@ -147,8 +147,7 @@ int car_registry_dash_model(int car)
 int car_registry_lamp_model(int car)
 {
     if (car >= 0 && car < CAR_MODELS) return car;
-    const CarPiece *p = car_registry_piece(car);
-    return p != NULL ? p->sound_model : -1;
+    return car_registry_piece(car) != NULL ? CAR_LAMP_STANDARD : -1;   /* port (dep59 3b): not its sound_from's */
 }
 
 int car_registry_ai_model(int car)
