@@ -3,9 +3,9 @@
 
 #include "formats/mod_check.h"
 #include "formats/mod_install.h"
-#include "formats/mod_list.h"
 #include "formats/zip.h"
 #include "game/platform/platform.h"
+#include "game/sys/edition_file.h"
 #include "game/sys/mod_set.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
@@ -76,30 +76,9 @@ static void date_of(time_t t, char out[MOD_INSTALL_DATE + 1])
              tm.tm_hour % 100, tm.tm_min % 100, tm.tm_sec % 100);
 }
 
-/* ---- the list (temporary until step 4) */
-
-static void list_now(ModList *l)
-{
-    const PortSettings s = port_settings_of_profile(PROFILE_RESTOMOD);
-    mod_list_parse(s.mods, l);
-}
-
-static void list_put_first(const char *id)
-{
-    ModList l;
-    list_now(&l);
-    mod_list_put_first(&l, id);
-    if (!mod_set_save_list(&l)) port_log("mods: the list of active mods could not be saved\n");
-}
-
-static void list_take_out(const char *id)
-{
-    ModList l;
-    list_now(&l);
-    if (mod_list_index(&l, id) < 0) return;
-    mod_list_take_out(&l, id);
-    if (!mod_set_save_list(&l)) port_log("mods: the list of active mods could not be saved\n");
-}
+/* port (dep59 step 4): installing only makes a mod available; the folders in effect (mod_set.h) are worked out again, for the edition
+ * in use may name it */
+static void folders_follow(void) { port_settings_forget(); }
 
 /* ---- backups */
 
@@ -167,7 +146,7 @@ static int unpack(const uint8_t *zip, size_t size, const ModCheck *c, const char
 static int plan_for(const ModCheck *c, ModInfo *installed, int *has_card, ModInstallPlan *p, char *why, size_t cap)
 {
     char target[REL_MAX];
-    snprintf(target, sizeof target, "mods/%s", mod_list_id_ok(c->info.id) ? c->info.id : "-");
+    snprintf(target, sizeof target, "mods/%s", mod_ini_id_ok(c->info.id) ? c->info.id : "-");
     if (platform_user_exists("mods") && !platform_user_is_dir("mods")) return refuse(why, cap, "mods in the player's folder is not a folder");
     const int there = platform_user_exists(target);
     if (there && !platform_user_is_dir(target)) return refuse(why, cap, "%s is not a folder: it is not replaced", target);
@@ -213,7 +192,7 @@ int mod_store_install(const char *zip_path, char *id_out, size_t id_cap, char *o
     if (planned && !platform_user_remove_tree(p.staging)) port_log("mods: %s could not be removed\n", p.staging);
     if (ok) {
         if (update) trim_backups(c.info.id, MOD_BACKUPS_KEPT);
-        list_put_first(c.info.id);   /* port (dep59, temporary until step 4): installing makes it active */
+        folders_follow();
         if (id_out != NULL) snprintf(id_out, id_cap, "%s", c.info.id);
         if (old_out != NULL && update) snprintf(old_out, old_cap, "%s", p.old_version);
         port_log("mods: %s %s %s\n", update ? "updated" : "installed", c.info.id, c.info.version);
@@ -226,7 +205,7 @@ int mod_store_install(const char *zip_path, char *id_out, size_t id_cap, char *o
 
 int mod_store_uninstall(const char *id, char *why, size_t why_cap)
 {
-    if (!mod_list_id_ok(id)) return refuse(why, why_cap, "\"%.40s\" is not a mod's id", id);
+    if (!mod_ini_id_ok(id)) return refuse(why, why_cap, "\"%.40s\" is not a mod's id", id);
     char target[REL_MAX], backup[REL_MAX];
     snprintf(target, sizeof target, "mods/%s", id);
     ModInfo card;
@@ -235,7 +214,7 @@ int mod_store_uninstall(const char *id, char *why, size_t why_cap)
     if (strcmp(card.id, id) != 0) return refuse(why, why_cap, "%s says it is %s: it was not installed by the game, and is left alone", target, card.id);
     if (!back_up(target, &card, backup, sizeof backup, why, why_cap)) return 0;
     trim_backups(id, MOD_BACKUPS_KEPT);
-    list_take_out(id);
+    folders_follow();   /* (the editions that name it are left as they are: they skip it) */
     port_log("mods: uninstalled %s, kept in %s\n", id, backup);
     return 1;
 }
@@ -254,7 +233,7 @@ static int newest_backup(const char *id, char *out, size_t cap)
 
 int mod_store_restore(const char *id, char *why, size_t why_cap)
 {
-    if (!mod_list_id_ok(id)) return refuse(why, why_cap, "\"%.40s\" is not a mod's id", id);
+    if (!mod_ini_id_ok(id)) return refuse(why, why_cap, "\"%.40s\" is not a mod's id", id);
     char from[REL_MAX], target[REL_MAX], backup[REL_MAX];
     if (!newest_backup(id, from, sizeof from)) return refuse(why, why_cap, "%s has no backup", id);
     snprintf(target, sizeof target, "mods/%s", id);
@@ -270,14 +249,14 @@ int mod_store_restore(const char *id, char *why, size_t why_cap)
         return refuse(why, why_cap, "%s cannot be put back", from);
     }
     trim_backups(id, MOD_BACKUPS_KEPT);
-    list_put_first(id);   /* port (dep59, temporary until step 4) */
+    folders_follow();
     port_log("mods: restored %s from %s\n", id, from);
     return 1;
 }
 
 int mod_store_drop_backups(const char *id, char *why, size_t why_cap)
 {
-    if (!mod_list_id_ok(id)) return refuse(why, why_cap, "\"%.40s\" is not a mod's id", id);
+    if (!mod_ini_id_ok(id)) return refuse(why, why_cap, "\"%.40s\" is not a mod's id", id);
     trim_backups(id, 0);
     char left[REL_MAX];
     return newest_backup(id, left, sizeof left) ? refuse(why, why_cap, "%s could not be removed", left) : 1;
@@ -291,26 +270,35 @@ static int backups_of(const char *id, char **names, int count)
     return mod_backups_to_drop(id, (const char *const *)names, count, 0, drop, 256);
 }
 
+/* 1 when the edition `e` names `id` among its tweaks or its cars */
+static int named(const Edition *e, const char *id)
+{
+    for (int i = 0; i < e->tweaks; i++)
+        if (strcmp(e->tweak[i], id) == 0) return 1;
+    for (int i = 0; i < e->cars; i++)
+        if (strcmp(e->car[i], id) == 0) return 1;
+    return 0;
+}
+
 int mod_store_list(ModStoreEntry *out, int cap)
 {
     int count = 0, backups = 0, n = 0;
     char **names = platform_user_list_dirs("mods", &count);
     char **saved = platform_user_list_dirs("mods_backup", &backups);
-    ModList l;
-    list_now(&l);
-    for (int pass = 0; pass < 2; pass++)   /* the list's, in its order; then the rest, by id (the folders are sorted) */
-        for (int k = 0; k < (pass == 0 ? l.count : count) && n < cap; k++) {
-            const char *id = pass == 0 ? l.ids[k] : names[k];
-            if (!mod_list_id_ok(id) || (pass == 1 && mod_list_index(&l, id) >= 0)) continue;
-            char rel[REL_MAX];
-            snprintf(rel, sizeof rel, "mods/%s", id);
-            ModStoreEntry e;
-            memset(&e, 0, sizeof e);
-            if (!platform_user_is_dir(rel) || !card_at(rel, &e.info) || strcmp(e.info.id, id) != 0) continue;
-            e.active = pass == 0;
-            e.backups = backups_of(id, saved, backups);
-            out[n++] = e;
-        }
+    static Edition e;
+    const int in_use = edition_active(&e) == 1;
+    for (int k = 0; k < count && n < cap; k++) {   /* by id (the folders are sorted) */
+        const char *id = names[k];
+        if (!mod_ini_id_ok(id)) continue;
+        char rel[REL_MAX];
+        snprintf(rel, sizeof rel, "mods/%s", id);
+        ModStoreEntry entry;
+        memset(&entry, 0, sizeof entry);
+        if (!platform_user_is_dir(rel) || !card_at(rel, &entry.info) || strcmp(entry.info.id, id) != 0) continue;
+        entry.active = in_use && named(&e, id);
+        entry.backups = backups_of(id, saved, backups);
+        out[n++] = entry;
+    }
     platform_free_names(names);
     platform_free_names(saved);
     return n;

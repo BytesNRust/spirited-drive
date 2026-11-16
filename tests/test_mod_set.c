@@ -1,7 +1,9 @@
-/* dep59 n4 phase 2: the mods in effect (game/sys/mod_set.h), on a scratch player folder: Restomod's list in its order, `--mods` above it
- * (Restomod's only: Stock and Restored load no mods at all); a change of list or of mode is in effect at once (the settings' write), the generation
- * moving on only when the folders do; a listed mod with no folder left out. The overlay (platform_read_file) and the port's data (data_path) follow the same folders. */
-#include "formats/mod_list.h"
+/* dep59 n4 phase 2: the mods in effect (game/sys/mod_set.h), on a scratch player folder, `--mods` above the rest (Restomod's only: Stock
+ * and Restored load no mods at all); a change of edition or of mode is in effect at once (the settings' write), the generation moving on
+ * only when the folders do. The overlay (platform_read_file) and the port's data (data_path) follow the same folders.
+ * dep59 step 4: the rest is the edition in use's (edition_file.h): its tweaks in their order, then its added cars' folders; a piece with
+ * no folder left out; the standard edition (no edition=) none, whatever is installed; an edition whose file is missing or that cannot be
+ * used, the standard one (its key kept). */
 #include "game/sys/data_path.h"
 #include "game/sys/mod_set.h"
 #include "game/sys/port_log.h"
@@ -56,26 +58,44 @@ static void mod_note(const char *id, const char *text)
     write_file(dir, "NOTE.TXT", text);
 }
 
-static void save_list(const char *text)
+/* editions/<id>.ini with these tweaks and cars (and a stock track), then restomod.cfg's edition=<id> ("" the standard one, no file) */
+static void use_edition(const char *id, const char *tweaks, const char *cars)
 {
-    ModList l;
-    mod_list_parse(text, &l);
-    CHECK(mod_set_save_list(&l));
+    if (id[0] != '\0') {
+        char dir[400], text[600], name[80];
+        snprintf(dir, sizeof dir, "%s/editions", pref);
+        snprintf(text, sizeof text, "name=Test\ncars=%s\ntracks=city\ntweaks=%s\n", cars, tweaks);
+        snprintf(name, sizeof name, "%s.ini", id);
+        write_file(dir, name, text);
+    }
+    PortSettings s = port_settings_of_profile(PROFILE_RESTOMOD);
+    const PortExtras e = port_extras_of_profile(PROFILE_RESTOMOD);
+    snprintf(s.edition, sizeof s.edition, "%s", id);
+    CHECK(port_mode_save(&s, &e));
 }
 
-static void test_the_list_in_its_order(void)
+/* an added car's folder in mods/, with its card */
+static void mod_car(const char *id)
+{
+    char dir[400], text[200];
+    snprintf(dir, sizeof dir, "%s/mods/%s", pref, id);
+    snprintf(text, sizeof text, "id=%s\nname=Car\nversion=1\ntype=car\nstem=CARX\nsound_from=viper\n", id);
+    write_file(dir, "mod.ini", text);
+}
+
+static void test_the_editions_tweaks_in_their_order(void)
 {
     mod_note("a", "from a");
     mod_note("b", "from b");
     CHECK(port_profile_select(PROFILE_RESTOMOD));
     CHECK(mod_set_start(cd, NULL));
-    CHECK(note_is("from the cd"));   /* no list yet */
+    CHECK(note_is("from the cd"));   /* the standard edition: nothing installed is in effect */
     const uint32_t g0 = mod_set_generation();
-    save_list("b,a");
+    use_edition("one", "b,a", "rx7");
     CHECK(note_is("from b"));
     const uint32_t g1 = mod_set_generation();
     CHECK(g1 != g0);
-    save_list("a,b");
+    use_edition("two", "a,b", "rx7");
     CHECK(note_is("from a"));
     const char *dirs[4];
     CHECK_EQ_INT(mod_set_dirs(dirs, 4), 2);   /* the folders in effect, the first wins */
@@ -93,13 +113,35 @@ static void test_the_list_in_its_order(void)
     write_file(dir, "car_envmap.png", "png");
     data_path_candidates("car_envmap.png", found);
     CHECK(strstr(found[0], "/mods/b/car_envmap.png") != NULL);
-    save_list("ghost,b");   /* a listed mod with no folder is left out */
+    use_edition("three", "ghost,b", "rx7");   /* a piece with no folder is left out */
     CHECK(note_is("from b"));
+    /* its added cars' folders after its tweaks; a stock car has none, a missing car is left out */
+    mod_car("f40");
+    use_edition("four", "a", "f40,rx7,ghost-car");
+    CHECK_EQ_INT(mod_set_dirs(dirs, 4), 2);
+    CHECK(strstr(dirs[0], "/mods/a") != NULL && strstr(dirs[1], "/mods/f40") != NULL);
+    /* a tweak named in cars= is not a car's folder */
+    use_edition("five", "", "rx7,b");
+    CHECK_EQ_INT(mod_set_dirs(dirs, 4), 0);
+    /* back to the standard edition; then an edition whose file is missing: the standard's, its key kept */
+    use_edition("", "", "");
+    CHECK(note_is("from the cd"));
+    use_edition("two", "a,b", "rx7");
+    CHECK(note_is("from a"));
+    PortSettings missing = port_settings_of_profile(PROFILE_RESTOMOD);
+    const PortExtras extras = port_extras_of_profile(PROFILE_RESTOMOD);
+    snprintf(missing.edition, sizeof missing.edition, "gone");
+    CHECK(port_mode_save(&missing, &extras));
+    CHECK(note_is("from the cd"));
+    CHECK(strcmp(port_settings_of_profile(PROFILE_RESTOMOD).edition, "gone") == 0);
+    /* an edition with no car that is there cannot be used: the standard's */
+    use_edition("six", "a", "ghost-car");
+    CHECK(note_is("from the cd"));
 }
 
-static void test_stock_and_restored_read_no_list(void)
+static void test_stock_and_restored_read_no_edition(void)
 {
-    save_list("a");
+    use_edition("one-a", "a", "rx7");
     CHECK(note_is("from a"));
     const uint32_t g = mod_set_generation();
     CHECK(port_profile_select(PROFILE_STOCK));
@@ -108,7 +150,7 @@ static void test_stock_and_restored_read_no_list(void)
     CHECK(port_profile_select(PROFILE_RESTORED));
     CHECK(note_is("from the cd"));
     CHECK(port_profile_select(PROFILE_RESTOMOD));
-    CHECK(note_is("from a"));   /* the list was kept: back in Restomod, in effect again */
+    CHECK(note_is("from a"));   /* the edition was kept: back in Restomod, in effect again */
 }
 
 static void test_the_command_line_folder_comes_first(void)
@@ -170,7 +212,7 @@ static void test_what_a_folder_may_serve(void)
     snprintf(dir, sizeof dir, "%s/mods/car1/track_light", pref);
     write_file(dir, "TR2B.txt", "track TR2 B\n");
     CHECK(mod_set_start(cd, NULL));
-    save_list("twk,car1");
+    use_edition("serve", "twk", "car1");
     CHECK(!mod_set_session_modified());
     port_log_watch("twk: SIMDATA/MISC/NOTE.B21 is left out");
     CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from the cd"));   /* an installed tweak never serves what changes the race */
@@ -210,7 +252,7 @@ static void test_what_a_folder_may_serve(void)
     write_file(dir, "mod.ini", "id=car-cli\nname=Car Cli\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\n");
     snprintf(cli, sizeof cli, "%s/car_cli", base);
     CHECK(mod_set_start(cd, cli));
-    CHECK(data_from("track_light/TR1B.txt", "/mods/twk/"));   /* the list still in effect below it */
+    CHECK(data_from("track_light/TR1B.txt", "/mods/twk/"));   /* the edition still in effect below it */
     char asked[400];
     size_t size = 0;
     snprintf(asked, sizeof asked, "%s/SIMDATA/CARSPECS/TESTCAR.PBS", cd);
@@ -222,7 +264,7 @@ static void test_what_a_folder_may_serve(void)
     CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from the cd"));   /* Stock serves nothing */
     CHECK(!mod_set_session_modified());
     CHECK(port_profile_select(PROFILE_RESTOMOD));
-    save_list("");
+    use_edition("", "", "");
     mod_set_stop();
 }
 
@@ -238,8 +280,8 @@ int main(void)
     write_file(cd_dir, "NOTE.B21", "from the cd");
     make_dirs(pref);
     setenv("TNFS_PREF_DIR", pref, 1);
-    test_the_list_in_its_order();
-    test_stock_and_restored_read_no_list();
+    test_the_editions_tweaks_in_their_order();
+    test_stock_and_restored_read_no_edition();
     test_the_command_line_folder_comes_first();
     test_what_a_folder_may_serve();
     mod_set_stop();

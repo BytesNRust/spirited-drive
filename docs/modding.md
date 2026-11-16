@@ -23,7 +23,8 @@ handle the installed ones. None of them opens a window or needs the game data, a
     tnfs --install FILE.zip     installs it, or updates the installed one with the same id: "installed <id> <version>",
                                 "updated <id> <old> -> <new>"
     tnfs --uninstall ID         moves it to the backups: "uninstalled <id> (backup kept)"
-    tnfs --mods-list            one line per installed mod: id, version, type, on or off, name (tab-separated)
+    tnfs --mods-list            one line per installed mod: id, version, type, on (the edition in use names it) or off, name
+                                (tab-separated)
 
 `--user DIR` before them works on that player's folder. What happens:
 
@@ -47,10 +48,32 @@ Every type may also carry `mod.ini`, `preview.png` and a README or LICENSE. `GAM
 part of a mod. A folder in `mods/` that holds a file its type may not carry, put there by hand, still runs: that file is not given to the
 game, and the log says so once (`mods: <id>: <file> is left out: <why>`).
 
-Two behaviours are **temporary**:
+**Installing only makes a mod available.** Which installed mods the game uses is the edition's to say (*Editions*, below): the
+standard edition, today's game, uses none of them. Uninstalling changes no edition; one that names the mod skips it.
 
-* **Installing makes the mod active**: it goes first in Restomod's list (`mods=` in `restomod.cfg`), and uninstalling takes it out. When
-  the profiles come (dep59 step 4), installing will only make a mod available.
+### Editions
+
+In Restomod an edition is a set of cars, tracks and tweaks, `<player folder>/editions/<id>.ini`, and `edition=<id>` in `restomod.cfg`
+says which one is in use (docs/settings.md). Without it the game is the standard edition. The file is `key=value` lines as `mod.ini`'s:
+
+    name=Europa 80
+    cars=f40,testarossa-koenig,alpine-a110,rx7
+    tracks=city,coastal,rusty
+    tweaks=coastal-night-light,nicer-smoke
+
+* `name`: what the game shows, 1 to 12 printable ASCII characters (not `Customize game`).
+* `cars` and `tracks`, in the menus' order; `tweaks`, the first winning over the ones after it. Ids between commas: a mod's `id`, or
+  one of the game's own: the cars `rx7 nsx supra 911 zr1 viper 512tr diablo warrior`, the tracks `city coastal alpine rusty autumn burnt
+  vertigo transtropolis vegas` (`rusty` brings Lunar Springs with it; `hidden`, the cut moon track, is kept and never listed). Up to 64
+  cars, 32 tracks and 32 tweaks; `original` is no id.
+* A piece that is not installed stays in the file and is left out, with a line in the log. An edition that keeps no car or no track
+  then, or whose file is missing or damaged, is not used: the standard edition is, and the log says why.
+* The folders the game reads are `--mods DIR`, then the edition's tweaks in their order, then its added cars.
+
+What an edition changes in the menus, its records and its unlocks comes with the rest of dep59 step 4.
+
+One behaviour is **temporary**:
+
 * **`--mods DIR` still serves the files that change a race**, so that a changed track can be tried as today, but that run keeps no
   record and no replay. The log says `mods: --mods serves <file>, which changes the race: this run keeps no records and no replays`.
   A car piece's own files given as `--mods` are not such a change: its races keep their records (see *Adding a car*). This goes away

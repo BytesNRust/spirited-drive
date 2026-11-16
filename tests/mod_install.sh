@@ -1,7 +1,8 @@
 #!/bin/sh
-# dep59 step 2: the installed mods against the real game. A car piece (tnfs-studio car new + mod pack) installed with --install races
-# with no --mods, is updated, and once uninstalled is no car any more while the originals race on; a tweak made by hand is installed and
-# its light is the one the race reads; a tweak's zip carrying a TRI is refused and writes nothing; --mods with a TRI races and keeps no
+# dep59 step 2: the installed mods against the real game. A car piece (tnfs-studio car new + mod pack) installed with --install is only
+# made available (step 4: no edition changes, --mods-list says off); named by the edition in use it races with no --mods, is updated,
+# and once uninstalled is no car any more while the originals race on (the edition's file left as it was); a tweak made by hand is
+# installed and, named by the edition, its light is the one the race reads; a tweak's zip carrying a TRI is refused and writes nothing; --mods with a TRI races and keeps no
 # record nor replay (temporary until step 5); in Stock --install works and nothing of it is served; nothing below the data root is written.
 # PART (one ctest each; the race a later part starts from is kept in FIXTURE, ctest's fixtures saying the order):
 #   cars    1-4: the car piece installed, raced, updated, uninstalled
@@ -29,6 +30,12 @@ mkdir -p "$U" && echo profile=restomod > "$U/port.cfg"
 touch "$work/marker"
 sleep 1
 cmd() { timeout -k 5 60 "$tnfs" --user "$U" "$@" >"$work/out" 2>"$work/err"; }
+# step 4: editions/<id>.ini naming these cars and tweaks (and a track), in use in Restomod (restomod.cfg's edition=)
+use_edition() {
+    mkdir -p "$U/editions"
+    printf 'name=Test\ncars=%s\ntracks=city\ntweaks=%s\n' "$2" "$3" > "$U/editions/$1.ini"
+    echo "edition=$1" > "$U/restomod.cfg"
+}
 # Enter on each results screen in turn once it has faded in (its mark:results=NAME): the screens a race of its kind shows, no more. Headless
 # the pointer is not over Done at first: on the first screen one Enter wakes it there and a second takes Done; on the next ones it is there
 through() {
@@ -64,9 +71,15 @@ part_cars() {
     cmd --install "$work/test-car.zip" || fail "--install: $(cat "$work/err")"
     [ "$(cat "$work/out")" = "installed test-car 0.1" ] || fail "--install said: $(cat "$work/out")"
     cmd --mods-list || fail "--mods-list: $(cat "$work/err")"
-    grep -q "^test-car	0.1	car	on	" "$work/out" || fail "--mods-list: $(cat "$work/out")"
+    grep -q "^test-car	0.1	car	off	" "$work/out" || fail "--mods-list, the car in no edition: $(cat "$work/out")"
+    [ -e "$U/restomod.cfg" ] && fail "--install wrote restomod.cfg"
+    frame --car test-car && fail "an installed car in no edition raced"
 
-    # 2. in Restomod, with no --mods, the installed car races
+    # 2. in Restomod, with no --mods, the installed car named by the edition in use races
+    use_edition cars "test-car,viper" ""
+    cp "$U/editions/cars.ini" "$work/cars.ini"
+    cmd --mods-list
+    grep -q "^test-car	0.1	car	on	" "$work/out" || fail "--mods-list, the car in the edition: $(cat "$work/out")"
     frame --car test-car || fail "the installed car did not race: $(tail -3 "$work/err")"
 
     # 4. the zip again with another version: an update, the old one kept as a backup
@@ -84,13 +97,16 @@ part_cars() {
     frame --car test-car && fail "an uninstalled car raced"
     grep -q "no car test-car" "$work/err" || fail "the uninstalled car is not said to be no car: $(tail -3 "$work/err")"
     frame --car 5 || fail "the Viper did not race after the uninstall: $(tail -3 "$work/err")"
+    cmp -s "$U/editions/cars.ini" "$work/cars.ini" || fail "the uninstall changed the edition's file"
+    grep -q "^edition=cars$" "$U/restomod.cfg" || fail "the uninstall changed restomod.cfg's edition"
     cmd --uninstall test-car && fail "a second --uninstall succeeded"
     grep -q "^tnfs: " "$work/err" || fail "a refused --uninstall does not say why"
 }
 
 part_tweak() {
-    # 5. a tweak made by hand, a track's light: installed, the race reads its light
+    # 5. a tweak made by hand, a track's light: installed, and named by the edition in use the race reads its light
     hand_light
+    use_edition light "viper" "hand-light"
     frame --car 5 || fail "a race with the tweak: $(tail -3 "$work/err")"
     grep -q "track light: .*mods/hand-light/track_light/TR1" "$U/spirited-drive.log" || fail "the race does not read the tweak's light"
 
@@ -140,6 +156,7 @@ part_stock() {
     # 8. Stock: --install works, and nothing of the installed mods is served (the tweak installed in Restomod first, as a player would)
     car_zip
     hand_light
+    use_edition both "test-car,viper" "hand-light"
     echo profile=stock > "$U/port.cfg"
     cmd --install "$work/test-car.zip" || fail "--install in Stock: $(cat "$work/err")"
     frame --car 5 || fail "a race in Stock: $(tail -3 "$work/err")"

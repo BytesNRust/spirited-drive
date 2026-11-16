@@ -3,8 +3,8 @@
  * mods_backup/<id>-<version>-<date>/, and the last MOD_BACKUPS_KEPT backups of each id are kept (formats/mod_install.h). Uninstalling moves
  * the folder to a backup too: nothing is deleted but backups past the last three, or when asked for. A failure half way leaves nothing in
  * mods/ but what was there before. Nothing is written outside mods/ and mods_backup/, and no symbolic link is followed (platform.h).
- * port (dep59, temporary until step 4): installing or restoring a mod puts it first in Restomod's list (mod_set_save_list), and
- * uninstalling takes it out; with profiles, installing will only make it available. */
+ * port (dep59 step 4): installing or restoring a mod only makes it available, and uninstalling changes no edition (one that names it
+ * skips it): the editions say which are in use (edition_file.h). */
 #ifndef TNFS_MOD_STORE_H
 #define TNFS_MOD_STORE_H
 
@@ -23,10 +23,10 @@ int mod_store_drop_backups(const char *id, char *why, size_t why_cap);
 
 typedef struct {
     ModInfo info;
-    int active;    /* in Restomod's list */
+    int active;    /* named by the edition in use (edition_file.h) */
     int backups;   /* how many backups it has */
 } ModStoreEntry;
-/* the installed mods (folders of mods/ with a card), in the list's order, then the rest by id; how many (at most `cap`) */
+/* the installed mods (folders of mods/ with a card), by id; how many (at most `cap`) */
 int mod_store_list(ModStoreEntry *out, int cap);
 
 #endif

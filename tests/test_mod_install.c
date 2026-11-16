@@ -76,34 +76,9 @@ static void test_the_backups_kept(void)
     CHECK_EQ_INT(drop[0], 0);
 }
 
-static void test_the_list(void)
-{
-    ModList l;
-    mod_list_parse("a,b,c", &l);
-    mod_list_put_first(&l, "c");
-    char text[MOD_LIST_TEXT_MAX];
-    CHECK(mod_list_format(&l, text, sizeof text) && strcmp(text, "c,a,b") == 0);
-    mod_list_put_first(&l, "d");
-    CHECK(mod_list_format(&l, text, sizeof text) && strcmp(text, "d,c,a,b") == 0);
-    mod_list_put_first(&l, "d");
-    CHECK(mod_list_format(&l, text, sizeof text) && strcmp(text, "d,c,a,b") == 0);   /* never twice */
-    mod_list_take_out(&l, "a");
-    CHECK(mod_list_format(&l, text, sizeof text) && strcmp(text, "d,c,b") == 0);
-    mod_list_take_out(&l, "zz");
-    mod_list_put_first(&l, "Bad Id");
-    mod_list_take_out(&l, "legacy");
-    CHECK(mod_list_format(&l, text, sizeof text) && strcmp(text, "d,c,b") == 0);   /* an id that is no mod's: nothing */
-    ModList full = { 0 };
-    for (int i = 0; i < MOD_LIST_MAX; i++) snprintf(full.ids[full.count++], sizeof full.ids[0], "m%d", i);
-    mod_list_put_first(&full, "new");
-    CHECK_EQ_INT(full.count, MOD_LIST_MAX);
-    CHECK(strcmp(full.ids[0], "new") == 0 && strcmp(full.ids[MOD_LIST_MAX - 1], "m30") == 0);   /* the last one dropped off */
-}
-
 int main(void)
 {
     test_the_plans();
     test_the_backups_kept();
-    test_the_list();
     return TEST_REPORT();
 }
