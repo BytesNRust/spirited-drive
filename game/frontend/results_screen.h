@@ -94,6 +94,9 @@ typedef struct ResultsMarks {
 /* port: the letters start here, in the gap after the record's name (names on the cheats table fit 200, to 207) and
  * before the time (305); "Best Time (c)" is the header's short mark (the full words run past the edge) */
 enum { RESULTS_MARK_X = 0xd7 };
+/* port (owner, 2026-11-16): with the table line (Restomod) the cheats are words in the conditions' small style (record_cheat_draw),
+ * centred in that gap, 4 px clear of the name and of the time */
+enum { RESULTS_TAGS_CENTRE = (207 + 305) / 2, RESULTS_TAGS_ROOM = 305 - 207 - 8 };
 
 typedef struct ResultsInputs {
     const uint8_t *game;        /* 0052ad44: the game state, RESULTS_GAME bytes (tournament.h) */
@@ -120,8 +123,11 @@ typedef struct ResultsInputs {
 
 /* port: the table shown is the one with cheats (its marks are there; marks NULL or without slots is the table without) */
 static inline int results_cheats(const ResultsInputs *in) { return in->marks != NULL && in->marks->slots != NULL; }
+/* port: the header's "(CHEATS)" is drawn: a table with cheats and no table line (results_header_marks, standings.c) */
+static inline int results_banner_shown(int cheats, const char *line) { return cheats && line == NULL; }
 /* port: the header band's "(CHEATS)" on every post-race screen of a race with cheats, right of the Road & Track logo (its
- * art ends near x 270); the same place on the segment, totals, circuit, track, lap and best-totals screens */
+ * art ends near x 270); the same place on the segment, totals, circuit, track, lap and best-totals screens. port (owner, 2026-11-16):
+ * not when the table line is drawn (Restomod), which says CHEATS already */
 #define CHEATS_BANNER "(CHEATS)"
 enum { CHEATS_BANNER_X = 0x122, CHEATS_BANNER_Y = 0x14 };
 /* port (dep55): the table line, under the banner's place (drawn there only without a band_text op) */

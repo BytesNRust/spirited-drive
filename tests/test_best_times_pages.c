@@ -6,6 +6,7 @@
 #include "game/race/weather.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
+#include "game/sys/extras_marks.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -229,6 +230,77 @@ static void test_the_conditions_block(void)
     CHECK(pen_drawn.y[0] + 5 >= ROW_MIDDLE - 1 && pen_drawn.y[0] + 6 <= ROW_MIDDLE + 1);
 }
 
+/* port (owner, 2026-11-16): a record's cheats as words, the Warrior never, two to a line */
+static void cheat_lines(int cheats, int words, const char *first, const char *second)
+{
+    char a[16], b[16];
+    CHECK_EQ_INT(record_cheat_lines(cheats, a, b, sizeof a), words);
+    if (strcmp(a, first) != 0 || strcmp(b, second) != 0) fprintf(stderr, "cheats %d: \"%s\" / \"%s\"\n", cheats, a, b);
+    CHECK(strcmp(a, first) == 0 && strcmp(b, second) == 0);
+}
+
+static void test_the_cheat_words(void)
+{
+    cheat_lines(EXTRAS_MARK_NITRO, 1, "NITRO", "");
+    cheat_lines(EXTRAS_MARK_EXPLODE, 1, "EXPLODE", "");
+    cheat_lines(EXTRAS_MARK_TURBO, 1, "TURBO", "");
+    cheat_lines(EXTRAS_MARK_LUNAR, 1, "LUNAR", "");
+    cheat_lines(EXTRAS_MARK_WARRIOR, 0, "", "");
+    cheat_lines(0, 0, "", "");
+    cheat_lines(EXTRAS_MARK_NITRO | EXTRAS_MARK_WARRIOR | EXTRAS_MARK_LUNAR, 2, "NITRO LUNAR", "");
+    cheat_lines(EXTRAS_MARK_LUNAR | EXTRAS_MARK_TURBO | EXTRAS_MARK_NITRO, 3, "NITRO TURBO", "LUNAR");
+    cheat_lines(EXTRAS_MARK_NITRO | EXTRAS_MARK_EXPLODE | EXTRAS_MARK_TURBO | EXTRAS_MARK_LUNAR | EXTRAS_MARK_WARRIOR, 4, "NITRO EXPLODE",
+                "TURBO LUNAR");
+}
+
+/* the words' block: centred on `centre`, its lines on each other, at the largest of 1/2, 2/5 and 1/3 that fits the room, on the row's
+ * middle as the conditions' block; nothing for none (the Warrior alone) */
+static void test_the_cheat_block(void)
+{
+    const ConditionsPen pen = { NULL, pen_text, pen_width, pen_ink };
+    int32_t gap, middle;
+    memset(&pen_drawn, 0, sizeof pen_drawn);
+    record_cheat_draw(EXTRAS_MARK_LUNAR, 250, 52, ROW, &pen);   /* "LUNAR" at 1/2: 40 wide */
+    CHECK_EQ_INT(pen_drawn.n, 1);
+    CHECK(strcmp(pen_drawn.text[0], "LUNAR") == 0 && pen_drawn.x[0] == 250 - 20);
+    CHECK(pen_drawn.num[0] == 1 && pen_drawn.den[0] == 2);
+    memset(&pen_drawn, 0, sizeof pen_drawn);
+    record_cheat_draw(EXTRAS_MARK_NITRO | EXTRAS_MARK_EXPLODE | EXTRAS_MARK_TURBO | EXTRAS_MARK_LUNAR, 250, 90, ROW, &pen);
+    CHECK_EQ_INT(pen_drawn.n, 2);   /* "NITRO EXPLODE" is 104 at 1/2, 83 at 2/5: 2/5 */
+    CHECK(pen_drawn.num[0] == 2 && pen_drawn.den[0] == 5 && pen_drawn.num[1] == 2 && pen_drawn.den[1] == 5);
+    CHECK_EQ_INT(pen_drawn.x[0], 250 - 83 / 2);
+    CHECK_EQ_INT(pen_drawn.x[1], 250 - 83 / 2 + (83 - 70) / 2);   /* "TURBO LUNAR", 70, centred under it */
+    block_rows(&gap, &middle);
+    CHECK_EQ_INT(gap, RECORD_CONDITIONS_GAP);
+    CHECK(middle >= ROW_MIDDLE - 1 && middle <= ROW_MIDDLE + 1);
+    memset(&pen_drawn, 0, sizeof pen_drawn);
+    record_cheat_draw(EXTRAS_MARK_NITRO | EXTRAS_MARK_EXPLODE, 250, 52, ROW, &pen);   /* 69 at 1/3, still past 52: the smallest */
+    CHECK(pen_drawn.n == 1 && pen_drawn.num[0] == 1 && pen_drawn.den[0] == 3);
+    memset(&pen_drawn, 0, sizeof pen_drawn);
+    record_cheat_draw(EXTRAS_MARK_WARRIOR, 250, 52, ROW, &pen);
+    CHECK_EQ_INT(pen_drawn.n, 0);
+}
+
+/* Best Times: the words' block ends on `right` at the size asked, its left edge returned (where the name has to end); none: `right` */
+static void test_the_cheat_block_before(void)
+{
+    const ConditionsPen pen = { NULL, pen_text, pen_width, pen_ink };
+    int32_t gap, middle;
+    memset(&pen_drawn, 0, sizeof pen_drawn);
+    const int all = EXTRAS_MARK_NITRO | EXTRAS_MARK_EXPLODE | EXTRAS_MARK_TURBO | EXTRAS_MARK_LUNAR;
+    CHECK_EQ_INT(record_cheat_draw_before(all, 274, ROW, 1, 2, &pen), 274 - 104);   /* "NITRO EXPLODE" at 1/2: 104 */
+    CHECK_EQ_INT(pen_drawn.n, 2);
+    CHECK(pen_drawn.num[0] == 1 && pen_drawn.den[0] == 2 && pen_drawn.num[1] == 1 && pen_drawn.den[1] == 2);
+    CHECK_EQ_INT(pen_drawn.x[0], 274 - 104);
+    CHECK_EQ_INT(pen_drawn.x[1], 274 - 104 + (104 - 88) / 2);   /* "TURBO LUNAR", 88, centred under it */
+    block_rows(&gap, &middle);
+    CHECK_EQ_INT(gap, RECORD_CONDITIONS_GAP);
+    CHECK(middle >= ROW_MIDDLE - 1 && middle <= ROW_MIDDLE + 1);
+    memset(&pen_drawn, 0, sizeof pen_drawn);
+    CHECK_EQ_INT(record_cheat_draw_before(EXTRAS_MARK_WARRIOR, 274, ROW, 1, 2, &pen), 274);
+    CHECK_EQ_INT(pen_drawn.n, 0);
+}
+
 int main(void)
 {
     test_the_conditions_block();
@@ -239,5 +311,8 @@ int main(void)
     test_the_keys_row();
     test_another_track();
     test_the_conditions_words();
+    test_the_cheat_words();
+    test_the_cheat_block();
+    test_the_cheat_block_before();
     return TEST_REPORT();
 }

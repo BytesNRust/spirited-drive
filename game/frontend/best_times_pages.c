@@ -14,9 +14,9 @@
 
 enum {
     TEXT = 0x50, ROWS = RACE_RECORDS_ROWS, ROW = RACE_RECORDS_ROW, FIRST_CIRCUIT = RACE_RECORDS_FIRST_CIRCUIT,
-    /* the exe's columns and rows (best_times.c), and the pages' own: the cheats' letters after a shortened name, the conditions in small
-     * words in the gap between the time and the car */
-    NAME_X = 8, NAME_WIDTH = 0xd4, MARK_X = 0xe0, TIME_X = 0x118, COND_END = 0x1da, CAR_X = 0x1e0, SHIFT_X = 0x24e,
+    /* the exe's columns and rows (best_times.c), and the pages' own: the cheats in small words before the time (the name shortened to
+     * clear them), the conditions in small words in the gap between the time and the car */
+    NAME_X = 8, NAME_WIDTH = 0xd4, TIME_X = 0x118, COND_END = 0x1da, CAR_X = 0x1e0, SHIFT_X = 0x24e, CHEAT_GAP = 6,
     ROW_Y = 0x73, ROW_STEP = 0x16, TOP_Y = 0x17c,
     /* the strip. The table's line at three quarters the words' size (three fifths when that does not fit), its capitals' last row on the
      * art's "Best times" title's, centred in the room past the title; the page's selector in the same small words, a secondary line
@@ -234,15 +234,18 @@ static void ink(void *ctx, const char *text, int32_t num, int32_t den, int32_t *
 static void record_row(const BestTimesInputs *in, const RecordRow *r, int32_t y, int speed, const BestTimesOps *ops)
 {
     char text[TEXT];
-    ops->text_select(ops->ctx, 1);
-    ops->text_fit(ops->ctx, (const char *)r->row, NAME_X, y, NAME_WIDTH);
-    records_mark_text(r->marks.cheats, text);
-    if (text[0] != '\0') ops->text_shadowed(ops->ctx, text, MARK_X, y);
+    ops->text_select(ops->ctx, 1);   /* the words are measured in the row's font, as the conditions are */
+    const ConditionsPen pen = { (void *)ops, cream_scaled, scaled_width, ink };
+    /* port (owner, 2026-11-16): its cheats as words in the conditions' style and size, ending CHEAT_GAP before the time; the name fits
+     * what is left of its column, CHEAT_GAP clear of them (the gap after the column is too narrow for the words at a readable size) */
+    const int32_t words = record_cheat_draw_before(r->marks.cheats, TIME_X - CHEAT_GAP, y, 1, 2, &pen);
+    const int32_t name_end = words - CHEAT_GAP < NAME_X + NAME_WIDTH ? words - CHEAT_GAP : NAME_X + NAME_WIDTH;
+    ops->text_select(ops->ctx, 1);   /* again: drawing the words selected the cream */
+    ops->text_fit(ops->ctx, (const char *)r->row, NAME_X, y, name_end - NAME_X);
     if (speed) ops->speed_text(ops->ctx, text, d32(r->row + RECORD_ROW_SPEED));
     else ops->time_text(ops->ctx, text, d32(r->row + RECORD_ROW_TIME));
     ops->text_shadowed(ops->ctx, text, TIME_X, y);
     /* right against the car's column, half size (two fifths after a speed, which runs wider than a time) */
-    const ConditionsPen pen = { (void *)ops, cream_scaled, scaled_width, ink };
     record_conditions_draw(r->marks, COND_END, y, speed ? 2 : 1, speed ? 5 : 2, &pen);
     ops->text_shadowed(ops->ctx, car_name(d32(r->row + RECORD_ROW_CAR)), CAR_X, y);
     shift(in, d32(r->row + RECORD_ROW_GEARBOX), y, ops);

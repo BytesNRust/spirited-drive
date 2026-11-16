@@ -485,8 +485,8 @@ static void test_the_table_line(void)
     CHECK(!any_text("MIRROR - NO CHEATS - 6 LAPS"));
 }
 
-/* the band right of the logo: the line alone with its middle on the band's; with the banner the two stacked, both in the band
- * (above the separator under the logo, y 57), never wider than its room to the right margin; the lap times page as the segment's */
+/* the band right of the logo: the line alone with its middle on the band's, never wider than its room to the right margin; the lap
+ * times page as the segment's. port (owner, 2026-11-16): a cheats table's line says CHEATS, so no "(CHEATS)" over it */
 static void test_the_line_is_in_the_logo_band(void)
 {
     static uint8_t slots[RECORDS_MARK_SLOTS];
@@ -500,9 +500,8 @@ static void test_the_line_is_in_the_logo_band(void)
     slots[0] = 1;
     marks.slots = slots, marks.line = "MIRROR - CHEATS - 8 LAPS";
     run_segment(&marks);
-    CHECK(found("(CHEATS)", RESULTS_BAND_X, RESULTS_BAND_TOP_MID));
-    CHECK(found("MIRROR - CHEATS - 8 LAPS", RESULTS_BAND_X, RESULTS_BAND_LOW_MID));
-    CHECK(RESULTS_BAND_TOP_MID < RESULTS_BAND_LOW_MID && RESULTS_BAND_LOW_MID + 8 < 57);   /* both above the separator */
+    CHECK(!any_text("(CHEATS)"));
+    CHECK(found("MIRROR - CHEATS - 8 LAPS", RESULTS_BAND_X, RESULTS_BAND_MID));
     static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
     ResultsInputs in;
     ResultsState st = { 0, screen_palette, 0 };
@@ -512,9 +511,15 @@ static void test_the_line_is_in_the_logo_band(void)
     memset(&p, 0, sizeof p);
     reset();
     lap_times_screen(0, 0, &in, &st, &p, &ops);
-    CHECK(found("MIRROR - CHEATS - 8 LAPS", RESULTS_BAND_X, RESULTS_BAND_LOW_MID));
+    CHECK(found("MIRROR - CHEATS - 8 LAPS", RESULTS_BAND_X, RESULTS_BAND_MID));
+    CHECK(!any_text("(CHEATS)"));
     band_on = 0;
+    /* without the band op, the same: the line, no banner */
+    run_segment(&marks);
+    CHECK(found("MIRROR - CHEATS - 8 LAPS", RESULTS_LINE_X, RESULTS_LINE_Y));
+    CHECK(!any_text("(CHEATS)"));
 }
+
 
 /* Restomod's empty rows (race_records_row_empty: no name, the longest time, car 0, gearbox 0, the set word 0) are not drawn on
  * any screen: no time, no car, no marks; a row with a record is. Stock and Restored (no table line) draw every row as before. */
@@ -682,6 +687,43 @@ static void test_restomod_results_show_record_conditions(void)
     row_conds = NULL;
 }
 
+/* port (owner, 2026-11-16): with the table line (Restomod) a row's cheats are words in the conditions' style, centred in the gap
+ * between the name and the time, not the letters; the Warrior's never. Without the line (Stock, Restored) the letters as before */
+static void test_the_cheats_are_words_with_the_line(void)
+{
+    static uint8_t slots[RECORDS_MARK_SLOTS];
+    memset(slots, 0, sizeof slots);
+    slots[SLOT_SEGMENT + 0] = EXTRAS_MARK_LUNAR;
+    slots[SLOT_SPEED_SEGMENT + 0] = EXTRAS_MARK_TURBO | EXTRAS_MARK_WARRIOR;
+    slots[records_slot_totals(0, 0, 0)] = EXTRAS_MARK_WARRIOR;
+    static ResultsMarks marks;
+    marks.slots = slots, marks.choice = 0, marks.line = "NORMAL - CHEATS", marks.conds = NULL;
+    static uint8_t game[RESULTS_GAME], image[RESULTS_IMAGE];
+    ResultsInputs in;
+    ResultsState st = { 0, screen_palette, 0 };
+    DialogPointer p;
+    ResultsOps ops = fake_ops();
+    setup_inputs(&in, game, image, &marks);
+    row_set(image, SEG_TIME_AT), row_set(image, SEG_SPEED_AT);   /* track 0's segment 1: rows with records */
+    memset(&p, 0, sizeof p);
+    reset();
+    results_screen(0, &in, &st, &p, &ops);
+    CHECK(any_text("LUNAR") && any_text("TURBO"));
+    CHECK(!any_text("L") && !any_text("TW") && !any_text("W"));
+    CHECK(!any_text("WARRIOR"));
+    for (int i = 0; i < drawn.count; i++)
+        if (strcmp(drawn.text[i], "LUNAR") == 0 || strcmp(drawn.text[i], "TURBO") == 0) {
+            const int32_t width = f_small_width(NULL, drawn.text[i], 1, 2);
+            CHECK(drawn.x[i] == RESULTS_TAGS_CENTRE - width / 2);
+            CHECK(drawn.x[i] >= 207 + 4 && drawn.x[i] + width <= 305 - 4);   /* clear of the name and of the time */
+        }
+    marks.line = NULL;
+    reset();
+    results_screen(0, &in, &st, &p, &ops);
+    CHECK(found("L", X_MARKS, Y_SEGMENT));
+    CHECK(!any_text("LUNAR"));
+}
+
 int main(void)
 {
     test_restomod_results_show_record_conditions();
@@ -690,6 +732,7 @@ int main(void)
     test_restomod_best_totals_draw_only_records();
     test_original_rows_are_all_drawn();
     test_the_line_is_in_the_logo_band();
+    test_the_cheats_are_words_with_the_line();
     test_the_table_line();
     test_segment_normal_table_is_unchanged();
     test_segment_cheats_title_and_marks();
