@@ -434,6 +434,31 @@ static void test_raw(const uint8_t *donor, size_t n)
         CHECK(s >= 0 && m.groups[s].count > 0 && m.groups[s].polygons[m.groups[s].count - 1] == p);
         mesh_desc_free(&m);
     }
+    /* fix/raw-polygons-bounds: a row of 5 corners with a face of 5 is refused (the polygon holds 4), not written past its corners */
+    FileSet five;
+    fileset_init(&five);
+    for (size_t i = 0; i < files.count; i++) fileset_add(&five, files.file[i].name, files.file[i].data, files.file[i].size);
+    snprintf(row, sizeof row, "%u\t%u\t%u\t%u\t%u\t0\t0\n", p + 1, (p0->flags & ~7u) | 5u, p0->unknown_1, p0->texture, p0->unknown_3);
+    append(&five, "mesh.obj", "f 1/1 2/2 3/3 4/4 5/5\n");
+    append(&five, "mesh.polygons.tsv", row);
+    CHECK(!raw_mesh(donor, n, &five, &m, &err) && strstr(err.message, "5 corners") != NULL);
+    if (strstr(err.message, "5 corners") == NULL) fprintf(stderr, "car_import: five corners: %s\n", err.message);
+    fileset_free(&five);
+    /* a material that looks like ours but is not t<0..255>_: refused, named; one that is not ours keeps its row's texture */
+    static const char *const BAD[] = { "t5x", "t300_body", "t99999999999_x" };
+    for (size_t b = 0; b < sizeof BAD / sizeof BAD[0]; b++) {
+        FileSet named;
+        fileset_init(&named);
+        for (size_t i = 0; i < files.count; i++) fileset_add(&named, files.file[i].name, files.file[i].data, files.file[i].size);
+        char use[64];
+        snprintf(use, sizeof use, "usemtl %s\nf 1/1 2/2 3/3 4/4\n", BAD[b]);
+        append(&named, "mesh.obj", use);
+        snprintf(row, sizeof row, "%u\t%u\t%u\t%u\t%u\t0\t0\n", p + 1, (p0->flags & ~7u) | 4u, p0->unknown_1, p0->texture, p0->unknown_3);
+        append(&named, "mesh.polygons.tsv", row);
+        CHECK(!raw_mesh(donor, n, &named, &m, &err) && strstr(err.message, BAD[b]) != NULL);
+        if (strstr(err.message, BAD[b]) == NULL) fprintf(stderr, "car_import: material %s: %s\n", BAD[b], err.message);
+        fileset_free(&named);
+    }
     /* no lists.tsv: refused, saying so */
     FileSet bare;
     fileset_init(&bare);
