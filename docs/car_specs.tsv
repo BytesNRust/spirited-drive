@@ -2,8 +2,8 @@
 # summed into the checksum at +0x774, loaded by 004400f4; pointer at car +0x479).
 # offset	type	name	notes
 # Generated into src/game/race/car_specs.h by tools/gen_car_struct.py.
-0x018	i32	unknown_018	00430cb0: share of the front drive force (8.8)
-0x01c	i32	unknown_01c	00430cb0: share of the front brake force (8.8)
+0x018	i32	front_drive_share	00430cb0: the front wheels' share of the drive force, 16.16: 0 rear-wheel drive, 65536 front-wheel drive (the Diablo's 22937: 35 %); exports before 2026-11-16 call it unknown_018
+0x01c	i32	front_brake_share	00430cb0: the front wheels' share of the brake force, 16.16 as front_drive_share; exports before 2026-11-16 call it unknown_01c
 0x024	i32	unknown_024	x 3/2 in arcade mode
 0x028	i32	unknown_028	halved in arcade mode
 0x02c	i32	unknown_02c	halved in arcade mode

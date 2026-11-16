@@ -164,7 +164,7 @@ int32_t car_drive_force(Car *car, const CarSpecs *specs, RaceState *race)
         force *= 4;
     }
     const int spinning = car->throttle > BOOST_THROTTLE && abs32(force) > car->axle_load_a - car->unknown_40d &&
-                         specs->shift_rpm[4] - SPIN_BAND > car->rpm && specs->unknown_018 == 0;
+                         specs->shift_rpm[4] - SPIN_BAND > car->rpm && specs->front_drive_share == 0;
     if (spinning || boosted) {
         spin_wheels(car, specs, boosted);
     } else {
