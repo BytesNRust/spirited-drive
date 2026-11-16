@@ -149,7 +149,15 @@ static int unfilter(uint8_t *raw, uint32_t width, uint32_t height)
     return 1;
 }
 
-/* 8-bit indexed, no interlace: 1 handled, 0 not of that kind, -1 damaged, -2 over PNG_MAX_PIXELS. */
+/* an inflate into `rows` + 1 bytes ran past the rows: it filled the extra byte, or it ran out of room (stb_image's reason for that) */
+static int past_rows(int got, size_t rows)
+{
+    if (got == (int)rows + 1) return 1;
+    const char *why = got < 0 ? stbi_failure_reason() : NULL;
+    return why != NULL && strcmp(why, "output buffer limit") == 0;
+}
+
+/* 8-bit indexed, no interlace: 1 handled, 0 not of that kind, -1 damaged, -2 over PNG_MAX_PIXELS, -3 data past the rows. */
 static int read_indexed(const uint8_t *data, size_t len, PngImage *image)
 {
     if (len < 8 + 25 || memcmp(data, signature, 8) != 0) return 0;
@@ -186,17 +194,22 @@ static int read_indexed(const uint8_t *data, size_t len, PngImage *image)
     }
     if (status == 1 && indexed && (uint64_t)w * h > PNG_MAX_PIXELS) status = -2;
     if (status == 1) {
-        /* port: inflated into exactly the rows' size, never a buffer stb_image grows (a few bytes of IDAT could ask for GBs); a stream
-         * that runs past that size or ends short is damage */
+        /* port: inflated into the rows' size and one byte more, never a buffer stb_image grows (a few bytes of IDAT could ask for GBs):
+         * a stream that fills that byte runs past the rows, one that ends short is damage */
         const size_t raw_len = (1 + (size_t)w) * h;
         uint8_t *raw = NULL;
         if (!indexed || !have_palette || idat == NULL || idat_len == 0 || idat_len > INT_MAX || w == 0 || h == 0 || w > MAX_DIMENSION ||
             h > MAX_DIMENSION)
             status = -1;
-        else if ((raw = malloc(raw_len)) == NULL)
+        else if ((raw = malloc(raw_len + 1)) == NULL)
             status = -1;
-        else if (stbi_zlib_decode_buffer((char *)raw, (int)raw_len, (const char *)idat, (int)idat_len) != (int)raw_len || !unfilter(raw, w, h))
-            status = -1;
+        else {
+            const int got = stbi_zlib_decode_buffer((char *)raw, (int)raw_len + 1, (const char *)idat, (int)idat_len);
+            if (past_rows(got, raw_len))
+                status = -3;
+            else if (got != (int)raw_len || !unfilter(raw, w, h))
+                status = -1;
+        }
         if (status == 1) {
             image->pixels = malloc((size_t)w * h);
             if (image->pixels == NULL) status = -1;
@@ -278,12 +291,12 @@ static PngResult inflate_fits(const uint8_t *data, size_t len)
     if (w == 0 || h == 0 || w > MAX_DIMENSION || h > MAX_DIMENSION || (uint64_t)w * h > PNG_MAX_PIXELS) r = PNG_ERR_SIZE;
     else if (want == 0) r = PNG_ERR_FORMAT;
     else if (want > INT_MAX || idat_len > INT_MAX) r = PNG_ERR_SIZE;
-    uint8_t *raw = r == PNG_OK ? malloc(want) : NULL;
+    uint8_t *raw = r == PNG_OK ? malloc(want + 1) : NULL;   /* one byte more: a stream that fills it runs past the rows */
     if (r == PNG_OK && raw == NULL) r = PNG_ERR_MEMORY;
     if (r == PNG_OK) {
-        const int got = apple ? stbi_zlib_decode_noheader_buffer((char *)raw, (int)want, (const char *)idat, (int)idat_len)
-                              : stbi_zlib_decode_buffer((char *)raw, (int)want, (const char *)idat, (int)idat_len);
-        if (got != (int)want) r = PNG_ERR_CORRUPT;
+        const int got = apple ? stbi_zlib_decode_noheader_buffer((char *)raw, (int)want + 1, (const char *)idat, (int)idat_len)
+                              : stbi_zlib_decode_buffer((char *)raw, (int)want + 1, (const char *)idat, (int)idat_len);
+        r = past_rows(got, want) ? PNG_ERR_PAST_ROWS : got != (int)want ? PNG_ERR_CORRUPT : PNG_OK;
     }
     free(raw);
     free(idat);
@@ -297,6 +310,7 @@ PngResult png_read(const uint8_t *data, size_t len, PngImage *image)
     const int r = read_indexed(data, len, image);
     if (r == 1) return PNG_OK;
     if (r == -2) return PNG_ERR_SIZE;
+    if (r == -3) return PNG_ERR_PAST_ROWS;
     if (r < 0 || !chunks_fit(data, len)) return PNG_ERR_CORRUPT;
     const PngResult fits = inflate_fits(data, len);
     if (fits != PNG_OK) return fits;
@@ -330,9 +344,10 @@ const char *png_result_str(PngResult result)
     switch (result) {
     case PNG_OK: return "ok";
     case PNG_ERR_MEMORY: return "out of memory";
-    case PNG_ERR_SIZE: return "image size is zero, over 16384 a side or over 4096 x 4096 pixels";
+    case PNG_ERR_SIZE: return "image size is zero, over 16384 a side or over 2048 x 2048 pixels";
     case PNG_ERR_FORMAT: return "not a readable PNG";
     case PNG_ERR_CORRUPT: return "damaged PNG (chunk, checksum or filter)";
+    case PNG_ERR_PAST_ROWS: return "data past the image rows: re-save the picture";
     }
     return "unknown error";
 }

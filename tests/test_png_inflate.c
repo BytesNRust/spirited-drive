@@ -1,5 +1,6 @@
 /* PNG pixel data is inflated only up to the size its header implies (formats/png.h): a small file whose IDAT inflates past that (a
- * "zip bomb" in a mod's card, mask or skin) is refused as damaged at once, without the memory; one that inflates to less is refused too,
+ * "zip bomb" in a mod's card, mask or skin) is refused at once as PNG_ERR_PAST_ROWS, without the memory; one that inflates to less is
+ * refused as damaged,
  * and a header with more than PNG_MAX_PIXELS pixels is refused before anything is allocated. argv[1]: tests/png, small PNGs of other
  * encoders (bit depths 1 to 16, every colour type, Adam7 interlace) that must still read. */
 #include "formats/crc32.h"
@@ -127,7 +128,7 @@ static void test_bombs(void)
         const long before = peak_bytes();
         const clock_t start = clock();
         PngImage img;
-        CHECK_EQ_INT(png_read(file, len, &img), PNG_ERR_CORRUPT);
+        CHECK_EQ_INT(png_read(file, len, &img), PNG_ERR_PAST_ROWS);
         CHECK(img.pixels == NULL);
         const double seconds = (double)(clock() - start) / CLOCKS_PER_SEC;
         const long grew = peak_bytes() - before;
@@ -138,7 +139,7 @@ static void test_bombs(void)
     }
 }
 
-/* every kind of header: exactly its raw size reads, one byte more or less is refused */
+/* every kind of header: exactly its raw size reads, one byte less is damaged, one byte more is data past the rows */
 static void test_exact_size(void)
 {
     static const struct { uint32_t w, h; int depth, color, interlace; } KINDS[] = {
@@ -156,9 +157,9 @@ static void test_exact_size(void)
                 CHECK_EQ_INT(r, PNG_OK);
                 if (r == PNG_OK) { CHECK_EQ_INT(img.width, KINDS[k].w); CHECK_EQ_INT(img.height, KINDS[k].h); png_free(img.pixels); }
             } else {
-                CHECK_EQ_INT(r, PNG_ERR_CORRUPT);
+                CHECK_EQ_INT(r, delta > 0 ? PNG_ERR_PAST_ROWS : PNG_ERR_CORRUPT);
             }
-            if (r != PNG_OK && r != PNG_ERR_CORRUPT) printf("kind %zu delta %d: %s\n", k, delta, png_result_str(r));
+            if (r != PNG_OK && r != PNG_ERR_CORRUPT && r != PNG_ERR_PAST_ROWS) printf("kind %zu delta %d: %s\n", k, delta, png_result_str(r));
             free(file);
         }
     }
@@ -170,7 +171,7 @@ static void test_too_many_pixels(void)
     const int colors[2] = { 3, 6 };
     for (int i = 0; i < 2; i++) {
         size_t len = 0;
-        uint8_t *file = zero_png(4097, 4096, 8, colors[i], 0, 64, &len);
+        uint8_t *file = zero_png(2049, 2048, 8, colors[i], 0, 64, &len);
         const long before = peak_bytes();
         PngImage img;
         CHECK(file != NULL && png_read(file, len, &img) == PNG_ERR_SIZE);
@@ -180,8 +181,13 @@ static void test_too_many_pixels(void)
         CHECK(file != NULL && png_read(file, len, &img) == PNG_OK);
         if (file != NULL) png_free(img.pixels);
         free(file);
+        file = zero_png(2048, 2048, 8, colors[i], 0, raw_size(2048, 2048, 8, colors[i], 0), &len);   /* at the limit: reads */
+        CHECK(file != NULL && png_read(file, len, &img) == PNG_OK);
+        if (file != NULL) png_free(img.pixels);
+        free(file);
     }
-    CHECK_EQ_INT(PNG_MAX_PIXELS, 4096 * 4096);
+    CHECK_EQ_INT(PNG_MAX_PIXELS, 2048 * 2048);
+    CHECK(strstr(png_result_str(PNG_ERR_PAST_ROWS), "data past the image rows") != NULL);
 }
 
 static void test_fixtures(const char *dir)
@@ -233,7 +239,7 @@ static void test_apple_after_ihdr(void)
         const long before = peak_bytes();
         PngImage img;
         const PngResult r = png_read(apple, (size_t)(at - apple), &img);
-        CHECK_EQ_INT(r, i == 0 ? PNG_OK : PNG_ERR_CORRUPT);
+        CHECK_EQ_INT(r, i == 0 ? PNG_OK : PNG_ERR_PAST_ROWS);
         if (r == PNG_OK) png_free(img.pixels);
         CHECK(peak_bytes() - before < 16L * 1024 * 1024);
         free(apple);
