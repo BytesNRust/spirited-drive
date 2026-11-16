@@ -1,6 +1,8 @@
 /* The checked menus over game/sys and ea_lib (menu_glue.h): Game Mode, the profile row and the start screen; the boxes, screens and EXTRAS glue are in menu_glue_dialogs.c, menu_glue_screens.c and menu_glue_extras.c */
 #include "game/frontend/menu_glue_private.h"
+#include "game/frontend/mode_choices.h"
 #include "game/sys/mod_set.h"
+#include "game/sys/text.h"
 
 MenuWords menu_words;
 MenuCheats menu_cheats;
@@ -107,6 +109,34 @@ int32_t glue_profile(void *ctx, int32_t step, const char *text[3])
     return shown;
 }
 
+/* port (dep59 step 4): Game Mode's selector (game_mode.h's GAME_MODE_CHOICE_*) over mode_choices.h: the three modes, then the editions.
+ * The text points into the choice last read, which the menu draws before it asks again */
+static int32_t glue_choice(void *ctx, int32_t op, int32_t index, const char *text[3])
+{
+    static ModeChoice c;
+    (void)ctx;
+    mode_choices_measure(text_width_scaled);
+    if (op == GAME_MODE_CHOICE_COUNT) return mode_choices_count();
+    if (op == GAME_MODE_CHOICE_READ) index = mode_choices_in_use();
+    if (!mode_choices_get(index, &c)) return -1;
+    text[0] = c.title, text[1] = c.line1, text[2] = c.line2;
+    const PortSettings was = port_settings_load();
+    switch (op) {
+    case GAME_MODE_CHOICE_READ: return index;
+    case GAME_MODE_CHOICE_PEEK: return c.usable;
+    case GAME_MODE_CHOICE_LOOK: {
+        const PortSettings next = port_settings_of_profile(c.profile);
+        return next.format != was.format || next.render_scale != was.render_scale;
+    }
+    case GAME_MODE_CHOICE_APPLY:
+        if (!mode_choices_apply(index)) return 0;
+        menu_glue_window_follows(&was);
+        resource_set_units(port_extras_load().units);   /* each mode has its own */
+        return 1;
+    }
+    return -1;
+}
+
 /* port: the foot line of Game Mode: the version, and the update notice once the check has answered */
 static int32_t mode_footer(void *ctx, int32_t line, char *text, size_t cap)
 {
@@ -145,7 +175,7 @@ int32_t glue_game_mode(void)
                               nothing, flip, show, buttons, fade_in, nothing, menu_glue_banner_wait, deadline_set, sound, key,
                               ticks, activate, click, menu_glue_name_box, fade_out, pointer_away, menu_glue_back_to_menu, mode_network_found,
                               mode_network_game, menu_glue_yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL,
-                              menu_glue_extras_text_glue, menu_glue_extras_text_width_glue, mode_cover, glue_profile,
+                              menu_glue_extras_text_glue, menu_glue_extras_text_width_glue, mode_cover, glue_choice,
                               glue_plus_text_scaled, glue_plus_text_width_scaled, mode_footer, mode_open_notice,
                               mode_clock_ms, mode_fade_out_quick, mode_fade_in_quick };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,

@@ -1,4 +1,7 @@
-/* Game Mode with the modes (game_mode.c): Profile, Single Player, Multiplayer, Exit, in the game's text; the cursor starts on Single Player, the arrows show a mode and apply it once they rest (a short fade only when the picture changes), the version at the foot. */
+/* Game Mode, L2b (game_mode.c; notes/dep59-step4-editions-plan.md, section 6): Single Player and Multiplayer on top, the selector of the
+ * modes and editions low with its lines, "Manage content..." under it, Exit at the bottom right, the version and the update notice at the
+ * bottom left. The cursor starts on Single Player; the selector's arrows show a choice and apply it once they rest (a short fade only when
+ * the picture changes); a choice that cannot be used is shown and never applied. */
 #include "game/frontend/game_mode.h"
 #include "test.h"
 
@@ -6,23 +9,26 @@
 #include <string.h>
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, UP = 0x4800, LEFT = 0x4b00, RIGHT = 0x4d00, DOWN = 0x5000 };
+enum { STYLE_DIM = 4 };
+
+typedef struct Rect { int x, y, w, set; } Rect;   /* where a text was last drawn */
 
 typedef struct Fake {
     const int *keys;
     int key_count, key_calls;   /* the menu asks twice a turn: one scripted key serves both asks of its turn */
     int pointer_x, pointer_y, pinned;
     int moved_y[16], moved_count;
-    int profile_net, profile_reads, profile_steps;   /* steps: profiles applied; net: where the cycle stands (3 profiles, round) */
-    int peeks, last_peek, no_answer, clicks;           /* clicks: a bit per menu turn with the left button down */
-    int drawn_profile;
-    int exits_asked, apply_asked;
-    int said_multiplayer, said_customize, said_single, said_exit;
-    uint32_t clock, ms_per_call;   /* the fake clock: it advances with every ask for a key */
-    int look, no_clock, fade_outs, fade_ins, said_return;   /* look: applying the mode changes the picture */
-    int foot_big, foot_small, foot_low, foot_high_y, foot_right, foot_left, notice_y, version_y;   /* the foot lines as drawn: full size / small, below the row's top, ... */
-    int notice_x, notice_w, version_x, version_w, opens;   /* where the notice and the version went, and how often the notice opened the releases page */
-    int notice_hot, notice_plain, notice_last, version_hot;   /* the notice drawn highlighted / plain, the style of its last draw, the version highlighted (never) */
-    int move_at, move_x, move_y;   /* at that ask for a key (when not 0) the pointer moves there */
+    int count, in_use, unusable, look;            /* the choices: how many, the one in use, one that cannot be used (-1 none) */
+    int peeks, last_peek, applies, last_apply;    /* the choice op's calls */
+    int no_clock, fade_outs, fade_ins;
+    uint32_t clock, ms_per_call;                  /* the fake clock: it advances with every ask for a key */
+    int clicks;                                   /* a bit per menu turn with the left button down */
+    int exits_asked, names_asked, networks_asked, banners, manage_banner;
+    int said_customize;
+    char last_title[64];
+    Rect single, multi, title, manage, exit, version, notice;
+    int manage_style, exit_style, notice_hot, notice_plain, notice_last, version_hot, opens;
+    int move_at, move_x, move_y;                  /* at that ask for a key (when not 0) the pointer moves there */
 } Fake;
 
 static int32_t f_key(void *c)
@@ -59,51 +65,44 @@ static void f_int(void *c, int32_t v) { (void)c, (void)v; }
 static void f_blit(void *c, const uint8_t *s) { (void)c, (void)s; }
 static int32_t f_picture(void *c, int32_t p) { (void)c; return p; }
 static int32_t f_zero(void *c) { (void)c; return 0; }
+static int32_t f_network_found(void *c) { ((Fake *)c)->networks_asked++; return 0; }
 static int32_t f_ticks(void *c) { (void)c; return 0x20; }
 static void f_fade_in(void *c, int32_t a, int32_t n, const uint8_t *r) { (void)c, (void)a, (void)n, (void)r; }
-static void f_banner(void *c, const char *t, int32_t n) { (void)c, (void)t, (void)n; }
-static int32_t f_name(void *c, char *n) { (void)c, (void)n; return 1; }
+static void f_banner(void *c, const char *t, int32_t n)
+{
+    Fake *f = c;
+    (void)n;
+    f->banners++;
+    f->manage_banner += strcmp(t, "Editions are managed in a later version") == 0;
+}
+static int32_t f_name(void *c, char *n) { (void)n; ((Fake *)c)->names_asked++; return 1; }
 static void f_fade_out(void *c, int32_t a, int32_t n) { (void)c, (void)a, (void)n; }
 static int32_t f_yes(void *c, const char *t)
 {
-    Fake *f = c;
-    f->exits_asked += strcmp(t, "Exit to system ?") == 0;
-    f->apply_asked += strcmp(t, "Exit to system ?") != 0;
+    ((Fake *)c)->exits_asked += strcmp(t, "Exit to system ?") == 0;
     return 1;
 }
 static void f_free(void *c, int32_t b) { (void)c, (void)b; }
+static int32_t f_width(void *c, const char *t) { (void)c; return (int32_t)strlen(t) * 16; }
+static int32_t f_width_scaled(void *c, const char *t, int32_t n, int32_t d) { (void)c; return (int32_t)strlen(t) * 16 * n / d; }
+static void note(Rect *r, int x, int y, int w) { r->x = x, r->y = y, r->w = w, r->set = 1; }
 static void f_text(void *c, int32_t style, const char *t, int32_t x, int32_t y)
 {
     Fake *f = c;
-    (void)style;
-    if (strncmp(t, "<  ", 3) == 0) f->drawn_profile++;
-    f->said_multiplayer += strcmp(t, "Multiplayer") == 0, f->said_customize += strcmp(t, "Customize game") == 0;
-    f->said_single += strcmp(t, "Single Player") == 0, f->said_exit += strcmp(t, "Exit") == 0;
-    if (t[0] == 'v' || strncmp(t, "Update", 6) == 0) {
-        f->foot_big++;
-        if (y >= 0x191) f->foot_low++;
-        (void)x;
-    }
+    const int w = (int)strlen(t) * 16;
+    if (strncmp(t, "<  ", 3) == 0) note(&f->title, x, y, w), snprintf(f->last_title, sizeof f->last_title, "%s", t);
+    else if (strcmp(t, "Single Player") == 0) note(&f->single, x, y, w);
+    else if (strcmp(t, "Multiplayer") == 0) note(&f->multi, x, y, w);
+    else if (strcmp(t, "Exit") == 0) note(&f->exit, x, y, w), f->exit_style = style;
+    f->said_customize += strcmp(t, "Customize game") == 0;
 }
-static void note_foot(Fake *f, const char *t, int32_t x, int32_t y, int32_t w);
-static int32_t f_width(void *c, const char *t) { (void)c; return (int32_t)strlen(t) * 8; }
 static void f_text_scaled(void *c, int32_t s, const char *t, int32_t x, int32_t y, int32_t n, int32_t d)
 {
     Fake *f = c;
-    f->said_return += strstr(t, "Return") != NULL;
-    if (t[0] == 'v') f->version_hot += s != 0;
-    else if (strncmp(t, "Update", 6) == 0) f->notice_hot += s != 0, f->notice_plain += s == 0, f->notice_last = s;
-    if (t[0] == 'v' || strncmp(t, "Update", 6) == 0) note_foot(c, t, x, y, (int32_t)strlen(t) * 8 * n / d);
-}
-static void note_foot(Fake *f, const char *t, int32_t x, int32_t y, int32_t w)
-{
-    f->foot_small++;
-    if (y >= 0x191) f->foot_low++;
-    if (y > f->foot_high_y) f->foot_high_y = y;
-    if (x + w > f->foot_right) f->foot_right = x + w;
-    if (f->foot_left == 0 || x < f->foot_left) f->foot_left = x;
-    if (t[0] == 'v') f->version_y = y, f->version_x = x, f->version_w = w;
-    else f->notice_y = y, f->notice_x = x, f->notice_w = w;
+    const int w = (int)strlen(t) * 16 * n / d;
+    if (t[0] == 'v') note(&f->version, x, y, w), f->version_hot += s != 0;
+    else if (strncmp(t, "Update", 6) == 0) note(&f->notice, x, y, w), f->notice_hot += s != 0, f->notice_plain += s == 0, f->notice_last = s;
+    else if (strcmp(t, "Manage content...") == 0) note(&f->manage, x, y, w), f->manage_style = s;
 }
 static int32_t f_footer(void *c, int32_t line, char *text, size_t cap)
 {
@@ -113,24 +112,26 @@ static int32_t f_footer(void *c, int32_t line, char *text, size_t cap)
     return 1;
 }
 static void f_open(void *c) { ((Fake *)c)->opens++; }
-static int32_t f_width_scaled(void *c, const char *t, int32_t n, int32_t d) { (void)c; return (int32_t)strlen(t) * 8 * n / d; }
 static void f_cover(void *c, int32_t x, int32_t y, int32_t w, int32_t h) { (void)c, (void)x, (void)y, (void)w, (void)h; }
-static int mod3(int n) { return ((n % 3) + 3) % 3; }
-static int32_t f_profile(void *c, int32_t step, const char *text[3])
+
+static const char *const NAMES[] = { "Stock '96", "Restored '96", "Restomod '26", "Europa 80", "Moon", "Rally" };
+static int32_t f_choice(void *c, int32_t op, int32_t index, const char *text[3])
 {
     Fake *f = c;
-    f->profile_reads++;
-    text[0] = "Stock '96", text[1] = "line one", text[2] = "line two";
-    if (step >= GAME_MODE_PROFILE_LOOK - 3 && step <= GAME_MODE_PROFILE_LOOK + 3) return f->look;
-    if (step >= GAME_MODE_PROFILE_APPLY - 3 && step <= GAME_MODE_PROFILE_APPLY + 3) {
-        f->profile_steps++, f->profile_net += step - GAME_MODE_PROFILE_APPLY;
+    if (op == GAME_MODE_CHOICE_COUNT) return f->count;
+    if (op == GAME_MODE_CHOICE_READ) index = f->in_use;
+    if (index < 0 || index >= f->count) return -1;
+    text[0] = NAMES[index], text[1] = index < 3 ? "line one" : "A Restomod '26 edition", text[2] = index < 3 ? "line two" : "";
+    switch (op) {
+    case GAME_MODE_CHOICE_READ: return f->in_use;
+    case GAME_MODE_CHOICE_PEEK: f->peeks++, f->last_peek = index; return index != f->unusable;
+    case GAME_MODE_CHOICE_LOOK: return f->look;
+    case GAME_MODE_CHOICE_APPLY:
+        if (index == f->unusable) return 0;
+        f->applies++, f->last_apply = index, f->in_use = index;
         return 1;
     }
-    if (step >= GAME_MODE_PROFILE_PEEK - 3 && step <= GAME_MODE_PROFILE_PEEK + 3) {
-        f->peeks++, f->last_peek = step - GAME_MODE_PROFILE_PEEK;
-        return mod3(f->last_peek) != 0 ? 2 : 1;
-    }
-    return 1;
+    return -1;
 }
 static uint32_t f_clock(void *c) { return ((Fake *)c)->clock; }
 static void f_quick_out(void *c) { ((Fake *)c)->fade_outs++; }
@@ -142,7 +143,7 @@ static int32_t f_buttons(void *c)
     return turn >= 0 && turn < 31 && (f->clicks >> turn & 1) ? 1 : 0;
 }
 
-static int32_t run_with(Fake *f, const int *keys, int count, int with_profile, int with_footer)
+static int32_t run(Fake *f, const int *keys, int count)
 {
     f->keys = keys, f->key_count = count;
     GameModeState st = { 0 };
@@ -154,196 +155,246 @@ static int32_t run_with(Fake *f, const int *keys, int count, int with_profile, i
         .pointer_mark = f_void, .pointer_in_rect = f_in_rect, .select = f_int, .blit_own = f_blit, .select_default = f_void, .pointer_hide = f_void, .lock = f_void,
         .picture_shape = f_picture, .unlock = f_void, .flip = f_void, .pointer_show = f_void, .pointer_buttons = f_buttons, .fade_in = f_fade_in, .inverse_build = f_void,
         .banner_wait = f_banner, .deadline_set = f_int, .sound = f_int, .key = f_key, .ticks = f_ticks, .pointer_activate_if_moved = f_void, .pointer_click = f_void,
-        .name_box = f_name, .fade_out = f_fade_out, .free_inverse = f_void, .modem = f_zero, .network_found = f_zero, .network_game = f_zero, .yes_no = f_yes,
+        .name_box = f_name, .fade_out = f_fade_out, .free_inverse = f_void, .modem = f_zero, .network_found = f_network_found, .network_game = f_zero, .yes_no = f_yes,
         .drain = f_void, .pointer_off = f_void, .music = f_void, .deadline_passed = f_zero, .sound_free = f_void, .free = f_free, .ctx = f,
-        .plus_text = f_text, .plus_text_width = f_width, .extras_cover = f_cover };
-    if (with_profile) ops.profile = f_profile, ops.plus_text_scaled = f_text_scaled, ops.plus_text_width_scaled = f_width_scaled;
-    if (with_profile && !f->no_clock) ops.clock_ms = f_clock, ops.fade_out_quick = f_quick_out, ops.fade_in_quick = f_quick_in;
-    if (with_footer) ops.footer = f_footer, ops.open_notice = f_open;
+        .plus_text = f_text, .plus_text_width = f_width, .extras_cover = f_cover, .choice = f_choice, .plus_text_scaled = f_text_scaled,
+        .plus_text_width_scaled = f_width_scaled, .footer = f_footer, .open_notice = f_open };
+    if (!f->no_clock) ops.clock_ms = f_clock, ops.fade_out_quick = f_quick_out, ops.fade_in_quick = f_quick_in;
     return game_mode_menu(0, &st, &ops);
 }
-static int32_t run(Fake *f, const int *keys, int count, int with_profile) { return run_with(f, keys, count, with_profile, 0); }
 
 static void rig(Fake *f, int x, int y, int pinned)
 {
     memset(f, 0, sizeof *f);
     f->pointer_x = x, f->pointer_y = y, f->pinned = pinned;
     f->ms_per_call = 25;   /* a key and the turn after it with none are 100 ms */
+    f->count = 5, f->in_use = 2, f->unusable = -1;   /* the three modes and two editions; Restomod '26 in use */
 }
 
-enum { ROW_PROFILE = 0x91, ROW_SINGLE = 0xda, ROW_MULTI = 0x122, ROW_EXIT = 0x16f };
+enum { ROW_SINGLE = 0x91, ROW_MULTI = 0xda, ROW_CHOICE = 290, ROW_MANAGE = 345, EXIT_X = 580, ROW_EXIT = 449 };
 
-/* Single Player first; Down runs Multiplayer, Exit, Profile and round; Up from it is the Profile row */
+/* Single Player first; Down runs Multiplayer, the selector, Manage, Exit and round; Up from Single Player is Exit */
 static void test_the_order(void)
 {
     Fake f;
     int keys[8], n = 0;
-    for (int i = 0; i < 4; i++) keys[n++] = DOWN;
+    for (int i = 0; i < 5; i++) keys[n++] = DOWN;
     rig(&f, 320, ROW_SINGLE, 0);
-    run(&f, keys, n, 1);
+    run(&f, keys, n);
     CHECK_EQ_INT(f.moved_y[0], ROW_SINGLE);
     CHECK_EQ_INT(f.moved_y[1], ROW_MULTI);
-    CHECK_EQ_INT(f.moved_y[2], ROW_EXIT);
-    CHECK_EQ_INT(f.moved_y[3], ROW_PROFILE);
-    CHECK_EQ_INT(f.moved_y[4], ROW_SINGLE);
+    CHECK_EQ_INT(f.moved_y[2], ROW_CHOICE);
+    CHECK_EQ_INT(f.moved_y[3], ROW_MANAGE);
+    CHECK_EQ_INT(f.moved_y[4], ROW_EXIT);
+    CHECK_EQ_INT(f.moved_y[5], ROW_SINGLE);
     const int up[] = { UP };
     rig(&f, 320, ROW_SINGLE, 0);
-    run(&f, up, 1, 1);
-    CHECK_EQ_INT(f.moved_y[1], ROW_PROFILE);
+    run(&f, up, 1);
+    CHECK_EQ_INT(f.moved_y[1], ROW_EXIT);
 }
 
-static void test_the_words(void)
+/* L2b: Single Player and Multiplayer on top, the selector under them with its lines, Manage under it, Exit at the bottom right clear of
+ * the foot line, the version at the bottom left */
+static void test_the_layout(void)
 {
     Fake f;
     const int none[] = { ESCAPE };
     rig(&f, 320, ROW_SINGLE, 0);
-    run(&f, none, 1, 1);
-    CHECK(f.drawn_profile >= 1);
-    CHECK(f.said_single >= 1 && f.said_multiplayer >= 1 && f.said_exit >= 1);
-    CHECK_EQ_INT(f.said_customize, 0);   /* Customize is Options' now */
+    run(&f, none, 1);
+    CHECK(f.single.set && f.multi.set && f.title.set && f.manage.set && f.exit.set && f.version.set && f.notice.set);
+    CHECK(f.single.y < f.multi.y && f.multi.y < f.title.y && f.title.y < f.manage.y);
+    CHECK(f.manage.y < 400);
+    CHECK(f.exit.x + f.exit.w <= 640 - 14);   /* the right margin the version keeps on the left */
+    CHECK(f.exit.y > 400);
+    CHECK(f.exit.x > f.notice.x + f.notice.w);   /* clear of the foot line's notice */
+    CHECK_EQ_INT(f.version.x, 14);
+    CHECK_EQ_INT(f.said_customize, 0);
+    CHECK(strcmp(f.last_title, "<  Restomod '26  >") == 0);
 }
 
-/* rapid arrows (+1 +1 -1: one along) change the row at once and apply the mode once, after they rest 400 ms: nothing is lost */
+/* rapid arrows (+1 +1 -1: one along) change the row at once and apply the choice once, after they rest 400 ms */
 static void test_the_arrows_apply_once_they_rest(void)
 {
     Fake f;
     const int keys[] = { RIGHT, RIGHT, LEFT, 0, 0, 0, 0, 0, 0, 0, 0 };
-    rig(&f, 320, ROW_PROFILE, 1);
-    run(&f, keys, 11, 1);
-    CHECK_EQ_INT(f.profile_steps, 1);
-    CHECK_EQ_INT(f.profile_net, 1);
-    CHECK_EQ_INT(f.apply_asked, 0);
-    CHECK(f.peeks >= 3);   /* every press showed its mode at once */
+    rig(&f, 320, ROW_CHOICE, 1);
+    run(&f, keys, 11);
+    CHECK_EQ_INT(f.applies, 1);
+    CHECK_EQ_INT(f.last_apply, 3);
+    CHECK(f.peeks >= 3);   /* every press showed its choice at once */
 }
 
-/* a mode is not applied before the arrows have rested */
+/* a choice is not applied before the arrows have rested; with no clock at once */
 static void test_it_waits_for_the_arrows_to_rest(void)
 {
     Fake f;
     const int keys[] = { RIGHT, 0 };
-    rig(&f, 320, ROW_PROFILE, 1);
-    run(&f, keys, 2, 1);
-    CHECK_EQ_INT(f.profile_steps, 0);
-    CHECK_EQ_INT(f.said_return, 0);   /* and the row no longer says Return applies it */
-}
-
-/* with no clock the arrow applies at once */
-static void test_no_clock_applies_at_once(void)
-{
-    Fake f;
-    const int keys[] = { RIGHT, ENTER };
-    rig(&f, 320, ROW_PROFILE, 1);
+    rig(&f, 320, ROW_CHOICE, 1);
+    run(&f, keys, 2);
+    CHECK_EQ_INT(f.applies, 0);
+    const int now[] = { RIGHT, ENTER };
+    rig(&f, 320, ROW_CHOICE, 1);
     f.no_clock = 1;
-    run(&f, keys, 2, 1);
-    CHECK_EQ_INT(f.profile_steps, 1);
-    CHECK_EQ_INT(f.profile_net, 1);
+    run(&f, now, 2);
+    CHECK_EQ_INT(f.applies, 1);
+    CHECK_EQ_INT(f.last_apply, 3);
 }
 
-/* three steps come round to the one in use: nothing applies */
-static void test_round_applies_nothing(void)
+/* the selector goes round the choices by index: from the last to the first and back; all the way round applies nothing */
+static void test_the_selector_goes_round(void)
 {
     Fake f;
     const int keys[] = { RIGHT, RIGHT, RIGHT, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-    rig(&f, 320, ROW_PROFILE, 1);
-    run(&f, keys, 12, 1);
-    CHECK_EQ_INT(f.profile_steps, 0);
-    const int back[] = { LEFT, LEFT, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-    rig(&f, 320, ROW_PROFILE, 1);
-    run(&f, back, 11, 1);
-    CHECK_EQ_INT(f.profile_net, -2);
+    rig(&f, 320, ROW_CHOICE, 1);   /* 2 -> 3 -> 4 -> 0 */
+    run(&f, keys, 12);
+    CHECK_EQ_INT(f.last_apply, 0);
+    const int back[] = { LEFT, LEFT, LEFT, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    rig(&f, 320, ROW_CHOICE, 1);   /* 2 -> 1 -> 0 -> 4 */
+    run(&f, back, 12);
+    CHECK_EQ_INT(f.last_apply, 4);
+    const int round[] = { RIGHT, RIGHT, RIGHT, RIGHT, RIGHT, 0, 0, 0, 0, 0, 0, 0, 0 };
+    rig(&f, 320, ROW_CHOICE, 1);
+    run(&f, round, 13);
+    CHECK_EQ_INT(f.applies, 0);
+}
+
+/* a choice that cannot be used is shown (its line the reason) but never applied, by resting or by Return; leaving the row shows the one in
+ * use again */
+static void test_a_choice_that_cannot_be_used(void)
+{
+    Fake f;
+    const int rest[] = { RIGHT, 0, 0, 0, 0, 0, 0, 0, 0, ENTER, 0, 0 };
+    rig(&f, 320, ROW_CHOICE, 1);
+    f.unusable = 3;
+    run(&f, rest, 12);
+    CHECK_EQ_INT(f.applies, 0);
+    CHECK(strcmp(f.last_title, "<  Europa 80  >") == 0);
+    const int leave[] = { RIGHT, 0, DOWN, 0, 0 };
+    rig(&f, 320, ROW_CHOICE, 0);
+    f.unusable = 3;
+    run(&f, leave, 5);
+    CHECK_EQ_INT(f.applies, 0);
+    CHECK(strcmp(f.last_title, "<  Restomod '26  >") == 0);
 }
 
 /* leaving the row applies what it shows */
 static void test_leaving_the_row_applies(void)
 {
     Fake f;
-    const int keys[] = { UP, RIGHT, DOWN, UP, ENTER };
+    const int keys[] = { DOWN, DOWN, RIGHT, UP, ESCAPE };
     rig(&f, 320, ROW_SINGLE, 0);
-    run(&f, keys, 5, 1);
-    CHECK_EQ_INT(f.profile_steps, 1);
+    run(&f, keys, 5);
+    CHECK_EQ_INT(f.applies, 1);
+    CHECK_EQ_INT(f.last_apply, 3);
 }
 
-/* the short fade, out and back in, only when the mode changes the image's format or resolution */
+/* the short fade, out and back in, only when the choice changes the image's format or resolution */
 static void test_the_fade_only_when_the_picture_changes(void)
 {
     Fake f;
     const int keys[] = { RIGHT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-    rig(&f, 320, ROW_PROFILE, 1);
+    rig(&f, 320, ROW_CHOICE, 1);
     f.look = 1;
-    run(&f, keys, 12, 1);
-    CHECK_EQ_INT(f.profile_steps, 1);
+    run(&f, keys, 12);
+    CHECK_EQ_INT(f.applies, 1);
     CHECK_EQ_INT(f.fade_outs, 1);
     CHECK_EQ_INT(f.fade_ins, 1);
-    rig(&f, 320, ROW_PROFILE, 1);
-    f.look = 0;
-    run(&f, keys, 12, 1);
-    CHECK_EQ_INT(f.profile_steps, 1);
+    rig(&f, 320, ROW_CHOICE, 1);
+    run(&f, keys, 12);
+    CHECK_EQ_INT(f.applies, 1);
     CHECK_EQ_INT(f.fade_outs, 0);
     CHECK_EQ_INT(f.fade_ins, 0);
 }
 
-/* a click on the row's left third shows the previous, on the right third the next, and both apply once they rest; on the name it applies what is shown */
+/* a click on the selector's left third shows the previous, on the right third the next; on the name it applies what is shown */
 static void test_clicks_show_and_the_name_applies(void)
 {
     Fake f;
     const int idle[] = { 0, 0, 0, 0 };
-    rig(&f, 60, ROW_PROFILE, 1);
+    rig(&f, 60, ROW_CHOICE, 1);
     f.clicks = 1 << 3;
-    run(&f, idle, 4, 1);
-    CHECK_EQ_INT(f.last_peek, -1);
-    CHECK_EQ_INT(f.profile_steps, 0);   /* not yet: the arrows have not rested */
-    rig(&f, 600, ROW_PROFILE, 1);
-    f.clicks = 1 << 3;
-    run(&f, idle, 4, 1);
+    run(&f, idle, 4);
     CHECK_EQ_INT(f.last_peek, 1);
-    CHECK_EQ_INT(f.profile_steps, 0);
+    CHECK_EQ_INT(f.applies, 0);   /* not yet: the arrows have not rested */
+    rig(&f, 600, ROW_CHOICE, 1);
+    f.clicks = 1 << 3;
+    run(&f, idle, 4);
+    CHECK_EQ_INT(f.last_peek, 3);
     const int right[] = { RIGHT, 0, 0, 0 };
-    rig(&f, 320, ROW_PROFILE, 1);
-    f.clicks = 1 << 5;   /* the click on the name: the mode shown applies without waiting */
-    run(&f, right, 4, 1);
-    CHECK_EQ_INT(f.profile_steps, 1);
-    CHECK_EQ_INT(f.profile_net, 1);
+    rig(&f, 320, ROW_CHOICE, 1);
+    f.clicks = 1 << 5;   /* the click on the name: the choice shown applies without waiting */
+    run(&f, right, 4);
+    CHECK_EQ_INT(f.applies, 1);
+    CHECK_EQ_INT(f.last_apply, 3);
 }
 
-/* the bands are the art's four: Exit's from 0x14a to the screen's bottom leaves on the Return */
-static void test_the_pointer_bands(void)
+/* Manage content: in Restomod (the standard or an edition) its notice; in Stock and Restored dimmed, and nothing */
+static void test_manage(void)
+{
+    Fake f;
+    const int enter[] = { ENTER, ESCAPE };
+    rig(&f, 320, ROW_MANAGE, 1);
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.manage_banner, 1);
+    CHECK(f.manage_style != STYLE_DIM);
+    rig(&f, 320, ROW_MANAGE, 1);
+    f.in_use = 3;
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.manage_banner, 1);
+    rig(&f, 320, ROW_MANAGE, 1);
+    f.in_use = 0;
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.manage_banner, 0);
+    CHECK_EQ_INT(f.manage_style, STYLE_DIM);
+    CHECK_EQ_INT(f.names_asked, 0);
+}
+
+/* the rows' rects: Return on each does its row's work; a click outside every rect (the version, the empty left of the bottom) does nothing */
+static void test_the_pointer_rects(void)
 {
     Fake f;
     const int enter[] = { ENTER };
-    rig(&f, 320, 0x14a, 1);
-    CHECK_EQ_INT(run(&f, enter, 1, 1), 1);
+    rig(&f, EXIT_X, ROW_EXIT, 1);
+    CHECK_EQ_INT(run(&f, enter, 1), 1);   /* Exit leaves */
     CHECK_EQ_INT(f.key_calls, 2);
-    rig(&f, 320, 0x149, 1);   /* Multiplayer's, with no network found: not Exit */
-    CHECK_EQ_INT(run(&f, enter, 1, 1), 1);
-    CHECK(f.key_calls > 2);
+    rig(&f, 320, ROW_SINGLE, 1);
+    CHECK_EQ_INT(run(&f, enter, 1), 0);   /* Single Player: the name box, then the race */
+    CHECK_EQ_INT(f.names_asked, 1);
+    rig(&f, 320, ROW_MULTI, 1);
+    run(&f, enter, 1);
+    CHECK_EQ_INT(f.networks_asked, 1);
+    const int idle[] = { 0, 0, 0, 0 };
+    rig(&f, 30, 455, 1);   /* on the version */
+    f.clicks = 1 << 3;
+    run(&f, idle, 4);
+    CHECK_EQ_INT(f.names_asked + f.networks_asked + f.opens + f.banners, 0);
+    CHECK_EQ_INT(f.exits_asked, 1);   /* only the script's Escape at its end */
+    rig(&f, 320, 470, 1);   /* the bottom's middle: nothing */
+    f.clicks = 1 << 3;
+    run(&f, idle, 4);
+    CHECK_EQ_INT(f.names_asked + f.networks_asked + f.opens + f.banners, 0);
 }
 
-/* the version and the update notice: one foot line in the small subtitle size, with a margin from the left edge and the bottom, the version
- * first and the notice to its right after a gap of two spaces (the owner's, dep59 step 4) */
-static void test_the_foot_lines(void)
+/* the version and the update notice: one foot line in the small size, the version first and the notice after two spaces' width */
+static void test_the_foot_line(void)
 {
     Fake f;
     const int none[] = { ESCAPE };
     rig(&f, 320, ROW_SINGLE, 0);
-    run_with(&f, none, 1, 1, 1);
-    CHECK_EQ_INT(f.foot_big, 0);   /* not the big letters */
-    CHECK(f.foot_small >= 2);
-    CHECK(f.foot_low >= 2);
-    CHECK(f.foot_left >= 12);   /* a margin from the left edge */
-    CHECK(f.version_y + 20 <= 480 - 10);   /* and from the bottom, the small line being about 17 high */
-    CHECK_EQ_INT(f.notice_y, f.version_y);   /* one line */
-    CHECK_EQ_INT(f.version_x, f.foot_left);   /* the version first */
-    CHECK_EQ_INT(f.notice_x, f.version_x + f.version_w + 2 * 8 * 3 / 5);   /* then two spaces' width, at the line's scale */
+    run(&f, none, 1);
+    CHECK(f.version.y + 20 <= 480 - 10);
+    CHECK_EQ_INT(f.notice.y, f.version.y);
+    CHECK_EQ_INT(f.notice.x, f.version.x + f.version.w + 2 * 16 * 3 / 5);
 }
 
-/* a click opens the releases page only on the notice's own text: not on the version, not past the notice's end, not above or below its line */
+/* a click opens the releases page only on the notice's own text */
 static int opens_at(int x, int y)
 {
     Fake f;
     const int idle[] = { 0, 0, 0, 0 };
     rig(&f, x, y, 1);
     f.clicks = 1 << 3;
-    run_with(&f, idle, 4, 1, 1);
+    run(&f, idle, 4);
     return f.opens;
 }
 
@@ -352,44 +403,36 @@ static void test_the_notice_is_its_own_text(void)
     Fake f;
     const int none[] = { ESCAPE };
     rig(&f, 320, ROW_SINGLE, 0);
-    run_with(&f, none, 1, 1, 1);
-    const int x = f.notice_x, w = f.notice_w, y = f.notice_y;
+    run(&f, none, 1);
+    const int x = f.notice.x, w = f.notice.w, y = f.notice.y;
     CHECK(w > 0);
     CHECK_EQ_INT(opens_at(x, y + 5), 1);
     CHECK_EQ_INT(opens_at(x + w - 1, y + 5), 1);
-    CHECK_EQ_INT(opens_at(x + w, y + 5), 0);   /* past its end */
-    CHECK_EQ_INT(opens_at(x - 1, y + 5), 0);   /* the gap */
-    CHECK_EQ_INT(opens_at(f.version_x + 2, y + 5), 0);   /* the version */
-    CHECK_EQ_INT(opens_at(x + 4, y - 1), 0);   /* above the line */
-    CHECK_EQ_INT(opens_at(x + 4, y + 21), 0);   /* below it */
+    CHECK_EQ_INT(opens_at(x + w, y + 5), 0);
+    CHECK_EQ_INT(opens_at(x - 1, y + 5), 0);
+    CHECK_EQ_INT(opens_at(f.version.x + 2, y + 5), 0);
+    CHECK_EQ_INT(opens_at(x + 4, y - 1), 0);
+    CHECK_EQ_INT(opens_at(x + 4, y + 21), 0);
 }
 
-/* the notice looks clickable: highlighted (the items' selected style) while the pointer is on it, plain off it, redrawn when that changes;
- * the version never */
+/* the notice lights under the pointer and goes plain off it; the version never lights */
 static void test_the_notice_lights_under_the_pointer(void)
 {
     Fake f;
     const int none[] = { ESCAPE };
     rig(&f, 320, ROW_SINGLE, 0);
-    run_with(&f, none, 1, 1, 1);
-    const int x = f.notice_x, y = f.notice_y;
+    run(&f, none, 1);
+    const int x = f.notice.x, y = f.notice.y;
     CHECK(f.notice_plain > 0);
     CHECK_EQ_INT(f.notice_hot, 0);
     const int idle[] = { 0, 0, 0, 0, 0, 0 };
-    rig(&f, x + 4, y + 5, 1);   /* on it from the start */
-    run_with(&f, idle, 6, 1, 1);
-    CHECK(f.notice_hot > 0);
-    CHECK(f.notice_last != 0);
-    CHECK_EQ_INT(f.version_hot, 0);
-    rig(&f, 320, ROW_SINGLE, 1);   /* off it, then moved onto it: drawn again, lit */
+    rig(&f, 320, ROW_SINGLE, 1);
     f.move_at = 6, f.move_x = x + 4, f.move_y = y + 5;
-    run_with(&f, idle, 6, 1, 1);
-    CHECK(f.notice_plain > 0);
-    CHECK(f.notice_hot > 0);
-    CHECK(f.notice_last != 0);
-    rig(&f, x + 4, y + 5, 1);   /* on it, then moved off: lit, then drawn plain again */
+    run(&f, idle, 6);
+    CHECK(f.notice_hot > 0 && f.notice_last != 0);
+    rig(&f, x + 4, y + 5, 1);
     f.move_at = 6, f.move_x = 320, f.move_y = ROW_SINGLE;
-    run_with(&f, idle, 6, 1, 1);
+    run(&f, idle, 6);
     CHECK(f.notice_hot > 0);
     CHECK_EQ_INT(f.notice_last, 0);
     CHECK_EQ_INT(f.version_hot, 0);
@@ -398,16 +441,17 @@ static void test_the_notice_lights_under_the_pointer(void)
 int main(void)
 {
     test_the_order();
-    test_the_words();
+    test_the_layout();
     test_the_arrows_apply_once_they_rest();
     test_it_waits_for_the_arrows_to_rest();
-    test_no_clock_applies_at_once();
-    test_round_applies_nothing();
+    test_the_selector_goes_round();
+    test_a_choice_that_cannot_be_used();
     test_leaving_the_row_applies();
     test_the_fade_only_when_the_picture_changes();
     test_clicks_show_and_the_name_applies();
-    test_the_pointer_bands();
-    test_the_foot_lines();
+    test_manage();
+    test_the_pointer_rects();
+    test_the_foot_line();
     test_the_notice_is_its_own_text();
     test_the_notice_lights_under_the_pointer();
     return TEST_REPORT();

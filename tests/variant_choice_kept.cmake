@@ -9,7 +9,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 set(step 60)
 set(next_track "300:MOUSE:390:455,300:CLICK:390:455,2000:MOUSE:330:405")
 set(card_right "1500:CLICK:543:317")
-set(script "0:WAIT:mark:screen=title:${step},4000:ESC,0:WAIT:mark:screen=game_mode:${step},300:CLICK:310:217,0:WAIT:mark:screen=name_box:${step}")
+set(script "0:WAIT:mark:screen=title:${step},4000:ESC,0:WAIT:mark:screen=game_mode:${step},300:CLICK:310:145,0:WAIT:mark:screen=name_box:${step}")
 set(script "${script},500:TEXT:R,500:ENTER,0:WAIT:mark:screen=central:${step}")
 # the track screen: three tracks on (Coastal to Autumn Valley), the three switches on, Done
 set(script "${script},300:CLICK:400:320,0:WAIT:mark:screen=track_select:${step},${next_track},${next_track},${next_track}")

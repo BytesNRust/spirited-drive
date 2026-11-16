@@ -70,9 +70,11 @@ run() {
 }
 
 # menu NAME SCRIPT: the full game with SCRIPT after the way to Control Central, on a copy of MODS
-TO_CENTRAL="0:CLICK:310:218,0:CLICK:310:218,0:CLICK:600:30"   # the intro, Single player, the name box (a click is Enter)
+# each screen's mark waited for, as tests/car_card_menus.sh does: Esc past the boot, the movie and the title, then Single Player
+# (L2b: on top; 310,218 is Multiplayer now), the name box (a click is Enter), Central
+TO_CENTRAL="1500:ESC,0:WAIT:mark:movie=:60,300:ESC,0:WAIT:mark:screen=title:60,300:ESC,0:WAIT:mark:screen=game_mode:60,0:CLICK:310:145,0:WAIT:mark:screen=name_box:60,0:CLICK:600:30,0:WAIT:mark:screen=central:60"
 OPTIONS="3000:CLICK:215:450"
-OUT_OF_CENTRAL="3000:CLICK:575:450,3000:CLICK:310:366"       # Cancel, then Game Mode's Exit
+OUT_OF_CENTRAL="3000:CLICK:575:450,0:WAIT:mark:screen=game_mode:60,0:CLICK:580:449"   # Cancel, then Game Mode's Exit (L2b: the bottom right)
 menu() {
   local copy=$out/mods/$1
   [[ -d $copy ]] && find $copy -delete; mkdir -p $copy; [[ -n $MODS ]] && cp -R $MODS/. $copy/
@@ -104,7 +106,8 @@ for phase in $phases; do
     menu options "$OPTIONS,$(twice 80:115),$(twice 80:149),$(twice 80:183),3000:CLICK:40:450"
     menu audio "$OPTIONS,3000:CLICK:80:216,$(twice 80:112),0:CLICK:80:112,0:CLICK:330:155,0:CLICK:480:155,0:CLICK:400:198,0:CLICK:400:242,$(twice 80:285),$(twice 80:371),3000:CLICK:40:450,3000:CLICK:40:450"
     menu graphics "$OPTIONS,3000:CLICK:80:251,$(twice 80:115),$(twice 80:167),$(twice 80:219),$(twice 80:271),$(twice 80:323),$(twice 80:375),3000:CLICK:40:450,3000:CLICK:40:450"
-    menu controls "$OPTIONS,3000:CLICK:80:285,$(twice 80:115),0:CLICK:80:155,0:CLICK:80:195,$(twice 80:235),3000:CLICK:575:450,3000:CLICK:40:450"
+    # Controls setup opens on its Keyboard page (1/3): its three pages through the page arrow, then Cancel and Done
+    menu controls "$OPTIONS,3000:CLICK:80:285,0:WAIT:mark:screen=controls_keyboard:30,3000:CLICK:355:452,0:WAIT:mark:screen=controls_actions:30,3000:CLICK:355:452,0:WAIT:mark:screen=controls_tune:30,3000:CLICK:575:450,3000:CLICK:40:450"
     # a left click turns the credits' page, Escape leaves them
     menu credits "$OPTIONS,3000:CLICK:80:356,10000:CLICK:600:30,20000:ESC,3000:CLICK:40:450"
     menu replay_save "$OPTIONS,3000:CLICK:80:321,3000:CLICK:80:240,3000:CLICK:600:30,3000:CLICK:40:450,3000:CLICK:40:450"

@@ -4,7 +4,9 @@
 # old "ULFTRA" kind) shows as a target that differs.
 #
 # For each target one line:   <target>: same   |   <target>: differs <N> px (diff: <outdir>/diff/<target>.png)   |   <target>: walk failed (A|B|A+B), see <outdir>/<A|B>/<target>.log
-# then a summary line. Exit 0 every target the same, 1 some differ, 3 some walk failed (a failure outranks a difference), 2 bad arguments or no magick.
+#   or, for a target named in EXPECTED (a change meant, e.g. EXPECTED=game-mode for a new layout the owner approves):   <target>: differs <N> px (expected) ...
+# then a summary line. Exit 0 every target the same (or its difference expected), 1 some differ, 3 some walk failed (a failure outranks a difference),
+# 2 bad arguments or no magick.
 #   TARGETS (default: the eight below; game-mode, central, showcase and the others of menu_walk.sh only when named here, e.g. TARGETS="game-mode central")   JOBS (default 2: walks running at once; each is one headless game)
 #   DATA, STEP_TIMEOUT, SETTLE, FORMAT: as menu_walk.sh (FORMAT=21:9 compares the menus as a 21:9 screen shows them)
 # The pictures are the walk's last frame (the pointer included), so a run of the same binary twice is "same". The eight targets take about 6 minutes
@@ -46,7 +48,8 @@ for t in $targets; do
 done
 wait
 
-same=0 differ=0 failed=0
+expected=(${=EXPECTED:-})
+same=0 differ=0 failed=0 meant=0
 for t in $targets; do
     bad=""
     [[ $(cat $out/A/$t.rc 2>/dev/null) == 0 && -f $out/A/$t.png ]] || bad+="A"
@@ -63,13 +66,14 @@ for t in $targets; do
         if (( px == 0 )); then
             print -r -- "$t: same"; same=$((same + 1)); rm -f $out/diff/$t.png
         else
-            print -r -- "$t: differs $px px (diff: $out/diff/$t.png)"; differ=$((differ + 1))
+            if (( ${expected[(Ie)$t]} )); then print -r -- "$t: differs $px px (expected) (diff: $out/diff/$t.png)"; meant=$((meant + 1))
+            else print -r -- "$t: differs $px px (diff: $out/diff/$t.png)"; differ=$((differ + 1)); fi
         fi
     else
         print -r -- "$t: differs, no pixel count (${n:-compare said nothing}); diff: $out/diff/$t.png"; differ=$((differ + 1))
     fi
 done
-print -r -- "menu_compare: $same same, $differ differ, $failed failed, of ${#targets}"
+print -r -- "menu_compare: $same same, $differ differ, $failed failed${expected:+, $meant expected}, of ${#targets}"
 (( failed > 0 )) && exit 3
 (( differ > 0 )) && exit 1
 exit 0

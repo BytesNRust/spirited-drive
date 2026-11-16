@@ -16,6 +16,8 @@
 #        MODS (a folder copied as the walk's --mods: a mod piece the walk runs with; default an empty one)
 #        PROFILE (stock, restored or restomod; default the game's own first run): the mode the walk runs in (Best Times' pages are
 #        Restomod's)
+#        EDITION (an edition's file, <id>.ini): copied to the walk's editions/ and made Restomod's edition in use (restomod.cfg's
+#        edition=<id>); with PROFILE=restomod the walk runs in it
 #
 # Every step waits for the game's own "mark:screen=NAME" log line (the front end logs one as each screen opens), not for a time; the clicks wait for
 # the screen to be still (TNFS_INPUT_SETTLE). A step that does not come in time stops the run and says which ("input script: step N: WAIT ... timed
@@ -61,7 +63,9 @@ park() { printf '300:MOUSE:%s:%s' $(( 330 + dx )) 405; }
 # the common way in: our boot screen skipped (the first thing the game shows), EA's first movie stopped (which ends the intro), Game Mode; then
 # Single, the name box left, Control Central
 to_game_mode="1500:ESC,0:WAIT:mark:movie=:$step,500:ESC,$(wait_for game_mode)"
-to_central="$to_game_mode,$(click 310 217),$(wait_for name_box),500:TEXT:R,500:ENTER,$(wait_for central)"
+# Single Player by Return: the menu starts on it with the pointer on it, in the exe's layout (its second place) and in L2b's (the first), so
+# the same steps walk a binary from before L2b too
+to_central="$to_game_mode,500:ENTER,$(wait_for name_box),500:TEXT:R,500:ENTER,$(wait_for central)"
 to_options="$to_central,$(click 215 450),$(wait_for options)"
 to_track="$to_central,$(click 400 320),$(wait_for track_select)"
 to_best="$to_track,$(click 560 460),$(wait_for best_times),$(park)"
@@ -122,6 +126,11 @@ mkdir -p "$work/user" "$work/cap" "$work/mods"
 printf 'format=%s\n' "$format" > "$work/user/port.cfg"   # the clicks above are shifted for it
 [ -n "$PROFILE" ] && printf 'profile=%s\n' "$PROFILE" >> "$work/user/port.cfg"
 [ -n "$USER_FILES" ] && cp "$USER_FILES"/* "$work/user/"   # files the walk starts with in the user folder (a race_records.dat)
+if [ -n "$EDITION" ]; then   # an edition: its file in editions/, its id in restomod.cfg
+    mkdir -p "$work/user/editions" && cp "$EDITION" "$work/user/editions/" || exit 1
+    id=${EDITION:t:r}
+    printf 'edition=%s\n' "$id" >> "$work/user/restomod.cfg"
+fi
 limit=$(( step * 12 + 60 ))
 # TNFS_VERSION_TEXT: Game Mode's footer shows "vwalk", not the build's commit, so two builds' game-mode pictures compare (a binary from
 # before it ignores it, and its footer differs)
