@@ -3,7 +3,7 @@
  *   tnfs-studio car new --template CAR --id ID --stem STEM --out DIR [--name NAME] [--data DIR] [--port-data DIR] [--force]
  *
  * CAR is one of the eight race cars, by its word (viper) or its stem on the CD (DVIPER). DIR gets mod.ini (type=car, the stem, and
- * sound_from, ai_from and dash_from the template's word), the template's CFM, PDN and PBS from the data root (default "original")
+ * sound_from and dash_from the template's word; the AI is the car's own, from its PDN), the template's CFM, PDN and PBS from the data root (default "original")
  * under the new stem, and the port's masks of the template from the port's data (default "data"). Every argument is checked before
  * anything is written, and nothing is overwritten without --force. */
 #ifndef TNFS_STUDIO_CAR_NEW_H

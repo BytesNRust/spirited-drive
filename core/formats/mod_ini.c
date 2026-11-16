@@ -49,6 +49,7 @@ static const Field FIELDS[] = {
     { "sound_from", offsetof(ModInfo, sound_from), sizeof ((ModInfo *)0)->sound_from, KIND_WORD },
     { "ai_from", offsetof(ModInfo, ai_from), sizeof ((ModInfo *)0)->ai_from, KIND_WORD },
     { "dash_from", offsetof(ModInfo, dash_from), sizeof ((ModInfo *)0)->dash_from, KIND_WORD },
+    { "ai_level", offsetof(ModInfo, ai_level), sizeof ((ModInfo *)0)->ai_level, KIND_WORD },   /* port (dep59 3b) */
     { "year", offsetof(ModInfo, year), sizeof ((ModInfo *)0)->year, KIND_TEXT },
     { "power", offsetof(ModInfo, power), sizeof ((ModInfo *)0)->power, KIND_TEXT },
     { "weight", offsetof(ModInfo, weight), sizeof ((ModInfo *)0)->weight, KIND_TEXT },

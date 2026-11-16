@@ -110,13 +110,14 @@ static uint32_t fingerprint(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_
     return crc != 0 ? crc : 1;
 }
 
-/* port (dep59 3b): the AI tuning of the piece: from its PDN (`paths`[1] in `set`) */
-static int piece_ai(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH], CarAiTuning *out, char *why, size_t why_cap)
+/* port (dep59 3b): the AI tuning of the piece: from its PDN (`paths`[1] in `set`), or its card's ai_level */
+static int piece_ai(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH], const char *level, CarAiTuning *out, char *why,
+                    size_t why_cap)
 {
     const SetFile *f = file_at(set, paths[1]);
     uint8_t pdn[PDN_SIZE];
     if (f == NULL || !pdn_read(pdn, f->data, f->size)) return snprintf(why, why_cap, "its PDN cannot be read"), 0;
-    return car_ai_tuning(pdn, NULL, out, why, why_cap);
+    return car_ai_tuning(pdn, level, out, why, why_cap);
 }
 
 /* the first fatal finding of `r`, as the log says it */
@@ -157,7 +158,7 @@ static int read_piece(const char *dir, ModInfo *card, CarPiece *out, char *why, 
     if (!ok) first_fatal(&r, why, why_cap);
     report_free(&r);
     CarAiTuning ai = { 0, 0 };
-    ok = ok && piece_ai(&set, paths, &ai, why, why_cap);
+    ok = ok && piece_ai(&set, paths, card->ai_level, &ai, why, why_cap);
     const uint32_t print = ok ? fingerprint(&set, paths, &ai) : 0;
     fileset_free(&set);
     if (!ok) return 0;

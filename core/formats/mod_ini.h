@@ -4,8 +4,9 @@
  * left for a later version, whatever it holds, and is never said back; a key twice is refused. Values are UTF-8 text kept as it is, with
  * no control character (C0, DEL, C1) and no bidirectional mark that could change what the player reads.
  * port (dep59): what the piece is (notes/dep59-content-model-design.md). type: tweak (also when not given), car or track. A car's keys:
- * stem (its files' root, 1..8 of A-Z 0-9), short_name (text, up to 8), and sound_from, ai_from, dash_from (an original car's word, 1..8 of
- * a-z 0-9; which words name a car is the registry's to say). Whether a car piece has what it needs is the loader's to say, not the card's.
+ * stem (its files' root, 1..8 of A-Z 0-9), short_name (text, up to 8), and sound_from, dash_from (an original car's word, 1..8 of
+ * a-z 0-9; which words name a car is the registry's to say); ai_from is still read so that car_piece_check refuses it with its
+ * replacement (3b), and ai_level (a word: car_ai.h says which are levels). Whether a car piece has what it needs is the loader's to say, not the card's.
  * port (dep59 step 3): a car's figures for its gallery, year, power and weight (text up to 16, shown as written: "1987", "478 hp"), and
  * paints=Name:rrggbb,Name:rrggbb, its Color choices: up to 16, a name 1..24 of text without ':' or ',', six hex digits in any case, no two
  * names alike in any case. */
@@ -47,6 +48,7 @@ typedef struct {
     char stem[MOD_INI_STEM_MAX + 1];   /* "" when not given, as the ones below */
     char short_name[MOD_INI_SHORT_MAX + 1];
     char sound_from[MOD_INI_FROM_MAX + 1], ai_from[MOD_INI_FROM_MAX + 1], dash_from[MOD_INI_FROM_MAX + 1];
+    char ai_level[MOD_INI_FROM_MAX + 1];   /* port (dep59 3b): slow, medium, fast or top (car_ai.h); "": its own pace */
     /* the author's figures, as written; "" when not given */
     char year[MOD_INI_FIGURE_MAX + 1], power[MOD_INI_FIGURE_MAX + 1], weight[MOD_INI_FIGURE_MAX + 1];
     ModPaint paints[MOD_INI_PAINTS_MAX];   /* paints=, in its order */

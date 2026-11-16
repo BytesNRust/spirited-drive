@@ -88,7 +88,7 @@ static int piece(const char *folder, const char *id, const char *stem, const cha
     return 1;
 }
 
-static const char FROM[] = "sound_from=viper\nai_from=viper\n";
+static const char FROM[] = "sound_from=viper\n";
 
 static int load1(const char *dir, int restomod)
 {
@@ -117,9 +117,9 @@ static void test_refused_and_passed_over(void)
 {
     char d[400];
     static const struct { const char *folder, *extra, *leave; } BAD[] = {
-        { "no_pdn", "sound_from=viper\nai_from=viper\n", "PDN" }, { "no_pbs", "sound_from=viper\nai_from=viper\n", "PBS" },
-        { "no_cfm", "sound_from=viper\nai_from=viper\n", "CFM" }, { "lada", "sound_from=lada\nai_from=viper\n", "" },
-        { "no_ai", "sound_from=viper\n", "" },
+        { "no_pdn", "sound_from=viper\n", "PDN" }, { "no_pbs", "sound_from=viper\n", "PBS" },
+        { "no_cfm", "sound_from=viper\n", "CFM" }, { "lada", "sound_from=lada\n", "" },
+        { "ai_from", "sound_from=viper\nai_from=viper\n", "" }, { "turbo", "sound_from=viper\nai_level=turbo\n", "" },   /* 3b */
     };
     for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) {
         CHECK(piece(BAD[i].folder, "bad", "BADCAR", BAD[i].extra, BAD[i].leave, d));
@@ -128,7 +128,7 @@ static void test_refused_and_passed_over(void)
         CHECK_EQ_INT(car_registry_count(), 0);
     }
     snprintf(d, sizeof d, "%s/no_stem", base);   /* no stem */
-    write_text(d, "mod.ini", "id=x\nname=X\nversion=1\ntype=car\nsound_from=viper\nai_from=viper\n");
+    write_text(d, "mod.ini", "id=x\nname=X\nversion=1\ntype=car\nsound_from=viper\n");
     CHECK_EQ_INT(load1(d, 1), 0);
     snprintf(d, sizeof d, "%s/tweak", base);      /* another type: not a car, no refusal */
     write_text(d, "mod.ini", "id=t\nname=T\nversion=1\n");
@@ -256,6 +256,14 @@ static void test_the_fingerprint(void)
     spill(path, record, PBS_SIZE);
     const uint32_t changed = fingerprint_of(a);
     CHECK(changed != 0 && changed != first);
+    /* 3b: ai_level=top: the level's pair, and the print changes with the tuning alone (the files as they were) */
+    char b[400];
+    CHECK(piece("print_top", "print-car", "PRINT", "sound_from=viper\nai_level=top\n", "", b));
+    CHECK(piece("print_none", "print-car", "PRINT", FROM, "", a));
+    const uint32_t none = fingerprint_of(a), top = fingerprint_of(b);
+    const CarAiTuning *top_ai = car_registry_ai(car_registry_find("print-car"));
+    CHECK(top_ai != NULL && top_ai->pace == 65536 && top_ai->coast == 4);
+    CHECK(none != 0 && top != 0 && none != top);
 }
 
 /* dep59 step 3: what an added car's gallery reads of its piece (car_pieces_card): its card again, its skins/ folders in name order after
@@ -263,7 +271,7 @@ static void test_the_fingerprint(void)
 static void test_the_card(void)
 {
     char d[400], skins[500];
-    CHECK(piece("carded", "card-car", "CARDCAR", "sound_from=viper\nai_from=viper\nyear=1992\npaints=Red:c8102e,Blue:1040c0\n", "", d));
+    CHECK(piece("carded", "card-car", "CARDCAR", "sound_from=viper\nyear=1992\npaints=Red:c8102e,Blue:1040c0\n", "", d));
     snprintf(skins, sizeof skins, "%s/skins/stripes", d);
     write_png(skins, "topv.png", 297, 105);   /* the Viper's topv */
     write_png(skins, "topv_mask.png", 297, 105);

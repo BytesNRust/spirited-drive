@@ -28,9 +28,10 @@ p="$work/p"
 for f in SIMDATA/CARFAMS/TESTCAR.CFM SIMDATA/CARFAMS/TESTCAR.PDN SIMDATA/CARSPECS/TESTCAR.PBS; do
     [ -f "$p/$f" ] || fail "no $f"
 done
-for line in type=car stem=TESTCAR sound_from=viper ai_from=viper id=test-car; do
+for line in type=car stem=TESTCAR sound_from=viper dash_from=viper id=test-car; do
     grep -qx "$line" "$p/mod.ini" 2>/dev/null || fail "mod.ini lacks the line $line"
 done
+grep -q '^ai_from=' "$p/mod.ini" && fail "mod.ini still says ai_from (3b: a car's AI is its own)"
 cmp -s "$p/SIMDATA/CARFAMS/TESTCAR.CFM" "$orig/SIMDATA/CARFAMS/DVIPER.CFM" || fail "the CFM is not the Viper's"
 cmp -s "$p/SIMDATA/CARSPECS/TESTCAR.PBS" "$orig/SIMDATA/CARSPECS/DVIPER.PBS" || fail "the PBS is not the Viper's"
 [ -e "$p/SIMDATA/CARFAMS/MTESTCAR.CFM" ] && fail "the reduced CFM was copied"
