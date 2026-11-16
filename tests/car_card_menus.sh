@@ -126,9 +126,10 @@ part_cards() {
     log | grep -q "car piece: test-car is car 16" || fail "the log does not say the piece is car 16"
     [ "$(log | grep -m1 "^mark:car=")" = "mark:car=6" ] || fail "a fresh player's Control Central does not open on car 6: $(log | grep -m1 "^mark:car=")"
     [ "$(log | grep "^mark:car=" | tail -1)" = "mark:car=16" ] || fail "Control Central was not on car 16 after the gallery"
-    # the swatch (added_gallery_glue.c: 18 px at ARROW_RIGHT_X - 28, COLOUR_Y + 4..19) and the Skin row's value (SKIN_Y, past its arrow)
-    has_shot g1 && ! box g0 g1 442 459 360 375 && fail "Color Red shows no swatch"
-    has_shot g2 && ! box g1 g2 180 465 316 345 && fail "Skin stripes does not show its name"
+    # the Color box filled with the paint (gallery_layout.h: the right column's box at GL_COLOUR_Y, 250..299) and the Skin box's value
+    # (GL_SKIN_Y 184..233, its value in the box's lower half, between its arrows)
+    has_shot g1 && ! box g0 g1 390 590 254 296 && fail "Color Red shows no swatch"
+    has_shot g2 && ! box g1 g2 390 590 210 231 && fail "Skin stripes does not show its name"
     grep -q "^car=test-car$" "$work/user/restomod.cfg" 2>/dev/null || fail "restomod.cfg does not keep car=test-car: $(cat "$work/user/restomod.cfg" 2>/dev/null)"
     grep -q "^look.test-car=stripes,Red$" "$work/user/restomod.cfg" 2>/dev/null || fail "Done did not keep stripes,Red: $(cat "$work/user/restomod.cfg" 2>/dev/null)"
     kept=$(od -An -t d2 -j 155 -N 2 "$work/user/config.dat" 2>/dev/null | tr -d ' ')   # the player's car, 00524e8b (config_dat.c)
@@ -147,9 +148,10 @@ part_cards() {
 }
 
 part_steps() {
-    # Previous by a click (the footer's left, over the showcase's Done): the Diablo's showcase, left by Escape only. A showcase closed by
-    # the click logs car=7 before the Escape, and the WAIT for it, armed by the Escape, never comes
-    steps="$(click 180 200),$(wait_for screen=added_gallery),$(click 40 445),$(wait_for screen=showcase),1500:ESC,$(wait_for car=7)"
+    # Previous by a click on the bottom row's left arrow (x 250..259, y 447..461: over the showcase's own Previous, 200..260 x 430..480):
+    # the Diablo's showcase, left by Escape only. The click taken again by the showcase would step it to the 512TR, and the WAIT for
+    # car=7, armed by the Escape, would never come
+    steps="$(click 180 200),$(wait_for screen=added_gallery),$(click 254 454),$(wait_for screen=showcase),1500:ESC,$(wait_for car=7)"
     # Next by the keys: Color, Previous, Next, Enter; the Warrior passed over, the RX-7's showcase, Escape back to Control Central on it
     steps="$steps,$(car_on),$(click 180 200),$(wait_for screen=added_gallery),$(key DOWN '1 0 0'),$(key DOWN '2 0 0'),$(key DOWN '3 0 0')"
     steps="$steps,300:ENTER,$(wait_for screen=showcase),1500:ESC,$(wait_for car=0)"
