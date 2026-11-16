@@ -7,6 +7,7 @@
 #include "game/frontend/variant_rule.h"
 #include "game/race/lunar_springs.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/frontend/unlock_level.h"
 
@@ -279,6 +280,16 @@ static void intro(CentralRun *r)
     }
 }
 
+/* port (test harness): the player's car and the opponent in the log once a frame shows them, on the screen's first frame and whenever either
+ * changes: "mark:car=<n>" and "mark:opponent=<n>" (tools/menu_walk.sh waits for one after each arrow click, so a click is taken before the
+ * next one goes). The log only: no frame changes. */
+static void log_choices(const ControlCentralState *st, int first)
+{
+    static int16_t car = -1, opponent = -1;
+    if (first || *st->player_car != car) car = *st->player_car, port_log("mark:car=%d\n", car);
+    if (st->opponent != NULL && (first || *st->opponent != opponent)) opponent = *st->opponent, port_log("mark:opponent=%d\n", opponent);
+}
+
 void central_draw(CentralRun *r)
 {
     ControlCentralState *st = r->st;
@@ -308,6 +319,7 @@ void central_draw(CentralRun *r)
     o->blit_word(o->ctx, o->picture_shape(o->ctx, *st->screen));
     o->flip(o->ctx);
     o->pointer_show(o->ctx);
+    log_choices(st, (int16_t)r->first != 0);
     if ((int16_t)r->first != 0) {
         const int32_t redraw = r->redraw;
         o->music_feed(o->ctx);

@@ -225,6 +225,8 @@ static void script_sequence(void)
         }
         return;
     }
+    static bool ended;   /* port (test harness): every event taken, once; tools/menu_walk.sh waits for it before its picture */
+    if (script_count > 0 && !ended) ended = true, port_log("input script: done (%d steps)\n", script_count);
 }
 
 bool input_script_key_down(int scancode)
