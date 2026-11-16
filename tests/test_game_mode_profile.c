@@ -26,6 +26,8 @@ typedef struct Fake {
     int exits_asked, names_asked, networks_asked, banners, manage_banner;
     const char *network_why;                      /* dep59 step 4: the reason Multiplayer is closed (an edition in use), NULL open */
     int network_banner, multi_style;
+    int timer_after_banner;
+    int32_t result;                               /* game_mode_menu's, from run */                       /* the idle deadline set again after the last banner (0 when a banner came last) */
     int said_customize;
     char last_title[64];
     Rect single, multi, title, manage, exit, version, notice;
@@ -70,11 +72,15 @@ static int32_t f_zero(void *c) { (void)c; return 0; }
 static int32_t f_network_found(void *c) { ((Fake *)c)->networks_asked++; return 0; }
 static int32_t f_ticks(void *c) { (void)c; return 0x20; }
 static void f_fade_in(void *c, int32_t a, int32_t n, const uint8_t *r) { (void)c, (void)a, (void)n, (void)r; }
+static void f_deadline(void *c, int32_t v) { (void)v, ((Fake *)c)->timer_after_banner = 1; }
+/* the one deadline the screen and its banners share: a banner waits it out, so it has passed until the screen sets it again */
+static int32_t f_deadline_passed(void *c) { const Fake *f = c; return f->banners > 0 && !f->timer_after_banner; }
 static void f_banner(void *c, const char *t, int32_t n)
 {
     Fake *f = c;
     (void)n;
     f->banners++;
+    f->timer_after_banner = 0;
     f->manage_banner += strcmp(t, "Editions are managed in a later version") == 0;
     f->network_banner += f->network_why != NULL && strcmp(t, f->network_why) == 0;
 }
@@ -147,6 +153,8 @@ static int32_t f_buttons(void *c)
     return turn >= 0 && turn < 31 && (f->clicks >> turn & 1) ? 1 : 0;
 }
 
+enum { GAME_MODE_RESULT_LEAVE = 1 };   /* game_mode.c's LEAVE: Escape's Yes */
+
 static int32_t run(Fake *f, const int *keys, int count)
 {
     f->keys = keys, f->key_count = count;
@@ -158,13 +166,13 @@ static int32_t run(Fake *f, const int *keys, int count)
         .palette_clear = f_clear, .pointer_move_to = f_move, .sound_load = f_void, .load_art = f_art, .music_feed = f_void, .shape = f_shape, .palette_set = f_pal,
         .pointer_mark = f_void, .pointer_in_rect = f_in_rect, .select = f_int, .blit_own = f_blit, .select_default = f_void, .pointer_hide = f_void, .lock = f_void,
         .picture_shape = f_picture, .unlock = f_void, .flip = f_void, .pointer_show = f_void, .pointer_buttons = f_buttons, .fade_in = f_fade_in, .inverse_build = f_void,
-        .banner_wait = f_banner, .deadline_set = f_int, .sound = f_int, .key = f_key, .ticks = f_ticks, .pointer_activate_if_moved = f_void, .pointer_click = f_void,
+        .banner_wait = f_banner, .deadline_set = f_deadline, .sound = f_int, .key = f_key, .ticks = f_ticks, .pointer_activate_if_moved = f_void, .pointer_click = f_void,
         .name_box = f_name, .fade_out = f_fade_out, .free_inverse = f_void, .modem = f_zero, .network_found = f_network_found, .network_game = f_zero, .yes_no = f_yes,
-        .drain = f_void, .pointer_off = f_void, .music = f_void, .deadline_passed = f_zero, .sound_free = f_void, .free = f_free, .ctx = f,
+        .drain = f_void, .pointer_off = f_void, .music = f_void, .deadline_passed = f_deadline_passed, .sound_free = f_void, .free = f_free, .ctx = f,
         .plus_text = f_text, .plus_text_width = f_width, .extras_cover = f_cover, .choice = f_choice, .plus_text_scaled = f_text_scaled,
         .plus_text_width_scaled = f_width_scaled, .footer = f_footer, .open_notice = f_open, .network_closed = f_network_closed };
     if (!f->no_clock) ops.clock_ms = f_clock, ops.fade_out_quick = f_quick_out, ops.fade_in_quick = f_quick_in;
-    return game_mode_menu(0, &st, &ops);
+    return f->result = game_mode_menu(0, &st, &ops);
 }
 
 static void rig(Fake *f, int x, int y, int pinned)
@@ -350,6 +358,8 @@ static void test_manage(void)
     rig(&f, 320, ROW_MANAGE, 1);
     run(&f, enter, 2);
     CHECK_EQ_INT(f.manage_banner, 1);
+    CHECK(f.timer_after_banner);   /* the banner waited the deadline out: set again, the screen does not time out to the demo at once */
+    CHECK_EQ_INT(f.result, GAME_MODE_RESULT_LEAVE);
     CHECK(f.manage_style != STYLE_DIM);
     rig(&f, 320, ROW_MANAGE, 1);
     f.in_use = 3;
@@ -372,6 +382,8 @@ static void test_multiplayer_in_an_edition(void)
     f.network_why = "Multiplayer needs the standard edition";
     run(&f, enter, 2);
     CHECK_EQ_INT(f.network_banner, 1);
+    CHECK(f.timer_after_banner);   /* as Manage's: the deadline set again after the banner */
+    CHECK_EQ_INT(f.result, GAME_MODE_RESULT_LEAVE);   /* Escape's, not the demo's time out */
     CHECK_EQ_INT(f.networks_asked + f.names_asked, 0);
     CHECK_EQ_INT(f.multi_style, STYLE_DIM);
     rig(&f, 320, ROW_MULTI, 1);
