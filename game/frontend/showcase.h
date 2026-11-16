@@ -89,6 +89,8 @@ typedef struct ShowcaseState {
     int16_t *buttons;               /* the short 00524792 */
     const int32_t *screen;          /* 00524834: the screen's picture */
     const ShowcasePlus *plus;       /* port: the variant box, or NULL */
+    int16_t *leave_step;            /* port (dep59 section 4, the carousel): NULL the original's Next / Previous; else they leave the
+                                     * screen, the car kept, with 1 (Next) or -1 (Previous) here (0 left as it is on Done) */
 } ShowcaseState;
 
 /* 00408724 (all registers kept): the car's <car_dir><car>.qfs (rx7, nsx,

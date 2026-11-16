@@ -155,8 +155,11 @@ part_steps() {
     # Next by the keys: Color, Previous, Next, Enter; the Warrior passed over, the RX-7's showcase, Escape back to Control Central on it
     steps="$steps,$(car_on),$(click 180 200),$(wait_for screen=added_gallery),$(key DOWN '1 0 0'),$(key DOWN '2 0 0'),$(key DOWN '3 0 0')"
     steps="$steps,300:ENTER,$(wait_for screen=showcase),1500:ESC,$(wait_for car=0)"
+    # the carousel (dep59 section 4, Restomod): the RX-7's showcase, its own Previous (200..260 x 430..480) leaves it for the car before
+    # the RX-7 in the edition's order, round past the Warrior (no page) to the added car's page; Escape: Control Central on car 16
+    steps="$steps,$(click 180 200),$(wait_for screen=showcase),$(click 230 455),$(wait_for screen=added_gallery),300:ESC,$(wait_for car=16)"
     user_in restomod
-    walk "$piece" "$to_central,$car_16,$steps" || fail "Restomod: the gallery's Previous and Next open the next car's gallery"
+    walk "$piece" "$to_central,$car_16,$steps" || fail "Restomod: the gallery's Previous and Next open the next car's gallery, the showcase's the next car's page"
 }
 
 part_modes() {
