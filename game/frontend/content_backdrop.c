@@ -3,6 +3,8 @@
 
 #include "game/sys/palette.h"
 
+#include <stddef.h>
+
 void content_backdrop_usable(uint8_t usable[256])
 {
     for (int i = 0; i < 256; i++) usable[i] = i != CONTENT_BACKDROP_POINTER && i != CONTENT_BACKDROP_CLEAR;
@@ -25,4 +27,13 @@ int content_backdrop_nearest(const uint8_t pal[768], uint32_t rgb)
     uint8_t usable[256];
     content_backdrop_usable(usable);
     return palette_nearest(pal, usable, (int)(rgb >> 16 & 0xff), (int)(rgb >> 8 & 0xff), (int)(rgb & 0xff));
+}
+
+void content_backdrop_panel(uint8_t *pixels, int w, int h, const uint8_t table[256], int x0, int y0, int x1, int y1, uint8_t edge)
+{
+    for (int y = y0 < 0 ? 0 : y0; y <= y1 && y < h; y++)
+        for (int x = x0 < 0 ? 0 : x0; x <= x1 && x < w; x++) {
+            uint8_t *const p = pixels + (size_t)y * (size_t)w + (size_t)x;
+            *p = x == x0 || x == x1 || y == y0 || y == y1 ? edge : table[*p];
+        }
 }
