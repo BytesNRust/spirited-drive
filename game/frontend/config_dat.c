@@ -1,6 +1,7 @@
 #include "game/frontend/config_dat.h"
 
 #include "game/frontend/config_records.h"
+#include "game/sys/track_registry.h"
 
 #include <string.h>
 
@@ -221,12 +222,25 @@ int config_dat_get_race(const ConfigDat *c, RaceSettings *s)
     r.difficulty = word_at(c, ADDR_DIFFICULTY);
     r.car_flag_a = word_at(c, ADDR_CAR_FLAG_A);
     r.car_flag_b = word_at(c, ADDR_CAR_FLAG_B);
-    const int valid = in_range(r.race_type, 0, RACE_TYPES - 1) && in_range(r.track, 0, TRACK_HIDDEN)
+    /* port (dep59 step 5, T7g): while an added track is raced from the menus its number is in the word (menu_race reads the track there); it
+     * is no stored value (config_dat_serialise_saved writes a stock track), so the menus after the race keep what they had */
+    const int valid = in_range(r.race_type, 0, RACE_TYPES - 1) && (in_range(r.track, 0, TRACK_HIDDEN) || track_registry_is_added(r.track))
         && (in_range(r.player_car, 0, CAR_COUNT - 1) || r.player_car == CAR_WARRIOR)
         && in_range(r.opponent, 0, CAR_WARRIOR) && in_range(r.laps, 1, 99)
         && in_range(r.difficulty, 0, 2) && in_range(r.car_flag_a, 0, 2) && in_range(r.car_flag_b, 0, 2);
     if (valid) *s = r;
     return valid;
+}
+
+size_t config_dat_serialise_saved(ConfigDat *c, uint8_t *out, size_t cap)
+{
+    /* the file's track word is the original's: the first track while an added one is picked (restomod.cfg keeps the pick by id) */
+    const int track = word_at(c, ADDR_TRACK);
+    const int added = track_registry_is_added(track);
+    if (added) set16(c, ADDR_TRACK - BASE, 0);
+    const size_t n = config_dat_serialise(c, out, cap);
+    if (added) set16(c, ADDR_TRACK - BASE, track);
+    return n;
 }
 
 void config_dat_set_race(ConfigDat *c, const RaceSettings *s)

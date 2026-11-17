@@ -27,7 +27,7 @@ enum {
 };
 
 static int16_t g16(const uint8_t *at) { return (int16_t)(uint16_t)(at[0] | at[1] << 8); }
-static int is_stage(int track) { return track < RACE_RECORDS_FIRST_CIRCUIT; }
+static int is_stage(int track) { return track < RACE_RECORDS_FIRST_CIRCUIT || track_registry_is_added(track); }   /* an added track is a stage track (T7g) */
 
 int records_slot_totals(int track, int choice, int row)
 {
@@ -167,10 +167,12 @@ static int32_t check_table(RouteOp op, const uint8_t *image, const uint8_t *game
                            RecordMarks m, RecordTable *t, RecordRow *lap)
 {
     static uint8_t scratch[RECORD_CHECK_IMAGE];
-    const int track = g16(image + TRACK);
+    const int track = g16(image + TRACK), slot = records_block_slot(track);
+    if (slot < 0) return nothing(op);
     memcpy(scratch, image, sizeof scratch);
-    uint8_t *const block = scratch + FIRST_BLOCK + BLOCK * track;
-    if (records_block_known(track)) block_from(block, track, t, lap);
+    if (slot != track) scratch[TRACK] = 0, scratch[TRACK + 1] = 0;   /* the check reads the block by the word: the copy's first stage's, for an added track */
+    uint8_t *const block = scratch + FIRST_BLOCK + BLOCK * slot;
+    block_from(block, track, t, lap);
     scratch[DIFFICULTY] = 0, scratch[DIFFICULTY + 1] = 0;
     if (car_zero) scratch[CAR] = 0, scratch[CAR + 1] = 0;
     const int32_t answer = original(op, scratch, game, player, times);
@@ -246,7 +248,7 @@ static int track_race_of(const char *track, RaceKind kind, const uint8_t *image,
 {
     const int index = g16(image + TRACK), car = g16(image + CAR);
     const CarPiece *const added = added_player();
-    if (index < 0 || index >= RACE_RECORDS_TRACKS) return 0;
+    if (records_block_slot(index) < 0) return 0;   /* an added track's word is its number (T7g): its table is its own, checked on a copy's first stage block */
     if (added == NULL) kind = records_kind_with_car(kind, car);
     out->track = track;
     out->car = added != NULL ? added->id : stock_car_id(car);
@@ -341,7 +343,11 @@ void records_route_shown(RaceKind kind, const uint8_t image[RECORD_CHECK_IMAGE],
     memcpy(out, image, RECORD_CHECK_IMAGE);
     memset(slots, 0, RECORDS_MARK_SLOTS);
     if (conds != NULL) memset(conds, 0, sizeof(RecordMarks) * RECORDS_MARK_SLOTS);
-    if (!port_records_unified()) return;
+    if (!port_records_unified()) {
+        /* port (dep59 step 5, T7g): an added track's number reads the first stage's block: it is City's real records, so show it empty */
+        if (track_registry_is_added(g16(image + TRACK))) memset(out + FIRST_BLOCK, 0, BLOCK);
+        return;
+    }
     const int track = g16(image + TRACK);
     const CarPiece *const added = car_registry_race_has_added() ? added_player() : NULL;
     if (added == NULL) kind = records_kind_with_car(kind, g16(image + CAR));
@@ -379,7 +385,7 @@ void records_route_shown(RaceKind kind, const uint8_t image[RECORD_CHECK_IMAGE],
         t = &empty;
     }
     if (lap == NULL && !is_stage(track)) race_records_row_empty(&no_lap), lap = &no_lap;
-    if (records_block_known(track)) block_from(out + FIRST_BLOCK + BLOCK * track, track, t, lap);   /* port: an added track has no block in the original's image */
+    if (records_block_slot(track) >= 0) block_from(out + FIRST_BLOCK + BLOCK * records_block_slot(track), track, t, lap);   /* an added track's table goes in the first stage's block of the copy */
     out[DIFFICULTY] = 0, out[DIFFICULTY + 1] = 0;
     RecordMarks all[RECORDS_MARK_SLOTS];
     memset(all, 0, sizeof all);

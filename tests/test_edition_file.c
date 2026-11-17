@@ -97,15 +97,20 @@ static void test_what_can_be_used(void)
     CHECK_EQ_INT(edition_track_present("city"), 1);
     CHECK_EQ_INT(edition_track_present("hidden"), 0);   /* no geometry on the CD: never listed */
     CHECK_EQ_INT(edition_track_present("ghost"), 0);
-    track_registry_clear();   /* dep59 step 5, T7b: an added track is present while it is registered */
+    write_file("mods/dune/mod.ini", "id=dune\nname=Dune\nversion=1\ntype=track\nstem=ZZB\n");   /* an installed track piece (T7g), registered or not */
+    write_file("mods/not-a-track/mod.ini", "id=not-a-track\nname=Car\nversion=1\ntype=car\nstem=F40\nsound_from=viper\n");
+    CHECK_EQ_INT(edition_track_present("dune"), 1);
+    CHECK_EQ_INT(edition_track_present("not-a-track"), 0);   /* a car is no track */
+    track_registry_clear();   /* dep59 step 5, T7b: an added track is present while it is registered, with no mod of that id installed */
     TrackPiece piece;
     memset(&piece, 0, sizeof piece);
-    snprintf(piece.id, sizeof piece.id, "dune"), snprintf(piece.name, sizeof piece.name, "dune"), snprintf(piece.stem, sizeof piece.stem, "ZZB");
+    snprintf(piece.id, sizeof piece.id, "reg-only"), snprintf(piece.name, sizeof piece.name, "reg-only"), snprintf(piece.stem, sizeof piece.stem, "ZZB");
     piece.spec.kind = TRACK_KIND_STAGE, piece.spec.segments = 1, piece.spec.times = TRACK_TIME_DAY, piece.fingerprint = 7;
+    CHECK_EQ_INT(edition_track_present("reg-only"), 0);
     CHECK(track_registry_add(&piece, NULL, 0) >= TRACK_ADDED_FIRST);
-    CHECK_EQ_INT(edition_track_present("dune"), 1);
+    CHECK_EQ_INT(edition_track_present("reg-only"), 1);
     track_registry_clear();
-    CHECK_EQ_INT(edition_track_present("dune"), 0);
+    CHECK_EQ_INT(edition_track_present("reg-only"), 0);
     write_file("editions/no-car.ini", "name=No car\ncars=ghost,night\ntracks=city\n");
     use("no-car");
     port_log_watch("no car");

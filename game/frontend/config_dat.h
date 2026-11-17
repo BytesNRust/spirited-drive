@@ -78,6 +78,9 @@ void config_dat_defaults(ConfigDat *c, int german);
 ConfigResult config_dat_parse(ConfigDat *c, const uint8_t *data, size_t size);
 /* 0042a504: writes CONFIG_DAT_SIZE bytes. Returns the size, 0 if cap is too small. */
 size_t config_dat_serialise(const ConfigDat *c, uint8_t *out, size_t cap);
+/* config_dat_serialise for the file on disk: an added track's number (16..79, in the word while one is raced) is not the original's, so the
+ * first track is written in its place; `c` is as it was after */
+size_t config_dat_serialise_saved(ConfigDat *c, uint8_t *out, size_t cap);
 
 /* Copies at most CONFIG_NAME_SIZE - 1 characters and always terminates. */
 void config_dat_name(const ConfigDat *c, char out[CONFIG_NAME_SIZE]);

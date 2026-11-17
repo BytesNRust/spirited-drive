@@ -3,9 +3,12 @@
  * also checks the real file. */
 #include "tests/exe_tables_install.h"
 #include "game/frontend/config_dat.h"
+#include "game/sys/track_registry.h"
 #include "test.h"
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static void test_defaults(void)
 {
@@ -104,6 +107,48 @@ static void test_bounds(void)
     CHECK(!config_dat_get_race(&c, &s));
 }
 
+/* dep59 step 5, T7g: an added track's number is read from the word while one is raced from the menus (menu_race), and never goes to the
+ * file: a registered one is a valid pick, an unregistered one (16 with no piece) is not, and what is saved holds the first track */
+static void test_an_added_track_in_the_word(void)
+{
+    TrackPiece piece;
+    memset(&piece, 0, sizeof piece);
+    snprintf(piece.id, sizeof piece.id, "dune"), snprintf(piece.name, sizeof piece.name, "dune"), snprintf(piece.stem, sizeof piece.stem, "ZZA");
+    piece.spec.kind = TRACK_KIND_STAGE, piece.spec.segments = 1, piece.spec.times = TRACK_TIME_DAY, piece.fingerprint = 7;
+    track_registry_clear();
+    ConfigDat c;
+    RaceSettings s, back;
+    config_dat_defaults(&c, 0);
+    CHECK(config_dat_get_race(&c, &s));
+    s.track = 16;
+    config_dat_set_race(&c, &s);
+    CHECK(!config_dat_get_race(&c, &back));   /* no piece: a damaged word */
+    CHECK(track_registry_add(&piece, NULL, 0) == 16);
+    CHECK(config_dat_get_race(&c, &back));
+    CHECK_EQ_INT(back.track, 16);
+    uint8_t out[CONFIG_DAT_SIZE];
+    CHECK_EQ_INT(config_dat_serialise_saved(&c, out, sizeof out), CONFIG_DAT_SIZE);
+    ConfigDat file;
+    CHECK_EQ_INT(config_dat_parse(&file, out, sizeof out), CONFIG_OK);
+    CHECK(config_dat_get_race(&file, &back));
+    CHECK_EQ_INT(back.track, 0);              /* the file's word is the original's */
+    CHECK(config_dat_get_race(&c, &back));
+    CHECK_EQ_INT(back.track, 16);             /* the session's, as it was */
+    s.track = 3;                              /* a stock track: written as it is */
+    config_dat_set_race(&c, &s);
+    CHECK_EQ_INT(config_dat_serialise_saved(&c, out, sizeof out), CONFIG_DAT_SIZE);
+    CHECK_EQ_INT(config_dat_parse(&file, out, sizeof out), CONFIG_OK);
+    CHECK(config_dat_get_race(&file, &back));
+    CHECK_EQ_INT(back.track, 3);
+    s.track = 16;                             /* an added track with another field damaged: still not written to the file */
+    config_dat_set_race(&c, &s);
+    c.image[0x9b] = 9;
+    CHECK_EQ_INT(config_dat_serialise_saved(&c, out, sizeof out), CONFIG_DAT_SIZE);
+    CHECK_EQ_INT(config_dat_parse(&file, out, sizeof out), CONFIG_OK);
+    CHECK_EQ_INT(file.image[0x95] | file.image[0x96] << 8, 0);
+    track_registry_clear();
+}
+
 static void test_real_file(const char *path)
 {
     FILE *f = fopen(path, "rb");
@@ -142,6 +187,7 @@ int main(int argc, char **argv)
     test_round_trip();
     test_bounds();
     test_new_session_clears_the_segment();
+    test_an_added_track_in_the_word();
     if (argc > 1) test_real_file(argv[1]);
     return TEST_REPORT();
 }

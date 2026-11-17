@@ -15,12 +15,17 @@
 #          Central opens on a fresh player's car 6 in both. (The pictures are menu_compare's stock and restored targets'.)
 #   race   a whole race of car 2 (supra) on Rusty Springs from the menus, in an edition (cars=supra tracks=rusty): race_records_cars.dat
 #          keeps the supra's table.
-# usage: edition_menus.sh TNFS REPO ORIGINAL_DIR [PART] (no PART: all of them, in turn). KEEP=1 keeps the scratch folder.
+#   trackrace  (dep59 step 5, T7g; needs STUDIO) a whole race on an ADDED track from the menus: a piece made with track new --piece
+#          (a 7 letter stem: its stage's number makes the root 8) in an edition of it alone (cars=supra tracks=dune-run); Control Central opens
+#          on its card (mark:card=16), RACE loads the piece from its folder in --mods, the autopilot finishes it, its results screens come
+#          (segment, track, best totals) and Control Central again; race_records_tracks.dat is made.
+# usage: edition_menus.sh TNFS REPO ORIGINAL_DIR [PART [STUDIO]] (no PART: menus modes race, in turn). KEEP=1 keeps the scratch folder.
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
 tnfs=$(abs "$1")
 orig=$(abs "$3")
 parts=${4:-menus modes race}
+studio=${5:+$(abs "$5")}
 [ -f "$orig/SIMDATA/CARSPECS/DVIPER.PBS" ] || { echo "skip: no CD in $orig"; exit 0; }
 work=$(mktemp -d)
 trap '[ -n "${KEEP:-}" ] && echo "kept $work" >&2 || find "$work" -delete' EXIT
@@ -149,9 +154,24 @@ part_race() {
     grep -aq "supra" "$work/user/race_records_cars.dat" 2>/dev/null || fail "race: race_records_cars.dat has no table of the supra"
 }
 
+part_trackrace() {
+    [ -x "$studio" ] || { echo "FAIL: trackrace needs tnfs-studio (the fifth argument)" >&2; failures=$((failures + 1)); return; }
+    [ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI"; return; }
+    printf 'section 24\nsection 40 turn=90 grade=3 bank=6 width=50\nsection 30 turn=-120 grade=-3 bank=-6\nsection 30 bank=0 grade=0 width=40\n' > "$work/loop.trk"
+    "$studio" track new "$work/loop.trk" --template AL1 --piece --id dune-run --stem DUNERUN --out "$work/piece" --data "$orig" >"$work/studio.log" 2>&1 ||
+        { fail "trackrace: track new --piece: $(cat "$work/studio.log")"; return; }
+    user_in restomod 'solo=name=Solo\ncars=supra\ntracks=dune-run\n'
+    section race;    add "$to_game_mode,$single,$(wait_for card=16),$(click 56 453)"
+    section results; add "0:WAIT:mark:results=segment:300,300:ENTER,300:ENTER,0:WAIT:mark:results=track:300,300:ENTER,$(wait_for results=best_totals),300:ENTER,$(wait_for car=2)"
+    extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1" walk "$work/piece" || fail "trackrace: a race on an added track did not come back to Control Central"
+    log | grep -q "^finish: 0=" || fail "trackrace: the race did not finish"
+    log | grep -q "could not start" && fail "trackrace: the race did not start: $(log | grep "could not start")"
+    [ -s "$work/user/race_records_tracks.dat" ] || fail "trackrace: race_records_tracks.dat was not made"
+}
+
 for part in $parts; do
     case $part in
-    menus|modes|race) "part_$part" ;;
+    menus|modes|race|trackrace) "part_$part" ;;
     *) echo "FAIL: no part $part" >&2; exit 2 ;;
     esac
 done

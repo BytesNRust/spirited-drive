@@ -44,10 +44,26 @@ int edition_car_present(const char *id)
     return car;
 }
 
+/* port (dep59 step 5, T7b): an added track of an installed mod: the card at mods/<id>/mod.ini names a track of that id (as edition_car_present's) */
+static int track_mod_installed(const char *id)
+{
+    if (id == NULL || !mod_ini_id_ok(id)) return 0;
+    char rel[REL_MAX];
+    snprintf(rel, sizeof rel, "mods/%s/mod.ini", id);
+    size_t size = 0;
+    uint8_t *data = platform_user_read_file_at(rel, &size);
+    if (data == NULL) return 0;
+    ModInfo info;
+    char why[160];
+    const int track = mod_ini_parse(data, size, &info, why, sizeof why) && info.type == MOD_TYPE_TRACK && strcmp(info.id, id) == 0;
+    platform_free_file(data);
+    return track;
+}
+
 int edition_track_present(const char *id)
 {
     const int track = stock_track_of_id(id);
-    if (track < 0) return track_registry_find(id) >= 0;   /* an added track that is registered (T7b) */
+    if (track < 0) return track_registry_find(id) >= 0 || track_mod_installed(id);   /* an added track: registered (T7b) or installed */
     return track != TRACK_HIDDEN;
 }
 

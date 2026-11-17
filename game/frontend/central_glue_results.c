@@ -1,5 +1,6 @@
 /* The Control Central glue's best times, results and standings screens (central_glue.c's second part). */
 #include "game/frontend/central_glue_private.h"
+#include "formats/mod_ini.h"
 #include "game/frontend/tournament_variants.h"
 #include "game/frontend/variant_rule.h"
 
@@ -101,7 +102,7 @@ TrackViewerResults cg_last_drive;
 void cg_drive(void *ctx, int32_t argc, char *const *argv)
 {
     (void)ctx, (void)argc;
-    char name[8] = { 0 };
+    char name[MOD_INI_STEM_MAX + 2] = { 0 };   /* port (dep59 step 5): an added track's stem (up to 8) and its stage's number; the CD's roots are 4 or 5 */
     for (size_t i = 0; i + 1 < sizeof name && argv[1][i] != 0; i++)
         name[i] = (char)(argv[1][i] >= 'a' && argv[1][i] <= 'z' ? argv[1][i] - 0x20 : argv[1][i]);
     /* 004275f8: 004fbadc on track 3 races "tr5" (004ae1e0); port: with both variants on — g's own pair, the state
