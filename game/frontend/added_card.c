@@ -2,7 +2,9 @@
 #include "game/frontend/added_card.h"
 
 #include "formats/shpi_build.h"
+#include "formats/mod_ini.h"
 #include "game/frontend/picture_palette.h"
+#include "game/frontend/text_wrap.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,8 +27,68 @@ static uint8_t *rgba_of(const PngImage *img, int x0, int y0, int w, int h)
     return out;
 }
 
+static const uint8_t NAME_RED[3] = { 238, 0, 0 };
+
+/* the name's coverage at (mx, my) of its mask, 0 outside it */
+static int coverage(const AddedCardName *n, int mx, int my)
+{
+    return mx >= 0 && my >= 0 && mx < n->w && my < n->h ? n->mask[my * n->w + mx] : 0;
+}
+
+/* `p`'s colour moved `c` fifteenths of the way to `to` */
+static void mix(uint8_t *p, const uint8_t to[3], int c)
+{
+    for (int k = 0; k < 3; k++) p[k] = (uint8_t)((p[k] * (15 - c) + to[k] * c + 7) / 15);
+}
+
+void added_card_draw_name(uint8_t *rgba, int w, int h, const AddedCardName *name, int base)
+{
+    static const uint8_t BLACK[3] = { 0, 0, 0 };
+    if (name == NULL || name->mask == NULL) return;
+    const int x0 = ADDED_CARD_NAME_X, y0 = base - name->base_row;
+    for (int my = 0; my <= name->h; my++)   /* one more row and column: the shadow's */
+        for (int mx = 0; mx <= name->w; mx++) {
+            const int x = x0 + mx, y = y0 + my;
+            if (x < 0 || y < 0 || x >= w || y >= h) continue;
+            uint8_t *p = rgba + 4 * ((size_t)y * w + x);
+            const int shadow = coverage(name, mx - 1, my - 1), ink = coverage(name, mx, my);
+            if (shadow > 0) mix(p, BLACK, shadow > 15 ? 15 : shadow);
+            if (ink > 0) mix(p, NAME_RED, ink > 15 ? 15 : ink);
+        }
+}
+
+int added_card_name_fit(const char *name, int max_w, int (*measure)(void *ctx, const char *s), void *ctx, char *out, int size)
+{
+    if (size <= 0) return 0;
+    char words[MOD_INI_NAME_MAX * 4 + 1];
+    text_words(name, words, (int)sizeof words);
+    const char *s = words;
+    while (*s == ' ') s++;
+    int n = (int)strlen(s);
+    while (n > 0 && s[n - 1] == ' ') n--;
+    if (n < size && n > 0) {
+        snprintf(out, (size_t)size, "%.*s", n, s);
+        if (measure(ctx, out) <= max_w) return 1;
+    }
+    for (int k = n - 1; k >= 0; k--) {   /* cut: the most characters that fit with "..." after them */
+        int keep = k;
+        while (keep > 0 && s[keep - 1] == ' ') keep--;
+        if (keep == 0 || keep + 4 > size) continue;
+        snprintf(out, (size_t)size, "%.*s...", keep, s);
+        if (measure(ctx, out) <= max_w) return 1;
+    }
+    out[0] = '\0';
+    return 0;
+}
+
 uint8_t *added_card_bank(const PngImage *img, int rival, int from_card, const uint8_t palette[768], const uint8_t usable[256], size_t *size,
                          char *why, size_t why_cap)
+{
+    return added_card_bank_named(img, rival, from_card, NULL, palette, usable, size, why, why_cap);
+}
+
+uint8_t *added_card_bank_named(const PngImage *img, int rival, int from_card, const AddedCardName *name, const uint8_t palette[768],
+                               const uint8_t usable[256], size_t *size, char *why, size_t why_cap)
 {
     *size = 0;
     const int w = rival ? ADDED_RIVAL_W : ADDED_CARD_W, h = rival ? ADDED_RIVAL_H : ADDED_CARD_H;
@@ -37,6 +99,7 @@ uint8_t *added_card_bank(const PngImage *img, int rival, int from_card, const ui
         return NULL;
     }
     uint8_t *rgba = rgba_of(img, (want_w - w) / 2, (want_h - h) / 2, w, h);   /* the middle when it is card.png for the rival */
+    if (rgba != NULL) added_card_draw_name(rgba, w, h, name, rival ? ADDED_RIVAL_NAME_BASE : ADDED_CARD_NAME_BASE);
     uint8_t *pixels = malloc((size_t)w * h);
     uint8_t *bank = NULL;
     if (rgba != NULL && pixels != NULL) {

@@ -107,12 +107,12 @@ static int add_masks(FileSet *set, const char *port, const char *kind, const cha
     return ok;
 }
 
-/* port (dep59 step 3): the generic card.png, the car's name on a plain ground (studio/car_card.h) */
-static int add_generic_card(FileSet *set, const Args *a, ExchangeError *err)
+/* port (dep59 step 3): the generic card.png, a plain ground the game draws the car's name over (studio/car_card.h) */
+static int add_generic_card(FileSet *set, ExchangeError *err)
 {
     uint8_t *png = NULL;
     size_t len = 0;
-    if (!car_card_generic_png(a->name != NULL ? a->name : a->id, &png, &len, err)) return 0;
+    if (!car_card_generic_png(&png, &len, err)) return 0;
     if (!fileset_add_owned(set, "card.png", png, len)) { free(png); exchange_fail(err, "out of memory"); return 0; }
     return 1;
 }
@@ -129,7 +129,7 @@ static int car_new(const Args *a, ExchangeError *err)
     const char *word = car_piece_word_of_model(model), *from = slot_stems(SLOT_CAR)[model];
     FileSet set;
     fileset_init(&set);
-    int ok = add_card(&set, a, word, err) && add_files(&set, a->data, from, a->stem, err) && add_generic_card(&set, a, err);
+    int ok = add_card(&set, a, word, err) && add_files(&set, a->data, from, a->stem, err) && add_generic_card(&set, err);
     if (ok && !fsio_exists(a->port)) {
         fprintf(stderr, "car new: no port data at %s: the piece has no car or dash masks\n", a->port);
     } else if (ok) {

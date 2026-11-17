@@ -4,8 +4,8 @@
 # replay list), and the pictures are the script's SHOTs (the frame on screen once it is still); one game session walks through several checks.
 # PART (one ctest each, so they run side by side):
 #   cards    Restomod: Control Central's car arrow twice from a fresh player's car 6 is the added car (16); its card.png is drawn (the card's
-#            box follows the piece's card: another card, another box; the same box when Control Central opens again); as the head to head
-#            rival its rival card is drawn (the rival's box follows card.png too). A click on its card opens its gallery: Color one on (Red)
+#            box follows the piece's card: another name, another box, the game drawing it; the same box when Control Central opens
+#            again; card_name=off draws none); as the head to head rival its rival card is drawn (its box follows the name too). A click on its card opens its gallery: Color one on (Red)
 #            shows its swatch, Skin one on (stripes) shows its name; Done comes back to car 16 and Cancel closes Control Central. Started
 #            again, restomod.cfg keeps car=test-car and look.test-car=stripes,Red, Control Central opens on car 16, and config.dat's car is an
 #            original (0..7).
@@ -43,12 +43,15 @@ cp "$work/unpack/c1/"*_topv.png "$piece/skins/stripes/topv.png"
 python3 "$repo/tests/mods/reference/png_shift.py" "$piece/skins/stripes/topv.png" 64 || { echo "FAIL: png_shift" >&2; exit 1; }
 cp "$piece/car_masks/TESTCAR/topv_mask.png" "$piece/skins/stripes/topv_mask.png"
 "$studio" validate "$piece" >"$work/validate" 2>&1 || { echo "FAIL: the piece does not validate: $(cat "$work/validate")" >&2; exit 1; }
-# the same piece with another card ("Other Car"): what the card's box shows follows card.png
+# the same piece and card.png with another name ("Other Car"): the card's box follows the name the game draws over it (showcase plan
+# section 1), and with card_name=off ("plain") it holds none: the same box as Other Car's but in the name's rows
 other=$work/other
 cp -R "$piece" "$other"
 sed 's/^name=.*/name=Other Car/' "$piece/mod.ini" > "$other/mod.ini"
-"$studio" car card "$other" --generic --force >/dev/null || { echo "FAIL: tnfs-studio car card --generic --force" >&2; exit 1; }
-cmp -s "$piece/card.png" "$other/card.png" && { echo "FAIL: the other card is the same picture" >&2; exit 1; }
+cmp -s "$piece/card.png" "$other/card.png" || { echo "FAIL: the other piece's card.png is not the same picture" >&2; exit 1; }
+plain=$work/plain
+cp -R "$other" "$plain"
+printf 'card_name=off\n' >> "$plain/mod.ini"
 nomods=$work/nomods
 mkdir -p "$nomods" "$work/shots"
 
@@ -140,11 +143,19 @@ part_cards() {
     walk "$piece" "$to_central,300:MOUSE:319:197,$(shot a2)" || fail "Control Central did not open again"
     [ "$(log | grep -m1 "^mark:car=")" = "mark:car=16" ] || fail "Control Central opened again on $(log | grep -m1 "^mark:car="), not car 16"
     has_shot a2 && card_box a a2 && fail "car 16's card box is not the same when Control Central opens again"
-    # the piece with another card: car 16's card box and its rival box are other pictures
+    # another name on the same card.png: car 16's card box and its rival box are other pictures (the game draws the name)
     user_in restomod
-    walk "$other" "$to_central,$car_16,$(shot o),$rival_16,$(shot o16)" || fail "Restomod: the other card's car 16 and its rival card"
-    has_shot o && ! card_box a o && fail "car 16's card box does not follow its card.png"
-    has_shot o16 && ! rival_box r16 o16 && fail "car 16's rival card box does not follow its card.png"
+    walk "$other" "$to_central,$car_16,$(shot o),$rival_16,$(shot o16)" || fail "Restomod: the other name's car 16 and its rival card"
+    has_shot o && ! card_box a o && fail "car 16's card box does not follow its name"
+    has_shot o16 && ! rival_box r16 o16 && fail "car 16's rival card box does not follow its name"
+    # card_name=off: no name; the card the same as Other Car's above the name's rows (the card's 151..159 from y 114, the rival card's
+    # 102..110 from y 99, each with its shadow), not in them
+    user_in restomod
+    walk "$plain" "$to_central,$car_16,$(shot p),$rival_16,$(shot p16)" || fail "Restomod: card_name=off's car 16 and its rival card"
+    has_shot p && box o p 0x13 0x14a 0x70 260 && fail "card_name=off: the card differs above its name's rows"
+    has_shot p && ! box o p 0x13 0x14a 264 275 && fail "card_name=off: the card's name is still drawn"
+    has_shot p16 && box o16 p16 0x153 0x271 0x61 196 && fail "card_name=off: the rival card differs above its name's rows"
+    has_shot p16 && ! box o16 p16 0x153 0x271 200 210 && fail "card_name=off: the rival card's name is still drawn"
 }
 
 part_steps() {

@@ -23,6 +23,7 @@ typedef struct {
     uint32_t fingerprint;        /* the CRC-32 of its PBS then its PDN as on disk, then ai.pace and ai.coast (4 bytes LE each), never 0:
                                   * what decides how it drives (a replay's check) */
     char dir[CAR_PIECE_DIR_MAX]; /* dep59 step 3: the folder it was read from, for its pictures and skins ("" for one not read from a folder) */
+    int card_name_off;           /* mod.ini card_name=off: no name drawn over its card (its picture shows its own) */
 } CarPiece;
 
 /* no added car */

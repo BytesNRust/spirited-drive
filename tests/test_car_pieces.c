@@ -107,6 +107,11 @@ static void test_one_piece(void)
     CHECK_EQ_INT(car_registry_sound_model(16), 5);
     CHECK_EQ_INT(car_registry_ai_model(16), -1);   /* 3b: no original's AI, its own (the Viper's PDN: 60026, coast 4) */
     CHECK(car_registry_ai(16) != NULL && car_registry_ai(16)->pace == 60026 && car_registry_ai(16)->coast == CAR_AI_COAST_DEFAULT);
+    CHECK(car_registry_piece(16) != NULL && car_registry_piece(16)->card_name_off == 0);   /* its name on its card by default */
+    char b[400];   /* card_name=off: none */
+    CHECK(piece("b", "named-car", "NAMECAR", "sound_from=viper\ncard_name=off\n", "", b));
+    CHECK_EQ_INT(load1(b, 1), 1);
+    CHECK(car_registry_piece(16) != NULL && car_registry_piece(16)->card_name_off == 1);
     CHECK_EQ_INT(load1(a, 1), 1);   /* again: the same */
     CHECK_EQ_INT(car_registry_find("test-car"), 16);
     CHECK_EQ_INT(load1(a, 0), 0);   /* not Restomod: none */

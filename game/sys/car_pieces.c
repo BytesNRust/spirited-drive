@@ -171,6 +171,7 @@ static int read_piece(const char *dir, ModInfo *card, CarPiece *out, char *why, 
     snprintf(out->short_name, sizeof out->short_name, "%s", card->short_name[0] != '\0' ? card->short_name : card->stem);
     out->sound_model = car_piece_model_of_word(card->sound_from);
     out->dash_model = card->dash_from[0] != '\0' ? car_piece_model_of_word(card->dash_from) : -1;
+    out->card_name_off = card->card_name_off;
     if (snprintf(out->dir, sizeof out->dir, "%s", dir) >= (int)sizeof out->dir)
         return snprintf(why, why_cap, "its folder's path is longer than %d characters", CAR_PIECE_DIR_MAX - 1), 0;
     return 1;
