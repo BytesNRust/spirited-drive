@@ -1,7 +1,8 @@
 /* The car importer (formats/car_import.h): the donor taken apart, each level's mesh and bank made (car_import_mesh.c from the
  * author's OBJ, car_import_tables.c in raw mode), and the CFM put together again. Without a low OBJ the low slot holds the high
  * mesh and its bank (the owner's decision 3); in raw mode, which retouches the donor, the donor's own far model and bank stay. Raw
- * mode's banks are the donor's chunks byte for byte (fix/raw-import-banks): it only names the donor's bitmaps. */
+ * mode's banks are the donor's chunks byte for byte (fix/raw-import-banks): it only names the donor's bitmaps; or the piece's own,
+ * when they are a retouch of the donor's (CarImportIn.own_cfm: car resize's other sizes survive a Blender round trip). */
 #include "formats/car_import_internal.h"
 #include "formats/cfm_build.h"
 #include "formats/chunk.h"
@@ -53,6 +54,29 @@ void car_import_halves(const MeshDesc *mesh, int32_t half[3])
     for (int k = 0; k < 3; k++) half[k] = (int32_t)(((int64_t)(most[k] - least[k]) << 9) / 2);
 }
 
+/* the piece's own bank of `level` in place of the donor's when it names the donor's entries in its order and its palettes are the
+ * donor's (raw, dep71 follow-up: a retouch of the donor, whose bitmaps car resize may have given other sizes); 1 when it took it */
+static int own_bank(const CarImportIn *in, int level, DonorLevel *d)
+{
+    const uint8_t *child[CFM_CHILDREN];
+    size_t len[CFM_CHILDREN], n = 0;
+    ExchangeError ignored = { { 0 } };
+    if (!in->raw || in->own_cfm == NULL || !cfm_describe(in->own_cfm, in->own_cfm_len, child, len, &ignored)) return 0;
+    ShpiDescEntry *own = malloc(DONOR_BANK_CAP * sizeof *own);
+    int same = own != NULL && shpi_describe(child[2 * level + 1], len[2 * level + 1], own, DONOR_BANK_CAP, &n, &ignored) && n == d->bank_count;
+    for (size_t i = 0; same && i < n; i++) {   /* the same entries, and the palettes the donor's byte for byte (cars name theirs alike) */
+        const int palette = own[i].type != 0x7b;
+        same = memcmp(own[i].name, d->bank[i].name, 4) == 0 && own[i].type == d->bank[i].type &&
+               (!palette || memcmp(own[i].data, d->bank[i].data, SHPI_PALETTE_BYTES) == 0);
+    }
+    if (same) {
+        memcpy(d->bank, own, n * sizeof *own);
+        d->shpi = child[2 * level + 1], d->shpi_len = len[2 * level + 1];
+    }
+    free(own);
+    return same;
+}
+
 /* one level's ORIP and SHPI chunks (malloc'd) */
 static int level_chunks(const CarImportIn *in, int level, const DonorLevel *d, uint8_t **mesh, size_t *mesh_len, uint8_t **shpi,
                         size_t *shpi_len, int32_t half[3], ExchangeError *err)
@@ -84,10 +108,18 @@ int car_import(const CarImportIn *in, uint8_t **cfm, size_t *cfm_len, int32_t ha
     if (d == NULL) { exchange_fail(err, "out of memory"); return 0; }
     uint8_t *made[CFM_CHILDREN] = { NULL };
     size_t made_len[CFM_CHILDREN] = { 0 };
-    int ok = donor_level(child, len, 0, &d[0], err) &&
-             level_chunks(in, 0, &d[0], &made[0], &made_len[0], &made[1], &made_len[1], half, err);
-    if (ok && in->low != NULL)
-        ok = donor_level(child, len, 1, &d[1], err) && level_chunks(in, 1, &d[1], &made[2], &made_len[2], &made[3], &made_len[3], NULL, err);
+    int ok = donor_level(child, len, 0, &d[0], err);
+    if (ok) own_bank(in, 0, &d[0]);
+    ok = ok && level_chunks(in, 0, &d[0], &made[0], &made_len[0], &made[1], &made_len[1], half, err);
+    if (ok && (in->low != NULL || in->raw)) ok = donor_level(child, len, 1, &d[1], err);
+    const int own_far = ok && own_bank(in, 1, &d[1]);
+    if (ok && in->low != NULL) ok = level_chunks(in, 1, &d[1], &made[2], &made_len[2], &made[3], &made_len[3], NULL, err);
+    if (ok && own_far && in->low == NULL) {   /* raw, no low OBJ, the piece's far model a retouch of the donor's: it stays */
+        const uint8_t *oc[CFM_CHILDREN];
+        size_t ol[CFM_CHILDREN];
+        ok = cfm_describe(in->own_cfm, in->own_cfm_len, oc, ol, err);
+        if (ok) child[2] = oc[2], len[2] = ol[2], child[3] = oc[3], len[3] = ol[3];
+    }
     if (ok) {
         /* the low slot: the low OBJ's; without one, raw keeps the donor's, and an OBJ import repeats the high level */
         const int own_low = in->low != NULL, donor_low = !own_low && in->raw;

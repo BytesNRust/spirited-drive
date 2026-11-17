@@ -181,11 +181,11 @@ static void unload(Source *s)
     fileset_free(&s->tables), fileset_free(&s->pngs);
 }
 
-static int read_card(const char *piece, ModInfo *info, ExchangeError *err)
+int car_piece_card(const char *piece, ModInfo *info, ExchangeError *err)
 {
     char path[PATH_MAX], why[160];
     if (!fsio_find_ci(piece, "mod.ini", path, sizeof path)) {
-        exchange_fail(err, "%s has no mod.ini: car import works on a car piece (tnfs-studio car new makes one)", piece);
+        exchange_fail(err, "%s has no mod.ini: a car piece is needed (tnfs-studio car new makes one)", piece);
         return 0;
     }
     size_t size = 0;
@@ -309,7 +309,15 @@ static int make(const Args *a, const ModInfo *info, const Source *high, const So
     in.donor_cfm = donor, in.donor_cfm_len = donor_len, in.raw = a->raw, in.scale = a->scale, in.steer_degrees = a->steer;
     in.high = &high->model, in.high_tables = &high->tables, in.high_pngs = &high->pngs, in.note = print_note;
     if (low != NULL) in.low = &low->model, in.low_tables = &low->tables, in.low_pngs = &low->pngs;
-    int ok = may_replace(m->cfm_path, exists, donor, donor_len, a->force, err) && car_import(&in, &m->cfm, &m->cfm_len, m->half, err);
+    size_t own_len = 0;
+    uint8_t *own = NULL;
+    int ok = may_replace(m->cfm_path, exists, donor, donor_len, a->force, err);
+    if (ok && a->raw && exists) {   /* the piece's banks stay when they are a retouch of the donor's (car resize) */
+        ok = (own = fsio_read_file(m->cfm_path, &own_len, err)) != NULL;
+        in.own_cfm = own, in.own_cfm_len = own_len;
+    }
+    ok = ok && car_import(&in, &m->cfm, &m->cfm_len, m->half, err);
+    free(own);
     if (ok && !a->keep_pdn && !has_pdn) ok = 0, exchange_fail(err, "the piece has no %s for the body's size (--keep-pdn to go without)", paths[1]);
     if (ok && !a->keep_pdn) ok = (m->pdn = pdn_with(m->pdn_path, m->half, m->was, &m->pdn_len, err)) != NULL;
     free(donor);
@@ -336,7 +344,7 @@ int car_import_command(int argc, char **argv, ExchangeError *err)
 {
     Args a;
     ModInfo info;
-    if (!parse(argc, argv, &a, err) || !read_card(a.piece, &info, err)) return 0;
+    if (!parse(argc, argv, &a, err) || !car_piece_card(a.piece, &info, err)) return 0;
     Source high, low;
     memset(&high, 0, sizeof high), memset(&low, 0, sizeof low);
     Made m;
