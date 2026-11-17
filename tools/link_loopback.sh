@@ -7,13 +7,15 @@
 #   continue  Done on the results and Continue at the Checkpoint: both race segment 2 to its end
 #   quit      Done, Quit game and Yes (the Y key) at the Checkpoint, then Exit at Game Mode: every machine exits by itself
 #   quitclick the same with Yes clicked (the mouse)
+#   refused   with HOST_ENV="TNFS_FAKE_HOST_TRACK=N" (a track word past the nine): every client leaves the game before the race,
+#             its banner saying the host's track is not in this version; nobody races
 # The steps do not wait on wall-clock times: TNFS_INPUT_SETTLE sequences each script (an event comes a pause after the one before,
 # a click once the screen has stilled) and where one machine depends on another the script holds on a line the game logs
 # (platform_sdl3.c's WAIT; the "mark:..." lines): the guests start when the host logs mark:game_hosted (guest k+1 when mark:joined=k),
 # a guest picks the game once it logs mark:game_listed, the host presses Start once every guest has joined (mark:joined=N), and the steps after the race
 # come after mark:race_over. A step that does not come in time stops the run with the step named: "input script: step N: WAIT text
 # timed out after S s" (the instance exits with status 3) and this script says so and which machine.
-# usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick] [OUT_DIR]
+# usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick|refused] [OUT_DIR]
 # Environment:
 #   BASE_PORT (15000)      the host's UDP port, the clients' the ones after it
 #   CLIENTS (1), VIEWERS (0)  machines that join: "client" on 15001, "client2" ..., then the View-only ones ("viewer", ...)
@@ -30,7 +32,7 @@
 # The logs stay in OUT_DIR (default: a new temporary directory); every machine's "race over" standings must match the host's.
 set -euo pipefail
 
-build=${1:?usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick] [OUT_DIR]}
+build=${1:?usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick|refused] [OUT_DIR]}
 mode=${2:-finish}
 exe=$(cd "$build" && pwd)/tnfs
 out=${3:-$(mktemp -d -t tnfs_link)}
@@ -67,10 +69,13 @@ quit | quitclick)
           [ "$mode" = quitclick ] && yes=CLICK:230:262  # the box's Yes
           after="10000:ENTER,18000:CLICK:320:403,10000:$yes,13000:DOWN,1000:DOWN,2000:ENTER,3000:Y"
           races=1 ;;
-*) echo "mode: finish, continue, quit or quitclick" >&2; exit 2 ;;
+refused)  races=0 ;;   # HOST_ENV=TNFS_FAKE_HOST_TRACK=N: the client leaves the game, told why, and races nothing
+*) echo "mode: finish, continue, quit, quitclick or refused" >&2; exit 2 ;;
 esac
 [ -n "${AFTER:-}" ] && after=$AFTER
 steps="$race_over${after:+,$after}"
+told="mark:banner=The host's track"   # a WAIT text: 31 bytes at most, no comma
+[ "$mode" = refused ] && steps=$(wait_for "$told" "$step_timeout")
 
 run() {  # name script port [args...]
     local name=$1 script=$2 port=$3
@@ -116,11 +121,17 @@ host_hosted() { [ "$(logged mark:game_hosted host)" -ge 1 ]; }
 joined() { [ "$(logged "mark:joined=$1" host)" -ge 1 ]; }
 over_everywhere() { for m in $machines; do [ "$(logged mark:race_over "$m")" -ge "$races" ] || return 1; done; }
 all_exited() { for m in $machines; do [ -f "$out/$m/rc" ] || return 1; done; }
-done_all() { if [ "$mode" = finish ] || [ "$mode" = continue ]; then over_everywhere; else all_exited; fi; }
+told_everywhere() { for m in $machines; do [ "$m" = host ] || [ "$(logged "$told" "$m")" -ge 1 ] || return 1; done; }
+done_all() {
+    case $mode in finish | continue) over_everywhere ;; refused) told_everywhere ;; *) all_exited ;; esac
+}
 
+rm -f "$out"/*/rc "$out"/*/pid "$out"/*/log   # an OUT_DIR used before: its old status and logs are not this run's (cleared before any machine starts)
 machines=host
 port=${BASE_PORT:-15000}
-run host "$host${steps:+,$steps}" "$port" &
+host_steps=$steps
+[ "$mode" = refused ] && host_steps=""   # the host is told nothing: only its guests leave
+run host "$host${host_steps:+,$host_steps}" "$port" &
 ok=1
 await "the host hosting a game (mark:game_hosted)" "$step_timeout" host_hosted || ok=0
 for i in $(seq 1 $((clients + viewers))); do
@@ -153,7 +164,10 @@ for name in $machines; do
     case $mode in
     finish | continue) [ "$ends" -ge "$races" ] || verdict=FAIL ;;
     quit*)    [ "$ends" -ge 1 ] && [ "$rc" = 0 ] || verdict=FAIL ;;
+    refused)  [ "$ends" = 0 ] || verdict=FAIL
+              [ "$name" = host ] || [ "$(logged "$told" "$name")" -ge 1 ] || verdict=FAIL ;;
     esac
+    grep -qaE "ERROR: AddressSanitizer|runtime error:" "$out/$name/log" && verdict=FAIL
     [ "$rc" = 3 ] && verdict=FAIL
     [ "$(grep -a "race over" "$out/$name/log")" = "$(grep -a "race over" "$out/host/log")" ] || verdict=FAIL
     [ "$verdict" = PASS ] || fail=1

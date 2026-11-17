@@ -1,5 +1,6 @@
 /* The checked menus' boxes: the banner, the yes/no and name boxes, the save and replay boxes (menu_glue.h; split from menu_glue.c by responsibility). */
 #include "game/frontend/menu_glue_private.h"
+#include "game/frontend/link_central.h"
 #include "game/frontend/tournament_variants.h"
 #include "game/frontend/variant_rule.h"
 #include "game/viewer/track_viewer.h"
@@ -25,6 +26,8 @@ static void banner(void *ctx, const char *text)
 void menu_glue_banner_wait(void *ctx, const char *text, int32_t time)
 {
     (void)ctx;
+    text = link_central_lost_text(text, resource_german());
+    port_log("mark:banner=%s\n", text);   /* port: a walk waits on it */
     const MessageBannerWaitOps ops = { music, picture_new, picture_shape, select_picture, grab, banner,
                                        deadline_set, blit_at, picture_free, show, deadline_passed, key, buttons,
                                        select_default, blit_picture, flip, NULL };

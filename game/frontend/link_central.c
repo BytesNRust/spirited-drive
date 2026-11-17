@@ -8,13 +8,31 @@
 #include "game/frontend/link_sync.h"
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/net_host.h"
+#include "game/sys/port_log.h"
 #include "game/sys/resource.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 static LinkGame *const L = &link_game;
 static const LinkMenu *M;
 
 /* 00524e8b, then 00524e8d's eight: 004465e4 reads the word before 00524e8d */
 static int16_t cars[1 + RACE_NET_PLAYERS];
+
+/* port: race_net_sync refused the host's settings for their track (RaceNetSync's bad_track) */
+static int bad_track;
+static int left_for_track;  /* the game was left for it, not yet told */
+
+const char *link_central_lost_text(const char *text, int german)
+{
+    if (!left_for_track || (strcmp(text, "Connection Terminated") != 0 && strcmp(text, "Verbindung abgebrochen") != 0))
+        return text;
+    left_for_track = 0;
+    return german ? "Strecke des Hosts unbekannt" : "The host's track is not in this version";
+}
+
+void link_central_left_forget(void) { left_for_track = 0; }
 
 void link_central_bind(const LinkMenu *menu) { M = menu; }
 
@@ -66,7 +84,7 @@ static void sync_in(RaceNetSync *s)
     *s = (RaceNetSync){ menu_words.link_game, menu_words.mode_menu, L->unknown_52b302, *M->tournament, L->view,
                         L->unknown_52b318, menu_words.redraw, L->flags_a[7], L->flags_a[8], 0, L->state, L->incoming,
                         L->settings, menu_words.single, *M->race_type, *M->track, *M->laps, *M->difficulty,
-                        *M->net_car, *M->nomercy, cars, L->sets + 1, *M->variant_m, *M->variant_r };
+                        *M->net_car, *M->nomercy, cars, L->sets + 1, *M->variant_m, *M->variant_r, 0 };
 }
 
 static void sync_out(const RaceNetSync *s)
@@ -77,6 +95,7 @@ static void sync_out(const RaceNetSync *s)
     menu_words.single = s->followed, *M->race_type = s->race_type, *M->track = s->track;
     *M->laps = s->unknown_524ea1, *M->difficulty = s->unknown_524ea3, *M->net_car = s->unknown_524e9d;
     *M->nomercy = s->unknown_4c5cc2, *M->variant_m = s->unknown_4fbad8, *M->variant_r = s->unknown_4fbadc;
+    if (s->bad_track) bad_track = 1;   /* kept here: each op's sync_in starts the words again */
     *M->player_car = cars[0];
     for (int i = 0; i < RACE_NET_PLAYERS; i++) M->other_car[i] = cars[1 + i];
 }
@@ -85,9 +104,25 @@ static void sync_service(void *ctx) { sync_out(ctx), link_service(), sync_in(ctx
 static void sync_poll(void *ctx) { sync_out(ctx), poll(), sync_in(ctx); }
 static void sync_menu(void *ctx) { sync_out(ctx), glue_game_reset(), sync_in(ctx); }
 
+static int16_t word_at(const uint8_t *p, int at) { return (int16_t)(uint16_t)(p[at] | p[at + 1] << 8); }
+
+/* test harness only: TNFS_FAKE_HOST_TRACK=N puts N as the track word of the settings a host sends (its own menu keeps
+ * its track), to play a host this version does not know */
+static const uint8_t *fake_host_track(const uint8_t *data, int32_t size, uint8_t *copy)
+{
+    int16_t track;
+    if (size != RACE_NET_SETTINGS || word_at(data, 0) != RACE_NET_SETTINGS_KIND ||
+        !race_net_fake_track_word(getenv("TNFS_FAKE_HOST_TRACK"), &track))
+        return data;   /* unset or not a number: the settings as they are */
+    memcpy(copy, data, RACE_NET_SETTINGS);
+    copy[RACE_NET_SET_TRACK] = (uint8_t)track, copy[RACE_NET_SET_TRACK + 1] = (uint8_t)((uint16_t)track >> 8);
+    return copy;
+}
+
 static void sync_send(void *ctx, uint32_t link, const uint8_t *data, int32_t size)
 {
-    sync_out(ctx), link_send(link, data, size), sync_in(ctx);
+    uint8_t copy[RACE_NET_SETTINGS];
+    sync_out(ctx), link_send(link, fake_host_track(data, size, copy), size), sync_in(ctx);
 }
 
 void link_sync(void)
@@ -98,6 +133,12 @@ void link_sync(void)
     const RaceNetSyncOps ops = { &s, sync_service, lock, lock, sync_poll, sync_send, sync_menu };
     race_net_sync(&ops, &s);
     sync_out(&s);
+    if (bad_track) {
+        bad_track = 0, left_for_track = 1;  /* port: a host's track this version has not; the game is left as when the host is lost */
+        port_log("link: the host chose track %d, which is not one of this version's nine: leaving the game\n",
+                 word_at(L->settings, RACE_NET_SET_TRACK));
+        menu_words.link_lost = 1;
+    }
 }
 
 /* --- 00410c18 --- */
