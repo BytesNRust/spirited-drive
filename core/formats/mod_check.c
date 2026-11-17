@@ -155,6 +155,7 @@ ModFileRule mod_file_rule(int type, const char *stem, const char *rel)
     const Parts p = parts_of(rel);
     const ModFileKind kind = mod_file_kind(rel);
     if (kind == MOD_KIND_CARD || kind == MOD_KIND_DOC || (kind == MOD_KIND_PNG && is(rel, "preview.png"))) return MOD_FILE_OK;
+    if (type == MOD_TYPE_TRACK && strcmp(rel, "card.png") == 0) return MOD_FILE_OK;   /* port (dep59 step 5, T7e): its card, 208 x 127 (pictures_ok) */
     if (type == MOD_TYPE_TRACK) return track_piece_owns(stem, rel) ? MOD_FILE_OK : MOD_FILE_FOREIGN;   /* dep59 step 5: its stages' files */
     if (type == MOD_TYPE_CAR) {
         if (!car_piece_stem_ok(stem)) return MOD_FILE_FOREIGN;
@@ -296,7 +297,7 @@ static int names_ok(const ZipArchive *z, ModCheck *c, char (*rels)[ZIP_NAME_MAX 
 }
 
 /* every picture's size read from its header before any is unpacked and read: each within its limit, all of them within the total */
-static int pictures_ok(const ZipArchive *z, char (*rels)[ZIP_NAME_MAX + 1], const int *kinds, char *why, size_t cap)
+static int pictures_ok(const ZipArchive *z, const ModCheck *c, char (*rels)[ZIP_NAME_MAX + 1], const int *kinds, char *why, size_t cap)
 {
     uint64_t total = 0;
     for (size_t i = 0; i < z->count; i++) {
@@ -312,6 +313,8 @@ static int pictures_ok(const ZipArchive *z, char (*rels)[ZIP_NAME_MAX + 1], cons
         const int preview = is(rels[i], "preview.png");
         if (preview && (w > MOD_PREVIEW_W || h > MOD_PREVIEW_H))
             return refuse(why, cap, "preview.png is larger than %d x %d", MOD_PREVIEW_W, MOD_PREVIEW_H);
+        if (c->info.type == MOD_TYPE_TRACK && strcmp(rels[i], "card.png") == 0 && (w != MOD_TRACK_CARD_W || h != MOD_TRACK_CARD_H))
+            return refuse(why, cap, "card.png is %u x %u, not %d x %d", (unsigned)w, (unsigned)h, MOD_TRACK_CARD_W, MOD_TRACK_CARD_H);
         if (w > MOD_PNG_MAX_SIDE || h > MOD_PNG_MAX_SIDE) return refuse(why, cap, "%s is larger than %d x %d", rels[i], MOD_PNG_MAX_SIDE, MOD_PNG_MAX_SIDE);
         total += (uint64_t)w * h;
         if (total > MOD_PNG_MAX_PIXELS) return refuse(why, cap, "the mod's pictures add up to more than %u pixels", (unsigned)MOD_PNG_MAX_PIXELS);
@@ -415,7 +418,7 @@ int mod_check_zip(const uint8_t *zip, size_t size, ModCheck *out, char *why, siz
     out->entries = calloc(z.count > 0 ? z.count : 1, sizeof *out->entries);
     int ok = rels != NULL && kinds != NULL && out->entries != NULL ? 1 : refuse(why, why_cap, "out of memory");
     ok = ok && names_ok(&z, out, rels, kinds, why, why_cap) && card_first(&z, out, kinds, why, why_cap) &&
-         rules_ok(&z, out, rels, kinds, why, why_cap) && pictures_ok(&z, rels, kinds, why, why_cap) &&
+         rules_ok(&z, out, rels, kinds, why, why_cap) && pictures_ok(&z, out, rels, kinds, why, why_cap) &&
          contents_ok(&z, out, rels, kinds, why, why_cap) && piece_ok(&z, out, rels, kinds, why, why_cap);
     free(rels), free(kinds);
     zip_close(&z);
