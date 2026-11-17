@@ -269,11 +269,7 @@ static int32_t route_unified(RaceKind kind, RouteOp op, uint8_t *image, const ui
 int32_t records_route(RaceKind kind, RouteOp op, uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player,
                       const int32_t times[RECORD_CHECK_TIMES])
 {
-    if (mod_set_session_modified()) {   /* port (dep59, temporary until step 5): --mods served a file that changes the race */
-        static bool said;
-        if (!said) port_log("records: not kept: --mods served a file that changes the race\n"), said = true;
-        return nothing(op);
-    }
+    if (mod_set_places_served()) return nothing(op);   /* port (dep59 step 5): a places file of --mods served to the light editor may change the grip */
     /* port (dep59): a race with an added car keeps the player's in that car's own table, in Restomod (route_unified); never in the
      * original's tables, which name a car by its number */
     if (car_registry_race_has_added() && (!port_records_unified() || added_player() == NULL)) return nothing(op);

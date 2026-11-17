@@ -2,13 +2,13 @@
 # dep59 step 2: the installed mods against the real game. A car piece (tnfs-studio car new + mod pack) installed with --install is only
 # made available (step 4: no edition changes, --mods-list says off); named by the edition in use it races with no --mods, is updated,
 # and once uninstalled is no car any more while the originals race on (the edition's file left as it was); a tweak made by hand is
-# installed and, named by the edition, its light is the one the race reads; a tweak's zip carrying a TRI is refused and writes nothing; --mods with a TRI races and keeps no
-# record nor replay (temporary until step 5); in Stock --install works and nothing of it is served; nothing below the data root is written.
+# installed and, named by the edition, its light is the one the race reads; a tweak's zip carrying a TRI is refused and writes nothing; --mods with a TRI is not served: the race is the CD's track
+# and the log says a changed track is a track piece now; in Stock --install works and nothing of it is served; nothing below the data root is written.
 # PART (one ctest each; the race a later part starts from is kept in FIXTURE, ctest's fixtures saying the order):
 #   cars    1-4: the car piece installed, raced, updated, uninstalled
 #   tweak   5-6: the tweak made by hand installed and read; the tweak's zip with a TRI refused
 #   before  7, its first race: a race without --mods; keeps its player folder (race_records.dat, Replay.rpl) as FIXTURE/before
-#   tri     7: from before's folder, a race with --mods holding a TRI, run to its finish, changes neither file
+#   tri     7: from before's folder, a race with --mods holding a TRI, run to its finish: the TRI is not served and the log says why
 #   stock   8: the car piece and the tweak installed, then in Stock: --install works, and nothing of them is served
 # Every part checks at its end that nothing was written below the data root (9).
 # usage: mod_install.sh TNFS STUDIO ORIGINAL_DIR PORT_DATA_DIR [PART FIXTURE] (no PART: all of them in turn, the fixture a scratch folder)
@@ -123,8 +123,8 @@ with zipfile.ZipFile(sys.argv[1], "w") as z:
     ls -a "$U/mods" | cmp -s - "$work/mods.before" || fail "a refused install changed mods/"
 }
 
-# 7. --mods with a TRI: a race run to its finish keeps no record and no replay (temporary until step 5). A race first without it
-# makes race_records.dat and Replay.rpl, which must come out of the second the same bytes
+# 7. --mods with a TRI: not served (a changed track is a track piece now), so the race runs the CD's track to its finish. A race first without it
+# keeps the player folder (race_records.dat, Replay.rpl) as the second starts from
 part_before() {
     script="0:WAIT:mark:spray_v4=1:120,8000:ESC,2000:UP,2000:ENTER,2000:Y$(through circuit)"
     TNFS_BANDS=0 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
@@ -139,17 +139,13 @@ part_before() {
 part_tri() {
     [ -d "$fixture/before/user" ] || { fail "no fixture before (its part runs first: ctest -R mod_install_game)"; return; }
     find "$U" -delete && cp -R "$fixture/before/user" "$U"
-    cp "$U/race_records.dat" "$work/records.before" 2>/dev/null || fail "no race_records.dat to compare"
-    cp "$U/Replay.rpl" "$work/replay.before" 2>/dev/null || fail "no Replay.rpl to compare"
     mkdir -p "$work/tri_dev/SIMDATA/MISC" && cp "$orig/SIMDATA/MISC/TR1.TRI" "$work/tri_dev/SIMDATA/MISC/TR1.TRI"
     script="0:WAIT:mark:results=circuit:240,300:ENTER,300:ENTER,0:WAIT:mark:results=best_totals:120,300:ENTER"   # its results, the best totals
     TNFS_BANDS=0 TNFS_AUTOPILOT=1 TNFS_LAPS=1 TNFS_INPUT_SETTLE=300 TNFS_INPUT_SCRIPT=$script \
         timeout -k 5 300 "$tnfs" --data "$orig" --user "$U" --mods "$work/tri_dev" --drive TR1 --car 5 --type 0 >/dev/null 2>"$work/err" ||
         fail "the race with --mods ended badly: $(tail -3 "$work/err")"
     grep -q "finish: 0=" "$U/spirited-drive.log" || fail "the race with --mods did not finish"
-    grep -q "this run keeps no records and no replays" "$U/spirited-drive.log" || fail "the log does not say the run keeps nothing"
-    cmp -s "$work/records.before" "$U/race_records.dat" || fail "the race with --mods changed race_records.dat"
-    cmp -s "$work/replay.before" "$U/Replay.rpl" || fail "the race with --mods changed Replay.rpl"
+    grep -q "a changed track is a track piece now" "$U/spirited-drive.log" || fail "the log does not say a changed track is a track piece now"
 }
 
 part_stock() {

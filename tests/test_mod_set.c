@@ -213,7 +213,6 @@ static void test_what_a_folder_may_serve(void)
     write_file(dir, "TR2B.txt", "track TR2 B\n");
     CHECK(mod_set_start(cd, NULL));
     use_edition("serve", "twk", "car1");
-    CHECK(!mod_set_session_modified());
     port_log_watch("twk: SIMDATA/MISC/NOTE.B21 is left out");
     CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from the cd"));   /* an installed tweak never serves what changes the race */
     CHECK(port_log_watch_hit());
@@ -223,28 +222,24 @@ static void test_what_a_folder_may_serve(void)
     CHECK(!port_log_watch_hit());   /* said once, not at every read */
     CHECK(data_from("track_light/TR1B.txt", "/mods/twk/"));   /* its look is served */
     CHECK(!data_from("track_light/TR2B.txt", "/mods/car1/"));   /* a car's folder serves its own files only */
-    CHECK(!mod_set_session_modified());
 
     char cli[400];
     snprintf(cli, sizeof cli, "%s/mods/twk", pref);
-    port_log_watch("which changes the race: this run keeps no records and no replays");
+    port_log_watch("a changed track is a track piece now: tnfs-studio track new --piece");
     CHECK(mod_set_start(cd, cli));   /* the same folder as --mods */
-    CHECK(!mod_set_session_modified());
-    CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from twk"));
-    CHECK(mod_set_session_modified());
+    CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from the cd"));   /* --mods no longer serves a file that changes the race, and says why */
     CHECK(port_log_watch_hit());
-    port_log_watch("which changes the race");
-    CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from twk"));
+    port_log_watch("a changed track is a track piece now");
+    CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from the cd"));
     CHECK(!port_log_watch_hit());   /* once */
+    CHECK(data_from("track_light/TR1B.txt", "/mods/twk/"));   /* what does not change the race is still served */
     mod_set_stop();
-    CHECK(!mod_set_session_modified());   /* a new start is a new run */
 
     snprintf(dir, sizeof dir, "%s/light_only/track_light", base);
     write_file(dir, "TR1B.txt", "track TR1 B\n");
     snprintf(cli, sizeof cli, "%s/light_only", base);
     CHECK(mod_set_start(cd, cli));
-    CHECK(data_from("track_light/TR1B.txt", "/light_only/"));
-    CHECK(!mod_set_session_modified());   /* a --mods folder with a light only changes nothing that races */
+    CHECK(data_from("track_light/TR1B.txt", "/light_only/"));   /* a --mods folder with a light only changes nothing that races */
 
     snprintf(dir, sizeof dir, "%s/car_cli/SIMDATA/CARSPECS", base);   /* a car piece given as --mods: its own files are no change */
     write_file(dir, "TESTCAR.PBS", "specs");
@@ -257,12 +252,10 @@ static void test_what_a_folder_may_serve(void)
     size_t size = 0;
     snprintf(asked, sizeof asked, "%s/SIMDATA/CARSPECS/TESTCAR.PBS", cd);
     platform_free_file(platform_read_file(asked, &size));   /* served (then refused by the original's limits: it is no PBS) */
-    CHECK(!mod_set_session_modified());
 
     CHECK(port_profile_select(PROFILE_STOCK));
     CHECK(mod_set_start(cd, cli));
     CHECK(game_file_is("SIMDATA/MISC/NOTE.B21", "from the cd"));   /* Stock serves nothing */
-    CHECK(!mod_set_session_modified());
     CHECK(port_profile_select(PROFILE_RESTOMOD));
     use_edition("", "", "");
     mod_set_stop();

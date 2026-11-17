@@ -38,6 +38,7 @@ for n in $(seq 1 45); do
 done
 grep -a -q "light made again" "$LOG" 2>/dev/null || finish "the places file was not read again"
 wait_log "wet zones: CY1 made again" 20 || finish "the dry zones were not made again"
+grep -a -q "serves track/CY1.txt to the light editor: this run keeps no records and no replays" "$LOG" || finish "the log does not say the run keeps no records (the places file of --mods is served to the editor)"
 sleep 4   # the message is on screen for 3 s: the frames that draw it
 kill -0 "$GAME" 2>/dev/null || finish "the game died after the reload"
 kill -9 "$GAME" 2>/dev/null

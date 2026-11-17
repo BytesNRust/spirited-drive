@@ -10,13 +10,13 @@
 #include "game/race/race_chase.h"
 #include "game/race/race_replay.h"
 #include "game/race/race_replay_image.h"
-#include "game/sys/mod_set.h"
 #include "game/sys/reverse_track.h"
 #include "game/race/race_sound.h"
 #include "game/race/dash_controls.h"
 #include "game/race/replay_controls.h"
 #include "game/race/race_view_pick.h"
 #include "game/sys/menu_key.h"
+#include "game/sys/mod_set.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_log.h"
 #include "game/sys/video.h"
@@ -520,10 +520,7 @@ static void save(void *ctx)
         records[REPLAY_RECORDS * REPLAY_RECORD_SIZE];
     RaceState *race = &r->sim->race;
     if (r->recording == NULL || reverse_track_running()) return;   /* port: a reversed race's file would play on the track's own way round */
-    if (mod_set_session_modified()) {   /* port (dep59, temporary until step 5): --mods served a file that changes the race */
-        port_log("replay: not kept: --mods served a file that changes the race\n");
-        return;
-    }
+    if (mod_set_places_served()) return;   /* port (dep59 step 5): a places file of --mods served to the light editor may change the grip: no replay of it */
     race_replay_image_setup(race, r->seed, setup);
     race_replay_image_put(race, &r->dir, cuts, seek, records);
     const RaceReplaySave in = { race->unknown_4fbb0c, race->playback, "", setup, race->player, cuts, r->recording,

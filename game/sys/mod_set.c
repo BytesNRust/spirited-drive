@@ -134,7 +134,10 @@ static void say_left_out(const Piece *p, const char *rel, ModFileRule rule)
         if (strcasecmp(serving.said[i], key) == 0) return;
     if (serving.said_count < SAID_MAX) snprintf(serving.said[serving.said_count++], SAID_LEN, "%s", key);
     port_log("mods: %s: %s is left out: %s\n", p->id, rel,
-             rule == MOD_FILE_RACE ? "it changes the race, which an installed tweak may not" : "it is not one of this piece's files");
+             rule != MOD_FILE_RACE ? "it is not one of this piece's files"
+             : p->cli ? (strncasecmp(rel, "SIMDATA/CAR", 11) == 0 ? "a changed car is a car piece now: tnfs-studio car new"
+                                                                    : "a changed track is a track piece now: tnfs-studio track new --piece")
+                      : "it changes the race, which an installed tweak may not");
 }
 
 static bool serve(int index, const char *rel)
@@ -143,10 +146,12 @@ static bool serve(int index, const char *rel)
     const Piece *p = &serving.pieces[index];
     const ModFileRule rule = mod_file_rule(p->type, p->stem, rel);
     if (rule == MOD_FILE_OK) return true;
-    if (p->cli) {   /* port (dep59, temporary until step 5): --mods serves it; one that changes the race keeps this run's results out */
-        if (mod_file_rule(MOD_TYPE_TWEAK, "", rel) == MOD_FILE_RACE && !mod_set_session_modified()) {
-            mod_set_session_mark_modified();
-            port_log("mods: --mods serves %s, which changes the race: this run keeps no records and no replays\n", rel);
+    if (p->cli && rule != MOD_FILE_RACE) return true;   /* --mods serves what does not change the race */
+    /* the live light editor (light_edit=1) works on a track's places file, track/<TRACK>.txt, in the folder given as --mods: that file is served to it */
+    if (p->cli && port_light_edit() && strncasecmp(rel, "track/", 6) == 0) {
+        if (!mod_set_places_served()) {
+            mod_set_places_mark();
+            port_log("mods: --mods serves %s to the light editor: this run keeps no records and no replays\n", rel);
         }
         return true;
     }
@@ -196,8 +201,8 @@ bool mod_set_start(const char *data_root, const char *cli_dir)
     }
     snprintf(set.data_root, sizeof set.data_root, "%s", data_root != NULL ? data_root : "");
     snprintf(set.cli, sizeof set.cli, "%s", cli_dir != NULL ? cli_dir : "");
+    mod_set_places_clear();   /* a new run */
     set.started = true;
-    mod_set_session_clear();   /* a new run */
     port_settings_on_forget(follow);
     static Folders f;
     wanted(true, &f);
@@ -210,7 +215,7 @@ void mod_set_stop(void)
     port_settings_on_forget(NULL);
     set.started = false;
     set.now.count = 0;
-    mod_set_session_clear();
+    mod_set_places_clear();
     platform_set_mods(set.data_root, NULL, 0);
     data_path_set_mods(NULL, 0);
     mod_set_generation_move();

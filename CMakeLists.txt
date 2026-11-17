@@ -387,7 +387,7 @@ add_library(tnfs_game STATIC
     game/sys/edition_list.c
     game/frontend/mode_choices.c
     game/sys/mod_set.c
-    game/sys/mod_set_session.c
+    game/sys/mod_set_places.c
     game/sys/mod_store.c
     game/sys/mod_commands.c
     game/sys/art_cache.c
