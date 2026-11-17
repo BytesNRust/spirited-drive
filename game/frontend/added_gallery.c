@@ -25,6 +25,11 @@ static void value_step(const CarPieceCard *c, GalleryState *s, int step)
     else if (s->item >= GALLERY_PREVIOUS) s->item = GALLERY_PREVIOUS + round_step(s->item - GALLERY_PREVIOUS, 3, step);
 }
 
+void added_gallery_enter(GalleryState *s, int entry)
+{
+    if (entry != 0) s->item = entry > 0 ? GALLERY_NEXT : GALLERY_PREVIOUS;
+}
+
 int added_gallery_input(const CarPieceCard *c, GalleryState *s, int key)
 {
     if (s->skin < 0 || s->skin >= c->skins) s->skin = 0;   /* a piece that changed since the pick */

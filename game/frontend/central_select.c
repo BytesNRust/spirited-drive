@@ -173,6 +173,14 @@ static void showcase_start(CentralRun *r)
     r->st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
 }
 
+/* port (owner 2026-11-17): the showcase's music ended after the pages that leave it playing (an added car's, the Warrior's, the carousel's) */
+static void showcase_music_end(CentralRun *r)
+{
+    const ControlCentralOps *o = r->ops;
+    o->music_fade_out(o->ctx);
+    o->music_end(o->ctx);
+}
+
 /* port: the gallery has the 8 cars (showcase.c), the field (8) showing car 0; the original opened it on any rival and
  * read past its names with the Warrior (11, the port's Warrior-as-a-rival extra), which now leaves the card as the
  * player's own card does with the Warrior */
@@ -208,8 +216,11 @@ static void added_gallery(CentralRun *r)
     const ControlCentralOps *o = r->ops;
     if (o->added_gallery == NULL) return;
     showcase_start(r);
-    if (o->added_gallery(o->ctx, st->player_car, *st->warrior != 0, r->palette) && *st->player_car >= 0 && *st->player_car < SHOWCASE_CARS)
-        o->showcase(o->ctx);
+    if (o->added_gallery(o->ctx, st->player_car, *st->warrior != 0, r->palette, 0) && *st->player_car >= 0 && *st->player_car < SHOWCASE_CARS) {
+        o->showcase(o->ctx);   /* the original's showcase ends the music itself */
+    } else {
+        showcase_music_end(r);   /* the page leaves it playing (owner 2026-11-17) */
+    }
     o->showcase_after(o->ctx);
     o->car_flags(o->ctx);
     again(r);
@@ -236,13 +247,18 @@ static void carousel(CentralRun *r)
     CarList l;
     car_list_build(&l, central_edition_of(st), warrior);
     showcase_start(r);
+    int entry = 0;   /* the step each page is entered by: its Next / Previous lit (owner 2026-11-17) */
     for (;;) {
-        if (has_page(*car) && !o->added_gallery(o->ctx, car, warrior, r->palette)) break;
+        if (has_page(*car)) {
+            entry = o->added_gallery(o->ctx, car, warrior, r->palette, entry);
+            if (entry == 0) break;
+        }
         if (*car < 0 || *car >= SHOWCASE_CARS) break;   /* only an original's showcase from here */
-        const int step = o->showcase_carousel(o->ctx);
-        if (step == 0) break;
-        *car = car_list_step_gallery(&l, *car, step);
+        entry = o->showcase_carousel(o->ctx, entry);
+        if (entry == 0) break;
+        *car = car_list_step_gallery(&l, *car, entry);
     }
+    showcase_music_end(r);   /* the pages leave the showcase's music playing from one to the next: it ends once, here (owner 2026-11-17) */
     o->showcase_after(o->ctx);
     o->car_flags(o->ctx);
     again(r);

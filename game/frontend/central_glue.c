@@ -845,9 +845,9 @@ static void showcase(void *ctx)
 }
 
 /* port (dep59 section 4): ControlCentralOps.showcase_carousel: the showcase leaving on its Next / Previous */
-static int32_t showcase_carousel(void *ctx)
+static int32_t showcase_carousel(void *ctx, int entry)
 {
-    int16_t step = 0;
+    int16_t step = (int16_t)entry;   /* in: the step it is entered by; out: the one it leaves on */
     const ShowcaseGlue in = { &cg_g.player_car, &cg_g.race_type, &cg_g.track, pointer_active_word(), &cg_g.buttons, car_flags, ctx, &step };
     glue_showcase(&in);
     return step;

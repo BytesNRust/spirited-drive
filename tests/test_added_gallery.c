@@ -101,5 +101,17 @@ int main(void)
     added_gallery_input(&w, &f, GALLERY_KEY_RIGHT);
     CHECK_EQ_INT(f.item, GALLERY_PREVIOUS);   /* the bottom row as on any page */
     CHECK(f.skin == 0 && f.paint == 1);
+    /* owner 2026-11-17: a page entered by the carousel's Next starts on Next, by its Previous on Previous; the first entry as it was */
+    s = (GalleryState){ GALLERY_SKIN, 0, 0, 0 };
+    added_gallery_enter(&s, 1);
+    CHECK_EQ_INT(s.item, GALLERY_NEXT);
+    added_gallery_enter(&s, -1);
+    CHECK_EQ_INT(s.item, GALLERY_PREVIOUS);
+    s = (GalleryState){ GALLERY_SKIN, 0, 0, 0 };
+    added_gallery_enter(&s, 0);
+    CHECK_EQ_INT(s.item, GALLERY_SKIN);
+    s = (GalleryState){ GALLERY_NEXT, 0, 1, 1 };   /* the Warrior's (fixed) */
+    added_gallery_enter(&s, -1);
+    CHECK_EQ_INT(s.item, GALLERY_PREVIOUS);
     return TEST_REPORT();
 }

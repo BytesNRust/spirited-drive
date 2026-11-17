@@ -3,8 +3,10 @@
  * with the picture's entries apart from the rest's; the title leant; the bottom row centred; the clicks' places. */
 #include "game/frontend/gallery_layout.h"
 #include "game/frontend/added_gallery.h"
+#include "game/frontend/showcase.h"
 #include "test.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -165,37 +167,131 @@ static void test_lean(void)
     CHECK_EQ_INT(sum, 24);   /* nothing else */
 }
 
-static void test_bottom_row(void)
+/* owner 2026-11-17: the bottom row as the CD's showcase pages have it, cut from their art: the letters' and arrows' own pixels (cream,
+ * yellow), never the art's red or pink; a shape replaces what is under its rectangle; drawn over its shadow 2 px down and right */
+static void test_row_put_and_draw(void)
 {
-    int l, t, r;
-    gallery_next_place(100, &l, &t, &r);
-    const int whole = GL_ARROW_W + GL_NEXT_GAP + 100 + GL_NEXT_GAP + GL_ARROW_W;
-    CHECK_EQ_INT(l, (GL_W - whole) / 2);
-    CHECK_EQ_INT(t, l + GL_ARROW_W + GL_NEXT_GAP);
-    CHECK_EQ_INT(r, t + 100 + GL_NEXT_GAP);
+    static GalleryRow row;
+    static uint8_t pal[768];
+    static const uint8_t CREAM[3] = { 236, 212, 188 }, YELLOW[3] = { 252, 204, 0 }, RED[3] = { 150, 0, 0 }, PINK[3] = { 199, 97, 97 };
+    memcpy(pal + 3, CREAM, 3), memcpy(pal + 6, RED, 3), memcpy(pal + 9, YELLOW, 3), memcpy(pal + 12, PINK, 3);
+    CHECK(gallery_row_is_face(CREAM) && gallery_row_is_face(YELLOW) && !gallery_row_is_face(RED) && !gallery_row_is_face(PINK));
+    gallery_row_clear(&row);
+    static const uint8_t PICTURE[2 * 4] = { 1, 2, 3, 4, 2, 1, 1, 0 };   /* 4 x 2 at (100, 440) */
+    gallery_row_put(&row, GL_ROW_PLAIN, PICTURE, 4, 2, 100, 440, pal);
+    const uint8_t *f = row.face[GL_ROW_PLAIN];
+    const int at = (440 - GL_ROW_Y) * GL_ROW_W + 100;
+    CHECK(f[at] != 0 && f[at + 1] == 0 && f[at + 2] != 0 && f[at + 3] == 0);
+    CHECK(f[at + GL_ROW_W] == 0 && f[at + GL_ROW_W + 1] != 0 && f[at + GL_ROW_W + 3] == 0);
+    CHECK(memcmp(row.rgb[f[at] - 1], CREAM, 3) == 0 && memcmp(row.rgb[f[at + 2] - 1], YELLOW, 3) == 0);   /* the art's own colours */
+    CHECK_EQ_INT(row.colours, 2);
+    static const uint8_t DARK[2] = { 2, 2 };   /* a shape: what is under its rectangle is its own */
+    gallery_row_put(&row, GL_ROW_PLAIN, DARK, 2, 1, 100, 440, pal);
+    CHECK(f[at] == 0 && f[at + 1] == 0 && f[at + 2] != 0);
+    gallery_row_put(&row, GL_ROW_PLAIN, PICTURE, 4, 2, 100, GL_ROW_Y + GL_ROW_H, pal);   /* below the row: nothing */
+    gallery_row_put(&row, GL_ROW_PLAIN, PICTURE, 4, 2, GL_ROW_W, 440, pal);              /* past it: nothing */
+    int faces = 0;
+    for (int i = 0; i < GL_ROW_H * GL_ROW_W; i++) faces += f[i] != 0;
+    CHECK_EQ_INT(faces, 3);
+
+    static uint8_t screen[GL_W * GL_H];
+    memset(screen, 0, sizeof screen);
+    uint8_t map[GL_ROW_COLOURS];
+    for (int k = 0; k < GL_ROW_COLOURS; k++) map[k] = (uint8_t)(50 + k);
+    gallery_row_draw(&row, GL_ROW_PLAIN, screen, GL_W, GL_H, map, 9);
+    CHECK_EQ_INT(screen[440 * GL_W + 102], 50 + f[at + 2] - 1);
+    CHECK_EQ_INT(screen[441 * GL_W + 101], 50 + f[at + GL_ROW_W + 1] - 1);
+    CHECK_EQ_INT(screen[442 * GL_W + 104], 9);    /* (102, 440)'s shadow */
+    CHECK_EQ_INT(screen[443 * GL_W + 103], 9);    /* (101, 441)'s */
+    CHECK_EQ_INT(screen[440 * GL_W + 100], 0);    /* not a face: the page's own */
+    CHECK_EQ_INT(gallery_row_look(GALLERY_DONE), GL_ROW_DONE);
+    CHECK_EQ_INT(gallery_row_look(GALLERY_PREVIOUS), GL_ROW_PREVIOUS);
+    CHECK_EQ_INT(gallery_row_look(GALLERY_NEXT), GL_ROW_NEXT);
+    CHECK_EQ_INT(gallery_row_look(GALLERY_SKIN), GL_ROW_PLAIN);
+}
+
+/* the box (inclusive) of the pixels of look `look` in colour `rgb` within columns x0..x1 */
+static int row_box(const GalleryRow *row, int look, const uint8_t rgb[3], int x0, int x1, int box[4])
+{
+    int n = 0;
+    box[0] = box[1] = 9999, box[2] = box[3] = -1;
+    for (int y = 0; y < GL_ROW_H; y++)
+        for (int x = x0; x <= x1; x++) {
+            const int k = row->face[look][y * GL_ROW_W + x];
+            if (k == 0 || memcmp(row->rgb[k - 1], rgb, 3) != 0) continue;
+            n++;
+            if (x < box[0]) box[0] = x;
+            if (x > box[2]) box[2] = x;
+            if (GL_ROW_Y + y < box[1]) box[1] = GL_ROW_Y + y;
+            if (GL_ROW_Y + y > box[3]) box[3] = GL_ROW_Y + y;
+        }
+    return n;
+}
+
+/* with the CD: cut from the 512TR's showcase art, the letters and arrows where the CD's page has them (measured on
+ * notes/captures/showcase-cd-512tr-640x480.png: DONE 11..72 x 445..455, "Next car" 256..358 x 445..455, the arrows 225..233 and
+ * 380..388 x 442..458, cream 236, 212, 188), lit in yellow 252, 204, 0 */
+static void test_row_from_the_cd(void)
+{
+    char path[1024];
+    snprintf(path, sizeof path, "%s/original/FRONTEND/SHOW/512TR.QFS", TNFS_SOURCE_DIR);
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) {
+        printf("skip: no CD at %s\n", path);
+        return;
+    }
+    static uint8_t file[1 << 20];
+    const size_t size = fread(file, 1, sizeof file, f);
+    fclose(f);
+    static GalleryRow row;
+    CHECK_EQ_INT(gallery_row_cut(&row, file, size), 1);
+    static const uint8_t CREAM[3] = { 236, 212, 188 }, YELLOW[3] = { 252, 204, 0 };
+    static const struct { int look, x0, x1, want[4]; const uint8_t *rgb; } AT[] = {
+        { GL_ROW_PLAIN, 0, 140, { 11, 445, 72, 455 }, CREAM }, { GL_ROW_PLAIN, 245, 370, { 256, 445, 358, 455 }, CREAM },
+        { GL_ROW_PLAIN, 200, 244, { 225, 442, 233, 458 }, CREAM }, { GL_ROW_PLAIN, 372, 419, { 380, 442, 388, 458 }, CREAM },
+        { GL_ROW_NEXT, 372, 419, { 380, 442, 388, 458 }, YELLOW }, { GL_ROW_PREVIOUS, 200, 244, { 225, 442, 233, 458 }, YELLOW },
+        { GL_ROW_DONE, 0, 140, { 11, 445, 72, 455 }, YELLOW },
+    };
+    for (size_t i = 0; i < sizeof AT / sizeof AT[0]; i++) {
+        int box[4];
+        CHECK(row_box(&row, AT[i].look, AT[i].rgb, AT[i].x0, AT[i].x1, box) > 0);
+        if (memcmp(box, AT[i].want, sizeof box) != 0) printf("look %d at %d..%d: %d,%d..%d,%d\n", AT[i].look, AT[i].x0, AT[i].x1, box[0], box[1], box[2], box[3]);
+        CHECK(memcmp(box, AT[i].want, sizeof box) == 0);
+    }
+    int box[4];
+    CHECK_EQ_INT(row_box(&row, GL_ROW_PLAIN, YELLOW, 0, GL_ROW_W - 1, box), 0);   /* nothing lit when nothing is */
+    CHECK_EQ_INT(row_box(&row, GL_ROW_NEXT, YELLOW, 0, 371, box), 0);             /* Next's look: only its arrow */
 }
 
 static void test_hit(void)
 {
-    int step = 9, l, t, r;
-    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_ARROW_IN + 2, GL_SKIN_Y + 20, 100, 60, &step), GALLERY_SKIN);
+    int step = 9;
+    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_ARROW_IN + 2, GL_SKIN_Y + 20, &step), GALLERY_SKIN);
     CHECK_EQ_INT(step, -1);
-    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_COLUMN_W - GL_ARROW_IN - 2, GL_SKIN_Y + 20, 100, 60, &step), GALLERY_SKIN);
+    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_COLUMN_W - GL_ARROW_IN - 2, GL_SKIN_Y + 20, &step), GALLERY_SKIN);
     CHECK_EQ_INT(step, 1);
-    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_COLUMN_W / 2, GL_COLOUR_Y + 10, 100, 60, &step), GALLERY_COLOUR);
+    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_COLUMN_W / 2, GL_COLOUR_Y + 10, &step), GALLERY_COLOUR);
     CHECK_EQ_INT(step, 0);
-    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_COLUMN_W - 3, GL_COLOUR_Y + GL_BOX_H - 3, 100, 60, &step), GALLERY_COLOUR);
+    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_COLUMN_W - 3, GL_COLOUR_Y + GL_BOX_H - 3, &step), GALLERY_COLOUR);
     CHECK_EQ_INT(step, 1);
-    gallery_next_place(100, &l, &t, &r);
-    CHECK_EQ_INT(gallery_hit(l + 3, GL_BOTTOM_Y + 8, 100, 60, &step), GALLERY_PREVIOUS);
-    CHECK_EQ_INT(step, 0);
-    CHECK_EQ_INT(gallery_hit(t + 50, GL_BOTTOM_Y + 8, 100, 60, &step), GALLERY_NEXT);
-    CHECK_EQ_INT(gallery_hit(r + 3, GL_BOTTOM_Y + 8, 100, 60, &step), GALLERY_NEXT);
-    CHECK_EQ_INT(gallery_hit(GL_DONE_X + 30, GL_BOTTOM_Y + 8, 100, 60, &step), GALLERY_DONE);
-    CHECK_EQ_INT(gallery_hit(GL_DONE_X + 100, GL_BOTTOM_Y + 8, 100, 60, &step), -1);   /* past DONE */
-    CHECK_EQ_INT(gallery_hit(600, GL_BOTTOM_Y + 8, 100, 60, &step), -1);               /* past the arrow */
-    CHECK_EQ_INT(gallery_hit(200, 200, 100, 60, &step), -1);                            /* the picture */
-    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + 20, GL_SKIN_Y - GL_GAP / 2, 100, 60, &step), -1);   /* between the boxes */
+    CHECK_EQ_INT(gallery_hit(200, 200, &step), -1);                            /* the picture */
+    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + 20, GL_SKIN_Y - GL_GAP / 2, &step), -1);   /* between the boxes */
+    /* the bottom row: the CD showcase's own boxes (showcase.c BOX_*, ends included), the words between the arrows in none */
+    static const struct { int x, y, item; } AT[] = {
+        { 200, 430, GALLERY_PREVIOUS }, { 260, 480, GALLERY_PREVIOUS }, { 229, 450, GALLERY_PREVIOUS },
+        { 360, 430, GALLERY_NEXT }, { 420, 480, GALLERY_NEXT }, { 384, 450, GALLERY_NEXT },
+        { 0, 430, GALLERY_DONE }, { 130, 480, GALLERY_DONE }, { 40, 450, GALLERY_DONE },
+        { 199, 450, -1 }, { 261, 450, -1 }, { 300, 450, -1 }, { 359, 450, -1 }, { 421, 450, -1 }, { 131, 450, -1 }, { 230, 429, -1 },
+    };
+    for (size_t i = 0; i < sizeof AT / sizeof AT[0]; i++) {
+        step = 9;
+        const int got = gallery_hit(AT[i].x, AT[i].y, &step);
+        if (got != AT[i].item) printf("gallery_hit(%d, %d) = %d, want %d\n", AT[i].x, AT[i].y, got, AT[i].item);
+        CHECK_EQ_INT(got, AT[i].item);
+        if (got >= 0) CHECK_EQ_INT(step, 0);
+    }
+    CHECK(SHOWCASE_PREVIOUS_LEFT == 200 && SHOWCASE_PREVIOUS_RIGHT == 260 && SHOWCASE_NEXT_LEFT == 360 && SHOWCASE_NEXT_RIGHT == 420);
+    CHECK(SHOWCASE_DONE_LEFT == 0 && SHOWCASE_DONE_RIGHT == 130 && SHOWCASE_BOTTOM_TOP == 430 && SHOWCASE_BOTTOM_BOTTOM == 480);
 }
 
 int main(void)
@@ -204,7 +300,8 @@ int main(void)
     test_edges_and_shadows();
     test_quantise();
     test_lean();
-    test_bottom_row();
+    test_row_put_and_draw();
+    test_row_from_the_cd();
     test_hit();
     return TEST_REPORT();
 }

@@ -41,6 +41,9 @@ static void nothing(void *ctx) { (void)ctx; }
 static void sound(void *ctx, int32_t s) { (void)ctx, (void)s; }
 static void fade_out(void *ctx, int32_t a, int32_t b) { (void)ctx, (void)a, (void)b; }
 static void music_start(void *ctx, const char *name) { (void)ctx, (void)name; }
+static int music_ends, music_starts;   /* the music's ends and starts, where counted */
+static void count_end(void *ctx) { (void)ctx, music_ends++; }
+static void count_start(void *ctx, const char *name) { (void)ctx, (void)name, music_starts++; }
 static void move_to(void *ctx, int32_t x, int32_t y) { (void)ctx, (void)x, (void)y; }
 static void palette_put(void *ctx, uint8_t *rgb, int32_t first, int32_t count, const uint8_t *src, int32_t mode)
 {
@@ -89,9 +92,9 @@ static void test_no_art_is_no_car(void)
  * their names; when its Previous / Next go to an original, that car's gallery opens; the Warrior's (none) leaves to Control Central */
 static void add(const char *id, const char *stem);
 static int added_shown, added_to;
-static int32_t added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t palette[768])
+static int32_t added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t palette[768], int entry)
 {
-    (void)ctx, (void)warrior, (void)palette;
+    (void)ctx, (void)warrior, (void)palette, (void)entry;
     added_shown++;
     if (added_to < 0) return 0;
     *car = (int16_t)added_to;
@@ -118,14 +121,21 @@ static void test_an_added_car_card_opens_nothing(void)
     CHECK_EQ_INT(shown, 0);
     CHECK_EQ_INT(player_car, 16);
     o.added_gallery = added_gallery;
+    o.music_end = count_end;
+    music_ends = 0;
     central_select(&r);   /* its own page, left with Done */
     CHECK(added_shown == 1 && shown == 0 && player_car == 16);
+    CHECK_EQ_INT(music_ends, 2);   /* Control Central's ended on opening; the page leaves the showcase's playing: ended after it */
     added_to = 2;          /* Next went round to an original: that car's gallery */
+    music_ends = 0;
     central_select(&r);
     CHECK(added_shown == 2 && shown == 1 && player_car == 2);
+    CHECK_EQ_INT(music_ends, 1);   /* the original's showcase ends it itself */
     player_car = 16, added_to = 11;   /* to the Warrior: back to Control Central, the Warrior picked */
+    music_ends = 0;
     central_select(&r);
     CHECK(added_shown == 3 && shown == 1 && player_car == 11);
+    CHECK_EQ_INT(music_ends, 2);
     player_car = 4;
     central_select(&r);
     CHECK_EQ_INT(shown, 2);   /* an original's still opens the 8 cars' */
@@ -213,12 +223,17 @@ static void see(char kind, int16_t car)
 {
     if (seen_count < 16) seen[seen_count++] = (int16_t)(kind == 'S' ? car : 100 + car);
 }
-static int32_t carousel_show(void *ctx) { (void)ctx, carousel_calls++, see('S', player_car); return steps[step_at++]; }
+static int entries[16], entry_count;   /* the step each page was entered by */
+static void entered(int entry)
+{
+    if (entry_count < 16) entries[entry_count++] = entry;
+}
+static int32_t carousel_show(void *ctx, int entry) { (void)ctx, carousel_calls++, see('S', player_car), entered(entry); return steps[step_at++]; }
 static void plain_show(void *ctx) { (void)ctx, plain_calls++, see('S', player_car); }
-static int32_t page(void *ctx, int16_t *car, int warrior, const uint8_t palette[768])
+static int32_t page(void *ctx, int16_t *car, int warrior, const uint8_t palette[768], int entry)
 {
     (void)ctx, (void)warrior, (void)palette;
-    see('A', *car);
+    see('A', *car), entered(entry);
     const int16_t to = hands[hand_at++];
     if (to < 0) return 0;
     *car = to;
@@ -238,6 +253,7 @@ static void carousel(const char *cars, int16_t type, int16_t from, const int *s,
     o.music_end = nothing, o.music_start = music_start, o.showcase = plain_show, o.showcase_after = nothing;
     o.palette_put = palette_put, o.pointer_move_to = move_to, o.car_flags = nothing;
     o.added_gallery = page, o.showcase_carousel = carousel_show;
+    o.music_end = count_end, o.music_start = count_start;
     ControlCentralState st = { 0 };
     kind = type;
     st.player_car = &player_car, st.opponent = &rival, st.race_type = &kind, st.net_second = &net_second, st.was = was;
@@ -245,6 +261,7 @@ static void carousel(const char *cars, int16_t type, int16_t from, const int *s,
     CentralRun r = { 0 };
     r.st = &st, r.ops = &o, r.pal = pal, r.item = CC_CAR, r.keys_armed = 1;
     player_car = from, steps = s, hands = h, step_at = hand_at = carousel_calls = plain_calls = seen_count = 0;
+    music_ends = music_starts = entry_count = 0;
     central_select(&r);
 }
 
@@ -261,6 +278,14 @@ static void test_the_carousel(void)
         CHECK(memcmp(seen, want, sizeof want) == 0);
         CHECK_EQ_INT(player_car, 16);
         CHECK_EQ_INT(plain_calls, 0);
+        /* owner 2026-11-17: Control Central's music ended and the showcase's started once, on opening; the pages leave it playing (a
+         * stock page after a stock or an added page is not silent) and the carousel ends it once, on Done */
+        CHECK_EQ_INT(music_starts, 1);
+        CHECK_EQ_INT(music_ends, 2);
+        /* owner 2026-11-17: each page entered by the step that led to it (its Next / Previous lit, the pointer not moved); the first as it was */
+        static const int want_entries[] = { 0, 1, 1, -1 };
+        CHECK_EQ_INT(entry_count, 4);
+        CHECK(memcmp(entries, want_entries, sizeof want_entries) == 0);
     }
     {   /* Previous from the first wraps round to the last; Done there */
         static const int s[] = { -1, 0 };
