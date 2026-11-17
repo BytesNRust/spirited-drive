@@ -814,6 +814,7 @@ foreach(name port_old_files car_registry car_lights ai_added car_list content_ro
     add_test(NAME iso9660 COMMAND test_iso9660)
     # the CD check of the clean configuration background runs when original/ is there
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_gallery_layout PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_lunar_speech PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_lunar_art PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_piece PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

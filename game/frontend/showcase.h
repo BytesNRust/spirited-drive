@@ -5,6 +5,10 @@
 #include <stdint.h>
 
 enum { SHOWCASE_PALETTE = 0x300, SHOWCASE_NAME = 0x28, SHOWCASE_CARS = 8 };
+/* the bottom row's boxes the pointer is asked about (00405f4c's BOX_*, ends included), shared with an added car's page (gallery_layout.c):
+ * Previous (the left arrow), Next (the right arrow), Done; "Next car" between the arrows is in none */
+enum { SHOWCASE_BOTTOM_TOP = 0x1ae, SHOWCASE_BOTTOM_BOTTOM = 0x1e0, SHOWCASE_PREVIOUS_LEFT = 200, SHOWCASE_PREVIOUS_RIGHT = 0x104,
+       SHOWCASE_NEXT_LEFT = 0x168, SHOWCASE_NEXT_RIGHT = 0x1a4, SHOWCASE_DONE_LEFT = 0, SHOWCASE_DONE_RIGHT = 0x82 };
 
 typedef struct ShowcaseOps {
     void (*pointer_move_to)(void *ctx, int32_t x, int32_t y);                /* 00464038: eax, edx */
@@ -90,8 +94,9 @@ typedef struct ShowcaseState {
     const int32_t *screen;          /* 00524834: the screen's picture */
     const ShowcasePlus *plus;       /* port: the variant box, or NULL */
     int16_t *leave_step;            /* port (dep59 section 4, the carousel): NULL the original's Next / Previous; else they leave the
-                                     * screen, the car kept, with 1 (Next) or -1 (Previous) here (0 left as it is on Done), and the
-                                     * screen leaves the music playing: the carousel ends it (owner 2026-11-17) */
+                                     * screen, the car kept, with 1 (Next) or -1 (Previous) here (0 on Done), and the screen leaves the
+                                     * music playing: the carousel ends it (owner 2026-11-17). On entry it holds the step the page was
+                                     * entered by (0 the first entry): the item it starts on, Next, Previous, else the video */
 } ShowcaseState;
 
 /* 00408724 (all registers kept): the car's <car_dir><car>.qfs (rx7, nsx,

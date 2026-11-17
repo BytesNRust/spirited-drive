@@ -92,9 +92,9 @@ static void test_no_art_is_no_car(void)
  * their names; when its Previous / Next go to an original, that car's gallery opens; the Warrior's (none) leaves to Control Central */
 static void add(const char *id, const char *stem);
 static int added_shown, added_to;
-static int32_t added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t palette[768])
+static int32_t added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t palette[768], int entry)
 {
-    (void)ctx, (void)warrior, (void)palette;
+    (void)ctx, (void)warrior, (void)palette, (void)entry;
     added_shown++;
     if (added_to < 0) return 0;
     *car = (int16_t)added_to;
@@ -223,12 +223,17 @@ static void see(char kind, int16_t car)
 {
     if (seen_count < 16) seen[seen_count++] = (int16_t)(kind == 'S' ? car : 100 + car);
 }
-static int32_t carousel_show(void *ctx) { (void)ctx, carousel_calls++, see('S', player_car); return steps[step_at++]; }
+static int entries[16], entry_count;   /* the step each page was entered by */
+static void entered(int entry)
+{
+    if (entry_count < 16) entries[entry_count++] = entry;
+}
+static int32_t carousel_show(void *ctx, int entry) { (void)ctx, carousel_calls++, see('S', player_car), entered(entry); return steps[step_at++]; }
 static void plain_show(void *ctx) { (void)ctx, plain_calls++, see('S', player_car); }
-static int32_t page(void *ctx, int16_t *car, int warrior, const uint8_t palette[768])
+static int32_t page(void *ctx, int16_t *car, int warrior, const uint8_t palette[768], int entry)
 {
     (void)ctx, (void)warrior, (void)palette;
-    see('A', *car);
+    see('A', *car), entered(entry);
     const int16_t to = hands[hand_at++];
     if (to < 0) return 0;
     *car = to;
@@ -256,7 +261,7 @@ static void carousel(const char *cars, int16_t type, int16_t from, const int *s,
     CentralRun r = { 0 };
     r.st = &st, r.ops = &o, r.pal = pal, r.item = CC_CAR, r.keys_armed = 1;
     player_car = from, steps = s, hands = h, step_at = hand_at = carousel_calls = plain_calls = seen_count = 0;
-    music_ends = music_starts = 0;
+    music_ends = music_starts = entry_count = 0;
     central_select(&r);
 }
 
@@ -277,6 +282,10 @@ static void test_the_carousel(void)
          * stock page after a stock or an added page is not silent) and the carousel ends it once, on Done */
         CHECK_EQ_INT(music_starts, 1);
         CHECK_EQ_INT(music_ends, 2);
+        /* owner 2026-11-17: each page entered by the step that led to it (its Next / Previous lit, the pointer not moved); the first as it was */
+        static const int want_entries[] = { 0, 1, 1, -1 };
+        CHECK_EQ_INT(entry_count, 4);
+        CHECK(memcmp(entries, want_entries, sizeof want_entries) == 0);
     }
     {   /* Previous from the first wraps round to the last; Done there */
         static const int s[] = { -1, 0 };

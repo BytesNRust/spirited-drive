@@ -168,8 +168,9 @@ part_steps() {
     steps="$steps,$(car_on),$(click 180 200),$(wait_for screen=added_gallery),$(key DOWN '1 0 0'),$(key DOWN '2 0 0'),$(key DOWN '3 0 0')"
     steps="$steps,300:ENTER,$(wait_for 'gallery=3 0 1'),300:ENTER,$(wait_for screen=showcase),1500:ESC,$(wait_for car=0)"
     # the carousel (dep59 section 4, Restomod): the RX-7's showcase, its own Previous (200..260 x 430..480) leaves it for the car before
-    # the RX-7 in the edition's order, round to the Warrior's page; Escape: Control Central on car 11
-    steps="$steps,$(click 180 200),$(wait_for screen=showcase),$(click 230 455),$(wait_for 'gallery=3 0 1'),300:ESC,$(wait_for car=11)"
+    # the RX-7 in the edition's order, round to the Warrior's page, which opens on Previous (the step it came by: item 2); Escape:
+    # Control Central on car 11
+    steps="$steps,$(click 180 200),$(wait_for screen=showcase),$(click 230 455),$(wait_for 'gallery=2 0 1'),300:ESC,$(wait_for car=11)"
     user_in restomod
     walk "$piece" "$to_central,$car_16,$steps" || fail "Restomod: the gallery's Previous and Next open the next car's gallery, the showcase's the next car's page"
     log | grep -q "the Warrior's \(figures\|card\)" && fail "the Warrior's page: $(log | grep -m1 "the Warrior's")"

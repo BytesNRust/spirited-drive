@@ -4,7 +4,7 @@
  * panels) quantised once, the picture's entries apart from the rest's; the port's text colours (BOOT_TEXT_RGB), one entry for the Color
  * swatch, and Control Central's last entries kept as they were for the pointer. Its name big and leant on top, "Car Showcase" under it;
  * the picture on the left; the technical data, Skin and Color on the right; the description, author and version in the foot's band;
- * DONE at the bottom left, "< NEXT CAR >" in the middle. The pair picked is kept by id as the page closes (car_looks.h). */
+ * the bottom row as the CD showcase pages have it: DONE at the left, "< Next car >" in the middle. The pair picked is kept by id as the page closes (car_looks.h). */
 #include "game/frontend/added_gallery.h"
 #include "game/frontend/added_gallery_run.h"
 
@@ -27,6 +27,7 @@
 #include "game/sys/car_looks.h"
 #include "game/sys/edition_file.h"
 #include "game/sys/input.h"
+#include "game/sys/palette.h"
 #include "game/sys/pointer.h"
 #include "game/sys/port_log.h"
 #include "game/sys/resource.h"
@@ -41,12 +42,11 @@ enum {
     KEPT = 18,                                       /* Control Central's last entries, kept for the pointer */
     TEXT_FIRST = 256 - KEPT - BOOT_TEXT_COLOURS,     /* the text's colours (BOOT_TEXT_RGB's order) */
     SWATCH = TEXT_FIRST - 1,                         /* the Color swatch's entry */
-    STILL_COLOURS = SWATCH,                          /* the still part's: 0 .. SWATCH - 1 */
+    ROW_EXACT = 8, ROW_FIRST = SWATCH - ROW_EXACT,   /* the bottom row's most used colours, the CD art's own; its others the nearest */
+    STILL_COLOURS = ROW_FIRST,                       /* the still part's: 0 .. ROW_FIRST - 1 */
     WHITE = TEXT_FIRST, CREAM = TEXT_FIRST + 1, YELLOW = TEXT_FIRST + 2, BLACK = TEXT_FIRST + 5, DIM = TEXT_FIRST + 6,
     LEAN_NUM = 2, LEAN_DEN = 9                       /* the name's slant: 2 px across for 9 up */
 };
-
-static const char DONE_WORD[] = "DONE", NEXT_WORD[] = "Next car";
 
 /* port (dep59 section 8, the owner's): the Warrior's page. Its year as the owner gave it; its power and weight from its physics
  * (CARSPECS/TRAFFC.PBS, the race's car_model_names[11]); its look fixed: the skin as it comes and its own dark purple, sampled from its
@@ -62,7 +62,44 @@ typedef struct {
     int warrior;                     /* the Warrior's page: its card from the CD, its look fixed */
     uint8_t *still;                  /* the still part in the page's palette, GL_W x GL_H */
     uint8_t palette[768];
+    uint8_t row_map[GL_ROW_COLOURS]; /* the bottom row's colours' entries */
 } Page;
+
+/* port (owner 2026-11-17): the bottom row as the CD showcase pages have it, cut from the 512TR's showcase art (any car's has it; the
+ * 512TR's has nothing else light in the row) once a gallery opens; `row_cut` 0 when it could not be read: no bottom row drawn */
+static const char ROW_BANK[] = "512tr.qfs";
+static GalleryRow row;
+static int row_cut;
+
+static void row_load(void)
+{
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s%s", resource_root(), resource_german() ? "frontend/gshow/" : "frontend/show/", ROW_BANK);
+    size_t size = 0;
+    uint8_t *data = resource_load(path, &size);
+    row_cut = data != NULL && gallery_row_cut(&row, data, size);
+    if (!row_cut) port_log("added gallery: the bottom row was not cut from %s\n", path);
+    resource_free(data);
+}
+
+/* the row's most used colours into their entries, the rest to the nearest of the page's palette (the pointer's and the swatch's apart) */
+static void row_colours(Page *p)
+{
+    int taken[GL_ROW_COLOURS] = { 0 };
+    for (int e = 0; e < ROW_EXACT; e++) {
+        int best = -1;
+        for (int k = 0; k < row.colours; k++)
+            if (!taken[k] && (best < 0 || row.count[k] > row.count[best])) best = k;
+        if (best < 0) break;
+        taken[best] = 1;
+        memcpy(p->palette + 3 * (ROW_FIRST + e), row.rgb[best], 3);
+        p->row_map[best] = (uint8_t)(ROW_FIRST + e);
+    }
+    uint8_t usable[256];
+    for (int i = 0; i < 256; i++) usable[i] = i < 256 - KEPT && i != SWATCH;
+    for (int k = 0; k < row.colours; k++)
+        if (!taken[k]) p->row_map[k] = (uint8_t)palette_nearest(p->palette, usable, row.rgb[k][0], row.rgb[k][1], row.rgb[k][2]);
+}
 
 /* `name` of the piece as RGB in a GL_PICTURE_W x GL_PICTURE_H box (a smaller picture in its middle, the rest black); 0 when it is not
  * there or is larger than the box */
@@ -177,6 +214,7 @@ static void page_still(Page *p, const uint8_t screen[768])
     free(picture), free(bgnd), free(rgb);
     memcpy(p->palette + 3 * TEXT_FIRST, BOOT_TEXT_RGB, sizeof BOOT_TEXT_RGB);
     memcpy(p->palette + 3 * (256 - KEPT), screen + 3 * (256 - KEPT), 3 * KEPT);
+    if (row_cut) row_colours(p);
 }
 
 static int small_width(void *ctx, const char *s, int len)
@@ -297,19 +335,10 @@ static void foot(const Page *p)
     }
 }
 
-/* DONE at the left; "< NEXT CAR >" in the middle, its arrows level with the words' middle */
-static void bottom(const Target *t, int item)
+/* the bottom row as the CD showcase pages have it (owner 2026-11-17): DONE, Previous or Next lit when it is the item */
+static void bottom(const Page *p, const Target *t)
 {
-    text_select(item == GALLERY_DONE ? TEXT_YELLOW : TEXT_CREAM);
-    text_draw_shadowed(DONE_WORD, GL_DONE_X, GL_BOTTOM_Y);
-    int l, x, r, top, under;
-    gallery_next_place(text_width(NEXT_WORD), &l, &x, &r);
-    text_select(item == GALLERY_NEXT ? TEXT_YELLOW : TEXT_CREAM);
-    text_draw_shadowed(NEXT_WORD, x, GL_BOTTOM_Y);
-    text_ink_scaled(NEXT_WORD, 1, 1, &top, &under);
-    const int ay = GL_BOTTOM_Y + (top + under) / 2 - GL_ARROW_H / 2;
-    arrow(t, l, ay, 1, item == GALLERY_PREVIOUS ? YELLOW : CREAM);
-    arrow(t, r, ay, 0, item == GALLERY_NEXT ? YELLOW : CREAM);
+    if (row_cut) gallery_row_draw(&row, gallery_row_look(p->state.item), t->to, t->w, t->h, p->row_map, BLACK);
 }
 
 /* the page into the back buffer */
@@ -330,7 +359,7 @@ static void draw(const Page *p)
     box(&t, GL_COLOUR_Y, "Color", s->paint == 0 ? "Default" : p->card.info.paints[s->paint - 1].name, s->item == GALLERY_COLOUR, on,
         on && s->paint > 0, s->fixed);
     foot(p);
-    bottom(&t, s->item);
+    bottom(p, &t);
 }
 
 /* the swatch's colour into the page's palette */
@@ -346,7 +375,7 @@ static int click_key(GalleryState *s)
 {
     int x, y, step;
     pointer_position(&x, &y);
-    const int item = gallery_hit(x, y, text_width(NEXT_WORD), text_width(DONE_WORD), &step);
+    const int item = gallery_hit(x, y, &step);
     if (item < 0 || (s->fixed && item < GALLERY_PREVIOUS)) return 0;   /* a fixed page's boxes take no click */
     s->item = item;
     if (item == GALLERY_SKIN || item == GALLERY_COLOUR) return step < 0 ? GALLERY_KEY_LEFT : step > 0 ? GALLERY_KEY_RIGHT : 0;
@@ -414,6 +443,7 @@ static void run_fade_in(void *ctx)
 static void run_fade_out(void *ctx) { (void)ctx; video_fade_out(0, 256); }
 static int run_key(void *ctx) { (void)ctx; return input_get_key(); }
 static int run_buttons(void *ctx) { (void)ctx; return pointer_read_buttons(); }
+static void run_pointer(void *ctx, int *x, int *y) { (void)ctx; pointer_position(x, y); }
 static int run_click(void *ctx, GalleryState *s) { (void)ctx; return click_key(s); }
 static void run_music(void *ctx) { (void)ctx; menu_audio_music_service(); }
 static void run_wait(void *ctx) { (void)ctx; video_wait_vblank(); }
@@ -422,20 +452,22 @@ static void run_wait(void *ctx) { (void)ctx; video_wait_vblank(); }
 static int run_page(Page *p)
 {
     const GalleryRunOps ops = { run_clear, run_black, run_draw, run_palette, run_flip, run_fade_in, run_fade_out,
-                                run_key, run_buttons, run_click, run_music, run_wait, p };
+                                run_key, run_buttons, run_pointer, run_click, run_music, run_wait, p };
     return added_gallery_run(&p->card, &p->state, &ops);
 }
 
-int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t screen[768])
+int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t screen[768], int entry)
 {
     (void)ctx;
     if (!text_small_init()) port_log("added gallery: the small font is not loaded\n");
+    row_load();
     for (;;) {
         Page p;
         memset(&p, 0, sizeof p);
         if (*car == STOCK_CAR_WARRIOR) warrior_card(&p);   /* port (dep59 section 8): the Warrior's page */
         else if (!car_pieces_card(*car, &p.card)) return 0;
         else state_from_look(&p);
+        added_gallery_enter(&p.state, entry);   /* owner 2026-11-17: paging goes on from the item it was done by */
         CarList l;
         Edition e;   /* port (dep59 step 4): the arrows' cars are the edition's */
         car_list_build(&l, edition_active(&e) == 1 ? &e : NULL, warrior);
@@ -446,7 +478,8 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         if (!p.warrior) look_keep(&p);   /* the Warrior's look is fixed: nothing kept */
         free(p.still);
         if (result == GALLERY_LEAVE) return 0;
-        *car = car_list_step_gallery(&l, *car, result == GALLERY_GO_NEXT ? 1 : -1);
-        if (!car_registry_is_added(*car) && *car != STOCK_CAR_WARRIOR) return 1;   /* an original's: its own gallery */
+        entry = result == GALLERY_GO_NEXT ? 1 : -1;
+        *car = car_list_step_gallery(&l, *car, entry);
+        if (!car_registry_is_added(*car) && *car != STOCK_CAR_WARRIOR) return entry;   /* an original's: its own gallery, entered by this step */
     }
 }

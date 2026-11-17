@@ -116,12 +116,13 @@ typedef struct ControlCentralOps {
      * used); 0 when it cannot be made (the reason in the log). NULL: no added car has a card. */
     int32_t (*load_added_card)(void *ctx, int car, int rival, const uint8_t palette[768]);
     /* port (dep59 step 3; section 8 the Warrior's page too): an added car's gallery (added_gallery.h) for `*car`, the Warrior in the list when `warrior`, from Control
-     * Central's `palette`; its Previous and Next change `*car`. 1 when they went to an original, whose own gallery opens next; 0 back
-     * to Control Central. NULL: an added car's card opens nothing. */
-    int32_t (*added_gallery)(void *ctx, int16_t *car, int warrior, const uint8_t palette[768]);
+     * Central's `palette`; its Previous and Next change `*car`. 1 (Next) or -1 (Previous) when they went to an original, whose own
+     * gallery opens next; 0 back to Control Central. `entry`: the step the page was entered by (0 the first entry), whose item it
+     * starts on (owner 2026-11-17). The page leaves the showcase's music playing. NULL: an added car's card opens nothing. */
+    int32_t (*added_gallery)(void *ctx, int16_t *car, int warrior, const uint8_t palette[768], int entry);
     /* port (dep59 section 4, the owner's carousel): the showcase (as `showcase`) whose Next and Previous leave it, the car kept: 1 Next,
      * -1 Previous, 0 Done. NULL: no carousel, an original's Next and Previous go round the eight in the showcase as the original's do */
-    int32_t (*showcase_carousel)(void *ctx);
+    int32_t (*showcase_carousel)(void *ctx, int entry);   /* `entry` as added_gallery's */
 } ControlCentralOps;
 
 /* The globals 00432ff4 reads and writes; a pointer is written, a value only read. */

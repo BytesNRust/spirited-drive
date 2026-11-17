@@ -6,6 +6,7 @@
 #ifndef TNFS_GALLERY_LAYOUT_H
 #define TNFS_GALLERY_LAYOUT_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 enum {
@@ -31,8 +32,10 @@ enum {
     GL_ARROW_W = 9, GL_ARROW_H = 14, GL_ARROW_IN = 8,
     /* the foot band: the description, the author at its left and the version at its right */
     GL_FOOT_X0 = GL_OUTER_X0, GL_FOOT_X1 = GL_COLUMN_X + GL_COLUMN_W - 1, GL_FOOT_Y0 = 326, GL_FOOT_Y1 = 420, GL_FOOT_PAD = 10, GL_FOOT_LINES = 3,
-    /* the bottom row: DONE at the left, "< NEXT CAR >" in the middle */
-    GL_DONE_X = 8, GL_BOTTOM_Y = 442, GL_BOTTOM_H = 30, GL_NEXT_GAP = 8,
+    /* the bottom row (DONE, the arrows, "Next car") as the CD showcase pages have it, cut from their art (GalleryRow): rows GL_ROW_Y ..
+     * + GL_ROW_H - 1, columns 0 .. GL_ROW_W - 1 (past them the 512TR's art has its swirl); their boxes are the showcase's (showcase.h) */
+    GL_ROW_Y = 436, GL_ROW_H = 30, GL_ROW_W = 420, GL_ROW_SHADOW = 2, GL_ROW_COLOURS = 64,
+    GL_ROW_PLAIN = 0, GL_ROW_DONE = 1, GL_ROW_PREVIOUS = 2, GL_ROW_NEXT = 3, GL_ROW_LOOKS = 4,
     /* the palette: the picture's entries first, then the still part's */
     GL_PICTURE_COLOURS = 160
 };
@@ -53,12 +56,33 @@ int gallery_quantise(const uint8_t *rgb, int colours, uint8_t palette[768], uint
 /* `mask` (w x h) leant right by num/den of a pixel a row up from its foot, into `out` (ow x h, ow >= w + h * num / den + 1); 0 elsewhere */
 void gallery_lean(const uint8_t *mask, int w, int h, int num, int den, uint8_t *out, int ow);
 
-/* where the bottom row's "< NEXT CAR >" goes for a text `text_w` wide: the left arrow's x, the text's x and the right arrow's x, the whole
- * centred on the screen */
-void gallery_next_place(int text_w, int *left_x, int *text_x, int *right_x);
-
 /* what a click at (x, y) hits: GALLERY_SKIN / GALLERY_COLOUR (with *step -1 on its left arrow, 1 on its right one, 0 between),
- * GALLERY_PREVIOUS, GALLERY_NEXT or GALLERY_DONE (step 0); -1 for nothing. `next_text_w` as for gallery_next_place, `done_w` DONE's width */
-int gallery_hit(int x, int y, int next_text_w, int done_w, int *step);
+ * GALLERY_PREVIOUS, GALLERY_NEXT or GALLERY_DONE (step 0); -1 for nothing */
+int gallery_hit(int x, int y, int *step);
+
+/* port (owner 2026-11-17): the bottom row of the CD showcase pages, cut from a car's bank (FRONTEND/SHOW/512TR.QFS: its background with
+ * the unlit DONE, arrows and "Next car", and the lit shapes): the letters' and arrows' own pixels ("faces": light, cream or yellow) in
+ * four looks, plain and with DONE, Previous or Next lit; the page's own picture shows elsewhere, so the art's red is never drawn */
+typedef struct {
+    uint8_t face[GL_ROW_LOOKS][GL_ROW_H * GL_ROW_W];   /* 0 none; k: the colour rgb[k - 1] */
+    uint8_t rgb[GL_ROW_COLOURS][3];
+    int count[GL_ROW_COLOURS];                         /* the pixels of each colour over the four looks */
+    int colours;
+} GalleryRow;
+
+/* 1 when a colour of the art is a letter's or an arrow's (cream, yellow and their edges, not the red, pink or dark background) */
+int gallery_row_is_face(const uint8_t rgb[3]);
+void gallery_row_clear(GalleryRow *row);
+/* a picture of the bank (w x h, its top left at (x0, y0), entries of the palette `pal` 8 bits a channel) into the look: inside its
+ * rectangle on the row, its faces and nothing else; past GL_ROW_COLOURS colours, the nearest of those kept */
+void gallery_row_put(GalleryRow *row, int look, const uint8_t *pixels, int w, int h, int x0, int y0, const uint8_t pal[768]);
+/* the four looks from a bank's file (QFS or SHPI): its background (DONE, the arrows and "Next car" unlit), and over it in turn the lit
+ * DONE, Previous and Next (donl, prel, nexl); 1 when it had them all and the palette */
+int gallery_row_cut(GalleryRow *row, const uint8_t *file, size_t size);
+/* the look for the page's item (GALLERY_*) */
+int gallery_row_look(int item);
+/* the look into `to` (tw x th): a shadow in entry `shadow` GL_ROW_SHADOW px down and right of the faces, then the faces, colour k in
+ * entry map[k - 1] */
+void gallery_row_draw(const GalleryRow *row, int look, uint8_t *to, int tw, int th, const uint8_t map[GL_ROW_COLOURS], int shadow);
 
 #endif

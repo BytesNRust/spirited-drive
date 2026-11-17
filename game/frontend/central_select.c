@@ -216,7 +216,7 @@ static void added_gallery(CentralRun *r)
     const ControlCentralOps *o = r->ops;
     if (o->added_gallery == NULL) return;
     showcase_start(r);
-    if (o->added_gallery(o->ctx, st->player_car, *st->warrior != 0, r->palette) && *st->player_car >= 0 && *st->player_car < SHOWCASE_CARS) {
+    if (o->added_gallery(o->ctx, st->player_car, *st->warrior != 0, r->palette, 0) && *st->player_car >= 0 && *st->player_car < SHOWCASE_CARS) {
         o->showcase(o->ctx);   /* the original's showcase ends the music itself */
     } else {
         showcase_music_end(r);   /* the page leaves it playing (owner 2026-11-17) */
@@ -247,12 +247,16 @@ static void carousel(CentralRun *r)
     CarList l;
     car_list_build(&l, central_edition_of(st), warrior);
     showcase_start(r);
+    int entry = 0;   /* the step each page is entered by: its Next / Previous lit (owner 2026-11-17) */
     for (;;) {
-        if (has_page(*car) && !o->added_gallery(o->ctx, car, warrior, r->palette)) break;
+        if (has_page(*car)) {
+            entry = o->added_gallery(o->ctx, car, warrior, r->palette, entry);
+            if (entry == 0) break;
+        }
         if (*car < 0 || *car >= SHOWCASE_CARS) break;   /* only an original's showcase from here */
-        const int step = o->showcase_carousel(o->ctx);
-        if (step == 0) break;
-        *car = car_list_step_gallery(&l, *car, step);
+        entry = o->showcase_carousel(o->ctx, entry);
+        if (entry == 0) break;
+        *car = car_list_step_gallery(&l, *car, entry);
     }
     showcase_music_end(r);   /* the pages leave the showcase's music playing from one to the next: it ends once, here (owner 2026-11-17) */
     o->showcase_after(o->ctx);

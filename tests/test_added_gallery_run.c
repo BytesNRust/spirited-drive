@@ -9,7 +9,7 @@
 #include <string.h>
 
 static const int *keys_in;   /* the key each frame, the last one kept */
-static int key_reads, frames, services, services_at_wait[64], shows;
+static int key_reads, frames, services, services_at_wait[64], shows, drawn_item = -1;
 
 static char ops_seen[64];   /* the screen's ops in turn: C clear, B black, D draw, P palette, F flip, I fade in, O fade out */
 static int ops_count;
@@ -19,7 +19,7 @@ static void op(char c)
 }
 static void clear(void *ctx) { (void)ctx, op('C'); }
 static void black(void *ctx) { (void)ctx, op('B'); }
-static void draw(void *ctx, const GalleryState *s) { (void)ctx, (void)s, op('D'), shows++; }
+static void draw(void *ctx, const GalleryState *s) { (void)ctx, op('D'), shows++, drawn_item = s->item; }
 static void palette(void *ctx) { (void)ctx, op('P'); }
 static void flip(void *ctx, const GalleryState *s) { (void)ctx, (void)s, op('F'); }
 static void fade_in(void *ctx) { (void)ctx, op('I'); }
@@ -32,6 +32,16 @@ static int key(void *ctx)
     return k;
 }
 static int buttons(void *ctx) { (void)ctx; return POINTER_BUTTON_NONE; }
+static const int (*places)[2];   /* the pointer's place each frame (read once a frame), the last one kept; NULL: (0, 0) */
+static int place_reads;
+static void pointer(void *ctx, int *x, int *y)
+{
+    (void)ctx;
+    *x = *y = 0;
+    if (places == NULL) return;
+    *x = places[place_reads][0], *y = places[place_reads][1];
+    if (places[place_reads + 1][0] >= 0) place_reads++;
+}
 static int click(void *ctx, GalleryState *s) { (void)ctx, (void)s; return 0; }
 static void music(void *ctx) { (void)ctx, services++; }
 static void wait(void *ctx)
@@ -41,7 +51,7 @@ static void wait(void *ctx)
     frames++;
 }
 
-static const GalleryRunOps OPS = { clear, black, draw, palette, flip, fade_in, fade_out, key, buttons, click, music, wait, NULL };
+static const GalleryRunOps OPS = { clear, black, draw, palette, flip, fade_in, fade_out, key, buttons, pointer, click, music, wait, NULL };
 
 static int run(const int *keys, GalleryState *s)
 {
@@ -86,8 +96,39 @@ static void test_the_fades(void)
     }
 }
 
+/* owner 2026-11-17: the item under the pointer lit as the showcase lights its own (the CD's boxes), each frame the pointer moves; the
+ * keys' item kept while it stays */
+static void test_the_pointer_lights(void)
+{
+    /* the pointer still on the picture, moved onto Next's arrow (the CD's box 360..420 x 430..480), then onto Done (0..130), then still */
+    static const int AT[][2] = { { 200, 200 }, { 200, 200 }, { 390, 455 }, { 390, 455 }, { 60, 470 }, { 60, 470 }, { -1, -1 } };
+    static const int KEYS[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, GALLERY_KEY_UP, 0, 0, 0, GALLERY_KEY_ESCAPE, 0, -1 };
+    GalleryState s = { GALLERY_SKIN, 0, 0, 0 };
+    places = AT, place_reads = 0, drawn_item = -1;
+    CarPieceCard c;
+    memset(&c, 0, sizeof c);
+    c.skins = 1;
+    keys_in = KEYS, key_reads = frames = services = shows = ops_count = 0;
+    ops_seen[0] = 0;
+    CHECK_EQ_INT(added_gallery_run(&c, &s, &OPS), GALLERY_LEAVE);
+    CHECK(strchr(ops_seen + 5, 'D') != NULL);   /* drawn again after it opened: the pointer's item lit */
+    /* Done under the pointer, then Up by the keys (Next) with the pointer still on Done: the keys' item stays */
+    CHECK_EQ_INT(drawn_item, GALLERY_NEXT);
+    {   /* a fixed page (the Warrior's): its boxes are not lit by the pointer */
+        static const int SKIN[][2] = { { 10, 10 }, { 400, 200 }, { -1, -1 } };
+        static const int ESC[] = { 0, 0, 0, GALLERY_KEY_ESCAPE, 0, -1 };
+        GalleryState w = { GALLERY_NEXT, 0, 1, 1 };
+        places = SKIN, place_reads = 0, drawn_item = -1;
+        keys_in = ESC, key_reads = 0;
+        added_gallery_run(&c, &w, &OPS);
+        CHECK_EQ_INT(drawn_item, GALLERY_NEXT);
+    }
+    places = NULL;
+}
+
 int main(void)
 {
+    test_the_pointer_lights();
     test_the_music_plays_on();
     test_the_fades();
     return TEST_REPORT();

@@ -21,10 +21,11 @@ static const int16_t POINTER_Y[VARIANT + 1] = { 306, 265, 222, 137, 369, 450, 45
 /* 00405fb8: the cars' file names, by 00524e8b */
 static const char *const CARS[SHOWCASE_CARS] = { "rx7", "nsx", "supra", "911", "vette", "viper", "512tr", "diablo" };
 /* the boxes 00463f80 is asked about, in turn, and the item each picks */
-static const int16_t BOX_LEFT[BOXES] = { 0x134, 0x1c3, 0x86, 0x134, 0x52, 200, 0x168, 0 };
-static const int16_t BOX_RIGHT[BOXES] = { 0x1bc, 0x267, 300, 0x212, 0x14f, 0x104, 0x1a4, 0x82 };
-static const int16_t BOX_TOP[BOXES] = { 0xd1, 0xf6, 0xa4, 0x4e, 0x146, 0x1ae, 0x1ae, 0x1ae };
-static const int16_t BOX_BOTTOM[BOXES] = { 0x141, 0x16e, 0x119, 0xcb, 0x19c, 0x1e0, 0x1e0, 0x1e0 };
+static const int16_t BOX_LEFT[BOXES] = { 0x134, 0x1c3, 0x86, 0x134, 0x52, SHOWCASE_PREVIOUS_LEFT, SHOWCASE_NEXT_LEFT, SHOWCASE_DONE_LEFT };
+static const int16_t BOX_RIGHT[BOXES] = { 0x1bc, 0x267, 300, 0x212, 0x14f, SHOWCASE_PREVIOUS_RIGHT, SHOWCASE_NEXT_RIGHT, SHOWCASE_DONE_RIGHT };
+static const int16_t BOX_TOP[BOXES] = { 0xd1, 0xf6, 0xa4, 0x4e, 0x146, SHOWCASE_BOTTOM_TOP, SHOWCASE_BOTTOM_TOP, SHOWCASE_BOTTOM_TOP };
+static const int16_t BOX_BOTTOM[BOXES] = { 0x141, 0x16e, 0x119, 0xcb, 0x19c, SHOWCASE_BOTTOM_BOTTOM, SHOWCASE_BOTTOM_BOTTOM,
+                                           SHOWCASE_BOTTOM_BOTTOM };
 static const int16_t BOX_ITEM[BOXES] = { VIDEO, HISTORY, GENERAL, PERFORMANCE, ENGINE, PREVIOUS, NEXT, DONE };
 static const char *const LIT[ITEMS] = { "hisl", "vidl", "genl", "perl", "engl", "nexl", "prel", "donl" };
 static const char *const DARK[ITEMS] = { "hisd", "vidd", "gend", "perd", "engd", "nexd", "pred", "dond" };
@@ -305,8 +306,13 @@ static void keys(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
 int32_t showcase(ShowcaseState *st, const ShowcaseOps *o)
 {
     port_log("mark:screen=showcase\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
-    Show s = { .selected = VIDEO, .previous = VIDEO, .redraw = 1, .fade = 1, .armed = 1, .released = 1 };
-    if (*st->pointer_active == 0) move_to(VIDEO, o);
+    /* port (dep59 section 4, owner 2026-11-17): a carousel page entered by a step starts on that step's item, so the player keeps paging
+     * without moving the pointer; the first entry (0) on the video as the game's. Done and Escape hand back 0 */
+    const int16_t entry = st->leave_step != NULL ? *st->leave_step : 0;
+    const int16_t first = entry > 0 ? NEXT : entry < 0 ? PREVIOUS : VIDEO;
+    if (st->leave_step != NULL) *st->leave_step = 0;
+    Show s = { .selected = first, .previous = first, .redraw = 1, .fade = 1, .armed = 1, .released = 1 };
+    if (*st->pointer_active == 0) move_to(first, o);
     load(&s, st, o);
     o->flush(o->ctx);
     palette_put_clear(s.black);

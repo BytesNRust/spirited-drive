@@ -1,5 +1,6 @@
 #include "game/frontend/added_gallery_run.h"
 
+#include "game/frontend/gallery_layout.h"
 #include "game/sys/pointer.h"
 
 #include <string.h>
@@ -17,6 +18,18 @@ static void let_go(const GalleryRunOps *o)
     }
 }
 
+/* port (owner 2026-11-17): the item under the pointer lit, as the showcase lights its own, each frame the pointer moves (a box the page does
+ * not visit, a fixed page's or Color while it is off, is not); 1 when the item changed */
+static int follow(const CarPieceCard *c, GalleryState *s, int x, int y)
+{
+    int step;
+    const int item = gallery_hit(x, y, &step);
+    if (item < 0 || item == s->item || (s->fixed && item < GALLERY_PREVIOUS)) return 0;
+    if (item == GALLERY_COLOUR && !added_gallery_colour_on(c, s)) return 0;
+    s->item = item;
+    return 1;
+}
+
 int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOps *o)
 {
     /* port (owner 2026-11-17): the page comes up as the showcase's does: both pictures cleared and the palette black before it is drawn,
@@ -26,7 +39,8 @@ int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOp
     o->draw(o->ctx, s);
     o->flip(o->ctx, s);
     o->fade_in(o->ctx);
-    int last_key = -1, last_buttons = -1, result = GALLERY_STAY, changed = 0;
+    int last_key = -1, last_buttons = -1, result = GALLERY_STAY, changed = 0, last_x = 0, last_y = 0;
+    o->pointer(o->ctx, &last_x, &last_y);
     while (result == GALLERY_STAY) {
         if (changed) {   /* the page drawn again: its palette (the swatch's colour) with it */
             o->draw(o->ctx, s);
@@ -42,10 +56,14 @@ int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOp
             else if (buttons & POINTER_BUTTON_BACK) press = GALLERY_KEY_ESCAPE;
         }
         last_key = key, last_buttons = buttons;
+        int x, y;
+        o->pointer(o->ctx, &x, &y);
+        if (x != last_x || y != last_y) changed |= follow(c, s, x, y);
+        last_x = x, last_y = y;
         if (press != 0) {
             const GalleryState was = *s;
             result = added_gallery_input(c, s, press);
-            changed = memcmp(&was, s, sizeof was) != 0;
+            changed |= memcmp(&was, s, sizeof was) != 0;
         }
         o->music(o->ctx);   /* port (owner 2026-11-17): the showcase's music plays on here, as on the showcase's own pages */
         o->wait(o->ctx);

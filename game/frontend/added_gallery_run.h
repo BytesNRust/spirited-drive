@@ -18,6 +18,7 @@ typedef struct GalleryRunOps {
     void (*fade_out)(void *ctx);                      /* the palette faded out to black */
     int (*key)(void *ctx);                            /* the key down, 0 none; first each frame: it pumps the events */
     int (*buttons)(void *ctx);                        /* the pointer's buttons (POINTER_BUTTON_*) */
+    void (*pointer)(void *ctx, int *x, int *y);       /* where the pointer is */
     int (*click)(void *ctx, GalleryState *s);         /* a click: the key it stands for (the item moved to the one clicked), 0 none */
     void (*music)(void *ctx);                         /* the music's stream serviced (the showcase's plays on here) */
     void (*wait)(void *ctx);                          /* the frame's end */

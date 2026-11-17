@@ -28,6 +28,8 @@ typedef struct {
 
 /* 1 when Color applies: the skin picked has masks */
 int added_gallery_colour_on(const CarPieceCard *c, const GalleryState *s);
+/* the page entered by a step of the carousel (`entry` 1 Next, -1 Previous; 0 the first entry, from Control Central) */
+void added_gallery_enter(GalleryState *s, int entry);
 /* a key: the state stepped; GALLERY_STAY, or GALLERY_LEAVE (Done, Escape), GALLERY_GO_PREVIOUS / NEXT */
 int added_gallery_input(const CarPieceCard *c, GalleryState *s, int key);
 

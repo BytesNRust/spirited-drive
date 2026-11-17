@@ -1,6 +1,7 @@
 /* port (dep59 section 4, the owner's carousel): the showcase in the carousel (ShowcaseState.leave_step). In the carousel the music is the
  * carousel's: a page leaves it playing (Next, Previous or Done) and the carousel ends it once; the original's screen (no carousel) ends
- * it when it is left, as the game's. Stubbed ops only. */
+ * it when it is left, as the game's. A page entered by a step starts on that step's item, Next or Previous, so the player keeps paging
+ * without moving the pointer (owner 2026-11-17); the first entry starts on the video as the game's. Stubbed ops only. */
 #include "game/frontend/showcase.h"
 #include "test.h"
 
@@ -8,7 +9,7 @@
 
 enum { ENTER = 0xd, ESCAPE = 0x1b };
 
-static int music_ends, music_fades, music_services, fades_out;
+static int music_ends, music_fades, music_services, fades_out, movies, deadline_asks;
 static int32_t px = -1, py = -1;
 static const uint16_t *keys_in;   /* the keys in turn, 0 between (a key seen up) */
 static int key_at;
@@ -37,6 +38,7 @@ static void blit(void *ctx, const uint8_t *s) { (void)ctx, (void)s; }
 static int32_t picture_shape(void *ctx, int32_t p) { (void)ctx, (void)p; return 0; }
 static void blit_word(void *ctx, int32_t s) { (void)ctx, (void)s; }
 static int32_t zero(void *ctx) { (void)ctx; return 0; }
+static int32_t deadline_passed(void *ctx) { (void)ctx; return ++deadline_asks > 200; }   /* idle long enough: the screen leaves (no hang) */
 static void fade_in(void *ctx, int32_t first, int32_t count, const uint8_t *rgb) { (void)ctx, (void)first, (void)count, (void)rgb; }
 static void deadline_set(void *ctx, int32_t t) { (void)ctx, (void)t; }
 static void sound(void *ctx, int32_t s) { (void)ctx, (void)s; }
@@ -53,7 +55,7 @@ static void words(void *ctx, const char *w) { (void)ctx, (void)w; }
 static void music_fade_out(void *ctx) { (void)ctx, music_fades++; }
 static void music_end(void *ctx) { (void)ctx, music_ends++; }
 static void music_service(void *ctx) { (void)ctx, music_services++; }
-static void movie(void *ctx, const char *n) { (void)ctx, (void)n; }
+static void movie(void *ctx, const char *n) { (void)ctx, (void)n, movies++; }
 static void music_start(void *ctx, const char *n) { (void)ctx, (void)n; }
 
 static const ShowcaseOps OPS = {
@@ -64,18 +66,18 @@ static const ShowcaseOps OPS = {
     .pointer_buttons = zero, .fade_in = fade_in, .deadline_set = deadline_set, .sound = sound, .pointer_hide = none, .lock = none,
     .ticks = zero, .pointer_activate_if_moved = none, .key = key, .pointer_click = none, .free = bank_free, .fade_out = fade_out,
     .pages = words, .figures = words, .music_fade_out = music_fade_out, .music_end = music_end, .movie = movie,
-    .music_start = music_start, .car_flags = none, .pointer_off = none, .music = music_service, .deadline_passed = zero, .ctx = NULL,
+    .music_start = music_start, .car_flags = none, .pointer_off = none, .music = music_service, .deadline_passed = deadline_passed, .ctx = NULL,
 };
 
 /* one showcase run, the keyboard's (the pointer not active), the pointer put at (x, y) first; returns the step it leaves on
  * (leave_step), or 99 without a carousel */
 static int16_t run(int carousel, int16_t entry, int32_t x, int32_t y, const uint16_t *keys)
 {
-    static int16_t car = 6, race = 1, track = 0, movies = 1, active = 0, buttons = 0;
+    static int16_t car = 6, race = 1, track = 0, offered = 1, active = 0, buttons = 0;
     static const int32_t screen = 0;
     int16_t step = entry;
-    ShowcaseState st = { &car, &race, &track, &movies, "", &active, &buttons, &screen, NULL, carousel ? &step : NULL };
-    music_ends = music_fades = music_services = fades_out = 0, keys_in = keys, key_at = 0;
+    ShowcaseState st = { &car, &race, &track, &offered, "", &active, &buttons, &screen, NULL, carousel ? &step : NULL };
+    music_ends = music_fades = music_services = fades_out = movies = deadline_asks = 0, keys_in = keys, key_at = 0;
     px = x, py = y;
     showcase(&st, &OPS);
     return carousel ? step : 99;
@@ -96,8 +98,23 @@ static void test_the_music_is_the_carousels(void)
     CHECK_EQ_INT(music_fades, 1);
 }
 
+static void test_entry_keeps_the_step(void)
+{
+    static const uint16_t ENTER_NOW[] = { ENTER, 0, 0 };
+    CHECK_EQ_INT(run(1, 1, -1, -1, ENTER_NOW), 1);   /* entered by Next: Enter takes Next again */
+    CHECK(px == 382 && py == 450);                   /* the pointer on Next (the game's place for it) */
+    CHECK_EQ_INT(movies, 0);
+    CHECK_EQ_INT(run(1, -1, -1, -1, ENTER_NOW), -1);   /* by Previous: Previous again */
+    CHECK(px == 230 && py == 450);
+    CHECK_EQ_INT(movies, 0);
+    static const uint16_t ESCAPE_NOW[] = { ESCAPE, 0, 0 };
+    CHECK_EQ_INT(run(1, 0, -1, -1, ESCAPE_NOW), 0);   /* the first entry: on the video as the game's; Escape is no step */
+    CHECK(px == 376 && py == 265);
+}
+
 int main(void)
 {
+    test_entry_keeps_the_step();
     test_the_music_is_the_carousels();
     return TEST_REPORT();
 }
