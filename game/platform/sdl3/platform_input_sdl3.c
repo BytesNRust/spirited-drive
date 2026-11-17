@@ -150,6 +150,7 @@ bool platform_poll_events(void)
             mouse_buttons = event.button.down ? (mouse_buttons | bit) : (mouse_buttons & ~bit);
         }
         if (event.type == SDL_EVENT_TEXT_INPUT) sdl3_text_push_utf8(event.text.text);
+        if (event.type == SDL_EVENT_DROP_FILE && event.drop.data != NULL) sdl3_drop_push(event.drop.data);   /* port (dep59 step 4b) */
         if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) key_latch_press((int)event.key.scancode);   /* port: a tap shorter than a poll still reaches the sim */
         if (event.type == SDL_EVENT_KEY_DOWN) push_editing_key(event.key.key);
         if (event.type == SDL_EVENT_KEY_DOWN && key_count < KEY_QUEUE_SIZE) {

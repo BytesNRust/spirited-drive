@@ -1,4 +1,4 @@
-/* The SDL3 platform's folders below the player's folder (platform.h, dep59 step 2): the installed mods' tree. Every path is checked to be
+/* The SDL3 platform's folders below the player's folder (platform.h, dep59 step 2): the installed mods' tree, and (step 4b) the editions'. Every path is checked to be
  * a clean relative one, and every part of it that exists not to be a symbolic link, before anything is done; a tree is removed without
  * following the links in it. On Windows and the web there is no link check (lstat), only the path's. */
 #include "platform/platform.h"
@@ -28,18 +28,27 @@ static bool is_link(const char *path)
 #endif
 }
 
+/* the folders of the player's folder that may change, and what is in them: the installed mods, their backups, the editions (dep59 4b) */
+static const char *const CHANGED[] = { "mods", "mods_backup", "editions" };
+
+/* 1 when the first part of the clean path `clean` is one of CHANGED */
+static bool may_change(const char *clean)
+{
+    const size_t first = strcspn(clean, "/");
+    for (size_t i = 0; i < sizeof CHANGED / sizeof CHANGED[0]; i++)
+        if (strlen(CHANGED[i]) == first && strncmp(clean, CHANGED[i], first) == 0) return true;
+    return false;
+}
+
 /* `rel` below the player's folder into `out`: a clean relative path, none of its parts that exist a link; one that is changed (`change`)
- * only in mods/ or mods_backup/ (or one of those two itself), whatever its caller asks */
+ * only in one of CHANGED (or one of them itself), whatever its caller asks */
 static bool tree_path_for(const char *rel, char out[TREE_PATH], bool change)
 {
     char clean[1024], dir[1200];
     if (rel == NULL || !modpath_clean(rel, clean, sizeof clean) || strcmp(clean, rel) != 0) return false;
-    if (change) {
-        const size_t first = strcspn(clean, "/");
-        if (!(first == 4 && strncmp(clean, "mods", 4) == 0) && !(first == 11 && strncmp(clean, "mods_backup", 11) == 0)) {
-            port_log("platform: %s is not below mods/ or mods_backup/: not changed\n", clean);
-            return false;
-        }
+    if (change && !may_change(clean)) {
+        port_log("platform: %s is not below mods/, mods_backup/ or editions/: not changed\n", clean);
+        return false;
     }
     if (sdl3_user_dir(dir, sizeof dir) == NULL) return false;
     if (SDL_snprintf(out, TREE_PATH, "%s%s", dir, clean) >= TREE_PATH) return false;

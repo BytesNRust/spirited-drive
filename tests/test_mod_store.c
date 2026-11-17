@@ -22,7 +22,8 @@
 #include <unistd.h>
 
 static char base[256], pref[300], cd[300], zips[300];
-static char why[256], id[64], old[32];
+static char why[256], old[32];
+static ModInfo got;   /* the card mod_store_install hands back */
 static uint8_t buf[1 << 16];
 
 static void make_dirs(const char *path)
@@ -129,8 +130,8 @@ static void fresh(void)
 static void test_install_and_update(void)
 {
     fresh();
-    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B one\n"), id, sizeof id, old, sizeof old, why, sizeof why));
-    CHECK(strcmp(id, "twk") == 0 && old[0] == '\0');
+    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B one\n"), &got, old, sizeof old, why, sizeof why));
+    CHECK(strcmp(got.id, "twk") == 0 && strcmp(got.version, "0.1") == 0 && old[0] == '\0');
     CHECK(file_is("mods/twk/track_light/TR1B.txt", "track TR1 B one\n") && file_is("mods/twk/README.md", "# test\n"));
     CHECK(!exists("mods/.staging/twk"));
     CHECK(strcmp(edition_text(), "") == 0);   /* available, in no edition */
@@ -140,7 +141,7 @@ static void test_install_and_update(void)
     use_edition("mine", "twk");   /* on: the edition in use names it */
     CHECK_EQ_INT(mod_store_list(e, 4), 1);
     CHECK(e[0].active);
-    CHECK(mod_store_install(tweak_zip("b.zip", "twk", "0.2", "track TR1 B two\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(mod_store_install(tweak_zip("b.zip", "twk", "0.2", "track TR1 B two\n"), &got, old, sizeof old, why, sizeof why));
     CHECK(strcmp(old, "0.1") == 0);
     CHECK(file_is("mods/twk/track_light/TR1B.txt", "track TR1 B two\n"));
     CHECK_EQ_INT(backups_of("twk"), 1);
@@ -155,10 +156,10 @@ static void test_install_and_update(void)
     for (int i = 3; i <= 6; i++) {   /* four more updates, in the same second: three backups stay */
         char version[8];
         snprintf(version, sizeof version, "0.%d", i);
-        CHECK(mod_store_install(tweak_zip("c.zip", "twk", version, "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+        CHECK(mod_store_install(tweak_zip("c.zip", "twk", version, "track TR1 B\n"), &got, old, sizeof old, why, sizeof why));
     }
     CHECK_EQ_INT(backups_of("twk"), 3);
-    CHECK(mod_store_install(tweak_zip("same.zip", "twk", "0.6", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(mod_store_install(tweak_zip("same.zip", "twk", "0.6", "track TR1 B\n"), &got, old, sizeof old, why, sizeof why));
     CHECK(strcmp(old, "0.6") == 0);   /* the same version again: reinstalled, with its backup */
     CHECK_EQ_INT(backups_of("twk"), 3);
 }
@@ -167,7 +168,7 @@ static void test_a_stopped_install_is_cleaned(void)
 {
     fresh();
     write_at("mods/.staging/twk/junk", "left by a run that stopped");
-    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), &got, old, sizeof old, why, sizeof why));
     CHECK(!exists("mods/.staging/twk/junk") && !exists("mods/twk/junk"));
 }
 
@@ -175,7 +176,7 @@ static void test_what_is_never_replaced(void)
 {
     fresh();
     write_at("mods/twk/mine.txt", "put here by hand");   /* no mod.ini */
-    CHECK(!mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(!mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), &got, old, sizeof old, why, sizeof why));
     CHECK(strstr(why, "not installed by the game") != NULL);
     CHECK(file_is("mods/twk/mine.txt", "put here by hand") && !exists("mods/twk/mod.ini") && !exists("mods_backup"));
     CHECK(!mod_store_uninstall("twk", why, sizeof why));
@@ -189,19 +190,19 @@ static void test_what_is_never_replaced(void)
         snprintf(path, sizeof path, "%s/bad.zip", zips);
         FILE *f = fopen(path, "wb");
         if (f != NULL) fwrite(buf, 1, size, f), fclose(f);
-        CHECK(!mod_store_install(path, id, sizeof id, old, sizeof old, why, sizeof why));
+        CHECK(!mod_store_install(path, &got, old, sizeof old, why, sizeof why));
         CHECK(!exists("mods") && !exists("mods_backup"));   /* refused before anything is written */
     }
     char missing[400];
     snprintf(missing, sizeof missing, "%s/none.zip", zips);
-    CHECK(!mod_store_install(missing, id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(!mod_store_install(missing, &got, old, sizeof old, why, sizeof why));
 }
 
 static void test_mods_not_a_folder(void)
 {
     fresh();
     write_at("mods", "a file");
-    CHECK(!mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(!mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), &got, old, sizeof old, why, sizeof why));
     CHECK(file_is("mods", "a file"));
     fresh();
     char elsewhere[400], link_path[400];
@@ -209,7 +210,7 @@ static void test_mods_not_a_folder(void)
     make_dirs(elsewhere);
     snprintf(link_path, sizeof link_path, "%s/mods", pref);
     CHECK(symlink(elsewhere, link_path) == 0);
-    CHECK(!mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(!mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B\n"), &got, old, sizeof old, why, sizeof why));
     char inside[500];
     snprintf(inside, sizeof inside, "%s/twk", elsewhere);
     struct stat st;
@@ -221,8 +222,8 @@ static void test_mods_not_a_folder(void)
 static void test_uninstall_and_restore(void)
 {
     fresh();
-    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B one\n"), id, sizeof id, old, sizeof old, why, sizeof why));
-    CHECK(mod_store_install(tweak_zip("o.zip", "other", "1", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.1", "track TR1 B one\n"), &got, old, sizeof old, why, sizeof why));
+    CHECK(mod_store_install(tweak_zip("o.zip", "other", "1", "track TR1 B\n"), &got, old, sizeof old, why, sizeof why));
     use_edition("both", "twk,other");
     CHECK(mod_store_uninstall("twk", why, sizeof why));
     CHECK(!exists("mods/twk") && backups_of("twk") == 1);
@@ -230,19 +231,29 @@ static void test_uninstall_and_restore(void)
     CHECK(file_is("editions/both.ini", "name=Test\ncars=rx7\ntracks=city\ntweaks=twk,other\n"));
     ModStoreEntry e[4];
     CHECK_EQ_INT(mod_store_list(e, 4), 1);
+    /* dep59 step 4b: an uninstalled mod with a backup is listed as removed, from its newest backup's card; the editions naming it counted */
+    CHECK_EQ_INT(mod_store_removed(e, 4), 1);
+    CHECK(strcmp(e[0].info.id, "twk") == 0 && strcmp(e[0].info.version, "0.1") == 0 && e[0].backups == 1 && !e[0].active);
+    CHECK_EQ_INT(mod_store_used_in("twk"), 1);
+    CHECK_EQ_INT(mod_store_used_in("nothing"), 0);
     CHECK(!mod_store_uninstall("twk", why, sizeof why));   /* not installed */
     CHECK(strstr(why, "not installed") != NULL);
     CHECK(mod_store_restore("twk", why, sizeof why));
     CHECK(file_is("mods/twk/track_light/TR1B.txt", "track TR1 B one\n") && backups_of("twk") == 0);
+    CHECK_EQ_INT(mod_store_removed(e, 4), 0);   /* installed again: not removed */
     CHECK(strcmp(edition_text(), "both") == 0);
     CHECK(!mod_store_restore("twk", why, sizeof why));   /* no backup left */
     CHECK(mod_store_uninstall("other", why, sizeof why) && mod_store_uninstall("twk", why, sizeof why));
-    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.2", "track TR1 B\n"), id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(mod_store_install(tweak_zip("a.zip", "twk", "0.2", "track TR1 B\n"), &got, old, sizeof old, why, sizeof why));
     CHECK(mod_store_uninstall("twk", why, sizeof why));
     CHECK(backups_of("twk") == 2 && backups_of("other") == 1);
     CHECK(mod_store_drop_backups("twk", why, sizeof why));
     CHECK(backups_of("twk") == 0 && backups_of("other") == 1);   /* only that id's */
     CHECK(!mod_store_uninstall("../x", why, sizeof why));
+    use_edition("solo", "twk");   /* a second edition naming it: two, whichever is in use */
+    CHECK_EQ_INT(mod_store_used_in("twk"), 2);
+    CHECK_EQ_INT(mod_store_used_in("other"), 1);
+    CHECK_EQ_INT(mod_store_used_in("../x"), 0);
 }
 
 /* the card under the name the game reads, whatever the zip spelt: listed by its exact name (a case-blind folder would find either) */
@@ -255,7 +266,7 @@ static void test_the_card_lands_as_mod_ini(void)
     snprintf(path, sizeof path, "%s/upper.zip", zips);
     FILE *f = fopen(path, "wb");
     if (f != NULL) fwrite(buf, 1, size, f), fclose(f);
-    CHECK(mod_store_install(path, id, sizeof id, old, sizeof old, why, sizeof why));
+    CHECK(mod_store_install(path, &got, old, sizeof old, why, sizeof why));
     char dir_path[700];
     snprintf(dir_path, sizeof dir_path, "%s/mods/twk", pref);
     int lower = 0, upper = 0;
@@ -281,7 +292,7 @@ static void test_a_card_of_another_id_is_left_alone(void)
     CHECK(file_is("mods/twk/mod.ini", "id=other\nname=Other\nversion=1\n"));
 }
 
-/* what changes the player's folder changes only mods/ and mods_backup/, whatever a caller asks */
+/* what changes the player's folder changes only mods/, mods_backup/ and editions/, whatever a caller asks */
 static void test_the_tree_changes_only_mods(void)
 {
     fresh();
@@ -298,6 +309,12 @@ static void test_the_tree_changes_only_mods(void)
     CHECK(platform_user_write_file_at("mods/y.txt", data, 1) && file_is("mods/y.txt", "y"));
     CHECK(platform_user_remove_tree("mods_backup/b") && !exists("mods_backup/b"));
     CHECK(platform_user_is_dir("mods") && !platform_user_is_dir("settings.ini"));   /* reading is not limited */
+    /* dep59 step 4b: editions/ too (the editions the CONTENT screen writes), and nothing beside it */
+    CHECK(platform_user_mkdirs("editions") && platform_user_write_file_at("editions/a.ini", data, 1) && file_is("editions/a.ini", "y"));
+    CHECK(platform_user_rename("editions/a.ini", "editions/b.ini") && file_is("editions/b.ini", "y") && !exists("editions/a.ini"));
+    CHECK(!platform_user_rename("editions/b.ini", "b.ini") && exists("editions/b.ini"));
+    CHECK(!platform_user_mkdirs("editionsx") && !exists("editionsx"));
+    CHECK(platform_user_remove_tree("editions/b.ini") && !exists("editions/b.ini"));
 }
 
 int main(void)

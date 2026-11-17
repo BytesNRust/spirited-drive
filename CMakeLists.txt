@@ -371,6 +371,7 @@ add_library(tnfs_game STATIC
     game/sys/mod_generation.c
     game/sys/edition_file.c
     game/sys/edition.c
+    game/sys/edition_store.c
     game/sys/edition_list.c
     game/frontend/mode_choices.c
     game/sys/mod_set.c
@@ -591,6 +592,8 @@ set(TNFS_SDL3_PLATFORM
     game/platform/sdl3/platform_mods_sdl3.c
     game/platform/sdl3/platform_user_sdl3.c
     game/platform/sdl3/platform_user_tree_sdl3.c
+    game/platform/sdl3/platform_drop_sdl3.c
+    game/platform/sdl3/platform_dialog_sdl3.c
     game/platform/sdl3/platform_present_sdl3.c
     game/platform/sdl3/platform_pool_sdl3.c)   # platform_sdl3.c split by responsibility; the tests that link the platform list them all
 add_executable(tnfs
@@ -1349,6 +1352,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_live_edition PRIVATE ${TNFS_WARNINGS})
     add_test(NAME live_edition COMMAND test_live_edition)
+    add_executable(test_edition_store tests/test_edition_store.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_edition_store PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_edition_store PRIVATE m)
+    endif()
+    target_compile_options(test_edition_store PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME edition_store COMMAND test_edition_store)
     add_executable(test_game_mode_choices tests/test_game_mode_choices.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_game_mode_choices PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
@@ -1418,6 +1428,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_platform_text_input PRIVATE ${TNFS_WARNINGS})
     add_test(NAME platform_text_input COMMAND test_platform_text_input)
+    add_executable(test_platform_drop tests/test_platform_drop.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_platform_drop PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_platform_drop PRIVATE m)
+    endif()
+    target_compile_options(test_platform_drop PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME platform_drop COMMAND test_platform_drop)
     add_executable(test_platform_cursor tests/test_platform_cursor.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_cursor PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
@@ -1435,7 +1452,7 @@ if(NOT EMSCRIPTEN)
     # the test includes platform_sdl3.c and platform_present_sdl3.c (to reach the renderer and the pacing); the rest of the platform is linked
     add_executable(test_platform_present tests/test_platform_present.c game/platform/sdl3/platform_audio_sdl3.c game/platform/sdl3/platform_input_sdl3.c
                    game/platform/sdl3/platform_mods_sdl3.c game/platform/sdl3/platform_user_sdl3.c game/platform/sdl3/platform_pool_sdl3.c
-                   game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+                   game/platform/sdl3/platform_drop_sdl3.c game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_present PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
         target_link_libraries(test_platform_present PRIVATE m)

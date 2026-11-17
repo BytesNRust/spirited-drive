@@ -18,7 +18,7 @@
 #include <strings.h>
 #include <time.h>
 
-enum { REL_MAX = 600 };
+enum { REL_MAX = 600, EDITION_IDS_MAX = 256 };   /* EDITION_IDS_MAX: the editions mod_store_used_in reads at most */
 
 static int refuse(char *why, size_t cap, const char *format, ...) __attribute__((format(printf, 3, 4)));
 static int refuse(char *why, size_t cap, const char *format, ...)
@@ -162,9 +162,9 @@ static int plan_for(const ModCheck *c, ModInfo *installed, int *has_card, ModIns
     return refuse(why, cap, "no free name for the backup of %s", target);
 }
 
-int mod_store_install(const char *zip_path, char *id_out, size_t id_cap, char *old_out, size_t old_cap, char *why, size_t why_cap)
+int mod_store_install(const char *zip_path, ModInfo *info_out, char *old_out, size_t old_cap, char *why, size_t why_cap)
 {
-    if (id_out != NULL && id_cap > 0) id_out[0] = '\0';
+    if (info_out != NULL) memset(info_out, 0, sizeof *info_out);
     if (old_out != NULL && old_cap > 0) old_out[0] = '\0';
     size_t size = 0;
     uint8_t *zip = read_zip(zip_path, &size, why, why_cap);
@@ -193,7 +193,7 @@ int mod_store_install(const char *zip_path, char *id_out, size_t id_cap, char *o
     if (ok) {
         if (update) trim_backups(c.info.id, MOD_BACKUPS_KEPT);
         folders_follow();
-        if (id_out != NULL) snprintf(id_out, id_cap, "%s", c.info.id);
+        if (info_out != NULL) *info_out = c.info;
         if (old_out != NULL && update) snprintf(old_out, old_cap, "%s", p.old_version);
         port_log("mods: %s %s %s\n", update ? "updated" : "installed", c.info.id, c.info.version);
     }
@@ -302,4 +302,44 @@ int mod_store_list(ModStoreEntry *out, int cap)
     platform_free_names(names);
     platform_free_names(saved);
     return n;
+}
+
+int mod_store_removed(ModStoreEntry *out, int cap)
+{
+    int backups = 0, n = 0;
+    char **saved = platform_user_list_dirs("mods_backup", &backups);
+    for (int k = 0; k < backups && n < cap; k++) {   /* each id once, from any of its backups (the folders are sorted) */
+        char rel[REL_MAX], newest[REL_MAX];
+        ModInfo card;
+        snprintf(rel, sizeof rel, "mods_backup/%s", saved[k]);
+        if (!platform_user_is_dir(rel) || !card_at(rel, &card) || !mod_ini_id_ok(card.id)) continue;
+        int listed = 0;
+        for (int i = 0; i < n && !listed; i++) listed = strcmp(out[i].info.id, card.id) == 0;
+        snprintf(rel, sizeof rel, "mods/%s", card.id);
+        if (listed || platform_user_is_dir(rel) || !newest_backup(card.id, newest, sizeof newest)) continue;
+        ModStoreEntry entry;
+        memset(&entry, 0, sizeof entry);
+        if (!card_at(newest, &entry.info) || strcmp(entry.info.id, card.id) != 0) continue;
+        entry.backups = backups_of(card.id, saved, backups);
+        out[n++] = entry;
+    }
+    platform_free_names(saved);
+    return n;
+}
+
+int mod_store_used_in(const char *id)
+{
+    static char ids[EDITION_IDS_MAX][EDITION_ID_MAX + 1];
+    static Edition e;
+    if (id == NULL || !mod_ini_id_ok(id)) return 0;
+    const int count = edition_list(ids, EDITION_IDS_MAX);
+    int used = 0;
+    for (int k = 0; k < count; k++) {
+        char why[160];
+        if (!edition_load(ids[k], &e, why, sizeof why)) continue;
+        int names = named(&e, id);
+        for (int i = 0; i < e.tracks && !names; i++) names = strcmp(e.track[i], id) == 0;
+        used += names;
+    }
+    return used;
 }
