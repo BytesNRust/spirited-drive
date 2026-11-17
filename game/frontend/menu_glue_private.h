@@ -71,6 +71,8 @@ int32_t menu_glue_back_to_menu(void *ctx);
 extern uint8_t menu_glue_mode_palette[768];
 extern int menu_glue_mode_palette_known;
 void menu_glue_extras_text_glue(void *ctx, int32_t style, const char *text, int32_t x, int32_t y);
+/* the gallery's arrow in Game Mode's styles (the page's own palette), as menu_glue_extras_text_glue sets them */
+void menu_glue_mode_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
 int32_t menu_glue_extras_text_width_glue(void *ctx, const char *text);
 void menu_glue_window_follows(const PortSettings *was);
 

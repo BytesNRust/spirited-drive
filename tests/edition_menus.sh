@@ -58,14 +58,14 @@ section_of() {   # the section step $1 belongs to
 }
 # the way in: our boot screen, EA's first movie, the title (a key ends its wait), Game Mode; Single, the name box, Control Central
 to_game_mode="1500:ESC,$(wait_for movie=),300:ESC,$(wait_for screen=title),300:ESC,$(wait_for screen=game_mode)"
-single="$(click 310 170),$(wait_for screen=name_box),300:TEXT:R,300:ENTER,$(wait_for screen=central)"
+single="$(click 310 215),$(wait_for screen=name_box),300:TEXT:R,300:ENTER,$(wait_for screen=central)"
 back="$(click 571 453),$(wait_for screen=game_mode)"   # Control Central's Cancel
 car_right() { printf '%s,%s' "$(click 319 197)" "$(wait_for "car=$1")"; }      # the car arrow's right (central_select.c), the card's mark
 track_right() { printf '%s,%s' "$(click 535 319)" "$(wait_for "card=$1")"; }   # the track arrow's right, the track card's mark
 race_type_right="$(click 317 352)"   # the race type arrow's right (central_select.c's race_type_item)
-# Game Mode's selector row (game_mode.c's ROW[CHOICE], y 296..365): a click on its right third shows the next choice, on its left third
+# Game Mode's selector row (game_mode.c's ROW[CHOICE], y 96..190): a click on its right third shows the next choice, on its left third
 # the one before; the choice applies once the arrows rest, or as the selection leaves the row
-next="$(click 500 330)" prev="$(click 100 330)"
+next="$(click 500 140)" prev="$(click 100 140)"
 
 # walk MODS: the game run with $script, which ends on a WAIT for a mark that never comes, a second long: the game stops there (status 3,
 # that step named), every step before it taken. Set for one walk: extra (more of the game's environment). 0 when so; else it says the
@@ -100,7 +100,7 @@ trio='trio=name=Trio\ncars=nsx,viper,diablo\ntracks=city,vegas\n'
 part_menus() {
     user_in restomod "$trio" 'a=name=A\ncars=supra\ntracks=city\n' 'b=name=B\ncars=diablo\ntracks=alpine\n'
     # the selector: Stock '96, Restored '96, Restomod '26, then a, b, trio by id; trio in use. A fresh player's race type: head to head
-    section closed;   add "$to_game_mode,$(click 310 218),$(wait_for game_mode=network_closed),$(click 320 270)"   # the gap: the banner closed
+    section closed;   add "$to_game_mode,$(click 310 265),$(wait_for game_mode=network_closed),$(click 320 370)"   # the gap: the banner closed
     section lists;    add "$single,$(car_right 5),$(car_right 7),$(car_right 1),$(track_right 8),$(track_right 0)"
     section closed;   add "$race_type_right,$race_type_right,$(wait_for race_type=no_tournament),$back"   # single race, then over to time trial
     section live;     add "$prev,$prev,$(wait_for edition=a),$single,$back,$next,$(wait_for edition=b),$single,$back"

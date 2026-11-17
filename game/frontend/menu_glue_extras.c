@@ -3,6 +3,7 @@
 #include "game/sys/mod_set.h"
 #include "game/sys/edition_file.h"
 #include "game/frontend/unlock_level.h"
+#include "game/frontend/central_split.h"
 
 /* port: the EXTRAS dispatcher the Game Mode's MODEM slot calls when the original modem flow is gone. It opens the
  * EXTRAS screen over the live Game Mode picture and saves the mode's file and the unlock level on Done. */
@@ -121,6 +122,11 @@ void menu_glue_extras_text_glue(void *ctx, int32_t style, const char *text, int3
     const uint8_t *const art = item_mask(text, &w);
     if (art != NULL) text_draw_item_mask(art, w, ITEM_ART_H, x, MODEM_CAP_TOP - ITEM_ART_PAD);
     else text_draw_smooth(text, x, y, MODE_TEXT_NUM, MODE_TEXT_DEN);
+}
+void menu_glue_mode_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y)
+{
+    extras_text_styles_glue(ctx);
+    central_page_arrow(ctx, right, lit, x, y);
 }
 int32_t menu_glue_extras_text_width_glue(void *ctx, const char *text)
 {

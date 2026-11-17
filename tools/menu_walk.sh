@@ -101,7 +101,7 @@ fi
 steps_after=""   # set by the targets whose own steps go on after their mark (the done wait below)
 case $target in
 game-mode)    script="$to_game_mode${KEYS:+,$KEYS}"; final=game_mode; tail=${TAIL:-3} ;;
-content)      script="$to_game_mode,$(click 320 383),$(wait_for content)${KEYS:+,$KEYS}"; final=content; PROFILE=${PROFILE:-restomod} ;;   # ROW[MANAGE]
+content)      script="$to_game_mode,$(click 320 315),1500:CLICK:320:383,$(wait_for content)${KEYS:+,$KEYS}"; final=content; PROFILE=${PROFILE:-restomod} ;;   # ROW[MANAGE]: y 315 in the reordered Game Mode, y 383 in the one before (menu_compare walks both; the click that misses lands on the selector or on nothing)
 central)      script="$to_central${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3} ;;
 showcase)     script="$to_central,$(click 180 200),$(wait_for showcase)"; final=showcase ;;
 added-gallery) script="$to_central,$(click 180 200),$(wait_for added_gallery)${KEYS:+,$KEYS}"; final=added_gallery; tail=${TAIL:-3} ;;

@@ -6,7 +6,7 @@
 include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")
 # the title, Game Mode's Single, the name box left
 set(step 60)
-set(script "0:WAIT:mark:screen=title:${step},4000:ESC,0:WAIT:mark:screen=game_mode:${step},300:CLICK:310:170,0:WAIT:mark:screen=name_box:${step}")
+set(script "0:WAIT:mark:screen=title:${step},4000:ESC,0:WAIT:mark:screen=game_mode:${step},300:CLICK:310:215,0:WAIT:mark:screen=name_box:${step}")
 set(script "${script},500:TEXT:R,500:ENTER,0:WAIT:mark:screen=central:${step},0:WAIT:mark:never:4")
 # the title's song is picked by the clock, and one of its 12 picks plays nothing (0045638c's skipped track): a walk with no song is walked again
 foreach(attempt 1 2 3)

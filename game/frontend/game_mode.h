@@ -89,6 +89,9 @@ typedef struct GameModeOps {
     /* port (dep59 step 4b, T7): Manage content's CONTENT screen, opened on the selector's choice `shown` (GAME_MODE_CHOICE_* indices: the
      * modes, then the editions); the choice it closed on, -1 for none. NULL: the later version's banner */
     int32_t (*manage)(void *ctx, int32_t shown);
+    /* port (the reorder): the gallery's yellow arrow, right (1) or left (0), lit or not, with its top left at (x, y), for the selector. NULL:
+     * the name between "<" and ">" */
+    void (*arrow)(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
 } GameModeOps;
 
 typedef struct GameModeState {
