@@ -15,24 +15,13 @@ static int failed(const char *why)
     return 1;
 }
 
-/* the installed mod `id`'s card into `out`; 0 when it is not listed */
-static int installed(const char *id, ModStoreEntry *out)
-{
-    static ModStoreEntry all[LISTED_MAX];
-    const int n = mod_store_list(all, LISTED_MAX);
-    for (int i = 0; i < n; i++)
-        if (strcmp(all[i].info.id, id) == 0) return *out = all[i], 1;
-    return 0;
-}
-
 int mod_commands_install(const char *zip_path)
 {
-    char id[MOD_INI_ID_MAX + 1], old[MOD_INI_VERSION_MAX + 1], why[300];
-    if (!mod_store_install(zip_path, id, sizeof id, old, sizeof old, why, sizeof why)) return failed(why);
-    ModStoreEntry e;
-    const char *version = installed(id, &e) ? e.info.version : "?";
-    if (old[0] != '\0') printf("updated %s %s -> %s\n", id, old, version);
-    else printf("installed %s %s\n", id, version);
+    char old[MOD_INI_VERSION_MAX + 1], why[300];
+    ModInfo info;
+    if (!mod_store_install(zip_path, &info, old, sizeof old, why, sizeof why)) return failed(why);
+    if (old[0] != '\0') printf("updated %s %s -> %s\n", info.id, old, info.version);
+    else printf("installed %s %s\n", info.id, info.version);
     return 0;
 }
 

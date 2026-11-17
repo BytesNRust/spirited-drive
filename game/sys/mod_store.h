@@ -13,8 +13,9 @@
 #include <stddef.h>
 
 /* Each returns 1, or 0 with the reason for the player in `why`. */
-/* installs or updates the mod in the zip at `zip_path`: its id in `id_out`, and the version it replaced in `old_out` ("" when new) */
-int mod_store_install(const char *zip_path, char *id_out, size_t id_cap, char *old_out, size_t old_cap, char *why, size_t why_cap);
+/* installs or updates the mod in the zip at `zip_path`: its card in `info_out` (NULL: not wanted; cleared on a failure), and the version
+ * it replaced in `old_out` ("" when new) */
+int mod_store_install(const char *zip_path, ModInfo *info_out, char *old_out, size_t old_cap, char *why, size_t why_cap);
 int mod_store_uninstall(const char *id, char *why, size_t why_cap);
 /* the newest backup of `id` back to mods/<id>; an installed one there goes to a backup first */
 int mod_store_restore(const char *id, char *why, size_t why_cap);
@@ -28,5 +29,11 @@ typedef struct {
 } ModStoreEntry;
 /* the installed mods (folders of mods/ with a card), by id; how many (at most `cap`) */
 int mod_store_list(ModStoreEntry *out, int cap);
+/* port (dep59 step 4b): the mods not installed that still have a backup (the CONTENT screen's "(removed)", which Previous version brings
+ * back): each with its newest backup's card and how many backups it has, by id; how many (at most `cap`) */
+int mod_store_removed(ModStoreEntry *out, int cap);
+/* port (dep59 step 4b): how many editions in editions/ name `id` among their cars, tracks or tweaks ("Used in N editions"); 0 for an id
+ * that is not a mod's */
+int mod_store_used_in(const char *id);
 
 #endif
