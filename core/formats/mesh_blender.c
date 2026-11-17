@@ -160,7 +160,8 @@ int mesh_blender_back(const ObjModel *blender, const ObjModel *original, const M
         }
         if (t < 0) t = texture_of(original, of);
         if (t >= 0 && (uint32_t)t >= size_count) {
-            exchange_fail(err, "line %u: face %u's material names t%d, a texture the mesh does not have (it has %u)", bf->line, f, t, size_count);
+            exchange_fail(err, "line %u: face %u's material names t%d, a texture the mesh does not have (it has %u; a bitmap of the car's own is "
+                               "in the model it was added to: car texture add --low for the far one)", bf->line, f, t, size_count);
             ok = 0;
             break;
         }

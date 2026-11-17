@@ -8,6 +8,7 @@
  *   tnfs-studio car card PIECE_DIR --generic | --tnfs BIN ...   (studio/car_card.h)
  *   tnfs-studio car import PIECE_DIR --obj FILE.obj ...   (studio/car_import.h)
  *   tnfs-studio car resize PIECE_DIR NAME WxH ...   (studio/car_resize.h)
+ *   tnfs-studio car texture add PIECE_DIR NAME FILE.png ...   (studio/car_texture.h)
  *   tnfs-studio mod pack DIR OUT.zip [--force]   (studio/mod_pack.h)
  * `export` and `import` are the same two commands. Packing needs the original file: edits overlay it, and
  * an untouched file comes back byte for byte (a packed file keeps its original stream). Nothing is
@@ -60,6 +61,7 @@ static void usage(FILE *to)
           "  tnfs-studio car import PIECE_DIR --obj FILE.obj [--low FILE.obj] [--textures DIR] [--low-textures DIR] [--raw] [--scale S]\n"
           "                         [--steer DEGREES] [--donor CAR] [--keep-pdn] [--data DIR] [--force]\n"
           "  tnfs-studio car resize PIECE_DIR NAME WxH [--image FILE.png] [--low]\n"
+          "  tnfs-studio car texture add PIECE_DIR NAME FILE.png [--low] [--label LABEL]\n"
           "  tnfs-studio mod pack DIR OUT.zip [--force]\n"
           "  (export = unpack, import = pack)\n"
           "Level 1 limit: a replaced car's short name on the results and records screens stays the original model's\n"

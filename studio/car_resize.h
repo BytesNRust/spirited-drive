@@ -17,4 +17,11 @@
 /* argv[0] is "car", argv[1] "resize". 0 with `err` filled on failure. */
 int car_resize_command(int argc, char **argv, ExchangeError *err);
 
+#include <stddef.h>
+#include <stdint.h>
+
+/* the picture `path` as *w x *h pixels of the CFM's `level` bank's palette (car_texture_from_png: malloc'd; NULL with `err`); the
+ * pixels it had to give the nearest colour said on stdout */
+uint8_t *car_bank_png_pixels(const char *path, const uint8_t *cfm, size_t len, int level, uint16_t *w, uint16_t *h, ExchangeError *err);
+
 #endif

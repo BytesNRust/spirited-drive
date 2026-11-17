@@ -74,6 +74,7 @@ add_library(tnfs_core STATIC
     core/formats/car_import_mesh.c
     core/formats/car_import_tables.c
     core/formats/car_resize.c
+    core/formats/car_texture_add.c
     core/formats/mesh_blender.c
     core/formats/mesh_exchange.c
     core/formats/modpath.c
@@ -756,7 +757,7 @@ endif()
 
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
-    add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_card.c studio/car_card_shot.c studio/mod_validate.c studio/mod_pack.c)
+    add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_texture.c studio/car_card.c studio/car_card_shot.c studio/mod_validate.c studio/mod_pack.c)
     add_executable(model_build_piece tests/model_build_piece.c)
     target_link_libraries(model_build_piece PRIVATE tnfs_core)
     target_compile_options(model_build_piece PRIVATE ${TNFS_WARNINGS})
@@ -772,7 +773,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_resize doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_install edition_ini stock_content)
+    foreach(name qfs qfs_encode car_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_install edition_ini stock_content)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -801,6 +802,7 @@ foreach(name port_old_files car_registry car_lights ai_added car_list content_ro
     target_compile_definitions(test_mesh_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_shpi_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_resize PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_car_texture_add PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_cfm_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_mod_check PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_import_layout PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -1285,6 +1287,7 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(mod_install_game_tri PROPERTIES FIXTURES_REQUIRED mod_install_before)
         add_test(NAME car_import_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_import.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/tests/car_import ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:blender_like_tool>)
         add_test(NAME car_resize_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_resize.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:blender_like_tool>)
+        add_test(NAME car_texture_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_texture.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:blender_like_tool>)
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands

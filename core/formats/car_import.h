@@ -34,7 +34,8 @@ typedef struct {
     const FileSet *high_tables, *low_tables;   /* raw: mesh_export's tables (any stem), and its NAME.obj for a Blender OBJ; else NULL */
     const FileSet *high_pngs, *low_pngs;   /* the textures, each under its map_Kd path as the MTL writes it */
     const uint8_t *own_cfm;                /* raw: the piece's CFM as it is now, or NULL. A level whose bank names the donor's entries in
-                                            * the donor's order with the donor's palettes (a retouch of it: car resize may have given a bitmap another size) keeps
+                                            * the donor's order with the donor's palettes, then perhaps bitmaps of
+                                            * its own (car texture add) (a retouch of it: car resize may have given a bitmap another size) keeps
                                             * the piece's bank, and Blender's uvs are read with its sizes; without a low OBJ the piece's
                                             * far model stays when its bank is such. Any other bank: the donor's, as without it */
     size_t own_cfm_len;

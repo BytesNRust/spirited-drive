@@ -54,8 +54,9 @@ void car_import_halves(const MeshDesc *mesh, int32_t half[3])
     for (int k = 0; k < 3; k++) half[k] = (int32_t)(((int64_t)(most[k] - least[k]) << 9) / 2);
 }
 
-/* the piece's own bank of `level` in place of the donor's when it names the donor's entries in its order and its palettes are the
- * donor's (raw, dep71 follow-up: a retouch of the donor, whose bitmaps car resize may have given other sizes); 1 when it took it */
+/* the piece's own bank of `level` in place of the donor's when it names the donor's entries in its order with the donor's palettes,
+ * perhaps with bitmaps of its own after them (raw, dep71 follow-ups: a retouch of the donor, whose bitmaps car resize may have given
+ * other sizes, and car texture add bitmaps of its own); 1 when it took it */
 static int own_bank(const CarImportIn *in, int level, DonorLevel *d)
 {
     const uint8_t *child[CFM_CHILDREN];
@@ -63,14 +64,16 @@ static int own_bank(const CarImportIn *in, int level, DonorLevel *d)
     ExchangeError ignored = { { 0 } };
     if (!in->raw || in->own_cfm == NULL || !cfm_describe(in->own_cfm, in->own_cfm_len, child, len, &ignored)) return 0;
     ShpiDescEntry *own = malloc(DONOR_BANK_CAP * sizeof *own);
-    int same = own != NULL && shpi_describe(child[2 * level + 1], len[2 * level + 1], own, DONOR_BANK_CAP, &n, &ignored) && n == d->bank_count;
-    for (size_t i = 0; same && i < n; i++) {   /* the same entries, and the palettes the donor's byte for byte (cars name theirs alike) */
+    int same = own != NULL && shpi_describe(child[2 * level + 1], len[2 * level + 1], own, DONOR_BANK_CAP, &n, &ignored) && n >= d->bank_count;
+    for (size_t i = 0; same && i < d->bank_count; i++) {   /* the donor's entries, and its palettes byte for byte (cars name theirs alike) */
         const int palette = own[i].type != 0x7b;
         same = memcmp(own[i].name, d->bank[i].name, 4) == 0 && own[i].type == d->bank[i].type &&
                (!palette || memcmp(own[i].data, d->bank[i].data, SHPI_PALETTE_BYTES) == 0);
     }
+    for (size_t i = d->bank_count; same && i < n; i++) same = own[i].type == 0x7b;   /* then bitmaps of its own (car texture add) */
     if (same) {
         memcpy(d->bank, own, n * sizeof *own);
+        d->bank_count = n;
         d->shpi = child[2 * level + 1], d->shpi_len = len[2 * level + 1];
     }
     free(own);
