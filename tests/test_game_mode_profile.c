@@ -26,8 +26,9 @@ typedef struct Fake {
     int exits_asked, names_asked, networks_asked, banners, manage_banner;
     const char *network_why;                      /* dep59 step 4: the reason Multiplayer is closed (an edition in use), NULL open */
     int network_banner, multi_style;
-    int timer_after_banner;
-    int32_t result;                               /* game_mode_menu's, from run */                       /* the idle deadline set again after the last banner (0 when a banner came last) */
+    int timer_after_banner;                       /* the idle deadline set again after the last banner (0 when a banner came last) */
+    int32_t result;                               /* game_mode_menu's, from run */
+    int manages, manage_shown, manage_answer;     /* T7: the CONTENT screen opened, on which choice, and the one it closed on */
     int said_customize;
     char last_title[64];
     Rect single, multi, title, manage, exit, version, notice;
@@ -85,6 +86,12 @@ static void f_banner(void *c, const char *t, int32_t n)
     f->network_banner += f->network_why != NULL && strcmp(t, f->network_why) == 0;
 }
 static const char *f_network_closed(void *c) { return ((Fake *)c)->network_why; }
+static int32_t f_manage(void *c, int32_t shown)
+{
+    Fake *f = c;
+    f->manages++, f->manage_shown = shown;
+    return f->manage_answer;
+}
 static int32_t f_name(void *c, char *n) { (void)n; ((Fake *)c)->names_asked++; return 1; }
 static void f_fade_out(void *c, int32_t a, int32_t n) { (void)c, (void)a, (void)n; }
 static int32_t f_yes(void *c, const char *t)
@@ -172,6 +179,7 @@ static int32_t run(Fake *f, const int *keys, int count)
         .plus_text = f_text, .plus_text_width = f_width, .extras_cover = f_cover, .choice = f_choice, .plus_text_scaled = f_text_scaled,
         .plus_text_width_scaled = f_width_scaled, .footer = f_footer, .open_notice = f_open, .network_closed = f_network_closed };
     if (!f->no_clock) ops.clock_ms = f_clock, ops.fade_out_quick = f_quick_out, ops.fade_in_quick = f_quick_in;
+    if (f->manage_answer != 0) ops.manage = f_manage;   /* T7: with a CONTENT screen (0 in a rig: the banner of before) */
     return f->result = game_mode_menu(0, &st, &ops);
 }
 
@@ -373,6 +381,25 @@ static void test_manage(void)
     CHECK_EQ_INT(f.names_asked, 0);
 }
 
+/* step 4b, T7: Manage content opens the CONTENT screen on the choice in use, and the choice it closes on is applied (the edition just
+ * edited is the one in use); in Stock and Restored it stays dim and opens nothing */
+static void test_manage_opens_content(void)
+{
+    Fake f;
+    const int enter[] = { ENTER, ESCAPE };
+    rig(&f, 320, ROW_MANAGE, 1);
+    f.manage_answer = 4;   /* closed on the second edition */
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.manages, 1);
+    CHECK_EQ_INT(f.manage_shown, 2);   /* Restomod '26 in use */
+    CHECK_EQ_INT(f.manage_banner, 0);
+    CHECK_EQ_INT(f.last_apply, 4);
+    rig(&f, 320, ROW_MANAGE, 1);
+    f.manage_answer = 4, f.in_use = 0;   /* Stock: dim, nothing opened */
+    run(&f, enter, 2);
+    CHECK_EQ_INT(f.manages, 0);
+}
+
 /* dep59 step 4, T7: in an edition Multiplayer is dimmed; Return on it says why and opens nothing; in the standard edition it is as before */
 static void test_multiplayer_in_an_edition(void)
 {
@@ -498,6 +525,7 @@ int main(void)
     test_clicks_show_and_the_name_applies();
     test_manage();
     test_multiplayer_in_an_edition();
+    test_manage_opens_content();
     test_the_pointer_rects();
     test_the_foot_line();
     test_the_notice_is_its_own_text();

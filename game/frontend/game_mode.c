@@ -272,6 +272,25 @@ static void came_back(Menu *m, GameModeState *st, int16_t r, const GameModeOps *
     }
 }
 
+static void choice_read(Menu *m, const GameModeOps *o);
+
+/* port (dep59 step 4b, T7): the CONTENT screen on the choice in use; the choices read again (editions made or deleted there), the one it
+ * closed on applied (the edition just edited is the one in use), and Game Mode drawn and faded in again as after the EXTRAS screen */
+static void manage(Menu *m, const GameModeOps *o)
+{
+    const int32_t next = o->manage(o->ctx, m->in_use);
+    choice_read(m, o);
+    if (next >= 0 && next < m->count && next != m->in_use) {
+        m->shown = next;
+        settle_choice(m, o, 1);
+    }
+    o->deadline_set(o->ctx, WAIT);
+    palette_load(m, o);
+    m->redraw = 1;
+    m->fade = 1;
+    move_to(m, o);
+}
+
 /* port (dep59 step 4): the selector's state from the choice op: how many, the one in use, shown */
 static void choice_read(Menu *m, const GameModeOps *o)
 {
@@ -356,9 +375,13 @@ static void choose(Menu *m, GameModeState *st, const GameModeOps *o)
         else if (st->buttons == LEFT_BUTTON && o->pointer_in_rect(o->ctx, CHOICE_RIGHT, WIDE, ROW[CHOICE].y0, ROW[CHOICE].y1)) cycle_choice(m, o, 1);
         else settle_choice(m, o, 0);
         break;
-    case MANAGE:   /* port (dep59 step 4): the editions' screen is a later version's; in Stock and Restored, nothing */
+    case MANAGE:   /* port (dep59 step 4b): the CONTENT screen (with no manage op, a later version's banner); in Stock and Restored, nothing */
         if (!restomod_in_use(m)) break;
         port_log("mark:game_mode=manage\n");
+        if (o->manage != NULL) {
+            manage(m, o);
+            break;
+        }
         o->banner_wait(o->ctx, MANAGE_LATER, TOLD);
         o->deadline_set(o->ctx, WAIT);   /* as Multiplayer's banner */
         m->redraw = 1;

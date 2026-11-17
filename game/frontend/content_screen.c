@@ -118,6 +118,7 @@ void content_screen_run(const ContentOps *o, int32_t *edition)
         else if (a.kind == CONTENT_ACT_NONE && (x != px || y != py)) a = content_nav_point(&s.nav, &s.view, x, y);
         buttons = now, px = x, py = y;
         if (a.kind != CONTENT_ACT_NONE) perform(&s, o, a), redraw = 1;
+        if (o->dropped != NULL && o->dropped(o->ctx, &s.edition)) load(&s, o), redraw = 1;   /* port (T7): a file dropped, installed */
         o->wait(o->ctx);
     }
     *edition = s.edition;
