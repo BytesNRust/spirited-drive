@@ -4,6 +4,8 @@
 
 #include "game/gfx/x86_int.h"
 
+#include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 
 typedef char race_net_link_size_check[sizeof(RaceNetLink) == 0x54 ? 1 : -1];
@@ -452,6 +454,19 @@ static int settings_match(const RaceNetSync *s)
            set_dword(t + RACE_NET_SET_4FBADC) == s->unknown_4fbadc && state_word(t, RACE_NET_SET_READY) == s->unknown_52b318;
 }
 
+int race_net_track_ok(int16_t track) { return track >= 0 && track < RACE_NET_TRACKS; }
+
+int race_net_fake_track_word(const char *text, int16_t *word)
+{
+    if (text == NULL || *text == '\0') return 0;
+    char *end;
+    errno = 0;
+    const long v = strtol(text, &end, 0);
+    if (errno != 0 || end == text || *end != '\0' || v < -32768 || v > 0xFFFF) return 0;
+    *word = (int16_t)(uint16_t)v;
+    return 1;
+}
+
 static void bump(int16_t *w) { *w = (int16_t)(*w + 1); }
 
 static void sync_host(const RaceNetSyncOps *ops, RaceNetSync *s)
@@ -496,6 +511,11 @@ static void sync_client(const RaceNetSyncOps *ops, RaceNetSync *s)
     }
     if (s->unknown_50a5ba != 0 && s->unknown_52b302 == 0) {
         ops->lock(ops->ctx, s->lock);
+        if (!race_net_track_ok(state_word(t, RACE_NET_SET_TRACK))) {  /* port guard: a track this version has not */
+            s->bad_track = 1, s->unknown_50a5ba = 0;
+            ops->unlock(ops->ctx, s->lock);
+            return;
+        }
         if (s->race_type != state_word(t, RACE_NET_SET_TYPE) && s->unknown_52b310 != 0) ops->menu(ops->ctx);
         s->race_type = state_word(t, RACE_NET_SET_TYPE), s->track = state_word(t, RACE_NET_SET_TRACK);
         s->unknown_524ea1 = state_word(t, RACE_NET_SET_524EA1), s->unknown_524ea3 = state_word(t, RACE_NET_SET_524EA3);

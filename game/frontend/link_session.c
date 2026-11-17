@@ -5,6 +5,7 @@
 #include "game/frontend/frontend.h"
 #include "game/frontend/menu_glue.h"
 #include "game/platform/platform.h"
+#include "game/frontend/link_central.h"
 #include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/sys/timer.h"
@@ -203,6 +204,7 @@ static void c_release(void *ctx)
 
 int32_t link_connect(const uint8_t *address)
 {
+    link_central_left_forget();   /* port: a new join is told its own way out */
     RaceNetConnect c;
     connect_in(&c);
     const RaceNetConnectOps ops = { &c, c_connect, c_message, c_service, c_reset, c_join, c_shut_down, c_deadline,

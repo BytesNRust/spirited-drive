@@ -26,7 +26,8 @@ typedef struct WinMovieState {
  * is below it (ties won). Then: race type 3 marks the track won (+0x580 + 2 x track) and, the nine tracks' wins
  * summed, all nine at 9 with Lost Vegas or the first eight at 8 without, win#7.tgv (winner.qfs on a new screen picture, 00466f68 mode 0,
  * while 0052b2fc is 0); else the track's movie (win#2, 4, 6, 1, 3, 3, 5, 5; win#5 past track 7). Other race types
- * but 0: win#N.tgv, N 00466f34's pick (asked again while 2) plus 1, 3 or 5 for levels below 3, below 6 or above. */
+ * but 0: win#N.tgv, N 00466f34's pick (asked again while 2) plus 1, 3 or 5 for levels below 3, below 6 or above.
+ * Port guard: a track outside 0..8 marks nothing (no race run, no win) and a type 3 win plays win#5. */
 void win_movie(const WinMovieState *st, const CopStopOps *ops);
 
 #endif

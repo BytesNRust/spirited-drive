@@ -248,6 +248,7 @@ typedef struct {
     int16_t *unknown_524e8b;          /* 00524e8b (this machine's), then 00524e8d's 8 */
     int16_t *unknown_52b2b4;          /* 8 */
     int32_t unknown_4fbad8, unknown_4fbadc;
+    int16_t bad_track;                /* port: set when the host's settings named a track past the nine (none taken) */
 } RaceNetSync;
 
 /* 004104d0 (watcall (), 12 callers): nothing without 0052b312; else
@@ -266,8 +267,18 @@ typedef struct {
  * 0050a5ba = 0, unlock, 0052b31a + 1. Else when 00524e8b or 0052b318 is not
  * its slot's in the settings and 0052b316 0: both stored there and sent to
  * the host (6 bytes: 7, 00524e8b, 0052b318); else 0052b31a = 0. Port guards:
- * the humans loop stops at 8, a slot outside 0..7 sends nothing. */
+ * the humans loop stops at 8, a slot outside 0..7 sends nothing; a client takes none of the settings when their track
+ * is not one of the nine (race_net_track_ok), sets bad_track and clears 0050a5ba (its glue leaves the game). */
 void race_net_sync(const RaceNetSyncOps *ops, RaceNetSync *s);
+
+enum { RACE_NET_TRACKS = 9 };   /* the menu's tracks, 0..8: every table the track word reaches has nine */
+
+/* port: 1 when TRACK is one of the nine a link game can race */
+int race_net_track_ok(int16_t track);
+
+/* test harness only (TNFS_FAKE_HOST_TRACK): 1 and the word in *WORD when TEXT is a whole number from -32768 to 0xFFFF
+ * (decimal, or 0x hex); else 0 and *WORD as it was (NULL, empty, junk after the number, out of range) */
+int race_net_fake_track_word(const char *text, int16_t *word);
 
 enum { RACE_NET_STAGE_KIND = 5, RACE_NET_STAGE_FLAG = 5 /* 0050a5b6 = 0050a5ac[5] */ };
 

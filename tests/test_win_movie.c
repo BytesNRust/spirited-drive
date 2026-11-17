@@ -31,9 +31,31 @@ static void run(int16_t view, int expected)
     CHECK_EQ_INT(game[0x592 + 2 * 3], 1);  /* the track's race is marked run either way */
 }
 
+/* a track word past the nine (from a host on the network): no word of the game state is written, the movie win#5 */
+static void unknown_track(int16_t track)
+{
+    uint8_t game[GAME_STATE_SIZE] = { 0 }, before[GAME_STATE_SIZE];
+    const int16_t dropped[8] = { 0 };
+    int32_t screen = 0;
+    const int32_t total = 5, other = 9;
+    memcpy(game + 0x65, &total, sizeof total);
+    memcpy(game + 0x95 + 0x65, &other, sizeof other);
+    memcpy(before, game, sizeof game);
+    const WinMovieState st = { game, 0, 2, 0, dropped, 3, track, 0, 0, &screen };
+    const CopStopOps ops = { picture_new, screen_show, picture_free, pick, movie, NULL };
+    plays = 0, played[0] = 0;
+    win_movie(&st, &ops);
+    CHECK(memcmp(game, before, sizeof game) == 0);
+    CHECK_EQ_INT(plays, 1);
+    CHECK(strcmp(played, "win#5.tgv") == 0);
+}
+
 int main(void)
 {
     run(0, 1);
     run(1, 0);
+    unknown_track(9);
+    unknown_track(15);
+    unknown_track(-1);   /* 0xFFFF */
     return TEST_REPORT();
 }

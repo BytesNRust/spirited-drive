@@ -43,10 +43,15 @@ static const char *track_movie(uint16_t track)
 void win_movie(const WinMovieState *st, const CopStopOps *ops)
 {
     const int w = won(st);
-    uint8_t *const at = st->game_state + 2 * st->track;
-    p16(at + RACES_AT, 1);
+    const int known = st->track >= 0 && st->track < TRACKS;   /* port guard: the track word may come from the network */
+    uint8_t *const at = st->game_state + 2 * (known ? st->track : 0);
+    if (known) p16(at + RACES_AT, 1);
     if (!w) return;
     if (st->race_type == 3) {
+        if (!known) {
+            ops->movie(ops->ctx, track_movie((uint16_t)st->track));
+            return;
+        }
         p16(at + WINS_AT, 1);
         int32_t wins = 0;
         for (int i = 0; i < TRACKS - 1; i++) wins += g16(st->game_state + WINS_AT + 2 * i);
