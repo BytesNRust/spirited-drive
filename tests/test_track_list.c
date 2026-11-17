@@ -3,8 +3,10 @@
  * track left out, and the hidden track (9, no geometry on the CD) never listed. */
 #include "game/frontend/track_list.h"
 #include "formats/edition_ini.h"
+#include "game/sys/track_registry.h"
 #include "test.h"
 
+#include <stdio.h>
 #include <string.h>
 
 static int listed(const TrackList *l, const int16_t *want, int n)
@@ -21,6 +23,35 @@ static Edition edition_of(const char *text)
     char why[128];
     CHECK(edition_parse((const uint8_t *)text, strlen(text), &e, why, sizeof why));
     return e;
+}
+
+static int add_track(const char *id, const char *stem)
+{
+    TrackPiece p;
+    memset(&p, 0, sizeof p);
+    snprintf(p.id, sizeof p.id, "%s", id), snprintf(p.name, sizeof p.name, "%s", id), snprintf(p.stem, sizeof p.stem, "%s", stem);
+    p.spec.kind = TRACK_KIND_STAGE, p.spec.segments = 1, p.spec.times = TRACK_TIME_DAY, p.fingerprint = 7;
+    return track_registry_add(&p, NULL, 0);
+}
+
+/* dep59 step 5, T7b: a registered added track in tracks= is listed at its place by its number (16..79); an id that is registered by nobody is left out */
+static void test_added(void)
+{
+    TrackList l;
+    track_registry_clear();
+    const int a = add_track("alp-pass", "ZZA"), b = add_track("dune", "ZZB");
+    CHECK(a >= TRACK_ADDED_FIRST && b > a);
+    Edition e = edition_of("name=Mixed\ntracks=city,dune,nothere,alp-pass,vegas\n");
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);
+    CHECK(listed(&l, (const int16_t[]){ 0, (int16_t)b, (int16_t)a, 8 }, 4));
+    CHECK_EQ_INT(track_list_step(&l, (int16_t)b, 1), a);   /* the arrows pass through them */
+    CHECK_EQ_INT(track_list_step(&l, 0, -1), 8);
+    CHECK(track_list_has(&l, (int16_t)a));
+    track_list_build(&l, NULL, 1, TRACK_LIST_LUNAR_ON);   /* the standard edition never lists them */
+    CHECK(!track_list_has(&l, (int16_t)a) && !track_list_has(&l, (int16_t)b));
+    track_registry_clear();
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);   /* the mod gone: the ids left out, the file keeps them */
+    CHECK(listed(&l, (const int16_t[]){ 0, 8 }, 2));
 }
 
 static void test_standard(void)
@@ -112,6 +143,7 @@ static void test_full(void)
 
 int main(void)
 {
+    test_added();
     test_standard();
     test_edition();
     test_lunar();

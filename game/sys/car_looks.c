@@ -6,6 +6,7 @@
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
+#include "game/sys/track_registry.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -130,6 +131,20 @@ int car_looks_saved_lunar(void)
 {
     char value[8];
     return restomod() && value_of("track", value, sizeof value) && strcmp(value, "lunar") == 0;
+}
+
+int car_looks_saved_track(void)
+{
+    char id[MOD_INI_ID_MAX + 2];
+    if (!restomod() || !value_of("track", id, sizeof id) || strcmp(id, "lunar") == 0) return -1;
+    const int track = track_registry_find(id);
+    return track >= 0 ? track : CAR_LOOKS_NOT_LOADED;
+}
+
+bool car_looks_save_track(int track)
+{
+    const TrackPiece *p = track_registry_piece(track);
+    return restomod() && put("track", p != NULL ? p->id : NULL);
 }
 
 bool car_looks_save_lunar(int lunar)

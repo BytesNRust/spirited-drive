@@ -2,6 +2,7 @@
 #include "game/frontend/track_list.h"
 #include "formats/stock_content.h"
 #include "game/sys/port_log.h"
+#include "game/sys/track_registry.h"
 
 enum { STANDARD_TRACKS = 8, RUSTY = 3, LOST_VEGAS = 8, HIDDEN = 9 };
 
@@ -18,8 +19,11 @@ void track_list_build(TrackList *out, const Edition *e, int lost_vegas, int luna
     }
     for (int i = 0; i < e->tracks && out->count < TRACK_LIST_MAX; i++) {
         const int track = stock_track_of_id(e->track[i]);
-        if (track == HIDDEN) port_log("port (dep59): edition: track hidden left out: the cut moon track has no geometry on the CD\n");
-        else if (track >= 0 && !(track == STOCK_TRACK_LUNAR && lunar == TRACK_LIST_LUNAR_NEVER)) out->track[out->count++] = (int16_t)track;
+        if (track < 0) {   /* port (dep59 step 5, T7b): a registered added track, by its id (16..79) */
+            const int added = track_registry_find(e->track[i]);
+            if (added >= 0) out->track[out->count++] = (int16_t)added;
+        } else if (track == HIDDEN) port_log("port (dep59): edition: track hidden left out: the cut moon track has no geometry on the CD\n");
+        else if (!(track == STOCK_TRACK_LUNAR && lunar == TRACK_LIST_LUNAR_NEVER)) out->track[out->count++] = (int16_t)track;
     }
 }
 

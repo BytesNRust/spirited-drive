@@ -1,7 +1,7 @@
 /* port (dep59 step 4): the tracks the menus' arrows step through (notes/dep59-step4-editions-plan.md, section 2, Task 2), by their stock
  * number (stock_content.h): the standard edition's 0..7, and Lost Vegas (8) when it is unlocked, as the original wraps; an edition's
- * tracks= in its own order, Lost Vegas by being listed there. An id there that names no stock track (a track piece, a later step's) is left
- * out of the list; the edition's file keeps it. The hidden track (9, the cut moon track) is never listed: the CD has no geometry for it
+ * tracks= in its own order, Lost Vegas by being listed there. An id there that names no stock track is a registered added track's (track_registry.h, 16..79, T7b) or,
+ * when none is registered by it, left out of the list; the edition's file keeps it. The hidden track (9, the cut moon track) is never listed: the CD has no geometry for it
  * (no MISC/TR8.TRI, and the exe's stem table stops at 8), so an edition that names it has it logged and skipped like a missing piece.
  * dep59 Lunar L1: Lunar Springs (10, stock_content.h) comes right after Rusty in the standard edition when its switch is on (level 2), and
  * in an edition where its tracks= puts it, whatever the switch; a tournament never lists it. */

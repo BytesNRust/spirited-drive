@@ -6,6 +6,7 @@
 #include "game/sys/port_extras.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
+#include "game/sys/track_registry.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -172,6 +173,45 @@ static void test_the_lunar_pick(void)
     CHECK_EQ_INT(car_looks_saved_lunar(), 0);   /* Restomod's alone */
 }
 
+static int add_track(const char *id, const char *stem)
+{
+    TrackPiece p;
+    memset(&p, 0, sizeof p);
+    snprintf(p.id, sizeof p.id, "%s", id), snprintf(p.name, sizeof p.name, "%s", id), snprintf(p.stem, sizeof p.stem, "%s", stem);
+    p.spec.kind = TRACK_KIND_STAGE, p.spec.segments = 1, p.spec.times = TRACK_TIME_DAY, p.fingerprint = 7;
+    return track_registry_add(&p, NULL, 0);
+}
+
+/* dep59 step 5, T7b: the one key track= names an added track by its id, as it names Lunar by lunar */
+static void test_an_added_track(void)
+{
+    track_registry_clear();
+    const int dune = add_track("dune", "ZZB");
+    CHECK(dune >= TRACK_ADDED_FIRST);
+    fresh("restomod");
+    CHECK_EQ_INT(car_looks_saved_track(), -1);   /* no line */
+    CHECK(car_looks_save_track(dune));
+    CHECK(strstr(file("restomod.cfg"), "track=dune\n") != NULL);
+    CHECK_EQ_INT(car_looks_saved_track(), dune);
+    CHECK_EQ_INT(car_looks_saved_lunar(), 0);
+    CHECK(car_looks_save_lunar(1));   /* Lunar takes the key; never two lines */
+    CHECK(strstr(file("restomod.cfg"), "track=dune") == NULL && strstr(file("restomod.cfg"), "track=lunar\n") != NULL);
+    CHECK_EQ_INT(car_looks_saved_track(), -1);
+    CHECK_EQ_INT(car_looks_saved_lunar(), 1);
+    CHECK(car_looks_save_track(dune));
+    CHECK_EQ_INT(car_looks_saved_lunar(), 0);
+    track_registry_clear();   /* the mod taken away: the line names an id not loaded */
+    CHECK_EQ_INT(car_looks_saved_track(), CAR_LOOKS_NOT_LOADED);
+    CHECK(car_looks_save_track(dune));   /* no such track any more: the line goes */
+    CHECK(strstr(file("restomod.cfg"), "track=") == NULL);
+    CHECK_EQ_INT(car_looks_saved_track(), -1);
+    CHECK(car_looks_save_track(3));   /* an original: config.dat keeps it */
+    CHECK(strstr(file("restomod.cfg"), "track=") == NULL);
+    fresh("stock");
+    CHECK(!car_looks_save_track(dune));
+    CHECK_EQ_INT(car_looks_saved_track(), -1);   /* Restomod's alone */
+}
+
 static void test_stock_and_restored(void)
 {
     static const char *const MODES[] = { "stock", "restored" };
@@ -194,6 +234,7 @@ int main(void)
     test_looks();
     test_a_settings_save_keeps_them();
     test_the_lunar_pick();
+    test_an_added_track();
     test_stock_and_restored();
     return TEST_REPORT();
 }

@@ -7,6 +7,7 @@
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
+#include "game/sys/track_registry.h"
 #include "platform/platform.h"
 #include "test.h"
 
@@ -96,6 +97,15 @@ static void test_what_can_be_used(void)
     CHECK_EQ_INT(edition_track_present("city"), 1);
     CHECK_EQ_INT(edition_track_present("hidden"), 0);   /* no geometry on the CD: never listed */
     CHECK_EQ_INT(edition_track_present("ghost"), 0);
+    track_registry_clear();   /* dep59 step 5, T7b: an added track is present while it is registered */
+    TrackPiece piece;
+    memset(&piece, 0, sizeof piece);
+    snprintf(piece.id, sizeof piece.id, "dune"), snprintf(piece.name, sizeof piece.name, "dune"), snprintf(piece.stem, sizeof piece.stem, "ZZB");
+    piece.spec.kind = TRACK_KIND_STAGE, piece.spec.segments = 1, piece.spec.times = TRACK_TIME_DAY, piece.fingerprint = 7;
+    CHECK(track_registry_add(&piece, NULL, 0) >= TRACK_ADDED_FIRST);
+    CHECK_EQ_INT(edition_track_present("dune"), 1);
+    track_registry_clear();
+    CHECK_EQ_INT(edition_track_present("dune"), 0);
     write_file("editions/no-car.ini", "name=No car\ncars=ghost,night\ntracks=city\n");
     use("no-car");
     port_log_watch("no car");
