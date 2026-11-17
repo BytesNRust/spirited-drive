@@ -8,6 +8,7 @@
 #include "game/frontend/record_conditions.h"
 #include "game/frontend/records_route.h"
 #include "game/sys/extras_marks.h"
+#include "game/sys/track_registry.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -733,8 +734,30 @@ static void test_added_track_reads_no_block(void)
         for (size_t k = 0; k < sizeof SCREENS / sizeof SCREENS[0]; k++) run_rows(SCREENS[k], TRACKS[t], NULL, NULL, 0, 0);
 }
 
+/* dep59 step 5, T7e: an added track has no tag art: the screens put its name where the tag is (under the logo, left), the stock tracks' none */
+static void test_added_track_shows_its_name(void)
+{
+    TrackPiece piece;
+    memset(&piece, 0, sizeof piece);
+    snprintf(piece.id, sizeof piece.id, "dune"), snprintf(piece.name, sizeof piece.name, "Dune Run"), snprintf(piece.stem, sizeof piece.stem, "ZZA");
+    piece.spec.kind = TRACK_KIND_STAGE, piece.spec.segments = 1, piece.spec.times = TRACK_TIME_DAY, piece.fingerprint = 7;
+    track_registry_clear();
+    CHECK(track_registry_add(&piece, NULL, 0) == 16);
+    static const Screen SCREENS[] = { s_track, s_segment, s_totals };
+    for (size_t k = 0; k < sizeof SCREENS / sizeof SCREENS[0]; k++) {
+        run_rows(SCREENS[k], 16, NULL, NULL, 0, 0);
+        CHECK(found("Dune Run", 8, 0x46));
+        run_rows(SCREENS[k], 0, NULL, NULL, 0, 0);
+        CHECK(!any_text("Dune Run"));
+    }
+    run_rows(s_segment, 79, NULL, NULL, 0, 0);   /* no piece: no name, nothing read */
+    CHECK(!any_text("Dune Run"));
+    track_registry_clear();
+}
+
 int main(void)
 {
+    test_added_track_shows_its_name();
     test_added_track_reads_no_block();
     test_restomod_results_show_record_conditions();
     test_restomod_empty_rows_are_blank_after_a_dnf();

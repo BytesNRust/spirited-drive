@@ -1,6 +1,7 @@
 #include "game/frontend/standings.h"
 #include "game/sys/port_log.h"
 #include "game/frontend/results_screen.h"
+#include "game/sys/track_registry.h"
 
 #include <stdio.h>
 
@@ -44,12 +45,17 @@ static void draw_banner(const StandingsInputs *in, const StandingsOps *ops)
     if (in->line != NULL) ops->band_text(ops->ctx, in->line, RESULTS_BAND_X, line_mid, RESULTS_BAND_ROOM);
 }
 
+/* a stage track: City, Coastal, Alpine, and an added one (its menu number 16..79: a piece of the stage kind) */
+static int stage_track(int track) { return track < 3 || track_registry_is_added(track); }
+
 static void draw_segment(const StandingsInputs *in, int32_t bank, int segment, const StandingsOps *ops)
 {
     char text[TEXT];
     if (in->track >= 0 && in->track < 9) ops->blit(ops->ctx, ops->shape(ops->ctx, bank, TRACK_TAG[in->track]));   /* port: an added track has no tag art */
     ops->text_select(ops->ctx, 2);
-    if (in->track < 3) {
+    const TrackPiece *const piece = track_registry_piece(in->track);
+    if (piece != NULL) ops->text_boxed(ops->ctx, piece->name, 8, RESULTS_NAME_Y);   /* port (dep59 step 5, T7e): where the tag art is */
+    if (stage_track(in->track)) {
         ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "segt"));
         snprintf(text, sizeof text, in->german ? "ETAPPE %d" : "SEGMENT %d", segment);
     } else {
@@ -62,7 +68,7 @@ static void draw_segment(const StandingsInputs *in, int32_t bank, int segment, c
         ops->text_select(ops->ctx, 1);
         ops->time_text(ops->ctx, text, g16(in->game, FLAGS + 2 * who) ? 0 : g32(in->game, RECORD * who + TIME_A));
         ops->text_boxed(ops->ctx, text, 0x135, y);
-        if (in->track < 3) {
+        if (stage_track(in->track)) {
             ops->time_text(ops->ctx, text, g32(in->game, RECORD * who + TIME_B));
             ops->text_boxed(ops->ctx, text, 0x1ef, y);
         }

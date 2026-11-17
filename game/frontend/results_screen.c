@@ -4,6 +4,7 @@
 #include "game/frontend/record_conditions.h"
 #include "game/frontend/records_route.h"
 #include "game/frontend/records_block.h"
+#include "game/sys/track_registry.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -44,6 +45,8 @@ static const char *dnf(const ResultsInputs *in) { return in->german ? "Abbruch" 
 
 void results_header_marks(const ResultsInputs *in, const ResultsOps *ops)
 {
+    const TrackPiece *const piece = track_registry_piece(g16(in->image + TRACK));
+    if (piece != NULL) ops->text_at(ops->ctx, piece->name, 8, RESULTS_NAME_Y);   /* port (dep59 step 5, T7e): an added track's name, where the tag art is */
     const int line = in->marks != NULL && in->marks->line != NULL, banner = results_banner_shown(results_cheats(in), line ? in->marks->line : NULL);
     if (ops->band_text == NULL) {   /* the place dep55 drew them */
         if (banner) ops->text_at(ops->ctx, CHEATS_BANNER, CHEATS_BANNER_X, CHEATS_BANNER_Y);

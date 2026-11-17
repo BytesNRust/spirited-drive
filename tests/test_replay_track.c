@@ -122,6 +122,9 @@ static void test_the_whole_file(void)
     register_track("alps-run", "PEAKS", 0x1111, 16);
     CHECK_EQ_INT(race_replay_file_cars(file, sizeof file, &r, id), REPLAY_CARS_CHANGED);
     CHECK(strcmp(id, "alps-run") == 0);
+    CHECK(race_replay_file_track_changed(file, sizeof file));   /* the message says a track, not cars */
+    CHECK(!race_replay_file_track_changed(file, LOOKS_END));
+    CHECK(!race_replay_file_track_changed(NULL, 0));
 
     track_registry_clear();
     register_track("alps-run", "PEAKS", 0x5678, 16);
