@@ -14,6 +14,8 @@
 #include "game/sys/mod_set.h"
 #include "game/sys/mod_store.h"
 #include "game/sys/palette.h"
+#include "game/sys/video.h"
+#include "game/frontend/ea_lib.h"
 
 #include <string.h>
 
@@ -45,7 +47,52 @@ static int dark_ok;
 static int fade_pending;     /* the screen just opened: its first page is faded in, in the background's palette */
 static uint32_t dark_made;   /* the mods' generation it was made under; 0 never */
 
-static void told(void *ctx, const char *text) { menu_glue_banner_wait(ctx, text, BANNER_TIME); }
+/* The menus' boxes (Yes / No, the banner) draw over ea_screen()'s picture and put it on the display whole. CONTENT draws on the display itself,
+ * so that picture still held Game Mode's last screen, shown behind the box in CONTENT's palette (noise). For a box's run the picture is the
+ * display as it is, then the screen's own again (as content_dialog_glue's name field does). */
+typedef struct {
+    uint8_t *picture, *own;
+    size_t size;
+} Borrowed;
+
+static Borrowed borrow_picture(void)
+{
+    Borrowed b = { NULL, NULL, 0 };
+    int32_t pw = 0, ph = 0;
+    int w = 0, h = 0;
+    uint8_t *const picture = ea_picture_pixels(ea_screen(), &pw, &ph);
+    const uint8_t *const display = video_target(&w, &h);
+    b.size = (size_t)w * (size_t)h;
+    if (picture != NULL && display != NULL && pw == w && ph == h && (b.own = malloc(b.size)) != NULL) {
+        memcpy(b.own, picture, b.size);
+        memcpy(picture, display, b.size);
+        b.picture = picture;
+    } else {
+        port_log("content: a box draws over the screen's own picture\n");
+    }
+    return b;
+}
+
+static void give_back_picture(Borrowed *b)
+{
+    if (b->own != NULL) memcpy(b->picture, b->own, b->size);
+    free(b->own);
+}
+
+static void told(void *ctx, const char *text)
+{
+    Borrowed b = borrow_picture();
+    menu_glue_banner_wait(ctx, text, BANNER_TIME);
+    give_back_picture(&b);
+}
+
+static int32_t asked(void *ctx, const char *text)
+{
+    Borrowed b = borrow_picture();
+    const int32_t yes = menu_glue_yes_no(ctx, text);
+    give_back_picture(&b);
+    return yes;
+}
 
 /* the palette entry nearest 0xRRGGBB in the background's own palette (content_backdrop.h: not palette_usable()'s set) */
 static int32_t nearest(uint32_t rgb) { return content_backdrop_nearest(bg_palette, rgb); }
@@ -293,7 +340,7 @@ static int32_t uninstall(void *ctx, const char *id)
 {
     char text[TEXT_CAP], why[WHY_CAP];
     snprintf(text, sizeof text, "Uninstall %s?", id);
-    if (!menu_glue_yes_no(ctx, text)) return 0;
+    if (!asked(ctx, text)) return 0;
     if (mod_store_uninstall(id, why, sizeof why)) return 1;
     told(ctx, why);
     return 0;
@@ -365,7 +412,7 @@ static int32_t edition_delete(void *ctx, int32_t *edition)
     if (!edition_id_at(*edition, id)) return 0;
     content_edition_name(ctx, *edition, name, sizeof name);
     snprintf(text, sizeof text, "Delete the edition %s?", name);
-    if (!menu_glue_yes_no(ctx, text)) return 0;
+    if (!asked(ctx, text)) return 0;
     if (!edition_store_delete(id, why, sizeof why)) {
         told(ctx, why);
         return 0;
