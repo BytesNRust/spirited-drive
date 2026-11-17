@@ -277,7 +277,16 @@ static void test_rules(void)
                                                "SIMDATA/CARSPECS/F400.PBS", "SIMDATA/CARFAMS/F40.FSH", "car_masks/F40.png" };
     for (size_t i = 0; i < sizeof CAR_FOREIGN / sizeof CAR_FOREIGN[0]; i++) CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "F40", CAR_FOREIGN[i]), MOD_FILE_FOREIGN);
     CHECK_EQ_INT(mod_file_rule(MOD_TYPE_CAR, "", "SIMDATA/CARFAMS/.CFM"), MOD_FILE_FOREIGN);   /* no stem: none of its files is its own */
-    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "X", "mod.ini"), MOD_FILE_NOT_YET);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "X", "mod.ini"), MOD_FILE_OK);
+    /* dep59 step 5: a track piece's own files (track_piece_owns), nothing of another track, a car or the CD's tracks */
+    static const char *const TRACK_OK[] = { "SIMDATA/MISC/XTRK1.TRI", "simdata/misc/xtrk2info", "SIMDATA/ETRACKFM/XTRK3_001.FAM",
+                                            "SIMDATA/NTRACKFM/XTRK1_R01.FAM", "track/XTRK1.txt", "track_masks/XTRK2/lamp.png", "preview.png", "README.md" };
+    for (size_t i = 0; i < sizeof TRACK_OK / sizeof TRACK_OK[0]; i++) CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "XTRK", TRACK_OK[i]), MOD_FILE_OK);
+    static const char *const TRACK_FOREIGN[] = { "SIMDATA/MISC/CY1.TRI", "SIMDATA/MISC/XTRK4.TRI", "SIMDATA/CARFAMS/XTRK1.CFM", "track/CY1.txt",
+                                                 "car_masks/XTRK1/x.png", "sounds/x.wav" };
+    for (size_t i = 0; i < sizeof TRACK_FOREIGN / sizeof TRACK_FOREIGN[0]; i++)
+        CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "XTRK", TRACK_FOREIGN[i]), MOD_FILE_FOREIGN);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "", "SIMDATA/MISC/1.TRI"), MOD_FILE_FOREIGN);   /* no stem: none is its own */
     CHECK_EQ_INT(mod_file_kind("GAMEDATA/CONFIG/CONFIG.DAT"), MOD_KIND_NONE);
     /* dep59 step 3: a car piece's card.png (Control Central's picture), at its root only, and only in a car */
     CHECK_EQ_INT(mod_file_kind("card.png"), MOD_KIND_PNG);
@@ -337,9 +346,19 @@ static void test_rules_in_the_zip(void)
     ZbEntry tri[] = { zb_text("mod.ini", CARD), zb_text("track_light/CY1N.txt", "track CY1 N\n"), zb_text("SIMDATA/MISC/TR1.TRI", "x") };
     CHECK_EQ_INT(check(tri, 3, &c), 0);
     CHECK(strstr(why, "TR1.TRI") != NULL && strstr(why, "race") != NULL);
-    ZbEntry track[] = { zb_text("mod.ini", "id=a-track\nname=A Track\nversion=1\ntype=track\nstem=XT1\n") };
+    /* dep59 step 5: a track piece is checked as the game checks it before it races: a stem the CD's roots take, and a card with no files, are refused */
+    ZbEntry track[] = { zb_text("mod.ini", "id=a-track\nname=A Track\nversion=1\ntype=track\nstem=XTRK\n") };
     CHECK_EQ_INT(check(track, 1, &c), 0);
-    CHECK(strstr(why, "cannot install tracks yet") != NULL);
+    CHECK(strstr(why, "PIECE.FILE_MISSING") != NULL && strstr(why, "XTRK1.TRI") != NULL);   /* the first fatal finding */
+    ZbEntry stolen[] = { zb_text("mod.ini", "id=a-track\nname=A Track\nversion=1\ntype=track\nstem=CYBER\n") };
+    CHECK_EQ_INT(check(stolen, 1, &c), 0);
+    CHECK(strstr(why, "PIECE.STEM") != NULL);
+    ZbEntry circuit[] = { zb_text("mod.ini", "id=a-track\nname=A Track\nversion=1\ntype=track\nstem=XTRK\nkind=circuit\n") };
+    CHECK_EQ_INT(check(circuit, 1, &c), 0);
+    CHECK(strstr(why, "A-to-B tracks only") != NULL);
+    ZbEntry foreign[] = { zb_text("mod.ini", "id=a-track\nname=A Track\nversion=1\ntype=track\nstem=XTRK\n"), zb_text("SIMDATA/MISC/TR1.TRI", "x") };
+    CHECK_EQ_INT(check(foreign, 2, &c), 0);
+    CHECK(strstr(why, "TR1.TRI") != NULL && strstr(why, "not one of the files of the track XTRK") != NULL);
     size_t cfm_n = 0, pdn_n = 0, pbs_n = 0, other_n = 0;
     uint8_t *cfm = read_cd("SIMDATA/CARFAMS/DVIPER.CFM", &cfm_n), *pdn = read_cd("SIMDATA/CARFAMS/DVIPER.PDN", &pdn_n),
             *pbs = read_cd("SIMDATA/CARSPECS/DVIPER.PBS", &pbs_n), *other = read_cd("SIMDATA/CARSPECS/CZR1.PBS", &other_n);

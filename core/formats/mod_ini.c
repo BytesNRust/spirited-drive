@@ -56,6 +56,13 @@ static const Field FIELDS[] = {
     { "weight", offsetof(ModInfo, weight), sizeof ((ModInfo *)0)->weight, KIND_TEXT },
     { "paints", 0, 0, KIND_PAINTS },
     { "card_name", offsetof(ModInfo, card_name_off), sizeof "off", KIND_SWITCH },   /* port (dep59 gallery plan section 1) */
+    { "kind", offsetof(ModInfo, kind), sizeof ((ModInfo *)0)->kind, KIND_WORD },   /* port (dep59 step 5): a track's */
+    { "segments", offsetof(ModInfo, segments), sizeof ((ModInfo *)0)->segments, KIND_WORD },
+    { "road", offsetof(ModInfo, road), sizeof ((ModInfo *)0)->road, KIND_WORD },
+    { "edge", offsetof(ModInfo, edge), sizeof ((ModInfo *)0)->edge, KIND_WORD },
+    { "length", offsetof(ModInfo, length), sizeof ((ModInfo *)0)->length, KIND_TEXT },
+    { "laps", offsetof(ModInfo, laps), sizeof ((ModInfo *)0)->laps, KIND_TEXT },
+    { "times", offsetof(ModInfo, times), sizeof ((ModInfo *)0)->times, KIND_TEXT },
 };
 
 static const char *const TYPE_NAMES[] = { [MOD_TYPE_TWEAK] = "tweak", [MOD_TYPE_CAR] = "car", [MOD_TYPE_TRACK] = "track" };

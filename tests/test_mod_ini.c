@@ -247,6 +247,30 @@ static void test_card_name(void)
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\ncard_name=off\ncard_name=off\n", &m, why), 0);   /* twice */
 }
 
+/* dep59 step 5 (T3): a track's keys are read as written, like a car's; whether a piece is a good track is track_piece_check's to say */
+static void test_track_fields(void)
+{
+    ModInfo m;
+    char why[160];
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\n", &m, why), 1);
+    CHECK_EQ_INT(m.type, MOD_TYPE_TRACK);
+    CHECK(m.kind[0] == '\0' && m.segments[0] == '\0' && m.road[0] == '\0' && m.edge[0] == '\0');   /* none given: "" */
+    CHECK(m.length[0] == '\0' && m.laps[0] == '\0' && m.times[0] == '\0');
+    CHECK_EQ_INT(parse("id=turin\nname=Turin\nversion=1\ntype=track\nstem=TURINI\nkind=stage\nsegments=2\nlength=14.2 km\n"
+                       "laps=4,8,16\ntimes=dawn,day,dusk,night\nroad=asphalt\nedge=gravel\n", &m, why), 1);
+    CHECK(strcmp(m.stem, "TURINI") == 0 && strcmp(m.kind, "stage") == 0 && strcmp(m.segments, "2") == 0);
+    CHECK(strcmp(m.length, "14.2 km") == 0 && strcmp(m.laps, "4,8,16") == 0);
+    CHECK(strcmp(m.times, "dawn,day,dusk,night") == 0 && strcmp(m.road, "asphalt") == 0 && strcmp(m.edge, "gravel") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\nkind=Stage\n", &m, why), 0);   /* a-z and 0-9 only */
+    CHECK(strstr(why, "kind") != NULL);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\nsegments=12345678\n", &m, why), 1);   /* 8: the piece check judges the value */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\nsegments=123456789\n", &m, why), 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\nroad=asphalt\nroad=dirt\n", &m, why), 0);   /* twice */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\nlength=12345678901234567\n", &m, why), 0);   /* 17 > 16 */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\ntimes=dawn,day,dusk,night,dawn,day,dusk\n", &m, why), 0);   /* longer than 32 */
+    CHECK(strstr(why, "times") != NULL);
+}
+
 int main(void)
 {
     test_a_full_card();
@@ -258,5 +282,6 @@ int main(void)
     test_piece_fields();
     test_figures_and_paints();
     test_card_name();
+    test_track_fields();
     return TEST_REPORT();
 }

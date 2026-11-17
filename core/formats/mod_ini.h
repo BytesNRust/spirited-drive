@@ -11,7 +11,10 @@
  * paints=Name:rrggbb,Name:rrggbb, its Color choices: up to 16, a name 1..24 of text without ':' or ',', six hex digits in any case, no two
  * names alike in any case.
  * port (dep59, gallery and showcase plan section 1): card_name, on (the default) or off: whether the game draws the car's name over its
- * card.png and rival.png (off for pictures that show their own). */
+ * card.png and rival.png (off for pictures that show their own).
+ * port (dep59 step 5): a track's keys, read as written and judged by track_piece_check (notes/dep59-step5-tracks-design.md): stem (as a car's),
+ * kind, segments, road and edge (a word, a-z 0-9, up to 8), length (text up to 16: "14.2 km"), laps ("4,8,16") and times ("dawn,day,dusk,night",
+ * up to 32). */
 #ifndef TNFS_MOD_INI_H
 #define TNFS_MOD_INI_H
 
@@ -30,7 +33,8 @@ enum {
     MOD_INI_FROM_MAX = 8,
     MOD_INI_FIGURE_MAX = 16,
     MOD_INI_PAINTS_MAX = 16,
-    MOD_INI_PAINT_NAME_MAX = 24
+    MOD_INI_PAINT_NAME_MAX = 24,
+    MOD_INI_TIMES_MAX = 32
 };
 
 typedef struct {
@@ -55,6 +59,9 @@ typedef struct {
     char year[MOD_INI_FIGURE_MAX + 1], power[MOD_INI_FIGURE_MAX + 1], weight[MOD_INI_FIGURE_MAX + 1];
     ModPaint paints[MOD_INI_PAINTS_MAX];   /* paints=, in its order */
     int paint_count;
+    /* a track's keys as written; "" when not given */
+    char kind[MOD_INI_FROM_MAX + 1], segments[MOD_INI_FROM_MAX + 1], road[MOD_INI_FROM_MAX + 1], edge[MOD_INI_FROM_MAX + 1];
+    char length[MOD_INI_FIGURE_MAX + 1], laps[MOD_INI_FIGURE_MAX + 1], times[MOD_INI_TIMES_MAX + 1];
     int card_name_off;   /* card_name=off: the game draws no name over card.png and rival.png (the picture shows its own); on by default */
 } ModInfo;
 
