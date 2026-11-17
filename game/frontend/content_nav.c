@@ -6,8 +6,8 @@ enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, DOWN = 0x5000, LEF
 enum { PER_PAGE = CONTENT_LINES - 1 };   /* the rows a page shows under its All row */
 
 /* the tabs' and the foot's buttons' spans, x0 .. x1 (x1 left out) */
-static const int TAB_X[CONTENT_TABS + 1] = { 14, 118, 220, CONTENT_LIST_X1 };
-static const int FOOT_X[CONTENT_FOOT_BUTTONS][2] = { { 14, 66 }, { 66, 170 }, { 170, 252 }, { 252, 334 }, { 334, 440 }, { 540, 626 } };
+static const int TAB_X[CONTENT_TABS + 1] = { 14, 143, 250, CONTENT_LIST_X1 };
+static const int FOOT_X[CONTENT_FOOT_BUTTONS][2] = { { 14, 66 }, { 66, 170 }, { 170, 252 }, { 252, 334 }, { 420, 540 }, { 540, 626 } };
 
 static ContentAction act(ContentActionKind kind, int arg, int row) { return (ContentAction){ kind, arg, row }; }
 static ContentAction none(void) { return act(CONTENT_ACT_NONE, 0, 0); }
@@ -223,8 +223,8 @@ static int within(int v, int lo, int hi) { return v >= lo && v < hi; }
 static int list_spot(const ContentNav *n, const ContentView *v, int x, int y, Spot *s)
 {
     if (within(y, CONTENT_PAGE_Y, CONTENT_PAGE_Y + CONTENT_TEXT_H)) {
-        if (within(x, CONTENT_PAGE_NEXT_X, CONTENT_PAGE_NEXT_X + 20)) return *s = (Spot){ CONTENT_AT_LIST, -1, 1 }, 1;
-        if (within(x, CONTENT_PAGE_PREV_X, CONTENT_PAGE_PREV_X + 20)) return *s = (Spot){ CONTENT_AT_LIST, -1, -1 }, 1;
+        if (within(x, CONTENT_PAGE_NEXT_X, CONTENT_PAGE_NEXT_X + 24)) return *s = (Spot){ CONTENT_AT_LIST, -1, 1 }, 1;
+        if (within(x, CONTENT_PAGE_PREV_X, CONTENT_PAGE_PREV_X + 24)) return *s = (Spot){ CONTENT_AT_LIST, -1, -1 }, 1;
         return 0;
     }
     if (!within(x, CONTENT_LIST_X0, CONTENT_LIST_X1) || y < CONTENT_LIST_Y || (y - CONTENT_LIST_Y) % CONTENT_LINE >= CONTENT_TEXT_H) return 0;
@@ -233,14 +233,14 @@ static int list_spot(const ContentNav *n, const ContentView *v, int x, int y, Sp
     int item = CONTENT_ITEM_BOX;
     if (x >= CONTENT_NAME_X) item = -1;   /* the name: the row selected only */
     if (row >= 0 && v->rows->row[row].movable && within(x, CONTENT_ARROWS_X, CONTENT_DOWN_X)) item = CONTENT_ITEM_UP;
-    if (row >= 0 && v->rows->row[row].movable && within(x, CONTENT_DOWN_X, CONTENT_DOWN_X + 24)) item = CONTENT_ITEM_DOWN;
+    if (row >= 0 && v->rows->row[row].movable && within(x, CONTENT_DOWN_X, CONTENT_DOWN_X + 20)) item = CONTENT_ITEM_DOWN;
     *s = (Spot){ CONTENT_AT_LIST, line, item };
     return 1;
 }
 
 static int spot_at(const ContentNav *n, const ContentView *v, int x, int y, Spot *s)
 {
-    if (within(y, CONTENT_SELECTOR_Y, CONTENT_SELECTOR_Y + CONTENT_TEXT_H) && x >= CONTENT_SPLIT_X)
+    if (within(y, CONTENT_SELECTOR_Y, CONTENT_SELECTOR_Y + CONTENT_TEXT_H) && x >= CONTENT_SELECTOR_LEFT)
         return *s = (Spot){ CONTENT_AT_SELECTOR, n->line, x < CONTENT_SELECTOR_X ? -1 : 1 }, 1;
     if (within(y, CONTENT_TAB_Y, CONTENT_TAB_Y + CONTENT_TEXT_H))
         for (int t = 0; t < CONTENT_TABS; t++)

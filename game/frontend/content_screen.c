@@ -104,12 +104,12 @@ void content_screen_run(const ContentOps *o, int32_t *edition)
     s.edition = *edition;
     content_nav_start(&s.nav);
     load(&s, o);
-    ContentPage page = { s.name, &s.mods, &s.view, &s.nav };
+    ContentPage page = { s.name, &s.mods, &s.view, &s.nav, 0, 0 };
     int32_t px = -1, py = -1, x, y;
     int32_t buttons = o->pointer(o->ctx, &px, &py);   /* a button or a key still down from what opened the screen is not taken */
     int armed = 0, redraw = 1;
     while (!s.done) {
-        if (redraw) page.edition = s.name, content_draw(o, &page), redraw = 0;
+        if (redraw) page.edition = s.name, content_draw(o, &page), redraw = 0, page.flash = 0;
         const int32_t key = o->key(o->ctx), now = o->pointer(o->ctx, &x, &y);
         ContentAction a = { CONTENT_ACT_NONE, 0, 0 };
         if (key == 0) armed = 1;
@@ -117,7 +117,15 @@ void content_screen_run(const ContentOps *o, int32_t *edition)
         if (a.kind == CONTENT_ACT_NONE && (now & LEFT_BUTTON) && !(buttons & LEFT_BUTTON)) a = content_nav_click(&s.nav, &s.view, x, y);
         else if (a.kind == CONTENT_ACT_NONE && (x != px || y != py)) a = content_nav_point(&s.nav, &s.view, x, y);
         buttons = now, px = x, py = y;
-        if (a.kind != CONTENT_ACT_NONE) perform(&s, o, a), redraw = 1;
+        if (a.kind != CONTENT_ACT_NONE) {
+            const int edit = a.kind == CONTENT_ACT_SWITCH || a.kind == CONTENT_ACT_ALL || a.kind == CONTENT_ACT_MOVE;
+            const int boxed = a.kind == CONTENT_ACT_CARD || (a.kind == CONTENT_ACT_FOOT && a.arg != CONTENT_FOOT_DONE);
+            if (edit && s.rows.locked) page.flash = 1;   /* the standard edition cannot change: its read-only line blinks yellow once */
+            if (boxed) {   /* a box (or a message, or a file's window) comes up: the page behind it shows no focus, as the box has the only one */
+                page.quiet = 1, page.edition = s.name, content_draw(o, &page), page.quiet = 0;
+            }
+            perform(&s, o, a), redraw = 1;
+        }
         if (o->dropped != NULL && o->dropped(o->ctx, &s.edition)) load(&s, o), redraw = 1;   /* port (T7): a file dropped, installed */
         o->wait(o->ctx);
     }

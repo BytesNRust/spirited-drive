@@ -168,18 +168,28 @@ static void test_the_standard_edition(void)
     content_screen_run(&OPS, &edition);
     CHECK_EQ_INT(edition, 0);
     CHECK(strcmp(fk.title, "Content") == 0);
-    const char *sel = "<  Restomod '26  >";
+    const char *sel = "Restomod '26";   /* between the gallery's two arrows, centred */
     CHECK(drawn_at(sel, CONTENT_SELECTOR_X - f_width(NULL, sel, 1, 1) / 2, CONTENT_SELECTOR_Y, CONTENT_CREAM));
-    CHECK(drawn_at("[ Cars ]", 14, CONTENT_TAB_Y, CONTENT_YELLOW));
-    CHECK(drawn_at("Tracks", 118, CONTENT_TAB_Y, CONTENT_CREAM));
-    CHECK(drawn_at("Tweaks", 220, CONTENT_TAB_Y, CONTENT_CREAM));
+    CHECK(fk.arrows >= 2);
+    CHECK(drawn_at("Cars", 90 - f_width(NULL, "Cars", 3, 4) / 2, CONTENT_TAB_Y, CONTENT_YELLOW));   /* the chosen tab yellow, no brackets, centred */
+    CHECK(drawn_at("Tracks", 197 - f_width(NULL, "Tracks", 3, 4) / 2, CONTENT_TAB_Y, CONTENT_CREAM));
+    CHECK(drawn_at("Tweaks", 304 - f_width(NULL, "Tweaks", 3, 4) / 2, CONTENT_TAB_Y, CONTENT_CREAM));
+    CHECK(drawn("[ Cars ]") == NULL);
     CHECK(drawn_at("All", CONTENT_NAME_X, CONTENT_LIST_Y, CONTENT_DIM));
     CHECK(drawn_at("[-]", CONTENT_BOX_X, CONTENT_LIST_Y, CONTENT_DIM));   /* locked, it shows what it holds: the stock on, the mods off */
     CHECK(drawn_at("Acura NSX", CONTENT_NAME_X, CONTENT_LIST_Y + 2 * CONTENT_LINE, CONTENT_DIM));
-    const Drawn *game = drawn("(game)");
-    CHECK(game != NULL && game->style == CONTENT_DIM && game->num * 5 == game->den * 3);
-    CHECK(game != NULL && game->x + f_width(NULL, "(game)", game->num, game->den) == CONTENT_VERSION_RIGHT);
-    CHECK(drawn("The standard edition can't change - Duplicate to make your own") != NULL);
+    CHECK(drawn("(game)") == NULL);   /* no version column (the owner's note 5): the card says what a piece of the game is */
+    const Drawn *status = drawn("Read only. Duplicate to edit.");   /* under the selector, grey */
+    CHECK(status != NULL && status->style == CONTENT_DIM && status->y == CONTENT_STATUS_Y);
+    /* the selected row is a stock car: its card says whose it is and what, counts the standard edition, and has no buttons that never apply */
+    CHECK(drawn("ORIGINAL - ELECTRONIC ARTS") != NULL);
+    CHECK(drawn("Original car from the 1996 game") != NULL);
+    {   /* a stock piece is in the standard edition too: one more than the mod store counts */
+        char used[48];
+        snprintf(used, sizeof used, "Used in: %d edition%s", fk.used_in + 1, fk.used_in + 1 == 1 ? "" : "s");
+        CHECK(drawn(used) != NULL);
+    }
+    CHECK(drawn("Update...") == NULL && drawn("Uninstall") == NULL && drawn("Previous version") == NULL);
     CHECK(drawn("Rename") != NULL && drawn("Rename")->style == CONTENT_DIM);
     CHECK(drawn("Delete") != NULL && drawn("Delete")->style == CONTENT_DIM);
     CHECK(drawn("New") != NULL && drawn("New")->style == CONTENT_CREAM);
@@ -203,9 +213,10 @@ static void test_an_own_edition(void)
     CHECK_EQ_INT(fk.saved_index, 1);
     CHECK_EQ_INT(fk.saved.cars, 2);
     CHECK(strcmp(fk.saved.car[0], "gone-car") == 0 && strcmp(fk.saved.car[1], "rx7") == 0);
-    CHECK(drawn("missing") != NULL && drawn("missing")->style == CONTENT_RED);
+    CHECK(drawn("MISSING") != NULL && drawn("MISSING")->style == CONTENT_RED);
     CHECK(drawn_at("Rename", 170, CONTENT_FOOT_Y, CONTENT_CREAM));
-    CHECK(drawn("The standard edition can't change - Duplicate to make your own") == NULL);
+    CHECK(drawn("Read only. Duplicate to edit.") == NULL);
+    CHECK(drawn("Your edition - in use") == NULL);   /* an own edition has no line under its name */
 }
 
 /* the card: the selected row's name, version and author, "Used in"; Update handed to the caller for the piece */
@@ -243,7 +254,7 @@ static void test_mod_words(void)
     CHECK(drawn_at("Porsch 993, RS", CONTENT_CARD_X0, CONTENT_CARD_NAME_Y, CONTENT_YELLOW));
     CHECK(drawn("v1.2 - by Ed") != NULL);
     CHECK(drawn_at("Light, fast", CONTENT_CARD_X0, CONTENT_CARD_TEXT_Y, CONTENT_CREAM));
-    CHECK(drawn("<  Min  >") != NULL);
+    CHECK(drawn("Min") != NULL);
 }
 
 /* Done kept shut while no car can be raced; the selector to the standard edition, then Done */

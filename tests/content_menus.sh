@@ -14,7 +14,7 @@
 #               race       a whole race of the added car on Rusty Springs (a fresh player's track card 1, the arrow's right twice):
 #                          race_records_cars.dat keeps its table;
 #               update     CONTENT again, on Mine; the zip of 0.2 dropped: an update, 0.1 kept as a backup;
-#               previous   the car's row (page 2, its first line) and Previous version: 0.1 back;
+#               previous   the car's row (the ninth line of the one page) and Previous version: 0.1 back;
 #               uninstall  Uninstall, yes: mods/test-car gone;
 #               delete     Delete, yes, with Mine in use: editions/mine.ini gone, the standard edition put back (mark:edition=-);
 #               standard   Done on the standard edition: Game Mode and Control Central go on, restomod.cfg keeps no edition.
@@ -75,8 +75,8 @@ back="$(click 571 453),$(wait_for screen=game_mode)"   # Control Central's Cance
 manage="$(click 320 383),$(wait_for screen=content)"
 # CONTENT's places (content_nav.h): the foot's buttons at y 446 (content_nav.c's FOOT_X), the card's Uninstall (y 358, x 500 on) and
 # Previous version (y 386), the page indicator's next (x 330, y 370), the list's first line (y 162) by its name (a click there selects)
-new="$(click 40 456)" delete="$(click 290 456)" install="$(click 380 456)" done_="$(click 580 456)"
-uninstall="$(click 560 366)" previous="$(click 450 394)" page_next="$(click 338 378)" first_line="$(click 150 170)"
+new="$(click 40 456)" delete="$(click 290 456)" install="$(click 470 456)" done_="$(click 580 456)"
+uninstall="$(click 560 356)" previous="$(click 450 384)" car_line="$(click 150 358)"
 # a click on the card's text, which takes nothing: it closes a banner still up (a banner ends on a click), else does nothing
 quiet="$(click 600 300)"
 yes="300:Y"   # the yes / no box (yes_no_box.c) logs no mark: its Y, once it is up (the click before it opened it)
@@ -124,7 +124,7 @@ part_own() {
     section race;      add "$(click 56 453),0:WAIT:mark:results=circuit:300,300:ENTER,300:ENTER,$(wait_for results=best_totals)"
     section race;      add "300:ENTER,$(wait_for car=),$back"
     section update;    add "$manage,500:DROP:test-car-2.zip,$(wait_line "updated test-car"),$quiet"
-    section previous;  add "$page_next,$first_line,$previous,$(wait_line "restored test-car")"
+    section previous;  add "$car_line,$previous,$(wait_line "restored test-car")"
     section uninstall; add "$uninstall,$yes,$(wait_line "uninstalled test-car")"
     section delete;    add "$delete,$yes,$(wait_line "deleted mine")"
     section standard;  add "$done_,$single"
