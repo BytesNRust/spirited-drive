@@ -44,6 +44,8 @@ void input_on_keys(void (*mute)(void),
 void input_function_keys(const int16_t *flag);
 /* Port: while `on`, input_get_key also names PageUp (0x4900) and PageDown (0x5100) when no other key is held; off, as the exe. */
 void input_page_keys(int on);
+/* port (CONTENT): with `on`, a press of the pad's left or right shoulder button is TAB_KEY_PREVIOUS or TAB_KEY_NEXT (page_keys.h) from input_get_key */
+void input_tab_keys(int on);
 /* Ctrl+F10's words: the short 0052b312 (a link game) and 0052b314 it sets to 1 then (the link dropped); NULL none. */
 void input_link_words(int16_t *link_game, int16_t *link_lost);
 

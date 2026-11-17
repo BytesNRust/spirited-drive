@@ -1,5 +1,6 @@
 /* See content_nav.h. */
 #include "game/frontend/content_nav.h"
+#include "game/sys/page_keys.h"
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, DOWN = 0x5000, LEFT = 0x4b00, RIGHT = 0x4d00, PAGE_UP = 0x4900,
        PAGE_DOWN = 0x5100 };
@@ -131,6 +132,18 @@ static ContentAction tab_to(ContentNav *n, int tab)
     return act(CONTENT_ACT_TAB, tab, 0);
 }
 
+/* the pad's shoulder buttons: the previous or the next tab wherever the selection is (none past the first or the last); on the card it moves to the list */
+static ContentAction tab_step(ContentNav *n, int step)
+{
+    const int tab = n->tab + step;
+    if (tab < 0 || tab >= CONTENT_TABS) return none();
+    const int at = n->at, item = n->item;
+    const ContentAction r = tab_to(n, tab);
+    if (at == CONTENT_AT_CARD) n->at = CONTENT_AT_LIST;   /* the card of the old tab's row is gone */
+    else if (at != CONTENT_AT_LIST) n->at = at, n->item = item;   /* the selector, the tabs, the foot: where they were */
+    return r;
+}
+
 /* Left / Right in the list: along the row's box and arrows, then onto the card */
 static ContentAction list_side(ContentNav *n, const ContentView *v, int step)
 {
@@ -206,6 +219,8 @@ ContentAction content_nav_key(ContentNav *n, const ContentView *v, int key)
     case ENTER:
     case SPACE: return take(n, v);
     case ESCAPE: return act(CONTENT_ACT_FOOT, CONTENT_FOOT_DONE, 0);
+    case TAB_KEY_PREVIOUS: return tab_step(n, -1);
+    case TAB_KEY_NEXT: return tab_step(n, 1);
     case PAGE_UP: return page_to(n, v, n->page - 1);
     case PAGE_DOWN: return page_to(n, v, n->page + 1);
     default: return none();
