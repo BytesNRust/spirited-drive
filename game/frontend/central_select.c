@@ -99,7 +99,7 @@ void central_track_start(ControlCentralState *st)
 {
     if (st->edition == NULL || st->edition->tracks == 0 || st->track == NULL) return;
     TrackList l;
-    track_list_build(&l, st->edition, 0);
+    track_list_build(&l, st->edition, 0, TRACK_LIST_LUNAR_NEVER);
     if (l.count > 0 && !track_list_has(&l, *st->track)) *st->track = l.track[0];
 }
 

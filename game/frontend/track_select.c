@@ -520,7 +520,7 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
     if ((item == PREV || item == NEXT) && offered(st, track) && !switches_on(st)) {   /* port: the track's variants are entries too */
         int to, variant;
         TrackList l;
-        track_list_build(&l, edition_of(in), in->lost_vegas);
+        track_list_build(&l, edition_of(in), in->lost_vegas, TRACK_LIST_LUNAR_NEVER);
         track_select_entry(track, variant_of(st), item == PREV ? -1 : 1, &l, st->plus->unlock_m, st->plus->unlock_r, &to, &variant);
         *st->plus->variant_m = variant == 1, *st->plus->variant_r = variant == 2;
         if (to == track) {   /* the same track: its art stays, the screen is drawn again */
@@ -533,7 +533,7 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
     }
     if (item == PREV || item == NEXT) {
         TrackList l;   /* port (dep59 step 4): the edition's tracks; the standard edition's are the original's walk */
-        track_list_build(&l, edition_of(in), in->lost_vegas);
+        track_list_build(&l, edition_of(in), in->lost_vegas, TRACK_LIST_LUNAR_NEVER);
         const int to = track_list_step(&l, (int16_t)track, item == PREV ? -1 : 1);
         if (switches_on(st)) lost_vegas_step(st->plus, track, to);   /* port (dep56, dep65): it has neither; the choice comes back after it */
         *bank = change_track(in, st, *bank, to, pal, ops);

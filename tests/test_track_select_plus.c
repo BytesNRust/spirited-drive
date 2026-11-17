@@ -11,7 +11,7 @@
 static void step(int track, int variant, int direction, int lost, int m, int r, int want_track, int want_variant)
 {
     TrackList l;
-    track_list_build(&l, NULL, lost);
+    track_list_build(&l, NULL, lost, TRACK_LIST_LUNAR_OFF);
     int t = -1, v = -1;
     track_select_entry(track, variant, direction, &l, m, r, &t, &v);
     CHECK_EQ_INT(t, want_track);
@@ -34,7 +34,7 @@ static void edition_step(const char *ids, int track, int variant, int direction,
 {
     const Edition e = edition_of(ids);
     TrackList l;
-    track_list_build(&l, &e, 0);
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);
     int t = -1, v = -1;
     track_select_entry(track, variant, direction, &l, m, r, &t, &v);
     CHECK_EQ_INT(t, want_track);

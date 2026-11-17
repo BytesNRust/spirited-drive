@@ -105,7 +105,8 @@ static void test_the_standard_edition(void)
     CHECK_EQ_STR(row_of(&r, "porsche-993")->version, "1.2");
     CHECK_EQ_INT(row_of(&r, "old-car")->kind, CONTENT_ROW_REMOVED);
     content_rows_build(&r, NULL, CONTENT_TRACKS, &mods);
-    CHECK_EQ_STR(ids(&r), "city coastal alpine rusty autumn burnt vertigo transtropolis vegas night-ring");   /* never the hidden one */
+    CHECK_EQ_STR(ids(&r), "city coastal alpine rusty lunar autumn burnt vertigo transtropolis vegas night-ring");   /* never the hidden one; Lunar after Rusty */
+    CHECK_EQ_STR(row_of(&r, "lunar")->name, "Lunar Springs");
     CHECK_EQ_STR(row_of(&r, "rusty")->name, "Rusty Springs");
     content_rows_build(&r, NULL, CONTENT_TWEAKS, &mods);
     CHECK_EQ_STR(ids(&r), "grippy old-tweak");   /* no stock tweak */
@@ -145,7 +146,8 @@ static void test_an_own_editions_rows(void)
     CHECK_EQ_INT(old->backup, 1);
     CHECK_EQ_STR(old->version, "0.1");
     content_rows_build(&r, &e, CONTENT_TRACKS, &mods);
-    CHECK_EQ_STR(ids(&r), "vegas city lost-track coastal alpine rusty autumn burnt vertigo transtropolis night-ring");
+    CHECK_EQ_STR(ids(&r), "vegas city lost-track coastal alpine rusty lunar autumn burnt vertigo transtropolis night-ring");
+    CHECK_EQ_INT(row_of(&r, "lunar")->on, 0);   /* not listed: off, like any stock track it leaves out */
     CHECK_EQ_INT(row_of(&r, "lost-track")->kind, CONTENT_ROW_MISSING);
     content_rows_build(&r, &e, CONTENT_TWEAKS, &mods);
     /* a removed mod the edition still names: missing (on, its box takes it off), its backup offered */

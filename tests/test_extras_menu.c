@@ -779,28 +779,26 @@ static void check_held(const Edition *edition, int row, const char *shows, int16
 }
 
 /* dep59 step 4, T7: in an edition of the player's own the rows it decides are held, dimmed with the reason: the level (2), the Warrior as
- * the player's car and as the rival (by cars=), Lunar Springs Track without rusty; with rusty, and Lunar Gravity, are the player's */
+ * the player's car and as the rival (by cars=), and Lunar Springs Track (by tracks=, dep59 Lunar L1); Lunar Gravity is the player's */
 static void test_an_edition_holds_its_unlock_rows(void)
 {
     static Edition plain, warrior;
     plain = edition_of("rx7", "city,coastal");
-    warrior = edition_of("rx7,warrior", "city,rusty");
+    warrior = edition_of("rx7,warrior", "city,rusty,lunar");
     check_held(&plain, ROW_UNLOCK, "2 (edition)", 2);
     check_held(&plain, ROW_WARRIOR, "Off (edition)", 2);
     check_held(&plain, ROW_RIVAL, "Off (edition)", 2);
     check_held(&warrior, ROW_WARRIOR, "On (edition)", 2);
-    check_held(&plain, ROW_LUNAR, "Off (no Rusty)", 2);
+    check_held(&plain, ROW_LUNAR, "Off (no Lunar)", 2);
+    check_held(&warrior, ROW_LUNAR, "On (edition)", 2);   /* lunar listed: tracks= decides, not the switch */
     Rig r;
     int keys[48] = {0};
-    int n = keys_to_row(keys, ROW_LUNAR);
-    keys[n++] = ENTER;
-    n = downs(keys, n, downs_to_done(ROW_LUNAR));
+    int n = downs(keys, 0, downs_to_done(0));
     keys[n++] = ENTER;
     setup(&r);
     r.unlock = 2;
     r.edition = &warrior;
     run(&r, keys, n);
-    CHECK_EQ_INT(r.fake.saved.lunar_springs, 1);   /* rusty listed: the player's switch */
     CHECK(!shown(&r.fake, "On (level)"));   /* the level holds nothing in an edition */
 }
 

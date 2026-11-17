@@ -8,7 +8,7 @@ static const char *const CARS[STOCK_CAR_WARRIOR + 1] = {
 };
 
 static const char *const TRACKS[STOCK_TRACK_COUNT] = {
-    "city", "coastal", "alpine", "rusty", "autumn", "burnt", "vertigo", "transtropolis", "vegas", "hidden",
+    "city", "coastal", "alpine", "rusty", "autumn", "burnt", "vertigo", "transtropolis", "vegas", "hidden", "lunar",
 };
 
 static const char *const CAR_NAMES[STOCK_CAR_WARRIOR + 1] = {
@@ -18,6 +18,7 @@ static const char *const CAR_NAMES[STOCK_CAR_WARRIOR + 1] = {
 
 static const char *const TRACK_NAMES[STOCK_TRACK_COUNT] = {
     "City", "Coastal", "Alpine", "Rusty Springs", "Autumn Valley", "Burnt Sienna", "Vertigo Ridge", "Transtropolis", "Lost Vegas", NULL,
+    "Lunar Springs",
 };
 
 /* the place of `id` in `table` (`n` long, NULL holes), or -1 */

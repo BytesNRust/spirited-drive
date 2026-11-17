@@ -26,12 +26,12 @@ static Edition edition_of(const char *text)
 static void test_standard(void)
 {
     TrackList l;
-    track_list_build(&l, NULL, 1);
+    track_list_build(&l, NULL, 1, TRACK_LIST_LUNAR_OFF);
     CHECK(listed(&l, (const int16_t[]){ 0, 1, 2, 3, 4, 5, 6, 7, 8 }, 9));
     CHECK_EQ_INT(track_list_step(&l, 7, 1), 8);
     CHECK_EQ_INT(track_list_step(&l, 8, 1), 0);
     CHECK_EQ_INT(track_list_step(&l, 0, -1), 8);
-    track_list_build(&l, NULL, 0);
+    track_list_build(&l, NULL, 0, TRACK_LIST_LUNAR_OFF);
     CHECK(listed(&l, (const int16_t[]){ 0, 1, 2, 3, 4, 5, 6, 7 }, 8));
     CHECK_EQ_INT(track_list_step(&l, 7, 1), 0);
     CHECK_EQ_INT(track_list_step(&l, 0, -1), 7);
@@ -46,7 +46,7 @@ static void test_edition(void)
 {
     TrackList l;
     Edition e = edition_of("name=Two\ntracks=city,vegas\n");
-    track_list_build(&l, &e, 0);   /* an edition lists Lost Vegas by its tracks=, unlocked or not */
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);   /* an edition lists Lost Vegas by its tracks=, unlocked or not */
     CHECK(listed(&l, (const int16_t[]){ 0, 8 }, 2));
     CHECK_EQ_INT(track_list_step(&l, 0, 1), 8);
     CHECK_EQ_INT(track_list_step(&l, 0, -1), 8);
@@ -54,29 +54,59 @@ static void test_edition(void)
     CHECK_EQ_INT(track_list_step(&l, 9, 1), 0);   /* not listed: the first */
     CHECK_EQ_INT(track_list_step(&l, 3, -1), 0);
     e = edition_of("name=Order\ntracks=rusty,city,coastal\n");
-    track_list_build(&l, &e, 1);   /* its own order, Lost Vegas not added */
+    track_list_build(&l, &e, 1, TRACK_LIST_LUNAR_OFF);   /* its own order, Lost Vegas not added */
     CHECK(listed(&l, (const int16_t[]){ 3, 0, 1 }, 3));
     CHECK_EQ_INT(track_list_step(&l, 1, 1), 3);
     CHECK_EQ_INT(track_list_step(&l, 3, -1), 1);
     e = edition_of("name=Kept\ntracks=moon-base,alpine,hidden\n");
-    track_list_build(&l, &e, 0);   /* an id that is no stock track is left out (the file keeps it); the hidden track, with no geometry, too */
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);   /* an id that is no stock track is left out (the file keeps it); the hidden track, with no geometry, too */
     CHECK(listed(&l, (const int16_t[]){ 2 }, 1));
     e = edition_of("name=Moon only\ntracks=hidden\n");
-    track_list_build(&l, &e, 0);   /* the hidden track alone: no track to race, an empty list */
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);   /* the hidden track alone: no track to race, an empty list */
     CHECK_EQ_INT(l.count, 0);
     CHECK_EQ_INT(track_list_step(&l, 9, 1), 0);
     e = edition_of("name=Cars only\ncars=rx7\n");
-    track_list_build(&l, &e, 1);   /* no track at all: an empty list, and a step goes nowhere */
+    track_list_build(&l, &e, 1, TRACK_LIST_LUNAR_OFF);   /* no track at all: an empty list, and a step goes nowhere */
     CHECK_EQ_INT(l.count, 0);
     CHECK_EQ_INT(track_list_step(&l, 4, 1), 0);
+}
+
+/* dep59 Lunar: Lunar Springs (10) right after Rusty: in the standard edition with its switch on (level 2), in an own edition by its
+ * tracks= whatever the switch; never in a tournament */
+static void test_lunar(void)
+{
+    TrackList l;
+    track_list_build(&l, NULL, 1, TRACK_LIST_LUNAR_ON);
+    CHECK(listed(&l, (const int16_t[]){ 0, 1, 2, 3, 10, 4, 5, 6, 7, 8 }, 10));
+    CHECK_EQ_INT(track_list_step(&l, 3, 1), 10);
+    CHECK_EQ_INT(track_list_step(&l, 10, 1), 4);
+    CHECK_EQ_INT(track_list_step(&l, 4, -1), 10);
+    track_list_build(&l, NULL, 0, TRACK_LIST_LUNAR_OFF);   /* the switch off: no Lunar */
+    CHECK(!track_list_has(&l, 10));
+    CHECK_EQ_INT(track_list_step(&l, 10, 1), 0);
+    track_list_build(&l, NULL, 0, TRACK_LIST_LUNAR_NEVER);   /* a tournament */
+    CHECK(listed(&l, (const int16_t[]){ 0, 1, 2, 3, 4, 5, 6, 7 }, 8));
+    Edition e = edition_of("name=Moon\ntracks=city,lunar,rusty\n");
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);   /* listed: shown with the switch off, in the file's order */
+    CHECK(listed(&l, (const int16_t[]){ 0, 10, 3 }, 3));
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_ON);
+    CHECK(listed(&l, (const int16_t[]){ 0, 10, 3 }, 3));
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_NEVER);
+    CHECK(listed(&l, (const int16_t[]){ 0, 3 }, 2));
+    e = edition_of("name=Rusty\ntracks=rusty,city\n");
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_ON);   /* not listed: the switch does not add it to an edition */
+    CHECK(listed(&l, (const int16_t[]){ 3, 0 }, 2));
+    e = edition_of("name=Only\ntracks=lunar\n");
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);   /* alone: it races on Rusty's geometry, on the CD */
+    CHECK(listed(&l, (const int16_t[]){ 10 }, 1));
 }
 
 static void test_full(void)
 {
     TrackList l;
-    Edition e = edition_of("name=All\ntracks=hidden,vegas,transtropolis,vertigo,burnt,autumn,rusty,alpine,coastal,city\n");
-    track_list_build(&l, &e, 0);
-    CHECK(listed(&l, (const int16_t[]){ 8, 7, 6, 5, 4, 3, 2, 1, 0 }, 9));
+    Edition e = edition_of("name=All\ntracks=hidden,vegas,transtropolis,vertigo,burnt,autumn,lunar,rusty,alpine,coastal,city\n");
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);
+    CHECK(listed(&l, (const int16_t[]){ 8, 7, 6, 5, 4, 10, 3, 2, 1, 0 }, 10));
     CHECK(l.count <= TRACK_LIST_MAX);
 }
 
@@ -84,6 +114,7 @@ int main(void)
 {
     test_standard();
     test_edition();
+    test_lunar();
     test_full();
     return TEST_REPORT();
 }

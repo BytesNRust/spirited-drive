@@ -233,7 +233,7 @@ static void tournament_leave_closed(void)
 static const TrackList *edition_tracks(TrackList *l)
 {
     if (central_edition.tracks == 0) return NULL;
-    track_list_build(l, &central_edition, 0);
+    track_list_build(l, &central_edition, 0, TRACK_LIST_LUNAR_NEVER);
     return l;
 }
 

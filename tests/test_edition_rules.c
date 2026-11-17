@@ -1,6 +1,6 @@
 /* dep59 step 4, T7: an edition's rules (game/frontend/edition_rules.h). The standard edition (none) keeps today's game; an edition of
  * the player's own unlocks everything but the Warrior (only when cars= lists it) and the hidden track (only when tracks= does), has the
- * tournament only with the stock cars and tracks, never the network, and Lunar Springs only with rusty in tracks=. Its unlock level is
+ * tournament only with the stock cars and tracks, never the network, and Lunar Springs only with lunar in tracks=. Its unlock level is
  * 2 and is never written; the variants and the Warrior settle to what it gives (extras_apply.h). On a scratch player folder. */
 #include "game/frontend/config_dat.h"
 #include "game/frontend/edition_rules.h"
@@ -104,10 +104,10 @@ static void test_the_unlocks(void)
     CHECK(u.variant_m && u.variant_r && u.lost_vegas && u.warrior && u.hidden);
 }
 
-/* Lunar Springs (the switch on Rusty's rally, and Lunar Gravity's "Lunar Springs") only with rusty listed */
-static void test_lunar_springs_needs_rusty(void)
+/* dep59 Lunar: Lunar Springs (its entry, and Lunar Gravity's "Lunar Springs") only with lunar listed; rusty alone is the desert */
+static void test_lunar_springs_needs_lunar(void)
 {
-    Edition e = edition("name=A\ncars=rx7\ntracks=city,coastal\n");
+    Edition e = edition("name=A\ncars=rx7\ntracks=city,rusty\n");
     CHECK(!edition_lunar_springs(&e));
     PortExtras x = port_extras_defaults();
     x.lunar_springs = 1, x.warrior = 1;
@@ -117,14 +117,14 @@ static void test_lunar_springs_needs_rusty(void)
     x.warrior_rival = 1;
     CHECK_EQ_INT(edition_extras(&e, x).warrior_rival, 0);   /* and the rival's */
     x.warrior_rival = 0;
-    e = edition("name=A\ncars=warrior\ntracks=rusty\n");
+    e = edition("name=A\ncars=warrior\ntracks=lunar\n");
     CHECK(edition_lunar_springs(&e));
     g = edition_extras(&e, x);
     CHECK_EQ_INT(g.lunar_springs, 1);
     CHECK_EQ_INT(g.warrior, 1);
     x.lunar_springs = 0, x.warrior = 0;
     g = edition_extras(&e, x);
-    CHECK_EQ_INT(g.lunar_springs, 0);   /* the switch still decides */
+    CHECK_EQ_INT(g.lunar_springs, 1);   /* listed: always there, like the Warrior */
     CHECK_EQ_INT(g.warrior, 1);   /* listed: always there */
     const ExtrasExpect x1 = extras_expect_level(1), x2 = edition_expect(&e);
     CHECK(x1.m && !x1.r && x1.warrior);
@@ -190,7 +190,7 @@ static void use(const char *id)
     CHECK(port_mode_save(&s, &e));
 }
 
-/* in an edition the level is 2, a put writes nothing, and Lunar Springs follows rusty, not the level */
+/* in an edition the level is 2, a put writes nothing, and Lunar Springs follows lunar in tracks=, not the level */
 static void test_the_level_in_an_edition(void)
 {
     static ConfigDat c;
@@ -202,16 +202,16 @@ static void test_the_level_in_an_edition(void)
     x.lunar_springs = 1;
     CHECK(port_extras_save(&x));
     write_file("editions/own.ini", "name=Own\ncars=rx7\ntracks=city,coastal\n");
-    write_file("editions/moon.ini", "name=Moon\ncars=rx7\ntracks=rusty\n");
+    write_file("editions/moon.ini", "name=Moon\ncars=rx7\ntracks=rusty,lunar\n");
     use("own");
     CHECK_EQ_INT(unlock_level_get(&c), 2);
     unlock_level_put(&c, 1);   /* ROCKYROAD or a tournament won: nothing written */
     CHECK_EQ_INT(unlock_level_get(&c), 2);
     CHECK_EQ_INT(port_extras_load().unlock_level, 0);
     CHECK_EQ_INT(config_dat_unlock_level(&c), 0);
-    CHECK_EQ_INT(unlock_level_extras(&c).lunar_springs, 0);   /* no rusty */
+    CHECK_EQ_INT(unlock_level_extras(&c).lunar_springs, 0);   /* no lunar */
     use("moon");
-    CHECK_EQ_INT(unlock_level_extras(&c).lunar_springs, 1);   /* rusty listed: level 2's, the switch on */
+    CHECK_EQ_INT(unlock_level_extras(&c).lunar_springs, 1);   /* lunar listed: level 2's */
     use("");
     CHECK_EQ_INT(unlock_level_get(&c), 0);   /* the standard edition: its own level as it was */
     CHECK_EQ_INT(unlock_level_extras(&c).lunar_springs, 0);
@@ -226,7 +226,7 @@ int main(void)
     test_the_gates();
     test_what_is_stock();
     test_the_unlocks();
-    test_lunar_springs_needs_rusty();
+    test_lunar_springs_needs_lunar();
     test_settle_to_the_edition();
     test_a_new_edition_is_a_new_session();
     test_the_level_in_an_edition();

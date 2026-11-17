@@ -49,12 +49,12 @@ Unlocks edition_unlocks(const Edition *e)
     return u;
 }
 
-int edition_lunar_springs(const Edition *e) { return has_track(e, "rusty"); }
+int edition_lunar_springs(const Edition *e) { return has_track(e, stock_track_id(STOCK_TRACK_LUNAR)); }
 
 PortExtras edition_extras(const Edition *e, PortExtras x)
 {
     x.warrior = x.warrior_rival = edition_unlocks(e).warrior;
-    if (!edition_lunar_springs(e)) x.lunar_springs = 0;
+    x.lunar_springs = edition_lunar_springs(e);   /* dep59 Lunar L1: lunar in tracks= lists it, whatever the switch */
     return x;
 }
 

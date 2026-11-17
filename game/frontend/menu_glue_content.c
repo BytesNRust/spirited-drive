@@ -394,10 +394,11 @@ static void content_refused(void *ctx, int32_t lacks)
 
 /* --- the preview --- */
 
-/* Control Central's card art on the CD (central_draw.c's CAR_NAMES and TRACK_NAMES, by the stock pieces' numbers; 8..10 are no car) */
+/* Control Central's card art on the CD (central_draw.c's CAR_NAMES and TRACK_NAMES, by the stock pieces' numbers; 8..10 are no car;
+ * Lunar Springs, 10, shows the moon's card as the hidden track did) */
 static const char *const CAR_CARDS[12] = { "rx71", "nsx1", "sup1", "9111", "vet1", "vip1", "5121", "dia1", "war1", "war1", "war1", "war1" };
 static const char *const TRACK_CARDS[STOCK_TRACK_COUNT] = { "city", "coast", "alpine", "springs", "avalley", "bsienna", "vridge",
-                                                            "tpolis", "lvegas", "moon" };
+                                                            "tpolis", "lvegas", "moon", "moon" };
 
 /* Control Central's palette (central.qfs's !pal, which its cards are drawn in), read once for the mods in effect; NULL when none */
 static const uint8_t *central_palette(void)

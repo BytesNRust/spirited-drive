@@ -145,7 +145,7 @@ static int held_by_edition(const ExtrasMenuOps *o, int page, int row, char out[1
     if (o->edition == NULL || page != 0) return 0;
     if (row == ROW_UNLOCK) return snprintf(v, 16, "%d (edition)", UNLOCK_LEVEL_EDITION), 1;
     if (row == ROW_WARRIOR || row == ROW_RIVAL) return snprintf(v, 16, "%s (edition)", edition_unlocks(o->edition).warrior ? "On" : "Off"), 1;
-    if (row == ROW_LUNAR && !edition_lunar_springs(o->edition)) return snprintf(v, 16, "Off (no Rusty)"), 1;
+    if (row == ROW_LUNAR) return snprintf(v, 16, "%s", edition_lunar_springs(o->edition) ? "On (edition)" : "Off (no Lunar)"), 1;
     return 0;
 }
 
