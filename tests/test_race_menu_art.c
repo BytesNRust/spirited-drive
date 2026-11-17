@@ -46,15 +46,21 @@ static const RaceMenuOps OPS = { NULL, call, sounds, zero16, fill, fade, set_pal
 static void put32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v, p[1] = (uint8_t)(v >> 8), p[2] = (uint8_t)(v >> 16), p[3] = (uint8_t)(v >> 24); }
 
 /* the menu opened and left at once (the player dropped from the game) */
-static void open_and_close(void)
+static void put16(uint8_t *b, int at, int16_t v) { b[at] = (uint8_t)v, b[at + 1] = (uint8_t)((uint16_t)v >> 8); }
+
+static void open_and_close_on(int16_t track, int16_t variant)
 {
     static RaceMenuWorld w;
     memset(&w, 0, sizeof w);
+    put16(w.settings, RACE_MENU_TRACK, track), put16(w.settings, RACE_MENU_VARIANT, variant);
+    memcpy(w.saved, w.settings, RACE_MENU_SETTINGS);
     w.dropped = 1;
     loads = blits = 0;
     race_menu(&w, &OPS);
-    CHECK(loads >= 2);   /* the art and the map */
+    CHECK(loads >= 1);   /* the art, and the map when the track has one */
 }
+
+static void open_and_close(void) { open_and_close_on(0, 0); }
 
 /* no art at all: as when the file is missing or refused */
 static void test_no_art(void)
@@ -76,8 +82,20 @@ static void test_art_without_palette(void)
     CHECK(blits > 0);   /* its background still drawn */
 }
 
+/* an added track (menu number 16..79, or a stray -1) reads no table of nine: the menu opens on its art without a map */
+static void test_track_out_of_table(void)
+{
+    static const int16_t TRACKS[] = { RACE_MENU_TRACKS, 16, 79, -1 };
+    art = NULL;
+    for (size_t k = 0; k < sizeof TRACKS / sizeof TRACKS[0]; k++) {
+        open_and_close_on(TRACKS[k], 0);
+        open_and_close_on(TRACKS[k], 2);
+    }
+}
+
 int main(void)
 {
+    test_track_out_of_table();
     test_no_art();
     test_art_without_palette();
     return TEST_REPORT();
