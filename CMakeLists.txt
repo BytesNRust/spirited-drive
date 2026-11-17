@@ -371,6 +371,7 @@ add_library(tnfs_game STATIC
     game/sys/mod_generation.c
     game/sys/edition_file.c
     game/sys/edition.c
+    game/sys/edition_store.c
     game/sys/edition_list.c
     game/frontend/mode_choices.c
     game/sys/mod_set.c
@@ -1351,6 +1352,13 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_live_edition PRIVATE ${TNFS_WARNINGS})
     add_test(NAME live_edition COMMAND test_live_edition)
+    add_executable(test_edition_store tests/test_edition_store.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_edition_store PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_edition_store PRIVATE m)
+    endif()
+    target_compile_options(test_edition_store PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME edition_store COMMAND test_edition_store)
     add_executable(test_game_mode_choices tests/test_game_mode_choices.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_game_mode_choices PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
