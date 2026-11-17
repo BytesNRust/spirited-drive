@@ -4,6 +4,7 @@
 #   targets: game-mode (Game Mode, the first menu after the intro: our boot screen and EA's movie skipped)  central (Control Central, KEYS after it)  showcase (the gallery, from a click on Control Central's car card)
 #            added-gallery (an added car's gallery: the same click with an added car picked, KEYS after it)  options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
 #            graphics  extras (page 1/3)  extras-p2  extras-p3
+#            content (CONTENT, from Game Mode's "Manage content...": open in Restomod alone, so PROFILE defaults to restomod there)
 #            track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
 #            best-circuit-p2  best-cheats (Coastal, the table with cheats: none)
 #        KEYS (track and best-times: more steps after the screen opens, e.g. 1500:UP,800:RIGHT) and TAIL (a pause, in seconds, after the
@@ -31,7 +32,8 @@
 # The picture is the page the game ended on: the walk checks that the last screen the game logged is the target's, and fails (exit 4) when it is not,
 # so a saved <target>.png is always that page.
 # exit: 0 reached and saved; 3 a step timed out; 4 the game went on past the target (the last screen logged is another); 5 every frame captured
-#       was one colour (a fade to black that never ended: no picture); 2 bad arguments, no binary
+#       was one colour (a fade to black that never ended: no picture); 6 the content target on a binary that never opened CONTENT (one from
+#       before it: its "Manage content..." step timed out, bounded by STEP_TIMEOUT, or the game quit on that click, and no mark:screen=content was logged); 2 bad arguments, no binary
 # or no magick; 1 anything else (the log is printed).
 bin=$1 out=$2 target=$3
 [ -n "$bin" ] && [ -n "$out" ] && [ -n "$target" ] || { echo "usage: $0 <bin> <outdir> <target>" >&2; exit 2; }
@@ -99,6 +101,7 @@ fi
 steps_after=""   # set by the targets whose own steps go on after their mark (the done wait below)
 case $target in
 game-mode)    script="$to_game_mode${KEYS:+,$KEYS}"; final=game_mode; tail=${TAIL:-3} ;;
+content)      script="$to_game_mode,$(click 320 383),$(wait_for content)${KEYS:+,$KEYS}"; final=content; PROFILE=${PROFILE:-restomod} ;;   # ROW[MANAGE]
 central)      script="$to_central${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3} ;;
 showcase)     script="$to_central,$(click 180 200),$(wait_for showcase)"; final=showcase ;;
 added-gallery) script="$to_central,$(click 180 200),$(wait_for added_gallery)${KEYS:+,$KEYS}"; final=added_gallery; tail=${TAIL:-3} ;;
@@ -203,6 +206,9 @@ if [ $rc -eq 0 ]; then
         magick "$work/cap/$last" "$out/$target.png" || { rc=1; echo "the frame did not convert to $out/$target.png" >&2; }
     elif [ -n "$(ls "$work/cap" 2>/dev/null)" ]; then rc=5; echo "menu_walk $target: $(cat "$work/pick.err"); no picture saved" >&2
     else rc=1; echo "reached mark:screen=$final but no frame was captured" >&2; fi
+fi
+if { [ $rc -eq 3 ] || [ $rc -eq 1 ]; } && [ "$final" = content ] && ! grep -q "mark:screen=content" "$work/user/spirited-drive.log" 2>/dev/null; then
+    rc=6; echo "menu_walk content: this binary never opened CONTENT (one from before it?): no picture" >&2
 fi
 if [ $rc -ne 0 ]; then
     echo "menu_walk $target: failed (exit $rc); the game's last lines:" >&2

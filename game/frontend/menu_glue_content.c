@@ -3,6 +3,7 @@
  * titles' letters over it; the editions are editions/'s files (edition_file.h, edition_store.h), the mods mods/'s (mod_store.h), and each
  * failure is told to the player in the game's banner with the store's reason. */
 #include "game/frontend/menu_glue_private.h"
+#include "game/frontend/content_backdrop.h"
 #include "game/frontend/content_preview.h"
 #include "game/frontend/content_screen.h"
 #include "formats/fsh.h"
@@ -27,7 +28,7 @@ enum {
     EDITIONS_MAX = 64,         /* mode_choices.h's MODE_CHOICES_EDITIONS: the editions Game Mode lists */
     NAME_CAP = EDITION_NAME_MAX + 1,
     /* the body darkened 30% toward #120E09 (the mock-up's brown), in the 8-bit palette the clean background carries */
-    DARK_R = 0x12, DARK_G = 0x0e, DARK_B = 0x09, DARK_NUM = 3, DARK_DEN = 10,
+    DARK_RGB = 0x120e09, DARK_NUM = 3, DARK_DEN = 10,
     CREAM_RGB = 0xe8d3b7, YELLOW_RGB = 0xffce06,   /* text.h's TEXT_CREAM and TEXT_YELLOW */
     TRI_H = 6, TRI_W = 2 * TRI_H - 1               /* the up and down triangles */
 };
@@ -38,41 +39,28 @@ static uint8_t scratch[PIXELS];
 static uint8_t bg_palette[768];
 static uint8_t dark_shape[CONFIG_BGND_SHAPE_HEADER + PIXELS];
 static int dark_ok;
+static int fade_pending;     /* the screen just opened: its first page is faded in, in the background's palette */
 static uint32_t dark_made;   /* the mods' generation it was made under; 0 never */
 
 static void told(void *ctx, const char *text) { menu_glue_banner_wait(ctx, text, BANNER_TIME); }
 
-/* the palette entry nearest 0xRRGGBB in the background's palette */
-static int32_t nearest(uint32_t rgb)
-{
-    return palette_nearest(bg_palette, palette_usable(), (int)(rgb >> 16 & 0xff), (int)(rgb >> 8 & 0xff), (int)(rgb & 0xff));
-}
+/* the palette entry nearest 0xRRGGBB in the background's own palette (content_backdrop.h: not palette_usable()'s set) */
+static int32_t nearest(uint32_t rgb) { return content_backdrop_nearest(bg_palette, rgb); }
 
-/* each usable entry to the one nearest its colour 30% of the way to the brown; the others (the pointer's, the see-through) kept */
-static void darken_table(const uint8_t pal[768], uint8_t table[256])
-{
-    const uint8_t *const usable = palette_usable();
-    static const int TOWARD[3] = { DARK_R, DARK_G, DARK_B };
-    for (int i = 0; i < 256; i++) {
-        int c[3];
-        for (int k = 0; k < 3; k++) c[k] = (pal[3 * i + k] * (DARK_DEN - DARK_NUM) + TOWARD[k] * DARK_NUM + DARK_DEN / 2) / DARK_DEN;
-        table[i] = usable[i] ? (uint8_t)palette_nearest(pal, usable, c[0], c[1], c[2]) : (uint8_t)i;
-    }
-}
-
-/* the darkened copy, made once for the mods in effect: a copy of the clean background's pixels remapped, its palette left as it is so
- * the text styles built from it stay right */
+/* the darkened copy, made once for the mods in effect: the clean background composed without the bottom corners' DONE and CANCEL (the
+ * foot has its own buttons there; EXTRAS' copy keeps them), its pixels remapped, its palette left as it is so the text styles built from
+ * it stay right */
 static void dark_follow(void)
 {
     if (dark_made == mod_set_generation()) return;
     dark_made = mod_set_generation();
-    dark_ok = glue_own_bgnd(scratch, bg_palette);
+    dark_ok = config_bgnd_load(resource_load_art, CONFIG_BGND_OPTIONS, 0, scratch, bg_palette);
     if (!dark_ok) {
         port_log("content: no clean configuration background, none darkened\n");
         return;
     }
     uint8_t table[256];
-    darken_table(bg_palette, table);
+    content_backdrop_darken(bg_palette, DARK_RGB, DARK_NUM, DARK_DEN, table);
     palette_remap_pixels(scratch, table, PIXELS);
     dark_ok = config_bgnd_shape(scratch, 0, 0, W, H, dark_shape) != 0;
 }
@@ -118,11 +106,13 @@ static void content_arrow(void *ctx, int32_t which, int32_t lit, int32_t x, int3
     }
 }
 
-/* the page on the display, the pointer shown over it */
+/* the page on the display, the pointer shown over it. The first one fades in with the background's palette: the screen opens over Game
+ * Mode's (faded out by glue_content_screen), and its pixels are the background's indices, which Game Mode's palette shows as noise */
 static void content_show(void *ctx)
 {
     (void)ctx;
     video_flip();
+    if (fade_pending) fade_pending = 0, video_fade_in_quick(0, 0x100, bg_palette);
     pointer_show();
 }
 
@@ -499,7 +489,8 @@ static void preview_draw(const uint8_t *rgb, int w, int h, int32_t x0, int32_t y
     if (small != NULL && shape_out != NULL) {
         content_reduce_area(rgb, w, h, small, ow, oh);
         const int left = x0 + (bw - ow) / 2, top = y0 + (bh - oh) / 2;
-        const uint8_t *const usable = palette_usable();
+        uint8_t usable[256];
+        content_backdrop_usable(usable);
         for (int y = 0; y < oh; y++)
             for (int x = 0; x < ow; x++) {
                 const uint8_t *const p = small + 3 * ((size_t)y * ow + x);
@@ -529,6 +520,9 @@ int32_t glue_content_screen(int32_t *edition)
                              content_preview, content_show, key, content_pointer, content_wait, content_editions,
                              content_edition_name, content_edition_load, content_edition_save, content_mods, content_used_in,
                              content_card, content_foot, content_refused, NULL, content_dropped };
+    video_fade_out_quick(0, 0x100);   /* Game Mode's page out; it fades its own back in after (game_mode.c's manage) */
+    fade_pending = 1;
     content_screen_run(&ops, edition);
+    video_fade_out_quick(0, 0x100);
     return *edition;
 }
