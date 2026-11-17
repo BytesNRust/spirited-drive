@@ -24,6 +24,9 @@ RecordTable *race_records_tracks_make(const char *track, int layout, int cheats,
 /* the best lap of (track, layout, cheats) for `car`; find and make as the tables' */
 RecordRow *race_records_tracks_lap_find(const char *track, int layout, int cheats, const char *car);
 RecordRow *race_records_tracks_lap_make(const char *track, int layout, int cheats, const char *car, const char *short_name);
+/* The ids of the cars that have a table or a best lap for `track` (any key), ascending, at most `max`, in `ids`: how many. The ids point into
+ * the store and are good until it is reset or loaded again; the screens join these cars' tables (race_records_merge.h) */
+int race_records_tracks_cars(const char *track, const char *ids[], int max);
 /* the short name kept with a table, "" when there is none */
 const char *race_records_tracks_short_name(const char *track, int layout, int cheats, int laps, const char *car);
 

@@ -16,6 +16,9 @@
 int race_records_cars_merge(int track, int layout, int cheats, int laps, const char *const ids[], int n, RecordTable *out);
 /* the best lap of (track, layout, cheats) over the cars `ids`, as above: 1; 0 and `out` empty when none has one */
 int race_records_cars_lap_merge(int track, int layout, int cheats, const char *const ids[], int n, RecordRow *out);
+/* The same over race_records_tracks.dat's tables of the track `track` (an id: "lunar", a mod's), one per car (dep59 L6) */
+int race_records_tracks_merge(const char *track, int layout, int cheats, int laps, const char *const ids[], int n, RecordTable *out);
+int race_records_tracks_lap_merge(const char *track, int layout, int cheats, const char *const ids[], int n, RecordRow *out);
 /* the place of the row `row` among `rows` (`n` of them): the first the same but for its car words (an added car's are 0 in its table and
  * its number in a joined one), -1 when it is not there */
 int race_records_row_index(const RecordRow rows[], int n, const RecordRow *row);
@@ -31,5 +34,12 @@ const RecordTable *race_records_shown(int track, int layout, int cheats, int lap
 const RecordRow *race_records_shown_lap(int track, int layout, int cheats);
 /* the lap counts with a table the same way, ascending, at most `max` (race_records_laps' in the standard edition); how many */
 int race_records_shown_laps(int track, int layout, int cheats, int *out, int max);
+
+/* What Best Times shows for a track of race_records_tracks.dat ("lunar", a mod's): the tables of the edition's cars joined in an edition of its
+ * own, else of every car in the file that has one for the track (race_records_tracks_cars). The same three calls as the stock tracks' above;
+ * NULL when no car has a table there (a copy of the join, kept until the next call) */
+const RecordTable *race_records_shown_track(const char *track, int layout, int cheats, int laps);
+const RecordRow *race_records_shown_track_lap(const char *track, int layout, int cheats);
+int race_records_shown_track_laps(const char *track, int layout, int cheats, int *out, int max);
 
 #endif

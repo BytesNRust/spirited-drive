@@ -6,6 +6,7 @@
 #include "game/race/weather.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
+#include "game/sys/race_records_tracks.h"
 #include "game/sys/extras_marks.h"
 #include "test.h"
 
@@ -82,6 +83,31 @@ static void test_the_laps_are_a_carousel_of_the_counts_there_are(void)
     best_times_pages_act(&p, CIRCUIT, BEST_PAGES_LAPS_UP);
     CHECK_EQ_INT(p.laps, 16);
     race_records_reset();
+}
+
+/* dep59 L6: on Lunar's entry (`own` "lunar") the laps field steps through the counts of race_records_tracks.dat's tables, not race_records.dat's */
+static void test_lunars_laps_are_its_own(void)
+{
+    race_records_reset(), race_records_tracks_reset();
+    (void)race_records_make(CIRCUIT, 0, 0, 30);                          /* Rusty rally's old Lunar times: not Lunar's now */
+    (void)race_records_tracks_make("lunar", 0, 0, 7, "viper", NULL);
+    (void)race_records_tracks_make("lunar", 0, 0, 12, "rx7", NULL);      /* another car's: joined */
+    BestTimesPlus p;
+    best_times_pages_open(&p, CIRCUIT, 0, 0, 0, 0);
+    CHECK(p.own == NULL);                                                /* opened as the stock track: the screen says when it is Lunar's */
+    p.own = "lunar";
+    static const int UP[] = { 7, 8, 12, 16, 4 };
+    for (int i = 0; i < 5; i++) {
+        best_times_pages_act(&p, CIRCUIT, BEST_PAGES_LAPS_UP);
+        CHECK_EQ_INT(p.laps, UP[i]);
+    }
+    p.own = NULL;
+    best_times_pages_open(&p, CIRCUIT, 0, 0, 0, 0);
+    best_times_pages_act(&p, CIRCUIT, BEST_PAGES_LAPS_UP);               /* Rusty's: its table 30, no Lunar's */
+    CHECK_EQ_INT(p.laps, 8);
+    best_times_pages_act(&p, CIRCUIT, BEST_PAGES_LAPS_UP), best_times_pages_act(&p, CIRCUIT, BEST_PAGES_LAPS_UP);
+    CHECK_EQ_INT(p.laps, 30);
+    race_records_reset(), race_records_tracks_reset();
 }
 
 /* the page wraps both ways, two a track */
@@ -307,6 +333,7 @@ int main(void)
     test_the_layout_is_a_carousel();
     test_the_cheats_turn_over_from_every_item();
     test_the_laps_are_a_carousel_of_the_counts_there_are();
+    test_lunars_laps_are_its_own();
     test_the_page_is_a_carousel();
     test_the_keys_row();
     test_another_track();
