@@ -177,6 +177,16 @@ static const char *mode_network_closed(void *ctx)
     return edition_gate(edition_in_use(&e)).network_why;
 }
 
+/* port (dep59 step 4b, T7): Manage content's CONTENT screen (menu_glue_content.c). Game Mode's choices are the three modes, then the
+ * editions; CONTENT's the standard edition (0), then the same editions */
+static int32_t mode_manage(void *ctx, int32_t shown)
+{
+    (void)ctx;
+    int32_t edition = shown > MODE_CHOICES_MODES - 1 ? shown - (MODE_CHOICES_MODES - 1) : 0;
+    glue_content_screen(&edition);
+    return edition + MODE_CHOICES_MODES - 1;
+}
+
 /* 004376ac (game_mode.c) */
 int32_t glue_game_mode(void)
 {
@@ -187,7 +197,7 @@ int32_t glue_game_mode(void)
                               mode_network_game, menu_glue_yes_no, drain, off, music, deadline_passed, sound_free, bank_free, NULL,
                               menu_glue_extras_text_glue, menu_glue_extras_text_width_glue, mode_cover, glue_choice,
                               glue_plus_text_scaled, glue_plus_text_width_scaled, mode_footer, mode_open_notice,
-                              mode_clock_ms, mode_fade_out_quick, mode_fade_in_quick, mode_network_closed };
+                              mode_clock_ms, mode_fade_out_quick, mode_fade_in_quick, mode_network_closed, mode_manage };
     GameModeState st = { ea_screen(), (int16_t)pointer_active(), 0, menu_words.mode_menu, menu_words.intro_seen,
                          menu_words.single, menu_words.network_raced, menu_words.link_game, menu_words.link_lost,
                          menu_words.redraw, frontend_player_name };

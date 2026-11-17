@@ -105,7 +105,7 @@ static void f_refused(void *ctx, int32_t lacks) { (void)ctx, fk.refused++, fk.re
 
 static const ContentOps OPS = { f_background, f_text, f_width, f_title, f_fill, f_arrow, f_preview, f_show, f_key, f_pointer, f_wait,
                                 f_editions, f_edition_name, f_edition_load, f_edition_save, f_mods, f_used_in, f_card, f_foot, f_refused,
-                                NULL };
+                                NULL, NULL };
 
 static ModInfo mod(const char *id, const char *name, const char *version, const char *author, int type)
 {
@@ -260,6 +260,33 @@ static void test_the_rule(void)
 }
 
 /* the foot's buttons go to the caller; the selector round the editions */
+/* T7: a file dropped on the window, installed by the caller (ContentOps.dropped), which may put another edition on the selector: the screen
+ * reads the editions and the mods again and goes on on that edition */
+static int drops;
+static int32_t f_dropped(void *ctx, int32_t *edition)
+{
+    (void)ctx;
+    if (drops++ != 0) return 0;
+    *edition = 1;
+    return 1;
+}
+
+static void test_a_dropped_file(void)
+{
+    reset(NULL, 0);   /* no key: Escape at once */
+    drops = 0;
+    ContentOps o = OPS;
+    o.dropped = f_dropped;
+    int32_t edition = 0;
+    content_screen_run(&o, &edition);
+    CHECK(drops >= 1);
+    CHECK_EQ_INT(edition, 1);
+    reset(NULL, 0);   /* no dropped op (NULL): as before */
+    edition = 0;
+    content_screen_run(&OPS, &edition);
+    CHECK_EQ_INT(edition, 0);
+}
+
 static void test_the_foot_and_the_selector(void)
 {
     /* Up round to the foot (on Done), Left to New past the grey Delete and Rename, Enter; Down round to the selector, Right */
@@ -280,5 +307,6 @@ int main(void)
     test_mod_words();
     test_the_rule();
     test_the_foot_and_the_selector();
+    test_a_dropped_file();
     return TEST_REPORT();
 }

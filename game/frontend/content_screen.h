@@ -51,6 +51,9 @@ typedef struct ContentOps {
     /* Done refused: the edition lacks what CONTENT_RULES_* `lacks` says; the player is told */
     void (*refused)(void *ctx, int32_t lacks);
     void *ctx;
+    /* port (T7): a file dropped on the window since the last turn, installed by the caller with its dialog (NULL: none taken); 1 when the
+     * editions or the mods changed, with `edition` set to the one to show */
+    int32_t (*dropped)(void *ctx, int32_t *edition);
 } ContentOps;
 
 /* the screen until Done (or Escape) with the rule kept; `edition` the selector's choice it opens on, and the one it closed on */

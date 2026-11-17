@@ -86,6 +86,9 @@ typedef struct GameModeOps {
     /* port (dep59 step 4): the reason Multiplayer cannot be chosen (an edition of the player's own in use, edition_rules.h), NULL when it
      * can; asked at each draw and choice, the selector may have changed the edition. NULL: always open */
     const char *(*network_closed)(void *ctx);
+    /* port (dep59 step 4b, T7): Manage content's CONTENT screen, opened on the selector's choice `shown` (GAME_MODE_CHOICE_* indices: the
+     * modes, then the editions); the choice it closed on, -1 for none. NULL: the later version's banner */
+    int32_t (*manage)(void *ctx, int32_t shown);
 } GameModeOps;
 
 typedef struct GameModeState {

@@ -51,6 +51,9 @@ int32_t glue_network_game(void *ctx);   /* 00454b78: 0 to race, 1 back, 2 the ti
 /* port: the EXTRAS screen (Plan 3 Task 3) over the calling menu's live picture; `unlock` is the level to show and
  * Done writes. 1 on Done, 0 on Cancel / Escape. */
 int32_t glue_extras_screen(int16_t unlock);
+/* port (dep59 step 4b, T7): the CONTENT screen (menu_glue_content.c) on `edition` (0 the standard edition, then editions/'s ids in
+ * order); the edition it closed on, into `edition` and returned */
+int32_t glue_content_screen(int32_t *edition);
 /* port (central_glue.c): the additions' text (style 0 cream, 1 yellow) and shaded panel */
 void glue_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
 int32_t glue_plus_text_width(void *ctx, const char *text);
