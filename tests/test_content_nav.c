@@ -42,23 +42,23 @@ static void test_the_start_and_the_pages(void)
     CHECK_EQ_INT(content_nav_pages(&rows), 1);
     content_nav_clamp(&n, &view);
     CHECK_EQ_INT(n.line, 0);   /* no row: the All row */
-    fill(8, 3, 0);
+    fill(10, 3, 0);
     CHECK_EQ_INT(content_nav_pages(&rows), 1);
-    fill(9, 3, 0);
-    CHECK_EQ_INT(content_nav_pages(&rows), 2);   /* 8 rows a page under the All row */
-    fill(20, 3, 0);
+    fill(11, 3, 0);
+    CHECK_EQ_INT(content_nav_pages(&rows), 2);   /* 10 rows a page under the All row */
+    fill(25, 3, 0);
     CHECK_EQ_INT(content_nav_pages(&rows), 3);
     n.page = 1;
     CHECK_EQ_INT(content_nav_row(&n, &rows, 0), -1);
-    CHECK_EQ_INT(content_nav_row(&n, &rows, 1), 8);
+    CHECK_EQ_INT(content_nav_row(&n, &rows, 1), 10);
     n.page = 2;
-    CHECK_EQ_INT(content_nav_row(&n, &rows, 4), 19);
-    CHECK_EQ_INT(content_nav_row(&n, &rows, 5), -2);   /* past the rows */
-    n.line = 4;
-    CHECK_EQ_INT(content_nav_selected_row(&n, &rows), 19);
-    n.line = 6;
+    CHECK_EQ_INT(content_nav_row(&n, &rows, 5), 24);
+    CHECK_EQ_INT(content_nav_row(&n, &rows, 6), -2);   /* past the rows */
+    n.line = 5;
+    CHECK_EQ_INT(content_nav_selected_row(&n, &rows), 24);
+    n.line = 8;
     content_nav_clamp(&n, &view);
-    CHECK_EQ_INT(n.line, 4);   /* kept on the last row there is */
+    CHECK_EQ_INT(n.line, 5);   /* kept on the last row there is */
     n.page = 5;
     content_nav_clamp(&n, &view);
     CHECK_EQ_INT(n.page, 2);
@@ -191,7 +191,7 @@ static void test_the_pages_by_keys(void)
 {
     ContentNav n;
     content_nav_start(&n);
-    fill(20, 3, 0);
+    fill(25, 3, 0);
     CHECK_EQ_INT(content_nav_key(&n, &view, PAGE_DOWN).kind, CONTENT_ACT_MOVED);
     CHECK_EQ_INT(n.page, 1);
     content_nav_key(&n, &view, PAGE_DOWN), content_nav_key(&n, &view, PAGE_DOWN);
@@ -200,13 +200,13 @@ static void test_the_pages_by_keys(void)
     content_nav_key(&n, &view, PAGE_UP);
     CHECK_EQ_INT(n.page, 1);
     /* Down from a page's last line goes on to the next page's first row */
-    n.line = 8;
+    n.line = 10;
     content_nav_key(&n, &view, DOWN);
     CHECK_EQ_INT(n.page, 2);
     CHECK_EQ_INT(n.line, 1);
     content_nav_key(&n, &view, UP);   /* and Up from its first row back */
     CHECK_EQ_INT(n.page, 1);
-    CHECK_EQ_INT(n.line, 8);
+    CHECK_EQ_INT(n.line, 10);
 }
 
 static void test_the_foot(void)
@@ -238,15 +238,20 @@ static void test_the_clicks(void)
 {
     ContentNav n;
     content_nav_start(&n);
-    fill(20, 3, 0);
+    fill(25, 3, 0);
     ContentAction a = content_nav_click(&n, &view, 600, CONTENT_SELECTOR_Y + 8);
     CHECK_EQ_INT(a.kind, CONTENT_ACT_EDITION);
     CHECK_EQ_INT(a.arg, 1);
     CHECK_EQ_INT(content_nav_click(&n, &view, 400, CONTENT_SELECTOR_Y + 8).arg, -1);
-    a = content_nav_click(&n, &view, 130, CONTENT_TAB_Y + 8);
+    a = content_nav_click(&n, &view, 363, CONTENT_SELECTOR_Y + 8);   /* the back arrow is drawn at x 363, left of the split rule (owner's note 1) */
+    CHECK_EQ_INT(a.kind, CONTENT_ACT_EDITION);
+    CHECK_EQ_INT(a.arg, -1);
+    CHECK_EQ_INT(content_nav_click(&n, &view, 509, CONTENT_SELECTOR_Y + 8).arg, 1);   /* and the forward one at 509 */
+    CHECK_EQ_INT(content_nav_click(&n, &view, 200, CONTENT_SELECTOR_Y + 8).kind, CONTENT_ACT_NONE);   /* the title's side takes nothing */
+    a = content_nav_click(&n, &view, 190, CONTENT_TAB_Y + 8);
     CHECK_EQ_INT(a.kind, CONTENT_ACT_TAB);
     CHECK_EQ_INT(n.tab, CONTENT_TRACKS);
-    CHECK_EQ_INT(content_nav_click(&n, &view, 130, CONTENT_TAB_Y + 8).kind, CONTENT_ACT_NONE);   /* the tab it is on */
+    CHECK_EQ_INT(content_nav_click(&n, &view, 190, CONTENT_TAB_Y + 8).kind, CONTENT_ACT_NONE);   /* the tab it is on */
     a = content_nav_click(&n, &view, 20, line_y(2));
     CHECK_EQ_INT(a.kind, CONTENT_ACT_SWITCH);
     CHECK_EQ_INT(a.row, 1);

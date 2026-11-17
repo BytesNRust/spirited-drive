@@ -35,7 +35,7 @@ enum {
     /* the card's panel darkened a further 60% toward the gallery's panel tint (gallery_layout.h's GL_PANEL_RGB), edged in the rules' colour,
      * so the card's dim words read over the background's light "&" */
     PANEL_RGB = 0x0a0704, PANEL_NUM = 3, PANEL_DEN = 5,
-    CREAM_RGB = 0xe8d3b7, YELLOW_RGB = 0xffce06,   /* text.h's TEXT_CREAM and TEXT_YELLOW */
+    CREAM_RGB = 0xe8d3b7, YELLOW_RGB = 0xffce06, DIM_RGB = 0x8c8273,   /* text.h's TEXT_CREAM and TEXT_YELLOW */
     TRI_H = 6, TRI_W = 2 * TRI_H - 1               /* the up and down triangles */
 };
 
@@ -157,6 +157,14 @@ static void content_arrow(void *ctx, int32_t which, int32_t lit, int32_t x, int3
 {
     if (which == CONTENT_ARROW_LEFT || which == CONTENT_ARROW_RIGHT) {
         own_panel_arrow(ctx, which == CONTENT_ARROW_RIGHT, lit, x, y);
+        return;
+    }
+    if (which == CONTENT_ARROW_LEFT_OFF || which == CONTENT_ARROW_RIGHT_OFF) {   /* dim, flat, the size of the page arrows' body */
+        const int32_t dim = nearest(DIM_RGB);
+        for (int col = 0; col < TRI_H; col++) {
+            const int inset = which == CONTENT_ARROW_LEFT_OFF ? col : TRI_H - 1 - col;
+            ea_frame(x + col, y + inset, x + col, y + TRI_W - 1 - inset, dim);
+        }
         return;
     }
     const int32_t c = nearest(lit ? YELLOW_RGB : CREAM_RGB);
@@ -418,7 +426,7 @@ static int32_t edition_delete(void *ctx, int32_t *edition)
     char id[EDITION_ID_MAX + 1], name[NAME_CAP], text[TEXT_CAP], why[WHY_CAP];
     if (!edition_id_at(*edition, id)) return 0;
     content_edition_name(ctx, *edition, name, sizeof name);
-    snprintf(text, sizeof text, "Delete the edition %s?", name);
+    snprintf(text, sizeof text, "Delete edition %s?", name);
     if (!asked(ctx, text)) return 0;
     if (!edition_store_delete(id, why, sizeof why)) {
         told(ctx, why);
@@ -581,9 +589,22 @@ int32_t glue_content_screen(int32_t *edition)
                              content_preview, content_show, key, content_pointer, content_wait, content_editions,
                              content_edition_name, content_edition_load, content_edition_save, content_mods, content_used_in,
                              content_card, content_foot, content_refused, NULL, content_dropped };
-    video_fade_out_quick(0, 0x100);   /* Game Mode's page out; it fades its own back in after (game_mode.c's manage) */
+    const int music = *menu_audio_silent() == 0;
+    if (music) {   /* the car gallery's (calmer) music, as Control Central's gallery starts it (central_select.c) */
+        menu_audio_music_fade_out();
+        video_fade_out_quick(0, 0x100);
+        menu_audio_music_end();
+        menu_audio_music_start("showcase.asf");
+    } else {
+        video_fade_out_quick(0, 0x100);   /* Game Mode's page out; it fades its own back in after (game_mode.c's manage) */
+    }
     fade_pending = 1;
     content_screen_run(&ops, edition);
+    if (music) menu_audio_music_fade_out();   /* a stop waits for the voice's fade (as on the way in) */
     video_fade_out_quick(0, 0x100);
+    if (music) {
+        menu_audio_music_end();
+        menu_audio_music_pick();   /* the menus' song again */
+    }
     return *edition;
 }

@@ -10,6 +10,8 @@ typedef struct {
     const ContentMods *mods;    /* for the card's words */
     const ContentView *view;    /* the rows, the buttons that can be taken */
     const ContentNav *nav;      /* the selection, the tab, the page */
+    int quiet;                  /* 1: no focus drawn (a box is up over the page: one focus only, the box's) */
+    int flash;                  /* 1: the read-only line in yellow (a box tried on a standard edition) */
 } ContentPage;
 
 void content_draw(const ContentOps *o, const ContentPage *p);

@@ -13,13 +13,15 @@ enum { SMALL_NUM = 3, SMALL_DEN = 5, BUTTON_NUM = 4, BUTTON_DEN = 5, ROW_NUM = 3
        VERSION_DY = 2, CARD_LINES = 2 };
 
 static const char *const TAB_NAME[CONTENT_TABS] = { "Cars", "Tracks", "Tweaks" };
-static const int TAB_X[CONTENT_TABS] = { 14, 118, 220 };
+static const int TAB_CENTRE[CONTENT_TABS] = { 90, 197, 304 };   /* centred over the list, fixed places */
 static const char *const CARD_WORDS[CONTENT_CARD_BUTTONS] = { "Update...", "Uninstall", "Previous version" };
 static const int CARD_X[CONTENT_CARD_BUTTONS] = { CONTENT_CARD_X0, CONTENT_UNINSTALL_X, CONTENT_CARD_X0 };
 static const int CARD_Y[CONTENT_CARD_BUTTONS] = { CONTENT_CARD_BUTTONS_Y, CONTENT_CARD_BUTTONS_Y, CONTENT_PREVIOUS_Y };
 static const char *const FOOT_WORDS[CONTENT_FOOT_BUTTONS] = { "New", "Duplicate", "Rename", "Delete", "Install...", "Done" };
-static const int FOOT_X[CONTENT_FOOT_BUTTONS - 1] = { 14, 66, 170, 252, 334 };
-static const char NOTE[] = "The standard edition can't change - Duplicate to make your own";
+static const int FOOT_X[CONTENT_FOOT_BUTTONS - 1] = { 14, 66, 170, 252, 420 };
+static const char READ_ONLY[] = "Standard edition - read only. Duplicate to edit.";
+static const char YOURS[] = "Your edition - in use";
+enum { YELLOW_RGB = 0xffce06, UNDERLINE_DY = 4 };
 
 /* `text` cut with "..." to at most `width` pixels at num/den, into `out` */
 static const char *fit(const ContentOps *o, const char *text, int num, int den, int width, char *out, size_t cap)
@@ -43,43 +45,41 @@ static int button_style(int on, int lit) { return !on ? CONTENT_DIM : lit ? CONT
 
 static void top(const ContentOps *o, const ContentPage *p)
 {
-    char line[96], name[64];
+    char name[64], plain[64];
     o->title(o->ctx, "Content", CONTENT_TITLE_X, CONTENT_TITLE_Y);
-    snprintf(line, sizeof line, "<  %s  >", clean(p->edition, name, sizeof name));
-    o->text(o->ctx, p->nav->at == CONTENT_AT_SELECTOR ? CONTENT_YELLOW : CONTENT_CREAM, line,
-            CONTENT_SELECTOR_X - o->text_width(o->ctx, line, 1, 1) / 2, CONTENT_SELECTOR_Y, 1, 1);
+    const int sel = p->nav->at == CONTENT_AT_SELECTOR && !p->quiet;
+    o->arrow(o->ctx, CONTENT_ARROW_LEFT, sel, CONTENT_SELECTOR_ARROW_L, CONTENT_SELECTOR_Y + ARROW_DY);
+    o->arrow(o->ctx, CONTENT_ARROW_RIGHT, sel, CONTENT_SELECTOR_ARROW_R, CONTENT_SELECTOR_Y + ARROW_DY);
+    fit(o, clean(p->edition, plain, sizeof plain), 1, 1, CONTENT_SELECTOR_NAME_W, name, sizeof name);
+    o->text(o->ctx, sel ? CONTENT_YELLOW : CONTENT_CREAM, name, CONTENT_SELECTOR_X - o->text_width(o->ctx, name, 1, 1) / 2, CONTENT_SELECTOR_Y, 1, 1);
+    const char *status = p->view->rows->locked ? READ_ONLY : YOURS;
+    o->text(o->ctx, p->flash ? CONTENT_YELLOW : CONTENT_DIM, status, CONTENT_SELECTOR_X - o->text_width(o->ctx, status, SMALL_NUM, SMALL_DEN) / 2,
+            CONTENT_STATUS_Y, SMALL_NUM, SMALL_DEN);
     for (int t = 0; t < CONTENT_TABS; t++) {
-        if (t == p->nav->tab) snprintf(line, sizeof line, "[ %s ]", TAB_NAME[t]);
-        o->text(o->ctx, t == p->nav->tab ? CONTENT_YELLOW : CONTENT_CREAM, t == p->nav->tab ? line : TAB_NAME[t], TAB_X[t], CONTENT_TAB_Y, TAB_NUM,
-                TAB_DEN);
+        const int w = o->text_width(o->ctx, TAB_NAME[t], TAB_NUM, TAB_DEN), x = TAB_CENTRE[t] - w / 2, on = t == p->nav->tab;
+        o->text(o->ctx, on ? CONTENT_YELLOW : CONTENT_CREAM, TAB_NAME[t], x, CONTENT_TAB_Y, TAB_NUM, TAB_DEN);
+        if (on) o->fill(o->ctx, x, CONTENT_TAB_RULE_Y - UNDERLINE_DY, x + w, CONTENT_TAB_RULE_Y - UNDERLINE_DY + 1, YELLOW_RGB);
     }
     rule(o, CONTENT_LIST_X0, CONTENT_TAB_RULE_Y, CONTENT_LIST_X1, CONTENT_TAB_RULE_Y);
     rule(o, CONTENT_SPLIT_X, CONTENT_SPLIT_Y0, CONTENT_SPLIT_X, CONTENT_FOOT_RULE_Y - 1);
 }
 
-/* a row's right-hand word: its version, "(game)", "missing" or "(removed)", and its style */
-static const char *version_of(const ContentRow *r, int *style)
-{
-    *style = r->kind == CONTENT_ROW_MISSING ? CONTENT_RED : r->kind == CONTENT_ROW_MOD ? CONTENT_CREAM : CONTENT_DIM;
-    return r->kind == CONTENT_ROW_GAME ? "(game)" : r->kind == CONTENT_ROW_MISSING ? "missing" : r->kind == CONTENT_ROW_REMOVED ? "(removed)" : r->version;
-}
-
 static void row_line(const ContentOps *o, const ContentPage *p, const ContentRow *r, int line)
 {
     const ContentNav *n = p->nav;
-    const int y = CONTENT_LIST_Y + line * CONTENT_LINE, lit = n->at == CONTENT_AT_LIST && n->line == line;
-    int vstyle;
-    char words[sizeof r->name > sizeof r->version ? sizeof r->name : sizeof r->version];
-    const char *version = clean(version_of(r, &vstyle), words, sizeof words);
-    const int vw = version[0] != 0 ? o->text_width(o->ctx, version, SMALL_NUM, SMALL_DEN) : 0;
+    const int y = CONTENT_LIST_Y + line * CONTENT_LINE, lit = !p->quiet && n->at == CONTENT_AT_LIST && n->line == line;
     char name[64], plain[sizeof r->name];
     o->text(o->ctx, !r->switchable ? CONTENT_DIM : lit && n->item == CONTENT_ITEM_BOX ? CONTENT_YELLOW : CONTENT_CREAM, r->on ? "[x]" : "[ ]",
             CONTENT_BOX_X, y, ROW_NUM, ROW_DEN);
     o->text(o->ctx, lit ? CONTENT_YELLOW : r->kind == CONTENT_ROW_REMOVED || p->view->rows->locked ? CONTENT_DIM : CONTENT_CREAM,
-            fit(o, clean(r->name, plain, sizeof plain), ROW_NUM, ROW_DEN, CONTENT_VERSION_RIGHT - vw - GAP - CONTENT_NAME_X, name, sizeof name), CONTENT_NAME_X, y, ROW_NUM,
-            ROW_DEN);
-    if (vw > 0) o->text(o->ctx, vstyle, version, CONTENT_VERSION_RIGHT - vw, y + VERSION_DY, SMALL_NUM, SMALL_DEN);
-    if (r->movable) {
+            fit(o, clean(r->name, plain, sizeof plain), ROW_NUM, ROW_DEN, CONTENT_NAME_RIGHT - CONTENT_NAME_X, name, sizeof name), CONTENT_NAME_X, y,
+            ROW_NUM, ROW_DEN);
+    if (r->kind == CONTENT_ROW_MISSING || r->kind == CONTENT_ROW_REMOVED) {   /* in the arrows' place: what the row is */
+        const char *word = r->kind == CONTENT_ROW_MISSING ? "MISSING" : "REMOVED";
+        o->text(o->ctx, r->kind == CONTENT_ROW_MISSING ? CONTENT_RED : CONTENT_DIM, word, CONTENT_GAP_RIGHT - o->text_width(o->ctx, word, SMALL_NUM, SMALL_DEN),
+                y + VERSION_DY, SMALL_NUM, SMALL_DEN);
+    }
+    if (r->movable && lit) {   /* the arrows show on the row with the focus or the pointer (a move lights the row it is over) */
         o->arrow(o->ctx, CONTENT_ARROW_UP, lit && n->item == CONTENT_ITEM_UP, CONTENT_ARROWS_X, y + ARROW_DY);
         o->arrow(o->ctx, CONTENT_ARROW_DOWN, lit && n->item == CONTENT_ITEM_DOWN, CONTENT_DOWN_X, y + ARROW_DY);
     }
@@ -97,7 +97,7 @@ static void list(const ContentOps *o, const ContentPage *p)
 {
     const ContentRows *rows = p->view->rows;
     const ContentNav *n = p->nav;
-    const int all = rows->locked ? locked_all(rows) : content_rows_all(rows), lit = n->at == CONTENT_AT_LIST && n->line == 0;
+    const int all = rows->locked ? locked_all(rows) : content_rows_all(rows), lit = !p->quiet && n->at == CONTENT_AT_LIST && n->line == 0;
     const int style = rows->locked ? CONTENT_DIM : lit ? CONTENT_YELLOW : CONTENT_CREAM;
     o->text(o->ctx, style, all == CONTENT_ALL_ON ? "[x]" : all == CONTENT_ALL_MIXED ? "[-]" : "[ ]", CONTENT_BOX_X, CONTENT_LIST_Y, ROW_NUM,
             ROW_DEN);
@@ -107,14 +107,13 @@ static void list(const ContentOps *o, const ContentPage *p)
         if (row >= 0) row_line(o, p, &rows->row[row], line);
     }
     const int pages = content_nav_pages(rows);
-    if (pages > 1) {
+    if (pages > 1) {   /* the two arrows always, dim when there is no page that way */
         char text[16];
         snprintf(text, sizeof text, "%d/%d", n->page + 1, pages);
-        o->text(o->ctx, CONTENT_CREAM, text, CONTENT_PAGE_X, CONTENT_PAGE_Y, SMALL_NUM, SMALL_DEN);
-        if (n->page > 0) o->arrow(o->ctx, CONTENT_ARROW_LEFT, 0, CONTENT_PAGE_PREV_X, CONTENT_PAGE_Y + ARROW_DY);
-        if (n->page + 1 < pages) o->arrow(o->ctx, CONTENT_ARROW_RIGHT, 0, CONTENT_PAGE_NEXT_X, CONTENT_PAGE_Y + ARROW_DY);
+        o->text(o->ctx, CONTENT_CREAM, text, CONTENT_PAGE_X - o->text_width(o->ctx, text, SMALL_NUM, SMALL_DEN) / 2, CONTENT_PAGE_Y, SMALL_NUM, SMALL_DEN);
+        o->arrow(o->ctx, n->page > 0 ? CONTENT_ARROW_LEFT : CONTENT_ARROW_LEFT_OFF, 0, CONTENT_PAGE_PREV_X, CONTENT_PAGE_Y + ARROW_DY);
+        o->arrow(o->ctx, n->page + 1 < pages ? CONTENT_ARROW_RIGHT : CONTENT_ARROW_RIGHT_OFF, 0, CONTENT_PAGE_NEXT_X, CONTENT_PAGE_Y + ARROW_DY);
     }
-    if (rows->locked) o->text(o->ctx, CONTENT_CREAM, NOTE, CONTENT_NOTE_X, CONTENT_NOTE_Y, SMALL_NUM, SMALL_DEN);
 }
 
 /* the card's mod: the installed or removed one of the row's id and the tab's type; NULL for a stock or missing piece */
@@ -155,6 +154,14 @@ static void card_words(const ContentOps *o, const ModInfo *m)
     }
 }
 
+/* a piece of the game itself (owner's note 5, 2026-11-17): the card says whose it is and what it is, as a mod's says its author and description */
+static void game_words(const ContentOps *o, int tab)
+{
+    static const char *const WHAT[CONTENT_TABS] = { "Original car from the 1996 game", "Original track from the 1996 game", "Original from the 1996 game" };
+    o->text(o->ctx, CONTENT_DIM, "ORIGINAL - ELECTRONIC ARTS", CONTENT_CARD_X0, CONTENT_CARD_BY_Y, SMALL_NUM, SMALL_DEN);
+    o->text(o->ctx, CONTENT_CREAM, WHAT[tab], CONTENT_CARD_X0, CONTENT_CARD_TEXT_Y, SMALL_NUM, SMALL_DEN);
+}
+
 static void card(const ContentOps *o, const ContentPage *p)
 {
     const int row = content_nav_selected_row(p->nav, p->view->rows);
@@ -168,19 +175,24 @@ static void card(const ContentOps *o, const ContentPage *p)
             CONTENT_CARD_NAME_Y, 1, 1);
     const ModInfo *m = card_mod(p, r);
     if (m != NULL) card_words(o, m);
-    const int used = o->used_in(o->ctx, r->id);
+    else if (r->kind == CONTENT_ROW_GAME) game_words(o, p->nav->tab);
+    /* a piece of the game is in the standard edition (Restomod) whatever the player's editions say: at least 1 (owner's note 10) */
+    const int used = o->used_in(o->ctx, r->id) + (r->kind == CONTENT_ROW_GAME ? 1 : 0);
     snprintf(text, sizeof text, "Used in: %d edition%s", used, used == 1 ? "" : "s");
     o->text(o->ctx, CONTENT_CREAM, text, CONTENT_CARD_X0, CONTENT_CARD_USED_Y, SMALL_NUM, SMALL_DEN);
-    for (int b = 0; b < CONTENT_CARD_BUTTONS; b++)
-        o->text(o->ctx, button_style(p->view->card_on[b], p->nav->at == CONTENT_AT_CARD && p->nav->item == b), CARD_WORDS[b], CARD_X[b],
+    for (int b = 0; b < CONTENT_CARD_BUTTONS; b++) {
+        /* a button that never applies is not drawn: none of them on a piece of the game, only Previous version on a removed one */
+        if (r->kind == CONTENT_ROW_GAME || (r->kind == CONTENT_ROW_REMOVED && b != CONTENT_CARD_PREVIOUS)) continue;
+        o->text(o->ctx, button_style(p->view->card_on[b], !p->quiet && p->nav->at == CONTENT_AT_CARD && p->nav->item == b), CARD_WORDS[b], CARD_X[b],
                 CARD_Y[b], BUTTON_NUM, BUTTON_DEN);
+    }
 }
 
 static void foot(const ContentOps *o, const ContentPage *p)
 {
     rule(o, CONTENT_LIST_X0, CONTENT_FOOT_RULE_Y, CONTENT_CARD_X1, CONTENT_FOOT_RULE_Y);
     for (int b = 0; b < CONTENT_FOOT_BUTTONS; b++) {
-        const int style = button_style(p->view->foot_on[b], p->nav->at == CONTENT_AT_FOOT && p->nav->item == b);
+        const int style = button_style(p->view->foot_on[b], !p->quiet && p->nav->at == CONTENT_AT_FOOT && p->nav->item == b);
         if (b == CONTENT_FOOT_DONE)
             o->text(o->ctx, style, FOOT_WORDS[b], CONTENT_DONE_RIGHT - o->text_width(o->ctx, FOOT_WORDS[b], 1, 1), CONTENT_FOOT_Y - 2, 1, 1);
         else

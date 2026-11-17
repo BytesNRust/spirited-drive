@@ -1,11 +1,14 @@
 /* port (dep59 step 4b, T5): the CONTENT screen's places and its selection, with no drawing (content_screen.c draws it): the owner's
  * approved mock-up (mockups/content_sheet.png) in the game's 640x480 pixels, text y the words' tops.
- *   top     the title (Customize Game's place) and, at the right, Game Mode's selector of the editions "<  name  >" centred at x 436
- *   tabs    Cars | Tracks | Tweaks at y 102, a rule under them at y 126 across the list's width
- *   list    x 14..372: the All row, then the tab's rows, CONTENT_LINE apart from y 136 down to above the standard edition's note; the
- *           page indicator under them. A row: its box at x 14, the name at 56, the version right-aligned at 292, the arrows at 306
- *   card    x 392..626 right of a rule at x 380: the preview, the name, version and author, two lines of description, "Used in", then
- *           Update..., Uninstall and Previous version
+ * (the owner's notes of 2026-11-17 and notes/dep59-content-ux-review.md changed the places below)
+ *   top     the title (Customize Game's place) and, at the right, the selector of the editions: the gallery's two arrows and the name
+ *           centred at x 403, y 70, and under it the status line (read only / in use) at y 88
+ *   tabs    Cars | Tracks | Tweaks centred at x 90, 197 and 304, y 102, the chosen one yellow and underlined; a rule under them at y 126
+ *   list    x 14..378: the All row, then the tab's 10 rows, CONTENT_LINE (24) apart from y 130; the page indicator (the arrows always
+ *           drawn) under them. A row: its box at x 16, the name at 52 up to 330, the up and down arrows at 336 and 356 on the row with
+ *           the pointer or the focus only, in that place MISSING or REMOVED
+ *   card    x 392..626 right of a rule at x 380: the preview, the name, its origin ("v1.2 - by Autor", or "ORIGINAL - ELECTRONIC ARTS"),
+ *           two lines of description, "Used in", then the buttons that can apply (Update..., Uninstall, Previous version)
  *   foot    a rule at y 434; New, Duplicate, Rename, Delete, Install... at the left and Done right-aligned at 616, at y 446
  * The selection walks them with the keys: Up / Down through the selector, the tabs, the list's lines and the foot; Left / Right along a
  * line (the selector's editions, the tabs, a row's box and arrows then the card's buttons, the foot's buttons); Page Up / Page Down turn
@@ -18,20 +21,21 @@
 
 enum {
     CONTENT_TITLE_X = 14, CONTENT_TITLE_Y = 62,
-    CONTENT_SELECTOR_X = 436, CONTENT_SELECTOR_Y = 62,
+    /* the selector: the gallery's two arrows at fixed places and the edition's name centred between them; the status line under it */
+    CONTENT_SELECTOR_X = 403, CONTENT_SELECTOR_Y = 70, CONTENT_SELECTOR_LEFT = 280, CONTENT_SELECTOR_ARROW_L = 290, CONTENT_SELECTOR_ARROW_R = 500,
+    CONTENT_SELECTOR_NAME_W = 170, CONTENT_STATUS_Y = 88,
     CONTENT_TAB_Y = 102, CONTENT_TAB_RULE_Y = 126,
-    CONTENT_LIST_X0 = 14, CONTENT_LIST_X1 = 372, CONTENT_LIST_Y = 136, CONTENT_LINE = 26,
-    CONTENT_BOX_X = 14, CONTENT_NAME_X = 56, CONTENT_VERSION_RIGHT = 292, CONTENT_ARROWS_X = 306, CONTENT_DOWN_X = 330,
-    CONTENT_LINES = 9,                       /* the All row and 8 rows a page: the last ends above the page indicator's line */
-    CONTENT_PAGE_Y = CONTENT_LIST_Y + CONTENT_LINES * CONTENT_LINE, CONTENT_PAGE_X = 290, CONTENT_PAGE_NEXT_X = 330,
-    CONTENT_PAGE_PREV_X = 268,
+    CONTENT_LIST_X0 = 14, CONTENT_LIST_X1 = 378, CONTENT_LIST_Y = 130, CONTENT_LINE = 24,
+    CONTENT_BOX_X = 16, CONTENT_NAME_X = 52, CONTENT_NAME_RIGHT = 330, CONTENT_ARROWS_X = 336, CONTENT_DOWN_X = 356, CONTENT_GAP_RIGHT = 376,
+    CONTENT_LINES = 11,                      /* the All row and 10 rows a page: the last ends above the page indicator's line */
+    CONTENT_PAGE_Y = CONTENT_LIST_Y + CONTENT_LINES * CONTENT_LINE, CONTENT_PAGE_X = 197, CONTENT_PAGE_NEXT_X = 232,
+    CONTENT_PAGE_PREV_X = 150,
     CONTENT_SPLIT_X = 380, CONTENT_SPLIT_Y0 = 104,
-    CONTENT_CARD_X0 = 392, CONTENT_CARD_X1 = 626, CONTENT_PREVIEW_Y0 = 136, CONTENT_PREVIEW_Y1 = 222,
-    CONTENT_CARD_NAME_Y = 232, CONTENT_CARD_BY_Y = 262, CONTENT_CARD_TEXT_Y = 286, CONTENT_CARD_TEXT_LINE = 18,
-    CONTENT_CARD_USED_Y = 332, CONTENT_CARD_BUTTONS_Y = 358, CONTENT_UNINSTALL_X = 500, CONTENT_PREVIOUS_Y = 386,
-    /* the card's translucent panel (the gallery's): the preview, the words and the buttons on it, clear of the split and the note */
-    CONTENT_CARD_PANEL_X0 = 386, CONTENT_CARD_PANEL_X1 = 632, CONTENT_CARD_PANEL_Y0 = 130, CONTENT_CARD_PANEL_Y1 = 408,
-    CONTENT_NOTE_X = 14, CONTENT_NOTE_Y = 412,
+    CONTENT_CARD_X0 = 392, CONTENT_CARD_X1 = 626, CONTENT_PREVIEW_Y0 = 112, CONTENT_PREVIEW_Y1 = 210,
+    CONTENT_CARD_NAME_Y = 216, CONTENT_CARD_BY_Y = 238, CONTENT_CARD_TEXT_Y = 264, CONTENT_CARD_TEXT_LINE = 18,
+    CONTENT_CARD_USED_Y = 318, CONTENT_CARD_BUTTONS_Y = 346, CONTENT_UNINSTALL_X = 500, CONTENT_PREVIOUS_Y = 374,
+    /* the card's translucent panel (the gallery's): the preview, the words and the buttons on it, clear of the split */
+    CONTENT_CARD_PANEL_X0 = 386, CONTENT_CARD_PANEL_X1 = 632, CONTENT_CARD_PANEL_Y0 = 104, CONTENT_CARD_PANEL_Y1 = 420,
     CONTENT_FOOT_RULE_Y = 434, CONTENT_FOOT_Y = 446, CONTENT_DONE_RIGHT = 616,
     CONTENT_TEXT_H = 20                      /* a line's height for the pointer */
 };
