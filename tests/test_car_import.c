@@ -5,6 +5,7 @@
  * The refusals of the plan's Review Focus. Skipped without the CD. */
 #include "formats/car_import.h"
 #include "formats/car_piece.h"
+#include "formats/car_resize.h"
 #include "formats/cfm_build.h"
 #include "formats/chunk.h"
 #include "formats/mesh.h"
@@ -600,6 +601,75 @@ static void test_raw_keeps_the_banks(const uint8_t *viper, size_t viper_len)
     free(made), free(again), free(near_only);
 }
 
+/* the Viper's high mesh through Blender (as test_blender) and back with raw onto a piece whose CFM is `own` (malloc'd CFM; NULL when it
+ * failed) */
+static uint8_t *blender_onto(const uint8_t *viper, size_t n, const uint8_t *own, size_t own_len, size_t *out_len)
+{
+    const uint8_t *child[CFM_CHILDREN];
+    size_t len[CFM_CHILDREN];
+    ExchangeError err = { { 0 } };
+    FileSet files;
+    fileset_init(&files);
+    uint8_t *cfm = NULL;
+    *out_len = 0;
+    int ok = cfm_describe(viper, n, child, len, &err);
+    const MeshTextureBank b = { ok ? child[1] : NULL, ok ? len[1] : 0, "../c1" };
+    ok = ok && mesh_export(child[0], len[0], "mesh", &b, 1, &files, &err);
+    const SetFile *f = ok ? fileset_find(&files, "mesh.blender.obj") : NULL;
+    if (f != NULL) {
+        char *text = malloc(f->size + 1);
+        memcpy(text, f->data, f->size), text[f->size] = '\0';
+        char *blender = blender_like(text);
+        ObjModel model;
+        ok = obj_read((const uint8_t *)blender, strlen(blender), NULL, 0, &model, &err);
+        if (ok) {
+            CarImportIn in = input(viper, n, &model, NULL);
+            in.raw = 1, in.high_tables = &files, in.own_cfm = own, in.own_cfm_len = own_len;
+            int32_t half[3];
+            ok = car_import(&in, &cfm, out_len, half, &err);
+            obj_free(&model);
+        }
+        free(blender), free(text);
+    }
+    if (!ok || f == NULL) fprintf(stderr, "car_import: Blender onto a piece: %s\n", err.message), free(cfm), cfm = NULL;
+    fileset_free(&files);
+    return cfm;
+}
+
+/* dep71 follow-up: a piece whose rsid car resize made twice its size, then the Viper's old export through Blender and back with raw:
+ * the piece's banks stay (rsid at its new size), its uvs on rsid come back scaled (Blender's 0..1 read with the new size), the whole
+ * CFM is the resized one; a piece whose banks name other entries (another car's) gets the donor's, as before */
+static void test_raw_keeps_a_resize(const uint8_t *viper, size_t viper_len)
+{
+    const uint8_t *child[CFM_CHILDREN];
+    size_t len[CFM_CHILDREN];
+    ExchangeError err = { { 0 } };
+    ShpiDescEntry e[64];
+    size_t ne = 0, rn = 0, n1 = 0, n2 = 0;
+    CHECK(cfm_describe(viper, viper_len, child, len, &err) && shpi_describe(child[1], len[1], e, 64, &ne, &err));
+    uint16_t w = 0, h = 0;
+    for (size_t i = 0; i < ne; i++)
+        if (memcmp(e[i].name, "rsid", 4) == 0) w = e[i].width, h = e[i].height;
+    uint8_t *resized = NULL;
+    CarResizeStats st;
+    CHECK(w > 0 && car_resize(viper, viper_len, 0, "rsid", (uint16_t)(2 * w), (uint16_t)(2 * h), NULL, &resized, &rn, &st, &err));
+    if (resized == NULL) return;
+    uint8_t *back = blender_onto(viper, viper_len, resized, rn, &n1);
+    CHECK(back != NULL && n1 == rn && memcmp(back, resized, rn) == 0);
+    if (back != NULL && (n1 != rn || memcmp(back, resized, rn) != 0))
+        for (int k = 0; k < CFM_CHILDREN; k++) fprintf(stderr, "car_import: resize kept: child %d %s\n", k, same_child(back, n1, resized, rn, k) ? "same" : "differs");
+    /* another car's piece: the donor's banks */
+    size_t nn = 0;
+    uint8_t *nsx = read_cd("SIMDATA/CARFAMS/ANSX.CFM", &nn);
+    if (nsx != NULL) {
+        uint8_t *other = blender_onto(viper, viper_len, nsx, nn, &n2);
+        CHECK(other != NULL && same_child(other, n2, viper, viper_len, 1) && same_child(other, n2, viper, viper_len, 3) &&
+              same_child(other, n2, viper, viper_len, 2));
+        free(other);
+    }
+    free(nsx), free(back), free(resized);
+}
+
 int main(void)
 {
     size_t n = 0;
@@ -619,6 +689,7 @@ int main(void)
     test_raw(donor, n);
     test_blender(donor, n);
     test_raw_keeps_the_banks(donor, n);
+    test_raw_keeps_a_resize(donor, n);
     fileset_free(&pngs);
     free(donor);
     return TEST_REPORT();
