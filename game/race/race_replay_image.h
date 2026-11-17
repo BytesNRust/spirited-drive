@@ -12,6 +12,7 @@
 #include "game/race/race_replay_seek.h"
 #include "game/race/race_sim.h"
 #include "game/race/race_state.h"
+#include "game/sys/track_registry.h"
 
 #include <stdint.h>
 
@@ -77,6 +78,7 @@ typedef struct {
     int paint_known;                   /* ... 1 when the file has them (race_replay_paint_get) */
     ReplayLook looks[RACE_PLAYERS];    /* port (dep59 step 3): each added car's skin and paint as the race wore them */
     int looks_known;                   /* ... 1 when the Replay.rpx has them (race_replay_looks_get) */
+    int added_track;                   /* port (dep59 step 5, T5): today's number of the added track it ran on (TNFSTRK1), 0 a CD's */
     int explode;                       /* port: 004c5cd4, the race's EXPLODE cheat, stamped in the setup's two bytes at
                                         * +0x3c (0 in the CD's replays and the exe's own); the horn then spins out cars */
 } ReplayRace;
@@ -102,8 +104,20 @@ ReplayCars race_replay_image_race_cars(const uint8_t setup[REPLAY_SETUP_SIZE], c
                                        char *id_out);
 /* port (dep59 step 3): a whole Replay.rpx of `size` bytes: race_replay_image_race_cars of its setup and its cars' block, and its looks
  * (`out->looks_known` 0 for 1b's files, which have none, or a looks' block that does not read); BAD for any other size. Call it with
- * the added cars of the mods in effect registered. */
+ * the added cars of the mods in effect registered. T5: with the track's block past the looks, the track first (race_replay_track_read,
+ * `out->added_track`; BAD when the setup's stem is not the piece's and a stage's digit); call it with the added tracks registered too. */
 ReplayCars race_replay_file_cars(const uint8_t *file, size_t size, ReplayRace *out, char *id_out);
+
+/* port (dep59 step 5, T5): a race on an added track is kept as Replay.rpx too: the cars' block (all its entries zeros without an added
+ * car) and the looks' block, then this one, last: the 8 bytes "TNFSTRK1", the track's id (NUL-padded) and its fingerprint (u32 LE,
+ * track_registry.h). The setup's stem is the piece's own and the stage's digit. An older binary knows no Replay.rpx of that size: its list
+ * says "not a replay" and it plays nothing. The outcomes are the cars' (ReplayCars), with the track's id: the same "needs" and "changed". */
+enum { REPLAY_TRACK_MAGIC = 8, REPLAY_TRACK_ID = 33, REPLAY_TRACK_BLOCK = REPLAY_TRACK_MAGIC + REPLAY_TRACK_ID + 4 };
+/* the block for `piece` (an added track's, track_registry_piece) */
+void race_replay_track_write(uint8_t block[REPLAY_TRACK_BLOCK], const TrackPiece *piece);
+/* today's number of the track `block` names in `*track`; MISSING (not registered now) or CHANGED (its fingerprint is another) with the id
+ * in `id_out` (REPLAY_TRACK_ID bytes); BAD for a block that is not exactly one of ours */
+ReplayCars race_replay_track_read(const uint8_t block[REPLAY_TRACK_BLOCK], int *track, char *id_out);
 
 /* A race started from a replay's setup, after race_sim_start_field: the cheat words the setup's recording was made with
  * that the exe's setup does not hold (the EXPLODE cheat), put back so the cars play as they did. */

@@ -438,6 +438,14 @@ void drive_replay_set_cars(const RaceField *field)
     race_replay_cars_write(race_cars, field);
 }
 
+static int race_track_on;   /* port (dep59 step 5, T5): this race is on an added track: Replay.rpx, with the track's block after the looks */
+static uint8_t race_track[REPLAY_TRACK_BLOCK];
+void drive_replay_set_track(const TrackPiece *piece)
+{
+    race_track_on = piece != NULL;
+    race_replay_track_write(race_track, piece);
+}
+
 /* 0044d420's file: written into memory, then to the player's directory at fclose */
 static uint8_t *out;
 static size_t out_size;
@@ -447,10 +455,10 @@ static void *out_open(void *ctx, const char *name, const char *mode)
 {
     (void)ctx, (void)mode;
     free(out);
-    out = malloc(REPLAY_CARS_AT + REPLAY_CARS_BLOCK + REPLAY_LOOKS_BLOCK), out_size = 0;
+    out = malloc(REPLAY_CARS_AT + REPLAY_CARS_BLOCK + REPLAY_LOOKS_BLOCK + REPLAY_TRACK_BLOCK), out_size = 0;
     snprintf(out_name, sizeof out_name, "%s", name);
     const size_t n = strlen(out_name);
-    if (race_cars_on && n >= 4 && out_name[n - 4] == '.') memcpy(out_name + n - 3, "rpx", 3);   /* port (dep59 1b): Replay.rpl stays the original's */
+    if ((race_cars_on || race_track_on) && n >= 4 && out_name[n - 4] == '.') memcpy(out_name + n - 3, "rpx", 3);   /* port (dep59 1b): Replay.rpl stays the original's */
     return out;
 }
 
@@ -499,14 +507,15 @@ static int32_t out_close(void *ctx, void *file)
         out_size += REPLAY_SNOW_TRAILER_SIZE;
         race_replay_conditions_put(&race_conditions, out + out_size);   /* and the conditions it ran in */
         out_size += REPLAY_CONDITIONS_TRAILER_SIZE;
-        if (race_cars_on) {   /* the added cars it ran with, and the skins and paints they wore */
+        if (race_cars_on || race_track_on) {   /* the added cars it ran with, and the skins and paints they wore */
             memcpy(out + out_size, race_cars, REPLAY_CARS_BLOCK), out_size += REPLAY_CARS_BLOCK;
             race_replay_looks_put(race_looks, out + out_size), out_size += REPLAY_LOOKS_BLOCK;
         }
+        if (race_track_on) memcpy(out + out_size, race_track, REPLAY_TRACK_BLOCK), out_size += REPLAY_TRACK_BLOCK;   /* T5: and the added track */
     }
     const int ok = file != NULL && platform_write_user_file(out_name, out, out_size);
     if (file != NULL && !ok) port_log("drive_replay: %s not written\n", out_name);
-    if (file != NULL) kept_added = ok && race_cars_on;
+    if (file != NULL) kept_added = ok && (race_cars_on || race_track_on);
     free(out);
     out = NULL;
     return ok ? 0 : -1;

@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 
 enum {
     CAR_LAST = 11,  /* the Warrior */
@@ -334,13 +335,59 @@ int race_replay_looks_get(const uint8_t block[REPLAY_LOOKS_BLOCK], ReplayLook lo
     return 1;
 }
 
+static const char TRACK_MAGIC[REPLAY_TRACK_MAGIC] = { 'T', 'N', 'F', 'S', 'T', 'R', 'K', '1' };
+
+void race_replay_track_write(uint8_t block[REPLAY_TRACK_BLOCK], const TrackPiece *piece)
+{
+    memset(block, 0, REPLAY_TRACK_BLOCK);
+    memcpy(block, TRACK_MAGIC, REPLAY_TRACK_MAGIC);
+    if (piece == NULL) return;
+    memcpy(block + REPLAY_TRACK_MAGIC, piece->id, strnlen(piece->id, REPLAY_TRACK_ID - 1));
+    put32(block, REPLAY_TRACK_MAGIC + REPLAY_TRACK_ID, (int32_t)piece->fingerprint);
+}
+
+ReplayCars race_replay_track_read(const uint8_t block[REPLAY_TRACK_BLOCK], int *track, char *id_out)
+{
+    char id[REPLAY_TRACK_ID];
+    id_out[0] = '\0', *track = 0;
+    if (memcmp(block, TRACK_MAGIC, REPLAY_TRACK_MAGIC) != 0) return REPLAY_CARS_BAD;
+    const uint8_t *const at = block + REPLAY_TRACK_MAGIC;
+    if (memchr(at, 0, REPLAY_TRACK_ID) == NULL) return REPLAY_CARS_BAD;
+    memcpy(id, at, REPLAY_TRACK_ID);
+    if (!mod_ini_id_ok(id)) return REPLAY_CARS_BAD;
+    const int found = track_registry_find(id);
+    const TrackPiece *const p = found >= 0 ? track_registry_piece(found) : NULL;
+    if (p == NULL || p->fingerprint != (uint32_t)get32(block, REPLAY_TRACK_MAGIC + REPLAY_TRACK_ID)) {
+        snprintf(id_out, REPLAY_TRACK_ID, "%s", id);
+        return p == NULL ? REPLAY_CARS_MISSING : REPLAY_CARS_CHANGED;
+    }
+    *track = found;
+    return REPLAY_CARS_OK;
+}
+
+/* 1 when the setup's stem `stem` (upper case) is the piece's and a stage's digit */
+static int piece_stem(const char *stem, const TrackPiece *p)
+{
+    const size_t n = strlen(p->stem);
+    return n > 0 && strncasecmp(stem, p->stem, n) == 0 && stem[n] >= '1' && stem[n] <= '9' && stem[n + 1] == '\0';
+}
+
 ReplayCars race_replay_file_cars(const uint8_t *file, size_t size, ReplayRace *out, char *id_out)
 {
-    const size_t cars_end = (size_t)REPLAY_CARS_AT + REPLAY_CARS_BLOCK;
-    const int looks = size == cars_end + REPLAY_LOOKS_BLOCK;
+    const size_t cars_end = (size_t)REPLAY_CARS_AT + REPLAY_CARS_BLOCK, looks_end = cars_end + REPLAY_LOOKS_BLOCK;
+    const int track = size == looks_end + REPLAY_TRACK_BLOCK, looks = size == looks_end || track;
     id_out[0] = '\0';
-    if (file == NULL || (size != cars_end && !looks)) return memset(out, 0, sizeof *out), REPLAY_CARS_BAD;
+    memset(out, 0, sizeof *out);
+    if (file == NULL || (size != cars_end && !looks)) return REPLAY_CARS_BAD;
+    int added = 0;
+    if (track) {   /* T5: the track first, so the list names it when it is the one missing */
+        const ReplayCars t = race_replay_track_read(file + looks_end, &added, id_out);
+        if (t != REPLAY_CARS_OK) return t;
+    }
     const ReplayCars r = race_replay_image_race_cars(file, file + REPLAY_CARS_AT, out, id_out);
-    if (r == REPLAY_CARS_OK) out->looks_known = looks && race_replay_looks_get(file + cars_end, out->looks);
+    if (r != REPLAY_CARS_OK) return r;
+    if (track && !piece_stem(out->stem, track_registry_piece(added))) return memset(out, 0, sizeof *out), REPLAY_CARS_BAD;
+    out->looks_known = looks && race_replay_looks_get(file + cars_end, out->looks);
+    out->added_track = added;
     return r;
 }

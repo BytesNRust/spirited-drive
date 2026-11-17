@@ -23,6 +23,7 @@
 #include "game/race/race_schedule.h"
 #include "game/sys/port_settings.h"
 #include "formats/stock_content.h"
+#include "game/sys/track_pieces.h"
 #include "game/sys/track_registry.h"
 #include "game/sys/race_records_tracks.h"
 #include "game/race/car_livery.h"
@@ -526,6 +527,7 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     car_registry_race_set(car_registry_entries_added(field.entries, field.racers));   /* port (dep59): its records and replay go to files of their own */
     car_registry_race_player_set(own);
     drive_replay_set_cars(&field);
+    drive_replay_set_track(track_registry_piece(track_traits_race_added(name)));   /* port (dep59 step 5, T5): an added track's replay names it */
     drive_snow = snow_race_wanted(replay_of != NULL, replay_of != NULL && replay_of->snow, port_snow_weather()) && track_snow_for(&t->tri, name, NULL);   /* port (snow_weather): a replay's own, else the host's or the setting's */
     ported_view_set_snow(drive_snow);
     drive_replay_set_snow(drive_snow);
@@ -762,6 +764,7 @@ static int added_race(const uint8_t *file, size_t size, ReplayRace *race)
 {
     char id[REPLAY_CARS_ID];
     car_pieces_follow();   /* the added cars of the mods in effect now */
+    track_pieces_follow();   /* port (dep59 step 5, T5): and their added tracks */
     switch (race_replay_file_cars(file, size, race, id)) {
     case REPLAY_CARS_OK:
         if (size > (size_t)REPLAY_CARS_AT + REPLAY_CARS_BLOCK && !race->looks_known)
@@ -791,7 +794,13 @@ static int play_replay(const char *data_root, const uint8_t *file, size_t size, 
     port_conditions_force(1, race.conditions.light_time, race.conditions.weather);
     reverse_track_force(1, race.conditions.reverse);
     replay_of = &race, replay_file = file, replay_request = request;
+    const TrackPiece *const piece = race.added_track != 0 ? track_registry_piece(race.added_track) : NULL;
+    if (piece != NULL) {   /* port (dep59 step 5, T5): the stem races as the added track its block names, with its traits */
+        const TrackPieceFields fields = { piece->spec.kind, piece->spec.road, piece->spec.edge };
+        track_traits_race_set(race.stem, race.added_track, &fields);
+    }
     const int ok = track_viewer_drive(data_root, race.stem, race.field.entries[0].car, race.field.racers, -1, 0, NULL);
+    if (piece != NULL) track_traits_race_set(NULL, 0, NULL);
     replay_of = NULL, replay_file = NULL;
     port_conditions_force(0, 0, 0);
     reverse_track_force(0, 0);
