@@ -39,18 +39,23 @@ for template in AL1 TR1; do
     "$studio" track new "$work/loop.trk" --template "$template" --out "$out" --stem MYSTAGE --data "$orig" --force >/dev/null 2>&1 || fail "$template: --force was refused"
 
     "$studio" slot replace track "$template" "$out" --stem MYSTAGE --mods "$mod" --data "$orig" >"$work/log" 2>&1 || { fail "$template: slot replace: $(cat "$work/log")"; continue; }
+    # the track as a piece (dep59 step 5): --mods serves no changed track, so the viewer walks the piece, by its id, in Restomod
+    pc="$work/piece_$template"
+    "$studio" track new "$work/loop.trk" --template "$template" --piece --id "walk-$(echo "$template" | tr 'A-Z' 'a-z')" --stem MYSTAGE --out "$pc" --data "$orig" >"$work/log" 2>&1 || { fail "$template: track new --piece: $(cat "$work/log")"; continue; }
+    walk="walk-$(echo "$template" | tr 'A-Z' 'a-z')"
+    mkdir -p "$work/user_$template" && echo "profile=restomod" > "$work/user_$template/port.cfg"
 
     # the viewer walks the track: first node, the curves, the end; every frame renders and the views differ
     last=$((segments * 4 - 4))
     seen=""
     for node in 0 20 60 100 140 200 260 320 380 $last; do
-        "$tnfs" --data "$orig" --mods "$mod" --track "$template" --node "$node" --screenshot "$work/$template-$node.ppm" >"$work/log" 2>&1 || { fail "$template: viewer failed at node $node: $(tail -3 "$work/log")"; continue; }
+        "$tnfs" --data "$orig" --user "$work/user_$template" --mods "$pc" --drive "$walk" --car 5 --racers 1 --node "$node" --screenshot "$work/$template-$node.ppm" >"$work/log" 2>&1 || { fail "$template: viewer failed at node $node: $(tail -3 "$work/log")"; continue; }
         [ -s "$work/$template-$node.ppm" ] || fail "$template: no image at node $node"
         seen="$seen $(cksum < "$work/$template-$node.ppm" | cut -d' ' -f1)"
     done
     distinct=$(printf '%s\n' $seen | sort -u | wc -l | tr -d ' ')
     [ "$distinct" -ge 9 ] || fail "$template: only $distinct different views along the track"
-    "$tnfs" --data "$orig" --mods "$mod" --track "$template" --node $((segments * 4 + 100)) --screenshot "$work/$template-past.ppm" >/dev/null 2>&1 && : # past the end: must not crash the shell test
+    "$tnfs" --data "$orig" --user "$work/user_$template" --mods "$pc" --drive "$walk" --car 5 --racers 1 --node $((segments * 4 + 100)) --screenshot "$work/$template-past.ppm" >/dev/null 2>&1 && : # past the end: must not crash the shell test
 done
 
 # the generated track is not the original one

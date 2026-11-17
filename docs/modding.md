@@ -86,12 +86,13 @@ Game Mode's selector changes the edition at once, with no restart: the mod folde
 and Customize Game's rows are the new edition's from the next screen on, and nothing typed or kept in the edition before (a cheat code, a
 Warrior) carries over. The log says `mark:edition=<id>` (`-` for the standard edition).
 
-One behaviour is **temporary**:
-
-* **`--mods DIR` still serves the files that change a race**, so that a changed track can be tried as today, but that run keeps no
-  record and no replay. The log says `mods: --mods serves <file>, which changes the race: this run keeps no records and no replays`.
-  A car piece's own files given as `--mods` are not such a change: its races keep their records (see *Adding a car*). This goes away
-  when tracks can be pieces of their own (dep59 step 5).
+**`--mods DIR` serves no file that changes a race.** A changed track or car is a piece of its own: make one with `tnfs-studio track new
+--piece` or `tnfs-studio car new`. A loose TRI, PBS, PDN or `track/*.txt` in `--mods` is left out, and the log says once
+`mods: <id>: <file> is left out: a changed track is a track piece now: tnfs-studio track new --piece` (a car's: `a changed car is a car piece
+now: tnfs-studio car new`). What does not change a race (the look: pictures, `track_light/`, a track's day art) is still served. One exception is the live light editor
+(`light_edit=1`): it works on a track's places file, `track/<TRACK>.txt`, in the `--mods` folder, so with the editor on that file is served,
+the log says `mods: --mods serves <file> to the light editor: this run keeps no records and no replays`, and the run keeps none. Do not
+play a network game from such a session: the other players do not have your places file.
 
 ## How a mod replaces a file
 

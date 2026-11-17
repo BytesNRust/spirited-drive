@@ -28,13 +28,12 @@ void mod_set_generation_move(void);
  * how many were put there. 0 in Stock and Restored. */
 int mod_set_dirs(const char *dirs[], int cap);
 
-/* port (dep59, temporary until step 5): 1 once --mods has served a file that changes the race (mod_file_rule) in this run: the race keeps
- * no record and no replay. An installed folder never serves one: it serves only what its kind of piece may carry, and says once in each
- * generation what it leaves out. mod_set_start and mod_set_stop start a new run. */
-bool mod_set_session_modified(void);
-/* what serving such a file does, and a new run (mod_set_session.c: no more than the flag, so what reads it needs nothing else) */
-void mod_set_session_mark_modified(void);
-void mod_set_session_clear(void);
+/* 1 once --mods has served a track's places file (track/<TRACK>.txt, which can change the grip) to the live light editor in this run (light_edit=1):
+ * the race keeps no record and no replay. mod_set_start and mod_set_stop start a new run. Nothing else in --mods changes a race (it is not served). */
+bool mod_set_places_served(void);
+/* what serving it does, and a new run (mod_set_places.c: no more than the flag, so what reads it needs nothing else) */
+void mod_set_places_mark(void);
+void mod_set_places_clear(void);
 
 
 #endif
