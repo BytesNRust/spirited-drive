@@ -3,7 +3,6 @@
 
 #include "game/frontend/records_route.h"
 #include "game/frontend/records_block.h"
-#include "game/sys/track_registry.h"
 
 enum {
     TEXT = 0x5c, SOUND_MOVE = 0x47, SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20, KEY_ENTER = 0xd,
