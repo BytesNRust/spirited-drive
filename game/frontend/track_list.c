@@ -35,6 +35,14 @@ int16_t track_list_step(const TrackList *l, int16_t track, int step)
     return l->track[0];
 }
 
+void track_list_stock_only(TrackList *l)
+{
+    int kept = 0;
+    for (int i = 0; i < l->count; i++)
+        if (l->track[i] < TRACK_ADDED_FIRST) l->track[kept++] = l->track[i];
+    l->count = kept;
+}
+
 int track_list_has(const TrackList *l, int16_t track)
 {
     for (int i = 0; i < l->count; i++)

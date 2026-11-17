@@ -9,6 +9,7 @@
 #include "game/sys/edition_file.h"
 #include "game/sys/car_looks.h"
 #include "game/sys/text.h"
+#include "game/sys/track_registry.h"
 #include "game/frontend/edition_rules.h"
 #include "game/frontend/unlock_level.h"
 #include "game/frontend/variant_rule.h"
@@ -244,6 +245,7 @@ static const TrackList *edition_tracks(TrackList *l)
 {
     if (central_edition.tracks == 0) return NULL;
     track_list_build(l, &central_edition, 0, TRACK_LIST_LUNAR_NEVER);
+    track_list_stock_only(l);   /* port (dep59 step 5): Best Times' tables are the original's nine (an added track's are T7e's) */
     return l;
 }
 
@@ -547,6 +549,10 @@ static int32_t plus_text_width(void *ctx, const char *text);
 static void track_select(void *ctx)
 {
     (void)ctx;
+    if (track_registry_is_added(cg_g.track)) {   /* port (dep59 step 5): this screen's tables are the original's nine; an added track's page is T7d's */
+        port_log("track screen: track %d is an added track: its page is not made yet\n", cg_g.track);
+        return;
+    }
     ConfigDat *const config = config_current();
     const RaceSettings before = cg_settings_of();
     port_log("mark:screen=track_select\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */

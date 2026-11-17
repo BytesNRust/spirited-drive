@@ -28,6 +28,8 @@ typedef struct {
 void track_list_build(TrackList *out, const Edition *e, int lost_vegas, int lunar);
 /* the track `step` (1 on, -1 back) from `track` round the list; a track not in it gives the list's first (0 for an empty list) */
 int16_t track_list_step(const TrackList *l, int16_t track, int step);
+/* `l` without its added tracks (16..79): the lists of screens whose tables hold the original's tracks only (the track screen, Best Times) */
+void track_list_stock_only(TrackList *l);
 /* 1 when `track` is in the list */
 int track_list_has(const TrackList *l, int16_t track);
 
