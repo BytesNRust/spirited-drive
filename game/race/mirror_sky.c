@@ -1,5 +1,6 @@
 /* The rear-view mirror's sky (0044bddc). */
 #include "game/race/mirror_sky.h"
+#include "game/race/track_traits.h"
 
 #include "game/gfx/x86_int.h"
 #include "game/sys/fixed_math.h"
@@ -12,7 +13,7 @@ enum {
     PROPERTY_ENCLOSED_A = 4, PROPERTY_ENCLOSED_B = 7, PROPERTY_ENCLOSED_C = 9, PROPERTY_8 = 8,
     YAW_TURN = 0x200, YAW_HALF = 0x100, PITCH_TURN = 0x400, PITCH_HALF = 0x200,
     PITCH_HIGH_MUL = 480, PITCH_HIGH_DIV = 200,
-    SCALE_ONE = 0x1000000, TRACK_LOW_STRIP = 5, LOW_STRIP_TOP = -17,
+    SCALE_ONE = 0x1000000, LOW_STRIP_TOP = -17,   /* the low strip: Burnt Sienna's (TrackTraits.mirror_low_sky) */
     SHAPE_WIDTH = 4, SHAPE_HEIGHT = 6, SHAPE_HORIZON = 0xa, SHAPE_PIXELS = 0x10
 };
 
@@ -73,7 +74,7 @@ void mirror_sky(const MirrorSkyOps *ops, const MirrorSkyInputs *in)
     const int32_t tile = fx_mul_round(scale, w);
     const int32_t rows = fx_mul_round(scale, h - 1);
     top = x_sub(top, fx_mul_round(scale, s16(horz + SHAPE_HORIZON)));
-    if (in->track == TRACK_LOW_STRIP) top = LOW_STRIP_TOP;
+    if (track_traits_of(in->track, 0).mirror_low_sky) top = LOW_STRIP_TOP;
     ops->rect(ops->ctx, 0, 0, in->width, top, horz[SHAPE_PIXELS]);
     const int32_t bottom = x_add(rows, top);
     tiles(ops, in, horz, x, tile, top, bottom);

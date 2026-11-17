@@ -19,10 +19,10 @@ enum { RALLY_GRAVEL_OFF = 0, RALLY_GRAVEL_COMPACT, RALLY_GRAVEL_DUST, RALLY_GRAV
  * wet snow's: the rain's grip factor (track_rain_grip) is not put on it a second time. */
 enum { RALLY_SNOW_GRIP = 0xc0, RALLY_SNOW_ROLLING = 0xc0 };
 
-/* The kind of a race: RALLY_GRAVEL_OFF unless the race is a rally (`variant_r`) and `enabled`; `track` is race_sim_track_index's,
- * `lunar` the mode's file's lunar_springs (the rally on Rusty Springs, track 3, is then the moon's). `snow` (a snowy track with the snow_weather switch): the rally is RALLY_GRAVEL_SNOW,
+/* The kind of a race: RALLY_GRAVEL_OFF unless the race is a rally (`variant_r`) and `enabled`; `dust` the track's TrackTraits.rally_dust
+ * (Rusty Springs', an added track with sand), `lunar` the mode's file's lunar_springs (the dust is then the moon's regolith). `snow` (a snowy track with the snow_weather switch): the rally is RALLY_GRAVEL_SNOW,
  * whatever `enabled` says; no rally, no snow kind. */
-int rally_gravel_kind(int track, int variant_r, int lunar, int enabled, int snow);
+int rally_gravel_kind(int dust, int variant_r, int lunar, int enabled, int snow);
 
 /* The road noise's level (0..0x7f) as the rolling gravel gives it: lower than the exe's off-road scrape. `level` as race_sound.c's
  * road_noise has it before its limit. */

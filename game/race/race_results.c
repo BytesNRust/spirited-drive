@@ -1,5 +1,6 @@
 /* The race's results (race_results.h). */
 #include "game/race/car_registry.h"
+#include "game/race/track_traits.h"
 #include "game/race/race_results.h"
 
 enum { SHORT_NAME_ORDER_SIZE = 16 };
@@ -33,7 +34,6 @@ enum {
     GAME_BEST_SPEED = 0x6d,
     RACE_ENDED = 1,               /* end_request after a normal finish */
     RACE_QUIT = 0x10,
-    LAST_STAGE_TRACK = 2,
     SHORT_LAP = 0x3c,             /* lap times below this are kept as 0 */
     NO_HUMAN_PLACE = 8
 };
@@ -118,7 +118,7 @@ void race_results_record(RaceState *race)
             break;
         }
     const int64_t g = (int64_t)race->player * GAME_PLAYER, r = (int64_t)race->player * (int64_t)sizeof(PlayerRecord);
-    if ((int16_t)race->frontend_track > LAST_STAGE_TRACK) {
+    if (track_traits_of((int16_t)race->frontend_track, 0).kind == TRACK_KIND_CIRCUIT) {
         for (int64_t c = 0; c < GAME_LAP_SLOTS; c++) set_game_word(race, g + GAME_LAP_TIMES + 4 * c, 0);
         if (race->end_request != RACE_QUIT)
             for (int64_t c = 0; c < (race->frontend_laps_word >> 16) && (!race->port_free_laps || c < GAME_LAP_SLOTS); c++) {   /* port (free laps): the game state keeps 20 */

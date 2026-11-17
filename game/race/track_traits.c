@@ -1,6 +1,9 @@
 /* port: see track_traits.h. */
 #include "game/race/track_traits.h"
 
+#include "game/race/race_sim.h"
+
+#include <ctype.h>
 #include <stddef.h>
 
 enum { VERTIGO_RIDGE = 6, BURNT_SIENNA = 5, TRANSTROPOLIS = 7, LOST_VEGAS = 8, LAST_STAGE = 2, ALPINE = 2, CITY = 0, THIRD_STAGE = 2 };
@@ -69,4 +72,47 @@ int track_pick_race(int pick, int variant, const TrackPieceFields *piece, TrackR
     }
     *out = r;
     return 1;
+}
+
+enum { STEM_CAP = 16 };
+
+static struct {
+    char stem[STEM_CAP];   /* lower case; empty: none */
+    int pick;
+    TrackTraits traits;
+} race_added;
+
+static int same_stem(const char *a, const char *b)
+{
+    for (; *a != '\0' && *b != '\0'; a++, b++)
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return 0;
+    return *a == '\0' && *b == '\0';
+}
+
+void track_traits_race_set(const char *stem, int pick, const TrackPieceFields *fields)
+{
+    race_added.stem[0] = '\0', race_added.pick = 0;
+    if (stem == NULL || fields == NULL || pick < TRACK_PICK_ADDED_FIRST || pick >= TRACK_PICK_ADDED_FIRST + TRACK_PICK_ADDED_MAX) return;
+    size_t i = 0;
+    for (; stem[i] != '\0' && i + 1 < STEM_CAP; i++) race_added.stem[i] = (char)tolower((unsigned char)stem[i]);
+    race_added.stem[i] = '\0';
+    race_added.pick = pick, race_added.traits = track_traits_piece(fields);
+}
+
+int track_traits_race_added(const char *stem)
+{
+    return race_added.stem[0] != '\0' && stem != NULL && same_stem(stem, race_added.stem) ? race_added.pick : 0;
+}
+
+TrackTraits track_traits_of(int track, int variant)
+{
+    if (race_added.stem[0] != '\0' && track == race_added.pick) return race_added.traits;
+    return track_traits_stock(track, variant);
+}
+
+TrackTraits track_traits_of_stem(const char *stem)
+{
+    if (track_traits_race_added(stem)) return race_added.traits;
+    if (stem == NULL || stem[0] == '\0' || stem[1] == '\0') return track_traits_stock(-1, 0);   /* race_sim_track_index reads two letters */
+    return track_traits_stock(race_sim_track_index(stem), race_sim_track_variant(stem));
 }

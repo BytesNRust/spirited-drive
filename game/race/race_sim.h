@@ -101,9 +101,10 @@ struct RaceField {
 
 /* 0042702c's counts for a race type: types 2 and 3 race 8, type 0 one car;
  * type 1 two, with 6 traffic cars and one police car (when 0052b312, the
- * word that also makes the race single-human when 0, is 0) on the tracks
- * below 3 (CY, CL, AL) when the track flags (0052b306) lack bit 2. */
-void race_field_counts(RaceField *field, int track, uint32_t track_flags, int flag_52b312);
+ * word that also makes the race single-human when 0, is 0) on a track with
+ * `traffic` (TrackTraits: the tracks below 3, CY, CL, AL) when the track
+ * flags (0052b306) lack bit 2. */
+void race_field_counts(RaceField *field, int traffic, uint32_t track_flags, int flag_52b312);
 
 /* `field`'s cars on `tri`, the human's specs (the decompressed PBS) in slot
  * 0, entered as 00440858 does. */

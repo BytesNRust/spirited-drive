@@ -3,6 +3,8 @@
 #include "game/race/track_traits.h"
 #include "tests/test.h"
 
+#include <string.h>
+
 /* today's expressions, copied from their sites (T2 replaces each with the trait) */
 static int ground_today(int track, int variant)   /* race_state.c:38-53 race_surfaces_init */
 {
@@ -102,8 +104,49 @@ static void picks(void)
     CHECK(!track_pick_race(5, 0, &sand, &r));   /* a factory pick takes no piece */
 }
 
+/* what the race's sites read: a factory number's traits; the race's added track's (track_traits_race_set) by its number or its stem */
+static void race_reads(void)
+{
+    for (int track = -1; track <= 10; track++)
+        for (int variant = 0; variant < 3; variant++) {
+            const TrackTraits a = track_traits_of(track, variant), b = track_traits_stock(track, variant);
+            CHECK(memcmp(&a, &b, sizeof a) == 0);
+        }
+    static const struct { const char *stem; int track, variant; } STEMS[] = {
+        { "cy1", 0, 0 }, { "cy3", 0, 2 }, { "cl2", 1, 1 }, { "al3", 2, 2 }, { "tr1", 3, 0 }, { "tr5", 3, 0 }, { "tr2", 4, 0 },
+        { "tr6", 5, 0 }, { "tr3", 6, 0 }, { "tr7", 7, 0 }, { "tr4", 8, 0 }, { "TR6", 5, 0 },
+    };
+    for (size_t i = 0; i < sizeof STEMS / sizeof STEMS[0]; i++) {
+        const TrackTraits a = track_traits_of_stem(STEMS[i].stem), b = track_traits_stock(STEMS[i].track, STEMS[i].variant);
+        CHECK(memcmp(&a, &b, sizeof a) == 0);
+    }
+    const TrackPieceFields sand = { TRACK_KIND_STAGE, TRACK_ROAD_ASPHALT, TRACK_EDGE_SAND };
+    const TrackTraits want = track_traits_piece(&sand);
+    track_traits_race_set("turini", TRACK_PICK_ADDED_FIRST + 1, &sand);
+    CHECK_EQ_INT(track_traits_race_added("TURINI"), TRACK_PICK_ADDED_FIRST + 1);
+    CHECK_EQ_INT(track_traits_race_added("tr1"), 0);
+    TrackTraits got = track_traits_of_stem("Turini");
+    CHECK(memcmp(&got, &want, sizeof got) == 0);
+    got = track_traits_of(TRACK_PICK_ADDED_FIRST + 1, 0);
+    CHECK(memcmp(&got, &want, sizeof got) == 0);
+    got = track_traits_of_stem("tr1");   /* the factory ones as they were */
+    const TrackTraits rusty = track_traits_stock(3, 0);
+    CHECK(memcmp(&got, &rusty, sizeof got) == 0);
+    track_traits_race_set(NULL, 0, NULL);
+    CHECK_EQ_INT(track_traits_race_added("turini"), 0);
+    for (const char *const *e = (const char *const[]){ "", "t", "c", NULL }; *e != NULL; e++) {   /* too short to name one */
+        got = track_traits_of_stem(*e);
+        const TrackTraits none = track_traits_stock(-1, 0);
+        CHECK(memcmp(&got, &none, sizeof got) == 0);
+    }
+    got = track_traits_of_stem("turini");    /* no longer the race's: an unknown stem, what today's code gives -1 */
+    const TrackTraits unknown = track_traits_stock(-1, 0);
+    CHECK(memcmp(&got, &unknown, sizeof got) == 0);
+}
+
 int main(void)
 {
+    race_reads();
     stock_matches_today();
     piece();
     picks();

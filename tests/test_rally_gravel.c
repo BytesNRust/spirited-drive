@@ -1,6 +1,7 @@
 /* port (extras.cfg's rally_gravel, rally_gravel.h, dust_trail.h): the kinds of the rally's road, the dust a rolling car throws, the trail it leaves and
  * the road noise lower; the exe's own numbers when it is off. */#include "game/race/dust_trail.h"
 #include "game/race/rally_gravel.h"
+#include "game/race/track_traits.h"
 #include "game/race/race_state.h"
 #include "game/race/weather_snow.h"
 #include "test.h"
@@ -11,13 +12,13 @@ enum { TEST_CAMERA = 15, TEST_SCREEN = 27 };   /* skid_marks.c's word offsets of
 
 static void test_kinds(void)
 {
-    CHECK_EQ_INT(rally_gravel_kind(0, 1, 0, 1, 0), RALLY_GRAVEL_COMPACT);    /* City */
-    CHECK_EQ_INT(rally_gravel_kind(1, 1, 0, 1, 0), RALLY_GRAVEL_COMPACT);    /* Coastal */
-    CHECK_EQ_INT(rally_gravel_kind(2, 1, 0, 1, 0), RALLY_GRAVEL_COMPACT);    /* Alpine */
-    CHECK_EQ_INT(rally_gravel_kind(3, 1, 0, 1, 0), RALLY_GRAVEL_DUST);       /* Rusty Springs' desert */
-    CHECK_EQ_INT(rally_gravel_kind(3, 1, 1, 1, 0), RALLY_GRAVEL_REGOLITH);   /* with lunar_springs, the moon */
-    CHECK_EQ_INT(rally_gravel_kind(3, 0, 1, 1, 0), RALLY_GRAVEL_OFF);        /* not the rally */
-    CHECK_EQ_INT(rally_gravel_kind(3, 1, 1, 0, 0), RALLY_GRAVEL_OFF);        /* the switch off: the exe's */
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(0, 0).rally_dust, 1, 0, 1, 0), RALLY_GRAVEL_COMPACT);    /* City */
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(1, 0).rally_dust, 1, 0, 1, 0), RALLY_GRAVEL_COMPACT);    /* Coastal */
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(2, 0).rally_dust, 1, 0, 1, 0), RALLY_GRAVEL_COMPACT);    /* Alpine */
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(3, 0).rally_dust, 1, 0, 1, 0), RALLY_GRAVEL_DUST);       /* Rusty Springs' desert */
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(3, 0).rally_dust, 1, 1, 1, 0), RALLY_GRAVEL_REGOLITH);   /* with lunar_springs, the moon */
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(3, 0).rally_dust, 0, 1, 1, 0), RALLY_GRAVEL_OFF);        /* not the rally */
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(3, 0).rally_dust, 1, 1, 0, 0), RALLY_GRAVEL_OFF);        /* the switch off: the exe's */
 }
 
 static void test_level_and_dust(void)
@@ -216,11 +217,11 @@ static void test_tyre_skid(void)
 /* port (snow_weather): the rally of a snowy track (Alpine 3) is on snow: its own kind, a looser grip than the compacted gravel's, a white powder puff */
 static void test_snow_kind(void)
 {
-    CHECK_EQ_INT(rally_gravel_kind(2, 1, 0, 1, 1), RALLY_GRAVEL_SNOW);    /* Alpine, the rally, snow on */
-    CHECK_EQ_INT(rally_gravel_kind(2, 1, 0, 0, 1), RALLY_GRAVEL_SNOW);    /* the road is snow whatever the gravel switch says */
-    CHECK_EQ_INT(rally_gravel_kind(2, 0, 0, 1, 1), RALLY_GRAVEL_OFF);     /* not the rally: the road is wet asphalt, not snow */
-    CHECK_EQ_INT(rally_gravel_kind(2, 1, 0, 1, 0), RALLY_GRAVEL_COMPACT); /* a track without `snow 1`: as it was */
-    CHECK_EQ_INT(rally_gravel_kind(2, 0, 0, 1, 0), RALLY_GRAVEL_OFF);
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(2, 0).rally_dust, 1, 0, 1, 1), RALLY_GRAVEL_SNOW);    /* Alpine, the rally, snow on */
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(2, 0).rally_dust, 1, 0, 0, 1), RALLY_GRAVEL_SNOW);    /* the road is snow whatever the gravel switch says */
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(2, 0).rally_dust, 0, 0, 1, 1), RALLY_GRAVEL_OFF);     /* not the rally: the road is wet asphalt, not snow */
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(2, 0).rally_dust, 1, 0, 1, 0), RALLY_GRAVEL_COMPACT); /* a track without `snow 1`: as it was */
+    CHECK_EQ_INT(rally_gravel_kind(track_traits_stock(2, 0).rally_dust, 0, 0, 1, 0), RALLY_GRAVEL_OFF);
     CHECK(rally_gravel_level(RALLY_GRAVEL_SNOW, 100) < 100);              /* the gravel's roll, reused */
     CHECK_EQ_INT(rally_gravel_level(RALLY_GRAVEL_SNOW, 100), rally_gravel_level(RALLY_GRAVEL_COMPACT, 100));
     CHECK(rally_gravel_crunch(RALLY_GRAVEL_SNOW, 20 << 16, 0) == rally_gravel_crunch(RALLY_GRAVEL_COMPACT, 20 << 16, 0));
@@ -270,7 +271,7 @@ static void test_snow_grip(void)
 static int grip_of_race(int in_replay, int replay_snow, int local)
 {
     const int snow = snow_race_wanted(in_replay, replay_snow, local);   /* (the places file's `snow 1` is taken as read here) */
-    return snow_race(rally_gravel_kind(2, 1, 0, 1, snow), 0).surfaces[0].grip;
+    return snow_race(rally_gravel_kind(track_traits_stock(2, 0).rally_dust, 1, 0, 1, snow), 0).surfaces[0].grip;
 }
 
 static void test_the_replays_snow_reaches_the_surfaces(void)

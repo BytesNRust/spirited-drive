@@ -9,14 +9,14 @@
 #ifndef TNFS_TRACK_TRAITS_H
 #define TNFS_TRACK_TRAITS_H
 
+#include "core/formats/track_piece.h"   /* TrackKind, TrackRoad, TrackEdge: the piece's card (T3) */
+
 enum {
     TRACK_PICK_LUNAR = 10,          /* the Lunar Springs entry (dep59-lunar-entry-plan.md's TRACK_LUNAR) */
     TRACK_PICK_ADDED_FIRST = 16,    /* the first added track (as car_registry.h's CAR_ADDED_FIRST) */
     TRACK_PICK_ADDED_MAX = 64,
     TRACK_RUSTY_SPRINGS = 3
 };
-
-typedef enum { TRACK_KIND_STAGE = 0, TRACK_KIND_CIRCUIT = 1 } TrackKind;
 
 /* the three surfaces' set race_surfaces_init takes (race_state.c): the road is the same in all of them, the sets differ in the verges */
 typedef enum {
@@ -25,11 +25,6 @@ typedef enum {
     TRACK_GROUND_SAND,        /* Rusty Springs: the verges sand (rolling drag) */
     TRACK_GROUND_GRASS        /* the circuits from Autumn Woods on: grass */
 } TrackGround;
-
-typedef enum { TRACK_ROAD_ASPHALT = 0, TRACK_ROAD_DIRT } TrackRoad;
-typedef enum {
-    TRACK_EDGE_GRASS = 0, TRACK_EDGE_GRAVEL, TRACK_EDGE_SAND, TRACK_EDGE_SNOW, TRACK_EDGE_DIRT, TRACK_EDGE_WATER
-} TrackEdge;
 
 typedef struct {
     TrackKind kind;          /* car_engine.c:87, ai_setup.c:99, race_splits.c:179, race_results.c:121 (the index above 2) */
@@ -47,7 +42,7 @@ typedef struct {
     int no_time_of_day;      /* track_fam.c:35: Lost Vegas offers no time of day */
 } TrackTraits;
 
-/* an added track's own fields (mod.ini: kind=, road=, edge=) */
+/* an added track's own fields (mod.ini: kind=, road=, edge=; TrackPieceSpec's) */
 typedef struct {
     TrackKind kind;
     TrackRoad road;
@@ -69,5 +64,16 @@ TrackTraits track_traits_piece(const TrackPieceFields *fields);
 /* the race for the menu's pick (VARIANT the stage, 0..2): 1 and *out, or 0 for a pick that is none (11..15, past the added ones,
  * an added one without its PIECE, a factory one with one) */
 int track_pick_race(int pick, int variant, const TrackPieceFields *piece, TrackRace *out);
+
+/* the race's added track, as car_registry's race_set: STEM races as the added PICK with FIELDS' traits (T4, before the race on it);
+ * a NULL stem clears it. Stems are compared without case. */
+void track_traits_race_set(const char *stem, int pick, const TrackPieceFields *fields);
+/* the pick STEM races as when it is the race's added track; else 0 */
+int track_traits_race_added(const char *stem);
+/* what the race's sites read: the race's added track's traits for its pick, else a factory number's (track_traits_stock) */
+TrackTraits track_traits_of(int track, int variant);
+/* the same by the stem: the race's added track's, else the factory track's the stem names (race_sim_track_index and
+ * race_sim_track_variant; an unknown stem as today's -1) */
+TrackTraits track_traits_of_stem(const char *stem);
 
 #endif

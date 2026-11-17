@@ -1,4 +1,5 @@
 #include "game/race/race_state.h"
+#include "game/race/track_traits.h"
 #include "game/race/rally_gravel.h"
 #include "game/race/weather.h"
 
@@ -35,15 +36,16 @@ static Surface surface(int32_t grip, int32_t rolling, int32_t drag, int32_t off_
  * 2, as the original does. */
 void race_surfaces_init(RaceState *race)
 {
-    if (race->track == 2 && race->track_variant == 2) {
+    const TrackGround ground = track_traits_of(race->track, race->track_variant).ground;   /* dep59 T2: the track's traits */
+    if (ground == TRACK_GROUND_DIRT) {
         race->surfaces[0] = surface(0x100, 0x100, 0x3333, 0);
         race->surfaces[1] = surface(0x4c, 0x100, 0x1999, 1);
         race->surfaces[2].grip = 0x4c, race->surfaces[2].rolling = 0x100, race->surfaces[2].drag = 0x1999;
-    } else if (race->track >= 4) {
+    } else if (ground == TRACK_GROUND_GRASS) {
         race->surfaces[0] = surface(0x100, 0x100, 0x3333, 0);
         race->surfaces[1] = surface(0x133, 0x100, 0x3333, 1);
         race->surfaces[2] = surface(0x133, 0x100, 0x3333, 1);
-    } else if (race->track == 3) {
+    } else if (ground == TRACK_GROUND_SAND) {
         race->surfaces[0] = surface(0x100, 0x100, 0x3333, 0);
         race->surfaces[1] = surface(0x100, 0x1400, 0x3333, 1);
         race->surfaces[2] = surface(0x100, 0x1400, 0x3333, 1);
