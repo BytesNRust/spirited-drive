@@ -61,8 +61,30 @@ static void test_usable(void)
     CHECK_EQ_INT(usable[CONTENT_BACKDROP_CLEAR], 0);
 }
 
+/* the card's panel: inside x0..x1, y0..y1 every pixel through the table, its one-pixel border the edge entry, the rest untouched */
+static void test_panel(void)
+{
+    enum { W = 12, H = 9 };
+    uint8_t px[W * H], table[256];
+    for (int i = 0; i < W * H; i++) px[i] = (uint8_t)(100 + i % 50);
+    for (int i = 0; i < 256; i++) table[i] = (uint8_t)(i / 2);
+    content_backdrop_panel(px, W, H, table, 2, 3, 8, 7, 9);
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++) {
+            const uint8_t was = (uint8_t)(100 + (y * W + x) % 50), now = px[y * W + x];
+            const int in = x >= 2 && x <= 8 && y >= 3 && y <= 7, edge = in && (x == 2 || x == 8 || y == 3 || y == 7);
+            CHECK_EQ_INT(now, edge ? 9 : in ? was / 2 : was);
+        }
+    /* clipped to the picture: a panel past its sides changes nothing outside it */
+    uint8_t small[4 * 4];
+    memset(small, 40, sizeof small);
+    content_backdrop_panel(small, 4, 4, table, -3, -3, 9, 9, 9);
+    for (int i = 0; i < 16; i++) CHECK_EQ_INT(small[i], 20);
+}
+
 int main(void)
 {
+    test_panel();
     test_darken_in_own_palette();
     test_nearest_in_own_palette();
     test_usable();

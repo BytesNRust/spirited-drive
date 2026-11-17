@@ -29,6 +29,8 @@ enum {
     CONTENT_CARD_X0 = 392, CONTENT_CARD_X1 = 626, CONTENT_PREVIEW_Y0 = 136, CONTENT_PREVIEW_Y1 = 222,
     CONTENT_CARD_NAME_Y = 232, CONTENT_CARD_BY_Y = 262, CONTENT_CARD_TEXT_Y = 286, CONTENT_CARD_TEXT_LINE = 18,
     CONTENT_CARD_USED_Y = 332, CONTENT_CARD_BUTTONS_Y = 358, CONTENT_UNINSTALL_X = 500, CONTENT_PREVIOUS_Y = 386,
+    /* the card's translucent panel (the gallery's): the preview, the words and the buttons on it, clear of the split and the note */
+    CONTENT_CARD_PANEL_X0 = 386, CONTENT_CARD_PANEL_X1 = 632, CONTENT_CARD_PANEL_Y0 = 130, CONTENT_CARD_PANEL_Y1 = 408,
     CONTENT_NOTE_X = 14, CONTENT_NOTE_Y = 412,
     CONTENT_FOOT_RULE_Y = 434, CONTENT_FOOT_Y = 446, CONTENT_DONE_RIGHT = 616,
     CONTENT_TEXT_H = 20                      /* a line's height for the pointer */

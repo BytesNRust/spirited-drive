@@ -29,6 +29,9 @@ enum {
     NAME_CAP = EDITION_NAME_MAX + 1,
     /* the body darkened 30% toward #120E09 (the mock-up's brown), in the 8-bit palette the clean background carries */
     DARK_RGB = 0x120e09, DARK_NUM = 3, DARK_DEN = 10,
+    /* the card's panel darkened a further 60% toward the gallery's panel tint (gallery_layout.h's GL_PANEL_RGB), edged in the rules' colour,
+     * so the card's dim words read over the background's light "&" */
+    PANEL_RGB = 0x0a0704, PANEL_NUM = 3, PANEL_DEN = 5,
     CREAM_RGB = 0xe8d3b7, YELLOW_RGB = 0xffce06,   /* text.h's TEXT_CREAM and TEXT_YELLOW */
     TRI_H = 6, TRI_W = 2 * TRI_H - 1               /* the up and down triangles */
 };
@@ -62,6 +65,9 @@ static void dark_follow(void)
     uint8_t table[256];
     content_backdrop_darken(bg_palette, DARK_RGB, DARK_NUM, DARK_DEN, table);
     palette_remap_pixels(scratch, table, PIXELS);
+    content_backdrop_darken(bg_palette, PANEL_RGB, PANEL_NUM, PANEL_DEN, table);
+    content_backdrop_panel(scratch, W, H, table, CONTENT_CARD_PANEL_X0, CONTENT_CARD_PANEL_Y0, CONTENT_CARD_PANEL_X1, CONTENT_CARD_PANEL_Y1,
+                           (uint8_t)nearest(CONTENT_RULE_RGB));
     dark_ok = config_bgnd_shape(scratch, 0, 0, W, H, dark_shape) != 0;
 }
 
