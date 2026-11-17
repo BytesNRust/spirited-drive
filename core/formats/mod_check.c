@@ -2,6 +2,7 @@
 #include "formats/mod_check.h"
 
 #include "formats/car_piece.h"
+#include "formats/track_piece.h"
 #include "formats/exchange.h"
 #include "formats/modpath.h"
 #include "formats/png.h"
@@ -151,10 +152,10 @@ static int changes_the_race(const char *rel, const Parts *p)
 
 ModFileRule mod_file_rule(int type, const char *stem, const char *rel)
 {
-    if (type == MOD_TYPE_TRACK) return MOD_FILE_NOT_YET;
     const Parts p = parts_of(rel);
     const ModFileKind kind = mod_file_kind(rel);
     if (kind == MOD_KIND_CARD || kind == MOD_KIND_DOC || (kind == MOD_KIND_PNG && is(rel, "preview.png"))) return MOD_FILE_OK;
+    if (type == MOD_TYPE_TRACK) return track_piece_owns(stem, rel) ? MOD_FILE_OK : MOD_FILE_FOREIGN;   /* dep59 step 5: its stages' files */
     if (type == MOD_TYPE_CAR) {
         if (!car_piece_stem_ok(stem)) return MOD_FILE_FOREIGN;
         char paths[CAR_PIECE_FILES][CAR_PIECE_PATH];
@@ -355,28 +356,29 @@ static int card_first(const ZipArchive *z, ModCheck *c, const int *kinds, char *
 /* every file one its kind of piece may carry */
 static int rules_ok(const ZipArchive *z, const ModCheck *c, char (*rels)[ZIP_NAME_MAX + 1], const int *kinds, char *why, size_t cap)
 {
-    if (c->info.type == MOD_TYPE_TRACK) return refuse(why, cap, "%s is a track: this version cannot install tracks yet", c->info.id);
     for (size_t i = 0; i < z->count; i++) {
         if (kinds[i] < 0) continue;
         switch (mod_file_rule(c->info.type, c->info.stem, rels[i])) {
         case MOD_FILE_OK: break;
         case MOD_FILE_RACE: return refuse(why, cap, "%s changes the race: a tweak cannot carry it", rels[i]);
-        case MOD_FILE_FOREIGN: return refuse(why, cap, "%s is not one of the files of the car %s", rels[i], c->info.stem);
-        case MOD_FILE_NOT_YET: return refuse(why, cap, "%s: this version cannot install tracks yet", rels[i]);
+        case MOD_FILE_FOREIGN:
+            return refuse(why, cap, "%s is not one of the files of the %s %s", rels[i], c->info.type == MOD_TYPE_TRACK ? "track" : "car", c->info.stem);
         }
     }
     return 1;
 }
 
-/* a car: the check the game makes before it lets it race (car_piece_check), on its files as the zip has them */
-static int car_ok(const ZipArchive *z, const ModCheck *c, char (*rels)[ZIP_NAME_MAX + 1], const int *kinds, char *why, size_t cap)
+/* a car or a track: the check the game makes before it lets it race (car_piece_check, track_piece_check), on its files as the zip has them */
+static int piece_ok(const ZipArchive *z, const ModCheck *c, char (*rels)[ZIP_NAME_MAX + 1], const int *kinds, char *why, size_t cap)
 {
-    if (c->info.type != MOD_TYPE_CAR) return 1;
+    const int type = c->info.type;
+    if (type != MOD_TYPE_CAR && type != MOD_TYPE_TRACK) return 1;
     FileSet set;
     fileset_init(&set);
     int ok = 1;
     for (size_t i = 0; i < z->count && ok; i++) {
-        if (kinds[i] != MOD_KIND_GAME && !(kinds[i] == MOD_KIND_PNG && car_piece_picture(rels[i]))) continue;   /* its files and pictures */
+        const int picture = type == MOD_TYPE_CAR && kinds[i] == MOD_KIND_PNG && car_piece_picture(rels[i]);
+        if (kinds[i] != MOD_KIND_GAME && !picture) continue;   /* its files, and a car's pictures */
         uint8_t *data = NULL;
         size_t size = 0;
         const ZipResult r = zip_extract(z, i, &data, &size);
@@ -386,9 +388,9 @@ static int car_ok(const ZipArchive *z, const ModCheck *c, char (*rels)[ZIP_NAME_
     if (ok) {
         Report report;
         report_init(&report);
-        ok = car_piece_check(&c->info, &set, &report);
+        ok = type == MOD_TYPE_CAR ? car_piece_check(&c->info, &set, &report) : track_piece_check(&c->info, &set, NULL, &report);
         if (!ok) {
-            refuse(why, cap, "the car is not good");
+            refuse(why, cap, "the %s is not good", type == MOD_TYPE_CAR ? "car" : "track");
             for (size_t i = 0; i < report.count; i++)
                 if (report.item[i].limit->fatal) {
                     refuse(why, cap, "%s: %s", report.item[i].limit->id, report.item[i].item);
@@ -414,7 +416,7 @@ int mod_check_zip(const uint8_t *zip, size_t size, ModCheck *out, char *why, siz
     int ok = rels != NULL && kinds != NULL && out->entries != NULL ? 1 : refuse(why, why_cap, "out of memory");
     ok = ok && names_ok(&z, out, rels, kinds, why, why_cap) && card_first(&z, out, kinds, why, why_cap) &&
          rules_ok(&z, out, rels, kinds, why, why_cap) && pictures_ok(&z, rels, kinds, why, why_cap) &&
-         contents_ok(&z, out, rels, kinds, why, why_cap) && car_ok(&z, out, rels, kinds, why, why_cap);
+         contents_ok(&z, out, rels, kinds, why, why_cap) && piece_ok(&z, out, rels, kinds, why, why_cap);
     free(rels), free(kinds);
     zip_close(&z);
     if (!ok) mod_check_free(out);

@@ -11,7 +11,7 @@
  *    MOD_PREVIEW_W x MOD_PREVIEW_H) and a README or LICENSE (.txt, .md or none). What macOS and Windows add on their own (__MACOSX/,
  *    .DS_Store, ._*, Thumbs.db, desktop.ini) is left out, not refused, and never installed.
  *  - What its kind of piece may carry (mod_file_rule), from its card, read first: a tweak's file that changes the race, a car's file that
- *    is not its own, or a track at all, refuse the mod; a car passes car_piece_check as well.
+ *    is not its own, or a track's file that is not its own, refuse the mod; a car passes car_piece_check as well, a track track_piece_check.
  *  - Content: a game file passes the original's limits (validate_file, as the overlay checks it at load), a PNG's size is read from its
  *    header and kept within its limits before it is unpacked and read (png_read), a WAV reads (wav_read), the text has no NUL and keeps
  *    within its size, and the card parses (mod_ini.h). */
@@ -52,12 +52,11 @@ ModFileKind mod_file_kind(const char *rel);
 typedef enum {
     MOD_FILE_OK,
     MOD_FILE_RACE,      /* changes the race: not in a tweak (docs/modding/inventory.md, "Files that change the race") */
-    MOD_FILE_FOREIGN,   /* not one of this piece's own files */
-    MOD_FILE_NOT_YET    /* a type this version cannot install (track) */
+    MOD_FILE_FOREIGN    /* not one of this piece's own files */
 } ModFileRule;
 /* whether a piece of `type` (MOD_TYPE_*) whose stem is `stem` ("" for a tweak) may carry the file at `rel` (a cleaned path from its root,
  * any case). A tweak: anything mod_file_kind takes but what changes the race. A car: its card, preview and README / LICENSE, its three
- * files (car_piece_paths) and car_masks/<STEM>/, dash_masks/<STEM>/. A track: nothing yet. */
+ * files (car_piece_paths) and car_masks/<STEM>/, dash_masks/<STEM>/. A track: its card, preview and README / LICENSE and the files track_piece_owns names. */
 ModFileRule mod_file_rule(int type, const char *stem, const char *rel);
 
 /* One entry to install: the zip entry's index and the path below the mod's folder ('/' between parts, no "." or ".."). */

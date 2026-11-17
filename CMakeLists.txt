@@ -97,6 +97,7 @@ add_library(tnfs_core STATIC
     core/formats/shpi_exchange.c
     core/formats/slots.c
     core/formats/car_piece.c
+    core/formats/track_piece.c
     core/formats/table_exchange.c
     core/formats/tri.c
     core/update/update_check.c
@@ -280,6 +281,8 @@ add_library(tnfs_game STATIC
     game/race/car_load.c
     game/race/car_registry.c
     game/sys/car_pieces.c
+    game/sys/track_registry.c
+    game/sys/track_pieces.c
     game/sys/race_records_added.c
     game/sys/race_records_merge.c
     game/race/car_body.c
@@ -784,7 +787,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_install edition_ini stock_content)
+    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_install edition_ini stock_content)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -794,7 +797,7 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(test_png_inflate PRIVATE tnfs_core)
     target_compile_options(test_png_inflate PRIVATE ${TNFS_WARNINGS})
     add_test(NAME png_inflate COMMAND test_png_inflate ${CMAKE_SOURCE_DIR}/tests/png)
-foreach(name port_old_files car_registry car_lights ai_added car_list content_rows content_nav content_screen content_preview content_backdrop track_list car_looks picture_palette added_card text_wrap added_gallery gallery_layout lunar_art lunar_speech edition_name_box car_figures replay_label car_registry_race car_registry_names car_registry_saves replay_cars band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings port_settings_values port_settings_session screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply race_records race_records_added records_import records_glue_load records_glue_import records_route track_select_plus extras_menu extras_background extras_layout extras_focus options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own graphics_own_modes graphics_own_light f3_ultra title_art item_art page_arrows port_log speed_units best_times best_times_pages start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip intro_order race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards second_livery car_variant car_paint car_repaint car_mask track_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants track_node_light tunnel_lamp_textures remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty light_synth lamp_emissive drive_lamps headlight_pool street_lamp tunnel_lamps window_lights reflector reflect_pass street_halo halo_track weather_hooks spray_tint wiper finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_nose dash_color lamp_flare shade_fit thunder wet_roll splash rain_bus hush music_kept sound_bank car_bank_shape stream_header shape_bank race_menu_art rain_roll rain_cars wrong_way snow_roll weather_snow snow_fx snow_remap key_latch track_wall chase_slope data_path data_check terrain_light port_profile live_mode_switch unlock_level variant_switches tournament_variants title_press game_mode_profile exe_image exe_tables_menu exe_tables_config exe_tables_load file_url tach_dim wheel_front rain_spray spray_pace track_light_file session_rules race_net_wire port_icon_ours race_net_track)
+foreach(name port_old_files car_registry track_registry car_lights ai_added car_list content_rows content_nav content_screen content_preview content_backdrop track_list car_looks picture_palette added_card text_wrap added_gallery gallery_layout lunar_art lunar_speech edition_name_box car_figures replay_label car_registry_race car_registry_names car_registry_saves replay_cars band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings port_settings_values port_settings_session screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply race_records race_records_added records_import records_glue_load records_glue_import records_route track_select_plus extras_menu extras_background extras_layout extras_focus options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own graphics_own_modes graphics_own_light f3_ultra title_art item_art page_arrows port_log speed_units best_times best_times_pages start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip intro_order race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards second_livery car_variant car_paint car_repaint car_mask track_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants track_node_light tunnel_lamp_textures remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty light_synth lamp_emissive drive_lamps headlight_pool street_lamp tunnel_lamps window_lights reflector reflect_pass street_halo halo_track weather_hooks spray_tint wiper finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_nose dash_color lamp_flare shade_fit thunder wet_roll splash rain_bus hush music_kept sound_bank car_bank_shape stream_header shape_bank race_menu_art rain_roll rain_cars wrong_way snow_roll weather_snow snow_fx snow_remap key_latch track_wall chase_slope data_path data_check terrain_light port_profile live_mode_switch unlock_level variant_switches tournament_variants title_press game_mode_profile exe_image exe_tables_menu exe_tables_config exe_tables_load file_url tach_dim wheel_front rain_spray spray_pace track_light_file session_rules race_net_wire port_icon_ours race_net_track)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -1429,6 +1432,15 @@ if(NOT EMSCRIPTEN)
     target_compile_definitions(test_car_pieces PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_options(test_car_pieces PRIVATE ${TNFS_WARNINGS})
     add_test(NAME car_pieces COMMAND test_car_pieces)
+    # port (dep59 step 5): the added tracks from the mod folders in effect, on copies of the CD's City 1 and 2 (skipped without the CD)
+    add_executable(test_track_pieces tests/test_track_pieces.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_track_pieces PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_track_pieces PRIVATE m)
+    endif()
+    target_compile_definitions(test_track_pieces PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_options(test_track_pieces PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME track_pieces COMMAND test_track_pieces)
     # port (dep59 step 3): an added car's skin and colour in the race, on synthetic files (reads them through the platform)
     add_executable(test_drive_skin tests/test_drive_skin.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_drive_skin PRIVATE tnfs_game SDL3::SDL3)

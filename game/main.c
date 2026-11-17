@@ -19,6 +19,8 @@
 #include "game/frontend/config.h"
 #include "game/race/car_registry.h"
 #include "game/sys/car_pieces.h"
+#include "game/sys/track_pieces.h"
+#include "game/sys/track_registry.h"
 #include "game/frontend/frontend.h"
 #include "game/frontend/link_game.h"
 #include "game/frontend/menu_audio.h"
@@ -215,14 +217,29 @@ static int resolve_car(Options *opt)
     return 0;
 }
 
+/* port (dep59 step 5): --drive NAME as one of the CD's tracks (its root, with its variants), as before, or the id of an added track of the mods
+ * in effect (track_pieces.h), which is read from the registry and found by id. Its menu number in `track`; 0 with a fatal message when it is
+ * neither. T4 is in progress: until the race reads its traits from the piece (T2, TrackTraits), a race on an added track would index the tables
+ * of the CD's nine, so it is refused here with a message, after the id has been resolved. */
+static int resolve_drive_track(const char *name, int *track)
+{
+    *track = race_sim_track_index(name);
+    if (*track >= 0) return 1;
+    track_pieces_follow();
+    *track = track_registry_find(name);
+    if (*track < 0) {
+        port_fatal("--drive: no track %s\n", name);
+        return 0;
+    }
+    port_fatal("--drive: %s is an added track (track %d): racing one waits for the race to read its traits (dep59 step 5)\n", name, *track);
+    return 0;
+}
+
 static int run_drive(const Options *opt)
 {
     enum { FULL_FIELD = 2 };
-    const int track = race_sim_track_index(opt->drive);
-    if (track < 0) {
-        port_fatal("--drive: no track %s\n", opt->drive);
-        return 0;
-    }
+    int track;
+    if (!resolve_drive_track(opt->drive, &track)) return 0;
     const PlatformConfig config = port_platform_config(GAME_NAME);
     if (!platform_init(&config)) return 0;
     if (!video_init()) {

@@ -42,7 +42,7 @@ What a mod may carry depends on its `type` in `mod.ini`:
 |------|-----------|
 | `tweak` (or no `type`) | how the game looks and sounds: art, fonts, music, sounds, dashboards, car models (CFM), track scenery (FAM), the sky (`<TRACK>INFO`), `track_light/`, the masks, `car_envmap.png`. **Never** what changes a race: a track's `.TRI` and the rest of `SIMDATA/MISC` (but its INFO), `SIMDATA/CARSPECS/`, a car's `.PDN`, `track/<TRACK>.txt`. [modding/inventory.md](modding/inventory.md) §12 says why for each |
 | `car` | its own three files (its stem's CFM, PDN and PBS) and `car_masks/<STEM>/`, `dash_masks/<STEM>/`, and nothing else (see *Adding a car*) |
-| `track` | nothing yet: "this version cannot install tracks yet" |
+| `track` | its stages' files: for each stage `<STEM>1`..`<STEM>3` its `.TRI`, `<STEM><n>INFO` and the day art `ETRACKFM/` and `GTRACKFM/` `<STEM><n>_001.FAM` (optional: `NTRACKFM/` `_T01`, `_M01`, `_R01`, and the port's `track/`, `track_light/` text and `track_masks/` PNG named by the same root), and nothing else. A stem may not begin with AL, CL, CY or TR. This version adds A-to-B tracks only (`kind=stage`); it checks and installs them, running one comes with the next steps |
 
 Every type may also carry `mod.ini`, `preview.png` and a README or LICENSE. `GAMEDATA/` (the player's config, replays and saves) is never
 part of a mod. A folder in `mods/` that holds a file its type may not carry, put there by hand, still runs: that file is not given to the

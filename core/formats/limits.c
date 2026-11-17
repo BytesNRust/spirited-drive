@@ -60,6 +60,12 @@ const Limit limit_table[] = {
     { "PIECE.CARD", "a car piece holds card.png, Control Central's picture of it, of 309 x 166 (the game does not scale)", 0, "port (dep59 step 3): car_piece_check", 1, 0 },
     { "PIECE.PICTURE", "a car piece's rival.png is 284 x 117 and its gallery.png 320 x 200, when it has them", 0, "port (dep59 step 3): car_piece_check", 1, 0 },
     { "PIECE.SKIN", "a car piece has up to 15 skins, folders of skins/ named 1..16 of a-z 0-9 '-', up to 256 files each, <tex>[_lo][_mask].png of a texture its CFM's high (low) bank has, of that texture's size; a mask a readable PNG of up to 1024 a side", 15, "port (dep59 step 3): car_piece_check", 1, 0 },
+    /* port (dep59 step 5): a track piece (track_piece.h); PIECE.TYPE, PIECE.STEM and PIECE.FILE_MISSING are used for a track too, with the item saying which */
+    { "PIECE.KIND", "a track piece's kind is stage (A to B); this version adds no circuits", 0, "port (dep59 step 5): track_piece_check", 1, 0 },
+    { "PIECE.SEGMENTS", "a track piece's segments is 1 to 3 (a stage's files are its stem and the number: TURINI1..TURINI3)", 3, "port (dep59 step 5): track_piece_check", 1, 0 },
+    { "PIECE.ROAD", "a track piece's road is asphalt or dirt", 0, "port (dep59 step 5): track_piece_check, race_state.c", 1, 0 },
+    { "PIECE.EDGE", "a track piece's edge is grass, gravel, sand, snow, dirt or water", 0, "port (dep59 step 5): track_piece_check, race_state.c", 1, 0 },
+    { "PIECE.TIMES", "a track piece's times are some of dawn, day, dusk and night, each once", 0, "port (dep59 step 5): track_piece_check", 1, 0 },
     { "PIECE.MODEL_NAME", "a car piece's model has the exhaust point 'smok', the lights' labels lt_frnt rt_frnt lt_rear rt_rear and their points fl0 fl1 fr0 fr1 rl0 rl1 rr0 rr1 (else the race hangs)", 0, "00457d40 (car_model.c signals)", 1, 0 },
     { "PIECE.MODEL_INDEX", "every polygon of a car piece's model names a texture, vertices and uvs inside their tables", 0, "port (dep59): car_piece_check", 1, 0 },
     { "PIECE.MODEL_GROUPS", "every polygon of a car piece's high-detail model is in a group (inside, outside, surface, convex); one in none is not drawn close up", 0, "00457d40 (the parts)", 0, 0 },

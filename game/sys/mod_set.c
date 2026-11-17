@@ -134,8 +134,7 @@ static void say_left_out(const Piece *p, const char *rel, ModFileRule rule)
         if (strcasecmp(serving.said[i], key) == 0) return;
     if (serving.said_count < SAID_MAX) snprintf(serving.said[serving.said_count++], SAID_LEN, "%s", key);
     port_log("mods: %s: %s is left out: %s\n", p->id, rel,
-             rule == MOD_FILE_RACE ? "it changes the race, which an installed tweak may not"
-             : rule == MOD_FILE_NOT_YET ? "this version loads no tracks yet" : "it is not one of this piece's files");
+             rule == MOD_FILE_RACE ? "it changes the race, which an installed tweak may not" : "it is not one of this piece's files");
 }
 
 static bool serve(int index, const char *rel)
