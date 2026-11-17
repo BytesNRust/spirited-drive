@@ -40,6 +40,8 @@ void glue_settings_to_config(void);    /* a window closed: Control Central's rac
 
 /* the boxes as ops (ctx unused) for the other screens' glue */
 int32_t glue_yes_no(void *ctx, const char *text);  /* 00465f4c */
+/* port (dep59 step 4b): 004626d0's field centred on x for up to `max` characters, free text: 1 taken with Enter, 0 left with Escape */
+int32_t glue_text_field(char *text, int32_t max, int32_t x, int32_t y);
 void glue_banner(void *ctx, const char *text);     /* 0046667c */
 void glue_drain(void *ctx);                        /* 004770ac */
 void glue_boxed(void *ctx, const char *text, int32_t x, int32_t y);  /* 00463934 */
