@@ -333,13 +333,12 @@ static void draw(const Page *p)
     bottom(&t, s->item);
 }
 
-/* the palette with the swatch's colour, on screen */
-static void palette_now(Page *p)
+/* the swatch's colour into the page's palette */
+static void palette_fill(Page *p)
 {
     const GalleryState *s = &p->state;
     const uint8_t *rgb = s->paint > 0 ? p->card.info.paints[s->paint - 1].rgb : (const uint8_t[3]){ 0, 0, 0 };
     memcpy(p->palette + 3 * SWATCH, rgb, 3);
-    video_set_palette(0, 256, p->palette);
 }
 
 /* a click: the key it stands for, the item moved to the one clicked; 0 for none */
@@ -374,19 +373,45 @@ static void look_keep(const Page *p)
 }
 
 /* GalleryRunOps over the page */
-static void run_show(void *ctx, const GalleryState *s)
+static void run_clear(void *ctx)
+{
+    (void)ctx;
+    for (int i = 0; i < 2; i++) ea_select_default(), video_clear_back(), video_flip();
+}
+static void run_black(void *ctx)
+{
+    (void)ctx;
+    static const uint8_t BLACK_PALETTE[768];
+    video_set_palette(0, 256, BLACK_PALETTE);
+}
+static void run_draw(void *ctx, const GalleryState *s)
 {
     Page *p = ctx;
     (void)s;
     ea_select_default();
-    palette_now(p);
+    palette_fill(p);
     text_build_styles_from(p->palette);   /* before the words: their colours are the page's */
     draw(p);
+}
+static void run_palette(void *ctx)
+{
+    const Page *p = ctx;
+    video_set_palette(0, 256, p->palette);
+}
+static void run_flip(void *ctx, const GalleryState *s)
+{
+    (void)ctx;
     video_flip();
     pointer_show();
     /* port (test harness): the page as shown, for a walk to wait on after each key (tests/car_card_menus.sh); the log only */
-    port_log("mark:gallery=%d %d %d\n", p->state.item, p->state.skin, p->state.paint);   /* item skin paint: a WAIT's text is < 32 */
+    port_log("mark:gallery=%d %d %d\n", s->item, s->skin, s->paint);   /* item skin paint: a WAIT's text is < 32 */
 }
+static void run_fade_in(void *ctx)
+{
+    const Page *p = ctx;
+    video_fade_in(0, 256, p->palette);
+}
+static void run_fade_out(void *ctx) { (void)ctx; video_fade_out(0, 256); }
 static int run_key(void *ctx) { (void)ctx; return input_get_key(); }
 static int run_buttons(void *ctx) { (void)ctx; return pointer_read_buttons(); }
 static int run_click(void *ctx, GalleryState *s) { (void)ctx; return click_key(s); }
@@ -396,7 +421,8 @@ static void run_wait(void *ctx) { (void)ctx; video_wait_vblank(); }
 /* one car's page until it is left or another is asked for: GALLERY_LEAVE, GALLERY_GO_PREVIOUS or GALLERY_GO_NEXT */
 static int run_page(Page *p)
 {
-    const GalleryRunOps ops = { run_show, run_key, run_buttons, run_click, run_music, run_wait, p };
+    const GalleryRunOps ops = { run_clear, run_black, run_draw, run_palette, run_flip, run_fade_in, run_fade_out,
+                                run_key, run_buttons, run_click, run_music, run_wait, p };
     return added_gallery_run(&p->card, &p->state, &ops);
 }
 

@@ -19,10 +19,19 @@ static void let_go(const GalleryRunOps *o)
 
 int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOps *o)
 {
-    int last_key = -1, last_buttons = -1, result = GALLERY_STAY, changed = 1;
+    /* port (owner 2026-11-17): the page comes up as the showcase's does: both pictures cleared and the palette black before it is drawn,
+     * then faded in, so neither the screen before it nor its own colours on that screen ever show for a frame */
+    o->clear(o->ctx);
+    o->black(o->ctx);
+    o->draw(o->ctx, s);
+    o->flip(o->ctx, s);
+    o->fade_in(o->ctx);
+    int last_key = -1, last_buttons = -1, result = GALLERY_STAY, changed = 0;
     while (result == GALLERY_STAY) {
-        if (changed) {
-            o->show(o->ctx, s);
+        if (changed) {   /* the page drawn again: its palette (the swatch's colour) with it */
+            o->draw(o->ctx, s);
+            o->palette(o->ctx);
+            o->flip(o->ctx, s);
             changed = 0;
         }
         const int key = o->key(o->ctx);
@@ -42,5 +51,6 @@ int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOp
         o->wait(o->ctx);
     }
     let_go(o);
+    o->fade_out(o->ctx);   /* out as the showcase goes out, whatever comes next */
     return result;
 }
