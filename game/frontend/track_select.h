@@ -117,7 +117,16 @@ typedef struct TrackSelectPlus {
      * up: a step onto it keeps the switches here and clears them, a step off puts them back (with their unlocks). The caller
      * sets them to the choice it keeps (the mode's file's) and reads them when the screen ends on Lost Vegas. */
     int kept_m, kept_r;
+    /* port (dep59 Lunar L5): non-NULL where the list may offer Lunar Springs, the Lunar pick (track_pick.h): on Rusty with it the screen
+     * is Lunar's (the moon's art, LUNAR_SELECT_FILE, and its line, LUNAR_SPEECH_NAME), with no Rally row, time of day or weather: it is
+     * the rally, by day and clear. lunar_list is the list's (track_list.h's TRACK_LIST_LUNAR_*) the arrows walk with it. */
+    int *lunar;
+    int lunar_list;
 } TrackSelectPlus;
+
+/* port (dep59 Lunar L5): the track screen's bank for Lunar Springs, "tracksel/<this>.qfs": no file, the moon's made art (lunar_art.h)
+ * the caller's load_bank gives for that name (Rusty's when it cannot be made) */
+extern const char LUNAR_SELECT_FILE[];
 /* port (dep55): the next custom lap count for `direction` 1 or -1: 0 (the menu's), 1..99, round */
 int track_select_laps_step(int laps, int direction);
 
@@ -155,6 +164,7 @@ typedef struct TrackSelectState {
 /* port: the entry `direction` (1 next, -1 previous) from a track and variant (0 normal, 1 mirror, 2 rally) round `tracks` (the
  * original's wrap for the standard edition's list, to Lost Vegas when it is on; an edition's own order, dep59 step 4): the track, then its
  * variants in that order where offered. */
+/* port (dep59 Lunar L5): `track` may be the Lunar entry (10, track_pick.h), which has a mirror and no rally */
 void track_select_entry(int track, int variant, int direction, const TrackList *tracks, int unlock_m, int unlock_r,
                         int *to_track, int *to_variant);
 

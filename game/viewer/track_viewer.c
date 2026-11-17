@@ -723,6 +723,9 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     TrackFamInputs look = { .time_of_day = 0, .variant_m = 0, .variant_r = 0, .track = race_sim_track_index(name),
                             .stem = NULL, .dir = NULL, .dir_midday = NULL, .port_both_variants = 0 };
     drive_look_fill(&look, data_root, name);
+    /* port (dep59 Lunar): the moon's race is by day and clear, whatever port.cfg or the host says (a replay keeps its own record) */
+    const int moon_forced = replay_of == NULL && lunar_springs_active(look.track, look.variant_r, look.port_lunar);
+    if (moon_forced) port_conditions_force(1, LIGHT_TIME_DAY, WEATHER_CLEAR);
     int ok = ((model >= 0 && model < CAR_MODELS) || car_registry_is_added(model)) && racers >= 1 && racers <= RACE_PLAYERS && race_type <= 3 &&
              track_viewer_load(&t, data_root, name, &look);
     ok = ok && start_drive(&t, data_root, name, model, racers, race_type);
@@ -737,6 +740,7 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     free(pixels);
     free_drive();
     track_viewer_free(&t);
+    if (moon_forced) port_conditions_force(0, 0, 0);
     if (drive_link_on) drive_link.racing(NULL, NULL, NULL);
     drive_menus_on = 0, drive_link_on = 0;
     session_rules_set(NULL);

@@ -65,7 +65,7 @@ static int tracks_are(const int16_t *want, int n)
 {
     Edition buf;
     TrackList l;
-    track_list_build(&l, edition_in_use(&buf), 0);
+    track_list_build(&l, edition_in_use(&buf), 0, TRACK_LIST_LUNAR_OFF);
     return l.count == n && memcmp(l.track, want, (size_t)n * sizeof *want) == 0;
 }
 

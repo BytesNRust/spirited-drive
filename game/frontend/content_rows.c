@@ -94,11 +94,15 @@ static void named_rows(ContentRows *out, const Edition *e, int tab, const Conten
     }
 }
 
+/* dep59 Lunar L1: the stock tracks' rows in the menus' order, Lunar Springs right after Rusty */
+static const int TRACK_ORDER[STOCK_TRACK_COUNT] = { 0, 1, 2, 3, STOCK_TRACK_LUNAR, 4, 5, 6, 7, 8, 9 };
+
 /* the pieces the edition does not name (all of them for the standard edition): stock ones on in the standard edition, the rest off */
 static void other_rows(ContentRows *out, const Edition *e, int tab, const ContentMods *m)
 {
     const int stock_count = tab == CONTENT_CARS ? STOCK_CAR_WARRIOR + 1 : tab == CONTENT_TRACKS ? STOCK_TRACK_COUNT : 0;
-    for (int s = 0; s < stock_count; s++) {
+    for (int i = 0; i < stock_count; i++) {
+        const int s = tab == CONTENT_TRACKS ? TRACK_ORDER[i] : i;
         const char *id = tab == CONTENT_CARS ? stock_car_id(s) : stock_track_id(s);
         const char *name = id != NULL ? stock_name(tab, id) : NULL;
         if (name != NULL && (e == NULL || !named(e, tab, id))) add(out, id, name, "", CONTENT_ROW_GAME, e == NULL);

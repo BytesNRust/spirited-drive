@@ -90,7 +90,14 @@ typedef struct BestTimesInputs {
     int32_t screen_shape;      /* [00524834] + 0x2c */
     const uint8_t *records;    /* 00524f8f, BEST_TIMES_RECORDS bytes */
     const TrackList *tracks;   /* port (dep59 step 4): an own edition's tracks the arrows walk (track_list.h); NULL the original's walk */
+    /* port (dep59 Lunar L5): the Lunar pick (track_pick.h), NULL none: opened on Rusty with it the screen shows the moon's art
+     * (LUNAR_BEST_FILE); an arrow off the track drops it (Lunar's own records and its entry here are L6's) */
+    int *lunar;
 } BestTimesInputs;
+
+/* port (dep59 Lunar L5): Best Times' bank for Lunar Springs, "tracksel/<this>.qfs": no file, the moon's made art (lunar_art.h) the
+ * caller's load_bank and load_art give for that name */
+extern const char LUNAR_BEST_FILE[];
 
 /* port (dep55): Restomod's records pages (race_records.h, best_times_pages.h). A fixed title strip under the track's name: the table
  * shown ("< MIRROR > - < NO CHEATS > - < 6 LAPS >") and the page ("< TOP 10 >"); the pages: the ten best totals with each row's

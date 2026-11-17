@@ -1,6 +1,10 @@
 #include "game/frontend/central_glue_private.h"
 #include "game/frontend/card_marks.h"
 #include "game/frontend/car_pick.h"
+#include "game/frontend/track_pick.h"
+#include "formats/stock_content.h"
+#include "game/race/weather.h"
+#include "game/frontend/lunar_art.h"
 #include "game/sys/car_pieces.h"
 #include "game/sys/edition_file.h"
 #include "game/sys/car_looks.h"
@@ -119,6 +123,9 @@ static void picks_restore(void)
     const int car = car_looks_saved_car(0);
     if (car >= 0) cg_g.player_car = (int16_t)car;
     else if (car == CAR_LOOKS_NOT_LOADED) cg_g.player_car = 0;
+    /* port (dep59 Lunar L2): track=lunar over config.dat's Rusty rally gives Lunar back where it is offered */
+    track_pick_lunar_put(car_looks_saved_lunar());
+    cg_lunar_settle();
     if (cg_g.race_type != RACE_HEAD_TO_HEAD) return;
     const int rival = car_looks_saved_car(1);
     if (rival >= 0) cg_g.opponent = (int16_t)rival;
@@ -134,6 +141,8 @@ void cg_picks_save(void)
     if (car != cg_g.player_car && (car >= 0 || car_registry_is_added(cg_g.player_car) || car == CAR_LOOKS_NOT_LOADED) &&
         !car_looks_save_car(0, cg_g.player_car))
         port_log("car looks: the car picked was not kept\n");
+    if (car_looks_saved_lunar() != track_pick_lunar() && !car_looks_save_lunar(track_pick_lunar()))
+        port_log("car looks: the Lunar pick was not kept\n");
     if (cg_g.race_type != RACE_HEAD_TO_HEAD) return;
     const int rival = car_looks_saved_car(1);
     if (rival != cg_g.opponent && (rival >= 0 || car_registry_is_added(cg_g.opponent) || rival == CAR_LOOKS_NOT_LOADED) &&
@@ -172,6 +181,7 @@ void cg_extras_apply(void)
     restomod_flag = (int16_t)(port_settings_profile() == PROFILE_RESTOMOD);
     car_pieces_follow();   /* port (dep59): the added cars of the mods in effect, for the arrows (car_list.h); loaded again only when they change */
     cg_variant_choice_apply();   /* port (dep65): Restomod's switches back from the player's choice, after every place they are cleared */
+    cg_lunar_settle();
 }
 
 /* 00465ec8, 00432974, 00432c40, 00432d48 and 00432720 on the shorts */
@@ -233,36 +243,92 @@ static void tournament_leave_closed(void)
 static const TrackList *edition_tracks(TrackList *l)
 {
     if (central_edition.tracks == 0) return NULL;
-    track_list_build(l, &central_edition, 0);
+    track_list_build(l, &central_edition, 0, TRACK_LIST_LUNAR_NEVER);
     return l;
+}
+
+/* port (dep59 Lunar L2): 1 when the track list offers Lunar Springs: the standard edition's switch at level 2, an edition's lunar in
+ * tracks= (unlock_level_gate); never in a tournament */
+static int lunar_offered(void)
+{
+    if (cg_g.race_type == RACE_TOURNAMENT) return 0;
+    return unlock_level_gate(port_extras_load(), cg_g.unlock_level, central_edition.cars > 0 ? &central_edition : NULL).lunar_springs != 0;
+}
+
+/* port (dep59 Lunar L2): the tracks Control Central's arrows walk, Lunar among them when offered (track_pick.h); NULL for the standard
+ * edition's own walk without it */
+static const TrackList *central_tracks(TrackList *l)
+{
+    const int lunar = lunar_offered() ? TRACK_LIST_LUNAR_OFF : TRACK_LIST_LUNAR_NEVER;
+    if (central_edition.tracks > 0) {
+        track_list_build(l, &central_edition, 0, lunar);
+        return l;
+    }
+    if (lunar == TRACK_LIST_LUNAR_NEVER) return NULL;
+    track_list_build(l, NULL, cg_g.lost_vegas != 0, TRACK_LIST_LUNAR_ON);
+    return l;
+}
+
+/* port (dep59 Lunar L5): the list the track screen's arrows walk with Lunar (track_list.h's TRACK_LIST_LUNAR_*) */
+static int lunar_list_of(void)
+{
+    return !lunar_offered() ? TRACK_LIST_LUNAR_NEVER : central_edition.tracks > 0 ? TRACK_LIST_LUNAR_OFF : TRACK_LIST_LUNAR_ON;
+}
+
+/* port (dep59 Lunar L5): the screens' banks, Lunar Springs' made art for its names (track_select.h's LUNAR_SELECT_FILE, best_times.h's
+ * LUNAR_BEST_FILE): Rusty's when it cannot be made (logged by lunar_art_bank) */
+static int32_t lunar_or_bank(void *ctx, const char *path, int32_t flags)
+{
+    static const struct { const char *name, *rusty; LunarArtKind kind; } MOON[] = {
+        { LUNAR_SELECT_FILE, "rustsel", LUNAR_ART_SELECT }, { LUNAR_BEST_FILE, "rustbst", LUNAR_ART_BEST } };
+    for (size_t i = 0; i < sizeof MOON / sizeof MOON[0]; i++) {
+        const char *slash = strrchr(path, '/');
+        const char *file = slash != NULL ? slash + 1 : path;
+        const size_t n = strlen(MOON[i].name);
+        if (strncmp(file, MOON[i].name, n) != 0 || strcmp(file + n, ".qfs") != 0) continue;
+        const int32_t bank = lunar_art_bank(MOON[i].kind);
+        if (bank != 0) return bank;
+        char rusty[256];
+        snprintf(rusty, sizeof rusty, "%.*s%s.qfs", (int)(file - path), path, MOON[i].rusty);
+        return load_bank(ctx, rusty, flags);
+    }
+    return load_bank(ctx, path, flags);
+}
+
+static int32_t lunar_or_art(void *ctx, const char *name) { return lunar_or_bank(ctx, name, 0); }
+
+/* port (dep59 Lunar L2): the pick holds only on Rusty's rally where Lunar is offered */
+void cg_lunar_settle(void)
+{
+    if (!lunar_offered() || cg_g.track != 3 || cg_g.variant_r == 0) track_pick_lunar_put(0);
+}
+
+/* port (dep59 Lunar L2): the arrows over the entries, Lunar's pick with them */
+static void track_arrow(int dir)
+{
+    RaceSettings s = cg_settings_of();
+    const Unlocks u = cg_unlocks_of();
+    TrackList l;
+    int lunar = track_pick_lunar();
+    /* port (dep56): with the switches the variants are the track screen's */
+    track_pick_step(&s, &lunar, &u, central_tracks(&l), dir, variant_switches_on());
+    cg_settings_put(&s);
+    track_pick_lunar_put(lunar);
+    cg_variant_choice_apply();   /* port (dep65): the choice on the new track (Lost Vegas takes no mirror or rally, the next does) */
+    cg_tournament_variants_apply();   /* a tournament's are its own on every track (Lost Vegas: none) */
+    cg_lunar_settle();
 }
 
 static void track_forward(void *ctx)
 {
     (void)ctx;
-    RaceSettings s = cg_settings_of();
-    const Unlocks u = cg_unlocks_of();
-    TrackList l;
-    const TrackList *tracks = edition_tracks(&l);
-    if (variant_switches_on()) race_settings_track_step(&s, &u, tracks, 1);   /* port (dep56): the variants are the track screen's switches */
-    else race_settings_track_forward(&s, &u, tracks);
-    cg_settings_put(&s);
-    cg_variant_choice_apply();   /* port (dep65): the choice on the new track (Lost Vegas takes no mirror or rally, the next does) */
-    cg_tournament_variants_apply();   /* a tournament's are its own on every track (Lost Vegas: none) */
+    track_arrow(1);
 }
 
 static void track_backward(void *ctx)
 {
     (void)ctx;
-    RaceSettings s = cg_settings_of();
-    const Unlocks u = cg_unlocks_of();
-    TrackList l;
-    const TrackList *tracks = edition_tracks(&l);
-    if (variant_switches_on()) race_settings_track_step(&s, &u, tracks, -1);
-    else race_settings_track_backward(&s, &u, tracks);
-    cg_settings_put(&s);
-    cg_variant_choice_apply();
-    cg_tournament_variants_apply();
+    track_arrow(-1);
 }
 
 /* port (dep65): the card's words in the log when they change, "mark:card=<track> <left words>|<right words>", each list joined by
@@ -291,9 +357,11 @@ static void card_marks(void *ctx, int32_t left, int32_t right, int32_t y)
     enum { LINE = 9 };
     const RaceSettings s = cg_settings_of();
     const int own = port_records_unified() ? port_settings_load().laps : 0;   /* the laps row's custom count (dep55) */
-    const CardWords w = card_words_of(s.track, s.variant_m, reverse_track_picked(), s.variant_r, port_weather(),
-                                      port_light_effects() ? port_light_time() : -1, own > 0 ? own : s.laps);
-    card_marks_log(&w, s.track);
+    /* port (dep59 Lunar L5): Lunar's card says no rally (it is one), clear and by day; its mark names the entry, 10 */
+    const int lunar = track_pick_of(s.track, s.variant_r, track_pick_lunar()) == STOCK_TRACK_LUNAR;
+    const CardWords w = card_words_of(s.track, s.variant_m, reverse_track_picked(), s.variant_r && !lunar, lunar ? WEATHER_CLEAR : port_weather(),
+                                      port_light_effects() ? (lunar ? LIGHT_TIME_DAY : port_light_time()) : -1, own > 0 ? own : s.laps);
+    card_marks_log(&w, lunar ? STOCK_TRACK_LUNAR : s.track);
     text_select(TEXT_YELLOW);
     for (int i = 0; i < w.left_count; i++) text_draw_smooth(w.left[i], left, y + i * LINE, 1, 2);
     for (int i = 0; i < w.right_count; i++) text_draw_smooth(w.right[i], right - text_width_scaled(w.right[i], 1, 2), y + i * LINE, 1, 2);
@@ -473,6 +541,8 @@ static int32_t best_times(void *ctx);
 /* port (dep56): the track screen's way round while it is open (its Inverse or Reverse row), so Best Times opened from it reads the
  * layout the screen shows; NULL when the screen is closed or offers none. The pick itself is stored as the screen closes. */
 static const int *track_screen_reverse;
+/* port (dep59 Lunar L5): the track screen's Lunar pick while it is open, so Best Times opened from it shows the entry it shows */
+static int *track_screen_lunar;
 static int32_t plus_text_width(void *ctx, const char *text);
 static void track_select(void *ctx)
 {
@@ -499,22 +569,25 @@ static void track_select(void *ctx)
                              extras.variant_time,   /* port: variants as entries */
                              port_settings_profile() == PROFILE_RESTOMOD, &weather, port_light_effects() ? &light_time : NULL, reverse_offered ? &reverse : NULL,
                              port_records_unified() ? &laps : NULL, variant_switches_on(), tournament && tournament_variants_locked(cg_g.races),
-                             choice.variant_mirror, choice.variant_rally };
+                             choice.variant_mirror, choice.variant_rally, NULL, lunar_list_of() };
+    int lunar = track_pick_lunar();   /* port (dep59 Lunar L5): the screen's entry, Lunar among them */
+    plus.lunar = plus.lunar_list != TRACK_LIST_LUNAR_NEVER ? &lunar : NULL;
     const int was_weather = weather, was_light_time = light_time;
     TrackSelectState st = { config->image + (0x524df9 - 0x524df0), cg_time_of_day, cg_g.inverse, cg_screen_palette, &plus };
     int x, y;
     pointer_position(&x, &y);
     DialogPointer p = { pointer_active(), 0, x, y, x, y };
     const TrackSelectOps ops = {
-        cg_flush, move_to, load_bank, no_inverse, music_feed, shape, set_palette, nothing, styles, cg_poll_pointer, hide,
+        cg_flush, move_to, lunar_or_bank, no_inverse, music_feed, shape, set_palette, nothing, styles, cg_poll_pointer, hide,
         in_rect, select_picture, select_default, blit, blit_masked, blit_word, style, shadowed, nothing, nothing, flip,
         show_dialog, cg_mark_at, buttons, track_music, fade_in, track_play, deadline_set, sound, ticks, activate_dialog,
         cg_key, click, track_stop, track_free, fade_out, free_bank, free_handle_inverse, best_times, cg_image_car_flags,
         off_dialog, music,
         cg_deadline_passed, music_fade_out, music_end, &p };
     track_screen_reverse = reverse_offered ? &reverse : NULL;
+    track_screen_lunar = &lunar;
     track_select_screen(&in, &st, &p, &ops);
-    track_screen_reverse = NULL;
+    track_screen_reverse = NULL, track_screen_lunar = NULL;
     if (reverse_offered) reverse_track_pick(reverse);
     if (weather != was_weather || light_time != was_light_time || laps != was_laps) {
         PortSettings saved = port_settings_load();
@@ -528,6 +601,8 @@ static void track_select(void *ctx)
         after.variant_m = cg_g.variant_m, after.variant_r = cg_g.variant_r;   /* port: as the screen left them (get_race zeroes them) */
         cg_settings_put(&after);
     }
+    track_pick_lunar_put(lunar);
+    cg_lunar_settle();
     cg_variant_choice_keep(plus.kept_m, plus.kept_r, reverse_offered ? &reverse : NULL);   /* port (dep65): Restomod keeps them */
     if (tournament && !tournament_variants_locked(cg_g.races))   /* port (dep56): before its first race, the switches are its variants */
         tournament_variants_set(tournament_variants_follow(tournament_variants_get(), cg_g.track, cg_g.variant_m,
@@ -574,22 +649,28 @@ static int32_t best_times(void *ctx)
     port_log("mark:screen=best_times\n");   /* port: the headless walk (tools/menu_walk.sh) waits for it */
     if (track_screen_reverse != NULL) reverse_track_pick(*track_screen_reverse);   /* port (dep56): the screen's layout as it shows it */
     TrackList l;
+    int lunar_own = track_pick_lunar();   /* port (dep59 Lunar L5): the entry's pick, the track screen's while it is open */
+    int *const lunar = track_screen_lunar != NULL ? track_screen_lunar : &lunar_own;
     const BestTimesInputs in = { "", resource_german(), cg_g.lost_vegas, screen, ea_picture_shape(screen),
-                                 image + (0x524f8f - 0x524df0), edition_tracks(&l) };
+                                 image + (0x524f8f - 0x524df0), edition_tracks(&l), lunar };
     BestTimesState st = { image + (0x524df9 - 0x524df0), cg_g.inverse, cg_screen_palette,
                           records_glue_best_plus(image, cg_g.variant_m, cg_g.variant_r, cg_g.explode, cg_g.nitro, (menu_cheats.keys_506 & 8) != 0,
                                                  cg_g.player_car) };   /* port (dep55): Restomod's pages; NULL the exe's screen */
     const BestTimesOps ops = {
-        move_to, load_art, no_inverse, music_feed, shape, cg_flush, set_palette, nothing, styles, cg_poll_pointer, cg_mark_at,
+        move_to, lunar_or_art, no_inverse, music_feed, shape, cg_flush, set_palette, nothing, styles, cg_poll_pointer, cg_mark_at,
         in_rect, select_picture, blit, blit_masked, blit_word, style, cg_fit, time_text, speed_text, shadowed,
         select_default, hide, nothing, nothing, flip, show_dialog, buttons, fade_in, deadline_set, sound, ticks,
-        activate_dialog, cg_key, click, cg_image_car_flags, fade_out, free_handle_inverse, free_bank, load_bank, off_dialog,
+        activate_dialog, cg_key, click, cg_image_car_flags, fade_out, free_handle_inverse, free_bank, lunar_or_bank, off_dialog,
         music,
         cg_deadline_passed, music_fade_out, music_end, ctx, cg_plus_text, plus_text_width, glue_plus_text_scaled, glue_plus_text_width_scaled,
         letters_ink };   /* port (dep55): the pages' words */
     input_page_keys(st.plus != NULL);   /* port (dep55): Page Up / Page Down turn the pages */
     const int32_t result = best_times_screen(&in, &st, ctx, &ops);
     input_page_keys(0);
+    if (track_screen_lunar == NULL) {   /* port (dep59 Lunar L5): opened from Control Central, the pick is put back as it left it */
+        track_pick_lunar_put(lunar_own);
+        cg_lunar_settle();
+    }
     return result;
 }
 /* Cancel or Escape: the settings back as they were on entry, and the config.dat image with them -- the view distance

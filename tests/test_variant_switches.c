@@ -70,7 +70,7 @@ static void test_an_edition_walks_its_tracks(void)
     e.tracks = 2;
     snprintf(e.track[0], sizeof e.track[0], "city"), snprintf(e.track[1], sizeof e.track[1], "vegas");
     TrackList l;
-    track_list_build(&l, &e, 0);
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);
     const Unlocks u = { .variant_m = 1, .variant_r = 1, .warrior = 1, .lost_vegas = 0 };   /* Lost Vegas listed: there whatever the level */
     RaceSettings s = at(0, 1, 0);
     race_settings_track_step(&s, &u, &l, 1);
@@ -90,7 +90,7 @@ static void test_an_edition_walks_its_tracks(void)
     race_settings_track_backward(&s, &u, &l);
     CHECK_EQ_INT(s.track, TRACK_LOST_VEGAS);
     snprintf(e.track[1], sizeof e.track[1], "hidden");   /* never listed: City alone */
-    track_list_build(&l, &e, 0);
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);
     const Unlocks hidden = { .hidden = 1 };
     s = at(0, 0, 0);
     race_settings_track_step(&s, &hidden, &l, 1);

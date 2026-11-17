@@ -3,20 +3,23 @@
 #include "formats/stock_content.h"
 #include "game/sys/port_log.h"
 
-enum { STANDARD_TRACKS = 8, LOST_VEGAS = 8, HIDDEN = 9 };
+enum { STANDARD_TRACKS = 8, RUSTY = 3, LOST_VEGAS = 8, HIDDEN = 9 };
 
-void track_list_build(TrackList *out, const Edition *e, int lost_vegas)
+void track_list_build(TrackList *out, const Edition *e, int lost_vegas, int lunar)
 {
     out->count = 0;
     if (e == NULL) {
-        for (int16_t track = 0; track < STANDARD_TRACKS; track++) out->track[out->count++] = track;
+        for (int16_t track = 0; track < STANDARD_TRACKS; track++) {
+            out->track[out->count++] = track;
+            if (track == RUSTY && lunar == TRACK_LIST_LUNAR_ON) out->track[out->count++] = STOCK_TRACK_LUNAR;
+        }
         if (lost_vegas) out->track[out->count++] = LOST_VEGAS;
         return;
     }
     for (int i = 0; i < e->tracks && out->count < TRACK_LIST_MAX; i++) {
         const int track = stock_track_of_id(e->track[i]);
         if (track == HIDDEN) port_log("port (dep59): edition: track hidden left out: the cut moon track has no geometry on the CD\n");
-        else if (track >= 0) out->track[out->count++] = (int16_t)track;
+        else if (track >= 0 && !(track == STOCK_TRACK_LUNAR && lunar == TRACK_LIST_LUNAR_NEVER)) out->track[out->count++] = (int16_t)track;
     }
 }
 

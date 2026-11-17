@@ -11,7 +11,7 @@
 static void step(int track, int variant, int direction, int lost, int m, int r, int want_track, int want_variant)
 {
     TrackList l;
-    track_list_build(&l, NULL, lost);
+    track_list_build(&l, NULL, lost, TRACK_LIST_LUNAR_OFF);
     int t = -1, v = -1;
     track_select_entry(track, variant, direction, &l, m, r, &t, &v);
     CHECK_EQ_INT(t, want_track);
@@ -34,7 +34,7 @@ static void edition_step(const char *ids, int track, int variant, int direction,
 {
     const Edition e = edition_of(ids);
     TrackList l;
-    track_list_build(&l, &e, 0);
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);
     int t = -1, v = -1;
     track_select_entry(track, variant, direction, &l, m, r, &t, &v);
     CHECK_EQ_INT(t, want_track);
@@ -152,8 +152,25 @@ static void test_weather_in_the_arrow_chain(void)
     CHECK_EQ_INT(track_select_arrow_reverse(TRACK_SELECT_KEY_DOWN, TIME, DONE, DONE, 0, 0), DONE);          /* the row off: the moves' */
 }
 
+/* dep59 Lunar L5: the entries with Lunar listed: Rusty, its mirror and rally, Lunar (10) and its mirror, then Autumn; no Lunar Rally */
+static void test_lunar_entries(void)
+{
+    TrackList l;
+    track_list_build(&l, NULL, 0, TRACK_LIST_LUNAR_ON);
+    static const int WALK[][2] = { { 3, 0 }, { 3, 1 }, { 3, 2 }, { 10, 0 }, { 10, 1 }, { 4, 0 } };
+    enum { N = sizeof WALK / sizeof WALK[0] };
+    for (int i = 0; i + 1 < N; i++) {
+        int t = -1, v = -1;
+        track_select_entry(WALK[i][0], WALK[i][1], 1, &l, 1, 1, &t, &v);
+        CHECK(t == WALK[i + 1][0] && v == WALK[i + 1][1]);
+        track_select_entry(WALK[i + 1][0], WALK[i + 1][1], -1, &l, 1, 1, &t, &v);
+        CHECK(t == WALK[i][0] && v == WALK[i][1]);
+    }
+}
+
 int main(void)
 {
+    test_lunar_entries();
     test_an_edition_walks_its_tracks();
     test_weather_and_time_cycles();
     test_weather_in_the_arrow_chain();

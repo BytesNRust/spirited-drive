@@ -26,13 +26,16 @@ static void test_cars(void)
 static void test_tracks(void)
 {
     static const char *const TRACKS[] = { "city", "coastal", "alpine", "rusty", "autumn", "burnt", "vertigo", "transtropolis", "vegas",
-                                          "hidden" };
-    for (int track = 0; track < 10; track++) {
+                                          "hidden", "lunar" };
+    for (int track = 0; track < 11; track++) {
         CHECK(stock_track_id(track) != NULL && strcmp(stock_track_id(track), TRACKS[track]) == 0);
         CHECK_EQ_INT(stock_track_of_id(TRACKS[track]), track);
     }
     CHECK_EQ_INT(stock_track_of_id("hidden"), 9);
-    CHECK(stock_track_id(-1) == NULL && stock_track_id(10) == NULL);
+    CHECK_EQ_INT(stock_track_of_id("lunar"), STOCK_TRACK_LUNAR);   /* dep59 Lunar: Rusty's rally on the moon, an entry of its own */
+    CHECK_EQ_INT(STOCK_TRACK_LUNAR, 10);
+    CHECK_EQ_INT(STOCK_TRACK_COUNT, 11);
+    CHECK(stock_track_id(-1) == NULL && stock_track_id(11) == NULL);
     CHECK_EQ_INT(stock_track_of_id("coast"), -1);
     CHECK_EQ_INT(stock_track_of_id(NULL), -1);
 }
@@ -45,7 +48,7 @@ static void test_ids_fit_an_edition(void)
             CHECK_EQ_INT(edition_id_ok(stock_car_id(car)), 1);
             CHECK_EQ_INT(stock_track_of_id(stock_car_id(car)), -1);
         }
-    for (int track = 0; track < 10; track++) CHECK_EQ_INT(edition_id_ok(stock_track_id(track)), 1);
+    for (int track = 0; track < STOCK_TRACK_COUNT; track++) CHECK_EQ_INT(edition_id_ok(stock_track_id(track)), 1);
 }
 
 /* dep59 step 4b: the English names the CONTENT screen shows them by; none for a number that is no stock piece, nor for the hidden track */
@@ -61,7 +64,8 @@ static void test_names(void)
                                           "Transtropolis", "Lost Vegas" };
     for (int track = 0; track < 9; track++) CHECK(stock_track_name(track) != NULL && strcmp(stock_track_name(track), TRACKS[track]) == 0);
     CHECK(stock_track_name(9) == NULL);   /* the hidden track: never listed */
-    CHECK(stock_track_name(-1) == NULL && stock_track_name(10) == NULL);
+    CHECK(stock_track_name(10) != NULL && strcmp(stock_track_name(10), "Lunar Springs") == 0);
+    CHECK(stock_track_name(-1) == NULL && stock_track_name(11) == NULL);
 }
 
 int main(void)
