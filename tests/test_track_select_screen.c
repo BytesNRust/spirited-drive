@@ -2,6 +2,7 @@
  * Up from Done reaches the weather, Enter cycles it, Escape puts it back, Done keeps it. */
 #include "game/frontend/track_select.h"
 #include "game/sys/palette.h"
+#include "game/sys/track_registry.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -362,6 +363,32 @@ static void test_an_edition_walks_its_tracks(void)
     edition_in = NULL;
 }
 
+/* port (dep59 step 5, T7c): an edition that lists an added track between City and Lost Vegas: this screen's tables are the original's nine, so
+ * its arrows walk the stock tracks and never land on 16..79 (an added track has its own page) */
+static void test_the_arrows_skip_added_tracks(void)
+{
+    int weather = 0, light_time = 0, reverse = 0;
+    Edition e;
+    memset(&e, 0, sizeof e);
+    e.tracks = 3;
+    snprintf(e.track[0], sizeof e.track[0], "city"), snprintf(e.track[1], sizeof e.track[1], "dune"), snprintf(e.track[2], sizeof e.track[2], "vegas");
+    TrackPiece piece;
+    memset(&piece, 0, sizeof piece);
+    snprintf(piece.id, sizeof piece.id, "dune"), snprintf(piece.name, sizeof piece.name, "dune"), snprintf(piece.stem, sizeof piece.stem, "ZZB");
+    piece.spec.kind = TRACK_KIND_STAGE, piece.spec.segments = 1, piece.spec.times = TRACK_TIME_DAY, piece.fingerprint = 7;
+    track_registry_clear();
+    CHECK(track_registry_add(&piece, NULL, 0) >= TRACK_ADDED_FIRST);
+    edition_in = &e;
+    const uint16_t next[] = { RIGHT, RIGHT, ENTER, LEFT, LEFT, ENTER };   /* Next once, back to Done */
+    run_on(next, 6, &weather, &light_time, 0, &reverse, 0);
+    CHECK_EQ_INT(track_out, 8);
+    const uint16_t prev[] = { RIGHT, ENTER, LEFT, ENTER };   /* Prev once, back to Done */
+    run_on(prev, 4, &weather, &light_time, 0, &reverse, 0);
+    CHECK_EQ_INT(track_out, 8);
+    edition_in = NULL;
+    track_registry_clear();
+}
+
 /* dep59 Lunar L5: Lunar Springs' entry right after Rusty's: the moon's art and line, its rally set and the pick on; on to Autumn, both off.
  * With the switches the same walk, and off the moon the rally is the player's choice again (kept_r) */
 static void test_lunar_is_an_entry(void)
@@ -479,6 +506,7 @@ int main(void)
     test_switch_rows();
     test_the_switches_come_back_after_lost_vegas();
     test_an_edition_walks_its_tracks();
+    test_the_arrows_skip_added_tracks();
     test_lunar_is_an_entry();
     test_locked_rows_do_not_turn();
     test_which_rows();

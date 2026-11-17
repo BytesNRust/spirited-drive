@@ -49,6 +49,9 @@ static void test_added(void)
     CHECK(track_list_has(&l, (int16_t)a));
     track_list_build(&l, NULL, 1, TRACK_LIST_LUNAR_ON);   /* the standard edition never lists them */
     CHECK(!track_list_has(&l, (int16_t)a) && !track_list_has(&l, (int16_t)b));
+    track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);
+    track_list_stock_only(&l);   /* the lists of the screens whose tables are the original's nine */
+    CHECK(listed(&l, (const int16_t[]){ 0, 8 }, 2));
     track_registry_clear();
     track_list_build(&l, &e, 0, TRACK_LIST_LUNAR_OFF);   /* the mod gone: the ids left out, the file keeps them */
     CHECK(listed(&l, (const int16_t[]){ 0, 8 }, 2));

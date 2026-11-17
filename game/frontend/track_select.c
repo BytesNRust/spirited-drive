@@ -544,6 +544,7 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
         const int entry = entry_of(st);   /* port (dep59 Lunar L5): Lunar's own, its mirror the one variant */
         TrackList l;
         track_list_build(&l, edition_of(in), in->lost_vegas, lunar_list(st));
+        track_list_stock_only(&l);   /* port (dep59 step 5): this screen's tables are the original's nine; an added track has its own page */
         track_select_entry(entry, entry == STOCK_TRACK_LUNAR ? *st->plus->variant_m != 0 : variant_of(st), item == PREV ? -1 : 1, &l,
                            st->plus->unlock_m, st->plus->unlock_r, &to, &variant);
         *st->plus->variant_m = variant == 1, *st->plus->variant_r = variant == 2 || to == STOCK_TRACK_LUNAR;
@@ -559,6 +560,7 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
     if (item == PREV || item == NEXT) {
         TrackList l;   /* port (dep59 step 4): the edition's tracks; the standard edition's are the original's walk */
         track_list_build(&l, edition_of(in), in->lost_vegas, lunar_list(st));
+        track_list_stock_only(&l);   /* port (dep59 step 5): this screen's tables are the original's nine; an added track has its own page */
         const int entry = entry_of(st);
         const int to = track_list_step(&l, (int16_t)entry, item == PREV ? -1 : 1);
         const int to_track = to == STOCK_TRACK_LUNAR ? CIRCUIT : to;
