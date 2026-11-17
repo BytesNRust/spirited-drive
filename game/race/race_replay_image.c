@@ -3,6 +3,7 @@
 #include "formats/mod_ini.h"
 #include "game/race/car_registry.h"
 #include "game/race/difficulty.h"
+#include "game/race/rally_gravel.h"
 
 #include <ctype.h>
 #include <stddef.h>
@@ -117,15 +118,20 @@ void race_replay_conditions_put(const ReplayConditions *c, uint8_t out[REPLAY_CO
     memset(out, 0, REPLAY_CONDITIONS_TRAILER_SIZE);
     memcpy(out, CONDITIONS_MAGIC, sizeof CONDITIONS_MAGIC);
     out[8] = (uint8_t)c->light_time, out[9] = (uint8_t)c->weather, out[10] = c->reverse != 0;
+    if (!c->extras_known) return;   /* port (replay extras): behind their marker, else the padding an older port wrote */
+    out[11] = 1, out[12] = c->moon != 0, out[13] = c->lunar_gravity != 0, out[14] = (uint8_t)c->gravel;
 }
 
 int race_replay_conditions_get(const uint8_t *file, size_t size, ReplayConditions *c)
 {
     const size_t at = (size_t)REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE + REPLAY_SNOW_TRAILER_SIZE;
-    *c = (ReplayConditions){ 0, 0, 0 };
+    *c = (ReplayConditions){ 0, 0, 0, 0, 0, 0, 0 };
     if (file == NULL || size < at + REPLAY_CONDITIONS_TRAILER_SIZE || memcmp(file + at, CONDITIONS_MAGIC, sizeof CONDITIONS_MAGIC) != 0) return 0;
     if (file[at + 8] > 3 || file[at + 9] > 3) return 0;   /* not a value of ours */
     c->light_time = file[at + 8], c->weather = file[at + 9], c->reverse = file[at + 10] == 1;
+    const uint8_t *x = file + at + 11;   /* port (replay extras): known only with the marker and values of ours */
+    if (x[0] == 1 && x[1] <= 1 && x[2] <= 1 && x[3] <= RALLY_GRAVEL_SNOW)
+        c->extras_known = 1, c->moon = x[1], c->lunar_gravity = x[2], c->gravel = x[3];
     return 1;
 }
 
