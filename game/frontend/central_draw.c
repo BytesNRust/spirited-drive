@@ -4,6 +4,7 @@
 #include "game/race/car_registry.h"
 
 #include "game/frontend/card_marks.h"
+#include "game/frontend/lunar_card.h"
 #include "game/frontend/variant_rule.h"
 #include "game/race/lunar_springs.h"
 #include "game/frontend/track_pick.h"
@@ -103,40 +104,56 @@ static uint8_t *mirror_wiped(CentralRun *r, const uint8_t *mirror)
     return wiped;
 }
 
+enum { MIRROR_ART = 10, RALLY_ART = 19 };   /* the mirror's and the rally's first entries in TRACK_NAMES (Lunar Springs reads the rally's) */
+
+/* port (dep59, Lunar Springs' entry): the moon's card with "SPRINGS" after its "LUNAR" (lunar_card.h), from Rusty's rally card in the
+ * game's language; made at each draw and freed after it, as mirror_wiped's. The caller frees the copy; NULL: the card as it is. */
+static uint8_t *moon_named(CentralRun *r, const uint8_t *moon)
+{
+    const int at = RALLY_ART + *r->st->track;
+    char path[0x50];
+    snprintf(path, sizeof path, "%scontrol/%s.qfs", r->st->paths, at < 28 ? TRACK_NAMES[at] : "");
+    const int32_t bank = r->ops->load_bank(r->ops->ctx, path, 0);
+    uint8_t *const named = bank != 0 ? lunar_card_named(moon, r->ops->shape(r->ops->ctx, bank, "0000"), r->pal + 0x10) : NULL;
+    if (bank != 0) r->ops->free(r->ops->ctx, bank);
+    return named;
+}
+
 static void track_art(CentralRun *r)
 {
     ControlCentralState *st = r->st;
     char path[0x50];
-    enum { MIRROR_ART = 10, RALLY_ART = 19 };   /* the mirror's and the rally's first entries in TRACK_NAMES (Lunar Springs reads the rally's) */
     const int plain = r->ops->card_plain != NULL && r->ops->card_plain(r->ops->ctx);   /* port (dep64): Restomod's card */
     /* port: the moon's picture follows the Lunar pick (dep59 Lunar L2, track_pick.h), so the rally's word carries it too (bit 8): Lunar
      * and Rusty's rally are the same track and variants */
     const int lunar_now = track_pick_lunar() != 0;
     const int r_now = (*st->variant_r != 0) | lunar_now << 8 | plain << 9;   /* port (dep64): and the card's kind, Restomod's or the exe's */
+    /* the records and the picture follow the rally when both variants are on (variant_rule.h); Restomod's card is the track's
+     * own picture, or the exe's mirror art when the mirror is on, whatever the rest (dep64) */
+    const int base = plain ? (*st->variant_m != 0 ? MIRROR_ART : 0) : central_track_art_base(*st->variant_m, *st->variant_r, *st->variant_m != 0 && *st->variant_r != 0);
+    const int at = base + *st->track;
+    /* port: Lunar Springs (lunar_springs.h) shows the moon's picture for the rally on Rusty Springs, from the German
+     * art directory whatever the language */
+    char moon[64];
+    const int lunar = lunar_springs_picture(plain && *st->variant_m == 0 && *st->variant_r != 0 ? RALLY_ART + *st->track : at, lunar_now, moon, sizeof moon);
     if (st->was[WAS_TRACK] != *st->track || (int16_t)st->was[WAS_M] != *st->variant_m ||
         (int16_t)st->was[WAS_R] != r_now) {
-        /* the records and the picture follow the rally when both variants are on (variant_rule.h); Restomod's card is the track's
-         * own picture, or the exe's mirror art when the mirror is on, whatever the rest (dep64) */
-        const int base = plain ? (*st->variant_m != 0 ? MIRROR_ART : 0) : central_track_art_base(*st->variant_m, *st->variant_r, *st->variant_m != 0 && *st->variant_r != 0);
         if (st->art[ART_TRACK] != 0) r->ops->free(r->ops->ctx, st->art[ART_TRACK]);
         /* "r"'s past the tenth track is the colours' first, 9, read as a name: the original faults there */
-        const int at = base + *st->track;
         snprintf(path, sizeof path, "%scontrol/%s", st->paths, at < 28 ? TRACK_NAMES[at] : "");
         strncat(path, ".qfs", sizeof path - strlen(path) - 1);
-        /* port: Lunar Springs (lunar_springs.h) shows the moon's picture for the rally on Rusty Springs, from the German
-         * art directory whatever the language */
-        char moon[64];
-        const int lunar = lunar_springs_picture(plain && *st->variant_m == 0 && *st->variant_r != 0 ? RALLY_ART + *st->track : at, lunar_now,
-                                                moon, sizeof moon);
         st->art[ART_TRACK] = r->ops->load_bank(r->ops->ctx, lunar ? moon : path, 0);
         st->was[WAS_TRACK] = *st->track;
         st->was[WAS_R] = (int16_t)r_now;
         st->was[WAS_M] = (int16_t)*st->variant_m;
     }
     const uint8_t *picture = shape(r, ART_TRACK, "0000");
+    uint8_t *named = lunar ? moon_named(r, picture) : NULL;   /* port (dep59): Lunar Springs, not Lunar */
+    if (named != NULL) picture = named;
     uint8_t *wiped = plain && *st->variant_m != 0 ? mirror_wiped(r, picture) : NULL;   /* port (dep64): MIRROR is written over it */
     r->ops->blit(r->ops->ctx, wiped != NULL ? wiped : picture);
     free(wiped);
+    free(named);
     if (*st->race_type == 3 && st->races[*st->track] != 0) masked(r, "flad");
     /* the card's top corners, the yellow 7 px in from the picture's edges on all three sides (the picture is 341..548 x 255..; the
      * small text's first column falls a pixel right of x, its last 5 px left of the given right end, its top 7 px under y) */
