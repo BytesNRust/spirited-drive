@@ -1,6 +1,7 @@
 #include "studio/car_new.h"
 #include "studio/car_import.h"
 #include "studio/car_resize.h"
+#include "studio/car_texture.h"
 
 #include "formats/car_piece.h"
 #include "formats/mod_ini.h"
@@ -150,7 +151,9 @@ int car_command(int argc, char **argv, ExchangeError *err)
     if (argc >= 2 && strcmp(argv[1], "card") == 0) return car_card_command(argc, argv, err);
     if (argc >= 2 && strcmp(argv[1], "import") == 0) return car_import_command(argc, argv, err);
     if (argc >= 2 && strcmp(argv[1], "resize") == 0) return car_resize_command(argc, argv, err);
-    if (argc < 2 || strcmp(argv[1], "new") != 0) { exchange_fail(err, USAGE " | tnfs-studio car import PIECE_DIR --obj FILE.obj ... | tnfs-studio car card PIECE_DIR --generic"); return 0; }
+    if (argc >= 2 && strcmp(argv[1], "texture") == 0) return car_texture_command(argc, argv, err);
+    if (argc < 2 || strcmp(argv[1], "new") != 0) { exchange_fail(err, USAGE " | tnfs-studio car import PIECE_DIR --obj FILE.obj ... | tnfs-studio car resize PIECE_DIR NAME WxH ... | "
+                                                                                 "tnfs-studio car texture add PIECE_DIR NAME FILE.png ... | tnfs-studio car card PIECE_DIR --generic"); return 0; }
     Args a;
     return parse(argc, argv, &a, err) && car_new(&a, err);
 }

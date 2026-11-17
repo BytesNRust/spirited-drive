@@ -6,6 +6,7 @@
 #include "formats/car_import.h"
 #include "formats/car_piece.h"
 #include "formats/car_resize.h"
+#include "formats/car_texture_add.h"
 #include "formats/cfm_build.h"
 #include "formats/chunk.h"
 #include "formats/mesh.h"
@@ -670,6 +671,123 @@ static void test_raw_keeps_a_resize(const uint8_t *viper, size_t viper_len)
     free(nsx), free(back), free(resized);
 }
 
+/* `obj` with its first two faces under the material `mtl` (and the faces after them under the material they had): what an author
+ * does picking a material for two faces in Blender (malloc'd) */
+static char *two_faces_on(const char *obj, const char *mtl)
+{
+    const size_t cap = strlen(obj) + 2 * strlen(mtl) + 512;
+    char *out = malloc(cap), *copy = strdup(obj), last[256] = "";
+    size_t at = 0;
+    int faces = 0;
+    for (char *l = strtok(copy, "\n"); l != NULL; l = strtok(NULL, "\n")) {
+        if (strncmp(l, "usemtl ", 7) == 0) {
+            snprintf(last, sizeof last, "%s", l);
+            if (faces == 1) continue;   /* between the two: they stay on `mtl` */
+        }
+        if (strncmp(l, "f ", 2) == 0 && faces == 0) at += (size_t)snprintf(out + at, cap - at, "usemtl %s\n", mtl);
+        at += (size_t)snprintf(out + at, cap - at, "%s\n", l);
+        if (strncmp(l, "f ", 2) == 0 && ++faces == 2 && last[0] != '\0') at += (size_t)snprintf(out + at, cap - at, "%s\n", last);
+    }
+    free(copy);
+    return out;
+}
+
+/* the piece `own` (made from the Viper) exported at both levels as rehacer re-extracts it, `mtl` put on the first two faces of the
+ * high OBJ (or the low one when `low_edit`), both through Blender and back with raw onto the piece (malloc'd CFM; NULL with the reason
+ * in `why`) */
+static uint8_t *blender_edit(const uint8_t *viper, size_t n, const uint8_t *own, size_t own_len, const char *mtl, int low_edit,
+                             size_t *out_len, char *why, size_t why_size)
+{
+    const uint8_t *child[CFM_CHILDREN];
+    size_t len[CFM_CHILDREN];
+    ExchangeError err = { { 0 } };
+    FileSet hi, lo;
+    fileset_init(&hi), fileset_init(&lo);
+    ObjModel high, far;
+    memset(&high, 0, sizeof high), memset(&far, 0, sizeof far);
+    uint8_t *cfm = NULL;
+    char *text[2] = { NULL, NULL };
+    *out_len = 0, why[0] = '\0';
+    int ok = cfm_describe(own, own_len, child, len, &err);
+    const MeshTextureBank bh = { ok ? child[1] : NULL, ok ? len[1] : 0, "../c1" }, bl = { ok ? child[3] : NULL, ok ? len[3] : 0, "../c3" };
+    ok = ok && mesh_export(child[0], len[0], "mesh", &bh, 1, &hi, &err) && mesh_export(child[2], len[2], "mesh", &bl, 1, &lo, &err);
+    for (int k = 0; ok && k < 2; k++) {
+        const SetFile *f = fileset_find(k == 0 ? &hi : &lo, "mesh.blender.obj");
+        if (f == NULL) { ok = 0; break; }
+        char *plain = malloc(f->size + 1);
+        memcpy(plain, f->data, f->size), plain[f->size] = '\0';
+        char *edited = k == low_edit ? two_faces_on(plain, mtl) : strdup(plain);
+        text[k] = blender_like(edited);
+        free(plain), free(edited);
+    }
+    ok = ok && obj_read((const uint8_t *)text[0], strlen(text[0]), NULL, 0, &high, &err) &&
+         obj_read((const uint8_t *)text[1], strlen(text[1]), NULL, 0, &far, &err);
+    if (ok) {
+        CarImportIn in = input(viper, n, &high, NULL);
+        in.raw = 1, in.high_tables = &hi, in.low = &far, in.low_tables = &lo, in.own_cfm = own, in.own_cfm_len = own_len;
+        int32_t half[3];
+        ok = car_import(&in, &cfm, out_len, half, &err);
+    }
+    if (!ok) snprintf(why, why_size, "%s", err.message), free(cfm), cfm = NULL;
+    obj_free(&high), obj_free(&far);
+    free(text[0]), free(text[1]);
+    fileset_free(&hi), fileset_free(&lo);
+    return cfm;
+}
+
+/* dep71 follow-up 2: the Viper with a bitmap of its own (badg, 64 x 32, near), two of its faces put on it in Blender: they come back on
+ * it, their uvs in its texels; every other face on its texture as before; the piece's bank (the donor's entries and badg after them)
+ * kept byte for byte. A far face put on it is refused, saying to add it to the far model (--low); with it added there, it is taken. */
+static void test_raw_takes_an_added_bitmap(const uint8_t *viper, size_t viper_len)
+{
+    static uint8_t px[64 * 32];
+    for (int i = 0; i < 64 * 32; i++) px[i] = (uint8_t)(i % 0xfa);
+    uint8_t *own = NULL, *both = NULL;
+    size_t on = 0, bn = 0, n1 = 0, n2 = 0;
+    uint32_t ref = 0, far_ref = 0;
+    ExchangeError err = { { 0 } };
+    CHECK(car_texture_add(viper, viper_len, 0, "badg", "badge", px, 64, 32, &own, &on, &ref, &err));
+    if (own == NULL) return;
+    char mtl[32], why[256];
+    snprintf(mtl, sizeof mtl, "t%u_badge", ref);
+    uint8_t *back = blender_edit(viper, viper_len, own, on, mtl, 0, &n1, why, sizeof why);
+    CHECK(back != NULL);
+    if (back == NULL) printf("car_import: Blender onto badg: %s\n", why);
+    Donor was, now;
+    if (back != NULL && donor_of(own, on, &was) && donor_of(back, n1, &now)) {
+        CHECK(same_child(back, n1, own, on, 1) && same_child(back, n1, own, on, 3) && same_child(back, n1, own, on, 2));
+        CHECK(now.mesh.polygon_count == was.mesh.polygon_count && now.mesh.texture_count == was.mesh.texture_count);
+        int on_badg = 0, moved_wrong = 0, uv_in = 1;
+        for (uint32_t p = 0; p < now.mesh.polygon_count && p < was.mesh.polygon_count; p++) {
+            const MeshDescPolygon *q = &now.mesh.polygons[p];
+            if (q->texture == ref) {
+                on_badg++;
+                for (int c = 0; c < (q->flags & 7) && q->has_uv; c++) {
+                    const MeshUv u = now.mesh.uvs[q->uv[c]];
+                    uv_in &= u.u >= 0 && u.u <= 64 && u.v >= 0 && u.v <= 32;
+                }
+            } else {
+                moved_wrong += q->texture != was.mesh.polygons[p].texture;
+            }
+        }
+        CHECK_EQ_INT(on_badg, 2);
+        CHECK_EQ_INT(moved_wrong, 0);
+        CHECK(uv_in);   /* Blender's 0..1 in badg's texels, not rsid's */
+        mesh_desc_free(&was.mesh), mesh_desc_free(&now.mesh);
+    }
+    /* a far face on it: refused while the far model has no such texture, naming --low; taken once it has */
+    uint8_t *no = blender_edit(viper, viper_len, own, on, mtl, 1, &n2, why, sizeof why);
+    CHECK(no == NULL && strstr(why, "--low") != NULL);
+    if (no != NULL || strstr(why, "--low") == NULL) printf("car_import: a far face on badg: '%s'\n", why);
+    free(no);
+    CHECK(car_texture_add(own, on, 1, "badg", "badge", px, 32, 16, &both, &bn, &far_ref, &err));
+    snprintf(mtl, sizeof mtl, "t%u_badge", far_ref);
+    uint8_t *far_ok = both != NULL ? blender_edit(viper, viper_len, both, bn, mtl, 1, &n2, why, sizeof why) : NULL;
+    CHECK(far_ok != NULL && same_child(far_ok, n2, both, bn, 3));
+    if (far_ok == NULL) printf("car_import: a far face on badg added --low: %s\n", why);
+    free(far_ok), free(both), free(back), free(own);
+}
+
 int main(void)
 {
     size_t n = 0;
@@ -690,6 +808,7 @@ int main(void)
     test_blender(donor, n);
     test_raw_keeps_the_banks(donor, n);
     test_raw_keeps_a_resize(donor, n);
+    test_raw_takes_an_added_bitmap(donor, n);
     fileset_free(&pngs);
     free(donor);
     return TEST_REPORT();

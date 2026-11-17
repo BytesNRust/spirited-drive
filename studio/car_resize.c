@@ -78,8 +78,7 @@ static int bank_palette(const uint8_t *cfm, size_t len, int level, uint8_t pal[S
     return ok;
 }
 
-/* the picture `path` as w x h pixels of the bank's palette (malloc'd) */
-static uint8_t *image_pixels(const char *path, const uint8_t *cfm, size_t len, int level, uint16_t *w, uint16_t *h, ExchangeError *err)
+uint8_t *car_bank_png_pixels(const char *path, const uint8_t *cfm, size_t len, int level, uint16_t *w, uint16_t *h, ExchangeError *err)
 {
     uint8_t pal[SHPI_PALETTE_BYTES], type = 0, *pixels = NULL;
     size_t size = 0;
@@ -91,7 +90,7 @@ static uint8_t *image_pixels(const char *path, const uint8_t *cfm, size_t len, i
         snprintf(why, sizeof why, "%s", err->message);
         exchange_fail(err, "%s: %s", path, why);
     } else if (st.moved > 0) {
-        printf("car resize: %s: %u pixels of colours the bank's palette does not hold, given the nearest\n", path, st.moved);
+        printf("%s: %u pixels of colours the bank's palette does not hold, given the nearest\n", path, st.moved);
     }
     free(png);
     return pixels;
@@ -158,7 +157,7 @@ static int resize(const Args *a, ExchangeError *err)
     const int level = a->low ? 1 : 0;
     int ok = cfm != NULL;
     if (ok && a->image != NULL) {
-        ok = (pixels = image_pixels(a->image, cfm, len, level, &iw, &ih, err)) != NULL;
+        ok = (pixels = car_bank_png_pixels(a->image, cfm, len, level, &iw, &ih, err)) != NULL;
         if (ok && a->size != NULL && (iw != w || ih != h))
             ok = 0, exchange_fail(err, "%s is %ux%u, not the %ux%u asked", a->image, iw, ih, w, h);
         if (ok) w = iw, h = ih;
