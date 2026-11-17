@@ -85,6 +85,7 @@ static int read_piece(const char *dir, ModInfo *card, TrackPiece *out, char *why
     memset(out, 0, sizeof *out);
     out->spec = spec;
     out->fingerprint = print;
+    out->card_name_off = card->card_name_off;
     snprintf(out->id, sizeof out->id, "%s", card->id);
     snprintf(out->name, sizeof out->name, "%s", card->name);
     snprintf(out->stem, sizeof out->stem, "%s", card->stem);

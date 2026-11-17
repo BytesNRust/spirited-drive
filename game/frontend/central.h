@@ -115,6 +115,9 @@ typedef struct ControlCentralOps {
      * middle) as a bank whose "0000" shape() reads, in `palette` (the screen's, 8 bits a channel; its pointer colour and 0xff never
      * used); 0 when it cannot be made (the reason in the log). NULL: no added car has a card. */
     int32_t (*load_added_card)(void *ctx, int car, int rival, const uint8_t palette[768]);
+    /* port (dep59 step 5, T7c): an added track's card (208x127, the track slot's) as a bank whose "0000" shape() reads: its card.png or a
+     * flat card the game makes, its name over it; 0 when it cannot be made. NULL: no added track has a card. */
+    int32_t (*load_track_card)(void *ctx, int track, const uint8_t palette[768]);
     /* port (dep59 step 3; section 8 the Warrior's page too): an added car's gallery (added_gallery.h) for `*car`, the Warrior in the list when `warrior`, from Control
      * Central's `palette`; its Previous and Next change `*car`. 1 (Next) or -1 (Previous) when they went to an original, whose own
      * gallery opens next; 0 back to Control Central. `entry`: the step the page was entered by (0 the first entry), whose item it

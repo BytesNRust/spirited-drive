@@ -7,6 +7,7 @@
 #include "game/frontend/ea_lib.h"
 #include "game/platform/platform.h"
 #include "game/race/car_registry.h"
+#include "game/sys/track_registry.h"
 #include "game/sys/port_log.h"
 
 #include <stdio.h>
@@ -59,4 +60,41 @@ int32_t cg_load_added_card(void *ctx, int car, int rival, const uint8_t palette[
         return 0;
     }
     return ea_bank_put(bank, size, rival ? "an added car's rival card" : "an added car's card");
+}
+
+/* an added track's card: its folder's card.png (ADDED_TRACK_W x ADDED_TRACK_H), or the flat card, its name over it unless card_name=off */
+int32_t cg_load_track_card(void *ctx, int track, const uint8_t palette[768])
+{
+    (void)ctx;
+    const TrackPiece *p = track_registry_piece(track);
+    if (p == NULL) return 0;
+    PngImage img;
+    int have = 0;
+    if (p->dir[0] != '\0') {
+        char path[sizeof p->dir + 16];
+        snprintf(path, sizeof path, "%s/card.png", p->dir);
+        size_t size = 0;
+        uint8_t *data = platform_read_file(path, &size);
+        if (data != NULL) {
+            have = png_read(data, size, &img) == PNG_OK;
+            platform_free_file(data);
+            if (!have) port_log("track piece: %s: card.png is not a picture the game can read: the flat card is drawn\n", p->id);
+        }
+    }
+    uint8_t usable[256];
+    memset(usable, 1, sizeof usable);
+    usable[POINTER_COLOUR] = usable[SEE_THROUGH] = 0;   /* the screen's own */
+    char why[160], text[MOD_INI_NAME_MAX + 4];
+    size_t size = 0;
+    AddedCardName name;
+    uint8_t *mask = NULL;
+    const int named = !p->card_name_off && added_track_card_name_letters(p->name, &name, &mask, text, (int)sizeof text);
+    uint8_t *bank = added_track_card_bank(have ? &img : NULL, named ? &name : NULL, palette, usable, &size, why, sizeof why);
+    if (have) png_free(img.pixels);
+    free(mask);
+    if (bank == NULL) {
+        port_log("track piece: %s: %s\n", p->id, why);
+        return 0;
+    }
+    return ea_bank_put(bank, size, "an added track's card");
 }

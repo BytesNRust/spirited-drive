@@ -19,6 +19,10 @@ enum {
     ADDED_RIVAL_W = 284, ADDED_RIVAL_H = 117, ADDED_RIVAL_X = 341, ADDED_RIVAL_Y = 99   /* its rival cards' */
 };
 
+/* port (dep59 step 5, T7c): an added track's card, in the track's slot of Control Central: 208x127 at (341, 255) (the moon card's), its
+ * name's capitals ending on row 122 as "Lunar Springs" has them; card.png (that size) or, without one, a flat card the game makes */
+enum { ADDED_TRACK_W = 208, ADDED_TRACK_H = 127, ADDED_TRACK_X = 341, ADDED_TRACK_Y = 255, ADDED_TRACK_NAME_BASE = 122 };
+
 enum {
     ADDED_CARD_NAME_X = 4,          /* the names' first column on the CD's cards (3..5) */
     ADDED_CARD_NAME_BASE = 159,     /* their capitals' last row on a card (151..159) */
@@ -40,6 +44,11 @@ uint8_t *added_card_bank(const PngImage *img, int rival, int from_card, const ui
 /* the same with `name` drawn over it (NULL: none) */
 uint8_t *added_card_bank_named(const PngImage *img, int rival, int from_card, const AddedCardName *name, const uint8_t palette[768],
                                const uint8_t usable[256], size_t *size, char *why, size_t why_cap);
+
+/* the track card as the track slot's bank: `img` (card.png, ADDED_TRACK_W x ADDED_TRACK_H) or, when NULL, a flat dark card with a frame, its
+ * `name` drawn over it (NULL: none); NULL with the reason in `why` when the picture is not its size or memory ran out */
+uint8_t *added_track_card_bank(const PngImage *img, const AddedCardName *name, const uint8_t palette[768], const uint8_t usable[256],
+                               size_t *size, char *why, size_t why_cap);
 
 /* `name` drawn on `rgba` (w x h, alpha kept): its shadow, then its letters mixed with the picture by coverage, from ADDED_CARD_NAME_X,
  * its capitals' last row on `base`; what falls outside cut */

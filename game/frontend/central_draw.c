@@ -12,6 +12,7 @@
 #include "game/sys/port_log.h"
 #include "game/sys/resource.h"
 #include "game/frontend/unlock_level.h"
+#include "game/sys/track_registry.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -119,10 +120,37 @@ static uint8_t *moon_named(CentralRun *r, const uint8_t *moon)
     return named;
 }
 
-static void track_art(CentralRun *r)
+/* the card's top corners, the yellow 7 px in from the picture's edges on all three sides (the picture is 341..548 x 255..; the
+ * small text's first column falls a pixel right of x, its last 5 px left of the given right end, its top 7 px under y) */
+static void track_marks(CentralRun *r)
+{
+    enum { MARKS_LEFT = 0x15b, MARKS_RIGHT = 0x220, MARKS_Y = 0x103 };
+    if (r->ops->card_marks != NULL) r->ops->card_marks(r->ops->ctx, MARKS_LEFT, MARKS_RIGHT, MARKS_Y);   /* port (dep56): what the track screen set */
+}
+
+/* port (dep59 step 5, T7c): an added track's card in the track's slot, made again when the track changed (load_track_card: its card.png
+ * or a flat card, its name over it, in the screen's palette); a track without a card draws none, as an added car does */
+static void added_track_art(CentralRun *r)
+{
+    ControlCentralState *st = r->st;
+    const ControlCentralOps *o = r->ops;
+    if (st->was[WAS_TRACK] != *st->track) {
+        if (st->art[ART_TRACK] != 0) o->free(o->ctx, st->art[ART_TRACK]);
+        st->art[ART_TRACK] = o->load_track_card != NULL ? o->load_track_card(o->ctx, *st->track, r->palette) : 0;
+        st->was[WAS_TRACK] = *st->track;
+    }
+    if (st->art[ART_TRACK] != 0) o->blit(o->ctx, shape(r, ART_TRACK, "0000"));
+    track_marks(r);
+}
+
+void central_track_art(CentralRun *r)
 {
     ControlCentralState *st = r->st;
     char path[0x50];
+    if (track_registry_is_added(*st->track)) {
+        added_track_art(r);
+        return;
+    }
     const int plain = r->ops->card_plain != NULL && r->ops->card_plain(r->ops->ctx);   /* port (dep64): Restomod's card */
     /* port: the moon's picture follows the Lunar pick (dep59 Lunar L2, track_pick.h), so the rally's word carries it too (bit 8): Lunar
      * and Rusty's rally are the same track and variants */
@@ -155,10 +183,7 @@ static void track_art(CentralRun *r)
     free(wiped);
     free(named);
     if (*st->race_type == 3 && st->races[*st->track] != 0) masked(r, "flad");
-    /* the card's top corners, the yellow 7 px in from the picture's edges on all three sides (the picture is 341..548 x 255..; the
-     * small text's first column falls a pixel right of x, its last 5 px left of the given right end, its top 7 px under y) */
-    enum { MARKS_LEFT = 0x15b, MARKS_RIGHT = 0x220, MARKS_Y = 0x103 };
-    if (r->ops->card_marks != NULL) r->ops->card_marks(r->ops->ctx, MARKS_LEFT, MARKS_RIGHT, MARKS_Y);   /* port (dep56): what the track screen set */
+    track_marks(r);
 }
 
 /* port (dep59): a car the exe's card names reach (0..11); past them, only a registered added car has a card (its own pictures), and a
@@ -322,7 +347,7 @@ void central_draw(CentralRun *r)
         masked(r, *st->net_self != 0 ? "Comd" : st->lost == 1 ? "Netd" : "Modd");
     o->music(o->ctx);
     if ((int16_t)r->first == 0 && st->lost != 0) panel(r);
-    track_art(r);
+    central_track_art(r);
     central_car_art(r);
     if (st->view_only != 0 && (int16_t)r->first == 0) {
         o->text_select(o->ctx, 2);
