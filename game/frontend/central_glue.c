@@ -9,6 +9,7 @@
 #include "game/sys/edition_file.h"
 #include "game/sys/car_looks.h"
 #include "game/sys/text.h"
+#include "game/sys/track_pieces.h"
 #include "game/sys/track_registry.h"
 #include "game/frontend/edition_rules.h"
 #include "game/frontend/unlock_level.h"
@@ -118,6 +119,7 @@ static int16_t restomod_flag;   /* port (dep59): Restomod, where restomod.cfg ke
 
 /* port (dep59): an added car picked comes back from restomod.cfg as Control Central opens (car_looks.h): the player's car, and the head
  * to head rival; one whose mod is gone gives car 0. No line: config.dat's car, as before. Restomod only, never in a link game. */
+static const TrackList *central_tracks(TrackList *l);
 static void picks_restore(void)
 {
     if (restomod_flag == 0 || menu_words.link_game != 0) return;
@@ -127,6 +129,12 @@ static void picks_restore(void)
     /* port (dep59 Lunar L2): track=lunar over config.dat's Rusty rally gives Lunar back where it is offered */
     track_pick_lunar_put(car_looks_saved_lunar());
     cg_lunar_settle();
+    /* port (dep59 step 5, T7c): track=<id> of an added track gives it back where the track list offers it (an edition's tracks=); a mod
+     * gone, or an edition without it, leaves config.dat's track */
+    const int track = car_looks_saved_track();
+    TrackList l;
+    const TrackList *const offered = track >= TRACK_ADDED_FIRST ? central_tracks(&l) : NULL;
+    if (offered != NULL && track_list_has(offered, (int16_t)track)) cg_g.track = (int16_t)track;
     if (cg_g.race_type != RACE_HEAD_TO_HEAD) return;
     const int rival = car_looks_saved_car(1);
     if (rival >= 0) cg_g.opponent = (int16_t)rival;
@@ -144,6 +152,10 @@ void cg_picks_save(void)
         port_log("car looks: the car picked was not kept\n");
     if (car_looks_saved_lunar() != track_pick_lunar() && !car_looks_save_lunar(track_pick_lunar()))
         port_log("car looks: the Lunar pick was not kept\n");
+    /* port (dep59 step 5, T7c): an added track by its id; an original's (or none) takes the line out, Lunar's staying */
+    const int saved = car_looks_saved_track();
+    if (track_registry_is_added(cg_g.track) ? saved != cg_g.track : saved != -1)
+        if (!car_looks_save_track(cg_g.track)) port_log("car looks: the track picked was not kept\n");
     if (cg_g.race_type != RACE_HEAD_TO_HEAD) return;
     const int rival = car_looks_saved_car(1);
     if (rival != cg_g.opponent && (rival >= 0 || car_registry_is_added(cg_g.opponent) || rival == CAR_LOOKS_NOT_LOADED) &&
@@ -181,6 +193,7 @@ void cg_extras_apply(void)
     warrior_keep_flag = (int16_t)(e.warrior != 0);
     restomod_flag = (int16_t)(port_settings_profile() == PROFILE_RESTOMOD);
     car_pieces_follow();   /* port (dep59): the added cars of the mods in effect, for the arrows (car_list.h); loaded again only when they change */
+    track_pieces_follow();   /* port (dep59 step 5, T7c): and the added tracks, for an edition's tracks= and the arrows (track_list.h) */
     cg_variant_choice_apply();   /* port (dep65): Restomod's switches back from the player's choice, after every place they are cleared */
     cg_lunar_settle();
 }
@@ -881,7 +894,7 @@ int32_t glue_central(void)
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, cg_standings, track_select, art_free, options,
         cg_chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, cg_flush, cg_race, off,
-        cg_plus_text, NULL, 1, pad_buttons, palette_colour, card_marks, card_plain, cg_variants_chosen, cg_load_added_card, cg_added_gallery, showcase_carousel };
+        cg_plus_text, NULL, 1, pad_buttons, palette_colour, card_marks, card_plain, cg_variants_chosen, cg_load_added_card, cg_load_track_card, cg_added_gallery, showcase_carousel };
     load();
     ControlCentralState st = {
         &cg_g.race_type, &cg_g.opponent, &cg_g.track, &cg_g.player_car, cg_g.other_car, &cg_g.net_car, &cg_g.laps, cg_g.difficulty,

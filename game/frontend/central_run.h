@@ -55,6 +55,8 @@ void central_after_follow(CentralRun *r);          /* 00433ad9..00433cc6 */
 void central_draw(CentralRun *r);                  /* 00433cd5..00434b54 */
 /* the player's card and the rival card as central_draw draws them (port, dep59: an added car's from its pictures) */
 void central_car_art(CentralRun *r);
+/* the track card: the CD's picture for the track, or an added track's own (load_track_card), with the card's top corners */
+void central_track_art(CentralRun *r);
 void central_opponent_art(CentralRun *r);
 void central_changed(CentralRun *r);               /* 00434b69..00434c88 */
 void central_cheats(CentralRun *r);                /* 00434cdf..00434ff8 */

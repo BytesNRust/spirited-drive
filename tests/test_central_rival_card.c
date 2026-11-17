@@ -6,6 +6,7 @@
 #include "formats/edition_ini.h"
 #include "game/frontend/showcase.h"
 #include "game/race/car_registry.h"
+#include "game/sys/track_registry.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -200,6 +201,61 @@ static void test_added_cards(void)
     car_registry_clear();
 }
 
+/* dep59 step 5, T7c: an added track's card comes from load_track_card (never a bank of the CD's, never TRACK_NAMES past its table), made
+ * once and again only when the track changed; a track no card could be made for draws none */
+static int track_loads, track_asked;
+static int32_t load_track(void *ctx, int track, const uint8_t palette[768])
+{
+    (void)ctx, (void)palette;
+    track_loads++, track_asked = track;
+    return track == 17 ? 0 : 9;
+}
+
+static void track_card(int16_t track, int16_t was_track)
+{
+    static int32_t art[8];
+    static const uint8_t pal[0x20];
+    static int32_t variant_m, variant_r;
+    int16_t track_word = track;
+    ControlCentralOps o = { 0 };
+    o.load_bank = load_bank, o.load_track_card = load_track, o.shape = shape, o.blit = blit, o.free = art_free;
+    ControlCentralState st = { 0 };
+    st.track = &track_word, st.variant_m = &variant_m, st.variant_r = &variant_r, st.was = was, st.art = art, st.paths = "";
+    CentralRun r = { 0 };
+    r.st = &st, r.ops = &o, r.pal = pal;
+    was[WAS_TRACK] = was_track;
+    loads = blits = frees = track_loads = 0, track_asked = -1;
+    central_track_art(&r);
+}
+
+static void piece(const char *id, const char *stem)
+{
+    TrackPiece p;
+    memset(&p, 0, sizeof p);
+    snprintf(p.id, sizeof p.id, "%s", id), snprintf(p.name, sizeof p.name, "%s", id), snprintf(p.stem, sizeof p.stem, "%s", stem);
+    p.spec.kind = TRACK_KIND_STAGE, p.spec.segments = 1, p.spec.times = TRACK_TIME_DAY, p.fingerprint = 7;
+    CHECK(track_registry_add(&p, NULL, 0) >= TRACK_ADDED_FIRST);
+}
+
+static void test_an_added_track_card(void)
+{
+    track_registry_clear();
+    piece("dune", "ZZA"), piece("alp", "ZZB");   /* 16, 17 */
+    track_card(16, CENTRAL_NO_ART);
+    CHECK_EQ_INT(track_loads, 1);
+    CHECK_EQ_INT(track_asked, 16);
+    CHECK_EQ_INT(loads, 0);   /* nothing of the CD's read for it */
+    CHECK_EQ_INT(blits, 1);
+    track_card(16, 16);       /* nothing changed: kept */
+    CHECK_EQ_INT(track_loads + loads, 0);
+    CHECK_EQ_INT(blits, 1);
+    track_card(17, 16);       /* the next: its card made, the old freed; none could be made: none drawn */
+    CHECK_EQ_INT(track_loads, 1);
+    CHECK_EQ_INT(frees, 1);
+    CHECK_EQ_INT(blits, 0);
+    track_registry_clear();
+}
+
 /* dep59 section 4 (the owner's carousel): in Restomod outside a tournament the player's card opens one carousel over the edition's lineup.
  * An original's showcase leaves on its Next / Previous (showcase_carousel), an added car's page hands back on an original (added_gallery),
  * and the next car in the edition's order (wrapping, the Warrior passed over: no page yet) opens; Done ends on the car shown, picked. In
@@ -305,6 +361,7 @@ int main(void)
     test_the_carousel();
     test_no_art_is_no_car();
     test_added_cards();
+    test_an_added_track_card();
     test_an_added_car_card_opens_nothing();
     CHECK_EQ_INT(click(5), 1);
     CHECK(shown_name != NULL && shown_name == CARS[5]);

@@ -10,4 +10,7 @@
  * drawn in `text` (`text_size` bytes); 0 when nothing is drawn (no letter the font has, no font, no memory) */
 int added_card_name_letters(const char *name, int rival, AddedCardName *out, uint8_t **mask, char *text, int text_size);
 
+/* the same for an added track's card (ADDED_TRACK_W wide) */
+int added_track_card_name_letters(const char *name, AddedCardName *out, uint8_t **mask, char *text, int text_size);
+
 #endif

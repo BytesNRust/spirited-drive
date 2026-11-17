@@ -190,6 +190,32 @@ int main(void)
     CHECK(added_card_bank(&small, 1, 0, palette, usable, &size, why, sizeof why) == NULL);
     CHECK(strstr(why, "284x118") != NULL);
     free(small.pixels);
+    /* dep59 step 5, T7c: an added track's card, in the track slot (the moon card's 208x127 at 341, 255) */
+    PngImage track = rgba(ADDED_TRACK_W, ADDED_TRACK_H, 255);
+    bank = added_track_card_bank(&track, NULL, palette, usable, &size, why, sizeof why);
+    px = card_of(bank, size, &w, &h, &x, &y);
+    CHECK(px != NULL);
+    if (px != NULL) {
+        CHECK(w == 208 && h == 127 && x == 341 && y == 255);
+        CHECK_EQ_INT(px[0], 41);                                             /* its own picture: red, green, blue as the car's */
+        CHECK_EQ_INT(px[ADDED_TRACK_W - 1], 42);
+        CHECK_EQ_INT(px[(ADDED_TRACK_H / 2) * ADDED_TRACK_W + 5], 43);
+    }
+    free(bank);
+    bank = added_track_card_bank(NULL, NULL, palette, usable, &size, why, sizeof why);   /* no card.png: the flat card, the frame lighter than inside */
+    px = card_of(bank, size, &w, &h, &x, &y);
+    CHECK(px != NULL);
+    if (px != NULL) {
+        CHECK(w == 208 && h == 127);
+        CHECK_EQ_INT(px[0], 51);                                     /* the frame: the grey */
+        CHECK(px[(ADDED_TRACK_H / 2) * ADDED_TRACK_W + ADDED_TRACK_W / 2] != 0xfe);
+    }
+    free(bank);
+    PngImage wrong = rgba(ADDED_CARD_W, ADDED_CARD_H, 255);   /* a car's card is not a track's */
+    why[0] = '\0';
+    CHECK(added_track_card_bank(&wrong, NULL, palette, usable, &size, why, sizeof why) == NULL);
+    CHECK(strstr(why, "309x166") != NULL && strstr(why, "208x127") != NULL);
+    free(wrong.pixels), free(track.pixels);
     test_name_fit();
     test_name_drawn();
     return TEST_REPORT();

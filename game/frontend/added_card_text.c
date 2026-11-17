@@ -12,14 +12,14 @@ static int measure(void *ctx, const char *s)
     return text_width_scaled(s, ADDED_CARD_NAME_NUM, ADDED_CARD_NAME_DEN);
 }
 
-int added_card_name_letters(const char *name, int rival, AddedCardName *out, uint8_t **mask, char *text, int text_size)
+static int letters(const char *name, int card_w, AddedCardName *out, uint8_t **mask, char *text, int text_size)
 {
     *mask = NULL;
     memset(out, 0, sizeof *out);
     if (text_size > 0) text[0] = '\0';
     if (!text_loaded()) return 0;
     /* the card's width less the margin on each side and the shadow's column */
-    const int room = (rival ? ADDED_RIVAL_W : ADDED_CARD_W) - 2 * ADDED_CARD_NAME_X - 1;
+    const int room = card_w - 2 * ADDED_CARD_NAME_X - 1;
     if (!added_card_name_fit(name, room, measure, NULL, text, text_size)) return 0;
     const int w = measure(NULL, text), h = text_mask_rows(text, ADDED_CARD_NAME_NUM, ADDED_CARD_NAME_DEN);
     int top = 0, bottom = 0;
@@ -31,4 +31,14 @@ int added_card_name_letters(const char *name, int rival, AddedCardName *out, uin
     }
     *out = (AddedCardName){ *mask, w, h, bottom - 1 };
     return 1;
+}
+
+int added_card_name_letters(const char *name, int rival, AddedCardName *out, uint8_t **mask, char *text, int text_size)
+{
+    return letters(name, rival ? ADDED_RIVAL_W : ADDED_CARD_W, out, mask, text, text_size);
+}
+
+int added_track_card_name_letters(const char *name, AddedCardName *out, uint8_t **mask, char *text, int text_size)
+{
+    return letters(name, ADDED_TRACK_W, out, mask, text, text_size);
 }
