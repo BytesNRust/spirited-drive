@@ -16,6 +16,7 @@
 #include "game/sys/palette.h"
 #include "game/sys/video.h"
 #include "game/frontend/ea_lib.h"
+#include "game/frontend/edition_name_box.h"
 
 #include <string.h>
 
@@ -66,6 +67,12 @@ static Borrowed borrow_picture(void)
     if (picture != NULL && display != NULL && pw == w && ph == h && (b.own = malloc(b.size)) != NULL) {
         memcpy(b.own, picture, b.size);
         memcpy(picture, display, b.size);
+        /* the screen under the box darkened as under CONTENT's other dialogs (DIALOG_DARKEN, edition_name_box.h): the exe's box shades only its
+         * own rectangle, which over a page of text leaves the text readable through it */
+        uint8_t rgb[768], table[256];
+        video_get_palette(rgb);
+        ea_shade_table(0x10000 - 0x10000 * DIALOG_DARKEN / 100, rgb, table);
+        palette_remap_pixels(picture, table, (uint32_t)b.size);
         b.picture = picture;
     } else {
         port_log("content: a box draws over the screen's own picture\n");
