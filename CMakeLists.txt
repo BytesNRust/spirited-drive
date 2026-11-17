@@ -198,6 +198,9 @@ add_library(tnfs_game STATIC
     game/frontend/edition_name_box.c
     game/frontend/added_gallery.c
     game/frontend/gallery_layout.c
+    game/frontend/lunar_art.c
+    game/frontend/lunar_art_title.c
+    game/frontend/lunar_art_glue.c
     game/frontend/car_figures.c
     game/frontend/added_gallery_glue.c
     game/frontend/content_dialog_glue.c
@@ -596,6 +599,7 @@ add_executable(tnfs
     game/main.c
     game/frontend/config.c
     game/frontend/ea_lib.c
+    game/frontend/lunar_art_bank.c
     game/frontend/frontend.c
     game/frontend/menu_glue.c
     game/frontend/menu_glue_dialogs.c
@@ -780,7 +784,7 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(test_png_inflate PRIVATE tnfs_core)
     target_compile_options(test_png_inflate PRIVATE ${TNFS_WARNINGS})
     add_test(NAME png_inflate COMMAND test_png_inflate ${CMAKE_SOURCE_DIR}/tests/png)
-foreach(name port_old_files car_registry car_lights ai_added car_list content_rows content_nav content_screen track_list car_looks picture_palette added_card text_wrap added_gallery gallery_layout edition_name_box car_figures replay_label car_registry_race car_registry_names car_registry_saves replay_cars band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings port_settings_values port_settings_session screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply race_records race_records_added records_import records_glue_load records_glue_import records_route track_select_plus extras_menu extras_background extras_layout extras_focus options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own graphics_own_modes graphics_own_light f3_ultra title_art item_art page_arrows port_log speed_units best_times best_times_pages start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip intro_order race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards second_livery car_variant car_paint car_repaint car_mask track_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants track_node_light tunnel_lamp_textures remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty light_synth lamp_emissive drive_lamps headlight_pool street_lamp tunnel_lamps window_lights reflector reflect_pass street_halo halo_track weather_hooks spray_tint wiper finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_nose dash_color lamp_flare shade_fit thunder wet_roll splash rain_bus hush music_kept sound_bank car_bank_shape stream_header shape_bank race_menu_art rain_roll rain_cars wrong_way snow_roll weather_snow snow_fx snow_remap key_latch track_wall chase_slope data_path data_check terrain_light port_profile live_mode_switch unlock_level variant_switches tournament_variants title_press game_mode_profile exe_image exe_tables_menu exe_tables_config exe_tables_load file_url tach_dim wheel_front rain_spray spray_pace track_light_file session_rules race_net_wire port_icon_ours)
+foreach(name port_old_files car_registry car_lights ai_added car_list content_rows content_nav content_screen track_list car_looks picture_palette added_card text_wrap added_gallery gallery_layout lunar_art edition_name_box car_figures replay_label car_registry_race car_registry_names car_registry_saves replay_cars band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings port_settings_values port_settings_session screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply race_records race_records_added records_import records_glue_load records_glue_import records_route track_select_plus extras_menu extras_background extras_layout extras_focus options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own graphics_own_modes graphics_own_light f3_ultra title_art item_art page_arrows port_log speed_units best_times best_times_pages start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip intro_order race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards second_livery car_variant car_paint car_repaint car_mask track_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants track_node_light tunnel_lamp_textures remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty light_synth lamp_emissive drive_lamps headlight_pool street_lamp tunnel_lamps window_lights reflector reflect_pass street_halo halo_track weather_hooks spray_tint wiper finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_nose dash_color lamp_flare shade_fit thunder wet_roll splash rain_bus hush music_kept sound_bank car_bank_shape stream_header shape_bank race_menu_art rain_roll rain_cars wrong_way snow_roll weather_snow snow_fx snow_remap key_latch track_wall chase_slope data_path data_check terrain_light port_profile live_mode_switch unlock_level variant_switches tournament_variants title_press game_mode_profile exe_image exe_tables_menu exe_tables_config exe_tables_load file_url tach_dim wheel_front rain_spray spray_pace track_light_file session_rules race_net_wire port_icon_ours)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -793,6 +797,7 @@ foreach(name port_old_files car_registry car_lights ai_added car_list content_ro
     add_test(NAME iso9660 COMMAND test_iso9660)
     # the CD check of the clean configuration background runs when original/ is there
     target_compile_definitions(test_config_bgnd PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_lunar_art PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_piece PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_mesh_layout PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_mesh_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -1307,6 +1312,15 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_video_wide PRIVATE ${TNFS_WARNINGS})
     add_test(NAME video_wide COMMAND test_video_wide)
+    # Lunar Springs' bank made from the CD and kept in the cache (dep59 L4): resource_load_art needs the platform's files
+    add_executable(test_lunar_art_glue tests/test_lunar_art_glue.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_lunar_art_glue PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_lunar_art_glue PRIVATE m)
+    endif()
+    target_compile_options(test_lunar_art_glue PRIVATE ${TNFS_WARNINGS})
+    target_compile_definitions(test_lunar_art_glue PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}" TNFS_BINARY_DIR="${CMAKE_BINARY_DIR}")
+    add_test(NAME lunar_art_glue COMMAND test_lunar_art_glue)
     add_executable(test_platform_mods tests/test_platform_mods.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_mods PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)

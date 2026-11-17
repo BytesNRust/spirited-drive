@@ -106,7 +106,7 @@ static int check(const ShpiDescEntry *e, size_t n, ExchangeError *err)
             if (memcmp(e[j].name, e[i].name, 4) == 0) exchange_fail(err, "two entries are named '%s'", name), ok = 0;
         if (ok && (e[i].dir_index >= n || placed[e[i].dir_index]++))
             exchange_fail(err, "entry '%s''s directory place %u is taken or past the %zu entries", name, e[i].dir_index, n), ok = 0;
-        pal |= memcmp(e[i].name, "!PAL", 4) == 0;
+        pal |= memcmp(e[i].name, "!PAL", 4) == 0 || memcmp(e[i].name, "!pal", 4) == 0;   /* a car's bank, a menu's (RUSTSEL.QFS) */
     }
     free(placed);
     if (ok && !pal) exchange_fail(err, "the bank has no !PAL entry"), ok = 0;
