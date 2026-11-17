@@ -3,6 +3,7 @@
 
 #include "game/frontend/record_conditions.h"
 #include "game/frontend/records_route.h"
+#include "game/frontend/records_block.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -37,7 +38,7 @@ static int32_t g32(const uint8_t *at)
 }
 
 static const uint8_t *player_at(const ResultsInputs *in, int32_t who) { return in->game + RECORD * who; }
-static const uint8_t *track_at(const ResultsInputs *in) { return in->image + TRACK_RECORDS * g16(in->image + TRACK); }
+static const uint8_t *track_at(const ResultsInputs *in) { return records_block_at(in->image, g16(in->image + TRACK)); }
 
 static const char *dnf(const ResultsInputs *in) { return in->german ? "Abbruch" : "DNF"; }
 

@@ -103,8 +103,11 @@ static void load_art(Menu *m)
 {
     const RaceMenuOps *o = m->ops;
     m->art = o->load(o->ctx, "check/pause.fsh");
-    m->map = o->load(o->ctx, m->name);
+    m->map = m->name[0] != '\0' ? o->load(o->ctx, m->name) : NULL;   /* an added track has no map bank: the menu without a picture */
 }
+
+/* the track has a map of the original's nine (an added track, 16 and up, has none) */
+static int has_map(const RaceMenuWorld *w) { const int16_t t = track_of(w); return t >= 0 && t < RACE_MENU_TRACKS; }
 
 static void art_palette(Menu *m)
 {
@@ -154,7 +157,9 @@ static void open_menu(Menu *m)
     call(m, CALL_4648DC);
     o->music(o->ctx, "pause.asf");
     const int16_t track = track_of(w);
-    if (track < 3)
+    if (!has_map(w))
+        m->name[0] = '\0';
+    else if (track < 3)
         snprintf(m->name, sizeof m->name, "check/%s%d.qfs", race_menu_track_names[track], variant_of(w) + 1);
     else
         snprintf(m->name, sizeof m->name, "check/%s.qfs", race_menu_track_names[track]);
@@ -182,6 +187,7 @@ static int16_t hovered(Menu *m)
 static void marker(Menu *m, const char *name, int car)
 {
     const RaceMenuWorld *w = m->w;
+    if (!has_map(w)) return;
     const int at = track_of(w) * 3 + variant_of(w);
     m->ops->blit_at(m->ops->ctx, shape(m->art, name), race_menu_x_offset[at] + m->map_x[car],
                     race_menu_y_offset[at] + m->map_y[car]);

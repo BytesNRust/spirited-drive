@@ -47,7 +47,7 @@ static void draw_banner(const StandingsInputs *in, const StandingsOps *ops)
 static void draw_segment(const StandingsInputs *in, int32_t bank, int segment, const StandingsOps *ops)
 {
     char text[TEXT];
-    ops->blit(ops->ctx, ops->shape(ops->ctx, bank, TRACK_TAG[in->track]));
+    if (in->track >= 0 && in->track < 9) ops->blit(ops->ctx, ops->shape(ops->ctx, bank, TRACK_TAG[in->track]));   /* port: an added track has no tag art */
     ops->text_select(ops->ctx, 2);
     if (in->track < 3) {
         ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "segt"));

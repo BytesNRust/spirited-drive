@@ -69,7 +69,8 @@ static int32_t d32(const uint8_t *p)
 
 static int track_of(const BestTimesState *st)
 {
-    return g16(st->config, TRACK_SELECT_TRACK);
+    const int track = g16(st->config, TRACK_SELECT_TRACK);
+    return track >= 0 && track < TRACKS ? track : 0;   /* port guard: every table here has nine; an added track's number in the config opens the first track's page (an added track's own page is track_page, dep59 step 5, T7d) */
 }
 
 const char LUNAR_BEST_FILE[] = "lunarbst";

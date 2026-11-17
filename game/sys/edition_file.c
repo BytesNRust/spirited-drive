@@ -7,6 +7,7 @@
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
+#include "game/sys/track_registry.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -46,7 +47,8 @@ int edition_car_present(const char *id)
 int edition_track_present(const char *id)
 {
     const int track = stock_track_of_id(id);
-    return track >= 0 && track != TRACK_HIDDEN;
+    if (track < 0) return track_registry_find(id) >= 0;   /* an added track that is registered (T7b) */
+    return track != TRACK_HIDDEN;
 }
 
 int edition_usable(const Edition *e, char *why, size_t why_cap)

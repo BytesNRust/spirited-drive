@@ -2,6 +2,7 @@
 #include "game/sys/port_log.h"
 
 #include "game/frontend/records_route.h"
+#include "game/frontend/records_block.h"
 
 enum {
     TEXT = 0x5c, SOUND_MOVE = 0x47, SOUND_SELECT = 0x48, WAIT = 0x2ee0, KEY_SPACE = 0x20, KEY_ENTER = 0xd,
@@ -46,7 +47,7 @@ static void draw_table(const ResultsInputs *in, int32_t bank, int16_t row, int16
 {
     char text[TEXT];
     const int16_t track = g16(in->image + TRACK);
-    const uint8_t *records = in->image + TRACK_RECORDS * track;
+    const uint8_t *records = records_block_at(in->image, track);
     const uint8_t *table = records + (track > 2 ? BEST_STRIDE * g16(in->image + DIFFICULTY) : 0);
     ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "bgnd"));
     /* port guard: the original indexes its nine names with any short */

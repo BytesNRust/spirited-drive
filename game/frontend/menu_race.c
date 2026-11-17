@@ -4,6 +4,7 @@
 #include "game/race/track_traits.h"
 #include "game/sys/free_laps.h"
 #include "game/sys/track_registry.h"
+#include "game/frontend/records_block.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -41,6 +42,7 @@ static int track_of(const MenuRaceState *st) { return g16(st->image + TRACK); }
 
 /* port (dep59 step 5, T4): an added track (a number from TRACK_ADDED_FIRST) is a stage track of its piece's segments, whose records the original's tables do not hold */
 static int added_of(int track) { return track >= TRACK_ADDED_FIRST && track_registry_is_added(track); }
+static int stem_of(int track) { return records_block_known(track) ? track : 0; }   /* the nine stems; run_race refuses a number past them */
 static int circuit_of(int track) { return track > 2 && !added_of(track); }
 static int segments_of(int track)
 {
@@ -53,7 +55,7 @@ static uint8_t *player_of(const MenuRaceState *st) { return st->game + PLAYER * 
 static uint8_t *ghost_at(const MenuRaceState *st, int circuit)
 {
     static uint8_t none[GHOST_STRIDE];   /* an added track has no record run in the original's table: the race is against nothing */
-    if (added_of(track_of(st))) return none;
+    if (!records_block_known(track_of(st))) return none;   /* an added track, or a number the nine have not */
     const int at = GHOST + TRACK_RECORDS * track_of(st) + (circuit ? GHOST_STRIDE * g16(st->image + DIFFICULTY) : 0);
     return st->image + at;
 }
@@ -63,6 +65,7 @@ static void run_race(const MenuRaceState *st, char *const *argv, const uint8_t *
     const int kept = g16(st->game + TRACK_KEPT);
     const int circuit = circuit_of(kept);
     const TrackPiece *const piece = added_of(kept) ? track_registry_piece(kept) : NULL;
+    if (piece == NULL && !records_block_known(kept)) return;   /* port: no stem for it (an unregistered added number, a stray): no race, not another track's */
     if (piece != NULL) {   /* the stem as the piece's files are named, lower case as the CD's roots are here, and the stage's number */
         char root[ARG];
         size_t n = 0;
@@ -71,8 +74,8 @@ static void run_race(const MenuRaceState *st, char *const *argv, const uint8_t *
         snprintf(argv[1], ARG, "%s%d", root, g16(st->game + RUN) + 1);
         const TrackPieceFields fields = { piece->spec.kind, piece->spec.road, piece->spec.edge };
         track_traits_race_set(argv[1], kept, &fields);   /* the race reads this piece's traits, by the root it is loaded as */
-    } else if (circuit) snprintf(argv[1], ARG, "%s", STEM[g16(st->game + TRACK_KEPT)]);
-    else snprintf(argv[1], ARG, "%s%d", STEM[kept], g16(st->game + RUN) + 1);
+    } else if (circuit) snprintf(argv[1], ARG, "%s", STEM[stem_of(g16(st->game + TRACK_KEPT))]);
+    else snprintf(argv[1], ARG, "%s%d", STEM[stem_of(kept)], g16(st->game + RUN) + 1);
     const uint8_t *ghost = ghost_at(st, circuit);
     for (int i = 0; i < MENU_RACE_GHOST; i++) st->ghost[i] = g32(ghost + 4 * i);
     if (*st->pointer_active) ops->pointer_hide(ops->ctx);
@@ -118,7 +121,7 @@ static void keep_times(const MenuRaceState *st)
 /* a finished track that beat the best keeps its run */
 static void keep_record(const MenuRaceState *st, const MenuRaceOps *ops)
 {
-    if (added_of(track_of(st))) {   /* port (dep59 step 5, T5 keeps its record in its own table) */
+    if (!records_block_known(track_of(st))) {   /* port (dep59 step 5, T5 keeps its record in its own table; the original's has nine blocks) */
         p16(st->image + SEGMENT, 0);
         ops->won(ops->ctx);
         return;

@@ -29,6 +29,12 @@ bool car_looks_save_car(int opponent, int car);
 int car_looks_saved_lunar(void);
 /* track=lunar written (1) or taken out (0); false out of Restomod */
 bool car_looks_save_lunar(int lunar);
+/* port (dep59 step 5, T7b): the same one key for an added track, track=<id>: the number of that id when it is registered (16..79);
+ * CAR_LOOKS_NOT_LOADED when the line names an id that is not (a mod taken away); -1 for no line, and for track=lunar (car_looks_saved_lunar's) */
+int car_looks_saved_track(void);
+/* track=<id> of the added track `track` written, or the line taken out for a number that is no added track; false out of Restomod. The line is
+ * the one key track=: it replaces track=lunar, and track=lunar replaces it */
+bool car_looks_save_track(int track);
 /* look.<id>=; both "" when there is none or the mode is not Restomod */
 CarLook car_looks_get(const char *id);
 /* look.<id>= written (the line taken out when both are ""); false for a bad id or name, or out of Restomod */

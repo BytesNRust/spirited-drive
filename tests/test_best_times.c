@@ -274,6 +274,17 @@ static void test_the_standard_arrows_walk_the_original(void)
     CHECK_EQ_INT(arrow_from(CIRCUIT, 1, 1, NULL, 0), CIRCUIT + 1);
 }
 
+/* dep59 step 5, T7a: a track word of an added track (16..79, a byte in config.dat's image) reads no table of nine: the screen opens on the first track's */
+static void test_a_track_past_the_nine_reads_no_table(void)
+{
+    static const int TRACKS[] = { 9, 16, 79, 255 };
+    for (size_t k = 0; k < sizeof TRACKS / sizeof TRACKS[0]; k++) {
+        reset((int[]){ ESCAPE }, 1);
+        run_walk(NULL, TRACKS[k], NULL, 0);
+        CHECK(strcmp(art_loaded, "tracksel/citybst.qfs") == 0);
+    }
+}
+
 /* dep59 Lunar L5: opened on Lunar's entry (Rusty with the pick) the screen shows the moon's art; an arrow off it drops the pick and shows
  * the next track's own */
 static void test_lunar_shows_the_moon(void)
@@ -667,6 +678,7 @@ static void test_a_click_on_a_word_steps_it_on(void)
 
 int main(void)
 {
+    test_a_track_past_the_nine_reads_no_table();
     test_no_plus_is_original();
     test_the_standard_arrows_walk_the_original();
     test_lunar_shows_the_moon();
