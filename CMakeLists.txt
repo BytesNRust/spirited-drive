@@ -1283,6 +1283,12 @@ if(NOT EMSCRIPTEN)
                      ${CMAKE_SOURCE_DIR}/original ${part})
             set_tests_properties(edition_menus_${part} PROPERTIES TIMEOUT 600)
         endforeach()
+        # dep59 step 4b (T8): the CONTENT screen in the menus, one test per game session
+        foreach(part own standard)
+            add_test(NAME content_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/content_menus.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>
+                     ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data ${part})
+            set_tests_properties(content_menus_${part} PROPERTIES TIMEOUT 600)
+        endforeach()
         add_test(NAME car_own_behaviour COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_own_behaviour.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
         set_tests_properties(car_own_behaviour PROPERTIES TIMEOUT 600)
         add_test(NAME track_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_new.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
