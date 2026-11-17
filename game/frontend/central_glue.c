@@ -178,6 +178,7 @@ void cg_extras_apply(void)
     extras_flags(&f);
     /* port (dep59 step 4): an edition of the player's own settles to what it lists instead (edition_rules.h); the standard edition (or one
      * that cannot be used) leaves central_edition with no cars */
+    track_pieces_follow();   /* port (dep59 step 5, T7c): the added tracks of the mods in effect, before the edition that lists them is judged and for the arrows (track_list.h) */
     const int own = edition_active(&central_edition) == 1;
     static Edition session_edition;   /* the edition the session's typed cheats belong to; zero, the standard one */
     if (memcmp(&central_edition, &session_edition, sizeof central_edition) != 0) {   /* another edition: a new session */
@@ -200,7 +201,6 @@ void cg_extras_apply(void)
     warrior_keep_flag = (int16_t)(e.warrior != 0);
     restomod_flag = (int16_t)(port_settings_profile() == PROFILE_RESTOMOD);
     car_pieces_follow();   /* port (dep59): the added cars of the mods in effect, for the arrows (car_list.h); loaded again only when they change */
-    track_pieces_follow();   /* port (dep59 step 5, T7c): and the added tracks, for an edition's tracks= and the arrows (track_list.h) */
     cg_variant_choice_apply();   /* port (dep65): Restomod's switches back from the player's choice, after every place they are cleared */
     cg_lunar_settle();
 }

@@ -4,6 +4,8 @@
 #include "game/frontend/edition_rules.h"
 #include "game/frontend/unlock_level.h"
 #include "game/sys/edition_file.h"
+#include "game/sys/race_records_tracks.h"
+#include "game/sys/track_registry.h"
 
 /* 0047310c for 00427ae0's screen: the last one freed first (the original leaves it) */
 static int32_t race_picture(void *ctx, int32_t w, int32_t h, int32_t flags)
@@ -93,7 +95,12 @@ void cg_race(void *ctx)
         no_mode, hide, nothing, clip, nothing, cg_drive, no_mode, nothing, set_palette, no_two, no_three, no_mode,
         nothing, music_pick, cops, won, sound_load, race_picture, cg_circuit_results, cg_segment_results, cg_standings, cg_track_results,
         points, cg_after_race, cg_next_segment, reset_tournament, champion, raise_unlocks, game_reset, ctx, race_finished };
+    /* port (dep59 step 5, T7g): an added track's records are kept by its id (race_records_tracks.h) from the race to the end of its results, which
+     * the menus check after the drive returns */
+    const TrackPiece *const piece = track_registry_piece(before.track);
+    if (piece != NULL) race_records_tracks_race_set(piece->id);
     menu_race(&st, &ops);
+    if (piece != NULL) race_records_tracks_race_set(NULL);
     cg_g.warrior = (int16_t)race_warrior;
     int32_t *const slot = ea_screen_slot();
     if (*slot != 0) ea_picture_free(*slot);  /* Control Central makes its own next */

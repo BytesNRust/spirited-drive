@@ -18,6 +18,7 @@
 #include "game/sys/race_records.h"
 #include "game/sys/race_records_added.h"
 #include "game/sys/race_records_tracks.h"
+#include "game/sys/track_registry.h"
 #include "game/sys/reverse_track.h"
 #include "test.h"
 
@@ -349,6 +350,42 @@ static void test_lunar_keeps_its_own_records(void)
     car_race(&r, 5, 300);
     CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
     race_records_tracks_race_set(NULL);
+}
+
+/* dep59 step 5, T7g: an added track (16, a stage track of a piece) raced from the menus has its image word 16: its records are made in
+ * race_records_tracks.dat by its id (the segment's and the totals'), the original's block of any stock track left as it was, and the
+ * shown image holds its table in the first stage's block */
+static void test_an_added_track_keeps_its_records(void)
+{
+    TrackPiece piece;
+    memset(&piece, 0, sizeof piece);
+    snprintf(piece.id, sizeof piece.id, "dune"), snprintf(piece.name, sizeof piece.name, "dune"), snprintf(piece.stem, sizeof piece.stem, "ZZA");
+    piece.spec.kind = TRACK_KIND_STAGE, piece.spec.segments = 1, piece.spec.times = TRACK_TIME_DAY, piece.fingerprint = 7;
+    track_registry_clear();
+    CHECK(track_registry_add(&piece, NULL, 0) == 16);
+    unified(1);
+    static Race r;
+    static uint8_t shown[RECORD_CHECK_IMAGE], before[RECORD_CHECK_IMAGE];
+    uint8_t slots[RECORDS_MARK_SLOTS];
+    race_records_tracks_race_set("dune");
+    race(&r, 16, 5, 1, 99999, 500);
+    p16(r.game + 0x53a, 5), p16(r.game + 0x536, 5);
+    memcpy(before, r.image, sizeof before);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 3);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK(slot_of("race_records_tracks.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0);
+    CHECK(race_records_tracks_find("dune", 0, 0, 0, "viper") != NULL);
+    CHECK(memcmp(r.image, before, sizeof before) == 0);   /* the config image: not a byte of it */
+    records_route_shown((RaceKind){ 0, 0 }, r.image, shown, slots, NULL);
+    CHECK_EQ_INT(g32(shown + 0xb5 + 0xa6b * 0 + 0xea + 0x1b), 500);   /* the table in the first stage's block of the copy */
+    /* records_unified off: the copy is the config image, whose first stage block is City's real records: an added track shows it empty */
+    unified(0);
+    p32(r.image + 0xb5 + 0xea + 0x1b, 777);   /* a real City record */
+    records_route_shown((RaceKind){ 0, 0 }, r.image, shown, slots, NULL);
+    CHECK_EQ_INT(g32(shown + 0xb5 + 0xea + 0x1b), 0);
+    CHECK_EQ_INT(g32(r.image + 0xb5 + 0xea + 0x1b), 777);   /* City's own, untouched */
+    race_records_tracks_race_set(NULL);
+    track_registry_clear();
 }
 
 /* Restomod with the edition `id` in use (its file `ini`), or the standard edition ("") */
@@ -691,6 +728,7 @@ int main(void)
     test_an_added_car_has_its_own_table();
     test_a_stock_car_keeps_its_rows_by_car_too();
     test_lunar_keeps_its_own_records();
+    test_an_added_track_keeps_its_records();
     test_an_edition_answers_its_own_place();
     test_every_layout_and_cheats_is_its_own_table();
     test_rows_keep_their_marks();

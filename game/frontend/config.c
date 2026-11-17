@@ -76,7 +76,7 @@ void config_save(void)
 {
     uint8_t out[CONFIG_DAT_SIZE];
     config_dat_set_name(&config, frontend_player_name);
-    const size_t n = config_dat_serialise(&config, out, sizeof out);
+    const size_t n = config_dat_serialise_saved(&config, out, sizeof out);
     /* port: 0046733c's check that the disk has room is not made; a failed write is reported below */
     if (n == 0 || !platform_write_user_file(CONFIG_NAME, out, n)) port_log("config: cannot save config.dat\n");
 }
