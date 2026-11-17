@@ -57,7 +57,8 @@ static void open_and_close_on(int16_t track, int16_t variant)
     w.dropped = 1;
     loads = blits = 0;
     race_menu(&w, &OPS);
-    CHECK(loads >= 1);   /* the art, and the map when the track has one */
+    if (track >= 0 && track < RACE_MENU_TRACKS) CHECK(loads >= 2);   /* the art and the map */
+    else CHECK_EQ_INT(loads, 1);   /* the art alone: an added track has no map bank */
 }
 
 static void open_and_close(void) { open_and_close_on(0, 0); }

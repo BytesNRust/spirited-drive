@@ -42,7 +42,7 @@ static int track_of(const MenuRaceState *st) { return g16(st->image + TRACK); }
 
 /* port (dep59 step 5, T4): an added track (a number from TRACK_ADDED_FIRST) is a stage track of its piece's segments, whose records the original's tables do not hold */
 static int added_of(int track) { return track >= TRACK_ADDED_FIRST && track_registry_is_added(track); }
-static int stem_of(int track) { return records_block_known(track) ? track : 0; }   /* the nine stems: a number past them is never raced from here */
+static int stem_of(int track) { return records_block_known(track) ? track : 0; }   /* the nine stems; run_race refuses a number past them */
 static int circuit_of(int track) { return track > 2 && !added_of(track); }
 static int segments_of(int track)
 {
@@ -65,6 +65,7 @@ static void run_race(const MenuRaceState *st, char *const *argv, const uint8_t *
     const int kept = g16(st->game + TRACK_KEPT);
     const int circuit = circuit_of(kept);
     const TrackPiece *const piece = added_of(kept) ? track_registry_piece(kept) : NULL;
+    if (piece == NULL && !records_block_known(kept)) return;   /* port: no stem for it (an unregistered added number, a stray): no race, not another track's */
     if (piece != NULL) {   /* the stem as the piece's files are named, lower case as the CD's roots are here, and the stage's number */
         char root[ARG];
         size_t n = 0;
