@@ -1,5 +1,6 @@
 /* The menus' sound and music over drive_audio (menu_audio.h) */
 #include "game/frontend/menu_audio.h"
+#include "game/audio/lunar_speech.h"
 
 #include "game/frontend/config.h"
 #include "game/frontend/menu_sound.h"
@@ -12,6 +13,7 @@
 #include "platform/platform.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 enum { MUSIC_SETTING = 0x73, MUSIC_VOLUME = 0x77, MUSIC_TRACKS = 12 };  /* 00524e63, 00524e67 in config.dat */
@@ -159,20 +161,50 @@ void menu_audio_sound_toggle(void)
 
 static uint8_t *track_file;
 static size_t track_size;
+static int track_joined;   /* port (dep59, Lunar Springs): track_file is lunar_speech_join's (malloc), not a file read (SDL's) */
+
+static void track_release(void)
+{
+    if (track_joined) free(track_file);
+    else platform_free_file(track_file);
+    track_file = NULL, track_size = 0, track_joined = 0;
+}
+
+/* port (dep59, Lunar Springs' entry): LUNAR_SPEECH_NAME is no file: the CD's two moon lines in its folder, joined with their pause
+ * (lunar_speech.h); NULL when either is missing or not a plain sample */
+static uint8_t *lunar_line(const char *path, size_t *size)
+{
+    const char *slash = strrchr(path, '/');
+    const int dir = slash != NULL ? (int)(slash - path + 1) : 0;
+    char welcome[1024], golf[1024];
+    snprintf(welcome, sizeof welcome, "%s/%.*s%s", resource_root(), dir, path, LUNAR_SPEECH_WELCOME);
+    snprintf(golf, sizeof golf, "%s/%.*s%s", resource_root(), dir, path, LUNAR_SPEECH_GOLF);
+    size_t wn = 0, gn = 0;
+    uint8_t *w = platform_read_file(welcome, &wn), *g = platform_read_file(golf, &gn);
+    const size_t n = lunar_speech_join(w, wn, g, gn, LUNAR_SPEECH_GAP_MS, NULL, 0);
+    uint8_t *line = n > 0 ? malloc(n) : NULL;
+    if (line != NULL && lunar_speech_join(w, wn, g, gn, LUNAR_SPEECH_GAP_MS, line, n) != n) free(line), line = NULL;
+    if (line == NULL) port_log("menu_audio: the Lunar Springs line is not made (%s, %s)\n", welcome, golf);
+    platform_free_file(w), platform_free_file(g);
+    *size = line != NULL ? n : 0;
+    return line;
+}
 
 static void track_wait(void *ctx) { (void)ctx, menu_audio_music_feed(); }  /* 004640d0's place: the menus' feed */
 
 static int32_t track_load(void *ctx, const char *path, int32_t flags)
 {
     (void)ctx, (void)flags;
+    const size_t len = strlen(path), name = strlen(LUNAR_SPEECH_NAME);
+    const int joined = len >= name && strcmp(path + len - name, LUNAR_SPEECH_NAME) == 0;
     char full[1024];
     snprintf(full, sizeof full, "%s/%s", resource_root(), path);
     size_t size = 0;
-    uint8_t *file = platform_read_file(full, &size);
+    uint8_t *file = joined ? lunar_line(path, &size) : platform_read_file(full, &size);
     if (file == NULL) return 0;
     drive_audio_speech_stop();  /* nothing left playing from the file it replaces */
-    platform_free_file(track_file);
-    track_file = file, track_size = size;
+    track_release();
+    track_file = file, track_size = size, track_joined = joined;
     return TRACK_BLOCK;
 }
 
@@ -181,8 +213,7 @@ static void track_block_free(void *ctx, int32_t block)
     (void)ctx;
     if (block != TRACK_BLOCK || track_file == NULL) return;
     drive_audio_speech_stop();
-    platform_free_file(track_file);
-    track_file = NULL;
+    track_release();
 }
 
 static void track_volume(void *ctx, int32_t a, int32_t b, int32_t volume) { (void)ctx, drive_audio_speech_setup(a, b, (uint32_t)volume); }
