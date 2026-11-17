@@ -332,9 +332,10 @@ int32_t showcase(ShowcaseState *st, const ShowcaseOps *o)
             s.quit = 1;
         }
     }
-    o->music_fade_out(o->ctx);
+    const int own_music = st->leave_step == NULL;   /* port (dep59 section 4): in the carousel the music is the carousel's, ended once by it */
+    if (own_music) o->music_fade_out(o->ctx);
     o->fade_out(o->ctx, 0, ALL);
-    o->music_end(o->ctx);
+    if (own_music) o->music_end(o->ctx);
     o->free(o->ctx, s.bank);
     o->pointer_mark(o->ctx);
     return s.quit;

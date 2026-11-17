@@ -6,6 +6,7 @@
  * the picture on the left; the technical data, Skin and Color on the right; the description, author and version in the foot's band;
  * DONE at the bottom left, "< NEXT CAR >" in the middle. The pair picked is kept by id as the page closes (car_looks.h). */
 #include "game/frontend/added_gallery.h"
+#include "game/frontend/added_gallery_run.h"
 
 #include "formats/fsh.h"
 #include "formats/pbs.h"
@@ -19,6 +20,7 @@
 #include "game/frontend/config_bgnd.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/gallery_layout.h"
+#include "game/frontend/menu_audio.h"
 #include "game/frontend/text_wrap.h"
 #include "game/platform/platform.h"
 #include "game/race/car_registry.h"
@@ -41,8 +43,7 @@ enum {
     SWATCH = TEXT_FIRST - 1,                         /* the Color swatch's entry */
     STILL_COLOURS = SWATCH,                          /* the still part's: 0 .. SWATCH - 1 */
     WHITE = TEXT_FIRST, CREAM = TEXT_FIRST + 1, YELLOW = TEXT_FIRST + 2, BLACK = TEXT_FIRST + 5, DIM = TEXT_FIRST + 6,
-    LEAN_NUM = 2, LEAN_DEN = 9,                      /* the name's slant: 2 px across for 9 up */
-    RELEASE_FRAMES = 300                             /* a button held longer than this (5 s at 60 Hz) is let be */
+    LEAN_NUM = 2, LEAN_DEN = 9                       /* the name's slant: 2 px across for 9 up */
 };
 
 static const char DONE_WORD[] = "DONE", NEXT_WORD[] = "Next car";
@@ -372,51 +373,31 @@ static void look_keep(const Page *p)
     if (!car_looks_set(p->card.info.id, &l)) port_log("car looks: %s's skin and colour were not kept\n", p->card.info.id);
 }
 
-/* the keys and the pointer's button let go (or RELEASE_FRAMES gone) before the page closes: a press it acted on, still held, is not taken
- * by the screen after it (the showcase takes a held button or Enter at once: a click on Previous as its Done, which sits there; Enter
- * on Next as the photo under the pointer) */
-static void let_go(void)
+/* GalleryRunOps over the page */
+static void run_show(void *ctx, const GalleryState *s)
 {
-    for (int i = 0; i < RELEASE_FRAMES; i++) {
-        const int key = input_get_key();   /* first: it pumps the events the buttons are read from */
-        if (key == 0 && (pointer_read_buttons() & POINTER_BUTTON_SELECT) == 0) return;
-        video_wait_vblank();
-    }
+    Page *p = ctx;
+    (void)s;
+    ea_select_default();
+    palette_now(p);
+    text_build_styles_from(p->palette);   /* before the words: their colours are the page's */
+    draw(p);
+    video_flip();
+    pointer_show();
+    /* port (test harness): the page as shown, for a walk to wait on after each key (tests/car_card_menus.sh); the log only */
+    port_log("mark:gallery=%d %d %d\n", p->state.item, p->state.skin, p->state.paint);   /* item skin paint: a WAIT's text is < 32 */
 }
+static int run_key(void *ctx) { (void)ctx; return input_get_key(); }
+static int run_buttons(void *ctx) { (void)ctx; return pointer_read_buttons(); }
+static int run_click(void *ctx, GalleryState *s) { (void)ctx; return click_key(s); }
+static void run_music(void *ctx) { (void)ctx; menu_audio_music_service(); }
+static void run_wait(void *ctx) { (void)ctx; video_wait_vblank(); }
 
 /* one car's page until it is left or another is asked for: GALLERY_LEAVE, GALLERY_GO_PREVIOUS or GALLERY_GO_NEXT */
 static int run_page(Page *p)
 {
-    int last_key = -1, last_buttons = -1, result = GALLERY_STAY, changed = 1;
-    while (result == GALLERY_STAY) {
-        if (changed) {
-            ea_select_default();
-            palette_now(p);
-            text_build_styles_from(p->palette);   /* before the words: their colours are the page's */
-            draw(p);
-            video_flip();
-            pointer_show();
-            changed = 0;
-            /* port (test harness): the page as shown, for a walk to wait on after each key (tests/car_card_menus.sh); the log only */
-            port_log("mark:gallery=%d %d %d\n", p->state.item, p->state.skin, p->state.paint);   /* item skin paint: a WAIT's text is < 32 */
-        }
-        const int key = input_get_key();   /* first: it pumps the events the pointer's buttons are read from */
-        const int buttons = pointer_read_buttons();
-        int press = key != last_key && key != 0 ? key : 0;
-        if (buttons != last_buttons && last_buttons >= 0) {
-            if (buttons & POINTER_BUTTON_SELECT) press = click_key(&p->state);
-            else if (buttons & POINTER_BUTTON_BACK) press = GALLERY_KEY_ESCAPE;
-        }
-        last_key = key, last_buttons = buttons;
-        if (press != 0) {
-            const GalleryState was = p->state;
-            result = added_gallery_input(&p->card, &p->state, press);
-            changed = memcmp(&was, &p->state, sizeof was) != 0;
-        }
-        video_wait_vblank();
-    }
-    let_go();
-    return result;
+    const GalleryRunOps ops = { run_show, run_key, run_buttons, run_click, run_music, run_wait, p };
+    return added_gallery_run(&p->card, &p->state, &ops);
 }
 
 int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t screen[768])
