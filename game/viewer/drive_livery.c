@@ -166,9 +166,20 @@ typedef struct {
 typedef int (*RepaintFn)(const RepaintBank *bank, const BankMeta *meta, void *ctx);
 static int run_lamps(const RepaintBank *bank, const BankMeta *meta, void *ctx);
 
+/* 1 when `mask` (NULL: none) marks a texel of the `count` as paint */
+static int mask_paints(const uint8_t *mask, size_t count)
+{
+    if (mask == NULL) return 0;
+    for (size_t i = 0; i < count; i++)
+        if (mask[i] == CAR_MASK_PAINT) return 1;
+    return 0;
+}
+
 /* Runs `fn` on each of the CFM's two banks (high and low detail) with its textures and palettes, as the loader will read them. A body
  * texture (any texture, for the lamps' walk) that has a hand-made mask (car_mask.h, by the car's `stem` and the texture's name; from
- * `mask_dir` alone when it is not NULL, an added car's skin's) is given it. */
+ * `mask_dir` alone when it is not NULL, an added car's skin's) is given it. With `mask_dir` (an added car) any texture is given its
+ * mask, and one the race does not paint by its name (an added texture) is the body when its mask paints a texel: an original car's
+ * masks (no `mask_dir`) keep their names' classes, so the Jetta's BTM1 mask, for instance, paints nothing. */
 static int repaint_cfm(uint8_t *cfm, size_t size, const char *stem, const char *mask_dir, const char *upper, RepaintFn fn, void *ctx)
 {
     Chunk file;
@@ -193,9 +204,11 @@ static int repaint_cfm(uint8_t *cfm, size_t size, const char *stem, const char *
             RepaintTexture tex = { (uint8_t *)(uintptr_t)e.payload, pixels, car_repaint_body_class(e.name, (int)level), 0, { 0 }, NULL };
             tex.width = (int)e.width;
             keep_plate(&tex, upper, e.name, (int)e.width);
-            if (tex.body != REPAINT_NONE || fn == run_lamps)
+            if (tex.body != REPAINT_NONE || fn == run_lamps || mask_dir != NULL)
                 tex.mask = mask_dir != NULL ? car_mask_load_dir(mask_dir, e.name, (int)level, (int)e.width, (int)e.height)
                                             : car_mask_load(stem, e.name, (int)level, (int)e.width, (int)e.height);
+            if (tex.body == REPAINT_NONE && mask_dir != NULL && mask_paints(tex.mask, pixels))
+                tex.body = REPAINT_MAIN;   /* an added car's own texture (car texture add) is the body where its own mask paints */
             memcpy(meta.name[count], e.name, 4);
             textures[count++] = tex;
         }
