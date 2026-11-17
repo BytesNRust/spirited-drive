@@ -192,3 +192,5 @@ int32_t glue_yes_no(void *ctx, const char *text) { return menu_glue_yes_no(ctx, 
 void glue_banner(void *ctx, const char *text) { banner(ctx, text); }
 void glue_drain(void *ctx) { drain(ctx); }
 void glue_boxed(void *ctx, const char *text, int32_t x, int32_t y) { boxed(ctx, text, x, y); }
+/* port (dep59 step 4b, T6): the name box's field on its own (004626d0, free text), for the CONTENT screen's edition name box */
+int32_t glue_text_field(char *text, int32_t max, int32_t x, int32_t y) { return text_field(NULL, text, max, x, y, 1); }
