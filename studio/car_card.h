@@ -3,8 +3,8 @@
  *   tnfs-studio car card PIECE_DIR --generic [--force]
  *   tnfs-studio car card PIECE_DIR --tnfs BIN [--data DIR] [--track TR1] [--node N] [--time day|dawn|dusk|night] [--force]
  *
- * The generic card is a dark grey ground, a 2-pixel frame and the card's name (mod.ini `name`) in the port's own 5x7 bitmap font
- * (printable ASCII; a character it lacks is skipped), as large as fits. Nothing of the CD. `car new` writes one; `car card --generic`
+ * The generic card is a dark grey ground and a 2-pixel frame, nothing of the CD. It holds no name: the game draws the car's name over
+ * every card in its own font (showcase plan section 1; mod.ini card_name=off for a picture that shows its own). `car new` writes one; `car card --generic`
  * makes it again (a piece installed before step 3 has none), refusing an existing card.png without --force.
  *
  * Without --generic the pictures come from the game (studio/car_card_shot.c): the game races the piece and its frame is cropped,
@@ -21,8 +21,8 @@
 
 enum { CAR_CARD_W = 309, CAR_CARD_H = 166 };
 
-/* the generic card of a car named `name`, as PNG bytes (malloc'd); 0 with `err` filled */
-int car_card_generic_png(const char *name, uint8_t **png, size_t *len, ExchangeError *err);
+/* the generic card, as PNG bytes (malloc'd); 0 with `err` filled */
+int car_card_generic_png(uint8_t **png, size_t *len, ExchangeError *err);
 /* PIECE_DIR/card.png from its mod.ini's name; an existing one only with `force`. 0 with `err` filled */
 int car_card_generic(const char *piece_dir, int force, ExchangeError *err);
 typedef struct {

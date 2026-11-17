@@ -48,13 +48,13 @@ grep -q "test-car" "$work/log" || fail "the summary does not name the car: $(cat
 diff -r "$p" "$work/q" >/dev/null 2>&1 || fail "--template DVIPER gives another tree than --template viper"
 
 # 2b. port (dep59 step 3): a plain card.png of 309x166 (the IHDR's width and height, big-endian at bytes 16 and 20), the same bytes
-# each time (the second piece above is the same car)
+# each time (the second piece above is the same car), and for any name: the game draws the name over it (showcase plan section 1)
 [ -f "$p/card.png" ] || fail "car new wrote no card.png"
 size=$(od -An -tu1 -j16 -N8 "$p/card.png" 2>/dev/null | tr -s ' \n' ' ' | awk '{ printf "%dx%d", (($1 * 256 + $2) * 256 + $3) * 256 + $4, (($5 * 256 + $6) * 256 + $7) * 256 + $8 }')
 [ "$size" = "309x166" ] || fail "card.png measures $size, not 309x166"
 cmp -s "$p/card.png" "$work/q/card.png" || fail "the same car new gives two card.png"
 "$studio" car new --template viper --id other-car --stem OTHER --name "Other Car" --out "$work/o" --data "$orig" --port-data "$port" >/dev/null 2>&1
-cmp -s "$p/card.png" "$work/o/card.png" && fail "card.png does not show the car's name"
+cmp -s "$p/card.png" "$work/o/card.png" || fail "card.png holds the car's name (the game draws it): two names give two cards"
 
 # 3. a stem of the CD's is refused, named, and nothing is written
 for stem in DVIPER mrx7 MTSUPRA; do

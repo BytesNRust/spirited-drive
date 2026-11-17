@@ -230,6 +230,23 @@ static void test_figures_and_paints(void)
     }
 }
 
+/* section 1 of notes/dep59-added-gallery-showcase-plan.md: card_name=off for a card that shows its own name (default on) */
+static void test_card_name(void)
+{
+    ModInfo m;
+    char why[160];
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\n", &m, why), 1);
+    CHECK_EQ_INT(m.card_name_off, 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\ncard_name=off\n", &m, why), 1);
+    CHECK_EQ_INT(m.card_name_off, 1);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\ncard_name = on \n", &m, why), 1);
+    CHECK_EQ_INT(m.card_name_off, 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\ncard_name=no\n", &m, why), 0);
+    CHECK(strstr(why, "card_name") != NULL && strstr(why, "on or off") != NULL);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\ncard_name=Off\n", &m, why), 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\ncard_name=off\ncard_name=off\n", &m, why), 0);   /* twice */
+}
+
 int main(void)
 {
     test_a_full_card();
@@ -240,5 +257,6 @@ int main(void)
     test_messages_hold_no_control_bytes();
     test_piece_fields();
     test_figures_and_paints();
+    test_card_name();
     return TEST_REPORT();
 }

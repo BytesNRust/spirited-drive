@@ -28,8 +28,9 @@ int mod_ini_id_ok(const char *id)
     return 1;
 }
 
-/* what a value may hold: text; printable ASCII (drawn raw in the game's big face, GRAVER18); A-Z 0-9; a-z 0-9; a type's name; paints */
-enum { KIND_TEXT, KIND_PLAIN, KIND_STEM, KIND_WORD, KIND_TYPE, KIND_PAINTS };
+/* what a value may hold: text; printable ASCII (drawn raw in the game's big face, GRAVER18); A-Z 0-9; a-z 0-9; a type's name; paints;
+ * on or off (an int field, 1 for off) */
+enum { KIND_TEXT, KIND_PLAIN, KIND_STEM, KIND_WORD, KIND_TYPE, KIND_PAINTS, KIND_SWITCH };
 
 typedef struct {
     const char *key;
@@ -54,6 +55,7 @@ static const Field FIELDS[] = {
     { "power", offsetof(ModInfo, power), sizeof ((ModInfo *)0)->power, KIND_TEXT },
     { "weight", offsetof(ModInfo, weight), sizeof ((ModInfo *)0)->weight, KIND_TEXT },
     { "paints", 0, 0, KIND_PAINTS },
+    { "card_name", offsetof(ModInfo, card_name_off), sizeof "off", KIND_SWITCH },   /* port (dep59 gallery plan section 1) */
 };
 
 static const char *const TYPE_NAMES[] = { [MOD_TYPE_TWEAK] = "tweak", [MOD_TYPE_CAR] = "car", [MOD_TYPE_TRACK] = "track" };
@@ -198,6 +200,12 @@ static int take_line(const char *line, const char *end, ModInfo *out, int seen[F
         if (FIELDS[f].kind == KIND_TYPE) {
             out->type = type_named(vs, vlen);
             return out->type >= 0 ? 1 : refuse(why, cap, "mod.ini: type is not tweak, car or track");
+        }
+        if (FIELDS[f].kind == KIND_SWITCH) {
+            const int on = vlen == 2 && memcmp(vs, "on", 2) == 0, off = vlen == 3 && memcmp(vs, "off", 3) == 0;
+            if (!on && !off) return refuse(why, cap, "mod.ini: %s is on or off", FIELDS[f].key);
+            *(int *)((char *)out + FIELDS[f].offset) = off;
+            return 1;
         }
         if (vlen >= FIELDS[f].cap) return refuse(why, cap, "mod.ini: %s is longer than %zu characters", FIELDS[f].key, FIELDS[f].cap - 1);
         if (!chars_ok(vs, vlen, FIELDS[f].kind))

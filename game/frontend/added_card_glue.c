@@ -2,6 +2,7 @@
  * bank (added_card.h). Made at each change of car and freed with the screen's art: nothing is kept that a change of mods could leave
  * stale. */
 #include "game/frontend/added_card.h"
+#include "game/frontend/added_card_text.h"
 #include "game/frontend/central_glue_private.h"
 #include "game/frontend/ea_lib.h"
 #include "game/platform/platform.h"
@@ -9,6 +10,7 @@
 #include "game/sys/port_log.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 enum { POINTER_COLOUR = 0xfe, SEE_THROUGH = 0xff };
@@ -44,10 +46,14 @@ int32_t cg_load_added_card(void *ctx, int car, int rival, const uint8_t palette[
     uint8_t usable[256];
     memset(usable, 1, sizeof usable);
     usable[POINTER_COLOUR] = usable[SEE_THROUGH] = 0;   /* the screen's own */
-    char why[160];
+    char why[160], text[MOD_INI_NAME_MAX + 4];
     size_t size = 0;
-    uint8_t *bank = added_card_bank(&img, rival, from_card, palette, usable, &size, why, sizeof why);
+    AddedCardName name;   /* its name over the picture, as the CD's cards carry theirs, unless the picture shows its own */
+    uint8_t *mask = NULL;
+    const int named = !p->card_name_off && added_card_name_letters(p->name, rival, &name, &mask, text, (int)sizeof text);
+    uint8_t *bank = added_card_bank_named(&img, rival, from_card, named ? &name : NULL, palette, usable, &size, why, sizeof why);
     png_free(img.pixels);
+    free(mask);
     if (bank == NULL) {
         port_log("car piece: %s: %s\n", p->id, why);
         return 0;

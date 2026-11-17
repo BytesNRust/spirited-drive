@@ -206,6 +206,7 @@ add_library(tnfs_game STATIC
     game/frontend/lunar_art_glue.c
     game/frontend/car_figures.c
     game/frontend/added_gallery_glue.c
+    game/frontend/added_card_text.c
     game/frontend/content_dialog_glue.c
     game/sys/car_looks.c
     game/frontend/central_keys.c
@@ -1324,6 +1325,13 @@ if(NOT EMSCRIPTEN)
     target_compile_options(test_video_wide PRIVATE ${TNFS_WARNINGS})
     add_test(NAME video_wide COMMAND test_video_wide)
     # Lunar Springs' bank made from the CD and kept in the cache (dep59 L4): resource_load_art needs the platform's files
+    # the added cars' names over their cards in the CD's font (text.c draws into video.c's buffer)
+    add_executable(test_added_card_name tests/test_added_card_name.c game/sys/text.c game/sys/video.c ${TNFS_SDL3_PLATFORM}
+                   game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_added_card_name PRIVATE tnfs_game SDL3::SDL3)
+    target_compile_options(test_added_card_name PRIVATE ${TNFS_WARNINGS})
+    target_compile_definitions(test_added_card_name PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    add_test(NAME added_card_name COMMAND test_added_card_name)
     add_executable(test_lunar_art_glue tests/test_lunar_art_glue.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_lunar_art_glue PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)

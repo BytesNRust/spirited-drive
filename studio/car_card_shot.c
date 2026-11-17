@@ -130,7 +130,7 @@ static int crop(const uint8_t *rgb, const Picture *p, uint8_t **png, size_t *len
 }
 
 /* `file` of the piece may be written: absent, card.png still the generic one car new wrote, or --force */
-static int may_write(const CarCardShot *s, const char *name, const char *file, ExchangeError *err)
+static int may_write(const CarCardShot *s, const char *file, ExchangeError *err)
 {
     char path[PATH_MAX];
     snprintf(path, sizeof path, "%s/%s", s->piece, file);
@@ -138,7 +138,7 @@ static int may_write(const CarCardShot *s, const char *name, const char *file, E
     if (strcmp(file, "card.png") == 0) {
         size_t have_len = 0, generic_len = 0;
         uint8_t *have = fsio_read_file(path, &have_len, err), *generic = NULL;
-        const int same = have != NULL && car_card_generic_png(name, &generic, &generic_len, err) && have_len == generic_len &&
+        const int same = have != NULL && car_card_generic_png(&generic, &generic_len, err) && have_len == generic_len &&
                          memcmp(have, generic, have_len) == 0;
         free(have), free(generic);
         if (same) return 1;
@@ -148,12 +148,12 @@ static int may_write(const CarCardShot *s, const char *name, const char *file, E
 }
 
 /* the three pictures from the frame, each checked before any is written */
-static int write_pictures(const CarCardShot *s, const ModInfo *info, const uint8_t *rgb, ExchangeError *err)
+static int write_pictures(const CarCardShot *s, const uint8_t *rgb, ExchangeError *err)
 {
     uint8_t *png[PICTURE_COUNT] = { NULL };
     size_t len[PICTURE_COUNT] = { 0 };
     int ok = 1;
-    for (int i = 0; ok && i < PICTURE_COUNT; i++) ok = may_write(s, info->name, PICTURES[i].file, err) && crop(rgb, &PICTURES[i], &png[i], &len[i], err);
+    for (int i = 0; ok && i < PICTURE_COUNT; i++) ok = may_write(s, PICTURES[i].file, err) && crop(rgb, &PICTURES[i], &png[i], &len[i], err);
     for (int i = 0; ok && i < PICTURE_COUNT; i++) {
         char path[PATH_MAX];
         snprintf(path, sizeof path, "%s/%s", s->piece, PICTURES[i].file);
@@ -177,7 +177,7 @@ static int shoot(const CarCardShot *s, const ModInfo *info, const char *tmp, Exc
     if (status != 0) { exchange_fail(err, "the game did not race the car (exit %d): try `tnfs --mods %s --car %s` to see why", status, s->piece, info->id); return 0; }
     uint8_t *rgb = read_frame(shot, err);
     if (rgb == NULL) return 0;
-    const int ok = write_pictures(s, info, rgb, err);
+    const int ok = write_pictures(s, rgb, err);
     free(rgb);
     return ok;
 }

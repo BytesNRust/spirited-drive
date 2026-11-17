@@ -9,7 +9,9 @@
  * replacement (3b), and ai_level (a word: car_ai.h says which are levels). Whether a car piece has what it needs is the loader's to say, not the card's.
  * port (dep59 step 3): a car's figures for its gallery, year, power and weight (text up to 16, shown as written: "1987", "478 hp"), and
  * paints=Name:rrggbb,Name:rrggbb, its Color choices: up to 16, a name 1..24 of text without ':' or ',', six hex digits in any case, no two
- * names alike in any case. */
+ * names alike in any case.
+ * port (dep59, gallery and showcase plan section 1): card_name, on (the default) or off: whether the game draws the car's name over its
+ * card.png and rival.png (off for pictures that show their own). */
 #ifndef TNFS_MOD_INI_H
 #define TNFS_MOD_INI_H
 
@@ -53,6 +55,7 @@ typedef struct {
     char year[MOD_INI_FIGURE_MAX + 1], power[MOD_INI_FIGURE_MAX + 1], weight[MOD_INI_FIGURE_MAX + 1];
     ModPaint paints[MOD_INI_PAINTS_MAX];   /* paints=, in its order */
     int paint_count;
+    int card_name_off;   /* card_name=off: the game draws no name over card.png and rival.png (the picture shows its own); on by default */
 } ModInfo;
 
 /* 1 and `out` filled when the card is good; 0 with the reason in `why` (English, for the player) otherwise. */
