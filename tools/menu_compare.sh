@@ -4,13 +4,15 @@
 # old "ULFTRA" kind) shows as a target that differs.
 #
 # For each target one line:   <target>: same   |   <target>: differs <N> px (diff: <outdir>/diff/<target>.png)   |   <target>: walk failed (A|B|A+B), see <outdir>/<A|B>/<target>.log
+#   |   <target>: new in B (menu_walk.sh's exit 6 from A: binA is from before that screen; B's picture kept, not compared, not a failure; a 6
+#       from B is a failure)
 #   or, for a target named in EXPECTED (a change meant, e.g. EXPECTED=game-mode for a new layout the owner approves):   <target>: differs <N> px (expected) ...
 # then a summary line. Exit 0 every target the same (or its difference expected), 1 some differ, 3 some walk failed (a failure outranks a difference),
 # 2 bad arguments or no magick.
-#   TARGETS (default: the eight below; game-mode, central, showcase and the others of menu_walk.sh only when named here, e.g. TARGETS="game-mode central")   JOBS (default 2: walks running at once; each is one headless game)
+#   TARGETS (default: the nine below, content the last; game-mode, central, showcase and the others of menu_walk.sh only when named here, e.g. TARGETS="game-mode central")   JOBS (default 2: walks running at once; each is one headless game)
 #   DATA, STEP_TIMEOUT, SETTLE, FORMAT: as menu_walk.sh (FORMAT=21:9 compares the menus as a 21:9 screen shows them)
-# The pictures are the walk's last frame (the pointer included), so a run of the same binary twice is "same". The eight targets take about 6 minutes
-# on the 4-thread dev machine with JOBS=2 (16 walks of 40 s).
+# The pictures are the walk's last frame (the pointer included), so a run of the same binary twice is "same". The nine targets take about 7 minutes
+# on the 4-thread dev machine with JOBS=2 (18 walks of 40 s; content's walk on a binary from before CONTENT ends at its 60 s step wait).
 set -u
 export PATH=/nix/var/nix/profiles/default/bin:$PATH
 
@@ -21,7 +23,7 @@ for b in $bin_a $bin_b; do [[ -x $b ]] || { print -u2 -- "menu_compare.sh: no bi
 command -v magick >/dev/null 2>&1 || { print -u2 -- "menu_compare.sh: magick missing (ImageMagick 7; on nix: nix shell --inputs-from . nixpkgs#imagemagick)"; exit 2; }
 here=${0:A:h}
 bin_a=${bin_a:a} bin_b=${bin_b:a}
-targets=(${=TARGETS:-options controls controls-p2 controls-p3 graphics extras extras-p2 extras-p3})
+targets=(${=TARGETS:-options controls controls-p2 controls-p3 graphics extras extras-p2 extras-p3 content})
 jobs_max=${JOBS:-2}
 mkdir -p $out/A $out/B $out/diff || exit 2
 out=${out:a}
@@ -49,8 +51,11 @@ done
 wait
 
 expected=(${=EXPECTED:-})
-same=0 differ=0 failed=0 meant=0
+same=0 differ=0 failed=0 meant=0 fresh=0
 for t in $targets; do
+    if [[ $(cat $out/A/$t.rc 2>/dev/null) == 6 && $(cat $out/B/$t.rc 2>/dev/null) == 0 && -f $out/B/$t.png ]]; then
+        print -r -- "$t: new in B (binA never opened it, see $out/A/$t.log); not compared"; fresh=$((fresh + 1)); continue
+    fi
     bad=""
     [[ $(cat $out/A/$t.rc 2>/dev/null) == 0 && -f $out/A/$t.png ]] || bad+="A"
     [[ $(cat $out/B/$t.rc 2>/dev/null) == 0 && -f $out/B/$t.png ]] || bad+="${bad:+"+"}B"
@@ -73,7 +78,7 @@ for t in $targets; do
         print -r -- "$t: differs, no pixel count (${n:-compare said nothing}); diff: $out/diff/$t.png"; differ=$((differ + 1))
     fi
 done
-print -r -- "menu_compare: $same same, $differ differ, $failed failed${expected:+, $meant expected}, of ${#targets}"
+print -r -- "menu_compare: $same same, $differ differ, $failed failed${expected:+, $meant expected}$( (( fresh )) && print -rn -- ", $fresh new in B"), of ${#targets}"
 (( failed > 0 )) && exit 3
 (( differ > 0 )) && exit 1
 exit 0
