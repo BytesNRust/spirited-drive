@@ -79,6 +79,9 @@ void drive_replay_set_cars(const RaceField *field);
 /* port (dep59 step 3): the skin and paint each slot's added car wears (race_replay_image.h's ReplayLook; all "" an original's), written
  * after the cars' block of a Replay.rpx */
 void drive_replay_set_looks(const ReplayLook looks[RACE_PLAYERS]);
+/* port (dep59 step 5, T5): the race's added track (NULL a CD's): with one its replay is saved as Replay.rpx, the track's block
+ * (race_replay_track_write) after the looks' */
+void drive_replay_set_track(const TrackPiece *piece);
 /* 1 when the last replay this run kept was a Replay.rpx */
 int drive_replay_kept_added(void);
 

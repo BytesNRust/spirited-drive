@@ -10,6 +10,7 @@
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
 #include "game/sys/race_records_added.h"
+#include "game/sys/race_records_tracks.h"
 #include "game/sys/reverse_track.h"
 
 #include <string.h>
@@ -24,6 +25,7 @@ void records_glue_load(const uint8_t config_image[RECORD_CHECK_IMAGE])
     if (loaded || !port_records_unified() || config_image == NULL) return;
     loaded = 1;
     (void)race_records_added_load();   /* port (dep59): the records by car (race_records_added.h), Restomod's too */
+    (void)race_records_tracks_load();   /* port (dep59 step 5, T5): Lunar's and the added tracks' (race_records_tracks.h) */
     switch (race_records_load()) {
     case RACE_RECORDS_LOADED: break;
     case RACE_RECORDS_NO_FILE:

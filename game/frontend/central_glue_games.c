@@ -7,6 +7,7 @@
 #include "game/frontend/replay_label.h"
 #include "game/race/race_replay_image.h"
 #include "game/sys/car_pieces.h"
+#include "game/sys/track_pieces.h"
 
 /* 0042ae9c's and 0042c498's words: the shorts 004fa9ac (check/'s art) and 004bad00 (a highlight), the names
  * 004fa1dc, the game state kept 00524838, 004fbad8's bytes kept around a replay */
@@ -32,6 +33,7 @@ static ReplayCars added_cars(const char *name, char *id)
     size_t size = 0;
     uint8_t *file = save_files_read_replay(name, &size);
     car_pieces_follow();
+    track_pieces_follow();   /* port (dep59 step 5, T5): a Replay.rpx may name an added track */
     const ReplayCars r = race_replay_file_cars(file, size, &race, id);
     if (file != NULL) platform_free_file(file);
     return r;
