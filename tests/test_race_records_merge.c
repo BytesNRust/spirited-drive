@@ -9,6 +9,7 @@
 #include "game/sys/race_records.h"
 #include "game/sys/race_records_added.h"
 #include "game/sys/race_records_merge.h"
+#include "game/sys/race_records_tracks.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -257,6 +258,72 @@ static void test_what_the_screens_read(void)
     CHECK_EQ_INT(race_records_shown_laps(CIRCUIT, 0, 0, laps, RACE_RECORDS_LAPS_MAX), 1);   /* race_records.dat's: LAPS alone */
 }
 
+/* dep59 L6: Lunar Springs' records (race_records_tracks.dat, one table per car) shown the same way: the standard edition joins every car
+ * that has a table for the track, an edition of its own only its cars; another track's tables are never joined in */
+static void test_a_track_joins_its_cars(void)
+{
+    race_records_tracks_reset();
+    const RecordRow viper = row_of(5, 60000, 190, 5), rx7 = row_of(0, 65000, 180, 0), pack = row_of(8, 50000, 200, 8), elsewhere = row_of(1, 1000, 1, 1);
+    put(race_records_tracks_make("lunar", 0, 0, LAPS, "viper", NULL), &viper, 0, 0);
+    put(race_records_tracks_make("lunar", 0, 0, LAPS, "rx7", NULL), &rx7, 0, 0);
+    put(race_records_tracks_make("lunar", 0, 0, LAPS, "pack", NULL), &pack, 0, 0);
+    put(race_records_tracks_make("moonbase", 0, 0, LAPS, "viper", NULL), &elsewhere, 0, 0);
+    put_lap(race_records_tracks_lap_make("lunar", 0, 0, "viper", NULL), &viper);
+    put_lap(race_records_tracks_lap_make("lunar", 0, 0, "rx7", NULL), &rx7);
+    put(race_records_tracks_make("lunar", 0, 0, 5, "viper", NULL), &viper, 0, 0);   /* a lap count only the viper has */
+    write_file("editions/duo.ini", "name=Duo\ncars=rx7,gone-car\ntracks=rusty\n");
+    CHECK(port_profile_select(PROFILE_RESTOMOD));
+
+    edition_set("");
+    const char *ids[8];
+    CHECK_EQ_INT(race_records_tracks_cars("lunar", ids, 8), 3);   /* every car with a table there, by id */
+    CHECK(strcmp(ids[0], "pack") == 0 && strcmp(ids[1], "rx7") == 0 && strcmp(ids[2], "viper") == 0);
+    CHECK_EQ_INT(race_records_tracks_cars("nowhere", ids, 8), 0);
+    CHECK_EQ_INT(race_records_tracks_cars("lunar", ids, 2), 2);   /* at most max */
+    CHECK(strcmp(ids[0], "pack") == 0 && strcmp(ids[1], "rx7") == 0);   /* the ascending prefix */
+    const RecordTable *t = race_records_shown_track("lunar", 0, 0, LAPS);
+    CHECK(t != NULL);
+    if (t != NULL) {
+        CHECK(same_row(&t->totals[0], &pack) && same_row(&t->totals[1], &viper) && same_row(&t->totals[2], &rx7));
+        CHECK(!race_records_row_set(&t->totals[3]));
+        CHECK(same_row(&t->top, &pack));
+    }
+    const RecordRow *lap = race_records_shown_track_lap("lunar", 0, 0);
+    CHECK(lap != NULL && same_row(lap, &viper));
+    int laps[RACE_RECORDS_LAPS_MAX];
+    CHECK_EQ_INT(race_records_shown_track_laps("lunar", 0, 0, laps, RACE_RECORDS_LAPS_MAX), 2);
+    CHECK(laps[0] == LAPS && laps[1] == 5);
+    CHECK(race_records_shown_track("lunar", LAYOUT_MIRROR, 0, LAPS) == NULL);   /* nobody raced it mirrored */
+    CHECK(race_records_shown_track("nowhere", 0, 0, LAPS) == NULL);
+
+    edition_set("duo");   /* its cars: the rx7 (the other id has no table) */
+    t = race_records_shown_track("lunar", 0, 0, LAPS);
+    CHECK(t != NULL && same_row(&t->totals[0], &rx7) && !race_records_row_set(&t->totals[1]));
+    lap = race_records_shown_track_lap("lunar", 0, 0);
+    CHECK(lap != NULL && same_row(lap, &rx7));
+    CHECK_EQ_INT(race_records_shown_track_laps("lunar", 0, 0, laps, RACE_RECORDS_LAPS_MAX), 1);
+    CHECK_EQ_INT(laps[0], LAPS);
+    CHECK(race_records_shown_track("moonbase", 0, 0, LAPS) == NULL);   /* the rx7 never raced there */
+
+    edition_set("");
+    put_lap(race_records_tracks_lap_make("solo", 0, 0, "viper", NULL), &viper);   /* a car with a best lap and no table */
+    CHECK_EQ_INT(race_records_tracks_cars("solo", ids, 8), 1);
+    CHECK(race_records_shown_track("solo", 0, 0, LAPS) == NULL);
+    lap = race_records_shown_track_lap("solo", 0, 0);
+    CHECK(lap != NULL && same_row(lap, &viper));
+    write_file("editions/absent.ini", "name=Absent\ncars=gone-car\ntracks=rusty\n");
+    edition_set("absent");   /* an edition none of whose cars is there: the cars of the file, as the standard edition */
+    t = race_records_shown_track("lunar", 0, 0, LAPS);
+    CHECK(t != NULL && same_row(&t->totals[0], &pack));
+
+    edition_set("");
+    CHECK(port_profile_select(PROFILE_STOCK));   /* no Restomod, no edition, but the join of the file is the same */
+    t = race_records_shown_track("lunar", 0, 0, LAPS);
+    CHECK(t != NULL && same_row(&t->totals[0], &pack));
+    CHECK(port_profile_select(PROFILE_RESTOMOD));
+    race_records_tracks_reset();
+}
+
 int main(void)
 {
     snprintf(base, sizeof base, "%s/tnfs_records_merge_test_%d", getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp", (int)getpid());
@@ -268,6 +335,7 @@ int main(void)
     test_one_car_and_none();
     test_equal_times_keep_the_car_order();
     test_what_the_screens_read();
+    test_a_track_joins_its_cars();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);
     if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", base);

@@ -155,6 +155,29 @@ const char *race_records_tracks_short_name(const char *track, int layout, int ch
     return e != NULL ? e->short_name : "";
 }
 
+/* `car` into `ids` (`n` there, ascending by id) unless it is there; the new count. Not past `max` */
+static int car_add(const char *ids[], int n, int max, const char *car)
+{
+    int at = 0;
+    while (at < n && strcmp(ids[at], car) < 0) at++;
+    if (at < n && strcmp(ids[at], car) == 0) return n;
+    if (n == max) return n;
+    memmove(ids + at + 1, ids + at, sizeof ids[0] * (size_t)(n - at));
+    ids[at] = car;
+    return n + 1;
+}
+
+int race_records_tracks_cars(const char *track, const char *ids[], int max)
+{
+    int n = 0;
+    if (track == NULL || ids == NULL || max <= 0) return 0;
+    const List *const both[] = { &tables, &laps_list };
+    for (int k = 0; k < 2; k++)
+        for (int i = 0; i < both[k]->count; i++)
+            if (strcmp(both[k]->at[i]->track, track) == 0) n = car_add(ids, n, max, both[k]->at[i]->car);
+    return n;
+}
+
 void race_records_tracks_reset(void)
 {
     list_free(&tables);

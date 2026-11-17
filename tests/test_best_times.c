@@ -10,6 +10,7 @@
 #include "game/sys/extras_marks.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
+#include "game/sys/race_records_tracks.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -331,6 +332,51 @@ static void test_no_plus_is_original(void)
     CHECK_EQ_INT(fk.label_count, 0);
 }
 
+/* dep59 L6: on Lunar's entry the pages draw Lunar's records (race_records_tracks.dat's, joined over the cars), on Rusty's rally race_records.dat's:
+ * the screen says which entry it is on (BestTimesPlus.own) as it draws, and an arrow off Lunar goes back to the stock tables */
+static RecordRow named_row(const char *name, int32_t time)
+{
+    RecordRow r;
+    memset(&r, 0, sizeof r);
+    snprintf((char *)r.row, RECORD_ROW_NAME_MAX, "%s", name);
+    const int32_t set = 1;
+    memcpy(r.row + RECORD_ROW_TIME, &time, 4), memcpy(r.row + RECORD_ROW_SET, &set, 4);
+    return r;
+}
+
+static void test_lunar_draws_its_own_records(void)
+{
+    race_records_reset(), race_records_tracks_reset();
+    race_records_make(CIRCUIT, LAYOUT_RALLY, 0, 8)->totals[0] = named_row("DESERT", 90000);
+    race_records_tracks_make("lunar", LAYOUT_RALLY, 0, 8, "viper", NULL)->totals[0] = named_row("ZEROG", 95000);
+    race_records_tracks_make("lunar", LAYOUT_RALLY, 0, 8, "rx7", NULL)->totals[0] = named_row("APOLLO", 97000);
+    int lunar = 1;
+    run_lunar = &lunar;
+    BestTimesPlus plus;
+    best_times_pages_open(&plus, CIRCUIT, LAYOUT_RALLY, 0, 0, 1);
+    reset((int[]){ SHIFT_NOTHING }, 1);
+    (void)run(&plus, CIRCUIT);
+    CHECK(was_drawn("ZEROG") && was_drawn("APOLLO"));   /* both cars' rows */
+    CHECK(!was_drawn("DESERT"));
+    CHECK(plus.own != NULL && strcmp(plus.own, "lunar") == 0);
+    lunar = 0;   /* Rusty's rally without the pick: race_records.dat's */
+    best_times_pages_open(&plus, CIRCUIT, LAYOUT_RALLY, 0, 0, 1);
+    reset((int[]){ SHIFT_NOTHING }, 1);
+    (void)run(&plus, CIRCUIT);
+    CHECK(was_drawn("DESERT") && !was_drawn("ZEROG"));
+    CHECK(plus.own == NULL);
+    lunar = 1;   /* an arrow off Lunar: the next track's own, no Lunar */
+    best_times_pages_open(&plus, CIRCUIT, 0, 0, 0, 1);
+    static const int next[] = { RIGHT, RIGHT, RIGHT, ENTER };
+    reset(next, 4);
+    (void)run(&plus, CIRCUIT);
+    CHECK_EQ_INT(lunar, 0);
+    CHECK(plus.own == NULL);
+    CHECK(!was_drawn("ZEROG"));
+    run_lunar = NULL;
+    race_records_reset(), race_records_tracks_reset();
+}
+
 /* the strip names the table shown and the page; an empty table says so, the top speed's row too */
 static void test_the_strip_names_the_table(void)
 {
@@ -624,6 +670,7 @@ int main(void)
     test_no_plus_is_original();
     test_the_standard_arrows_walk_the_original();
     test_lunar_shows_the_moon();
+    test_lunar_draws_its_own_records();
     test_an_editions_arrows_walk_its_tracks();
     test_the_strip_names_the_table();
     test_tab_turns_the_page();

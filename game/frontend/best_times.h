@@ -106,6 +106,7 @@ typedef struct BestTimesPlus {
     int layout, cheats, laps;   /* the table shown: LAYOUT_* bits, 0/1, the lap count (0 on a stage) */
     int page;                   /* 0 the ten best, 1 a circuit's best lap or a stage's segments */
     int focus;                  /* the row the keys are on: BEST_FOCUS_* */
+    const char *own;            /* port (dep59 L6): the id of the track shown when its records are race_records_tracks.dat's (Lunar's), else NULL */
 } BestTimesPlus;
 enum { BEST_FOCUS_LAYOUT = 0, BEST_FOCUS_CHEATS = 1, BEST_FOCUS_LAPS = 2, BEST_FOCUS_PAGE = 3, BEST_FOCUS_FOOTER = 4 };
 

@@ -5,10 +5,12 @@
 #include "game/race/car_registry.h"
 #include "game/sys/edition_file.h"
 #include "game/sys/race_records_added.h"
+#include "game/sys/race_records_tracks.h"
 
 #include <string.h>
 
-enum { ROWS = RACE_RECORDS_ROWS, SEGMENTS = RACE_RECORDS_SEGMENTS, JOINED = EDITION_LIST_MAX * RACE_RECORDS_ROWS };
+enum { ROWS = RACE_RECORDS_ROWS, SEGMENTS = RACE_RECORDS_SEGMENTS, ID_CAP = 2 * EDITION_LIST_MAX,   /* the cars a join takes: every stock and added car (an edition has at most EDITION_LIST_MAX) */
+    JOINED = ID_CAP * RACE_RECORDS_ROWS };
 
 static int32_t field(const RecordRow *r, int at)
 {
@@ -65,14 +67,32 @@ static int join_totals(RecordRow rows[], int n, const RecordTable *t, int car)
     return n;
 }
 
-int race_records_cars_merge(int track, int layout, int cheats, int laps, const char *const ids[], int n, RecordTable *out)
+/* where the cars' tables are: the car store's, by the original's track number, or race_records_tracks.dat's by a track's id (`own`) */
+typedef struct {
+    int track;
+    const char *own;
+} Source;
+
+static const RecordTable *table_of(const Source *src, int layout, int cheats, int laps, const char *car)
+{
+    return src->own != NULL ? race_records_tracks_find(src->own, layout, cheats, laps, car)
+                            : race_records_added_find(src->track, layout, cheats, laps, car);
+}
+
+static const RecordRow *lap_of(const Source *src, int layout, int cheats, const char *car)
+{
+    return src->own != NULL ? race_records_tracks_lap_find(src->own, layout, cheats, car)
+                            : race_records_added_lap_find(src->track, layout, cheats, car);
+}
+
+static int merge(const Source *src, int layout, int cheats, int laps, const char *const ids[], int n, RecordTable *out)
 {
     static RecordRow rows[JOINED + 1];
     table_empty(out);
     int found = 0, count = 0;
     const RecordTable *first = NULL;   /* the table the best total is from */
     for (int c = 0; c < n; c++) {
-        const RecordTable *const t = race_records_added_find(track, layout, cheats, laps, ids[c]);
+        const RecordTable *const t = table_of(src, layout, cheats, laps, ids[c]);
         if (t == NULL) continue;
         found = 1;
         const int car = added_number(ids[c]);
@@ -89,17 +109,41 @@ int race_records_cars_merge(int track, int layout, int cheats, int laps, const c
     return found;
 }
 
-int race_records_cars_lap_merge(int track, int layout, int cheats, const char *const ids[], int n, RecordRow *out)
+int race_records_cars_merge(int track, int layout, int cheats, int laps, const char *const ids[], int n, RecordTable *out)
+{
+    const Source src = { track, NULL };
+    return merge(&src, layout, cheats, laps, ids, n, out);
+}
+
+int race_records_tracks_merge(const char *track, int layout, int cheats, int laps, const char *const ids[], int n, RecordTable *out)
+{
+    const Source src = { 0, track };
+    return merge(&src, layout, cheats, laps, ids, n, out);
+}
+
+static int lap_merge(const Source *src, int layout, int cheats, const char *const ids[], int n, RecordRow *out)
 {
     race_records_row_empty(out);
     int found = 0;
     for (int c = 0; c < n; c++) {
-        const RecordRow *const lap = race_records_added_lap_find(track, layout, cheats, ids[c]);
+        const RecordRow *const lap = lap_of(src, layout, cheats, ids[c]);
         if (lap == NULL) continue;
         found = 1;
         keep_best(out, lap, 1, added_number(ids[c]));
     }
     return found;
+}
+
+int race_records_cars_lap_merge(int track, int layout, int cheats, const char *const ids[], int n, RecordRow *out)
+{
+    const Source src = { track, NULL };
+    return lap_merge(&src, layout, cheats, ids, n, out);
+}
+
+int race_records_tracks_lap_merge(const char *track, int layout, int cheats, const char *const ids[], int n, RecordRow *out)
+{
+    const Source src = { 0, track };
+    return lap_merge(&src, layout, cheats, ids, n, out);
 }
 
 /* `a` and `b` the same row but for their car words */
@@ -157,6 +201,47 @@ int race_records_shown_laps(int track, int layout, int cheats, int *out, int max
     for (int laps = 0; laps <= RACE_RECORDS_LAPS_MAX && count < max; laps++)
         for (int c = 0; c < n; c++)
             if (race_records_added_find(track, layout, cheats, laps, ids[c]) != NULL) {
+                out[count++] = laps;
+                break;
+            }
+    return count;
+}
+
+/* port (dep59 L6): the cars whose tables a track of race_records_tracks.dat is shown from: the edition's in one of its own, else every car
+ * that has a table for the track in the file (the standard edition shows what any car did there, as race_records.dat mixes them) */
+static int shown_cars(const char *track, Edition *e, const char *ids[], int cap)
+{
+    const int n = race_records_edition_cars(e, ids, cap);
+    return n > 0 ? n : race_records_tracks_cars(track, ids, cap);
+}
+
+const RecordTable *race_records_shown_track(const char *track, int layout, int cheats, int laps)
+{
+    static Edition e;
+    static RecordTable joined;
+    const char *ids[ID_CAP];
+    const int n = shown_cars(track, &e, ids, ID_CAP);
+    return n > 0 && race_records_tracks_merge(track, layout, cheats, laps, ids, n, &joined) ? &joined : NULL;
+}
+
+const RecordRow *race_records_shown_track_lap(const char *track, int layout, int cheats)
+{
+    static Edition e;
+    static RecordRow joined;
+    const char *ids[ID_CAP];
+    const int n = shown_cars(track, &e, ids, ID_CAP);
+    return n > 0 && race_records_tracks_lap_merge(track, layout, cheats, ids, n, &joined) ? &joined : NULL;
+}
+
+int race_records_shown_track_laps(const char *track, int layout, int cheats, int *out, int max)
+{
+    static Edition e;
+    const char *ids[ID_CAP];
+    const int n = shown_cars(track, &e, ids, ID_CAP);
+    int count = 0;
+    for (int laps = 0; laps <= RACE_RECORDS_LAPS_MAX && count < max; laps++)
+        for (int c = 0; c < n; c++)
+            if (race_records_tracks_find(track, layout, cheats, laps, ids[c]) != NULL) {
                 out[count++] = laps;
                 break;
             }

@@ -1,6 +1,7 @@
 #include "game/frontend/best_times.h"
 
 #include "game/frontend/best_times_pages.h"
+#include "formats/stock_content.h"
 #include "game/sys/free_laps.h"
 
 #include <stdio.h>
@@ -79,6 +80,12 @@ static const char *bank_file(const BestTimesInputs *in, const BestTimesState *st
     return in->lunar != NULL && *in->lunar && track_of(st) == 3 ? LUNAR_BEST_FILE : TRACK_FILE[track_of(st)];
 }
 
+/* port (dep59 L6): the id Lunar's records are kept under when the screen is on its entry, else NULL (Rusty's own, race_records.dat's) */
+static const char *own_of(const BestTimesInputs *in, const BestTimesState *st)
+{
+    return in->lunar != NULL && *in->lunar && track_of(st) == 3 ? stock_track_id(STOCK_TRACK_LUNAR) : NULL;
+}
+
 /* the palette from the bank's "!pal", the screens cleared, the palette set */
 static void palette_load(Screen *s, BestTimesState *st, const BestTimesOps *ops)
 {
@@ -151,6 +158,7 @@ static void draw(Screen *s, const BestTimesInputs *in, BestTimesState *st, Dialo
     ops->select(ops->ctx, in->screen);
     if (s->refresh || s->repaint) {
         ops->blit(ops->ctx, ops->shape(ops->ctx, s->bank, "bgnd"));
+        if (st->plus) st->plus->own = own_of(in, st);   /* port (dep59 L6): this entry's records */
         if (st->plus) best_times_pages_draw(in, st, s->item >= PAGES ? s->item - PAGES : -1, &s->hits, ops);   /* port (dep55) */
         else draw_records(in, st, ops);
     }
@@ -218,7 +226,7 @@ static void change_track(Screen *s, const BestTimesInputs *in, BestTimesState *s
         ops->car_flags(ops->ctx);
     }
     set_laps(st);
-    if (st->plus) best_times_pages_track(st->plus, track_of(st), port_laps(), g16(st->config, TRACK_SELECT_LAPS_CHOICE));   /* port (dep55) */
+    if (st->plus) st->plus->own = NULL, best_times_pages_track(st->plus, track_of(st), port_laps(), g16(st->config, TRACK_SELECT_LAPS_CHOICE));   /* port (dep55); L6: off Lunar's entry */
     ops->fade_out(ops->ctx, 0, ALL);
     ops->pointer_hide(ops->ctx);
     ops->music_feed(ops->ctx);
