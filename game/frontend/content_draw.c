@@ -164,7 +164,10 @@ static void game_words(const ContentOps *o, int tab)
 
 static void card(const ContentOps *o, const ContentPage *p)
 {
-    const int row = content_nav_selected_row(p->nav, p->view->rows);
+    /* with no row selected (the pointer on the tabs, the All row) the page's first row's card stands, its buttons grey (card_on is off
+     * with no row): the panel is never empty */
+    int row = content_nav_selected_row(p->nav, p->view->rows);
+    if (row < 0) row = content_nav_row(p->nav, p->view->rows, 1);
     if (row < 0) return;
     const ContentRow *r = &p->view->rows->row[row];
     o->fill(o->ctx, CONTENT_CARD_X0, CONTENT_PREVIEW_Y0, CONTENT_CARD_X1, CONTENT_PREVIEW_Y1, CONTENT_RULE_RGB);
