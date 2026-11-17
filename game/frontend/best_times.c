@@ -71,6 +71,14 @@ static int track_of(const BestTimesState *st)
     return g16(st->config, TRACK_SELECT_TRACK);
 }
 
+const char LUNAR_BEST_FILE[] = "lunarbst";
+
+/* port (dep59 Lunar L5): the screen's bank's name: the moon's on Lunar's entry (Rusty, 3, with the pick) */
+static const char *bank_file(const BestTimesInputs *in, const BestTimesState *st)
+{
+    return in->lunar != NULL && *in->lunar && track_of(st) == 3 ? LUNAR_BEST_FILE : TRACK_FILE[track_of(st)];
+}
+
 /* the palette from the bank's "!pal", the screens cleared, the palette set */
 static void palette_load(Screen *s, BestTimesState *st, const BestTimesOps *ops)
 {
@@ -201,6 +209,7 @@ static void set_laps(BestTimesState *st)
 static void change_track(Screen *s, const BestTimesInputs *in, BestTimesState *st, int track,
                          const BestTimesOps *ops)
 {
+    if (in->lunar != NULL) *in->lunar = 0;   /* port (dep59 Lunar L5): off Lunar's entry */
     char path[TEXT];
     p16(st->config, TRACK_SELECT_TRACK, track);
     if (g16(st->config, TRACK_SELECT_RACE_TYPE) == TOURNAMENT) {
@@ -215,7 +224,7 @@ static void change_track(Screen *s, const BestTimesInputs *in, BestTimesState *s
     ops->music_feed(ops->ctx);
     ops->free_inverse(ops->ctx);
     ops->free(ops->ctx, s->bank);
-    snprintf(path, sizeof path, "%stracksel/%s.qfs", in->paths, TRACK_FILE[track_of(st)]);
+    snprintf(path, sizeof path, "%stracksel/%s.qfs", in->paths, bank_file(in, st));
     s->bank = ops->load_bank(ops->ctx, path, 0);
     snprintf(path, sizeof path, "tracksel/%s.inv", TRACK_FILE[track_of(st)]);
     st->inverse = ops->load_inverse(ops->ctx, path);
@@ -311,7 +320,7 @@ int32_t best_times_screen(const BestTimesInputs *in, BestTimesState *st, DialogP
     s.item = s.was = BACK;
     s.redraw = s.refresh = s.armed = s.released = 1;
     if (!p->active) move_to(BACK, ops);
-    snprintf(path, sizeof path, "tracksel/%s.qfs", TRACK_FILE[track_of(st)]);
+    snprintf(path, sizeof path, "tracksel/%s.qfs", bank_file(in, st));
     s.bank = ops->load_art(ops->ctx, path);
     snprintf(path, sizeof path, "tracksel/%s.inv", TRACK_FILE[track_of(st)]);
     st->inverse = ops->load_inverse(ops->ctx, path);

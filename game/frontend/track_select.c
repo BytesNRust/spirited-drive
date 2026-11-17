@@ -1,4 +1,6 @@
 #include "game/frontend/track_select.h"
+#include "formats/stock_content.h"
+#include "game/audio/lunar_speech.h"
 #include "game/race/track_fam.h"
 #include "game/race/psx_lgs.h"
 #include "game/race/weather.h"
@@ -20,6 +22,8 @@ enum {
      * variant's name was, Inverse and Mirror a row above each; the value left of the stages' segment boxes (213) */
     SWITCH_X = 6, SWITCH_VALUE_X = 0x82, SWITCH_HIT_X1 = 0xd0, SWITCH_PITCH = 0x18
 };
+
+const char LUNAR_SELECT_FILE[] = "lunarsel";
 
 /* the tracks' files (0046751c) and music (00467540) */
 static const char *const TRACK_FILE[TRACKS] = { "citysel", "coastsel", "alpsel", "rustsel", "autsel",
@@ -77,6 +81,21 @@ static void p16(uint8_t *config, int at, int v)
 static int track_of(const TrackSelectState *st)
 {
     return g16(st->config, TRACK_SELECT_TRACK);
+}
+
+/* port (dep59 Lunar L5): 1 when the screen is Lunar Springs' (Rusty with the Lunar pick) */
+static int lunar_on(const TrackSelectState *st)
+{
+    return st->plus && st->plus->lunar != NULL && *st->plus->lunar && track_of(st) == CIRCUIT;
+}
+
+/* the entry shown: the track, or the Lunar entry (10) */
+static int entry_of(const TrackSelectState *st) { return lunar_on(st) ? STOCK_TRACK_LUNAR : track_of(st); }
+
+/* the list the arrows walk: Lunar in it as the caller offers (TrackSelectPlus.lunar_list), never without a pick to keep */
+static int lunar_list(const TrackSelectState *st)
+{
+    return st->plus && st->plus->lunar != NULL ? st->plus->lunar_list : TRACK_LIST_LUNAR_NEVER;
 }
 
 int track_select_weather_step(int weather, int direction)
@@ -137,7 +156,7 @@ static int32_t load_track(const TrackSelectInputs *in, TrackSelectState *st, uin
 {
     char path[PATH];
     const char *file = TRACK_FILE[track_of(st)];
-    snprintf(path, sizeof path, "%stracksel/%s.qfs", in->paths, file);
+    snprintf(path, sizeof path, "%stracksel/%s.qfs", in->paths, lunar_on(st) ? LUNAR_SELECT_FILE : file);   /* the moon's: Rusty's map */
     const int32_t bank = ops->load_bank(ops->ctx, path, 0);
     snprintf(path, sizeof path, "tracksel/%s.inv", file);
     st->inverse = ops->load_inverse(ops->ctx, path);
@@ -164,6 +183,7 @@ static int variant_of(const TrackSelectState *st)
 
 static int no_time_of_day(const TrackSelectInputs *in, const TrackSelectState *st, int track)
 {
+    if (lunar_on(st)) return 1;   /* port (dep59 Lunar L5): the moon by day */
     if (st->plus && st->plus->light_time) return track == LOST_VEGAS;   /* port: the console version time follows a variant too */
     if (st->plus)
         return !track_fam_time_offered(track, *st->plus->variant_m, *st->plus->variant_r, st->plus->variant_time);
@@ -226,7 +246,7 @@ static void time_masked(int32_t bank, const char *const tags[3], const TrackSele
 
 static int weather_on(const TrackSelectState *st)
 {
-    return st->plus && st->plus->port_track_weather && st->plus->weather;
+    return st->plus && st->plus->port_track_weather && st->plus->weather && !lunar_on(st);   /* port (dep59 Lunar): the moon is clear */
 }
 
 static int reverse_on(const TrackSelectState *st)
@@ -241,7 +261,8 @@ int track_select_switch_rows(const TrackSelectPlus *plus, int track, int rows[3]
     if (plus == NULL || !plus->variant_switches) return 0;   /* a tournament's too: its variants, chosen before its first race */
     if (track != LOST_VEGAS && plus->unlock_m) rows[n++] = TRACK_SELECT_MIRROR;
     if (plus->reverse != NULL && track >= CIRCUIT) rows[n++] = TRACK_SELECT_INVERSE;
-    if (track != LOST_VEGAS && plus->unlock_r) rows[n++] = TRACK_SELECT_RALLY;
+    const int lunar = plus->lunar != NULL && *plus->lunar && track == CIRCUIT;   /* port (dep59 Lunar L5): Lunar is the rally, no row */
+    if (track != LOST_VEGAS && plus->unlock_r && !lunar) rows[n++] = TRACK_SELECT_RALLY;
     return n;
 }
 
@@ -309,13 +330,14 @@ static const Edition *edition_of(const TrackSelectInputs *in) { return in->editi
 
 static int has_variant(const TrackSelectPlus *plus, int track, int variant)
 {
+    if (track == STOCK_TRACK_LUNAR && variant == 2) return 0;   /* port (dep59 Lunar L5): no Lunar Rally entry, the moon is one */
     return variant == 0 || (track != LOST_VEGAS && (variant == 1 ? plus->unlock_m : plus->unlock_r));
 }
 
 void track_select_entry(int track, int variant, int direction, const TrackList *tracks, int unlock_m, int unlock_r,
                         int *to_track, int *to_variant)
 {
-    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, 0, 0, 0, 0 };
+    const TrackSelectPlus plus = { unlock_m, unlock_r, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, 0, 0, 0, 0, NULL, 0 };
     for (int v = variant + direction; v >= 0 && v <= 2; v += direction)
         if (has_variant(&plus, track, v)) {
             *to_track = track, *to_variant = v;
@@ -519,24 +541,35 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
     if (item == DONE) return 1;
     if ((item == PREV || item == NEXT) && offered(st, track) && !switches_on(st)) {   /* port: the track's variants are entries too */
         int to, variant;
+        const int entry = entry_of(st);   /* port (dep59 Lunar L5): Lunar's own, its mirror the one variant */
         TrackList l;
-        track_list_build(&l, edition_of(in), in->lost_vegas, TRACK_LIST_LUNAR_NEVER);
-        track_select_entry(track, variant_of(st), item == PREV ? -1 : 1, &l, st->plus->unlock_m, st->plus->unlock_r, &to, &variant);
-        *st->plus->variant_m = variant == 1, *st->plus->variant_r = variant == 2;
-        if (to == track) {   /* the same track: its art stays, the screen is drawn again */
+        track_list_build(&l, edition_of(in), in->lost_vegas, lunar_list(st));
+        track_select_entry(entry, entry == STOCK_TRACK_LUNAR ? *st->plus->variant_m != 0 : variant_of(st), item == PREV ? -1 : 1, &l,
+                           st->plus->unlock_m, st->plus->unlock_r, &to, &variant);
+        *st->plus->variant_m = variant == 1, *st->plus->variant_r = variant == 2 || to == STOCK_TRACK_LUNAR;
+        if (st->plus->lunar != NULL) *st->plus->lunar = to == STOCK_TRACK_LUNAR;
+        if (to == entry) {   /* the same entry: its art stays, the screen is drawn again */
             *redraw = 1;
             return 0;
         }
-        *bank = change_track(in, st, *bank, to, pal, ops);
+        *bank = change_track(in, st, *bank, to == STOCK_TRACK_LUNAR ? CIRCUIT : to, pal, ops);
         *redraw = 1;
         return -1;
     }
     if (item == PREV || item == NEXT) {
         TrackList l;   /* port (dep59 step 4): the edition's tracks; the standard edition's are the original's walk */
-        track_list_build(&l, edition_of(in), in->lost_vegas, TRACK_LIST_LUNAR_NEVER);
-        const int to = track_list_step(&l, (int16_t)track, item == PREV ? -1 : 1);
-        if (switches_on(st)) lost_vegas_step(st->plus, track, to);   /* port (dep56, dep65): it has neither; the choice comes back after it */
-        *bank = change_track(in, st, *bank, to, pal, ops);
+        track_list_build(&l, edition_of(in), in->lost_vegas, lunar_list(st));
+        const int entry = entry_of(st);
+        const int to = track_list_step(&l, (int16_t)entry, item == PREV ? -1 : 1);
+        const int to_track = to == STOCK_TRACK_LUNAR ? CIRCUIT : to;
+        if (switches_on(st)) lost_vegas_step(st->plus, track, to_track);   /* port (dep56, dep65): it has neither; the choice comes back after it */
+        if (st->plus != NULL && st->plus->lunar != NULL) {   /* port (dep59 Lunar L5): onto the moon its rally, off it the choice's */
+            if (to == STOCK_TRACK_LUNAR && entry != STOCK_TRACK_LUNAR && track != LOST_VEGAS) st->plus->kept_r = *st->plus->variant_r != 0;
+            if (to == STOCK_TRACK_LUNAR) *st->plus->variant_r = 1;
+            else if (entry == STOCK_TRACK_LUNAR && to_track != LOST_VEGAS) *st->plus->variant_r = st->plus->kept_r && st->plus->unlock_r;
+            *st->plus->lunar = to == STOCK_TRACK_LUNAR;
+        }
+        *bank = change_track(in, st, *bank, to_track, pal, ops);
         *redraw = 1;
         return -1;
     }
@@ -665,7 +698,7 @@ int track_select_screen(const TrackSelectInputs *in, TrackSelectState *st, Dialo
             if (refresh) {
                 ops->pointer_mark(ops->ctx, p);
                 if (p->active) ops->pointer_buttons(ops->ctx);
-                ops->music_start(ops->ctx, MUSIC[track_of(st)]);
+                ops->music_start(ops->ctx, lunar_on(st) ? LUNAR_SPEECH_NAME : MUSIC[track_of(st)]);
                 ops->fade_in(ops->ctx, 0, 0x100, pal);
                 ops->text_styles(ops->ctx);
                 ops->music_play(ops->ctx);

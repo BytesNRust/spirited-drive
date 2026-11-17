@@ -40,7 +40,8 @@ void cg_variant_choice_keep(int kept_m, int kept_r, const int *reverse)
 {
     if (!choice_on()) return;
     const int takes = variant_choice_takes(cg_g.track);
-    choice_write(takes ? cg_g.variant_m : kept_m, takes ? cg_g.variant_r : kept_r, reverse);
+    const int lunar = cg_g.track == 3 && track_pick_lunar();   /* port (dep59 Lunar L5): Lunar's rally is its own, not the choice */
+    choice_write(takes ? cg_g.variant_m : kept_m, takes && !lunar ? cg_g.variant_r : kept_r, reverse);
 }
 
 void cg_variants_chosen(void *ctx)

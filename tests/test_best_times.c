@@ -69,7 +69,8 @@ static void f_pointer_off(void *ctx)
     (void)ctx;
     fk.pointer_on = 0;
 }
-static int32_t f_load_art(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
+static char art_loaded[64], bank_loaded[64];   /* dep59 Lunar L5: the names the screen asked for, last */
+static int32_t f_load_art(void *ctx, const char *name) { (void)ctx, snprintf(art_loaded, sizeof art_loaded, "%s", name); return 1; }
 static int32_t f_load_inverse(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
 static void f_nothing(void *ctx) { (void)ctx; }
 /* a picture as the bank gives it, big enough for the palette read from "!pal" (a count byte, then 0x10 header bytes) */
@@ -126,7 +127,8 @@ static void f_fade_out(void *ctx, int32_t first, int32_t count) { (void)ctx, (vo
 static void f_free(void *ctx, int32_t bank) { (void)ctx, (void)bank; }
 static int32_t f_load_bank(void *ctx, const char *path, int32_t flags)
 {
-    (void)ctx, (void)path, (void)flags;
+    (void)ctx, (void)flags;
+    snprintf(bank_loaded, sizeof bank_loaded, "%s", path);
     return 1;
 }
 static int32_t f_deadline_passed(void *ctx)
@@ -227,13 +229,15 @@ static void reset(const int *keys, int count)
 
 static uint8_t run_config[TRACK_SELECT_CONFIG];
 
+static int *run_lunar;   /* dep59 Lunar L5: BestTimesInputs.lunar; NULL none */
+
 /* the screen on `track`, the menu's laps choice 1, its arrows walking `tracks` (NULL the original's walk), Lost Vegas `lost_vegas` */
 static int32_t run_walk(BestTimesPlus *plus, int track, const TrackList *tracks, int lost_vegas)
 {
     uint8_t *const config = run_config;
     static uint8_t screen_palette[0x300];
     static uint8_t records[BEST_TIMES_RECORDS];
-    const BestTimesInputs in = { "", 0, lost_vegas, 0, 0, records, tracks };
+    const BestTimesInputs in = { "", 0, lost_vegas, 0, 0, records, tracks, run_lunar };
     BestTimesState st = { config, 0, screen_palette, plus };
     DialogPointer p = { 0 };
     p.active = fk.active;
@@ -267,6 +271,30 @@ static void test_the_standard_arrows_walk_the_original(void)
     CHECK_EQ_INT(arrow_from(8, 1, 1, NULL, 1), 0);
     CHECK_EQ_INT(arrow_from(0, 0, 1, NULL, 1), 8);
     CHECK_EQ_INT(arrow_from(CIRCUIT, 1, 1, NULL, 0), CIRCUIT + 1);
+}
+
+/* dep59 Lunar L5: opened on Lunar's entry (Rusty with the pick) the screen shows the moon's art; an arrow off it drops the pick and shows
+ * the next track's own */
+static void test_lunar_shows_the_moon(void)
+{
+    int lunar = 1;
+    run_lunar = &lunar;
+    reset((int[]){ ESCAPE }, 1);
+    run_walk(NULL, CIRCUIT, NULL, 0);
+    CHECK(strcmp(art_loaded, "tracksel/lunarbst.qfs") == 0);
+    CHECK_EQ_INT(lunar, 1);
+    CHECK_EQ_INT(arrow_from(CIRCUIT, 1, 1, NULL, 0), CIRCUIT + 1);
+    CHECK_EQ_INT(lunar, 0);
+    CHECK(strcmp(bank_loaded, "tracksel/autbst.qfs") == 0);
+    lunar = 0;
+    reset((int[]){ ESCAPE }, 1);
+    run_walk(NULL, CIRCUIT, NULL, 0);   /* Rusty's rally without the pick: the desert's */
+    CHECK(strcmp(art_loaded, "tracksel/rustbst.qfs") == 0);
+    lunar = 1;
+    reset((int[]){ ESCAPE }, 1);
+    run_walk(NULL, CIRCUIT + 1, NULL, 0);   /* the pick off Rusty: nothing */
+    CHECK(strcmp(art_loaded, "tracksel/autbst.qfs") == 0);
+    run_lunar = NULL;
 }
 
 /* port (dep59 step 4): an own edition's arrows walk its tracks in its order, round the list both ways */
@@ -420,7 +448,7 @@ static void draw_strip(BestTimesPlus *plus, int track, int lit, BestPagesHits *h
     static uint8_t config[TRACK_SELECT_CONFIG];
     static uint8_t screen_palette[0x300];
     static uint8_t records[BEST_TIMES_RECORDS];
-    const BestTimesInputs in = { "", 0, 0, 0, 0, records, NULL };
+    const BestTimesInputs in = { "", 0, 0, 0, 0, records, NULL, NULL };
     const BestTimesState st = { config, 0, screen_palette, plus };
     memset(config, 0, sizeof config);
     config[TRACK_SELECT_TRACK] = (uint8_t)track;
@@ -595,6 +623,7 @@ int main(void)
 {
     test_no_plus_is_original();
     test_the_standard_arrows_walk_the_original();
+    test_lunar_shows_the_moon();
     test_an_editions_arrows_walk_its_tracks();
     test_the_strip_names_the_table();
     test_tab_turns_the_page();

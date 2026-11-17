@@ -17,7 +17,8 @@ typedef struct Script {
 static void nothing(void *ctx) { (void)ctx; }
 static int32_t pointer_x, pointer_y;   /* where the screen last put the pointer: the keys' moves are seen through it */
 static void move_to(void *ctx, int32_t x, int32_t y) { (void)ctx; pointer_x = x, pointer_y = y; }
-static int32_t load_bank(void *ctx, const char *path, int32_t flags) { (void)ctx, (void)path, (void)flags; return 1; }
+static char bank_path[64], music_name[64];   /* dep59 Lunar L5: the last bank and line the screen asked for */
+static int32_t load_bank(void *ctx, const char *path, int32_t flags) { (void)ctx, (void)flags, snprintf(bank_path, sizeof bank_path, "%s", path); return 1; }
 static int32_t load_inverse(void *ctx, const char *name) { (void)ctx, (void)name; return 1; }
 static uint8_t picture[0x400];   /* the bank's !pal and every shape: black */
 /* the evening art of the time-of-day item: 4 x 1 texels, the last masked blit of a shape of that size is kept */
@@ -57,7 +58,7 @@ static void text(void *ctx, const char *t, int32_t x, int32_t y)
 }
 static void mark(void *ctx, DialogPointer *p) { (void)ctx, (void)p; }
 static int32_t zero(void *ctx) { (void)ctx; return 0; }
-static void music_start(void *ctx, const char *name) { (void)ctx, (void)name; }
+static void music_start(void *ctx, const char *name) { (void)ctx, snprintf(music_name, sizeof music_name, "%s", name); }
 static void fade_in(void *ctx, int32_t first, int32_t count, const uint8_t *rgb)
 {
     (void)ctx, (void)first, (void)count, (void)rgb;
@@ -83,6 +84,7 @@ static int switches, locked;   /* locked: a tournament past its first race (Trac
 static int32_t variant_m_in, variant_r_in, variant_m_out, variant_r_out;
 static int kept_m_in, kept_r_in, kept_m_out, kept_r_out;   /* dep65: the choice kept through Lost Vegas (TrackSelectPlus.kept_m) */
 static int track_out;
+static int *lunar_in, lunar_list_in;   /* dep59 Lunar L5: TrackSelectPlus.lunar and lunar_list; NULL, none */
 static const Edition *edition_in;   /* port (dep59 step 4): the edition the screen walks, NULL the standard one */
 
 /* the screen on track 3 (not a tournament), the keys, and what the weather and the console version time are afterwards */
@@ -94,7 +96,7 @@ static void run_on(const uint16_t *keys, int count, int *weather, int *light_tim
     config[TRACK_SELECT_LAPS] = 8;
     const TrackSelectInputs in = { "", 0, 0, 0, 1, 1, 1, edition_in };   /* Lost Vegas on (the standard edition's; an edition lists its own) */
     TrackSelectPlus plus = { switches, switches, &variant_m, &variant_r, 0, 1, weather, use_light_time ? light_time : NULL, reverse, custom_laps,
-                             switches, locked, kept_m_in, kept_r_in };
+                             switches, locked, kept_m_in, kept_r_in, lunar_in, lunar_list_in };
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
     DialogPointer p = { 0, 0, 0, 0, 0, 0 };
     Script script = { keys, 0, count };
@@ -215,7 +217,7 @@ static void test_without_the_row_up_is_the_originals(void)
     uint8_t config[TRACK_SELECT_CONFIG] = { 0 }, palette[0x300] = { 0 };
     int32_t time_of_day[9] = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }, vm = 0, vr = 0;
     config[TRACK_SELECT_TRACK] = 3;
-    TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 0, &weather, NULL, NULL, NULL, 0, 0, 0, 0 };   /* port_track_weather 0 */
+    TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 0, &weather, NULL, NULL, NULL, 0, 0, 0, 0, NULL, 0 };   /* port_track_weather 0 */
     TrackSelectState st = { config, time_of_day, 0, palette, &plus };
     (void)light_time;
     const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1, NULL };
@@ -253,7 +255,7 @@ static void test_night_label_is_text(void)
     palette_usable_set(after_a_race);
     for (int night = 0; night < 2; night++) {
         int light_time = night ? 3 : 2;
-        TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 1, &weather, &light_time, NULL, NULL, 0, 0, 0, 0 };
+        TrackSelectPlus plus = { 0, 0, &vm, &vr, 0, 1, &weather, &light_time, NULL, NULL, 0, 0, 0, 0, NULL, 0 };
         TrackSelectState st = { config, time_of_day, 0, palette, &plus };
         const TrackSelectInputs in = { "", 0, 0, 0, 0, 1, 1, NULL };
         DialogPointer p = { 0, 0, 0, 0, 0, 0 };
@@ -360,6 +362,42 @@ static void test_an_edition_walks_its_tracks(void)
     edition_in = NULL;
 }
 
+/* dep59 Lunar L5: Lunar Springs' entry right after Rusty's: the moon's art and line, its rally set and the pick on; on to Autumn, both off.
+ * With the switches the same walk, and off the moon the rally is the player's choice again (kept_r) */
+static void test_lunar_is_an_entry(void)
+{
+    int weather = 0, light_time = 0, reverse = 0, lunar = 0;
+    lunar_in = &lunar, lunar_list_in = TRACK_LIST_LUNAR_ON;
+    const uint16_t next[] = { RIGHT, RIGHT, ENTER, LEFT, LEFT, ENTER };   /* Next once, back to Done */
+    for (switches = 0; switches <= 1; switches++) {
+        lunar = 0, variant_m_in = 0, variant_r_in = 0, kept_r_in = 1;
+        run_on(next, 6, &weather, &light_time, 0, &reverse, 3);
+        CHECK_EQ_INT(track_out, 3);
+        CHECK_EQ_INT(lunar, 1);
+        CHECK_EQ_INT(variant_r_out, 1);
+        CHECK(strcmp(bank_path, "tracksel/lunarsel.qfs") == 0);
+        CHECK(strcmp(music_name, "lunar.eas") == 0);
+        variant_r_in = 1;
+        run_on(next, 6, &weather, &light_time, 0, &reverse, 3);
+        CHECK_EQ_INT(track_out, 4);
+        CHECK_EQ_INT(lunar, 0);
+        CHECK_EQ_INT(variant_r_out, switches);   /* entries: Autumn plain; switches: the player's rally choice (kept_r) back */
+        CHECK(strcmp(bank_path, "tracksel/autsel.qfs") == 0);
+    }
+    switches = 0;
+    lunar = 1, variant_r_in = 1;   /* back from Lunar: Rusty (no variants offered here) */
+    const uint16_t prev[] = { RIGHT, ENTER, LEFT, ENTER };
+    run_on(prev, 4, &weather, &light_time, 0, &reverse, 3);
+    CHECK_EQ_INT(track_out, 3);
+    CHECK_EQ_INT(lunar, 0);
+    CHECK_EQ_INT(variant_r_out, 0);
+    lunar_list_in = TRACK_LIST_LUNAR_NEVER, lunar = 0, variant_r_in = 0;   /* not offered: Rusty steps to Autumn */
+    run_on(next, 6, &weather, &light_time, 0, &reverse, 3);
+    CHECK_EQ_INT(track_out, 4);
+    CHECK_EQ_INT(lunar, 0);
+    lunar_in = NULL, lunar_list_in = 0, variant_r_in = 0, kept_r_in = 0;
+}
+
 static void test_the_switches_come_back_after_lost_vegas(void)
 {
     int weather = 0, light_time = 0, reverse = 0;
@@ -391,7 +429,7 @@ static void test_which_rows(void)
 {
     int reverse = 0, rows[3];
     int32_t vm = 0, vr = 0;
-    TrackSelectPlus plus = { 1, 1, &vm, &vr, 0, 1, NULL, NULL, &reverse, NULL, 1, 0, 0, 0 };
+    TrackSelectPlus plus = { 1, 1, &vm, &vr, 0, 1, NULL, NULL, &reverse, NULL, 1, 0, 0, 0, NULL, 0 };
     CHECK_EQ_INT(track_select_switch_rows(&plus, 3, rows), 3);
     CHECK(rows[0] == TRACK_SELECT_MIRROR && rows[1] == TRACK_SELECT_INVERSE && rows[2] == TRACK_SELECT_RALLY);
     CHECK_EQ_INT(track_select_switch_rows(&plus, 1, rows), 2);   /* a stage */
@@ -408,6 +446,11 @@ static void test_which_rows(void)
     plus.unlock_m = plus.unlock_r = 1, plus.reverse = &reverse, plus.variant_switches = 0;   /* Stock, Restored: entries */
     CHECK_EQ_INT(track_select_switch_rows(&plus, 3, rows), 0);
     CHECK_EQ_INT(track_select_switch_rows(NULL, 3, rows), 0);
+    int lunar = 1;   /* dep59 Lunar L5: Lunar is the rally: no Rally row on its screen */
+    plus.variant_switches = 1, plus.lunar = &lunar;
+    CHECK_EQ_INT(track_select_switch_rows(&plus, 3, rows), 2);
+    CHECK(rows[0] == TRACK_SELECT_MIRROR && rows[1] == TRACK_SELECT_INVERSE);
+    CHECK_EQ_INT(track_select_switch_rows(&plus, 1, rows), 2);   /* the pick holds on Rusty alone */
 }
 
 /* a tournament past its first race: the rows show its variants, and neither Enter, Left nor Right turns them */
@@ -436,6 +479,7 @@ int main(void)
     test_switch_rows();
     test_the_switches_come_back_after_lost_vegas();
     test_an_edition_walks_its_tracks();
+    test_lunar_is_an_entry();
     test_locked_rows_do_not_turn();
     test_which_rows();
     test_weather_row();
