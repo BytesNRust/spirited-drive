@@ -90,6 +90,10 @@ static void test_what_is_stock(void)
     snprintf(text, sizeof text, "name=A\n%stracks=city,coastal,alpine,rusty,autumn,burnt,vertigo\n", STOCK_CARS);   /* no Transtropolis */
     e = edition(text);
     CHECK(!edition_is_stock(&e));
+    snprintf(text, sizeof text, "name=A\n%stracks=transtropolis,city,coastal,alpine,rusty,autumn,burnt,vertigo,dune\n", STOCK_CARS);   /* an added track (T7b) */
+    e = edition(text);
+    CHECK(!edition_is_stock(&e));
+    CHECK(!edition_gate(&e).tournament && edition_gate(&e).tournament_why != NULL);   /* a tournament never takes it */
     CHECK(!edition_is_stock(NULL));
 }
 

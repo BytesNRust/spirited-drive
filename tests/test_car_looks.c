@@ -207,6 +207,18 @@ static void test_an_added_track(void)
     CHECK_EQ_INT(car_looks_saved_track(), -1);
     CHECK(car_looks_save_track(3));   /* an original: config.dat keeps it */
     CHECK(strstr(file("restomod.cfg"), "track=") == NULL);
+    const int again = add_track("dune", "ZZB");   /* each pick leaves the other's line alone when it has nothing to write */
+    CHECK(again >= TRACK_ADDED_FIRST);
+    CHECK(car_looks_save_lunar(1));
+    CHECK(car_looks_save_track(3));
+    CHECK_EQ_INT(car_looks_saved_lunar(), 1);
+    CHECK(car_looks_save_track(again));
+    CHECK(car_looks_save_lunar(0));
+    CHECK_EQ_INT(car_looks_saved_track(), again);
+    track_registry_clear();
+    platform_write_user_file("restomod.cfg", (const uint8_t *)"track=lunar-base\n", 17);   /* an id that only begins with lunar: not Lunar's */
+    CHECK_EQ_INT(car_looks_saved_lunar(), 0);
+    CHECK_EQ_INT(car_looks_saved_track(), CAR_LOOKS_NOT_LOADED);
     fresh("stock");
     CHECK(!car_looks_save_track(dune));
     CHECK_EQ_INT(car_looks_saved_track(), -1);   /* Restomod's alone */

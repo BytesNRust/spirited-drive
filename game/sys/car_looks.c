@@ -144,11 +144,13 @@ int car_looks_saved_track(void)
 bool car_looks_save_track(int track)
 {
     const TrackPiece *p = track_registry_piece(track);
+    if (p == NULL && car_looks_saved_lunar()) return restomod();   /* no added track to write: Lunar's line stays */
     return restomod() && put("track", p != NULL ? p->id : NULL);
 }
 
 bool car_looks_save_lunar(int lunar)
 {
+    if (!lunar && car_looks_saved_track() != -1) return restomod();   /* an added track's line is not Lunar's to take out */
     return restomod() && put("track", lunar ? "lunar" : NULL);
 }
 
