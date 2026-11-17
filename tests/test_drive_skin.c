@@ -8,6 +8,7 @@
 #include "formats/shpi_build.h"
 #include "game/race/car_mask.h"
 #include "game/sys/shape_bank.h"
+#include "game/viewer/drive_livery.h"
 #include "game/viewer/drive_skin.h"
 #include "test.h"
 
@@ -64,12 +65,13 @@ static uint8_t *bank_of(const char (*names)[4], int count, int w, int h, uint8_t
     return out;
 }
 
-/* a CFM: wwww [ORIP, SHPI high (topv, side 4 x 2), ORIP, SHPI low (topv 2 x 2)], every texel 7 */
-static uint8_t *cfm_of(size_t *size)
+/* a CFM: wwww [ORIP, SHPI high (topv and `second`, 4 x 2), ORIP, SHPI low (topv 2 x 2)], every texel 7 */
+static uint8_t *cfm_named(const char second[4], size_t *size)
 {
-    static const char HIGH[2][4] = { { 't', 'o', 'p', 'v' }, { 's', 'i', 'd', 'e' } }, LOW[1][4] = { { 't', 'o', 'p', 'v' } };
+    const char high_names[2][4] = { { 't', 'o', 'p', 'v' }, { second[0], second[1], second[2], second[3] } };
+    static const char LOW[1][4] = { { 't', 'o', 'p', 'v' } };
     size_t hn = 0, ln = 0;
-    uint8_t *high = bank_of(HIGH, 2, 4, 2, 7, &hn), *low = bank_of(LOW, 1, 2, 2, 7, &ln);
+    uint8_t *high = bank_of(high_names, 2, 4, 2, 7, &hn), *low = bank_of(LOW, 1, 2, 2, 7, &ln);
     const size_t table = 8 + 4 * 4, orip = 8;
     *size = table + orip + hn + orip + ln;
     uint8_t *f = calloc(*size, 1);
@@ -82,6 +84,8 @@ static uint8_t *cfm_of(size_t *size)
     png_free(high), png_free(low);
     return f;
 }
+
+static uint8_t *cfm_of(size_t *size) { return cfm_named("side", size); }
 
 /* the texels of bank `level`'s texture `name` (NULL when there is none) */
 static const uint8_t *texels(uint8_t *cfm, size_t size, int level, const char *name)
@@ -155,6 +159,44 @@ static void test_mask_from_its_folder(void)
     CHECK(car_mask_load_dir(dir, "wide", 0, 4, 2) == NULL);
 }
 
+/* an added car's own texture (car texture add: a name the race does not paint by itself) is painted where its own mask says paint;
+ * without a mask, or with a mask that paints nothing, or through the stock search (no mask folder: an original car), it is left */
+static void test_added_texture_painted_by_its_mask(void)
+{
+    char dir[400];
+    snprintf(dir, sizeof dir, "%s/skins/added", base);
+    uint8_t paint_half[8] = { 0, 0, 0, 0, 255, 255, 255, 255 }, *png = NULL;
+    size_t n = 0;
+    if (car_mask_write(paint_half, 4, 2, &png, &n)) spill(dir, "tras_mask.png", png, n), png_free(png);
+    const uint8_t red[3] = { 0xc8, 0x10, 0x2e };
+    size_t size = 0;
+
+    uint8_t *cfm = cfm_named("tras", &size);
+    CHECK(drive_livery_paint_masks("TESTCAR", dir, cfm, size, red) > 0);
+    const uint8_t *tras = texels(cfm, size, 0, "tras");
+    CHECK(tras != NULL);
+    for (int i = 0; i < 4; i++) CHECK(tras[i] != 7);    /* the mask's paint: the paint's colour */
+    for (int i = 4; i < 8; i++) CHECK_EQ_INT(tras[i], 7);   /* its matte: as it was */
+    free(cfm);
+
+    cfm = cfm_named("tras", &size);   /* the stock search: no mask folder, as for an original car (the Jetta's BTM1 has a mask and stays) */
+    drive_livery_paint_masks("TESTCAR", NULL, cfm, size, red);
+    tras = texels(cfm, size, 0, "tras");
+    for (int i = 0; i < 8; i++) CHECK_EQ_INT(tras[i], 7);
+    free(cfm);
+
+    char matte_dir[400];
+    snprintf(matte_dir, sizeof matte_dir, "%s/skins/added_matte", base);
+    uint8_t matte[8];
+    memset(matte, 255, sizeof matte);
+    if (car_mask_write(matte, 4, 2, &png, &n)) spill(matte_dir, "tras_mask.png", png, n), png_free(png);
+    cfm = cfm_named("tras", &size);   /* a mask with no paint (a lamps' mask): the texture is not the body */
+    drive_livery_paint_masks("TESTCAR", matte_dir, cfm, size, red);
+    tras = texels(cfm, size, 0, "tras");
+    for (int i = 0; i < 8; i++) CHECK_EQ_INT(tras[i], 7);
+    free(cfm);
+}
+
 static CarPieceCard card_of(void)
 {
     CarPieceCard c;
@@ -201,6 +243,7 @@ int main(void)
     snprintf(base, sizeof base, "%s/tnfs_drive_skin_test_%d", getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp", (int)getpid());
     test_skin_apply();
     test_mask_from_its_folder();
+    test_added_texture_painted_by_its_mask();
     test_the_look();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "find '%s' -delete", base);
