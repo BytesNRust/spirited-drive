@@ -38,7 +38,33 @@ static uint32_t isqrt64(uint64_t v)
     return (uint32_t)r;
 }
 
+/* the mean distance between a TRI's neighbouring nodes over SPACING_SAMPLES places along it, in tri.h's units; 0 when none was measured */
+int64_t hud_map_node_spacing(const Tri *tri)
+{
+    if (tri == NULL || tri->node_count < 2) return 0;
+    const uint32_t last = tri->node_count - 1;
+    uint64_t sum = 0;
+    int taken = 0;
+    for (int k = 0; k < SPACING_SAMPLES; k++) {
+        const uint32_t i = (uint32_t)((uint64_t)last * (uint32_t)k / SPACING_SAMPLES);
+        TriNode a, b;
+        if (tri_node(tri, i, &a) != TRI_OK || tri_node(tri, i + 1, &b) != TRI_OK) continue;
+        const int64_t dx = (int64_t)b.position.x - a.position.x, dy = (int64_t)b.position.y - a.position.y, dz = (int64_t)b.position.z - a.position.z;
+        sum += isqrt64((uint64_t)(dx * dx + dy * dy + dz * dz));
+        taken++;
+    }
+    return taken == 0 ? 0 : (int64_t)(sum / (uint64_t)taken);
+}
+
 /* the nodes per map step: STEP_NODES on the CD's own spacing, more where the nodes are closer, fewer where they are further */
+int hud_map_step_nodes(const Tri *tri)
+{
+    const int64_t mean = hud_map_node_spacing(tri);
+    if (mean == 0) return STEP_NODES;   /* nothing measured: the CD's step */
+    const int64_t n = ((int64_t)STEP_NODES * REFERENCE_SPACING + mean / 2) / mean;
+    return n < STEP_MIN ? STEP_MIN : n > STEP_MAX ? STEP_MAX : (int)n;
+}
+
 static int step_nodes(const HudMapInputs *in)
 {
     static const Tri *cached_tri;   /* measured once for a TRI: the same TRI at the same address is the same track within a race */
@@ -46,22 +72,9 @@ static int step_nodes(const HudMapInputs *in)
     static int cached;
     if (!added_track(in) || in->tri == NULL || in->tri->node_count < 2) return STEP_NODES;
     if (in->tri == cached_tri && in->tri->node_count == cached_count) return cached;
-    const uint32_t last = in->tri->node_count - 1;
-    uint64_t sum = 0;
-    int taken = 0;
-    for (int k = 0; k < SPACING_SAMPLES; k++) {
-        const uint32_t i = (uint32_t)((uint64_t)last * (uint32_t)k / SPACING_SAMPLES);
-        TriNode a, b;
-        if (tri_node(in->tri, i, &a) != TRI_OK || tri_node(in->tri, i + 1, &b) != TRI_OK) continue;
-        const int64_t dx = (int64_t)b.position.x - a.position.x, dy = (int64_t)b.position.y - a.position.y, dz = (int64_t)b.position.z - a.position.z;
-        sum += isqrt64((uint64_t)(dx * dx + dy * dy + dz * dz));
-        taken++;
-    }
-    if (taken == 0 || sum == 0) return STEP_NODES;   /* nothing measured: the CD's step (not cached) */
-    const int64_t mean = (int64_t)(sum / (uint64_t)taken);
-    const int64_t n = ((int64_t)STEP_NODES * REFERENCE_SPACING + mean / 2) / mean;
+    if (hud_map_node_spacing(in->tri) == 0) return STEP_NODES;   /* not cached */
     cached_tri = in->tri, cached_count = in->tri->node_count;
-    cached = n < STEP_MIN ? STEP_MIN : n > STEP_MAX ? STEP_MAX : (int)n;
+    cached = hud_map_step_nodes(in->tri);
     return cached;
 }
 

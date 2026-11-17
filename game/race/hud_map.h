@@ -71,4 +71,9 @@ void hud_map_marker(QuadTarget *t, uint8_t *bank, int32_t high, int32_t x, int32
  * the TRI's own are read as 0 (port guard: the original reads on). */
 int hud_map_draw(const HudMapOps *ops, const HudMapInputs *in, int32_t *blink);
 
+/* port (dep59 step 5): the scale of an added track's map. The mean distance between neighbouring nodes of a TRI (tri.h's units; 0 when none
+ * could be read) and the nodes per map step it gives: 16 on the CD's own spacing (about 0x60000), more where the nodes are closer */
+int64_t hud_map_node_spacing(const Tri *tri);
+int hud_map_step_nodes(const Tri *tri);
+
 #endif
