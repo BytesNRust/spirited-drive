@@ -354,7 +354,7 @@ static void fill_strip(const QuadTarget *t, int32_t high_res, uint32_t colour)
 /* A word of the saved records (00524ec0); 0 without them. */
 static int32_t record_word(const RaceState *race, int32_t offset)
 {
-    if (race->records == NULL) return 0;
+    if (race->records == NULL || race->track < 0 || race->track >= 9) return 0;   /* port (dep59 step 5): an added track keeps no record in the original's table */
     const uint8_t *b = race->records + offset;
     return (int32_t)((uint32_t)b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24);
 }

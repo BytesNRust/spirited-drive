@@ -7,8 +7,8 @@
 #include <string.h>
 #include <strings.h>
 
-/* the CD's track roots begin with these two letters (AL, CL, CY, TR); the race tells a root by the first of them until it reads all of it
- * (track_traits, T1/T2), so a piece may not begin with one */
+/* the CD's track roots begin with these two letters (AL, CL, CY, TR); race_sim_track_index tells a root by its first letters, so a piece
+ * may not begin with one (an added track's number comes from track_traits_race_set, by the whole stem) */
 static const char *const FACTORY_PREFIX[] = { "AL", "CL", "CY", "TR" };
 
 int track_piece_stem_ok(const char *stem)

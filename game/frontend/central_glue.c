@@ -835,6 +835,7 @@ void glue_drive_race(int32_t track, int32_t segment, int32_t car, int32_t race_t
     const int16_t run = (int16_t)segment;  /* 00524e83, which 00427ae0 keeps as 0052b276: the run's file */
     memcpy(config_current()->image + SEGMENT_AT, &run, sizeof run);
     RaceSettings s = cg_settings_of();
+    const int32_t kept_track = s.track;   /* an added track (16 on) is only for this race: config.dat keeps the track it had */
     if (track >= 0) s.track = track, s.variant = segment;  /* g.variant: the same short */
     s.variant_m = variant_m, s.variant_r = variant_r;  /* 004fbad8 / 004fbadc, as the cheats and track select set them */
     const char *const time = getenv("TNFS_DRIVE_TIME");  /* port: the track screen's time of day, 0..2 */
@@ -843,7 +844,8 @@ void glue_drive_race(int32_t track, int32_t segment, int32_t car, int32_t race_t
     if (race_type >= 0) s.race_type = race_type;
     cg_settings_put(&s);
     cg_race(NULL);
-    const RaceSettings after = cg_settings_of();
+    RaceSettings after = cg_settings_of();
+    if (track >= 16) after.track = kept_track;
     config_dat_set_race(config_current(), &after);
 }
 

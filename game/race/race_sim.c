@@ -269,6 +269,10 @@ void race_sim_start_field(RaceSim *sim, const Tri *tri, const char *stem, const 
     for (size_t i = 0; stem[i] != '\0' && i + 1 < sizeof race->track_name; i++)
         race->track_name[i] = (char)tolower((unsigned char)stem[i]);
     race->track = race_sim_track_index(stem);
+    {   /* port (dep59 step 5, T4): an added track races as its menu number (16..79), set by track_traits_race_set; the tables of the CD's nine are guarded at every site */
+        const int added = track_traits_race_added(stem);
+        if (added) race->track = added;
+    }
     race->track_variant = race_sim_track_variant(stem);
     race->arcade = arcade;
     race->mirrored = field->mirrored;

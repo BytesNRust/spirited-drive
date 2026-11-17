@@ -35,8 +35,9 @@ typedef struct {
     int times;   /* TRACK_TIME_* */
 } TrackPieceSpec;
 
-/* 1 when `stem` may name a piece's files: 1..TRACK_PIECE_STEM_MAX of A-Z 0-9, and not beginning with AL, CL, CY or TR (the CD's roots: the race
- * tells a root by those letters until it reads all of it, T2) */
+/* 1 when `stem` may name a piece's files: 1..TRACK_PIECE_STEM_MAX of A-Z 0-9, and not beginning with AL, CL, CY or TR (the CD's roots:
+ * race_sim_track_index still tells a root by its first two or three letters, so a piece that began like one would be taken for a factory track;
+ * the race finds a piece's number by the whole stem, track_traits_race_set) */
 int track_piece_stem_ok(const char *stem);
 
 /* the card's keys into `out`; 1 when all are good. Findings go to `r` (PIECE.TYPE, PIECE.KIND, PIECE.SEGMENTS, PIECE.ROAD, PIECE.EDGE,

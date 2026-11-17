@@ -617,6 +617,7 @@ static QuadTarget *map_select(void *ctx, HudSurface s)
 void drive_hud_map(DriveHud *h, const RaceState *race)
 {
     if (!h->ready || !h->cockpit_ready) return;
+    if (race->track < 0 || race->track >= 9) return;   /* port (dep59 step 5, T4): the map's scale and start nodes are the CD's nine's; an added track has none yet */
     QuadTarget t = { h->map + DRIVE_VIEW_HEADER, DRIVE_MAP_W, 0, 0, DRIVE_MAP_W, DRIVE_MAP_H };
     const HudMapOps ops = { &t, map_select };
     const Car *police = race->cars[2];
