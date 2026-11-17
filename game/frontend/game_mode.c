@@ -30,10 +30,11 @@ static const Row ROW[ROWS] = {
 static const int16_t ART_Y[4] = { 0x91, 0xda, 0x122, 0x16f };
 /* the selector's thirds for the pointer: left of CHOICE_LEFT the previous choice, from CHOICE_RIGHT on the next, between them its name */
 enum { CHOICE_LEFT = 0xd5, CHOICE_RIGHT = 0x1ab };
-enum { LABEL_X = 311, TEXT_HALF_HEIGHT = 21, EXIT_RIGHT = 640 - 14, EXIT_TOP = 428, SMALL_NUM = 3, SMALL_DEN = 5 };   /* LABEL_X: where the art's words centre, not the pointer's 0x140 */
+enum { LABEL_X = 320, TEXT_HALF_HEIGHT = 21, EXIT_RIGHT = 640 - 14, EXIT_TOP = 428, SMALL_NUM = 3, SMALL_DEN = 5 };   /* LABEL_X: the screen's vertical centre, 640 / 2 (the art's words centred at 311; the owner's 2026-11-17: centred on the axis) */
 static const char MANAGE_WORDS[] = "Manage content";
 /* the selector's gallery arrows at fixed places, the name centred between them; the arrow's top under the title's */
-enum { ARROW_L_X = 130, ARROW_R_X = 510, ARROW_DY = 8, TITLE_DY = -32, LINE1_DY = 4, LINE2_DY = 22 };
+enum { ARROW_L_X = 117, ARROW_R_X = 498,   /* the arrow's ink is 8 wide, 9 in from x: its centre x + 12.5, 190.5 either side of 320 */
+        ARROW_DY = 8, TITLE_DY = -32, LINE1_DY = 4, LINE2_DY = 22 };
 static const char MANAGE_LATER[] = "Editions are managed in a later version";
 enum { TEXT_DIM_STYLE = 4 };   /* text.h's TEXT_DIM: what the mode does not let the player use */
 
