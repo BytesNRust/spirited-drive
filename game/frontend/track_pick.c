@@ -39,3 +39,8 @@ void track_pick_step(RaceSettings *s, int *lunar, const Unlocks *u, const TrackL
 int track_pick_lunar(void) { return lunar_now; }
 
 void track_pick_lunar_put(int lunar) { lunar_now = lunar != 0; }
+
+int track_pick_holds(int offered, int track, int variant_r, int link_guest)
+{
+    return offered && track == 3 && variant_r != 0 && !link_guest;
+}
