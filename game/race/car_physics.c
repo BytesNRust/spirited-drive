@@ -1,4 +1,5 @@
 #include "game/race/car_physics.h"
+#include "game/race/track_traits.h"
 
 #include "game/race/car_drive.h"
 #include "game/race/car_engine.h"
@@ -207,7 +208,7 @@ static void drag(Car *car, const CarSpecs *specs, const RaceState *race, Forces 
 {
     f->drag_x = car_drag(car, specs, race, car->local_velocity_x, 0);
     f->drag_z = car_drag(car, specs, race, car->local_velocity_z, 1);
-    if (car->local_velocity_z <= specs->unknown_038 || race->track == 6) return;
+    if (car->local_velocity_z <= specs->unknown_038 || track_traits_of(race->track, race->track_variant).vertigo_drag) return;
     if (f->drag_z > 0 && f->drag_z < f->drive) {
         f->drag_z = f->drive;
     } else if (f->drag_z < 0 && abs32(f->drag_z) < abs32(f->drive)) {
@@ -266,7 +267,7 @@ static void limit_forces(const Car *car, const CarSpecs *specs, const RaceState 
             limit = specs->unknown_02c > specs->unknown_028 ? specs->unknown_02c : specs->unknown_028;
         }
         *along = clamp_size(*along, limit);
-        if (race->track == 3 && (car->node <= STRIP_END || car->node >= STRIP_START))
+        if (track_traits_of(race->track, race->track_variant).drag_strip && (car->node <= STRIP_END || car->node >= STRIP_START))
             *lateral = clamp_size(*lateral, limit);
     }
     int32_t most = specs->unknown_31c + car->load_shift;
@@ -486,7 +487,7 @@ static void strip_braking(const Car *car, RaceState *race)
  * from 60 and 80. */
 static void drag_strip(const Car *car, RaceState *race)
 {
-    if (race->race_type != 0 || race->track != 3) return;
+    if (race->race_type != 0 || !track_traits_of(race->track, race->track_variant).drag_strip) return;
     if (car->node <= STRIP_END || car->node >= STRIP_START) {
         strip_acceleration(car, race);
         strip_braking(car, race);

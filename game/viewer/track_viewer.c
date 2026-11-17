@@ -4,6 +4,7 @@
  * drive_run.c (drive_session.h holds what they share); `--track`'s fly-through is track_fly.c and a track's loading
  * track_load.c. */
 #include "viewer/track_viewer.h"
+#include "game/race/track_traits.h"
 #include "viewer/drive_session.h"
 #include "viewer/track_viewer_cars.h"
 #include "viewer/shine_class.h"
@@ -263,7 +264,7 @@ static int drive_field_init(RaceField *field, const char *name, int racers, int 
     field->race_type = racers > 1 ? SINGLE_RACE : 0;
     if (race_type >= 0) {
         field->race_type = race_type;
-        race_field_counts(field, race_sim_track_index(name), flags, drive_link_on);  /* 0052b312: no police in a link game */
+        race_field_counts(field, track_traits_of_stem(name).traffic, flags, drive_link_on);  /* 0052b312: no police in a link game */
         racers = field->racers;
     }
     field->seed = seed;
@@ -340,7 +341,7 @@ static void drive_field_port(RaceField *field, const char *name, int arcade)
     {   /* port: the mode's file's rally_gravel (rally_gravel.h) */
         const PortExtras gravel = race_extras();
         const ReplayConditions *x = replay_extras();   /* port (replay extras): a replay's own */
-        field->port_rally_gravel = x != NULL ? x->gravel : rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel, drive_snow);
+        field->port_rally_gravel = x != NULL ? x->gravel : rally_gravel_kind(track_traits_of_stem(name).rally_dust, arcade, gravel.lunar_springs, gravel.rally_gravel, drive_snow);
         field->port_rally_road = arcade != 0;
         field->port_analog_pad = port_analog_pad();
         field->port_rally_shoulder_sound = port_rally_gravel_shoulder();

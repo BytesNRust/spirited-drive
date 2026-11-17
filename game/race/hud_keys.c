@@ -1,5 +1,6 @@
 /* The race screen's keys (00420710). */
 #include "game/race/hud_keys.h"
+#include "game/race/track_traits.h"
 
 static int parts_held(const HudKeysInputs *in)
 {
@@ -9,7 +10,7 @@ static int parts_held(const HudKeysInputs *in)
 
 static void layout_key(const HudKeysOps *ops, HudState *hud, const RaceState *race)
 {
-    if (race->track == 3 && race->race_type == 0) hud->mode = (hud->mode + 1) % 3;
+    if (track_traits_of(race->track, race->track_variant).drag_strip && race->race_type == 0) hud->mode = (hud->mode + 1) % 3;
     else hud->mode = 1 - hud->mode;
     hud->redraw = 1;
     ops->labels(ops->ctx);

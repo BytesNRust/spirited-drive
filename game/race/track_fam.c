@@ -1,4 +1,5 @@
 #include "game/race/track_fam.h"
+#include "game/race/track_traits.h"
 
 #include <stdio.h>
 
@@ -9,11 +10,11 @@ void track_fam_name(const TrackFamInputs *in, int32_t number, char *out, size_t 
     const int rally_first = in->port_both_variants != 0 && in->variant_m != 0 && in->variant_r != 0;
     if (in->time_of_day != 1)
         snprintf(out, size, "%s/%s_T%.2d.fam", in->dir, in->stem, (int)number);
-    else if (in->variant_r != 0 && in->track != 3 && (rally_first || in->variant_m == 0))
+    else if (in->variant_r != 0 && !track_traits_of(in->track, 0).own_rally_tri && (rally_first || in->variant_m == 0))
         snprintf(out, size, "%s/%s_R%.2d.fam", in->dir, in->stem, (int)number);
     else if (in->variant_m != 0)
         snprintf(out, size, "%s/%s_M%.2d.fam", in->dir, in->stem, (int)number);
-    else if (in->variant_r != 0 && in->track != 3)
+    else if (in->variant_r != 0 && !track_traits_of(in->track, 0).own_rally_tri)
         snprintf(out, size, "%s/%s_R%.2d.fam", in->dir, in->stem, (int)number);
     else
         snprintf(out, size, "%s/%s_%.3d.fam", in->dir_midday, in->stem, (int)number);

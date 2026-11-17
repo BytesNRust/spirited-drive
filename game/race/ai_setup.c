@@ -1,4 +1,5 @@
 #include "game/race/car_registry.h"
+#include "game/race/track_traits.h"
 #include "game/race/ai_setup.h"
 
 #include "game/race/ai_lanes.h"
@@ -15,8 +16,7 @@ enum {
     GRID_LANE_NODE = 10,    /* whose lanes give the gap between the two columns */
     GRID_NARROW_NODE = 20,  /* 2 lanes left and 1 right: the left column moves a lane over */
     GRID_FRONT = 0x20,      /* the front row's node */
-    PAIRED_RACERS = 2,      /* up to this, two cars a row */
-    OPEN_ROAD_TRACK = 2     /* above: the cars take the node's x and heading */
+    PAIRED_RACERS = 2       /* up to this, two cars a row */
 };
 
 enum {
@@ -96,7 +96,7 @@ void ai_grid_place(Car *car, RaceState *race)
     const int32_t place = (uint32_t)car->player < RACE_PLAYERS ? race->grid[car->player] : 0;  /* port guard */
     car->node = GRID_FRONT - (race->racers > PAIRED_RACERS ? place * 2 : place / 2 * 4);
     car->x = -gap / 2 + place % 2 * gap;
-    if (race->track > OPEN_ROAD_TRACK) {
+    if (track_traits_of(race->track, race->track_variant).kind == TRACK_KIND_CIRCUIT) {   /* the cars take the node's x and heading */
         const TriNode at = race_node(race, car->node);
         car->x += at.position.x;
         car->yaw = (int32_t)((uint32_t)(int32_t)at.orientation << 10);

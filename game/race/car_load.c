@@ -1,4 +1,5 @@
 #include "game/race/car_load.h"
+#include "game/race/track_traits.h"
 
 #include "formats/pbs.h"
 
@@ -36,7 +37,7 @@ int car_specs_read(CarSpecs *specs, const uint8_t *file, size_t size)
 
 /* Arcade mode: the rear tyres grip as the front, the axles' weights and
  * some forces halved, and more power. */
-static void arcade_tuning(CarSpecs *specs, int32_t track)
+static void arcade_tuning(CarSpecs *specs, int drag_strip)
 {
     memcpy(specs->grip_rear, specs->grip_front, sizeof specs->grip_rear);
     specs->unknown_320 /= 2;
@@ -48,7 +49,7 @@ static void arcade_tuning(CarSpecs *specs, int32_t track)
     specs->unknown_028 /= 2;
     specs->unknown_02c /= 2;
     specs->unknown_024 = specs->unknown_024 * 3 / 2;
-    specs->power = specs->power * (track == 3 ? ARCADE_POWER_STRIP : ARCADE_POWER) / 256;
+    specs->power = specs->power * (drag_strip ? ARCADE_POWER_STRIP : ARCADE_POWER) / 256;
 }
 
 void car_specs_scale_torque(CarSpecs *specs, int automatic)
@@ -96,7 +97,7 @@ void car_load(Car *car, CarSpecs *specs, RaceState *race)
     car->lap = 1;
     if (race->specs_loaded == 0) {
         if (!pbs_checksum_ok((const uint8_t *)specs)) specs->power = 0;
-        if (race->arcade != 0) arcade_tuning(specs, race->track);
+        if (race->arcade != 0) arcade_tuning(specs, track_traits_of(race->track, race->track_variant).drag_strip);
     }
     car_specs_scale_torque(specs, entry->automatic != 0);
     car->half_length = specs->half_length;

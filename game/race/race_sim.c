@@ -1,4 +1,5 @@
 #include "game/race/race_sim.h"
+#include "game/race/track_traits.h"
 
 #include "game/race/race_camera.h"
 #include "game/race/race_chase.h"
@@ -110,14 +111,14 @@ int race_sim_track_variant(const char *stem)
     return track >= 0 && track < 3 && stem[2] >= '1' && stem[2] <= '3' ? stem[2] - '1' : 0;
 }
 
-void race_field_counts(RaceField *field, int track, uint32_t track_flags, int flag_52b312)
+void race_field_counts(RaceField *field, int traffic, uint32_t track_flags, int flag_52b312)
 {
     field->cops = field->traffic = 0;
     if (field->race_type == 2 || field->race_type == 3) field->racers = RACE_PLAYERS;
     else if (field->race_type == 0) field->racers = 1;
     else {
         field->racers = 2;
-        if (!(track_flags & 4) && track < 3) {
+        if (!(track_flags & 4) && traffic) {
             field->cops = flag_52b312 == 0;
             field->traffic = 6;
         }
@@ -495,7 +496,7 @@ void race_sim_begin(RaceSim *sim)
     for (int i = 0; i < 6; i++) race->start_beeps[i] = 1;  /* 00455a62: the setup's words */
     race->tick = race->phase = race->camera_hold = 0;
     race->unknown_513e64 = race->unknown_513e60 = race->unknown_513e6c = 0;
-    if (race->race_type == 0 && race->track == 3 && race->cars[0] != NULL) {  /* 00455bd8 */
+    if (race->race_type == 0 && track_traits_of(race->track, race->track_variant).drag_strip && race->cars[0] != NULL) {  /* 00455bd8 */
         race->cars[0]->node = 5;
         race->cars[0]->progress = 5;
         race->cars[0]->z = 0x1e0000;

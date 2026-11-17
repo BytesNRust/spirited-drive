@@ -1,4 +1,5 @@
 #include "game/race/car_engine.h"
+#include "game/race/track_traits.h"
 
 #include "game/race/car_specs_word.h"
 
@@ -84,7 +85,7 @@ int32_t car_drag(Car *car, const CarSpecs *specs, const RaceState *race, int32_t
     int32_t roll = car->roll;
     if (roll > 0x800000) roll -= 0x1000000;
     if (roll <= 0) roll = -roll;
-    if (race->track > 2 && roll > 0xa0000) drag /= 8;
+    if (track_traits_of(race->track, race->track_variant).kind == TRACK_KIND_CIRCUIT && roll > 0xa0000) drag /= 8;
     int32_t limit = car->ticks_per_second * speed;
     if (limit <= 0) limit = -limit;
     if (drag > limit) drag = limit;

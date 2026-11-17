@@ -1,5 +1,6 @@
 /* The race's engine sound: the node and road noise, the second voice, the engine and the banks and the voices at the start (race_sound.h). */
 #include "game/race/car_registry.h"
+#include "game/race/track_traits.h"
 #include "game/race/race_sound_private.h"
 #include "game/race/rally_gravel.h"
 #include "game/race/car_walls.h"
@@ -16,7 +17,7 @@ static void node_sound(RaceState *race, const Car *car)
         e->node_pan = car->node_flag_4ca != 0 ? 0 : LEVEL_MAX;
         if (e->node_volume < NODE_TOP)
             e->node_volume += NODE_STEP;
-        if (car->node_flag_4ca != 0 && race->track == 7) {
+        if (car->node_flag_4ca != 0 && track_traits_of(race->track, race->track_variant).sound_water) {
             race_sound_channel(race, NODE_CHANNEL, NODE_SOUND_TRACK7, 0, e->node_volume, e->node_pan);
             return;
         }
@@ -65,14 +66,14 @@ static int32_t road_noise(RaceState *race, const Car *car)
         level = (int32_t)((uint32_t)level + 0x14u);
         level = rally_gravel_shoulder_level(race->port_rally_gravel, level, car->speed);   /* port: heard at a crawl in the rally */
         e->pitch = 0x5e;
-        if (race->track == 5) {
+        if (track_traits_of(race->track, race->track_variant).sound_gravel) {
             const int32_t volume = (int16_t)(((race_rand(race) & 0xffffu) * LEVEL_MAX) >> 16);
             const int32_t pan = (int16_t)(((race_rand(race) & 0xffffu) * LEVEL_MAX) >> 16);
             if ((int16_t)(((race_rand(race) & 0xffffu) * 0x1eu) >> 16) == 0)
                 race_sound_channel(race, GRAVEL_CHANNEL, GRAVEL_SOUND, PAN_CENTRE, volume, pan);
         }
     } else if (car->node_flag_4c6 != 0) {
-        if (race->track == 5) {
+        if (track_traits_of(race->track, race->track_variant).sound_gravel) {
             const uint32_t step = (uint32_t)(level / 10 - 2);
             race_sound_channel(race, RUMBLE_CHANNEL, RUMBLE_SOUND, PAN_CENTRE, step <= 6 ? RUMBLE_LEVELS[step] : level,
                                PAN_CENTRE);
@@ -185,7 +186,7 @@ void race_sound_load_banks(RaceState *race, void (*load)(void *user, const char 
     if (car >= 0 && car < 12) load(user, player_banks[car]);
     const int other = car_registry_sound_model(race->entries[race->player == 0 ? 1 : 0].car);
     if (other >= 0 && other < 12) load(user, opponent_banks[other]);
-    load(user, race->track == 7 ? "COLLSWMT.BNK" : "COLLSWWT.BNK");
+    load(user, track_traits_of(race->track, race->track_variant).sound_water ? "COLLSWMT.BNK" : "COLLSWWT.BNK");
     load(user, "NFS_FMmb.bnk");
     race_sound_start_voices(race);
 }

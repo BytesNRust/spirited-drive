@@ -7,6 +7,7 @@
 #define TNFS_MODEL_DRAW_H
 
 #include "game/gfx/object3d.h"
+#include "game/race/track_traits.h"
 #include "game/race/view.h"
 
 #include <stdint.h>
@@ -28,10 +29,10 @@ typedef struct {
                                       * models past it), 0 the exe's */
 } ModelView;
 
-/* 004fb7c2 (the track, 0 the city) == 0 && 004fb7be (the city stage less 1) == 2: CY3 */
+/* 004fb7c2 (the track, 0 the city) == 0 && 004fb7be (the city stage less 1) == 2: CY3 (dep59 T2: the track's traits) */
 static inline int model_draw_half_side(int32_t track, int32_t track_variant)
 {
-    return track == 0 && track_variant == 2;
+    return track_traits_of(track, track_variant).city_half_side;
 }
 
 /* heading: 24-bit. Returns 0 when culled, 1 when drawn. */

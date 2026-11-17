@@ -8,11 +8,11 @@ enum {
     DUST_TOP = 0x1e00000      /* the speed the dust stops growing at */
 };
 
-int rally_gravel_kind(int track, int variant_r, int lunar, int enabled, int snow)
+int rally_gravel_kind(int dust, int variant_r, int lunar, int enabled, int snow)
 {
     if (variant_r && snow) return RALLY_GRAVEL_SNOW;
     if (!enabled || !variant_r) return RALLY_GRAVEL_OFF;
-    if (track == 3) return lunar ? RALLY_GRAVEL_REGOLITH : RALLY_GRAVEL_DUST;
+    if (dust) return lunar ? RALLY_GRAVEL_REGOLITH : RALLY_GRAVEL_DUST;
     return RALLY_GRAVEL_COMPACT;
 }
 

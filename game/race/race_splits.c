@@ -1,5 +1,6 @@
 /* The split times (race_splits.h). */
 #include "game/race/race_split_times.h"
+#include "game/race/track_traits.h"
 
 #include "game/sys/fixed_math.h"
 
@@ -72,7 +73,6 @@ enum {
     VARIANT_RECORD = 0x27,        /* a stage's: its best time at +0x27 x variant */
     CIRCUIT_RECORDS = 0xea,       /* a circuit's records from +0xea, 0x186 bytes each */
     CIRCUIT_RECORD = 0x186,
-    LAST_STAGE = 2,               /* tracks 0..2 are the stages */
     CHECKPOINT_SNAP = 0x27        /* a stage's last checkpoint this close to the loop's end is moved onto it */
 };
 
@@ -176,7 +176,7 @@ void race_splits_start(RaceState *race)
             s->rival_ticks[n] = record_word(race, other + RIVAL_RECORD_LAPS + 4 * (int64_t)k);
         }
         if (s->rival_ticks[2] == 0) {
-            if (race->track > LAST_STAGE) rival_from_circuit_record(race, s);
+            if (track_traits_of(race->track, race->track_variant).kind == TRACK_KIND_CIRCUIT) rival_from_circuit_record(race, s);
             else rival_from_stage_record(race, s);
         }
     }

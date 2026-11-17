@@ -1,4 +1,5 @@
 #include "game/race/track_info.h"
+#include "game/race/track_traits.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -201,7 +202,7 @@ void track_info_load(const TrackInfoOps *ops, const TrackInfoInputs *in, TrackIn
         info->ring_y_offset = scaled(info->ring_y_offset);
     }
     info->sky_flag = info->final_flag;
-    if (in->stem[0] != 't' && in->time_of_day == 1) info->sky_flag = 0;
+    if (track_traits_of_stem(in->stem).kind == TRACK_KIND_STAGE && in->time_of_day == 1) info->sky_flag = 0;   /* the exe: stem[0] != 't' (dep59 T2: the same for the factory stems) */
     const int32_t g = in->time_of_day;
     if (g >= 0 && g < TINT_GROUPS)  /* port guard: the original reads the words beside the groups */
         ops->tint(ops->ctx, info->time_of_day[0][g], info->time_of_day[1][g], info->time_of_day[2][g],

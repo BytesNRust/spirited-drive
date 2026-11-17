@@ -5,6 +5,7 @@
  * are checked one by one against the original).
  *   test_race SIMDATA_DIR [TRACK] */
 #include "formats/tri.h"
+#include "game/race/track_traits.h"
 #include "game/race/car_body.h"
 #include "game/race/car_load.h"
 #include "game/race/race_keys.h"
@@ -128,7 +129,7 @@ static int check_flags(RaceSim *s, const Tri *tri, const CarSpecs *specs, RaceFi
     }
     RaceField counts = { 0 };
     counts.race_type = 1;
-    race_field_counts(&counts, 0, 4, 0);
+    race_field_counts(&counts, track_traits_stock(0, 0).traffic, 4, 0);
     ok &= counts.cops == 0 && counts.traffic == 0;
     printf("no mercy: catch up %d, cops %d, traffic %d%s\n", s->race.catch_up, counts.cops, counts.traffic, ok ? "" : "  FAIL");
     return ok;

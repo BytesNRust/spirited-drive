@@ -1,5 +1,6 @@
 /* The race (race_run.h), as 00455a5c runs it. */
 #include "game/race/race_run.h"
+#include "game/race/track_traits.h"
 
 #include "game/gfx/x86_int.h"
 
@@ -8,7 +9,7 @@
 enum {
     SCREEN_W = 0x280, SCREEN_H = 0x1e0, SCREEN_BITS = 8,
     NET_EVERYONE = -1, NET_LOADED = 6, NET_STARTED = 7,
-    TIME_TRIAL = 0, SHORT_START_TRACK = 3, SHORT_START_NODE = 5, SHORT_START_Z = 0x1e0000,
+    TIME_TRIAL = 0, SHORT_START_NODE = 5, SHORT_START_Z = 0x1e0000,
     STAGE_NODES_SHIFT = 16, STAGE_NODES_LESS = 0xb5,
     START_TICKS = 3,
     PHASE_RACING = 1, PHASE_HELD = 2, PHASE_OVER = 3,
@@ -59,7 +60,7 @@ static void setup(const RaceRunOps *ops, RaceState *race, RaceRunWords *w)
     ops->setup_44d2c4(ops->ctx);
     ops->service(ops->ctx);
     ops->ai_setup(ops->ctx);
-    if (race->race_type == TIME_TRIAL && race->track == SHORT_START_TRACK && race->cars[0] != NULL) {  /* port guard */
+    if (race->race_type == TIME_TRIAL && track_traits_of(race->track, race->track_variant).drag_strip && race->cars[0] != NULL) {  /* port guard */
         race->cars[0]->node = SHORT_START_NODE;
         race->cars[0]->progress = SHORT_START_NODE;
         race->cars[0]->z = SHORT_START_Z;
