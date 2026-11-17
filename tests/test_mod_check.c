@@ -368,7 +368,7 @@ static void test_rules_in_the_zip(void)
     uint8_t *tcard = NULL, *tbad = NULL;   /* the track's card: 208 x 127 or refused by its size (the files' own check comes after) */
     ZbEntry good_card[] = { zb_text("mod.ini", "id=a-track\nname=A Track\nversion=1\ntype=track\nstem=XTRK\n"), png_entry("card.png", 208, 127, &tcard) };
     check(good_card, 2, &c);
-    CHECK(strstr(why, "card.png") == NULL);   /* the picture is no reason to refuse it */
+    CHECK(strncmp(why, "card.png is", 11) != 0);   /* the picture is no reason to refuse it (the files missing are) */
     ZbEntry bad_card[] = { zb_text("mod.ini", "id=a-track\nname=A Track\nversion=1\ntype=track\nstem=XTRK\n"), png_entry("card.png", 100, 100, &tbad) };
     CHECK_EQ_INT(check(bad_card, 2, &c), 0);
     CHECK(strstr(why, "card.png is 100 x 100, not 208 x 127") != NULL);

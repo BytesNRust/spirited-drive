@@ -49,7 +49,7 @@ static void draw_table(const ResultsInputs *in, int32_t bank, int16_t row, int16
     char text[TEXT];
     const int16_t track = g16(in->image + TRACK);
     const uint8_t *records = records_block_at(in->image, track);
-    const uint8_t *table = records + (track > 2 && !track_registry_is_added(track) ? BEST_STRIDE * g16(in->image + DIFFICULTY) : 0);
+    const uint8_t *table = records + (track > 2 && track < TRACKS ? BEST_STRIDE * g16(in->image + DIFFICULTY) : 0);
     ops->blit(ops->ctx, ops->shape(ops->ctx, bank, "bgnd"));
     /* port guard: the original indexes its nine names with any short */
     if ((uint16_t)track < TRACKS) ops->blit(ops->ctx, ops->shape(ops->ctx, bank, TRACK_TAG[track]));
