@@ -15,6 +15,9 @@ enum {
     RAMP_FIRST = 1         /* the kept colours from here, then the ramp up to POINTER_FIRST - 1 */
 };
 
+/* a letter: TITLE_EDGE over its filled-in box, within TITLE_NEAR of a letter's white */
+enum { TITLE_PAD = 3, TITLE_PASSES = 200, TITLE_EDGE = 14, TITLE_NEAR = 2, RUNS_MAX = 32 };
+
 /* the red the screen reads by, kept where it is: the map's racing line, Best Times' column heads (x0, y0, x1, y1) */
 static const int RED_BOXES[2][2][4] = { { { 312, 86, 609, 381 }, { 0, 0, -1, -1 } }, { { 0, 94, 639, 114 }, { 0, 364, 639, 384 } } };
 
@@ -93,7 +96,7 @@ static int is_lit(const ShpiDescEntry *e) { return e->name[3] == 'l'; }
 
 typedef struct {
     int slot[256];       /* a kept colour's entry, by its entry in Rusty's palette; 0 for none */
-    int kept, ramp;      /* how many kept; the ramp's entries */
+    int kept, ramp;      /* how many kept; the grey ramp's entries (after the red's) */
     uint8_t out[768];    /* the new palette, 8 bits a channel */
 } Palette;
 
@@ -106,7 +109,27 @@ static int keep(Palette *p, const Bank *b, int index)
     return 1;
 }
 
-static uint8_t ramp(const Palette *p, uint8_t grey) { return (uint8_t)(RAMP_FIRST + p->kept + (grey * (p->ramp - 1) + 127) / 255); }
+static uint8_t ramp(const Palette *p, uint8_t grey)
+{
+    return (uint8_t)(RAMP_FIRST + p->kept + LUNAR_ART_RED_RAMP + (grey * (p->ramp - 1) + 127) / 255);
+}
+
+/* the title's red for a letter's grey */
+static uint8_t red_ramp(const Palette *p, uint8_t grey) { return (uint8_t)(RAMP_FIRST + p->kept + (grey * (LUNAR_ART_RED_RAMP - 1) + 127) / 255); }
+
+/* the CD's red: the colour most of the kept red pixels are (the racing line's); a plain red when none is kept */
+static void cd_red(const Bank *b, const uint8_t *red, uint8_t rgb[3])
+{
+    static int count[256];
+    memset(count, 0, sizeof count);
+    const uint8_t *px = b->e[b->bgnd].data;
+    for (int i = 0; i < PIXELS; i++) count[px[i]] += red[i];
+    int best = -1;
+    for (int k = 0; k < 256; k++)
+        if (count[k] > 0 && (best < 0 || count[k] > count[best])) best = k;
+    static const uint8_t PLAIN[3] = { 200, 24, 24 };
+    memcpy(rgb, best >= 0 ? b->rgb + 3 * best : PLAIN, 3);
+}
 
 /* the colours kept, by the entry's order in Rusty's palette (the same palette every run), then the ramp */
 static int palette_make(Palette *p, const Bank *b, const uint8_t *red)
@@ -124,8 +147,15 @@ static int palette_make(Palette *p, const Bank *b, const uint8_t *red)
     }
     for (int i = 0; i < 256; i++)
         if (wanted[i] && !keep(p, b, i)) return 0;
-    p->ramp = POINTER_FIRST - RAMP_FIRST - p->kept;
-    for (int s = 0; s < p->ramp; s++) memset(p->out + 3 * (RAMP_FIRST + p->kept + s), s * 255 / (p->ramp - 1), 3);
+    uint8_t r[3];
+    cd_red(b, red, r);
+    const int top = r[0] > r[1] ? (r[0] > r[2] ? r[0] : r[2]) : (r[1] > r[2] ? r[1] : r[2]);
+    for (int s = 0; s < LUNAR_ART_RED_RAMP; s++) {   /* each level's brightest channel is the grey it stands for */
+        const int v = s * 255 / (LUNAR_ART_RED_RAMP - 1);
+        for (int c = 0; c < 3; c++) p->out[3 * (RAMP_FIRST + p->kept + s) + c] = (uint8_t)(top > 0 ? r[c] * v / top : v);
+    }
+    p->ramp = POINTER_FIRST - RAMP_FIRST - p->kept - LUNAR_ART_RED_RAMP;
+    for (int s = 0; s < p->ramp; s++) memset(p->out + 3 * (RAMP_FIRST + p->kept + LUNAR_ART_RED_RAMP + s), s * 255 / (p->ramp - 1), 3);
     return 1;
 }
 
@@ -141,7 +171,38 @@ static uint8_t *other_make(const ShpiDescEntry *e, const Bank *b, const Palette 
     return out;
 }
 
-static int build(Bank *b, const uint8_t *g, const uint8_t *red, const Palette *p, uint8_t **out, size_t *out_size, char *why, size_t why_size)
+/* 1 when a letter's white (LUNAR_LETTER_WHITE) is within TITLE_NEAR pixels of (x, y): a bright speck of the texture is not a letter */
+static int near_white(const uint8_t *g, int x, int y)
+{
+    for (int j = -TITLE_NEAR; j <= TITLE_NEAR; j++)
+        for (int i = -TITLE_NEAR; i <= TITLE_NEAR; i++) {
+            const int xx = x + i, yy = y + j;
+            if (xx >= 0 && yy >= 0 && xx < LUNAR_ART_W && yy < LUNAR_ART_H && g[yy * LUNAR_ART_W + xx] > LUNAR_LETTER_WHITE) return 1;
+        }
+    return 0;
+}
+
+/* the title's letters on the finished grey picture: in each run of letter columns, what stands TITLE_EDGE brighter than the run's box
+ * filled in from its border (a letter's white and its edge; the shadow and the texture stay grey) */
+static void title_letters(const uint8_t *g, uint8_t *letter)
+{
+    static uint8_t bg[PIXELS];
+    LunarRun runs[RUNS_MAX];
+    const int n = lunar_title_runs(g, LUNAR_ART_W, LUNAR_ART_H, runs, RUNS_MAX);
+    memcpy(bg, g, PIXELS);
+    memset(letter, 0, PIXELS);
+    for (int k = 0; k < n; k++) {
+        const int x0 = runs[k].x0 - TITLE_PAD < 0 ? 0 : runs[k].x0 - TITLE_PAD;
+        const int x1 = runs[k].x1 + TITLE_PAD >= LUNAR_ART_W ? LUNAR_ART_W - 1 : runs[k].x1 + TITLE_PAD;
+        lunar_fill(bg, LUNAR_ART_W, x0, LUNAR_TITLE_Y0 - 1, x1, LUNAR_TITLE_Y1, TITLE_PASSES);
+        for (int y = LUNAR_TITLE_Y0; y < LUNAR_TITLE_Y1; y++)
+            for (int x = x0 + 1; x < x1; x++)
+                letter[y * LUNAR_ART_W + x] = g[y * LUNAR_ART_W + x] >= bg[y * LUNAR_ART_W + x] + TITLE_EDGE && near_white(g, x, y);
+    }
+}
+
+static int build(Bank *b, const uint8_t *g, const uint8_t *red, const uint8_t *letter, const Palette *p, uint8_t **out, size_t *out_size,
+                 char *why, size_t why_size)
 {
     uint8_t *made[ENTRIES_MAX] = { NULL }, pal[768];
     int ok = 1;
@@ -153,7 +214,8 @@ static int build(Bank *b, const uint8_t *g, const uint8_t *red, const Palette *p
         if (e->type != 0x7b) continue;
         if ((int)k == b->bgnd) {
             made[k] = malloc(PIXELS);
-            for (int i = 0; made[k] != NULL && i < PIXELS; i++) made[k][i] = red[i] ? (uint8_t)p->slot[e->data[i]] : ramp(p, g[i]);
+            for (int i = 0; made[k] != NULL && i < PIXELS; i++)
+                made[k][i] = red[i] ? (uint8_t)p->slot[e->data[i]] : letter[i] ? red_ramp(p, g[i]) : ramp(p, g[i]);
         } else {
             made[k] = other_make(e, b, p);
         }
@@ -172,13 +234,14 @@ int lunar_art_make(const uint8_t *rust, size_t rust_size, const uint8_t *lost, s
 {
     *out = NULL, *out_size = 0;
     static Bank r, l;
-    static uint8_t g[PIXELS], lg[PIXELS], red[PIXELS];
+    static uint8_t g[PIXELS], lg[PIXELS], red[PIXELS], letter[PIXELS];
     static Palette p;
     if (!open_bank(rust, rust_size, &r, why, why_size) || !open_bank(lost, lost_size, &l, why, why_size)) return 0;
     grey_of(&r, g), grey_of(&l, lg);
     if (!lunar_title(g, lg, why, why_size)) return 0;
     if (kind == LUNAR_ART_SELECT) lunar_drop_time_line(g);
     red_kept(&r, kind, red);
+    title_letters(g, letter);
     if (!palette_make(&p, &r, red)) return lunar_why(why, why_size, "more than %d colours to keep", LUNAR_ART_KEPT_MAX), 0;
-    return build(&r, g, red, &p, out, out_size, why, why_size);
+    return build(&r, g, red, letter, &p, out, out_size, why, why_size);
 }
