@@ -4,6 +4,7 @@
  * the standard edition and the edition's cars' tables in one of its own. The player folder is a scratch one (TNFS_PREF_DIR). */
 #include "formats/stock_content.h"
 #include "game/sys/port_extras.h"
+#include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
@@ -231,7 +232,12 @@ static void test_what_the_screens_read(void)
     CHECK(race_records_shown_lap(CIRCUIT, 0, 0) == race_records_lap_find(CIRCUIT, 0, 0));
 
     edition_set("duo");
+    port_log_watch("records: edition Duo joins rx7");   /* the log says which cars an edition's records are (a car not there left out) */
     t = race_records_shown(CIRCUIT, 0, 0, LAPS);
+    CHECK(port_log_watch_hit());
+    port_log_watch("records: edition Duo joins");   /* once: the screens read it again and again */
+    (void)race_records_shown(CIRCUIT, 0, 0, LAPS);
+    CHECK(!port_log_watch_hit());
     CHECK(t != NULL && t != race_records_find(CIRCUIT, 0, 0, LAPS));
     if (t != NULL) {
         CHECK(same_row(&t->totals[0], &rx7));

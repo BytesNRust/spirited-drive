@@ -251,6 +251,8 @@ RaceRecordsLoad race_records_added_load(void)
     }
     if (data == NULL) return RACE_RECORDS_NO_FILE;
     const int ok = race_records_added_parse(data, size);
+    if (ok)   /* what was read: whether the standard rows are in it (race_records_cars_import) */
+        port_log("records: %s read: %d tables, %d laps, imported %d\n", name, tables.count, laps_list.count, imported);
     if (!ok && !race_records_keep_bad(name == FILE_NAME ? "race_records_cars" : "race_records_added", data, size)) {
         held = 1;
         port_log("records: %s is damaged and no copy of it could be kept; the records by car are not saved this session\n", name);

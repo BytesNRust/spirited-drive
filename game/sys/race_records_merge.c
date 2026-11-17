@@ -4,8 +4,10 @@
 #include "formats/stock_content.h"
 #include "game/race/car_registry.h"
 #include "game/sys/edition_file.h"
+#include "game/sys/port_log.h"
 #include "game/sys/race_records_added.h"
 
+#include <stdio.h>
 #include <string.h>
 
 enum { ROWS = RACE_RECORDS_ROWS, SEGMENTS = RACE_RECORDS_SEGMENTS, JOINED = EDITION_LIST_MAX * RACE_RECORDS_ROWS };
@@ -118,12 +120,25 @@ int race_records_row_index(const RecordRow rows[], int n, const RecordRow *row)
     return -1;
 }
 
+/* "records: edition NAME joins id,id,..." when it is not the last line said (the screens read the cars again at every draw) */
+static void say_cars(const Edition *e, const char *const ids[], int n)
+{
+    static char said[EDITION_NAME_MAX + 32 + EDITION_LIST_MAX * (MOD_INI_ID_MAX + 1)];
+    char line[sizeof said];
+    int at = snprintf(line, sizeof line, "%s joins ", e->name);
+    for (int i = 0; i < n && at > 0 && (size_t)at < sizeof line; i++) at += snprintf(line + at, sizeof line - (size_t)at, "%s%s", i ? "," : "", ids[i]);
+    if (strcmp(line, said) == 0) return;
+    memcpy(said, line, sizeof said);
+    port_log("records: edition %s\n", line);
+}
+
 int race_records_edition_cars(Edition *e, const char *ids[], int cap)
 {
     if (edition_active(e) != 1) return 0;
     int n = 0;
     for (int i = 0; i < e->cars && n < cap; i++)
         if (edition_car_present(e->car[i])) ids[n++] = e->car[i];
+    say_cars(e, ids, n);
     return n;
 }
 
