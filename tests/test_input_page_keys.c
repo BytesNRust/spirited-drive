@@ -16,6 +16,8 @@
  * window (video_shutdown is only reached when it does) */
 void pointer_sync_from_os(void) {}
 void video_shutdown(void) {}
+/* the pad's shoulder buttons (input_tab_keys): no pad here */
+unsigned platform_joy_shoulders(int device) { (void)device; return 0; }
 
 /* The script holds each key for 100 ms (SCRIPT_HOLD_MS) and lets it go after that, so the entries are 100 ms
  * apart: a read keeps an entry alive for its window and the next one takes over, and the key is down for the
