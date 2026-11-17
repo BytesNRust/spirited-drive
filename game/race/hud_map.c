@@ -15,6 +15,82 @@ static const int32_t ROAD_FIRST[HUD_MAP_TRACKS] = { -29, -29, -29, -19, -29, -29
 static const int32_t ROAD_LAST[HUD_MAP_TRACKS] = { 30, 30, 30, 20, 30, 30, 30, 32, 30 };
 static const int16_t START_NODE[3 * 3] = { 0x6cc, 0x62c, 0x7e4, 0x6cc, 0x67c, 0x67c, 0x76c, 0x854, 0x7c4 };
 
+/* port (dep59 step 5, T4 follow-up; the plan's site 23, "escala calculada del trazado"): an added track (a race number from 9 on) is a stage whose map
+ * scale is computed from its own layout. The map shows the same stretch of road as the CD's: the CD's steps of 16 nodes about the car, 59 of them, and
+ * the nodes within span of it, are a distance in the world (the CD's node spacing REFERENCE_SPACING); the added track's node spacing is measured
+ * from its nodes, and the steps and the span are counted in nodes of that spacing, so a track with closer nodes still shows that stretch. Its end
+ * node (the table's START_NODE for the CD's) is the TRI's last node less END_BACK, the margin road_node keeps past it. */
+enum { HUD_MAP_ADDED = 9, END_BACK = 0x3c, SPACING_SAMPLES = 32, STEP_NODES = 16, STEP_MIN = 2, STEP_MAX = 64 };
+static const int32_t REFERENCE_SPACING = 0x60000;   /* the CD's nodes' distance along the road in tri.h's units: measured on the CD's TRIs (2026-11-17, the mean node-to-node distance, 32
+ * samples / all nodes): CY1 0x5fe2f / 0x5fec5, AL1 0x60093 / 0x60055, TR1 0x6096b / 0x60829, CL1 0x5ffba / 0x5ffff, AL2 0x5ffcb / 0x5fff0 */
+
+static int added_track(const HudMapInputs *in) { return in->track >= HUD_MAP_ADDED; }
+static int stage_track(const HudMapInputs *in) { return in->track < 3 || added_track(in); }
+
+static uint32_t isqrt64(uint64_t v)
+{
+    uint64_t r = 0, bit = (uint64_t)1 << 62;
+    while (bit > v) bit >>= 2;
+    for (; bit != 0; bit >>= 2) {
+        if (v >= r + bit) v -= r + bit, r = (r >> 1) + bit;
+        else r >>= 1;
+    }
+    return (uint32_t)r;
+}
+
+/* the mean distance between a TRI's neighbouring nodes over SPACING_SAMPLES places along it, in tri.h's units; 0 when none was measured */
+int64_t hud_map_node_spacing(const Tri *tri)
+{
+    if (tri == NULL || tri->node_count < 2) return 0;
+    const uint32_t last = tri->node_count - 1;
+    uint64_t sum = 0;
+    int taken = 0;
+    for (int k = 0; k < SPACING_SAMPLES; k++) {
+        const uint32_t i = (uint32_t)((uint64_t)last * (uint32_t)k / SPACING_SAMPLES);
+        TriNode a, b;
+        if (tri_node(tri, i, &a) != TRI_OK || tri_node(tri, i + 1, &b) != TRI_OK) continue;
+        const int64_t dx = (int64_t)b.position.x - a.position.x, dy = (int64_t)b.position.y - a.position.y, dz = (int64_t)b.position.z - a.position.z;
+        sum += isqrt64((uint64_t)(dx * dx + dy * dy + dz * dz));
+        taken++;
+    }
+    return taken == 0 ? 0 : (int64_t)(sum / (uint64_t)taken);
+}
+
+/* the nodes per map step: STEP_NODES on the CD's own spacing, more where the nodes are closer, fewer where they are further */
+int hud_map_step_nodes(const Tri *tri)
+{
+    const int64_t mean = hud_map_node_spacing(tri);
+    if (mean == 0) return STEP_NODES;   /* nothing measured: the CD's step */
+    const int64_t n = ((int64_t)STEP_NODES * REFERENCE_SPACING + mean / 2) / mean;
+    return n < STEP_MIN ? STEP_MIN : n > STEP_MAX ? STEP_MAX : (int)n;
+}
+
+static int step_nodes(const HudMapInputs *in)
+{
+    static const Tri *cached_tri;   /* measured once for a TRI: the same TRI at the same address is the same track within a race */
+    static uint32_t cached_count;
+    static int cached;
+    if (!added_track(in) || in->tri == NULL || in->tri->node_count < 2) return STEP_NODES;
+    if (in->tri == cached_tri && in->tri->node_count == cached_count) return cached;
+    if (hud_map_node_spacing(in->tri) == 0) return STEP_NODES;   /* not cached */
+    cached_tri = in->tri, cached_count = in->tri->node_count;
+    cached = hud_map_step_nodes(in->tri);
+    return cached;
+}
+
+/* the span (the nodes shown ahead and behind) in the track's own nodes: the CD's 480 are 30 of its steps */
+static int32_t span_nodes(const HudMapInputs *in)
+{
+    return added_track(in) ? in->span * step_nodes(in) / STEP_NODES : in->span;
+}
+
+static int16_t stage_end(const HudMapInputs *in)
+{
+    if (!added_track(in)) return START_NODE[in->track * 3 + in->variant];
+    const int32_t last = in->tri != NULL ? (int32_t)in->tri->node_count - END_BACK : 0;
+    return (int16_t)(last > 0 ? last : 0);
+}
+
 /* 00423aec */
 void hud_map_marker(QuadTarget *t, uint8_t *bank, int32_t high, int32_t x, int32_t y, uint32_t colour,
                     int32_t surface_w, int32_t surface_h)
@@ -68,11 +144,11 @@ static int32_t abs32(int32_t v)
 /* The road's node `step` steps from the car's (16-bit, as the original). */
 static int16_t road_node(const HudMapInputs *in, int16_t at, int32_t step)
 {
-    int16_t s = (int16_t)(in->track == 3 ? (step * 0x6c) >> 3 : step << 4);
+    int16_t s = (int16_t)(in->track == 3 ? (step * 0x6c) >> 3 : added_track(in) ? step * step_nodes(in) : step << 4);
     s = (int16_t)(s + at);
-    if (in->track < 3) {
+    if (stage_track(in)) {
         if (s < 0) return 0;
-        const int16_t last = START_NODE[in->track * 3 + in->variant];
+        const int16_t last = stage_end(in);
         if (s > last + 0x3c) return (int16_t)(last + 0x3c);
         return s;
     }
@@ -82,15 +158,17 @@ static int16_t road_node(const HudMapInputs *in, int16_t at, int32_t step)
 
 static void map_road(QuadTarget *t, const HudMapInputs *in, const MapTurn *m, int16_t at, int32_t bx, int32_t by)
 {
-    int16_t first = (int16_t)(at - (int16_t)in->span);
-    if (in->track < 3) {
+    int16_t first = (int16_t)(at - (int16_t)span_nodes(in));
+    if (stage_track(in)) {
         if (first < 0) first = 0;
     } else if (first < 0) {
         first = (int16_t)(first + (int16_t)in->ring_nodes);
     }
     int32_t px, py;
     map_turn(m, first, &px, &py);
-    for (int16_t step = (int16_t)ROAD_FIRST[in->track]; step <= ROAD_LAST[in->track]; step++) {
+    const int16_t from = added_track(in) ? (int16_t)ROAD_FIRST[0] : (int16_t)ROAD_FIRST[in->track];
+    const int16_t to = added_track(in) ? (int16_t)ROAD_LAST[0] : (int16_t)ROAD_LAST[in->track];
+    for (int16_t step = from; step <= to; step++) {
         int32_t x, y;
         map_turn(m, road_node(in, at, step), &x, &y);
         flat_line(t, bx + px, by - py, bx + x, by - y, in->road_colour);
@@ -101,7 +179,7 @@ static void map_road(QuadTarget *t, const HudMapInputs *in, const MapTurn *m, in
 /* The direction at the start node: a short line along the road there. */
 static void map_direction(QuadTarget *t, const HudMapInputs *in, const MapTurn *m, int32_t bx, int32_t by)
 {
-    const int32_t start = in->track < 3 ? START_NODE[in->track * 3 + in->variant] : 0;
+    const int32_t start = stage_track(in) ? stage_end(in) : 0;
     int32_t ax, ay, cx, cy;
     map_turn(m, start, &ax, &ay);
     map_turn(m, start + 8, &cx, &cy);
@@ -190,7 +268,7 @@ int hud_map_draw(const HudMapOps *ops, const HudMapInputs *in, int32_t *blink)
     map_direction(t, in, &m, bx, by);
     for (int i = cars - 1; i >= 0; i--) {
         const int16_t d = (int16_t)(at - in->car_node[i]);
-        const int near = (int16_t)node_distance(d, in->ring_nodes) <= in->span;
+        const int near = (int16_t)node_distance(d, in->ring_nodes) <= span_nodes(in);
         int32_t x = 0, y = 0;
         if (near) map_turn(&m, in->car_node[i], &x, &y);
         const int inside = high ? abs32(x) < 0x38 && abs32(y) < 0x3d : abs32(x) < 0x1c && abs32(y) < 0x17;

@@ -66,7 +66,7 @@ typedef enum {
 } TriResult;
 
 /* Fixed-point position: 3 x i32 at node offset 8. Consecutive nodes advance
- * about 0x60000 along z, consistent with 16.16; the exact scale is unconfirmed. */
+ * about 0x60000 along z, consistent with 16.16; measured on the CD's tracks the mean node spacing is 0x5fe2f .. 0x61149 (CY1, AL1, TR1, CL1, AL2). */
 typedef struct {
     int32_t x, y, z;
 } TriVec32;

@@ -317,7 +317,7 @@ static void world_to_race(const DriveMenu *m, const RaceMenuWorld *w, const uint
 void drive_menu_run(void *menu)
 {
     DriveMenu *m = menu;
-    if (!m->ready || m->race->track < 0 || m->race->track >= 9) return;  /* no map past track 8: 00447564 draws none, --drive opens none; port (dep59 step 5): nor on an added track, whose tables the menu has not */
+    if (!m->ready || m->race->track < 0) return;  /* no map past track 8: 00447564 draws none, --drive opens none; port (dep59 step 5): an added track gets the pause menu with no map picture (race_menu.c) */
     /* 00524834, the screen the Yes / No box (00465f4c) grabs; the menu's own surface when there is no such picture */
     static uint8_t own[VIDEO_WIDTH * VIDEO_HEIGHT];
     int32_t sw = 0, sh = 0;
