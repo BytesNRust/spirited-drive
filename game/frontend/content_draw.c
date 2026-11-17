@@ -19,8 +19,7 @@ static const int CARD_X[CONTENT_CARD_BUTTONS] = { CONTENT_CARD_X0, CONTENT_UNINS
 static const int CARD_Y[CONTENT_CARD_BUTTONS] = { CONTENT_CARD_BUTTONS_Y, CONTENT_CARD_BUTTONS_Y, CONTENT_PREVIOUS_Y };
 static const char *const FOOT_WORDS[CONTENT_FOOT_BUTTONS] = { "New", "Duplicate", "Rename", "Delete", "Install...", "Done" };
 static const int FOOT_X[CONTENT_FOOT_BUTTONS - 1] = { 14, 66, 170, 252, 420 };
-static const char READ_ONLY[] = "Standard edition - read only. Duplicate to edit.";
-static const char YOURS[] = "Your edition - in use";
+static const char READ_ONLY[] = "Read only. Duplicate to edit.";
 enum { YELLOW_RGB = 0xffce06, UNDERLINE_DY = 4 };
 
 /* `text` cut with "..." to at most `width` pixels at num/den, into `out` */
@@ -52,9 +51,9 @@ static void top(const ContentOps *o, const ContentPage *p)
     o->arrow(o->ctx, CONTENT_ARROW_RIGHT, sel, CONTENT_SELECTOR_ARROW_R, CONTENT_SELECTOR_Y + ARROW_DY);
     fit(o, clean(p->edition, plain, sizeof plain), 1, 1, CONTENT_SELECTOR_NAME_W, name, sizeof name);
     o->text(o->ctx, sel ? CONTENT_YELLOW : CONTENT_CREAM, name, CONTENT_SELECTOR_X - o->text_width(o->ctx, name, 1, 1) / 2, CONTENT_SELECTOR_Y, 1, 1);
-    const char *status = p->view->rows->locked ? READ_ONLY : YOURS;
-    o->text(o->ctx, p->flash ? CONTENT_YELLOW : CONTENT_DIM, status, CONTENT_SELECTOR_X - o->text_width(o->ctx, status, SMALL_NUM, SMALL_DEN) / 2,
-            CONTENT_STATUS_Y, SMALL_NUM, SMALL_DEN);
+    if (p->view->rows->locked)   /* the standard edition only: an edition of the player's own has no line under its name */
+        o->text(o->ctx, p->flash ? CONTENT_YELLOW : CONTENT_DIM, READ_ONLY, CONTENT_SELECTOR_X - o->text_width(o->ctx, READ_ONLY, SMALL_NUM, SMALL_DEN) / 2,
+                CONTENT_STATUS_Y, SMALL_NUM, SMALL_DEN);
     for (int t = 0; t < CONTENT_TABS; t++) {
         const int w = o->text_width(o->ctx, TAB_NAME[t], TAB_NUM, TAB_DEN), x = TAB_CENTRE[t] - w / 2, on = t == p->nav->tab;
         o->text(o->ctx, on ? CONTENT_YELLOW : CONTENT_CREAM, TAB_NAME[t], x, CONTENT_TAB_Y, TAB_NUM, TAB_DEN);

@@ -2,7 +2,7 @@
  * approved mock-up (mockups/content_sheet.png) in the game's 640x480 pixels, text y the words' tops.
  * (the owner's notes of 2026-11-17 and notes/dep59-content-ux-review.md changed the places below)
  *   top     the title (Customize Game's place) and, at the right, the selector of the editions: the gallery's two arrows and the name
- *           centred at x 403, y 70, and under it the status line (read only / in use) at y 88
+ *           centred at x 403, y 70, and under it, in the standard edition only, the read-only line at y 88
  *   tabs    Cars | Tracks | Tweaks centred at x 90, 197 and 304, y 102, the chosen one yellow and underlined; a rule under them at y 126
  *   list    x 14..378: the All row, then the tab's 10 rows, CONTENT_LINE (24) apart from y 130; the page indicator (the arrows always
  *           drawn) under them. A row: its box at x 16, the name at 52 up to 330, the up and down arrows at 336 and 356 on the row with

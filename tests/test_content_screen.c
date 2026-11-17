@@ -179,7 +179,7 @@ static void test_the_standard_edition(void)
     CHECK(drawn_at("[-]", CONTENT_BOX_X, CONTENT_LIST_Y, CONTENT_DIM));   /* locked, it shows what it holds: the stock on, the mods off */
     CHECK(drawn_at("Acura NSX", CONTENT_NAME_X, CONTENT_LIST_Y + 2 * CONTENT_LINE, CONTENT_DIM));
     CHECK(drawn("(game)") == NULL);   /* no version column (the owner's note 5): the card says what a piece of the game is */
-    const Drawn *status = drawn("Standard edition - read only. Duplicate to edit.");   /* under the selector, grey */
+    const Drawn *status = drawn("Read only. Duplicate to edit.");   /* under the selector, grey */
     CHECK(status != NULL && status->style == CONTENT_DIM && status->y == CONTENT_STATUS_Y);
     /* the selected row is a stock car: its card says whose it is and what, counts the standard edition, and has no buttons that never apply */
     CHECK(drawn("ORIGINAL - ELECTRONIC ARTS") != NULL);
@@ -215,8 +215,8 @@ static void test_an_own_edition(void)
     CHECK(strcmp(fk.saved.car[0], "gone-car") == 0 && strcmp(fk.saved.car[1], "rx7") == 0);
     CHECK(drawn("MISSING") != NULL && drawn("MISSING")->style == CONTENT_RED);
     CHECK(drawn_at("Rename", 170, CONTENT_FOOT_Y, CONTENT_CREAM));
-    CHECK(drawn("Standard edition - read only. Duplicate to edit.") == NULL);
-    CHECK(drawn("Your edition - in use") != NULL);
+    CHECK(drawn("Read only. Duplicate to edit.") == NULL);
+    CHECK(drawn("Your edition - in use") == NULL);   /* an own edition has no line under its name */
 }
 
 /* the card: the selected row's name, version and author, "Used in"; Update handed to the caller for the piece */
