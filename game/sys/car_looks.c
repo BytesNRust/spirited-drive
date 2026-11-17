@@ -126,6 +126,17 @@ bool car_looks_save_car(int opponent, int car)
     return put(opponent ? "opponent" : "car", p != NULL ? p->id : NULL);
 }
 
+int car_looks_saved_lunar(void)
+{
+    char value[8];
+    return restomod() && value_of("track", value, sizeof value) && strcmp(value, "lunar") == 0;
+}
+
+bool car_looks_save_lunar(int lunar)
+{
+    return restomod() && put("track", lunar ? "lunar" : NULL);
+}
+
 CarLook car_looks_get(const char *id)
 {
     CarLook l = { { 0 }, { 0 } };
@@ -154,6 +165,6 @@ bool car_looks_set(const char *id, const CarLook *look)
 
 int car_looks_key(const char *key)
 {
-    if (strcmp(key, "car") == 0 || strcmp(key, "opponent") == 0) return 1;
+    if (strcmp(key, "car") == 0 || strcmp(key, "opponent") == 0 || strcmp(key, "track") == 0) return 1;
     return strncmp(key, LOOK, sizeof LOOK - 1) == 0 && mod_ini_id_ok(key + sizeof LOOK - 1);
 }

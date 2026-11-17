@@ -56,6 +56,7 @@ P
     [ "$got" = "replay conditions (recorded): time 3, weather 2, reverse 0" ] || fail "a recorded night and rain replay under day and clear settings: '$got'"
     ;;
 extras)   # a record of a race with the moon's gravity (marker 1, moon 1, gravity 1, gravel 0), the mode's file's gravity off: it plays the moon's
+    # (dep59 Lunar L2: played alone there is no Lunar pick and no switch, so the moon here is the record's own)
     with_record "$WORK/moon.rpl" "[0, 0, 0, 1, 1, 1, 0, 0]"
     got=$(PICK="replay extras" play "$WORK/moon.rpl" day clear 0) || { echo "$got"; exit 1; }
     [ "$got" = "replay extras (recorded): moon 1, gravity 1, gravel 0" ] || fail "a recorded moon replay with the gravity off now: '$got'"

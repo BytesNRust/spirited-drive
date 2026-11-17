@@ -135,6 +135,8 @@ int16_t *cg_word_52b302(void);
 Unlocks cg_unlocks_of(void);
 void cg_unlocks_put(const Unlocks *u);
 void cg_extras_apply(void);
+/* port (dep59 Lunar L2): the Lunar pick (track_pick.h) dropped unless the track in hand is Rusty's rally and the list offers Lunar */
+void cg_lunar_settle(void);
 /* port (dep56): a Restomod tournament's variants (tournament_variants.h) onto the settings for the track set; in Stock and
  * Restored a tournament's are the exe's (none), so a profile changed mid-run drops them until Restomod is back */
 void cg_tournament_variants_apply(void);

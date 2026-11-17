@@ -1,6 +1,7 @@
 #include "game/frontend/central_glue_private.h"
 #include "game/frontend/card_marks.h"
 #include "game/frontend/car_pick.h"
+#include "game/frontend/track_pick.h"
 #include "game/sys/car_pieces.h"
 #include "game/sys/edition_file.h"
 #include "game/sys/car_looks.h"
@@ -119,6 +120,9 @@ static void picks_restore(void)
     const int car = car_looks_saved_car(0);
     if (car >= 0) cg_g.player_car = (int16_t)car;
     else if (car == CAR_LOOKS_NOT_LOADED) cg_g.player_car = 0;
+    /* port (dep59 Lunar L2): track=lunar over config.dat's Rusty rally gives Lunar back where it is offered */
+    track_pick_lunar_put(car_looks_saved_lunar());
+    cg_lunar_settle();
     if (cg_g.race_type != RACE_HEAD_TO_HEAD) return;
     const int rival = car_looks_saved_car(1);
     if (rival >= 0) cg_g.opponent = (int16_t)rival;
@@ -134,6 +138,8 @@ void cg_picks_save(void)
     if (car != cg_g.player_car && (car >= 0 || car_registry_is_added(cg_g.player_car) || car == CAR_LOOKS_NOT_LOADED) &&
         !car_looks_save_car(0, cg_g.player_car))
         port_log("car looks: the car picked was not kept\n");
+    if (car_looks_saved_lunar() != track_pick_lunar() && !car_looks_save_lunar(track_pick_lunar()))
+        port_log("car looks: the Lunar pick was not kept\n");
     if (cg_g.race_type != RACE_HEAD_TO_HEAD) return;
     const int rival = car_looks_saved_car(1);
     if (rival != cg_g.opponent && (rival >= 0 || car_registry_is_added(cg_g.opponent) || rival == CAR_LOOKS_NOT_LOADED) &&
@@ -172,6 +178,7 @@ void cg_extras_apply(void)
     restomod_flag = (int16_t)(port_settings_profile() == PROFILE_RESTOMOD);
     car_pieces_follow();   /* port (dep59): the added cars of the mods in effect, for the arrows (car_list.h); loaded again only when they change */
     cg_variant_choice_apply();   /* port (dep65): Restomod's switches back from the player's choice, after every place they are cleared */
+    cg_lunar_settle();
 }
 
 /* 00465ec8, 00432974, 00432c40, 00432d48 and 00432720 on the shorts */
@@ -237,32 +244,60 @@ static const TrackList *edition_tracks(TrackList *l)
     return l;
 }
 
-static void track_forward(void *ctx)
+/* port (dep59 Lunar L2): 1 when the track list offers Lunar Springs: the standard edition's switch at level 2, an edition's lunar in
+ * tracks= (unlock_level_gate); never in a tournament */
+static int lunar_offered(void)
 {
-    (void)ctx;
+    if (cg_g.race_type == RACE_TOURNAMENT) return 0;
+    return unlock_level_gate(port_extras_load(), cg_g.unlock_level, central_edition.cars > 0 ? &central_edition : NULL).lunar_springs != 0;
+}
+
+/* port (dep59 Lunar L2): the tracks Control Central's arrows walk, Lunar among them when offered (track_pick.h); NULL for the standard
+ * edition's own walk without it */
+static const TrackList *central_tracks(TrackList *l)
+{
+    const int lunar = lunar_offered() ? TRACK_LIST_LUNAR_OFF : TRACK_LIST_LUNAR_NEVER;
+    if (central_edition.tracks > 0) {
+        track_list_build(l, &central_edition, 0, lunar);
+        return l;
+    }
+    if (lunar == TRACK_LIST_LUNAR_NEVER) return NULL;
+    track_list_build(l, NULL, cg_g.lost_vegas != 0, TRACK_LIST_LUNAR_ON);
+    return l;
+}
+
+/* port (dep59 Lunar L2): the pick holds only on Rusty's rally where Lunar is offered */
+void cg_lunar_settle(void)
+{
+    if (!lunar_offered() || cg_g.track != 3 || cg_g.variant_r == 0) track_pick_lunar_put(0);
+}
+
+/* port (dep59 Lunar L2): the arrows over the entries, Lunar's pick with them */
+static void track_arrow(int dir)
+{
     RaceSettings s = cg_settings_of();
     const Unlocks u = cg_unlocks_of();
     TrackList l;
-    const TrackList *tracks = edition_tracks(&l);
-    if (variant_switches_on()) race_settings_track_step(&s, &u, tracks, 1);   /* port (dep56): the variants are the track screen's switches */
-    else race_settings_track_forward(&s, &u, tracks);
+    int lunar = track_pick_lunar();
+    /* port (dep56): with the switches the variants are the track screen's */
+    track_pick_step(&s, &lunar, &u, central_tracks(&l), dir, variant_switches_on());
     cg_settings_put(&s);
+    track_pick_lunar_put(lunar);
     cg_variant_choice_apply();   /* port (dep65): the choice on the new track (Lost Vegas takes no mirror or rally, the next does) */
     cg_tournament_variants_apply();   /* a tournament's are its own on every track (Lost Vegas: none) */
+    cg_lunar_settle();
+}
+
+static void track_forward(void *ctx)
+{
+    (void)ctx;
+    track_arrow(1);
 }
 
 static void track_backward(void *ctx)
 {
     (void)ctx;
-    RaceSettings s = cg_settings_of();
-    const Unlocks u = cg_unlocks_of();
-    TrackList l;
-    const TrackList *tracks = edition_tracks(&l);
-    if (variant_switches_on()) race_settings_track_step(&s, &u, tracks, -1);
-    else race_settings_track_backward(&s, &u, tracks);
-    cg_settings_put(&s);
-    cg_variant_choice_apply();
-    cg_tournament_variants_apply();
+    track_arrow(-1);
 }
 
 /* port (dep65): the card's words in the log when they change, "mark:card=<track> <left words>|<right words>", each list joined by

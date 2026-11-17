@@ -27,8 +27,8 @@ int unlock_level_get(const ConfigDat *c)
 
 PortExtras unlock_level_gate(PortExtras e, int level, const Edition *edition)
 {
-    const int open = edition != NULL ? edition_lunar_springs(edition) : level >= 2;
-    if (!open) e.lunar_springs = 0;
+    if (edition != NULL) e.lunar_springs = edition_lunar_springs(edition);   /* dep59 Lunar: its tracks=, whatever the switch */
+    else if (level < 2) e.lunar_springs = 0;
     return e;
 }
 

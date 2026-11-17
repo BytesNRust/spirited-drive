@@ -69,6 +69,7 @@ void cg_race(void *ctx)
     cg_picks_save();   /* port (dep59): the pick is kept before the race, whatever comes of it */
     cg_extras_apply();   /* port: a tournament's start (central_select.c) clears rally, explode, warrior and turbo */
     cg_tournament_variants_apply();   /* port (dep56): a Restomod tournament runs its variants, whatever 00433c58 cleared */
+    cg_lunar_settle();   /* port (dep59 Lunar L2): the race runs the moon on Lunar's entry alone */
     ConfigDat *const config = config_current();
     const RaceSettings before = cg_settings_of();
     config_dat_set_race(config, &before);

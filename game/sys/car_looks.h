@@ -24,11 +24,16 @@ int car_looks_saved_car(int opponent);
 /* `car` kept as car= / opponent=: an added car's id written, an original's line taken out (config.dat keeps it). True when the file is
  * as asked; false in Stock and Restored, which write nothing */
 bool car_looks_save_car(int opponent, int car);
+/* port (dep59 Lunar L2): track=lunar, the Lunar pick (track_pick.h) over config.dat's Rusty rally: 1 with that line, else 0 (none, another
+ * value, or out of Restomod). An older binary's loader skips the key it does not know, so it races config.dat's Rusty rally */
+int car_looks_saved_lunar(void);
+/* track=lunar written (1) or taken out (0); false out of Restomod */
+bool car_looks_save_lunar(int lunar);
 /* look.<id>=; both "" when there is none or the mode is not Restomod */
 CarLook car_looks_get(const char *id);
 /* look.<id>= written (the line taken out when both are ""); false for a bad id or name, or out of Restomod */
 bool car_looks_set(const char *id, const CarLook *look);
-/* 1 for a key of these (car, opponent, look.<id>): what the mode file's writer keeps of the file as it was (port_mode_write) */
+/* 1 for a key of these (car, opponent, track, look.<id>): what the mode file's writer keeps of the file as it was (port_mode_write) */
 int car_looks_key(const char *key);
 
 #endif

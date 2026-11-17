@@ -4,6 +4,7 @@
  * again wherever the exe or the port clears them (Control Central's start, Options, a race, a change of race type, a track step).
  * A tournament keeps its own variants (tournament_variants.h): there the choice is neither read nor written. */
 #include "game/frontend/central_glue_private.h"
+#include "game/frontend/track_pick.h"
 #include "game/frontend/variant_rule.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/reverse_track.h"
@@ -18,6 +19,7 @@ void cg_variant_choice_apply(void)
     const PortSettings s = port_settings_load();
     const VariantPair v = variant_choice_on_track(cg_g.track, s.variant_mirror, s.variant_rally, cg_g.unlock_m, cg_g.unlock_r);
     cg_g.variant_m = v.mirror, cg_g.variant_r = v.rally;
+    if (cg_g.track == 3 && track_pick_lunar()) cg_g.variant_r = 1;   /* port (dep59 Lunar L2): Lunar is Rusty's rally, whatever the switch */
     reverse_track_pick(s.variant_reverse && cg_reverse_offered());
 }
 

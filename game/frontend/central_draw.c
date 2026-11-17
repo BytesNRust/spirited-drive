@@ -6,6 +6,7 @@
 #include "game/frontend/card_marks.h"
 #include "game/frontend/variant_rule.h"
 #include "game/race/lunar_springs.h"
+#include "game/frontend/track_pick.h"
 #include "game/sys/port_extras.h"
 #include "game/sys/port_log.h"
 #include "game/sys/resource.h"
@@ -108,9 +109,9 @@ static void track_art(CentralRun *r)
     char path[0x50];
     enum { MIRROR_ART = 10, RALLY_ART = 19 };   /* the mirror's and the rally's first entries in TRACK_NAMES (Lunar Springs reads the rally's) */
     const int plain = r->ops->card_plain != NULL && r->ops->card_plain(r->ops->ctx);   /* port (dep64): Restomod's card */
-    /* port: the moon's picture follows the Lunar Springs Track switch and the level (or the edition) as they are now, so the rally's word
-     * carries them too (bit 8): a change in Customize Game redraws the card though the track and variants are the same */
-    const int lunar_now = unlock_level_gate(port_extras_load(), *st->unlock_level, central_edition_of(st)).lunar_springs != 0;
+    /* port: the moon's picture follows the Lunar pick (dep59 Lunar L2, track_pick.h), so the rally's word carries it too (bit 8): Lunar
+     * and Rusty's rally are the same track and variants */
+    const int lunar_now = track_pick_lunar() != 0;
     const int r_now = (*st->variant_r != 0) | lunar_now << 8 | plain << 9;   /* port (dep64): and the card's kind, Restomod's or the exe's */
     if (st->was[WAS_TRACK] != *st->track || (int16_t)st->was[WAS_M] != *st->variant_m ||
         (int16_t)st->was[WAS_R] != r_now) {

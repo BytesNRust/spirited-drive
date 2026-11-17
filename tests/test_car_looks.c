@@ -145,6 +145,33 @@ static void test_a_settings_save_keeps_them(void)
     CHECK(strstr(file("restomod.cfg"), "nitro=1\n") != NULL);
 }
 
+/* dep59 Lunar L2: track=lunar keeps the Lunar pick over config.dat's Rusty rally; a settings save keeps it, and the settings around it
+ * read the same with it there (the loaders skip a key they do not know: an older binary reads the file as Rusty's rally, never fails) */
+static void test_the_lunar_pick(void)
+{
+    fresh("restomod");
+    CHECK_EQ_INT(car_looks_saved_lunar(), 0);
+    CHECK(car_looks_save_lunar(1));
+    CHECK(strstr(file("restomod.cfg"), "track=lunar\n") != NULL);
+    CHECK_EQ_INT(car_looks_saved_lunar(), 1);
+    PortExtras e = port_extras_load();
+    e.nitro = 1;
+    CHECK(port_extras_save(&e));
+    CHECK(strstr(file("restomod.cfg"), "track=lunar\n") != NULL);
+    CHECK_EQ_INT(port_extras_load().nitro, 1);
+    CHECK(car_looks_save_lunar(0));
+    CHECK(strstr(file("restomod.cfg"), "track=") == NULL);
+    CHECK_EQ_INT(car_looks_saved_lunar(), 0);
+    static const char HAND[] = "track=moon\nnitro=1\n";   /* another value: no pick */
+    platform_write_user_file("restomod.cfg", (const uint8_t *)HAND, sizeof HAND - 1);
+    CHECK_EQ_INT(car_looks_saved_lunar(), 0);
+    CHECK_EQ_INT(port_extras_load().nitro, 1);
+    fresh("stock");
+    CHECK(!car_looks_save_lunar(1));
+    platform_write_user_file("restomod.cfg", (const uint8_t *)"track=lunar\n", 12);
+    CHECK_EQ_INT(car_looks_saved_lunar(), 0);   /* Restomod's alone */
+}
+
 static void test_stock_and_restored(void)
 {
     static const char *const MODES[] = { "stock", "restored" };
@@ -166,6 +193,7 @@ int main(void)
     test_cars();
     test_looks();
     test_a_settings_save_keeps_them();
+    test_the_lunar_pick();
     test_stock_and_restored();
     return TEST_REPORT();
 }
