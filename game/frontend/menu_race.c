@@ -1,8 +1,11 @@
 #include "game/frontend/menu_race.h"
 
 #include "game/frontend/palette_put.h"
+#include "game/race/track_traits.h"
 #include "game/sys/free_laps.h"
+#include "game/sys/track_registry.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -35,20 +38,41 @@ static void p32(uint8_t *at, int32_t v) { memcpy(at, &(uint32_t){ (uint32_t)v },
 
 static int type_of(const MenuRaceState *st) { return g16(st->image + RACE_TYPE); }
 static int track_of(const MenuRaceState *st) { return g16(st->image + TRACK); }
+
+/* port (dep59 step 5, T4): an added track (a number from TRACK_ADDED_FIRST) is a stage track of its piece's segments, whose records the original's tables do not hold */
+static int added_of(int track) { return track >= TRACK_ADDED_FIRST && track_registry_is_added(track); }
+static int circuit_of(int track) { return track > 2 && !added_of(track); }
+static int segments_of(int track)
+{
+    const TrackPiece *p = added_of(track) ? track_registry_piece(track) : NULL;
+    return p != NULL ? p->spec.segments : 3;
+}
 static uint8_t *player_of(const MenuRaceState *st) { return st->game + PLAYER * *st->player; }
 
 /* the record run for the track (a circuit: the difficulty's) */
 static uint8_t *ghost_at(const MenuRaceState *st, int circuit)
 {
+    static uint8_t none[GHOST_STRIDE];   /* an added track has no record run in the original's table: the race is against nothing */
+    if (added_of(track_of(st))) return none;
     const int at = GHOST + TRACK_RECORDS * track_of(st) + (circuit ? GHOST_STRIDE * g16(st->image + DIFFICULTY) : 0);
     return st->image + at;
 }
 
 static void run_race(const MenuRaceState *st, char *const *argv, const uint8_t *black, const MenuRaceOps *ops)
 {
-    const int circuit = g16(st->game + TRACK_KEPT) > 2;
-    if (circuit) snprintf(argv[1], ARG, "%s", STEM[g16(st->game + TRACK_KEPT)]);
-    else snprintf(argv[1], ARG, "%s%d", STEM[g16(st->game + TRACK_KEPT)], g16(st->game + RUN) + 1);
+    const int kept = g16(st->game + TRACK_KEPT);
+    const int circuit = circuit_of(kept);
+    const TrackPiece *const piece = added_of(kept) ? track_registry_piece(kept) : NULL;
+    if (piece != NULL) {   /* the stem as the piece's files are named, lower case as the CD's roots are here, and the stage's number */
+        char root[ARG];
+        size_t n = 0;
+        for (; piece->stem[n] != '\0' && n + 2 < sizeof root; n++) root[n] = (char)tolower((unsigned char)piece->stem[n]);
+        root[n] = '\0';
+        snprintf(argv[1], ARG, "%s%d", root, g16(st->game + RUN) + 1);
+        const TrackPieceFields fields = { piece->spec.kind, piece->spec.road, piece->spec.edge };
+        track_traits_race_set(argv[1], kept, &fields);   /* the race reads this piece's traits, by the root it is loaded as */
+    } else if (circuit) snprintf(argv[1], ARG, "%s", STEM[g16(st->game + TRACK_KEPT)]);
+    else snprintf(argv[1], ARG, "%s%d", STEM[kept], g16(st->game + RUN) + 1);
     const uint8_t *ghost = ghost_at(st, circuit);
     for (int i = 0; i < MENU_RACE_GHOST; i++) st->ghost[i] = g32(ghost + 4 * i);
     if (*st->pointer_active) ops->pointer_hide(ops->ctx);
@@ -57,6 +81,7 @@ static void run_race(const MenuRaceState *st, char *const *argv, const uint8_t *
     ops->font_race(ops->ctx);
     ops->screen_mode(ops->ctx, 0);
     ops->race(ops->ctx, 2, argv);
+    if (piece != NULL) track_traits_race_set(NULL, 0, NULL);
     ops->font_set(ops->ctx, *st->font);
     ops->screen_mode(ops->ctx, 0);
     ops->present(ops->ctx);
@@ -85,7 +110,7 @@ static void keep_times(const MenuRaceState *st)
     }
     const int32_t lap = g32(me + LAP);
     /* port: the laps run, a free race's own count (the exe's LAPS made a laps=1 race's average speed eight times too high) */
-    if (track_of(st) > 2) p32(me + TRACK_TOTAL, free_laps_distance(g16(st->image + LAPS), lap));
+    if (circuit_of(track_of(st))) p32(me + TRACK_TOTAL, free_laps_distance(g16(st->image + LAPS), lap));
     else p32(me + TRACK_TOTAL, lap > 0 ? (int32_t)((uint32_t)g32(me + TRACK_TOTAL) + (uint32_t)lap) : 0);
     if (g32(me + TOP) < g32(me + SPEED)) p32(me + TOP, g32(me + SPEED));
 }
@@ -93,6 +118,11 @@ static void keep_times(const MenuRaceState *st)
 /* a finished track that beat the best keeps its run */
 static void keep_record(const MenuRaceState *st, const MenuRaceOps *ops)
 {
+    if (added_of(track_of(st))) {   /* port (dep59 step 5, T5 keeps its record in its own table) */
+        p16(st->image + SEGMENT, 0);
+        ops->won(ops->ctx);
+        return;
+    }
     const int difficulty = track_of(st) > 2 ? g16(st->image + DIFFICULTY) : 0;
     const uint8_t *best = st->image + BEST + TRACK_RECORDS * track_of(st) + BEST_STRIDE * difficulty;
     if (g32(best) > g32(player_of(st) + TOTAL)) {
@@ -107,7 +137,7 @@ static void keep_record(const MenuRaceState *st, const MenuRaceOps *ops)
 static int finished_screens(const MenuRaceState *st, const MenuRaceOps *ops)
 {
     const int link = *st->link != 0;
-    if (track_of(st) > 2) {
+    if (circuit_of(track_of(st))) {
         if (!link || type_of(st) != CUP) {
             if (!link || type_of(st) != TOURNAMENT) ops->circuit_results(ops->ctx, 1);
         }
@@ -116,7 +146,7 @@ static int finished_screens(const MenuRaceState *st, const MenuRaceOps *ops)
         ops->after_race(ops->ctx);
         return 1;
     }
-    if (g16(st->game + RUN) > 2) {
+    if (g16(st->game + RUN) >= segments_of(track_of(st))) {
         const int type = type_of(st);
         if (!link || (type != TOURNAMENT && type != CUP)) ops->segment_results(ops->ctx, 1);
         if (type == TOURNAMENT || type == CUP) ops->standings(ops->ctx, 1);
@@ -137,11 +167,11 @@ static int finished_screens(const MenuRaceState *st, const MenuRaceOps *ops)
 static void stopped_screens(const MenuRaceState *st, const MenuRaceOps *ops)
 {
     const int type = type_of(st);
-    if (track_of(st) > 2) {
+    if (circuit_of(track_of(st))) {
         ops->circuit_results(ops->ctx, 0);
         if (type == TOURNAMENT || type == CUP) ops->standings(ops->ctx, 1);
         if (type == TOURNAMENT) ops->standings(ops->ctx, 0);
-    } else if (g16(st->game + RUN) > 2) {
+    } else if (g16(st->game + RUN) >= segments_of(track_of(st))) {
         ops->segment_results(ops->ctx, 1);
         if (type == TOURNAMENT || type == CUP) ops->standings(ops->ctx, 1);
         ops->track_results(ops->ctx, 0);
@@ -210,7 +240,7 @@ void menu_race(const MenuRaceState *st, const MenuRaceOps *ops)
         if (g16(st->game + RACED) == ENDED_4) ops->cop_stop(ops->ctx);
         if (g16(st->game + RACED) == FINISHED) {
             if (ops->finished != NULL) ops->finished(ops->ctx);
-            if (track_of(st) > 2 || g16(st->game + RUN) > 2) keep_record(st, ops);
+            if (circuit_of(track_of(st)) || g16(st->game + RUN) >= segments_of(track_of(st))) keep_record(st, ops);
             ops->bank_load(ops->ctx);
             ops->screen_mode(ops->ctx, 0);
             ops->music_pick(ops->ctx);

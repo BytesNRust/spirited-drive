@@ -49,6 +49,7 @@
 #include "game/sys/timer.h"
 #include "game/sys/video.h"
 #include "game/race/race_sim.h"
+#include "game/race/track_traits.h"
 #include "platform/platform.h"
 #include "tnfs_version.h"
 #include "viewer/asset_viewer.h"
@@ -219,8 +220,7 @@ static int resolve_car(Options *opt)
 
 /* port (dep59 step 5): --drive NAME as one of the CD's tracks (its root, with its variants), as before, or the id of an added track of the mods
  * in effect (track_pieces.h), which is read from the registry and found by id. Its menu number in `track`; 0 with a fatal message when it is
- * neither. T4 is in progress: until the race reads its traits from the piece (T2, TrackTraits), a race on an added track would index the tables
- * of the CD's nine, so it is refused here with a message, after the id has been resolved. */
+ * neither. */
 static int resolve_drive_track(const char *name, int *track)
 {
     *track = race_sim_track_index(name);
@@ -231,8 +231,7 @@ static int resolve_drive_track(const char *name, int *track)
         port_fatal("--drive: no track %s\n", name);
         return 0;
     }
-    port_fatal("--drive: %s is an added track (track %d): racing one waits for the race to read its traits (dep59 step 5)\n", name, *track);
-    return 0;
+    return 1;   /* an added track: its menu number, which menu_race reads the piece by (stage 1 first) */
 }
 
 static int run_drive(const Options *opt)
@@ -258,8 +257,9 @@ static int run_drive(const Options *opt)
     menu_audio_open();
     config_load();
     int variant_m = 0, variant_r = 0;
-    drive_variants(opt->drive, &variant_m, &variant_r);
-    glue_drive_race(track, race_sim_track_variant(opt->drive), opt->car,
+    const int added = track_registry_is_added(track);   /* an id may end in m or r: no variants, and the stage is the first */
+    if (!added) drive_variants(opt->drive, &variant_m, &variant_r);
+    glue_drive_race(track, added ? 0 : race_sim_track_variant(opt->drive), opt->car,
                     opt->race_type >= 0 ? opt->race_type : FULL_FIELD, variant_m, variant_r);
 #ifdef TNFS_SOURCE_DIR   /* development builds only: TNFS_DRIVE_AGAIN=stock|restored|restomod races once more after that mode is made the one in use, as Game Mode's Yes does
                           * (port_profile_select): a change of mode with no restart, headless (tests/live_mode_switch_race.cmake) */
@@ -267,7 +267,7 @@ static int run_drive(const Options *opt)
     const int again_mode = again != NULL ? port_profile_named(again) : -1;
     if (again_mode >= 0 && port_profile_select(again_mode)) {
         port_log("mark:mode=%s\n", again);
-        glue_drive_race(track, race_sim_track_variant(opt->drive), opt->car,
+        glue_drive_race(track, added ? 0 : race_sim_track_variant(opt->drive), opt->car,
                         opt->race_type >= 0 ? opt->race_type : FULL_FIELD, variant_m, variant_r);
     }
 #endif
@@ -396,7 +396,17 @@ int main(int argc, char **argv)
         /* port: the headless frame takes the language and the speed's units as the race does (run_drive's setup) */
         resource_init(opt.data_root, opt.german);
         resource_set_units(port_extras_load().units);
-        ok = track_viewer_drive(opt.data_root, opt.drive, opt.car, opt.racers, opt.race_type, opt.entry, opt.screenshot);
+        int pick = 0;
+        char root[16];
+        if (!resolve_drive_track(opt.drive, &pick)) return EXIT_FAILURE;
+        const TrackPiece *const piece = track_registry_is_added(pick) ? track_registry_piece(pick) : NULL;
+        if (piece != NULL) {   /* port (dep59 step 5, T4): an added track's first stage, as its root is loaded, with the piece's traits for the race */
+            snprintf(root, sizeof root, "%s1", piece->stem);
+            const TrackPieceFields fields = { piece->spec.kind, piece->spec.road, piece->spec.edge };
+            track_traits_race_set(root, pick, &fields);
+        }
+        ok = track_viewer_drive(opt.data_root, piece != NULL ? root : opt.drive, opt.car, opt.racers, opt.race_type, opt.entry, opt.screenshot);
+        if (piece != NULL) track_traits_race_set(NULL, 0, NULL);
         /* port (dev, env only): TNFS_DRIVE_THEN=NAME races a second track in the same process, as the menus do after a race (the tests for what a track leaves behind) */
         const char *then = getenv("TNFS_DRIVE_THEN");
         if (ok && then != NULL && then[0] != '\0') ok = track_viewer_drive(opt.data_root, then, opt.car, opt.racers, opt.race_type, opt.entry, opt.screenshot);

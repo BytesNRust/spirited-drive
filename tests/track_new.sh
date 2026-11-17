@@ -67,5 +67,23 @@ printf 'section 3\n' > "$work/short.trk"
 "$studio" track new "$work/loop.trk" --template NOPE --out "$work/x" --data "$orig" >/dev/null 2>"$work/log" && fail "an unknown template slot was accepted"
 "$studio" track new "$work/nothere.trk" --template AL1 --out "$work/x" --data "$orig" >/dev/null 2>&1 && fail "a missing layout file was accepted"
 
+# a track piece (dep59 step 5, T6): a card, the stage's files under the stem and the number, nothing else; a stem of the CD's is refused
+piece="$work/piece"
+"$studio" track new "$work/loop.trk" --template AL1 --piece --id my-stage --stem MYSTAGE --out "$piece" --data "$orig" >"$work/log" 2>&1 || fail "piece: track new --piece: $(cat "$work/log")"
+for f in mod.ini SIMDATA/MISC/MYSTAGE1.TRI SIMDATA/MISC/MYSTAGE1INFO SIMDATA/ETRACKFM/MYSTAGE1_001.FAM SIMDATA/GTRACKFM/MYSTAGE1_001.FAM; do
+    [ -f "$piece/$f" ] || fail "piece: $f was not written"
+done
+for line in type=track stem=MYSTAGE kind=stage segments=1 id=my-stage; do
+    grep -qx "$line" "$piece/mod.ini" || fail "piece: mod.ini lacks $line: $(cat "$piece/mod.ini" 2>/dev/null)"
+done
+"$studio" validate "$piece" >"$work/log" 2>&1 || fail "piece: it does not validate: $(cat "$work/log")"
+for stem in CYX ALPES TR9 TOOLONGSTEM; do
+    "$studio" track new "$work/loop.trk" --template AL1 --piece --id bad --stem "$stem" --out "$work/bad_$stem" --data "$orig" >/dev/null 2>"$work/log" && fail "piece: --stem $stem was accepted"
+    grep -q "$stem" "$work/log" || fail "piece: the refusal of --stem $stem does not name it: $(cat "$work/log")"
+    [ -e "$work/bad_$stem" ] && fail "piece: --stem $stem still wrote files"
+done
+"$studio" track new "$work/loop.trk" --template AL1 --piece --stem MYSTAGE --out "$work/x" --data "$orig" >/dev/null 2>&1 && fail "piece: no --id was accepted"
+"$studio" track new "$work/loop.trk" --template AL1 --id x --out "$work/x" --data "$orig" >/dev/null 2>&1 && fail "--id without --piece was accepted"
+
 [ "$failures" -eq 0 ] && echo "track_new: ok"
 exit $((failures != 0))

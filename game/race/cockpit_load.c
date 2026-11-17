@@ -203,9 +203,10 @@ int cockpit_load(Cockpit *c, CockpitWorld *w, HudState *hud, RaceState *race, in
                  size_t bank_size, const uint8_t *fmm, const char *name, int32_t high, int32_t full)
 {
     const int32_t track = race->track;
-    if (track < 0 || track >= TRACKS) return -1;
-    race->best_lap = race->records != NULL ? le32(race->records + RECORD_STRIDE * track) : 0;
-    w->unknown_4f9b40 = track_words[track];
+    if (track < 0) return -1;
+    const int stock = track < TRACKS;   /* port (dep59 step 5, T4): an added track gets the normal dashboard, with no saved best lap and the usual word */
+    race->best_lap = race->records != NULL && stock ? le32(race->records + RECORD_STRIDE * track) : 0;
+    w->unknown_4f9b40 = stock ? track_words[track] : 480;
     race->best_lap_set = 0;
     snprintf(c->name, sizeof c->name, "%s", name);
     w->width = high ? 640 : 320;
