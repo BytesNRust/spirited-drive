@@ -78,6 +78,9 @@ typedef struct {
 /* 1 and `out` filled when the card is good; 0 with the reason in `why` (English, for the player) otherwise. */
 int mod_ini_parse(const uint8_t *text, size_t size, ModInfo *out, char *why, size_t why_cap);
 
+/* port (dep59 showcase): 1 when `name` is a photo's file name (the rule above: photos=, photo_small=) */
+int mod_ini_photo_name_ok(const char *name);
+
 /* 1 when `id` is a usable mod id (the rule above) */
 int mod_ini_id_ok(const char *id);
 

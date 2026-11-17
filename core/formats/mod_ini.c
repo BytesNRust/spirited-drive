@@ -189,22 +189,32 @@ static int take_paints(const char *s, const char *e, ModInfo *out, char *why, si
     return 1;
 }
 
-/* one photo's file name, `s` .. `e`, into `name` (MOD_INI_PHOTO_NAME_MAX + 1 bytes): a-z 0-9 '-' '_' '.', ending ".png", and not one the game's own
- * pictures have; 0 with `why` saying which key and why */
-static int take_photo_name(const char *key, const char *s, const char *e, char *name, char *why, size_t cap)
+/* why `s` (n bytes) is no photo's file name (a-z 0-9 '-' '_' '.', ending ".png", up to MOD_INI_PHOTO_NAME_MAX, none the game's own pictures
+ * and tweaks use); NULL when it is one */
+static const char *photo_fault(const char *s, size_t n)
 {
-    static const char *const OWN[] = { "card.png", "rival.png", "gallery.png" };
-    const size_t n = (size_t)(e - s);
-    if (n == 0) return refuse(why, cap, "mod.ini: %s has an empty entry", key);
-    if (n > MOD_INI_PHOTO_NAME_MAX) return refuse(why, cap, "mod.ini: %s: \"%.*s\" is longer than %d characters", key, (int)n, s, MOD_INI_PHOTO_NAME_MAX);
+    static const char *const OWN[] = { "card.png", "rival.png", "gallery.png", "preview.png", "car_envmap.png" };
+    if (n == 0) return "is empty";
+    if (n > MOD_INI_PHOTO_NAME_MAX) return "is longer than 24 characters";
     for (size_t i = 0; i < n; i++) {
         const char c = s[i];
         if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.'))
-            return refuse(why, cap, "mod.ini: %s: \"%.*s\" may hold only a-z, 0-9, '-', '_' and '.' (a file in the piece's folder)", key, (int)n, s);
+            return "may hold only a-z, 0-9, '-', '_' and '.' (a file in the piece's folder)";
     }
-    if (n < 5 || memcmp(s + n - 4, ".png", 4) != 0) return refuse(why, cap, "mod.ini: %s: \"%.*s\" is not a .png", key, (int)n, s);
+    if (n < 5 || memcmp(s + n - 4, ".png", 4) != 0) return "is not a .png";
     for (size_t k = 0; k < sizeof OWN / sizeof OWN[0]; k++)
-        if (strlen(OWN[k]) == n && memcmp(OWN[k], s, n) == 0) return refuse(why, cap, "mod.ini: %s: %s is the game's own picture's name", key, OWN[k]);
+        if (strlen(OWN[k]) == n && memcmp(OWN[k], s, n) == 0) return "is a name the game's own pictures use";
+    return NULL;
+}
+
+int mod_ini_photo_name_ok(const char *name) { return photo_fault(name, strlen(name)) == NULL; }
+
+/* one photo's file name, `s` .. `e`, into `name` (MOD_INI_PHOTO_NAME_MAX + 1 bytes); 0 with `why` saying which key and why */
+static int take_photo_name(const char *key, const char *s, const char *e, char *name, char *why, size_t cap)
+{
+    const size_t n = (size_t)(e - s);
+    const char *fault = photo_fault(s, n);
+    if (fault != NULL) return refuse(why, cap, "mod.ini: %s: \"%.*s\" %s", key, (int)n, s, fault);
     memcpy(name, s, n);
     name[n] = '\0';
     return 1;
