@@ -106,15 +106,18 @@ static const ShpiDescEntry *entry(const Bank *b, const char *name)
 static int is_grey(const uint8_t *c) { return c[0] == c[1] && c[1] == c[2]; }
 static int is_yellow(const uint8_t *c) { return c[0] > 170 && c[1] > 120 && c[2] < 100 && c[1] * 10 > c[0] * 6; }
 
-/* the grey picture of a bank's bgnd, its luminance */
-static void grey_of(const Bank *b, uint8_t *g)
+/* the grey picture of a bank's bgnd, its luminance; `bright` (the made bank's): its brightest channel, the grey the title's red stands for */
+static void grey_of(const Bank *b, uint8_t *g, int bright)
 {
     const ShpiDescEntry *bg = entry(b, "bgnd");
     for (int i = 0; i < LUNAR_ART_W * LUNAR_ART_H; i++) {
         const uint8_t *c = b->rgb + 3 * bg->data[i];
-        g[i] = (uint8_t)((299 * c[0] + 587 * c[1] + 114 * c[2]) / 1000);
+        const uint8_t top = c[0] > c[1] ? (c[0] > c[2] ? c[0] : c[2]) : (c[1] > c[2] ? c[1] : c[2]);
+        g[i] = bright ? top : (uint8_t)((299 * c[0] + 587 * c[1] + 114 * c[2]) / 1000);
     }
 }
+
+static int is_reddish(const uint8_t *c) { return c[0] > 2 * c[1] && c[0] > 2 * c[2] && c[0] > 20; }
 
 static void check_bank(const char *dir, const char *file, LunarArtKind kind)
 {
@@ -145,7 +148,7 @@ static void check_bank(const char *dir, const char *file, LunarArtKind kind)
               && memcmp(was.e[i].misc, now.e[i].misc, sizeof was.e[i].misc) == 0);
     CHECK(memcmp(was.rgb, now.rgb, 3) == 0 && memcmp(was.rgb + 3 * 253, now.rgb + 3 * 253, 9) == 0);   /* 0 and the pointer's */
     static uint8_t gw[LUNAR_ART_W * LUNAR_ART_H], gn[LUNAR_ART_W * LUNAR_ART_H];
-    grey_of(&was, gw), grey_of(&now, gn);
+    grey_of(&was, gw, 0), grey_of(&now, gn, 1);
     LunarRun rw[32], rn2[32];
     const int nw = lunar_title_runs(gw, LUNAR_ART_W, LUNAR_ART_H, rw, 32), nn = lunar_title_runs(gn, LUNAR_ART_W, LUNAR_ART_H, rn2, 32);
     CHECK_EQ_INT(nn, nw);   /* five letters for five: LUNAR for RUSTY */
@@ -168,16 +171,27 @@ static void check_bank(const char *dir, const char *file, LunarArtKind kind)
             for (int x = 10; x < 280; x++) row += gn[y * LUNAR_ART_W + x];
             if (abs(row - base) / 270 > worst) worst = abs(row - base) / 270;
         }
-        CHECK(worst <= 5);
-        if (worst > 5) printf("%s/%s: a row of the time of day's band is %d off the ground\n", dir, file, worst);
+        /* measured on the made picture, so in its palette's steps: 5 at version 1 (at the limit), 6 since the title's red ramp took 32
+         * of the grey ramp's entries (version 2); the band's fill itself is the same */
+        CHECK(worst <= 6);
+        if (worst > 6) printf("%s/%s: a row of the time of day's band is %d off the ground\n", dir, file, worst);
     }
     const ShpiDescEntry *bg = entry(&now, "bgnd");
-    int coloured = 0, red = 0;
+    int coloured = 0, red = 0, letters = 0, letters_red = 0, title_odd = 0;
     for (int i = 0; bg != NULL && i < LUNAR_ART_W * LUNAR_ART_H; i++) {
         const uint8_t *c = now.rgb + 3 * bg->data[i];
+        const int y = i / LUNAR_ART_W;
+        if (y >= LUNAR_TITLE_Y0 && y < LUNAR_TITLE_Y1) {   /* the title (option A): its letters' white is red, nothing else coloured */
+            if (gn[i] > LUNAR_LETTER_WHITE) letters++, letters_red += is_reddish(c);
+            title_odd += !is_grey(c) && !is_reddish(c);
+            continue;
+        }
         if (!is_grey(c)) coloured++, red += c[0] > 150 && c[1] < 60;
     }
-    CHECK(coloured > 500 && red == coloured);   /* the picture's only colour is the kept red */
+    CHECK(coloured > 500 && red == coloured);   /* below the title the only colour is the kept red */
+    CHECK(letters > 1000 && letters_red == letters);
+    CHECK_EQ_INT(title_odd, 0);
+    if (letters_red != letters) printf("%s/%s: %d of the title's %d white pixels are red\n", dir, file, letters_red, letters);
     const ShpiDescEntry *dim = entry(&now, "dond"), *lit = entry(&now, "donl");
     int dim_coloured = 0, lit_yellow = 0;
     for (int i = 0; dim != NULL && i < dim->width * dim->height; i++) dim_coloured += !is_grey(now.rgb + 3 * dim->data[i]);

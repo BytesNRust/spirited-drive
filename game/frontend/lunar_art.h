@@ -5,8 +5,11 @@
  *   - "RUSTY" of the title gone (its box filled in from its border, with the texture's grain) and "LUNAR" written with the CD's own
  *     letters and their shadow: L from Lost Vegas' title (LOSTSEL), u from "RUSTY", n and r from "SPRINGS", a from "RACEWAY";
  *   - on the track detail, the baked "Time of day" line gone (Lunar Springs is always by day), as Lost Vegas' art has none;
+ *   - the title's letters (LUNAR SPRINGS RACEWAY) in the CD's red, the racing line's, shaded as their greys were (the owner's option A,
+ *     2026-11-17, notes/captures/lunar_red_options.png): a letter is what stands brighter than its box filled in from the border, next to a letter's white;
  *   - the bank's other pictures (DONE, Best times, the arrows, lit and dim) in greys too, their lit yellow kept;
- *   - the palette: entry 0 and the pointer's 253..255 as they were, the colours kept, then a ramp of greys.
+ *   - the palette: entry 0 and the pointer's 253..255 as they were, the colours kept, a ramp of the red (LUNAR_ART_RED_RAMP, each
+ *     level's brightest channel the grey it stands for), then a ramp of greys.
  * The title's letters are found, not measured: the same code serves the German art (GART), whose title is the same.
  * lunar_art_make reads no file and keeps nothing: lunar_art_glue.c reads the CD's banks and keeps the result (art_cache). */
 #ifndef TNFS_LUNAR_ART_H
@@ -18,7 +21,8 @@
 typedef enum { LUNAR_ART_SELECT = 0, LUNAR_ART_BEST = 1 } LunarArtKind;
 
 enum {
-    LUNAR_ART_VERSION = 1,   /* the cache key's: raised by hand when what it makes changes */
+    LUNAR_ART_VERSION = 2,   /* the cache key's: raised by hand when what it makes changes (2: the title in red) */
+    LUNAR_ART_RED_RAMP = 32, /* the title's red levels */
     LUNAR_ART_W = 640, LUNAR_ART_H = 480,
     LUNAR_ART_KEPT_MAX = 64   /* colours kept (yellow and red); the rest of the palette is the ramp of greys */
 };
