@@ -16,6 +16,7 @@ typedef struct Drawn {
 } Drawn;
 
 static Drawn drawn;
+static int track_on;   /* the track the run is on */
 static uint8_t palette[0x300];
 
 static void record(const char *text, int32_t x, int32_t y)
@@ -143,11 +144,22 @@ static void run(int segment_mode, int cheats)
     memset(game, 0, sizeof game);
     memset(&in, 0, sizeof in);
     memset(&p, 0, sizeof p);
-    in.game = game, in.finish = finish, in.car_points = car_points, in.track = 0, in.segment = 1, in.laps = 1;
+    in.game = game, in.finish = finish, in.car_points = car_points, in.track = track_on, in.segment = 1, in.laps = 1;
     in.german = 0, in.level = 0, in.unknown_50a5b6 = 0, in.screen = 0, in.screen_shape = 0;
     in.cheats = cheats, in.line = line;
     drawn.count = 0;
     standings_screen(segment_mode, &in, &st, &p, &ops);
+}
+
+/* dep59 step 5, T7a: an added track (16..79) has no tag art among the nine: the screens draw without it */
+static void test_an_added_track_reads_no_tag(void)
+{
+    static const int TRACKS[] = { -1, 9, 16, 79 };
+    for (size_t k = 0; k < sizeof TRACKS / sizeof TRACKS[0]; k++) {
+        track_on = TRACKS[k];
+        run(1, 0), run(0, 0);
+    }
+    track_on = 0;
 }
 
 /* the segment's ranking ("Rank Name Total Time Segment Time") shows the banner on a race with cheats */
@@ -189,6 +201,7 @@ static void test_no_banner_with_the_table_line(void)
 
 int main(void)
 {
+    test_an_added_track_reads_no_tag();
     test_segment_ranking_banner_on_cheats_race();
     test_segment_ranking_has_no_banner_on_normal_race();
     test_totals_standings_banner_on_cheats_race();

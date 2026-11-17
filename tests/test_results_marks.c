@@ -724,8 +724,18 @@ static void test_the_cheats_are_words_with_the_line(void)
     CHECK(!any_text("LUNAR"));
 }
 
+/* an added track (menu number 16..79) has no block in the original's image: every screen draws on an empty one and reads nothing past it */
+static void test_added_track_reads_no_block(void)
+{
+    static const int TRACKS[] = { 9, 16, 79 };
+    static const Screen SCREENS[] = { s_circuit, s_track, s_segment, s_totals, s_laps };
+    for (size_t t = 0; t < sizeof TRACKS / sizeof TRACKS[0]; t++)
+        for (size_t k = 0; k < sizeof SCREENS / sizeof SCREENS[0]; k++) run_rows(SCREENS[k], TRACKS[t], NULL, NULL, 0, 0);
+}
+
 int main(void)
 {
+    test_added_track_reads_no_block();
     test_restomod_results_show_record_conditions();
     test_restomod_empty_rows_are_blank_after_a_dnf();
     test_restomod_set_rows_are_drawn();

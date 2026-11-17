@@ -1,4 +1,5 @@
 #include "game/frontend/record_check.h"
+#include "game/frontend/records_block.h"
 
 #include <string.h>
 
@@ -47,7 +48,7 @@ int32_t record_check(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECOR
 {
     const int16_t segment_word = g16(image + SEGMENT);
     const int segment = segment_word ? (int16_t)(segment_word - 1) : 2;
-    if (g16(image + CAR) == NO_RECORDS_CAR) return 0;
+    if (g16(image + CAR) == NO_RECORDS_CAR || !records_block_known(g16(image + TRACK))) return 0;   /* port: an added track keeps its records elsewhere */
     uint8_t *const row = image + TRACK_RECORDS * g16(image + TRACK) + SEGMENT_RECORDS * segment;
     const uint8_t *const me = game + PLAYER * player;
     int32_t beaten = 0;
@@ -72,7 +73,7 @@ int32_t record_check_lap(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[R
         const int32_t lap = g32(me + LAPS + 4 * i);
         if (lap < g32(me + LAPS + 4 * best) && lap > 0) best = i;
     }
-    if (g16(image + CAR) == NO_RECORDS_CAR) return 0;
+    if (g16(image + CAR) == NO_RECORDS_CAR || !records_block_known(g16(image + TRACK))) return 0;
     uint8_t *const row = image + TRACK_RECORDS * g16(image + TRACK);
     const int32_t lap = g32(me + LAPS + 4 * best);
     if (!(lap < g32(row + TIME_RECORD.time) && lap > 0)) return 0;
@@ -83,7 +84,7 @@ int32_t record_check_lap(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[R
 /* 0045c2d0 */
 int32_t record_check_top(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player)
 {
-    if (g16(image + CAR) == NO_RECORDS_CAR) return 0;
+    if (g16(image + CAR) == NO_RECORDS_CAR || !records_block_known(g16(image + TRACK))) return 0;
     uint8_t *const row = image + TRACK_RECORDS * g16(image + TRACK);
     const uint8_t *const me = game + PLAYER * player;
     if (!(g32(row + TOP_RECORD.speed) < g32(me + TOP))) return 0;
@@ -95,7 +96,7 @@ int32_t record_check_top(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[R
 int32_t record_check_totals(uint8_t image[RECORD_CHECK_IMAGE], const uint8_t game[RECORD_CHECK_GAME], int32_t player,
                             const int32_t times[RECORD_CHECK_TIMES])
 {
-    if (g16(image + CAR) == NO_RECORDS_CAR) return RECORD_CHECK_NONE;
+    if (g16(image + CAR) == NO_RECORDS_CAR || !records_block_known(g16(image + TRACK))) return RECORD_CHECK_NONE;
     const int circuit = g16(image + TRACK) > 2;
     uint8_t *const records = image + TRACK_RECORDS * g16(image + TRACK);
     uint8_t *const table = records + (circuit ? BEST_STRIDE * g16(image + DIFFICULTY) : 0);

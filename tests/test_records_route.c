@@ -660,9 +660,31 @@ static void test_the_conditions(void)
     CHECK_EQ_INT(m.cheats, 0);
 }
 
+/* port (dep59 step 5, T7a): the shown image of a race on an added track (16..79) makes no block past the image (it held 0xa6b * track) */
+static void test_an_added_track_makes_no_block_in_the_shown_image(void)
+{
+    static const int TRACKS[] = { 16, 79 };
+    enum { ARENA = RECORD_CHECK_IMAGE + 0xa6b * 80 + 0x1000 };   /* the image, then room for where a block of track 79 would land */
+    static uint8_t image[RECORD_CHECK_IMAGE], arena[ARENA], slots[RECORDS_MARK_SLOTS];
+    uint8_t *const out = arena;
+    unified(1);
+    const RaceKind kind = records_race_kind(0, 0, 0, 0, 0, 0);
+    for (size_t k = 0; k < sizeof TRACKS / sizeof TRACKS[0]; k++) {
+        memset(image, 0, sizeof image);
+        memset(arena, 0xaa, sizeof arena);
+        image[ME] = (uint8_t)TRACKS[k];
+        records_route_shown(kind, image, out, slots, NULL);
+        int clean = 1;
+        for (size_t i = RECORD_CHECK_IMAGE; i < sizeof arena; i++) clean &= arena[i] == 0xaa;
+        CHECK(clean);   /* nothing written past the image */
+    }
+    unified(0);
+}
+
 int main(void)
 {
     exe_tables_for_test();
+    test_an_added_track_makes_no_block_in_the_shown_image();
     test_the_originals_records_are_the_exes_byte_for_byte();
     test_the_originals_free_race();
     test_the_originals_keep_no_race_it_could_not_run();

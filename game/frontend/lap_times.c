@@ -3,6 +3,7 @@
 
 #include "game/frontend/stat_text.h"
 #include "game/sys/free_laps.h"
+#include "game/frontend/records_block.h"
 
 #include <stdio.h>
 
@@ -114,7 +115,7 @@ static void draw_laps(const ResultsInputs *in, const ResultsOps *ops)
 static void draw_record(const ResultsInputs *in, int16_t record, const ResultsOps *ops)
 {
     char text[TEXT];
-    const uint8_t *rec = in->image + TRACK_RECORDS * g16(in->image + TRACK);
+    const uint8_t *rec = records_block_at(in->image, g16(in->image + TRACK));
     const int32_t mark = g32(rec + LAP_MARK);
     ops->text_select(ops->ctx, record == 1 ? 3 : 1);
     if (!results_row_shown(in, rec + LAP_NAME)) return;

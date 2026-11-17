@@ -14,6 +14,7 @@
 #include "game/sys/race_records_merge.h"
 #include "game/sys/race_records_tracks.h"
 #include "game/sys/reverse_track.h"
+#include "game/frontend/records_block.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -169,7 +170,7 @@ static int32_t check_table(RouteOp op, const uint8_t *image, const uint8_t *game
     const int track = g16(image + TRACK);
     memcpy(scratch, image, sizeof scratch);
     uint8_t *const block = scratch + FIRST_BLOCK + BLOCK * track;
-    block_from(block, track, t, lap);
+    if (records_block_known(track)) block_from(block, track, t, lap);
     scratch[DIFFICULTY] = 0, scratch[DIFFICULTY + 1] = 0;
     if (car_zero) scratch[CAR] = 0, scratch[CAR + 1] = 0;
     const int32_t answer = original(op, scratch, game, player, times);
@@ -378,8 +379,7 @@ void records_route_shown(RaceKind kind, const uint8_t image[RECORD_CHECK_IMAGE],
         t = &empty;
     }
     if (lap == NULL && !is_stage(track)) race_records_row_empty(&no_lap), lap = &no_lap;
-    uint8_t *const block = out + FIRST_BLOCK + BLOCK * track;
-    block_from(block, track, t, lap);
+    if (records_block_known(track)) block_from(out + FIRST_BLOCK + BLOCK * track, track, t, lap);   /* port: an added track has no block in the original's image */
     out[DIFFICULTY] = 0, out[DIFFICULTY + 1] = 0;
     RecordMarks all[RECORDS_MARK_SLOTS];
     memset(all, 0, sizeof all);
