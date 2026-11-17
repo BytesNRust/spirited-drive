@@ -256,6 +256,28 @@ static void test_an_added_track_card(void)
     track_registry_clear();
 }
 
+/* no load_track_card (a build or a test that has none): an added track draws no card and reads nothing of the CD's */
+static void test_no_track_card_loader(void)
+{
+    static int32_t art[8];
+    static const uint8_t pal[0x20];
+    static int32_t variant_m, variant_r;
+    int16_t track_word = 16;
+    track_registry_clear();
+    piece("dune", "ZZA");
+    ControlCentralOps o = { 0 };
+    o.load_bank = load_bank, o.shape = shape, o.blit = blit, o.free = art_free;
+    ControlCentralState st = { 0 };
+    st.track = &track_word, st.variant_m = &variant_m, st.variant_r = &variant_r, st.was = was, st.art = art, st.paths = "";
+    CentralRun r = { 0 };
+    r.st = &st, r.ops = &o, r.pal = pal;
+    was[WAS_TRACK] = CENTRAL_NO_ART;
+    loads = blits = 0;
+    central_track_art(&r);
+    CHECK_EQ_INT(loads + blits, 0);
+    track_registry_clear();
+}
+
 /* dep59 section 4 (the owner's carousel): in Restomod outside a tournament the player's card opens one carousel over the edition's lineup.
  * An original's showcase leaves on its Next / Previous (showcase_carousel), an added car's page hands back on an original (added_gallery),
  * and the next car in the edition's order (wrapping, the Warrior passed over: no page yet) opens; Done ends on the car shown, picked. In
@@ -362,6 +384,7 @@ int main(void)
     test_no_art_is_no_car();
     test_added_cards();
     test_an_added_track_card();
+    test_no_track_card_loader();
     test_an_added_car_card_opens_nothing();
     CHECK_EQ_INT(click(5), 1);
     CHECK(shown_name != NULL && shown_name == CARS[5]);

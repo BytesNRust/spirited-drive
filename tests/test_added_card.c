@@ -207,8 +207,9 @@ int main(void)
     CHECK(px != NULL);
     if (px != NULL) {
         CHECK(w == 208 && h == 127);
-        CHECK_EQ_INT(px[0], 51);                                     /* the frame: the grey */
-        CHECK(px[(ADDED_TRACK_H / 2) * ADDED_TRACK_W + ADDED_TRACK_W / 2] != 0xfe);
+        const int inside = px[(ADDED_TRACK_H / 2) * ADDED_TRACK_W + ADDED_TRACK_W / 2];
+        CHECK(px[0] != inside && px[0] == px[ADDED_TRACK_W * ADDED_TRACK_H - 1]);   /* the frame is one colour round it, not the inside's */
+        CHECK(px[1] == px[0] && px[ADDED_TRACK_W + 1] == px[0] && px[2 * ADDED_TRACK_W + 2] == inside);   /* 2 px thick */
     }
     free(bank);
     PngImage wrong = rgba(ADDED_CARD_W, ADDED_CARD_H, 255);   /* a car's card is not a track's */

@@ -134,7 +134,7 @@ static void picks_restore(void)
     const int track = car_looks_saved_track();
     TrackList l;
     const TrackList *const offered = track >= TRACK_ADDED_FIRST ? central_tracks(&l) : NULL;
-    if (offered != NULL && track_list_has(offered, (int16_t)track)) cg_g.track = (int16_t)track;
+    if (offered != NULL && cg_g.race_type != RACE_TOURNAMENT && track_list_has(offered, (int16_t)track)) cg_g.track = (int16_t)track;   /* a tournament never takes one */
     if (cg_g.race_type != RACE_HEAD_TO_HEAD) return;
     const int rival = car_looks_saved_car(1);
     if (rival >= 0) cg_g.opponent = (int16_t)rival;
@@ -154,7 +154,10 @@ void cg_picks_save(void)
         port_log("car looks: the Lunar pick was not kept\n");
     /* port (dep59 step 5, T7c): an added track by its id; an original's (or none) takes the line out, Lunar's staying */
     const int saved = car_looks_saved_track();
-    if (track_registry_is_added(cg_g.track) ? saved != cg_g.track : saved != -1)
+    TrackList offered;   /* a line the list does not offer now (no edition, a mod switched off) is not the player's to lose: it stays */
+    const TrackList *const list = saved >= TRACK_ADDED_FIRST ? central_tracks(&offered) : NULL;
+    const int moved_off = saved >= TRACK_ADDED_FIRST && list != NULL && track_list_has(list, (int16_t)saved);
+    if (track_registry_is_added(cg_g.track) ? saved != cg_g.track : moved_off)
         if (!car_looks_save_track(cg_g.track)) port_log("car looks: the track picked was not kept\n");
     if (cg_g.race_type != RACE_HEAD_TO_HEAD) return;
     const int rival = car_looks_saved_car(1);
