@@ -7,6 +7,7 @@
 #include "game/sys/race_records_added.h"
 #include "game/sys/race_records.h"
 #include "game/sys/race_records_io.h"
+#include "game/sys/port_log.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -228,7 +229,9 @@ static void test_the_step_3_file_is_read(void)
     files_clear();
     CHECK(platform_write_user_file("race_records_added.dat", v1, v1_size));
     race_records_added_reset();
+    port_log_watch("records: race_records_added.dat read: 3 tables, 1 laps, imported 0");   /* the log says what was read */
     CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_LOADED);
+    CHECK(port_log_watch_hit());
     CHECK_EQ_INT(time_of(race_records_added_lap_find(TR1, 1, 0, "f40")), 4321);
     CHECK(race_records_added_save());
     CHECK(platform_user_file_exists("race_records_cars.dat"));
@@ -237,9 +240,12 @@ static void test_the_step_3_file_is_read(void)
     /* the new one there: the old one is not read any more */
     race_records_added_reset();
     set_time(&race_records_added_make(TR1, 0, 0, 4, "f40", "F40")->totals[0], 55);
+    race_records_cars_set_imported(1);
     CHECK(race_records_added_save());
     race_records_added_reset();
+    port_log_watch("records: race_records_cars.dat read: 1 tables, 0 laps, imported 1");
     CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_LOADED);
+    CHECK(port_log_watch_hit());
     CHECK_EQ_INT(time_of(&race_records_added_find(TR1, 0, 0, 4, "f40")->totals[0]), 55);
     CHECK(race_records_added_lap_find(TR1, 1, 0, "f40") == NULL);
     /* a damaged old one with no new one is set aside under its own name */
