@@ -22,4 +22,9 @@ void track_pick_step(RaceSettings *s, int *lunar, const Unlocks *u, const TrackL
 int track_pick_lunar(void);
 void track_pick_lunar_put(int lunar);
 
+/* 1 when a Lunar pick holds (dep59 Lunar L8): Lunar is offered, the track is Rusty's rally, and this machine is not a guest in a link game. A guest
+ * races what the host's rules say (session_rules.h: the host's entry decides) and takes no pick of its own into Control Central, where a pick
+ * left from a solo session would draw the moon over a host on Rusty's desert. */
+int track_pick_holds(int offered, int track, int variant_r, int link_guest);
+
 #endif

@@ -119,7 +119,11 @@ static int16_t restomod_flag;   /* port (dep59): Restomod, where restomod.cfg ke
  * to head rival; one whose mod is gone gives car 0. No line: config.dat's car, as before. Restomod only, never in a link game. */
 static void picks_restore(void)
 {
-    if (restomod_flag == 0 || menu_words.link_game != 0) return;
+    if (restomod_flag == 0) return;
+    if (menu_words.link_game != 0) {   /* port (dep59 Lunar L8): a guest keeps no pick from before; the host's rules carry its own */
+        cg_lunar_settle();
+        return;
+    }
     const int car = car_looks_saved_car(0);
     if (car >= 0) cg_g.player_car = (int16_t)car;
     else if (car == CAR_LOOKS_NOT_LOADED) cg_g.player_car = 0;
@@ -297,10 +301,13 @@ static int32_t lunar_or_bank(void *ctx, const char *path, int32_t flags)
 
 static int32_t lunar_or_art(void *ctx, const char *name) { return lunar_or_bank(ctx, name, 0); }
 
-/* port (dep59 Lunar L2): the pick holds only on Rusty's rally where Lunar is offered */
+/* port (dep59 Lunar L8): this machine joined a host's link game (link_race.c: intro_seen 0 is a guest) */
+static int link_guest(void) { return menu_words.link_game != 0 && menu_words.intro_seen == 0; }
+
+/* port (dep59 Lunar L2): the pick holds only on Rusty's rally where Lunar is offered, and L8: never for a guest in a link game */
 void cg_lunar_settle(void)
 {
-    if (!lunar_offered() || cg_g.track != 3 || cg_g.variant_r == 0) track_pick_lunar_put(0);
+    if (!track_pick_holds(lunar_offered(), cg_g.track, cg_g.variant_r, link_guest())) track_pick_lunar_put(0);
 }
 
 /* port (dep59 Lunar L2): the arrows over the entries, Lunar's pick with them */

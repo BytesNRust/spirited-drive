@@ -110,6 +110,16 @@ static void test_the_race_pick(void)
     track_pick_lunar_put(0);
 }
 
+/* dep59 Lunar L8: a guest in a link game holds no pick of its own (the host's rules decide); everyone else as before */
+static void test_a_guest_holds_no_pick(void)
+{
+    CHECK_EQ_INT(track_pick_holds(1, RUSTY, 1, 0), 1);       /* solo, or the host: Lunar offered on Rusty's rally */
+    CHECK_EQ_INT(track_pick_holds(1, RUSTY, 1, 1), 0);       /* a guest: none */
+    CHECK_EQ_INT(track_pick_holds(0, RUSTY, 1, 0), 0);       /* not offered */
+    CHECK_EQ_INT(track_pick_holds(1, AUTUMN, 1, 0), 0);      /* another track */
+    CHECK_EQ_INT(track_pick_holds(1, RUSTY, 0, 0), 0);       /* no rally */
+}
+
 int main(void)
 {
     test_both_ways();
@@ -117,5 +127,6 @@ int main(void)
     test_with_the_switches();
     test_without_lunar();
     test_the_race_pick();
+    test_a_guest_holds_no_pick();
     return TEST_REPORT();
 }
