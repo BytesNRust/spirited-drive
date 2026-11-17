@@ -21,7 +21,8 @@ static const int16_t START_NODE[3 * 3] = { 0x6cc, 0x62c, 0x7e4, 0x6cc, 0x67c, 0x
  * from its nodes, and the steps and the span are counted in nodes of that spacing, so a track with closer nodes still shows that stretch. Its end
  * node (the table's START_NODE for the CD's) is the TRI's last node less END_BACK, the margin road_node keeps past it. */
 enum { HUD_MAP_ADDED = 9, END_BACK = 0x3c, SPACING_SAMPLES = 32, STEP_NODES = 16, STEP_MIN = 2, STEP_MAX = 64 };
-static const int32_t REFERENCE_SPACING = 0x60000;   /* the CD's nodes' distance along the road in tri.h's units (tri.h: "about 0x60000") */
+static const int32_t REFERENCE_SPACING = 0x60000;   /* the CD's nodes' distance along the road in tri.h's units: measured on the CD's TRIs (2026-11-17, the mean node-to-node distance, 32
+ * samples / all nodes): CY1 0x5fe2f / 0x5fec5, AL1 0x60093 / 0x60055, TR1 0x6096b / 0x60829, CL1 0x5ffba / 0x5ffff, AL2 0x5ffcb / 0x5fff0 */
 
 static int added_track(const HudMapInputs *in) { return in->track >= HUD_MAP_ADDED; }
 static int stage_track(const HudMapInputs *in) { return in->track < 3 || added_track(in); }
