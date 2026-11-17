@@ -17,6 +17,7 @@
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
 #include "game/sys/race_records_added.h"
+#include "game/sys/race_records_tracks.h"
 #include "game/sys/reverse_track.h"
 #include "test.h"
 
@@ -125,6 +126,8 @@ static void unified(int on)
     files_clear();
     race_records_reset();
     race_records_added_reset();
+    race_records_tracks_reset();
+    race_records_tracks_race_set(NULL);
     free_laps_set(0);
     reverse_track_set(0);
     race_records_lunar_set(0);
@@ -301,6 +304,51 @@ static void car_race(Race *r, int car, int total)
 {
     race(r, TR1, car, 1, 99999, total);
     p16(r->game + 0x53a, car), p16(r->game + 0x536, car);
+}
+
+/* dep59 step 5 T5: Lunar's race keeps its records only in race_records_tracks.dat, by "lunar" and the player's car's id, its rally left
+ * out of the layout (Lunar is the rally); race_records.dat and race_records_cars.dat never see it. The results show that table. Stock
+ * keeps the original's (Rusty's block in config.dat's image, as ever); an added track there keeps nothing */
+static void test_lunar_keeps_its_own_records(void)
+{
+    unified(1);
+    static Race r;
+    static uint8_t shown[RECORD_CHECK_IMAGE];
+    uint8_t slots[RECORDS_MARK_SLOTS];
+    race_records_tracks_race_set("lunar");
+    car_race(&r, 5, 500);
+    CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_RALLY, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_RALLY, 0 }, ROUTE_LAP, r.image, r.game, 0, NULL), 1);
+    CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_RALLY, 0 }, ROUTE_TOP, r.image, r.game, 0, NULL), 1);
+    const RecordTable *moon = race_records_tracks_find("lunar", 0, 0, 8, "viper");
+    CHECK(moon != NULL && g32(moon->totals[0].row + RECORD_ROW_TIME) == 500 && row_word(&moon->totals[0], RECORD_ROW_CAR) == 5);
+    CHECK(moon != NULL && race_records_row_set(&moon->top) && race_records_tracks_lap_find("lunar", 0, 0, "viper") != NULL);
+    CHECK(race_records_find(TR1, LAYOUT_RALLY, 0, 8) == NULL && race_records_find(TR1, 0, 0, 8) == NULL);
+    CHECK(race_records_added_find(TR1, LAYOUT_RALLY, 0, 8, "viper") == NULL);
+    CHECK(slot_of("race_records_tracks.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0 && slot_of("race_records_cars.dat", 0) < 0);
+    records_route_shown((RaceKind){ LAYOUT_RALLY, 0 }, r.image, shown, slots, NULL);
+    CHECK_EQ_INT(g32(shown + 0xb5 + 0xa6b * TR1 + 0xea + 0x1b), 500);
+    /* another car: its own table; the mirror: another table */
+    car_race(&r, 0, 400);
+    CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_RALLY, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK(moon != NULL && g32(moon->totals[0].row + RECORD_ROW_TIME) == 500);
+    CHECK(race_records_tracks_find("lunar", 0, 0, 8, "rx7") != NULL);
+    CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_RALLY | LAYOUT_MIRROR, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK(race_records_tracks_find("lunar", LAYOUT_MIRROR, 0, 8, "rx7") != NULL);
+    /* the race after it, on Rusty's rally: race_records.dat as ever */
+    race_records_tracks_race_set(NULL);
+    CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_RALLY, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK(race_records_find(TR1, LAYOUT_RALLY, 0, 8) != NULL);
+    /* Stock: Lunar is Rusty's rally in config.dat's image, nothing in the new file; an added track keeps nothing */
+    unified(0);
+    race_records_tracks_race_set("lunar");
+    car_race(&r, 5, 500);
+    CHECK_EQ_INT(records_route((RaceKind){ LAYOUT_RALLY, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
+    CHECK(race_records_tracks_find("lunar", 0, 0, 8, "viper") == NULL && slot_of("race_records_tracks.dat", 0) < 0);
+    race_records_tracks_race_set("hill-climb");
+    car_race(&r, 5, 300);
+    CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), RECORD_CHECK_NONE);
+    race_records_tracks_race_set(NULL);
 }
 
 /* Restomod with the edition `id` in use (its file `ini`), or the standard edition ("") */
@@ -643,6 +691,7 @@ int main(void)
     test_the_originals_keep_no_race_it_could_not_run();
     test_an_added_car_has_its_own_table();
     test_a_stock_car_keeps_its_rows_by_car_too();
+    test_lunar_keeps_its_own_records();
     test_an_edition_answers_its_own_place();
     test_every_layout_and_cheats_is_its_own_table();
     test_rows_keep_their_marks();

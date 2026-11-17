@@ -22,6 +22,9 @@
 #include "game/sys/reverse_track.h"
 #include "game/race/race_schedule.h"
 #include "game/sys/port_settings.h"
+#include "formats/stock_content.h"
+#include "game/sys/track_registry.h"
+#include "game/sys/race_records_tracks.h"
 #include "game/race/car_livery.h"
 #include "game/race/car_paint.h"
 #include "viewer/drive_livery.h"
@@ -726,6 +729,10 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     /* port (dep59 Lunar): the moon's race is by day and clear, whatever port.cfg or the host says (a replay keeps its own record) */
     const int moon_forced = replay_of == NULL && lunar_springs_active(look.track, look.variant_r, look.port_lunar);
     if (moon_forced) port_conditions_force(1, LIGHT_TIME_DAY, WEATHER_CLEAR);
+    {   /* port (dep59 step 5, T5): the moon's race and an added track's keep their records by the track's id (race_records_tracks.h) */
+        const TrackPiece *const piece = track_registry_piece(track_traits_race_added(name));
+        race_records_tracks_race_set(moon_forced ? stock_track_id(STOCK_TRACK_LUNAR) : piece != NULL ? piece->id : NULL);
+    }
     int ok = ((model >= 0 && model < CAR_MODELS) || car_registry_is_added(model)) && racers >= 1 && racers <= RACE_PLAYERS && race_type <= 3 &&
              track_viewer_load(&t, data_root, name, &look);
     ok = ok && start_drive(&t, data_root, name, model, racers, race_type);
@@ -741,6 +748,7 @@ int track_viewer_drive(const char *data_root, const char *name, int model, int r
     free_drive();
     track_viewer_free(&t);
     if (moon_forced) port_conditions_force(0, 0, 0);
+    race_records_tracks_race_set(NULL);
     if (drive_link_on) drive_link.racing(NULL, NULL, NULL);
     drive_menus_on = 0, drive_link_on = 0;
     session_rules_set(NULL);
