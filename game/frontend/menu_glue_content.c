@@ -14,6 +14,7 @@
 #include "game/sys/mod_set.h"
 #include "game/sys/mod_store.h"
 #include "game/sys/palette.h"
+#include "game/sys/track_registry.h"
 #include "game/sys/video.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/edition_name_box.h"
@@ -509,19 +510,11 @@ static uint8_t *cd_card_rgb(const char *card, int *w, int *h)
     return rgb;
 }
 
-/* an added car's card.png (added_card_glue.c reads the same file) as RGB, malloc'd; NULL when it has none the game can read */
-static uint8_t *added_card_rgb(const char *id, int *w, int *h)
+/* a card.png's bytes as RGB, malloc'd; NULL when it is not a picture the game can read (`id` names the piece in the log) */
+static uint8_t *card_png_rgb(const uint8_t *data, size_t size, const char *id, int *w, int *h)
 {
-    char rel[MOD_INI_ID_MAX + 32];
-    if (!mod_ini_id_ok(id)) return NULL;
-    snprintf(rel, sizeof rel, "mods/%s/card.png", id);
-    size_t size = 0;
-    uint8_t *const data = platform_user_read_file_at(rel, &size);
-    if (data == NULL) return NULL;
     PngImage img;
-    const int read = png_read(data, size, &img) == PNG_OK;
-    platform_free_file(data);
-    if (!read) {
+    if (png_read(data, size, &img) != PNG_OK) {
         port_log("content: %s: card.png is not a picture the game can read\n", id);
         return NULL;
     }
@@ -534,16 +527,46 @@ static uint8_t *added_card_rgb(const char *id, int *w, int *h)
     return rgb;
 }
 
-/* the picture of piece `id` of `tab`, malloc'd RGB; NULL when it has none. An added track and a tweak have no picture the game can read
- * yet: their box stays empty */
+/* an added car's card.png (added_card_glue.c reads the same file) as RGB, malloc'd; NULL when it has none the game can read */
+static uint8_t *added_card_rgb(const char *id, int *w, int *h)
+{
+    char rel[MOD_INI_ID_MAX + 32];
+    if (!mod_ini_id_ok(id)) return NULL;
+    snprintf(rel, sizeof rel, "mods/%s/card.png", id);
+    size_t size = 0;
+    uint8_t *const data = platform_user_read_file_at(rel, &size);
+    if (data == NULL) return NULL;
+    uint8_t *const rgb = card_png_rgb(data, size, id, w, h);
+    platform_free_file(data);
+    return rgb;
+}
+
+/* an added track's card.png, from the folder its piece was read from (added_card_glue.c's cg_load_track_card reads the same file) */
+static uint8_t *added_track_card_rgb(const char *id, int *w, int *h)
+{
+    const int track = track_registry_find(id);
+    const TrackPiece *const p = track >= 0 ? track_registry_piece(track) : NULL;
+    if (p == NULL || p->dir[0] == '\0') return added_card_rgb(id, w, h);   /* not (yet) in the registry: the installed folder's */
+    char path[sizeof p->dir + 16];
+    snprintf(path, sizeof path, "%s/card.png", p->dir);
+    size_t size = 0;
+    uint8_t *const data = platform_read_file(path, &size);
+    if (data == NULL) return NULL;
+    uint8_t *const rgb = card_png_rgb(data, size, id, w, h);
+    platform_free_file(data);
+    return rgb;
+}
+
+/* the picture of piece `id` of `tab`, malloc'd RGB; NULL when it has none (a tweak has none: its box stays empty) */
 static uint8_t *preview_rgb(int32_t tab, const char *id, int *w, int *h)
 {
     if (tab == CONTENT_CARS) {
         const int car = stock_car_of_id(id);
         return car >= 0 && car < 12 ? cd_card_rgb(CAR_CARDS[car], w, h) : added_card_rgb(id, w, h);
     }
-    const int track = tab == CONTENT_TRACKS ? stock_track_of_id(id) : -1;
-    return track >= 0 && track < STOCK_TRACK_COUNT ? cd_card_rgb(TRACK_CARDS[track], w, h) : NULL;
+    if (tab != CONTENT_TRACKS) return NULL;
+    const int track = stock_track_of_id(id);
+    return track >= 0 && track < STOCK_TRACK_COUNT ? cd_card_rgb(TRACK_CARDS[track], w, h) : added_track_card_rgb(id, w, h);
 }
 
 /* `rgb` (w x h) reduced by area to fit bw x bh, its proportions kept and never enlarged, in the background's palette into `scratch` at
@@ -599,7 +622,9 @@ int32_t glue_content_screen(int32_t *edition)
         video_fade_out_quick(0, 0x100);   /* Game Mode's page out; it fades its own back in after (game_mode.c's manage) */
     }
     fade_pending = 1;
+    input_tab_keys(1);   /* the pad's shoulder buttons change the tab */
     content_screen_run(&ops, edition);
+    input_tab_keys(0);
     if (music) menu_audio_music_fade_out();   /* a stop waits for the voice's fade (as on the way in) */
     video_fade_out_quick(0, 0x100);
     if (music) {

@@ -10,4 +10,8 @@
 /* 0x4900 (PageUp) or 0x5100 (PageDown) when that key is held in the key flags, else 0. */
 int32_t page_key(const uint8_t key_flags[KEY_FLAGS]);
 
+/* port (CONTENT's tabs): the pad's shoulder buttons as menu keys, asked for with input_tab_keys: the previous tab's (left shoulder) and the next's
+ * (right). Not BIOS codes: no key of the exe's has them. */
+enum { TAB_KEY_PREVIOUS = 0xf001, TAB_KEY_NEXT = 0xf002 };
+
 #endif

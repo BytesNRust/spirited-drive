@@ -232,6 +232,9 @@ bool platform_joy_read(int device, uint32_t *buttons, int32_t axis[4]);
 void platform_controls_set(const PortControls *controls);
 /* The device as it is now, whole: every button, axis and hat (what a binding is captured from). */
 bool platform_joy_raw(int device, RawPad *out);
+/* The shoulder buttons of the device when it is a gamepad (SDL's own names for them, whatever the pad's numbers): bit 0 the left one held, bit 1 the right
+ * one; 0 for a plain joystick, a wheel, no device. */
+unsigned platform_joy_shoulders(int device);
 /* The scancode the virtual key of action ACT_HORN, ACT_PAUSE or ACT_NITRO presses (P until set; the
  * horn's is config.dat's, set when a race starts; the Nitro's is RACE_KEYS_PAD_NITRO, set then too); platform_key_down
  * answers true for it while a binding of the action is held. */

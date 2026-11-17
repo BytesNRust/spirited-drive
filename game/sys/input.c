@@ -44,6 +44,18 @@ static int page_keys_on;
 
 void input_page_keys(int on) { page_keys_on = on; }
 
+static int tab_keys_on;
+static unsigned shoulders_held;
+void input_tab_keys(int on) { tab_keys_on = on, shoulders_held = 0; }
+
+/* the press of a shoulder button since the last call: its tab key, else 0 */
+static int32_t shoulder_key(int device)
+{
+    const unsigned now = platform_joy_shoulders(device), pressed = now & ~shoulders_held;   /* the left shoulder bit 0, the right bit 1 */
+    shoulders_held = now;
+    return pressed & 1u ? TAB_KEY_PREVIOUS : pressed & 2u ? TAB_KEY_NEXT : 0;
+}
+
 void input_link_words(int16_t *game, int16_t *lost) { link_game = game, link_lost = lost; }
 
 static void (*on_close)(void);
@@ -85,6 +97,10 @@ int input_get_key(void)
                                      &(const HotKeyOps){ NULL, no_shot, mute }, joy_ops);
     if (link_lost != NULL) *link_lost = s.dropped;
     if (key != 0 && j->button_key == key) return joy_menu_key(key, port_menu_pad_cancel());   /* port (menu_pad_cancel): the pad's second button is Escape */
+    if (key == 0 && tab_keys_on && present) {
+        const int32_t tab = shoulder_key(device);
+        if (tab != 0) return tab;
+    }
     if (key == 0 && page_keys_on) return page_key(flags);
     return key;
 }

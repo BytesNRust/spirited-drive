@@ -2,6 +2,7 @@
  * (the All row, a row's box and arrows, the pages), the card's buttons and the foot; the clicks and the pointer on the mock-up's places;
  * what each asks the screen to do. */
 #include "game/frontend/content_nav.h"
+#include "game/sys/page_keys.h"
 #include "test.h"
 
 #include <string.h>
@@ -209,6 +210,30 @@ static void test_the_pages_by_keys(void)
     CHECK_EQ_INT(n.line, 10);
 }
 
+/* the pad's shoulder buttons: the previous or next tab from anywhere, none past the ends; a tab starts at its first page and the All row */
+static void test_the_shoulders_change_the_tab(void)
+{
+    ContentNav n;
+    content_nav_start(&n);
+    fill(25, 3, 0);
+    CHECK_EQ_INT(n.tab, CONTENT_CARS);
+    CHECK_EQ_INT(content_nav_key(&n, &view, TAB_KEY_PREVIOUS).kind, CONTENT_ACT_NONE);   /* no tab before the first */
+    ContentAction a = content_nav_key(&n, &view, TAB_KEY_NEXT);
+    CHECK_EQ_INT(a.kind, CONTENT_ACT_TAB);
+    CHECK_EQ_INT(a.arg, CONTENT_TRACKS);
+    CHECK_EQ_INT(n.tab, CONTENT_TRACKS);
+    CHECK_EQ_INT(n.page, 0);
+    n.at = CONTENT_AT_CARD;   /* from the card: the list */
+    a = content_nav_key(&n, &view, TAB_KEY_NEXT);
+    CHECK_EQ_INT(a.arg, CONTENT_TWEAKS);
+    CHECK_EQ_INT(n.at, CONTENT_AT_LIST);
+    CHECK_EQ_INT(content_nav_key(&n, &view, TAB_KEY_NEXT).kind, CONTENT_ACT_NONE);   /* none after the last */
+    n.at = CONTENT_AT_FOOT, n.item = CONTENT_FOOT_DONE;   /* from the foot too, the focus kept there (and on its button) */
+    CHECK_EQ_INT(content_nav_key(&n, &view, TAB_KEY_PREVIOUS).arg, CONTENT_TRACKS);
+    CHECK_EQ_INT(n.at, CONTENT_AT_FOOT);
+    CHECK_EQ_INT(n.item, CONTENT_FOOT_DONE);
+}
+
 static void test_the_foot(void)
 {
     ContentNav n;
@@ -312,6 +337,7 @@ int main(void)
     test_a_row();
     test_a_locked_list();
     test_the_pages_by_keys();
+    test_the_shoulders_change_the_tab();
     test_the_foot();
     test_the_clicks();
     test_the_pointer();

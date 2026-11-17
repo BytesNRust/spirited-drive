@@ -138,6 +138,14 @@ void platform_controls_set(const PortControls *c)
     controls_known = true;
 }
 
+unsigned platform_joy_shoulders(int device)
+{
+    SDL_Gamepad *const pad = pad_of(device);
+    if (pad == NULL) return 0;
+    SDL_UpdateJoysticks();
+    return (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) ? 1u : 0u) | (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER) ? 2u : 0u);
+}
+
 bool platform_joy_raw(int device, RawPad *out)
 {
     SDL_Joystick *j = device_of(device);
