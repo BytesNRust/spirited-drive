@@ -152,6 +152,15 @@ static void test_refusals(const uint8_t *pal)
     memcpy(e[2].name, "side", 4);
     const ShpiDescEntry no_pal[2] = { entry("topv", 0x7b, 16, 16, px, 0), entry("side", 0x7b, 16, 16, px, 1) };
     refused(no_pal, 2, "!PAL", "no !PAL");
+    /* the menus' banks name it !pal (RUSTSEL.QFS, MOUSE.FSH): a palette too (dep59 L4 rebuilds one) */
+    ShpiDescEntry menu[2] = { entry("!pal", 0x22, 256, 1, pal, 0), entry("bgnd", 0x7b, 16, 16, px, 1) };
+    uint8_t *built = NULL;
+    size_t built_len = 0;
+    ExchangeError err;
+    CHECK(shpi_build(menu, 2, &built, &built_len, &err) && built != NULL && memcmp(built + 16, "!pal", 4) == 0);
+    free(built);
+    memcpy(menu[0].name, "!pak", 4);
+    refused(menu, 2, "!PAL", "!pak is no palette's name");
     e[2].dir_index = 1;
     refused(e, 3, "side", "two entries at one place of the directory");
     e[2].dir_index = 2, e[2].block_size = 1u << 24;
