@@ -199,9 +199,25 @@ static void replay_begin(void)
     }
 }
 
-/* port: lunar_gravity (lunar_springs.h): the moon's race takes the moon's pull and grip (track_gravity.h) */
+/* port (replay extras): the replay's own moon, gravity and gravel when its record has them; NULL for a race, or a replay without them
+ * (the CD's, an older port's), which takes the switches as they are now */
+static const ReplayConditions *replay_extras(void)
+{
+    return replay_of != NULL && replay_of->conditions_known && replay_of->conditions.extras_known ? &replay_of->conditions : NULL;
+}
+
+/* port: the moon's textures on Rusty Springs' rally (lunar_springs.h): the mode's file's switch, a replay's own */
+static int drive_moon(void)
+{
+    const ReplayConditions *x = replay_extras();
+    return x != NULL ? x->moon : race_extras().lunar_springs;
+}
+
+/* port: lunar_gravity (lunar_springs.h): the moon's race takes the moon's pull and grip (track_gravity.h); a replay's own */
 static int lunar_gravity_race(const char *name, int arcade)
 {
+    const ReplayConditions *x = replay_extras();
+    if (x != NULL) return x->lunar_gravity;
     const PortExtras e = race_extras();
     return lunar_gravity_active(race_sim_track_index(name), arcade, e.lunar_springs, e.lunar_gravity);
 }
@@ -323,7 +339,8 @@ static void drive_field_port(RaceField *field, const char *name, int arcade)
         : difficulty_resolve(port_extras_load().difficulty, replay_of != NULL ? &replay_of->field.port_difficulty : NULL, drive_link_on);
     {   /* port: the mode's file's rally_gravel (rally_gravel.h) */
         const PortExtras gravel = race_extras();
-        field->port_rally_gravel = rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel, drive_snow);
+        const ReplayConditions *x = replay_extras();   /* port (replay extras): a replay's own */
+        field->port_rally_gravel = x != NULL ? x->gravel : rally_gravel_kind(race_sim_track_index(name), arcade, gravel.lunar_springs, gravel.rally_gravel, drive_snow);
         field->port_rally_road = arcade != 0;
         field->port_analog_pad = port_analog_pad();
         field->port_rally_shoulder_sound = port_rally_gravel_shoulder();
@@ -511,6 +528,9 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
     drive_replay_set_conditions(port_light_time(), port_weather(), t->reversed);   /* port (replay conditions): what the replay of this race is played with */
     port_log("%s: time %d, weather %d, reverse %d\n", replay_of != NULL ? (replay_of->conditions_known ? "replay conditions (recorded)" : "replay conditions (the original's)") : "race conditions", port_light_time(), port_weather(), t->reversed);
     drive_field_port(&field, name, arcade);
+    drive_replay_set_extras(drive_moon(), field.port_lunar_gravity, field.port_rally_gravel);   /* port (replay extras): what its replay plays with */
+    port_log("%s: moon %d, gravity %d, gravel %d\n", replay_of == NULL ? "race extras" : replay_extras() != NULL ? "replay extras (recorded)" : "replay extras (now)",
+             drive_moon(), field.port_lunar_gravity, field.port_rally_gravel);
     snow_grip_set(field.port_rally_gravel == RALLY_GRAVEL_SNOW);   /* port (snow_weather): this race's grip is the snow's: no time or record (records_glue_route) */
     field.port_open = drive_wet_open_make(&t->tri, name, t->reversed);   /* port (tunnel_dry): the rain's grip loss stops inside a closed zone, the weather's own */
     const int exe_laps = replay_of != NULL ? replay_of->laps : drive_menus_on && drive_menus.laps > 0 ? drive_menus.laps : 2;
@@ -656,7 +676,7 @@ static void drive_early_link(int model)
 /* The track's art inputs (variant, time of day, direction) from the replay, the menus or the files on disk. */
 static void drive_look_fill(TrackFamInputs *look, const char *data_root, const char *name)
 {
-    look->port_lunar = race_extras().lunar_springs;   /* port: the moon's textures for the rally on Rusty Springs */
+    look->port_lunar = drive_moon();   /* port: the moon's textures for the rally on Rusty Springs (a replay's own) */
     look->port_reverse = replay_file == NULL ? (drive_link_on ? session_rules_active() != NULL && session_rules_active()->reverse : reverse_track_wanted()) : replay_of != NULL && replay_of->conditions.reverse;   /* port: the circuit backwards (a replay's: the way it was recorded; a link game's is the host's) */
     if (replay_file != NULL) {
         const int32_t track = le32_at(replay_file + 6);

@@ -4,6 +4,7 @@
  * a word for them. */
 #include "game/race/race_replay_image.h"
 #include "game/race/race_sim.h"
+#include "game/race/rally_gravel.h"
 #include "test.h"
 
 #include <stddef.h>
@@ -177,11 +178,11 @@ static void conditions_trailer(void)
 {
     enum { AT = REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE + REPLAY_SNOW_TRAILER_SIZE };
     static uint8_t file[AT + REPLAY_CONDITIONS_TRAILER_SIZE];
-    ReplayConditions c = { 9, 9, 9 };
+    ReplayConditions c = { 9, 9, 9, 9, 9, 9, 9 };
     CHECK(race_replay_conditions_get(file, AT, &c) == 0 && c.light_time == 0 && c.weather == 0 && c.reverse == 0);   /* the snow's size: day, clear, forward */
-    const ReplayConditions night = { 3, 2, 1 };
+    const ReplayConditions night = { 3, 2, 1, 0, 0, 0, 0 };
     race_replay_conditions_put(&night, file + AT);
-    c = (ReplayConditions){ 0, 0, 0 };
+    c = (ReplayConditions){ 0, 0, 0, 0, 0, 0, 0 };
     CHECK(race_replay_conditions_get(file, sizeof file, &c) == 1 && c.light_time == 3 && c.weather == 2 && c.reverse == 1);
     file[AT + 8] = 7;
     CHECK(race_replay_conditions_get(file, sizeof file, &c) == 0 && c.light_time == 0);   /* not a time of ours */
@@ -191,9 +192,40 @@ static void conditions_trailer(void)
     CHECK(race_replay_conditions_get(NULL, 0, &c) == 0);
 }
 
+/* port (replay extras): the moon's textures, the moon's gravity and the rally's gravel the race ran with, in the conditions record's
+ * padding behind a marker byte: a replay plays with them, not with the switches as they are now (a gravity or gravel of now would
+ * change the grip, and the race replayed would leave its line). A record of an older port has none (its padding 0): not known */
+static void extras_trailer(void)
+{
+    enum { AT = REPLAY_FILE_SIZE + REPLAY_PAINT_TRAILER_SIZE + REPLAY_SNOW_TRAILER_SIZE };
+    static uint8_t file[AT + REPLAY_CONDITIONS_TRAILER_SIZE];
+    const ReplayConditions moon = { 0, 0, 0, 1, 1, 1, RALLY_GRAVEL_REGOLITH };
+    race_replay_conditions_put(&moon, file + AT);
+    ReplayConditions c = { 9, 9, 9, 0, 9, 9, 9 };
+    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 1);
+    CHECK(c.extras_known == 1 && c.moon == 1 && c.lunar_gravity == 1 && c.gravel == RALLY_GRAVEL_REGOLITH);
+    const ReplayConditions earth = { 1, 0, 1, 1, 0, 0, RALLY_GRAVEL_OFF };   /* known, all off: off, not "now's" */
+    race_replay_conditions_put(&earth, file + AT);
+    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 1 && c.extras_known == 1 && c.moon == 0 && c.gravel == 0 && c.reverse == 1);
+    const ReplayConditions unknown = { 1, 0, 0, 0, 1, 1, 3 };   /* not known: nothing written */
+    race_replay_conditions_put(&unknown, file + AT);
+    CHECK(file[AT + 11] == 0 && file[AT + 12] == 0 && file[AT + 13] == 0 && file[AT + 14] == 0);
+    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 1 && c.extras_known == 0 && c.moon == 0 && c.lunar_gravity == 0 && c.gravel == 0);
+    race_replay_conditions_put(&moon, file + AT);   /* an older port's record: the padding 0 */
+    memset(file + AT + 11, 0, REPLAY_CONDITIONS_TRAILER_SIZE - 11);
+    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 1 && c.extras_known == 0);
+    race_replay_conditions_put(&moon, file + AT);   /* a value not of ours: the extras not known, the conditions kept */
+    file[AT + 14] = RALLY_GRAVEL_SNOW + 1;
+    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 1 && c.extras_known == 0 && c.gravel == 0);
+    race_replay_conditions_put(&moon, file + AT);
+    file[AT + 12] = 2;
+    CHECK(race_replay_conditions_get(file, sizeof file, &c) == 1 && c.extras_known == 0 && c.moon == 0);
+}
+
 int main(int argc, char **argv)
 {
     conditions_trailer();
+    extras_trailer();
     snow_trailer();
     paints();
     synthetic();

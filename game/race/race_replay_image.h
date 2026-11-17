@@ -39,7 +39,10 @@ int race_replay_snow_get(const uint8_t *file, size_t size, int *snow);
 /* port (replay conditions): after the snow record, the 8 bytes "TNFSCND1", the time of day (port_light_time's 0..3), the weather (0..3) and whether the track ran reversed (0/1), and padding. A file without it (the
  * CD's demos, an older port's) was recorded as the original plays: day, clear, forward. */
 enum { REPLAY_CONDITIONS_TRAILER_SIZE = 16 };
-typedef struct { int light_time, weather, reverse; } ReplayConditions;
+/* port (replay extras): in the record's padding, a marker (1) and the moon's textures (0/1, the mode's file's lunar_springs the race
+ * had), the moon's gravity (0/1, its port_lunar_gravity) and the rally's gravel (its port_rally_gravel, RALLY_GRAVEL_*): a replay plays
+ * with them. An older port's record has 0 there: extras_known 0, and the replay takes the switches as they are now, as before. */
+typedef struct { int light_time, weather, reverse, extras_known, moon, lunar_gravity, gravel; } ReplayConditions;
 void race_replay_conditions_put(const ReplayConditions *c, uint8_t out[REPLAY_CONDITIONS_TRAILER_SIZE]);
 /* 1 when `file` has the conditions record (after the snow trailer): `*c` is it; else 0 and `*c` is day, clear, forward */
 int race_replay_conditions_get(const uint8_t *file, size_t size, ReplayConditions *c);
