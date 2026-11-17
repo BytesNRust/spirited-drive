@@ -30,7 +30,7 @@ int mod_ini_id_ok(const char *id)
 
 /* what a value may hold: text; printable ASCII (drawn raw in the game's big face, GRAVER18); A-Z 0-9; a-z 0-9; a type's name; paints;
  * on or off (an int field, 1 for off) */
-enum { KIND_TEXT, KIND_PLAIN, KIND_STEM, KIND_WORD, KIND_TYPE, KIND_PAINTS, KIND_SWITCH };
+enum { KIND_TEXT, KIND_PLAIN, KIND_STEM, KIND_WORD, KIND_TYPE, KIND_PAINTS, KIND_SWITCH, KIND_PHOTOS, KIND_PHOTO };
 
 typedef struct {
     const char *key;
@@ -55,6 +55,9 @@ static const Field FIELDS[] = {
     { "power", offsetof(ModInfo, power), sizeof ((ModInfo *)0)->power, KIND_TEXT },
     { "weight", offsetof(ModInfo, weight), sizeof ((ModInfo *)0)->weight, KIND_TEXT },
     { "paints", 0, 0, KIND_PAINTS },
+    { "category", offsetof(ModInfo, category), sizeof ((ModInfo *)0)->category, KIND_TEXT },   /* port (dep59 showcase) */
+    { "photos", 0, 0, KIND_PHOTOS },
+    { "photo_small", offsetof(ModInfo, photo_small), sizeof ((ModInfo *)0)->photo_small, KIND_PHOTO },
     { "card_name", offsetof(ModInfo, card_name_off), sizeof "off", KIND_SWITCH },   /* port (dep59 gallery plan section 1) */
     { "kind", offsetof(ModInfo, kind), sizeof ((ModInfo *)0)->kind, KIND_WORD },   /* port (dep59 step 5): a track's */
     { "segments", offsetof(ModInfo, segments), sizeof ((ModInfo *)0)->segments, KIND_WORD },
@@ -186,6 +189,46 @@ static int take_paints(const char *s, const char *e, ModInfo *out, char *why, si
     return 1;
 }
 
+/* one photo's file name, `s` .. `e`, into `name` (MOD_INI_PHOTO_NAME_MAX + 1 bytes): a-z 0-9 '-' '_' '.', ending ".png", and not one the game's own
+ * pictures have; 0 with `why` saying which key and why */
+static int take_photo_name(const char *key, const char *s, const char *e, char *name, char *why, size_t cap)
+{
+    static const char *const OWN[] = { "card.png", "rival.png", "gallery.png" };
+    const size_t n = (size_t)(e - s);
+    if (n == 0) return refuse(why, cap, "mod.ini: %s has an empty entry", key);
+    if (n > MOD_INI_PHOTO_NAME_MAX) return refuse(why, cap, "mod.ini: %s: \"%.*s\" is longer than %d characters", key, (int)n, s, MOD_INI_PHOTO_NAME_MAX);
+    for (size_t i = 0; i < n; i++) {
+        const char c = s[i];
+        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.'))
+            return refuse(why, cap, "mod.ini: %s: \"%.*s\" may hold only a-z, 0-9, '-', '_' and '.' (a file in the piece's folder)", key, (int)n, s);
+    }
+    if (n < 5 || memcmp(s + n - 4, ".png", 4) != 0) return refuse(why, cap, "mod.ini: %s: \"%.*s\" is not a .png", key, (int)n, s);
+    for (size_t k = 0; k < sizeof OWN / sizeof OWN[0]; k++)
+        if (strlen(OWN[k]) == n && memcmp(OWN[k], s, n) == 0) return refuse(why, cap, "mod.ini: %s: %s is the game's own picture's name", key, OWN[k]);
+    memcpy(name, s, n);
+    name[n] = '\0';
+    return 1;
+}
+
+/* photos=, the value `s` .. `e`, into `out`: up to MOD_INI_PHOTOS_MAX names, none twice */
+static int take_photos(const char *s, const char *e, ModInfo *out, char *why, size_t cap)
+{
+    for (const char *p = s; p <= e;) {
+        const char *comma = memchr(p, ',', (size_t)(e - p));
+        const char *end = comma != NULL ? comma : e, *es = p, *ee = end;
+        trim(&es, &ee);
+        if (out->photo_count == MOD_INI_PHOTOS_MAX) return refuse(why, cap, "mod.ini: photos has more than %d entries", MOD_INI_PHOTOS_MAX);
+        char *name = out->photo[out->photo_count];
+        if (!take_photo_name("photos", es, ee, name, why, cap)) return 0;
+        for (int k = 0; k < out->photo_count; k++)
+            if (strcmp(out->photo[k], name) == 0) return refuse(why, cap, "mod.ini: photos names %s twice", name);
+        out->photo_count++;
+        if (comma == NULL) break;
+        p = comma + 1;
+    }
+    return 1;
+}
+
 /* one `key=value` line into `out`; 0 with `why` set when it is refused */
 static int take_line(const char *line, const char *end, ModInfo *out, int seen[FIELD_COUNT], char *why, size_t cap)
 {
@@ -204,6 +247,8 @@ static int take_line(const char *line, const char *end, ModInfo *out, int seen[F
         if (vlen == 0) return refuse(why, cap, "mod.ini: %s is empty", FIELDS[f].key);
         seen[f] = 1;
         if (FIELDS[f].kind == KIND_PAINTS) return take_paints(vs, ve, out, why, cap);
+        if (FIELDS[f].kind == KIND_PHOTOS) return take_photos(vs, ve, out, why, cap);
+        if (FIELDS[f].kind == KIND_PHOTO) return take_photo_name(FIELDS[f].key, vs, ve, (char *)out + FIELDS[f].offset, why, cap);
         if (FIELDS[f].kind == KIND_TYPE) {
             out->type = type_named(vs, vlen);
             return out->type >= 0 ? 1 : refuse(why, cap, "mod.ini: type is not tweak, car or track");

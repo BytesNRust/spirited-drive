@@ -14,7 +14,10 @@
  * card.png and rival.png (off for pictures that show their own).
  * port (dep59 step 5): a track's keys, read as written and judged by track_piece_check (notes/dep59-step5-tracks-design.md): stem (as a car's),
  * kind, segments, road and edge (a word, a-z 0-9, up to 8), length (text up to 16: "14.2 km"), laps ("4,8,16") and times ("dawn,day,dusk,night",
- * up to 32). */
+ * up to 32).
+ * port (dep59 showcase, the owner 2026-11-17): a car's category (text up to 16, shown as written: "B"), photos, the big pictures of its showcase
+ * page in order (up to MOD_INI_PHOTOS_MAX file names, a-z 0-9 '-' '_' '.', ending ".png", up to MOD_INI_PHOTO_NAME_MAX, none of the names the game
+ * gives its own pictures: card, rival, gallery) and photo_small, the one small picture. The files are the car piece's to judge. */
 #ifndef TNFS_MOD_INI_H
 #define TNFS_MOD_INI_H
 
@@ -34,7 +37,10 @@ enum {
     MOD_INI_FIGURE_MAX = 16,
     MOD_INI_PAINTS_MAX = 16,
     MOD_INI_PAINT_NAME_MAX = 24,
-    MOD_INI_TIMES_MAX = 32
+    MOD_INI_TIMES_MAX = 32,
+    MOD_INI_CATEGORY_MAX = 16,
+    MOD_INI_PHOTOS_MAX = 8,
+    MOD_INI_PHOTO_NAME_MAX = 24
 };
 
 typedef struct {
@@ -62,6 +68,10 @@ typedef struct {
     /* a track's keys as written; "" when not given */
     char kind[MOD_INI_FROM_MAX + 1], segments[MOD_INI_FROM_MAX + 1], road[MOD_INI_FROM_MAX + 1], edge[MOD_INI_FROM_MAX + 1];
     char length[MOD_INI_FIGURE_MAX + 1], laps[MOD_INI_FIGURE_MAX + 1], times[MOD_INI_TIMES_MAX + 1];
+    char category[MOD_INI_CATEGORY_MAX + 1];   /* "" when not given */
+    char photo[MOD_INI_PHOTOS_MAX][MOD_INI_PHOTO_NAME_MAX + 1];   /* photos=, in order */
+    int photo_count;
+    char photo_small[MOD_INI_PHOTO_NAME_MAX + 1];   /* "" when not given */
     int card_name_off;   /* card_name=off: the game draws no name over card.png and rival.png (the picture shows its own); on by default */
 } ModInfo;
 
