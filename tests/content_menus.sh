@@ -69,10 +69,10 @@ section_of() {   # the section step $1 belongs to
 }
 # the way in: our boot screen, EA's first movie, the title (a key ends its wait), Game Mode; Single, the name box, Control Central
 to_game_mode="1500:ESC,$(wait_for movie=),300:ESC,$(wait_for screen=title),300:ESC,$(wait_for screen=game_mode)"
-single="$(click 310 170),$(wait_for screen=name_box),300:TEXT:R,300:ENTER,$(wait_for screen=central)"
+single="$(click 310 215),$(wait_for screen=name_box),300:TEXT:R,300:ENTER,$(wait_for screen=central)"
 back="$(click 571 453),$(wait_for screen=game_mode)"   # Control Central's Cancel
-# Game Mode's "Manage content..." (game_mode.c's ROW[MANAGE], x 160..480, y 366..400)
-manage="$(click 320 383),$(wait_for screen=content)"
+# Game Mode's "Manage content" (game_mode.c's ROW[MANAGE], y 291..340)
+manage="$(click 320 315),$(wait_for screen=content)"
 # CONTENT's places (content_nav.h): the foot's buttons at y 446 (content_nav.c's FOOT_X), the card's Uninstall (y 358, x 500 on) and
 # Previous version (y 386), the page indicator's next (x 330, y 370), the list's first line (y 162) by its name (a click there selects)
 new="$(click 40 456)" delete="$(click 290 456)" install="$(click 470 456)" done_="$(click 580 456)"

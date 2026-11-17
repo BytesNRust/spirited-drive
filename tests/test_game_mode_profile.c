@@ -1,5 +1,5 @@
-/* Game Mode, L2b (game_mode.c; notes/dep59-step4-editions-plan.md, section 6): Single Player and Multiplayer on top, the selector of the
- * modes and editions low with its lines, "Manage content..." under it, Exit at the bottom right, the version and the update notice at the
+/* Game Mode, L2b (game_mode.c; notes/dep59-step4-editions-plan.md, section 6; reordered by the owner 2026-11-17): the selector of the
+ * modes and editions on top with its lines, then Single Player, Multiplayer and "Manage content", Exit at the bottom right, the version and the update notice at the
  * bottom left. The cursor starts on Single Player; the selector's arrows show a choice and apply it once they rest (a short fade only when
  * the picture changes); a choice that cannot be used is shown and never applied. */
 #include "game/frontend/game_mode.h"
@@ -110,6 +110,7 @@ static void f_text(void *c, int32_t style, const char *t, int32_t x, int32_t y)
     if (strncmp(t, "<  ", 3) == 0) note(&f->title, x, y, w), snprintf(f->last_title, sizeof f->last_title, "%s", t);
     else if (strcmp(t, "Single Player") == 0) note(&f->single, x, y, w);
     else if (strcmp(t, "Multiplayer") == 0) note(&f->multi, x, y, w), f->multi_style = style;
+    else if (strcmp(t, "Manage content") == 0) note(&f->manage, x, y, w), f->manage_style = style;
     else if (strcmp(t, "Exit") == 0) note(&f->exit, x, y, w), f->exit_style = style;
     f->said_customize += strcmp(t, "Customize game") == 0;
 }
@@ -119,7 +120,6 @@ static void f_text_scaled(void *c, int32_t s, const char *t, int32_t x, int32_t 
     const int w = (int)strlen(t) * 16 * n / d;
     if (t[0] == 'v') note(&f->version, x, y, w), f->version_hot += s != 0;
     else if (strncmp(t, "Update", 6) == 0) note(&f->notice, x, y, w), f->notice_hot += s != 0, f->notice_plain += s == 0, f->notice_last = s;
-    else if (strcmp(t, "Manage content...") == 0) note(&f->manage, x, y, w), f->manage_style = s;
 }
 static int32_t f_footer(void *c, int32_t line, char *text, size_t cap)
 {
@@ -191,11 +191,11 @@ static void rig(Fake *f, int x, int y, int pinned)
     f->count = 5, f->in_use = 2, f->unusable = -1;   /* the three modes and two editions; Restomod '26 in use */
 }
 
-/* the rows' centres (the owner's L2b: Single Player and Multiplayer centred as a pair between the title band and the selector, the
- * selector and Manage content low, Exit at the foot) */
-enum { ROW_SINGLE = 170, ROW_MULTI = 222, ROW_CHOICE = 333, ROW_MANAGE = 383, EXIT_X = 580, ROW_EXIT = 449, GAP = 270 };
+/* the rows' centres (the owner's reorder: the selector on top, the three options 50 apart under it, Exit at the foot; GAP is between
+ * Manage content and Exit, on no row) */
+enum { ROW_CHOICE = 140, ROW_SINGLE = 215, ROW_MULTI = 265, ROW_MANAGE = 315, EXIT_X = 580, ROW_EXIT = 449, GAP = 370 };
 
-/* Single Player first; Down runs Multiplayer, the selector, Manage, Exit and round; Up from Single Player is Exit */
+/* Single Player first; Down runs Multiplayer, Manage, Exit, the selector and round; Up from Single Player is the selector */
 static void test_the_order(void)
 {
     Fake f;
@@ -205,17 +205,17 @@ static void test_the_order(void)
     run(&f, keys, n);
     CHECK_EQ_INT(f.moved_y[0], ROW_SINGLE);
     CHECK_EQ_INT(f.moved_y[1], ROW_MULTI);
-    CHECK_EQ_INT(f.moved_y[2], ROW_CHOICE);
-    CHECK_EQ_INT(f.moved_y[3], ROW_MANAGE);
-    CHECK_EQ_INT(f.moved_y[4], ROW_EXIT);
+    CHECK_EQ_INT(f.moved_y[2], ROW_MANAGE);
+    CHECK_EQ_INT(f.moved_y[3], ROW_EXIT);
+    CHECK_EQ_INT(f.moved_y[4], ROW_CHOICE);
     CHECK_EQ_INT(f.moved_y[5], ROW_SINGLE);
     const int up[] = { UP };
     rig(&f, 320, ROW_SINGLE, 0);
     run(&f, up, 1);
-    CHECK_EQ_INT(f.moved_y[1], ROW_EXIT);
+    CHECK_EQ_INT(f.moved_y[1], ROW_CHOICE);
 }
 
-/* L2b: Single Player and Multiplayer on top, the selector under them with its lines, Manage under it, Exit at the bottom right clear of
+/* the selector on top with its lines, then Single Player, Multiplayer and Manage content 50 apart, Exit at the bottom right clear of
  * the foot line, the version at the bottom left */
 static void test_the_layout(void)
 {
@@ -224,16 +224,13 @@ static void test_the_layout(void)
     rig(&f, 320, ROW_SINGLE, 0);
     run(&f, none, 1);
     CHECK(f.single.set && f.multi.set && f.title.set && f.manage.set && f.exit.set && f.version.set && f.notice.set);
-    CHECK(f.single.y < f.multi.y && f.multi.y < f.title.y && f.title.y < f.manage.y);
-    CHECK(f.manage.y < 400);
-    /* the mockup's text centres: a big word's centre is 20 pixels below where it is drawn, a small line's 6 */
-    CHECK_EQ_INT(f.single.y + 20, 169);
-    CHECK_EQ_INT(f.multi.y + 20, 221);
-    CHECK_EQ_INT(f.title.y + 20, 318);
-    CHECK_EQ_INT(f.manage.y + 6, 383);
-    const int pair_middle = (f.single.y + f.multi.y) / 2 + 20, space_middle = (88 + 303) / 2;   /* under the title band, above the selector */
-    CHECK(pair_middle >= space_middle - 2 && pair_middle <= space_middle + 2);
-    CHECK(f.title.y - (f.multi.y + 42) >= 40);   /* an empty gap between Multiplayer and the selector */
+    CHECK(f.title.y < f.single.y && f.single.y < f.multi.y && f.multi.y < f.manage.y);
+    CHECK(f.title.y > 88);   /* under the title band */
+    /* the three options are one size (a big word's centre is 21 pixels below where it is drawn), 50 apart: text centres 215, 265, 315 */
+    CHECK_EQ_INT(f.single.y + 21, 215);
+    CHECK_EQ_INT(f.multi.y + 21, 265);
+    CHECK_EQ_INT(f.manage.y + 21, 315);
+    CHECK(f.manage.y + 42 < f.exit.y);
     CHECK(f.exit.x + f.exit.w <= 640 - 14);   /* the right margin the version keeps on the left */
     CHECK(f.exit.y > 400);
     CHECK(f.exit.x > f.notice.x + f.notice.w);   /* clear of the foot line's notice */
@@ -311,9 +308,9 @@ static void test_a_choice_that_cannot_be_used(void)
 static void test_leaving_the_row_applies(void)
 {
     Fake f;
-    const int keys[] = { DOWN, DOWN, RIGHT, UP, ESCAPE };
+    const int keys[] = { UP, RIGHT, DOWN, ESCAPE };
     rig(&f, 320, ROW_SINGLE, 0);
-    run(&f, keys, 5);
+    run(&f, keys, 4);
     CHECK_EQ_INT(f.applies, 1);
     CHECK_EQ_INT(f.last_apply, 3);
 }
@@ -443,7 +440,7 @@ static void test_the_pointer_rects(void)
     f.clicks = 1 << 3;
     run(&f, idle, 4);
     CHECK_EQ_INT(f.names_asked + f.networks_asked + f.opens + f.banners, 0);
-    rig(&f, 320, GAP, 1);   /* the gap between Multiplayer and the selector: nothing */
+    rig(&f, 320, GAP, 1);   /* the gap between Manage content and Exit: nothing */
     f.clicks = 1 << 3;
     run(&f, idle, 4);
     CHECK_EQ_INT(f.names_asked + f.networks_asked + f.opens + f.banners, 0);

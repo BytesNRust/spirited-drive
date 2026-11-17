@@ -5,9 +5,10 @@
 #include "game/sys/port_log.h"
 
 enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, DOWN = 0x5000, LEFT = 0x4b00, RIGHT = 0x4d00, LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
-/* port (dep59 step 4, L2b): the rows, in the order Up / Down walk them: Single Player and Multiplayer (the exe's Network) on top, the
- * selector of the modes and editions, "Manage content...", Exit at the bottom right; all drawn in the game's text over the art's words */
-enum { SINGLE, NETWORK, CHOICE, MANAGE, EXIT, ROWS };
+/* port (dep59 step 4, L2b; the owner's reorder of 2026-11-17): the rows, in the order Up / Down walk them: the selector of the modes and
+ * editions on top, then Single Player, Multiplayer (the exe's Network) and Manage content, three of one size, Exit at the bottom right;
+ * all drawn in the game's text over the art's words. The screen opens on Single Player */
+enum { CHOICE, SINGLE, NETWORK, MANAGE, EXIT, ROWS };
 enum { RACE = 0, LEAVE = 1, TIMED_OUT = 2 };
 enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x1194, REST = 0x19, TOLD = 0x12c, WIDE = 0x280, ALL = 0x100 };
 
@@ -15,14 +16,14 @@ enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x1194, REST = 0x19, TOLD = 0x12c, WI
 typedef struct {
     int16_t x0, x1, y0, y1, cx, cy;
 } Row;
-/* port (dep59 step 4, the owner's L2b): Single Player and Multiplayer centred as a pair, 52 pixels apart, in the space between the title
- * band (y 88) and the selector's title (y 303), an empty gap under them (no row: a click there does nothing), the selector and Manage
- * content low, Exit at the foot; the text centres at y 170, 222, 318 (the selector's title; its lines 340 and 358) and 383 */
+/* port (the owner's reorder, notes/dep59-content-ux-review.md "Game Mode"): the selector under the title band (y 88) with its two lines,
+ * then a column of the three options 50 pixels apart (text centres at y 215, 265 and 315), Exit at the foot. The rows touch: a click
+ * between two takes one of them */
 static const Row ROW[ROWS] = {
-    { 0, 0x280, 144, 196, 0x140, 170 },      /* Single Player */
-    { 0, 0x280, 197, 248, 0x140, 222 },      /* Multiplayer */
-    { 0, 0x280, 296, 365, 0x140, 333 },      /* the selector: its title, its lines */
-    { 160, 480, 366, 400, 0x140, 383 },      /* Manage content...: its small words */
+    { 0, 0x280, 96, 190, 0x140, 140 },       /* the selector: its title (text top 108), its two lines (144, 162) */
+    { 0, 0x280, 191, 240, 0x140, 215 },      /* Single Player */
+    { 0, 0x280, 241, 290, 0x140, 265 },      /* Multiplayer */
+    { 0, 0x280, 291, 340, 0x140, 315 },      /* Manage content */
     { 500, 0x280, 410, 0x1e0, 580, 449 }     /* Exit: the bottom right, clear of the foot line */
 };
 /* 0043213c: the art's four words, covered by the port's rows */
@@ -30,7 +31,9 @@ static const int16_t ART_Y[4] = { 0x91, 0xda, 0x122, 0x16f };
 /* the selector's thirds for the pointer: left of CHOICE_LEFT the previous choice, from CHOICE_RIGHT on the next, between them its name */
 enum { CHOICE_LEFT = 0xd5, CHOICE_RIGHT = 0x1ab };
 enum { LABEL_X = 311, TEXT_HALF_HEIGHT = 21, EXIT_RIGHT = 640 - 14, EXIT_TOP = 428, SMALL_NUM = 3, SMALL_DEN = 5 };   /* LABEL_X: where the art's words centre, not the pointer's 0x140 */
-static const char MANAGE_WORDS[] = "Manage content...";
+static const char MANAGE_WORDS[] = "Manage content";
+/* the selector's gallery arrows at fixed places, the name centred between them; the arrow's top under the title's */
+enum { ARROW_L_X = 130, ARROW_R_X = 510, ARROW_DY = 8, TITLE_DY = -32, LINE1_DY = 4, LINE2_DY = 22 };
 static const char MANAGE_LATER[] = "Editions are managed in a later version";
 enum { TEXT_DIM_STYLE = 4 };   /* text.h's TEXT_DIM: what the mode does not let the player use */
 
@@ -110,24 +113,29 @@ static int restomod_in_use(const Menu *m) { return m->in_use >= 2; }
 /* "<  name  >" (lit while it is the selection) and the lines about the choice it shows under it */
 static void choice_row(const Menu *m, const GameModeOps *o)
 {
-    const int cy = ROW[CHOICE].cy, title_y = cy - 35, line1_y = cy + 1, line2_y = cy + 19;
+    const int cy = ROW[CHOICE].cy, title_y = cy + TITLE_DY, line1_y = cy + LINE1_DY, line2_y = cy + LINE2_DY;
     const char *text[3] = { "", "", "" };
     if (o->choice == NULL || o->plus_text_scaled == NULL || o->plus_text_width_scaled == NULL) return;
     if (o->choice(o->ctx, m->shown != m->in_use ? GAME_MODE_CHOICE_PEEK : GAME_MODE_CHOICE_READ, m->shown, text) < 0) return;
-    char title[96];
-    snprintf(title, sizeof title, "<  %s  >", text[0]);
-    o->plus_text(o->ctx, m->selected == CHOICE, title, LABEL_X - o->plus_text_width(o->ctx, title) / 2, title_y);
+    if (o->arrow != NULL) {   /* the gallery's arrows, lit with the name while the selector is the selection */
+        o->arrow(o->ctx, 0, m->selected == CHOICE, ARROW_L_X, title_y + ARROW_DY);
+        o->arrow(o->ctx, 1, m->selected == CHOICE, ARROW_R_X, title_y + ARROW_DY);
+        o->plus_text(o->ctx, m->selected == CHOICE, text[0], LABEL_X - o->plus_text_width(o->ctx, text[0]) / 2, title_y);
+    } else {
+        char title[96];
+        snprintf(title, sizeof title, "<  %s  >", text[0]);
+        o->plus_text(o->ctx, m->selected == CHOICE, title, LABEL_X - o->plus_text_width(o->ctx, title) / 2, title_y);
+    }
     if (text[1][0] != 0) o->plus_text_scaled(o->ctx, 0, text[1], LABEL_X - o->plus_text_width_scaled(o->ctx, text[1], SMALL_NUM, SMALL_DEN) / 2, line1_y, SMALL_NUM, SMALL_DEN);
     if (text[2][0] != 0) o->plus_text_scaled(o->ctx, 0, text[2], LABEL_X - o->plus_text_width_scaled(o->ctx, text[2], SMALL_NUM, SMALL_DEN) / 2, line2_y, SMALL_NUM, SMALL_DEN);
 }
 
-/* "Manage content...", small under the selector: lit while it is the selection, dimmed where the mode has no editions */
+/* "Manage content", the size of the two options over it: lit while it is the selection, dimmed where the mode has no editions */
 static void manage_row(const Menu *m, const GameModeOps *o)
 {
-    if (o->choice == NULL || o->plus_text_scaled == NULL || o->plus_text_width_scaled == NULL) return;
+    if (o->choice == NULL) return;
     const int32_t style = !restomod_in_use(m) ? TEXT_DIM_STYLE : m->selected == MANAGE;
-    o->plus_text_scaled(o->ctx, style, MANAGE_WORDS, LABEL_X - o->plus_text_width_scaled(o->ctx, MANAGE_WORDS, SMALL_NUM, SMALL_DEN) / 2,
-                        ROW[MANAGE].cy - 6, SMALL_NUM, SMALL_DEN);
+    o->plus_text(o->ctx, style, MANAGE_WORDS, LABEL_X - o->plus_text_width(o->ctx, MANAGE_WORDS) / 2, ROW[MANAGE].cy - TEXT_HALF_HEIGHT);
 }
 
 /* port (dep59 step 4): why Multiplayer is closed, NULL when open */
@@ -140,7 +148,7 @@ static void rows_draw(const Menu *m, const GameModeOps *o)
     cover_art(o);
     for (int16_t i = SINGLE; i <= NETWORK; i++) {
         const int32_t style = i == NETWORK && network_closed(o) != NULL ? TEXT_DIM_STYLE : m->selected == i;
-        o->plus_text(o->ctx, style, WORDS[i], LABEL_X - o->plus_text_width(o->ctx, WORDS[i]) / 2, ROW[i].cy - TEXT_HALF_HEIGHT);
+        o->plus_text(o->ctx, style, WORDS[i - SINGLE], LABEL_X - o->plus_text_width(o->ctx, WORDS[i - SINGLE]) / 2, ROW[i].cy - TEXT_HALF_HEIGHT);
     }
     choice_row(m, o);
     manage_row(m, o);
