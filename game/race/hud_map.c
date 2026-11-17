@@ -15,6 +15,18 @@ static const int32_t ROAD_FIRST[HUD_MAP_TRACKS] = { -29, -29, -29, -19, -29, -29
 static const int32_t ROAD_LAST[HUD_MAP_TRACKS] = { 30, 30, 30, 20, 30, 30, 30, 32, 30 };
 static const int16_t START_NODE[3 * 3] = { 0x6cc, 0x62c, 0x7e4, 0x6cc, 0x67c, 0x67c, 0x76c, 0x854, 0x7c4 };
 
+/* port (dep59 step 5, T4 follow-up): an added track (a race number from 9 on) is a stage like the CD's first three, drawn with the first's span
+ * about the car; its end node (the table's START_NODE for the CD's) is its TRI's last node less 0x3c, the margin road_node keeps past it */
+enum { HUD_MAP_ADDED = 9, END_BACK = 0x3c };
+static int added_track(const HudMapInputs *in) { return in->track >= HUD_MAP_ADDED; }
+static int stage_track(const HudMapInputs *in) { return in->track < 3 || added_track(in); }
+static int16_t stage_end(const HudMapInputs *in)
+{
+    if (!added_track(in)) return START_NODE[in->track * 3 + in->variant];
+    const int32_t last = in->tri != NULL ? (int32_t)in->tri->node_count - END_BACK : 0;
+    return (int16_t)(last > 0 ? last : 0);
+}
+
 /* 00423aec */
 void hud_map_marker(QuadTarget *t, uint8_t *bank, int32_t high, int32_t x, int32_t y, uint32_t colour,
                     int32_t surface_w, int32_t surface_h)
@@ -70,9 +82,9 @@ static int16_t road_node(const HudMapInputs *in, int16_t at, int32_t step)
 {
     int16_t s = (int16_t)(in->track == 3 ? (step * 0x6c) >> 3 : step << 4);
     s = (int16_t)(s + at);
-    if (in->track < 3) {
+    if (stage_track(in)) {
         if (s < 0) return 0;
-        const int16_t last = START_NODE[in->track * 3 + in->variant];
+        const int16_t last = stage_end(in);
         if (s > last + 0x3c) return (int16_t)(last + 0x3c);
         return s;
     }
@@ -83,14 +95,16 @@ static int16_t road_node(const HudMapInputs *in, int16_t at, int32_t step)
 static void map_road(QuadTarget *t, const HudMapInputs *in, const MapTurn *m, int16_t at, int32_t bx, int32_t by)
 {
     int16_t first = (int16_t)(at - (int16_t)in->span);
-    if (in->track < 3) {
+    if (stage_track(in)) {
         if (first < 0) first = 0;
     } else if (first < 0) {
         first = (int16_t)(first + (int16_t)in->ring_nodes);
     }
     int32_t px, py;
     map_turn(m, first, &px, &py);
-    for (int16_t step = (int16_t)ROAD_FIRST[in->track]; step <= ROAD_LAST[in->track]; step++) {
+    const int16_t from = added_track(in) ? (int16_t)ROAD_FIRST[0] : (int16_t)ROAD_FIRST[in->track];
+    const int16_t to = added_track(in) ? (int16_t)ROAD_LAST[0] : (int16_t)ROAD_LAST[in->track];
+    for (int16_t step = from; step <= to; step++) {
         int32_t x, y;
         map_turn(m, road_node(in, at, step), &x, &y);
         flat_line(t, bx + px, by - py, bx + x, by - y, in->road_colour);
@@ -101,7 +115,7 @@ static void map_road(QuadTarget *t, const HudMapInputs *in, const MapTurn *m, in
 /* The direction at the start node: a short line along the road there. */
 static void map_direction(QuadTarget *t, const HudMapInputs *in, const MapTurn *m, int32_t bx, int32_t by)
 {
-    const int32_t start = in->track < 3 ? START_NODE[in->track * 3 + in->variant] : 0;
+    const int32_t start = stage_track(in) ? stage_end(in) : 0;
     int32_t ax, ay, cx, cy;
     map_turn(m, start, &ax, &ay);
     map_turn(m, start + 8, &cx, &cy);
