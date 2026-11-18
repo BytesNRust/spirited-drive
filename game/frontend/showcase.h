@@ -68,6 +68,10 @@ typedef struct ShowcasePlus {
     void (*draw)(void *ctx, int car, int lit, const uint8_t *palette);
     /* the panel: opened, run until it is closed (the screen's picture is drawn on and put back as it was), the settings kept */
     void (*open)(void *ctx, int car, const uint8_t *palette);
+    /* port (owner 2026-11-18): RECORDS in Video's place (NULL leaves the video): its tile, lit or dark, and its screen (a car's records on every
+     * track, run until it is closed, the screen's picture left for the page to draw again) */
+    void (*records_draw)(void *ctx, int car, int lit, const uint8_t *palette);
+    void (*records_open)(void *ctx, int car, const uint8_t *palette);
     void *ctx;
 } ShowcasePlus;
 

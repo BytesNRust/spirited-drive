@@ -9,8 +9,8 @@ int added_gallery_colour_on(const CarPieceCard *c, const GalleryState *s)
 }
 
 /* the order Up and Down visit the items in (the page's tiles, then its bottom row); Color is a row of the SETUP panel now */
-enum { VISITED = 6 };
-static const int ORDER[VISITED] = { GALLERY_SETUP, GALLERY_PHOTOS, GALLERY_HISTORY, GALLERY_PREVIOUS, GALLERY_NEXT, GALLERY_DONE };
+enum { VISITED = 7 };
+static const int ORDER[VISITED] = { GALLERY_SETUP, GALLERY_PHOTOS, GALLERY_RECORDS, GALLERY_HISTORY, GALLERY_PREVIOUS, GALLERY_NEXT, GALLERY_DONE };
 
 static int order_at(int item)
 {
@@ -122,6 +122,7 @@ int added_gallery_input(const CarPieceCard *c, GalleryState *s, int key)
     case GALLERY_KEY_ENTER:
         if (s->item == GALLERY_SETUP) setup_open(c, s);
         else if (s->item == GALLERY_HISTORY) break;   /* nothing to take */
+        else if (s->item == GALLERY_RECORDS) return GALLERY_OPEN_RECORDS;
         else if (s->item == GALLERY_DONE) return GALLERY_LEAVE;
         else if (s->item == GALLERY_PREVIOUS) return GALLERY_GO_PREVIOUS;
         else if (s->item == GALLERY_NEXT) return GALLERY_GO_NEXT;

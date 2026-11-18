@@ -13,8 +13,8 @@
 
 
 /* port (dep59 showcase, PR B): GALLERY_PHOTOS is the big photo's tile (Left and Right go round the photos), GALLERY_HISTORY the description's
- * (Left and Right scroll it). They come after the old items so the old numbers stand (the walks' marks). */
-enum { GALLERY_SKIN, GALLERY_COLOUR, GALLERY_PREVIOUS, GALLERY_NEXT, GALLERY_DONE, GALLERY_PHOTOS, GALLERY_HISTORY, GALLERY_ITEMS };
+ * (Left and Right scroll it), GALLERY_RECORDS Video's old tile (owner 2026-11-18: Enter or a click opens the car's RECORDS screen). They come after the old items so the old numbers stand (the walks' marks). */
+enum { GALLERY_SKIN, GALLERY_COLOUR, GALLERY_PREVIOUS, GALLERY_NEXT, GALLERY_DONE, GALLERY_PHOTOS, GALLERY_HISTORY, GALLERY_RECORDS, GALLERY_ITEMS };
 /* port (dep59 showcase, PR C): the SETUP tile is the item that was Skin's (GALLERY_SKIN, 0: a name the walks' marks keep); Color's item is no
  * longer visited, its choice is a row of the SETUP panel */
 #define GALLERY_SETUP GALLERY_SKIN
@@ -25,7 +25,7 @@ enum { SETUP_NOT_OFFERED = 2 };   /* a setting the car's does not offer (Options
 enum { GALLERY_KEY_ENTER = 0x0d, GALLERY_KEY_ESCAPE = 0x1b, GALLERY_KEY_UP = 0x4800, GALLERY_KEY_LEFT = 0x4b00, GALLERY_KEY_RIGHT = 0x4d00,
        GALLERY_KEY_DOWN = 0x5000 };
 /* what added_gallery_input asks for */
-enum { GALLERY_STAY = 0, GALLERY_LEAVE = 1, GALLERY_GO_PREVIOUS = 2, GALLERY_GO_NEXT = 3 };
+enum { GALLERY_STAY = 0, GALLERY_LEAVE = 1, GALLERY_GO_PREVIOUS = 2, GALLERY_GO_NEXT = 3, GALLERY_OPEN_RECORDS = 4 };
 
 typedef struct {
     int item;    /* GALLERY_* */

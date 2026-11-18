@@ -113,3 +113,36 @@ int added_gallery_setup_tile(uint8_t out[GL_COL_W * GL_COL_H], const uint8_t *fi
     free(data);
     return ok;
 }
+
+/* the RECORDS tile's flag: WINNER.QFS's bgnd (the chequered flag of the winner's screen), its upper part (TILE_FLAG_*) scaled to the Video tile's size */
+enum { FLAG_SRC_X = 170, FLAG_SRC_Y = 10, FLAG_SRC_W = 260, FLAG_SRC_H = 202 };
+
+int added_gallery_flag_rgb(uint8_t out[GL_VID_W * GL_VID_H * 3], const uint8_t *file, size_t size)
+{
+    uint8_t *data = NULL;
+    size_t data_size = size;
+    if (qfs_is_compressed(file, size)) {
+        if (qfs_decompressed_size(file, size, &data_size) != QFS_OK || (data = malloc(data_size)) == NULL ||
+            qfs_decompress(file, size, data, data_size) != QFS_OK) {
+            free(data);
+            return 0;
+        }
+    }
+    Fsh fsh;
+    uint32_t index;
+    FshEntry e, p;
+    uint8_t own[768];
+    const int ok = fsh_open(&fsh, data != NULL ? data : file, data_size) == FSH_OK && fsh_find(&fsh, "!pal", &index) == FSH_OK &&
+                   fsh_entry(&fsh, index, &p) == FSH_OK && fsh_palette_rgb(&p, own) == FSH_OK && find_background(&fsh, &e);
+    for (int y = 0; ok && y < GL_VID_H; y++)
+        for (int x = 0; x < GL_VID_W; x++) {   /* each pixel the mean of its source box */
+            const int x0 = x * FLAG_SRC_W / GL_VID_W, x1 = (x + 1) * FLAG_SRC_W / GL_VID_W, y0 = y * FLAG_SRC_H / GL_VID_H, y1 = (y + 1) * FLAG_SRC_H / GL_VID_H;
+            int sum[3] = { 0, 0, 0 }, n = 0;
+            for (int sy = y0; sy < y1 || sy == y0; sy++)
+                for (int sx = x0; sx < x1 || sx == x0; sx++, n++)
+                    for (int c = 0; c < 3; c++) sum[c] += own[3 * e.payload[(size_t)(FLAG_SRC_Y + sy) * 640 + FLAG_SRC_X + sx] + c];
+            for (int c = 0; c < 3; c++) out[3 * (y * GL_VID_W + x) + c] = (uint8_t)(sum[c] / n);
+        }
+    free(data);
+    return ok;
+}

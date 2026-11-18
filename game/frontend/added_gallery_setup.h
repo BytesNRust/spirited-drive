@@ -23,6 +23,8 @@ int added_gallery_setup_art(SetupArt *art, const uint8_t *file, size_t size, con
 
 /* the closed SETUP tile's picture (owner 2026-11-18: the Supra's engine, the Mechanical tile's place in the background of the bank of
  * FRONTEND/SHOW/SUPRA.QFS, 254 x 87) scaled to GL_COL_W x GL_COL_H, each pixel the page palette's nearest entry (`usable` as above); 1 when it was there */
+/* the RECORDS tile's picture: the chequered flag of FRONTEND/ART/WINNER.QFS (`file`, `size`), its upper part as RGB at the Video tile's size; 0 when the bank is not that */
+int added_gallery_flag_rgb(uint8_t out[GL_VID_W * GL_VID_H * 3], const uint8_t *file, size_t size);
 int added_gallery_setup_tile(uint8_t out[GL_COL_W * GL_COL_H], const uint8_t *file, size_t size, const uint8_t pal[768], const uint8_t usable[256]);
 
 #endif

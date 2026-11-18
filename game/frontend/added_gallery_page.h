@@ -61,6 +61,8 @@ void added_gallery_tints_make(Page *p);
 void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th);
 /* the name big and leant, "Car Showcase" under it */
 void added_gallery_draw_title(const Page *p);
+/* the name alone, big and leant (the RECORDS screen's own heading goes where "Car Showcase" is) */
+void added_gallery_draw_name(const Page *p);
 /* the description's lines made for the tile (the head, then the text), and how many the tile shows */
 void added_gallery_history_make(Page *p);
 /* the History text's line height and the window's height in pixel rows (the glue's lines op: the scroll is in pixel rows) */

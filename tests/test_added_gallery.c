@@ -80,10 +80,10 @@ int main(void)
     CHECK_EQ_INT(added_gallery_input(&c, &s, GALLERY_KEY_ENTER), GALLERY_STAY);
     CHECK_EQ_INT(s.transmission, 1);
 
-    /* the tiles: Down from SETUP goes to History (one photo or none), or Photos (several); then the bottom row, round to SETUP */
+    /* the tiles: Down from SETUP goes to RECORDS (one photo or none), or Photos (several); then History, the bottom row, round to SETUP */
     s = (GalleryState){ GALLERY_SETUP, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-    const int ONE[] = { GALLERY_HISTORY, GALLERY_PREVIOUS, GALLERY_NEXT, GALLERY_DONE, GALLERY_SETUP };
-    for (int i = 0; i < 5; i++) {
+    const int ONE[] = { GALLERY_RECORDS, GALLERY_HISTORY, GALLERY_PREVIOUS, GALLERY_NEXT, GALLERY_DONE, GALLERY_SETUP };
+    for (int i = 0; i < 6; i++) {
         added_gallery_input(&c, &s, GALLERY_KEY_DOWN);
         CHECK_EQ_INT(s.item, ONE[i]);
     }
@@ -97,6 +97,9 @@ int main(void)
     CHECK_EQ_INT(s.photo, 0);
     added_gallery_input(&c, &s, GALLERY_KEY_LEFT);
     CHECK_EQ_INT(s.photo, 2);
+    added_gallery_input(&c, &s, GALLERY_KEY_DOWN);
+    CHECK_EQ_INT(s.item, GALLERY_RECORDS);   /* Video's tile, RECORDS, between Photos and History */
+    CHECK_EQ_INT(added_gallery_input(&c, &s, GALLERY_KEY_ENTER), GALLERY_OPEN_RECORDS);
     added_gallery_input(&c, &s, GALLERY_KEY_DOWN);
     CHECK_EQ_INT(s.item, GALLERY_HISTORY);
     added_gallery_input(&c, &s, GALLERY_KEY_RIGHT);   /* on History they scroll the description, never above its top */

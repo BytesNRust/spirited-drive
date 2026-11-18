@@ -15,6 +15,8 @@
 #include "formats/stock_content.h"
 #include "game/frontend/boot_quant.h"
 #include "game/frontend/boot_screen.h"
+#include "game/frontend/car_records_run.h"
+#include "game/frontend/car_records_view.h"
 #include "game/frontend/car_figures.h"
 #include "game/frontend/car_list.h"
 #include "game/frontend/central_glue_private.h"
@@ -22,6 +24,7 @@
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/gallery_layout.h"
 #include "game/frontend/gallery_photo.h"
+#include "game/frontend/showcase.h"
 #include "game/frontend/menu_audio.h"
 #include "game/platform/platform.h"
 #include "game/race/car_registry.h"
@@ -58,6 +61,18 @@ static int row_cut;
 
 static uint8_t *tile_data;   /* the closed SETUP tile's bank, read once */
 static size_t tile_size;
+
+static uint8_t *flag_data;   /* WINNER.QFS, read once: the RECORDS tile's flag */
+static size_t flag_size;
+#define FLAG_BANK "winner.qfs"
+
+static void flag_load(void)
+{
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s%s", resource_root(), resource_german() ? "frontend/gart/" : "frontend/art/", FLAG_BANK);
+    if (flag_data == NULL) flag_data = resource_load(path, &flag_size);
+    if (flag_data == NULL) port_log("added gallery: %s was not read\n", path);
+}
 
 static void tile_load(void)
 {
@@ -235,9 +250,11 @@ static void page_still(Page *p)
         uint8_t *src = big_rgb(p, p->state.photo, &w, &h);
         tile_picture(src, w, h, ground, big, GL_PERF_W, GL_PERF_H);
         free(src);
-        src = small_rgb(p, &w, &h);
-        tile_picture(src, w, h, ground, small, GL_VID_W, GL_VID_H);
-        free(src);
+        if (flag_data == NULL || !added_gallery_flag_rgb(small, flag_data, flag_size)) {   /* the flag; the card's picture when it cannot be had */
+            src = small_rgb(p, &w, &h);
+            tile_picture(src, w, h, ground, small, GL_VID_W, GL_VID_H);
+            free(src);
+        }
         gallery_compose(bgnd, big, small, rgb);
         if (!gallery_quantise(rgb, STILL_COLOURS, p->palette, p->still)) port_log("added gallery: the page was not quantised\n");
     }
@@ -414,6 +431,59 @@ static void run_shutter(void *ctx, const GalleryState *s, int opening)
     p->moving = 0;
 }
 
+/* --- the RECORDS screen (owner 2026-11-18): the car's records on every track over the page, darkened --- */
+
+typedef struct {
+    const Page *page;
+    const uint8_t *ground;
+} RecordsHost;
+
+/* one frame of the table: the ground, the car's name, the table, DONE, the page's palette */
+static void records_show(void *ctx, const CarRecordsView *v)
+{
+    const RecordsHost *h = ctx;
+    const Page *p = h->page;
+    int w, hh;
+    ea_select_default();
+    uint8_t *to = video_target(&w, &hh);
+    for (int y = 0; y < GL_H && y < hh; y++) memcpy(&to[y * w], &h->ground[y * GL_W], (size_t)(w < GL_W ? w : GL_W));
+    added_gallery_draw_name(p);
+    car_records_view_draw(v, resource_kmh());
+    if (row_cut) {
+        gallery_row_draw(&row, gallery_row_look(GALLERY_DONE), to, w, hh, p->row_map, BLACK);   /* DONE only: the car arrows' place is the ground again */
+        for (int y = SHOWCASE_BOTTOM_TOP; y < GL_H && y < hh; y++)
+            for (int x = SHOWCASE_PREVIOUS_LEFT - 30; x <= SHOWCASE_NEXT_RIGHT + 30 && x < w; x++) to[y * w + x] = h->ground[y * GL_W + x];
+    }
+    video_set_palette(0, 256, p->palette);
+    video_flip();
+    pointer_show();
+}
+
+/* the screen until DONE: the page darkened under the table */
+static void records_screen(Page *p)
+{
+    CarRecordsView *v = malloc(sizeof *v);
+    uint8_t *ground = malloc((size_t)GL_W * GL_H), usable[256];
+    TrackList l;
+    if (v == NULL || ground == NULL) {
+        free(v), free(ground);
+        return;
+    }
+    cg_records_tracks(&l);
+    car_records_view_make(v, p->card.info.id, &l);
+    memcpy(ground, p->still, (size_t)GL_W * GL_H);
+    for (int i = 0; i < 256; i++) usable[i] = i < STILL_COLOURS;
+    car_records_ground(ground, p->palette, usable, p->has_tint ? p->tint : NULL);
+    uint8_t pal[768];
+    memcpy(pal, p->palette, sizeof pal);
+    memcpy(pal + 3 * SWATCH, pal + 3 * BLACK, 3);
+    memcpy(pal + 3 * SKIN_SWATCH, pal + 3 * BLACK, 3);
+    text_build_styles_from(pal);
+    const RecordsHost host = { p, ground };
+    car_records_run(v, records_show, (void *)&host);
+    free(v), free(ground);
+}
+
 static int run_page(Page *p)
 {
     const GalleryRunOps ops = { run_clear, run_black, run_draw, run_palette, run_flip, run_fade_in, run_fade_out,
@@ -427,6 +497,8 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
     if (!text_small_init()) port_log("added gallery: the small font is not loaded\n");
     row_load();
     tile_load();
+    flag_load();
+    int resume_records = 0;   /* the page comes back on the RECORDS tile after its screen */
     for (;;) {
         Page p;
         memset(&p, 0, sizeof p);
@@ -434,6 +506,7 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         else if (!car_pieces_card(*car, &p.card)) return 0;
         else state_from_look(&p);
         added_gallery_enter(&p.state, entry);   /* owner 2026-11-17: paging goes on from the item it was done by */
+        if (resume_records) p.state.item = GALLERY_RECORDS, resume_records = 0;
         CarList l;
         Edition e;   /* port (dep59 step 4): the arrows' cars are the edition's */
         car_list_build(&l, edition_active(&e) == 1 ? &e : NULL, warrior);
@@ -447,6 +520,12 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         port_log("mark:screen=added_gallery\n");   /* port: the headless walk waits for it */
         const int result = run_page(&p);
         if (!p.warrior) look_keep(&p);   /* the Warrior's look is fixed: nothing kept */
+        if (result == GALLERY_OPEN_RECORDS) {   /* owner 2026-11-18: the car's records, then the page again on the same tile */
+            records_screen(&p);
+            free(p.still), free(p.art);
+            entry = 0, resume_records = 1;
+            continue;
+        }
         free(p.still), free(p.art);
         if (result == GALLERY_LEAVE) return 0;
         entry = result == GALLERY_GO_NEXT ? 1 : -1;

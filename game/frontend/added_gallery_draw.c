@@ -61,6 +61,8 @@ static void name(const Page *p)
     }
 }
 
+void added_gallery_draw_name(const Page *p) { name(p); }
+
 void added_gallery_draw_title(const Page *p)
 {
     name(p);
@@ -245,9 +247,12 @@ void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th)
         edge(&t, GL_HIST_X - GL_FRAME, GL_HIST_Y - GL_FRAME, GL_HIST_X + GL_HIST_W + GL_FRAME - 1, GL_HIST_Y + GL_HIST_H + GL_FRAME - 1, GL_FRAME, YELLOW);
     if (s->item == GALLERY_SETUP && !s->setup)
         edge(&t, GL_COL_X - GL_FRAME, GL_COL_Y - GL_FRAME, GL_COL_X + GL_COL_W + GL_FRAME - 1, GL_COL_Y + GL_COL_H + GL_FRAME - 1, GL_FRAME, YELLOW);
+    if (s->item == GALLERY_RECORDS)
+        edge(&t, GL_VID_X - GL_FRAME, GL_VID_Y - GL_FRAME, GL_VID_X + GL_VID_W + GL_FRAME - 1, GL_VID_Y + GL_VID_H + GL_FRAME - 1, GL_FRAME, YELLOW);
     label(&t, "GALLERY", GL_PERF_X, GL_PERF_Y, GL_PERF_H, s->item == GALLERY_PHOTOS);
+    label(&t, "RECORDS", GL_VID_X, GL_VID_Y, GL_VID_H, s->item == GALLERY_RECORDS);
     if (!s->setup) label(&t, "GENERAL", GL_GEN_X, GL_GEN_Y, GL_GEN_H, 0);   /* the open panel covers its top: its label would show cut */
-    label(&t, "HISTORY", GL_HIST_X, GL_HIST_Y, GL_HIST_H, s->item == GALLERY_HISTORY);   /* Video's tile is a picture only */
+    label(&t, "HISTORY", GL_HIST_X, GL_HIST_Y, GL_HIST_H, s->item == GALLERY_HISTORY);   /* RECORDS' tile: the flag */
     if (s->photos >= 2) {   /* the big photo's arrows and which of how many */
         const int ay = GL_PERF_Y + (GL_PERF_H - GL_ARROW_H) / 2, index = s->item == GALLERY_PHOTOS ? YELLOW : CREAM;
         arrow(&t, GL_PERF_X + 10, ay, 1, index);

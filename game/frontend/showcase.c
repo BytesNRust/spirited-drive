@@ -71,6 +71,12 @@ static int has_box(const ShowcaseState *st)
     return st->plus != NULL;
 }
 
+/* port: RECORDS' tile is there when the screen has one */
+static int has_records(const ShowcaseState *st)
+{
+    return st->plus != NULL && st->plus->records_draw != NULL && st->plus->records_open != NULL;
+}
+
 /* the first box the pointer is in becomes the selection, else none */
 static void follow(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
 {
@@ -99,6 +105,10 @@ static void item_art(Show *s, int16_t item, const char *const *tags, const Showc
         return;
     }
     if (item < 0 || item > DONE) return;
+    if (item == VIDEO && has_records(st)) {   /* port: RECORDS' tile in the video's place, always there */
+        st->plus->records_draw(st->plus->ctx, *st->player_car, tags == LIT, s->rgb);
+        return;
+    }
     if (tags == LIT && item == VIDEO && *st->intro_movies == 0) return;
     const uint8_t *shape = o->shape(o->ctx, s->bank, tags[item]);
     if (item <= ENGINE) o->blit_masked(o->ctx, shape);
@@ -110,6 +120,7 @@ static void draw(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
     o->select(o->ctx, *st->screen);
     o->blit_own(o->ctx, o->shape(o->ctx, s->bank, "bgnd"));
     if (s->selected != VARIANT) item_art(s, s->selected, LIT, st, o);
+    if (has_records(st) && s->selected != VIDEO) item_art(s, VIDEO, DARK, st, o);
     item_art(s, VARIANT, s->selected == VARIANT ? LIT : DARK, st, o);
     if (s->fade) o->palette_show(o->ctx, 0, ALL, s->black);
     o->select_default(o->ctx);
@@ -195,6 +206,12 @@ static void take(Show *s, const ShowcaseState *st, const ShowcaseOps *o, int by_
     case PERFORMANCE: page(s, st, o, o->figures, "per"); break;
     case ENGINE: page(s, st, o, o->figures, "mec"); break;
     case VIDEO:
+        if (has_records(st)) {   /* port: RECORDS' screen; the page is drawn again once it is closed */
+            st->plus->records_open(st->plus->ctx, *st->player_car, s->rgb);
+            s->redraw = 1;
+            move_to(s->selected, o);
+            break;
+        }
         if (*st->intro_movies == 0) break;
         o->music_fade_out(o->ctx);
         o->fade_out(o->ctx, 0, ALL);

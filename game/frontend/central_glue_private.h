@@ -7,6 +7,7 @@
  * shorts here, filled from config.dat's race settings on entry and put back on leaving; the race settings' checked
  * steps (race_settings.c, tournament.c) run on a RaceSettings made from them. */
 #include "game/sys/track_registry.h"
+#include "game/frontend/track_list.h"
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/central_glue_ops.h"
 
@@ -176,6 +177,8 @@ int32_t cg_best_times_added(void *ctx, int track);
 int32_t cg_track_page(void *ctx, const uint8_t screen[768]);
 /* Control Central's track arrows: the pick stepped by `dir` (1 forward, -1 back) */
 void cg_track_arrow(int dir);
+/* every track the player has (the edition's, else the standard list), for a car's RECORDS screen */
+void cg_records_tracks(TrackList *l);
 /* 1 when the added track has rally art (NTRACKFM/<STEM>n_R01.FAM in its folder): the page offers the Rally row */
 int cg_track_has_rally_art(const TrackPiece *t);
 void cg_segment_results(void *ctx, int32_t mode);

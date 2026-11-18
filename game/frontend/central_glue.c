@@ -292,6 +292,13 @@ static const TrackList *central_tracks(TrackList *l)
     return l;
 }
 
+/* port (owner 2026-11-18): every track the player has, for a car's RECORDS screen: the edition's, else the standard list (Lost Vegas when unlocked, Lunar
+ * Springs when offered) */
+void cg_records_tracks(TrackList *l)
+{
+    if (central_tracks(l) == NULL) track_list_build(l, NULL, cg_g.lost_vegas != 0, lunar_offered() ? TRACK_LIST_LUNAR_ON : TRACK_LIST_LUNAR_NEVER);
+}
+
 /* port (dep59 Lunar L5): the list the track screen's arrows walk with Lunar (track_list.h's TRACK_LIST_LUNAR_*) */
 static int lunar_list_of(void)
 {
