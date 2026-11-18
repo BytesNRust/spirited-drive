@@ -221,6 +221,35 @@ static void test_the_layout(void)
     CHECK_MEM(px(tinted, TPL_CARD_X, TPL_CARD_Y), card, 3);   /* the card keeps its own colours */
 }
 
+/* the bank's own words: faces inside the rectangle only, a layer's rows capped, drawn over their shadow, the time of day's layers */
+static void test_the_banks_words(void)
+{
+    static TrackWords w;
+    static uint8_t pal[768], screen[640 * 480];
+    static const uint8_t YELLOW[3] = { 252, 204, 0 }, RED[3] = { 150, 0, 0 };
+    memcpy(pal + 3, YELLOW, 3), memcpy(pal + 6, RED, 3);
+    track_words_clear(&w);
+    static const uint8_t SHAPE[4] = { 1, 2, 1, 0xff };   /* 4 x 1: yellow, red, yellow, masked */
+    track_words_put(&w, TW_TIME_LIT, SHAPE, 4, 1, 10, TW_Y + 3, pal, TW_Y + TW_H - 1);
+    const uint8_t *f = w.face[TW_TIME_LIT];
+    const int at = 3 * TW_W + 10;
+    CHECK(f[at] != 0 && f[at + 1] == 0 && f[at + 2] != 0 && f[at + 3] == 0);
+    track_words_put(&w, TW_LENGTH, SHAPE, 4, 1, 10, TW_LENGTH_Y1 + 1, pal, TW_LENGTH_Y1);   /* past the layer's last row: nothing */
+    int faces = 0;
+    for (int i = 0; i < TW_H * TW_W; i++) faces += w.face[TW_LENGTH][i] != 0;
+    CHECK_EQ_INT(faces, 0);
+    track_words_put(&w, TW_LAYERS, SHAPE, 4, 1, 10, TW_Y, pal, TW_Y + TW_H - 1);   /* no such layer */
+    uint8_t map[TR_COLOURS];
+    for (int k = 0; k < TR_COLOURS; k++) map[k] = (uint8_t)(70 + k);
+    track_words_draw(&w, TW_TIME_LIT, screen, 640, 480, map, 9);
+    CHECK_EQ_INT(screen[(TW_Y + 3) * 640 + 10], 70);   /* the face */
+    CHECK_EQ_INT(screen[(TW_Y + 5) * 640 + 12], 9);    /* its shadow, 2 px down and right of the face at x 10 */
+    CHECK_EQ_INT(track_words_time_layer(LIGHT_TIME_DAWN, 1), TW_MORNING_LIT);
+    CHECK_EQ_INT(track_words_time_layer(LIGHT_TIME_DAY, 0), TW_MIDDAY_DIM);
+    CHECK_EQ_INT(track_words_time_layer(LIGHT_TIME_DUSK, 1), TW_EVENING_LIT);
+    CHECK_EQ_INT(track_words_time_layer(LIGHT_TIME_NIGHT, 1), -1);   /* the night is the game's text */
+}
+
 int main(void)
 {
     test_the_rows_that_apply();
@@ -230,6 +259,7 @@ int main(void)
     test_what_a_click_hits();
     test_the_row();
     test_the_layout();
+    test_the_banks_words();
     test_the_description_scrolls();
     test_no_mirror_row_before_it_is_unlocked();
     return TEST_REPORT();

@@ -46,12 +46,13 @@ enum {
     LEAN_NUM = 2, LEAN_DEN = 9,                      /* the title's slant, as the car page's name */
     TITLE_X = 12, TITLE_Y = 8, TITLE_X1 = TPL_BOX_X0 - 14,
     ROW_LABEL_X = 6, SWITCH_VALUE_X = 0x82, VALUE_X = 0xc3, LENGTH_Y = 363, LENGTH_VALUE_X = 0xaf,
-    DESC_LINES_MAX = 64, DESC_PAD = 4
+    DESC_LINES_MAX = 64, DESC_PAD = 4, NIGHT_DY = 3   /* the night's text on the time row, the CD's: 0x185 */
 };
 
 static const char CITY_BANK[] = "tracksel/citysel.qfs";   /* a stock track's page: its bottom row is every one's */
 static TrackRow row;
-static int row_cut;
+static TrackWords words;   /* the bank's own words (the German bank's are German) */
+static int row_cut, words_cut;
 
 typedef struct {
     TrackPage page;
@@ -62,6 +63,7 @@ typedef struct {
     uint8_t *still;                   /* the still part in the page's palette, TPL_W x TPL_H */
     uint8_t palette[768];
     uint8_t row_map[TR_COLOURS];      /* the bottom row's colours' entries */
+    uint8_t words_map[TR_COLOURS];    /* the bank's words' colours' entries */
 } Page;
 
 static void row_load(void)
@@ -70,6 +72,8 @@ static void row_load(void)
     uint8_t *data = resource_load_art(CITY_BANK, &size);
     row_cut = data != NULL && track_row_cut(&row, data, size);
     if (!row_cut) port_log("track page: the bottom row was not cut from %s\n", CITY_BANK);
+    words_cut = data != NULL && track_words_cut(&words, data, size);
+    if (!words_cut) port_log("track page: the bank's words were not cut from %s: the page says its own\n", CITY_BANK);
     resource_free(data);
 }
 
@@ -90,6 +94,8 @@ static void row_colours(Page *p)
     for (int i = 0; i < 256; i++) usable[i] = i < 256 - KEPT;
     for (int k = 0; k < row.colours; k++)
         if (!taken[k]) p->row_map[k] = (uint8_t)palette_nearest(p->palette, usable, row.rgb[k][0], row.rgb[k][1], row.rgb[k][2]);
+    for (int k = 0; k < words.colours; k++)
+        p->words_map[k] = (uint8_t)palette_nearest(p->palette, usable, words.rgb[k][0], words.rgb[k][1], words.rgb[k][2]);
 }
 
 /* the configuration screens' clean background as RGB; a flat brown when it cannot be composed */
@@ -222,7 +228,7 @@ static void row_text(const Page *p, int item, const char *label, const char *val
 {
     const int y = track_page_row_y(&p->page, item);
     if (y < 0) return;
-    text_select(p->page.item == item ? TEXT_WHITE : TEXT_YELLOW);
+    text_select(p->page.item == item ? TEXT_YELLOW : TEXT_CREAM);   /* the CD's rows: cream, the one lit yellow */
     text_draw_smooth(label, ROW_LABEL_X, y, 1, 1);
     text_draw_smooth(value, value_x, y, 1, 1);
 }
@@ -232,13 +238,37 @@ static void rows(const Page *p)
     const TrackPageValues *v = &p->page.v;
     row_text(p, TP_MIRROR, "Mirror", v->mirror ? "On" : "Off", SWITCH_VALUE_X);
     row_text(p, TP_RALLY, "Rally", v->rally ? "On" : "Off", SWITCH_VALUE_X);
-    row_text(p, TP_TIME, "Time of day", TIME_NAME[track_page_time_shown(&p->page.offer, v->light_time) & 3], VALUE_X);
     row_text(p, TP_WEATHER, "Weather", WEATHER_NAME[v->weather % WEATHER_COUNT], VALUE_X);
     char said[MOD_INI_FIGURE_MAX + 1];
     if (text_small_words(p->piece->length, said, sizeof said) > 0) {   /* the CD's page's Track length row, its figure as the author wrote it */
-        text_select(TEXT_YELLOW);
-        text_draw_smooth("Track length", ROW_LABEL_X, LENGTH_Y, 1, 1);
+        if (!words_cut) {
+            text_select(TEXT_CREAM);
+            text_draw_smooth("Track length", ROW_LABEL_X, LENGTH_Y, 1, 1);
+        }
+        text_select(TEXT_CREAM);
         text_draw_smooth(said, LENGTH_VALUE_X, LENGTH_Y, 1, 1);
+    }
+}
+
+/* the bank's own words (its language's): the Track length label, the time of day's label and value; the night is the game's text */
+static void words_draw(const Page *p, uint8_t *to, int w, int h)
+{
+    if (!words_cut) {
+        const int y = track_page_row_y(&p->page, TP_TIME);
+        if (y >= 0) row_text(p, TP_TIME, "Time of day", TIME_NAME[track_page_time_shown(&p->page.offer, p->page.v.light_time) & 3], VALUE_X);
+        return;
+    }
+    char said[MOD_INI_FIGURE_MAX + 1];
+    if (text_small_words(p->piece->length, said, sizeof said) > 0) track_words_draw(&words, TW_LENGTH, to, w, h, p->words_map, BLACK);
+    if (!track_page_shown(&p->page, TP_TIME)) return;
+    const int lit = p->page.item == TP_TIME, time = track_page_time_shown(&p->page.offer, p->page.v.light_time);
+    track_words_draw(&words, lit ? TW_TIME_LIT : TW_TIME_DIM, to, w, h, p->words_map, BLACK);
+    const int layer = track_words_time_layer(time, lit);
+    if (layer >= 0) {
+        track_words_draw(&words, layer, to, w, h, p->words_map, BLACK);
+    } else {
+        text_select(lit ? TEXT_YELLOW : TEXT_CREAM);
+        text_draw_smooth("Night", VALUE_X, track_page_row_y(&p->page, TP_TIME) - 1 + NIGHT_DY, 1, 1);
     }
 }
 
@@ -290,6 +320,7 @@ static void draw(const Page *p)
         else memset(&to[y * w], BLACK, (size_t)(w < TPL_W ? w : TPL_W));
     title(p->piece);
     rows(p);
+    words_draw(p, to, w, h);
     box(p);
     if (row_cut) track_row_draw(&row, track_row_look(p->page.item), to, w, h, p->row_map, BLACK);
 }
