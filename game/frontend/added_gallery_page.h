@@ -37,6 +37,7 @@ typedef struct {
     uint8_t screen[768];             /* Control Central's palette (the kept entries, the Warrior's card) */
     uint8_t row_map[64];             /* the bottom row's colours' entries (GL_ROW_COLOURS) */
     int shown;                       /* the big photo the still part shows */
+    int panel_fill;                  /* the SETUP panel's fill: the still part's nearest entry to a dark sepia */
     char head[200];                  /* "Name (year) - by Author - vX", in the small face's codes */
     char body[MOD_INI_DESCRIPTION_MAX + 1];   /* the description, in the small face's codes */
     HistoryLine lines[HISTORY_LINES];

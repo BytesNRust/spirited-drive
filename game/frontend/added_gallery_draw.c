@@ -125,25 +125,55 @@ static void history(const Page *p, const Target *t)
     }
 }
 
-/* the Color tile's row `i`: its label and value, the arrows at its sides (none when it is off) */
-static void selector(const Target *t, int i, const char *name_, const char *value, int lit, int on, int swatch, int fixed)
+/* the SETUP tile closed: its word and an arrow, lit when it is the item */
+static void setup_tile(const Target *t, const Page *p)
 {
-    const int y = GL_COL_Y + 3 + i * 30, x1 = GL_COL_X + GL_COL_W - 1;
-    const int style = !on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_WHITE;
-    char said[64];
-    text_small_words(value, said, sizeof said);
-    const int sw_x = GL_COL_X + 16 + text_small_width(name_) + 6;
-    if (swatch) fill(t, sw_x, y + 4, sw_x + 9, y + 11, SWATCH);
-    text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM);
-    text_small_draw(name_, GL_COL_X + 16, y + 2);
-    char fits[64];
-    fitted(said, x1 - 16 - (GL_COL_X + 16) - text_small_width(name_) - 6 - (swatch ? 14 : 0), fits, sizeof fits);
-    text_select((TextStyle)style);
-    text_small_draw(fits, x1 - 16 - text_small_width(fits), y + 2);
-    if (!on) return;
-    const int ay = y + 2, index = fixed ? DIM : lit ? YELLOW : CREAM;
-    arrow(t, GL_COL_X + 3, ay, 1, index);
-    arrow(t, x1 - 3 - GL_ARROW_W, ay, 0, index);
+    const int lit = p->state.item == GALLERY_SETUP;
+    text_select(lit ? TEXT_YELLOW : TEXT_WHITE);
+    text_draw_smooth("SETUP", GL_COL_X + 14, GL_COL_Y + 20, 3, 4);
+    arrow(t, GL_COL_X + GL_COL_W - 24, GL_COL_Y + (GL_COL_H - GL_ARROW_H) / 2, 0, lit ? YELLOW : CREAM);
+}
+
+/* the value the panel's row `row` shows */
+static void setup_value(const Page *p, int row, char *out, int size)
+{
+    const GalleryState *s = &p->state;
+    switch (row) {
+    case SETUP_COLOUR: text_small_words(s->paint == 0 ? "Default" : p->card.info.paints[s->paint - 1].name, out, size); break;
+    case SETUP_SKIN: text_small_words(s->skin == 0 ? "Default" : p->card.skin[s->skin], out, size); break;
+    case SETUP_TRANSMISSION: snprintf(out, (size_t)size, "%s", s->transmission == 0 ? "Auto" : "Manual"); break;
+    case SETUP_ABS: snprintf(out, (size_t)size, "%s", s->abs == SETUP_NOT_OFFERED ? "N/A" : s->abs == 0 ? "On" : "Off"); break;
+    default: snprintf(out, (size_t)size, "%s", s->traction == SETUP_NOT_OFFERED ? "N/A" : s->traction == 0 ? "On" : "Off"); break;
+    }
+}
+
+/* the SETUP panel open over the tile and General's top: its fill, a border, the title and the rows (the focused one yellow with its arrows,
+ * one that takes no key dim) */
+static void setup_panel(const Target *t, const Page *p)
+{
+    static const char *const LABEL[SETUP_ROWS] = { "Color", "Skin", "Transmission", "ABS", "Traction" };
+    const GalleryState *s = &p->state;
+    fill(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, p->panel_fill);
+    edge(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, 1, CREAM);
+    text_select(TEXT_YELLOW);
+    text_draw_smooth("SETUP", GL_SETUP_X + 14, GL_SETUP_Y + 8, 3, 4);
+    for (int row = 0; row < SETUP_ROWS; row++) {
+        const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP, on = added_gallery_setup_row_on(&p->card, s, row), lit = s->row == row;
+        char value[64], fits[64];
+        setup_value(p, row, value, sizeof value);
+        text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM);
+        text_small_draw(LABEL[row], GL_SETUP_X + 16, y);
+        const int vx = GL_SETUP_X + GL_SETUP_VALUE_X;
+        fitted(value, GL_SETUP_VALUE_W - 2 * (GL_ARROW_W + 4), fits, sizeof fits);
+        if (row == SETUP_COLOUR && on && s->paint > 0) fill(t, vx - 16, y + 3, vx - 8, y + 10, SWATCH);
+        text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_WHITE);
+        text_small_draw(fits, vx + (GL_SETUP_VALUE_W - text_small_width(fits)) / 2, y);
+        if (on) {
+            const int index = lit ? YELLOW : CREAM;
+            arrow(t, vx, y + 1, 1, index);
+            arrow(t, vx + GL_SETUP_VALUE_W - GL_ARROW_W, y + 1, 0, index);
+        }
+    }
 }
 
 void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th)
@@ -155,10 +185,10 @@ void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th)
         edge(&t, GL_PERF_X - GL_FRAME, GL_PERF_Y - GL_FRAME, GL_PERF_X + GL_PERF_W + GL_FRAME - 1, GL_PERF_Y + GL_PERF_H + GL_FRAME - 1, GL_FRAME, YELLOW);
     if (s->item == GALLERY_HISTORY)
         edge(&t, GL_HIST_X - GL_FRAME, GL_HIST_Y - GL_FRAME, GL_HIST_X + GL_HIST_W + GL_FRAME - 1, GL_HIST_Y + GL_HIST_H + GL_FRAME - 1, GL_FRAME, YELLOW);
-    if (s->item == GALLERY_SKIN || s->item == GALLERY_COLOUR)
+    if (s->item == GALLERY_SETUP && !s->setup)
         edge(&t, GL_COL_X - GL_FRAME, GL_COL_Y - GL_FRAME, GL_COL_X + GL_COL_W + GL_FRAME - 1, GL_COL_Y + GL_COL_H + GL_FRAME - 1, GL_FRAME, YELLOW);
     label("PERFORMANCE", GL_PERF_X, GL_PERF_Y, GL_PERF_H, s->item == GALLERY_PHOTOS);
-    label("GENERAL", GL_GEN_X, GL_GEN_Y, GL_GEN_H, 0);
+    if (!s->setup) label("GENERAL", GL_GEN_X, GL_GEN_Y, GL_GEN_H, 0);   /* the open panel covers its top: its label would show cut */
     label("VIDEO", GL_VID_X, GL_VID_Y, GL_VID_H, 0);
     label("HISTORY", GL_HIST_X, GL_HIST_Y, GL_HIST_H, s->item == GALLERY_HISTORY);
     if (s->photos >= 2) {   /* the big photo's arrows and which of how many */
@@ -170,12 +200,10 @@ void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th)
         text_select(TEXT_WHITE);
         text_small_draw(count, GL_PERF_X + GL_PERF_W - 8 - text_small_width(count), GL_PERF_Y + 6);
     }
-    general(p);
+    if (!s->setup) general(p);
     history(p, &t);
-    const int on = s->fixed || added_gallery_colour_on(&p->card, s);
-    selector(&t, 0, "Skin", s->skin == 0 ? "Default" : p->card.skin[s->skin], s->item == GALLERY_SKIN, 1, 0, s->fixed);
-    selector(&t, 1, "Color", s->paint == 0 ? "Default" : p->card.info.paints[s->paint - 1].name, s->item == GALLERY_COLOUR, on,
-             on && s->paint > 0, s->fixed);
+    if (s->setup) setup_panel(&t, p);
+    else setup_tile(&t, p);
 }
 
 static int small_measure(void *ctx, const char *s, int len)

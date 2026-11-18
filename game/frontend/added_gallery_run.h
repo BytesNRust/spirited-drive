@@ -25,6 +25,7 @@ typedef struct GalleryRunOps {
     int (*wheel)(void *ctx);                          /* the wheel's notches since the last call, + up, - down */
     unsigned (*now)(void *ctx);                       /* the time in ms */
     int (*lines)(void *ctx, int *visible);            /* the description's lines in all, and how many the tile shows (0, 0 none) */
+    void (*apply)(void *ctx, const GalleryState *s);  /* Options' three settings changed in the panel: `s` holds them, to be kept */
     void *ctx;
 } GalleryRunOps;
 

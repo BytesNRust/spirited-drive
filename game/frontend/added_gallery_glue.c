@@ -162,7 +162,7 @@ static void warrior_card(Page *p)
     snprintf(c->info.paints[0].name, sizeof c->info.paints[0].name, "%s", WARRIOR_PAINT);
     memcpy(c->info.paints[0].rgb, WARRIOR_RGB, 3);
     p->warrior = 1;
-    p->state = (GalleryState){ GALLERY_NEXT, 0, 1, 1, 0, 0, 0 };
+    p->state = (GalleryState){ GALLERY_NEXT, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 };
 }
 
 /* a tile's picture (dw x dh x 3) from `src` (w x h) cropped to fill, else the placeholder on `ground` */
@@ -228,6 +228,9 @@ static void page_still(Page *p)
     p->shown = p->state.photo;
     memcpy(p->palette + 3 * TEXT_FIRST, BOOT_TEXT_RGB, sizeof BOOT_TEXT_RGB);
     memcpy(p->palette + 3 * (256 - KEPT), p->screen + 3 * (256 - KEPT), 3 * KEPT);
+    uint8_t usable[256];
+    for (int i = 0; i < 256; i++) usable[i] = i < STILL_COLOURS;
+    p->panel_fill = palette_nearest(p->palette, usable, 0x2a, 0x1c, 0x0e);   /* the panel's dark sepia, the still part's nearest */
     if (row_cut) row_colours(p);
 }
 
@@ -258,25 +261,31 @@ static void palette_fill(Page *p)
     memcpy(p->palette + 3 * SWATCH, rgb, 3);
 }
 
-/* a click: the key it stands for, the item moved to the one clicked; 0 for none */
+/* a click: the key it stands for, the item moved to the one clicked; 0 for none. With the SETUP panel open a click on a row's value steps it
+ * and one outside the panel only closes it */
 static int click_key(GalleryState *s)
 {
     int x, y, step;
     pointer_position(&x, &y);
+    if (s->setup) {
+        const int row = gallery_setup_hit(x, y, &step);
+        if (row < 0) return GALLERY_KEY_ESCAPE;
+        s->row = row;
+        return step < 0 ? GALLERY_KEY_LEFT : step > 0 ? GALLERY_KEY_RIGHT : 0;
+    }
     const int item = gallery_hit(x, y, &step);
-    if (item < 0 || (s->fixed && (item == GALLERY_SKIN || item == GALLERY_COLOUR))) return 0;   /* a fixed page's boxes take no click */
-    if (item == GALLERY_PHOTOS && s->photos < 2) return 0;                                          /* a photo that is alone has nothing to step */
+    if (item < 0) return 0;
+    if (item == GALLERY_PHOTOS && s->photos < 2) return 0;   /* a photo that is alone has nothing to step */
     s->item = item;
-    if (item == GALLERY_SKIN || item == GALLERY_COLOUR) return step < 0 ? GALLERY_KEY_LEFT : step > 0 ? GALLERY_KEY_RIGHT : 0;
     if (item == GALLERY_PHOTOS) return step < 0 ? GALLERY_KEY_LEFT : GALLERY_KEY_RIGHT;   /* its middle goes on to the next photo */
-    return item == GALLERY_HISTORY ? 0 : GALLERY_KEY_ENTER;
+    return item == GALLERY_HISTORY ? 0 : GALLERY_KEY_ENTER;                                /* SETUP opens, the bottom row's act */
 }
 
 /* the pick kept for `id`, as the page's state */
 static void state_from_look(Page *p)
 {
     const CarLook l = car_looks_get(p->card.info.id);
-    p->state = (GalleryState){ GALLERY_SKIN, 0, 0, 0, 0, 0, 0 };
+    p->state = (GalleryState){ GALLERY_SKIN, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     for (int k = 1; k < p->card.skins; k++)
         if (strcmp(p->card.skin[k], l.skin) == 0) p->state.skin = k;
     for (int k = 0; k < p->card.info.paint_count; k++)
@@ -337,6 +346,11 @@ static void run_pointer(void *ctx, int *x, int *y) { (void)ctx; pointer_position
 static int run_click(void *ctx, GalleryState *s) { (void)ctx; return click_key(s); }
 static void run_music(void *ctx) { (void)ctx; menu_audio_music_service(); }
 static void run_wait(void *ctx) { (void)ctx; video_wait_vblank(); }
+static void run_apply(void *ctx, const GalleryState *s)
+{
+    (void)ctx;
+    cg_setup_put(s->transmission, s->abs, s->traction);   /* the panel's change is Options' */
+}
 static int run_wheel(void *ctx) { (void)ctx; return pointer_take_wheel(); }
 static unsigned run_now(void *ctx) { (void)ctx; return platform_ticks_ms(); }
 static int run_lines(void *ctx, int *visible)
@@ -350,7 +364,7 @@ static int run_lines(void *ctx, int *visible)
 static int run_page(Page *p)
 {
     const GalleryRunOps ops = { run_clear, run_black, run_draw, run_palette, run_flip, run_fade_in, run_fade_out,
-                                run_key, run_buttons, run_pointer, run_click, run_music, run_wait, run_wheel, run_now, run_lines, p };
+                                run_key, run_buttons, run_pointer, run_click, run_music, run_wait, run_wheel, run_now, run_lines, run_apply, p };
     return added_gallery_run(&p->card, &p->state, &ops);
 }
 
@@ -371,6 +385,7 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         car_list_build(&l, edition_active(&e) == 1 ? &e : NULL, warrior);
         p.car = *car;
         p.state.photos = photo_total(&p.card, p.warrior);
+        cg_setup_get(&p.state.transmission, &p.state.abs, &p.state.traction);   /* Options' settings, for the panel */
         memcpy(p.screen, screen, sizeof p.screen);
         added_gallery_history_make(&p);
         page_still(&p);

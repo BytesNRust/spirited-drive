@@ -15,6 +15,12 @@
 /* port (dep59 showcase, PR B): GALLERY_PHOTOS is the big photo's tile (Left and Right go round the photos), GALLERY_HISTORY the description's
  * (Left and Right scroll it). They come after the old items so the old numbers stand (the walks' marks). */
 enum { GALLERY_SKIN, GALLERY_COLOUR, GALLERY_PREVIOUS, GALLERY_NEXT, GALLERY_DONE, GALLERY_PHOTOS, GALLERY_HISTORY, GALLERY_ITEMS };
+/* port (dep59 showcase, PR C): the SETUP tile is the item that was Skin's (GALLERY_SKIN, 0: a name the walks' marks keep); Color's item is no
+ * longer visited, its choice is a row of the SETUP panel */
+#define GALLERY_SETUP GALLERY_SKIN
+/* the SETUP panel's rows in order: the picks of the car and the three settings Options keeps (transmission, ABS, traction control) */
+enum { SETUP_COLOUR, SETUP_SKIN, SETUP_TRANSMISSION, SETUP_ABS, SETUP_TRACTION, SETUP_ROWS };
+enum { SETUP_NOT_OFFERED = 2 };   /* a setting the car's does not offer (Options' 2) */
 /* the keys the page takes: the front end's (showcase.c's) */
 enum { GALLERY_KEY_ENTER = 0x0d, GALLERY_KEY_ESCAPE = 0x1b, GALLERY_KEY_UP = 0x4800, GALLERY_KEY_LEFT = 0x4b00, GALLERY_KEY_RIGHT = 0x4d00,
        GALLERY_KEY_DOWN = 0x5000 };
@@ -29,6 +35,9 @@ typedef struct {
     int photo;   /* port (PR B): the big photo shown, 0 .. photos - 1 */
     int photos;  /* port (PR B): how many big photos the page has (the glue's: 0 none, only a placeholder); with fewer than two Photos is not visited */
     int scroll;  /* port (PR B): the description's first line shown (0 at the top); the glue keeps it within the text */
+    int setup;   /* port (PR C): 1 while the SETUP panel is open: the keys then go to its rows */
+    int row;     /* port (PR C): the panel's row the keys are on, SETUP_* */
+    int transmission, abs, traction;   /* port (PR C): Options' settings as the glue read them (0 or 1; SETUP_NOT_OFFERED for ABS or traction not offered) */
 } GalleryState;
 
 /* port (PR B): the description's automatic scroll: it waits GALLERY_SCROLL_WAIT_MS at the top, then goes a line every GALLERY_SCROLL_STEP_MS, waits
@@ -45,6 +54,8 @@ void added_gallery_scroll_touch(GalleryScroll *t, unsigned now);
 
 /* 1 when Color applies: the skin picked has masks */
 int added_gallery_colour_on(const CarPieceCard *c, const GalleryState *s);
+/* 1 when the SETUP panel's row `row` takes keys (SETUP_*) */
+int added_gallery_setup_row_on(const CarPieceCard *c, const GalleryState *s, int row);
 /* the page entered by a step of the carousel (`entry` 1 Next, -1 Previous; 0 the first entry, from Control Central) */
 void added_gallery_enter(GalleryState *s, int entry);
 /* a key: the state stepped; GALLERY_STAY, or GALLERY_LEAVE (Done, Escape), GALLERY_GO_PREVIOUS / NEXT */

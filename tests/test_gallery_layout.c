@@ -221,18 +221,33 @@ static void test_row_from_the_cd(void)
     CHECK_EQ_INT(row_box(&row, GL_ROW_NEXT, YELLOW, 0, 371, box), 0);             /* Next's look: only its arrow */
 }
 
+/* the open SETUP panel: a row by its y, the value column's halves step, the label's side takes the row alone, outside is nothing */
+static void test_setup_hit(void)
+{
+    int step = 9;
+    for (int row = 0; row < GALLERY_SETUP_ROWS; row++) {
+        const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP + 5;
+        CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + GL_SETUP_VALUE_X + 5, y, &step), row);
+        CHECK_EQ_INT(step, -1);
+        CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + GL_SETUP_VALUE_X + GL_SETUP_VALUE_W - 5, y, &step), row);
+        CHECK_EQ_INT(step, 1);
+        CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + 20, y, &step), row);
+        CHECK_EQ_INT(step, 0);
+    }
+    CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + 20, GL_SETUP_Y + 10, &step), -1);             /* the title */
+    CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + 20, GL_SETUP_Y + GL_SETUP_H + 3, &step), -1);  /* under the panel */
+    CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + GL_SETUP_W + 3, GL_SETUP_Y + 60, &step), -1);  /* beside it */
+    CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + 20, GL_SETUP_Y + GL_SETUP_ROW0 + 5 * GL_SETUP_STEP + 8, &step), -1);   /* under the rows */
+}
+
 static void test_hit(void)
 {
     int step = 9;
-    /* the Color tile: Skin in its upper half, Color in its lower, an arrow's zone at each side */
-    CHECK_EQ_INT(gallery_hit(GL_COL_X + GL_ARROW_IN + 2, GL_COL_Y + 10, &step), GALLERY_SKIN);
-    CHECK_EQ_INT(step, -1);
-    CHECK_EQ_INT(gallery_hit(GL_COL_X + GL_COL_W - GL_ARROW_IN - 2, GL_COL_Y + 10, &step), GALLERY_SKIN);
-    CHECK_EQ_INT(step, 1);
-    CHECK_EQ_INT(gallery_hit(GL_COL_X + GL_COL_W / 2, GL_COL_Y + GL_COL_H - 5, &step), GALLERY_COLOUR);
+    /* the SETUP tile (the Color tile's place): one item, no step */
+    CHECK_EQ_INT(gallery_hit(GL_COL_X + 10, GL_COL_Y + 10, &step), GALLERY_SETUP);
     CHECK_EQ_INT(step, 0);
-    CHECK_EQ_INT(gallery_hit(GL_COL_X + GL_COL_W - 3, GL_COL_Y + GL_COL_H - 3, &step), GALLERY_COLOUR);
-    CHECK_EQ_INT(step, 1);
+    CHECK_EQ_INT(gallery_hit(GL_COL_X + GL_COL_W - 3, GL_COL_Y + GL_COL_H - 3, &step), GALLERY_SETUP);
+    CHECK_EQ_INT(step, 0);
     /* the big photo: its left and right zones step, the middle takes a click without a step */
     CHECK_EQ_INT(gallery_hit(GL_PERF_X + 5, GL_PERF_Y + 60, &step), GALLERY_PHOTOS);
     CHECK_EQ_INT(step, -1);
@@ -271,5 +286,6 @@ int main(void)
     test_row_put_and_draw();
     test_row_from_the_cd();
     test_hit();
+    test_setup_hit();
     return TEST_REPORT();
 }

@@ -124,10 +124,7 @@ static int zone_step(int x, int x0, int w, int zone) { return x < x0 + zone ? -1
 int gallery_hit(int x, int y, int *step)
 {
     *step = 0;
-    if (in_rect(x, y, GL_COL_X, GL_COL_Y, GL_COL_W, GL_COL_H)) {   /* the Color tile: Skin above, Color under */
-        *step = zone_step(x, GL_COL_X, GL_COL_W, GL_ARROW_IN + GL_ARROW_W + 8);
-        return y < GL_COL_Y + GL_COL_H / 2 ? GALLERY_SKIN : GALLERY_COLOUR;
-    }
+    if (in_rect(x, y, GL_COL_X, GL_COL_Y, GL_COL_W, GL_COL_H)) return GALLERY_SETUP;   /* the SETUP tile */
     if (in_rect(x, y, GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H)) {
         *step = zone_step(x, GL_PERF_X, GL_PERF_W, GL_ARROW_ZONE);
         return GALLERY_PHOTOS;
@@ -137,6 +134,17 @@ int gallery_hit(int x, int y, int *step)
     if (in_box(x, y, SHOWCASE_NEXT_LEFT, SHOWCASE_NEXT_RIGHT)) return GALLERY_NEXT;
     if (in_box(x, y, SHOWCASE_DONE_LEFT, SHOWCASE_DONE_RIGHT)) return GALLERY_DONE;
     return -1;
+}
+
+/* the SETUP panel (open over the tile and General): its row's number and the side of the value a click at (x, y) is on, -1 for nothing */
+int gallery_setup_hit(int x, int y, int *step)
+{
+    *step = 0;
+    if (!in_rect(x, y, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_W, GL_SETUP_H)) return -1;
+    const int row = (y - GL_SETUP_Y - GL_SETUP_ROW0 + GL_SETUP_STEP / 2) / GL_SETUP_STEP;
+    if (y < GL_SETUP_Y + GL_SETUP_ROW0 - GL_SETUP_STEP / 2 || row < 0 || row >= GALLERY_SETUP_ROWS) return -1;
+    if (x >= GL_SETUP_X + GL_SETUP_VALUE_X - 16) *step = x < GL_SETUP_X + GL_SETUP_VALUE_X + GL_SETUP_VALUE_W / 2 ? -1 : 1;   /* the label's side: the row alone */
+    return row;
 }
 
 /* --- the bottom row cut from the CD's art --- */

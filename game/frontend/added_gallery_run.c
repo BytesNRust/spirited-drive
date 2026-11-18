@@ -23,10 +23,10 @@ static void let_go(const GalleryRunOps *o)
 static int follow(const CarPieceCard *c, GalleryState *s, int x, int y)
 {
     int step;
+    (void)c;
     const int item = gallery_hit(x, y, &step);
-    if (item < 0 || item == s->item || (s->fixed && (item == GALLERY_SKIN || item == GALLERY_COLOUR))) return 0;
+    if (s->setup || item < 0 || item == s->item) return 0;   /* the panel open: the pointer lights nothing under it */
     if (item == GALLERY_PHOTOS && s->photos < 2) return 0;   /* a photo that is alone has nothing to step */
-    if (item == GALLERY_COLOUR && !added_gallery_colour_on(c, s)) return 0;
     s->item = item;
     return 1;
 }
@@ -81,6 +81,7 @@ int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOp
             result = added_gallery_input(c, s, press);
             changed |= memcmp(&was, s, sizeof was) != 0;
             if (was.scroll != s->scroll) added_gallery_scroll_touch(&scroll, o->now(o->ctx));   /* by hand: the clock starts over */
+            if (was.transmission != s->transmission || was.abs != s->abs || was.traction != s->traction) o->apply(o->ctx, s);
         }
         changed |= description(o, s, &scroll, x, y);
         o->music(o->ctx);   /* port (owner 2026-11-17): the showcase's music plays on here, as on the showcase's own pages */
