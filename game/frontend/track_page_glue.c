@@ -44,7 +44,7 @@ enum {
     STILL_COLOURS = ROW_FIRST, CARD_COLOURS = 100,   /* the still part's: the card's 0 .. CARD_COLOURS - 1, the rest's after them */
     BLACK = TEXT_FIRST + 5,
     LEAN_NUM = 2, LEAN_DEN = 9,                      /* the title's slant, as the car page's name */
-    TITLE_X = 12, TITLE_Y = 8, TITLE_X1 = TPL_BOX_X0 - 14,
+    TITLE_X = 12, TITLE_Y = 8, TITLE_X1 = TPL_W - 12,   /* the title has its whole strip: the box starts under it */
     ROW_LABEL_X = 6, SWITCH_VALUE_X = 0x82, VALUE_X = 0xc3, LENGTH_Y = 363, LENGTH_VALUE_X = 0xaf,
     DESC_LINES_MAX = 64, DESC_PAD = 4, NIGHT_DY = 3   /* the night's text on the time row, the CD's: 0x185 */
 };
@@ -198,7 +198,7 @@ static int small_width(void *ctx, const char *s, int len)
     return text_small_width(run);
 }
 
-/* the track's name big and leant, white, in capitals; smaller when it would not fit before the big box */
+/* the track's name big and leant, white, in capitals; smaller when it would not fit the screen */
 static void title(const TrackPiece *t)
 {
     char said[MOD_INI_NAME_MAX + 4];

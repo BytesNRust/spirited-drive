@@ -7,7 +7,7 @@
 #            content (CONTENT, from Game Mode's "Manage content...": open in Restomod alone, so PROFILE defaults to restomod there)
 #            added-page (the added track's own page, opened by its card's click; MODS and EDITION as added-track)
 #            added-track (Control Central on an added track's card, mark:card=16: MODS a track piece's folder and EDITION an edition of it alone, both required)
-            track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
+#            track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
 #            best-circuit-p2  best-cheats (Coastal, the table with cheats: none)
 #        KEYS (track and best-times: more steps after the screen opens, e.g. 1500:UP,800:RIGHT) and TAIL (a pause, in seconds, after the
 #        target's mark before the walk looks for the still screen; with KEYS the walk also waits for the game's "input script: done", the last
