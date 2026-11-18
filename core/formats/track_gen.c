@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L  /* strtok_r, which the web build's C11 headers keep behind it */
 #include "formats/track_gen.h"
 
+#include "formats/track_frame.h"
 #include "formats/tri.h"
 
 #include <math.h>
@@ -215,6 +216,40 @@ static void write_strip(uint8_t *seg, const uint8_t *model, const TrackGenNode *
     }
 }
 
+/* the frame of a node as the file will hold it: the same angles write_node stores */
+static void shape_frame(const TrackGenNode *shape, TrackFrame *frame)
+{
+    track_frame_make((int32_t)angle14(shape->heading), (int32_t)angle14(atan(shape->grade / 100.0) / (2 * M_PI) * ANGLE_TURN),
+                     (int32_t)angle14(shape->bank / 360.0 * ANGLE_TURN), frame);
+}
+
+/* one point of a row (3 x i16 deltas in world axes) from the template node's axes to the new node's, `lateral` added across the road on the way */
+static void turn_point(uint8_t *p, const TrackFrame *from, const TrackFrame *to, int lateral)
+{
+    const int32_t world[3] = { get_i16(p), get_i16(p + 2), get_i16(p + 4) };
+    int32_t local[3], turned[3];
+    track_frame_to_local(from, world, local);
+    local[0] += lateral;
+    track_frame_to_world(to, local, turned);
+    for (int k = 0; k < 3; ++k) put_i16(p + 2 * k, turned[k] < -32768 ? -32768 : turned[k] > 32767 ? 32767 : turned[k]);
+}
+
+/* write_strip with the rows turned: the template's, in its nodes' own axes (`from`, one frame a row), laid along the new nodes' (`shapes`) */
+static void write_strip_turned(uint8_t *seg, const uint8_t *model, const TrackGenNode *shapes, const TriNode *tmpl, const TrackFrame from[4])
+{
+    memcpy(seg, model, TRI_SEGMENT_SIZE);
+    for (int row = 0; row < TRI_NODES_PER_SEGMENT; ++row) {
+        uint8_t *r = seg + ROW_BASE + ROW_SIZE * row;
+        TrackFrame to;
+        shape_frame(&shapes[row], &to);
+        const int widen = 16 * ((int)lround(shapes[row].width) - tmpl->left_verge);
+        for (int point = 0; point < 11; ++point) {
+            const int lateral = point == 1 ? widen : point == 6 ? -widen : 0;   /* right[0] and left[0]: the road's edges */
+            turn_point(r + 6 * point, &from[row], &to, lateral);
+        }
+    }
+}
+
 /* the positions along the headings: each node one node length from the one before (the closing node's too, as the CD's) */
 static void integrate_positions(TrackGenNode *nodes, int count)
 {
@@ -271,8 +306,8 @@ static int check_node(const TrackGenNode *n, int i, ExchangeError *err)
     return 1;
 }
 
-int track_generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *template_tri, size_t template_size, uint8_t **out,
-                         size_t *out_len, ExchangeError *err)
+static int generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *template_tri, size_t template_size, int turned, uint8_t **out,
+                          size_t *out_len, ExchangeError *err)
 {
     *out = NULL;
     if (shapes == NULL || count < 1 || (count - 1) % TRI_NODES_PER_SEGMENT != 0) {
@@ -317,10 +352,24 @@ int track_generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *t
         memset(brightness, 0, sizeof brightness);
     }
     const uint32_t model_segment = tri.segment_count > TEMPLATE_SEGMENT ? TEMPLATE_SEGMENT : tri.segment_count - 1;
+    TrackFrame model_frames[TRI_NODES_PER_SEGMENT];   /* the axes of the template nodes the model strip's rows belong to (turned only) */
+    for (uint32_t r = 0; turned && r < TRI_NODES_PER_SEGMENT; ++r) {
+        TriNode at;
+        if (tri_node(&tri, model_segment * TRI_NODES_PER_SEGMENT + r, &at) != TRI_OK) {
+            exchange_fail(err, "the template is not a usable TRI");
+            free(header); free(scenery); free(terrain);
+            return 0;
+        }
+        track_frame_of_node(&at, &model_frames[r]);
+    }
     for (int s = 0; s < segments; ++s) {
         memcpy(header + BRIGHTNESS_OFFSET + BRIGHTNESS_SIZE * s, brightness, sizeof brightness);
-        write_strip(terrain + (size_t)s * TRI_SEGMENT_SIZE, parts.terrain + (size_t)model_segment * TRI_SEGMENT_SIZE,
-                    shapes + s * TRI_NODES_PER_SEGMENT, &model);
+        if (turned)
+            write_strip_turned(terrain + (size_t)s * TRI_SEGMENT_SIZE, parts.terrain + (size_t)model_segment * TRI_SEGMENT_SIZE,
+                               shapes + s * TRI_NODES_PER_SEGMENT, &model, model_frames);
+        else
+            write_strip(terrain + (size_t)s * TRI_SEGMENT_SIZE, parts.terrain + (size_t)model_segment * TRI_SEGMENT_SIZE,
+                        shapes + s * TRI_NODES_PER_SEGMENT, &model);
     }
     memcpy(scenery, parts.scenery, (size_t)TRI_SCENERY_MAX * TRI_SCENERY_SIZE);
     memset(scenery, 0xff, 4);                             /* the first record ends the list: no placements */
@@ -337,6 +386,18 @@ int track_generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *t
     }
     free(header); free(scenery); free(terrain);
     return ok;
+}
+
+int track_generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *template_tri, size_t template_size, uint8_t **out,
+                         size_t *out_len, ExchangeError *err)
+{
+    return generate_nodes(shapes, count, template_tri, template_size, 0, out, out_len, err);
+}
+
+int track_generate_nodes_turned(const TrackGenNode *shapes, int count, const uint8_t *template_tri, size_t template_size, uint8_t **out,
+                                size_t *out_len, ExchangeError *err)
+{
+    return generate_nodes(shapes, count, template_tri, template_size, 1, out, out_len, err);
 }
 
 int track_generate(const char *layout, size_t layout_len, const uint8_t *template_tri, size_t template_size,
