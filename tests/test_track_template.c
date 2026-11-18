@@ -199,21 +199,21 @@ static void check_info(void)
     CHECK_EQ_INT(r.value_lines, VALUES);   /* every value line is handed over and no other: the file holds as many as the reader takes */
     CHECK_EQ_INT(r.past_end, 0);           /* never a read past the end: a short file would have its last line stand for the rest */
     CHECK(r.longest < TRACK_INFO_LINE);
-    CHECK_EQ_INT(info.vert_offset_near, 0);   /* the sky: a level horizon (vert and z offsets 0), a ring height and radius the CD's A-to-B tracks have */
+    CHECK_EQ_INT(info.vert_offset_near, 0);   /* the sky: a level horizon (vert and z offsets 0), a ring height and radius of our own */
     CHECK_EQ_INT(info.vert_offset_far, 0);
     CHECK_EQ_INT(info.z_offset_near, 0);
     CHECK_EQ_INT(info.z_offset_far, 0);
     CHECK_EQ_INT(info.height_near, 0);
-    CHECK_EQ_INT(info.height_far, 48 << 16);   /* decimals read as 16.16 */
+    CHECK_EQ_INT(info.height_far, 40 << 16);   /* decimals read as 16.16 */
     CHECK_EQ_INT(info.radius_near, 0);
-    CHECK_EQ_INT(info.radius_far, 96 << 16);
-    CHECK_EQ_INT(info.colour_top, 0 << 10 | 1 << 5 | 2);      /* "0 1 2" packed r << 10 | g << 5 | b */
-    CHECK_EQ_INT(info.colour_bottom, 3 << 10 | 4 << 5 | 5);
+    CHECK_EQ_INT(info.radius_far, 120 << 16);
+    CHECK_EQ_INT(info.colour_top, 12 << 10 | 19 << 5 | 27);      /* "12 19 27" packed r << 10 | g << 5 | b: the generic sky's top */
+    CHECK_EQ_INT(info.colour_bottom, 25 << 10 | 27 << 5 | 30);
     CHECK_EQ_INT(info.ring, 0);   /* a flat horizon bitmap (the template's FAM holds one), not a 3D ring: the ring type and the final flag are both 0 */
     CHECK_EQ_INT(info.final_flag, 0);
-    CHECK_EQ_INT(info.ring_y_offset, -60);
-    CHECK_EQ_INT(info.ring_height, 112);
-    const int32_t groups[3][5] = { { 292, 216, 0, 0, 255 << 8 }, { 255, 255, 255, 0, 255 << 8 }, { 295, 184, 14, -1286, 289 << 8 } };
+    CHECK_EQ_INT(info.ring_y_offset, -52);
+    CHECK_EQ_INT(info.ring_height, 100);
+    const int32_t groups[3][5] = { { 255, 255, 255, 0, 255 << 8 }, { 255, 255, 255, 0, 255 << 8 }, { 255, 255, 255, 0, 255 << 8 } };   /* no tint by the hour: the same neutral */
     for (int g = 0; g < 3; ++g)   /* three groups of five, the fifth of each << 8 */
         for (int k = 0; k < 5; ++k) CHECK_EQ_INT(info.time_of_day[k][g], groups[g][k]);
     CHECK_EQ_INT(r.tint_calls, 1);   /* the tint of the time of day asked: the group's five */
@@ -224,7 +224,7 @@ static void check_info(void)
 
     TrackInfo parsed;
     CHECK(track_info_parse(&parsed, text, len));   /* the viewer's parse of the same text: the same values */
-    CHECK(parsed.ring_height == 112 && parsed.height_far == 48 << 16 && parsed.colour_bottom == (3 << 10 | 4 << 5 | 5));
+    CHECK(parsed.ring_height == 100 && parsed.height_far == 40 << 16 && parsed.colour_bottom == (25 << 10 | 27 << 5 | 30));
 
     /* the check can fail: a text a value line short is read with one value line less, and then past its end */
     const char *last = text + len;
@@ -236,6 +236,18 @@ static void check_info(void)
     read_info(text, (size_t)(last - text), 0, &r, &info);
     CHECK_EQ_INT(r.value_lines, VALUES - 1);
     CHECK(r.past_end > 0);
+
+    /* our own keys and values, the file's shape: 14 "#" keys (13 before the time of day, and its heading), the colours in the file's text */
+    int keys = 0;
+    for (const char *l = text; *l;) {
+        const char *end = strstr(l, "\r\n");
+        if (end == NULL) break;
+        if (end > l && l[0] == '#') ++keys;
+        l = end + 2;
+    }
+    CHECK_EQ_INT(keys, 14);
+    CHECK(strstr(text, "#colour top\r\n12 19 27\r\n") != NULL);
+    CHECK(strstr(text, "#colour bottom\r\n25 27 30\r\n") != NULL);
 }
 
 int main(void)

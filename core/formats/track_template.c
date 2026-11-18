@@ -23,7 +23,10 @@ enum {
     NODE_FLAGS_OTHER = 0x22,
     HEADER_SCALAR_0A = 6,     /* 6 in every file */
     HEADER_SCALAR_28 = 0x30,  /* 0x2d..0x3f on the CD; read only for a circuit's animated texture */
-    BRIGHT_0 = 32, BRIGHT_1 = 27, BRIGHT_2 = 34   /* the table's entry the generator copies to every strip (the CD's AL1 gives these at 10) */
+    BRIGHT_0 = 32, BRIGHT_1 = 27, BRIGHT_2 = 34   /* the 3 bytes a segment has at 0x15B0C, called brightness here but they are the AI's: byte 0 the rivals' and
+                                                 * the traffic's target pace, byte 1 the police chase, byte 2 the ceiling of the cars that are not rivals
+                                                 * (ai_manager.c). The CD's tracks start byte 0 at 11 on the grid and raise it; here it is one value all
+                                                 * along. The editor's phase 2 renames it and gives control of it */
 };
 
 /* The right chain of a row from the road's centre outwards, each point a delta from the one before, in 1/128 of a unit: the road's edge at
@@ -93,20 +96,22 @@ static void write_strip(uint8_t *seg)
     }
 }
 
-/* The INFO's keys are the game's (its lines, in its order, CR LF); the values are ours: a level horizon in a sky blue, the road's light by
- * the hours of the day */
+/* The INFO's keys are the game's (its lines, in its order, CR LF); the values are ours, chosen for the generic art's own sky (the
+ * horizon picture runs from (96,150,220) at the top to (200,220,240) at the horizon: the colours below are those in the file's 5 bits
+ * a channel, 12 19 27 and 25 27 30), a flat horizon with no ring, and no tint by the hour: the three groups of the time of day are the
+ * same neutral (255 255 255, saturation 0, brightness 255). Not a copy of any CD track's file: dep59 asks the generic package to carry none. */
 static const char INFO[] =
     "#vert offset near\r\n0\r\n\r\n#vert offset far\r\n0\r\n\r\n"
     "#zoffset near\r\n0\r\n\r\n#zoffset far\r\n0\r\n\r\n"
-    "#height near\r\n0\r\n\r\n#height far\r\n48\r\n\r\n"
-    "#radius near\r\n0\r\n\r\n#radius far\r\n96\r\n\r\n"
-    "#colour top\r\n0 1 2\r\n\r\n#colour bottom\r\n3 4 5\r\n\r\n"
+    "#height near\r\n0\r\n\r\n#height far\r\n40\r\n\r\n"
+    "#radius near\r\n0\r\n\r\n#radius far\r\n120\r\n\r\n"
+    "#colour top\r\n12 19 27\r\n\r\n#colour bottom\r\n25 27 30\r\n\r\n"
     "#ring type? (1 is TRUE, 0 is FALSE)\r\n0\r\n\r\n"
-    "#ring y offset (bigger places horizon further down)\r\n-60\r\n\r\n"
-    "#ring height\r\n112\r\n\r\n"
+    "#ring y offset (bigger places horizon further down)\r\n-52\r\n\r\n"
+    "#ring height\r\n100\r\n\r\n"
     "#RGB TIME OF DAY VALUES\r\n\r\n"
-    "292\r\n216\r\n0\r\n0\r\n255\r\n\r\n255\r\n255\r\n255\r\n0\r\n255\r\n\r\n"
-    "295\r\n184\r\n14\r\n-1286\r\n289\r\n\r\n0\r\n\r\n";
+    "255\r\n255\r\n255\r\n0\r\n255\r\n\r\n255\r\n255\r\n255\r\n0\r\n255\r\n\r\n"
+    "255\r\n255\r\n255\r\n0\r\n255\r\n\r\n0\r\n\r\n";
 
 const char *track_template_info(size_t *len)
 {
