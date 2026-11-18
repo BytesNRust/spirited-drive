@@ -41,6 +41,7 @@ Each source file carries an `SPDX-License-Identifier` line.
 |-----------|---------|-------|
 | [SDL 3](https://libsdl.org) | zlib | linked; bundled with the macOS app |
 | [stb_image](https://github.com/nothings/stb) v2.30 by Sean Barrett | Public domain / MIT | `third_party/stb_image.h` |
+| [Dear ImGui](https://github.com/ocornut/imgui) v1.92.9b (docking branch) by Omar Cornut | MIT — [`LICENSES/MIT-imgui.txt`](LICENSES/MIT-imgui.txt) | `third_party/imgui/`; linked into the track editor only |
 
 ## Names
 
