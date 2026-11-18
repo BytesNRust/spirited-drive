@@ -5,6 +5,7 @@
 #include "formats/stock_content.h"
 #include "game/race/weather.h"
 #include "game/frontend/lunar_art.h"
+#include "game/frontend/added_best_art.h"
 #include "game/sys/car_pieces.h"
 #include "game/sys/edition_file.h"
 #include "game/sys/car_looks.h"
@@ -301,6 +302,18 @@ static int lunar_list_of(void)
  * LUNAR_BEST_FILE): Rusty's when it cannot be made (logged by lunar_art_bank) */
 static int32_t lunar_or_bank(void *ctx, const char *path, int32_t flags)
 {
+    {   /* port (dep59 step 5, T7e2): an added track's Best Times art, Coastal's when it cannot be made (logged by added_best_art_bank) */
+        const char *slash = strrchr(path, '/');
+        const char *file = slash != NULL ? slash + 1 : path;
+        const size_t n = strlen(ADDED_BEST_FILE);
+        if (strncmp(file, ADDED_BEST_FILE, n) == 0 && strcmp(file + n, ".qfs") == 0) {
+            const int32_t bank = added_best_art_bank();
+            if (bank != 0) return bank;
+            char coast[256];
+            snprintf(coast, sizeof coast, "%.*scoastbst.qfs", (int)(file - path), path);
+            return load_bank(ctx, coast, flags);
+        }
+    }
     static const struct { const char *name, *rusty; LunarArtKind kind; } MOON[] = {
         { LUNAR_SELECT_FILE, "rustsel", LUNAR_ART_SELECT }, { LUNAR_BEST_FILE, "rustbst", LUNAR_ART_BEST } };
     for (size_t i = 0; i < sizeof MOON / sizeof MOON[0]; i++) {
@@ -563,6 +576,8 @@ void cg_image_car_flags(void *ctx)
 
 /* 004687d0 on config.dat's image (00524df9..), the globals written to it first and read back after */
 static int32_t best_times(void *ctx);
+/* port (dep59 step 5, T7e2): the added track Best Times is on (BestTimesInputs.added), 0 none; cg_best_times_added sets it */
+static int best_added;
 /* port (dep56): the track screen's way round while it is open (its Inverse or Reverse row), so Best Times opened from it reads the
  * layout the screen shows; NULL when the screen is closed or offers none. The pick itself is stored as the screen closes. */
 static const int *track_screen_reverse;
@@ -681,7 +696,7 @@ static int32_t best_times(void *ctx)
     int lunar_own = track_pick_lunar();   /* port (dep59 Lunar L5): the entry's pick, the track screen's while it is open */
     int *const lunar = track_screen_lunar != NULL ? track_screen_lunar : &lunar_own;
     const BestTimesInputs in = { "", resource_german(), cg_g.lost_vegas, screen, ea_picture_shape(screen),
-                                 image + (0x524f8f - 0x524df0), edition_tracks(&l), lunar };
+                                 image + (0x524f8f - 0x524df0), edition_tracks(&l), lunar, &best_added };
     BestTimesState st = { image + (0x524df9 - 0x524df0), cg_g.inverse, cg_screen_palette,
                           records_glue_best_plus(image, cg_g.variant_m, cg_g.variant_r, cg_g.explode, cg_g.nitro, (menu_cheats.keys_506 & 8) != 0,
                                                  cg_g.player_car) };   /* port (dep55): Restomod's pages; NULL the exe's screen */
@@ -700,6 +715,18 @@ static int32_t best_times(void *ctx)
         track_pick_lunar_put(lunar_own);
         cg_lunar_settle();
     }
+    return result;
+}
+int32_t cg_best_times_added(void *ctx, int track)
+{
+    uint8_t *const word = config_current()->image + (0x524df9 - 0x524df0) + TRACK_SELECT_TRACK;   /* the screen's track word, a short */
+    const uint8_t was_low = word[0], was_high = word[1];
+    const int was_added = best_added;
+    word[0] = 1, word[1] = 0;   /* Coastal's stage layout, the added track's (best_times.h) */
+    best_added = track_registry_is_added(track) ? track : 0;
+    const int32_t result = best_times(ctx);
+    best_added = was_added;
+    word[0] = was_low, word[1] = was_high;
     return result;
 }
 /* Cancel or Escape: the settings back as they were on entry, and the config.dat image with them -- the view distance

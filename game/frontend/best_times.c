@@ -3,11 +3,13 @@
 #include "game/frontend/best_times_pages.h"
 #include "formats/stock_content.h"
 #include "game/sys/free_laps.h"
+#include "game/sys/track_registry.h"
 
 #include <stdio.h>
 #include <string.h>
 
 enum {
+    ADDED_NAME_X = 12, ADDED_NAME_Y = 24, ADDED_NAME_WIDTH = 312,   /* port (dep59 step 5, T7e2): an added track's name, in the title's place */
     TRACKS = 9, ITEMS = 5, DONE = 0, PREV = 1, NEXT = 2, BACK = 3, NOTHING = 4,
     PAGES = 5 /* port (dep55): the pages' strip items from here (PAGES + BEST_PAGES_*) */,
     LOST_VEGAS = 8, TOURNAMENT = 3, KEY_TAB = 9, KEY_PAGE_UP = 0x4900, KEY_PAGE_DOWN = 0x5100,
@@ -75,15 +77,26 @@ static int track_of(const BestTimesState *st)
 
 const char LUNAR_BEST_FILE[] = "lunarbst";
 
-/* port (dep59 Lunar L5): the screen's bank's name: the moon's on Lunar's entry (Rusty, 3, with the pick) */
+const char ADDED_BEST_FILE[] = "addedbst";
+
+/* port (dep59 step 5, T7e2): the added track the screen is on (Coastal's stage layout with the pick), else NULL */
+static const TrackPiece *added_of(const BestTimesInputs *in, const BestTimesState *st)
+{
+    return in->added != NULL && *in->added && st->plus != NULL && track_of(st) == 1 ? track_registry_piece(*in->added) : NULL;   /* its records are Restomod's: without the pages, Coastal's */
+}
+
+/* port (dep59 Lunar L5): the screen's bank's name: the moon's on Lunar's entry (Rusty, 3, with the pick); T7e2: an added track's */
 static const char *bank_file(const BestTimesInputs *in, const BestTimesState *st)
 {
+    if (added_of(in, st) != NULL) return ADDED_BEST_FILE;
     return in->lunar != NULL && *in->lunar && track_of(st) == 3 ? LUNAR_BEST_FILE : TRACK_FILE[track_of(st)];
 }
 
 /* port (dep59 L6): the id Lunar's records are kept under when the screen is on its entry, else NULL (Rusty's own, race_records.dat's) */
 static const char *own_of(const BestTimesInputs *in, const BestTimesState *st)
 {
+    const TrackPiece *const piece = added_of(in, st);
+    if (piece != NULL) return piece->id;   /* T7e2: an added track's records are its own too */
     return in->lunar != NULL && *in->lunar && track_of(st) == 3 ? stock_track_id(STOCK_TRACK_LUNAR) : NULL;
 }
 
@@ -159,6 +172,11 @@ static void draw(Screen *s, const BestTimesInputs *in, BestTimesState *st, Dialo
     ops->select(ops->ctx, in->screen);
     if (s->refresh || s->repaint) {
         ops->blit(ops->ctx, ops->shape(ops->ctx, s->bank, "bgnd"));
+        const TrackPiece *const added = added_of(in, st);
+        if (added != NULL) {   /* port (dep59 step 5, T7e2): the made art has no title: the track's name, in the game's text */
+            ops->text_select(ops->ctx, 1);
+            ops->text_fit(ops->ctx, added->name, ADDED_NAME_X, ADDED_NAME_Y, ADDED_NAME_WIDTH);
+        }
         if (st->plus) st->plus->own = own_of(in, st);   /* port (dep59 L6): this entry's records */
         if (st->plus) best_times_pages_draw(in, st, s->item >= PAGES ? s->item - PAGES : -1, &s->hits, ops);   /* port (dep55) */
         else draw_records(in, st, ops);
@@ -219,6 +237,7 @@ static void change_track(Screen *s, const BestTimesInputs *in, BestTimesState *s
                          const BestTimesOps *ops)
 {
     if (in->lunar != NULL) *in->lunar = 0;   /* port (dep59 Lunar L5): off Lunar's entry */
+    if (in->added != NULL) *in->added = 0;   /* port (dep59 step 5, T7e2): and off an added track's */
     char path[TEXT];
     p16(st->config, TRACK_SELECT_TRACK, track);
     if (g16(st->config, TRACK_SELECT_RACE_TYPE) == TOURNAMENT) {

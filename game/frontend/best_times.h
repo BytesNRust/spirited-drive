@@ -93,7 +93,15 @@ typedef struct BestTimesInputs {
     /* port (dep59 Lunar L5): the Lunar pick (track_pick.h), NULL none: opened on Rusty with it the screen shows the moon's art
      * (LUNAR_BEST_FILE); an arrow off the track drops it (Lunar's own records and its entry here are L6's) */
     int *lunar;
+    /* port (dep59 step 5, T7e2): the menu number (16..79) of an added track the screen is on, NULL or 0 none: opened on Coastal's stage
+     * layout (the track word 1) with it, the screen shows the track's made art (ADDED_BEST_FILE), its name, and its records by id
+     * (race_records_tracks.dat); an arrow off the track drops it */
+    int *added;
 } BestTimesInputs;
+
+/* port (dep59 step 5, T7e2): Best Times' bank for an added track, "tracksel/<this>.qfs": no file, the made art (added_best_art.h) the
+ * caller's load_bank and load_art give for that name */
+extern const char ADDED_BEST_FILE[];
 
 /* port (dep59 Lunar L5): Best Times' bank for Lunar Springs, "tracksel/<this>.qfs": no file, the moon's made art (lunar_art.h) the
  * caller's load_bank and load_art give for that name */

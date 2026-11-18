@@ -169,6 +169,8 @@ extern int32_t cg_race_times[MENU_RACE_TIMES];
 extern int16_t cg_car_points[GAME_STATE_PLAYERS];
 extern TrackViewerResults cg_last_drive;
 void cg_drive(void *ctx, int32_t argc, char *const *argv);
+/* port (dep59 step 5, T7e2): Best Times on the added track `track` (menu number 16..79; 0 or another: Coastal's), its records by id; T7d's page opens it; `ctx` is its DialogPointer (never NULL), as best_times's; the arrows inside also write the laps choice: call it from the page, not mid-tournament */
+int32_t cg_best_times_added(void *ctx, int track);
 void cg_segment_results(void *ctx, int32_t mode);
 void cg_track_results(void *ctx, int32_t ask);
 void cg_circuit_results(void *ctx, int32_t ask);
