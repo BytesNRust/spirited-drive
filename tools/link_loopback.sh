@@ -14,7 +14,8 @@
 # (platform_sdl3.c's WAIT; the "mark:..." lines): the guests start when the host logs mark:game_hosted (guest k+1 when mark:joined=k),
 # a guest picks the game once it logs mark:game_listed, the host presses Start once every guest has joined (mark:joined=N), and the steps after the race
 # come after mark:race_over. A step that does not come in time stops the run with the step named: "input script: step N: WAIT text
-# timed out after S s" (the instance exits with status 3) and this script says so and which machine.
+# timed out after S s" (the instance exits with status 3) and this script says so and which machine. Any other machine that exits
+# with a non-zero status before the run's end stops the rest the same way, and the script names it with its status and last log lines.
 # usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick|refused] [OUT_DIR]
 # Environment:
 #   BASE_PORT (15000)      the host's UDP port, the clients' the ones after it
@@ -100,18 +101,32 @@ run() {  # name script port [args...]
 
 logged() { local n; n=$(grep -ac "^$1" "$out/$2/log" 2>/dev/null || true); echo "${n:-0}"; }   # how many times a machine logged a line of its own (at the start of a line: the script's own "waiting for mark:..." lines do not count)
 
-# waits (at most `limit` s) until `test` (a command) holds; false on a machine's step timing out or the limit
+# waits (at most `limit` s) until `test` (a command) holds; false on a machine's step timing out, a machine's other failure, or the limit
 failed_step=""
+# true (and the failed_step named) when a machine has exited with a non-zero status: 3 is a step that timed out, any other is a crash
+# or a failed start (its last log lines say which)
+died() {
+    local m rc
+    for m in $machines; do
+        [ -f "$out/$m/rc" ] || continue
+        rc=$(cat "$out/$m/rc")
+        [ "$rc" = 0 ] && continue
+        if [ "$rc" = 3 ]; then
+            failed_step="$m: $(grep -a 'input script: step' "$out/$m/log" | grep -a -m1 'timed out' || grep -a 'input script: step' "$out/$m/log" | head -1)"
+        else
+            failed_step="$m: exited with status $rc before the run ended; its last log lines:
+$(tail -n 5 "$out/$m/log" | sed 's/^/    /')"
+        fi
+        return 0
+    done
+    return 1
+}
 await() {  # description limit test...
     local what=$1 limit=$2 t=0
     shift 2
-    while ! "$@"; do
-        for m in $machines; do
-            if [ -f "$out/$m/rc" ] && [ "$(cat "$out/$m/rc")" = 3 ]; then
-                failed_step="$m: $(grep -a 'input script: step' "$out/$m/log" | grep -a -m1 'timed out' || grep -a 'input script: step' "$out/$m/log" | head -1)"
-                return 1
-            fi
-        done
+    while :; do
+        died && return 1
+        "$@" && return 0
         [ "$t" -ge "$limit" ] && { failed_step="nothing came in ${limit} s: $what"; return 1; }
         sleep 2
         t=$((t + 2))
