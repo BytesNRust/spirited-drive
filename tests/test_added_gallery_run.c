@@ -68,7 +68,7 @@ static void test_the_music_plays_on(void)
 {
     /* three frames with no key, Enter on Next, then Enter held two frames (the let-go wait), then nothing */
     static const int KEYS[] = { 0, 0, 0, GALLERY_KEY_ENTER, GALLERY_KEY_ENTER, GALLERY_KEY_ENTER, 0, -1 };
-    GalleryState s = { GALLERY_NEXT, 0, 0, 0 };
+    GalleryState s = { GALLERY_NEXT, 0, 0, 0, 0, 0, 0 };
     CHECK_EQ_INT(run(KEYS, &s), GALLERY_GO_NEXT);
     CHECK(frames >= 6);
     int each = 1;   /* by every frame's end the music was serviced once more: the page's frames and the let-go's */
@@ -80,7 +80,7 @@ static void test_the_fades(void)
 {
     /* opened, Right on Skin (a skin more: drawn again, its palette at once), Escape */
     static const int KEYS[] = { 0, GALLERY_KEY_RIGHT, 0, GALLERY_KEY_ESCAPE, 0, -1 };
-    GalleryState s = { GALLERY_SKIN, 0, 0, 0 };
+    GalleryState s = { GALLERY_SKIN, 0, 0, 0, 0, 0, 0 };
     CarPieceCard c;
     memset(&c, 0, sizeof c);
     c.skins = 2;
@@ -90,7 +90,7 @@ static void test_the_fades(void)
     CHECK(strcmp(ops_seen, "CBDFIDPFO") == 0);
     {   /* Next taken: faded out too */
         static const int NEXT[] = { GALLERY_KEY_ENTER, 0, -1 };
-        GalleryState n = { GALLERY_NEXT, 0, 0, 0 };
+        GalleryState n = { GALLERY_NEXT, 0, 0, 0, 0, 0, 0 };
         CHECK_EQ_INT(run(NEXT, &n), GALLERY_GO_NEXT);
         CHECK(strcmp(ops_seen, "CBDFIO") == 0);
     }
@@ -103,7 +103,7 @@ static void test_the_pointer_lights(void)
     /* the pointer still on the picture, moved onto Next's arrow (the CD's box 360..420 x 430..480), then onto Done (0..130), then still */
     static const int AT[][2] = { { 200, 200 }, { 200, 200 }, { 390, 455 }, { 390, 455 }, { 60, 470 }, { 60, 470 }, { -1, -1 } };
     static const int KEYS[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, GALLERY_KEY_UP, 0, 0, 0, GALLERY_KEY_ESCAPE, 0, -1 };
-    GalleryState s = { GALLERY_SKIN, 0, 0, 0 };
+    GalleryState s = { GALLERY_SKIN, 0, 0, 0, 0, 0, 0 };
     places = AT, place_reads = 0, drawn_item = -1;
     CarPieceCard c;
     memset(&c, 0, sizeof c);
@@ -117,7 +117,7 @@ static void test_the_pointer_lights(void)
     {   /* a fixed page (the Warrior's): its boxes are not lit by the pointer */
         static const int SKIN[][2] = { { 10, 10 }, { 400, 200 }, { -1, -1 } };
         static const int ESC[] = { 0, 0, 0, GALLERY_KEY_ESCAPE, 0, -1 };
-        GalleryState w = { GALLERY_NEXT, 0, 1, 1 };
+        GalleryState w = { GALLERY_NEXT, 0, 1, 1, 0, 0, 0 };
         places = SKIN, place_reads = 0, drawn_item = -1;
         keys_in = ESC, key_reads = 0;
         added_gallery_run(&c, &w, &OPS);
