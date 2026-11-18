@@ -59,12 +59,13 @@ static void mod_note(const char *id, const char *text)
 }
 
 /* editions/<id>.ini with these tweaks and cars (and a stock track), then restomod.cfg's edition=<id> ("" the standard one, no file) */
+static const char *edition_tracks = "city";   /* the tracks= of use_edition's file */
 static void use_edition(const char *id, const char *tweaks, const char *cars)
 {
     if (id[0] != '\0') {
         char dir[400], text[600], name[80];
         snprintf(dir, sizeof dir, "%s/editions", pref);
-        snprintf(text, sizeof text, "name=Test\ncars=%s\ntracks=city\ntweaks=%s\n", cars, tweaks);
+        snprintf(text, sizeof text, "name=Test\ncars=%s\ntracks=%s\ntweaks=%s\n", cars, edition_tracks, tweaks);
         snprintf(name, sizeof name, "%s.ini", id);
         write_file(dir, name, text);
     }
@@ -80,6 +81,15 @@ static void mod_car(const char *id)
     char dir[400], text[200];
     snprintf(dir, sizeof dir, "%s/mods/%s", pref, id);
     snprintf(text, sizeof text, "id=%s\nname=Car\nversion=1\ntype=car\nstem=CARX\nsound_from=viper\n", id);
+    write_file(dir, "mod.ini", text);
+}
+
+/* an added track's folder in mods/, with its card */
+static void mod_track(const char *id)
+{
+    char dir[400], text[200];
+    snprintf(dir, sizeof dir, "%s/mods/%s", pref, id);
+    snprintf(text, sizeof text, "id=%s\nname=Track\nversion=1\ntype=track\nstem=TRKX\n", id);
     write_file(dir, "mod.ini", text);
 }
 
@@ -137,6 +147,20 @@ static void test_the_editions_tweaks_in_their_order(void)
     /* an edition with no car that is there cannot be used: the standard's */
     use_edition("six", "a", "ghost-car");
     CHECK(note_is("from the cd"));
+    /* dep59 step 5 (T8): its added tracks' folders last, after its tweaks and cars; a stock track has none, a missing one is left out, a car's
+     * folder named in tracks= is no track's */
+    mod_track("dune");
+    mod_track("hill");
+    edition_tracks = "city,dune,ghost-track,hill";
+    use_edition("seven", "a", "f40,rx7");
+    const char *more[6];
+    CHECK_EQ_INT(mod_set_dirs(more, 6), 4);
+    CHECK(strstr(more[0], "/mods/a") != NULL && strstr(more[1], "/mods/f40") != NULL);
+    CHECK(strstr(more[2], "/mods/dune") != NULL && strstr(more[3], "/mods/hill") != NULL);
+    edition_tracks = "city,f40,b";   /* a car's and a tweak's id in tracks=: not folders of tracks */
+    use_edition("eight", "", "rx7");
+    CHECK_EQ_INT(mod_set_dirs(more, 6), 0);
+    edition_tracks = "city";
 }
 
 static void test_stock_and_restored_read_no_edition(void)

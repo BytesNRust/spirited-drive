@@ -17,7 +17,7 @@
 #include <strings.h>
 #include <sys/stat.h>
 
-enum { MOD_SET_MAX = 1 + EDITION_TWEAKS_MAX + EDITION_LIST_MAX, DIR_MAX = 1100, FOLDERS_MAX = MOD_SET_MAX };   /* --mods, an edition's tweaks and cars */
+enum { MOD_SET_MAX = 1 + EDITION_TWEAKS_MAX + EDITION_LIST_MAX, DIR_MAX = 1100, FOLDERS_MAX = PLATFORM_MODS_MAX };   /* --mods, an edition's tweaks, cars and tracks: the platform takes no more (the rest left out, said) */
 
 typedef struct {
     int count;
@@ -61,7 +61,7 @@ static void mods_root(char *out, size_t cap)
 }
 
 /* the folders that should be in effect: in Restomod, --mods, then the edition in use's (edition_file.h): its tweaks in their order, then
- * its added cars' folders (a piece with no folder left out; a stock car has none); in Stock and Restored none, --mods neither. What is
+ * its added cars' folders, then its added tracks' (a piece with no folder left out; a stock car or track has none); in Stock and Restored none, --mods neither. What is
  * left out is said in the log when `say`. */
 /* (into `out`: a Folders is large, kept off the stack) */
 static const Folders *wanted(bool say, Folders *out)
@@ -78,17 +78,22 @@ static const Folders *wanted(bool say, Folders *out)
     if (edition_active(&e) != 1) return f;
     char root[1024];
     mods_root(root, sizeof root);
-    for (int i = 0; i < e.tweaks + e.cars && root[0] != '\0' && f->count < FOLDERS_MAX; i++) {
-        const int tweak = i < e.tweaks;
-        const char *const id = tweak ? e.tweak[i] : e.car[i - e.tweaks];
-        if (!tweak && (stock_car_of_id(id) >= 0 || !edition_car_present(id))) {
+    for (int i = 0; i < e.tweaks + e.cars + e.tracks && root[0] != '\0' && f->count < FOLDERS_MAX; i++) {
+        const int tweak = i < e.tweaks, car = !tweak && i < e.tweaks + e.cars;
+        const char *const id = tweak ? e.tweak[i] : car ? e.car[i - e.tweaks] : e.track[i - e.tweaks - e.cars];
+        if (car && (stock_car_of_id(id) >= 0 || !edition_car_present(id))) {
             if (say && stock_car_of_id(id) < 0) port_log("mods: the car %s of the edition is not installed: left out\n", id);
+            continue;
+        }
+        if (!tweak && !car && (stock_track_of_id(id) >= 0 || !edition_track_present(id))) {   /* port (dep59 step 5, T8): its added tracks' folders last */
+            if (say && stock_track_of_id(id) < 0) port_log("mods: the track %s of the edition is not installed: left out\n", id);
             continue;
         }
         snprintf(f->dirs[f->count], DIR_MAX, "%s%s", root, id);
         if (is_dir(f->dirs[f->count])) f->count++;
         else if (say) port_log("mods: %s of the edition is not installed (%s is not a folder): left out\n", id, f->dirs[f->count]);
     }
+    if (say && f->count >= FOLDERS_MAX) port_log("mods: at most %d folders are in effect: the edition's last ones may be left out\n", FOLDERS_MAX);
     return f;
 }
 

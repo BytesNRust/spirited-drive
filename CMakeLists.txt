@@ -1300,6 +1300,12 @@ if(NOT EMSCRIPTEN)
         add_test(NAME edition_menus_trackrace COMMAND sh ${CMAKE_SOURCE_DIR}/tests/edition_menus.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
                  ${CMAKE_SOURCE_DIR}/original trackrace $<TARGET_FILE:tnfs-studio>)
         set_tests_properties(edition_menus_trackrace PROPERTIES TIMEOUT 600)
+        # dep59 step 5 (T8): two installed track pieces in an edition of them alone, the menus' walk of them, one test per game session
+        foreach(part central race)
+            add_test(NAME track_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_menus.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>
+                     ${CMAKE_SOURCE_DIR}/original ${part})
+            set_tests_properties(track_menus_${part} PROPERTIES TIMEOUT 600)
+        endforeach()
         # dep59 step 4b (T8): the CONTENT screen in the menus, one test per game session
         foreach(part own standard)
             add_test(NAME content_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/content_menus.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>
