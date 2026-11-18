@@ -11,6 +11,7 @@
 #include "game/sys/car_pieces.h"
 #include "game/sys/mod_set.h"
 #include "game/sys/port_profile.h"
+#include "game/sys/piece_print.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -225,6 +226,14 @@ static uint32_t fingerprint_of(const char *dir)
     return p != NULL ? p->fingerprint : 0;
 }
 
+static const uint8_t *print_of(const char *dir)
+{
+    car_registry_clear();
+    CHECK_EQ_INT(load1(dir, 1), 1);
+    const CarPiece *p = car_registry_piece(car_registry_find("print-car"));
+    return p != NULL ? p->print : NULL;
+}
+
 static void test_the_fingerprint(void)
 {
     char a[400], path[600];
@@ -243,6 +252,13 @@ static void test_the_fingerprint(void)
     for (int i = 0; i < 4; i++) tail[i] = (uint8_t)((uint32_t)ai.pace >> (8 * i)), tail[4 + i] = (uint8_t)((uint32_t)ai.coast >> (8 * i));
     const uint32_t made = crc32_update(crc32_update(crc32_update(0, pbs_file, pbs_len), pdn_file, pdn_len), tail, sizeof tail);
     CHECK_EQ_INT((int)first, (int)made);
+    uint8_t first_print[PIECE_PRINT_SIZE], stream_print[PIECE_PRINT_SIZE];
+    memcpy(first_print, print_of(a), sizeof first_print);
+    PiecePrint pp;   /* the SHA-256 of the same stream, made here: the PBS, the PDN, the pace and coast, under the car domain */
+    piece_print_begin(&pp, PIECE_PRINT_CAR);
+    piece_print_add(&pp, pbs_file, pbs_len), piece_print_add(&pp, pdn_file, pdn_len), piece_print_add(&pp, tail, sizeof tail);
+    piece_print_end(&pp, stream_print);
+    CHECK_MEM(first_print, stream_print, PIECE_PRINT_SIZE);
     free(pbs_file), free(pdn_file);
     CHECK_EQ_INT((int)fingerprint_of(a), (int)first);   /* the same files, the same print */
     snprintf(path, sizeof path, "%s/SIMDATA/CARFAMS/PRINT.CFM", a);   /* the look changed: the same print */
@@ -261,6 +277,9 @@ static void test_the_fingerprint(void)
     spill(path, record, PBS_SIZE);
     const uint32_t changed = fingerprint_of(a);
     CHECK(changed != 0 && changed != first);
+    uint8_t changed_print[PIECE_PRINT_SIZE];
+    memcpy(changed_print, print_of(a), sizeof changed_print);   /* the print changes with the specs, as the CRC does */
+    CHECK(!piece_print_is_none(changed_print) && memcmp(changed_print, first_print, PIECE_PRINT_SIZE) != 0);
     /* 3b: ai_level=top: the level's pair, and the print changes with the tuning alone (the files as they were) */
     char b[400];
     CHECK(piece("print_top", "print-car", "PRINT", "sound_from=viper\nai_level=top\n", "", b));
@@ -269,6 +288,9 @@ static void test_the_fingerprint(void)
     const CarAiTuning *top_ai = car_registry_ai(car_registry_find("print-car"));
     CHECK(top_ai != NULL && top_ai->pace == 65536 && top_ai->coast == 4);
     CHECK(none != 0 && top != 0 && none != top);
+    uint8_t print_none[PIECE_PRINT_SIZE];
+    memcpy(print_none, print_of(a), sizeof print_none);
+    CHECK(memcmp(print_none, print_of(b), PIECE_PRINT_SIZE) != 0);   /* the tuning alone changes it */
 }
 
 /* dep59 step 3: what an added car's gallery reads of its piece (car_pieces_card): its card again, its skins/ folders in name order after

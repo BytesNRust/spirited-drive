@@ -1,6 +1,6 @@
 #!/bin/sh
 # An added track's whole life outside the menus (dep59 step 5, T8): a piece made with track new --piece runs to its finish and through its
-# results screens (--drive <id>), keeps its record in race_records_tracks.dat by id and never in the original's file, is kept as Replay.rpx
+# results screens (--drive <id>), keeps its record in race_records_tracks2.dat by id and never in the original's file, is kept as Replay.rpx
 # with the track's block, which plays back with the piece as it was and, without it or with it changed, does not play and says why (the
 # text names the track's rules, not the cars').
 #   usage: track_piece.sh TNFS STUDIO ORIGINAL_DIR [PART...]   (no PART: finish replay refusals stock; each part needs the ones before it)
@@ -52,11 +52,13 @@ part_finish() {
     [ "$rc" -eq 0 ] || fail "finish: the race ended with status $rc: $(tail -3 "$work/err")"
     log | grep -q "^finish: 0=" || fail "finish: the race did not finish"
     # its record by id, in the file of added tracks; the original's file has none of it
-    [ -s "$work/user/race_records_tracks.dat" ] || fail "finish: race_records_tracks.dat was not made"
+    [ -s "$work/user/race_records_tracks2.dat" ] || fail "finish: race_records_tracks2.dat was not made"
     [ -s "$work/user/Replay.rpx" ] || fail "finish: no Replay.rpx"
     find "$work/user" -iname 'replay.rpl' | grep -q . && fail "finish: Replay.rpl was written"
-    [ "$(tail -c 45 "$work/user/Replay.rpx" | head -c 8)" = "TNFSTRK1" ] || fail "finish: Replay.rpx does not end with the track's block"
-    tail -c 45 "$work/user/Replay.rpx" | grep -q "dune-run" || fail "finish: the track's block does not name dune-run"
+    # the track's block (45 bytes), then the pieces' prints (8 + 9 * 32 = 296 bytes, step 4 of the records by print)
+    [ "$(tail -c 296 "$work/user/Replay.rpx" | head -c 8)" = "TNFSPRN1" ] || fail "finish: Replay.rpx does not end with the prints' block"
+    [ "$(tail -c 341 "$work/user/Replay.rpx" | head -c 8)" = "TNFSTRK1" ] || fail "finish: Replay.rpx has no track's block before the prints'"
+    tail -c 341 "$work/user/Replay.rpx" | head -c 45 | grep -q "dune-run" || fail "finish: the track's block does not name dune-run"
     cp "$work/user/Replay.rpx" "$work/kept.rpx"
     cp "$work/race.out" "$work/race.kept"
 }
@@ -99,7 +101,7 @@ part_stock() {
         timeout -k 5 120 "$tnfs" --data "$orig" --mods "$piece" --user "$work/user" --drive dune-run --car 5 --node 200 --screenshot "$work/s.ppm" >/dev/null 2>"$work/err" &&
             fail "stock: $profile raced an added track"
         cmp -s "$work/kept.rpx" "$work/user/Replay.rpx" || fail "stock: $profile changed Replay.rpx"
-        [ -n "$(find "$work/user" -name 'race_records_tracks.dat' -newer "$work/stock.marker")" ] && fail "stock: $profile wrote race_records_tracks.dat"
+        [ -n "$(find "$work/user" -name 'race_records_tracks2.dat' -newer "$work/stock.marker")" ] && fail "stock: $profile wrote race_records_tracks2.dat"
     done
     echo "profile=restomod" > "$work/user/port.cfg"
 }

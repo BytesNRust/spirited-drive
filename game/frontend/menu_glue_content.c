@@ -9,11 +9,15 @@
 #include "formats/fsh.h"
 #include "formats/png.h"
 #include "formats/stock_content.h"
+#include "game/race/car_registry.h"
+#include "game/sys/car_pieces.h"
 #include "game/sys/edition_file.h"
 #include "game/sys/edition_store.h"
 #include "game/sys/mod_set.h"
 #include "game/sys/mod_store.h"
 #include "game/sys/palette.h"
+#include "game/sys/piece_print.h"
+#include "game/sys/track_pieces.h"
 #include "game/sys/track_registry.h"
 #include "game/sys/video.h"
 #include "game/frontend/ea_lib.h"
@@ -311,12 +315,43 @@ static void offer_to_edition(void *ctx, const ModInfo *info, int32_t index)
     else if (!edition_store_save(id, &e, why, sizeof why)) told(ctx, why);
 }
 
+/* the print the registry holds for the added car or track `id` (MOD_TYPE_*), none when it holds none */
+static void held_print(int type, const char *id, uint8_t out[PIECE_PRINT_SIZE])
+{
+    const uint8_t *print = NULL;
+    if (type == MOD_TYPE_CAR) {
+        const CarPiece *const p = car_registry_piece(car_registry_find(id));
+        print = p != NULL ? p->print : NULL;
+    } else if (type == MOD_TYPE_TRACK) {
+        const TrackPiece *const p = track_registry_piece(track_registry_find(id));
+        print = p != NULL ? p->print : NULL;
+    }
+    if (print != NULL) memcpy(out, print, PIECE_PRINT_SIZE);
+    else memset(out, 0, PIECE_PRINT_SIZE);
+}
+
+/* 1 when the update just installed changed the rules of its car or track: the registry still holds the piece as it was, and holds the new one
+ * once the mods in effect are read again (records by print: the piece starts with records of its own, the old ones are kept) */
+static int update_changed_rules(const ModInfo *info)
+{
+    uint8_t before[PIECE_PRINT_SIZE], after[PIECE_PRINT_SIZE];
+    if (info->type != MOD_TYPE_CAR && info->type != MOD_TYPE_TRACK) return 0;
+    held_print(info->type, info->id, before);
+    mod_set_generation_move();   /* the folder's files changed under the same folders: read them again */
+    car_pieces_follow();
+    track_pieces_follow();
+    held_print(info->type, info->id, after);
+    return piece_print_changed(before, after);
+}
+
 /* the zip at `path` installed (or an installed mod updated); a new mod offered to the own edition `edition` shows (NULL or the standard
  * edition: none), else the player told what was installed. 1 when installed */
 static int32_t install_zip(void *ctx, const char *path, const int32_t *edition)
 {
     ModInfo info;
     char old[MOD_INI_VERSION_MAX + 1] = "", why[WHY_CAP] = "", text[TEXT_CAP];
+    car_pieces_follow();   /* the registries as the mods in effect are now, so an update is compared with the piece as it was (update_changed_rules) */
+    track_pieces_follow();
     if (!mod_store_install(path, &info, old, sizeof old, why, sizeof why)) {
         port_log("content: %s was not installed: %s\n", path, why);
         told(ctx, why);
@@ -331,6 +366,10 @@ static int32_t install_zip(void *ctx, const char *path, const int32_t *edition)
         return 1;
     }
     snprintf(text, sizeof text, "Updated %s %s to %s", info.name, old, info.version);
+    if (update_changed_rules(&info)) {
+        const size_t n = strlen(text);
+        snprintf(text + n, sizeof text - n, ": its rules changed, new records start (the old ones are kept)");
+    }
     told(ctx, text);
     return 1;
 }

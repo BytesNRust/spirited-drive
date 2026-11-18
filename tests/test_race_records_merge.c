@@ -264,7 +264,7 @@ static void test_what_the_screens_read(void)
     CHECK_EQ_INT(race_records_shown_laps(CIRCUIT, 0, 0, laps, RACE_RECORDS_LAPS_MAX), 1);   /* race_records.dat's: LAPS alone */
 }
 
-/* dep59 L6: Lunar Springs' records (race_records_tracks.dat, one table per car) shown the same way: the standard edition joins every car
+/* dep59 L6: Lunar Springs' records (race_records_tracks2.dat, one table per car) shown the same way: the standard edition joins every car
  * that has a table for the track, an edition of its own only its cars; another track's tables are never joined in */
 static void test_a_track_joins_its_cars(void)
 {
@@ -330,6 +330,38 @@ static void test_a_track_joins_its_cars(void)
     race_records_tracks_reset();
 }
 
+/* dep59 records by print: what a track shows joins only the records made under the pieces as they are now: a track or car that changed
+ * has none until it is as it was */
+static uint8_t hill_print[32], mod_print[32];
+static void track_print_of(const char *id, uint8_t out[32]) { if (strcmp(id, "hill") == 0) memcpy(out, hill_print, 32); }
+static void car_print_of(const char *id, uint8_t out[32]) { if (strcmp(id, "mod-car") == 0) memcpy(out, mod_print, 32); }
+
+static void test_a_changed_piece_leaves_the_join(void)
+{
+    race_records_tracks_reset();
+    race_records_tracks_prints_set(track_print_of, car_print_of);
+    memset(hill_print, 1, 32), memset(mod_print, 2, 32);
+    const RecordRow viper = row_of(5, 60000, 190, 5), mod = row_of(0, 59000, 190, 0);
+    put(race_records_tracks_make("hill", 0, 0, LAPS, "viper", NULL), &viper, 0, 0);
+    put(race_records_tracks_make("hill", 0, 0, LAPS, "mod-car", NULL), &mod, 0, 0);
+    edition_set("");
+    CHECK(port_profile_select(PROFILE_RESTOMOD));
+    const RecordTable *t = race_records_shown_track("hill", 0, 0, LAPS);
+    CHECK(t != NULL && same_row(&t->totals[0], &mod) && same_row(&t->totals[1], &viper));
+    memset(mod_print, 3, 32);   /* the car changed: its record is not shown, the viper's is */
+    t = race_records_shown_track("hill", 0, 0, LAPS);
+    CHECK(t != NULL && same_row(&t->totals[0], &viper) && !race_records_row_set(&t->totals[1]));
+    memset(hill_print, 9, 32);   /* the track changed: nobody has a record there */
+    CHECK(race_records_shown_track("hill", 0, 0, LAPS) == NULL);
+    int laps[RACE_RECORDS_LAPS_MAX];
+    CHECK_EQ_INT(race_records_shown_track_laps("hill", 0, 0, laps, RACE_RECORDS_LAPS_MAX), 0);
+    memset(hill_print, 1, 32), memset(mod_print, 2, 32);   /* as they were: all back */
+    t = race_records_shown_track("hill", 0, 0, LAPS);
+    CHECK(t != NULL && same_row(&t->totals[0], &mod) && same_row(&t->totals[1], &viper));
+    race_records_tracks_prints_set(NULL, NULL);
+    race_records_tracks_reset();
+}
+
 int main(void)
 {
     snprintf(base, sizeof base, "%s/tnfs_records_merge_test_%d", getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp", (int)getpid());
@@ -342,6 +374,7 @@ int main(void)
     test_equal_times_keep_the_car_order();
     test_what_the_screens_read();
     test_a_track_joins_its_cars();
+    test_a_changed_piece_leaves_the_join();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);
     if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", base);

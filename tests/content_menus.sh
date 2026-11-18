@@ -12,7 +12,7 @@
 #               live       Done: Game Mode puts Mine in use (mark:edition=mine) and Control Central opens on its cars at a fresh
 #                          player's car 6; the car arrow's right takes 7, then the added car (Mine's last: the stock eight, then it);
 #               race       a whole race of the added car on Rusty Springs (a fresh player's track card 1, the arrow's right twice):
-#                          race_records_cars.dat keeps its table;
+#                          race_records_cars2.dat keeps its table;
 #               update     CONTENT again, on Mine; the zip of 0.2 dropped: an update, 0.1 kept as a backup;
 #               previous   the car's row (the ninth line of the one page) and Previous version: 0.1 back;
 #               uninstall  Uninstall, yes: mods/test-car gone;
@@ -141,7 +141,7 @@ part_own() {
     "6 7 "*) ;; *) fail "live: Control Central did not walk Mine's cars 6, 7 and the added car: '$cars'" ;; esac
     # race: run to its finish with the added car
     log | grep -q "^finish: 0=" || fail "race: the race did not finish"
-    grep -aq "test-car" "$work/user/race_records_cars.dat" 2>/dev/null || fail "race: race_records_cars.dat has no table of test-car"
+    grep -aq "test-car" "$work/user/race_records_cars2.dat" 2>/dev/null || fail "race: race_records_cars2.dat has no table of test-car"
     # update, previous, uninstall: each said by the mod store, the backups kept
     log | grep -q "^mods: updated test-car 0.2$" || fail "update: the drop of 0.2 did not update the car"
     ls "$work/user/mods_backup" 2>/dev/null | grep -q "^test-car-0.1-" || fail "update: no backup of 0.1"

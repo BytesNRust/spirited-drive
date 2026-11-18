@@ -12,16 +12,19 @@
 
 enum {
     MAGIC_SIZE = 8, HEADER_V1 = MAGIC_SIZE + 8, HEADER = MAGIC_SIZE + 12, KEY = 4, FLAG_IMPORTED = 1, NAMES = RECORDS_ADDED_ID + RECORDS_ADDED_SHORT,
-    TABLE_ENTRY = KEY + NAMES + RACE_RECORDS_TABLE_BYTES, LAP_ENTRY = KEY + NAMES + RACE_RECORDS_ROW_BYTES, LAP_KEY = 0
+    PRINT = 32, PRINTS = 1 + PRINT,   /* after the names in a v3 file: 1 when the record waits for the print of its car (an older file's), then the print */
+    TABLE_ENTRY = KEY + NAMES + PRINTS + RACE_RECORDS_TABLE_BYTES, LAP_ENTRY = KEY + NAMES + PRINTS + RACE_RECORDS_ROW_BYTES, LAP_KEY = 0
 };
 
-static const char MAGIC[MAGIC_SIZE] = { 'T', 'N', 'F', 'S', 'R', 'R', 'A', '2' };
+static const char MAGIC[MAGIC_SIZE] = { 'T', 'N', 'F', 'S', 'R', 'R', 'A', '3' };
+static const char MAGIC_V2[MAGIC_SIZE] = { 'T', 'N', 'F', 'S', 'R', 'R', 'A', '2' };   /* before the prints: read, never written */
 static const char MAGIC_V1[MAGIC_SIZE] = { 'T', 'N', 'F', 'S', 'R', 'R', 'A', '1' };   /* step 3's: no flags */
-static const char FILE_NAME[] = "race_records_cars.dat", FILE_NAME_V1[] = "race_records_added.dat";
+static const char FILE_NAME[] = "race_records_cars2.dat", FILE_NAME_V2[] = "race_records_cars.dat", FILE_NAME_V1[] = "race_records_added.dat";
 
 typedef struct {
     uint8_t key[KEY];   /* track, layout, cheats, laps */
     char id[RECORDS_ADDED_ID], short_name[RECORDS_ADDED_SHORT];
+    uint8_t waits, print[PRINT];   /* the car's print it was made under (all zeros for none); `waits`: an older file's, no print put to it yet */
     union {
         RecordTable table;
         RecordRow lap;
@@ -37,45 +40,92 @@ typedef struct {
 static List tables, laps_list;
 static int held, imported;
 
-static int compare(const uint8_t key[KEY], const char *id, const Entry *e)
+static const uint8_t NO_PRINT[PRINT];
+static RecordsPrintOf print_fn;
+
+void race_records_added_prints_set(RecordsPrintOf car) { print_fn = car; }
+
+static void print_of(const char *id, uint8_t out[PRINT])
 {
-    const int by_key = memcmp(key, e->key, KEY);
-    return by_key != 0 ? by_key : strcmp(id, e->id);
+    memset(out, 0, PRINT);
+    if (print_fn != NULL) print_fn(id, out);
 }
 
-static int lower_bound(const List *l, const uint8_t key[KEY], const char *id)
+static int compare(const uint8_t key[KEY], const char *id, const uint8_t print[PRINT], const Entry *e)
+{
+    int by = memcmp(key, e->key, KEY);
+    if (by == 0) by = strcmp(id, e->id);
+    return by != 0 ? by : memcmp(print, e->print, PRINT);
+}
+
+static int lower_bound(const List *l, const uint8_t key[KEY], const char *id, const uint8_t print[PRINT])
 {
     int lo = 0, hi = l->count;
     while (lo < hi) {
         const int mid = (lo + hi) / 2;
-        if (compare(key, id, l->at[mid]) > 0) lo = mid + 1;
+        if (compare(key, id, print, l->at[mid]) > 0) lo = mid + 1;
         else hi = mid;
     }
     return lo;
 }
 
-static Entry *find(const List *l, const uint8_t key[KEY], const char *id)
+static Entry *find(const List *l, const uint8_t key[KEY], const char *id, const uint8_t print[PRINT])
 {
-    const int at = lower_bound(l, key, id);
-    return at < l->count && compare(key, id, l->at[at]) == 0 ? l->at[at] : NULL;
+    const int at = lower_bound(l, key, id, print);
+    return at < l->count && compare(key, id, print, l->at[at]) == 0 ? l->at[at] : NULL;
 }
 
-static Entry *insert(List *l, const uint8_t key[KEY], const char *id)
+/* `e` into its place in `l` (room made first) */
+static int put(List *l, Entry *e)
 {
     if (l->count == l->capacity) {
         const int bigger = l->capacity ? l->capacity * 2 : 16;
         Entry **grown = realloc(l->at, (size_t)bigger * sizeof *grown);
-        if (grown == NULL) return NULL;
+        if (grown == NULL) return 0;
         l->at = grown, l->capacity = bigger;
     }
+    const int at = lower_bound(l, e->key, e->id, e->print);
+    memmove(l->at + at + 1, l->at + at, (size_t)(l->count - at) * sizeof *l->at);
+    l->at[at] = e;
+    l->count++;
+    return 1;
+}
+
+static Entry *insert(List *l, const uint8_t key[KEY], const char *id, const uint8_t print[PRINT])
+{
     Entry *e = calloc(1, sizeof *e);
     if (e == NULL) return NULL;
     memcpy(e->key, key, KEY);
     memcpy(e->id, id, strlen(id) + 1);
-    const int at = lower_bound(l, key, id);
-    memmove(l->at + at + 1, l->at + at, (size_t)(l->count - at) * sizeof *l->at);
-    l->at[at] = e;
-    l->count++;
+    memcpy(e->print, print, PRINT);
+    if (put(l, e)) return e;
+    free(e);
+    return NULL;
+}
+
+/* the entry at `at` of `l` (an older file's, no print put to it) made the one of the car as it is now, when that is not there already: 1 when moved */
+static int adopt_at(List *l, int at)
+{
+    Entry *e = l->at[at];
+    uint8_t print[PRINT];
+    print_of(e->id, print);
+    if (!e->waits || memcmp(print, e->print, PRINT) == 0 || find(l, e->key, e->id, print) != NULL) return 0;   /* no print yet: waits for the car */
+    memmove(l->at + at, l->at + at + 1, (size_t)(l->count - at - 1) * sizeof *l->at);
+    l->count--;
+    memcpy(e->print, print, PRINT), e->waits = 0;
+    return put(l, e);   /* room was just made in it */
+}
+
+/* the entry of a key for the car `id` as it is now: an older file's one is taken as its at the first look */
+static Entry *entry(List *l, const uint8_t key[KEY], const char *id)
+{
+    uint8_t print[PRINT];
+    print_of(id, print);
+    Entry *e = find(l, key, id, print);
+    if (e == NULL) {
+        const int at = lower_bound(l, key, id, NO_PRINT);
+        if (at < l->count && compare(key, id, NO_PRINT, l->at[at]) == 0 && adopt_at(l, at)) e = find(l, key, id, print);
+    }
     return e;
 }
 
@@ -105,7 +155,7 @@ RecordTable *race_records_added_find(int track, int layout, int cheats, int laps
     if (!race_records_table_key_ok(track, layout, cheats, laps) || !id_ok(id)) return NULL;
     uint8_t key[KEY];
     key_of(key, track, layout, cheats, laps);
-    Entry *e = find(&tables, key, id);
+    Entry *e = entry(&tables, key, id);
     return e != NULL ? &e->u.table : NULL;
 }
 
@@ -114,9 +164,11 @@ RecordTable *race_records_added_make(int track, int layout, int cheats, int laps
     if (!race_records_table_key_ok(track, layout, cheats, laps) || !id_ok(id)) return NULL;
     uint8_t key[KEY];
     key_of(key, track, layout, cheats, laps);
-    Entry *e = find(&tables, key, id);
+    Entry *e = entry(&tables, key, id);
     if (e == NULL) {
-        e = insert(&tables, key, id);
+        uint8_t print[PRINT];
+        print_of(id, print);
+        e = insert(&tables, key, id, print);
         if (e == NULL) return NULL;
         race_records_table_empty(&e->u.table);
     }
@@ -129,7 +181,7 @@ RecordRow *race_records_added_lap_find(int track, int layout, int cheats, const 
     if (!race_records_base_ok(track, layout, cheats) || !id_ok(id)) return NULL;
     uint8_t key[KEY];
     key_of(key, track, layout, cheats, LAP_KEY);
-    Entry *e = find(&laps_list, key, id);
+    Entry *e = entry(&laps_list, key, id);
     return e != NULL ? &e->u.lap : NULL;
 }
 
@@ -138,9 +190,11 @@ RecordRow *race_records_added_lap_make(int track, int layout, int cheats, const 
     if (!race_records_base_ok(track, layout, cheats) || !id_ok(id)) return NULL;
     uint8_t key[KEY];
     key_of(key, track, layout, cheats, LAP_KEY);
-    Entry *e = find(&laps_list, key, id);
+    Entry *e = entry(&laps_list, key, id);
     if (e == NULL) {
-        e = insert(&laps_list, key, id);
+        uint8_t print[PRINT];
+        print_of(id, print);
+        e = insert(&laps_list, key, id, print);
         if (e == NULL) return NULL;
         race_records_row_empty(&e->u.lap);
     }
@@ -153,7 +207,7 @@ const char *race_records_added_short_name(int track, int layout, int cheats, int
     if (!race_records_table_key_ok(track, layout, cheats, laps) || !id_ok(id)) return "";
     uint8_t key[KEY];
     key_of(key, track, layout, cheats, laps);
-    const Entry *e = find(&tables, key, id);
+    const Entry *e = entry(&tables, key, id);
     return e != NULL ? e->short_name : "";
 }
 
@@ -173,7 +227,8 @@ static uint8_t *put_names(uint8_t *at, const Entry *e)
     memset(at, 0, NAMES);
     memcpy(at, e->id, strlen(e->id));
     memcpy(at + RECORDS_ADDED_ID, e->short_name, strlen(e->short_name));
-    return at + NAMES;
+    at[NAMES] = e->waits, memcpy(at + NAMES + 1, e->print, PRINT);
+    return at + NAMES + PRINTS;
 }
 
 uint8_t *race_records_added_image(size_t *size)
@@ -199,19 +254,23 @@ static int names_ok(const uint8_t *at, char id[RECORDS_ADDED_ID], char short_nam
     return id_ok(id);
 }
 
-/* the entries of `count` at `at` into `l`, each after the one before it; 0 at the first that is not, or out of range */
-static int read_list(List *l, const uint8_t **at, uint32_t count, int laps)
+/* the entries of `count` at `at` into `l`, each after the one before it; 0 at the first that is not, or out of range. `v3`: a file with the
+ * prints; the entries of an older one wait for the print of their car */
+static int read_list(List *l, const uint8_t **at, uint32_t count, int laps, int v3)
 {
     const Entry *previous = NULL;
     for (uint32_t i = 0; i < count; i++) {
-        const uint8_t *k = *at;
+        const uint8_t *k = *at, *prints = k + KEY + NAMES;
         char id[RECORDS_ADDED_ID], short_name[RECORDS_ADDED_SHORT];
         const int key_ok = laps ? race_records_base_ok(k[0], k[1], k[2]) && k[3] == LAP_KEY : race_records_table_key_ok(k[0], k[1], k[2], k[3]);
-        if (!key_ok || !names_ok(k, id, short_name) || (previous != NULL && compare(k, id, previous) <= 0)) return 0;
-        Entry *e = insert(l, k, id);
+        if (!key_ok || !names_ok(k, id, short_name) || (v3 && prints[0] > 1)) return 0;
+        const uint8_t *print = v3 ? prints + 1 : NO_PRINT;
+        if (previous != NULL && compare(k, id, print, previous) <= 0) return 0;
+        Entry *e = insert(l, k, id, print);
         if (e == NULL) return 0;
+        e->waits = v3 ? prints[0] : 1;
         memcpy(e->short_name, short_name, sizeof e->short_name);
-        *at = k + KEY + NAMES;
+        *at = v3 ? prints + PRINTS : prints;
         *at = laps ? race_records_get_row(*at, &e->u.lap) : race_records_get_table(*at, &e->u.table);
         previous = e;
     }
@@ -222,15 +281,17 @@ int race_records_added_parse(const uint8_t *file, size_t size)
 {
     race_records_added_reset();
     if (file == NULL || size < HEADER_V1) return 0;
-    const int v1 = memcmp(file, MAGIC_V1, MAGIC_SIZE) == 0;
-    if (!v1 && (size < HEADER || memcmp(file, MAGIC, MAGIC_SIZE) != 0)) return 0;
+    const int v1 = memcmp(file, MAGIC_V1, MAGIC_SIZE) == 0, v2 = memcmp(file, MAGIC_V2, MAGIC_SIZE) == 0;
+    const int v3 = !v1 && !v2 && memcmp(file, MAGIC, MAGIC_SIZE) == 0;
+    if (!v1 && !v2 && !v3) return 0;
+    if (!v1 && size < HEADER) return 0;
     const uint32_t flags = v1 ? 0 : race_records_get32(file + MAGIC_SIZE);
     const uint8_t *const counts = file + (v1 ? MAGIC_SIZE : MAGIC_SIZE + 4);
     const uint32_t n_tables = race_records_get32(counts), n_laps = race_records_get32(counts + 4);
-    const size_t header = v1 ? HEADER_V1 : HEADER;
-    if ((flags & ~(uint32_t)FLAG_IMPORTED) != 0 || header + (uint64_t)n_tables * TABLE_ENTRY + (uint64_t)n_laps * LAP_ENTRY != size) return 0;
+    const size_t header = v1 ? HEADER_V1 : HEADER, table_entry = v3 ? TABLE_ENTRY : TABLE_ENTRY - PRINTS, lap_entry = v3 ? LAP_ENTRY : LAP_ENTRY - PRINTS;
+    if ((flags & ~(uint32_t)FLAG_IMPORTED) != 0 || header + (uint64_t)n_tables * table_entry + (uint64_t)n_laps * lap_entry != size) return 0;
     const uint8_t *at = file + header;
-    if (read_list(&tables, &at, n_tables, 0) && read_list(&laps_list, &at, n_laps, 1)) {
+    if (read_list(&tables, &at, n_tables, 0, v3) && read_list(&laps_list, &at, n_laps, 1, v3)) {
         imported = (flags & FLAG_IMPORTED) != 0;
         return 1;
     }
@@ -241,21 +302,24 @@ int race_records_added_parse(const uint8_t *file, size_t size)
 RaceRecordsLoad race_records_added_load(void)
 {
     race_records_added_reset();
-    /* the file, or step 3's when there is none (read once: the next save makes the new one, the old one left as it was) */
-    const char *name = platform_user_file_exists(FILE_NAME) || !platform_user_file_exists(FILE_NAME_V1) ? FILE_NAME : FILE_NAME_V1;
+    /* the file, or the one before the prints, or step 3's, when there is none newer (read once: the next save makes the new one, the older left as it was) */
+    const char *name = FILE_NAME, *stem = "race_records_cars2";
+    if (!platform_user_file_exists(FILE_NAME) && platform_user_file_exists(FILE_NAME_V2)) name = FILE_NAME_V2, stem = "race_records_cars";
+    else if (!platform_user_file_exists(FILE_NAME) && platform_user_file_exists(FILE_NAME_V1)) name = FILE_NAME_V1, stem = "race_records_added";
+    const int old = name != FILE_NAME;   /* an older file is never written over: losing its records is no reason to hold the new one's saving */
     size_t size = 0;
     uint8_t *data = platform_read_user_file(name, &size);
     if (data == NULL && platform_user_file_exists(name)) {   /* there, but not read (locked, an I/O error): not made again over it */
-        held = 1;
-        port_log("records: %s could not be read; the records by car are not saved this session\n", name);
+        if (!old) held = 1;
+        port_log("records: %s could not be read; the records by car are %s\n", name, old ? "not taken from it" : "not saved this session");
     }
     if (data == NULL) return RACE_RECORDS_NO_FILE;
     const int ok = race_records_added_parse(data, size);
     if (ok)   /* what was read: whether the standard rows are in it (race_records_cars_import) */
         port_log("records: %s read: %d tables, %d laps, imported %d\n", name, tables.count, laps_list.count, imported);
-    if (!ok && !race_records_keep_bad(name == FILE_NAME ? "race_records_cars" : "race_records_added", data, size)) {
-        held = 1;
-        port_log("records: %s is damaged and no copy of it could be kept; the records by car are not saved this session\n", name);
+    if (!ok && !race_records_keep_bad(stem, data, size)) {
+        if (!old) held = 1;
+        port_log("records: %s is damaged and no copy of it could be kept; the records by car are %s\n", name, old ? "not taken from it" : "not saved this session");
     }
     platform_free_file(data);
     return ok ? RACE_RECORDS_LOADED : RACE_RECORDS_DAMAGED;

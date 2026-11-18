@@ -4,14 +4,17 @@
 #include "game/frontend/best_times_pages.h"
 #include "game/frontend/records_import.h"
 #include "game/platform/platform.h"
+#include "game/race/car_registry.h"
 #include "game/sys/extras_marks.h"
 #include "game/sys/free_laps.h"
 #include "game/sys/port_log.h"
+#include "game/sys/piece_print.h"
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
 #include "game/sys/race_records_added.h"
 #include "game/sys/race_records_tracks.h"
 #include "game/sys/reverse_track.h"
+#include "game/sys/track_registry.h"
 
 #include <string.h>
 
@@ -20,10 +23,25 @@ enum { TRACKS = 9, TRACK_WORD = 0x95, CAR_WORD = 0x9b, DIFFICULTY_WORD = 0xb3 };
 static RaceKind current;
 static int in_tournament, tournament_first, loaded;
 
+/* the prints the records of added tracks and cars are kept under: the registries', none for what they do not have (the stock ones, Lunar) */
+static void track_print_of(const char *id, uint8_t out[PIECE_PRINT_SIZE])
+{
+    const TrackPiece *piece = track_registry_piece(track_registry_find(id));
+    if (piece != NULL) memcpy(out, piece->print, PIECE_PRINT_SIZE);
+}
+
+static void car_print_of(const char *id, uint8_t out[PIECE_PRINT_SIZE])
+{
+    const CarPiece *piece = car_registry_piece(car_registry_find(id));
+    if (piece != NULL) memcpy(out, piece->print, PIECE_PRINT_SIZE);
+}
+
 void records_glue_load(const uint8_t config_image[RECORD_CHECK_IMAGE])
 {
     if (loaded || !port_records_unified() || config_image == NULL) return;
     loaded = 1;
+    race_records_tracks_prints_set(track_print_of, car_print_of);
+    race_records_added_prints_set(car_print_of);
     (void)race_records_added_load();   /* port (dep59): the records by car (race_records_added.h), Restomod's too */
     (void)race_records_tracks_load();   /* port (dep59 step 5, T5): Lunar's and the added tracks' (race_records_tracks.h) */
     switch (race_records_load()) {
@@ -39,7 +57,7 @@ void records_glue_load(const uint8_t config_image[RECORD_CHECK_IMAGE])
     case RACE_RECORDS_DAMAGED: records_import(config_image); break;   /* started again as on the first run (the damaged file's copy kept) */
     }
     /* port (dep59 step 4): the standard rows into their cars' tables, once */
-    if (race_records_cars_import() && !race_records_added_save()) port_log("records: race_records_cars.dat could not be saved\n");
+    if (race_records_cars_import() && !race_records_added_save()) port_log("records: race_records_cars2.dat could not be saved\n");
 }
 
 void records_glue_begin(const uint8_t config_image[RECORD_CHECK_IMAGE], int race_type, const uint8_t *races, int variant_m,

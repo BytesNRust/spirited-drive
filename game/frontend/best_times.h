@@ -95,7 +95,7 @@ typedef struct BestTimesInputs {
     int *lunar;
     /* port (dep59 step 5, T7e2): the menu number (16..79) of an added track the screen is on, NULL or 0 none: opened on Coastal's stage
      * layout (the track word 1) with it, the screen shows the track's made art (ADDED_BEST_FILE), its name, and its records by id
-     * (race_records_tracks.dat); an arrow off the track drops it */
+     * (race_records_tracks2.dat); an arrow off the track drops it */
     int *added;
 } BestTimesInputs;
 
@@ -114,7 +114,7 @@ typedef struct BestTimesPlus {
     int layout, cheats, laps;   /* the table shown: LAYOUT_* bits, 0/1, the lap count (0 on a stage) */
     int page;                   /* 0 the ten best, 1 a circuit's best lap or a stage's segments */
     int focus;                  /* the row the keys are on: BEST_FOCUS_* */
-    const char *own;            /* port (dep59 L6): the id of the track shown when its records are race_records_tracks.dat's (Lunar's), else NULL */
+    const char *own;            /* port (dep59 L6): the id of the track shown when its records are race_records_tracks2.dat's (Lunar's), else NULL */
 } BestTimesPlus;
 enum { BEST_FOCUS_LAYOUT = 0, BEST_FOCUS_CHEATS = 1, BEST_FOCUS_LAPS = 2, BEST_FOCUS_PAGE = 3, BEST_FOCUS_FOOTER = 4 };
 

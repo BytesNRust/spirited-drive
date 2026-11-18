@@ -345,7 +345,7 @@ static void test_no_plus_is_original(void)
     CHECK_EQ_INT(fk.label_count, 0);
 }
 
-/* dep59 L6: on Lunar's entry the pages draw Lunar's records (race_records_tracks.dat's, joined over the cars), on Rusty's rally race_records.dat's:
+/* dep59 L6: on Lunar's entry the pages draw Lunar's records (race_records_tracks2.dat's, joined over the cars), on Rusty's rally race_records.dat's:
  * the screen says which entry it is on (BestTimesPlus.own) as it draws, and an arrow off Lunar goes back to the stock tables */
 static RecordRow named_row(const char *name, int32_t time)
 {
@@ -391,7 +391,7 @@ static void test_lunar_draws_its_own_records(void)
 }
 
 /* dep59 step 5, T7e2: an added track's Best Times opens on Coastal's stage layout with the track's made art and its name, and shows its
- * records by id (race_records_tracks.dat); an arrow off it drops it */
+ * records by id (race_records_tracks2.dat); an arrow off it drops it */
 static void test_an_added_track_shows_its_own(void)
 {
     TrackPiece piece;

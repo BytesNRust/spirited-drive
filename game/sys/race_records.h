@@ -88,4 +88,8 @@ void race_records_hold(int on);
 /* drops every table and lap (the tests', and a load's start) */
 void race_records_reset(void);
 
+/* The current print of the piece with an id (game/sys/piece_print.h; 32 bytes, all zeros for none, which is what `out` holds when it is called):
+ * what the records of tracks and cars are kept under besides the id (race_records_tracks.h, race_records_added.h) */
+typedef void (*RecordsPrintOf)(const char *id, uint8_t out[32]);
+
 #endif

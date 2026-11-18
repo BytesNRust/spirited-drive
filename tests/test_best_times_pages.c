@@ -85,7 +85,7 @@ static void test_the_laps_are_a_carousel_of_the_counts_there_are(void)
     race_records_reset();
 }
 
-/* dep59 L6: on Lunar's entry (`own` "lunar") the laps field steps through the counts of race_records_tracks.dat's tables, not race_records.dat's */
+/* dep59 L6: on Lunar's entry (`own` "lunar") the laps field steps through the counts of race_records_tracks2.dat's tables, not race_records.dat's */
 static void test_lunars_laps_are_its_own(void)
 {
     race_records_reset(), race_records_tracks_reset();

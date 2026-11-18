@@ -12,6 +12,7 @@
 #include "game/race/race_replay_seek.h"
 #include "game/race/race_sim.h"
 #include "game/race/race_state.h"
+#include "game/sys/piece_print.h"
 #include "game/sys/track_registry.h"
 
 #include <stdint.h>
@@ -121,6 +122,17 @@ ReplayCars race_replay_track_read(const uint8_t block[REPLAY_TRACK_BLOCK], int *
 /* 1 when a whole Replay.rpx of `size` bytes has a track's block that reads CHANGED (race_replay_file_cars says CHANGED for it): the
  * message names the track's rules, not the cars' */
 int race_replay_file_track_changed(const uint8_t *file, size_t size);
+
+/* port (dep59 records by print, step 4): a Replay.rpx made now ends with the prints of its pieces, after the track's block (or the looks', with
+ * no track): the 8 bytes "TNFSPRN1", the print (PIECE_PRINT_SIZE bytes, all zeros for none) of the added car of each of the RACE_PLAYERS entries
+ * and last the added track's: the SHA-256 the records are kept under (piece_print.h). The CRC-32s of the blocks before stay as they were. A
+ * replay with it asks "changed" by the prints, one without it (made before) by the CRC-32s; a stored print that is none, or a piece that has
+ * none, by the CRC-32 too. An older binary knows no Replay.rpx of that size: it plays nothing, as it did for step 5's. */
+enum { REPLAY_PRINTS_MAGIC = 8, REPLAY_PRINTS_BLOCK = REPLAY_PRINTS_MAGIC + (RACE_PLAYERS + 1) * PIECE_PRINT_SIZE };
+/* the prints of the added cars in `field`'s entries into `block` (the magic too; the track's print is left as it is) */
+void race_replay_prints_put_cars(uint8_t block[REPLAY_PRINTS_BLOCK], const RaceField *field);
+/* the print of `piece` (an added track's; NULL: none) into `block` (the magic too; the cars' prints are left as they are) */
+void race_replay_prints_put_track(uint8_t block[REPLAY_PRINTS_BLOCK], const TrackPiece *piece);
 
 /* A race started from a replay's setup, after race_sim_start_field: the cheat words the setup's recording was made with
  * that the exe's setup does not hold (the EXPLODE cheat), put back so the cars play as they did. */

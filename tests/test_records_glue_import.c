@@ -1,5 +1,5 @@
 /* dep59 step 4: Restomod's stores at their first use (records_glue_load): the standard rows go to their cars' tables once, saved at once in
- * race_records_cars.dat with the flag that says so; race_records.dat is not written. (A race_records.dat that could not be read copies
+ * race_records_cars2.dat with the flag that says so; race_records.dat is not written. (A race_records.dat that could not be read copies
  * nothing and writes nothing: records_glue_load's own test.) */
 #include "game/frontend/records_glue.h"
 #include "game/sys/race_records.h"
@@ -48,7 +48,7 @@ bool platform_write_user_file(const char *name, const uint8_t *data, size_t size
     memcpy(files[i].data, data, size);
     files[i].size = size;
     writes_std += strcmp(name, "race_records.dat") == 0;
-    writes_cars += strcmp(name, "race_records_cars.dat") == 0;
+    writes_cars += strcmp(name, "race_records_cars2.dat") == 0;
     return true;
 }
 

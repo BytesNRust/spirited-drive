@@ -13,12 +13,12 @@
 #                      race type arrow does not step over Tournament, and restomod.cfg keeps no edition.
 #   modes  Stock, then Restored (the selector, no restart), with trio in editions/ and Restomod's edition= set: no edition read, Control
 #          Central opens on a fresh player's car 6 in both. (The pictures are menu_compare's stock and restored targets'.)
-#   race   a whole race of car 2 (supra) on Rusty Springs from the menus, in an edition (cars=supra tracks=rusty): race_records_cars.dat
+#   race   a whole race of car 2 (supra) on Rusty Springs from the menus, in an edition (cars=supra tracks=rusty): race_records_cars2.dat
 #          keeps the supra's table.
 #   trackrace  (dep59 step 5, T7g; needs STUDIO) a whole race on an ADDED track from the menus: a piece made with track new --piece
 #          (a 7 letter stem: its stage's number makes the root 8) in an edition of it alone (cars=supra tracks=dune-run); Control Central opens
 #          on its card (mark:card=16), RACE loads the piece from its folder in --mods, the autopilot finishes it, its results screens come
-#          (segment, track, best totals) and Control Central again; race_records_tracks.dat is made.
+#          (segment, track, best totals) and Control Central again; race_records_tracks2.dat is made.
 # usage: edition_menus.sh TNFS REPO ORIGINAL_DIR [PART [STUDIO]] (no PART: menus modes race, in turn). KEEP=1 keeps the scratch folder.
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
@@ -151,7 +151,7 @@ part_race() {
     extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1" walk "$nomods" || fail "race: a race of car 2 on Rusty Springs did not come back to Control Central"
     [ "$(log | values car | cut -d' ' -f1)" = 2 ] || fail "race: the edition did not open on the supra (2): $(log | values car)"
     log | grep -q "^finish: 0=" || fail "race: the race did not finish"
-    grep -aq "supra" "$work/user/race_records_cars.dat" 2>/dev/null || fail "race: race_records_cars.dat has no table of the supra"
+    grep -aq "supra" "$work/user/race_records_cars2.dat" 2>/dev/null || fail "race: race_records_cars2.dat has no table of the supra"
 }
 
 part_trackrace() {
@@ -166,7 +166,7 @@ part_trackrace() {
     extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1" walk "$work/piece" || fail "trackrace: a race on an added track did not come back to Control Central"
     log | grep -q "^finish: 0=" || fail "trackrace: the race did not finish"
     log | grep -q "could not start" && fail "trackrace: the race did not start: $(log | grep "could not start")"
-    [ -s "$work/user/race_records_tracks.dat" ] || fail "trackrace: race_records_tracks.dat was not made"
+    [ -s "$work/user/race_records_tracks2.dat" ] || fail "trackrace: race_records_tracks2.dat was not made"
 }
 
 for part in $parts; do

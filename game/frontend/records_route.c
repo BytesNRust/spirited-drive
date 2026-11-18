@@ -200,7 +200,7 @@ static int32_t route_stock_car(RaceKind kind, RouteOp op, const uint8_t *image, 
     }
     *table = t, *best_lap = lap;
     const int32_t answer = check_table(op, image, game, player, times, car == WARRIOR, records_row_marks(kind), t, lap);
-    if (answer != nothing(op) && !race_records_added_save()) port_log("records: race_records_cars.dat could not be saved\n");
+    if (answer != nothing(op) && !race_records_added_save()) port_log("records: race_records_cars2.dat could not be saved\n");
     return answer;
 }
 
@@ -259,8 +259,8 @@ static int track_race_of(const char *track, RaceKind kind, const uint8_t *image,
     return out->car != NULL;
 }
 
-/* port (dep59 step 5, T5): Lunar's race and an added track's keep their records only in race_records_tracks.dat, the player's car's
- * table, ranked there alone (never race_records.dat nor race_records_cars.dat, whose tracks an older version knows) */
+/* port (dep59 step 5, T5): Lunar's race and an added track's keep their records only in race_records_tracks2.dat, the player's car's
+ * table, ranked there alone (never race_records.dat nor race_records_cars2.dat, whose tracks an older version knows) */
 static int32_t route_track(const char *track, RaceKind kind, RouteOp op, const uint8_t *image, const uint8_t *game, int32_t player,
                            const int32_t *times)
 {
@@ -277,7 +277,7 @@ static int32_t route_track(const char *track, RaceKind kind, RouteOp op, const u
     const int32_t answer = check_table(op, image, game, player, times, r.car_zero, records_row_marks(kind), t, lap);
     if (answer == nothing(op)) return answer;
     if (added_player() != NULL) table_car_words(t, lap, 0);
-    if (!race_records_tracks_save()) port_log("records: race_records_tracks.dat could not be saved\n");
+    if (!race_records_tracks_save()) port_log("records: race_records_tracks2.dat could not be saved\n");
     return answer;
 }
 
@@ -313,7 +313,7 @@ static int32_t route_unified(RaceKind kind, RouteOp op, uint8_t *image, const ui
     }
     if (answer == nothing(op)) return answer;
     table_car_words(t, lap, 0);
-    if (!race_records_added_save()) port_log("records: race_records_cars.dat could not be saved\n");
+    if (!race_records_added_save()) port_log("records: race_records_cars2.dat could not be saved\n");
     return edition_answer(op, image, kind, answer, t, lap, answer);
 }
 
@@ -363,7 +363,7 @@ void records_route_shown(RaceKind kind, const uint8_t image[RECORD_CHECK_IMAGE],
                                                             : race_records_lap_find(track, kind.layout, cheats);
     const char *const own_track = race_records_tracks_race();
     TrackRace r;
-    if (own_track != NULL) {   /* port (dep59 step 5, T5): the player's car's table of race_records_tracks.dat */
+    if (own_track != NULL) {   /* port (dep59 step 5, T5): the player's car's table of race_records_tracks2.dat */
         const int known = track_race_of(own_track, kind, image, &r);
         t = known ? race_records_tracks_find(own_track, r.layout, r.cheats, r.laps, r.car) : NULL;
         lap = known && !is_stage(track) ? race_records_tracks_lap_find(own_track, r.layout, r.cheats, r.car) : NULL;

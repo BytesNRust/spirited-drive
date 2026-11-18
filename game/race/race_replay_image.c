@@ -167,7 +167,39 @@ static int cars_entry(const uint8_t block[REPLAY_CARS_BLOCK], int i, char id[REP
     return mod_ini_id_ok(id) ? 1 : -1;
 }
 
-ReplayCars race_replay_cars_read(const uint8_t block[REPLAY_CARS_BLOCK], RaceField *field, char *id_out)
+static const char PRINTS_MAGIC[REPLAY_PRINTS_MAGIC] = { 'T', 'N', 'F', 'S', 'P', 'R', 'N', '1' };
+
+void race_replay_prints_put_cars(uint8_t block[REPLAY_PRINTS_BLOCK], const RaceField *field)
+{
+    memcpy(block, PRINTS_MAGIC, REPLAY_PRINTS_MAGIC);
+    for (int i = 0; i < RACE_PLAYERS; i++) {
+        const CarPiece *p = car_registry_piece(field->entries[i].car);
+        uint8_t *const at = block + REPLAY_PRINTS_MAGIC + PIECE_PRINT_SIZE * i;
+        if (p != NULL) memcpy(at, p->print, PIECE_PRINT_SIZE);
+        else memset(at, 0, PIECE_PRINT_SIZE);
+    }
+}
+
+void race_replay_prints_put_track(uint8_t block[REPLAY_PRINTS_BLOCK], const TrackPiece *piece)
+{
+    memcpy(block, PRINTS_MAGIC, REPLAY_PRINTS_MAGIC);
+    uint8_t *const at = block + REPLAY_PRINTS_MAGIC + PIECE_PRINT_SIZE * RACE_PLAYERS;
+    if (piece != NULL) memcpy(at, piece->print, PIECE_PRINT_SIZE);
+    else memset(at, 0, PIECE_PRINT_SIZE);
+}
+
+/* 1 when a piece is as the replay says: by the print when the replay has one (`stored`, NULL when it has no trailer) and the piece has one too,
+ * else by the CRC-32 (`crc_same`) */
+static int same_piece(const uint8_t *stored, const uint8_t print[PIECE_PRINT_SIZE], int crc_same)
+{
+    if (stored == NULL || piece_print_is_none(stored) || piece_print_is_none(print)) return crc_same;
+    return memcmp(stored, print, PIECE_PRINT_SIZE) == 0;
+}
+
+/* the trailer's print of the car in entry `i`, NULL without a trailer */
+static const uint8_t *car_print(const uint8_t *prints, int i) { return prints != NULL ? prints + REPLAY_PRINTS_MAGIC + PIECE_PRINT_SIZE * i : NULL; }
+
+static ReplayCars cars_read(const uint8_t block[REPLAY_CARS_BLOCK], const uint8_t *prints, RaceField *field, char *id_out)
 {
     int car[RACE_PLAYERS];
     id_out[0] = '\0';
@@ -181,7 +213,7 @@ ReplayCars race_replay_cars_read(const uint8_t block[REPLAY_CARS_BLOCK], RaceFie
         if (kind == 0) continue;
         car[i] = car_registry_find(id);
         const CarPiece *p = car_registry_piece(car[i]);
-        if (p == NULL || p->fingerprint != print) {
+        if (p == NULL || !same_piece(car_print(prints, i), p->print, p->fingerprint == print)) {
             snprintf(id_out, REPLAY_CARS_ID, "%s", id);
             return p == NULL ? REPLAY_CARS_MISSING : REPLAY_CARS_CHANGED;
         }
@@ -190,8 +222,13 @@ ReplayCars race_replay_cars_read(const uint8_t block[REPLAY_CARS_BLOCK], RaceFie
     return REPLAY_CARS_OK;
 }
 
-ReplayCars race_replay_image_race_cars(const uint8_t setup[REPLAY_SETUP_SIZE], const uint8_t block[REPLAY_CARS_BLOCK], ReplayRace *out,
-                                       char *id_out)
+ReplayCars race_replay_cars_read(const uint8_t block[REPLAY_CARS_BLOCK], RaceField *field, char *id_out)
+{
+    return cars_read(block, NULL, field, id_out);
+}
+
+static ReplayCars image_race_cars(const uint8_t setup[REPLAY_SETUP_SIZE], const uint8_t block[REPLAY_CARS_BLOCK], const uint8_t *prints,
+                                  ReplayRace *out, char *id_out)
 {
     static uint8_t copy[REPLAY_SETUP_SIZE];
     id_out[0] = '\0';
@@ -206,7 +243,13 @@ ReplayCars race_replay_image_race_cars(const uint8_t setup[REPLAY_SETUP_SIZE], c
         if (kind == 1) put32(copy, AT_ENTRIES + (int)(sizeof(RaceEntry) * (size_t)i + offsetof(RaceEntry, car)), 0);
     }
     if (!race_replay_image_race(copy, out)) return REPLAY_CARS_BAD;
-    return race_replay_cars_read(block, &out->field, id_out);
+    return cars_read(block, prints, &out->field, id_out);
+}
+
+ReplayCars race_replay_image_race_cars(const uint8_t setup[REPLAY_SETUP_SIZE], const uint8_t block[REPLAY_CARS_BLOCK], ReplayRace *out,
+                                       char *id_out)
+{
+    return image_race_cars(setup, block, NULL, out, id_out);
 }
 
 void race_replay_apply_cheats(RaceState *race, const ReplayRace *replay)
@@ -346,7 +389,7 @@ void race_replay_track_write(uint8_t block[REPLAY_TRACK_BLOCK], const TrackPiece
     put32(block, REPLAY_TRACK_MAGIC + REPLAY_TRACK_ID, (int32_t)piece->fingerprint);
 }
 
-ReplayCars race_replay_track_read(const uint8_t block[REPLAY_TRACK_BLOCK], int *track, char *id_out)
+static ReplayCars track_read(const uint8_t block[REPLAY_TRACK_BLOCK], const uint8_t *prints, int *track, char *id_out)
 {
     char id[REPLAY_TRACK_ID];
     id_out[0] = '\0', *track = 0;
@@ -357,7 +400,8 @@ ReplayCars race_replay_track_read(const uint8_t block[REPLAY_TRACK_BLOCK], int *
     if (!mod_ini_id_ok(id)) return REPLAY_CARS_BAD;
     const int found = track_registry_find(id);
     const TrackPiece *const p = found >= 0 ? track_registry_piece(found) : NULL;
-    if (p == NULL || p->fingerprint != (uint32_t)get32(block, REPLAY_TRACK_MAGIC + REPLAY_TRACK_ID)) {
+    const uint8_t *const stored = prints != NULL ? prints + REPLAY_PRINTS_MAGIC + PIECE_PRINT_SIZE * RACE_PLAYERS : NULL;
+    if (p == NULL || !same_piece(stored, p->print, p->fingerprint == (uint32_t)get32(block, REPLAY_TRACK_MAGIC + REPLAY_TRACK_ID))) {
         snprintf(id_out, REPLAY_TRACK_ID, "%s", id);
         return p == NULL ? REPLAY_CARS_MISSING : REPLAY_CARS_CHANGED;
     }
@@ -365,12 +409,33 @@ ReplayCars race_replay_track_read(const uint8_t block[REPLAY_TRACK_BLOCK], int *
     return REPLAY_CARS_OK;
 }
 
+ReplayCars race_replay_track_read(const uint8_t block[REPLAY_TRACK_BLOCK], int *track, char *id_out)
+{
+    return track_read(block, NULL, track, id_out);
+}
+
+/* what a whole Replay.rpx of `size` bytes is made of: the blocks before the trailer (`body` bytes: the cars' alone, with the looks, or with the
+ * track too), and `*prints` the trailer's start, NULL when it has none; 0 for a size that is none of them or a trailer that is not ours */
+static int file_parts(const uint8_t *file, size_t size, size_t *body, const uint8_t **prints)
+{
+    const size_t looks_end = (size_t)REPLAY_CARS_AT + REPLAY_CARS_BLOCK + REPLAY_LOOKS_BLOCK;
+    *prints = NULL, *body = size;
+    if (size == looks_end + REPLAY_PRINTS_BLOCK || size == looks_end + REPLAY_TRACK_BLOCK + REPLAY_PRINTS_BLOCK) {
+        *body = size - REPLAY_PRINTS_BLOCK, *prints = file + *body;
+        if (memcmp(*prints, PRINTS_MAGIC, REPLAY_PRINTS_MAGIC) != 0) return 0;
+    }
+    return 1;
+}
+
 int race_replay_file_track_changed(const uint8_t *file, size_t size)
 {
     const size_t looks_end = (size_t)REPLAY_CARS_AT + REPLAY_CARS_BLOCK + REPLAY_LOOKS_BLOCK;
+    size_t body;
+    const uint8_t *prints;
     int track;
     char id[REPLAY_TRACK_ID];
-    return file != NULL && size == looks_end + REPLAY_TRACK_BLOCK && race_replay_track_read(file + looks_end, &track, id) == REPLAY_CARS_CHANGED;
+    return file != NULL && file_parts(file, size, &body, &prints) && body == looks_end + REPLAY_TRACK_BLOCK &&
+           track_read(file + looks_end, prints, &track, id) == REPLAY_CARS_CHANGED;
 }
 
 /* 1 when the setup's stem `stem` (upper case) is the piece's and a stage's digit */
@@ -383,16 +448,19 @@ static int piece_stem(const char *stem, const TrackPiece *p)
 ReplayCars race_replay_file_cars(const uint8_t *file, size_t size, ReplayRace *out, char *id_out)
 {
     const size_t cars_end = (size_t)REPLAY_CARS_AT + REPLAY_CARS_BLOCK, looks_end = cars_end + REPLAY_LOOKS_BLOCK;
-    const int track = size == looks_end + REPLAY_TRACK_BLOCK, looks = size == looks_end || track;
+    size_t body = 0;
+    const uint8_t *prints = NULL;
     id_out[0] = '\0';
     memset(out, 0, sizeof *out);
-    if (file == NULL || (size != cars_end && !looks)) return REPLAY_CARS_BAD;
+    if (file == NULL || !file_parts(file, size, &body, &prints)) return REPLAY_CARS_BAD;
+    const int track = body == looks_end + REPLAY_TRACK_BLOCK, looks = body == looks_end || track;
+    if (body != cars_end && !looks) return REPLAY_CARS_BAD;
     int added = 0;
     if (track) {   /* T5: the track first, so the list names it when it is the one missing */
-        const ReplayCars t = race_replay_track_read(file + looks_end, &added, id_out);
+        const ReplayCars t = track_read(file + looks_end, prints, &added, id_out);
         if (t != REPLAY_CARS_OK) return t;
     }
-    const ReplayCars r = race_replay_image_race_cars(file, file + REPLAY_CARS_AT, out, id_out);
+    const ReplayCars r = image_race_cars(file, file + REPLAY_CARS_AT, prints, out, id_out);
     if (r != REPLAY_CARS_OK) return r;
     if (track && !piece_stem(out->stem, track_registry_piece(added))) return memset(out, 0, sizeof *out), REPLAY_CARS_BAD;
     out->looks_known = looks && race_replay_looks_get(file + cars_end, out->looks);

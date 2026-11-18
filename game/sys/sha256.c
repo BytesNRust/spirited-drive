@@ -49,18 +49,22 @@ void sha256_update(Sha256 *s, const void *data, size_t len)
     }
 }
 
-void sha256_hex(Sha256 *s, char out[65])
+void sha256_digest(Sha256 *s, uint8_t out[32])
 {
     const uint64_t bits = s->bytes * 8;
     uint8_t pad[72] = { 0x80 };
     const size_t padding = (s->used < 56 ? 56 : 120) - s->used;
     for (int i = 0; i < 8; i++) pad[padding + (size_t)i] = (uint8_t)(bits >> (56 - 8 * i));
     sha256_update(s, pad, padding + 8);
-    static const char HEX[] = "0123456789abcdef";
     for (int i = 0; i < 8; i++)
-        for (int k = 0; k < 4; k++) {
-            const uint8_t b = (uint8_t)(s->h[i] >> (24 - 8 * k));
-            out[8 * i + 2 * k] = HEX[b >> 4], out[8 * i + 2 * k + 1] = HEX[b & 15];
-        }
+        for (int k = 0; k < 4; k++) out[4 * i + k] = (uint8_t)(s->h[i] >> (24 - 8 * k));
+}
+
+void sha256_hex(Sha256 *s, char out[65])
+{
+    uint8_t d[32];
+    sha256_digest(s, d);
+    static const char HEX[] = "0123456789abcdef";
+    for (int i = 0; i < 32; i++) out[2 * i] = HEX[d[i] >> 4], out[2 * i + 1] = HEX[d[i] & 15];
     out[64] = '\0';
 }
