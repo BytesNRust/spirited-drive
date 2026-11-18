@@ -52,8 +52,10 @@ static const char *const HELP_TRACK_NEW =
     "usage: tnfs-studio track new LAYOUT --template SLOT --out DIR [--stem NAME] [--data DIR] [--force]\n"
     "       tnfs-studio track new LAYOUT --template SLOT --piece --id ID --stem STEM --out DIR [--name TEXT]\n"
     "                             [--road asphalt|dirt] [--edge WORD] [--author TEXT] [--description TEXT] [--data DIR] [--force]\n"
+    "       tnfs-studio track new LAYOUT --generic ART.FAM --piece --id ID --stem STEM --out DIR   (a track of our own template: no CD data)\n"
     "LAYOUT           the track as text (formats/track_gen.h)\n"
     "--template SLOT  the track slot whose files are the template (tnfs-studio slot list track)\n"
+    "--generic ART.FAM  instead of --template: the track is made from our own template and this art file (tnfs-studio fam build); needs --piece\n"
     "--out DIR        where the files go, laid out like the CD (a piece: its mod.ini too)\n"
     "--stem NAME      the stem the files get (1..8 of letters and digits; a piece: STEM, its stage 1 is STEM1)\n"
     "--piece          make a track piece (a mod of type=track) instead of a slot's replacement\n"
@@ -128,6 +130,14 @@ static const char *const HELP_CAR =
     "       tnfs-studio car texture add PIECE_DIR NAME FILE.png ... (car texture --help)\n"
     "Each form's flags: tnfs-studio car FORM --help\n";
 
+static const char *const HELP_FAM =
+    "usage: tnfs-studio fam build SPEC --out FILE.FAM [--force]\n"
+    "SPEC             a text file, one picture per line in the order the file takes them (formats/fam_spec.h):\n"
+    "                   terrain N [letters=ABC] FILE.png   scenery FILE.png   horizon FILE.png (exactly one)\n"
+    "                 paths are relative to the spec's folder; '#' starts a comment\n"
+    "--out FILE.FAM   the art file to write (the track's art: track new --generic takes it)\n"
+    "--force          overwrite an existing FILE.FAM\n";
+
 static const char *const HELP_MOD =
     "usage: tnfs-studio mod pack DIR OUT.zip [--force]\n"
     "--force           overwrite an existing OUT.zip\n";
@@ -142,6 +152,7 @@ static const struct {
     { "car new", HELP_CAR_NEW },    { "car card", HELP_CAR_CARD },    { "car import", HELP_CAR_IMPORT },
     { "car resize", HELP_CAR_RESIZE }, { "car texture", HELP_CAR_TEXTURE }, { "mod", HELP_MOD },
     { "mod pack", HELP_MOD },
+    { "fam", HELP_FAM },            { "fam build", HELP_FAM },
 };
 
 static int asks_for_help(int argc, char **argv)
