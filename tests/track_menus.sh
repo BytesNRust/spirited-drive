@@ -34,6 +34,9 @@ for p in dune-run:DUNERUN hill-run:HILLRUN; do
         { echo "FAIL: track new --piece ${p%%:*}: $(cat "$work/studio.log")" >&2; exit 1; }
 done
 
+# dune-run has a name of its own, capitals and a space (the id is dune-run): the pages and screens say the name, and a capture shows which they use
+sed 's/^name=.*/name=Dune Run/' "$work/pieces/dune-run/mod.ini" > "$work/name.ini" && cp "$work/name.ini" "$work/pieces/dune-run/mod.ini"
+
 # dune-run says who made it, how long it is and what it is like (its page shows them; a key the studio wrote is left as it is)
 for kv in "author=A. Modder" "length=5.2 miles" "description=A fast, dusty run through the dry riverbeds east of the old quarry. The first stretch is wide and flat, then it narrows between rock walls before the long right-hander that leads to the checkpoint. Watch the edge at the crest: the road drops away without warning. Best driven early in the day, when the sun is low behind you. Made for the contest."; do
     grep -q "^${kv%%=*}=" "$work/pieces/dune-run/mod.ini" || printf '%s\n' "$kv" >> "$work/pieces/dune-run/mod.ini"

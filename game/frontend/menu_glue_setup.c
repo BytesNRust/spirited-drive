@@ -10,6 +10,7 @@
 #include "game/frontend/added_gallery_setup.h"
 #include "game/frontend/cg_setup.h"
 #include "game/race/car_paint.h"
+#include "game/frontend/gallery_label.h"
 #include "game/frontend/gallery_layout.h"
 #include "game/race/car_variant.h"
 #include "game/sys/palette.h"
@@ -80,21 +81,6 @@ static void edge(const Target *t, int x0, int y0, int x1, int y1, int index)
     fill(t, x0, y0, x1, y0, index), fill(t, x0, y1, x1, y1, index), fill(t, x0, y0, x0, y1, index), fill(t, x1, y0, x1, y1, index);
 }
 
-/* `text` in the main face at 3/4: solid `index`, a one-pixel shadow `shadow` down and right (the CD pages' black labels) */
-static void shaded(const Target *t, const char *text, int x, int y, int index, int shadow)
-{
-    const int w = text_width_scaled(text, 3, 4) + 2, h = text_mask_rows(text, 3, 4);
-    uint8_t *mask = h > 0 ? malloc((size_t)w * h) : NULL;
-    if (mask != NULL && text_mask_scaled(text, 3, 4, mask, w, h))
-        for (int pass = shadow < 0 ? 1 : 0; pass < 2; pass++)
-            for (int j = 0; j < h; j++)
-                for (int i = 0; i < w; i++) {
-                    const int px = x + i + (pass == 0), py = y + j + (pass == 0);
-                    if (mask[j * w + i] >= 6 && px >= 0 && px < t->w && py >= 0 && py < t->h) t->to[py * t->w + px] = (uint8_t)(pass == 0 ? shadow : index);
-                }
-    free(mask);
-}
-
 /* an arrow GL_ARROW_W x GL_ARROW_H pointing left or right, its top left at (x, y), over a black one a pixel down and right */
 static void arrow(const Target *t, int x, int y, int left, int index, int black)
 {
@@ -121,7 +107,7 @@ static void setup_draw(void *ctx, int car, int lit, const uint8_t *palette)
         for (int x = 0; x < GL_COL_W; x++)
             if (GL_COL_X + x < t.w && GL_COL_Y + y < t.h) t.to[(GL_COL_Y + y) * t.w + GL_COL_X + x] = setup.tile_ok ? setup.tile[y * GL_COL_W + x] : (uint8_t)ea_colour(DARK_COLOUR);
     edge(&t, VARIANT_LEFT, VARIANT_TOP, VARIANT_RIGHT, VARIANT_BOTTOM, ea_colour(lit ? LIT_COLOUR : DARK_COLOUR));
-    shaded(&t, "SETUP", GL_COL_X + 8, GL_COL_Y + GL_COL_H - 24, black, lit ? yellow : -1);   /* at the foot like the baked labels: black, nothing white (owner 2026-11-18) */
+    gallery_label_draw(t.to, t.w, t.h, "SETUP", GL_COL_X, GL_COL_Y, GL_COL_H, black, lit ? yellow : -1);   /* the CD labels' margins (gallery_label.h) */
     arrow(&t, GL_COL_X + GL_COL_W - 24, GL_COL_Y + (GL_COL_H - GL_ARROW_H) / 2, 0, lit ? yellow : ea_colour(TRIANGLE_COLOUR), black);
 }
 
@@ -227,14 +213,15 @@ static void panel_draw(const Panel *p, int frame)
             text_draw_smooth(value, right - text_width_scaled(value, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN), y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
             continue;
         }
-        const int box = zone + GL_ARROW_W + 6, at = box + GL_SETUP_PREVIEW_W + 6;   /* < box name >, the box inside the arrows */
+        const int box = zone + GL_ARROW_W + 6;   /* < box   name   >: the box inside the left arrow, the name centred between the arrows */
         arrow(&t, zone, mid - GL_ARROW_H / 2, 1, lit ? yellow : cream, black);
         arrow(&t, right - GL_ARROW_W, mid - GL_ARROW_H / 2, 0, lit ? yellow : cream, black);
         fill(&t, box, mid - GL_SETUP_PREVIEW_H / 2, box + GL_SETUP_PREVIEW_W - 1, mid - GL_SETUP_PREVIEW_H / 2 + GL_SETUP_PREVIEW_H - 1, black);
         const CarVariantCanvas canvas = { &t, preview_fill, box + 1, mid - GL_SETUP_PREVIEW_H / 2 + 1, box + GL_SETUP_PREVIEW_W - 2,
                                           mid - GL_SETUP_PREVIEW_H / 2 + GL_SETUP_PREVIEW_H - 2 };
         car_variant_draw(showcase_variants, showcase_variant_count, p->model, &canvas);
-        text_draw_smooth(value, at, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+        const int span0 = zone + GL_ARROW_W, span = GL_SETUP_VALUE_W - 2 * GL_ARROW_W;   /* between the arrows: the name's centre */
+        text_draw_smooth(value, span0 + (span - text_width_scaled(value, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN)) / 2, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
     }
 }
 

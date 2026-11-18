@@ -2,6 +2,7 @@
  * the focus frame, the big photo's arrows and count, General's figures, History's text, the Color tile's two rows. */
 #include "game/frontend/added_gallery_page.h"
 
+#include "game/frontend/gallery_label.h"
 #include "game/sys/text.h"
 
 #include <stdio.h>
@@ -67,25 +68,10 @@ void added_gallery_draw_title(const Page *p)
     text_draw_smooth("Car Showcase", GL_HEADING_X, GL_HEADING_Y, GL_HEADING_NUM, GL_HEADING_DEN);
 }
 
-/* `text` in the page's main face at 3/4, solid `index` with a one-pixel shadow `shadow` down and right, its pen at (x, y) */
-static void shaded(const Target *t, const char *text, int x, int y, int index, int shadow)
-{
-    const int w = text_width_scaled(text, 3, 4) + 2, h = text_mask_rows(text, 3, 4);
-    uint8_t *mask = h > 0 ? malloc((size_t)w * h) : NULL;
-    if (mask != NULL && text_mask_scaled(text, 3, 4, mask, w, h))
-        for (int pass = shadow < 0 ? 1 : 0; pass < 2; pass++)
-            for (int j = 0; j < h; j++)
-                for (int i = 0; i < w; i++) {
-                    const int px = x + i + (pass == 0), py = y + j + (pass == 0);
-                    if (mask[j * w + i] >= 6 && px >= 0 && px < t->w && py >= 0 && py < t->h) t->to[py * t->w + px] = (uint8_t)(pass == 0 ? shadow : index);
-                }
-    free(mask);
-}
-
 /* a tile's label at its foot, as the CD pages have it (owner 2026-11-18): black, nothing white about it; yellow-shadowed when the tile is the item */
 static void label(const Target *t, const char *text, int x, int y, int h, int lit)
 {
-    shaded(t, text, x + 8, y + h - 24, BLACK, lit ? YELLOW : -1);
+    gallery_label_draw(t->to, t->w, t->h, text, x, y, h, BLACK, lit ? YELLOW : -1);   /* the CD's own margins, measured (gallery_label.h) */
 }
 
 /* `text` cut (with a "." at its end) until the small face shows it in `width` pixels */
@@ -238,12 +224,13 @@ static void setup_panel(const Target *t, const Page *p)
             text_draw_smooth(fits, right - text_width_scaled(fits, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN), y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
             continue;
         }
-        const int index = lit ? YELLOW : CREAM, box = zone + GL_ARROW_W + 6, at = box + GL_SETUP_PREVIEW_W + 6;   /* < box name >, the box inside the arrows */
+        const int index = lit ? YELLOW : CREAM, box = zone + GL_ARROW_W + 6;   /* < box   name   >: the box inside the left arrow, the name centred between the arrows */
         arrow(t, zone, mid - GL_ARROW_H / 2, 1, index);
         arrow(t, right - GL_ARROW_W, mid - GL_ARROW_H / 2, 0, index);
         preview(t, box, mid - GL_SETUP_PREVIEW_H / 2, row == SETUP_COLOUR ? SWATCH : SKIN_SWATCH);
-        fitted_main(value, right - GL_ARROW_W - 6 - at, fits, sizeof fits);
-        text_draw_smooth(fits, at, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+        const int span0 = zone + GL_ARROW_W, span = GL_SETUP_VALUE_W - 2 * GL_ARROW_W;   /* between the arrows; the name keeps clear of the box */
+        fitted_main(value, span - 2 * (GL_SETUP_PREVIEW_W + 12), fits, sizeof fits);
+        text_draw_smooth(fits, span0 + (span - text_width_scaled(fits, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN)) / 2, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
     }
 }
 
