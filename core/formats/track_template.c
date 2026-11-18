@@ -99,7 +99,7 @@ static void write_strip(uint8_t *seg)
 /* The INFO's keys are the game's (its lines, in its order, CR LF); the values are ours, chosen for the generic art's own sky (the
  * horizon picture runs from (96,150,220) at the top to (200,220,240) at the horizon: the colours below are those in the file's 5 bits
  * a channel, 12 19 27 and 25 27 30), a flat horizon with no ring, and no tint by the hour: the three groups of the time of day are the
- * same neutral (255 255 255, saturation 0, brightness 255). Not a copy of any CD track's file: dep59 asks the generic package to carry none. */
+ * same neutral (256 256 256, saturation 0, brightness 256: each channel times 256/256, the game's own "no tint"). Not a copy of any CD track's file: dep59 asks the generic package to carry none. */
 static const char INFO[] =
     "#vert offset near\r\n0\r\n\r\n#vert offset far\r\n0\r\n\r\n"
     "#zoffset near\r\n0\r\n\r\n#zoffset far\r\n0\r\n\r\n"
@@ -110,8 +110,8 @@ static const char INFO[] =
     "#ring y offset (bigger places horizon further down)\r\n-52\r\n\r\n"
     "#ring height\r\n100\r\n\r\n"
     "#RGB TIME OF DAY VALUES\r\n\r\n"
-    "255\r\n255\r\n255\r\n0\r\n255\r\n\r\n255\r\n255\r\n255\r\n0\r\n255\r\n\r\n"
-    "255\r\n255\r\n255\r\n0\r\n255\r\n\r\n0\r\n\r\n";
+    "256\r\n256\r\n256\r\n0\r\n256\r\n\r\n256\r\n256\r\n256\r\n0\r\n256\r\n\r\n"
+    "256\r\n256\r\n256\r\n0\r\n256\r\n\r\n0\r\n\r\n";
 
 const char *track_template_info(size_t *len)
 {

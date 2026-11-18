@@ -247,10 +247,49 @@ static void check_info(void)
     }
     CHECK_EQ_INT(keys, 14);
     CHECK(strstr(text, "#colour top\r\n12 19 27\r\n") != NULL);
+    CHECK(strstr(text, "256\r\n256\r\n256\r\n0\r\n256\r\n") != NULL);   /* the game's neutral tint */
     CHECK(strstr(text, "#colour bottom\r\n25 27 30\r\n") != NULL);
 }
 
-int main(void)
+/* the file's value lines (not the "#" keys, not the blank lines), CR LF or LF, one after the other joined by '|' */
+static void value_lines(const char *text, char *out, size_t cap)
+{
+    size_t n = 0;
+    for (const char *p = text; *p && n + 2 < cap;) {
+        const char *end = p;
+        while (*end && *end != '\n' && *end != '\r') ++end;
+        if (end > p && *p != '#') {
+            for (const char *c = p; c < end && n + 2 < cap; ++c) out[n++] = *c;
+            out[n++] = '|';
+        }
+        p = end;
+        while (*p == '\n' || *p == '\r') ++p;
+    }
+    out[n] = '\0';
+}
+
+/* the package of the generic road carries no CD file: its INFO's values are not the values of any INFO of the CD given on the command line */
+static int check_not_a_cd_info(int argc, char **argv)
+{
+    static char mine[4096], theirs[4096], raw[8192];
+    size_t len = 0;
+    value_lines(track_template_info(&len), mine, sizeof mine);
+    int used = 0;
+    for (int a = 1; a < argc; ++a) {
+        FILE *fp = fopen(argv[a], "rb");
+        if (fp == NULL) continue;
+        const size_t got = fread(raw, 1, sizeof raw - 1, fp);
+        fclose(fp);
+        raw[got] = '\0';
+        value_lines(raw, theirs, sizeof theirs);
+        ++used;
+        CHECK(strcmp(mine, theirs) != 0);
+        if (strcmp(mine, theirs) == 0) fprintf(stderr, "the template's INFO has the values of %s\n", argv[a]);
+    }
+    return used;
+}
+
+int main(int argc, char **argv)
 {
     uint8_t *file = NULL;
     size_t size = 0;
@@ -261,6 +300,7 @@ int main(void)
     check_same_bytes_each_time(file, size);
     check_generate_from_it(file, size);
     check_info();
+    if (argc > 1) CHECK(check_not_a_cd_info(argc, argv) > 0);
     CHECK(fnv64(file, size) == 0x626720e610226d90ull);   /* the golden: whole numbers all the way, so one hash for every machine */
     free(file);
     return TEST_REPORT();
