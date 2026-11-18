@@ -333,6 +333,24 @@ static void test_pictures_at_load(void)
     car_registry_clear();
 }
 
+/* dep59 showcase (PR B): the photos= and photo_small= files are read with the piece: named and there it races, named and missing it is
+ * refused (PIECE.PHOTO), as the pack and the studio say */
+static void test_photos_at_load(void)
+{
+    char d[400], path[500];
+    CHECK(piece("photos", "photo-car", "PHOTOCAR", "sound_from=viper\nphotos=big1.png,big2.png\nphoto_small=small.png\n", "", d));
+    write_png(d, "big1.png", 450, 254);
+    write_png(d, "big2.png", 450, 254);
+    write_png(d, "small.png", 278, 228);
+    car_registry_clear();
+    CHECK_EQ_INT(load1(d, 1), 1);
+    snprintf(path, sizeof path, "%s/big2.png", d);
+    unlink(path);
+    car_registry_clear();
+    CHECK_EQ_INT(load1(d, 1), 0);   /* a photo named and not there */
+    car_registry_clear();
+}
+
 int main(void)
 {
     char probe[600];
@@ -354,6 +372,7 @@ int main(void)
     test_the_fingerprint();
     test_the_card();
     test_pictures_at_load();
+    test_photos_at_load();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);
     if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", base);
