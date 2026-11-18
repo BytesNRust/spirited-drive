@@ -7,7 +7,8 @@
 
 enum {
     SWITCH_LAST_Y = 316, SWITCH_PITCH = 24,   /* the CD's page: the variant's name stood at 0x13c, the switch rows a row apart above it */
-    TIME_Y0 = 388, TIME_Y1 = 416, WEATHER_Y0 = 417, WEATHER_Y1 = 434,
+    TIME_Y0 = 388, TIME_Y1 = 416, WEATHER_Y0 = 417, WEATHER_Y1 = 434,   /* the rows' hit boxes (the CD's) */
+    TIME_TEXT_Y = 386, WEATHER_TEXT_Y = 410,                              /* where their words are drawn: the CD's rows */
     ROWS_X1 = 300,                            /* the rows end where the big box begins */
     BOTTOM_Y0 = 435, BOTTOM_Y1 = 479,
     DONE_X1 = 130, PREVIOUS_X0 = 200, PREVIOUS_X1 = 250, NEXT_X0 = 370, NEXT_X1 = 420, BEST_X0 = 480, BEST_X1 = 639
@@ -120,8 +121,8 @@ int track_page_input(TrackPage *p, int key)
 int track_page_row_y(const TrackPage *p, int item)
 {
     if (!track_page_shown(p, item)) return -1;
-    if (item == TP_TIME) return TIME_Y0;
-    if (item == TP_WEATHER) return WEATHER_Y0;
+    if (item == TP_TIME) return TIME_TEXT_Y;
+    if (item == TP_WEATHER) return WEATHER_TEXT_Y;
     const int below = item == TP_MIRROR && track_page_shown(p, TP_RALLY);
     return SWITCH_LAST_Y - (below ? SWITCH_PITCH : 0);
 }
@@ -139,7 +140,7 @@ int track_page_hit(const TrackPage *p, int x, int y)
     if (track_page_shown(p, TP_TIME) && y >= TIME_Y0 && y <= TIME_Y1) return TP_TIME;
     if (track_page_shown(p, TP_WEATHER) && y >= WEATHER_Y0 && y <= WEATHER_Y1) return TP_WEATHER;
     for (int item = TP_MIRROR; item <= TP_RALLY; item++) {
-        const int top = track_page_row_y(p, item);
+        const int top = track_page_row_y(p, item);   /* (the switch rows' words are at the top of their boxes) */
         if (top >= 0 && y >= top && y < top + SWITCH_PITCH) return item;
     }
     return -1;

@@ -46,7 +46,7 @@ int track_page_time_shown(const TrackPageOffer *offer, int light_time);
 int track_page_input(TrackPage *p, int key);
 /* the item shown at (x, y), the page's 640 x 480, or -1 */
 int track_page_hit(const TrackPage *p, int x, int y);
-/* the y of a row's top on the page (Mirror, Rally, Time, Weather): the switch rows stack up from where the CD's variant name stands, the
+/* the y its words are drawn at on the page (Mirror, Rally, Time, Weather): the switch rows stack up from where the CD's variant name stands, the
  * last shown lowest, so a row that does not apply leaves no gap; -1 when the row is not shown */
 int track_page_row_y(const TrackPage *p, int item);
 

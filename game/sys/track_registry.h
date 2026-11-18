@@ -15,6 +15,7 @@ enum { TRACK_ADDED_FIRST = 16, TRACK_ADDED_MAX = 64 };
 
 typedef struct {
     char id[MOD_INI_ID_MAX + 1], name[MOD_INI_NAME_MAX + 1], stem[MOD_INI_STEM_MAX + 1], author[MOD_INI_AUTHOR_MAX + 1];
+    char description[MOD_INI_DESCRIPTION_MAX + 1];   /* mod.ini description as written: the page shows it */
     char length[MOD_INI_FIGURE_MAX + 1];   /* mod.ini length= as written ("14.2 km"), "" when not given */
     TrackPieceSpec spec;                   /* kind, segments, road, edge and hours: what the race reads of it */
     uint8_t tint[3];                       /* its page's background tone: mod.ini showcase_tint, else the sepia (showcase_tint.h); not in the fingerprint */

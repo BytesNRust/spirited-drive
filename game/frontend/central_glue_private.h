@@ -6,6 +6,7 @@
 /* 00432ff4: the checked Control Central (central.c) over game/sys and ea_lib (glue, no oracle). Its globals are
  * shorts here, filled from config.dat's race settings on entry and put back on leaving; the race settings' checked
  * steps (race_settings.c, tournament.c) run on a RaceSettings made from them. */
+#include "game/sys/track_registry.h"
 #include "game/frontend/menu_glue.h"
 #include "game/frontend/central_glue_ops.h"
 
@@ -171,6 +172,12 @@ extern TrackViewerResults cg_last_drive;
 void cg_drive(void *ctx, int32_t argc, char *const *argv);
 /* port (dep59 step 5, T7e2): Best Times on the added track `track` (menu number 16..79; 0 or another: Coastal's), its records by id; T7d's page opens it; `ctx` is its DialogPointer (never NULL), as best_times's; the arrows inside also write the laps choice: call it from the page, not mid-tournament */
 int32_t cg_best_times_added(void *ctx, int track);
+/* port (dep59 step 5, T7d): the added track's page (track_page_glue.c) for the pick `cg_g.track`, from Control Central's palette; 0 when it is left */
+int32_t cg_track_page(void *ctx, const uint8_t screen[768]);
+/* Control Central's track arrows: the pick stepped by `dir` (1 forward, -1 back) */
+void cg_track_arrow(int dir);
+/* 1 when the added track has rally art (NTRACKFM/<STEM>n_R01.FAM in its folder): the page offers the Rally row */
+int cg_track_has_rally_art(const TrackPiece *t);
 void cg_segment_results(void *ctx, int32_t mode);
 void cg_track_results(void *ctx, int32_t ask);
 void cg_circuit_results(void *ctx, int32_t ask);

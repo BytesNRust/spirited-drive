@@ -5,6 +5,7 @@
 #            added-gallery (an added car's gallery: the same click with an added car picked, KEYS after it)  options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
 #            graphics  extras (page 1/3)  extras-p2  extras-p3
 #            content (CONTENT, from Game Mode's "Manage content...": open in Restomod alone, so PROFILE defaults to restomod there)
+#            added-page (the added track's own page, opened by its card's click; MODS and EDITION as added-track)
 #            added-track (Control Central on an added track's card, mark:card=16: MODS a track piece's folder and EDITION an edition of it alone, both required)
             track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
 #            best-circuit-p2  best-cheats (Coastal, the table with cheats: none)
@@ -108,6 +109,8 @@ showcase)     script="$to_central,$(click 180 200),$(wait_for showcase)"; final=
 added-gallery) script="$to_central,$(click 180 200),$(wait_for added_gallery)${KEYS:+,$KEYS}"; final=added_gallery; tail=${TAIL:-3} ;;
 added-track)  [ -n "$MODS" ] && [ -n "$EDITION" ] || { echo "added-track needs MODS (a track piece's folder) and EDITION (an edition file naming it alone, tracks=<id>)" >&2; exit 2; }
               script="$to_central,0:WAIT:mark:card=16:$step${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3}; PROFILE=${PROFILE:-restomod} ;;   # the card's mark: 16 is the first added track
+added-page)   [ -n "$MODS" ] && [ -n "$EDITION" ] || { echo "added-page needs MODS (a track piece's folder) and EDITION (an edition file naming it alone, tracks=<id>)" >&2; exit 2; }
+              script="$to_central,0:WAIT:mark:card=16:$step,$(click 400 320),$(wait_for track_page)${KEYS:+,$KEYS}"; final=track_page; tail=${TAIL:-3}; PROFILE=${PROFILE:-restomod} ;;   # the card's click opens the added track's page
 options)      script="$to_options"; final=options ;;
 controls)     script="$to_options,$(click 80 285),$(wait_for controls_keyboard)"; final=controls_keyboard ;;
 controls-p2)  script="$to_options,$(click 80 285),$(wait_for controls_keyboard),$(next_page),$(wait_for controls_actions),$(park)"; final=controls_actions ;;

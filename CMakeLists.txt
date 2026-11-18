@@ -251,6 +251,7 @@ add_library(tnfs_game STATIC
     game/frontend/track_page.c
     game/frontend/track_page_row.c
     game/frontend/track_page_layout.c
+    game/frontend/track_page_glue.c
     game/frontend/tournament.c
     game/frontend/tournament_variants.c
     game/frontend/cop_stop.c
@@ -1305,7 +1306,7 @@ if(NOT EMSCRIPTEN)
                  ${CMAKE_SOURCE_DIR}/original trackrace $<TARGET_FILE:tnfs-studio>)
         set_tests_properties(edition_menus_trackrace PROPERTIES TIMEOUT 600)
         # dep59 step 5 (T8): two installed track pieces in an edition of them alone, the menus' walk of them, one test per game session
-        foreach(part central race card)
+        foreach(part central race card page best_times)
             add_test(NAME track_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_menus.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>
                      ${CMAKE_SOURCE_DIR}/original ${part})
             set_tests_properties(track_menus_${part} PROPERTIES TIMEOUT 600)
