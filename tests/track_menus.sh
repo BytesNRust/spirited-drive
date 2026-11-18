@@ -5,15 +5,16 @@
 #                (the list is the edition's alone), no screen but Control Central opened and none of the original's tables read
 #   race         the second piece raced from Control Central (the autopilot, one lap), its three results screens, Control Central again;
 #                its record is in race_records_tracks.dat under its id, none under the first piece's
+#   card         tools/menu_walk.sh's added-track target (Control Central on the piece's card, the picture menu_compare compares) saves a picture
 #   best_times   (prepared: set BEST=1 once T7d's page opens it) the card's click opens the track's page and its BEST TIMES the records by id
-# usage: track_menus.sh TNFS STUDIO ORIGINAL_DIR [PART...]   (no PART: central race). KEEP=1 keeps the scratch folder.
+# usage: track_menus.sh TNFS STUDIO ORIGINAL_DIR [PART...]   (no PART: central race card). KEEP=1 keeps the scratch folder.
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
 tnfs=$(abs "$1")
 studio=$(abs "$2")
 orig=$(abs "$3")
 shift 3
-parts=${*:-central race}
+parts=${*:-central race card}
 [ -f "$orig/SIMDATA/MISC/AL1.TRI" ] || { echo "skip: no AL1.TRI in $orig"; exit 0; }
 work=$(mktemp -d)
 trap '[ -n "${KEEP:-}" ] && echo "kept $work" >&2 || find "$work" -delete' EXIT
@@ -102,6 +103,15 @@ part_race() {
     log | grep -q "track screen: track .* is an added track" && fail "race: the track screen was asked for an added track"
 }
 
+part_card() {
+    command -v magick >/dev/null 2>&1 && command -v zsh >/dev/null 2>&1 || { echo "skip: card (needs zsh and ImageMagick)"; return; }
+    printf 'name=Solo\ncars=supra\ntracks=dune-run\n' > "$work/solo.ini"
+    mkdir -p "$work/pics"
+    MODS="$work/pieces/dune-run" EDITION="$work/solo.ini" DATA="$orig" zsh "$(dirname "$0")/../tools/menu_walk.sh" "$tnfs" "$work/pics" added-track >"$work/walk.log" 2>&1 ||
+        { fail "card: menu_walk.sh added-track: $(tail -3 "$work/walk.log")"; return; }
+    [ -s "$work/pics/added-track.png" ] || fail "card: no picture of Control Central on the added track"
+}
+
 part_best_times() {
     [ -n "${BEST:-}" ] || { echo "skip: best_times (T7d's page does not open it yet: BEST=1 once it does)"; return; }
     user_in
@@ -114,7 +124,7 @@ part_best_times() {
 
 for part in $parts; do
     case $part in
-    central|race|best_times) "part_$part" ;;
+    central|race|card|best_times) "part_$part" ;;
     *) echo "FAIL: no part $part" >&2; exit 2 ;;
     esac
 done

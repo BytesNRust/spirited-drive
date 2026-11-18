@@ -9,7 +9,7 @@
 #   or, for a target named in EXPECTED (a change meant, e.g. EXPECTED=game-mode for a new layout the owner approves):   <target>: differs <N> px (expected) ...
 # then a summary line. Exit 0 every target the same (or its difference expected), 1 some differ, 3 some walk failed (a failure outranks a difference),
 # 2 bad arguments or no magick.
-#   TARGETS (default: the nine below, content the last; game-mode, central, showcase and the others of menu_walk.sh only when named here, e.g. TARGETS="game-mode central")   JOBS (default 2: walks running at once; each is one headless game)
+#   TARGETS (default: the nine below, content the last; game-mode, central, showcase and the others of menu_walk.sh only when named here, e.g. TARGETS="game-mode central"; added-track needs MODS and EDITION in the environment, menu_walk.sh's: Control Central on an added track's card)   JOBS (default 2: walks running at once; each is one headless game)
 #   DATA, STEP_TIMEOUT, SETTLE, FORMAT: as menu_walk.sh (FORMAT=21:9 compares the menus as a 21:9 screen shows them)
 # The pictures are the walk's last frame (the pointer included), so a run of the same binary twice is "same". The nine targets take about 7 minutes
 # on the 4-thread dev machine with JOBS=2 (18 walks of 40 s; content's walk on a binary from before CONTENT ends at its 60 s step wait).
