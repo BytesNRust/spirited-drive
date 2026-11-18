@@ -1,11 +1,12 @@
 /* tnfs-track-editor: a top view of a track project's centre line (phase 1a, notes/dep59-track-editor-design.md).
  *
- *   tnfs-track-editor PROJECT [--game PATH] [--user DIR]
+ *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
  *                     [--frames N] [--save] [--build] [--install] [--shot OUT.png]
  *
  * PROJECT is a folder such as art/tnfs-tracks/<id>/ (created with its project.ini and trace.json when missing). The build uses no CD data:
  * the road is made on the generic template and the stage's art is the FAM named by project.ini's art=. --game and --user are for the
- * install (the game's --install into the player folder). The options after --frames run headless: N frames, then they are done, and --shot writes the last frame to a PNG; the
+ * install (the game's --install; without --user, into the game's own player folder). Without PROJECT the editor opens
+ * Documents/Spirited Drive Studio/my-track; without --game it takes the Spirited Drive app beside it (inside the DMG) or ./tnfs. The options after --frames run headless: N frames, then they are done, and --shot writes the last frame to a PNG; the
  * exit status is 1 when a --save, --build or --install failed. Run it with SDL_VIDEO_DRIVER=dummy and SDL_AUDIO_DRIVER=dummy for a headless
  * run. */
 #include "app.h"
@@ -32,7 +33,7 @@ typedef struct {
 
 static int usage(void)
 {
-    fprintf(stderr, "usage: tnfs-track-editor PROJECT [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
+    fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--shot OUT.png]\n");
     return 0;
 }
@@ -40,7 +41,6 @@ static int usage(void)
 static int parse_args(int argc, char **argv, Options *o)
 {
     memset(o, 0, sizeof *o);
-    o->game = "./tnfs";
     for (int i = 1; i < argc; ++i) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--game") == 0 && has_value) o->game = argv[++i];
@@ -53,12 +53,35 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (argv[i][0] != '-' && o->dir == NULL) o->dir = argv[i];
         else return usage();
     }
-    if (o->dir == NULL) return usage();
-    if (o->install && o->user == NULL) {
-        fprintf(stderr, "--install needs --user DIR (the player folder)\n");
-        return 0;
-    }
     return 1;
+}
+
+/* The game's program, when --game is not given: the app beside this one (the DMG's "Spirited Drive.app" next to "Spirited Drive Studio.app",
+ * in the Applications folder or anywhere both were dragged), else ./tnfs as a build tree has it. */
+static void default_game(char *out, size_t cap)
+{
+    static const char APP_TNFS[] = "Spirited Drive.app/Contents/MacOS/tnfs";
+    const char *base = SDL_GetBasePath();   /* ".../Spirited Drive Studio.app/Contents/Resources/" inside the bundle */
+    char sibling[APP_PATH];
+    SDL_PathInfo info;
+    if (base != NULL) {
+        snprintf(sibling, sizeof sibling, "%s../../../%s", base, APP_TNFS);
+        if (SDL_GetPathInfo(sibling, &info) && info.type == SDL_PATHTYPE_FILE) {
+            snprintf(out, cap, "%s", sibling);
+            return;
+        }
+    }
+    snprintf(sibling, sizeof sibling, "/Applications/%s", APP_TNFS);
+    snprintf(out, cap, "%s", SDL_GetPathInfo(sibling, &info) && info.type == SDL_PATHTYPE_FILE ? sibling : "./tnfs");
+}
+
+/* The project folder when none is given (the app opened from the Finder): Documents/Spirited Drive Studio/my-track, made if missing. */
+static int default_project(char *out, size_t cap)
+{
+    const char *docs = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS);
+    if (docs == NULL) return 0;
+    const int n = snprintf(out, cap, "%sSpirited Drive Studio/my-track", docs);
+    return n > 0 && (size_t)n < cap && SDL_CreateDirectory(out);
 }
 
 /* the window's own events: closing it, or Escape (which no panel keeps) */
@@ -95,7 +118,10 @@ static int run(App *a, const Options *o)
     }
     char ui_why[APP_MSG];
     char ini[APP_PATH] = "";
-    if (o->user != NULL) {   /* the window's layout is kept in the player folder, made when it is not there yet */
+    if (o->user == NULL && o->frames == 0) {   /* a normal run without --user keeps its layout in the editor's own folder */
+        const char *pref = SDL_GetPrefPath(NULL, "spirited-drive-studio");
+        if (pref != NULL) snprintf(ini, sizeof ini, "%strack-editor.ini", pref);
+    } else if (o->user != NULL) {   /* the window's layout is kept in the player folder, made when it is not there yet */
         const int n = snprintf(ini, sizeof ini, "%s/track-editor.ini", o->user);
         if (n < 0 || (size_t)n >= sizeof ini || !SDL_CreateDirectory(o->user)) {
             fprintf(stderr, "cannot keep the layout in %s: %s\n", o->user, SDL_GetError());
@@ -148,6 +174,18 @@ int main(int argc, char **argv)
 {
     Options o;
     if (!parse_args(argc, argv, &o)) return 2;
+    char game[APP_PATH], project[APP_PATH];
+    if (o.game == NULL) {
+        default_game(game, sizeof game);
+        o.game = game;
+    }
+    if (o.dir == NULL) {
+        if (!default_project(project, sizeof project)) {
+            fprintf(stderr, "no project folder given and Documents/Spirited Drive Studio cannot be made: %s\n", SDL_GetError());
+            return 2;
+        }
+        o.dir = project;
+    }
     App *app = calloc(1, sizeof *app);
     if (app == NULL) return 1;
     int status = 1;

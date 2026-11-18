@@ -254,7 +254,8 @@ int install_zip(const char *game, const char *zip, const char *user_dir, char *w
         return 0;
     }
     if (pid == 0) {
-        execl(game, game, "--user", user_dir, "--install", zip, (char *)NULL);
+        if (user_dir[0] != '\0') execl(game, game, "--user", user_dir, "--install", zip, (char *)NULL);
+        else execl(game, game, "--install", zip, (char *)NULL);   /* the game's own player folder */
         _exit(127);
     }
     int status = 0;

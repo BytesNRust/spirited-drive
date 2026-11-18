@@ -147,11 +147,11 @@ void project_panel(App *a)
         ImGui::SameLine();
         if (ImGui::Button("Build (B)")) app_build(a);
         ImGui::SameLine();
-        ImGui::BeginDisabled(a->zip[0] == '\0' || a->user[0] == '\0');
+        ImGui::BeginDisabled(a->zip[0] == '\0');
         if (ImGui::Button("Install (U)")) app_install(a);
         ImGui::EndDisabled();
         if (a->zip[0] != '\0') ImGui::TextWrapped("package %s", a->zip);
-        if (a->user[0] == '\0') ImGui::TextDisabled("install needs --user DIR");
+        ImGui::TextDisabled("installs into %s", a->user[0] != '\0' ? a->user : "the game's player folder");
         ImGui::TextWrapped("%s", a->status);
         ImGui::Separator();
         ImGui::TextDisabled("drag LMB  pan RMB/MMB  zoom wheel");

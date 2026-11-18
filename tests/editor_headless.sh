@@ -1,7 +1,7 @@
 #!/bin/sh
 # The track editor runs headless (Dear ImGui over the SDL software renderer): a project folder is made, N frames are drawn and the last one
 # is written as a PNG that has the window's size, the road's line and the control points drawn in the viewport panel; --save writes the
-# project files; --user makes its folder and keeps the layout in it; no project folder fails.
+# project files; --user makes its folder and keeps the layout in it; an unknown option fails. (Never run it without a PROJECT here: that opens a window on a folder in the real Documents.)
 # usage: editor_headless.sh EDITOR
 set -u
 editor=$1
@@ -68,6 +68,6 @@ printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 80.
 if [ -f "$work/bad.png" ]; then png_check "$work/bad.png" bad; else fail "no PNG of the project that breaks limits"; fi
 "$editor" "$work/proj" --frames 2 --user "$work/user/sub" >/dev/null 2>&1 || fail "run with --user"
 [ -f "$work/user/sub/track-editor.ini" ] || fail "the layout was not kept in the player folder (made when missing)"
-"$editor" >/dev/null 2>&1 && fail "no project folder was accepted"
+"$editor" --no-such-option >/dev/null 2>&1 && fail "an unknown option was accepted"   # (no PROJECT is a run, not an error: it opens Documents/Spirited Drive Studio/my-track)
 [ "$failures" -eq 0 ] && echo "editor_headless: ok"
 exit "$failures"
