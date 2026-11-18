@@ -31,6 +31,18 @@ typedef struct {
     int scroll;  /* port (PR B): the description's first line shown (0 at the top); the glue keeps it within the text */
 } GalleryState;
 
+/* port (PR B): the description's automatic scroll: it waits GALLERY_SCROLL_WAIT_MS at the top, then goes a line every GALLERY_SCROLL_STEP_MS, waits
+ * GALLERY_SCROLL_END_MS at the end and returns to the top; it stops while the pointer or the keys are on it */
+enum { GALLERY_SCROLL_WAIT_MS = 3000, GALLERY_SCROLL_STEP_MS = 2000, GALLERY_SCROLL_END_MS = 3000 };
+typedef struct {
+    unsigned since;   /* when the scroll last moved, was reset or the pause began */
+    int started;
+} GalleryScroll;
+/* the scroll at `now` (ms): *scroll set (within 0 .. lines - visible; 0 when the text fits); 1 when it changed. `paused`: the pointer or the keys are on
+ * the text (the time they spend does not count); a scroll moved by hand: `gallery_scroll_touch` first */
+int added_gallery_scroll_auto(GalleryScroll *t, unsigned now, int *scroll, int lines, int visible, int paused);
+void added_gallery_scroll_touch(GalleryScroll *t, unsigned now);
+
 /* 1 when Color applies: the skin picked has masks */
 int added_gallery_colour_on(const CarPieceCard *c, const GalleryState *s);
 /* the page entered by a step of the carousel (`entry` 1 Next, -1 Previous; 0 the first entry, from Control Central) */

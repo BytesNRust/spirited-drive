@@ -77,3 +77,32 @@ int added_gallery_input(const CarPieceCard *c, GalleryState *s, int key)
     }
     return GALLERY_STAY;
 }
+
+void added_gallery_scroll_touch(GalleryScroll *t, unsigned now)
+{
+    t->since = now;
+    t->started = 1;
+}
+
+int added_gallery_scroll_auto(GalleryScroll *t, unsigned now, int *scroll, int lines, int visible, int paused)
+{
+    const int last = lines > visible ? lines - visible : 0;
+    const int was = *scroll;
+    if (*scroll > last) *scroll = last;
+    if (*scroll < 0) *scroll = 0;
+    if (!t->started || paused || last == 0) {
+        added_gallery_scroll_touch(t, now);
+        return *scroll != was;
+    }
+    const unsigned elapsed = now - t->since;
+    if (*scroll < last) {
+        if (elapsed >= (unsigned)(*scroll == 0 ? GALLERY_SCROLL_WAIT_MS : GALLERY_SCROLL_STEP_MS)) {
+            (*scroll)++;
+            t->since = now;
+        }
+    } else if (elapsed >= GALLERY_SCROLL_END_MS) {
+        *scroll = 0;
+        t->since = now;
+    }
+    return *scroll != was;
+}

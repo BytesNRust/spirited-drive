@@ -38,33 +38,50 @@ static void panel(uint8_t *out, int x0, int y0, int x1, int y1, int alpha, int e
     tint(out, x0, y0, x0, y1, GL_PANEL_EDGE_RGB, 255), tint(out, x1, y0, x1, y1, GL_PANEL_EDGE_RGB, 255);
 }
 
-void gallery_compose(const uint8_t *bgnd, const uint8_t *picture, uint8_t *out)
+/* the photo (w x h x 3) into the picture at (x0, y0) */
+static void put_photo(uint8_t *out, const uint8_t *photo, int x0, int y0, int w, int h)
+{
+    for (int y = 0; y < h; y++) memcpy(out + 3 * ((y0 + y) * GL_W + x0), photo + 3 * (size_t)y * w, (size_t)w * 3);
+}
+
+/* a tile's frame and shadow: black GL_FRAME px outside x0..x1, y0..y1, its shadow past that; inside the frame the background as it is (what a
+ * translucent panel is mixed with, or a picture put over) */
+static void framed(uint8_t *out, const uint8_t *bgnd, int x0, int y0, int w, int h)
+{
+    shadow(out, x0 - GL_FRAME, y0 - GL_FRAME, x0 + w - 1 + GL_FRAME, y0 + h - 1 + GL_FRAME, GL_SHADOW);
+    tint(out, x0 - GL_FRAME, y0 - GL_FRAME, x0 + w - 1 + GL_FRAME, y0 + h - 1 + GL_FRAME, 0, 255);
+    for (int y = y0; y < y0 + h; y++) memcpy(out + 3 * (y * GL_W + x0), bgnd + 3 * (y * GL_W + x0), (size_t)w * 3);
+}
+
+void gallery_compose(const uint8_t *bgnd, const uint8_t *big, const uint8_t *small, uint8_t *out)
 {
     memcpy(out, bgnd, (size_t)GL_W * GL_H * 3);
     for (int y = 0; y < GL_BAND_H; y++)   /* the owner's v2: the band's texture mirrored, so it blends in */
         for (int x = 0; x < GL_BAND_W; x++) memcpy(out + 3 * (y * GL_W + x), bgnd + 3 * (y * GL_W + GL_BAND_FROM_X + GL_BAND_W - 1 - x), 3);
-    const int px1 = GL_PICTURE_X + GL_PICTURE_W - 1, py1 = GL_PICTURE_Y + GL_PICTURE_H - 1;
-    shadow(out, GL_PICTURE_X - GL_FRAME, GL_PICTURE_Y - GL_FRAME, px1 + GL_FRAME, py1 + GL_FRAME, GL_SHADOW);
-    tint(out, GL_PICTURE_X - GL_FRAME, GL_PICTURE_Y - GL_FRAME, px1 + GL_FRAME, py1 + GL_FRAME, 0, 255);
-    for (int y = 0; y < GL_PICTURE_H; y++)
-        memcpy(out + 3 * ((GL_PICTURE_Y + y) * GL_W + GL_PICTURE_X), picture + 3 * y * GL_PICTURE_W, (size_t)GL_PICTURE_W * 3);
-    const int cx1 = GL_COLUMN_X + GL_COLUMN_W - 1;
-    panel(out, GL_COLUMN_X, GL_FIGURES_Y, cx1, GL_FIGURES_Y + GL_FIGURES_H - 1, GL_FIGURES_ALPHA, 1);
-    shadow(out, GL_COLUMN_X, GL_SKIN_Y, cx1, GL_SKIN_Y + GL_BOX_H - 1, GL_SHADOW);   /* the picture's depth: one light for the page */
-    shadow(out, GL_COLUMN_X, GL_COLOUR_Y, cx1, GL_COLOUR_Y + GL_BOX_H - 1, GL_SHADOW);   /* the picture's depth: one light for the page */
-    tint(out, GL_COLUMN_X, GL_SKIN_Y, cx1, GL_SKIN_Y + GL_BOX_H - 1, GL_SKIN_RGB, 255);   /* Color's the paint's when one is picked */
-    tint(out, GL_COLUMN_X, GL_COLOUR_Y, cx1, GL_COLOUR_Y + GL_BOX_H - 1, GL_SKIN_RGB, 255);
-    panel(out, GL_FOOT_X0, GL_FOOT_Y0, GL_FOOT_X1, GL_FOOT_Y1, GL_FOOT_ALPHA, 0);
+    /* the CD pages' order, the first drawn the farthest: Color, General, Performance, Video, History */
+    framed(out, bgnd, GL_COL_X, GL_COL_Y, GL_COL_W, GL_COL_H);
+    tint(out, GL_COL_X, GL_COL_Y, GL_COL_X + GL_COL_W - 1, GL_COL_Y + GL_COL_H - 1, GL_SKIN_RGB, 255);
+    framed(out, bgnd, GL_GEN_X, GL_GEN_Y, GL_GEN_W, GL_GEN_H);
+    panel(out, GL_GEN_X, GL_GEN_Y, GL_GEN_X + GL_GEN_W - 1, GL_GEN_Y + GL_GEN_H - 1, GL_FIGURES_ALPHA, 0);
+    framed(out, bgnd, GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H);
+    put_photo(out, big, GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H);
+    framed(out, bgnd, GL_VID_X, GL_VID_Y, GL_VID_W, GL_VID_H);
+    put_photo(out, small, GL_VID_X, GL_VID_Y, GL_VID_W, GL_VID_H);
+    framed(out, bgnd, GL_HIST_X, GL_HIST_Y, GL_HIST_W, GL_HIST_H);
+    tint(out, GL_HIST_X, GL_HIST_Y, GL_HIST_X + GL_HIST_W - 1, GL_HIST_Y + GL_HIST_H - 1, GL_HISTORY_RGB, GL_HISTORY_ALPHA);
 }
 
+static int in_rect(int x, int y, int x0, int y0, int w, int h) { return x >= x0 && x < x0 + w && y >= y0 && y < y0 + h; }
+
+/* the two photos' boxes: the entries of the first palette part are theirs */
 static int in_picture(int x, int y)
 {
-    return x >= GL_PICTURE_X && x < GL_PICTURE_X + GL_PICTURE_W && y >= GL_PICTURE_Y && y < GL_PICTURE_Y + GL_PICTURE_H;
+    return in_rect(x, y, GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H) || in_rect(x, y, GL_VID_X, GL_VID_Y, GL_VID_W, GL_VID_H);
 }
 
 int gallery_quantise(const uint8_t *rgb, int colours, uint8_t palette[768], uint8_t *pixels)
 {
-    enum { PICTURE = GL_PICTURE_W * GL_PICTURE_H, REST = GL_W * GL_H - PICTURE };
+    enum { PICTURE = GL_PERF_W * GL_PERF_H + GL_VID_W * GL_VID_H, REST = GL_W * GL_H - PICTURE };
     uint8_t *pic = malloc((size_t)PICTURE * 3), *rest = malloc((size_t)REST * 3);
     uint8_t *pic_i = malloc(PICTURE), *rest_i = malloc(REST);
     const int ok = pic != NULL && rest != NULL && pic_i != NULL && rest_i != NULL && colours > GL_PICTURE_COLOURS && colours <= 256;
@@ -99,24 +116,23 @@ void gallery_lean(const uint8_t *mask, int w, int h, int num, int den, uint8_t *
     }
 }
 
-/* a box of the right column at y: its item, and which arrow's half (the arrow and the room by it) */
-static int box_hit(int x, int y, int box_y, int item, int *step)
-{
-    if (x < GL_COLUMN_X || x >= GL_COLUMN_X + GL_COLUMN_W || y < box_y || y >= box_y + GL_BOX_H) return -1;
-    const int zone = GL_ARROW_IN + GL_ARROW_W + 8;
-    *step = x < GL_COLUMN_X + zone ? -1 : x >= GL_COLUMN_X + GL_COLUMN_W - zone ? 1 : 0;
-    return item;
-}
-
 static int in_box(int x, int y, int x0, int x1) { return x0 <= x && x <= x1 && SHOWCASE_BOTTOM_TOP <= y && y <= SHOWCASE_BOTTOM_BOTTOM; }
+
+/* a tile's left or right zone `zone` wide: -1, 1; 0 between */
+static int zone_step(int x, int x0, int w, int zone) { return x < x0 + zone ? -1 : x >= x0 + w - zone ? 1 : 0; }
 
 int gallery_hit(int x, int y, int *step)
 {
     *step = 0;
-    int item = box_hit(x, y, GL_SKIN_Y, GALLERY_SKIN, step);
-    if (item < 0) item = box_hit(x, y, GL_COLOUR_Y, GALLERY_COLOUR, step);
-    if (item >= 0) return item;
-    *step = 0;
+    if (in_rect(x, y, GL_COL_X, GL_COL_Y, GL_COL_W, GL_COL_H)) {   /* the Color tile: Skin above, Color under */
+        *step = zone_step(x, GL_COL_X, GL_COL_W, GL_ARROW_IN + GL_ARROW_W + 8);
+        return y < GL_COL_Y + GL_COL_H / 2 ? GALLERY_SKIN : GALLERY_COLOUR;
+    }
+    if (in_rect(x, y, GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H)) {
+        *step = zone_step(x, GL_PERF_X, GL_PERF_W, GL_ARROW_ZONE);
+        return GALLERY_PHOTOS;
+    }
+    if (in_rect(x, y, GL_HIST_X, GL_HIST_Y, GL_HIST_W, GL_HIST_H)) return GALLERY_HISTORY;
     if (in_box(x, y, SHOWCASE_PREVIOUS_LEFT, SHOWCASE_PREVIOUS_RIGHT)) return GALLERY_PREVIOUS;
     if (in_box(x, y, SHOWCASE_NEXT_LEFT, SHOWCASE_NEXT_RIGHT)) return GALLERY_NEXT;
     if (in_box(x, y, SHOWCASE_DONE_LEFT, SHOWCASE_DONE_RIGHT)) return GALLERY_DONE;

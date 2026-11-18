@@ -38,6 +38,7 @@ static uint32_t text_queue[TEXT_QUEUE_SIZE];
 static int text_head, text_count;
 
 static float mouse_x, mouse_y;
+static int wheel_notches;   /* port (dep59 showcase): the wheel since platform_mouse_wheel last took it */
 static unsigned mouse_buttons;
 static bool mouse_moved;
 
@@ -149,6 +150,7 @@ bool platform_poll_events(void)
                 : event.button.button == SDL_BUTTON_RIGHT ? PLATFORM_MOUSE_RIGHT : 0;
             mouse_buttons = event.button.down ? (mouse_buttons | bit) : (mouse_buttons & ~bit);
         }
+        if (event.type == SDL_EVENT_MOUSE_WHEEL) wheel_notches += event.wheel.y > 0 ? 1 : event.wheel.y < 0 ? -1 : 0;
         if (event.type == SDL_EVENT_TEXT_INPUT) sdl3_text_push_utf8(event.text.text);
         if (event.type == SDL_EVENT_DROP_FILE && event.drop.data != NULL) sdl3_drop_push(event.drop.data);   /* port (dep59 step 4b) */
         if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) key_latch_press((int)event.key.scancode);   /* port: a tap shorter than a poll still reaches the sim */
@@ -208,6 +210,13 @@ void sdl3_mouse_place(float x, float y)
 void sdl3_mouse_buttons(unsigned press, unsigned release)
 {
     mouse_buttons = (mouse_buttons | press) & ~release;
+}
+
+int platform_mouse_wheel(void)
+{
+    const int notches = wheel_notches;
+    wheel_notches = 0;
+    return notches;
 }
 
 bool platform_mouse(int *x, int *y, unsigned *buttons)
