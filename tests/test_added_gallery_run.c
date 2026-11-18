@@ -62,8 +62,11 @@ static int lines(void *ctx, int *visible) { (void)ctx; *visible = visible_in; re
 static int applied;   /* how many times the settings were kept, and the last transmission */
 static void apply(void *ctx, const GalleryState *s) { (void)ctx; applied = 10 * applied + 1 + s->transmission; }
 
+static int shutters;   /* the panel's openings and closings: opening +1, closing +10 */
+static void shutter(void *ctx, const GalleryState *s, int opening) { (void)ctx, (void)s; shutters += opening ? 1 : 10; }
+
 static const GalleryRunOps OPS = { clear, black, draw, palette, flip, fade_in, fade_out, key, buttons, pointer, click, music, wait, wheel, now,
-                                   lines, apply, NULL };
+                                   lines, apply, shutter, NULL };
 
 static int run(const int *keys, GalleryState *s)
 {
@@ -181,9 +184,10 @@ static void test_the_settings_are_kept(void)
     CarPieceCard c;
     memset(&c, 0, sizeof c);
     c.skins = 1;
-    applied = 0, places = NULL;
+    applied = shutters = 0, places = NULL;
     keys_in = KEYS, key_reads = frames = services = shows = ops_count = 0;
     CHECK_EQ_INT(added_gallery_run(&c, &s, &OPS), GALLERY_LEAVE);
+    CHECK_EQ_INT(shutters, 11);   /* the panel opened once and closed once */
     CHECK_EQ_INT(applied, 21);   /* first manual (1 + 1), then automatic (1 + 0) */
     CHECK_EQ_INT(s.transmission, 0);
 }

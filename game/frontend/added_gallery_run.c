@@ -81,6 +81,7 @@ int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOp
             result = added_gallery_input(c, s, press);
             changed |= memcmp(&was, s, sizeof was) != 0;
             if (was.scroll != s->scroll) added_gallery_scroll_touch(&scroll, o->now(o->ctx));   /* by hand: the clock starts over */
+            if (was.setup != s->setup) o->shutter(o->ctx, s, s->setup);
             if (was.transmission != s->transmission || was.abs != s->abs || was.traction != s->traction) o->apply(o->ctx, s);
         }
         changed |= description(o, s, &scroll, x, y);

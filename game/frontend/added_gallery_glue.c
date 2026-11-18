@@ -38,6 +38,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+enum { SHUTTER_TICKS = 9 };   /* vblanks a shutter frame stays (about 150 ms at 60 Hz) */
+
 /* port (dep59 section 8, the owner's): the Warrior's page. Its year as the owner gave it; its power and weight from its physics
  * (CARSPECS/TRAFFC.PBS, the race's car_model_names[11]); its look fixed: the skin as it comes and its own dark purple, sampled from its
  * Control Central card (CONTROL/WAR1.QFS on Central's palette: the mean of the body's purple, #581C54); its picture that card */
@@ -232,6 +234,13 @@ static void page_still(Page *p)
     for (int i = 0; i < 256; i++) usable[i] = i < STILL_COLOURS;
     p->panel_fill = palette_nearest(p->palette, usable, 0x2a, 0x1c, 0x0e);   /* the panel's dark sepia, the still part's nearest */
     if (row_cut) row_colours(p);
+    free(p->art);
+    p->art = calloc(1, sizeof *p->art);
+    size_t size = 0;
+    uint8_t *file = p->art != NULL ? resource_load_art("option/loadanim.qfs", &size) : NULL;
+    if (file == NULL) port_log("added gallery: option/loadanim.qfs was not read: the panel is flat\n");
+    else if (!added_gallery_setup_art(p->art, file, size, p->palette, usable)) port_log("added gallery: the panel's stone was not made: the panel is flat\n");
+    free(file);
 }
 
 /* the bottom row as the CD showcase pages have it (owner 2026-11-17): DONE, Previous or Next lit when it is the item */
@@ -361,10 +370,26 @@ static int run_lines(void *ctx, int *visible)
 }
 
 /* one car's page until it is left or another is asked for: GALLERY_LEAVE, GALLERY_GO_PREVIOUS or GALLERY_GO_NEXT */
+/* the panel's shutter: opn1 .. opn7 (closing: backwards), the sound at the start; the page drawn each frame, the open one by the run loop */
+static void run_shutter(void *ctx, const GalleryState *s, int opening)
+{
+    Page *p = ctx;
+    if (p->art == NULL || !p->art->ok) return;
+    menu_audio_sound(0x49);
+    p->moving = 1;
+    for (int k = 0; k < SETUP_FRAMES; k++) {
+        p->frame = opening ? k : SETUP_FRAMES - 1 - k;
+        run_draw(p, s);
+        run_flip(p, s);
+        for (int w = 0; w < SHUTTER_TICKS; w++) run_music(p), run_wait(p);
+    }
+    p->moving = 0;
+}
+
 static int run_page(Page *p)
 {
     const GalleryRunOps ops = { run_clear, run_black, run_draw, run_palette, run_flip, run_fade_in, run_fade_out,
-                                run_key, run_buttons, run_pointer, run_click, run_music, run_wait, run_wheel, run_now, run_lines, run_apply, p };
+                                run_key, run_buttons, run_pointer, run_click, run_music, run_wait, run_wheel, run_now, run_lines, run_apply, run_shutter, p };
     return added_gallery_run(&p->card, &p->state, &ops);
 }
 
@@ -392,7 +417,7 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         port_log("mark:screen=added_gallery\n");   /* port: the headless walk waits for it */
         const int result = run_page(&p);
         if (!p.warrior) look_keep(&p);   /* the Warrior's look is fixed: nothing kept */
-        free(p.still);
+        free(p.still), free(p.art);
         if (result == GALLERY_LEAVE) return 0;
         entry = result == GALLERY_GO_NEXT ? 1 : -1;
         *car = car_list_step_gallery(&l, *car, entry);

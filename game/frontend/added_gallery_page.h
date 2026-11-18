@@ -3,6 +3,7 @@
 #ifndef TNFS_ADDED_GALLERY_PAGE_H
 #define TNFS_ADDED_GALLERY_PAGE_H
 
+#include "game/frontend/added_gallery_setup.h"
 #include "game/frontend/added_gallery.h"
 #include "game/frontend/boot_screen.h"
 #include "game/frontend/gallery_layout.h"
@@ -37,6 +38,9 @@ typedef struct {
     uint8_t screen[768];             /* Control Central's palette (the kept entries, the Warrior's card) */
     uint8_t row_map[64];             /* the bottom row's colours' entries (GL_ROW_COLOURS) */
     int shown;                       /* the big photo the still part shows */
+    SetupArt *art;                   /* the panel's stone (NULL: not made); art->ok 0 -> the flat fill */
+    int moving;                      /* the panel is opening or closing: frame `frame` of SETUP_FRAMES is drawn */
+    int frame;
     int panel_fill;                  /* the SETUP panel's fill: the still part's nearest entry to a dark sepia */
     char head[200];                  /* "Name (year) - by Author - vX", in the small face's codes */
     char body[MOD_INI_DESCRIPTION_MAX + 1];   /* the description, in the small face's codes */

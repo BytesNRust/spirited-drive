@@ -153,7 +153,16 @@ static void setup_panel(const Target *t, const Page *p)
 {
     static const char *const LABEL[SETUP_ROWS] = { "Color", "Skin", "Transmission", "ABS", "Traction" };
     const GalleryState *s = &p->state;
-    fill(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, p->panel_fill);
+    if (p->art != NULL && p->art->ok) {   /* the stone: its ground, and while it moves the slab where frame k's is */
+        for (int y = 0; y < GL_SETUP_H; y++)
+            for (int x = 0; x < GL_SETUP_W; x++) {
+                const int at = y * GL_SETUP_W + x, px = GL_SETUP_X + x, py = GL_SETUP_Y + y;
+                if (px >= t->w || py >= t->h) continue;
+                t->to[py * t->w + px] = p->moving && p->art->stone[p->frame][at] ? p->art->slab[at] : p->art->body[at];
+            }
+        if (p->moving) return;   /* the words come when it is open */
+    } else
+        fill(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, p->panel_fill);
     edge(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, 1, CREAM);
     text_select(TEXT_YELLOW);
     text_draw_smooth("SETUP", GL_SETUP_X + 14, GL_SETUP_Y + 8, 3, 4);
@@ -202,7 +211,7 @@ void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th)
     }
     if (!s->setup) general(p);
     history(p, &t);
-    if (s->setup) setup_panel(&t, p);
+    if (s->setup || p->moving) setup_panel(&t, p);
     else setup_tile(&t, p);
 }
 
