@@ -1,4 +1,5 @@
 #include "game/frontend/options_menu.h"
+#include "game/frontend/tournament_car.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -195,7 +196,7 @@ static void settle(const Menu *m, const OptionsMenuState *st, const OptionsMenuO
 {
     if (!m->loaded) return;
     if (*st->race_type == TOURNAMENT) {
-        *st->player_car = TOURNAMENT_CAR[*st->track];
+        *st->player_car = TOURNAMENT_CAR_OF(TOURNAMENT_CAR, *st->track);
         o->car_flags(o->ctx);
         *st->opponent = 10;
         *st->difficulty = 1;

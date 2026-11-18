@@ -1,5 +1,6 @@
 /* Control Central (00432ff4): the letters typed (00434cdf..00434ff8) and the other keys (004360df..0043700e). */
 #include "game/frontend/central_run.h"
+#include "game/frontend/tournament_car.h"
 
 #include <stddef.h>
 
@@ -199,7 +200,7 @@ static void left(CentralRun *r)
             if (*st->lost_vegas != 0) *st->track = 8;
         }
         if (*st->race_type == 3) {
-            *st->player_car = CENTRAL_TOURNAMENT_CAR[*st->track];
+            *st->player_car = TOURNAMENT_CAR_OF(CENTRAL_TOURNAMENT_CAR, *st->track);
             o->car_flags(o->ctx);
             st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
             *st->opponent = 10;

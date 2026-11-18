@@ -1,5 +1,6 @@
 /* Control Central (00432ff4): the pointer picks the item and its arrow (00433301..00433cc6). */
 #include "game/frontend/central_run.h"
+#include "game/frontend/tournament_car.h"
 
 static int in(CentralRun *r, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 {
@@ -118,7 +119,7 @@ void central_after_follow(CentralRun *r)
         r->track_was = *st->track;
         r->changed = 1;
         if (*st->race_type == 3) {
-            *st->player_car = CENTRAL_TOURNAMENT_CAR[r->track_was];
+            *st->player_car = TOURNAMENT_CAR_OF(CENTRAL_TOURNAMENT_CAR, r->track_was);
             o->car_flags(o->ctx);
             st->was[WAS_OPPONENT] = CENTRAL_NO_ART;
             if (*st->net_self != 0) *st->opponent = 10;

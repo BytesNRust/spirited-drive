@@ -1,4 +1,5 @@
 #include "game/frontend/track_select.h"
+#include "game/frontend/tournament_car.h"
 #include "formats/stock_content.h"
 #include "game/audio/lunar_speech.h"
 #include "game/race/track_fam.h"
@@ -507,7 +508,7 @@ static int32_t change_track(const TrackSelectInputs *in, TrackSelectState *st, i
     p16(st->config, TRACK_SELECT_TRACK, track);
     if (g16(st->config, TRACK_SELECT_RACE_TYPE) == TOURNAMENT) {
         p16(st->config, TRACK_SELECT_OPPONENT, OPPONENT_TOURNAMENT);
-        p16(st->config, TRACK_SELECT_CAR, TOURNAMENT_CAR[track_of(st)]);
+        p16(st->config, TRACK_SELECT_CAR, TOURNAMENT_CAR_OF(TOURNAMENT_CAR, track_of(st)));
         ops->car_flags(ops->ctx);
     }
     set_laps(st, g16(st->config, TRACK_SELECT_LAPS_CHOICE));

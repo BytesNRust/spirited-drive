@@ -5,6 +5,11 @@
 #include "game/frontend/config_dat.h"
 #include "game/frontend/tournament.h"
 #include "game/race/car_registry.h"
+#include "game/frontend/tournament_car.h"
+#include "game/sys/track_registry.h"
+
+#include <stdio.h>
+#include <string.h>
 #include "test.h"
 
 static const Unlocks NONE = { 0, 0, 0, 0, 0 };
@@ -192,6 +197,37 @@ static void test_the_arrows_pass_a_closed_tournament(void)
     CHECK_EQ_INT(s.race_type, RACE_TOURNAMENT);
 }
 
+/* dep59 step 5, T7a2: the tournament's car and laps read tables of ten: a track number past them (an added track's 16..79, -1) reads none, and
+ * a tournament never keeps an added track: entering one puts the first track, as the hidden one does */
+static void test_a_tournament_reads_no_table_past_ten(void)
+{
+    static const int TRACKS[] = { -1, 9, 10, 16, 79 };
+    for (size_t k = 0; k < sizeof TRACKS / sizeof TRACKS[0]; k++) {
+        RaceSettings s;
+        race_settings_init(&s);
+        s.race_type = RACE_TOURNAMENT;
+        s.track = TRACKS[k];
+        track_changed(&s);
+        CHECK_EQ_INT(s.player_car, TRACKS[k] == 9 ? 3 : 0);   /* the table's tenth word (the hidden track's), else the first track's */
+    }
+    static const short TABLE[3] = { 5, 6, 7 };   /* the macro the Control Central and Options sites share */
+    CHECK(TOURNAMENT_CAR_OF(TABLE, 0) == 5 && TOURNAMENT_CAR_OF(TABLE, 2) == 7 && TOURNAMENT_CAR_OF(TABLE, 3) == 5 && TOURNAMENT_CAR_OF(TABLE, -1) == 5 && TOURNAMENT_CAR_OF(TABLE, 79) == 5);
+    TrackPiece piece;
+    memset(&piece, 0, sizeof piece);
+    snprintf(piece.id, sizeof piece.id, "dune"), snprintf(piece.name, sizeof piece.name, "dune"), snprintf(piece.stem, sizeof piece.stem, "ZZA");
+    piece.spec.kind = TRACK_KIND_STAGE, piece.spec.segments = 1, piece.spec.times = TRACK_TIME_DAY, piece.fingerprint = 7;
+    track_registry_clear();
+    CHECK(track_registry_add(&piece, NULL, 0) == 16);
+    RaceSettings s;
+    race_settings_init(&s);
+    s.track = 16, s.race_type = RACE_SINGLE;
+    race_type_step(&s, &NONE, +1);
+    CHECK_EQ_INT(s.race_type, RACE_TOURNAMENT);
+    CHECK_EQ_INT(s.track, 0);                     /* the first track, as for the hidden one */
+    CHECK_EQ_INT(s.player_car, 0);
+    track_registry_clear();
+}
+
 int main(void)
 {
     test_init();
@@ -203,5 +239,6 @@ int main(void)
     test_tracks();
     test_laps();
     test_added_car_flags();
+    test_a_tournament_reads_no_table_past_ten();
     return TEST_REPORT();
 }
