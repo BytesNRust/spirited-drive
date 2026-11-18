@@ -12,11 +12,11 @@
 #include <string.h>
 
 enum {
-    FONT_NUM = 7, FONT_DEN = 8,          /* the rows' words: the main face at 7/8, as the SETUP panel's */
-    HEAD_NUM = 2, HEAD_DEN = 3,          /* the column heads */
-    SEG_NUM = 1, SEG_DEN = 2,            /* a stage's three segment times, side by side */
-    TRACK_X = 14, TRACK_W = 150,
-    TOTAL_RIGHT = 262, LAP_X = 276, SEG_STEP = 62, SPEED_RIGHT = 516, COND_RIGHT = 628,
+    HEAD_NUM = 2, HEAD_DEN = 3,          /* the column heads (Best Times' red ones are the art's own: these are as small) */
+    SEED_NUM = 3, SEED_DEN = 4,          /* a speed */
+    SEG_NUM = 3, SEG_DEN = 4,            /* a stage's three segment times, side by side */
+    NAME_X = 8, NAME_W = 205, TOTAL_X = 222, LAP_X = 304, SEG_STEP = 62, SPEED_X = 484, COND_RIGHT = 636,   /* Best Times' columns, moved for ours */
+    PAGER_NUM = 3, PAGER_DEN = 4,        /* the selector's size: Best Times' "< TOP 10 >" (best_times_pages.c) */
     LUNAR = 10
 };
 
@@ -65,13 +65,12 @@ static void pen_ink(void *ctx, const char *text, int32_t num, int32_t den, int32
 }
 
 static void put(const char *text, int x, int y, int num, int den) { text_draw_smooth(text, x, y, num, den); }
-static void put_right(const char *text, int right, int y, int num, int den) { put(text, right - text_width_scaled(text, num, den), y, num, den); }
 
-/* `text` cut (with a "." at its end) to fit `width` at the rows' size */
+/* `text` cut (with a "." at its end) to fit `width` at the main face's size */
 static void fit(const char *text, int width, char *out, int size)
 {
     snprintf(out, (size_t)size, "%s", text);
-    while (out[0] != 0 && text_width_scaled(out, FONT_NUM, FONT_DEN) > width) {
+    while (out[0] != 0 && text_width(out) > width) {
         const size_t n = strlen(out);
         out[n - 1] = 0;
         if (n > 1) out[n - 2] = '.';
@@ -81,34 +80,34 @@ static void fit(const char *text, int width, char *out, int size)
 static void row_draw(const CarRecordsRow *r, int y, int kmh)
 {
     char name[CAR_RECORDS_NAME], text[STAT_TEXT];
-    fit(r->name, TRACK_W, name, sizeof name);
-    text_select(TEXT_CREAM);
-    put(name, TRACK_X, y, FONT_NUM, FONT_DEN);
+    fit(r->name, NAME_W, name, sizeof name);
+    text_select(TEXT_YELLOW);
+    text_draw_shadowed(name, NAME_X, y);   /* Best Times' rows: yellow, the main face, a shadow */
     const CarRecord *const c = &r->record;
     if (!c->found) {
         text_select(TEXT_DIM);
-        put_right("-", TOTAL_RIGHT, y, FONT_NUM, FONT_DEN);
-        put("-", LAP_X, y, FONT_NUM, FONT_DEN);
-        put_right("-", SPEED_RIGHT, y, FONT_NUM, FONT_DEN);
+        put("--", TOTAL_X, y, 1, 1);   /* one "--" for each column, no shadow: nothing is there */
+        put("--", LAP_X, y, 1, 1);
+        put("--", SPEED_X, y, 1, 1);
         return;
     }
-    text_select(TEXT_WHITE);
+    text_select(TEXT_YELLOW);
     stat_time_text(text, c->total);
-    put_right(text, TOTAL_RIGHT, y, FONT_NUM, FONT_DEN);
+    text_draw_shadowed(text, TOTAL_X, y);
     if (c->stage) {
         for (int k = 0; k < RACE_RECORDS_SEGMENTS; k++) {
             if (c->segment[k] > 0) stat_time_text(text, c->segment[k]);
-            else snprintf(text, sizeof text, "-");
-            put(text, LAP_X + k * SEG_STEP, y, SEG_NUM, SEG_DEN);
+            else snprintf(text, sizeof text, "--");
+            put(text, LAP_X + k * SEG_STEP, y + 2, SEG_NUM, SEG_DEN);
         }
     } else {
         if (c->lap > 0) stat_time_text(text, c->lap);
-        else snprintf(text, sizeof text, "-");
-        put(text, LAP_X, y, FONT_NUM, FONT_DEN);
+        else snprintf(text, sizeof text, "--");
+        text_draw_shadowed(text, LAP_X, y);
     }
     if (c->speed > 0) stat_speed_text(text, kmh, c->speed);
-    else snprintf(text, sizeof text, "-");
-    put_right(text, SPEED_RIGHT, y, FONT_NUM, FONT_DEN);
+    else snprintf(text, sizeof text, "--");
+    put(text, SPEED_X, y + 2, SEED_NUM, SEED_DEN);
     const ConditionsPen pen = { NULL, pen_text, pen_width, pen_ink };
     text_select(TEXT_CREAM);
     record_conditions_draw(c->marks, COND_RIGHT, y, 1, 2, &pen);   /* "CLR DAY" over "ORIGINAL", as Best Times' rows */
@@ -116,25 +115,24 @@ static void row_draw(const CarRecordsRow *r, int y, int kmh)
 
 void car_records_view_draw(const CarRecordsView *v, int kmh)
 {
+    text_select(TEXT_CREAM);
+    text_draw_shadowed("RECORDS", NAME_X, CAR_RECORDS_LABEL_Y);   /* where the art's "Best times" is */
     text_select(TEXT_RED);
-    text_draw_smooth("RECORDS", 8, CAR_RECORDS_TOP + 4, 5, 4);
-    put("TRACK", TRACK_X, CAR_RECORDS_HEAD_Y, HEAD_NUM, HEAD_DEN);
-    put_right("TOTAL", TOTAL_RIGHT, CAR_RECORDS_HEAD_Y, HEAD_NUM, HEAD_DEN);
+    put("TRACK", NAME_X, CAR_RECORDS_HEAD_Y, HEAD_NUM, HEAD_DEN);
+    put("TOTAL", TOTAL_X, CAR_RECORDS_HEAD_Y, HEAD_NUM, HEAD_DEN);
     put("LAP / SEGMENTS", LAP_X, CAR_RECORDS_HEAD_Y, HEAD_NUM, HEAD_DEN);
-    put_right("TOP SPEED", SPEED_RIGHT, CAR_RECORDS_HEAD_Y, HEAD_NUM, HEAD_DEN);
-    put_right("CONDITIONS", COND_RIGHT, CAR_RECORDS_HEAD_Y, HEAD_NUM, HEAD_DEN);
+    put("TOP SPEED", SPEED_X, CAR_RECORDS_HEAD_Y, HEAD_NUM, HEAD_DEN);
     const int first = v->page * CAR_RECORDS_ROWS;
     for (int i = 0; i < CAR_RECORDS_ROWS && first + i < v->count; i++) row_draw(&v->row[first + i], CAR_RECORDS_ROW0 + i * CAR_RECORDS_STEP, kmh);
     char pager[24];
     snprintf(pager, sizeof pager, "< %d / %d >", v->page + 1, car_records_view_pages(v));
-    text_select(TEXT_YELLOW);
-    put(pager, (CAR_RECORDS_LEFT + CAR_RECORDS_RIGHT - text_width_scaled(pager, FONT_NUM, FONT_DEN)) / 2, CAR_RECORDS_PAGER_Y, FONT_NUM, FONT_DEN);
+    text_select(TEXT_CREAM);
+    put(pager, CAR_RECORDS_PAGER_X - text_width_scaled(pager, PAGER_NUM, PAGER_DEN) / 2, CAR_RECORDS_PAGER_Y, PAGER_NUM, PAGER_DEN);
 }
 
 int car_records_view_hit(const CarRecordsView *v, int x, int y)
 {
     (void)v;
-    const int mid = (CAR_RECORDS_LEFT + CAR_RECORDS_RIGHT) / 2;
-    if (y < CAR_RECORDS_PAGER_Y - 6 || y > CAR_RECORDS_PAGER_Y + 30 || x < mid - 90 || x > mid + 90) return 0;
-    return x < mid ? -1 : 1;
+    if (y < CAR_RECORDS_PAGER_Y - 8 || y > CAR_RECORDS_PAGER_Y + 22 || x < CAR_RECORDS_PAGER_X - 70 || x > CAR_RECORDS_PAGER_X + 70) return 0;
+    return x < CAR_RECORDS_PAGER_X ? -1 : 1;
 }

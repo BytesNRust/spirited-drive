@@ -209,7 +209,7 @@ add_library(tnfs_game STATIC
     game/frontend/added_gallery_run.c
     game/frontend/car_records.c
     game/frontend/car_records_view.c
-    game/frontend/car_records_run.c
+    game/frontend/car_records_screen.c
     game/frontend/gallery_layout.c
     game/frontend/gallery_photo.c
     game/frontend/lunar_art.c

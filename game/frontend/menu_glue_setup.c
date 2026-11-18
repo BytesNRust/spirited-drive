@@ -8,7 +8,7 @@
 
 #include "game/frontend/added_gallery.h"
 #include "game/frontend/added_gallery_setup.h"
-#include "game/frontend/car_records_run.h"
+#include "game/frontend/car_records_screen.h"
 #include "formats/stock_content.h"
 #include "game/frontend/cg_setup.h"
 #include "game/race/car_paint.h"
@@ -32,7 +32,7 @@ static struct {
     int made, tile_ok;
     uint8_t *bank_tile;   /* FRONTEND/SHOW/SUPRA.QFS, read once */
     size_t bank_tile_size;
-    uint8_t flag[GL_VID_W * GL_VID_H];   /* RECORDS' tile: the chequered flag of FRONTEND/ART/WINNER.QFS on the page's palette */
+    uint8_t flag[SHOWCASE_TILE_W * SHOWCASE_TILE_H];   /* RECORDS' tile: the chequered flag of FRONTEND/ART/WINNER.QFS on the page's palette */
     int flag_ok;
     uint8_t *bank_flag;
     size_t bank_flag_size;
@@ -63,9 +63,13 @@ static void art_make(const uint8_t *palette)
         snprintf(path, sizeof path, "%s/%swinner.qfs", resource_root(), resource_german() ? "frontend/gart/" : "frontend/art/");
         setup.bank_flag = resource_load(path, &setup.bank_flag_size);
     }
-    uint8_t rgb[GL_VID_W * GL_VID_H * 3];
+    uint8_t rgb[GL_VID_W * GL_VID_H * 3];   /* the flag at the added page's tile; this tile has a few more rows: each takes its nearest */
     setup.flag_ok = setup.bank_flag != NULL && added_gallery_flag_rgb(rgb, setup.bank_flag, setup.bank_flag_size);
-    for (int i = 0; setup.flag_ok && i < GL_VID_W * GL_VID_H; i++) setup.flag[i] = (uint8_t)palette_nearest(palette, usable, rgb[3 * i], rgb[3 * i + 1], rgb[3 * i + 2]);
+    for (int y = 0; setup.flag_ok && y < SHOWCASE_TILE_H; y++)
+        for (int x = 0; x < SHOWCASE_TILE_W; x++) {
+            const uint8_t *c = rgb + 3 * ((y * GL_VID_H / SHOWCASE_TILE_H) * GL_VID_W + x * GL_VID_W / SHOWCASE_TILE_W);
+            setup.flag[y * SHOWCASE_TILE_W + x] = (uint8_t)palette_nearest(palette, usable, c[0], c[1], c[2]);
+        }
     setup.made = 1;
 }
 
@@ -127,70 +131,47 @@ static void setup_draw(void *ctx, int car, int lit, const uint8_t *palette)
 
 /* --- RECORDS: the tile in Video's place, and its screen --- */
 
-static void records_tile(void *ctx, int car, int lit, const uint8_t *palette)
+/* RECORDS' face of the tile (the flag, its frame and its label) drawn into the picture's tile rectangle */
+static void records_face(const Target *t, int lit)
+{
+    const int black = ea_colour(0x000000), yellow = ea_colour(YELLOW_RGB);
+    for (int y = 0; y < SHOWCASE_TILE_H; y++)
+        for (int x = 0; x < SHOWCASE_TILE_W; x++)
+            if (SHOWCASE_TILE_X + x < t->w && SHOWCASE_TILE_Y + y < t->h) t->to[(SHOWCASE_TILE_Y + y) * t->w + SHOWCASE_TILE_X + x] = setup.flag_ok ? setup.flag[y * SHOWCASE_TILE_W + x] : (uint8_t)ea_colour(DARK_COLOUR);
+    for (int k = 0; k < 2; k++)   /* the art's two-pixel frame: yellow when lit, black as the others' */
+        edge(t, SHOWCASE_TILE_X + k, SHOWCASE_TILE_Y + k, SHOWCASE_TILE_X + SHOWCASE_TILE_W - 1 - k, SHOWCASE_TILE_Y + SHOWCASE_TILE_H - 1 - k, lit ? yellow : ea_colour(0x000000));
+    gallery_label_draw(t->to, t->w, t->h, "RECORDS", SHOWCASE_TILE_X, SHOWCASE_TILE_Y, SHOWCASE_TILE_H, black, lit ? yellow : -1);
+}
+
+/* the tile's rectangle: the video's art as it stands and RECORDS' face side by side, moved `shift` pixels to the left, the arrows over them */
+static void tile(void *ctx, int car, int lit, int shift, int arrows, const uint8_t *palette)
 {
     (void)ctx, (void)car;
     Target t;
-    if (!target_get(&t)) return;
+    if (!target_get(&t) || SHOWCASE_TILE_X + SHOWCASE_TILE_W > t.w || SHOWCASE_TILE_Y + SHOWCASE_TILE_H > t.h) return;
     art_make(palette);
-    const int black = ea_colour(0x000000), yellow = ea_colour(YELLOW_RGB);
-    fill(&t, GL_VID_X + GL_VID_W, GL_VID_Y + SHADOW, GL_VID_X + GL_VID_W + SHADOW - 1, GL_VID_Y + GL_VID_H - 1, ea_colour(SHADOW_COLOUR));   /* the photos' look */
-    fill(&t, GL_VID_X + SHADOW, GL_VID_Y + GL_VID_H, GL_VID_X + GL_VID_W + SHADOW - 1, GL_VID_Y + GL_VID_H + SHADOW - 1, ea_colour(SHADOW_COLOUR));
-    for (int y = 0; y < GL_VID_H; y++)
-        for (int x = 0; x < GL_VID_W; x++)
-            if (GL_VID_X + x < t.w && GL_VID_Y + y < t.h) t.to[(GL_VID_Y + y) * t.w + GL_VID_X + x] = setup.flag_ok ? setup.flag[y * GL_VID_W + x] : (uint8_t)ea_colour(DARK_COLOUR);
-    edge(&t, GL_VID_X, GL_VID_Y, GL_VID_X + GL_VID_W - 1, GL_VID_Y + GL_VID_H - 1, ea_colour(lit ? LIT_COLOUR : DARK_COLOUR));
-    gallery_label_draw(t.to, t.w, t.h, "RECORDS", GL_VID_X, GL_VID_Y, GL_VID_H, black, lit ? yellow : -1);
+    uint8_t video[SHOWCASE_TILE_W * SHOWCASE_TILE_H], records[SHOWCASE_TILE_W * SHOWCASE_TILE_H];
+    for (int y = 0; y < SHOWCASE_TILE_H; y++) memcpy(&video[y * SHOWCASE_TILE_W], &t.to[(SHOWCASE_TILE_Y + y) * t.w + SHOWCASE_TILE_X], SHOWCASE_TILE_W);
+    records_face(&t, lit);
+    for (int y = 0; y < SHOWCASE_TILE_H; y++) memcpy(&records[y * SHOWCASE_TILE_W], &t.to[(SHOWCASE_TILE_Y + y) * t.w + SHOWCASE_TILE_X], SHOWCASE_TILE_W);
+    if (shift < 0) shift = 0;
+    if (shift > SHOWCASE_TILE_W) shift = SHOWCASE_TILE_W;
+    for (int y = 0; y < SHOWCASE_TILE_H; y++)
+        for (int x = 0; x < SHOWCASE_TILE_W; x++) {
+            const int at = x + shift;
+            t.to[(SHOWCASE_TILE_Y + y) * t.w + SHOWCASE_TILE_X + x] = at < SHOWCASE_TILE_W ? video[y * SHOWCASE_TILE_W + at] : records[y * SHOWCASE_TILE_W + at - SHOWCASE_TILE_W];
+        }
+    const int mid = SHOWCASE_TILE_Y + (SHOWCASE_TILE_H - GL_ARROW_H) / 2, black = ea_colour(0x000000), colour = lit ? ea_colour(YELLOW_RGB) : ea_colour(TRIANGLE_COLOUR);
+    if (arrows & 1) arrow(&t, SHOWCASE_TILE_X + 6, mid, 1, colour, black);
+    if (arrows & 2) arrow(&t, SHOWCASE_TILE_X + SHOWCASE_TILE_W - 6 - GL_ARROW_W, mid, 0, colour, black);
 }
 
-static void present(void);
-
-typedef struct {
-    const uint8_t *ground;
-    int w;
-} RecordsHost;
-
-static void records_show(void *ctx, const CarRecordsView *v)
-{
-    const RecordsHost *h = ctx;
-    Target t;
-    if (!target_get(&t)) return;
-    memcpy(t.to, h->ground, (size_t)h->w * t.h);
-    car_records_view_draw(v, resource_kmh());
-    text_select(TEXT_YELLOW);
-    text_draw_smooth("DONE", 14, CAR_RECORDS_BOTTOM + 14, 1, 1);   /* the page's DONE, in words: its art is the page's */
-    present();
-}
-
+/* the car's RECORDS screen (car_records_screen.h) for the stock car `car`; the page that called it is drawn again by the showcase */
 static void records_open(void *ctx, int car, const uint8_t *palette)
 {
-    (void)ctx;
-    Target t;
-    if (!target_get(&t)) return;
-    art_make(palette);
-    if (!text_small_init()) port_log("showcase setup: the small font is not loaded\n");
-    CarRecordsView *v = malloc(sizeof *v);
-    const size_t bytes = (size_t)t.w * t.h;
-    uint8_t *ground = malloc(bytes), *snap = malloc(bytes), usable[256], pointer[256] = { 0 };
-    TrackList l;
-    if (v == NULL || ground == NULL || snap == NULL || t.w != GL_W || t.h != GL_H) {
-        free(v), free(ground), free(snap);
-        return;
-    }
-    pointer_colours_used(pointer);
-    for (int i = 0; i < 256; i++) usable[i] = !pointer[i] && i != TRANSPARENT;
-    memcpy(snap, t.to, bytes);
-    memcpy(ground, t.to, bytes);
-    uint8_t tint[3];   /* the page's own colour (its background at the right edge), so the dark ground is this page's: red for the Ferrari */
-    memcpy(tint, palette + 3 * t.to[GL_H * 5 / 8 * t.w + t.w - 6], 3);
-    car_records_ground(ground, palette, usable, tint);
-    cg_records_tracks(&l);
-    car_records_view_make(v, stock_car_id(car), &l);
-    const RecordsHost host = { ground, t.w };
-    ea_select(ea_screen());
-    car_records_run(v, records_show, (void *)&host);
-    memcpy(t.to, snap, bytes);   /* the page as it was; the screen draws it again */
-    free(v), free(ground), free(snap);
+    (void)ctx, (void)palette;
+    const char *const id = stock_car_id(car), *const name = stock_car_name(car);
+    if (id != NULL) car_records_screen(id, name != NULL ? name : id);
 }
 
 /* --- the panel's state --- */
@@ -418,6 +399,6 @@ static void setup_open(void *ctx, int car, const uint8_t *palette)
 
 const ShowcasePlus *glue_setup_plus(void)
 {
-    static const ShowcasePlus plus = { setup_draw, setup_open, records_tile, records_open, NULL };
+    static const ShowcasePlus plus = { setup_draw, setup_open, tile, records_open, NULL };
     return &plus;
 }

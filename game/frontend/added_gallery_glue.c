@@ -15,8 +15,7 @@
 #include "formats/stock_content.h"
 #include "game/frontend/boot_quant.h"
 #include "game/frontend/boot_screen.h"
-#include "game/frontend/car_records_run.h"
-#include "game/frontend/car_records_view.h"
+#include "game/frontend/car_records_screen.h"
 #include "game/frontend/car_figures.h"
 #include "game/frontend/car_list.h"
 #include "game/frontend/central_glue_private.h"
@@ -433,56 +432,8 @@ static void run_shutter(void *ctx, const GalleryState *s, int opening)
 
 /* --- the RECORDS screen (owner 2026-11-18): the car's records on every track over the page, darkened --- */
 
-typedef struct {
-    const Page *page;
-    const uint8_t *ground;
-} RecordsHost;
-
-/* one frame of the table: the ground, the car's name, the table, DONE, the page's palette */
-static void records_show(void *ctx, const CarRecordsView *v)
-{
-    const RecordsHost *h = ctx;
-    const Page *p = h->page;
-    int w, hh;
-    ea_select_default();
-    uint8_t *to = video_target(&w, &hh);
-    for (int y = 0; y < GL_H && y < hh; y++) memcpy(&to[y * w], &h->ground[y * GL_W], (size_t)(w < GL_W ? w : GL_W));
-    added_gallery_draw_name(p);
-    car_records_view_draw(v, resource_kmh());
-    if (row_cut) {
-        gallery_row_draw(&row, gallery_row_look(GALLERY_DONE), to, w, hh, p->row_map, BLACK);   /* DONE only: the car arrows' place is the ground again */
-        for (int y = SHOWCASE_BOTTOM_TOP; y < GL_H && y < hh; y++)
-            for (int x = SHOWCASE_PREVIOUS_LEFT - 30; x <= SHOWCASE_NEXT_RIGHT + 30 && x < w; x++) to[y * w + x] = h->ground[y * GL_W + x];
-    }
-    video_set_palette(0, 256, p->palette);
-    video_flip();
-    pointer_show();
-}
-
-/* the screen until DONE: the page darkened under the table */
-static void records_screen(Page *p)
-{
-    CarRecordsView *v = malloc(sizeof *v);
-    uint8_t *ground = malloc((size_t)GL_W * GL_H), usable[256];
-    TrackList l;
-    if (v == NULL || ground == NULL) {
-        free(v), free(ground);
-        return;
-    }
-    cg_records_tracks(&l);
-    car_records_view_make(v, p->card.info.id, &l);
-    memcpy(ground, p->still, (size_t)GL_W * GL_H);
-    for (int i = 0; i < 256; i++) usable[i] = i < STILL_COLOURS;
-    car_records_ground(ground, p->palette, usable, p->has_tint ? p->tint : NULL);
-    uint8_t pal[768];
-    memcpy(pal, p->palette, sizeof pal);
-    memcpy(pal + 3 * SWATCH, pal + 3 * BLACK, 3);
-    memcpy(pal + 3 * SKIN_SWATCH, pal + 3 * BLACK, 3);
-    text_build_styles_from(pal);
-    const RecordsHost host = { p, ground };
-    car_records_run(v, records_show, (void *)&host);
-    free(v), free(ground);
-}
+/* the car's RECORDS screen (car_records_screen.h): a screen of its own, the page drawn again after it */
+static void records_screen(Page *p) { car_records_screen(p->card.info.id, p->card.info.name); }
 
 static int run_page(Page *p)
 {

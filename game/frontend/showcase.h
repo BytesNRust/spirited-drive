@@ -61,6 +61,8 @@ typedef struct ShowcaseOps {
 /* port (dep59 showcase, PR C): the SETUP tile in the CD page's Color place (the CD's own tile, owner 2026-11-17). It is an item of the
  * screen of its own: lit when selected, taken by Enter, Space or a click, which open the panel (a modal over General: the car's Color
  * variants, Transmission, ABS and Traction control, the Options' own settings). NULL leaves the screen as the game's. */
+/* the Video tile on the CD's pages: its frame's outer rectangle (a 2-pixel frame round the 135 x 110 picture) */
+enum { SHOWCASE_TILE_X = 306, SHOWCASE_TILE_Y = 208, SHOWCASE_TILE_W = 139, SHOWCASE_TILE_H = 114 };
 enum { VARIANT_LEFT = 57, VARIANT_RIGHT = 211, VARIANT_TOP = 100, VARIANT_BOTTOM = 163 };
 
 typedef struct ShowcasePlus {
@@ -68,9 +70,11 @@ typedef struct ShowcasePlus {
     void (*draw)(void *ctx, int car, int lit, const uint8_t *palette);
     /* the panel: opened, run until it is closed (the screen's picture is drawn on and put back as it was), the settings kept */
     void (*open)(void *ctx, int car, const uint8_t *palette);
-    /* port (owner 2026-11-18): RECORDS in Video's place (NULL leaves the video): its tile, lit or dark, and its screen (a car's records on every
-     * track, run until it is closed, the screen's picture left for the page to draw again) */
-    void (*records_draw)(void *ctx, int car, int lit, const uint8_t *palette);
+    /* port (owner 2026-11-18): the Video tile's second face, RECORDS (NULL: the tile is the video alone). `tile` draws the tile's rectangle
+     * (SHOWCASE_TILE_*) over what is in it now (the video's art as it stands): the two faces side by side, the strip moved `shift` pixels to the
+     * left (0 the video, SHOWCASE_TILE_W the records, between them a slide), with `arrows` (1 a left one, 2 a right one) inside it, lit or dark.
+     * `records_open` runs the screen of the car's records until it is closed (the screen's picture left for the page to draw again) */
+    void (*tile)(void *ctx, int car, int lit, int shift, int arrows, const uint8_t *palette);
     void (*records_open)(void *ctx, int car, const uint8_t *palette);
     void *ctx;
 } ShowcasePlus;
