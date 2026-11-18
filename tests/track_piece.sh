@@ -55,8 +55,10 @@ part_finish() {
     [ -s "$work/user/race_records_tracks2.dat" ] || fail "finish: race_records_tracks2.dat was not made"
     [ -s "$work/user/Replay.rpx" ] || fail "finish: no Replay.rpx"
     find "$work/user" -iname 'replay.rpl' | grep -q . && fail "finish: Replay.rpl was written"
-    [ "$(tail -c 45 "$work/user/Replay.rpx" | head -c 8)" = "TNFSTRK1" ] || fail "finish: Replay.rpx does not end with the track's block"
-    tail -c 45 "$work/user/Replay.rpx" | grep -q "dune-run" || fail "finish: the track's block does not name dune-run"
+    # the track's block (45 bytes), then the pieces' prints (8 + 9 * 32 = 296 bytes, step 4 of the records by print)
+    [ "$(tail -c 296 "$work/user/Replay.rpx" | head -c 8)" = "TNFSPRN1" ] || fail "finish: Replay.rpx does not end with the prints' block"
+    [ "$(tail -c 341 "$work/user/Replay.rpx" | head -c 8)" = "TNFSTRK1" ] || fail "finish: Replay.rpx has no track's block before the prints'"
+    tail -c 341 "$work/user/Replay.rpx" | head -c 45 | grep -q "dune-run" || fail "finish: the track's block does not name dune-run"
     cp "$work/user/Replay.rpx" "$work/kept.rpx"
     cp "$work/race.out" "$work/race.kept"
 }

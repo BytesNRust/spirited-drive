@@ -174,7 +174,8 @@ part_finish() {
     [ -e "$work/user/config.dat" ] && fail "the finished race with the piece wrote config.dat"
     find "$work/user" -iname 'replay.rpl' | grep -q . && fail "the finished race with the piece wrote Replay.rpl"
     grep -q "car_paint: slot 0 TESTCAR painted 16,64,192" "$work/user/spirited-drive.log" || fail "the race did not paint the piece the Blue picked"
-    [ "$(tail -c 344 "$work/user/Replay.rpx" | head -c 8)" = "TNFSLOK1" ] || fail "Replay.rpx does not end with the looks' block"
+    [ "$(tail -c 296 "$work/user/Replay.rpx" | head -c 8)" = "TNFSPRN1" ] || fail "Replay.rpx does not end with the prints' block"
+    [ "$(tail -c 640 "$work/user/Replay.rpx" | head -c 8)" = "TNFSLOK1" ] || fail "Replay.rpx has no looks' block before the prints'"
     cp "$work/user/Replay.rpx" "$work/kept.rpx"
 
     keep finish
