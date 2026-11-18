@@ -43,9 +43,14 @@ static void mix(uint8_t *p, const uint8_t to[3], int c)
 
 void added_card_draw_name(uint8_t *rgba, int w, int h, const AddedCardName *name, int base)
 {
+    added_card_draw_name_at(rgba, w, h, name, base, ADDED_CARD_NAME_X);
+}
+
+void added_card_draw_name_at(uint8_t *rgba, int w, int h, const AddedCardName *name, int base, int x0)
+{
     static const uint8_t BLACK[3] = { 0, 0, 0 };
     if (name == NULL || name->mask == NULL) return;
-    const int x0 = ADDED_CARD_NAME_X, y0 = base - name->base_row;
+    const int y0 = base - name->base_row;
     for (int my = 0; my <= name->h; my++)   /* one more row and column: the shadow's */
         for (int mx = 0; mx <= name->w; mx++) {
             const int x = x0 + mx, y = y0 + my;
@@ -152,7 +157,7 @@ uint8_t *added_track_card_rgba(const PngImage *img, const AddedCardName *name, c
     }
     uint8_t *rgba = img != NULL ? rgba_of(img, 0, 0, ADDED_TRACK_W, ADDED_TRACK_H) : flat_track_rgba();
     if (rgba == NULL) snprintf(why, why_cap, "no memory for the card");
-    else added_card_draw_name(rgba, ADDED_TRACK_W, ADDED_TRACK_H, name, ADDED_TRACK_NAME_BASE);
+    else added_card_draw_name_at(rgba, ADDED_TRACK_W, ADDED_TRACK_H, name, ADDED_TRACK_NAME_BASE, ADDED_TRACK_NAME_X);
     return rgba;
 }
 
