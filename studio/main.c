@@ -22,6 +22,7 @@
 #include "formats/resource_exchange.h"
 #include "formats/validate.h"
 #include "studio/fsio.h"
+#include "studio/help.h"
 #include "studio/mod_pack.h"
 #include "studio/mod_validate.h"
 #include "studio/slot.h"
@@ -245,6 +246,8 @@ static int do_validate(const Args *a, ExchangeError *err)
 int main(int argc, char **argv)
 {
     if (argc < 2) { usage(stderr); return 1; }
+    const char *help = studio_help_for(argc, argv);
+    if (help != NULL) { fputs(help, stdout); return 0; }
     const char *command = argv[1];
     if (strcmp(command, "slot") == 0) {
         ExchangeError slot_err = {{0}};

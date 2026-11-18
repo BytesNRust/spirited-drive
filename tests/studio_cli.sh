@@ -198,6 +198,32 @@ fi
 fixture=$(dirname "$0")/car_import
 port=$(dirname "$0")/../data
 "$studio" --help | grep -q "tnfs-studio car import PIECE_DIR" || fail "--help does not list car import"
+# 7b. --help (or -h) after any subcommand: rc 0, its usage, and every flag its parser takes
+help_flags() {
+    form=$1
+    shift
+    for flag in "$@"; do
+        "$studio" $form --help >"$work/help.out" 2>&1 || fail "$form --help exited $?"
+        grep -q -- "$flag" "$work/help.out" || fail "$form --help does not list $flag"
+    done
+}
+help_flags "track new" --template --out --stem --data --piece --id --name --road --edge --author --description --force
+help_flags "car new" --template --id --stem --out --name --author --description --data --port-data --force
+help_flags "car card" --generic --tnfs --data --track --node --time --force
+help_flags "car import" --obj --low --textures --low-textures --raw --tables --low-tables --scale --steer --donor --keep-pdn --data --force
+help_flags "car resize" --image --low
+help_flags "car texture add" --low --label
+help_flags "slot replace" --mods --data --stem --also
+help_flags "slot undo" --mods --all --force
+help_flags "slot list" track
+help_flags "validate" --compat --port-only --check-install
+help_flags "unpack" --palette --force
+help_flags "pack" --from --palette --force
+help_flags "mod pack" --force
+"$studio" car texture --help >/dev/null 2>&1 || fail "car texture --help exited non-zero"
+"$studio" track --help | grep -q -- "--piece" || fail "track --help does not list --piece"
+"$studio" car -h | grep -q "car new" || fail "car -h does not list the car forms"
+"$studio" frobnicate --help >/dev/null 2>&1 && fail "an unknown command's --help was accepted"
 grep -q "Geometry cannot be replaced yet" "$(dirname "$0")/../docs/modding.md" && fail "docs/modding.md still says geometry cannot be replaced"
 grep -q "^#### Importing a model" "$(dirname "$0")/../docs/modding.md" || fail "docs/modding.md has no Importing a model section"
 "$studio" car import "$work/ci" >/dev/null 2>"$work/err" && fail "car import with no --obj exited 0"
