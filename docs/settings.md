@@ -7,7 +7,7 @@ Every key the port reads from its two files, its default, the value that reprodu
 An older `port.cfg` that still carries settings moves once at startup to the mode's file (`game/sys/port_old_files.c`), with `extras.cfg`. Copies stay as `port.cfg.bak` and `extras.cfg.bak`, and `extras.cfg` goes. A copy already there is kept.
 
 - A named mode keeps its name. Its lines at a table column are not pinned: the old game ignored them, so the table's value stays and a later table reaches the player. What it left alone moves if it is free in the mode.
-- `custom`, or no `profile` line, becomes Restomod. Every key the file set stays set in `restomod.cfg`, even at the table's value, and survives later saves. A key the file did not set takes Restomod's value.
+- Only an older `port.cfg` that carries settings and no `profile` line (or `profile=custom`) is moved to Restomod, once, at startup. Every key that file set stays set in `restomod.cfg`, even at the table's value, and survives later saves. A key the file did not set takes Restomod's value. A current `port.cfg` with no `profile` line is Stock (`No file means Stock`, above).
 
 ## How the pieces fit
 
