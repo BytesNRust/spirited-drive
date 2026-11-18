@@ -34,4 +34,29 @@ int track_row_look(int item);
 /* the look into `to` (tw x th): a shadow in entry `shadow` TR_SHADOW px down and right of the faces, then the faces, colour k in entry map[k - 1] */
 void track_row_draw(const TrackRow *row, int look, uint8_t *to, int tw, int th, const uint8_t map[TR_COLOURS], int shadow);
 
+/* The CD page's words that sit in the bank's art, not in the game's text routine, so the German bank's are the German ones: the Track length
+ * label (cut from its background, rows TW_Y .. TW_LENGTH_Y1) and the time-of-day label and its three values, dim and lit (the shapes timd /
+ * timl and mord / midd / eved / morl / midl / evel). Cut as the row is, their own light pixels, each layer over the rectangle TW_X.. */
+enum {
+    TW_X = 0, TW_Y = 362, TW_W = 300, TW_H = 74, TW_LENGTH_Y1 = 385,
+    TW_LENGTH = 0, TW_TIME_DIM = 1, TW_TIME_LIT = 2, TW_MORNING_DIM = 3, TW_MIDDAY_DIM = 4, TW_EVENING_DIM = 5,
+    TW_MORNING_LIT = 6, TW_MIDDAY_LIT = 7, TW_EVENING_LIT = 8, TW_LAYERS = 9
+};
+
+typedef struct {
+    uint8_t face[TW_LAYERS][TW_H * TW_W];   /* 0 none; k: the colour rgb[k - 1] */
+    uint8_t rgb[TR_COLOURS][3];
+    int colours;
+} TrackWords;
+
+void track_words_clear(TrackWords *w);
+/* as track_row_put, into the layer, inside TW_X.. TW_Y.. (`last_row` the last row taken, TW_Y + TW_H - 1 at most) */
+void track_words_put(TrackWords *w, int layer, const uint8_t *pixels, int pw, int ph, int x0, int y0, const uint8_t pal[768], int last_row);
+/* the layers from a bank's file; 1 when it had them all and the palette */
+int track_words_cut(TrackWords *w, const uint8_t *file, size_t size);
+/* the layer into `to` (tw x th): a shadow in entry `shadow` TR_SHADOW px down and right, then the faces, colour k in entry map[k - 1] */
+void track_words_draw(const TrackWords *w, int layer, uint8_t *to, int tw, int th, const uint8_t map[TR_COLOURS], int shadow);
+/* the layers (lit or dim) of a time of day: LIGHT_TIME_* (port_settings.h) dawn the morning, day the midday, dusk the evening; -1 for the night (no shape) */
+int track_words_time_layer(int light_time, int lit);
+
 #endif
