@@ -50,14 +50,15 @@ wait_for() { printf '0:WAIT:%s:%s' "$1" "$2"; }   # the script holds for a line 
 # EA's movie, the title and Game Mode each take their own press (one press per screen): the script waits for each
 # screen's line before pressing on it, then Game Mode: Network; the service; the host/join box
 start="1000:ESC,$(wait_for mark:movie= "$step_timeout"),500:ESC,$(wait_for mark:screen=title "$step_timeout"),1000:ESC,$(wait_for mark:screen=game_mode "$step_timeout")"
-nav="$start,1500:DOWN,1000:ENTER,2000:ENTER,4000:DOWN,2000:ENTER"
+# the name box opens when the network service has answered (seconds, more in a sanitizer build under load): its Enter waits for its mark, not a time
+nav="$start,1500:DOWN,1000:ENTER,$(wait_for mark:screen=name_box "$step_timeout"),500:ENTER,4000:DOWN,2000:ENTER"
 host="$nav,4000:ENTER,$(wait_for "mark:joined=$((humans - 1))" "$((step_timeout + 60 * humans))"),1000:CLICK:40:450"
 # LEFT then RIGHT ends on the first game whether the box opened with the game listed (that row selected) or without (New selected)
 pick="500:LEFT,500:RIGHT,500:ENTER"
 client="$nav,$(wait_for mark:game_listed "$step_timeout"),$pick"
 # a viewer: View only (below Select game) turned on, then Select game and the game (no New for it: Cancel selected when the box opened
 # with no game, the game when with one; LEFT goes from Cancel to the game and stays on it)
-viewer="$start,1500:DOWN,1000:ENTER,2000:ENTER,2000:DOWN,1000:DOWN,1000:ENTER,1000:UP,1000:ENTER,$(wait_for mark:game_listed "$step_timeout"),500:LEFT,500:ENTER"
+viewer="$start,1500:DOWN,1000:ENTER,$(wait_for mark:screen=name_box "$step_timeout"),500:ENTER,2000:DOWN,1000:DOWN,1000:ENTER,1000:UP,1000:ENTER,$(wait_for mark:game_listed "$step_timeout"),500:LEFT,500:ENTER"
 
 # The steps after the race, each a pause after the one before
 race_over=$(wait_for mark:race_over "$race_timeout")
@@ -107,7 +108,7 @@ await() {  # description limit test...
     while ! "$@"; do
         for m in $machines; do
             if [ -f "$out/$m/rc" ] && [ "$(cat "$out/$m/rc")" = 3 ]; then
-                failed_step="$m: $(grep -a 'input script: step' "$out/$m/log" | head -1)"
+                failed_step="$m: $(grep -a 'input script: step' "$out/$m/log" | grep -a -m1 'timed out' || grep -a 'input script: step' "$out/$m/log" | head -1)"
                 return 1
             fi
         done
