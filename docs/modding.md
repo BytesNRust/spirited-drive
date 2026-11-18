@@ -266,6 +266,9 @@ In Restomod a mod can add a car beside the twelve of the original game: a folder
 | `sound_from` | the original car whose engine it plays | required: `supra`, `diablo`, `911`, `zr1`, `512tr`, `viper`, `nsx` or `rx7` |
 | `ai_level` | how fast a computer driver takes it: `slow`, `medium`, `fast` or `top` | optional; without it the pace comes from the car's own PDN (its top gear's limit), kept between `slow` and `top` |
 | `card_name` | whether the game draws the car's name over `card.png` and `rival.png` | optional; `on` (the default) or `off`, for pictures that show their own name |
+| `category` | the car's category, shown in its showcase page's General box as written | optional; up to 16 characters (e.g. `B`) |
+| `photos` | the big pictures of the car's showcase page, in order (the first when the page opens; arrows inside the picture when there are several) | optional; up to 8 names of PNG files in the piece's root, comma separated: `a-z 0-9 - _ .`, ending `.png`, up to 24 characters, none of `card.png`, `rival.png`, `gallery.png`, `preview.png`, `car_envmap.png`; each from 100x60 to 1280x960 (the game crops it to fill its tile: 450x254, twice the tile's 225x127, is a good size) |
+| `photo_small` | the small picture of the showcase page | optional; one such name (278x228 is twice the tile's 139x114) |
 | `dash_from` | the original car whose cockpit it shows | optional, the same words; without it the car has no cockpit view, and the view key and the race's start go to the first view behind the car |
 
 `ai_from` is gone: a car with it is refused, with a line saying to use `ai_level` instead. An added car's brake lamps are always the standard red, whatever its `sound_from`.

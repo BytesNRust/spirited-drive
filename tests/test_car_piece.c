@@ -379,6 +379,53 @@ static int check_pictures(const Picture *p, size_t n, Report *r)
     return ok;
 }
 
+/* the check of `text`'s card with `p` (n pictures) added; the report in `r` */
+static int check_photos(const char *text, const Picture *p, size_t n, Report *r)
+{
+    extras = p, extra_count = n;
+    const int ok = check(text, CFM, PDN, PBS, NULL, r);
+    extras = NULL, extra_count = 0;
+    return ok;
+}
+
+/* port (dep59 showcase): the photos= and photo_small= files are there, readable PNGs from PHOTO_MIN to PHOTO_MAX a side, and no PNG of the
+ * piece's root is left out of them */
+static void test_the_photos(void)
+{
+    static const char TEXT[] = "id=test-car\nname=Test Car\nversion=1\ntype=car\nstem=TESTCAR\nshort_name=TEST\nsound_from=viper\n"
+                               "photos=front.png,side.png\nphoto_small=eng.png\n";
+    Report r;
+    const Picture good[] = { { "front.png", 450, 254 }, { "side.png", 320, 180 }, { "eng.png", 278, 228 } };
+    const int cd = check_photos(TEXT, good, 3, &r);
+    CHECK(cd != 0 || r.count == 0);
+    const int have_cd = cd >= 0;
+    report_free(&r);
+    if (!have_cd) return;
+    CHECK_EQ_INT(check_photos(TEXT, good, 3, &r), 1);
+    CHECK_EQ_INT((int)r.count, 0);
+    report_free(&r);
+    const Picture no_side[] = { { "front.png", 450, 254 }, { "eng.png", 278, 228 } };
+    CHECK_EQ_INT(check_photos(TEXT, no_side, 2, &r), 0);
+    CHECK(has(&r, "PIECE.PHOTO", "side.png"));
+    report_free(&r);
+    const Picture small[] = { { "front.png", 50, 30 }, { "side.png", 320, 180 }, { "eng.png", 278, 228 } };
+    CHECK_EQ_INT(check_photos(TEXT, small, 3, &r), 0);
+    CHECK(has(&r, "PIECE.PHOTO", "front.png") && has(&r, "PIECE.PHOTO", "50x30"));
+    report_free(&r);
+    const Picture huge[] = { { "front.png", 450, 254 }, { "side.png", 320, 180 }, { "eng.png", 2000, 1500 } };
+    CHECK_EQ_INT(check_photos(TEXT, huge, 3, &r), 0);
+    CHECK(has(&r, "PIECE.PHOTO", "eng.png") && has(&r, "PIECE.PHOTO", "2000x1500"));
+    report_free(&r);
+    const Picture extra[] = { { "front.png", 450, 254 }, { "side.png", 320, 180 }, { "eng.png", 278, 228 }, { "forgotten.png", 300, 200 } };
+    CHECK_EQ_INT(check_photos(TEXT, extra, 4, &r), 0);   /* a PNG in the root that no key names */
+    CHECK(has(&r, "PIECE.PHOTO", "forgotten.png") && has(&r, "PIECE.PHOTO", "photos="));
+    report_free(&r);
+    CHECK_EQ_INT(check_photos(GOOD, NULL, 0, &r), 1);   /* none given: nothing asked */
+    report_free(&r);
+    CHECK(car_piece_picture("front.png") && car_piece_picture("a-b_c.1.png"));   /* a root PNG of a photo's name is one of the piece's pictures */
+    CHECK(!car_piece_picture("Front.png") && !car_piece_picture("front.PNG") && !car_piece_picture("dir/front.png") && !car_piece_picture("front.jpg"));
+}
+
 static void test_the_pictures(void)
 {
     Report r;
@@ -447,5 +494,6 @@ int main(void)
     test_the_check();
     test_the_model();
     test_the_pictures();
+    test_the_photos();
     return TEST_REPORT();
 }

@@ -271,11 +271,50 @@ static void test_track_fields(void)
     CHECK(strstr(why, "times") != NULL);
 }
 
+/* port (dep59 showcase, the owner 2026-11-17): category=, photos= (the big photos, in order, up to 8) and photo_small= */
+static void test_the_showcase_keys(void)
+{
+    ModInfo m;
+    char why[160];
+    const char *head = "id=a\nname=A\nversion=1\n";
+    char card[400];
+    snprintf(card, sizeof card, "%scategory=B\nphotos=front.png, side-2.png,rear_3.png\nphoto_small=engine.png\n", head);
+    CHECK_EQ_INT(parse(card, &m, why), 1);
+    CHECK(strcmp(m.category, "B") == 0);
+    CHECK_EQ_INT(m.photo_count, 3);
+    CHECK(strcmp(m.photo[0], "front.png") == 0 && strcmp(m.photo[1], "side-2.png") == 0 && strcmp(m.photo[2], "rear_3.png") == 0);
+    CHECK(strcmp(m.photo_small, "engine.png") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\n", &m, why), 1);   /* none given: none */
+    CHECK(m.category[0] == '\0' && m.photo_count == 0 && m.photo_small[0] == '\0');
+    static const char *const BAD[] = {
+        "photos=front.png,front.png\n",                      /* a name twice */
+        "photos=a.png,b.png,c.png,d.png,e.png,f.png,g.png,h.png,i.png\n",   /* more than 8 */
+        "photos=front.jpg\n",                                /* not a png */
+        "photos=Front.png\n",                                /* capitals */
+        "photos=dir/front.png\n",                            /* a path */
+        "photos=front.png,,side.png\n",                      /* an empty entry */
+        "photos=card.png\n",                                 /* a name the game's pictures use */
+        "photos=rival.png\n",
+        "photos=gallery.png\n",
+        "photo_small=a.png,b.png\n",                         /* one only */
+        "photo_small=small.bmp\n",
+        "photo_small=card.png\n",
+        "category=an unreasonably long category\n",          /* up to 16 */
+    };
+    for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) {
+        snprintf(card, sizeof card, "%s%s", head, BAD[i]);
+        CHECK_EQ_INT(parse(card, &m, why), 0);
+        CHECK(why[0] != '\0');
+        CHECK(strstr(why, "photo") != NULL || strstr(why, "category") != NULL);   /* the refusal names the key */
+    }
+}
+
 int main(void)
 {
     test_a_full_card();
     test_refusals();
     test_utf8_text_is_kept();
+    test_the_showcase_keys();
     test_drawn_names_are_ascii();
     test_values_are_clean_utf8();
     test_messages_hold_no_control_bytes();

@@ -304,6 +304,7 @@ static int ends_with(const char *s, const char *tail)
 int car_piece_picture(const char *rel)
 {
     if (strcmp(rel, "card.png") == 0 || strcmp(rel, "rival.png") == 0 || strcmp(rel, "gallery.png") == 0) return 1;
+    if (strchr(rel, '/') == NULL && mod_ini_photo_name_ok(rel)) return 1;   /* port (dep59 showcase): a photo */
     const char *name, *file;
     size_t n;
     return skin_parts(rel, &name, &n, &file) && strcmp(file + strlen(file) - (strlen(file) >= 4 ? 4 : 0), ".png") == 0;
@@ -320,6 +321,41 @@ static void picture_ok(const FileSet *files, const char *rel, int w, int h, int 
     uint32_t pw = 0, ph = 0;
     if (png_size(f->data, f->size, &pw, &ph) != PNG_OK) report_add(r, limit, 0, "%s is not a readable PNG", rel);
     else if (pw != (uint32_t)w || ph != (uint32_t)h) report_add(r, limit, (int64_t)pw, "%s is %ux%u, not %dx%d", rel, (unsigned)pw, (unsigned)ph, w, h);
+}
+
+/* port (dep59 showcase): one named photo is there, a readable PNG and of a size the showcase can use */
+static void photo_ok(const FileSet *files, const char *name, Report *r)
+{
+    const SetFile *f = fileset_find(files, name);
+    if (f == NULL) {
+        report_add(r, "PIECE.PHOTO", 0, "%s is named in mod.ini but is not in the piece", name);
+        return;
+    }
+    uint32_t w = 0, h = 0;
+    if (png_size(f->data, f->size, &w, &h) != PNG_OK) report_add(r, "PIECE.PHOTO", 0, "%s is not a readable PNG", name);
+    else if (w < CAR_PIECE_PHOTO_MIN_W || h < CAR_PIECE_PHOTO_MIN_H || w > CAR_PIECE_PHOTO_MAX_W || h > CAR_PIECE_PHOTO_MAX_H)
+        report_add(r, "PIECE.PHOTO", (int64_t)w, "%s is %ux%u, not from %dx%d to %dx%d", name, (unsigned)w, (unsigned)h, CAR_PIECE_PHOTO_MIN_W,
+                   CAR_PIECE_PHOTO_MIN_H, CAR_PIECE_PHOTO_MAX_W, CAR_PIECE_PHOTO_MAX_H);
+}
+
+/* 1 when `name` is one of the card's photos or its small one */
+static int photo_named(const ModInfo *card, const char *name)
+{
+    for (int i = 0; i < card->photo_count; i++)
+        if (strcmp(card->photo[i], name) == 0) return 1;
+    return card->photo_small[0] != '\0' && strcmp(card->photo_small, name) == 0;
+}
+
+/* the photos= and photo_small= files, and no PNG of the root that neither names */
+static void photos_ok(const ModInfo *card, const FileSet *files, Report *r)
+{
+    for (int i = 0; i < card->photo_count; i++) photo_ok(files, card->photo[i], r);
+    if (card->photo_small[0] != '\0') photo_ok(files, card->photo_small, r);
+    for (size_t i = 0; i < files->count; i++) {
+        const char *name = files->file[i].name;
+        if (strchr(name, '/') == NULL && mod_ini_photo_name_ok(name) && !photo_named(card, name))
+            report_add(r, "PIECE.PHOTO", 0, "%s is in the piece but photos= and photo_small= do not name it", name);
+    }
 }
 
 /* the size of the texture `tex` (4 letters) in the bank of `level` (0 high, 1 low) of the CFM `d`; 0 when it has none */
@@ -445,6 +481,7 @@ int car_piece_check(const ModInfo *card, const FileSet *files, Report *r)
     picture_ok(files, "card.png", CAR_PIECE_CARD_W, CAR_PIECE_CARD_H, 1, "PIECE.CARD", r);
     picture_ok(files, "rival.png", CAR_PIECE_RIVAL_W, CAR_PIECE_RIVAL_H, 0, "PIECE.PICTURE", r);
     picture_ok(files, "gallery.png", CAR_PIECE_GALLERY_W, CAR_PIECE_GALLERY_H, 0, "PIECE.PICTURE", r);
+    photos_ok(card, files, r);
     skins_ok(files, found[0] ? find_any_case(files, paths[0]) : NULL, r);
     return report_fatal_count(r) == fatal_before;
 }

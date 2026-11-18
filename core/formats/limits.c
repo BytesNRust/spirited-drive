@@ -59,6 +59,7 @@ const Limit limit_table[] = {
     { "PIECE.FILE_MISSING", "a car piece holds its CFM, PDN and PBS under its stem", 0, "port (dep59): car_piece_check, 00457d40 (the loader)", 1, 0 },
     { "PIECE.CARD", "a car piece holds card.png, Control Central's picture of it, of 309 x 166 (the game does not scale)", 0, "port (dep59 step 3): car_piece_check", 1, 0 },
     { "PIECE.PICTURE", "a car piece's rival.png is 284 x 117 and its gallery.png 320 x 200, when it has them", 0, "port (dep59 step 3): car_piece_check", 1, 0 },
+    { "PIECE.PHOTO", "a car piece's photos= and photo_small= name PNG files of the piece's root, from 100 x 60 to 1280 x 960, and no other PNG of the root is left unnamed (the showcase crops them to fill)", 0, "port (dep59 showcase): car_piece_check", 1, 0 },
     { "PIECE.SKIN", "a car piece has up to 15 skins, folders of skins/ named 1..16 of a-z 0-9 '-', up to 256 files each, <tex>[_lo][_mask].png of a texture its CFM's high (low) bank has, of that texture's size; a mask a readable PNG of up to 1024 a side", 15, "port (dep59 step 3): car_piece_check", 1, 0 },
     /* port (dep59 step 5): a track piece (track_piece.h); PIECE.TYPE, PIECE.STEM and PIECE.FILE_MISSING are used for a track too, with the item saying which */
     { "PIECE.KIND", "a track piece's kind is stage (A to B); this version adds no circuits", 0, "port (dep59 step 5): track_piece_check", 1, 0 },

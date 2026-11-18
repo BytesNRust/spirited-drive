@@ -11,6 +11,7 @@ enum { CAR_PIECE_FILES = 3, CAR_PIECE_PATH = 64, CAR_PIECE_DIR_MAX = 512, CAR_PI
  * rival's card, the gallery's picture; a skin's mask is no larger than CAR_PIECE_MASK_MAX_SIDE a side */
 enum { CAR_PIECE_CARD_W = 309, CAR_PIECE_CARD_H = 166, CAR_PIECE_RIVAL_W = 284, CAR_PIECE_RIVAL_H = 117, CAR_PIECE_GALLERY_W = 320,
        CAR_PIECE_GALLERY_H = 200, CAR_PIECE_MASK_MAX_SIDE = 1024,
+       CAR_PIECE_PHOTO_MIN_W = 100, CAR_PIECE_PHOTO_MIN_H = 60, CAR_PIECE_PHOTO_MAX_W = 1280, CAR_PIECE_PHOTO_MAX_H = 960,   /* the showcase's photos (dep59), cropped to fill */
        CAR_PIECE_SKIN_FILES_MAX = 256,           /* a skin's files: four for each texture of the two banks at most */
        CAR_PIECE_PICTURE_BYTES_MAX = 8 << 20 };  /* a picture's file, read from a folder (a zip's are its own limits) */   /* the mask: an installed mod's pictures' side (MOD_PNG_MAX_SIDE) */
 /* where the PBS's fields the check reads lie (docs/car_specs.tsv; the game's CarSpecs is tied to them, car_registry.c) */
@@ -33,6 +34,8 @@ void car_piece_paths(const char *stem, char paths[CAR_PIECE_FILES][CAR_PIECE_PAT
  * card.png, rival.png, gallery.png, or a PNG of a folder of skins/ (skins/<name>/<file>.png; which names and files are a skin's is
  * car_piece_check's PIECE.SKIN to say) */
 int car_piece_picture(const char *rel);
+/* (port, dep59 showcase: a PNG of the piece's root named as a photo is one of its pictures too, mod_ini_photo_name_ok; car_piece_check's PIECE.PHOTO
+ * says whether photos= and photo_small= name every one and each is a readable PNG of PHOTO_MIN to PHOTO_MAX a side) */
 /* 1 when `name` may name a skin's folder: 1..CAR_PIECE_SKIN_NAME_MAX of a-z 0-9 '-' */
 int car_piece_skin_name_ok(const char *name, size_t n);
 /* Everything the game asks of a car piece before it lets it race: the card's fields (PIECE.TYPE, PIECE.STEM, PIECE.FROM), the three
