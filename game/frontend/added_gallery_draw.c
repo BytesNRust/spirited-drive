@@ -99,7 +99,7 @@ static void general(const Page *p)
 {
     const char *const LABEL[4] = { "Year", "Power", "Weight", "Category" };
     const char *const value[4] = { p->card.info.year, p->card.info.power, p->card.info.weight, p->card.info.category };
-    for (int i = 0; i < 4; i++) row(LABEL[i], value[i], GL_GEN_X + 12, GL_GEN_X + GL_GEN_W - 12, GL_GEN_Y + 10 + i * 22, TEXT_CREAM);
+    for (int i = 0; i < 4; i++) row(LABEL[i], value[i], GL_GEN_X + 12, GL_GEN_X + GL_GEN_W - 12, GL_GEN_Y + 6 + i * 20, TEXT_CREAM);
 }
 
 int added_gallery_history_visible(void)
