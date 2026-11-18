@@ -3,6 +3,9 @@
  * titles' letters over it; the editions are editions/'s files (edition_file.h, edition_store.h), the mods mods/'s (mod_store.h), and each
  * failure is told to the player in the game's banner with the store's reason. */
 #include "game/frontend/menu_glue_private.h"
+#include "game/frontend/menu_audio.h"
+#include "game/frontend/text_wrap.h"
+#include "game/sys/text.h"
 #include "game/frontend/content_backdrop.h"
 #include "game/frontend/content_preview.h"
 #include "game/frontend/content_screen.h"
@@ -91,10 +94,33 @@ static void give_back_picture(Borrowed *b)
     free(b->own);
 }
 
+/* the width of the first `len` bytes of `s` in the banner's face */
+static int run_width(void *ctx, const char *s, int len)
+{
+    (void)ctx;
+    char run[TEXT_CAP];
+    if (len >= (int)sizeof run) len = (int)sizeof run - 1;
+    memcpy(run, s, (size_t)len);
+    run[len] = '\0';
+    return text_width(run);
+}
+
+/* the banner holds one line (the exe's, 440 wide with its frame): a longer text is told in lines that fit, one banner after another
+ * (owner 2026-11-18: «rules changed, new records start...» ran off both sides) */
 static void told(void *ctx, const char *text)
 {
+    enum { LINE_WIDTH = 400, LINES = 6 };
+    TextLine lines[LINES];
+    const int count = text_wrap(text, LINE_WIDTH, run_width, ctx, lines, LINES);
     Borrowed b = borrow_picture();
-    menu_glue_banner_wait(ctx, text, BANNER_TIME);
+    for (int i = 0; i < count; i++) {
+        char line[TEXT_CAP];
+        const int n = lines[i].len < (int)sizeof line - 1 ? lines[i].len : (int)sizeof line - 1;
+        memcpy(line, text + lines[i].start, (size_t)n);
+        line[n] = '\0';
+        menu_glue_banner_wait(ctx, line, BANNER_TIME);
+    }
+    if (count == 0) menu_glue_banner_wait(ctx, text, BANNER_TIME);
     give_back_picture(&b);
 }
 
@@ -378,7 +404,7 @@ static int32_t install_zip(void *ctx, const char *path, const int32_t *edition)
 static int32_t install_picked(void *ctx, const int32_t *edition)
 {
     char path[PATH_CAP];
-    if (!platform_pick_zip(path, sizeof path)) return 0;
+    if (!platform_pick_zip(path, sizeof path, menu_audio_music_service)) return 0;
     return install_zip(ctx, path, edition);
 }
 

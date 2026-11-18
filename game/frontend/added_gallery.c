@@ -76,7 +76,7 @@ static void value_step(const CarPieceCard *c, GalleryState *s, int step)
 {
     (void)c;
     if (s->item == GALLERY_PHOTOS) s->photo = round_step(s->photo, s->photos, step);
-    else if (s->item == GALLERY_HISTORY) s->scroll = s->scroll + step < 0 ? 0 : s->scroll + step;
+    else if (s->item == GALLERY_HISTORY) s->scroll = s->scroll + step * GALLERY_SCROLL_KEY_PX < 0 ? 0 : s->scroll + step * GALLERY_SCROLL_KEY_PX;
     else if (s->item >= GALLERY_PREVIOUS && s->item <= GALLERY_DONE) s->item = GALLERY_PREVIOUS + round_step(s->item - GALLERY_PREVIOUS, 3, step);
 }
 
@@ -150,9 +150,14 @@ int added_gallery_scroll_auto(GalleryScroll *t, unsigned now, int *scroll, int l
     }
     const unsigned elapsed = now - t->since;
     if (*scroll < last) {
-        if (elapsed >= (unsigned)(*scroll == 0 ? GALLERY_SCROLL_WAIT_MS : GALLERY_SCROLL_STEP_MS)) {
-            (*scroll)++;
-            t->since = now;
+        if (*scroll == 0) {
+            if (elapsed >= GALLERY_SCROLL_WAIT_MS) *scroll = 1, t->since = now;
+        } else {
+            const int moves = (int)(elapsed / GALLERY_SCROLL_MS_PER_PX);
+            if (moves > 0) {
+                *scroll = *scroll + moves > last ? last : *scroll + moves;
+                t->since = *scroll == last ? now : t->since + (unsigned)moves * GALLERY_SCROLL_MS_PER_PX;
+            }
         }
     } else if (elapsed >= GALLERY_SCROLL_END_MS) {
         *scroll = 0;

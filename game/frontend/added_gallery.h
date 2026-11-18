@@ -34,15 +34,17 @@ typedef struct {
     int fixed;   /* port (dep59 section 8): 1 the look cannot change (the Warrior's): Skin and Color shown, never visited nor stepped */
     int photo;   /* port (PR B): the big photo shown, 0 .. photos - 1 */
     int photos;  /* port (PR B): how many big photos the page has (the glue's: 0 none, only a placeholder); with fewer than two Photos is not visited */
-    int scroll;  /* port (PR B): the description's first line shown (0 at the top); the glue keeps it within the text */
+    int scroll;  /* port (PR B): the description's first pixel row shown (0 at the top), so it scrolls smoothly; the glue keeps it within the text */
     int setup;   /* port (PR C): 1 while the SETUP panel is open: the keys then go to its rows */
     int row;     /* port (PR C): the panel's row the keys are on, SETUP_* */
     int transmission, abs, traction;   /* port (PR C): Options' settings as the glue read them (0 or 1; SETUP_NOT_OFFERED for ABS or traction not offered) */
 } GalleryState;
 
-/* port (PR B): the description's automatic scroll: it waits GALLERY_SCROLL_WAIT_MS at the top, then goes a line every GALLERY_SCROLL_STEP_MS, waits
- * GALLERY_SCROLL_END_MS at the end and returns to the top; it stops while the pointer or the keys are on it */
-enum { GALLERY_SCROLL_WAIT_MS = 3000, GALLERY_SCROLL_STEP_MS = 2000, GALLERY_SCROLL_END_MS = 3000 };
+/* port (PR B, owner 2026-11-18): the description's automatic scroll, a pixel row at a time: it waits GALLERY_SCROLL_WAIT_MS at the top, then goes
+ * a pixel row every GALLERY_SCROLL_MS_PER_PX, waits GALLERY_SCROLL_END_MS at the end and returns to the top; it stops while the pointer or the keys
+ * are on it. By hand the keys and a wheel notch move it GALLERY_SCROLL_KEY_PX and GALLERY_SCROLL_WHEEL_PX rows */
+enum { GALLERY_SCROLL_WAIT_MS = 3000, GALLERY_SCROLL_MS_PER_PX = 60, GALLERY_SCROLL_END_MS = 3000, GALLERY_SCROLL_KEY_PX = 12,
+       GALLERY_SCROLL_WHEEL_PX = 12 };
 typedef struct {
     unsigned since;   /* when the scroll last moved, was reset or the pause began */
     int started;

@@ -127,6 +127,9 @@ typedef struct TrackSelectPlus {
 /* port (dep59 Lunar L5): the track screen's bank for Lunar Springs, "tracksel/<this>.qfs": no file, the moon's made art (lunar_art.h)
  * the caller's load_bank gives for that name (Rusty's when it cannot be made) */
 extern const char LUNAR_SELECT_FILE[];
+/* port (owner 2026-11-18): the added track (track_registry.h) the screen's Previous / Next stepped on to, which ended the screen so
+ * Central opens its page; -1 when it ended otherwise. Read once: it is cleared */
+int track_select_handoff(void);
 /* port (dep55): the next custom lap count for `direction` 1 or -1: 0 (the menu's), 1..99, round */
 int track_select_laps_step(int laps, int direction);
 

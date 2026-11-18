@@ -52,6 +52,28 @@ static void skin_mean(const CarPieceCard *c, int skin, const uint8_t fallback[3]
     if (!found) memcpy(rgb, fallback, 3);
 }
 
+/* the paint's hue as a dark, muted tone (owner 2026-11-18: never a strong colour, a strong paint gives a dark tone): the brightest channel 72 (the
+ * sepia's 70), the saturation at most 55% */
+static void muted(const uint8_t rgb[3], uint8_t out[3])
+{
+    enum { DARK = 72, SATURATION_PERCENT = 55 };
+    int mx = rgb[0];
+    if (rgb[1] > mx) mx = rgb[1];
+    if (rgb[2] > mx) mx = rgb[2];
+    if (mx == 0) {
+        out[0] = out[1] = out[2] = DARK / 2;
+        return;
+    }
+    int mn = rgb[0];
+    if (rgb[1] < mn) mn = rgb[1];
+    if (rgb[2] < mn) mn = rgb[2];
+    const int saturation = (mx - mn) * 100 / mx;
+    for (int i = 0; i < 3; i++) {
+        const int c = rgb[i] * DARK / mx;   /* the colour at the dark brightness */
+        out[i] = (uint8_t)(saturation > SATURATION_PERCENT ? DARK - (DARK - c) * SATURATION_PERCENT / saturation : c);
+    }
+}
+
 void added_gallery_tints_make(Page *p)
 {
     char path[CAR_PIECE_DIR_MAX + 16];
@@ -61,5 +83,5 @@ void added_gallery_tints_make(Page *p)
     memcpy(p->skin_rgb[0], p->default_rgb, 3);
     for (int k = 1; k < p->card.skins && k <= CAR_PIECE_SKINS_MAX; k++) skin_mean(&p->card, k, p->default_rgb, p->skin_rgb[k]);
     p->has_tint = !p->warrior && p->card.info.paint_count > 0;   /* the background takes the mod's first paint: fixed, whatever SETUP picks */
-    if (p->has_tint) memcpy(p->tint, p->card.info.paints[0].rgb, 3);
+    if (p->has_tint) muted(p->card.info.paints[0].rgb, p->tint);
 }

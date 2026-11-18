@@ -27,6 +27,7 @@ typedef struct GalleryRunOps {
     int (*lines)(void *ctx, int *visible);            /* the description's lines in all, and how many the tile shows (0, 0 none) */
     void (*apply)(void *ctx, const GalleryState *s);  /* Options' three settings changed in the panel: `s` holds them, to be kept */
     void (*shutter)(void *ctx, const GalleryState *s, int opening);   /* the panel opening or closing, frame by frame, with its sound */
+    void (*moved)(void *ctx);                         /* the lit tile changed: the showcase's sound for it (owner 2026-11-18) */
     void *ctx;
 } GalleryRunOps;
 

@@ -360,6 +360,9 @@ static void let_go(void)
     }
 }
 
+/* the track screen's voice for Lost Vegas (track_select.c's MUSIC[8]): "bonus track" */
+static const char BONUS_VOICE[] = "loopx.eas";
+
 /* the page until it is left or another track or Best times is asked for: TRACK_PAGE_LEAVE, _GO_PREVIOUS, _GO_NEXT or _BEST */
 static int run_page(Page *p)
 {
@@ -368,6 +371,8 @@ static int run_page(Page *p)
     run_draw(p);
     run_flip(p);
     video_fade_in(0, 256, p->palette);
+    menu_audio_track_music(BONUS_VOICE);   /* the voice of Lost Vegas's page, the bonus track's (owner 2026-11-18) */
+    menu_audio_track_play();
     int last_key = input_get_key(), last_buttons = -1, result = TRACK_PAGE_STAY, changed = 0, last_x = 0, last_y = 0, frame = 0;
     pointer_position(&last_x, &last_y);
     while (result == TRACK_PAGE_STAY) {
@@ -408,6 +413,8 @@ static int run_page(Page *p)
         video_wait_vblank();
     }
     let_go();
+    menu_audio_track_stop();
+    menu_audio_track_free();
     video_fade_out(0, 256);
     return result;
 }
@@ -500,6 +507,6 @@ int32_t cg_track_page(void *ctx, const uint8_t screen[768])
         }
         if (result == TRACK_PAGE_LEAVE || result == TRACK_PAGE_CANCEL) return 0;
         cg_track_arrow(result == TRACK_PAGE_GO_NEXT ? 1 : -1);   /* Central's own step: the page goes on when the next is an added track too */
-        if (!track_registry_is_added(cg_g.track)) return 0;
+        if (!track_registry_is_added(cg_g.track)) return 1;   /* a CD track: Central opens its page (the loop over the CD's and the added) */
     }
 }

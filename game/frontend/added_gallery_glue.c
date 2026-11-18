@@ -389,11 +389,14 @@ static unsigned run_now(void *ctx) { (void)ctx; return platform_ticks_ms(); }
 static int run_lines(void *ctx, int *visible)
 {
     const Page *p = ctx;
-    *visible = added_gallery_history_visible();
-    return p->line_count;
+    *visible = added_gallery_history_window();
+    return p->line_count * added_gallery_history_line_px() + 2;
 }
 
 /* one car's page until it is left or another is asked for: GALLERY_LEAVE, GALLERY_GO_PREVIOUS or GALLERY_GO_NEXT */
+/* the showcase's sound for a tile lit (showcase.c's MOVED) */
+static void run_moved(void *ctx) { (void)ctx; menu_audio_sound(0x47); }
+
 /* the panel's shutter: opn1 .. opn7 (closing: backwards), the sound at the start; the page drawn each frame, the open one by the run loop */
 static void run_shutter(void *ctx, const GalleryState *s, int opening)
 {
@@ -414,7 +417,7 @@ static void run_shutter(void *ctx, const GalleryState *s, int opening)
 static int run_page(Page *p)
 {
     const GalleryRunOps ops = { run_clear, run_black, run_draw, run_palette, run_flip, run_fade_in, run_fade_out,
-                                run_key, run_buttons, run_pointer, run_click, run_music, run_wait, run_wheel, run_now, run_lines, run_apply, run_shutter, p };
+                                run_key, run_buttons, run_pointer, run_click, run_music, run_wait, run_wheel, run_now, run_lines, run_apply, run_shutter, run_moved, p };
     return added_gallery_run(&p->card, &p->state, &ops);
 }
 

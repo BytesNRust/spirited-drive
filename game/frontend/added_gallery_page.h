@@ -63,6 +63,8 @@ void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th);
 void added_gallery_draw_title(const Page *p);
 /* the description's lines made for the tile (the head, then the text), and how many the tile shows */
 void added_gallery_history_make(Page *p);
-int added_gallery_history_visible(void);
+/* the History text's line height and the window's height in pixel rows (the glue's lines op: the scroll is in pixel rows) */
+int added_gallery_history_line_px(void);
+int added_gallery_history_window(void);
 
 #endif

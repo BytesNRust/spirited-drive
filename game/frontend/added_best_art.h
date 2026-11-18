@@ -16,6 +16,7 @@
 enum {
     ADDED_BEST_W = 640, ADDED_BEST_H = 480,
     ADDED_BEST_BOX_X0 = 6, ADDED_BEST_BOX_X1 = 330, ADDED_BEST_BOX_Y0 = 8, ADDED_BEST_BOX_Y1 = 50,   /* the title's box, inclusive */
+    ADDED_BEST_MARGIN_X = 14, ADDED_BEST_MARGIN_Y = 6,   /* the blur fades into the page this far outside the box (added_best_art.c) */
     ADDED_BEST_SOURCE_SHIFT = 108   /* the rows copied in: the box's own plus this (rows 116..158: below the red column heads, which end at row 114) */
 };
 

@@ -6,6 +6,7 @@
 #include "game/race/psx_lgs.h"
 #include "game/race/weather.h"
 #include "game/sys/port_settings.h"
+#include "game/sys/track_registry.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -534,6 +535,20 @@ static void lost_vegas_step(TrackSelectPlus *plus, int from, int to)
     }
 }
 
+/* port (owner 2026-11-18): the track the step went on to when it is an added one, whose page Central opens (track_select_handoff) */
+static int handoff_track = -1;
+int track_select_handoff(void)
+{
+    const int to = handoff_track;
+    handoff_track = -1;
+    return to;
+}
+static int hand_off(int to)
+{
+    handoff_track = to;
+    return 1;   /* this screen is done */
+}
+
 /* the item lit acted on: 0 when the screen goes on, else 1 (Done, or Best's screen said so) */
 static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer *p, int32_t *bank, int item,
                int *segment, int16_t *best, uint8_t *pal, int *redraw, int *changed, const TrackSelectOps *ops)
@@ -545,9 +560,9 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
         const int entry = entry_of(st);   /* port (dep59 Lunar L5): Lunar's own, its mirror the one variant */
         TrackList l;
         track_list_build(&l, edition_of(in), in->lost_vegas, lunar_list(st));
-        track_list_stock_only(&l);   /* port (dep59 step 5): this screen's tables are the original's nine; an added track has its own page */
         track_select_entry(entry, entry == STOCK_TRACK_LUNAR ? *st->plus->variant_m != 0 : variant_of(st), item == PREV ? -1 : 1, &l,
                            st->plus->unlock_m, st->plus->unlock_r, &to, &variant);
+        if (to >= TRACK_ADDED_FIRST) return hand_off(to);   /* port (owner 2026-11-18): the step went on to an added track: its page */
         *st->plus->variant_m = variant == 1, *st->plus->variant_r = variant == 2 || to == STOCK_TRACK_LUNAR;
         if (st->plus->lunar != NULL) *st->plus->lunar = to == STOCK_TRACK_LUNAR;
         if (to == entry) {   /* the same entry: its art stays, the screen is drawn again */
@@ -561,9 +576,9 @@ static int act(const TrackSelectInputs *in, TrackSelectState *st, DialogPointer 
     if (item == PREV || item == NEXT) {
         TrackList l;   /* port (dep59 step 4): the edition's tracks; the standard edition's are the original's walk */
         track_list_build(&l, edition_of(in), in->lost_vegas, lunar_list(st));
-        track_list_stock_only(&l);   /* port (dep59 step 5): this screen's tables are the original's nine; an added track has its own page */
         const int entry = entry_of(st);
         const int to = track_list_step(&l, (int16_t)entry, item == PREV ? -1 : 1);
+        if (to >= TRACK_ADDED_FIRST) return hand_off(to);   /* port (owner 2026-11-18): an added track has its own page */
         const int to_track = to == STOCK_TRACK_LUNAR ? CIRCUIT : to;
         if (switches_on(st)) lost_vegas_step(st->plus, track, to_track);   /* port (dep56, dep65): it has neither; the choice comes back after it */
         if (st->plus != NULL && st->plus->lunar != NULL) {   /* port (dep59 Lunar L5): onto the moon its rally, off it the choice's */
