@@ -177,12 +177,170 @@ static void check_straight_and_curve(const uint8_t *tmpl, size_t tsize)
     free(again);
 }
 
+/* the bytes the generator makes from a layout, as hashes taken before it was split into nodes and a builder: any change of its output is a change here */
+static uint64_t fnv64(const uint8_t *p, size_t n)
+{
+    uint64_t h = 1469598103934665603ull;
+    for (size_t i = 0; i < n; ++i) h = (h ^ p[i]) * 1099511628211ull;
+    return h;
+}
+
+static void check_golden(const uint8_t *tmpl, size_t tsize)
+{
+    static const struct { const char *layout; uint64_t hash, hash_arm64; } golden[] = {   /* hash_arm64: the other rounding of sin, cos and the products (checked on the old generator too) */
+        { "section 10\n", 0xcdb2635430d481bfull, 0 },
+        { "section 10\nsection 20 turn=90 grade=4 bank=5 width=50\nsection 10 grade=0 bank=0\n", 0x0cea70a33687b805ull, 0 },
+        { "section 30 turn=-100 grade=-6 bank=-8 width=70\nsection 12 turn=40 grade=12 bank=3 width=30\n", 0xf1e24a91cf337e38ull, 0xbb0b04e45825286aull },
+    };
+    for (size_t i = 0; i < sizeof golden / sizeof golden[0]; ++i) {
+        uint8_t *out = NULL;
+        size_t len = 0;
+        ExchangeError err = {0};
+        CHECK(generate(golden[i].layout, tmpl, tsize, &out, &len, &err));
+        if (out == NULL) continue;
+        if (fnv64(out, len) != golden[i].hash && fnv64(out, len) != golden[i].hash_arm64) fprintf(stderr, "golden %zu: 0x%llxull\n", i, (unsigned long long)fnv64(out, len));
+        CHECK(fnv64(out, len) == golden[i].hash || fnv64(out, len) == golden[i].hash_arm64);
+        free(out);
+    }
+}
+
+/* explicit nodes: what a layout describes as nodes, and nodes made by hand (an editor's) */
+static int nodes_of(const char *layout, TrackGenNode **nodes, int *count, ExchangeError *err)
+{
+    return track_layout_nodes(layout, strlen(layout), WIDTH, nodes, count, err);
+}
+
+static void check_layout_nodes(void)
+{
+    TrackGenNode *n = NULL;
+    int count = 0;
+    ExchangeError err = {0};
+    CHECK(nodes_of("section 10\nsection 20 turn=90 grade=4 bank=5 width=50\n", &n, &count, &err));
+    CHECK_EQ_INT(count, 30 * 4 + 1);                      /* the closing node too */
+    if (n == NULL) return;
+    CHECK(n[0].position[0] == 0 && n[0].position[1] == 0 && n[0].position[2] == 0);
+    CHECK_EQ_INT(n[1].position[2], TRACK_GEN_NODE_LENGTH);   /* straight along +z */
+    CHECK_EQ_INT((int)n[0].width, WIDTH);
+    CHECK_EQ_INT((int)lround(n[count - 1].width), 50);
+    CHECK_EQ_INT((int)lround(n[count - 1].grade), 4);
+    CHECK_EQ_INT((int)lround(n[count - 1].bank), 5);
+    CHECK(fabs(n[count - 1].heading - 0x1000) < 1e-6);    /* 90 degrees to the right */
+    free(n);
+    CHECK(!nodes_of("section 3\n", &n, &count, &err) && n == NULL);   /* the layout's own errors */
+    CHECK(strstr(err.message, "8") != NULL);
+}
+
+/* a quarter circle of 40 segments and a straight of 10 made by hand: positions as given, angles as the formulas say */
+static void hand_nodes(TrackGenNode *n, int count)
+{
+    memset(n, 0, sizeof *n * (size_t)count);
+    int32_t x = 0, y = 0, z = 0;
+    for (int i = 0; i < count; ++i) {
+        n[i].heading = i <= 160 ? 0x1000 * (double)i / 160 : 0x1000;
+        n[i].grade = 2, n[i].bank = i <= 160 ? 3 : 0, n[i].width = WIDTH;
+        n[i].position[0] = x, n[i].position[1] = y, n[i].position[2] = z;
+        const double h = n[i].heading / 0x4000 * 2 * M_PI;
+        x += (int32_t)lround(300000 * sin(h)), y += 7000, z += (int32_t)lround(300000 * cos(h));   /* not the layout's 395000 */
+    }
+}
+
+static void check_explicit_nodes(const uint8_t *tmpl, size_t tsize)
+{
+    enum { COUNT = 50 * 4 + 1 };
+    static TrackGenNode n[COUNT];
+    hand_nodes(n, COUNT);
+    uint8_t *out = NULL;
+    size_t len = 0;
+    ExchangeError err = {0};
+    CHECK(track_generate_nodes(n, COUNT, tmpl, tsize, &out, &len, &err));
+    if (out == NULL) { fprintf(stderr, "%s\n", err.message); return; }
+    Tri tri;
+    CHECK_EQ_INT(tri_open(&tri, out, len), TRI_OK);
+    CHECK_EQ_INT(tri.segment_count, 50);
+    CHECK_EQ_INT(tri.circuit_segments, 0);
+    for (int i = 0; i < COUNT; i += 17) {                 /* the positions are the given ones, the angles the formulas' */
+        TriNode t;
+        CHECK_EQ_INT(tri_node(&tri, (uint32_t)i, &t), TRI_OK);
+        CHECK(t.position.x == n[i].position[0] && t.position.y == n[i].position[1] && t.position.z == n[i].position[2]);
+        const unsigned want = (unsigned)((long)lround(n[i].heading) & 0x3fff);
+        CHECK_EQ_INT((unsigned)t.orientation & 0x3fff, want);
+        CHECK_EQ_INT(t.slope, (int)lround(atan(0.02) / (2 * M_PI) * 16384));
+        CHECK_EQ_INT(t.left_verge, WIDTH);
+    }
+    uint8_t *again = NULL;
+    size_t again_len = 0;
+    CHECK(track_generate_nodes(n, COUNT, tmpl, tsize, &again, &again_len, &err));
+    CHECK(again_len == len && memcmp(again, out, len) == 0);   /* deterministic */
+    free(again);
+    free(out);
+
+    /* what the layout path makes is what the nodes of the layout make */
+    const char *layout = "section 12 turn=30 grade=2\nsection 20 turn=-50 bank=4 width=60\n";
+    TrackGenNode *ln = NULL;
+    int lcount = 0;
+    uint8_t *a = NULL, *b = NULL;
+    size_t alen = 0, blen = 0;
+    CHECK(nodes_of(layout, &ln, &lcount, &err));
+    CHECK(generate(layout, tmpl, tsize, &a, &alen, &err));
+    CHECK(track_generate_nodes(ln, lcount, tmpl, tsize, &b, &blen, &err));
+    CHECK(alen == blen && memcmp(a, b, alen) == 0);
+    free(ln), free(a), free(b);
+
+    /* a template whose node 1 has a verge of 0 (CY1..3) or 123 (TR5), outside what a layout asks for: layouts from it still build */
+    for (int w = 0; w <= 123; w += 123) {
+        CHECK(track_layout_nodes("section 10\n", 11, w, &ln, &lcount, &err));
+        CHECK(ln != NULL && (int)ln[0].width == w);
+        CHECK(track_generate_nodes(ln, lcount, tmpl, tsize, &a, &alen, &err));
+        free(ln), free(a);
+    }
+}
+
+static void check_explicit_errors(const uint8_t *tmpl, size_t tsize)
+{
+    enum { COUNT = 12 * 4 + 1 };
+    static TrackGenNode n[COUNT + 8];
+    static const struct { const char *name; const char *needle; } bad[] = {
+        { "count", "nodes" }, { "short", "8" }, { "long", "599" }, { "nan", "node 7" }, { "width", "node 5" }, { "grade", "node 6" },
+        { "bank", "node 9" }, { "turn", "node 20" }, { "still", "node 11" }, { "far", "node 13" }, { "heading", "node 3" },
+    };
+    for (size_t k = 0; k < sizeof bad / sizeof bad[0]; ++k) {
+        int count = COUNT;
+        hand_nodes(n, COUNT);
+        for (int i = 0; i < COUNT; ++i) n[i].heading = 0, n[i].bank = 0, n[i].position[0] = 0, n[i].position[2] = 395000 * i;
+        const char *w = bad[k].name;
+        if (!strcmp(w, "count")) count = COUNT + 1;
+        else if (!strcmp(w, "short")) count = 7 * 4 + 1;
+        else if (!strcmp(w, "long")) count = 600 * 4 + 1;
+        else if (!strcmp(w, "nan")) n[7].grade = NAN;
+        else if (!strcmp(w, "width")) n[5].width = 300;
+        else if (!strcmp(w, "grade")) n[6].grade = 31;
+        else if (!strcmp(w, "bank")) n[9].bank = -21;
+        else if (!strcmp(w, "turn")) for (int i = 20; i < COUNT; ++i) n[i].heading = n[19].heading + 0x4000 / 360.0 * 7 + (i - 20) * 0;   /* 7 degrees in one step */
+        else if (!strcmp(w, "still")) n[11].position[2] = n[10].position[2];
+        else if (!strcmp(w, "far")) n[13].position[2] = n[12].position[2] + 25 * 65536;
+        else if (!strcmp(w, "heading")) for (int i = 3; i < COUNT; ++i) n[i].heading = 1e30;
+        uint8_t *out = NULL;
+        size_t len = 0;
+        ExchangeError err = {0};
+        static TrackGenNode big[600 * 4 + 1];
+        if (!strcmp(w, "long")) { memcpy(big, n, sizeof n); for (int i = COUNT; i < count; ++i) big[i] = n[COUNT - 1], big[i].position[2] = 395000 * i; }
+        CHECK(!track_generate_nodes(!strcmp(w, "long") ? big : n, count, tmpl, tsize, &out, &len, &err));
+        CHECK(out == NULL);
+        CHECK(strstr(err.message, bad[k].needle) != NULL);
+        if (strstr(err.message, bad[k].needle) == NULL) fprintf(stderr, "  %s: %s\n", w, err.message);
+    }
+}
+
 int main(int argc, char **argv)
 {
     size_t tsize = 0;
     uint8_t *tmpl = template_tri(&tsize);
     check_errors(tmpl, tsize);
     check_straight_and_curve(tmpl, tsize);
+    check_golden(tmpl, tsize);
+    check_layout_nodes();
+    check_explicit_nodes(tmpl, tsize);
+    check_explicit_errors(tmpl, tsize);
     free(tmpl);
 
     for (int i = 1; i < argc; ++i) {                      /* CD tracks as templates */
