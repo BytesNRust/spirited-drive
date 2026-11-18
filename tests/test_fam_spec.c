@@ -66,8 +66,28 @@ static void test_empty_text_has_no_horizon(void)
     CHECK(strstr(msg, "no horizon") != NULL);
 }
 
+static void test_letters(void)
+{
+    FamSpec spec;
+    char msg[256];
+    CHECK(parse("terrain 0 letters=AC rock.png\nterrain 1 letters=B  grass 2.png\nterrain 2 plain.png\nhorizon sky.png\n", &spec, msg, sizeof msg));
+    CHECK_EQ_INT(spec.item[0].letters, FAM_LETTER_A | FAM_LETTER_C);
+    CHECK(strcmp(spec.item[0].path, "rock.png") == 0);
+    CHECK_EQ_INT(spec.item[1].letters, FAM_LETTER_B);
+    CHECK(strcmp(spec.item[1].path, "grass 2.png") == 0);
+    CHECK_EQ_INT(spec.item[2].letters, FAM_LETTERS_ALL);   /* nothing said: all three */
+    CHECK_EQ_INT(spec.item[3].letters, FAM_LETTERS_ALL);
+    CHECK(!parse("terrain 0 letters=AD x.png\nhorizon s.png\n", &spec, msg, sizeof msg));
+    CHECK(strstr(msg, "line 1") != NULL && strstr(msg, "'D'") != NULL);
+    CHECK(!parse("terrain 0 letters= x.png\nhorizon s.png\n", &spec, msg, sizeof msg));
+    CHECK(strstr(msg, "no letter") != NULL);
+    CHECK(!parse("terrain 0 letters=A\nhorizon s.png\n", &spec, msg, sizeof msg));   /* the path is still needed */
+    CHECK(strstr(msg, "no picture") != NULL);
+}
+
 int main(void)
 {
+    test_letters();
     test_good_spec();
     test_path_with_spaces();
     test_refusals();

@@ -4,6 +4,7 @@
 #include "formats/slots.h"
 #include "formats/track_gen.h"
 #include "formats/track_piece.h"
+#include "formats/track_template.h"
 #include "studio/fsio.h"
 
 #include <ctype.h>
@@ -15,7 +16,7 @@
 #include <strings.h>
 
 typedef struct {
-    const char *layout, *slot, *out, *stem, *data, *id, *name, *road, *edge, *author, *description;
+    const char *layout, *slot, *out, *stem, *data, *id, *name, *road, *edge, *author, *description, *fam;
     int force, piece;
 } Args;
 
@@ -38,6 +39,7 @@ static int parse(int argc, char **argv, Args *a, ExchangeError *err)
     for (int i = 2; i < argc; ++i) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--template") == 0 && has_value) a->slot = argv[++i];
+        else if (strcmp(argv[i], "--generic") == 0 && has_value) a->fam = argv[++i];
         else if (strcmp(argv[i], "--out") == 0 && has_value) a->out = argv[++i];
         else if (strcmp(argv[i], "--stem") == 0 && has_value) a->stem = argv[++i];
         else if (strcmp(argv[i], "--data") == 0 && has_value) a->data = argv[++i];
@@ -53,8 +55,12 @@ static int parse(int argc, char **argv, Args *a, ExchangeError *err)
         else if (a->layout == NULL) a->layout = argv[i];
         else { exchange_fail(err, "too many arguments"); return 0; }
     }
-    if (a->layout == NULL || a->slot == NULL || a->out == NULL) {
-        exchange_fail(err, "usage: tnfs-studio track new LAYOUT --template SLOT --out DIR [--stem NAME] [--data DIR] [--force]");
+    if (a->layout == NULL || (a->slot == NULL) == (a->fam == NULL) || a->out == NULL) {
+        exchange_fail(err, "usage: tnfs-studio track new LAYOUT --template SLOT --out DIR [--stem NAME] [--data DIR] [--force]\n       tnfs-studio track new LAYOUT --generic ART.FAM --piece --id ID --stem STEM --out DIR (a track of our own template: no CD data)");
+        return 0;
+    }
+    if (a->fam != NULL && !a->piece) {
+        exchange_fail(err, "--generic makes a piece: add --piece --id ID --stem STEM");
         return 0;
     }
     if (a->piece && (a->id == NULL || a->stem == NULL)) {
@@ -191,23 +197,84 @@ static int read_kept(const Args *a, Kept *kept, ExchangeError *err)
     return ok;
 }
 
+/* a piece's root: the stem upper-cased, checked (it must not begin like the CD's) and, for the files, with the stage's number */
+static int piece_stems(const Args *a, char *new_stem, char *piece_stem, size_t cap, ExchangeError *err)
+{
+    snprintf(new_stem, cap, "%s", a->stem);
+    for (char *c = new_stem; *c; ++c) *c = (char)toupper((unsigned char)*c);
+    if (!track_piece_stem_ok(new_stem)) {
+        exchange_fail(err, "--stem '%s' must be 1..%d of A-Z and 0-9 and not begin with AL, CL, CY or TR (the CD's)", a->stem, TRACK_PIECE_STEM_MAX);
+        return 0;
+    }
+    if (!mod_ini_id_ok(a->id)) { exchange_fail(err, "--id '%s' must be up to %d of a-z, 0-9 and '-', not first", a->id, MOD_INI_ID_MAX); return 0; }
+    snprintf(piece_stem, cap, "%s", new_stem);
+    strncat(new_stem, "1", cap - strlen(new_stem) - 1);
+    return 1;
+}
+
+/* a piece made from our own template (track_template.h) and the art file `a->fam`: no file of the CD in it */
+static int track_new_generic(const Args *a, ExchangeError *err)
+{
+    char new_stem[16], piece_stem[16];
+    if (!piece_stems(a, new_stem, piece_stem, sizeof new_stem, err)) return 0;
+    size_t layout_size = 0, made_size = 0, info_size = 0;
+    Kept kept;
+    memset(&kept, 0, sizeof kept);
+    if (!read_kept(a, &kept, err)) return 0;
+    uint8_t *layout = fsio_read_file(a->layout, &layout_size, err), *tmpl = NULL, *made = NULL;
+    if (layout == NULL) return 0;
+    TrackGenNode *nodes = NULL;
+    int count = 0, ok = 0;
+    size_t tmpl_size = 0;
+    FileSet set;
+    fileset_init(&set);
+    ExchangeError detail = {{0}};
+    size_t fam_size = 0;
+    uint8_t *fam = fsio_read_file(a->fam, &fam_size, err);
+    if (fam == NULL) goto done;
+    const int fam_ok = track_template_check_fam(fam, fam_size, &detail);
+    free(fam);
+    if (!fam_ok) { exchange_fail(err, "%s: %s", a->fam, detail.message); goto done; }
+    if (!track_template_generic(&tmpl, &tmpl_size, err)) goto done;
+    if (!track_layout_nodes((const char *)layout, layout_size, TRACK_TEMPLATE_HALF_WIDTH, &nodes, &count, &detail) ||
+        !track_generate_nodes_turned(nodes, count, tmpl, tmpl_size, &made, &made_size, &detail)) {
+        exchange_fail(err, "%s: %s", a->layout, detail.message);
+        goto done;
+    }
+    char name[PATH_MAX];
+    snprintf(name, sizeof name, "SIMDATA/MISC/%s.TRI", new_stem);
+    if (!fileset_add(&set, name, made, made_size)) { exchange_fail(err, "cannot add %s", name); goto done; }
+    const char *info = track_template_info(&info_size);
+    snprintf(name, sizeof name, "SIMDATA/MISC/%sINFO", new_stem);
+    if (!fileset_add(&set, name, (const uint8_t *)info, info_size)) { exchange_fail(err, "cannot add %s", name); goto done; }
+    static const char *const dirs[] = { "ETRACKFM", "GTRACKFM" };   /* the day art, the English and the German folder, the same file */
+    for (size_t d = 0; d < 2; ++d) {
+        snprintf(name, sizeof name, "%s_001.FAM", new_stem);
+        if (!add_copy(&set, a->fam, dirs[d], name, err)) goto done;
+    }
+    if (!add_card(&set, a, piece_stem, &kept, err) || !fsio_write_tree(a->out, &set, a->force, err)) goto done;
+    printf("track piece %s (stem %s): %d segments from our own template and %s; %zu files in %s; pack it with: tnfs-studio mod pack %s OUT.zip, or install the folder\n",
+           a->id, piece_stem, made[6] | made[7] << 8, a->fam, set.count, a->out, a->out);
+    ok = 1;
+done:
+    free(layout);
+    free(tmpl);
+    free(nodes);
+    free(made);
+    fileset_free(&set);
+    return ok;
+}
+
 static int track_new(const Args *a, ExchangeError *err)
 {
+    if (a->fam != NULL) return track_new_generic(a, err);
     Kept kept;
     memset(&kept, 0, sizeof kept);
     char stem[16];
     if (!slot_find(SLOT_TRACK, a->slot, stem, sizeof stem)) { exchange_fail(err, "'%s' is not a track slot", a->slot); return 0; }
     char new_stem[16], piece_stem[16] = "";
     if (a->piece) {   /* port (dep59 step 5, T6): a track piece's root is its stem and the stage's number, as the CD's */
-        snprintf(new_stem, sizeof new_stem, "%s", a->stem);
-        for (char *c = new_stem; *c; ++c) *c = (char)toupper((unsigned char)*c);
-        if (!track_piece_stem_ok(new_stem)) {
-            exchange_fail(err, "--stem '%s' must be 1..%d of A-Z and 0-9 and not begin with AL, CL, CY or TR (the CD's)", a->stem, TRACK_PIECE_STEM_MAX);
-            return 0;
-        }
-        if (!mod_ini_id_ok(a->id)) { exchange_fail(err, "--id '%s' must be up to %d of a-z, 0-9 and '-', not first", a->id, MOD_INI_ID_MAX); return 0; }
-        snprintf(piece_stem, sizeof piece_stem, "%s", new_stem);
-        strncat(new_stem, "1", sizeof new_stem - strlen(new_stem) - 1);
+        if (!piece_stems(a, new_stem, piece_stem, sizeof new_stem, err)) return 0;
     } else if (a->stem != NULL) {
         if (!stem_ok(a->stem)) { exchange_fail(err, "--stem '%s' must be 1..8 letters or digits", a->stem); return 0; }
         snprintf(new_stem, sizeof new_stem, "%s", a->stem);

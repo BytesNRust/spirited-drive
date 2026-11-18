@@ -3,6 +3,7 @@
  * argument, the terrain's variants have the CD's sizes. */
 #include "formats/chunk.h"
 #include "formats/fam_build.h"
+#include "formats/track_template.h"
 #include "formats/fsh.h"
 #include "formats/validate.h"
 #include "test.h"
@@ -151,7 +152,7 @@ static void test_refusals(const Stage *s)
         { TEXTURES, 0, 0, "a stage needs a horizon" },
     };
     for (size_t i = 0; i < sizeof cases / sizeof cases[0]; i++) {
-        const FamSource src = { many, cases[i].terrain, s->scenery_pic, cases[i].scenery, cases[i].horizon ? &s->horizon_pic : NULL };
+        const FamSource src = { many, cases[i].terrain, s->scenery_pic, cases[i].scenery, cases[i].horizon ? &s->horizon_pic : NULL, NULL };
         uint8_t *out = NULL;
         size_t len = 0;
         char msg[256];
@@ -167,7 +168,7 @@ static void test_file_limit(const Stage *s)
 {
     static FamPicture many[LIMIT_TERRAIN];
     for (int i = 0; i < LIMIT_TERRAIN; i++) many[i] = s->terrain_pic[i % TEXTURES];
-    const FamSource src = { many, LIMIT_TERRAIN, NULL, 0, &s->horizon_pic };
+    const FamSource src = { many, LIMIT_TERRAIN, NULL, 0, &s->horizon_pic, NULL };
     uint8_t *out = NULL;
     size_t len = 0;
     char msg[256];
@@ -215,11 +216,88 @@ static void test_ladder_matches_cd(const uint8_t *built, size_t built_len, const
     free(cd);
 }
 
+/* a bank holds the letters it is asked for and no others (the palette always), and the file is smaller for it */
+static int letter_count(const Fsh *fsh, char letter)
+{
+    int n = 0;
+    for (int v = 0; v < FAM_VARIANTS; v++) {
+        char name[5];
+        snprintf(name, sizeof name, "%c00%d", letter, v);
+        FshEntry e;
+        n += find_entry(fsh, name, &e);
+    }
+    return n;
+}
+
+static void test_letters(const Stage *stage, size_t all_len)
+{
+    unsigned letters[TEXTURES];
+    for (int i = 0; i < TEXTURES; i++) letters[i] = FAM_LETTERS_ALL;
+    letters[0] = FAM_LETTER_A;
+    letters[1] = FAM_LETTER_B | FAM_LETTER_C;
+    const FamSource src = { stage->terrain_pic, TEXTURES, stage->scenery_pic, 1, &stage->horizon_pic, letters };
+    uint8_t *file = NULL;
+    size_t len = 0;
+    char msg[256];
+    CHECK(build(&src, &file, &len, msg, sizeof msg));
+    if (file == NULL) return;
+    CHECK(len < all_len);
+    Chunk root, terrain, bank;
+    CHECK(chunk_open(&root, file, len) == CHUNK_OK && chunk_child(&root, FAM_CHILD_TERRAIN, &terrain) == CHUNK_OK);
+    const int want[2][3] = { { 8, 0, 0 }, { 0, 8, 8 } };
+    for (int b = 0; b < TEXTURES; b++) {
+        Fsh fsh;
+        FshEntry pal;
+        CHECK(chunk_child(&terrain, (uint32_t)b, &bank) == CHUNK_OK && bank_open(&bank, &fsh));
+        CHECK(find_entry(&fsh, "!pal", &pal));   /* every bank keeps the stage's palette */
+        for (int l = 0; l < 3; l++) CHECK_EQ_INT(letter_count(&fsh, (char)('A' + l)), want[b][l]);
+    }
+    free(file);
+}
+
+/* the generic road's check of a FAM: 11 banks with the letter C in the last; fewer banks, or a last bank without C, are refused; letters of 0 are refused */
+static void test_generic_check(const Stage *s)
+{
+    static FamPicture many[TRACK_GENERIC_BANKS];
+    static unsigned letters[TRACK_GENERIC_BANKS];
+    for (int i = 0; i < TRACK_GENERIC_BANKS; i++) many[i] = s->terrain_pic[i % TEXTURES], letters[i] = FAM_LETTER_A;
+    letters[TRACK_GENERIC_BANKS - 1] = FAM_LETTER_C;
+    const FamSource good = { many, TRACK_GENERIC_BANKS, NULL, 0, &s->horizon_pic, letters };
+    const FamSource few = { many, TRACK_GENERIC_BANKS - 1, NULL, 0, &s->horizon_pic, letters };
+    uint8_t *file = NULL;
+    size_t len = 0;
+    char msg[256];
+    ExchangeError err = { { 0 } };
+    CHECK(build(&good, &file, &len, msg, sizeof msg));
+    if (file != NULL) CHECK(track_template_check_fam(file, len, &err));
+    free(file);
+    file = NULL;
+    CHECK(build(&few, &file, &len, msg, sizeof msg));
+    if (file != NULL) {
+        CHECK(!track_template_check_fam(file, len, &err));
+        CHECK(strstr(err.message, "terrain banks") != NULL);
+    }
+    free(file);
+    file = NULL;
+    letters[TRACK_GENERIC_BANKS - 1] = FAM_LETTER_A;   /* the fence's bank has no C */
+    CHECK(build(&good, &file, &len, msg, sizeof msg));
+    if (file != NULL) {
+        CHECK(!track_template_check_fam(file, len, &err));
+        CHECK(strstr(err.message, "letter C") != NULL);
+    }
+    free(file);
+    file = NULL;
+    CHECK(!track_template_check_fam((const uint8_t *)"junk", 4, &err));
+    letters[0] = 0;
+    CHECK(!build(&good, &file, &len, msg, sizeof msg));
+    CHECK(strstr(msg, "letters") != NULL);
+}
+
 int main(int argc, char **argv)
 {
     static Stage stage;
     stage_init(&stage);
-    const FamSource src = { stage.terrain_pic, TEXTURES, stage.scenery_pic, 1, &stage.horizon_pic };
+    const FamSource src = { stage.terrain_pic, TEXTURES, stage.scenery_pic, 1, &stage.horizon_pic, NULL };
     uint8_t *file = NULL;
     size_t len = 0;
     char msg[256];
@@ -233,6 +311,8 @@ int main(int argc, char **argv)
     test_same_input_same_bytes(&src, file, len);
     test_refusals(&stage);
     test_file_limit(&stage);
+    test_letters(&stage, len);
+    test_generic_check(&stage);
     if (argc > 1) test_ladder_matches_cd(file, len, argv[1]);
     free(file);
     return TEST_REPORT();

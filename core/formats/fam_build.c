@@ -1,6 +1,7 @@
 /* See fam_build.h. The variants' sizes are the CD's (AL1's terrain), the file's layout is the one chunk.h reads, and each bank goes
  * through shpi_build, so its directory and entries are the ones the CD's banks have. */
 #include "formats/fam_build.h"
+#include "formats/fam_spec.h"
 
 #include "formats/chunk.h"
 #include "formats/limits.h"
@@ -24,6 +25,7 @@ typedef struct {
     uint32_t width[FAM_VARIANTS], height[FAM_VARIANTS];
     uint8_t *rgba[FAM_VARIANTS];
     uint8_t *index[FAM_VARIANTS];
+    unsigned letters;   /* FAM_LETTER_ bits of the letters the bank holds */
 } Terrain;
 
 /* a chunk of a file being made: malloc'd bytes */
@@ -153,13 +155,15 @@ static int terrain_bank(const Terrain *t, const uint8_t palette6[FAM_PALETTE_BYT
     enum { ENTRIES = 1 + FAM_LETTERS * FAM_VARIANTS };
     ShpiDescEntry e[ENTRIES];
     e[BANK_PALETTE] = palette_entry(palette6, BANK_PALETTE);
-    for (int l = 0; l < FAM_LETTERS; l++)
-        for (int v = 0; v < FAM_VARIANTS; v++) {
+    uint32_t place = 1;
+    for (int l = 0; l < FAM_LETTERS; l++) {
+        if (!(t->letters & (1u << l))) continue;
+        for (int v = 0; v < FAM_VARIANTS; v++, place++) {
             const char name[4] = { LETTERS[l], '0', '0', (char)('0' + v) };
-            const uint32_t place = 1 + (uint32_t)(l * FAM_VARIANTS + v);
             e[place] = entry_of(name, BITMAP_TYPE, LADDER[v][0], LADDER[v][1], t->index[v], place);
         }
-    return bank_of(e, ENTRIES, out, err);
+    }
+    return bank_of(e, place, out, err);
 }
 
 /* a bank of one picture under `name` (scenery "0000", the horizon "horz") */
@@ -291,7 +295,15 @@ int fam_build(const FamSource *src, uint8_t **out, size_t *out_len, ExchangeErro
     Terrain *t = calloc(src->terrain_count, sizeof *t);
     if (t == NULL) { exchange_fail(err, "out of memory"); return 0; }
     int ok = 1;
-    for (size_t i = 0; ok && i < src->terrain_count; i++) ok = terrain_resample(&src->terrain[i], &t[i], err);
+    for (size_t i = 0; ok && i < src->terrain_count; i++) {
+        t[i].letters = src->terrain_letters != NULL ? src->terrain_letters[i] : FAM_LETTERS_ALL;
+        if ((t[i].letters & FAM_LETTERS_ALL) == 0 || (t[i].letters & ~(unsigned)FAM_LETTERS_ALL) != 0) {
+            exchange_fail(err, "terrain texture %zu: letters must be some of A, B, C", i);
+            ok = 0;
+            break;
+        }
+        ok = terrain_resample(&src->terrain[i], &t[i], err);
+    }
     ok = ok && file_of(src, t, out, out_len, err);
     terrain_free(t, src->terrain_count);
     return ok;

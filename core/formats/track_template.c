@@ -1,5 +1,7 @@
 #include "formats/track_template.h"
 
+#include "formats/chunk.h"
+#include "formats/fsh.h"
 #include "formats/track_gen.h"
 #include "formats/tri.h"
 
@@ -73,11 +75,11 @@ static void write_node(uint8_t *dst, int index)
     put_u16(dst + 0x1c, VECTOR_ONE);
 }
 
-/* byte 0xd (the fences) stays 0 on purpose: no fence, no scenery on the generic road */
 static void write_strip(uint8_t *seg)
 {
     memcpy(seg, "TRKD", 4);
     put_u32(seg + 4, TRI_SEGMENT_SIZE - 12);
+    seg[0xd] = TRACK_TEMPLATE_FENCE;
     for (int s = 0; s < 5; ++s) {
         seg[0xe + s] = BANDS[s];
         seg[0xe + 5 + s] = BANDS[s];
@@ -89,6 +91,27 @@ static void write_strip(uint8_t *seg)
             put_point(row + 6 * (6 + k), -CHAIN[k][0], CHAIN[k][1], CHAIN[k][2]);
         }
     }
+}
+
+/* The INFO's keys are the game's (its lines, in its order, CR LF); the values are ours: a level horizon in a sky blue, the road's light by
+ * the hours of the day */
+static const char INFO[] =
+    "#vert offset near\r\n0\r\n\r\n#vert offset far\r\n0\r\n\r\n"
+    "#zoffset near\r\n0\r\n\r\n#zoffset far\r\n0\r\n\r\n"
+    "#height near\r\n0\r\n\r\n#height far\r\n48\r\n\r\n"
+    "#radius near\r\n0\r\n\r\n#radius far\r\n96\r\n\r\n"
+    "#colour top\r\n0 1 2\r\n\r\n#colour bottom\r\n3 4 5\r\n\r\n"
+    "#ring type? (1 is TRUE, 0 is FALSE)\r\n0\r\n\r\n"
+    "#ring y offset (bigger places horizon further down)\r\n-60\r\n\r\n"
+    "#ring height\r\n112\r\n\r\n"
+    "#RGB TIME OF DAY VALUES\r\n\r\n"
+    "292\r\n216\r\n0\r\n0\r\n255\r\n\r\n255\r\n255\r\n255\r\n0\r\n255\r\n\r\n"
+    "295\r\n184\r\n14\r\n-1286\r\n289\r\n\r\n0\r\n\r\n";
+
+const char *track_template_info(size_t *len)
+{
+    *len = sizeof INFO - 1;
+    return INFO;
 }
 
 int track_template_generic(uint8_t **out, size_t *out_len, ExchangeError *err)
@@ -130,4 +153,27 @@ int track_template_generic(uint8_t **out, size_t *out_len, ExchangeError *err)
 done:
     free(header); free(descriptors); free(scenery); free(terrain);
     return ok;
+}
+
+int track_template_check_fam(const uint8_t *fam, size_t size, ExchangeError *err)
+{
+    Chunk root, terrain, bank;
+    Fsh fsh;
+    uint32_t at;
+    if (chunk_open(&root, fam, size) != CHUNK_OK || chunk_child(&root, 0, &terrain) != CHUNK_OK || terrain.kind != CHUNK_KIND_HEADER) {
+        exchange_fail(err, "not a track art file (FAM)");
+        return 0;
+    }
+    if (terrain.count < TRACK_GENERIC_BANKS) {
+        exchange_fail(err, "the art file has %u terrain banks; the generic road needs %d (see art/tnfs-tracks/generic-straight)", terrain.count,
+                      (int)TRACK_GENERIC_BANKS);
+        return 0;
+    }
+    const char fence[4] = { 'C', '0', '0', '0' };
+    if (chunk_child(&terrain, TRACK_GENERIC_BANKS - 1, &bank) != CHUNK_OK || bank.kind != CHUNK_KIND_BITMAP ||
+        chunk_bitmaps(&bank, &fsh) != FSH_OK || fsh_find(&fsh, fence, &at) != FSH_OK) {
+        exchange_fail(err, "terrain bank %d of the art file has no letter C (the fence's texture)", TRACK_GENERIC_BANKS - 1);
+        return 0;
+    }
+    return 1;
 }

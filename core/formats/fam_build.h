@@ -10,6 +10,7 @@
 
 #include "formats/exchange.h"
 #include "formats/fam_image.h"
+#include "formats/fam_spec.h"   /* FAM_LETTER_* */
 
 #include <stddef.h>
 #include <stdint.h>
@@ -22,6 +23,7 @@ typedef struct {
     const FamPicture *scenery;   /* scenery[i] is the scenery texture i; may be empty */
     size_t scenery_count;
     const FamPicture *horizon;   /* the sky and the background: required */
+    const unsigned *terrain_letters;   /* terrain_letters[i]: the FAM_LETTER_ bits (fam_spec.h) bank i holds; NULL: all three for every bank */
 } FamSource;
 
 /* The FAM bytes (malloc'd, free with free()). 0 with the reason in `err`: no horizon, fewer than 2 terrain textures, more than the
