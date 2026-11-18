@@ -3,15 +3,17 @@
 #include "formats/car_piece.h"
 #include "formats/mod_check.h"
 #include "formats/mod_ini.h"
+#include "formats/track_piece.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 
 /* 1 when `name` is one of the piece's three files, in any case (car_piece_check finds them so), or one of its pictures and skins
- * (car_piece_picture: car_piece_check measures them) */
+ * (car_piece_picture: car_piece_check measures them); a track piece's files are its stages' (track_piece_check looks at them) */
 static int piece_file(const ModInfo *card, const char *name)
 {
+    if (card->type == MOD_TYPE_TRACK) return track_piece_owns(card->stem, name);
     if (car_piece_picture(name)) return 1;
     char paths[CAR_PIECE_FILES][CAR_PIECE_PATH];
     car_piece_paths(card->stem, paths);
@@ -20,10 +22,11 @@ static int piece_file(const ModInfo *card, const char *name)
     return 0;
 }
 
-/* a car piece: its check, and validate_tree for the files it does not look at */
+/* a car or a track piece: its check (as the game makes it before it lets the piece race), and validate_tree for the files it does not look at */
 static int piece_tree(const ModInfo *card, const FileSet *set, Report *r, ExchangeError *err)
 {
-    car_piece_check(card, set, r);
+    if (card->type == MOD_TYPE_TRACK) track_piece_check(card, set, NULL, r);
+    else car_piece_check(card, set, r);
     FileSet rest;
     fileset_init(&rest);
     for (size_t i = 0; i < set->count; i++) {
@@ -52,7 +55,7 @@ int mod_validate_tree(const FileSet *set, Report *r, ExchangeError *err)
         exchange_fail(err, "%s", why);   /* it names mod.ini */
         return 0;
     }
-    if (card.type == MOD_TYPE_CAR) return piece_tree(&card, set, r, err);
+    if (card.type == MOD_TYPE_CAR || card.type == MOD_TYPE_TRACK) return piece_tree(&card, set, r, err);
     validate_tree(set, r);
     return 1;
 }

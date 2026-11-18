@@ -90,5 +90,41 @@ done
 "$studio" track new "$work/loop.trk" --template AL1 --piece --stem MYSTAGE --out "$work/x" --data "$orig" >/dev/null 2>&1 && fail "piece: no --id was accepted"
 "$studio" track new "$work/loop.trk" --template AL1 --id x --out "$work/x" --data "$orig" >/dev/null 2>&1 && fail "--id without --piece was accepted"
 
+# port (newcomer pains): the card keeps what a modder wrote by hand when --force rewrites it, writes author and description, names the
+# data root a missing template is looked for in, and a tint that is not #RRGGBB is refused by validate and by mod pack
+keep="$work/keep"
+"$studio" track new "$work/loop.trk" --template AL1 --piece --id keep-me --stem KEEPME --out "$keep" --data "$orig" --author Ann --description "a loop" >"$work/log" 2>&1 ||
+    fail "keep: track new --piece: $(cat "$work/log")"
+grep -qx 'author=Ann' "$keep/mod.ini" || fail "keep: --author is not in mod.ini: $(cat "$keep/mod.ini")"
+grep -qx 'description=a loop' "$keep/mod.ini" || fail "keep: --description is not in mod.ini"
+"$studio" track new "$work/loop.trk" --template AL1 --piece --id keep-me --stem KEEPME --out "$work/keep_plain" --data "$orig" >/dev/null 2>&1 || fail "keep: track new without the flags"
+grep -q '^# author=' "$work/keep_plain/mod.ini" || fail "keep: no author key is shown when none is given"
+grep -q '^# description=' "$work/keep_plain/mod.ini" || fail "keep: no description key is shown when none is given"
+"$studio" validate "$work/keep_plain" >/dev/null 2>&1 || fail "keep: the card with the placeholders does not validate"
+# the hand edits: a version bumped, and the keys the generator does not write
+sed 's/^version=0\.1$/version=0.3/' "$keep/mod.ini" > "$work/mod.new" && cp "$work/mod.new" "$keep/mod.ini"
+printf 'length=14.2 km\ntimes=day,dusk\nshowcase_tint=#C08040\nfuture_key=kept\n' >> "$keep/mod.ini"
+"$studio" track new "$work/loop.trk" --template AL1 --piece --id keep-me --stem KEEPME --out "$keep" --data "$orig" --force >"$work/log" 2>&1 ||
+    fail "keep: --force over the piece: $(cat "$work/log")"
+for line in version=0.3 author=Ann 'description=a loop' 'length=14.2 km' 'times=day,dusk' '#C08040' future_key=kept; do
+    grep -qF -- "$line" "$keep/mod.ini" || fail "keep: --force lost $line: $(cat "$keep/mod.ini")"
+done
+grep -qx 'showcase_tint=#C08040' "$keep/mod.ini" || fail "keep: --force lost the showcase_tint"
+[ "$(grep -c '^id=' "$keep/mod.ini")" -eq 1 ] || fail "keep: the card holds two id= lines"
+# a card that is not a card is not overwritten: the refusal names it
+mkdir -p "$work/broken" && printf 'id=BAD\n' > "$work/broken/mod.ini"
+"$studio" track new "$work/loop.trk" --template AL1 --piece --id keep-me --stem KEEPME --out "$work/broken" --data "$orig" --force >/dev/null 2>"$work/log" &&
+    fail "keep: --force overwrote a damaged mod.ini"
+grep -q "fix it, or move it aside" "$work/log" || fail "keep: the damaged mod.ini is not explained: $(cat "$work/log")"
+# the data root: a template that is not there names the folder it looked in and the flag that sets it
+"$studio" track new "$work/loop.trk" --template AL1 --out "$work/nodata" --data "$work/nowhere" >/dev/null 2>"$work/log" && fail "a missing data root was accepted"
+grep -q "$work/nowhere" "$work/log" && grep -q -- "--data" "$work/log" || fail "the missing data root is not named with --data: $(cat "$work/log")"
+# a tint that is not #RRGGBB: validate and mod pack refuse it
+sed 's/^showcase_tint=.*/showcase_tint=orange/' "$keep/mod.ini" > "$work/mod.tint" && cp "$work/mod.tint" "$keep/mod.ini"
+"$studio" validate "$keep" >"$work/log" 2>&1 && fail "validate accepted showcase_tint=orange"
+grep -q "PIECE.TINT" "$work/log" || fail "validate does not name PIECE.TINT: $(cat "$work/log")"
+"$studio" mod pack "$keep" "$work/keep.zip" >"$work/log" 2>&1 && fail "mod pack accepted showcase_tint=orange"
+[ -e "$work/keep.zip" ] && fail "mod pack wrote a zip for a bad tint"
+
 [ "$failures" -eq 0 ] && echo "track_new: ok"
 exit $((failures != 0))

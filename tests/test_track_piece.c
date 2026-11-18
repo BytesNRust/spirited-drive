@@ -196,8 +196,30 @@ static void test_fingerprint(void)
     fileset_free(&other);
 }
 
+/* port (newcomer pains): a showcase_tint that is not #RRGGBB is a fatal PIECE.TINT, so the piece is refused before any file is looked at */
+static void test_a_bad_tint_is_refused(void)
+{
+    static const char *const TEXT = "id=bad-tint\nname=Bad\nversion=0.1\ntype=track\nstem=TINTY\nkind=stage\nsegments=1\n"
+                                     "road=asphalt\nedge=grass\nshowcase_tint=orange\n";
+    ModInfo card;
+    char why[160];
+    CHECK_EQ_INT(mod_ini_parse((const uint8_t *)TEXT, strlen(TEXT), &card, why, sizeof why), 1);
+    FileSet set;
+    fileset_init(&set);
+    Report r;
+    report_init(&r);
+    CHECK_EQ_INT(track_piece_check(&card, &set, NULL, &r), 0);
+    int found = 0;
+    for (size_t i = 0; i < r.count; i++)
+        if (strcmp(r.item[i].limit->id, "PIECE.TINT") == 0) found = r.item[i].limit->fatal;
+    CHECK_EQ_INT(found, 1);
+    report_free(&r);
+    fileset_free(&set);
+}
+
 int main(void)
 {
+    test_a_bad_tint_is_refused();
     test_stems();
     test_spec_defaults_and_values();
     test_spec_refusals();
