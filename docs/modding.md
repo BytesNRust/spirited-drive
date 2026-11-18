@@ -238,6 +238,20 @@ A mod's `<mod>/sounds/<file>` is used instead of the one in `data/`, under the s
 
 Only CC0 or public-domain samples go in the repository, each with its source, author and licence written in [`data/sounds/LICENSES.md`](../data/sounds/LICENSES.md): add the entry there in the same change as the file (what it is made from, what was changed, the URL, the author, the licence and the date it was checked on the page). A mod of your own is free to use any sound it has the right to.
 
+## Adding a track (development)
+
+A `track` piece (`type=track` in its `mod.ini`, made with `tnfs-studio track new --piece`) is an A-to-B track like Coastal and Alpine. Its `mod.ini` keys beside `id`, `name`, `version`, `author` and `description`:
+
+| Key | What it is | Rule |
+| --- | --- | --- |
+| `stem` | the name its stages' files go by (`<STEM>1`..`<STEM>3`) | 1 to 8 of `A-Z 0-9`; not a stem of the CD's tracks |
+| `kind` | the kind of track | `stage` (the default); `circuit` is refused: this version adds A-to-B tracks only |
+| `segments` | how many stages it has | 1, 2 or 3 (1 when not given) |
+| `road`, `edge` | its road and what lies beside it | `asphalt` or `dirt`; `grass`, `gravel`, `sand`, `snow`, `dirt` or `water` |
+| `length` | the length its page shows, as written (`14.2 km`) | optional, up to 16 bytes |
+| `times` | the times of day it takes | optional; some of `dawn`, `day`, `dusk`, `night`, each once |
+| `showcase_tint` | the tone of its page's background: the CD's sepia pages turned to this colour, each shade keeping its brightness | optional; `#RRGGBB` (hex digits, either case, nothing else); without it the page is sepia. `tnfs-studio mod pack` and the game refuse a value that is not `#RRGGBB` (`PIECE.TINT`) |
+
 ## Adding a car (development)
 
 In Restomod a mod can add a car beside the twelve of the original game: a folder whose `mod.ini` says `type=car`. Stock and Restored never load one. It is picked on Control Central when the edition in use lists it (Editions, above: the arrows step through the edition's cars, the player's and the head to head rival's), shown in its own gallery, and raced from the menus or the command line.

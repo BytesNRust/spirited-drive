@@ -3,6 +3,7 @@
 
 #include "formats/exchange.h"
 #include "formats/mod_ini.h"
+#include "formats/showcase_tint.h"
 #include "formats/track_piece.h"
 #include "formats/validate.h"
 #include "game/sys/mod_set.h"
@@ -86,6 +87,7 @@ static int read_piece(const char *dir, ModInfo *card, TrackPiece *out, char *why
     out->spec = spec;
     out->fingerprint = print;
     out->card_name_off = card->card_name_off;
+    if (card->showcase_tint[0] == '\0' || !showcase_tint_parse(card->showcase_tint, out->tint)) memcpy(out->tint, SHOWCASE_TINT_SEPIA, sizeof out->tint);
     snprintf(out->id, sizeof out->id, "%s", card->id);
     snprintf(out->name, sizeof out->name, "%s", card->name);
     snprintf(out->stem, sizeof out->stem, "%s", card->stem);

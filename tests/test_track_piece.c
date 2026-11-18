@@ -68,6 +68,9 @@ static void test_spec_refusals(void)
         { "times=day,day\n", "PIECE.TIMES", "times=day,day" },
         { "times=noon\n", "PIECE.TIMES", "times=noon" },
         { "times=day,\n", "PIECE.TIMES", "times=day," },
+        { "showcase_tint=red\n", "PIECE.TINT", "showcase_tint=red" },
+        { "showcase_tint=#12345\n", "PIECE.TINT", "showcase_tint=#12345" },
+        { "showcase_tint=#12345G\n", "PIECE.TINT", "#RRGGBB" },
     };
     for (size_t i = 0; i < sizeof BAD / sizeof BAD[0]; i++) {
         char text[200];

@@ -38,6 +38,7 @@ enum {
     MOD_INI_PAINTS_MAX = 16,
     MOD_INI_PAINT_NAME_MAX = 24,
     MOD_INI_TIMES_MAX = 32,
+    MOD_INI_TINT_MAX = 7,   /* "#RRGGBB" */
     MOD_INI_CATEGORY_MAX = 16,
     MOD_INI_PHOTOS_MAX = 8,
     MOD_INI_PHOTO_NAME_MAX = 24
@@ -69,6 +70,7 @@ typedef struct {
     char kind[MOD_INI_FROM_MAX + 1], segments[MOD_INI_FROM_MAX + 1], road[MOD_INI_FROM_MAX + 1], edge[MOD_INI_FROM_MAX + 1];
     char length[MOD_INI_FIGURE_MAX + 1], laps[MOD_INI_FIGURE_MAX + 1], times[MOD_INI_TIMES_MAX + 1];
     char category[MOD_INI_CATEGORY_MAX + 1];   /* "" when not given */
+    char showcase_tint[MOD_INI_TINT_MAX + 1];   /* a track's showcase_tint=#RRGGBB as written (showcase_tint.h); "" when not given */
     char photo[MOD_INI_PHOTOS_MAX][MOD_INI_PHOTO_NAME_MAX + 1];   /* photos=, in order */
     int photo_count;
     char photo_small[MOD_INI_PHOTO_NAME_MAX + 1];   /* "" when not given */
