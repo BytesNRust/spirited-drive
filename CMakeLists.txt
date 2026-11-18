@@ -105,6 +105,8 @@ add_library(tnfs_core STATIC
     core/iso/iso9660.c
     core/formats/tri_exchange.c
     core/formats/track_gen.c
+    core/formats/fixed_math.c
+    core/formats/track_frame.c
     core/formats/tri_reverse.c
     core/formats/tri_write.c
     core/formats/tsv.c
@@ -539,7 +541,6 @@ add_library(tnfs_game STATIC
     game/race/track_objects.c
     game/race/track_render.c
     game/race/view.c
-    game/sys/fixed_math.c
     game/sys/inverse_load.c
     game/sys/key_codes.c
     game/sys/joystick.c
@@ -800,7 +801,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen psx_bigf update_check zip mod_ini mod_check mod_install edition_ini stock_content)
+    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_check mod_install edition_ini stock_content)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -1585,6 +1586,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME tri_reverse_cd COMMAND test_tri_reverse ${TNFS_TRI_FILES})
         add_test(NAME tri_exchange_cd COMMAND test_tri_exchange ${TNFS_TRI_FILES})
         add_test(NAME track_gen_cd COMMAND test_track_gen ${TNFS_TRI_FILES})
+        add_test(NAME track_frame_cd COMMAND test_track_frame ${TNFS_TRI_FILES})
         add_executable(test_track tests/test_track.c)
         target_link_libraries(test_track PRIVATE tnfs_game)
         target_compile_options(test_track PRIVATE ${TNFS_WARNINGS})

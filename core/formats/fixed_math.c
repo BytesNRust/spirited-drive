@@ -1,4 +1,4 @@
-#include "game/sys/fixed_math.h"
+#include "formats/fixed_math.h"
 
 #include <string.h>
 
