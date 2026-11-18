@@ -187,10 +187,10 @@ static uint64_t fnv64(const uint8_t *p, size_t n)
 
 static void check_golden(const uint8_t *tmpl, size_t tsize)
 {
-    static const struct { const char *layout; uint64_t hash, hash_arm64; } golden[] = {   /* hash_arm64: the other rounding of sin, cos and the products (checked on the old generator too) */
-        { "section 10\n", 0xcdb2635430d481bfull, 0 },
-        { "section 10\nsection 20 turn=90 grade=4 bank=5 width=50\nsection 10 grade=0 bank=0\n", 0x0cea70a33687b805ull, 0 },
-        { "section 30 turn=-100 grade=-6 bank=-8 width=70\nsection 12 turn=40 grade=12 bank=3 width=30\n", 0xf1e24a91cf337e38ull, 0xbb0b04e45825286aull },
+    static const struct { const char *layout; uint64_t hash; } golden[] = {   /* one hash for every machine: track_gen is built without fused multiply-adds */
+        { "section 10\n", 0xcdb2635430d481bfull },
+        { "section 10\nsection 20 turn=90 grade=4 bank=5 width=50\nsection 10 grade=0 bank=0\n", 0x0cea70a33687b805ull },
+        { "section 30 turn=-100 grade=-6 bank=-8 width=70\nsection 12 turn=40 grade=12 bank=3 width=30\n", 0xf1e24a91cf337e38ull },
     };
     for (size_t i = 0; i < sizeof golden / sizeof golden[0]; ++i) {
         uint8_t *out = NULL;
@@ -198,8 +198,8 @@ static void check_golden(const uint8_t *tmpl, size_t tsize)
         ExchangeError err = {0};
         CHECK(generate(golden[i].layout, tmpl, tsize, &out, &len, &err));
         if (out == NULL) continue;
-        if (fnv64(out, len) != golden[i].hash && fnv64(out, len) != golden[i].hash_arm64) fprintf(stderr, "golden %zu: 0x%llxull\n", i, (unsigned long long)fnv64(out, len));
-        CHECK(fnv64(out, len) == golden[i].hash || fnv64(out, len) == golden[i].hash_arm64);
+        if (fnv64(out, len) != golden[i].hash) fprintf(stderr, "golden %zu: 0x%llxull\n", i, (unsigned long long)fnv64(out, len));
+        CHECK(fnv64(out, len) == golden[i].hash);
         free(out);
     }
 }

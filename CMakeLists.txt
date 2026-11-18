@@ -126,6 +126,12 @@ if(UNIX)
     target_link_libraries(tnfs_core PUBLIC m)   # track_gen
 endif()
 target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
+# What goes into a file's print (the generated TRI) must not depend on the machine: arm64 fuses a*b+c into one rounding by default and
+# x86 does not, so the same layout gave different bytes. Off for the files that make the bytes of a package; the editor's join them
+# as they arrive. (Not all of core: tri_reverse runs in a race and is left as recorded replays have it.)
+if(NOT MSVC)
+    set_source_files_properties(core/formats/track_gen.c PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+endif()
 
 # The recovered game logic: platform-independent, links no SDL.
 add_library(tnfs_game STATIC
