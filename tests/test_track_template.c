@@ -213,7 +213,7 @@ static void check_info(void)
     CHECK_EQ_INT(info.final_flag, 0);
     CHECK_EQ_INT(info.ring_y_offset, -52);
     CHECK_EQ_INT(info.ring_height, 100);
-    const int32_t groups[3][5] = { { 255, 255, 255, 0, 255 << 8 }, { 255, 255, 255, 0, 255 << 8 }, { 255, 255, 255, 0, 255 << 8 } };   /* no tint by the hour: the same neutral */
+    const int32_t groups[3][5] = { { 256, 256, 256, 0, 256 << 8 }, { 256, 256, 256, 0, 256 << 8 }, { 256, 256, 256, 0, 256 << 8 } };   /* no tint by the hour: the game's neutral, each channel times 256 / 256 (the fifth << 8, as the reader keeps it) */
     for (int g = 0; g < 3; ++g)   /* three groups of five, the fifth of each << 8 */
         for (int k = 0; k < 5; ++k) CHECK_EQ_INT(info.time_of_day[k][g], groups[g][k]);
     CHECK_EQ_INT(r.tint_calls, 1);   /* the tint of the time of day asked: the group's five */
