@@ -49,6 +49,14 @@ int track_layout_nodes(const char *layout, size_t layout_len, double start_width
 int track_generate_nodes(const TrackGenNode *nodes, int count, const uint8_t *template_tri, size_t template_size, uint8_t **out,
                          size_t *out_len, ExchangeError *err);
 
+/* track_generate_nodes with the template's terrain rows turned to follow the road: the TRI keeps a row's points in world axes, and the
+ * template's cross-section is taken in its own nodes' axes (track_frame.h) and laid along each new node's, so on a curve, a climb or a bank
+ * the ground lies across the road and not across the world. The width is added across the road. On a flat straight at heading 0, with a template
+ * whose model strip is flat at heading 0 too (our own, track_template.h), it is track_generate_nodes' bytes; elsewhere only the rows differ (to a rounding of the turn: 1/64 of a unit on a point). The layouts of
+ * `track new` keep track_generate_nodes, so the pieces already made keep their bytes and their prints. */
+int track_generate_nodes_turned(const TrackGenNode *nodes, int count, const uint8_t *template_tri, size_t template_size, uint8_t **out,
+                                size_t *out_len, ExchangeError *err);
+
 /* 1 and *out (malloc'd, *out_len bytes) on success; 0 with err naming the layout line otherwise. */
 int track_generate(const char *layout, size_t layout_len, const uint8_t *template_tri, size_t template_size,
                    uint8_t **out, size_t *out_len, ExchangeError *err);
