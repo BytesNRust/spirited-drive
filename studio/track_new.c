@@ -228,8 +228,7 @@ static int track_new(const Args *a, ExchangeError *err)
     fileset_init(&set);
     int ok = 0;
     if (!fsio_find_ci(a->data, rel, real, sizeof real)) {
-        exchange_fail(err, "no such file %s in the data root %s (the template slot's files are read from there: give the CD's data folder with --data DIR)", rel,
-                      a->data);
+        exchange_fail(err, "no %s in the data root %s: give the CD's folder with --data DIR", rel, a->data);
         goto done;
     }
     if ((tri = fsio_read_file(real, &tri_size, err)) == NULL) goto done;
