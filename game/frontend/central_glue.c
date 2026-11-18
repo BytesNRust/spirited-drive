@@ -357,6 +357,9 @@ static void track_arrow(int dir)
     cg_lunar_settle();
 }
 
+/* port (dep59 step 5, T7d): the added track page's Road/track arrows step the pick as Control Central's do */
+void cg_track_arrow(int dir) { track_arrow(dir); }
+
 static void track_forward(void *ctx)
 {
     (void)ctx;
@@ -931,7 +934,7 @@ int32_t glue_central(void)
         key_down, activate, net_start, click, kick, music_fade_out, fade_out, music_end, music_start, showcase,
         music_pick, step_race_type, track_forward, track_backward, nothing, cg_standings, track_select, art_free, options,
         cg_chat, glue_yes_no, glue_drain, glue_banner, pre_race, sound_free, picture_free, cg_flush, cg_race, off,
-        cg_plus_text, NULL, 1, pad_buttons, palette_colour, card_marks, card_plain, cg_variants_chosen, cg_load_added_card, cg_load_track_card, cg_added_gallery, showcase_carousel };
+        cg_plus_text, NULL, 1, pad_buttons, palette_colour, card_marks, card_plain, cg_variants_chosen, cg_load_added_card, cg_load_track_card, cg_added_gallery, showcase_carousel, cg_track_page };
     load();
     ControlCentralState st = {
         &cg_g.race_type, &cg_g.opponent, &cg_g.track, &cg_g.player_car, cg_g.other_car, &cg_g.net_car, &cg_g.laps, cg_g.difficulty,

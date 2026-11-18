@@ -3,6 +3,7 @@
 
 #include "formats/exchange.h"
 #include "formats/mod_ini.h"
+#include "formats/showcase_tint.h"
 #include "formats/track_piece.h"
 #include "formats/validate.h"
 #include "game/sys/mod_set.h"
@@ -86,10 +87,13 @@ static int read_piece(const char *dir, ModInfo *card, TrackPiece *out, char *why
     out->spec = spec;
     out->fingerprint = print;
     out->card_name_off = card->card_name_off;
+    out->tinted = card->showcase_tint[0] != '\0' && showcase_tint_parse(card->showcase_tint, out->tint);   /* (the check refused a bad one) */
+    if (!out->tinted) memcpy(out->tint, SHOWCASE_TINT_SEPIA, sizeof out->tint);
     snprintf(out->id, sizeof out->id, "%s", card->id);
     snprintf(out->name, sizeof out->name, "%s", card->name);
     snprintf(out->stem, sizeof out->stem, "%s", card->stem);
     snprintf(out->author, sizeof out->author, "%s", card->author);
+    snprintf(out->description, sizeof out->description, "%s", card->description);
     snprintf(out->length, sizeof out->length, "%s", card->length);
     if (snprintf(out->dir, sizeof out->dir, "%s", dir) >= (int)sizeof out->dir)
         return snprintf(why, why_cap, "its folder's path is longer than %d characters", (int)sizeof out->dir - 1), 0;

@@ -6,7 +6,9 @@
 #   race         the second piece raced from Control Central (the autopilot, one lap), its three results screens, Control Central again;
 #                its record is in race_records_tracks.dat under its id, none under the first piece's
 #   card         tools/menu_walk.sh's added-track target (Control Central on the piece's card, the picture menu_compare compares) saves a picture
-#   best_times   (prepared: set BEST=1 once T7d's page opens it) the card's click opens the track's page and its BEST TIMES the records by id
+#   page         the added track's page (tools/menu_walk.sh added-page) saves a picture
+#   best_times   the card's click opens the track's page, a key turns Mirror on, its BEST TIMES opens the records by id, Escape comes back to the page and
+#                again to Control Central, whose card says MIRROR
 # usage: track_menus.sh TNFS STUDIO ORIGINAL_DIR [PART...]   (no PART: central race card). KEEP=1 keeps the scratch folder.
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
@@ -30,6 +32,11 @@ printf 'section 24\nsection 40 turn=90 grade=3 bank=6 width=50\nsection 30 turn=
 for p in dune-run:DUNERUN hill-run:HILLRUN; do
     "$studio" track new "$work/loop.trk" --template AL1 --piece --id "${p%%:*}" --stem "${p##*:}" --out "$work/pieces/${p%%:*}" --data "$orig" >"$work/studio.log" 2>&1 ||
         { echo "FAIL: track new --piece ${p%%:*}: $(cat "$work/studio.log")" >&2; exit 1; }
+done
+
+# dune-run says who made it, how long it is and what it is like (its page shows them; a key the studio wrote is left as it is)
+for kv in "author=A. Modder" "length=5.2 miles" "description=A fast, dusty run through the dry riverbeds east of the old quarry. The first stretch is wide and flat, then it narrows between rock walls before the long right-hander that leads to the checkpoint. Watch the edge at the crest: the road drops away without warning. Best driven early in the day, when the sun is low behind you. Made for the contest."; do
+    grep -q "^${kv%%=*}=" "$work/pieces/dune-run/mod.ini" || printf '%s\n' "$kv" >> "$work/pieces/dune-run/mod.ini"
 done
 
 # a fresh player folder in Restomod with the pieces installed and an edition of them alone (cars=supra tracks=dune-run,hill-run)
@@ -113,19 +120,31 @@ part_card() {
     [ -s "$work/pics/added-track.png" ] || fail "card: no picture of Control Central on the added track"
 }
 
+part_page() {
+    command -v magick >/dev/null 2>&1 && command -v zsh >/dev/null 2>&1 || { echo "skip: page (needs zsh and ImageMagick)"; return; }
+    printf 'name=Solo\ncars=supra\ntracks=dune-run\n' > "$work/solo.ini"
+    mkdir -p "$work/pics"
+    MODS="$work/pieces/dune-run" EDITION="$work/solo.ini" DATA="$orig" zsh "$(dirname "$0")/../tools/menu_walk.sh" "$tnfs" "$work/pics" added-page >"$work/walk.log" 2>&1 ||
+        { fail "page: menu_walk.sh added-page: $(tail -3 "$work/walk.log")"; return; }
+    [ -s "$work/pics/added-page.png" ] || fail "page: no picture of the added track's page"
+}
+
 part_best_times() {
-    [ -n "${BEST:-}" ] || { echo "skip: best_times (T7d's page does not open it yet: BEST=1 once it does)"; return; }
     user_in
     # the card's click opens the track's page, its BEST TIMES (the footer's right) the records by id
     section page;  add "$to_game_mode,$single,$(wait_for card=16),$(click 400 320),$(wait_for screen=track_page)"
-    section best;  add "$(click 560 460),$(wait_for screen=best_times)"
+    section mirror; add "300:RIGHT,$(wait_for 'tpage=0 1000')"
+    section best;  add "$(click 560 460),$(wait_for screen=best_times),300:ESC,$(wait_for 'tpage=7 1000')"
+    section back;  add "300:ESC,$(wait_for 'card=16 MIRROR')"
     walk || { fail "best_times: the walk did not end"; return; }
     log | grep -q "^mark:screen=best_times" || fail "best_times: no Best Times screen"
+    [ "$(log | grep -c "^mark:screen=track_page")" = 2 ] || fail "best_times: the page did not open again after Best Times"
+    log | grep -q "^mark:card=16 MIRROR" || fail "best_times: Control Central's card does not say MIRROR after the page"
 }
 
 for part in $parts; do
     case $part in
-    central|race|card|best_times) "part_$part" ;;
+    central|race|card|page|best_times) "part_$part" ;;
     *) echo "FAIL: no part $part" >&2; exit 2 ;;
     esac
 done

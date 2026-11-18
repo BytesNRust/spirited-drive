@@ -3,6 +3,7 @@
 #include "game/frontend/car_list.h"
 #include "game/frontend/track_list.h"
 #include "game/frontend/showcase.h"
+#include "game/sys/track_registry.h"
 
 #include <stddef.h>
 
@@ -294,6 +295,12 @@ static void track_item(CentralRun *r)
     } else if (in(r, 0x155, 0x168, 0x131, 0x14e)) {
         o->track_backward(o->ctx);
         r->redraw = 1;
+    } else if (o->track_page != NULL && *st->track >= TRACK_ADDED_FIRST && st->no_music == 0) {   /* port (dep59 step 5, T7d): an added track has a page of its own */
+        showcase_start(r);
+        o->track_page(o->ctx, r->palette);
+        showcase_music_end(r);   /* the page leaves it playing */
+        o->showcase_after(o->ctx);
+        again(r);
     } else if (st->no_music == 0 && *st->track != 9) {
         showcase_start(r);
         o->free_inverse(o->ctx);

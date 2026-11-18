@@ -67,6 +67,7 @@ const Limit limit_table[] = {
     { "PIECE.ROAD", "a track piece's road is asphalt or dirt", 0, "port (dep59 step 5): track_piece_check, race_state.c", 1, 0 },
     { "PIECE.EDGE", "a track piece's edge is grass, gravel, sand, snow, dirt or water", 0, "port (dep59 step 5): track_piece_check, race_state.c", 1, 0 },
     { "PIECE.TIMES", "a track piece's times are some of dawn, day, dusk and night, each once", 0, "port (dep59 step 5): track_piece_check", 1, 0 },
+    { "PIECE.TINT", "a track piece's showcase_tint is #RRGGBB", 0, "port (dep59 step 5, T7d): track_piece_check", 1, 0 },
     { "PIECE.MODEL_NAME", "a car piece's model has the exhaust point 'smok', the lights' labels lt_frnt rt_frnt lt_rear rt_rear and their points fl0 fl1 fr0 fr1 rl0 rl1 rr0 rr1 (else the race hangs)", 0, "00457d40 (car_model.c signals)", 1, 0 },
     { "PIECE.MODEL_INDEX", "every polygon of a car piece's model names a texture, vertices and uvs inside their tables", 0, "port (dep59): car_piece_check", 1, 0 },
     { "PIECE.MODEL_GROUPS", "every polygon of a car piece's high-detail model is in a group (inside, outside, surface, convex); one in none is not drawn close up", 0, "00457d40 (the parts)", 0, 0 },

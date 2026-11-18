@@ -66,6 +66,7 @@ static const Field FIELDS[] = {
     { "length", offsetof(ModInfo, length), sizeof ((ModInfo *)0)->length, KIND_TEXT },
     { "laps", offsetof(ModInfo, laps), sizeof ((ModInfo *)0)->laps, KIND_TEXT },
     { "times", offsetof(ModInfo, times), sizeof ((ModInfo *)0)->times, KIND_TEXT },
+    { "showcase_tint", offsetof(ModInfo, showcase_tint), sizeof ((ModInfo *)0)->showcase_tint, KIND_TEXT },   /* port (dep59 step 5, T7d): a track page's background tone */
 };
 
 static const char *const TYPE_NAMES[] = { [MOD_TYPE_TWEAK] = "tweak", [MOD_TYPE_CAR] = "car", [MOD_TYPE_TRACK] = "track" };

@@ -261,6 +261,12 @@ static void test_track_fields(void)
     CHECK(strcmp(m.stem, "TURINI") == 0 && strcmp(m.kind, "stage") == 0 && strcmp(m.segments, "2") == 0);
     CHECK(strcmp(m.length, "14.2 km") == 0 && strcmp(m.laps, "4,8,16") == 0);
     CHECK(strcmp(m.times, "dawn,day,dusk,night") == 0 && strcmp(m.road, "asphalt") == 0 && strcmp(m.edge, "gravel") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\n", &m, why), 1);
+    CHECK(m.showcase_tint[0] == '\0');   /* none given: "" */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\nshowcase_tint=#336699\n", &m, why), 1);
+    CHECK(strcmp(m.showcase_tint, "#336699") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\nshowcase_tint=#33669900\n", &m, why), 0);   /* longer than #RRGGBB */
+    CHECK(strstr(why, "showcase_tint") != NULL);
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\nkind=Stage\n", &m, why), 0);   /* a-z and 0-9 only */
     CHECK(strstr(why, "kind") != NULL);
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=track\nsegments=12345678\n", &m, why), 1);   /* 8: the piece check judges the value */

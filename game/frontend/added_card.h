@@ -20,8 +20,9 @@ enum {
 };
 
 /* port (dep59 step 5, T7c): an added track's card, in the track's slot of Control Central: 208x127 at (341, 255) (the moon card's), its
- * name's capitals ending on row 122 as "Lunar Springs" has them; card.png (that size) or, without one, a flat card the game makes */
-enum { ADDED_TRACK_W = 208, ADDED_TRACK_H = 127, ADDED_TRACK_X = 341, ADDED_TRACK_Y = 255, ADDED_TRACK_NAME_BASE = 122 };
+ * name's capitals ending on row 120 from column 4 as "Rusty Springs" has them (measured on Control Central, 2026-11-18, the owner's
+ * comparison; ADDED_TRACK_NAME_X is the letters' box's first column, a D's stem one in); card.png (that size) or, without one, a flat card the game makes */
+enum { ADDED_TRACK_W = 208, ADDED_TRACK_H = 127, ADDED_TRACK_X = 341, ADDED_TRACK_Y = 255, ADDED_TRACK_NAME_BASE = 120, ADDED_TRACK_NAME_X = 3 };
 
 enum {
     ADDED_CARD_NAME_X = 4,          /* the names' first column on the CD's cards (3..5) */
@@ -50,9 +51,15 @@ uint8_t *added_card_bank_named(const PngImage *img, int rival, int from_card, co
 uint8_t *added_track_card_bank(const PngImage *img, const AddedCardName *name, const uint8_t palette[768], const uint8_t usable[256],
                                size_t *size, char *why, size_t why_cap);
 
+/* the same card as RGBA (ADDED_TRACK_W x ADDED_TRACK_H x 4), malloc'd, for a page that shows it in a palette of its own (track_page_glue.c);
+ * NULL with the reason in `why` */
+uint8_t *added_track_card_rgba(const PngImage *img, const AddedCardName *name, char *why, size_t why_cap);
+
 /* `name` drawn on `rgba` (w x h, alpha kept): its shadow, then its letters mixed with the picture by coverage, from ADDED_CARD_NAME_X,
  * its capitals' last row on `base`; what falls outside cut */
 void added_card_draw_name(uint8_t *rgba, int w, int h, const AddedCardName *name, int base);
+/* the same from column `x0` (a track card's names start at ADDED_TRACK_NAME_X) */
+void added_card_draw_name_at(uint8_t *rgba, int w, int h, const AddedCardName *name, int base, int x0);
 
 /* `name` as the card draws it: text_words' (the bytes GRAVER18 draws right), its spaces trimmed, and when `measure` (a run's width in
  * pixels) says it is wider than `max_w`, cut at the end with "..." (no space before it); in `out` (`size` bytes, cutting too). 0 when

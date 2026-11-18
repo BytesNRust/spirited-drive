@@ -216,6 +216,31 @@ int main(void)
     why[0] = '\0';
     CHECK(added_track_card_bank(&wrong, NULL, palette, usable, &size, why, sizeof why) == NULL);
     CHECK(strstr(why, "309x166") != NULL && strstr(why, "208x127") != NULL);
+    {   /* the owner's comparison (2026-11-18): an added track's name sits where "Rusty Springs" does on Control Central: first column and base row */
+        static const uint8_t FULL[3 * 2] = { 15, 15, 15, 15, 15, 15 };
+        const AddedCardName name = { FULL, 3, 2, 2 };
+        uint8_t *card = added_track_card_rgba(NULL, &name, why, sizeof why);
+        CHECK(card != NULL);
+        if (card != NULL) {
+            const uint8_t *ink = card + 4 * ((ADDED_TRACK_NAME_BASE - 2) * ADDED_TRACK_W + ADDED_TRACK_NAME_X);
+            CHECK(ink[0] > 200 && ink[1] < 60 && ink[2] < 60);   /* the letters' red at the first column, the mask's first row */
+            const uint8_t *left = card + 4 * ((ADDED_TRACK_NAME_BASE - 2) * ADDED_TRACK_W + ADDED_TRACK_NAME_X - 1);
+            CHECK(!(left[0] > 200 && left[1] < 60));   /* and none before it */
+            free(card);
+        }
+    }
+    why[0] = '\0';
+    CHECK(added_track_card_rgba(&wrong, NULL, why, sizeof why) == NULL);   /* the track page's card: the same refusals and the same card as RGBA */
+    CHECK(strstr(why, "208x127") != NULL);
+    uint8_t *flat = added_track_card_rgba(NULL, NULL, why, sizeof why);
+    CHECK(flat != NULL);
+    if (flat != NULL) {
+        CHECK(flat[0] != flat[4 * ((ADDED_TRACK_H / 2) * ADDED_TRACK_W + ADDED_TRACK_W / 2)] && flat[3] == 255);   /* the frame lighter than inside, opaque */
+        free(flat);
+    }
+    uint8_t *own = added_track_card_rgba(&track, NULL, why, sizeof why);
+    CHECK(own != NULL && memcmp(own, track.pixels, 4 * 4) == 0);
+    free(own);
     free(wrong.pixels), free(track.pixels);
     test_name_fit();
     test_name_drawn();

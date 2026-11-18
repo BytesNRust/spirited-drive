@@ -126,6 +126,9 @@ typedef struct ControlCentralOps {
     /* port (dep59 section 4, the owner's carousel): the showcase (as `showcase`) whose Next and Previous leave it, the car kept: 1 Next,
      * -1 Previous, 0 Done. NULL: no carousel, an original's Next and Previous go round the eight in the showcase as the original's do */
     int32_t (*showcase_carousel)(void *ctx, int entry);   /* `entry` as added_gallery's */
+    /* port (dep59 step 5, T7d): an added track's page (track_page.h) from Control Central's `palette`, opened by its card's click; the track
+     * it ends on (Road/track's arrows) is the pick. The page leaves the showcase's music playing. NULL: the track screen's refusal. */
+    int32_t (*track_page)(void *ctx, const uint8_t palette[768]);
 } ControlCentralOps;
 
 /* The globals 00432ff4 reads and writes; a pointer is written, a value only read. */

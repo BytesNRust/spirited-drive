@@ -1,6 +1,7 @@
 /* See track_piece.h. */
 #include "formats/track_piece.h"
 #include "formats/crc32.h"
+#include "formats/showcase_tint.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -81,6 +82,9 @@ int track_piece_spec(const ModInfo *card, TrackPieceSpec *out, Report *r)
     else out->edge = (TrackEdge)edge;
     if (card->times[0] != '\0' && !times_of(card->times, &out->times))
         report_add(r, "PIECE.TIMES", 0, "mod.ini: times=%s is not some of dawn, day, dusk and night, each once", card->times);
+    uint8_t tint[3];
+    if (card->showcase_tint[0] != '\0' && !showcase_tint_parse(card->showcase_tint, tint))
+        report_add(r, "PIECE.TINT", 0, "mod.ini: showcase_tint=%s is not #RRGGBB (hex digits)", card->showcase_tint);
     return report_fatal_count(r) == fatal_before;
 }
 
