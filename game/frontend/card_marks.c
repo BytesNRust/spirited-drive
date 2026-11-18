@@ -3,6 +3,7 @@
 
 #include "game/race/weather.h"
 #include "game/sys/port_settings.h"
+#include "game/sys/track_registry.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +23,8 @@ CardWords card_words_of(int track, int mirror, int reverse, int rally, int weath
 {
     static const char *const WEATHER[WEATHER_COUNT] = { NULL, "FOG", "RAIN", "STORM" };   /* the Weather row's words; clear says nothing */
     static const char *const TIME[4] = { NULL, "MORNING", "EVENING", "NIGHT" };            /* LIGHT_TIME_*'s, the track screen's; midday says nothing */
-    const int circuit = track >= FIRST_CIRCUIT, plain = track == LOST_VEGAS || track == HIDDEN;
+    const int circuit = track >= FIRST_CIRCUIT && !track_registry_is_added(track),   /* an added track is a stage, like Coastal (T7g) */
+              plain = track == LOST_VEGAS || track == HIDDEN;
     mirror = mirror && !plain, rally = rally && !plain, reverse = reverse && circuit, laps = circuit ? laps : 0;
     if (track == LOST_VEGAS) light_time = LIGHT_TIME_NIGHT;   /* its only time (drive_light.c) */
     CardWords w;

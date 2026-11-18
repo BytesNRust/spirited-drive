@@ -3,6 +3,7 @@
  * Restomod's track card's words (card_words_of), dep64. */
 #include "game/frontend/card_marks.h"
 #include "game/frontend/race_settings.h"
+#include "game/sys/track_registry.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -222,6 +223,28 @@ static void test_the_choice_on_each_track(void)
     CHECK(variant_choice_takes(7) && !variant_choice_takes(8) && !variant_choice_takes(9));
 }
 
+/* T7 "8 LAPS": an added track is a stage (A-to-B) like Coastal and Alpine: its card has no laps, no reverse, whatever the settings say */
+static void test_an_added_tracks_card_is_a_stages(void)
+{
+    TrackPiece p;
+    char why[160] = "";
+    memset(&p, 0, sizeof p);
+    snprintf(p.id, sizeof p.id, "dune");
+    snprintf(p.name, sizeof p.name, "Dune");
+    snprintf(p.stem, sizeof p.stem, "DUNE");
+    p.spec.kind = TRACK_KIND_STAGE, p.spec.segments = 1, p.spec.times = TRACK_TIME_DAY;
+    p.fingerprint = 5;
+    track_registry_clear();
+    const int n = track_registry_add(&p, why, sizeof why);
+    CHECK_EQ_INT(n, TRACK_ADDED_FIRST);
+    CardWords w = card_words_of(n, 1, 1, 1, 2, 3, 8);
+    CHECK_EQ_INT(w.left_count, 2);
+    CHECK(strcmp(w.left[0], "MIRROR") == 0 && strcmp(w.left[1], "RALLY") == 0);
+    CHECK_EQ_INT(w.right_count, 2);
+    CHECK(strcmp(w.right[0], "NIGHT") == 0 && strcmp(w.right[1], "RAIN") == 0);
+    track_registry_clear();
+}
+
 int main(void)
 {
     test_the_arrows_step_the_tracks_alone();
@@ -230,6 +253,7 @@ int main(void)
     test_the_card_words();
     test_the_choice_on_each_track();
     test_the_card_words_are_the_tracks();
+    test_an_added_tracks_card_is_a_stages();
     test_the_mirror_word_takes_the_normal_picture();
     test_the_mirror_word_takes_the_sky_without_it();
     return TEST_REPORT();
