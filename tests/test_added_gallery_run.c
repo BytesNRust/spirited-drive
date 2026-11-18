@@ -19,7 +19,8 @@ static void op(char c)
 }
 static void clear(void *ctx) { (void)ctx, op('C'); }
 static void black(void *ctx) { (void)ctx, op('B'); }
-static void draw(void *ctx, const GalleryState *s) { (void)ctx, op('D'), shows++, drawn_item = s->item; }
+static int drawn_scroll;
+static void draw(void *ctx, const GalleryState *s) { (void)ctx, op('D'), shows++, drawn_item = s->item, drawn_scroll = s->scroll; }
 static void palette(void *ctx) { (void)ctx, op('P'); }
 static void flip(void *ctx, const GalleryState *s) { (void)ctx, (void)s, op('F'); }
 static void fade_in(void *ctx) { (void)ctx, op('I'); }
@@ -44,14 +45,22 @@ static void pointer(void *ctx, int *x, int *y)
 }
 static int click(void *ctx, GalleryState *s) { (void)ctx, (void)s; return 0; }
 static void music(void *ctx) { (void)ctx, services++; }
+static unsigned fake_ms, step_ms;   /* the clock: step_ms more at each frame's end */
 static void wait(void *ctx)
 {
     (void)ctx;
+    fake_ms += step_ms;
     if (frames < 64) services_at_wait[frames] = services;
     frames++;
 }
 
-static const GalleryRunOps OPS = { clear, black, draw, palette, flip, fade_in, fade_out, key, buttons, pointer, click, music, wait, NULL };
+static int wheel_in, lines_in, visible_in;
+static int wheel(void *ctx) { (void)ctx; const int w = wheel_in; wheel_in = 0; return w; }
+static unsigned now(void *ctx) { (void)ctx; return fake_ms; }
+static int lines(void *ctx, int *visible) { (void)ctx; *visible = visible_in; return lines_in; }
+
+static const GalleryRunOps OPS = { clear, black, draw, palette, flip, fade_in, fade_out, key, buttons, pointer, click, music, wait, wheel, now,
+                                   lines, NULL };
 
 static int run(const int *keys, GalleryState *s)
 {
@@ -126,8 +135,43 @@ static void test_the_pointer_lights(void)
     places = NULL;
 }
 
+/* PR B: the description scrolls by itself (a clock of 1 s a frame: 3 s at the top, then a line each 2 s), stops under the pointer, and the
+ * wheel over it scrolls it by hand */
+static void test_the_description_scrolls(void)
+{
+    static const int KEYS[] = { 0, 0, 0, 0, 0, 0, 0, 0, GALLERY_KEY_ESCAPE, 0, -1 };
+    CarPieceCard c;
+    memset(&c, 0, sizeof c);
+    c.skins = 1;
+    lines_in = 8, visible_in = 3, step_ms = 1000, fake_ms = 0, wheel_in = 0;
+    GalleryState s = { GALLERY_NEXT, 0, 0, 0, 0, 0, 0 };
+    places = NULL;
+    keys_in = KEYS, key_reads = frames = services = shows = ops_count = 0;
+    CHECK_EQ_INT(added_gallery_run(&c, &s, &OPS), GALLERY_LEAVE);
+    CHECK(drawn_scroll >= 2);   /* by itself, with the pointer away */
+    static const int OVER[][2] = { { 500, 300 }, { -1, -1 } };   /* on History's tile */
+    s = (GalleryState){ GALLERY_NEXT, 0, 0, 0, 0, 0, 0 };
+    places = OVER, place_reads = 0, fake_ms = 0, drawn_scroll = -1;
+    keys_in = KEYS, key_reads = frames = services = shows = ops_count = 0;
+    CHECK_EQ_INT(added_gallery_run(&c, &s, &OPS), GALLERY_LEAVE);
+    CHECK(drawn_scroll <= 0);   /* the pointer on it: it stays */
+    s = (GalleryState){ GALLERY_NEXT, 0, 0, 0, 0, 0, 0 };
+    places = OVER, place_reads = 0, fake_ms = 0, wheel_in = -2, drawn_scroll = -1;   /* two notches down over it */
+    keys_in = KEYS, key_reads = frames = services = shows = ops_count = 0;
+    CHECK_EQ_INT(added_gallery_run(&c, &s, &OPS), GALLERY_LEAVE);
+    CHECK_EQ_INT(drawn_scroll, 2);
+    wheel_in = 4;   /* four up: the top, never above it */
+    s = (GalleryState){ GALLERY_NEXT, 0, 0, 0, 0, 0, 2 };
+    places = OVER, place_reads = 0, fake_ms = 0;
+    keys_in = KEYS, key_reads = frames = services = shows = ops_count = 0;
+    added_gallery_run(&c, &s, &OPS);
+    CHECK_EQ_INT(drawn_scroll, 0);
+    places = NULL, step_ms = 0, lines_in = 0;
+}
+
 int main(void)
 {
+    test_the_description_scrolls();
     test_the_pointer_lights();
     test_the_music_plays_on();
     test_the_fades();

@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static uint8_t bgnd[GL_W * GL_H * 3], picture[GL_PICTURE_W * GL_PICTURE_H * 3], out[GL_W * GL_H * 3];
+static uint8_t bgnd[GL_W * GL_H * 3], big[GL_PERF_W * GL_PERF_H * 3], small[GL_VID_W * GL_VID_H * 3], out[GL_W * GL_H * 3];
 
 static const uint8_t *at(const uint8_t *rgb, int x, int y) { return rgb + 3 * (y * GL_W + x); }
 static int blend(int under, int over, int alpha) { return (under * (255 - alpha) + over * alpha + 127) / 255; }
@@ -24,6 +24,31 @@ static int mixed(int x, int y, uint32_t rgb, int alpha)
     return 1;
 }
 
+static int photo_is(int x0, int y0, int w, int h, const uint8_t *photo)
+{
+    int same = 1;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) same &= memcmp(at(out, x0 + x, y0 + y), photo + 3 * (y * w + x), 3) == 0;
+    return same;
+}
+
+/* a tile's frame: GL_FRAME px of black all round, and its shadow GL_SHADOW px down and right, no more */
+/* `edges`: 1 its top is checked, 2 its bottom, 4 its right side (a neighbour's frame or shadow lies over the others) */
+static void check_tile(int x0, int y0, int w, int h, int edges)
+{
+    CHECK(mixed(x0 - 1, y0 + h / 2, 0, 255));
+    CHECK(mixed(x0 - GL_FRAME, y0 + h / 2, 0, 255));
+    CHECK(mixed(x0 + w, y0 + h / 2, 0, 255));
+    CHECK(mixed(x0 + w + GL_FRAME - 1, y0 + h / 2, 0, 255));
+    if (edges & 1) CHECK(mixed(x0 + w / 2, y0 - 1, 0, 255));
+    if (edges & 2) CHECK(mixed(x0 + w / 2, y0 + h + GL_FRAME - 1, 0, 255));
+    if (edges & 4) CHECK(mixed(x0 + w + GL_FRAME + 1, y0 + h / 2, 0, GL_SHADOW_ALPHA));   /* the shadow, right */
+    if (edges & 2) CHECK(mixed(x0 + w / 2, y0 + h + GL_FRAME + 1, 0, GL_SHADOW_ALPHA));   /* and down */
+    if (edges & 4) CHECK(mixed(x0 + w + GL_FRAME + GL_SHADOW - 1, y0 + h / 2, 0, GL_SHADOW_ALPHA));
+    if (edges & 4) CHECK(mixed(x0 + w + GL_FRAME + GL_SHADOW, y0 + h / 2, 0, 0));   /* one depth: no more */
+    if (edges & 2) CHECK(mixed(x0 + 2, y0 + h + GL_FRAME + 1, 0, 0));      /* not under its left, as a shadow falls */
+}
+
 static void test_compose(void)
 {
     for (int y = 0; y < GL_H; y++)
@@ -31,111 +56,43 @@ static void test_compose(void)
             uint8_t *b = bgnd + 3 * (y * GL_W + x);
             b[0] = (uint8_t)(x * 255 / GL_W), b[1] = (uint8_t)(y * 255 / GL_H), b[2] = (uint8_t)((x ^ y) & 255);
         }
-    for (int i = 0; i < GL_PICTURE_W * GL_PICTURE_H; i++) picture[3 * i] = 200, picture[3 * i + 1] = 100, picture[3 * i + 2] = 50;
-    gallery_compose(bgnd, picture, out);
+    for (int i = 0; i < GL_PERF_W * GL_PERF_H; i++) big[3 * i] = 200, big[3 * i + 1] = 100, big[3 * i + 2] = 50;
+    for (int i = 0; i < GL_VID_W * GL_VID_H; i++) small[3 * i] = 20, small[3 * i + 1] = 110, small[3 * i + 2] = 220;
+    gallery_compose(bgnd, big, small, out);
     int band = 1;   /* the band's patch: the texture beside it, mirrored */
     for (int y = 0; y < GL_BAND_H; y++)
         for (int x = 0; x < GL_BAND_W; x++) band &= memcmp(at(out, x, y), at(bgnd, GL_BAND_FROM_X + GL_BAND_W - 1 - x, y), 3) == 0;
     CHECK(band);
     CHECK(memcmp(at(out, GL_BAND_W, 10), at(bgnd, GL_BAND_W, 10), 3) == 0);   /* past it: the band itself */
-    int pic = 1;
-    for (int y = GL_PICTURE_Y; y < GL_PICTURE_Y + GL_PICTURE_H; y++)
-        for (int x = GL_PICTURE_X; x < GL_PICTURE_X + GL_PICTURE_W; x++) pic &= memcmp(at(out, x, y), picture, 3) == 0;
-    CHECK(pic);
-    CHECK(mixed(GL_PICTURE_X - 1, GL_PICTURE_Y + 50, 0, 255));                               /* the frame: black */
-    CHECK(mixed(GL_PICTURE_X + GL_PICTURE_W + GL_FRAME - 1, GL_PICTURE_Y + 50, 0, 255));
-    CHECK(mixed(GL_PICTURE_X + GL_PICTURE_W + GL_FRAME + 1, GL_PICTURE_Y + 50, 0, GL_SHADOW_ALPHA));   /* its shadow, right */
-    CHECK(mixed(GL_PICTURE_X + 50, GL_PICTURE_Y + GL_PICTURE_H + GL_FRAME + 1, 0, GL_SHADOW_ALPHA));   /* and down */
-    CHECK(mixed(GL_PICTURE_X + 2, GL_PICTURE_Y + GL_PICTURE_H + GL_FRAME + 1, 0, 0));       /* not under its left, as a shadow falls */
-    CHECK(mixed(GL_COLUMN_X + 40, GL_FIGURES_Y + 20, GL_PANEL_RGB, GL_FIGURES_ALPHA));       /* the technical data's panel */
-    CHECK(mixed(GL_COLUMN_X, GL_FIGURES_Y + 20, GL_PANEL_EDGE_RGB, 255));                   /* its edge */
-    CHECK(mixed(GL_COLUMN_X + GL_COLUMN_W + 2, GL_SKIN_Y + GL_BOX_H + 2, 0, GL_SHADOW_ALPHA));   /* Skin's shadow */
-    CHECK(mixed(GL_COLUMN_X + GL_COLUMN_W + 2, GL_COLOUR_Y + GL_BOX_H + 2, 0, GL_SHADOW_ALPHA)); /* Color's */
-    CHECK(mixed(GL_COLUMN_X + 40, GL_SKIN_Y + 20, GL_SKIN_RGB, 255));                        /* the boxes: filled */
-    CHECK(mixed(GL_COLUMN_X + GL_COLUMN_W - 1, GL_COLOUR_Y + GL_BOX_H - 1, GL_SKIN_RGB, 255));
-    CHECK(mixed(GL_FOOT_X0 + 100, GL_FOOT_Y0 + 20, GL_PANEL_RGB, GL_FOOT_ALPHA));           /* the foot's band */
-    /* one depth for every shadow: the picture's frame and the two boxes cast GL_SHADOW px, no more */
-    const int fx1 = GL_PICTURE_X + GL_PICTURE_W - 1 + GL_FRAME, bx1 = GL_COLUMN_X + GL_COLUMN_W - 1;
-    CHECK(mixed(fx1 + GL_SHADOW, GL_PICTURE_Y + 50, 0, GL_SHADOW_ALPHA));
-    CHECK(mixed(fx1 + GL_SHADOW + 1, GL_PICTURE_Y + 50, 0, 0));
-    CHECK(mixed(bx1 + GL_SHADOW, GL_SKIN_Y + 20, 0, GL_SHADOW_ALPHA));
-    CHECK(mixed(bx1 + GL_SHADOW + 1, GL_SKIN_Y + 20, 0, 0));
-    CHECK(mixed(GL_COLUMN_X + 40, GL_COLOUR_Y + GL_BOX_H - 1 + GL_SHADOW, 0, GL_SHADOW_ALPHA));
-    CHECK(mixed(GL_COLUMN_X + 40, GL_COLOUR_Y + GL_BOX_H + GL_SHADOW, 0, 0));
-    CHECK(mixed(630, 470, 0, 0));                                                            /* the rest: the background */
-    CHECK(mixed(GL_COLUMN_X + 40, GL_FIGURES_Y + GL_FIGURES_H + 4, 0, 0));                  /* the gap under the panel */
-    /* the right column ends level with the picture */
-    CHECK_EQ_INT(GL_COLOUR_Y + GL_BOX_H - 1, GL_OUTER_Y1);
-    CHECK_EQ_INT(GL_SKIN_Y - (GL_FIGURES_Y + GL_FIGURES_H), GL_COLOUR_Y - (GL_SKIN_Y + GL_BOX_H));   /* the gaps even */
-}
-
-/* the outer box (the frame's outside) of the element whose pixels at row y / column x differ from the flat ground: first and last x of row y
- * from x_from, first and last y of column x from y_from, stopping at the first pixel that is the ground again */
-static const uint8_t GROUND[3] = { 200, 180, 150 };
-static int ground(int x, int y) { return memcmp(at(out, x, y), GROUND, 3) == 0; }
-static int shade(int x, int y) { return mixed(x, y, 0, GL_SHADOW_ALPHA); }
-
-/* how many shadow pixels run from (x, y) in the direction (dx, dy) */
-static int run(int x, int y, int dx, int dy)
-{
-    int n = 0;
-    while (x >= 0 && y >= 0 && x < GL_W && y < GL_H && shade(x, y)) n++, x += dx, y += dy;
-    return n;
-}
-
-/* the owner's: the picture and the right column line up by the frames' outsides, and every shadow falls the same way, as deep */
-static void test_edges_and_shadows(void)
-{
-    for (int i = 0; i < GL_W * GL_H; i++) memcpy(bgnd + 3 * i, GROUND, 3);
-    for (int i = 0; i < GL_PICTURE_W * GL_PICTURE_H; i++) picture[3 * i] = 10, picture[3 * i + 1] = 200, picture[3 * i + 2] = 10;
-    gallery_compose(bgnd, picture, out);
-    /* the picture's frame, outside: scanned from the middle of the picture outwards */
-    const int mx = GL_PICTURE_X + GL_PICTURE_W / 2, my = GL_PICTURE_Y + GL_PICTURE_H / 2;
-    int top = my, bottom = my, left = mx, right = mx;
-    while (!ground(mx, top - 1) && !shade(mx, top - 1)) top--;
-    while (!shade(mx, bottom + 1)) bottom++;
-    while (!ground(left - 1, my) && !shade(left - 1, my)) left--;
-    while (!shade(right + 1, my)) right++;
-    /* the Color box, outside: its fill scanned from inside to its last pixel before the shadow */
-    const int cy = GL_COLOUR_Y + GL_BOX_H / 2;
-    int c_bottom = cy, c_right = GL_COLUMN_X + GL_COLUMN_W / 2;
-    while (!shade(c_right + 1, cy)) c_right++;
-    while (!shade(GL_COLUMN_X + 40, c_bottom + 1)) c_bottom++;
-    int f_top = GL_FIGURES_Y + 10;   /* the technical data's panel, its top edge */
-    while (!ground(GL_COLUMN_X + 40, f_top - 1)) f_top--;
-    CHECK_EQ_INT(c_bottom, bottom);   /* the right column's foot level with the picture frame's outside */
-    CHECK_EQ_INT(f_top, top);         /* and its top */
-    int foot_left = GL_FOOT_X0 + 50, foot_right = GL_FOOT_X0 + 50, fy = GL_FOOT_Y0 + 20;
-    while (!ground(foot_left - 1, fy)) foot_left--;
-    while (!ground(foot_right + 1, fy)) foot_right++;
-    CHECK_EQ_INT(foot_left, left);    /* the foot's band from the picture frame's outside to the column's */
-    CHECK_EQ_INT(foot_right, c_right);
-    /* the shadows: as deep right and down, starting as far down and right of each one's corner */
-    CHECK_EQ_INT(run(right + 1, my, 1, 0), GL_SHADOW);
-    CHECK_EQ_INT(run(c_right + 1, cy, 1, 0), GL_SHADOW);
-    CHECK_EQ_INT(run(mx, bottom + 1, 0, 1), GL_SHADOW);
-    CHECK_EQ_INT(run(GL_COLUMN_X + 40, c_bottom + 1, 0, 1), GL_SHADOW);
-    int p_from = top, c_from = GL_COLOUR_Y;   /* the right strips start GL_SHADOW below each top */
-    while (!shade(right + 1, p_from)) p_from++;
-    while (!shade(c_right + 1, c_from)) c_from++;
-    CHECK_EQ_INT(p_from - top, GL_SHADOW);
-    CHECK_EQ_INT(c_from - GL_COLOUR_Y, GL_SHADOW);
-    int p_x = left, c_x = GL_COLUMN_X;        /* the bottom strips start GL_SHADOW right of each left */
-    while (!shade(p_x, bottom + 1)) p_x++;
-    while (!shade(c_x, c_bottom + 1)) c_x++;
-    CHECK_EQ_INT(p_x - left, GL_SHADOW);
-    CHECK_EQ_INT(c_x - GL_COLUMN_X, GL_SHADOW);
-    CHECK(memcmp(at(out, right + 2, my), at(out, c_right + 2, cy), 3) == 0);   /* as dark, on the same ground */
+    CHECK(photo_is(GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H, big));         /* the photos in their tiles, the CD pages' places */
+    CHECK(photo_is(GL_VID_X, GL_VID_Y, GL_VID_W, GL_VID_H, small));
+    check_tile(GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H, 1 | 4);   /* Video's frame lies over its foot's shadow */
+    check_tile(GL_VID_X, GL_VID_Y, GL_VID_W, GL_VID_H, 2);   /* History's frame lies over its right shadow */       /* and Performance's over its top's frame */
+    check_tile(GL_HIST_X, GL_HIST_Y, GL_HIST_W, GL_HIST_H, 3 | 4);
+    CHECK(mixed(GL_GEN_X + 40, GL_GEN_Y + 20, GL_PANEL_RGB, GL_FIGURES_ALPHA));   /* General: the translucent panel */
+    CHECK(mixed(GL_HIST_X + 40, GL_HIST_Y + 20, GL_HISTORY_RGB, GL_HISTORY_ALPHA));   /* History: the sepia panel */
+    CHECK(mixed(GL_COL_X + 40, GL_COL_Y + 20, GL_SKIN_RGB, 255));              /* the Color tile: filled */
+    CHECK(mixed(GL_COL_X + GL_COL_W - 1, GL_COL_Y + GL_COL_H - 1, GL_SKIN_RGB, 255));
+    CHECK(mixed(GL_COL_X - GL_FRAME, GL_COL_Y + 20, 0, 255));
+    /* Mechanical's place (the CD's 82,326 254x87) and the rest are the background as it is */
+    CHECK(mixed(100, 360, 0, 0));
+    CHECK(mixed(630, 470, 0, 0));
+    /* the CD's rectangles */
+    CHECK(GL_PERF_X == 306 && GL_PERF_Y == 77 && GL_PERF_W == 225 && GL_PERF_H == 127);
+    CHECK(GL_GEN_X == 133 && GL_GEN_Y == 165 && GL_VID_X == 306 && GL_VID_Y == 208 && GL_HIST_X == 449 && GL_HIST_Y == 245);
 }
 
 static void test_quantise(void)
 {
     static uint8_t rgb[GL_W * GL_H * 3], pixels[GL_W * GL_H];
     uint8_t palette[768];
+    const int perf_in = 0;
+    (void)perf_in;
     for (int y = 0; y < GL_H; y++)
         for (int x = 0; x < GL_W; x++) {
             uint8_t *p = rgb + 3 * (y * GL_W + x);
-            const int in = x >= GL_PICTURE_X && x < GL_PICTURE_X + GL_PICTURE_W && y >= GL_PICTURE_Y && y < GL_PICTURE_Y + GL_PICTURE_H;
+            const int in = (x >= GL_PERF_X && x < GL_PERF_X + GL_PERF_W && y >= GL_PERF_Y && y < GL_PERF_Y + GL_PERF_H) ||
+                           (x >= GL_VID_X && x < GL_VID_X + GL_VID_W && y >= GL_VID_Y && y < GL_VID_Y + GL_VID_H);
             if (in) p[0] = (uint8_t)(x * 7), p[1] = (uint8_t)(y * 5), p[2] = (uint8_t)(x * y);   /* many colours */
             else p[0] = 90, p[1] = 70, p[2] = (uint8_t)(y < 240 ? 40 : 20);                    /* two */
         }
@@ -144,7 +101,8 @@ static void test_quantise(void)
     int ok = 1;
     for (int y = 0; y < GL_H; y++)
         for (int x = 0; x < GL_W; x++) {
-            const int in = x >= GL_PICTURE_X && x < GL_PICTURE_X + GL_PICTURE_W && y >= GL_PICTURE_Y && y < GL_PICTURE_Y + GL_PICTURE_H;
+            const int in = (x >= GL_PERF_X && x < GL_PERF_X + GL_PERF_W && y >= GL_PERF_Y && y < GL_PERF_Y + GL_PERF_H) ||
+                           (x >= GL_VID_X && x < GL_VID_X + GL_VID_W && y >= GL_VID_Y && y < GL_VID_Y + GL_VID_H);
             const int i = pixels[y * GL_W + x];
             ok &= in ? i < GL_PICTURE_COLOURS : i >= GL_PICTURE_COLOURS && i < COLOURS;
         }
@@ -266,16 +224,27 @@ static void test_row_from_the_cd(void)
 static void test_hit(void)
 {
     int step = 9;
-    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_ARROW_IN + 2, GL_SKIN_Y + 20, &step), GALLERY_SKIN);
+    /* the Color tile: Skin in its upper half, Color in its lower, an arrow's zone at each side */
+    CHECK_EQ_INT(gallery_hit(GL_COL_X + GL_ARROW_IN + 2, GL_COL_Y + 10, &step), GALLERY_SKIN);
     CHECK_EQ_INT(step, -1);
-    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_COLUMN_W - GL_ARROW_IN - 2, GL_SKIN_Y + 20, &step), GALLERY_SKIN);
+    CHECK_EQ_INT(gallery_hit(GL_COL_X + GL_COL_W - GL_ARROW_IN - 2, GL_COL_Y + 10, &step), GALLERY_SKIN);
     CHECK_EQ_INT(step, 1);
-    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_COLUMN_W / 2, GL_COLOUR_Y + 10, &step), GALLERY_COLOUR);
+    CHECK_EQ_INT(gallery_hit(GL_COL_X + GL_COL_W / 2, GL_COL_Y + GL_COL_H - 5, &step), GALLERY_COLOUR);
     CHECK_EQ_INT(step, 0);
-    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + GL_COLUMN_W - 3, GL_COLOUR_Y + GL_BOX_H - 3, &step), GALLERY_COLOUR);
+    CHECK_EQ_INT(gallery_hit(GL_COL_X + GL_COL_W - 3, GL_COL_Y + GL_COL_H - 3, &step), GALLERY_COLOUR);
     CHECK_EQ_INT(step, 1);
-    CHECK_EQ_INT(gallery_hit(200, 200, &step), -1);                            /* the picture */
-    CHECK_EQ_INT(gallery_hit(GL_COLUMN_X + 20, GL_SKIN_Y - GL_GAP / 2, &step), -1);   /* between the boxes */
+    /* the big photo: its left and right zones step, the middle takes a click without a step */
+    CHECK_EQ_INT(gallery_hit(GL_PERF_X + 5, GL_PERF_Y + 60, &step), GALLERY_PHOTOS);
+    CHECK_EQ_INT(step, -1);
+    CHECK_EQ_INT(gallery_hit(GL_PERF_X + GL_PERF_W - 5, GL_PERF_Y + 60, &step), GALLERY_PHOTOS);
+    CHECK_EQ_INT(step, 1);
+    CHECK_EQ_INT(gallery_hit(GL_PERF_X + GL_PERF_W / 2, GL_PERF_Y + 60, &step), GALLERY_PHOTOS);
+    CHECK_EQ_INT(step, 0);
+    CHECK_EQ_INT(gallery_hit(GL_HIST_X + 20, GL_HIST_Y + 20, &step), GALLERY_HISTORY);
+    CHECK_EQ_INT(gallery_hit(200, 200, &step), -1);                      /* General: figures, no item */
+    CHECK_EQ_INT(gallery_hit(GL_VID_X + 20, GL_VID_Y + 20, &step), -1);  /* Video: a picture, no item */
+    CHECK_EQ_INT(gallery_hit(150, 360, &step), -1);                      /* Mechanical's place: empty */
+    CHECK_EQ_INT(gallery_hit(GL_COL_X + 20, GL_COL_Y - 3, &step), -1);   /* above the Color tile */
     /* the bottom row: the CD showcase's own boxes (showcase.c BOX_*, ends included), the words between the arrows in none */
     static const struct { int x, y, item; } AT[] = {
         { 200, 430, GALLERY_PREVIOUS }, { 260, 480, GALLERY_PREVIOUS }, { 229, 450, GALLERY_PREVIOUS },
@@ -297,7 +266,6 @@ static void test_hit(void)
 int main(void)
 {
     test_compose();
-    test_edges_and_shadows();
     test_quantise();
     test_lean();
     test_row_put_and_draw();
