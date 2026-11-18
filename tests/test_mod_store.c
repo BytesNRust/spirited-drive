@@ -292,6 +292,27 @@ static void test_a_card_of_another_id_is_left_alone(void)
     CHECK(file_is("mods/twk/mod.ini", "id=other\nname=Other\nversion=1\n"));
 }
 
+/* --mods-list's "on": a mod an edition names in its tracks= is on too (it was "off" when only tweaks and cars were looked at) */
+static void test_a_track_named_in_tracks_is_on(void)
+{
+    fresh();
+    CHECK(mod_store_install(tweak_zip("t.zip", "trkmod", "0.1", "track TR1 B one\n"), &got, old, sizeof old, why, sizeof why));
+    char path[700];
+    snprintf(path, sizeof path, "%s/editions", pref);
+    make_dirs(path);
+    snprintf(path, sizeof path, "%s/editions/trk.ini", pref);
+    FILE *f = fopen(path, "wb");
+    CHECK(f != NULL);
+    if (f != NULL) fputs("name=Test\ncars=rx7\ntracks=city,trkmod\n", f), fclose(f);
+    PortSettings s = port_settings_of_profile(PROFILE_RESTOMOD);
+    const PortExtras x = port_extras_of_profile(PROFILE_RESTOMOD);
+    snprintf(s.edition, sizeof s.edition, "%s", "trk");
+    CHECK(port_mode_save(&s, &x));
+    ModStoreEntry e[4];
+    CHECK_EQ_INT(mod_store_list(e, 4), 1);
+    CHECK(strcmp(e[0].info.id, "trkmod") == 0 && e[0].active);
+}
+
 /* what changes the player's folder changes only mods/, mods_backup/ and editions/, whatever a caller asks */
 static void test_the_tree_changes_only_mods(void)
 {
@@ -333,6 +354,7 @@ int main(void)
     test_uninstall_and_restore();
     test_the_card_lands_as_mod_ini();
     test_a_card_of_another_id_is_left_alone();
+    test_a_track_named_in_tracks_is_on();
     test_the_tree_changes_only_mods();
     mod_set_stop();
     char cmd[400];

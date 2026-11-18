@@ -85,6 +85,15 @@ int mod_ini_parse(const uint8_t *text, size_t size, ModInfo *out, char *why, siz
 /* port (dep59 showcase): 1 when `name` is a photo's file name (the rule above: photos=, photo_small=) */
 int mod_ini_photo_name_ok(const char *name);
 
+/* port (newcomer pains): the lines of a card `text` whose keys a generator does not write (every key but id, name, version, type, stem,
+ * kind, segments, road, edge, author and description), each as "key=value\n" into `out` (`cap` bytes, NUL terminated), comments and blank
+ * lines left out. The generated keys of a rewritten card come from the generator; these come from the hand-written one. 0 when they do not fit. */
+int mod_ini_others(const uint8_t *text, size_t size, char *out, size_t cap, size_t *len);
+
+/* port (newcomer pains): the author and description lines of a card: "author=TEXT" and "description=TEXT" when given, else a comment
+ * "# author=" that shows the key (the game refuses an empty value). 1 when they fit in `out` (`cap` bytes, NUL terminated). */
+int mod_ini_text_keys(const char *author, const char *description, char *out, size_t cap);
+
 /* 1 when `id` is a usable mod id (the rule above) */
 int mod_ini_id_ok(const char *id);
 

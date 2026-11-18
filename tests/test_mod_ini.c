@@ -328,9 +328,42 @@ static void test_the_identity_keys(void)
     CHECK(strstr(why, "make") != NULL);
 }
 
+/* port (newcomer pains): a rewritten piece card keeps the hand-written keys the generator does not write, and writes author and description */
+static void test_kept_keys_and_text_keys(void)
+{
+    static const char OLD[] = "# written by hand\nid=loop\nname=Loop\nversion=0.3\ntype=track\nauthor=Ann\nlength=14.2 km\n"
+                              "times=day,dusk\nshowcase_tint=#C08040\nfuture_key=kept\n  description = a loop  \nroad=dirt\n";
+    char out[512];
+    size_t n = 0;
+    CHECK_EQ_INT(mod_ini_others((const uint8_t *)OLD, sizeof OLD - 1, out, sizeof out, &n), 1);
+    CHECK(strstr(out, "length=14.2 km\n") != NULL);
+    CHECK(strstr(out, "times=day,dusk\n") != NULL);
+    CHECK(strstr(out, "showcase_tint=#C08040\n") != NULL);
+    CHECK(strstr(out, "future_key=kept\n") != NULL);
+    CHECK(strstr(out, "name=") == NULL && strstr(out, "version=") == NULL && strstr(out, "road=") == NULL);   /* the generator's */
+    CHECK(strstr(out, "author=") == NULL && strstr(out, "description") == NULL);                           /* the generator writes them too */
+    CHECK(strstr(out, "written by hand") == NULL);   /* comments are left out; the '#' of a colour is kept */
+    CHECK_EQ_INT(n, strlen(out));
+    char tiny[8];
+    CHECK_EQ_INT(mod_ini_others((const uint8_t *)OLD, sizeof OLD - 1, tiny, sizeof tiny, &n), 0);
+
+    char keys[512];
+    CHECK_EQ_INT(mod_ini_text_keys("Ann", "a loop", keys, sizeof keys), 1);
+    CHECK(strcmp(keys, "author=Ann\ndescription=a loop\n") == 0);
+    CHECK_EQ_INT(mod_ini_text_keys(NULL, "", keys, sizeof keys), 1);
+    CHECK(strstr(keys, "# author=") != NULL && strstr(keys, "# description=") != NULL);
+    /* the placeholders are comments: a card with them parses, with no author */
+    char card[1024], why[160];
+    ModInfo m;
+    snprintf(card, sizeof card, "id=loop\nname=Loop\nversion=0.1\ntype=track\nstem=LOOP\nkind=stage\nsegments=1\nroad=asphalt\nedge=grass\n%s", keys);
+    CHECK_EQ_INT(mod_ini_parse((const uint8_t *)card, strlen(card), &m, why, sizeof why), 1);
+    CHECK(m.author[0] == '\0' && m.description[0] == '\0');
+}
+
 int main(void)
 {
     test_the_identity_keys();
+    test_kept_keys_and_text_keys();
     test_a_full_card();
     test_refusals();
     test_utf8_text_is_kept();

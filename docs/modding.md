@@ -42,7 +42,7 @@ What a mod may carry depends on its `type` in `mod.ini`:
 |------|-----------|
 | `tweak` (or no `type`) | how the game looks and sounds: art, fonts, music, sounds, dashboards, car models (CFM), track scenery (FAM), the sky (`<TRACK>INFO`), `track_light/`, the masks, `car_envmap.png`. **Never** what changes a race: a track's `.TRI` and the rest of `SIMDATA/MISC` (but its INFO), `SIMDATA/CARSPECS/`, a car's `.PDN`, `track/<TRACK>.txt`. [modding/inventory.md](modding/inventory.md) §12 says why for each |
 | `car` | its own three files (its stem's CFM, PDN and PBS) and `car_masks/<STEM>/`, `dash_masks/<STEM>/`, and nothing else (see *Adding a car*) |
-| `track` | its stages' files: for each stage `<STEM>1`..`<STEM>3` its `.TRI`, `<STEM><n>INFO` and the day art `ETRACKFM/` and `GTRACKFM/` `<STEM><n>_001.FAM` (optional: `NTRACKFM/` `_T01`, `_M01`, `_R01`, and the port's `track/`, `track_light/` text and `track_masks/` PNG named by the same root), and nothing else. A stem may not begin with AL, CL, CY or TR. This version adds A-to-B tracks only (`kind=stage`); it checks and installs them, running one comes with the next steps |
+| `track` | its stages' files: for each stage `<STEM>1`..`<STEM>3` its `.TRI`, `<STEM><n>INFO` and the day art `ETRACKFM/` and `GTRACKFM/` `<STEM><n>_001.FAM` (optional: `NTRACKFM/` `_T01`, `_M01`, `_R01`, and the port's `track/`, `track_light/` text and `track_masks/` PNG named by the same root), and nothing else. A stem may not begin with AL, CL, CY or TR. This version adds A-to-B tracks only (`kind=stage`); it checks, installs and runs them in Restomod (*Try your piece*, below) |
 
 Every type may also carry `mod.ini`, `preview.png` and a README or LICENSE. `GAMEDATA/` (the player's config, replays and saves) is never
 part of a mod. A folder in `mods/` that holds a file its type may not carry, put there by hand, still runs: that file is not given to the
@@ -252,6 +252,32 @@ A `track` piece (`type=track` in its `mod.ini`, made with `tnfs-studio track new
 | `times` | the times of day it takes | optional; some of `dawn`, `day`, `dusk`, `night`, each once |
 | `showcase_tint` | the tone of its page's background: the CD's sepia pages turned to this colour, each shade keeping its brightness | optional; `#RRGGBB` (hex digits, either case, nothing else); without it the page is sepia. `tnfs-studio mod pack` and the game refuse a value that is not `#RRGGBB` (`PIECE.TINT`) |
 
+## Try your piece
+
+A track or a car piece runs only in Restomod. Stock and Restored load no mods at all, so a piece installed for them is silently
+unused. Three lines make it run, in the player's folder (the `--user` folder while you test):
+
+* `port.cfg`: `profile=restomod`
+* `restomod.cfg`: `edition=<id>`, the edition in use
+* `editions/<id>.ini`: `name=...`, and the piece's id in `tracks=` (a track) or `cars=` (a car)
+
+Copy-paste, with a scratch folder `MYUSER` for the test (a track; a car is the same with `cars=` and `--car`):
+
+    tnfs-studio track new loop.trk --template AL1 --piece --id novato-loop --stem NOVATO --name "Novato Loop" --author "Your name" --out build/piece --data original
+    tnfs-studio mod pack build/piece novato-loop.zip
+    tnfs --user MYUSER --install novato-loop.zip
+    printf 'profile=restomod\n' >> MYUSER/port.cfg
+    printf 'edition=novato\n' > MYUSER/restomod.cfg
+    mkdir -p MYUSER/editions
+    printf 'name=Novato\ntracks=novato-loop\n' > MYUSER/editions/novato.ini
+    tnfs --user MYUSER --track NOVATO1 --node 120 --screenshot novato.ppm
+
+The track's race is its stem and 1: `NOVATO1`. A car is raced with `tnfs --user MYUSER --drive TR1 --car <id>` once its edition lists it.
+Without the three lines, `--track NOVATO1` fails with rc 1 and no line on the standard output; the reason is in `spirited-drive.log`.
+
+Reinstalling: bump `version=` in `mod.ini` before each `--install`. The install replaces the folder whatever the version, but a message
+that says `updated novato-loop 0.1 -> 0.1` tells nothing about what changed.
+
 ## Adding a car (development)
 
 In Restomod a mod can add a car beside the twelve of the original game: a folder whose `mod.ini` says `type=car`. Stock and Restored never load one. It is picked on Control Central when the edition in use lists it (Editions, above: the arrows step through the edition's cars, the player's and the head to head rival's), shown in its own gallery, and raced from the menus or the command line.
@@ -272,6 +298,7 @@ In Restomod a mod can add a car beside the twelve of the original game: a folder
 | Key | What | Rule |
 |-----|------|------|
 | `id`, `name`, `version` | as every mod's | `id` is what `--car` takes |
+| `author`, `description` | the maker's name and what the car is, shown in its gallery | optional; up to 48 and 400 characters of text, one line; `tnfs-studio car new --author --description` writes them |
 | `type` | `car` | required for a car |
 | `stem` | the name its three files go by (`MYCAR` above) | 1 to 8 of `A-Z 0-9`; not the stem of a car, traffic or police car of the CD, nor `M` and one (the CD's smaller rival models) |
 | `short_name` | what the results show | up to 8 characters of printable ASCII; the stem when not given |

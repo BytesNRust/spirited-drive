@@ -270,13 +270,15 @@ static int backups_of(const char *id, char **names, int count)
     return mod_backups_to_drop(id, (const char *const *)names, count, 0, drop, 256);
 }
 
-/* 1 when the edition `e` names `id` among its tweaks or its cars */
+/* 1 when the edition `e` names `id` among its tweaks, its cars or its tracks */
 static int named(const Edition *e, const char *id)
 {
     for (int i = 0; i < e->tweaks; i++)
         if (strcmp(e->tweak[i], id) == 0) return 1;
     for (int i = 0; i < e->cars; i++)
         if (strcmp(e->car[i], id) == 0) return 1;
+    for (int i = 0; i < e->tracks; i++)
+        if (strcmp(e->track[i], id) == 0) return 1;
     return 0;
 }
 

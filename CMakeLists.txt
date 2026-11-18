@@ -798,7 +798,7 @@ endif()
 
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
-    add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_texture.c studio/car_card.c studio/car_card_shot.c studio/mod_validate.c studio/mod_pack.c)
+    add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c studio/help.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_texture.c studio/car_card.c studio/car_card_shot.c studio/mod_validate.c studio/mod_pack.c)
     add_executable(model_build_piece tests/model_build_piece.c)
     target_link_libraries(model_build_piece PRIVATE tnfs_core)
     target_compile_options(model_build_piece PRIVATE ${TNFS_WARNINGS})
