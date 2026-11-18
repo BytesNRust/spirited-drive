@@ -1,6 +1,7 @@
 #!/bin/sh
 # The track editor runs headless (Dear ImGui over the SDL software renderer): a project folder is made, N frames are drawn and the last one
-# is written as a PNG that has the window's size and more than one colour; --save writes the project files; a bad folder fails.
+# is written as a PNG that has the window's size, the road's line and the control points drawn in the viewport panel; --save writes the
+# project files; --user makes its folder and keeps the layout in it; no project folder fails.
 # usage: editor_headless.sh EDITOR
 set -u
 editor=$1
@@ -10,10 +11,10 @@ export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
-"$editor" "$work/proj" --frames 3 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
+"$editor" "$work/proj" --frames 5 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
 [ -f "$work/proj/project.ini" ] && [ -f "$work/proj/trace.json" ] || fail "no project files"
 [ -f "$work/shot.png" ] || { fail "no PNG"; exit 1; }
-python3 - "$work/shot.png" <<'PY' || fail "the PNG is not a 960x600 picture with the ImGui window's title bar in it"
+python3 - "$work/shot.png" <<'PY' || fail "the PNG is not a 960x600 picture with the road and the points in it"
 import sys, struct, zlib
 d = open(sys.argv[1], "rb").read()
 assert d[:8] == b"\x89PNG\r\n\x1a\n"
@@ -45,12 +46,18 @@ for y in range(h):
             line[x] = (line[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
     rows.append(line)
     prev = line
-# the "Project" window opens at (60, 60): its title bar is ImGui's blue, which nothing else in the picture is
-r, g, b = rows[70][300 * bpp], rows[70][300 * bpp + 1], rows[70][300 * bpp + 2]
-assert b > r + 40 and b > g + 20, (r, g, b)
+# the road is light grey and the control points blue (viewport.cpp): near those colours, so many pixels, and nothing else is
+def count(rgb, tol=12):
+    n = 0
+    for row in rows:
+        n += sum(1 for r, g, b in zip(row[0::bpp], row[1::bpp], row[2::bpp])
+                 if abs(r - rgb[0]) <= tol and abs(g - rgb[1]) <= tol and abs(b - rgb[2]) <= tol)
+    return n
+road, points, red = count((200, 204, 212)), count((90, 160, 255)), count((255, 70, 70))
+assert road > 400 and points > 100 and red == 0, (road, points, red)   # no red: the road was made and no limit breaks
 PY
-"$editor" "$work/proj" --frames 2 --user "$work/user" >/dev/null 2>&1 || fail "run with --user"
-[ -z "$(ls "$work/user" 2>/dev/null)" ] || fail "headless run kept a layout file in the player folder"
+"$editor" "$work/proj" --frames 2 --user "$work/user/sub" >/dev/null 2>&1 || fail "run with --user"
+[ -f "$work/user/sub/track-editor.ini" ] || fail "the layout was not kept in the player folder (made when missing)"
 "$editor" >/dev/null 2>&1 && fail "no project folder was accepted"
 [ "$failures" -eq 0 ] && echo "editor_headless: ok"
 exit "$failures"
