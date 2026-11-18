@@ -1,4 +1,4 @@
-// The editor's interface layer (ui.h): Dear ImGui with docking over the SDL renderer: the dock space, the Project panel, the shortcuts;
+// The editor's interface layer (ui.h): Dear ImGui with docking over the SDL renderer: the dock space, the shortcuts and the panels (panels.cpp);
 // the top view is viewport.cpp's.
 #include "ui.h"
 
@@ -11,6 +11,7 @@ extern "C" {
 #include "formats/track_gen.h"
 #include "interact.h"
 }
+#include "panels.h"
 #include "viewport.h"
 
 #include <stdio.h>
@@ -65,16 +66,20 @@ void ui_event(const SDL_Event *ev)
 
 namespace {
 
-// the layout of a first run (no ini): the top view in the middle, the project to its right
+// the layout of a first run (no ini): the top view in the middle, the limits under it, the project and the points to its right
 void default_layout(ImGuiID dock)
 {
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
-    ImGuiID right = 0, centre = dock;
+    ImGuiID right = 0, centre = dock, bottom = 0, points = 0;
     right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, 0.27f, nullptr, &centre);
+    bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down, 0.30f, nullptr, &centre);
+    points = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.55f, nullptr, &right);
     ImGui::DockBuilderDockWindow("Viewport", centre);
-    ImGui::DockBuilderDockWindow("Project", right);
+    ImGui::DockBuilderDockWindow(PANEL_LIMITS, bottom);
+    ImGui::DockBuilderDockWindow(PANEL_PROJECT, right);
+    ImGui::DockBuilderDockWindow(PANEL_POINTS, points);
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -100,29 +105,6 @@ void shortcuts(App *a)
     if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) interact_nudge(a, 0, -INTERACT_NUDGE);
 }
 
-const ImVec4 BAD_TEXT(1.0f, 0.35f, 0.35f, 1.0f), OK_TEXT(0.47f, 0.86f, 0.55f, 1.0f);
-
-void project_panel(const App *a)
-{
-    if (ImGui::Begin("Project")) {
-        ImGui::Text("%s  stem %s", a->project.id, a->project.stem);
-        ImGui::TextWrapped("art %s", a->project.art);
-        ImGui::TextUnformatted(a->dir);
-        ImGui::Separator();
-        ImGui::Text("nodes %d / %d", app_node_count(a), (int)TRACK_GEN_MAX_NODES);
-        ImGui::Text("length %.0f u   points %d   width %.0f", a->length, a->trace.count, a->trace.width);
-        if (a->road_text[0] != '\0') ImGui::TextColored(BAD_TEXT, "%s", a->road_text);
-        else ImGui::TextColored(OK_TEXT, "limits: all good");
-        ImGui::Separator();
-        ImGui::TextWrapped("%s", a->status);
-        ImGui::Separator();
-        ImGui::TextDisabled("drag LMB  pan RMB/MMB  zoom wheel");
-        ImGui::TextDisabled("arrows nudge  F fit  N add  I insert");
-        ImGui::TextDisabled("Del remove  S save  B build  U install");
-    }
-    ImGui::End();
-}
-
 }   // namespace
 
 void ui_frame(SDL_Renderer *ren, App *a)
@@ -139,6 +121,8 @@ void ui_frame(SDL_Renderer *ren, App *a)
     shortcuts(a);
     viewport_panel(a);
     project_panel(a);
+    points_panel(a);
+    limits_panel(a);
     ImGui::Render();
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), ren);
 }

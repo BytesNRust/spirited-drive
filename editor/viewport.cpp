@@ -83,18 +83,25 @@ void draw_points(const Canvas &c, const App &a)
 void handle_mouse(App *a, const ImVec2 &origin)
 {
     static int dragged = -1;   // the point the left button took, -1 when none
+    static double grab_x, grab_z;   // where the point was from the mouse when it was taken: the point keeps that distance, it does not jump
     const ImGuiIO &io = ImGui::GetIO();
     const double mx = io.MousePos.x - origin.x, my = io.MousePos.y - origin.y;
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
         a->selected = view_pick(&a->view, a->trace.points, a->trace.count, mx, my, INTERACT_PICK_REACH);
         dragged = a->selected;
+        if (dragged >= 0) {
+            double x, z;
+            view_to_world(&a->view, mx, my, &x, &z);
+            grab_x = a->trace.points[dragged].x - x;
+            grab_z = a->trace.points[dragged].z - z;
+        }
     }
     if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || dragged >= a->trace.count || dragged != a->selected) dragged = -1;   // released, or the point is another now
     if (dragged >= 0 && io.MouseDelta.x * io.MouseDelta.x + io.MouseDelta.y * io.MouseDelta.y > 0) {
         double x, z;
         view_to_world(&a->view, mx, my, &x, &z);
-        a->trace.points[a->selected].x = x;
-        a->trace.points[a->selected].z = z;
+        a->trace.points[a->selected].x = x + grab_x;
+        a->trace.points[a->selected].z = z + grab_z;
         a->dirty = 1;
     }
     if (ImGui::IsItemActive() && (ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Middle))) {

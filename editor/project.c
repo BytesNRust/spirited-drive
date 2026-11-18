@@ -11,8 +11,6 @@
 #include <sys/stat.h>
 
 enum {
-    WIDTH_MIN = 8,        /* track_gen's layout range for a road's width */
-    WIDTH_MAX = 120,
     DEFAULT_WIDTH = 40,
     PATH_MAX_LEN = 4096
 };
@@ -180,8 +178,8 @@ static int parse_width(const char *text, double *width, char *why, size_t why_ca
         snprintf(why, why_cap, "trace.json: width is not a number");
         return 0;
     }
-    if (w < WIDTH_MIN || w > WIDTH_MAX) {
-        snprintf(why, why_cap, "trace.json: width %g is outside %d..%d", w, WIDTH_MIN, WIDTH_MAX);
+    if (w < PROJECT_WIDTH_MIN || w > PROJECT_WIDTH_MAX) {
+        snprintf(why, why_cap, "trace.json: width %g is outside %d..%d", w, PROJECT_WIDTH_MIN, PROJECT_WIDTH_MAX);
         return 0;
     }
     *width = w;
@@ -249,6 +247,10 @@ int project_save_trace(const char *dir, const Trace *trace, char *why, size_t wh
 {
     if (trace->count < 2) {
         snprintf(why, why_cap, "a trace has 2 points or more");
+        return 0;
+    }
+    if (!(trace->width >= PROJECT_WIDTH_MIN && trace->width <= PROJECT_WIDTH_MAX)) {   /* what parse_width would refuse on the way back */
+        snprintf(why, why_cap, "trace.json: width %g is outside %d..%d", trace->width, PROJECT_WIDTH_MIN, PROJECT_WIDTH_MAX);
         return 0;
     }
     const size_t cap = 256 + (size_t)trace->count * 40;

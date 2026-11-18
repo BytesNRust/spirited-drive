@@ -11,12 +11,13 @@ export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
-"$editor" "$work/proj" --frames 5 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
+"$editor" "$work/proj" --frames 6 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
 [ -f "$work/proj/project.ini" ] && [ -f "$work/proj/trace.json" ] || fail "no project files"
 [ -f "$work/shot.png" ] || { fail "no PNG"; exit 1; }
-python3 - "$work/shot.png" <<'PY' || fail "the PNG is not a 960x600 picture with the road and the points in it"
+cat > "$work/png_check.py" <<'PY'
 import sys, struct, zlib
 d = open(sys.argv[1], "rb").read()
+mode = sys.argv[2]
 assert d[:8] == b"\x89PNG\r\n\x1a\n"
 w, h, depth, ctype = struct.unpack(">IIBB", d[16:26])
 assert (w, h) == (960, 600), (w, h)
@@ -54,8 +55,17 @@ def count(rgb, tol=12):
                  if abs(r - rgb[0]) <= tol and abs(g - rgb[1]) <= tol and abs(b - rgb[2]) <= tol)
     return n
 road, points, red = count((200, 204, 212)), count((90, 160, 255)), count((255, 70, 70))
-assert road > 400 and points > 100 and red == 0, (road, points, red)   # no red: the road was made and no limit breaks
+if mode == "good":   # the road was made and no limit breaks: no red
+    assert road > 400 and points > 100 and red == 0, (road, points, red)
+else:                # a corner too tight: the road is made (grey), and its nodes at the corner are red
+    assert road > 400 and points > 100 and red > 50, (road, points, red)
 PY
+png_check() { python3 "$work/png_check.py" "$1" "$2" || fail "$1 is not a 960x600 picture with the $2 project's road and points in it"; }
+png_check "$work/shot.png" good
+mkdir "$work/bad"
+printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 80.0], [20.0, 90.0], [0.0, 100.0], [0.0, 180.0]]\n}\n' > "$work/bad/trace.json"
+"$editor" "$work/bad" --frames 6 --shot "$work/bad.png" >"$work/log" 2>&1 || fail "run on a project that breaks limits: $(cat "$work/log")"
+if [ -f "$work/bad.png" ]; then png_check "$work/bad.png" bad; else fail "no PNG of the project that breaks limits"; fi
 "$editor" "$work/proj" --frames 2 --user "$work/user/sub" >/dev/null 2>&1 || fail "run with --user"
 [ -f "$work/user/sub/track-editor.ini" ] || fail "the layout was not kept in the player folder (made when missing)"
 "$editor" >/dev/null 2>&1 && fail "no project folder was accepted"
