@@ -178,12 +178,14 @@ static int read_piece(const char *dir, ModInfo *card, CarPiece *out, char *why, 
     report_free(&r);
     CarAiTuning ai = { 0, 0 };
     ok = ok && piece_ai(&set, paths, card->ai_level, &ai, why, why_cap);
-    const uint32_t print = ok ? fingerprint(&set, paths, &ai) : 0;
+    const uint32_t crc = ok ? fingerprint(&set, paths, &ai) : 0;
+    uint8_t print[PIECE_PRINT_SIZE] = { 0 };
+    if (ok) print_of(&set, paths, &ai, print);   /* before the files are let go: it hashes them */
     fileset_free(&set);
     if (!ok) return 0;
     memset(out, 0, sizeof *out);
-    out->fingerprint = print;
-    if (ok) print_of(&set, paths, &ai, out->print);
+    out->fingerprint = crc;
+    memcpy(out->print, print, sizeof out->print);
     out->ai = ai;
     snprintf(out->id, sizeof out->id, "%s", card->id);
     snprintf(out->name, sizeof out->name, "%s", card->name);
