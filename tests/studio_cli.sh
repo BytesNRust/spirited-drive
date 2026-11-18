@@ -207,7 +207,7 @@ help_flags() {
         grep -q -- "$flag" "$work/help.out" || fail "$form --help does not list $flag"
     done
 }
-help_flags "track new" --template --out --stem --data --piece --id --name --road --edge --author --description --force
+help_flags "track new" --template --generic --out --stem --data --piece --id --name --road --edge --author --description --force
 help_flags "car new" --template --id --stem --out --name --author --description --data --port-data --force
 help_flags "car card" --generic --tnfs --data --track --node --time --force
 help_flags "car import" --obj --low --textures --low-textures --raw --tables --low-tables --scale --steer --donor --keep-pdn --data --force
@@ -220,6 +220,9 @@ help_flags "validate" --compat --port-only --check-install
 help_flags "unpack" --palette --force
 help_flags "pack" --from --palette --force
 help_flags "mod pack" --force
+help_flags "fam" --out --force
+help_flags "fam build" --out --force
+"$studio" track new --help | grep -q -- "--generic ART.FAM.*needs --piece" || fail "track new --help does not say that --generic needs --piece"
 "$studio" car texture --help >/dev/null 2>&1 || fail "car texture --help exited non-zero"
 "$studio" track --help | grep -q -- "--piece" || fail "track --help does not list --piece"
 "$studio" car -h | grep -q "car new" || fail "car -h does not list the car forms"
