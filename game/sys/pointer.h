@@ -26,6 +26,7 @@ void pointer_start(void);
 int pointer_active(void);                             /* 00524790 */
 void pointer_show(void);                              /* 00441798 */
 int pointer_read_buttons(void);                       /* 004417f8 */
+int pointer_take_wheel(void);                        /* port (dep59 showcase): the wheel's notches since the last call, + up, - down */
 /* 004417f8 without the pointer drawn: a movie's frames hide it in the original, the port's overlay would stay */
 int pointer_buttons_unseen(void);
 void pointer_click_feedback(void);                    /* 00441814 */

@@ -56,6 +56,9 @@ static const Field FIELDS[] = {
     { "weight", offsetof(ModInfo, weight), sizeof ((ModInfo *)0)->weight, KIND_TEXT },
     { "paints", 0, 0, KIND_PAINTS },
     { "category", offsetof(ModInfo, category), sizeof ((ModInfo *)0)->category, KIND_TEXT },   /* port (dep59 showcase) */
+    { "make", offsetof(ModInfo, make), sizeof ((ModInfo *)0)->make, KIND_TEXT },   /* port (owner 2026-11-18): kept for later */
+    { "model", offsetof(ModInfo, model), sizeof ((ModInfo *)0)->model, KIND_TEXT },
+    { "country", offsetof(ModInfo, country), sizeof ((ModInfo *)0)->country, KIND_TEXT },
     { "photos", 0, 0, KIND_PHOTOS },
     { "photo_small", offsetof(ModInfo, photo_small), sizeof ((ModInfo *)0)->photo_small, KIND_PHOTO },
     { "card_name", offsetof(ModInfo, card_name_off), sizeof "off", KIND_SWITCH },   /* port (dep59 gallery plan section 1) */

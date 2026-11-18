@@ -121,18 +121,22 @@ key() { printf '300:%s,%s' "$1" "$(wait_for "gallery=$2")"; }   # a key, and the
 
 part_cards() {
     # one session: car 16 and its card, car 16 as the rival and its card, its gallery (Red, then stripes), Done, Cancel
-    gallery="$(click 180 200),$(wait_for screen=added_gallery),$(shot g0),$(key DOWN '1 0 0'),$(key RIGHT '1 0 1'),$(shot g1)"
-    gallery="$gallery,$(key UP '0 0 1'),$(key RIGHT '0 1 1'),$(shot g2),$(key DOWN '1 1 1'),$(key DOWN '2 1 1'),$(key DOWN '3 1 1')"
+    # the SETUP panel (Enter on the tile): Color's row steps to Red, Skin's to the stripes, Escape closes the panel and not the page; then the
+    # tiles' and the bottom row's items: History, Previous, Next, Done
+    gallery="$(click 180 200),$(wait_for screen=added_gallery),$(shot g0),300:ENTER,$(wait_for 'gallery=0 0 0'),$(shot g1a),$(key RIGHT '0 0 1'),$(shot g1b)"
+    gallery="$gallery,$(key DOWN '0 0 1'),$(key RIGHT '0 1 1'),$(shot g2),$(key ESC '0 1 1'),$(shot g3),$(key DOWN '6 1 1'),$(key DOWN '2 1 1'),$(key DOWN '3 1 1')"
     gallery="$gallery,$(key DOWN '4 1 1'),300:ENTER,$(wait_for car=16),$(click 571 453),$(wait_for screen=game_mode)"
     user_in restomod
     walk "$piece" "$to_central,$car_16,$(shot a),$rival_16,$(shot r16),$gallery" || fail "Restomod: car 16, its rival card, its gallery, Done and Cancel"
     log | grep -q "car piece: test-car is car 16" || fail "the log does not say the piece is car 16"
     [ "$(log | grep -m1 "^mark:car=")" = "mark:car=6" ] || fail "a fresh player's Control Central does not open on car 6: $(log | grep -m1 "^mark:car=")"
     [ "$(log | grep "^mark:car=" | tail -1)" = "mark:car=16" ] || fail "Control Central was not on car 16 after the gallery"
-    # the Color box filled with the paint (gallery_layout.h: the right column's box at GL_COLOUR_Y, 250..299) and the Skin box's value
-    # (GL_SKIN_Y 184..233, its value in the box's lower half, between its arrows)
-    has_shot g1 && ! box g0 g1 390 590 254 296 && fail "Color Red shows no swatch"
-    has_shot g2 && ! box g1 g2 390 590 210 231 && fail "Skin stripes does not show its name"
+    # the SETUP panel (gallery_layout.h: GL_SETUP_X 57, GL_SETUP_Y 100, 300x170; its rows from +44 down by 24): opening it changes the tile and
+    # General's top; Color's value (row 0, y 144..158) shows Red; Skin's (row 1, y 168..182) its stripes; Escape closes it (the tile as it was)
+    has_shot g1a && ! box g0 g1a 60 295 105 265 && fail "Enter on SETUP did not open the panel"
+    has_shot g1b && ! box g1a g1b 150 295 144 158 && fail "Color Red does not show in the panel"
+    has_shot g2 && ! box g1b g2 150 295 168 182 && fail "Skin stripes does not show in the panel"
+    has_shot g3 && box g0 g3 60 295 105 265 && fail "Escape did not close the panel"
     grep -q "^car=test-car$" "$work/user/restomod.cfg" 2>/dev/null || fail "restomod.cfg does not keep car=test-car: $(cat "$work/user/restomod.cfg" 2>/dev/null)"
     grep -q "^look.test-car=stripes,Red$" "$work/user/restomod.cfg" 2>/dev/null || fail "Done did not keep stripes,Red: $(cat "$work/user/restomod.cfg" 2>/dev/null)"
     kept=$(od -An -t d2 -j 155 -N 2 "$work/user/config.dat" 2>/dev/null | tr -d ' ')   # the player's car, 00524e8b (config_dat.c)
@@ -165,7 +169,7 @@ part_steps() {
     steps="$(click 180 200),$(wait_for screen=added_gallery),$(click 254 454),$(wait_for screen=showcase),1500:ESC,$(wait_for car=7)"
     # Next by the keys: Color, Previous, Next, Enter; the Warrior's page (dep59 section 8: its look fixed, it opens on Next: the mark
     # item 3, skin 0, paint 1, its purple), Enter there: the RX-7's showcase, Escape back to Control Central on it
-    steps="$steps,$(car_on),$(click 180 200),$(wait_for screen=added_gallery),$(key DOWN '1 0 0'),$(key DOWN '2 0 0'),$(key DOWN '3 0 0')"
+    steps="$steps,$(car_on),$(click 180 200),$(wait_for screen=added_gallery),$(key DOWN '6 0 0'),$(key DOWN '2 0 0'),$(key DOWN '3 0 0')"
     steps="$steps,300:ENTER,$(wait_for 'gallery=3 0 1'),300:ENTER,$(wait_for screen=showcase),1500:ESC,$(wait_for car=0)"
     # the carousel (dep59 section 4, Restomod): the RX-7's showcase, its own Previous (200..260 x 430..480) leaves it for the car before
     # the RX-7 in the edition's order, round to the Warrior's page, which opens on Previous (the step it came by: item 2); Escape:
