@@ -635,6 +635,7 @@ add_executable(tnfs
     game/frontend/menu_glue_extras.c
     game/frontend/menu_glue_content.c
     game/frontend/menu_glue_screens.c
+    game/frontend/menu_glue_setup.c
     game/frontend/link_game.c
     game/frontend/link_messages.c
     game/frontend/link_session.c

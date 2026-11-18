@@ -65,10 +65,10 @@ static void palette(Show *s, const ShowcaseOps *o)
     o->palette_set(o->ctx, s->rgb, 0, ALL, pal + 0x10, pal[0]);
 }
 
-/* port: the variant box is there when the screen has one and the car has choices */
+/* port: the SETUP tile is there when the screen has one */
 static int has_box(const ShowcaseState *st)
 {
-    return st->plus != NULL && st->plus->offered(st->plus->ctx, *st->player_car) != 0;
+    return st->plus != NULL;
 }
 
 /* the first box the pointer is in becomes the selection, else none */
@@ -95,8 +95,7 @@ static void item_art(Show *s, int16_t item, const char *const *tags, const Showc
 {
     if (item == VARIANT) {
         if (!has_box(st)) return;
-        const int taken = st->plus->draw(st->plus->ctx, *st->player_car, tags == LIT, s->rgb);
-        if (taken && !s->fade) o->palette_write(o->ctx, 0, ALL, s->rgb);   /* a new colour: its slot is unused on screen */
+        st->plus->draw(st->plus->ctx, *st->player_car, tags == LIT, s->rgb);
         return;
     }
     if (item < 0 || item > DONE) return;
@@ -110,13 +109,7 @@ static void draw(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
 {
     o->select(o->ctx, *st->screen);
     o->blit_own(o->ctx, o->shape(o->ctx, s->bank, "bgnd"));
-    if (s->fade && has_box(st)) {   /* port: every item's art once, to see which palette colours none uses, then the bank's again */
-        for (int16_t item = 0; item <= DONE; item++) item_art(s, item, LIT, st, o);
-        st->plus->free_colours(st->plus->ctx, s->rgb);
-        o->blit_own(o->ctx, o->shape(o->ctx, s->bank, "bgnd"));
-    }
     if (s->selected != VARIANT) item_art(s, s->selected, LIT, st, o);
-    if (has_box(st)) st->plus->settle(st->plus->ctx);
     item_art(s, VARIANT, s->selected == VARIANT ? LIT : DARK, st, o);
     if (s->fade) o->palette_show(o->ctx, 0, ALL, s->black);
     o->select_default(o->ctx);
@@ -186,30 +179,16 @@ static void page(Show *s, const ShowcaseState *st, const ShowcaseOps *o,
     s->fade = 1;
 }
 
-/* port: the box's choice stepped, and the screen drawn again with it */
-static void step_variant(Show *s, const ShowcaseState *st, int step, int wrap)
+/* port: Enter, Space or a click on the tile open the panel; the screen is drawn again once it is closed */
+static void take_variant(Show *s, const ShowcaseState *st)
 {
-    st->plus->step(st->plus->ctx, *st->player_car, step, wrap);
+    st->plus->open(st->plus->ctx, *st->player_car, s->rgb);
     s->redraw = 1;
-}
-
-/* Enter, Space or a click on the swatch step forward and wrap; a click on a side's arrow steps that way and stops at the end */
-static void take_variant(Show *s, const ShowcaseState *st, const ShowcaseOps *o, int by_click)
-{
-    const int car = *st->player_car;
-    if (by_click && o->pointer_in_rect(o->ctx, VARIANT_LEFT, VARIANT_LEFT + VARIANT_ZONE, VARIANT_TOP, VARIANT_BOTTOM) &&
-        st->plus->can_step(st->plus->ctx, car, -1)) {
-        step_variant(s, st, -1, 0);
-    } else if (by_click && o->pointer_in_rect(o->ctx, VARIANT_RIGHT - VARIANT_ZONE, VARIANT_RIGHT, VARIANT_TOP, VARIANT_BOTTOM) &&
-               st->plus->can_step(st->plus->ctx, car, 1)) {
-        step_variant(s, st, 1, 0);
-    } else {
-        step_variant(s, st, 1, 1);
-    }
 }
 
 static void take(Show *s, const ShowcaseState *st, const ShowcaseOps *o, int by_click)
 {
+    (void)by_click;
     switch (s->selected) {
     case HISTORY: page(s, st, o, o->pages, "his"); break;
     case GENERAL: page(s, st, o, o->pages, "gen"); break;
@@ -246,7 +225,7 @@ static void take(Show *s, const ShowcaseState *st, const ShowcaseOps *o, int by_
         s->fade = 1;
         break;
     case DONE: s->quit = 1; break;
-    case VARIANT: take_variant(s, st, o, by_click); break;
+    case VARIANT: take_variant(s, st); break;
     default: break;
     }
 }
@@ -284,14 +263,7 @@ static void keys(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
         case UP: arrow(s, s->selected == GENERAL && has_box(st) ? VARIANT : UP_OF[s->selected], o); break;
         case DOWN: arrow(s, DOWN_OF[s->selected], o); break;
         case LEFT:
-        case RIGHT:
-            if (s->selected == VARIANT) {   /* port: Left and Right step the box's choice */
-                o->sound(o->ctx, CHOSEN);
-                step_variant(s, st, key == RIGHT ? 1 : -1, 0);
-            } else {
-                arrow(s, (key == LEFT ? LEFT_OF : RIGHT_OF)[s->selected], o);
-            }
-            break;
+        case RIGHT: arrow(s, (key == LEFT ? LEFT_OF : RIGHT_OF)[s->selected], o); break;
         default: break;
         }
         o->ticks(o->ctx);
