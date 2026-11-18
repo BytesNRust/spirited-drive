@@ -89,6 +89,15 @@ part_cars() {
     [ "$(cat "$work/out")" = "updated test-car 0.1 -> 0.2" ] || fail "the update said: $(cat "$work/out")"
     ls "$U/mods_backup" 2>/dev/null | grep -q "^test-car-0.1-" || fail "no backup of 0.1"
 
+    # 4b. the same version again: said as a reinstall, not an update; with other files, it says its version did not rise
+    cmd --install "$work/test-car-2.zip" || fail "--install 0.2 again: $(cat "$work/err")"
+    [ "$(cat "$work/out")" = "reinstalled test-car 0.2 (same version)" ] || fail "the same version again said: $(cat "$work/out")"
+    echo "changed" > "$work/p/README.md" && "$studio" mod pack "$work/p" "$work/test-car-2b.zip" >"$work/log" 2>&1 || fail "mod pack 0.2 changed: $(cat "$work/log")"
+    rm -f "$work/p/README.md"
+    cmd --install "$work/test-car-2b.zip" || fail "--install 0.2 changed: $(cat "$work/err")"
+    grep -q "^reinstalled test-car 0.2 (same version); its files changed but its version did not: raise version= in mod.ini$" "$work/out" ||
+        fail "the same version with other files said: $(cat "$work/out")"
+
     # 3. uninstalled: not listed, no car any more; the originals race on (Review Focus 3)
     cmd --uninstall test-car || fail "--uninstall: $(cat "$work/err")"
     [ "$(cat "$work/out")" = "uninstalled test-car (backup kept)" ] || fail "--uninstall said: $(cat "$work/out")"

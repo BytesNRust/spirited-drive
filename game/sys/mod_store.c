@@ -162,10 +162,30 @@ static int plan_for(const ModCheck *c, ModInfo *installed, int *has_card, ModIns
     return refuse(why, cap, "no free name for the backup of %s", target);
 }
 
-int mod_store_install(const char *zip_path, ModInfo *info_out, char *old_out, size_t old_cap, char *why, size_t why_cap)
+/* 1 when every file of the zip is in `target` with the bytes it has in `staging` (the unpacked zip) */
+static int same_files(const ModCheck *c, const char *staging, const char *target)
+{
+    for (size_t i = 0; i < c->entry_count; i++) {
+        const char *name = strcasecmp(c->entries[i].path, "mod.ini") == 0 ? "mod.ini" : c->entries[i].path;   /* as unpack wrote it */
+        char fresh[REL_MAX], held[REL_MAX];
+        snprintf(fresh, sizeof fresh, "%s/%s", staging, name);
+        snprintf(held, sizeof held, "%s/%s", target, name);
+        size_t fresh_size = 0, held_size = 0;
+        uint8_t *a = platform_user_read_file_at(fresh, &fresh_size), *b = platform_user_read_file_at(held, &held_size);
+        const int same = a != NULL && b != NULL && fresh_size == held_size && memcmp(a, b, fresh_size) == 0;
+        if (a != NULL) platform_free_file(a);
+        if (b != NULL) platform_free_file(b);
+        if (!same) return 0;
+    }
+    return 1;
+}
+
+int mod_store_install_outcome(const char *zip_path, ModInfo *info_out, char *old_out, size_t old_cap, ModStoreOutcome *outcome, char *why,
+                              size_t why_cap)
 {
     if (info_out != NULL) memset(info_out, 0, sizeof *info_out);
     if (old_out != NULL && old_cap > 0) old_out[0] = '\0';
+    if (outcome != NULL) *outcome = MOD_STORE_NEW;
     size_t size = 0;
     uint8_t *zip = read_zip(zip_path, &size, why, why_cap);
     if (zip == NULL) return 0;
@@ -180,6 +200,7 @@ int mod_store_install(const char *zip_path, ModInfo *info_out, char *old_out, si
         ok = refuse(why, why_cap, "the folder mods/.staging cannot be made ready");
     ok = ok && unpack(zip, size, &c, p.staging, why, why_cap);
     free(zip);
+    const int changed = ok && p.kind == MOD_INSTALL_SAME && !same_files(&c, p.staging, p.target);   /* before the folder is moved away */
     const int update = ok && p.backup[0] != '\0';
     if (update) {
         ok = platform_user_mkdirs("mods_backup") && platform_user_rename(p.target, p.backup);
@@ -195,10 +216,19 @@ int mod_store_install(const char *zip_path, ModInfo *info_out, char *old_out, si
         folders_follow();
         if (info_out != NULL) *info_out = c.info;
         if (old_out != NULL && update) snprintf(old_out, old_cap, "%s", p.old_version);
-        port_log("mods: %s %s %s\n", update ? "updated" : "installed", c.info.id, c.info.version);
+        const ModStoreOutcome how = !update ? MOD_STORE_NEW : p.kind != MOD_INSTALL_SAME ? MOD_STORE_UPDATED : changed ? MOD_STORE_SAME_CHANGED : MOD_STORE_SAME;
+        if (outcome != NULL) *outcome = how;
+        if (how == MOD_STORE_NEW) port_log("mods: installed %s %s\n", c.info.id, c.info.version);
+        else if (how == MOD_STORE_UPDATED) port_log("mods: updated %s %s\n", c.info.id, c.info.version);
+        else port_log("mods: reinstalled %s %s (same version%s)\n", c.info.id, c.info.version, changed ? ", its files changed" : "");
     }
     mod_check_free(&c);
     return ok;
+}
+
+int mod_store_install(const char *zip_path, ModInfo *info_out, char *old_out, size_t old_cap, char *why, size_t why_cap)
+{
+    return mod_store_install_outcome(zip_path, info_out, old_out, old_cap, NULL, why, why_cap);
 }
 
 /* ---- uninstall, restore, backups */
