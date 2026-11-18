@@ -51,7 +51,9 @@ static void name(const Page *p)
         if (mask != NULL && leant != NULL && text_mask_scaled(said, num, den, mask, w, h)) {
             gallery_lean(mask, w, h, LEAN_NUM, LEAN_DEN, leant, ow);
             text_select(TEXT_WHITE);
-            text_draw_mask(leant, ow, h, GL_NAME_X, GL_NAME_Y);
+            int top, bottom;
+            text_ink_scaled(said, num, den, &top, &bottom);
+            text_draw_mask(leant, ow, h, GL_NAME_X, (GL_BAND_H - (bottom - top)) / 2 - top);   /* owner 2026-11-18: centred in the strip */
         }
         free(mask), free(leant);
         return;
@@ -65,11 +67,25 @@ void added_gallery_draw_title(const Page *p)
     text_draw_smooth("Car Showcase", GL_HEADING_X, GL_HEADING_Y, GL_HEADING_NUM, GL_HEADING_DEN);
 }
 
-/* a tile's label at its foot, lit when the tile is the item */
-static void label(const char *text, int x, int y, int h, int lit)
+/* `text` in the page's main face at 3/4, solid `index` with a one-pixel shadow `shadow` down and right, its pen at (x, y) */
+static void shaded(const Target *t, const char *text, int x, int y, int index, int shadow)
 {
-    text_select(lit ? TEXT_YELLOW : TEXT_WHITE);
-    text_draw_smooth(text, x + 8, y + h - 24, 3, 4);
+    const int w = text_width_scaled(text, 3, 4) + 2, h = text_mask_rows(text, 3, 4);
+    uint8_t *mask = h > 0 ? malloc((size_t)w * h) : NULL;
+    if (mask != NULL && text_mask_scaled(text, 3, 4, mask, w, h))
+        for (int pass = 0; pass < 2; pass++)
+            for (int j = 0; j < h; j++)
+                for (int i = 0; i < w; i++) {
+                    const int px = x + i + (pass == 0), py = y + j + (pass == 0);
+                    if (mask[j * w + i] >= 6 && px >= 0 && px < t->w && py >= 0 && py < t->h) t->to[py * t->w + px] = (uint8_t)(pass == 0 ? shadow : index);
+                }
+    free(mask);
+}
+
+/* a tile's label at its foot, as the CD pages have it (owner 2026-11-18): black, its shadow cream, yellow when the tile is the item */
+static void label(const Target *t, const char *text, int x, int y, int h, int lit)
+{
+    shaded(t, text, x + 8, y + h - 24, BLACK, lit ? YELLOW : CREAM);
 }
 
 /* `text` cut (with a "." at its end) until the small face shows it in `width` pixels */
@@ -99,7 +115,7 @@ static void general(const Page *p)
 {
     const char *const LABEL[4] = { "Year", "Power", "Weight", "Category" };
     const char *const value[4] = { p->card.info.year, p->card.info.power, p->card.info.weight, p->card.info.category };
-    for (int i = 0; i < 4; i++) row(LABEL[i], value[i], GL_GEN_X + 12, GL_GEN_X + GL_GEN_W - 12, GL_GEN_Y + 6 + i * 20, TEXT_CREAM);
+    for (int i = 0; i < 4; i++) row(LABEL[i], value[i], GL_GEN_X + 8, GL_GEN_X + GL_GEN_W - 8, GL_GEN_Y + 6 + i * 20, TEXT_CREAM);
 }
 
 int added_gallery_history_visible(void)
@@ -125,12 +141,15 @@ static void history(const Page *p, const Target *t)
     }
 }
 
-/* the SETUP tile closed: its word and an arrow, lit when it is the item */
+/* the SETUP tile closed: the Supra's engine in it (flat when it was not made), its word and an arrow, lit when it is the item */
 static void setup_tile(const Target *t, const Page *p)
 {
     const int lit = p->state.item == GALLERY_SETUP;
-    text_select(lit ? TEXT_YELLOW : TEXT_WHITE);
-    text_draw_smooth("SETUP", GL_COL_X + 14, GL_COL_Y + 20, 3, 4);
+    if (p->tile_ok)
+        for (int y = 0; y < GL_COL_H; y++)
+            for (int x = 0; x < GL_COL_W; x++)
+                if (GL_COL_X + x < t->w && GL_COL_Y + y < t->h) t->to[(GL_COL_Y + y) * t->w + GL_COL_X + x] = p->tile[y * GL_COL_W + x];
+    shaded(t, "SETUP", GL_COL_X + 14, GL_COL_Y + 20, BLACK, lit ? YELLOW : CREAM);
     arrow(t, GL_COL_X + GL_COL_W - 24, GL_COL_Y + (GL_COL_H - GL_ARROW_H) / 2, 0, lit ? YELLOW : CREAM);
 }
 
@@ -141,17 +160,24 @@ static void setup_value(const Page *p, int row, char *out, int size)
     switch (row) {
     case SETUP_COLOUR: text_small_words(s->paint == 0 ? "Default" : p->card.info.paints[s->paint - 1].name, out, size); break;
     case SETUP_SKIN: text_small_words(s->skin == 0 ? "Default" : p->card.skin[s->skin], out, size); break;
-    case SETUP_TRANSMISSION: snprintf(out, (size_t)size, "%s", s->transmission == 0 ? "Auto" : "Manual"); break;
-    case SETUP_ABS: snprintf(out, (size_t)size, "%s", s->abs == SETUP_NOT_OFFERED ? "N/A" : s->abs == 0 ? "On" : "Off"); break;
-    default: snprintf(out, (size_t)size, "%s", s->traction == SETUP_NOT_OFFERED ? "N/A" : s->traction == 0 ? "On" : "Off"); break;
+    case SETUP_TRANSMISSION: snprintf(out, (size_t)size, "%s", s->transmission == 0 ? "Automatic" : "Manual"); break;   /* Options' words */
+    case SETUP_ABS: snprintf(out, (size_t)size, "%s", s->abs == SETUP_NOT_OFFERED ? "n/a" : s->abs == 0 ? "On" : "Off"); break;
+    default: snprintf(out, (size_t)size, "%s", s->traction == SETUP_NOT_OFFERED ? "n/a" : s->traction == 0 ? "On" : "Off"); break;
     }
 }
 
-/* the SETUP panel open over the tile and General's top: its fill, a border, the title and the rows (the focused one yellow with its arrows,
- * one that takes no key dim) */
+/* a preview box (black outline) of entry `index` at (x, y) */
+static void preview(const Target *t, int x, int y, int index)
+{
+    fill(t, x, y, x + GL_SETUP_PREVIEW_W - 1, y + GL_SETUP_PREVIEW_H - 1, BLACK);
+    fill(t, x + 1, y + 1, x + GL_SETUP_PREVIEW_W - 2, y + GL_SETUP_PREVIEW_H - 2, index);
+}
+
+/* the SETUP panel open over the tile and General's top (a modal): its ground, a border, the title in red and the rows with Options' words
+ * (the focused one yellow, one that takes no key dim); Color and Skin have their arrows and a preview, the switches only their value */
 static void setup_panel(const Target *t, const Page *p)
 {
-    static const char *const LABEL[SETUP_ROWS] = { "Color", "Skin", "Transmission", "ABS", "Traction" };
+    static const char *const LABEL[SETUP_ROWS] = { "Color", "Skin", "Transmission", "ABS", "Traction control" };
     const GalleryState *s = &p->state;
     if (p->art != NULL && p->art->ok) {   /* the stone: its ground, and while it moves the slab where frame k's is */
         for (int y = 0; y < GL_SETUP_H; y++)
@@ -164,24 +190,23 @@ static void setup_panel(const Target *t, const Page *p)
     } else
         fill(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, p->panel_fill);
     edge(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, 1, CREAM);
-    text_select(TEXT_YELLOW);
-    text_draw_smooth("SETUP", GL_SETUP_X + 14, GL_SETUP_Y + 8, 3, 4);
+    text_select(TEXT_RED);
+    text_draw_smooth("CAR SETUP", GL_SETUP_X + 12, GL_SETUP_Y + 8, GL_HEADING_NUM, GL_HEADING_DEN);   /* as "Car Showcase", red */
     for (int row = 0; row < SETUP_ROWS; row++) {
         const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP, on = added_gallery_setup_row_on(&p->card, s, row), lit = s->row == row;
+        const int choice = row == SETUP_COLOUR || row == SETUP_SKIN, vx = GL_SETUP_X + GL_SETUP_VALUE_X;
         char value[64], fits[64];
         setup_value(p, row, value, sizeof value);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM);
-        text_small_draw(LABEL[row], GL_SETUP_X + 16, y);
-        const int vx = GL_SETUP_X + GL_SETUP_VALUE_X;
-        fitted(value, GL_SETUP_VALUE_W - 2 * (GL_ARROW_W + 4), fits, sizeof fits);
-        if (row == SETUP_COLOUR && on && s->paint > 0) fill(t, vx - 16, y + 3, vx - 8, y + 10, SWATCH);
+        text_small_draw(LABEL[row], GL_SETUP_X + 12, y);
+        fitted(value, GL_SETUP_VALUE_W - (choice ? 2 * (GL_ARROW_W + 4) : 0), fits, sizeof fits);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_WHITE);
         text_small_draw(fits, vx + (GL_SETUP_VALUE_W - text_small_width(fits)) / 2, y);
-        if (on) {
-            const int index = lit ? YELLOW : CREAM;
-            arrow(t, vx, y + 1, 1, index);
-            arrow(t, vx + GL_SETUP_VALUE_W - GL_ARROW_W, y + 1, 0, index);
-        }
+        if (!choice || !on) continue;
+        const int index = lit ? YELLOW : CREAM;
+        arrow(t, vx, y + 1, 1, index);
+        arrow(t, vx + GL_SETUP_VALUE_W - GL_ARROW_W, y + 1, 0, index);
+        preview(t, vx + GL_SETUP_VALUE_W + 8, y - 1, row == SETUP_COLOUR ? SWATCH : SKIN_SWATCH);
     }
 }
 
@@ -196,18 +221,13 @@ void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th)
         edge(&t, GL_HIST_X - GL_FRAME, GL_HIST_Y - GL_FRAME, GL_HIST_X + GL_HIST_W + GL_FRAME - 1, GL_HIST_Y + GL_HIST_H + GL_FRAME - 1, GL_FRAME, YELLOW);
     if (s->item == GALLERY_SETUP && !s->setup)
         edge(&t, GL_COL_X - GL_FRAME, GL_COL_Y - GL_FRAME, GL_COL_X + GL_COL_W + GL_FRAME - 1, GL_COL_Y + GL_COL_H + GL_FRAME - 1, GL_FRAME, YELLOW);
-    label("PERFORMANCE", GL_PERF_X, GL_PERF_Y, GL_PERF_H, s->item == GALLERY_PHOTOS);
-    if (!s->setup) label("GENERAL", GL_GEN_X, GL_GEN_Y, GL_GEN_H, 0);   /* the open panel covers its top: its label would show cut */
-    label("VIDEO", GL_VID_X, GL_VID_Y, GL_VID_H, 0);
-    label("HISTORY", GL_HIST_X, GL_HIST_Y, GL_HIST_H, s->item == GALLERY_HISTORY);
+    label(&t, "GALLERY", GL_PERF_X, GL_PERF_Y, GL_PERF_H, s->item == GALLERY_PHOTOS);
+    if (!s->setup) label(&t, "GENERAL", GL_GEN_X, GL_GEN_Y, GL_GEN_H, 0);   /* the open panel covers its top: its label would show cut */
+    label(&t, "HISTORY", GL_HIST_X, GL_HIST_Y, GL_HIST_H, s->item == GALLERY_HISTORY);   /* Video's tile is a picture only */
     if (s->photos >= 2) {   /* the big photo's arrows and which of how many */
         const int ay = GL_PERF_Y + (GL_PERF_H - GL_ARROW_H) / 2, index = s->item == GALLERY_PHOTOS ? YELLOW : CREAM;
         arrow(&t, GL_PERF_X + 10, ay, 1, index);
         arrow(&t, GL_PERF_X + GL_PERF_W - 10 - GL_ARROW_W, ay, 0, index);
-        char count[32];
-        snprintf(count, sizeof count, "PHOTOS %d/%d", s->photo + 1, s->photos);
-        text_select(TEXT_WHITE);
-        text_small_draw(count, GL_PERF_X + GL_PERF_W - 8 - text_small_width(count), GL_PERF_Y + 6);
     }
     if (!s->setup) general(p);
     history(p, &t);

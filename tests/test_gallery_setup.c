@@ -48,8 +48,44 @@ static void test_the_stone_from_the_cd(void)
     }
 }
 
+/* the closed tile's picture from the Supra's bank, in a grey ramp: it is not blank and not one colour */
+static void test_the_tile_from_the_cd(void)
+{
+    char path[1024];
+    snprintf(path, sizeof path, "%s/original/FRONTEND/SHOW/SUPRA.QFS", TNFS_SOURCE_DIR);
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) {
+        printf("skip: no CD at %s\n", path);
+        return;
+    }
+    static uint8_t file[1 << 21];
+    const size_t size = fread(file, 1, sizeof file, f);
+    fclose(f);
+    uint8_t pal[768], usable[256];
+    for (int i = 0; i < 256; i++) pal[3 * i] = pal[3 * i + 1] = pal[3 * i + 2] = (uint8_t)i, usable[i] = i < 200;
+    static uint8_t tile[GL_COL_W * GL_COL_H];
+    CHECK_EQ_INT(added_gallery_setup_tile(tile, file, size, pal, usable), 1);
+    int lo = 255, hi = 0;
+    for (int i = 0; i < GL_COL_W * GL_COL_H; i++) {
+        CHECK(tile[i] < 200);
+        lo = tile[i] < lo ? tile[i] : lo, hi = tile[i] > hi ? tile[i] : hi;
+    }
+    CHECK(hi - lo > 60);
+    if (getenv("GALLERY_SETUP_DUMP") != NULL) {
+        char name[1100];
+        snprintf(name, sizeof name, "%s/tile.pgm", getenv("GALLERY_SETUP_DUMP"));
+        FILE *o = fopen(name, "wb");
+        if (o != NULL) {
+            fprintf(o, "P5 %d %d 255\n", GL_COL_W, GL_COL_H);
+            fwrite(tile, 1, sizeof tile, o);
+            fclose(o);
+        }
+    }
+}
+
 int main(void)
 {
+    test_the_tile_from_the_cd();
     test_the_stone_from_the_cd();
     return TEST_REPORT();
 }

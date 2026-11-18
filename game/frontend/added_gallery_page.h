@@ -14,7 +14,7 @@
 enum {
     KEPT = 18,                                       /* Control Central's last entries, kept for the pointer */
     TEXT_FIRST = 256 - KEPT - BOOT_TEXT_COLOURS,     /* the text's colours (BOOT_TEXT_RGB's order) */
-    SWATCH = TEXT_FIRST - 1,                         /* the Color swatch's entry */
+    SKIN_SWATCH = TEXT_FIRST - 1, SWATCH = TEXT_FIRST - 2,   /* the SETUP panel's Skin and Color previews' entries */
     ROW_EXACT = 8, ROW_FIRST = SWATCH - ROW_EXACT,   /* the bottom row's most used colours, the CD art's own; its others the nearest */
     STILL_COLOURS = ROW_FIRST,                       /* the still part's: 0 .. ROW_FIRST - 1 */
     WHITE = TEXT_FIRST, CREAM = TEXT_FIRST + 1, YELLOW = TEXT_FIRST + 2, BLACK = TEXT_FIRST + 5, DIM = TEXT_FIRST + 6,
@@ -38,6 +38,11 @@ typedef struct {
     uint8_t screen[768];             /* Control Central's palette (the kept entries, the Warrior's card) */
     uint8_t row_map[64];             /* the bottom row's colours' entries (GL_ROW_COLOURS) */
     int shown;                       /* the big photo the still part shows */
+    uint8_t tile[GL_COL_W * GL_COL_H];   /* the closed SETUP tile's picture in the page's entries (tile_ok) */
+    int tile_ok;
+    uint8_t skin_rgb[CAR_PIECE_SKINS_MAX + 1][3], default_rgb[3];   /* the previews' colours: each skin's, the car as it comes */
+    uint8_t tint[3];                 /* the background's tint (the mod's first paint), has_tint */
+    int has_tint;
     SetupArt *art;                   /* the panel's stone (NULL: not made); art->ok 0 -> the flat fill */
     int moving;                      /* the panel is opening or closing: frame `frame` of SETUP_FRAMES is drawn */
     int frame;
@@ -47,6 +52,9 @@ typedef struct {
     HistoryLine lines[HISTORY_LINES];
     int line_count;
 } Page;
+
+/* the previews' colours and the background's tint of the car (added_gallery_tints.c) */
+void added_gallery_tints_make(Page *p);
 
 /* the page's words and figures over its still part, as `s` says (focus, photo n of m, the Color tile's two rows, the description from its
  * scroll); the bottom row is the glue's */

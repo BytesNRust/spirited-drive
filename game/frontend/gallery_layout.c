@@ -53,11 +53,37 @@ static void framed(uint8_t *out, const uint8_t *bgnd, int x0, int y0, int w, int
     for (int y = y0; y < y0 + h; y++) memcpy(out + 3 * (y * GL_W + x0), bgnd + 3 * (y * GL_W + x0), (size_t)w * 3);
 }
 
+/* rows y0 .. y1 - 1 across the whole width blurred by a box of 2 * r + 1 (the edges clamped to the strip), `passes` times: horizontally, then vertically */
+static void blur_strip(uint8_t *out, int y0, int y1, int r, int passes)
+{
+    const int h = y1 - y0;
+    uint8_t *tmp = malloc((size_t)GL_W * h * 3);
+    if (tmp == NULL) return;
+    for (int pass = 0; pass < passes; pass++) {
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < GL_W; x++)
+                for (int c = 0; c < 3; c++) {
+                    int sum = 0;
+                    for (int k = -r; k <= r; k++) sum += out[3 * ((y0 + y) * GL_W + (x + k < 0 ? 0 : x + k >= GL_W ? GL_W - 1 : x + k)) + c];
+                    tmp[3 * (y * GL_W + x) + c] = (uint8_t)(sum / (2 * r + 1));
+                }
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < GL_W; x++)
+                for (int c = 0; c < 3; c++) {
+                    int sum = 0;
+                    for (int k = -r; k <= r; k++) sum += tmp[3 * ((y + k < 0 ? 0 : y + k >= h ? h - 1 : y + k) * GL_W + x) + c];
+                    out[3 * ((y0 + y) * GL_W + x) + c] = (uint8_t)(sum / (2 * r + 1));
+                }
+    }
+    free(tmp);
+}
+
 void gallery_compose(const uint8_t *bgnd, const uint8_t *big, const uint8_t *small, uint8_t *out)
 {
     memcpy(out, bgnd, (size_t)GL_W * GL_H * 3);
     for (int y = 0; y < GL_BAND_H; y++)   /* the owner's v2: the band's texture mirrored, so it blends in */
         for (int x = 0; x < GL_BAND_W; x++) memcpy(out + 3 * (y * GL_W + x), bgnd + 3 * (y * GL_W + GL_BAND_FROM_X + GL_BAND_W - 1 - x), 3);
+    blur_strip(out, 0, GL_BAND_H, GL_BLUR_R, 2);   /* port (owner 2026-11-18): the whole strip over the title line blurred, no relief left */
     /* the CD pages' order, the first drawn the farthest: Color, General, Performance, Video, History */
     framed(out, bgnd, GL_COL_X, GL_COL_Y, GL_COL_W, GL_COL_H);
     tint(out, GL_COL_X, GL_COL_Y, GL_COL_X + GL_COL_W - 1, GL_COL_Y + GL_COL_H - 1, GL_SKIN_RGB, 255);
@@ -143,7 +169,8 @@ int gallery_setup_hit(int x, int y, int *step)
     if (!in_rect(x, y, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_W, GL_SETUP_H)) return -1;
     const int row = (y - GL_SETUP_Y - GL_SETUP_ROW0 + GL_SETUP_STEP / 2) / GL_SETUP_STEP;
     if (y < GL_SETUP_Y + GL_SETUP_ROW0 - GL_SETUP_STEP / 2 || row < 0 || row >= GALLERY_SETUP_ROWS) return -1;
-    if (x >= GL_SETUP_X + GL_SETUP_VALUE_X - 16) *step = x < GL_SETUP_X + GL_SETUP_VALUE_X + GL_SETUP_VALUE_W / 2 ? -1 : 1;   /* the label's side: the row alone */
+    if (row >= SETUP_TRANSMISSION) *step = 1;   /* a switch, as in Options: a click anywhere on its row changes it */
+    else if (x >= GL_SETUP_X + GL_SETUP_VALUE_X - 16) *step = x < GL_SETUP_X + GL_SETUP_VALUE_X + GL_SETUP_VALUE_W / 2 ? -1 : 1;   /* the label's side: the row alone */
     return row;
 }
 

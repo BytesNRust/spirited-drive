@@ -59,16 +59,21 @@ static void test_compose(void)
     for (int i = 0; i < GL_PERF_W * GL_PERF_H; i++) big[3 * i] = 200, big[3 * i + 1] = 100, big[3 * i + 2] = 50;
     for (int i = 0; i < GL_VID_W * GL_VID_H; i++) small[3 * i] = 20, small[3 * i + 1] = 110, small[3 * i + 2] = 220;
     gallery_compose(bgnd, big, small, out);
-    int band = 1;   /* the band's patch: the texture beside it, mirrored */
+    /* the strip over the title line is blurred (owner 2026-11-18): its blue channel, a noisy xor in the test's background, varies less from
+     * column to column than the background's, and the first row under it is the background as it is */
+    int rough_in = 0, rough_out = 0;
     for (int y = 0; y < GL_BAND_H; y++)
-        for (int x = 0; x < GL_BAND_W; x++) band &= memcmp(at(out, x, y), at(bgnd, GL_BAND_FROM_X + GL_BAND_W - 1 - x, y), 3) == 0;
-    CHECK(band);
-    CHECK(memcmp(at(out, GL_BAND_W, 10), at(bgnd, GL_BAND_W, 10), 3) == 0);   /* past it: the band itself */
+        for (int x = 1; x < GL_W; x++) {
+            rough_in += abs(at(bgnd, x, y)[2] - at(bgnd, x - 1, y)[2]);
+            rough_out += abs(at(out, x, y)[2] - at(out, x - 1, y)[2]);
+        }
+    CHECK(rough_out * 2 < rough_in);
+    CHECK(memcmp(at(out, 100, GL_BAND_H + 1), at(bgnd, 100, GL_BAND_H + 1), 3) == 0);
     CHECK(photo_is(GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H, big));         /* the photos in their tiles, the CD pages' places */
     CHECK(photo_is(GL_VID_X, GL_VID_Y, GL_VID_W, GL_VID_H, small));
-    check_tile(GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H, 1 | 4);   /* Video's frame lies over its foot's shadow */
-    check_tile(GL_VID_X, GL_VID_Y, GL_VID_W, GL_VID_H, 2);   /* History's frame lies over its right shadow */       /* and Performance's over its top's frame */
-    check_tile(GL_HIST_X, GL_HIST_Y, GL_HIST_W, GL_HIST_H, 3 | 4);
+    check_tile(GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H, 0);   /* a gap of GL_SHADOW between two frames: every shadow shows whole */
+    check_tile(GL_VID_X, GL_VID_Y, GL_VID_W, GL_VID_H, 0);
+    check_tile(GL_HIST_X, GL_HIST_Y, GL_HIST_W, GL_HIST_H, 0);
     CHECK(mixed(GL_GEN_X + 40, GL_GEN_Y + 20, GL_PANEL_RGB, GL_FIGURES_ALPHA));   /* General: the translucent panel */
     CHECK(mixed(GL_HIST_X + 40, GL_HIST_Y + 20, GL_HISTORY_RGB, GL_HISTORY_ALPHA));   /* History: the sepia panel */
     CHECK(mixed(GL_COL_X + 40, GL_COL_Y + 20, GL_SKIN_RGB, 255));              /* the Color tile: filled */
@@ -79,7 +84,7 @@ static void test_compose(void)
     CHECK(mixed(630, 470, 0, 0));
     /* the CD's rectangles */
     CHECK(GL_PERF_X == 306 && GL_PERF_Y == 77 && GL_PERF_W == 225 && GL_PERF_H == 127);
-    CHECK(GL_GEN_X == 133 && GL_GEN_Y == 165 && GL_VID_X == 306 && GL_VID_Y == 208 && GL_HIST_X == 449 && GL_HIST_Y == 245);
+    CHECK(GL_GEN_X == 133 && GL_GEN_Y == 173 && GL_VID_X == 306 && GL_VID_Y == 214 && GL_HIST_X == 455 && GL_HIST_Y == 245);
 }
 
 static void test_quantise(void)
@@ -221,18 +226,19 @@ static void test_row_from_the_cd(void)
     CHECK_EQ_INT(row_box(&row, GL_ROW_NEXT, YELLOW, 0, 371, box), 0);             /* Next's look: only its arrow */
 }
 
-/* the open SETUP panel: a row by its y, the value column's halves step, the label's side takes the row alone, outside is nothing */
+/* the open SETUP panel: a row by its y; on Color and Skin the value column's halves step and the label's side takes the row alone; a switch
+ * (Transmission, ABS, Traction control) changes with a click anywhere on its row, as in Options; outside is nothing */
 static void test_setup_hit(void)
 {
     int step = 9;
     for (int row = 0; row < GALLERY_SETUP_ROWS; row++) {
-        const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP + 5;
+        const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP + 5, sw = row >= SETUP_TRANSMISSION;
         CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + GL_SETUP_VALUE_X + 5, y, &step), row);
-        CHECK_EQ_INT(step, -1);
+        CHECK_EQ_INT(step, sw ? 1 : -1);
         CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + GL_SETUP_VALUE_X + GL_SETUP_VALUE_W - 5, y, &step), row);
         CHECK_EQ_INT(step, 1);
         CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + 20, y, &step), row);
-        CHECK_EQ_INT(step, 0);
+        CHECK_EQ_INT(step, sw ? 1 : 0);
     }
     CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + 20, GL_SETUP_Y + 10, &step), -1);             /* the title */
     CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + 20, GL_SETUP_Y + GL_SETUP_H + 3, &step), -1);  /* under the panel */

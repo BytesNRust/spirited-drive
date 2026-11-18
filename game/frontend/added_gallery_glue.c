@@ -11,6 +11,7 @@
 #include "formats/fsh.h"
 #include "formats/pbs.h"
 #include "formats/png.h"
+#include "formats/showcase_tint.h"
 #include "formats/stock_content.h"
 #include "game/frontend/boot_quant.h"
 #include "game/frontend/boot_screen.h"
@@ -38,7 +39,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { SHUTTER_TICKS = 9 };   /* vblanks a shutter frame stays (about 150 ms at 60 Hz) */
+enum { SHUTTER_TICKS = 9 };
+#define TILE_BANK "supra.qfs"   /* owner 2026-11-18: the closed SETUP tile's background is the Supra's (one place to change it) */
+   /* vblanks a shutter frame stays (about 150 ms at 60 Hz) */
 
 /* port (dep59 section 8, the owner's): the Warrior's page. Its year as the owner gave it; its power and weight from its physics
  * (CARSPECS/TRAFFC.PBS, the race's car_model_names[11]); its look fixed: the skin as it comes and its own dark purple, sampled from its
@@ -52,6 +55,17 @@ static const uint8_t WARRIOR_RGB[3] = { 0x58, 0x1c, 0x54 };
 static const char ROW_BANK[] = "512tr.qfs";
 static GalleryRow row;
 static int row_cut;
+
+static uint8_t *tile_data;   /* the closed SETUP tile's bank, read once */
+static size_t tile_size;
+
+static void tile_load(void)
+{
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s%s", resource_root(), resource_german() ? "frontend/gshow/" : "frontend/show/", TILE_BANK);
+    if (tile_data == NULL) tile_data = resource_load(path, &tile_size);
+    if (tile_data == NULL) port_log("added gallery: %s was not read\n", path);
+}
 
 static void row_load(void)
 {
@@ -78,7 +92,7 @@ static void row_colours(Page *p)
         p->row_map[best] = (uint8_t)(ROW_FIRST + e);
     }
     uint8_t usable[256];
-    for (int i = 0; i < 256; i++) usable[i] = i < 256 - KEPT && i != SWATCH;
+    for (int i = 0; i < 256; i++) usable[i] = i < 256 - KEPT && i != SWATCH && i != SKIN_SWATCH;
     for (int k = 0; k < row.colours; k++)
         if (!taken[k]) p->row_map[k] = (uint8_t)palette_nearest(p->palette, usable, row.rgb[k][0], row.rgb[k][1], row.rgb[k][2]);
 }
@@ -216,6 +230,7 @@ static void page_still(Page *p)
     if (big != NULL && small != NULL && bgnd != NULL && rgb != NULL && p->still != NULL) {
         int w = 0, h = 0;
         background_rgb(bgnd);
+        if (p->has_tint) showcase_tint_apply(bgnd, (size_t)GL_W * GL_H, p->tint);   /* owner 2026-11-18: the mod's first paint tints the sepia */
         const uint8_t *ground = bgnd + 3 * (size_t)GL_COL_Y * GL_W;
         uint8_t *src = big_rgb(p, p->state.photo, &w, &h);
         tile_picture(src, w, h, ground, big, GL_PERF_W, GL_PERF_H);
@@ -234,6 +249,8 @@ static void page_still(Page *p)
     for (int i = 0; i < 256; i++) usable[i] = i < STILL_COLOURS;
     p->panel_fill = palette_nearest(p->palette, usable, 0x2a, 0x1c, 0x0e);   /* the panel's dark sepia, the still part's nearest */
     if (row_cut) row_colours(p);
+    p->tile_ok = tile_data != NULL && added_gallery_setup_tile(p->tile, tile_data, tile_size, p->palette, usable);
+    if (!p->tile_ok) port_log("added gallery: the SETUP tile's picture was not made: a flat tile\n");
     free(p->art);
     p->art = calloc(1, sizeof *p->art);
     size_t size = 0;
@@ -266,8 +283,9 @@ static void draw(const Page *p)
 static void palette_fill(Page *p)
 {
     const GalleryState *s = &p->state;
-    const uint8_t *rgb = s->paint > 0 ? p->card.info.paints[s->paint - 1].rgb : (const uint8_t[3]){ 0, 0, 0 };
+    const uint8_t *rgb = s->paint > 0 ? p->card.info.paints[s->paint - 1].rgb : p->default_rgb;
     memcpy(p->palette + 3 * SWATCH, rgb, 3);
+    memcpy(p->palette + 3 * SKIN_SWATCH, p->skin_rgb[s->skin], 3);
 }
 
 /* a click: the key it stands for, the item moved to the one clicked; 0 for none. With the SETUP panel open a click on a row's value steps it
@@ -326,8 +344,14 @@ static void run_draw(void *ctx, const GalleryState *s)
     Page *p = ctx;
     if (p->shown != s->photo) page_still(p);   /* another big photo: the still part and its palette made again */
     ea_select_default();
+    /* the words' colours are the page's, not the previews': the text styles pick their ramps from a palette whose two preview entries are black,
+     * so the words look the same whatever colour or skin the panel shows */
+    uint8_t pal[768];
+    memcpy(pal, p->palette, sizeof pal);
+    memcpy(pal + 3 * SWATCH, pal + 3 * BLACK, 3);
+    memcpy(pal + 3 * SKIN_SWATCH, pal + 3 * BLACK, 3);
+    text_build_styles_from(pal);
     palette_fill(p);
-    text_build_styles_from(p->palette);   /* before the words: their colours are the page's */
     draw(p);
 }
 static void run_palette(void *ctx)
@@ -380,7 +404,8 @@ static void run_shutter(void *ctx, const GalleryState *s, int opening)
     for (int k = 0; k < SETUP_FRAMES; k++) {
         p->frame = opening ? k : SETUP_FRAMES - 1 - k;
         run_draw(p, s);
-        run_flip(p, s);
+        video_flip();   /* no mark: the walks wait on the page as it settles, after the last frame */
+        pointer_show();
         for (int w = 0; w < SHUTTER_TICKS; w++) run_music(p), run_wait(p);
     }
     p->moving = 0;
@@ -398,6 +423,7 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
     (void)ctx;
     if (!text_small_init()) port_log("added gallery: the small font is not loaded\n");
     row_load();
+    tile_load();
     for (;;) {
         Page p;
         memset(&p, 0, sizeof p);
@@ -413,6 +439,7 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         cg_setup_get(&p.state.transmission, &p.state.abs, &p.state.traction);   /* Options' settings, for the panel */
         memcpy(p.screen, screen, sizeof p.screen);
         added_gallery_history_make(&p);
+        added_gallery_tints_make(&p);   /* before the still part: the tint is its background's */
         page_still(&p);
         port_log("mark:screen=added_gallery\n");   /* port: the headless walk waits for it */
         const int result = run_page(&p);

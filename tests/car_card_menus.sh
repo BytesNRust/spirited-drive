@@ -131,7 +131,7 @@ part_cards() {
     log | grep -q "car piece: test-car is car 16" || fail "the log does not say the piece is car 16"
     [ "$(log | grep -m1 "^mark:car=")" = "mark:car=6" ] || fail "a fresh player's Control Central does not open on car 6: $(log | grep -m1 "^mark:car=")"
     [ "$(log | grep "^mark:car=" | tail -1)" = "mark:car=16" ] || fail "Control Central was not on car 16 after the gallery"
-    # the SETUP panel (gallery_layout.h: GL_SETUP_X 57, GL_SETUP_Y 100, 243x170; its rows from +44 down by 24): opening it changes the tile and
+    # the SETUP panel (gallery_layout.h: GL_SETUP_X 57, GL_SETUP_Y 100, 300x170; its rows from +44 down by 24): opening it changes the tile and
     # General's top; Color's value (row 0, y 144..158) shows Red; Skin's (row 1, y 168..182) its stripes; Escape closes it (the tile as it was)
     has_shot g1a && ! box g0 g1a 60 295 105 265 && fail "Enter on SETUP did not open the panel"
     has_shot g1b && ! box g1a g1b 150 295 144 158 && fail "Color Red does not show in the panel"

@@ -315,8 +315,22 @@ static void test_the_showcase_keys(void)
     }
 }
 
+/* port (owner 2026-11-18): make=, model= and country= are read and kept, year= was already; empty when not given, refused when too long */
+static void test_the_identity_keys(void)
+{
+    ModInfo m;
+    char why[160];
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\nmake=Porsche\nmodel=911 Carrera\nyear=1996\ncountry=Germany\n", &m, why), 1);
+    CHECK(strcmp(m.make, "Porsche") == 0 && strcmp(m.model, "911 Carrera") == 0 && strcmp(m.year, "1996") == 0 && strcmp(m.country, "Germany") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\n", &m, why), 1);
+    CHECK(m.make[0] == '\0' && m.model[0] == '\0' && m.country[0] == '\0');
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\nmake=a make that is far too long to be a make of any car\n", &m, why), 0);
+    CHECK(strstr(why, "make") != NULL);
+}
+
 int main(void)
 {
+    test_the_identity_keys();
     test_a_full_card();
     test_refusals();
     test_utf8_text_is_kept();

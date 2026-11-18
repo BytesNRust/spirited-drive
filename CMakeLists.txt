@@ -216,6 +216,7 @@ add_library(tnfs_game STATIC
     game/frontend/added_gallery_glue.c
     game/frontend/added_gallery_draw.c
     game/frontend/added_gallery_setup.c
+    game/frontend/added_gallery_tints.c
     game/frontend/added_card_text.c
     game/frontend/content_dialog_glue.c
     game/sys/car_looks.c

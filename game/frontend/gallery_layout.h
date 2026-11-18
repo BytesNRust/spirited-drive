@@ -16,21 +16,21 @@ enum {
     GL_NAME_X = 12, GL_NAME_Y = 8, GL_NAME_NUM = 2, GL_NAME_DEN = 1,
     GL_HEADING_X = 8, GL_HEADING_Y = 62, GL_HEADING_NUM = 3, GL_HEADING_DEN = 2,
     /* the band's patch: the band's texture from BAND_FROM_X, mirrored, over 0 .. BAND_W - 1 */
-    GL_BAND_W = 285, GL_BAND_H = 56, GL_BAND_FROM_X = 300,
+    GL_BAND_W = 285, GL_BAND_H = 56, GL_BAND_FROM_X = 300, GL_BLUR_R = 6,   /* the strip over the title line is blurred by a box of 2 * GL_BLUR_R + 1 */
     /* FRAME px of black outside every tile; SHADOW px down and right, the depth of every shadow on the page */
     GL_FRAME = 2, GL_SHADOW = 6,
     /* the tiles (the CD pages' rectangles, the picture inside the frame): Performance's big photo, General's figures, Video's small photo,
      * History's text, and the place of Color (the CD's Color tile) */
     GL_PERF_X = 306, GL_PERF_Y = 77, GL_PERF_W = 225, GL_PERF_H = 127,
-    GL_GEN_X = 133, GL_GEN_Y = 165, GL_GEN_W = 169, GL_GEN_H = 117,
-    GL_VID_X = 306, GL_VID_Y = 208, GL_VID_W = 139, GL_VID_H = 114,
-    GL_HIST_X = 449, GL_HIST_Y = 245, GL_HIST_W = 167, GL_HIST_H = 122,
+    GL_GEN_X = 133, GL_GEN_Y = 173, GL_GEN_W = 163, GL_GEN_H = 109,
+    GL_VID_X = 306, GL_VID_Y = 214, GL_VID_W = 139, GL_VID_H = 108,
+    GL_HIST_X = 455, GL_HIST_Y = 245, GL_HIST_W = 161, GL_HIST_H = 122,
     GL_COL_X = 57, GL_COL_Y = 100, GL_COL_W = 154, GL_COL_H = 63,
     GL_ARROW_W = 9, GL_ARROW_H = 14, GL_ARROW_IN = 8,
     /* the SETUP panel when it is open, over the tile and General's top (the mock-up: x 57..299, y 100..269); its rows from GL_SETUP_ROW0 down by
      * GL_SETUP_STEP, the value column from GL_SETUP_VALUE_X, GL_SETUP_VALUE_W wide (its arrows at its two ends) */
-    GL_SETUP_X = 57, GL_SETUP_Y = 100, GL_SETUP_W = 243, GL_SETUP_H = 170, GL_SETUP_ROW0 = 44, GL_SETUP_STEP = 24,
-    GL_SETUP_VALUE_X = 128, GL_SETUP_VALUE_W = 104,
+    GL_SETUP_X = 57, GL_SETUP_Y = 100, GL_SETUP_W = 300, GL_SETUP_H = 170, GL_SETUP_ROW0 = 44, GL_SETUP_STEP = 24,
+    GL_SETUP_VALUE_X = 168, GL_SETUP_VALUE_W = 96, GL_SETUP_PREVIEW_W = 20, GL_SETUP_PREVIEW_H = 12,   /* a row's label from x + 12; the previews right of the value column */
     GALLERY_SETUP_ROWS = 5,
     GL_ARROW_ZONE = 30,   /* the width of the big photo's left and right zones, the arrows' places for a click */
     /* the bottom row (DONE, the arrows, "Next car") as the CD showcase pages have it, cut from their art (GalleryRow): rows GL_ROW_Y ..
