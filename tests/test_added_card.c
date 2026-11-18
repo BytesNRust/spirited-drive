@@ -216,6 +216,18 @@ int main(void)
     why[0] = '\0';
     CHECK(added_track_card_bank(&wrong, NULL, palette, usable, &size, why, sizeof why) == NULL);
     CHECK(strstr(why, "309x166") != NULL && strstr(why, "208x127") != NULL);
+    why[0] = '\0';
+    CHECK(added_track_card_rgba(&wrong, NULL, why, sizeof why) == NULL);   /* the track page's card: the same refusals and the same card as RGBA */
+    CHECK(strstr(why, "208x127") != NULL);
+    uint8_t *flat = added_track_card_rgba(NULL, NULL, why, sizeof why);
+    CHECK(flat != NULL);
+    if (flat != NULL) {
+        CHECK(flat[0] != flat[4 * ((ADDED_TRACK_H / 2) * ADDED_TRACK_W + ADDED_TRACK_W / 2)] && flat[3] == 255);   /* the frame lighter than inside, opaque */
+        free(flat);
+    }
+    uint8_t *own = added_track_card_rgba(&track, NULL, why, sizeof why);
+    CHECK(own != NULL && memcmp(own, track.pixels, 4 * 4) == 0);
+    free(own);
     free(wrong.pixels), free(track.pixels);
     test_name_fit();
     test_name_drawn();

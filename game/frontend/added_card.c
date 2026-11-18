@@ -144,16 +144,24 @@ static uint8_t *flat_track_rgba(void)
     return rgba;
 }
 
-uint8_t *added_track_card_bank(const PngImage *img, const AddedCardName *name, const uint8_t palette[768], const uint8_t usable[256],
-                               size_t *size, char *why, size_t why_cap)
+uint8_t *added_track_card_rgba(const PngImage *img, const AddedCardName *name, char *why, size_t why_cap)
 {
-    *size = 0;
     if (img != NULL && (img->pixels == NULL || (int)img->width != ADDED_TRACK_W || (int)img->height != ADDED_TRACK_H)) {
         snprintf(why, why_cap, "card.png is %ux%u, not %dx%d", img->width, img->height, ADDED_TRACK_W, ADDED_TRACK_H);
         return NULL;
     }
     uint8_t *rgba = img != NULL ? rgba_of(img, 0, 0, ADDED_TRACK_W, ADDED_TRACK_H) : flat_track_rgba();
-    if (rgba != NULL) added_card_draw_name(rgba, ADDED_TRACK_W, ADDED_TRACK_H, name, ADDED_TRACK_NAME_BASE);
+    if (rgba == NULL) snprintf(why, why_cap, "no memory for the card");
+    else added_card_draw_name(rgba, ADDED_TRACK_W, ADDED_TRACK_H, name, ADDED_TRACK_NAME_BASE);
+    return rgba;
+}
+
+uint8_t *added_track_card_bank(const PngImage *img, const AddedCardName *name, const uint8_t palette[768], const uint8_t usable[256],
+                               size_t *size, char *why, size_t why_cap)
+{
+    *size = 0;
+    uint8_t *rgba = added_track_card_rgba(img, name, why, why_cap);
+    if (rgba == NULL) return NULL;
     uint8_t *bank = bank_of(rgba, ADDED_TRACK_W, ADDED_TRACK_H, ADDED_TRACK_X, ADDED_TRACK_Y, palette, usable, size, why, why_cap);
     free(rgba);
     return bank;

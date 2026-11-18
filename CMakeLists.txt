@@ -250,6 +250,7 @@ add_library(tnfs_game STATIC
     game/frontend/track_select.c
     game/frontend/track_page.c
     game/frontend/track_page_row.c
+    game/frontend/track_page_layout.c
     game/frontend/tournament.c
     game/frontend/tournament_variants.c
     game/frontend/cop_stop.c

@@ -91,14 +91,14 @@ static void test_one_piece(void)
     CHECK(t != NULL && t->fingerprint != 0 && strcmp(t->dir, a) == 0);
     CHECK_EQ_INT(load1(a, 1), 1);   /* again: the same */
     CHECK_EQ_INT(track_registry_find("test-track"), 16);
-    CHECK(t != NULL && memcmp(t->tint, SHOWCASE_TINT_SEPIA, 3) == 0);   /* no showcase_tint: the sepia */
+    CHECK(t != NULL && memcmp(t->tint, SHOWCASE_TINT_SEPIA, 3) == 0 && !t->tinted);   /* no showcase_tint: the sepia, as it is */
     CHECK_EQ_INT(load1(a, 0), 0);   /* not Restomod: none */
     CHECK_EQ_INT(track_registry_count(), 0);
     char b[400];
     CHECK(piece("b", "tint-track", "TINTTRK", 1, "showcase_tint=#336699\n", -1, b));
     CHECK_EQ_INT(load1(b, 1), 1);
     const TrackPiece *u = track_registry_piece(track_registry_find("tint-track"));
-    CHECK(u != NULL && u->tint[0] == 0x33 && u->tint[1] == 0x66 && u->tint[2] == 0x99);
+    CHECK(u != NULL && u->tinted && u->tint[0] == 0x33 && u->tint[1] == 0x66 && u->tint[2] == 0x99);
     CHECK(piece("c", "bad-tint", "BADTINT", 1, "showcase_tint=blue\n", -1, b));
     CHECK_EQ_INT(load1(b, 1), 0);   /* a tint that is not #RRGGBB: the piece is passed over */
     track_registry_clear();

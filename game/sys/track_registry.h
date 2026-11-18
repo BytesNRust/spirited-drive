@@ -18,6 +18,7 @@ typedef struct {
     char length[MOD_INI_FIGURE_MAX + 1];   /* mod.ini length= as written ("14.2 km"), "" when not given */
     TrackPieceSpec spec;                   /* kind, segments, road, edge and hours: what the race reads of it */
     uint8_t tint[3];                       /* its page's background tone: mod.ini showcase_tint, else the sepia (showcase_tint.h); not in the fingerprint */
+    int tinted;                            /* 1 when mod.ini gave showcase_tint: the page's background is turned to it, else it is the common sepia as it is */
     int card_name_off;                     /* mod.ini card_name=off: no name drawn over its card.png (its picture shows its own) */
     uint32_t fingerprint;                  /* track_piece_fingerprint, never 0: what decides how it races (a replay's check) */
     char dir[512];                         /* the folder it was read from, for its pictures */

@@ -50,6 +50,10 @@ uint8_t *added_card_bank_named(const PngImage *img, int rival, int from_card, co
 uint8_t *added_track_card_bank(const PngImage *img, const AddedCardName *name, const uint8_t palette[768], const uint8_t usable[256],
                                size_t *size, char *why, size_t why_cap);
 
+/* the same card as RGBA (ADDED_TRACK_W x ADDED_TRACK_H x 4), malloc'd, for a page that shows it in a palette of its own (track_page_glue.c);
+ * NULL with the reason in `why` */
+uint8_t *added_track_card_rgba(const PngImage *img, const AddedCardName *name, char *why, size_t why_cap);
+
 /* `name` drawn on `rgba` (w x h, alpha kept): its shadow, then its letters mixed with the picture by coverage, from ADDED_CARD_NAME_X,
  * its capitals' last row on `base`; what falls outside cut */
 void added_card_draw_name(uint8_t *rgba, int w, int h, const AddedCardName *name, int base);

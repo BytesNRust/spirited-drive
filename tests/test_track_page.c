@@ -1,6 +1,7 @@
 /* dep59 step 5 (T7d): an added track's page, its state and keys (track_page.h): the rows that apply, the values the keys change, the
  * bottom row (DONE, Road/track's arrows, Best times) and what a click hits. */
 #include "game/frontend/track_page.h"
+#include "game/frontend/track_page_layout.h"
 #include "game/frontend/track_page_row.h"
 #include "formats/track_piece.h"
 #include "game/race/weather.h"
@@ -192,6 +193,34 @@ static void test_no_mirror_row_before_it_is_unlocked(void)
     CHECK_EQ_INT(p.item, TP_WEATHER);   /* the first row that is shown */
 }
 
+static const uint8_t *px(const uint8_t *img, int x, int y) { return img + 3 * (y * TPL_W + x); }
+
+/* the page in RGB: the band covered by its own texture mirrored, the box dark with its edge, the card pasted, the tint turning the background */
+static void test_the_layout(void)
+{
+    static uint8_t bgnd[TPL_W * TPL_H * 3], out[TPL_W * TPL_H * 3], tinted[TPL_W * TPL_H * 3], card[TPL_CARD_W * TPL_CARD_H * 3];
+    for (int y = 0; y < TPL_H; y++)
+        for (int x = 0; x < TPL_W; x++) {
+            uint8_t *p = bgnd + 3 * (y * TPL_W + x);
+            p[0] = (uint8_t)(100 + x % 100), p[1] = (uint8_t)(80 + y % 100), p[2] = 60;
+        }
+    memset(card, 201, sizeof card);
+    track_page_compose(bgnd, card, NULL, out);
+    CHECK_MEM(px(out, 5, 100), px(bgnd, 5, 100), 3);               /* outside the band and the box: as it is */
+    CHECK_MEM(px(out, 0, 0), px(bgnd, TPL_BAND_FROM_X + TPL_BAND_W - 1, 0), 3);   /* the band's patch: its texture mirrored */
+    CHECK_MEM(px(out, TPL_BAND_W - 1, 10), px(bgnd, TPL_BAND_FROM_X, 10), 3);
+    CHECK_MEM(px(out, TPL_CARD_X, TPL_CARD_Y), card, 3);           /* the card, pixel for pixel */
+    CHECK_MEM(px(out, TPL_CARD_X + TPL_CARD_W - 1, TPL_CARD_Y + TPL_CARD_H - 1), card, 3);
+    CHECK(px(out, TPL_BOX_X0 + 40, 300)[0] < px(bgnd, TPL_BOX_X0 + 40, 300)[0] / 2);   /* the box: dark over the background */
+    CHECK(px(out, TPL_BOX_X0, 100)[0] == 0x7a && px(out, TPL_BOX_X0 + 1, 100)[2] == 0x4a);   /* its edge */
+    CHECK(px(out, TPL_BOX_X1 + 3, TPL_BOX_Y1 + 3)[0] < px(bgnd, TPL_BOX_X1 + 3, TPL_BOX_Y1 + 3)[0]);   /* its shadow, down and right */
+    CHECK_MEM(px(out, TPL_BOX_X1 + TPL_SHADOW + 2, 100), px(bgnd, TPL_BOX_X1 + TPL_SHADOW + 2, 100), 3);   /* and no further */
+    static const uint8_t BLUE[3] = { 0x20, 0x40, 0xc0 };
+    track_page_compose(bgnd, card, BLUE, tinted);
+    CHECK(px(tinted, 5, 100)[2] > px(tinted, 5, 100)[0]);   /* a blue tint: the background's blue over its red */
+    CHECK_MEM(px(tinted, TPL_CARD_X, TPL_CARD_Y), card, 3);   /* the card keeps its own colours */
+}
+
 int main(void)
 {
     test_the_rows_that_apply();
@@ -200,6 +229,7 @@ int main(void)
     test_the_rows_and_the_bottom_row();
     test_what_a_click_hits();
     test_the_row();
+    test_the_layout();
     test_the_description_scrolls();
     test_no_mirror_row_before_it_is_unlocked();
     return TEST_REPORT();
