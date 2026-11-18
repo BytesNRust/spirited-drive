@@ -37,7 +37,7 @@ static bool no_window(void)
     return sdl3_window == NULL || driver == NULL || strcmp(driver, "dummy") == 0 || strcmp(driver, "offscreen") == 0;
 }
 
-bool platform_pick_zip(char *out, size_t out_size)
+bool platform_pick_zip(char *out, size_t out_size, void (*idle)(void))
 {
     if (out == NULL || out_size == 0) return false;
     out[0] = '\0';
@@ -50,7 +50,8 @@ bool platform_pick_zip(char *out, size_t out_size)
     SDL_ShowOpenFileDialog(zip_picked, &p, sdl3_window, FILTERS, 1, NULL, false);
     while (!p.done) {
         SDL_PumpEvents();
-        SDL_Delay(30);
+        if (idle != NULL) idle();
+        SDL_Delay(15);
     }
     return p.picked;
 }

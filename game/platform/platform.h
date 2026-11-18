@@ -62,8 +62,10 @@ bool platform_poll_events(void);
 enum { PLATFORM_DROPPED_MAX = 8 };
 bool platform_dropped_file(char *out, size_t out_size);
 /* port (dep59 step 4b): the system's open dialog for a mod's zip, over the game's window, waited for: its path into `out` and true; false
- * when none is picked, the dialog fails, the path does not fit, or there is no window to show it over (a headless run) */
-bool platform_pick_zip(char *out, size_t out_size);
+ * when none is picked, the dialog fails, the path does not fit, or there is no window to show it over (a headless run). The game's own
+ * loop does not run while the dialog is up: `idle` (may be NULL) is called every ~15 ms meanwhile, for what must go on (the menus' music is
+ * fed by it, else it repeats its last buffer) */
+bool platform_pick_zip(char *out, size_t out_size, void (*idle)(void));
 
 /* Next key pressed since the last call, or PLATFORM_KEY_NONE. */
 PlatformKey platform_next_key(void);

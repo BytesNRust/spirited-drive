@@ -85,7 +85,7 @@ int main(void)
     test_the_events_oldest_first();   /* before the script's first drop is due (1 s; each item at its own ms with no TNFS_INPUT_SETTLE) */
     test_the_script();
     char picked[64] = "x";
-    CHECK(!platform_pick_zip(picked, sizeof picked) && picked[0] == '\0');   /* no window (dummy video): no dialog, none picked */
+    CHECK(!platform_pick_zip(picked, sizeof picked, NULL) && picked[0] == '\0');   /* no window (dummy video): no dialog, none picked */
     platform_shutdown();
     return TEST_REPORT();
 }

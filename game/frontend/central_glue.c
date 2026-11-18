@@ -651,6 +651,15 @@ static void track_select(void *ctx)
     track_pick_lunar_put(lunar);
     cg_lunar_settle();
     cg_variant_choice_keep(plus.kept_m, plus.kept_r, reverse_offered ? &reverse : NULL);   /* port (dep65): Restomod keeps them */
+    const int added_next = track_select_handoff();   /* port (owner 2026-11-18): Next / Previous went on to an added track: its page opens */
+    if (added_next >= 0) {
+        RaceSettings s = cg_settings_of();
+        s.track = added_next, s.variant_m = 0, s.variant_r = 0;
+        cg_settings_put(&s);
+        track_pick_lunar_put(0);
+        cg_variant_choice_apply();
+        cg_lunar_settle();
+    }
     if (tournament && !tournament_variants_locked(cg_g.races))   /* port (dep56): before its first race, the switches are its variants */
         tournament_variants_set(tournament_variants_follow(tournament_variants_get(), cg_g.track, cg_g.variant_m,
                                                            reverse_offered ? reverse : tournament_variants_get().inverse, cg_g.variant_r));

@@ -363,9 +363,10 @@ static void test_an_edition_walks_its_tracks(void)
     edition_in = NULL;
 }
 
-/* port (dep59 step 5, T7c): an edition that lists an added track between City and Lost Vegas: this screen's tables are the original's nine, so
- * its arrows walk the stock tracks and never land on 16..79 (an added track has its own page) */
-static void test_the_arrows_skip_added_tracks(void)
+/* port (dep59 step 5, T7c; owner 2026-11-18): an edition that lists an added track between City and Lost Vegas: this screen's tables are the
+ * original's nine, so it cannot show 16..79: Next onto one ends the screen and says which (track_select_handoff) for Central to open its
+ * page; Previous round to Lost Vegas stays here */
+static void test_the_arrows_hand_off_to_added_tracks(void)
 {
     int weather = 0, light_time = 0, reverse = 0;
     Edition e;
@@ -377,14 +378,19 @@ static void test_the_arrows_skip_added_tracks(void)
     snprintf(piece.id, sizeof piece.id, "dune"), snprintf(piece.name, sizeof piece.name, "dune"), snprintf(piece.stem, sizeof piece.stem, "ZZB");
     piece.spec.kind = TRACK_KIND_STAGE, piece.spec.segments = 1, piece.spec.times = TRACK_TIME_DAY, piece.fingerprint = 7;
     track_registry_clear();
-    CHECK(track_registry_add(&piece, NULL, 0) >= TRACK_ADDED_FIRST);
+    const int added = track_registry_add(&piece, NULL, 0);
+    CHECK(added >= TRACK_ADDED_FIRST);
     edition_in = &e;
-    const uint16_t next[] = { RIGHT, RIGHT, ENTER, LEFT, LEFT, ENTER };   /* Next once, back to Done */
-    run_on(next, 6, &weather, &light_time, 0, &reverse, 0);
-    CHECK_EQ_INT(track_out, 8);
+    CHECK_EQ_INT(track_select_handoff(), -1);
+    const uint16_t next[] = { RIGHT, RIGHT, ENTER };   /* Next: onto the added track */
+    run_on(next, 3, &weather, &light_time, 0, &reverse, 0);
+    CHECK_EQ_INT(track_out, 0);
+    CHECK_EQ_INT(track_select_handoff(), added);
+    CHECK_EQ_INT(track_select_handoff(), -1);   /* read once */
     const uint16_t prev[] = { RIGHT, ENTER, LEFT, ENTER };   /* Prev once, back to Done */
     run_on(prev, 4, &weather, &light_time, 0, &reverse, 0);
     CHECK_EQ_INT(track_out, 8);
+    CHECK_EQ_INT(track_select_handoff(), -1);
     edition_in = NULL;
     track_registry_clear();
 }
@@ -506,7 +512,7 @@ int main(void)
     test_switch_rows();
     test_the_switches_come_back_after_lost_vegas();
     test_an_edition_walks_its_tracks();
-    test_the_arrows_skip_added_tracks();
+    test_the_arrows_hand_off_to_added_tracks();
     test_lunar_is_an_entry();
     test_locked_rows_do_not_turn();
     test_which_rows();
