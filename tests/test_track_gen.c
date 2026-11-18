@@ -187,7 +187,7 @@ static uint64_t fnv64(const uint8_t *p, size_t n)
 
 static void check_golden(const uint8_t *tmpl, size_t tsize)
 {
-    static const struct { const char *layout; uint64_t hash; } golden[] = {   /* one hash for every machine: core is built without fused multiply-adds */
+    static const struct { const char *layout; uint64_t hash; } golden[] = {   /* one hash for every machine: track_gen is built without fused multiply-adds */
         { "section 10\n", 0xcdb2635430d481bfull },
         { "section 10\nsection 20 turn=90 grade=4 bank=5 width=50\nsection 10 grade=0 bank=0\n", 0x0cea70a33687b805ull },
         { "section 30 turn=-100 grade=-6 bank=-8 width=70\nsection 12 turn=40 grade=12 bank=3 width=30\n", 0xf1e24a91cf337e38ull },
