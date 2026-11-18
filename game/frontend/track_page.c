@@ -31,7 +31,7 @@ static int times_count(const TrackPageOffer *offer)
 int track_page_shown(const TrackPage *p, int item)
 {
     switch (item) {
-    case TP_MIRROR: return 1;
+    case TP_MIRROR: return p->offer.no_mirror == 0;
     case TP_RALLY: return p->offer.rally != 0;
     case TP_TIME: return p->offer.light_effects != 0 && times_count(&p->offer) > 1;
     case TP_WEATHER: return p->offer.weather != 0;
@@ -143,4 +143,11 @@ int track_page_hit(const TrackPage *p, int x, int y)
         if (top >= 0 && y >= top && y < top + SWITCH_PITCH) return item;
     }
     return -1;
+}
+
+int track_page_scroll_line(int frame, int total, int visible)
+{
+    if (visible <= 0 || total <= visible || frame < 0) return 0;
+    const int moves = total - visible, period = moves + 3, step = (frame / TRACK_PAGE_SCROLL_FRAMES) % period;
+    return step - 1 < 0 ? 0 : step - 1 > moves ? moves : step - 1;
 }

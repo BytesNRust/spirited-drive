@@ -22,6 +22,7 @@ typedef struct {
     int rally;         /* 1 when it has rally art: the Rally row is shown */
     int light_effects; /* 1 when the port's light effects are on: the time-of-day row is shown (a track of several times) */
     int weather;       /* 1 when the weather row is on */
+    int no_mirror;     /* 1 when the mirror is not unlocked yet: no Mirror row */
 } TrackPageOffer;
 
 /* the pick: Mirror and Rally 0/1, the time of day a LIGHT_TIME_* (port_settings.h), the weather a WEATHER_* (weather.h) */
@@ -48,5 +49,10 @@ int track_page_hit(const TrackPage *p, int x, int y);
 /* the y of a row's top on the page (Mirror, Rally, Time, Weather): the switch rows stack up from where the CD's variant name stands, the
  * last shown lowest, so a row that does not apply leaves no gap; -1 when the row is not shown */
 int track_page_row_y(const TrackPage *p, int item);
+
+/* the description's first visible line `frame` frames (60 a second) after the page opened: of `total` lines `visible` show at once; one
+ * more line every TRACK_PAGE_SCROLL_FRAMES, a step's pause first and two at the end, then round to the first. 0 when all fit. */
+enum { TRACK_PAGE_SCROLL_FRAMES = 180 };
+int track_page_scroll_line(int frame, int total, int visible);
 
 #endif

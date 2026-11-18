@@ -1,6 +1,7 @@
 /* dep59 step 5 (T7d): an added track's page, its state and keys (track_page.h): the rows that apply, the values the keys change, the
  * bottom row (DONE, Road/track's arrows, Best times) and what a click hits. */
 #include "game/frontend/track_page.h"
+#include "game/frontend/track_page_row.h"
 #include "formats/track_piece.h"
 #include "game/race/weather.h"
 #include "game/sys/port_settings.h"
@@ -13,7 +14,7 @@ enum { UP = TRACK_PAGE_KEY_UP, DOWN = TRACK_PAGE_KEY_DOWN, LEFT = TRACK_PAGE_KEY
 
 static TrackPage page(int times, int rally, int light, int weather_row)
 {
-    const TrackPageOffer offer = { times, rally, light, weather_row };
+    const TrackPageOffer offer = { times, rally, light, weather_row, 0 };
     TrackPage p;
     track_page_open(&p, &offer, &(TrackPageValues){ 0, 0, LIGHT_TIME_DAY, WEATHER_CLEAR });
     return p;
@@ -132,6 +133,65 @@ static void test_what_a_click_hits(void)
     CHECK_EQ_INT(track_page_hit(&q, 100, 424), TP_WEATHER);
 }
 
+/* the bottom row cut from the CD's art: the letters' own pixels in five looks, a shape's masked texels left as they were, drawn over a shadow */
+static void test_the_row(void)
+{
+    static TrackRow row;
+    static uint8_t pal[768], screen[640 * 480];
+    static const uint8_t CREAM[3] = { 236, 212, 188 }, YELLOW[3] = { 252, 204, 0 }, RED[3] = { 150, 0, 0 };
+    memcpy(pal + 3, CREAM, 3), memcpy(pal + 6, RED, 3), memcpy(pal + 9, YELLOW, 3);
+    track_row_clear(&row);
+    static const uint8_t SHAPE[2 * 4] = { 1, 2, 3, 0xff, 2, 1, 1, 0xff };   /* 4 x 2 at (600, 440): the right column masked */
+    track_row_put(&row, TR_BEST, SHAPE, 4, 2, 600, 440, pal);
+    const uint8_t *f = row.face[TR_BEST];
+    const int at = (440 - TR_Y) * TR_W + 600;
+    CHECK(f[at] != 0 && f[at + 1] == 0 && f[at + 2] != 0 && f[at + 3] == 0);   /* cream, red never, yellow, masked */
+    CHECK(f[at + TR_W] == 0 && f[at + TR_W + 1] != 0);
+    CHECK_EQ_INT(row.colours, 2);
+    track_row_put(&row, TR_BEST, SHAPE, 4, 2, 638, 440, pal);   /* past the screen's width: only what is on it */
+    track_row_put(&row, TR_BEST, SHAPE, 4, 2, 100, TR_Y + TR_H, pal);   /* below the row: nothing */
+    track_row_put(&row, TR_LOOKS, SHAPE, 4, 2, 100, 440, pal);   /* no such look */
+    int faces = 0;
+    for (int i = 0; i < TR_H * TR_W; i++) faces += f[i] != 0;
+    CHECK_EQ_INT(faces, 6);   /* four at 600, and the two of the second shape that are on the screen (638 and 639) */
+    uint8_t map[TR_COLOURS];
+    for (int k = 0; k < TR_COLOURS; k++) map[k] = (uint8_t)(50 + k);
+    track_row_draw(&row, TR_BEST, screen, 640, 480, map, 9);
+    CHECK_EQ_INT(screen[440 * 640 + 600], 50 + f[at] - 1);
+    CHECK_EQ_INT(screen[442 * 640 + 602], 9);   /* the shadow, 2 px down and right of the face at (600, 440) */
+    CHECK_EQ_INT(screen[441 * 640 + 601], 50 + f[at + TR_W + 1] - 1);
+    CHECK_EQ_INT(track_row_look(TP_DONE), TR_DONE);
+    CHECK_EQ_INT(track_row_look(TP_PREVIOUS), TR_PREVIOUS);
+    CHECK_EQ_INT(track_row_look(TP_NEXT), TR_NEXT);
+    CHECK_EQ_INT(track_row_look(TP_BEST), TR_BEST);
+    CHECK_EQ_INT(track_row_look(TP_WEATHER), TR_PLAIN);
+}
+
+static void test_the_description_scrolls(void)
+{
+    CHECK_EQ_INT(track_page_scroll_line(0, 5, 9), 0);   /* it all fits: never */
+    CHECK_EQ_INT(track_page_scroll_line(100000, 9, 9), 0);
+    const int f = TRACK_PAGE_SCROLL_FRAMES;
+    CHECK_EQ_INT(track_page_scroll_line(0, 12, 9), 0);          /* a step's pause at the start */
+    CHECK_EQ_INT(track_page_scroll_line(f - 1, 12, 9), 0);
+    CHECK_EQ_INT(track_page_scroll_line(f, 12, 9), 0);          /* then up one line each step */
+    CHECK_EQ_INT(track_page_scroll_line(2 * f, 12, 9), 1);
+    CHECK_EQ_INT(track_page_scroll_line(4 * f, 12, 9), 3);      /* the last line shown */
+    CHECK_EQ_INT(track_page_scroll_line(5 * f, 12, 9), 3);      /* held at the end */
+    CHECK_EQ_INT(track_page_scroll_line(6 * f, 12, 9), 0);      /* and round to the first: period 3 moves + 3 steps */
+    CHECK_EQ_INT(track_page_scroll_line(-5, 12, 9), 0);
+    CHECK_EQ_INT(track_page_scroll_line(10, 12, 0), 0);
+}
+
+static void test_no_mirror_row_before_it_is_unlocked(void)
+{
+    const TrackPageOffer offer = { TRACK_TIME_DAY, 0, 1, 1, 1 };
+    TrackPage p;
+    track_page_open(&p, &offer, &(TrackPageValues){ 0, 0, LIGHT_TIME_DAY, WEATHER_CLEAR });
+    CHECK(!track_page_shown(&p, TP_MIRROR));
+    CHECK_EQ_INT(p.item, TP_WEATHER);   /* the first row that is shown */
+}
+
 int main(void)
 {
     test_the_rows_that_apply();
@@ -139,5 +199,8 @@ int main(void)
     test_a_time_the_track_does_not_take_is_stepped_to_one_it_does();
     test_the_rows_and_the_bottom_row();
     test_what_a_click_hits();
+    test_the_row();
+    test_the_description_scrolls();
+    test_no_mirror_row_before_it_is_unlocked();
     return TEST_REPORT();
 }
