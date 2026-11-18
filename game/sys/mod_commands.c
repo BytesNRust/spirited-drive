@@ -19,8 +19,12 @@ int mod_commands_install(const char *zip_path)
 {
     char old[MOD_INI_VERSION_MAX + 1], why[300];
     ModInfo info;
-    if (!mod_store_install(zip_path, &info, old, sizeof old, why, sizeof why)) return failed(why);
-    if (old[0] != '\0') printf("updated %s %s -> %s\n", info.id, old, info.version);
+    ModStoreOutcome how;
+    if (!mod_store_install_outcome(zip_path, &info, old, sizeof old, &how, why, sizeof why)) return failed(why);
+    if (how == MOD_STORE_UPDATED) printf("updated %s %s -> %s\n", info.id, old, info.version);
+    else if (how == MOD_STORE_SAME) printf("reinstalled %s %s (same version)\n", info.id, info.version);
+    else if (how == MOD_STORE_SAME_CHANGED)
+        printf("reinstalled %s %s (same version); its files changed but its version did not: raise version= in mod.ini\n", info.id, info.version);
     else printf("installed %s %s\n", info.id, info.version);
     return 0;
 }

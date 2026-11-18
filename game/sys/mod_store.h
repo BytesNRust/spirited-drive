@@ -16,6 +16,12 @@
 /* installs or updates the mod in the zip at `zip_path`: its card in `info_out` (NULL: not wanted; cleared on a failure), and the version
  * it replaced in `old_out` ("" when new) */
 int mod_store_install(const char *zip_path, ModInfo *info_out, char *old_out, size_t old_cap, char *why, size_t why_cap);
+/* what an install did: a mod that was not there; another version over it; the same version again with the same files (a reinstall); or the same
+ * version again with other files (the author did not raise version=; checked on the files the zip has, a file only the folder had is not seen) */
+typedef enum { MOD_STORE_NEW, MOD_STORE_UPDATED, MOD_STORE_SAME, MOD_STORE_SAME_CHANGED } ModStoreOutcome;
+/* mod_store_install, and in `outcome` (NULL: not wanted) which of the four it was */
+int mod_store_install_outcome(const char *zip_path, ModInfo *info_out, char *old_out, size_t old_cap, ModStoreOutcome *outcome, char *why,
+                              size_t why_cap);
 int mod_store_uninstall(const char *id, char *why, size_t why_cap);
 /* the newest backup of `id` back to mods/<id>; an installed one there goes to a backup first */
 int mod_store_restore(const char *id, char *why, size_t why_cap);

@@ -21,7 +21,9 @@ A mod made for others comes as a zip with a `mod.ini` at its root (`tnfs-studio 
 handle the installed ones. None of them opens a window or needs the game data, and each exits with 0, or with 1 and `tnfs: <reason>`:
 
     tnfs --install FILE.zip     installs it, or updates the installed one with the same id: "installed <id> <version>",
-                                "updated <id> <old> -> <new>"
+                                "updated <id> <old> -> <new>", or for the same version again "reinstalled <id> <version> (same
+                                version)" (and, if its files changed, "its files changed but its version did not: raise version=
+                                in mod.ini": the installed copy is replaced all the same, the old one kept as a backup)
     tnfs --uninstall ID         moves it to the backups: "uninstalled <id> (backup kept)"
     tnfs --mods-list            one line per installed mod: id, version, type, on (the edition in use names it) or off, name
                                 (tab-separated)

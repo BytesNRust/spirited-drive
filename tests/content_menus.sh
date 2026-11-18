@@ -19,7 +19,7 @@
 #               delete     Delete, yes, with Mine in use: editions/mine.ini gone, the standard edition put back (mark:edition=-);
 #               standard   Done on the standard edition: Game Mode and Control Central go on, restomod.cfg keeps no edition.
 #   standard  a fresh Restomod player, the standard edition shown: the zip dropped is installed with the prompt's OK alone (no edition
-#             to add it to, no file in editions/); New left with Escape makes no edition; Install... with no window picks nothing (the
+#             to add it to, no file in editions/); the same zip dropped again is said to be a reinstall (same version), not an update; New left with Escape makes no edition; Install... with no window picks nothing (the
 #             log says so) and the screen goes on; Done.
 # usage: content_menus.sh TNFS STUDIO ORIGINAL_DIR PORT_DATA_DIR [PART] (no PART: all of them, in turn). KEEP=1 keeps the scratch folder.
 set -u
@@ -158,12 +158,15 @@ part_standard() {
     user_fresh
     car_zips || return
     section install; add "$to_game_mode,$manage,500:DROP:test-car.zip,$(wait_for dialog=installed),300:ENTER"
+    section again;   add "500:DROP:test-car.zip,$(wait_line "reinstalled test-car"),$quiet"   # the same zip again: a reinstall, said so
     section new;     add "$new,$(wait_for dialog=name),300:ESC"
     section picker;  add "$install,$(wait_line "no window for a file dialog")"
     section done;    add "$done_,$single"
     walk "$work/nomods" || fail "standard: the walk did not end"
     log | grep -q "^mods: installed test-car 0.1$" || fail "install: the drop did not install the car"
     log | grep -q "^content: install of .* 0.1: noted$" || fail "install: the standard edition's prompt was not the OK alone"
+    log | grep -q "^mods: reinstalled test-car 0.1 (same version)$" || fail "again: the same zip dropped again was not a reinstall: $(log | grep '^mods:' | tail -2)"
+    [ "$(log | grep -c "^mods: updated ")" -eq 0 ] || fail "again: the same version was said to be an update"
     [ -n "$(ls "$work/user/editions" 2>/dev/null)" ] && fail "new: an edition was made: $(ls "$work/user/editions")"
     log | grep -q "^edition_store: saved" && fail "new: Escape in the name box saved an edition"
     grep -q "^edition=." "$work/user/restomod.cfg" 2>/dev/null && fail "done: restomod.cfg keeps an edition: $(cat "$work/user/restomod.cfg")"

@@ -375,10 +375,11 @@ static int update_changed_rules(const ModInfo *info)
 static int32_t install_zip(void *ctx, const char *path, const int32_t *edition)
 {
     ModInfo info;
+    ModStoreOutcome how = MOD_STORE_NEW;
     char old[MOD_INI_VERSION_MAX + 1] = "", why[WHY_CAP] = "", text[TEXT_CAP];
     car_pieces_follow();   /* the registries as the mods in effect are now, so an update is compared with the piece as it was (update_changed_rules) */
     track_pieces_follow();
-    if (!mod_store_install(path, &info, old, sizeof old, why, sizeof why)) {
+    if (!mod_store_install_outcome(path, &info, old, sizeof old, &how, why, sizeof why)) {
         port_log("content: %s was not installed: %s\n", path, why);
         told(ctx, why);
         return 0;
@@ -391,7 +392,12 @@ static int32_t install_zip(void *ctx, const char *path, const int32_t *edition)
         (void)glue_content_install_prompt(info.name, info.version, NULL);
         return 1;
     }
-    snprintf(text, sizeof text, "Updated %s %s to %s", info.name, old, info.version);
+    if (how == MOD_STORE_UPDATED) snprintf(text, sizeof text, "Updated %s %s to %s", info.name, old, info.version);
+    else snprintf(text, sizeof text, "Reinstalled %s %s", info.name, info.version);   /* (the version it had: one banner line, as "Updated ... to ...") */
+    if (how == MOD_STORE_SAME_CHANGED) {   /* the files are not the installed ones' and the version says they are */
+        const size_t n = strlen(text);
+        snprintf(text + n, sizeof text - n, ": its files changed but its version did not, raise version= in mod.ini");
+    }
     if (update_changed_rules(&info)) {
         const size_t n = strlen(text);
         snprintf(text + n, sizeof text - n, ": its rules changed, new records start (the old ones are kept)");

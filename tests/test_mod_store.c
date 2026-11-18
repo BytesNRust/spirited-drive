@@ -164,6 +164,23 @@ static void test_install_and_update(void)
     CHECK_EQ_INT(backups_of("twk"), 3);
 }
 
+static void test_the_same_version_again_says_so(void)
+{
+    ModStoreOutcome how = MOD_STORE_NEW;
+    fresh();
+    CHECK(mod_store_install_outcome(tweak_zip("a.zip", "twk", "0.1", "track TR1 B one\n"), &got, old, sizeof old, &how, why, sizeof why));
+    CHECK(how == MOD_STORE_NEW && old[0] == '\0');
+    CHECK(mod_store_install_outcome(tweak_zip("a2.zip", "twk", "0.1", "track TR1 B one\n"), &got, old, sizeof old, &how, why, sizeof why));
+    CHECK(how == MOD_STORE_SAME && strcmp(old, "0.1") == 0);   /* the same files, the same version: reinstalled, not updated */
+    CHECK_EQ_INT(backups_of("twk"), 1);   /* (still with its backup) */
+    CHECK(mod_store_install_outcome(tweak_zip("a3.zip", "twk", "0.1", "track TR1 B changed\n"), &got, old, sizeof old, &how, why, sizeof why));
+    CHECK(how == MOD_STORE_SAME_CHANGED && strcmp(old, "0.1") == 0);   /* other files, the same version: the author forgot to raise it */
+    CHECK(file_is("mods/twk/track_light/TR1B.txt", "track TR1 B changed\n"));   /* it is replaced all the same */
+    CHECK(mod_store_install_outcome(tweak_zip("b.zip", "twk", "0.2", "track TR1 B changed\n"), &got, old, sizeof old, &how, why, sizeof why));
+    CHECK(how == MOD_STORE_UPDATED && strcmp(old, "0.1") == 0);
+    CHECK(mod_store_install_outcome(tweak_zip("bad.zip", "twk", "0.2", "x\n"), NULL, NULL, 0, NULL, why, sizeof why));   /* every out is optional */
+}
+
 static void test_a_stopped_install_is_cleaned(void)
 {
     fresh();
@@ -348,6 +365,7 @@ int main(void)
     setenv("TNFS_PREF_DIR", pref, 1);
     CHECK(mod_set_start(cd, NULL));
     test_install_and_update();
+    test_the_same_version_again_says_so();
     test_a_stopped_install_is_cleaned();
     test_what_is_never_replaced();
     test_mods_not_a_folder();
