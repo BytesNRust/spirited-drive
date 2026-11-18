@@ -247,10 +247,12 @@ A `track` piece (`type=track` in its `mod.ini`, made with `tnfs-studio track new
 | `stem` | the name its stages' files go by (`<STEM>1`..`<STEM>3`) | 1 to 8 of `A-Z 0-9`; not a stem of the CD's tracks |
 | `kind` | the kind of track | `stage` (the default); `circuit` is refused: this version adds A-to-B tracks only |
 | `segments` | how many stages it has | 1, 2 or 3 (1 when not given) |
-| `road`, `edge` | its road and what lies beside it | `asphalt` or `dirt`; `grass`, `gravel`, `sand`, `snow`, `dirt` or `water` |
+| `road`, `edge` | its road and what lies beside it (`road` changes no grip today: see below) | `asphalt` or `dirt`; `grass`, `gravel`, `sand`, `snow`, `dirt` or `water` |
 | `length` | the length its page shows, as written (`14.2 km`) | optional, up to 16 bytes |
 | `times` | the times of day it takes | optional; some of `dawn`, `day`, `dusk`, `night`, each once |
 | `showcase_tint` | the tone of its page's background: the CD's sepia pages turned to this colour, each shade keeping its brightness | optional; `#RRGGBB` (hex digits, either case, nothing else); without it the page is sepia. `tnfs-studio mod pack` and the game refuse a value that is not `#RRGGBB` (`PIECE.TINT`) |
+
+`road=` does not change the grip: the game has one road surface, so `dirt` drives like `asphalt`. Today the key only enters the track's print (changing it starts the track's records anew); grip by zone is to come with the track editor.
 
 ## Try your piece
 
