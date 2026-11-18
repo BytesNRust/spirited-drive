@@ -56,6 +56,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* the CD showcase pages' SETUP tile and panel (menu_glue_setup.c) */
+const ShowcasePlus *glue_setup_plus(void);
+
 /* what 00463e08 leaves (menu_glue.c) */
 extern uint8_t menu_glue_screen_palette[PALETTE_PUT_BYTES];
 

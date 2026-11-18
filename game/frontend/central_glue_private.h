@@ -194,6 +194,8 @@ int32_t cg_next_segment(void *ctx);
 void cg_image_car_flags(void *ctx);
 extern int16_t cg_opt[OPT_SHORTS];
 void cg_opt_out(void);
+void cg_setup_get(int *transmission, int *abs, int *traction);   /* port (dep59 showcase): Options' three settings for SETUP */
+void cg_setup_put(int transmission, int abs, int traction);
 void cg_opt_in(void);
 void cg_opt_car_flags(void *ctx);
 int32_t cg_key_read(void *ctx);

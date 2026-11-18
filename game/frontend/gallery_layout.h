@@ -1,8 +1,9 @@
-/* port (dep59, the owner's v3b, notes/dep59-added-gallery-showcase-plan.md sections 5-7): an added car's gallery laid out like the Car
- * Showcase. The page's still part is made once in RGB and quantised: the configuration screens' clean background, the Road & Track band
- * under the title covered by the band's own texture mirrored, the picture in a dark frame with a drop shadow, the technical data's
- * translucent panel, the Skin and Color boxes' shadows and the foot's translucent band. What changes (the words, the boxes' fills and
- * outlines, the arrows) the glue draws over it in the page's palette (added_gallery_glue.c). No drawing and no files here. */
+/* port (dep59, PR B, notes/dep59-showcase-redesign-steps.md): an added car's gallery laid out like the Car Showcase pages of the CD: its
+ * tiles at the CD pages' own rectangles (Color's place at the top left, General, Performance, Video, History; Mechanical's left empty), each in
+ * a dark frame with a drop shadow. The page's still part is made once in RGB and quantised: the configuration screens' clean background (the
+ * sepia of the page), the Road & Track band under the title covered by the band's own texture mirrored, the two photos, the translucent
+ * panels of General and History, the Color tile's fill and the foot's band. What changes (the words, the arrows, the lit frame) the glue
+ * draws over it in the page's palette (added_gallery_glue.c). No drawing and no files here. */
 #ifndef TNFS_GALLERY_LAYOUT_H
 #define TNFS_GALLERY_LAYOUT_H
 
@@ -15,28 +16,28 @@ enum {
     GL_NAME_X = 12, GL_NAME_Y = 8, GL_NAME_NUM = 2, GL_NAME_DEN = 1,
     GL_HEADING_X = 8, GL_HEADING_Y = 62, GL_HEADING_NUM = 3, GL_HEADING_DEN = 2,
     /* the band's patch: the band's texture from BAND_FROM_X, mirrored, over 0 .. BAND_W - 1 */
-    GL_BAND_W = 285, GL_BAND_H = 56, GL_BAND_FROM_X = 300,
-    /* the picture (320x200) and its frame (FRAME px outside it); SHADOW px down and right, the depth of every shadow on the page */
-    GL_PICTURE_X = 24, GL_PICTURE_Y = 100, GL_PICTURE_W = 320, GL_PICTURE_H = 200, GL_FRAME = 2, GL_SHADOW = 6,
-    /* the picture frame's outside (the owner's: what the other elements line up with), ends included */
-    GL_OUTER_X0 = GL_PICTURE_X - GL_FRAME, GL_OUTER_Y0 = GL_PICTURE_Y - GL_FRAME,                    /* 22, 98 */
-    GL_OUTER_Y1 = GL_PICTURE_Y + GL_PICTURE_H - 1 + GL_FRAME,                                      /* 301 */
-    /* the right column, its top and foot level with the picture frame's outside: the technical data, then Skin and Color */
-    GL_COLUMN_X = 364, GL_COLUMN_W = 252,
-    GL_FIGURES_Y = GL_OUTER_Y0, GL_FIGURES_ROWS = 3, GL_FIGURES_ROW = 18, GL_FIGURES_PAD = 7,
-    GL_FIGURES_H = 2 * GL_FIGURES_PAD + GL_FIGURES_ROWS * GL_FIGURES_ROW,   /* 68: 98 .. 165 */
-    GL_GAP = 16,
-    GL_BOX_H = (GL_OUTER_Y1 + 1 - (GL_FIGURES_Y + GL_FIGURES_H) - 2 * GL_GAP) / 2,           /* 52 */
-    GL_SKIN_Y = GL_FIGURES_Y + GL_FIGURES_H + GL_GAP,                                       /* 182 */
-    GL_COLOUR_Y = GL_SKIN_Y + GL_BOX_H + GL_GAP,                                            /* 250: ends at 301 */
+    GL_BAND_W = 285, GL_BAND_H = 56, GL_BAND_FROM_X = 300, GL_BLUR_R = 6,   /* the strip over the title line is blurred by a box of 2 * GL_BLUR_R + 1 */
+    /* FRAME px of black outside every tile; SHADOW px down and right, the depth of every shadow on the page */
+    GL_FRAME = 2, GL_SHADOW = 6,
+    /* the tiles (the CD pages' rectangles, the picture inside the frame): Performance's big photo, General's figures, Video's small photo,
+     * History's text, and the place of Color (the CD's Color tile) */
+    GL_PERF_X = 306, GL_PERF_Y = 77, GL_PERF_W = 225, GL_PERF_H = 127,
+    GL_GEN_X = 133, GL_GEN_Y = 173, GL_GEN_W = 163, GL_GEN_H = 109,
+    GL_VID_X = 306, GL_VID_Y = 214, GL_VID_W = 139, GL_VID_H = 108,
+    GL_HIST_X = 455, GL_HIST_Y = 245, GL_HIST_W = 161, GL_HIST_H = 122,
+    GL_COL_X = 57, GL_COL_Y = 100, GL_COL_W = 154, GL_COL_H = 63,
     GL_ARROW_W = 9, GL_ARROW_H = 14, GL_ARROW_IN = 8,
-    /* the foot band: the description, the author at its left and the version at its right */
-    GL_FOOT_X0 = GL_OUTER_X0, GL_FOOT_X1 = GL_COLUMN_X + GL_COLUMN_W - 1, GL_FOOT_Y0 = 326, GL_FOOT_Y1 = 420, GL_FOOT_PAD = 10, GL_FOOT_LINES = 3,
+    /* the SETUP panel when it is open, over the tile and General's top (the mock-up: x 57..299, y 100..269); its rows from GL_SETUP_ROW0 down by
+     * GL_SETUP_STEP, the value column from GL_SETUP_VALUE_X, GL_SETUP_VALUE_W wide (its arrows at its two ends) */
+    GL_SETUP_X = 57, GL_SETUP_Y = 100, GL_SETUP_W = 300, GL_SETUP_H = 170, GL_SETUP_ROW0 = 44, GL_SETUP_STEP = 24,
+    GL_SETUP_VALUE_X = 168, GL_SETUP_VALUE_W = 96, GL_SETUP_PREVIEW_W = 20, GL_SETUP_PREVIEW_H = 12,   /* a row's label from x + 12; the previews right of the value column */
+    GALLERY_SETUP_ROWS = 5,
+    GL_ARROW_ZONE = 30,   /* the width of the big photo's left and right zones, the arrows' places for a click */
     /* the bottom row (DONE, the arrows, "Next car") as the CD showcase pages have it, cut from their art (GalleryRow): rows GL_ROW_Y ..
      * + GL_ROW_H - 1, columns 0 .. GL_ROW_W - 1 (past them the 512TR's art has its swirl); their boxes are the showcase's (showcase.h) */
     GL_ROW_Y = 436, GL_ROW_H = 30, GL_ROW_W = 420, GL_ROW_SHADOW = 2, GL_ROW_COLOURS = 64,
     GL_ROW_PLAIN = 0, GL_ROW_DONE = 1, GL_ROW_PREVIOUS = 2, GL_ROW_NEXT = 3, GL_ROW_LOOKS = 4,
-    /* the palette: the picture's entries first, then the still part's */
+    /* the palette: the photos' entries first, then the still part's */
     GL_PICTURE_COLOURS = 160
 };
 
@@ -44,21 +45,28 @@ enum {
 #define GL_PANEL_RGB 0x0a0704u    /* the translucent panels' tint */
 #define GL_PANEL_EDGE_RGB 0x7a654au
 #define GL_SKIN_RGB 0x3a2c1eu     /* the Skin box's fill */
-enum { GL_SHADOW_ALPHA = 150, GL_FIGURES_ALPHA = 165, GL_FOOT_ALPHA = 120 };   /* of 255 */
+enum { GL_SHADOW_ALPHA = 150, GL_FIGURES_ALPHA = 165, GL_HISTORY_ALPHA = 200 };   /* of 255 */
+#define GL_HISTORY_RGB 0x2a1c0eu  /* History's panel: the sepia of the page, darker */
 
-/* the still part in RGB (GL_W x GL_H x 3) from the background `bgnd` and the picture `picture` (GL_PICTURE_W x GL_PICTURE_H x 3) */
-void gallery_compose(const uint8_t *bgnd, const uint8_t *picture, uint8_t *out);
+/* the still part in RGB (GL_W x GL_H x 3) from the background `bgnd` and the two photos: `big` (GL_PERF_W x GL_PERF_H x 3) and `small`
+ * (GL_VID_W x GL_VID_H x 3) */
+void gallery_compose(const uint8_t *bgnd, const uint8_t *big, const uint8_t *small, uint8_t *out);
 
-/* `rgb` (the still part) into `pixels` (GL_W x GL_H): the picture's box quantised to entries 0 .. GL_PICTURE_COLOURS - 1, the rest to
+/* `rgb` (the still part) into `pixels` (GL_W x GL_H): the two photos' boxes together quantised to entries 0 .. GL_PICTURE_COLOURS - 1, the rest to
  * GL_PICTURE_COLOURS .. colours - 1; their colours into `palette`. 1 on success, 0 when there was no memory (`pixels` then all 0) */
 int gallery_quantise(const uint8_t *rgb, int colours, uint8_t palette[768], uint8_t *pixels);
 
 /* `mask` (w x h) leant right by num/den of a pixel a row up from its foot, into `out` (ow x h, ow >= w + h * num / den + 1); 0 elsewhere */
 void gallery_lean(const uint8_t *mask, int w, int h, int num, int den, uint8_t *out, int ow);
 
-/* what a click at (x, y) hits: GALLERY_SKIN / GALLERY_COLOUR (with *step -1 on its left arrow, 1 on its right one, 0 between),
- * GALLERY_PREVIOUS, GALLERY_NEXT or GALLERY_DONE (step 0); -1 for nothing */
+/* what a click at (x, y) hits: GALLERY_SKIN / GALLERY_COLOUR (the Color tile's two rows, with *step -1 on a left arrow, 1 on a right one, 0
+ * between), GALLERY_PHOTOS (the big photo: step -1 in its left zone, 1 in its right one, 0 between), GALLERY_HISTORY, GALLERY_PREVIOUS,
+ * GALLERY_NEXT or GALLERY_DONE (step 0); -1 for nothing */
 int gallery_hit(int x, int y, int *step);
+
+/* what a click at (x, y) hits in the open SETUP panel: the row (SETUP_*) with *step -1 on the left half of the value column, 1 on the right half,
+ * 0 on the label (the row alone); -1 outside the panel or between rows */
+int gallery_setup_hit(int x, int y, int *step);
 
 /* port (owner 2026-11-17): the bottom row of the CD showcase pages, cut from a car's bank (FRONTEND/SHOW/512TR.QFS: its background with
  * the unlit DONE, arrows and "Next car", and the lit shapes): the letters' and arrows' own pixels ("faces": light, cream or yellow) in

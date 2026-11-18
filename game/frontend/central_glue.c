@@ -839,6 +839,31 @@ static void options_extras(void *ctx)
     cg_extras_apply();
 }
 
+/* port (dep59 showcase): the three settings Options keeps, for the showcase's SETUP panel, through the same shorts: transmission 0 automatic
+ * or 1 manual; ABS and traction control 0 on, 1 off or 2 not offered */
+void cg_setup_get(int *transmission, int *abs, int *traction)
+{
+    ConfigDat *const config = config_current();
+    const RaceSettings before = cg_settings_of();
+    config_dat_set_race(config, &before);
+    cg_opt_out();
+    *transmission = cg_opt[OPT_TRANSMISSION], *abs = cg_opt[OPT_ABS], *traction = cg_opt[OPT_TRACTION];
+}
+
+void cg_setup_put(int transmission, int abs, int traction)
+{
+    ConfigDat *const config = config_current();
+    const RaceSettings before = cg_settings_of();
+    config_dat_set_race(config, &before);
+    cg_opt_out();
+    cg_opt[OPT_TRANSMISSION] = (int16_t)transmission, cg_opt[OPT_AUTOMATIC] = transmission == 0;
+    if (cg_opt[OPT_ABS] != 2) cg_opt[OPT_ABS] = (int16_t)abs;
+    if (cg_opt[OPT_TRACTION] != 2) cg_opt[OPT_TRACTION] = (int16_t)traction;
+    cg_opt_in();
+    RaceSettings after = before;
+    if (config_dat_get_race(config, &after)) cg_settings_put(&after);   /* as Options does on leaving: the car flags come back to the globals */
+}
+
 static void options(void *ctx)
 {
     ConfigDat *const config = config_current();

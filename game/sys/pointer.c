@@ -91,6 +91,8 @@ void pointer_range(int x0, int y0, int x1, int y1)
     clamp();
 }
 
+int pointer_take_wheel(void) { return platform_mouse_wheel(); }
+
 void pointer_sync_from_os(void)
 {
     int os_x, os_y, width = VIDEO_WIDTH, height = VIDEO_HEIGHT;

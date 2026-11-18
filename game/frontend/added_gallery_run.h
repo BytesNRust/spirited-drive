@@ -22,6 +22,11 @@ typedef struct GalleryRunOps {
     int (*click)(void *ctx, GalleryState *s);         /* a click: the key it stands for (the item moved to the one clicked), 0 none */
     void (*music)(void *ctx);                         /* the music's stream serviced (the showcase's plays on here) */
     void (*wait)(void *ctx);                          /* the frame's end */
+    int (*wheel)(void *ctx);                          /* the wheel's notches since the last call, + up, - down */
+    unsigned (*now)(void *ctx);                       /* the time in ms */
+    int (*lines)(void *ctx, int *visible);            /* the description's lines in all, and how many the tile shows (0, 0 none) */
+    void (*apply)(void *ctx, const GalleryState *s);  /* Options' three settings changed in the panel: `s` holds them, to be kept */
+    void (*shutter)(void *ctx, const GalleryState *s, int opening);   /* the panel opening or closing, frame by frame, with its sound */
     void *ctx;
 } GalleryRunOps;
 

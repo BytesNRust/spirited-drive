@@ -1,16 +1,17 @@
-/* port (dep59 step 3; the owner's v3b, notes/dep59-added-gallery-showcase-plan.md sections 5-7): an added car's gallery drawn and run
- * (added_gallery.h holds its state and keys), laid out like the Car Showcase (gallery_layout.h). A page of its own palette: the still
- * part (the clean configuration background, the picture, gallery.png 320x200 or card.png in the middle of that box, its frame and the
- * panels) quantised once, the picture's entries apart from the rest's; the port's text colours (BOOT_TEXT_RGB), one entry for the Color
- * swatch, and Control Central's last entries kept as they were for the pointer. Its name big and leant on top, "Car Showcase" under it;
- * the picture on the left; the technical data, Skin and Color on the right; the description, author and version in the foot's band;
- * the bottom row as the CD showcase pages have it: DONE at the left, "< Next car >" in the middle. The pair picked is kept by id as the page closes (car_looks.h). */
+/* port (dep59 step 3, PR B of the showcase redesign): an added car's gallery drawn and run (added_gallery.h holds its state and keys), laid out
+ * like the Car Showcase pages of the CD (gallery_layout.h, added_gallery_draw.c). A page of its own palette: the still part (the clean
+ * configuration background, the two photos in their tiles, the panels) quantised once, the photos' entries apart from the rest's, again when
+ * another big photo is shown; the port's text colours (BOOT_TEXT_RGB), one entry for the Color swatch, and Control Central's last entries kept
+ * as they were for the pointer. The bottom row as the CD showcase pages have it: DONE at the left, "< Next car >" in the middle. The pair
+ * picked is kept by id as the page closes (car_looks.h). */
 #include "game/frontend/added_gallery.h"
+#include "game/frontend/added_gallery_page.h"
 #include "game/frontend/added_gallery_run.h"
 
 #include "formats/fsh.h"
 #include "formats/pbs.h"
 #include "formats/png.h"
+#include "formats/showcase_tint.h"
 #include "formats/stock_content.h"
 #include "game/frontend/boot_quant.h"
 #include "game/frontend/boot_screen.h"
@@ -20,8 +21,8 @@
 #include "game/frontend/config_bgnd.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/gallery_layout.h"
+#include "game/frontend/gallery_photo.h"
 #include "game/frontend/menu_audio.h"
-#include "game/frontend/text_wrap.h"
 #include "game/platform/platform.h"
 #include "game/race/car_registry.h"
 #include "game/sys/car_looks.h"
@@ -38,15 +39,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum {
-    KEPT = 18,                                       /* Control Central's last entries, kept for the pointer */
-    TEXT_FIRST = 256 - KEPT - BOOT_TEXT_COLOURS,     /* the text's colours (BOOT_TEXT_RGB's order) */
-    SWATCH = TEXT_FIRST - 1,                         /* the Color swatch's entry */
-    ROW_EXACT = 8, ROW_FIRST = SWATCH - ROW_EXACT,   /* the bottom row's most used colours, the CD art's own; its others the nearest */
-    STILL_COLOURS = ROW_FIRST,                       /* the still part's: 0 .. ROW_FIRST - 1 */
-    WHITE = TEXT_FIRST, CREAM = TEXT_FIRST + 1, YELLOW = TEXT_FIRST + 2, BLACK = TEXT_FIRST + 5, DIM = TEXT_FIRST + 6,
-    LEAN_NUM = 2, LEAN_DEN = 9                       /* the name's slant: 2 px across for 9 up */
-};
+enum { SHUTTER_TICKS = 9 };
+#define TILE_BANK "supra.qfs"   /* owner 2026-11-18: the closed SETUP tile's background is the Supra's (one place to change it) */
+   /* vblanks a shutter frame stays (about 150 ms at 60 Hz) */
 
 /* port (dep59 section 8, the owner's): the Warrior's page. Its year as the owner gave it; its power and weight from its physics
  * (CARSPECS/TRAFFC.PBS, the race's car_model_names[11]); its look fixed: the skin as it comes and its own dark purple, sampled from its
@@ -55,21 +50,22 @@ static const char WARRIOR_YEAR[] = "1994", WARRIOR_SPECS[] = "SIMDATA/CARSPECS/T
 static const char WARRIOR_PAINT[] = "Purple";
 static const uint8_t WARRIOR_RGB[3] = { 0x58, 0x1c, 0x54 };
 
-typedef struct {
-    CarPieceCard card;
-    GalleryState state;
-    int car;
-    int warrior;                     /* the Warrior's page: its card from the CD, its look fixed */
-    uint8_t *still;                  /* the still part in the page's palette, GL_W x GL_H */
-    uint8_t palette[768];
-    uint8_t row_map[GL_ROW_COLOURS]; /* the bottom row's colours' entries */
-} Page;
-
 /* port (owner 2026-11-17): the bottom row as the CD showcase pages have it, cut from the 512TR's showcase art (any car's has it; the
  * 512TR's has nothing else light in the row) once a gallery opens; `row_cut` 0 when it could not be read: no bottom row drawn */
 static const char ROW_BANK[] = "512tr.qfs";
 static GalleryRow row;
 static int row_cut;
+
+static uint8_t *tile_data;   /* the closed SETUP tile's bank, read once */
+static size_t tile_size;
+
+static void tile_load(void)
+{
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s%s", resource_root(), resource_german() ? "frontend/gshow/" : "frontend/show/", TILE_BANK);
+    if (tile_data == NULL) tile_data = resource_load(path, &tile_size);
+    if (tile_data == NULL) port_log("added gallery: %s was not read\n", path);
+}
 
 static void row_load(void)
 {
@@ -96,38 +92,32 @@ static void row_colours(Page *p)
         p->row_map[best] = (uint8_t)(ROW_FIRST + e);
     }
     uint8_t usable[256];
-    for (int i = 0; i < 256; i++) usable[i] = i < 256 - KEPT && i != SWATCH;
+    for (int i = 0; i < 256; i++) usable[i] = i < 256 - KEPT && i != SWATCH && i != SKIN_SWATCH;
     for (int k = 0; k < row.colours; k++)
         if (!taken[k]) p->row_map[k] = (uint8_t)palette_nearest(p->palette, usable, row.rgb[k][0], row.rgb[k][1], row.rgb[k][2]);
 }
 
-/* `name` of the piece as RGB in a GL_PICTURE_W x GL_PICTURE_H box (a smaller picture in its middle, the rest black); 0 when it is not
- * there or is larger than the box */
-static int picture_rgb(const char *dir, const char *name, uint8_t *rgb)
+/* `name` of the piece as RGB (malloc'd, *w x *h); NULL when it is not there, is not a PNG or is outside the photos' sizes (car_piece.h) */
+static uint8_t *photo_rgb(const char *dir, const char *name, int *w, int *h)
 {
-    char path[CAR_PIECE_DIR_MAX + 16];
+    char path[CAR_PIECE_DIR_MAX + 64];
     snprintf(path, sizeof path, "%s/%s", dir, name);
     size_t size = 0;
     uint8_t *data = platform_read_file(path, &size);
-    uint32_t w = 0, h = 0;
-    const int sized = data != NULL && png_size(data, size, &w, &h) == PNG_OK;
-    const int fits = sized && w <= GL_PICTURE_W && h <= GL_PICTURE_H;   /* before the pixels: a hostile size is never decoded */
+    uint32_t pw = 0, ph = 0;
+    const int sized = data != NULL && png_size(data, size, &pw, &ph) == PNG_OK;
+    const int fits = sized && pw <= CAR_PIECE_PHOTO_MAX_W && ph <= CAR_PIECE_PHOTO_MAX_H;   /* before the pixels: a hostile size is never decoded */
     PngImage img;
     const int read = fits && png_read(data, size, &img) == PNG_OK;
     if (data != NULL) platform_free_file(data);
-    if (sized && !fits) port_log("car piece: %s is larger than %dx%d: not shown\n", name, GL_PICTURE_W, GL_PICTURE_H);
-    if (!read) return 0;
-    if (img.width != w || img.height != h) return png_free(img.pixels), 0;
-    const int x0 = (GL_PICTURE_W - (int)img.width) / 2, y0 = (GL_PICTURE_H - (int)img.height) / 2;
-    memset(rgb, 0, (size_t)GL_PICTURE_W * GL_PICTURE_H * 3);
-    for (int y = 0; y < (int)img.height; y++)
-        for (int x = 0; x < (int)img.width; x++) {
-            const size_t at = (size_t)y * img.width + (size_t)x;
-            const uint8_t *s = img.indexed ? img.palette + 3 * img.pixels[at] : img.pixels + 4 * at;
-            memcpy(rgb + 3 * ((size_t)(y0 + y) * GL_PICTURE_W + (size_t)(x0 + x)), s, 3);
-        }
+    if (sized && !fits) port_log("car piece: %s is larger than %dx%d: not shown\n", name, CAR_PIECE_PHOTO_MAX_W, CAR_PIECE_PHOTO_MAX_H);
+    if (!read) return NULL;
+    uint8_t *rgb = img.width == pw && img.height == ph ? malloc((size_t)pw * ph * 3) : NULL;
+    for (size_t i = 0; rgb != NULL && i < (size_t)pw * ph; i++)
+        memcpy(rgb + 3 * i, img.indexed ? img.palette + 3 * img.pixels[i] : img.pixels + 4 * i, 3);
     png_free(img.pixels);
-    return 1;
+    *w = (int)pw, *h = (int)ph;
+    return rgb;
 }
 
 /* the configuration screens' clean background as RGB; a flat brown when it cannot be composed */
@@ -143,29 +133,24 @@ static void background_rgb(uint8_t *rgb)
     free(pixels);
 }
 
-/* the Warrior's Control Central card (an 8-bit picture on Central's palette `screen`) as RGB in the middle of the picture's box; 0 when
- * it cannot be read */
-static int warrior_picture(const uint8_t screen[768], uint8_t *rgb)
+/* the Warrior's Control Central card (an 8-bit picture on Central's palette `screen`) as RGB (malloc'd, *w x *h); NULL when it cannot be read */
+static uint8_t *warrior_picture(const uint8_t screen[768], int *w, int *h)
 {
     size_t size = 0;
-    uint8_t *data = resource_load_art(WARRIOR_CARD, &size);
+    uint8_t *data = resource_load_art(WARRIOR_CARD, &size), *rgb = NULL;
     Fsh fsh;
     uint32_t index;
     FshEntry e;
     const int ok = data != NULL && fsh_open(&fsh, data, size) == FSH_OK && fsh_find(&fsh, "0000", &index) == FSH_OK &&
-                   fsh_entry(&fsh, index, &e) == FSH_OK && e.width <= GL_PICTURE_W && e.height <= GL_PICTURE_H &&
-                   e.payload_size >= (size_t)e.width * e.height;
-    if (ok) {
-        const int x0 = (GL_PICTURE_W - e.width) / 2, y0 = (GL_PICTURE_H - e.height) / 2;
-        memset(rgb, 0, (size_t)GL_PICTURE_W * GL_PICTURE_H * 3);
-        for (int y = 0; y < e.height; y++)
-            for (int x = 0; x < e.width; x++)
-                memcpy(rgb + 3 * ((size_t)(y0 + y) * GL_PICTURE_W + (size_t)(x0 + x)), screen + 3 * e.payload[(size_t)y * e.width + x], 3);
-    } else {
+                   fsh_entry(&fsh, index, &e) == FSH_OK && e.width > 0 && e.height > 0 && e.payload_size >= (size_t)e.width * e.height;
+    if (ok && (rgb = malloc((size_t)e.width * e.height * 3)) != NULL) {
+        for (int i = 0; i < e.width * e.height; i++) memcpy(rgb + 3 * (size_t)i, screen + 3 * e.payload[i], 3);
+        *w = e.width, *h = e.height;
+    } else if (!ok) {
         port_log("added gallery: the Warrior's card %s was not read\n", WARRIOR_CARD);
     }
     resource_free(data);
-    return ok;
+    return rgb;
 }
 
 /* the Warrior's page's card: its name, year, figures from its physics, one skin and its one colour */
@@ -193,200 +178,141 @@ static void warrior_card(Page *p)
     snprintf(c->info.paints[0].name, sizeof c->info.paints[0].name, "%s", WARRIOR_PAINT);
     memcpy(c->info.paints[0].rgb, WARRIOR_RGB, 3);
     p->warrior = 1;
-    p->state = (GalleryState){ GALLERY_NEXT, 0, 1, 1 };
+    p->state = (GalleryState){ GALLERY_NEXT, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 };
 }
 
-/* the page's still part and palette (Control Central's palette `screen` gives the kept entries) */
-static void page_still(Page *p, const uint8_t screen[768])
+/* a tile's picture (dw x dh x 3) from `src` (w x h) cropped to fill, else the placeholder on `ground` */
+static void tile_picture(const uint8_t *src, int w, int h, const uint8_t *ground, uint8_t *dst, int dw, int dh)
 {
-    uint8_t *picture = malloc((size_t)GL_PICTURE_W * GL_PICTURE_H * 3), *bgnd = malloc((size_t)GL_W * GL_H * 3);
-    uint8_t *rgb = malloc((size_t)GL_W * GL_H * 3);
+    if (src == NULL || !gallery_cover(src, w, h, dst, dw, dh)) gallery_placeholder(ground, GL_W, GL_H - GL_COL_Y, dst, dw, dh);
+}
+
+/* the big photos' names: photos= or, with none, the piece's gallery.png else card.png (the pictures it had before photos=); `names` of 8 */
+static int big_names(const CarPieceCard *c, const char *names[MOD_INI_PHOTOS_MAX])
+{
+    int n = 0;
+    for (; n < c->info.photo_count && n < MOD_INI_PHOTOS_MAX; n++) names[n] = c->info.photo[n];
+    return n;
+}
+
+/* how many big photos the page has: photos=, or one (the piece's own picture, a placeholder when it has none) */
+static int photo_total(const CarPieceCard *c, int warrior)
+{
+    const char *names[MOD_INI_PHOTOS_MAX];
+    return warrior ? 1 : big_names(c, names) > 0 ? big_names(c, names) : 1;
+}
+
+/* the big photo number `n` and the small one as RGB (malloc'd); NULL where there is none: the page's placeholder */
+static uint8_t *big_rgb(const Page *p, int n, int *w, int *h)
+{
+    if (p->warrior) return warrior_picture(p->screen, w, h);
+    const char *names[MOD_INI_PHOTOS_MAX];
+    if (big_names(&p->card, names) > 0) return photo_rgb(p->card.dir, names[n], w, h);
+    uint8_t *rgb = photo_rgb(p->card.dir, "gallery.png", w, h);
+    return rgb != NULL ? rgb : photo_rgb(p->card.dir, "card.png", w, h);
+}
+
+static uint8_t *small_rgb(const Page *p, int *w, int *h)
+{
+    if (p->warrior) return warrior_picture(p->screen, w, h);
+    return p->card.info.photo_small[0] != 0 ? photo_rgb(p->card.dir, p->card.info.photo_small, w, h) : photo_rgb(p->card.dir, "card.png", w, h);
+}
+
+/* the page's still part and palette: the big photo number p->state.photo, the small one, the background (Control Central's palette `screen`
+ * gives the kept entries) */
+static void page_still(Page *p)
+{
+    uint8_t *big = malloc((size_t)GL_PERF_W * GL_PERF_H * 3), *small = malloc((size_t)GL_VID_W * GL_VID_H * 3);
+    uint8_t *bgnd = malloc((size_t)GL_W * GL_H * 3), *rgb = malloc((size_t)GL_W * GL_H * 3);
+    free(p->still);
     p->still = calloc((size_t)GL_W * GL_H, 1);
     memset(p->palette, 0, sizeof p->palette);
-    if (picture != NULL && bgnd != NULL && rgb != NULL && p->still != NULL) {
-        const int read = p->warrior ? warrior_picture(screen, picture)
-                                    : picture_rgb(p->card.dir, "gallery.png", picture) || picture_rgb(p->card.dir, "card.png", picture);
-        if (!read) memset(picture, 0, (size_t)GL_PICTURE_W * GL_PICTURE_H * 3);
+    if (big != NULL && small != NULL && bgnd != NULL && rgb != NULL && p->still != NULL) {
+        int w = 0, h = 0;
         background_rgb(bgnd);
-        gallery_compose(bgnd, picture, rgb);
+        if (p->has_tint) showcase_tint_apply(bgnd, (size_t)GL_W * GL_H, p->tint);   /* owner 2026-11-18: the mod's first paint tints the sepia */
+        const uint8_t *ground = bgnd + 3 * (size_t)GL_COL_Y * GL_W;
+        uint8_t *src = big_rgb(p, p->state.photo, &w, &h);
+        tile_picture(src, w, h, ground, big, GL_PERF_W, GL_PERF_H);
+        free(src);
+        src = small_rgb(p, &w, &h);
+        tile_picture(src, w, h, ground, small, GL_VID_W, GL_VID_H);
+        free(src);
+        gallery_compose(bgnd, big, small, rgb);
         if (!gallery_quantise(rgb, STILL_COLOURS, p->palette, p->still)) port_log("added gallery: the page was not quantised\n");
     }
-    free(picture), free(bgnd), free(rgb);
+    free(big), free(small), free(bgnd), free(rgb);
+    p->shown = p->state.photo;
     memcpy(p->palette + 3 * TEXT_FIRST, BOOT_TEXT_RGB, sizeof BOOT_TEXT_RGB);
-    memcpy(p->palette + 3 * (256 - KEPT), screen + 3 * (256 - KEPT), 3 * KEPT);
+    memcpy(p->palette + 3 * (256 - KEPT), p->screen + 3 * (256 - KEPT), 3 * KEPT);
+    uint8_t usable[256];
+    for (int i = 0; i < 256; i++) usable[i] = i < STILL_COLOURS;
+    p->panel_fill = palette_nearest(p->palette, usable, 0x2a, 0x1c, 0x0e);   /* the panel's dark sepia, the still part's nearest */
     if (row_cut) row_colours(p);
-}
-
-static int small_width(void *ctx, const char *s, int len)
-{
-    (void)ctx;
-    char run[MOD_INI_DESCRIPTION_MAX + 1];
-    snprintf(run, sizeof run, "%.*s", len, s);
-    return text_small_width(run);
-}
-
-typedef struct {
-    uint8_t *to;
-    int w, h;
-} Target;
-
-/* x0..x1, y0..y1 (ends included) in entry `index` */
-static void fill(const Target *t, int x0, int y0, int x1, int y1, int index)
-{
-    for (int y = y0 < 0 ? 0 : y0; y <= y1 && y < t->h; y++)
-        for (int x = x0 < 0 ? 0 : x0; x <= x1 && x < t->w; x++) t->to[y * t->w + x] = (uint8_t)index;
-}
-
-static void edge(const Target *t, int x0, int y0, int x1, int y1, int width, int index)
-{
-    fill(t, x0, y0, x1, y0 + width - 1, index), fill(t, x0, y1 - width + 1, x1, y1, index);
-    fill(t, x0, y0, x0 + width - 1, y1, index), fill(t, x1 - width + 1, y0, x1, y1, index);
-}
-
-/* an arrow GL_ARROW_W x GL_ARROW_H pointing left or right, its top left at (x, y), over a black one a pixel down and right */
-static void arrow(const Target *t, int x, int y, int left, int index)
-{
-    for (int pass = 0; pass < 2; pass++)
-        for (int i = 0; i <= GL_ARROW_H; i++) {
-            const int half = i <= GL_ARROW_H / 2 ? i : GL_ARROW_H - i, span = half * GL_ARROW_W / (GL_ARROW_H / 2);
-            const int d = pass == 0 ? 1 : 0, x0 = left ? x + GL_ARROW_W - span : x;
-            fill(t, x0 + d, y + i + d, x0 + span + d, y + i + d, pass == 0 ? BLACK : index);
-        }
-}
-
-/* `text` in the small face centred on cx */
-static void small_centred(const char *text, int cx, int y) { text_small_draw(text, cx - text_small_width(text) / 2, y); }
-
-/* the name big and leant, white, with the original titles' shadow; smaller when it would not fit the screen */
-static void name(const Page *p)
-{
-    char said[sizeof p->card.info.name];
-    text_words(p->card.info.name, said, sizeof said);   /* the main face: its ',' is a comma */
-    static const int SIZES[3][2] = { { GL_NAME_NUM, GL_NAME_DEN }, { 3, 2 }, { 1, 1 } };
-    for (int k = 0; k < 3; k++) {
-        const int num = SIZES[k][0], den = SIZES[k][1], w = text_width_scaled(said, num, den) + 2, h = text_mask_rows(said, num, den);
-        const int ow = w + h * LEAN_NUM / LEAN_DEN + 2;
-        if (h <= 0 || (GL_NAME_X + ow > GL_W - GL_NAME_X && k < 2)) continue;
-        uint8_t *mask = malloc((size_t)w * h), *leant = malloc((size_t)ow * h);
-        if (mask != NULL && leant != NULL && text_mask_scaled(said, num, den, mask, w, h)) {
-            gallery_lean(mask, w, h, LEAN_NUM, LEAN_DEN, leant, ow);
-            text_select(TEXT_WHITE);
-            text_draw_mask(leant, ow, h, GL_NAME_X, GL_NAME_Y);
-        }
-        free(mask), free(leant);
-        return;
-    }
-}
-
-/* the technical data, labelled, in its panel */
-static void figures(const Page *p)
-{
-    static const char *const LABEL[GL_FIGURES_ROWS] = { "Year", "Power", "Weight" };
-    const char *value[GL_FIGURES_ROWS] = { p->card.info.year, p->card.info.power, p->card.info.weight };
-    char said[64];
-    for (int i = 0; i < GL_FIGURES_ROWS; i++) {
-        const int y = GL_FIGURES_Y + GL_FIGURES_PAD + i * GL_FIGURES_ROW - 2;
-        text_select(TEXT_DIM);
-        text_small_draw(LABEL[i], GL_COLUMN_X + 10, y);
-        if (text_small_words(value[i], said, sizeof said) == 0) snprintf(said, sizeof said, "-");
-        text_select(TEXT_CREAM);
-        text_small_draw(said, GL_COLUMN_X + GL_COLUMN_W - 10 - text_small_width(said), y);
-    }
-}
-
-/* a selector's box: its frame (yellow when lit), its label and value centred, its arrows at its sides (none when it is off, dim when
- * the look is fixed) */
-static void box(const Target *t, int y, const char *label, const char *value, int lit, int on, int swatch, int fixed)
-{
-    const int x1 = GL_COLUMN_X + GL_COLUMN_W - 1, cx = GL_COLUMN_X + GL_COLUMN_W / 2;
-    if (swatch) fill(t, GL_COLUMN_X, y, x1, y + GL_BOX_H - 1, SWATCH);
-    edge(t, GL_COLUMN_X, y, x1, y + GL_BOX_H - 1, 2, lit ? YELLOW : BLACK);
-    text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM);
-    text_draw_smooth(label, cx - text_width_scaled(label, 3, 4) / 2, y + 5, 3, 4);
-    char said[64];
-    text_small_words(value, said, sizeof said);
-    text_select(!on ? TEXT_DIM : TEXT_WHITE);
-    small_centred(said, cx, y + GL_BOX_H - 23);
-    if (!on) return;
-    const int ay = y + (GL_BOX_H - GL_ARROW_H) / 2, index = fixed ? DIM : lit ? YELLOW : CREAM;
-    arrow(t, GL_COLUMN_X + GL_ARROW_IN, ay, 1, index);
-    arrow(t, x1 - GL_ARROW_IN - GL_ARROW_W, ay, 0, index);
-}
-
-/* the foot's band: the description in lines, the author at its left, the version at its right */
-static void foot(const Page *p)
-{
-    char said[sizeof p->card.info.description], line[160];
-    TextLine lines[GL_FOOT_LINES];
-    text_small_words(p->card.info.description, said, sizeof said);
-    const int n = text_wrap(said, GL_FOOT_X1 - GL_FOOT_X0 - 2 * GL_FOOT_PAD, small_width, NULL, lines, GL_FOOT_LINES);
-    text_select(TEXT_WHITE);
-    for (int i = 0; i < n; i++) {
-        snprintf(line, sizeof line, "%.*s", lines[i].len, said + lines[i].start);
-        text_small_draw(line, GL_FOOT_X0 + GL_FOOT_PAD, GL_FOOT_Y0 + 6 + i * text_small_line_height());
-    }
-    const int y = GL_FOOT_Y1 - 22;
-    text_select(TEXT_DIM);
-    if (text_small_words(p->card.info.author, said, sizeof said) > 0)
-        snprintf(line, sizeof line, "by %s", said), text_small_draw(line, GL_FOOT_X0 + GL_FOOT_PAD, y);
-    if (text_small_words(p->card.info.version, said, sizeof said) > 0) {
-        snprintf(line, sizeof line, "version %s", said);
-        text_small_draw(line, GL_FOOT_X1 - GL_FOOT_PAD - text_small_width(line), y);
-    }
+    p->tile_ok = tile_data != NULL && added_gallery_setup_tile(p->tile, tile_data, tile_size, p->palette, usable);
+    if (!p->tile_ok) port_log("added gallery: the SETUP tile's picture was not made: a flat tile\n");
+    free(p->art);
+    p->art = calloc(1, sizeof *p->art);
+    size_t size = 0;
+    uint8_t *file = p->art != NULL ? resource_load_art("option/loadanim.qfs", &size) : NULL;
+    if (file == NULL) port_log("added gallery: option/loadanim.qfs was not read: the panel is flat\n");
+    else if (!added_gallery_setup_art(p->art, file, size, p->palette, usable)) port_log("added gallery: the panel's stone was not made: the panel is flat\n");
+    free(file);
 }
 
 /* the bottom row as the CD showcase pages have it (owner 2026-11-17): DONE, Previous or Next lit when it is the item */
-static void bottom(const Page *p, const Target *t)
+static void bottom(const Page *p, uint8_t *to, int w, int h)
 {
-    if (row_cut) gallery_row_draw(&row, gallery_row_look(p->state.item), t->to, t->w, t->h, p->row_map, BLACK);
+    if (row_cut) gallery_row_draw(&row, gallery_row_look(p->state.item), to, w, h, p->row_map, BLACK);
 }
 
 /* the page into the back buffer */
 static void draw(const Page *p)
 {
-    Target t;
-    t.to = video_target(&t.w, &t.h);
-    for (int y = 0; y < GL_H && y < t.h; y++)
-        if (p->still != NULL) memcpy(&t.to[y * t.w], &p->still[y * GL_W], (size_t)(t.w < GL_W ? t.w : GL_W));
-        else memset(&t.to[y * t.w], BLACK, (size_t)(t.w < GL_W ? t.w : GL_W));
-    name(p);
-    text_select(TEXT_RED);
-    text_draw_smooth("Car Showcase", GL_HEADING_X, GL_HEADING_Y, GL_HEADING_NUM, GL_HEADING_DEN);
-    figures(p);
-    const GalleryState *s = &p->state;
-    const int on = s->fixed || added_gallery_colour_on(&p->card, s);
-    box(&t, GL_SKIN_Y, "Skin", s->skin == 0 ? "Default" : p->card.skin[s->skin], s->item == GALLERY_SKIN, 1, 0, s->fixed);
-    box(&t, GL_COLOUR_Y, "Color", s->paint == 0 ? "Default" : p->card.info.paints[s->paint - 1].name, s->item == GALLERY_COLOUR, on,
-        on && s->paint > 0, s->fixed);
-    foot(p);
-    bottom(p, &t);
+    int w, h;
+    uint8_t *to = video_target(&w, &h);
+    for (int y = 0; y < GL_H && y < h; y++)
+        if (p->still != NULL) memcpy(&to[y * w], &p->still[y * GL_W], (size_t)(w < GL_W ? w : GL_W));
+        else memset(&to[y * w], BLACK, (size_t)(w < GL_W ? w : GL_W));
+    added_gallery_draw_title(p);
+    added_gallery_draw_tiles(p, to, w, h);
+    bottom(p, to, w, h);
 }
 
 /* the swatch's colour into the page's palette */
 static void palette_fill(Page *p)
 {
     const GalleryState *s = &p->state;
-    const uint8_t *rgb = s->paint > 0 ? p->card.info.paints[s->paint - 1].rgb : (const uint8_t[3]){ 0, 0, 0 };
+    const uint8_t *rgb = s->paint > 0 ? p->card.info.paints[s->paint - 1].rgb : p->default_rgb;
     memcpy(p->palette + 3 * SWATCH, rgb, 3);
+    memcpy(p->palette + 3 * SKIN_SWATCH, p->skin_rgb[s->skin], 3);
 }
 
-/* a click: the key it stands for, the item moved to the one clicked; 0 for none */
+/* a click: the key it stands for, the item moved to the one clicked; 0 for none. With the SETUP panel open a click on a row's value steps it
+ * and one outside the panel only closes it */
 static int click_key(GalleryState *s)
 {
     int x, y, step;
     pointer_position(&x, &y);
+    if (s->setup) {
+        const int row = gallery_setup_hit(x, y, &step);
+        if (row < 0) return GALLERY_KEY_ESCAPE;
+        s->row = row;
+        return step < 0 ? GALLERY_KEY_LEFT : step > 0 ? GALLERY_KEY_RIGHT : 0;
+    }
     const int item = gallery_hit(x, y, &step);
-    if (item < 0 || (s->fixed && item < GALLERY_PREVIOUS)) return 0;   /* a fixed page's boxes take no click */
+    if (item < 0) return 0;
+    if (item == GALLERY_PHOTOS && s->photos < 2) return 0;   /* a photo that is alone has nothing to step */
     s->item = item;
-    if (item == GALLERY_SKIN || item == GALLERY_COLOUR) return step < 0 ? GALLERY_KEY_LEFT : step > 0 ? GALLERY_KEY_RIGHT : 0;
-    return GALLERY_KEY_ENTER;
+    if (item == GALLERY_PHOTOS) return step < 0 ? GALLERY_KEY_LEFT : GALLERY_KEY_RIGHT;   /* its middle goes on to the next photo */
+    return item == GALLERY_HISTORY ? 0 : GALLERY_KEY_ENTER;                                /* SETUP opens, the bottom row's act */
 }
 
 /* the pick kept for `id`, as the page's state */
 static void state_from_look(Page *p)
 {
     const CarLook l = car_looks_get(p->card.info.id);
-    p->state = (GalleryState){ GALLERY_SKIN, 0, 0, 0 };
+    p->state = (GalleryState){ GALLERY_SKIN, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     for (int k = 1; k < p->card.skins; k++)
         if (strcmp(p->card.skin[k], l.skin) == 0) p->state.skin = k;
     for (int k = 0; k < p->card.info.paint_count; k++)
@@ -416,10 +342,16 @@ static void run_black(void *ctx)
 static void run_draw(void *ctx, const GalleryState *s)
 {
     Page *p = ctx;
-    (void)s;
+    if (p->shown != s->photo) page_still(p);   /* another big photo: the still part and its palette made again */
     ea_select_default();
+    /* the words' colours are the page's, not the previews': the text styles pick their ramps from a palette whose two preview entries are black,
+     * so the words look the same whatever colour or skin the panel shows */
+    uint8_t pal[768];
+    memcpy(pal, p->palette, sizeof pal);
+    memcpy(pal + 3 * SWATCH, pal + 3 * BLACK, 3);
+    memcpy(pal + 3 * SKIN_SWATCH, pal + 3 * BLACK, 3);
+    text_build_styles_from(pal);
     palette_fill(p);
-    text_build_styles_from(p->palette);   /* before the words: their colours are the page's */
     draw(p);
 }
 static void run_palette(void *ctx)
@@ -447,12 +379,42 @@ static void run_pointer(void *ctx, int *x, int *y) { (void)ctx; pointer_position
 static int run_click(void *ctx, GalleryState *s) { (void)ctx; return click_key(s); }
 static void run_music(void *ctx) { (void)ctx; menu_audio_music_service(); }
 static void run_wait(void *ctx) { (void)ctx; video_wait_vblank(); }
+static void run_apply(void *ctx, const GalleryState *s)
+{
+    (void)ctx;
+    cg_setup_put(s->transmission, s->abs, s->traction);   /* the panel's change is Options' */
+}
+static int run_wheel(void *ctx) { (void)ctx; return pointer_take_wheel(); }
+static unsigned run_now(void *ctx) { (void)ctx; return platform_ticks_ms(); }
+static int run_lines(void *ctx, int *visible)
+{
+    const Page *p = ctx;
+    *visible = added_gallery_history_visible();
+    return p->line_count;
+}
 
 /* one car's page until it is left or another is asked for: GALLERY_LEAVE, GALLERY_GO_PREVIOUS or GALLERY_GO_NEXT */
+/* the panel's shutter: opn1 .. opn7 (closing: backwards), the sound at the start; the page drawn each frame, the open one by the run loop */
+static void run_shutter(void *ctx, const GalleryState *s, int opening)
+{
+    Page *p = ctx;
+    if (p->art == NULL || !p->art->ok) return;
+    menu_audio_sound(0x49);
+    p->moving = 1;
+    for (int k = 0; k < SETUP_FRAMES; k++) {
+        p->frame = opening ? k : SETUP_FRAMES - 1 - k;
+        run_draw(p, s);
+        video_flip();   /* no mark: the walks wait on the page as it settles, after the last frame */
+        pointer_show();
+        for (int w = 0; w < SHUTTER_TICKS; w++) run_music(p), run_wait(p);
+    }
+    p->moving = 0;
+}
+
 static int run_page(Page *p)
 {
     const GalleryRunOps ops = { run_clear, run_black, run_draw, run_palette, run_flip, run_fade_in, run_fade_out,
-                                run_key, run_buttons, run_pointer, run_click, run_music, run_wait, p };
+                                run_key, run_buttons, run_pointer, run_click, run_music, run_wait, run_wheel, run_now, run_lines, run_apply, run_shutter, p };
     return added_gallery_run(&p->card, &p->state, &ops);
 }
 
@@ -461,6 +423,7 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
     (void)ctx;
     if (!text_small_init()) port_log("added gallery: the small font is not loaded\n");
     row_load();
+    tile_load();
     for (;;) {
         Page p;
         memset(&p, 0, sizeof p);
@@ -472,11 +435,16 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         Edition e;   /* port (dep59 step 4): the arrows' cars are the edition's */
         car_list_build(&l, edition_active(&e) == 1 ? &e : NULL, warrior);
         p.car = *car;
-        page_still(&p, screen);
+        p.state.photos = photo_total(&p.card, p.warrior);
+        cg_setup_get(&p.state.transmission, &p.state.abs, &p.state.traction);   /* Options' settings, for the panel */
+        memcpy(p.screen, screen, sizeof p.screen);
+        added_gallery_history_make(&p);
+        added_gallery_tints_make(&p);   /* before the still part: the tint is its background's */
+        page_still(&p);
         port_log("mark:screen=added_gallery\n");   /* port: the headless walk waits for it */
         const int result = run_page(&p);
         if (!p.warrior) look_keep(&p);   /* the Warrior's look is fixed: nothing kept */
-        free(p.still);
+        free(p.still), free(p.art);
         if (result == GALLERY_LEAVE) return 0;
         entry = result == GALLERY_GO_NEXT ? 1 : -1;
         *car = car_list_step_gallery(&l, *car, entry);

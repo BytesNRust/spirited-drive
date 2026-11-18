@@ -111,6 +111,8 @@ enum {
 /* Mouse in framebuffer coordinates and its button mask. Returns true when
  * the mouse moved since the previous call. */
 bool platform_mouse(int *x, int *y, unsigned *buttons);
+/* port (dep59 showcase): the wheel's notches since the last call, positive away from the user (up), negative towards (down); 0 with no wheel */
+int platform_mouse_wheel(void);
 
 /* Mods overlay (BYTES-0009, dep59 n4). With mods folders set (`dirs`, highest first: the ones mod_set.h puts in effect), a file the game
  * asks for under `data_root` is read from the first folder that has its own copy (the same relative name, else its upper-case form, else

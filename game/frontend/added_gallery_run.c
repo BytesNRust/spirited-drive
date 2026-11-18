@@ -23,11 +23,26 @@ static void let_go(const GalleryRunOps *o)
 static int follow(const CarPieceCard *c, GalleryState *s, int x, int y)
 {
     int step;
+    (void)c;
     const int item = gallery_hit(x, y, &step);
-    if (item < 0 || item == s->item || (s->fixed && item < GALLERY_PREVIOUS)) return 0;
-    if (item == GALLERY_COLOUR && !added_gallery_colour_on(c, s)) return 0;
+    if (s->setup || item < 0 || item == s->item) return 0;   /* the panel open: the pointer lights nothing under it */
+    if (item == GALLERY_PHOTOS && s->photos < 2) return 0;   /* a photo that is alone has nothing to step */
     s->item = item;
     return 1;
+}
+
+/* port (PR B): the wheel over (or with the keys on) the description, and its automatic scroll; 1 when the scroll changed */
+static int description(const GalleryRunOps *o, GalleryState *s, GalleryScroll *scroll, int x, int y)
+{
+    int step, visible = 0;
+    const int lines = o->lines(o->ctx, &visible), on = gallery_hit(x, y, &step) == GALLERY_HISTORY, wheel = o->wheel(o->ctx);
+    const int was = s->scroll;
+    if (wheel != 0 && (on || s->item == GALLERY_HISTORY)) {
+        s->scroll -= wheel;   /* up is towards the top */
+        added_gallery_scroll_touch(scroll, o->now(o->ctx));
+    }
+    added_gallery_scroll_auto(scroll, o->now(o->ctx), &s->scroll, lines, visible, on || s->item == GALLERY_HISTORY);
+    return s->scroll != was;
 }
 
 int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOps *o)
@@ -40,6 +55,7 @@ int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOp
     o->flip(o->ctx, s);
     o->fade_in(o->ctx);
     int last_key = -1, last_buttons = -1, result = GALLERY_STAY, changed = 0, last_x = 0, last_y = 0;
+    GalleryScroll scroll = { 0, 0 };
     o->pointer(o->ctx, &last_x, &last_y);
     while (result == GALLERY_STAY) {
         if (changed) {   /* the page drawn again: its palette (the swatch's colour) with it */
@@ -64,7 +80,11 @@ int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOp
             const GalleryState was = *s;
             result = added_gallery_input(c, s, press);
             changed |= memcmp(&was, s, sizeof was) != 0;
+            if (was.scroll != s->scroll) added_gallery_scroll_touch(&scroll, o->now(o->ctx));   /* by hand: the clock starts over */
+            if (was.setup != s->setup) o->shutter(o->ctx, s, s->setup);
+            if (was.transmission != s->transmission || was.abs != s->abs || was.traction != s->traction) o->apply(o->ctx, s);
         }
+        changed |= description(o, s, &scroll, x, y);
         o->music(o->ctx);   /* port (owner 2026-11-17): the showcase's music plays on here, as on the showcase's own pages */
         o->wait(o->ctx);
     }
