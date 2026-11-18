@@ -193,7 +193,7 @@ static void warrior_card(Page *p)
     snprintf(c->info.paints[0].name, sizeof c->info.paints[0].name, "%s", WARRIOR_PAINT);
     memcpy(c->info.paints[0].rgb, WARRIOR_RGB, 3);
     p->warrior = 1;
-    p->state = (GalleryState){ GALLERY_NEXT, 0, 1, 1 };
+    p->state = (GalleryState){ GALLERY_NEXT, 0, 1, 1, 0, 0, 0 };
 }
 
 /* the page's still part and palette (Control Central's palette `screen` gives the kept entries) */
@@ -386,7 +386,7 @@ static int click_key(GalleryState *s)
 static void state_from_look(Page *p)
 {
     const CarLook l = car_looks_get(p->card.info.id);
-    p->state = (GalleryState){ GALLERY_SKIN, 0, 0, 0 };
+    p->state = (GalleryState){ GALLERY_SKIN, 0, 0, 0, 0, 0, 0 };
     for (int k = 1; k < p->card.skins; k++)
         if (strcmp(p->card.skin[k], l.skin) == 0) p->state.skin = k;
     for (int k = 0; k < p->card.info.paint_count; k++)

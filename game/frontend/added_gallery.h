@@ -12,7 +12,9 @@
 #include <stdint.h>
 
 
-enum { GALLERY_SKIN, GALLERY_COLOUR, GALLERY_PREVIOUS, GALLERY_NEXT, GALLERY_DONE, GALLERY_ITEMS };
+/* port (dep59 showcase, PR B): GALLERY_PHOTOS is the big photo's tile (Left and Right go round the photos), GALLERY_HISTORY the description's
+ * (Left and Right scroll it). They come after the old items so the old numbers stand (the walks' marks). */
+enum { GALLERY_SKIN, GALLERY_COLOUR, GALLERY_PREVIOUS, GALLERY_NEXT, GALLERY_DONE, GALLERY_PHOTOS, GALLERY_HISTORY, GALLERY_ITEMS };
 /* the keys the page takes: the front end's (showcase.c's) */
 enum { GALLERY_KEY_ENTER = 0x0d, GALLERY_KEY_ESCAPE = 0x1b, GALLERY_KEY_UP = 0x4800, GALLERY_KEY_LEFT = 0x4b00, GALLERY_KEY_RIGHT = 0x4d00,
        GALLERY_KEY_DOWN = 0x5000 };
@@ -24,6 +26,9 @@ typedef struct {
     int skin;    /* 0 as it comes, k the k-th of skin[] */
     int paint;   /* 0 its own colour, k the k-th of paints= */
     int fixed;   /* port (dep59 section 8): 1 the look cannot change (the Warrior's): Skin and Color shown, never visited nor stepped */
+    int photo;   /* port (PR B): the big photo shown, 0 .. photos - 1 */
+    int photos;  /* port (PR B): how many big photos the page has (the glue's: 0 none, only a placeholder); with fewer than two Photos is not visited */
+    int scroll;  /* port (PR B): the description's first line shown (0 at the top); the glue keeps it within the text */
 } GalleryState;
 
 /* 1 when Color applies: the skin picked has masks */
