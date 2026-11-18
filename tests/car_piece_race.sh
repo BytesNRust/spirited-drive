@@ -2,7 +2,7 @@
 # dep59 step 1: an added car against the real binary and the CD data. A piece (mod.ini type=car and the Viper's files under the stem
 # TESTCAR, with copies of its masks) races with --car test-car in Restomod and draws the same frame as the Viper itself; Stock, or
 # Restomod without the piece, has no such car and says so; nothing is written below the data root. Plan 1b: a race with it keeps its
-# record in race_records_cars.dat and its replay as Replay.rpx, never in the original's files; the replay plays back only with the
+# record in race_records_cars2.dat and its replay as Replay.rpx, never in the original's files; the replay plays back only with the
 # piece as it was. Step 3: the replay keeps the skin and paint the added car wore (TNFSLOK1) and plays them whatever is picked now.
 # PART (one ctest each; the races a later part starts from are kept in FIXTURE, ctest's fixtures saying the order):
 #   quick     1-6: --node runs (car 16, the Viper's frame, no cockpit without dash_from, Stock and no piece refuse, the originals race)
@@ -159,7 +159,7 @@ part_giveup() {
 
 part_finish() {
     take giveup || return
-    # 8. a race run to its finish (the harness's autopilot, one lap): its record is in race_records_cars.dat under test-car, and the
+    # 8. a race run to its finish (the harness's autopilot, one lap): its record is in race_records_cars2.dat under test-car, and the
     # original's files are as they were before it (race_records.dat, made at the start, the same bytes; no config.dat or Replay.rpl)
     cp "$work/user/race_records.dat" "$work/records.before" 2>/dev/null || fail "the given-up race made no race_records.dat to compare"
     [ -e "$work/user/config.dat" ] && fail "a race with the piece wrote config.dat"
@@ -169,7 +169,7 @@ part_finish() {
         timeout -k 5 300 "$tnfs" --data "$orig" --mods "$piece" --user "$work/user" --drive TR1 --car test-car --type 0 >"$work/race.out" 2>"$work/err"
     rc=$?
     [ "$rc" -eq 0 ] || fail "the finished race with the piece ended with status $rc: $(tail -3 "$work/err")"
-    grep -q "test-car" "$work/user/race_records_cars.dat" 2>/dev/null || fail "race_records_cars.dat does not hold test-car's record"
+    grep -q "test-car" "$work/user/race_records_cars2.dat" 2>/dev/null || fail "race_records_cars2.dat does not hold test-car's record"
     cmp -s "$work/records.before" "$work/user/race_records.dat" || fail "the finished race with the piece changed race_records.dat"
     [ -e "$work/user/config.dat" ] && fail "the finished race with the piece wrote config.dat"
     find "$work/user" -iname 'replay.rpl' | grep -q . && fail "the finished race with the piece wrote Replay.rpl"
@@ -232,7 +232,7 @@ part_stock() {
     [ "$rc" -eq 0 ] || fail "a Stock race ended with status $rc: $(tail -3 "$work/err")"
     cmp -s "$work/kept.rpx" "$work/user/Replay.rpx" || fail "a Stock race changed Replay.rpx"
     [ -n "$(find "$work/user" -name 'Replay.rpx' -newer "$work/stock.marker")" ] && fail "a Stock race wrote Replay.rpx"
-    [ -n "$(find "$work/user" -name 'race_records_cars.dat' -newer "$work/stock.marker")" ] && fail "a Stock race wrote race_records_cars.dat"
+    [ -n "$(find "$work/user" -name 'race_records_cars2.dat' -newer "$work/stock.marker")" ] && fail "a Stock race wrote race_records_cars2.dat"
 }
 
 for part in $parts; do

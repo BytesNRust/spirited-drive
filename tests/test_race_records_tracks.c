@@ -1,6 +1,6 @@
 /* dep59 step 5 T5: the records of the tracks race_records.dat has no table for (game/sys/race_records_tracks.h): Lunar Springs ("lunar")
  * and the added tracks, a table per key, track id and car id; its file read back byte for byte, anything that is not exactly a good file
- * refused, a damaged one set aside as race_records_tracks.bad; race_records.dat and race_records_cars.dat never touched. */
+ * refused, a damaged one set aside as race_records_tracks.bad; race_records.dat and race_records_cars2.dat never touched. */
 #include "game/sys/race_records_tracks.h"
 #include "game/sys/race_records.h"
 #include "game/sys/race_records_io.h"
@@ -199,7 +199,7 @@ static void test_the_file(void)
     set_time(&race_records_tracks_make("lunar", 0, 0, 4, "nsx", NULL)->totals[0], 777);
     CHECK(race_records_tracks_save());
     CHECK(platform_user_file_exists("race_records_tracks2.dat") && !platform_user_file_exists("race_records_tracks.dat"));
-    CHECK(!platform_user_file_exists("race_records.dat") && !platform_user_file_exists("race_records_cars.dat"));   /* never theirs */
+    CHECK(!platform_user_file_exists("race_records.dat") && !platform_user_file_exists("race_records_cars2.dat"));   /* never theirs */
     race_records_tracks_reset();
     CHECK_EQ_INT(race_records_tracks_load(), RACE_RECORDS_LOADED);
     CHECK_EQ_INT(time_of(&race_records_tracks_find("lunar", 0, 0, 4, "nsx")->totals[0]), 777);

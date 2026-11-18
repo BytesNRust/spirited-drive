@@ -13,7 +13,7 @@
 #                      race type arrow does not step over Tournament, and restomod.cfg keeps no edition.
 #   modes  Stock, then Restored (the selector, no restart), with trio in editions/ and Restomod's edition= set: no edition read, Control
 #          Central opens on a fresh player's car 6 in both. (The pictures are menu_compare's stock and restored targets'.)
-#   race   a whole race of car 2 (supra) on Rusty Springs from the menus, in an edition (cars=supra tracks=rusty): race_records_cars.dat
+#   race   a whole race of car 2 (supra) on Rusty Springs from the menus, in an edition (cars=supra tracks=rusty): race_records_cars2.dat
 #          keeps the supra's table.
 #   trackrace  (dep59 step 5, T7g; needs STUDIO) a whole race on an ADDED track from the menus: a piece made with track new --piece
 #          (a 7 letter stem: its stage's number makes the root 8) in an edition of it alone (cars=supra tracks=dune-run); Control Central opens
@@ -151,7 +151,7 @@ part_race() {
     extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1" walk "$nomods" || fail "race: a race of car 2 on Rusty Springs did not come back to Control Central"
     [ "$(log | values car | cut -d' ' -f1)" = 2 ] || fail "race: the edition did not open on the supra (2): $(log | values car)"
     log | grep -q "^finish: 0=" || fail "race: the race did not finish"
-    grep -aq "supra" "$work/user/race_records_cars.dat" 2>/dev/null || fail "race: race_records_cars.dat has no table of the supra"
+    grep -aq "supra" "$work/user/race_records_cars2.dat" 2>/dev/null || fail "race: race_records_cars2.dat has no table of the supra"
 }
 
 part_trackrace() {

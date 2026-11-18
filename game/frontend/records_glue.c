@@ -41,6 +41,7 @@ void records_glue_load(const uint8_t config_image[RECORD_CHECK_IMAGE])
     if (loaded || !port_records_unified() || config_image == NULL) return;
     loaded = 1;
     race_records_tracks_prints_set(track_print_of, car_print_of);
+    race_records_added_prints_set(car_print_of);
     (void)race_records_added_load();   /* port (dep59): the records by car (race_records_added.h), Restomod's too */
     (void)race_records_tracks_load();   /* port (dep59 step 5, T5): Lunar's and the added tracks' (race_records_tracks.h) */
     switch (race_records_load()) {
@@ -56,7 +57,7 @@ void records_glue_load(const uint8_t config_image[RECORD_CHECK_IMAGE])
     case RACE_RECORDS_DAMAGED: records_import(config_image); break;   /* started again as on the first run (the damaged file's copy kept) */
     }
     /* port (dep59 step 4): the standard rows into their cars' tables, once */
-    if (race_records_cars_import() && !race_records_added_save()) port_log("records: race_records_cars.dat could not be saved\n");
+    if (race_records_cars_import() && !race_records_added_save()) port_log("records: race_records_cars2.dat could not be saved\n");
 }
 
 void records_glue_begin(const uint8_t config_image[RECORD_CHECK_IMAGE], int race_type, const uint8_t *races, int variant_m,

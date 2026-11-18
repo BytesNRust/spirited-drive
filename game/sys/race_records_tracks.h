@@ -16,11 +16,10 @@
 
 enum { RECORDS_TRACK_ID = 33, RECORDS_TRACK_CAR_ID = 33, RECORDS_TRACK_SHORT = 9 };   /* the ids and a short name with their NUL */
 
-/* The current print of the piece with an id (piece_print.h; all zeros for none, which is what `out` holds when it is called): the registries
- * answer, the track one for a track id, the car one for a car id; unset (NULL, the default) every piece has none. A record is kept under the ids
+/* The current print of the piece with an id (RecordsPrintOf, race_records.h): the registries answer, the track one for a track id, the car one
+ * for a car id; unset (NULL, the default) every piece has none. A record is kept under the ids
  * and the prints the pieces have when it is found or made, so a piece that changed has records of its own and gets the old ones back when it is
  * as it was; what is not found by prints is not lost. Set once, at start-up, before the records are loaded */
-typedef void (*RecordsPrintOf)(const char *id, uint8_t out[32]);
 void race_records_tracks_prints_set(RecordsPrintOf track, RecordsPrintOf car);
 
 /* the table of a key for the track `track` and the car `car`, or NULL (a key out of range: layout 0..7, cheats 0..1, laps 0..99) */

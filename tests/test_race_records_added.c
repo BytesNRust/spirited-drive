@@ -82,7 +82,7 @@ static void test_empty(void)
     race_records_added_reset();
     size_t size = 0;
     uint8_t *img = race_records_added_image(&size);
-    CHECK(img != NULL && size == HEADER && memcmp(img, "TNFSRRA2", 8) == 0);
+    CHECK(img != NULL && size == HEADER && memcmp(img, "TNFSRRA3", 8) == 0);
     CHECK_EQ_INT(race_records_added_parse(img, size), 1);
     free(img);
 }
@@ -155,8 +155,8 @@ static int parse_edited(void (*edit)(uint8_t *img, size_t *size))
     return ok;
 }
 
-enum { TABLE_ENTRY = 4 + 33 + 9 + RACE_RECORDS_TABLE_BYTES };   /* key, id, short name, the table */
-static void bad_magic(uint8_t *img, size_t *size) { (void)size, img[7] = '3'; }
+enum { PRINTS = 33, TABLE_ENTRY = 4 + 33 + 9 + PRINTS + RACE_RECORDS_TABLE_BYTES };   /* key, id, short name, the waiting byte and the print, the table */
+static void bad_magic(uint8_t *img, size_t *size) { (void)size, img[7] = '4'; }
 static void bad_flags(uint8_t *img, size_t *size) { (void)size, img[8] = 2; }   /* a flag this version does not know */
 static void one_short(uint8_t *img, size_t *size) { (void)img, (*size)--; }
 static void one_more(uint8_t *img, size_t *size) { img[*size] = 0, (*size)++; }
@@ -174,7 +174,7 @@ static void layout_8(uint8_t *img, size_t *size) { (void)size, img[HEADER + 2 * 
 static void id_no_nul(uint8_t *img, size_t *size) { (void)size, memset(img + HEADER + 4, 'a', 33); }
 static void id_capital(uint8_t *img, size_t *size) { (void)size, img[HEADER + 4] = 'F'; }
 static void short_no_nul(uint8_t *img, size_t *size) { (void)size, memset(img + HEADER + 4 + 33, 'X', 9); }
-static void lap_with_laps(uint8_t *img, size_t *size) { img[*size - (4 + 33 + 9 + RACE_RECORDS_ROW_BYTES) + 3] = 4; }
+static void lap_with_laps(uint8_t *img, size_t *size) { img[*size - (4 + 33 + 9 + PRINTS + RACE_RECORDS_ROW_BYTES) + 3] = 4; }
 
 static void test_parse_refuses(void)
 {
@@ -194,10 +194,10 @@ static void test_a_damaged_file_is_set_aside(void)
     CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_NO_FILE);
     size_t size = 0;
     uint8_t *img = two_tables_and_a_lap(&size);
-    CHECK(platform_write_user_file("race_records_cars.dat", img, size - 5));   /* truncated */
+    CHECK(platform_write_user_file("race_records_cars2.dat", img, size - 5));   /* truncated */
     free(img);
     CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_DAMAGED);
-    CHECK(platform_user_file_exists("race_records_cars.bad"));
+    CHECK(platform_user_file_exists("race_records_cars2.bad"));
     CHECK(race_records_added_find(TR1, 0, 0, 4, "f40") == NULL);
     set_time(&race_records_added_make(TR1, 0, 0, 4, "f40", "F40")->totals[0], 777);
     CHECK(race_records_added_save());
@@ -207,15 +207,26 @@ static void test_a_damaged_file_is_set_aside(void)
     CHECK(!platform_user_file_exists("race_records.dat"));   /* the original store's file is not this one's */
 }
 
-/* the image of the store in step 3's file (TNFSRRA1: no flags) */
-static uint8_t *as_v1(const uint8_t *img, size_t size, size_t *v1_size)
+/* the image of the store in an older file: step 3's (TNFSRRA1: no flags) or the one before the prints (TNFSRRA2): each entry without its print */
+static uint8_t *as_old(const uint8_t *img, size_t size, size_t *old_size, int version)
 {
-    *v1_size = size - 4;
-    uint8_t *v1 = malloc(*v1_size);
-    memcpy(v1, "TNFSRRA1", 8);
-    memcpy(v1 + 8, img + 12, size - 12);
-    return v1;
+    const uint32_t n_tables = race_records_get32(img + 12), n_laps = race_records_get32(img + 16);
+    const size_t header = version == 1 ? HEADER - 4 : HEADER;
+    uint8_t *old = malloc(size), *at = old;
+    if (version == 1) memcpy(at, img, 8), memcpy(at + 8, img + 12, 8);
+    else memcpy(at, img, HEADER);
+    at[7] = (uint8_t)('0' + version), at += header;
+    const uint8_t *from = img + HEADER;
+    for (uint32_t i = 0; i < n_tables + n_laps; i++) {
+        const size_t body = i < n_tables ? RACE_RECORDS_TABLE_BYTES : RACE_RECORDS_ROW_BYTES;
+        memcpy(at, from, 4 + 33 + 9), memcpy(at + 4 + 33 + 9, from + 4 + 33 + 9 + PRINTS, body);
+        at += 4 + 33 + 9 + body, from += 4 + 33 + 9 + PRINTS + body;
+    }
+    *old_size = (size_t)(at - old);
+    return old;
 }
+
+static uint8_t *as_v1(const uint8_t *img, size_t size, size_t *v1_size) { return as_old(img, size, v1_size, 1); }
 
 static void test_the_step_3_file_is_read(void)
 {
@@ -234,7 +245,7 @@ static void test_the_step_3_file_is_read(void)
     CHECK(port_log_watch_hit());
     CHECK_EQ_INT(time_of(race_records_added_lap_find(TR1, 1, 0, "f40")), 4321);
     CHECK(race_records_added_save());
-    CHECK(platform_user_file_exists("race_records_cars.dat"));
+    CHECK(platform_user_file_exists("race_records_cars2.dat"));
     const int old = slot_of("race_records_added.dat", 0);
     CHECK(old >= 0 && files[old].size == v1_size && memcmp(files[old].data, v1, v1_size) == 0);
     /* the new one there: the old one is not read any more */
@@ -243,7 +254,7 @@ static void test_the_step_3_file_is_read(void)
     race_records_cars_set_imported(1);
     CHECK(race_records_added_save());
     race_records_added_reset();
-    port_log_watch("records: race_records_cars.dat read: 1 tables, 0 laps, imported 1");
+    port_log_watch("records: race_records_cars2.dat read: 1 tables, 0 laps, imported 1");
     CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_LOADED);
     CHECK(port_log_watch_hit());
     CHECK_EQ_INT(time_of(&race_records_added_find(TR1, 0, 0, 4, "f40")->totals[0]), 55);
@@ -352,6 +363,91 @@ static void test_the_standard_rows_are_copied_once(void)
     race_records_reset();
 }
 
+
+/* the print the registry gives "mod-car" (a test sets it); the other cars have none */
+static uint8_t mod_print[32];
+static void car_print_of(const char *id, uint8_t out[32]) { if (strcmp(id, "mod-car") == 0) memcpy(out, mod_print, 32); }
+
+/* a car that changed has records of its own, and gets the old ones back when it is as it was; a car with no print never changes */
+static void test_a_changed_car_has_its_own_records(void)
+{
+    race_records_added_reset();
+    race_records_added_prints_set(car_print_of);
+    memset(mod_print, 1, 32);
+    set_time(&race_records_added_make(TR1, 0, 0, 4, "mod-car", NULL)->totals[0], 111);
+    set_time(race_records_added_lap_make(TR1, 1, 0, "mod-car", NULL), 11);
+    set_time(&race_records_added_make(TR1, 0, 0, 4, "f40", NULL)->totals[0], 5);
+    memset(mod_print, 2, 32);
+    CHECK(race_records_added_find(TR1, 0, 0, 4, "mod-car") == NULL && race_records_added_lap_find(TR1, 1, 0, "mod-car") == NULL);
+    CHECK_EQ_INT(time_of(&race_records_added_find(TR1, 0, 0, 4, "f40")->totals[0]), 5);
+    set_time(&race_records_added_make(TR1, 0, 0, 4, "mod-car", NULL)->totals[0], 222);
+    memset(mod_print, 1, 32);
+    CHECK_EQ_INT(time_of(&race_records_added_find(TR1, 0, 0, 4, "mod-car")->totals[0]), 111);
+    size_t size = 0;   /* on disk with their prints, and back */
+    uint8_t *img = race_records_added_image(&size);
+    CHECK(img != NULL);
+    race_records_added_reset();
+    CHECK_EQ_INT(race_records_added_parse(img, size), 1);
+    CHECK_EQ_INT(time_of(&race_records_added_find(TR1, 0, 0, 4, "mod-car")->totals[0]), 111);
+    CHECK_EQ_INT(time_of(race_records_added_lap_find(TR1, 1, 0, "mod-car")), 11);
+    memset(mod_print, 2, 32);
+    CHECK_EQ_INT(time_of(&race_records_added_find(TR1, 0, 0, 4, "mod-car")->totals[0]), 222);
+    size_t again_size = 0;
+    uint8_t *again = race_records_added_image(&again_size);
+    CHECK(again != NULL && again_size == size && memcmp(again, img, size) == 0);
+    free(again);
+    free(img);
+    race_records_added_prints_set(NULL);
+}
+
+/* the records of a file before the prints are taken as the car's as it is at the first look, once; the old file is left as it was */
+static void test_the_file_before_the_prints_is_adopted_once(void)
+{
+    files_clear();
+    race_records_added_reset();
+    race_records_added_prints_set(NULL);
+    size_t size = 0, old_size = 0;
+    uint8_t *img = two_tables_and_a_lap(&size), *old = as_old(img, size, &old_size, 2);
+    free(img);
+    CHECK(platform_write_user_file("race_records_cars.dat", old, old_size));
+    race_records_added_prints_set(car_print_of);
+    memset(mod_print, 3, 32);
+    CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_LOADED);
+    CHECK_EQ_INT(time_of(&race_records_added_find(TR1, 0, 0, 4, "f40")->totals[0]), 1234);   /* a stock car: no print, as ever */
+    memset(mod_print, 4, 32);
+    CHECK(race_records_added_find(TR1, 0, 0, 4, "f40") != NULL);
+    CHECK(race_records_added_save());
+    CHECK(platform_user_file_exists("race_records_cars2.dat"));
+    const int kept = slot_of("race_records_cars.dat", 0);
+    CHECK(kept >= 0 && files[kept].size == old_size && memcmp(files[kept].data, old, old_size) == 0);
+    race_records_added_prints_set(NULL);
+    free(old);
+}
+
+/* an old file's records of a mod's car wait for the car, whichever print it gets first is the one they are put to */
+static void test_the_old_records_of_a_mod_car_wait_for_it(void)
+{
+    files_clear();
+    race_records_added_reset();
+    race_records_added_prints_set(NULL);
+    race_records_added_reset();
+    set_time(&race_records_added_make(TR1, 0, 0, 4, "mod-car", NULL)->totals[0], 99);
+    size_t size = 0, old_size = 0;
+    uint8_t *img = race_records_added_image(&size), *old = as_old(img, size, &old_size, 2);
+    free(img);
+    CHECK(platform_write_user_file("race_records_cars.dat", old, old_size));
+    free(old);
+    race_records_added_prints_set(car_print_of);
+    memset(mod_print, 0, 32);   /* its piece is not loaded yet: no print */
+    CHECK_EQ_INT(race_records_added_load(), RACE_RECORDS_LOADED);
+    CHECK(race_records_added_find(TR1, 0, 0, 4, "mod-car") != NULL);   /* waiting, still found as the print-less */
+    memset(mod_print, 6, 32);
+    CHECK_EQ_INT(time_of(&race_records_added_find(TR1, 0, 0, 4, "mod-car")->totals[0]), 99);   /* taken as the loaded car's */
+    memset(mod_print, 7, 32);
+    CHECK(race_records_added_find(TR1, 0, 0, 4, "mod-car") == NULL);   /* and not again as another one's */
+    race_records_added_prints_set(NULL);
+}
+
 int main(void)
 {
     test_empty();
@@ -363,6 +459,9 @@ int main(void)
     test_the_imported_flag_is_kept();
     test_the_stock_cars_have_tables();
     test_the_standard_rows_are_copied_once();
+    test_a_changed_car_has_its_own_records();
+    test_the_file_before_the_prints_is_adopted_once();
+    test_the_old_records_of_a_mod_car_wait_for_it();
     files_clear();
     race_records_added_reset();
     return TEST_REPORT();

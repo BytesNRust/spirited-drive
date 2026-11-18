@@ -256,7 +256,7 @@ static void test_an_added_car_has_its_own_table(void)
     CHECK(race_records_added_lap_find(TR1, 0, 0, "f40") != NULL);
     CHECK(race_records_find(TR1, 0, 0, 8) == NULL && race_records_lap_find(TR1, 0, 0) == NULL);   /* the original store: nothing */
     CHECK(memcmp(r.image, before.image, sizeof r.image) == 0);
-    CHECK(slot_of("race_records_cars.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0);
+    CHECK(slot_of("race_records_cars2.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0);
     p32(r.game + TOTAL, 400);   /* a better time: first, the other second */
     CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
     CHECK(t != NULL && g32(t->totals[0].row + RECORD_ROW_TIME) == 400 && g32(t->totals[1].row + RECORD_ROW_TIME) == 500);
@@ -308,7 +308,7 @@ static void car_race(Race *r, int car, int total)
 }
 
 /* dep59 step 5 T5: Lunar's race keeps its records only in race_records_tracks.dat, by "lunar" and the player's car's id, its rally left
- * out of the layout (Lunar is the rally); race_records.dat and race_records_cars.dat never see it. The results show that table. Stock
+ * out of the layout (Lunar is the rally); race_records.dat and race_records_cars2.dat never see it. The results show that table. Stock
  * keeps the original's (Rusty's block in config.dat's image, as ever); an added track there keeps nothing */
 static void test_lunar_keeps_its_own_records(void)
 {
@@ -326,7 +326,7 @@ static void test_lunar_keeps_its_own_records(void)
     CHECK(moon != NULL && race_records_row_set(&moon->top) && race_records_tracks_lap_find("lunar", 0, 0, "viper") != NULL);
     CHECK(race_records_find(TR1, LAYOUT_RALLY, 0, 8) == NULL && race_records_find(TR1, 0, 0, 8) == NULL);
     CHECK(race_records_added_find(TR1, LAYOUT_RALLY, 0, 8, "viper") == NULL);
-    CHECK(slot_of("race_records_tracks2.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0 && slot_of("race_records_cars.dat", 0) < 0);
+    CHECK(slot_of("race_records_tracks2.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0 && slot_of("race_records_cars2.dat", 0) < 0);
     records_route_shown((RaceKind){ LAYOUT_RALLY, 0 }, r.image, shown, slots, NULL);
     CHECK_EQ_INT(g32(shown + 0xb5 + 0xa6b * TR1 + 0xea + 0x1b), 500);
     /* another car: its own table; the mirror: another table */
@@ -457,7 +457,7 @@ static void test_a_stock_car_keeps_its_rows_by_car_too(void)
     CHECK(viper != NULL && row_word(&viper->totals[0], RECORD_ROW_CAR) == 5);   /* a stock car's rows keep its number */
     CHECK(viper != NULL && race_records_row_set(&viper->top));
     CHECK(race_records_added_lap_find(TR1, 0, 0, "viper") != NULL && race_records_lap_find(TR1, 0, 0) != NULL);
-    CHECK(slot_of("race_records.dat", 0) >= 0 && slot_of("race_records_cars.dat", 0) >= 0);
+    CHECK(slot_of("race_records.dat", 0) >= 0 && slot_of("race_records_cars2.dat", 0) >= 0);
     /* another car's better time: first in race_records.dat, alone in its own table; the viper's table does not see it */
     car_race(&r, 0, 400);
     CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
