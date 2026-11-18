@@ -363,6 +363,10 @@ int main(int argc, char **argv)
     set_stats_sender();
     platform_set_user_dir(opt.user);   /* port: before the log opens in it */
     platform_open_log(opt.mods);   /* before anything can stop the run: the report of a run with no game data is in spirited-drive.log too */
+    if (opt.mods != NULL && opt.user == NULL) {   /* port: a run with --mods but no --user writes to the player's own folder (settings, records, log): say which, so a test run does not surprise */
+        char user[1200];
+        if (platform_user_dir(user, sizeof user)) fprintf(stderr, "user folder: %s (--user DIR uses another)\n", user);
+    }
     if (opt.install != NULL || opt.uninstall != NULL || opt.mods_list) {   /* port (dep59 step 2): the installed mods, no window nor game data */
         port_old_files_migrate();
         return opt.install != NULL ? mod_commands_install(opt.install) : opt.uninstall != NULL ? mod_commands_uninstall(opt.uninstall)
