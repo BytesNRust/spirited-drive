@@ -11,6 +11,7 @@
 #include "game/sys/port_settings.h"
 #include "game/sys/race_records.h"
 #include "game/sys/race_records_tracks.h"
+#include "game/sys/track_registry.h"
 #include "test.h"
 
 #include "game/platform/platform.h"
@@ -231,6 +232,7 @@ static void reset(const int *keys, int count)
 static uint8_t run_config[TRACK_SELECT_CONFIG];
 
 static int *run_lunar;   /* dep59 Lunar L5: BestTimesInputs.lunar; NULL none */
+static int *run_added;   /* dep59 step 5, T7e2: BestTimesInputs.added; NULL none */
 
 /* the screen on `track`, the menu's laps choice 1, its arrows walking `tracks` (NULL the original's walk), Lost Vegas `lost_vegas` */
 static int32_t run_walk(BestTimesPlus *plus, int track, const TrackList *tracks, int lost_vegas)
@@ -238,7 +240,7 @@ static int32_t run_walk(BestTimesPlus *plus, int track, const TrackList *tracks,
     uint8_t *const config = run_config;
     static uint8_t screen_palette[0x300];
     static uint8_t records[BEST_TIMES_RECORDS];
-    const BestTimesInputs in = { "", 0, lost_vegas, 0, 0, records, tracks, run_lunar };
+    const BestTimesInputs in = { "", 0, lost_vegas, 0, 0, records, tracks, run_lunar, run_added };
     BestTimesState st = { config, 0, screen_palette, plus };
     DialogPointer p = { 0 };
     p.active = fk.active;
@@ -388,6 +390,51 @@ static void test_lunar_draws_its_own_records(void)
     race_records_reset(), race_records_tracks_reset();
 }
 
+/* dep59 step 5, T7e2: an added track's Best Times opens on Coastal's stage layout with the track's made art and its name, and shows its
+ * records by id (race_records_tracks.dat); an arrow off it drops it */
+static void test_an_added_track_shows_its_own(void)
+{
+    TrackPiece piece;
+    memset(&piece, 0, sizeof piece);
+    snprintf(piece.id, sizeof piece.id, "dune"), snprintf(piece.name, sizeof piece.name, "Dune Run"), snprintf(piece.stem, sizeof piece.stem, "ZZA");
+    piece.spec.kind = TRACK_KIND_STAGE, piece.spec.segments = 1, piece.spec.times = TRACK_TIME_DAY, piece.fingerprint = 7;
+    track_registry_clear();
+    CHECK(track_registry_add(&piece, NULL, 0) == 16);
+    race_records_reset(), race_records_tracks_reset();
+    race_records_make(1, 0, 0, 0)->totals[0] = named_row("COAST", 80000);
+    race_records_tracks_make("dune", 0, 0, 0, "viper", NULL)->totals[0] = named_row("DUNER", 61000);
+    int added = 16;
+    run_added = &added;
+    BestTimesPlus plus;
+    best_times_pages_open(&plus, 1, 0, 0, 0, 1);
+    reset((int[]){ SHIFT_NOTHING }, 1);
+    (void)run(&plus, 1);
+    CHECK(strcmp(art_loaded, "tracksel/addedbst.qfs") == 0);
+    CHECK(was_drawn("Dune Run"));                        /* its name, where the art has none */
+    CHECK(was_drawn("DUNER") && !was_drawn("COAST"));   /* its own records */
+    CHECK(plus.own != NULL && strcmp(plus.own, "dune") == 0);
+    added = 0;                                           /* no pick: Coastal as it was */
+    best_times_pages_open(&plus, 1, 0, 0, 0, 1);
+    reset((int[]){ SHIFT_NOTHING }, 1);
+    (void)run(&plus, 1);
+    CHECK(strcmp(art_loaded, "tracksel/coastbst.qfs") == 0 && !was_drawn("Dune Run") && was_drawn("COAST") && plus.own == NULL);
+    added = 16;                                          /* an arrow off the track drops it */
+    best_times_pages_open(&plus, 1, 0, 0, 0, 1);
+    static const int next[] = { RIGHT, RIGHT, RIGHT, ENTER };
+    reset(next, 4);
+    (void)run(&plus, 1);
+    CHECK_EQ_INT(added, 0);
+    CHECK(plus.own == NULL && strcmp(bank_loaded, "tracksel/alpbst.qfs") == 0);   /* the next track's own art */
+    added = 16;                                          /* a pick left over on another track: nothing */
+    best_times_pages_open(&plus, 0, 0, 0, 0, 1);
+    reset((int[]){ SHIFT_NOTHING }, 1);
+    (void)run(&plus, 0);
+    CHECK(strcmp(art_loaded, "tracksel/citybst.qfs") == 0 && !was_drawn("Dune Run"));
+    run_added = NULL;
+    race_records_reset(), race_records_tracks_reset();
+    track_registry_clear();
+}
+
 /* the strip names the table shown and the page; an empty table says so, the top speed's row too */
 static void test_the_strip_names_the_table(void)
 {
@@ -505,7 +552,7 @@ static void draw_strip(BestTimesPlus *plus, int track, int lit, BestPagesHits *h
     static uint8_t config[TRACK_SELECT_CONFIG];
     static uint8_t screen_palette[0x300];
     static uint8_t records[BEST_TIMES_RECORDS];
-    const BestTimesInputs in = { "", 0, 0, 0, 0, records, NULL, NULL };
+    const BestTimesInputs in = { "", 0, 0, 0, 0, records, NULL, NULL, NULL };
     const BestTimesState st = { config, 0, screen_palette, plus };
     memset(config, 0, sizeof config);
     config[TRACK_SELECT_TRACK] = (uint8_t)track;
@@ -683,6 +730,7 @@ int main(void)
     test_the_standard_arrows_walk_the_original();
     test_lunar_shows_the_moon();
     test_lunar_draws_its_own_records();
+    test_an_added_track_shows_its_own();
     test_an_editions_arrows_walk_its_tracks();
     test_the_strip_names_the_table();
     test_tab_turns_the_page();
