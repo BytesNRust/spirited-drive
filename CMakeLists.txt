@@ -124,6 +124,11 @@ if(UNIX)
     target_link_libraries(tnfs_core PUBLIC m)   # track_gen
 endif()
 target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
+# What goes into a file's print (the generated TRI, the pieces) must not depend on the machine: arm64 fuses a*b+c into one rounding by
+# default and x86 does not, so the same layout gave different bytes. Off for all of core.
+if(NOT MSVC)
+    target_compile_options(tnfs_core PRIVATE -ffp-contract=off)
+endif()
 
 # The recovered game logic: platform-independent, links no SDL.
 add_library(tnfs_game STATIC
