@@ -63,10 +63,12 @@ static void take_exact(FileSet *set, const char *dir, const char *rel)
 
 /* port (dep59 step 3): the piece's pictures and the PNGs of each folder of its skins/, for car_piece_check; one folder past the most it
  * may have is read, so the check says there are too many */
-static void take_pictures(FileSet *set, const char *dir)
+static void take_pictures(FileSet *set, const char *dir, const ModInfo *card)
 {
     static const char *const PICTURES[] = { "card.png", "rival.png", "gallery.png" };
     for (size_t i = 0; i < sizeof PICTURES / sizeof PICTURES[0]; i++) take_exact(set, dir, PICTURES[i]);
+    for (int i = 0; i < card->photo_count; i++) take_exact(set, dir, card->photo[i]);   /* port (dep59 showcase): photos=, photo_small= */
+    if (card->photo_small[0] != '\0') take_exact(set, dir, card->photo_small);
     char path[PATH_MAX_LEN];
     if (snprintf(path, sizeof path, "%s/skins", dir) >= (int)sizeof path) return;
     int count = 0, taken = 0;
@@ -151,7 +153,7 @@ static int read_piece(const char *dir, ModInfo *card, CarPiece *out, char *why, 
         car_piece_paths(card->stem, paths);
         for (int i = 0; i < CAR_PIECE_FILES; i++) take_file(&set, dir, paths[i]);
     }
-    take_pictures(&set, dir);
+    take_pictures(&set, dir, card);
     Report r;
     report_init(&r);
     int ok = car_piece_check(card, &set, &r);
