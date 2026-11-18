@@ -62,11 +62,13 @@ static int lines(void *ctx, int *visible) { (void)ctx; *visible = visible_in; re
 static int applied;   /* how many times the settings were kept, and the last transmission */
 static void apply(void *ctx, const GalleryState *s) { (void)ctx; applied = 10 * applied + 1 + s->transmission; }
 
+static int moves;   /* the lit tile's changes */
+static void moved(void *ctx) { (void)ctx; moves++; }
 static int shutters;   /* the panel's openings and closings: opening +1, closing +10 */
 static void shutter(void *ctx, const GalleryState *s, int opening) { (void)ctx, (void)s; shutters += opening ? 1 : 10; }
 
 static const GalleryRunOps OPS = { clear, black, draw, palette, flip, fade_in, fade_out, key, buttons, pointer, click, music, wait, wheel, now,
-                                   lines, apply, shutter, NULL };
+                                   lines, apply, shutter, moved, NULL };
 
 static int run(const int *keys, GalleryState *s)
 {
@@ -149,7 +151,7 @@ static void test_the_description_scrolls(void)
     CarPieceCard c;
     memset(&c, 0, sizeof c);
     c.skins = 1;
-    lines_in = 8, visible_in = 3, step_ms = 1000, fake_ms = 0, wheel_in = 0;
+    lines_in = 80, visible_in = 30, step_ms = 1000, fake_ms = 0, wheel_in = 0;
     GalleryState s = { GALLERY_NEXT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     places = NULL;
     keys_in = KEYS, key_reads = frames = services = shows = ops_count = 0;
@@ -165,7 +167,7 @@ static void test_the_description_scrolls(void)
     places = OVER, place_reads = 0, fake_ms = 0, wheel_in = -2, drawn_scroll = -1;   /* two notches down over it */
     keys_in = KEYS, key_reads = frames = services = shows = ops_count = 0;
     CHECK_EQ_INT(added_gallery_run(&c, &s, &OPS), GALLERY_LEAVE);
-    CHECK_EQ_INT(drawn_scroll, 2);
+    CHECK_EQ_INT(drawn_scroll, 2 * GALLERY_SCROLL_WHEEL_PX);
     wheel_in = 4;   /* four up: the top, never above it */
     s = (GalleryState){ GALLERY_NEXT, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0 };
     places = OVER, place_reads = 0, fake_ms = 0;
@@ -173,6 +175,19 @@ static void test_the_description_scrolls(void)
     added_gallery_run(&c, &s, &OPS);
     CHECK_EQ_INT(drawn_scroll, 0);
     places = NULL, step_ms = 0, lines_in = 0;
+}
+
+/* owner 2026-11-18: a tile lit by the keys sounds as the CD's does, once for each */
+static void test_a_lit_tile_sounds(void)
+{
+    static const int KEYS[] = { 0, GALLERY_KEY_DOWN, 0, GALLERY_KEY_UP, 0, GALLERY_KEY_ESCAPE, 0, -1 };
+    GalleryState s = { GALLERY_SETUP, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    CarPieceCard c;
+    memset(&c, 0, sizeof c);
+    moves = 0, places = NULL;
+    keys_in = KEYS, key_reads = frames = services = shows = ops_count = 0;
+    CHECK_EQ_INT(added_gallery_run(&c, &s, &OPS), GALLERY_LEAVE);
+    CHECK_EQ_INT(moves, 2);
 }
 
 /* PR C: a setting changed in the SETUP panel is kept at once (the apply op, with the page's values), the panel's other keys are not */
@@ -184,9 +199,10 @@ static void test_the_settings_are_kept(void)
     CarPieceCard c;
     memset(&c, 0, sizeof c);
     c.skins = 1;
-    applied = shutters = 0, places = NULL;
+    applied = shutters = moves = 0, places = NULL;
     keys_in = KEYS, key_reads = frames = services = shows = ops_count = 0;
     CHECK_EQ_INT(added_gallery_run(&c, &s, &OPS), GALLERY_LEAVE);
+    CHECK_EQ_INT(moves, 0);   /* the panel's keys light no other tile */
     CHECK_EQ_INT(shutters, 11);   /* the panel opened once and closed once */
     CHECK_EQ_INT(applied, 21);   /* first manual (1 + 1), then automatic (1 + 0) */
     CHECK_EQ_INT(s.transmission, 0);
@@ -195,7 +211,7 @@ static void test_the_settings_are_kept(void)
 int main(void)
 {
     test_the_settings_are_kept();
-    test_the_description_scrolls();
+    test_a_lit_tile_sounds();    test_the_description_scrolls();
     test_the_pointer_lights();
     test_the_music_plays_on();
     test_the_fades();

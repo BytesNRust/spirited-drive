@@ -29,8 +29,9 @@ enum {
     GL_ARROW_W = 9, GL_ARROW_H = 14, GL_ARROW_IN = 8,
     /* the SETUP panel when it is open, over the tile and General's top (the mock-up: x 57..299, y 100..269); its rows from GL_SETUP_ROW0 down by
      * GL_SETUP_STEP, the value column from GL_SETUP_VALUE_X, GL_SETUP_VALUE_W wide (its arrows at its two ends) */
-    GL_SETUP_X = 57, GL_SETUP_Y = 100, GL_SETUP_W = 300, GL_SETUP_H = 170, GL_SETUP_ROW0 = 44, GL_SETUP_STEP = 24,
-    GL_SETUP_VALUE_X = 168, GL_SETUP_VALUE_W = 96, GL_SETUP_PREVIEW_W = 20, GL_SETUP_PREVIEW_H = 12,   /* a row's label from x + 12; the previews right of the value column */
+    GL_SETUP_X = 40, GL_SETUP_Y = 100, GL_SETUP_W = 380, GL_SETUP_H = 170, GL_SETUP_ROW0 = 44, GL_SETUP_STEP = 24,
+    GL_SETUP_VALUE_X = 168, GL_SETUP_VALUE_W = 196, GL_SETUP_PREVIEW_W = 20, GL_SETUP_PREVIEW_H = 12,   /* the arrows' zone: Color's and Skin's arrows at its two ends, a switch's value at its right end; the label from x + GL_SETUP_LABEL_X */
+    GL_SETUP_LABEL_X = 14, GL_SETUP_FONT_NUM = 7, GL_SETUP_FONT_DEN = 8,   /* the rows in the main face at 7/8, as Options' */
     GALLERY_SETUP_ROWS = 5,
     GL_ARROW_ZONE = 30,   /* the width of the big photo's left and right zones, the arrows' places for a click */
     /* the bottom row (DONE, the arrows, "Next car") as the CD showcase pages have it, cut from their art (GalleryRow): rows GL_ROW_Y ..

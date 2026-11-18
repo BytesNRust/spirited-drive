@@ -38,7 +38,7 @@ static int description(const GalleryRunOps *o, GalleryState *s, GalleryScroll *s
     const int lines = o->lines(o->ctx, &visible), on = gallery_hit(x, y, &step) == GALLERY_HISTORY, wheel = o->wheel(o->ctx);
     const int was = s->scroll;
     if (wheel != 0 && (on || s->item == GALLERY_HISTORY)) {
-        s->scroll -= wheel;   /* up is towards the top */
+        s->scroll -= wheel * GALLERY_SCROLL_WHEEL_PX;   /* up is towards the top */
         added_gallery_scroll_touch(scroll, o->now(o->ctx));
     }
     added_gallery_scroll_auto(scroll, o->now(o->ctx), &s->scroll, lines, visible, on || s->item == GALLERY_HISTORY);
@@ -56,6 +56,7 @@ int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOp
     o->fade_in(o->ctx);
     int last_key = -1, last_buttons = -1, result = GALLERY_STAY, changed = 0, last_x = 0, last_y = 0;
     GalleryScroll scroll = { 0, 0 };
+    int lit = s->item;
     o->pointer(o->ctx, &last_x, &last_y);
     while (result == GALLERY_STAY) {
         if (changed) {   /* the page drawn again: its palette (the swatch's colour) with it */
@@ -85,6 +86,8 @@ int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOp
             if (was.transmission != s->transmission || was.abs != s->abs || was.traction != s->traction) o->apply(o->ctx, s);
         }
         changed |= description(o, s, &scroll, x, y);
+        if (s->item != lit && !s->setup) o->moved(o->ctx);   /* as the CD's page sounds a tile lit */
+        lit = s->item;
         o->music(o->ctx);   /* port (owner 2026-11-17): the showcase's music plays on here, as on the showcase's own pages */
         o->wait(o->ctx);
     }

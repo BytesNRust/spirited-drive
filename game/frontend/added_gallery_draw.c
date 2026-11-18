@@ -73,7 +73,7 @@ static void shaded(const Target *t, const char *text, int x, int y, int index, i
     const int w = text_width_scaled(text, 3, 4) + 2, h = text_mask_rows(text, 3, 4);
     uint8_t *mask = h > 0 ? malloc((size_t)w * h) : NULL;
     if (mask != NULL && text_mask_scaled(text, 3, 4, mask, w, h))
-        for (int pass = 0; pass < 2; pass++)
+        for (int pass = shadow < 0 ? 1 : 0; pass < 2; pass++)
             for (int j = 0; j < h; j++)
                 for (int i = 0; i < w; i++) {
                     const int px = x + i + (pass == 0), py = y + j + (pass == 0);
@@ -82,10 +82,10 @@ static void shaded(const Target *t, const char *text, int x, int y, int index, i
     free(mask);
 }
 
-/* a tile's label at its foot, as the CD pages have it (owner 2026-11-18): black, its shadow cream, yellow when the tile is the item */
+/* a tile's label at its foot, as the CD pages have it (owner 2026-11-18): black, nothing white about it; yellow-shadowed when the tile is the item */
 static void label(const Target *t, const char *text, int x, int y, int h, int lit)
 {
-    shaded(t, text, x + 8, y + h - 24, BLACK, lit ? YELLOW : CREAM);
+    shaded(t, text, x + 8, y + h - 24, BLACK, lit ? YELLOW : -1);
 }
 
 /* `text` cut (with a "." at its end) until the small face shows it in `width` pixels */
@@ -93,6 +93,17 @@ static void fitted(const char *text, int width, char *out, int size)
 {
     snprintf(out, (size_t)size, "%s", text);
     while (out[0] != 0 && text_small_width(out) > width) {
+        const size_t n = strlen(out);
+        out[n - 1] = 0;
+        if (n > 1) out[n - 2] = '.';
+    }
+}
+
+/* `text` cut (with a "." at its end) until the main face at the panel's size shows it in `width` pixels */
+static void fitted_main(const char *text, int width, char *out, int size)
+{
+    snprintf(out, (size_t)size, "%s", text);
+    while (out[0] != 0 && text_width_scaled(out, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN) > width) {
         const size_t n = strlen(out);
         out[n - 1] = 0;
         if (n > 1) out[n - 2] = '.';
@@ -118,25 +129,44 @@ static void general(const Page *p)
     for (int i = 0; i < 4; i++) row(LABEL[i], value[i], GL_GEN_X + 8, GL_GEN_X + GL_GEN_W - 8, GL_GEN_Y + 6 + i * 20, TEXT_CREAM);
 }
 
-int added_gallery_history_visible(void)
-{
-    return (GL_HIST_H - 8 - 28) / text_small_line_height();
-}
+/* owner 2026-11-18: the History text in the main face at 3/4, scrolled a pixel row at a time */
+enum { HIST_NUM = 3, HIST_DEN = 4 };
+
+int added_gallery_history_line_px(void) { return text_line_height() * HIST_NUM / HIST_DEN; }
+
+int added_gallery_history_window(void) { return GL_HIST_H - 8 - 28; }
 
 static void history(const Page *p, const Target *t)
 {
-    const int x = GL_HIST_X + 8, visible = added_gallery_history_visible(), lh = text_small_line_height();
-    text_select(TEXT_WHITE);
-    for (int i = 0; i < visible && p->state.scroll + i < p->line_count; i++) {
-        const HistoryLine *l = &p->lines[p->state.scroll + i];
-        char line[160];
-        snprintf(line, sizeof line, "%.*s", l->len, l->text);
-        text_small_draw(line, x, GL_HIST_Y + 6 + i * lh);
+    const int x = GL_HIST_X + 8, lh = added_gallery_history_line_px(), win = added_gallery_history_window();
+    const int w = GL_HIST_W - 8 - 12 + 4, total = p->line_count * lh + 2;
+    if (p->line_count > 0 && lh > 0) {
+        uint8_t *big = calloc((size_t)w * total, 1);
+        for (int i = 0; big != NULL && i < p->line_count; i++) {
+            const HistoryLine *l = &p->lines[i];
+            char line[160];
+            snprintf(line, sizeof line, "%.*s", l->len, l->text);
+            const int h = text_mask_rows(line, HIST_NUM, HIST_DEN);
+            uint8_t *tmp = h > 0 ? malloc((size_t)w * h) : NULL;
+            if (tmp != NULL && text_mask_scaled(line, HIST_NUM, HIST_DEN, tmp, w, h))
+                for (int j = 0; j < h && i * lh + j < total; j++)
+                    for (int k = 0; k < w; k++) {
+                        uint8_t *const at = &big[(i * lh + j) * w + k];
+                        if (tmp[j * w + k] > *at) *at = tmp[j * w + k];
+                    }
+            free(tmp);
+        }
+        const int off = p->state.scroll < 0 ? 0 : p->state.scroll, rows = total - off < win ? total - off : win;
+        if (big != NULL && rows > 0) {
+            text_select(TEXT_WHITE);
+            text_draw_item_mask(big + (size_t)off * w, w, rows, x, GL_HIST_Y + 6);
+        }
+        free(big);
     }
-    if (p->line_count > visible) {   /* a thumb on a track at the right edge: where the text is */
-        const int tx = GL_HIST_X + GL_HIST_W - 7, ty = GL_HIST_Y + 8, th = visible * lh;
+    if (total > win) {   /* a thumb on a track at the right edge: where the text is */
+        const int tx = GL_HIST_X + GL_HIST_W - 7, ty = GL_HIST_Y + 8, th = win;
         fill(t, tx, ty, tx + 2, ty + th - 1, DIM);
-        const int thumb = th * visible / p->line_count, at = (th - thumb) * p->state.scroll / (p->line_count - visible);
+        const int thumb = th * win / total, at = (th - thumb) * p->state.scroll / (total - win);
         fill(t, tx, ty + at, tx + 2, ty + at + thumb - 1, CREAM);
     }
 }
@@ -149,7 +179,7 @@ static void setup_tile(const Target *t, const Page *p)
         for (int y = 0; y < GL_COL_H; y++)
             for (int x = 0; x < GL_COL_W; x++)
                 if (GL_COL_X + x < t->w && GL_COL_Y + y < t->h) t->to[(GL_COL_Y + y) * t->w + GL_COL_X + x] = p->tile[y * GL_COL_W + x];
-    shaded(t, "SETUP", GL_COL_X + 14, GL_COL_Y + 20, BLACK, lit ? YELLOW : CREAM);
+    label(t, "SETUP", GL_COL_X, GL_COL_Y, GL_COL_H, lit);   /* at the foot like the others */
     arrow(t, GL_COL_X + GL_COL_W - 24, GL_COL_Y + (GL_COL_H - GL_ARROW_H) / 2, 0, lit ? YELLOW : CREAM);
 }
 
@@ -158,8 +188,8 @@ static void setup_value(const Page *p, int row, char *out, int size)
 {
     const GalleryState *s = &p->state;
     switch (row) {
-    case SETUP_COLOUR: text_small_words(s->paint == 0 ? "Default" : p->card.info.paints[s->paint - 1].name, out, size); break;
-    case SETUP_SKIN: text_small_words(s->skin == 0 ? "Default" : p->card.skin[s->skin], out, size); break;
+    case SETUP_COLOUR: text_words(s->paint == 0 ? "Default" : p->card.info.paints[s->paint - 1].name, out, size); break;
+    case SETUP_SKIN: text_words(s->skin == 0 ? "Default" : p->card.skin[s->skin], out, size); break;
     case SETUP_TRANSMISSION: snprintf(out, (size_t)size, "%s", s->transmission == 0 ? "Automatic" : "Manual"); break;   /* Options' words */
     case SETUP_ABS: snprintf(out, (size_t)size, "%s", s->abs == SETUP_NOT_OFFERED ? "n/a" : s->abs == 0 ? "On" : "Off"); break;
     default: snprintf(out, (size_t)size, "%s", s->traction == SETUP_NOT_OFFERED ? "n/a" : s->traction == 0 ? "On" : "Off"); break;
@@ -191,22 +221,29 @@ static void setup_panel(const Target *t, const Page *p)
         fill(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, p->panel_fill);
     edge(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, 1, CREAM);
     text_select(TEXT_RED);
-    text_draw_smooth("CAR SETUP", GL_SETUP_X + 12, GL_SETUP_Y + 8, GL_HEADING_NUM, GL_HEADING_DEN);   /* as "Car Showcase", red */
+    text_draw_smooth("CAR SETUP", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, GL_HEADING_NUM, GL_HEADING_DEN);   /* as "Car Showcase", red */
+    int ink_top, ink_bottom;
+    text_ink_scaled("H", GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN, &ink_top, &ink_bottom);
     for (int row = 0; row < SETUP_ROWS; row++) {
         const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP, on = added_gallery_setup_row_on(&p->card, s, row), lit = s->row == row;
-        const int choice = row == SETUP_COLOUR || row == SETUP_SKIN, vx = GL_SETUP_X + GL_SETUP_VALUE_X;
+        const int choice = row == SETUP_COLOUR || row == SETUP_SKIN, zone = GL_SETUP_X + GL_SETUP_VALUE_X, right = zone + GL_SETUP_VALUE_W;
+        const int mid = y + (ink_top + ink_bottom) / 2;   /* the row's middle: the arrows and the box centre on it */
         char value[64], fits[64];
         setup_value(p, row, value, sizeof value);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM);
-        text_small_draw(LABEL[row], GL_SETUP_X + 12, y);
-        fitted(value, GL_SETUP_VALUE_W - (choice ? 2 * (GL_ARROW_W + 4) : 0), fits, sizeof fits);
+        text_draw_smooth(LABEL[row], GL_SETUP_X + GL_SETUP_LABEL_X, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_WHITE);
-        text_small_draw(fits, vx + (GL_SETUP_VALUE_W - text_small_width(fits)) / 2, y);
-        if (!choice || !on) continue;
-        const int index = lit ? YELLOW : CREAM;
-        arrow(t, vx, y + 1, 1, index);
-        arrow(t, vx + GL_SETUP_VALUE_W - GL_ARROW_W, y + 1, 0, index);
-        preview(t, vx + GL_SETUP_VALUE_W + 8, y - 1, row == SETUP_COLOUR ? SWATCH : SKIN_SWATCH);
+        if (!choice || !on) {   /* a switch's value (or a choice that is off): at the right end of the zone */
+            fitted_main(value, GL_SETUP_VALUE_W, fits, sizeof fits);
+            text_draw_smooth(fits, right - text_width_scaled(fits, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN), y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+            continue;
+        }
+        const int index = lit ? YELLOW : CREAM, box = zone + GL_ARROW_W + 6, at = box + GL_SETUP_PREVIEW_W + 6;   /* < box name >, the box inside the arrows */
+        arrow(t, zone, mid - GL_ARROW_H / 2, 1, index);
+        arrow(t, right - GL_ARROW_W, mid - GL_ARROW_H / 2, 0, index);
+        preview(t, box, mid - GL_SETUP_PREVIEW_H / 2, row == SETUP_COLOUR ? SWATCH : SKIN_SWATCH);
+        fitted_main(value, right - GL_ARROW_W - 6 - at, fits, sizeof fits);
+        text_draw_smooth(fits, at, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
     }
 }
 
@@ -240,7 +277,7 @@ static int small_measure(void *ctx, const char *s, int len)
     (void)ctx;
     char run[MOD_INI_DESCRIPTION_MAX + 1];
     snprintf(run, sizeof run, "%.*s", len, s);
-    return text_small_width(run);
+    return text_width_scaled(run, HIST_NUM, HIST_DEN);
 }
 
 /* the head (name, year, author and version) and the description in lines for the tile */
@@ -257,16 +294,15 @@ static void put_lines(Page *p, const char *text, int width)
 void added_gallery_history_make(Page *p)
 {
     char name_[64], author[64], version[32], year[32];
-    text_small_words(p->card.info.name, name_, sizeof name_);
-    text_small_words(p->card.info.author, author, sizeof author);
-    text_small_words(p->card.info.version, version, sizeof version);
-    text_small_words(p->card.info.year, year, sizeof year);
-    /* the small face has no comma (its 0x2c is a u with two dots) nor a long dash, so the head's pieces are told apart by hyphens */
+    text_words(p->card.info.name, name_, sizeof name_);
+    text_words(p->card.info.author, author, sizeof author);
+    text_words(p->card.info.version, version, sizeof version);
+    text_words(p->card.info.year, year, sizeof year);
     int n = snprintf(p->head, sizeof p->head, "%s", name_);
     if (year[0] != 0) n += snprintf(p->head + n, sizeof p->head - (size_t)n, " (%s)", year);
     if (author[0] != 0) n += snprintf(p->head + n, sizeof p->head - (size_t)n, " - by %s", author);
     if (version[0] != 0) snprintf(p->head + n, sizeof p->head - (size_t)n, " - v%s", version);
-    text_small_words(p->card.info.description, p->body, sizeof p->body);
+    text_words(p->card.info.description, p->body, sizeof p->body);
     p->line_count = 0;
     const int width = GL_HIST_W - 8 - 12;
     put_lines(p, p->head, width);

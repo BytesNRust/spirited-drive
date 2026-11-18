@@ -101,7 +101,7 @@ int main(void)
     CHECK_EQ_INT(s.item, GALLERY_HISTORY);
     added_gallery_input(&c, &s, GALLERY_KEY_RIGHT);   /* on History they scroll the description, never above its top */
     added_gallery_input(&c, &s, GALLERY_KEY_RIGHT);
-    CHECK_EQ_INT(s.scroll, 2);
+    CHECK_EQ_INT(s.scroll, 2 * GALLERY_SCROLL_KEY_PX);
     added_gallery_input(&c, &s, GALLERY_KEY_LEFT);
     added_gallery_input(&c, &s, GALLERY_KEY_LEFT);
     added_gallery_input(&c, &s, GALLERY_KEY_LEFT);
@@ -157,34 +157,35 @@ int main(void)
     s = (GalleryState){ GALLERY_SETUP, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     added_gallery_enter(&s, 0);
     CHECK_EQ_INT(s.item, GALLERY_SETUP);
-    /* the description's automatic scroll: 3 s at the top, a line each 2 s, 3 s at the end, then the top again; paused it waits */
+    /* the description's automatic scroll: 3 s at the top, a pixel row each 60 ms, 3 s at the end, then the top again; paused it waits */
     GalleryScroll g = { 0, 0 };
     int line = 0;
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 1000, &line, 6, 3, 0), 0);   /* the first call starts the clock */
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 3999, &line, 6, 3, 0), 0);
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 4000, &line, 6, 3, 0), 1);
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 1000, &line, 60, 30, 0), 0);   /* the first call starts the clock */
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 3999, &line, 60, 30, 0), 0);
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 4000, &line, 60, 30, 0), 1);
     CHECK_EQ_INT(line, 1);
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 5999, &line, 6, 3, 0), 0);
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 6000, &line, 6, 3, 0), 1);
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 8000, &line, 6, 3, 0), 1);
-    CHECK_EQ_INT(line, 3);                                                  /* the last it can show: 6 lines, 3 seen */
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 10999, &line, 6, 3, 0), 0);  /* it waits at the end */
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 11000, &line, 6, 3, 0), 1);
-    CHECK_EQ_INT(line, 0);                                                  /* and goes back up */
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 13999, &line, 6, 3, 0), 0);  /* then waits at the top again */
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 14000, &line, 6, 3, 0), 1);
-    CHECK_EQ_INT(line, 1);
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 20000, &line, 6, 3, 1), 0);  /* paused: nothing moves, and the wait starts over */
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 21999, &line, 6, 3, 0), 0);
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 22000, &line, 6, 3, 0), 1);
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 4059, &line, 60, 30, 0), 0);
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 4060, &line, 60, 30, 0), 1);
     CHECK_EQ_INT(line, 2);
-    line = 9;                                                               /* a scroll past the end (a text that changed) is brought back */
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 6000, &line, 60, 30, 0), 1);
+    CHECK_EQ_INT(line, 30);                                                  /* the last it can show: 60 rows, 30 seen */
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 8999, &line, 60, 30, 0), 0);  /* it waits at the end */
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 9000, &line, 60, 30, 0), 1);
+    CHECK_EQ_INT(line, 0);                                                   /* and goes back up */
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 11999, &line, 60, 30, 0), 0); /* then waits at the top again */
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 12000, &line, 60, 30, 0), 1);
+    CHECK_EQ_INT(line, 1);
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 20000, &line, 60, 30, 1), 0); /* paused: nothing moves, and the wait starts over */
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 20059, &line, 60, 30, 0), 0);
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 20060, &line, 60, 30, 0), 1);
+    CHECK_EQ_INT(line, 2);
+    line = 90;                                                               /* a scroll past the end (a text that changed) is brought back */
     added_gallery_scroll_touch(&g, 30000);
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 30001, &line, 6, 3, 0), 1);
-    CHECK_EQ_INT(line, 3);
-    line = 2;                                                               /* a text that fits: the top, never moved */
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 40000, &line, 2, 3, 0), 1);
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 30001, &line, 60, 30, 0), 1);
+    CHECK_EQ_INT(line, 30);
+    line = 2;                                                                /* a text that fits: the top, never moved */
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 40000, &line, 20, 30, 0), 1);
     CHECK_EQ_INT(line, 0);
-    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 60000, &line, 2, 3, 0), 0);
+    CHECK_EQ_INT(added_gallery_scroll_auto(&g, 60000, &line, 20, 30, 0), 0);
     return TEST_REPORT();
 }

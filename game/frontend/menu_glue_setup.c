@@ -9,6 +9,7 @@
 #include "game/frontend/added_gallery.h"
 #include "game/frontend/added_gallery_setup.h"
 #include "game/frontend/cg_setup.h"
+#include "game/race/car_paint.h"
 #include "game/frontend/gallery_layout.h"
 #include "game/race/car_variant.h"
 #include "game/sys/palette.h"
@@ -85,7 +86,7 @@ static void shaded(const Target *t, const char *text, int x, int y, int index, i
     const int w = text_width_scaled(text, 3, 4) + 2, h = text_mask_rows(text, 3, 4);
     uint8_t *mask = h > 0 ? malloc((size_t)w * h) : NULL;
     if (mask != NULL && text_mask_scaled(text, 3, 4, mask, w, h))
-        for (int pass = 0; pass < 2; pass++)
+        for (int pass = shadow < 0 ? 1 : 0; pass < 2; pass++)
             for (int j = 0; j < h; j++)
                 for (int i = 0; i < w; i++) {
                     const int px = x + i + (pass == 0), py = y + j + (pass == 0);
@@ -113,14 +114,14 @@ static void setup_draw(void *ctx, int car, int lit, const uint8_t *palette)
     Target t;
     if (!target_get(&t)) return;
     art_make(palette);
-    const int black = ea_colour(0x000000), cream = ea_colour(CREAM_RGB), yellow = ea_colour(YELLOW_RGB);
+    const int black = ea_colour(0x000000), yellow = ea_colour(YELLOW_RGB);
     fill(&t, VARIANT_RIGHT + 1, VARIANT_TOP + SHADOW, VARIANT_RIGHT + SHADOW, VARIANT_BOTTOM, ea_colour(SHADOW_COLOUR));   /* the photos' look */
     fill(&t, VARIANT_LEFT, VARIANT_TOP, VARIANT_RIGHT, VARIANT_BOTTOM, ea_colour(lit ? LIT_COLOUR : DARK_COLOUR));
     for (int y = 0; y < GL_COL_H; y++)
         for (int x = 0; x < GL_COL_W; x++)
             if (GL_COL_X + x < t.w && GL_COL_Y + y < t.h) t.to[(GL_COL_Y + y) * t.w + GL_COL_X + x] = setup.tile_ok ? setup.tile[y * GL_COL_W + x] : (uint8_t)ea_colour(DARK_COLOUR);
     edge(&t, VARIANT_LEFT, VARIANT_TOP, VARIANT_RIGHT, VARIANT_BOTTOM, ea_colour(lit ? LIT_COLOUR : DARK_COLOUR));
-    shaded(&t, "SETUP", GL_COL_X + 14, GL_COL_Y + 20, black, lit ? yellow : cream);
+    shaded(&t, "SETUP", GL_COL_X + 8, GL_COL_Y + GL_COL_H - 24, black, lit ? yellow : -1);   /* at the foot like the baked labels: black, nothing white (owner 2026-11-18) */
     arrow(&t, GL_COL_X + GL_COL_W - 24, GL_COL_Y + (GL_COL_H - GL_ARROW_H) / 2, 0, lit ? yellow : ea_colour(TRIANGLE_COLOUR), black);
 }
 
@@ -165,13 +166,19 @@ static void value_step(Panel *p, int step)
     if (p->row != ROW_COLOUR) cg_setup_put(p->transmission, p->abs, p->traction);   /* Options' settings kept at once */
 }
 
-/* the id of the k-th variant the car is offered (k >= 1), "Default" for 0 */
+/* the name of the k-th variant the car is offered (k >= 1), "Default" for 0: a catalogue paint's own name (car_paint.h), not its entry's id */
 static const char *variant_name(const Panel *p, int k)
 {
     int seen = 0;
     if (k == 0) return "Default";
-    for (int i = 0; i < showcase_variant_count; i++)
-        if (showcase_variants[i].offered(p->model) && ++seen == k) return showcase_variants[i].id;
+    for (int i = 0; i < showcase_variant_count; i++) {
+        if (!showcase_variants[i].offered(p->model) || ++seen != k) continue;
+        if (strncmp(showcase_variants[i].id, "paint_", 6) == 0) {
+            const int paint = showcase_variants[i].id[6] - '0';
+            return paint >= 0 && paint < car_paint_count(p->model) ? car_paint(p->model, paint)->name : showcase_variants[i].id;
+        }
+        return strcmp(showcase_variants[i].id, "second_livery") == 0 ? "Console version" : showcase_variants[i].id;
+    }
     return "Default";
 }
 
@@ -205,22 +212,29 @@ static void panel_draw(const Panel *p, int frame)
     const int black = ea_colour(0x000000), cream = ea_colour(CREAM_RGB), yellow = ea_colour(YELLOW_RGB);
     edge(&t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, cream);
     text_select(TEXT_RED);
-    text_draw_smooth("CAR SETUP", GL_SETUP_X + 12, GL_SETUP_Y + 8, GL_HEADING_NUM, GL_HEADING_DEN);
+    text_draw_smooth("CAR SETUP", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, 5, 4);   /* the page's baked "Car Showcase" is this size (owner 2026-11-18) */
+    int ink_top, ink_bottom;
+    text_ink_scaled("H", GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN, &ink_top, &ink_bottom);
     for (int row = 0; row < ROWS; row++) {
-        const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP, on = row_on(p, row), lit = p->row == row, vx = GL_SETUP_X + GL_SETUP_VALUE_X;
+        const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP, on = row_on(p, row), lit = p->row == row;
+        const int zone = GL_SETUP_X + GL_SETUP_VALUE_X, right = zone + GL_SETUP_VALUE_W, mid = y + (ink_top + ink_bottom) / 2;
         char value[64];
         value_text(p, row, value, sizeof value);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM);
-        text_small_draw(LABEL[row], GL_SETUP_X + 12, y);
+        text_draw_smooth(LABEL[row], GL_SETUP_X + GL_SETUP_LABEL_X, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_WHITE);
-        text_small_draw(value, vx + (GL_SETUP_VALUE_W - text_small_width(value)) / 2, y);
-        if (row != ROW_COLOUR || !on) continue;
-        arrow(&t, vx, y + 1, 1, lit ? yellow : cream, black);
-        arrow(&t, vx + GL_SETUP_VALUE_W - GL_ARROW_W, y + 1, 0, lit ? yellow : cream, black);
-        const int bx = vx + GL_SETUP_VALUE_W + 8;
-        fill(&t, bx, y - 1, bx + GL_SETUP_PREVIEW_W - 1, y - 1 + GL_SETUP_PREVIEW_H - 1, black);
-        const CarVariantCanvas canvas = { &t, preview_fill, bx + 1, y, bx + GL_SETUP_PREVIEW_W - 2, y - 2 + GL_SETUP_PREVIEW_H - 1 };
+        if (row != ROW_COLOUR || !on) {   /* a switch's value (or Color while it is off): at the right end of the arrows' zone */
+            text_draw_smooth(value, right - text_width_scaled(value, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN), y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+            continue;
+        }
+        const int box = zone + GL_ARROW_W + 6, at = box + GL_SETUP_PREVIEW_W + 6;   /* < box name >, the box inside the arrows */
+        arrow(&t, zone, mid - GL_ARROW_H / 2, 1, lit ? yellow : cream, black);
+        arrow(&t, right - GL_ARROW_W, mid - GL_ARROW_H / 2, 0, lit ? yellow : cream, black);
+        fill(&t, box, mid - GL_SETUP_PREVIEW_H / 2, box + GL_SETUP_PREVIEW_W - 1, mid - GL_SETUP_PREVIEW_H / 2 + GL_SETUP_PREVIEW_H - 1, black);
+        const CarVariantCanvas canvas = { &t, preview_fill, box + 1, mid - GL_SETUP_PREVIEW_H / 2 + 1, box + GL_SETUP_PREVIEW_W - 2,
+                                          mid - GL_SETUP_PREVIEW_H / 2 + GL_SETUP_PREVIEW_H - 2 };
         car_variant_draw(showcase_variants, showcase_variant_count, p->model, &canvas);
+        text_draw_smooth(value, at, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
     }
 }
 
