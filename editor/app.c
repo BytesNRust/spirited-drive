@@ -129,6 +129,10 @@ int app_install(App *a)
         set_status(a, "build first (B): install takes the built package");
         return 0;
     }
+    if (a->user[0] == '\0') {
+        set_status(a, "install needs the player folder: start the editor with --user DIR");
+        return 0;
+    }
     char why[APP_MSG];
     if (!install_zip(a->game, a->zip, a->user, why, sizeof why)) {
         snprintf(a->status, sizeof a->status, "install failed: %s", why);

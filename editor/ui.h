@@ -1,5 +1,5 @@
 /* The editor's interface layer, Dear ImGui over the SDL renderer (third_party/imgui, docking branch). The only C++ of the editor: the rest
- * (app, view, project, build, draw, main) is C and does not know ImGui. This is the layer's C face. */
+ * (app, view, project, build, interact, capture, main) is C and does not know ImGui. This is the layer's C face. */
 #ifndef TNFS_TRACK_EDITOR_UI_H
 #define TNFS_TRACK_EDITOR_UI_H
 
@@ -15,11 +15,12 @@ extern "C" {
 int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size_t why_cap);
 void ui_close(void);
 
-/* Gives ImGui an event. 1 when ImGui took it (a click on a panel, a key into a text field): the editor must not act on it too. */
-int ui_event(const SDL_Event *ev);
+/* Gives ImGui an event: the panels read the mouse and the keys from it. */
+void ui_event(const SDL_Event *ev);
 
-/* One frame of the panels over what draw_scene drew: call after draw_scene and before SDL_RenderPresent. */
-void ui_frame(SDL_Renderer *ren, const App *a);
+/* One frame: the dock space and its panels (the top view, the project), and the shortcuts; drawn over the cleared window, before
+ * SDL_RenderPresent. The panels change `a`: the points, the view, the selection. */
+void ui_frame(SDL_Renderer *ren, App *a);
 
 #ifdef __cplusplus
 }

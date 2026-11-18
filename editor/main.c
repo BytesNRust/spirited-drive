@@ -10,7 +10,7 @@
  * run. */
 #include "app.h"
 #include "build.h"
-#include "draw.h"
+#include "capture.h"
 #include "ui.h"
 
 #include <SDL3/SDL.h>
@@ -22,20 +22,13 @@
 enum {
     WINDOW_W = 960,
     WINDOW_H = 600,
-    FRAME_MS = 16,
-    PICK_REACH = 12,         /* pixels a click may be from a point and still take it */
-    NUDGE = 1                /* units an arrow key moves the selected point */
+    FRAME_MS = 16
 };
 
 typedef struct {
     const char *dir, *game, *user, *shot;
     int frames, save, build, install;
 } Options;
-
-typedef struct {
-    int dragging, panning, quit;
-    float last_x, last_y;
-} Pointer;
 
 static int usage(void)
 {
@@ -68,98 +61,10 @@ static int parse_args(int argc, char **argv, Options *o)
     return 1;
 }
 
-static void nudge(App *a, double dx, double dz)
+/* the window's own events: closing it, or Escape (which no panel keeps) */
+static int wants_quit(const SDL_Event *ev)
 {
-    if (a->selected < 0) return;
-    a->trace.points[a->selected].x += dx;
-    a->trace.points[a->selected].z += dz;
-    a->dirty = 1;
-}
-
-static void zoom_at(App *a, double sx, double sy, double factor)
-{
-    double before_x, before_z, after_x, after_z;
-    view_to_world(&a->view, sx, sy, &before_x, &before_z);
-    const double scale = a->view.scale * factor;
-    a->view.scale = scale < VIEW_SCALE_MIN ? VIEW_SCALE_MIN : scale > VIEW_SCALE_MAX ? VIEW_SCALE_MAX : scale;
-    view_to_world(&a->view, sx, sy, &after_x, &after_z);
-    a->view.cx += before_x - after_x;
-    a->view.cz += before_z - after_z;
-}
-
-static void on_key(App *a, SDL_Keycode key)
-{
-    switch (key) {
-    case SDLK_ESCAPE:
-    case SDLK_Q: break;   /* handled by the caller */
-    case SDLK_N: app_add_point(a); break;
-    case SDLK_I: app_insert_point(a); break;
-    case SDLK_DELETE:
-    case SDLK_X: app_remove_point(a); break;
-    case SDLK_S: app_save(a); break;
-    case SDLK_B: app_build(a); break;
-    case SDLK_U: app_install(a); break;
-    case SDLK_F: view_fit(&a->view, a->trace.points, a->trace.count, a->view.width, a->view.height); break;
-    case SDLK_EQUALS:
-    case SDLK_KP_PLUS: zoom_at(a, a->view.width / 2.0, a->view.height / 2.0, VIEW_ZOOM_STEP); break;
-    case SDLK_MINUS:
-    case SDLK_KP_MINUS: zoom_at(a, a->view.width / 2.0, a->view.height / 2.0, 1 / VIEW_ZOOM_STEP); break;
-    case SDLK_LEFT: nudge(a, -NUDGE, 0); break;
-    case SDLK_RIGHT: nudge(a, NUDGE, 0); break;
-    case SDLK_UP: nudge(a, 0, NUDGE); break;
-    case SDLK_DOWN: nudge(a, 0, -NUDGE); break;
-    default: break;
-    }
-}
-
-static void on_button_down(App *a, Pointer *p, const SDL_MouseButtonEvent *b)
-{
-    p->last_x = b->x;
-    p->last_y = b->y;
-    if (b->button == SDL_BUTTON_LEFT) {
-        a->selected = view_pick(&a->view, a->trace.points, a->trace.count, b->x, b->y, PICK_REACH);
-        p->dragging = a->selected >= 0;
-    } else if (b->button == SDL_BUTTON_RIGHT || b->button == SDL_BUTTON_MIDDLE) {
-        p->panning = 1;
-    }
-}
-
-static void on_motion(App *a, Pointer *p, const SDL_MouseMotionEvent *m)
-{
-    if (p->dragging && a->selected >= 0) {
-        double x, z;
-        view_to_world(&a->view, m->x, m->y, &x, &z);
-        a->trace.points[a->selected].x = x;
-        a->trace.points[a->selected].z = z;
-        a->dirty = 1;
-    }
-    if (p->panning) {
-        a->view.cx -= (m->x - p->last_x) / a->view.scale;
-        a->view.cz += (m->y - p->last_y) / a->view.scale;
-    }
-    p->last_x = m->x;
-    p->last_y = m->y;
-}
-
-static void on_event(App *a, Pointer *p, const SDL_Event *ev)
-{
-    switch (ev->type) {
-    case SDL_EVENT_QUIT: p->quit = 1; break;
-    case SDL_EVENT_KEY_DOWN:
-        if (ev->key.key == SDLK_ESCAPE) p->quit = 1;
-        else if (!ev->key.repeat) on_key(a, ev->key.key);
-        break;
-    case SDL_EVENT_MOUSE_BUTTON_DOWN: on_button_down(a, p, &ev->button); break;
-    case SDL_EVENT_MOUSE_BUTTON_UP:
-        if (ev->button.button == SDL_BUTTON_LEFT) p->dragging = 0;
-        else p->panning = 0;
-        break;
-    case SDL_EVENT_MOUSE_MOTION: on_motion(a, p, &ev->motion); break;
-    case SDL_EVENT_MOUSE_WHEEL:
-        zoom_at(a, ev->wheel.mouse_x, ev->wheel.mouse_y, ev->wheel.y > 0 ? VIEW_ZOOM_STEP : 1 / VIEW_ZOOM_STEP);
-        break;
-    default: break;
-    }
+    return ev->type == SDL_EVENT_QUIT || (ev->type == SDL_EVENT_KEY_DOWN && ev->key.key == SDLK_ESCAPE);
 }
 
 /* the actions asked for on the command line, once, before the first frame; 1 when all of them went */
@@ -190,35 +95,36 @@ static int run(App *a, const Options *o)
     }
     char ui_why[APP_MSG];
     char ini[APP_PATH] = "";
-    if (o->user != NULL) snprintf(ini, sizeof ini, "%s/track-editor.ini", o->user);
-    if (!ui_open(win, ren, ini[0] != '\0' && o->frames == 0 ? ini : NULL, ui_why, sizeof ui_why)) {
+    if (o->user != NULL) {   /* the window's layout is kept in the player folder, made when it is not there yet */
+        const int n = snprintf(ini, sizeof ini, "%s/track-editor.ini", o->user);
+        if (n < 0 || (size_t)n >= sizeof ini || !SDL_CreateDirectory(o->user)) {
+            fprintf(stderr, "cannot keep the layout in %s: %s\n", o->user, SDL_GetError());
+            ini[0] = '\0';
+        }
+    }
+    if (!ui_open(win, ren, ini[0] != '\0' ? ini : NULL, ui_why, sizeof ui_why)) {
         fprintf(stderr, "%s\n", ui_why);
         SDL_DestroyRenderer(ren);
         SDL_DestroyWindow(win);
         SDL_Quit();
         return 1;
     }
-    int w = WINDOW_W, h = WINDOW_H;
-    SDL_GetWindowSize(win, &w, &h);
-    view_fit(&a->view, a->trace.points, a->trace.count, w, h);
-    int ok = run_requested(a, o), frame = 0;
-    Pointer p;
-    memset(&p, 0, sizeof p);
+    int ok = run_requested(a, o), frame = 0, quit = 0;
     const int headless = o->frames > 0;
-    while (!p.quit) {
+    while (!quit) {
         for (SDL_Event ev; SDL_PollEvent(&ev);) {
-            if (!ui_event(&ev)) on_event(a, &p, &ev);
-            else if (ev.type == SDL_EVENT_MOUSE_BUTTON_UP) p.dragging = p.panning = 0;   /* a release over a panel still ends a drag */
+            ui_event(&ev);
+            if (wants_quit(&ev)) quit = 1;
         }
-        SDL_GetWindowSize(win, &a->view.width, &a->view.height);
         app_recompute(a);
-        draw_scene(ren, a);
+        SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);
+        SDL_RenderClear(ren);
         ui_frame(ren, a);
         ++frame;
         if (headless && frame >= o->frames) {
             if (o->shot != NULL) {
                 char why[APP_MSG];
-                if (!draw_save_png(ren, o->shot, why, sizeof why)) {
+                if (!capture_save_png(ren, o->shot, why, sizeof why)) {
                     fprintf(stderr, "%s\n", why);
                     ok = 0;
                 } else {
@@ -245,7 +151,7 @@ int main(int argc, char **argv)
     App *app = calloc(1, sizeof *app);
     if (app == NULL) return 1;
     int status = 1;
-    if (app_open(app, o.dir, o.game, o.user)) {
+    if (app_open(app, o.dir, o.game, o.user != NULL ? o.user : "")) {
         status = run(app, &o) ? 0 : 1;
     } else {
         fprintf(stderr, "%s\n", app->status);

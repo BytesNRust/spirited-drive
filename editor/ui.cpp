@@ -1,14 +1,23 @@
-// The editor's interface layer (ui.h): Dear ImGui with docking over the SDL renderer. Phase 1 of the move to ImGui: an empty dock space
-// and one panel with what the app says; the top view is still draw.c's and the panels come in the next branches.
+// The editor's interface layer (ui.h): Dear ImGui with docking over the SDL renderer: the dock space, the shortcuts and the panels (panels.cpp);
+// the top view is viewport.cpp's.
 #include "ui.h"
 
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlrenderer3.h"
+
+extern "C" {
+#include "formats/track_gen.h"
+#include "interact.h"
+}
+#include "panels.h"
+#include "viewport.h"
 
 #include <stdio.h>
 
 static char g_ini[APP_PATH];
+static bool g_had_layout;   // the ini file was there at the start: its layout is the user's, not ours to replace
 
 int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size_t why_cap)
 {
@@ -22,6 +31,9 @@ int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size
     if (ini != nullptr) {
         snprintf(g_ini, sizeof g_ini, "%s", ini);
         io.IniFilename = g_ini;
+        FILE *f = fopen(g_ini, "rb");
+        g_had_layout = f != nullptr;
+        if (f != nullptr) fclose(f);
     } else {
         io.IniFilename = nullptr;
     }
@@ -47,36 +59,70 @@ void ui_close(void)
     ImGui::DestroyContext();
 }
 
-int ui_event(const SDL_Event *ev)
+void ui_event(const SDL_Event *ev)
 {
     ImGui_ImplSDL3_ProcessEvent(ev);
-    const ImGuiIO &io = ImGui::GetIO();
-    switch (ev->type) {
-    case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    case SDL_EVENT_MOUSE_BUTTON_UP:
-    case SDL_EVENT_MOUSE_MOTION:
-    case SDL_EVENT_MOUSE_WHEEL: return io.WantCaptureMouse;
-    case SDL_EVENT_KEY_DOWN:
-    case SDL_EVENT_KEY_UP:
-        if (ev->key.key == SDLK_ESCAPE) return 0;   // Escape always reaches the editor: the way out
-        return io.WantCaptureKeyboard || io.WantTextInput;
-    case SDL_EVENT_TEXT_INPUT: return io.WantTextInput;
-    default: return 0;
-    }
 }
 
-void ui_frame(SDL_Renderer *ren, const App *a)
+namespace {
+
+// the layout of a first run (no ini): the top view in the middle, the limits under it, the project and the points to its right
+void default_layout(ImGuiID dock)
+{
+    ImGui::DockBuilderRemoveNode(dock);
+    ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
+    ImGuiID right = 0, centre = dock, bottom = 0, points = 0;
+    right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, 0.27f, nullptr, &centre);
+    bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down, 0.30f, nullptr, &centre);
+    points = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.55f, nullptr, &right);
+    ImGui::DockBuilderDockWindow("Viewport", centre);
+    ImGui::DockBuilderDockWindow(PANEL_LIMITS, bottom);
+    ImGui::DockBuilderDockWindow(PANEL_PROJECT, right);
+    ImGui::DockBuilderDockWindow(PANEL_POINTS, points);
+    ImGui::DockBuilderFinish(dock);
+}
+
+// the shortcuts, when no text field has the keyboard
+void shortcuts(App *a)
+{
+    const ImGuiIO &io = ImGui::GetIO();
+    if (io.WantTextInput || io.KeyCtrl || io.KeyAlt || io.KeySuper) return;   // Cmd+S and the like are not ours
+    const double cx = a->view.width / 2.0, cy = a->view.height / 2.0;
+    if (ImGui::IsKeyPressed(ImGuiKey_N, false)) app_add_point(a);
+    if (ImGui::IsKeyPressed(ImGuiKey_I, false)) app_insert_point(a);
+    if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) app_remove_point(a);
+    else if (ImGui::IsKeyPressed(ImGuiKey_X, false)) app_remove_point(a);
+    if (ImGui::IsKeyPressed(ImGuiKey_S, false)) app_save(a);
+    if (ImGui::IsKeyPressed(ImGuiKey_B, false)) app_build(a);
+    if (ImGui::IsKeyPressed(ImGuiKey_U, false)) app_install(a);
+    if (ImGui::IsKeyPressed(ImGuiKey_F, false)) interact_fit(a);
+    if (ImGui::IsKeyPressed(ImGuiKey_Equal, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd, false)) interact_zoom(a, cx, cy, VIEW_ZOOM_STEP);
+    if (ImGui::IsKeyPressed(ImGuiKey_Minus, false) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract, false)) interact_zoom(a, cx, cy, 1 / VIEW_ZOOM_STEP);
+    if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) interact_nudge(a, -INTERACT_NUDGE, 0);
+    if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) interact_nudge(a, INTERACT_NUDGE, 0);
+    if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) interact_nudge(a, 0, INTERACT_NUDGE);
+    if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) interact_nudge(a, 0, -INTERACT_NUDGE);
+}
+
+}   // namespace
+
+void ui_frame(SDL_Renderer *ren, App *a)
 {
     ImGui_ImplSDLRenderer3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
-    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
-    if (ImGui::Begin("Project")) {
-        ImGui::TextUnformatted(a->dir);
-        ImGui::Text("%d control points, %d nodes", a->trace.count, a->node_count);
-        ImGui::TextWrapped("%s", a->status);
+    const ImGuiID dock = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+    static bool laid_out = false;
+    if (!laid_out) {
+        laid_out = true;
+        if (!g_had_layout) default_layout(dock);
     }
-    ImGui::End();
+    shortcuts(a);
+    viewport_panel(a);
+    project_panel(a);
+    points_panel(a);
+    limits_panel(a);
     ImGui::Render();
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), ren);
 }

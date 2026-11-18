@@ -17,7 +17,9 @@ enum {
     PROJECT_POINTS_MAX = 2400,    /* a road of 599 segments has about this many control points at most; more are refused on load */
     PROJECT_START_POINTS = 6,     /* a new project is a straight of this many points */
     PROJECT_START_LENGTH = 200,   /* and this long, in units */
-    PROJECT_PATH_MAX = 512
+    PROJECT_PATH_MAX = 512,
+    PROJECT_WIDTH_MIN = 8,        /* track_gen's layout range for a road's width (the verge byte) */
+    PROJECT_WIDTH_MAX = 120
 };
 
 typedef struct {
