@@ -2,7 +2,7 @@
 
 `tnfs-studio track new LAYOUT --template SLOT --out DIR [--stem NAME]` builds a point-to-point track (a stage, like
 Alpine, City and Coastal) from a few lines of text. The TRI is generated; the INFO and the FAMs (road textures and
-scenery objects) are copied from the template slot, so every texture id stays valid.
+scenery objects) are copied from the template slot, so every texture id stays valid. Add `--piece --id ID --stem STEM` to make a track piece the game can load (below); `--generic ART.FAM --piece` takes the port's own template and an art file instead of a CD slot ([../modding.md](../modding.md), *Adding a track*).
 
 ```
 # comment
@@ -24,12 +24,13 @@ each terrain strip is the template's strip 10, with `right[0].x`/`left[0].x` mov
 The scenery placements of the template are dropped (they name template nodes); add some in `scenery.tsv`
 (`tnfs-studio unpack` / `pack`).
 
-To play it, put it in a slot of a mod directory and view it:
+To play it, make it a piece: a changed TRI in a mod's slot is not given to the game (`--mods` serves no file that changes a race), and the piece is a track of its own. In Restomod, in a scratch `MYUSER` folder:
 
 ```
-tnfs-studio track new loop.trk --template AL1 --out build/loop --stem MYSTAGE
-tnfs-studio slot replace track AL1 build/loop --stem MYSTAGE --mods mymod
-tnfs --mods mymod --track AL1 --node 120 --screenshot out.ppm
+tnfs-studio track new loop.trk --template AL1 --piece --id my-loop --stem MYSTAGE --out build/loop --data original
+mkdir -p MYUSER
+printf 'profile=restomod\n' > MYUSER/port.cfg
+SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy tnfs --user MYUSER --data original --mods build/loop --drive my-loop --racers 1 --screenshot out.ppm
 ```
 
-`tests/track_new.sh` does exactly this for two templates and walks the viewer from the first node to the last.
+`--drive` takes the piece's `id`. To install it and put it in an edition, follow *Try your piece* in [../modding.md](../modding.md). `tests/track_new.sh` walks the pieces made from two templates, from the first node to the last.
