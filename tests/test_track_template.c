@@ -51,7 +51,9 @@ static void check_structure(const uint8_t *file, size_t size)
     for (uint32_t i = 0; i < TRACK_TEMPLATE_SEGMENTS; ++i) {
         TriSegment seg;
         CHECK_EQ_INT(tri_segment(&tri, i, &seg), TRI_OK);
-        CHECK_EQ_INT(seg.fence, 0);
+        CHECK_EQ_INT(seg.fence, TRACK_TEMPLATE_FENCE);
+        CHECK_EQ_INT(seg.fence & (TRI_FENCE_LEFT | TRI_FENCE_RIGHT), TRI_FENCE_LEFT | TRI_FENCE_RIGHT);   /* a fence each side */
+        CHECK_EQ_INT(TRACK_GENERIC_FENCE_SLOT + (seg.fence & 0x1f), 32);   /* the texture slot the FAM's bank 10 letter C fills */
         const uint8_t want[10] = { TRACK_GENERIC_SLOT_ROAD, TRACK_GENERIC_SLOT_SHOULDER, TRACK_GENERIC_SLOT_VERGE, TRACK_GENERIC_SLOT_GRASS,
                                    TRACK_GENERIC_SLOT_GRASS, TRACK_GENERIC_SLOT_ROAD, TRACK_GENERIC_SLOT_SHOULDER, TRACK_GENERIC_SLOT_VERGE,
                                    TRACK_GENERIC_SLOT_GRASS, TRACK_GENERIC_SLOT_GRASS };
@@ -124,7 +126,7 @@ int main(void)
     check_structure(file, size);
     check_same_bytes_each_time(file, size);
     check_generate_from_it(file, size);
-    CHECK(fnv64(file, size) == 0x6006d08622b21a90ull);   /* the golden: whole numbers all the way, so one hash for every machine */
+    CHECK(fnv64(file, size) == 0x626720e610226d90ull);   /* the golden: whole numbers all the way, so one hash for every machine */
     free(file);
     return TEST_REPORT();
 }

@@ -14,12 +14,23 @@ enum {
     TRACK_TEMPLATE_SEGMENTS = 12,     /* track_gen takes its cross-section and brightness from strip 10, so 11 are the least */
     TRACK_TEMPLATE_HALF_WIDTH = 40,   /* the road's verge bytes: eighths of a unit, 5 units each side of the centre */
     TRACK_TEMPLATE_BARRIER = 64,      /* the barrier bytes: 8 units from the centre */
-    TRACK_GENERIC_BANKS = 4,          /* terrain SHPIs the FAM must have: 0 road, 1 shoulder, 2 verge, 3 grass (a stage needs two at least) */
+    TRACK_GENERIC_BANKS = 11,         /* terrain SHPIs the FAM must have: 0 road, 1 shoulder, 2 verge, 3 grass (letter A of each), 4..9 anything,
+                                         and 10 the fence (its letter C): the fence's texture is the slot 32 + the fence byte's low 5 bits */
+    TRACK_GENERIC_FENCE_SLOT = 32,
+    TRACK_TEMPLATE_FENCE = 0xE0,      /* the strips' fence byte: bits 7 and 6: a fence each side; 0x20: the low one, and the texture slot TRACK_GENERIC_FENCE_SLOT (32 + the low 5 bits: 0) */
     TRACK_GENERIC_SLOT_ROAD = 0 * 3,
     TRACK_GENERIC_SLOT_SHOULDER = 1 * 3,
     TRACK_GENERIC_SLOT_VERGE = 2 * 3,
     TRACK_GENERIC_SLOT_GRASS = 3 * 3
 };
+
+/* The track's INFO file (the horizon, the fog and the time-of-day colours the game reads: text, one value a line) made for this template and
+ * its FAM: *len bytes of static text. */
+const char *track_template_info(size_t *len);
+
+/* Whether `fam` (a track art file) has what the template's slots need: TRACK_GENERIC_BANKS terrain banks, and the fence's letter C in the last.
+ * 1 when it does; 0 with the reason in err. */
+int track_template_check_fam(const uint8_t *fam, size_t size, ExchangeError *err);
 
 /* The template as a TRI file: 1 and *out (malloc'd, *out_len bytes), the same bytes every time; 0 with err when it cannot be assembled. */
 int track_template_generic(uint8_t **out, size_t *out_len, ExchangeError *err);

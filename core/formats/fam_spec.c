@@ -35,11 +35,12 @@ static int parse_id(const char *word, long *id)
     return word[0] != '\0' && *end == '\0' && *id >= 0;
 }
 
-static int add_item(FamSpec *out, FamSpecKind kind, const char *path, size_t line, ExchangeError *err)
+static int add_item(FamSpec *out, FamSpecKind kind, const char *path, unsigned letters, size_t line, ExchangeError *err)
 {
     if (out->count == FAM_SPEC_ITEMS) { exchange_fail(err, "line %zu: more than %d lines", line, FAM_SPEC_ITEMS); return 0; }
     FamSpecItem *it = &out->item[out->count++];
     it->kind = kind;
+    it->letters = letters;
     snprintf(it->path, sizeof it->path, "%s", path);
     return 1;
 }
@@ -72,8 +73,19 @@ static int terrain_line(const char *s, size_t *at, FamSpec *out, size_t line, Ex
         return 0;
     }
     if ((size_t)id != next) { exchange_fail(err, "line %zu: terrain id %ld where %zu comes: the ids go 0, 1, 2 in order", line, id, next); return 0; }
+    unsigned letters = FAM_LETTERS_ALL;
+    size_t peek = *at;
+    if (next_word(s, &peek, word, sizeof word) && strncmp(word, "letters=", 8) == 0) {
+        *at = peek;
+        letters = 0;
+        for (const char *c = word + 8; *c != '\0'; c++) {
+            if (*c < 'A' || *c > 'C') { exchange_fail(err, "line %zu: letters= takes A, B and C, not '%c'", line, *c); return 0; }
+            letters |= 1u << (*c - 'A');
+        }
+        if (letters == 0) { exchange_fail(err, "line %zu: letters= names no letter", line); return 0; }
+    }
     char path[FAM_SPEC_PATH];
-    return line_path(s, *at, path, sizeof path, line, err) && add_item(out, FAM_SPEC_TERRAIN, path, line, err);
+    return line_path(s, *at, path, sizeof path, line, err) && add_item(out, FAM_SPEC_TERRAIN, path, letters, line, err);
 }
 
 static int horizon_seen(const FamSpec *out)
@@ -88,7 +100,7 @@ static int horizon_line(const char *s, size_t at, FamSpec *out, size_t line, Exc
     char path[FAM_SPEC_PATH];
     if (!line_path(s, at, path, sizeof path, line, err)) return 0;
     if (horizon_seen(out)) { exchange_fail(err, "line %zu: a second horizon (the first is on another line)", line); return 0; }
-    return add_item(out, FAM_SPEC_HORIZON, path, line, err);
+    return add_item(out, FAM_SPEC_HORIZON, path, FAM_LETTERS_ALL, line, err);
 }
 
 /* one line of the spec, comment stripped */
@@ -99,7 +111,7 @@ static int line_of(const char *s, size_t line, FamSpec *out, ExchangeError *err)
     if (!next_word(s, &at, word, sizeof word)) return 1;
     char path[FAM_SPEC_PATH];
     if (strcmp(word, "terrain") == 0) return terrain_line(s, &at, out, line, err);
-    if (strcmp(word, "scenery") == 0) return line_path(s, at, path, sizeof path, line, err) && add_item(out, FAM_SPEC_SCENERY, path, line, err);
+    if (strcmp(word, "scenery") == 0) return line_path(s, at, path, sizeof path, line, err) && add_item(out, FAM_SPEC_SCENERY, path, FAM_LETTERS_ALL, line, err);
     if (strcmp(word, "horizon") == 0) return horizon_line(s, at, out, line, err);
     exchange_fail(err, "line %zu: '%s' is not terrain, scenery or horizon", line, word);
     return 0;
