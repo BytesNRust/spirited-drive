@@ -108,6 +108,7 @@ add_library(tnfs_core STATIC
     core/iso/iso9660.c
     core/formats/tri_exchange.c
     core/formats/track_gen.c
+    core/formats/track_trace.c
     core/formats/fixed_math.c
     core/formats/track_frame.c
     core/formats/track_template.c
@@ -134,7 +135,7 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 # x86 does not, so the same layout gave different bytes. Off for the files that make the bytes of a package; the editor's join them
 # as they arrive. (Not all of core: tri_reverse runs in a race and is left as recorded replays have it.)
 if(NOT MSVC)
-    set_source_files_properties(core/formats/track_gen.c PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+    set_source_files_properties(core/formats/track_gen.c core/formats/track_trace.c PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
 endif()
 
 # The recovered game logic: platform-independent, links no SDL.
@@ -815,11 +816,19 @@ if(NOT EMSCRIPTEN)
 endif()
 
 if(NOT EMSCRIPTEN)
+    # The track editor (notes/dep59-track-editor-design.md, phase 1a): its own program over the core and SDL, never the game's code.
+    find_package(SDL3 REQUIRED CONFIG)
+    add_executable(tnfs-track-editor editor/main.c editor/app.c editor/build.c editor/draw.c editor/project.c editor/view.c)
+    target_link_libraries(tnfs-track-editor PRIVATE tnfs_core SDL3::SDL3)
+    target_compile_options(tnfs-track-editor PRIVATE ${TNFS_WARNINGS})
+endif()
+
+if(NOT EMSCRIPTEN)
     enable_testing()
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_check mod_install edition_ini stock_content track_template track_turned)
+    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_check mod_install edition_ini stock_content track_template track_turned track_trace)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
