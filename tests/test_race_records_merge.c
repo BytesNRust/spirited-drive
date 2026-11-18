@@ -264,7 +264,7 @@ static void test_what_the_screens_read(void)
     CHECK_EQ_INT(race_records_shown_laps(CIRCUIT, 0, 0, laps, RACE_RECORDS_LAPS_MAX), 1);   /* race_records.dat's: LAPS alone */
 }
 
-/* dep59 L6: Lunar Springs' records (race_records_tracks.dat, one table per car) shown the same way: the standard edition joins every car
+/* dep59 L6: Lunar Springs' records (race_records_tracks2.dat, one table per car) shown the same way: the standard edition joins every car
  * that has a table for the track, an edition of its own only its cars; another track's tables are never joined in */
 static void test_a_track_joins_its_cars(void)
 {

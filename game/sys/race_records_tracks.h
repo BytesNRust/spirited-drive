@@ -16,6 +16,13 @@
 
 enum { RECORDS_TRACK_ID = 33, RECORDS_TRACK_CAR_ID = 33, RECORDS_TRACK_SHORT = 9 };   /* the ids and a short name with their NUL */
 
+/* The current print of the piece with an id (piece_print.h; all zeros for none, which is what `out` holds when it is called): the registries
+ * answer, the track one for a track id, the car one for a car id; unset (NULL, the default) every piece has none. A record is kept under the ids
+ * and the prints the pieces have when it is found or made, so a piece that changed has records of its own and gets the old ones back when it is
+ * as it was; what is not found by prints is not lost. Set once, at start-up, before the records are loaded */
+typedef void (*RecordsPrintOf)(const char *id, uint8_t out[32]);
+void race_records_tracks_prints_set(RecordsPrintOf track, RecordsPrintOf car);
+
 /* the table of a key for the track `track` and the car `car`, or NULL (a key out of range: layout 0..7, cheats 0..1, laps 0..99) */
 RecordTable *race_records_tracks_find(const char *track, int layout, int cheats, int laps, const char *car);
 /* the same, made empty when it is not there (nothing is saved); `short_name` (an added car's, NULL to leave it) kept with it. NULL out of
@@ -30,15 +37,19 @@ int race_records_tracks_cars(const char *track, const char *ids[], int max);
 /* the short name kept with a table, "" when there is none */
 const char *race_records_tracks_short_name(const char *track, int layout, int cheats, int laps, const char *car);
 
-/* The file's bytes (malloc'd): "TNFSRRT1", its flags (u32 LE, 0), the tables' and the laps' counts (u32 LE), then each table (its key's
- * four bytes: layout, cheats, laps, 0; the track's id, the car's id and the short name NUL-padded; the table as race_records.dat writes
- * one) and each lap (key with laps 0, the names, the row), ascending by key, then track, then car, as bytes. NULL without memory */
+/* The file's bytes (malloc'd): "TNFSRRT2", its flags (u32 LE, 0), the tables' and the laps' counts (u32 LE), then each table (its key's
+ * four bytes: layout, cheats, laps, and 1 for a record that waits for the print of its pieces, else 0; the track's id, the car's id and the
+ * short name NUL-padded; the track's print and the car's, 32 bytes each; the table as race_records.dat writes one) and each lap (key with
+ * laps 0, the names, the prints, the row), ascending by key (not its last byte), track, car, then the prints, as bytes. NULL without memory */
 uint8_t *race_records_tracks_image(size_t *size);
-/* the store made the file in `file` (emptied first): 1; 0, and the store empty, for anything that is not exactly a good file */
+/* the store made the file in `file` (emptied first): 1; 0, and the store empty, for anything that is not exactly a good file. A "TNFSRRT1"
+ * file (the records before the prints: no prints in its entries) is good too: its entries wait for the pieces' prints, and the first look
+ * under them (a find, a make, the cars of the track) takes each as theirs, once */
 int race_records_tracks_parse(const uint8_t *file, size_t size);
 /* drops every table and lap */
 void race_records_tracks_reset(void);
-/* <player folder>/race_records_tracks.dat into the store, as race_records_load does race_records.dat: a damaged one is kept as
+/* <player folder>/race_records_tracks2.dat into the store (race_records_tracks.dat, the one before the prints, when there is no new one: read, never
+ * written; an older version goes on with it), as race_records_load does race_records.dat: a damaged one is kept as
  * race_records_tracks.bad (.bad2 ..) and the store starts empty; with no copy kept, or a file there that could not be read, saving stays
  * off for the session */
 RaceRecordsLoad race_records_tracks_load(void);

@@ -326,7 +326,7 @@ static void test_lunar_keeps_its_own_records(void)
     CHECK(moon != NULL && race_records_row_set(&moon->top) && race_records_tracks_lap_find("lunar", 0, 0, "viper") != NULL);
     CHECK(race_records_find(TR1, LAYOUT_RALLY, 0, 8) == NULL && race_records_find(TR1, 0, 0, 8) == NULL);
     CHECK(race_records_added_find(TR1, LAYOUT_RALLY, 0, 8, "viper") == NULL);
-    CHECK(slot_of("race_records_tracks.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0 && slot_of("race_records_cars.dat", 0) < 0);
+    CHECK(slot_of("race_records_tracks2.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0 && slot_of("race_records_cars.dat", 0) < 0);
     records_route_shown((RaceKind){ LAYOUT_RALLY, 0 }, r.image, shown, slots, NULL);
     CHECK_EQ_INT(g32(shown + 0xb5 + 0xa6b * TR1 + 0xea + 0x1b), 500);
     /* another car: its own table; the mirror: another table */
@@ -373,7 +373,7 @@ static void test_an_added_track_keeps_its_records(void)
     memcpy(before, r.image, sizeof before);
     CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_SEGMENT, r.image, r.game, 0, NULL), 3);
     CHECK_EQ_INT(records_route((RaceKind){ 0, 0 }, ROUTE_TOTALS, r.image, r.game, 0, TIMES), 0);
-    CHECK(slot_of("race_records_tracks.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0);
+    CHECK(slot_of("race_records_tracks2.dat", 0) >= 0 && slot_of("race_records.dat", 0) < 0);
     CHECK(race_records_tracks_find("dune", 0, 0, 0, "viper") != NULL);
     CHECK(memcmp(r.image, before, sizeof before) == 0);   /* the config image: not a byte of it */
     records_route_shown((RaceKind){ 0, 0 }, r.image, shown, slots, NULL);

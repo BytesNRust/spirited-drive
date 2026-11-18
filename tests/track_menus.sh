@@ -4,7 +4,7 @@
 #   central      the track card of the first piece on opening (mark:card=16), the arrows to the second (17), round to the first and back
 #                (the list is the edition's alone), no screen but Control Central opened and none of the original's tables read
 #   race         the second piece raced from Control Central (the autopilot, one lap), its three results screens, Control Central again;
-#                its record is in race_records_tracks.dat under its id, none under the first piece's
+#                its record is in race_records_tracks2.dat under its id, none under the first piece's
 #   card         tools/menu_walk.sh's added-track target (Control Central on the piece's card, the picture menu_compare compares) saves a picture
 #   page         the added track's page (tools/menu_walk.sh added-page) saves a picture
 #   best_times   the card's click opens the track's page, a key turns Mirror on, its BEST TIMES opens the records by id, Escape comes back to the page and
@@ -105,9 +105,9 @@ part_race() {
     extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1" walk || { fail "race: the second piece did not race and come back to Control Central"; return; }
     log | grep -q "^finish: 0=" || fail "race: the race did not finish"
     log | grep -q "could not start" && fail "race: the race did not start: $(log | grep "could not start")"
-    [ -s "$work/user/race_records_tracks.dat" ] || fail "race: race_records_tracks.dat was not made"
-    grep -q "hill-run" "$work/user/race_records_tracks.dat" || fail "race: the record is not kept under hill-run"
-    grep -q "dune-run" "$work/user/race_records_tracks.dat" && fail "race: the first piece has a record it never raced"
+    [ -s "$work/user/race_records_tracks2.dat" ] || fail "race: race_records_tracks2.dat was not made"
+    grep -q "hill-run" "$work/user/race_records_tracks2.dat" || fail "race: the record is not kept under hill-run"
+    grep -q "dune-run" "$work/user/race_records_tracks2.dat" && fail "race: the first piece has a record it never raced"
     log | grep -q "track screen: track .* is an added track" && fail "race: the track screen was asked for an added track"
 }
 

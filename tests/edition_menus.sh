@@ -18,7 +18,7 @@
 #   trackrace  (dep59 step 5, T7g; needs STUDIO) a whole race on an ADDED track from the menus: a piece made with track new --piece
 #          (a 7 letter stem: its stage's number makes the root 8) in an edition of it alone (cars=supra tracks=dune-run); Control Central opens
 #          on its card (mark:card=16), RACE loads the piece from its folder in --mods, the autopilot finishes it, its results screens come
-#          (segment, track, best totals) and Control Central again; race_records_tracks.dat is made.
+#          (segment, track, best totals) and Control Central again; race_records_tracks2.dat is made.
 # usage: edition_menus.sh TNFS REPO ORIGINAL_DIR [PART [STUDIO]] (no PART: menus modes race, in turn). KEEP=1 keeps the scratch folder.
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
@@ -166,7 +166,7 @@ part_trackrace() {
     extra="TNFS_AUTOPILOT=1 TNFS_LAPS=1" walk "$work/piece" || fail "trackrace: a race on an added track did not come back to Control Central"
     log | grep -q "^finish: 0=" || fail "trackrace: the race did not finish"
     log | grep -q "could not start" && fail "trackrace: the race did not start: $(log | grep "could not start")"
-    [ -s "$work/user/race_records_tracks.dat" ] || fail "trackrace: race_records_tracks.dat was not made"
+    [ -s "$work/user/race_records_tracks2.dat" ] || fail "trackrace: race_records_tracks2.dat was not made"
 }
 
 for part in $parts; do
