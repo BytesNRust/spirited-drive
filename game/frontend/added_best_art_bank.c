@@ -10,7 +10,7 @@
 int32_t added_best_art_bank(void)
 {
     size_t size = 0, out_size = 0;
-    uint8_t *coast = resource_load_art("tracksel/coastbst.qfs", &size), *out = NULL;
+    uint8_t *coast = resource_load_art("tracksel/" ADDED_BEST_BASE ".qfs", &size), *out = NULL;
     char why[96] = "";
     const int made = coast != NULL && added_best_art_make(coast, size, &out, &out_size, why, sizeof why);
     resource_free(coast);

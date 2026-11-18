@@ -9,6 +9,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* the CD's Best Times bank the made one starts from: the page's colour and texture. One place to change it (T7d: the owner's choice of a
+ * common patina or the nearest track's colour); its stage layout is Coastal's (best_times.h's added pick: the track word 1) */
+#define ADDED_BEST_BASE "coastbst"
+
 enum {
     ADDED_BEST_W = 640, ADDED_BEST_H = 480,
     ADDED_BEST_BOX_X0 = 6, ADDED_BEST_BOX_X1 = 330, ADDED_BEST_BOX_Y0 = 8, ADDED_BEST_BOX_Y1 = 50,   /* the title's box, inclusive */

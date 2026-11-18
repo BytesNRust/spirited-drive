@@ -1,4 +1,6 @@
 #include "game/frontend/race_settings.h"
+#include "game/frontend/tournament_car.h"
+#include "game/sys/track_registry.h"
 #include "game/frontend/central.h"
 #include "game/race/car_registry.h"
 
@@ -31,7 +33,7 @@ static int short_track(int track)
 void track_changed(RaceSettings *s)
 {
     if (s->race_type == RACE_TOURNAMENT) {
-        s->player_car = TOURNAMENT_CAR[s->track];
+        s->player_car = TOURNAMENT_CAR_OF(TOURNAMENT_CAR, s->track);
         race_settings_car_flags(s);
         s->opponent = OPPONENT_TOURNAMENT;
     }
@@ -66,8 +68,8 @@ void race_settings_type_changed(RaceSettings *s, Unlocks *u, FrontendSession *f)
         s->variant_m = s->variant_r = 0;
         if (f->flag_52b312 || !f->unlock_level) u->lost_vegas = 0;
         if (!u->lost_vegas && s->track == TRACK_LOST_VEGAS) s->track = 0;
-        if (s->track == TRACK_HIDDEN) s->track = 0;
-        s->player_car = TOURNAMENT_CAR[s->track];
+        if (s->track == TRACK_HIDDEN || track_registry_is_added(s->track)) s->track = 0;   /* port (dep59 step 5, T7a2): a tournament takes no added track */
+        s->player_car = TOURNAMENT_CAR_OF(TOURNAMENT_CAR, s->track);
         race_settings_car_flags(s);
         s->opponent = other ? s->other_car[f->other_index] : OPPONENT_TOURNAMENT;
         s->difficulty = 1;

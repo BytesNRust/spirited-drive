@@ -310,7 +310,7 @@ static int32_t lunar_or_bank(void *ctx, const char *path, int32_t flags)
             const int32_t bank = added_best_art_bank();
             if (bank != 0) return bank;
             char coast[256];
-            snprintf(coast, sizeof coast, "%.*scoastbst.qfs", (int)(file - path), path);
+            snprintf(coast, sizeof coast, "%.*s" ADDED_BEST_BASE ".qfs", (int)(file - path), path);
             return load_bank(ctx, coast, flags);
         }
     }
