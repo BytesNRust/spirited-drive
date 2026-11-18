@@ -1,0 +1,211 @@
+/* Track trace tests: control points become nodes (a straight stays straight, an arc turns by its angle, a tight arc is flagged for its
+ * radius, a corner for its turn), the faults are named, and the nodes go through track_generate_nodes into a TRI that opens. */
+#include "formats/track_trace.h"
+#include "formats/track_gen.h"
+#include "formats/tri.h"
+#include "test.h"
+
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+enum { TSEGS = 20, DESCRIPTORS = 2, SCENERY_AREA = TRI_SCENERY_MAX * TRI_SCENERY_SIZE, WIDTH = 40, MAX_NODES = TRACK_GEN_MAX_NODES };
+
+static void put_u32(uint8_t *p, uint32_t v) { for (int i = 0; i < 4; ++i) p[i] = (uint8_t)(v >> (8 * i)); }
+static void put_i16(uint8_t *p, int v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+
+/* a synthetic template (no CD files needed): a circuit header, one model node and TSEGS terrain strips */
+static uint8_t *template_tri(size_t *size)
+{
+    uint8_t *header = calloc(1, TRI_HEADER_SIZE);
+    uint8_t descriptors[DESCRIPTORS * TRI_DESCRIPTOR_SIZE];
+    uint8_t *scenery = calloc(1, SCENERY_AREA);
+    uint8_t terrain[TSEGS * TRI_SEGMENT_SIZE];
+    header[0] = TRI_VERSION;
+    put_i16(header + 4, 16);
+    put_u32(header + 0x16218, 1000);
+    uint8_t *node = header + 0x98C + 36;
+    node[0] = node[1] = WIDTH;
+    node[2] = node[3] = WIDTH + 24;
+    node[4] = 0x22; node[7] = 3;
+    for (int i = 0; i < DESCRIPTORS * TRI_DESCRIPTOR_SIZE; ++i) descriptors[i] = (uint8_t)(i * 3);
+    for (int i = 0; i < TRI_SCENERY_MAX; ++i) put_u32(scenery + 16 * i, 0xffffffffu);
+    memset(terrain, 0, sizeof terrain);
+    for (int s = 0; s < TSEGS; ++s) {
+        uint8_t *seg = terrain + s * TRI_SEGMENT_SIZE;
+        memcpy(seg, "TRKD", 4);
+        put_u32(seg + 4, TRI_SEGMENT_SIZE - 12);
+        seg[0x0d] = 0xff;
+        memset(seg + 0x0e, 0x21, 10);
+        for (int row = 0; row < 4; ++row) put_i16(seg + 0x18 + 66 * row + 6, WIDTH * 16);
+    }
+    const TriParts parts = { header, descriptors, DESCRIPTORS, scenery, terrain, TSEGS, NULL, 0 };
+    uint8_t *file = malloc(tri_write_size(&parts));
+    tri_write(&parts, file, tri_write_size(&parts), size);
+    free(header);
+    free(scenery);
+    return file;
+}
+
+static double unit(int32_t v) { return v / 65536.0; }
+
+static int nodes_of(const TracePoint *p, int count, double width, TrackGenNode **nodes, int *n)
+{
+    ExchangeError err;
+    memset(&err, 0, sizeof err);
+    return track_trace_nodes(p, count, width, nodes, n, &err);
+}
+
+static int count_flags(const uint8_t *flags, int n, uint8_t bit)
+{
+    int c = 0;
+    for (int i = 0; i < n; ++i) if (flags[i] & bit) ++c;
+    return c;
+}
+
+static void test_straight(void)
+{
+    const TracePoint p[] = { { 0, 0 }, { 0, 96 }, { 0, 192 }, { 0, 288 } };
+    TrackGenNode *nodes = NULL;
+    int n = 0;
+    CHECK(nodes_of(p, 4, WIDTH, &nodes, &n));
+    CHECK_EQ_INT(n, 49);                                   /* 288 units = 12 segments of 24 */
+    CHECK_EQ_INT(track_trace_segments(288), 12);
+    CHECK_EQ_INT(track_trace_segments(10), TRACK_GEN_MIN_SEGMENTS);
+    int straight = 1;
+    for (int k = 0; k < n; ++k) {
+        if (nodes[k].heading != 0.0 || nodes[k].position[0] != 0 || nodes[k].position[1] != 0) straight = 0;
+        if (k > 0 && fabs((unit(nodes[k].position[2]) - unit(nodes[k - 1].position[2])) - 6.0) > 0.01) straight = 0;
+        CHECK_EQ_INT(nodes[k].width == WIDTH, 1);
+    }
+    CHECK(straight);
+    CHECK(fabs(unit(nodes[n - 1].position[2]) - 288.0) < 0.01);
+    uint8_t *flags = calloc((size_t)n, 1);
+    track_trace_flags(nodes, n, flags);
+    CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN | TRACE_FLAG_RADIUS), 0);
+    free(flags);
+    free(nodes);
+}
+
+/* a quarter circle of radius r from heading 0 (+z) to heading -90 (a left turn), `steps` control points */
+static void arc_points(double r, int steps, double degrees, TracePoint *out)
+{
+    for (int i = 0; i <= steps; ++i) {
+        const double a = degrees * M_PI / 180 * i / steps;
+        out[i].x = r * cos(a);
+        out[i].z = r * sin(a);
+    }
+}
+
+static void test_arc(void)
+{
+    TracePoint p[8];
+    arc_points(100, 6, 90, p);
+    TrackGenNode *nodes = NULL;
+    int n = 0;
+    CHECK(nodes_of(p, 7, WIDTH, &nodes, &n));
+    const double length = track_trace_length(p, 7);
+    CHECK(fabs(length - 100 * M_PI / 2) < 1.0);             /* the arc's length, the Catmull curve within a unit */
+    CHECK_EQ_INT(n, 4 * track_trace_segments(length) + 1);
+    const double total = track_trace_turn_degrees(nodes[0].heading, nodes[n - 1].heading);
+    CHECK(fabs(total + 90) < 0.5);                          /* left: negative */
+    uint8_t *flags = calloc((size_t)n, 1);
+    track_trace_flags(nodes, n, flags);
+    CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN | TRACE_FLAG_RADIUS), 0);   /* about 3 degrees a node on radius 100 */
+    free(flags);
+    free(nodes);
+}
+
+static void test_tight_arc_flags_radius(void)
+{
+    TracePoint p[8];
+    arc_points(30, 6, 180, p);                              /* a half circle of radius 30: about 5.6 degrees a node */
+    TrackGenNode *nodes = NULL;
+    int n = 0;
+    CHECK(nodes_of(p, 7, WIDTH, &nodes, &n));
+    uint8_t *flags = calloc((size_t)n, 1);
+    track_trace_flags(nodes, n, flags);
+    CHECK(count_flags(flags, n, TRACE_FLAG_RADIUS) > 0);
+    CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN), 0);
+    CHECK_EQ_INT(flags[0], 0);
+    free(flags);
+    free(nodes);
+}
+
+static void test_corner_flags_turn(void)
+{
+    const TracePoint p[] = { { 0, 0 }, { 0, 100 }, { 100, 100 } };
+    TrackGenNode *nodes = NULL;
+    int n = 0;
+    CHECK(nodes_of(p, 3, WIDTH, &nodes, &n));
+    uint8_t *flags = calloc((size_t)n, 1);
+    track_trace_flags(nodes, n, flags);
+    CHECK(count_flags(flags, n, TRACE_FLAG_TURN) > 0);
+    free(flags);
+    free(nodes);
+}
+
+static void test_faults(void)
+{
+    TrackGenNode *nodes = NULL;
+    int n = 0;
+    const TracePoint one[] = { { 0, 0 } };
+    CHECK(!nodes_of(one, 1, WIDTH, &nodes, &n));
+    const TracePoint nan_point[] = { { 0, 0 }, { NAN, 10 } };
+    CHECK(!nodes_of(nan_point, 2, WIDTH, &nodes, &n));
+    const TracePoint twins[] = { { 0, 0 }, { 0, 0 }, { 0, 200 } };
+    CHECK(!nodes_of(twins, 3, WIDTH, &nodes, &n));
+    const TracePoint short_road[] = { { 0, 0 }, { 0, 10 } };   /* 8 segments would put the nodes 0.3 units apart */
+    CHECK(!nodes_of(short_road, 2, WIDTH, &nodes, &n));
+    TracePoint long_road[61];
+    for (int i = 0; i <= 60; ++i) { long_road[i].x = 0; long_road[i].z = 300.0 * i; }   /* 18000 units: 750 segments */
+    CHECK(!nodes_of(long_road, 61, WIDTH, &nodes, &n));
+    CHECK(nodes == NULL);
+}
+
+static void test_generates_tri(void)
+{
+    TracePoint p[8];
+    arc_points(100, 6, 90, p);
+    TrackGenNode *nodes = NULL;
+    int n = 0;
+    CHECK(nodes_of(p, 7, WIDTH, &nodes, &n));
+    size_t tsize = 0, out_len = 0;
+    uint8_t *tmpl = template_tri(&tsize);
+    uint8_t *out = NULL;
+    ExchangeError err;
+    memset(&err, 0, sizeof err);
+    CHECK(track_generate_nodes(nodes, n, tmpl, tsize, &out, &out_len, &err));
+    Tri tri;
+    CHECK_EQ_INT(tri_open(&tri, out, out_len), TRI_OK);
+    CHECK_EQ_INT(tri.segment_count, (n - 1) / 4);
+    free(out);
+    free(tmpl);
+    free(nodes);
+    CHECK(MAX_NODES == 2400);
+}
+
+static void test_turn_degrees(void)
+{
+    CHECK(fabs(track_trace_turn_degrees(0, 4096) - 90) < 1e-9);
+    CHECK(fabs(track_trace_turn_degrees(4096, 0) + 90) < 1e-9);
+    CHECK(fabs(track_trace_turn_degrees(16000, 100) - 10.6348) < 0.001);   /* across the wrap */
+}
+
+int main(void)
+{
+    test_straight();
+    test_arc();
+    test_tight_arc_flags_radius();
+    test_corner_flags_turn();
+    test_faults();
+    test_generates_tri();
+    test_turn_degrees();
+    return TEST_REPORT();
+}
