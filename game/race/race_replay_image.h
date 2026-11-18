@@ -118,6 +118,9 @@ void race_replay_track_write(uint8_t block[REPLAY_TRACK_BLOCK], const TrackPiece
 /* today's number of the track `block` names in `*track`; MISSING (not registered now) or CHANGED (its fingerprint is another) with the id
  * in `id_out` (REPLAY_TRACK_ID bytes); BAD for a block that is not exactly one of ours */
 ReplayCars race_replay_track_read(const uint8_t block[REPLAY_TRACK_BLOCK], int *track, char *id_out);
+/* 1 when a whole Replay.rpx of `size` bytes has a track's block that reads CHANGED (race_replay_file_cars says CHANGED for it): the
+ * message names the track's rules, not the cars' */
+int race_replay_file_track_changed(const uint8_t *file, size_t size);
 
 /* A race started from a replay's setup, after race_sim_start_field: the cheat words the setup's recording was made with
  * that the exe's setup does not hold (the EXPLODE cheat), put back so the cars play as they did. */

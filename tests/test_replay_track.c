@@ -110,6 +110,7 @@ static void test_the_whole_file(void)
     CHECK_EQ_INT(r.added_track, 16);
     CHECK(strcmp(r.stem, "PEAKS1") == 0);
     CHECK(r.looks_known && r.field.entries[0].car == 3 && r.field.entries[1].car == 5);
+    CHECK(!race_replay_file_track_changed(file, sizeof file));   /* the track reads: whatever else changed, the message is not the track's */
 
     CHECK_EQ_INT(race_replay_file_cars(file, LOOKS_END, &r, id), REPLAY_CARS_OK);   /* step 3's: no track's block */
     CHECK_EQ_INT(r.added_track, 0);
@@ -122,6 +123,9 @@ static void test_the_whole_file(void)
     register_track("alps-run", "PEAKS", 0x1111, 16);
     CHECK_EQ_INT(race_replay_file_cars(file, sizeof file, &r, id), REPLAY_CARS_CHANGED);
     CHECK(strcmp(id, "alps-run") == 0);
+    CHECK(race_replay_file_track_changed(file, sizeof file));   /* the message says a track, not cars */
+    CHECK(!race_replay_file_track_changed(file, LOOKS_END));
+    CHECK(!race_replay_file_track_changed(NULL, 0));
 
     track_registry_clear();
     register_track("alps-run", "PEAKS", 0x5678, 16);

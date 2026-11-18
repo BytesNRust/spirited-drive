@@ -2,6 +2,7 @@
  * Road & Track logo, on the segment's ranking and on the totals' standings of a race with cheats, and on neither of a
  * normal race. port (owner, 2026-11-16): with the table line (Restomod), which says CHEATS already, no banner. */
 #include "game/frontend/standings.h"
+#include "game/sys/track_registry.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -162,6 +163,26 @@ static void test_an_added_track_reads_no_tag(void)
     track_on = 0;
 }
 
+/* T7e: an added stage track names itself where the tag art is and ranks by SEGMENT, not by laps */
+static void test_an_added_track_names_itself(void)
+{
+    TrackPiece piece;
+    memset(&piece, 0, sizeof piece);
+    snprintf(piece.id, sizeof piece.id, "dune"), snprintf(piece.name, sizeof piece.name, "Dune Run"), snprintf(piece.stem, sizeof piece.stem, "ZZA");
+    piece.spec.kind = TRACK_KIND_STAGE, piece.spec.segments = 1, piece.spec.times = TRACK_TIME_DAY, piece.fingerprint = 7;
+    track_registry_clear();
+    CHECK(track_registry_add(&piece, NULL, 0) == 16);
+    track_on = 16;
+    run(1, 0);
+    CHECK(found("Dune Run", 8, 0x46));
+    CHECK(any_text("SEGMENT 1") && !any_text("1 Lap race"));
+    track_on = 4;   /* a circuit of the game: its laps, no name */
+    run(1, 0);
+    CHECK(!any_text("Dune Run") && any_text("1 Lap race"));
+    track_on = 0;
+    track_registry_clear();
+}
+
 /* the segment's ranking ("Rank Name Total Time Segment Time") shows the banner on a race with cheats */
 static void test_segment_ranking_banner_on_cheats_race(void)
 {
@@ -202,6 +223,7 @@ static void test_no_banner_with_the_table_line(void)
 int main(void)
 {
     test_an_added_track_reads_no_tag();
+    test_an_added_track_names_itself();
     test_segment_ranking_banner_on_cheats_race();
     test_segment_ranking_has_no_banner_on_normal_race();
     test_totals_standings_banner_on_cheats_race();

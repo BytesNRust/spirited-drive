@@ -365,6 +365,14 @@ ReplayCars race_replay_track_read(const uint8_t block[REPLAY_TRACK_BLOCK], int *
     return REPLAY_CARS_OK;
 }
 
+int race_replay_file_track_changed(const uint8_t *file, size_t size)
+{
+    const size_t looks_end = (size_t)REPLAY_CARS_AT + REPLAY_CARS_BLOCK + REPLAY_LOOKS_BLOCK;
+    int track;
+    char id[REPLAY_TRACK_ID];
+    return file != NULL && size == looks_end + REPLAY_TRACK_BLOCK && race_replay_track_read(file + looks_end, &track, id) == REPLAY_CARS_CHANGED;
+}
+
 /* 1 when the setup's stem `stem` (upper case) is the piece's and a stage's digit */
 static int piece_stem(const char *stem, const TrackPiece *p)
 {

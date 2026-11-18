@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 enum {
+    MOD_TRACK_CARD_W = 208, MOD_TRACK_CARD_H = 127,   /* a track piece's card.png (the track slot of Control Central: added_card.h) */
     MOD_PREVIEW_W = 512,
     MOD_PREVIEW_H = 256,
     MOD_PNG_MAX_SIDE = 1024,           /* any other picture, a side (the largest the port reads are 640 x 480) */

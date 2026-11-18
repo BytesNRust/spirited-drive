@@ -772,7 +772,10 @@ static int added_race(const uint8_t *file, size_t size, ReplayRace *race)
             port_log("replay: its cars' looks do not read: each as picked now\n");
         return 1;
     case REPLAY_CARS_MISSING: port_fatal("replay: needs the mod %s\n", id); return 0;
-    case REPLAY_CARS_CHANGED: port_fatal("replay: the mod %s has changed since this replay was made, or the game's rules for added cars have\n", id); return 0;
+    case REPLAY_CARS_CHANGED:
+        port_fatal("replay: the mod %s has changed since this replay was made, or the game's rules for added %s have\n", id,
+                   race_replay_file_track_changed(file, size) ? "tracks" : "cars");
+        return 0;
     case REPLAY_CARS_BAD: break;
     }
     port_log("track_viewer: not a replay\n");

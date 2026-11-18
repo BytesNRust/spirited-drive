@@ -287,6 +287,12 @@ static void test_rules(void)
     for (size_t i = 0; i < sizeof TRACK_FOREIGN / sizeof TRACK_FOREIGN[0]; i++)
         CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "XTRK", TRACK_FOREIGN[i]), MOD_FILE_FOREIGN);
     CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "", "SIMDATA/MISC/1.TRI"), MOD_FILE_FOREIGN);   /* no stem: none is its own */
+    /* dep59 step 5, T7e: a track piece's card (Control Central's track slot, the page's box), at its root, in lower case, and no other picture */
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "XTRK", "card.png"), MOD_FILE_OK);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "XTRK", "CARD.PNG"), MOD_FILE_FOREIGN);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "XTRK", "pics/card.png"), MOD_FILE_FOREIGN);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "XTRK", "rival.png"), MOD_FILE_FOREIGN);
+    CHECK_EQ_INT(mod_file_rule(MOD_TYPE_TRACK, "XTRK", "gallery.png"), MOD_FILE_FOREIGN);
     CHECK_EQ_INT(mod_file_kind("GAMEDATA/CONFIG/CONFIG.DAT"), MOD_KIND_NONE);
     /* dep59 step 3: a car piece's card.png (Control Central's picture), at its root only, and only in a car */
     CHECK_EQ_INT(mod_file_kind("card.png"), MOD_KIND_PNG);
@@ -359,6 +365,14 @@ static void test_rules_in_the_zip(void)
     ZbEntry foreign[] = { zb_text("mod.ini", "id=a-track\nname=A Track\nversion=1\ntype=track\nstem=XTRK\n"), zb_text("SIMDATA/MISC/TR1.TRI", "x") };
     CHECK_EQ_INT(check(foreign, 2, &c), 0);
     CHECK(strstr(why, "TR1.TRI") != NULL && strstr(why, "not one of the files of the track XTRK") != NULL);
+    uint8_t *tcard = NULL, *tbad = NULL;   /* the track's card: 208 x 127 or refused by its size (the files' own check comes after) */
+    ZbEntry good_card[] = { zb_text("mod.ini", "id=a-track\nname=A Track\nversion=1\ntype=track\nstem=XTRK\n"), png_entry("card.png", 208, 127, &tcard) };
+    check(good_card, 2, &c);
+    CHECK(strncmp(why, "card.png is", 11) != 0);   /* the picture is no reason to refuse it (the files missing are) */
+    ZbEntry bad_card[] = { zb_text("mod.ini", "id=a-track\nname=A Track\nversion=1\ntype=track\nstem=XTRK\n"), png_entry("card.png", 100, 100, &tbad) };
+    CHECK_EQ_INT(check(bad_card, 2, &c), 0);
+    CHECK(strstr(why, "card.png is 100 x 100, not 208 x 127") != NULL);
+    free(tcard), free(tbad);
     size_t cfm_n = 0, pdn_n = 0, pbs_n = 0, other_n = 0;
     uint8_t *cfm = read_cd("SIMDATA/CARFAMS/DVIPER.CFM", &cfm_n), *pdn = read_cd("SIMDATA/CARFAMS/DVIPER.PDN", &pdn_n),
             *pbs = read_cd("SIMDATA/CARSPECS/DVIPER.PBS", &pbs_n), *other = read_cd("SIMDATA/CARSPECS/CZR1.PBS", &other_n);

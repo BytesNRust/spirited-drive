@@ -144,6 +144,8 @@ static inline void results_band_places(int banner, int line, int32_t *banner_mid
     *banner_mid = !banner ? 0 : line ? RESULTS_BAND_TOP_MID : RESULTS_BAND_MID;
     *line_mid = !line ? 0 : banner ? RESULTS_BAND_LOW_MID : RESULTS_BAND_MID;
 }
+/* port (dep59 step 5, T7e): where an added track's name goes: the tag art's place, above "SEGMENT n" (y 0x5a) */
+enum { RESULTS_NAME_Y = 0x46 };
 /* port (dep55): the banner and the table line of the records shown, as every post-race screen draws them */
 void results_header_marks(const ResultsInputs *in, const ResultsOps *ops);
 
