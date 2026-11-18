@@ -11,6 +11,7 @@
 #include "app.h"
 #include "build.h"
 #include "draw.h"
+#include "ui.h"
 
 #include <SDL3/SDL.h>
 
@@ -187,6 +188,16 @@ static int run(App *a, const Options *o)
         SDL_Quit();
         return 1;
     }
+    char ui_why[APP_MSG];
+    char ini[APP_PATH] = "";
+    if (o->user != NULL) snprintf(ini, sizeof ini, "%s/track-editor.ini", o->user);
+    if (!ui_open(win, ren, ini[0] != '\0' && o->frames == 0 ? ini : NULL, ui_why, sizeof ui_why)) {
+        fprintf(stderr, "%s\n", ui_why);
+        SDL_DestroyRenderer(ren);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+        return 1;
+    }
     int w = WINDOW_W, h = WINDOW_H;
     SDL_GetWindowSize(win, &w, &h);
     view_fit(&a->view, a->trace.points, a->trace.count, w, h);
@@ -195,10 +206,14 @@ static int run(App *a, const Options *o)
     memset(&p, 0, sizeof p);
     const int headless = o->frames > 0;
     while (!p.quit) {
-        for (SDL_Event ev; SDL_PollEvent(&ev);) on_event(a, &p, &ev);
+        for (SDL_Event ev; SDL_PollEvent(&ev);) {
+            if (!ui_event(&ev)) on_event(a, &p, &ev);
+            else if (ev.type == SDL_EVENT_MOUSE_BUTTON_UP) p.dragging = p.panning = 0;   /* a release over a panel still ends a drag */
+        }
         SDL_GetWindowSize(win, &a->view.width, &a->view.height);
         app_recompute(a);
         draw_scene(ren, a);
+        ui_frame(ren, a);
         ++frame;
         if (headless && frame >= o->frames) {
             if (o->shot != NULL) {
@@ -216,6 +231,7 @@ static int run(App *a, const Options *o)
         SDL_RenderPresent(ren);
         SDL_Delay(FRAME_MS);
     }
+    ui_close();
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);
     SDL_Quit();
