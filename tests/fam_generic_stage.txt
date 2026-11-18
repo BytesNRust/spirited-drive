@@ -1,0 +1,11 @@
+# The generic CC0 stage (run from the folder of the PNGs: tnfs-studio fam build fam_generic_stage.txt --out GENERIC.FAM; the PNGs are the CC0 set, see LICENCIAS.md).
+# The order is the generic track's: terrain SHPI 0 asphalt (the road), 1 gravel (shoulder), 2 planks (edge), 3 grass;
+# 4 rock and the two road lines follow. Each terrain picture fills letters A, B, C of its id.
+terrain 0 Asphalt010.png
+terrain 1 Gravel001.png
+terrain 2 Planks001.png
+terrain 3 Grass005.png
+terrain 4 Rock035.png
+terrain 5 road_white.png
+terrain 6 road_yellow.png
+horizon horizon_sky.png

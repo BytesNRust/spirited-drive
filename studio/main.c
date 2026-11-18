@@ -21,6 +21,7 @@
 #include "formats/qfs.h"
 #include "formats/resource_exchange.h"
 #include "formats/validate.h"
+#include "studio/fam_command.h"
 #include "studio/fsio.h"
 #include "studio/help.h"
 #include "studio/mod_pack.h"
@@ -63,6 +64,7 @@ static void usage(FILE *to)
           "                         [--steer DEGREES] [--donor CAR] [--keep-pdn] [--data DIR] [--force]\n"
           "  tnfs-studio car resize PIECE_DIR NAME WxH [--image FILE.png] [--low]\n"
           "  tnfs-studio car texture add PIECE_DIR NAME FILE.png [--low] [--label LABEL]\n"
+          "  tnfs-studio fam build SPEC --out FILE.FAM [--force]   (studio/fam_command.h)\n"
           "  tnfs-studio mod pack DIR OUT.zip [--force]\n"
           "  (export = unpack, import = pack)\n"
           "Level 1 limit: a replaced car's short name on the results and records screens stays the original model's\n"
@@ -259,6 +261,12 @@ int main(int argc, char **argv)
         ExchangeError track_err = {{0}};
         if (track_command(argc - 1, argv + 1, &track_err)) return 0;
         fprintf(stderr, "tnfs-studio: %s\n", track_err.message);
+        return 1;
+    }
+    if (strcmp(command, "fam") == 0) {
+        ExchangeError fam_err = {{0}};
+        if (fam_command(argc - 1, argv + 1, &fam_err)) return 0;
+        fprintf(stderr, "tnfs-studio: %s\n", fam_err.message);
         return 1;
     }
     if (strcmp(command, "mod") == 0) {
