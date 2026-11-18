@@ -70,7 +70,8 @@ static const Folders *wanted(bool say, Folders *out)
     f->count = 0;
     const PortSettings s = port_settings_load();
     if (s.profile != PROFILE_RESTOMOD) {
-        if (say && set.cli[0] != '\0') port_log("mods: --mods %s is ignored: %s loads no mods (Restomod only)\n", set.cli, port_profile_key((Profile)s.profile));
+        /* port_fatal, not port_log: a run that then fails (--track of a piece that was not loaded) must say why on stderr, not only in the log */
+        if (say && set.cli[0] != '\0') port_fatal("mods: --mods %s is ignored: %s loads no mods (Restomod only)\n", set.cli, port_profile_key((Profile)s.profile));
         return f;
     }
     if (set.cli[0] != '\0') snprintf(f->dirs[f->count++], DIR_MAX, "%s", set.cli);
