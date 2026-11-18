@@ -104,7 +104,7 @@ static void test_the_rows_and_the_bottom_row(void)
     track_page_input(&p, UP);
     CHECK_EQ_INT(p.item, TP_DONE);   /* up from the first row: round to DONE */
     CHECK_EQ_INT(track_page_input(&p, ENTER), TRACK_PAGE_LEAVE);
-    CHECK_EQ_INT(track_page_input(&p, ESC), TRACK_PAGE_LEAVE);
+    CHECK_EQ_INT(track_page_input(&p, ESC), TRACK_PAGE_CANCEL);   /* Escape drops what was changed, as the track screen's does */
     p.item = TP_PREVIOUS;
     CHECK_EQ_INT(track_page_input(&p, ENTER), TRACK_PAGE_GO_PREVIOUS);
     p.item = TP_NEXT;

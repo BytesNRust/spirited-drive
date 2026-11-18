@@ -14,7 +14,7 @@ enum { TP_MIRROR, TP_RALLY, TP_TIME, TP_WEATHER, TP_DONE, TP_PREVIOUS, TP_NEXT, 
 enum { TRACK_PAGE_KEY_ENTER = 0x0d, TRACK_PAGE_KEY_ESCAPE = 0x1b, TRACK_PAGE_KEY_UP = 0x4800, TRACK_PAGE_KEY_LEFT = 0x4b00,
        TRACK_PAGE_KEY_RIGHT = 0x4d00, TRACK_PAGE_KEY_DOWN = 0x5000 };
 /* what track_page_input asks for */
-enum { TRACK_PAGE_STAY = 0, TRACK_PAGE_LEAVE = 1, TRACK_PAGE_GO_PREVIOUS = 2, TRACK_PAGE_GO_NEXT = 3, TRACK_PAGE_BEST = 4 };
+enum { TRACK_PAGE_STAY = 0, TRACK_PAGE_LEAVE = 1, TRACK_PAGE_GO_PREVIOUS = 2, TRACK_PAGE_GO_NEXT = 3, TRACK_PAGE_BEST = 4, TRACK_PAGE_CANCEL = 5 };   /* Escape: the track screen's, the changes dropped */
 
 /* what applies to this track */
 typedef struct {
@@ -42,7 +42,7 @@ void track_page_open(TrackPage *p, const TrackPageOffer *offer, const TrackPageV
 int track_page_shown(const TrackPage *p, int item);
 /* the time of day the page shows for `light_time`: itself when the track takes it, else the first of its times (day first) */
 int track_page_time_shown(const TrackPageOffer *offer, int light_time);
-/* a key: the state changed; TRACK_PAGE_STAY, or what is asked for (Done and Escape leave) */
+/* a key: the state changed; TRACK_PAGE_STAY, or what is asked for (Done leaves, Escape cancels) */
 int track_page_input(TrackPage *p, int key);
 /* the item shown at (x, y), the page's 640 x 480, or -1 */
 int track_page_hit(const TrackPage *p, int x, int y);

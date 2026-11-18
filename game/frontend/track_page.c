@@ -94,7 +94,7 @@ int track_page_input(TrackPage *p, int key)
 {
     const int on_row = p->item <= TP_WEATHER;
     switch (key) {
-    case TRACK_PAGE_KEY_ESCAPE: return TRACK_PAGE_LEAVE;
+    case TRACK_PAGE_KEY_ESCAPE: return TRACK_PAGE_CANCEL;
     case TRACK_PAGE_KEY_UP:
         p->item = on_row ? row_step(p, p->item, -1) : row_edge(p, -1);
         break;

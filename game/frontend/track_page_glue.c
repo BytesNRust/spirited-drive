@@ -55,6 +55,7 @@ static int row_cut;
 
 typedef struct {
     TrackPage page;
+    TrackPageValues opened;           /* the values it opened with: only a row the player changed is written back */
     int track;                        /* the added track's number */
     const TrackPiece *piece;
     int line;                         /* the description's first visible line */
@@ -336,7 +337,7 @@ static int run_page(Page *p)
     run_draw(p);
     run_flip(p);
     video_fade_in(0, 256, p->palette);
-    int last_key = -1, last_buttons = -1, result = TRACK_PAGE_STAY, changed = 0, last_x = 0, last_y = 0, frame = 0;
+    int last_key = input_get_key(), last_buttons = -1, result = TRACK_PAGE_STAY, changed = 0, last_x = 0, last_y = 0, frame = 0;
     pointer_position(&last_x, &last_y);
     while (result == TRACK_PAGE_STAY) {
         int total, visible;
@@ -416,8 +417,9 @@ static void values_open(const TrackPiece *t, TrackPage *page)
     track_page_open(page, &with, &values);
 }
 
+
 /* the values the page was left with into the pick (Central's settings and port.cfg), as the track screen puts its own */
-static void values_keep(const TrackPage *page)
+static void values_keep(const TrackPage *page, const TrackPageValues *opened)
 {
     const TrackPageValues *v = &page->v;
     const int kept_m = v->mirror, kept_r = v->rally;
@@ -425,9 +427,11 @@ static void values_keep(const TrackPage *page)
     cg_g.variant_r = (int16_t)(page->offer.rally ? v->rally : cg_g.variant_r);
     PortSettings saved = port_settings_load();
     const int light_time = track_page_time_shown(&page->offer, v->light_time);
-    if (page->offer.light_effects && saved.light_time != light_time) saved.light_time = light_time;
-    if (page->offer.weather && saved.weather != v->weather) saved.weather = v->weather;
-    if (!port_settings_save(&saved)) port_log("track page: port.cfg could not be saved\n");
+    const int time_changed = track_page_shown(page, TP_TIME) && v->light_time != opened->light_time;
+    const int weather_changed = track_page_shown(page, TP_WEATHER) && v->weather != opened->weather;
+    if (time_changed) saved.light_time = light_time;
+    if (weather_changed) saved.weather = v->weather;
+    if ((time_changed || weather_changed) && !port_settings_save(&saved)) port_log("track page: port.cfg could not be saved\n");
     RaceSettings s = cg_settings_of();
     s.variant_m = cg_g.variant_m, s.variant_r = cg_g.variant_r;
     cg_settings_put(&s);
@@ -448,11 +452,12 @@ int32_t cg_track_page(void *ctx, const uint8_t screen[768])
         memset(&p, 0, sizeof p);
         p.track = cg_g.track, p.piece = t;
         values_open(t, &p.page);
+        p.opened = p.page.v;
         if (resume >= 0) p.page.item = resume, resume = -1;
         page_still(&p, screen);
         port_log("mark:screen=track_page\n");   /* port: the headless walk waits for it */
         const int result = run_page(&p);
-        values_keep(&p.page);
+        if (result != TRACK_PAGE_CANCEL) values_keep(&p.page, &p.opened);   /* Escape: as the track screen's, nothing kept */
         free(p.still);
         if (result == TRACK_PAGE_BEST) {
             int x, y;
@@ -462,7 +467,7 @@ int32_t cg_track_page(void *ctx, const uint8_t screen[768])
             resume = TP_BEST;
             continue;
         }
-        if (result == TRACK_PAGE_LEAVE) return 0;
+        if (result == TRACK_PAGE_LEAVE || result == TRACK_PAGE_CANCEL) return 0;
         cg_track_arrow(result == TRACK_PAGE_GO_NEXT ? 1 : -1);   /* Central's own step: the page goes on when the next is an added track too */
         if (!track_registry_is_added(cg_g.track)) return 0;
     }
