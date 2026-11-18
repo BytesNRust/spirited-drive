@@ -55,6 +55,33 @@ static void test_the_title_box_is_filled_again(void)
     free(bank), free(made);
 }
 
+/* RECORDS' bank (owner 2026-11-18): the title's box and the three more (the "Best times" and heads, the "Top speed" block, the footer's labels)
+ * changed; DONE's place (the left of the footer), the other pictures and the palette as they were */
+static void test_the_records_bank_takes_out_the_headings(void)
+{
+    size_t size = 0, made_size = 0;
+    uint8_t *bank = bank_make(&size, 1), *made = NULL;
+    char why[64];
+    CHECK(added_best_art_make_records(bank, size, &made, &made_size, why, sizeof why));
+    ShpiDescEntry in[3], out[3];
+    ExchangeError err;
+    size_t n = 0, m = 0;
+    CHECK(shpi_describe(bank, size, in, 3, &n, &err) && shpi_describe(made, made_size, out, 3, &m, &err) && n == 3 && m == 3);
+    int heads = 0, top = 0, footer = 0;
+    for (int y = 0; y < ADDED_BEST_H; y++)
+        for (int x = 0; x < ADDED_BEST_W; x++) {
+            const int differs = in[0].data[y * ADDED_BEST_W + x] != out[0].data[y * ADDED_BEST_W + x];
+            if (x >= 6 && x <= 540 && y >= 72 && y <= 112) heads += differs;
+            if (x >= 6 && x <= 540 && y >= 338 && y <= 380) top += differs;
+            if (x >= 200 && x <= 636 && y >= 440 && y <= 470) footer += differs;
+            if (x < 6 - ADDED_BEST_MARGIN_X + 14 && y >= 440) CHECK(!differs);   /* DONE's place (x 0..5) */
+        }
+    CHECK(heads > 0 && top > 0 && footer > 0);
+    CHECK(memcmp(in[1].data, out[1].data, SHPI_PALETTE_BYTES) == 0);
+    CHECK(memcmp(in[2].data, out[2].data, 16 * 8) == 0);
+    free(bank), free(made);
+}
+
 static void test_a_bank_without_the_picture_is_refused(void)
 {
     size_t size = 0, made_size = 0;
@@ -69,6 +96,7 @@ static void test_a_bank_without_the_picture_is_refused(void)
 int main(void)
 {
     test_the_title_box_is_filled_again();
+    test_the_records_bank_takes_out_the_headings();
     test_a_bank_without_the_picture_is_refused();
     return TEST_REPORT();
 }

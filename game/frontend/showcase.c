@@ -9,7 +9,8 @@ enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIG
        LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 enum { HISTORY, VIDEO, GENERAL, PERFORMANCE, ENGINE, NEXT, PREVIOUS, DONE, NONE, ITEMS = NONE,
        VARIANT = NONE + 1 };   /* port: the variant box, an item with no art of the bank's */
-enum { MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, REST = 0x19, ALL = 0x100, BOXES = 8, TOURNAMENT = 3 };
+enum { PEEK_AT = 200, PEEK_LENGTH = 100, PEEK_PIXELS = 26, SLIDE_TICKS = 15,   /* port: 100 ticks a second */
+       MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, REST = 0x19, ALL = 0x100, BOXES = 8, TOURNAMENT = 3 };
 
 /* 00405f4c..00405fb7, copied to the stack: the arrows' next item and the pointer's place, by item (NONE too) */
 static const int16_t UP_OF[VARIANT + 1] = { 3, 3, 3, 5, 2, 1, 4, 4, 7, VARIANT };
@@ -39,6 +40,12 @@ typedef struct Show {
     int fade;               /* esp + 0x6dc: the palette faded in on the next draw */
     int armed;              /* esp + 0x6c4: the keys taken */
     int32_t rest;           /* esp + 0x6d4: the ticks summed while a key is held */
+    int32_t pending;        /* port: the ticks since the last time they were taken (rest's sum, or reset by a key) */
+    int32_t clock;          /* port: the ticks since the page opened (the Video tile's second face: its slide and its peek) */
+    int face;               /* port: the Video tile's face: 0 the video, 1 RECORDS */
+    int slide;              /* port: the strip's place of the face, 0 .. SHOWCASE_TILE_W, moving to face * SHOWCASE_TILE_W */
+    int peek;               /* port: 0 not yet, 1 under way, 2 done (once a page) */
+    int32_t peek_from;      /* port: the clock when the peek began */
     int released;           /* esp + 0x6d0: the buttons seen up */
     int16_t quit;           /* esp + 0x6c0 */
     char name[SHOWCASE_NAME];          /* esp + 0x600 */
@@ -71,6 +78,37 @@ static int has_box(const ShowcaseState *st)
     return st->plus != NULL;
 }
 
+/* port: the Video tile's second face is there when the screen has one */
+static int has_records(const ShowcaseState *st)
+{
+    return st->plus != NULL && st->plus->tile != NULL && st->plus->records_open != NULL;
+}
+
+/* port: the ticks since the last call, added to the page's clock and to what is waiting to be taken */
+static void tick_poll(Show *s, const ShowcaseOps *o)
+{
+    const int32_t d = o->ticks(o->ctx);
+    s->clock += d;
+    s->pending += d;
+}
+
+/* port: the strip's place now: the face's slide, and the peek's bump (a parabola out and back, once a page) */
+static int tile_shift(const Show *s)
+{
+    int shift = s->slide;
+    if (s->peek == 1) {
+        const int32_t t = s->clock - s->peek_from;
+        shift += (int)(4 * PEEK_PIXELS * t * (PEEK_LENGTH - t) / ((int32_t)PEEK_LENGTH * PEEK_LENGTH));
+    }
+    return shift;
+}
+
+/* port: the arrows in the tile: a left one on the records, a right one on the video once the peek has shown there is more */
+static int tile_arrows(const Show *s)
+{
+    return s->face ? 1 : s->peek == 2 ? 2 : 0;
+}
+
 /* the first box the pointer is in becomes the selection, else none */
 static void follow(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
 {
@@ -99,6 +137,14 @@ static void item_art(Show *s, int16_t item, const char *const *tags, const Showc
         return;
     }
     if (item < 0 || item > DONE) return;
+    if (item == VIDEO && has_records(st)) {   /* port: the original's art, then the two faces over it when there is something to show */
+        const int lit = tags == LIT, shift = tile_shift(s), arrows = lit ? tile_arrows(s) : 0;
+        const int changed = s->face || s->slide != 0 || shift != 0 || arrows != 0;
+        if (!lit) o->blit_masked(o->ctx, o->shape(o->ctx, s->bank, tags[item]));
+        if (lit && *st->intro_movies != 0) o->blit_masked(o->ctx, o->shape(o->ctx, s->bank, tags[item]));
+        if (changed) st->plus->tile(st->plus->ctx, *st->player_car, lit, shift, arrows, s->rgb);
+        return;
+    }
     if (tags == LIT && item == VIDEO && *st->intro_movies == 0) return;
     const uint8_t *shape = o->shape(o->ctx, s->bank, tags[item]);
     if (item <= ENGINE) o->blit_masked(o->ctx, shape);
@@ -110,6 +156,7 @@ static void draw(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
     o->select(o->ctx, *st->screen);
     o->blit_own(o->ctx, o->shape(o->ctx, s->bank, "bgnd"));
     if (s->selected != VARIANT) item_art(s, s->selected, LIT, st, o);
+    if (has_records(st) && s->selected != VIDEO && (s->face || s->slide != 0 || tile_shift(s) != 0)) item_art(s, VIDEO, DARK, st, o);   /* else the page's own */
     item_art(s, VARIANT, s->selected == VARIANT ? LIT : DARK, st, o);
     if (s->fade) o->palette_show(o->ctx, 0, ALL, s->black);
     o->select_default(o->ctx);
@@ -179,6 +226,26 @@ static void page(Show *s, const ShowcaseState *st, const ShowcaseOps *o,
     s->fade = 1;
 }
 
+/* port: the Video tile's other face (once the page has done or been spared its peek) */
+static void flip_face(Show *s, const ShowcaseOps *o)
+{
+    s->face ^= 1;
+    if (s->peek != 2) s->peek = 2;
+    o->sound(o->ctx, MOVED);
+    s->redraw = 1;
+}
+
+/* port: a click on the arrow inside the tile (30 pixels at its edge) takes the other face; 1 when it did */
+static int tile_click(Show *s, const ShowcaseOps *o)
+{
+    enum { ZONE = 30 };
+    const int left = s->face && o->pointer_in_rect(o->ctx, SHOWCASE_TILE_X, SHOWCASE_TILE_X + ZONE, SHOWCASE_TILE_Y, SHOWCASE_TILE_Y + SHOWCASE_TILE_H);
+    const int right = !s->face && s->peek == 2 &&
+                      o->pointer_in_rect(o->ctx, SHOWCASE_TILE_X + SHOWCASE_TILE_W - ZONE, SHOWCASE_TILE_X + SHOWCASE_TILE_W, SHOWCASE_TILE_Y, SHOWCASE_TILE_Y + SHOWCASE_TILE_H);
+    if (left || right) flip_face(s, o);
+    return left || right;
+}
+
 /* port: Enter, Space or a click on the tile open the panel; the screen is drawn again once it is closed */
 static void take_variant(Show *s, const ShowcaseState *st)
 {
@@ -188,13 +255,28 @@ static void take_variant(Show *s, const ShowcaseState *st)
 
 static void take(Show *s, const ShowcaseState *st, const ShowcaseOps *o, int by_click)
 {
-    (void)by_click;
     switch (s->selected) {
     case HISTORY: page(s, st, o, o->pages, "his"); break;
     case GENERAL: page(s, st, o, o->pages, "gen"); break;
     case PERFORMANCE: page(s, st, o, o->figures, "per"); break;
     case ENGINE: page(s, st, o, o->figures, "mec"); break;
     case VIDEO:
+        if (has_records(st)) {
+            if (by_click && tile_click(s, o)) break;
+            if (s->face) {   /* port: RECORDS' screen, a screen of its own: out to black, in again on the page as with the history's */
+                o->free(o->ctx, s->bank);
+                o->fade_out(o->ctx, 0, ALL);
+                o->music_feed(o->ctx);
+                st->plus->records_open(st->plus->ctx, *st->player_car, s->rgb);
+                o->music_feed(o->ctx);
+                load(s, st, o);
+                palette(s, o);
+                move_to(s->selected, o);
+                s->redraw = 1;
+                s->fade = 1;
+                break;
+            }
+        }
         if (*st->intro_movies == 0) break;
         o->music_fade_out(o->ctx);
         o->fade_out(o->ctx, 0, ALL);
@@ -230,6 +312,7 @@ static void take(Show *s, const ShowcaseState *st, const ShowcaseOps *o, int by_
     }
 }
 
+
 /* the arrows: the pointer off, the item the table names, the pointer onto it */
 static void arrow(Show *s, int16_t to, const ShowcaseOps *o)
 {
@@ -253,7 +336,8 @@ static void keys(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
             o->sound(o->ctx, CHOSEN);
             take(s, st, o, key != SPACE && key != ENTER);
         }
-        o->ticks(o->ctx);
+        tick_poll(s, o);
+        s->pending = 0;
         s->released = 0;
         s->armed = 0;
         s->rest = 0;
@@ -263,14 +347,36 @@ static void keys(Show *s, const ShowcaseState *st, const ShowcaseOps *o)
         case UP: arrow(s, s->selected == GENERAL && has_box(st) ? VARIANT : UP_OF[s->selected], o); break;
         case DOWN: arrow(s, DOWN_OF[s->selected], o); break;
         case LEFT:
-        case RIGHT: arrow(s, (key == LEFT ? LEFT_OF : RIGHT_OF)[s->selected], o); break;
+        case RIGHT:
+            if (has_records(st) && s->selected == VIDEO && (key == RIGHT) != (s->face != 0)) flip_face(s, o);   /* port: the tile's faces */
+            else arrow(s, (key == LEFT ? LEFT_OF : RIGHT_OF)[s->selected], o);
+            break;
         default: break;
         }
-        o->ticks(o->ctx);
+        tick_poll(s, o);
+        s->pending = 0;
         s->armed = 0;
         s->rest = 0;
     } else if (key == 0) {
         s->armed = 1;
+    }
+}
+
+/* port: the Video tile's slide to its face and its peek, by the page's clock; a frame of either is a redraw */
+static void animate(Show *s, const ShowcaseState *st, int32_t delta)
+{
+    if (!has_records(st) || s->fade) return;
+    const int goal = s->face * SHOWCASE_TILE_W;
+    if (s->slide != goal) {
+        int step = (int)((int32_t)SHOWCASE_TILE_W * delta / SLIDE_TICKS);
+        if (step < 1) step = 1;
+        s->slide = s->slide < goal ? (s->slide + step > goal ? goal : s->slide + step) : (s->slide - step < goal ? goal : s->slide - step);
+        s->redraw = 1;
+    }
+    if (s->peek == 0 && !s->face && s->clock >= PEEK_AT) s->peek = 1, s->peek_from = s->clock, port_log("mark:tile_peek=start\n");
+    if (s->peek == 1) {
+        if (s->clock - s->peek_from >= PEEK_LENGTH) s->peek = 2;
+        s->redraw = 1;
     }
 }
 
@@ -294,12 +400,18 @@ int32_t showcase(ShowcaseState *st, const ShowcaseOps *o)
     o->text_styles(o->ctx);
     if (*st->pointer_active) o->pointer_poll(o->ctx);
     o->pointer_mark(o->ctx);
+    tick_poll(&s, o);   /* port: the page's clock starts here */
+    s.clock = 0, s.pending = 0;
     while (!s.quit) {
         follow(&s, st, o);
+        const int32_t before = s.clock;
+        tick_poll(&s, o);
+        animate(&s, st, s.clock - before);
         if (s.redraw) draw(&s, st, o);
         if (s.changed) mark_change(&s, st, o);
         if (!s.armed) {
-            s.rest += o->ticks(o->ctx);
+            s.rest += s.pending;
+            s.pending = 0;
             if ((int16_t)s.rest > REST) s.armed = 1;
         }
         keys(&s, st, o);

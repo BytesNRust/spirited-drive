@@ -155,6 +155,7 @@ int gallery_hit(int x, int y, int *step)
         *step = zone_step(x, GL_PERF_X, GL_PERF_W, GL_ARROW_ZONE);
         return GALLERY_PHOTOS;
     }
+    if (in_rect(x, y, GL_VID_X, GL_VID_Y, GL_VID_W, GL_VID_H)) return GALLERY_RECORDS;   /* Video's tile is RECORDS (owner 2026-11-18) */
     if (in_rect(x, y, GL_HIST_X, GL_HIST_Y, GL_HIST_W, GL_HIST_H)) return GALLERY_HISTORY;
     if (in_box(x, y, SHOWCASE_PREVIOUS_LEFT, SHOWCASE_PREVIOUS_RIGHT)) return GALLERY_PREVIOUS;
     if (in_box(x, y, SHOWCASE_NEXT_LEFT, SHOWCASE_NEXT_RIGHT)) return GALLERY_NEXT;

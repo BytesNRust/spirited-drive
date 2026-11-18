@@ -263,7 +263,7 @@ static void test_hit(void)
     CHECK_EQ_INT(step, 0);
     CHECK_EQ_INT(gallery_hit(GL_HIST_X + 20, GL_HIST_Y + 20, &step), GALLERY_HISTORY);
     CHECK_EQ_INT(gallery_hit(200, 200, &step), -1);                      /* General: figures, no item */
-    CHECK_EQ_INT(gallery_hit(GL_VID_X + 20, GL_VID_Y + 20, &step), -1);  /* Video: a picture, no item */
+    CHECK_EQ_INT(gallery_hit(GL_VID_X + 20, GL_VID_Y + 20, &step), GALLERY_RECORDS);  /* Video's tile is RECORDS */
     CHECK_EQ_INT(gallery_hit(150, 360, &step), -1);                      /* Mechanical's place: empty */
     CHECK_EQ_INT(gallery_hit(GL_COL_X + 20, GL_COL_Y - 3, &step), -1);   /* above the Color tile */
     /* the bottom row: the CD showcase's own boxes (showcase.c BOX_*, ends included), the words between the arrows in none */

@@ -124,7 +124,7 @@ part_cards() {
     # the SETUP panel (Enter on the tile): Color's row steps to Red, Skin's to the stripes, Escape closes the panel and not the page; then the
     # tiles' and the bottom row's items: History, Previous, Next, Done
     gallery="$(click 180 200),$(wait_for screen=added_gallery),$(shot g0),300:ENTER,$(wait_for 'gallery=0 0 0'),$(shot g1a),$(key RIGHT '0 0 1'),$(shot g1b)"
-    gallery="$gallery,$(key DOWN '0 0 1'),$(key RIGHT '0 1 1'),$(shot g2),$(key ESC '0 1 1'),$(shot g3),$(key DOWN '6 1 1'),$(key DOWN '2 1 1'),$(key DOWN '3 1 1')"
+    gallery="$gallery,$(key DOWN '0 0 1'),$(key RIGHT '0 1 1'),$(shot g2),$(key ESC '0 1 1'),$(shot g3),$(key DOWN '7 1 1'),$(key DOWN '6 1 1'),$(key DOWN '2 1 1'),$(key DOWN '3 1 1')"
     gallery="$gallery,$(key DOWN '4 1 1'),300:ENTER,$(wait_for car=16),$(click 571 453),$(wait_for screen=game_mode)"
     user_in restomod
     walk "$piece" "$to_central,$car_16,$(shot a),$rival_16,$(shot r16),$gallery" || fail "Restomod: car 16, its rival card, its gallery, Done and Cancel"
@@ -169,7 +169,7 @@ part_steps() {
     steps="$(click 180 200),$(wait_for screen=added_gallery),$(click 254 454),$(wait_for screen=showcase),1500:ESC,$(wait_for car=7)"
     # Next by the keys: Color, Previous, Next, Enter; the Warrior's page (dep59 section 8: its look fixed, it opens on Next: the mark
     # item 3, skin 0, paint 1, its purple), Enter there: the RX-7's showcase, Escape back to Control Central on it
-    steps="$steps,$(car_on),$(click 180 200),$(wait_for screen=added_gallery),$(key DOWN '6 0 0'),$(key DOWN '2 0 0'),$(key DOWN '3 0 0')"
+    steps="$steps,$(car_on),$(click 180 200),$(wait_for screen=added_gallery),$(key DOWN '7 0 0'),$(key DOWN '6 0 0'),$(key DOWN '2 0 0'),$(key DOWN '3 0 0')"
     steps="$steps,300:ENTER,$(wait_for 'gallery=3 0 1'),300:ENTER,$(wait_for screen=showcase),1500:ESC,$(wait_for car=0)"
     # the carousel (dep59 section 4, Restomod): the RX-7's showcase, its own Previous (200..260 x 430..480) leaves it for the car before
     # the RX-7 in the edition's order, round to the Warrior's page, which opens on Previous (the step it came by: item 2); Escape:
