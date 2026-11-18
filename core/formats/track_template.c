@@ -170,14 +170,15 @@ int track_template_check_fam(const uint8_t *fam, size_t size, ExchangeError *err
         return 0;
     }
     if (terrain.count < TRACK_GENERIC_BANKS) {
-        exchange_fail(err, "the art file has %u terrain banks; the generic road needs %d (see art/tnfs-tracks/generic-straight)", terrain.count,
-                      (int)TRACK_GENERIC_BANKS);
+        /* short: track new puts the file's name in front, in the same 200 bytes */
+        exchange_fail(err, "%u terrain banks, %d needed (0-3 road, shoulder, verge, grass: letter A; 10 the fence: letter C); docs/modding.md, Art for a generic track",
+                      terrain.count, (int)TRACK_GENERIC_BANKS);
         return 0;
     }
     const char fence[4] = { 'C', '0', '0', '0' };
     if (chunk_child(&terrain, TRACK_GENERIC_BANKS - 1, &bank) != CHUNK_OK || bank.kind != CHUNK_KIND_BITMAP ||
         chunk_bitmaps(&bank, &fsh) != FSH_OK || fsh_find(&fsh, fence, &at) != FSH_OK) {
-        exchange_fail(err, "terrain bank %d of the art file has no letter C (the fence's texture)", TRACK_GENERIC_BANKS - 1);
+        exchange_fail(err, "terrain bank %d has no letter C, the fence's texture (docs/modding.md, Art for a generic track)", TRACK_GENERIC_BANKS - 1);
         return 0;
     }
     return 1;

@@ -255,6 +255,13 @@ static void test_letters(const Stage *stage, size_t all_len)
     free(file);
 }
 
+/* the refusal says what the check wants (the letters of the banks) and where the guide explains it, not a path outside the repository */
+static int expects_and_points(const char *m)
+{
+    return strstr(m, "docs/modding.md") != NULL && strstr(m, "Art for a generic track") != NULL && strstr(m, "art/tnfs-tracks") == NULL &&
+           strstr(m, "letter A") != NULL && strstr(m, "letter C") != NULL;
+}
+
 /* the generic road's check of a FAM: 11 banks with the letter C in the last; fewer banks, or a last bank without C, are refused; letters of 0 are refused */
 static void test_generic_check(const Stage *s)
 {
@@ -276,6 +283,10 @@ static void test_generic_check(const Stage *s)
     if (file != NULL) {
         CHECK(!track_template_check_fam(file, len, &err));
         CHECK(strstr(err.message, "terrain banks") != NULL);
+        CHECK(expects_and_points(err.message));
+        char want[16];
+        snprintf(want, sizeof want, "%d needed", (int)TRACK_GENERIC_BANKS);   /* the number the check uses, not a copy of it */
+        CHECK(strstr(err.message, want) != NULL);
     }
     free(file);
     file = NULL;
@@ -284,6 +295,7 @@ static void test_generic_check(const Stage *s)
     if (file != NULL) {
         CHECK(!track_template_check_fam(file, len, &err));
         CHECK(strstr(err.message, "letter C") != NULL);
+        CHECK(strstr(err.message, "docs/modding.md") != NULL && strstr(err.message, "Art for a generic track") != NULL);
     }
     free(file);
     file = NULL;

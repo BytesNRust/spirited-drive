@@ -1,6 +1,10 @@
 # Modding guide
 
-How to change the game's data without touching the CD: where files live, what a mod can replace, and the file formats of the things the port added (track light, car masks, dash masks, track masks, sounds). The settings themselves are in [settings.md](settings.md); the track light format has its own page, [track-light.md](track-light.md).
+How to change the game's data without touching the CD, and how to add a track or a car of your own: where files live, what a mod can replace, the pieces (a track, a car), and the file formats of the things the port added (track light, car masks, dash masks, track masks, sounds). The settings themselves are in [settings.md](settings.md); the track light format has its own page, [track-light.md](track-light.md).
+
+**Where to start.** To see a track and a car of your own in the game, follow *Try your piece* (from nothing to a race, in a scratch folder): it needs the CD's data and takes a dozen short commands. The rest says what each part is: *Installing a mod* and *Editions* (how the game picks what it loads), *Adding a track* and *Adding a car* (the pieces' files and `mod.ini` keys), and, for changing how the game looks, *How a mod replaces a file* and the formats after it.
+
+**The three profiles.** The game runs in one of three: Stock '96 (the original game), Restored '96 and Restomod '26 (the port's own). Mods, pieces and editions load in Restomod only: Stock and Restored load none, and a piece installed for them is silently unused. [settings.md](settings.md) has each profile's keys and `port.cfg`'s `profile=`.
 
 ## The three folders
 
@@ -44,11 +48,13 @@ What a mod may carry depends on its `type` in `mod.ini`:
 |------|-----------|
 | `tweak` (or no `type`) | how the game looks and sounds: art, fonts, music, sounds, dashboards, car models (CFM), track scenery (FAM), the sky (`<TRACK>INFO`), `track_light/`, the masks, `car_envmap.png`. **Never** what changes a race: a track's `.TRI` and the rest of `SIMDATA/MISC` (but its INFO), `SIMDATA/CARSPECS/`, a car's `.PDN`, `track/<TRACK>.txt`. [modding/inventory.md](modding/inventory.md) §12 says why for each |
 | `car` | its own three files (its stem's CFM, PDN and PBS) and `car_masks/<STEM>/`, `dash_masks/<STEM>/`, and nothing else (see *Adding a car*) |
-| `track` | its stages' files: for each stage `<STEM>1`..`<STEM>3` its `.TRI`, `<STEM><n>INFO` and the day art `ETRACKFM/` and `GTRACKFM/` `<STEM><n>_001.FAM` (optional: `NTRACKFM/` `_T01`, `_M01`, `_R01`, and the port's `track/`, `track_light/` text and `track_masks/` PNG named by the same root), and nothing else. A stem may not begin with AL, CL, CY or TR. This version adds A-to-B tracks only (`kind=stage`); it checks, installs and runs them in Restomod (*Try your piece*, below) |
+| `track` | its stages' files: for each stage `<STEM>1`..`<STEM>3` its `.TRI`, `<STEM><n>INFO` and the day art `ETRACKFM/` and `GTRACKFM/` `<STEM><n>_001.FAM` (optional: `NTRACKFM/` `_T01`, `_M01`, `_R01`, and the port's `track/`, `track_light/` text and `track_masks/` PNG named by the same root), its `card.png` (208 x 127, *Adding a track*), and nothing else. A stem may not begin with AL, CL, CY or TR. This version adds A-to-B tracks only (`kind=stage`); it checks, installs and runs them in Restomod (*Try your piece*, below) |
 
 Every type may also carry `mod.ini`, `preview.png` and a README or LICENSE. `GAMEDATA/` (the player's config, replays and saves) is never
 part of a mod. A folder in `mods/` that holds a file its type may not carry, put there by hand, still runs: that file is not given to the
 game, and the log says so once (`mods: <id>: <file> is left out: <why>`).
+
+The game installs too: Game Mode's *Manage content...* (CONTENT, Restomod) lists the installed mods, and its *Install...* button takes a zip as `--install` does. An update that changes the rules of a car or track piece says so there: `Updated <name> <old> to <new>: its rules changed, new records start (the old ones are kept)` (*Records and reinstalling*, below); `--install` does not say it (its lines are above).
 
 **Installing only makes a mod available.** Which installed mods the game uses is the edition's to say (*Editions*, below): the
 standard edition, today's game, uses none of them. Uninstalling changes no edition; one that names the mod skips it.
@@ -70,9 +76,9 @@ says which one is in use (docs/settings.md). Without it the game is the standard
   cars, 32 tracks and 32 tweaks; `original` is no id.
 * A piece that is not installed stays in the file and is left out, with a line in the log. An edition that keeps no car or no track
   then, or whose file is missing or damaged, is not used: the standard edition is, and the log says why.
-* The folders the game reads are `--mods DIR`, then the edition's tweaks in their order, then its added cars.
+* The folders the game reads are `--mods DIR`, then the edition's tweaks in their order, then its added cars, then its added tracks.
 
-Control Central's car arrows and its head to head rival's step through the edition's `cars` in its order; the Warrior is there only when the edition lists it, and a car it does not list (one picked before) becomes its first car. The standard edition's arrows are the original's: the eight race cars, and the Warrior when it is on offer. What an edition changes in the track menus and its records comes with the rest of dep59 step 4.
+Control Central's car arrows and its head to head rival's step through the edition's `cars` in its order; the Warrior is there only when the edition lists it, and a car it does not list (one picked before) becomes its first car. The standard edition's arrows are the original's: the eight race cars, and the Warrior when it is on offer. An added track has a page of its own and its own Best Times (*Adding a track*).
 
 An edition unlocks everything itself, whatever the unlock level and the cheat codes say: the mirror, the rally and the way round, Lost
 Vegas, the Warrior when `cars` lists it, and Lunar Springs when `tracks` lists `rusty`. Its unlock level is 2 and is never written, and
@@ -105,12 +111,14 @@ Run with `--mods DIR` (or leave the files in `<player folder>/mods/`). When the 
 * The mod is never written: saves, replays and settings go to the player's folder.
 * The mods folder must exist when it is given with `--mods` (a missing one is an error); the default `<player folder>/mods/` is used only when it is there.
 
-Example, a changed track:
+Example, a changed track's art (what changes how it looks is served):
 
-    mymod/SIMDATA/MISC/TR1.TRI
+    mymod/SIMDATA/ETRACKFM/TR1_001.FAM
     tnfs --mods mymod --track TR1 --node 120 --screenshot out.ppm
 
-[modding/track-layout.md](modding/track-layout.md) and [modding/limitations.md](modding/limitations.md) cover building tracks and what the engine cannot do; `tnfs-studio slot replace` puts a track or a car into a mod's folder with the checks.
+A file that changes the race is not: `mymod/SIMDATA/MISC/TR1.TRI` is left out, and the run says so once in `spirited-drive.log` (`mods: mymod: SIMDATA/MISC/TR1.TRI is left out: a changed track is a track piece now: tnfs-studio track new --piece`). The same goes for a car's `.PBS` and `.PDN` and for `track/<TRACK>.txt` (*How a mod replaces a file*, above).
+
+[modding/track-layout.md](modding/track-layout.md) and [modding/limitations.md](modding/limitations.md) cover building tracks and what the engine cannot do; `tnfs-studio slot replace` puts the files of a track or car slot into a mod's folder with the checks; the files that change a race (a TRI, a PBS, a PDN) are left out there as above, so use it for a car's model and a track's art, and make a piece for the rest.
 
 The port's own files (track light, car masks, dash masks, track masks, sounds, the car environment map) go through the same overlay: **a mod's `<mod>/<path>` is tried first, where `<path>` is the path under `data/`** (`track_light/CY1N.txt`, `track/CY1.txt`, `car_masks/<CAR>/<tex>_mask.png`, `dash_masks/<CAR>/dash_mask.png`, `track_masks/<TRACK>/<name>.png`, `sounds/thunder.wav`, `car_envmap.png`), then the port's own `data/`. The `TNFS_CAR_MASKS` and `TNFS_DASH_MASKS` variables, for trying a folder, still win over both.
 
@@ -242,7 +250,14 @@ Only CC0 or public-domain samples go in the repository, each with its source, au
 
 ## Adding a track (development)
 
-A `track` piece (`type=track` in its `mod.ini`, made with `tnfs-studio track new --piece`) is an A-to-B track like Coastal and Alpine. Its `mod.ini` keys beside `id`, `name`, `version`, `author` and `description`:
+A `track` piece (`type=track` in its `mod.ini`) is an A-to-B track like Coastal and Alpine. `tnfs-studio track new LAYOUT --piece ...` makes one from a layout file ([modding/track-layout.md](modding/track-layout.md)) in one of two ways:
+
+    tnfs-studio track new LAYOUT --template SLOT --piece --id ID --stem STEM --out DIR --data original
+    tnfs-studio track new LAYOUT --generic ART.FAM --piece --id ID --stem STEM --out DIR
+
+`--template SLOT` takes the files of one of the CD's tracks as the template (`tnfs-studio slot list track`) and reads them from `--data`: it needs the CD. `--generic ART.FAM` takes the port's own template (a road with a shoulder, a verge and a low fence on each side) and the art file you give it, made with `tnfs-studio fam build` (*Art for a generic track*, below); it needs `--piece`. Each command has `--help`.
+
+`track new` writes `mod.ini` with `id`, `name`, `version`, `type`, `stem`, `kind`, `segments`, `road` and `edge`, and `author` and `description` when you give `--author` and `--description` (a `# author=` or `# description=` line to fill in when you do not); add `length`, `times` and `showcase_tint` by hand. A second `track new --force` keeps the keys it does not write. Its `mod.ini` keys beside `id`, `name` and `version`:
 
 | Key | What it is | Rule |
 | --- | --- | --- |
@@ -253,34 +268,66 @@ A `track` piece (`type=track` in its `mod.ini`, made with `tnfs-studio track new
 | `length` | the length its page shows, as written (`14.2 km`) | optional, up to 16 bytes |
 | `times` | the times of day it takes | optional; some of `dawn`, `day`, `dusk`, `night`, each once |
 | `showcase_tint` | the tone of its page's background: the CD's sepia pages turned to this colour, each shade keeping its brightness | optional; `#RRGGBB` (hex digits, either case, nothing else); without it the page is sepia. `tnfs-studio mod pack` and the game refuse a value that is not `#RRGGBB` (`PIECE.TINT`) |
+| `author`, `description` | the maker's name and what the track is, shown on its page | optional; up to 48 and 400 characters of text, one line |
+| `card_name` | whether the game draws the track's name over its `card.png` | optional; `on` (the default) or `off`, for a card that shows its own name |
 
 `road=` does not change the grip: the game has one road surface, so `dirt` drives like `asphalt`. Today the key only enters the track's print (changing it starts the track's records anew); grip by zone is to come with the track editor.
 
+**What the keys do.** `edge` sets the ground beside the road, the sound of gravel and of water and the dust of sand. `times`: without it a track offers the day alone; with several, its page shows a *Time of day* row that steps through the hours it lists.
+
+**Pictures and its page.** `card.png` (exactly 208 x 127, the track's card on Control Central; any other size refuses the piece at install and in `validate`) is fitted to Control Central's palette, and the game draws the track's `name` over it unless `card_name=off`; without one the game draws a flat dark card. The track's own page shows the card, the `name`, `author`, `length`, `description` and the tone of `showcase_tint`, and an added track has its own Best Times page.
+
+**The sky: `<STEM><n>INFO`.** One text file for each stage, the horizon and the light of its times of day: CR LF lines, the values one to a line, lines that begin with `#` and blank lines skipped (a comment before each value, as the CD's files have). In this order: the horizon's vertical offset, z offset, height and radius, each near then far (decimals, `48` or `0.25`); the sky's top colour, then its bottom colour (`r g b`, each 0 to 31); the ring type (`1` a 3D sky ring, `0` a flat horizon bitmap), the ring's y offset and its height; then three groups of five numbers, the tint of the three times of day the game numbers 0, 1 and 2 (red, green, blue, saturation and brightness), and a last flag, `1` to turn the ring on. A file with fewer values than that is read short, with the last line standing for the rest: keep all of them. The game reads this file for a time of day other than 1; [game/race/track_info.h](../game/race/track_info.h) is the reference. `--template` copies the template track's INFO, `--generic` writes the one the port's template comes with.
+
+### Art for a generic track
+
+`tnfs-studio fam build SPEC --out FILE.FAM [--force]` makes a track's art file from PNG pictures. SPEC is a text file, one picture per line in the order the file takes them; paths are relative to the SPEC's folder; `#` starts a comment:
+
+    terrain 0 letters=A road.png        terrain texture 0 (0, 1, 2 ... in order, one per line)
+    terrain 2 letters=AC rock.png       only the letters A and C of the bank (a bank costs 143 KB a letter set)
+    scenery trees.png                   a scenery texture (optional, in order)
+    horizon sky.png                     the horizon: exactly one line
+
+`track new --generic ART.FAM` takes a file with at least 11 terrain banks and refuses one with fewer, or one whose bank 10 has no letter C. The template's slots: bank 0 is the road (slot 0), 1 the shoulder (slot 3), 2 the verge (slot 6) and 3 the grass (slot 9), each through its letter A alone; banks 4 to 9 are fillers; bank 10, letter C, is the fence (slot 32). The same file goes in as the day art of the piece (`ETRACKFM` and `GTRACKFM`).
+
 ## Try your piece
 
-A track or a car piece runs only in Restomod. Stock and Restored load no mods at all, so a piece installed for them is silently
-unused. Three lines make it run, in the player's folder (the `--user` folder while you test):
+A track or a car piece runs only in Restomod. Stock and Restored load no mods at all, so a piece installed for them is silently unused. Three things make it run, in the player's folder (the `--user` folder while you test):
 
 * `port.cfg`: `profile=restomod`
 * `restomod.cfg`: `edition=<id>`, the edition in use
-* `editions/<id>.ini`: `name=...`, and the piece's id in `tracks=` (a track) or `cars=` (a car)
+* `editions/<id>.ini`: `name=...`, and the piece's id in `tracks=` (a track) or `cars=` (a car). **An edition needs at least one car and one track that are there**, or it is not used and the standard edition is: a track piece goes beside a car (a game car such as `supra`, or your own), a car piece beside a track (a game track such as `rusty`, or your own).
 
-Copy-paste, with a scratch folder `MYUSER` for the test (a track; a car is the same with `cars=` and `--car`):
+Copy-paste, from the repository root with the CD's data in `original/` (in a source tree the programs are `build/release/tnfs` and `build/release/tnfs-studio`; `car new` reads the port's `data/` there, `--port-data DIR` elsewhere). `MYUSER` is a scratch folder for the test, a track and a car:
 
+    printf 'section 24\nsection 40 turn=90 grade=3 bank=3\nsection 30 turn=-90 grade=-3 bank=-3\nsection 30 bank=0 grade=0\n' > loop.trk
     tnfs-studio track new loop.trk --template AL1 --piece --id novato-loop --stem NOVATO --name "Novato Loop" --author "Your name" --out build/piece --data original
+    tnfs-studio car new --template viper --id my-car --stem MYCAR --out build/car --name "My Car" --author "Your name"
     tnfs-studio mod pack build/piece novato-loop.zip
+    tnfs-studio mod pack build/car my-car.zip
     tnfs --user MYUSER --install novato-loop.zip
-    printf 'profile=restomod\n' >> MYUSER/port.cfg
+    tnfs --user MYUSER --install my-car.zip
+    printf 'profile=restomod\n' > MYUSER/port.cfg
     printf 'edition=novato\n' > MYUSER/restomod.cfg
     mkdir -p MYUSER/editions
-    printf 'name=Novato\ntracks=novato-loop\n' > MYUSER/editions/novato.ini
-    tnfs --user MYUSER --track NOVATO1 --node 120 --screenshot novato.ppm
+    printf 'name=Novato\ncars=my-car\ntracks=novato-loop\n' > MYUSER/editions/novato.ini
+    SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy tnfs --user MYUSER --data original --drive novato-loop --car my-car --racers 1 --screenshot novato.ppm
 
-The track's race is its stem and 1: `NOVATO1`. A car is raced with `tnfs --user MYUSER --drive TR1 --car <id>` once its edition lists it.
-Without the three lines, `--track NOVATO1` fails with rc 1 and no line on the standard output; the reason is in `spirited-drive.log`.
+The two `--install` lines say `installed novato-loop 0.1` and `installed my-car 0.1`. The last command races the car on the track with no window or sound and writes the first frame to `novato.ppm` (a PPM picture; most viewers and converters open it). `MYUSER/spirited-drive.log` says what the game loaded:
 
-Reinstalling: bump `version=` in `mod.ini` before each `--install`. The install replaces the folder whatever the version, but a message
-that says `updated novato-loop 0.1 -> 0.1` tells nothing about what changed.
+    mods: in effect: my-car, novato-loop
+    car piece: my-car is car 16
+    track piece: novato-loop is track 16
+
+`--drive` takes the piece's `id` (`novato-loop`, not its stem; `--drive NOVATO1` says `--drive: no track NOVATO1`) and `--car` a car's `id`. To look at a track alone, `tnfs --user MYUSER --data original --track NOVATO1 --node 120 --screenshot v.ppm` works for a piece made with `--template`: the track's race is its stem and 1, and the viewer wants the night, mirror and rally art that template's files bring. A piece made with `--generic` has none of it: use `--drive`.
+
+When it does not run: `--drive` for a piece that is not loaded stops with `--drive: no track novato-loop` (or `no car my-car`). `--track NOVATO1` stops with rc 1 and nothing on the standard output, and the reason is in `spirited-drive.log`: `edition: novato cannot be used (no car of it is there): the standard edition is` (an edition with `tracks=` and no `cars=`, or the other way round: `no track of it is there`), or the piece's folder is not in effect (Stock, or no `edition=`): the log says `mods: in effect: none`. A `--mods DIR` in Stock or Restored is not in effect either, and says so on stderr: `mods: --mods DIR is ignored: stock loads no mods (Restomod only)`.
+
+### Records and reinstalling
+
+The records of a piece are kept under its `id` and its **print**, a SHA-256 of what decides how it races: for a track, each stage's `.TRI` and `kind`, `segments`, `road` and `edge`; for a car, its `.PBS`, its `.PDN` and its computer driver's pace (`ai_level`, or the PDN's). The art, the sky (INFO), the card, `version=` and the rest of `mod.ini` are not in it. When a reinstall changes the print, the piece starts with records of its own and the old ones are kept, never deleted: CONTENT says `its rules changed, new records start (the old ones are kept)`; `tnfs --install` does not. A Replay.rpx ends with the prints of the added cars and the added track of its race (the 8 bytes `TNFSPRN1`, then 32 bytes for each of the 8 players and the track's); it does not play, and says why, when a piece has changed since or is not loaded.
+
+Reinstalling: raise `version=` in `mod.ini` before each `--install`, so that `updated novato-loop 0.1 -> 0.2` tells which one is in. With the same version the install replaces the folder all the same (the old one goes to `mods_backup/`) and says `reinstalled novato-loop 0.1 (same version)`, and, if its files changed, `its files changed but its version did not: raise version= in mod.ini`.
 
 ## Adding a car (development)
 
@@ -314,7 +361,7 @@ In Restomod a mod can add a car beside the twelve of the original game: a folder
 | `card_name` | whether the game draws the car's name over `card.png` and `rival.png` | optional; `on` (the default) or `off`, for pictures that show their own name |
 | `category` | the car's category, shown in its showcase page's General box as written | optional; up to 16 characters (e.g. `B`) |
 | `photos` | the big pictures of the car's showcase page, in order (the first when the page opens; arrows inside the picture when there are several) | optional; up to 8 names of PNG files in the piece's root, comma separated: `a-z 0-9 - _ .`, ending `.png`, up to 24 characters, none of `card.png`, `rival.png`, `gallery.png`, `preview.png`, `car_envmap.png`; each from 100x60 to 1280x960 (the game crops it to fill its tile: 450x254, twice the tile's 225x127, is a good size) |
-| `photo_small` | the small picture of the showcase page | optional; one such name (278x228 is twice the tile's 139x114) |
+| `photo_small` | the picture of the page's small tile, shown only when the game cannot draw that tile's RECORDS flag (*The gallery*) | optional; one such name (278x216 is twice the tile's 139x108) |
 | `dash_from` | the original car whose cockpit it shows | optional, the same words; without it the car has no cockpit view, and the view key and the race's start go to the first view behind the car |
 
 `ai_from` is gone: a car with it is refused, with a line saying to use `ai_level` instead. An added car's brake lamps are always the standard red, whatever its `sound_from`.
@@ -325,7 +372,7 @@ The original game has a few habits that belong to one car only (one car's thrott
 
 Several cars can be added, up to 64, one folder each, in the mods in effect (`--mods`, then Restomod's list). Two folders with the same `id` or `stem`: the first one counts and the other is refused. A car's number (16 and up) holds for that run only; changing the list keeps the number of every car that stays.
 
-**Records and replays.** A race with an added car never writes to the original game's files: `race_records.dat`, `config.dat` and `Replay.rpl` stay as they were. Its records go to `race_records_cars.dat`, the records by car, with a table per car named by its `id`, so each added car keeps its own best times; uninstalling or turning off the car never deletes them. Its replay is kept as `Replay.rpx` (the original's blocks, then a last one naming each added car by its `id` and a fingerprint of its PBS, its PDN and its computer driver's pace), and plays back with `tnfs --mods mycar --replay Replay.rpx`. It does not play, and says why, when the car's mod is not loaded (`replay: needs the mod my-car`) or when its PBS, its PDN or its `ai_level` changed since the race (`replay: the mod my-car has changed since this replay was made, or the game's rules for added cars have`): a replay re-runs the race from the players' inputs, so different physics or a different computer driver would drive a different race. A replay kept before a version of the game that changed how added cars drive is refused the same way. Changing the CFM or the masks keeps the replay. The replay keeps the skin and colour the car wore, and plays them back whatever is picked now. In the menus (Restomod, outside a link game) the Load/Save list shows `.RPX` replays beside the original's: a row that cannot play says why (`RACE1 - needs my-car`, `RACE1 - my-car changed`) and is not loaded, and the save box keeps a race with an added car as `<name>.RPX`.
+**Records and replays.** A race with an added car never writes to the original game's files: `race_records.dat`, `config.dat` and `Replay.rpl` stay as they were. Its records go to `race_records_cars2.dat`, the records by car, with a table per car named by its `id` and its print (*Records and reinstalling*), so each added car keeps its own best times; uninstalling or turning off the car never deletes them. A car that changed how it drives starts new tables and keeps the old ones. Its replay is kept as `Replay.rpx` (the original's blocks, then a last one naming each added car by its `id` and a fingerprint of its PBS, its PDN and its computer driver's pace), and plays back with `tnfs --mods mycar --replay Replay.rpx`. It does not play, and says why, when the car's mod is not loaded (`replay: needs the mod my-car`) or when its PBS, its PDN or its `ai_level` changed since the race (`replay: the mod my-car has changed since this replay was made, or the game's rules for added cars have`): a replay re-runs the race from the players' inputs, so different physics or a different computer driver would drive a different race. A replay kept before a version of the game that changed how added cars drive is refused the same way. Changing the CFM or the masks keeps the replay. The replay keeps the skin and colour the car wore, and plays them back whatever is picked now. In the menus (Restomod, outside a link game) the Load/Save list shows `.RPX` replays beside the original's: a row that cannot play says why (`RACE1 - needs my-car`, `RACE1 - my-car changed`) and is not loaded, and the save box keeps a race with an added car as `<name>.RPX`.
 
 ### Pictures, skins and paints
 
@@ -339,7 +386,13 @@ The game never scales a picture: each is a PNG of its exact size, named in lower
 
 The cards are fitted to Control Central's palette by nearest colour, the gallery's picture to the gallery's own. The game draws the car's `name` over `card.png` and `rival.png` as the original cards carry theirs: in its own red letters with a black shadow, from the left edge, along the bottom (a name too long for the card ends in "..."). It is drawn as the card is shown, never written into the picture. For a picture that already shows its name, put `card_name=off` in `mod.ini` (`on` is the default). `tnfs-studio car card DIR --generic` makes a plain `card.png` (a plain ground; the game draws the name on it); a piece made before the pictures came has no card and stops loading until it has one (`car piece: my-car refused: ...`, `PIECE.CARD`): run that command on it.
 
-**The gallery.** A click on the added car's card opens its gallery, laid out as the CD's Car Showcase pages: Gallery is the big photo (`photos=`; with several, arrows inside it, Left and Right or a click on its sides go round them, and after the last comes the first), the small tile is RECORDS (the chequered flag of the CD's winner screen; `photo_small=` is no longer drawn on the page), General the figures (Year, Power, Weight, Category) and History the text. The big photo falls back to `gallery.png` and then `card.png`, the small one to `card.png`, and a tile with no picture at all shows a placeholder in the page's tone; the game crops each to fill its tile (225x127 and 139x108, so 450x254 and 278x216 are good sizes). History starts with the head line "Name (year) - by Author - vX" and goes on with `description=`; it is drawn in the main face at 3/4 and scrolls by itself, a pixel row at a time (3 s at the top, then smoothly, 3 s at the end), stops while the pointer or the keys are on it, and the mouse wheel moves it. The Mechanical tile stays empty. RECORDS (Enter or a click on the flag; on the CD's eight pages it is the second face of the Video tile, below) opens a screen of its own, laid out as a track's Best Times: the same dark blue page with the car's name in the title band, the fade to black going in and coming back with DONE, and Best Times' letters and rows. It lists every track the player has, ten to a page (Left and Right, or a click on the halves of the "< 1 / 1 >" selector under the table, turn the pages; Enter, Escape, DONE or the back button close it), with the car's records on each: the total of the circuit and its best lap, or the stage's total and its three segment times, the top speed, and the conditions of that record in the same small letters as Best Times' rows ("CLR DAY" over "ORIGINAL"). A track with no record of the car shows "--" in each column. When the car has records under several conditions, the row shows the standard ones (the normal layout, no cheats) if there are any, else the one with the best total; the letters say which. The tile at the top left is SETUP: Enter or a click opens a panel (the CD's stone, opening as its lists do, with their sound) with the rows Color, Skin (when the car has skins), Transmission, ABS and Traction; Up and Down choose a row, Left and Right (or a click on its arrows) change it, the panel is a modal: Escape or a click outside closes it (with the shutter and its sound). Color and Skin show a small preview box; Transmission, ABS and Traction control are the Options screen's own settings, with its words, changed by Enter or a click on the row and kept at once; a car with no ABS or traction control shows n/a. The same SETUP tile and panel are on the CD's eight showcase pages (there Color is the car's livery choices). On the CD's eight pages the Video tile has two faces, VIDEO and RECORDS: a page opens on VIDEO exactly as the original's; Right on it (Left on RECORDS) or a click on the arrow at the tile's edge slides to the other face, the label changes with it, and Enter or a click opens what shows, the video as always or the records. Once a page, about two seconds after it opens, the picture slides aside to show a few pixels of RECORDS for about a second and comes back; after that a small right arrow stays in VIDEO. The page's sepia background is tinted with the hue of the car's first `paints=` colour, always as a dark, muted tone (a strong paint such as a bright red gives a dark red, never a saturated one; fixed, whatever the panel picks); without paints it stays sepia. A tile lit by the pointer or the keys sounds as the CD's pages do. Leaving the gallery (Done, Escape, or Previous and Next to another car) keeps the pair in `restomod.cfg` (`look.my-car=stripes,Blue`, docs/settings.md) and the next race wears it. The author and figures are drawn in the menus' small face, which has no comma, no long dash and no accents: commas and any byte outside ASCII are left out there; History and the panel use the main face. The mod's `name`, `short_name` and the paint names must be printable ASCII (the big face draws them as they are); a mod with anything else is refused.
+**The gallery.** A click on the added car's card opens its gallery, laid out as the CD's Car Showcase pages: Gallery is the big photo (`photos=`; with several, arrows inside it, Left and Right or a click on its sides go round them, and after the last comes the first), the small tile is RECORDS (the chequered flag of the CD's winner screen; only when the flag cannot be read does the tile show `photo_small=` instead), General the figures (Year, Power, Weight, Category) and History the text. The big photo falls back to `gallery.png` and then `card.png`, the small one, when it shows a picture, to `card.png`, and a tile with no picture at all shows a placeholder in the page's tone; the game crops each to fill its tile (225x127 and 139x108, so 450x254 and 278x216 are good sizes). History starts with the head line "Name (year) - by Author - vX" and goes on with `description=`; it is drawn in the main face at 3/4 and scrolls by itself, a pixel row at a time (3 s at the top, then smoothly, 3 s at the end), stops while the pointer or the keys are on it, and the mouse wheel moves it. The Mechanical tile stays empty. RECORDS (Enter or a click on the flag; on the CD's eight pages it is the second face of the Video tile, below) opens a screen of its own, laid out as a track's Best Times: the same dark blue page with the car's name in the title band, the fade to black going in and coming back with DONE, and Best Times' letters and rows. It lists every track the player has, ten to a page (Left and Right, or a click on the halves of the "< 1 / 1 >" selector under the table, turn the pages; Enter, Escape, DONE or the back button close it), with the car's records on each: the total of the circuit and its best lap, or the stage's total and its three segment times, the top speed, and the conditions of that record in the same small letters as Best Times' rows ("CLR DAY" over "ORIGINAL"). A track with no record of the car shows "--" in each column. When the car has records under several conditions, the row shows the standard ones (the normal layout, no cheats) if there are any, else the one with the best total; the letters say which.
+
+The tile at the top left is SETUP: Enter, Space or a click opens a panel (the CD's stone, opening as its lists do, with their sound) with the rows Color, Skin (when the car has skins), Transmission, ABS and Traction; Up and Down choose a row, Left and Right (or a click on its arrows) change it, the panel is a modal: Escape or a click outside closes it (with the shutter and its sound). Color and Skin show a small preview box; Transmission, ABS and Traction control are the Options screen's own settings, with its words, changed by Enter or a click on the row and kept at once; a car with no ABS or traction control shows n/a. The same SETUP tile and panel are on the CD's eight showcase pages (there Color is the car's livery choices). On the CD's eight pages the Video tile has two faces, VIDEO and RECORDS: a page opens on VIDEO exactly as the original's; Right on it (Left on RECORDS) or a click on the arrow at the tile's edge slides to the other face, the label changes with it, and Enter or a click opens what shows, the video as always or the records. Once a page, about two seconds after it opens, the picture slides aside to show a few pixels of RECORDS for about a second and comes back; after that a small right arrow stays in VIDEO. The page's sepia background is tinted with the hue of the car's first `paints=` colour, always as a dark, muted tone (a strong paint such as a bright red gives a dark red, never a saturated one; fixed, whatever the panel picks); without paints it stays sepia. A tile lit by the pointer or the keys sounds as the CD's pages do.
+
+Leaving the gallery (Done, Escape, or Previous and Next to another car) keeps the pair in `restomod.cfg` (`look.my-car=stripes,Blue`, docs/settings.md) and the next race wears it.
+
+The author and figures are drawn in the menus' small face, which has no comma, no long dash and no accents: commas and any byte outside ASCII are left out there; History and the panel use the main face. The mod's `name`, `short_name` and the paint names must be printable ASCII (the big face draws them as they are); a mod with anything else is refused.
 
 **Skins.** A skin is a folder `skins/<name>/` (1 to 16 of `a-z 0-9 -`; up to 15 skins) holding textures to lay over the CFM's: `<tex>.png` over the high-detail bank's texture `<tex>`, `<tex>_lo.png` over the low-detail one's, each the size of the texture it replaces. An indexed PNG is taken as it is: its indexes are read as the bank's, whatever palette the file carries (so make it with the bank's, as `tnfs-studio unpack` writes it; the race's special colours `0xFA`..`0xFF` come only this way). An RGB one is fitted to the bank's palette by nearest colour, never to the special colours. Skin is "As it comes" (the CFM's own textures) or one of these folders.
 
@@ -348,6 +401,10 @@ The cards are fitted to Control Central's palette by nearest colour, the gallery
 `validate` and the game check the skins as they check the rest (`PIECE.SKIN`, `PIECE.PICTURE`): every file a texture the bank has, of its size; a mask a PNG no larger than 1024 a side; up to 256 files a skin.
 
 **What it does not do yet:** the added cars are not in the grid of a single race or a tournament, and Best Times does not show their tables; a car brings no engine sound, cockpit or dash paint of its own (`dash_from` borrows a stock car's cockpit); the original gallery's Previous and Next do not reach them.
+
+### tnfs-studio at a glance
+
+Every subcommand takes `--help` (`tnfs-studio track new --help`). The ones the guide uses: `unpack` and `pack` (a game file to a folder of PNG and text, and back), `validate` (a file, a folder or a zip, as the game reads it), `slot list|replace|undo` (the CD's track and car slots), `track new` (a track piece, with `--template` or `--generic`), `car new`, `car card`, `car import`, `car resize` and `car texture add` (a car piece, *Making a car with tnfs-studio*), `fam build` (a track's art file from PNG, *Art for a generic track*) and `mod pack` (a piece's zip).
 
 ### Making a car with tnfs-studio
 
