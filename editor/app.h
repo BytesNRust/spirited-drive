@@ -16,7 +16,6 @@ enum {
 
 typedef struct {
     char dir[APP_PATH];          /* the project folder */
-    char data[APP_PATH];         /* the CD's folder: the template track is read from it */
     char game[APP_PATH];         /* the game program, run for install */
     char user[APP_PATH];         /* the player folder the install goes to */
     Project project;
@@ -39,7 +38,7 @@ typedef struct {
 } App;
 
 /* Opens the project in `dir`, creating its files where they are missing. 1 with the app ready, 0 with status naming the fault. */
-int app_open(App *a, const char *dir, const char *data, const char *game, const char *user);
+int app_open(App *a, const char *dir, const char *game, const char *user);
 
 void app_free(App *a);
 

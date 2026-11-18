@@ -12,7 +12,7 @@ enum {
     GRID_STEP = 50,            /* units between grid lines */
     POINT_HALF = 4,            /* a control point's square, half its side in pixels */
     HUD_SCALE = 2,             /* the text is drawn at twice the debug font's size */
-    LINE_HEIGHT = 12,          /* logical pixels (HUD_SCALE applied) between text lines */
+    LINE_HEIGHT = 22,          /* pixels between text lines (a debug character is 16 pixels tall at HUD_SCALE) */
     TEXT_LINE_MAX = 160
 };
 
@@ -22,6 +22,13 @@ typedef struct {
 
 static const Colour BACKGROUND = { 18, 20, 24 }, GRID = { 36, 40, 46 }, ROAD = { 200, 204, 212 }, BAD = { 255, 70, 70 },
                     POINT = { 90, 160, 255 }, SELECTED = { 255, 220, 0 }, TEXT = { 210, 214, 220 }, OK = { 120, 220, 140 };
+
+/* the file name of a path (the path itself when it has no '/') */
+static const char *base_name(const char *path)
+{
+    const char *slash = strrchr(path, '/');
+    return slash != NULL ? slash + 1 : path;
+}
 
 static void set_colour(SDL_Renderer *ren, Colour c)
 {
@@ -90,7 +97,7 @@ static void draw_hud(SDL_Renderer *ren, const App *a)
     const float x = 6, y = 6;
     SDL_SetRenderScale(ren, HUD_SCALE, HUD_SCALE);
     set_colour(ren, TEXT);
-    snprintf(line, sizeof line, "%s  stem %s  template %s  local only", a->project.id, a->project.stem, a->project.template);
+    snprintf(line, sizeof line, "%s  stem %s  %s", a->project.id, a->project.stem, base_name(a->project.art));
     SDL_RenderDebugText(ren, x / HUD_SCALE, y / HUD_SCALE, line);
     snprintf(line, sizeof line, "nodes %d / %d   length %.0f u   points %d   width %.0f", nodes, TRACK_GEN_MAX_NODES, a->length,
              a->trace.count, a->trace.width);
@@ -105,15 +112,15 @@ static void draw_hud(SDL_Renderer *ren, const App *a)
 static void draw_footer(SDL_Renderer *ren, const App *a)
 {
     static const char *const help[] = {
-        "LMB drag point  RMB/MMB pan  wheel zoom  arrows nudge  F fit",
-        "N add  I insert after  Del remove  S save  B build  U install  Esc quit"
+        "drag LMB  pan RMB/MMB  zoom wheel  nudge arrows  F fit",
+        "N add  I insert  Del remove  S save  B build  U install"
     };
-    const float base = (float)a->view.height / HUD_SCALE - 3 * LINE_HEIGHT;
+    const float base = (float)a->view.height / HUD_SCALE - 3 * LINE_HEIGHT / HUD_SCALE;
     SDL_SetRenderScale(ren, HUD_SCALE, HUD_SCALE);
     set_colour(ren, TEXT);
-    for (int i = 0; i < 2; ++i) SDL_RenderDebugText(ren, 6.0f / HUD_SCALE, base + i * LINE_HEIGHT, help[i]);
+    for (int i = 0; i < 2; ++i) SDL_RenderDebugText(ren, 6.0f / HUD_SCALE, base + i * LINE_HEIGHT / HUD_SCALE, help[i]);
     set_colour(ren, OK);
-    SDL_RenderDebugText(ren, 6.0f / HUD_SCALE, base + 2 * LINE_HEIGHT, a->status);
+    SDL_RenderDebugText(ren, 6.0f / HUD_SCALE, base + 2 * LINE_HEIGHT / HUD_SCALE, a->status);
     SDL_SetRenderScale(ren, 1, 1);
 }
 

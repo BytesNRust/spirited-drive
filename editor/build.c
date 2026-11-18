@@ -3,19 +3,17 @@
 
 #include "formats/exchange.h"
 #include "formats/mod_ini.h"
-#include "formats/slots.h"
 #include "formats/track_gen.h"
 #include "formats/track_piece.h"
+#include "formats/track_template.h"
 #include "formats/track_trace.h"
 #include "formats/validate.h"
 #include "formats/zip.h"
 
-#include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/stat.h>
 #if !defined(_WIN32)
 #include <sys/wait.h>
@@ -24,42 +22,15 @@
 
 enum {
     PATH_LEN = 4096,
-    NAME_LEN = 256,
-    TEMPLATE_FILES = 4         /* the piece's four files: the TRI, INFO and two day FAMs (from[0] is the template's TRI, read for the nodes) */
+    INFO_LINES = 29,          /* the INFO file's data lines (validate_misc.c); lines 9 and 10 are the sky colours, three values each */
+    INFO_SKY_TOP = 9,
+    INFO_SKY_BOTTOM = 10,
+    INFO_TEXT_MAX = 512
 };
 
-/* the file `rel` (its folders in any case) below `root`, as `out`; 0 when absent */
-static int find_ci(const char *root, const char *rel, char *out, size_t cap)
-{
-    char cur[PATH_LEN];
-    snprintf(cur, sizeof cur, "%s", root);
-    const char *p = rel;
-    for (;;) {
-        const char *slash = strchr(p, '/');
-        const size_t len = slash != NULL ? (size_t)(slash - p) : strlen(p);
-        if (len == 0 || len >= NAME_LEN) return 0;
-        char want[NAME_LEN], next[PATH_LEN];
-        memcpy(want, p, len);
-        want[len] = '\0';
-        DIR *dir = opendir(cur);
-        if (dir == NULL) return 0;
-        int hit = 0;
-        struct dirent *e;
-        while (!hit && (e = readdir(dir)) != NULL) {
-            if (strcasecmp(e->d_name, want) == 0) {
-                snprintf(next, sizeof next, "%s/%s", cur, e->d_name);
-                hit = 1;
-            }
-        }
-        closedir(dir);
-        if (!hit) return 0;
-        snprintf(cur, sizeof cur, "%s", next);
-        if (slash == NULL) break;
-        p = slash + 1;
-    }
-    snprintf(out, cap, "%s", cur);
-    return 1;
-}
+/* The INFO text of a generic piece: 29 data lines, the sky colours a b c (0..31, packed by the game) and the rest zero. The values are
+ * not the CD's: the sky is a plain blue until a track sets its own (docs/track-editor.md). */
+static const char *const SKY_TOP = "12 20 31", *const SKY_BOTTOM = "20 28 31";
 
 static uint8_t *read_file(const char *path, size_t *size)
 {
@@ -124,33 +95,13 @@ static int road_nodes(const Trace *t, TrackGenNode **nodes, int *count, char *wh
     return ok;
 }
 
-/* the template's file `<stem>` + `suffix` (the CD's name, any case) into the piece's `dest`, read from the data folder */
-static int copy_template(FileSet *set, const char *data_dir, const char *rel_template, const char *dest, char *why, size_t why_cap)
-{
-    char real[PATH_LEN];
-    size_t size = 0;
-    if (!find_ci(data_dir, rel_template, real, sizeof real)) {
-        snprintf(why, why_cap, "no %s in the data folder %s: give the CD's folder with --data", rel_template, data_dir);
-        return 0;
-    }
-    uint8_t *data = read_file(real, &size);
-    if (data == NULL) {
-        snprintf(why, why_cap, "%s: cannot read it", real);
-        return 0;
-    }
-    const int ok = fileset_add(set, dest, data, size);
-    free(data);
-    if (!ok) snprintf(why, why_cap, "cannot add %s to the piece", dest);
-    return ok;
-}
-
 /* the card of the piece, its keys the generator writes and the author line; 1 with `info` parsed */
-static int piece_card(const Project *p, const char *piece, uint8_t *text, size_t cap, size_t *len, ModInfo *info, char *why, size_t why_cap)
+static int piece_card(const Project *p, uint8_t *text, size_t cap, size_t *len, ModInfo *info, char *why, size_t why_cap)
 {
     char head[MOD_INI_MAX_SIZE], texts[MOD_INI_MAX_SIZE];
     const char *name = p->name[0] != '\0' ? p->name : p->id;
     if (snprintf(head, sizeof head, "id=%s\nname=%s\nversion=0.1\ntype=track\nstem=%s\nkind=stage\nsegments=1\nroad=asphalt\nedge=grass\n",
-                 p->id, name, piece) >= (int)sizeof head ||
+                 p->id, name, p->stem) >= (int)sizeof head ||
         !mod_ini_text_keys(p->author, "", texts, sizeof texts)) {
         snprintf(why, why_cap, "the card does not fit mod.ini");
         return 0;
@@ -208,60 +159,64 @@ static int write_zip(const char *dir, const char *id, const FileSet *pack, char 
     return 1;
 }
 
-int build_project(const char *dir, const Project *p, const Trace *t, const char *data_dir, char *zip, size_t zip_cap, char *why,
-                  size_t why_cap)
+/* the piece's four files into `set`: the TRI made from the road, the INFO, and the stage's art (a FAM, read from `art`) as the two day
+ * FAMs of the game's two languages */
+static int piece_files(const Project *p, const char *dir, const uint8_t *tri, size_t tri_len, FileSet *set, char *why, size_t why_cap)
 {
-    if (p->redistributable) {
-        snprintf(why, why_cap, "redistributable=1 needs the generic textures (CC0), not in this version: build with redistributable=0");
+    char paths[TRACK_PIECE_FILES][TRACK_PIECE_PATH], art[PATH_LEN];
+    track_piece_paths(p->stem, 1, paths);
+    if (p->art[0] == '\0') {
+        snprintf(why, why_cap, "set art= in project.ini: a stage's FAM (the generic one is ../generic-straight/GENERIC.FAM)");
         return 0;
     }
+    if (p->art[0] == '/') snprintf(art, sizeof art, "%s", p->art);
+    else snprintf(art, sizeof art, "%s/%s", dir, p->art);
+    size_t art_len = 0;
+    uint8_t *fam = read_file(art, &art_len);
+    if (fam == NULL) {
+        snprintf(why, why_cap, "%s: cannot read the art", art);
+        return 0;
+    }
+    char info_text[INFO_TEXT_MAX];
+    int ok = fileset_add(set, paths[0], tri, tri_len) && fileset_add(set, paths[2], fam, art_len) && fileset_add(set, paths[3], fam, art_len);
+    free(fam);
+    if (!ok) snprintf(why, why_cap, "cannot add the piece's files");
+    if (ok) {
+        int n = 0;
+        for (int i = 0; i < INFO_LINES; ++i) {
+            const char *line = i == INFO_SKY_TOP - 1 ? SKY_TOP : i == INFO_SKY_BOTTOM - 1 ? SKY_BOTTOM : "0";
+            n += snprintf(info_text + n, sizeof info_text - (size_t)n, "%s\n", line);
+        }
+        ok = fileset_add(set, paths[1], (const uint8_t *)info_text, (size_t)n);
+        if (!ok) snprintf(why, why_cap, "cannot add %s", paths[1]);
+    }
+    return ok;
+}
+
+int build_project(const char *dir, const Project *p, const Trace *t, char *zip, size_t zip_cap, char *why, size_t why_cap)
+{
     TrackGenNode *nodes = NULL;
     int count = 0;
     if (!road_nodes(t, &nodes, &count, why, why_cap)) return 0;
-    char tstem[16];
-    if (!slot_find(SLOT_TRACK, p->template, tstem, sizeof tstem)) {
-        snprintf(why, why_cap, "'%s' is not a track slot", p->template);
-        free(nodes);
-        return 0;
-    }
-    char rel[PATH_LEN], real[PATH_LEN];
-    snprintf(rel, sizeof rel, "SIMDATA/MISC/%s.TRI", tstem);
-    size_t tsize = 0;
+    size_t tmpl_len = 0;
     uint8_t *tmpl = NULL;
-    if (!find_ci(data_dir, rel, real, sizeof real) || (tmpl = read_file(real, &tsize)) == NULL) {
-        snprintf(why, why_cap, "no %s in the data folder %s: give the CD's folder with --data", rel, data_dir);
-        free(nodes);
-        return 0;
-    }
     ExchangeError err;
     memset(&err, 0, sizeof err);
+    int ok = track_template_generic(&tmpl, &tmpl_len, &err);
     uint8_t *tri = NULL;
     size_t tri_len = 0;
-    const int made = track_generate_nodes(nodes, count, tmpl, tsize, &tri, &tri_len, &err);
+    if (ok) ok = track_generate_nodes_turned(nodes, count, tmpl, tmpl_len, &tri, &tri_len, &err);
+    if (!ok) snprintf(why, why_cap, "%s", err.message);
     free(tmpl);
     free(nodes);
-    if (!made) {
-        snprintf(why, why_cap, "%s", err.message);
-        return 0;
-    }
-    char paths[TRACK_PIECE_FILES][TRACK_PIECE_PATH];
-    track_piece_paths(p->stem, 1, paths);
     FileSet set;
     fileset_init(&set);
-    int ok = fileset_add(&set, paths[0], tri, tri_len);
+    if (ok) ok = piece_files(p, dir, tri, tri_len, &set, why, why_cap);
     free(tri);
-    if (!ok) snprintf(why, why_cap, "cannot add %s", paths[0]);
-    static const char *const from[TEMPLATE_FILES] = { "SIMDATA/MISC/%s.TRI", "SIMDATA/MISC/%sINFO", "SIMDATA/ETRACKFM/%s_001.FAM",
-                                                       "SIMDATA/GTRACKFM/%s_001.FAM" };
-    for (int i = 1; ok && i < TEMPLATE_FILES; ++i) {   /* paths[0] is the TRI built above */
-        char rel_t[PATH_LEN];
-        snprintf(rel_t, sizeof rel_t, from[i], tstem);
-        ok = copy_template(&set, data_dir, rel_t, paths[i], why, why_cap);
-    }
     uint8_t card[MOD_INI_MAX_SIZE];
     size_t card_len = 0;
     ModInfo info;
-    if (ok) ok = piece_card(p, p->stem, card, sizeof card, &card_len, &info, why, why_cap);
+    if (ok) ok = piece_card(p, card, sizeof card, &card_len, &info, why, why_cap);
     if (ok) {
         Report report;
         report_init(&report);

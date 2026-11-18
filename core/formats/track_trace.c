@@ -8,7 +8,7 @@
 #endif
 
 enum {
-    SAMPLES_PER_SPAN = 64,
+    SAMPLES_PER_SPAN = 64,   /* the arc-length table: its samples map a length to the curve's parameter */
     ANGLE_TURN = 0x4000,     /* 14-bit headings: one full turn */
     ANGLE_HALF = 0x2000,
     POSITION_ONE = 65536,    /* 16.16 */
@@ -18,9 +18,15 @@ enum {
 
 #define NODE_SPACING ((double)TRACK_GEN_NODE_LENGTH / POSITION_ONE)
 
+/* The curve: point i to i+1 is span i, the parameter u runs from 0 at the first point to count-1 at the last. */
 typedef struct {
-    double x, z, s;          /* a sample of the curve, with the arc length from the first point */
-} Sample;
+    const TracePoint *p;
+    int count;
+    double *s;               /* arc length at each sample, malloc'd */
+    double *u;               /* the curve's parameter at each sample */
+    int n;                   /* samples */
+    double length;
+} Curve;
 
 static double cr(double p0, double p1, double p2, double p3, double t)
 {
@@ -28,47 +34,74 @@ static double cr(double p0, double p1, double p2, double p3, double t)
     return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
 }
 
-/* the points of the curve, `count` - 1 spans of SAMPLES_PER_SPAN samples and the last point; malloc'd into *out */
-static int sample_curve(const TracePoint *p, int count, Sample **out, int *n)
+static double cr_d(double p0, double p1, double p2, double p3, double t)
 {
-    const int spans = count - 1;
-    const int total = spans * SAMPLES_PER_SPAN + 1;
-    Sample *s = malloc(sizeof *s * (size_t)total);
-    if (s == NULL) return 0;
-    int k = 0;
-    for (int i = 0; i < spans; ++i) {
-        const TracePoint *p0 = &p[i > 0 ? i - 1 : 0], *p1 = &p[i], *p2 = &p[i + 1], *p3 = &p[i + 2 < count ? i + 2 : count - 1];
-        for (int j = 0; j < SAMPLES_PER_SPAN; ++j) {
-            const double t = (double)j / SAMPLES_PER_SPAN;
-            s[k].x = cr(p0->x, p1->x, p2->x, p3->x, t);
-            s[k].z = cr(p0->z, p1->z, p2->z, p3->z, t);
-            s[k].s = 0;
-            ++k;
-        }
+    const double t2 = t * t;
+    return 0.5 * ((-p0 + p2) + 2 * (2 * p0 - 5 * p1 + 4 * p2 - p3) * t + 3 * (-p0 + 3 * p1 - 3 * p2 + p3) * t2);
+}
+
+/* the point (or, with `deriv`, the derivative) of the curve at parameter u, span i = floor(u) (the last span at the end) */
+static void eval(const Curve *c, double u, int deriv, double *x, double *z)
+{
+    int i = (int)floor(u);
+    if (i > c->count - 2) i = c->count - 2;
+    if (i < 0) i = 0;
+    const double t = u - i;
+    const TracePoint *p0 = &c->p[i > 0 ? i - 1 : 0], *p1 = &c->p[i], *p2 = &c->p[i + 1];
+    const TracePoint *p3 = &c->p[i + 2 < c->count ? i + 2 : c->count - 1];
+    *x = deriv ? cr_d(p0->x, p1->x, p2->x, p3->x, t) : cr(p0->x, p1->x, p2->x, p3->x, t);
+    *z = deriv ? cr_d(p0->z, p1->z, p2->z, p3->z, t) : cr(p0->z, p1->z, p2->z, p3->z, t);
+}
+
+static void curve_free(Curve *c)
+{
+    free(c->s);
+    free(c->u);
+    c->s = NULL;
+    c->u = NULL;
+}
+
+/* the arc-length table of the curve through `p`; 1 on success (curve_free frees it) */
+static int curve_make(const TracePoint *p, int count, Curve *c)
+{
+    const int spans = count - 1, n = spans * SAMPLES_PER_SPAN + 1;
+    c->p = p;
+    c->count = count;
+    c->n = n;
+    c->s = malloc(sizeof *c->s * (size_t)n);
+    c->u = malloc(sizeof *c->u * (size_t)n);
+    if (c->s == NULL || c->u == NULL) {
+        curve_free(c);
+        return 0;
     }
-    s[k].x = p[count - 1].x;
-    s[k].z = p[count - 1].z;
-    s[k].s = 0;
-    for (int m = 1; m < total; ++m) s[m].s = s[m - 1].s + hypot(s[m].x - s[m - 1].x, s[m].z - s[m - 1].z);
-    *out = s;
-    *n = total;
+    for (int k = 0; k < n; ++k) c->u[k] = (double)k / SAMPLES_PER_SPAN;
+    c->s[0] = 0;
+    double px, pz;
+    eval(c, 0, 0, &px, &pz);
+    for (int k = 1; k < n; ++k) {
+        double x, z;
+        eval(c, c->u[k], 0, &x, &z);
+        c->s[k] = c->s[k - 1] + hypot(x - px, z - pz);
+        px = x;
+        pz = z;
+    }
+    c->length = c->s[n - 1];
     return 1;
 }
 
-/* the curve at arc length `at` (clamped to the curve), by its samples */
-static void curve_at(const Sample *s, int n, double at, double *x, double *z)
+/* the curve's parameter at arc length `at` (clamped to the curve), by the table */
+static double param_at(const Curve *c, double at)
 {
-    if (at <= 0) { *x = s[0].x; *z = s[0].z; return; }
-    if (at >= s[n - 1].s) { *x = s[n - 1].x; *z = s[n - 1].z; return; }
-    int lo = 0, hi = n - 1;
+    if (at <= 0) return c->u[0];
+    if (at >= c->length) return c->u[c->n - 1];
+    int lo = 0, hi = c->n - 1;
     while (hi - lo > 1) {
         const int mid = (lo + hi) / 2;
-        if (s[mid].s <= at) lo = mid; else hi = mid;
+        if (c->s[mid] <= at) lo = mid; else hi = mid;
     }
-    const double span = s[hi].s - s[lo].s;
-    const double f = span > 0 ? (at - s[lo].s) / span : 0;
-    *x = s[lo].x + (s[hi].x - s[lo].x) * f;
-    *z = s[lo].z + (s[hi].z - s[lo].z) * f;
+    const double span = c->s[hi] - c->s[lo];
+    const double f = span > 0 ? (at - c->s[lo]) / span : 0;
+    return c->u[lo] + (c->u[hi] - c->u[lo]) * f;
 }
 
 static int check_points(const TracePoint *points, int count, ExchangeError *err)
@@ -87,27 +120,25 @@ static int check_points(const TracePoint *points, int count, ExchangeError *err)
 double track_trace_length(const TracePoint *points, int count)
 {
     if (points == NULL || count < 2) return 0;
-    Sample *s = NULL;
-    int n = 0;
-    if (!sample_curve(points, count, &s, &n)) return 0;
-    const double length = s[n - 1].s;
-    free(s);
+    Curve c;
+    if (!curve_make(points, count, &c)) return 0;
+    const double length = c.length;
+    curve_free(&c);
     return length;
 }
 
 int track_trace_segments(double length)
 {
-    int segments = (int)lround(length / (NODES_PER_SEGMENT * NODE_SPACING));
+    const int segments = (int)lround(length / (NODES_PER_SEGMENT * NODE_SPACING));
     return segments < TRACK_GEN_MIN_SEGMENTS ? TRACK_GEN_MIN_SEGMENTS : segments;
 }
 
-/* the heading (14-bit, 0 along +z, positive to the right) of the curve at arc length `at`, from the curve half a node either side */
-static double heading_at(const Sample *s, int n, double at, double half, double length)
+/* the heading (14-bit, 0 along +z, positive to the right) of the curve at parameter u: the direction of its derivative */
+static double heading_of(const Curve *c, double u)
 {
-    double x0, z0, x1, z1;
-    curve_at(s, n, at - half < 0 ? 0 : at - half, &x0, &z0);
-    curve_at(s, n, at + half > length ? length : at + half, &x1, &z1);
-    return atan2(x1 - x0, z1 - z0) * ANGLE_TURN / (2 * M_PI);
+    double dx, dz;
+    eval(c, u, 1, &dx, &dz);
+    return atan2(dx, dz) * ANGLE_TURN / (2 * M_PI);
 }
 
 int track_trace_nodes(const TracePoint *points, int count, double width, TrackGenNode **nodes, int *node_count, ExchangeError *err)
@@ -115,10 +146,9 @@ int track_trace_nodes(const TracePoint *points, int count, double width, TrackGe
     *nodes = NULL;
     *node_count = 0;
     if (!check_points(points, count, err)) return 0;
-    Sample *s = NULL;
-    int n = 0;
-    if (!sample_curve(points, count, &s, &n)) return exchange_fail(err, "out of memory"), 0;
-    const double length = s[n - 1].s;
+    Curve c;
+    if (!curve_make(points, count, &c)) return exchange_fail(err, "out of memory"), 0;
+    const double length = c.length;
     const int segments = track_trace_segments(length);
     const int count_nodes = NODES_PER_SEGMENT * segments + 1;
     int ok = 0;
@@ -132,12 +162,12 @@ int track_trace_nodes(const TracePoint *points, int count, double width, TrackGe
         if (out == NULL) {
             exchange_fail(err, "out of memory");
         } else {
-            const double step = length / (NODES_PER_SEGMENT * segments), half = step / 2;
+            const double step = length / (NODES_PER_SEGMENT * segments);
             for (int k = 0; k < count_nodes; ++k) {
-                const double at = k * step;
+                const double u = param_at(&c, k * step);
                 double x, z;
-                curve_at(s, n, at, &x, &z);
-                out[k].heading = heading_at(s, n, at, half, length);
+                eval(&c, u, 0, &x, &z);
+                out[k].heading = heading_of(&c, u);
                 out[k].grade = 0;
                 out[k].bank = 0;
                 out[k].width = width;
@@ -150,7 +180,7 @@ int track_trace_nodes(const TracePoint *points, int count, double width, TrackGe
             ok = 1;
         }
     }
-    free(s);
+    curve_free(&c);
     return ok;
 }
 

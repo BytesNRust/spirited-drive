@@ -36,11 +36,10 @@ static void drop_road(App *a)
     a->radius_nodes = 0;
 }
 
-int app_open(App *a, const char *dir, const char *data, const char *game, const char *user)
+int app_open(App *a, const char *dir, const char *game, const char *user)
 {
     memset(a, 0, sizeof *a);
     snprintf(a->dir, sizeof a->dir, "%s", dir);
-    snprintf(a->data, sizeof a->data, "%s", data);
     snprintf(a->game, sizeof a->game, "%s", game);
     snprintf(a->user, sizeof a->user, "%s", user);
     a->selected = -1;
@@ -115,12 +114,12 @@ int app_save(App *a)
 int app_build(App *a)
 {
     char why[APP_MSG], zip[APP_PATH];
-    if (!build_project(a->dir, &a->project, &a->trace, a->data, zip, sizeof zip, why, sizeof why)) {
+    if (!build_project(a->dir, &a->project, &a->trace, zip, sizeof zip, why, sizeof why)) {
         snprintf(a->status, sizeof a->status, "build refused: %s", why);
         return 0;
     }
     snprintf(a->zip, sizeof a->zip, "%s", zip);
-    snprintf(a->status, sizeof a->status, "built %s", zip);
+    snprintf(a->status, sizeof a->status, "built %s", strrchr(zip, '/') != NULL ? strrchr(zip, '/') + 1 : zip);
     return 1;
 }
 

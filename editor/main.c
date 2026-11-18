@@ -1,11 +1,11 @@
 /* tnfs-track-editor: a top view of a track project's centre line (phase 1a, notes/dep59-track-editor-design.md).
  *
- *   tnfs-track-editor PROJECT [--data DIR] [--game PATH] [--user DIR]
+ *   tnfs-track-editor PROJECT [--game PATH] [--user DIR]
  *                     [--frames N] [--save] [--build] [--install] [--shot OUT.png]
  *
- * PROJECT is a folder such as art/tnfs-tracks/<id>/ (created with its project.ini and trace.json when missing). --data is the CD's folder
- * (default original/): the build takes the template track from it. --game and --user are for the install (the game's --install into the
- * player folder). The options after --frames run headless: N frames, then they are done, and --shot writes the last frame to a PNG; the
+ * PROJECT is a folder such as art/tnfs-tracks/<id>/ (created with its project.ini and trace.json when missing). The build uses no CD data:
+ * the road is made on the generic template and the stage's art is the FAM named by project.ini's art=. --game and --user are for the
+ * install (the game's --install into the player folder). The options after --frames run headless: N frames, then they are done, and --shot writes the last frame to a PNG; the
  * exit status is 1 when a --save, --build or --install failed. Run it with SDL_VIDEO_DRIVER=dummy and SDL_AUDIO_DRIVER=dummy for a headless
  * run. */
 #include "app.h"
@@ -27,7 +27,7 @@ enum {
 };
 
 typedef struct {
-    const char *dir, *data, *game, *user, *shot;
+    const char *dir, *game, *user, *shot;
     int frames, save, build, install;
 } Options;
 
@@ -38,7 +38,7 @@ typedef struct {
 
 static int usage(void)
 {
-    fprintf(stderr, "usage: tnfs-track-editor PROJECT [--data DIR] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
+    fprintf(stderr, "usage: tnfs-track-editor PROJECT [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--shot OUT.png]\n");
     return 0;
 }
@@ -46,12 +46,10 @@ static int usage(void)
 static int parse_args(int argc, char **argv, Options *o)
 {
     memset(o, 0, sizeof *o);
-    o->data = "original";
     o->game = "./tnfs";
     for (int i = 1; i < argc; ++i) {
         const int has_value = i + 1 < argc;
-        if (strcmp(argv[i], "--data") == 0 && has_value) o->data = argv[++i];
-        else if (strcmp(argv[i], "--game") == 0 && has_value) o->game = argv[++i];
+        if (strcmp(argv[i], "--game") == 0 && has_value) o->game = argv[++i];
         else if (strcmp(argv[i], "--user") == 0 && has_value) o->user = argv[++i];
         else if (strcmp(argv[i], "--shot") == 0 && has_value) o->shot = argv[++i];
         else if (strcmp(argv[i], "--frames") == 0 && has_value) o->frames = atoi(argv[++i]);
@@ -231,7 +229,7 @@ int main(int argc, char **argv)
     App *app = calloc(1, sizeof *app);
     if (app == NULL) return 1;
     int status = 1;
-    if (app_open(app, o.dir, o.data, o.game, o.user)) {
+    if (app_open(app, o.dir, o.game, o.user)) {
         status = run(app, &o) ? 0 : 1;
     } else {
         fprintf(stderr, "%s\n", app->status);

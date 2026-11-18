@@ -4,19 +4,23 @@
 the source of a track (a project folder), builds the package the game installs, and installs it with the game's own installer. The track
 is tested in the game, not in the editor. Design: `notes/dep59-track-editor-design.md`.
 
+The build uses no CD data: the road is turned into the TRI of `track_template_generic` (core/formats/track_template.h), the INFO is the
+editor's own generic one, and the stage's art is a FAM of your choice (`art=` in project.ini, e.g. the CC0 straight in
+`art/tnfs-tracks/generic-straight/GENERIC.FAM`).
+
 ## Run
 
 ```sh
 nix develop -c sh -c 'cmake -S . -B build/native -G Ninja && cmake --build build/native --target tnfs-track-editor'
-./build/native/tnfs-track-editor art/tnfs-tracks/my-road --data original
+./build/native/tnfs-track-editor art/tnfs-tracks/my-road
 ```
 
 The project folder is created with `project.ini` and `trace.json` (a straight of six points, 200 units) when they are missing.
 
 | File | What it holds |
 |------|---------------|
-| `project.ini` | `id`, `name`, `author`, `stem` (1..7 of A-Z 0-9, not AL/CL/CY/TR first), `template` (the CD track slot whose INFO and day art the road reuses, e.g. CY1), `redistributable` (0 for now) |
-| `trace.json` | `width` (the verge byte, 8..120) and `points`, the control points as `[x, z]` in units |
+| `project.ini` | `id`, `name`, `author`, `stem` (1..7 of A-Z 0-9, not AL/CL/CY/TR first), `art` (a FAM: relative to the project folder, or absolute), `redistributable` (the author's word on the art's licence) |
+| `trace.json` | `width` (the verge byte, 8..120; the template's is 40) and `points`, the control points as `[x, z]` in units |
 | `build/<id>.zip` | written by Build; the only thing the game installs |
 
 ## Keys
@@ -39,15 +43,15 @@ The project folder is created with `project.ini` and `trace.json` (a straight of
 
 The road is drawn through the control points as a Catmull-Rom curve, resampled to the CD's node spacing (about 6 units). A node drawn red
 breaks a limit: it turns more than 6 degrees from the node before (the generator's limit), or the curve there is tighter than 60 units. The
-top-left corner shows the node count against the 2400 of a TRI, the length and the first limit broken. Build refuses while any limit is
-broken.
+top-left corner shows the node count against the 2397 a TRI holds (599 segments and the closing node), the length and the first limit broken.
+Build refuses while any limit is broken.
 
 ## Headless run
 
 For a smoke run (no window events, no sound):
 
 ```sh
-SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy timeout -k 10 60 ./build/native/tnfs-track-editor PROJECT --data original \
+SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_RENDER_DRIVER=software timeout -k 10 60 ./build/native/tnfs-track-editor PROJECT \
     --frames 3 --save --build --shot out.png
 ```
 
@@ -55,9 +59,7 @@ SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy timeout -k 10 60 ./build/native/tn
 
 ## What is missing
 
-- Terrain rows are copied from the template strip, not turned to each node's frame (`track_frame` has the frame maths; the writer does not
-  use it yet). A road with curves gets terrain that does not follow it.
-- Generic CC0 textures and a generic FAM are not in the tree, so a build uses the CD track's art: `redistributable=1` is refused, and the
-  zip is for this computer only.
+- The INFO is generic: lines 9 and 10 (the sky colours) are a plain blue and the other lines zero. Not checked against the game's sky.
 - Heights, banks and per-point widths are not read from `trace.json` yet (every node is level, unbanked, of the same width).
+- The install was not run end to end in this version: it invokes the game's `--install`, which needs a built game.
 - The 3D free-flight view, lighting and scenery editing are later phases.

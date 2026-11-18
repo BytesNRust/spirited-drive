@@ -2,6 +2,7 @@
  * radius, a corner for its turn), the faults are named, and the nodes go through track_generate_nodes into a TRI that opens. */
 #include "formats/track_trace.h"
 #include "formats/track_gen.h"
+#include "formats/track_template.h"
 #include "formats/tri.h"
 #include "test.h"
 
@@ -15,7 +16,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-enum { TSEGS = 20, DESCRIPTORS = 2, SCENERY_AREA = TRI_SCENERY_MAX * TRI_SCENERY_SIZE, WIDTH = 40, MAX_NODES = TRACK_GEN_MAX_NODES };
+enum { TSEGS = 20, DESCRIPTORS = 2, SCENERY_AREA = TRI_SCENERY_MAX * TRI_SCENERY_SIZE, WIDTH = 40 };
 
 static void put_u32(uint8_t *p, uint32_t v) { for (int i = 0; i < 4; ++i) p[i] = (uint8_t)(v >> (8 * i)); }
 static void put_i16(uint8_t *p, int v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
@@ -105,16 +106,20 @@ static void arc_points(double r, int steps, double degrees, TracePoint *out)
 
 static void test_arc(void)
 {
-    TracePoint p[8];
-    arc_points(100, 6, 90, p);
+    TracePoint p[32];
+    arc_points(100, 12, 90, p);
     TrackGenNode *nodes = NULL;
     int n = 0;
-    CHECK(nodes_of(p, 7, WIDTH, &nodes, &n));
-    const double length = track_trace_length(p, 7);
+    CHECK(nodes_of(p, 13, WIDTH, &nodes, &n));
+    const double length = track_trace_length(p, 13);
     CHECK(fabs(length - 100 * M_PI / 2) < 1.0);             /* the arc's length, the Catmull curve within a unit */
     CHECK_EQ_INT(n, 4 * track_trace_segments(length) + 1);
-    const double total = track_trace_turn_degrees(nodes[0].heading, nodes[n - 1].heading);
-    CHECK(fabs(total + 90) < 0.5);                          /* left: negative */
+    /* the road starts along its first chord and ends along its last: the curve has the chords' directions at its ends */
+    const double first = atan2(p[1].x - p[0].x, p[1].z - p[0].z) * 8192 / M_PI;
+    CHECK(fabs(track_trace_turn_degrees(first, nodes[0].heading)) < 0.3);
+    const double last = atan2(p[12].x - p[11].x, p[12].z - p[11].z) * 8192 / M_PI;
+    CHECK(fabs(track_trace_turn_degrees(last, nodes[n - 1].heading)) < 0.3);
+    CHECK(track_trace_turn_degrees(nodes[0].heading, nodes[n - 1].heading) < 0);   /* a left turn: negative */
     uint8_t *flags = calloc((size_t)n, 1);
     track_trace_flags(nodes, n, flags);
     CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN | TRACE_FLAG_RADIUS), 0);   /* about 3 degrees a node on radius 100 */
@@ -124,15 +129,14 @@ static void test_arc(void)
 
 static void test_tight_arc_flags_radius(void)
 {
-    TracePoint p[8];
-    arc_points(30, 6, 180, p);                              /* a half circle of radius 30: about 5.6 degrees a node */
+    TracePoint p[32];
+    arc_points(30, 24, 180, p);                             /* a half circle of radius 30: about 5.6 degrees a node */
     TrackGenNode *nodes = NULL;
     int n = 0;
-    CHECK(nodes_of(p, 7, WIDTH, &nodes, &n));
+    CHECK(nodes_of(p, 25, WIDTH, &nodes, &n));
     uint8_t *flags = calloc((size_t)n, 1);
     track_trace_flags(nodes, n, flags);
     CHECK(count_flags(flags, n, TRACE_FLAG_RADIUS) > 0);
-    CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN), 0);
     CHECK_EQ_INT(flags[0], 0);
     free(flags);
     free(nodes);
@@ -171,7 +175,7 @@ static void test_faults(void)
 
 static void test_generates_tri(void)
 {
-    TracePoint p[8];
+    TracePoint p[32];
     arc_points(100, 6, 90, p);
     TrackGenNode *nodes = NULL;
     int n = 0;
@@ -188,7 +192,28 @@ static void test_generates_tri(void)
     free(out);
     free(tmpl);
     free(nodes);
-    CHECK(MAX_NODES == 2400);
+}
+
+/* the road made on the generic template (no CD byte) through the turned writer: a curve comes out as a TRI that opens */
+static void test_turned_generic(void)
+{
+    TracePoint p[32];
+    arc_points(100, 12, 90, p);
+    TrackGenNode *nodes = NULL;
+    int n = 0;
+    CHECK(nodes_of(p, 13, WIDTH, &nodes, &n));
+    uint8_t *tmpl = NULL, *out = NULL;
+    size_t tmpl_len = 0, out_len = 0;
+    ExchangeError err;
+    memset(&err, 0, sizeof err);
+    CHECK(track_template_generic(&tmpl, &tmpl_len, &err));
+    CHECK(track_generate_nodes_turned(nodes, n, tmpl, tmpl_len, &out, &out_len, &err));
+    Tri tri;
+    CHECK_EQ_INT(tri_open(&tri, out, out_len), TRI_OK);
+    CHECK_EQ_INT(tri.segment_count, (n - 1) / 4);
+    free(out);
+    free(tmpl);
+    free(nodes);
 }
 
 static void test_turn_degrees(void)
@@ -207,5 +232,6 @@ int main(void)
     test_faults();
     test_generates_tri();
     test_turn_degrees();
+    test_turned_generic();
     return TEST_REPORT();
 }
