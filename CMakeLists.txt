@@ -607,6 +607,8 @@ target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 # The recovered game code keeps the original's 32-bit wraparound arithmetic.
 if(NOT MSVC)
     target_compile_options(tnfs_game PRIVATE -fwrapv)
+    # fixed_math moved to core and keeps the same wraparound arithmetic (a negative remainder << 16 in fx_div)
+    set_source_files_properties(core/formats/fixed_math.c PROPERTIES COMPILE_OPTIONS -fwrapv)
 endif()
 
 set(TNFS_SDL3_PLATFORM
