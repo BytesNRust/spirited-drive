@@ -10,7 +10,7 @@ export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
 
-timeout -k 5 60 "$editor" "$work/proj" --frames 3 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
+"$editor" "$work/proj" --frames 3 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
 [ -f "$work/proj/project.ini" ] && [ -f "$work/proj/trace.json" ] || fail "no project files"
 [ -f "$work/shot.png" ] || { fail "no PNG"; exit 1; }
 python3 - "$work/shot.png" <<'PY' || fail "the PNG is not a 960x600 picture with the ImGui window's title bar in it"
@@ -49,7 +49,7 @@ for y in range(h):
 r, g, b = rows[70][300 * bpp], rows[70][300 * bpp + 1], rows[70][300 * bpp + 2]
 assert b > r + 40 and b > g + 20, (r, g, b)
 PY
-timeout -k 5 60 "$editor" "$work/proj" --frames 2 --user "$work/user" >/dev/null 2>&1 || fail "run with --user"
+"$editor" "$work/proj" --frames 2 --user "$work/user" >/dev/null 2>&1 || fail "run with --user"
 [ -z "$(ls "$work/user" 2>/dev/null)" ] || fail "headless run kept a layout file in the player folder"
 "$editor" >/dev/null 2>&1 && fail "no project folder was accepted"
 [ "$failures" -eq 0 ] && echo "editor_headless: ok"

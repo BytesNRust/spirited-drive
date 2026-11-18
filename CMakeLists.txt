@@ -846,7 +846,7 @@ endif()
 
 if(NOT EMSCRIPTEN)
     enable_testing()
-    if(TARGET tnfs-track-editor AND NOT WIN32)   # the test is a sh script with timeout and python3
+    if(TARGET tnfs-track-editor AND NOT WIN32)   # the test is a sh script with python3
         add_test(NAME editor_headless COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless.sh $<TARGET_FILE:tnfs-track-editor>)
         set_tests_properties(editor_headless PROPERTIES TIMEOUT 300)
     endif()
