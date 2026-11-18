@@ -19,8 +19,8 @@
 #               delete     Delete, yes, with Mine in use: editions/mine.ini gone, the standard edition put back (mark:edition=-);
 #               standard   Done on the standard edition: Game Mode and Control Central go on, restomod.cfg keeps no edition.
 #   standard  a fresh Restomod player, the standard edition shown: the zip dropped is installed with the prompt's OK alone (no edition
-#             to add it to, no file in editions/); the same zip dropped again is said to be a reinstall (same version), not an update; New left with Escape makes no edition; Install... with no window picks nothing (the
-#             log says so) and the screen goes on; Done.
+#             to add it to, no file in editions/); the same zip dropped again is told as a reinstall, not an update; New left with
+#             Escape makes no edition; Install... with no window picks nothing (the log says so) and the screen goes on; Done.
 # usage: content_menus.sh TNFS STUDIO ORIGINAL_DIR PORT_DATA_DIR [PART] (no PART: all of them, in turn). KEEP=1 keeps the scratch folder.
 set -u
 abs() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }   # the walks run the game from the scratch folder
@@ -157,8 +157,11 @@ part_own() {
 part_standard() {
     user_fresh
     car_zips || return
+    echo changed > "$work/p/README.md"   # the same version with another file (car_zips left the piece's folder in $work/p)
+    "$studio" mod pack "$work/p" "$work/drop/test-car-b.zip" >"$work/zip.log" 2>&1 || { fail "mod pack, changed: $(cat "$work/zip.log")"; return; }
     section install; add "$to_game_mode,$manage,500:DROP:test-car.zip,$(wait_for dialog=installed),300:ENTER"
     section again;   add "500:DROP:test-car.zip,$(wait_line "reinstalled test-car"),$quiet"   # the same zip again: a reinstall, said so
+    section changed; add "500:DROP:test-car-b.zip,$(wait_line "its files changed"),$quiet,$quiet,$quiet"   # the same version, other files: its banner and the notice (two lines)
     section new;     add "$new,$(wait_for dialog=name),300:ESC"
     section picker;  add "$install,$(wait_line "no window for a file dialog")"
     section done;    add "$done_,$single"
@@ -167,6 +170,7 @@ part_standard() {
     log | grep -q "^content: install of .* 0.1: noted$" || fail "install: the standard edition's prompt was not the OK alone"
     log | grep -q "^mods: reinstalled test-car 0.1 (same version)$" || fail "again: the same zip dropped again was not a reinstall: $(log | grep '^mods:' | tail -2)"
     [ "$(log | grep -c "^mods: updated ")" -eq 0 ] || fail "again: the same version was said to be an update"
+    log | grep -q "^mark:banner=Its files changed but its version" || fail "changed: the notice of the version that did not rise was not shown"
     [ -n "$(ls "$work/user/editions" 2>/dev/null)" ] && fail "new: an edition was made: $(ls "$work/user/editions")"
     log | grep -q "^edition_store: saved" && fail "new: Escape in the name box saved an edition"
     grep -q "^edition=." "$work/user/restomod.cfg" 2>/dev/null && fail "done: restomod.cfg keeps an edition: $(cat "$work/user/restomod.cfg")"

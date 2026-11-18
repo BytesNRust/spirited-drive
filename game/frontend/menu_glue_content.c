@@ -394,15 +394,13 @@ static int32_t install_zip(void *ctx, const char *path, const int32_t *edition)
     }
     if (how == MOD_STORE_UPDATED) snprintf(text, sizeof text, "Updated %s %s to %s", info.name, old, info.version);
     else snprintf(text, sizeof text, "Reinstalled %s %s", info.name, info.version);   /* (the version it had: one banner line, as "Updated ... to ...") */
-    if (how == MOD_STORE_SAME_CHANGED) {   /* the files are not the installed ones' and the version says they are */
-        const size_t n = strlen(text);
-        snprintf(text + n, sizeof text - n, ": its files changed but its version did not, raise version= in mod.ini");
-    }
     if (update_changed_rules(&info)) {
         const size_t n = strlen(text);
         snprintf(text + n, sizeof text - n, ": its rules changed, new records start (the old ones are kept)");
     }
     told(ctx, text);
+    /* the files are not the installed ones' and the version says they are: a notice of its own, so no text is cut (a banner holds six lines) */
+    if (how == MOD_STORE_SAME_CHANGED) told(ctx, "Its files changed but its version did not: raise version= in mod.ini");
     return 1;
 }
 
