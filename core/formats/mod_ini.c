@@ -304,3 +304,54 @@ int mod_ini_parse(const uint8_t *text, size_t size, ModInfo *out, char *why, siz
                refuse(why, why_cap, "mod.ini: the id may hold only a-z, 0-9 and '-' (not first), up to %d, and not \"legacy\"", MOD_INI_ID_MAX);
     return 1;
 }
+
+/* the keys a generator writes itself: a rewritten card takes these from its own values, never from the card it replaces */
+static int generated_key(const char *s, size_t n)
+{
+    static const char *const OWN[] = { "id", "name", "version", "type", "stem", "kind", "segments", "road", "edge", "author", "description" };
+    for (size_t i = 0; i < sizeof OWN / sizeof OWN[0]; i++)
+        if (strlen(OWN[i]) == n && memcmp(OWN[i], s, n) == 0) return 1;
+    return 0;
+}
+
+int mod_ini_others(const uint8_t *text, size_t size, char *out, size_t cap, size_t *len)
+{
+    size_t n = 0;
+    if (cap == 0) return 0;
+    out[0] = '\0';
+    const char *p = (const char *)text, *end = p + size;
+    while (p < end) {
+        const char *nl = memchr(p, '\n', (size_t)(end - p));
+        const char *s = p, *e = nl != NULL ? nl : end;
+        trim(&s, &e);
+        const char *eq = s < e && *s != '#' ? memchr(s, '=', (size_t)(e - s)) : NULL;
+        if (eq != NULL) {
+            const char *ks = s, *ke = eq;
+            trim(&ks, &ke);
+            if (!generated_key(ks, (size_t)(ke - ks))) {
+                const size_t line = (size_t)(e - s);
+                if (n + line + 2 > cap) return 0;
+                memcpy(out + n, s, line);
+                n += line;
+                out[n++] = '\n';
+                out[n] = '\0';
+            }
+        }
+        p = nl != NULL ? nl + 1 : end;
+    }
+    *len = n;
+    return 1;
+}
+
+int mod_ini_text_keys(const char *author, const char *description, char *out, size_t cap)
+{
+    const int n = author != NULL && author[0] != '\0'
+        ? snprintf(out, cap, "author=%s\n", author)
+        : snprintf(out, cap, "# author=   (your name, up to %d characters)\n", MOD_INI_AUTHOR_MAX);
+    if (n < 0 || (size_t)n >= cap) return 0;
+    const size_t at = (size_t)n;
+    const int m = description != NULL && description[0] != '\0'
+        ? snprintf(out + at, cap - at, "description=%s\n", description)
+        : snprintf(out + at, cap - at, "# description=   (what the piece is, up to %d characters)\n", MOD_INI_DESCRIPTION_MAX);
+    return m >= 0 && (size_t)m < cap - at;
+}
