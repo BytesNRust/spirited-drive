@@ -134,7 +134,7 @@ enum { HIST_NUM = 3, HIST_DEN = 4 };
 
 int added_gallery_history_line_px(void) { return text_line_height() * HIST_NUM / HIST_DEN; }
 
-int added_gallery_history_window(void) { return GL_HIST_H - 8 - 28; }
+int added_gallery_history_window(void) { return GL_HIST_H - 8 - 36; }   /* ends above the label, the margin the top has */
 
 static void history(const Page *p, const Target *t)
 {

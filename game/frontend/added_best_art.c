@@ -18,18 +18,23 @@ static int bank_palette(const uint8_t *coast, size_t size, uint8_t pal[768])
            fsh_palette_rgb(&e, pal) == FSH_OK;
 }
 
-/* the title's box blurred (owner 2026-11-18: as the cars' pages' strip is): its pixels to RGB by `pal`, a box blur within the box, each mapped
- * back to the palette's nearest entry */
+/* the title's box blurred (owner 2026-11-18: as the cars' pages' strip is): the box and a margin round it to RGB by `pal`, a box blur within
+ * them, the blurred pixels mixed with the page's own by their distance from the box (all of it inside, none at the margin's edge, so the band
+ * has no edge of its own), each mapped back to the palette's nearest entry */
 static void blur_box(uint8_t *px, const uint8_t pal[768])
 {
-    const int w = ADDED_BEST_BOX_X1 - ADDED_BEST_BOX_X0 + 1, h = ADDED_BEST_BOX_Y1 - ADDED_BEST_BOX_Y0 + 1;
-    uint8_t *rgb = malloc((size_t)w * h * 3), *tmp = malloc((size_t)w * h * 3);
-    if (rgb == NULL || tmp == NULL) {
-        free(rgb), free(tmp);
+    enum { MARGIN_X = ADDED_BEST_MARGIN_X, MARGIN_Y = ADDED_BEST_MARGIN_Y };
+    const int x0 = ADDED_BEST_BOX_X0 - MARGIN_X < 0 ? 0 : ADDED_BEST_BOX_X0 - MARGIN_X, x1 = ADDED_BEST_BOX_X1 + MARGIN_X;
+    const int y0 = ADDED_BEST_BOX_Y0 - MARGIN_Y < 0 ? 0 : ADDED_BEST_BOX_Y0 - MARGIN_Y, y1 = ADDED_BEST_BOX_Y1 + MARGIN_Y;
+    const int w = x1 - x0 + 1, h = y1 - y0 + 1;
+    uint8_t *rgb = malloc((size_t)w * h * 3), *tmp = malloc((size_t)w * h * 3), *own = malloc((size_t)w * h * 3);
+    if (rgb == NULL || tmp == NULL || own == NULL) {
+        free(rgb), free(tmp), free(own);
         return;
     }
     for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++) memcpy(rgb + 3 * (y * w + x), pal + 3 * px[(ADDED_BEST_BOX_Y0 + y) * ADDED_BEST_W + ADDED_BEST_BOX_X0 + x], 3);
+        for (int x = 0; x < w; x++) memcpy(rgb + 3 * (y * w + x), pal + 3 * px[(y0 + y) * ADDED_BEST_W + x0 + x], 3);
+    memcpy(own, rgb, (size_t)w * h * 3);
     for (int pass = 0; pass < BLUR_PASSES; pass++) {
         for (int y = 0; y < h; y++)   /* along the rows, then down the columns */
             for (int x = 0; x < w; x++)
@@ -48,15 +53,23 @@ static void blur_box(uint8_t *px, const uint8_t pal[768])
     }
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++) {
+            const int px_x = x0 + x, px_y = y0 + y;
+            const int dx = px_x < ADDED_BEST_BOX_X0 ? ADDED_BEST_BOX_X0 - px_x : px_x > ADDED_BEST_BOX_X1 ? px_x - ADDED_BEST_BOX_X1 : 0;
+            const int dy = px_y < ADDED_BEST_BOX_Y0 ? ADDED_BEST_BOX_Y0 - px_y : px_y > ADDED_BEST_BOX_Y1 ? px_y - ADDED_BEST_BOX_Y1 : 0;
+            const int fx = dx * 256 / (MARGIN_X + 1), fy = dy * 256 / (MARGIN_Y + 1), away = fx > fy ? fx : fy;   /* 0 inside .. 255 at the edge */
+            const int keep = away < 256 ? away : 256;   /* the page's own, out of 256 */
+            if (keep == 256) continue;   /* the margin's edge: not a pixel of it changes */
+            int rgbm[3];
+            for (int c = 0; c < 3; c++) rgbm[c] = (rgb[3 * (y * w + x) + c] * (256 - keep) + own[3 * (y * w + x) + c] * keep) / 256;
             int best = 0, best_d = 1 << 30;
             for (int i = 0; i < 256; i++) {
                 int d = 0;
-                for (int c = 0; c < 3; c++) d += (pal[3 * i + c] - rgb[3 * (y * w + x) + c]) * (pal[3 * i + c] - rgb[3 * (y * w + x) + c]);
+                for (int c = 0; c < 3; c++) d += (pal[3 * i + c] - rgbm[c]) * (pal[3 * i + c] - rgbm[c]);
                 if (d < best_d) best_d = d, best = i;
             }
-            px[(ADDED_BEST_BOX_Y0 + y) * ADDED_BEST_W + ADDED_BEST_BOX_X0 + x] = (uint8_t)best;
+            px[px_y * ADDED_BEST_W + px_x] = (uint8_t)best;
         }
-    free(rgb), free(tmp);
+    free(rgb), free(tmp), free(own);
 }
 
 int added_best_art_make(const uint8_t *coast, size_t size, uint8_t **out, size_t *out_size, char *why, size_t why_size)

@@ -44,7 +44,9 @@ static void test_the_title_box_is_filled_again(void)
             const int inside = x >= ADDED_BEST_BOX_X0 && x <= ADDED_BEST_BOX_X1 && y >= ADDED_BEST_BOX_Y0 && y <= ADDED_BEST_BOX_Y1;
             const uint8_t a = in[0].data[y * ADDED_BEST_W + x], b = out[0].data[y * ADDED_BEST_W + x];
             if (inside) box_changed += a != b;   /* the rows below's texture, blurred (owner 2026-11-18) */
-            else outside_same &= a == b;
+            else if (x < ADDED_BEST_BOX_X0 - ADDED_BEST_MARGIN_X || x > ADDED_BEST_BOX_X1 + ADDED_BEST_MARGIN_X || y < ADDED_BEST_BOX_Y0 - ADDED_BEST_MARGIN_Y ||
+                     y > ADDED_BEST_BOX_Y1 + ADDED_BEST_MARGIN_Y)
+                outside_same &= a == b;
         }
     CHECK(outside_same);                              /* not a pixel past the box */
     CHECK(box_changed > 0);                          /* the title is gone */
