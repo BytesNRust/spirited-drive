@@ -60,5 +60,9 @@ int track_piece_check(const ModInfo *card, const FileSet *files, TrackPieceSpec 
 /* the CRC-32 that decides how the piece races (a replay's check), never 0: the stages' TRI as on disk, in order, then kind, segments, road and
  * edge (one byte each). 0 when a stage's TRI is not in `files`. */
 uint32_t track_piece_fingerprint(const TrackPieceSpec *spec, const char *stem, const FileSet *files);
+/* the bytes track_piece_fingerprint is made of, in order, each stage's TRI then the four spec bytes, handed to `feed` one run at a time (a
+ * print of another kind, the SHA-256 one, is made of the same stream); 0 when a stage's TRI is not in `files` (then `feed` got some of it) */
+typedef void TrackPieceFeed(void *ctx, const void *data, size_t size);
+int track_piece_stream(const TrackPieceSpec *spec, const char *stem, const FileSet *files, TrackPieceFeed *feed, void *ctx);
 
 #endif

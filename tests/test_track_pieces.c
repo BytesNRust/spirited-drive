@@ -7,6 +7,7 @@
 #include "game/sys/track_pieces.h"
 #include "game/sys/track_registry.h"
 #include "formats/showcase_tint.h"
+#include "game/sys/piece_print.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -180,6 +181,15 @@ static void test_the_fingerprint(void)
     CHECK_EQ_INT(load1(dirt, 1), 1);
     CHECK(track_registry_piece(16)->fingerprint != first);
     CHECK_EQ_INT(track_registry_find("print"), 16);   /* all along the same track */
+    /* records by id + print: the SHA-256 print follows the same rules as the CRC-32 (what changes the racing changes it, the hours do not) */
+    CHECK_EQ_INT(load1(a, 1), 1);
+    uint8_t first_print[PIECE_PRINT_SIZE];
+    memcpy(first_print, track_registry_piece(16)->print, sizeof first_print);
+    CHECK(!piece_print_is_none(first_print));
+    CHECK_EQ_INT(load1(same, 1), 1);
+    CHECK_MEM(track_registry_piece(16)->print, first_print, sizeof first_print);
+    CHECK_EQ_INT(load1(dirt, 1), 1);
+    CHECK(memcmp(track_registry_piece(16)->print, first_print, sizeof first_print) != 0);
 }
 
 static void test_it_follows_the_mods(void)

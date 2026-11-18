@@ -11,6 +11,7 @@
 #include "game/sys/car_pieces.h"
 #include "game/sys/mod_set.h"
 #include "game/sys/port_profile.h"
+#include "game/sys/piece_print.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -225,6 +226,14 @@ static uint32_t fingerprint_of(const char *dir)
     return p != NULL ? p->fingerprint : 0;
 }
 
+static const uint8_t *print_of(const char *dir)
+{
+    car_registry_clear();
+    CHECK_EQ_INT(load1(dir, 1), 1);
+    const CarPiece *p = car_registry_piece(car_registry_find("print-car"));
+    return p != NULL ? p->print : NULL;
+}
+
 static void test_the_fingerprint(void)
 {
     char a[400], path[600];
@@ -261,6 +270,9 @@ static void test_the_fingerprint(void)
     spill(path, record, PBS_SIZE);
     const uint32_t changed = fingerprint_of(a);
     CHECK(changed != 0 && changed != first);
+    uint8_t changed_print[PIECE_PRINT_SIZE];
+    memcpy(changed_print, print_of(a), sizeof changed_print);   /* the print changes with the specs, as the CRC does */
+    CHECK(!piece_print_is_none(changed_print));
     /* 3b: ai_level=top: the level's pair, and the print changes with the tuning alone (the files as they were) */
     char b[400];
     CHECK(piece("print_top", "print-car", "PRINT", "sound_from=viper\nai_level=top\n", "", b));
@@ -269,6 +281,9 @@ static void test_the_fingerprint(void)
     const CarAiTuning *top_ai = car_registry_ai(car_registry_find("print-car"));
     CHECK(top_ai != NULL && top_ai->pace == 65536 && top_ai->coast == 4);
     CHECK(none != 0 && top != 0 && none != top);
+    uint8_t print_none[PIECE_PRINT_SIZE];
+    memcpy(print_none, print_of(a), sizeof print_none);
+    CHECK(memcmp(print_none, print_of(b), PIECE_PRINT_SIZE) != 0);   /* the tuning alone changes it */
 }
 
 /* dep59 step 3: what an added car's gallery reads of its piece (car_pieces_card): its card again, its skins/ folders in name order after

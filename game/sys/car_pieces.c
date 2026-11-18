@@ -4,6 +4,7 @@
 #include "formats/car_ai.h"
 #include "formats/car_piece.h"
 #include "formats/crc32.h"
+#include "game/sys/piece_print.h"
 #include "formats/mod_ini.h"
 #include "formats/pdn.h"
 #include "formats/validate.h"
@@ -112,6 +113,22 @@ static uint32_t fingerprint(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_
     return crc != 0 ? crc : 1;
 }
 
+/* port (dep59 step 5, records by id + print): the same stream as `fingerprint` (the PBS, the PDN, the AI's pace and coast) under the SHA-256 */
+static void print_of(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH], const CarAiTuning *ai, uint8_t out[PIECE_PRINT_SIZE])
+{
+    PiecePrint pp;
+    piece_print_begin(&pp, PIECE_PRINT_CAR);
+    static const int ORDER[2] = { 2, 1 };
+    for (int k = 0; k < 2; k++) {
+        const SetFile *f = file_at(set, paths[ORDER[k]]);
+        if (f != NULL) piece_print_add(&pp, f->data, f->size);
+    }
+    uint8_t tail[8];
+    for (int i = 0; i < 4; i++) tail[i] = (uint8_t)((uint32_t)ai->pace >> (8 * i)), tail[4 + i] = (uint8_t)((uint32_t)ai->coast >> (8 * i));
+    piece_print_add(&pp, tail, sizeof tail);
+    piece_print_end(&pp, out);
+}
+
 /* port (dep59 3b): the AI tuning of the piece: from its PDN (`paths`[1] in `set`), or its card's ai_level */
 static int piece_ai(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH], const char *level, CarAiTuning *out, char *why,
                     size_t why_cap)
@@ -166,6 +183,7 @@ static int read_piece(const char *dir, ModInfo *card, CarPiece *out, char *why, 
     if (!ok) return 0;
     memset(out, 0, sizeof *out);
     out->fingerprint = print;
+    if (ok) print_of(&set, paths, &ai, out->print);
     out->ai = ai;
     snprintf(out->id, sizeof out->id, "%s", card->id);
     snprintf(out->name, sizeof out->name, "%s", card->name);

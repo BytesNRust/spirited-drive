@@ -172,17 +172,25 @@ int track_piece_check(const ModInfo *card, const FileSet *files, TrackPieceSpec 
     return report_fatal_count(r) == fatal_before;
 }
 
-uint32_t track_piece_fingerprint(const TrackPieceSpec *spec, const char *stem, const FileSet *files)
+int track_piece_stream(const TrackPieceSpec *spec, const char *stem, const FileSet *files, TrackPieceFeed *feed, void *ctx)
 {
-    uint32_t crc = 0;
     for (int stage = 1; stage <= spec->segments; stage++) {
         char paths[TRACK_PIECE_FILES][TRACK_PIECE_PATH];
         track_piece_paths(stem, stage, paths);
         const SetFile *f = find_any_case(files, paths[0]);
         if (f == NULL) return 0;
-        crc = crc32_update(crc, f->data, f->size);
+        feed(ctx, f->data, f->size);
     }
     const uint8_t tail[4] = { (uint8_t)spec->kind, (uint8_t)spec->segments, (uint8_t)spec->road, (uint8_t)spec->edge };
-    crc = crc32_update(crc, tail, sizeof tail);
+    feed(ctx, tail, sizeof tail);
+    return 1;
+}
+
+static void crc_feed(void *ctx, const void *data, size_t size) { *(uint32_t *)ctx = crc32_update(*(uint32_t *)ctx, data, size); }
+
+uint32_t track_piece_fingerprint(const TrackPieceSpec *spec, const char *stem, const FileSet *files)
+{
+    uint32_t crc = 0;
+    if (!track_piece_stream(spec, stem, files, crc_feed, &crc)) return 0;
     return crc != 0 ? crc : 1;
 }

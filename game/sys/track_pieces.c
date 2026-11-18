@@ -7,6 +7,7 @@
 #include "formats/track_piece.h"
 #include "formats/validate.h"
 #include "game/sys/mod_set.h"
+#include "game/sys/piece_print.h"
 #include "game/sys/port_log.h"
 #include "game/sys/port_profile.h"
 #include "game/sys/port_settings.h"
@@ -51,6 +52,8 @@ static void first_fatal(const Report *r, char *out, size_t cap)
 
 /* the track piece in `dir` into `out`: 1 when it is one that may race; 0 when the folder is no track piece (`card` empty) or a refused one
  * (`card` holds it, the reason in `why`) */
+static void print_feed(void *ctx, const void *data, size_t size) { piece_print_add(ctx, data, size); }
+
 static int read_piece(const char *dir, ModInfo *card, TrackPiece *out, char *why, size_t why_cap)
 {
     char path[PATH_MAX_LEN];
@@ -81,11 +84,18 @@ static int read_piece(const char *dir, ModInfo *card, TrackPiece *out, char *why
     if (!ok) first_fatal(&r, why, why_cap);
     report_free(&r);
     const uint32_t print = ok ? track_piece_fingerprint(&spec, card->stem, &set) : 0;
+    uint8_t sha[PIECE_PRINT_SIZE] = { 0 };
+    if (ok) {
+        PiecePrint pp;
+        piece_print_begin(&pp, PIECE_PRINT_TRACK);
+        if (track_piece_stream(&spec, card->stem, &set, print_feed, &pp)) piece_print_end(&pp, sha);
+    }
     fileset_free(&set);
     if (!ok) return 0;
     memset(out, 0, sizeof *out);
     out->spec = spec;
     out->fingerprint = print;
+    memcpy(out->print, sha, sizeof out->print);
     out->card_name_off = card->card_name_off;
     out->tinted = card->showcase_tint[0] != '\0' && showcase_tint_parse(card->showcase_tint, out->tint);   /* (the check refused a bad one) */
     if (!out->tinted) memcpy(out->tint, SHOWCASE_TINT_SEPIA, sizeof out->tint);

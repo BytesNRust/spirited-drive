@@ -14,6 +14,8 @@ typedef struct {
 
 void sha256_init(Sha256 *s);
 void sha256_update(Sha256 *s, const void *data, size_t len);
+/* the digest as 32 bytes (the state is spent) */
+void sha256_digest(Sha256 *s, uint8_t out[32]);
 /* the digest as 64 lower-case hex digits and a NUL */
 void sha256_hex(Sha256 *s, char out[65]);
 
