@@ -38,13 +38,6 @@ typedef struct {
     double turn, grade, bank, width;   /* turn is the section's total; the others are the values at its end */
 } Section;
 
-typedef struct {
-    double heading;   /* 14-bit units */
-    double grade;     /* percent */
-    double bank;      /* degrees */
-    double width;
-} NodeShape;
-
 static void put_i16(uint8_t *p, int v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
 static void put_u16(uint8_t *p, unsigned v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
 static void put_i32(uint8_t *p, int32_t v) { for (int i = 0; i < 4; ++i) p[i] = (uint8_t)((uint32_t)v >> (8 * i)); }
@@ -162,13 +155,13 @@ static int parse_layout(const char *layout, size_t len, double start_width, Sect
 }
 
 /* Node i of the track: heading accumulates the turn of the sections, the other values ramp inside a section. */
-static void node_shapes(const Section *sections, int count, double start_width, NodeShape *shapes)
+static void node_shapes(const Section *sections, int count, double start_width, TrackGenNode *shapes)
 {
     int node = 0;
-    NodeShape at = { 0, 0, 0, start_width };
+    TrackGenNode at = { 0, 0, 0, start_width, { 0, 0, 0 } };
     for (int s = 0; s < count; ++s) {
         const int nodes = sections[s].segments * TRI_NODES_PER_SEGMENT;
-        const NodeShape from = at;
+        const TrackGenNode from = at;
         for (int k = 0; k < nodes; ++k, ++node) {
             const double t = (double)k / nodes;
             shapes[node].heading = from.heading + sections[s].turn / 360.0 * ANGLE_TURN * t;
@@ -188,7 +181,7 @@ static unsigned angle14(double units) { return (unsigned)((long)lround(units) & 
 
 static int clamp_byte(double v) { return v < 0 ? 0 : v > 255 ? 255 : (int)lround(v); }
 
-static void write_node(uint8_t *dst, const uint8_t *model, const NodeShape *shape, const int32_t pos[3], const TriNode *tmpl)
+static void write_node(uint8_t *dst, const uint8_t *model, const TrackGenNode *shape, const int32_t pos[3], const TriNode *tmpl)
 {
     memcpy(dst, model, NODE_SIZE);
     const int width = (int)lround(shape->width);
@@ -211,7 +204,7 @@ static void write_node(uint8_t *dst, const uint8_t *model, const NodeShape *shap
     put_u16(dst + 0x22, 0);
 }
 
-static void write_strip(uint8_t *seg, const uint8_t *model, const NodeShape *shapes, const TriNode *tmpl)
+static void write_strip(uint8_t *seg, const uint8_t *model, const TrackGenNode *shapes, const TriNode *tmpl)
 {
     memcpy(seg, model, TRI_SEGMENT_SIZE);
     for (int row = 0; row < TRI_NODES_PER_SEGMENT; ++row) {
@@ -222,10 +215,77 @@ static void write_strip(uint8_t *seg, const uint8_t *model, const NodeShape *sha
     }
 }
 
-int track_generate(const char *layout, size_t layout_len, const uint8_t *template_tri, size_t template_size,
-                   uint8_t **out, size_t *out_len, ExchangeError *err)
+/* the positions along the headings: each node one node length from the one before (the closing node's too, as the CD's) */
+static void integrate_positions(TrackGenNode *nodes, int count)
+{
+    int32_t pos[3] = { 0, 0, 0 };
+    for (int i = 0; i < count; ++i) {
+        memcpy(nodes[i].position, pos, sizeof pos);
+        const double heading = nodes[i].heading / ANGLE_TURN * 2 * M_PI;
+        pos[0] += (int32_t)lround(TRACK_GEN_NODE_LENGTH * sin(heading));
+        pos[1] += (int32_t)lround(TRACK_GEN_NODE_LENGTH * nodes[i].grade / 100.0);
+        pos[2] += (int32_t)lround(TRACK_GEN_NODE_LENGTH * cos(heading));
+    }
+}
+
+int track_layout_nodes(const char *layout, size_t layout_len, double start_width, TrackGenNode **nodes, int *count, ExchangeError *err)
+{
+    *nodes = NULL;
+    Section sections[MAX_SECTIONS];
+    int sections_count, segments;
+    if (!parse_layout(layout, layout_len, start_width, sections, &sections_count, &segments, err)) return 0;
+    const int n = segments * TRI_NODES_PER_SEGMENT + 1;
+    TrackGenNode *made = malloc(sizeof *made * (size_t)n);
+    if (made == NULL) { exchange_fail(err, "out of memory"); return 0; }
+    node_shapes(sections, sections_count, start_width, made);
+    integrate_positions(made, n);
+    *nodes = made;
+    *count = n;
+    return 1;
+}
+
+enum { STEP_MIN = 1 << 16, STEP_MAX = 20 << 16, HEADING_MAX = 1 << 24 };   /* steps of 1 and 20 units in 16.16; a thousand turns */
+
+/* a node out of range, or too far a turn or step from the one before: why, naming it; 1 when it is as the generator takes it */
+static int check_node(const TrackGenNode *n, int i, ExchangeError *err)
+{
+    if (!isfinite(n[i].heading) || !isfinite(n[i].grade) || !isfinite(n[i].bank) || !isfinite(n[i].width))
+        return exchange_fail(err, "node %d: a value is not a finite number", i), 0;
+    if (fabs(n[i].heading) > HEADING_MAX)   /* 14-bit units: a thousand turns is no heading, and lround of more is undefined */
+        return exchange_fail(err, "node %d: heading=%g is outside +-%d", i, n[i].heading, HEADING_MAX), 0;
+    if (n[i].width < 0 || n[i].width > 255)   /* a byte: the CD's own templates start from 0 (CY1..3) to 123 (TR5), outside what a layout may ask for */
+        return exchange_fail(err, "node %d: width=%g is outside 0..255", i, n[i].width), 0;
+    if (fabs(n[i].grade) > MAX_GRADE_PERCENT) return exchange_fail(err, "node %d: grade=%g is outside +-%g", i, n[i].grade, MAX_GRADE_PERCENT), 0;
+    if (fabs(n[i].bank) > MAX_BANK_DEGREES) return exchange_fail(err, "node %d: bank=%g is outside +-%g", i, n[i].bank, MAX_BANK_DEGREES), 0;
+    if (i == 0) return 1;
+    double turn = fmod(n[i].heading - n[i - 1].heading, ANGLE_TURN);
+    if (turn > ANGLE_TURN / 2) turn -= ANGLE_TURN;
+    if (turn < -ANGLE_TURN / 2) turn += ANGLE_TURN;
+    const double degrees = turn * 360.0 / ANGLE_TURN;
+    if (fabs(degrees) > MAX_TURN_DEGREES_PER_NODE + 1e-6)
+        return exchange_fail(err, "node %d: it turns %g degrees from the node before, the most is %g", i, degrees, MAX_TURN_DEGREES_PER_NODE), 0;
+    const double dx = (double)n[i].position[0] - n[i - 1].position[0], dy = (double)n[i].position[1] - n[i - 1].position[1];
+    const double dz = (double)n[i].position[2] - n[i - 1].position[2], step = sqrt(dx * dx + dy * dy + dz * dz);
+    if (step < STEP_MIN || step > STEP_MAX)
+        return exchange_fail(err, "node %d: it is %g units from the node before, it must be 1..20", i, step / 65536), 0;
+    return 1;
+}
+
+int track_generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *template_tri, size_t template_size, uint8_t **out,
+                         size_t *out_len, ExchangeError *err)
 {
     *out = NULL;
+    if (shapes == NULL || count < 1 || (count - 1) % TRI_NODES_PER_SEGMENT != 0) {
+        exchange_fail(err, "a track has 4 nodes a segment and a closing one, not %d nodes", count);
+        return 0;
+    }
+    const int segments = (count - 1) / TRI_NODES_PER_SEGMENT, nodes = count - 1;
+    if (segments < TRACK_GEN_MIN_SEGMENTS || segments > TRACK_GEN_MAX_SEGMENTS) {
+        exchange_fail(err, "a track of %d segments is outside %d..%d", segments, TRACK_GEN_MIN_SEGMENTS, TRACK_GEN_MAX_SEGMENTS);
+        return 0;
+    }
+    for (int i = 0; i < count; ++i)
+        if (!check_node(shapes, i, err)) return 0;
     Tri tri;
     TriParts parts;
     TriNode model;
@@ -234,35 +294,21 @@ int track_generate(const char *layout, size_t layout_len, const uint8_t *templat
         exchange_fail(err, "the template is not a usable TRI");
         return 0;
     }
-    Section sections[MAX_SECTIONS];
-    int count, segments;
-    if (!parse_layout(layout, layout_len, model.left_verge, sections, &count, &segments, err)) return 0;
-
-    const int nodes = segments * TRI_NODES_PER_SEGMENT;
-    NodeShape *shapes = malloc(sizeof *shapes * (size_t)(nodes + 1));
     uint8_t *header = calloc(1, TRI_HEADER_SIZE);
     uint8_t *scenery = malloc((size_t)TRI_SCENERY_MAX * TRI_SCENERY_SIZE);
     uint8_t *terrain = malloc((size_t)segments * TRI_SEGMENT_SIZE);
-    if (shapes == NULL || header == NULL || scenery == NULL || terrain == NULL) {
+    if (header == NULL || scenery == NULL || terrain == NULL) {
         exchange_fail(err, "out of memory");
-        free(shapes); free(header); free(scenery); free(terrain);
+        free(header); free(scenery); free(terrain);
         return 0;
     }
-    node_shapes(sections, count, model.left_verge, shapes);
 
     memcpy(header, template_tri, TRI_HEADER_SIZE);
     memset(header + NODES_OFFSET, 0, (size_t)NODE_SIZE * TRI_NODE_CAPACITY);
     memset(header + BRIGHTNESS_OFFSET, 0, (size_t)BRIGHTNESS_SIZE * TRI_SEGMENT_CAPACITY);
     put_u16(header + 4, 0);                               /* a point-to-point stage */
     const uint8_t *model_node = template_tri + NODES_OFFSET + NODE_SIZE;
-    int32_t pos[3] = { 0, 0, 0 };
-    for (int i = 0; i <= nodes; ++i) {
-        write_node(header + NODES_OFFSET + NODE_SIZE * i, model_node, &shapes[i], pos, &model);
-        const double heading = shapes[i].heading / ANGLE_TURN * 2 * M_PI;
-        pos[0] += (int32_t)lround(TRACK_GEN_NODE_LENGTH * sin(heading));
-        pos[1] += (int32_t)lround(TRACK_GEN_NODE_LENGTH * shapes[i].grade / 100.0);
-        pos[2] += (int32_t)lround(TRACK_GEN_NODE_LENGTH * cos(heading));
-    }
+    for (int i = 0; i <= nodes; ++i) write_node(header + NODES_OFFSET + NODE_SIZE * i, model_node, &shapes[i], shapes[i].position, &model);
     put_u16(header + 0x18, (unsigned)(header[NODES_OFFSET + 0x14] | header[NODES_OFFSET + 0x15] << 8));
     put_u16(header + 0x20, (unsigned)(header[NODES_OFFSET + 0x18] | header[NODES_OFFSET + 0x19] << 8));
 
@@ -289,6 +335,26 @@ int track_generate(const char *layout, size_t layout_len, const uint8_t *templat
     } else {
         *out = file;
     }
-    free(shapes); free(header); free(scenery); free(terrain);
+    free(header); free(scenery); free(terrain);
+    return ok;
+}
+
+int track_generate(const char *layout, size_t layout_len, const uint8_t *template_tri, size_t template_size,
+                   uint8_t **out, size_t *out_len, ExchangeError *err)
+{
+    *out = NULL;
+    Tri tri;
+    TriParts parts;
+    TriNode model;
+    if (tri_open(&tri, template_tri, template_size) != TRI_OK || tri_parts(&tri, &parts) != TRI_OK ||
+        tri.segment_count < 1 || tri_node(&tri, 1, &model) != TRI_OK) {
+        exchange_fail(err, "the template is not a usable TRI");
+        return 0;
+    }
+    TrackGenNode *nodes;
+    int count;
+    if (!track_layout_nodes(layout, layout_len, model.left_verge, &nodes, &count, err)) return 0;
+    const int ok = track_generate_nodes(nodes, count, template_tri, template_size, out, out_len, err);
+    free(nodes);
     return ok;
 }
