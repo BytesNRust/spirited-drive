@@ -86,6 +86,7 @@ part_central() {
     log | grep -q "track piece: dune-run is track 16" || fail "central: dune-run is not track 16: $(log | grep "track piece" | head -3)"
     log | grep -q "track piece: hill-run is track 17" || fail "central: hill-run is not track 17"
     [ "$(log | values card)" = "16 17 16 17 16" ] || fail "central: the card did not walk 16, 17, round to 16 and back: $(log | values card)"
+    log | grep "^mark:card=" | grep -q "LAP" && fail "central: an added track's card says laps (a stage has none): $(log | grep "^mark:card=" | head -3)"
     log | grep -q "^mark:screen=track_select" && fail "central: the arrows opened the track screen"
     log | grep -q "^mark:screen=best_times" && fail "central: a menu read the original's tables"
 }

@@ -1307,8 +1307,8 @@ if(NOT EMSCRIPTEN)
             set_tests_properties(track_menus_${part} PROPERTIES TIMEOUT 600)
         endforeach()
         # dep59 step 5 (T8): an added track's run to its finish, its record, its replay and the replay's refusals
-        add_test(NAME track_piece COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_piece.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
-        set_tests_properties(track_piece PROPERTIES TIMEOUT 900)
+        add_test(NAME track_piece_run COMMAND sh ${CMAKE_SOURCE_DIR}/tests/track_piece.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original)
+        set_tests_properties(track_piece_run PROPERTIES TIMEOUT 900)
         # dep59 step 4b (T8): the CONTENT screen in the menus, one test per game session
         foreach(part own standard)
             add_test(NAME content_menus_${part} COMMAND sh ${CMAKE_SOURCE_DIR}/tests/content_menus.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio>
