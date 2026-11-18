@@ -47,6 +47,12 @@ grep -q "test-car" "$work/log" || fail "the summary does not name the car: $(cat
     fail "car new --template DVIPER failed"
 diff -r "$p" "$work/q" >/dev/null 2>&1 || fail "--template DVIPER gives another tree than --template viper"
 
+# 2a. a port data folder that is not there: the piece is still made, and the warning names the option that sets the folder
+"$studio" car new --template viper --id test-car --stem TESTCAR --out "$work/n" --data "$orig" --port-data "$work/no-such-port-data" >"$work/log" 2>"$work/err" ||
+    fail "car new with no port data failed"
+grep -q "no port data at $work/no-such-port-data" "$work/err" && grep -q -- "--port-data" "$work/err" || fail "the no-port-data warning does not name --port-data: $(cat "$work/err")"
+[ -f "$work/n/mod.ini" ] || fail "no piece was made without port data"
+
 # 2b. port (dep59 step 3): a plain card.png of 309x166 (the IHDR's width and height, big-endian at bytes 16 and 20), the same bytes
 # each time (the second piece above is the same car), and for any name: the game draws the name over it (showcase plan section 1)
 [ -f "$p/card.png" ] || fail "car new wrote no card.png"

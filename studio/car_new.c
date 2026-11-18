@@ -149,7 +149,7 @@ static int car_new(const Args *a, ExchangeError *err)
     fileset_init(&set);
     int ok = add_card(&set, a, word, err) && add_files(&set, a->data, from, a->stem, err) && add_generic_card(&set, err);
     if (ok && !fsio_exists(a->port)) {
-        fprintf(stderr, "car new: no port data at %s: the piece has no car or dash masks\n", a->port);
+        fprintf(stderr, "car new: no port data at %s: the piece has no car or dash masks (--port-data DIR names the folder that holds them)\n", a->port);
     } else if (ok) {
         ok = add_masks(&set, a->port, "car_masks", from, a->stem, err) && add_masks(&set, a->port, "dash_masks", from, a->stem, err);
     }
