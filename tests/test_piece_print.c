@@ -46,8 +46,21 @@ static void test_the_domains(void)
     CHECK(!piece_print_is_none(c));
 }
 
+/* an update changes a piece's rules when it had a print and has another; a piece with none either side is not told as changed */
+static void test_a_change_of_print(void)
+{
+    uint8_t a[PIECE_PRINT_SIZE], b[PIECE_PRINT_SIZE], none[PIECE_PRINT_SIZE] = { 0 };
+    memset(a, 1, sizeof a), memset(b, 2, sizeof b);
+    CHECK(piece_print_changed(a, b));
+    CHECK(!piece_print_changed(a, a));
+    CHECK(!piece_print_changed(none, b));   /* not there before: nothing to keep records of */
+    CHECK(!piece_print_changed(a, none));   /* not there after: nothing new to start */
+    CHECK(!piece_print_changed(none, none));
+}
+
 int main(void)
 {
+    test_a_change_of_print();
     test_the_digest();
     test_the_domains();
     return TEST_REPORT();

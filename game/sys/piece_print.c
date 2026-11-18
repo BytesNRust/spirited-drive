@@ -26,3 +26,8 @@ int piece_print_is_none(const uint8_t print[PIECE_PRINT_SIZE])
     for (int i = 0; i < PIECE_PRINT_SIZE; i++) any |= print[i];
     return any == 0;
 }
+
+int piece_print_changed(const uint8_t before[PIECE_PRINT_SIZE], const uint8_t after[PIECE_PRINT_SIZE])
+{
+    return !piece_print_is_none(before) && !piece_print_is_none(after) && memcmp(before, after, PIECE_PRINT_SIZE) != 0;
+}

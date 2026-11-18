@@ -26,4 +26,8 @@ void piece_print_end(PiecePrint *p, uint8_t out[PIECE_PRINT_SIZE]);
 /* 1 when `print` is all zeros: no print */
 int piece_print_is_none(const uint8_t print[PIECE_PRINT_SIZE]);
 
+/* 1 when a piece that had the print `before` has the print `after` and they differ: its rules changed and its records start anew (the old ones
+ * are kept). 0 when either is none: a piece not there, or one that has no print, has no records by print to part from */
+int piece_print_changed(const uint8_t before[PIECE_PRINT_SIZE], const uint8_t after[PIECE_PRINT_SIZE]);
+
 #endif
