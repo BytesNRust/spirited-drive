@@ -8,7 +8,7 @@
  *
  * The limits the editor shows (track_trace_flags), in two levels (notes/dep59-editor-limits-vs-cd.md). Up to 8 degrees a node (a radius of 43 units) nothing is
  * marked. AMBER, a warning that the road is built: over TRACK_GEN_TURN_WARN_DEGREES, or under TRACE_RADIUS_WARN; the CD has such curves (Alpine 3
- * turns 16 degrees a node) and the generator holds the terrain inside the curve (TRACK_GEN_TERRAIN_REACH), but the game's own drawing and the AI
+ * turns 16 degrees a node) and the generator holds the terrain on the inside of the curve (TRACK_GEN_TERRAIN_REACH), but the game's own drawing and the AI
  * have to be checked on the spot. RED, where the road is not built: over TRACK_GEN_TURN_MAX_DEGREES, or under TRACE_RADIUS_MIN. The node count
  * and the road's length are checked by track_trace_nodes. */
 #ifndef TNFS_TRACK_TRACE_H
