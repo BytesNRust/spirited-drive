@@ -367,7 +367,7 @@ void masks_panel(App *a)
         snprintf(shown, sizeof shown, "%s", a->dir);
         wait = 3;
     }
-    if (wait > 0 && --wait == 0 && !a->rehacer.running && !a->rehacer.finished) ImGui::SetNextWindowFocus();   // a run's log is what to look at, then
+    if (wait > 0 && --wait == 0 && !a->rehacer.run.running && !a->rehacer.run.finished) ImGui::SetNextWindowFocus();   // a run's log is what to look at, then
     const bool open = ImGui::Begin(PANEL_MASKS);
     masks_dock = ImGui::GetWindowDockID();
     if (open) {
@@ -471,8 +471,8 @@ void rehacer_panel(App *a)
 {
     static pid_t shown = 0;   // the run whose tab was brought forward
     if (masks_dock != 0) ImGui::SetNextWindowDockID(masks_dock, ImGuiCond_FirstUseEver);
-    if (a->rehacer.running && a->rehacer.pid != shown) {   // a run started: its log is what to look at
-        shown = a->rehacer.pid;
+    if (a->rehacer.run.running && a->rehacer.run.pid != shown) {   // a run started: its log is what to look at
+        shown = a->rehacer.run.pid;
         ImGui::SetNextWindowFocus();
     }
     if (ImGui::Begin(PANEL_REHACER)) {
@@ -483,16 +483,16 @@ void rehacer_panel(App *a)
             ImGui::Spacing();
             ImGui::TextUnformatted("This kit has no rehacer.command.");
         }
-        if (r.running) {
+        if (r.run.running) {
             ImGui::Spacing();
             ImGui::TextUnformatted("Running...");
             ImGui::SameLine();
             if (ImGui::Button("Stop")) app_rehacer_stop(a);
-        } else if (r.finished) {
+        } else if (r.run.finished) {
             ImGui::Spacing();
-            const ImVec4 colour = r.exit_code == 0 ? ImVec4(0.47f, 0.86f, 0.55f, 1.0f) : BAD_TEXT;
+            const ImVec4 colour = r.run.exit_code == 0 ? ImVec4(0.47f, 0.86f, 0.55f, 1.0f) : BAD_TEXT;
             ImGui::PushStyleColor(ImGuiCol_Text, colour);
-            ImGui::Text("%s: exit code %d", r.stopped ? "Stopped" : r.exit_code == 0 ? "Finished" : "Failed", r.exit_code);
+            ImGui::Text("%s: exit code %d", r.run.stopped ? "Stopped" : r.run.exit_code == 0 ? "Finished" : "Failed", r.run.exit_code);
             ImGui::PopStyleColor();
         }
         if (r.backup[0] != '\0') {
@@ -502,10 +502,10 @@ void rehacer_panel(App *a)
         ImGui::Separator();
         if (ImGui::BeginChild("log", ImVec2(0, 0), ImGuiChildFlags_None)) {
             const bool at_bottom = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 4.0f;
-            if (r.log_cut) ImGui::TextDisabled("(the start of the output was dropped)");
-            if (r.log != nullptr && r.log_len > 0) ImGui::TextUnformatted(r.log, r.log + r.log_len);
-            else if (!r.running && !r.finished) ImGui::TextDisabled("Nothing has run yet.");
-            if (r.running && at_bottom) ImGui::SetScrollHereY(1.0f);
+            if (r.run.log_cut) ImGui::TextDisabled("(the start of the output was dropped)");
+            if (r.run.log != nullptr && r.run.log_len > 0) ImGui::TextUnformatted(r.run.log, r.run.log + r.run.log_len);
+            else if (!r.run.running && !r.run.finished) ImGui::TextDisabled("Nothing has run yet.");
+            if (r.run.running && at_bottom) ImGui::SetScrollHereY(1.0f);
         }
         ImGui::EndChild();
     }
@@ -515,7 +515,7 @@ void rehacer_panel(App *a)
 namespace {
 
 // the last lines of the game's output, errors red and the masks it took green
-void race_log_lines(const char *text, size_t len, int *budget)
+void race_log_lines(const char *text, size_t len, int *budget, bool show_notes)
 {
     size_t start = 0;
     for (size_t at = len; at > 0 && *budget > 0; --at) {   // the last `budget` lines
@@ -529,6 +529,10 @@ void race_log_lines(const char *text, size_t len, int *budget)
         const char *nl = static_cast<const char *>(memchr(p, '\n', static_cast<size_t>(end - p)));
         const char *line_end = nl != nullptr ? nl : end;
         const RaceLineKind kind = car_race_line_kind(p, static_cast<size_t>(line_end - p));
+        if (kind == RACE_LINE_NOTE && !show_notes) {   // collapsed into the summary line
+            p = nl != nullptr ? nl + 1 : end;
+            continue;
+        }
         if (kind == RACE_LINE_ERROR) ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
         else if (kind == RACE_LINE_MASK) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.47f, 0.86f, 0.55f, 1.0f));
         else if (kind == RACE_LINE_NOTE) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
@@ -607,10 +611,17 @@ void race_panel(App *a, ImTextureID photo)
         ImGui::SeparatorText("The game's log");
         if (ImGui::BeginChild("racelog", ImVec2(0, 0), ImGuiChildFlags_Borders)) {
             const RaceJob &j = a->race;
+            static bool show_notes = false;
+            const int notes = (j.log != nullptr ? car_race_count_notes(j.log, j.log_len) : 0) + (j.run.log != nullptr ? car_race_count_notes(j.run.log, j.run.log_len) : 0);
+            if (notes > 0) {   // the game's "cannot read ..._mask.png" for each car the project has no mask for: one dim line, expandable
+                ImGui::TextDisabled("%d mask%s not in this project: the game uses its own", notes, notes == 1 ? "" : "s");
+                ImGui::SameLine();
+                if (ImGui::SmallButton(show_notes ? "Hide" : "Show")) show_notes = !show_notes;
+            }
             int before = 250, now_lines = 150;   // the runs that ended, then the one that runs
-            if (j.log != nullptr && j.log_len > 0) race_log_lines(j.log, j.log_len, &before);
+            if (j.log != nullptr && j.log_len > 0) race_log_lines(j.log, j.log_len, &before, show_notes);
             else if (j.run.log == nullptr || j.run.log_len == 0) ImGui::TextDisabled("Nothing has run yet.");
-            if (j.run.log != nullptr && j.run.log_len > 0) race_log_lines(j.run.log, j.run.log_len, &now_lines);
+            if (j.run.log != nullptr && j.run.log_len > 0) race_log_lines(j.run.log, j.run.log_len, &now_lines, show_notes);
         }
         ImGui::EndChild();
     }

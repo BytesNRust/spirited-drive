@@ -208,6 +208,17 @@ RaceLineKind car_race_line_kind(const char *line, size_t len)
     return RACE_LINE_PLAIN;
 }
 
+int car_race_count_notes(const char *text, size_t len)
+{
+    int count = 0;
+    for (const char *p = text, *end = text + len; p != NULL && p < end;) {
+        const char *nl = memchr(p, '\n', (size_t)(end - p)), *line_end = nl != NULL ? nl : end;
+        count += car_race_line_kind(p, (size_t)(line_end - p)) == RACE_LINE_NOTE;
+        p = nl != NULL ? nl + 1 : NULL;
+    }
+    return count;
+}
+
 int car_race_read_ppm(const char *path, uint8_t **rgba, int *w, int *h, char *why, size_t why_cap)
 {
     FILE *f = fopen(path, "rb");
