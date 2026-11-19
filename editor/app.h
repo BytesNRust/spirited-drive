@@ -3,6 +3,7 @@
 #ifndef TNFS_TRACK_EDITOR_APP_H
 #define TNFS_TRACK_EDITOR_APP_H
 
+#include "car_edit.h"
 #include "car_project.h"
 #include "project.h"
 #include "session.h"
@@ -37,7 +38,8 @@ enum { APP_ANSWER_CANCEL = 0, APP_ANSWER_DISCARD = 1, APP_ANSWER_SAVE = 2 };
 
 typedef struct {
     AppKind kind;                /* what is open: the track fields below are read for APP_KIND_TRACK, `car` for APP_KIND_CAR */
-    CarProject car;              /* the car project, when kind is APP_KIND_CAR (read only for now) */
+    CarProject car;              /* the car project, when kind is APP_KIND_CAR */
+    CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
     char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */
     char game[APP_PATH];         /* the game program, run for install */
     char art_note[160];          /* what opening the project did to or noticed about its copy of the generic art (project_art_refresh); "" for nothing */
@@ -96,7 +98,7 @@ int app_open(App *a, const char *dir, const char *game, const char *user, const 
 
 void app_free(App *a);
 
-/* 1 when the open project has unsaved changes: only a track has any (a car is read only for now). The trace is not what trace.json holds (a point moved, added or removed, or the width changed since the last save or open). */
+/* 1 when the open project has unsaved changes: a track's trace is not what trace.json holds, a car's card is not what mod.ini holds (a point moved, added or removed, or the width changed since the last save or open). */
 int app_modified(const App *a);
 
 /* Asks for an action. With nothing unsaved it is a->go at once; else a->confirm waits for app_answer, and a->go stays NONE. An action asked for

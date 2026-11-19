@@ -2,7 +2,7 @@
  * car project's card, textures and masks (dep59 car editor 1d, read only for now); with nothing open, a start screen.
  *
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
- *                     [--frames N] [--save] [--build] [--install] [--select N] [--edit] [--ask quit|new|open|opencar] [--shot OUT.png]
+ *                     [--frames N] [--save] [--build] [--install] [--select N] [--edit] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
  * PROJECT is a folder such as art/tnfs-tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
  * art/tnfs-cars/<kit>/ (or its coche/): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
@@ -33,6 +33,8 @@ enum {
 typedef struct {
     const char *dir, *game, *user, *shot;
     int frames, save, build, install, select;   /* select: a control point to select before the first frame, -1 for none */
+    const char *set[8];      /* --set key=value, a car's field set before the first frame (a headless picture of a problem, a save of a change) */
+    int set_count;
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
 } Options;
@@ -40,7 +42,7 @@ typedef struct {
 static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
-                    "[--install] [--select N] [--edit] [--ask quit|new|open|opencar] [--shot OUT.png]\n");
+                    "[--install] [--select N] [--edit] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]\n");
     return 0;
 }
 
@@ -60,7 +62,8 @@ static int parse_args(int argc, char **argv, Options *o)
             o->ask = strcmp(what, "quit") == 0 ? APP_ACT_QUIT : strcmp(what, "new") == 0 ? APP_ACT_NEW : strcmp(what, "open") == 0 ? APP_ACT_OPEN
                    : strcmp(what, "opencar") == 0 ? APP_ACT_OPEN_CAR : APP_ACT_NONE;
             if (o->ask == APP_ACT_NONE) return usage();
-        } else if (strcmp(argv[i], "--edit") == 0) o->edit = 1;
+        } else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
+        else if (strcmp(argv[i], "--edit") == 0) o->edit = 1;
         else if (strcmp(argv[i], "--save") == 0) o->save = 1;
         else if (strcmp(argv[i], "--build") == 0) o->build = 1;
         else if (strcmp(argv[i], "--install") == 0) o->install = 1;
@@ -244,6 +247,16 @@ static int run(App *a, const Options *o)
         return 1;
     }
     if (a->kind == APP_KIND_TRACK && o->select >= 0 && o->select < a->trace.count) a->selected = o->select;   /* for a headless picture of the Node window */
+    for (int i = 0; i < o->set_count; ++i) {   /* a car's fields, as typed */
+        if (a->kind != APP_KIND_CAR || !car_edit_set_by_text(&a->edit, o->set[i])) {
+            fprintf(stderr, "--set %s: not a field of the open car's card\n", o->set[i]);
+            ui_close();
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            return 0;   /* a run that did not go */
+        }
+    }
     if (o->edit) app_add_point(a);   /* and of the confirmation: something unsaved ... */
     if (o->ask != APP_ACT_NONE) app_ask(a, o->ask, "");   /* ... and the action asked for */
     if (o->user == NULL && o->frames == 0) {   /* a normal run keeps the recent projects in the editor's own folder */

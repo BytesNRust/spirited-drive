@@ -161,8 +161,13 @@ void main_menu(App *a)
             ImGui::EndMenu();
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Save", "S", false, a->kind == APP_KIND_TRACK)) app_save(a);
+        if (ImGui::MenuItem("Save", a->kind == APP_KIND_CAR ? "Ctrl+S" : "S", false, a->kind != APP_KIND_NONE)) app_save(a);
         if (ImGui::MenuItem("Quit")) app_ask(a, APP_ACT_QUIT, "");
+        ImGui::EndMenu();
+    }
+    if (a->kind == APP_KIND_CAR && ImGui::BeginMenu("Edit")) {
+        if (ImGui::MenuItem("Undo", "Ctrl+Z", false, car_edit_can_undo(&a->edit))) car_edit_undo(&a->edit);
+        if (ImGui::MenuItem("Redo", "Ctrl+Shift+Z", false, car_edit_can_redo(&a->edit))) car_edit_redo(&a->edit);
         ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
@@ -206,7 +211,7 @@ void confirm_popup(App *a)
         ++age;
         const char *then = a->confirm == APP_ACT_QUIT ? "quitting" : a->confirm == APP_ACT_NEW || a->confirm == APP_ACT_NEW_AT ? "starting a new track"
                                                                                                                               : "opening another project";
-        ImGui::Text("Save the changes to \"%s\" before %s?", a->project.id, then);
+        ImGui::Text("Save the changes to \"%s\" before %s?", a->kind == APP_KIND_CAR ? a->car.info.id : a->project.id, then);
         ImGui::Spacing();
         int answer = -1;
         if (ImGui::Button("Save")) answer = APP_ANSWER_SAVE;
@@ -255,6 +260,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
             car_laid_out = true;
             if (dock_is_empty(dock)) car_layout(dock);
         }
+        if (a->confirm == APP_ACT_NONE) car_shortcuts(a);
         car_panel(a);
         textures_panel(a);
         masks_panel(a);

@@ -17,6 +17,7 @@ void track_panel(App *a);
 // the start screen (nothing open) and the open car's panels: its card, its textures, its masks
 void start_screen(App *a);
 void car_panel(App *a);
+void car_shortcuts(App *a);   // Ctrl+S, Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y (Cmd on a Mac)
 void textures_panel(App *a);
 void masks_panel(App *a);
 

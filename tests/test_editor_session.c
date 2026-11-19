@@ -295,7 +295,7 @@ static void check_kinds(void)
 {
     char dirs[][40] = { "kit", "kit/coche", "kit/coche/SIMDATA", "kit/coche/SIMDATA/CARFAMS", "kit/modelo", "kit/modelo/c1", "tr" };
     for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; ++i) dir_in(dirs[i]);
-    put("kit/coche/mod.ini", "id=carrera-84\nname=911\nversion=1\ntype=car\nstem=C84\n");
+    put("kit/coche/mod.ini", "id=carrera-84\nname=911\nversion=1\ntype=car\nstem=C84\nsound_from=911\n");
     put("kit/coche/SIMDATA/CARFAMS/C84.CFM", "cfm");
     put("kit/modelo/c1/0010_rsid.png", "x");
     char kit[700], coche[700], two[700], blank[700], recent[700], real_kit[PATH_MAX];
@@ -326,11 +326,38 @@ static void check_kinds(void)
     CHECK_EQ_INT(a->recent.count, 1);
     CHECK(a->recent.kind[0] == RECENT_CAR && strcmp(a->recent.dir[0], real_kit) == 0);
     CHECK(!app_modified(a));
-    CHECK(!app_save(a) && strstr(a->status, "read only") != NULL);
+    CHECK(app_save(a) && strstr(a->status, "nothing to save") != NULL);   /* nothing changed: mod.ini is not touched */
     CHECK(!app_build(a) && !app_install(a));
-    app_ask(a, APP_ACT_NEW, "");                             /* switching from a car asks nothing: it has nothing unsaved */
+    app_ask(a, APP_ACT_NEW, "");                             /* switching from a car with nothing unsaved asks nothing */
     CHECK_EQ_INT(a->go, APP_ACT_NEW);
     a->go = APP_ACT_NONE;
+
+    /* a card with unsaved changes asks before it is left, and Save writes mod.ini only */
+    CHECK_EQ_INT(car_edit_set(&a->edit, CE_YEAR, "1990"), 1);
+    CHECK(app_modified(a));
+    app_ask(a, APP_ACT_NEW, "");
+    CHECK_EQ_INT(a->confirm, APP_ACT_NEW);
+    CHECK_EQ_INT(a->go, APP_ACT_NONE);
+    app_answer(a, APP_ANSWER_CANCEL);
+    CHECK(app_modified(a) && a->kind == APP_KIND_CAR);
+    CHECK_EQ_INT(car_edit_set(&a->edit, CE_YEAR, "12345678901234567"), 1);   /* a field with a problem: Save is refused and the question stays */
+    app_ask(a, APP_ACT_NEW, "");
+    app_answer(a, APP_ANSWER_SAVE);
+    CHECK_EQ_INT(a->confirm, APP_ACT_NEW);
+    CHECK(strstr(a->status, "Year") != NULL);
+    CHECK_EQ_INT(car_edit_set(&a->edit, CE_YEAR, "1990"), 1);
+    app_answer(a, APP_ANSWER_SAVE);
+    CHECK_EQ_INT(a->go, APP_ACT_NEW);
+    CHECK(!app_modified(a) && strstr(a->status, "saved mod.ini") != NULL);
+    a->go = APP_ACT_NONE;
+    {
+        char ini[900];
+        path_in(ini, sizeof ini, "kit/coche/mod.ini");
+        FILE *card = fopen(ini, "rb");
+        char text[400] = "";
+        if (card != NULL) text[fread(text, 1, sizeof text - 1, card)] = '\0', fclose(card);
+        CHECK(strcmp(text, "id=carrera-84\nname=911\nversion=1\ntype=car\nstem=C84\nsound_from=911\nyear=1990\n") == 0);   /* only that line was added */
+    }
 
     CHECK(!app_open_car(a, two));                            /* not a car: the car stays, the status says what is missing */
     CHECK(a->kind == APP_KIND_CAR && strcmp(a->dir, real_kit) == 0 && strstr(a->status, "No car found") != NULL);

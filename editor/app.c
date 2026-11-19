@@ -84,9 +84,15 @@ static int car_into(App *a, const char *dir)
         set_status(a, why);
         return 0;
     }
+    char card[CAR_PROJECT_PATH + 16];
+    snprintf(card, sizeof card, "%s/mod.ini", a->car.piece);
+    if (!car_edit_open(&a->edit, card, why, sizeof why)) {
+        set_status(a, why);
+        return 0;
+    }
     snprintf(a->dir, sizeof a->dir, "%s", a->car.root);
     a->kind = APP_KIND_CAR;
-    set_status(a, "opened: a car is read only for now");
+    set_status(a, "opened: edit the card and the colors; Save writes mod.ini only");
     return 1;
 }
 
@@ -101,6 +107,7 @@ int app_open_any(App *a, const char *dir, const char *game, const char *user, co
 
 void app_free(App *a)
 {
+    car_edit_free(&a->edit);
     free(a->trace.points);
     drop_road(a);
     a->trace.points = NULL;
@@ -185,6 +192,7 @@ void app_select_node(App *a, int node)
 
 int app_modified(const App *a)
 {
+    if (a->kind == APP_KIND_CAR) return car_edit_modified(&a->edit);
     return a->kind == APP_KIND_TRACK && session_fingerprint(&a->trace) != a->saved_print;
 }
 
@@ -304,13 +312,22 @@ int app_node_count(const App *a)
 static int track_open(App *a)
 {
     if (a->kind == APP_KIND_TRACK) return 1;
-    set_status(a, a->kind == APP_KIND_CAR ? "a car is read only for now: nothing to do here" : "open a track first");
+    set_status(a, a->kind == APP_KIND_CAR ? "a car has no Build or Install here yet" : "open a track first");
     return 0;
 }
 
 int app_save(App *a)
 {
     char why[APP_MSG];
+    if (a->kind == APP_KIND_CAR) {   /* the card: only mod.ini, only the lines that changed */
+        const int changed = car_edit_modified(&a->edit);
+        if (!car_edit_save(&a->edit, why, sizeof why)) {
+            set_status(a, why);
+            return 0;
+        }
+        set_status(a, changed ? "saved mod.ini" : "nothing to save: mod.ini is as it was");
+        return 1;
+    }
     if (!track_open(a)) return 0;
     if (!project_save_trace(a->dir, &a->trace, why, sizeof why)) {
         set_status(a, why);
