@@ -46,14 +46,20 @@ static void drop_road(App *a)
     a->summary_count = 0;
 }
 
-int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
+void app_begin(App *a, const char *game, const char *user, const char *generic_art)
 {
     memset(a, 0, sizeof *a);
-    snprintf(a->dir, sizeof a->dir, "%s", dir);
     snprintf(a->game, sizeof a->game, "%s", game);
     snprintf(a->user, sizeof a->user, "%s", user);
+    snprintf(a->generic, sizeof a->generic, "%s", generic_art != NULL ? generic_art : "");
     a->selected = -1;
     a->node = a->node_for = -1;
+}
+
+int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
+{
+    app_begin(a, game, user, generic_art);
+    snprintf(a->dir, sizeof a->dir, "%s", dir);
     char id[MOD_INI_ID_MAX + 1], why[APP_MSG];
     folder_name(dir, id, sizeof id);
     if (!project_create(dir, id, generic_art, why, sizeof why) || !project_open(dir, &a->project, &a->trace, why, sizeof why)) {
@@ -61,13 +67,36 @@ int app_open(App *a, const char *dir, const char *game, const char *user, const 
         return 0;
     }
     if (project_art_refresh(dir, generic_art, PROJECT_OLD_ARTS, a->art_note, sizeof a->art_note)) fprintf(stderr, "%s (%s)\n", a->art_note, dir);
-    snprintf(a->generic, sizeof a->generic, "%s", generic_art != NULL ? generic_art : "");
+    a->kind = APP_KIND_TRACK;
     a->saved_print = session_fingerprint(&a->trace);
     a->dirty = 1;
     app_recompute(a);
     view_fit(&a->view, a->trace.points, a->trace.count, 960, 600);
     set_status(a, "opened: arrows and keys are listed at the bottom");
     return 1;
+}
+
+/* the car at `dir` as the project of `a`, which has nothing open (app_begin) */
+static int car_into(App *a, const char *dir)
+{
+    char why[APP_MSG];
+    if (!car_project_detect(dir, &a->car, why, sizeof why)) {
+        set_status(a, why);
+        return 0;
+    }
+    snprintf(a->dir, sizeof a->dir, "%s", a->car.root);
+    a->kind = APP_KIND_CAR;
+    set_status(a, "opened: a car is read only for now");
+    return 1;
+}
+
+int app_open_any(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
+{
+    if (!recent_is_project(dir) && car_project_present(dir)) {
+        app_begin(a, game, user, generic_art);
+        return car_into(a, dir);
+    }
+    return app_open(a, dir, game, user, generic_art);
 }
 
 void app_free(App *a)
@@ -156,7 +185,7 @@ void app_select_node(App *a, int node)
 
 int app_modified(const App *a)
 {
-    return session_fingerprint(&a->trace) != a->saved_print;
+    return a->kind == APP_KIND_TRACK && session_fingerprint(&a->trace) != a->saved_print;
 }
 
 void app_ask(App *a, AppAction act, const char *path)
@@ -186,27 +215,39 @@ void app_answer(App *a, int answer)
  * greyed from another folder), and keeps the list */
 static void remember(App *a)
 {
+    if (a->kind == APP_KIND_NONE) return;
+    const int kind = a->kind == APP_KIND_CAR ? RECENT_CAR : RECENT_TRACK;
     char real[PATH_MAX];
-    if (realpath(a->dir, real) != NULL) recent_push(&a->recent, real);
-    else recent_push(&a->recent, a->dir);
+    if (realpath(a->dir, real) != NULL) recent_push(&a->recent, real, kind);
+    else recent_push(&a->recent, a->dir, kind);
     if (a->recent_file[0] != '\0') recent_save(&a->recent, a->recent_file);
 }
 
-static int open_in(App *a, const char *dir)
+static int open_in(App *a, const char *dir, AppKind kind)
 {
     App *next = calloc(1, sizeof *next);
     if (next == NULL) {
         set_status(a, "out of memory");
         return 0;
     }
-    if (!app_open(next, dir, a->game, a->user, a->generic[0] != '\0' ? a->generic : NULL)) {
+    int opened;
+    if (kind == APP_KIND_CAR) {
+        app_begin(next, a->game, a->user, a->generic[0] != '\0' ? a->generic : NULL);
+        opened = car_into(next, dir);
+    } else {
+        opened = app_open(next, dir, a->game, a->user, a->generic[0] != '\0' ? a->generic : NULL);
+    }
+    if (!opened) {
         set_status(a, next->status);
+        snprintf(a->open_error, sizeof a->open_error, "%s", next->status);
         app_free(next);
         free(next);
         return 0;
     }
     next->recent = a->recent;
     memcpy(next->recent_file, a->recent_file, sizeof next->recent_file);
+    memcpy(next->game_tried, a->game_tried, sizeof next->game_tried);   /* what the game lookup found stays with the window, not with a project */
+    memcpy(next->game_memo, a->game_memo, sizeof next->game_memo);
     app_free(a);
     *a = *next;   // the new project's arrays belong to `a` now
     free(next);
@@ -219,18 +260,32 @@ int app_open_project(App *a, const char *dir)
 {
     if (!recent_is_project(dir)) {
         set_status(a, "that folder holds no project (no project.ini): use New to start one there");
+        snprintf(a->open_error, sizeof a->open_error, "%s", a->status);
         return 0;
     }
-    return open_in(a, dir);
+    return open_in(a, dir, APP_KIND_TRACK);
+}
+
+int app_open_car(App *a, const char *dir)
+{
+    return open_in(a, dir, APP_KIND_CAR);
+}
+
+int app_open_recent(App *a, const char *dir)
+{
+    for (int i = 0; i < a->recent.count; ++i)
+        if (strcmp(a->recent.dir[i], dir) == 0 && a->recent.kind[i] == RECENT_CAR) return app_open_car(a, dir);
+    return app_open_project(a, dir);
 }
 
 int app_new_project(App *a, const char *dir)
 {
     if (recent_is_project(dir)) {
         set_status(a, "that folder already holds a project: use Open");
+        snprintf(a->open_error, sizeof a->open_error, "%s", a->status);
         return 0;
     }
-    return open_in(a, dir);
+    return open_in(a, dir, APP_KIND_TRACK);
 }
 
 void app_keep_recent(App *a, const char *file)
@@ -245,9 +300,18 @@ int app_node_count(const App *a)
     return a->road_made ? a->node_count : 4 * track_trace_segments(a->length) + 1;
 }
 
+/* 1 when a track project is open: the track's actions say so when it is not */
+static int track_open(App *a)
+{
+    if (a->kind == APP_KIND_TRACK) return 1;
+    set_status(a, a->kind == APP_KIND_CAR ? "a car is read only for now: nothing to do here" : "open a track first");
+    return 0;
+}
+
 int app_save(App *a)
 {
     char why[APP_MSG];
+    if (!track_open(a)) return 0;
     if (!project_save_trace(a->dir, &a->trace, why, sizeof why)) {
         set_status(a, why);
         return 0;
@@ -260,6 +324,7 @@ int app_save(App *a)
 int app_build(App *a)
 {
     char why[APP_MSG], zip[APP_PATH];
+    if (!track_open(a)) return 0;
     if (!build_project(a->dir, &a->project, &a->trace, zip, sizeof zip, why, sizeof why)) {
         snprintf(a->status, sizeof a->status, "build refused: %s", why);
         return 0;
@@ -330,6 +395,7 @@ int app_check_game(App *a)
 
 int app_install(App *a)
 {
+    if (!track_open(a)) return 0;
     if (!game_there(a)) return game_missing_status(a, "install: ");
     if (a->zip[0] == '\0') {
         set_status(a, "build first (B): install takes the built package");
@@ -388,6 +454,7 @@ static int can_add(App *a)
 
 void app_add_point(App *a)
 {
+    if (a->kind != APP_KIND_TRACK) return;
     if (!can_add(a)) return;
     TracePoint *more = points_with(a, a->trace.count, extension(a));
     if (more == NULL) {
@@ -400,6 +467,7 @@ void app_add_point(App *a)
 
 void app_insert_point(App *a)
 {
+    if (a->kind != APP_KIND_TRACK) return;
     if (a->selected < 0) {
         set_status(a, "select a point first (click it)");
         return;
@@ -422,6 +490,7 @@ void app_insert_point(App *a)
 
 void app_remove_point(App *a)
 {
+    if (a->kind != APP_KIND_TRACK) return;
     if (a->selected < 0) {
         set_status(a, "select a point first (click it)");
         return;
