@@ -95,6 +95,29 @@ int mod_ini_others(const uint8_t *text, size_t size, char *out, size_t cap, size
  * "# author=" that shows the key (the game refuses an empty value). 1 when they fit in `out` (`cap` bytes, NUL terminated). */
 int mod_ini_text_keys(const char *author, const char *description, char *out, size_t cap);
 
+/* port (dep59 car editor 1c): `text` (`size` bytes) with one key set, into `out` (`cap` bytes, NUL terminated; `*len` its length). The card
+ * has no sections: it is flat key=value lines, so the design's mod_ini_set(text, key, value). Every byte but the changed line stays: comments,
+ * order, blank lines, a line's spaces before its '=' and after it, and CRLF when the card uses it.
+ *  - the key's first line (keys trimmed as the parser does; a commented "# key=" is not one) takes `value`;
+ *  - `value` NULL or "" REMOVES that line (the parser refuses an empty value, so "not given" is a missing line);
+ *  - a missing key is appended as the last line, with the card's own line end (a card with no lines or LF only gets LF);
+ *  - a key given twice: the first is the one changed and *duplicate (when not NULL) is set to 1, else 0; the parser refuses such a card, which is the
+ *    author's to fix.
+ * 0 with the reason in `why` (English) and `out` untouched when: the key is not a-z, 0-9 and '_' (1..32), the value holds '\n' or '\r'
+ * (a second key could ride in it) or a space or tab at its ends (the parser trims them: it would not read back as written), the card
+ * or the result is over MOD_INI_MAX_SIZE, or `out` is too small. Whether the value suits its key is mod_ini_parse's to say, not this. */
+int mod_ini_set(const char *text, size_t size, const char *key, const char *value, char *out, size_t cap, size_t *len, int *duplicate,
+                char *why, size_t why_cap);
+
+/* port (dep59 car editor 1c): the value of paints= for `count` paints (1..MOD_INI_PAINTS_MAX), "Name:rrggbb,Name:rrggbb" with the hex in lower case,
+ * into `out` (`cap` bytes). 0 with `why` when the parser would refuse what it writes: no paint or too many, a name that is empty, over
+ * MOD_INI_PAINT_NAME_MAX, not printable ASCII, holding ':' or ',', with a space at its ends, or the same as another in any case. */
+int mod_ini_paints_format(const ModPaint *paints, int count, char *out, size_t cap, char *why, size_t why_cap);
+
+/* port (dep59 car editor 1c): the value of a paints= line (as it stands after the '=') into `paints` (room for MOD_INI_PAINTS_MAX) and `*count`;
+ * the parser's own rules and words in `why`. parse(format(x)) == x. */
+int mod_ini_paints_parse(const char *value, ModPaint *paints, int *count, char *why, size_t why_cap);
+
 /* 1 when `id` is a usable mod id (the rule above) */
 int mod_ini_id_ok(const char *id);
 

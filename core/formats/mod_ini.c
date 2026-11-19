@@ -360,3 +360,140 @@ int mod_ini_text_keys(const char *author, const char *description, char *out, si
         : snprintf(out + at, cap - at, "# description=   (what the piece is, up to %d characters)\n", MOD_INI_DESCRIPTION_MAX);
     return m >= 0 && (size_t)m < cap - at;
 }
+
+/* a key mod_ini_set may write: 1..32 of a-z 0-9 '_' (every key the game reads is, and so is a later version's) */
+static int set_key_ok(const char *key)
+{
+    const size_t n = key != NULL ? strnlen(key, 64) : 0;
+    if (n == 0 || n > 32) return 0;
+    for (size_t i = 0; i < n; i++)
+        if (!((key[i] >= 'a' && key[i] <= 'z') || (key[i] >= '0' && key[i] <= '9') || key[i] == '_')) return 0;
+    return 1;
+}
+
+/* why `value` cannot be written after a key as it is, or NULL when it can */
+static const char *set_value_fault(const char *value, size_t n)
+{
+    if (memchr(value, '\n', n) != NULL || memchr(value, '\r', n) != NULL) return "the value holds a line break, which would start another line";
+    if (n > 0 && (value[0] == ' ' || value[0] == '\t' || value[n - 1] == ' ' || value[n - 1] == '\t'))
+        return "the value starts or ends with a space, which the card's reader drops";
+    return NULL;
+}
+
+/* the first line of `text` whose key is `key` (and whether another has it): its start `*from`, the end of what it says `*content` and of its line
+ * end `*next`, the '=' `*eq`; 0 when there is none */
+typedef struct {
+    size_t from, content, next, eq;
+    int again;
+} SetLine;
+
+static int set_find(const char *text, size_t size, const char *key, SetLine *found)
+{
+    const size_t klen = strlen(key);
+    int have = 0;
+    for (size_t at = 0; at < size;) {
+        const char *nl = memchr(text + at, '\n', size - at);
+        const size_t stop = nl != NULL ? (size_t)(nl - text) : size, next = nl != NULL ? stop + 1 : size;
+        const char *s = text + at, *e = text + stop;
+        trim(&s, &e);
+        const char *eq = s < e && *s != '#' ? memchr(s, '=', (size_t)(e - s)) : NULL;
+        if (eq != NULL) {
+            const char *ks = s, *ke = eq;
+            trim(&ks, &ke);
+            if ((size_t)(ke - ks) == klen && memcmp(ks, key, klen) == 0) {
+                if (have) return found->again = 1, 1;
+                const size_t content = stop > at && text[stop - 1] == '\r' ? stop - 1 : stop;
+                *found = (SetLine){ .from = at, .content = content, .next = next, .eq = (size_t)(eq - text), .again = 0 };
+                have = 1;
+            }
+        }
+        at = next;
+    }
+    return have;
+}
+
+int mod_ini_set(const char *text, size_t size, const char *key, const char *value, char *out, size_t cap, size_t *len, int *duplicate,
+                char *why, size_t why_cap)
+{
+    if (text == NULL) return refuse(why, why_cap, "mod.ini is missing");
+    if (size > MOD_INI_MAX_SIZE) return refuse(why, why_cap, "mod.ini is larger than %d bytes", MOD_INI_MAX_SIZE);
+    if (memchr(text, '\0', size) != NULL) return refuse(why, why_cap, "mod.ini is not text");
+    if (!set_key_ok(key)) return refuse(why, why_cap, "mod.ini: a key is 1 to 32 of a-z, 0-9 and '_'");
+    const size_t vlen = value != NULL ? strlen(value) : 0;
+    const char *fault = vlen > 0 ? set_value_fault(value, vlen) : NULL;
+    if (fault != NULL) return refuse(why, why_cap, "mod.ini: %s: %s", key, fault);
+    SetLine at = { 0 };
+    const int there = set_find(text, size, key, &at);
+    if (duplicate != NULL) *duplicate = there && at.again;
+    const char *nl = memchr(text, '\n', size);
+    const char *end = nl != NULL && nl > text && nl[-1] == '\r' ? "\r\n" : "\n";   /* the card's own line end, from its first */
+    size_t total, keep_to = 0, resume = 0;   /* out = text[0..keep_to) + `line` + text[resume..) */
+    const char *line = "";
+    size_t line_len = 0;
+    char fresh[MOD_INI_MAX_SIZE + 64];
+    if (there && vlen == 0) {   /* removed: the line and its line end go */
+        keep_to = at.from, resume = at.next;
+    } else if (there) {   /* changed: what it said up to the value (its spacing round '=') stays, its line end too */
+        size_t v = at.eq + 1;
+        while (v < at.content && (text[v] == ' ' || text[v] == '\t')) v++;
+        keep_to = v, resume = at.content;
+        line = value, line_len = vlen;
+    } else if (vlen == 0) {   /* nothing to remove */
+        keep_to = size, resume = size;
+    } else {   /* appended after the last line, which gets a line end first if it has none */
+        const int open = size > 0 && text[size - 1] != '\n';
+        keep_to = size, resume = size;
+        line_len = (size_t)snprintf(fresh, sizeof fresh, "%s%s=%s%s", open ? end : "", key, value, end);
+        line = fresh;
+    }
+    total = keep_to + line_len + (size - resume);
+    if (total > MOD_INI_MAX_SIZE) return refuse(why, why_cap, "mod.ini would be larger than %d bytes", MOD_INI_MAX_SIZE);
+    if (out == NULL || total + 1 > cap) return refuse(why, why_cap, "mod.ini: no room for the new card");
+    memcpy(out, text, keep_to);
+    memcpy(out + keep_to, line, line_len);
+    memcpy(out + keep_to + line_len, text + resume, size - resume);
+    out[total] = '\0';
+    if (len != NULL) *len = total;
+    return 1;
+}
+
+int mod_ini_paints_parse(const char *value, ModPaint *paints, int *count, char *why, size_t why_cap)
+{
+    if (value == NULL || paints == NULL || count == NULL) return refuse(why, why_cap, "mod.ini: paints is missing");
+    const char *vs = value, *ve = value + strlen(value);
+    trim(&vs, &ve);
+    if (vs == ve) return refuse(why, why_cap, "mod.ini: paints is empty");
+    if (!text_clean((const unsigned char *)vs, (size_t)(ve - vs)))
+        return refuse(why, why_cap, "mod.ini: paints is not UTF-8 text, or holds a control or direction character");
+    ModInfo tmp;
+    memset(&tmp, 0, sizeof tmp);
+    if (!take_paints(vs, ve, &tmp, why, why_cap)) return 0;
+    memcpy(paints, tmp.paints, sizeof(ModPaint) * (size_t)tmp.paint_count);
+    *count = tmp.paint_count;
+    return 1;
+}
+
+int mod_ini_paints_format(const ModPaint *paints, int count, char *out, size_t cap, char *why, size_t why_cap)
+{
+    if (paints == NULL || count < 1) return refuse(why, why_cap, "mod.ini: paints needs at least one paint");
+    if (count > MOD_INI_PAINTS_MAX) return refuse(why, why_cap, "mod.ini: paints has more than %d entries", MOD_INI_PAINTS_MAX);
+    char line[MOD_INI_PAINTS_MAX * (MOD_INI_PAINT_NAME_MAX + 8) + 1];
+    size_t n = 0;
+    for (int i = 0; i < count; i++) {
+        const size_t name_len = strnlen(paints[i].name, sizeof paints[i].name);
+        const char *name = paints[i].name;
+        if (name_len == sizeof paints[i].name) return refuse(why, why_cap, "mod.ini: paints: entry %d's name is longer than %d", i + 1, MOD_INI_PAINT_NAME_MAX);
+        if (name_len > 0 && (name[0] == ' ' || name[0] == '\t' || name[name_len - 1] == ' ' || name[name_len - 1] == '\t'))
+            return refuse(why, why_cap, "mod.ini: paints: entry %d's name starts or ends with a space", i + 1);
+        if (memchr(name, ':', name_len) != NULL || memchr(name, ',', name_len) != NULL)
+            return refuse(why, why_cap, "mod.ini: paints: entry %d's name holds ':' or ','", i + 1);
+        n += (size_t)snprintf(line + n, sizeof line - n, "%s%s:%02x%02x%02x", i > 0 ? "," : "", name, paints[i].rgb[0], paints[i].rgb[1], paints[i].rgb[2]);
+    }
+    ModPaint back[MOD_INI_PAINTS_MAX];
+    int got = 0;
+    if (!mod_ini_paints_parse(line, back, &got, why, why_cap)) return 0;   /* the parser's own rules, and its words */
+    if (got != count) return refuse(why, why_cap, "mod.ini: paints would not read back as written");
+    if (n + 1 > cap || out == NULL) return refuse(why, why_cap, "mod.ini: no room for paints");
+    memcpy(out, line, n + 1);
+    return 1;
+}
