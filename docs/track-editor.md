@@ -41,10 +41,15 @@ The project folder is created with `project.ini` and `trace.json` (a straight of
 
 ## Limits
 
-The road is drawn through the control points as a Catmull-Rom curve, resampled to the CD's node spacing (about 6 units). A node drawn red
-breaks a limit: it turns more than 6 degrees from the node before (the generator's limit), or the curve there is tighter than 60 units. The
-top-left corner shows the node count against the 2397 a TRI holds (599 segments and the closing node), the length and the first limit broken.
-Build refuses while any limit is broken.
+The road is drawn through the control points as a Catmull-Rom curve, resampled to the CD's node spacing (about 6 units). A node drawn red breaks
+a limit: it turns more than 8 degrees from the node before, or the curve there is tighter than 43 units. Nothing under those is marked. Build
+refuses while any node is red, and the generator (`track new`) refuses the same 8 degrees. The limit is where the generic template's terrain starts
+to break in the game (at 10 degrees the terrain of the inner side crosses itself, at 16 the road's texture smears; measured by racing generated
+pieces), not a limit of the game: the CD has curves of 16 degrees.
+
+How tight a curve is depends on how far apart its points are: two points close together make the curve turn within a short distance. Hover a red
+stretch to see it; the fix is to space the points out or to smooth them. The Limits panel shows the node count against the 2397 a TRI holds (599
+segments and the closing node), the length and the first limit broken.
 
 ## Headless run
 
