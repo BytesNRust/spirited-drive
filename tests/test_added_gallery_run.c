@@ -64,11 +64,13 @@ static void apply(void *ctx, const GalleryState *s) { (void)ctx; applied = 10 * 
 
 static int moves;   /* the lit tile's changes */
 static void moved(void *ctx) { (void)ctx; moves++; }
+static int chosens;   /* a value of the open panel changed */
+static void chosen(void *ctx) { (void)ctx; chosens++; }
 static int shutters;   /* the panel's openings and closings: opening +1, closing +10 */
 static void shutter(void *ctx, const GalleryState *s, int opening) { (void)ctx, (void)s; shutters += opening ? 1 : 10; }
 
 static const GalleryRunOps OPS = { clear, black, draw, palette, flip, fade_in, fade_out, key, buttons, pointer, click, music, wait, wheel, now,
-                                   lines, apply, shutter, moved, NULL };
+                                   lines, apply, shutter, moved, chosen, NULL };
 
 static int run(const int *keys, GalleryState *s)
 {
@@ -199,13 +201,14 @@ static void test_the_settings_are_kept(void)
     CarPieceCard c;
     memset(&c, 0, sizeof c);
     c.skins = 1;
-    applied = shutters = moves = 0, places = NULL;
+    applied = shutters = moves = chosens = 0, places = NULL;
     keys_in = KEYS, key_reads = frames = services = shows = ops_count = 0;
     CHECK_EQ_INT(added_gallery_run(&c, &s, &OPS), GALLERY_LEAVE);
     CHECK_EQ_INT(moves, 0);   /* the panel's keys light no other tile */
     CHECK_EQ_INT(shutters, 11);   /* the panel opened once and closed once */
     CHECK_EQ_INT(applied, 21);   /* first manual (1 + 1), then automatic (1 + 0) */
     CHECK_EQ_INT(s.transmission, 0);
+    CHECK_EQ_INT(chosens, 2);   /* each change of a value of the open panel gave Options' click (owner 2026-11-19); opening, moving and closing gave none */
 }
 
 int main(void)

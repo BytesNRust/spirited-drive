@@ -74,7 +74,7 @@ void added_gallery_draw_title(const Page *p)
 /* a tile's label at its foot, as the CD pages have it (owner 2026-11-18): black, nothing white about it; yellow-shadowed when the tile is the item */
 static void label(const Target *t, const char *text, int x, int y, int h, int lit)
 {
-    gallery_label_draw(t->to, t->w, t->h, text, x, y, h, BLACK, lit ? YELLOW : -1);   /* the CD's own margins, measured (gallery_label.h) */
+    gallery_label_tile(t->to, t->w, t->h, text, x, y, h, BLACK, YELLOW, lit);   /* the CD's own margins and lit colour, measured (gallery_label.h) */
 }
 
 /* `text` cut (with a "." at its end) until the main face at the panel's size shows it in `width` pixels */
@@ -222,7 +222,7 @@ static void setup_panel(const Target *t, const Page *p)
         fill(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, p->panel_fill);
     edge(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, 1, CREAM);
     text_select(TEXT_RED);
-    text_draw_smooth("CAR SETUP", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, GL_SETUP_TITLE_NUM, GL_SETUP_TITLE_DEN);   /* the size of the CD pages' own, red */
+    text_draw_smooth("Car Setup", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, GL_SETUP_TITLE_NUM, GL_SETUP_TITLE_DEN);   /* the size of the CD pages' own, red */
     int ink_top, ink_bottom;
     text_ink_scaled("H", GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN, &ink_top, &ink_bottom);
     for (int row = 0; row < SETUP_ROWS; row++) {

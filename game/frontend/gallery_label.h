@@ -13,4 +13,8 @@ enum { GALLERY_LABEL_MARGIN = 7 };
  * and right (the lit tile's) */
 void gallery_label_draw(uint8_t *to, int tw, int th, const char *text, int x, int y, int h, int index, int shadow);
 
+/* a tile's label as the CD's pages have it (owner 2026-11-19, measured on GENERAL lit): `black` letters when the tile is not the item, the `yellow` (the
+ * text's, 252,204,0) letters with no shadow when it is */
+void gallery_label_tile(uint8_t *to, int tw, int th, const char *text, int x, int y, int h, int black, int yellow, int lit);
+
 #endif

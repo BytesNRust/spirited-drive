@@ -28,6 +28,7 @@ typedef struct GalleryRunOps {
     void (*apply)(void *ctx, const GalleryState *s);  /* Options' three settings changed in the panel: `s` holds them, to be kept */
     void (*shutter)(void *ctx, const GalleryState *s, int opening);   /* the panel opening or closing, frame by frame, with its sound */
     void (*moved)(void *ctx);                         /* the lit tile changed: the showcase's sound for it (owner 2026-11-18) */
+    void (*chosen)(void *ctx);                        /* a value of the open panel changed (a click or a key): Options' click (owner 2026-11-19) */
     void *ctx;
 } GalleryRunOps;
 

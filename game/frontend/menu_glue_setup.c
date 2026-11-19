@@ -125,7 +125,7 @@ static void setup_draw(void *ctx, int car, int lit, const uint8_t *palette)
         for (int x = 0; x < GL_COL_W; x++)
             if (GL_COL_X + x < t.w && GL_COL_Y + y < t.h) t.to[(GL_COL_Y + y) * t.w + GL_COL_X + x] = setup.tile_ok ? setup.tile[y * GL_COL_W + x] : (uint8_t)ea_colour(DARK_COLOUR);
     edge(&t, VARIANT_LEFT, VARIANT_TOP, VARIANT_RIGHT, VARIANT_BOTTOM, ea_colour(lit ? LIT_COLOUR : DARK_COLOUR));
-    gallery_label_draw(t.to, t.w, t.h, "SETUP", GL_COL_X, GL_COL_Y, GL_COL_H, black, lit ? yellow : -1);   /* the CD labels' margins (gallery_label.h) */
+    gallery_label_tile(t.to, t.w, t.h, "SETUP", GL_COL_X, GL_COL_Y, GL_COL_H, black, yellow, lit);   /* the CD labels' margins (gallery_label.h) */
     arrow(&t, GL_COL_X + GL_COL_W - 24, GL_COL_Y + (GL_COL_H - GL_ARROW_H) / 2, 0, lit ? yellow : ea_colour(TRIANGLE_COLOUR), black);
 }
 
@@ -140,7 +140,7 @@ static void records_face(const Target *t, int lit)
             if (SHOWCASE_TILE_X + x < t->w && SHOWCASE_TILE_Y + y < t->h) t->to[(SHOWCASE_TILE_Y + y) * t->w + SHOWCASE_TILE_X + x] = setup.flag_ok ? setup.flag[y * SHOWCASE_TILE_W + x] : (uint8_t)ea_colour(DARK_COLOUR);
     for (int k = 0; k < 2; k++)   /* the art's two-pixel frame: yellow when lit, black as the others' */
         edge(t, SHOWCASE_TILE_X + k, SHOWCASE_TILE_Y + k, SHOWCASE_TILE_X + SHOWCASE_TILE_W - 1 - k, SHOWCASE_TILE_Y + SHOWCASE_TILE_H - 1 - k, lit ? yellow : ea_colour(0x000000));
-    gallery_label_draw(t->to, t->w, t->h, "RECORDS", SHOWCASE_TILE_X, SHOWCASE_TILE_Y, SHOWCASE_TILE_H, black, lit ? yellow : -1);
+    gallery_label_tile(t->to, t->w, t->h, "RECORDS", SHOWCASE_TILE_X, SHOWCASE_TILE_Y, SHOWCASE_TILE_H, black, yellow, lit);
 }
 
 /* the tile's rectangle: the video's art as it stands and RECORDS' face side by side, moved `shift` pixels to the left, the arrows over them */
@@ -242,6 +242,7 @@ static void value_step(Panel *p, int step)
     case ROW_ABS: p->abs ^= 1; break;
     default: p->traction ^= 1; break;
     }
+    menu_audio_sound(0x48);   /* Options' click: the sound of a row chosen (owner 2026-11-19) */
     if (p->row != ROW_COLOUR) cg_setup_put(p->transmission, p->abs, p->traction);   /* Options' settings kept at once */
 }
 
@@ -291,7 +292,7 @@ static void panel_draw(const Panel *p, int frame)
     const int black = ea_colour(0x000000), cream = ea_colour(CREAM_RGB), yellow = ea_colour(YELLOW_RGB);
     edge(&t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, cream);
     text_select(TEXT_RED);
-    text_draw_smooth("CAR SETUP", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, GL_SETUP_TITLE_NUM, GL_SETUP_TITLE_DEN);
+    text_draw_smooth("Car Setup", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, GL_SETUP_TITLE_NUM, GL_SETUP_TITLE_DEN);
     int ink_top, ink_bottom;
     text_ink_scaled("H", GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN, &ink_top, &ink_bottom);
     for (int row = 0; row < ROWS; row++) {

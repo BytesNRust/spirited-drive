@@ -33,3 +33,8 @@ void gallery_label_draw(uint8_t *to, int tw, int th, const char *text, int x, in
     }
     free(mask);
 }
+
+void gallery_label_tile(uint8_t *to, int tw, int th, const char *text, int x, int y, int h, int black, int yellow, int lit)
+{
+    gallery_label_draw(to, tw, th, text, x, y, h, lit ? yellow : black, -1);
+}
