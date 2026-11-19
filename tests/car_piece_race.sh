@@ -114,7 +114,7 @@ PY
 
     # 2. the piece and the Viper itself draw the same frame (the piece is its copy, made from it: sound, pace, cockpit and lamps the Viper's).
     # Alone on the road and with the mode's liveries off, as two things rightly differ otherwise: the paint catalogue is by stem (an added car
-    # has none until the menus come, so no fixed black), and a rival Viper takes another paint than the player's only when the player's is a Viper
+    # has none: with the mode's liveries on it takes the default black of its masks' magenta, step 1b), and a rival Viper takes another paint than the player's only when the player's is a Viper
     user_in restomod
     echo "extra_liveries=0" > "$work/user/restomod.cfg"
     run --mods "$piece" --drive TR1 --car test-car --racers 1 --node 200 --screenshot "$work/a1.ppm" || fail "the piece alone did not race: $(cat "$work/err")"
