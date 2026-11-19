@@ -18,7 +18,7 @@ enum {
     NOTE_NUM = 1, NOTE_DEN = 2,          /* the note under the table */
     /* three columns, the two figures well to the right (the name's room is what is left) */
     NAME_X = 8, NAME_W = 340, TIME_X = 372, SPEED_X = 528,
-    PAGER_NUM = 11, PAGER_DEN = 10,      /* DONE's letters: the CD's 11 cap rows */
+    PAGER_NUM = 11, PAGER_DEN = 12,      /* DONE's letters: the CD's 11 cap rows (the main face's capitals are 12 at 1/1, measured) */
     LUNAR = 10
 };
 
