@@ -378,8 +378,9 @@ int main(int argc, char **argv)
     else app_begin(app, o.game, o.user != NULL ? o.user : "", generic_art);   /* nothing given: the start screen, or what it had last */
     if (opened) {
         ExportSource sources;
-        const char *pref = SDL_GetPrefPath(NULL, "Spirited Drive");   /* the game's player folder, where its own copy of the game's files is */
+        char *pref = o.cd == NULL && o.user == NULL ? SDL_GetPrefPath(NULL, "Spirited Drive") : NULL;   /* the game's player folder, where its own copy of the game's files is: not asked (it makes the folder) when something names it */
         car_export_source(o.game, o.user != NULL ? o.user : "", pref, o.cd, o.port_data, &sources);
+        SDL_free(pref);
         app_set_export_source(app, &sources);
         app_set_game_lookup(app, tried, memo);
         app_check_game(app);   /* the window opens with what to do if the game is not found, not with a failed install later */

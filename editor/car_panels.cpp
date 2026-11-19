@@ -454,7 +454,7 @@ void export_popup(App *a)
     } else {
         muted_wrapped("Choose a car.");
     }
-    ImGui::BeginDisabled(!picked || a->go != APP_ACT_NONE || a->confirm != APP_ACT_NONE);
+    ImGui::BeginDisabled(!picked || a->go != APP_ACT_NONE || a->confirm != APP_ACT_NONE || app_rehacer_busy(a));
     if (ImGui::Button("Choose folder and export...")) a->go = APP_ACT_EXPORT_PICK;
     ImGui::EndDisabled();
     ImGui::SameLine();

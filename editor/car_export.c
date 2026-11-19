@@ -98,7 +98,7 @@ static int find_path_ci(const char *root, const char *rel, char *out, size_t cap
         part[n] = '\0';
         char next[EXPORT_PATH];
         if (!find_ci(cur, part, next, sizeof next)) return 0;
-        memcpy(cur, next, sizeof cur);
+        memcpy(cur, next, strlen(next) + 1);
         rel += n + (slash != NULL ? 1 : 0);
     }
     if (strlen(cur) >= cap) return 0;
