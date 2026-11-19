@@ -220,7 +220,7 @@ static void setup_panel(const Target *t, const Page *p)
         if (p->moving) return;   /* the words come when it is open */
     } else
         fill(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, p->panel_fill);
-    edge(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, 1, CREAM);
+    edge(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, GL_FRAME, YELLOW);   /* in focus: the frame of a lit tile */
     text_select(TEXT_RED);
     text_draw_smooth("Car Setup", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, GL_SETUP_TITLE_NUM, GL_SETUP_TITLE_DEN);   /* the size of the CD pages' own, red */
     int ink_top, ink_bottom;

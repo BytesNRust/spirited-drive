@@ -124,7 +124,8 @@ static void setup_draw(void *ctx, int car, int lit, const uint8_t *palette)
     for (int y = 0; y < GL_COL_H; y++)
         for (int x = 0; x < GL_COL_W; x++)
             if (GL_COL_X + x < t.w && GL_COL_Y + y < t.h) t.to[(GL_COL_Y + y) * t.w + GL_COL_X + x] = setup.tile_ok ? setup.tile[y * GL_COL_W + x] : (uint8_t)ea_colour(DARK_COLOUR);
-    edge(&t, VARIANT_LEFT, VARIANT_TOP, VARIANT_RIGHT, VARIANT_BOTTOM, ea_colour(lit ? LIT_COLOUR : DARK_COLOUR));
+    for (int k = 0; k < BORDER; k++)   /* the art's two-pixel frame, as RECORDS' and the photos': yellow when lit, black otherwise */
+        edge(&t, VARIANT_LEFT + k, VARIANT_TOP + k, VARIANT_RIGHT - k, VARIANT_BOTTOM - k, lit ? yellow : black);
     gallery_label_tile(t.to, t.w, t.h, "SETUP", GL_COL_X, GL_COL_Y, GL_COL_H, black, yellow, lit);   /* the CD labels' margins (gallery_label.h) */
     arrow(&t, GL_COL_X + GL_COL_W - 24, GL_COL_Y + (GL_COL_H - GL_ARROW_H) / 2, 0, lit ? yellow : ea_colour(TRIANGLE_COLOUR), black);
 }
@@ -290,7 +291,8 @@ static void panel_draw(const Panel *p, int frame)
         }
     if (frame < SETUP_FRAMES) return;
     const int black = ea_colour(0x000000), cream = ea_colour(CREAM_RGB), yellow = ea_colour(YELLOW_RGB);
-    edge(&t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, cream);
+    for (int k = 0; k < BORDER; k++)   /* in focus: the frame of a lit tile, yellow and two pixels */
+        edge(&t, GL_SETUP_X + k, GL_SETUP_Y + k, GL_SETUP_X + GL_SETUP_W - 1 - k, GL_SETUP_Y + GL_SETUP_H - 1 - k, yellow);
     text_select(TEXT_RED);
     text_draw_smooth("Car Setup", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, GL_SETUP_TITLE_NUM, GL_SETUP_TITLE_DEN);
     int ink_top, ink_bottom;
