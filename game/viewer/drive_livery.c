@@ -339,14 +339,14 @@ static uint8_t *dash_palette(uint8_t *bank, size_t size)
     return at <= size && size - at >= PALETTE_HEADER + 768 ? bank + at : NULL;
 }
 
-int drive_livery_black(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3])
+int drive_livery_black(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size, const uint8_t rgb[3])
 {
     char upper[LIVERY_STEM];
     size_t i = 0;
     for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
     upper[i] = '\0';
     const RepaintJob job = { NULL, 0, rgb, glass_floor(upper) };
-    return repaint_cfm(cfm, size, stem, NULL, upper, run_black, (void *)&job);
+    return repaint_cfm(cfm, size, stem, mask_dir, upper, run_black, (void *)&job);
 }
 
 typedef struct {
@@ -370,12 +370,17 @@ static int run_lamps(const RepaintBank *bank, const BankMeta *meta, void *ctx)
 
 int drive_livery_lamps(const char *stem, uint8_t *cfm, size_t size, LampTexels *out)
 {
+    return drive_livery_lamps_masks(stem, NULL, cfm, size, out);
+}
+
+int drive_livery_lamps_masks(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size, LampTexels *out)
+{
     char upper[LIVERY_STEM];
     size_t i = 0;
     for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
     upper[i] = '\0';
     const LampJob job = { cfm, out };
-    return repaint_cfm(cfm, size, stem, NULL, upper, run_lamps, (void *)&job);
+    return repaint_cfm(cfm, size, stem, mask_dir, upper, run_lamps, (void *)&job);
 }
 
 int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const uint8_t rgb[3])
@@ -449,11 +454,16 @@ static int run_draft(const RepaintBank *bank, const BankMeta *meta, void *ctx)
 
 int drive_livery_draft(const char *stem, uint8_t *cfm, size_t size, LiveryDraftFn fn, void *user)
 {
+    return drive_livery_draft_masks(stem, NULL, cfm, size, fn, user);
+}
+
+int drive_livery_draft_masks(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size, LiveryDraftFn fn, void *user)
+{
     char upper[LIVERY_STEM];
     size_t i = 0;
     for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
     upper[i] = '\0';
     /* the Corvette's dark teal body lies under its runtime floor (a lower one repaints eight lamp texels): the draft starts its fascia as paint */
     const DraftJob job = { fn, user, strcmp(upper, "CZR1") == 0 ? 20 : glass_floor(upper) };
-    return repaint_cfm(cfm, size, stem, NULL, upper, run_draft, (void *)&job);
+    return repaint_cfm(cfm, size, stem, mask_dir, upper, run_draft, (void *)&job);
 }

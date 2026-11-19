@@ -151,12 +151,14 @@ The masks are made from layered PSDs: `tools/car_mask_psd.py` writes a PSD per t
 | transparent | **paint**: recoloured by the paint, and shines |
 | blue `0000ff` | keeps its colour, shines as glass (windows, lamp lenses) |
 | green `00ff00` | keeps its colour, shines as the body (a two-tone car's roof and pillars) |
-| magenta `ff00ff` | the **fixed black**: repainted with the car's catalogue black whatever the paint |
+| magenta `ff00ff` | the **fixed black**: repainted with the car's catalogue black whatever the paint; an added car has none of its own, so it takes the catalogue's usual black (14, 14, 16) |
 | red `ff0000` | brake light (glows in low light) |
 | orange `ff8000` | position (tail) light, dimmer red |
 | yellow `ffff00` | headlight, warm white in low light |
 | cyan `00ffff` | reversing light, lit only in reverse gear, in any light |
 | white (anything else) | keeps its colour, no shine: plastics, trim, plate, badges, vents |
+
+The fixed black, the lamps and the shine of an added car are read from one folder of masks: the worn skin's own folder when a skin is chosen (a skin without masks has none, so it has no black, lamps or shine from masks), else the piece's `car_masks`. A chosen skin's masks replace the piece's, they are not merged. The black is applied only to a texture that is a body: one of the body textures by name, or an added texture whose mask has at least one paint texel; a texture whose mask is magenta only and has no paint texel stays as it is.
 
 The layer's own opacity is ignored. A low detail texture's PSD is named `<tex>_lo.psd`. Needs `pip install psd-tools Pillow`. A mod puts its masks in `<mod>/car_masks/<CAR>/`. To try a folder of masks without installing them: `TNFS_CAR_MASKS=<dir of <CAR>/<tex>_mask.png>`; the log's `car mask:` lines say which file each texture used.
 

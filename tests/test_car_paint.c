@@ -164,6 +164,42 @@ static void test_the_catalogue_black(void)
     }
 }
 
+/* the black an added car gets (it has no catalogue entry): CAR_PAINT_ADDED_BLACK is the catalogue's own, the one most of the cars that have a black use; a tie goes
+ * to the middle of them by brightness. An added stem has no catalogue black of its own */
+static void test_the_added_black(void)
+{
+    static const char *const STEMS[CAR_PAINT_MODELS] = { "TSupra", "LDiabl", "P911", "CZR1", "F512TR", "DVIPER", "ANSX", "MRX7" };
+    uint8_t blacks[CAR_PAINT_MODELS][3];
+    int count = 0;
+    for (int model = 0; model < CAR_PAINT_MODELS; model++) {
+        const CarPaint *b = car_paint_black_of(STEMS[model]);
+        if (b != NULL) memcpy(blacks[count++], b->rgb, 3);
+    }
+    CHECK(count >= 2);
+    int best = -1, best_votes = 0, tied = 0;   /* the most used value; the votes of a tie are met by the lightness's middle below */
+    for (int i = 0; i < count; i++) {
+        int votes = 0;
+        for (int j = 0; j < count; j++) votes += memcmp(blacks[i], blacks[j], 3) == 0;
+        if (votes > best_votes) best = i, best_votes = votes, tied = 0;
+        else if (votes == best_votes && memcmp(blacks[i], blacks[best], 3) != 0) tied = 1;
+    }
+    const uint8_t added[3] = CAR_PAINT_ADDED_BLACK;
+    if (!tied) {
+        CHECK(memcmp(added, blacks[best], 3) == 0);
+    } else {   /* a tie: the value with the middle brightness among all the blacks (sorted by the sum of channels) */
+        int order[CAR_PAINT_MODELS];
+        for (int i = 0; i < count; i++) {
+            int k = i;
+            const int sum = blacks[i][0] + blacks[i][1] + blacks[i][2];
+            while (k > 0 && blacks[order[k - 1]][0] + blacks[order[k - 1]][1] + blacks[order[k - 1]][2] > sum) order[k] = order[k - 1], k--;
+            order[k] = i;
+        }
+        CHECK(memcmp(added, blacks[order[count / 2]], 3) == 0 || memcmp(added, blacks[order[(count - 1) / 2]], 3) == 0);
+    }
+    CHECK(added[0] <= 32 && added[1] <= 32 && added[2] <= 32);   /* a black is dark in every channel */
+    CHECK(car_paint_black_of("TESTCAR") == NULL);   /* the added car's own stem finds no catalogue entry: the default is taken by the caller */
+}
+
 /* The rivals' colours hold across a stage set's segments: segment 1 draws the paint seed, 2 and 3 of the same set keep it. */
 static void test_stage_seed(void)
 {
@@ -205,6 +241,7 @@ int main(void)
     race_cars();
     test_stage_seed();
     test_the_catalogue_black();
+    test_the_added_black();
     test_bright_paint_keeps_steps();
     test_table();
     test_pick();

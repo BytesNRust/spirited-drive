@@ -35,10 +35,15 @@ void drive_lamps_clear_all(void)
 
 int drive_lamps_find(int slot, const char *stem, uint8_t *file, size_t size)
 {
+    return drive_lamps_find_masks(slot, stem, NULL, file, size);
+}
+
+int drive_lamps_find_masks(int slot, const char *stem, const char *mask_dir, uint8_t *file, size_t size)
+{
     if (!valid(slot) || file == NULL || !port_emissive_lamps()) return 0;
     Slot *s = &slots[slot];
     s->file = file, s->size = size;
-    const int n = drive_livery_lamps(stem, file, size, &s->texels);
+    const int n = drive_livery_lamps_masks(stem, mask_dir, file, size, &s->texels);
     if (n > 0) port_log_detail("emissive_lamps: slot %d %s: %d lamp texels\n", slot, stem, n);
     return n;
 }

@@ -24,6 +24,10 @@ const CarPaint *car_paint(int model, int k);
  * any case ("ANSX", "p911"); NULL for a car without one, an unknown stem or NULL. */
 const CarPaint *car_paint_black_of(const char *stem);
 
+/* The black of a car with no catalogue entry (an added car), for its masks' fixed black: the catalogue's own. Six cars have a black (10, 10, 10; 12, 12, 12; 14, 14, 16 twice, the 911's and the NSX's; 17, 17, 17 twice, the Corvette's and
+ * the RX-7's; the Supra and the Diablo have none): the two most used values tie, and the tie is broken by the middle of the six by brightness, 14, 14, 16. A brace list: `const uint8_t black[3] = CAR_PAINT_ADDED_BLACK;`. */
+#define CAR_PAINT_ADDED_BLACK { 14, 14, 16 }
+
 /* The model's own colour as the PC has it (its main body tone), for the box's swatch when no PS1 files are read. */
 const uint8_t *car_paint_default(int model);
 
