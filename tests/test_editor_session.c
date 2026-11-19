@@ -73,6 +73,20 @@ static void check_fingerprint(void)
     CHECK(session_fingerprint(&t) != first);                 /* a point fewer */
 }
 
+static void check_road_width(void)
+{
+    CHECK(project_road_metres(40) == 10.0);                  /* the template's byte is a road of 10 m */
+    CHECK(project_road_metres(PROJECT_WIDTH_MIN) == 2.0);
+    CHECK(project_road_metres(PROJECT_WIDTH_MAX) == 30.0);
+    CHECK(project_width_from_road(10.0) == 40.0);
+    for (int byte = PROJECT_WIDTH_MIN; byte <= PROJECT_WIDTH_MAX; ++byte)
+        CHECK(project_width_from_road(project_road_metres(byte)) == byte);   /* a quarter of a metre is one byte: nothing is lost */
+    CHECK(project_width_from_road(10.1) == 40.4);            /* a value between two bytes converts exactly; the panel rounds it to a byte */
+    CHECK(strstr(PROJECT_ROAD_TIP, "CD") == NULL);           /* the tip names no original game */
+    CHECK(strstr(PROJECT_ROAD_TIP, "1/8") == NULL);          /* nor the byte's unit: that is in the docs */
+    CHECK(strstr(PROJECT_ROAD_TIP, "Default 10 m") != NULL);
+}
+
 static void cleanup_project(const char *dir)
 {
     char f[600];
@@ -207,6 +221,7 @@ int main(void)
     }
     check_recent();
     check_fingerprint();
+    check_road_width();
     check_app_flow();
     rmdir(root);
     return TEST_REPORT();

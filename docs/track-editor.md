@@ -20,7 +20,7 @@ The project folder is created with `project.ini` and `trace.json` (a straight of
 | File | What it holds |
 |------|---------------|
 | `project.ini` | `id`, `name`, `author`, `stem` (1..7 of A-Z 0-9, not AL/CL/CY/TR first), `art` (a FAM: relative to the project folder, or absolute), `redistributable` (the author's word on the art's licence) |
-| `trace.json` | `width` (the verge byte, 8..120; the template's is 40) and `points`, the control points as `[x, z]` in metres (one track unit is one metre) |
+| `trace.json` | `width` (the road's width byte, 8..120; the template's is 40, see Road width) and `points`, the control points as `[x, z]` in metres (one track unit is one metre) |
 | `build/<id>.zip` | written by Build; the only thing the game installs |
 
 ## Keys
@@ -65,7 +65,7 @@ Open wants a folder that holds a project (a `project.ini`); New wants one that h
 make the folder). The last eight project folders are kept in the editor's own folder (`recent.txt` beside its layout) and listed in Open recent; one
 that has no project any more is greyed out. The view fits the project that was opened.
 
-Closing the window, Escape and Quit with changes that are not in `trace.json` (a point moved, added or removed, or the verge width changed since the last
+Closing the window, Escape and Quit with changes that are not in `trace.json` (a point moved, added or removed, or the road width changed since the last
 save or open) ask "Save the changes to <project> before quitting?" with **Save** (Enter), **Discard** and **Cancel** (Escape). New, Open and Open recent ask
 the same before they go on (the folder is asked for after the answer). A save that fails keeps the question open with the reason. Build and Install
 use what is on screen, not the file, as before.
@@ -80,6 +80,13 @@ distance from the start, the turn, the distance to the node before and to the ne
 The distance between nodes is not the same on every road: the editor spaces them evenly along the curve and fits a whole number of segments (4 nodes
 each) to its length, so it is about 6.03 m on a long road and can be a few per cent more or less on a short one (the CD's is about 6.0 m).
 Height and slope are not shown: the editor has no height yet.
+
+## Road width: the Track window
+
+The Track window (above Project in the first layout; a tab beside Project in a layout kept from before it) has the road's width in metres, tarmac edge to edge: 2 to 30 m, one pixel of drag is 0.25 m, 10 m by default. Past
+the tarmac the surface changes and the walls start further out. In `trace.json` the width is still the node byte `width` (track_gen's byte 0 of every
+node): the distance of each edge from the centre in eighths of a metre (VERGE_UNIT 0x2000 in 16.16, game/race/car_walls.c), so metres = byte / 4
+and the template's 40 is 10 m. The terrain rows move by the same amount, 16 raw per byte (0.125 m).
 
 ## Headless run
 

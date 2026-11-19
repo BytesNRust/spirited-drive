@@ -12,7 +12,7 @@ extern "C" {
 #include "interact.h"
 }
 
-const char *const PANEL_POINTS = "Points", *const PANEL_LIMITS = "Limits", *const PANEL_PROBLEMS = "Problems", *const PANEL_NODE = "Node", *const PANEL_PROJECT = "Project";
+const char *const PANEL_POINTS = "Points", *const PANEL_LIMITS = "Limits", *const PANEL_PROBLEMS = "Problems", *const PANEL_NODE = "Node", *const PANEL_PROJECT = "Project", *const PANEL_TRACK = "Track";
 
 namespace {
 
@@ -170,20 +170,37 @@ void node_panel(App *a)
     ImGui::End();
 }
 
+static ImGuiID project_dock = 0;   // the dock node Project is in, where a layout kept from before the Track window puts it as a tab
+
+// the road's width in metres, tarmac edge to edge; the trace keeps the byte, a whole one: a quarter of a metre
+void track_panel(App *a)
+{
+    if (project_dock != 0) ImGui::SetNextWindowDockID(project_dock, ImGuiCond_FirstUseEver);
+    if (ImGui::Begin(PANEL_TRACK)) {
+        double road = project_road_metres(a->trace.width);
+        const double lo = project_road_metres(PROJECT_WIDTH_MIN), hi = project_road_metres(PROJECT_WIDTH_MAX);
+        ImGui::TextUnformatted("Road width (m)");
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::DragScalar("##road", ImGuiDataType_Double, &road, 0.25f, &lo, &hi, "%.2f m", ImGuiSliderFlags_AlwaysClamp)) {
+            const double width = round(project_width_from_road(road));
+            if (width != a->trace.width) {
+                a->trace.width = width;
+                a->dirty = 1;
+            }
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", PROJECT_ROAD_TIP);
+    }
+    ImGui::End();
+}
+
 void project_panel(App *a)
 {
-    if (ImGui::Begin(PANEL_PROJECT)) {
+    const bool open = ImGui::Begin(PANEL_PROJECT);
+    project_dock = ImGui::GetWindowDockID();   // also while it is a hidden tab
+    if (open) {
         ImGui::Text("%s  stem %s", a->project.id, a->project.stem);
         ImGui::TextWrapped("art %s", a->project.art);
         ImGui::TextWrapped("%s", a->dir);
-        ImGui::Separator();
-        double width = a->trace.width;
-        const double lo = PROJECT_WIDTH_MIN, hi = PROJECT_WIDTH_MAX;
-        ImGui::SetNextItemWidth(-FLT_MIN);
-        if (ImGui::DragScalar("##width", ImGuiDataType_Double, &width, 0.5f, &lo, &hi, "verge width %.1f", ImGuiSliderFlags_AlwaysClamp)) {
-            a->trace.width = width;
-            a->dirty = 1;
-        }
         ImGui::Separator();
         if (ImGui::Button("Save (S)")) app_save(a);
         ImGui::SameLine();

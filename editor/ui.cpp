@@ -84,6 +84,8 @@ void default_layout(ImGuiID dock)
     ImGui::DockBuilderDockWindow("Viewport", centre);
     ImGui::DockBuilderDockWindow(PANEL_LIMITS, bottom);
     ImGui::DockBuilderDockWindow(PANEL_PROBLEMS, bottom);   // its own tab beside Limits
+    const ImGuiID track = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.34f, nullptr, &right);   // the road's width above the project
+    ImGui::DockBuilderDockWindow(PANEL_TRACK, track);
     ImGui::DockBuilderDockWindow(PANEL_PROJECT, right);
     node = ImGui::DockBuilderSplitNode(points, ImGuiDir_Down, 0.45f, nullptr, &points);
     ImGui::DockBuilderDockWindow(PANEL_POINTS, points);
@@ -193,6 +195,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
     if (a->confirm == APP_ACT_NONE) shortcuts(a);   // the keys edit nothing while the question is up
     viewport_panel(a);
     project_panel(a);
+    track_panel(a);
     points_panel(a);
     limits_panel(a);
     problems_panel(a);

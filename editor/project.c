@@ -171,6 +171,18 @@ static int parse_points(const char *text, Trace *t, char *why, size_t why_cap)
     return 1;
 }
 
+const char *const PROJECT_ROAD_TIP = "Width of the tarmac, edge to edge. Beyond it the surface changes and the walls start further out. Default 10 m.";
+
+double project_road_metres(double width_byte)
+{
+    return width_byte / 4.0;
+}
+
+double project_width_from_road(double metres)
+{
+    return metres * 4.0;
+}
+
 static int parse_width(const char *text, double *width, char *why, size_t why_cap)
 {
     const char *p = strstr(text, "\"width\"");
