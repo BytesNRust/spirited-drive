@@ -58,6 +58,19 @@ static int generate(const char *layout, const uint8_t *tmpl, size_t tsize, uint8
     return track_generate(layout, strlen(layout), tmpl, tsize, out, len, err);
 }
 
+/* the turn limit is TRACK_GEN_TURN_MAX_DEGREES a node: 8 degrees is built, a little more is refused */
+static void check_turn_limit(const uint8_t *tmpl, size_t tsize)
+{
+    uint8_t *out = NULL;
+    size_t len = 0;
+    ExchangeError err = {0};
+    CHECK(generate("section 10 turn=320\n", tmpl, tsize, &out, &len, &err));          /* 8 degrees a node over 40 nodes */
+    free(out);
+    out = NULL;
+    CHECK(!generate("section 10 turn=324\n", tmpl, tsize, &out, &len, &err));         /* 8.1 */
+    CHECK(strstr(err.message, "more than 8 degrees") != NULL);
+}
+
 static void check_errors(const uint8_t *tmpl, size_t tsize)
 {
     static const struct { const char *layout; const char *needle; } bad[] = {
@@ -315,7 +328,7 @@ static void check_explicit_errors(const uint8_t *tmpl, size_t tsize)
         else if (!strcmp(w, "width")) n[5].width = 300;
         else if (!strcmp(w, "grade")) n[6].grade = 31;
         else if (!strcmp(w, "bank")) n[9].bank = -21;
-        else if (!strcmp(w, "turn")) for (int i = 20; i < COUNT; ++i) n[i].heading = n[19].heading + 0x4000 / 360.0 * 7 + (i - 20) * 0;   /* 7 degrees in one step */
+        else if (!strcmp(w, "turn")) for (int i = 20; i < COUNT; ++i) n[i].heading = n[19].heading + 0x4000 / 360.0 * 9 + (i - 20) * 0;   /* 9 degrees in one step: over the 8 a node may turn */
         else if (!strcmp(w, "still")) n[11].position[2] = n[10].position[2];
         else if (!strcmp(w, "far")) n[13].position[2] = n[12].position[2] + 25 * 65536;
         else if (!strcmp(w, "heading")) for (int i = 3; i < COUNT; ++i) n[i].heading = 1e30;
@@ -336,6 +349,7 @@ int main(int argc, char **argv)
     size_t tsize = 0;
     uint8_t *tmpl = template_tri(&tsize);
     check_errors(tmpl, tsize);
+    check_turn_limit(tmpl, tsize);
     check_straight_and_curve(tmpl, tsize);
     check_golden(tmpl, tsize);
     check_layout_nodes();

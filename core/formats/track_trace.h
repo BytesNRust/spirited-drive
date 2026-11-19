@@ -6,8 +6,9 @@
  * more, the spacing being the CD's (TRACK_GEN_NODE_LENGTH, about 6 units). Heights, banks and widths of the points are not used yet:
  * every node is level, unbanked and of the same width.
  *
- * The limits the editor shows (track_trace_flags): a node turns more than TRACE_TURN_MAX_DEGREES from the node before, or the curve's
- * radius there is under TRACE_RADIUS_MIN. The node count and the road's length are checked by track_trace_nodes. */
+ * The limits the editor shows (track_trace_flags): a node turns more than TRACE_TURN_MAX_DEGREES from the node before, or the curve's radius
+ * there is under TRACE_RADIUS_MIN; below them nothing is marked. They are measured (notes/dep59-editor-limits-vs-cd.md), and provisional: they
+ * are where our generic template's terrain starts to break, not the game's. The node count and the road's length are checked by track_trace_nodes. */
 #ifndef TNFS_TRACK_TRACE_H
 #define TNFS_TRACK_TRACE_H
 
@@ -16,8 +17,8 @@
 
 #include <stdint.h>
 
-#define TRACE_TURN_MAX_DEGREES 6.0   /* the most a node turns from the node before (track_gen's limit) */
-#define TRACE_RADIUS_MIN 60.0        /* units; a curve tighter than this is not admitted (spike: the CD's tightest sustained curve is ~36) */
+#define TRACE_TURN_MAX_DEGREES TRACK_GEN_TURN_MAX_DEGREES   /* the most a node turns from the node before (track_gen's own limit) */
+#define TRACE_RADIUS_MIN 43.0        /* units: a curve tighter than this is not built (8 degrees a node on the CD's 6.03-unit spacing) */
 #define TRACE_STEP_MIN 0.5           /* units; two control points closer than this are the same point */
 #define TRACE_COORD_MAX 20000.0      /* units from the origin: inside the 16.16 positions with room for the sums */
 

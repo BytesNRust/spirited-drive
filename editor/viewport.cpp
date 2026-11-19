@@ -7,6 +7,7 @@
 
 extern "C" {
 #include "formats/track_gen.h"
+#include "formats/track_trace.h"
 #include "interact.h"
 }
 
@@ -15,6 +16,7 @@ namespace {
 const double GRID_STEP = 50;   // units between grid lines
 const float POINT_HALF = 4;    // a control point's square, half its side in pixels
 const double GRID_LINES_MAX = 400;   // a view with more lines than this (zoomed far out) has no grid
+const double TIP_REACH = 10;   // pixels from a flagged node that bring its tip
 const ImU32 GRID = IM_COL32(36, 40, 46, 255), BACKGROUND = IM_COL32(18, 20, 24, 255), ROAD = IM_COL32(200, 204, 212, 255),
             BAD = IM_COL32(255, 70, 70, 255), POINT = IM_COL32(90, 160, 255, 255), SELECTED = IM_COL32(255, 220, 0, 255);
 
@@ -111,6 +113,32 @@ void handle_mouse(App *a, const ImVec2 &origin)
     if (ImGui::IsItemHovered() && io.MouseWheel != 0) interact_zoom(a, mx, my, io.MouseWheel > 0 ? VIEW_ZOOM_STEP : 1 / VIEW_ZOOM_STEP);
 }
 
+// the nearest node of the road that breaks a limit, within TIP_REACH pixels of the mouse; -1 when none
+int flagged_node_near(const Canvas &c, const App &a, double mx, double my)
+{
+    int best = -1;
+    double best_d = TIP_REACH * TIP_REACH;
+    for (int i = 1; a.road_made && i < a.node_count; ++i) {
+        if (a.flags[i] == 0) continue;
+        const ImVec2 p = to_screen(c, a.view, a.nodes[i].position[0] / 65536.0, a.nodes[i].position[2] / 65536.0);
+        const double dx = p.x - c.origin.x - mx, dy = p.y - c.origin.y - my, d = dx * dx + dy * dy;
+        if (d < best_d) best_d = d, best = i;
+    }
+    return best;
+}
+
+// the tip over a red stretch: what the colour means, and that it is the spacing of the points that makes it
+void draw_tooltip(const Canvas &c, const App &a)
+{
+    const ImGuiIO &io = ImGui::GetIO();
+    const int node = flagged_node_near(c, a, io.MousePos.x - c.origin.x, io.MousePos.y - c.origin.y);
+    if (node < 0) return;
+    ImGui::BeginTooltip();
+    ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "too tight: the road is not built");
+    ImGui::TextUnformatted("points too close for this turn: space them out or smooth them");
+    ImGui::EndTooltip();
+}
+
 }   // namespace
 
 void viewport_panel(App *a)
@@ -136,6 +164,7 @@ void viewport_panel(App *a)
             draw_road(c, *a);
             draw_points(c, *a);
             c.list->PopClipRect();
+            if (ImGui::IsItemHovered()) draw_tooltip(c, *a);
         }
     }
     ImGui::End();

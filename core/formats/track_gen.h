@@ -21,6 +21,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* The most a node may turn from the node before, in degrees: one value for the generator, which refuses a road over it, and the editor, which
+ * shows red what is over it (track_trace.h). Measured, not chosen: up to 8 degrees a node (a radius of 43 units) the game draws our template's
+ * terrain clean; at 10 the terrain of the inner side crosses itself, and at 16 the road's texture smears (notes/dep59-editor-limits-vs-cd.md). */
+#define TRACK_GEN_TURN_MAX_DEGREES 8.0
+
 enum {
     TRACK_GEN_MIN_SEGMENTS = 8,
     TRACK_GEN_MAX_SEGMENTS = 599,   /* the closing node must still fit the 2400-node array */
@@ -44,7 +49,7 @@ enum { TRACK_GEN_MAX_NODES = TRACK_GEN_MAX_SEGMENTS * 4 + 1 };
 int track_layout_nodes(const char *layout, size_t layout_len, double start_width, TrackGenNode **nodes, int *count, ExchangeError *err);
 
 /* The TRI of explicit nodes: `count` is 4 per segment and one more, 8..599 segments; each node finite, its width (0..255), grade and bank in range, its
- * heading at most 6 degrees from the node before, its distance from it 1..20 units. 1 and *out (malloc'd, *out_len bytes); 0 with err naming
+ * heading at most TRACK_GEN_TURN_MAX_DEGREES (8) from the node before, its distance from it 1..20 units. 1 and *out (malloc'd, *out_len bytes); 0 with err naming
  * the node otherwise. */
 int track_generate_nodes(const TrackGenNode *nodes, int count, const uint8_t *template_tri, size_t template_size, uint8_t **out,
                          size_t *out_len, ExchangeError *err);

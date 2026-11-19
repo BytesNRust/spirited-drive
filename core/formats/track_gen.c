@@ -32,7 +32,7 @@ enum {
 
 #define MAX_GRADE_PERCENT 30.0
 #define MAX_BANK_DEGREES 20.0
-#define MAX_TURN_DEGREES_PER_NODE 6.0
+#define MAX_TURN_DEGREES_PER_NODE TRACK_GEN_TURN_MAX_DEGREES
 
 typedef struct {
     int segments;

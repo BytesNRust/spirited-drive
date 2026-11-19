@@ -155,6 +155,40 @@ static void test_corner_flags_turn(void)
     free(nodes);
 }
 
+
+/* nodes that turn `degrees` each from the one before, TRACK_GEN_NODE_LENGTH apart: the limits by flags alone */
+static uint8_t flags_at_turn(double degrees)
+{
+    TrackGenNode n[3];
+    const double step = TRACK_GEN_NODE_LENGTH / 65536.0, back = degrees * 0x4000 / 360.0;
+    double x = 0, z = 0;
+    for (int i = 0; i < 3; ++i) {
+        n[i].heading = back * i;
+        n[i].grade = n[i].bank = 0;
+        n[i].width = WIDTH;
+        n[i].position[0] = (int32_t)lround(x * 65536);
+        n[i].position[1] = 0;
+        n[i].position[2] = (int32_t)lround(z * 65536);
+        x += step * sin(back * i * 2 * M_PI / 0x4000);
+        z += step * cos(back * i * 2 * M_PI / 0x4000);
+    }
+    uint8_t flags[3];
+    track_trace_flags(n, 3, flags);
+    return flags[2];
+}
+
+/* the limit's value (notes/dep59-editor-limits-vs-cd.md): up to 8 degrees a node nothing is marked, over it the node is red, and the editor's
+ * limit is the generator's own */
+static void test_limit_values(void)
+{
+    CHECK_EQ_INT(flags_at_turn(5.0), 0);
+    CHECK_EQ_INT(flags_at_turn(6.5), 0);                                         /* the old 6-degree limit marks nothing now */
+    CHECK_EQ_INT(flags_at_turn(7.9), 0);                                         /* radius 43.7 */
+    CHECK_EQ_INT(flags_at_turn(8.0), 0);                                         /* the most that is allowed */
+    CHECK_EQ_INT(flags_at_turn(8.2), TRACE_FLAG_TURN | TRACE_FLAG_RADIUS);       /* red */
+    CHECK(TRACE_TURN_MAX_DEGREES == TRACK_GEN_TURN_MAX_DEGREES);                 /* track_gen refuses what the editor shows red */
+}
+
 static void test_faults(void)
 {
     TrackGenNode *nodes = NULL;
@@ -229,6 +263,7 @@ int main(void)
     test_arc();
     test_tight_arc_flags_radius();
     test_corner_flags_turn();
+    test_limit_values();
     test_faults();
     test_generates_tri();
     test_turn_degrees();
