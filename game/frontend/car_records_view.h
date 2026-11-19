@@ -7,6 +7,9 @@
 #include "game/frontend/car_records.h"
 #include "game/frontend/track_list.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 enum {
     CAR_RECORDS_ROWS = 10,                   /* tracks to a page: Best Times' ten rows */
     CAR_RECORDS_MAX = TRACK_LIST_MAX,        /* tracks in all */
@@ -23,6 +26,12 @@ typedef struct {
     int cream, yellow, red, shadow;
     int head_shadow;   /* the red heads' shadow in pixels (down and right): 0 flat, CAR_RECORDS_HEAD_SHADOW on a reddish page (car_records_reddish) */
 } CarRecordsInk;
+
+/* owner point 27: the page's tint is a hue, never a loud colour. The tinted background (RGB, `pixels` of them) is limited to what the car's own page has:
+ * its brightness (the mean of each pixel's greatest channel) to CAR_RECORDS_V_MAX percent, and each pixel's saturation to CAR_RECORDS_S_MAX percent.
+ * The figures are the 512TR's original page (a mean brightness of 60% and a saturation of at most 80% over its background). Less than that is left as it is */
+enum { CAR_RECORDS_V_MAX = 58, CAR_RECORDS_S_MAX = 80 };
+void car_records_limit_tint(uint8_t *rgb, size_t pixels);
 
 /* owner point 23: the red heads carry a dark shadow only on a reddish page. The rule is the hue and saturation of the page's mean colour behind the heads:
  * red when the hue is within 15 degrees of red and the saturation (max - min over max) is 50% or more. 1 when `rgb` is that */

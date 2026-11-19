@@ -76,6 +76,27 @@ int car_records_reddish(int r, int g, int b)
     return 4 * abs(g - b) <= span;   /* the hue within 15 degrees of red: 60 |g - b| / span <= 15 */
 }
 
+void car_records_limit_tint(uint8_t *rgb, size_t pixels)
+{
+    long sum = 0;
+    for (size_t i = 0; i < pixels; i++) {
+        const uint8_t *p = rgb + 3 * i;
+        sum += p[0] > p[1] ? (p[0] > p[2] ? p[0] : p[2]) : (p[1] > p[2] ? p[1] : p[2]);
+    }
+    const long mean = pixels > 0 ? sum / (long)pixels : 0, cap = 255L * CAR_RECORDS_V_MAX / 100;
+    for (size_t i = 0; i < pixels; i++) {
+        uint8_t *p = rgb + 3 * i;
+        int c[3] = { p[0], p[1], p[2] };
+        if (mean > cap)
+            for (int k = 0; k < 3; k++) c[k] = (int)(c[k] * cap / mean);
+        const int max = c[0] > c[1] ? (c[0] > c[2] ? c[0] : c[2]) : (c[1] > c[2] ? c[1] : c[2]);
+        const int min = c[0] < c[1] ? (c[0] < c[2] ? c[0] : c[2]) : (c[1] < c[2] ? c[1] : c[2]);
+        if (max > 0 && (max - min) * 100 > CAR_RECORDS_S_MAX * max)   /* too saturated: the distance of each channel to the greatest is shortened */
+            for (int k = 0; k < 3; k++) c[k] = max - (max - c[k]) * CAR_RECORDS_S_MAX * max / (100 * (max - min));
+        for (int k = 0; k < 3; k++) p[k] = (uint8_t)(c[k] < 0 ? 0 : c[k] > 255 ? 255 : c[k]);
+    }
+}
+
 void car_records_ink_text(const CarRecordsInk *ink, const char *text, int x, int y, int num, int den, int colour, int shadow_px)
 {
     enum { SOLID = 4 };   /* the coverage (0..15) from which a pixel of the mask is the letter's */

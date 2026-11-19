@@ -44,6 +44,7 @@ void car_records_ground(uint8_t *out, const uint8_t palette[768], const uint8_t 
     if (bgnd == NULL) return;
     background_rgb(bgnd);
     if (tint != NULL) showcase_tint_apply(bgnd, (size_t)GL_W * GL_H, tint);
+    car_records_limit_tint(bgnd, (size_t)GL_W * GL_H);   /* a hue, never a loud colour (point 27) */
     int last = -1, last_index = 0;   /* a run of one colour is looked up once */
     for (int y = CAR_RECORDS_BAND; y < GL_H; y++)
         for (int x = 0; x < GL_W; x++) {
