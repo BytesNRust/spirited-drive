@@ -35,6 +35,23 @@ static void test_each_triangle_is_the_cds_size_with_room_for_its_outline_and_sha
     }
 }
 
+/* the CD's triangles' outline (measured on its track select): a column down the base two rows past the fill at each end and one pixel
+ * along each slope, so the rows 2 above the fill to 2 under it hold 1, 2, 2 ... 2, 1 outline pixels; the slopes are not two thick */
+static void test_the_outline_is_one_pixel_on_the_slopes_as_the_cds_is(void)
+{
+    for (int right = 0; right < 2; right++) {
+        uint8_t mask[UI_ARROW_MASK_W * UI_ARROW_MASK_H];
+        ui_arrow_mask(right, mask);
+        for (int y = 0; y < UI_ARROW_MASK_H; y++) {
+            int outline = 0;
+            for (int x = 0; x < UI_ARROW_MASK_W; x++) outline += mask[y * UI_ARROW_MASK_W + x] == UI_ARROW_OUTLINE;
+            const int first = UI_ARROW_PAD - 2, last = UI_ARROW_PAD + UI_ARROW_INK_H + 1;
+            const int want = y < first || y > last ? 0 : y == first || y == last ? 1 : 2;
+            CHECK_EQ_INT(outline, want);
+        }
+    }
+}
+
 static void test_the_triangles_point_outwards(void)
 {
     uint8_t l[UI_ARROW_MASK_W * UI_ARROW_MASK_H], r[UI_ARROW_MASK_W * UI_ARROW_MASK_H];
@@ -71,6 +88,7 @@ static void test_a_wide_label_is_not_given_triangles_on_its_text(void)
 int main(void)
 {
     test_each_triangle_is_the_cds_size_with_room_for_its_outline_and_shadow();
+    test_the_outline_is_one_pixel_on_the_slopes_as_the_cds_is();
     test_the_triangles_point_outwards();
     test_the_gaps_are_the_cds();
     test_a_wide_label_is_not_given_triangles_on_its_text();

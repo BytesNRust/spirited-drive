@@ -16,10 +16,11 @@ enum {
     UI_PAGER_BEARING_LEFT = 2, UI_PAGER_BEARING_RIGHT = 3   /* graver18's own blank columns at each end of a count at that size: the gaps are from the ink, not the advance */
 };
 
-/* The mask a triangle is drawn from: the solid fill, one pixel wider per row, in the middle of a UI_ARROW_PAD of empty rows and
- * columns, the room of the outline (1) and the shadow (4) text_draw_badge_mask gives it. */
+/* The mask a triangle is drawn from: the solid fill, one pixel wider per row, its outline as the CD has it (one pixel on each side, the base's
+ * column two rows longer at each end), in the middle of a UI_ARROW_PAD of empty rows and columns, the room of the outline (1) and the shadow (5). */
 enum {
-    UI_ARROW_PAD = 5,
+    UI_ARROW_OUTLINE = 4,   /* the coverage of an outline pixel in the mask (text_draw_badge_mask: 1 to 7 is outline, 8 up the fill) */
+    UI_ARROW_PAD = 6,
     UI_ARROW_MASK_W = UI_ARROW_INK_W + 2 * UI_ARROW_PAD, UI_ARROW_MASK_H = UI_ARROW_INK_H + 2 * UI_ARROW_PAD
 };
 

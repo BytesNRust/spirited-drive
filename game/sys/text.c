@@ -363,23 +363,20 @@ static int badge_letter(const uint8_t *mask, int w, int h, int x, int y)
     return x >= 0 && x < w && y >= 0 && y < h && mask[y * w + x] >= TEXT_SOFT_SOLID_FROM;
 }
 
-/* a pixel with no letter whose neighbour, on any side, is one */
+/* a pixel the mask marks as the badge's outline: a coverage between 1 and the letters' */
 static int badge_outline(const uint8_t *mask, int w, int h, int x, int y)
 {
-    if (badge_letter(mask, w, h, x, y)) return 0;
-    for (int dy = -1; dy <= 1; dy++)
-        for (int dx = -1; dx <= 1; dx++)
-            if ((dx != 0 || dy != 0) && badge_letter(mask, w, h, x + dx, y + dy)) return 1;
-    return 0;
+    return x >= 0 && x < w && y >= 0 && y < h && mask[y * w + x] != 0 && mask[y * w + x] < TEXT_SOFT_SOLID_FROM;
 }
 
-/* port: a solid badge (the page indicator's triangles), drawn as the CD draws its own: the coverage mask's letter pixels in the
- * current style's fill and grain, a black outline one pixel round them (every neighbour, the corners too) and a hard shadow
- * down-right of the outline, TEXT_SOFT_BADGE_SHADOW_DEPTH pixels, fading from near black. The mask needs that room round its
- * letters. */
+/* port: a solid badge (the page indicator's triangles), drawn as the CD draws its own: the coverage mask's letter pixels (coverage 8 and
+ * up) in the current style's fill and grain, its outline pixels (1 to 7) black, and a shadow down-right of the two. The shadow is the
+ * badge pushed 1 to TEXT_SOFT_BADGE_SHADOW_DEPTH pixels down-right, each push darkening what is under it a little more (the CD's
+ * look: under the body it is deepest, at the edge of the push it thins out), the levels measured on the CD's triangles. The mask
+ * draws its own outline, whose shape is the CD's, one pixel thick on the slopes; it needs the shadow's room round its letters. */
 void text_draw_badge_mask(const uint8_t *mask, int mw, int mh, int left, int top)
 {
-    static const int LEVEL[TEXT_SOFT_BADGE_SHADOW_DEPTH + 1] = { 0, 13, 10, 7, 4 };
+    static const int LEVEL[TEXT_SOFT_BADGE_SHADOW_DEPTH + 1] = { 0, 2, 5, 7, 9, 9 };   /* of 15, by how many pushes cover the pixel: about 1 - 0.8^n, as the palette lets it */
     const int cream = current_style == TEXT_CREAM, yellow = current_style == TEXT_YELLOW;
     const int fill = cream ? nearest(TEXT_SOFT_CREAM_R, TEXT_SOFT_CREAM_G, TEXT_SOFT_CREAM_B) : styles_fg[current_style];
     const int grain = cream    ? nearest(TEXT_SOFT_GRAIN_R, TEXT_SOFT_GRAIN_G, TEXT_SOFT_GRAIN_B)
@@ -400,11 +397,10 @@ void text_draw_badge_mask(const uint8_t *mask, int mw, int mh, int left, int top
             } else if (badge_outline(mask, mw, mh, mx, my)) {
                 *at = (uint8_t)black;
             } else {
-                int dark = 0;
+                int pushes = 0;
                 for (int d = 1; d <= TEXT_SOFT_BADGE_SHADOW_DEPTH; d++)
-                    if ((badge_letter(mask, mw, mh, mx - d, my - d) || badge_outline(mask, mw, mh, mx - d, my - d)) && LEVEL[d] > dark)
-                        dark = LEVEL[d];
-                if (dark > 0) *at = blended(black, *at, dark);
+                    pushes += badge_letter(mask, mw, mh, mx - d, my - d) || badge_outline(mask, mw, mh, mx - d, my - d);
+                if (pushes > 0) *at = blended(black, *at, LEVEL[pushes]);
             }
         }
     }

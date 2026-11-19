@@ -8,14 +8,26 @@ enum { CREAM = 0, LABEL_MAX = 32 };
 
 void ui_arrow_mask(int right, uint8_t mask[UI_ARROW_MASK_W * UI_ARROW_MASK_H])
 {
-    memset(mask, 0, (size_t)UI_ARROW_MASK_W * UI_ARROW_MASK_H);
+    enum { W = UI_ARROW_MASK_W, H = UI_ARROW_MASK_H };
+    memset(mask, 0, (size_t)W * H);
     for (int r = 0; r < UI_ARROW_INK_H; r++) {
         const int up = r < UI_ARROW_INK_H - 1 - r ? r : UI_ARROW_INK_H - 1 - r;
         for (int c = 0; c <= up; c++) {
             const int x = right ? c : UI_ARROW_INK_W - 1 - c;
-            mask[(UI_ARROW_PAD + r) * UI_ARROW_MASK_W + UI_ARROW_PAD + x] = 15;
+            mask[(UI_ARROW_PAD + r) * W + UI_ARROW_PAD + x] = 15;
         }
     }
+    /* the outline: the pixels beside the fill (not its corners: a slope is one pixel thick) */
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++)
+            if (mask[y * W + x] == 0 &&
+                ((x > 0 && mask[y * W + x - 1] == 15) || (x < W - 1 && mask[y * W + x + 1] == 15) ||
+                 (y > 0 && mask[(y - 1) * W + x] == 15) || (y < H - 1 && mask[(y + 1) * W + x] == 15)))
+                mask[y * W + x] = UI_ARROW_OUTLINE;
+    /* and the base's column runs two rows past the fill at each end */
+    const int base = right ? UI_ARROW_PAD - 1 : UI_ARROW_PAD + UI_ARROW_INK_W;
+    for (int y = UI_ARROW_PAD - 2; y < UI_ARROW_PAD + UI_ARROW_INK_H + 2; y++)
+        if (mask[y * W + base] == 0) mask[y * W + base] = UI_ARROW_OUTLINE;
 }
 
 UiPagerLayout ui_pager_layout(int text_w, int right_w)

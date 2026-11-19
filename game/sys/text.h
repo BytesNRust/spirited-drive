@@ -46,8 +46,8 @@ void text_draw_mask(const uint8_t *mask, int w, int h, int x, int y);
  * current style, with the item shadow (text_soft_shadow), the mask's (0, 0) at (x, y) */
 void text_draw_item_mask(const uint8_t *mask, int w, int h, int x, int y);
 /* port: a solid badge, as the page indicator's triangles: the mask's letter pixels (coverage 8 and up) in the current style's fill and
- * grain, a black outline one pixel round them and a hard shadow down-right of that; the mask's (0, 0) at (x, y), with room for
- * TEXT_SOFT_BADGE_SHADOW_DEPTH + 1 pixels round the letters */
+ * grain, its outline pixels (coverage 1 to 7) black and a soft shadow down-right of both; the mask's (0, 0) at (x, y), with room for
+ * TEXT_SOFT_BADGE_SHADOW_DEPTH pixels round the badge */
 void text_draw_badge_mask(const uint8_t *mask, int w, int h, int x, int y);
 /* port: a section header as the credits draw theirs (text_soft.h), in capitals num/den times the font's size, with
  * its underline `underline` pixels long from x (the text's width when 0) */
