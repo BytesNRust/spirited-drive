@@ -358,6 +358,58 @@ void text_draw_item_mask(const uint8_t *mask, int w, int h, int x, int y)
     draw_soft(mask, w, h, x, y, text_soft_shadow);
 }
 
+static int badge_letter(const uint8_t *mask, int w, int h, int x, int y)
+{
+    return x >= 0 && x < w && y >= 0 && y < h && mask[y * w + x] >= TEXT_SOFT_SOLID_FROM;
+}
+
+/* a pixel with no letter whose neighbour, on any side, is one */
+static int badge_outline(const uint8_t *mask, int w, int h, int x, int y)
+{
+    if (badge_letter(mask, w, h, x, y)) return 0;
+    for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++)
+            if ((dx != 0 || dy != 0) && badge_letter(mask, w, h, x + dx, y + dy)) return 1;
+    return 0;
+}
+
+/* port: a solid badge (the page indicator's triangles), drawn as the CD draws its own: the coverage mask's letter pixels in the
+ * current style's fill and grain, a black outline one pixel round them (every neighbour, the corners too) and a hard shadow
+ * down-right of the outline, TEXT_SOFT_BADGE_SHADOW_DEPTH pixels, fading from near black. The mask needs that room round its
+ * letters. */
+void text_draw_badge_mask(const uint8_t *mask, int mw, int mh, int left, int top)
+{
+    static const int LEVEL[TEXT_SOFT_BADGE_SHADOW_DEPTH + 1] = { 0, 13, 10, 7, 4 };
+    const int cream = current_style == TEXT_CREAM, yellow = current_style == TEXT_YELLOW;
+    const int fill = cream ? nearest(TEXT_SOFT_CREAM_R, TEXT_SOFT_CREAM_G, TEXT_SOFT_CREAM_B) : styles_fg[current_style];
+    const int grain = cream    ? nearest(TEXT_SOFT_GRAIN_R, TEXT_SOFT_GRAIN_G, TEXT_SOFT_GRAIN_B)
+                      : yellow ? nearest(TEXT_SOFT_YELLOW_GRAIN_R, TEXT_SOFT_YELLOW_GRAIN_G, TEXT_SOFT_YELLOW_GRAIN_B)
+                               : darkened(fill, 15);
+    const int black = shadow[15];
+    int tw, th;
+    uint8_t *const to = video_target(&tw, &th);
+    for (int my = 0; my < mh; my++) {
+        const int ty = top + my;
+        if (ty < 0 || ty >= th) continue;
+        for (int mx = 0; mx < mw; mx++) {
+            const int tx = left + mx;
+            if (tx < 0 || tx >= tw) continue;
+            uint8_t *const at = &to[ty * tw + tx];
+            if (badge_letter(mask, mw, mh, mx, my)) {
+                *at = (uint8_t)(text_soft_grain(tx, ty) ? grain : fill);
+            } else if (badge_outline(mask, mw, mh, mx, my)) {
+                *at = (uint8_t)black;
+            } else {
+                int dark = 0;
+                for (int d = 1; d <= TEXT_SOFT_BADGE_SHADOW_DEPTH; d++)
+                    if ((badge_letter(mask, mw, mh, mx - d, my - d) || badge_outline(mask, mw, mh, mx - d, my - d)) && LEVEL[d] > dark)
+                        dark = LEVEL[d];
+                if (dark > 0) *at = blended(black, *at, dark);
+            }
+        }
+    }
+}
+
 /* the header's letters at (x, y), its underline from rule_x, rule_len long (the text's width when 0) */
 static void draw_header(const char *text, int x, int y, int num, int den, int rule_x, int rule_len)
 {

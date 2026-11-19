@@ -15,6 +15,15 @@ enum {
     PAGE_NAV_ARROW_MID = 452   /* the count's middle row (447..456): each triangle's mask is centred on it */
 };
 
+/* the count's words at the size of the CD's buttons (ui_kit_metrics.h's UI_PAGER_TEXT_NUM / DEN), which the screens' text slots (1/1)
+ * cannot draw: a screen's `plain` draw on its own picture, its `clean` one over its clean background (put back under them), and
+ * the width of words at that size. All NULL (a screen that has none, a test) keeps the count at 1/1 through the text slots. */
+typedef struct PageNavText {
+    void (*plain)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);
+    void (*clean)(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);
+    int32_t (*width)(void *ctx, const char *text, int32_t num, int32_t den);
+} PageNavText;
+
 /* what the indicator draws and asks of its screen: the screens' own slots, which have these signatures */
 typedef struct PageNavOps {
     void *ctx;
@@ -24,6 +33,8 @@ typedef struct PageNavOps {
     /* the triangle's mask size; 0 when there is none (NULL: none) */
     int32_t (*arrow_size)(void *ctx, int32_t right, int32_t *w, int32_t *h);
     void (*arrow)(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
+    PageNavText scaled;   /* the count at the buttons' size */
+    int clean;            /* the page is over the screen's clean background: the count goes through scaled.clean */
 } PageNavOps;
 
 /* which triangle the pointer is on: 0 neither, 1 the left, 2 the right. On a page with both it is the half of the

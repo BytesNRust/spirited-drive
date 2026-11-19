@@ -2,6 +2,7 @@
 # tools/menu_walk.sh <bin> <outdir> <target>: walk the front end headless to a menu screen and save its picture as <outdir>/<target>.png.
 #
 #   targets: game-mode (Game Mode, the first menu after the intro: our boot screen and EA's movie skipped)  central (Control Central, KEYS after it)  showcase (the gallery, from a click on Control Central's car card)
+#            records (a stock car's RECORDS screen, page 1)  records-p2 (its page 2)
 #            added-gallery (an added car's gallery: the same click with an added car picked, KEYS after it)  options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
 #            graphics  extras (page 1/3)  extras-p2  extras-p3
 #            content (CONTENT, from Game Mode's "Manage content...": open in Restomod alone, so PROFILE defaults to restomod there)
@@ -15,7 +16,7 @@
 #        before that line never logs it; the walk then says so and goes on). On central, the items car+ car- opponent+ opponent- are a click on that arrow and a
 #        wait for the game's mark that the choice changed (mark:car= / mark:opponent=, logged once the card shows it); the walk then checks
 #        that each such click changed the choice once (exit 4 if not)
-#        USER_FILES (a folder whose files the walk starts with in its user folder: a race_records.dat)
+#        USER_FILES (a folder whose files and folders the walk starts with in its user folder: a race_records.dat, a mods/ of pieces)
 #        MODS (a folder copied as the walk's --mods: a mod piece the walk runs with; default an empty one)
 #        PROFILE (stock, restored or restomod; default the game's own first run): the mode the walk runs in (Best Times' pages are
 #        Restomod's)
@@ -106,6 +107,8 @@ game-mode)    script="$to_game_mode${KEYS:+,$KEYS}"; final=game_mode; tail=${TAI
 content)      script="$to_game_mode,$(click 320 315),1500:CLICK:320:383,$(wait_for content)${KEYS:+,$KEYS}"; final=content; PROFILE=${PROFILE:-restomod} ;;   # ROW[MANAGE]: y 315 in the reordered Game Mode, y 383 in the one before (menu_compare walks both; the click that misses lands on the selector or on nothing)
 central)      script="$to_central${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3} ;;
 showcase)     script="$to_central,$(click 180 200),$(wait_for showcase)"; final=showcase ;;
+records)      script="$to_central,$(click 180 200),$(wait_for showcase),1000:CLICK:$(( 430 + dx )):265,1500:CLICK:$(( 375 + dx )):265,$(wait_for car_records),$(park)"; final=car_records; tail=${TAIL:-3} ;;   # a stock car's RECORDS: the showcase's Video tile slid to its other face, then clicked
+records-p2)   script="$to_central,$(click 180 200),$(wait_for showcase),1000:CLICK:$(( 430 + dx )):265,1500:CLICK:$(( 375 + dx )):265,$(wait_for car_records),$(next_page),0:WAIT:mark:records_page=1:$step,$(park)"; final=car_records; tail=${TAIL:-3} ;;
 added-gallery) script="$to_central,$(click 180 200),$(wait_for added_gallery)${KEYS:+,$KEYS}"; final=added_gallery; tail=${TAIL:-3} ;;
 added-track)  [ -n "$MODS" ] && [ -n "$EDITION" ] || { echo "added-track needs MODS (a track piece's folder) and EDITION (an edition file naming it alone, tracks=<id>)" >&2; exit 2; }
               script="$to_central,0:WAIT:mark:card=16:$step${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3}; PROFILE=${PROFILE:-restomod} ;;   # the card's mark: 16 is the first added track
@@ -135,7 +138,7 @@ mkdir -p "$work/user" "$work/cap" "$work/mods"
 [ -n "$MODS" ] && cp -R "$MODS"/. "$work/mods/"   # a mod piece the walk runs with
 printf 'format=%s\n' "$format" > "$work/user/port.cfg"   # the clicks above are shifted for it
 [ -n "$PROFILE" ] && printf 'profile=%s\n' "$PROFILE" >> "$work/user/port.cfg"
-[ -n "$USER_FILES" ] && cp "$USER_FILES"/* "$work/user/"   # files the walk starts with in the user folder (a race_records.dat)
+[ -n "$USER_FILES" ] && cp -R "$USER_FILES"/* "$work/user/"   # files the walk starts with in the user folder (a race_records.dat)
 if [ -n "$EDITION" ]; then   # an edition: its file in editions/, its id in restomod.cfg
     mkdir -p "$work/user/editions" && cp "$EDITION" "$work/user/editions/" || exit 1
     id=${EDITION:t:r}

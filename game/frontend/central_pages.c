@@ -19,6 +19,6 @@ void central_page_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_
     static int made;
     if (!made) ui_arrow_mask(0, mask[0]), ui_arrow_mask(1, mask[1]), made = 1;
     text_select(lit ? TEXT_YELLOW : TEXT_CREAM);
-    text_draw_item_mask(mask[right ? 1 : 0], UI_ARROW_MASK_W, UI_ARROW_MASK_H, x, y);
+    text_draw_badge_mask(mask[right ? 1 : 0], UI_ARROW_MASK_W, UI_ARROW_MASK_H, x, y);
 }
 int32_t glue_plus_arrow_size(void *ctx, int32_t right, int32_t *w, int32_t *h) { return central_page_arrow_size(ctx, right, w, h); }

@@ -87,7 +87,7 @@ static PageNavOps nav_ops(const ControlsMenuOps *o, int clean)
 {
     const int smooth = clean && o->plus_text_smooth != NULL;
     const PageNavOps n = { o->ctx, smooth ? o->plus_text_smooth : o->plus_text, o->plus_text_width,
-                           o->pointer_in_rect, o->plus_arrow_size, o->plus_arrow };
+                           o->pointer_in_rect, o->plus_arrow_size, o->plus_arrow, o->plus_nav_text, smooth };
     return n;
 }
 

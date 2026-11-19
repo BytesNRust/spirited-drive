@@ -8,6 +8,7 @@
 
 enum {
     TEXT_SOFT_SOLID_FROM = 8,     /* the scaled glyph's level its outline runs at, and the coverage of a letter pixel */
+    TEXT_SOFT_BADGE_SHADOW_DEPTH = 4,   /* the triangles of the page indicator: the CD's shadow runs 4 px down-right of their outline */
     TEXT_SOFT_SHADOW_DEPTH = 2,   /* the art's shadow: the letters pushed 1 and 2 px down-right */
     TEXT_SOFT_SHADOW_LEVEL = 12,  /* of 15 from what is under it towards black */
     /* the big titles' shadow (Game Mode's, measured against its background): 1 px down-right about 87% darker, at

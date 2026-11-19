@@ -71,10 +71,18 @@ static void nav_text(void *ctx, int32_t style, const char *text, int32_t x, int3
     text_draw_smooth(text, x, y, 1, 1);
 }
 static int32_t nav_width(void *ctx, const char *text) { (void)ctx; return text_width(text); }
+static void nav_text_scaled(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    (void)ctx;
+    text_select(style == 0 ? TEXT_CREAM : TEXT_YELLOW);
+    text_draw_smooth(text, x, y, num, den);
+}
+static int32_t nav_width_scaled(void *ctx, const char *text, int32_t num, int32_t den) { (void)ctx; return text_width_scaled(text, num, den); }
 static int32_t nav_in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1) { (void)ctx; return pointer_in_rect(x0, x1, y0, y1); }
 static PageNavOps nav_ops(void)
 {
-    const PageNavOps n = { NULL, nav_text, nav_width, nav_in_rect, central_page_arrow_size, central_page_arrow };
+    const PageNavOps n = { NULL, nav_text, nav_width, nav_in_rect, central_page_arrow_size, central_page_arrow,
+                           { nav_text_scaled, NULL, nav_width_scaled }, 0 };
     return n;
 }
 

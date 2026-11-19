@@ -47,7 +47,7 @@ static void f_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y)
 
 static PageNavOps ops(Fake *f)
 {
-    PageNavOps o = { f, f_text, f_width, f_in_rect, f_size, f_arrow };
+    PageNavOps o = { f, f_text, f_width, f_in_rect, f_size, f_arrow, { NULL, NULL, NULL }, 0 };
     return o;
 }
 
@@ -91,6 +91,47 @@ static void test_a_count_too_wide_for_the_box_is_the_text(void)
     page_nav_draw(&o, 99, 120, 0);   /* "100/120": 70 wide here, with the kit's gaps the triangles would leave the box */
     CHECK_EQ_INT(f.arrows, 0);
     CHECK(strcmp(f.text[f.texts - 1], "< 100/120 >") == 0);
+}
+
+/* a screen that can draw the count at the buttons' size: where it draws it, which of its two draws, and the width it lays out by */
+static int scaled_plain, scaled_clean, scaled_num, scaled_den, scaled_y;
+static void f_plain(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    (void)style, (void)text, (void)x;
+    Fake *f = ctx;
+    f->texts++, scaled_plain++, scaled_num = num, scaled_den = den, scaled_y = y;
+}
+static void f_clean(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    f_plain(ctx, style, text, x, y, num, den);
+    scaled_plain--, scaled_clean++;
+}
+static int32_t f_scaled_width(void *ctx, const char *text, int32_t num, int32_t den)
+{
+    (void)ctx, (void)num, (void)den;
+    return (int32_t)strlen(text) * 8;
+}
+
+static void test_the_count_is_drawn_at_the_buttons_size_where_the_screen_can(void)
+{
+    Fake f = { .has_arrows = 1 };
+    PageNavOps o = ops(&f);
+    o.scaled.plain = f_plain, o.scaled.clean = f_clean, o.scaled.width = f_scaled_width;
+    page_nav_draw(&o, 1, 3, 0);
+    CHECK_EQ_INT(scaled_plain, 1);
+    CHECK_EQ_INT(scaled_clean, 0);
+    CHECK_EQ_INT(scaled_num, UI_PAGER_TEXT_NUM);
+    CHECK_EQ_INT(scaled_den, UI_PAGER_TEXT_DEN);
+    CHECK_EQ_INT(scaled_y, UI_PAGER_TEXT_Y);
+    CHECK_EQ_INT(f.arrow_x[0], ui_pager_layout(24, 16).left_x);   /* laid out by the width at that size */
+    o.clean = 1;
+    page_nav_draw(&o, 1, 3, 0);
+    CHECK_EQ_INT(scaled_clean, 1);   /* over a clean background: that screen's own draw */
+    o.scaled.clean = NULL;
+    f.texts = 0;
+    page_nav_draw(&o, 1, 3, 0);
+    CHECK_EQ_INT(f.texts, 1);   /* a screen with no draw for it: the 1/1 text slot */
+    CHECK_EQ_INT(f.text_y[0], PAGE_NAV_TEXT_Y);
 }
 
 static void test_the_text_is_centred_on_the_box(void)
@@ -156,6 +197,7 @@ int main(void)
     test_the_first_page_has_the_right_triangle_only();
     test_a_middle_page_has_both_the_last_the_left_only();
     test_the_text_is_centred_on_the_box();
+    test_the_count_is_drawn_at_the_buttons_size_where_the_screen_can();
     test_a_count_too_wide_for_the_box_is_the_text();
     test_the_lit_triangle_is_the_one_asked();
     test_without_the_cd_it_is_the_text_it_was();

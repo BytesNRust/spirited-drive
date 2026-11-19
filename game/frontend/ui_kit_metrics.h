@@ -11,19 +11,16 @@ enum {
     UI_ARROW_INK_W = 9, UI_ARROW_INK_H = 17,
     UI_PAGER_GAP_LEFT = 14, UI_PAGER_GAP_RIGHT = 15,
     UI_PAGER_ARROW_BELOW_TEXT = 1,
-    UI_PAGER_TEXT_BEARING = 2   /* graver18's own blank columns at each end of a count: the gaps are from the ink, not the advance */
+    UI_PAGER_TEXT_NUM = 11, UI_PAGER_TEXT_DEN = 10,   /* the count's size, num/den of graver18's: its digits are 10 rows and the buttons' letters 11 */
+    UI_PAGER_TEXT_Y = 439,   /* the count's line top: its last row is 456, on the background's DONE and CANCEL */
+    UI_PAGER_BEARING_LEFT = 2, UI_PAGER_BEARING_RIGHT = 3   /* graver18's own blank columns at each end of a count at that size: the gaps are from the ink, not the advance */
 };
 
-/* The mask a triangle is drawn from: a solid triangle UI_ARROW_CORE_W wide and UI_ARROW_TRI_H tall, drawn in the text's soft look, which
- * darkens a pixel whose lower-right neighbour is not solid. That takes the triangle's right column (the left one) or its tip (the right
- * one), and its bottom rows, off the cream: one pixel of width and two rows of height, so the core is one wider and two taller than the
- * ink, and the right one, whose top row is not darkened, starts a row lower to show the same rows. UI_ARROW_PAD empty rows and columns
- * round it (the bottom has the shadow's two). */
+/* The mask a triangle is drawn from: the solid fill, one pixel wider per row, in the middle of a UI_ARROW_PAD of empty rows and
+ * columns, the room of the outline (1) and the shadow (4) text_draw_badge_mask gives it. */
 enum {
-    UI_ARROW_PAD = 3, UI_ARROW_PAD_BOTTOM = 2,
-    UI_ARROW_CORE_W = UI_ARROW_INK_W + 1, UI_ARROW_TRI_H = UI_ARROW_INK_H + 2, UI_ARROW_CORE_H = UI_ARROW_TRI_H + 1,
-    UI_ARROW_MASK_W = UI_ARROW_CORE_W + 2 * UI_ARROW_PAD,
-    UI_ARROW_MASK_H = UI_ARROW_PAD + UI_ARROW_CORE_H + UI_ARROW_PAD_BOTTOM
+    UI_ARROW_PAD = 5,
+    UI_ARROW_MASK_W = UI_ARROW_INK_W + 2 * UI_ARROW_PAD, UI_ARROW_MASK_H = UI_ARROW_INK_H + 2 * UI_ARROW_PAD
 };
 
 #endif

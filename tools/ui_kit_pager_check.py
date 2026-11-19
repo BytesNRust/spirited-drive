@@ -1,6 +1,6 @@
 """tools/ui_kit_pager_check.py IMAGE...: measures the page indicator (the UI kit's pager, docs/ui-kit.md E4) on 640x480 captures of a screen's
 middle page ("2/3": a triangle on each side) and fails when a measure is more than a pixel off the CD's.
-The CD's, measured on its track select ("Road/track") and showcase ("Next car"): each triangle's cream ink is 9 x 17, the blank columns
+The CD's, measured on its track select ("Road/track") and showcase ("Next car"): the letters are 11 rows of cream, each triangle's cream ink is 9 x 17, the blank columns
 between the left one and the text are 14 and between the text and the right one 15, and the triangles' middle row is one below the text's.
 Exit: 0 all in tolerance; 1 a measure off; 2 bad arguments or no Pillow (the caller treats that as a skip)."""
 import sys
@@ -13,7 +13,7 @@ except ImportError:
 
 BOX = (230, 436, 420, 476)       # the pager's room on a 640x480 screen
 CREAM, TOL, ARROW_GAP = (232, 211, 183), 12, 10   # the fill and its grain; the soft look's darker rim is not ink
-WANT = {"arrow_w": 9, "arrow_h": 17, "gap_left": 14, "gap_right": 15, "centre_below": 1}
+WANT = {"arrow_w": 9, "arrow_h": 17, "gap_left": 14, "gap_right": 15, "centre_below": 1, "text_h": 11}
 SLACK = 1
 
 
@@ -57,6 +57,8 @@ def measure(path):
         "gap_left": ta - lb - 1,
         "gap_right": ra - tb - 1,
         "centre_below": (mid(lt, lbm) + mid(rt, rbm)) / 2 - mid(tt, tbm),
+        "text_h": tbm - tt + 1,
+        "text_rows": (tt, tbm),
     }, None
 
 
@@ -71,6 +73,7 @@ def main(paths):
             print(f"FAIL {path}: {why}")
             bad += 1
             continue
+        print(f"     {path}: the count's rows {got['text_rows'][0]}-{got['text_rows'][1]}")
         for k, want in WANT.items():
             ok = abs(got[k] - want) <= SLACK
             bad += not ok
