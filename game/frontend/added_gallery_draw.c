@@ -3,6 +3,7 @@
 #include "game/frontend/added_gallery_page.h"
 
 #include "game/frontend/gallery_label.h"
+#include "game/frontend/setup_name.h"
 #include "game/sys/text.h"
 
 #include <stdio.h>
@@ -209,7 +210,7 @@ static void setup_panel(const Target *t, const Page *p)
         fill(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, p->panel_fill);
     edge(t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, 1, CREAM);
     text_select(TEXT_RED);
-    text_draw_smooth("CAR SETUP", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, GL_HEADING_NUM, GL_HEADING_DEN);   /* as "Car Showcase", red */
+    text_draw_smooth("CAR SETUP", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, GL_SETUP_TITLE_NUM, GL_SETUP_TITLE_DEN);   /* the size of the CD pages' own, red */
     int ink_top, ink_bottom;
     text_ink_scaled("H", GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN, &ink_top, &ink_bottom);
     for (int row = 0; row < SETUP_ROWS; row++) {
@@ -226,13 +227,13 @@ static void setup_panel(const Target *t, const Page *p)
             text_draw_smooth(fits, right - text_width_scaled(fits, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN), y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
             continue;
         }
-        const int index = lit ? YELLOW : CREAM, box = zone + GL_ARROW_W + 6;   /* < box   name   >: the box inside the left arrow, the name centred between the arrows */
-        arrow(t, zone, mid - GL_ARROW_H / 2, 1, index);
-        arrow(t, right - GL_ARROW_W, mid - GL_ARROW_H / 2, 0, index);
-        preview(t, box, mid - GL_SETUP_PREVIEW_H / 2, row == SETUP_COLOUR ? SWATCH : SKIN_SWATCH);
-        const int span0 = zone + GL_ARROW_W, span = GL_SETUP_VALUE_W - 2 * GL_ARROW_W;   /* between the arrows; the name keeps clear of the box */
-        fitted_main(value, span - 2 * (GL_SETUP_PREVIEW_W + 12), fits, sizeof fits);
-        text_draw_smooth(fits, span0 + (span - text_width_scaled(fits, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN)) / 2, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+        const int index = lit ? YELLOW : CREAM;
+        SetupChoice c;
+        gallery_setup_choice(&c);   /* < box   name   >: the box next to the left arrow, the name centred between it and the right arrow (owner 2026-11-19) */
+        arrow(t, c.left, mid - GL_ARROW_H / 2, 1, index);
+        arrow(t, c.right, mid - GL_ARROW_H / 2, 0, index);
+        preview(t, c.preview, mid - GL_SETUP_PREVIEW_H / 2, row == SETUP_COLOUR ? SWATCH : SKIN_SWATCH);
+        setup_name_draw(value, c.name_x0, c.name_x1, mid);
     }
 }
 

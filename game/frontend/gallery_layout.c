@@ -163,6 +163,22 @@ int gallery_hit(int x, int y, int *step)
     return -1;
 }
 
+void gallery_setup_choice(SetupChoice *c)
+{
+    c->left = GL_SETUP_X + GL_SETUP_CHOICE_X;
+    c->right = GL_SETUP_X + GL_SETUP_W - 16 - GL_ARROW_W;
+    c->preview = c->left + GL_ARROW_W + GL_SETUP_CHOICE_GAP;
+    c->name_x0 = c->preview + GL_SETUP_PREVIEW_W + GL_SETUP_CHOICE_GAP;
+    c->name_x1 = c->right - GL_SETUP_CHOICE_GAP;
+}
+
+int gallery_setup_choice_step(int x)
+{
+    SetupChoice c;
+    gallery_setup_choice(&c);
+    return x < c.left - 16 ? 0 : x < (c.left + c.right + GL_ARROW_W) / 2 ? -1 : 1;
+}
+
 /* the SETUP panel (open over the tile and General): its row's number and the side of the value a click at (x, y) is on, -1 for nothing */
 int gallery_setup_hit(int x, int y, int *step)
 {
@@ -171,7 +187,7 @@ int gallery_setup_hit(int x, int y, int *step)
     const int row = (y - GL_SETUP_Y - GL_SETUP_ROW0 + GL_SETUP_STEP / 2) / GL_SETUP_STEP;
     if (y < GL_SETUP_Y + GL_SETUP_ROW0 - GL_SETUP_STEP / 2 || row < 0 || row >= GALLERY_SETUP_ROWS) return -1;
     if (row >= SETUP_TRANSMISSION) *step = 1;   /* a switch, as in Options: a click anywhere on its row changes it */
-    else if (x >= GL_SETUP_X + GL_SETUP_VALUE_X - 16) *step = x < GL_SETUP_X + GL_SETUP_VALUE_X + GL_SETUP_VALUE_W / 2 ? -1 : 1;   /* the label's side: the row alone */
+    else *step = gallery_setup_choice_step(x);
     return row;
 }
 

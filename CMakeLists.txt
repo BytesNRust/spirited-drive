@@ -233,6 +233,7 @@ add_library(tnfs_game STATIC
     game/frontend/added_gallery_draw.c
     game/frontend/added_gallery_setup.c
     game/frontend/gallery_label.c
+    game/frontend/setup_name.c
     game/frontend/added_gallery_tints.c
     game/frontend/added_card_text.c
     game/frontend/content_dialog_glue.c
@@ -1455,6 +1456,12 @@ if(NOT EMSCRIPTEN)
     target_compile_options(test_added_card_name PRIVATE ${TNFS_WARNINGS})
     target_compile_definitions(test_added_card_name PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     add_test(NAME added_card_name COMMAND test_added_card_name)
+    add_executable(test_setup_choice tests/test_setup_choice.c game/sys/text.c game/sys/video.c ${TNFS_SDL3_PLATFORM}
+                   game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_setup_choice PRIVATE tnfs_game SDL3::SDL3)
+    target_compile_options(test_setup_choice PRIVATE ${TNFS_WARNINGS})
+    target_compile_definitions(test_setup_choice PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    add_test(NAME setup_choice COMMAND test_setup_choice)
     add_executable(test_lunar_art_glue tests/test_lunar_art_glue.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_lunar_art_glue PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
