@@ -199,11 +199,13 @@ void track_trace_flags(const TrackGenNode *nodes, int count, uint8_t *flags)
         uint8_t f = 0;
         const double turn = fabs(track_trace_turn_degrees(nodes[i - 1].heading, nodes[i].heading));
         if (turn > TRACE_TURN_MAX_DEGREES + 1e-6) f |= TRACE_FLAG_TURN;
+        else if (turn > TRACE_TURN_WARN_DEGREES + 1e-6) f |= TRACE_FLAG_TURN_WARN;
         if (turn > 1e-9) {
             const double dx = ((double)nodes[i].position[0] - nodes[i - 1].position[0]) / POSITION_ONE;
             const double dz = ((double)nodes[i].position[2] - nodes[i - 1].position[2]) / POSITION_ONE;
             const double radius = hypot(dx, dz) / (turn * M_PI / 180);
             if (radius < TRACE_RADIUS_MIN) f |= TRACE_FLAG_RADIUS;
+            else if (radius < TRACE_RADIUS_WARN) f |= TRACE_FLAG_RADIUS_WARN;
         }
         flags[i] = f;
     }

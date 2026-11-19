@@ -130,14 +130,22 @@ static void test_arc(void)
 static void test_tight_arc_flags_radius(void)
 {
     TracePoint p[32];
-    arc_points(30, 24, 180, p);                             /* a half circle of radius 30: about 5.6 degrees a node */
     TrackGenNode *nodes = NULL;
     int n = 0;
+    arc_points(30, 24, 180, p);                             /* a half circle of radius 30: about 11.5 degrees a node: amber, not red */
     CHECK(nodes_of(p, 25, WIDTH, &nodes, &n));
     uint8_t *flags = calloc((size_t)n, 1);
     track_trace_flags(nodes, n, flags);
-    CHECK(count_flags(flags, n, TRACE_FLAG_RADIUS) > 0);
+    CHECK(count_flags(flags, n, TRACE_FLAG_RADIUS_WARN) > 0);
+    CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_RADIUS | TRACE_FLAG_TURN), 0);
     CHECK_EQ_INT(flags[0], 0);
+    free(flags);
+    free(nodes);
+    arc_points(15, 24, 180, p);                             /* radius 15: about 23 degrees a node: red */
+    CHECK(nodes_of(p, 25, WIDTH, &nodes, &n));
+    flags = calloc((size_t)n, 1);
+    track_trace_flags(nodes, n, flags);
+    CHECK(count_flags(flags, n, TRACE_FLAG_RADIUS) > 0);
     free(flags);
     free(nodes);
 }
@@ -156,7 +164,7 @@ static void test_corner_flags_turn(void)
 }
 
 
-/* nodes that turn `degrees` each from the one before, TRACK_GEN_NODE_LENGTH apart: the limits by flags alone */
+/* nodes that turn `degrees` each from the one before, TRACK_GEN_NODE_LENGTH apart: the limits' levels by flags alone */
 static uint8_t flags_at_turn(double degrees)
 {
     TrackGenNode n[3];
@@ -177,16 +185,19 @@ static uint8_t flags_at_turn(double degrees)
     return flags[2];
 }
 
-/* the limit's value (notes/dep59-editor-limits-vs-cd.md): up to 8 degrees a node nothing is marked, over it the node is red, and the editor's
- * limit is the generator's own */
-static void test_limit_values(void)
+/* the limits' levels (notes/dep59-editor-limits-vs-cd.md): up to 8 degrees a node nothing is marked, over it amber (the road is built), over 16 red;
+ * the editor's red limit is the generator's own */
+static void test_limit_levels(void)
 {
     CHECK_EQ_INT(flags_at_turn(5.0), 0);
-    CHECK_EQ_INT(flags_at_turn(6.5), 0);                                         /* the old 6-degree limit marks nothing now */
-    CHECK_EQ_INT(flags_at_turn(7.9), 0);                                         /* radius 43.7 */
-    CHECK_EQ_INT(flags_at_turn(8.0), 0);                                         /* the most that is allowed */
-    CHECK_EQ_INT(flags_at_turn(8.2), TRACE_FLAG_TURN | TRACE_FLAG_RADIUS);       /* red */
-    CHECK(TRACE_TURN_MAX_DEGREES == TRACK_GEN_TURN_MAX_DEGREES);                 /* track_gen refuses what the editor shows red */
+    CHECK_EQ_INT(flags_at_turn(7.9), 0);                                                      /* radius 43.7 */
+    CHECK_EQ_INT(flags_at_turn(8.0), 0);                                                      /* the amber starts over it */
+    CHECK_EQ_INT(flags_at_turn(8.2), TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN);          /* radius 42.1 */
+    CHECK_EQ_INT(flags_at_turn(12.0), TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN);
+    CHECK_EQ_INT(flags_at_turn(16.0), TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN);         /* the most that is allowed: Alpine 3's, radius 21.6 */
+    CHECK_EQ_INT(flags_at_turn(16.2), TRACE_FLAG_TURN | TRACE_FLAG_RADIUS);                   /* red: no warning bits besides */
+    CHECK(TRACE_TURN_MAX_DEGREES == TRACK_GEN_TURN_MAX_DEGREES);                              /* track_gen refuses what the editor shows red */
+    CHECK(TRACE_TURN_WARN_DEGREES == TRACK_GEN_TURN_WARN_DEGREES);
 }
 
 static void test_faults(void)
@@ -263,7 +274,7 @@ int main(void)
     test_arc();
     test_tight_arc_flags_radius();
     test_corner_flags_turn();
-    test_limit_values();
+    test_limit_levels();
     test_faults();
     test_generates_tri();
     test_turn_degrees();

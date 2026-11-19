@@ -54,9 +54,11 @@ def count(rgb, tol=12):
         n += sum(1 for r, g, b in zip(row[0::bpp], row[1::bpp], row[2::bpp])
                  if abs(r - rgb[0]) <= tol and abs(g - rgb[1]) <= tol and abs(b - rgb[2]) <= tol)
     return n
-road, points, red = count((200, 204, 212)), count((90, 160, 255)), count((255, 70, 70))
-if mode == "good":   # the road was made and no limit breaks: no red
-    assert road > 400 and points > 100 and red == 0, (road, points, red)
+road, points, red, amber = count((200, 204, 212)), count((90, 160, 255)), count((255, 70, 70)), count((255, 176, 32))
+if mode == "good":   # the road was made and no limit breaks: no red, no amber
+    assert road > 400 and points > 100 and red == 0 and amber == 0, (road, points, red, amber)
+elif mode == "warn":   # a curve over an amber limit and under the red ones: amber nodes, no red
+    assert road > 400 and points > 100 and amber > 20 and red == 0, (road, points, red, amber)
 else:                # a corner too tight: the road is made (grey), and its nodes at the corner are red
     assert road > 400 and points > 100 and red > 50, (road, points, red)
 PY
@@ -66,6 +68,10 @@ mkdir "$work/mild"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 40.0], [15.0, 80.0], [15.0, 120.0], [0.0, 160.0], [0.0, 200.0]]\n}\n' > "$work/mild/trace.json"   # an S of 6.5 degrees a node at most: nothing is marked (the old limit was 6)
 "$editor" "$work/mild" --frames 6 --shot "$work/mild.png" >"$work/log" 2>&1 || fail "run on a mild S: $(cat "$work/log")"
 if [ -f "$work/mild.png" ]; then png_check "$work/mild.png" good; else fail "no PNG of the mild S"; fi
+mkdir "$work/warn"
+printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, -40.0], [0.0, 0.0], [20.0, 40.0], [20.0, 80.0], [0.0, 120.0], [0.0, 160.0]]\n}\n' > "$work/warn/trace.json"   # an S that turns about 9 degrees a node: amber
+"$editor" "$work/warn" --frames 6 --shot "$work/warn.png" >"$work/log" 2>&1 || fail "run on a curve over an amber limit: $(cat "$work/log")"
+if [ -f "$work/warn.png" ]; then png_check "$work/warn.png" warn; else fail "no PNG of the curve over an amber limit"; fi
 mkdir "$work/bad"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 80.0], [20.0, 90.0], [0.0, 100.0], [0.0, 180.0]]\n}\n' > "$work/bad/trace.json"
 "$editor" "$work/bad" --frames 6 --shot "$work/bad.png" >"$work/log" 2>&1 || fail "run on a project that breaks limits: $(cat "$work/log")"
@@ -73,8 +79,10 @@ if [ -f "$work/bad.png" ]; then png_check "$work/bad.png" bad; else fail "no PNG
 # Build: a curve under the limits is built, one over them is refused with the limit named
 "$editor" "$work/mild" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a curve under the limits: $(cat "$work/log")"
 [ -s "$work/mild/build/mild.zip" ] || fail "no zip of the mild S"
+"$editor" "$work/warn" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a curve that is only over an amber limit: $(cat "$work/log")"
+[ -s "$work/warn/build/warn.zip" ] || fail "no zip of the amber curve"
 "$editor" "$work/bad" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a curve over a red limit"
-grep -q "tighter than 43\|more than 8 degrees" "$work/log" || fail "the refusal does not name the red limit: $(cat "$work/log")"
+grep -q "tighter than 21.5\|more than 16 degrees" "$work/log" || fail "the refusal does not name the red limit: $(cat "$work/log")"
 "$editor" "$work/proj" --frames 2 --user "$work/user/sub" >/dev/null 2>&1 || fail "run with --user"
 [ -f "$work/user/sub/track-editor.ini" ] || fail "the layout was not kept in the player folder (made when missing)"
 # the game is not where --game says: Install says so, and what to do, without running anything

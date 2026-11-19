@@ -29,9 +29,11 @@ typedef struct {
     int node_count;
     uint8_t *flags;              /* per node, the TRACE_FLAG_* bits, when road_made */
     int road_made;               /* 0 when the trace cannot become nodes (see road_text) */
-    int turn_nodes, radius_nodes;
+    int turn_nodes, radius_nodes;   /* the nodes that break a red limit (the road is not built) */
+    int warn_turn_nodes, warn_radius_nodes;   /* the nodes over an amber one (a warning: it can be built) */
     double length;               /* the centre line's length, in units */
-    char road_text[APP_MSG];     /* why the road is not made, or the first limit it breaks; "" when all is well */
+    char road_text[APP_MSG];     /* why the road is not made, or the first red limit it breaks; "" when there is none */
+    char warn_text[APP_MSG];     /* the amber warning when a node is over one and none is red, else "" */
 
     char zip[APP_PATH];          /* the last package built, "" before one */
     char status[APP_MSG];        /* the last thing done, for the window's bottom line */

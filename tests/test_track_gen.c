@@ -2,6 +2,7 @@
  * layout, nodes that turn, climb and bank as the layout says, a cross-section widened by `width`, and no scenery.
  * With CD files every track works as the template. */
 #include "formats/track_gen.h"
+#include "formats/track_template.h"
 #include "formats/tri.h"
 #include "test.h"
 
@@ -69,6 +70,83 @@ static void check_turn_limit(const uint8_t *tmpl, size_t tsize)
     out = NULL;
     CHECK(!generate("section 10 turn=324\n", tmpl, tsize, &out, &len, &err));         /* 8.1 */
     CHECK(strstr(err.message, "more than 8 degrees") != NULL);
+}
+
+/* the terrain of a turned node does not go further across the road than TRACK_GEN_TERRAIN_REACH of the curve's radius, on a straight it is the
+ * template's (5, 8, 18, 38, 68 units a side), and the turn limit of the nodes is TRACK_GEN_TURN_MAX_DEGREES (a layout keeps its 8) */
+static void turned_nodes(TrackGenNode *n, int count, double degrees)
+{
+    memset(n, 0, sizeof *n * (size_t)count);
+    int32_t x = 0, z = 0;
+    for (int i = 0; i < count; ++i) {
+        n[i].heading = i > 20 ? (i - 20) * degrees / 360 * 0x4000 : 0;   /* 20 nodes straight, then a curve that never ends */
+        n[i].width = WIDTH;
+        n[i].position[0] = x, n[i].position[2] = z;
+        const double h = n[i].heading / 0x4000 * 2 * M_PI;
+        x += (int32_t)lround(TRACK_GEN_NODE_LENGTH * sin(h)), z += (int32_t)lround(TRACK_GEN_NODE_LENGTH * cos(h));
+    }
+}
+
+static double side_reach(const uint8_t *row, int side, int upto, double heading)
+{
+    const double a = heading / 0x4000 * 2 * M_PI;
+    double across = 0;
+    for (int k = 0; k <= upto; ++k) {
+        const uint8_t *p = row + 6 * (1 + 5 * side + k);
+        const double dx = (int16_t)(p[0] | p[1] << 8) / 128.0, dz = (int16_t)(p[4] | p[5] << 8) / 128.0;
+        across += dx * cos(a) - dz * sin(a);
+    }
+    return fabs(across);
+}
+
+static void check_terrain_reach(void)
+{
+    uint8_t *tmpl = NULL;
+    size_t tsize = 0;
+    ExchangeError terr = {0};
+    CHECK(track_template_generic(&tmpl, &tsize, &terr));   /* our own template: 5, 8, 18, 38, 68 units a side */
+    if (tmpl == NULL) return;
+    enum { COUNT = 12 * 4 + 1 };
+    static TrackGenNode n[COUNT];
+    const double step = TRACK_GEN_NODE_LENGTH / 65536.0;
+    for (int t = 0; t < 4; ++t) {
+        const double degrees = t == 0 ? 0 : t == 1 ? 4 : t == 2 ? 10 : TRACK_GEN_TURN_MAX_DEGREES;
+        turned_nodes(n, COUNT, degrees);
+        uint8_t *out = NULL;
+        size_t len = 0;
+        ExchangeError err = {0};
+        CHECK(track_generate_nodes_turned(n, COUNT, tmpl, tsize, &out, &len, &err));
+        if (out == NULL) { fprintf(stderr, "%s\n", err.message); return; }
+        Tri tri;
+        TriParts parts;
+        CHECK_EQ_INT(tri_open(&tri, out, len), TRI_OK);
+        CHECK_EQ_INT(tri_parts(&tri, &parts), TRI_OK);
+        const double cap = degrees == 0 ? 1e9 : step / (degrees * M_PI / 180) * TRACK_GEN_TERRAIN_REACH;
+        for (int i = 30; i < 40; ++i) {   /* well inside the curve */
+            const uint8_t *row = parts.terrain + (size_t)(i / 4) * TRI_SEGMENT_SIZE + 0x18 + 66 * (i % 4);
+            for (int side = 0; side < 2; ++side) {
+                CHECK(fabs(side_reach(row, side, 0, n[i].heading) - 5) < 0.2);   /* the road's edge and its verge are the road's own */
+                CHECK(fabs(side_reach(row, side, 1, n[i].heading) - 8) < 0.2);
+                for (int k = 2; k < 5; ++k) {
+                    const double want = fmin(k == 2 ? 18 : k == 3 ? 38 : 68, fmax(cap, 8));
+                    CHECK(fabs(side_reach(row, side, k, n[i].heading) - want) < 0.3);
+                }
+            }
+        }
+        free(out);
+    }
+    turned_nodes(n, COUNT, TRACK_GEN_TURN_MAX_DEGREES + 0.5);   /* the nodes' limit, not the layout's */
+    uint8_t *out = NULL;
+    size_t len = 0;
+    ExchangeError err = {0};
+    CHECK(!track_generate_nodes_turned(n, COUNT, tmpl, tsize, &out, &len, &err));
+    CHECK(strstr(err.message, "the most is 16") != NULL);
+    turned_nodes(n, COUNT, 12);
+    CHECK(track_generate_nodes_turned(n, COUNT, tmpl, tsize, &out, &len, &err));
+    free(out);
+    out = NULL;
+    CHECK(!track_generate_nodes(n, COUNT, tmpl, tsize, &out, &len, &err));   /* 12 is over a layout's 8 */
+    free(tmpl);
 }
 
 static void check_errors(const uint8_t *tmpl, size_t tsize)
@@ -350,6 +428,7 @@ int main(int argc, char **argv)
     uint8_t *tmpl = template_tri(&tsize);
     check_errors(tmpl, tsize);
     check_turn_limit(tmpl, tsize);
+    check_terrain_reach();
     check_straight_and_curve(tmpl, tsize);
     check_golden(tmpl, tsize);
     check_layout_nodes();

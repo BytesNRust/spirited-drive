@@ -21,10 +21,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* The most a node may turn from the node before, in degrees: one value for the generator, which refuses a road over it, and the editor, which
- * shows red what is over it (track_trace.h). Measured, not chosen: up to 8 degrees a node (a radius of 43 units) the game draws our template's
- * terrain clean; at 10 the terrain of the inner side crosses itself, and at 16 the road's texture smears (notes/dep59-editor-limits-vs-cd.md). */
-#define TRACK_GEN_TURN_MAX_DEGREES 8.0
+/* The most a node may turn from the node before, in degrees. Two limits, because the terrain is not laid the same way:
+ *  - TRACK_GEN_TURN_MAX_DEGREES, for the nodes of the editor (track_generate_nodes_turned): the terrain rows follow the road and are held
+ *    inside TRACK_GEN_TERRAIN_REACH of the curve's radius (the CD's own way: Alpine 3 keeps its terrain within 0.32..0.44 of the radius in its
+ *    16-degree curve, node 625, notes/dep59-editor-limits-vs-cd.md). The editor shows red what is over it, amber what is over
+ *    TRACK_GEN_TURN_WARN_DEGREES (track_trace.h).
+ *  - TRACK_GEN_LAYOUT_TURN_MAX_DEGREES, for a layout (`track new`, track_generate): its rows are the template's, not turned, and over 8 degrees
+ *    the game draws the terrain of the inner side crossing itself (measured, same note). */
+#define TRACK_GEN_TURN_MAX_DEGREES 16.0
+#define TRACK_GEN_TURN_WARN_DEGREES 8.0
+#define TRACK_GEN_LAYOUT_TURN_MAX_DEGREES 8.0
+#define TRACK_GEN_TERRAIN_REACH 0.4   /* the furthest the terrain of a turned node goes across the road, as a part of the curve's radius there */
 
 enum {
     TRACK_GEN_MIN_SEGMENTS = 8,
@@ -49,7 +56,7 @@ enum { TRACK_GEN_MAX_NODES = TRACK_GEN_MAX_SEGMENTS * 4 + 1 };
 int track_layout_nodes(const char *layout, size_t layout_len, double start_width, TrackGenNode **nodes, int *count, ExchangeError *err);
 
 /* The TRI of explicit nodes: `count` is 4 per segment and one more, 8..599 segments; each node finite, its width (0..255), grade and bank in range, its
- * heading at most TRACK_GEN_TURN_MAX_DEGREES (8) from the node before, its distance from it 1..20 units. 1 and *out (malloc'd, *out_len bytes); 0 with err naming
+ * heading at most TRACK_GEN_LAYOUT_TURN_MAX_DEGREES (8) from the node before, its distance from it 1..20 units. 1 and *out (malloc'd, *out_len bytes); 0 with err naming
  * the node otherwise. */
 int track_generate_nodes(const TrackGenNode *nodes, int count, const uint8_t *template_tri, size_t template_size, uint8_t **out,
                          size_t *out_len, ExchangeError *err);

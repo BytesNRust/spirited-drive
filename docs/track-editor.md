@@ -41,15 +41,16 @@ The project folder is created with `project.ini` and `trace.json` (a straight of
 
 ## Limits
 
-The road is drawn through the control points as a Catmull-Rom curve, resampled to the CD's node spacing (about 6 units). A node drawn red breaks
-a limit: it turns more than 8 degrees from the node before, or the curve there is tighter than 43 units. Nothing under those is marked. Build
-refuses while any node is red, and the generator (`track new`) refuses the same 8 degrees. The limit is where the generic template's terrain starts
-to break in the game (at 10 degrees the terrain of the inner side crosses itself, at 16 the road's texture smears; measured by racing generated
-pieces), not a limit of the game: the CD has curves of 16 degrees.
+The road is drawn through the control points as a Catmull-Rom curve, resampled to the CD's node spacing (about 6 units). Up to 8 degrees a node
+(a radius of 43 units) nothing is marked. Over that a node is drawn **amber**: the road is built, but the curve is tighter than almost all of the
+CD's (the CD has some of 16 degrees: Alpine 3), so check the terrain in the game; the AI brakes there. A node is drawn **red** when it turns more
+than 16 degrees from the node before, or the curve there is tighter than 21.5 units: Build refuses while any node is red. In a tight curve the
+generator holds the terrain inside the curve, on both sides, to 0.4 of its radius, as the CD does (`notes/dep59-editor-limits-vs-cd.md`); a
+layout of `track new` does not turn the terrain and keeps its own limit of 8 degrees. The numbers are measured and provisional, not limits of the game.
 
-How tight a curve is depends on how far apart its points are: two points close together make the curve turn within a short distance. Hover a red
+How tight a curve is depends on how far apart its points are: two points close together make the curve turn within a short distance. Hover a red or amber
 stretch to see it; the fix is to space the points out or to smooth them. The Limits panel shows the node count against the 2397 a TRI holds (599
-segments and the closing node), the length and the first limit broken.
+segments and the closing node), the length, the red limit first broken and, in amber, how many nodes are over a warning.
 
 ## Headless run
 
