@@ -13,6 +13,7 @@
 typedef struct {
     uint8_t *to;
     int w, h;
+    const uint8_t *palette;   /* the page's: the labels' edges are mixed in it */
 } Target;
 
 /* x0..x1, y0..y1 (ends included) in entry `index` */
@@ -74,7 +75,7 @@ void added_gallery_draw_title(const Page *p)
 /* a tile's label at its foot, as the CD pages have it (owner 2026-11-18): black, nothing white about it; yellow-shadowed when the tile is the item */
 static void label(const Target *t, const char *text, int x, int y, int h, int lit)
 {
-    gallery_label_tile(t->to, t->w, t->h, text, x, y, h, BLACK, YELLOW, lit);   /* the CD's own margins and lit colour, measured (gallery_label.h) */
+    gallery_label_tile(t->to, t->w, t->h, t->palette, text, x, y, h, BLACK, YELLOW, lit);   /* the CD's own margins and lit colour, measured (gallery_label.h) */
 }
 
 /* `text` cut (with a "." at its end) until the main face at the panel's size shows it in `width` pixels */
@@ -252,7 +253,7 @@ static void setup_panel(const Target *t, const Page *p)
 
 void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th)
 {
-    const Target t = { to, tw, th };
+    const Target t = { to, tw, th, p->palette };
     const GalleryState *s = &p->state;
     /* the focus: a yellow frame round the tile the item is, over the black one */
     if (s->item == GALLERY_PHOTOS)

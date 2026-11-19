@@ -16,6 +16,14 @@ typedef struct {
     uint8_t ramp[COLOURS][LEVELS];
 } Ramps;
 
+static int distance(const uint8_t *palette, int index, const int want[3])
+{
+    const uint8_t *const c = palette + 3 * index;
+    return (c[0] - want[0]) * (c[0] - want[0]) + (c[1] - want[1]) * (c[1] - want[1]) + (c[2] - want[2]) * (c[2] - want[2]);
+}
+
+/* the pixel `under` with `colour` over it at `coverage` (0..15): the ramp's step, unless the palette has no step near the true mix (a photo's
+ * quantized palette: its nearest entry may be a dark speck), and then the colour or the pixel, whichever is nearer the mix */
 static uint8_t mixed(Ramps *r, const uint8_t *palette, int colour, int under, int coverage)
 {
     if (coverage >= LEVELS - 1) return (uint8_t)colour;
@@ -23,14 +31,28 @@ static uint8_t mixed(Ramps *r, const uint8_t *palette, int colour, int under, in
         palette_text_ramp(palette, palette_usable(), colour, under, r->ramp[under]);
         r->known[under] = 1;
     }
-    return r->ramp[under][coverage];
+    const uint8_t *const f = palette + 3 * colour, *const u = palette + 3 * under;
+    const int want[3] = { (f[0] * coverage + u[0] * (LEVELS - 1 - coverage)) / (LEVELS - 1), (f[1] * coverage + u[1] * (LEVELS - 1 - coverage)) / (LEVELS - 1),
+                          (f[2] * coverage + u[2] * (LEVELS - 1 - coverage)) / (LEVELS - 1) };
+    int best = r->ramp[under][coverage];
+    enum { NEAR = 1200 };   /* the largest squared RGB distance still taken as the mix */
+    if (distance(palette, best, want) > NEAR) {
+        best = distance(palette, colour, want) <= distance(palette, under, want) ? colour : under;
+    }
+    return (uint8_t)best;
 }
 
-/* the entry nearest the colour `index` times n/16 */
+/* the entry nearest the colour `index` times n/16, or `index` itself when the palette has nothing near it (a photo's quantized palette
+ * may hold no shade of the label's colour, and its nearest entry would be a dark speck in the letters) */
 static int shaded(const uint8_t *palette, int index, int n)
 {
+    enum { NEAR = 1200 };   /* the largest squared RGB distance still taken for the same colour, a little */
     const uint8_t *const c = palette + 3 * index;
-    return palette_nearest(palette, palette_usable(), c[0] * n / 16, c[1] * n / 16, c[2] * n / 16);
+    const int r = c[0] * n / 16, g = c[1] * n / 16, b = c[2] * n / 16;
+    const int found = palette_nearest(palette, palette_usable(), r, g, b);
+    const uint8_t *const f = palette + 3 * found;
+    const int d = (f[0] - r) * (f[0] - r) + (f[1] - g) * (f[1] - g) + (f[2] - b) * (f[2] - b);
+    return d <= NEAR ? found : index;
 }
 
 void text_label_blit_mask(uint8_t *to, int tw, int th, const uint8_t palette[768], const uint8_t *mask, int w, int h, int x, int y,

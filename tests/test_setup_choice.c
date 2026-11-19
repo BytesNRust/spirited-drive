@@ -8,6 +8,7 @@
 #include "game/race/car_paint.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
+#include "game/sys/palette.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -83,10 +84,14 @@ static void measured(void)
     CHECK(GL_SETUP_NAME_W - widest >= 0 && GL_SETUP_NAME_W - widest <= 8);   /* the span is the widest name's with a little air, not more */
     /* a tile's label (owner 2026-11-19): black letters and no yellow when it is not the item; yellow letters, no shadow and no black when it is */
     {
-        static uint8_t tile[160 * 64];
+        static uint8_t tile[160 * 64], palette[768], usable[256];
+        for (int i = 0; i < 256; i++) palette[3 * i] = palette[3 * i + 1] = palette[3 * i + 2] = 60, usable[i] = 1;   /* a grey page, the black at 1, the yellow at 2 */
+        memset(palette + 3, 0, 3);
+        palette[6] = 252, palette[7] = 204, palette[8] = 0;
+        palette_usable_set(usable);
         for (int lit = 0; lit < 2; lit++) {
             memset(tile, 7, sizeof tile);
-            gallery_label_tile(tile, 160, 64, "SETUP", 0, 0, 64, 1, 2, lit);
+            gallery_label_tile(tile, 160, 64, palette, "SETUP", 0, 0, 64, 1, 2, lit);
             int black = 0, yellow = 0;
             for (size_t i = 0; i < sizeof tile; i++) black += tile[i] == 1, yellow += tile[i] == 2;
             CHECK(lit ? (yellow > 100 && black == 0) : (black > 100 && yellow == 0));
