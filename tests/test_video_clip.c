@@ -150,9 +150,28 @@ static void test_the_quick_fades(void)
     CHECK_EQ_INT(video_display_is_dark(), 0);
 }
 
+static int serviced;
+static void count_service(void) { serviced++; }
+
+/* owner 2026-11-19: a screen with music playing feeds it through its fade: the serviced fade calls its hook once for each of its steps and ends lit */
+static void test_the_serviced_fade_calls_its_hook_each_step(void)
+{
+    lit_palette();
+    video_fade_out(0, PALETTE_COLORS);
+    uint8_t target[PALETTE_BYTES];
+    memset(target, 0xff, sizeof target);
+    serviced = 0;
+    video_fade_in_serviced(0, PALETTE_COLORS, target, count_service);
+    CHECK_EQ_INT(serviced, PALETTE_FADE_STEPS);
+    CHECK_EQ_INT(video_display_is_dark(), 0);
+    video_fade_in_serviced(0, PALETTE_COLORS, target, NULL);   /* no hook: the plain fade */
+    CHECK_EQ_INT(serviced, PALETTE_FADE_STEPS);
+}
+
 int main(void)
 {
     if (!video_init()) return 1;
+    test_the_serviced_fade_calls_its_hook_each_step();
     test_clip_keeps_blits_inside();
     test_clip_cut_to_target();
     test_select_opens_the_box();

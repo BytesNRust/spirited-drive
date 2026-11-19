@@ -229,15 +229,18 @@ void video_get_palette(uint8_t rgb[768])
     memcpy(rgb, palette, PALETTE_BYTES);
 }
 
-void video_fade_in(int first, int count, const uint8_t *target)
+void video_fade_in_serviced(int first, int count, const uint8_t *target, void (*service)(void))
 {
     uint8_t scaled[PALETTE_BYTES];
     for (int frame = 0; frame < PALETTE_FADE_STEPS; frame++) {
         palette_scale(target, scaled, first, count, palette_fade_in_step(frame));
         video_wait_vblank();
         video_set_palette(first, count, scaled);
+        if (service != NULL) service();
     }
 }
+
+void video_fade_in(int first, int count, const uint8_t *target) { video_fade_in_serviced(first, count, target, NULL); }
 
 void video_fade_out(int first, int count)
 {

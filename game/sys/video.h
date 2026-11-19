@@ -32,6 +32,8 @@ void video_wait_vblank(void);                                         /* 004735b
 void video_set_palette(int first, int count, const uint8_t *rgb);     /* 004763cc */
 void video_get_palette(uint8_t rgb[768]);                             /* 00476648 */
 void video_fade_in(int first, int count, const uint8_t *target);      /* 00463e7c */
+/* port: the same, `service` (when not NULL) called after each step: a screen that has music playing feeds it through its own fade */
+void video_fade_in_serviced(int first, int count, const uint8_t *target, void (*service)(void));
 void video_fade_out(int first, int count);                            /* 00463ef0 */
 /* port: the short fades (PALETTE_FADE_QUICK_STEPS frames) that cover a change of the window's picture */
 void video_fade_out_quick(int first, int count);
