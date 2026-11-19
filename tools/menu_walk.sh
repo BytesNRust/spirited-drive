@@ -34,7 +34,7 @@
 # Every step waits for the game's own "mark:screen=NAME" log line (the front end logs one as each screen opens), not for a time; the clicks wait for
 # the screen to be still (TNFS_INPUT_SETTLE). A step that does not come in time stops the run and says which ("input script: step N: WAIT ... timed
 # out"), exit 3. The run is the visible-run kind: dummy SDL drivers, timeout -k, a scratch --mods and --user, the repo's original/ as the game data.
-#   env: DATA (the game data folder, default <repo>/original)  STEP_TIMEOUT (60 s a step)  SETTLE (1500 ms)  KEEP=1 (keep the scratch dir, for a look)
+#   env: DATA (the game data folder, default <repo>/original)  STEP_TIMEOUT (60 s a step)  SETTLE (1500 ms)  FRESH (20 s: no picture is taken as still before a frame newer than the target's mark, or this long after it)  KEEP=1 (keep the scratch dir, for a look)
 #        STILL (30): the most seconds the walk waits, after the target's mark and its tail, for the screen to stop changing
 #        QUIET (2): the seconds without a new frame that make the screen still (the menus present a frame only when something changes)
 #        FORMAT (4:3, 16:9 or 21:9; default 4:3): the screen format the walk runs in. The 640x480 menus sit centred on a wider screen, so every click
@@ -186,10 +186,10 @@ limit=$(( step * 12 + 60 ))
 # ("input script: done"), at most DONE_WAIT seconds
 # past the target's mark: a binary from before that line (a menu_compare against an older build, a bisect) never logs it, and the walk then
 # says so and goes on as without KEYS
-rc=1 waited=0 marked=-1
+rc=1 waited=0 marked=-1 frames_at_mark=0 mark_epoch=0
 while [ $waited -lt $limit ]; do
     sleep 1; waited=$((waited + 1))
-    if [ $marked -lt 0 ] && grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null; then marked=$waited; fi
+    if [ $marked -lt 0 ] && grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null; then marked=$waited; frames_at_mark=$(ls "$work/cap" | wc -l); mark_epoch=$(date +%s); fi
     if [ $marked -ge 0 ]; then
         if [ -z "$KEYS$steps_after" ] || grep -q "input script: done" "$work/user/spirited-drive.log" 2>/dev/null; then sleep ${tail:-3}; rc=0; break; fi
         if [ $(( waited - marked )) -ge ${DONE_WAIT:-30} ]; then
@@ -210,6 +210,10 @@ pick=""
 if [ $rc -eq 0 ] && [ -z "$pack" ]; then   # (a pack walk's pictures are its SHOTs, already still)
     ticks=0 calm=0 seen=""
     while [ $ticks -lt $(( ${STILL:-30} * 2 )) ]; do
+        # the mark is logged when the page is turned to, before it is drawn: under load (ASan, a full ctest beside it) the game still presents the page it left,
+        # two equal frames of it look still, and its picture is taken (extras-p2 came out as page 1). No frame is still until one has been presented since the
+        # mark, or FRESH seconds (default 20) have passed since it: a screen that drew before it logged presents none, and goes on as it did
+        if [ $(ls "$work/cap" | wc -l) -le $frames_at_mark ] && [ $(( $(date +%s) - mark_epoch )) -lt ${FRESH:-20} ]; then sleep 0.5; ticks=$((ticks + 1)); continue; fi
         frames=($(ls "$work/cap" | sort | tail -3))
         newest=${frames[-1]:-}
         if [ -n "$newest" ] && [ "$newest" = "$seen" ]; then
