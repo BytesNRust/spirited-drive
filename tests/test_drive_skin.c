@@ -372,6 +372,23 @@ static void test_high_bank_side_and_back_by_their_masks(void)
     CHECK_EQ_INT(drafted(&log, "side", 0), -1);
     CHECK_EQ_INT((int)log.hash, (int)CATALOGUE_SHAPED_DRAFT_HASH);
     free(cfm);
+
+    char own[400];   /* an added car's own folder: a side whose mask has lamp and shine texels but no paint is drafted too (deliberate: its shine comes from the mask) */
+    snprintf(own, sizeof own, "%s/skins/lit_side", base);
+    uint8_t lit[8] = { CAR_MASK_BRAKE, CAR_MASK_BRAKE, CAR_MASK_SHINE, CAR_MASK_SHINE, CAR_MASK_MATTE, CAR_MASK_MATTE, CAR_MASK_MATTE, CAR_MASK_MATTE };
+    if (car_mask_write(lit, 4, 2, &png, &n)) spill(own, "side_mask.png", png, n), png_free(png);
+    uint8_t all_paint[8] = { 0 };   /* the bank has paint (its topv), as a car has: with none the draft is all matte */
+    if (car_mask_write(all_paint, 4, 2, &png, &n)) spill(own, "topv_mask.png", png, n), png_free(png);
+    cfm = cfm_named("side", &size);
+    memset(&log, 0, sizeof log);
+    drive_livery_draft_masks("TESTCAR", own, cfm, size, draft_log, &log);
+    const int lit_side = drafted(&log, "side", 0);
+    CHECK(lit_side >= 0);
+    if (lit_side >= 0) {
+        CHECK_EQ_INT(log.klass[lit_side][2], 4);   /* the two brake and the two glass-shine texels shine */
+        CHECK_EQ_INT(log.klass[lit_side][1], 4);   /* the matte ones stay matte; no texel is paint: its mask has none */
+    }
+    free(cfm);
     unsetenv("TNFS_CAR_MASKS");
 }
 
