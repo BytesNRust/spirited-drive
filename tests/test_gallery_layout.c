@@ -235,12 +235,14 @@ static void test_setup_hit(void)
 {
     int step = 9;
     for (int row = 0; row < GALLERY_SETUP_ROWS; row++) {
-        const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP + 5, sw = row >= SETUP_TRANSMISSION;
-        CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + GL_SETUP_VALUE_X + 5, y, &step), row);
+        const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP + GL_SETUP_INK_MID, sw = row >= SETUP_TRANSMISSION;
+        SetupChoice c;
+        gallery_setup_choice(&c);
+        CHECK_EQ_INT(gallery_setup_hit(c.left + 5, y, &step), row);
         CHECK_EQ_INT(step, sw ? 1 : -1);
-        CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + GL_SETUP_VALUE_X + GL_SETUP_VALUE_W - 5, y, &step), row);
+        CHECK_EQ_INT(gallery_setup_hit(c.right + GL_ARROW_W - 5, y, &step), row);
         CHECK_EQ_INT(step, 1);
-        CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + 20, y, &step), row);
+        CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + GL_SETUP_LABEL_X + 6, y, &step), row);
         CHECK_EQ_INT(step, sw ? 1 : 0);
     }
     CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + 20, GL_SETUP_Y + 10, &step), -1);             /* the title */

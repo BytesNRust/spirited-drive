@@ -167,11 +167,11 @@ int gallery_hit(int x, int y, int *step)
 
 void gallery_setup_choice(SetupChoice *c)
 {
-    c->left = GL_SETUP_X + GL_SETUP_CHOICE_X;
-    c->right = GL_SETUP_X + GL_SETUP_W - 16 - GL_ARROW_W;
+    c->left = GL_SETUP_X + GL_SETUP_COL2_X;
     c->preview = c->left + GL_ARROW_W + GL_SETUP_CHOICE_GAP;
     c->name_x0 = c->preview + GL_SETUP_PREVIEW_W + GL_SETUP_CHOICE_GAP;
-    c->name_x1 = c->right - GL_SETUP_CHOICE_GAP;
+    c->name_x1 = c->name_x0 + GL_SETUP_NAME_W;
+    c->right = c->name_x1 + GL_SETUP_CHOICE_GAP;
 }
 
 int gallery_setup_row_at(int y)

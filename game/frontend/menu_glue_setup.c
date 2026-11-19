@@ -13,7 +13,6 @@
 #include "game/frontend/cg_setup.h"
 #include "game/race/car_paint.h"
 #include "game/frontend/gallery_label.h"
-#include "game/frontend/setup_name.h"
 #include "game/frontend/gallery_layout.h"
 #include "game/race/car_variant.h"
 #include "game/sys/palette.h"
@@ -267,18 +266,18 @@ static void panel_draw(const Panel *p, int frame)
     text_ink_scaled("H", GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN, &ink_top, &ink_bottom);
     for (int row = 0; row < ROWS; row++) {
         const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP, on = row_on(p, row), lit = p->row == row;
-        const int zone = GL_SETUP_X + GL_SETUP_VALUE_X, right = zone + GL_SETUP_VALUE_W, mid = y + (ink_top + ink_bottom) / 2;
+        const int mid = y + (ink_top + ink_bottom) / 2;
+        SetupChoice c;
+        gallery_setup_choice(&c);   /* the second column: < box   name   >, the box next to the left arrow, the name centred between it and the right arrow */
         char value[64];
         value_text(p, row, value, sizeof value);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM);
         text_draw_smooth(LABEL[row], GL_SETUP_X + GL_SETUP_LABEL_X, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_WHITE);
-        if (row != ROW_COLOUR || !on) {   /* a switch's value (or Color while it is off): at the right end of the arrows' zone */
-            text_draw_smooth(value, right - text_width_scaled(value, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN), y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+        if (row != ROW_COLOUR || !on) {   /* a switch's value (or Color while it is off): from the second column's edge */
+            text_draw_smooth(value, c.left, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
             continue;
         }
-        SetupChoice c;
-        gallery_setup_choice(&c);   /* < box   name   >: the box next to the left arrow, the name centred between it and the right arrow (owner 2026-11-19) */
         const int box = c.preview;
         arrow(&t, c.left, mid - GL_ARROW_H / 2, 1, lit ? yellow : cream, black);
         arrow(&t, c.right, mid - GL_ARROW_H / 2, 0, lit ? yellow : cream, black);
@@ -286,7 +285,7 @@ static void panel_draw(const Panel *p, int frame)
         const CarVariantCanvas canvas = { &t, preview_fill, box + 1, mid - GL_SETUP_PREVIEW_H / 2 + 1, box + GL_SETUP_PREVIEW_W - 2,
                                           mid - GL_SETUP_PREVIEW_H / 2 + GL_SETUP_PREVIEW_H - 2 };
         car_variant_draw(showcase_variants, showcase_variant_count, p->model, &canvas);
-        setup_name_draw(value, c.name_x0, c.name_x1, mid);
+        text_draw_smooth(value, c.name_x0 + (c.name_x1 - c.name_x0 - text_width_scaled(value, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN)) / 2, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);   /* every name at the row's size: the span is the widest name's */
     }
 }
 

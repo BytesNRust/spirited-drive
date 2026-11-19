@@ -234,7 +234,6 @@ add_library(tnfs_game STATIC
     game/frontend/added_gallery_setup.c
     game/frontend/gallery_label.c
     game/frontend/mech_figures.c
-    game/frontend/setup_name.c
     game/frontend/added_gallery_tints.c
     game/frontend/added_card_text.c
     game/frontend/content_dialog_glue.c

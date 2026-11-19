@@ -11,15 +11,14 @@
 
 enum { BEVEL = 8, INTERIOR = 205 - 2 * BEVEL };   /* the slab's border left out: its 189 interior columns are the panel's ground */
 
-/* the panel's column x from the slab's: its middle is the slab's interior, each side the interior's edge mirrored */
+/* the panel's column x from the slab's: its middle is the slab's interior, and on both sides the interior's columns go on mirrored, back and forth
+ * (a triangle wave), as far as the panel is wide */
 static int source_column(int x)
 {
     const int pad = (GL_SETUP_W - INTERIOR) / 2;
-    int c = x - pad;
-    if (c < 0) c = -c - 1;
+    int c = (x - pad) % (2 * INTERIOR);
+    if (c < 0) c += 2 * INTERIOR;
     if (c >= INTERIOR) c = 2 * INTERIOR - 1 - c;
-    if (c < 0) c = 0;
-    if (c >= INTERIOR) c = INTERIOR - 1;
     return BEVEL + c;
 }
 

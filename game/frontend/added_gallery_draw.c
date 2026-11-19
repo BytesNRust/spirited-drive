@@ -3,7 +3,6 @@
 #include "game/frontend/added_gallery_page.h"
 
 #include "game/frontend/gallery_label.h"
-#include "game/frontend/setup_name.h"
 #include "game/sys/text.h"
 
 #include <stdio.h>
@@ -88,18 +87,19 @@ static void fitted_main(const char *text, int width, char *out, int size)
     }
 }
 
-/* a tile row's label at the left of x0..x1 in the small face and its value at the right, upright in the main face at FIGURE_NUM/FIGURE_DEN (owner 2026-11-19:
- * the small face leans; a value that is not there is a dash) */
-enum { FIGURE_NUM = 3, FIGURE_DEN = 4, FIGURE_DY = 2 };
+/* a tile row's label at the left of x0..x1 and its value at the right, both upright in the main face (owner 2026-11-19: the small face leans): both
+ * at FIGURE_NUM/FIGURE_DEN, 3/4, the CD's own row size (kit E9; 7/8, the panel's, would cut a country in General's 147 px), the label dim and the value cream;
+ * a value that is not there is a dash */
+enum { FIGURE_NUM = 3, FIGURE_DEN = 4, FIGURE_DY = 0 };
 
 static void figure_row(const char *label_, const char *value, int x0, int x1, int y)
 {
     char said[64], fits[64];
     text_select(TEXT_DIM);
-    text_small_draw(label_, x0, y);
+    text_draw_smooth(label_, x0, y, FIGURE_NUM, FIGURE_DEN);
     text_words(value[0] == 0 ? "-" : value, said, sizeof said);   /* the main face: its ',' is a comma */
     snprintf(fits, sizeof fits, "%s", said);
-    const int room = x1 - x0 - text_small_width(label_) - 8;
+    const int room = x1 - x0 - text_width_scaled(label_, FIGURE_NUM, FIGURE_DEN) - 4;
     while (fits[0] != 0 && text_width_scaled(fits, FIGURE_NUM, FIGURE_DEN) > room) {
         const size_t n = strlen(fits);
         fits[n - 1] = 0;
@@ -113,7 +113,7 @@ static void general(const Page *p)
 {
     static const char *const LABEL[4] = { "Make", "Year", "Country", "Category" };
     const char *const value[4] = { p->card.info.make, p->card.info.year, p->card.info.country, p->card.info.category };
-    for (int i = 0; i < 4; i++) figure_row(LABEL[i], value[i], GL_GEN_X + 8, GL_GEN_X + GL_GEN_W - 8, GL_GEN_Y + 6 + i * 20);
+    for (int i = 0; i < 4; i++) figure_row(LABEL[i], value[i], GL_GEN_X + 6, GL_GEN_X + GL_GEN_W - 6, GL_GEN_Y + 6 + i * 20);
 }
 
 /* owner 2026-11-19: Mechanical's tile: the power, the weight and the weight per horsepower, in the player's units */
@@ -121,7 +121,7 @@ static void mechanical(const Page *p)
 {
     static const char *const LABEL[3] = { "Power", "Weight", "Weight/power" };
     const char *const value[3] = { p->mech.power, p->mech.weight, p->mech.ratio };
-    for (int i = 0; i < 3; i++) figure_row(LABEL[i], value[i], GL_MECH_X + 8, GL_MECH_X + GL_MECH_W - 8, GL_MECH_Y + 5 + i * 19);
+    for (int i = 0; i < 3; i++) figure_row(LABEL[i], value[i], GL_MECH_X + 6, GL_MECH_X + GL_MECH_W - 6, GL_MECH_Y + 5 + i * 19);
 }
 
 /* owner 2026-11-18: the History text in the main face at 3/4, scrolled a pixel row at a time */
@@ -221,25 +221,26 @@ static void setup_panel(const Target *t, const Page *p)
     text_ink_scaled("H", GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN, &ink_top, &ink_bottom);
     for (int row = 0; row < SETUP_ROWS; row++) {
         const int y = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP, on = added_gallery_setup_row_on(&p->card, s, row), lit = s->row == row;
-        const int choice = row == SETUP_COLOUR || row == SETUP_SKIN, zone = GL_SETUP_X + GL_SETUP_VALUE_X, right = zone + GL_SETUP_VALUE_W;
+        const int choice = row == SETUP_COLOUR || row == SETUP_SKIN;
+        SetupChoice c;
+        gallery_setup_choice(&c);   /* the second column: < box   name   >, the box next to the left arrow, the name centred between it and the right arrow */
         const int mid = y + (ink_top + ink_bottom) / 2;   /* the row's middle: the arrows and the box centre on it */
         char value[64], fits[64];
         setup_value(p, row, value, sizeof value);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM);
         text_draw_smooth(LABEL[row], GL_SETUP_X + GL_SETUP_LABEL_X, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_WHITE);
-        if (!choice || !on) {   /* a switch's value (or a choice that is off): at the right end of the zone */
-            fitted_main(value, GL_SETUP_VALUE_W, fits, sizeof fits);
-            text_draw_smooth(fits, right - text_width_scaled(fits, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN), y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+        if (!choice || !on) {   /* a switch's value (or a choice that is off): from the second column's edge */
+            fitted_main(value, c.right + GL_ARROW_W - c.left, fits, sizeof fits);
+            text_draw_smooth(fits, c.left, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
             continue;
         }
         const int index = lit ? YELLOW : CREAM;
-        SetupChoice c;
-        gallery_setup_choice(&c);   /* < box   name   >: the box next to the left arrow, the name centred between it and the right arrow (owner 2026-11-19) */
         arrow(t, c.left, mid - GL_ARROW_H / 2, 1, index);
         arrow(t, c.right, mid - GL_ARROW_H / 2, 0, index);
         preview(t, c.preview, mid - GL_SETUP_PREVIEW_H / 2, row == SETUP_COLOUR ? SWATCH : SKIN_SWATCH);
-        setup_name_draw(value, c.name_x0, c.name_x1, mid);
+        fitted_main(value, c.name_x1 - c.name_x0, fits, sizeof fits);   /* an added car's own long name is cut; the CD's all fit */
+        text_draw_smooth(fits, c.name_x0 + (c.name_x1 - c.name_x0 - text_width_scaled(fits, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN)) / 2, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
     }
 }
 
