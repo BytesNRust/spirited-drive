@@ -62,6 +62,7 @@ typedef struct {
     char stem[MOD_INI_STEM_MAX + 1];   /* "" when not given, as the ones below */
     char short_name[MOD_INI_SHORT_MAX + 1];
     char sound_from[MOD_INI_FROM_MAX + 1], ai_from[MOD_INI_FROM_MAX + 1], dash_from[MOD_INI_FROM_MAX + 1];
+    char assist_abs[MOD_INI_FROM_MAX + 1], assist_traction[MOD_INI_FROM_MAX + 1];   /* port (dep78): abs= and traction=, yes or no as written (car_piece_assist); "" when not given: the PBS says */
     char ai_level[MOD_INI_FROM_MAX + 1];   /* port (dep59 3b): slow, medium, fast or top (car_ai.h); "": its own pace */
     /* the author's figures, as written; "" when not given */
     char year[MOD_INI_FIGURE_MAX + 1], power[MOD_INI_FIGURE_MAX + 1], weight[MOD_INI_FIGURE_MAX + 1];

@@ -51,6 +51,8 @@ static const Field FIELDS[] = {
     { "ai_from", offsetof(ModInfo, ai_from), sizeof ((ModInfo *)0)->ai_from, KIND_WORD },
     { "dash_from", offsetof(ModInfo, dash_from), sizeof ((ModInfo *)0)->dash_from, KIND_WORD },
     { "ai_level", offsetof(ModInfo, ai_level), sizeof ((ModInfo *)0)->ai_level, KIND_WORD },   /* port (dep59 3b) */
+    { "abs", offsetof(ModInfo, assist_abs), sizeof ((ModInfo *)0)->assist_abs, KIND_WORD },   /* port (dep78): a car's ABS and traction control, yes or no */
+    { "traction", offsetof(ModInfo, assist_traction), sizeof ((ModInfo *)0)->assist_traction, KIND_WORD },
     { "year", offsetof(ModInfo, year), sizeof ((ModInfo *)0)->year, KIND_TEXT },
     { "power", offsetof(ModInfo, power), sizeof ((ModInfo *)0)->power, KIND_TEXT },
     { "weight", offsetof(ModInfo, weight), sizeof ((ModInfo *)0)->weight, KIND_TEXT },

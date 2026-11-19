@@ -13,14 +13,14 @@ static const int TOURNAMENT_CAR[10] = { 0, 3, 6, 0, 3, 3, 6, 6, 7, 3 };
 static const int CAR_TABLE_A[12] = { 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0 };
 static const int CAR_TABLE_B[12] = { 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
 
-/* 00465ec8; port (dep59 3b): an added car takes CAR_FLAGS_ADDED_A/B (the originals' majority, nothing of a car it is made from), and a
+/* 00465ec8; port (dep78): an added car offers what it has (its CarPiece's abs_on and traction_on: its mod.ini's abs= / traction=, else its PBS), and a
  * car past the tables (one no longer registered) car 0's, never a read past them */
 void race_settings_car_offers(int car, int *abs, int *traction)
 {
-    const int added = car_registry_is_added(car);
+    const CarPiece *piece = car_registry_piece(car);
     if (car < 0 || car >= (int)(sizeof CAR_TABLE_A / sizeof CAR_TABLE_A[0])) car = 0;
-    *abs = added ? CAR_FLAGS_ADDED_A : CAR_TABLE_A[car];
-    *traction = added ? CAR_FLAGS_ADDED_B : CAR_TABLE_B[car];
+    *abs = piece != NULL ? piece->abs_on != 0 : CAR_TABLE_A[car];
+    *traction = piece != NULL ? piece->traction_on != 0 : CAR_TABLE_B[car];
 }
 
 void race_settings_car_flags(RaceSettings *s)

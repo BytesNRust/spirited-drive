@@ -142,23 +142,36 @@ static void test_laps(void)
     CHECK_EQ_INT(s.laps, 16);
 }
 
-/* Review Focus 8; 3b Decision 5: an added car's flags are CAR_FLAGS_ADDED_A/B (the originals' majority), whatever it is made from, never a
- * read past the tables of 12 */
+/* dep78: an added car offers what its piece says it has (abs_on, traction_on), in the menus' flags too; never a read past the tables of 12 */
 static void test_added_car_flags(void)
 {
     car_registry_clear();
-    CHECK_EQ_INT(car_registry_add(&(CarPiece){ .id = "a", .stem = "A1", .sound_model = 5, .ai = { CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, .dash_model = -1 }, NULL, 0), 16);
+    CHECK_EQ_INT(car_registry_add(&(CarPiece){ .id = "a", .stem = "A1", .sound_model = 5, .ai = { CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, .dash_model = -1, .abs_on = 1 }, NULL, 0), 16);
+    CHECK_EQ_INT(car_registry_add(&(CarPiece){ .id = "b", .stem = "B1", .sound_model = 5, .ai = { CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, .dash_model = -1, .traction_on = 1 }, NULL, 0), 17);
+    CHECK_EQ_INT(car_registry_add(&(CarPiece){ .id = "c", .stem = "C1", .sound_model = 5, .ai = { CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, .dash_model = -1, .abs_on = 1, .traction_on = 1 }, NULL, 0), 18);
+    CHECK_EQ_INT(car_registry_add(&(CarPiece){ .id = "d", .stem = "D1", .sound_model = 5, .ai = { CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, .dash_model = -1 }, NULL, 0), 19);
     RaceSettings s, want;
     race_settings_init(&s), race_settings_init(&want);
     s.player_car = 16;
     race_settings_car_flags(&s);
-    CHECK_EQ_INT(s.car_flag_a, CAR_FLAGS_ADDED_A ? 0 : 2);   /* A = 1, B = 0: flag a 0, flag b 2 (the Viper, car 5, would give 2 and 2) */
-    CHECK_EQ_INT(s.car_flag_b, (CAR_FLAGS_ADDED_B == 0) + 1);
-    CHECK_EQ_INT(CAR_FLAGS_ADDED_A, 1);
-    CHECK_EQ_INT(CAR_FLAGS_ADDED_B, 0);
+    CHECK_EQ_INT(s.car_flag_a, 0);   /* car 16 has ABS only: flag a 0 (offered), flag b 2 (not offered) */
+    CHECK_EQ_INT(s.car_flag_b, 2);
+    s.player_car = 17;   /* traction only */
+    race_settings_car_flags(&s);
+    CHECK_EQ_INT(s.car_flag_a, 2);
+    CHECK_EQ_INT(s.car_flag_b, 1);
     int offers_abs, offers_traction;
-    race_settings_car_offers(16, &offers_abs, &offers_traction);   /* an added car: the same as the flags above say */
+    race_settings_car_offers(16, &offers_abs, &offers_traction);   /* an added car: what its piece says */
     CHECK_EQ_INT(offers_abs, 1);
+    CHECK_EQ_INT(offers_traction, 0);
+    race_settings_car_offers(17, &offers_abs, &offers_traction);
+    CHECK_EQ_INT(offers_abs, 0);
+    CHECK_EQ_INT(offers_traction, 1);
+    race_settings_car_offers(18, &offers_abs, &offers_traction);
+    CHECK_EQ_INT(offers_abs, 1);
+    CHECK_EQ_INT(offers_traction, 1);
+    race_settings_car_offers(19, &offers_abs, &offers_traction);   /* neither: n/a for both */
+    CHECK_EQ_INT(offers_abs, 0);
     CHECK_EQ_INT(offers_traction, 0);
     race_settings_car_offers(5, &offers_abs, &offers_traction);    /* the Viper (the menus' car 5): neither */
     CHECK_EQ_INT(offers_abs, 0);

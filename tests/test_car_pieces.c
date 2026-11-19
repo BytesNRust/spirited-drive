@@ -293,6 +293,62 @@ static void test_the_fingerprint(void)
     CHECK(memcmp(print_none, print_of(b), PIECE_PRINT_SIZE) != 0);   /* the tuning alone changes it */
 }
 
+/* port (dep78): a piece has ABS and traction control as its mod.ini's abs= / traction= say, else as its PBS's words at 0x334 / 0x338; the
+ * fingerprint and the print are what they were unless a key gives what the PBS does not */
+/* the PBS of the piece in `dir` with both assist words at 1, sealed again */
+static void give_both(const char *dir)
+{
+    char path[600];
+    size_t size = 0;
+    snprintf(path, sizeof path, "%s/SIMDATA/CARSPECS/PRINT.PBS", dir);
+    uint8_t *pbs = slurp(path, &size);
+    uint8_t record[PBS_SIZE];
+    CHECK(pbs != NULL && pbs_read(record, pbs, size));
+    free(pbs);
+    record[0x334] = 1, record[0x338] = 1;
+    pbs_seal(record);
+    spill(path, record, PBS_SIZE);
+}
+
+static void test_the_assists(void)
+{
+    char a[400], b[400];
+    CHECK(piece("assist", "print-car", "PRINT", FROM, "", a));   /* the Viper's PBS: both words 0 */
+    const uint32_t plain = fingerprint_of(a);
+    uint8_t plain_print[PIECE_PRINT_SIZE];
+    memcpy(plain_print, print_of(a), sizeof plain_print);
+    const CarPiece *p = car_registry_piece(car_registry_find("print-car"));
+    CHECK(p != NULL && p->abs_on == 0 && p->traction_on == 0);   /* no key: the PBS says */
+    CHECK(piece("assist_no", "print-car", "PRINT", "sound_from=viper\nabs=no\ntraction=no\n", "", b));   /* a key that agrees with the PBS */
+    CHECK_EQ_INT((int)fingerprint_of(b), (int)plain);
+    CHECK_MEM(print_of(b), plain_print, PIECE_PRINT_SIZE);
+    p = car_registry_piece(car_registry_find("print-car"));
+    CHECK(p != NULL && p->abs_on == 0 && p->traction_on == 0);
+    CHECK(piece("assist_abs", "print-car", "PRINT", "sound_from=viper\nabs=yes\n", "", b));   /* ABS given to a PBS without it */
+    const uint32_t gave = fingerprint_of(b);
+    p = car_registry_piece(car_registry_find("print-car"));
+    CHECK(p != NULL && p->abs_on == 1 && p->traction_on == 0);
+    CHECK(gave != 0 && gave != plain);
+    CHECK(memcmp(print_of(b), plain_print, PIECE_PRINT_SIZE) != 0);
+    CHECK(piece("assist_both", "print-car", "PRINT", "sound_from=viper\nabs=yes\ntraction=yes\n", "", b));
+    p = (fingerprint_of(b), car_registry_piece(car_registry_find("print-car")));
+    CHECK(p != NULL && p->abs_on == 1 && p->traction_on == 1);
+    CHECK(fingerprint_of(b) != gave);   /* each flag is in it */
+    CHECK(piece("assist_bad", "print-car", "PRINT", "sound_from=viper\nabs=maybe\n", "", b));   /* a bad value: the piece is refused */
+    car_registry_clear();
+    CHECK_EQ_INT(load1(b, 1), 0);
+    /* a PBS that has both (the words at 1, sealed): no key keeps them, a key can take one away */
+    give_both(a);
+    (void)fingerprint_of(a);
+    p = car_registry_piece(car_registry_find("print-car"));
+    CHECK(p != NULL && p->abs_on == 1 && p->traction_on == 1);
+    CHECK(piece("assist_take", "print-car", "PRINT", "sound_from=viper\ntraction=no\n", "", b));
+    give_both(b);
+    (void)fingerprint_of(b);
+    p = car_registry_piece(car_registry_find("print-car"));
+    CHECK(p != NULL && p->abs_on == 1 && p->traction_on == 0);
+}
+
 /* dep59 step 3: what an added car's gallery reads of its piece (car_pieces_card): its card again, its skins/ folders in name order after
  * the skin as it comes, and which of them have masks (Color applies); 0 for an original or a number not registered */
 static void test_the_card(void)
@@ -392,6 +448,7 @@ int main(void)
     test_numbers_stay_across_reloads();
     test_it_follows_the_mods();
     test_the_fingerprint();
+    test_the_assists();
     test_the_card();
     test_pictures_at_load();
     test_photos_at_load();

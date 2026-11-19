@@ -24,6 +24,7 @@ typedef struct {
                                   * what decides how it drives (a replay's check) */
     uint8_t print[32];           /* the SHA-256 print of the same stream (game/sys/piece_print.h), all zeros for none: what records are kept under */
     char dir[CAR_PIECE_DIR_MAX]; /* dep59 step 3: the folder it was read from, for its pictures and skins ("" for one not read from a folder) */
+    int abs_on, traction_on;     /* port (dep78): whether it has ABS and traction control: its mod.ini's abs= / traction=, else its PBS's words at 0x334 / 0x338 (car_piece_assist) */
     int card_name_off;           /* mod.ini card_name=off: no name drawn over its card (its picture shows its own) */
 } CarPiece;
 
@@ -66,8 +67,6 @@ int car_registry_lamp_model(int car);
 int car_registry_ai_model(int car);
 /* port (dep59 3b): the AI tuning of an added car; NULL for an original (its tables, ai_manager.c) and for a number not registered */
 const CarAiTuning *car_registry_ai(int car);
-/* port (dep59 3b, Decision 5): an added car's entries of the menus' car tables (race_settings_car_flags): the originals' majority */
-enum { CAR_FLAGS_ADDED_A = 1, CAR_FLAGS_ADDED_B = 0 };
 /* the name the results and records show for `car` out of `names`, a screen's own table of `count` originals: names[car] for 0..count-1,
  * an added car's short_name, "" for anything else */
 const char *car_registry_short_name(int car, const char *const names[], int count);
