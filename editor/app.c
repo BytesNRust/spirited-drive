@@ -32,11 +32,10 @@ static void drop_road(App *a)
     a->flags = NULL;
     a->node_count = 0;
     a->road_made = 0;
-    a->turn_nodes = 0;
-    a->radius_nodes = 0;
-    a->warn_turn_nodes = 0;
-    a->warn_radius_nodes = 0;
-    a->warn_text[0] = '\0';
+    free(a->problems);
+    a->problems = NULL;
+    a->problem_count = 0;
+    a->summary_count = 0;
 }
 
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
@@ -88,18 +87,13 @@ void app_recompute(App *a)
     }
     a->road_made = 1;
     track_trace_flags(a->nodes, a->node_count, a->flags);
-    for (int i = 0; i < a->node_count; ++i) {
-        a->turn_nodes += (a->flags[i] & TRACE_FLAG_TURN) != 0;
-        a->radius_nodes += (a->flags[i] & TRACE_FLAG_RADIUS) != 0;
-        a->warn_turn_nodes += (a->flags[i] & TRACE_FLAG_TURN_WARN) != 0;
-        a->warn_radius_nodes += (a->flags[i] & TRACE_FLAG_RADIUS_WARN) != 0;
+    a->summary_count = track_trace_summary(a->flags, a->node_count, a->summary);
+    a->problem_count = track_trace_problems(a->nodes, a->node_count, a->flags, NULL, 0);
+    if (a->problem_count > 0) {
+        a->problems = calloc((size_t)a->problem_count, sizeof *a->problems);
+        if (a->problems != NULL) track_trace_problems(a->nodes, a->node_count, a->flags, a->problems, a->problem_count);
+        else a->problem_count = 0;
     }
-    if (a->turn_nodes > 0)
-        snprintf(a->road_text, sizeof a->road_text, "%d node(s) turn more than %g degrees", a->turn_nodes, TRACE_TURN_MAX_DEGREES);
-    else if (a->radius_nodes > 0)
-        snprintf(a->road_text, sizeof a->road_text, "%d node(s) on a curve tighter than %g units", a->radius_nodes, TRACE_RADIUS_MIN);
-    else if (a->warn_turn_nodes > 0 || a->warn_radius_nodes > 0)
-        snprintf(a->warn_text, sizeof a->warn_text, "warning: tighter than almost all of the CD, it can be built");
 }
 
 int app_node_count(const App *a)

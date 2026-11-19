@@ -12,12 +12,12 @@ extern "C" {
 #include "interact.h"
 }
 
-const char *const PANEL_POINTS = "Points", *const PANEL_LIMITS = "Limits", *const PANEL_PROJECT = "Project";
+const char *const PANEL_POINTS = "Points", *const PANEL_LIMITS = "Limits", *const PANEL_PROBLEMS = "Problems", *const PANEL_PROJECT = "Project";
 
 namespace {
 
 const ImVec4 BAD_TEXT(1.0f, 0.35f, 0.35f, 1.0f), WARN_TEXT(1.0f, 0.69f, 0.13f, 1.0f), OK_TEXT(0.47f, 0.86f, 0.55f, 1.0f);
-const int LIMIT_ROWS = 200;   // the nodes listed in Limits; the count says how many more
+const int PROBLEM_ROWS = 200;   // the nodes listed in Problems; the count says how many more
 
 // the control point nearest to the road's node `node` (the road's start is the first point)
 int nearest_point(const App &a, int node)
@@ -92,52 +92,47 @@ void points_panel(App *a)
     ImGui::End();
 }
 
+static ImGuiID limits_dock = 0;   // the dock node Limits is in, where a layout kept from before the Problems window puts it as a tab
+
 void limits_panel(App *a)
 {
     if (ImGui::Begin(PANEL_LIMITS)) {
+        limits_dock = ImGui::GetWindowDockID();
         const int nodes = app_node_count(a);
         char text[48];
         snprintf(text, sizeof text, "%d / %d nodes", nodes, (int)TRACK_GEN_MAX_NODES);
         ImGui::ProgressBar((float)nodes / (float)TRACK_GEN_MAX_NODES, ImVec2(-FLT_MIN, 0), text);
         ImGui::Text("length %.0f u", a->length);
-        if (a->road_text[0] != '\0') ImGui::TextColored(BAD_TEXT, "%s", a->road_text);
-        else if (a->warn_text[0] != '\0') ImGui::TextColored(WARN_TEXT, "%s", a->warn_text);
-        else ImGui::TextColored(OK_TEXT, "limits: all good");
-        if (a->road_made) {
-            ImGui::Text("turn > %g degrees: %d nodes", TRACE_TURN_MAX_DEGREES, a->turn_nodes);
-            ImGui::Text("radius < %g units: %d nodes", TRACE_RADIUS_MIN, a->radius_nodes);
-            // amber only when some node is over the limit: a count of none is plain text, as the red ones are
-            ImGui::PushStyleColor(ImGuiCol_Text, a->warn_turn_nodes > 0 ? WARN_TEXT : ImGui::GetStyleColorVec4(ImGuiCol_Text));
-            ImGui::Text("warning: turn > %g degrees: %d nodes", TRACE_TURN_WARN_DEGREES, a->warn_turn_nodes);
-            ImGui::PopStyleColor();
-            ImGui::PushStyleColor(ImGuiCol_Text, a->warn_radius_nodes > 0 ? WARN_TEXT : ImGui::GetStyleColorVec4(ImGuiCol_Text));
-            ImGui::Text("warning: radius < %g units: %d nodes", TRACE_RADIUS_WARN, a->warn_radius_nodes);
-            ImGui::PopStyleColor();
-            int listed = 0, broken = 0;
-            for (int i = 0; i < a->node_count; ++i) broken += a->flags[i] != 0;
-            if (broken > 0 && ImGui::BeginChild("breaks", ImVec2(0, 0), ImGuiChildFlags_Borders)) {
-                // the red nodes first (they are what stops Build), then the amber ones, so a long road's many warnings never push a red row out of the list
-                for (int pass = 0; pass < 2; ++pass) {
-                    for (int i = 0; i < a->node_count && listed < LIMIT_ROWS; ++i) {
-                        const bool red = (a->flags[i] & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) != 0;
-                        if (a->flags[i] == 0 || red != (pass == 0)) continue;
-                        ++listed;
-                        char label[64];
-                        snprintf(label, sizeof label, "node %d: %s%s%s", i, (a->flags[i] & (TRACE_FLAG_TURN | TRACE_FLAG_TURN_WARN)) ? "turn " : "",
-                                 (a->flags[i] & (TRACE_FLAG_RADIUS | TRACE_FLAG_RADIUS_WARN)) ? "radius" : "", red ? "" : " (warning)");
-                        ImGui::PushStyleColor(ImGuiCol_Text, red ? BAD_TEXT : WARN_TEXT);
-                        if (ImGui::Selectable(label)) {   // the point nearest to it is selected and the view goes there
-                            a->selected = nearest_point(*a, i);
-                            a->view.cx = a->nodes[i].position[0] / 65536.0;
-                            a->view.cz = a->nodes[i].position[2] / 65536.0;
-                        }
-                        ImGui::PopStyleColor();
-                    }
-                }
-                if (broken > listed) ImGui::TextDisabled("and %d more", broken - listed);
+        if (a->road_text[0] != '\0') ImGui::TextColored(BAD_TEXT, "%s", a->road_text);   // the road is not made: why
+        else if (a->summary_count == 0) ImGui::TextColored(OK_TEXT, "limits: all good");
+        // a line per rule some node breaks, red first: the nodes themselves are in Problems
+        for (int i = 0; a->road_made && i < a->summary_count; ++i)
+            ImGui::TextColored(a->summary[i].red ? BAD_TEXT : WARN_TEXT, "%s", a->summary[i].text);
+    }
+    ImGui::End();
+}
+
+void problems_panel(App *a)
+{
+    if (limits_dock != 0) ImGui::SetNextWindowDockID(limits_dock, ImGuiCond_FirstUseEver);
+    if (ImGui::Begin(PANEL_PROBLEMS)) {
+        if (!a->road_made || a->problem_count == 0) ImGui::TextDisabled("No problems");
+        // red rows first, then amber, each by node (track_trace_problems); a click centres the Viewport on the node
+        for (int i = 0; i < a->problem_count && i < PROBLEM_ROWS; ++i) {
+            const TraceProblem &p = a->problems[i];
+            char label[TRACE_SUMMARY_TEXT];
+            track_trace_problem_text(&p, label, sizeof label);
+            ImGui::PushStyleColor(ImGuiCol_Text, p.red ? BAD_TEXT : WARN_TEXT);
+            ImGui::PushID(p.node);
+            if (ImGui::Selectable(label)) {
+                a->selected = nearest_point(*a, p.node);
+                a->view.cx = a->nodes[p.node].position[0] / 65536.0;
+                a->view.cz = a->nodes[p.node].position[2] / 65536.0;
             }
-            if (broken > 0) ImGui::EndChild();
+            ImGui::PopID();
+            ImGui::PopStyleColor();
         }
+        if (a->problem_count > PROBLEM_ROWS) ImGui::TextDisabled("and %d more", a->problem_count - PROBLEM_ROWS);
     }
     ImGui::End();
 }

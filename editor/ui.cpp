@@ -66,7 +66,7 @@ void ui_event(const SDL_Event *ev)
 
 namespace {
 
-// the layout of a first run (no ini): the top view in the middle, the limits under it, the project and the points to its right
+// the layout of a first run (no ini): the top view in the middle, the limits and the problems (two tabs) under it, the project and the points to its right
 void default_layout(ImGuiID dock)
 {
     ImGui::DockBuilderRemoveNode(dock);
@@ -78,6 +78,7 @@ void default_layout(ImGuiID dock)
     points = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.55f, nullptr, &right);
     ImGui::DockBuilderDockWindow("Viewport", centre);
     ImGui::DockBuilderDockWindow(PANEL_LIMITS, bottom);
+    ImGui::DockBuilderDockWindow(PANEL_PROBLEMS, bottom);   // its own tab beside Limits
     ImGui::DockBuilderDockWindow(PANEL_PROJECT, right);
     ImGui::DockBuilderDockWindow(PANEL_POINTS, points);
     ImGui::DockBuilderFinish(dock);
@@ -123,6 +124,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
     project_panel(a);
     points_panel(a);
     limits_panel(a);
+    problems_panel(a);
     ImGui::Render();
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), ren);
 }

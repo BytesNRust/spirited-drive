@@ -17,6 +17,7 @@
 #include "formats/exchange.h"
 #include "formats/track_gen.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define TRACE_TURN_MAX_DEGREES TRACK_GEN_TURN_MAX_DEGREES   /* red: the most a node turns from the node before (track_gen's own limit) */
@@ -51,6 +52,34 @@ int track_trace_nodes(const TracePoint *points, int count, double width, TrackGe
 
 /* Per node (flags[i], for i < count): the TRACE_FLAG_* bits that node breaks, a warning bit only where its red one is not set. flags[0] is always 0 (the start has no node before it). */
 void track_trace_flags(const TrackGenNode *nodes, int count, uint8_t *flags);
+
+/* A node that breaks a limit, as the Problems panel lists it. `flags` are its TRACE_FLAG_* bits, `red` is set when any of them is red,
+ * `turn` is its turn from the node before in degrees (unsigned) and `radius` the curve's radius there in units (0 on a straight). */
+typedef struct {
+    int node;
+    int red;
+    uint8_t flags;
+    double turn, radius;
+} TraceProblem;
+
+/* The problem nodes: every node whose flags are not 0, red ones first and each group by node number. Fills out[0..cap) and returns how many
+ * nodes there are in all (it may be more than cap). `flags` are track_trace_flags'. */
+int track_trace_problems(const TrackGenNode *nodes, int count, const uint8_t *flags, TraceProblem *out, int cap);
+
+/* One row's text in English, the limits written from the constants: "node 80: turns 9.4° (more than 8°), may not look right", or with both rules
+ * "node 80: turns 9.4° (more than 8°) and radius 38 units (under 43 units), may not look right"; a red row ends "can't be built". */
+void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap);
+
+/* The summary of a road's flags, one line per rule some node breaks (a rule no node breaks has none), red lines first: "2 nodes turn more
+ * than 16.5° per node: the track can't be built", "26 nodes turn more than 8° per node: they may not look right in the game", and the same for
+ * the radius ("1 node is on a curve of radius under 43 units: it may not look right in the game"). */
+enum { TRACE_SUMMARY_LINES = 4, TRACE_SUMMARY_TEXT = 128 };
+typedef struct {
+    int red;
+    int nodes;
+    char text[TRACE_SUMMARY_TEXT];
+} TraceSummaryLine;
+int track_trace_summary(const uint8_t *flags, int count, TraceSummaryLine lines[TRACE_SUMMARY_LINES]);
 
 /* The signed turn from `from` to `to` (14-bit headings), in degrees, wrapped to -180..180. */
 double track_trace_turn_degrees(double from, double to);

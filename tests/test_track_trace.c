@@ -225,6 +225,75 @@ static void test_drawn_16_is_amber(void)
     free(nodes);
 }
 
+/* nodes whose turns from the one before are `turns[1..count-1]` degrees, TRACK_GEN_NODE_LENGTH apart */
+static void nodes_turning(const double *turns, int count, TrackGenNode *n)
+{
+    const double step = TRACK_GEN_NODE_LENGTH / 65536.0;
+    double x = 0, z = 0, heading = 0;
+    for (int i = 0; i < count; ++i) {
+        heading += i > 0 ? turns[i] : 0;
+        n[i].heading = heading * 0x4000 / 360.0;
+        n[i].grade = n[i].bank = 0;
+        n[i].width = WIDTH;
+        n[i].position[0] = (int32_t)lround(x * 65536);
+        n[i].position[1] = 0;
+        n[i].position[2] = (int32_t)lround(z * 65536);
+        x += step * sin(heading * M_PI / 180), z += step * cos(heading * M_PI / 180);
+    }
+}
+
+/* the Problems panel's rows: red nodes first, then amber, each by node number, with the text the limits make; the summary has a line per rule broken */
+static void test_problems_and_summary(void)
+{
+    enum { N = 7 };
+    const double turns[N] = { 0, 9.4, 17.0, 3.0, 9.0, 16.0, 1.0 };   /* node 1 and 4 and 5 amber (5 is 16.0: over 8, under 16.5), node 2 red */
+    TrackGenNode n[N];
+    nodes_turning(turns, N, n);
+    uint8_t flags[N];
+    track_trace_flags(n, N, flags);
+    TraceProblem rows[N];
+    CHECK_EQ_INT(track_trace_problems(n, N, flags, rows, N), 4);
+    CHECK_EQ_INT(rows[0].node, 2);                    /* the red one first */
+    CHECK(rows[0].red && !rows[1].red && !rows[2].red && !rows[3].red);
+    CHECK_EQ_INT(rows[1].node, 1);                    /* then the amber ones by node */
+    CHECK_EQ_INT(rows[2].node, 4);
+    CHECK_EQ_INT(rows[3].node, 5);
+    char text[160];
+    track_trace_problem_text(&rows[0], text, sizeof text);
+    CHECK(strcmp(text, "node 2: turns 17.0\xc2\xb0 (more than 16.5\xc2\xb0) and radius 20 units (under 20.9 units), can't be built") == 0);
+    track_trace_problem_text(&rows[1], text, sizeof text);
+    CHECK(strcmp(text, "node 1: turns 9.4\xc2\xb0 (more than 8\xc2\xb0) and radius 37 units (under 43 units), may not look right") == 0);
+    TraceProblem few[2];
+    CHECK_EQ_INT(track_trace_problems(n, N, flags, few, 2), 4);   /* the total, though only 2 rows fit: the red one and the first amber */
+    CHECK_EQ_INT(few[0].node, 2);
+    CHECK_EQ_INT(few[1].node, 1);
+
+    TraceSummaryLine lines[TRACE_SUMMARY_LINES];
+    CHECK_EQ_INT(track_trace_summary(flags, N, lines), 4);
+    CHECK(lines[0].red && lines[1].red && !lines[2].red && !lines[3].red);
+    CHECK(strcmp(lines[0].text, "1 node turns more than 16.5\xc2\xb0 per node: the track can't be built") == 0);
+    CHECK(strcmp(lines[1].text, "1 node is on a curve of radius under 20.9 units: the track can't be built") == 0);
+    CHECK(strcmp(lines[2].text, "3 nodes turn more than 8\xc2\xb0 per node: they may not look right in the game") == 0);
+    CHECK(strcmp(lines[3].text, "3 nodes are on a curve of radius under 43 units: they may not look right in the game") == 0);
+
+    const double calm[N] = { 0, 1, 2, 3, 2, 1, 0 };    /* nothing breaks: no rows and no lines */
+    nodes_turning(calm, N, n);
+    track_trace_flags(n, N, flags);
+    CHECK_EQ_INT(track_trace_problems(n, N, flags, rows, N), 0);
+    CHECK_EQ_INT(track_trace_summary(flags, N, lines), 0);
+}
+
+/* a turn with no distance from the node before (a hand-made node array) has radius 0: red for the radius, as it always was */
+static void test_zero_distance_turn(void)
+{
+    TrackGenNode n[2] = {{ 0 }};
+    n[0].width = n[1].width = WIDTH;
+    n[1].heading = 100;
+    uint8_t flags[2];
+    track_trace_flags(n, 2, flags);
+    CHECK_EQ_INT(flags[1] & TRACE_FLAG_RADIUS, TRACE_FLAG_RADIUS);
+}
+
 static void test_faults(void)
 {
     TrackGenNode *nodes = NULL;
@@ -301,6 +370,8 @@ int main(void)
     test_corner_flags_turn();
     test_limit_levels();
     test_drawn_16_is_amber();
+    test_problems_and_summary();
+    test_zero_distance_turn();
     test_faults();
     test_generates_tri();
     test_turn_degrees();

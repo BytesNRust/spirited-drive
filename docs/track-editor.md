@@ -49,8 +49,14 @@ generator holds the terrain inside the curve, on both sides, to 0.4 of its radiu
 layout of `track new` does not turn the terrain and keeps its own limit of 8 degrees. The numbers are measured and provisional, not limits of the game.
 
 How tight a curve is depends on how far apart its points are: two points close together make the curve turn within a short distance. Hover a red or amber
-stretch to see it; the fix is to space the points out or to smooth them. The Limits panel shows the node count against the 2397 a TRI holds (599
-segments and the closing node), the length, the red limit first broken and, in amber, how many nodes are over a warning.
+stretch to see it; the fix is to space the points out or to smooth them.
+
+The **Limits** window (a tab beside Problems at the bottom) shows the node count against the 2397 a TRI holds (599 segments and the closing node), the
+length and, in red or amber, a line for each rule some node breaks ("2 nodes turn more than 16.5° per node: the track can't be built", "26 nodes turn
+more than 8° per node: they may not look right in the game"; the same for the radius). A rule no node breaks has no line. The **Problems** window lists
+the nodes themselves, one row each, red first and then by node number: "node 80: turns 9.4° (more than 8°) and radius 38 units (under 43 units), may
+not look right". A click on a row selects the nearest point and centres the Viewport on that node. With none it says "No problems". Both windows are
+dockable like the others and their layout is kept.
 
 ## Headless run
 
