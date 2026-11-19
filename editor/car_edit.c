@@ -29,6 +29,16 @@ static const FieldInfo FIELDS[CE_FIELDS] = {
     { "sound_from", "Sound from", 0 },
 };
 
+int car_edit_sound_words(const char **out, int cap)
+{
+    int n = 0;
+    for (int m = 0; m < 16 && n < cap; m++) {   /* the models that have a word: 0..7 and 11 (8..10 are the exe's copies) */
+        const char *word = car_piece_sound_word_of_model(m);
+        if (word != NULL) out[n++] = word;
+    }
+    return n;
+}
+
 const char *car_edit_key(int field)
 {
     return field == CE_PAINTS ? "paints" : field >= 0 && field < CE_FIELDS ? FIELDS[field].key : "";
@@ -287,10 +297,12 @@ static int ascii_only(const char *s)
 /* the sentence about the allowed words of sound_from: "supra, diablo, ..." */
 static void sound_words(char *out, size_t cap)
 {
+    const char *list[16];
+    const int n = car_edit_sound_words(list, 16);
     out[0] = '\0';
-    for (int m = 0; car_piece_word_of_model(m) != NULL; m++) {
+    for (int i = 0; i < n; i++) {
         const size_t used = strlen(out);
-        snprintf(out + used, cap - used, "%s%s", m > 0 ? ", " : "", car_piece_word_of_model(m));
+        snprintf(out + used, cap - used, "%s%s", i > 0 ? ", " : "", list[i]);
     }
 }
 
@@ -309,7 +321,7 @@ static int field_problem(const CarEdit *e, int f, char *text)
         char words[96];
         sound_words(words, sizeof words);
         if (v[0] == '\0') snprintf(text, CE_PROBLEM_TEXT, "%s: not set. The game refuses a car with no original car to take its engine sound from (%s). Save is blocked until one is chosen.", fi->label, words);
-        else if (car_piece_model_of_word(v) < 0) snprintf(text, CE_PROBLEM_TEXT, "%s: \"%.40s\" is not one of %s. The game would refuse the car. Save is blocked until it is.", fi->label, v, words);
+        else if (car_piece_sound_model_of_word(v) < 0) snprintf(text, CE_PROBLEM_TEXT, "%s: \"%.40s\" is not one of %s. The game would refuse the car. Save is blocked until it is.", fi->label, v, words);
         else return 0;
         return 1;
     }

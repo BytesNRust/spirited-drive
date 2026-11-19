@@ -100,11 +100,28 @@ void car_layout(ImGuiID dock)
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
     ImGuiID left = 0, right = 0, masks = 0;
-    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.5f, nullptr, &right);
-    masks = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.45f, nullptr, &right);
+    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.4f, nullptr, &right);
+    masks = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.3f, nullptr, &right);   // the race and its photo need the room
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
     ImGui::DockBuilderDockWindow(PANEL_TEXTURES, right);
+    ImGui::DockBuilderDockWindow(PANEL_RACE, right);   // a tab beside Textures
+    ImGui::DockBuilderDockWindow(PANEL_REHACER, masks);   // a tab beside Masks, which is the one in front
     ImGui::DockBuilderDockWindow(PANEL_MASKS, masks);
+    ImGui::DockBuilderFinish(dock);
+}
+
+// the layout of a masks project: its facts on the left, the masks and under them the race on the right (it has no textures to list and no script to run)
+void masks_layout(ImGuiID dock)
+{
+    ImGui::DockBuilderRemoveNode(dock);
+    ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
+    ImGuiID left = 0, right = 0, race = 0;
+    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.3f, nullptr, &right);
+    race = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.8f, nullptr, &right);
+    ImGui::DockBuilderDockWindow(PANEL_CAR, left);
+    ImGui::DockBuilderDockWindow(PANEL_MASKS, right);
+    ImGui::DockBuilderDockWindow(PANEL_RACE, race);
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -146,10 +163,7 @@ void main_menu(App *a)
         if (ImGui::MenuItem("Open car...")) app_ask(a, APP_ACT_OPEN_CAR, "");
         if (ImGui::MenuItem("Open track...")) app_ask(a, APP_ACT_OPEN, "");
         if (ImGui::MenuItem("New track...")) app_ask(a, APP_ACT_NEW, "");
-        ImGui::BeginDisabled();
-        ImGui::MenuItem("Export original car...");
-        ImGui::EndDisabled();
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Coming soon");
+        if (ImGui::MenuItem("Export original car...")) a->export_dialog = 1;
         if (ImGui::BeginMenu("Open recent", a->recent.count > 0)) {
             for (int i = 0; i < a->recent.count; ++i) {
                 char label[SESSION_PATH + 16];
@@ -233,9 +247,28 @@ void confirm_popup(App *a)
 
 }   // namespace
 
+// the race photo as a texture: made again when the job took another picture (a->race.photo_serial)
+static ImTextureID photo_texture(SDL_Renderer *ren, const App *a)
+{
+    static SDL_Texture *tex = nullptr;
+    static int serial = -1;
+    if (a->race.photo == nullptr) {
+        if (tex != nullptr) SDL_DestroyTexture(tex), tex = nullptr;
+        serial = -1;
+        return 0;
+    }
+    if (tex == nullptr || serial != a->race.photo_serial) {
+        if (tex != nullptr) SDL_DestroyTexture(tex);
+        tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, RACE_PHOTO_W, RACE_PHOTO_H);
+        if (tex != nullptr) SDL_UpdateTexture(tex, nullptr, a->race.photo, RACE_PHOTO_W * 4);
+        serial = a->race.photo_serial;
+    }
+    return reinterpret_cast<ImTextureID>(tex);
+}
+
 void ui_frame(SDL_Renderer *ren, App *a)
 {
-    static bool track_laid_out = false, car_laid_out = false;
+    static bool track_laid_out = false, car_laid_out = false, masks_laid_out = false;
     ImGui_ImplSDLRenderer3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
@@ -255,18 +288,23 @@ void ui_frame(SDL_Renderer *ren, App *a)
         problems_panel(a);
         node_panel(a);
     } else if (a->kind == APP_KIND_CAR) {   // a car has a dock space of its own: each kind keeps its layout
-        const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr("StudioCarDock"), ImGui::GetMainViewport());
-        if (!car_laid_out) {
-            car_laid_out = true;
-            if (dock_is_empty(dock)) car_layout(dock);
+        const bool masks = a->car.masks_only;   // a masks project keeps a layout of its own: it shows fewer windows
+        const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr(masks ? "StudioMasksDock" : "StudioCarDock"), ImGui::GetMainViewport());
+        bool &laid_out = masks ? masks_laid_out : car_laid_out;
+        if (!laid_out) {
+            laid_out = true;
+            if (dock_is_empty(dock)) (masks ? masks_layout : car_layout)(dock);
         }
         if (a->confirm == APP_ACT_NONE) car_shortcuts(a);
         car_panel(a);
-        textures_panel(a);
+        if (!a->car.masks_only) textures_panel(a);   // nor textures: only its masks
         masks_panel(a);
+        race_panel(a, photo_texture(ren, a));
+        if (!a->car.masks_only) rehacer_panel(a);   // a masks project has no script
     } else {
         start_screen(a);
     }
+    export_popup(a);
     confirm_popup(a);
     open_error_popup(a);
     ImGui::Render();

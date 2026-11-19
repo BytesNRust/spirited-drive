@@ -503,6 +503,8 @@ static int start_drive(Track *t, const char *data_root, const char *name, int mo
 {
     /* 004fb7f4: 004275f8's time(0), the race's random seed (00428fe0); --drive alone keeps a fixed one */
     uint32_t seed = drive_menus_on ? (uint32_t)time(NULL) : DRIVE_SEED;
+    const char *const seed_env = getenv("TNFS_DRIVE_SEED");   /* port (dev, env only): another fixed seed, so another draw of the traffic's models (Studio's Test in race looks for the one that has a car) */
+    if (!drive_menus_on && seed_env != NULL && seed_env[0] != '\0') seed = (uint32_t)strtoul(seed_env, NULL, 0);
     uint32_t flags = drive_menus_on ? drive_menus.track_flags : 0;  /* 004fb7d8: 0042702c's copy of 0052b306 */
     const uint8_t *entries = NULL;   /* the host's setup's, 004fb7fa */
     if (drive_link_on && early.done) entries = early.entries, seed = early.seed, flags = early.flags;

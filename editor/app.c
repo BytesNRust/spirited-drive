@@ -54,6 +54,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     snprintf(a->generic, sizeof a->generic, "%s", generic_art != NULL ? generic_art : "");
     a->selected = -1;
     a->node = a->node_for = -1;
+    a->export_pick = -1;
 }
 
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
@@ -86,13 +87,14 @@ static int car_into(App *a, const char *dir)
     }
     char card[CAR_PROJECT_PATH + 16];
     snprintf(card, sizeof card, "%s/mod.ini", a->car.piece);
-    if (!car_edit_open(&a->edit, card, why, sizeof why)) {
+    if (!a->car.masks_only && !car_edit_open(&a->edit, card, why, sizeof why)) {   /* a masks project has no card */
         set_status(a, why);
         return 0;
     }
     snprintf(a->dir, sizeof a->dir, "%s", a->car.root);
     a->kind = APP_KIND_CAR;
-    set_status(a, "opened: edit the card and the colors; Save writes mod.ini only");
+    a->race_track = car_race_default_track(car_race_original_of(&a->car));
+    set_status(a, a->car.masks_only ? "opened: a masks project (made from the game's files: for your own use, do not share)" : "opened: edit the card and the colors; Save writes mod.ini only");
     return 1;
 }
 
@@ -105,8 +107,69 @@ int app_open_any(App *a, const char *dir, const char *game, const char *user, co
     return app_open(a, dir, game, user, generic_art);
 }
 
+int app_race_busy(const App *a)
+{
+    return car_race_busy(&a->race);
+}
+
+int app_race(App *a, int photo)
+{
+    char why[APP_MSG];
+    if (a->kind != APP_KIND_CAR) return set_status(a, "open a car first"), 0;
+    const RaceTrack *track = car_race_track(a->race_track);
+    const ExportCar *car = car_race_original_of(&a->car);
+    if (track == NULL || car == NULL) return set_status(a, "Test in race is for the game's own cars: export one with Export original car"), 0;
+    const int ok = photo ? car_race_start_photo(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, why, sizeof why)
+                         : car_race_start_race(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, why, sizeof why);
+    if (!ok) return set_status(a, why), 0;
+    set_status(a, photo ? "taking the race photo..." : "the game is running: close its window to end the test");
+    return 1;
+}
+
+int app_race_poll(App *a)
+{
+    const int was = car_race_busy(&a->race);
+    const int running = car_race_poll(&a->race);
+    if (was && !running && a->race.summary[0] != '\0') set_status(a, a->race.summary);
+    return running;
+}
+
+void app_race_stop(App *a)
+{
+    car_race_stop(&a->race);
+}
+
+void app_set_export_source(App *a, const ExportSource *src)
+{
+    a->export_src = *src;
+}
+
+int app_export_car(App *a, const char *parent)
+{
+    char name[96], dir[APP_PATH], why[APP_MSG];
+    const ExportCar *car = car_export_car(a->export_pick);
+    car_export_folder_name(a->export_pick, name, sizeof name);
+    const size_t n = strlen(parent);
+    if (car == NULL || snprintf(dir, sizeof dir, "%s%s%s", parent, n > 0 && parent[n - 1] == '/' ? "" : "/", name) >= (int)sizeof dir) {
+        set_status(a, "no car was chosen to export");
+        snprintf(a->open_error, sizeof a->open_error, "%s", a->status);
+        return 0;
+    }
+    if (!car_export(&a->export_src, a->export_pick, dir, why, sizeof why)) {
+        snprintf(a->open_error, sizeof a->open_error, "Could not export %s: %s", car->label, why);
+        set_status(a, a->open_error);
+        return 0;
+    }
+    a->export_dialog = 0;
+    if (!app_open_car(a, dir)) return 0;   /* it says why in open_error, and the files stay where they were made */
+    snprintf(a->status, sizeof a->status, "exported %s into %s: made from the game's files, for your own use, do not share", car->label, dir);
+    return 1;
+}
+
 void app_free(App *a)
 {
+    car_race_free(&a->race);
+    rehacer_free(&a->rehacer);
     car_edit_free(&a->edit);
     free(a->trace.points);
     drop_road(a);
@@ -199,6 +262,14 @@ int app_modified(const App *a)
 void app_ask(App *a, AppAction act, const char *path)
 {
     if (act == APP_ACT_NONE || a->confirm != APP_ACT_NONE || a->go != APP_ACT_NONE) return;
+    if (a->rehacer.running) {   /* the script is working on the kit: nothing else until it ends */
+        set_status(a, "Rehacer is running: wait for it to end, or press Stop");
+        return;
+    }
+    if (car_race_busy(&a->race)) {   /* the game is running on this project's masks: nothing else until it ends */
+        set_status(a, "A race is running: wait for it to end, or press Stop");
+        return;
+    }
     if (app_modified(a)) {
         a->confirm = act;
         snprintf(a->confirm_path, sizeof a->confirm_path, "%s", path != NULL ? path : "");
@@ -256,6 +327,8 @@ static int open_in(App *a, const char *dir, AppKind kind)
     memcpy(next->recent_file, a->recent_file, sizeof next->recent_file);
     memcpy(next->game_tried, a->game_tried, sizeof next->game_tried);   /* what the game lookup found stays with the window, not with a project */
     memcpy(next->game_memo, a->game_memo, sizeof next->game_memo);
+    next->export_src = a->export_src;   /* so does where the game's files are */
+    next->export_pick = a->export_pick;
     app_free(a);
     *a = *next;   // the new project's arrays belong to `a` now
     free(next);
@@ -319,6 +392,7 @@ static int track_open(App *a)
 int app_save(App *a)
 {
     char why[APP_MSG];
+    if (a->kind == APP_KIND_CAR && a->car.masks_only) return set_status(a, "a masks project has no card to save: its masks are the PNG files in car_masks/"), 0;
     if (a->kind == APP_KIND_CAR) {   /* the card: only mod.ini, only the lines that changed */
         const int changed = car_edit_modified(&a->edit);
         if (!car_edit_save(&a->edit, why, sizeof why)) {
@@ -526,4 +600,75 @@ void app_remove_point(App *a)
     const int next = a->selected < a->trace.count - 1 ? a->selected : a->trace.count - 2;
     put_points(a, fewer, a->trace.count - 1, next);
     set_status(a, "point removed");
+}
+
+/* ---- Rehacer ---- */
+
+int app_rehacer_busy(const App *a)
+{
+    return a->rehacer.running;
+}
+
+int app_rehacer_available(const App *a)
+{
+    return a->kind == APP_KIND_CAR && rehacer_script_present(a->dir);
+}
+
+/* the car as the script left it: the lists of textures and masks, and the card (nothing on screen was edited while it ran) */
+static void reload_car(App *a)
+{
+    CarProject *fresh = malloc(sizeof *fresh);
+    char why[APP_MSG], card[CAR_PROJECT_PATH + 16];
+    if (fresh == NULL) return;
+    if (!car_project_detect(a->dir, fresh, why, sizeof why)) {
+        snprintf(a->status + strlen(a->status), sizeof a->status - strlen(a->status), "; the car no longer reads: %s", why);
+    } else {
+        a->car = *fresh;
+    }
+    free(fresh);
+    snprintf(card, sizeof card, "%s/mod.ini", a->car.piece);
+    CarEdit next;
+    if (!car_edit_modified(&a->edit) && car_edit_open(&next, card, why, sizeof why)) {
+        car_edit_free(&a->edit);
+        a->edit = next;
+    }
+}
+
+int app_rehacer(App *a)
+{
+    char why[APP_MSG], stamp[32];
+    if (a->kind != APP_KIND_CAR) return set_status(a, "open a car first"), 0;
+    if (a->car.masks_only) return set_status(a, "a masks project has no rehacer.command"), 0;
+    if (a->rehacer.running) return set_status(a, "Rehacer is already running"), 0;
+    if (!rehacer_script_present(a->dir)) return set_status(a, "this kit has no rehacer.command, so there is nothing to run"), 0;
+    if (car_edit_modified(&a->edit)) return set_status(a, "mod.ini has changes that are not saved: save them first, then run Rehacer"), 0;
+    rehacer_free(&a->rehacer);
+    rehacer_stamp(stamp, sizeof stamp);
+    if (!rehacer_backup(a->dir, stamp, REHACER_KEEP, REHACER_BACKUP_MAX_MB, a->rehacer.backup, sizeof a->rehacer.backup, why, sizeof why)) {
+        snprintf(a->status, sizeof a->status, "Rehacer did not run, the backup failed: %s", why);
+        return 0;
+    }
+    if (!rehacer_start(&a->rehacer, a->dir, why, sizeof why)) {
+        snprintf(a->status, sizeof a->status, "Rehacer did not start: %s", why);
+        return 0;
+    }
+    const char *slash = strrchr(a->rehacer.backup, '/');
+    snprintf(a->status, sizeof a->status, "Rehacer running; the kit was backed up in %s/%s", REHACER_BACKUPS, slash != NULL ? slash + 1 : a->rehacer.backup);
+    return 1;
+}
+
+int app_rehacer_poll(App *a)
+{
+    if (!a->rehacer.running) return 0;
+    if (rehacer_poll(&a->rehacer)) return 1;
+    if (a->rehacer.stopped) snprintf(a->status, sizeof a->status, "Rehacer was stopped (exit code %d)", a->rehacer.exit_code);
+    else if (a->rehacer.exit_code == 0) snprintf(a->status, sizeof a->status, "Rehacer finished: exit code 0");
+    else snprintf(a->status, sizeof a->status, "Rehacer failed: exit code %d (see the log)", a->rehacer.exit_code);
+    reload_car(a);
+    return 0;
+}
+
+void app_rehacer_stop(App *a)
+{
+    rehacer_stop(&a->rehacer);
 }

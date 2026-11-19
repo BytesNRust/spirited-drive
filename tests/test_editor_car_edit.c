@@ -297,6 +297,18 @@ static void check_problems(void)
     CHECK(n == 1 && p[0].field == CE_SOUND_FROM && strstr(p[0].text, "supra") != NULL && strstr(p[0].text, "rx7") != NULL);
     CHECK_EQ_INT(car_edit_set(e, CE_SOUND_FROM, "nsx"), 1);
     CHECK_EQ_INT(problems(e, p), 0);
+    CHECK_EQ_INT(car_edit_set(e, CE_SOUND_FROM, "traffic"), 1);   /* the owner added it: the traffic car's sound */
+    CHECK_EQ_INT(problems(e, p), 0);
+    CHECK_EQ_INT(car_edit_save(e, why, sizeof why), 1);
+    {
+        const char *words[16];
+        const int count = car_edit_sound_words(words, 16);
+        CHECK_EQ_INT(count, 9);
+        CHECK(strcmp(words[0], "supra") == 0 && strcmp(words[7], "rx7") == 0 && strcmp(words[8], "traffic") == 0);
+    }
+    CHECK_EQ_INT(car_edit_set(e, CE_SOUND_FROM, "ferrari"), 1);
+    n = problems(e, p);
+    CHECK(n == 1 && strstr(p[0].text, "rx7, traffic") != NULL);
     car_edit_free(e);
 
     /* the colors: a name the card refuses, two alike */

@@ -85,10 +85,95 @@ static int find_piece(const char *dir, char *piece, size_t cap)
     return is_file(ini) && snprintf(piece, cap, "%s", coche) < (int)cap;
 }
 
+/* the value of `key` in an ini text of `len` bytes (the first line "key=value", the value trimmed): 1 with it in `out` */
+static int ini_get(const char *text, size_t len, const char *key, char *out, size_t cap)
+{
+    const size_t klen = strlen(key);
+    for (const char *p = text, *end = text + len; p < end;) {
+        const char *nl = memchr(p, '\n', (size_t)(end - p)), *line_end = nl != NULL ? nl : end;
+        if ((size_t)(line_end - p) > klen && memcmp(p, key, klen) == 0 && p[klen] == '=') {
+            const char *v = p + klen + 1, *ve = line_end;
+            while (ve > v && (ve[-1] == '\r' || ve[-1] == ' ' || ve[-1] == '\t')) --ve;
+            while (v < ve && (*v == ' ' || *v == '\t')) ++v;
+            if ((size_t)(ve - v) >= cap) return 0;
+            memcpy(out, v, (size_t)(ve - v));
+            out[ve - v] = '\0';
+            return 1;
+        }
+        p = nl != NULL ? nl + 1 : end;
+    }
+    return 0;
+}
+
+/* dir/project.ini's bytes into `buf` (NUL terminated); 0 when there is none or it is over `cap` - 1 bytes */
+static int read_project_ini(const char *dir, char *buf, size_t cap, size_t *len)
+{
+    char path[CAR_PROJECT_PATH + 16];
+    if (!join(path, sizeof path, dir, "project.ini")) return 0;
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return 0;
+    *len = fread(buf, 1, cap - 1, f);
+    const int over = fgetc(f) != EOF;
+    fclose(f);
+    buf[*len] = '\0';
+    return !over;
+}
+
+int car_project_is_masks(const char *dir)
+{
+    char text[4096], kind[16];
+    size_t len = 0;
+    return dir != NULL && dir[0] != '\0' && read_project_ini(dir, text, sizeof text, &len) && ini_get(text, len, "kind", kind, sizeof kind) && strcmp(kind, "masks") == 0;
+}
+
+/* the folder of `parent` named `name` in any case, as the disk spells it; 0 when there is none */
+static int find_folder(const char *parent, const char *name, char *out, size_t cap)
+{
+    DIR *d = opendir(parent);
+    if (d == NULL) return 0;
+    int found = 0;
+    for (struct dirent *e; !found && (e = readdir(d)) != NULL;) {
+        char path[CAR_PROJECT_PATH + 64];
+        if (strcasecmp(e->d_name, name) != 0 || !join(path, sizeof path, parent, e->d_name) || !is_dir(path)) continue;
+        found = snprintf(out, cap, "%s", e->d_name) < (int)cap;
+    }
+    closedir(d);
+    return found;
+}
+
+/* a masks project: its project.ini says which folder of car_masks/ holds the masks and which file of original/ is the car */
+static int detect_masks(const char *given, const char *name, CarProject *out, char *why, size_t why_cap)
+{
+    char text[4096], value[CAR_PROJECT_PATH], folder[CAR_PROJECT_NAME];
+    size_t len = 0;
+    if (!read_project_ini(given, text, sizeof text, &len)) return refuse(why, why_cap, "project.ini in %s cannot be read (it is over %zu bytes or unreadable)", name, sizeof text - 1);
+    if (!ini_get(text, len, "masks", folder, sizeof folder) || folder[0] == '\0' || strchr(folder, '/') != NULL || folder[0] == '.')
+        return refuse(why, why_cap, "project.ini in %s says kind=masks but has no masks= folder name (the folder of car_masks/ that holds the masks)", name);
+    out->masks_only = 1;
+    snprintf(out->piece, sizeof out->piece, "%s", given);
+    snprintf(out->root, sizeof out->root, "%s", given);
+    snprintf(out->kit, sizeof out->kit, "%s", name);
+    snprintf(out->folder, sizeof out->folder, "%s", folder);
+    if (ini_get(text, len, "id", value, sizeof value)) snprintf(out->info.id, sizeof out->info.id, "%s", value);
+    if (ini_get(text, len, "name", value, sizeof value)) snprintf(out->info.name, sizeof out->info.name, "%s", value);
+    if (out->info.id[0] == '\0') snprintf(out->info.id, sizeof out->info.id, "%s", name);
+    if (out->info.name[0] == '\0') snprintf(out->info.name, sizeof out->info.name, "%s", out->info.id);
+    const int named = ini_get(text, len, "cfm", value, sizeof value);
+    if (!named || strstr(value, "..") != NULL || !join(out->cfm, sizeof out->cfm, given, value) || !is_file(out->cfm)) {   /* the car file kept to look at */
+        memset(out, 0, sizeof *out);
+        return refuse(why, why_cap, "%s is a masks project, but its car file is missing: %s", name, named ? value : "project.ini has no cfm= line");
+    }
+    char dirpath[CAR_PROJECT_PATH + 64], suffix[CAR_PROJECT_NAME + 16];
+    snprintf(suffix, sizeof suffix, "car_masks/%s", folder);
+    out->has_masks_dir = join(dirpath, sizeof dirpath, given, suffix) && is_dir(dirpath);
+    if (out->has_masks_dir) out->mask_count = list_png(dirpath, out->mask);
+    return 1;
+}
+
 int car_project_present(const char *dir)
 {
     char piece[CAR_PROJECT_PATH];
-    return dir != NULL && dir[0] != '\0' && find_piece(dir, piece, sizeof piece);
+    return dir != NULL && dir[0] != '\0' && (find_piece(dir, piece, sizeof piece) || car_project_is_masks(dir));
 }
 
 /* mod.ini's bytes: 0 when unreadable or over the card's cap */
@@ -109,6 +194,7 @@ int car_project_detect(const char *dir, CarProject *out, char *why, size_t why_c
     char given[CAR_PROJECT_PATH], name[CAR_PROJECT_NAME];
     if (realpath(dir, given) == NULL) snprintf(given, sizeof given, "%s", dir);
     base_name(given, name, sizeof name);
+    if (car_project_is_masks(given)) return detect_masks(given, name, out, why, why_cap);
     if (!find_piece(given, out->piece, sizeof out->piece))
         return refuse(why, why_cap,
                       "No car found in %s: it has no mod.ini and no coche/mod.ini. Choose the car's kit folder (the one that holds coche/ and modelo/) "
@@ -133,7 +219,7 @@ int car_project_detect(const char *dir, CarProject *out, char *why, size_t why_c
         memset(out, 0, sizeof *out);
         return refuse(why, why_cap, "%s in %s has no stem= (the root of the car's file names, such as stem=C84)", where, name);
     }
-    char suffix[32];
+    char suffix[CAR_PROJECT_NAME + 32];
     snprintf(suffix, sizeof suffix, "SIMDATA/CARFAMS/%s.CFM", out->info.stem);
     if (!join(out->cfm, sizeof out->cfm, out->piece, suffix) || !is_file(out->cfm)) {
         memset(out, 0, sizeof *out);
@@ -150,7 +236,10 @@ int car_project_detect(const char *dir, CarProject *out, char *why, size_t why_c
     }
     base_name(out->root, out->kit, sizeof out->kit);
     char dirpath[CAR_PROJECT_PATH + 64];
-    snprintf(suffix, sizeof suffix, "car_masks/%s", out->info.stem);
+    char masks_root[CAR_PROJECT_PATH + 16];
+    snprintf(out->folder, sizeof out->folder, "%s", out->info.stem);   /* the folder may be spelt as the game's data does (TSupra for stem TSUPRA) */
+    if (join(masks_root, sizeof masks_root, out->piece, "car_masks")) find_folder(masks_root, out->info.stem, out->folder, sizeof out->folder);
+    snprintf(suffix, sizeof suffix, "car_masks/%s", out->folder);
     out->has_masks_dir = join(dirpath, sizeof dirpath, out->piece, suffix) && is_dir(dirpath);
     if (out->has_masks_dir) out->mask_count = list_png(dirpath, out->mask);
     out->has_modelo = join(dirpath, sizeof dirpath, out->root, "modelo") && is_dir(dirpath);

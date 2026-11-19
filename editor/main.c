@@ -2,7 +2,7 @@
  * car project's card, textures and masks (dep59 car editor 1d, read only for now); with nothing open, a start screen.
  *
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
- *                     [--frames N] [--save] [--build] [--install] [--select N] [--edit] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]
+ *                     [--frames N] [--save] [--build] [--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
  * PROJECT is a folder such as art/tnfs-tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
  * art/tnfs-cars/<kit>/ (or its coche/): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
@@ -16,6 +16,7 @@
 #include "build.h"
 #include "capture.h"
 #include "game_find.h"
+#include "formats/png.h"
 #include "ui.h"
 
 #include <SDL3/SDL.h>
@@ -23,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 enum {
     WINDOW_W = 960,
@@ -35,6 +37,11 @@ typedef struct {
     int frames, save, build, install, select;   /* select: a control point to select before the first frame, -1 for none */
     const char *set[8];      /* --set key=value, a car's field set before the first frame (a headless picture of a problem, a save of a change) */
     int set_count;
+    const char *pick;        /* --pick FOLDER: the car chosen in the Export window before the first frame */
+    const char *export_car, *export_into, *cd, *port_data;   /* --export-car STEM --into DIR, --cd DIR, --port-data DIR: Export original car without the window's dialogs */
+    int race_photo, night;    /* --race-photo: take the race photo before the first frame (a headless run waits for it); --night: the Night preset */
+    const char *track, *race_png;   /* --track STEM, --race-png FILE: the track and where the photo is also written */
+    int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
 } Options;
@@ -42,7 +49,8 @@ typedef struct {
 static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
-                    "[--install] [--select N] [--edit] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]\n");
+                    "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
+                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png]]\n");
     return 0;
 }
 
@@ -60,9 +68,19 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--ask") == 0 && has_value) {
             const char *what = argv[++i];
             o->ask = strcmp(what, "quit") == 0 ? APP_ACT_QUIT : strcmp(what, "new") == 0 ? APP_ACT_NEW : strcmp(what, "open") == 0 ? APP_ACT_OPEN
-                   : strcmp(what, "opencar") == 0 ? APP_ACT_OPEN_CAR : APP_ACT_NONE;
+                   : strcmp(what, "opencar") == 0 ? APP_ACT_OPEN_CAR : strcmp(what, "export") == 0 ? APP_ACT_EXPORT_PICK : APP_ACT_NONE;
             if (o->ask == APP_ACT_NONE) return usage();
-        } else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
+        } else if (strcmp(argv[i], "--export-car") == 0 && has_value) o->export_car = argv[++i];
+        else if (strcmp(argv[i], "--into") == 0 && has_value) o->export_into = argv[++i];
+        else if (strcmp(argv[i], "--pick") == 0 && has_value) o->pick = argv[++i];
+        else if (strcmp(argv[i], "--race-photo") == 0) o->race_photo = 1;
+        else if (strcmp(argv[i], "--night") == 0) o->night = 1;
+        else if (strcmp(argv[i], "--track") == 0 && has_value) o->track = argv[++i];
+        else if (strcmp(argv[i], "--race-png") == 0 && has_value) o->race_png = argv[++i];
+        else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
+        else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
+        else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
+        else if (strcmp(argv[i], "--rehacer") == 0) o->rehacer = 1;
         else if (strcmp(argv[i], "--edit") == 0) o->edit = 1;
         else if (strcmp(argv[i], "--save") == 0) o->save = 1;
         else if (strcmp(argv[i], "--build") == 0) o->build = 1;
@@ -136,7 +154,7 @@ typedef struct {
     SDL_Mutex *lock;
     int open;                /* a dialog is on screen */
     int ready;               /* it was answered: `path` is the folder, "" when it was cancelled */
-    AppAction kind;          /* APP_ACT_NEW, APP_ACT_OPEN or APP_ACT_OPEN_CAR */
+    AppAction kind;          /* APP_ACT_NEW, APP_ACT_OPEN, APP_ACT_OPEN_CAR or APP_ACT_EXPORT_PICK */
     char path[APP_PATH];
 } Dialog;
 
@@ -176,7 +194,8 @@ static int run_go(SDL_Window *win, App *a)
     snprintf(path, sizeof path, "%s", a->go_path);
     a->go = APP_ACT_NONE;
     if (act == APP_ACT_QUIT) return 1;
-    if (act == APP_ACT_NEW || act == APP_ACT_OPEN || act == APP_ACT_OPEN_CAR) dialog_start(win, a, act);
+    if (act == APP_ACT_NEW || act == APP_ACT_OPEN || act == APP_ACT_OPEN_CAR || act == APP_ACT_EXPORT_PICK) dialog_start(win, a, act);
+    else if (act == APP_ACT_EXPORT_AT) app_export_car(a, path);
     else if (act == APP_ACT_RECENT) app_open_recent(a, path);
     else if (act == APP_ACT_OPEN_AT) app_open_project(a, path);
     else if (act == APP_ACT_OPEN_CAR_AT) app_open_car(a, path);
@@ -198,7 +217,15 @@ static void take_dialog(App *a)
     }
     SDL_UnlockMutex(g_dialog.lock);
     if (path[0] == '\0') return;
-    app_ask(a, kind == APP_ACT_NEW ? APP_ACT_NEW_AT : kind == APP_ACT_OPEN_CAR ? APP_ACT_OPEN_CAR_AT : APP_ACT_OPEN_AT, path);   /* through the same question: what is on screen may have changed while the dialog was up */
+    app_ask(a, kind == APP_ACT_NEW ? APP_ACT_NEW_AT : kind == APP_ACT_OPEN_CAR ? APP_ACT_OPEN_CAR_AT : kind == APP_ACT_EXPORT_PICK ? APP_ACT_EXPORT_AT : APP_ACT_OPEN_AT, path);   /* through the same question: what is on screen may have changed while the dialog was up */
+}
+
+/* the car of Export original car whose masks folder is `folder` (any case) chosen; 0 when there is none */
+static int pick_car(App *a, const char *folder)
+{
+    for (int i = 0; car_export_car(i) != NULL; ++i)
+        if (strcasecmp(car_export_car(i)->folder, folder) == 0) return a->export_pick = i, 1;
+    return 0;
 }
 
 /* the actions asked for on the command line, once, before the first frame; 1 when all of them went */
@@ -209,6 +236,38 @@ static int run_requested(App *a, const Options *o)
     if (o->build) ok &= app_build(a);
     if (o->install) ok &= app_install(a);
     if (o->save || o->build || o->install) fprintf(stdout, "%s\n", a->status);
+    if (o->export_car != NULL) {   /* Export original car, headless: the project is made in --into and opened */
+        const int made = pick_car(a, o->export_car) && o->export_into != NULL && app_export_car(a, o->export_into);
+        if (!made && a->status[0] == '\0') snprintf(a->status, sizeof a->status, "--export-car %s needs a car of the list and --into PARENT", o->export_car);
+        fprintf(made ? stdout : stderr, "%s\n", a->status);
+        ok &= made;
+    }
+    if (o->race_photo) {   /* Race photo, headless: the game is run and waited for, the picture is in the Race window */
+        if (o->track != NULL && car_race_track_find(o->track) >= 0) a->race_track = car_race_track_find(o->track);
+        a->race_night = o->night;
+        int made = app_race(a, 1);
+        while (made && app_race_poll(a)) SDL_Delay(20);
+        made = made && a->race.ok;
+        if (made && o->race_png != NULL) {
+            uint8_t *png = NULL;
+            size_t len = 0;
+            FILE *f = NULL;
+            made = png_write_rgba(a->race.photo, RACE_PHOTO_W, RACE_PHOTO_H, &png, &len) == PNG_OK && (f = fopen(o->race_png, "wb")) != NULL && fwrite(png, 1, len, f) == len;
+            if (f != NULL) fclose(f);
+            free(png);
+            if (!made) snprintf(a->status, sizeof a->status, "cannot write %s", o->race_png);
+        }
+        fprintf(made ? stdout : stderr, "%s\n", a->status);
+        ok &= made;
+    }
+    if (o->rehacer) {   /* the car's script: a headless run waits for it and says how it ended */
+        ok &= app_rehacer(a);
+        if (ok && o->frames > 0) {
+            while (app_rehacer_poll(a)) SDL_Delay(5);
+            ok &= a->rehacer.exit_code == 0;
+        }
+        fprintf(ok ? stdout : stderr, "%s\n", a->status);
+    }
     return ok;
 }
 
@@ -258,7 +317,16 @@ static int run(App *a, const Options *o)
         }
     }
     if (o->edit) app_add_point(a);   /* and of the confirmation: something unsaved ... */
-    if (o->ask != APP_ACT_NONE) app_ask(a, o->ask, "");   /* ... and the action asked for */
+    if (o->pick != NULL && !pick_car(a, o->pick)) {
+        fprintf(stderr, "--pick %s: not a car Export original car knows\n", o->pick);
+        ui_close();
+        SDL_DestroyRenderer(ren);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+        return 0;
+    }
+    if (o->ask == APP_ACT_EXPORT_PICK) a->export_dialog = 1;   /* the window itself, for a headless picture of it */
+    else if (o->ask != APP_ACT_NONE) app_ask(a, o->ask, "");   /* ... and the action asked for */
     if (o->user == NULL && o->frames == 0) {   /* a normal run keeps the recent projects in the editor's own folder */
         const char *pref = SDL_GetPrefPath(NULL, "spirited-drive-studio");
         char file[APP_PATH];
@@ -278,10 +346,17 @@ static int run(App *a, const Options *o)
             window_event(a, &ev);
         }
         take_dialog(a);
+        if (a->reveal[0] != '\0') {   /* a folder to show in the Finder (the Masks window's button) */
+            char url[APP_PATH * 3];
+            if (!headless && car_export_file_url(a->reveal, url, sizeof url) && !SDL_OpenURL(url)) snprintf(a->status, sizeof a->status, "cannot open %s: %s", a->reveal, SDL_GetError());
+            a->reveal[0] = '\0';
+        }
         if (a->go != APP_ACT_NONE) {
             if (headless) a->go = APP_ACT_NONE;   /* a headless run ends by its frames: no dialog, no quit of its own */
             else if (run_go(win, a)) quit = 1;
         }
+        app_rehacer_poll(a);
+        app_race_poll(a);
         app_recompute(a);
         SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);
         SDL_RenderClear(ren);
@@ -328,6 +403,11 @@ int main(int argc, char **argv)
     if (o.dir != NULL) opened = app_open_any(app, o.dir, o.game, o.user != NULL ? o.user : "", generic_art);
     else app_begin(app, o.game, o.user != NULL ? o.user : "", generic_art);   /* nothing given: the start screen, or what it had last */
     if (opened) {
+        ExportSource sources;
+        char *pref = o.cd == NULL && o.user == NULL ? SDL_GetPrefPath(NULL, "Spirited Drive") : NULL;   /* the game's player folder, where its own copy of the game's files is: not asked (it makes the folder) when something names it */
+        car_export_source(o.game, o.user != NULL ? o.user : "", pref, o.cd, o.port_data, &sources);
+        SDL_free(pref);
+        app_set_export_source(app, &sources);
         app_set_game_lookup(app, tried, memo);
         app_check_game(app);   /* the window opens with what to do if the game is not found, not with a failed install later */
         status = run(app, &o) ? 0 : 1;

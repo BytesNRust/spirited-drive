@@ -19,8 +19,10 @@ typedef struct {
     char root[CAR_PROJECT_PATH];     /* the kit: where modelo/ and mascaras/ are (the piece's own folder when it has no kit round it) */
     char piece[CAR_PROJECT_PATH];    /* the folder that holds mod.ini */
     char kit[CAR_PROJECT_NAME];      /* the kit folder's name */
-    ModInfo info;                    /* mod.ini, as the game reads it */
-    char cfm[CAR_PROJECT_PATH];      /* the car file, piece/SIMDATA/CARFAMS/<STEM>.CFM */
+    ModInfo info;                    /* mod.ini, as the game reads it (a masks project: only id and name, from its project.ini) */
+    int masks_only;                  /* a masks project (Export original car of a traffic or police car): project.ini with kind=masks, no card, no PBS: the car's masks only */
+    char folder[CAR_PROJECT_NAME];   /* the folder of the masks below car_masks/, as the project spells it (the game's data/car_masks/<folder>/) */
+    char cfm[CAR_PROJECT_PATH];      /* the car file, piece/SIMDATA/CARFAMS/<STEM>.CFM (a masks project: original/<X>.CFM, kept to look at) */
     int has_masks_dir;               /* piece/car_masks/<STEM>/ is there */
     int mask_count;                  /* the masks in it (PNG files), `mask` the first CAR_PROJECT_LIST by name */
     char mask[CAR_PROJECT_LIST][CAR_PROJECT_NAME];
@@ -36,7 +38,10 @@ typedef struct {
  * is missing). */
 int car_project_detect(const char *dir, CarProject *out, char *why, size_t why_cap);
 
-/* 1 when `dir` looks like a car project (a mod.ini in it or in its coche/): the cheap question for a recent list, which asks every frame. car_project_detect judges. */
+/* 1 when `dir` holds a masks project: a project.ini that says kind=masks (editor/car_export.h makes them). It is not a track project, whatever the file is called. */
+int car_project_is_masks(const char *dir);
+
+/* 1 when `dir` looks like a car project (a mod.ini in it or in its coche/, or a masks project): the cheap question for a recent list, which asks every frame. car_project_detect judges. */
 int car_project_present(const char *dir);
 
 #endif
