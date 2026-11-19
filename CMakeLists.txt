@@ -110,6 +110,8 @@ add_library(tnfs_core STATIC
     core/formats/track_gen.c
     core/formats/track_trace.c
     core/formats/fixed_math.c
+    core/formats/shape_bank.c
+    core/formats/car_mask_codec.c
     core/formats/track_frame.c
     core/formats/track_template.c
     core/formats/tri_reverse.c
@@ -592,7 +594,6 @@ add_library(tnfs_game STATIC
     game/sys/race_records.c
     game/sys/control_map.c
     game/sys/pointer_state.c
-    game/sys/shape_bank.c
     game/viewer/screen_layout.c
     game/viewer/dash_box.c
     game/viewer/drive_livery.c
@@ -629,7 +630,7 @@ target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 if(NOT MSVC)
     target_compile_options(tnfs_game PRIVATE -fwrapv)
     # fixed_math moved to core and keeps the same wraparound arithmetic (a negative remainder << 16 in fx_div)
-    set_source_files_properties(core/formats/fixed_math.c PROPERTIES COMPILE_OPTIONS -fwrapv)
+    set_source_files_properties(core/formats/fixed_math.c core/formats/shape_bank.c core/formats/car_mask_codec.c PROPERTIES COMPILE_OPTIONS -fwrapv)
 endif()
 
 set(TNFS_SDL3_PLATFORM
