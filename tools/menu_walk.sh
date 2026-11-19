@@ -23,6 +23,14 @@
 #        EDITION (an edition's file, <id>.ini): copied to the walk's editions/ and made Restomod's edition in use (restomod.cfg's
 #        edition=<id>); with PROFILE=restomod the walk runs in it
 #
+#   pack: several pictures from ONE game session (a Restomod player with the pieces of MODS and the edition EDITION, when given), which is
+#         how menu_compare covers the screens the other targets cannot reach in the time a gate allows: SHOT steps of the input script, one picture
+#         each, saved as <outdir>/<name>.png: cd-setup-lit (the CD showcase page of the Diablo, the pointer on SETUP), cd-setup-open (its Car Setup
+#         modal open), added-setup (the added car's gallery with its modal open; only with MODS and EDITION naming a car piece, the edition's
+#         cars ending in it) cd-records-512 (the 512TR's RECORDS page, the second face of the Video tile) and content-rows (CONTENT, with the edition's cars when MODS and EDITION are given). <outdir>/pack.status says for each
+#         picture: "<name> ok", "<name> never" (the game never logged the screen the picture needs: a binary from before it; not a failure) or
+#         "<name> failed". Exit 0 every picture made, 6 the rest never possible for this binary, 3 a step timed out or a picture is missing.
+#
 # Every step waits for the game's own "mark:screen=NAME" log line (the front end logs one as each screen opens), not for a time; the clicks wait for
 # the screen to be still (TNFS_INPUT_SETTLE). A step that does not come in time stops the run and says which ("input script: step N: WAIT ... timed
 # out"), exit 3. The run is the visible-run kind: dummy SDL drivers, timeout -k, a scratch --mods and --user, the repo's original/ as the game data.
@@ -101,6 +109,7 @@ if [ -n "$KEYS" ]; then
     KEYS=$(expand_keys "$KEYS")
 fi
 
+pack="" shots=""   # pack: the target saves SHOT pictures (the names in shots, a mark each needs after a colon)
 steps_after=""   # set by the targets whose own steps go on after their mark (the done wait below)
 case $target in
 game-mode)    script="$to_game_mode${KEYS:+,$KEYS}"; final=game_mode; tail=${TAIL:-3} ;;
@@ -129,12 +138,33 @@ best-times-p3) script="$to_best,$page_on,$page_on"; final=best_times; steps_afte
 best-circuit)  script="$to_best,$next_track,$next_track"; final=best_times; steps_after=1; tail=12 ;;
 best-circuit-p2) script="$to_best,$next_track,$next_track,$page_on"; final=best_times; steps_after=1; tail=14 ;;
 best-cheats)   script="$to_best,1500:UP,800:UP,800:UP,800:RIGHT"; final=best_times; steps_after=1; tail=9 ;;
+pack)         # the Diablo's page (a fresh player is on the 512TR: car 6; the Diablo is 7, the piece after it, 16), then the piece's gallery, then back
+              # to the 512TR for RECORDS: the one that came last, so a binary without it loses nothing before. The SETUP tile is at (57, 100) 300 x 170. RECORDS is the Video tile's second face: RIGHT on the lit tile turns it, but not while the tile
+              # peeks (0.7 s after the page opens, about a second): the 3 s before RIGHT is for it to be over, whatever the machine's load.
+              # The marks waited on are the ones every build has (mark:car=, screen=showcase, screen=added_gallery); only RECORDS' own
+              # (screen=car_records) is new, with a short wait, and its picture is "never" for a binary that does not log it.
+              pack=1; settle=${SETTLE:-1000}; PROFILE=${PROFILE:-restomod}; final=content; steps_after=1; tail=${TAIL:-0}
+              card="$(click 180 200)"   # the car's card opens its page (the settle before the click is what lets the card take it: 800 ms did not)
+              car_next="$(click 319 197),0:WAIT:mark:car=:$step"; car_back="$(click 30 197),0:WAIT:mark:car=:$step"
+              leave="500:ESC,500:ESC,0:WAIT:mark:car=:$step"
+              script="$to_central,$car_next,$card,$(wait_for showcase),300:MOUSE:$((130 + dx)):130,0:SHOT:cd-setup-lit"
+              script="$script,300:CLICK:$((130 + dx)):130,0:SHOT:cd-setup-open,$leave"
+              shots="cd-setup-lit cd-setup-open"
+              if [ -n "$MODS" ] && [ -n "$EDITION" ]; then   # the piece is the edition's car after the Diablo
+                  script="$script,$car_next,$card,$(wait_for added_gallery),300:CLICK:$((130 + dx)):130,0:SHOT:added-setup,$leave,$car_back,$car_back"
+                  shots="$shots added-setup"
+              else script="$script,$car_back"; fi
+              script="$script,$card,$(wait_for showcase),300:MOUSE:$((380 + dx)):265,3000:RIGHT,1000:ENTER,0:WAIT:mark:screen=car_records:20,0:SHOT:cd-records-512"
+              # CONTENT last, from Game Mode (Control Central's Done is at (571, 453); Manage content is at y 315 in the reordered Game Mode; a build from before the reorder, where it is at 383, does not make this picture):
+              # with the edition and the piece it lists the edition's cars, which the plain content target does not
+              script="$script,$leave,$(click 571 453),$(wait_for game_mode),$(click 320 315),0:WAIT:mark:screen=content:20,0:SHOT:content-rows"
+              shots="$shots cd-records-512:screen=car_records content-rows:screen=content" ;;
 *) echo "unknown target: $target" >&2; exit 2 ;;
 esac
 
 mkdir -p "$out" || exit 1
 work=$(mktemp -d "${TMPDIR:-/tmp}/menu_walk.XXXXXX") || exit 1
-mkdir -p "$work/user" "$work/cap" "$work/mods"
+mkdir -p "$work/user" "$work/cap" "$work/mods" "$work/shots"
 [ -n "$MODS" ] && cp -R "$MODS"/. "$work/mods/"   # a mod piece the walk runs with
 printf 'format=%s\n' "$format" > "$work/user/port.cfg"   # the clicks above are shifted for it
 [ -n "$PROFILE" ] && printf 'profile=%s\n' "$PROFILE" >> "$work/user/port.cfg"
@@ -147,7 +177,7 @@ fi
 limit=$(( step * 12 + 60 ))
 # TNFS_VERSION_TEXT: Game Mode's footer shows "vwalk", not the build's commit, so two builds' game-mode pictures compare (a binary from
 # before it ignores it, and its footer differs)
-(cd "$work" && env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERSION_TEXT=walk TNFS_CAPTURE_DIR="$work/cap" TNFS_CAPTURE_EVERY=${EVERY:-1} \
+(cd "$work" && env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERSION_TEXT=walk TNFS_SHOT_DIR="$work/shots" TNFS_CAPTURE_DIR="$work/cap" TNFS_CAPTURE_EVERY=${EVERY:-1} \
     TNFS_INPUT_SETTLE=$settle TNFS_INPUT_SCRIPT="$script" \
     timeout -k 5 $limit "$bin" --data "$data" --mods "$work/mods" --user "$work/user" > "$work/log" 2>&1 &)
 # the game runs on its own: watch its log for the last mark, then let the screen settle a moment and stop it
@@ -177,7 +207,7 @@ done
 # a one-colour frame (all black, a fade's flat grey) is a fade caught, never still: the wait goes on past it (tools/frame_pick.py)
 one_colour() { python3 -I "$here/frame_pick.py" --one-colour "$1" 2>/dev/null; }
 pick=""
-if [ $rc -eq 0 ]; then
+if [ $rc -eq 0 ] && [ -z "$pack" ]; then   # (a pack walk's pictures are its SHOTs, already still)
     ticks=0 calm=0 seen=""
     while [ $ticks -lt $(( ${STILL:-30} * 2 )) ]; do
         frames=($(ls "$work/cap" | sort | tail -3))
@@ -192,6 +222,26 @@ if [ $rc -eq 0 ]; then
     done
 fi
 pkill -TERM -f "$work/user" 2>/dev/null; sleep 1; pkill -KILL -f "$work/user" 2>/dev/null
+# a pack walk: its pictures are the script's SHOTs; each is "ok" (made), "never" (the game never logged the screen it needs) or "failed"
+if [ -n "$pack" ]; then
+    : > "$out/pack.status"
+    made=0 missing=0 never=0
+    for item in ${=shots}; do
+        name=${item%%:*}; needs=""; case $item in *:*) needs=${item#*:} ;; esac
+        if [ -f "$work/shots/$name.ppm" ] && magick "$work/shots/$name.ppm" "$out/$name.png" 2>/dev/null; then echo "$name ok" >> "$out/pack.status"; made=$((made + 1))
+        elif [ -n "$needs" ] && ! grep -q "mark:$needs" "$work/user/spirited-drive.log" 2>/dev/null; then
+            echo "$name never" >> "$out/pack.status"; never=$((never + 1)); echo "menu_walk pack: no $name: this binary never logged mark:$needs" >&2
+        else echo "$name failed" >> "$out/pack.status"; missing=$((missing + 1)); echo "menu_walk pack: no picture $name" >&2; fi
+    done
+    if grep -q "bad TNFS_INPUT_SCRIPT item" "$work/user/spirited-drive.log" 2>/dev/null; then
+        missing=$((missing + 1)); echo "menu_walk pack: $(grep -m1 'bad TNFS_INPUT_SCRIPT item' "$work/user/spirited-drive.log")" >&2
+    fi
+    pkill -TERM -f "$work/user" 2>/dev/null
+    rc=0; [ $never -gt 0 ] && rc=6; [ $missing -gt 0 ] && rc=3
+    [ $rc -ne 0 ] && grep -E "mark:screen|input script" "$work/user/spirited-drive.log" | tail -8 >&2
+    [ -n "$KEEP" ] && echo "kept: $work" >&2 || { find "$work" -type f -delete; find "$work" -depth -type d -empty -delete 2>/dev/null; }
+    exit $rc
+fi
 # the screen the game ended on: a key or click that went on past the target (a repeat) leaves another page up, and its picture is not the target's
 if [ $rc -eq 0 ]; then
     ended=$(grep -o "mark:screen=[a-z_0-9]*" "$work/user/spirited-drive.log" | tail -1)
