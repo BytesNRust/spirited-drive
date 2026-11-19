@@ -58,6 +58,9 @@ void added_gallery_scroll_touch(GalleryScroll *t, unsigned now);
 int added_gallery_colour_on(const CarPieceCard *c, const GalleryState *s);
 /* 1 when the SETUP panel's row `row` takes keys (SETUP_*) */
 int added_gallery_setup_row_on(const CarPieceCard *c, const GalleryState *s, int row);
+
+/* port (owner 2026-11-19): the last line of the History text, "vX - by Author" (either alone when the other is empty; "" when both are): `out`, size bytes */
+void added_gallery_history_foot(const char *author, const char *version, char *out, int size);
 /* the page entered by a step of the carousel (`entry` 1 Next, -1 Previous; 0 the first entry, from Control Central) */
 void added_gallery_enter(GalleryState *s, int entry);
 /* a key: the state stepped; GALLERY_STAY, or GALLERY_LEAVE (Done, Escape), GALLERY_GO_PREVIOUS / NEXT */

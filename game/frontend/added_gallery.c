@@ -1,6 +1,8 @@
 /* See added_gallery.h. */
 #include "game/frontend/added_gallery.h"
 
+#include <stdio.h>
+
 static int round_step(int v, int count, int step) { return count > 0 ? ((v + step) % count + count) % count : 0; }
 
 int added_gallery_colour_on(const CarPieceCard *c, const GalleryState *s)
@@ -45,6 +47,15 @@ static int row_on(const CarPieceCard *c, const GalleryState *s, int row)
 }
 
 int added_gallery_setup_row_on(const CarPieceCard *c, const GalleryState *s, int row) { return row_on(c, s, row); }
+
+void added_gallery_history_foot(const char *author, const char *version, char *out, int size)
+{
+    const int has_version = version[0] != 0, has_author = author[0] != 0;
+    if (has_version && has_author) snprintf(out, (size_t)size, "v%s - by %s", version, author);
+    else if (has_version) snprintf(out, (size_t)size, "v%s", version);
+    else if (has_author) snprintf(out, (size_t)size, "by %s", author);
+    else out[0] = 0;
+}
 
 /* the row `step` (1 down, -1 up) from `row` that takes keys, `row` itself when none does */
 static int row_step(const CarPieceCard *c, const GalleryState *s, int step)

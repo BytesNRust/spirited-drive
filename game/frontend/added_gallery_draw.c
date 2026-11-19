@@ -273,7 +273,7 @@ static int small_measure(void *ctx, const char *s, int len)
     return text_width_scaled(run, HIST_NUM, HIST_DEN);
 }
 
-/* the head (name, year, author and version) and the description in lines for the tile */
+/* `text` in lines for the tile */
 static void put_lines(Page *p, const char *text, int width)
 {
     TextLine lines[HISTORY_LINES];
@@ -284,20 +284,20 @@ static void put_lines(Page *p, const char *text, int width)
     }
 }
 
+/* owner 2026-11-19: no heading line (the name is on the page's top): the description, a blank line and "vX - by Author" */
 void added_gallery_history_make(Page *p)
 {
-    char name_[64], author[64], version[32], year[32];
-    text_words(p->card.info.name, name_, sizeof name_);
+    char author[64], version[32];
     text_words(p->card.info.author, author, sizeof author);
     text_words(p->card.info.version, version, sizeof version);
-    text_words(p->card.info.year, year, sizeof year);
-    int n = snprintf(p->head, sizeof p->head, "%s", name_);
-    if (year[0] != 0) n += snprintf(p->head + n, sizeof p->head - (size_t)n, " (%s)", year);
-    if (author[0] != 0) n += snprintf(p->head + n, sizeof p->head - (size_t)n, " - by %s", author);
-    if (version[0] != 0) snprintf(p->head + n, sizeof p->head - (size_t)n, " - v%s", version);
+    added_gallery_history_foot(author, version, p->foot, sizeof p->foot);
     text_words(p->card.info.description, p->body, sizeof p->body);
     p->line_count = 0;
     const int width = GL_HIST_W - 8 - 12;
-    put_lines(p, p->head, width);
     put_lines(p, p->body, width);
+    if (p->line_count > 0 && p->foot[0] != 0 && p->line_count < HISTORY_LINES) {   /* the blank line between them */
+        p->lines[p->line_count].text = p->foot;
+        p->lines[p->line_count++].len = 0;
+    }
+    put_lines(p, p->foot, width);
 }
