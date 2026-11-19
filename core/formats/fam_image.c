@@ -155,29 +155,43 @@ static long distance_of(const uint8_t a[CHANNELS], const uint8_t b[CHANNELS])
     return d;
 }
 
-/* The shadow of a car is the road's pixels each turned into the palette's nearest to the colour darkened by 0.6, and a palette cut for the pictures alone
+/* The race loads only the first 0x60 colours of a stage's palette (0044c36c: game/viewer/drive_palette.c, TRACK_FIRST) as its own and maps every other
+ * texture colour onto them; the entries after them are not in its palette at all. The shades below go in at FAM_SHADE_AT, inside those. */
+enum { FAM_SHADE_AT = 0x58 };
+
+/* The shadow of a car is the road's pixels each turned into the palette's nearest entry to the colour darkened by 0.6, and a palette cut for the pictures alone
  * has no dark yellow: a yellow line under a car went green. So the entries kept back take, one at a time, the shade of the entry whose own shade is
  * farthest from every entry, while it is farther than FAM_SHADE_BAR: the same hue, darker, exactly (a CD stage's palette has them). `count` entries are
- * in use; the reserved ones follow them. */
+ * in use; the shades are put in at FAM_SHADE_AT, the entries from there on moving up, and a texture that holds their colour (editor/art/road_rim.py) is what
+ * keeps the race from taking them for the cars' paint. */
 static void reserve_shades(uint8_t palette6[FAM_PALETTE_BYTES], int count)
 {
-    for (int slot = 0; slot < SHADE_SLOTS && count < FAM_PIXEL_INDICES; slot++) {
+    uint8_t picks[SHADE_SLOTS][CHANNELS];
+    int picked = 0;
+    for (int slot = 0; slot < SHADE_SLOTS && count + picked < FAM_PIXEL_INDICES; slot++) {
         long worst = FAM_SHADE_BAR;
         int pick = -1;
         uint8_t shade[CHANNELS], pick_shade[CHANNELS];
         for (int i = 0; i < count; i++) {
             shade_of(palette6 + 3 * i, shade);
             long nearest = -1;
-            for (int j = 0; j < count; j++) {
+            for (int j = 0; j < count; j++) {   /* the entries so far and the shades already picked */
                 const long d = distance_of(shade, palette6 + 3 * j);
+                if (nearest < 0 || d < nearest) nearest = d;
+            }
+            for (int j = 0; j < picked; j++) {
+                const long d = distance_of(shade, picks[j]);
                 if (nearest < 0 || d < nearest) nearest = d;
             }
             if (nearest > worst) worst = nearest, pick = i, memcpy(pick_shade, shade, sizeof pick_shade);
         }
-        if (pick < 0) return;
-        memcpy(palette6 + 3 * count, pick_shade, CHANNELS);
-        count++;
+        if (pick < 0) break;
+        memcpy(picks[picked++], pick_shade, CHANNELS);
     }
+    if (picked == 0) return;
+    const int at = count < FAM_SHADE_AT ? count : FAM_SHADE_AT;
+    memmove(palette6 + 3 * (at + picked), palette6 + 3 * at, (size_t)(count - at) * CHANNELS);
+    for (int i = 0; i < picked; i++) memcpy(palette6 + 3 * (at + i), picks[i], CHANNELS);
 }
 
 int fam_palette_make(const FamPicture *pics, size_t n, uint8_t palette6[FAM_PALETTE_BYTES])

@@ -27,7 +27,7 @@ static uint8_t *read_file(const char *path, size_t *len)
 }
 
 /* the squared distance, 8-bit units, from the palette's nearest entry to the shade of (r, g, b); that entry's colour into out[3] */
-static long shade_gap(const uint8_t *pal6, int r, int g, int b, int out[3])
+static long shade_gap(const uint8_t *pal6, int r, int g, int b, int out[3], int *index)
 {
     const int c[3] = { r >> 2, g >> 2, b >> 2 };
     int want[3];
@@ -39,7 +39,7 @@ static long shade_gap(const uint8_t *pal6, int r, int g, int b, int out[3])
     for (int j = 0; j < FAM_PIXEL_INDICES; j++) {
         long d = 0;
         for (int i = 0; i < 3; i++) d += (long)((want[i] - pal6[3 * j + i]) * 4) * ((want[i] - pal6[3 * j + i]) * 4);
-        if (best < 0 || d < best) best = d, out[0] = pal6[3 * j] << 2, out[1] = pal6[3 * j + 1] << 2, out[2] = pal6[3 * j + 2] << 2;
+        if (best < 0 || d < best) best = d, *index = j, out[0] = pal6[3 * j] << 2, out[1] = pal6[3 * j + 1] << 2, out[2] = pal6[3 * j + 2] << 2;
     }
     return best;
 }
@@ -59,12 +59,13 @@ int main(int argc, char **argv)
     CHECK(fsh_open(&fsh, bank.data, bank.size) == FSH_OK && fsh_find(&fsh, "!pal", &at) == FSH_OK && fsh_entry(&fsh, at, &pal) == FSH_OK);
     CHECK(pal.payload_size >= FAM_PALETTE_BYTES);
     if (pal.payload_size >= FAM_PALETTE_BYTES) {
-        int rgb[3];
+        int rgb[3], index = 0;
         /* the generic road's lines (editor/art/make_road.py: yellow 240,190,0 and white 235,235,235), as the palette holds them */
-        const long yellow = shade_gap(pal.payload, 240, 190, 0, rgb);
+        const long yellow = shade_gap(pal.payload, 240, 190, 0, rgb, &index);
         CHECK(yellow <= 450);
+        CHECK(index < 0x60);   /* the race loads the first 0x60 colours of the palette as its own (drive_palette.c TRACK_FIRST) */
         CHECK(rgb[0] > rgb[1] && rgb[1] > rgb[2] + 40);   /* a dark yellow, not a green */
-        const long white = shade_gap(pal.payload, 235, 235, 235, rgb);
+        const long white = shade_gap(pal.payload, 235, 235, 235, rgb, &index);
         CHECK(white <= 450);
         CHECK(abs(rgb[0] - rgb[1]) < 24 && abs(rgb[1] - rgb[2]) < 24);   /* a grey */
     }
