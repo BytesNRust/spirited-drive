@@ -44,6 +44,7 @@ static void spill(const char *dir, const char *name, const uint8_t *d, size_t n)
     if (f != NULL) fwrite(d, 1, n, f), fclose(f);
 }
 
+#define CATALOGUE_SHAPED_DRAFT_HASH 756995945u   /* the hash of the draft the code made before the traffic side was a body texture (the bank of test_high_bank_side_and_back_by_their_masks): it must not move */
 static uint8_t palette[768];
 
 /* a bank: !PAL, then each texture (4 x 2 high, 2 x 2 low), all texels `fill` */
@@ -294,6 +295,103 @@ static void test_added_texture_lamps_and_shine_by_its_mask(void)
     free(cfm);
 }
 
+/* what a draft reported: each texture's name and how many texels of each class (paint, matte, shine, body), and a hash of all its keep maps */
+typedef struct {
+    int calls;
+    char name[8][4];
+    int level[8];
+    int klass[8][4];
+    uint32_t hash;
+} DraftLog;
+
+static void draft_log(void *user, int level, const char name[4], int width, int height, const uint8_t *pixels, const uint8_t *keep, const uint8_t rgb[768])
+{
+    (void)pixels, (void)rgb;
+    DraftLog *log = user;
+    if (log->calls >= 8) return;
+    memcpy(log->name[log->calls], name, 4);
+    log->level[log->calls] = level;
+    memset(log->klass[log->calls], 0, sizeof log->klass[0]);
+    for (int i = 0; i < width * height; i++) {
+        log->klass[log->calls][keep[i] & 3]++;
+        log->hash = (log->hash ^ keep[i]) * 16777619u;
+    }
+    log->calls++;
+}
+
+static int drafted(const DraftLog *log, const char *name, int level)
+{
+    for (int i = 0; i < log->calls; i++)
+        if (memcmp(log->name[i], name, 4) == 0 && log->level[i] == level) return i;
+    return -1;
+}
+
+/* the traffic cars' high bank has a `side` (and some a `back`) texture that the catalogue cars' has not (they have rsid and rear): a mask in the stock
+ * search makes it a body texture of the draft, none leaves it out as it was, and a bank like a catalogue car's drafts the same as it did */
+static void test_high_bank_side_and_back_by_their_masks(void)
+{
+    char dir[400], env[400];
+    snprintf(dir, sizeof dir, "%s/traffic_masks/TRAFTEST", base);
+    snprintf(env, sizeof env, "%s/traffic_masks", base);
+    uint8_t half[8] = { 0, 0, 0, 0, CAR_MASK_SHINE, CAR_MASK_SHINE, CAR_MASK_SHINE, CAR_MASK_SHINE }, *png = NULL;
+    size_t n = 0;
+    if (car_mask_write(half, 4, 2, &png, &n)) spill(dir, "side_mask.png", png, n), spill(dir, "back_mask.png", png, n), spill(dir, "rear_mask.png", png, n), png_free(png);
+    setenv("TNFS_CAR_MASKS", env, 1);   /* the dev override car_mask_load reads first */
+    size_t size = 0;
+
+    uint8_t *cfm = cfm_named("side", &size);
+    DraftLog log = { 0 };
+    drive_livery_draft("TRAFTEST", cfm, size, draft_log, &log);
+    const int side = drafted(&log, "side", 0);
+    CHECK(side >= 0);                                            /* (a) a masked high-bank side is drafted ... */
+    if (side >= 0) {   /* ... with the mask's classes: paint and shine */
+        CHECK_EQ_INT(log.klass[side][0], 4);
+        CHECK_EQ_INT(log.klass[side][2], 4);
+    }
+    free(cfm);
+
+    cfm = cfm_named("back", &size);
+    memset(&log, 0, sizeof log);
+    drive_livery_draft("TRAFTEST", cfm, size, draft_log, &log);
+    const int back = drafted(&log, "back", 0);
+    CHECK(back >= 0);                                            /* (a) and a masked back too */
+    if (back >= 0) CHECK_EQ_INT(log.klass[back][2], 4);
+    free(cfm);
+
+    cfm = cfm_named("side", &size);
+    memset(&log, 0, sizeof log);
+    drive_livery_draft("NOMASKS", cfm, size, draft_log, &log);
+    CHECK_EQ_INT(drafted(&log, "side", 0), -1);                  /* (b) no mask file: not a body texture, as before */
+    free(cfm);
+
+    cfm = cfm_named("rear", &size);
+    memset(&log, 0, sizeof log);
+    log.hash = 2166136261u;
+    drive_livery_draft("TRAFTEST", cfm, size, draft_log, &log);
+    CHECK(drafted(&log, "rear", 0) >= 0);                        /* (c) a catalogue-shaped bank (no side or back): the draft the old code made */
+    CHECK_EQ_INT(drafted(&log, "side", 0), -1);
+    CHECK_EQ_INT((int)log.hash, (int)CATALOGUE_SHAPED_DRAFT_HASH);
+    free(cfm);
+
+    char own[400];   /* an added car's own folder: a side whose mask has lamp and shine texels but no paint is drafted too (deliberate: its shine comes from the mask) */
+    snprintf(own, sizeof own, "%s/skins/lit_side", base);
+    uint8_t lit[8] = { CAR_MASK_BRAKE, CAR_MASK_BRAKE, CAR_MASK_SHINE, CAR_MASK_SHINE, CAR_MASK_MATTE, CAR_MASK_MATTE, CAR_MASK_MATTE, CAR_MASK_MATTE };
+    if (car_mask_write(lit, 4, 2, &png, &n)) spill(own, "side_mask.png", png, n), png_free(png);
+    uint8_t all_paint[8] = { 0 };   /* the bank has paint (its topv), as a car has: with none the draft is all matte */
+    if (car_mask_write(all_paint, 4, 2, &png, &n)) spill(own, "topv_mask.png", png, n), png_free(png);
+    cfm = cfm_named("side", &size);
+    memset(&log, 0, sizeof log);
+    drive_livery_draft_masks("TESTCAR", own, cfm, size, draft_log, &log);
+    const int lit_side = drafted(&log, "side", 0);
+    CHECK(lit_side >= 0);
+    if (lit_side >= 0) {
+        CHECK_EQ_INT(log.klass[lit_side][2], 4);   /* the two brake and the two glass-shine texels shine */
+        CHECK_EQ_INT(log.klass[lit_side][1], 4);   /* the matte ones stay matte; no texel is paint: its mask has none */
+    }
+    free(cfm);
+    unsetenv("TNFS_CAR_MASKS");
+}
+
 static CarPieceCard card_of(void)
 {
     CarPieceCard c;
@@ -343,6 +441,7 @@ int main(void)
     test_added_texture_painted_by_its_mask();
     test_added_texture_black_by_its_mask();
     test_added_texture_lamps_and_shine_by_its_mask();
+    test_high_bank_side_and_back_by_their_masks();
     test_the_look();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "find '%s' -delete", base);

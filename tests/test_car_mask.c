@@ -6,10 +6,13 @@
 #include "game/sys/port_log.h"
 #include "test.h"
 
+#include <dirent.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 enum { W = 5, H = 3 };
 
@@ -189,7 +192,7 @@ static void test_refused(void)
     CHECK(car_mask_load("TNoSuch", "rsid", 0, 4, 4) == NULL);   /* no file */
 }
 
-#define ROOT "car_mask_test_masks"   /* the directory the test makes in the working directory */
+#define ROOT "car_mask_test_masks"   /* the directory the test makes, in a scratch working directory of its own (main) */
 
 static void write_mask_in(const char *dir, const char *car, const char *file, const uint8_t *mask, int width, int height)
 {
@@ -300,8 +303,32 @@ static void test_missing_masks_are_quiet(void)
     data_path_set_mods(NULL, 0), data_path_set_base(NULL);
 }
 
+static void remove_tree(const char *path)   /* rm -r: the scratch directory goes at the end, with what the lookups wrote in it */
+{
+    DIR *d = opendir(path);
+    if (d != NULL) {
+        for (const struct dirent *e = readdir(d); e != NULL; e = readdir(d)) {
+            if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
+            char child[PATH_MAX];
+            snprintf(child, sizeof child, "%s/%s", path, e->d_name);
+            struct stat st;
+            if (lstat(child, &st) == 0 && S_ISDIR(st.st_mode)) remove_tree(child);
+            else remove(child);
+        }
+        closedir(d);
+    }
+    rmdir(path);
+}
+
 int main(void)
 {
+    char home[PATH_MAX], scratch[PATH_MAX];   /* the working directory, and a scratch one the test works in: nothing is left in the build or source tree */
+    const char *tmp = getenv("TMPDIR");
+    snprintf(scratch, sizeof scratch, "%s/tnfs-car-mask-XXXXXX", tmp != NULL && tmp[0] != '\0' ? tmp : "/tmp");
+    if (getcwd(home, sizeof home) == NULL || mkdtemp(scratch) == NULL || chdir(scratch) != 0) {
+        fprintf(stderr, "no scratch directory\n");
+        return 1;
+    }
     test_round_trip();
     test_file_values();
     test_colours();
@@ -313,5 +340,8 @@ int main(void)
     test_lookup_by_level();
     test_mod_before_data();
     test_missing_masks_are_quiet();
-    return TEST_REPORT();
+    const int failures = TEST_REPORT();
+    if (chdir(home) != 0) return failures ? failures : 1;
+    remove_tree(scratch);
+    return failures;
 }

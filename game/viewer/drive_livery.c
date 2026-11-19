@@ -204,11 +204,14 @@ static int repaint_cfm(uint8_t *cfm, size_t size, const char *stem, const char *
             RepaintTexture tex = { (uint8_t *)(uintptr_t)e.payload, pixels, car_repaint_body_class(e.name, (int)level), 0, { 0 }, NULL };
             tex.width = (int)e.width;
             keep_plate(&tex, upper, e.name, (int)e.width);
-            if (tex.body != REPAINT_NONE || fn == run_lamps || mask_dir != NULL)
+            const int high_side = level == 0 && memcmp(e.name, "side", 4) == 0, high_back = level == 0 && memcmp(e.name, "back", 4) == 0;
+            if (tex.body != REPAINT_NONE || fn == run_lamps || mask_dir != NULL || high_side || high_back)
                 tex.mask = mask_dir != NULL ? car_mask_load_dir(mask_dir, e.name, (int)level, (int)e.width, (int)e.height)
                                             : car_mask_load(stem, e.name, (int)level, (int)e.width, (int)e.height);
             if (tex.body == REPAINT_NONE && mask_dir != NULL && mask_paints(tex.mask, pixels))
                 tex.body = REPAINT_MAIN;   /* an added car's own texture (car texture add) is the body where its own mask paints */
+            if (tex.body == REPAINT_NONE && tex.mask != NULL)   /* a traffic car's high bank has a side (some a back) the catalogue cars have not (car_repaint_body_class leaves them out): a mask makes it a body texture */
+                tex.body = high_side ? REPAINT_MAIN : high_back ? REPAINT_END : REPAINT_NONE;
             memcpy(meta.name[count], e.name, 4);
             textures[count++] = tex;
         }
