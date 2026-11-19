@@ -9,7 +9,7 @@ enum { ENTER = 0xd, ESCAPE = 0x1b, SPACE = 0x20, UP = 0x4800, LEFT = 0x4b00, RIG
        LEFT_BUTTON = 1, RIGHT_BUTTON = 2 };
 enum { HISTORY, VIDEO, GENERAL, PERFORMANCE, ENGINE, NEXT, PREVIOUS, DONE, NONE, ITEMS = NONE,
        VARIANT = NONE + 1 };   /* port: the variant box, an item with no art of the bank's */
-enum { PEEK_AT = 200, PEEK_LENGTH = 100, PEEK_PIXELS = 26, SLIDE_TICKS = 15,   /* port: 100 ticks a second */
+enum { PEEK_AT = 70, PEEK_LENGTH = 100, PEEK_PIXELS = 26, SLIDE_TICKS = 15,   /* port: 100 ticks a second */
        MOVED = 0x47, CHOSEN = 0x48, WAIT = 0x2ee0, REST = 0x19, ALL = 0x100, BOXES = 8, TOURNAMENT = 3 };
 
 /* 00405f4c..00405fb7, copied to the stack: the arrows' next item and the pointer's place, by item (NONE too) */
@@ -103,10 +103,10 @@ static int tile_shift(const Show *s)
     return shift;
 }
 
-/* port: the arrows in the tile: a left one on the records, a right one on the video once the peek has shown there is more */
+/* port: the arrows in the tile: a left one on the records, a right one on the video from the first time it is lit (owner 2026-11-19: not only once the peek has shown there is more) */
 static int tile_arrows(const Show *s)
 {
-    return s->face ? 1 : s->peek == 2 ? 2 : 0;
+    return s->face ? 1 : 2;
 }
 
 /* the first box the pointer is in becomes the selection, else none */
@@ -240,7 +240,7 @@ static int tile_click(Show *s, const ShowcaseOps *o)
 {
     enum { ZONE = 30 };
     const int left = s->face && o->pointer_in_rect(o->ctx, SHOWCASE_TILE_X, SHOWCASE_TILE_X + ZONE, SHOWCASE_TILE_Y, SHOWCASE_TILE_Y + SHOWCASE_TILE_H);
-    const int right = !s->face && s->peek == 2 &&
+    const int right = !s->face &&
                       o->pointer_in_rect(o->ctx, SHOWCASE_TILE_X + SHOWCASE_TILE_W - ZONE, SHOWCASE_TILE_X + SHOWCASE_TILE_W, SHOWCASE_TILE_Y, SHOWCASE_TILE_Y + SHOWCASE_TILE_H);
     if (left || right) flip_face(s, o);
     return left || right;
