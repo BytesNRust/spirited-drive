@@ -1,8 +1,9 @@
-/* owner 2026-11-19: the SETUP panel's Color and Skin row: the box next to the left arrow, the name centred in the gap between the box and the right
- * arrow, and the longest colour name of the CD's cars (and "Console version") inside that gap in the panel's font. The geometry needs no data; the
- * widths need the CD's font and are skipped without original/. */
+/* owner 2026-11-19, 2026-11-19 (the second answer): the SETUP panel in two columns. The labels in the first, as wide as the widest label; in the
+ * second the selectors and values: on a Color or Skin row the box next to the left arrow, the name centred in a span as wide as the longest colour
+ * name of the CD's cars, then the right arrow. The panel's width is their sum and it is centred with air at the sides. The geometry needs no data; the
+ * widths (label column, name span, every colour name fitting at the row's own size) need the CD's font and are skipped without original/. */
+#include "game/frontend/added_gallery_page.h"
 #include "game/frontend/gallery_layout.h"
-#include "game/frontend/setup_name.h"
 #include "game/race/car_paint.h"
 #include "game/sys/resource.h"
 #include "game/sys/text.h"
@@ -25,18 +26,19 @@ static void rows(void)
         CHECK_EQ_INT(step, row >= 2 ? 1 : 0);   /* the label's side of Color and Skin: the row alone */
     }
     CHECK_EQ_INT(gallery_setup_row_at(GL_SETUP_Y + 5), -1);
-    CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + 150, GL_SETUP_Y + GL_SETUP_ROW0 + GALLERY_SETUP_ROWS * GL_SETUP_STEP + GL_SETUP_INK_MID, &step), -1);
 }
 
 static void geometry(void)
 {
     SetupChoice c;
     gallery_setup_choice(&c);
-    CHECK_EQ_INT(c.preview, c.left + GL_ARROW_W + GL_SETUP_CHOICE_GAP);                       /* the box next to the left arrow */
-    CHECK_EQ_INT(c.name_x0, c.preview + GL_SETUP_PREVIEW_W + GL_SETUP_CHOICE_GAP);            /* the name starts past the box */
-    CHECK_EQ_INT(c.name_x1, c.right - GL_SETUP_CHOICE_GAP);                                   /* and ends before the right arrow */
-    CHECK_EQ_INT(c.right + GL_ARROW_W, GL_SETUP_X + GL_SETUP_W - 16);                         /* the right arrow ends where a switch's value does */
-    CHECK(c.left > GL_SETUP_X + GL_SETUP_LABEL_X + 60 && c.name_x1 > c.name_x0);
+    CHECK_EQ_INT(c.left, GL_SETUP_X + GL_SETUP_LABEL_X + GL_SETUP_LABEL_COL_W + GL_SETUP_COL_GAP);   /* the second column after the labels' and the air */
+    CHECK_EQ_INT(c.preview, c.left + GL_ARROW_W + GL_SETUP_CHOICE_GAP);                              /* the box next to the left arrow */
+    CHECK_EQ_INT(c.name_x0, c.preview + GL_SETUP_PREVIEW_W + GL_SETUP_CHOICE_GAP);                   /* the name starts past the box */
+    CHECK_EQ_INT(c.name_x1 - c.name_x0, GL_SETUP_NAME_W);
+    CHECK_EQ_INT(c.right, c.name_x1 + GL_SETUP_CHOICE_GAP);                                          /* and ends before the right arrow */
+    CHECK_EQ_INT(c.right + GL_ARROW_W + GL_SETUP_LABEL_X, GL_SETUP_X + GL_SETUP_W);                  /* the right margin is the left one */
+    CHECK(GL_SETUP_X >= 24 && 2 * GL_SETUP_X + GL_SETUP_W <= GL_W + 1 && 2 * GL_SETUP_X + GL_SETUP_W >= GL_W - 1);   /* centred, air at both sides */
     CHECK_EQ_INT(gallery_setup_choice_step(c.left - 17), 0);   /* the label's side: the row alone */
     CHECK_EQ_INT(gallery_setup_choice_step(c.left), -1);
     CHECK_EQ_INT(gallery_setup_choice_step(c.right + GL_ARROW_W - 1), 1);
@@ -47,7 +49,8 @@ static void geometry(void)
     CHECK_EQ_INT(hit_step, 1);
 }
 
-static void names(void)
+/* the widths are the texts' own, measured in the CD's font at the row's size (the constants are what these measure) */
+static void measured(void)
 {
     char cd[512], probe[600];
     snprintf(cd, sizeof cd, "%s/original", TNFS_SOURCE_DIR);
@@ -61,32 +64,41 @@ static void names(void)
     int top, bottom;
     text_ink_scaled("H", GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN, &top, &bottom);
     CHECK_EQ_INT((top + bottom) / 2, GL_SETUP_INK_MID);   /* the constant is the font's */
-    SetupChoice c;
-    gallery_setup_choice(&c);
-    const int room = c.name_x1 - c.name_x0;
-    char out[64];
-    int num, den, smallest = GL_SETUP_FONT_NUM * 100 / GL_SETUP_FONT_DEN;
-    CHECK(setup_name_fit("Console version", room, out, sizeof out, &num, &den) <= room && strcmp(out, "Console version") == 0);
+    static const char *const LABEL[5] = { "Color", "Skin", "Transmission", "ABS", "Traction control" };
+    int widest_label = 0;
+    for (int i = 0; i < 5; i++) {
+        const int w = text_width_scaled(LABEL[i], GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+        if (w > widest_label) widest_label = w;
+    }
+    CHECK_EQ_INT(widest_label, GL_SETUP_LABEL_COL_W);   /* the first column is exactly the widest label */
+    int widest = text_width_scaled("Console version", GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
     for (int model = 0; model < CAR_PAINT_MODELS; model++)
         for (int k = 0; k < car_paint_count(model); k++) {
-            const char *name = car_paint(model, k)->name;
-            const int w = setup_name_fit(name, room, out, sizeof out, &num, &den);
-            CHECK(w <= room);
-            CHECK(strcmp(out, name) == 0);   /* whole, not cut */
-            if (num * 100 / den < smallest) smallest = num * 100 / den;
-            if (num * 100 / den < 75) printf("%s: %d/%d\n", name, num, den);
+            const int w = text_width_scaled(car_paint(model, k)->name, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+            if (w > widest) widest = w;
+            if (w > GL_SETUP_NAME_W) printf("too wide: %s %d > %d\n", car_paint(model, k)->name, w, GL_SETUP_NAME_W);
+            CHECK(w <= GL_SETUP_NAME_W);   /* every name of the CD's cars fits, at the row's size, between the box and the arrow */
         }
-    /* an added car's 24-character name of wide letters: cut with a "." as a last resort, within the room */
-    CHECK(setup_name_fit("WWWWWWWWWWWWWWWWWWWWWWWW", room, out, sizeof out, &num, &den) <= room);
-    CHECK(strlen(out) < 24 && out[strlen(out) - 1] == '.');
-    CHECK_EQ_INT(num * 8, 5 * den);   /* at the smallest size */
-    printf("smallest size used %d%% (room %d px)\n", smallest, room);
+    CHECK(GL_SETUP_NAME_W - widest >= 0 && GL_SETUP_NAME_W - widest <= 8);   /* the span is the widest name's with a little air, not more */
+    /* General's and Mechanical's values (owner 2026-11-19): one that fits is whole, a long one is cut with "...", none is a dash */
+    char fit[64];
+    const int room = 80;
+    added_gallery_figure_fit("Germany", room, fit, sizeof fit);
+    CHECK(strcmp(fit, "Germany") == 0 || text_width_scaled(fit, 3, 4) <= room);
+    added_gallery_figure_fit("Mercedes-Benz AMG Performance", room, fit, sizeof fit);
+    CHECK(strlen(fit) > 3 && strcmp(fit + strlen(fit) - 3, "...") == 0 && strncmp(fit, "Mercedes", 3) == 0);
+    CHECK(text_width_scaled(fit, 3, 4) <= room);
+    added_gallery_figure_fit("", room, fit, sizeof fit);
+    CHECK(strcmp(fit, "-") == 0);
+    added_gallery_figure_fit("Mercedes-Benz AMG Performance", 6, fit, sizeof fit);   /* no room even for the dots */
+    CHECK(fit[0] == 0);
+    printf("widest colour name %d px of %d, label column %d px, panel %d px wide at x %d\n", widest, GL_SETUP_NAME_W, widest_label, GL_SETUP_W, GL_SETUP_X);
 }
 
 int main(void)
 {
     geometry();
     rows();
-    names();
+    measured();
     return TEST_REPORT();
 }

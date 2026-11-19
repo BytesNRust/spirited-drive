@@ -28,15 +28,22 @@ enum {
     GL_HIST_X = 455, GL_HIST_Y = 245, GL_HIST_W = 161, GL_HIST_H = 122,
     GL_COL_X = 57, GL_COL_Y = 100, GL_COL_W = 154, GL_COL_H = 63,
     GL_ARROW_W = 9, GL_ARROW_H = 14, GL_ARROW_IN = 8,
-    /* the SETUP panel when it is open, over the tile and General's top (the mock-up: x 57..299, y 100..269); its rows from GL_SETUP_ROW0 down by
-     * GL_SETUP_STEP, the value column from GL_SETUP_VALUE_X, GL_SETUP_VALUE_W wide (its arrows at its two ends) */
-    GL_SETUP_X = 40, GL_SETUP_Y = 100, GL_SETUP_W = 380, GL_SETUP_H = 170, GL_SETUP_ROW0 = 44, GL_SETUP_STEP = 24,
-    GL_SETUP_VALUE_X = 168, GL_SETUP_VALUE_W = 196, GL_SETUP_PREVIEW_W = 20, GL_SETUP_PREVIEW_H = 12,   /* the arrows' zone: Color's and Skin's arrows at its two ends, a switch's value at its right end; the label from x + GL_SETUP_LABEL_X */
-    GL_SETUP_TITLE_NUM = 5, GL_SETUP_TITLE_DEN = 4,   /* the panel's title "CAR SETUP", red: the size of the CD page's baked "Car Showcase" (owner 2026-11-18), on the CD's pages and the added one's alike */
-    GL_SETUP_CHOICE_X = 80,   /* Color's and Skin's row (owner 2026-11-19): the left arrow at this x in the panel, past the label, and the right arrow's right edge at the panel's width - 16 (a switch's value ends there too) */
-    GL_SETUP_CHOICE_GAP = 6,  /* the preview box's own gap to the left arrow, and the name's to the box and to the right arrow */
-    GL_SETUP_INK_MID = 10,   /* a row's capitals' middle below the row's y ((5 + 16) / 2 in the main face at 7/8): a click's row band is centred there, on what the player sees (owner 2026-11-19) */
+    /* the SETUP panel when it is open (a modal over the page's middle): two columns (owner 2026-11-19), the labels in the first, as wide as the widest
+     * label, and in the second, after GL_SETUP_COL_GAP of air, the selectors and the values: a Color or Skin row is its left arrow, the preview box
+     * next to it, the name in a span GL_SETUP_NAME_W wide and the right arrow; a switch's value begins at the second column. The widths come from
+     * measuring the texts (the main face at 7/8), checked by tests/test_setup_choice.c: LABEL_COL_W is "Traction control", NAME_W the widest colour
+     * name of the CD's cars ("30th Anniversary Lavender") with a little air, so no name is drawn smaller. The panel's width is their sum with its
+     * margins and it is centred on the screen, rows from GL_SETUP_ROW0 down by GL_SETUP_STEP */
     GL_SETUP_LABEL_X = 14, GL_SETUP_FONT_NUM = 7, GL_SETUP_FONT_DEN = 8,   /* the rows in the main face at 7/8, as Options' */
+    GL_SETUP_LABEL_COL_W = 176, GL_SETUP_COL_GAP = 24, GL_SETUP_NAME_W = 288,
+    GL_SETUP_PREVIEW_W = 20, GL_SETUP_PREVIEW_H = 12,
+    GL_SETUP_CHOICE_GAP = 6,  /* the preview box's own gap to the left arrow, and the name's to the box and to the right arrow */
+    GL_SETUP_COL2_X = GL_SETUP_LABEL_X + GL_SETUP_LABEL_COL_W + GL_SETUP_COL_GAP,   /* the second column, in the panel */
+    GL_SETUP_W = GL_SETUP_COL2_X + GL_ARROW_W + GL_SETUP_CHOICE_GAP + GL_SETUP_PREVIEW_W + GL_SETUP_CHOICE_GAP + GL_SETUP_NAME_W +
+                 GL_SETUP_CHOICE_GAP + GL_ARROW_W + GL_SETUP_LABEL_X,
+    GL_SETUP_X = (GL_W - GL_SETUP_W) / 2, GL_SETUP_Y = 100, GL_SETUP_H = 170, GL_SETUP_ROW0 = 44, GL_SETUP_STEP = 24,
+    GL_SETUP_TITLE_NUM = 5, GL_SETUP_TITLE_DEN = 4,   /* the panel's title "CAR SETUP", red: the size of the CD page's baked "Car Showcase" (owner 2026-11-18), on the CD's pages and the added one's alike */
+    GL_SETUP_INK_MID = 10,   /* a row's capitals' middle below the row's y ((5 + 16) / 2 in the main face at 7/8): a click's row band is centred there, on what the player sees (owner 2026-11-19) */
     GALLERY_SETUP_ROWS = 5,
     GL_ARROW_ZONE = 30,   /* the width of the big photo's left and right zones, the arrows' places for a click */
     /* the bottom row (DONE, the arrows, "Next car") as the CD showcase pages have it, cut from their art (GalleryRow): rows GL_ROW_Y ..
@@ -70,8 +77,8 @@ void gallery_lean(const uint8_t *mask, int w, int h, int num, int den, uint8_t *
  * GALLERY_NEXT or GALLERY_DONE (step 0); -1 for nothing */
 int gallery_hit(int x, int y, int *step);
 
-/* port (owner 2026-11-19): where a Color or Skin row's parts are on the screen: the arrows' left x (`left`, `right`), the preview box's left x, and the
- * span [name_x0, name_x1) the name is centred in (the gap between the box and the right arrow, not between the two arrows) */
+/* port (owner 2026-11-19): where a Color or Skin row's parts are on the screen: the arrows' left x (`left`, `right`; `left` is also where a switch's value
+ * begins), the preview box's left x, and the span [name_x0, name_x1) the name is centred in (between the box and the right arrow) */
 typedef struct {
     int left, right, preview, name_x0, name_x1;
 } SetupChoice;
