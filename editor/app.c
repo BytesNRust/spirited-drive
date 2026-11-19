@@ -36,7 +36,7 @@ static void drop_road(App *a)
     a->radius_nodes = 0;
 }
 
-int app_open(App *a, const char *dir, const char *game, const char *user)
+int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
 {
     memset(a, 0, sizeof *a);
     snprintf(a->dir, sizeof a->dir, "%s", dir);
@@ -45,7 +45,7 @@ int app_open(App *a, const char *dir, const char *game, const char *user)
     a->selected = -1;
     char id[MOD_INI_ID_MAX + 1], why[APP_MSG];
     folder_name(dir, id, sizeof id);
-    if (!project_create(dir, id, why, sizeof why) || !project_open(dir, &a->project, &a->trace, why, sizeof why)) {
+    if (!project_create(dir, id, generic_art, why, sizeof why) || !project_open(dir, &a->project, &a->trace, why, sizeof why)) {
         set_status(a, why);
         return 0;
     }

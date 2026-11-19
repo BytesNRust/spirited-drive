@@ -170,7 +170,7 @@ static int piece_files(const Project *p, const char *dir, const uint8_t *tri, si
     char paths[TRACK_PIECE_FILES][TRACK_PIECE_PATH], art[PATH_LEN];
     track_piece_paths(p->stem, 1, paths);
     if (p->art[0] == '\0') {
-        snprintf(why, why_cap, "set art= in project.ini: a stage's FAM (the generic one is ../generic-straight/GENERIC.FAM)");
+        snprintf(why, why_cap, "set art= in project.ini: a stage's FAM (a new project copies the editor's generic one as GENERIC.FAM; this editor has none beside it)");
         return 0;
     }
     if (p->art[0] == '/') snprintf(art, sizeof art, "%s", p->art);

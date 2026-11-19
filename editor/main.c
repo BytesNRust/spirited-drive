@@ -10,6 +10,7 @@
  * exit status is 1 when a --save, --build or --install failed. Run it with SDL_VIDEO_DRIVER=dummy and SDL_AUDIO_DRIVER=dummy for a headless
  * run. */
 #include "app.h"
+#include "art.h"
 #include "build.h"
 #include "capture.h"
 #include "ui.h"
@@ -189,7 +190,8 @@ int main(int argc, char **argv)
     App *app = calloc(1, sizeof *app);
     if (app == NULL) return 1;
     int status = 1;
-    if (app_open(app, o.dir, o.game, o.user != NULL ? o.user : "")) {
+    char generic[APP_PATH];
+    if (app_open(app, o.dir, o.game, o.user != NULL ? o.user : "", art_generic_find(generic, sizeof generic) ? generic : NULL)) {
         app_check_game(app);   /* the window opens with what to do if the game is not found, not with a failed install later */
         status = run(app, &o) ? 0 : 1;
     } else {

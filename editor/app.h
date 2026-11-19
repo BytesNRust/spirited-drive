@@ -37,8 +37,9 @@ typedef struct {
     char status[APP_MSG];        /* the last thing done, for the window's bottom line */
 } App;
 
-/* Opens the project in `dir`, creating its files where they are missing. 1 with the app ready, 0 with status naming the fault. */
-int app_open(App *a, const char *dir, const char *game, const char *user);
+/* Opens the project in `dir`, creating its files where they are missing (project_create: `generic_art` is the editor's GENERIC.FAM or NULL).
+ * 1 with the app ready, 0 with status naming the fault. */
+int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art);
 
 void app_free(App *a);
 
