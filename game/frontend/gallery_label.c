@@ -2,12 +2,14 @@
 #include "game/frontend/gallery_label.h"
 
 #include "game/sys/text.h"
+#include "game/sys/text_label.h"
+#include "game/sys/video.h"
 
 #include <stdlib.h>
 
 enum { COVERED = 6 };   /* the coverage (0..15) from which a mask pixel is solid */
 
-void gallery_label_draw(uint8_t *to, int tw, int th, const char *text, int x, int y, int h, int index, int shadow)
+void gallery_label_draw(uint8_t *to, int tw, int th, const char *text, int x, int y, int h, int index, int lit_colour)
 {
     const int w = text_width(text) + 2, rows = text_mask_rows(text, 1, 1);
     uint8_t *mask = rows > 0 ? malloc((size_t)w * rows) : NULL;
@@ -23,13 +25,11 @@ void gallery_label_draw(uint8_t *to, int tw, int th, const char *text, int x, in
                 if (j > bottom) bottom = j;
             }
     if (bottom >= 0) {
-        const int px0 = x + GALLERY_LABEL_MARGIN - left, py0 = y + h - 1 - GALLERY_LABEL_MARGIN - bottom;
-        for (int pass = shadow < 0 ? 1 : 0; pass < 2; pass++)
-            for (int j = 0; j < rows; j++)
-                for (int i = 0; i < w; i++) {
-                    const int px = px0 + i + (pass == 0), py = py0 + j + (pass == 0);
-                    if (mask[j * w + i] >= COVERED && px >= 0 && px < tw && py >= 0 && py < th) to[py * tw + px] = (uint8_t)(pass == 0 ? shadow : index);
-                }
+        uint8_t palette[768];
+        video_get_palette(palette);
+        /* the CD's: unlit, black with soft edges and nothing else; lit, yellow with the items' grain and darker edge */
+        const TextLabelLook look = { lit_colour >= 0 ? lit_colour : index, lit_colour >= 0, -1, 0 };
+        text_label_blit_mask(to, tw, th, palette, mask, w, rows, x + GALLERY_LABEL_MARGIN - left, y + h - 1 - GALLERY_LABEL_MARGIN - bottom, &look);
     }
     free(mask);
 }

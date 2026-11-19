@@ -678,6 +678,7 @@ add_executable(tnfs
     game/sys/band_index.c
     game/sys/pointer.c
     game/sys/text.c
+    game/sys/text_label.c
     game/sys/timer.c
     game/sys/video.c
     game/viewer/asset_viewer.c
@@ -1464,6 +1465,17 @@ if(NOT EMSCRIPTEN)
     target_compile_options(test_added_card_name PRIVATE ${TNFS_WARNINGS})
     target_compile_definitions(test_added_card_name PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     add_test(NAME added_card_name COMMAND test_added_card_name)
+    # the menus' labels: coverage blended over the picture (text_label.c draws through text.c)
+    add_executable(test_text_label tests/test_text_label.c game/sys/text_label.c game/sys/text.c game/sys/video.c ${TNFS_SDL3_PLATFORM}
+                   game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_text_label PRIVATE tnfs_game SDL3::SDL3)
+    target_compile_options(test_text_label PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME text_label COMMAND test_text_label)
+    # no text cut to one bit outside the kit (dep59 point 27); stdlib python only
+    find_package(Python3 COMPONENTS Interpreter)
+    if(Python3_FOUND)
+        add_test(NAME text_binarized_lint COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tools/text_binarized_lint.py ${CMAKE_SOURCE_DIR})
+    endif()
     add_executable(test_setup_choice tests/test_setup_choice.c game/sys/text.c game/sys/video.c ${TNFS_SDL3_PLATFORM}
                    game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_setup_choice PRIVATE tnfs_game SDL3::SDL3)

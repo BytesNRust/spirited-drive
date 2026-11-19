@@ -25,6 +25,7 @@ enum {
 typedef struct {
     int cream, yellow, red, shadow;
     int head_shadow;   /* the red heads' shadow in pixels (down and right): 0 flat, CAR_RECORDS_HEAD_SHADOW on a reddish page (car_records_reddish) */
+    const uint8_t *palette;   /* the page's 768-byte palette: the letters' edges are mixed in it (the screen's own, the video's is black while the page is drawn) */
 } CarRecordsInk;
 
 /* owner point 27: the page's tint is a hue, never a loud colour. The tinted background (RGB, `pixels` of them) is limited to what the car's own page has:

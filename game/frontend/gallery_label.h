@@ -9,9 +9,9 @@
 
 enum { GALLERY_LABEL_MARGIN = 7 };
 
-/* `text` in the tile (x, y, h tall) of the 8-bit picture `to` (tw x th): solid `index`, and with `shadow` >= 0 a one-pixel shadow of that entry down
- * and right (the lit tile's) */
-void gallery_label_draw(uint8_t *to, int tw, int th, const char *text, int x, int y, int h, int index, int shadow);
+/* `text` in the tile (x, y, h tall) of the 8-bit picture `to` (tw x th), its edges blended with the picture (text_label.h): `index` when the tile
+ * is not lit; with `lit_colour` >= 0, that entry (the yellow) with the items' grain and darker edge, as the CD's lit labels have. The live palette is used */
+void gallery_label_draw(uint8_t *to, int tw, int th, const char *text, int x, int y, int h, int index, int lit_colour);
 
 /* a tile's label as the CD's pages have it (owner 2026-11-19, measured on GENERAL lit): `black` letters when the tile is not the item, the `yellow` (the
  * text's, 252,204,0) letters with no shadow when it is */

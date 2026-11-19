@@ -5,6 +5,7 @@
 #include "game/frontend/stat_text.h"
 #include "game/frontend/text_wrap.h"
 #include "game/sys/text.h"
+#include "game/sys/text_label.h"
 #include "game/sys/track_registry.h"
 #include "game/sys/video.h"
 
@@ -17,7 +18,7 @@ enum {
     NOTE_NUM = 1, NOTE_DEN = 2,          /* the note under the table */
     /* three columns, the two figures well to the right (the name's room is what is left) */
     NAME_X = 8, NAME_W = 340, TIME_X = 372, SPEED_X = 528,
-    PAGER_NUM = 6, PAGER_DEN = 5,        /* DONE's letters: the footer's cap height, 12 rows */
+    PAGER_NUM = 11, PAGER_DEN = 10,      /* DONE's letters: the CD's 11 cap rows */
     LUNAR = 10
 };
 
@@ -97,21 +98,19 @@ void car_records_limit_tint(uint8_t *rgb, size_t pixels)
     }
 }
 
-void car_records_ink_text(const CarRecordsInk *ink, const char *text, int x, int y, int num, int den, int colour, int shadow_px)
+/* the text blended over the page (text_label.h): its edges are mixes of the letter and what is under it, as the CD's art has them */
+static void ink_label(const CarRecordsInk *ink, const char *text, int x, int y, int num, int den, int colour, int shadow_px, int relief)
 {
-    enum { SOLID = 4 };   /* the coverage (0..15) from which a pixel of the mask is the letter's */
-    const int w = text_width_scaled(text, num, den) + 2, rows = text_mask_rows(text, num, den);
-    uint8_t *mask = rows > 0 ? malloc((size_t)w * rows) : NULL;
     int tw, th;
     uint8_t *const to = video_target(&tw, &th);
-    if (mask != NULL && text_mask_scaled(text, num, den, mask, w, rows) && to != NULL)
-        for (int pass = shadow_px > 0 ? 0 : 1; pass < 2; pass++)
-            for (int j = 0; j < rows; j++)
-                for (int i = 0; i < w; i++) {
-                    const int px = x + i + (pass == 0 ? shadow_px : 0), py = y + j + (pass == 0 ? shadow_px : 0);
-                    if (mask[j * w + i] >= SOLID && px >= 0 && px < tw && py >= 0 && py < th) to[py * tw + px] = (uint8_t)(pass == 0 ? ink->shadow : colour);
-                }
-    free(mask);
+    if (to == NULL || ink->palette == NULL) return;
+    const TextLabelLook look = { colour, relief, shadow_px > 0 ? ink->shadow : -1, shadow_px };
+    text_label_draw(to, tw, th, ink->palette, text, x, y, num, den, &look);
+}
+
+void car_records_ink_text(const CarRecordsInk *ink, const char *text, int x, int y, int num, int den, int colour, int shadow_px)
+{
+    ink_label(ink, text, x, y, num, den, colour, shadow_px, 0);
 }
 
 static void row_draw(const CarRecordsRow *r, int y, int kmh)
@@ -154,5 +153,5 @@ void car_records_view_footer(const CarRecordsView *v, const CarRecordsInk *ink)
     int top, bottom;
     (void)v;
     text_ink_scaled("DONE", PAGER_NUM, PAGER_DEN, &top, &bottom);   /* the capitals' first row on the measured one */
-    car_records_ink_text(ink, "DONE", CAR_RECORDS_DONE_X, CAR_RECORDS_FOOT_CAP - top, PAGER_NUM, PAGER_DEN, ink->yellow, 2);
+    ink_label(ink, "DONE", CAR_RECORDS_DONE_X, CAR_RECORDS_FOOT_CAP - top, PAGER_NUM, PAGER_DEN, ink->yellow, 2, 1);   /* the items' relief */
 }

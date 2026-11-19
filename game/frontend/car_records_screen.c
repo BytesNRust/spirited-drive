@@ -129,7 +129,7 @@ void car_records_screen(const char *id, const CarRecordsLook *look)
     cg_records_tracks(&l);
     car_records_view_make(v, id, &l);
     CarRecordsInk ink = { nearest(look->palette, CREAM_RGB), nearest(look->palette, YELLOW_RGB), nearest(look->palette, RED_RGB),
-                                nearest(look->palette, BLACK_RGB), 0 };
+                                nearest(look->palette, BLACK_RGB), 0, look->palette };
     ink.head_shadow = heads_on_red(look) ? CAR_RECORDS_HEAD_SHADOW : 0;
     uint8_t black[768];
     memset(black, 0, sizeof black);
