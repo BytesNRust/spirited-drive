@@ -377,6 +377,7 @@ static void test_the_car_is_as_yellow_as_the_row_after_the_conditions_words(void
             found = 1;
             CHECK_EQ_INT(fk.shadowed_style[i], 1);   /* 1: the yellow the name is in */
         }
+        else if (strcmp(fk.shadowed[i], "t.t.") == 0) CHECK_EQ_INT(fk.shadowed_style[i], 1);   /* the gearbox mark too: the exe draws the whole row in the one style (best_times.c:150-159) */
     CHECK(found);
 }
 

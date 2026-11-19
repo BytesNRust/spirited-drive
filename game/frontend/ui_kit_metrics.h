@@ -12,6 +12,7 @@ enum {
     UI_PAGER_GAP_LEFT = 14, UI_PAGER_GAP_RIGHT = 15,
     UI_PAGER_ARROW_BELOW_TEXT = 1,
     UI_PAGER_TEXT_NUM = 11, UI_PAGER_TEXT_DEN = 10,   /* the count's size, num/den of graver18's: its digits are 10 rows and the buttons' letters 11 */
+    UI_PAGER_MIDDLE_BELOW_TOP = 13,   /* the triangles' middle row below the count's line top: the middle of its digits (447..456 from 439) */
     UI_PAGER_TEXT_Y = 439,   /* the count's line top: its last row is 456, on the background's DONE and CANCEL */
     UI_PAGER_BEARING_LEFT = 2, UI_PAGER_BEARING_RIGHT = 3   /* graver18's own blank columns at each end of a count at that size: the gaps are from the ink, not the advance */
 };

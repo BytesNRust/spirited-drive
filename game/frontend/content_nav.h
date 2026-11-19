@@ -28,15 +28,16 @@ enum {
     CONTENT_LIST_X0 = 14, CONTENT_LIST_X1 = 378, CONTENT_LIST_Y = 130, CONTENT_LINE = 24,
     CONTENT_BOX_X = 16, CONTENT_NAME_X = 52, CONTENT_NAME_RIGHT = 330, CONTENT_ARROWS_X = 336, CONTENT_DOWN_X = 356, CONTENT_GAP_RIGHT = 376,
     CONTENT_LINES = 11,                      /* the All row and 10 rows a page: the last ends above the page indicator's line */
-    CONTENT_PAGE_Y = CONTENT_LIST_Y + CONTENT_LINES * CONTENT_LINE, CONTENT_PAGE_X = 197, CONTENT_PAGE_NEXT_X = 232,
-    CONTENT_PAGE_PREV_X = 150,
+    CONTENT_PAGE_Y = CONTENT_LIST_Y + CONTENT_LINES * CONTENT_LINE, CONTENT_PAGE_X = 197, CONTENT_PAGE_NEXT_X = 197,   /* the list's pager (ui_kit.h): the pointer's halves of its box, the left one back, the right one on */
+    CONTENT_PAGE_PREV_X = 147,
     CONTENT_SPLIT_X = 380, CONTENT_SPLIT_Y0 = 104,
     CONTENT_CARD_X0 = 392, CONTENT_CARD_X1 = 626, CONTENT_PREVIEW_Y0 = 112, CONTENT_PREVIEW_Y1 = 210,
     CONTENT_CARD_NAME_Y = 216, CONTENT_CARD_BY_Y = 238, CONTENT_CARD_TEXT_Y = 264, CONTENT_CARD_TEXT_LINE = 18,
     CONTENT_CARD_USED_Y = 318, CONTENT_CARD_BUTTONS_Y = 346, CONTENT_UNINSTALL_X = 500, CONTENT_PREVIOUS_Y = 374,
     /* the card's translucent panel (the gallery's): the preview, the words and the buttons on it, clear of the split */
     CONTENT_CARD_PANEL_X0 = 386, CONTENT_CARD_PANEL_X1 = 632, CONTENT_CARD_PANEL_Y0 = 104, CONTENT_CARD_PANEL_Y1 = 420,
-    CONTENT_FOOT_RULE_Y = 434, CONTENT_FOOT_Y = 446, CONTENT_DONE_RIGHT = 616,
+    CONTENT_FOOT_RULE_Y = 434, CONTENT_FOOT_Y = 446, CONTENT_DONE_X = 10, CONTENT_DONE_END = 76,   /* Done at the CD's DONE place (x 7-11, rows 445-456), the other buttons to its right */
+    CONTENT_FOOT_SHIFT = 64,
     CONTENT_TEXT_H = 20                      /* a line's height for the pointer */
 };
 

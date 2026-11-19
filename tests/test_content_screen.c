@@ -19,6 +19,7 @@ typedef struct {
 static struct {
     Drawn drawn[DRAWN_MAX];
     int drawn_count, fills, arrows, previews, backgrounds, shows;
+    int pager_arrows[2];   /* the list pager's triangles drawn: the left, the right */
     char title[32];
     const int *keys;
     int key_count, key_next, gap, frames;
@@ -51,7 +52,12 @@ static void f_title(void *ctx, const char *text, int32_t x, int32_t y)
     if (x == CONTENT_TITLE_X && y == CONTENT_TITLE_Y) snprintf(fk.title, sizeof fk.title, "%s", text);
 }
 static void f_fill(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t rgb) { (void)ctx, (void)x0, (void)y0, (void)x1, (void)y1, (void)rgb, fk.fills++; }
-static void f_arrow(void *ctx, int32_t which, int32_t lit, int32_t x, int32_t y) { (void)ctx, (void)which, (void)lit, (void)x, (void)y, fk.arrows++; }
+static void f_arrow(void *ctx, int32_t which, int32_t lit, int32_t x, int32_t y)
+{
+    (void)ctx, (void)lit, (void)x;
+    if (y >= CONTENT_PAGE_Y - 10 && (which == CONTENT_ARROW_LEFT || which == CONTENT_ARROW_RIGHT)) fk.pager_arrows[which == CONTENT_ARROW_RIGHT]++;
+    fk.arrows++;
+}
 static void f_preview(void *ctx, int32_t tab, const char *id, int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
     (void)ctx, (void)tab, (void)id, (void)x0, (void)y0, (void)x1, (void)y1, fk.previews++;
@@ -194,8 +200,10 @@ static void test_the_standard_edition(void)
     CHECK(drawn("Delete") != NULL && drawn("Delete")->style == CONTENT_DIM);
     CHECK(drawn("New") != NULL && drawn("New")->style == CONTENT_CREAM);
     const Drawn *done = drawn("Done");
-    CHECK(done != NULL && done->x + f_width(NULL, "Done", done->num, done->den) == CONTENT_DONE_RIGHT);
-    CHECK_EQ_INT(fk.arrows > 0, 1);   /* the page indicator's: 8 rows a page, the nine stock cars and the mods take two */
+    CHECK(done != NULL && done->x == CONTENT_DONE_X && done->num == 11 && done->den == 12);   /* at the CD's DONE place, left, its capitals 11 rows */
+    CHECK(drawn("New") != NULL && drawn("New")->x > CONTENT_DONE_END);   /* the other buttons to its right */
+    CHECK_EQ_INT(fk.pager_arrows[1], 1);   /* the page indicator's, on page 1: only the right triangle, none for a page that is not there (the kit's pager has no disabled state) */
+    CHECK_EQ_INT(fk.pager_arrows[0], 0);
     CHECK(drawn("1/2") != NULL);
     CHECK_EQ_INT(fk.saves, 0);
     CHECK(fk.shows > 0);
@@ -214,7 +222,7 @@ static void test_an_own_edition(void)
     CHECK_EQ_INT(fk.saved.cars, 2);
     CHECK(strcmp(fk.saved.car[0], "gone-car") == 0 && strcmp(fk.saved.car[1], "rx7") == 0);
     CHECK(drawn("MISSING") != NULL && drawn("MISSING")->style == CONTENT_RED);
-    CHECK(drawn_at("Rename", 170, CONTENT_FOOT_Y, CONTENT_CREAM));
+    CHECK(drawn_at("Rename", 170 + CONTENT_FOOT_SHIFT, CONTENT_FOOT_Y, CONTENT_CREAM));
     CHECK(drawn("Read only. Duplicate to edit.") == NULL);
     CHECK(drawn("Your edition - in use") == NULL);   /* an own edition has no line under its name */
 }

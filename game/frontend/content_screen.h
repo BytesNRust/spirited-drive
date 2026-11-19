@@ -17,7 +17,7 @@ enum { CONTENT_CREAM = 0, CONTENT_YELLOW = 1, CONTENT_RED = 2, CONTENT_DIM = 4 }
 /* the mock-up's flat colours, 0xRRGGBB: the rules and the preview's frame, the preview's panel */
 enum { CONTENT_RULE_RGB = 0x7a654a, CONTENT_PANEL_RGB = 0x1a140d };
 /* the arrows ContentOps.arrow draws */
-enum { CONTENT_ARROW_UP, CONTENT_ARROW_DOWN, CONTENT_ARROW_LEFT, CONTENT_ARROW_RIGHT, CONTENT_ARROW_LEFT_OFF, CONTENT_ARROW_RIGHT_OFF };   /* the last two: a page arrow with no page that way, drawn dim */
+enum { CONTENT_ARROW_UP, CONTENT_ARROW_DOWN, CONTENT_ARROW_LEFT, CONTENT_ARROW_RIGHT };
 
 typedef struct ContentOps {
     /* the page, drawn whole at each change: Customize Game's clean background, the game's text at num/den of its size (style:

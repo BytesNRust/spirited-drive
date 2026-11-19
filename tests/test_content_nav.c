@@ -303,10 +303,10 @@ static void test_the_clicks(void)
     CHECK_EQ_INT(content_nav_click(&n, &view, 400, CONTENT_PREVIOUS_Y + 6).arg, CONTENT_CARD_PREVIOUS);
     view.card_on[CONTENT_CARD_PREVIOUS] = 0;
     CHECK_EQ_INT(content_nav_click(&n, &view, 400, CONTENT_PREVIOUS_Y + 6).kind, CONTENT_ACT_NONE);
-    a = content_nav_click(&n, &view, 600, CONTENT_FOOT_Y + 6);
+    a = content_nav_click(&n, &view, 30, CONTENT_FOOT_Y + 6);   /* Done is at the left, the CD's DONE place */
     CHECK_EQ_INT(a.kind, CONTENT_ACT_FOOT);
     CHECK_EQ_INT(a.arg, CONTENT_FOOT_DONE);
-    CHECK_EQ_INT(content_nav_click(&n, &view, 90, CONTENT_FOOT_Y + 6).arg, CONTENT_FOOT_DUPLICATE);
+    CHECK_EQ_INT(content_nav_click(&n, &view, 90 + CONTENT_FOOT_SHIFT, CONTENT_FOOT_Y + 6).arg, CONTENT_FOOT_DUPLICATE);
     CHECK_EQ_INT(content_nav_click(&n, &view, 500, 300).kind, CONTENT_ACT_NONE);   /* the card's words */
     /* a line past the rows takes nothing */
     fill(2, 1, 0);
@@ -322,7 +322,7 @@ static void test_the_pointer(void)
     CHECK_EQ_INT(content_nav_point(&n, &view, 100, line_y(3)).kind, CONTENT_ACT_MOVED);
     CHECK_EQ_INT(n.line, 3);
     CHECK_EQ_INT(content_nav_point(&n, &view, 100, line_y(3)).kind, CONTENT_ACT_NONE);   /* no change */
-    content_nav_point(&n, &view, 600, CONTENT_FOOT_Y + 6);
+    content_nav_point(&n, &view, 30, CONTENT_FOOT_Y + 6);
     CHECK_EQ_INT(n.at, CONTENT_AT_FOOT);
     CHECK_EQ_INT(n.item, CONTENT_FOOT_DONE);
     CHECK_EQ_INT(content_nav_point(&n, &view, 500, 300).kind, CONTENT_ACT_NONE);   /* on nothing: kept */

@@ -43,7 +43,7 @@ enum {
     /* the card's panel darkened a further 60% toward the gallery's panel tint (gallery_layout.h's GL_PANEL_RGB), edged in the rules' colour,
      * so the card's dim words read over the background's light "&" */
     PANEL_RGB = 0x0a0704, PANEL_NUM = 3, PANEL_DEN = 5,
-    CREAM_RGB = 0xe8d3b7, YELLOW_RGB = 0xffce06, DIM_RGB = 0x8c8273,   /* text.h's TEXT_CREAM and TEXT_YELLOW */
+    CREAM_RGB = 0xe8d3b7, YELLOW_RGB = 0xffce06,   /* text.h's TEXT_CREAM and TEXT_YELLOW */
     TRI_H = 6, TRI_W = 2 * TRI_H - 1               /* the up and down triangles */
 };
 
@@ -188,14 +188,6 @@ static void content_arrow(void *ctx, int32_t which, int32_t lit, int32_t x, int3
 {
     if (which == CONTENT_ARROW_LEFT || which == CONTENT_ARROW_RIGHT) {
         own_panel_arrow(ctx, which == CONTENT_ARROW_RIGHT, lit, x, y);
-        return;
-    }
-    if (which == CONTENT_ARROW_LEFT_OFF || which == CONTENT_ARROW_RIGHT_OFF) {   /* dim, flat, the size of the page arrows' body */
-        const int32_t dim = nearest(DIM_RGB);
-        for (int col = 0; col < TRI_H; col++) {
-            const int inset = which == CONTENT_ARROW_LEFT_OFF ? col : TRI_H - 1 - col;
-            ea_frame(x + col, y + inset, x + col, y + TRI_W - 1 - inset, dim);
-        }
         return;
     }
     const int32_t c = nearest(lit ? YELLOW_RGB : CREAM_RGB);

@@ -8,7 +8,9 @@ enum { PER_PAGE = CONTENT_LINES - 1 };   /* the rows a page shows under its All 
 
 /* the tabs' and the foot's buttons' spans, x0 .. x1 (x1 left out) */
 static const int TAB_X[CONTENT_TABS + 1] = { 14, 143, 250, CONTENT_LIST_X1 };
-static const int FOOT_X[CONTENT_FOOT_BUTTONS][2] = { { 14, 66 }, { 66, 170 }, { 170, 252 }, { 252, 334 }, { 420, 540 }, { 540, 626 } };
+static const int FOOT_X[CONTENT_FOOT_BUTTONS][2] = { { 14 + CONTENT_FOOT_SHIFT, 66 + CONTENT_FOOT_SHIFT }, { 66 + CONTENT_FOOT_SHIFT, 170 + CONTENT_FOOT_SHIFT },
+                                                     { 170 + CONTENT_FOOT_SHIFT, 252 + CONTENT_FOOT_SHIFT }, { 252 + CONTENT_FOOT_SHIFT, 334 + CONTENT_FOOT_SHIFT },
+                                                     { 420 + CONTENT_FOOT_SHIFT, 540 + CONTENT_FOOT_SHIFT }, { 0, CONTENT_DONE_END } };
 
 static ContentAction act(ContentActionKind kind, int arg, int row) { return (ContentAction){ kind, arg, row }; }
 static ContentAction none(void) { return act(CONTENT_ACT_NONE, 0, 0); }
@@ -238,8 +240,8 @@ static int within(int v, int lo, int hi) { return v >= lo && v < hi; }
 static int list_spot(const ContentNav *n, const ContentView *v, int x, int y, Spot *s)
 {
     if (within(y, CONTENT_PAGE_Y, CONTENT_PAGE_Y + CONTENT_TEXT_H)) {
-        if (within(x, CONTENT_PAGE_NEXT_X, CONTENT_PAGE_NEXT_X + 24)) return *s = (Spot){ CONTENT_AT_LIST, -1, 1 }, 1;
-        if (within(x, CONTENT_PAGE_PREV_X, CONTENT_PAGE_PREV_X + 24)) return *s = (Spot){ CONTENT_AT_LIST, -1, -1 }, 1;
+        if (within(x, CONTENT_PAGE_NEXT_X, CONTENT_PAGE_NEXT_X + 50)) return *s = (Spot){ CONTENT_AT_LIST, -1, 1 }, 1;
+        if (within(x, CONTENT_PAGE_PREV_X, CONTENT_PAGE_NEXT_X)) return *s = (Spot){ CONTENT_AT_LIST, -1, -1 }, 1;
         return 0;
     }
     if (!within(x, CONTENT_LIST_X0, CONTENT_LIST_X1) || y < CONTENT_LIST_Y || (y - CONTENT_LIST_Y) % CONTENT_LINE >= CONTENT_TEXT_H) return 0;

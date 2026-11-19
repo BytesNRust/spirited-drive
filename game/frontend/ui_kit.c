@@ -33,16 +33,20 @@ void ui_arrow_mask(int right, uint8_t mask[UI_ARROW_MASK_W * UI_ARROW_MASK_H])
         if (mask[y * W + base] == 0) mask[y * W + base] = UI_ARROW_OUTLINE;
 }
 
-UiPagerLayout ui_pager_layout(int text_w, int right_w)
+const UiPagerPlace UI_PAGER_FOOT = { PAGE_NAV_CENTRE, UI_PAGER_TEXT_Y, PAGE_NAV_X0, PAGE_NAV_X1 };
+
+UiPagerLayout ui_pager_layout_at(const UiPagerPlace *at, int text_w, int right_w)
 {
     UiPagerLayout l;
-    l.text_x = PAGE_NAV_CENTRE - text_w / 2;
+    l.text_x = at->centre - text_w / 2;
     /* the masks' own padding is blank too: a triangle's ink starts UI_ARROW_PAD columns into its mask */
     l.left_x = l.text_x + UI_PAGER_BEARING_LEFT - UI_PAGER_GAP_LEFT - UI_ARROW_INK_W - UI_ARROW_PAD;
     l.right_x = l.text_x + text_w - UI_PAGER_BEARING_RIGHT + UI_PAGER_GAP_RIGHT - UI_ARROW_PAD;
-    l.fits = l.left_x >= PAGE_NAV_X0 + 2 && l.right_x <= PAGE_NAV_X1 - 2 - right_w;
+    l.fits = l.left_x >= at->x0 + 2 && l.right_x <= at->x1 - 2 - right_w;
     return l;
 }
+
+UiPagerLayout ui_pager_layout(int text_w, int right_w) { return ui_pager_layout_at(&UI_PAGER_FOOT, text_w, right_w); }
 
 UiSelectorLayout ui_selector_layout(int centre, int line_w)
 {
@@ -96,30 +100,43 @@ static int word_width(const PageNavOps *o, const char *text)
     return scaled_ok(o) ? o->scaled.width(o->ctx, text, UI_PAGER_TEXT_NUM, UI_PAGER_TEXT_DEN) : o->text_width(o->ctx, text);
 }
 
-static void word_draw(const PageNavOps *o, const char *text, int x)
+static void word_draw(const PageNavOps *o, const UiPagerPlace *at, const char *text, int x)
 {
     if (!scaled_ok(o)) {
-        o->text(o->ctx, CREAM, text, x, PAGE_NAV_TEXT_Y);
+        o->text(o->ctx, CREAM, text, x, at->text_y + (PAGE_NAV_TEXT_Y - UI_PAGER_TEXT_Y));
         return;
     }
-    (o->clean ? o->scaled.clean : o->scaled.plain)(o->ctx, CREAM, text, x, UI_PAGER_TEXT_Y, UI_PAGER_TEXT_NUM, UI_PAGER_TEXT_DEN);
+    (o->clean ? o->scaled.clean : o->scaled.plain)(o->ctx, CREAM, text, x, at->text_y, UI_PAGER_TEXT_NUM, UI_PAGER_TEXT_DEN);
 }
 
-void ui_pager(const PageNavOps *o, const char *label, int has_left, int has_right, int lit)
+void ui_pager_at(const PageNavOps *o, const UiPagerPlace *at, const char *label, int has_left, int has_right, int lit)
 {
     int32_t lw, lh, rw, rh;
     const int arrows = o->arrow != NULL && o->arrow_size != NULL && o->arrow_size(o->ctx, 0, &lw, &lh) &&
                        o->arrow_size(o->ctx, 1, &rw, &rh);
     char text[LABEL_MAX];
-    const UiPagerLayout l = arrows ? ui_pager_layout(word_width(o, label), rw) : (UiPagerLayout){ 0 };
+    const UiPagerLayout l = arrows ? ui_pager_layout_at(at, word_width(o, label), rw) : (UiPagerLayout){ 0 };
     if (!arrows || !l.fits) {
         snprintf(text, sizeof text, "%s%s%s", has_left ? "< " : "", label, has_right ? " >" : "");
-        word_draw(o, text, PAGE_NAV_CENTRE - word_width(o, text) / 2);
+        word_draw(o, at, text, at->centre - word_width(o, text) / 2);
         return;
     }
-    word_draw(o, label, l.text_x);
-    if (has_left) o->arrow(o->ctx, 0, lit == 1, l.left_x, PAGE_NAV_ARROW_MID - lh / 2);
-    if (has_right) o->arrow(o->ctx, 1, lit == 2, l.right_x, PAGE_NAV_ARROW_MID - rh / 2);
+    const int mid = at->text_y + UI_PAGER_MIDDLE_BELOW_TOP;
+    word_draw(o, at, label, l.text_x);
+    if (has_left) o->arrow(o->ctx, 0, lit == 1, l.left_x, mid - lh / 2);
+    if (has_right) o->arrow(o->ctx, 1, lit == 2, l.right_x, mid - rh / 2);
+}
+
+void ui_pager(const PageNavOps *o, const char *label, int has_left, int has_right, int lit)
+{
+    ui_pager_at(o, &UI_PAGER_FOOT, label, has_left, has_right, lit);
+}
+
+void ui_page_count_at(const PageNavOps *o, const UiPagerPlace *at, int page, int pages, int lit)
+{
+    char label[LABEL_MAX];
+    snprintf(label, sizeof label, "%d/%d", page + 1, pages);
+    ui_pager_at(o, at, label, page > 0, page < pages - 1, lit);
 }
 
 void ui_page_count(const PageNavOps *o, int page, int pages, int lit)
