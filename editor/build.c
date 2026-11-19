@@ -242,10 +242,18 @@ int build_project(const char *dir, const Project *p, const Trace *t, char *zip, 
     return ok;
 }
 
+void install_command_text(const char *game, const char *zip, const char *user_dir, char *out, size_t cap)
+{
+    if (user_dir[0] != '\0') snprintf(out, cap, "%s --user %s --install %s", game, user_dir, zip);
+    else snprintf(out, cap, "%s --install %s", game, zip);
+}
+
 int install_zip(const char *game, const char *zip, const char *user_dir, char *why, size_t why_cap)
 {
 #if defined(_WIN32)
-    snprintf(why, why_cap, "install runs the game from a shell here: %s --user %s --install %s", game, user_dir, zip);
+    char command[2 * PATH_LEN + 64];
+    install_command_text(game, zip, user_dir, command, sizeof command);
+    snprintf(why, why_cap, "install runs the game from a shell here: %s", command);
     return 0;
 #else
     const pid_t pid = fork();
@@ -254,7 +262,8 @@ int install_zip(const char *game, const char *zip, const char *user_dir, char *w
         return 0;
     }
     if (pid == 0) {
-        execl(game, game, "--user", user_dir, "--install", zip, (char *)NULL);
+        if (user_dir[0] != '\0') execl(game, game, "--user", user_dir, "--install", zip, (char *)NULL);
+        else execl(game, game, "--install", zip, (char *)NULL);   /* the game's own player folder */
         _exit(127);
     }
     int status = 0;

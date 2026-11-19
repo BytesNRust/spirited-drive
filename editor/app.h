@@ -48,6 +48,10 @@ void app_recompute(App *a);
 /* The node count the road has, or would have: 4 per segment and one more, from its length. */
 int app_node_count(const App *a);
 
+/* Says in the status line, when the game's program is not where `game` points (not there), what to do about it: copy both
+ * apps to Applications, or give --game. 1 when the game is there. app_install says it too, instead of a failed exec. */
+int app_check_game(App *a);
+
 int app_save(App *a);
 int app_build(App *a);
 int app_install(App *a);
