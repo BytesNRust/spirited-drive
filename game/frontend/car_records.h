@@ -18,7 +18,7 @@ typedef struct {
     int stage;         /* the track is a stage */
     int32_t best;      /* the game's ticks; 0 none */
     int32_t speed;     /* as the row keeps it; 0 none */
-    int laps;          /* a circuit's best that is a race's total, not a lap (no lap row kept): that race's laps; 0 for a lap and for a stage */
+    int laps;          /* a circuit's best: 1 for a lap, else (no lap row kept) the laps of the race whose total it is; 0 for a stage */
 } CarRecord;
 
 /* `car` (the car's id) on the track: `track` 0..8 for a stock one (race_records.h's numbers), else NULL there and `track_id` the added track's or

@@ -40,7 +40,7 @@ void car_records_find(const char *car, int track, const char *track_id, int stag
             total_best = d32(t->totals[0].row + RECORD_ROW_TIME), total_laps = laps;
     }
     const RecordRow *const lap = stage ? NULL : lap_of(car, track, track_id);
-    if (lap != NULL && race_records_row_set(lap) && d32(lap->row + RECORD_ROW_TIME) > 0) out->best = d32(lap->row + RECORD_ROW_TIME);
+    if (lap != NULL && race_records_row_set(lap) && d32(lap->row + RECORD_ROW_TIME) > 0) out->best = d32(lap->row + RECORD_ROW_TIME), out->laps = 1;
     if (!stage && out->best == 0 && total_best > 0) out->best = total_best, out->laps = total_laps;   /* no lap kept: the longest race's total */
     out->found = out->best > 0 || out->speed > 0;
 }

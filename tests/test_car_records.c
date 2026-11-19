@@ -56,6 +56,7 @@ static void test_a_circuit_gives_its_best_lap_of_the_normal_key(void)
     CHECK_EQ_INT(r.found, 1);
     CHECK_EQ_INT(r.stage, 0);
     CHECK_EQ_INT(r.best, 1700);
+    CHECK_EQ_INT(r.laps, 1);   /* a lap says so */
     CHECK_EQ_INT(r.speed, 0);
 }
 

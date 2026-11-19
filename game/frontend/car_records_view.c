@@ -21,7 +21,7 @@ enum {
     LUNAR = 10
 };
 
-static const char NOTE[] = "circuits: best lap, else best race - stages: full stage - normal layout, no cheats";
+static const char NOTE[] = "circuits: best lap (1 LAP) or best race - stages: full stage - normal layout, no cheats";
 
 void car_records_view_make(CarRecordsView *v, const char *car, const TrackList *tracks)
 {
@@ -104,9 +104,9 @@ static void row_draw(const CarRecordsRow *r, int y, int kmh)
     else snprintf(text, sizeof text, "--");
     text_select(c->best > 0 ? TEXT_YELLOW : TEXT_DIM);
     if (c->best > 0) text_draw_shadowed(text, TIME_X, y);
-    if (c->best > 0 && c->laps > 0) {   /* a race's total, not a lap: its laps beside it in small letters */
+    if (c->best > 0 && c->laps > 0) {   /* what the time is, beside it in small letters: "1 LAP" or the laps of the race */
         char laps[16];
-        snprintf(laps, sizeof laps, "%d LAPS", c->laps);
+        snprintf(laps, sizeof laps, "%d LAP%s", c->laps, c->laps == 1 ? "" : "S");
         put(laps, TIME_X + text_width(text) + 8, y + 7, 1, 2);
     }
     else put(text, TIME_X, y, 1, 1);   /* "--" without a shadow: nothing is there */
