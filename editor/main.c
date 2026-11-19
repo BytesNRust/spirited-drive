@@ -2,7 +2,7 @@
  * car project's card, textures and masks (dep59 car editor 1d, read only for now); with nothing open, a start screen.
  *
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
- *                     [--frames N] [--save] [--build] [--install] [--select N] [--edit] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]
+ *                     [--frames N] [--save] [--build] [--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
  * PROJECT is a folder such as art/tnfs-tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
  * art/tnfs-cars/<kit>/ (or its coche/): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
@@ -35,6 +35,7 @@ typedef struct {
     int frames, save, build, install, select;   /* select: a control point to select before the first frame, -1 for none */
     const char *set[8];      /* --set key=value, a car's field set before the first frame (a headless picture of a problem, a save of a change) */
     int set_count;
+    int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
 } Options;
@@ -42,7 +43,7 @@ typedef struct {
 static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
-                    "[--install] [--select N] [--edit] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]\n");
+                    "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]\n");
     return 0;
 }
 
@@ -63,6 +64,7 @@ static int parse_args(int argc, char **argv, Options *o)
                    : strcmp(what, "opencar") == 0 ? APP_ACT_OPEN_CAR : APP_ACT_NONE;
             if (o->ask == APP_ACT_NONE) return usage();
         } else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
+        else if (strcmp(argv[i], "--rehacer") == 0) o->rehacer = 1;
         else if (strcmp(argv[i], "--edit") == 0) o->edit = 1;
         else if (strcmp(argv[i], "--save") == 0) o->save = 1;
         else if (strcmp(argv[i], "--build") == 0) o->build = 1;
@@ -209,6 +211,14 @@ static int run_requested(App *a, const Options *o)
     if (o->build) ok &= app_build(a);
     if (o->install) ok &= app_install(a);
     if (o->save || o->build || o->install) fprintf(stdout, "%s\n", a->status);
+    if (o->rehacer) {   /* the car's script: a headless run waits for it and says how it ended */
+        ok &= app_rehacer(a);
+        if (ok && o->frames > 0) {
+            while (app_rehacer_poll(a)) SDL_Delay(5);
+            ok &= a->rehacer.exit_code == 0;
+        }
+        fprintf(ok ? stdout : stderr, "%s\n", a->status);
+    }
     return ok;
 }
 
@@ -282,6 +292,7 @@ static int run(App *a, const Options *o)
             if (headless) a->go = APP_ACT_NONE;   /* a headless run ends by its frames: no dialog, no quit of its own */
             else if (run_go(win, a)) quit = 1;
         }
+        app_rehacer_poll(a);
         app_recompute(a);
         SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);
         SDL_RenderClear(ren);

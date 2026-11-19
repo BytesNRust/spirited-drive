@@ -417,6 +417,101 @@ static void check_kinds(void)
     remove(recent);
 }
 
+/* Rehacer through the app: refused with no script and with unsaved card changes; run after a backup; the lists read again; nothing else opens while it runs */
+static void check_rehacer(void)
+{
+    char dirs[][40] = { "rk", "rk/coche", "rk/coche/SIMDATA", "rk/coche/SIMDATA/CARFAMS", "rk/modelo", "rk/modelo/c1", "nk", "nk/coche", "nk/coche/SIMDATA", "nk/coche/SIMDATA/CARFAMS" };
+    for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; ++i) dir_in(dirs[i]);
+    static const char CARD[] = "id=carrera-84\nname=911\nversion=1\ntype=car\nstem=C84\nsound_from=911\n";
+    put("rk/coche/mod.ini", CARD);
+    put("rk/coche/SIMDATA/CARFAMS/C84.CFM", "the car file as it was");
+    put("rk/modelo/c1/0010_rsid.png", "x");
+    put("nk/coche/mod.ini", CARD);
+    put("nk/coche/SIMDATA/CARFAMS/C84.CFM", "cfm");
+    char rk[700], nk[700];
+    path_in(rk, sizeof rk, "rk");
+    path_in(nk, sizeof nk, "nk");
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, "./tnfs", "", NULL);
+    CHECK(!app_rehacer(a) && strstr(a->status, "open a car") != NULL);   /* nothing open */
+
+    CHECK(app_open_car(a, nk));                              /* no script: said plainly, the button has nothing to run */
+    CHECK(!app_rehacer_available(a));
+    CHECK(!app_rehacer(a) && strstr(a->status, "no rehacer.command") != NULL);
+    char p[900];
+    struct stat st;
+    snprintf(p, sizeof p, "%s/.studio-backup", nk);
+    CHECK(stat(p, &st) != 0);                                /* and no backup was made for nothing */
+
+    put("rk/rehacer.command", "#!/bin/sh\necho making the car\necho texture > modelo/c1/0020_new.png\necho changed > coche/SIMDATA/CARFAMS/C84.CFM\nexit ${REHACER_TEST_EXIT:-0}\n");
+    CHECK(app_open_car(a, rk));
+    CHECK(app_rehacer_available(a) && a->car.texture_count == 1);
+    CHECK_EQ_INT(car_edit_set(&a->edit, CE_YEAR, "1990"), 1);   /* unsaved changes: refused, nothing run, no backup */
+    CHECK(!app_rehacer(a) && strstr(a->status, "not saved") != NULL);
+    snprintf(p, sizeof p, "%s/.studio-backup", rk);
+    CHECK(stat(p, &st) != 0 && !app_rehacer_busy(a));
+    CHECK(app_save(a));                                      /* saved: it may run */
+
+    CHECK(app_rehacer(a));
+    CHECK(app_rehacer_busy(a) && strstr(a->status, ".studio-backup/") != NULL);
+    CHECK(!app_rehacer(a) && strstr(a->status, "already running") != NULL);
+    app_ask(a, APP_ACT_QUIT, "");                            /* nothing else while it runs */
+    CHECK_EQ_INT(a->go, APP_ACT_NONE);
+    CHECK(strstr(a->status, "Rehacer is running") != NULL);
+    for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
+    CHECK(!app_rehacer_busy(a) && a->rehacer.finished && a->rehacer.exit_code == 0);
+    CHECK(strstr(a->status, "finished: exit code 0") != NULL);
+    CHECK(a->rehacer.log != NULL && strstr(a->rehacer.log, "making the car") != NULL);
+    CHECK_EQ_INT(a->car.texture_count, 2);                   /* the lists were read again: the script added a texture */
+    CHECK(!app_modified(a));
+    {   /* the backup holds the car file as it was before the script changed it */
+        char got[100] = "";
+        char bp[1100];
+        snprintf(bp, sizeof bp, "%s/coche/SIMDATA/CARFAMS/C84.CFM", a->rehacer.backup);
+        FILE *b = fopen(bp, "rb");
+        if (b != NULL) got[fread(got, 1, sizeof got - 1, b)] = '\0', fclose(b);
+        CHECK(strcmp(got, "the car file as it was") == 0);
+        snprintf(bp, sizeof bp, "%s/coche/mod.ini", a->rehacer.backup);
+        b = fopen(bp, "rb");
+        char card[200] = "";
+        if (b != NULL) card[fread(card, 1, sizeof card - 1, b)] = '\0', fclose(b);
+        CHECK(strstr(card, "year=1990") != NULL);            /* the saved card was in the backup too */
+    }
+    app_ask(a, APP_ACT_QUIT, "");                            /* it has ended: asking works again */
+    CHECK_EQ_INT(a->go, APP_ACT_QUIT);
+    a->go = APP_ACT_NONE;
+
+    setenv("REHACER_TEST_EXIT", "3", 1);                     /* a failing script: its exit code is told */
+    CHECK(app_rehacer(a));
+    for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
+    CHECK(a->rehacer.exit_code == 3 && strstr(a->status, "failed: exit code 3") != NULL);
+    unsetenv("REHACER_TEST_EXIT");
+
+    put("rk/rehacer.command", "#!/bin/sh\necho started\nsleep 30\n");   /* Stop */
+    CHECK(app_rehacer(a));
+    for (int i = 0; i < 400 && (a->rehacer.log == NULL || strstr(a->rehacer.log, "started") == NULL); ++i) app_rehacer_poll(a), usleep(5000);
+    app_rehacer_stop(a);
+    for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
+    CHECK(!app_rehacer_busy(a) && a->rehacer.stopped && strstr(a->status, "stopped") != NULL);
+    {   /* the backups: five are kept */
+        char names[16][REHACER_STAMP_NAME];
+        CHECK(rehacer_backups(rk, names, 16) >= 1);
+        for (int i = 0; i < 7; ++i) {
+            char stamp[32], out[1024], why[200];
+            snprintf(stamp, sizeof stamp, "2026110%d-100000", i + 1);
+            CHECK(rehacer_backup(rk, stamp, REHACER_KEEP, 100, out, sizeof out, why, sizeof why));
+        }
+        CHECK_EQ_INT(rehacer_backups(rk, names, 16), REHACER_KEEP);
+    }
+    app_free(a);
+    free(a);
+    char cmd[1200];
+    snprintf(cmd, sizeof cmd, "rm -rf '%s/rk' '%s/nk'", root, root);
+    if (system(cmd) != 0) fprintf(stderr, "could not clean up\n");
+}
+
 int main(void)
 {
     const char *tmp = getenv("TMPDIR");
@@ -431,6 +526,7 @@ int main(void)
     check_app_flow();
     check_recent_kinds();
     check_kinds();
+    check_rehacer();
     rmdir(root);
     return TEST_REPORT();
 }

@@ -105,6 +105,7 @@ void car_layout(ImGuiID dock)
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
     ImGui::DockBuilderDockWindow(PANEL_TEXTURES, right);
     ImGui::DockBuilderDockWindow(PANEL_MASKS, masks);
+    ImGui::DockBuilderDockWindow(PANEL_REHACER, masks);   // a tab beside Masks
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -264,6 +265,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
         car_panel(a);
         textures_panel(a);
         masks_panel(a);
+        rehacer_panel(a);
     } else {
         start_screen(a);
     }

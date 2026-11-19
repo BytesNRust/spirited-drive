@@ -12,7 +12,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
-const char *const PANEL_CAR = "Car", *const PANEL_TEXTURES = "Textures", *const PANEL_MASKS = "Masks";
+const char *const PANEL_CAR = "Car", *const PANEL_TEXTURES = "Textures", *const PANEL_MASKS = "Masks", *const PANEL_REHACER = "Rehacer";
 
 namespace {
 
@@ -213,7 +213,8 @@ void colors_section(App *a, const CarEditProblem *problems, int count)
 void car_shortcuts(App *a)
 {
     const ImGuiIO &io = ImGui::GetIO();
-    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal)) app_save(a);
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal) && !app_rehacer_busy(a)) app_save(a);
+    if (app_rehacer_busy(a)) return;   // the script is working on the kit: the card is not edited meanwhile
     if (io.WantTextInput) return;   // a text box has its own Ctrl+Z while it has the keyboard
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal) || ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal)) car_edit_redo(&a->edit);
     else if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal)) car_edit_undo(&a->edit);
@@ -234,18 +235,44 @@ void car_panel(App *a)
         muted_wrapped("%s", c.root);
         muted_wrapped("Save writes only coche/mod.ini, and only the lines you changed. Every other line and every other file stays as it is.");
         ImGui::Spacing();
-        ImGui::BeginDisabled(count > 0 || !modified);
+        const bool running = app_rehacer_busy(a);
+        ImGui::BeginDisabled(count > 0 || !modified || running);
         if (ImGui::Button("Save")) app_save(a);
         ImGui::EndDisabled();
         if (count > 0 && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Fix the %d problem%s below first", count, count == 1 ? "" : "s");
         ImGui::SameLine();
-        ImGui::BeginDisabled(!car_edit_can_undo(&a->edit));
+        ImGui::BeginDisabled(!car_edit_can_undo(&a->edit) || running);
         if (ImGui::Button("Undo")) car_edit_undo(&a->edit);
         ImGui::EndDisabled();
         ImGui::SameLine();
-        ImGui::BeginDisabled(!car_edit_can_redo(&a->edit));
+        ImGui::BeginDisabled(!car_edit_can_redo(&a->edit) || running);
         if (ImGui::Button("Redo")) car_edit_redo(&a->edit);
         ImGui::EndDisabled();
+        ImGui::SameLine();
+        const bool has_script = app_rehacer_available(a);
+        ImGui::BeginDisabled(running || !has_script);
+        if (ImGui::Button("Rehacer")) {
+            if (modified) ImGui::OpenPopup("Save before Rehacer");   // it reads mod.ini: the changes are saved first
+            else app_rehacer(a);
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("%s", running ? "Rehacer is running" : has_script ? "Run this kit's rehacer.command (the kit is backed up first)" : "This kit has no rehacer.command");
+        if (ImGui::BeginPopupModal("Save before Rehacer", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::TextUnformatted("mod.ini has changes that are not saved. Rehacer reads the card,");
+            ImGui::TextUnformatted("so they are saved first.");
+            if (count > 0) problem_text("A field has a problem: fix it first, Save is blocked.");
+            ImGui::Spacing();
+            ImGui::BeginDisabled(count > 0);
+            if (ImGui::Button("Save and run") || (count == 0 && ImGui::IsKeyPressed(ImGuiKey_Enter, false))) {
+                if (app_save(a)) app_rehacer(a);
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
         if (count > 0) {
             ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
             ImGui::Text("%d problem%s: Save is blocked", count, count == 1 ? "" : "s");
@@ -256,6 +283,7 @@ void car_panel(App *a)
         ImGui::Separator();
         const CarEditProblem *card = problem_for(problems, count, CE_CARD);
         if (card != nullptr) problem_text(card->text);
+        ImGui::BeginDisabled(running);   // the card is not edited while the script works on the kit
         if (ImGui::BeginTable("mod.ini", 2, ImGuiTableFlags_RowBg)) {
             ImGui::TableSetupColumn("key", ImGuiTableColumnFlags_WidthFixed, 120);
             ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
@@ -271,6 +299,7 @@ void car_panel(App *a)
             ImGui::EndTable();
         }
         colors_section(a, problems, count);
+        ImGui::EndDisabled();
     }
     ImGui::End();
 }
@@ -291,9 +320,13 @@ void textures_panel(App *a)
     ImGui::End();
 }
 
+static ImGuiID masks_dock = 0;   // the dock node Masks is in, where a layout kept from before Rehacer puts it as a tab
+
 void masks_panel(App *a)
 {
-    if (ImGui::Begin(PANEL_MASKS)) {
+    const bool open = ImGui::Begin(PANEL_MASKS);
+    masks_dock = ImGui::GetWindowDockID();
+    if (open) {
         const CarProject &c = a->car;
         ImGui::Text("Car file: %s", leaf(c.cfm));
         ImGui::Spacing();
@@ -310,6 +343,51 @@ void masks_panel(App *a)
         } else {
             muted_wrapped("No color masks of your own (mascaras/).");
         }
+    }
+    ImGui::End();
+}
+
+void rehacer_panel(App *a)
+{
+    static pid_t shown = 0;   // the run whose tab was brought forward
+    if (masks_dock != 0) ImGui::SetNextWindowDockID(masks_dock, ImGuiCond_FirstUseEver);
+    if (a->rehacer.running && a->rehacer.pid != shown) {   // a run started: its log is what to look at
+        shown = a->rehacer.pid;
+        ImGui::SetNextWindowFocus();
+    }
+    if (ImGui::Begin(PANEL_REHACER)) {
+        const Rehacer &r = a->rehacer;
+        muted_wrapped("Runs this kit's rehacer.command with the kit as its folder. Before it runs, Studio copies the kit into .studio-backup/<time>/ (the last %d are kept).",
+                      REHACER_KEEP);
+        if (!app_rehacer_available(a)) {
+            ImGui::Spacing();
+            ImGui::TextUnformatted("This kit has no rehacer.command.");
+        }
+        if (r.running) {
+            ImGui::Spacing();
+            ImGui::TextUnformatted("Running...");
+            ImGui::SameLine();
+            if (ImGui::Button("Stop")) app_rehacer_stop(a);
+        } else if (r.finished) {
+            ImGui::Spacing();
+            const ImVec4 colour = r.exit_code == 0 ? ImVec4(0.47f, 0.86f, 0.55f, 1.0f) : BAD_TEXT;
+            ImGui::PushStyleColor(ImGuiCol_Text, colour);
+            ImGui::Text("%s: exit code %d", r.stopped ? "Stopped" : r.exit_code == 0 ? "Finished" : "Failed", r.exit_code);
+            ImGui::PopStyleColor();
+        }
+        if (r.backup[0] != '\0') {
+            const char *slash = strrchr(r.backup, '/');
+            muted_wrapped("Backup: %s/%s", REHACER_BACKUPS, slash != nullptr ? slash + 1 : r.backup);
+        }
+        ImGui::Separator();
+        if (ImGui::BeginChild("log", ImVec2(0, 0), ImGuiChildFlags_None)) {
+            const bool at_bottom = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 4.0f;
+            if (r.log_cut) ImGui::TextDisabled("(the start of the output was dropped)");
+            if (r.log != nullptr && r.log_len > 0) ImGui::TextUnformatted(r.log, r.log + r.log_len);
+            else if (!r.running && !r.finished) ImGui::TextDisabled("Nothing has run yet.");
+            if (r.running && at_bottom) ImGui::SetScrollHereY(1.0f);
+        }
+        ImGui::EndChild();
     }
     ImGui::End();
 }

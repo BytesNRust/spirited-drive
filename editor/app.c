@@ -107,6 +107,7 @@ int app_open_any(App *a, const char *dir, const char *game, const char *user, co
 
 void app_free(App *a)
 {
+    rehacer_free(&a->rehacer);
     car_edit_free(&a->edit);
     free(a->trace.points);
     drop_road(a);
@@ -199,6 +200,10 @@ int app_modified(const App *a)
 void app_ask(App *a, AppAction act, const char *path)
 {
     if (act == APP_ACT_NONE || a->confirm != APP_ACT_NONE || a->go != APP_ACT_NONE) return;
+    if (a->rehacer.running) {   /* the script is working on the kit: nothing else until it ends */
+        set_status(a, "Rehacer is running: wait for it to end, or press Stop");
+        return;
+    }
     if (app_modified(a)) {
         a->confirm = act;
         snprintf(a->confirm_path, sizeof a->confirm_path, "%s", path != NULL ? path : "");
@@ -526,4 +531,74 @@ void app_remove_point(App *a)
     const int next = a->selected < a->trace.count - 1 ? a->selected : a->trace.count - 2;
     put_points(a, fewer, a->trace.count - 1, next);
     set_status(a, "point removed");
+}
+
+/* ---- Rehacer ---- */
+
+int app_rehacer_busy(const App *a)
+{
+    return a->rehacer.running;
+}
+
+int app_rehacer_available(const App *a)
+{
+    return a->kind == APP_KIND_CAR && rehacer_script_present(a->dir);
+}
+
+/* the car as the script left it: the lists of textures and masks, and the card (nothing on screen was edited while it ran) */
+static void reload_car(App *a)
+{
+    CarProject *fresh = malloc(sizeof *fresh);
+    char why[APP_MSG], card[CAR_PROJECT_PATH + 16];
+    if (fresh == NULL) return;
+    if (!car_project_detect(a->dir, fresh, why, sizeof why)) {
+        snprintf(a->status + strlen(a->status), sizeof a->status - strlen(a->status), "; the car no longer reads: %s", why);
+    } else {
+        a->car = *fresh;
+    }
+    free(fresh);
+    snprintf(card, sizeof card, "%s/mod.ini", a->car.piece);
+    CarEdit next;
+    if (!car_edit_modified(&a->edit) && car_edit_open(&next, card, why, sizeof why)) {
+        car_edit_free(&a->edit);
+        a->edit = next;
+    }
+}
+
+int app_rehacer(App *a)
+{
+    char why[APP_MSG], stamp[32];
+    if (a->kind != APP_KIND_CAR) return set_status(a, "open a car first"), 0;
+    if (a->rehacer.running) return set_status(a, "Rehacer is already running"), 0;
+    if (!rehacer_script_present(a->dir)) return set_status(a, "this kit has no rehacer.command, so there is nothing to run"), 0;
+    if (car_edit_modified(&a->edit)) return set_status(a, "mod.ini has changes that are not saved: save them first, then run Rehacer"), 0;
+    rehacer_free(&a->rehacer);
+    rehacer_stamp(stamp, sizeof stamp);
+    if (!rehacer_backup(a->dir, stamp, REHACER_KEEP, REHACER_BACKUP_MAX_MB, a->rehacer.backup, sizeof a->rehacer.backup, why, sizeof why)) {
+        snprintf(a->status, sizeof a->status, "Rehacer did not run, the backup failed: %s", why);
+        return 0;
+    }
+    if (!rehacer_start(&a->rehacer, a->dir, why, sizeof why)) {
+        snprintf(a->status, sizeof a->status, "Rehacer did not start: %s", why);
+        return 0;
+    }
+    const char *slash = strrchr(a->rehacer.backup, '/');
+    snprintf(a->status, sizeof a->status, "Rehacer running; the kit was backed up in %s/%s", REHACER_BACKUPS, slash != NULL ? slash + 1 : a->rehacer.backup);
+    return 1;
+}
+
+int app_rehacer_poll(App *a)
+{
+    if (!a->rehacer.running) return 0;
+    if (rehacer_poll(&a->rehacer)) return 1;
+    if (a->rehacer.stopped) snprintf(a->status, sizeof a->status, "Rehacer was stopped (exit code %d)", a->rehacer.exit_code);
+    else if (a->rehacer.exit_code == 0) snprintf(a->status, sizeof a->status, "Rehacer finished: exit code 0");
+    else snprintf(a->status, sizeof a->status, "Rehacer failed: exit code %d (see the log)", a->rehacer.exit_code);
+    reload_car(a);
+    return 0;
+}
+
+void app_rehacer_stop(App *a)
+{
+    rehacer_stop(&a->rehacer);
 }

@@ -4,6 +4,7 @@
 #define TNFS_TRACK_EDITOR_APP_H
 
 #include "car_edit.h"
+#include "car_rehacer.h"
 #include "car_project.h"
 #include "project.h"
 #include "session.h"
@@ -39,6 +40,7 @@ enum { APP_ANSWER_CANCEL = 0, APP_ANSWER_DISCARD = 1, APP_ANSWER_SAVE = 2 };
 typedef struct {
     AppKind kind;                /* what is open: the track fields below are read for APP_KIND_TRACK, `car` for APP_KIND_CAR */
     CarProject car;              /* the car project, when kind is APP_KIND_CAR */
+    Rehacer rehacer;             /* the kit's rehacer.command, running or last run (car_rehacer.h) */
     CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
     char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */
     char game[APP_PATH];         /* the game program, run for install */
@@ -121,6 +123,17 @@ int app_open_recent(App *a, const char *dir);
 
 /* Keeps the recent projects in `file` (loaded now, with the project that is open put first, saved at every change); "" or NULL keeps none. */
 void app_keep_recent(App *a, const char *file);
+
+/* Rehacer (dep59 car editor 1f): runs the open kit's own rehacer.command. Refused, with the status saying why, when no car is open, a run is going, the kit has no
+ * script, the card has unsaved changes (save first), or the kit cannot be backed up. Before it runs the kit is copied into .studio-backup/<time>/ (the last
+ * REHACER_KEEP are kept). app_rehacer_poll (every frame) takes its output and, when it ends, tells its exit code in the status and reads the car again (the
+ * textures and masks lists, and the card); 1 while it runs. While it runs nothing else is opened (app_ask) and the card is not edited. */
+int app_rehacer(App *a);
+int app_rehacer_poll(App *a);
+void app_rehacer_stop(App *a);
+int app_rehacer_busy(const App *a);
+/* 1 when the open car's kit has a rehacer.command */
+int app_rehacer_available(const App *a);
 
 /* Computes the road when the trace changed (a no-op otherwise). */
 void app_recompute(App *a);
