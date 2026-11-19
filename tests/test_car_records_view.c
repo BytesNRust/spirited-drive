@@ -5,6 +5,7 @@
 #include "game/sys/race_records_added.h"
 #include "game/sys/race_records_tracks.h"
 #include "game/sys/text.h"
+#include "game/sys/video.h"
 #include "test.h"
 
 #include <stdlib.h>
@@ -20,6 +21,9 @@ void text_select(TextStyle style) { (void)style; }
 int text_width_scaled(const char *text, int num, int den) { (void)text, (void)num, (void)den; return 0; }
 int text_width(const char *text) { (void)text; return 0; }
 void text_draw_shadowed(const char *text, int x, int y) { (void)text, (void)x, (void)y; }
+int text_mask_rows(const char *text, int num, int den) { (void)text, (void)num, (void)den; return 0; }
+int text_mask_scaled(const char *text, int num, int den, uint8_t *mask, int mw, int mh) { (void)text, (void)num, (void)den, (void)mask, (void)mw, (void)mh; return 0; }
+uint8_t *video_target(int *w, int *h) { *w = 0, *h = 0; return NULL; }
 void text_draw_smooth(const char *text, int x, int y, int num, int den) { (void)text, (void)x, (void)y, (void)num, (void)den; }
 void text_ink_scaled(const char *text, int num, int den, int *top, int *bottom) { (void)text, (void)num, (void)den, *top = 0, *bottom = 0; }
 
@@ -53,21 +57,21 @@ static void test_pages_go_round(void)
     CHECK_EQ_INT(v.page, 1);
 }
 
-static void test_pager_halves(void)
+static void test_reddish_pages(void)
 {
-    CarRecordsView v;
-    memset(&v, 0, sizeof v);
-    const int mid = CAR_RECORDS_PAGER_X;
-    CHECK_EQ_INT(car_records_view_hit(&v, mid - 20, CAR_RECORDS_PAGER_Y + 6), -1);
-    CHECK_EQ_INT(car_records_view_hit(&v, mid + 20, CAR_RECORDS_PAGER_Y + 6), 1);
-    CHECK_EQ_INT(car_records_view_hit(&v, mid - 20, CAR_RECORDS_ROW0), 0);
-    CHECK_EQ_INT(car_records_view_hit(&v, 5, CAR_RECORDS_PAGER_Y + 6), 0);
+    CHECK(car_records_reddish(72, 16, 16));    /* the 512TR's page: a dark red */
+    CHECK(car_records_reddish(72, 30, 24));    /* a brownish red still */
+    CHECK(!car_records_reddish(20, 72, 30));   /* the 911's green */
+    CHECK(!car_records_reddish(72, 58, 42));   /* the menus' sepia (hue 30, 42% saturated) */
+    CHECK(!car_records_reddish(24, 36, 72));   /* an added car's blue */
+    CHECK(!car_records_reddish(0, 0, 0));
+    CHECK(!car_records_reddish(60, 60, 60));
 }
 
 int main(void)
 {
     test_rows_and_pages();
     test_pages_go_round();
-    test_pager_halves();
+    test_reddish_pages();
     return TEST_REPORT();
 }

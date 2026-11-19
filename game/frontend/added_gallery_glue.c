@@ -432,8 +432,23 @@ static void run_shutter(void *ctx, const GalleryState *s, int opening)
 
 /* --- the RECORDS screen (owner 2026-11-18): the car's records on every track over the page, darkened --- */
 
-/* the car's RECORDS screen (car_records_screen.h): a screen of its own, the page drawn again after it */
-static void records_screen(Page *p) { car_records_screen(p->card.info.id, p->card.info.name); }
+/* the car's RECORDS screen (car_records_screen.h): a screen of its own on the page's palette and tone, the page drawn again after it */
+static void records_title(void *ctx) { added_gallery_draw_name(ctx); }
+
+static void records_screen(Page *p)
+{
+    uint8_t *ground = malloc((size_t)GL_W * GL_H), usable[256], pal[768];
+    if (ground == NULL) return;
+    memcpy(ground, p->still, (size_t)GL_W * GL_H);   /* the title band as the page has it */
+    for (int i = 0; i < 256; i++) usable[i] = i < STILL_COLOURS;
+    car_records_ground(ground, p->palette, usable, p->has_tint ? p->tint : NULL);   /* below it the menus' background in the car's tone */
+    memcpy(pal, p->palette, sizeof pal);
+    memcpy(pal + 3 * SWATCH, pal + 3 * BLACK, 3);
+    memcpy(pal + 3 * SKIN_SWATCH, pal + 3 * BLACK, 3);
+    const CarRecordsLook look = { pal, ground, records_title, p };
+    car_records_screen(p->card.info.id, &look);
+    free(ground);
+}
 
 static int run_page(Page *p)
 {

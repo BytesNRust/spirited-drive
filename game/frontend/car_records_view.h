@@ -11,10 +11,25 @@ enum {
     CAR_RECORDS_ROWS = 10,                   /* tracks to a page: Best Times' ten rows */
     CAR_RECORDS_MAX = TRACK_LIST_MAX,        /* tracks in all */
     CAR_RECORDS_NAME = 40,
-    /* where it is drawn, on Best Times' art (a 640 x 480 screen): its rows' places (best_times.c ROW_Y, ROW_STEP), the page selector over its footer */
-    CAR_RECORDS_HEAD_Y = 96, CAR_RECORDS_ROW0 = 0x73, CAR_RECORDS_STEP = 0x16, CAR_RECORDS_LABEL_Y = 66,
-    CAR_RECORDS_PAGER_Y = 428, CAR_RECORDS_PAGER_X = 311
+    /* where it is drawn (a 640 x 480 screen): Best Times' rows' places (best_times.c ROW_Y, ROW_STEP) and the title band's end */
+    CAR_RECORDS_BAND = 58, CAR_RECORDS_HEAD_Y = 96, CAR_RECORDS_ROW0 = 0x73, CAR_RECORDS_STEP = 0x16, CAR_RECORDS_LABEL_Y = 66, CAR_RECORDS_HEAD_SHADOW = 2 /* as the track names' shadow: +2, +2 */, CAR_RECORDS_HEAD_ROWS = 12, CAR_RECORDS_NOTE_Y = 400,
+    /* DONE, measured on the CD's showcase page (capitals 12 rows) and put so that its last row (456) is the page indicator's (page_arrows.h:
+     * the count's last row on the original's DONE); its ink from x 10 */
+    CAR_RECORDS_FOOT_CAP = 445, CAR_RECORDS_FOOT_CAP_H = 12, CAR_RECORDS_DONE_X = 10, CAR_RECORDS_FOOT_TOP = 435   /* a click from this row down is the footer's */
 };
+
+/* the palette's indices the screen draws in (the page's own: car_records_screen.c finds the nearest of each) */
+typedef struct {
+    int cream, yellow, red, shadow;
+    int head_shadow;   /* the red heads' shadow in pixels (down and right): 0 flat, CAR_RECORDS_HEAD_SHADOW on a reddish page (car_records_reddish) */
+} CarRecordsInk;
+
+/* owner point 23: the red heads carry a dark shadow only on a reddish page. The rule is the hue and saturation of the page's mean colour behind the heads:
+ * red when the hue is within 15 degrees of red and the saturation (max - min over max) is 50% or more. 1 when `rgb` is that */
+int car_records_reddish(int r, int g, int b);
+
+/* a flat-coloured text (the main face's mask at num/den, a coverage from half up) at (x, y) with a shadow `shadow_px` down and right (0 none) */
+void car_records_ink_text(const CarRecordsInk *ink, const char *text, int x, int y, int num, int den, int colour, int shadow_px);
 
 typedef struct {
     char name[CAR_RECORDS_NAME];
@@ -34,11 +49,11 @@ void car_records_view_make(CarRecordsView *v, const char *car, const TrackList *
 int car_records_view_pages(const CarRecordsView *v);
 void car_records_view_step(CarRecordsView *v, int dir);
 
-/* the page drawn with the text styles of the screen's palette into the selected picture: the label "RECORDS", the column heads in red, the rows,
- * the page selector. `kmh` the speed unit as the menus show it (resource_kmh) */
-void car_records_view_draw(const CarRecordsView *v, int kmh);
+/* the page drawn with the text styles of the screen's palette into the back buffer: the label "Best Times", the column heads in red, the rows and the note under them.
+ * `kmh` the speed unit as the menus show it (resource_kmh) */
+void car_records_view_draw(const CarRecordsView *v, int kmh, const CarRecordsInk *ink);
 
-/* what a click at (x, y) on the page means: -1 the selector's left half, 1 its right half, 0 nothing */
-int car_records_view_hit(const CarRecordsView *v, int x, int y);
+/* the footer's DONE at the left, in the footer's big letters; the page indicator is page_arrows.h's, drawn by the screen */
+void car_records_view_footer(const CarRecordsView *v, const CarRecordsInk *ink);
 
 #endif
