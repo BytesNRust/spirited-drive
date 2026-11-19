@@ -6,13 +6,16 @@
 
 #include <stdlib.h>
 
-enum { COVERED = 6 };   /* the coverage (0..15) from which a mask pixel is solid */
+enum {
+    COVERED = 6,                    /* the coverage (0..15) from which a mask pixel is solid */
+    LABEL_NUM = 11, LABEL_DEN = 12  /* the main face's capitals are 12 rows at 1/1; the CD's tile labels are 9-11 */
+};
 
 void gallery_label_draw(uint8_t *to, int tw, int th, const uint8_t palette[768], const char *text, int x, int y, int h, int index, int lit_colour)
 {
-    const int w = text_width(text) + 2, rows = text_mask_rows(text, 1, 1);
+    const int w = text_width_scaled(text, LABEL_NUM, LABEL_DEN) + 2, rows = text_mask_rows(text, LABEL_NUM, LABEL_DEN);
     uint8_t *mask = rows > 0 ? malloc((size_t)w * rows) : NULL;
-    if (mask == NULL || !text_mask_scaled(text, 1, 1, mask, w, rows)) {
+    if (mask == NULL || !text_mask_scaled(text, LABEL_NUM, LABEL_DEN, mask, w, rows)) {
         free(mask);
         return;
     }
