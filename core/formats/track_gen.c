@@ -32,7 +32,7 @@ enum {
 
 #define MAX_GRADE_PERCENT 30.0
 #define MAX_BANK_DEGREES 20.0
-#define MAX_TURN_DEGREES_PER_NODE TRACK_GEN_TURN_MAX_DEGREES
+#define MAX_TURN_DEGREES_PER_NODE TRACK_GEN_LAYOUT_TURN_MAX_DEGREES
 
 typedef struct {
     int segments;
@@ -223,19 +223,78 @@ static void shape_frame(const TrackGenNode *shape, TrackFrame *frame)
                      (int32_t)angle14(shape->bank / 360.0 * ANGLE_TURN), frame);
 }
 
-/* one point of a row (3 x i16 deltas in world axes) from the template node's axes to the new node's, `lateral` added across the road on the way */
-static void turn_point(uint8_t *p, const TrackFrame *from, const TrackFrame *to, int lateral)
+/* one point of a row (3 x i16 deltas in world axes) from the template node's axes to the new node's, `lateral` added across the road on the
+ * way. `*across` is the point's lateral reach from the road's centre in the new axes, summed along the row's side (`*across` of the side's
+ * point before, in and out): when it passes `cap` the point is held at `cap`, the lateral step of the chain shortened to match. */
+static void turn_point(uint8_t *p, const TrackFrame *from, const TrackFrame *to, int lateral, int hold, double cap, double *across)
 {
     const int32_t world[3] = { get_i16(p), get_i16(p + 2), get_i16(p + 4) };
     int32_t local[3], turned[3];
     track_frame_to_local(from, world, local);
     local[0] += lateral;
+    if (hold) {
+        const double reach = *across + local[0];
+        double held = fabs(reach) > cap ? (reach < 0 ? -cap : cap) : reach;
+        if (fabs(held) < fabs(*across)) held = *across;   /* never back towards the road: the points before it stay where they are */
+        local[0] = (int32_t)lround(held - *across);
+        *across = held;
+    } else {
+        *across += local[0];
+    }
     track_frame_to_world(to, local, turned);
     for (int k = 0; k < 3; ++k) put_i16(p + 2 * k, turned[k] < -32768 ? -32768 : turned[k] > 32767 ? 32767 : turned[k]);
 }
 
-/* write_strip with the rows turned: the template's, in its nodes' own axes (`from`, one frame a row), laid along the new nodes' (`shapes`) */
-static void write_strip_turned(uint8_t *seg, const uint8_t *model, const TrackGenNode *shapes, const TriNode *tmpl, const TrackFrame from[4])
+/* How far across the road, in the TRI's raw units (1/128 of a unit), the terrain of node i may reach on the inside of the curve: TRACK_GEN_TERRAIN_REACH
+ * of the curve's radius there, the radius being a node length over the heading's turn into or out of the node (the larger). INFINITY on a straight.
+ * `*inner` is that side's row side: 0 the right points (a right turn, the heading growing), 1 the left. */
+static double terrain_cap(const TrackGenNode *shapes, int i, int count, int *inner)
+{
+    double turn = 0, step = (double)TRACK_GEN_NODE_LENGTH / 65536.0;
+    *inner = 0;
+    for (int k = i > 0 ? i - 1 : i; k <= i && k + 1 < count; ++k) {
+        double d = fmod(shapes[k + 1].heading - shapes[k].heading, ANGLE_TURN);
+        if (d > ANGLE_TURN / 2) d -= ANGLE_TURN;
+        if (d < -ANGLE_TURN / 2) d += ANGLE_TURN;
+        if (fabs(d) > turn) {
+            turn = fabs(d);
+            *inner = d > 0 ? 0 : 1;
+            const double dx = ((double)shapes[k + 1].position[0] - shapes[k].position[0]) / 65536.0;
+            const double dz = ((double)shapes[k + 1].position[2] - shapes[k].position[2]) / 65536.0;
+            step = hypot(dx, dz);   /* the real distance between the two nodes: explicit nodes may be 1..20 units apart */
+        }
+    }
+    if (turn < 1.0) return INFINITY;   /* under a 16384th of a turn: a line, as far as a byte of the row can tell */
+    return step / (turn / ANGLE_TURN * 2 * M_PI) * TRACK_GEN_TERRAIN_REACH * 128.0;
+}
+
+/* The terrain caps of all rows, [right, left]: each row's terrain_cap on its inner side, INFINITY on the other; then every side's cap eased along the
+ * road so it changes by at most one node length (TRACK_GEN_NODE_LENGTH, in raw units) from one row to the next. Without it the edge of the terrain
+ * jumps wherever a cap starts, ends or changes side (the entry of a curve, an S's inflection); with it the cap runs out over the rows before and
+ * after, as a slope. Malloc'd, `count` pairs; NULL when out of memory. */
+static double (*terrain_caps(const TrackGenNode *shapes, int count))[2]
+{
+    double (*caps)[2] = malloc(sizeof *caps * (size_t)(count > 0 ? count : 1));
+    if (caps == NULL) return NULL;
+    const double slope = (double)TRACK_GEN_NODE_LENGTH / 65536.0 * 128.0;
+    for (int i = 0; i < count; ++i) {
+        int inner = 0;
+        const double cap = terrain_cap(shapes, i, count, &inner);
+        caps[i][inner] = cap;
+        caps[i][1 - inner] = INFINITY;
+    }
+    for (int side = 0; side < 2; ++side) {
+        for (int i = 1; i < count; ++i) caps[i][side] = fmin(caps[i][side], caps[i - 1][side] + slope);
+        for (int i = count - 2; i >= 0; --i) caps[i][side] = fmin(caps[i][side], caps[i + 1][side] + slope);
+    }
+    return caps;
+}
+
+/* write_strip with the rows turned: the template's, in its nodes' own axes (`from`, one frame a row), laid along the new nodes' (`shapes`).
+ * `caps` are the rows' terrain_caps, [right, left]: the points from the third on of a side do not reach further across than its cap (the two nearest
+ * the road, its edge and its verge, are the road's own and are kept). */
+static void write_strip_turned(uint8_t *seg, const uint8_t *model, const TrackGenNode *shapes, const TriNode *tmpl, const TrackFrame from[4],
+                               const double caps[4][2])
 {
     memcpy(seg, model, TRI_SEGMENT_SIZE);
     for (int row = 0; row < TRI_NODES_PER_SEGMENT; ++row) {
@@ -243,9 +302,13 @@ static void write_strip_turned(uint8_t *seg, const uint8_t *model, const TrackGe
         TrackFrame to;
         shape_frame(&shapes[row], &to);
         const int widen = 16 * ((int)lround(shapes[row].width) - tmpl->left_verge);
+        double across[2] = { 0, 0 };   /* right, left */
         for (int point = 0; point < 11; ++point) {
             const int lateral = point == 1 ? widen : point == 6 ? -widen : 0;   /* right[0] and left[0]: the road's edges */
-            turn_point(r + 6 * point, &from[row], &to, lateral);
+            const int side = point >= 6, on_side = point == 0 ? -1 : point - 1 - 5 * side;   /* 0..4 along its side; -1 the middle */
+            const int hold = on_side >= 2 && caps[row][side] != INFINITY;
+            double middle = 0;
+            turn_point(r + 6 * point, &from[row], &to, lateral, hold, caps[row][side], on_side < 0 ? &middle : &across[side]);
         }
     }
 }
@@ -282,7 +345,7 @@ int track_layout_nodes(const char *layout, size_t layout_len, double start_width
 enum { STEP_MIN = 1 << 16, STEP_MAX = 20 << 16, HEADING_MAX = 1 << 24 };   /* steps of 1 and 20 units in 16.16; a thousand turns */
 
 /* a node out of range, or too far a turn or step from the one before: why, naming it; 1 when it is as the generator takes it */
-static int check_node(const TrackGenNode *n, int i, ExchangeError *err)
+static int check_node(const TrackGenNode *n, int i, int turned, ExchangeError *err)
 {
     if (!isfinite(n[i].heading) || !isfinite(n[i].grade) || !isfinite(n[i].bank) || !isfinite(n[i].width))
         return exchange_fail(err, "node %d: a value is not a finite number", i), 0;
@@ -297,8 +360,9 @@ static int check_node(const TrackGenNode *n, int i, ExchangeError *err)
     if (turn > ANGLE_TURN / 2) turn -= ANGLE_TURN;
     if (turn < -ANGLE_TURN / 2) turn += ANGLE_TURN;
     const double degrees = turn * 360.0 / ANGLE_TURN;
-    if (fabs(degrees) > MAX_TURN_DEGREES_PER_NODE + 1e-6)
-        return exchange_fail(err, "node %d: it turns %g degrees from the node before, the most is %g", i, degrees, MAX_TURN_DEGREES_PER_NODE), 0;
+    const double most = turned ? TRACK_GEN_TURN_MAX_DEGREES : MAX_TURN_DEGREES_PER_NODE;
+    if (fabs(degrees) > most + 1e-6)
+        return exchange_fail(err, "node %d: it turns %g degrees from the node before, the most is %g", i, degrees, most), 0;
     const double dx = (double)n[i].position[0] - n[i - 1].position[0], dy = (double)n[i].position[1] - n[i - 1].position[1];
     const double dz = (double)n[i].position[2] - n[i - 1].position[2], step = sqrt(dx * dx + dy * dy + dz * dz);
     if (step < STEP_MIN || step > STEP_MAX)
@@ -320,7 +384,7 @@ static int generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *
         return 0;
     }
     for (int i = 0; i < count; ++i)
-        if (!check_node(shapes, i, err)) return 0;
+        if (!check_node(shapes, i, turned, err)) return 0;
     Tri tri;
     TriParts parts;
     TriNode model;
@@ -362,15 +426,23 @@ static int generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *
         }
         track_frame_of_node(&at, &model_frames[r]);
     }
+    double (*caps)[2] = turned ? terrain_caps(shapes, nodes + 1) : NULL;
+    if (turned && caps == NULL) {
+        exchange_fail(err, "out of memory");
+        free(header); free(scenery); free(terrain);
+        return 0;
+    }
     for (int s = 0; s < segments; ++s) {
         memcpy(header + BRIGHTNESS_OFFSET + BRIGHTNESS_SIZE * s, brightness, sizeof brightness);
-        if (turned)
+        if (turned) {
             write_strip_turned(terrain + (size_t)s * TRI_SEGMENT_SIZE, parts.terrain + (size_t)model_segment * TRI_SEGMENT_SIZE,
-                               shapes + s * TRI_NODES_PER_SEGMENT, &model, model_frames);
+                               shapes + s * TRI_NODES_PER_SEGMENT, &model, model_frames, (const double (*)[2])caps[s * TRI_NODES_PER_SEGMENT]);
+        }
         else
             write_strip(terrain + (size_t)s * TRI_SEGMENT_SIZE, parts.terrain + (size_t)model_segment * TRI_SEGMENT_SIZE,
                         shapes + s * TRI_NODES_PER_SEGMENT, &model);
     }
+    free(caps);
     memcpy(scenery, parts.scenery, (size_t)TRI_SCENERY_MAX * TRI_SCENERY_SIZE);
     memset(scenery, 0xff, 4);                             /* the first record ends the list: no placements */
 

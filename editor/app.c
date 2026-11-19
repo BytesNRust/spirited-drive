@@ -1,7 +1,9 @@
 #include "app.h"
 
 #include "build.h"
+#include "game_find.h"
 
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,8 +34,16 @@ static void drop_road(App *a)
     a->flags = NULL;
     a->node_count = 0;
     a->road_made = 0;
-    a->turn_nodes = 0;
-    a->radius_nodes = 0;
+    free(a->node_dist);
+    free(a->point_dist);
+    free(a->point_turn);
+    a->node_dist = a->point_dist = a->point_turn = NULL;
+    a->point_count = 0;
+    a->node_for = -2;   // what the Node window shows is taken again from the selected point once the road is made again
+    free(a->problems);
+    a->problems = NULL;
+    a->problem_count = 0;
+    a->summary_count = 0;
 }
 
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
@@ -43,12 +53,16 @@ int app_open(App *a, const char *dir, const char *game, const char *user, const 
     snprintf(a->game, sizeof a->game, "%s", game);
     snprintf(a->user, sizeof a->user, "%s", user);
     a->selected = -1;
+    a->node = a->node_for = -1;
     char id[MOD_INI_ID_MAX + 1], why[APP_MSG];
     folder_name(dir, id, sizeof id);
     if (!project_create(dir, id, generic_art, why, sizeof why) || !project_open(dir, &a->project, &a->trace, why, sizeof why)) {
         set_status(a, why);
         return 0;
     }
+    if (project_art_refresh(dir, generic_art, PROJECT_OLD_ARTS, a->art_note, sizeof a->art_note)) fprintf(stderr, "%s (%s)\n", a->art_note, dir);
+    snprintf(a->generic, sizeof a->generic, "%s", generic_art != NULL ? generic_art : "");
+    a->saved_print = session_fingerprint(&a->trace);
     a->dirty = 1;
     app_recompute(a);
     view_fit(&a->view, a->trace.points, a->trace.count, 960, 600);
@@ -62,6 +76,15 @@ void app_free(App *a)
     drop_road(a);
     a->trace.points = NULL;
     a->trace.count = 0;
+}
+
+/* the node nearest control point `i`: by its distance along the curve over the road's (equal, to a few centimetres) node spacing */
+static int nearest_node(const App *a, int i)
+{
+    if (a->node_count < 2 || a->point_dist == NULL || i < 0 || i >= a->point_count) return 0;
+    const double step = a->node_dist != NULL ? a->node_dist[a->node_count - 1] / (a->node_count - 1) : 0;
+    const int node = step > 0 ? (int)lround(a->point_dist[i] / step) : 0;
+    return node < 0 ? 0 : node >= a->node_count ? a->node_count - 1 : node;
 }
 
 void app_recompute(App *a)
@@ -85,14 +108,136 @@ void app_recompute(App *a)
     }
     a->road_made = 1;
     track_trace_flags(a->nodes, a->node_count, a->flags);
-    for (int i = 0; i < a->node_count; ++i) {
-        a->turn_nodes += (a->flags[i] & TRACE_FLAG_TURN) != 0;
-        a->radius_nodes += (a->flags[i] & TRACE_FLAG_RADIUS) != 0;
+    a->node_dist = calloc((size_t)a->node_count, sizeof *a->node_dist);
+    a->point_dist = calloc((size_t)a->trace.count, sizeof *a->point_dist);
+    a->point_turn = calloc((size_t)a->trace.count, sizeof *a->point_turn);
+    if (a->node_dist != NULL && a->point_dist != NULL && a->point_turn != NULL) {
+        a->point_count = a->trace.count;
+        track_trace_distances(a->nodes, a->node_count, a->node_dist);
+        track_trace_point_distances(a->trace.points, a->trace.count, a->point_dist);
+        for (int i = 0; i < a->trace.count; ++i) a->point_turn[i] = track_trace_signed_turn(a->nodes, nearest_node(a, i));
+    } else {   // no memory for the figures: the road is as made, without them
+        free(a->node_dist);
+        free(a->point_dist);
+        free(a->point_turn);
+        a->node_dist = a->point_dist = a->point_turn = NULL;
     }
-    if (a->turn_nodes > 0)
-        snprintf(a->road_text, sizeof a->road_text, "%d node(s) turn more than %g degrees", a->turn_nodes, TRACE_TURN_MAX_DEGREES);
-    else if (a->radius_nodes > 0)
-        snprintf(a->road_text, sizeof a->road_text, "%d node(s) on a curve tighter than %g units", a->radius_nodes, TRACE_RADIUS_MIN);
+    a->summary_count = track_trace_summary(a->flags, a->node_count, a->summary);
+    a->problem_count = track_trace_problems(a->nodes, a->node_count, a->flags, NULL, 0);
+    if (a->problem_count > 0) {
+        a->problems = calloc((size_t)a->problem_count, sizeof *a->problems);
+        if (a->problems != NULL) track_trace_problems(a->nodes, a->node_count, a->flags, a->problems, a->problem_count);
+        else a->problem_count = 0;
+    }
+}
+
+void app_sync_selection(App *a)
+{
+    if (a->selected != a->node_for) {
+        a->node_for = a->selected;
+        a->node = a->selected >= 0 && a->road_made && a->point_dist != NULL && a->selected < a->point_count ? nearest_node(a, a->selected) : -1;
+    }
+    if (a->node >= a->node_count || !a->road_made) a->node = a->road_made && a->node_count > 0 ? a->node_count - 1 : -1;
+}
+
+void app_select_node(App *a, int node)
+{
+    if (!a->road_made || node < 0 || node >= a->node_count) return;
+    const double nx = a->nodes[node].position[0] / 65536.0, nz = a->nodes[node].position[2] / 65536.0;
+    int best = 0;
+    double best_d = HUGE_VAL;
+    for (int i = 0; i < a->trace.count; ++i) {
+        const double d = hypot(a->trace.points[i].x - nx, a->trace.points[i].z - nz);
+        if (d < best_d) best_d = d, best = i;
+    }
+    a->selected = a->node_for = best;
+    a->node = node;
+}
+
+int app_modified(const App *a)
+{
+    return session_fingerprint(&a->trace) != a->saved_print;
+}
+
+void app_ask(App *a, AppAction act, const char *path)
+{
+    if (act == APP_ACT_NONE || a->confirm != APP_ACT_NONE || a->go != APP_ACT_NONE) return;
+    if (app_modified(a)) {
+        a->confirm = act;
+        snprintf(a->confirm_path, sizeof a->confirm_path, "%s", path != NULL ? path : "");
+    } else {
+        a->go = act;
+        snprintf(a->go_path, sizeof a->go_path, "%s", path != NULL ? path : "");
+    }
+}
+
+void app_answer(App *a, int answer)
+{
+    if (a->confirm == APP_ACT_NONE) return;
+    if (answer == APP_ANSWER_SAVE && !app_save(a)) return;   // it stays waiting: the status says why
+    if (answer == APP_ANSWER_SAVE || answer == APP_ANSWER_DISCARD) {
+        a->go = a->confirm;
+        memcpy(a->go_path, a->confirm_path, sizeof a->go_path);
+    }
+    a->confirm = APP_ACT_NONE;
+}
+
+/* puts the open project first in the recent list, by its real path (a relative one or one with a slash at its end would be another entry, and
+ * greyed from another folder), and keeps the list */
+static void remember(App *a)
+{
+    char real[PATH_MAX];
+    if (realpath(a->dir, real) != NULL) recent_push(&a->recent, real);
+    else recent_push(&a->recent, a->dir);
+    if (a->recent_file[0] != '\0') recent_save(&a->recent, a->recent_file);
+}
+
+static int open_in(App *a, const char *dir)
+{
+    App *next = calloc(1, sizeof *next);
+    if (next == NULL) {
+        set_status(a, "out of memory");
+        return 0;
+    }
+    if (!app_open(next, dir, a->game, a->user, a->generic[0] != '\0' ? a->generic : NULL)) {
+        set_status(a, next->status);
+        app_free(next);
+        free(next);
+        return 0;
+    }
+    next->recent = a->recent;
+    memcpy(next->recent_file, a->recent_file, sizeof next->recent_file);
+    app_free(a);
+    *a = *next;   // the new project's arrays belong to `a` now
+    free(next);
+    a->fit_pending = 1;
+    remember(a);
+    return 1;
+}
+
+int app_open_project(App *a, const char *dir)
+{
+    if (!recent_is_project(dir)) {
+        set_status(a, "that folder holds no project (no project.ini): use New to start one there");
+        return 0;
+    }
+    return open_in(a, dir);
+}
+
+int app_new_project(App *a, const char *dir)
+{
+    if (recent_is_project(dir)) {
+        set_status(a, "that folder already holds a project: use Open");
+        return 0;
+    }
+    return open_in(a, dir);
+}
+
+void app_keep_recent(App *a, const char *file)
+{
+    snprintf(a->recent_file, sizeof a->recent_file, "%s", file != NULL ? file : "");
+    recent_load(&a->recent, a->recent_file);
+    remember(a);
 }
 
 int app_node_count(const App *a)
@@ -107,6 +252,7 @@ int app_save(App *a)
         set_status(a, why);
         return 0;
     }
+    a->saved_print = session_fingerprint(&a->trace);
     set_status(a, "saved trace.json");
     return 1;
 }
@@ -125,8 +271,8 @@ int app_build(App *a)
 
 static int game_missing_status(App *a, const char *what)
 {
-    snprintf(a->status, sizeof a->status, "%sthe game was not found: copy Spirited Drive and Spirited Drive Studio to Applications, or start the editor with --game PATH (looked at %s)",
-             what, a->game);
+    snprintf(a->status, sizeof a->status, "%sthe game was not found: copy Spirited Drive and Spirited Drive Studio to Applications, pick it with Locate game, or start the editor with --game PATH (looked at %s)",
+             what, a->game_tried[0] != '\0' ? a->game_tried : a->game);
     return 0;
 }
 
@@ -142,6 +288,39 @@ static int game_there(const App *a)
     fclose(f);
     return 1;
 #endif
+}
+
+int app_game_found(const App *a)
+{
+    return game_there(a);
+}
+
+void app_set_game_lookup(App *a, const char *tried, const char *memo)
+{
+    snprintf(a->game_tried, sizeof a->game_tried, "%s", tried != NULL ? tried : "");
+    snprintf(a->game_memo, sizeof a->game_memo, "%s", memo != NULL ? memo : "");
+}
+
+int app_set_game(App *a, const char *picked)
+{
+    char program[APP_PATH];
+    if (!game_find_program_of(picked, program, sizeof program)) {
+        snprintf(a->status, sizeof a->status, "locate game: %s is not Spirited Drive (pick its .app)", picked != NULL ? picked : "nothing");
+        return 0;
+    }
+    FILE *f = fopen(program, "rb");
+    if (f == NULL) {
+        snprintf(a->status, sizeof a->status, "locate game: no game program at %s", program);
+        return 0;
+    }
+    fclose(f);
+    snprintf(a->game, sizeof a->game, "%s", program);
+    if (a->game_memo[0] != '\0') {
+        FILE *m = fopen(a->game_memo, "wb");
+        if (m != NULL) fprintf(m, "%s\n", program), fclose(m);
+    }
+    snprintf(a->status, sizeof a->status, "the game is %s", program);
+    return 1;
 }
 
 int app_check_game(App *a)

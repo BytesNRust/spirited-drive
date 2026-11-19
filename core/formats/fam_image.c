@@ -118,7 +118,8 @@ static void box_mean(const uint32_t *hist, const Box *box, uint8_t out[CHANNELS]
     for (int c = 0; c < CHANNELS; c++) out[c] = (uint8_t)((sum[c] + box->population / 2) / (box->population ? box->population : 1));
 }
 
-enum { MAX_BOXES = FAM_PIXEL_INDICES };
+/* the entries kept back from the median cut for the shades of the colours that have none (reserve_shades) */
+enum { SHADE_SLOTS = 8, MAX_BOXES = FAM_PIXEL_INDICES - SHADE_SLOTS };
 
 /* the boxes of the median cut: returns how many there are, at most MAX_BOXES (one per palette entry 0..254) */
 static int median_cut_boxes(const uint32_t *hist, Box *boxes)
@@ -135,6 +136,64 @@ static int median_cut_boxes(const uint32_t *hist, Box *boxes)
     return count;
 }
 
+/* the shade of a 6-bit colour as the race makes it (game/sys/palette.c shade_channel, scale FAM_SHADE_SCALE): the colour the shadow quads and skid marks
+ * remap it to is the palette's nearest to this one */
+static void shade_of(const uint8_t c[CHANNELS], uint8_t out[CHANNELS])
+{
+    for (int i = 0; i < CHANNELS; i++) {
+        const long product = (long)c[i] * FAM_SHADE_SCALE;
+        const int v = (int)(product >> 16) + (int)((product >> 15) & 1);
+        out[i] = (uint8_t)(v > 0x3F ? 0x3F : v);
+    }
+}
+
+/* the squared distance of two 6-bit colours in 8-bit units */
+static long distance_of(const uint8_t a[CHANNELS], const uint8_t b[CHANNELS])
+{
+    long d = 0;
+    for (int i = 0; i < CHANNELS; i++) d += (long)((a[i] - b[i]) * 4) * ((a[i] - b[i]) * 4);
+    return d;
+}
+
+/* The race loads only the first 0x60 colours of a stage's palette (0044c36c: game/viewer/drive_palette.c, TRACK_FIRST) as its own and maps every other
+ * texture colour onto them; the entries after them are not in its palette at all. The shades below go in at FAM_SHADE_AT, inside those. */
+enum { FAM_SHADE_AT = 0x58 };
+
+/* The shadow of a car is the road's pixels each turned into the palette's nearest entry to the colour darkened by 0.6, and a palette cut for the pictures alone
+ * has no dark yellow: a yellow line under a car went green. So the entries kept back take, one at a time, the shade of the entry whose own shade is
+ * farthest from every entry, while it is farther than FAM_SHADE_BAR: the same hue, darker, exactly (a CD stage's palette has them). `count` entries are
+ * in use; the shades are put in at FAM_SHADE_AT, the entries from there on moving up, and a texture that holds their colour (editor/art/road_rim.py) is what
+ * keeps the race from taking them for the cars' paint. */
+static void reserve_shades(uint8_t palette6[FAM_PALETTE_BYTES], int count)
+{
+    uint8_t picks[SHADE_SLOTS][CHANNELS];
+    int picked = 0;
+    for (int slot = 0; slot < SHADE_SLOTS && count + picked < FAM_PIXEL_INDICES; slot++) {
+        long worst = FAM_SHADE_BAR;
+        int pick = -1;
+        uint8_t shade[CHANNELS], pick_shade[CHANNELS];
+        for (int i = 0; i < count; i++) {
+            shade_of(palette6 + 3 * i, shade);
+            long nearest = -1;
+            for (int j = 0; j < count; j++) {   /* the entries so far and the shades already picked */
+                const long d = distance_of(shade, palette6 + 3 * j);
+                if (nearest < 0 || d < nearest) nearest = d;
+            }
+            for (int j = 0; j < picked; j++) {
+                const long d = distance_of(shade, picks[j]);
+                if (nearest < 0 || d < nearest) nearest = d;
+            }
+            if (nearest > worst) worst = nearest, pick = i, memcpy(pick_shade, shade, sizeof pick_shade);
+        }
+        if (pick < 0) break;
+        memcpy(picks[picked++], pick_shade, CHANNELS);
+    }
+    if (picked == 0) return;
+    const int at = count < FAM_SHADE_AT ? count : FAM_SHADE_AT;
+    memmove(palette6 + 3 * (at + picked), palette6 + 3 * at, (size_t)(count - at) * CHANNELS);
+    for (int i = 0; i < picked; i++) memcpy(palette6 + 3 * (at + i), picks[i], CHANNELS);
+}
+
 int fam_palette_make(const FamPicture *pics, size_t n, uint8_t palette6[FAM_PALETTE_BYTES])
 {
     memset(palette6, 0, FAM_PALETTE_BYTES);
@@ -143,6 +202,7 @@ int fam_palette_make(const FamPicture *pics, size_t n, uint8_t palette6[FAM_PALE
     if (hist == NULL || boxes == NULL) { free(hist); free(boxes); return 0; }
     const int count = median_cut_boxes(hist, boxes);
     for (int i = 0; i < count; i++) box_mean(hist, &boxes[i], palette6 + 3 * i);
+    reserve_shades(palette6, count);
     free(boxes);
     free(hist);
     return 1;

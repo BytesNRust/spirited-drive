@@ -18,7 +18,7 @@ const float POINT_HALF = 4;    // a control point's square, half its side in pix
 const double GRID_LINES_MAX = 400;   // a view with more lines than this (zoomed far out) has no grid
 const double TIP_REACH = 10;   // pixels from a flagged node that bring its tip
 const ImU32 GRID = IM_COL32(36, 40, 46, 255), BACKGROUND = IM_COL32(18, 20, 24, 255), ROAD = IM_COL32(200, 204, 212, 255),
-            BAD = IM_COL32(255, 70, 70, 255), POINT = IM_COL32(90, 160, 255, 255), SELECTED = IM_COL32(255, 220, 0, 255);
+            BAD = IM_COL32(255, 70, 70, 255), WARN = IM_COL32(255, 176, 32, 255), POINT = IM_COL32(90, 160, 255, 255), SELECTED = IM_COL32(255, 220, 0, 255);
 
 struct Canvas {
     ImVec2 origin;   // the panel's top-left, in window pixels
@@ -55,6 +55,13 @@ void draw_grid(const Canvas &c, const View &v)
     }
 }
 
+// the colour of the road at a node: red when it breaks a red limit, amber over an amber one, else the road's
+ImU32 segment_colour(uint8_t flags)
+{
+    if (flags & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) return BAD;
+    return (flags & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN)) ? WARN : ROAD;
+}
+
 // the road: its nodes joined, a node breaking a limit drawn red; with no road (the trace cannot make one), the control polygon in red
 void draw_road(const Canvas &c, const App &a)
 {
@@ -68,7 +75,7 @@ void draw_road(const Canvas &c, const App &a)
     for (int i = 1; i < a.node_count; ++i) {
         const TrackGenNode &p = a.nodes[i - 1], &q = a.nodes[i];
         c.list->AddLine(to_screen(c, v, p.position[0] / 65536.0, p.position[2] / 65536.0),
-                        to_screen(c, v, q.position[0] / 65536.0, q.position[2] / 65536.0), a.flags[i] ? BAD : ROAD, 3);
+                        to_screen(c, v, q.position[0] / 65536.0, q.position[2] / 65536.0), segment_colour(a.flags[i]), 3);
     }
 }
 
@@ -113,13 +120,12 @@ void handle_mouse(App *a, const ImVec2 &origin)
     if (ImGui::IsItemHovered() && io.MouseWheel != 0) interact_zoom(a, mx, my, io.MouseWheel > 0 ? VIEW_ZOOM_STEP : 1 / VIEW_ZOOM_STEP);
 }
 
-// the nearest node of the road that breaks a limit, within TIP_REACH pixels of the mouse; -1 when none
-int flagged_node_near(const Canvas &c, const App &a, double mx, double my)
+// the nearest node of the road, within TIP_REACH pixels of the mouse; -1 when none
+int node_near(const Canvas &c, const App &a, double mx, double my)
 {
     int best = -1;
     double best_d = TIP_REACH * TIP_REACH;
     for (int i = 1; a.road_made && i < a.node_count; ++i) {
-        if (a.flags[i] == 0) continue;
         const ImVec2 p = to_screen(c, a.view, a.nodes[i].position[0] / 65536.0, a.nodes[i].position[2] / 65536.0);
         const double dx = p.x - c.origin.x - mx, dy = p.y - c.origin.y - my, d = dx * dx + dy * dy;
         if (d < best_d) best_d = d, best = i;
@@ -127,15 +133,24 @@ int flagged_node_near(const Canvas &c, const App &a, double mx, double my)
     return best;
 }
 
-// the tip over a red stretch: what the colour means, and that it is the spacing of the points that makes it
+// the tip over a node: its place on the road (metres from the start, its turn) and, over a red or amber stretch, what the colour means and that it
+// is the spacing of the points that makes it
 void draw_tooltip(const Canvas &c, const App &a)
 {
     const ImGuiIO &io = ImGui::GetIO();
-    const int node = flagged_node_near(c, a, io.MousePos.x - c.origin.x, io.MousePos.y - c.origin.y);
+    if (io.MouseDown[0]) return;   // a drag is on: no tip over the point being moved
+    const int node = node_near(c, a, io.MousePos.x - c.origin.x, io.MousePos.y - c.origin.y);
     if (node < 0) return;
+    char turn[16];
+    track_trace_turn_text(track_trace_signed_turn(a.nodes, node), turn, sizeof turn);
     ImGui::BeginTooltip();
-    ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "too tight: the road is not built");
-    ImGui::TextUnformatted("points too close for this turn: space them out or smooth them");
+    ImGui::Text("node %d: %.0f m from the start, turn %s", node, a.node_dist != NULL ? a.node_dist[node] : 0.0, turn);
+    if (a.flags[node] & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) {
+        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "too tight: the road is not built");
+        ImGui::TextUnformatted("points too close for this turn: space them out or smooth them");
+    } else if (a.flags[node] & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN)) {
+        ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "very tight curve: check the terrain in the game, the AI brakes");
+    }
     ImGui::EndTooltip();
 }
 
@@ -153,7 +168,10 @@ void viewport_panel(App *a)
             const ImVec2 origin = ImGui::GetCursorScreenPos();
             a->view.width = (int)size.x;
             a->view.height = (int)size.y;
-            if (++frames == 3) interact_fit(a);   // fit the trace to the panel once, when its size has settled
+            if (++frames == 3 || a->fit_pending) {   // fit the trace to the panel once, when its size has settled, and when another project was opened
+                interact_fit(a);
+                a->fit_pending = 0;
+            }
             ImGui::InvisibleButton("canvas", size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
             handle_mouse(a, origin);
             app_recompute(a);   // what the mouse and the keys just changed, so the road is drawn with its points

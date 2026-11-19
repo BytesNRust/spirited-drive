@@ -55,8 +55,10 @@ static int near3(const int32_t a[3], const int32_t b[3], int tol)
     return abs(a[0] - b[0]) <= tol && abs(a[1] - b[1]) <= tol && abs(a[2] - b[2]) <= tol;
 }
 
-/* every row of the new track, in its own node's axes, is the template's row in the template node's axes (the width unchanged) */
-static int rows_follow(const uint8_t *out, size_t len, const uint8_t *tmpl, size_t tsize, int tol)
+/* every row of the new track, in its own node's axes, is the template's row in the template node's axes (the width unchanged). `all_points` 0
+ * leaves out the points the generator holds inside a tight curve (the third of each side on: track_gen.h, TRACK_GEN_TERRAIN_REACH), which a CD
+ * template's wide terrain reaches past in any curve of the layout; the generic template's (68 units at most) is not held in these curves */
+static int rows_follow(const uint8_t *out, size_t len, const uint8_t *tmpl, size_t tsize, int tol, int all_points)
 {
     Tri made, base;
     if (tri_open(&made, out, len) != TRI_OK || tri_open(&base, tmpl, tsize) != TRI_OK) return 0;
@@ -65,7 +67,8 @@ static int rows_follow(const uint8_t *out, size_t len, const uint8_t *tmpl, size
         int32_t a[11][3], b[11][3];
         local_row(&made, n, a);
         local_row(&base, 40 + n % 4, b);   /* the template's strip 10, row n % 4 */
-        for (int i = 0; i < 11; ++i) ok &= near3(a[i], b[i], tol);
+        for (int i = 0; i < 11; ++i)
+            if (all_points || i == 0 || i == 1 || i == 2 || i == 6 || i == 7) ok &= near3(a[i], b[i], tol);
     }
     return ok;
 }
@@ -89,8 +92,8 @@ static void check_curve_follows(const uint8_t *tmpl, size_t tsize)
     CHECK(make(CURVED, tmpl, tsize, 0, &plain, &plain_len));
     CHECK(make(CURVED, tmpl, tsize, 1, &turned, &turned_len));
     if (plain == NULL || turned == NULL) { free(plain); free(turned); return; }
-    CHECK(rows_follow(turned, turned_len, tmpl, tsize, 3));    /* the rows follow the road, to the rounding of the turn */
-    CHECK(!rows_follow(plain, plain_len, tmpl, tsize, 3));     /* and the plain generator's do not: the test can tell */
+    CHECK(rows_follow(turned, turned_len, tmpl, tsize, 3, 1));    /* the rows follow the road, to the rounding of the turn */
+    CHECK(!rows_follow(plain, plain_len, tmpl, tsize, 3, 1));     /* and the plain generator's do not: the test can tell */
     CHECK_EQ_INT(turned_len, plain_len);
     /* only the rows differ: the header, the descriptors, the scenery and each segment's bytes before its rows are the plain generator's */
     Tri a, b;
@@ -159,7 +162,7 @@ static int check_cd_templates(int argc, char **argv)
             size_t len = 0;
             if (make_wide(CURVED, model.left_verge, data, (size_t)size, 1, &out, &len)) {
                 ++used;
-                CHECK(rows_follow(out, len, data, (size_t)size, 8));
+                CHECK(rows_follow(out, len, data, (size_t)size, 8, 0));
             } else {
                 CHECK(0 && "a CD track does not make a track as the template");
             }

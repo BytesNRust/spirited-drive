@@ -10,7 +10,7 @@ section SEGMENTS [turn=DEG] [grade=PERCENT] [bank=DEG] [width=VERGE]
 ```
 
 - `SEGMENTS`: length in terrain segments (4 road nodes each, about 6 units per node). 8..599 in all.
-- `turn`: total heading change over the section, positive to the right (at most 8 degrees per node, the same as the track editor's red limit: `docs/track-editor.md`).
+- `turn`: total heading change over the section, positive to the right (at most 8 degrees per node: a layout's terrain is not turned; the track editor's road may turn up to 16, `docs/track-editor.md`).
 - `grade`, `bank`, `width`: the value reached at the end of the section; the generator ramps linearly from the
   previous section (start: 0, 0 and the template's verge). A key left out keeps the previous value; `turn` does not carry over.
   Ranges: grade ±30 %, bank ±20 degrees, width 8..120 (the half road width in the node's verge byte, 16 terrain units each).
