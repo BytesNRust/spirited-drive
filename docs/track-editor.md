@@ -60,12 +60,21 @@ the nodes themselves, one row each, red first and then by node number: "node 80:
 not look right". A click on a row selects the nearest point and centres the Viewport on that node. With none it says "No problems". Both windows are
 dockable like the others and their layout is kept.
 
-## Projects: New, Open, recent, and unsaved changes
+## Start screen, cars, and projects: New, Open, recent, and unsaved changes
 
-The **File** menu has New project..., Open project..., Open recent, Save and Quit. New and Open ask for a folder with the system's own folder window.
-Open wants a folder that holds a project (a `project.ini`); New wants one that holds none, and makes the project there (the window's folder dialog can
-make the folder). The last eight project folders are kept in the editor's own folder (`recent.txt` beside its layout) and listed in Open recent; one
-that has no project any more is greyed out. The view fits the project that was opened.
+Studio has one project open, a track or a car. With nothing to reopen it shows a **start screen**: Open car..., Open track..., New track..., Export original
+car... (greyed: coming soon) and **Recent** (cars and tracks together, up to eight; a folder that is gone is greyed). A normal run with no folder given
+reopens the project it had last. The **File** menu has the same entries, Save (a track's) and Quit. Each kind keeps its own docked layout in the layout file.
+
+Open track wants a folder that holds a project (a `project.ini`); New track wants one that holds none, and makes the project there (the window's folder dialog
+can make the folder). The last eight project folders are kept in the editor's own folder (`recent.txt` beside its layout; a car's line starts with `car` and a tab,
+and a file from the first Studio, all tracks, still reads). The view fits the project that was opened.
+
+**Open car** takes a car kit's folder (the one that holds `coche/` and `modelo/`) or its `coche/`; given `coche/` with a `modelo/` beside it, the kit is opened.
+What makes it a car: a `mod.ini` with `type=car` and a `stem=`, and the car's file `SIMDATA/CARFAMS/<STEM>.CFM` beside it. `car_masks/<STEM>/` may be missing (listed as
+none). A folder that is not a car is refused with what was looked at and what is missing. The car window is read only for now: the card's fields and colors, the
+textures (`modelo/c1`, and how many far ones) and the mask files found. The same folder on the command line opens as a track when it has a `project.ini`, as a car
+when it holds a car's `mod.ini`, else as a new track project.
 
 Closing the window, Escape and Quit with changes that are not in `trace.json` (a point moved, added or removed, or the road width changed since the last
 save or open) ask "Save the changes to <project> before quitting?" with **Save** (Enter), **Discard** and **Cancel** (Escape). New, Open and Open recent ask
