@@ -190,6 +190,7 @@ int main(int argc, char **argv)
     if (app == NULL) return 1;
     int status = 1;
     if (app_open(app, o.dir, o.game, o.user != NULL ? o.user : "")) {
+        app_check_game(app);   /* the window opens with what to do if the game is not found, not with a failed install later */
         status = run(app, &o) ? 0 : 1;
     } else {
         fprintf(stderr, "%s\n", app->status);

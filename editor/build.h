@@ -16,4 +16,8 @@ int build_project(const char *dir, const Project *p, const Trace *t, char *zip, 
  * game. 1 when it exits 0; 0 with `why` otherwise. */
 int install_zip(const char *game, const char *zip, const char *user_dir, char *why, size_t why_cap);
 
+/* The shell command that does the same install by hand (what Windows prints, where the editor does not run the game itself): `GAME --user DIR
+ * --install ZIP`, or `GAME --install ZIP` when `user_dir` is empty (the game then installs into its own player folder). */
+void install_command_text(const char *game, const char *zip, const char *user_dir, char *out, size_t cap);
+
 #endif

@@ -123,8 +123,35 @@ int app_build(App *a)
     return 1;
 }
 
+static int game_missing_status(App *a, const char *what)
+{
+    snprintf(a->status, sizeof a->status, "%sthe game was not found: copy Spirited Drive and Spirited Drive Studio to Applications, or start the editor with --game PATH (looked at %s)",
+             what, a->game);
+    return 0;
+}
+
+/* the game's program can be opened (a file the player's system lets this one read; whether it runs is the exec's to say) */
+static int game_there(const App *a)
+{
+#if defined(_WIN32)
+    (void)a;   /* the editor does not run the game there: install_zip prints the command to run by hand, whatever --game says */
+    return 1;
+#else
+    FILE *f = fopen(a->game, "rb");
+    if (f == NULL) return 0;
+    fclose(f);
+    return 1;
+#endif
+}
+
+int app_check_game(App *a)
+{
+    return game_there(a) || game_missing_status(a, "");
+}
+
 int app_install(App *a)
 {
+    if (!game_there(a)) return game_missing_status(a, "install: ");
     if (a->zip[0] == '\0') {
         set_status(a, "build first (B): install takes the built package");
         return 0;

@@ -151,12 +151,16 @@ void project_panel(App *a)
         if (ImGui::Button("Install (U)")) app_install(a);
         ImGui::EndDisabled();
         if (a->zip[0] != '\0') ImGui::TextWrapped("package %s", a->zip);
-        ImGui::TextDisabled("installs into %s", a->user[0] != '\0' ? a->user : "the game's player folder");
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextWrapped("installs into %s", a->user[0] != '\0' ? a->user : "the game's player folder");
+        ImGui::PopStyleColor();
         ImGui::TextWrapped("%s", a->status);
         ImGui::Separator();
-        ImGui::TextDisabled("drag LMB  pan RMB/MMB  zoom wheel");
-        ImGui::TextDisabled("arrows nudge  F fit  N add  I insert");
-        ImGui::TextDisabled("Del remove  S save  B build  U install");
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));   // the help wraps with the panel, never cut at its edge
+        ImGui::TextWrapped("drag LMB  pan RMB/MMB  zoom wheel");
+        ImGui::TextWrapped("arrows nudge  F fit  N add  I insert");
+        ImGui::TextWrapped("Del remove  S save  B build  U install");
+        ImGui::PopStyleColor();
     }
     ImGui::End();
 }
