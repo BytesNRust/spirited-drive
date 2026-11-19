@@ -245,17 +245,20 @@ static void turn_point(uint8_t *p, const TrackFrame *from, const TrackFrame *to,
     for (int k = 0; k < 3; ++k) put_i16(p + 2 * k, turned[k] < -32768 ? -32768 : turned[k] > 32767 ? 32767 : turned[k]);
 }
 
-/* How far across the road, in the TRI's raw units (1/128 of a unit), the terrain of node i may reach on each side: TRACK_GEN_TERRAIN_REACH of the
- * curve's radius there, the radius being a node length over the heading's turn into or out of the node (the larger). INFINITY on a straight. */
-static double terrain_cap(const TrackGenNode *shapes, int i, int count)
+/* How far across the road, in the TRI's raw units (1/128 of a unit), the terrain of node i may reach on the inside of the curve: TRACK_GEN_TERRAIN_REACH
+ * of the curve's radius there, the radius being a node length over the heading's turn into or out of the node (the larger). INFINITY on a straight.
+ * `*inner` is that side's row side: 0 the right points (a right turn, the heading growing), 1 the left. */
+static double terrain_cap(const TrackGenNode *shapes, int i, int count, int *inner)
 {
     double turn = 0, step = (double)TRACK_GEN_NODE_LENGTH / 65536.0;
+    *inner = 0;
     for (int k = i > 0 ? i - 1 : i; k <= i && k + 1 < count; ++k) {
         double d = fmod(shapes[k + 1].heading - shapes[k].heading, ANGLE_TURN);
         if (d > ANGLE_TURN / 2) d -= ANGLE_TURN;
         if (d < -ANGLE_TURN / 2) d += ANGLE_TURN;
         if (fabs(d) > turn) {
             turn = fabs(d);
+            *inner = d > 0 ? 0 : 1;
             const double dx = ((double)shapes[k + 1].position[0] - shapes[k].position[0]) / 65536.0;
             const double dz = ((double)shapes[k + 1].position[2] - shapes[k].position[2]) / 65536.0;
             step = hypot(dx, dz);   /* the real distance between the two nodes: explicit nodes may be 1..20 units apart */
@@ -266,10 +269,10 @@ static double terrain_cap(const TrackGenNode *shapes, int i, int count)
 }
 
 /* write_strip with the rows turned: the template's, in its nodes' own axes (`from`, one frame a row), laid along the new nodes' (`shapes`).
- * `caps` are the rows' terrain_cap: the points from the third of each side on do not reach further across than that (the two nearest the road,
- * its edge and its verge, are the road's own and are kept). */
+ * `caps` are the rows' terrain_cap and `inner` their inside: the points from the third on of that side do not reach further across than the cap (the
+ * two nearest the road, its edge and its verge, are the road's own and are kept); the outside of the curve is not held. */
 static void write_strip_turned(uint8_t *seg, const uint8_t *model, const TrackGenNode *shapes, const TriNode *tmpl, const TrackFrame from[4],
-                               const double caps[4])
+                               const double caps[4], const int inner[4])
 {
     memcpy(seg, model, TRI_SEGMENT_SIZE);
     for (int row = 0; row < TRI_NODES_PER_SEGMENT; ++row) {
@@ -281,7 +284,7 @@ static void write_strip_turned(uint8_t *seg, const uint8_t *model, const TrackGe
         for (int point = 0; point < 11; ++point) {
             const int lateral = point == 1 ? widen : point == 6 ? -widen : 0;   /* right[0] and left[0]: the road's edges */
             const int side = point >= 6, on_side = point == 0 ? -1 : point - 1 - 5 * side;   /* 0..4 along its side; -1 the middle */
-            const int hold = on_side >= 2 && caps[row] != INFINITY;
+            const int hold = on_side >= 2 && caps[row] != INFINITY && side == inner[row];
             double middle = 0;
             turn_point(r + 6 * point, &from[row], &to, lateral, hold, caps[row], on_side < 0 ? &middle : &across[side]);
         }
@@ -405,9 +408,10 @@ static int generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *
         memcpy(header + BRIGHTNESS_OFFSET + BRIGHTNESS_SIZE * s, brightness, sizeof brightness);
         if (turned) {
             double caps[TRI_NODES_PER_SEGMENT];
-            for (int r = 0; r < TRI_NODES_PER_SEGMENT; ++r) caps[r] = terrain_cap(shapes, s * TRI_NODES_PER_SEGMENT + r, count);
+            int inner[TRI_NODES_PER_SEGMENT];
+            for (int r = 0; r < TRI_NODES_PER_SEGMENT; ++r) caps[r] = terrain_cap(shapes, s * TRI_NODES_PER_SEGMENT + r, count, &inner[r]);
             write_strip_turned(terrain + (size_t)s * TRI_SEGMENT_SIZE, parts.terrain + (size_t)model_segment * TRI_SEGMENT_SIZE,
-                               shapes + s * TRI_NODES_PER_SEGMENT, &model, model_frames, caps);
+                               shapes + s * TRI_NODES_PER_SEGMENT, &model, model_frames, caps, inner);
         }
         else
             write_strip(terrain + (size_t)s * TRI_SEGMENT_SIZE, parts.terrain + (size_t)model_segment * TRI_SEGMENT_SIZE,

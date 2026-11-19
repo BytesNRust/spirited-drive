@@ -45,7 +45,8 @@ The road is drawn through the control points as a Catmull-Rom curve, resampled t
 (a radius of 43 m) nothing is marked. Over that a node is drawn **amber**: the road is built, but the curve is tighter than almost all of the
 CD's (the CD has some of 16 degrees: Alpine 3), so check the terrain in the game; the AI brakes there. A node is drawn **red** when it turns more
 than 16.5 degrees from the node before (the CD's own most is 16.2), or the curve there is tighter than 20.9 m: Build refuses while any node is red. In a tight curve the
-generator holds the terrain inside the curve, on both sides, to 0.4 of its radius, as the CD does (`notes/dep59-editor-limits-vs-cd.md`); a
+generator holds the terrain on the inside of the curve to 0.4 of its radius, as the CD does (`notes/dep59-editor-limits-vs-cd.md`); the outside is left as it is
+(the CD cuts both sides, but its scenery hides the outer hole and the generic template has none). A
 layout of `track new` does not turn the terrain and keeps its own limit of 8 degrees. The numbers are measured and provisional, not limits of the game.
 
 How tight a curve is depends on how far apart its points are: two points close together make the curve turn within a short distance. Hover a red or amber
