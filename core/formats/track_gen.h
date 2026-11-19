@@ -22,16 +22,17 @@
 #include <stdint.h>
 
 /* The most a node may turn from the node before, in degrees. Two limits, because the terrain is not laid the same way:
- *  - TRACK_GEN_TURN_MAX_DEGREES, for the nodes of the editor (track_generate_nodes_turned): the terrain rows follow the road and are held
- *    inside TRACK_GEN_TERRAIN_REACH of the curve's radius (the CD's own way: Alpine 3 keeps its terrain within 0.32..0.44 of the radius in its
- *    16-degree curve, node 625, notes/dep59-editor-limits-vs-cd.md). The editor shows red what is over it, amber what is over
+ *  - TRACK_GEN_TURN_MAX_DEGREES, for the nodes of the editor (track_generate_nodes_turned): the terrain rows follow the road and, on the inside of
+ *    the curve, are held inside TRACK_GEN_TERRAIN_REACH of the curve's radius (the CD holds both sides: Alpine 3 keeps its terrain within 0.32..0.44 of the
+ *    radius in its 16-degree curve, node 625, notes/dep59-editor-limits-vs-cd.md; the outside is left alone here because the generic template has no
+ *    scenery to hide the hole a cut would leave there). The editor shows red what is over it, amber what is over
  *    TRACK_GEN_TURN_WARN_DEGREES (track_trace.h).
  *  - TRACK_GEN_LAYOUT_TURN_MAX_DEGREES, for a layout (`track new`, track_generate): its rows are the template's, not turned, and over 8 degrees
  *    the game draws the terrain of the inner side crossing itself (measured, same note). */
 #define TRACK_GEN_TURN_MAX_DEGREES 16.5   /* the CD's most is 16.2 (TR6 turns 16.2 in a step, Alpine 3's 15.8); the half degree over 16 is for the editor's spline, which at the joint of a straight and a curve drawn at 16 gives 16.1 */
 #define TRACK_GEN_TURN_WARN_DEGREES 8.0
 #define TRACK_GEN_LAYOUT_TURN_MAX_DEGREES 8.0
-#define TRACK_GEN_TERRAIN_REACH 0.4   /* the furthest the terrain of a turned node goes across the road, as a part of the curve's radius there */
+#define TRACK_GEN_TERRAIN_REACH 0.4   /* the furthest the terrain of a turned node goes across the road on the inside of the curve, as a part of the curve's radius there */
 
 enum {
     TRACK_GEN_MIN_SEGMENTS = 8,
