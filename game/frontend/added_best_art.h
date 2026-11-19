@@ -24,14 +24,8 @@ enum {
  * is not a bank with a 640 x 480 bgnd */
 int added_best_art_make(const uint8_t *coast, size_t size, uint8_t **out, size_t *out_size, char *why, size_t why_size);
 
-/* the same for RECORDS' screen (owner 2026-11-18): the art's headings and footer labels taken out too (the title, the "Best times" and column
- * heads, the "Top speed" block, "Road/track" and "Description"); DONE stays */
-int added_best_art_make_records(const uint8_t *coast, size_t size, uint8_t **out, size_t *out_size, char *why, size_t why_size);
-
 /* (added_best_art_bank.c) the bank for the game's language put as a bank the menus draw from; 0 when it cannot be made (logged): the caller
  * shows Coastal's own */
 int32_t added_best_art_bank(void);
-/* RECORDS' bank (made as added_best_art_make_records); 0 when it cannot be made (logged) */
-int32_t added_best_art_records_bank(void);
 
 #endif

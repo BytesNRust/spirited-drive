@@ -167,12 +167,42 @@ static void tile(void *ctx, int car, int lit, int shift, int arrows, const uint8
     if (arrows & 2) arrow(&t, SHOWCASE_TILE_X + SHOWCASE_TILE_W - 6 - GL_ARROW_W, mid, 0, colour, black);
 }
 
-/* the car's RECORDS screen (car_records_screen.h) for the stock car `car`; the page that called it is drawn again by the showcase */
+/* the page's tone: the mean colour of two stretches of its background no tile covers (the right of the History tile's foot, the left of the Mechanical's),
+ * its brightest channel made 72, the sepia's (showcase_tint.h): the menus' background then comes out as bright as the page's own */
+static void page_tone(const Target *t, const uint8_t *palette, uint8_t tint[3])
+{
+    static const int AREA[2][4] = { { 470, 372, 636, 425 }, { 4, 330, 78, 420 } };
+    long sum[3] = { 0, 0, 0 }, n = 0;
+    for (int a = 0; a < 2; a++)
+        for (int y = AREA[a][1]; y <= AREA[a][3] && y < t->h; y++)
+            for (int x = AREA[a][0]; x <= AREA[a][2] && x < t->w; x++, n++)
+                for (int c = 0; c < 3; c++) sum[c] += palette[3 * t->to[y * t->w + x] + c];
+    int mx = 1;
+    for (int c = 0; c < 3; c++) {
+        tint[c] = (uint8_t)(n > 0 ? sum[c] / n : 0);
+        if (tint[c] > mx) mx = tint[c];
+    }
+    for (int c = 0; c < 3; c++) tint[c] = (uint8_t)(tint[c] * 72 / mx);
+}
+
+/* the car's RECORDS screen (car_records_screen.h) for the stock car `car`, on this page's palette: its title band as it is, below it the menus'
+ * background in the page's tone (its colour at the right edge); the showcase draws the page again after it */
 static void records_open(void *ctx, int car, const uint8_t *palette)
 {
-    (void)ctx, (void)palette;
-    const char *const id = stock_car_id(car), *const name = stock_car_name(car);
-    if (id != NULL) car_records_screen(id, name != NULL ? name : id);
+    (void)ctx;
+    Target t;
+    const char *const id = stock_car_id(car);
+    if (id == NULL || !target_get(&t) || t.w != GL_W || t.h != GL_H) return;
+    uint8_t *ground = malloc((size_t)t.w * t.h), usable[256], pointer[256] = { 0 }, tint[3];
+    if (ground == NULL) return;
+    pointer_colours_used(pointer);
+    for (int i = 0; i < 256; i++) usable[i] = !pointer[i] && i != TRANSPARENT;
+    memcpy(ground, t.to, (size_t)t.w * t.h);
+    page_tone(&t, palette, tint);
+    car_records_ground(ground, palette, usable, tint);
+    const CarRecordsLook look = { palette, ground, NULL, NULL };
+    car_records_screen(id, &look);
+    free(ground);
 }
 
 /* --- the panel's state --- */

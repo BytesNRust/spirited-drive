@@ -8,17 +8,6 @@
 
 enum { ENTRIES_MAX = 48, BLUR_R = 6, BLUR_PASSES = 2 };
 
-/* a box (inclusive) the art's own words are taken out of: covered with the page's texture from `shift` rows down, then blurred into the page */
-typedef struct {
-    int x0, x1, y0, y1, shift;
-} BestBox;
-
-static const BestBox TITLE_BOX = { ADDED_BEST_BOX_X0, ADDED_BEST_BOX_X1, ADDED_BEST_BOX_Y0, ADDED_BEST_BOX_Y1, ADDED_BEST_SOURCE_SHIFT };
-/* RECORDS' own (owner 2026-11-18): the title and the table's heads, the "Top speed" block, the footer's labels and arrows */
-static const BestBox RECORDS_BOXES[] = {
-    { ADDED_BEST_BOX_X0, ADDED_BEST_BOX_X1, ADDED_BEST_BOX_Y0, ADDED_BEST_BOX_Y1, ADDED_BEST_SOURCE_SHIFT },
-    { 6, 540, 72, 112, 74 }, { 6, 540, 338, 380, 48 }, { 200, 636, 440, 470, -48 } };
-
 /* the bank's palette (768 bytes, RGB); 0 when it has none */
 static int bank_palette(const uint8_t *coast, size_t size, uint8_t pal[768])
 {
@@ -32,11 +21,11 @@ static int bank_palette(const uint8_t *coast, size_t size, uint8_t pal[768])
 /* the title's box blurred (owner 2026-11-18: as the cars' pages' strip is): the box and a margin round it to RGB by `pal`, a box blur within
  * them, the blurred pixels mixed with the page's own by their distance from the box (all of it inside, none at the margin's edge, so the band
  * has no edge of its own), each mapped back to the palette's nearest entry */
-static void blur_box(uint8_t *px, const uint8_t pal[768], const BestBox *box)
+static void blur_box(uint8_t *px, const uint8_t pal[768])
 {
     enum { MARGIN_X = ADDED_BEST_MARGIN_X, MARGIN_Y = ADDED_BEST_MARGIN_Y };
-    const int x0 = box->x0 - MARGIN_X < 0 ? 0 : box->x0 - MARGIN_X, x1 = box->x1 + MARGIN_X >= ADDED_BEST_W ? ADDED_BEST_W - 1 : box->x1 + MARGIN_X;
-    const int y0 = box->y0 - MARGIN_Y < 0 ? 0 : box->y0 - MARGIN_Y, y1 = box->y1 + MARGIN_Y >= ADDED_BEST_H ? ADDED_BEST_H - 1 : box->y1 + MARGIN_Y;
+    const int x0 = ADDED_BEST_BOX_X0 - MARGIN_X < 0 ? 0 : ADDED_BEST_BOX_X0 - MARGIN_X, x1 = ADDED_BEST_BOX_X1 + MARGIN_X;
+    const int y0 = ADDED_BEST_BOX_Y0 - MARGIN_Y < 0 ? 0 : ADDED_BEST_BOX_Y0 - MARGIN_Y, y1 = ADDED_BEST_BOX_Y1 + MARGIN_Y;
     const int w = x1 - x0 + 1, h = y1 - y0 + 1;
     uint8_t *rgb = malloc((size_t)w * h * 3), *tmp = malloc((size_t)w * h * 3), *own = malloc((size_t)w * h * 3);
     if (rgb == NULL || tmp == NULL || own == NULL) {
@@ -65,8 +54,8 @@ static void blur_box(uint8_t *px, const uint8_t pal[768], const BestBox *box)
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++) {
             const int px_x = x0 + x, px_y = y0 + y;
-            const int dx = px_x < box->x0 ? box->x0 - px_x : px_x > box->x1 ? px_x - box->x1 : 0;
-            const int dy = px_y < box->y0 ? box->y0 - px_y : px_y > box->y1 ? px_y - box->y1 : 0;
+            const int dx = px_x < ADDED_BEST_BOX_X0 ? ADDED_BEST_BOX_X0 - px_x : px_x > ADDED_BEST_BOX_X1 ? px_x - ADDED_BEST_BOX_X1 : 0;
+            const int dy = px_y < ADDED_BEST_BOX_Y0 ? ADDED_BEST_BOX_Y0 - px_y : px_y > ADDED_BEST_BOX_Y1 ? px_y - ADDED_BEST_BOX_Y1 : 0;
             const int fx = dx * 256 / (MARGIN_X + 1), fy = dy * 256 / (MARGIN_Y + 1), away = fx > fy ? fx : fy;   /* 0 inside .. 255 at the edge */
             const int keep = away < 256 ? away : 256;   /* the page's own, out of 256 */
             if (keep == 256) continue;   /* the margin's edge: not a pixel of it changes */
@@ -83,7 +72,7 @@ static void blur_box(uint8_t *px, const uint8_t pal[768], const BestBox *box)
     free(rgb), free(tmp), free(own);
 }
 
-static int make(const uint8_t *coast, size_t size, const BestBox *boxes, int nboxes, uint8_t **out, size_t *out_size, char *why, size_t why_size)
+int added_best_art_make(const uint8_t *coast, size_t size, uint8_t **out, size_t *out_size, char *why, size_t why_size)
 {
     ShpiDescEntry e[ENTRIES_MAX];
     ExchangeError err;
@@ -102,25 +91,14 @@ static int make(const uint8_t *coast, size_t size, const BestBox *boxes, int nbo
         return 0;
     }
     memcpy(px, e[bgnd].data, (size_t)ADDED_BEST_W * ADDED_BEST_H);
-    for (int b = 0; b < nboxes; b++)
-        for (int y = boxes[b].y0; y <= boxes[b].y1; y++)   /* the page's own texture, from the rows `shift` away, same columns */
-            memcpy(px + y * ADDED_BEST_W + boxes[b].x0, px + (y + boxes[b].shift) * ADDED_BEST_W + boxes[b].x0, (size_t)(boxes[b].x1 - boxes[b].x0 + 1));
+    for (int y = ADDED_BEST_BOX_Y0; y <= ADDED_BEST_BOX_Y1; y++)   /* the page's own texture, from the rows below the column heads, same columns */
+        memcpy(px + y * ADDED_BEST_W + ADDED_BEST_BOX_X0, px + (y + ADDED_BEST_SOURCE_SHIFT) * ADDED_BEST_W + ADDED_BEST_BOX_X0,
+               (size_t)(ADDED_BEST_BOX_X1 - ADDED_BEST_BOX_X0 + 1));
     uint8_t pal[768];
-    if (bank_palette(coast, size, pal))
-        for (int b = 0; b < nboxes; b++) blur_box(px, pal, &boxes[b]);
+    if (bank_palette(coast, size, pal)) blur_box(px, pal);
     e[bgnd].data = px;
     const int ok = shpi_build(e, n, out, out_size, &err);
     if (!ok && why != NULL && why_size > 0) strncpy(why, err.message, why_size - 1), why[why_size - 1] = '\0';
     free(px);
     return ok;
-}
-
-int added_best_art_make(const uint8_t *coast, size_t size, uint8_t **out, size_t *out_size, char *why, size_t why_size)
-{
-    return make(coast, size, &TITLE_BOX, 1, out, out_size, why, why_size);
-}
-
-int added_best_art_make_records(const uint8_t *coast, size_t size, uint8_t **out, size_t *out_size, char *why, size_t why_size)
-{
-    return make(coast, size, RECORDS_BOXES, (int)(sizeof RECORDS_BOXES / sizeof RECORDS_BOXES[0]), out, out_size, why, why_size);
 }
