@@ -93,6 +93,28 @@ void default_layout(ImGuiID dock)
     ImGui::DockBuilderFinish(dock);
 }
 
+// the layout of a car's first run: its card on the left, the textures and the masks stacked on the right
+void car_layout(ImGuiID dock)
+{
+    ImGui::DockBuilderRemoveNode(dock);
+    ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
+    ImGuiID left = 0, right = 0, masks = 0;
+    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.5f, nullptr, &right);
+    masks = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.45f, nullptr, &right);
+    ImGui::DockBuilderDockWindow(PANEL_CAR, left);
+    ImGui::DockBuilderDockWindow(PANEL_TEXTURES, right);
+    ImGui::DockBuilderDockWindow(PANEL_MASKS, masks);
+    ImGui::DockBuilderFinish(dock);
+}
+
+// 1 when a dock space has no layout yet: a lone leaf with nothing docked in it (a layout kept in the ini file is built before the first frame)
+bool dock_is_empty(ImGuiID dock)
+{
+    const ImGuiDockNode *node = ImGui::DockBuilderGetNode(dock);
+    return node == nullptr || (node->ChildNodes[0] == nullptr && node->Windows.Size == 0);
+}
+
 // the shortcuts, when no text field has the keyboard
 void shortcuts(App *a)
 {
@@ -115,27 +137,58 @@ void shortcuts(App *a)
     if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) interact_nudge(a, 0, -INTERACT_NUDGE);
 }
 
-// the File menu: a new project, an open one, the recent ones, Save, Quit; each asks the app (app_ask), which asks about unsaved changes first
+// the File menu: a new track, an open track or car, the recent ones (tracks and cars together), Save, Quit; each asks the app (app_ask), which asks about unsaved
+// changes first
 void main_menu(App *a)
 {
     if (!ImGui::BeginMainMenuBar()) return;
     if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem("New project...")) app_ask(a, APP_ACT_NEW, "");
-        if (ImGui::MenuItem("Open project...")) app_ask(a, APP_ACT_OPEN, "");
+        if (ImGui::MenuItem("Open car...")) app_ask(a, APP_ACT_OPEN_CAR, "");
+        if (ImGui::MenuItem("Open track...")) app_ask(a, APP_ACT_OPEN, "");
+        if (ImGui::MenuItem("New track...")) app_ask(a, APP_ACT_NEW, "");
+        ImGui::BeginDisabled();
+        ImGui::MenuItem("Export original car...");
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Coming soon");
         if (ImGui::BeginMenu("Open recent", a->recent.count > 0)) {
             for (int i = 0; i < a->recent.count; ++i) {
+                char label[SESSION_PATH + 16];
+                snprintf(label, sizeof label, "%s  (%s)", a->recent.dir[i], a->recent.kind[i] == RECENT_CAR ? "car" : "track");
                 ImGui::PushID(i);
-                if (ImGui::MenuItem(a->recent.dir[i], nullptr, false, recent_is_project(a->recent.dir[i]))) app_ask(a, APP_ACT_RECENT, a->recent.dir[i]);
+                if (ImGui::MenuItem(label, nullptr, false, recent_present(a->recent.dir[i], a->recent.kind[i]))) app_ask(a, APP_ACT_RECENT, a->recent.dir[i]);
                 ImGui::PopID();
             }
             ImGui::EndMenu();
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Save", "S")) app_save(a);
+        if (ImGui::MenuItem("Save", a->kind == APP_KIND_CAR ? "Ctrl+S" : "S", false, a->kind != APP_KIND_NONE)) app_save(a);
         if (ImGui::MenuItem("Quit")) app_ask(a, APP_ACT_QUIT, "");
         ImGui::EndMenu();
     }
+    if (a->kind == APP_KIND_CAR && ImGui::BeginMenu("Edit")) {
+        if (ImGui::MenuItem("Undo", "Ctrl+Z", false, car_edit_can_undo(&a->edit))) car_edit_undo(&a->edit);
+        if (ImGui::MenuItem("Redo", "Ctrl+Shift+Z", false, car_edit_can_redo(&a->edit))) car_edit_redo(&a->edit);
+        ImGui::EndMenu();
+    }
     ImGui::EndMainMenuBar();
+}
+
+// "Could not open <folder>": the reason an Open, New or recent gave (a->open_error), with OK; a car that is not one says what was looked at and what is missing
+void open_error_popup(App *a)
+{
+    static const char *const NAME = "Could not open";
+    if (a->open_error[0] != '\0' && !ImGui::IsPopupOpen(NAME)) ImGui::OpenPopup(NAME);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(360, 0), ImVec2(560, 400));
+    if (!ImGui::BeginPopupModal(NAME, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0f);
+    ImGui::TextUnformatted(a->open_error);
+    ImGui::PopTextWrapPos();
+    ImGui::Spacing();
+    if (ImGui::Button("OK") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+        a->open_error[0] = '\0';
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
 }
 
 // "Save changes to <project> before ...?": Save, Discard, Cancel (Escape, in main.c, is Cancel; Enter is Save, once the question has been on screen a
@@ -156,9 +209,9 @@ void confirm_popup(App *a)
         ImGui::CloseCurrentPopup();
     } else {
         ++age;
-        const char *then = a->confirm == APP_ACT_QUIT ? "quitting" : a->confirm == APP_ACT_NEW || a->confirm == APP_ACT_NEW_AT ? "starting a new project"
+        const char *then = a->confirm == APP_ACT_QUIT ? "quitting" : a->confirm == APP_ACT_NEW || a->confirm == APP_ACT_NEW_AT ? "starting a new track"
                                                                                                                               : "opening another project";
-        ImGui::Text("Save the changes to \"%s\" before %s?", a->project.id, then);
+        ImGui::Text("Save the changes to \"%s\" before %s?", a->kind == APP_KIND_CAR ? a->car.info.id : a->project.id, then);
         ImGui::Spacing();
         int answer = -1;
         if (ImGui::Button("Save")) answer = APP_ANSWER_SAVE;
@@ -182,25 +235,40 @@ void confirm_popup(App *a)
 
 void ui_frame(SDL_Renderer *ren, App *a)
 {
+    static bool track_laid_out = false, car_laid_out = false;
     ImGui_ImplSDLRenderer3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     main_menu(a);
-    const ImGuiID dock = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
-    static bool laid_out = false;
-    if (!laid_out) {
-        laid_out = true;
-        if (!g_had_layout) default_layout(dock);
+    if (a->kind == APP_KIND_TRACK) {   // the track editor, as it was; its dock space keeps the layout of the first Studio
+        const ImGuiID dock = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
+        if (!track_laid_out) {
+            track_laid_out = true;
+            if (!g_had_layout || dock_is_empty(dock)) default_layout(dock);
+        }
+        if (a->confirm == APP_ACT_NONE) shortcuts(a);   // the keys edit nothing while the question is up
+        viewport_panel(a);
+        project_panel(a);
+        track_panel(a);
+        points_panel(a);
+        limits_panel(a);
+        problems_panel(a);
+        node_panel(a);
+    } else if (a->kind == APP_KIND_CAR) {   // a car has a dock space of its own: each kind keeps its layout
+        const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr("StudioCarDock"), ImGui::GetMainViewport());
+        if (!car_laid_out) {
+            car_laid_out = true;
+            if (dock_is_empty(dock)) car_layout(dock);
+        }
+        if (a->confirm == APP_ACT_NONE) car_shortcuts(a);
+        car_panel(a);
+        textures_panel(a);
+        masks_panel(a);
+    } else {
+        start_screen(a);
     }
-    if (a->confirm == APP_ACT_NONE) shortcuts(a);   // the keys edit nothing while the question is up
-    viewport_panel(a);
-    project_panel(a);
-    track_panel(a);
-    points_panel(a);
-    limits_panel(a);
-    problems_panel(a);
-    node_panel(a);
     confirm_popup(a);
+    open_error_popup(a);
     ImGui::Render();
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), ren);
 }

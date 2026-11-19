@@ -3,6 +3,8 @@
 #ifndef TNFS_TRACK_EDITOR_APP_H
 #define TNFS_TRACK_EDITOR_APP_H
 
+#include "car_edit.h"
+#include "car_project.h"
 #include "project.h"
 #include "session.h"
 #include "view.h"
@@ -15,6 +17,9 @@ enum {
     APP_NEW_STEP = 40        /* units between a point and the one added after it */
 };
 
+/* what the window has open: nothing (the start screen), a track project or a car project. Exactly one; the fields of the other kind are not read. */
+typedef enum { APP_KIND_NONE = 0, APP_KIND_TRACK, APP_KIND_CAR } AppKind;
+
 /* what the window was asked to do that ends or changes the project: quit, start a new project, open one, open a recent one */
 typedef enum {
     APP_ACT_NONE = 0,
@@ -23,14 +28,19 @@ typedef enum {
     APP_ACT_OPEN,      /* a folder holding a project is asked for */
     APP_ACT_RECENT,    /* the folder is in the path */
     APP_ACT_NEW_AT,    /* the folder the New dialog gave, in the path: asked through the same question, as the project may have changed meanwhile */
-    APP_ACT_OPEN_AT    /* the same for Open */
+    APP_ACT_OPEN_AT,   /* the same for Open */
+    APP_ACT_OPEN_CAR,  /* a car's folder is asked for (its kit or its coche/) */
+    APP_ACT_OPEN_CAR_AT /* the folder that dialog gave, in the path */
 } AppAction;
 
 /* the answers to "unsaved changes" */
 enum { APP_ANSWER_CANCEL = 0, APP_ANSWER_DISCARD = 1, APP_ANSWER_SAVE = 2 };
 
 typedef struct {
-    char dir[APP_PATH];          /* the project folder */
+    AppKind kind;                /* what is open: the track fields below are read for APP_KIND_TRACK, `car` for APP_KIND_CAR */
+    CarProject car;              /* the car project, when kind is APP_KIND_CAR */
+    CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
+    char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */
     char game[APP_PATH];         /* the game program, run for install */
     char art_note[160];          /* what opening the project did to or noticed about its copy of the generic art (project_art_refresh); "" for nothing */
     char game_tried[2048];       /* every place the game was looked for (game_find), for the message when it is not there */
@@ -72,15 +82,23 @@ typedef struct {
 
     char zip[APP_PATH];          /* the last package built, "" before one */
     char status[APP_MSG];        /* the last thing done, for the window's bottom line */
+    char open_error[APP_MSG];    /* why the last Open, New or recent could not open its folder, until it is acknowledged (the window says it in a message); "" for none */
 } App;
 
-/* Opens the project in `dir`, creating its files where they are missing (project_create: `generic_art` is the editor's GENERIC.FAM or NULL).
+/* An app with nothing open: the start screen. `game`, `user` and `generic_art` as for app_open. */
+void app_begin(App *a, const char *game, const char *user, const char *generic_art);
+
+/* Opens what `dir` holds, for the folder the command line gave: a track project (it has a project.ini), else a car's kit (a mod.ini in it or in its coche/),
+ * else a new track project there (app_open). 1 with the app ready, 0 with status naming the fault. */
+int app_open_any(App *a, const char *dir, const char *game, const char *user, const char *generic_art);
+
+/* Opens the track project in `dir`, creating its files where they are missing (project_create: `generic_art` is the editor's GENERIC.FAM or NULL).
  * 1 with the app ready, 0 with status naming the fault. */
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art);
 
 void app_free(App *a);
 
-/* 1 when the trace is not what trace.json holds (a point moved, added or removed, or the width changed since the last save or open). */
+/* 1 when the open project has unsaved changes: a track's trace is not what trace.json holds, a car's card is not what mod.ini holds (a point moved, added or removed, or the width changed since the last save or open). */
 int app_modified(const App *a);
 
 /* Asks for an action. With nothing unsaved it is a->go at once; else a->confirm waits for app_answer, and a->go stays NONE. An action asked for
@@ -95,6 +113,11 @@ void app_answer(App *a, int answer);
  * project stays as it was, with the status saying why. app_open_project wants a project.ini in the folder; app_new_project wants none (it makes one). */
 int app_open_project(App *a, const char *dir);
 int app_new_project(App *a, const char *dir);
+/* Opens the car in `dir` (a kit's root or its coche/: car_project_detect); on a failure the status says what was looked at and what is missing, and the open
+ * project stays as it was. */
+int app_open_car(App *a, const char *dir);
+/* Opens a recent folder as the kind it was kept as. */
+int app_open_recent(App *a, const char *dir);
 
 /* Keeps the recent projects in `file` (loaded now, with the project that is open put first, saved at every change); "" or NULL keeps none. */
 void app_keep_recent(App *a, const char *file);

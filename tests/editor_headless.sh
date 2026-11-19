@@ -1,7 +1,7 @@
 #!/bin/sh
 # The track editor runs headless (Dear ImGui over the SDL software renderer): a project folder is made, N frames are drawn and the last one
 # is written as a PNG that has the window's size, the road's line and the control points drawn in the viewport panel; --save writes the
-# project files; --user makes its folder and keeps the layout in it; an unknown option fails. (Never run it without a PROJECT here: that opens a window on a folder in the real Documents.)
+# project files; --user makes its folder and keeps the layout in it; an unknown option fails. (Without a PROJECT it shows the start screen and makes nothing; a normal run reopens the last project from the recent list, a headless one does not read it.)
 # usage: editor_headless.sh EDITOR
 set -u
 editor=$1
@@ -98,6 +98,43 @@ if [ ! -x "/Applications/Spirited Drive.app/Contents/MacOS/tnfs" ] && [ ! -x "$(
     out=$(cd "$work" && "$editor" "$work/proj" --frames 2 --install 2>&1) && fail "install with no game found went"
     echo "$out" | grep -q "Applications" || fail "no hint with no game found: $out"
 fi
-"$editor" --no-such-option >/dev/null 2>&1 && fail "an unknown option was accepted"   # (no PROJECT is a run, not an error: it opens Documents/Spirited Drive Studio/my-track)
+# no PROJECT: the start screen (nothing is made anywhere); a car's kit opens as a car, by its root or its coche/, and writes nothing; a card that is not a car is refused
+"$editor" --frames 3 --shot "$work/start.png" >"$work/log" 2>&1 || fail "run with nothing to open: $(cat "$work/log")"
+[ -s "$work/start.png" ] || fail "no PNG of the start screen"
+"$editor" --ask opencar --frames 3 >"$work/log" 2>&1 || fail "run with Open car asked for on the start screen: $(cat "$work/log")"
+mkdir -p "$work/kit/coche/SIMDATA/CARFAMS" "$work/kit/coche/car_masks/K1" "$work/kit/modelo/c1"
+printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\nsound_from=911\n' > "$work/kit/coche/mod.ini"
+printf 'x' > "$work/kit/coche/SIMDATA/CARFAMS/K1.CFM"
+printf 'x' > "$work/kit/coche/car_masks/K1/rsid_mask.png"
+printf 'x' > "$work/kit/modelo/c1/0010_rsid.png"
+"$editor" "$work/kit" --frames 3 --shot "$work/kit.png" >"$work/log" 2>&1 || fail "run on a car's kit: $(cat "$work/log")"
+"$editor" "$work/kit/coche" --frames 3 --shot "$work/coche.png" >"$work/log" 2>&1 || fail "run on a car's coche folder: $(cat "$work/log")"
+[ -s "$work/kit.png" ] && [ -s "$work/coche.png" ] || fail "no PNG of the car"
+cmp -s "$work/kit.png" "$work/coche.png" || fail "the kit and its coche/ are not the same car on screen"
+cmp -s "$work/kit.png" "$work/start.png" && fail "the car looks like the start screen"
+[ ! -e "$work/kit/project.ini" ] && [ ! -e "$work/kit/coche/project.ini" ] || fail "opening a car made track files in it"
+"$editor" "$work/kit" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a car"
+grep -q "no Build or Install" "$work/log" || fail "Build on a car does not say so: $(cat "$work/log")"
+cp "$work/kit/coche/mod.ini" "$work/card.before"
+"$editor" "$work/kit" --frames 2 --save >"$work/log" 2>&1 || fail "Save with nothing changed failed: $(cat "$work/log")"
+cmp -s "$work/card.before" "$work/kit/coche/mod.ini" || fail "Save with nothing changed touched mod.ini"
+# a change is written to mod.ini and nothing else; an invalid field refuses Save, shows on its field, and leaves the file as it was
+"$editor" "$work/kit" --frames 2 --set year=1990 --save >"$work/log" 2>&1 || fail "Save of a change failed: $(cat "$work/log")"
+printf 'year=1990\n' >> "$work/card.before"
+cmp -s "$work/card.before" "$work/kit/coche/mod.ini" || fail "Save changed more than the one line"
+cp "$work/kit/coche/mod.ini" "$work/card.before"
+"$editor" "$work/kit" --frames 3 --set year=12345678901234567 --save --shot "$work/invalid.png" >"$work/log" 2>&1 && fail "Save went with a field that has a problem"
+grep -q "Year: 17 characters; the card keeps up to 16" "$work/log" || fail "no word about the field: $(cat "$work/log")"
+cmp -s "$work/card.before" "$work/kit/coche/mod.ini" || fail "a refused Save changed mod.ini"
+[ -s "$work/invalid.png" ] || fail "no PNG with an invalid field"
+"$editor" "$work/kit" --frames 3 --set year=1991 --ask quit --shot "$work/carconfirm.png" >"$work/log" 2>&1 || fail "run with a changed card and a quit asked for: $(cat "$work/log")"
+"$editor" "$work/kit" --frames 2 --set nokey=1 >"$work/log" 2>&1 && fail "--set accepted a key that is not editable"
+rm -f "$work/kit/project.ini"
+mkdir "$work/notcar"
+printf 'id=t\nname=T\nversion=1\ntype=track\nstem=TT\n' > "$work/notcar/mod.ini"
+out=$("$editor" "$work/notcar" --frames 2 2>&1) && fail "a track's mod.ini was opened as a car"
+echo "$out" | grep -q "type=track" || fail "no word about what the card is: $out"
+[ ! -e "$work/notcar/project.ini" ] || fail "a card that is not a car was made a track project"
+"$editor" --no-such-option >/dev/null 2>&1 && fail "an unknown option was accepted"
 [ "$failures" -eq 0 ] && echo "editor_headless: ok"
 exit "$failures"
