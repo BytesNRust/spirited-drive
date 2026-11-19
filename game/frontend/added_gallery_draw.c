@@ -4,6 +4,7 @@
 
 #include "game/frontend/added_card.h"
 #include "game/frontend/gallery_label.h"
+#include "game/sys/palette.h"
 #include "game/sys/text.h"
 
 #include <stdio.h>
@@ -75,7 +76,15 @@ void added_gallery_draw_title(const Page *p)
 /* a tile's label at its foot, as the CD pages have it (owner 2026-11-18): black, nothing white about it; yellow-shadowed when the tile is the item */
 static void label(const Target *t, const char *text, int x, int y, int h, int lit)
 {
+    /* the letters' soft edges are mixed in the palette's entries, never in the SETUP panel's two previews: their colours change with the choice (Color,
+     * Skin), and an edge that took one would differ between two draws of the same page */
+    uint8_t keep[PALETTE_COLORS], mixing[PALETTE_COLORS];
+    memcpy(keep, palette_usable(), sizeof keep);
+    memcpy(mixing, keep, sizeof mixing);
+    mixing[SWATCH] = mixing[SKIN_SWATCH] = 0;
+    palette_usable_set(mixing);
     gallery_label_tile(t->to, t->w, t->h, t->palette, text, x, y, h, BLACK, YELLOW, lit);   /* the CD's own margins and lit colour, measured (gallery_label.h) */
+    palette_usable_set(keep);
 }
 
 /* `text` cut (with a "." at its end) until the main face at the panel's size shows it in `width` pixels */
