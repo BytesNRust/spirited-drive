@@ -165,8 +165,26 @@ static void test_the_longest_edition_name_is_drawn(void)
               fake_width(NULL, out, used.num, used.den) <= UI_SELECTOR_TEXT_W);
 }
 
+/* the foot rule: the left ink at the margin, the right ink ending the same from the right edge, the group centred between them with equal gaps */
+static void test_the_foot_has_its_margins_and_a_centred_group(void)
+{
+    const UiFootWord left = { 50, 2, 3 }, right = { 80, 1, 4 }, mid[3] = { { 30, 1, 2 }, { 60, 2, 1 }, { 40, 0, 3 } };
+    const UiFootLayout l = ui_foot_layout(left, right, mid, 3, 18, 10, 640);
+    CHECK_EQ_INT(l.left_x + left.lead, 10);                       /* the left ink starts at the margin */
+    CHECK_EQ_INT(l.right_x + right.w - right.trail, 640 - 10);    /* the right ink ends the same from the right */
+    int ink_l[3], ink_r[3];
+    for (int i = 0; i < 3; i++) ink_l[i] = l.mid_x[i] + mid[i].lead, ink_r[i] = l.mid_x[i] + mid[i].w - mid[i].trail;
+    CHECK_EQ_INT(ink_l[1] - ink_r[0], 18);
+    CHECK_EQ_INT(ink_l[2] - ink_r[1], 18);
+    const int before = ink_l[0] - (l.left_x + left.w - left.trail), after = (l.right_x + right.lead) - ink_r[2];
+    CHECK(before - after >= -1 && before - after <= 1);          /* centred between the two inks */
+    const UiFootLayout tight = ui_foot_layout(left, right, mid, 3, 400, 10, 640);   /* a group that does not fit starts at the left item's ink end */
+    CHECK_EQ_INT(tight.mid_x[0] + mid[0].lead, 10 + left.w - left.lead - left.trail);
+}
+
 int main(void)
 {
+    test_the_foot_has_its_margins_and_a_centred_group();
     test_the_selector_triangles_keep_the_cds_gaps_from_the_widest_line();
     test_a_name_that_fits_is_left_alone();
     test_a_wide_name_shrinks_to_the_first_size_it_fits_at();

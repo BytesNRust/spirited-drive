@@ -443,7 +443,7 @@ static void test_the_tuning_page(void)
     run(&r, KEYS(RIGHT, 0, RIGHT, 0, RIGHT, 0, DOWN, 0, LEFT, 0, ESCAPE), PADS(idle()));
     CHECK_EQ_INT(r.port.deadzone, 5);
     CHECK_EQ_INT(r.port.sensitivity, 95);
-    CHECK(shown(&r.fake, "< 4/4"));
+    CHECK(shown(&r.fake, "< 4/4 >"));
     CHECK(shown(&r.fake, "Force feedback"));
 }
 
@@ -453,7 +453,7 @@ static void test_three_pages_open_on_the_keyboard(void)
 {
     Run r = { .port = port_controls_defaults(), .three = 1 };
     run(&r, KEYS(ESCAPE), PADS(idle()));
-    CHECK(shown(&r.fake, "1/3 >"));                       /* no page before the first: no left triangle */
+    CHECK(shown(&r.fake, "< 1/3 >"));                       /* both triangles on every page */
     CHECK_EQ_INT(shown_as(&r.fake, "Keyboard", SUBTITLE), 1);
     CHECK(shown(&r.fake, "Steer left"));
     CHECK_EQ_INT(r.result, CONTROLS_PAGE_CANCEL);
@@ -463,8 +463,14 @@ static void test_three_pages_open_on_the_keyboard(void)
     CHECK_EQ_INT(shown_as(&t.fake, "Game controller", SUBTITLE), 1);
     Run u = { .port = port_controls_defaults(), .three = 1 };
     run(&u, KEYS(RIGHT, 0, RIGHT, 0, ESCAPE), PADS(idle()));
-    CHECK(shown(&u.fake, "< 3/3"));
-    CHECK(!shown(&u.fake, "< 4/4"));
+    CHECK(shown(&u.fake, "< 3/3 >"));
+    CHECK(!shown(&u.fake, "< 4/4 >"));
+    Run w = { .port = port_controls_defaults(), .three = 1 };   /* the pager wraps: the last page's next is the first, the first's previous the last */
+    run(&w, KEYS(RIGHT, 0, RIGHT, 0, RIGHT, 0, ESCAPE), PADS(idle()));
+    CHECK(shown(&w.fake, "< 1/3 >"));
+    Run v = { .port = port_controls_defaults(), .three = 1 };
+    run(&v, KEYS(LEFT, 0, ESCAPE), PADS(idle()));
+    CHECK(shown(&v.fake, "< 3/3 >"));
 }
 
 static void test_three_pages_have_nothing_before_the_keyboard(void)

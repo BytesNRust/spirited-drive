@@ -262,6 +262,7 @@ static void record_row(const BestTimesInputs *in, const RecordRow *r, int32_t y,
     ops->text_shadowed(ops->ctx, text, TIME_X, y);
     /* right against the car's column, half size (two fifths after a speed, which runs wider than a time) */
     record_conditions_draw(r->marks, COND_END, y, speed ? 2 : 1, speed ? 5 : 2, &pen);
+    ops->text_select(ops->ctx, 1);   /* the conditions' words selected the cream: the car is yellow like the name and the time (the CD's) */
     ops->text_shadowed(ops->ctx, car_name(d32(r->row + RECORD_ROW_CAR)), CAR_X, y);
     shift(in, d32(r->row + RECORD_ROW_GEARBOX), y, ops);
 }

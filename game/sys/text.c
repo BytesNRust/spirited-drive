@@ -333,6 +333,28 @@ void text_draw_smooth(const char *text, int x, int y, int num, int den)
     free(mask);
 }
 
+int text_ink_x_scaled(const char *text, int num, int den, int *left, int *right)
+{
+    enum { COVERED = 6 };
+    *left = *right = 0;
+    const int rows = text_mask_rows(text, num, den), mw = text_width_scaled(text, num, den) + 2;
+    if (rows <= 0 || mw <= 2) return 0;
+    uint8_t *const mask = malloc((size_t)mw * (size_t)rows);
+    if (mask == NULL) return 0;
+    int found = 0;
+    if (text_mask_scaled(text, num, den, mask, mw, rows)) {
+        for (int x = 0; x < mw; x++)
+            for (int y = 0; y < rows; y++)
+                if (mask[(size_t)y * mw + x] >= COVERED) {
+                    if (!found) *left = x;
+                    *right = x, found = 1;
+                    break;
+                }
+    }
+    free(mask);
+    return found;
+}
+
 int text_mask_rows(const char *text, int num, int den)
 {
     fonts_follow();
