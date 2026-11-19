@@ -95,6 +95,14 @@ static void measured(void)
             int black = 0, yellow = 0;
             for (size_t i = 0; i < sizeof tile; i++) black += tile[i] == 1, yellow += tile[i] == 2;
             CHECK(lit ? (yellow > 100 && black == 0) : (black > 100 && yellow == 0));
+            /* the capitals are 10 or 11 rows, inside the CD's 9 to 11 (12 was graver18 at 1/1), lit or not */
+            int top = -1, bottom = -1;
+            for (int y = 0; y < 64; y++) {
+                int ink = 0;
+                for (int x = 0; x < 160; x++) ink += tile[y * 160 + x] == (lit ? 2 : 1);
+                if (ink >= 3) top = top < 0 ? y : top, bottom = y;
+            }
+            CHECK(bottom - top + 1 >= 10 && bottom - top + 1 <= 11);
         }
     }
     /* General's and Mechanical's values (owner 2026-11-19): one that fits is whole, a long one is cut with "...", none is a dash */
