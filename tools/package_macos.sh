@@ -12,7 +12,7 @@
 # ICNS is the icon of both apps; without it, the source tree's data/icon/tnfs.icns (tools/spirited_icon.py makes it).
 #
 # No game data goes in: players bring their own CD. Our own data (data/ in the source tree: car masks, the
-# environment map, light maps) goes in the game's Contents/Resources/data. The apps are signed ad hoc (the beta is unsigned:
+# environment map, light maps) goes in the game's Contents/Resources/data; Studio's generic art (editor/art/GENERIC.FAM) in its Contents/Resources. The apps are signed ad hoc (the beta is unsigned:
 # Gatekeeper asks once, "Open Anyway").
 set -eu
 
@@ -89,6 +89,10 @@ pack_app() {
     done
     if [ -d "$SRC_DIR/LICENSES" ]; then
         cp -R "$SRC_DIR/LICENSES" "$app/Contents/Resources/LICENSES"
+    fi
+    if [ "$exe" = tnfs-track-editor ]; then   # the generic art a new project copies (editor/art/README.md): without it Studio's first build is refused
+        [ -f "$SRC_DIR/editor/art/GENERIC.FAM" ] || { echo "editor/art/GENERIC.FAM is missing: Studio would ship without its generic art" >&2; exit 1; }
+        cp "$SRC_DIR/editor/art/GENERIC.FAM" "$app/Contents/Resources/GENERIC.FAM"
     fi
     icon_key=""
     if [ -n "$ICNS" ]; then

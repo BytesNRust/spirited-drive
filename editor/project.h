@@ -42,8 +42,10 @@ typedef struct {
 int project_open(const char *dir, Project *out, Trace *trace, char *why, size_t why_cap);
 
 /* Creates the files of a new project in `dir` where they are missing: project.ini with `id`, and trace.json as a straight. Existing files are
- * kept. 1 on success, 0 with `why`. */
-int project_create(const char *dir, const char *id, char *why, size_t why_cap);
+ * kept. `generic_art` is the editor's own GENERIC.FAM (art.h), or NULL when there is none: a new project gets a copy of it as GENERIC.FAM and
+ * art=GENERIC.FAM; a project of the first Studio, whose art= points at ../generic-straight/GENERIC.FAM (a path only the source tree had) and
+ * is not readable, gets the copy and the line rewritten. Any other art= is left as it is. 1 on success, 0 with `why`. */
+int project_create(const char *dir, const char *id, const char *generic_art, char *why, size_t why_cap);
 
 /* Writes trace.json of `dir` (through a temporary file, then renamed). 1 on success, 0 with `why`. */
 int project_save_trace(const char *dir, const Trace *trace, char *why, size_t why_cap);
