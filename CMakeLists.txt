@@ -1374,10 +1374,10 @@ if(NOT EMSCRIPTEN)
                      ${CMAKE_SOURCE_DIR}/original ${part})
             set_tests_properties(edition_menus_${part} PROPERTIES TIMEOUT 600)
         endforeach()
-        # the menu UI kit's measures (docs/ui-kit.md), against the CD's: the pager so far; skips without Pillow
+        # the menu UI kit's measures (docs/ui-kit.md), against the CD's: the pager so far; skips (SKIP_RETURN_CODE 77) without Pillow, zsh or magick
         add_test(NAME ui_kit_check COMMAND sh ${CMAKE_SOURCE_DIR}/tools/ui_kit_check.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
                  ${CMAKE_SOURCE_DIR}/original)
-        set_tests_properties(ui_kit_check PROPERTIES TIMEOUT 600)
+        set_tests_properties(ui_kit_check PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         # dep59 step 5 (T7g): a whole race on an added track from the menus, to its results
         add_test(NAME edition_menus_trackrace COMMAND sh ${CMAKE_SOURCE_DIR}/tests/edition_menus.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
                  ${CMAKE_SOURCE_DIR}/original trackrace $<TARGET_FILE:tnfs-studio>)
