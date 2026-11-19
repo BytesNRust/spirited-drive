@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 
-enum { SETUP_FRAMES = 7, TILE_SRC_W = 152, TILE_SRC_H = 62, TILE_SRC_X = 82 + 51, TILE_SRC_Y = 326 };   /* a piece of the Mechanical picture (82,326 254x87) in the bank's background, its top middle: the label "MECHANICAL" is baked in its foot */   /* opn1 .. opn7; the panel open is the eighth */
+enum { SETUP_FRAMES = 7, TILE_SRC_W = 152, TILE_SRC_H = 62, TILE_SRC_X = 82 + 51, TILE_SRC_Y = 326 + 3 };   /* a piece of the Mechanical picture (82,326 254x87; its black top 3 rows left out, owner 2026-11-19) in the bank's background, its top middle: the label "MECHANICAL" is baked in its foot */   /* opn1 .. opn7; the panel open is the eighth */
 
 typedef struct {
     int ok;                                              /* the art was read: else the panel is a flat fill and opens at once */
