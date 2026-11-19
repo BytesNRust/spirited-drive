@@ -79,7 +79,13 @@ and its number ("Year: 17 characters; the card keeps up to 16"); **Save is block
 Ctrl or Cmd+Z and Shift+Z) take back typing in a field as one step. **Save writes only `coche/mod.ini`**, through `mod_ini_set`: only the lines you changed,
 every other byte (comments, order, line ends) stays, and a Save with no change writes nothing. A card with unsaved changes asks before it is left, as a track does.
 The textures (`modelo/c1`, and how many far ones) and the mask files found are listed beside it. `--set KEY=VALUE` sets a field before the first frame (headless
-runs). The same folder on the command line opens as a track when it has a `project.ini`, as a car
+runs). **Rehacer** (a button in the car window, and the Rehacer tab with its log) runs the kit's own `rehacer.command` with the kit as its folder, through `sh`, with no
+input. Before it runs, Studio copies the whole kit (but `.studio-backup` and Finder's `.DS_Store`) into `.studio-backup/<YYYYMMDD-HHMMSS>/` and keeps the last
+five; a kit over 512 MB is not backed up, so it does not run. The script's output (both streams) streams into the log, Stop ends it, and its exit code is shown.
+When it ends the textures and masks lists and the card are read again. It is refused, with the reason in the status line, when the kit has no `rehacer.command`
+(the button is disabled), when `mod.ini` has changes that are not saved (the button offers Save first), or while another run goes; while it runs the card is not
+edited and nothing else is opened. `--rehacer` runs it before the first frame (a headless run waits for it and fails when its exit code is not 0).
+The same folder on the command line opens as a track when it has a `project.ini`, as a car
 when it holds a car's `mod.ini`, else as a new track project.
 
 Closing the window, Escape and Quit with changes that are not in `trace.json` (a point moved, added or removed, or the road width changed since the last

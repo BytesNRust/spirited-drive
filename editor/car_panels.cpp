@@ -292,9 +292,8 @@ void car_panel(App *a)
             for (int f : fields) text_row(a, f, problems, count);
             word_row(a, CE_ABS, "Default (the car's own file)", YES_NO, 2, problems, count);
             word_row(a, CE_TRACTION, "Default (the car's own file)", YES_NO, 2, problems, count);
-            const char *words[8];
-            int word_count = 0;
-            for (int w = 0; w < 8 && car_piece_word_of_model(w) != nullptr; ++w) words[word_count++] = car_piece_word_of_model(w);
+            const char *words[16];
+            const int word_count = car_edit_sound_words(words, 16);
             word_row(a, CE_SOUND_FROM, nullptr, words, word_count, problems, count);
             ImGui::EndTable();
         }

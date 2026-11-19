@@ -49,6 +49,9 @@ typedef struct {
     char text[CE_PROBLEM_TEXT];   /* English: what is wrong with the number, and what it costs (Save is blocked) */
 } CarEditProblem;
 
+/* the words sound_from takes (the game's: the eight cars and traffic), in the order the window offers them: how many, into `out` (`cap` of them) */
+int car_edit_sound_words(const char **out, int cap);
+
 const char *car_edit_key(int field);          /* the card's key; "paints" for CE_PAINTS */
 const char *car_edit_label(int field);        /* what the window calls it */
 size_t car_edit_cap(int field);               /* the longest value the card holds, in bytes; 0 for the words and the colors */

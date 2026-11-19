@@ -290,11 +290,10 @@ int rehacer_start(Rehacer *r, const char *kit, char *why, size_t why_cap)
     close(pipes[1]);
     fcntl(pipes[0], F_SETFL, fcntl(pipes[0], F_GETFL) | O_NONBLOCK);
     free(r->log);
-    const char keep_backup = r->backup[0];
     char backup[REHACER_PATH];
     snprintf(backup, sizeof backup, "%s", r->backup);
     memset(r, 0, sizeof *r);
-    if (keep_backup != '\0') snprintf(r->backup, sizeof r->backup, "%s", backup);   /* the backup made for this run stays with it */
+    snprintf(r->backup, sizeof r->backup, "%s", backup);   /* the backup made for this run stays with it */
     r->running = 1;
     r->pid = pid;
     r->fd = pipes[0];

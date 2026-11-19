@@ -130,6 +130,23 @@ cmp -s "$work/card.before" "$work/kit/coche/mod.ini" || fail "a refused Save cha
 "$editor" "$work/kit" --frames 3 --set year=1991 --ask quit --shot "$work/carconfirm.png" >"$work/log" 2>&1 || fail "run with a changed card and a quit asked for: $(cat "$work/log")"
 "$editor" "$work/kit" --frames 2 --set nokey=1 >"$work/log" 2>&1 && fail "--set accepted a key that is not editable"
 rm -f "$work/kit/project.ini"
+# Rehacer: a kit with no rehacer.command says so; unsaved card changes refuse it; the script runs with the kit as its folder after the kit is backed up, and its
+# exit code is the run's
+"$editor" "$work/kit" --frames 2 --rehacer >"$work/log" 2>&1 && fail "Rehacer went on a kit with no rehacer.command"
+grep -q "no rehacer.command" "$work/log" || fail "no plain word about the missing script: $(cat "$work/log")"
+printf '#!/bin/sh\necho "working in $(pwd)"\necho made > coche/proof.txt\nexit ${REHACER_EXIT:-0}\n' > "$work/kit/rehacer.command"
+"$editor" "$work/kit" --frames 2 --set year=1992 --rehacer >"$work/log" 2>&1 && fail "Rehacer ran with unsaved card changes"
+grep -q "not saved" "$work/log" || fail "no word about the unsaved changes: $(cat "$work/log")"
+[ ! -e "$work/kit/coche/proof.txt" ] && [ ! -d "$work/kit/.studio-backup" ] || fail "a refused Rehacer ran or made a backup"
+"$editor" "$work/kit" --frames 3 --rehacer --shot "$work/rehacer.png" >"$work/log" 2>&1 || fail "Rehacer did not run: $(cat "$work/log")"
+grep -q "exit code 0" "$work/log" || fail "no exit code told: $(cat "$work/log")"
+[ -f "$work/kit/coche/proof.txt" ] || fail "the script did not run with the kit as its folder"
+set -- "$work"/kit/.studio-backup/*/coche/mod.ini
+[ -f "$1" ] || fail "no backup of the kit before it ran"
+[ -s "$work/rehacer.png" ] || fail "no PNG of a Rehacer run"
+REHACER_EXIT=3 "$editor" "$work/kit" --frames 3 --rehacer >"$work/log" 2>&1 && fail "a script that failed was told as a success"
+grep -q "exit code 3" "$work/log" || fail "the failing exit code is not told: $(cat "$work/log")"
+rm -f "$work/kit/rehacer.command"
 mkdir "$work/notcar"
 printf 'id=t\nname=T\nversion=1\ntype=track\nstem=TT\n' > "$work/notcar/mod.ini"
 out=$("$editor" "$work/notcar" --frames 2 2>&1) && fail "a track's mod.ini was opened as a car"
