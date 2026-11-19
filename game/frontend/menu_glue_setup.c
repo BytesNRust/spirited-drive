@@ -382,7 +382,7 @@ static void setup_open(void *ctx, int car, const uint8_t *palette)
     art_make(palette);
     if (!text_small_init()) port_log("showcase setup: the small font is not loaded\n");
     Panel p = { car, variant_model(car), car_variant_choices(showcase_variants, showcase_variant_count, variant_model(car)), 0, 0, 0, ROW_TRANSMISSION };
-    cg_setup_get(&p.transmission, &p.abs, &p.traction);
+    cg_setup_get_for(car, &p.transmission, &p.abs, &p.traction);   /* by the page's car, not the one the player had chosen (owner 2026-11-19) */
     p.row = row_on(&p, ROW_COLOUR) ? ROW_COLOUR : ROW_TRANSMISSION;
     const size_t bytes = (size_t)t.w * t.h;
     uint8_t *snap = malloc(bytes);

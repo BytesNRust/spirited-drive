@@ -482,7 +482,7 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         car_list_build(&l, edition_active(&e) == 1 ? &e : NULL, warrior);
         p.car = *car;
         p.state.photos = photo_total(&p.card, p.warrior);
-        cg_setup_get(&p.state.transmission, &p.state.abs, &p.state.traction);   /* Options' settings, for the panel */
+        cg_setup_get_for(*car, &p.state.transmission, &p.state.abs, &p.state.traction);   /* Options' settings, for the panel, as this car's page offers them */
         memcpy(p.screen, screen, sizeof p.screen);
         menu_audio_music_service();
         added_gallery_history_make(&p);

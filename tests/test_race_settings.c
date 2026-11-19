@@ -156,6 +156,19 @@ static void test_added_car_flags(void)
     CHECK_EQ_INT(s.car_flag_b, (CAR_FLAGS_ADDED_B == 0) + 1);
     CHECK_EQ_INT(CAR_FLAGS_ADDED_A, 1);
     CHECK_EQ_INT(CAR_FLAGS_ADDED_B, 0);
+    int offers_abs, offers_traction;
+    race_settings_car_offers(16, &offers_abs, &offers_traction);   /* an added car: the same as the flags above say */
+    CHECK_EQ_INT(offers_abs, 1);
+    CHECK_EQ_INT(offers_traction, 0);
+    race_settings_car_offers(5, &offers_abs, &offers_traction);    /* the Viper (the menus' car 5): neither */
+    CHECK_EQ_INT(offers_abs, 0);
+    CHECK_EQ_INT(offers_traction, 0);
+    race_settings_car_offers(1, &offers_abs, &offers_traction);    /* the NSX: both */
+    CHECK_EQ_INT(offers_abs, 1);
+    CHECK_EQ_INT(offers_traction, 1);
+    race_settings_car_offers(7, &offers_abs, &offers_traction);    /* the Diablo: neither (its PBS words at 0x334 and 0x338 are 0) */
+    CHECK_EQ_INT(offers_abs, 0);
+    CHECK_EQ_INT(offers_traction, 0);
     want.player_car = 0;   /* one not registered, or past every range: car 0's */
     race_settings_car_flags(&want);
     for (int car = 12; car <= 200; car += 4) {

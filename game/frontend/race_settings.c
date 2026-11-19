@@ -15,12 +15,18 @@ static const int CAR_TABLE_B[12] = { 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
 
 /* 00465ec8; port (dep59 3b): an added car takes CAR_FLAGS_ADDED_A/B (the originals' majority, nothing of a car it is made from), and a
  * car past the tables (one no longer registered) car 0's, never a read past them */
-void race_settings_car_flags(RaceSettings *s)
+void race_settings_car_offers(int car, int *abs, int *traction)
 {
-    int car = s->player_car;
     const int added = car_registry_is_added(car);
     if (car < 0 || car >= (int)(sizeof CAR_TABLE_A / sizeof CAR_TABLE_A[0])) car = 0;
-    const int a = added ? CAR_FLAGS_ADDED_A : CAR_TABLE_A[car], b = added ? CAR_FLAGS_ADDED_B : CAR_TABLE_B[car];
+    *abs = added ? CAR_FLAGS_ADDED_A : CAR_TABLE_A[car];
+    *traction = added ? CAR_FLAGS_ADDED_B : CAR_TABLE_B[car];
+}
+
+void race_settings_car_flags(RaceSettings *s)
+{
+    int a, b;
+    race_settings_car_offers(s->player_car, &a, &b);
     s->car_flag_a = a ? 0 : 2;
     s->car_flag_b = (b == 0) + 1;
 }

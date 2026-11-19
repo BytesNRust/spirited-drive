@@ -5,5 +5,7 @@
 
 void cg_setup_get(int *transmission, int *abs, int *traction);
 void cg_setup_put(int transmission, int abs, int traction);
+/* the same for the car whose page is shown: ABS and traction control "not offered" (2) by that car's own tables, not the player's */
+void cg_setup_get_for(int car, int *transmission, int *abs, int *traction);
 
 #endif
