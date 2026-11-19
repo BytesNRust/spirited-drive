@@ -124,11 +124,11 @@ static void test_the_count_is_drawn_at_the_buttons_size_where_the_screen_can(voi
     CHECK_EQ_INT(scaled_den, UI_PAGER_TEXT_DEN);
     CHECK_EQ_INT(scaled_y, UI_PAGER_TEXT_Y);
     CHECK_EQ_INT(f.arrow_x[0], ui_pager_layout(24, 16).left_x);   /* laid out by the width at that size */
-    o.clean = 1;
+    o.clean = 1, f.arrows = 0;
     page_nav_draw(&o, 1, 3, 0);
     CHECK_EQ_INT(scaled_clean, 1);   /* over a clean background: that screen's own draw */
     o.scaled.clean = NULL;
-    f.texts = 0;
+    f.texts = 0, f.arrows = 0;
     page_nav_draw(&o, 1, 3, 0);
     CHECK_EQ_INT(f.texts, 1);   /* a screen with no draw for it: the 1/1 text slot */
     CHECK_EQ_INT(f.text_y[0], PAGE_NAV_TEXT_Y);
