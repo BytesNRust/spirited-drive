@@ -2,9 +2,12 @@
  * repeat, never pass RECENT_MAX and survive a save; a trace that changed has another fingerprint; an action asked for with unsaved changes waits
  * for Save / Discard / Cancel; Open wants a project in the folder and New wants none; a failed open leaves the project as it was. */
 #include "app.h"
+#include "formats/pbs.h"
+#include "formats/car_piece.h"
 #include "session.h"
 #include "test.h"
 
+#include <ftw.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -512,6 +515,102 @@ static void check_rehacer(void)
     if (system(cmd) != 0) fprintf(stderr, "could not clean up\n");
 }
 
+/* a synthetic mask: a PNG header and filler; Export original car copies files, it never decodes them */
+static void put_mask(const char *name, uint32_t w, uint32_t h)
+{
+    uint8_t png[40] = { 0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 'I', 'H', 'D', 'R' };
+    png[19] = (uint8_t)w, png[23] = (uint8_t)h, png[24] = 8;
+    char p[700];
+    path_in(p, sizeof p, name);
+    FILE *f = fopen(p, "wb");
+    if (f != NULL) fwrite(png, 1, sizeof png, f), fclose(f);
+}
+
+static int remove_entry(const char *path, const struct stat *st, int flag, struct FTW *ftw)
+{
+    (void)st, (void)flag, (void)ftw;
+    return remove(path);
+}
+
+/* Export original car through the app: each kind opens as the project it is, a refusal leaves the open project as it was, a masks project has no card */
+static void check_export(void)
+{
+    char dirs[][40] = { "ex", "ex/cd", "ex/cd/SIMDATA", "ex/cd/SIMDATA/CARFAMS", "ex/cd/SIMDATA/CARSPECS", "ex/data", "ex/data/car_masks", "ex/data/car_masks/Wagon",
+                        "ex/data/car_masks/P911", "ex/out" };
+    for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; ++i) dir_in(dirs[i]);
+    put("ex/cd/SIMDATA/CARFAMS/WAGON.CFM", "cfm");
+    put("ex/cd/SIMDATA/CARFAMS/P911.CFM", "cfm");
+    put("ex/cd/SIMDATA/CARFAMS/PROBE.CFM", "cfm");
+    put("ex/cd/SIMDATA/CARFAMS/P911.PDN", "pdn");
+    uint8_t pbs[PBS_SIZE] = { 0 };
+    char pbs_path[700];
+    path_in(pbs_path, sizeof pbs_path, "ex/cd/SIMDATA/CARSPECS/P911.PBS");
+    FILE *f = fopen(pbs_path, "wb");
+    if (f != NULL) fwrite(pbs, 1, sizeof pbs, f), fclose(f);
+    put_mask("ex/data/car_masks/Wagon/side_mask.png", 100, 50);
+    put_mask("ex/data/car_masks/P911/side_mask.png", 64, 32);
+    char out[700], cd[700], data[700];
+    path_in(out, sizeof out, "ex/out");
+    path_in(cd, sizeof cd, "ex/cd");
+    path_in(data, sizeof data, "ex/data");
+
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, "./tnfs", "", NULL);
+    CHECK_EQ_INT(a->export_pick, -1);
+    ExportSource src;
+    snprintf(src.cd, sizeof src.cd, "%s", cd);
+    snprintf(src.data, sizeof src.data, "%s", data);
+    app_set_export_source(a, &src);
+    CHECK(!app_export_car(a, out));                                   /* nothing chosen */
+    CHECK(strstr(a->open_error, "no car") != NULL);
+    a->open_error[0] = '\0';
+    for (int i = 0; car_export_car(i) != NULL; ++i) {
+        if (strcmp(car_export_car(i)->folder, "probe") == 0) a->export_pick = i;
+    }
+    CHECK(!app_export_car(a, out));                                   /* probe has no masks */
+    CHECK(strstr(a->open_error, "Could not export") != NULL && strstr(a->open_error, "no masks") != NULL);
+    CHECK_EQ_INT(a->kind, APP_KIND_NONE);
+    a->open_error[0] = '\0';
+    for (int i = 0; car_export_car(i) != NULL; ++i) {
+        if (strcmp(car_export_car(i)->folder, "Wagon") == 0) a->export_pick = i;
+    }
+    a->export_dialog = 1;
+    CHECK(app_export_car(a, out));                                    /* a traffic car: a masks project, opened */
+    CHECK_EQ_INT(a->kind, APP_KIND_CAR);
+    CHECK(a->car.masks_only && strcmp(a->car.folder, "Wagon") == 0 && a->car.mask_count == 1 && !a->export_dialog);
+    CHECK(strstr(a->status, "do not share") != NULL);
+    CHECK(a->recent.count == 1 && a->recent.kind[0] == RECENT_CAR);
+    CHECK(strcmp(a->export_src.data, data) == 0 && a->export_pick >= 0);   /* where the game's files are stays with the window */
+    CHECK(!app_modified(a));
+    CHECK(!app_save(a) && strstr(a->status, "no card") != NULL);
+    CHECK(!app_rehacer(a) && strstr(a->status, "no rehacer.command") != NULL);
+    CHECK(!app_rehacer_available(a));
+    char masks_dir[700];
+    snprintf(masks_dir, sizeof masks_dir, "%s/wagon-masks", out);
+    CHECK(!recent_is_project(masks_dir) && recent_present(masks_dir, RECENT_CAR) && car_project_present(masks_dir));
+    CHECK(!app_open_project(a, masks_dir));                           /* it is not a track project, whatever the file is called */
+    a->open_error[0] = '\0';
+    CHECK(!app_export_car(a, out));                                   /* the same car into the same parent again: refused, the project stays open */
+    CHECK(strstr(a->open_error, "already there") != NULL);
+    CHECK(a->kind == APP_KIND_CAR && a->car.masks_only);
+    a->open_error[0] = '\0';
+    CHECK(app_open_any(a, masks_dir, "./tnfs", "", NULL) && a->kind == APP_KIND_CAR && a->car.masks_only);   /* the command line opens it as a car */
+    for (int i = 0; car_export_car(i) != NULL; ++i) {
+        if (strcmp(car_export_car(i)->folder, "P911") == 0) a->export_pick = i;
+    }
+    app_set_export_source(a, &src);
+    CHECK(app_export_car(a, out));                                    /* a car you drive: a car project with a card to edit */
+    CHECK(!a->car.masks_only && strcmp(a->car.info.id, "p911-original") == 0 && a->car.mask_count == 1);
+    CHECK(!app_modified(a) && car_edit_set_by_text(&a->edit, "year=1995") && app_modified(a));
+    app_free(a);
+    free(a);
+    char scratch[700];
+    path_in(scratch, sizeof scratch, "ex");
+    nftw(scratch, remove_entry, 16, FTW_DEPTH | FTW_PHYS);   /* what this check made, and only it */
+}
+
 int main(void)
 {
     const char *tmp = getenv("TMPDIR");
@@ -527,6 +626,7 @@ int main(void)
     check_recent_kinds();
     check_kinds();
     check_rehacer();
+    check_export();
     rmdir(root);
     return TEST_REPORT();
 }

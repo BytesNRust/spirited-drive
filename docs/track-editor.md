@@ -63,7 +63,7 @@ dockable like the others and their layout is kept.
 ## Start screen, cars, and projects: New, Open, recent, and unsaved changes
 
 Studio has one project open, a track or a car. With nothing to reopen it shows a **start screen**: Open car..., Open track..., New track..., Export original
-car... (greyed: coming soon) and **Recent** (cars and tracks together, up to eight; a folder that is gone is greyed). A normal run with no folder given
+car... and **Recent** (cars and tracks together, up to eight; a folder that is gone is greyed). A normal run with no folder given
 reopens the project it had last. The **File** menu has the same entries, Save (a track's) and Quit. Each kind keeps its own docked layout in the layout file.
 
 Open track wants a folder that holds a project (a `project.ini`); New track wants one that holds none, and makes the project there (the window's folder dialog
@@ -87,6 +87,26 @@ When it ends the textures and masks lists and the card are read again. It is ref
 edited and nothing else is opened. `--rehacer` runs it before the first frame (a headless run waits for it and fails when its exit code is not 0).
 The same folder on the command line opens as a track when it has a `project.ini`, as a car
 when it holds a car's `mod.ini`, else as a new track project.
+
+**Export original car** (File menu and the start screen) makes a project of your own from one of the game's cars, to adjust its masks. It reads the player's own
+copy of the game's files (`gamedata/` in the player folder: `--user`, else the system's) for the car files, and the game's own `data/` (the app's
+`Contents/Resources/data`, or `data/` beside a build tree's program) for the masks; `--cd DIR` and `--port-data DIR` name either. The window lists the cars; one
+the game has no masks for (probe) or no files for is greyed, with the reason as its tooltip. After the car, a folder is asked for and the project is made in it,
+in a folder named for the car (`p911-original`, `wagon-masks`). It is made beside as `<folder>.exporting` and renamed when whole, so a failure leaves
+nothing, and a folder that is already there is refused (a second export of the same car into the same folder changes nothing).
+- **The eight cars you drive** (a normal car project, as `tnfs-studio car new` makes one, but with the car's own stem): `mod.ini` (`redistributable=0`, the
+  catalogue's colors as `paints=`, ABS and traction control from the PBS, a description that says the files are the game's), `SIMDATA/CARFAMS/<STEM>.CFM` and
+  `.PDN`, `SIMDATA/CARSPECS/<STEM>.PBS`, `car_masks/<folder>/` and `dash_masks/<STEM>/`. It opens with the card editable, as any car does. A game stem is
+  not a mod stem the game takes (`mod_validate` refuses it), so this project is for looking and for the masks, not for Build.
+- **The twelve traffic cars and the police car** (a masks project; they have no PBS, so they cannot be driven): `project.ini` (`kind=masks`, `masks=<folder>`,
+  `cfm=original/<X>.CFM`, `export_sizes=<mask>:<W>x<H> ...`, `redistributable=0`), `original/<X>.CFM` (a copy kept to look at) and `car_masks/<folder>/`. It
+  opens with the Car window (read only: what it is) and the Masks window only; there is no card, no Save and no Rehacer.
+
+The masks are the game's `data/car_masks/<folder>/` copied as they are (same names, same bytes, so the same 8-bit grey PNGs and sizes; the old `*.before-*_mask.png`
+copies, which the game does not read, are left out). The Masks window's **Reveal masks folder** shows the folder in the Finder, and says what it maps to in the
+game's source tree (`data/car_masks/<folder>/`): the way to change a game mask is to copy the files there. Everything made this way says "Made from the game's
+files: for your own use, do not share" and has `redistributable=0`. `--export-car FOLDER --into PARENT` does it before the first frame (headless), `--ask export`
+shows the window and `--pick FOLDER` chooses a car in it.
 
 Closing the window, Escape and Quit with changes that are not in `trace.json` (a point moved, added or removed, or the road width changed since the last
 save or open) ask "Save the changes to <project> before quitting?" with **Save** (Enter), **Discard** and **Cancel** (Escape). New, Open and Open recent ask

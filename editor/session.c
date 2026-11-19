@@ -64,7 +64,7 @@ int recent_is_project(const char *dir)
     char ini[SESSION_PATH + 16];
     struct stat st;
     if (snprintf(ini, sizeof ini, "%s/project.ini", dir) >= (int)sizeof ini) return 0;
-    return stat(ini, &st) == 0 && S_ISREG(st.st_mode);
+    return stat(ini, &st) == 0 && S_ISREG(st.st_mode) && !car_project_is_masks(dir);   /* a masks project has a project.ini too: it is a car's */
 }
 
 int recent_present(const char *dir, int kind)

@@ -104,8 +104,21 @@ void car_layout(ImGuiID dock)
     masks = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.45f, nullptr, &right);
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
     ImGui::DockBuilderDockWindow(PANEL_TEXTURES, right);
+    ImGui::DockBuilderDockWindow(PANEL_REHACER, masks);   // a tab beside Masks, which is the one in front
     ImGui::DockBuilderDockWindow(PANEL_MASKS, masks);
-    ImGui::DockBuilderDockWindow(PANEL_REHACER, masks);   // a tab beside Masks
+    ImGui::DockBuilderFinish(dock);
+}
+
+// the layout of a masks project: its facts on the left, the masks on the right (it has no textures to list and no script to run)
+void masks_layout(ImGuiID dock)
+{
+    ImGui::DockBuilderRemoveNode(dock);
+    ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
+    ImGuiID left = 0, right = 0;
+    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.5f, nullptr, &right);
+    ImGui::DockBuilderDockWindow(PANEL_CAR, left);
+    ImGui::DockBuilderDockWindow(PANEL_MASKS, right);
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -147,10 +160,7 @@ void main_menu(App *a)
         if (ImGui::MenuItem("Open car...")) app_ask(a, APP_ACT_OPEN_CAR, "");
         if (ImGui::MenuItem("Open track...")) app_ask(a, APP_ACT_OPEN, "");
         if (ImGui::MenuItem("New track...")) app_ask(a, APP_ACT_NEW, "");
-        ImGui::BeginDisabled();
-        ImGui::MenuItem("Export original car...");
-        ImGui::EndDisabled();
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Coming soon");
+        if (ImGui::MenuItem("Export original car...")) a->export_dialog = 1;
         if (ImGui::BeginMenu("Open recent", a->recent.count > 0)) {
             for (int i = 0; i < a->recent.count; ++i) {
                 char label[SESSION_PATH + 16];
@@ -236,7 +246,7 @@ void confirm_popup(App *a)
 
 void ui_frame(SDL_Renderer *ren, App *a)
 {
-    static bool track_laid_out = false, car_laid_out = false;
+    static bool track_laid_out = false, car_laid_out = false, masks_laid_out = false;
     ImGui_ImplSDLRenderer3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
@@ -256,19 +266,22 @@ void ui_frame(SDL_Renderer *ren, App *a)
         problems_panel(a);
         node_panel(a);
     } else if (a->kind == APP_KIND_CAR) {   // a car has a dock space of its own: each kind keeps its layout
-        const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr("StudioCarDock"), ImGui::GetMainViewport());
-        if (!car_laid_out) {
-            car_laid_out = true;
-            if (dock_is_empty(dock)) car_layout(dock);
+        const bool masks = a->car.masks_only;   // a masks project keeps a layout of its own: it shows fewer windows
+        const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr(masks ? "StudioMasksDock" : "StudioCarDock"), ImGui::GetMainViewport());
+        bool &laid_out = masks ? masks_laid_out : car_laid_out;
+        if (!laid_out) {
+            laid_out = true;
+            if (dock_is_empty(dock)) (masks ? masks_layout : car_layout)(dock);
         }
         if (a->confirm == APP_ACT_NONE) car_shortcuts(a);
         car_panel(a);
-        textures_panel(a);
+        if (!a->car.masks_only) textures_panel(a);   // nor textures: only its masks
         masks_panel(a);
-        rehacer_panel(a);
+        if (!a->car.masks_only) rehacer_panel(a);   // a masks project has no script
     } else {
         start_screen(a);
     }
+    export_popup(a);
     confirm_popup(a);
     open_error_popup(a);
     ImGui::Render();

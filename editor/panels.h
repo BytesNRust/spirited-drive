@@ -21,6 +21,7 @@ void rehacer_panel(App *a);   // Rehacer's status and log
 void car_shortcuts(App *a);   // Ctrl+S, Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y (Cmd on a Mac)
 void textures_panel(App *a);
 void masks_panel(App *a);
+void export_popup(App *a);    // the Export original car window, up while a->export_dialog is set
 
 // the panels' names, as the dock layout places them
 extern const char *const PANEL_POINTS, *const PANEL_LIMITS, *const PANEL_PROBLEMS, *const PANEL_NODE, *const PANEL_PROJECT, *const PANEL_TRACK;

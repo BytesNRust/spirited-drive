@@ -4,6 +4,7 @@
 #include "imgui.h"
 
 extern "C" {
+#include "car_export.h"
 #include "formats/car_piece.h"
 }
 
@@ -68,10 +69,8 @@ void start_screen(App *a)
         if (ImGui::Button("Open track...", button)) app_ask(a, APP_ACT_OPEN, "");
         if (ImGui::Button("New track...", button)) app_ask(a, APP_ACT_NEW, "");
         ImGui::SameLine();
-        ImGui::BeginDisabled();
-        ImGui::Button("Export original car...", button);
-        ImGui::EndDisabled();
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Coming soon");
+        if (ImGui::Button("Export original car...", button)) a->export_dialog = 1;
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Make a project from one of the game's cars, to adjust its masks");
         ImGui::Dummy(ImVec2(0, 14));
         ImGui::SeparatorText("Recent");
         if (a->recent.count == 0) muted_wrapped("Nothing opened yet.");
@@ -220,9 +219,47 @@ void car_shortcuts(App *a)
     else if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal)) car_edit_undo(&a->edit);
 }
 
+// the facts of a masks project, read only: there is no card to edit
+static void masks_project_facts(const App *a)
+{
+    const CarProject &c = a->car;
+    ImGui::SetWindowFontScale(1.25f);
+    ImGui::TextUnformatted(c.info.name);
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::Text("project %s   masks car_masks/%s", c.kit, c.folder);
+    muted_wrapped("%s", c.root);
+    ImGui::Spacing();
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
+    ImGui::TextWrapped("Made from the game's files: for your own use, do not share.");
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+    if (ImGui::BeginTable("facts", 2, ImGuiTableFlags_RowBg)) {
+        ImGui::TableSetupColumn("key", ImGuiTableColumnFlags_WidthFixed, 120);
+        ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
+        const char *rows[][2] = { { "kind", "masks (a traffic or police car: it has no specs of its own, so it cannot be driven)" },
+                                  { "car file", leaf(c.cfm) },
+                                  { "masks", c.has_masks_dir ? "" : "none" } };
+        for (const auto &row : rows) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(row[0]);
+            ImGui::TableSetColumnIndex(1);
+            if (strcmp(row[0], "masks") == 0 && c.has_masks_dir) ImGui::Text("%d in car_masks/%s", c.mask_count, c.folder);
+            else ImGui::TextWrapped("%s", row[1]);
+        }
+        ImGui::EndTable();
+    }
+    muted_wrapped("There is no card to edit and nothing to Save here: the masks are the PNG files in car_masks/. Adjust them in your picture editor, and use Reveal masks folder (in Masks) to find them.");
+}
+
 void car_panel(App *a)
 {
     if (ImGui::Begin(PANEL_CAR)) {
+        if (a->car.masks_only) {
+            masks_project_facts(a);
+            ImGui::End();
+            return;
+        }
         const CarProject &c = a->car;
         const ModInfo &m = c.info;
         CarEditProblem problems[CE_PROBLEMS_MAX];
@@ -323,6 +360,13 @@ static ImGuiID masks_dock = 0;   // the dock node Masks is in, where a layout ke
 
 void masks_panel(App *a)
 {
+    static char shown[APP_PATH] = "";   // the project whose Masks tab was brought forward: a car just opened shows its masks, not the script's empty log
+    static int wait = 0;                // frames to let the dock layout settle first: a focus given in the frame that builds it is lost
+    if (strcmp(shown, a->dir) != 0) {
+        snprintf(shown, sizeof shown, "%s", a->dir);
+        wait = 3;
+    }
+    if (wait > 0 && --wait == 0 && !a->rehacer.running && !a->rehacer.finished) ImGui::SetNextWindowFocus();   // a run's log is what to look at, then
     const bool open = ImGui::Begin(PANEL_MASKS);
     masks_dock = ImGui::GetWindowDockID();
     if (open) {
@@ -330,20 +374,96 @@ void masks_panel(App *a)
         ImGui::Text("Car file: %s", leaf(c.cfm));
         ImGui::Spacing();
         if (!c.has_masks_dir) {
-            ImGui::Text("Masks of the car (car_masks/%s): none yet", c.info.stem);
+            ImGui::Text("Masks of the car (car_masks/%s): none yet", c.folder);
         } else {
-            ImGui::Text("Masks of the car (car_masks/%s): %d", c.info.stem, c.mask_count);
+            ImGui::Text("Masks of the car (car_masks/%s): %d", c.folder, c.mask_count);
             name_list(c.mask, c.mask_count);
+            ImGui::Spacing();
+            if (ImGui::Button("Reveal masks folder")) snprintf(a->reveal, sizeof a->reveal, "%s/car_masks/%s", c.piece, c.folder);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Show the folder in the Finder");
+            char repo[256];
+            car_export_repo_path(c.folder, repo, sizeof repo);
+            muted_wrapped("In the game's source tree these files are %s: copy them there to change the game's masks.", repo);
         }
         ImGui::Spacing();
         if (c.kit_mask_count > 0) {
             ImGui::Text("Your color masks (mascaras/): %d", c.kit_mask_count);
             name_list(c.kit_mask, c.kit_mask_count);
-        } else {
+        } else if (!c.masks_only) {
             muted_wrapped("No color masks of your own (mascaras/).");
         }
     }
     ImGui::End();
+}
+
+// Export original car: the cars of the game to choose from (the unavailable ones greyed, with why), then a folder to make the project in
+void export_popup(App *a)
+{
+    static const char *const NAME = "Export original car";
+    static bool known = false;
+    static int usable[EXPORT_CARS];
+    static char why[EXPORT_CARS][256];
+    if (a->export_dialog && !ImGui::IsPopupOpen(NAME)) {
+        ImGui::OpenPopup(NAME);
+        known = false;
+    }
+    if (!known && a->export_dialog) {   // asked once when the window comes up: it reads folders
+        for (int i = 0; i < EXPORT_CARS; ++i) usable[i] = car_export_available(&a->export_src, i, why[i], sizeof why[i]);
+        known = true;
+    }
+    ImGui::SetNextWindowSize(ImVec2(540, 520), ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal(NAME, nullptr, ImGuiWindowFlags_NoSavedSettings)) return;
+    ImGui::TextWrapped("Make a project from one of the game's cars, to adjust its masks. The project holds the masks the game has now, with the same names and sizes.");
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
+    ImGui::TextWrapped("Made from the game's files: for your own use, do not share.");
+    ImGui::PopStyleColor();
+    muted_wrapped("Reading the game's files from %s and its masks from %s", a->export_src.cd, a->export_src.data);
+    ImGui::Spacing();
+    const float footer = ImGui::GetFrameHeightWithSpacing() * 2 + 6;
+    if (ImGui::BeginChild("cars", ImVec2(0, -footer), ImGuiChildFlags_Borders)) {
+        static const char *const HEADS[] = { "Cars you drive: a normal car project", "Traffic cars: a masks project (they have no specs, only masks)", "Police car: a masks project" };
+        int last = -1;
+        for (int i = 0; i < EXPORT_CARS; ++i) {
+            const ExportCar *car = car_export_car(i);
+            if ((int)car->kind != last) {
+                last = (int)car->kind;
+                if (i > 0) ImGui::Spacing();
+                ImGui::SeparatorText(HEADS[last]);
+            }
+            char label[96];
+            snprintf(label, sizeof label, "%s  (%s)", car->label, car->folder);
+            ImGui::PushID(i);
+            ImGui::BeginDisabled(!usable[i]);
+            if (ImGui::Selectable(label, a->export_pick == i)) a->export_pick = i;
+            ImGui::EndDisabled();
+            if (!usable[i] && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", why[i]);
+            if (!usable[i]) {
+                ImGui::SameLine();
+                ImGui::TextDisabled("not available");
+            }
+            ImGui::PopID();
+        }
+    }
+    ImGui::EndChild();
+    const bool picked = a->export_pick >= 0 && a->export_pick < EXPORT_CARS && usable[a->export_pick];
+    if (picked) {
+        char name[96];
+        car_export_folder_name(a->export_pick, name, sizeof name);
+        muted_wrapped("You choose a folder next; the project is made in it, in a folder named %s.", name);
+    } else {
+        muted_wrapped("Choose a car.");
+    }
+    ImGui::BeginDisabled(!picked || a->go != APP_ACT_NONE || a->confirm != APP_ACT_NONE);
+    if (ImGui::Button("Choose folder and export...")) a->go = APP_ACT_EXPORT_PICK;
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+        a->export_dialog = 0;
+        ImGui::CloseCurrentPopup();
+    }
+    if (!a->export_dialog) ImGui::CloseCurrentPopup();   // the project was made and opened
+    ImGui::EndPopup();
 }
 
 void rehacer_panel(App *a)

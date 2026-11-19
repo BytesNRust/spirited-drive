@@ -4,6 +4,7 @@
 #define TNFS_TRACK_EDITOR_APP_H
 
 #include "car_edit.h"
+#include "car_export.h"
 #include "car_rehacer.h"
 #include "car_project.h"
 #include "project.h"
@@ -31,7 +32,9 @@ typedef enum {
     APP_ACT_NEW_AT,    /* the folder the New dialog gave, in the path: asked through the same question, as the project may have changed meanwhile */
     APP_ACT_OPEN_AT,   /* the same for Open */
     APP_ACT_OPEN_CAR,  /* a car's folder is asked for (its kit or its coche/) */
-    APP_ACT_OPEN_CAR_AT /* the folder that dialog gave, in the path */
+    APP_ACT_OPEN_CAR_AT, /* the folder that dialog gave, in the path */
+    APP_ACT_EXPORT_PICK, /* a folder to make the exported car's project in is asked for (main.c's dialog); the car is a->export_pick */
+    APP_ACT_EXPORT_AT    /* the folder that dialog gave, in the path: the project is made in it and opened */
 } AppAction;
 
 /* the answers to "unsaved changes" */
@@ -48,6 +51,10 @@ typedef struct {
     char game_tried[2048];       /* every place the game was looked for (game_find), for the message when it is not there */
     char game_memo[APP_PATH];    /* the file that remembers the game the user located ("" for none) */
     char user[APP_PATH];         /* the player folder the install goes to */
+    ExportSource export_src;     /* where Export original car reads the game's files from (car_export_source) */
+    int export_dialog;           /* the Export original car window is up */
+    int export_pick;             /* the car chosen in it (car_export_car's index), -1 for none */
+    char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder (main.c does it and clears this) */
     Project project;
     Trace trace;
     View view;
@@ -97,6 +104,12 @@ int app_open_any(App *a, const char *dir, const char *game, const char *user, co
 /* Opens the track project in `dir`, creating its files where they are missing (project_create: `generic_art` is the editor's GENERIC.FAM or NULL).
  * 1 with the app ready, 0 with status naming the fault. */
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art);
+
+/* Where the game's files are, for Export original car; also remembered across the projects opened from this window. */
+void app_set_export_source(App *a, const ExportSource *src);
+/* Makes the project of the exported car a->export_pick in a folder named for it inside `parent` and opens it (car_export): the window stays as it was, with
+ * open_error saying why, when it cannot. 1 when it is open. */
+int app_export_car(App *a, const char *parent);
 
 void app_free(App *a);
 

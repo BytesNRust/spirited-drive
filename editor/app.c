@@ -54,6 +54,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     snprintf(a->generic, sizeof a->generic, "%s", generic_art != NULL ? generic_art : "");
     a->selected = -1;
     a->node = a->node_for = -1;
+    a->export_pick = -1;
 }
 
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
@@ -86,13 +87,13 @@ static int car_into(App *a, const char *dir)
     }
     char card[CAR_PROJECT_PATH + 16];
     snprintf(card, sizeof card, "%s/mod.ini", a->car.piece);
-    if (!car_edit_open(&a->edit, card, why, sizeof why)) {
+    if (!a->car.masks_only && !car_edit_open(&a->edit, card, why, sizeof why)) {   /* a masks project has no card */
         set_status(a, why);
         return 0;
     }
     snprintf(a->dir, sizeof a->dir, "%s", a->car.root);
     a->kind = APP_KIND_CAR;
-    set_status(a, "opened: edit the card and the colors; Save writes mod.ini only");
+    set_status(a, a->car.masks_only ? "opened: a masks project (made from the game's files: for your own use, do not share)" : "opened: edit the card and the colors; Save writes mod.ini only");
     return 1;
 }
 
@@ -103,6 +104,33 @@ int app_open_any(App *a, const char *dir, const char *game, const char *user, co
         return car_into(a, dir);
     }
     return app_open(a, dir, game, user, generic_art);
+}
+
+void app_set_export_source(App *a, const ExportSource *src)
+{
+    a->export_src = *src;
+}
+
+int app_export_car(App *a, const char *parent)
+{
+    char name[96], dir[APP_PATH], why[APP_MSG];
+    const ExportCar *car = car_export_car(a->export_pick);
+    car_export_folder_name(a->export_pick, name, sizeof name);
+    const size_t n = strlen(parent);
+    if (car == NULL || snprintf(dir, sizeof dir, "%s%s%s", parent, n > 0 && parent[n - 1] == '/' ? "" : "/", name) >= (int)sizeof dir) {
+        set_status(a, "no car was chosen to export");
+        snprintf(a->open_error, sizeof a->open_error, "%s", a->status);
+        return 0;
+    }
+    if (!car_export(&a->export_src, a->export_pick, dir, why, sizeof why)) {
+        snprintf(a->open_error, sizeof a->open_error, "Could not export %s: %s", car->label, why);
+        set_status(a, a->open_error);
+        return 0;
+    }
+    a->export_dialog = 0;
+    if (!app_open_car(a, dir)) return 0;   /* it says why in open_error, and the files stay where they were made */
+    snprintf(a->status, sizeof a->status, "exported %s into %s: made from the game's files, for your own use, do not share", car->label, dir);
+    return 1;
 }
 
 void app_free(App *a)
@@ -261,6 +289,8 @@ static int open_in(App *a, const char *dir, AppKind kind)
     memcpy(next->recent_file, a->recent_file, sizeof next->recent_file);
     memcpy(next->game_tried, a->game_tried, sizeof next->game_tried);   /* what the game lookup found stays with the window, not with a project */
     memcpy(next->game_memo, a->game_memo, sizeof next->game_memo);
+    next->export_src = a->export_src;   /* so does where the game's files are */
+    next->export_pick = a->export_pick;
     app_free(a);
     *a = *next;   // the new project's arrays belong to `a` now
     free(next);
@@ -324,6 +354,7 @@ static int track_open(App *a)
 int app_save(App *a)
 {
     char why[APP_MSG];
+    if (a->kind == APP_KIND_CAR && a->car.masks_only) return set_status(a, "a masks project has no card to save: its masks are the PNG files in car_masks/"), 0;
     if (a->kind == APP_KIND_CAR) {   /* the card: only mod.ini, only the lines that changed */
         const int changed = car_edit_modified(&a->edit);
         if (!car_edit_save(&a->edit, why, sizeof why)) {
@@ -569,6 +600,7 @@ int app_rehacer(App *a)
 {
     char why[APP_MSG], stamp[32];
     if (a->kind != APP_KIND_CAR) return set_status(a, "open a car first"), 0;
+    if (a->car.masks_only) return set_status(a, "a masks project has no rehacer.command"), 0;
     if (a->rehacer.running) return set_status(a, "Rehacer is already running"), 0;
     if (!rehacer_script_present(a->dir)) return set_status(a, "this kit has no rehacer.command, so there is nothing to run"), 0;
     if (car_edit_modified(&a->edit)) return set_status(a, "mod.ini has changes that are not saved: save them first, then run Rehacer"), 0;
