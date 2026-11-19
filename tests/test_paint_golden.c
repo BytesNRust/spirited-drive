@@ -21,6 +21,9 @@
 /* the values of this file's results */
 static const uint64_t GOLDEN_RULES = 0x25b9601d5fad4f62ULL, GOLDEN_MASKS = 0x183bc588d5bd6e89ULL, GOLDEN_BLACK = 0x11b659f841bff0abULL, GOLDEN_LAMPS = 0x93d94adea708889bULL, GOLDEN_DRAFT = 0x6a9eff9842881b23ULL,
                       GOLDEN_CATALOGUE = 0x455eced6ab0b51c4ULL;
+/* the paths the added-car work added to the code (dep59 1a, on main 0e14fcc6) */
+static const uint64_t GOLDEN_BLACK_DIR = 0xb48681832aafa24dULL, GOLDEN_LAMPS_DIR = 0x93d94adea708889bULL, GOLDEN_DRAFT_DIR = 0x40a88611b2908c72ULL,
+                      GOLDEN_TRAFFIC = 0x3a6437c5513c5548ULL, GOLDEN_TRAFFIC_DIR = 0x3a6437c5513c5548ULL;
 
 static const char STEM[] = "GOLDEN";
 static char base[256];
@@ -87,14 +90,17 @@ static uint8_t *bank_of(const Tex *tex, int count, uint32_t seed, size_t *size)
     return out;
 }
 
-/* a CFM: wwww [ORIP, high bank (topv, rsid, frnt, bott, wing), ORIP, low bank (side, back, topv)] */
-static uint8_t *make_cfm(size_t *size)
+/* a CFM: wwww [ORIP, high bank (topv, rsid, frnt, bott, wing), ORIP, low bank (side, back, topv)]; `traffic`: a traffic car's high bank, which has a side
+ * and a back the catalogue cars have not (topv, side, back, wing) */
+static uint8_t *make_cfm_of(size_t *size, int traffic)
 {
     static const Tex HIGH[] = { { { 't', 'o', 'p', 'v' }, 16, 8 }, { { 'r', 's', 'i', 'd' }, 16, 8 }, { { 'f', 'r', 'n', 't' }, 8, 8 },
                                 { { 'b', 'o', 't', 't' }, 8, 4 }, { { 'w', 'i', 'n', 'g' }, 8, 4 } };
+    static const Tex TRAFFIC[] = { { { 't', 'o', 'p', 'v' }, 16, 8 }, { { 's', 'i', 'd', 'e' }, 16, 8 }, { { 'b', 'a', 'c', 'k' }, 8, 8 },
+                                   { { 'w', 'i', 'n', 'g' }, 8, 4 } };
     static const Tex LOW[] = { { { 's', 'i', 'd', 'e' }, 8, 4 }, { { 'b', 'a', 'c', 'k' }, 8, 4 }, { { 't', 'o', 'p', 'v' }, 8, 4 } };
     size_t hn = 0, ln = 0;
-    uint8_t *high = bank_of(HIGH, 5, 1, &hn), *low = bank_of(LOW, 3, 2, &ln);
+    uint8_t *high = traffic ? bank_of(TRAFFIC, 4, 1, &hn) : bank_of(HIGH, 5, 1, &hn), *low = bank_of(LOW, 3, 2, &ln);
     const size_t table = 8 + 4 * 4, orip = 8;
     *size = table + orip + hn + orip + ln;
     uint8_t *f = calloc(*size, 1);
@@ -106,6 +112,11 @@ static uint8_t *make_cfm(size_t *size)
     put_u32(f + 20, (uint32_t)at), memcpy(f + at, low, ln);
     png_free(high), png_free(low);
     return f;
+}
+
+static uint8_t *make_cfm(size_t *size)
+{
+    return make_cfm_of(size, 0);
 }
 
 static void make_dirs(const char *path)
@@ -146,6 +157,8 @@ static void make_masks(void)
     spill_mask("frnt_mask.png", 8, 8, 5);
     spill_mask("topv_lo_mask.png", 8, 4, 1);   /* the low bank's own files */
     spill_mask("side_lo_mask.png", 8, 4, 2);
+    spill_mask("side_mask.png", 16, 8, 4);   /* a traffic car's high bank: a side and a back */
+    spill_mask("back_mask.png", 8, 8, 6);
 }
 
 static void report(const char *what, uint64_t got, uint64_t pinned)
@@ -154,7 +167,7 @@ static void report(const char *what, uint64_t got, uint64_t pinned)
     CHECK(got == pinned);
 }
 
-static const uint8_t RED[3] = { 0xc8, 0x10, 0x2e }, BLACK[3] = { 0x14, 0x14, 0x16 };
+static const uint8_t RED[3] = { 0xc8, 0x10, 0x2e }, BLACK[3] = { 0x14, 0x14, 0x16 }, ADDED_BLACK[3] = CAR_PAINT_ADDED_BLACK;
 
 static void test_rules(void)
 {
@@ -187,7 +200,7 @@ static void test_black(void)
     char root[400];
     snprintf(root, sizeof root, "%s/root", base);
     setenv("TNFS_CAR_MASKS", root, 1);   /* car_mask_load's dev override: <root>/<STEM>/<tex>_mask.png */
-    const int changed = drive_livery_black(STEM, cfm, size, BLACK);
+    const int changed = drive_livery_black(STEM, NULL, cfm, size, BLACK);
     unsetenv("TNFS_CAR_MASKS");
     CHECK(changed > 0);
     report("black", fnv(fnv(FNV_START, cfm, size), &changed, sizeof changed), GOLDEN_BLACK);
@@ -236,6 +249,79 @@ static void test_draft(void)
     free(cfm);
 }
 
+/* the paths the added-car work added (a mask folder through the black, the lamps and the draft; the added car's fixed black; a traffic car's high side and back) */
+static void test_black_dir(void)
+{
+    size_t size = 0;
+    uint8_t *cfm = make_cfm(&size);
+    char dir[400];
+    snprintf(dir, sizeof dir, "%s/masks", base);
+    const int changed = drive_livery_black("ADDED", dir, cfm, size, ADDED_BLACK);   /* a stem the catalogue has not: the added car's black */
+    CHECK(changed > 0);
+    report("black_dir", fnv(fnv(FNV_START, cfm, size), &changed, sizeof changed), GOLDEN_BLACK_DIR);
+    free(cfm);
+}
+
+static void test_lamps_dir(void)
+{
+    size_t size = 0;
+    uint8_t *cfm = make_cfm(&size);
+    char dir[400];
+    snprintf(dir, sizeof dir, "%s/masks", base);
+    LampTexels lamps = { NULL, 0, 0 };
+    const int found = drive_livery_lamps_masks("ADDED", dir, cfm, size, &lamps);
+    CHECK(found > 0);
+    uint64_t h = fnv(FNV_START, &found, sizeof found);
+    for (int i = 0; i < lamps.count; i++) h = fnv(fnv(h, &lamps.texel[i].offset, sizeof lamps.texel[i].offset), &lamps.texel[i].kind, 1);
+    report("lamps_dir", h, GOLDEN_LAMPS_DIR);
+    lamp_texels_free(&lamps);
+    free(cfm);
+}
+
+static void test_draft_dir(void)
+{
+    size_t size = 0;
+    uint8_t *cfm = make_cfm(&size);
+    char dir[400];
+    snprintf(dir, sizeof dir, "%s/masks", base);
+    Draft d = { FNV_START, 0 };
+    const int marked = drive_livery_draft_masks("ADDED", dir, cfm, size, draft_fn, &d);
+    CHECK(marked > 0 && d.banks > 0);
+    report("draft_dir", fnv(d.hash, &marked, sizeof marked), GOLDEN_DRAFT_DIR);
+    free(cfm);
+}
+
+static void test_traffic(void)
+{
+    size_t size = 0;
+    uint8_t *cfm = make_cfm_of(&size, 1);
+    char root[400];
+    snprintf(root, sizeof root, "%s/root", base);
+    setenv("TNFS_CAR_MASKS", root, 1);   /* the traffic stem's masks: the side and the back of the high bank take the mask's paint */
+    const int changed = drive_livery_paint(STEM, cfm, size, RED);
+    unsetenv("TNFS_CAR_MASKS");
+    CHECK(changed > 0);
+    size_t plain_size = 0;   /* without masks the high side and back stay as they are: the rule is what changes them */
+    uint8_t *plain = make_cfm_of(&plain_size, 1);
+    const int plain_changed = drive_livery_paint(STEM, plain, plain_size, RED);
+    CHECK(plain_size == size && (changed != plain_changed || memcmp(plain, cfm, size) != 0));
+    free(plain);
+    report("traffic", fnv(fnv(FNV_START, cfm, size), &changed, sizeof changed), GOLDEN_TRAFFIC);
+    free(cfm);
+}
+
+static void test_traffic_dir(void)
+{
+    size_t size = 0;
+    uint8_t *cfm = make_cfm_of(&size, 1);
+    char dir[400];
+    snprintf(dir, sizeof dir, "%s/masks", base);
+    const int changed = drive_livery_paint_masks(STEM, dir, cfm, size, RED);
+    CHECK(changed > 0);
+    report("traffic_dir", fnv(fnv(FNV_START, cfm, size), &changed, sizeof changed), GOLDEN_TRAFFIC_DIR);
+    free(cfm);
+}
+
 static void test_catalogue(void)
 {
     uint64_t h = FNV_START;
@@ -269,6 +355,11 @@ int main(void)
     test_black();
     test_lamps();
     test_draft();
+    test_black_dir();
+    test_lamps_dir();
+    test_draft_dir();
+    test_traffic();
+    test_traffic_dir();
     test_catalogue();
     return TEST_REPORT();
 }
