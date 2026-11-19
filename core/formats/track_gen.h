@@ -24,8 +24,9 @@
 /* The most a node may turn from the node before, in degrees. Two limits, because the terrain is not laid the same way:
  *  - TRACK_GEN_TURN_MAX_DEGREES, for the nodes of the editor (track_generate_nodes_turned): the terrain rows follow the road and, on the inside of
  *    the curve, are held inside TRACK_GEN_TERRAIN_REACH of the curve's radius (the CD holds both sides: Alpine 3 keeps its terrain within 0.32..0.44 of the
- *    radius in its 16-degree curve, node 625, notes/dep59-editor-limits-vs-cd.md; the outside is left alone here because the generic template has no
- *    scenery to hide the hole a cut would leave there). The editor shows red what is over it, amber what is over
+ *    radius in its 16-degree curve, node 625, notes/dep59-editor-limits-vs-cd.md; the outside is left alone here (but for an S's easing) because the generic template has no
+ *    scenery to hide the hole a cut would leave there). The cap is eased along the road, by a node length a row at most, so the edge of the
+ *    terrain does not jump at a curve's entry or at an S's inflection (terrain_caps). The editor shows red what is over it, amber what is over
  *    TRACK_GEN_TURN_WARN_DEGREES (track_trace.h).
  *  - TRACK_GEN_LAYOUT_TURN_MAX_DEGREES, for a layout (`track new`, track_generate): its rows are the template's, not turned, and over 8 degrees
  *    the game draws the terrain of the inner side crossing itself (measured, same note). */
