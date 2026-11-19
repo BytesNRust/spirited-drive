@@ -213,7 +213,7 @@ static int read_piece(const char *dir, ModInfo *card, CarPiece *out, char *why, 
     snprintf(out->name, sizeof out->name, "%s", card->name);
     snprintf(out->stem, sizeof out->stem, "%s", card->stem);
     snprintf(out->short_name, sizeof out->short_name, "%s", card->short_name[0] != '\0' ? card->short_name : card->stem);
-    out->sound_model = car_piece_model_of_word(card->sound_from);
+    out->sound_model = car_piece_sound_model_of_word(card->sound_from);
     out->dash_model = card->dash_from[0] != '\0' ? car_piece_model_of_word(card->dash_from) : -1;
     out->abs_on = assists[0], out->traction_on = assists[1];
     out->card_name_off = card->card_name_off;

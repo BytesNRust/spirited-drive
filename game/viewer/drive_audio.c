@@ -492,6 +492,7 @@ void drive_audio_load(void *user, const char *name)
         free(file);
         return;
     }
+    port_log("drive_audio: bank %s loaded\n", name);   /* (dep59) which engine bank a race took: an added car's sound_from shows here */
     files[i] = file, file_sizes[i] = size;
     loaded->registered[i] = (uint32_t)slot;
     loaded->file[i] = (uint32_t)i;
