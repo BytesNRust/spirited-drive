@@ -24,6 +24,10 @@ uint8_t *fam_resample(const FamPicture *src, uint32_t width, uint32_t height);
 
 /* The palette of `n` pictures (6-bit RGB, 768 bytes, into palette6): the median cut of their colours into 255 boxes; the 256th
  * entry is black and unused. 0 when memory runs out. */
+/* the race's shadow shade (HUD_SHADE_SCALE, game/race/hud_colours.h: 0.6) and the farthest a colour's shade may be from the palette's nearest entry, squared in
+ * 8-bit units: the CD's own AL1 has its yellow's shade at 450 (a dark yellow), and the palette keeps entries back to stay under it (fam_palette_make) */
+enum { FAM_SHADE_SCALE = 0x9999, FAM_SHADE_BAR = 450 };
+
 int fam_palette_make(const FamPicture *pics, size_t n, uint8_t palette6[FAM_PALETTE_BYTES]);
 
 /* The index 0..254 of the palette entry nearest (r, g, b). */

@@ -840,7 +840,8 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     else()
         target_compile_options(imgui PRIVATE -w)
     endif()
-    add_executable(tnfs-track-editor editor/game_find.c editor/main.c editor/app.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp)
+    add_executable(tnfs-track-editor game/sys/sha256.c editor/game_find.c editor/main.c editor/app.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp)
+    target_include_directories(tnfs-track-editor PRIVATE ${CMAKE_SOURCE_DIR})   # project.c's game/sys/sha256.h
     target_link_libraries(tnfs-track-editor PRIVATE tnfs_core SDL3::SDL3 imgui)
     # the generic art a new project copies (editor/art/README.md): beside the program in a build tree, in Contents/Resources in the app (tools/package_macos.sh)
     add_custom_command(TARGET tnfs-track-editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM $<TARGET_FILE_DIR:tnfs-track-editor>/GENERIC.FAM)
@@ -851,8 +852,15 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     add_executable(test_editor_game_find tests/test_editor_game_find.c editor/game_find.c)   # where Studio looks for the game, on any layout
     target_include_directories(test_editor_game_find PRIVATE editor tests)
     target_compile_options(test_editor_game_find PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_session tests/test_editor_session.c editor/game_find.c editor/app.c editor/build.c editor/project.c editor/session.c editor/view.c)   # the session: recent projects, unsaved changes, open and new
-    target_include_directories(test_editor_session PRIVATE editor tests)
+    add_executable(test_generic_art_shades tests/test_generic_art_shades.c)   # the bundled generic art keeps its lines' hue under a shadow
+    target_link_libraries(test_generic_art_shades PRIVATE tnfs_core)
+    target_compile_options(test_generic_art_shades PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_editor_art_refresh tests/test_editor_art_refresh.c editor/project.c game/sys/sha256.c)   # a project's copy of the generic art, refreshed when it is an older Studio's
+    target_include_directories(test_editor_art_refresh PRIVATE editor tests ${CMAKE_SOURCE_DIR})
+    target_link_libraries(test_editor_art_refresh PRIVATE tnfs_core)
+    target_compile_options(test_editor_art_refresh PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_editor_session tests/test_editor_session.c game/sys/sha256.c editor/game_find.c editor/app.c editor/build.c editor/project.c editor/session.c editor/view.c)   # the session: recent projects, unsaved changes, open and new
+    target_include_directories(test_editor_session PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_session PRIVATE tnfs_core)
     target_compile_options(test_editor_session PRIVATE ${TNFS_WARNINGS})
     target_compile_options(tnfs-track-editor PRIVATE ${TNFS_WARNINGS})
@@ -866,6 +874,8 @@ if(NOT EMSCRIPTEN)
     if(TARGET tnfs-track-editor AND NOT WIN32)   # the test is a sh script with python3
         add_test(NAME editor_install COMMAND test_editor_install)
         add_test(NAME editor_session COMMAND test_editor_session)
+        add_test(NAME editor_art_refresh COMMAND test_editor_art_refresh)
+        add_test(NAME generic_art_shades COMMAND test_generic_art_shades ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM)
         add_test(NAME editor_game_find COMMAND test_editor_game_find)
         add_test(NAME editor_headless COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless.sh $<TARGET_FILE:tnfs-track-editor>)
         set_tests_properties(editor_headless PROPERTIES TIMEOUT 300)

@@ -217,6 +217,11 @@ void project_panel(App *a)
         if (ImGui::Button("Install (U)")) app_install(a);
         ImGui::EndDisabled();
         if (a->zip[0] != '\0') ImGui::TextWrapped("package %s", a->zip);
+        if (a->art_note[0] != '\0') {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+            ImGui::TextWrapped("%s", a->art_note);
+            ImGui::PopStyleColor();
+        }
         if (app_game_found(a)) {
             ImGui::TextWrapped("game %s", a->game);
         } else {

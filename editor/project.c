@@ -2,6 +2,7 @@
 #include "project.h"
 
 #include "formats/track_piece.h"
+#include "game/sys/sha256.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -295,6 +296,49 @@ static int adopt_art(const char *dir, const char *ini_path, const char *ini, con
     free(text);
     free(copy);
     return ok;
+}
+
+/* the SHA-256 of every GENERIC.FAM Studio carried before the one it carries now (the road lines' shades, editor/art/README.md): a project's copy that is
+ * byte for byte one of these is the author's untouched copy of an old Studio's, and is replaced */
+const char *const PROJECT_OLD_ARTS[] = { "ad2a9b645848ad93fcb939ac954baf6c543233a28db898b58ab708049617e59d", NULL };
+
+static void sha256_of(const void *bytes, size_t size, char out[65])
+{
+    Sha256 s;
+    sha256_init(&s);
+    sha256_update(&s, bytes, size);
+    sha256_hex(&s, out);
+}
+
+int project_art_refresh(const char *dir, const char *generic, const char *const old[], char *note, size_t note_cap)
+{
+    note[0] = '\0';
+    if (generic == NULL) return 0;
+    char path[PATH_MAX_LEN], why[160], art[PROJECT_PATH_MAX];
+    snprintf(path, sizeof path, "%s/project.ini", dir);
+    size_t size = 0, copy_size = 0, bundled_size = 0;
+    char *ini = read_text(path, &size, why, sizeof why);
+    const int own = ini != NULL && ini_value(ini, "art", art, sizeof art) && strcmp(art, GENERIC_ART) == 0;   /* an art= of the author's own is never touched */
+    free(ini);
+    if (!own) return 0;
+    snprintf(path, sizeof path, "%s/%s", dir, GENERIC_ART);
+    char *copy = read_text(path, &copy_size, why, sizeof why), *bundled = read_text(generic, &bundled_size, why, sizeof why);
+    int replaced = 0;
+    if (copy != NULL && bundled != NULL && (copy_size != bundled_size || memcmp(copy, bundled, copy_size) != 0)) {
+        char hex[65];
+        sha256_of(copy, copy_size, hex);
+        int known = 0;
+        for (int i = 0; old != NULL && old[i] != NULL; i++) known |= strcmp(old[i], hex) == 0;
+        if (known && write_atomic(path, bundled, bundled_size, why, sizeof why)) {
+            snprintf(note, note_cap, "art: GENERIC.FAM was the one of an older Studio and is now the current one");
+            replaced = 1;
+        } else if (!known) {
+            snprintf(note, note_cap, "art: this project's GENERIC.FAM is not Studio's (edited, or from another version): left as it is");
+        }
+    }
+    free(copy);
+    free(bundled);
+    return replaced;
 }
 
 static int make_dir(const char *dir, char *why, size_t why_cap)

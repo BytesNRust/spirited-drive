@@ -53,6 +53,13 @@ int project_open(const char *dir, Project *out, Trace *trace, char *why, size_t 
  * is not readable, gets the copy and the line rewritten. Any other art= is left as it is. 1 on success, 0 with `why`. */
 int project_create(const char *dir, const char *id, const char *generic_art, char *why, size_t why_cap);
 
+/* The art of a project that kept the GENERIC.FAM of an older Studio (project_create copies it once): when the project's art= is GENERIC.FAM and that copy
+ * is byte for byte one of `old` (SHA-256 in hex, NULL-ended: PROJECT_OLD_ARTS), it is replaced by `generic`, the one Studio carries now, and the note says so.
+ * A copy that is neither the current one nor a known old one (the author edited it) is left alone and the note says that; an art= of another name is
+ * not looked at. 1 when it was replaced, else 0; `note` is "" when there is nothing to say. */
+extern const char *const PROJECT_OLD_ARTS[];
+int project_art_refresh(const char *dir, const char *generic, const char *const old[], char *note, size_t note_cap);
+
 /* Writes trace.json of `dir` (through a temporary file, then renamed). 1 on success, 0 with `why`. */
 int project_save_trace(const char *dir, const Trace *trace, char *why, size_t why_cap);
 

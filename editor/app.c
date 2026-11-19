@@ -60,6 +60,7 @@ int app_open(App *a, const char *dir, const char *game, const char *user, const 
         set_status(a, why);
         return 0;
     }
+    if (project_art_refresh(dir, generic_art, PROJECT_OLD_ARTS, a->art_note, sizeof a->art_note)) fprintf(stderr, "%s (%s)\n", a->art_note, dir);
     snprintf(a->generic, sizeof a->generic, "%s", generic_art != NULL ? generic_art : "");
     a->saved_print = session_fingerprint(&a->trace);
     a->dirty = 1;

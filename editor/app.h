@@ -32,6 +32,7 @@ enum { APP_ANSWER_CANCEL = 0, APP_ANSWER_DISCARD = 1, APP_ANSWER_SAVE = 2 };
 typedef struct {
     char dir[APP_PATH];          /* the project folder */
     char game[APP_PATH];         /* the game program, run for install */
+    char art_note[160];          /* what opening the project did to or noticed about its copy of the generic art (project_art_refresh); "" for nothing */
     char game_tried[2048];       /* every place the game was looked for (game_find), for the message when it is not there */
     char game_memo[APP_PATH];    /* the file that remembers the game the user located ("" for none) */
     char user[APP_PATH];         /* the player folder the install goes to */
