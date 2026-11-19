@@ -1390,7 +1390,9 @@ if(NOT EMSCRIPTEN)
         add_test(NAME car_new COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_new.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:tnfs>)
         add_test(NAME car_card COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_card.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
         # a host on the network whose track word is past the nine (T0): the client leaves before the race and says why; one test
-        # per word, each on its own ports, one at a time (a client lists every game on the machine and could pick another's)
+        # per word, each on its own ports, one at a time (a client lists every game on the machine and could pick another's); the
+        # ports here are where the script starts looking: it takes the first block no other run holds (tools/link_loopback.sh), so
+        # two ctests of one machine, of any worktree, do not meet
         foreach(word_at 9:15100 15:15120 0xFFFF:15140)
             string(REPLACE ":" ";" word_at ${word_at})
             list(GET word_at 0 word)
@@ -1711,6 +1713,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME dash_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_dash_mask_psd.py")
         add_test(NAME dash_psd_update COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_dash_psd_update.py")
         add_test(NAME frame_pick COMMAND ${TNFS_PYTHON3} -I "${CMAKE_SOURCE_DIR}/tests/test_frame_pick.py")
+        add_test(NAME free_udp_ports COMMAND ${TNFS_PYTHON3} -I "${CMAKE_SOURCE_DIR}/tests/test_free_udp_ports.py")   # the free block of ports a link test takes (tools/free_udp_ports.py)
         add_test(NAME spirited_logo COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_spirited_logo.py")
         add_test(NAME spirited_icon COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_spirited_icon.py")
         add_test(NAME profile_tables COMMAND ${TNFS_PYTHON3} -I "${CMAKE_SOURCE_DIR}/tests/profile_tables.py" "${CMAKE_SOURCE_DIR}")
