@@ -32,6 +32,8 @@ enum { APP_ANSWER_CANCEL = 0, APP_ANSWER_DISCARD = 1, APP_ANSWER_SAVE = 2 };
 typedef struct {
     char dir[APP_PATH];          /* the project folder */
     char game[APP_PATH];         /* the game program, run for install */
+    char game_tried[2048];       /* every place the game was looked for (game_find), for the message when it is not there */
+    char game_memo[APP_PATH];    /* the file that remembers the game the user located ("" for none) */
     char user[APP_PATH];         /* the player folder the install goes to */
     Project project;
     Trace trace;
@@ -110,6 +112,12 @@ int app_node_count(const App *a);
 /* Says in the status line, when the game's program is not where `game` points (not there), what to do about it: copy both
  * apps to Applications, or give --game. 1 when the game is there. app_install says it too, instead of a failed exec. */
 int app_check_game(App *a);
+/* the places the game was looked for and the file that remembers a located game (main.c, game_find); kept for the not-found message */
+void app_set_game_lookup(App *a, const char *tried, const char *memo);
+/* the user located the game: `picked` is its app or its program (game_find_program_of); 1 when it is a file, it is then the game and is remembered; 0 says why in the status */
+int app_set_game(App *a, const char *picked);
+/* 1 when the game's program is there */
+int app_game_found(const App *a);
 
 int app_save(App *a);
 int app_build(App *a);

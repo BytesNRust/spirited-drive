@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include "build.h"
+#include "game_find.h"
 
 #include <limits.h>
 #include <math.h>
@@ -269,8 +270,8 @@ int app_build(App *a)
 
 static int game_missing_status(App *a, const char *what)
 {
-    snprintf(a->status, sizeof a->status, "%sthe game was not found: copy Spirited Drive and Spirited Drive Studio to Applications, or start the editor with --game PATH (looked at %s)",
-             what, a->game);
+    snprintf(a->status, sizeof a->status, "%sthe game was not found: copy Spirited Drive and Spirited Drive Studio to Applications, pick it with Locate game, or start the editor with --game PATH (looked at %s)",
+             what, a->game_tried[0] != '\0' ? a->game_tried : a->game);
     return 0;
 }
 
@@ -286,6 +287,39 @@ static int game_there(const App *a)
     fclose(f);
     return 1;
 #endif
+}
+
+int app_game_found(const App *a)
+{
+    return game_there(a);
+}
+
+void app_set_game_lookup(App *a, const char *tried, const char *memo)
+{
+    snprintf(a->game_tried, sizeof a->game_tried, "%s", tried != NULL ? tried : "");
+    snprintf(a->game_memo, sizeof a->game_memo, "%s", memo != NULL ? memo : "");
+}
+
+int app_set_game(App *a, const char *picked)
+{
+    char program[APP_PATH];
+    if (!game_find_program_of(picked, program, sizeof program)) {
+        snprintf(a->status, sizeof a->status, "locate game: %s is not Spirited Drive (pick its .app)", picked != NULL ? picked : "nothing");
+        return 0;
+    }
+    FILE *f = fopen(program, "rb");
+    if (f == NULL) {
+        snprintf(a->status, sizeof a->status, "locate game: no game program at %s", program);
+        return 0;
+    }
+    fclose(f);
+    snprintf(a->game, sizeof a->game, "%s", program);
+    if (a->game_memo[0] != '\0') {
+        FILE *m = fopen(a->game_memo, "wb");
+        if (m != NULL) fprintf(m, "%s\n", program), fclose(m);
+    }
+    snprintf(a->status, sizeof a->status, "the game is %s", program);
+    return 1;
 }
 
 int app_check_game(App *a)

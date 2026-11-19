@@ -2,6 +2,7 @@
 #include "panels.h"
 
 #include "imgui.h"
+#include <SDL3/SDL.h>
 
 #include <float.h>
 #include <math.h>
@@ -193,6 +194,12 @@ void track_panel(App *a)
     ImGui::End();
 }
 
+// the Locate game dialog's answer: the app (or program) the user picked, none when it was cancelled
+static void game_located(void *userdata, const char *const *list, int)
+{
+    if (list != NULL && list[0] != NULL) app_set_game(static_cast<App *>(userdata), list[0]);
+}
+
 void project_panel(App *a)
 {
     const bool open = ImGui::Begin(PANEL_PROJECT);
@@ -210,6 +217,12 @@ void project_panel(App *a)
         if (ImGui::Button("Install (U)")) app_install(a);
         ImGui::EndDisabled();
         if (a->zip[0] != '\0') ImGui::TextWrapped("package %s", a->zip);
+        if (app_game_found(a)) {
+            ImGui::TextWrapped("game %s", a->game);
+        } else {
+            ImGui::TextWrapped("game not found");
+            if (ImGui::Button("Locate game...")) SDL_ShowOpenFileDialog(game_located, a, NULL, NULL, 0, "/Applications", false);   // its .app, or its program
+        }
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
         ImGui::TextWrapped("installs into %s", a->user[0] != '\0' ? a->user : "the game's player folder");
         ImGui::PopStyleColor();

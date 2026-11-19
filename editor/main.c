@@ -13,6 +13,7 @@
 #include "art.h"
 #include "build.h"
 #include "capture.h"
+#include "game_find.h"
 #include "ui.h"
 
 #include <SDL3/SDL.h>
@@ -66,23 +67,49 @@ static int parse_args(int argc, char **argv, Options *o)
     return 1;
 }
 
-/* The game's program, when --game is not given: the app beside this one (the DMG's "Spirited Drive.app" next to "Spirited Drive Studio.app",
- * in the Applications folder or anywhere both were dragged), else ./tnfs as a build tree has it. */
-static void default_game(char *out, size_t cap)
+/* the finder's questions to the file system and the system */
+static int sdl_is_file(const char *path, void *ctx)
 {
-    static const char APP_TNFS[] = "Spirited Drive.app/Contents/MacOS/tnfs";
-    const char *base = SDL_GetBasePath();   /* ".../Spirited Drive Studio.app/Contents/Resources/" inside the bundle */
-    char sibling[APP_PATH];
+    (void)ctx;
     SDL_PathInfo info;
-    if (base != NULL) {
-        snprintf(sibling, sizeof sibling, "%s../../../%s", base, APP_TNFS);
-        if (SDL_GetPathInfo(sibling, &info) && info.type == SDL_PATHTYPE_FILE) {
-            snprintf(out, cap, "%s", sibling);
-            return;
+    return SDL_GetPathInfo(path, &info) && info.type == SDL_PATHTYPE_FILE;
+}
+
+#if defined(__APPLE__)
+/* the game's app wherever Launch Services knows it by its bundle identifier (renamed, moved, on another volume) */
+static int mdfind_game(char *app, size_t cap, void *ctx)
+{
+    (void)ctx;
+    FILE *p = popen("/usr/bin/mdfind \"kMDItemCFBundleIdentifier == '" GAME_FIND_BUNDLE_ID "'\" 2>/dev/null", "r");
+    if (p == NULL) return 0;
+    const int got = fgets(app, (int)cap, p) != NULL;
+    pclose(p);
+    if (!got) return 0;
+    app[strcspn(app, "\r\n")] = '\0';
+    return app[0] != '\0';
+}
+#endif
+
+/* The game's program, when --game is not given: the one the user located, the app beside this one (the DMG's "Spirited Drive.app" next to
+ * "Spirited Drive Studio.app", in the Applications folder or anywhere both were dragged), /Applications, ~/Applications, the app the system knows
+ * by its bundle id, else ./tnfs as a build tree has it (game_find.h). `tried` gets every place; `memo` is the file the located game is kept in. */
+static int default_game(char *out, size_t cap, char *tried, size_t tried_cap, char *memo, size_t memo_cap)
+{
+    const char *docs = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS);
+    memo[0] = '\0';
+    char remembered[GAME_FIND_PATH] = "";
+    if (docs != NULL && snprintf(memo, memo_cap, "%sSpirited Drive Studio/game.txt", docs) < (int)memo_cap) {
+        FILE *f = fopen(memo, "rb");
+        if (f != NULL) {
+            if (fgets(remembered, sizeof remembered, f) != NULL) remembered[strcspn(remembered, "\r\n")] = '\0';
+            fclose(f);
         }
     }
-    snprintf(sibling, sizeof sibling, "/Applications/%s", APP_TNFS);
-    snprintf(out, cap, "%s", SDL_GetPathInfo(sibling, &info) && info.type == SDL_PATHTYPE_FILE ? sibling : "./tnfs");
+    GameFinder finder = { SDL_GetBasePath(), SDL_GetUserFolder(SDL_FOLDER_HOME), remembered, sdl_is_file, NULL, NULL };
+#if defined(__APPLE__)
+    finder.by_bundle_id = mdfind_game;
+#endif
+    return game_find(&finder, out, cap, tried, tried_cap);
 }
 
 /* The project folder when none is given (the app opened from the Finder): Documents/Spirited Drive Studio/my-track, made if missing. */
@@ -272,9 +299,9 @@ int main(int argc, char **argv)
 {
     Options o;
     if (!parse_args(argc, argv, &o)) return 2;
-    char game[APP_PATH], project[APP_PATH];
+    char game[APP_PATH], project[APP_PATH], tried[GAME_FIND_TRIED] = "", memo[APP_PATH] = "";
     if (o.game == NULL) {
-        default_game(game, sizeof game);
+        default_game(game, sizeof game, tried, sizeof tried, memo, sizeof memo);
         o.game = game;
     }
     if (o.dir == NULL) {
@@ -289,6 +316,7 @@ int main(int argc, char **argv)
     int status = 1;
     char generic[APP_PATH];
     if (app_open(app, o.dir, o.game, o.user != NULL ? o.user : "", art_generic_find(generic, sizeof generic) ? generic : NULL)) {
+        app_set_game_lookup(app, tried, memo);
         app_check_game(app);   /* the window opens with what to do if the game is not found, not with a failed install later */
         status = run(app, &o) ? 0 : 1;
     } else {
