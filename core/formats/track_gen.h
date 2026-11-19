@@ -28,7 +28,7 @@
  *    TRACK_GEN_TURN_WARN_DEGREES (track_trace.h).
  *  - TRACK_GEN_LAYOUT_TURN_MAX_DEGREES, for a layout (`track new`, track_generate): its rows are the template's, not turned, and over 8 degrees
  *    the game draws the terrain of the inner side crossing itself (measured, same note). */
-#define TRACK_GEN_TURN_MAX_DEGREES 16.0
+#define TRACK_GEN_TURN_MAX_DEGREES 16.5   /* the CD's most is 16.2 (TR6 turns 16.2 in a step, Alpine 3's 15.8); the half degree over 16 is for the editor's spline, which at the joint of a straight and a curve drawn at 16 gives 16.1 */
 #define TRACK_GEN_TURN_WARN_DEGREES 8.0
 #define TRACK_GEN_LAYOUT_TURN_MAX_DEGREES 8.0
 #define TRACK_GEN_TERRAIN_REACH 0.4   /* the furthest the terrain of a turned node goes across the road, as a part of the curve's radius there */

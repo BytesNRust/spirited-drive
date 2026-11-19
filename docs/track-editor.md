@@ -44,7 +44,7 @@ The project folder is created with `project.ini` and `trace.json` (a straight of
 The road is drawn through the control points as a Catmull-Rom curve, resampled to the CD's node spacing (about 6 units). Up to 8 degrees a node
 (a radius of 43 units) nothing is marked. Over that a node is drawn **amber**: the road is built, but the curve is tighter than almost all of the
 CD's (the CD has some of 16 degrees: Alpine 3), so check the terrain in the game; the AI brakes there. A node is drawn **red** when it turns more
-than 16 degrees from the node before, or the curve there is tighter than 21.5 units: Build refuses while any node is red. In a tight curve the
+than 16.5 degrees from the node before (the CD's own most is 16.2), or the curve there is tighter than 20.9 units: Build refuses while any node is red. In a tight curve the
 generator holds the terrain inside the curve, on both sides, to 0.4 of its radius, as the CD does (`notes/dep59-editor-limits-vs-cd.md`); a
 layout of `track new` does not turn the terrain and keeps its own limit of 8 degrees. The numbers are measured and provisional, not limits of the game.
 

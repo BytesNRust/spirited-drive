@@ -20,7 +20,7 @@
 #include <stdint.h>
 
 #define TRACE_TURN_MAX_DEGREES TRACK_GEN_TURN_MAX_DEGREES   /* red: the most a node turns from the node before (track_gen's own limit) */
-#define TRACE_RADIUS_MIN 21.5        /* red, units: a curve tighter than this is not built (16 degrees a node on the CD's 6.03-unit spacing) */
+#define TRACE_RADIUS_MIN 20.9        /* red, units: a curve tighter than this is not built (the radius of TRACK_GEN_TURN_MAX_DEGREES on the 6.03-unit spacing) */
 #define TRACE_TURN_WARN_DEGREES TRACK_GEN_TURN_WARN_DEGREES   /* amber: over this a node turns more than ours drew clean without the terrain held */
 #define TRACE_RADIUS_WARN 43.0       /* amber, units: under this (8 degrees a node) */
 #define TRACE_STEP_MIN 0.5           /* units; two control points closer than this are the same point */

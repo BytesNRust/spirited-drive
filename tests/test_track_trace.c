@@ -194,10 +194,35 @@ static void test_limit_levels(void)
     CHECK_EQ_INT(flags_at_turn(8.0), 0);                                                      /* the amber starts over it */
     CHECK_EQ_INT(flags_at_turn(8.2), TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN);          /* radius 42.1 */
     CHECK_EQ_INT(flags_at_turn(12.0), TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN);
-    CHECK_EQ_INT(flags_at_turn(16.0), TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN);         /* the most that is allowed: Alpine 3's, radius 21.6 */
-    CHECK_EQ_INT(flags_at_turn(16.2), TRACE_FLAG_TURN | TRACE_FLAG_RADIUS);                   /* red: no warning bits besides */
+    CHECK_EQ_INT(flags_at_turn(16.0), TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN);         /* Alpine 3's 15.8 and the CD's 16.2 (TR6) are amber */
+    CHECK_EQ_INT(flags_at_turn(16.4), TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN);         /* radius 21.1 */
+    CHECK_EQ_INT(flags_at_turn(16.7), TRACE_FLAG_TURN | TRACE_FLAG_RADIUS);                   /* red: no warning bits besides */
     CHECK(TRACE_TURN_MAX_DEGREES == TRACK_GEN_TURN_MAX_DEGREES);                              /* track_gen refuses what the editor shows red */
     CHECK(TRACE_TURN_WARN_DEGREES == TRACK_GEN_TURN_WARN_DEGREES);
+}
+
+/* a curve drawn at 16 degrees a node (a control point on every node, as an Alpine 3 curve would be) is built: amber, never red, though the spline's
+ * joint with the straight gives a little over 16 */
+static void test_drawn_16_is_amber(void)
+{
+    enum { STRAIGHT = 20, ARC = 12, COUNT = 2 * STRAIGHT + ARC + 1 };
+    const double step = TRACK_GEN_NODE_LENGTH / 65536.0;
+    TracePoint p[COUNT];
+    double x = 0, z = 0, heading = 0;
+    for (int i = 0; i < COUNT; ++i) {
+        p[i].x = x, p[i].z = z;
+        if (i >= STRAIGHT && i < STRAIGHT + ARC) heading += 16.0 * M_PI / 180;
+        x += step * sin(heading), z += step * cos(heading);
+    }
+    TrackGenNode *nodes = NULL;
+    int n = 0;
+    CHECK(nodes_of(p, COUNT, WIDTH, &nodes, &n));
+    uint8_t *flags = calloc((size_t)n, 1);
+    track_trace_flags(nodes, n, flags);
+    CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN | TRACE_FLAG_RADIUS), 0);
+    CHECK(count_flags(flags, n, TRACE_FLAG_TURN_WARN) > 0);
+    free(flags);
+    free(nodes);
 }
 
 static void test_faults(void)
@@ -275,6 +300,7 @@ int main(void)
     test_tight_arc_flags_radius();
     test_corner_flags_turn();
     test_limit_levels();
+    test_drawn_16_is_amber();
     test_faults();
     test_generates_tri();
     test_turn_degrees();
