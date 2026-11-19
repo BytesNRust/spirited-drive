@@ -24,6 +24,11 @@
 #define TRACE_RADIUS_MIN 20.9        /* red, units: a curve tighter than this is not built (the radius of TRACK_GEN_TURN_MAX_DEGREES on the 6.03-unit spacing) */
 #define TRACE_TURN_WARN_DEGREES TRACK_GEN_TURN_WARN_DEGREES   /* amber: over this a node turns more than ours drew clean without the terrain held */
 #define TRACE_RADIUS_WARN 43.0       /* amber, units: under this (8 degrees a node) */
+/* One track unit is one metre: the game shows a car's speed as its 16.16 whole part x 2.24 in mph and x 3.6 in km/h (game/frontend/stat_text.c), so a
+ * speed unit is a metre a second, and its gravity is 9.826 units/s2 (game/race/car_vertical.c, GRAVITY), the real 9.81 m/s2 to 0.2 per cent
+ * (notes/dep59-editor-limits-vs-cd.md). Every distance the editor shows is TRACE_METRES(units): this is the only place the factor lives. */
+#define TRACE_METRES_PER_UNIT 1.0
+#define TRACE_METRES(units) ((units) * TRACE_METRES_PER_UNIT)
 #define TRACE_STEP_MIN 0.5           /* units; two control points closer than this are the same point */
 #define TRACE_COORD_MAX 20000.0      /* units from the origin: inside the 16.16 positions with room for the sums */
 
@@ -80,6 +85,21 @@ typedef struct {
     char text[TRACE_SUMMARY_TEXT];
 } TraceSummaryLine;
 int track_trace_summary(const uint8_t *flags, int count, TraceSummaryLine lines[TRACE_SUMMARY_LINES]);
+
+/* Metres from node 0 to each node along the road (the sum of the distances between consecutive nodes: m[0] = 0), `count` values. */
+void track_trace_distances(const TrackGenNode *nodes, int count, double *metres);
+
+/* The turn of node i from the node before it, in degrees: positive to the right, negative to the left (0 for node 0). */
+double track_trace_signed_turn(const TrackGenNode *nodes, int i);
+
+/* The distance in metres from node i-1 to node i (0 for node 0). */
+double track_trace_step(const TrackGenNode *nodes, int i);
+
+/* Metres from the start of the curve to each of the `count` control points, along the curve (not the chords); 0 values when it cannot be made. */
+void track_trace_point_distances(const TracePoint *points, int count, double *metres);
+
+/* A signed turn as the editor writes it: "R 5.3°" to the right, "L 3.1°" to the left, "-" under a twentieth of a degree. */
+void track_trace_turn_text(double degrees, char *out, size_t cap);
 
 /* The signed turn from `from` to `to` (14-bit headings), in degrees, wrapped to -180..180. */
 double track_trace_turn_degrees(double from, double to);

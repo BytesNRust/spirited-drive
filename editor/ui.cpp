@@ -72,15 +72,17 @@ void default_layout(ImGuiID dock)
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
-    ImGuiID right = 0, centre = dock, bottom = 0, points = 0;
-    right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, 0.27f, nullptr, &centre);
+    ImGuiID right = 0, centre = dock, bottom = 0, points = 0, node = 0;
+    right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, 0.33f, nullptr, &centre);
     bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down, 0.30f, nullptr, &centre);
     points = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.55f, nullptr, &right);
     ImGui::DockBuilderDockWindow("Viewport", centre);
     ImGui::DockBuilderDockWindow(PANEL_LIMITS, bottom);
     ImGui::DockBuilderDockWindow(PANEL_PROBLEMS, bottom);   // its own tab beside Limits
     ImGui::DockBuilderDockWindow(PANEL_PROJECT, right);
+    node = ImGui::DockBuilderSplitNode(points, ImGuiDir_Down, 0.45f, nullptr, &points);
     ImGui::DockBuilderDockWindow(PANEL_POINTS, points);
+    ImGui::DockBuilderDockWindow(PANEL_NODE, node);
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -125,6 +127,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
     points_panel(a);
     limits_panel(a);
     problems_panel(a);
+    node_panel(a);
     ImGui::Render();
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), ren);
 }

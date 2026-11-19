@@ -10,9 +10,10 @@ extern "C" {
 void points_panel(App *a);
 void limits_panel(App *a);
 void problems_panel(App *a);
+void node_panel(App *a);
 void project_panel(App *a);
 
 // the panels' names, as the dock layout places them
-extern const char *const PANEL_POINTS, *const PANEL_LIMITS, *const PANEL_PROBLEMS, *const PANEL_PROJECT;
+extern const char *const PANEL_POINTS, *const PANEL_LIMITS, *const PANEL_PROBLEMS, *const PANEL_NODE, *const PANEL_PROJECT;
 
 #endif

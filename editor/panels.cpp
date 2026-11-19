@@ -12,35 +12,22 @@ extern "C" {
 #include "interact.h"
 }
 
-const char *const PANEL_POINTS = "Points", *const PANEL_LIMITS = "Limits", *const PANEL_PROBLEMS = "Problems", *const PANEL_PROJECT = "Project";
+const char *const PANEL_POINTS = "Points", *const PANEL_LIMITS = "Limits", *const PANEL_PROBLEMS = "Problems", *const PANEL_NODE = "Node", *const PANEL_PROJECT = "Project";
 
 namespace {
 
 const ImVec4 BAD_TEXT(1.0f, 0.35f, 0.35f, 1.0f), WARN_TEXT(1.0f, 0.69f, 0.13f, 1.0f), OK_TEXT(0.47f, 0.86f, 0.55f, 1.0f);
 const int PROBLEM_ROWS = 200;   // the nodes listed in Problems; the count says how many more
 
-// the control point nearest to the road's node `node` (the road's start is the first point)
-int nearest_point(const App &a, int node)
-{
-    const double nx = a.nodes[node].position[0] / 65536.0, nz = a.nodes[node].position[2] / 65536.0;
-    int best = 0;
-    double best_d = HUGE_VAL;
-    for (int i = 0; i < a.trace.count; ++i) {
-        const double d = hypot(a.trace.points[i].x - nx, a.trace.points[i].z - nz);
-        if (d < best_d) {
-            best_d = d;
-            best = i;
-        }
-    }
-    return best;
-}
-
 }   // namespace
+
+static ImGuiID points_dock = 0;   // the dock node Points is in, where a layout kept from before the Node window puts it as a tab
 
 void points_panel(App *a)
 {
     static int shown = -2;   // the selection the table last scrolled to
     if (ImGui::Begin(PANEL_POINTS)) {
+        points_dock = ImGui::GetWindowDockID();
         if (ImGui::Button("Add (N)")) app_add_point(a);
         ImGui::SameLine();
         ImGui::BeginDisabled(a->selected < 0);
@@ -50,11 +37,13 @@ void points_panel(App *a)
         ImGui::EndDisabled();
         ImGui::TextDisabled("%d points", a->trace.count);
         const bool scroll_to_selected = a->selected != shown;
-        if (ImGui::BeginTable("points", 3, ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+        if (ImGui::BeginTable("points", 5, ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
             ImGui::TableSetupScrollFreeze(0, 1);
-            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 48);
-            ImGui::TableSetupColumn("x");
-            ImGui::TableSetupColumn("z");
+            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 28);
+            ImGui::TableSetupColumn("x (m)");
+            ImGui::TableSetupColumn("z (m)");
+            ImGui::TableSetupColumn("dist m", ImGuiTableColumnFlags_WidthFixed, 50);
+            ImGui::TableSetupColumn("turn", ImGuiTableColumnFlags_WidthFixed, 54);
             ImGui::TableHeadersRow();
             shown = a->selected;   // the table is drawn: it has scrolled to what was selected from elsewhere
             ImGuiListClipper clipper;
@@ -83,6 +72,18 @@ void points_panel(App *a)
                         a->selected = shown = i;
                         a->dirty = 1;
                     }
+                    // read-only: the distance along the curve from the start, and the turn at the node nearest the point
+                    ImGui::TableSetColumnIndex(3);
+                    if (a->road_made && a->point_dist != NULL && i < a->point_count) ImGui::Text("%.0f", a->point_dist[i]);
+                    else ImGui::TextDisabled("-");
+                    ImGui::TableSetColumnIndex(4);
+                    if (a->road_made && a->point_turn != NULL && i < a->point_count) {
+                        char turn[16];
+                        track_trace_turn_text(a->point_turn[i], turn, sizeof turn);
+                        ImGui::TextUnformatted(turn);
+                    } else {
+                        ImGui::TextDisabled("-");
+                    }
                     ImGui::PopID();
                 }
             }
@@ -102,7 +103,7 @@ void limits_panel(App *a)
         char text[48];
         snprintf(text, sizeof text, "%d / %d nodes", nodes, (int)TRACK_GEN_MAX_NODES);
         ImGui::ProgressBar((float)nodes / (float)TRACK_GEN_MAX_NODES, ImVec2(-FLT_MIN, 0), text);
-        ImGui::Text("length %.0f u", a->length);
+        ImGui::Text("length %.0f m (%.2f km)", TRACE_METRES(a->length), TRACE_METRES(a->length) / 1000.0);
         if (a->road_text[0] != '\0') ImGui::TextColored(BAD_TEXT, "%s", a->road_text);   // the road is not made: why
         else if (a->summary_count == 0) ImGui::TextColored(OK_TEXT, "limits: all good");
         // a line per rule some node breaks, red first: the nodes themselves are in Problems
@@ -124,8 +125,8 @@ void problems_panel(App *a)
             track_trace_problem_text(&p, label, sizeof label);
             ImGui::PushStyleColor(ImGuiCol_Text, p.red ? BAD_TEXT : WARN_TEXT);
             ImGui::PushID(p.node);
-            if (ImGui::Selectable(label)) {
-                a->selected = nearest_point(*a, p.node);
+            if (ImGui::Selectable(label)) {   // the node is shown in Node and the Viewport goes to it
+                app_select_node(a, p.node);
                 a->view.cx = a->nodes[p.node].position[0] / 65536.0;
                 a->view.cz = a->nodes[p.node].position[2] / 65536.0;
             }
@@ -133,6 +134,38 @@ void problems_panel(App *a)
             ImGui::PopStyleColor();
         }
         if (a->problem_count > PROBLEM_ROWS) ImGui::TextDisabled("and %d more", a->problem_count - PROBLEM_ROWS);
+    }
+    ImGui::End();
+}
+
+void node_panel(App *a)
+{
+    if (points_dock != 0) ImGui::SetNextWindowDockID(points_dock, ImGuiCond_FirstUseEver);
+    if (ImGui::Begin(PANEL_NODE)) {
+        app_recompute(a);   // a point added or removed in Points this frame: the road and its figures first
+        app_sync_selection(a);
+        const int n = a->node;
+        if (!a->road_made || n < 0 || n >= a->node_count) {
+            ImGui::TextDisabled("Select a node");
+        } else {
+            char turn[16];
+            track_trace_turn_text(track_trace_signed_turn(a->nodes, n), turn, sizeof turn);
+            ImGui::Text("node %d of %d", n, a->node_count - 1);
+            ImGui::Text("x %.1f m   z %.1f m", TRACE_METRES(a->nodes[n].position[0] / 65536.0), TRACE_METRES(a->nodes[n].position[2] / 65536.0));
+            ImGui::Text("distance from the start: %.1f m", a->node_dist != NULL ? a->node_dist[n] : 0.0);
+            ImGui::Text("turn: %s", turn);
+            ImGui::Text("to the previous node: %.2f m", track_trace_step(a->nodes, n));
+            if (n + 1 < a->node_count) ImGui::Text("to the next node: %.2f m", track_trace_step(a->nodes, n + 1));
+            else ImGui::TextDisabled("to the next node: -");
+            for (int i = 0; i < a->problem_count; ++i) {   // the limits it breaks, worded as in Problems
+                if (a->problems[i].node != n) continue;
+                char text[TRACE_SUMMARY_TEXT];
+                track_trace_problem_text(&a->problems[i], text, sizeof text);
+                ImGui::PushStyleColor(ImGuiCol_Text, a->problems[i].red ? BAD_TEXT : WARN_TEXT);
+                ImGui::TextWrapped("%s", text);
+                ImGui::PopStyleColor();
+            }
+        }
     }
     ImGui::End();
 }

@@ -32,6 +32,12 @@ static void drop_road(App *a)
     a->flags = NULL;
     a->node_count = 0;
     a->road_made = 0;
+    free(a->node_dist);
+    free(a->point_dist);
+    free(a->point_turn);
+    a->node_dist = a->point_dist = a->point_turn = NULL;
+    a->point_count = 0;
+    a->node_for = -2;   // what the Node window shows is taken again from the selected point once the road is made again
     free(a->problems);
     a->problems = NULL;
     a->problem_count = 0;
@@ -45,6 +51,7 @@ int app_open(App *a, const char *dir, const char *game, const char *user, const 
     snprintf(a->game, sizeof a->game, "%s", game);
     snprintf(a->user, sizeof a->user, "%s", user);
     a->selected = -1;
+    a->node = a->node_for = -1;
     char id[MOD_INI_ID_MAX + 1], why[APP_MSG];
     folder_name(dir, id, sizeof id);
     if (!project_create(dir, id, generic_art, why, sizeof why) || !project_open(dir, &a->project, &a->trace, why, sizeof why)) {
@@ -64,6 +71,15 @@ void app_free(App *a)
     drop_road(a);
     a->trace.points = NULL;
     a->trace.count = 0;
+}
+
+/* the node nearest control point `i`: by its distance along the curve over the road's (equal, to a few centimetres) node spacing */
+static int nearest_node(const App *a, int i)
+{
+    if (a->node_count < 2 || a->point_dist == NULL || i < 0 || i >= a->point_count) return 0;
+    const double step = a->node_dist != NULL ? a->node_dist[a->node_count - 1] / (a->node_count - 1) : 0;
+    const int node = step > 0 ? (int)lround(a->point_dist[i] / step) : 0;
+    return node < 0 ? 0 : node >= a->node_count ? a->node_count - 1 : node;
 }
 
 void app_recompute(App *a)
@@ -87,6 +103,20 @@ void app_recompute(App *a)
     }
     a->road_made = 1;
     track_trace_flags(a->nodes, a->node_count, a->flags);
+    a->node_dist = calloc((size_t)a->node_count, sizeof *a->node_dist);
+    a->point_dist = calloc((size_t)a->trace.count, sizeof *a->point_dist);
+    a->point_turn = calloc((size_t)a->trace.count, sizeof *a->point_turn);
+    if (a->node_dist != NULL && a->point_dist != NULL && a->point_turn != NULL) {
+        a->point_count = a->trace.count;
+        track_trace_distances(a->nodes, a->node_count, a->node_dist);
+        track_trace_point_distances(a->trace.points, a->trace.count, a->point_dist);
+        for (int i = 0; i < a->trace.count; ++i) a->point_turn[i] = track_trace_signed_turn(a->nodes, nearest_node(a, i));
+    } else {   // no memory for the figures: the road is as made, without them
+        free(a->node_dist);
+        free(a->point_dist);
+        free(a->point_turn);
+        a->node_dist = a->point_dist = a->point_turn = NULL;
+    }
     a->summary_count = track_trace_summary(a->flags, a->node_count, a->summary);
     a->problem_count = track_trace_problems(a->nodes, a->node_count, a->flags, NULL, 0);
     if (a->problem_count > 0) {
@@ -94,6 +124,29 @@ void app_recompute(App *a)
         if (a->problems != NULL) track_trace_problems(a->nodes, a->node_count, a->flags, a->problems, a->problem_count);
         else a->problem_count = 0;
     }
+}
+
+void app_sync_selection(App *a)
+{
+    if (a->selected != a->node_for) {
+        a->node_for = a->selected;
+        a->node = a->selected >= 0 && a->road_made && a->point_dist != NULL && a->selected < a->point_count ? nearest_node(a, a->selected) : -1;
+    }
+    if (a->node >= a->node_count || !a->road_made) a->node = a->road_made && a->node_count > 0 ? a->node_count - 1 : -1;
+}
+
+void app_select_node(App *a, int node)
+{
+    if (!a->road_made || node < 0 || node >= a->node_count) return;
+    const double nx = a->nodes[node].position[0] / 65536.0, nz = a->nodes[node].position[2] / 65536.0;
+    int best = 0;
+    double best_d = HUGE_VAL;
+    for (int i = 0; i < a->trace.count; ++i) {
+        const double d = hypot(a->trace.points[i].x - nx, a->trace.points[i].z - nz);
+        if (d < best_d) best_d = d, best = i;
+    }
+    a->selected = a->node_for = best;
+    a->node = node;
 }
 
 int app_node_count(const App *a)

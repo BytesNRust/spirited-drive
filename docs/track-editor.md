@@ -15,12 +15,12 @@ nix develop -c sh -c 'cmake -S . -B build/native -G Ninja && cmake --build build
 ./build/native/tnfs-track-editor art/tnfs-tracks/my-road
 ```
 
-The project folder is created with `project.ini` and `trace.json` (a straight of six points, 200 units) when they are missing.
+The project folder is created with `project.ini` and `trace.json` (a straight of six points, 200 m) when they are missing.
 
 | File | What it holds |
 |------|---------------|
 | `project.ini` | `id`, `name`, `author`, `stem` (1..7 of A-Z 0-9, not AL/CL/CY/TR first), `art` (a FAM: relative to the project folder, or absolute), `redistributable` (the author's word on the art's licence) |
-| `trace.json` | `width` (the verge byte, 8..120; the template's is 40) and `points`, the control points as `[x, z]` in units |
+| `trace.json` | `width` (the verge byte, 8..120; the template's is 40) and `points`, the control points as `[x, z]` in metres (one track unit is one metre) |
 | `build/<id>.zip` | written by Build; the only thing the game installs |
 
 ## Keys
@@ -41,10 +41,10 @@ The project folder is created with `project.ini` and `trace.json` (a straight of
 
 ## Limits
 
-The road is drawn through the control points as a Catmull-Rom curve, resampled to the CD's node spacing (about 6 units). Up to 8 degrees a node
-(a radius of 43 units) nothing is marked. Over that a node is drawn **amber**: the road is built, but the curve is tighter than almost all of the
+The road is drawn through the control points as a Catmull-Rom curve, resampled to the CD's node spacing (about 6 m). Up to 8 degrees a node
+(a radius of 43 m) nothing is marked. Over that a node is drawn **amber**: the road is built, but the curve is tighter than almost all of the
 CD's (the CD has some of 16 degrees: Alpine 3), so check the terrain in the game; the AI brakes there. A node is drawn **red** when it turns more
-than 16.5 degrees from the node before (the CD's own most is 16.2), or the curve there is tighter than 20.9 units: Build refuses while any node is red. In a tight curve the
+than 16.5 degrees from the node before (the CD's own most is 16.2), or the curve there is tighter than 20.9 m: Build refuses while any node is red. In a tight curve the
 generator holds the terrain inside the curve, on both sides, to 0.4 of its radius, as the CD does (`notes/dep59-editor-limits-vs-cd.md`); a
 layout of `track new` does not turn the terrain and keeps its own limit of 8 degrees. The numbers are measured and provisional, not limits of the game.
 
@@ -54,9 +54,20 @@ stretch to see it; the fix is to space the points out or to smooth them.
 The **Limits** window (a tab beside Problems at the bottom) shows the node count against the 2397 a TRI holds (599 segments and the closing node), the
 length and, in red or amber, a line for each rule some node breaks ("2 nodes turn more than 16.5° per node: the track can't be built", "26 nodes turn
 more than 8° per node: they may not look right in the game"; the same for the radius). A rule no node breaks has no line. The **Problems** window lists
-the nodes themselves, one row each, red first and then by node number: "node 80: turns 9.4° (more than 8°) and radius 38 units (under 43 units), may
+the nodes themselves, one row each, red first and then by node number: "node 80: turns 9.4° (more than 8°) and radius 38 m (under 43 m), may
 not look right". A click on a row selects the nearest point and centres the Viewport on that node. With none it says "No problems". Both windows are
 dockable like the others and their layout is kept.
+
+## Metres and the Node window
+
+One track unit is one metre (`TRACE_METRES_PER_UNIT` in `core/formats/track_trace.h` says where that comes from), and the editor writes every distance in metres.
+The Points table has two read-only columns beside x and z: `dist m`, the distance along the curve from the start to the point, and `turn`, the turn at the
+node nearest the point ("R 5.3°" to the right, "L 3.1°" to the left). Hovering a node in the Viewport shows its number, its distance from the start and its
+turn. The **Node** window (under Points) shows the selected node, picked by a click in the Viewport, in Points or in Problems: its number, x and z, the
+distance from the start, the turn, the distance to the node before and to the next one, and the limits it breaks. With none it says "Select a node".
+The distance between nodes is not the same on every road: the editor spaces them evenly along the curve and fits a whole number of segments (4 nodes
+each) to its length, so it is about 6.03 m on a long road and can be a few per cent more or less on a short one (the CD's is about 6.0 m).
+Height and slope are not shown: the editor has no height yet.
 
 ## Headless run
 
@@ -67,7 +78,8 @@ SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_RENDER_DRIVER=software timeout
     --frames 3 --save --build --shot out.png
 ```
 
-`--install --game ./build/native/tnfs --user SCRATCH` runs the game's installer into a scratch player folder.
+`--install --game ./build/native/tnfs --user SCRATCH` runs the game's installer into a scratch player folder. `--select N` selects control point N first
+(for a picture of the Node window).
 
 ## What is missing
 

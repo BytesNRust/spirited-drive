@@ -120,13 +120,12 @@ void handle_mouse(App *a, const ImVec2 &origin)
     if (ImGui::IsItemHovered() && io.MouseWheel != 0) interact_zoom(a, mx, my, io.MouseWheel > 0 ? VIEW_ZOOM_STEP : 1 / VIEW_ZOOM_STEP);
 }
 
-// the nearest node of the road that breaks a limit, within TIP_REACH pixels of the mouse; -1 when none
-int flagged_node_near(const Canvas &c, const App &a, double mx, double my)
+// the nearest node of the road, within TIP_REACH pixels of the mouse; -1 when none
+int node_near(const Canvas &c, const App &a, double mx, double my)
 {
     int best = -1;
     double best_d = TIP_REACH * TIP_REACH;
     for (int i = 1; a.road_made && i < a.node_count; ++i) {
-        if (a.flags[i] == 0) continue;
         const ImVec2 p = to_screen(c, a.view, a.nodes[i].position[0] / 65536.0, a.nodes[i].position[2] / 65536.0);
         const double dx = p.x - c.origin.x - mx, dy = p.y - c.origin.y - my, d = dx * dx + dy * dy;
         if (d < best_d) best_d = d, best = i;
@@ -134,18 +133,22 @@ int flagged_node_near(const Canvas &c, const App &a, double mx, double my)
     return best;
 }
 
-// the tip over a red stretch: what the colour means, and that it is the spacing of the points that makes it
+// the tip over a node: its place on the road (metres from the start, its turn) and, over a red or amber stretch, what the colour means and that it
+// is the spacing of the points that makes it
 void draw_tooltip(const Canvas &c, const App &a)
 {
     const ImGuiIO &io = ImGui::GetIO();
-    const int node = flagged_node_near(c, a, io.MousePos.x - c.origin.x, io.MousePos.y - c.origin.y);
+    if (io.MouseDown[0]) return;   // a drag is on: no tip over the point being moved
+    const int node = node_near(c, a, io.MousePos.x - c.origin.x, io.MousePos.y - c.origin.y);
     if (node < 0) return;
-    const bool red = (a.flags[node] & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) != 0;
+    char turn[16];
+    track_trace_turn_text(track_trace_signed_turn(a.nodes, node), turn, sizeof turn);
     ImGui::BeginTooltip();
-    if (red) {
+    ImGui::Text("node %d: %.0f m from the start, turn %s", node, a.node_dist != NULL ? a.node_dist[node] : 0.0, turn);
+    if (a.flags[node] & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) {
         ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "too tight: the road is not built");
         ImGui::TextUnformatted("points too close for this turn: space them out or smooth them");
-    } else {
+    } else if (a.flags[node] & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN)) {
         ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "very tight curve: check the terrain in the game, the AI brakes");
     }
     ImGui::EndTooltip();

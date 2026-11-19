@@ -87,7 +87,7 @@ static int road_nodes(const Trace *t, TrackGenNode **nodes, int *count, char *wh
             snprintf(why, why_cap, "node %d turns more than %g degrees from the node before", i, TRACE_TURN_MAX_DEGREES);
             ok = 0;
         } else if (flags[i] & TRACE_FLAG_RADIUS) {
-            snprintf(why, why_cap, "the curve at node %d is tighter than %g units", i, TRACE_RADIUS_MIN);
+            snprintf(why, why_cap, "the curve at node %d is tighter than %g m", i, TRACE_METRES(TRACE_RADIUS_MIN));
             ok = 0;
         }
     }

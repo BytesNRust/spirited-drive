@@ -33,7 +33,13 @@ typedef struct {
     int problem_count;
     TraceSummaryLine summary[TRACE_SUMMARY_LINES];   /* a line per rule some node breaks, red first */
     int summary_count;
-    double length;               /* the centre line's length, in units */
+    double length;               /* the centre line's length, in units (TRACE_METRES gives metres) */
+    double *node_dist;           /* metres from node 0 to each node, when road_made */
+    double *point_dist;          /* metres along the curve to each control point (point_count values, when road_made) */
+    int point_count;             /* the control points the road was computed from: trace.count has moved on when a point was added since */
+    double *point_turn;          /* the signed turn, in degrees, at the node nearest each control point */
+    int node;                    /* the node the Node window shows, -1 for none */
+    int node_for;                /* the control point `node` was taken from (app_sync_selection) */
     char road_text[APP_MSG];     /* why the road is not made; "" when it is */
 
     char zip[APP_PATH];          /* the last package built, "" before one */
@@ -48,6 +54,11 @@ void app_free(App *a);
 
 /* Computes the road when the trace changed (a no-op otherwise). */
 void app_recompute(App *a);
+
+/* The Node window shows a node: the one picked in Problems (app_select_node), else the one nearest the selected control point. app_sync_selection
+ * follows a change of the selected point; app_select_node makes `node` the shown node and selects the control point nearest it. */
+void app_sync_selection(App *a);
+void app_select_node(App *a, int node);
 
 /* The node count the road has, or would have: 4 per segment and one more, from its length. */
 int app_node_count(const App *a);

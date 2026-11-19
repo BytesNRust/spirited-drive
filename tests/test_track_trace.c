@@ -260,9 +260,9 @@ static void test_problems_and_summary(void)
     CHECK_EQ_INT(rows[3].node, 5);
     char text[160];
     track_trace_problem_text(&rows[0], text, sizeof text);
-    CHECK(strcmp(text, "node 2: turns 17.0\xc2\xb0 (more than 16.5\xc2\xb0) and radius 20 units (under 20.9 units), can't be built") == 0);
+    CHECK(strcmp(text, "node 2: turns 17.0\xc2\xb0 (more than 16.5\xc2\xb0) and radius 20 m (under 20.9 m), can't be built") == 0);
     track_trace_problem_text(&rows[1], text, sizeof text);
-    CHECK(strcmp(text, "node 1: turns 9.4\xc2\xb0 (more than 8\xc2\xb0) and radius 37 units (under 43 units), may not look right") == 0);
+    CHECK(strcmp(text, "node 1: turns 9.4\xc2\xb0 (more than 8\xc2\xb0) and radius 37 m (under 43 m), may not look right") == 0);
     TraceProblem few[2];
     CHECK_EQ_INT(track_trace_problems(n, N, flags, few, 2), 4);   /* the total, though only 2 rows fit: the red one and the first amber */
     CHECK_EQ_INT(few[0].node, 2);
@@ -272,9 +272,9 @@ static void test_problems_and_summary(void)
     CHECK_EQ_INT(track_trace_summary(flags, N, lines), 4);
     CHECK(lines[0].red && lines[1].red && !lines[2].red && !lines[3].red);
     CHECK(strcmp(lines[0].text, "1 node turns more than 16.5\xc2\xb0 per node: the track can't be built") == 0);
-    CHECK(strcmp(lines[1].text, "1 node is on a curve of radius under 20.9 units: the track can't be built") == 0);
+    CHECK(strcmp(lines[1].text, "1 node is on a curve of radius under 20.9 m: the track can't be built") == 0);
     CHECK(strcmp(lines[2].text, "3 nodes turn more than 8\xc2\xb0 per node: they may not look right in the game") == 0);
-    CHECK(strcmp(lines[3].text, "3 nodes are on a curve of radius under 43 units: they may not look right in the game") == 0);
+    CHECK(strcmp(lines[3].text, "3 nodes are on a curve of radius under 43 m: they may not look right in the game") == 0);
 
     const double calm[N] = { 0, 1, 2, 3, 2, 1, 0 };    /* nothing breaks: no rows and no lines */
     nodes_turning(calm, N, n);
@@ -292,6 +292,37 @@ static void test_zero_distance_turn(void)
     uint8_t flags[2];
     track_trace_flags(n, 2, flags);
     CHECK_EQ_INT(flags[1] & TRACE_FLAG_RADIUS, TRACE_FLAG_RADIUS);
+}
+
+/* metres: the distance from node 0 is the sum of the steps, the turn is signed (right positive), a control point's distance is along the curve */
+static void test_metres(void)
+{
+    enum { N = 5 };
+    const double turns[N] = { 0, 5.0, -3.0, 0, 2.0 };
+    TrackGenNode n[N];
+    nodes_turning(turns, N, n);
+    double m[N];
+    track_trace_distances(n, N, m);
+    const double step = TRACK_GEN_NODE_LENGTH / 65536.0 * TRACE_METRES_PER_UNIT;
+    CHECK(m[0] == 0);
+    for (int i = 1; i < N; ++i) CHECK(fabs(m[i] - step * i) < 0.001);
+    CHECK(fabs(track_trace_step(n, 3) - step) < 0.001);
+    CHECK(track_trace_step(n, 0) == 0);
+    CHECK(fabs(track_trace_signed_turn(n, 1) - 5.0) < 0.01);     /* right */
+    CHECK(fabs(track_trace_signed_turn(n, 2) + 3.0) < 0.01);     /* left */
+    CHECK(track_trace_signed_turn(n, 0) == 0);
+    const TracePoint line[] = { { 0, 0 }, { 0, 100 }, { 0, 300 } };
+    double pd[3];
+    track_trace_point_distances(line, 3, pd);
+    CHECK(fabs(pd[0]) < 0.001 && fabs(pd[1] - 100) < 0.5 && fabs(pd[2] - 300) < 0.5);   /* along the curve: a straight, so the sums of its spans */
+    CHECK(TRACE_METRES_PER_UNIT == 1.0);
+    char t[16];
+    track_trace_turn_text(5.26, t, sizeof t);
+    CHECK(strcmp(t, "R 5.3\xc2\xb0") == 0);
+    track_trace_turn_text(-3.14, t, sizeof t);
+    CHECK(strcmp(t, "L 3.1\xc2\xb0") == 0);
+    track_trace_turn_text(0.01, t, sizeof t);
+    CHECK(strcmp(t, "-") == 0);
 }
 
 static void test_faults(void)
@@ -372,6 +403,7 @@ int main(void)
     test_drawn_16_is_amber();
     test_problems_and_summary();
     test_zero_distance_turn();
+    test_metres();
     test_faults();
     test_generates_tri();
     test_turn_degrees();

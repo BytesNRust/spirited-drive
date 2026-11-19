@@ -111,7 +111,7 @@ static int check_points(const TracePoint *points, int count, ExchangeError *err)
     for (int i = 0; i < count; ++i) {
         if (!isfinite(points[i].x) || !isfinite(points[i].z)) return exchange_fail(err, "point %d is not a number", i), 0;
         if (fabs(points[i].x) > TRACE_COORD_MAX || fabs(points[i].z) > TRACE_COORD_MAX)
-            return exchange_fail(err, "point %d is more than %g units from the origin", i, TRACE_COORD_MAX), 0;
+            return exchange_fail(err, "point %d is more than %g m from the origin", i, TRACE_METRES(TRACE_COORD_MAX)), 0;
         if (i > 0 && hypot(points[i].x - points[i - 1].x, points[i].z - points[i - 1].z) < TRACE_STEP_MIN)
             return exchange_fail(err, "point %d is on top of point %d", i, i - 1), 0;
     }
@@ -154,10 +154,10 @@ int track_trace_nodes(const TracePoint *points, int count, double width, TrackGe
     const int count_nodes = NODES_PER_SEGMENT * segments + 1;
     int ok = 0;
     if (segments > TRACK_GEN_MAX_SEGMENTS) {
-        exchange_fail(err, "the road is %d segments; the most is %d (about %g units)", segments, TRACK_GEN_MAX_SEGMENTS,
-                      (double)TRACK_GEN_MAX_SEGMENTS * NODES_PER_SEGMENT * NODE_SPACING);
+        exchange_fail(err, "the road is %d segments; the most is %d (about %g m)", segments, TRACK_GEN_MAX_SEGMENTS,
+                      TRACE_METRES((double)TRACK_GEN_MAX_SEGMENTS * NODES_PER_SEGMENT * NODE_SPACING));
     } else if (length / (NODES_PER_SEGMENT * segments) < MIN_SPACING_UNITS) {
-        exchange_fail(err, "the road is too short: %g units for %d nodes", length, count_nodes);
+        exchange_fail(err, "the road is too short: %g m for %d nodes", TRACE_METRES(length), count_nodes);
     } else {
         TrackGenNode *out = malloc(sizeof *out * (size_t)count_nodes);
         if (out == NULL) {
@@ -251,7 +251,7 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap)
     const int radius_red = (p->flags & TRACE_FLAG_RADIUS) != 0, radius = radius_red || (p->flags & TRACE_FLAG_RADIUS_WARN);
     char turns[64] = "", radii[64] = "";
     if (turn) snprintf(turns, sizeof turns, "turns %.1f" DEGREE " (more than %g" DEGREE ")", p->turn, turn_red ? TRACE_TURN_MAX_DEGREES : TRACE_TURN_WARN_DEGREES);
-    if (radius) snprintf(radii, sizeof radii, "radius %.0f units (under %g units)", p->radius, radius_red ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN);
+    if (radius) snprintf(radii, sizeof radii, "radius %.0f m (under %g m)", TRACE_METRES(p->radius), TRACE_METRES(radius_red ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN));
     snprintf(out, cap, "node %d: %s%s%s, %s", p->node, turns, turn && radius ? " and " : "", radii,
              p->red ? "can't be built" : "may not look right");
 }
@@ -275,8 +275,48 @@ int track_trace_summary(const uint8_t *flags, int count, TraceSummaryLine lines[
         if (RULES[r].turn)
             snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s turn%s more than %g" DEGREE " per node: %s", nodes, plural, nodes == 1 ? "s" : "", limit, verdict);
         else
-            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s %s on a curve of radius under %g units: %s", nodes, plural, nodes == 1 ? "is" : "are", limit, verdict);
+            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s %s on a curve of radius under %g m: %s", nodes, plural, nodes == 1 ? "is" : "are", TRACE_METRES(limit), verdict);
         ++used;
     }
     return used;
+}
+
+void track_trace_distances(const TrackGenNode *nodes, int count, double *metres)
+{
+    double at = 0;
+    for (int i = 0; i < count; ++i) {
+        at += i > 0 ? track_trace_step(nodes, i) : 0;
+        metres[i] = at;
+    }
+}
+
+double track_trace_signed_turn(const TrackGenNode *nodes, int i)
+{
+    return i > 0 ? track_trace_turn_degrees(nodes[i - 1].heading, nodes[i].heading) : 0;
+}
+
+double track_trace_step(const TrackGenNode *nodes, int i)
+{
+    if (i <= 0) return 0;
+    const double dx = ((double)nodes[i].position[0] - nodes[i - 1].position[0]) / POSITION_ONE;
+    const double dy = ((double)nodes[i].position[1] - nodes[i - 1].position[1]) / POSITION_ONE;
+    const double dz = ((double)nodes[i].position[2] - nodes[i - 1].position[2]) / POSITION_ONE;
+    return TRACE_METRES(sqrt(dx * dx + dy * dy + dz * dz));
+}
+
+void track_trace_point_distances(const TracePoint *points, int count, double *metres)
+{
+    Curve c;
+    if (points == NULL || count < 2 || !curve_make(points, count, &c)) {
+        for (int i = 0; i < count; ++i) metres[i] = 0;
+        return;
+    }
+    for (int i = 0; i < count; ++i) metres[i] = TRACE_METRES(c.s[i * SAMPLES_PER_SPAN]);
+    curve_free(&c);
+}
+
+void track_trace_turn_text(double degrees, char *out, size_t cap)
+{
+    if (fabs(degrees) < 0.05) snprintf(out, cap, "-");
+    else snprintf(out, cap, "%c %.1f" DEGREE, degrees > 0 ? 'R' : 'L', fabs(degrees));
 }

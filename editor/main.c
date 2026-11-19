@@ -1,7 +1,7 @@
 /* tnfs-track-editor: a top view of a track project's centre line (phase 1a, notes/dep59-track-editor-design.md).
  *
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
- *                     [--frames N] [--save] [--build] [--install] [--shot OUT.png]
+ *                     [--frames N] [--save] [--build] [--install] [--select N] [--shot OUT.png]
  *
  * PROJECT is a folder such as art/tnfs-tracks/<id>/ (created with its project.ini and trace.json when missing). The build uses no CD data:
  * the road is made on the generic template and the stage's art is the FAM named by project.ini's art=. --game and --user are for the
@@ -29,25 +29,27 @@ enum {
 
 typedef struct {
     const char *dir, *game, *user, *shot;
-    int frames, save, build, install;
+    int frames, save, build, install, select;   /* select: a control point to select before the first frame, -1 for none */
 } Options;
 
 static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
-                    "[--install] [--shot OUT.png]\n");
+                    "[--install] [--select N] [--shot OUT.png]\n");
     return 0;
 }
 
 static int parse_args(int argc, char **argv, Options *o)
 {
     memset(o, 0, sizeof *o);
+    o->select = -1;
     for (int i = 1; i < argc; ++i) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--game") == 0 && has_value) o->game = argv[++i];
         else if (strcmp(argv[i], "--user") == 0 && has_value) o->user = argv[++i];
         else if (strcmp(argv[i], "--shot") == 0 && has_value) o->shot = argv[++i];
         else if (strcmp(argv[i], "--frames") == 0 && has_value) o->frames = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--select") == 0 && has_value) o->select = atoi(argv[++i]);
         else if (strcmp(argv[i], "--save") == 0) o->save = 1;
         else if (strcmp(argv[i], "--build") == 0) o->build = 1;
         else if (strcmp(argv[i], "--install") == 0) o->install = 1;
@@ -136,6 +138,7 @@ static int run(App *a, const Options *o)
         SDL_Quit();
         return 1;
     }
+    if (o->select >= 0 && o->select < a->trace.count) a->selected = o->select;   /* for a headless picture of the Node window */
     int ok = run_requested(a, o), frame = 0, quit = 0;
     const int headless = o->frames > 0;
     while (!quit) {
