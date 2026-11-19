@@ -13,6 +13,7 @@
 #include "game/frontend/cg_setup.h"
 #include "game/race/car_paint.h"
 #include "game/frontend/gallery_label.h"
+#include "game/frontend/setup_name.h"
 #include "game/frontend/gallery_layout.h"
 #include "game/race/car_variant.h"
 #include "game/sys/palette.h"
@@ -261,7 +262,7 @@ static void panel_draw(const Panel *p, int frame)
     const int black = ea_colour(0x000000), cream = ea_colour(CREAM_RGB), yellow = ea_colour(YELLOW_RGB);
     edge(&t, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_X + GL_SETUP_W - 1, GL_SETUP_Y + GL_SETUP_H - 1, cream);
     text_select(TEXT_RED);
-    text_draw_smooth("CAR SETUP", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, 5, 4);   /* the page's baked "Car Showcase" is this size (owner 2026-11-18) */
+    text_draw_smooth("CAR SETUP", GL_SETUP_X + GL_SETUP_LABEL_X, GL_SETUP_Y + 8, GL_SETUP_TITLE_NUM, GL_SETUP_TITLE_DEN);
     int ink_top, ink_bottom;
     text_ink_scaled("H", GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN, &ink_top, &ink_bottom);
     for (int row = 0; row < ROWS; row++) {
@@ -276,15 +277,16 @@ static void panel_draw(const Panel *p, int frame)
             text_draw_smooth(value, right - text_width_scaled(value, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN), y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
             continue;
         }
-        const int box = zone + GL_ARROW_W + 6;   /* < box   name   >: the box inside the left arrow, the name centred between the arrows */
-        arrow(&t, zone, mid - GL_ARROW_H / 2, 1, lit ? yellow : cream, black);
-        arrow(&t, right - GL_ARROW_W, mid - GL_ARROW_H / 2, 0, lit ? yellow : cream, black);
+        SetupChoice c;
+        gallery_setup_choice(&c);   /* < box   name   >: the box next to the left arrow, the name centred between it and the right arrow (owner 2026-11-19) */
+        const int box = c.preview;
+        arrow(&t, c.left, mid - GL_ARROW_H / 2, 1, lit ? yellow : cream, black);
+        arrow(&t, c.right, mid - GL_ARROW_H / 2, 0, lit ? yellow : cream, black);
         fill(&t, box, mid - GL_SETUP_PREVIEW_H / 2, box + GL_SETUP_PREVIEW_W - 1, mid - GL_SETUP_PREVIEW_H / 2 + GL_SETUP_PREVIEW_H - 1, black);
         const CarVariantCanvas canvas = { &t, preview_fill, box + 1, mid - GL_SETUP_PREVIEW_H / 2 + 1, box + GL_SETUP_PREVIEW_W - 2,
                                           mid - GL_SETUP_PREVIEW_H / 2 + GL_SETUP_PREVIEW_H - 2 };
         car_variant_draw(showcase_variants, showcase_variant_count, p->model, &canvas);
-        const int span0 = zone + GL_ARROW_W, span = GL_SETUP_VALUE_W - 2 * GL_ARROW_W;   /* between the arrows: the name's centre */
-        text_draw_smooth(value, span0 + (span - text_width_scaled(value, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN)) / 2, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+        setup_name_draw(value, c.name_x0, c.name_x1, mid);
     }
 }
 
@@ -302,11 +304,10 @@ static void present(void)
 static int panel_hit(int x, int y, int *step)
 {
     *step = 0;
-    if (x < GL_SETUP_X || x >= GL_SETUP_X + GL_SETUP_W || y < GL_SETUP_Y + GL_SETUP_ROW0 - GL_SETUP_STEP / 2) return -1;
-    const int row = (y - GL_SETUP_Y - GL_SETUP_ROW0 + GL_SETUP_STEP / 2) / GL_SETUP_STEP;
+    if (x < GL_SETUP_X || x >= GL_SETUP_X + GL_SETUP_W) return -1;
+    const int row = gallery_setup_row_at(y);
     if (row < 0 || row >= ROWS) return -1;
-    if (row != ROW_COLOUR) *step = 1;
-    else if (x >= GL_SETUP_X + GL_SETUP_VALUE_X - 16) *step = x < GL_SETUP_X + GL_SETUP_VALUE_X + GL_SETUP_VALUE_W / 2 ? -1 : 1;
+    *step = row != ROW_COLOUR ? 1 : gallery_setup_choice_step(x);
     return row;
 }
 

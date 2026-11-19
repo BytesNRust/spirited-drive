@@ -18,8 +18,25 @@ static CarPieceCard card(int skins, int paints, int own_masked)
     return c;
 }
 
+/* owner 2026-11-19: History's last line is only the version and the author */
+static void check_history_foot(void)
+{
+    char out[64];
+    added_gallery_history_foot("Edgar", "0.3", out, sizeof out);
+    CHECK(strcmp(out, "v0.3 - by Edgar") == 0);
+    added_gallery_history_foot("", "1.0", out, sizeof out);
+    CHECK(strcmp(out, "v1.0") == 0);
+    added_gallery_history_foot("Edgar", "", out, sizeof out);
+    CHECK(strcmp(out, "by Edgar") == 0);
+    added_gallery_history_foot("", "", out, sizeof out);
+    CHECK(strcmp(out, "") == 0);
+    added_gallery_history_foot("A very long author name indeed", "10.2.3", out, 12);   /* cut to the buffer, still a string */
+    CHECK_EQ_INT((int)strlen(out), 11);
+}
+
 int main(void)
 {
+    check_history_foot();
     CarPieceCard c = card(3, 3, 1);
     GalleryState s = { GALLERY_SETUP, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     CHECK_EQ_INT(added_gallery_colour_on(&c, &s), 1);

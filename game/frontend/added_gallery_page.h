@@ -7,6 +7,7 @@
 #include "game/frontend/added_gallery.h"
 #include "game/frontend/boot_screen.h"
 #include "game/frontend/gallery_layout.h"
+#include "game/frontend/mech_figures.h"
 #include "game/frontend/text_wrap.h"
 
 #include <stdint.h>
@@ -47,9 +48,10 @@ typedef struct {
     int moving;                      /* the panel is opening or closing: frame `frame` of SETUP_FRAMES is drawn */
     int frame;
     int panel_fill;                  /* the SETUP panel's fill: the still part's nearest entry to a dark sepia */
-    char head[200];                  /* "Name (year) - by Author - vX", in the small face's codes */
+    char foot[200];                  /* "vX - by Author", in the small face's codes: the History text's last line */
     char body[MOD_INI_DESCRIPTION_MAX + 1];   /* the description, in the small face's codes */
     HistoryLine lines[HISTORY_LINES];
+    MechFigures mech;                /* Mechanical's power, weight and ratio in the player's units (mech_figures.h) */
     int line_count;
 } Page;
 
@@ -63,7 +65,7 @@ void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th);
 void added_gallery_draw_title(const Page *p);
 /* the name alone, big and leant (the RECORDS screen's own heading goes where "Car Showcase" is) */
 void added_gallery_draw_name(const Page *p);
-/* the description's lines made for the tile (the head, then the text), and how many the tile shows */
+/* the description's lines made for the tile (the text, a blank line and the foot "vX - by Author"; no heading) */
 void added_gallery_history_make(Page *p);
 /* the History text's line height and the window's height in pixel rows (the glue's lines op: the scroll is in pixel rows) */
 int added_gallery_history_line_px(void);

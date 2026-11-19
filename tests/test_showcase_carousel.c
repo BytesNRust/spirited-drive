@@ -112,8 +112,46 @@ static void test_entry_keeps_the_step(void)
     CHECK(px == 376 && py == 265);
 }
 
+/* owner 2026-11-19: the Video tile's second face on the CD's pages: its right arrow is there from the first time the tile is lit (not only after the
+ * peek), and the peek, the slide that shows RECORDS once a page, starts about 0.7 s (70 ticks) after the page opens, not 2 s */
+static int total_ticks, first_lit_arrows, peek_at_ticks;
+
+static int32_t ticking(void *ctx)
+{
+    (void)ctx;
+    total_ticks += 10;
+    return 10;
+}
+
+static void plus_draw(void *ctx, int car, int lit, const uint8_t *palette) { (void)ctx, (void)car, (void)lit, (void)palette; }
+static void plus_open(void *ctx, int car, const uint8_t *palette) { (void)ctx, (void)car, (void)palette; }
+static void plus_tile(void *ctx, int car, int lit, int shift, int arrows, const uint8_t *palette)
+{
+    (void)ctx, (void)car, (void)palette;
+    if (lit && first_lit_arrows < 0) first_lit_arrows = arrows;
+    if (shift != 0 && peek_at_ticks < 0) peek_at_ticks = total_ticks;
+}
+
+static void test_the_video_tile_has_its_arrow_from_the_start_and_peeks_soon(void)
+{
+    static const uint16_t NONE_AT_ALL[] = { 0, 0 };
+    static int16_t car = 6, race = 1, track = 0, offered = 1, active = 0, buttons = 0;
+    static const int32_t screen = 0;
+    static const ShowcasePlus plus = { plus_draw, plus_open, plus_tile, plus_open, NULL };
+    ShowcaseOps ops = OPS;
+    ops.ticks = ticking;
+    int16_t step = 0;
+    ShowcaseState st = { &car, &race, &track, &offered, "", &active, &buttons, &screen, &plus, &step };
+    total_ticks = 0, first_lit_arrows = -1, peek_at_ticks = -1, deadline_asks = 0, keys_in = NONE_AT_ALL, key_at = 0;
+    px = -1, py = -1;
+    showcase(&st, &ops);
+    CHECK_EQ_INT(first_lit_arrows, 2);                   /* a right arrow, before any peek */
+    CHECK(peek_at_ticks >= 70 && peek_at_ticks <= 100);   /* the peek began at 70 ticks (seen on the first frame after it) */
+}
+
 int main(void)
 {
+    test_the_video_tile_has_its_arrow_from_the_start_and_peeks_soon();
     test_entry_keeps_the_step();
     test_the_music_is_the_carousels();
     return TEST_REPORT();

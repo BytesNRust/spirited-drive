@@ -386,7 +386,7 @@ static void run_flip(void *ctx, const GalleryState *s)
 static void run_fade_in(void *ctx)
 {
     const Page *p = ctx;
-    video_fade_in(0, 256, p->palette);
+    video_fade_in_serviced(0, 256, p->palette, menu_audio_music_service);   /* owner 2026-11-19: the showcase's music is fed through the fade, not only after it */
 }
 static void run_fade_out(void *ctx) { (void)ctx; video_fade_out(0, 256); }
 static int run_key(void *ctx) { (void)ctx; return input_get_key(); }
@@ -445,10 +445,14 @@ static int run_page(Page *p)
 int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t screen[768], int entry)
 {
     (void)ctx;
+    menu_audio_music_service();   /* owner 2026-11-19: the showcase's music has just been started: fed between the page's steps, not only in the loop at the end, so it sounds as on the CD's pages */
     if (!text_small_init()) port_log("added gallery: the small font is not loaded\n");
     row_load();
+    menu_audio_music_service();
     tile_load();
+    menu_audio_music_service();
     flag_load();
+    menu_audio_music_service();
     int resume_records = 0;   /* the page comes back on the RECORDS tile after its screen */
     for (;;) {
         Page p;
@@ -465,9 +469,13 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         p.state.photos = photo_total(&p.card, p.warrior);
         cg_setup_get(&p.state.transmission, &p.state.abs, &p.state.traction);   /* Options' settings, for the panel */
         memcpy(p.screen, screen, sizeof p.screen);
+        menu_audio_music_service();
         added_gallery_history_make(&p);
+        mech_figures_make(p.card.info.power, p.card.info.weight, resource_kmh(), &p.mech);   /* the player's units: km/h kg, mph lb */
         added_gallery_tints_make(&p);   /* before the still part: the tint is its background's */
+        menu_audio_music_service();
         page_still(&p);
+        menu_audio_music_service();
         port_log("mark:screen=added_gallery\n");   /* port: the headless walk waits for it */
         const int result = run_page(&p);
         if (!p.warrior) look_keep(&p);   /* the Warrior's look is fixed: nothing kept */
