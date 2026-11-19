@@ -84,6 +84,9 @@ int added_gallery_run(const CarPieceCard *c, GalleryState *s, const GalleryRunOp
             if (was.scroll != s->scroll) added_gallery_scroll_touch(&scroll, o->now(o->ctx));   /* by hand: the clock starts over */
             if (was.setup != s->setup) o->shutter(o->ctx, s, s->setup);
             if (was.transmission != s->transmission || was.abs != s->abs || was.traction != s->traction) o->apply(o->ctx, s);
+            if (was.setup && s->setup && (was.paint != s->paint || was.skin != s->skin || was.transmission != s->transmission || was.abs != s->abs ||
+                                          was.traction != s->traction))
+                o->chosen(o->ctx);   /* a value of the open panel changed: Options' click, as its rows give when chosen */
         }
         changed |= description(o, s, &scroll, x, y);
         if (s->item != lit && !s->setup) o->moved(o->ctx);   /* as the CD's page sounds a tile lit */

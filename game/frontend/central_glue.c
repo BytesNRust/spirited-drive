@@ -866,6 +866,18 @@ void cg_setup_get(int *transmission, int *abs, int *traction)
     *transmission = cg_opt[OPT_TRANSMISSION], *abs = cg_opt[OPT_ABS], *traction = cg_opt[OPT_TRACTION];
 }
 
+/* port (owner 2026-11-19): the same for the car whose page is shown, not the one the player had chosen when the page opened: ABS and traction control
+ * are "not offered" (2) or take a value by that car's own tables (race_settings_car_offers), as Options reads them for the car it is on; a car that
+ * offers one the player's own does not starts it at Options' default (ABS on, traction control off) */
+void cg_setup_get_for(int car, int *transmission, int *abs, int *traction)
+{
+    int offers_abs, offers_traction;
+    cg_setup_get(transmission, abs, traction);
+    race_settings_car_offers(car, &offers_abs, &offers_traction);
+    *abs = !offers_abs ? 2 : *abs == 2 ? 0 : *abs;
+    *traction = !offers_traction ? 2 : *traction == 2 ? 1 : *traction;
+}
+
 void cg_setup_put(int transmission, int abs, int traction)
 {
     ConfigDat *const config = config_current();
@@ -873,8 +885,8 @@ void cg_setup_put(int transmission, int abs, int traction)
     config_dat_set_race(config, &before);
     cg_opt_out();
     cg_opt[OPT_TRANSMISSION] = (int16_t)transmission, cg_opt[OPT_AUTOMATIC] = transmission == 0;
-    if (cg_opt[OPT_ABS] != 2) cg_opt[OPT_ABS] = (int16_t)abs;
-    if (cg_opt[OPT_TRACTION] != 2) cg_opt[OPT_TRACTION] = (int16_t)traction;
+    if (abs != 2) cg_opt[OPT_ABS] = (int16_t)abs;   /* a value the shown car takes, whatever the player's own car offers */
+    if (traction != 2) cg_opt[OPT_TRACTION] = (int16_t)traction;
     cg_opt_in();
     RaceSettings after = before;
     if (config_dat_get_race(config, &after)) cg_settings_put(&after);   /* as Options does on leaving: the car flags come back to the globals */

@@ -3,6 +3,7 @@
  * name of the CD's cars, then the right arrow. The panel's width is their sum and it is centred with air at the sides. The geometry needs no data; the
  * widths (label column, name span, every colour name fitting at the row's own size) need the CD's font and are skipped without original/. */
 #include "game/frontend/added_gallery_page.h"
+#include "game/frontend/gallery_label.h"
 #include "game/frontend/gallery_layout.h"
 #include "game/race/car_paint.h"
 #include "game/sys/resource.h"
@@ -80,6 +81,17 @@ static void measured(void)
             CHECK(w <= GL_SETUP_NAME_W);   /* every name of the CD's cars fits, at the row's size, between the box and the arrow */
         }
     CHECK(GL_SETUP_NAME_W - widest >= 0 && GL_SETUP_NAME_W - widest <= 8);   /* the span is the widest name's with a little air, not more */
+    /* a tile's label (owner 2026-11-19): black letters and no yellow when it is not the item; yellow letters, no shadow and no black when it is */
+    {
+        static uint8_t tile[160 * 64];
+        for (int lit = 0; lit < 2; lit++) {
+            memset(tile, 7, sizeof tile);
+            gallery_label_tile(tile, 160, 64, "SETUP", 0, 0, 64, 1, 2, lit);
+            int black = 0, yellow = 0;
+            for (size_t i = 0; i < sizeof tile; i++) black += tile[i] == 1, yellow += tile[i] == 2;
+            CHECK(lit ? (yellow > 100 && black == 0) : (black > 100 && yellow == 0));
+        }
+    }
     /* General's and Mechanical's values (owner 2026-11-19): one that fits is whole, a long one is cut with "...", none is a dash */
     char fit[64];
     const int room = 80;

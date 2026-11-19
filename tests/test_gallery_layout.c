@@ -80,14 +80,14 @@ static void test_compose(void)
     CHECK(mixed(GL_COL_X + GL_COL_W - 1, GL_COL_Y + GL_COL_H - 1, GL_SKIN_RGB, 255));
     CHECK(mixed(GL_COL_X - GL_FRAME, GL_COL_Y + 20, 0, 255));
     /* Mechanical's place (the CD's 82,326 254x87): General's translucent panel in its frame; the rest is the background as it is */
-    CHECK(GL_MECH_X == 82 && GL_MECH_Y == 326 && GL_MECH_W == 254 && GL_MECH_H == 87);
+    CHECK(GL_MECH_X == 84 && GL_MECH_Y == 328 && GL_MECH_W == 250 && GL_MECH_H == 83);
     CHECK(mixed(GL_MECH_X + 40, GL_MECH_Y + 20, GL_PANEL_RGB, GL_FIGURES_ALPHA));
     check_tile(GL_MECH_X, GL_MECH_Y, GL_MECH_W, GL_MECH_H, 0);
     CHECK(mixed(30, 360, 0, 0));
     CHECK(mixed(630, 470, 0, 0));
     /* the CD's rectangles */
-    CHECK(GL_PERF_X == 306 && GL_PERF_Y == 77 && GL_PERF_W == 225 && GL_PERF_H == 127);
-    CHECK(GL_GEN_X == 133 && GL_GEN_Y == 173 && GL_VID_X == 306 && GL_VID_Y == 214 && GL_HIST_X == 455 && GL_HIST_Y == 245);
+    CHECK(GL_PERF_X == 308 && GL_PERF_Y == 79 && GL_PERF_W == 221 && GL_PERF_H == 123);
+    CHECK(GL_GEN_X == 135 && GL_GEN_Y == 167 && GL_VID_X == 308 && GL_VID_Y == 210 && GL_HIST_X == 451 && GL_HIST_Y == 247);
 }
 
 static void test_quantise(void)

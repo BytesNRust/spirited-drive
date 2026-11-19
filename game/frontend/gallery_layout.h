@@ -19,14 +19,14 @@ enum {
     GL_BAND_W = 285, GL_BAND_H = 56, GL_BAND_FROM_X = 300, GL_BLUR_R = 6,   /* the strip over the title line is blurred by a box of 2 * GL_BLUR_R + 1 */
     /* FRAME px of black outside every tile; SHADOW px down and right, the depth of every shadow on the page */
     GL_FRAME = 2, GL_SHADOW = 6,
-    /* the tiles (the CD pages' rectangles, the picture inside the frame): Performance's big photo, General's figures, Video's small photo,
+    /* the tiles (the CD pages' rectangles minus their two-pixel frame, measured on the pixels of the CD's page: the frame plus this picture is the CD tile's rectangle): Performance's big photo, General's figures, Video's small photo,
      * History's text, and the place of Color (the CD's Color tile) */
-    GL_PERF_X = 306, GL_PERF_Y = 77, GL_PERF_W = 225, GL_PERF_H = 127,
-    GL_GEN_X = 133, GL_GEN_Y = 173, GL_GEN_W = 163, GL_GEN_H = 109,
-    GL_MECH_X = 82, GL_MECH_Y = 326, GL_MECH_W = 254, GL_MECH_H = 87,   /* Mechanical's (owner 2026-11-19: power, weight and their ratio over General's panel); the CD's page has its picture there */
-    GL_VID_X = 306, GL_VID_Y = 214, GL_VID_W = 139, GL_VID_H = 108,
-    GL_HIST_X = 455, GL_HIST_Y = 245, GL_HIST_W = 161, GL_HIST_H = 122,
-    GL_COL_X = 57, GL_COL_Y = 100, GL_COL_W = 154, GL_COL_H = 63,
+    GL_PERF_X = 308, GL_PERF_Y = 79, GL_PERF_W = 221, GL_PERF_H = 123,
+    GL_GEN_X = 135, GL_GEN_Y = 167, GL_GEN_W = 165, GL_GEN_H = 113,
+    GL_MECH_X = 84, GL_MECH_Y = 328, GL_MECH_W = 250, GL_MECH_H = 83,   /* Mechanical's (owner 2026-11-19: power, weight and their ratio over General's panel); the CD's page has its picture there */
+    GL_VID_X = 308, GL_VID_Y = 210, GL_VID_W = 135, GL_VID_H = 110,
+    GL_HIST_X = 451, GL_HIST_Y = 247, GL_HIST_W = 163, GL_HIST_H = 118,
+    GL_COL_X = 59, GL_COL_Y = 102, GL_COL_W = 151, GL_COL_H = 60,
     GL_ARROW_W = 9, GL_ARROW_H = 14, GL_ARROW_IN = 8,
     /* the SETUP panel when it is open (a modal over the page's middle): two columns (owner 2026-11-19), the labels in the first, as wide as the widest
      * label, and in the second, after GL_SETUP_COL_GAP of air, the selectors and the values: a Color or Skin row is its left arrow, the preview box

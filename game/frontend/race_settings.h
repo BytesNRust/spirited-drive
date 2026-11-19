@@ -75,6 +75,9 @@ void unlocks_raise(Unlocks *u, int level);
  * tables; player_car must be 0..11 (the original reads its own stack past
  * them). */
 void race_settings_car_flags(RaceSettings *s);
+/* port (owner 2026-11-19): what the menus offer `car` (as race_settings_car_flags reads them for the player's car): `abs` and `traction` 1 when its
+ * Options row takes a value, 0 when it is "n/a" (an original by its tables, an added car CAR_FLAGS_ADDED_A / _B, anything else car 0's) */
+void race_settings_car_offers(int car, int *abs, int *traction);
 
 /* 00432974: applies the race type. Lost Vegas (u->lost_vegas) becomes
  * 1 or 0 from f->unknown_4baf1c or the level outside a tournament; in one it is

@@ -412,6 +412,7 @@ static int run_lines(void *ctx, int *visible)
 /* one car's page until it is left or another is asked for: GALLERY_LEAVE, GALLERY_GO_PREVIOUS or GALLERY_GO_NEXT */
 /* the showcase's sound for a tile lit (showcase.c's MOVED) */
 static void run_moved(void *ctx) { (void)ctx; menu_audio_sound(0x47); }
+static void run_chosen(void *ctx) { (void)ctx; menu_audio_sound(0x48); }   /* Options' click: the sound of a row chosen */
 
 /* the panel's shutter: opn1 .. opn7 (closing: backwards), the sound at the start; the page drawn each frame, the open one by the run loop */
 static void run_shutter(void *ctx, const GalleryState *s, int opening)
@@ -453,7 +454,7 @@ static void records_screen(Page *p)
 static int run_page(Page *p)
 {
     const GalleryRunOps ops = { run_clear, run_black, run_draw, run_palette, run_flip, run_fade_in, run_fade_out,
-                                run_key, run_buttons, run_pointer, run_click, run_music, run_wait, run_wheel, run_now, run_lines, run_apply, run_shutter, run_moved, p };
+                                run_key, run_buttons, run_pointer, run_click, run_music, run_wait, run_wheel, run_now, run_lines, run_apply, run_shutter, run_moved, run_chosen, p };
     return added_gallery_run(&p->card, &p->state, &ops);
 }
 
@@ -482,7 +483,7 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         car_list_build(&l, edition_active(&e) == 1 ? &e : NULL, warrior);
         p.car = *car;
         p.state.photos = photo_total(&p.card, p.warrior);
-        cg_setup_get(&p.state.transmission, &p.state.abs, &p.state.traction);   /* Options' settings, for the panel */
+        cg_setup_get_for(*car, &p.state.transmission, &p.state.abs, &p.state.traction);   /* Options' settings, for the panel, as this car's page offers them */
         memcpy(p.screen, screen, sizeof p.screen);
         menu_audio_music_service();
         added_gallery_history_make(&p);
