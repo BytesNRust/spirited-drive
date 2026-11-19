@@ -154,6 +154,23 @@ void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int
     own_panel_text(ctx, style_id, text, x, y);
 }
 
+/* the same at num/den of the size: the cover as big as the words are, the styles of the background that is showing */
+void own_plus_text_scaled(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    enum { MARGIN = 2, SHADOW_ROOM = 6 };
+    (void)ctx;
+    if (own_shape != NULL) {
+        const int w = text_width_scaled(text, num, den) + MARGIN + SHADOW_ROOM;
+        const int h = text_line_height() * num / den + MARGIN + SHADOW_ROOM;
+        uint8_t *const cover = malloc(CONFIG_BGND_SHAPE_HEADER + (size_t)w * h);
+        if (cover != NULL && config_bgnd_shape(own_pixels, x - MARGIN, y - MARGIN, w, h, cover) != 0) ea_blit_own(cover);
+        free(cover);
+    }
+    text_build_styles_from(own_palette);
+    text_select((TextStyle)style_id);
+    text_draw_smooth(text, x, y, num, den);
+}
+
 /* port: a small note over the Graphics-style background: own_plus_text's cover, at 3/5 of the size */
 void cg_own_note_text(void *ctx, const char *text, int32_t x, int32_t y)
 {

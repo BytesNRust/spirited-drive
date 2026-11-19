@@ -263,7 +263,8 @@ static void turn(Page *p, int page, int row, const ExtrasMenuOps *o)
 static PageNavOps nav_ops(const ExtrasMenuOps *o)
 {
     const PageNavOps n = { o->ctx, o->plus_text_smooth != NULL ? o->plus_text_smooth : o->plus_text,
-                           o->plus_text_width, o->pointer_in_rect, o->plus_arrow_size, o->plus_arrow };
+                           o->plus_text_width, o->pointer_in_rect, o->plus_arrow_size, o->plus_arrow, o->plus_nav_text,
+                           o->plus_text_smooth != NULL };
     return n;
 }
 

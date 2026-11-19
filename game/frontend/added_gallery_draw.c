@@ -4,6 +4,7 @@
 
 #include "game/frontend/added_card.h"
 #include "game/frontend/gallery_label.h"
+#include "game/sys/palette.h"
 #include "game/sys/text.h"
 
 #include <stdio.h>
@@ -13,6 +14,7 @@
 typedef struct {
     uint8_t *to;
     int w, h;
+    const uint8_t *palette;   /* the page's: the labels' edges are mixed in it */
 } Target;
 
 /* x0..x1, y0..y1 (ends included) in entry `index` */
@@ -74,7 +76,15 @@ void added_gallery_draw_title(const Page *p)
 /* a tile's label at its foot, as the CD pages have it (owner 2026-11-18): black, nothing white about it; yellow-shadowed when the tile is the item */
 static void label(const Target *t, const char *text, int x, int y, int h, int lit)
 {
-    gallery_label_tile(t->to, t->w, t->h, text, x, y, h, BLACK, YELLOW, lit);   /* the CD's own margins and lit colour, measured (gallery_label.h) */
+    /* the letters' soft edges are mixed in the palette's entries, never in the SETUP panel's two previews: their colours change with the choice (Color,
+     * Skin), and an edge that took one would differ between two draws of the same page */
+    uint8_t keep[PALETTE_COLORS], mixing[PALETTE_COLORS];
+    memcpy(keep, palette_usable(), sizeof keep);
+    memcpy(mixing, keep, sizeof mixing);
+    mixing[SWATCH] = mixing[SKIN_SWATCH] = 0;
+    palette_usable_set(mixing);
+    gallery_label_tile(t->to, t->w, t->h, t->palette, text, x, y, h, BLACK, YELLOW, lit);   /* the CD's own margins and lit colour, measured (gallery_label.h) */
+    palette_usable_set(keep);
 }
 
 /* `text` cut (with a "." at its end) until the main face at the panel's size shows it in `width` pixels */
@@ -252,7 +262,7 @@ static void setup_panel(const Target *t, const Page *p)
 
 void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th)
 {
-    const Target t = { to, tw, th };
+    const Target t = { to, tw, th, p->palette };
     const GalleryState *s = &p->state;
     /* the focus: a yellow frame round the tile the item is, over the black one */
     if (s->item == GALLERY_PHOTOS)

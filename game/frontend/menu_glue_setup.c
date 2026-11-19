@@ -126,7 +126,7 @@ static void setup_draw(void *ctx, int car, int lit, const uint8_t *palette)
             if (GL_COL_X + x < t.w && GL_COL_Y + y < t.h) t.to[(GL_COL_Y + y) * t.w + GL_COL_X + x] = setup.tile_ok ? setup.tile[y * GL_COL_W + x] : (uint8_t)ea_colour(DARK_COLOUR);
     for (int k = 0; k < BORDER; k++)   /* the art's two-pixel frame, as RECORDS' and the photos': yellow when lit, black otherwise */
         edge(&t, VARIANT_LEFT + k, VARIANT_TOP + k, VARIANT_RIGHT - k, VARIANT_BOTTOM - k, lit ? yellow : black);
-    gallery_label_tile(t.to, t.w, t.h, "SETUP", GL_COL_X, GL_COL_Y, GL_COL_H, black, yellow, lit);   /* the CD labels' margins (gallery_label.h) */
+    gallery_label_tile(t.to, t.w, t.h, palette, "SETUP", GL_COL_X, GL_COL_Y, GL_COL_H, black, yellow, lit);   /* the CD labels' margins (gallery_label.h) */
     arrow(&t, GL_COL_X + GL_COL_W - 24, GL_COL_Y + (GL_COL_H - GL_ARROW_H) / 2, 0, lit ? yellow : ea_colour(TRIANGLE_COLOUR), black);
 }
 
@@ -136,12 +136,14 @@ static void setup_draw(void *ctx, int car, int lit, const uint8_t *palette)
 static void records_face(const Target *t, int lit)
 {
     const int black = ea_colour(0x000000), yellow = ea_colour(YELLOW_RGB);
+    uint8_t live[768];
+    video_get_palette(live);   /* ea_colour's palette */
     for (int y = 0; y < SHOWCASE_TILE_H; y++)
         for (int x = 0; x < SHOWCASE_TILE_W; x++)
             if (SHOWCASE_TILE_X + x < t->w && SHOWCASE_TILE_Y + y < t->h) t->to[(SHOWCASE_TILE_Y + y) * t->w + SHOWCASE_TILE_X + x] = setup.flag_ok ? setup.flag[y * SHOWCASE_TILE_W + x] : (uint8_t)ea_colour(DARK_COLOUR);
     for (int k = 0; k < 2; k++)   /* the art's two-pixel frame: yellow when lit, black as the others' */
         edge(t, SHOWCASE_TILE_X + k, SHOWCASE_TILE_Y + k, SHOWCASE_TILE_X + SHOWCASE_TILE_W - 1 - k, SHOWCASE_TILE_Y + SHOWCASE_TILE_H - 1 - k, lit ? yellow : ea_colour(0x000000));
-    gallery_label_tile(t->to, t->w, t->h, "RECORDS", SHOWCASE_TILE_X, SHOWCASE_TILE_Y, SHOWCASE_TILE_H, black, yellow, lit);
+    gallery_label_tile(t->to, t->w, t->h, live, "RECORDS", SHOWCASE_TILE_X, SHOWCASE_TILE_Y, SHOWCASE_TILE_H, black, yellow, lit);
 }
 
 /* the tile's rectangle: the video's art as it stands and RECORDS' face side by side, moved `shift` pixels to the left, the arrows over them */

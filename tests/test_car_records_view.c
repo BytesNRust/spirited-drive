@@ -5,6 +5,7 @@
 #include "game/sys/race_records_added.h"
 #include "game/sys/race_records_tracks.h"
 #include "game/sys/text.h"
+#include "game/sys/text_label.h"
 #include "game/sys/video.h"
 #include "test.h"
 
@@ -24,6 +25,11 @@ void text_draw_shadowed(const char *text, int x, int y) { (void)text, (void)x, (
 int text_mask_rows(const char *text, int num, int den) { (void)text, (void)num, (void)den; return 0; }
 int text_mask_scaled(const char *text, int num, int den, uint8_t *mask, int mw, int mh) { (void)text, (void)num, (void)den, (void)mask, (void)mw, (void)mh; return 0; }
 uint8_t *video_target(int *w, int *h) { *w = 0, *h = 0; return NULL; }
+int text_label_draw(uint8_t *to, int tw, int th, const uint8_t palette[768], const char *text, int x, int y, int num, int den, const TextLabelLook *look)
+{
+    (void)to, (void)tw, (void)th, (void)palette, (void)text, (void)x, (void)y, (void)num, (void)den, (void)look;
+    return 0;
+}
 void text_draw_smooth(const char *text, int x, int y, int num, int den) { (void)text, (void)x, (void)y, (void)num, (void)den; }
 void text_ink_scaled(const char *text, int num, int den, int *top, int *bottom) { (void)text, (void)num, (void)den, *top = 0, *bottom = 0; }
 

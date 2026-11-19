@@ -3,6 +3,7 @@
 #ifndef TNFS_GRAPHICS_MENU_H
 #define TNFS_GRAPHICS_MENU_H
 
+#include "game/frontend/page_arrows.h"
 #include "game/sys/port_settings.h"
 
 #include <stdint.h>
@@ -80,6 +81,8 @@ typedef struct GraphicsMenuOps {
      * a style's colours (lit yellow, else cream). Both NULL keeps the indicator's text. */
     int32_t (*plus_arrow_size)(void *ctx, int32_t right, int32_t *w, int32_t *h);
     void (*plus_arrow)(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y);
+    /* port: the page indicator's count at the CD buttons' size (page_arrows.h); all NULL keeps it at 1/1 */
+    PageNavText plus_nav_text;
 } GraphicsMenuOps;
 
 /* port: the settings the port's additions edit, and what they need to know */

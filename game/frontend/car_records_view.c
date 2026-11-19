@@ -4,7 +4,9 @@
 #include "formats/stock_content.h"
 #include "game/frontend/stat_text.h"
 #include "game/frontend/text_wrap.h"
+#include "game/frontend/ui_kit.h"
 #include "game/sys/text.h"
+#include "game/sys/text_label.h"
 #include "game/sys/track_registry.h"
 #include "game/sys/video.h"
 
@@ -17,7 +19,7 @@ enum {
     NOTE_NUM = 1, NOTE_DEN = 2,          /* the note under the table */
     /* three columns, the two figures well to the right (the name's room is what is left) */
     NAME_X = 8, NAME_W = 340, TIME_X = 372, SPEED_X = 528,
-    PAGER_NUM = 6, PAGER_DEN = 5,        /* DONE's letters: the footer's cap height, 12 rows */
+    PAGER_NUM = 11, PAGER_DEN = 12,      /* DONE's letters: the CD's 11 cap rows (the main face's capitals are 12 at 1/1, measured) */
     LUNAR = 10
 };
 
@@ -58,15 +60,17 @@ void car_records_view_step(CarRecordsView *v, int dir)
 
 static void put(const char *text, int x, int y, int num, int den) { text_draw_smooth(text, x, y, num, den); }
 
-/* `text` cut (with a "." at its end) to fit `width` at the main face's size */
+static int measure(void *ctx, const char *text, int num, int den)
+{
+    (void)ctx, (void)num, (void)den;
+    return text_width(text);
+}
+
+/* `text` cut to fit `width` at the main face's size: the kit's CUT rule (ui_fit), "..." at its end like the showcase's names */
 static void fit(const char *text, int width, char *out, int size)
 {
-    snprintf(out, (size_t)size, "%s", text);
-    while (out[0] != 0 && text_width(out) > width) {
-        const size_t n = strlen(out);
-        out[n - 1] = 0;
-        if (n > 1) out[n - 2] = '.';
-    }
+    static const UiSize FULL[] = { { 1, 1 } };
+    if (!ui_fit(text, width, UI_FIT_CUT, FULL, 1, measure, NULL, out, size, NULL)) snprintf(out, (size_t)size, "%s", text);
 }
 
 int car_records_reddish(int r, int g, int b)
@@ -97,21 +101,19 @@ void car_records_limit_tint(uint8_t *rgb, size_t pixels)
     }
 }
 
-void car_records_ink_text(const CarRecordsInk *ink, const char *text, int x, int y, int num, int den, int colour, int shadow_px)
+/* the text blended over the page (text_label.h): its edges are mixes of the letter and what is under it, as the CD's art has them */
+static void ink_label(const CarRecordsInk *ink, const char *text, int x, int y, int num, int den, int colour, int shadow_px, int relief)
 {
-    enum { SOLID = 4 };   /* the coverage (0..15) from which a pixel of the mask is the letter's */
-    const int w = text_width_scaled(text, num, den) + 2, rows = text_mask_rows(text, num, den);
-    uint8_t *mask = rows > 0 ? malloc((size_t)w * rows) : NULL;
     int tw, th;
     uint8_t *const to = video_target(&tw, &th);
-    if (mask != NULL && text_mask_scaled(text, num, den, mask, w, rows) && to != NULL)
-        for (int pass = shadow_px > 0 ? 0 : 1; pass < 2; pass++)
-            for (int j = 0; j < rows; j++)
-                for (int i = 0; i < w; i++) {
-                    const int px = x + i + (pass == 0 ? shadow_px : 0), py = y + j + (pass == 0 ? shadow_px : 0);
-                    if (mask[j * w + i] >= SOLID && px >= 0 && px < tw && py >= 0 && py < th) to[py * tw + px] = (uint8_t)(pass == 0 ? ink->shadow : colour);
-                }
-    free(mask);
+    if (to == NULL || ink->palette == NULL) return;
+    const TextLabelLook look = { colour, relief, shadow_px > 0 ? ink->shadow : -1, shadow_px };
+    text_label_draw(to, tw, th, ink->palette, text, x, y, num, den, &look);
+}
+
+void car_records_ink_text(const CarRecordsInk *ink, const char *text, int x, int y, int num, int den, int colour, int shadow_px)
+{
+    ink_label(ink, text, x, y, num, den, colour, shadow_px, 0);
 }
 
 static void row_draw(const CarRecordsRow *r, int y, int kmh)
@@ -154,5 +156,5 @@ void car_records_view_footer(const CarRecordsView *v, const CarRecordsInk *ink)
     int top, bottom;
     (void)v;
     text_ink_scaled("DONE", PAGER_NUM, PAGER_DEN, &top, &bottom);   /* the capitals' first row on the measured one */
-    car_records_ink_text(ink, "DONE", CAR_RECORDS_DONE_X, CAR_RECORDS_FOOT_CAP - top, PAGER_NUM, PAGER_DEN, ink->yellow, 2);
+    ink_label(ink, "DONE", CAR_RECORDS_DONE_X, CAR_RECORDS_FOOT_CAP - top, PAGER_NUM, PAGER_DEN, ink->yellow, 2, 1);   /* the items' relief */
 }

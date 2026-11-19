@@ -3,6 +3,7 @@
 #ifndef TNFS_CONTROLS_MENU_H
 #define TNFS_CONTROLS_MENU_H
 
+#include "game/frontend/page_arrows.h"
 #include "game/sys/control_map.h"
 
 #include <stdint.h>
@@ -90,6 +91,8 @@ typedef struct ControlsMenuOps {
     void (*plus_subtitle)(void *ctx, const char *text, int32_t x, int32_t y);
     /* port: a row's small note beside its label, at 3/5 of the size, the background put back under it. NULL: no note */
     void (*plus_note)(void *ctx, const char *text, int32_t x, int32_t y);
+    /* port: the page indicator's count at the CD buttons' size (page_arrows.h); all NULL keeps it at 1/1 */
+    PageNavText plus_nav_text;
 } ControlsMenuOps;
 
 /* port: the bindings the added pages edit */

@@ -797,7 +797,9 @@ static void graphics(void *ctx, int32_t mode)
         own_plus_text,
         /* port: whether the display is already dark, so the screen skips a fade of a display Options has already
          * faded out rather than scaling zeros for seventeen vblanks */
-        cg_display_dark, central_page_arrow_size, central_page_arrow };
+        cg_display_dark, central_page_arrow_size, central_page_arrow,
+        /* port: the page indicator's count at the CD buttons' size */
+        { glue_plus_text_scaled, own_plus_text_scaled, glue_plus_text_width_scaled } };
     input_function_keys(&showing);
     input_page_keys(!cg_race);
     /* port: graphics_own.c, the port's own screen, from Options and from the race's pause menu alike */

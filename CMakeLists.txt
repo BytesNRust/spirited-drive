@@ -177,6 +177,7 @@ add_library(tnfs_game STATIC
     game/frontend/title_art.c
     game/frontend/item_art.c
     game/frontend/page_arrows.c
+    game/frontend/ui_kit.c
     game/sys/port_log.c
     game/frontend/controls_plus.c
     game/frontend/records_route.c
@@ -677,6 +678,7 @@ add_executable(tnfs
     game/sys/band_index.c
     game/sys/pointer.c
     game/sys/text.c
+    game/sys/text_label.c
     game/sys/timer.c
     game/sys/video.c
     game/viewer/asset_viewer.c
@@ -876,7 +878,7 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(test_png_inflate PRIVATE tnfs_core)
     target_compile_options(test_png_inflate PRIVATE ${TNFS_WARNINGS})
     add_test(NAME png_inflate COMMAND test_png_inflate ${CMAKE_SOURCE_DIR}/tests/png)
-foreach(name port_old_files car_registry car_lights ai_added car_list content_rows content_nav content_screen content_preview content_backdrop track_list track_pick car_looks picture_palette added_card text_wrap added_gallery gallery_layout mech_figures gallery_photo gallery_setup lunar_art lunar_card lunar_speech edition_name_box car_figures replay_label replay_track car_registry_race car_registry_names car_registry_saves replay_cars band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings port_settings_values port_settings_session screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply race_records race_records_added race_records_tracks records_import records_glue_load records_glue_import records_route track_select_plus extras_menu extras_background extras_layout extras_focus options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own graphics_own_modes graphics_own_light f3_ultra title_art item_art page_arrows port_log speed_units best_times best_times_pages start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip intro_order race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards second_livery car_variant car_paint car_repaint car_mask track_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants track_node_light tunnel_lamp_textures remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty light_synth lamp_emissive drive_lamps headlight_pool street_lamp tunnel_lamps window_lights reflector reflect_pass street_halo halo_track weather_hooks spray_tint wiper finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_nose dash_color lamp_flare shade_fit thunder wet_roll splash rain_bus hush music_kept sound_bank car_bank_shape stream_header shape_bank race_menu_art rain_roll rain_cars wrong_way snow_roll weather_snow snow_fx snow_remap key_latch track_wall chase_slope data_path data_check terrain_light port_profile live_mode_switch unlock_level variant_switches tournament_variants title_press game_mode_profile exe_image exe_tables_menu exe_tables_config exe_tables_load file_url tach_dim wheel_front rain_spray spray_pace track_light_file session_rules race_net_wire port_icon_ours race_net_track track_traits track_registry added_gallery_run showcase_carousel track_guards hud_map_scale added_best_art showcase_tint track_page piece_print replay_prints fam_image fam_spec fam_build car_records car_records_view car_load_assists track_template net_host_no_service)
+foreach(name port_old_files car_registry car_lights ai_added car_list content_rows content_nav content_screen content_preview content_backdrop track_list track_pick car_looks picture_palette added_card text_wrap added_gallery gallery_layout mech_figures gallery_photo gallery_setup lunar_art lunar_card lunar_speech edition_name_box car_figures replay_label replay_track car_registry_race car_registry_names car_registry_saves replay_cars band_textures single_rival palette race_settings config_dat sky_ring quad object_mappers flat palette_match music_reader net_udp net_udp_service net_runtime replay_image tgv_frame win_movie port_settings port_settings_values port_settings_session screen_layout backdrop graphics_plus page_keys controls_plus port_controls control_map port_extras extras_apply race_records race_records_added race_records_tracks records_import records_glue_load records_glue_import records_route track_select_plus extras_menu extras_background extras_layout extras_focus options_extras track_near race_pause_resume_esc race_replay_esc race_replay_resume track_palette_repair race_music_stop mirror_and_rally graphics_polish fam_mirror config_bgnd object3d_mirror object3d_both_sides object3d_close_houses race_keys_free text_soft graphics_own graphics_own_modes graphics_own_light f3_ultra title_art item_art page_arrows ui_kit port_log speed_units best_times best_times_pages start_keys race_forces results_marks standings_cheats lunar_springs lunar_gravity intro_path intro_skip intro_order race_horn_voice replay_launch pad_and_keys joy_pad menu_song dash_box mirror_rows tall_target free_laps free_laps_guards second_livery car_variant car_paint car_repaint car_mask track_mask car_stem car_paint_cfm car_colours car_paint_dash showcase_variants track_node_light tunnel_lamp_textures remap_mode psx_lgs psx_sky psx_sky_bitmap weather track_select_screen car_shine car_envmap object3d_normals sky_stretch car_distance difficulty light_synth lamp_emissive drive_lamps headlight_pool street_lamp tunnel_lamps window_lights reflector reflect_pass street_halo halo_track weather_hooks spray_tint wiper finish_gate_light police_lights analog_pad rally_gravel rally_gravel_volume dash_mask dash_nose dash_color lamp_flare shade_fit thunder wet_roll splash rain_bus hush music_kept sound_bank car_bank_shape stream_header shape_bank race_menu_art rain_roll rain_cars wrong_way snow_roll weather_snow snow_fx snow_remap key_latch track_wall chase_slope data_path data_check terrain_light port_profile live_mode_switch unlock_level variant_switches tournament_variants title_press game_mode_profile exe_image exe_tables_menu exe_tables_config exe_tables_load file_url tach_dim wheel_front rain_spray spray_pace track_light_file session_rules race_net_wire port_icon_ours race_net_track track_traits track_registry added_gallery_run showcase_carousel track_guards hud_map_scale added_best_art showcase_tint track_page piece_print replay_prints fam_image fam_spec fam_build car_records car_records_view car_load_assists track_template net_host_no_service)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_game)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -915,7 +917,6 @@ foreach(name port_old_files car_registry car_lights ai_added car_list content_ro
     target_compile_definitions(test_car_paint_dash PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_title_art PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_item_art PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-    target_compile_definitions(test_page_arrows PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_port_icon_ours PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_sources(test_data_check PRIVATE tests/iso_build.c)   # the synthetic images of the ISO checks
     target_compile_definitions(test_data_check PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -1374,6 +1375,10 @@ if(NOT EMSCRIPTEN)
                      ${CMAKE_SOURCE_DIR}/original ${part})
             set_tests_properties(edition_menus_${part} PROPERTIES TIMEOUT 600)
         endforeach()
+        # the menu UI kit's measures (docs/ui-kit.md), against the CD's: the pager so far; skips (SKIP_RETURN_CODE 77) without Pillow, zsh or magick
+        add_test(NAME ui_kit_check COMMAND sh ${CMAKE_SOURCE_DIR}/tools/ui_kit_check.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
+                 ${CMAKE_SOURCE_DIR}/original)
+        set_tests_properties(ui_kit_check PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
         # dep59 step 5 (T7g): a whole race on an added track from the menus, to its results
         add_test(NAME edition_menus_trackrace COMMAND sh ${CMAKE_SOURCE_DIR}/tests/edition_menus.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}
                  ${CMAKE_SOURCE_DIR}/original trackrace $<TARGET_FILE:tnfs-studio>)
@@ -1460,7 +1465,18 @@ if(NOT EMSCRIPTEN)
     target_compile_options(test_added_card_name PRIVATE ${TNFS_WARNINGS})
     target_compile_definitions(test_added_card_name PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     add_test(NAME added_card_name COMMAND test_added_card_name)
-    add_executable(test_setup_choice tests/test_setup_choice.c game/sys/text.c game/sys/video.c ${TNFS_SDL3_PLATFORM}
+    # the menus' labels: coverage blended over the picture (text_label.c draws through text.c)
+    add_executable(test_text_label tests/test_text_label.c game/sys/text_label.c game/sys/text.c game/sys/video.c ${TNFS_SDL3_PLATFORM}
+                   game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_text_label PRIVATE tnfs_game SDL3::SDL3)
+    target_compile_options(test_text_label PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME text_label COMMAND test_text_label)
+    # no text cut to one bit outside the kit (dep59 point 27); stdlib python only
+    find_package(Python3 COMPONENTS Interpreter)
+    if(Python3_FOUND)
+        add_test(NAME text_binarized_lint COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tools/text_binarized_lint.py ${CMAKE_SOURCE_DIR})
+    endif()
+    add_executable(test_setup_choice tests/test_setup_choice.c game/sys/text.c game/sys/text_label.c game/sys/video.c ${TNFS_SDL3_PLATFORM}
                    game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_setup_choice PRIVATE tnfs_game SDL3::SDL3)
     target_compile_options(test_setup_choice PRIVATE ${TNFS_WARNINGS})

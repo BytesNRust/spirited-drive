@@ -2,16 +2,20 @@
 #include "game/frontend/gallery_label.h"
 
 #include "game/sys/text.h"
+#include "game/sys/text_label.h"
 
 #include <stdlib.h>
 
-enum { COVERED = 6 };   /* the coverage (0..15) from which a mask pixel is solid */
+enum {
+    COVERED = 6,                    /* the coverage (0..15) from which a mask pixel is solid */
+    LABEL_NUM = 11, LABEL_DEN = 12  /* the main face's capitals are 12 rows at 1/1; the CD's tile labels are 9-11 */
+};
 
-void gallery_label_draw(uint8_t *to, int tw, int th, const char *text, int x, int y, int h, int index, int shadow)
+void gallery_label_draw(uint8_t *to, int tw, int th, const uint8_t palette[768], const char *text, int x, int y, int h, int index, int lit_colour)
 {
-    const int w = text_width(text) + 2, rows = text_mask_rows(text, 1, 1);
+    const int w = text_width_scaled(text, LABEL_NUM, LABEL_DEN) + 2, rows = text_mask_rows(text, LABEL_NUM, LABEL_DEN);
     uint8_t *mask = rows > 0 ? malloc((size_t)w * rows) : NULL;
-    if (mask == NULL || !text_mask_scaled(text, 1, 1, mask, w, rows)) {
+    if (mask == NULL || !text_mask_scaled(text, LABEL_NUM, LABEL_DEN, mask, w, rows)) {
         free(mask);
         return;
     }
@@ -23,18 +27,14 @@ void gallery_label_draw(uint8_t *to, int tw, int th, const char *text, int x, in
                 if (j > bottom) bottom = j;
             }
     if (bottom >= 0) {
-        const int px0 = x + GALLERY_LABEL_MARGIN - left, py0 = y + h - 1 - GALLERY_LABEL_MARGIN - bottom;
-        for (int pass = shadow < 0 ? 1 : 0; pass < 2; pass++)
-            for (int j = 0; j < rows; j++)
-                for (int i = 0; i < w; i++) {
-                    const int px = px0 + i + (pass == 0), py = py0 + j + (pass == 0);
-                    if (mask[j * w + i] >= COVERED && px >= 0 && px < tw && py >= 0 && py < th) to[py * tw + px] = (uint8_t)(pass == 0 ? shadow : index);
-                }
+        /* the CD's: unlit, black with soft edges and nothing else; lit, yellow with the items' grain and darker edge */
+        const TextLabelLook look = { lit_colour >= 0 ? lit_colour : index, lit_colour >= 0, -1, 0 };
+        text_label_blit_mask(to, tw, th, palette, mask, w, rows, x + GALLERY_LABEL_MARGIN - left, y + h - 1 - GALLERY_LABEL_MARGIN - bottom, &look);
     }
     free(mask);
 }
 
-void gallery_label_tile(uint8_t *to, int tw, int th, const char *text, int x, int y, int h, int black, int yellow, int lit)
+void gallery_label_tile(uint8_t *to, int tw, int th, const uint8_t palette[768], const char *text, int x, int y, int h, int black, int yellow, int lit)
 {
-    gallery_label_draw(to, tw, th, text, x, y, h, lit ? yellow : black, -1);
+    gallery_label_draw(to, tw, th, palette, text, x, y, h, black, lit ? yellow : -1);
 }

@@ -207,6 +207,7 @@ static ExtrasMenuOps extras_menu_ops(void)
         extras_reset_glue,  /* reset_profile: the Restore row's action */
         open_repo_glue,     /* open_repo: the Star us on GitHub row */
         NULL,               /* edition: glue_extras_screen's */
+        { glue_plus_text_scaled, own_plus_text_scaled, glue_plus_text_width_scaled }, /* plus_nav_text: the page indicator's count at the CD buttons' size */
     };
 }
 

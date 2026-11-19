@@ -132,7 +132,9 @@ void cg_controls(void *ctx, int32_t mode)
         /* port: the pages 2 and 3 over the clean background, with the title and the group headers as CUSTOMIZE's */
         controls_bgnd, glue_own_bgnd_shape, own_plus_text, own_title_text, own_header_text,
         /* port: the keyboard page's capture and key names, and the pages' subtitle */
-        plus_key_down, plus_key_name, cg_own_subtitle_text, cg_own_note_text };
+        plus_key_down, plus_key_name, cg_own_subtitle_text, cg_own_note_text,
+        /* port: the page indicator's count at the CD buttons' size */
+        { glue_plus_text_scaled, own_plus_text_scaled, glue_plus_text_width_scaled } };
     controls_menu(&st, mode, &ops);
     controls_in();
 }

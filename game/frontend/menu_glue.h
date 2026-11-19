@@ -69,6 +69,7 @@ int32_t glue_own_bgnd_shape(void *ctx, const uint8_t pixels[640 * 480], const ui
  * Graphics screen's, and now the EXTRAS screen's. It puts that background back under the letters before writing them,
  * so a word the pointer moved past does not keep its old edges. */
 void own_plus_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
+void own_plus_text_scaled(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y, int32_t num, int32_t den);   /* port: the same at num/den of its size */
 /* the same letters with nothing put back under them, for a screen that repaints its background and panel before every
  * write (EXTRAS): there the clean background is not what is under the words, its dark panel is */
 void own_panel_text(void *ctx, int32_t style_id, const char *text, int32_t x, int32_t y);
