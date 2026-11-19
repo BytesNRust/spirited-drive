@@ -99,6 +99,68 @@ static double side_reach(const uint8_t *row, int side, int upto, double heading)
     return fabs(across);
 }
 
+/* an S: 20 nodes straight, then `half` nodes turning `degrees` right and `half` left (abrupt) or the same turn as a sine over the two halves (smooth,
+ * as the editor's spline gives it, the turn going through zero), then straight again */
+static void s_nodes(TrackGenNode *n, int count, double degrees, int half, int smooth)
+{
+    memset(n, 0, sizeof *n * (size_t)count);
+    int32_t x = 0, z = 0;
+    double heading = 0;
+    for (int i = 0; i < count; ++i) {
+        const int k = i - 20;
+        if (k > 0 && k <= 2 * half) {
+            const double turn = smooth ? degrees * sin(M_PI * k / (double)half) : (k <= half ? degrees : -degrees);
+            heading += turn / 360 * 0x4000;
+        }
+        n[i].heading = heading;
+        n[i].width = WIDTH;
+        n[i].position[0] = x, n[i].position[2] = z;
+        const double h = heading / 0x4000 * 2 * M_PI;
+        x += (int32_t)lround(TRACK_GEN_NODE_LENGTH * sin(h)), z += (int32_t)lround(TRACK_GEN_NODE_LENGTH * cos(h));
+    }
+}
+
+/* S bends: the terrain edge, on either side, does not jump from one row to the next by more than a node's length (TRACK_GEN_NODE_LENGTH, 6.03 units:
+ * the distance the rows themselves are apart; the straight's edge does not move at all) along an S: the curve's entry, the inflection where the inside
+ * changes side, the exit. Before the easing of the caps (terrain_caps) the jump was 26 to 59 units */
+static void check_s_bend_edges(void)
+{
+    uint8_t *tmpl = NULL;
+    size_t tsize = 0;
+    ExchangeError terr = {0};
+    CHECK(track_template_generic(&tmpl, &tsize, &terr));
+    if (tmpl == NULL) return;
+    enum { HALF = 10, COUNT = 20 + 2 * HALF + 20 + 1 };
+    static TrackGenNode n[COUNT];
+    const double limit = TRACK_GEN_NODE_LENGTH / 65536.0 + 0.25;   /* and the rounding of three i16 steps */
+    for (int t = 0; t < 4; ++t) {
+        const double degrees = t % 2 == 0 ? TRACK_GEN_TURN_MAX_DEGREES - 0.5 : 8.0;
+        s_nodes(n, COUNT, degrees, HALF, t / 2);
+        uint8_t *out = NULL;
+        size_t len = 0;
+        ExchangeError err = {0};
+        CHECK(track_generate_nodes_turned(n, COUNT, tmpl, tsize, &out, &len, &err));
+        if (out == NULL) { fprintf(stderr, "%s\n", err.message); break; }
+        Tri tri;
+        TriParts parts;
+        CHECK_EQ_INT(tri_open(&tri, out, len), TRI_OK);
+        CHECK_EQ_INT(tri_parts(&tri, &parts), TRI_OK);
+        double worst = 0;
+        for (int i = 10; i + 2 < COUNT; ++i) {   /* the entry, the inflection and the exit (the closing node has no terrain row) */
+            const uint8_t *a = parts.terrain + (size_t)(i / 4) * TRI_SEGMENT_SIZE + 0x18 + 66 * (i % 4);
+            const uint8_t *b = parts.terrain + (size_t)((i + 1) / 4) * TRI_SEGMENT_SIZE + 0x18 + 66 * ((i + 1) % 4);
+            for (int side = 0; side < 2; ++side)
+                for (int k = 2; k < 5; ++k) {
+                    const double jump = fabs(side_reach(a, side, k, n[i].heading) - side_reach(b, side, k, n[i + 1].heading));
+                    if (jump > worst) worst = jump;
+                }
+        }
+        CHECK(worst <= limit);
+        free(out);
+    }
+    free(tmpl);
+}
+
 static void check_terrain_reach(void)
 {
     uint8_t *tmpl = NULL;
@@ -432,6 +494,7 @@ int main(int argc, char **argv)
     check_errors(tmpl, tsize);
     check_turn_limit(tmpl, tsize);
     check_terrain_reach();
+    check_s_bend_edges();
     check_straight_and_curve(tmpl, tsize);
     check_golden(tmpl, tsize);
     check_layout_nodes();

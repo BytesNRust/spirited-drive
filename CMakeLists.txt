@@ -1941,3 +1941,7 @@ foreach(name mods_overlay track_new track_piece_drive car_new model_build refere
         set_tests_properties(${name} PROPERTIES TIMEOUT ${TNFS_GAME_TEST_TIMEOUT})
     endif()
 endforeach()
+# track_new runs the game 20 times on a built track: 143 s on a loaded Mac, over the two minutes meant for a hang
+if(TEST track_new)
+    set_tests_properties(track_new PROPERTIES TIMEOUT 300)
+endif()
