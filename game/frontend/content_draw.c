@@ -2,6 +2,7 @@
 #include "game/frontend/content_draw.h"
 
 #include "game/frontend/text_wrap.h"
+#include "game/frontend/ui_kit.h"
 #include "game/sys/port_log.h"
 
 #include <stdio.h>
@@ -19,6 +20,17 @@ static const int CARD_X[CONTENT_CARD_BUTTONS] = { CONTENT_CARD_X0, CONTENT_UNINS
 static const int CARD_Y[CONTENT_CARD_BUTTONS] = { CONTENT_CARD_BUTTONS_Y, CONTENT_CARD_BUTTONS_Y, CONTENT_PREVIOUS_Y };
 static const char *const FOOT_WORDS[CONTENT_FOOT_BUTTONS] = { "New", "Duplicate", "Rename", "Delete", "Install...", "Done" };
 static const int FOOT_X[CONTENT_FOOT_BUTTONS - 1] = { 14, 66, 170, 252, 420 };
+/* the selector's name: the main face's size, or smaller when the name is wide (ui_fit shrinks it, and cuts it at the smallest); its note: cut */
+static const UiSize NAME_SIZES[] = { { 1, 1 }, { 5, 6 }, { 3, 4 } };
+static const UiSize NOTE_SIZES[] = { { SMALL_NUM, SMALL_DEN } };
+enum { NAME_SIZE_COUNT = (int)(sizeof NAME_SIZES / sizeof NAME_SIZES[0]), NAME_ROWS = 12 };   /* the capitals' rows at 1/1 */
+
+static int measure(void *ctx, const char *text, int num, int den)
+{
+    const ContentOps *const o = ctx;
+    return o->text_width(o->ctx, text, num, den);
+}
+
 static const char READ_ONLY[] = "Read only. Duplicate to edit.";
 enum { YELLOW_RGB = 0xffce06, UNDERLINE_DY = 4 };
 
@@ -47,13 +59,22 @@ static void top(const ContentOps *o, const ContentPage *p)
     char name[64], plain[64];
     o->title(o->ctx, "Content", CONTENT_TITLE_X, CONTENT_TITLE_Y);
     const int sel = p->nav->at == CONTENT_AT_SELECTOR && !p->quiet;
-    o->arrow(o->ctx, CONTENT_ARROW_LEFT, sel, CONTENT_SELECTOR_ARROW_L, CONTENT_SELECTOR_Y + ARROW_DY);
-    o->arrow(o->ctx, CONTENT_ARROW_RIGHT, sel, CONTENT_SELECTOR_ARROW_R, CONTENT_SELECTOR_Y + ARROW_DY);
-    fit(o, clean(p->edition, plain, sizeof plain), 1, 1, CONTENT_SELECTOR_NAME_W, name, sizeof name);
-    o->text(o->ctx, sel ? CONTENT_YELLOW : CONTENT_CREAM, name, CONTENT_SELECTOR_X - o->text_width(o->ctx, name, 1, 1) / 2, CONTENT_SELECTOR_Y, 1, 1);
-    if (p->view->rows->locked)   /* the standard edition only: an edition of the player's own has no line under its name */
-        o->text(o->ctx, p->flash ? CONTENT_YELLOW : CONTENT_DIM, READ_ONLY, CONTENT_SELECTOR_X - o->text_width(o->ctx, READ_ONLY, SMALL_NUM, SMALL_DEN) / 2,
-                CONTENT_STATUS_Y, SMALL_NUM, SMALL_DEN);
+    UiSize name_size = NAME_SIZES[0], note_size = NOTE_SIZES[0];
+    const int has_name = ui_fit(clean(p->edition, plain, sizeof plain), UI_SELECTOR_TEXT_W, UI_FIT_SHRINK, NAME_SIZES, NAME_SIZE_COUNT, measure, (void *)o, name,
+                                sizeof name, &name_size);
+    char note[64];
+    const int has_note = p->view->rows->locked &&   /* the standard edition only: an edition of the player's own has no line under its name */
+                         ui_fit(READ_ONLY, UI_SELECTOR_TEXT_W, UI_FIT_CUT, NOTE_SIZES, 1, measure, (void *)o, note, sizeof note, &note_size);
+    const int name_w = has_name ? o->text_width(o->ctx, name, name_size.num, name_size.den) : 0;
+    const int note_w = has_note ? o->text_width(o->ctx, note, note_size.num, note_size.den) : 0;
+    const UiSelectorLayout l = ui_selector_layout(CONTENT_SELECTOR_X, name_w > note_w ? name_w : note_w);   /* the arrows outside the widest line */
+    o->arrow(o->ctx, CONTENT_ARROW_LEFT, sel, l.left_x, CONTENT_SELECTOR_Y + ARROW_DY);
+    o->arrow(o->ctx, CONTENT_ARROW_RIGHT, sel, l.right_x, CONTENT_SELECTOR_Y + ARROW_DY);
+    if (has_name)   /* a smaller name sits in the middle of the full size's rows */
+        o->text(o->ctx, sel ? CONTENT_YELLOW : CONTENT_CREAM, name, CONTENT_SELECTOR_X - name_w / 2,
+                CONTENT_SELECTOR_Y + NAME_ROWS * (name_size.den - name_size.num) / (2 * name_size.den), name_size.num, name_size.den);
+    if (has_note)
+        o->text(o->ctx, p->flash ? CONTENT_YELLOW : CONTENT_DIM, note, CONTENT_SELECTOR_X - note_w / 2, CONTENT_STATUS_Y, note_size.num, note_size.den);
     for (int t = 0; t < CONTENT_TABS; t++) {
         const int w = o->text_width(o->ctx, TAB_NAME[t], TAB_NUM, TAB_DEN), x = TAB_CENTRE[t] - w / 2, on = t == p->nav->tab;
         o->text(o->ctx, on ? CONTENT_YELLOW : CONTENT_CREAM, TAB_NAME[t], x, CONTENT_TAB_Y, TAB_NUM, TAB_DEN);

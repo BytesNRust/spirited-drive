@@ -4,6 +4,7 @@
 #include "formats/stock_content.h"
 #include "game/frontend/stat_text.h"
 #include "game/frontend/text_wrap.h"
+#include "game/frontend/ui_kit.h"
 #include "game/sys/text.h"
 #include "game/sys/text_label.h"
 #include "game/sys/track_registry.h"
@@ -59,15 +60,17 @@ void car_records_view_step(CarRecordsView *v, int dir)
 
 static void put(const char *text, int x, int y, int num, int den) { text_draw_smooth(text, x, y, num, den); }
 
-/* `text` cut (with a "." at its end) to fit `width` at the main face's size */
+static int measure(void *ctx, const char *text, int num, int den)
+{
+    (void)ctx, (void)num, (void)den;
+    return text_width(text);
+}
+
+/* `text` cut to fit `width` at the main face's size: the kit's CUT rule (ui_fit), "..." at its end like the showcase's names */
 static void fit(const char *text, int width, char *out, int size)
 {
-    snprintf(out, (size_t)size, "%s", text);
-    while (out[0] != 0 && text_width(out) > width) {
-        const size_t n = strlen(out);
-        out[n - 1] = 0;
-        if (n > 1) out[n - 2] = '.';
-    }
+    static const UiSize FULL[] = { { 1, 1 } };
+    if (!ui_fit(text, width, UI_FIT_CUT, FULL, 1, measure, NULL, out, size, NULL)) snprintf(out, (size_t)size, "%s", text);
 }
 
 int car_records_reddish(int r, int g, int b)

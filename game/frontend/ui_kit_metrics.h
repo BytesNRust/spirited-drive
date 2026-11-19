@@ -16,6 +16,10 @@ enum {
     UI_PAGER_BEARING_LEFT = 2, UI_PAGER_BEARING_RIGHT = 3   /* graver18's own blank columns at each end of a count at that size: the gaps are from the ink, not the advance */
 };
 
+/* E2b, a selector "< name >" (CONTENT's edition): a line of text has a fixed widest width, and the triangles hug the widest line the way the
+ * pager's do, the same 14 and 15 blank columns from the text's edge (the advance, so the ink's gap is never less) */
+enum { UI_SELECTOR_TEXT_W = 230 };   /* the widest line of a selector's block, name or note; wider is cut or shrunk (ui_fit) */
+
 /* The mask a triangle is drawn from: the solid fill, one pixel wider per row, its outline as the CD has it (one pixel on each side, the base's
  * column two rows longer at each end), in the middle of a UI_ARROW_PAD of empty rows and columns, the room of the outline (1) and the shadow (5). */
 enum {

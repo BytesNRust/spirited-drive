@@ -21,9 +21,9 @@
 
 enum {
     CONTENT_TITLE_X = 14, CONTENT_TITLE_Y = 62,
-    /* the selector: the gallery's two arrows at fixed places and the edition's name centred between them; the status line under it */
-    CONTENT_SELECTOR_X = 403, CONTENT_SELECTOR_Y = 70, CONTENT_SELECTOR_LEFT = 280, CONTENT_SELECTOR_ARROW_L = 290, CONTENT_SELECTOR_ARROW_R = 500,
-    CONTENT_SELECTOR_NAME_W = 170, CONTENT_STATUS_Y = 88,
+    /* the selector: the edition's name centred, the kit's two arrows outside its widest line (ui_selector_layout); the status line under it */
+    CONTENT_SELECTOR_X = 403, CONTENT_SELECTOR_Y = 70, CONTENT_SELECTOR_LEFT = 240,
+    CONTENT_STATUS_Y = 88,
     CONTENT_TAB_Y = 102, CONTENT_TAB_RULE_Y = 126,
     CONTENT_LIST_X0 = 14, CONTENT_LIST_X1 = 378, CONTENT_LIST_Y = 130, CONTENT_LINE = 24,
     CONTENT_BOX_X = 16, CONTENT_NAME_X = 52, CONTENT_NAME_RIGHT = 330, CONTENT_ARROWS_X = 336, CONTENT_DOWN_X = 356, CONTENT_GAP_RIGHT = 376,

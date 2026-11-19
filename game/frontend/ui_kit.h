@@ -19,6 +19,24 @@ typedef struct {
 } UiPagerLayout;
 UiPagerLayout ui_pager_layout(int text_w, int right_w);
 
+/* a selector's triangles ("< name >" with a note under the name): for a block centred on `centre` whose widest line is `line_w` wide, each
+ * triangle mask's left column. The ink is UI_PAGER_GAP_LEFT / RIGHT columns from the widest line's edge, as the pager's is from its text. */
+typedef struct {
+    int left_x, right_x;
+} UiSelectorLayout;
+UiSelectorLayout ui_selector_layout(int centre, int line_w);
+
+/* E2c, text that must fit a fixed width. UI_FIT_CUT: the text cut with "..." (the showcase's names and values: added_card_name_fit's rule).
+ * UI_FIT_SHRINK: the first of `sizes` (largest first) it fits at, else the smallest cut. `measure` is a run's width at num/den. 1 with the
+ * text in `out` (`size` bytes) and the size in `used`; 0 when nothing is left to draw (an empty text, or not even "..." fits) */
+typedef struct {
+    int num, den;
+} UiSize;
+typedef enum { UI_FIT_CUT, UI_FIT_SHRINK } UiFitMode;
+typedef int (*UiMeasure)(void *ctx, const char *text, int num, int den);
+int ui_fit(const char *text, int max_w, UiFitMode mode, const UiSize *sizes, int count, UiMeasure measure, void *ctx, char *out, int size,
+           UiSize *used);
+
 /* the pager "< label >" of E4: a triangle on each side that has somewhere to go, the `lit` one yellow (page_nav_lit's answer: 1 the
  * left, 2 the right). Without triangles from the screen, the text "< label >". */
 void ui_pager(const PageNavOps *o, const char *label, int has_left, int has_right, int lit);

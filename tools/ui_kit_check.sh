@@ -16,16 +16,21 @@ work=$(mktemp -d)
 [ -n "${KEEP:-}" ] && echo "pictures in $work" || trap 'rm -r "$work"' EXIT
 fail=0
 # Controls Setup and Customize Game (Extras), their middle pages, in the mode that draws both
+# an edition of the player's own, its name wide, for the selector's gaps (E2b)
+printf 'name=MMMMMMMMMMMM\ncars=rx7,nsx,supra\ntracks=city,coastal\n' > "$work/wide.ini"
+(DATA="$orig" PROFILE=restomod EDITION="$work/wide.ini" zsh "$repo/tools/menu_walk.sh" "$tnfs" "$work/content" content >"$work/content.log" 2>&1 ||
+    { echo "FAIL content: the walk did not reach the screen"; tail -5 "$work/content.log"; touch "$work/content.failed"; }) &
 for target in controls-p2 extras-p2 records; do   # side by side: each walk is a game session of its own
     (DATA="$orig" PROFILE=restomod zsh "$repo/tools/menu_walk.sh" "$tnfs" "$work" "$target" >"$work/$target.log" 2>&1 ||
         { echo "FAIL $target: the walk did not reach the screen"; tail -5 "$work/$target.log"; touch "$work/$target.failed"; }) &
 done
 wait
-for target in controls-p2 extras-p2 records; do [ -f "$work/$target.failed" ] && fail=1; done
+for target in controls-p2 extras-p2 records content; do [ -f "$work/$target.failed" ] && fail=1; done
 for target in controls-p2 extras-p2; do
     [ -f "$work/$target.png" ] || continue
     python3 "$repo/tools/ui_kit_pager_check.py" "$work/$target.png" || fail=1
 done
 # the labels (E2): RECORDS' DONE is the CD's height and its edges are mixed with the page
+[ -f "$work/content/content.png" ] && { python3 "$repo/tools/ui_kit_selector_check.py" "$work/content/content.png" || fail=1; }
 [ -f "$work/records.png" ] && { python3 "$repo/tools/ui_kit_label_check.py" "$work/records.png" || fail=1; }
 exit $fail

@@ -1,10 +1,13 @@
 /* port: see ui_kit.h. */
 #include "game/frontend/ui_kit.h"
 
+#include "game/frontend/added_card.h"
+
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
-enum { CREAM = 0, LABEL_MAX = 32 };
+enum { CREAM = 0, LABEL_MAX = 32, FIT_MAX = 256 };
 
 void ui_arrow_mask(int right, uint8_t mask[UI_ARROW_MASK_W * UI_ARROW_MASK_H])
 {
@@ -39,6 +42,47 @@ UiPagerLayout ui_pager_layout(int text_w, int right_w)
     l.right_x = l.text_x + text_w - UI_PAGER_BEARING_RIGHT + UI_PAGER_GAP_RIGHT - UI_ARROW_PAD;
     l.fits = l.left_x >= PAGE_NAV_X0 + 2 && l.right_x <= PAGE_NAV_X1 - 2 - right_w;
     return l;
+}
+
+UiSelectorLayout ui_selector_layout(int centre, int line_w)
+{
+    UiSelectorLayout l;
+    l.left_x = centre - line_w / 2 - UI_PAGER_GAP_LEFT - UI_ARROW_INK_W - UI_ARROW_PAD;
+    l.right_x = centre - line_w / 2 + line_w + UI_PAGER_GAP_RIGHT - UI_ARROW_PAD;
+    return l;
+}
+
+typedef struct {
+    UiMeasure measure;
+    void *ctx;
+    UiSize size;
+} FitAt;
+
+static int fit_measure(void *ctx, const char *text)
+{
+    const FitAt *const at = ctx;
+    return at->measure(at->ctx, text, at->size.num, at->size.den);
+}
+
+int ui_fit(const char *text, int max_w, UiFitMode mode, const UiSize *sizes, int count, UiMeasure measure, void *ctx, char *out, int size,
+           UiSize *used)
+{
+    if (size <= 0) return 0;
+    out[0] = '\0';
+    if (count <= 0 || text == NULL) return 0;
+    char whole[FIT_MAX];
+    FitAt at = { measure, ctx, sizes[0] };
+    if (!added_card_name_fit(text, INT_MAX, fit_measure, &at, whole, sizeof whole)) return 0;   /* text_words' bytes, trimmed; nothing left: empty */
+    for (int i = 0; i < (mode == UI_FIT_SHRINK ? count : 1); i++) {
+        at.size = sizes[i];
+        if (measure(ctx, whole, at.size.num, at.size.den) <= max_w) {
+            snprintf(out, (size_t)size, "%s", whole);
+            if (used != NULL) *used = at.size;
+            return 1;
+        }
+    }
+    if (used != NULL) *used = at.size;   /* the last size tried: cut there, by the cards' own rule */
+    return added_card_name_fit(whole, max_w, fit_measure, &at, out, size);
 }
 
 /* the count's words at the buttons' size when the screen can draw them so, else at 1/1 through its plain text slots */

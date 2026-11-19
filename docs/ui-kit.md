@@ -78,6 +78,21 @@ elemento). **Estado:** E4 (paginador) hecho: `ui_pager` / `ui_page_count`, `ui_k
 ### E10. Notas pequeñas
 - **Medido**: «only when cheat enabled», «only with 360 camera» (Controls Setup) y «Used in: 1 edition», «Read only…» (CONTENT) van a **3/5 de `graver18`** (`content_draw.c:12`: `SMALL 3/5`; `car_records_view.c`). La cara pequeña propia del CD (`MAIN18`, 13 px, `text_small_*`) sólo la usa la página de pista (`track_page_glue.c:483`). Sin alto medido en captura.
 
+### E11. Texto que debe caber (regla `ui_fit`, hecha 2026-11-19)
+Todo texto del kit tiene un ancho máximo fijo; el texto libre (el nombre de una edición, los nombres de pista) se ajusta con una de dos reglas, ambas en `ui_kit.h`:
+- **CUT**: se corta con «...» (la regla de los nombres y valores de las baldosas del punto 26, `added_card_name_fit`: sin espacio antes de los puntos). No se escribe otra.
+- **SHRINK**: baja a la siguiente talla más pequeña del kit; si aún no cabe en la más pequeña, CUT.
+
+| elemento | modo | ancho máximo / tallas |
+|---|---|---|
+| nombre de la edición en el selector de CONTENT | SHRINK | `UI_SELECTOR_TEXT_W` 230 px; 1/1, 5/6, 3/4 |
+| línea «Read only. Duplicate to edit.» | CUT | 230 px; 3/5 |
+| valores de las baldosas (General, Mechanical) | CUT (ya así) | el hueco de la baldosa |
+| nombres de los coches añadidos en su ficha | CUT (ya así) | el ancho de la ficha |
+| nombres de pista en RECORDS | CUT (`fit` de `car_records_view.c` llama a `ui_fit`: antes cortaba con un solo «.») | `NAME_W` 340 px |
+
+Selector «◀ nombre ▶»: los triángulos van **fuera de la línea más ancha** del bloque (nombre o nota) con los huecos del paginador del CD, **14 px a la izquierda y 15 a la derecha** (tinta a tinta; se miden desde el avance del texto, así que el hueco de tinta nunca es menor); el bloque queda centrado (`ui_selector_layout`). `tools/ui_kit_selector_check.py` lo mide sobre CONTENT con un nombre ancho. El nombre de una edición mide como mucho `EDITION_NAME_MAX` = 12 caracteres (`core/formats/edition_ini.h:21`).
+
 ## 3. Dónde se desvía hoy cada pantalla nuestra
 | pantalla | desviaciones medidas | por código / sin medir |
 |---|---|---|
