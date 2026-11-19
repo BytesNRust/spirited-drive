@@ -114,9 +114,9 @@ void car_panel(App *a)
         muted_wrapped("%s", c.root);
         muted_wrapped("Read only for now: Studio writes nothing to this car.");
         ImGui::Separator();
-        if (ImGui::BeginTable("mod.ini", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
+        if (ImGui::BeginTable("mod.ini", 2, ImGuiTableFlags_RowBg)) {
             ImGui::TableSetupColumn("key", ImGuiTableColumnFlags_WidthFixed, 96);
-            ImGui::TableSetupColumn("value");
+            ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
             field_row("id", m.id);
             field_row("version", m.version);
             field_row("short name", m.short_name);
