@@ -84,11 +84,13 @@ void gallery_compose(const uint8_t *bgnd, const uint8_t *big, const uint8_t *sma
     for (int y = 0; y < GL_BAND_H; y++)   /* the owner's v2: the band's texture mirrored, so it blends in */
         for (int x = 0; x < GL_BAND_W; x++) memcpy(out + 3 * (y * GL_W + x), bgnd + 3 * (y * GL_W + GL_BAND_FROM_X + GL_BAND_W - 1 - x), 3);
     blur_strip(out, 0, GL_BAND_H, GL_BLUR_R, 2);   /* port (owner 2026-11-18): the whole strip over the title line blurred, no relief left */
-    /* the CD pages' order, the first drawn the farthest: Color, General, Performance, Video, History */
+    /* the CD pages' order, the first drawn the farthest: Color, General, Mechanical, Performance, Video, History */
     framed(out, bgnd, GL_COL_X, GL_COL_Y, GL_COL_W, GL_COL_H);
     tint(out, GL_COL_X, GL_COL_Y, GL_COL_X + GL_COL_W - 1, GL_COL_Y + GL_COL_H - 1, GL_SKIN_RGB, 255);
     framed(out, bgnd, GL_GEN_X, GL_GEN_Y, GL_GEN_W, GL_GEN_H);
     panel(out, GL_GEN_X, GL_GEN_Y, GL_GEN_X + GL_GEN_W - 1, GL_GEN_Y + GL_GEN_H - 1, GL_FIGURES_ALPHA, 0);
+    framed(out, bgnd, GL_MECH_X, GL_MECH_Y, GL_MECH_W, GL_MECH_H);
+    panel(out, GL_MECH_X, GL_MECH_Y, GL_MECH_X + GL_MECH_W - 1, GL_MECH_Y + GL_MECH_H - 1, GL_FIGURES_ALPHA, 0);
     framed(out, bgnd, GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H);
     put_photo(out, big, GL_PERF_X, GL_PERF_Y, GL_PERF_W, GL_PERF_H);
     framed(out, bgnd, GL_VID_X, GL_VID_Y, GL_VID_W, GL_VID_H);

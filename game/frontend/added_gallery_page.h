@@ -7,6 +7,7 @@
 #include "game/frontend/added_gallery.h"
 #include "game/frontend/boot_screen.h"
 #include "game/frontend/gallery_layout.h"
+#include "game/frontend/mech_figures.h"
 #include "game/frontend/text_wrap.h"
 
 #include <stdint.h>
@@ -50,6 +51,7 @@ typedef struct {
     char foot[200];                  /* "vX - by Author", in the small face's codes: the History text's last line */
     char body[MOD_INI_DESCRIPTION_MAX + 1];   /* the description, in the small face's codes */
     HistoryLine lines[HISTORY_LINES];
+    MechFigures mech;                /* Mechanical's power, weight and ratio in the player's units (mech_figures.h) */
     int line_count;
 } Page;
 

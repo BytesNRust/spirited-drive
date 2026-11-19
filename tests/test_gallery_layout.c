@@ -79,8 +79,11 @@ static void test_compose(void)
     CHECK(mixed(GL_COL_X + 40, GL_COL_Y + 20, GL_SKIN_RGB, 255));              /* the Color tile: filled */
     CHECK(mixed(GL_COL_X + GL_COL_W - 1, GL_COL_Y + GL_COL_H - 1, GL_SKIN_RGB, 255));
     CHECK(mixed(GL_COL_X - GL_FRAME, GL_COL_Y + 20, 0, 255));
-    /* Mechanical's place (the CD's 82,326 254x87) and the rest are the background as it is */
-    CHECK(mixed(100, 360, 0, 0));
+    /* Mechanical's place (the CD's 82,326 254x87): General's translucent panel in its frame; the rest is the background as it is */
+    CHECK(GL_MECH_X == 82 && GL_MECH_Y == 326 && GL_MECH_W == 254 && GL_MECH_H == 87);
+    CHECK(mixed(GL_MECH_X + 40, GL_MECH_Y + 20, GL_PANEL_RGB, GL_FIGURES_ALPHA));
+    check_tile(GL_MECH_X, GL_MECH_Y, GL_MECH_W, GL_MECH_H, 0);
+    CHECK(mixed(30, 360, 0, 0));
     CHECK(mixed(630, 470, 0, 0));
     /* the CD's rectangles */
     CHECK(GL_PERF_X == 306 && GL_PERF_Y == 77 && GL_PERF_W == 225 && GL_PERF_H == 127);

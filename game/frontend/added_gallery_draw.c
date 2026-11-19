@@ -77,17 +77,6 @@ static void label(const Target *t, const char *text, int x, int y, int h, int li
     gallery_label_draw(t->to, t->w, t->h, text, x, y, h, BLACK, lit ? YELLOW : -1);   /* the CD's own margins, measured (gallery_label.h) */
 }
 
-/* `text` cut (with a "." at its end) until the small face shows it in `width` pixels */
-static void fitted(const char *text, int width, char *out, int size)
-{
-    snprintf(out, (size_t)size, "%s", text);
-    while (out[0] != 0 && text_small_width(out) > width) {
-        const size_t n = strlen(out);
-        out[n - 1] = 0;
-        if (n > 1) out[n - 2] = '.';
-    }
-}
-
 /* `text` cut (with a "." at its end) until the main face at the panel's size shows it in `width` pixels */
 static void fitted_main(const char *text, int width, char *out, int size)
 {
@@ -99,23 +88,40 @@ static void fitted_main(const char *text, int width, char *out, int size)
     }
 }
 
-/* a row's label at the left of x0..x1 and its value at the right, in the small face */
-static void row(const char *name_, const char *value, int x0, int x1, int y, int value_style)
+/* a tile row's label at the left of x0..x1 in the small face and its value at the right, upright in the main face at FIGURE_NUM/FIGURE_DEN (owner 2026-11-19:
+ * the small face leans; a value that is not there is a dash) */
+enum { FIGURE_NUM = 3, FIGURE_DEN = 4, FIGURE_DY = 2 };
+
+static void figure_row(const char *label_, const char *value, int x0, int x1, int y)
 {
     char said[64], fits[64];
     text_select(TEXT_DIM);
-    text_small_draw(name_, x0, y);
-    if (text_small_words(value, said, sizeof said) == 0) snprintf(said, sizeof said, "-");
-    fitted(said, x1 - x0 - text_small_width(name_) - 8, fits, sizeof fits);
-    text_select((TextStyle)value_style);
-    text_small_draw(fits, x1 - text_small_width(fits), y);
+    text_small_draw(label_, x0, y);
+    text_words(value[0] == 0 ? "-" : value, said, sizeof said);   /* the main face: its ',' is a comma */
+    snprintf(fits, sizeof fits, "%s", said);
+    const int room = x1 - x0 - text_small_width(label_) - 8;
+    while (fits[0] != 0 && text_width_scaled(fits, FIGURE_NUM, FIGURE_DEN) > room) {
+        const size_t n = strlen(fits);
+        fits[n - 1] = 0;
+        if (n > 1) fits[n - 2] = '.';
+    }
+    text_select(TEXT_CREAM);
+    text_draw_smooth(fits, x1 - text_width_scaled(fits, FIGURE_NUM, FIGURE_DEN), y + FIGURE_DY, FIGURE_NUM, FIGURE_DEN);
 }
 
 static void general(const Page *p)
 {
-    const char *const LABEL[4] = { "Year", "Power", "Weight", "Category" };
-    const char *const value[4] = { p->card.info.year, p->card.info.power, p->card.info.weight, p->card.info.category };
-    for (int i = 0; i < 4; i++) row(LABEL[i], value[i], GL_GEN_X + 8, GL_GEN_X + GL_GEN_W - 8, GL_GEN_Y + 6 + i * 20, TEXT_CREAM);
+    static const char *const LABEL[4] = { "Make", "Year", "Country", "Category" };
+    const char *const value[4] = { p->card.info.make, p->card.info.year, p->card.info.country, p->card.info.category };
+    for (int i = 0; i < 4; i++) figure_row(LABEL[i], value[i], GL_GEN_X + 8, GL_GEN_X + GL_GEN_W - 8, GL_GEN_Y + 6 + i * 20);
+}
+
+/* owner 2026-11-19: Mechanical's tile: the power, the weight and the weight per horsepower, in the player's units */
+static void mechanical(const Page *p)
+{
+    static const char *const LABEL[3] = { "Power", "Weight", "Weight/power" };
+    const char *const value[3] = { p->mech.power, p->mech.weight, p->mech.ratio };
+    for (int i = 0; i < 3; i++) figure_row(LABEL[i], value[i], GL_MECH_X + 8, GL_MECH_X + GL_MECH_W - 8, GL_MECH_Y + 5 + i * 19);
 }
 
 /* owner 2026-11-18: the History text in the main face at 3/4, scrolled a pixel row at a time */
@@ -253,6 +259,7 @@ void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th)
     label(&t, "GALLERY", GL_PERF_X, GL_PERF_Y, GL_PERF_H, s->item == GALLERY_PHOTOS);
     label(&t, "RECORDS", GL_VID_X, GL_VID_Y, GL_VID_H, s->item == GALLERY_RECORDS);
     if (!s->setup) label(&t, "GENERAL", GL_GEN_X, GL_GEN_Y, GL_GEN_H, 0);   /* the open panel covers its top: its label would show cut */
+    label(&t, "MECHANICAL", GL_MECH_X, GL_MECH_Y, GL_MECH_H, 0);
     label(&t, "HISTORY", GL_HIST_X, GL_HIST_Y, GL_HIST_H, s->item == GALLERY_HISTORY);   /* RECORDS' tile: the flag */
     if (s->photos >= 2) {   /* the big photo's arrows and which of how many */
         const int ay = GL_PERF_Y + (GL_PERF_H - GL_ARROW_H) / 2, index = s->item == GALLERY_PHOTOS ? YELLOW : CREAM;
@@ -260,6 +267,7 @@ void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th)
         arrow(&t, GL_PERF_X + GL_PERF_W - 10 - GL_ARROW_W, ay, 0, index);
     }
     if (!s->setup) general(p);
+    mechanical(p);
     history(p, &t);
     if (s->setup || p->moving) setup_panel(&t, p);
     else setup_tile(&t, p);

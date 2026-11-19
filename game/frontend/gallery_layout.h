@@ -23,6 +23,7 @@ enum {
      * History's text, and the place of Color (the CD's Color tile) */
     GL_PERF_X = 306, GL_PERF_Y = 77, GL_PERF_W = 225, GL_PERF_H = 127,
     GL_GEN_X = 133, GL_GEN_Y = 173, GL_GEN_W = 163, GL_GEN_H = 109,
+    GL_MECH_X = 82, GL_MECH_Y = 326, GL_MECH_W = 254, GL_MECH_H = 87,   /* Mechanical's (owner 2026-11-19: power, weight and their ratio over General's panel); the CD's page has its picture there */
     GL_VID_X = 306, GL_VID_Y = 214, GL_VID_W = 139, GL_VID_H = 108,
     GL_HIST_X = 455, GL_HIST_Y = 245, GL_HIST_W = 161, GL_HIST_H = 122,
     GL_COL_X = 57, GL_COL_Y = 100, GL_COL_W = 154, GL_COL_H = 63,

@@ -471,6 +471,7 @@ int32_t cg_added_gallery(void *ctx, int16_t *car, int warrior, const uint8_t scr
         memcpy(p.screen, screen, sizeof p.screen);
         menu_audio_music_service();
         added_gallery_history_make(&p);
+        mech_figures_make(p.card.info.power, p.card.info.weight, resource_kmh(), &p.mech);   /* the player's units: km/h kg, mph lb */
         added_gallery_tints_make(&p);   /* before the still part: the tint is its background's */
         menu_audio_music_service();
         page_still(&p);
