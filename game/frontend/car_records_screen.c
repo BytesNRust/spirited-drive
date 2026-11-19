@@ -7,6 +7,8 @@
 #include "game/frontend/central_glue_private.h"
 #include "game/frontend/central_split.h"
 #include "game/frontend/page_arrows.h"
+#include "game/frontend/records_glue.h"
+#include "game/frontend/config.h"
 #include "game/frontend/config_bgnd.h"
 #include "game/frontend/ea_lib.h"
 #include "game/frontend/gallery_layout.h"
@@ -114,6 +116,7 @@ void car_records_screen(const char *id, const CarRecordsLook *look)
     CarRecordsView *v = malloc(sizeof *v);
     TrackList l;
     if (v == NULL) return;
+    records_glue_load(config_current()->image);   /* the stores load with the first race or the first Best Times: this screen can be the first */
     cg_records_tracks(&l);
     car_records_view_make(v, id, &l);
     CarRecordsInk ink = { nearest(look->palette, CREAM_RGB), nearest(look->palette, YELLOW_RGB), nearest(look->palette, RED_RGB),

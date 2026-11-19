@@ -16,12 +16,12 @@ enum {
     HEAD_NUM = 2, HEAD_DEN = 3,          /* the column heads, as small as the art's own on Best Times */
     NOTE_NUM = 1, NOTE_DEN = 2,          /* the note under the table */
     /* three columns, the two figures well to the right (the name's room is what is left) */
-    NAME_X = 8, NAME_W = 340, TIME_X = 372, SPEED_X = 500,
+    NAME_X = 8, NAME_W = 340, TIME_X = 372, SPEED_X = 528,
     PAGER_NUM = 6, PAGER_DEN = 5,        /* DONE's letters: the footer's cap height, 12 rows */
     LUNAR = 10
 };
 
-static const char NOTE[] = "circuits: best lap - stages: full stage - normal layout, no cheats";
+static const char NOTE[] = "circuits: best lap, else best race - stages: full stage - normal layout, no cheats";
 
 void car_records_view_make(CarRecordsView *v, const char *car, const TrackList *tracks)
 {
@@ -104,6 +104,11 @@ static void row_draw(const CarRecordsRow *r, int y, int kmh)
     else snprintf(text, sizeof text, "--");
     text_select(c->best > 0 ? TEXT_YELLOW : TEXT_DIM);
     if (c->best > 0) text_draw_shadowed(text, TIME_X, y);
+    if (c->best > 0 && c->laps > 0) {   /* a race's total, not a lap: its laps beside it in small letters */
+        char laps[16];
+        snprintf(laps, sizeof laps, "%d LAPS", c->laps);
+        put(laps, TIME_X + text_width(text) + 8, y + 7, 1, 2);
+    }
     else put(text, TIME_X, y, 1, 1);   /* "--" without a shadow: nothing is there */
     if (c->speed > 0) stat_speed_text(text, kmh, c->speed);
     else snprintf(text, sizeof text, "--");
