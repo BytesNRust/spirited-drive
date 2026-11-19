@@ -62,3 +62,45 @@ int car_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, si
     free(indices);
     return r == PNG_OK;
 }
+
+int car_mask_write_grey(const uint8_t *mask, int width, int height, uint8_t **out, size_t *len)
+{
+    if (mask == NULL || width <= 0 || height <= 0 || width > MAX_SIDE || height > MAX_SIDE) return 0;
+    const size_t count = (size_t)width * (size_t)height;
+    uint8_t *grey = malloc(count);
+    if (grey == NULL) return 0;
+    for (size_t i = 0; i < count; i++) {
+        const uint8_t m = mask[i];
+        grey[i] = m == CAR_MASK_PAINT || m == CAR_MASK_SHINE || m == CAR_MASK_BODY || m == CAR_MASK_BLACK || m == CAR_MASK_BRAKE || m == CAR_MASK_POSITION ||
+                  m == CAR_MASK_HEADLIGHT || m == CAR_MASK_REVERSE ? m : CAR_MASK_MATTE;
+    }
+    const PngResult r = png_write_grey(grey, (uint32_t)width, (uint32_t)height, out, len);
+    free(grey);
+    return r == PNG_OK;
+}
+
+enum { LAMP_FROM = 192, LAMP_OFF = 64, ORANGE_FROM = 96, ORANGE_TO = 176, DARK_UNDER = 64, ALPHA_FROM = 128 };
+
+/* the lamp class of a layer colour: red brake, orange position, yellow headlight, cyan reversing light; 0 for none of them (the tool's lamp_class) */
+static int lamp_class(int r, int g, int b)
+{
+    if (r <= LAMP_OFF && g >= LAMP_FROM && b >= LAMP_FROM) return CAR_MASK_REVERSE;
+    if (r < LAMP_FROM || b > LAMP_OFF) return 0;
+    if (g <= LAMP_OFF) return CAR_MASK_BRAKE;
+    if (g >= ORANGE_FROM && g <= ORANGE_TO) return CAR_MASK_POSITION;
+    if (g >= LAMP_FROM) return CAR_MASK_HEADLIGHT;
+    return 0;
+}
+
+int car_mask_class_rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+    if (a < ALPHA_FROM) return CAR_MASK_PAINT;
+    const int lamp = lamp_class(r, g, b);
+    if (lamp) return lamp;
+    const int pink = r < b ? r : b;
+    if (pink >= MAGENTA_FROM && g * 2 <= pink && abs((int)r - (int)b) <= MAGENTA_APART) return CAR_MASK_BLACK;
+    if (b > r && b > g) return CAR_MASK_SHINE;
+    if (g > r && g > b) return CAR_MASK_BODY;   /* the one strictly greatest channel is green */
+    const int top = r > g ? (r > b ? r : b) : (g > b ? g : b);
+    return top >= DARK_UNDER ? CAR_MASK_MATTE : CAR_MASK_PAINT;
+}
