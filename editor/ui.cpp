@@ -100,25 +100,28 @@ void car_layout(ImGuiID dock)
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
     ImGuiID left = 0, right = 0, masks = 0;
-    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.5f, nullptr, &right);
-    masks = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.45f, nullptr, &right);
+    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.4f, nullptr, &right);
+    masks = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.3f, nullptr, &right);   // the race and its photo need the room
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
     ImGui::DockBuilderDockWindow(PANEL_TEXTURES, right);
+    ImGui::DockBuilderDockWindow(PANEL_RACE, right);   // a tab beside Textures
     ImGui::DockBuilderDockWindow(PANEL_REHACER, masks);   // a tab beside Masks, which is the one in front
     ImGui::DockBuilderDockWindow(PANEL_MASKS, masks);
     ImGui::DockBuilderFinish(dock);
 }
 
-// the layout of a masks project: its facts on the left, the masks on the right (it has no textures to list and no script to run)
+// the layout of a masks project: its facts on the left, the masks and under them the race on the right (it has no textures to list and no script to run)
 void masks_layout(ImGuiID dock)
 {
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
-    ImGuiID left = 0, right = 0;
-    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.5f, nullptr, &right);
+    ImGuiID left = 0, right = 0, race = 0;
+    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.3f, nullptr, &right);
+    race = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.8f, nullptr, &right);
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
     ImGui::DockBuilderDockWindow(PANEL_MASKS, right);
+    ImGui::DockBuilderDockWindow(PANEL_RACE, race);
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -244,6 +247,25 @@ void confirm_popup(App *a)
 
 }   // namespace
 
+// the race photo as a texture: made again when the job took another picture (a->race.photo_serial)
+static ImTextureID photo_texture(SDL_Renderer *ren, const App *a)
+{
+    static SDL_Texture *tex = nullptr;
+    static int serial = -1;
+    if (a->race.photo == nullptr) {
+        if (tex != nullptr) SDL_DestroyTexture(tex), tex = nullptr;
+        serial = -1;
+        return 0;
+    }
+    if (tex == nullptr || serial != a->race.photo_serial) {
+        if (tex != nullptr) SDL_DestroyTexture(tex);
+        tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, RACE_PHOTO_W, RACE_PHOTO_H);
+        if (tex != nullptr) SDL_UpdateTexture(tex, nullptr, a->race.photo, RACE_PHOTO_W * 4);
+        serial = a->race.photo_serial;
+    }
+    return reinterpret_cast<ImTextureID>(tex);
+}
+
 void ui_frame(SDL_Renderer *ren, App *a)
 {
     static bool track_laid_out = false, car_laid_out = false, masks_laid_out = false;
@@ -277,6 +299,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
         car_panel(a);
         if (!a->car.masks_only) textures_panel(a);   // nor textures: only its masks
         masks_panel(a);
+        race_panel(a, photo_texture(ren, a));
         if (!a->car.masks_only) rehacer_panel(a);   // a masks project has no script
     } else {
         start_screen(a);

@@ -147,6 +147,7 @@ const CarPdn *drive_load(void *user, Car *car, RaceState *race)
     char dir[CAR_LOAD_PATH], path[CAR_LOAD_PATH], stem[16];
     snprintf(dir, sizeof dir, "%s/SIMDATA/CARFAMS/", drive_cars.data_root);
     if (!car_load_path(car, race, dir, path, stem)) return NULL;
+    port_log("race car: slot %d is %s\n", slot, stem);   /* port: which car is in which slot (Studio's Test in race follows a slot to photograph a model) */
     size_t size = 0;
     drive_cars.file[slot] = read_named(path, strlen(dir), &size);
     if (drive_cars.colours.on && slot != drive_cars.colours.player_slot && slot < drive_cars.colours.racers) {   /* port: a rival's colours, by the car its file is */

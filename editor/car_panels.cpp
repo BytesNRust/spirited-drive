@@ -5,6 +5,7 @@
 
 extern "C" {
 #include "car_export.h"
+#include "car_race.h"
 #include "formats/car_piece.h"
 }
 
@@ -13,7 +14,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
-const char *const PANEL_CAR = "Car", *const PANEL_TEXTURES = "Textures", *const PANEL_MASKS = "Masks", *const PANEL_REHACER = "Rehacer";
+const char *const PANEL_CAR = "Car", *const PANEL_TEXTURES = "Textures", *const PANEL_MASKS = "Masks", *const PANEL_REHACER = "Rehacer", *const PANEL_RACE = "Race";
 
 namespace {
 
@@ -505,6 +506,111 @@ void rehacer_panel(App *a)
             if (r.log != nullptr && r.log_len > 0) ImGui::TextUnformatted(r.log, r.log + r.log_len);
             else if (!r.running && !r.finished) ImGui::TextDisabled("Nothing has run yet.");
             if (r.running && at_bottom) ImGui::SetScrollHereY(1.0f);
+        }
+        ImGui::EndChild();
+    }
+    ImGui::End();
+}
+
+namespace {
+
+// the last lines of the game's output, errors red and the masks it took green
+void race_log_lines(const char *text, size_t len, int *budget)
+{
+    size_t start = 0;
+    for (size_t at = len; at > 0 && *budget > 0; --at) {   // the last `budget` lines
+        if (text[at - 1] == '\n' && at != len && --*budget == 0) {
+            start = at;
+            break;
+        }
+    }
+    const char *p = text + start, *end = text + len;
+    while (p < end) {
+        const char *nl = static_cast<const char *>(memchr(p, '\n', static_cast<size_t>(end - p)));
+        const char *line_end = nl != nullptr ? nl : end;
+        const RaceLineKind kind = car_race_line_kind(p, static_cast<size_t>(line_end - p));
+        if (kind == RACE_LINE_ERROR) ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
+        else if (kind == RACE_LINE_MASK) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.47f, 0.86f, 0.55f, 1.0f));
+        else if (kind == RACE_LINE_NOTE) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextUnformatted(p, line_end);
+        if (kind != RACE_LINE_PLAIN) ImGui::PopStyleColor();
+        p = nl != nullptr ? nl + 1 : end;
+    }
+}
+
+}   // namespace
+
+// Test in race and Race photo of an original car's project: the preset, the track, the buttons, the picture, and the game's log
+void race_panel(App *a, ImTextureID photo)
+{
+    static int seen = 0, wait = 0;   // a new photo brings the tab forward (after the dock layout has settled: a focus given in the frame that builds it is lost)
+    if (a->race.photo_serial != seen) {
+        seen = a->race.photo_serial;
+        wait = 3;
+    }
+    if (wait > 0 && --wait == 0) ImGui::SetNextWindowFocus();
+    if (ImGui::Begin(PANEL_RACE)) {
+        const ExportCar *car = car_race_original_of(&a->car);
+        const bool busy = app_race_busy(a);
+        const bool traffic = car != nullptr && car->kind != EXPORT_DRIVABLE;
+        if (car == nullptr) {
+            muted_wrapped("Test in race is for the game's own cars: it runs the game with this project's masks in front of its own. Make one with Export original car.");
+        } else {
+            muted_wrapped("The game runs on a scratch player folder, with this project's masks.%s", traffic ? " Traffic: City, Coastal or Alpine stages only." : "");
+            ImGui::BeginDisabled(busy);
+            ImGui::TextUnformatted("Time");
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Day", a->race_night == 0)) a->race_night = 0;
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Night", a->race_night == 1)) a->race_night = 1;
+            ImGui::SameLine();
+            ImGui::TextUnformatted("  Track");
+            ImGui::SameLine();
+            const RaceTrack *now = car_race_track(a->race_track);
+            ImGui::SetNextItemWidth(190);
+            if (ImGui::BeginCombo("##track", now != nullptr ? now->label : "")) {
+                for (int i = 0; i < car_race_track_count(); ++i) {
+                    const RaceTrack *tr = car_race_track(i);
+                    const bool off = traffic && !tr->stage;   // the circuits have no traffic
+                    ImGui::BeginDisabled(off);
+                    if (ImGui::Selectable(tr->label, a->race_track == i)) a->race_track = i;
+                    ImGui::EndDisabled();
+                    if (off && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("A circuit has no traffic");
+                }
+                ImGui::EndCombo();
+            }
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("The night is each track's own; Rusty Springs is the reference");
+            if (a->race_night && now != nullptr && strcmp(now->stem, "TR7") == 0) ImGui::TextDisabled("Lost Vegas has no time of day: it stays as it is");
+            ImGui::EndDisabled();
+            ImGui::BeginDisabled(busy);
+            if (ImGui::Button("Test in race")) app_race(a, 0);
+            ImGui::SameLine();
+            if (ImGui::Button("Race photo")) app_race(a, 1);
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!busy);
+            if (ImGui::Button("Stop")) app_race_stop(a);
+            ImGui::EndDisabled();
+        }
+        if (busy) ImGui::TextUnformatted("Running...");
+        else if (a->race.summary[0] != '\0') {
+            if (a->race.ok) muted_wrapped("%s", a->race.summary);
+            else problem_text(a->race.summary);
+        }
+        if (a->race.photo != nullptr && photo != 0) {   // the picture, as big as the window leaves room for beside the log's few lines
+            const ImVec2 room = ImGui::GetContentRegionAvail();
+            float w = room.x < RACE_PHOTO_W ? room.x : static_cast<float>(RACE_PHOTO_W);
+            const float high = room.y - 90.0f > 120.0f ? room.y - 90.0f : 120.0f;
+            if (w * RACE_PHOTO_H / RACE_PHOTO_W > high) w = high * RACE_PHOTO_W / RACE_PHOTO_H;
+            ImGui::Image(photo, ImVec2(w, w * RACE_PHOTO_H / RACE_PHOTO_W));
+        }
+        ImGui::SeparatorText("The game's log");
+        if (ImGui::BeginChild("racelog", ImVec2(0, 0), ImGuiChildFlags_Borders)) {
+            const RaceJob &j = a->race;
+            int before = 250, now_lines = 150;   // the runs that ended, then the one that runs
+            if (j.log != nullptr && j.log_len > 0) race_log_lines(j.log, j.log_len, &before);
+            else if (j.run.log == nullptr || j.run.log_len == 0) ImGui::TextDisabled("Nothing has run yet.");
+            if (j.run.log != nullptr && j.run.log_len > 0) race_log_lines(j.run.log, j.run.log_len, &now_lines);
         }
         ImGui::EndChild();
     }

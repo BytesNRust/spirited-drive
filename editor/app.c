@@ -93,6 +93,7 @@ static int car_into(App *a, const char *dir)
     }
     snprintf(a->dir, sizeof a->dir, "%s", a->car.root);
     a->kind = APP_KIND_CAR;
+    a->race_track = car_race_default_track(car_race_original_of(&a->car));
     set_status(a, a->car.masks_only ? "opened: a masks project (made from the game's files: for your own use, do not share)" : "opened: edit the card and the colors; Save writes mod.ini only");
     return 1;
 }
@@ -104,6 +105,38 @@ int app_open_any(App *a, const char *dir, const char *game, const char *user, co
         return car_into(a, dir);
     }
     return app_open(a, dir, game, user, generic_art);
+}
+
+int app_race_busy(const App *a)
+{
+    return car_race_busy(&a->race);
+}
+
+int app_race(App *a, int photo)
+{
+    char why[APP_MSG];
+    if (a->kind != APP_KIND_CAR) return set_status(a, "open a car first"), 0;
+    const RaceTrack *track = car_race_track(a->race_track);
+    const ExportCar *car = car_race_original_of(&a->car);
+    if (track == NULL || car == NULL) return set_status(a, "Test in race is for the game's own cars: export one with Export original car"), 0;
+    const int ok = photo ? car_race_start_photo(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, why, sizeof why)
+                         : car_race_start_race(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, why, sizeof why);
+    if (!ok) return set_status(a, why), 0;
+    set_status(a, photo ? "taking the race photo..." : "the game is running: close its window to end the test");
+    return 1;
+}
+
+int app_race_poll(App *a)
+{
+    const int was = car_race_busy(&a->race);
+    const int running = car_race_poll(&a->race);
+    if (was && !running && a->race.summary[0] != '\0') set_status(a, a->race.summary);
+    return running;
+}
+
+void app_race_stop(App *a)
+{
+    car_race_stop(&a->race);
 }
 
 void app_set_export_source(App *a, const ExportSource *src)
@@ -135,6 +168,7 @@ int app_export_car(App *a, const char *parent)
 
 void app_free(App *a)
 {
+    car_race_free(&a->race);
     rehacer_free(&a->rehacer);
     car_edit_free(&a->edit);
     free(a->trace.points);
@@ -230,6 +264,10 @@ void app_ask(App *a, AppAction act, const char *path)
     if (act == APP_ACT_NONE || a->confirm != APP_ACT_NONE || a->go != APP_ACT_NONE) return;
     if (a->rehacer.running) {   /* the script is working on the kit: nothing else until it ends */
         set_status(a, "Rehacer is running: wait for it to end, or press Stop");
+        return;
+    }
+    if (car_race_busy(&a->race)) {   /* the game is running on this project's masks: nothing else until it ends */
+        set_status(a, "A race is running: wait for it to end, or press Stop");
         return;
     }
     if (app_modified(a)) {

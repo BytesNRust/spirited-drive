@@ -16,6 +16,7 @@
 #include "build.h"
 #include "capture.h"
 #include "game_find.h"
+#include "formats/png.h"
 #include "ui.h"
 
 #include <SDL3/SDL.h>
@@ -38,6 +39,8 @@ typedef struct {
     int set_count;
     const char *pick;        /* --pick FOLDER: the car chosen in the Export window before the first frame */
     const char *export_car, *export_into, *cd, *port_data;   /* --export-car STEM --into DIR, --cd DIR, --port-data DIR: Export original car without the window's dialogs */
+    int race_photo, night;    /* --race-photo: take the race photo before the first frame (a headless run waits for it); --night: the Night preset */
+    const char *track, *race_png;   /* --track STEM, --race-png FILE: the track and where the photo is also written */
     int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
@@ -47,7 +50,7 @@ static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
-                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER]\n");
+                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png]]\n");
     return 0;
 }
 
@@ -70,6 +73,10 @@ static int parse_args(int argc, char **argv, Options *o)
         } else if (strcmp(argv[i], "--export-car") == 0 && has_value) o->export_car = argv[++i];
         else if (strcmp(argv[i], "--into") == 0 && has_value) o->export_into = argv[++i];
         else if (strcmp(argv[i], "--pick") == 0 && has_value) o->pick = argv[++i];
+        else if (strcmp(argv[i], "--race-photo") == 0) o->race_photo = 1;
+        else if (strcmp(argv[i], "--night") == 0) o->night = 1;
+        else if (strcmp(argv[i], "--track") == 0 && has_value) o->track = argv[++i];
+        else if (strcmp(argv[i], "--race-png") == 0 && has_value) o->race_png = argv[++i];
         else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
         else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
         else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
@@ -235,6 +242,24 @@ static int run_requested(App *a, const Options *o)
         fprintf(made ? stdout : stderr, "%s\n", a->status);
         ok &= made;
     }
+    if (o->race_photo) {   /* Race photo, headless: the game is run and waited for, the picture is in the Race window */
+        if (o->track != NULL && car_race_track_find(o->track) >= 0) a->race_track = car_race_track_find(o->track);
+        a->race_night = o->night;
+        int made = app_race(a, 1);
+        while (made && app_race_poll(a)) SDL_Delay(20);
+        made = made && a->race.ok;
+        if (made && o->race_png != NULL) {
+            uint8_t *png = NULL;
+            size_t len = 0;
+            FILE *f = NULL;
+            made = png_write_rgba(a->race.photo, RACE_PHOTO_W, RACE_PHOTO_H, &png, &len) == PNG_OK && (f = fopen(o->race_png, "wb")) != NULL && fwrite(png, 1, len, f) == len;
+            if (f != NULL) fclose(f);
+            free(png);
+            if (!made) snprintf(a->status, sizeof a->status, "cannot write %s", o->race_png);
+        }
+        fprintf(made ? stdout : stderr, "%s\n", a->status);
+        ok &= made;
+    }
     if (o->rehacer) {   /* the car's script: a headless run waits for it and says how it ended */
         ok &= app_rehacer(a);
         if (ok && o->frames > 0) {
@@ -331,6 +356,7 @@ static int run(App *a, const Options *o)
             else if (run_go(win, a)) quit = 1;
         }
         app_rehacer_poll(a);
+        app_race_poll(a);
         app_recompute(a);
         SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);
         SDL_RenderClear(ren);

@@ -176,6 +176,30 @@ grep -q "already there" "$work/log" || fail "no word about the folder that is th
 "$editor" --ask export --pick Wagon $export_opts --frames 4 --shot "$work/exportdialog.png" >"$work/log" 2>&1 || fail "the export window did not draw: $(cat "$work/log")"
 [ -s "$work/exportdialog.png" ] || fail "no PNG of the export window"
 "$editor" --pick nosuchcar --frames 2 $export_opts >/dev/null 2>&1 && fail "--pick took a car that is not in the list"
+# Race photo with a fake game (a script that writes what the real one does): a masks project of a traffic car finds the car in the draw, follows its slot and shows
+# the picture; the picture is written as a PNG; a game that fails is told, with a non-zero status; a car of the game's that is not one asks for an export first
+cat > "$work/fake-tnfs" <<'FAKE'
+#!/bin/sh
+user=; shot=
+while [ $# -gt 0 ]; do case "$1" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; esac; shift; done
+[ "${FAKE_FAIL:-}" = 1 ] && { echo "error: the fake game fails" >&2; exit 3; }
+printf 'race car: slot 0 is TSupra\nrace car: slot 3 is Wagon\n' > "$user/spirited-drive.log"
+printf 'P6\n640 480\n255\n' > "$shot"; head -c 921600 /dev/zero >> "$shot"
+FAKE
+chmod +x "$work/fake-tnfs"
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --night --race-png "$work/photo.png" --frames 4 --shot "$work/racepanel.png" >"$work/log" 2>&1 || fail "Race photo with a fake game: $(cat "$work/log")"
+grep -q "Photo: the camera follows the Wagon (slot 3" "$work/log" || fail "no word about the slot followed: $(cat "$work/log")"
+python3 -c "
+import sys
+d = open(sys.argv[1], 'rb').read()
+assert d[:8] == b'\x89PNG\r\n\x1a\n' and int.from_bytes(d[16:20], 'big') == 640 and int.from_bytes(d[20:24], 'big') == 480
+" "$work/photo.png" || fail "the race photo is not a 640x480 PNG"
+[ -s "$work/racepanel.png" ] || fail "no PNG of the Race window"
+FAKE_FAIL=1 "$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --frames 2 >"$work/log" 2>&1 && fail "a game that failed was told as a success"
+grep -q "exit code 3" "$work/log" || fail "the game's exit code is not told: $(cat "$work/log")"
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --track TR5 --frames 2 >"$work/log" 2>&1 && fail "a traffic car was raced on a circuit"
+grep -q "no traffic" "$work/log" || fail "no word about the circuit: $(cat "$work/log")"
+ls "${TMPDIR:-/tmp}" | grep -q '^studio-race-' && fail "a scratch folder of a race was left behind"
 "$editor" --no-such-option >/dev/null 2>&1 && fail "an unknown option was accepted"
 [ "$failures" -eq 0 ] && echo "editor_headless: ok"
 exit "$failures"

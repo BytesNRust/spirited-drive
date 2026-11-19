@@ -7,6 +7,7 @@
 #include "car_export.h"
 #include "car_rehacer.h"
 #include "car_project.h"
+#include "car_race.h"
 #include "project.h"
 #include "session.h"
 #include "view.h"
@@ -54,6 +55,9 @@ typedef struct {
     ExportSource export_src;     /* where Export original car reads the game's files from (car_export_source) */
     int export_dialog;           /* the Export original car window is up */
     int export_pick;             /* the car chosen in it (car_export_car's index), -1 for none */
+    RaceJob race;                /* Test in race / Race photo of the open original car (car_race.h), running or last run */
+    int race_night;              /* the preset: 0 Day, 1 Night */
+    int race_track;              /* the track chosen (car_race_track's index) */
     char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder (main.c does it and clears this) */
     Project project;
     Trace trace;
@@ -104,6 +108,14 @@ int app_open_any(App *a, const char *dir, const char *game, const char *user, co
 /* Opens the track project in `dir`, creating its files where they are missing (project_create: `generic_art` is the editor's GENERIC.FAM or NULL).
  * 1 with the app ready, 0 with status naming the fault. */
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art);
+
+/* Test in race (the game in its window, on a scratch player folder, with this project's masks) and Race photo (the same headless, one picture in a->race.photo): for
+ * the open car when it is one of the game's (car_race_original_of). Refused, with the status saying why, when no car is open, it is not an original, the game is not
+ * there or a race goes. app_race_poll (every frame) takes the output and the picture; 1 while a job runs. While one runs nothing else is opened (app_ask). */
+int app_race(App *a, int photo);
+int app_race_poll(App *a);
+void app_race_stop(App *a);
+int app_race_busy(const App *a);
 
 /* Where the game's files are, for Export original car; also remembered across the projects opened from this window. */
 void app_set_export_source(App *a, const ExportSource *src);

@@ -3,6 +3,8 @@
 #ifndef TNFS_TRACK_EDITOR_PANELS_H
 #define TNFS_TRACK_EDITOR_PANELS_H
 
+#include "imgui.h"
+
 extern "C" {
 #include "app.h"
 }
@@ -21,10 +23,11 @@ void rehacer_panel(App *a);   // Rehacer's status and log
 void car_shortcuts(App *a);   // Ctrl+S, Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y (Cmd on a Mac)
 void textures_panel(App *a);
 void masks_panel(App *a);
+void race_panel(App *a, ImTextureID photo);   // Test in race and Race photo, the picture (a texture, 0 for none) and the game's log
 void export_popup(App *a);    // the Export original car window, up while a->export_dialog is set
 
 // the panels' names, as the dock layout places them
 extern const char *const PANEL_POINTS, *const PANEL_LIMITS, *const PANEL_PROBLEMS, *const PANEL_NODE, *const PANEL_PROJECT, *const PANEL_TRACK;
-extern const char *const PANEL_CAR, *const PANEL_TEXTURES, *const PANEL_MASKS, *const PANEL_REHACER;
+extern const char *const PANEL_CAR, *const PANEL_TEXTURES, *const PANEL_MASKS, *const PANEL_REHACER, *const PANEL_RACE;
 
 #endif

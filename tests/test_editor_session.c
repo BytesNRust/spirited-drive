@@ -584,6 +584,30 @@ static void check_export(void)
     CHECK(a->recent.count == 1 && a->recent.kind[0] == RECENT_CAR);
     CHECK(strcmp(a->export_src.data, data) == 0 && a->export_pick >= 0);   /* where the game's files are stays with the window */
     CHECK(!app_modified(a));
+    CHECK(strcmp(car_race_track(a->race_track)->stem, "CL1") == 0);   /* a traffic car starts on a stage: the circuits have no traffic */
+    snprintf(a->game, sizeof a->game, "%s", "/nonexistent/tnfs");
+    CHECK(!app_race_busy(a) && !app_race(a, 1) && strstr(a->status, "game's program") != NULL);   /* no game where Studio looked */
+    {   /* Race photo through the app, against a fake game */
+        char fake[700];
+        path_in(fake, sizeof fake, "ex/fake-tnfs");
+        put("ex/fake-tnfs", "#!/bin/sh\nuser=; shot=\nwhile [ $# -gt 0 ]; do case \"$1\" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; esac; shift; done\n"
+                            "printf 'race car: slot 0 is TSupra\\nrace car: slot 3 is Wagon\\n' > \"$user/spirited-drive.log\"\n"
+                            "printf 'P6\\n640 480\\n255\\n' > \"$shot\"; head -c 921600 /dev/zero >> \"$shot\"\n");
+        chmod(fake, 0755);
+        snprintf(a->game, sizeof a->game, "%s", fake);
+        a->race_night = 1;
+        const int started = app_race(a, 1);
+        if (!started) fprintf(stderr, "app_race: %s\n", a->status);
+        CHECK(started && app_race_busy(a));
+        app_ask(a, APP_ACT_NEW, "");                                  /* nothing else is opened while the game runs */
+        CHECK_EQ_INT(a->go, APP_ACT_NONE);
+        CHECK(strstr(a->status, "race is running") != NULL || strstr(a->status, "photo") != NULL);
+        for (int i = 0; i < 2000 && app_race_poll(a); ++i) usleep(5000);
+        CHECK(!app_race_busy(a) && a->race.ok && a->race.photo != NULL && strstr(a->status, "slot 3") != NULL);
+        a->race_track = car_race_track_find("TR5");
+        CHECK(!app_race(a, 1) && strstr(a->status, "no traffic") != NULL);   /* a circuit has none */
+        CHECK(!app_race_busy(a));
+    }
     CHECK(!app_save(a) && strstr(a->status, "no card") != NULL);
     CHECK(!app_rehacer(a) && strstr(a->status, "no rehacer.command") != NULL);
     CHECK(!app_rehacer_available(a));
@@ -603,6 +627,7 @@ static void check_export(void)
     app_set_export_source(a, &src);
     CHECK(app_export_car(a, out));                                    /* a car you drive: a car project with a card to edit */
     CHECK(!a->car.masks_only && strcmp(a->car.info.id, "p911-original") == 0 && a->car.mask_count == 1);
+    CHECK(strcmp(car_race_track(a->race_track)->stem, "TR5") == 0 && car_race_original_of(&a->car) == car_export_car(a->export_pick));   /* Rusty Springs, the car's own entry */
     CHECK(!app_modified(a) && car_edit_set_by_text(&a->edit, "year=1995") && app_modified(a));
     app_free(a);
     free(a);
