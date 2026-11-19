@@ -18,7 +18,10 @@
 # with a non-zero status before the run's end stops the rest the same way, and the script names it with its status and last log lines.
 # usage: tools/link_loopback.sh BUILD_DIR [finish|continue|quit|quitclick|refused] [OUT_DIR]
 # Environment:
-#   BASE_PORT (15000)      the host's UDP port, the clients' the ones after it
+#   BASE_PORT (15000)      the host's UDP port, the clients' the ones after it: the first block tried. A run takes the first block from
+#                          there (in steps of 20) whose ports nothing has bound and no other run has claimed (tools/free_udp_ports.py
+#                          with the claims in TNFS_LINK_LOCKS, default $TMPDIR/tnfs_link_ports), so two runs on a machine, from any
+#                          worktree, never share a host's port; the line "ports: host N" says which. BASE_PORT_FIXED=1 takes BASE_PORT as it is.
 #   CLIENTS (1), VIEWERS (0)  machines that join: "client" on 15001, "client2" ..., then the View-only ones ("viewer", ...)
 #   STEP_TIMEOUT (120)     seconds a step may wait for a line of another machine (the game listed, a guest seated)
 #   RACE_TIMEOUT (900)     seconds the race may take, from the Start to mark:race_over (slower under ASan: raise it)
@@ -44,6 +47,7 @@ race_timeout=${RACE_TIMEOUT:-900}
 overall=${OVERALL:-3600}
 settle=${SETTLE:-1500}
 cd "$(dirname "$0")/.."
+tools=$PWD/tools
 [ -x "$exe" ] || { echo "no $exe" >&2; exit 2; }
 humans=$((1 + clients + viewers))
 
@@ -144,7 +148,29 @@ done_all() {
 
 rm -f "$out"/*/rc "$out"/*/pid "$out"/*/log   # an OUT_DIR used before: its old status and logs are not this run's (cleared before any machine starts)
 machines=host
+# whatever way this script ends (the end, a failed step, ctest's TIMEOUT or an interrupt), no instance outlives it holding its ports
+stop_all() {
+    local m
+    for m in $machines; do
+        [ -f "$out/$m/rc" ] || kill -TERM "$(cat "$out/$m/pid" 2>/dev/null || echo 0)" 2>/dev/null || true
+    done
+    [ -n "$claimed_port" ] && python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import free_udp_ports as F; F.release(sys.argv[2], int(sys.argv[3]))' "$tools" "$locks" "$claimed_port" || true
+    claimed_port=""
+}
+trap 'stop_all' EXIT
+trap 'stop_all; exit 143' INT TERM HUP
 port=${BASE_PORT:-15000}
+claimed_port=""
+if [ -z "${BASE_PORT_FIXED:-}" ] && command -v python3 >/dev/null 2>&1; then
+    locks=${TNFS_LINK_LOCKS:-${TMPDIR:-/tmp}/tnfs_link_ports}
+    if picked=$(python3 -I "$tools/free_udp_ports.py" "$port" "$humans" --lock-dir "$locks"); then
+        port=$picked claimed_port=$picked
+    else
+        echo "FAIL: no free block of $humans UDP ports from $port" >&2
+        exit 2
+    fi
+fi
+echo "ports: host $port"
 host_steps=$steps
 [ "$mode" = refused ] && host_steps=""   # the host is told nothing: only its guests leave
 run host "$host${host_steps:+,$host_steps}" "$port" &
@@ -190,5 +216,21 @@ for name in $machines; do
     echo "$name: $verdict (races ended $ends, rc $rc)"
 done
 grep -a "race over" "$out/host/log" || true
+if [ "$fail" != 0 ]; then
+    # what a failure on a loaded machine needs to be explained afterwards: the last of every machine's log, what else holds these ports
+    # or runs a game, and the load (a game of another worktree joining this host shows in its logs and here)
+    echo "--- failure report ($(date '+%F %T'), ports $port..$((port + humans - 1)))"
+    for name in $machines; do
+        echo "--- $name: last 20 log lines"
+        tail -n 20 "$out/$name/log" 2>/dev/null | cut -c1-200 | sed 's/^/    /' || true
+    done
+    echo "--- games running with a --net-port (pgrep -fl)"
+    pgrep -fl -- '--net-port' 2>/dev/null | cut -c1-200 | sed 's/^/    /' || true
+    if command -v lsof >/dev/null 2>&1; then
+        echo "--- UDP sockets on ports $port..$((port + humans - 1)) (lsof)"
+        for i in $(seq 0 $((humans - 1))); do lsof -nP -iUDP:$((port + i)) 2>/dev/null | sed 's/^/    /' || true; done
+    fi
+    echo "--- load: $(uptime)"
+fi
 echo "logs: $out"
 exit $fail
