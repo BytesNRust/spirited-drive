@@ -2,6 +2,7 @@
  * second the selectors and values: on a Color or Skin row the box next to the left arrow, the name centred in a span as wide as the longest colour
  * name of the CD's cars, then the right arrow. The panel's width is their sum and it is centred with air at the sides. The geometry needs no data; the
  * widths (label column, name span, every colour name fitting at the row's own size) need the CD's font and are skipped without original/. */
+#include "game/frontend/added_gallery_page.h"
 #include "game/frontend/gallery_layout.h"
 #include "game/race/car_paint.h"
 #include "game/sys/resource.h"
@@ -79,6 +80,18 @@ static void measured(void)
             CHECK(w <= GL_SETUP_NAME_W);   /* every name of the CD's cars fits, at the row's size, between the box and the arrow */
         }
     CHECK(GL_SETUP_NAME_W - widest >= 0 && GL_SETUP_NAME_W - widest <= 8);   /* the span is the widest name's with a little air, not more */
+    /* General's and Mechanical's values (owner 2026-11-19): one that fits is whole, a long one is cut with "...", none is a dash */
+    char fit[64];
+    const int room = 80;
+    added_gallery_figure_fit("Germany", room, fit, sizeof fit);
+    CHECK(strcmp(fit, "Germany") == 0 || text_width_scaled(fit, 3, 4) <= room);
+    added_gallery_figure_fit("Mercedes-Benz AMG Performance", room, fit, sizeof fit);
+    CHECK(strlen(fit) > 3 && strcmp(fit + strlen(fit) - 3, "...") == 0 && strncmp(fit, "Mercedes", 3) == 0);
+    CHECK(text_width_scaled(fit, 3, 4) <= room);
+    added_gallery_figure_fit("", room, fit, sizeof fit);
+    CHECK(strcmp(fit, "-") == 0);
+    added_gallery_figure_fit("Mercedes-Benz AMG Performance", 6, fit, sizeof fit);   /* no room even for the dots */
+    CHECK(fit[0] == 0);
     printf("widest colour name %d px of %d, label column %d px, panel %d px wide at x %d\n", widest, GL_SETUP_NAME_W, widest_label, GL_SETUP_W, GL_SETUP_X);
 }
 

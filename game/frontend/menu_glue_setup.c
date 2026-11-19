@@ -274,8 +274,8 @@ static void panel_draw(const Panel *p, int frame)
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM);
         text_draw_smooth(LABEL[row], GL_SETUP_X + GL_SETUP_LABEL_X, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_WHITE);
-        if (row != ROW_COLOUR || !on) {   /* a switch's value (or Color while it is off): from the second column's edge */
-            text_draw_smooth(value, c.left, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+        if (row != ROW_COLOUR || !on) {   /* a switch's value (or Color while it is off): at the right edge of the second column, as in Options (owner 2026-11-19) */
+            text_draw_smooth(value, c.right + GL_ARROW_W - text_width_scaled(value, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN), y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
             continue;
         }
         const int box = c.preview;

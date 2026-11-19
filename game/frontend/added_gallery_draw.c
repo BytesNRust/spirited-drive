@@ -2,6 +2,7 @@
  * the focus frame, the big photo's arrows and count, General's figures, History's text, the Color tile's two rows. */
 #include "game/frontend/added_gallery_page.h"
 
+#include "game/frontend/added_card.h"
 #include "game/frontend/gallery_label.h"
 #include "game/sys/text.h"
 
@@ -92,19 +93,24 @@ static void fitted_main(const char *text, int width, char *out, int size)
  * a value that is not there is a dash */
 enum { FIGURE_NUM = 3, FIGURE_DEN = 4, FIGURE_DY = 0 };
 
+static int figure_measure(void *ctx, const char *s)
+{
+    (void)ctx;
+    return text_width_scaled(s, FIGURE_NUM, FIGURE_DEN);
+}
+
+/* owner 2026-11-19: a value that does not fit `room` px is cut with "..." (the cards' names are), "" when not even that fits */
+void added_gallery_figure_fit(const char *value, int room, char *out, int size)
+{
+    added_card_name_fit(value[0] == 0 ? "-" : value, room, figure_measure, NULL, out, size);
+}
+
 static void figure_row(const char *label_, const char *value, int x0, int x1, int y)
 {
-    char said[64], fits[64];
+    char fits[64];
     text_select(TEXT_DIM);
     text_draw_smooth(label_, x0, y, FIGURE_NUM, FIGURE_DEN);
-    text_words(value[0] == 0 ? "-" : value, said, sizeof said);   /* the main face: its ',' is a comma */
-    snprintf(fits, sizeof fits, "%s", said);
-    const int room = x1 - x0 - text_width_scaled(label_, FIGURE_NUM, FIGURE_DEN) - 4;
-    while (fits[0] != 0 && text_width_scaled(fits, FIGURE_NUM, FIGURE_DEN) > room) {
-        const size_t n = strlen(fits);
-        fits[n - 1] = 0;
-        if (n > 1) fits[n - 2] = '.';
-    }
+    added_gallery_figure_fit(value, x1 - x0 - text_width_scaled(label_, FIGURE_NUM, FIGURE_DEN) - 4, fits, sizeof fits);
     text_select(TEXT_CREAM);
     text_draw_smooth(fits, x1 - text_width_scaled(fits, FIGURE_NUM, FIGURE_DEN), y + FIGURE_DY, FIGURE_NUM, FIGURE_DEN);
 }
@@ -230,9 +236,9 @@ static void setup_panel(const Target *t, const Page *p)
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_CREAM);
         text_draw_smooth(LABEL[row], GL_SETUP_X + GL_SETUP_LABEL_X, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
         text_select(!on ? TEXT_DIM : lit ? TEXT_YELLOW : TEXT_WHITE);
-        if (!choice || !on) {   /* a switch's value (or a choice that is off): from the second column's edge */
+        if (!choice || !on) {   /* a switch's value (or a choice that is off): at the right edge of the second column, as in Options (owner 2026-11-19) */
             fitted_main(value, c.right + GL_ARROW_W - c.left, fits, sizeof fits);
-            text_draw_smooth(fits, c.left, y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
+            text_draw_smooth(fits, c.right + GL_ARROW_W - text_width_scaled(fits, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN), y, GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN);
             continue;
         }
         const int index = lit ? YELLOW : CREAM;

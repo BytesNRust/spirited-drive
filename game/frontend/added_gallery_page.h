@@ -65,6 +65,8 @@ void added_gallery_draw_tiles(const Page *p, uint8_t *to, int tw, int th);
 void added_gallery_draw_title(const Page *p);
 /* the name alone, big and leant (the RECORDS screen's own heading goes where "Car Showcase" is) */
 void added_gallery_draw_name(const Page *p);
+/* a General or Mechanical value cut with "..." to fit `room` px in the figures' face ("-" for none; "" when not even the dots fit) */
+void added_gallery_figure_fit(const char *value, int room, char *out, int size);
 /* the description's lines made for the tile (the text, a blank line and the foot "vX - by Author"; no heading) */
 void added_gallery_history_make(Page *p);
 /* the History text's line height and the window's height in pixel rows (the glue's lines op: the scroll is in pixel rows) */
