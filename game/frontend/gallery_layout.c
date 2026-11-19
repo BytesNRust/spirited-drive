@@ -172,6 +172,12 @@ void gallery_setup_choice(SetupChoice *c)
     c->name_x1 = c->right - GL_SETUP_CHOICE_GAP;
 }
 
+int gallery_setup_row_at(int y)
+{
+    const int from = y - GL_SETUP_Y - GL_SETUP_ROW0 - GL_SETUP_INK_MID + GL_SETUP_STEP / 2;
+    return from < 0 ? -1 : from / GL_SETUP_STEP;
+}
+
 int gallery_setup_choice_step(int x)
 {
     SetupChoice c;
@@ -184,8 +190,8 @@ int gallery_setup_hit(int x, int y, int *step)
 {
     *step = 0;
     if (!in_rect(x, y, GL_SETUP_X, GL_SETUP_Y, GL_SETUP_W, GL_SETUP_H)) return -1;
-    const int row = (y - GL_SETUP_Y - GL_SETUP_ROW0 + GL_SETUP_STEP / 2) / GL_SETUP_STEP;
-    if (y < GL_SETUP_Y + GL_SETUP_ROW0 - GL_SETUP_STEP / 2 || row < 0 || row >= GALLERY_SETUP_ROWS) return -1;
+    const int row = gallery_setup_row_at(y);
+    if (row < 0 || row >= GALLERY_SETUP_ROWS) return -1;
     if (row >= SETUP_TRANSMISSION) *step = 1;   /* a switch, as in Options: a click anywhere on its row changes it */
     else *step = gallery_setup_choice_step(x);
     return row;

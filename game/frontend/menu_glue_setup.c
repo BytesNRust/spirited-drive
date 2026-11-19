@@ -304,8 +304,8 @@ static void present(void)
 static int panel_hit(int x, int y, int *step)
 {
     *step = 0;
-    if (x < GL_SETUP_X || x >= GL_SETUP_X + GL_SETUP_W || y < GL_SETUP_Y + GL_SETUP_ROW0 - GL_SETUP_STEP / 2) return -1;
-    const int row = (y - GL_SETUP_Y - GL_SETUP_ROW0 + GL_SETUP_STEP / 2) / GL_SETUP_STEP;
+    if (x < GL_SETUP_X || x >= GL_SETUP_X + GL_SETUP_W) return -1;
+    const int row = gallery_setup_row_at(y);
     if (row < 0 || row >= ROWS) return -1;
     *step = row != ROW_COLOUR ? 1 : gallery_setup_choice_step(x);
     return row;

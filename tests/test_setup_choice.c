@@ -12,6 +12,22 @@
 #include <string.h>
 #include <unistd.h>
 
+/* a click on the middle of each row's capitals is that row, and a switch's step is 1 (Transmission, ABS, Traction control) */
+static void rows(void)
+{
+    int step;
+    for (int row = 0; row < GALLERY_SETUP_ROWS; row++) {
+        const int mid = GL_SETUP_Y + GL_SETUP_ROW0 + row * GL_SETUP_STEP + GL_SETUP_INK_MID;
+        CHECK_EQ_INT(gallery_setup_row_at(mid), row);
+        CHECK_EQ_INT(gallery_setup_row_at(mid - GL_SETUP_STEP / 2), row);                  /* the band's top row */
+        CHECK_EQ_INT(gallery_setup_row_at(mid + GL_SETUP_STEP / 2 - 1), row);              /* and its last */
+        CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + GL_SETUP_LABEL_X + 10, mid, &step), row);
+        CHECK_EQ_INT(step, row >= 2 ? 1 : 0);   /* the label's side of Color and Skin: the row alone */
+    }
+    CHECK_EQ_INT(gallery_setup_row_at(GL_SETUP_Y + 5), -1);
+    CHECK_EQ_INT(gallery_setup_hit(GL_SETUP_X + 150, GL_SETUP_Y + GL_SETUP_ROW0 + GALLERY_SETUP_ROWS * GL_SETUP_STEP + GL_SETUP_INK_MID, &step), -1);
+}
+
 static void geometry(void)
 {
     SetupChoice c;
@@ -25,9 +41,9 @@ static void geometry(void)
     CHECK_EQ_INT(gallery_setup_choice_step(c.left), -1);
     CHECK_EQ_INT(gallery_setup_choice_step(c.right + GL_ARROW_W - 1), 1);
     int hit_step;
-    CHECK_EQ_INT(gallery_setup_hit(c.left + 2, GL_SETUP_Y + GL_SETUP_ROW0, &hit_step), 0);    /* Color's row, left half */
+    CHECK_EQ_INT(gallery_setup_hit(c.left + 2, GL_SETUP_Y + GL_SETUP_ROW0 + GL_SETUP_INK_MID, &hit_step), 0);    /* Color's row, left half */
     CHECK_EQ_INT(hit_step, -1);
-    CHECK_EQ_INT(gallery_setup_hit(c.right + 2, GL_SETUP_Y + GL_SETUP_ROW0, &hit_step), 0);
+    CHECK_EQ_INT(gallery_setup_hit(c.right + 2, GL_SETUP_Y + GL_SETUP_ROW0 + GL_SETUP_INK_MID, &hit_step), 0);
     CHECK_EQ_INT(hit_step, 1);
 }
 
@@ -42,6 +58,9 @@ static void names(void)
     }
     resource_init(cd, 0);
     CHECK(text_init());
+    int top, bottom;
+    text_ink_scaled("H", GL_SETUP_FONT_NUM, GL_SETUP_FONT_DEN, &top, &bottom);
+    CHECK_EQ_INT((top + bottom) / 2, GL_SETUP_INK_MID);   /* the constant is the font's */
     SetupChoice c;
     gallery_setup_choice(&c);
     const int room = c.name_x1 - c.name_x0;
@@ -67,6 +86,7 @@ static void names(void)
 int main(void)
 {
     geometry();
+    rows();
     names();
     return TEST_REPORT();
 }

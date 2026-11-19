@@ -34,6 +34,7 @@ enum {
     GL_SETUP_TITLE_NUM = 5, GL_SETUP_TITLE_DEN = 4,   /* the panel's title "CAR SETUP", red: the size of the CD page's baked "Car Showcase" (owner 2026-11-18), on the CD's pages and the added one's alike */
     GL_SETUP_CHOICE_X = 80,   /* Color's and Skin's row (owner 2026-11-19): the left arrow at this x in the panel, past the label, and the right arrow's right edge at the panel's width - 16 (a switch's value ends there too) */
     GL_SETUP_CHOICE_GAP = 6,  /* the preview box's own gap to the left arrow, and the name's to the box and to the right arrow */
+    GL_SETUP_INK_MID = 10,   /* a row's capitals' middle below the row's y ((5 + 16) / 2 in the main face at 7/8): a click's row band is centred there, on what the player sees (owner 2026-11-19) */
     GL_SETUP_LABEL_X = 14, GL_SETUP_FONT_NUM = 7, GL_SETUP_FONT_DEN = 8,   /* the rows in the main face at 7/8, as Options' */
     GALLERY_SETUP_ROWS = 5,
     GL_ARROW_ZONE = 30,   /* the width of the big photo's left and right zones, the arrows' places for a click */
@@ -76,6 +77,8 @@ typedef struct {
 void gallery_setup_choice(SetupChoice *c);
 /* what a click at column x on a Color or Skin row means: -1 in the left half of the arrows' zone, 1 in the right half, 0 left of it (the label: the row alone) */
 int gallery_setup_choice_step(int x);
+/* the panel's row (0 ..) whose band the pointer row `y` is in: each band is GL_SETUP_STEP tall and centred on the row's text; -1 above the first */
+int gallery_setup_row_at(int y);
 
 /* what a click at (x, y) hits in the open SETUP panel: the row (SETUP_*) with *step -1 on the left half of the value column, 1 on the right half,
  * 0 on the label (the row alone); -1 outside the panel or between rows */
