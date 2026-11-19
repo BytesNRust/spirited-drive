@@ -144,6 +144,8 @@ A car's texture is repainted when the player picks a colour. A **mask** says whi
 
 The race repaints the body textures by their names (`topv`, `rsid`, `bott`, `wing`, `frnt`, `rear`, and `side`, `back` in the low bank). An added car's own texture (`car texture add`, a name of its own such as `tras`) is repainted too when the car's own mask for it (`<mod>/car_masks/<STEM>/<tex>_mask.png`, or a skin's) marks a texel as paint; without a mask, or with one that paints nothing (a lamps' mask), it keeps its colours. An original car's masks keep their names' classes.
 
+A traffic car's high detail bank has a `side` texture (some a `back` too), which the catalogue cars' high banks have not: its `side_mask.png` (and `back_mask.png`) drives its shine and lamps on the high bank as the low bank's `side_lo_mask.png` always did. A `side` or `back` with no mask file is left as it was.
+
 The masks are made from layered PSDs: `tools/car_mask_psd.py` writes a PSD per texture (the texture on a locked layer, an empty `mask` layer over it at 50% opacity) and `tools/car_mask_from_psd.py <dir of CAR/<tex>.psd>` reads the **`mask` layer** back into the PNGs. Paint the mask layer with these colours (flat, no anti-aliasing at the edges):
 
 | Colour in the `mask` layer | The texel |

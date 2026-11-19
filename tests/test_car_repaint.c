@@ -449,7 +449,7 @@ static void test_body_class(void)
     CHECK_EQ_INT(car_repaint_body_class("rear", 1), REPAINT_END);
     CHECK_EQ_INT(car_repaint_body_class("side", 1), REPAINT_MAIN);
     CHECK_EQ_INT(car_repaint_body_class("back", 1), REPAINT_END);
-    CHECK_EQ_INT(car_repaint_body_class("side", 0), REPAINT_NONE);   /* the high bank has no such texture: nothing changes there */
+    CHECK_EQ_INT(car_repaint_body_class("side", 0), REPAINT_NONE);   /* the catalogue cars' high banks have no such texture; the traffic cars' have, and repaint_cfm makes them body where a mask exists (test_drive_skin.c) */
     CHECK_EQ_INT(car_repaint_body_class("back", 0), REPAINT_NONE);
     CHECK_EQ_INT(car_repaint_body_class("tyr1", 1), REPAINT_NONE);
     CHECK_EQ_INT(car_repaint_body_class("circ", 0), REPAINT_NONE);
