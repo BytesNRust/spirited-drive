@@ -72,7 +72,7 @@ static void check_turn_limit(const uint8_t *tmpl, size_t tsize)
     CHECK(strstr(err.message, "more than 8 degrees") != NULL);
 }
 
-/* the terrain of a turned node does not go further across the road than TRACK_GEN_TERRAIN_REACH of the curve's radius, on a straight it is the
+/* the terrain of a turned node, on the inside of the curve only, does not go further across the road than TRACK_GEN_TERRAIN_REACH of the curve's radius; the outside and a straight keep the
  * template's (5, 8, 18, 38, 68 units a side), and the turn limit of the nodes is TRACK_GEN_TURN_MAX_DEGREES (a layout keeps its 8) */
 static void turned_nodes(TrackGenNode *n, int count, double degrees)
 {
@@ -109,8 +109,10 @@ static void check_terrain_reach(void)
     enum { COUNT = 12 * 4 + 1 };
     static TrackGenNode n[COUNT];
     const double step = TRACK_GEN_NODE_LENGTH / 65536.0;
-    for (int t = 0; t < 4; ++t) {
-        const double degrees = t == 0 ? 0 : t == 1 ? 4 : t == 2 ? 10 : TRACK_GEN_TURN_MAX_DEGREES;
+    for (int t = 0; t < 7; ++t) {   /* a straight, then 4, 10 and 16.5 degrees to the right (positive) and to the left */
+        const double magnitude = t == 0 ? 0 : (t - 1) % 3 == 0 ? 4 : (t - 1) % 3 == 1 ? 10 : TRACK_GEN_TURN_MAX_DEGREES;
+        const double degrees = t > 3 ? -magnitude : magnitude;
+        const int inner = degrees > 0 ? 0 : 1;   /* a right turn (positive) has the right points, side 0, on the inside */
         turned_nodes(n, COUNT, degrees);
         uint8_t *out = NULL;
         size_t len = 0;
@@ -121,14 +123,15 @@ static void check_terrain_reach(void)
         TriParts parts;
         CHECK_EQ_INT(tri_open(&tri, out, len), TRI_OK);
         CHECK_EQ_INT(tri_parts(&tri, &parts), TRI_OK);
-        const double cap = degrees == 0 ? 1e9 : step / (degrees * M_PI / 180) * TRACK_GEN_TERRAIN_REACH;
+        const double cap = degrees == 0 ? 1e9 : step / (fabs(degrees) * M_PI / 180) * TRACK_GEN_TERRAIN_REACH;
         for (int i = 30; i < 40; ++i) {   /* well inside the curve */
             const uint8_t *row = parts.terrain + (size_t)(i / 4) * TRI_SEGMENT_SIZE + 0x18 + 66 * (i % 4);
             for (int side = 0; side < 2; ++side) {
                 CHECK(fabs(side_reach(row, side, 0, n[i].heading) - 5) < 0.2);   /* the road's edge and its verge are the road's own */
                 CHECK(fabs(side_reach(row, side, 1, n[i].heading) - 8) < 0.2);
                 for (int k = 2; k < 5; ++k) {
-                    const double want = fmin(k == 2 ? 18 : k == 3 ? 38 : 68, fmax(cap, 8));
+                    const double template_reach = k == 2 ? 18 : k == 3 ? 38 : 68;
+                    const double want = side == inner ? fmin(template_reach, fmax(cap, 8)) : template_reach;   /* only the inside is held: the outside keeps its reach */
                     CHECK(fabs(side_reach(row, side, k, n[i].heading) - want) < 0.3);
                 }
             }
