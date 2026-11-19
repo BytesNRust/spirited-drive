@@ -2,6 +2,7 @@
  * for the standard edition and an own one, the edits saved at once, the card's and the foot's buttons handed to the caller, Done kept
  * shut while the edition lacks a car or a track. The fake records the last page drawn; a key script plays the player. */
 #include "game/frontend/content_screen.h"
+#include "game/frontend/ui_kit_metrics.h"
 #include "test.h"
 
 #include <stdio.h>
@@ -109,9 +110,16 @@ static int32_t f_card(void *ctx, int32_t button, int32_t tab, const char *id)
 static int32_t f_foot(void *ctx, int32_t button, int32_t *edition) { (void)ctx, (void)edition, fk.foot_calls++, fk.foot_button = button; return 0; }
 static void f_refused(void *ctx, int32_t lacks) { (void)ctx, fk.refused++, fk.refused_lacks = lacks; }
 
+enum { INK_LEAD = 1, INK_TRAIL = 2 };   /* the fake's words: a blank column before the ink, two after */
+static int32_t f_ink(void *ctx, const char *text, int32_t num, int32_t den, int32_t *left, int32_t *right)
+{
+    *left = INK_LEAD, *right = f_width(ctx, text, num, den) - 1 - INK_TRAIL;
+    return 1;
+}
+
 static const ContentOps OPS = { f_background, f_text, f_width, f_title, f_fill, f_arrow, f_preview, f_show, f_key, f_pointer, f_wait,
                                 f_editions, f_edition_name, f_edition_load, f_edition_save, f_mods, f_used_in, f_card, f_foot, f_refused,
-                                NULL, NULL };
+                                NULL, NULL, f_ink };
 
 static ModInfo mod(const char *id, const char *name, const char *version, const char *author, int type)
 {
@@ -200,10 +208,24 @@ static void test_the_standard_edition(void)
     CHECK(drawn("Delete") != NULL && drawn("Delete")->style == CONTENT_DIM);
     CHECK(drawn("New") != NULL && drawn("New")->style == CONTENT_CREAM);
     const Drawn *done = drawn("Done");
-    CHECK(done != NULL && done->x == CONTENT_DONE_X && done->num == 11 && done->den == 12);   /* at the CD's DONE place, left, its capitals 11 rows */
-    CHECK(drawn("New") != NULL && drawn("New")->x > CONTENT_DONE_END);   /* the other buttons to its right */
-    CHECK_EQ_INT(fk.pager_arrows[1], 1);   /* the page indicator's, on page 1: only the right triangle, none for a page that is not there (the kit's pager has no disabled state) */
-    CHECK_EQ_INT(fk.pager_arrows[0], 0);
+    CHECK(done != NULL && done->num == 11 && done->den == 12);   /* the CD's DONE: its capitals 11 rows */
+    /* the kit's foot rule: Done's ink at the margin, Install...'s ink ending the same from the right, the four buttons centred between them with equal
+     * ink-to-ink gaps */
+    const Drawn *inst = drawn("Install..."), *nw = drawn("New"), *dup = drawn("Duplicate"), *ren = drawn("Rename"), *del = drawn("Delete");
+    CHECK(inst != NULL && nw != NULL && dup != NULL && ren != NULL && del != NULL);
+    if (done != NULL && inst != NULL && nw != NULL && dup != NULL && ren != NULL && del != NULL) {
+        const int dw = f_width(NULL, "Done", 11, 12), iw = f_width(NULL, "Install...", 4, 5);
+#define INK_END(d, word) ((d)->x + f_width(NULL, word, 4, 5) - INK_TRAIL)
+        CHECK_EQ_INT(done->x + INK_LEAD, UI_FOOT_MARGIN);
+        CHECK_EQ_INT(inst->x + iw - INK_TRAIL, CONTENT_FOOT_WIDTH - UI_FOOT_MARGIN);
+        CHECK_EQ_INT(dup->x + INK_LEAD - INK_END(nw, "New"), UI_FOOT_GAP);
+        CHECK_EQ_INT(ren->x + INK_LEAD - INK_END(dup, "Duplicate"), UI_FOOT_GAP);
+        CHECK_EQ_INT(del->x + INK_LEAD - INK_END(ren, "Rename"), UI_FOOT_GAP);
+        const int before = nw->x + INK_LEAD - (done->x + dw - INK_TRAIL), after = inst->x + INK_LEAD - INK_END(del, "Delete");
+        CHECK(before - after >= -1 && before - after <= 1);   /* centred in the room between the two inks */
+#undef INK_END
+    }    CHECK_EQ_INT(fk.pager_arrows[1], 1);   /* the page indicator's: both triangles on every page (the CD's pagers wrap) */
+    CHECK_EQ_INT(fk.pager_arrows[0], 1);
     CHECK(drawn("1/2") != NULL);
     CHECK_EQ_INT(fk.saves, 0);
     CHECK(fk.shows > 0);
@@ -222,7 +244,7 @@ static void test_an_own_edition(void)
     CHECK_EQ_INT(fk.saved.cars, 2);
     CHECK(strcmp(fk.saved.car[0], "gone-car") == 0 && strcmp(fk.saved.car[1], "rx7") == 0);
     CHECK(drawn("MISSING") != NULL && drawn("MISSING")->style == CONTENT_RED);
-    CHECK(drawn_at("Rename", 170 + CONTENT_FOOT_SHIFT, CONTENT_FOOT_Y, CONTENT_CREAM));
+    CHECK(drawn("Rename") != NULL && drawn("Rename")->style == CONTENT_CREAM && drawn("Rename")->y == CONTENT_FOOT_Y);
     CHECK(drawn("Read only. Duplicate to edit.") == NULL);
     CHECK(drawn("Your edition - in use") == NULL);   /* an own edition has no line under its name */
 }

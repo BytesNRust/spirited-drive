@@ -54,6 +54,8 @@ typedef struct ContentOps {
     /* port (T7): a file dropped on the window since the last turn, installed by the caller with its dialog (NULL: none taken); 1 when the
      * editions or the mods changed, with `edition` set to the one to show */
     int32_t (*dropped)(void *ctx, int32_t *edition);
+    /* port: the first and last columns the text's ink covers at num/den from its pen's x 0, 1 when it has ink (NULL: the whole width is ink) */
+    int32_t (*text_ink)(void *ctx, const char *text, int32_t num, int32_t den, int32_t *left, int32_t *right);
 } ContentOps;
 
 /* the screen until Done (or Escape) with the rule kept; `edition` the selector's choice it opens on, and the one it closed on */

@@ -240,7 +240,7 @@ static void test_page_one_cycles_four_views_and_cancel_puts_back(void)
     CHECK_EQ_INT(r.port.view_ultra, 0);                /* Escape: the entry's values */
     CHECK_EQ_INT(r.fake.saves, 0);
     CHECK(shown(&r.fake, "Ultra"));
-    CHECK(shown(&r.fake, "1/2 >"));
+    CHECK(shown(&r.fake, "< 1/2 >"));
     CHECK(r.fake.text_styles >= 2);   /* the text's colours rebuilt once the palette has faded in */
 }
 
@@ -249,7 +249,7 @@ static void test_first_picture_is_drawn_again_after_the_fade(void)
     Rig r;
     const int keys[] = { 0, ESCAPE };
     run(&r, keys, 2, 1);
-    CHECK_EQ_INT(shown_count(&r.fake, "1/2 >"), 2);   /* before the fade, and again with the styles built */
+    CHECK_EQ_INT(shown_count(&r.fake, "< 1/2 >"), 2);   /* before the fade, and again with the styles built */
 }
 
 static void test_page_one_ultra_kept_by_done(void)
@@ -271,7 +271,7 @@ static void test_without_plus_the_view_has_three_values(void)
     run(&r, keys, 10, 0);
     CHECK_EQ_INT(view_of(&r), 0);                      /* 0 -> 1 -> 2 -> 0 */
     CHECK_EQ_INT(r.fake.saves, 0);
-    CHECK(!shown(&r.fake, "1/2 >"));
+    CHECK(!shown(&r.fake, "< 1/2 >"));
 }
 
 static void test_second_page_edits_and_done_saves(void)
@@ -293,7 +293,7 @@ static void test_second_page_edits_and_done_saves(void)
     CHECK_EQ_INT(r.fake.saved.fullscreen, 1);
     CHECK_EQ_INT(r.fake.saved.fov_adjust, 10);
     CHECK(shown(&r.fake, "Field of view"));
-    CHECK(shown(&r.fake, "< 2/2"));
+    CHECK(shown(&r.fake, "< 2/2 >"));
 }
 
 static void test_right_arrow_turns_to_page_two(void)
@@ -330,7 +330,7 @@ static void test_page_up_from_page_one_goes_to_page_two(void)
     Rig r;
     const int keys[] = { 0x4900 /* page up */, SPACE, ENTER };
     run(&r, keys, 3, 1);
-    CHECK(shown(&r.fake, "< 2/2"));
+    CHECK(shown(&r.fake, "< 2/2 >"));
 }
 
 static void test_second_page_cancel_puts_back(void)
@@ -351,7 +351,7 @@ static void test_back_to_page_one_and_cancel_button(void)
     run(&r, keys, 11, 1);
     CHECK_EQ_INT(r.fake.saves, 0);
     CHECK_EQ_INT(r.port.format, SCREEN_4_3);
-    CHECK(shown(&r.fake, "1/2 >"));
+    CHECK(shown(&r.fake, "< 1/2 >"));
 }
 
 static void test_cancel_button_on_page_two_puts_back(void)

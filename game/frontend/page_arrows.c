@@ -4,10 +4,9 @@
 
 int page_nav_lit(const PageNavOps *o, int page, int pages)
 {
-    const int left = page > 0, right = page < pages - 1;
-    if (!o->in_rect(o->ctx, PAGE_NAV_X0, PAGE_NAV_X1, PAGE_NAV_Y0, PAGE_NAV_Y1)) return 0;
-    if (left && right) return o->in_rect(o->ctx, PAGE_NAV_X0, PAGE_NAV_CENTRE, PAGE_NAV_Y0, PAGE_NAV_Y1) ? 1 : 2;
-    return left ? 1 : right ? 2 : 0;
+    (void)page;
+    if (pages < 2 || !o->in_rect(o->ctx, PAGE_NAV_X0, PAGE_NAV_X1, PAGE_NAV_Y0, PAGE_NAV_Y1)) return 0;
+    return o->in_rect(o->ctx, PAGE_NAV_X0, PAGE_NAV_CENTRE, PAGE_NAV_Y0, PAGE_NAV_Y1) ? 1 : 2;   /* both arrows always: the box's halves */
 }
 
 void page_nav_draw(const PageNavOps *o, int page, int pages, int lit)

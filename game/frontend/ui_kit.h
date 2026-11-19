@@ -55,7 +55,22 @@ void ui_pager_at(const PageNavOps *o, const UiPagerPlace *at, const char *label,
 void ui_page_count(const PageNavOps *o, int page, int pages, int lit);
 void ui_page_count_at(const PageNavOps *o, const UiPagerPlace *at, int page, int pages, int lit);
 
-/* the pager has no disabled state: a triangle with no page to go to is not drawn (the CD's pagers wrap, so every triangle they show works; ours
+/* the foot rule (E3): a left item whose ink starts UI_FOOT_MARGIN from the left edge (the CD's DONE), a right item whose ink ends the same from the right
+ * edge, and a group of buttons centred between those two inks with equal ink-to-ink gaps. A word is its advance width `w` and the blank columns
+ * before its first ink (`lead`) and after its last (`trail`), so the ink, not the advance box, is what sits at a margin or a gap. A group wider than
+ * the room starts at the left item's ink end (the caller shrinks or cuts). */
+enum { UI_FOOT_MID_MAX = 6 };
+typedef struct {
+    int w, lead, trail;
+} UiFootWord;
+typedef struct {
+    int left_x, right_x;          /* where the left and the right word are drawn from */
+    int mid_x[UI_FOOT_MID_MAX];   /* and each of the group's, in order */
+} UiFootLayout;
+UiFootLayout ui_foot_layout(UiFootWord left, UiFootWord right, const UiFootWord *mid, int mid_n, int gap, int margin, int width);
+
+/* the pager shows both triangles whenever there is more than one page (the CD's pagers wrap: a triangle past the last page goes to the first); with
+ * one page there is nothing to turn to and neither is drawn. It has no disabled state: a triangle with no page to go to is not drawn (the CD's pagers wrap, so every triangle they show works; ours
  * never show one that does not), at any size, on every screen */
 
 #endif

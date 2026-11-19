@@ -136,12 +136,27 @@ void ui_page_count_at(const PageNavOps *o, const UiPagerPlace *at, int page, int
 {
     char label[LABEL_MAX];
     snprintf(label, sizeof label, "%d/%d", page + 1, pages);
-    ui_pager_at(o, at, label, page > 0, page < pages - 1, lit);
+    ui_pager_at(o, at, label, pages > 1, pages > 1, lit);   /* the CD's pagers wrap: both arrows always */
 }
 
 void ui_page_count(const PageNavOps *o, int page, int pages, int lit)
 {
     char label[LABEL_MAX];
     snprintf(label, sizeof label, "%d/%d", page + 1, pages);
-    ui_pager(o, label, page > 0, page < pages - 1, lit);
+    ui_pager(o, label, pages > 1, pages > 1, lit);
+}
+
+UiFootLayout ui_foot_layout(UiFootWord left, UiFootWord right, const UiFootWord *mid, int mid_n, int gap, int margin, int width)
+{
+    UiFootLayout l = { margin - left.lead, width - margin - right.w + right.trail, { 0 } };
+    const int from = margin + (left.w - left.lead - left.trail), to = width - margin - (right.w - right.lead - right.trail);   /* the room's ink edges */
+    int group = mid_n > 1 ? gap * (mid_n - 1) : 0;
+    for (int i = 0; i < mid_n; i++) group += mid[i].w - mid[i].lead - mid[i].trail;
+    int ink = from + (to - from - group) / 2;
+    if (ink < from) ink = from;
+    for (int i = 0; i < mid_n && i < UI_FOOT_MID_MAX; i++) {
+        l.mid_x[i] = ink - mid[i].lead;
+        ink += mid[i].w - mid[i].lead - mid[i].trail + gap;
+    }
+    return l;
 }

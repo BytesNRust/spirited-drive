@@ -8,10 +8,6 @@ enum { PER_PAGE = CONTENT_LINES - 1 };   /* the rows a page shows under its All 
 
 /* the tabs' and the foot's buttons' spans, x0 .. x1 (x1 left out) */
 static const int TAB_X[CONTENT_TABS + 1] = { 14, 143, 250, CONTENT_LIST_X1 };
-static const int FOOT_X[CONTENT_FOOT_BUTTONS][2] = { { 14 + CONTENT_FOOT_SHIFT, 66 + CONTENT_FOOT_SHIFT }, { 66 + CONTENT_FOOT_SHIFT, 170 + CONTENT_FOOT_SHIFT },
-                                                     { 170 + CONTENT_FOOT_SHIFT, 252 + CONTENT_FOOT_SHIFT }, { 252 + CONTENT_FOOT_SHIFT, 334 + CONTENT_FOOT_SHIFT },
-                                                     { 420 + CONTENT_FOOT_SHIFT, 540 + CONTENT_FOOT_SHIFT }, { 0, CONTENT_DONE_END } };
-
 static ContentAction act(ContentActionKind kind, int arg, int row) { return (ContentAction){ kind, arg, row }; }
 static ContentAction none(void) { return act(CONTENT_ACT_NONE, 0, 0); }
 static ContentAction moved(void) { return act(CONTENT_ACT_MOVED, 0, 0); }
@@ -205,7 +201,9 @@ static ContentAction take(const ContentNav *n, const ContentView *v)
 
 static ContentAction page_to(ContentNav *n, const ContentView *v, int page)
 {
-    if (page < 0 || page >= content_nav_pages(v->rows) || page == n->page) return none();
+    const int pages = content_nav_pages(v->rows);
+    page = (page % pages + pages) % pages;   /* the pager wraps, as the CD's */
+    if (page == n->page) return none();
     n->page = page;
     content_nav_clamp(n, v);
     return moved();
@@ -270,7 +268,7 @@ static int spot_at(const ContentNav *n, const ContentView *v, int x, int y, Spot
         return *s = (Spot){ CONTENT_AT_CARD, n->line, CONTENT_CARD_PREVIOUS }, 1;
     if (within(y, CONTENT_FOOT_Y, CONTENT_FOOT_Y + CONTENT_TEXT_H))
         for (int b = 0; b < CONTENT_FOOT_BUTTONS; b++)
-            if (within(x, FOOT_X[b][0], FOOT_X[b][1])) return *s = (Spot){ CONTENT_AT_FOOT, n->line, b }, 1;
+            if (within(x, v->foot_x[b][0], v->foot_x[b][1])) return *s = (Spot){ CONTENT_AT_FOOT, n->line, b }, 1;
     return list_spot(n, v, x, y, s);
 }
 

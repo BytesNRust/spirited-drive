@@ -174,6 +174,15 @@ static int32_t content_text_width(void *ctx, const char *text, int32_t num, int3
     return glue_plus_text_width_scaled(ctx, text, num, den);
 }
 
+static int32_t content_text_ink(void *ctx, const char *text, int32_t num, int32_t den, int32_t *left, int32_t *right)
+{
+    (void)ctx;
+    int l, r;
+    const int found = text_ink_x_scaled(text, num, den, &l, &r);
+    *left = l, *right = r;
+    return found;
+}
+
 /* a flat rectangle, x0..x1 and y0..y1 inclusive, a row at a time (menu_glue_screens.c's fill_rows) */
 static void content_fill(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t rgb)
 {
@@ -672,7 +681,7 @@ int32_t glue_content_screen(int32_t *edition)
     const ContentOps ops = { content_background, content_text, content_text_width, own_title_text, content_fill, content_arrow,
                              content_preview, content_show, key, content_pointer, content_wait, content_editions,
                              content_edition_name, content_edition_load, content_edition_save, content_mods, content_used_in,
-                             content_card, content_foot, content_refused, NULL, content_dropped };
+                             content_card, content_foot, content_refused, NULL, content_dropped, content_text_ink };
     const int music = *menu_audio_silent() == 0;
     if (music) {   /* the car gallery's (calmer) music, as Control Central's gallery starts it (central_select.c) */
         menu_audio_music_fade_out();

@@ -75,7 +75,7 @@ back="$(click 571 453),$(wait_for screen=game_mode)"   # Control Central's Cance
 manage="$(click 320 315),$(wait_for screen=content)"
 # CONTENT's places (content_nav.h): the foot's buttons at y 446 (content_nav.c's FOOT_X), the card's Uninstall (y 358, x 500 on) and
 # Previous version (y 386), the page indicator's next (x 330, y 370), the list's first line (y 162) by its name (a click there selects)
-new="$(click 100 456)" delete="$(click 360 456)" install="$(click 540 456)" done_="$(click 40 456)"
+new="$(click 170 456)" delete="$(click 420 456)" install="$(click 590 456)" done_="$(click 30 456)"
 uninstall="$(click 560 356)" previous="$(click 450 384)" car_line="$(click 150 358)"
 # a click on the card's text, which takes nothing: it closes a banner still up (a banner ends on a click), else does nothing
 quiet="$(click 600 300)"

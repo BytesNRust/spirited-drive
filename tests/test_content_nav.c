@@ -27,6 +27,8 @@ static void fill(int n, int on, int locked)
     view.rows = &rows;
     for (int i = 0; i < CONTENT_CARD_BUTTONS; i++) view.card_on[i] = 1;
     for (int i = 0; i < CONTENT_FOOT_BUTTONS; i++) view.foot_on[i] = 1;
+    static const int SPAN[CONTENT_FOOT_BUTTONS][2] = { { 100, 130 }, { 147, 237 }, { 254, 314 }, { 331, 371 }, { 500, 630 }, { 9, 70 } };   /* content_foot_layout's kind */
+    memcpy(view.foot_x, SPAN, sizeof SPAN);
 }
 
 static int line_y(int line) { return CONTENT_LIST_Y + line * CONTENT_LINE + 4; }
@@ -195,9 +197,12 @@ static void test_the_pages_by_keys(void)
     fill(25, 3, 0);
     CHECK_EQ_INT(content_nav_key(&n, &view, PAGE_DOWN).kind, CONTENT_ACT_MOVED);
     CHECK_EQ_INT(n.page, 1);
-    content_nav_key(&n, &view, PAGE_DOWN), content_nav_key(&n, &view, PAGE_DOWN);
-    CHECK_EQ_INT(n.page, 2);   /* no further */
-    CHECK_EQ_INT(n.line, 1);
+    content_nav_key(&n, &view, PAGE_DOWN);
+    CHECK_EQ_INT(n.page, 2);
+    CHECK_EQ_INT(content_nav_key(&n, &view, PAGE_DOWN).kind, CONTENT_ACT_MOVED);
+    CHECK_EQ_INT(n.page, 0);   /* the last page's next is the first: the pager wraps, as the CD's */
+    content_nav_key(&n, &view, PAGE_UP);
+    CHECK_EQ_INT(n.page, 2);   /* and the first's previous the last */
     content_nav_key(&n, &view, PAGE_UP);
     CHECK_EQ_INT(n.page, 1);
     /* Down from a page's last line goes on to the next page's first row */
@@ -306,7 +311,7 @@ static void test_the_clicks(void)
     a = content_nav_click(&n, &view, 30, CONTENT_FOOT_Y + 6);   /* Done is at the left, the CD's DONE place */
     CHECK_EQ_INT(a.kind, CONTENT_ACT_FOOT);
     CHECK_EQ_INT(a.arg, CONTENT_FOOT_DONE);
-    CHECK_EQ_INT(content_nav_click(&n, &view, 90 + CONTENT_FOOT_SHIFT, CONTENT_FOOT_Y + 6).arg, CONTENT_FOOT_DUPLICATE);
+    CHECK_EQ_INT(content_nav_click(&n, &view, 150, CONTENT_FOOT_Y + 6).arg, CONTENT_FOOT_DUPLICATE);
     CHECK_EQ_INT(content_nav_click(&n, &view, 500, 300).kind, CONTENT_ACT_NONE);   /* the card's words */
     /* a line past the rows takes nothing */
     fill(2, 1, 0);

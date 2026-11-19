@@ -439,6 +439,22 @@ static void turn(Run *r, int to, const ControlsMenuOps *o)
     o->sound(o->ctx, MOVED);
 }
 
+/* the pager wraps, as the CD's: the last page's next is the first (the exe's page, off this screen, when there is one: back to it), the first's
+ * previous the last */
+static void turn_next(Run *r, const ControlsMenuOps *o)
+{
+    if (r->page < PAGES - 1) turn(r, r->page + 1, o);
+    else if (r->three) turn(r, KEYBOARD_PAGE, o);
+    else r->result = CONTROLS_PAGE_BACK;
+}
+
+static void turn_prev(Run *r, const ControlsMenuOps *o)
+{
+    if (r->page != KEYBOARD_PAGE) turn(r, r->page - 1, o);
+    else if (r->three) turn(r, PAGES - 1, o);
+    else r->result = CONTROLS_PAGE_BACK;
+}
+
 /* Space, Enter or the left button */
 static void choose(Run *r, const ControlsMenuState *st, const ControlsMenuOps *o)
 {
@@ -493,10 +509,9 @@ static void step(Run *r, uint16_t k, const ControlsMenuState *st, const Controls
         o->sound(o->ctx, CHOSEN);
         r->redraw = 1;
     } else if (k == LEFT) {
-        if (r->page != KEYBOARD_PAGE) turn(r, r->page - 1, o);
-        else if (!r->three) r->result = CONTROLS_PAGE_BACK;
+        turn_prev(r, o);
     } else if (k == RIGHT) {
-        turn(r, r->page + 1, o);
+        turn_next(r, o);
     } else if (r->page == KEYBOARD_PAGE && r->selected < key_rows(r) && k == DELETE) {
         port_controls_set_key(st->plus->port, r->key_defaults, (PortKey)r->selected, 0);   /* none */
         r->redraw = 1;
@@ -513,10 +528,8 @@ static void step(Run *r, uint16_t k, const ControlsMenuState *st, const Controls
 static void nav_click(Run *r, const ControlsMenuOps *o)
 {
     const int lit = run_nav_lit(r, o);
-    if (lit == 2) turn(r, r->page + 1, o);
-    else if (lit != 1) return;
-    else if (r->page == KEYBOARD_PAGE) r->result = CONTROLS_PAGE_BACK;
-    else turn(r, r->page - 1, o);
+    if (lit == 2) turn_next(r, o);
+    else if (lit == 1) turn_prev(r, o);
 }
 
 ControlsPageResult controls_plus_run(const ControlsMenuState *st, const ControlsMenuOps *o, int32_t bank)

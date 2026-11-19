@@ -20,7 +20,6 @@ static const char *const CARD_WORDS[CONTENT_CARD_BUTTONS] = { "Update...", "Unin
 static const int CARD_X[CONTENT_CARD_BUTTONS] = { CONTENT_CARD_X0, CONTENT_UNINSTALL_X, CONTENT_CARD_X0 };
 static const int CARD_Y[CONTENT_CARD_BUTTONS] = { CONTENT_CARD_BUTTONS_Y, CONTENT_CARD_BUTTONS_Y, CONTENT_PREVIOUS_Y };
 static const char *const FOOT_WORDS[CONTENT_FOOT_BUTTONS] = { "New", "Duplicate", "Rename", "Delete", "Install...", "Done" };
-static const int FOOT_X[CONTENT_FOOT_BUTTONS - 1] = { 14, 66, 170, 252, 420 };
 /* the selector's name: the main face's size, or smaller when the name is wide (ui_fit shrinks it, and cuts it at the smallest); its note: cut */
 static const UiSize NAME_SIZES[] = { { 1, 1 }, { 5, 6 }, { 3, 4 } };
 static const UiSize NOTE_SIZES[] = { { SMALL_NUM, SMALL_DEN } };
@@ -243,15 +242,42 @@ static void card(const ContentOps *o, const ContentPage *p)
     }
 }
 
+/* a foot word's advance and the blank columns around its ink, at its size */
+static UiFootWord foot_word(const ContentOps *o, int b)
+{
+    const int done = b == CONTENT_FOOT_DONE, num = done ? DONE_NUM : BUTTON_NUM, den = done ? DONE_DEN : BUTTON_DEN;
+    UiFootWord w = { o->text_width(o->ctx, FOOT_WORDS[b], num, den), 0, 0 };
+    int32_t l, r;
+    if (o->text_ink != NULL && o->text_ink(o->ctx, FOOT_WORDS[b], num, den, &l, &r)) w.lead = l, w.trail = w.w - 1 - r > 0 ? w.w - 1 - r : 0;
+    return w;
+}
+
+void content_foot_layout(const ContentOps *o, ContentView *v)
+{
+    static const int MID[] = { CONTENT_FOOT_NEW, CONTENT_FOOT_DUPLICATE, CONTENT_FOOT_RENAME, CONTENT_FOOT_DELETE };
+    enum { MID_N = 4 };
+    UiFootWord w[MID_N];
+    for (int i = 0; i < MID_N; i++) w[i] = foot_word(o, MID[i]);
+    const UiFootWord done = foot_word(o, CONTENT_FOOT_DONE), install = foot_word(o, CONTENT_FOOT_INSTALL);
+    const UiFootLayout l = ui_foot_layout(done, install, w, MID_N, UI_FOOT_GAP, UI_FOOT_MARGIN, CONTENT_FOOT_WIDTH);
+    /* the draw origins in [0] and the click spans' other ends in [1]: each word's box, Done's from the left edge to the middle of the gap after it,
+     * Install...'s from the middle of the gap before it to the right edge */
+    v->foot_x[CONTENT_FOOT_DONE][0] = l.left_x, v->foot_x[CONTENT_FOOT_DONE][1] = l.left_x + done.w + UI_FOOT_GAP / 2;
+    v->foot_x[CONTENT_FOOT_INSTALL][0] = l.right_x, v->foot_x[CONTENT_FOOT_INSTALL][1] = l.right_x + install.w;
+    for (int i = 0; i < MID_N; i++) v->foot_x[MID[i]][0] = l.mid_x[i], v->foot_x[MID[i]][1] = l.mid_x[i] + w[i].w;
+}
+
+static int foot_origin(const ContentView *v, int b) { return v->foot_x[b][0]; }
+
 static void foot(const ContentOps *o, const ContentPage *p)
 {
     rule(o, CONTENT_LIST_X0, CONTENT_FOOT_RULE_Y, CONTENT_CARD_X1, CONTENT_FOOT_RULE_Y);
     for (int b = 0; b < CONTENT_FOOT_BUTTONS; b++) {
         const int style = button_style(p->view->foot_on[b], !p->quiet && p->nav->at == CONTENT_AT_FOOT && p->nav->item == b);
         if (b == CONTENT_FOOT_DONE)   /* the CD's DONE: at the left, the capitals 11 rows */
-            o->text(o->ctx, style, FOOT_WORDS[b], CONTENT_DONE_X, CONTENT_FOOT_Y - DONE_DY, DONE_NUM, DONE_DEN);
+            o->text(o->ctx, style, FOOT_WORDS[b], foot_origin(p->view, b), CONTENT_FOOT_Y - DONE_DY, DONE_NUM, DONE_DEN);
         else
-            o->text(o->ctx, style, FOOT_WORDS[b], FOOT_X[b] + CONTENT_FOOT_SHIFT, CONTENT_FOOT_Y, BUTTON_NUM, BUTTON_DEN);
+            o->text(o->ctx, style, FOOT_WORDS[b], foot_origin(p->view, b), CONTENT_FOOT_Y, BUTTON_NUM, BUTTON_DEN);
     }
 }
 

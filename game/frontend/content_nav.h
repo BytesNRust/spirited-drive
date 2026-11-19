@@ -36,8 +36,7 @@ enum {
     CONTENT_CARD_USED_Y = 318, CONTENT_CARD_BUTTONS_Y = 346, CONTENT_UNINSTALL_X = 500, CONTENT_PREVIOUS_Y = 374,
     /* the card's translucent panel (the gallery's): the preview, the words and the buttons on it, clear of the split */
     CONTENT_CARD_PANEL_X0 = 386, CONTENT_CARD_PANEL_X1 = 632, CONTENT_CARD_PANEL_Y0 = 104, CONTENT_CARD_PANEL_Y1 = 420,
-    CONTENT_FOOT_RULE_Y = 434, CONTENT_FOOT_Y = 446, CONTENT_DONE_X = 10, CONTENT_DONE_END = 76,   /* Done at the CD's DONE place (x 7-11, rows 445-456), the other buttons to its right */
-    CONTENT_FOOT_SHIFT = 64,
+    CONTENT_FOOT_RULE_Y = 434, CONTENT_FOOT_Y = 446, CONTENT_FOOT_WIDTH = 640,   /* the foot is the kit's foot rule (ui_foot_layout): Done at the CD's DONE margin, Install... at the same from the right, the rest centred */
     CONTENT_TEXT_H = 20                      /* a line's height for the pointer */
 };
 
@@ -74,6 +73,7 @@ typedef struct {
     const ContentRows *rows;
     int card_on[CONTENT_CARD_BUTTONS];
     int foot_on[CONTENT_FOOT_BUTTONS];
+    int foot_x[CONTENT_FOOT_BUTTONS][2];   /* each foot button's click span x0 .. x1 (x1 left out), from content_foot_layout */
 } ContentView;
 
 typedef struct {
