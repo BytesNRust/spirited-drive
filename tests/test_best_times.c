@@ -49,7 +49,9 @@ typedef struct Fake {
     int label_count;
     int char_w;              /* a letter's width at 1/1 (8 when 0) */
     char shadowed[DRAWN_MAX][TEXT_MAX];
+    int32_t shadowed_style[DRAWN_MAX];   /* the style selected when each was drawn (text_shadowed draws in the selected one) */
     int shadowed_count;
+    int32_t style;           /* the selected style: text_select and every plus_* draw set it, as the game's glue does */
     char fitted[DRAWN_MAX][TEXT_MAX];   /* the names the screen fits (the rows' first words) */
     int fitted_count;
     int32_t pointer_x, pointer_y;
@@ -95,7 +97,7 @@ static int32_t f_pointer_in_rect(void *ctx, int32_t x0, int32_t x1, int32_t y0, 
 static void f_select(void *ctx, int32_t picture) { (void)ctx, (void)picture; }
 static void f_blit(void *ctx, const uint8_t *shape) { (void)ctx, (void)shape; }
 static void f_blit_word(void *ctx, int32_t shape) { (void)ctx, (void)shape; }
-static void f_text_select(void *ctx, int32_t style) { (void)ctx, (void)style; }
+static void f_text_select(void *ctx, int32_t style) { (void)ctx, fk.style = style; }
 static void f_text_fit(void *ctx, const char *text, int32_t x, int32_t y, int32_t width)
 {
     (void)ctx, (void)x, (void)y, (void)width;
@@ -106,7 +108,7 @@ static void f_speed_text(void *ctx, char *out, int32_t speed) { (void)ctx, (void
 static void f_text_shadowed(void *ctx, const char *text, int32_t x, int32_t y)
 {
     (void)ctx, (void)x, (void)y;
-    if (fk.shadowed_count < DRAWN_MAX) snprintf(fk.shadowed[fk.shadowed_count++], TEXT_MAX, "%s", text);
+    if (fk.shadowed_count < DRAWN_MAX) fk.shadowed_style[fk.shadowed_count] = fk.style, snprintf(fk.shadowed[fk.shadowed_count++], TEXT_MAX, "%s", text);
 }
 static int32_t f_pointer_buttons(void *ctx) { (void)ctx; return 0; }
 static void f_fade_in(void *ctx, int32_t first, int32_t count, const uint8_t *rgb)
@@ -141,6 +143,7 @@ static int32_t f_deadline_passed(void *ctx)
 static void f_plus_text(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
 {
     (void)ctx;
+    fk.style = style;   /* the glue selects it (glue_plus_text_scaled) */
     if (fk.label_count >= DRAWN_MAX) return;
     snprintf(fk.labels[fk.label_count], TEXT_MAX, "%s", text);
     fk.label_style[fk.label_count] = style;
@@ -355,6 +358,26 @@ static RecordRow named_row(const char *name, int32_t time)
     const int32_t set = 1;
     memcpy(r.row + RECORD_ROW_TIME, &time, 4), memcpy(r.row + RECORD_ROW_SET, &set, 4);
     return r;
+}
+
+/* E7 (owner): a row's car is in the same yellow as its name and time, also when the conditions' words (drawn in cream between them) were drawn */
+static void test_the_car_is_as_yellow_as_the_row_after_the_conditions_words(void)
+{
+    race_records_reset(), race_records_tracks_reset();
+    RecordRow row = named_row("SPEEDY", 90000);
+    row.marks.weather = RECORD_MARK_KNOWN | 1, row.marks.time = RECORD_MARK_KNOWN | 1, row.marks.difficulty = 0x15;   /* conditions to say in words */
+    race_records_make(CIRCUIT, LAYOUT_NORMAL, 0, 8)->totals[0] = row;
+    BestTimesPlus plus;
+    best_times_pages_open(&plus, CIRCUIT, LAYOUT_NORMAL, 0, 0, 1);
+    reset((int[]){ SHIFT_NOTHING }, 1);
+    (void)run(&plus, CIRCUIT);
+    int found = 0;
+    for (int i = 0; i < fk.shadowed_count; i++)
+        if (strcmp(fk.shadowed[i], "RX-7") == 0) {
+            found = 1;
+            CHECK_EQ_INT(fk.shadowed_style[i], 1);   /* 1: the yellow the name is in */
+        }
+    CHECK(found);
 }
 
 static void test_lunar_draws_its_own_records(void)
@@ -729,6 +752,7 @@ int main(void)
     test_no_plus_is_original();
     test_the_standard_arrows_walk_the_original();
     test_lunar_shows_the_moon();
+    test_the_car_is_as_yellow_as_the_row_after_the_conditions_words();
     test_lunar_draws_its_own_records();
     test_an_added_track_shows_its_own();
     test_an_editions_arrows_walk_its_tracks();
