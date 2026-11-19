@@ -168,7 +168,10 @@ void viewport_panel(App *a)
             const ImVec2 origin = ImGui::GetCursorScreenPos();
             a->view.width = (int)size.x;
             a->view.height = (int)size.y;
-            if (++frames == 3) interact_fit(a);   // fit the trace to the panel once, when its size has settled
+            if (++frames == 3 || a->fit_pending) {   // fit the trace to the panel once, when its size has settled, and when another project was opened
+                interact_fit(a);
+                a->fit_pending = 0;
+            }
             ImGui::InvisibleButton("canvas", size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
             handle_mouse(a, origin);
             app_recompute(a);   // what the mouse and the keys just changed, so the road is drawn with its points

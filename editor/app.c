@@ -2,6 +2,7 @@
 
 #include "build.h"
 
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,6 +59,8 @@ int app_open(App *a, const char *dir, const char *game, const char *user, const 
         set_status(a, why);
         return 0;
     }
+    snprintf(a->generic, sizeof a->generic, "%s", generic_art != NULL ? generic_art : "");
+    a->saved_print = session_fingerprint(&a->trace);
     a->dirty = 1;
     app_recompute(a);
     view_fit(&a->view, a->trace.points, a->trace.count, 960, 600);
@@ -149,6 +152,92 @@ void app_select_node(App *a, int node)
     a->node = node;
 }
 
+int app_modified(const App *a)
+{
+    return session_fingerprint(&a->trace) != a->saved_print;
+}
+
+void app_ask(App *a, AppAction act, const char *path)
+{
+    if (act == APP_ACT_NONE || a->confirm != APP_ACT_NONE || a->go != APP_ACT_NONE) return;
+    if (app_modified(a)) {
+        a->confirm = act;
+        snprintf(a->confirm_path, sizeof a->confirm_path, "%s", path != NULL ? path : "");
+    } else {
+        a->go = act;
+        snprintf(a->go_path, sizeof a->go_path, "%s", path != NULL ? path : "");
+    }
+}
+
+void app_answer(App *a, int answer)
+{
+    if (a->confirm == APP_ACT_NONE) return;
+    if (answer == APP_ANSWER_SAVE && !app_save(a)) return;   // it stays waiting: the status says why
+    if (answer == APP_ANSWER_SAVE || answer == APP_ANSWER_DISCARD) {
+        a->go = a->confirm;
+        memcpy(a->go_path, a->confirm_path, sizeof a->go_path);
+    }
+    a->confirm = APP_ACT_NONE;
+}
+
+/* puts the open project first in the recent list, by its real path (a relative one or one with a slash at its end would be another entry, and
+ * greyed from another folder), and keeps the list */
+static void remember(App *a)
+{
+    char real[PATH_MAX];
+    if (realpath(a->dir, real) != NULL) recent_push(&a->recent, real);
+    else recent_push(&a->recent, a->dir);
+    if (a->recent_file[0] != '\0') recent_save(&a->recent, a->recent_file);
+}
+
+static int open_in(App *a, const char *dir)
+{
+    App *next = calloc(1, sizeof *next);
+    if (next == NULL) {
+        set_status(a, "out of memory");
+        return 0;
+    }
+    if (!app_open(next, dir, a->game, a->user, a->generic[0] != '\0' ? a->generic : NULL)) {
+        set_status(a, next->status);
+        app_free(next);
+        free(next);
+        return 0;
+    }
+    next->recent = a->recent;
+    memcpy(next->recent_file, a->recent_file, sizeof next->recent_file);
+    app_free(a);
+    *a = *next;   // the new project's arrays belong to `a` now
+    free(next);
+    a->fit_pending = 1;
+    remember(a);
+    return 1;
+}
+
+int app_open_project(App *a, const char *dir)
+{
+    if (!recent_is_project(dir)) {
+        set_status(a, "that folder holds no project (no project.ini): use New to start one there");
+        return 0;
+    }
+    return open_in(a, dir);
+}
+
+int app_new_project(App *a, const char *dir)
+{
+    if (recent_is_project(dir)) {
+        set_status(a, "that folder already holds a project: use Open");
+        return 0;
+    }
+    return open_in(a, dir);
+}
+
+void app_keep_recent(App *a, const char *file)
+{
+    snprintf(a->recent_file, sizeof a->recent_file, "%s", file != NULL ? file : "");
+    recent_load(&a->recent, a->recent_file);
+    remember(a);
+}
+
 int app_node_count(const App *a)
 {
     return a->road_made ? a->node_count : 4 * track_trace_segments(a->length) + 1;
@@ -161,6 +250,7 @@ int app_save(App *a)
         set_status(a, why);
         return 0;
     }
+    a->saved_print = session_fingerprint(&a->trace);
     set_status(a, "saved trace.json");
     return 1;
 }

@@ -4,6 +4,7 @@
 #define TNFS_TRACK_EDITOR_APP_H
 
 #include "project.h"
+#include "session.h"
 #include "view.h"
 
 #include <stdint.h>
@@ -13,6 +14,20 @@ enum {
     APP_MSG = 320,
     APP_NEW_STEP = 40        /* units between a point and the one added after it */
 };
+
+/* what the window was asked to do that ends or changes the project: quit, start a new project, open one, open a recent one */
+typedef enum {
+    APP_ACT_NONE = 0,
+    APP_ACT_QUIT,
+    APP_ACT_NEW,       /* a folder for the new project is asked for (main.c's dialog) */
+    APP_ACT_OPEN,      /* a folder holding a project is asked for */
+    APP_ACT_RECENT,    /* the folder is in the path */
+    APP_ACT_NEW_AT,    /* the folder the New dialog gave, in the path: asked through the same question, as the project may have changed meanwhile */
+    APP_ACT_OPEN_AT    /* the same for Open */
+} AppAction;
+
+/* the answers to "unsaved changes" */
+enum { APP_ANSWER_CANCEL = 0, APP_ANSWER_DISCARD = 1, APP_ANSWER_SAVE = 2 };
 
 typedef struct {
     char dir[APP_PATH];          /* the project folder */
@@ -42,6 +57,16 @@ typedef struct {
     int node_for;                /* the control point `node` was taken from (app_sync_selection) */
     char road_text[APP_MSG];     /* why the road is not made; "" when it is */
 
+    uint64_t saved_print;        /* session_fingerprint of the trace as it is in trace.json: app_modified compares with it */
+    AppAction confirm;           /* an action waiting for the answer to "unsaved changes" */
+    char confirm_path[APP_PATH];
+    AppAction go;                /* an action to run now (main.c): the confirmation is answered, or there was nothing unsaved */
+    char go_path[APP_PATH];
+    int fit_pending;             /* the view is fitted to the trace on the next frame (a project was just opened) */
+    char generic[APP_PATH];      /* the editor's own GENERIC.FAM, for the projects it creates ("" when there is none) */
+    Recent recent;               /* the project folders opened lately, newest first */
+    char recent_file[APP_PATH];  /* where they are kept, "" when they are not */
+
     char zip[APP_PATH];          /* the last package built, "" before one */
     char status[APP_MSG];        /* the last thing done, for the window's bottom line */
 } App;
@@ -51,6 +76,25 @@ typedef struct {
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art);
 
 void app_free(App *a);
+
+/* 1 when the trace is not what trace.json holds (a point moved, added or removed, or the width changed since the last save or open). */
+int app_modified(const App *a);
+
+/* Asks for an action. With nothing unsaved it is a->go at once; else a->confirm waits for app_answer, and a->go stays NONE. An action asked for
+ * while another waits is dropped. `path` is the folder of APP_ACT_RECENT, or "" . */
+void app_ask(App *a, AppAction act, const char *path);
+
+/* The answer to the waiting confirmation: APP_ANSWER_SAVE saves and goes on (if the save fails it stays waiting, with the status saying why),
+ * APP_ANSWER_DISCARD goes on without saving, APP_ANSWER_CANCEL drops the action. */
+void app_answer(App *a, int answer);
+
+/* Closes the project and opens the one in `dir` (APP_ACT_RECENT, and the folder the Open and New dialogs gave): 1 when it is open. On a failure the
+ * project stays as it was, with the status saying why. app_open_project wants a project.ini in the folder; app_new_project wants none (it makes one). */
+int app_open_project(App *a, const char *dir);
+int app_new_project(App *a, const char *dir);
+
+/* Keeps the recent projects in `file` (loaded now, with the project that is open put first, saved at every change); "" or NULL keeps none. */
+void app_keep_recent(App *a, const char *file);
 
 /* Computes the road when the trace changed (a no-op otherwise). */
 void app_recompute(App *a);

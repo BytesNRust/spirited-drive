@@ -58,6 +58,18 @@ the nodes themselves, one row each, red first and then by node number: "node 80:
 not look right". A click on a row selects the nearest point and centres the Viewport on that node. With none it says "No problems". Both windows are
 dockable like the others and their layout is kept.
 
+## Projects: New, Open, recent, and unsaved changes
+
+The **File** menu has New project..., Open project..., Open recent, Save and Quit. New and Open ask for a folder with the system's own folder window.
+Open wants a folder that holds a project (a `project.ini`); New wants one that holds none, and makes the project there (the window's folder dialog can
+make the folder). The last eight project folders are kept in the editor's own folder (`recent.txt` beside its layout) and listed in Open recent; one
+that has no project any more is greyed out. The view fits the project that was opened.
+
+Closing the window, Escape and Quit with changes that are not in `trace.json` (a point moved, added or removed, or the verge width changed since the last
+save or open) ask "Save the changes to <project> before quitting?" with **Save** (Enter), **Discard** and **Cancel** (Escape). New, Open and Open recent ask
+the same before they go on (the folder is asked for after the answer). A save that fails keeps the question open with the reason. Build and Install
+use what is on screen, not the file, as before.
+
 ## Metres and the Node window
 
 One track unit is one metre (`TRACE_METRES_PER_UNIT` in `core/formats/track_trace.h` says where that comes from), and the editor writes every distance in metres.
@@ -79,7 +91,8 @@ SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_RENDER_DRIVER=software timeout
 ```
 
 `--install --game ./build/native/tnfs --user SCRATCH` runs the game's installer into a scratch player folder. `--select N` selects control point N first
-(for a picture of the Node window).
+(for a picture of the Node window). `--edit` adds a point first (something unsaved) and `--ask quit|new|open` asks for that action, to show the question
+of the unsaved changes.
 
 ## What is missing
 
