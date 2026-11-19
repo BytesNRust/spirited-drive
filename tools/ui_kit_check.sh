@@ -32,5 +32,6 @@ for target in controls-p2 extras-p2; do
 done
 # the labels (E2): RECORDS' DONE is the CD's height and its edges are mixed with the page
 [ -f "$work/content/content.png" ] && { python3 "$repo/tools/ui_kit_selector_check.py" "$work/content/content.png" || fail=1; }
+[ -f "$work/content/content.png" ] && { python3 "$repo/tools/ui_kit_title_check.py" "$work/content/content.png" || fail=1; }
 [ -f "$work/records.png" ] && { python3 "$repo/tools/ui_kit_label_check.py" "$work/records.png" || fail=1; }
 exit $fail

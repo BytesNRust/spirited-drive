@@ -15,6 +15,7 @@ typedef enum {
     TITLE_ART_GRAPHICS_DETAIL,
     TITLE_ART_GAME_MODE,   /* Game Mode's own title, uncut: the yardstick the look is compared against */
     TITLE_ART_CONTROLS_SETUP,   /* the controls screen's title, cut from its own burnt-in one */
+    TITLE_ART_CONTENT,          /* CONTENT's: its letters are all in the controls screen's title (C o n t e n t) */
     TITLE_ART_COUNT
 } TitleArtId;
 

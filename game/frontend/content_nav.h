@@ -20,7 +20,7 @@
 #include "game/frontend/content_rows.h"
 
 enum {
-    CONTENT_TITLE_X = 14, CONTENT_TITLE_Y = 62,
+    CONTENT_TITLE_X = 8, CONTENT_TITLE_Y = 56,   /* the font's title line the CD-letter titles use (title_art.h TITLE_ART_FONT_X / _Y): its letters then stand at x 9, rows 66-83 */
     /* the selector: the edition's name centred, the kit's two arrows outside its widest line (ui_selector_layout); the status line under it */
     CONTENT_SELECTOR_X = 403, CONTENT_SELECTOR_Y = 70, CONTENT_SELECTOR_LEFT = 240,
     CONTENT_STATUS_Y = 88,
