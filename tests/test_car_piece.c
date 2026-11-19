@@ -29,6 +29,22 @@ static void test_words(void)
     CHECK_EQ_INT(car_piece_model_of_word(""), -1);
     CHECK_EQ_INT(car_piece_model_of_word(NULL), -1);
     CHECK(car_piece_word_of_model(8) == NULL && car_piece_word_of_model(-1) == NULL);
+    /* the owner (2026-11-19): sound_from may also be "traffic", race model 11 (the traffic car's sound bank); no other key takes it */
+    for (int i = 0; i < 8; i++) {
+        CHECK_EQ_INT(car_piece_sound_model_of_word(WORDS[i]), i);
+        CHECK(car_piece_sound_word_of_model(i) != NULL && strcmp(car_piece_sound_word_of_model(i), WORDS[i]) == 0);
+    }
+    CHECK_EQ_INT(car_piece_sound_model_of_word("traffic"), 11);
+    CHECK(car_piece_sound_word_of_model(11) != NULL && strcmp(car_piece_sound_word_of_model(11), "traffic") == 0);
+    CHECK_EQ_INT(car_piece_sound_model_of_word("Traffic"), -1);   /* a word is as written */
+    CHECK_EQ_INT(car_piece_sound_model_of_word("traffc"), -1);
+    CHECK_EQ_INT(car_piece_sound_model_of_word("lada"), -1);
+    CHECK_EQ_INT(car_piece_sound_model_of_word(""), -1);
+    CHECK_EQ_INT(car_piece_sound_model_of_word(NULL), -1);
+    for (int m = 8; m <= 10; m++) CHECK(car_piece_sound_word_of_model(m) == NULL);   /* the exe's copies of the RX7 and the 911 have no word */
+    CHECK(car_piece_sound_word_of_model(12) == NULL && car_piece_sound_word_of_model(-1) == NULL);
+    CHECK_EQ_INT(car_piece_model_of_word("traffic"), -1);   /* the eight stay the eight: dash_from, the templates and the pace do not take it */
+    CHECK(car_piece_word_of_model(11) == NULL);
 }
 
 static void test_stems(void)
@@ -206,6 +222,8 @@ static void test_the_check(void)
         { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\n", "PIECE.FROM" },
         { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=lada\n", "PIECE.FROM" },
         { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\ndash_from=lada\n", "PIECE.FROM" },
+        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\ndash_from=traffic\n", "PIECE.FROM" },   /* only sound_from takes traffic */
+        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=Traffic\n", "PIECE.FROM" },
         { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n", "PIECE.FROM" },   /* 3b: gone */
         { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_level=turbo\n", "PIECE.AI" },
         { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nabs=maybe\n", "PIECE.ASSIST" },   /* dep78 */
@@ -225,6 +243,11 @@ static void test_the_check(void)
     CHECK(has(&r, "PIECE.ASSIST", "traction=on is not yes or no"));
     report_free(&r);
     CHECK_EQ_INT(check("id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nabs=yes\ntraction=no\n", CFM, PDN, PBS, NULL, &r), 1);
+    report_free(&r);
+    CHECK_EQ_INT(check("id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=traffic\n", CFM, PDN, PBS, NULL, &r), 1);   /* the traffic car's sound */
+    report_free(&r);
+    CHECK_EQ_INT(check("id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=lada\n", CFM, PDN, PBS, NULL, &r), 0);
+    CHECK(has(&r, "PIECE.FROM", "or traffic"));   /* the message lists it */
     report_free(&r);
     {   /* the resolver: the key when given, else the PBS word (little endian, positive) at 0x334 / 0x338 */
         uint8_t pbs[PBS_SIZE] = { 0 };   /* a raw record */

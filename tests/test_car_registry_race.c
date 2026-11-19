@@ -102,6 +102,21 @@ static void test_the_sound(void)
     CHECK(l.count >= 2 && strcmp(l.names[0], "tr512_sw.bnk") == 0 && strcmp(l.names[1], "O512mb.bnk") == 0);
     l = banks_of(5, 2);   /* as before */
     CHECK(l.count >= 2 && strcmp(l.names[0], "Vipersw.bnk") == 0 && strcmp(l.names[1], "O911mb.bnk") == 0);
+    {   /* sound_from=traffic (model 11): the traffic car's banks, for the player and for the rival that has it */
+        CarPiece t;
+        memset(&t, 0, sizeof t);
+        snprintf(t.id, sizeof t.id, "tsound");
+        snprintf(t.stem, sizeof t.stem, "TSOUND");
+        snprintf(t.short_name, sizeof t.short_name, "TSOUND");
+        t.sound_model = 11, t.ai = (CarAiTuning){ CAR_AI_PACE_MIN, CAR_AI_COAST_DEFAULT }, t.dash_model = -1;
+        char why[160];
+        const int car = car_registry_add(&t, why, sizeof why);
+        CHECK(car >= 16);
+        l = banks_of(car, car);
+        CHECK(l.count >= 2 && strcmp(l.names[0], "traffc.bnk") == 0 && strcmp(l.names[1], "traffcO.bnk") == 0);
+        l = banks_of(2, car);
+        CHECK(l.count >= 2 && strcmp(l.names[0], "911_sw.bnk") == 0 && strcmp(l.names[1], "traffcO.bnk") == 0);
+    }
     l = banks_of(17, 17);   /* not registered: no bank, as for any number past the twelve */
     CHECK(l.count >= 1 && strcmp(l.names[0], "Vipersw.bnk") != 0 && strstr(l.names[0], "_sw") == NULL && strstr(l.names[0], "mb.bnk") == NULL);
 }

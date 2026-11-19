@@ -39,6 +39,20 @@ const char *car_piece_word_of_model(int model)
     return model >= 0 && model < WORD_COUNT ? WORDS[model] : NULL;
 }
 
+enum { TRAFFIC_MODEL = 11 };   /* car_load.c's car_model_names[11], "Traffc": race_sound_engine.c's player_banks[11] is traffc.bnk */
+static const char SOUND_TRAFFIC[] = "traffic";
+
+int car_piece_sound_model_of_word(const char *word)
+{
+    if (word != NULL && strcmp(word, SOUND_TRAFFIC) == 0) return TRAFFIC_MODEL;
+    return car_piece_model_of_word(word);
+}
+
+const char *car_piece_sound_word_of_model(int model)
+{
+    return model == TRAFFIC_MODEL ? SOUND_TRAFFIC : car_piece_word_of_model(model);
+}
+
 /* 1 when `stem` is `own` or 'M' + `own`, whatever the case */
 static int names(const char *stem, const char *own)
 {
@@ -81,15 +95,15 @@ static const SetFile *find_any_case(const FileSet *files, const char *path)
     return f;
 }
 
-/* PIECE.FROM: `word` (key `key`) names an original car, or is not given and need not be */
-static void from_ok(const char *key, const char *word, int required, Report *r)
+/* PIECE.FROM: `word` (key `key`) names an original car, or is not given and need not be; `sound`: it is sound_from's, which also takes "traffic" */
+static void from_ok(const char *key, const char *word, int required, int sound, Report *r)
 {
     if (word[0] == '\0') {
         if (required) report_add(r, "PIECE.FROM", 0, "mod.ini: no %s", key);
         return;
     }
-    if (car_piece_model_of_word(word) < 0)
-        report_add(r, "PIECE.FROM", 0, "mod.ini: %s=%s is not supra, diablo, 911, zr1, 512tr, viper, nsx or rx7", key, word);
+    if ((sound ? car_piece_sound_model_of_word(word) : car_piece_model_of_word(word)) < 0)
+        report_add(r, "PIECE.FROM", 0, "mod.ini: %s=%s is not supra, diablo, 911, zr1, 512tr, viper, nsx, rx7%s", key, word, sound ? " or traffic" : "");
 }
 
 static int32_t le32(const uint8_t *p)
@@ -468,10 +482,10 @@ int car_piece_check(const ModInfo *card, const FileSet *files, Report *r)
 {
     const size_t fatal_before = report_fatal_count(r);
     if (card->type != MOD_TYPE_CAR) report_add(r, "PIECE.TYPE", card->type, "mod.ini: type is not car");
-    from_ok("sound_from", card->sound_from, 1, r);
+    from_ok("sound_from", card->sound_from, 1, 1, r);
     if (card->ai_from[0] != '\0')   /* port (dep59 3b): a car's AI is its own */
         report_add(r, "PIECE.FROM", 0, "mod.ini: ai_from is gone: a car's AI is its own, ai_level= picks one of slow, medium, fast or top");
-    from_ok("dash_from", card->dash_from, 0, r);
+    from_ok("dash_from", card->dash_from, 0, 0, r);
     if (!car_piece_assist_key_ok(card->assist_abs)) report_add(r, "PIECE.ASSIST", 0, "mod.ini: abs=%s is not yes or no", card->assist_abs);
     if (!car_piece_assist_key_ok(card->assist_traction)) report_add(r, "PIECE.ASSIST", 1, "mod.ini: traction=%s is not yes or no", card->assist_traction);
     if (!car_ai_level_ok(card->ai_level)) report_add(r, "PIECE.AI", 0, "mod.ini: ai_level=%s is not slow, medium, fast or top", card->ai_level);

@@ -26,6 +26,12 @@ enum { CAR_PIECE_PBS_POWER = 0x03c, CAR_PIECE_PBS_TORQUE_POINTS = 0x088, CAR_PIE
 int car_piece_model_of_word(const char *word);
 /* the word of a race model 0..7, NULL otherwise */
 const char *car_piece_word_of_model(int model);
+/* port (owner 2026-11-19): the words of sound_from, the original whose engine sound an added car plays: the eight cars' words (the same models 0..7) and "traffic",
+ * race model 11, whose sound bank is the traffic car's (traffc.bnk). Only sound_from takes "traffic": dash_from, the templates of `car new` and the pace keep
+ * the eight (car_piece_model_of_word). -1 for any other word. */
+int car_piece_sound_model_of_word(const char *word);
+/* the word of a sound model: 0..7 as car_piece_word_of_model, 11 "traffic", NULL for any other (8..10 are the exe's copies of the RX7 and the 911) */
+const char *car_piece_sound_word_of_model(int model);
 /* port (dep78): 1 when `key` (mod.ini's abs= or traction=) is "", "yes" or "no" */
 int car_piece_assist_key_ok(const char *key);
 /* port (dep78): whether the car has the assist at `offset` of its PBS (CAR_PIECE_PBS_ABS, _TRACTION): `key`'s yes or no when given, else
