@@ -208,12 +208,35 @@ static void test_the_check(void)
         { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\ndash_from=lada\n", "PIECE.FROM" },
         { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n", "PIECE.FROM" },   /* 3b: gone */
         { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_level=turbo\n", "PIECE.AI" },
+        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nabs=maybe\n", "PIECE.ASSIST" },   /* dep78 */
+        { "id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\ntraction=1\n", "PIECE.ASSIST" },
     };
     for (size_t i = 0; i < sizeof CARDS / sizeof CARDS[0]; i++) {
         CHECK_EQ_INT(check(CARDS[i].text, CFM, PDN, PBS, NULL, &r), 0);
         if (!has(&r, CARDS[i].id, NULL)) fprintf(stderr, "card %zu: no %s\n", i, CARDS[i].id);
         CHECK(has(&r, CARDS[i].id, NULL));
         report_free(&r);
+    }
+    /* dep78: abs= and traction= are yes or no, the message names the key and the value; either, both or neither is a good card */
+    CHECK_EQ_INT(check("id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nabs=maybe\n", CFM, PDN, PBS, NULL, &r), 0);
+    CHECK(has(&r, "PIECE.ASSIST", "abs=maybe is not yes or no"));
+    report_free(&r);
+    CHECK_EQ_INT(check("id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\ntraction=on\n", CFM, PDN, PBS, NULL, &r), 0);
+    CHECK(has(&r, "PIECE.ASSIST", "traction=on is not yes or no"));
+    report_free(&r);
+    CHECK_EQ_INT(check("id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nabs=yes\ntraction=no\n", CFM, PDN, PBS, NULL, &r), 1);
+    report_free(&r);
+    {   /* the resolver: the key when given, else the PBS word (little endian, positive) at 0x334 / 0x338 */
+        uint8_t pbs[PBS_SIZE] = { 0 };   /* a raw record */
+        pbs[CAR_PIECE_PBS_ABS] = 1;   /* ABS in the PBS, traction not */
+        CHECK_EQ_INT(car_piece_assist("", pbs, sizeof pbs, CAR_PIECE_PBS_ABS), 1);
+        CHECK_EQ_INT(car_piece_assist("", pbs, sizeof pbs, CAR_PIECE_PBS_TRACTION), 0);
+        CHECK_EQ_INT(car_piece_assist("no", pbs, sizeof pbs, CAR_PIECE_PBS_ABS), 0);        /* the key wins over the PBS ... */
+        CHECK_EQ_INT(car_piece_assist("yes", pbs, sizeof pbs, CAR_PIECE_PBS_TRACTION), 1);  /* ... both ways */
+        pbs[CAR_PIECE_PBS_TRACTION + 3] = 0x80;   /* a negative word is not positive */
+        CHECK_EQ_INT(car_piece_assist("", pbs, sizeof pbs, CAR_PIECE_PBS_TRACTION), 0);
+        CHECK_EQ_INT(car_piece_assist("", pbs, 0x336, CAR_PIECE_PBS_ABS), 0);               /* not a PBS: a file too short */
+        CHECK_EQ_INT(car_piece_assist("yes", NULL, 0, CAR_PIECE_PBS_ABS), 1);
     }
     /* 3b: the reasons say what to write instead (Review Focus 2, 3); no ai_level, or one of the four, is a good card */
     CHECK_EQ_INT(check("id=t\nname=T\nversion=1\ntype=car\nstem=TESTCAR\nsound_from=viper\nai_from=viper\n", CFM, PDN, PBS, NULL, &r), 0);

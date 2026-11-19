@@ -3,6 +3,7 @@
 
 #include "formats/pbs.h"
 
+#include "game/race/car_registry.h"
 #include "game/race/car_setup.h"
 #include "game/race/car_specs_word.h"
 #include "game/sys/fixed_math.h"
@@ -102,6 +103,11 @@ void car_load(Car *car, CarSpecs *specs, RaceState *race)
     car_specs_scale_torque(specs, entry->automatic != 0);
     car->half_length = specs->half_length;
     car->half_width = specs->half_width;
+    const CarPiece *piece = car_registry_piece(entry->car);
+    if (piece != NULL) {   /* port (dep78): an added car's capability is its mod.ini's abs= / traction=, else its PBS's: the two words the gate reads are set to it */
+        specs->unknown_334 = piece->abs_on != 0 ? CAR_SPECS_ASSIST_ON : 0;
+        specs->unknown_338 = piece->traction_on != 0 ? CAR_SPECS_ASSIST_ON : 0;
+    }
     car->anti_lock = entry->anti_lock > 0 && specs->unknown_334 > 0;
     car->traction_control = entry->traction > 0 && specs->unknown_338 > 0;
     car->downforce_a = 0;

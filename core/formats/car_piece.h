@@ -17,6 +17,7 @@ enum { CAR_PIECE_CARD_W = 309, CAR_PIECE_CARD_H = 166, CAR_PIECE_RIVAL_W = 284, 
 /* where the PBS's fields the check reads lie (docs/car_specs.tsv; the game's CarSpecs is tied to them, car_registry.c) */
 enum { CAR_PIECE_PBS_POWER = 0x03c, CAR_PIECE_PBS_TORQUE_POINTS = 0x088, CAR_PIECE_PBS_TORQUE_CURVE = 0x0b8, CAR_PIECE_PBS_SHIFT_RPM = 0x288,
        CAR_PIECE_PBS_UNKNOWN_320 = 0x320, CAR_PIECE_PBS_FORCE_SCALE = 0x328,
+       CAR_PIECE_PBS_ABS = 0x334, CAR_PIECE_PBS_TRACTION = 0x338,   /* port (dep78): the words the race reads for ABS and traction control (car_load.c): positive = the car has it */
        /* the race walks the curve 8 bytes a point from +0x0b8 (00409a04, car_drive.c) and scales each point in place: the room before
         * shift_rpm. The CD's cars have 51 (the 911, 41); 0 reads the point before the curve */
        CAR_PIECE_TORQUE_POINTS_MIN = 1, CAR_PIECE_TORQUE_POINTS_MAX = (CAR_PIECE_PBS_SHIFT_RPM - CAR_PIECE_PBS_TORQUE_CURVE) / 8 };
@@ -25,6 +26,11 @@ enum { CAR_PIECE_PBS_POWER = 0x03c, CAR_PIECE_PBS_TORQUE_POINTS = 0x088, CAR_PIE
 int car_piece_model_of_word(const char *word);
 /* the word of a race model 0..7, NULL otherwise */
 const char *car_piece_word_of_model(int model);
+/* port (dep78): 1 when `key` (mod.ini's abs= or traction=) is "", "yes" or "no" */
+int car_piece_assist_key_ok(const char *key);
+/* port (dep78): whether the car has the assist at `offset` of its PBS (CAR_PIECE_PBS_ABS, _TRACTION): `key`'s yes or no when given, else
+ * what the PBS says: `pbs` is the PBS file (raw or packed, pbs_read), its word there a little-endian int32, positive; 0 for a file that is no PBS */
+int car_piece_assist(const char *key, const uint8_t *pbs, size_t size, size_t offset);
 /* 1 when `stem` may name an added car's files: 1..8 of A-Z 0-9, not a stem of the CD's cars, traffic or police (slots.h, and P911T, the
  * race's ninth), not 'M' + one (the reduced model's), whatever the case */
 int car_piece_stem_ok(const char *stem);

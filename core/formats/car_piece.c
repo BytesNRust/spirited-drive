@@ -449,6 +449,21 @@ static void skins_ok(const FileSet *files, const SetFile *cfm, Report *r)
     free(unpacked);
 }
 
+int car_piece_assist_key_ok(const char *key)
+{
+    return key[0] == '\0' || strcmp(key, "yes") == 0 || strcmp(key, "no") == 0;
+}
+
+int car_piece_assist(const char *key, const uint8_t *pbs, size_t size, size_t offset)
+{
+    if (strcmp(key, "yes") == 0) return 1;
+    if (strcmp(key, "no") == 0) return 0;
+    uint8_t record[PBS_SIZE];
+    if (pbs == NULL || offset + 4 > PBS_SIZE || !pbs_read(record, pbs, size)) return 0;
+    const int32_t word = (int32_t)((uint32_t)record[offset] | (uint32_t)record[offset + 1] << 8 | (uint32_t)record[offset + 2] << 16 | (uint32_t)record[offset + 3] << 24);
+    return word > 0;
+}
+
 int car_piece_check(const ModInfo *card, const FileSet *files, Report *r)
 {
     const size_t fatal_before = report_fatal_count(r);
@@ -457,6 +472,8 @@ int car_piece_check(const ModInfo *card, const FileSet *files, Report *r)
     if (card->ai_from[0] != '\0')   /* port (dep59 3b): a car's AI is its own */
         report_add(r, "PIECE.FROM", 0, "mod.ini: ai_from is gone: a car's AI is its own, ai_level= picks one of slow, medium, fast or top");
     from_ok("dash_from", card->dash_from, 0, r);
+    if (!car_piece_assist_key_ok(card->assist_abs)) report_add(r, "PIECE.ASSIST", 0, "mod.ini: abs=%s is not yes or no", card->assist_abs);
+    if (!car_piece_assist_key_ok(card->assist_traction)) report_add(r, "PIECE.ASSIST", 1, "mod.ini: traction=%s is not yes or no", card->assist_traction);
     if (!car_ai_level_ok(card->ai_level)) report_add(r, "PIECE.AI", 0, "mod.ini: ai_level=%s is not slow, medium, fast or top", card->ai_level);
     if (!car_piece_stem_ok(card->stem)) {
         report_add(r, "PIECE.STEM", (int64_t)strlen(card->stem), "mod.ini: stem \"%s\" is not 1..8 of A-Z 0-9, or is an original car's", card->stem);

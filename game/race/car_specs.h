@@ -6,6 +6,8 @@
 #include <stdint.h>
 
 enum { CAR_SPECS_SIZE = 0x778 };
+/* port (dep78): the value the CD's PBS files hold at 0x334 (ABS) and 0x338 (traction control) for a car that has the assist (the Supra, the ZR1 and the NSX: 1; 0 for one that has not) */
+enum { CAR_SPECS_ASSIST_ON = 1 };
 
 #pragma pack(push, 1)
 typedef struct {

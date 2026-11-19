@@ -170,6 +170,11 @@ static void test_piece_fields(void)
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nai_from=rx-7\n", &m, why), 0);
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\ndash_from=aaaaaaaaa\n", &m, why), 0);
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nsound_from=lada\n", &m, why), 1);   /* the word is the registry's to check */
+    /* dep78: abs= and traction= are read as written ("" when not given; car_piece_check says yes or no) */
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nabs=no\ntraction=yes\n", &m, why), 1);
+    CHECK(strcmp(m.assist_abs, "no") == 0 && strcmp(m.assist_traction, "yes") == 0);
+    CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\n", &m, why), 1);
+    CHECK(m.assist_abs[0] == '\0' && m.assist_traction[0] == '\0');
     /* 3b: ai_level, a word (which words are levels is car_ai's to say); ai_from is still read, so a piece that has it is refused with why */
     CHECK_EQ_INT(parse("id=a\nname=A\nversion=1\ntype=car\nai_level=top\n", &m, why), 1);
     CHECK(strcmp(m.ai_level, "top") == 0);

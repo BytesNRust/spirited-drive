@@ -28,7 +28,7 @@ p="$work/p"
 for f in SIMDATA/CARFAMS/TESTCAR.CFM SIMDATA/CARFAMS/TESTCAR.PDN SIMDATA/CARSPECS/TESTCAR.PBS; do
     [ -f "$p/$f" ] || fail "no $f"
 done
-for line in type=car stem=TESTCAR sound_from=viper dash_from=viper id=test-car; do
+for line in type=car stem=TESTCAR sound_from=viper dash_from=viper id=test-car abs=no traction=no; do   # dep78: the Viper's PBS has neither
     grep -qx "$line" "$p/mod.ini" 2>/dev/null || fail "mod.ini lacks the line $line"
 done
 grep -q '^ai_from=' "$p/mod.ini" && fail "mod.ini still says ai_from (3b: a car's AI is its own)"
@@ -61,6 +61,20 @@ size=$(od -An -tu1 -j16 -N8 "$p/card.png" 2>/dev/null | tr -s ' \n' ' ' | awk '{
 cmp -s "$p/card.png" "$work/q/card.png" || fail "the same car new gives two card.png"
 "$studio" car new --template viper --id other-car --stem OTHER --name "Other Car" --out "$work/o" --data "$orig" --port-data "$port" >/dev/null 2>&1
 cmp -s "$p/card.png" "$work/o/card.png" || fail "card.png holds the car's name (the game draws it): two names give two cards"
+
+# 2c. dep78: abs= and traction= are the donor's: the Supra's PBS has both, and a value that is not yes or no is refused by validate
+if "$studio" car new --template supra --id sup-car --stem SUPCAR --out "$work/s" --data "$orig" --port-data "$port" >"$work/log" 2>&1; then
+    for line in abs=yes traction=yes; do
+        grep -qx "$line" "$work/s/mod.ini" 2>/dev/null || fail "the Supra's card lacks $line"
+    done
+else
+    fail "car new --template supra: $(cat "$work/log")"
+fi
+sed 's/^abs=no/abs=maybe/' "$p/mod.ini" > "$work/bad.ini"
+bad="$work/badabs"
+cp -R "$p" "$bad" && cp "$work/bad.ini" "$bad/mod.ini"
+"$studio" validate "$bad" >"$work/log" 2>&1 && fail "validate accepted abs=maybe"
+grep -q "abs=maybe is not yes or no" "$work/log" || fail "validate does not say abs=maybe is not yes or no: $(cat "$work/log")"
 
 # 3. a stem of the CD's is refused, named, and nothing is written
 for stem in DVIPER mrx7 MTSUPRA; do

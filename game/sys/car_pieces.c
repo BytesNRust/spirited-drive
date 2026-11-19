@@ -99,7 +99,7 @@ static const SetFile *file_at(const FileSet *set, const char *path)
 
 /* port (dep59 1b): the CRC-32 of the PBS then the PDN in `set` (their paths in `paths`), then (3b) `ai`'s pace and coast, 4 bytes LE each:
  * what decides how the car drives; 1 for a 0 */
-static uint32_t fingerprint(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH], const CarAiTuning *ai)
+static uint32_t fingerprint(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH], const CarAiTuning *ai, const int assists[3])
 {
     uint32_t crc = 0;
     static const int ORDER[2] = { 2, 1 };   /* car_piece_paths': the PBS, then the PDN */
@@ -110,11 +110,15 @@ static uint32_t fingerprint(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_
     uint8_t tail[8];
     for (int i = 0; i < 4; i++) tail[i] = (uint8_t)((uint32_t)ai->pace >> (8 * i)), tail[4 + i] = (uint8_t)((uint32_t)ai->coast >> (8 * i));
     crc = crc32_update(crc, tail, sizeof tail);
+    if (assists[2] != 0) {   /* port (dep78): a mod.ini that gives a car what its PBS does not: that decides how it drives too */
+        const uint8_t extra[2] = { (uint8_t)assists[0], (uint8_t)assists[1] };
+        crc = crc32_update(crc, extra, sizeof extra);
+    }
     return crc != 0 ? crc : 1;
 }
 
 /* port (dep59 step 5, records by id + print): the same stream as `fingerprint` (the PBS, the PDN, the AI's pace and coast) under the SHA-256 */
-static void print_of(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH], const CarAiTuning *ai, uint8_t out[PIECE_PRINT_SIZE])
+static void print_of(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH], const CarAiTuning *ai, const int assists[3], uint8_t out[PIECE_PRINT_SIZE])
 {
     PiecePrint pp;
     piece_print_begin(&pp, PIECE_PRINT_CAR);
@@ -126,7 +130,23 @@ static void print_of(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_P
     uint8_t tail[8];
     for (int i = 0; i < 4; i++) tail[i] = (uint8_t)((uint32_t)ai->pace >> (8 * i)), tail[4 + i] = (uint8_t)((uint32_t)ai->coast >> (8 * i));
     piece_print_add(&pp, tail, sizeof tail);
+    if (assists[2] != 0) {
+        const uint8_t extra[2] = { (uint8_t)assists[0], (uint8_t)assists[1] };
+        piece_print_add(&pp, extra, sizeof extra);
+    }
     piece_print_end(&pp, out);
+}
+
+/* port (dep78): the piece's ABS and traction control into assists[0], [1] (its mod.ini's abs= and traction=, else its PBS's words) and in
+ * assists[2] 1 when a key gives what the PBS does not (the fingerprint and print then carry the two flags; otherwise they are as before) */
+static void assists_of(const FileSet *set, char paths[CAR_PIECE_FILES][CAR_PIECE_PATH], const ModInfo *card, int assists[3])
+{
+    const SetFile *f = file_at(set, paths[2]);
+    const uint8_t *pbs = f != NULL ? f->data : NULL;
+    const size_t size = f != NULL ? f->size : 0;
+    assists[0] = car_piece_assist(card->assist_abs, pbs, size, CAR_PIECE_PBS_ABS);
+    assists[1] = car_piece_assist(card->assist_traction, pbs, size, CAR_PIECE_PBS_TRACTION);
+    assists[2] = assists[0] != car_piece_assist("", pbs, size, CAR_PIECE_PBS_ABS) || assists[1] != car_piece_assist("", pbs, size, CAR_PIECE_PBS_TRACTION);
 }
 
 /* port (dep59 3b): the AI tuning of the piece: from its PDN (`paths`[1] in `set`), or its card's ai_level */
@@ -178,9 +198,11 @@ static int read_piece(const char *dir, ModInfo *card, CarPiece *out, char *why, 
     report_free(&r);
     CarAiTuning ai = { 0, 0 };
     ok = ok && piece_ai(&set, paths, card->ai_level, &ai, why, why_cap);
-    const uint32_t crc = ok ? fingerprint(&set, paths, &ai) : 0;
+    int assists[3] = { 0, 0, 0 };
+    if (ok) assists_of(&set, paths, card, assists);
+    const uint32_t crc = ok ? fingerprint(&set, paths, &ai, assists) : 0;
     uint8_t print[PIECE_PRINT_SIZE] = { 0 };
-    if (ok) print_of(&set, paths, &ai, print);   /* before the files are let go: it hashes them */
+    if (ok) print_of(&set, paths, &ai, assists, print);   /* before the files are let go: it hashes them */
     fileset_free(&set);
     if (!ok) return 0;
     memset(out, 0, sizeof *out);
@@ -193,6 +215,7 @@ static int read_piece(const char *dir, ModInfo *card, CarPiece *out, char *why, 
     snprintf(out->short_name, sizeof out->short_name, "%s", card->short_name[0] != '\0' ? card->short_name : card->stem);
     out->sound_model = car_piece_model_of_word(card->sound_from);
     out->dash_model = card->dash_from[0] != '\0' ? car_piece_model_of_word(card->dash_from) : -1;
+    out->abs_on = assists[0], out->traction_on = assists[1];
     out->card_name_off = card->card_name_off;
     if (snprintf(out->dir, sizeof out->dir, "%s", dir) >= (int)sizeof out->dir)
         return snprintf(why, why_cap, "its folder's path is longer than %d characters", CAR_PIECE_DIR_MAX - 1), 0;

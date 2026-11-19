@@ -69,11 +69,11 @@ int car_template_model(const char *template)
 }
 
 /* the card, checked by the same parser the game reads it with */
-static int add_card(FileSet *set, const Args *a, const char *word, ExchangeError *err)
+static int add_card(FileSet *set, const Args *a, const char *word, const char *abs, const char *traction, ExchangeError *err)
 {
     char head[MOD_INI_MAX_SIZE], texts[MOD_INI_MAX_SIZE], card[MOD_INI_MAX_SIZE];
-    const int h = snprintf(head, sizeof head, "id=%s\nname=%s\nversion=0.1\ntype=car\nstem=%s\nshort_name=%s\nsound_from=%s\ndash_from=%s\n", a->id,
-                           a->name != NULL ? a->name : a->id, a->stem, a->stem, word, word);
+    const int h = snprintf(head, sizeof head, "id=%s\nname=%s\nversion=0.1\ntype=car\nstem=%s\nshort_name=%s\nsound_from=%s\ndash_from=%s\nabs=%s\ntraction=%s\n", a->id,
+                           a->name != NULL ? a->name : a->id, a->stem, a->stem, word, word, abs, traction);
     ModInfo info;
     char why[160];
     if (h < 0 || (size_t)h >= sizeof head || !mod_ini_text_keys(a->author, a->description, texts, sizeof texts)) {
@@ -85,6 +85,16 @@ static int add_card(FileSet *set, const Args *a, const char *word, ExchangeError
     if (!mod_ini_parse((const uint8_t *)card, (size_t)n, &info, why, sizeof why)) { exchange_fail(err, "mod.ini: %s", why); return 0; }
     if (!fileset_add(set, "mod.ini", (const uint8_t *)card, (size_t)n)) { exchange_fail(err, "out of memory"); return 0; }
     return 1;
+}
+
+/* port (dep78): "yes" or "no" for the donor's ABS and traction control, the words of the PBS copied under `stem` in `set` (the card then says what the car has) */
+static void donor_assists(const FileSet *set, const char *stem, const char **abs, const char **traction)
+{
+    char paths[CAR_PIECE_FILES][CAR_PIECE_PATH];
+    car_piece_paths(stem, paths);
+    const SetFile *pbs = fileset_find(set, paths[2]);
+    *abs = car_piece_assist("", pbs != NULL ? pbs->data : NULL, pbs != NULL ? pbs->size : 0, CAR_PIECE_PBS_ABS) ? "yes" : "no";
+    *traction = car_piece_assist("", pbs != NULL ? pbs->data : NULL, pbs != NULL ? pbs->size : 0, CAR_PIECE_PBS_TRACTION) ? "yes" : "no";
 }
 
 /* the template's CFM, PDN and PBS under the new stem */
@@ -147,7 +157,10 @@ static int car_new(const Args *a, ExchangeError *err)
     const char *word = car_piece_word_of_model(model), *from = slot_stems(SLOT_CAR)[model];
     FileSet set;
     fileset_init(&set);
-    int ok = add_card(&set, a, word, err) && add_files(&set, a->data, from, a->stem, err) && add_generic_card(&set, err);
+    const char *abs = "no", *traction = "no";
+    int ok = add_files(&set, a->data, from, a->stem, err);
+    if (ok) donor_assists(&set, a->stem, &abs, &traction);
+    ok = ok && add_card(&set, a, word, abs, traction, err) && add_generic_card(&set, err);
     if (ok && !fsio_exists(a->port)) {
         fprintf(stderr, "car new: no port data at %s: the piece has no car or dash masks (--port-data DIR names the folder that holds them)\n", a->port);
     } else if (ok) {
