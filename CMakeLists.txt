@@ -1476,7 +1476,7 @@ if(NOT EMSCRIPTEN)
     if(Python3_FOUND)
         add_test(NAME text_binarized_lint COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_SOURCE_DIR}/tools/text_binarized_lint.py ${CMAKE_SOURCE_DIR})
     endif()
-    add_executable(test_setup_choice tests/test_setup_choice.c game/sys/text.c game/sys/video.c ${TNFS_SDL3_PLATFORM}
+    add_executable(test_setup_choice tests/test_setup_choice.c game/sys/text.c game/sys/text_label.c game/sys/video.c ${TNFS_SDL3_PLATFORM}
                    game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_setup_choice PRIVATE tnfs_game SDL3::SDL3)
     target_compile_options(test_setup_choice PRIVATE ${TNFS_WARNINGS})
