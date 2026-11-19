@@ -87,6 +87,25 @@ part_quick() {
     run --mods "$piece" --drive TR1 --car test-car --node 200 --screenshot "$work/a.ppm" || fail "the piece did not race: $(cat "$work/err")"
     [ -s "$work/a.ppm" ] || fail "no frame of the piece"
     grep -q "car piece: test-car is car 16" "$work/user/spirited-drive.log" || fail "the log does not say the piece is car 16"
+    # 1b. the piece's masks mark a fixed black (magenta, car_mask.h CAR_MASK_BLACK): an added car has no catalogue black of its own, and takes the default
+    # (CAR_PAINT_ADDED_BLACK); the log says so, and the frame is not the one of the piece whose masks have none
+    magenta=$work/magenta
+    cp -R "$piece" "$magenta"
+    python3 -I - "$magenta/car_masks/TESTCAR/topv_mask.png" <<'PY' || fail "no magenta mask was made"
+import struct, sys, zlib
+def chunk(kind, data):
+    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff)
+row = b"\x00" + b"\xff\x00\xff" * 8
+png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 8, 8, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(row * 8)) + chunk(b"IEND", b"")
+open(sys.argv[1], "wb").write(png)
+PY
+    user_in restomod
+    TNFS_VERBOSE=1 run --mods "$magenta" --drive TR1 --car test-car --racers 1 --node 200 --screenshot "$work/m.ppm" || fail "the piece with a magenta mask did not race: $(cat "$work/err")"
+    grep -q "car_paint: slot 0 TESTCAR fixed black" "$work/user/spirited-drive.log" || fail "the added car's fixed black was not applied: $(grep car_paint "$work/user/spirited-drive.log")"
+    user_in restomod
+    run --mods "$piece" --drive TR1 --car test-car --racers 1 --node 200 --screenshot "$work/m0.ppm" || fail "the piece did not race alone: $(cat "$work/err")"
+    cmp -s "$work/m.ppm" "$work/m0.ppm" && fail "the magenta mask changed nothing of the added car's frame"
+
     # 5. a --node run wrote no record and no Replay.rpl (its replay, as an original car's run keeps Replay.rpl, is Replay.rpx), and nothing
     # below the data root (checked again at the end)
     [ -e "$work/user/race_records.dat" ] && fail "a race with an added car wrote race_records.dat"

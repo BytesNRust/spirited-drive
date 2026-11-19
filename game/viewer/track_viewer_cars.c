@@ -97,6 +97,12 @@ static void shine_register(void *user, int level, const char name[4], int width,
     shine_class_add(*(const int *)user, pixels, width, height, keep);
 }
 
+/* the folder of the masks an added car's skin brings (drive_skin's mask_dir), NULL for a car with none: the stock search by the stem */
+static const char *skin_masks(int slot)
+{
+    return drive_cars.skin[slot].mask_dir[0] != '\0' ? drive_cars.skin[slot].mask_dir : NULL;
+}
+
 /* port: the slot's car file as the livery, paint and lamps masks leave it, before the loader reads it. */
 static void drive_load_textures(const RaceState *race, int slot, const char *stem, size_t size)
 {
@@ -105,12 +111,14 @@ static void drive_load_textures(const RaceState *race, int slot, const char *ste
         drive_skin_apply(drive_cars.skin[slot].skin_dir, drive_cars.file[slot], size);
     if (drive_cars.file[slot] != NULL && port_body_shine()) {   /* port (body shine): the paint texels, from the colours as the file has them */
         int owner = slot;
-        drive_livery_draft(stem, drive_cars.file[slot], size, shine_register, &owner);   /* (the file's own stem: drive_cars.model is only set with extra_liveries) */
+        drive_livery_draft_masks(stem, skin_masks(slot), drive_cars.file[slot], size, shine_register, &owner);   /* (the file's own stem: drive_cars.model is only set with extra_liveries) */
     }
     if (drive_cars.file[slot] != NULL && drive_cars.fixed_black[slot]) {   /* port: a mask's fixed black texels take the car's black, before any paint or livery */
         const CarPaint *black = car_paint_black_of(stem);
-        if (black != NULL) {
-            const int n = drive_livery_black(stem, drive_cars.file[slot], size, black->rgb);
+        const uint8_t added_black[3] = CAR_PAINT_ADDED_BLACK;
+        const char *const masks = skin_masks(slot);
+        if (black != NULL || car_registry_is_added(drive_cars.model[slot])) {   /* an added car has no catalogue black: the catalogue's usual one */
+            const int n = drive_livery_black(stem, masks, drive_cars.file[slot], size, black != NULL ? black->rgb : added_black);
             if (n > 0) port_log_detail("car_paint: slot %d %s fixed black, %d texels\n", slot, stem, n);
         }
     }
@@ -122,13 +130,13 @@ static void drive_load_textures(const RaceState *race, int slot, const char *ste
         if (count > 0) port_log("extra_liveries: slot %d %s in the alternate livery (%d colours)\n", slot, stem, count);
     }
     if (drive_cars.file[slot] != NULL && drive_cars.paint_on[slot] && car_registry_stem(drive_cars.model[slot]) != NULL) {  /* port: a catalogue paint, in the body textures only */
-        const char *const masks = drive_cars.skin[slot].mask_dir[0] != '\0' ? drive_cars.skin[slot].mask_dir : NULL;   /* an added car's: its skin's own */
+        const char *const masks = skin_masks(slot);
         const int n = drive_livery_paint_masks(car_registry_stem(drive_cars.model[slot]), masks, drive_cars.file[slot], size, drive_cars.paint[slot]);
         port_log_detail("car_paint: slot %d %s painted %d,%d,%d (%d body texels)\n", slot, stem, drive_cars.paint[slot][0],
                  drive_cars.paint[slot][1], drive_cars.paint[slot][2], n);
     }
     drive_lamps_clear(slot);   /* port (emissive lamps): the texels the masks mark as lamps, before the loader reads the file */
-    if (drive_cars.file[slot] != NULL) drive_lamps_find(slot, stem, drive_cars.file[slot], size);
+    if (drive_cars.file[slot] != NULL) drive_lamps_find_masks(slot, stem, skin_masks(slot), drive_cars.file[slot], size);
 }
 
 const CarPdn *drive_load(void *user, Car *car, RaceState *race)

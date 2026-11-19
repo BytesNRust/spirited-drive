@@ -20,6 +20,8 @@ void drive_lamps_clear(int slot);
 void drive_lamps_clear_all(void);
 /* The slot's texels from the masks of `stem` over `file`. Returns how many. */
 int drive_lamps_find(int slot, const char *stem, uint8_t *file, size_t size);
+/* drive_lamps_find with the masks of `mask_dir` alone (an added car's skin's folder); NULL as drive_lamps_find */
+int drive_lamps_find_masks(int slot, const char *stem, const char *mask_dir, uint8_t *file, size_t size);
 /* Whether the slot has texels of a kind (LampKind), found. */
 int drive_lamps_has(int slot, int kind);
 /* Reads the day indices; the cars' palette must be mapped. */

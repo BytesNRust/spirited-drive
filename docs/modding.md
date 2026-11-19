@@ -151,7 +151,7 @@ The masks are made from layered PSDs: `tools/car_mask_psd.py` writes a PSD per t
 | transparent | **paint**: recoloured by the paint, and shines |
 | blue `0000ff` | keeps its colour, shines as glass (windows, lamp lenses) |
 | green `00ff00` | keeps its colour, shines as the body (a two-tone car's roof and pillars) |
-| magenta `ff00ff` | the **fixed black**: repainted with the car's catalogue black whatever the paint |
+| magenta `ff00ff` | the **fixed black**: repainted with the car's catalogue black whatever the paint; an added car has none of its own, so it takes the usual catalogue black (14, 14, 16), from the masks of its skin's folder or of its `car_masks` |
 | red `ff0000` | brake light (glows in low light) |
 | orange `ff8000` | position (tail) light, dimmer red |
 | yellow `ffff00` | headlight, warm white in low light |

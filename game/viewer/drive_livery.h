@@ -29,13 +29,16 @@ int drive_livery_paint(const char *stem, uint8_t *cfm, size_t size, const uint8_
  * searches as drive_livery_paint does */
 int drive_livery_paint_masks(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size, const uint8_t rgb[3]);
 
-/* The texels the car's masks mark as the fixed black (car_mask.h CAR_MASK_BLACK) repainted with the car's catalogue black `rgb` (car_paint_black_of), in the CFM the caller owns,
- * before the loader reads it and before any paint or livery of the car (car_repaint_fixed_black). Returns the texels changed. */
-int drive_livery_black(const char *stem, uint8_t *cfm, size_t size, const uint8_t rgb[3]);
+/* The texels the car's masks mark as the fixed black (car_mask.h CAR_MASK_BLACK) repainted with the car's black `rgb` (car_paint_black_of, or CAR_PAINT_ADDED_BLACK for an added
+ * car), in the CFM the caller owns, before the loader reads it and before any paint or livery of the car (car_repaint_fixed_black). `mask_dir` as in drive_livery_paint_masks:
+ * the masks of an added car's skin's folder alone, NULL the stock search by the stem. Returns the texels changed. */
+int drive_livery_black(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size, const uint8_t rgb[3]);
 
 /* port (emissive lamps): the texels the car's masks mark as a brake, position or head light (car_mask.h), appended to `out` as offsets into the CFM, over
  * both banks and in any texture that has a mask file, not only the body's. The CFM is not changed. Returns the number of texels found. */
 int drive_livery_lamps(const char *stem, uint8_t *cfm, size_t size, LampTexels *out);
+/* drive_livery_lamps with the masks of `mask_dir` alone (an added car's skin's folder, as drive_livery_paint_masks); NULL searches as drive_livery_lamps does */
+int drive_livery_lamps_masks(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size, LampTexels *out);
 
 /* The dash art's body (the bonnet, wings and pillars the cockpit picture shows) in a paint: `bank` is the dash's SHPI (SIMDATA/DASH/<stem>DH.FSH) as
  * read, `rgb` a catalogue paint (car_paint.h) or the console version livery's main colour (drive_livery_car's `main_rgb`; the dash shows tones the car's textures
@@ -50,5 +53,7 @@ int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const uint8_
 typedef void (*LiveryDraftFn)(void *user, int level, const char name[4], int width, int height, const uint8_t *pixels, const uint8_t *keep,
                               const uint8_t rgb[768]);
 int drive_livery_draft(const char *stem, uint8_t *cfm, size_t size, LiveryDraftFn fn, void *user);
+/* drive_livery_draft with the masks of `mask_dir` alone (an added car's skin's folder: its own texture is a body texture where its mask paints); NULL as drive_livery_draft */
+int drive_livery_draft_masks(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size, LiveryDraftFn fn, void *user);
 
 #endif

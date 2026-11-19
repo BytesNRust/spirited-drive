@@ -8,6 +8,7 @@
 #include "formats/shpi_build.h"
 #include "game/race/car_mask.h"
 #include "game/sys/shape_bank.h"
+#include "game/race/car_paint.h"
 #include "game/viewer/drive_livery.h"
 #include "game/viewer/drive_skin.h"
 #include "test.h"
@@ -197,6 +198,102 @@ static void test_added_texture_painted_by_its_mask(void)
     free(cfm);
 }
 
+/* the colour (3 bytes, as the bank holds them) of palette entry `index` of bank `level` */
+static const uint8_t *pal_colour(uint8_t *cfm, size_t size, int level, int index)
+{
+    Chunk file, shpi;
+    if (chunk_open(&file, cfm, size) != CHUNK_OK || chunk_child(&file, 2 * level + 1, &shpi) != CHUNK_OK) return NULL;
+    static const uint8_t PAL[4] = { '!', 'P', 'A', 'L' };
+    const uint8_t *shape = shape_bank_find((uint8_t *)(uintptr_t)shpi.data, PAL);
+    return shape == NULL ? NULL : shape + 0x10 + 3 * index;
+}
+
+/* an added car's fixed black (a mask's 224, magenta in the PSD): the texels it marks take the black `rgb`, read from the masks of the skin's folder, as the paint
+ * is; the stock search (no folder: by the stem, an original car's masks) finds none for an added car and changes nothing */
+static void test_added_texture_black_by_its_mask(void)
+{
+    char dir[400];
+    snprintf(dir, sizeof dir, "%s/skins/blacked", base);
+    uint8_t black_half[8] = { CAR_MASK_BLACK, CAR_MASK_BLACK, CAR_MASK_BLACK, CAR_MASK_BLACK, 0, 0, 0, 0 }, *png = NULL;
+    size_t n = 0;
+    if (car_mask_write(black_half, 4, 2, &png, &n)) spill(dir, "topv_mask.png", png, n), png_free(png);
+    const uint8_t black[3] = CAR_PAINT_ADDED_BLACK;
+    size_t size = 0;
+
+    uint8_t *cfm = cfm_of(&size);
+    CHECK(drive_livery_black("TESTCAR", dir, cfm, size, black) > 0);
+    const uint8_t *topv = texels(cfm, size, 0, "topv");
+    CHECK(topv != NULL);
+    for (int i = 0; i < 4; i++) CHECK(topv[i] != 7);        /* the mask's black: another colour of the palette */
+    for (int i = 4; i < 8; i++) CHECK_EQ_INT(topv[i], 7);   /* its paint: as it was (the paint is a later pass) */
+    free(cfm);
+
+    /* what the paint alone does with the black-class texels (the mechanism the measurement on an added car showed): nothing. A texel whose mask is not 0 is left where it
+     * is (repaint_apply skips it) and counts as the entry's "other" users (survey_count), so the entry it shares with the paint texels is not recoloured in place: the paint
+     * texels move to a spare entry of the paint's colour and the black-class texels keep their index and their colour. Without the black pass they stay the texture's own */
+    cfm = cfm_of(&size);
+    uint8_t before[3];
+    memcpy(before, pal_colour(cfm, size, 0, 7), 3);
+    const uint8_t red[3] = { 0xc8, 0x10, 0x2e };
+    CHECK(drive_livery_paint_masks("TESTCAR", dir, cfm, size, red) > 0);
+    topv = texels(cfm, size, 0, "topv");
+    CHECK(topv != NULL);
+    for (int i = 0; i < 4; i++) CHECK_EQ_INT(topv[i], 7);   /* the black class: the same entry */
+    for (int i = 4; i < 8; i++) CHECK(topv[i] != 7);        /* the paint class: another one */
+    CHECK(memcmp(pal_colour(cfm, size, 0, 7), before, 3) == 0);   /* and that entry's colour is as it was */
+    free(cfm);
+
+    cfm = cfm_of(&size);   /* the stock search: no folder, no masks for an added stem */
+    CHECK_EQ_INT(drive_livery_black("TESTCAR", NULL, cfm, size, black), 0);
+    topv = texels(cfm, size, 0, "topv");
+    for (int i = 0; i < 8; i++) CHECK_EQ_INT(topv[i], 7);
+    free(cfm);
+}
+
+/* an added car's skin's masks reach the lamps and the shine as they reach the paint: the lamp texels its own mask marks (a brake light in a texture of its own) and the draft
+ * of the shine its masks make (the added texture is a body texture where its mask paints); the stock search by the stem finds neither for an added car */
+typedef struct {
+    int calls;
+} DraftSeen;
+
+static void draft_seen(void *user, int level, const char name[4], int width, int height, const uint8_t *pixels, const uint8_t *keep, const uint8_t rgb[768])
+{
+    (void)level, (void)width, (void)height, (void)pixels, (void)keep, (void)rgb;
+    if (memcmp(name, "tras", 4) == 0) ((DraftSeen *)user)->calls++;
+}
+
+static void test_added_texture_lamps_and_shine_by_its_mask(void)
+{
+    char dir[400];
+    snprintf(dir, sizeof dir, "%s/skins/lit", base);
+    uint8_t brake_half[8] = { CAR_MASK_BRAKE, CAR_MASK_BRAKE, CAR_MASK_BRAKE, CAR_MASK_BRAKE, CAR_MASK_MATTE, CAR_MASK_MATTE, CAR_MASK_MATTE, CAR_MASK_MATTE }, *png = NULL;
+    size_t n = 0;
+    if (car_mask_write(brake_half, 4, 2, &png, &n)) spill(dir, "tras_mask.png", png, n), png_free(png);
+    size_t size = 0;
+
+    uint8_t *cfm = cfm_named("tras", &size);
+    LampTexels lamps = { 0 };
+    CHECK_EQ_INT(drive_livery_lamps_masks("TESTCAR", dir, cfm, size, &lamps), 4);   /* the mask's four brake texels, in any texture that has a mask */
+    lamp_texels_free(&lamps);
+    memset(&lamps, 0, sizeof lamps);
+    CHECK_EQ_INT(drive_livery_lamps("TESTCAR", cfm, size, &lamps), 0);                /* the stock search: no masks for an added stem */
+    lamp_texels_free(&lamps);
+    free(cfm);
+
+    char paint_dir[400];
+    snprintf(paint_dir, sizeof paint_dir, "%s/skins/shiny", base);
+    uint8_t paint_half[8] = { 0, 0, 0, 0, 255, 255, 255, 255 };
+    if (car_mask_write(paint_half, 4, 2, &png, &n)) spill(paint_dir, "tras_mask.png", png, n), png_free(png);
+    cfm = cfm_named("tras", &size);
+    DraftSeen seen = { 0 };
+    CHECK(drive_livery_draft_masks("TESTCAR", paint_dir, cfm, size, draft_seen, &seen) > 0);
+    CHECK(seen.calls > 0);                                                         /* the added texture is drafted where its mask paints */
+    seen.calls = 0;
+    drive_livery_draft("TESTCAR", cfm, size, draft_seen, &seen);
+    CHECK_EQ_INT(seen.calls, 0);                                                   /* the stock search: not a body texture, no mask */
+    free(cfm);
+}
+
 static CarPieceCard card_of(void)
 {
     CarPieceCard c;
@@ -244,6 +341,8 @@ int main(void)
     test_skin_apply();
     test_mask_from_its_folder();
     test_added_texture_painted_by_its_mask();
+    test_added_texture_black_by_its_mask();
+    test_added_texture_lamps_and_shine_by_its_mask();
     test_the_look();
     char cmd[400];
     snprintf(cmd, sizeof cmd, "find '%s' -delete", base);
