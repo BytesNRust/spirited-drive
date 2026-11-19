@@ -68,10 +68,37 @@ static void test_reddish_pages(void)
     CHECK(!car_records_reddish(60, 60, 60));
 }
 
+static int max_of(const uint8_t *p) { return p[0] > p[1] ? (p[0] > p[2] ? p[0] : p[2]) : (p[1] > p[2] ? p[1] : p[2]); }
+static int min_of(const uint8_t *p) { return p[0] < p[1] ? (p[0] < p[2] ? p[0] : p[2]) : (p[1] < p[2] ? p[1] : p[2]); }
+
+static void test_the_tint_is_limited(void)
+{
+    enum { N = 64 };
+    uint8_t loud[3 * N], dull[3 * N];
+    for (int i = 0; i < N; i++) {   /* a loud red page, and a dark muted one */
+        loud[3 * i] = (uint8_t)(200 + i / 2), loud[3 * i + 1] = 10, loud[3 * i + 2] = 15;
+        dull[3 * i] = 60, dull[3 * i + 1] = 55, dull[3 * i + 2] = 50;
+    }
+    const uint8_t dull0[3] = { 60, 55, 50 };
+    car_records_limit_tint(dull, N);
+    CHECK(memcmp(dull, dull0, 3) == 0);   /* under both limits: as it was */
+    car_records_limit_tint(loud, N);
+    long sum = 0;
+    for (int i = 0; i < N; i++) {
+        const uint8_t *p = loud + 3 * i;
+        sum += max_of(p);
+        CHECK((max_of(p) - min_of(p)) * 100 <= (CAR_RECORDS_S_MAX + 1) * max_of(p));   /* no pixel above the saturation limit (rounding) */
+        CHECK(p[0] >= p[1] && p[0] >= p[2]);   /* still red */
+    }
+    CHECK(sum / N <= 255 * CAR_RECORDS_V_MAX / 100 + 1);   /* the mean brightness at the limit */
+    car_records_limit_tint(NULL, 0);
+}
+
 int main(void)
 {
     test_rows_and_pages();
     test_pages_go_round();
     test_reddish_pages();
+    test_the_tint_is_limited();
     return TEST_REPORT();
 }

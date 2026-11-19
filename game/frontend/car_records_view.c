@@ -16,12 +16,12 @@ enum {
     HEAD_NUM = 2, HEAD_DEN = 3,          /* the column heads, as small as the art's own on Best Times */
     NOTE_NUM = 1, NOTE_DEN = 2,          /* the note under the table */
     /* three columns, the two figures well to the right (the name's room is what is left) */
-    NAME_X = 8, NAME_W = 340, TIME_X = 372, SPEED_X = 500,
+    NAME_X = 8, NAME_W = 340, TIME_X = 372, SPEED_X = 528,
     PAGER_NUM = 6, PAGER_DEN = 5,        /* DONE's letters: the footer's cap height, 12 rows */
     LUNAR = 10
 };
 
-static const char NOTE[] = "circuits: best lap - stages: full stage - normal layout, no cheats";
+static const char NOTE[] = "circuits: best lap (1 LAP) or best race - stages: full stage - normal layout, no cheats";
 
 void car_records_view_make(CarRecordsView *v, const char *car, const TrackList *tracks)
 {
@@ -76,6 +76,27 @@ int car_records_reddish(int r, int g, int b)
     return 4 * abs(g - b) <= span;   /* the hue within 15 degrees of red: 60 |g - b| / span <= 15 */
 }
 
+void car_records_limit_tint(uint8_t *rgb, size_t pixels)
+{
+    long sum = 0;
+    for (size_t i = 0; i < pixels; i++) {
+        const uint8_t *p = rgb + 3 * i;
+        sum += p[0] > p[1] ? (p[0] > p[2] ? p[0] : p[2]) : (p[1] > p[2] ? p[1] : p[2]);
+    }
+    const long mean = pixels > 0 ? sum / (long)pixels : 0, cap = 255L * CAR_RECORDS_V_MAX / 100;
+    for (size_t i = 0; i < pixels; i++) {
+        uint8_t *p = rgb + 3 * i;
+        int c[3] = { p[0], p[1], p[2] };
+        if (mean > cap)
+            for (int k = 0; k < 3; k++) c[k] = (int)(c[k] * cap / mean);
+        const int max = c[0] > c[1] ? (c[0] > c[2] ? c[0] : c[2]) : (c[1] > c[2] ? c[1] : c[2]);
+        const int min = c[0] < c[1] ? (c[0] < c[2] ? c[0] : c[2]) : (c[1] < c[2] ? c[1] : c[2]);
+        if (max > 0 && (max - min) * 100 > CAR_RECORDS_S_MAX * max)   /* too saturated: the distance of each channel to the greatest is shortened */
+            for (int k = 0; k < 3; k++) c[k] = max - (max - c[k]) * CAR_RECORDS_S_MAX * max / (100 * (max - min));
+        for (int k = 0; k < 3; k++) p[k] = (uint8_t)(c[k] < 0 ? 0 : c[k] > 255 ? 255 : c[k]);
+    }
+}
+
 void car_records_ink_text(const CarRecordsInk *ink, const char *text, int x, int y, int num, int den, int colour, int shadow_px)
 {
     enum { SOLID = 4 };   /* the coverage (0..15) from which a pixel of the mask is the letter's */
@@ -104,6 +125,11 @@ static void row_draw(const CarRecordsRow *r, int y, int kmh)
     else snprintf(text, sizeof text, "--");
     text_select(c->best > 0 ? TEXT_YELLOW : TEXT_DIM);
     if (c->best > 0) text_draw_shadowed(text, TIME_X, y);
+    if (c->best > 0 && c->laps > 0) {   /* what the time is, beside it in small letters: "1 LAP" or the laps of the race */
+        char laps[16];
+        snprintf(laps, sizeof laps, "%d LAP%s", c->laps, c->laps == 1 ? "" : "S");
+        put(laps, TIME_X + text_width(text) + 8, y + 7, 1, 2);
+    }
     else put(text, TIME_X, y, 1, 1);   /* "--" without a shadow: nothing is there */
     if (c->speed > 0) stat_speed_text(text, kmh, c->speed);
     else snprintf(text, sizeof text, "--");

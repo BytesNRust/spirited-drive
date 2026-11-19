@@ -56,6 +56,7 @@ static void test_a_circuit_gives_its_best_lap_of_the_normal_key(void)
     CHECK_EQ_INT(r.found, 1);
     CHECK_EQ_INT(r.stage, 0);
     CHECK_EQ_INT(r.best, 1700);
+    CHECK_EQ_INT(r.laps, 1);   /* a lap says so */
     CHECK_EQ_INT(r.speed, 0);
 }
 
@@ -110,6 +111,47 @@ static void test_an_added_track_is_read_by_its_id(void)
     CHECK_EQ_INT(r.found, 0);
 }
 
+/* owner 2026-11-19 (point 28): records made before the records by car (race_records.dat, the standard rows), copied into the cars' tables by the import */
+static void set_car(RecordRow *r, int32_t car)
+{
+    memcpy(r->row + RECORD_ROW_CAR, &car, 4), memcpy(r->row + RECORD_ROW_CAR_B, &car, 4);
+}
+
+enum { DIABLO = 7, TR512 = 6, RUSTY = 3, CITY = 0 };
+
+static void test_imported_records_show_for_each_car(void)
+{
+    race_records_reset(), race_records_added_reset(), race_records_tracks_reset();
+    race_records_cars_set_imported(0);
+    /* Rusty Springs, normal, no cheats, 8 laps: the Diablo's 5:23.3 first, the 512TR's 5:29.9 second, the 512TR's top speed */
+    RecordTable *rusty = race_records_make(RUSTY, LAYOUT_NORMAL, 0, 8);
+    set_time(&rusty->totals[0], 32330), set_car(&rusty->totals[0], DIABLO);
+    set_time(&rusty->totals[1], 32990), set_car(&rusty->totals[1], TR512);
+    set_speed(&rusty->top, 2565), set_car(&rusty->top, TR512);
+    /* City, a stage: the Diablo has the total and the top speed, the 512TR a total */
+    RecordTable *city = race_records_make(CITY, LAYOUT_NORMAL, 0, 0);
+    set_time(&city->totals[0], 40000), set_car(&city->totals[0], DIABLO);
+    set_time(&city->totals[1], 44950), set_car(&city->totals[1], TR512);
+    set_speed(&city->top, 3251), set_car(&city->top, DIABLO);
+    CHECK_EQ_INT(race_records_cars_import(), 1);
+    CarRecord r;
+    car_records_find("512tr", RUSTY, NULL, 0, &r);
+    CHECK_EQ_INT(r.speed, 2565);   /* its top speed is its own */
+    CHECK_EQ_INT(r.best, 32990);   /* no lap row: the best total it has is what the track's Best Times shows */
+    CHECK_EQ_INT(r.laps, 8);       /* said to be a race's, with its laps */
+    car_records_find("diablo", RUSTY, NULL, 0, &r);
+    CHECK_EQ_INT(r.best, 32330);
+    CHECK_EQ_INT(r.speed, 0);   /* time and no speed: each column on its own */
+    car_records_find("512tr", CITY, NULL, 1, &r);
+    CHECK_EQ_INT(r.found, 1);
+    CHECK_EQ_INT(r.best, 44950);
+    CHECK_EQ_INT(r.laps, 0);   /* a stage's total is the course's */
+    CHECK_EQ_INT(r.speed, 0);   /* the 512TR has the time and not the speed */
+    car_records_find("diablo", CITY, NULL, 1, &r);
+    CHECK_EQ_INT(r.best, 40000);
+    CHECK_EQ_INT(r.speed, 3251);
+}
+
 int main(void)
 {
     test_no_record();
@@ -117,5 +159,6 @@ int main(void)
     test_the_top_speed_is_the_greatest_of_the_normal_tables();
     test_a_stage_gives_its_full_course_not_a_segment();
     test_an_added_track_is_read_by_its_id();
+    test_imported_records_show_for_each_car();
     return TEST_REPORT();
 }
