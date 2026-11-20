@@ -1,7 +1,7 @@
 // The Model panel (dep59 car editor, step 2): the open car in 3D as the game draws it. The classic rasterizer of the core (raster/car_scene.h) draws the high
 // model into an 8-bit surface, turned and placed by an orbit camera (raster/orbit.h), and the surface goes to the window as a texture. Drag with the left button
-// to turn the car (up to 90 degrees above, 10 below the road), the wheel zooms, F / S / R / T are the front, side, rear and top, Home the first view; Auto-rotate
-// turns it by itself. Unpainted: the bank's own colours (the painted car comes with the preview's paint, car_preview).
+// to turn the car all the way round, on every axis, the wheel zooms, F / S / R / T are the front, side, rear and top, Home the first view; Auto-rotate
+// turns it by itself. Painted as the Preview window paints it (car_preview), in its Day / Night and lamps.
 #include "panels.h"
 
 #include "imgui.h"
@@ -9,6 +9,7 @@
 #include <SDL3/SDL.h>
 
 extern "C" {
+#include "formats/police_flash.h"
 #include "model_scene.h"
 }
 #include "car_export.h"
@@ -39,6 +40,8 @@ struct Model {
     int preset = 0;               // an orbit asked for on the command line, waiting for the car
     double preset_yaw = 0, preset_pitch = 0;
     int32_t preset_dist = 0;
+    NightSettings key_night = {};   // the Preview's Day / Night and lamps the picture was drawn in, and the police flash's phase
+    int key_phase = -1;
     SDL_Texture *tex = nullptr;
     int tw = 0, th = 0;
     uint8_t *rgba = nullptr;
@@ -101,11 +104,8 @@ void load(App *a, const uint8_t *rgb)
     if (g.scene == nullptr) return;
     orbit_init(&g.orbit, model_scene_radius(g.scene));
     if (g.preset) {
-        g.orbit.yaw = ((static_cast<int32_t>(g.preset_yaw * 16.0) % ORBIT_TURN) + ORBIT_TURN) % ORBIT_TURN;
-        g.orbit.pitch = static_cast<int32_t>(g.preset_pitch * 16.0);
-        if (g.orbit.pitch < ORBIT_PITCH_MIN) g.orbit.pitch = ORBIT_PITCH_MIN;
-        if (g.orbit.pitch > ORBIT_PITCH_MAX) g.orbit.pitch = ORBIT_PITCH_MAX;
-        if (g.preset_dist > 0) g.orbit.dist = g.preset_dist;
+        orbit_set_degrees(&g.orbit, g.preset_yaw, g.preset_pitch);
+        if (g.preset_dist > 0) orbit_set_dist(&g.orbit, g.preset_dist);
         g.preset = 0;
     }
 }
@@ -131,10 +131,24 @@ bool make_target(SDL_Renderer *ren, int w, int h)
     return true;
 }
 
-void draw_picture(int w, int h)
+// the picture in the Preview window's light: Day or Night, the track the night is of, the light at the car, the lamps (editor/night_view.h)
+void draw_picture(const App *a, int phase, int w, int h)
 {
-    if (model_scene_render(g.scene, &g.orbit, w, h, g.rgba)) SDL_UpdateTexture(g.tex, nullptr, g.rgba, w * 4);
+    const CarNightState night = night_settings_state(&a->night, phase * POLICE_FLASH_TICKS);
+    if (model_scene_render(g.scene, &g.orbit, w, h, &night, g.rgba)) SDL_UpdateTexture(g.tex, nullptr, g.rgba, w * 4);
+    g.key_night = a->night, g.key_phase = phase;
     g.dirty = false;
+}
+
+// the picture's size: the whole area, scaled down to what the rasterizer takes (at most MAX_W x its rows) with the area's shape kept; 0 when too small
+bool picture_size(int area_w, int area_h, int *w, int *h)
+{
+    if (area_w < 64 || area_h < 64) return false;
+    double scale = 1.0;
+    if (area_w > MAX_W) scale = static_cast<double>(MAX_W) / area_w;
+    if (area_h * scale > model_scene_max_rows()) scale = static_cast<double>(model_scene_max_rows()) / area_h;
+    *w = static_cast<int>(area_w * scale), *h = static_cast<int>(area_h * scale);
+    return *w >= 2 && *h >= 2;
 }
 
 void keys()
@@ -167,7 +181,7 @@ void toolbar()
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Read the car file again");
 }
 
-void turn_and_zoom(const ImVec2 size)
+void turn_and_zoom()
 {
     ImGuiIO &io = ImGui::GetIO();
     if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f) && (io.MouseDelta.x != 0 || io.MouseDelta.y != 0)) {
@@ -175,7 +189,6 @@ void turn_and_zoom(const ImVec2 size)
         g.dirty = true;
     }
     if (ImGui::IsItemHovered() && io.MouseWheel != 0) orbit_zoom(&g.orbit, io.MouseWheel > 0 ? 1 : -1), g.dirty = true;
-    (void)size;
 }
 
 }   // namespace
@@ -203,24 +216,21 @@ void model_panel(App *a, SDL_Renderer *ren)
         } else {
             toolbar();
             keys();
-            ImVec2 size = ImGui::GetContentRegionAvail();
-            int w = static_cast<int>(size.x), h = static_cast<int>(size.y) - static_cast<int>(ImGui::GetTextLineHeightWithSpacing());
-            if (w > MAX_W) w = MAX_W;
-            const int shown_w = w;   // the area; the picture is a square in its middle, so the car fits whatever the shape of the panel
-            if (h < w) w = h;
-            if (h > model_scene_max_rows()) h = model_scene_max_rows();
-            if (w >= 64 && h >= 64 && make_target(ren, w, h)) {
+            const ImVec2 size = ImGui::GetContentRegionAvail();
+            const int area_w = static_cast<int>(size.x), area_h = static_cast<int>(size.y) - static_cast<int>(ImGui::GetTextLineHeightWithSpacing());
+            int w = 0, h = 0;   // the picture fills the area (car_scene keeps its pixels square, the car whole in the smaller side)
+            if (picture_size(area_w, area_h, &w, &h) && make_target(ren, w, h)) {
                 if (g.auto_rotate) {
                     const int step = static_cast<int>(roundf(ImGui::GetIO().DeltaTime * AUTO_DEG_PER_SECOND * 16.0f));
                     orbit_drag(&g.orbit, -step / ORBIT_DRAG - (step % ORBIT_DRAG != 0), 0);   // at least a step a frame: the yaw moves by 1/16 degrees
                     g.dirty = true;
                 }
-                if (g.dirty) draw_picture(w, h);
-                ImVec2 at = ImGui::GetCursorScreenPos();
-                ImGui::InvisibleButton("##orbit", ImVec2(static_cast<float>(shown_w), static_cast<float>(h)));
-                at.x += static_cast<float>((shown_w - w) / 2);
-                turn_and_zoom(ImVec2(static_cast<float>(w), static_cast<float>(h)));
-                ImGui::GetWindowDrawList()->AddImage(reinterpret_cast<ImTextureID>(g.tex), at, ImVec2(at.x + static_cast<float>(w), at.y + static_cast<float>(h)));
+                const int phase = a->night.police ? static_cast<int>((SDL_GetTicks() / 500u) & 1u) : 0;   // the flash, as the Preview window has it
+                if (g.dirty || g.key_phase != phase || memcmp(&g.key_night, &a->night, sizeof a->night) != 0) draw_picture(a, phase, w, h);
+                const ImVec2 at = ImGui::GetCursorScreenPos(), area(static_cast<float>(area_w), static_cast<float>(area_h));
+                ImGui::InvisibleButton("##orbit", area);
+                turn_and_zoom();
+                ImGui::GetWindowDrawList()->AddImage(reinterpret_cast<ImTextureID>(g.tex), at, ImVec2(at.x + area.x, at.y + area.y));
                 ImGui::TextDisabled("Drag to turn, wheel to zoom, F S R T Home. %s", g.painted ? "As the race paints it." : "As the car file has it.");
             }
         }

@@ -7,23 +7,29 @@
 
 enum {
     ORBIT_TURN = 360 * 16,         /* a turn, in 1/16 degree */
-    ORBIT_PITCH_MIN = -10 * 16,    /* the car is seen from a little below the road to straight above it */
-    ORBIT_PITCH_MAX = 90 * 16,
+    ORBIT_PITCH_TOP = 90 * 16,     /* the car seen from straight above; the pitch has no limit: it wraps, as the yaw does */
     ORBIT_DRAG = 6                 /* 1/16 degrees a pixel of a drag: 0.375 degree */
 };
 
 typedef enum { ORBIT_FRONT, ORBIT_SIDE, ORBIT_REAR, ORBIT_TOP } OrbitView;
 
 typedef struct {
-    int32_t yaw, pitch;            /* 1/16 degree: yaw 0..ORBIT_TURN-1, pitch ORBIT_PITCH_MIN..ORBIT_PITCH_MAX */
+    int32_t yaw, pitch;            /* 1/16 degree, each 0..ORBIT_TURN-1: pitch 0 level, ORBIT_PITCH_TOP from above, past it over the top and upside down */
     int32_t dist;                  /* the model's origin this far in front of the eye (model units) */
     int32_t dist_home, dist_min, dist_max;
 } Orbit;
 
 /* a camera for a model of `radius` (its farthest vertex from the origin): home at the three-quarter view, the zoom from just outside the model to far */
 void orbit_init(Orbit *o, int32_t radius);
-/* a drag of dx, dy pixels: dx turns the car about its vertical axis (yaw wraps), dy tips it (pitch is held to its range) */
+/* a drag of dx, dy pixels: dx turns the car about its vertical axis, dy tips it, both all the way round (they wrap). With the car upside down
+ * (pitch past straight above or below) dx turns it the other way, so that it still follows the pointer. */
 void orbit_drag(Orbit *o, int dx, int dy);
+/* yaw and pitch (1/16 degree, any value: wrapped to a turn), the distance kept */
+void orbit_set(Orbit *o, int32_t yaw, int32_t pitch);
+/* the same in degrees, as a command line gives them (any size; one that is not a number is 0) */
+void orbit_set_degrees(Orbit *o, double yaw, double pitch);
+/* the distance asked for (a command line's), held between dist_min and dist_max: nearer, the near plane would cut the car */
+void orbit_set_dist(Orbit *o, int32_t dist);
 /* wheel notches (positive in): each takes a tenth off the distance, held between dist_min and dist_max */
 void orbit_zoom(Orbit *o, int notches);
 /* F, S, R, T: the car seen from the front, the side, the rear, and from above; the distance is kept */

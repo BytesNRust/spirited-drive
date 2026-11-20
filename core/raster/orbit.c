@@ -2,12 +2,25 @@
 
 #include "raster/car_pose.h"
 
+#include "formats/fixed_math.h"
+
+#include <math.h>
+
 enum { HOME_YAW = 215 * 16, HOME_PITCH = 18 * 16, ZOOM_STEP_DEN = 10 };   /* a three-quarter view from the front, a little above */
 
 /* the views' yaw: 0 has the car's rear toward the eye (the model looks down +z) */
 static const int32_t VIEW_YAW[4] = { 180 * 16, 90 * 16, 0, 180 * 16 };
 
 static int32_t clamp(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+static int32_t wrap(int64_t angle)
+{
+    const int32_t a = (int32_t)(angle % ORBIT_TURN);
+    return a < 0 ? a + ORBIT_TURN : a;
+}
+
+/* past straight above (or below) the car is seen upside down */
+static int upside_down(int32_t pitch) { return pitch > ORBIT_PITCH_TOP && pitch < ORBIT_TURN - ORBIT_PITCH_TOP; }
 
 void orbit_init(Orbit *o, int32_t radius)
 {
@@ -25,9 +38,24 @@ void orbit_home(Orbit *o)
 
 void orbit_drag(Orbit *o, int dx, int dy)
 {
-    o->yaw = (int32_t)(((int64_t)o->yaw + (int64_t)dx * ORBIT_DRAG) % ORBIT_TURN);
-    if (o->yaw < 0) o->yaw += ORBIT_TURN;
-    o->pitch = clamp(o->pitch + dy * ORBIT_DRAG, ORBIT_PITCH_MIN, ORBIT_PITCH_MAX);
+    const int64_t turn = (int64_t)dx * ORBIT_DRAG;
+    o->yaw = wrap((int64_t)o->yaw + (upside_down(o->pitch) ? -turn : turn));
+    o->pitch = wrap((int64_t)o->pitch + (int64_t)dy * ORBIT_DRAG);
+}
+
+void orbit_set(Orbit *o, int32_t yaw, int32_t pitch)
+{
+    o->yaw = wrap(yaw), o->pitch = wrap(pitch);
+}
+
+static int32_t sixteenths(double degrees)
+{
+    return isfinite(degrees) ? (int32_t)lround(fmod(degrees, 360.0) * 16.0) : 0;
+}
+
+void orbit_set_degrees(Orbit *o, double yaw, double pitch)
+{
+    orbit_set(o, sixteenths(yaw), sixteenths(pitch));
 }
 
 void orbit_zoom(Orbit *o, int notches)
@@ -37,15 +65,25 @@ void orbit_zoom(Orbit *o, int notches)
     o->dist = clamp(o->dist, o->dist_min, o->dist_max);
 }
 
+void orbit_set_dist(Orbit *o, int32_t dist)
+{
+    o->dist = clamp(dist, o->dist_min, o->dist_max);
+}
+
 void orbit_view(Orbit *o, OrbitView v)
 {
     o->yaw = VIEW_YAW[v];
-    o->pitch = v == ORBIT_TOP ? ORBIT_PITCH_MAX : 0;
+    o->pitch = v == ORBIT_TOP ? ORBIT_PITCH_TOP : 0;
 }
 
 void orbit_matrix(const Orbit *o, int32_t out[9])
 {
-    /* the angles as the race keeps them: 24 bits a turn */
+    /* the angles as the race keeps them: 24 bits a turn. The car is turned about its vertical axis first, then tipped about the eye's horizontal
+     * one (the race's car_body_matrix tips in the car's own frame, before the heading: from behind its tip would show the floor). The tip's
+     * sign makes a positive pitch show the roof, as the race's tip does with the car's front to the eye. */
     const int32_t heading = (int32_t)((int64_t)o->yaw * 0x1000000 / ORBIT_TURN), tip = (int32_t)((int64_t)o->pitch * 0x1000000 / ORBIT_TURN);
-    car_body_matrix(heading, tip, 0, out);
+    int32_t turn[9], tilt[9];
+    car_body_matrix(heading, 0, 0, turn);
+    car_body_matrix(0, (int32_t)((0u - (uint32_t)tip) & 0xFFFFFFu), 0, tilt);
+    mat3_mul(turn, tilt, out);
 }
