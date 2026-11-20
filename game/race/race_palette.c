@@ -52,11 +52,7 @@ enum {
 static const int32_t SLOT_FIRST[SLOT_TABLE] = { 0x30, 0x48, 0, 0x60, 0x68, 0x70, 0x78, 0x80, 0x88, 0x90 };  /* 004c56d0 */
 static const int32_t SLOT_COUNT[SLOT_TABLE] = { 0x17, 0x17, 0, 8, 8, 8, 8, 8, 8, 8 };                      /* 004c56f8 */
 static const uint8_t SLOT_OWN[SLOT_TABLE] = { 0x47, 0x5f, 0, 0, 0, 0, 0, 0, 0, 0 };                        /* 004c5720 */
-const uint8_t race_palette_model_light[RACE_PALETTE_MODEL_LIGHTS * 3] = {                                   /* 004c578c */
-    15, 3, 3, 15, 3, 3, 15, 3, 3, 15, 3, 3, 6, 6, 6, 15, 3, 3, 15, 3, 3, 15, 3, 3, 15, 3, 3, 15, 3, 3,
-    15, 3, 3, 30, 5, 5, 15, 3, 3, 62, 5, 5, 47, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5,
-    62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 5, 5, 62, 20, 20, 62, 20, 20
-};
+/* 004c578c, the model lights: formats/car_brake_lamp.h car_brake_lamp_rows (Studio colours the brake lamp from the same table) */
 /* 004c5610: the police lights' four colours, then (004c561c) the other phase of the flash */
 const uint8_t race_palette_police_light[2 * 4 * 3] = { 63, 0, 32, 48, 0, 16, 32, 0, 63, 16, 0, 48,
                                                        32, 0, 63, 16, 0, 48, 63, 0, 32, 48, 0, 16 };
@@ -207,7 +203,7 @@ void race_palette_tint_shape(RacePalette *p, uint8_t *shape)
 static const uint8_t *model_light(const Car *car)
 {
     const int32_t lamp = car != NULL ? car_registry_lamp_model(car->model) : -1;   /* port (dep59 3b): an added car's are the standard red */
-    return lamp >= 0 && lamp < RACE_PALETTE_MODEL_LIGHTS ? race_palette_model_light + 3 * lamp : NULL;
+    return lamp >= 0 && lamp < RACE_PALETTE_MODEL_LIGHTS ? car_brake_lamp_rows + 3 * lamp : NULL;
 }
 
 static void cars_each_own(RacePalette *p, const RaceState *race, const uint8_t *const own[RACE_CARS])

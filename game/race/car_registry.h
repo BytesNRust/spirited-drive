@@ -6,6 +6,7 @@
 #define TNFS_CAR_REGISTRY_H
 
 #include "formats/car_ai.h"
+#include "formats/car_brake_lamp.h"
 #include "formats/car_piece.h"
 #include "formats/mod_ini.h"
 #include "game/race/race_state.h"
@@ -53,13 +54,13 @@ int car_registry_sound_model(int car);
 /* the original whose cockpit it shows (SIMDATA/DASH/<stem>DH): itself for an original, an added car's dash_from; -1 for an added car that
  * names none (it has no cockpit view: race_state.h's port_no_cockpit) and otherwise */
 int car_registry_dash_model(int car);
-/* port (dep59 3b): the lamp row of an added car: race_palette_model_light's row 0, (15,3,3) off and (62,5,5) lit (row 13), the red ten of
+/* port (dep59 3b): the lamp row of an added car: car_brake_lamp_rows's row 0, (15,3,3) off and (62,5,5) lit (row 13), the red ten of
  * the twelve originals share */
-enum { CAR_LAMP_STANDARD = 0 };
+enum { CAR_LAMP_STANDARD = CAR_BRAKE_LAMP_STANDARD };   /* formats/car_brake_lamp.h: Studio shows the same row */
 /* port (dep59 3b): the cockpit loaded for an added car without dash_from, never shown (port_no_cockpit): the HUD's map, radar and palette take
  * their data from a loaded cockpit, and one fixed for every such car keeps its frame from depending on its sound_from or anything else of it */
 enum { CAR_HUD_STAND_IN = 0 };
-/* the row of lamp colours it takes (race_palette_model_light's rows): itself for an original, CAR_LAMP_STANDARD for an added car
+/* the row of lamp colours it takes (car_brake_lamp_rows's rows): itself for an original, CAR_LAMP_STANDARD for an added car
  * (whatever its sound_from); -1 otherwise. The exe's quirks of one car (the 512TR's throttle and shift, the Diablo's and 911T's tyres) stay
  * with that car's number: an added car drives as its PBS says */
 int car_registry_lamp_model(int car);

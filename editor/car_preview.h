@@ -32,8 +32,9 @@ typedef struct {
     int body_colours;   /* the distinct colours (6 bits a channel) the body textures show after the paint */
     int painted;        /* the texels the paint changed (0 with no paint) */
     int blacked;        /* the texels the fixed black changed */
-    int special;        /* texels that name a screen entry of the race rather than a colour (0xfa..0xff) */
+    int special;        /* texels that name a screen entry of the race rather than a colour and are drawn as a pattern (0xfa..0xfd, 0xff; not the brake lamp's 0xfe) */
     char note[PREVIEW_NOTE];   /* what the person is told about the colours: fits, or how many are shown as their nearest */
+    int lamp_row;       /* the brake lamp's colours (formats/car_brake_lamp.h): the original's own row, the standard one for an added car; entry 0xfe of `palette` is its unlit colour */
 } CarPreview;
 
 typedef struct {
@@ -59,5 +60,8 @@ int car_preview_draft(const PreviewIn *in, CarLiveryDraftFn fn, void *user, char
 /* Makes the preview. 1, or 0 with `why`.  */
 int car_preview_make(const PreviewIn *in, CarPreview *out, char *why, size_t why_cap);
 void car_preview_free(CarPreview *p);
+
+/* Writes entry 0xfe of the 8-bit palette `pal` (one of p->palette's form) with the brake lamp's colour, lit or not: the colour the race paints those texels in by day */
+void car_preview_lamp_entry(const CarPreview *p, int lit, uint8_t pal[768]);
 
 #endif

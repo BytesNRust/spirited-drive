@@ -3,7 +3,9 @@
  * their fixed colours, only with the switches that light them. A synthetic car (a box with a textured side, mesh_build/shpi_build/cfm_build: no game data) and a
  * mask with head and brake lights; with the CD's P911 in original/ (skipped without) the same from its own masks, and TNFS_MODEL_SHOTS=DIR writes the pictures. */
 #include "model_scene.h"
+#include "formats/car_brake_lamp.h"
 #include "formats/car_mask_codec.h"
+#include "formats/car_night.h"
 #include "formats/cfm_build.h"
 #include "formats/mesh_build.h"
 #include "formats/png.h"
@@ -11,10 +13,12 @@
 #include "raster/shine_class.h"
 #include "test.h"
 
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -54,7 +58,9 @@ static uint8_t *make_cfm_of(size_t *len, int wheel)
     if (!mesh_build(&d, &orip, &orip_len, &err)) return NULL;
     static uint8_t pal[768], side[SIDE * SIDE], tyre[SIDE * SIDE];
     for (int i = 0; i < 256; i++) pal[3 * i] = (uint8_t)(i | 3), pal[3 * i + 1] = (uint8_t)(255 - i), pal[3 * i + 2] = (uint8_t)(i / 2 + 1);   /* low bits the race drops */
+    pal[3 * 0xfe] = 172, pal[3 * 0xfe + 1] = 252, pal[3 * 0xfe + 2] = 64;   /* the brake lamp's entry in the CD's files: a phosphor green the race never shows */
     for (int i = 0; i < SIDE * SIDE; i++) side[i] = (uint8_t)(40 + i), tyre[i] = 1;
+    for (int i = 3 * SIDE; i < 4 * SIDE; i++) side[i] = 0xfe;   /* a row of brake lamp in the paint: the race paints it, not the mask */
     const ShpiDescEntry e[3] = { { .name = { '!', 'P', 'A', 'L' }, .type = 0x24, .width = 256, .height = 1, .data = pal, .block_size = SHPI_BLOCK_AUTO },
                                  { .name = { 's', 'i', 'd', 'e' }, .type = 0x7b, .width = SIDE, .height = SIDE, .data = side, .block_size = SHPI_BLOCK_AUTO, .dir_index = 1 },
                                  { .name = { 't', 'y', 'r', '1' }, .type = 0x7b, .width = SIDE, .height = SIDE, .data = tyre, .block_size = SHPI_BLOCK_AUTO, .dir_index = 2 } };
@@ -368,7 +374,8 @@ static void test_the_cds_911(void)
 static ModelScene *open_cfm(const char *name, int wheel, const char *masks)
 {
     char path[500];
-    snprintf(path, sizeof path, "%s/car/%s.CFM", base, name);
+    const int np = snprintf(path, sizeof path, "%s/car/%s.CFM", base, name);
+    CHECK(np > 0 && (size_t)np < sizeof path);
     size_t len = 0;
     uint8_t *cfm = make_cfm_of(&len, wheel);
     CHECK(cfm != NULL && write_file(path, cfm, len));
@@ -396,8 +403,8 @@ static int changed_pixels(ModelScene *m, const Orbit *o, const CarNightState *a,
 static void test_a_texture_with_no_mask_keeps_its_colours(void)
 {
     char dir[400], masks[400];
-    snprintf(dir, sizeof dir, "%s/car", base);
-    snprintf(masks, sizeof masks, "%s/masks_w1", base);
+    const int nd = snprintf(dir, sizeof dir, "%s/car", base), nm = snprintf(masks, sizeof masks, "%s/masks_w1", base);
+    CHECK(nd > 0 && (size_t)nd < sizeof dir && nm > 0 && (size_t)nm < sizeof masks);
     mkdir(dir, 0777), mkdir(masks, 0777);
     CHECK(make_mask(masks));
     ModelScene *plain = open_cfm("PLAIN", 0, masks), *wheel = open_cfm("WHEEL", 1, masks);
@@ -419,11 +426,125 @@ static void test_a_texture_with_no_mask_keeps_its_colours(void)
         int plain_lamps = 0, wheel_lamps = 0;
         const int plain_changed = changed_pixels(plain, &o, &dark, &s, &plain_lamps), wheel_changed = changed_pixels(wheel, &o, &dark, &s, &wheel_lamps);
         fprintf(stderr, "W1 state %d: plain %d changed %d lamps, wheel %d changed %d lamps\n", k, plain_changed, plain_lamps, wheel_changed, wheel_lamps);
-        CHECK_EQ_INT(wheel_changed, wheel_lamps);   /* what changes is the lamps */
-        CHECK(abs(wheel_lamps - plain_lamps) <= 1 + plain_lamps / 100);   /* and they are the side's: the faces' edges are drawn a pixel apart */
-        CHECK_EQ_INT(plain_changed, plain_lamps);
+        CHECK_EQ_INT(wheel_changed - wheel_lamps, plain_changed - plain_lamps);   /* besides the lamps only the side's brake lamp entry (W2), in both */
+        CHECK(abs(wheel_lamps - plain_lamps) <= 1 + plain_lamps / 100);   /* and the lamps are the side's: the faces' edges are drawn a pixel apart */
     }
     model_scene_close(plain), model_scene_close(wheel);
+}
+
+/* W2 (the owner's test, 2026-11-20): the texels of entry 0xfe (the brake lamp, phosphor green in the files) show what the race paints there (formats/car_brake_lamp.h):
+ * the lamp's unlit colour by day and at night, its lit one with the brake, never the file's green; in the Model and in the Preview alike */
+static int count_colour(const uint8_t *px, int n, int r, int g, int b)
+{
+    int k = 0;
+    for (int i = 0; i < n; i++) k += px[4 * i + 3] != 0 && px[4 * i] == r && px[4 * i + 1] == g && px[4 * i + 2] == b;
+    return k;
+}
+
+static void test_the_brake_lamp_is_the_races(void)
+{
+    char masks[400];
+    const int nm = snprintf(masks, sizeof masks, "%s/masks_w2", base);
+    CHECK(nm > 0 && (size_t)nm < sizeof masks);
+    mkdir(masks, 0777);
+    CHECK(make_mask(masks));
+    ModelScene *m = open_cfm("LAMP", 0, masks);
+    CHECK(m != NULL);
+    if (m == NULL) return;
+    Orbit o;
+    orbit_init(&o, model_scene_radius(m));
+    orbit_set(&o, 60 * 16, 30 * 16);
+    CarNightState s;
+    memset(&s, 0, sizeof s);
+    CHECK(model_scene_render(m, &o, W, H, &s, rgba));
+    const int green_day = count_colour(rgba, W * H, 172, 252, 64);
+    const int off_day = count_colour(rgba, W * H, 61, 12, 12);   /* (15,3,3) six bits, the standard row of an added car */
+    s.brake = 1;
+    CHECK(model_scene_render(m, &o, W, H, &s, rgba));
+    const int lit_day = count_colour(rgba, W * H, 251, 20, 20);   /* (62,5,5) */
+    memset(&s, 0, sizeof s);
+    s.night = 1, s.lit = 1, s.light[0] = s.light[1] = s.light[2] = 0.4f;
+    CHECK(model_scene_render(m, &o, W, H, &s, rgba));
+    const int off_night = count_colour(rgba, W * H, 60, 12, 12);   /* untinted at night: written after the light */
+    fprintf(stderr, "W2 box: green %d, off by day %d, lit by day %d, off at night %d\n", green_day, off_day, lit_day, off_night);
+    CHECK_EQ_INT(green_day, 0);
+    CHECK(off_day > 20);
+    CHECK(lit_day >= off_day);
+    CHECK_EQ_INT(off_night, off_day);
+    const CarPreview *pv = model_scene_preview(m);   /* the Preview's own picture: the lamp unlit, not a pattern */
+    int lamp_texels = 0, right = 0;
+    for (int i = 0; pv != NULL && i < pv->count; i++)
+        for (int k = 0; pv->tex[i].index != NULL && k < pv->tex[i].info.width * pv->tex[i].info.height; k++)
+            if (pv->tex[i].index[k] == 0xfe) lamp_texels++, right += memcmp(pv->tex[i].rgba + 4 * k, (const uint8_t[]){ 61, 12, 12 }, 3) == 0;
+    CHECK(lamp_texels > 0 && lamp_texels % SIDE == 0 && right == lamp_texels);   /* the row, in each bank */
+    model_scene_close(m);
+}
+
+/* the same on every car of the CD (skipped without original/): each 0xfe texel, in the Preview's picture and at night with the lights off, is the race's unlit lamp of
+ * that model; with the brake a red, never the file's colour */
+static int check_cd_car(const char *dir, const char *file)
+{
+    char path[700], masks[700], stem[64];
+    const int np = snprintf(path, sizeof path, "%s/%s", dir, file), ns = snprintf(stem, sizeof stem, "%.*s", (int)(strlen(file) - 4), file);
+    const int nm = snprintf(masks, sizeof masks, "%s/data/car_masks/%s", TNFS_SOURCE_DIR, stem);
+    CHECK(np > 0 && (size_t)np < sizeof path && ns > 0 && (size_t)ns < sizeof stem && nm > 0 && (size_t)nm < sizeof masks);
+    PreviewIn in;
+    memset(&in, 0, sizeof in);
+    in.cfm = path, in.stem = stem, in.masks_dir = masks;
+    char why[200] = "";
+    ModelScene *m = model_scene_open_painted(&in, why, sizeof why);
+    if (m == NULL) return 0;   /* not a car the Model opens (a far-only file): nothing to show */
+    const CarPreview *pv = model_scene_preview(m);
+    uint8_t off_day[768] = { 0 }, off6[3], lit6[3];
+    car_preview_lamp_entry(pv, 0, off_day);
+    car_brake_lamp_colour(car_brake_lamp_row(stem), 0, off6), car_brake_lamp_colour(car_brake_lamp_row(stem), 1, lit6);
+    CarNightState dark, brake;
+    memset(&dark, 0, sizeof dark);
+    dark.night = 1, dark.lit = 1, dark.light[0] = dark.light[1] = dark.light[2] = 0.4f, dark.lamp_row = pv->lamp_row;
+    memset(&brake, 0, sizeof brake);
+    brake.brake = 1, brake.lamp_row = pv->lamp_row;
+    int texels = 0, wrong = 0;
+    for (int i = 0; i < pv->count; i++) {
+        const PreviewTex *t = &pv->tex[i];
+        const int n = t->info.width * t->info.height;
+        if (t->index == NULL || memchr(t->index, 0xfe, (size_t)n) == NULL) continue;
+        uint8_t *night = malloc((size_t)n * 4), *lit = malloc((size_t)n * 4);
+        const int ok = night != NULL && lit != NULL && car_night_texture(t->index, t->mask, t->info.width, t->info.height, pv->palette[t->info.level ? 1 : 0], &dark, night) &&
+                       car_night_texture(t->index, t->mask, t->info.width, t->info.height, pv->palette[t->info.level ? 1 : 0], &brake, lit);
+        CHECK(ok);
+        for (int k = 0; ok && k < n; k++) {
+            if (t->index[k] != 0xfe) continue;
+            texels++;
+            const uint8_t *d = t->rgba + 4 * k, *g = night + 4 * k, *b = lit + 4 * k;
+            const int day_ok = memcmp(d, off_day + 3 * 0xfe, 3) == 0;
+            const int night_ok = g[0] == (uint8_t)(off6[0] << 2 | off6[0] >> 4) && g[1] == (uint8_t)(off6[1] << 2 | off6[1] >> 4);
+            const int brake_ok = b[0] > b[1] && b[0] > b[2] && b[0] >= (uint8_t)(lit6[0] << 2) - 8;   /* the lit row, or the mask's brake light over it */
+            wrong += !(day_ok && night_ok && brake_ok);
+        }
+        free(night), free(lit);
+    }
+    if (texels > 0) fprintf(stderr, "W2 %s: row %d, %d lamp texels, %d wrong\n", stem, pv->lamp_row, texels, wrong);
+    CHECK_EQ_INT(wrong, 0);
+    model_scene_close(m);
+    return texels > 0;
+}
+
+static void test_the_cds_brake_lamps(void)
+{
+    char dir[600];
+    const int nd = snprintf(dir, sizeof dir, "%s/original/SIMDATA/CARFAMS", TNFS_SOURCE_DIR);
+    CHECK(nd > 0 && (size_t)nd < sizeof dir);
+    DIR *d = opendir(dir);
+    if (d == NULL) return;
+    int cars = 0;   /* the cars opened that have brake lamp texels: every race car and most traffic (33 on the CD) */
+    for (struct dirent *e; (e = readdir(d)) != NULL;) {
+        const size_t len = strlen(e->d_name);
+        if (len < 5 || len > 40 || strcasecmp(e->d_name + len - 4, ".CFM") != 0) continue;
+        cars += check_cd_car(dir, e->d_name);
+    }
+    closedir(d);
+    fprintf(stderr, "W2: %d CD cars checked\n", cars);
+    CHECK(cars >= 30);
 }
 
 int main(void)
@@ -434,5 +555,7 @@ int main(void)
     test_the_body_shine();
     test_the_cds_911();
     test_a_texture_with_no_mask_keeps_its_colours();
+    test_the_brake_lamp_is_the_races();
+    test_the_cds_brake_lamps();
     return TEST_REPORT();
 }

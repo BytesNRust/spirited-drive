@@ -71,6 +71,7 @@ add_library(tnfs_core STATIC
     core/formats/cfm_build.c
     core/formats/obj_read.c
     core/formats/car_steer.c
+    core/formats/car_brake_lamp.c
     core/formats/car_texture.c
     core/formats/car_import.c
     core/formats/car_import_bank.c

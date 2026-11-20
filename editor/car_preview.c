@@ -1,5 +1,6 @@
 #include "car_preview.h"
 
+#include "formats/car_brake_lamp.h"
 #include "formats/car_livery_pass.h"
 #include "formats/car_mask_codec.h"
 #include "formats/car_paint.h"
@@ -113,13 +114,13 @@ static void on_texture(void *user, int level, const char name[4], int width, int
     if (k < CAR_BANK_MAX_TEXTURES) c->widths[level][k] = width, c->heights[level][k] = height;
 }
 
-/* a texel the screen palette's own entries stand for (not a colour of the bank): drawn as a pattern, so that nobody takes the bank's colour for it */
+/* a texel the screen palette's own entries stand for (not a colour of the bank): drawn as a pattern, so that nobody takes the bank's colour for it (0xfe, the
+ * brake lamp, is drawn in the lamp's colour instead: on_bank) */
 static void special_texel(uint8_t index, int x, int y, uint8_t rgba[4])
 {
     const int on = ((x >> 1) + (y >> 1)) & 1;
     static const uint8_t POLICE[3] = { 255, 0, 130 };   /* the police lights' entries (0xfa..0xfd): hatched magenta */
-    static const uint8_t OWN[3] = { 120, 200, 120 };    /* 0xfe: the car's own slot colour */
-    const uint8_t *c = index == OWN_INDEX ? OWN : POLICE;
+    const uint8_t *c = POLICE;
     if (index == TRANSPARENT_INDEX) {   /* 0xff: transparent in a polygon of mode 1, black in mode 0: a chequer */
         rgba[0] = rgba[1] = rgba[2] = on ? 70 : 30;
     } else {
@@ -147,6 +148,7 @@ static int on_bank(void *user, const RepaintBank *bank, const CarBankMeta *meta)
     } else {
         six_to_eight(pal, rgb);
     }
+    car_preview_lamp_entry(out, 0, rgb);   /* the brake lamp unlit, as the race paints it: never the file's colour of 0xfe (W2) */
     for (int k = 0; k < bank->texture_count && k < CAR_BANK_MAX_TEXTURES; k++) {
         const RepaintTexture *t = &bank->textures[k];
         const int w = c->widths[meta->level][k], h = c->heights[meta->level][k];
@@ -171,6 +173,11 @@ static int on_bank(void *user, const RepaintBank *bank, const CarBankMeta *meta)
             for (int x = 0; x < w; x++) {
                 const uint8_t index = t->pixels[(size_t)y * w + x];
                 uint8_t *px = pt->rgba + ((size_t)y * w + x) * 4;
+                if (index == OWN_INDEX) {   /* the brake lamp: its colour, not a pattern (nor counted as one) */
+                    memcpy(px, rgb + index * 3, 3);
+                    px[3] = 255;
+                    continue;
+                }
                 if (index >= SCREEN_FIRST) {
                     special_texel(index, x, y, px);
                     out->special++;
@@ -275,6 +282,7 @@ int car_preview_painted_cfm(const PreviewIn *in, uint8_t **out_cfm, size_t *out_
 int car_preview_make(const PreviewIn *in, CarPreview *out, char *why, size_t why_cap)
 {
     memset(out, 0, sizeof *out);
+    out->lamp_row = in->added ? CAR_BRAKE_LAMP_STANDARD : car_brake_lamp_row(in->stem);
     if (!paint_and_walk(in, NULL, NULL, out, &out->blacked, &out->painted, why, why_cap)) {
         car_preview_free(out);
         return 0;
@@ -286,6 +294,15 @@ int car_preview_make(const PreviewIn *in, CarPreview *out, char *why, size_t why
     }
     say_colours(out);
     return 1;
+}
+
+void car_preview_lamp_entry(const CarPreview *p, int lit, uint8_t pal[768])
+{
+    uint8_t six[768] = { 0 };
+    car_brake_lamp_colour(p->lamp_row, lit, six + 3 * CAR_BRAKE_LAMP_ENTRY);
+    uint8_t eight[768];
+    six_to_eight(six, eight);
+    memcpy(pal + 3 * CAR_BRAKE_LAMP_ENTRY, eight + 3 * CAR_BRAKE_LAMP_ENTRY, 3);
 }
 
 void car_preview_free(CarPreview *p)

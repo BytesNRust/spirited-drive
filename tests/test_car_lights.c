@@ -1,4 +1,4 @@
-/* port (dep59 3b): an added car's brake lamps (car_lights.h): the standard red rows of race_palette_model_light (CAR_LAMP_STANDARD, row 0
+/* port (dep59 3b): an added car's brake lamps (car_lights.h): the standard red rows of car_brake_lamp_rows (CAR_LAMP_STANDARD, row 0
  * off and row 13 lit), whatever original its sound_from names; an original keeps its own row. */
 #include "game/race/car_lights.h"
 #include "game/race/car_load.h"
@@ -51,8 +51,8 @@ static Written lights_of(int model, int32_t brake)
 static void test_rows(void)
 {
     const uint8_t off[3] = { 15, 3, 3 }, lit[3] = { 62, 5, 5 };
-    CHECK_MEM(race_palette_model_light + 3 * CAR_LAMP_STANDARD, off, 3);
-    CHECK_MEM(race_palette_model_light + 3 * (CAR_LAMP_STANDARD + LIT_ROWS), lit, 3);
+    CHECK_MEM(car_brake_lamp_rows + 3 * CAR_LAMP_STANDARD, off, 3);
+    CHECK_MEM(car_brake_lamp_rows + 3 * (CAR_LAMP_STANDARD + LIT_ROWS), lit, 3);
 }
 
 static void test_added_standard(void)
@@ -70,7 +70,7 @@ static void test_added_standard(void)
         CHECK_EQ_INT(v.first, ENTRY);
         CHECK_MEM(v.rgb, s.rgb, 3);
         CHECK_MEM(v.rgb, g.rgb, 3);
-        CHECK_MEM(v.rgb, race_palette_model_light + 3 * (CAR_LAMP_STANDARD + (b ? LIT_ROWS : 0)), 3);
+        CHECK_MEM(v.rgb, car_brake_lamp_rows + 3 * (CAR_LAMP_STANDARD + (b ? LIT_ROWS : 0)), 3);
     }
     car_registry_clear();
 }
@@ -81,8 +81,24 @@ static void test_originals_own(void)
     for (int car = 0; car < CAR_MODELS; car++) {
         CHECK_EQ_INT(car_registry_lamp_model(car), car);
         const Written w = lights_of(car, 11);
-        CHECK_MEM(w.rgb, race_palette_model_light + 3 * (car + LIT_ROWS), 3);
+        CHECK_MEM(w.rgb, car_brake_lamp_rows + 3 * (car + LIT_ROWS), 3);
     }
+}
+
+/* W2: Studio finds a car's lamp row by its stem (formats/car_brake_lamp.h car_brake_lamp_row); for every original that row has the race's colours of that
+ * model's own (car_model_names' order, any case), off and lit; any other stem the standard row */
+static void test_studio_rows_follow_the_models(void)
+{
+    for (int car = 0; car < CAR_MODELS; car++) {
+        uint8_t off[3], lit[3];
+        const int row = car_brake_lamp_row(car_model_names[car]);
+        car_brake_lamp_colour(row, 0, off), car_brake_lamp_colour(row, 1, lit);
+        CHECK_MEM(car_brake_lamp_rows + 3 * car_registry_lamp_model(car), off, 3);
+        CHECK_MEM(car_brake_lamp_rows + 3 * (car_registry_lamp_model(car) + LIT_ROWS), lit, 3);
+    }
+    CHECK_EQ_INT(car_brake_lamp_row("MY-CAR"), CAR_LAMP_STANDARD);
+    CHECK_EQ_INT(car_brake_lamp_row(NULL), CAR_LAMP_STANDARD);
+    CHECK_EQ_INT(car_brake_lamp_row("f512tr"), 4);   /* the grey one */
 }
 
 int main(void)
@@ -90,5 +106,6 @@ int main(void)
     test_rows();
     test_added_standard();
     test_originals_own();
+    test_studio_rows_follow_the_models();
     return TEST_REPORT();
 }

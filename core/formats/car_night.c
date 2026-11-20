@@ -1,6 +1,7 @@
 /* See car_night.h. */
 #include "formats/car_night.h"
 
+#include "formats/car_brake_lamp.h"
 #include "formats/lamp_emissive.h"
 #include "formats/police_flash.h"
 
@@ -35,6 +36,7 @@ void car_night_palette(const uint8_t palette8[768], const CarNightState *s, uint
             const float v = (float)six[i] * s->light[i % 3] + 0.5f;
             six[i] = (uint8_t)(v < 0.0f ? 0 : v > 63.0f ? 63 : v);
         }
+    car_brake_lamp_colour(s->lamp_row, s->brake, six + 3 * CAR_BRAKE_LAMP_ENTRY);   /* written after the tint and the light, as car_lights does */
     for (int i = 0; i < 768; i++) out8[i] = to_8_bits(six[i]);
 }
 

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "formats/car_brake_lamp.h"
 #include "formats/police_flash.h"
 #include "raster/car_envmap.h"
 #include "raster/car_scene.h"
@@ -212,23 +213,26 @@ static uint8_t *lamp_texels(LampLayer *l, const PreviewTex *t, const CarNightSta
         free(rgba), free(out);
         return NULL;
     }
+    uint8_t pal[768];
+    car_night_palette(BLACK, lamps_only, pal);   /* black but the brake lamp's entry, which the palette paints, not the layer */
+    const uint8_t *entry = pal + 3 * CAR_BRAKE_LAMP_ENTRY;
     for (size_t i = 0; i < n; i++) {
         const uint8_t *px = rgba + 4 * i;
         if (t->index[i] == CAR_SCENE_CLEAR) out[i] = CAR_SCENE_CLEAR;
-        else if (px[0] == 0 && px[1] == 0 && px[2] == 0) out[i] = NO_LAMP;
+        else if ((px[0] == 0 && px[1] == 0 && px[2] == 0) || (t->index[i] == CAR_BRAKE_LAMP_ENTRY && memcmp(px, entry, 3) == 0)) out[i] = NO_LAMP;
         else out[i] = lamp_value(l, px), *lit += out[i] != NO_LAMP;
     }
     free(rgba);
     return out;
 }
 
-/* A texture's layer with no lamp: NO_LAMP, transparent where its texel is (the Preview's texels, else the bank's own); NULL when neither is there */
+/* A texture's layer with no lamp: NO_LAMP, transparent where its texel is (the Preview's texels, else the bank's own, else nowhere); NULL only out of memory */
 static uint8_t *dark_texels(const PreviewTex *t, const FshEntry *e)
 {
     const size_t n = (size_t)e->width * (size_t)e->height;
     const uint8_t *index = t != NULL && t->index != NULL ? t->index : e->payload_size >= n ? e->payload : NULL;
-    uint8_t *out = index != NULL ? malloc(n) : NULL;
-    for (size_t i = 0; out != NULL && i < n; i++) out[i] = index[i] == CAR_SCENE_CLEAR ? CAR_SCENE_CLEAR : NO_LAMP;
+    uint8_t *out = n > 0 ? malloc(n) : NULL;
+    for (size_t i = 0; out != NULL && i < n; i++) out[i] = index != NULL && index[i] == CAR_SCENE_CLEAR ? CAR_SCENE_CLEAR : NO_LAMP;
     return out;
 }
 
@@ -257,6 +261,7 @@ static void lamp_layer(ModelScene *m, const CarNightState *night)
     l->count = n;
     CarNightState lamps_only = { 0 };
     lamps_only.night = night->night, lamps_only.lights = night->lights, lamps_only.brake = night->brake, lamps_only.reverse = night->reverse;
+    lamps_only.lamp_row = night->lamp_row;
     for (uint32_t s = 0; s < n; s++) {   /* every texture its layer, a dark one where no lamp is: a slot left out draws its own indices, read as lamps (W1) */
         const FshEntry *e = m->scene.obj.textures[s].texture;
         if (e == NULL) continue;
@@ -296,8 +301,12 @@ static int grow(ModelScene *m, size_t n)
 static void shown_palette(const ModelScene *m, const CarNightState *s, uint8_t pal[768])
 {
     const uint8_t *base = m->has_preview ? m->preview.palette[0] : m->scene.palette;
-    if (s->tinted || s->lit) car_night_palette(base, s, pal);
-    else memcpy(pal, base, 768);   /* no light on it: the palette as the Preview window shows it by day */
+    if (s->tinted || s->lit) {
+        car_night_palette(base, s, pal);   /* the brake lamp's entry with it (W2) */
+    } else {
+        memcpy(pal, base, 768);   /* no light on it: the palette as the Preview window shows it by day */
+        if (m->has_preview) car_preview_lamp_entry(&m->preview, s->brake, pal);   /* the brake lamp the race paints, lit with the brake by day too (W2) */
+    }
 }
 
 static void colour(ModelScene *m, const CarNightState *s, const uint8_t pal[768], int lamps, size_t n, uint8_t *rgba)
@@ -363,8 +372,10 @@ int model_scene_render(ModelScene *m, const Orbit *o, int w, int h, const CarNig
     if (w < 1 || h < 1 || h > QUAD_MAX_ROWS) return 0;
     const size_t n = (size_t)w * (size_t)h;
     if (!grow(m, n)) return 0;
-    const CarNightState day = { 0 };
-    const CarNightState *s = night != NULL ? night : &day;
+    CarNightState state = { 0 };
+    if (night != NULL) state = *night;
+    if (m->has_preview) state.lamp_row = m->preview.lamp_row;   /* the car's own brake lamp, whatever the caller's state says */
+    const CarNightState *s = &state;
     uint8_t pal[768];
     shown_palette(m, s, pal);
     memset(m->pixels, CAR_SCENE_CLEAR, n);

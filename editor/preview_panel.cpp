@@ -83,7 +83,8 @@ void upload(SDL_Renderer *ren, const NightSettings &night, int phase)
     shown.has_police = false;
     memset(shown.lamp_texels, 0, sizeof shown.lamp_texels);
     const bool plain = night_settings_plain(&night);
-    const CarNightState state = night_settings_state(&night, phase * POLICE_FLASH_TICKS);
+    CarNightState state = night_settings_state(&night, phase * POLICE_FLASH_TICKS);
+    state.lamp_row = shown.preview.lamp_row;   // the car's own brake lamp colours (W2)
     for (int i = 0; i < shown.preview.count; ++i) {
         const PreviewTex &t = shown.preview.tex[i];
         const size_t count = (size_t)t.info.width * (size_t)t.info.height;
@@ -124,7 +125,7 @@ void day_night_row(App *a)
     ImGui::SameLine();
     help_marker(shown.have && shown.preview.special > 0
                     ? "Headlights and side lights go together at night, as in the race. Glow on the road and halos show only in a race: Race photo (night).\n"
-                      "Hatched magenta: the police lights' screen entries (0xfa-0xfd). Hatched green: the car's own slot colour (0xfe).\n"
+                      "Hatched magenta: the police lights' screen entries (0xfa-0xfd).\n"
                       "Chequer: 0xff, transparent in a polygon of mode 1."
                     : "Headlights and side lights go together at night, as in the race.\nGlow on the road and halos show only in a race: Race photo (night).");
 }

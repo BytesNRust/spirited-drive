@@ -21,13 +21,15 @@ typedef struct {
     int reverse;             /* the reversing lights, in any light */
     int police;              /* the police lights (texels 0xfa..0xfd) flash */
     int32_t police_tick;     /* the tick of the flash: police_lights_phase */
+    int lamp_row;            /* the car's brake lamp colours (formats/car_brake_lamp.h car_brake_lamp_row): 0, the standard red, for an added car */
 } CarNightState;
 
 /* The race's lamp state of `s` (formats/lamp_emissive.h LampState): by day LAMP_DAY; at night LAMP_BRAKING with the brake on, LAMP_LOW with the lights, LAMP_DAY with neither;
  * LAMP_REVERSING added with the reversing light on. */
 int car_night_lamp_state(const CarNightState *s);
 
-/* The 8-bit RGB palette (256 colours) the car's bank has in state `s`: `palette8` as the race takes it (6 bits: each byte >> 2), tinted when s->tinted, back to 8 bits as the screen has it. */
+/* The 8-bit RGB palette (256 colours) the car's bank has in state `s`: `palette8` as the race takes it (6 bits: each byte >> 2), tinted when s->tinted, back to 8 bits as the screen has it;
+ * entry 0xfe the brake lamp the race writes over it, untinted (formats/car_brake_lamp.h: s->lamp_row's colour, lit with s->brake), never the file's colour. */
 void car_night_palette(const uint8_t palette8[768], const CarNightState *s, uint8_t out8[768]);
 
 /* The RGBA of a texture (`w` x `h`, 8-bit palette indices `index`) in state `s`. `mask` (w x h of CAR_MASK_* classes; NULL: none) says its lamp texels; they take the fixed

@@ -3,6 +3,7 @@
 #ifndef TNFS_RACE_PALETTE_H
 #define TNFS_RACE_PALETTE_H
 
+#include "formats/car_brake_lamp.h"
 #include "formats/palette_tint.h"
 #include "game/gfx/object3d.h"
 #include "game/gfx/palette_match.h"
@@ -15,12 +16,11 @@ enum {
     RACE_PALETTE_SLOTS = 16,     /* 0051c798: one byte a car slot */
     RACE_PALETTE_WRITES = 50,    /* 0050a9dc: 12 bytes each */
     RACE_PALETTE_BANKS = 100,    /* 0050b034: 16 bytes each */
-    RACE_PALETTE_MODEL_LIGHTS = 26
+    RACE_PALETTE_MODEL_LIGHTS = CAR_BRAKE_LAMP_ROWS   /* 26 */
 };
 
 /* The exe's colours 004572e0 queues: one a car model (004c578c, 3 bytes
- * each), and the police lights (004c5610, 4 colours). */
-extern const uint8_t race_palette_model_light[RACE_PALETTE_MODEL_LIGHTS * 3];
+ * each: formats/car_brake_lamp.h car_brake_lamp_rows), and the police lights (004c5610, 4 colours). */
 extern const uint8_t race_palette_police_light[2 * 4 * 3];  /* 004c5610, 004c561c */
 
 /* the tint 004471dc gives the race's colours (the time of day): formats/palette_tint.h */
