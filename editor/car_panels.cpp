@@ -684,6 +684,24 @@ void race_panel(App *a, ImTextureID photo)
             ImGui::EndDisabled();
             ImGui::SameLine();
             help_marker(help);
+            if (!traffic) {   // a car you drive has a cockpit: the photo may be taken from the driver's seat, the dash lit by its gauge light (dep98)
+                static const char *const VIEWS[] = { "Follow the car", "Cockpit" };
+                static const char *const GAUGES[] = { "Default (from the car)", "0  white (the exe's)", "1  green", "2  red", "3  orange", "4  blue", "5  from the car's dash colours" };
+                RaceLook &look = a->race_look;
+                ImGui::BeginDisabled(busy);
+                int view = look.cockpit ? 1 : 0;
+                ImGui::SetNextItemWidth(170.0f);
+                if (ImGui::Combo("View##racephoto", &view, VIEWS, 2)) look.cockpit = view;
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Race photo from behind the car, or from the driver's seat (the dash, with this project's dash_masks)");
+                if (look.cockpit) {
+                    int gauge = look.gauge_set ? look.gauge_light + 1 : 0;
+                    ImGui::SetNextItemWidth(220.0f);
+                    if (ImGui::Combo("Gauge light##racephoto", &gauge, GAUGES, 7)) look.gauge_set = gauge > 0, look.gauge_light = gauge > 0 ? gauge - 1 : 0;
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                        ImGui::SetTooltip("The colour the lit gauges take at night. 5 takes it from the project's dash_masks/dash_color.png; Default is the game's own setting (Restomod: 5). Use Night to see it");
+                }
+                ImGui::EndDisabled();
+            }
             ImGui::BeginDisabled(busy);
             race_look_controls(&a->race_look);
             ImGui::EndDisabled();

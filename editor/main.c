@@ -61,6 +61,8 @@ typedef struct {
     const char *track, *race_png;   /* --track STEM, --race-png FILE: the track and where the photo is also written */
     const char *race_off;   /* --race-off reflections,car_colours,soft_shadow,texture_filter: the Race look's switches off, for a headless photo */
     int race_scale;         /* --race-scale 1|2: its render scale (0: the default) */
+    int race_cockpit;       /* --race-view cockpit: a photo from the dash (follow, the default, is 0) */
+    int gauge_light;        /* --gauge-light 0..5 (a cockpit photo's night dash), 0 for none given; stored as the value + 1 */
     const char *orbit;       /* --orbit YAW,PITCH[,DIST]: the Model window's camera, in degrees (a headless picture of a view) */
     const char *shine;       /* --shine on|off: the Model window's body shine (on by default) */
     const char *mask;        /* --mask NAME: the mask (topv, frnt_lo) opened in Edit mask before the first frame */
@@ -82,7 +84,7 @@ static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
-                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2]]\n"
+                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
                     "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n"
                     "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE]] [--steps STEP,...]\n");
     return 0;
@@ -153,6 +155,16 @@ static int parse_args(int argc, char **argv, Options *o)
         }
         else if (strcmp(argv[i], "--light-dir") == 0 && has_value) o->light_dir = argv[++i];
         else if (strcmp(argv[i], "--light") == 0 && has_value) o->light_pick = argv[++i];
+        else if (strcmp(argv[i], "--race-view") == 0 && has_value) {
+            const char *v = argv[++i];
+            if (strcmp(v, "follow") != 0 && strcmp(v, "cockpit") != 0) return usage();
+            o->race_cockpit = strcmp(v, "cockpit") == 0;
+        }
+        else if (strcmp(argv[i], "--gauge-light") == 0 && has_value) {
+            const char *v = argv[++i];
+            if (v[0] < '0' || v[0] > '5' || v[1] != '\0') return usage();   /* 0..5: the game's gauge_light */
+            o->gauge_light = v[0] - '0' + 1;
+        }
         else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
         else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
         else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
@@ -178,6 +190,7 @@ static int parse_args(int argc, char **argv, Options *o)
     }
     RaceLook check = car_race_look_default();
     if ((o->race_off != NULL || o->race_scale != 0) && !o->race_photo && !o->test_drive) return usage();   /* the Race look is a Race photo's or a test drive's */
+    if ((o->race_cockpit || o->gauge_light != 0) && !o->race_photo) return usage();   /* the dash view is a photo's: a test drive has its own camera */
     if (o->race_off != NULL && !race_off_apply(o->race_off, &check)) return usage();
     return 1;
 }
@@ -462,6 +475,8 @@ static int run_requested(App *a, const Options *o)
         a->race_night = o->night;
         if (o->race_off != NULL) (void)race_off_apply(o->race_off, &a->race_look);   /* checked whole in parse_args */
         if (o->race_scale != 0) a->race_look.scale = o->race_scale;
+        a->race_look.cockpit = o->race_cockpit;
+        if (o->gauge_light != 0) a->race_look.gauge_set = 1, a->race_look.gauge_light = o->gauge_light - 1;
         int made = app_race(a, 1);
         while (made && app_race_poll(a)) SDL_Delay(20);
         made = made && a->race.ok;

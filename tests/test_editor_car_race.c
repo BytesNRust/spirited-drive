@@ -80,6 +80,27 @@ static void test_command(void)
     CHECK(!has_env(&c, "TNFS_CAR_MASKS=/elsewhere") && !has_env(&c, "TNFS_VIEW=1") && !has_env(&c, "SDL_VIDEO_DRIVER=cocoa"));   /* the person's own do not change the test */
     CHECK(!has_env_key(&c, "TNFS_FOLLOW_CAR") && !has_env_key(&c, "TNFS_DRIVE_SEED"));
     car_race_command_free(&c);
+    /* the cockpit photo (dep98 item 2): the dash view (view kind 0) and the dash's gauge light, for a car you drive; the default keeps the follow view and the
+     * profile's own gauge light, and a traffic or police car has no cockpit */
+    s = setup_of("P911", "TR5", 1, RACE_TICKS_DRIVEN);
+    s.cockpit = 1, s.gauge_set = 1, s.gauge_light = 5;
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why));
+    CHECK(has_env(&c, "TNFS_VIEW=0") && !has_env(&c, "TNFS_VIEW=3") && has_env(&c, "TNFS_GAUGE_LIGHT=5") && has_env(&c, "TNFS_DASH_MASKS=/p/proj/dash_masks"));
+    car_race_command_free(&c);
+    s.gauge_set = 0;
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why));
+    CHECK(has_env(&c, "TNFS_VIEW=0") && !has_env_key(&c, "TNFS_GAUGE_LIGHT"));   /* none chosen: the profile's own */
+    car_race_command_free(&c);
+    s = setup_of("P911", "TR5", 1, RACE_TICKS_DRIVEN);
+    s.gauge_set = 1, s.gauge_light = 0;
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why));
+    CHECK(has_env(&c, "TNFS_VIEW=3") && has_env(&c, "TNFS_GAUGE_LIGHT=0"));   /* 0 is a choice (the exe's white), not "none" */
+    car_race_command_free(&c);
+    s = setup_of("Wagon", "CL1", 1, RACE_TICKS_TRAFFIC);
+    s.cockpit = 1, s.gauge_set = 1, s.gauge_light = 5;
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why));
+    CHECK(has_env(&c, "TNFS_VIEW=3") && !has_env_key(&c, "TNFS_GAUGE_LIGHT"));   /* no cockpit for a traffic car, and no dash masks to light */
+    car_race_command_free(&c);
     /* the same in a window: no screenshot, no headless drivers (the person's SDL ones stay), no view kind; the race in a window is Control Central's, whose --car
      * is the menu's number (00426620 turns it into the model): the RX-7 is 0 there, model 7 */
     s = setup_of("MRX7", "TR2", 0, 0);
@@ -229,7 +250,7 @@ static void test_files_and_temp(void)
     look.scale = 1;   /* the scale alone */
     car_race_look_off(&look, off, sizeof off);
     CHECK(strcmp(off, "640x480") == 0);
-    look = (RaceLook){ 0, 0, 0, 0, 2 };   /* every switch off: each key at 0, none read into another */
+    look = (RaceLook){ 0, 0, 0, 0, 2, 0, 0, 0 };   /* every switch off: each key at 0, none read into another */
     CHECK(car_race_user_files(user, 0, &look, why, sizeof why));
     read_all(path, text, sizeof text);
     CHECK(strstr(text, "body_shine=0\n") != NULL && strstr(text, "car_colours=0\n") != NULL && strstr(text, "car_soft_shadow=0\n") != NULL);

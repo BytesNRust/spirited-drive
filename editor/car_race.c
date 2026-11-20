@@ -207,7 +207,8 @@ int car_race_command(const RaceSetup *s, char *const *base, RaceCommand *out, ch
     if (!traffic) ok = ok && add_env(out, "TNFS_DASH_MASKS=%s/dash_masks", s->project);
     if (s->photo_ticks > 0)   /* headless, the follow camera behind the car as the car card's picture has it */
         ok = ok && add_env(out, "SDL_VIDEO_DRIVER=dummy") && add_env(out, "SDL_RENDER_DRIVER=software") && add_env(out, "SDL_AUDIO_DRIVER=dummy") &&
-             add_env(out, "SDL_AUDIODRIVER=dummy") && add_env(out, "TNFS_VIEW=3");
+             add_env(out, "SDL_AUDIODRIVER=dummy") && add_env(out, "TNFS_VIEW=%d", s->cockpit && !traffic ? 0 : 3);
+    if (s->photo_ticks > 0 && !traffic && s->gauge_set) ok = ok && add_env(out, "TNFS_GAUGE_LIGHT=%d", s->gauge_light);
     if (s->car->kind == EXPORT_POLICE && s->photo_ticks > 0) ok = ok && add_env(out, "TNFS_POLICE_NEAR=%d", RACE_POLICE_NEAR);   /* chasing the player from behind: a camera on it sees it */
     if (s->slot > 0) ok = ok && add_env(out, "TNFS_FOLLOW_CAR=%d", s->slot);
     if (s->slot > 0 && s->photo_ticks > 0 && s->car->kind == EXPORT_TRAFFIC) ok = ok && add_env(out, "TNFS_FOLLOW_SETTLE=%d", RACE_FOLLOW_SETTLE);   /* parked until the player nears */
@@ -222,7 +223,7 @@ const char RACE_LOOK_ON[] = "body_shine=4\ncar_colours=1\ncar_soft_shadow=1\ntex
 
 RaceLook car_race_look_default(void)
 {
-    const RaceLook look = { 1, 1, 1, 1, 2 };
+    const RaceLook look = { 1, 1, 1, 1, 2, 0, 0, 0 };
     return look;
 }
 
@@ -501,6 +502,7 @@ static int start_common(RaceJob *j, const char *game, const char *cd, const char
     if (!job_begin(j, game, cd, project, look, why, why_cap)) return 0;
     const char *user = j->own[3];
     snprintf(j->track, sizeof j->track, "%s", track);
+    j->setup.cockpit = look != NULL && look->cockpit, j->setup.gauge_set = look != NULL && look->gauge_set, j->setup.gauge_light = look != NULL ? look->gauge_light : 0;
     j->setup.car = car, j->setup.night = night, j->setup.photo_ticks = state == RACE_JOB_RACE ? 0 : state == RACE_JOB_PROBE ? 1 : car_race_photo_ticks(car);
     j->state = state;
     if (!car_race_user_files(user, night, &j->look, why, why_cap) || !launch(j, why, why_cap)) return job_abandon(j);
@@ -604,7 +606,12 @@ static void photo_done(RaceJob *j)
     j->photo_serial++;
     j->photo_slot = j->setup.slot, j->photo_night = j->setup.night, j->photo_seed = j->setup.seed;
     snprintf(j->photo_track, sizeof j->photo_track, "%s", j->track);
-    if (j->setup.car->kind == EXPORT_DRIVABLE) finish(j, 1, "Photo: %s on %s, %s.", j->setup.car->label, car_race_track_label(j->track), j->setup.night ? "night" : "day");
+    if (j->setup.car->kind == EXPORT_DRIVABLE) {
+        char view[80] = "";   /* from the dash, and the gauge light it was given */
+        if (j->setup.cockpit && j->setup.gauge_set) snprintf(view, sizeof view, ", from the cockpit, gauge light %d", j->setup.gauge_light);
+        else if (j->setup.cockpit) snprintf(view, sizeof view, ", from the cockpit");
+        finish(j, 1, "Photo: %s on %s, %s%s.", j->setup.car->label, car_race_track_label(j->track), j->setup.night ? "night" : "day", view);
+    }
     else if (follow == 1) finish(j, 1, "Photo: the %s on the road (slot %d of the traffic draw %u) on %s, %s, %u ticks in.", j->setup.car->label, j->setup.slot,
                                  (unsigned)j->setup.seed, car_race_track_label(j->track), j->setup.night ? "night" : "day", frame);
     else finish(j, 1, "Photo: the camera follows the %s (slot %d of the traffic draw %u) on %s, %s, %d ticks in. Studio cannot see whether it is on screen: look.", j->setup.car->label,

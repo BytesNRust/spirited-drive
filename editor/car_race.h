@@ -67,6 +67,8 @@ typedef struct {
     const ExportCar *car;
     const char *track;       /* a stem of the table above */
     int night;
+    int cockpit;             /* a photo from the dash (view kind 0) instead of the follow view; only for a car you drive: the others have no cockpit */
+    int gauge_set, gauge_light;   /* gauge_set: TNFS_GAUGE_LIGHT=gauge_light (0..5; 0 is the exe's white, 5 the car's own dash_color.png) is given; else the profile's (Restomod's 5) */
     int slot;                /* the slot the camera follows (TNFS_FOLLOW_CAR); 0 for the player's */
     uint32_t seed;           /* TNFS_DRIVE_SEED; 0 for the game's own */
     int photo_ticks;         /* > 0: headless, the frame after that many ticks in `shot`; 0: a race in a window */
@@ -94,6 +96,8 @@ typedef struct {
     int soft_shadow;      /* car_soft_shadow 1 (the soft shadow under the car), 0: the exe's hard one */
     int texture_filter;   /* texture_filter 1 (smoothed texels), 0: hard pixels */
     int scale;            /* render_scale: 2 (1280 x 960, Restomod's) or 1 (640 x 480) */
+    int cockpit;          /* a photo from the dash (dep98): 0 the follow view; ignored for a traffic or police car, which have no cockpit */
+    int gauge_set, gauge_light;   /* gauge_set 1: the dash's gauge light is given as gauge_light 0..5 (a cockpit photo's night dash); 0: the profile's own */
 } RaceLook;
 RaceLook car_race_look_default(void);
 /* what is off in `look`, for the summary: "Reflections, Texture filter off, 640x480"; "" when all is on at scale 2 */
