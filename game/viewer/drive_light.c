@@ -1,3 +1,4 @@
+#include "formats/night_tone.h"
 #include "viewer/drive_light.h"
 #include "viewer/drive_light_private.h"
 #include "viewer/class_overlay.h"
@@ -82,8 +83,6 @@ static const float LOST_VEGAS_DARKEN = 0.9f;
 static const int VEGAS_OBJECT_LIGHT = 245;   /* port (vegas_objects): the light of 255 its buildings and objects keep, so the windows and the neon stand out */
 
 /* port (city_lift, vegas_lift): 0 the exe's, 1 lifted. The ceiling the City and Lost Vegas nights' tint is brought under (NIGHT_TINT_CEILING at 0) and how far the open night's dark floor is lifted (of 256) */
-static const float CITY_CEILING[2] = { 0.35f, 0.42f };   /* lifted: with the beams, the tunnels and the lamps standing out of it */
-static const float VEGAS_CEILING[2] = { 0.35f, 0.80f };
 static const int CITY_FLOOR_LIFT[2] = { 0, 30 }, CITY_TUNNEL_FLOOR = 215, CITY_BEAM_OPEN[3] = { 190, 230, 230 }, VEGAS_FLOOR_LIFT[2] = { 0, 170 };   /* the open night's dark floor lifted (of 256) */
 
 static int city_night3;   /* port (city_lift): this track is a City night, lifted */
@@ -128,13 +127,11 @@ static int is_lost_vegas(const char *track) { return track != NULL && strcasecmp
 static const float FALLBACK_TINT[2][3] = { { 0.96f, 0.73f, 0.33f }, { 0.88f, 0.55f, 0.46f } };
 
 
-/* port (light_effects): the night's flat tint with no baked light: one neutral cool blue-grey, the City's and Lost Vegas' under their lift's ceiling */
-static const float NIGHT_TONE_COOL[3] = { 0.40f, 0.44f, 0.52f };
-
+/* port (light_effects): the night's flat tint with no baked light: one neutral cool blue-grey, the City's and Lost Vegas' under their lift's ceiling (formats/night_tone.h) */
 static void night_tone_tint(const char *track, float out[3])
 {
-    const float scale = is_city(track) ? CITY_CEILING[port_city_lift()] / CITY_CEILING[1] : is_lost_vegas(track) ? VEGAS_CEILING[port_vegas_lift()] / VEGAS_CEILING[1] : 1.0f;
-    for (int k = 0; k < 3; k++) out[k] = NIGHT_TONE_COOL[k] * scale;
+    const NightKind kind = night_kind_of(track);
+    night_tone(kind, kind == NIGHT_TONE_CITY ? port_city_lift() : port_vegas_lift(), out);
 }
 
 static void use_fallback_tint(int time, const char *track)
@@ -225,7 +222,7 @@ static void light_adopt(const TrackNodeLight *parsed, const char *track, const c
     light.object_floor = is_lost_vegas(track) && port_light_effects() ? VEGAS_OBJECT_LIGHT : 0;   /* port (vegas_objects) */
     light.pool = headlights_on ? &headlight_pool : NULL;
     city_fields(&light, track);   /* port (city_lift) */
-    load_tint(psx_dir, track, letter, time == LIGHT_TIME_NIGHT, is_city(track) ? CITY_CEILING[port_city_lift()] : is_lost_vegas(track) ? VEGAS_CEILING[port_vegas_lift()] : NIGHT_TINT_CEILING);   /* port (city_lift, vegas_lift) */
+    load_tint(psx_dir, track, letter, time == LIGHT_TIME_NIGHT, night_ceiling(night_kind_of(track), night_kind_of(track) == NIGHT_TONE_CITY ? port_city_lift() : port_vegas_lift(), NIGHT_TINT_CEILING));   /* port (city_lift, vegas_lift) */
     if (is_lost_vegas(track))
         for (int k = 0; k < 3; k++) tint[k] *= LOST_VEGAS_DARKEN;
     ambient_nodes = ring_nodes;

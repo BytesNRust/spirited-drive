@@ -44,6 +44,7 @@ typedef struct {
     const char *mask;        /* --mask NAME: the mask (topv, frnt_lo) opened in Edit mask before the first frame */
     const char *mask_rect[8];   /* --mask-rect X,Y,W,H,CLASS: a rectangle of the open mask set to a class value (one step each), for a headless picture of an edit */
     int mask_rect_count, mask_save;   /* --mask-save: the mask is saved before the first frame */
+    const char *view, *lights, *night_track, *preview_tex;   /* --view day|night, --lights head,side,brake,reverse,police, --night-track STEM: the Preview's Day / Night and its lamps, for a headless picture */
     int preview_paint;       /* --paint N: the card's N-th paint (from 1) shown in Preview, for a headless picture; 0 the car as its file has it */
     int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
@@ -55,7 +56,7 @@ static int usage(void)
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png]]\n"
-                    "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N]\n");
+                    "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME]\n");
     return 0;
 }
 
@@ -86,6 +87,10 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
         else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
         else if (strcmp(argv[i], "--paint") == 0 && has_value) o->preview_paint = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--view") == 0 && has_value) o->view = argv[++i];
+        else if (strcmp(argv[i], "--preview-tex") == 0 && has_value) o->preview_tex = argv[++i];
+        else if (strcmp(argv[i], "--lights") == 0 && has_value) o->lights = argv[++i];
+        else if (strcmp(argv[i], "--night-track") == 0 && has_value) o->night_track = argv[++i];
         else if (strcmp(argv[i], "--mask") == 0 && has_value) o->mask = argv[++i];
         else if (strcmp(argv[i], "--mask-rect") == 0 && has_value && o->mask_rect_count < 8) o->mask_rect[o->mask_rect_count++] = argv[++i];
         else if (strcmp(argv[i], "--mask-save") == 0) o->mask_save = 1;
@@ -252,6 +257,28 @@ static int run_requested(App *a, const Options *o)
         ok &= made;
     }
     if (o->preview_paint > 0) a->preview_paint = o->preview_paint - 1;
+    if (o->view != NULL) {
+        if (strcmp(o->view, "night") == 0) a->night.night = 1;
+        else if (strcmp(o->view, "day") != 0) fprintf(stderr, "--view %s: day or night\n", o->view);
+    }
+    if (o->lights != NULL) {   /* the lamps named are on, the others off */
+        a->night.lights = a->night.brake = a->night.reverse = a->night.police = 0;
+        char list[160];
+        snprintf(list, sizeof list, "%s", o->lights);
+        for (char *w = strtok(list, ","); w != NULL; w = strtok(NULL, ",")) {
+            if (strcmp(w, "head") == 0 || strcmp(w, "side") == 0) a->night.lights = 1;
+            else if (strcmp(w, "brake") == 0) a->night.brake = 1;
+            else if (strcmp(w, "reverse") == 0) a->night.reverse = 1;
+            else if (strcmp(w, "police") == 0) a->night.police = 1;
+            else if (strcmp(w, "none") != 0) fprintf(stderr, "--lights %s: head, side, brake, reverse, police or none\n", w);
+        }
+    }
+    if (o->preview_tex != NULL) snprintf(a->preview_focus, sizeof a->preview_focus, "%.4s", o->preview_tex);
+    if (o->night_track != NULL) {
+        const int r = night_ref_find(o->night_track);
+        if (r < 0) fprintf(stderr, "--night-track %s: not a track the night view knows\n", o->night_track);
+        else a->night.ref = r;
+    }
     if (o->mask != NULL) {   /* Edit mask, headless: the mask is opened, painted in rectangles, saved */
         int done = app_mask_open_by_name(a, o->mask);
         for (int i = 0; done && i < o->mask_rect_count; ++i) {
