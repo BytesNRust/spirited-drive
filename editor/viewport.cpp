@@ -59,7 +59,7 @@ void draw_grid(const Canvas &c, const View &v)
 ImU32 segment_colour(uint8_t flags)
 {
     if (flags & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) return BAD;
-    return (flags & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN)) ? WARN : ROAD;
+    return (flags & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN)) ? WARN : ROAD;
 }
 
 // the road: its nodes joined, a node breaking a limit drawn red; with no road (the trace cannot make one), the control polygon in red

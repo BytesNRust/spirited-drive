@@ -63,7 +63,7 @@ static void check_recent(void)
 static void check_fingerprint(void)
 {
     TracePoint p[3] = { { 0, 0 }, { 0, 40 }, { 5, 80 } };
-    Trace t = { p, 3, 40.0 };
+    Trace t = { p, 3, 40.0, NULL, 0, 0 };
     const uint64_t first = session_fingerprint(&t);
     CHECK(session_fingerprint(&t) == first);                 /* the same trace, the same print */
     p[1].x = 0.5;
@@ -89,6 +89,141 @@ static void check_road_width(void)
     CHECK(strstr(PROJECT_ROAD_TIP, "CD") == NULL);           /* the tip names no original game */
     CHECK(strstr(PROJECT_ROAD_TIP, "1/8") == NULL);          /* nor the byte's unit: that is in the docs */
     CHECK(strstr(PROJECT_ROAD_TIP, "Default 10 m") != NULL);
+}
+
+static void cleanup_project(const char *dir);
+
+static void write_file(const char *path, const char *text)
+{
+    FILE *f = fopen(path, "w");
+    CHECK(f != NULL);
+    if (f != NULL) {
+        fputs(text, f);
+        fclose(f);
+    }
+}
+
+static char *read_file(const char *path)
+{
+    static char text[4096];
+    FILE *f = fopen(path, "r");
+    size_t n = 0;
+    if (f != NULL) {
+        n = fread(text, 1, sizeof text - 1, f);
+        fclose(f);
+    }
+    text[n] = '\0';
+    return text;
+}
+
+/* trace.json: version 1 (no keys) loads as it always did, version 2 has the road keys, a newer version or a key that is wrong is refused with its reason */
+static void check_keys_file(void)
+{
+    char dir[600], trace[700], why[256];
+    path_in(dir, sizeof dir, "keys");
+    mkdir(dir, 0777);
+    snprintf(trace, sizeof trace, "%s/trace.json", dir);
+    char ini[700];
+    snprintf(ini, sizeof ini, "%s/project.ini", dir);
+    write_file(ini, "id=keys\nname=keys\nauthor=\nstem=KEYS\nart=GENERIC.FAM\nredistributable=1\n");
+    Project proj;
+    Trace t;
+
+    write_file(trace, "{\n  \"version\": 1,\n  \"width\": 40.0,\n  \"points\": [[0, 0], [0, 100], [0, 200]]\n}\n");
+    CHECK(project_open(dir, &proj, &t, why, sizeof why));
+    CHECK_EQ_INT(t.key_count, 0);                            /* a version 1 file: no keys, the width is the project's */
+    CHECK(t.width == 40.0 && t.count == 3);
+    free(t.points);
+    free(t.keys);
+
+    write_file(trace, "{\"version\": 2, \"width\": 36.0, \"points\": [[0, 0], [0, 100], [0, 200]],\n \"keys\": [{\"point\": 2, \"width_m\": 14.0}, {\"point\": 1, \"width_m\": 8.25, \"bank\": 3}]}\n");
+    CHECK(project_open(dir, &proj, &t, why, sizeof why));
+    CHECK_EQ_INT(t.key_count, 2);
+    CHECK(t.key_count == 2 && t.keys[0].point == 1 && t.keys[0].width_m == 8.25 && (t.keys[0].has & TRACE_KEY_WIDTH));   /* by point, a field of a later step ignored */
+    CHECK(t.key_count == 2 && t.keys[1].point == 2 && t.keys[1].width_m == 14.0);
+    const uint64_t with_keys = session_fingerprint(&t);
+    t.keys[1].width_m = 13.75;
+    CHECK(session_fingerprint(&t) != with_keys);             /* a key's value */
+    t.keys[1].width_m = 14.0;
+    CHECK(session_fingerprint(&t) == with_keys);
+    t.key_count = 1;
+    CHECK(session_fingerprint(&t) != with_keys);             /* a key fewer */
+    t.key_count = 2;
+
+    CHECK(project_save_trace(dir, &t, why, sizeof why));     /* round trip: version 2 and the keys */
+    CHECK(strstr(read_file(trace), "\"version\": 2") != NULL && strstr(read_file(trace), "\"keys\"") != NULL);
+    Trace back;
+    CHECK(project_open(dir, &proj, &back, why, sizeof why));
+    CHECK(back.key_count == 2 && back.keys[0].point == 1 && back.keys[0].width_m == 8.25 && back.keys[1].width_m == 14.0);
+    CHECK(session_fingerprint(&back) == with_keys);
+    free(back.points);
+    free(back.keys);
+    t.key_count = 0;
+    CHECK(project_save_trace(dir, &t, why, sizeof why));     /* no keys: no "keys" in the file, still version 2 */
+    CHECK(strstr(read_file(trace), "\"version\": 2") != NULL && strstr(read_file(trace), "\"keys\"") == NULL);
+    free(t.points);
+    free(t.keys);
+
+    write_file(trace, "{\"version\": 3, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]]}\n");
+    CHECK(!project_open(dir, &proj, &t, why, sizeof why));   /* a newer file is refused, not read as if it were this one */
+    CHECK(strstr(why, "trace.json") != NULL && strstr(why, "version 3") != NULL && strstr(why, "newer") != NULL);
+
+    write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 3, \"width_m\": 9}]}\n");
+    CHECK(!project_open(dir, &proj, &t, why, sizeof why));
+    CHECK(strstr(why, "trace.json") != NULL && strstr(why, "point 3") != NULL);
+    write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 1, \"width_m\": 31}]}\n");
+    CHECK(!project_open(dir, &proj, &t, why, sizeof why));
+    CHECK(strstr(why, "trace.json") != NULL && strstr(why, "31") != NULL);
+    write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 1, \"width_m\": 9}, {\"point\": 1, \"width_m\": 10}]}\n");
+    CHECK(!project_open(dir, &proj, &t, why, sizeof why));
+    CHECK(strstr(why, "twice") != NULL);
+    write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 1}]}\n");
+    CHECK(project_open(dir, &proj, &t, why, sizeof why));    /* a key with no value of this version is nothing */
+    CHECK_EQ_INT(t.key_count, 0);
+    free(t.points);
+    free(t.keys);
+    cleanup_project(dir);
+}
+
+/* the editor: a key set on a point is an unsaved change, it saves, clearing it is another, the keys stay on their points when points come and go,
+ * and the width is clamped to the road's range and to a quarter of a metre */
+static void check_keys_app(void)
+{
+    char dir[600];
+    path_in(dir, sizeof dir, "keyed");
+    mkdir(dir, 0777);
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    CHECK(app_open(a, dir, "./tnfs", "", NULL));
+    CHECK(!app_modified(a));
+    app_set_point_width(a, 2, 14.1);
+    CHECK(app_modified(a));
+    CHECK_EQ_INT(a->trace.key_count, 1);
+    CHECK(a->trace.keys[0].point == 2 && a->trace.keys[0].width_m == 14.0);   /* 14.1 is 14 m: a quarter of a metre is a byte */
+    CHECK(app_save(a));
+    CHECK(!app_modified(a));
+    app_set_point_width(a, 2, 14.0);
+    CHECK(!app_modified(a));                                 /* the same value: nothing changed */
+    app_set_point_width(a, 3, 99.0);
+    CHECK(a->trace.key_count == 2 && a->trace.keys[1].width_m == 30.0);       /* clamped to the road's range */
+    app_set_point_width(a, 4, 0.5);
+    CHECK(a->trace.key_count == 3 && a->trace.keys[2].width_m == 2.0);
+    app_clear_point_width(a, 4);
+    app_clear_point_width(a, 3);
+    CHECK_EQ_INT(a->trace.key_count, 1);
+    CHECK(app_save(a));
+    a->selected = 1;
+    app_insert_point(a);                                     /* a point after 1: the key on 2 is on 3 now */
+    CHECK(a->trace.key_count == 1 && a->trace.keys[0].point == 3);
+    a->selected = 3;
+    app_remove_point(a);                                     /* its point is gone, the key with it */
+    CHECK_EQ_INT(a->trace.key_count, 0);
+    app_recompute(a);
+    CHECK(a->road_made);
+    app_free(a);
+    free(a);
+    cleanup_project(dir);
 }
 
 static void cleanup_project(const char *dir)
@@ -702,6 +837,8 @@ int main(void)
     check_recent();
     check_fingerprint();
     check_road_width();
+    check_keys_file();
+    check_keys_app();
     check_app_flow();
     check_recent_kinds();
     check_kinds();

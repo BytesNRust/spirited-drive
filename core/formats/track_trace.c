@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -142,7 +143,65 @@ static double heading_of(const Curve *c, double u)
     return atan2(dx, dz) * ANGLE_TURN / (2 * M_PI);
 }
 
-int track_trace_nodes(const TracePoint *points, int count, double width, TrackGenNode **nodes, int *node_count, ExchangeError *err)
+/* ---- the road's width: the project's at the start, a key's at its point, a smoothstep between ---- */
+
+typedef struct {
+    int point;
+    double d;   /* arc length along the curve at the point, units */
+    double w;   /* the width there, the verge byte */
+} WidthStop;
+
+static double smoothstep(double t)
+{
+    return t * t * (3 - 2 * t);
+}
+
+/* The stops of the width, ascending by point: the start (point 0 with the project's width, unless a key is on it) and every key that sets a width.
+ * Fills stops[0..*n) (room for key_count + 1); 0 with err when a key is off the points, off the road's range, or twice on a point. */
+static int width_stops(const Curve *c, double width, const TraceKey *keys, int key_count, WidthStop *stops, int *n, ExchangeError *err)
+{
+    int used = 0;
+    for (int k = 0; k < key_count; ++k) {
+        if (!(keys[k].has & TRACE_KEY_WIDTH)) continue;
+        const int point = keys[k].point;
+        if (point < 0 || point >= c->count) return exchange_fail(err, "a road key is on point %d, and the trace has points 0..%d", point, c->count - 1), 0;
+        if (!(keys[k].width_m >= TRACE_ROAD_MIN_M && keys[k].width_m <= TRACE_ROAD_MAX_M))
+            return exchange_fail(err, "the road key on point %d has width %g m, outside %g..%g m", point, keys[k].width_m, TRACE_ROAD_MIN_M, TRACE_ROAD_MAX_M), 0;
+        int at = used;
+        while (at > 0 && stops[at - 1].point > point) --at;
+        if (at > 0 && stops[at - 1].point == point) return exchange_fail(err, "point %d has a road key twice", point), 0;
+        for (int j = used; j > at; --j) stops[j] = stops[j - 1];
+        stops[at].point = point;
+        stops[at].d = c->s[point * SAMPLES_PER_SPAN];
+        stops[at].w = keys[k].width_m * TRACE_WIDTH_PER_METRE;
+        ++used;
+    }
+    if (used == 0 || stops[0].point != 0) {   // the start is a stop too: the project's width, from the first point
+        for (int j = used; j > 0; --j) stops[j] = stops[j - 1];
+        stops[0].point = 0;
+        stops[0].d = 0;
+        stops[0].w = width;
+        ++used;
+    }
+    *n = used;
+    return 1;
+}
+
+/* the width (byte) at arc length `at`: the stop before's, to the stop after's by a smoothstep; the last one's after the last stop */
+static double width_at(const WidthStop *stops, int n, double at)
+{
+    if (at >= stops[n - 1].d) return stops[n - 1].w;
+    for (int j = 0; j + 1 < n; ++j) {
+        if (at >= stops[j + 1].d) continue;
+        const double span = stops[j + 1].d - stops[j].d;
+        const double t = span > 0 ? (at - stops[j].d) / span : 1;
+        return stops[j].w + (stops[j + 1].w - stops[j].w) * smoothstep(t < 0 ? 0 : t);
+    }
+    return stops[n - 1].w;
+}
+
+int track_trace_nodes_keyed(const TracePoint *points, int count, double width, const TraceKey *keys, int key_count, TrackGenNode **nodes,
+                            int *node_count, ExchangeError *err)
 {
     *nodes = NULL;
     *node_count = 0;
@@ -153,7 +212,13 @@ int track_trace_nodes(const TracePoint *points, int count, double width, TrackGe
     const int segments = track_trace_segments(length);
     const int count_nodes = NODES_PER_SEGMENT * segments + 1;
     int ok = 0;
-    if (segments > TRACK_GEN_MAX_SEGMENTS) {
+    WidthStop *stops = malloc(sizeof *stops * (size_t)(key_count > 0 ? key_count + 1 : 1));
+    int stop_count = 0;
+    if (stops == NULL) {
+        exchange_fail(err, "out of memory");
+    } else if (!width_stops(&c, width, keys, key_count, stops, &stop_count, err)) {
+        // err names the key
+    } else if (segments > TRACK_GEN_MAX_SEGMENTS) {
         exchange_fail(err, "the road is %d segments; the most is %d (about %g m)", segments, TRACK_GEN_MAX_SEGMENTS,
                       TRACE_METRES((double)TRACK_GEN_MAX_SEGMENTS * NODES_PER_SEGMENT * NODE_SPACING));
     } else if (length / (NODES_PER_SEGMENT * segments) < MIN_SPACING_UNITS) {
@@ -171,7 +236,7 @@ int track_trace_nodes(const TracePoint *points, int count, double width, TrackGe
                 out[k].heading = heading_of(&c, u);
                 out[k].grade = 0;
                 out[k].bank = 0;
-                out[k].width = width;
+                out[k].width = stop_count == 1 ? stops[0].w : width_at(stops, stop_count, k * step);   // one stop: that width as it is (the project's with no key), not a computed one
                 out[k].position[0] = (int32_t)lround(x * POSITION_ONE);
                 out[k].position[1] = 0;
                 out[k].position[2] = (int32_t)lround(z * POSITION_ONE);
@@ -181,8 +246,93 @@ int track_trace_nodes(const TracePoint *points, int count, double width, TrackGe
             ok = 1;
         }
     }
+    free(stops);
     curve_free(&c);
     return ok;
+}
+
+int track_trace_nodes(const TracePoint *points, int count, double width, TrackGenNode **nodes, int *node_count, ExchangeError *err)
+{
+    return track_trace_nodes_keyed(points, count, width, NULL, 0, nodes, node_count, err);
+}
+
+void track_trace_point_widths(const TracePoint *points, int count, double width, const TraceKey *keys, int key_count, double *metres)
+{
+    for (int i = 0; i < count; ++i) metres[i] = 0;
+    Curve c;
+    ExchangeError err;
+    if (points == NULL || count < 2 || !curve_make(points, count, &c)) return;
+    WidthStop *stops = malloc(sizeof *stops * (size_t)(key_count > 0 ? key_count + 1 : 1));
+    int n = 0;
+    if (stops != NULL && width_stops(&c, width, keys, key_count, stops, &n, &err)) {
+        for (int i = 0; i < count; ++i) metres[i] = width_at(stops, n, c.s[i * SAMPLES_PER_SPAN]) / TRACE_WIDTH_PER_METRE;
+    }
+    free(stops);
+    curve_free(&c);
+}
+
+/* ---- the key list's edits ---- */
+
+int track_trace_key_find(const TraceKey *keys, int count, int point)
+{
+    for (int i = 0; i < count; ++i)
+        if (keys[i].point == point) return i;
+    return -1;
+}
+
+int track_trace_key_set_width(TraceKey **keys, int *count, int *cap, int point, double metres)
+{
+    int at = track_trace_key_find(*keys, *count, point);
+    if (at < 0) {
+        if (*count == *cap) {
+            const int grown = *cap == 0 ? 8 : *cap * 2;
+            TraceKey *more = realloc(*keys, sizeof *more * (size_t)grown);
+            if (more == NULL) return 0;
+            *keys = more;
+            *cap = grown;
+        }
+        at = *count;
+        while (at > 0 && (*keys)[at - 1].point > point) {
+            (*keys)[at] = (*keys)[at - 1];
+            --at;
+        }
+        (*keys)[at].point = point;
+        (*keys)[at].has = 0;
+        (*keys)[at].width_m = 0;
+        ++*count;
+    }
+    (*keys)[at].has |= TRACE_KEY_WIDTH;
+    (*keys)[at].width_m = metres;
+    return 1;
+}
+
+static void key_remove_at(TraceKey *keys, int *count, int at)
+{
+    for (int i = at; i + 1 < *count; ++i) keys[i] = keys[i + 1];
+    --*count;
+}
+
+void track_trace_key_clear_width(TraceKey *keys, int *count, int point)
+{
+    const int at = track_trace_key_find(keys, *count, point);
+    if (at < 0) return;
+    keys[at].has &= ~(unsigned)TRACE_KEY_WIDTH;
+    keys[at].width_m = 0;
+    if (keys[at].has == 0) key_remove_at(keys, count, at);   // no other value set (the next steps' bits will say): the key is nothing
+}
+
+void track_trace_keys_insert_point(TraceKey *keys, int count, int index)
+{
+    for (int i = 0; i < count; ++i)
+        if (keys[i].point >= index) ++keys[i].point;
+}
+
+void track_trace_keys_remove_point(TraceKey *keys, int *count, int index)
+{
+    const int at = track_trace_key_find(keys, *count, index);
+    if (at >= 0) key_remove_at(keys, count, at);
+    for (int i = 0; i < *count; ++i)
+        if (keys[i].point > index) --keys[i].point;
 }
 
 double track_trace_turn_degrees(double from, double to)
@@ -218,6 +368,7 @@ void track_trace_flags(const TrackGenNode *nodes, int count, uint8_t *flags)
             if (radius < TRACE_RADIUS_MIN) f |= TRACE_FLAG_RADIUS;
             else if (radius < TRACE_RADIUS_WARN) f |= TRACE_FLAG_RADIUS_WARN;
         }
+        if (fabs(nodes[i].width - nodes[i - 1].width) > TRACE_WIDTH_STEP_WARN_M * TRACE_WIDTH_PER_METRE + 1e-6) f |= TRACE_FLAG_WIDTH_WARN;
         flags[i] = f;
     }
 }
@@ -236,6 +387,7 @@ int track_trace_problems(const TrackGenNode *nodes, int count, const uint8_t *fl
                 out[total].red = red;
                 out[total].flags = flags[i];
                 node_turn_radius(nodes, i, &out[total].turn, &out[total].radius);
+                out[total].width_step = (flags[i] & TRACE_FLAG_WIDTH_WARN) ? fabs(nodes[i].width - nodes[i - 1].width) / TRACE_WIDTH_PER_METRE : 0;
             }
             ++total;
         }
@@ -249,17 +401,27 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap)
 {
     const int turn_red = (p->flags & TRACE_FLAG_TURN) != 0, turn = turn_red || (p->flags & TRACE_FLAG_TURN_WARN);
     const int radius_red = (p->flags & TRACE_FLAG_RADIUS) != 0, radius = radius_red || (p->flags & TRACE_FLAG_RADIUS_WARN);
-    char turns[64] = "", radii[64] = "";
-    if (turn) snprintf(turns, sizeof turns, "turns %.1f" DEGREE " (more than %g" DEGREE ")", p->turn, turn_red ? TRACE_TURN_MAX_DEGREES : TRACE_TURN_WARN_DEGREES);
-    if (radius) snprintf(radii, sizeof radii, "radius %.0f m (under %g m)", TRACE_METRES(p->radius), TRACE_METRES(radius_red ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN));
-    snprintf(out, cap, "node %d: %s%s%s, %s", p->node, turns, turn && radius ? " and " : "", radii,
-             p->red ? "can't be built" : "may not look right");
+    const int width = (p->flags & TRACE_FLAG_WIDTH_WARN) != 0;
+    char clauses[3][64];
+    int n = 0;
+    if (turn) snprintf(clauses[n++], sizeof clauses[0], "turns %.1f" DEGREE " (more than %g" DEGREE ")", p->turn, turn_red ? TRACE_TURN_MAX_DEGREES : TRACE_TURN_WARN_DEGREES);
+    if (radius) snprintf(clauses[n++], sizeof clauses[0], "radius %.0f m (under %g m)", TRACE_METRES(p->radius), TRACE_METRES(radius_red ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN));
+    if (width) snprintf(clauses[n++], sizeof clauses[0], "width changes %.2f m (more than %g m)", p->width_step, TRACE_WIDTH_STEP_WARN_M);
+    snprintf(out, cap, "node %d: ", p->node);
+    for (int i = 0; i < n; ++i) {
+        const size_t at = strlen(out);
+        snprintf(out + at, cap > at ? cap - at : 0, "%s%s", i > 0 ? " and " : "", clauses[i]);
+    }
+    const size_t at = strlen(out);
+    snprintf(out + at, cap > at ? cap - at : 0, ", %s", p->red ? "can't be built" : "may not look right");
 }
 
 int track_trace_summary(const uint8_t *flags, int count, TraceSummaryLine lines[TRACE_SUMMARY_LINES])
 {
-    static const struct { uint8_t bit; int red, turn; } RULES[TRACE_SUMMARY_LINES] = {
-        { TRACE_FLAG_TURN, 1, 1 }, { TRACE_FLAG_RADIUS, 1, 0 }, { TRACE_FLAG_TURN_WARN, 0, 1 }, { TRACE_FLAG_RADIUS_WARN, 0, 0 }
+    enum { RULE_TURN, RULE_RADIUS, RULE_WIDTH };
+    static const struct { uint8_t bit; int red, kind; } RULES[TRACE_SUMMARY_LINES] = {
+        { TRACE_FLAG_TURN, 1, RULE_TURN }, { TRACE_FLAG_RADIUS, 1, RULE_RADIUS }, { TRACE_FLAG_TURN_WARN, 0, RULE_TURN },
+        { TRACE_FLAG_RADIUS_WARN, 0, RULE_RADIUS }, { TRACE_FLAG_WIDTH_WARN, 0, RULE_WIDTH }
     };
     int used = 0;
     for (int r = 0; r < TRACE_SUMMARY_LINES; ++r) {
@@ -267,15 +429,18 @@ int track_trace_summary(const uint8_t *flags, int count, TraceSummaryLine lines[
         for (int i = 0; i < count; ++i) nodes += (flags[i] & RULES[r].bit) != 0;
         if (nodes == 0) continue;
         const char *plural = nodes == 1 ? "" : "s";
-        const double limit = RULES[r].turn ? (RULES[r].red ? TRACE_TURN_MAX_DEGREES : TRACE_TURN_WARN_DEGREES)
-                                           : (RULES[r].red ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN);
         const char *verdict = RULES[r].red ? "the track can't be built" : (nodes == 1 ? "it may not look right in the game" : "they may not look right in the game");
         lines[used].red = RULES[r].red;
         lines[used].nodes = nodes;
-        if (RULES[r].turn)
-            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s turn%s more than %g" DEGREE " per node: %s", nodes, plural, nodes == 1 ? "s" : "", limit, verdict);
+        if (RULES[r].kind == RULE_TURN)
+            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s turn%s more than %g" DEGREE " per node: %s", nodes, plural, nodes == 1 ? "s" : "",
+                     RULES[r].red ? TRACE_TURN_MAX_DEGREES : TRACE_TURN_WARN_DEGREES, verdict);
+        else if (RULES[r].kind == RULE_RADIUS)
+            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s %s on a curve of radius under %g m: %s", nodes, plural, nodes == 1 ? "is" : "are",
+                     TRACE_METRES(RULES[r].red ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN), verdict);
         else
-            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s %s on a curve of radius under %g m: %s", nodes, plural, nodes == 1 ? "is" : "are", TRACE_METRES(limit), verdict);
+            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s widen%s faster than %g m per node: %s", nodes, plural, nodes == 1 ? "s" : "",
+                     TRACE_WIDTH_STEP_WARN_M, verdict);
         ++used;
     }
     return used;

@@ -31,10 +31,14 @@ typedef struct {
     int redistributable;          /* the author's word on the art's licence (the editor writes no CD byte) */
 } Project;
 
+enum { PROJECT_TRACE_VERSION = 2 };   /* trace.json's version: 1 had the points and the width; 2 adds the road keys. A file of a newer version is refused. */
+
 typedef struct {
     TracePoint *points;           /* malloc'd, `count` of them */
     int count;
-    double width;                 /* the road width byte of every node, as track_gen takes it */
+    double width;                 /* the road width byte at the start, as track_gen takes it: the project's width, which a road key on a point changes from there on */
+    TraceKey *keys;               /* the road keys, ascending by point: malloc'd, `key_count` of them (NULL with none), room for `key_cap` */
+    int key_count, key_cap;
 } Trace;
 
 /* The road's width as the author sees it: the tarmac edge to edge in metres. The byte is the distance of each edge from the centre in 1/8 m, so the
@@ -43,7 +47,7 @@ double project_road_metres(double width_byte);
 double project_width_from_road(double metres);
 extern const char *const PROJECT_ROAD_TIP;
 
-/* Reads the project in `dir` (its project.ini and trace.json). 1 with `out` and `trace` filled (the caller frees trace->points); 0 with
+/* Reads the project in `dir` (its project.ini and trace.json). 1 with `out` and `trace` filled (the caller frees trace->points and trace->keys); 0 with
  * `why` (a sentence naming the file) otherwise. */
 int project_open(const char *dir, Project *out, Trace *trace, char *why, size_t why_cap);
 
@@ -60,7 +64,8 @@ int project_create(const char *dir, const char *id, const char *generic_art, cha
 extern const char *const PROJECT_OLD_ARTS[];
 int project_art_refresh(const char *dir, const char *generic, const char *const old[], char *note, size_t note_cap);
 
-/* Writes trace.json of `dir` (through a temporary file, then renamed). 1 on success, 0 with `why`. */
+/* Writes trace.json of `dir` (through a temporary file, then renamed): always version 2, the points and the project's width, and a "keys" array only when
+ * there are keys: {"point": 3, "width_m": 14.0}. 1 on success, 0 with `why`. */
 int project_save_trace(const char *dir, const Trace *trace, char *why, size_t why_cap);
 
 #endif

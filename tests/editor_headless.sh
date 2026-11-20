@@ -88,6 +88,36 @@ if [ -f "$work/bad.png" ]; then png_check "$work/bad.png" bad; else fail "no PNG
 [ -s "$work/warn/build/warn.zip" ] || fail "no zip of the amber curve"
 "$editor" "$work/bad" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a curve over a red limit"
 grep -q "tighter than 20.9 m\|more than 16.5 degrees" "$work/log" || fail "the refusal does not name the red limit: $(cat "$work/log")"
+# road keys (trace.json version 2): a ramp from the project's 10 m to 8 m and 14 m builds a TRI whose verge bytes are the widths the keys say; a ramp too sudden is
+# amber (built, drawn amber), and a file of a newer version is refused with its reason
+mkdir "$work/keyed"
+printf '{\n  "version": 2,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 1, "width_m": 8.0}, {"point": 4, "width_m": 14.0}]\n}\n' > "$work/keyed/trace.json"
+"$editor" "$work/keyed" --frames 6 --select 2 --shot "$work/keyed.png" >"$work/log" 2>&1 || fail "run on a project with road keys: $(cat "$work/log")"
+png_check "$work/keyed.png" good
+"$editor" "$work/keyed" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a project with road keys: $(cat "$work/log")"
+cat > "$work/tri_widths.py" <<'PY'
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+names = [n for n in z.namelist() if n.upper().endswith(".TRI")]
+assert len(names) == 1, names
+d = z.read(names[0])
+nodes = (len(d) - 0x98C) // 36   # at least; the nodes come first in the file's header
+first, last = d[0x98C], d[0x98C + 36 * 48]   # byte 0 of node 0, byte 0 of node 48 (a straight of 300 m: 12 segments of 4 nodes)
+mid = d[0x98C + 36 * 24]
+assert first == 40 and last == 56 and 40 < mid < 56, (first, mid, last)
+step = max(abs(d[0x98C + 36 * (i + 1)] - d[0x98C + 36 * i]) for i in range(48))
+assert 1 <= step <= 5, step
+PY
+python3 "$work/tri_widths.py" "$work/keyed/build/keyed.zip" || fail "the TRI of the keyed project does not have the widths of its keys"
+mkdir "$work/sudden"
+printf '{\n  "version": 2,\n  "width": 40.0,\n  "points": [[0.0,  0.0], [0.0,  15.0], [0.0,  30.0], [0.0,  45.0], [0.0,  60.0], [0.0,  75.0], [0.0,  90.0], [0.0,  105.0], [0.0,  120.0], [0.0,  135.0], [0.0,  150.0], [0.0,  165.0]],\n  "keys": [{"point": 2, "width_m": 10.0}, {"point": 3, "width_m": 14.0}]\n}\n' > "$work/sudden/trace.json"
+"$editor" "$work/sudden" --frames 6 --shot "$work/sudden.png" >"$work/log" 2>&1 || fail "run on a ramp that is too sudden: $(cat "$work/log")"
+if [ -f "$work/sudden.png" ]; then png_check "$work/sudden.png" warn; else fail "no PNG of the sudden ramp"; fi
+"$editor" "$work/sudden" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a ramp that is only over an amber limit: $(cat "$work/log")"
+mkdir "$work/newer"
+printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 100.0], [0.0, 200.0]]\n}\n' > "$work/newer/trace.json"
+"$editor" "$work/newer" --frames 2 --build >"$work/log" 2>&1 && fail "a trace.json of a newer version was read"
+grep -q "version 3" "$work/log" || fail "the refusal does not name the version: $(cat "$work/log")"
 "$editor" "$work/proj" --frames 2 --user "$work/user/sub" >/dev/null 2>&1 || fail "run with --user"
 [ -f "$work/user/sub/track-editor.ini" ] || fail "the layout was not kept in the player folder (made when missing)"
 # the game is not where --game says: Install says so, and what to do, without running anything

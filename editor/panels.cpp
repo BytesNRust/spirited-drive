@@ -38,11 +38,12 @@ void points_panel(App *a)
         ImGui::EndDisabled();
         ImGui::TextDisabled("%d points", a->trace.count);
         const bool scroll_to_selected = a->selected != shown;
-        if (ImGui::BeginTable("points", 5, ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+        if (ImGui::BeginTable("points", 6, ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 28);
             ImGui::TableSetupColumn("x (m)");
             ImGui::TableSetupColumn("z (m)");
+            ImGui::TableSetupColumn("width (m)");
             ImGui::TableSetupColumn("dist m", ImGuiTableColumnFlags_WidthFixed, 50);
             ImGui::TableSetupColumn("turn", ImGuiTableColumnFlags_WidthFixed, 54);
             ImGui::TableHeadersRow();
@@ -73,11 +74,30 @@ void points_panel(App *a)
                         a->selected = shown = i;
                         a->dirty = 1;
                     }
-                    // read-only: the distance along the curve from the start, and the turn at the node nearest the point
+                    // the road's width at the point: the key's own, or (dimmed) what the keys before and after make it; typing or dragging sets a key, right-click clears it
                     ImGui::TableSetColumnIndex(3);
+                    const int key = track_trace_key_find(a->trace.keys, a->trace.key_count, i);
+                    const bool keyed = key >= 0 && (a->trace.keys[key].has & TRACE_KEY_WIDTH);
+                    double metres = keyed ? a->trace.keys[key].width_m
+                                          : (a->road_made && a->point_width != NULL && i < a->point_count ? a->point_width[i] : project_road_metres(a->trace.width));
+                    const double road_lo = TRACE_ROAD_MIN_M, road_hi = TRACE_ROAD_MAX_M;
+                    if (!keyed) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    if (ImGui::DragScalar("##w", ImGuiDataType_Double, &metres, 0.25f, &road_lo, &road_hi, "%.2f", ImGuiSliderFlags_AlwaysClamp)) {
+                        a->selected = shown = i;
+                        app_set_point_width(a, i, metres);
+                    }
+                    if (!keyed) ImGui::PopStyleColor();
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip(keyed ? "A width set on this point. Right-click to let it inherit again." : "Inherited from the points before. Drag or type to set this point's width.");
+                    if (keyed && ImGui::BeginPopupContextItem("##clear")) {
+                        if (ImGui::MenuItem("Inherit again (clear this width)")) app_clear_point_width(a, i);
+                        ImGui::EndPopup();
+                    }
+                    // read-only: the distance along the curve from the start, and the turn at the node nearest the point
+                    ImGui::TableSetColumnIndex(4);
                     if (a->road_made && a->point_dist != NULL && i < a->point_count) ImGui::Text("%.0f", a->point_dist[i]);
                     else ImGui::TextDisabled("-");
-                    ImGui::TableSetColumnIndex(4);
+                    ImGui::TableSetColumnIndex(5);
                     if (a->road_made && a->point_turn != NULL && i < a->point_count) {
                         char turn[16];
                         track_trace_turn_text(a->point_turn[i], turn, sizeof turn);
@@ -155,6 +175,7 @@ void node_panel(App *a)
             ImGui::Text("x %.1f m   z %.1f m", TRACE_METRES(a->nodes[n].position[0] / 65536.0), TRACE_METRES(a->nodes[n].position[2] / 65536.0));
             ImGui::Text("distance from the start: %.1f m", a->node_dist != NULL ? a->node_dist[n] : 0.0);
             ImGui::Text("turn: %s", turn);
+            ImGui::Text("road width: %.2f m", a->nodes[n].width / TRACE_WIDTH_PER_METRE);
             ImGui::Text("to the previous node: %.2f m", track_trace_step(a->nodes, n));
             if (n + 1 < a->node_count) ImGui::Text("to the next node: %.2f m", track_trace_step(a->nodes, n + 1));
             else ImGui::TextDisabled("to the next node: -");

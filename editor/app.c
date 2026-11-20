@@ -37,7 +37,8 @@ static void drop_road(App *a)
     free(a->node_dist);
     free(a->point_dist);
     free(a->point_turn);
-    a->node_dist = a->point_dist = a->point_turn = NULL;
+    free(a->point_width);
+    a->node_dist = a->point_dist = a->point_turn = a->point_width = NULL;
     a->point_count = 0;
     a->node_for = -2;   // what the Node window shows is taken again from the selected point once the road is made again
     free(a->problems);
@@ -180,9 +181,11 @@ void app_free(App *a)
     car_edit_free(&a->edit);
     mask_edit_free(&a->mask.me);
     free(a->trace.points);
+    free(a->trace.keys);
     drop_road(a);
     a->trace.points = NULL;
-    a->trace.count = 0;
+    a->trace.keys = NULL;
+    a->trace.count = a->trace.key_count = a->trace.key_cap = 0;
 }
 
 /* the node nearest control point `i`: by its distance along the curve over the road's (equal, to a few centimetres) node spacing */
@@ -203,7 +206,7 @@ void app_recompute(App *a)
     ExchangeError err;
     memset(&err, 0, sizeof err);
     a->road_text[0] = '\0';
-    if (!track_trace_nodes(a->trace.points, a->trace.count, a->trace.width, &a->nodes, &a->node_count, &err)) {
+    if (!track_trace_nodes_keyed(a->trace.points, a->trace.count, a->trace.width, a->trace.keys, a->trace.key_count, &a->nodes, &a->node_count, &err)) {
         snprintf(a->road_text, sizeof a->road_text, "%s", err.message);
         return;
     }
@@ -218,16 +221,19 @@ void app_recompute(App *a)
     a->node_dist = calloc((size_t)a->node_count, sizeof *a->node_dist);
     a->point_dist = calloc((size_t)a->trace.count, sizeof *a->point_dist);
     a->point_turn = calloc((size_t)a->trace.count, sizeof *a->point_turn);
-    if (a->node_dist != NULL && a->point_dist != NULL && a->point_turn != NULL) {
+    a->point_width = calloc((size_t)a->trace.count, sizeof *a->point_width);
+    if (a->node_dist != NULL && a->point_dist != NULL && a->point_turn != NULL && a->point_width != NULL) {
         a->point_count = a->trace.count;
         track_trace_distances(a->nodes, a->node_count, a->node_dist);
         track_trace_point_distances(a->trace.points, a->trace.count, a->point_dist);
+        track_trace_point_widths(a->trace.points, a->trace.count, a->trace.width, a->trace.keys, a->trace.key_count, a->point_width);
         for (int i = 0; i < a->trace.count; ++i) a->point_turn[i] = track_trace_signed_turn(a->nodes, nearest_node(a, i));
     } else {   // no memory for the figures: the road is as made, without them
         free(a->node_dist);
         free(a->point_dist);
         free(a->point_turn);
-        a->node_dist = a->point_dist = a->point_turn = NULL;
+        free(a->point_width);
+        a->node_dist = a->point_dist = a->point_turn = a->point_width = NULL;
     }
     a->summary_count = track_trace_summary(a->flags, a->node_count, a->summary);
     a->problem_count = track_trace_problems(a->nodes, a->node_count, a->flags, NULL, 0);
@@ -587,8 +593,39 @@ void app_insert_point(App *a)
         set_status(a, "out of memory");
         return;
     }
+    track_trace_keys_insert_point(a->trace.keys, a->trace.key_count, a->selected + 1);   // the keys stay on their points
     put_points(a, more, a->trace.count + 1, a->selected + 1);
     set_status(a, "point inserted after the selected one");
+}
+
+/* a width for a key: inside the road's range and a whole byte, a quarter of a metre */
+static double key_metres(double metres)
+{
+    const double m = metres < TRACE_ROAD_MIN_M ? TRACE_ROAD_MIN_M : metres > TRACE_ROAD_MAX_M ? TRACE_ROAD_MAX_M : metres;
+    return round(m * TRACE_WIDTH_PER_METRE) / TRACE_WIDTH_PER_METRE;
+}
+
+void app_set_point_width(App *a, int point, double metres)
+{
+    if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count) return;
+    const double want = key_metres(metres);
+    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
+    if (at >= 0 && (a->trace.keys[at].has & TRACE_KEY_WIDTH) && a->trace.keys[at].width_m == want) return;   // the same: nothing changed
+    if (!track_trace_key_set_width(&a->trace.keys, &a->trace.key_count, &a->trace.key_cap, point, want)) {
+        set_status(a, "out of memory");
+        return;
+    }
+    a->dirty = 1;
+}
+
+void app_clear_point_width(App *a, int point)
+{
+    if (a->kind != APP_KIND_TRACK) return;
+    const int before = a->trace.key_count;
+    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
+    const int had = at >= 0 && (a->trace.keys[at].has & TRACE_KEY_WIDTH);
+    track_trace_key_clear_width(a->trace.keys, &a->trace.key_count, point);
+    if (had || a->trace.key_count != before) a->dirty = 1;
 }
 
 void app_remove_point(App *a)
@@ -610,6 +647,7 @@ void app_remove_point(App *a)
     memcpy(fewer, a->trace.points, sizeof *fewer * (size_t)a->selected);
     memcpy(fewer + a->selected, a->trace.points + a->selected + 1, sizeof *fewer * (size_t)(a->trace.count - a->selected - 1));
     const int next = a->selected < a->trace.count - 1 ? a->selected : a->trace.count - 2;
+    track_trace_keys_remove_point(a->trace.keys, &a->trace.key_count, a->selected);   // its key goes with it
     put_points(a, fewer, a->trace.count - 1, next);
     set_status(a, "point removed");
 }
