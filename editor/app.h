@@ -86,6 +86,7 @@ typedef struct {
     RaceJob race;                /* Test in race / Race photo of the open original car (car_race.h), running or last run */
     int race_night;              /* the preset: 0 Day, 1 Night */
     int race_track;              /* the track chosen (car_race_track's index) */
+    RaceLook race_look;          /* the Race window's look switches (T6): the session's, never written to the car's project; all on by default */
     char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder (main.c does it and clears this) */
     Project project;
     Trace trace;

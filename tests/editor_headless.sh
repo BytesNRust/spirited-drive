@@ -236,7 +236,11 @@ user=; shot=
 while [ $# -gt 0 ]; do case "$1" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; esac; shift; done
 [ "${FAKE_FAIL:-}" = 1 ] && { echo "error: the fake game fails" >&2; exit 3; }
 printf 'race car: slot 0 is TSupra\nrace car: slot 3 is Wagon\n' > "$user/spirited-drive.log"
-printf 'P6\n640 480\n255\n' > "$shot"; head -c 921600 /dev/zero >> "$shot"
+if grep -q '^render_scale=2$' "$user/restomod.cfg"; then   # the size the game draws at: render scale 2, twice each way
+    printf 'P6\n1280 960\n255\n' > "$shot"; head -c 3686400 /dev/zero >> "$shot"
+else
+    printf 'P6\n640 480\n255\n' > "$shot"; head -c 921600 /dev/zero >> "$shot"
+fi
 FAKE
 chmod +x "$work/fake-tnfs"
 "$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --night --race-png "$work/photo.png" --frames 4 --shot "$work/racepanel.png" >"$work/log" 2>&1 || fail "Race photo with a fake game: $(cat "$work/log")"
@@ -244,9 +248,22 @@ grep -q "Photo: the camera follows the Wagon (slot 3" "$work/log" || fail "no wo
 python3 -c "
 import sys
 d = open(sys.argv[1], 'rb').read()
-assert d[:8] == b'\x89PNG\r\n\x1a\n' and int.from_bytes(d[16:20], 'big') == 640 and int.from_bytes(d[20:24], 'big') == 480
-" "$work/photo.png" || fail "the race photo is not a 640x480 PNG"
+assert d[:8] == b'\x89PNG\r\n\x1a\n' and int.from_bytes(d[16:20], 'big') == 1280 and int.from_bytes(d[20:24], 'big') == 960
+" "$work/photo.png" || fail "the race photo is not a 1280x960 PNG (render scale 2, the default)"
+# the Race window's switches (T6): render scale 1 is 640x480, and what is off is said in the summary
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --race-scale 1 --race-off reflections --race-png "$work/photo1.png" --frames 2 >"$work/log" 2>&1 || fail "Race photo at scale 1: $(cat "$work/log")"
+grep -q "(Reflections off, 640x480)" "$work/log" || fail "the summary does not say what was off: $(cat "$work/log")"
+python3 -c "
+import sys
+d = open(sys.argv[1], 'rb').read()
+assert int.from_bytes(d[16:20], 'big') == 640 and int.from_bytes(d[20:24], 'big') == 480
+" "$work/photo1.png" || fail "the race photo at render scale 1 is not 640x480"
 [ -s "$work/racepanel.png" ] || fail "no PNG of the Race window"
+# a switch that is not one, a scale that is not 1 or 2, or the look without a Race photo: refused, never a photo with the whole look
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --race-off reflection --frames 2 >"$work/log" 2>&1 && fail "--race-off with an unknown switch was taken"
+grep -q "reflections, car_colours" "$work/log" || fail "an unknown --race-off word is not named: $(cat "$work/log")"
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --race-scale 3 --frames 2 >"$work/log" 2>&1 && fail "--race-scale 3 was taken"
+"$editor" "$work/exports/wagon-masks" --race-scale 1 --frames 2 >"$work/log" 2>&1 && fail "--race-scale without --race-photo was taken"
 FAKE_FAIL=1 "$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --frames 2 >"$work/log" 2>&1 && fail "a game that failed was told as a success"
 grep -q "exit code 3" "$work/log" || fail "the game's exit code is not told: $(cat "$work/log")"
 "$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --track TR5 --frames 2 >"$work/log" 2>&1 && fail "a traffic car was raced on a circuit"

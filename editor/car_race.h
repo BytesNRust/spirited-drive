@@ -1,6 +1,7 @@
 /* Test in race and Race photo (dep59 car editor E2): the game (the one Studio found) run on a scratch player folder with the project's masks in front of its own
  * (TNFS_CAR_MASKS, TNFS_DASH_MASKS), never on the player's own folder and never on the installed game. Kinds:
- *  - a drivable original car: the player drives it (--car N, alone on the track; N is the model for a photo, the menu's number in a window: car_race_menu_pick);
+ *  - a drivable original car: the player drives it alone (--car N; a photo --racers 1, a window a time trial, --type 0; N is the model for a photo, the menu's number
+ *    in a window: car_race_menu_pick);
  *  - a traffic car or the police car: a race with traffic (--type 1, on a stage track: the circuits have none) and the camera following the slot the car has in it.
  *    The traffic's models are drawn by the race's seed, so Studio tries seeds (TNFS_DRIVE_SEED) until the car is in the draw; the game's own log says which car is in
  *    which slot ("race car: slot N is STEM").
@@ -80,9 +81,25 @@ typedef struct {
 int car_race_command(const RaceSetup *s, char *const *base, RaceCommand *out, char *why, size_t why_cap);
 void car_race_command_free(RaceCommand *c);
 
-/* the scratch player folder's files: port.cfg (Restomod) and restomod.cfg (no extra liveries, render scale 1, the time, and for the night light_effects=1), into the
- * existing folder `user` */
-int car_race_user_files(const char *user, int night, char *why, size_t why_cap);
+/* How a run shows the car (T5, T6): Restomod whole by default, and four switches for the car's look and the render scale. The Race window's, for the session
+ * only (never in the car's project). */
+typedef struct {
+    int reflections;      /* body_shine 4 (the envmap on the body), 0: off */
+    int car_colours;      /* car_colours 1 (the screen palette's car slots fitted to the car's own colours), 0: off */
+    int soft_shadow;      /* car_soft_shadow 1 (the soft shadow under the car), 0: the exe's hard one */
+    int texture_filter;   /* texture_filter 1 (smoothed texels), 0: hard pixels */
+    int scale;            /* render_scale: 2 (1280 x 960, Restomod's) or 1 (640 x 480) */
+} RaceLook;
+RaceLook car_race_look_default(void);
+/* what is off in `look`, for the summary: "Reflections, Texture filter off, 640x480"; "" when all is on at scale 2 */
+void car_race_look_off(const RaceLook *look, char *out, size_t cap);
+/* The look keys Studio writes with every switch on, "key=value\n" lines: the Restomod table's own values (tests/test_race_look_table.c checks them against the
+ * game's table), so a run is Restomod whole even if the table changes under a key the file names. */
+extern const char RACE_LOOK_ON[];
+
+/* the scratch player folder's files: port.cfg (profile=restomod) and restomod.cfg (the look's keys as `look` has them, NULL for the default; no extra liveries,
+ * so the project's livery is the one shown; the time of day), into the existing folder `user`. Every other key is the Restomod table's. */
+int car_race_user_files(const char *user, int night, const RaceLook *look, char *why, size_t why_cap);
 
 /* a scratch folder "<TMPDIR>/studio-race-XXXXXX" with a user/ folder in it: `temp` and `user` filled; 0 with `why` */
 int car_race_temp(char *temp, size_t temp_cap, char *user, size_t user_cap, char *why, size_t why_cap);
@@ -101,7 +118,7 @@ RaceLineKind car_race_line_kind(const char *line, size_t len);
 /* how many lines of `text` are RACE_LINE_NOTE: the panel shows them as one summary line */
 int car_race_count_notes(const char *text, size_t len);
 
-/* a binary PPM (P6, 640 x 480, 255) as RGBA: `rgba` malloc'd; 0 with `why` */
+/* a binary PPM (P6, 640 x 480 or 1280 x 960 for render scale 2, 255) as RGBA (`w` x `h`): `rgba` malloc'd; 0 with `why` */
 int car_race_read_ppm(const char *path, uint8_t **rgba, int *w, int *h, char *why, size_t why_cap);
 
 typedef enum { RACE_JOB_IDLE = 0, RACE_JOB_PROBE, RACE_JOB_SHOOT, RACE_JOB_RACE } RaceJobState;
@@ -116,12 +133,14 @@ typedef struct {
     char temp[EXPORT_PATH];
     char *log;                       /* what the finished runs wrote (and the job's own lines), RACE_LOG_MAX at most; the run's own is run.log */
     size_t log_len;
+    RaceLook look;                   /* how the runs show the car */
     int probes;                      /* seeds tried */
     int parked;                      /* draws that had the car, but where it stayed parked off the road until the frame */
     int finished;                    /* the job ended (ok or not): `summary` says how */
     int ok;
     char summary[400];
-    uint8_t *photo;                  /* RGBA, RACE_PHOTO_W x RACE_PHOTO_H; NULL for none */
+    uint8_t *photo;                  /* RGBA, photo_w x photo_h; NULL for none */
+    int photo_w, photo_h;
     int photo_serial;                /* changes when `photo` does */
     int photo_slot, photo_night;     /* what the photo shows */
     uint32_t photo_seed;
@@ -130,8 +149,10 @@ typedef struct {
 
 /* Starts Test in race (a race in the game's window) or Race photo (headless, then the picture in job->photo) of `car` from `project`. `game` and `cd` are the game's
  * program and files. 1 when the job started, 0 with `why` (the car cannot race there, no game, a scratch folder that cannot be made). Refused while a job runs. */
-int car_race_start_race(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, char *why, size_t why_cap);
-int car_race_start_photo(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, char *why, size_t why_cap);
+int car_race_start_race(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
+                        char *why, size_t why_cap);
+int car_race_start_photo(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
+                         char *why, size_t why_cap);
 /* every frame: takes the output, moves a photo job from the probes to the shot, ends the job; 1 while it runs */
 int car_race_poll(RaceJob *job);
 void car_race_stop(RaceJob *job);

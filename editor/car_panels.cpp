@@ -581,7 +581,33 @@ void race_log_lines(const char *text, size_t len, int *budget, bool show_notes)
 
 }   // namespace
 
-// Test in race and Race photo of an original car's project: the preset, the track, the buttons, the picture, and the game's log
+// The Race window's look (T6): Restomod whole by default; four switches for how the car is shown and the render scale. The session's, never the project's.
+static void race_look_controls(App *a)
+{
+    RaceLook &look = a->race_look;
+    ImGui::TextUnformatted("Look");
+    ImGui::SameLine();
+    struct { const char *label, *tip; int *on; } sw[4] = {
+        { "Reflections", "The sky's reflection on the body (Restomod's envmap); off: the exe's flat body", &look.reflections },
+        { "Car colours", "The screen palette's car entries fitted to this car's colours; off: the race's shared palette", &look.car_colours },
+        { "Soft shadow", "The soft shadow under the car; off: the exe's hard one", &look.soft_shadow },
+        { "Texture filter", "Smoothed texels; off: hard pixels, as the exe draws them", &look.texture_filter } };
+    for (int i = 0; i < 4; ++i) {
+        bool on = *sw[i].on != 0;
+        if (i > 0) ImGui::SameLine();
+        if (ImGui::Checkbox(sw[i].label, &on)) *sw[i].on = on ? 1 : 0;
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", sw[i].tip);
+    }
+    ImGui::TextUnformatted("Resolution");
+    ImGui::SameLine();
+    if (ImGui::RadioButton("1280 x 960", look.scale == 2)) look.scale = 2;
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Render scale 2, Restomod's: every detail");
+    ImGui::SameLine();
+    if (ImGui::RadioButton("640 x 480", look.scale == 1)) look.scale = 1;
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Render scale 1: the exe's own resolution");
+}
+
+// Test in race and Race photo of an original car's project: the preset, the track, the look, the buttons, the picture, and the game's log
 void race_panel(App *a, ImTextureID photo)
 {
     static int seen = 0, wait = 0;   // a new photo brings the tab forward (after the dock layout has settled: a focus given in the frame that builds it is lost)
@@ -622,6 +648,7 @@ void race_panel(App *a, ImTextureID photo)
             }
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("The night is each track's own; Rusty Springs is the reference");
             if (a->race_night && now != nullptr && strcmp(now->stem, "TR7") == 0) ImGui::TextDisabled("Lost Vegas has no time of day: it stays as it is");
+            race_look_controls(a);
             ImGui::EndDisabled();
             char note[500];   // Test in race: who drives what, and where a traffic car is
             car_race_note(car, now != nullptr ? now->stem : "", note, sizeof note);
@@ -643,10 +670,11 @@ void race_panel(App *a, ImTextureID photo)
         }
         if (a->race.photo != nullptr && photo != 0) {   // the picture, as big as the window leaves room for beside the log's few lines
             const ImVec2 room = ImGui::GetContentRegionAvail();
-            float w = room.x < RACE_PHOTO_W ? room.x : static_cast<float>(RACE_PHOTO_W);
+            const float pw = static_cast<float>(a->race.photo_w), ph = static_cast<float>(a->race.photo_h);   // 640 x 480, or 1280 x 960
+            float w = room.x < pw ? room.x : pw;
             const float high = room.y - 90.0f > 120.0f ? room.y - 90.0f : 120.0f;
-            if (w * RACE_PHOTO_H / RACE_PHOTO_W > high) w = high * RACE_PHOTO_W / RACE_PHOTO_H;
-            ImGui::Image(photo, ImVec2(w, w * RACE_PHOTO_H / RACE_PHOTO_W));
+            if (w * ph / pw > high) w = high * pw / ph;
+            ImGui::Image(photo, ImVec2(w, w * ph / pw));
         }
         ImGui::SeparatorText("The game's log");
         if (ImGui::BeginChild("racelog", ImVec2(0, 0), ImGuiChildFlags_Borders)) {

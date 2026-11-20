@@ -355,6 +355,7 @@ static void check_app_flow(void)
     CHECK(a != NULL);
     if (a == NULL) return;
     CHECK(app_open(a, one, "./tnfs", "", NULL));
+    CHECK(a->race_look.reflections && a->race_look.car_colours && a->race_look.soft_shadow && a->race_look.texture_filter && a->race_look.scale == 2);   /* T6: all on, full detail */
     char recent[600];
     path_in(recent, sizeof recent, "recent.txt");
     app_keep_recent(a, recent);

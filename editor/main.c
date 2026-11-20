@@ -43,6 +43,8 @@ typedef struct {
     const char *export_car, *export_into, *cd, *port_data;   /* --export-car STEM --into DIR, --cd DIR, --port-data DIR: Export original car without the window's dialogs */
     int race_photo, night;    /* --race-photo: take the race photo before the first frame (a headless run waits for it); --night: the Night preset */
     const char *track, *race_png;   /* --track STEM, --race-png FILE: the track and where the photo is also written */
+    const char *race_off;   /* --race-off reflections,car_colours,soft_shadow,texture_filter: the Race look's switches off, for a headless photo */
+    int race_scale;         /* --race-scale 1|2: its render scale (0: the default) */
     const char *orbit;       /* --orbit YAW,PITCH[,DIST]: the Model window's camera, in degrees (a headless picture of a view) */
     const char *mask;        /* --mask NAME: the mask (topv, frnt_lo) opened in Edit mask before the first frame */
     const char *mask_rect[8];   /* --mask-rect X,Y,W,H,CLASS: a rectangle of the open mask set to a class value (one step each), for a headless picture of an edit */
@@ -60,10 +62,33 @@ static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
-                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png]]\n"
+                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2]]\n"
                     "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n"
                     "       [--window WxH]\n");
     return 0;
+}
+
+/* --race-off's comma list onto a look: 0 when a word is not a switch, or the list is too long to read whole */
+static int race_off_apply(const char *list, RaceLook *look)
+{
+    char words[128];
+    const int n = snprintf(words, sizeof words, "%s", list);
+    if (n < 0 || (size_t)n >= sizeof words) {
+        fprintf(stderr, "--race-off: the list is longer than %zu bytes\n", sizeof words - 1);
+        return 0;
+    }
+    int ok = 1;
+    for (char *w = strtok(words, ","); w != NULL; w = strtok(NULL, ",")) {
+        if (strcmp(w, "reflections") == 0) look->reflections = 0;
+        else if (strcmp(w, "car_colours") == 0) look->car_colours = 0;
+        else if (strcmp(w, "soft_shadow") == 0) look->soft_shadow = 0;
+        else if (strcmp(w, "texture_filter") == 0) look->texture_filter = 0;
+        else {
+            fprintf(stderr, "--race-off '%s': reflections, car_colours, soft_shadow or texture_filter (commas, no spaces)\n", w);
+            ok = 0;
+        }
+    }
+    return ok;
 }
 
 static int parse_args(int argc, char **argv, Options *o)
@@ -99,6 +124,12 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--orbit") == 0 && has_value) o->orbit = argv[++i];
         else if (strcmp(argv[i], "--track") == 0 && has_value) o->track = argv[++i];
         else if (strcmp(argv[i], "--race-png") == 0 && has_value) o->race_png = argv[++i];
+        else if (strcmp(argv[i], "--race-off") == 0 && has_value) o->race_off = argv[++i];
+        else if (strcmp(argv[i], "--race-scale") == 0 && has_value) {
+            const char *v = argv[++i];
+            if (strcmp(v, "1") != 0 && strcmp(v, "2") != 0) return usage();   /* 1 (640x480) or 2 (1280x960), nothing else */
+            o->race_scale = v[0] - '0';
+        }
         else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
         else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
         else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
@@ -119,6 +150,9 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (argv[i][0] != '-' && o->dir == NULL) o->dir = argv[i];
         else return usage();
     }
+    RaceLook check = car_race_look_default();
+    if ((o->race_off != NULL || o->race_scale != 0) && !o->race_photo) return usage();   /* the Race look is a Race photo's */
+    if (o->race_off != NULL && !race_off_apply(o->race_off, &check)) return usage();
     return 1;
 }
 
@@ -336,6 +370,8 @@ static int run_requested(App *a, const Options *o)
     if (o->race_photo) {   /* Race photo, headless: the game is run and waited for, the picture is in the Race window */
         if (o->track != NULL && car_race_track_find(o->track) >= 0) a->race_track = car_race_track_find(o->track);
         a->race_night = o->night;
+        if (o->race_off != NULL) (void)race_off_apply(o->race_off, &a->race_look);   /* checked whole in parse_args */
+        if (o->race_scale != 0) a->race_look.scale = o->race_scale;
         int made = app_race(a, 1);
         while (made && app_race_poll(a)) SDL_Delay(20);
         made = made && a->race.ok;
@@ -343,7 +379,8 @@ static int run_requested(App *a, const Options *o)
             uint8_t *png = NULL;
             size_t len = 0;
             FILE *f = NULL;
-            made = png_write_rgba(a->race.photo, RACE_PHOTO_W, RACE_PHOTO_H, &png, &len) == PNG_OK && (f = fopen(o->race_png, "wb")) != NULL && fwrite(png, 1, len, f) == len;
+            made = png_write_rgba(a->race.photo, (uint32_t)a->race.photo_w, (uint32_t)a->race.photo_h, &png, &len) == PNG_OK && (f = fopen(o->race_png, "wb")) != NULL &&
+                   fwrite(png, 1, len, f) == len;
             if (f != NULL) fclose(f);
             free(png);
             if (!made) snprintf(a->status, sizeof a->status, "cannot write %s", o->race_png);
