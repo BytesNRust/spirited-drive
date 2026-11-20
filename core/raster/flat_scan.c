@@ -10,9 +10,9 @@
  * outermost column on each side. Each octant of the edge has its own loop,
  * kept in the original's order so the table contents match even where the
  * outline is not convex. */
-#include "game/gfx/flat_internal.h"
+#include "raster/flat_internal.h"
 
-#include "game/gfx/x86_int.h"
+#include "raster/x86_int.h"
 
 #define ROWS FLAT_MAX_ROWS
 

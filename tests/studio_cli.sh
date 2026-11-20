@@ -266,5 +266,16 @@ if [ -n "$(find_one DVIPER.CFM)" ]; then
     ls "$work/ci/r/car_masks/IMPRAW" | grep -v "_lo_" | grep -q "_mask.png" || fail "raw removed the high masks of the donor's bank"
 fi
 
+# car view: the 3D view of a car to a PNG, from a fixed view and from an orbit, different pictures; a file that is not a car is refused
+f=$(find_one P911.CFM)
+if [ -n "$f" ]; then
+    "$studio" car view "$f" --view front --shot "$work/v1.png" >/dev/null 2>"$work/err" || fail "car view front: $(cat "$work/err")"
+    "$studio" car view "$f" --orbit 215,18,900 --size 320x200 --shot "$work/v2.png" >/dev/null 2>"$work/err" || fail "car view orbit: $(cat "$work/err")"
+    [ -s "$work/v1.png" ] && [ -s "$work/v2.png" ] && ! cmp -s "$work/v1.png" "$work/v2.png" || fail "car view: the two views are missing or the same"
+    [ "$(head -c 4 "$work/v2.png" | tail -c 3)" = PNG ] || fail "car view: not a PNG"
+    "$studio" car view "$work/v1.png" --shot "$work/v3.png" >/dev/null 2>"$work/err" && fail "car view took a PNG for a car"
+    grep -q "not a car" "$work/err" || fail "car view: no message for a file that is not a car"
+fi
+
 [ "$failures" -eq 0 ] && echo "studio_cli: all checks passed"
 exit "$failures"

@@ -6,9 +6,9 @@
  * 0.32 slope with the octant it belongs to. Clipping moves the start and end
  * points onto the clip rectangle and counts the rows the outline spends left
  * or right of it, which the scan converters fill with empty spans. */
-#include "game/gfx/flat_internal.h"
+#include "raster/flat_internal.h"
 
-#include "game/gfx/x86_int.h"
+#include "raster/x86_int.h"
 
 enum {
     OUT_RIGHT = 1,

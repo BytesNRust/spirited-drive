@@ -7,11 +7,11 @@
  * constant per-pixel increment. Rows are visited top to bottom; the original
  * keeps its tables on the stack uninitialised, here they start at zero, which
  * only matters for self-intersecting quads that leave rows unwritten. */
-#include "game/gfx/quad.h"
-#include "game/gfx/raster_record.h"
+#include "raster/quad.h"
+#include "raster/raster_record.h"
 
-#include "game/gfx/quad_pixel.h"
-#include "game/gfx/x86_int.h"
+#include "raster/quad_pixel.h"
+#include "raster/x86_int.h"
 
 #include <stddef.h>
 #include <string.h>

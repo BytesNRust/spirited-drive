@@ -200,6 +200,23 @@ grep -q "exit code 3" "$work/log" || fail "the game's exit code is not told: $(c
 "$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --track TR5 --frames 2 >"$work/log" 2>&1 && fail "a traffic car was raced on a circuit"
 grep -q "no traffic" "$work/log" || fail "no word about the circuit: $(cat "$work/log")"
 ls "${TMPDIR:-/tmp}" | grep -q '^studio-race-' && fail "a scratch folder of a race was left behind"
+# the Model window: a car file it cannot draw says so and the run goes on; --orbit is YAW,PITCH[,DIST] or refused; with the CD's P911 two orbits are two pictures
+"$editor" "$work/kit" --frames 3 --orbit 90,10,500 --shot "$work/stub.png" >"$work/log" 2>&1 || fail "run with an orbit on a car it cannot draw: $(cat "$work/log")"
+"$editor" "$work/kit" --frames 2 --orbit north >"$work/log" 2>&1 && fail "a bad --orbit was accepted"
+grep -q "YAW,PITCH" "$work/log" || fail "no word about --orbit: $(cat "$work/log")"
+p911="$(cd "$(dirname "$0")/.." && pwd)/original/SIMDATA/CARFAMS/P911.CFM"
+if [ -f "$p911" ]; then
+    mkdir -p "$work/k911/coche/SIMDATA/CARFAMS" "$work/k911/coche/car_masks/P911"
+    printf 'id=k911\nname=K911\nversion=1\ntype=car\nstem=P911\nsound_from=911\n' > "$work/k911/coche/mod.ini"
+    cp "$p911" "$work/k911/coche/SIMDATA/CARFAMS/P911.CFM"
+    printf 'x' > "$work/k911/coche/car_masks/P911/rsid_mask.png"
+    "$editor" "$work/k911" --frames 4 --orbit 215,18 --shot "$work/m1.png" >"$work/log" 2>&1 || fail "run on the 911: $(cat "$work/log")"
+    "$editor" "$work/k911" --frames 4 --orbit 90,18 --shot "$work/m2.png" >"$work/log" 2>&1 || fail "run on the 911, another orbit: $(cat "$work/log")"
+    "$editor" "$work/k911" --frames 4 --orbit 215,18 --shot "$work/m3.png" >"$work/log" 2>&1 || fail "run on the 911 again: $(cat "$work/log")"
+    cmp -s "$work/m1.png" "$work/m2.png" && fail "two orbits drew the same window"
+    cmp -s "$work/m1.png" "$work/m3.png" || fail "the same orbit drew two different windows"
+    cmp -s "$work/m1.png" "$work/stub.png" && fail "the 911 looks like a car that cannot be drawn"
+fi
 # Edit mask: a car file with no textures offers none (the fixture's is not a real one); with the player's real game files a traffic car's mask is opened, painted, saved
 # (a grey PNG of the same size) and drawn, and a texture the car has no mask for is refused
 "$editor" "$work/exports/wagon-masks" --mask side --frames 2 >"$work/log" 2>&1 && fail "a mask was opened of a car file that has no textures"

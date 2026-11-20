@@ -59,6 +59,11 @@ void ui_close(void)
     ImGui::DestroyContext();
 }
 
+void ui_model_orbit(double yaw, double pitch, int dist)
+{
+    model_panel_preset(yaw, pitch, dist);
+}
+
 int ui_popup_open(void)
 {
     return ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) ? 1 : 0;
@@ -102,7 +107,9 @@ void car_layout(ImGuiID dock)
     ImGuiID left = 0, right = 0, masks = 0;
     left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.4f, nullptr, &right);
     masks = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.3f, nullptr, &right);   // the race and its photo need the room
+    const ImGuiID model = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.6f, nullptr, &right);   // the car in 3D above its textures
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
+    ImGui::DockBuilderDockWindow(PANEL_MODEL, model);
     ImGui::DockBuilderDockWindow(PANEL_TEXTURES, right);
     ImGui::DockBuilderDockWindow(PANEL_RACE, right);   // a tab beside Textures
     ImGui::DockBuilderDockWindow(PANEL_MASK_EDIT, right);   // and the mask editor, which needs the room
@@ -122,6 +129,7 @@ void masks_layout(ImGuiID dock)
     left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.3f, nullptr, &right);
     race = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.5f, nullptr, &right);   // the masks list and its changes need room above
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
+    ImGui::DockBuilderDockWindow(PANEL_MODEL, right);   // a tab beside Masks
     ImGui::DockBuilderDockWindow(PANEL_MASKS, right);
     ImGui::DockBuilderDockWindow(PANEL_RACE, race);
     ImGui::DockBuilderDockWindow(PANEL_MASK_EDIT, race);
@@ -339,6 +347,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (a->confirm == APP_ACT_NONE) car_shortcuts(a);
         car_panel(a);
         if (!a->car.masks_only) textures_panel(a);   // nor textures: only its masks
+        model_panel(a, ren);
         masks_panel(a);
         race_panel(a, photo_texture(ren, a));
         mask_edit_panel(a, mask_texture(ren, a));

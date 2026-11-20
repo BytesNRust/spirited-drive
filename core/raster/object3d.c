@@ -1,6 +1,6 @@
-#include "game/gfx/object3d.h"
+#include "raster/object3d.h"
 
-#include "game/sys/fixed_math.h"
+#include "formats/fixed_math.h"
 
 #include <math.h>
 #include <stdlib.h>

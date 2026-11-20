@@ -1,4 +1,4 @@
-#include "game/gfx/raster_record.h"
+#include "raster/raster_record.h"
 
 #include <string.h>
 

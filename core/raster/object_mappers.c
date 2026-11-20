@@ -1,9 +1,9 @@
 /* The 3D object engine's polygon mappers: the table dispatch and the thunks
  * behind it (see object_mappers.h). Everything here is argument shuffling over
  * quad_draw_mode and tri_draw_mode, which carry the pixel work. */
-#include "game/gfx/object_mappers.h"
+#include "raster/object_mappers.h"
 
-#include "game/gfx/x86_int.h"
+#include "raster/x86_int.h"
 
 enum {
     TABLES = 5,

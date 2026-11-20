@@ -13,11 +13,11 @@
  * texture coordinates and 16.16 screen x against the pixel clip limits; with
  * uv >= 1 texel and clip_right <= 32768 that test never passes, so it is not
  * ported (the clipped path gives the same pixels when nothing needs clipping). */
-#include "game/gfx/quad.h"
-#include "game/gfx/raster_record.h"
+#include "raster/quad.h"
+#include "raster/raster_record.h"
 
-#include "game/gfx/quad_pixel.h"
-#include "game/gfx/x86_int.h"
+#include "raster/quad_pixel.h"
+#include "raster/x86_int.h"
 
 #include <stddef.h>
 #include <string.h>
