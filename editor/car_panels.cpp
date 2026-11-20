@@ -32,18 +32,6 @@ void muted_wrapped(const char *format, ...)
     ImGui::PopStyleColor();
 }
 
-// a "(?)" whose hover shows `text`, wrapped (dev3 unifies these in a common help_marker())
-void help_marker(const char *text)
-{
-    ImGui::TextDisabled("(?)");
-    if (ImGui::BeginItemTooltip()) {
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 32.0f);
-        ImGui::TextUnformatted(text);
-        ImGui::PopTextWrapPos();
-        ImGui::EndTooltip();
-    }
-}
-
 // the last component of a folder path
 const char *leaf(const char *path)
 {
