@@ -97,7 +97,8 @@ static void test_command(void)
     CHECK(has_env(&c, "HOME=/h"));                                   // the person's other variables stay
     CHECK(!has_env(&c, "TNFS_PERSON=1") && !has_env(&c, "TNFS_LIGHT_TIME=day") && !has_env(&c, "SDL_VIDEO_DRIVER=x11"));   // their TNFS_* and SDL_* go
     CHECK(has_env(&c, "TNFS_LIGHT_TIME=night") && has_env(&c, "TNFS_START_NODE=70") && has_env(&c, "TNFS_AUTOPILOT=1") && has_env(&c, "TNFS_FRAMES=1") &&
-          has_env(&c, "TNFS_WEATHER=clear") && has_env(&c, "SDL_VIDEO_DRIVER=dummy") && has_env(&c, "SDL_AUDIO_DRIVER=dummy") && has_env(&c, "SDL_AUDIODRIVER=dummy"));
+          has_env(&c, "TNFS_WEATHER=clear") && has_env(&c, "TNFS_VIEW=0") &&   /* the in-car view: the road ahead */
+           has_env(&c, "SDL_VIDEO_DRIVER=dummy") && has_env(&c, "SDL_AUDIO_DRIVER=dummy") && has_env(&c, "SDL_AUDIODRIVER=dummy"));
     car_race_command_free(&c);
     CHECK_EQ_INT(c.argc, 0);
     s.letter = 'A';
