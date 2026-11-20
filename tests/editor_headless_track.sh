@@ -153,6 +153,32 @@ for s in range(12):
     assert tex[s] == want, (s, list(tex[s]), list(want))
 PY
 python3 "$work/tri_lanes.py" "$work/lanes/build/lanes.zip" || fail "the TRI of the lanes project does not have the lanes of its keys"
+# the fence step (trace.json version 4): tall from point 1 (60 m), the rail picture from point 3 (180 m), and a 6 m left shoulder from point 2 with no
+# Custom. A segment (4 nodes, 25 m) takes its first node's: the fence byte's low bit (0x20) clear from segment 3 (75 m), its picture bits 3 (the rail, slot
+# 35) from segment 8 (200 m), the side bits the template's; the left barrier follows the shoulder (barrier - verge = shoulder), the right is the template's
+mkdir "$work/fence"
+printf '{\n  "version": 4,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 1, "fence_height": "tall"}, {"point": 2, "shoulder_l_m": 6.0}, {"point": 3, "fence_art": "rail"}]\n}\n' > "$work/fence/trace.json"
+"$editor" "$work/fence" --frames 6 --select 3 --shot "$work/fence.png" >"$work/log" 2>&1 || fail "run on a project with fence keys: $(cat "$work/log")"
+png_check "$work/fence.png" good
+"$editor" "$work/fence" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a project with fence keys: $(cat "$work/log")"
+cat > "$work/tri_fence.py" <<'PY'
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+names = [n for n in z.namelist() if n.upper().endswith(".TRI")]
+assert len(names) == 1, names
+d = z.read(names[0])
+node = lambda k, b: d[0x98C + 36 * k + b]
+at = d.find(b"TRKD")
+fences = [d[at + 288 * s + 0xD] for s in range(12)]
+assert fences[0] == 0xE0, hex(fences[0])   # the template's: both sides, low, planks
+want = [(0xE0 & ~(0x20 if 25 * s >= 60 else 0) & ~0x1F) | (3 if 25 * s >= 180 else 0) for s in range(12)]
+assert fences == want, ([hex(f) for f in fences], [hex(w) for w in want])
+left = [node(k, 2) - node(k, 0) for k in range(49)]   # barrier - verge, 1/8 m
+assert left[0] == 24 and left[48] == 48, left
+assert all(left[k] <= left[k + 1] for k in range(48)), left
+assert all(node(k, 3) - node(k, 1) == 24 for k in range(49)), "the right barrier moved"
+PY
+python3 "$work/tri_fence.py" "$work/fence/build/fence.zip" || fail "the TRI of the fence project does not have the fence of its keys"
 
 # ==== Several points selected (dep87): gestures, group edits, one undo each, the guard on removing, the profile Mixed ====
 # a straight of 8 points 40 m apart, the right shoulder tarmac from point 3. In the viewport: a click, Shift+click a range, Cmd+click one in or
