@@ -29,6 +29,7 @@ enum { MAX_W = 2048, AUTO_DEG_PER_SECOND = 24 };
 
 struct Model {
     char loaded[APP_PATH] = "";   // the CFM the scene holds (or tried to)
+    unsigned loaded_serial = 0;   // the car file as a->cdisk.serial counted it then: another program wrote the file since when it moved
     ModelScene *scene = nullptr;
     char why[200] = "";
     char key_dir[APP_PATH] = "";   // what the picture was made from: the project, its masks, the paint (the Preview window's own choice)
@@ -129,6 +130,7 @@ void remember(const App *a, const uint8_t *rgb)
 void load(App *a, const uint8_t *rgb)
 {
     snprintf(g.loaded, sizeof g.loaded, "%s", a->car.cfm);
+    g.loaded_serial = a->cdisk.serial;
     open_scene(a, rgb);
     remember(a, rgb);
     if (g.scene == nullptr) return;
@@ -248,7 +250,7 @@ void model_panel(App *a, SDL_Renderer *ren)
         const int count = a->car.masks_only || (oc != nullptr && oc->kind != EXPORT_DRIVABLE) ? 0 : a->edit.now.paint_count;
         const uint8_t *rgb = paint >= 0 && paint < count ? a->edit.now.paints[paint].rgb : nullptr;
         const bool busy = a->mask.me.stroke != 0 || app_rehacer_busy(a) || a->car.cfm[0] == '\0';
-        if (!busy && strcmp(g.loaded, a->car.cfm) != 0) load(a, rgb);
+        if (!busy && (strcmp(g.loaded, a->car.cfm) != 0 || g.loaded_serial != a->cdisk.serial)) load(a, rgb);
         else if (!busy && g.scene != nullptr && stale(a, rgb)) {   // a mask edited or saved, another paint: the same camera on the car made again
             open_scene(a, rgb);
             remember(a, rgb);

@@ -602,6 +602,7 @@ static int run(App *a, const Options *o)
         app_rehacer_poll(a);
         app_install_poll(a);
         app_race_poll(a);
+        app_card_watch(a, SDL_GetTicks() / 1000.0);   /* mod.ini, the car file and the textures */
         app_mask_watch(a, SDL_GetTicks() / 1000.0);   /* masks changed on disk by another program: about once a second */
         app_recompute(a);
         SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);

@@ -54,6 +54,16 @@ typedef struct {
     long long mtime_ns, size;
 } MaskStamp;
 
+/* what the open car's own files looked like when the editor last read them (app_card_watch): mod.ini, the car file, and a sum over the PNG files of
+ * modelo/c1 and c3 */
+typedef struct {
+    MaskStamp card, cfm;
+    unsigned long long pngs;
+    double looked;                /* when app_card_watch last looked (its clock); 0: never */
+    int card_changed;             /* mod.ini changed on disk while the card has unsaved edits: Reload or Keep mine, and Save waits */
+    unsigned serial;              /* counts the times the car file changed on disk: the Model reads it again */
+} CarDisk;
+
 typedef struct {
     MaskTexInfo tex[MASK_TEX_LIST];   /* the textures of the car file, both banks */
     int tex_count;
@@ -84,6 +94,7 @@ typedef struct {
     char preview_focus[5];       /* a texture the Preview scrolls to (--preview-tex NAME, for a headless picture); "" none */
     NightSettings night;         /* the Preview's Day / Night and lamp switches (editor/night_view.h) */
     MaskUi mask;                 /* the mask editor (editor/mask_edit.h), when kind is APP_KIND_CAR */
+    CarDisk cdisk;               /* mod.ini, the car file and the textures as the editor last saw them (app_card_watch) */
     CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
     char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */
     char game[APP_PATH];         /* the game program, run for install */
@@ -218,9 +229,20 @@ int app_mask_modified(const App *a);
  * has_mask; the open mask is read again when it has no unsaved edits (closed when its file went), else it keeps them and mask.disk_changed says
  * «Changed on disk». 1 when something changed. app_mask_reload takes the file's texels over the edits; app_mask_keep_mine keeps the edits, and the
  * next Save writes them over the file. app_mask_save refuses while the open mask's file changed under it and Keep mine was not chosen. */
+MaskStamp app_file_stamp(const char *path);   /* a file's time and size now; zeros when there is none */
 int app_mask_watch(App *a, double now);
 int app_mask_reload(App *a);
 void app_mask_keep_mine(App *a);
+/* The same for the card and the car's files (W4, app_card_watch.c). mod.ini changed by another program: read again when the card has no unsaved
+ * edits; else the edits stay, cdisk.card_changed says «Changed on disk», Save refuses until app_card_reload (the file's card over the edits) or
+ * app_card_keep_mine (the next Save writes the edits over the file). The car file or a texture of modelo/c1 or c3 changed: the lists are read again; the car file
+ * also moves cdisk.serial and mask.generation (Model, Preview), and the open mask is opened again (kept as it is while it has unsaved edits: read at a later look).
+ * 1 when something changed. app_card_arm records the files as they are now (a car opened or read again). */
+int app_card_watch(App *a, double now);
+int app_card_reload(App *a);
+void app_card_keep_mine(App *a);
+void app_card_arm(App *a);
+int app_card_save_ok(App *a);   /* 0, with the status, when mod.ini changed on disk under the card's edits */
 /* A track's edit taken as one step to undo when it differs from the last (the window calls it when no field is typed in and no point dragged) */
 void app_track_commit(App *a);
 /* A track's step back (redo: forward); the road is made again from it, the selection kept when its point is still there. 1 when there was one. */

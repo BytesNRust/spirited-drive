@@ -118,6 +118,7 @@ static int car_into(App *a, const char *dir)
     a->preview_paint = -1;
     a->night = night_settings_default();
     app_mask_scan(a);
+    app_card_arm(a);
     set_status(a, a->car.masks_only ? "opened: a masks project (made from the game's files: for your own use, do not share)" : "opened: edit the card and the colors; Save writes mod.ini only");
     return 1;
 }
@@ -480,10 +481,12 @@ int app_save(App *a)
     }
     if (a->kind == APP_KIND_CAR) {   /* the card: only mod.ini, only the lines that changed; and the mask being edited */
         const int changed = car_edit_modified(&a->edit);
+        if (changed && !app_card_save_ok(a)) return 0;
         if (!car_edit_save(&a->edit, why, sizeof why)) {
             set_status(a, why);
             return 0;
         }
+        if (changed) app_card_keep_mine(a);   /* our own write is not a change on disk */
         if (a->mask.sel >= 0 && app_mask_modified(a)) return app_mask_save(a);
         set_status(a, changed ? "saved mod.ini" : "nothing to save: mod.ini is as it was");
         return 1;
@@ -834,6 +837,8 @@ static void reload_car(App *a)
         a->edit = next;
     }
     app_mask_scan(a);   /* the script may have changed the textures and the masks */
+    app_card_arm(a);
+    a->cdisk.serial++;   /* the Model reads the car file again */
 }
 
 int app_rehacer(App *a)

@@ -35,6 +35,11 @@ static MaskStamp stamp_of(const char *path)
     return (MaskStamp){ ns, (long long)st.st_size + 1 };   /* +1: an empty file is not "no file" */
 }
 
+MaskStamp app_file_stamp(const char *path)
+{
+    return stamp_of(path);
+}
+
 static MaskStamp stamp_at(const App *a, int index)
 {
     char p[ME_PATH];

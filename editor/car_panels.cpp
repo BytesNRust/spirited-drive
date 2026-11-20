@@ -312,6 +312,16 @@ void car_panel(App *a)
             ImGui::SetTooltip("%s", running ? "Rehacer is running" : has_script ? "Run this kit's rehacer.command (the kit is backed up first)" : "This kit has no rehacer.command");
         ImGui::SameLine();
         help_marker("Save writes only coche/mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is.");
+        if (a->cdisk.card_changed) {   // another program wrote mod.ini while the card has unsaved changes here
+            ImGui::TextColored(ImVec4(0.95f, 0.78f, 0.35f, 1.0f), "Changed on disk");
+            ImGui::SameLine();
+            if (ImGui::Button("Reload")) app_card_reload(a);
+            ImGui::SameLine();
+            if (ImGui::Button("Keep mine")) app_card_keep_mine(a);
+            ImGui::SameLine();
+            help_marker("Another program wrote mod.ini while the card has unsaved changes here. Reload takes the file's card and drops the changes; "
+                        "Keep mine keeps them, and Save writes them over the file.");
+        }
         if (ImGui::BeginPopupModal("Save before Rehacer", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::TextUnformatted("mod.ini has changes that are not saved. Rehacer reads the card,");
             ImGui::TextUnformatted("so they are saved first.");
