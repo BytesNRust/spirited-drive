@@ -1,5 +1,6 @@
 #include "formats/track_trace.h"
 #include "formats/track_trace_bank.h"
+#include "formats/track_trace_lanes.h"
 #include "formats/track_trace_sides.h"
 
 #include "formats/race_stage.h"
@@ -274,11 +275,13 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
     const int count_nodes = NODES_PER_SEGMENT * segments + 1;
     int ok = 0;
     WidthStop *stops = malloc(sizeof *stops * (size_t)(key_count > 0 ? key_count + 1 : 1));
+    TraceKey *width_keys = trace_lanes_width_keys(keys, key_count, c.count);   /* step 4: a width key in a lane stretch is ignored */
     int stop_count = 0;
-    if (stops == NULL) {
+    if (stops == NULL || width_keys == NULL) {
         exchange_fail(err, "out of memory");
-    } else if (!width_stops(&c, width, keys, key_count, stops, &stop_count, err) || !check_surface_keys(c.count, keys, key_count, err) ||
-               !trace_sides_check(c.count, keys, key_count, err) || !trace_bank_check(c.count, keys, key_count, err)) {
+    } else if (!width_stops(&c, width, width_keys, key_count, stops, &stop_count, err) || !check_surface_keys(c.count, keys, key_count, err) ||
+               !trace_sides_check(c.count, keys, key_count, err) || !trace_bank_check(c.count, keys, key_count, err) ||
+               !trace_lanes_check(keys, key_count, err)) {
         // err names the key
     } else if (segments > TRACK_GEN_MAX_SEGMENTS) {
         exchange_fail(err, "the road is %d segments; the most is %d (about %g m)", segments, TRACK_GEN_MAX_SEGMENTS,
@@ -307,8 +310,9 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
             double *point_s = malloc(sizeof *point_s * (size_t)c.count);   // the sides (step 3) along the arc length, from the keys
             for (int i = 0; point_s != NULL && i < c.count; ++i) point_s[i] = c.s[i * SAMPLES_PER_SPAN];
             if (point_s == NULL || !trace_sides_apply(point_s, keys, key_count, step, out, count_nodes, err) ||
-                !trace_bank_apply(point_s, keys, key_count, step, out, count_nodes, err)) {
-                if (point_s == NULL) exchange_fail(err, "out of memory");
+                !trace_bank_apply(point_s, keys, key_count, step, out, count_nodes, err) ||
+                !trace_lanes_apply(point_s, c.count, keys, key_count, step, out, count_nodes)) {
+                if (point_s == NULL || err->message[0] == '\0') exchange_fail(err, "out of memory");
                 free(out);
             } else {
                 *nodes = out;
@@ -319,6 +323,7 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
         }
     }
     free(stops);
+    free(width_keys);
     curve_free(&c);
     return ok;
 }
@@ -503,12 +508,23 @@ static double side_step(const TrackGenNode *nodes, int i)
 
 /* the farther wall a node gives from the centre in 1/8 m, as the generator writes its byte: the road edge's plus the wall's distance (0 when it
  * gives none: the template's wall is the generator's own, and track_generate_nodes refuses only a node's) */
+/* the half on `side` in 1/8 m: a node's right half is width_r when it has one (a lane stretch, step 4) */
+static double half_eighths(const TrackGenNode *n, int side) { return side == TRACK_GEN_RIGHT && n->width_r > 0 ? n->width_r : n->width; }
+
+/* how much the whole road's width changes from node i - 1 to node i, in metres: both halves (a lane stretch's taper moves one at a time) */
+static double width_step_m(const TrackGenNode *nodes, int i)
+{
+    const double now = half_eighths(&nodes[i], TRACK_GEN_LEFT) + half_eighths(&nodes[i], TRACK_GEN_RIGHT);
+    const double before = half_eighths(&nodes[i - 1], TRACK_GEN_LEFT) + half_eighths(&nodes[i - 1], TRACK_GEN_RIGHT);
+    return fabs(now - before) / (2 * TRACE_WIDTH_PER_METRE);
+}
+
 static long wall_eighths(const TrackGenNode *n)
 {
     long most = 0;
     for (int side = 0; side < 2; ++side) {
         if (!(n->side[side].has & TRACK_GEN_SIDE_BARRIER)) continue;
-        const long at = lround(n->width) + lround(n->side[side].barrier);
+        const long at = lround(half_eighths(n, side)) + lround(n->side[side].barrier);
         if (at > most) most = at;
     }
     return most;
@@ -533,7 +549,7 @@ void track_trace_flags(const TrackGenNode *nodes, int count, TraceFlags *flags)
             if (radius < TRACE_RADIUS_MIN) f |= TRACE_FLAG_RADIUS;
             else if (radius < TRACE_RADIUS_WARN) f |= TRACE_FLAG_RADIUS_WARN;
         }
-        if (fabs(nodes[i].width - nodes[i - 1].width) > TRACE_WIDTH_STEP_WARN_M * TRACE_WIDTH_PER_METRE + 1e-6) f |= TRACE_FLAG_WIDTH_WARN;
+        if (width_step_m(nodes, i) > TRACE_WIDTH_STEP_WARN_M + 1e-6) f |= TRACE_FLAG_WIDTH_WARN;
         if (side_step(nodes, i) > TRACE_SIDE_STEP_WARN_M + 1e-6) f |= TRACE_FLAG_SIDE_WARN;
         flags[i] = f;
     }
@@ -546,7 +562,7 @@ static void problem_of(const TrackGenNode *nodes, int i, TraceFlags flags, Trace
     p->red = (flags & TRACE_FLAG_RED_BITS) != 0;
     p->flags = flags;
     if (i > 0) node_turn_radius(nodes, i, &p->turn, &p->radius);
-    p->width_step = (flags & TRACE_FLAG_WIDTH_WARN) ? fabs(nodes[i].width - nodes[i - 1].width) / TRACE_WIDTH_PER_METRE : 0;
+    p->width_step = (flags & TRACE_FLAG_WIDTH_WARN) ? width_step_m(nodes, i) : 0;
     p->side_step = (flags & TRACE_FLAG_SIDE_WARN) ? side_step(nodes, i) : 0;
     p->wall_m = (flags & TRACE_FLAG_WALL_FAR) ? (double)wall_eighths(&nodes[i]) / 8.0 : 0;
     p->bank = (flags & (TRACE_FLAG_BANK_WARN | TRACE_FLAG_BANK_LIMIT)) ? nodes[i].bank : 0;
