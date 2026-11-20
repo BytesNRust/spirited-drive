@@ -268,6 +268,102 @@ static void check_long_output_and_stop(void)
     CHECK(!r.run.running);
 }
 
+/* Rehacer as the window runs it (owner test R1): rehacer_begin only starts the backup, in its own thread, and returns; poll starts the script when the copy has
+ * ended. The window is never held by the copy. */
+static void begin_to_end(Rehacer *r)
+{
+    for (int i = 0; i < 4000 && rehacer_poll(r); i++) usleep(5000);
+}
+
+static void check_begin_backs_up_in_the_background(void)
+{
+    char why[300];
+    make_kit("bg", "#!/bin/sh\necho \"ran after the backup\"\necho made > proof.txt\n");
+    Rehacer r;
+    memset(&r, 0, sizeof r);
+    CHECK_EQ_INT(rehacer_begin(&r, kit_path("bg"), "20261120-090000", REHACER_KEEP, 100, why, sizeof why), 1);
+    CHECK(rehacer_busy(&r) && r.backing_up && !r.run.running && !r.run.finished);   /* begin did not copy and run: poll does that */
+    CHECK_EQ_INT(r.runs, 1);
+    CHECK_EQ_INT(rehacer_begin(&r, kit_path("bg"), "20261120-090001", REHACER_KEEP, 100, why, sizeof why), 0);   /* one at a time */
+    CHECK(strstr(why, "already") != NULL);
+    begin_to_end(&r);
+    CHECK(!rehacer_busy(&r) && !r.backing_up && !r.failed);
+    CHECK(r.run.finished && r.run.exit_code == 0 && r.run.log != NULL && strstr(r.run.log, "ran after the backup") != NULL);
+    CHECK(is_file("bg/proof.txt"));
+    CHECK(strstr(r.backup, "/.studio-backup/20261120-090000") != NULL && is_dir("bg/.studio-backup/20261120-090000/coche"));
+    CHECK(!is_file("bg/.studio-backup/20261120-090000/proof.txt"));   /* the copy was made before the script ran */
+    CHECK_EQ_INT(r.runs, 1);
+    rehacer_free(&r);
+
+    memset(&r, 0, sizeof r);   /* a second run is counted: the window brings its log forward again */
+    CHECK_EQ_INT(rehacer_begin(&r, kit_path("bg"), "20261120-090002", REHACER_KEEP, 100, why, sizeof why), 1);
+    begin_to_end(&r);
+    const int runs = r.runs;
+    CHECK_EQ_INT(rehacer_begin(&r, kit_path("bg"), "20261120-090003", REHACER_KEEP, 100, why, sizeof why), 1);
+    CHECK_EQ_INT(r.runs, runs + 1);
+    CHECK(r.run.log == NULL && !r.run.finished);   /* the last run's log is gone with it */
+    begin_to_end(&r);
+    rehacer_free(&r);
+
+    memset(&r, 0, sizeof r);   /* no script: refused at once, nothing copied */
+    CHECK_EQ_INT(rehacer_begin(&r, kit_path("noscript"), "20261120-090004", REHACER_KEEP, 100, why, sizeof why), 0);
+    CHECK(strstr(why, "rehacer.command") != NULL && !rehacer_busy(&r) && !is_dir("noscript/.studio-backup"));
+}
+
+static void check_begin_when_the_backup_fails(void)
+{
+    char why[300], p[1024];
+    make_kit("bigbg", "#!/bin/sh\necho made > proof.txt\n");
+    path_in(p, sizeof p, "bigbg/modelo/big.bin");
+    FILE *f = fopen(p, "wb");
+    if (f != NULL) {
+        static char block[1 << 16];
+        for (int i = 0; i < 32; i++) fwrite(block, 1, sizeof block, f);   /* 2 MB */
+        fclose(f);
+    }
+    Rehacer r;
+    memset(&r, 0, sizeof r);
+    CHECK_EQ_INT(rehacer_begin(&r, kit_path("bigbg"), "20261120-091000", REHACER_KEEP, 1, why, sizeof why), 1);
+    begin_to_end(&r);
+    CHECK(!rehacer_busy(&r) && r.failed && !r.run.finished && strstr(r.why, "1 MB") != NULL);   /* said, and the script never ran */
+    CHECK(!is_file("bigbg/proof.txt") && r.backup[0] == '\0');
+    rehacer_free(&r);
+}
+
+static void check_stop_and_free_while_backing_up(void)
+{
+    char why[300], rel[256];
+    make_kit("many", "#!/bin/sh\necho made > proof.txt\n");
+    for (int i = 0; i < 400; i++) {
+        snprintf(rel, sizeof rel, "many/modelo/c1/%04d_page.png", i);
+        write_file(rel, "a texture of the kit, one of many");
+    }
+    Rehacer r;
+    memset(&r, 0, sizeof r);
+    CHECK_EQ_INT(rehacer_begin(&r, kit_path("many"), "20261120-092000", REHACER_KEEP, 100, why, sizeof why), 1);
+    rehacer_stop(&r);   /* Stop while it copies: the script is not run */
+    begin_to_end(&r);
+    CHECK(!rehacer_busy(&r) && r.failed && r.run.stopped && !r.run.finished && strstr(r.why, "stopped") != NULL);
+    CHECK(!is_file("many/proof.txt"));
+    rehacer_free(&r);
+
+    memset(&r, 0, sizeof r);   /* freed while it copies (the window closes): waits for the copy, never runs the script */
+    CHECK_EQ_INT(rehacer_begin(&r, kit_path("many"), "20261120-092001", REHACER_KEEP, 100, why, sizeof why), 1);
+    rehacer_free(&r);
+    CHECK(!rehacer_busy(&r) && !is_file("many/proof.txt"));
+}
+
+/* the game's install said the files changed but the version did not (owner test R2): the window offers to raise it */
+static void check_version_unraised(void)
+{
+    CHECK(rehacer_version_unraised("x\nreinstalled k1 0.2 (same version); its files changed but its version did not: raise version= in mod.ini\nListo\n"));
+    CHECK(rehacer_version_unraised("Its files changed but its version did not: raise version= in mod.ini"));   /* the menu's words */
+    CHECK(!rehacer_version_unraised("reinstalled k1 0.2 (same version)\n"));
+    CHECK(!rehacer_version_unraised("updated k1 0.2 -> 0.3\n"));
+    CHECK(!rehacer_version_unraised(""));
+    CHECK(!rehacer_version_unraised(NULL));
+}
+
 int main(void)
 {
     const char *tmp = getenv("TMPDIR");
@@ -285,6 +381,10 @@ int main(void)
     check_backup_refusals();
     check_run();
     check_long_output_and_stop();
+    check_begin_backs_up_in_the_background();
+    check_begin_when_the_backup_fails();
+    check_stop_and_free_while_backing_up();
+    check_version_unraised();
     char cmd[600];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);
     if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", base);

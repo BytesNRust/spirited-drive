@@ -76,7 +76,7 @@ none). A folder that is not a car is refused with what was looked at and what is
 control (yes, no, or the default, which removes the line), sound from (the game's eight original cars) and the colors (add, remove, move up or down, name, and a
 color picker; up to 16). Each field is checked by the game's own reader (`mod_ini_parse`, car_piece's words) and a field with a problem is red, with what is wrong
 and its number ("Year: 17 characters; the card keeps up to 16"); **Save is blocked while any field has a problem**. Undo and Redo (buttons, the Edit menu,
-Ctrl or Cmd+Z and Shift+Z) take back typing in a field as one step. **Save writes only `coche/mod.ini`**, through `mod_ini_set`: only the lines you changed,
+Cmd+Z and Cmd+Shift+Z on a Mac, Ctrl+Z and Ctrl+Shift+Z elsewhere; every shortcut takes the platform's key) take back typing in a field as one step. **Save writes only `coche/mod.ini`**, through `mod_ini_set`: only the lines you changed,
 every other byte (comments, order, line ends) stays, and a Save with no change writes nothing. A card with unsaved changes asks before it is left, as a track does.
 The textures (`modelo/c1`, and how many far ones) and the mask files found are listed beside it. `--set KEY=VALUE` sets a field before the first frame (headless
 runs). **Rehacer** (a button in the car window, and the Rehacer tab with its log) runs the kit's own `rehacer.command` with the kit as its folder, through `sh`, with no
@@ -162,7 +162,7 @@ At the top of the **Masks** window of a project made from one of the game's cars
 The **Edit mask** window (a tab beside Textures and Race) paints a car's masks. Pick a texture of the car file (the ones with a mask in `car_masks/<car>/`; the low detail bank's are marked "low"): the mask is drawn over the texture, each class in its legend colour, with an Overlay switch, an Opacity slider and a switch per class. The class chosen in the legend is the one the tools paint with.
 
 - **Pencil**: a square of 1 to 8 texels; drag to draw a line (one step to undo). **Fill**: the connected texels of the same mask class, or of the same texture colour. **Eyedropper**: takes the class under the click.
-- **Undo / Redo** (Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y while the window has the keyboard), **Save mask** (Ctrl+S too), **Discard**.
+- **Undo / Redo** (Cmd+Z, Cmd+Shift+Z or Cmd+Y on a Mac, Ctrl elsewhere, while the window has the keyboard), **Save mask** (Cmd/Ctrl+S too), **Discard**.
 - Save writes the mask as the 8-bit grey PNG of `data/car_masks`: the same name and size, every texel outside the edit as it was; a mask with no change is not rewritten. Changing texture, closing the project or running Rehacer with unsaved mask changes asks first.
 - A mask whose size is not its texture's says both sizes: the game scales the mask to the texture (nearest neighbour), so the Studio shows it scaled the same way.
 - **Race photo** (or **Save, then Race photo** when there are changes) runs the game on the saved masks and shows the picture in the Race window.

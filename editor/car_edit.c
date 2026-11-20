@@ -440,3 +440,53 @@ int car_edit_set_by_text(CarEdit *e, const char *key_value)
     }
     return 0;
 }
+
+/* ---- the version one step up (owner test R2) ---- */
+
+int car_edit_version_next(const char *version, char *out, size_t cap)
+{
+    if (out == NULL || cap == 0) return 0;
+    out[0] = '\0';
+    if (version == NULL) return 0;
+    const char *start = version, *end = version + strlen(version);
+    while (*start == ' ' || *start == '\t') start++;
+    while (end > start && (end[-1] == ' ' || end[-1] == '\t')) end--;
+    const char *part[3];
+    size_t len[3];
+    int parts = 0;
+    for (const char *p = start; p < end;) {   /* digits, a dot, digits ...: at most three parts, none empty */
+        const char *q = p;
+        while (q < end && *q >= '0' && *q <= '9') q++;
+        if (q == p || parts == 3) return 0;
+        part[parts] = p;
+        len[parts++] = (size_t)(q - p);
+        if (q == end) break;
+        if (*q != '.' || q + 1 == end) return 0;
+        p = q + 1;
+    }
+    if (parts == 0) return 0;
+    char z[MOD_INI_VERSION_MAX + 2];   /* the third part plus one, as text: no number is too long to add to */
+    size_t zn = 0;
+    if (parts == 3) {
+        if (len[2] > MOD_INI_VERSION_MAX) return 0;
+        memcpy(z, part[2], len[2]);
+        zn = len[2];
+        size_t i = zn;
+        while (i > 0 && z[i - 1] == '9') z[--i] = '0';
+        if (i > 0) {
+            z[i - 1]++;
+        } else {   /* all nines: one more digit in front */
+            memmove(z + 1, z, zn++);
+            z[0] = '1';
+        }
+    } else {
+        z[zn++] = '1';
+    }
+    z[zn] = '\0';
+    const int n = snprintf(out, cap, "%.*s.%.*s.%s", (int)len[0], part[0], parts > 1 ? (int)len[1] : 1, parts > 1 ? part[1] : "0", z);
+    if (n < 0 || (size_t)n >= cap || n > MOD_INI_VERSION_MAX) {
+        out[0] = '\0';
+        return 0;
+    }
+    return 1;
+}

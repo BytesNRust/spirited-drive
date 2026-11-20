@@ -499,6 +499,33 @@ static void check_rehacer(void)
     app_rehacer_stop(a);
     for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
     CHECK(!app_rehacer_busy(a) && a->rehacer.run.stopped && strstr(a->status, "stopped") != NULL);
+    {   /* R2: the install said the files changed but not the version: the window offers X.Y.(Z+1); the button raises it in the card, saves and runs again */
+        char next[MOD_INI_VERSION_MAX + 1] = "";
+        CHECK(!app_rehacer_raise_offer(a, next, sizeof next));   /* the stopped run said nothing about it */
+        put("rk/rehacer.command", "#!/bin/sh\necho 'reinstalled carrera-84 1 (same version); its files changed but its version did not: raise version= in mod.ini'\n");
+        CHECK(app_rehacer(a));
+        CHECK(!app_rehacer_raise_offer(a, next, sizeof next));   /* not while it runs */
+        for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
+        CHECK(app_rehacer_raise_offer(a, next, sizeof next) && strcmp(next, "1.0.1") == 0);
+        CHECK(strstr(a->status, "raise") != NULL);               /* the status says what the button does */
+        CHECK(app_rehacer_raise_and_run(a));
+        CHECK(app_rehacer_busy(a) && !car_edit_modified(&a->edit) && strcmp(a->edit.now.value[CE_VERSION], "1.0.1") == 0);
+        char card[300] = "", cp[900];
+        snprintf(cp, sizeof cp, "%s/coche/mod.ini", rk);
+        FILE *c = fopen(cp, "rb");
+        if (c != NULL) card[fread(card, 1, sizeof card - 1, c)] = '\0', fclose(c);
+        CHECK(strstr(card, "version=1.0.1\n") != NULL && strstr(card, "year=1990\n") != NULL);   /* only the version changed */
+        for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
+        CHECK(app_rehacer_raise_offer(a, next, sizeof next) && strcmp(next, "1.0.2") == 0);   /* said again: the next step up */
+        CHECK_EQ_INT(car_edit_set(&a->edit, CE_YEAR, "1991"), 1);   /* other changes not saved: nothing is saved behind the author's back */
+        CHECK(!app_rehacer_raise_offer(a, next, sizeof next));
+        CHECK(!app_rehacer_raise_and_run(a) && strstr(a->status, "not saved") != NULL && !app_rehacer_busy(a));
+        CHECK(car_edit_undo(&a->edit) && !car_edit_modified(&a->edit));
+        CHECK_EQ_INT(car_edit_set(&a->edit, CE_VERSION, "beta"), 1);   /* a version that is not numbers: not offered (it is raised by hand) */
+        CHECK(app_save(a));
+        CHECK(!app_rehacer_raise_offer(a, next, sizeof next));
+        CHECK(!app_rehacer_raise_and_run(a) && !app_rehacer_busy(a));
+    }
     {   /* the backups: five are kept */
         char names[16][REHACER_STAMP_NAME];
         CHECK(rehacer_backups(rk, names, 16) >= 1);

@@ -343,7 +343,7 @@ static int run_requested(App *a, const Options *o)
         ok &= app_rehacer(a);
         if (ok && o->frames > 0) {
             while (app_rehacer_poll(a)) SDL_Delay(5);
-            ok &= a->rehacer.run.exit_code == 0;
+            ok &= a->rehacer.run.finished && a->rehacer.run.exit_code == 0;   /* a backup that failed never ran the script */
         }
         fprintf(ok ? stdout : stderr, "%s\n", a->status);
     }

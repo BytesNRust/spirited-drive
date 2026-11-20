@@ -363,6 +363,28 @@ static void check_by_text(void)
     car_edit_free(e);
 }
 
+/* the version one step up, for Rehacer's "Raise version" (owner test R2): X.Y.(Z+1), missing parts as 0; nothing for a version that is not numbers */
+static void check_version_next(void)
+{
+    static const struct { const char *from, *to; } UP[] = {
+        { "0.2", "0.2.1" }, { "1", "1.0.1" }, { "0.2.1", "0.2.2" }, { "1.2.9", "1.2.10" }, { " 0.3 ", "0.3.1" }, { "01.2", "01.2.1" }, { "2.0.99", "2.0.100" },
+    };
+    for (size_t i = 0; i < sizeof UP / sizeof UP[0]; i++) {
+        char out[MOD_INI_VERSION_MAX + 1] = "x";
+        CHECK_EQ_INT(car_edit_version_next(UP[i].from, out, sizeof out), 1);
+        if (strcmp(out, UP[i].to) != 0) fprintf(stderr, "version_next(%s) gave %s, expected %s\n", UP[i].from, out, UP[i].to);
+        CHECK(strcmp(out, UP[i].to) == 0);
+    }
+    static const char *const NOT[] = { "", "  ", "v1", "1.2.3.4", "1..2", ".1", "1.", "1.2.x", "1.-2", "1 2", "12345.12345.9999", NULL };
+    for (size_t i = 0; i < sizeof NOT / sizeof NOT[0]; i++) {
+        char out[MOD_INI_VERSION_MAX + 1] = "x";
+        CHECK_EQ_INT(car_edit_version_next(NOT[i], out, sizeof out), 0);
+        CHECK(out[0] == '\0');
+    }
+    char small[5];
+    CHECK_EQ_INT(car_edit_version_next("0.2", small, sizeof small), 0);   /* "0.2.1" does not fit in 5 bytes */
+}
+
 int main(void)
 {
     const char *tmp = getenv("TMPDIR");
@@ -380,6 +402,7 @@ int main(void)
     check_problems();
     check_a_card_that_is_full();
     check_by_text();
+    check_version_next();
     remove(path);
     rmdir(dir);
     return TEST_REPORT();

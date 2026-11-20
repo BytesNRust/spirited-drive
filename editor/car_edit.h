@@ -92,4 +92,9 @@ int car_edit_save(CarEdit *e, char *why, size_t why_cap);
 /* The edit of `key` (as "year=1984") for a headless run: sets the field, a color list is not reachable this way. 1, or 0 when the key is not an editable one. */
 int car_edit_set_by_text(CarEdit *e, const char *key_value);
 
+/* The version one step up, for Rehacer's "Raise version" (owner test R2): "X.Y.Z" gives "X.Y.(Z+1)", and a version with fewer parts takes them as 0 ("0.2" gives
+ * "0.2.1", "1" gives "1.0.1"). Spaces round it are dropped. 1 with `out`; 0 with `out` "" when the version is not one to three dot-separated numbers or the
+ * result does not fit in `cap` or the card's MOD_INI_VERSION_MAX: such a version is raised by hand. */
+int car_edit_version_next(const char *version, char *out, size_t cap);
+
 #endif
