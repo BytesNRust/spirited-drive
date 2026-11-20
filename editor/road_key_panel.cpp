@@ -1,4 +1,4 @@
-// The Road key block under the Points table (phase 2 of the editor): the values a road key on the selected point sets on each side of the road, Left | Right.
+// The Road key window, a tab beside Node (phase 2 of the editor): the values a road key on the selected point sets on each side of the road, Left | Right.
 // A value the point inherits from the keys before shows dimmed; choosing one sets it on this point's key, right-click lets it inherit again. Step 2b's row is
 // the shoulder's surface; step 3's are below it: the shoulder's width, how far the wall is, its kind and the fence.
 #include "panels.h"
@@ -10,12 +10,10 @@
 
 namespace {
 
-const int ROWS = 5;   // the rows of the block's table: the shoulder's surface (2b), then step 3's four
-
 // one side's shoulder surface: a combo Verge / Tarmac showing what the point has, dimmed when inherited; right-click on a set one inherits again
 void surface_cell(App *a, int point, int side, TraceSurface set, TraceSurface shown)
 {
-    static const char *const NAMES[] = { "Verge", "Tarmac" };
+    static const char *const NAMES[] = { "Off-road", "Asphalt" };   // TRACE_SURFACE_VERGE, TRACE_SURFACE_TARMAC
     const bool own = set != TRACE_SURFACE_INHERIT;
     int choice = shown == TRACE_SURFACE_TARMAC ? 1 : 0;
     ImGui::PushID(side);
@@ -24,7 +22,7 @@ void surface_cell(App *a, int point, int side, TraceSurface set, TraceSurface sh
     if (ImGui::Combo("##surface", &choice, NAMES, 2)) app_set_point_surface(a, point, side, choice == 1 ? TRACE_SURFACE_TARMAC : TRACE_SURFACE_VERGE);
     if (!own) ImGui::PopStyleColor();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s\nVerge: the verge material of the Track panel, which slows a car off the road.\nTarmac: the road's own surface, no slow-down "
+        ImGui::SetTooltip("%s\nAsphalt: grips as the road does.\nOff-road: the Verge material of the Track panel; the car loses grip "
                           "(the player's car; the rivals do not feel either).",
                           own ? "Set on this point. Right-click to let it inherit again." : "Inherited from the points before. Choose to set it on this point.");
     if (own && ImGui::BeginPopupContextItem("##inherit")) {
@@ -120,20 +118,14 @@ void side_rows(App *a, int point, const TraceKey *key, double (*values)[2])
 
 }   // namespace
 
-float road_key_panel_height()
-{
-    const ImGuiStyle &st = ImGui::GetStyle();
-    return ImGui::GetTextLineHeightWithSpacing() + (ROWS + 1) * (ImGui::GetFrameHeight() + 2 * st.CellPadding.y) + 2 * st.ItemSpacing.y;
-}
-
 void road_key_panel(App *a)
 {
     const int point = a->selected;
     if (point < 0 || point >= a->trace.count) {
-        ImGui::TextDisabled("Road key: select a point to set the road from there on, each side.");
+        ImGui::TextDisabled("Select a point to set its road profile.");
         return;
     }
-    ImGui::Text("Road key on point %d", point);
+    ImGui::Text("%s at point %d", PANEL_ROAD_KEY, point);
     const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
     const TraceKey *key = at >= 0 ? &a->trace.keys[at] : nullptr;
     // what the point has, each side, as the keys up to it make it (a key after it changes nothing here)

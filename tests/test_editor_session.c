@@ -292,7 +292,7 @@ static void check_surface_app(void)
     CHECK(!a->art_generic);
     CHECK(!app_tarmac_art_note(a, note, sizeof note));
     app_set_point_surface(a, 1, TRACK_GEN_LEFT, TRACE_SURFACE_TARMAC);
-    CHECK(app_tarmac_art_note(a, note, sizeof note) && strstr(note, "tarmac") != NULL);
+    CHECK(app_tarmac_art_note(a, note, sizeof note) && strstr(note, "asphalt shoulder") != NULL);
     app_set_point_surface(a, 1, TRACK_GEN_LEFT, TRACE_SURFACE_VERGE);   /* a key, but no tarmac in it */
     CHECK(!app_tarmac_art_note(a, note, sizeof note));
     app_free(a);

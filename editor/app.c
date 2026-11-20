@@ -662,7 +662,7 @@ int app_tarmac_art_note(const App *a, char *text, size_t cap)
     for (int i = 0; i < a->trace.key_count; ++i) {
         const TraceKey *k = &a->trace.keys[i];
         if ((k->has & TRACE_KEY_SHOULDER_SURFACE) && (k->shoulder_l_surface == TRACE_SURFACE_TARMAC || k->shoulder_r_surface == TRACE_SURFACE_TARMAC)) {
-            snprintf(text, cap, "a tarmac shoulder draws with bank 4 of the art (%s), which is asphalt only in Studio's own GENERIC.FAM: check it in the game",
+            snprintf(text, cap, "an asphalt shoulder (Road profile) draws with bank 4 of the art (%s), which is asphalt only in Studio's own GENERIC.FAM: check it in the game",
                      a->project.art);
             return 1;
         }
