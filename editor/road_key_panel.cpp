@@ -6,10 +6,22 @@
 #include "imgui.h"
 
 #include <float.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
 namespace {
+
+const char *const SURFACE_LABEL = "Shoulder surface";   // the first row's label (step 2b)
+const char *const LABELS[TRACE_SIDE_FIELDS] = { "Shoulder (m)", "Barrier from edge (m)", "Barrier", "Fence" };   // step 3's rows
+
+// the label column's width: its widest label, so none is cut
+float label_width()
+{
+    float widest = ImGui::CalcTextSize(SURFACE_LABEL).x;
+    for (int field = 0; field < TRACE_SIDE_FIELDS; ++field) widest = fmaxf(widest, ImGui::CalcTextSize(LABELS[field]).x);
+    return widest;
+}
 
 // one side's shoulder surface: a combo Verge / Tarmac showing what the point has, dimmed when inherited; right-click on a set one inherits again
 void surface_cell(App *a, int point, int side, TraceSurface set, TraceSurface shown)
@@ -112,7 +124,6 @@ void fence_cell(App *a, int point, int side, bool own, double shown)
 // the table is drawn: a cell that changes the keys this frame (and may move or free them) changes nothing the later cells read
 void side_rows(App *a, int point, const TraceKey *key, const double values[TRACE_SIDE_FIELDS][2])
 {
-    static const char *const LABELS[TRACE_SIDE_FIELDS] = { "Shoulder (m)", "Barrier from edge (m)", "Barrier", "Fence" };
     static const char *const WHAT[2] = { "How far the shoulder reaches past the road's edge.",
                                          "How far past the road's edge the barrier is: it stops the car there, and is not drawn. At most 31.875 m from the centre." };
     for (int field = 0; field < TRACE_SIDE_FIELDS; ++field) {
@@ -147,6 +158,13 @@ bool point_side_values(const App *a, int point, double out[TRACE_SIDE_FIELDS][2]
 
 }   // namespace
 
+float road_key_panel_width()
+{
+    const ImGuiStyle &st = ImGui::GetStyle();
+    const float combo = ImGui::CalcTextSize("Off-road").x + ImGui::GetFrameHeight() + 2 * st.FramePadding.x;   // the widest cell: a surface combo and its arrow
+    return label_width() + 2 * combo + 6 * st.CellPadding.x + 4 + st.ScrollbarSize + 2 * st.WindowPadding.x;
+}
+
 void road_key_panel(App *a)
 {
     const int point = a->selected;
@@ -176,13 +194,13 @@ void road_key_panel(App *a)
     }
     track_trace_point_surfaces(a->trace.keys, a->trace.key_count, point + 1, left, right);
     if (ImGui::BeginTable("road_key", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
-        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 120);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, label_width());
         ImGui::TableSetupColumn("Left");
         ImGui::TableSetupColumn("Right");
         ImGui::TableHeadersRow();
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextUnformatted("Shoulder surface");
+        ImGui::TextUnformatted(SURFACE_LABEL);
         const bool sets = key != nullptr && (key->has & TRACE_KEY_SHOULDER_SURFACE);
         ImGui::TableSetColumnIndex(1);
         surface_cell(a, point, TRACK_GEN_LEFT, sets ? key->shoulder_l_surface : TRACE_SURFACE_INHERIT, left[point]);

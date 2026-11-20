@@ -15,6 +15,7 @@ extern "C" {
 #include "shortcut_keys.h"
 #include "viewport.h"
 
+#include <algorithm>
 #include <stdio.h>
 
 static char g_ini[APP_PATH];
@@ -102,20 +103,28 @@ void ui_event(const SDL_Event *ev)
 
 namespace {
 
+// the first-run track layout's parts of the window (right column) and of the bottom (Road profile): at least the first, at most the second
+const float RIGHT_LEAST = 0.33f, RIGHT_MOST = 0.45f, PROFILE_LEAST = 0.5f, PROFILE_MOST = 0.7f;
+
 // the layout of a first run (no ini): the top view in the middle, the limits and the problems (two tabs) under it, the project and the points to its right
 void default_layout(ImGuiID dock)
 {
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
+    // the right column and the Road profile as wide as their panels need (all the Points columns, the profile's combos whole), within limits that keep
+    // the view the larger part; the window's width is what DockBuilderSplitNode's ratios are of
+    const float wide = ImGui::GetMainViewport()->Size.x;
+    const float right_part = std::clamp(points_panel_width() / wide, RIGHT_LEAST, RIGHT_MOST);
+    const float profile_part = std::clamp(road_key_panel_width() / (wide * (1.0f - right_part)), PROFILE_LEAST, PROFILE_MOST);
     ImGuiID right = 0, centre = dock, bottom = 0, points = 0, node = 0;
-    right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, 0.33f, nullptr, &centre);
+    right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, right_part, nullptr, &centre);
     bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down, 0.30f, nullptr, &centre);
     points = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.55f, nullptr, &right);
     ImGui::DockBuilderDockWindow("Viewport", centre);
     ImGui::DockBuilderDockWindow(PANEL_LIMITS, bottom);
     ImGui::DockBuilderDockWindow(PANEL_PROBLEMS, bottom);   // its own tab beside Limits
-    const ImGuiID profile = ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Right, 0.5f, nullptr, &bottom);   // the Road profile beside them: Node stays in sight
+    const ImGuiID profile = ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Right, profile_part, nullptr, &bottom);   // the Road profile beside them: Node stays in sight
     ImGui::DockBuilderDockWindow(PANEL_ROAD_KEY, profile);
     const ImGuiID track = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.42f, nullptr, &right);   // the road's width and verge material above the project
     ImGui::DockBuilderDockWindow(PANEL_TRACK, track);

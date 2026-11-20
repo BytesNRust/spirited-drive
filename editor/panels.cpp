@@ -21,7 +21,11 @@ const char *const PANEL_POINTS = "Points", *const PANEL_LIMITS = "Limits", *cons
 namespace {
 
 const ImVec4 BAD_TEXT(1.0f, 0.35f, 0.35f, 1.0f), WARN_TEXT(1.0f, 0.69f, 0.13f, 1.0f), OK_TEXT(0.47f, 0.86f, 0.55f, 1.0f);
-const float POINT_COL_NUMBER = 28, POINT_COL_DIST = 50, POINT_COL_TURN = 54;   // the Points table's fixed columns: #, dist m, turn ("R 12.3°")
+const float POINT_COL_NUMBER = 28;   // the Points table's # column
+// the Points table's other columns: header, and the widest value it usually shows (a column is never narrower than either)
+const int POINT_COLS = 6;
+const char *const POINT_HEADERS[POINT_COLS] = { "x (m)", "z (m)", "w (m)", "bank (\xc2\xb0)", "dist m", "turn" };
+const char *const POINT_SAMPLES[POINT_COLS] = { "-1234.5", "-1234.5", "30.00", "-60.0", "12345", "R 12.3\xc2\xb0" };
 const int POINTS_MIN_ROWS = 4;   // the Points table shows at least these rows: in a short window the panel scrolls instead
 const int PATH_MAX_SHOWN = 1024;   // a path line's buffer (APP_PATH and more: elided, it is shorter)
 const int PROBLEM_ROWS = 200;   // the nodes listed in Problems; the count says how many more
@@ -41,6 +45,25 @@ static void path_line(const char *label, const char *path, bool dim)
 }
 
 static ImGuiID points_dock = 0;   // the dock node Points is in, where a layout kept from before the Node window puts it as a tab
+
+// the Points table's columns' least widths (need) and their sum with the # column, the cells' padding and the borders: the table's least inner width
+static float points_table_inner(float need[POINT_COLS])
+{
+    const ImGuiStyle &st = ImGui::GetStyle();
+    float inner = POINT_COL_NUMBER + 2 * st.CellPadding.x + 8;
+    for (int c = 0; c < POINT_COLS; ++c) {
+        need[c] = fmaxf(ImGui::CalcTextSize(POINT_HEADERS[c]).x, ImGui::CalcTextSize(POINT_SAMPLES[c]).x);
+        inner += need[c] + 2 * st.CellPadding.x;
+    }
+    return inner;
+}
+
+float points_panel_width()
+{
+    float need[POINT_COLS];
+    const ImGuiStyle &st = ImGui::GetStyle();
+    return points_table_inner(need) + 2 * st.ScrollbarSize + 2 * st.WindowPadding.x;   // the table's scroll bar and the panel's own (a short window scrolls it)
+}
 
 // The road's bank at point i (column 4): the key's own, or (dimmed) what the keys around make it; amber over TRACE_BANK_WARN_DEG, red over the most the
 // generator builds. Typing or dragging sets a key, right-click clears it.
@@ -95,19 +118,16 @@ void points_panel(App *a)
         const float row = ImGui::GetFrameHeight() + 2 * st.CellPadding.y;
         const float least = (POINTS_MIN_ROWS + 1) * row + st.ScrollbarSize + 2;   // the rows, the header, a sideways scroll bar, the borders
         const float room = ImGui::GetContentRegionAvail().y;
-        // the columns never narrower than a value ("-1234.5") or their header: a narrow panel scrolls the table sideways, a wide one stretches them
-        const float value = ImGui::CalcTextSize("-1234.5").x, inner = POINT_COL_NUMBER + 4 * value + POINT_COL_DIST + POINT_COL_TURN + 14 * st.CellPadding.x + 8;
-        const float wide = ImGui::GetContentRegionAvail().x;
+        // the columns never narrower than their header or a value: a narrow panel scrolls the table sideways, a wide one stretches them (each by its need,
+        // so none gets less than it). The vertical scroll bar's width is left out, or the stretched table would scroll sideways by that much.
+        float need[POINT_COLS];
+        const float inner = points_table_inner(need);
+        const float wide = ImGui::GetContentRegionAvail().x - st.ScrollbarSize;
         if (ImGui::BeginTable("points", 7, ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders,
                               ImVec2(0, room > least ? room : least), wide > inner ? wide : inner)) {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, POINT_COL_NUMBER);
-            ImGui::TableSetupColumn("x (m)");
-            ImGui::TableSetupColumn("z (m)");
-            ImGui::TableSetupColumn("w (m)");   // the road's width: short, so a narrow panel does not cut it
-            ImGui::TableSetupColumn("bank (\xc2\xb0)");   // the road's bank: amber over 25, red over 35
-            ImGui::TableSetupColumn("dist m", ImGuiTableColumnFlags_WidthFixed, POINT_COL_DIST);
-            ImGui::TableSetupColumn("turn", ImGuiTableColumnFlags_WidthFixed, POINT_COL_TURN);
+            for (int c = 0; c < POINT_COLS; ++c) ImGui::TableSetupColumn(POINT_HEADERS[c], ImGuiTableColumnFlags_WidthStretch, need[c]);   // x, z, w, bank, dist m, turn
             ImGui::TableHeadersRow();
             shown = a->selected;   // the table is drawn: it has scrolled to what was selected from elsewhere
             ImGuiListClipper clipper;

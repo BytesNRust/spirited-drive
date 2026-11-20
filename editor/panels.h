@@ -12,6 +12,8 @@ extern "C" {
 }
 
 void points_panel(App *a);
+float points_panel_width();   // the Points panel's width that shows all its columns (the first-run layout gives it that much when it can)
+float road_key_panel_width();   // the Road profile window's width that shows its labels and both sides' combos whole
 void road_key_panel(App *a);   // the selected point's road key, each side (Left | Right): the Road profile window's content
 void road_key_window(App *a);   // the Road profile window (PANEL_ROAD_KEY), beside Limits and Problems
 void limits_panel(App *a);
