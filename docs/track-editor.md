@@ -113,12 +113,16 @@ Both run the game (the one Studio found; Locate game if it is not there) on a sc
 Restomod, no extra liveries, render scale 1, removed when the run ends): the player's own folder and the installed game are never touched. The project's masks are
 in front of the game's own (`TNFS_CAR_MASKS=<project>/car_masks`, and `TNFS_DASH_MASKS` for a car you drive); the person's own `TNFS_*` variables are dropped.
 **Day** or **Night** (Night is `light_time=night` and `light_effects=1`), and a track from the list (default Rusty Springs, the night reference; Lost Vegas has no
-time of day). A car you drive is raced alone (`--car N --racers 1`). A traffic or police car is raced in a race with traffic (`--type 1`), which runs only on the
-City, Coastal and Alpine stages (the circuits are greyed for it; default Coastal 1). **Test in race** opens the game's window; **Stop** ends it. **Race photo** runs
+time of day). A car you drive is raced alone (`--car N --racers 1`; N is the car's model for a photo, and the car menu's number for the window, whose race is
+Control Central's: the game turns that number into the model by its own table, 00426620). A traffic or police car is raced in a race with traffic (`--type 1`), which
+runs only on the City, Coastal and Alpine stages (the circuits are greyed for it; default Coastal 1); the player drives the Toyota Supra Turbo, and the window says so
+and where the tested car is: the window's traffic is the game's own draw, so a given traffic car is on the road in some races and not in others. **Test in race** opens the game's window; **Stop** ends it. **Race photo** runs
 the game headless and shows one frame in the window next to the masks (200 ticks in for a car you drive, 800 for a traffic car, 250 for the police car). For a
 traffic or police car the camera has to follow the slot the car has in the race (`TNFS_FOLLOW_CAR`): the traffic's models are drawn by the race's seed, so a
 probe run (1 tick) per seed reads the game's `race car: slot N is STEM` lines and Studio tries the game's own seed and then 24 more (`TNFS_DRIVE_SEED`) until the car
-is in the draw; if none has it there is no photo, and the window says so. The police car is put 15 nodes behind the player, chasing (`TNFS_POLICE_NEAR`), so its camera
+is in the draw; if none has it there is no photo, and the window says so. A traffic car waits parked high above the track until the player comes near, so the shot asks
+the game to wait until the car has been on the road 64 ticks (`TNFS_FOLLOW_SETTLE`, past the 800); if it stays parked in a draw the next draw is tried (4 such draws at most), and the
+summary says the tick of the frame. The police car is put 15 nodes behind the player, chasing (`TNFS_POLICE_NEAR`), so its camera
 has it at any tick. Studio cannot see whether the car is on screen: look at the picture. A game older than this Studio does not log the slots: the photo says so, and
 Test in race still runs. The game's log (its output and its own `spirited-drive.log`) is in the window, errors red, the masks it took green; the game looks for every
 car's mask in the override first and says "cannot read" for the cars the project has none for: those lines are dim, they are expected. `--race-photo` takes the

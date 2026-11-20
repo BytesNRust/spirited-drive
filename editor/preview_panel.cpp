@@ -136,10 +136,10 @@ void night_controls(App *a)
     ImGui::SameLine();
     if (ImGui::SmallButton("100 %")) n.light = 100;
     ImGui::Checkbox("Headlights + side lights", reinterpret_cast<bool *>(&n.lights));
-    ImGui::SameLine();
-    ImGui::Checkbox("Brake", reinterpret_cast<bool *>(&n.brake));
     ImGui::EndDisabled();
     if (!n.night && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Lights only glow in low light: choose Night.");
+    ImGui::SameLine();
+    ImGui::Checkbox("Brake", reinterpret_cast<bool *>(&n.brake));   // by day too, as in the race
     ImGui::SameLine();
     ImGui::Checkbox("Reverse", reinterpret_cast<bool *>(&n.reverse));
     if (shown.has_police) {

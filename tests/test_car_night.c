@@ -71,7 +71,7 @@ static void test_reverse_by_day(void)
 {
     CarNightState s;
     memset(&s, 0, sizeof s);
-    s.reverse = 1, s.lights = 1, s.brake = 1;   /* by day nothing but the reversing light glows */
+    s.reverse = 1, s.lights = 1;   /* by day the head and position lights do not glow, the reversing light does */
     uint8_t rgba[32], px[3];
     CHECK(car_night_texture(INDEX, MASK, 8, 1, palette, &s, rgba));
     rgb_of(rgba, 4, px);
@@ -79,6 +79,27 @@ static void test_reverse_by_day(void)
     rgb_of(rgba, 1, px);
     CHECK(!same(px, up(LAMP_HEADLIGHT_R), up(LAMP_HEADLIGHT_G), up(LAMP_HEADLIGHT_B)));
     CHECK(car_night_lamp_state(&s) == (LAMP_DAY | LAMP_REVERSING));
+}
+
+/* L1 (the owner's test): by day the brake lights light as in the race (car_lights.c writes the car's lamp entry with the lit row in any light), the head and position
+ * lights do not */
+static void test_brake_by_day(void)
+{
+    CarNightState s;
+    memset(&s, 0, sizeof s);
+    s.brake = 1, s.lights = 1;
+    uint8_t rgba[32], px[3];
+    CHECK(car_night_texture(INDEX, MASK, 8, 1, palette, &s, rgba));
+    rgb_of(rgba, 3, px);
+    CHECK(same(px, up(LAMP_BRAKE_R), up(LAMP_BRAKE_G), up(LAMP_BRAKE_B)));
+    rgb_of(rgba, 1, px);
+    CHECK(!same(px, up(LAMP_HEADLIGHT_R), up(LAMP_HEADLIGHT_G), up(LAMP_HEADLIGHT_B)));
+    rgb_of(rgba, 2, px);
+    CHECK(!same(px, up(LAMP_POSITION_R), up(LAMP_POSITION_G), up(LAMP_POSITION_B)));
+    s.brake = 0;   /* off by day: the plain texel */
+    CHECK(car_night_texture(INDEX, MASK, 8, 1, palette, &s, rgba));
+    rgb_of(rgba, 3, px);
+    CHECK(!same(px, up(LAMP_BRAKE_R), up(LAMP_BRAKE_G), up(LAMP_BRAKE_B)) && !same(px, up(LAMP_POSITION_R), up(LAMP_POSITION_G), up(LAMP_POSITION_B)));
 }
 
 static void test_light_at_car(void)
@@ -135,6 +156,7 @@ int main(void)
     test_day_is_the_palette();
     test_lamps_at_night();
     test_reverse_by_day();
+    test_brake_by_day();
     test_light_at_car();
     test_tint_and_police();
     return TEST_REPORT();

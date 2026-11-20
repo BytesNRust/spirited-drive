@@ -1,6 +1,6 @@
 /* Test in race and Race photo (dep59 car editor E2): the game (the one Studio found) run on a scratch player folder with the project's masks in front of its own
  * (TNFS_CAR_MASKS, TNFS_DASH_MASKS), never on the player's own folder and never on the installed game. Kinds:
- *  - a drivable original car: the player drives it (--car N, alone on the track);
+ *  - a drivable original car: the player drives it (--car N, alone on the track; N is the model for a photo, the menu's number in a window: car_race_menu_pick);
  *  - a traffic car or the police car: a race with traffic (--type 1, on a stage track: the circuits have none) and the camera following the slot the car has in it.
  *    The traffic's models are drawn by the race's seed, so Studio tries seeds (TNFS_DRIVE_SEED) until the car is in the draw; the game's own log says which car is in
  *    which slot ("race car: slot N is STEM").
@@ -23,12 +23,24 @@ enum {
     RACE_TICKS_TRAFFIC = 800, /* a traffic car, after the start has put it on the road (found by looking at frames of the follow camera on slots 3 and 4: not on screen before 650) */
     RACE_TICKS_POLICE = 250,  /* the police car, put behind the player chasing (RACE_POLICE_NEAR nodes), so the camera on it has it at any tick */
     RACE_POLICE_NEAR = 15,
-    RACE_SEEDS = 24,          /* the seeds tried to find a traffic car in the draw */
+    RACE_SEEDS = 24,          /* the seeds tried to find a traffic car in the draw (and on the road at the frame) */
+    RACE_PARKED_DRAWS = 4,    /* draws tried where the traffic car stayed parked before the photo gives up (each such run is up to 4800 ticks long) */
+    RACE_FOLLOW_SETTLE = 64,  /* a traffic car's photo waits until the car has been on the road this many ticks (TNFS_FOLLOW_SETTLE: it is parked off the road before) */
     RACE_SEED_FIRST = 0x2b68, /* the game's own fixed seed is 0x2b67; the seeds above it draw other models, the small ones draw one model for every slot */
     RACE_SLOTS = 9,
     RACE_LOG_MAX = 131072,
-    RACE_PHOTO_W = 640, RACE_PHOTO_H = 480
+    RACE_PHOTO_W = 640, RACE_PHOTO_H = 480,
+    RACE_TRAFFIC_PLAYER_MODEL = 0  /* the car the player drives in a race with a traffic or police car to test: the Supra (model 0) */
 };
+
+/* The game's --car is two numbers: a photo (--node, --screenshot) takes the car's model 0..7, a race in a window is Control Central's and takes the menu's number,
+ * which 00426620 turns into the model (the menu's 0 is the RX-7, model 7). The menu's number of a model; -1 for one that is not 0..7. */
+int car_race_menu_pick(int model);
+/* the label of the car the player drives when `car` is tested: the car itself when it is drivable, else RACE_TRAFFIC_PLAYER_MODEL's; NULL for no car */
+const char *car_race_player_label(const ExportCar *car);
+/* what Test in race (the window) of `car` on `track` (a stem of the list) is, in a sentence or three: the car the player drives and, for a traffic or police car,
+ * where that car is (the window's traffic is the game's own draw, so not every race has a given traffic car). "" for no car or no such track. */
+void car_race_note(const ExportCar *car, const char *track, char *out, size_t cap);
 
 typedef struct { const char *stem, *label; int stage; } RaceTrack;
 /* the tracks of the picker: the stages (City, Coastal, Alpine: traffic runs there) first, then the circuits */
@@ -105,6 +117,7 @@ typedef struct {
     char *log;                       /* what the finished runs wrote (and the job's own lines), RACE_LOG_MAX at most; the run's own is run.log */
     size_t log_len;
     int probes;                      /* seeds tried */
+    int parked;                      /* draws that had the car, but where it stayed parked off the road until the frame */
     int finished;                    /* the job ended (ok or not): `summary` says how */
     int ok;
     char summary[400];
