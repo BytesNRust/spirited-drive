@@ -16,6 +16,9 @@ TracePoint pts_heading(const TracePoint *p, int n, int i);
  * continues the heading at the anchor; the tail p(anchor..n) follows from the block's last point. A new array of n + m - 1 points,
  * NULL when memory is out or the arguments are not a block and a point of p. */
 TracePoint *pts_paste(const TracePoint *p, int n, int anchor, const TracePoint *block, int m);
+/* the same with the block's own headings where it starts and ends (unit vectors): an arc's tangents, which its chords are half a step off.
+ * The block's start heading is turned onto the road's at the anchor, the tail turns by the block's end heading less its start heading. */
+TracePoint *pts_paste_tangents(const TracePoint *p, int n, int anchor, const TracePoint *block, int m, TracePoint start, TracePoint end);
 
 /* p with p[s..e] reflected about the line through p[s] along the heading at s (left/right), or about the line through p[s] square to it
  * (front/back); the tail follows. A new array of n points (NULL when memory is out or s..e is not a run of p). */

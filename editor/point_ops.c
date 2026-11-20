@@ -49,20 +49,26 @@ static void tail_follows(TracePoint *q, const TracePoint *p, int n, int e, Trace
 
 static int run_ok(int n, int s, int e) { return n >= 2 && s >= 0 && e < n && s < e; }
 
-TracePoint *pts_paste(const TracePoint *p, int n, int anchor, const TracePoint *block, int m)
+TracePoint *pts_paste_tangents(const TracePoint *p, int n, int anchor, const TracePoint *block, int m, TracePoint start, TracePoint end)
 {
     if (n < 1 || anchor < 0 || anchor >= n || m < 2) return NULL;
     TracePoint *q = malloc(sizeof *q * (size_t)(n + m - 1));
     if (q == NULL) return NULL;
     memcpy(q, p, sizeof *q * (size_t)(anchor + 1));
-    const TracePoint road = pts_heading(p, n, anchor), first = pts_heading(block, m, 0);
-    const double r = (road.x == 0 && road.z == 0) || (first.x == 0 && first.z == 0) ? 0 : angle(road) - angle(first);
+    const TracePoint road = pts_heading(p, n, anchor);
+    const int no_road = road.x == 0 && road.z == 0, no_start = start.x == 0 && start.z == 0;
+    const double r = no_road || no_start ? 0 : angle(road) - angle(start);
     for (int i = 1; i < m; ++i) q[anchor + i] = add(p[anchor], turn(sub(block[i], block[0]), r));
-    const int end = anchor + m - 1;   /* the tail, which left p[anchor], leaves the block's end with the same turn */
-    const TracePoint now = pts_heading(q, end + 1, end);
-    const double rt = (road.x == 0 && road.z == 0) || (now.x == 0 && now.z == 0) ? 0 : angle(now) - angle(road);
-    for (int i = anchor + 1; i < n; ++i) q[end + i - anchor] = add(q[end], turn(sub(p[i], p[anchor]), rt));
+    const int last = anchor + m - 1;   /* the tail, which left p[anchor], leaves the block's end turned as much as the block turns */
+    const double rt = no_start || (end.x == 0 && end.z == 0) ? 0 : angle(end) - angle(start);
+    for (int i = anchor + 1; i < n; ++i) q[last + i - anchor] = add(q[last], turn(sub(p[i], p[anchor]), rt));
     return q;
+}
+
+TracePoint *pts_paste(const TracePoint *p, int n, int anchor, const TracePoint *block, int m)
+{
+    if (m < 2) return NULL;
+    return pts_paste_tangents(p, n, anchor, block, m, pts_heading(block, m, 0), pts_heading(block, m, m - 1));
 }
 
 static TracePoint *mirror(const TracePoint *p, int n, int s, int e, int square)
