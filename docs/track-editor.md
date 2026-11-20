@@ -60,6 +60,12 @@ the nodes themselves, one row each, red first and then by node number: "node 80:
 not look right". A click on a row selects the nearest point and centres the Viewport on that node. With none it says "No problems". Both windows are
 dockable like the others and their layout is kept.
 
+Both also say in red, above the rest, when the road is too short for a stage: a stage's race ends 181 nodes (about 1.1 km) before the road's last
+node and the grid's front row starts at node 32, so a stage needs at least 214 nodes (about 1.29 km) of road for its finish to lie past the front row;
+under that the race ends at its first tick with the car standing. The line gives the road's length and what it needs ("too short for a stage: 1.13 km
+of road (188 nodes); a stage needs 1.29 km (214 nodes): ..."). The numbers come from the game's own constants (`core/formats/race_stage.h`, which the
+race reads too). A new project's 200 m straight is too short: make it longer.
+
 ## Start screen, cars, and projects: New, Open, recent, and unsaved changes
 
 Studio has one project open, a track or a car. With nothing to reopen it shows a **start screen**: Open car..., Open track..., New track..., Export original

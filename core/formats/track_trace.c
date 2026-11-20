@@ -1,5 +1,7 @@
 #include "formats/track_trace.h"
 
+#include "formats/race_stage.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -244,6 +246,24 @@ int track_trace_problems(const TrackGenNode *nodes, int count, const uint8_t *fl
 }
 
 #define DEGREE "\xc2\xb0"
+
+int track_trace_stage_min_nodes(void)
+{
+    return RACE_STAGE_END + RACE_GRID_FRONT + 2;
+}
+
+int track_trace_stage_short(int node_count, char *out, size_t cap)
+{
+    if (cap > 0) out[0] = '\0';
+    if (node_count >= track_trace_stage_min_nodes()) return 0;
+    const double node_km = TRACE_METRES(TRACK_GEN_NODE_LENGTH / 65536.0) / 1000.0;   /* the spacing, 16.16 */
+    const int road = node_count > 0 ? node_count - 1 : 0, needs = track_trace_stage_min_nodes() - 1;
+    if (cap > 0)   /* a cut text is still the reason: snprintf ends it within cap */
+        (void)snprintf(out, cap, "too short for a stage: %.2f km of road (%d nodes); a stage needs %.2f km (%d nodes): the race ends %d nodes (%.2f km) before the "
+                                 "road's last node, and the front row starts at node %d", road * node_km, road, needs * node_km, needs, RACE_STAGE_END,
+                       RACE_STAGE_END * node_km, RACE_GRID_FRONT);
+    return 1;
+}
 
 void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap)
 {

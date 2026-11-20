@@ -1,6 +1,7 @@
 #include "game/race/car_registry.h"
 #include "game/race/track_traits.h"
 #include "game/race/ai_setup.h"
+#include "formats/race_stage.h"
 
 #include "game/race/ai_lanes.h"
 #include "game/race/ai_profiles.h"
@@ -15,7 +16,7 @@ enum {
     TRACK_FLAG_4 = 4,
     GRID_LANE_NODE = 10,    /* whose lanes give the gap between the two columns */
     GRID_NARROW_NODE = 20,  /* 2 lanes left and 1 right: the left column moves a lane over */
-    GRID_FRONT = 0x20,      /* the front row's node */
+    GRID_FRONT = RACE_GRID_FRONT,   /* the front row's node (core/formats/race_stage.h, shared with the Studio) */
     PAIRED_RACERS = 2       /* up to this, two cars a row */
 };
 

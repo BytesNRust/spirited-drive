@@ -1,6 +1,7 @@
 /* Track trace tests: control points become nodes (a straight stays straight, an arc turns by its angle, a tight arc is flagged for its
  * radius, a corner for its turn), the faults are named, and the nodes go through track_generate_nodes into a TRI that opens. */
 #include "formats/track_trace.h"
+#include "formats/race_stage.h"
 #include "formats/track_gen.h"
 #include "formats/track_template.h"
 #include "formats/tri.h"
@@ -393,6 +394,27 @@ static void test_turn_degrees(void)
     CHECK(fabs(track_trace_turn_degrees(16000, 100) - 10.6348) < 0.001);   /* across the wrap */
 }
 
+/* A road too short for a stage: its race ends RACE_STAGE_END nodes before the last (race_sim.c) and the front row starts at node RACE_GRID_FRONT
+ * (ai_setup.c), so the finish has to lie past the front row; dev3's 188-node trace finished the race at tick 0. */
+static void test_stage_too_short(void)
+{
+    CHECK_EQ_INT(RACE_STAGE_END, 0xb5);   /* the game's own: 00455a5c */
+    CHECK_EQ_INT(RACE_GRID_FRONT, 0x20);
+    const int least = track_trace_stage_min_nodes();
+    CHECK_EQ_INT(least, RACE_STAGE_END + RACE_GRID_FRONT + 2);   /* the trace has one node more than the game's road */
+    char text[300];
+    CHECK(track_trace_stage_short(189, text, sizeof text));   /* a trace has 4 x segments + 1 nodes: dev3's road of 188 */
+    CHECK(strstr(text, "too short for a stage") != NULL && strstr(text, "188 nodes") != NULL && strstr(text, "214 nodes") != NULL);
+    CHECK(strstr(text, "1.13 km") != NULL && strstr(text, "1.29 km") != NULL);   /* 188 and 214 nodes of 6.03 m */
+    CHECK(strstr(text, "181 nodes") != NULL && strstr(text, "node 32") != NULL);
+    CHECK(track_trace_stage_short(213, text, sizeof text) && !track_trace_stage_short(217, text, sizeof text));   /* the counts a trace can have either side */
+    CHECK(track_trace_stage_short(least - 1, text, sizeof text));
+    CHECK(!track_trace_stage_short(least, text, sizeof text) && text[0] == '\0');
+    CHECK(!track_trace_stage_short(2000, text, sizeof text));
+    char small[16];
+    CHECK(track_trace_stage_short(100, small, sizeof small) && strlen(small) == sizeof small - 1);   /* cut short, still said */
+}
+
 int main(void)
 {
     test_straight();
@@ -408,5 +430,6 @@ int main(void)
     test_generates_tri();
     test_turn_degrees();
     test_turned_generic();
+    test_stage_too_short();
     return TEST_REPORT();
 }
