@@ -3,6 +3,7 @@
 #ifndef TNFS_RACE_PALETTE_H
 #define TNFS_RACE_PALETTE_H
 
+#include "formats/palette_tint.h"
 #include "game/gfx/object3d.h"
 #include "game/gfx/palette_match.h"
 #include "game/race/race_state.h"
@@ -22,15 +23,8 @@ enum {
 extern const uint8_t race_palette_model_light[RACE_PALETTE_MODEL_LIGHTS * 3];
 extern const uint8_t race_palette_police_light[2 * 4 * 3];  /* 004c5610, 004c561c */
 
-/* 0050b774..0050b787: the tint 004471dc gives the race's colours (the
- * time of day). */
-typedef struct {
-    int32_t brightness;   /* 0050b774: 16.16 */
-    int32_t red;          /* 0050b778: x / 256, negatives become 0 */
-    int32_t saturation;   /* 0050b77c: 16.16 toward the brightest channel, at most 1 */
-    int32_t green;        /* 0050b780 */
-    int32_t blue;         /* 0050b784 */
-} RacePaletteTint;
+/* the tint 004471dc gives the race's colours (the time of day): formats/palette_tint.h */
+typedef PaletteTint RacePaletteTint;
 
 /* A queued write of screen palette entries: count 6-bit colours from first. */
 typedef struct {
