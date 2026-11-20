@@ -177,9 +177,9 @@ static void check_keys_file(void)
     free(t.points);
     free(t.keys);
 
-    write_file(trace, "{\"version\": 3, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]]}\n");
+    write_file(trace, "{\"version\": 4, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]]}\n");
     CHECK(!project_open(dir, &proj, &t, why, sizeof why));   /* a newer file is refused, not read as if it were this one */
-    CHECK(strstr(why, "trace.json") != NULL && strstr(why, "version 3") != NULL && strstr(why, "newer") != NULL);
+    CHECK(strstr(why, "trace.json") != NULL && strstr(why, "version 4") != NULL && strstr(why, "newer") != NULL);
 
     write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 3, \"width_m\": 9}]}\n");
     CHECK(!project_open(dir, &proj, &t, why, sizeof why));
@@ -195,6 +195,100 @@ static void check_keys_file(void)
     CHECK_EQ_INT(t.key_count, 0);
     free(t.points);
     free(t.keys);
+    cleanup_project(dir);
+}
+
+/* trace.json version 3: the shoulder's surface of a road key, each side "verge" or "tarmac" (a side not written inherits). The writer says 3 only when a key
+ * sets a surface, else 2, so a Studio that reads only 2 refuses a file whose surfaces it would lose on saving, and reads all the others */
+static void check_surface_file(void)
+{
+    char dir[600], ini[700], trace[700], why[256];
+    path_in(dir, sizeof dir, "surface");
+    mkdir(dir, 0777);
+    snprintf(ini, sizeof ini, "%s/project.ini", dir);
+    snprintf(trace, sizeof trace, "%s/trace.json", dir);
+    write_file(ini, "id=surface\nname=surface\nauthor=\nstem=SURF\nart=GENERIC.FAM\nredistributable=1\n");
+    Project proj;
+    Trace t;
+    write_file(trace, "{\"version\": 3, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200], [0, 300]],\n \"keys\": [{\"point\": 1, \"shoulder_l_surface\": \"tarmac\"},"
+                      " {\"point\": 2, \"width_m\": 9.0, \"shoulder_l_surface\": \"verge\", \"shoulder_r_surface\": \"tarmac\"}]}\n");
+    CHECK(project_open(dir, &proj, &t, why, sizeof why));
+    CHECK_EQ_INT(t.key_count, 2);
+    if (t.key_count == 2) {
+        CHECK(t.keys[0].has == TRACE_KEY_SHOULDER_SURFACE && t.keys[0].shoulder_l_surface == TRACE_SURFACE_TARMAC && t.keys[0].shoulder_r_surface == TRACE_SURFACE_INHERIT);
+        CHECK(t.keys[1].has == (TRACE_KEY_WIDTH | TRACE_KEY_SHOULDER_SURFACE) && t.keys[1].width_m == 9.0 && t.keys[1].shoulder_l_surface == TRACE_SURFACE_VERGE &&
+              t.keys[1].shoulder_r_surface == TRACE_SURFACE_TARMAC);
+        const uint64_t print = session_fingerprint(&t);
+        t.keys[0].shoulder_r_surface = TRACE_SURFACE_VERGE;
+        CHECK(session_fingerprint(&t) != print);             /* a side's surface is part of the project */
+        t.keys[0].shoulder_r_surface = TRACE_SURFACE_INHERIT;
+        CHECK(session_fingerprint(&t) == print);
+        CHECK(project_save_trace(dir, &t, why, sizeof why));
+        const char *text = read_file(trace);
+        CHECK(strstr(text, "\"version\": 3") != NULL && strstr(text, "\"shoulder_l_surface\": \"tarmac\"") != NULL &&
+              strstr(text, "\"shoulder_r_surface\": \"tarmac\"") != NULL);
+        Trace back;
+        CHECK(project_open(dir, &proj, &back, why, sizeof why));   /* round trip */
+        CHECK(back.key_count == 2 && session_fingerprint(&back) == print);
+        free(back.points);
+        free(back.keys);
+        /* the surfaces gone (the width key stays): version 2 again */
+        track_trace_key_set_surface(&t.keys, &t.key_count, &t.key_cap, 2, TRACK_GEN_LEFT, TRACE_SURFACE_INHERIT);
+        track_trace_key_set_surface(&t.keys, &t.key_count, &t.key_cap, 2, TRACK_GEN_RIGHT, TRACE_SURFACE_INHERIT);
+        track_trace_key_set_surface(&t.keys, &t.key_count, &t.key_cap, 1, TRACK_GEN_LEFT, TRACE_SURFACE_INHERIT);
+        CHECK_EQ_INT(t.key_count, 1);
+        CHECK(project_save_trace(dir, &t, why, sizeof why));
+        text = read_file(trace);
+        CHECK(strstr(text, "\"version\": 2") != NULL && strstr(text, "surface") == NULL && strstr(text, "\"width_m\": 9.00") != NULL);
+    }
+    free(t.points);
+    free(t.keys);
+    /* the longest key (every field this Studio writes) fits the reader's room for one key */
+    write_file(trace, "{\"version\": 3, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 1, \"width_m\": 30.00, "
+                      "\"shoulder_l_surface\": \"tarmac\", \"shoulder_r_surface\": \"tarmac\"}]}\n");
+    CHECK(project_open(dir, &proj, &t, why, sizeof why));
+    CHECK(t.key_count == 1 && t.keys[0].shoulder_r_surface == TRACE_SURFACE_TARMAC);
+    free(t.points);
+    free(t.keys);
+    write_file(trace, "{\"version\": 3, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 1, \"shoulder_r_surface\": \"gravel\"}]}\n");
+    CHECK(!project_open(dir, &proj, &t, why, sizeof why));   /* not a surface this version knows: refused, not read as the verge */
+    CHECK(strstr(why, "trace.json") != NULL && strstr(why, "gravel") != NULL);
+    write_file(trace, "{\"version\": 3, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 5, \"shoulder_l_surface\": \"tarmac\"}]}\n");
+    CHECK(!project_open(dir, &proj, &t, why, sizeof why));
+    CHECK(strstr(why, "point 5") != NULL);
+    write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 1, \"shoulder_l_surface\": \"tarmac\"}]}\n");
+    CHECK(project_open(dir, &proj, &t, why, sizeof why));    /* a surface is version 3's: a version 2 file has none */
+    CHECK_EQ_INT(t.key_count, 0);
+    free(t.points);
+    free(t.keys);
+    cleanup_project(dir);
+}
+
+/* the editor: a side's surface set on a point is an unsaved change; the same again is none; inheriting both sides clears the key */
+static void check_surface_app(void)
+{
+    char dir[600];
+    path_in(dir, sizeof dir, "surfaced");
+    mkdir(dir, 0777);
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    CHECK(app_open(a, dir, "./tnfs", "", NULL));
+    CHECK(!app_modified(a));
+    app_set_point_surface(a, 2, TRACK_GEN_RIGHT, TRACE_SURFACE_TARMAC);
+    CHECK(app_modified(a));
+    CHECK(a->trace.key_count == 1 && a->trace.keys[0].shoulder_r_surface == TRACE_SURFACE_TARMAC);
+    CHECK(app_save(a));
+    app_set_point_surface(a, 2, TRACK_GEN_RIGHT, TRACE_SURFACE_TARMAC);
+    CHECK(!app_modified(a));                                 /* the same value: nothing changed */
+    app_set_point_surface(a, 2, TRACK_GEN_RIGHT, TRACE_SURFACE_INHERIT);
+    CHECK(app_modified(a) && a->trace.key_count == 0);
+    app_set_point_surface(a, 99, TRACK_GEN_LEFT, TRACE_SURFACE_TARMAC);   /* no such point: nothing */
+    CHECK_EQ_INT(a->trace.key_count, 0);
+    app_recompute(a);
+    CHECK(a->road_made);
+    app_free(a);
+    free(a);
     cleanup_project(dir);
 }
 
@@ -932,6 +1026,8 @@ int main(void)
     check_road_width();
     check_keys_file();
     check_keys_app();
+    check_surface_file();
+    check_surface_app();
     check_app_flow();
     check_recent_kinds();
     check_kinds();

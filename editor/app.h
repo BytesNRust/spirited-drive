@@ -248,5 +248,8 @@ void app_remove_point(App *a);
  * the point inherits again. Either is an unsaved change when it changes anything. */
 void app_set_point_width(App *a, int point, double metres);
 void app_clear_point_width(App *a, int point);
+/* The shoulder surface of a side (TRACK_GEN_LEFT / _RIGHT) of a control point's road key (the Road key block): verge or tarmac sets it, TRACE_SURFACE_INHERIT
+ * lets that side inherit again. An unsaved change when it changes anything. */
+void app_set_point_surface(App *a, int point, int side, TraceSurface surface);
 
 #endif

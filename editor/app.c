@@ -639,6 +639,21 @@ void app_clear_point_width(App *a, int point)
     if (had || a->trace.key_count != before) a->dirty = 1;
 }
 
+void app_set_point_surface(App *a, int point, int side, TraceSurface surface)
+{
+    if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count) return;
+    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
+    const TraceSurface now = at < 0 || !(a->trace.keys[at].has & TRACE_KEY_SHOULDER_SURFACE) ? TRACE_SURFACE_INHERIT
+                             : side == TRACK_GEN_LEFT                                          ? a->trace.keys[at].shoulder_l_surface
+                                                                                               : a->trace.keys[at].shoulder_r_surface;
+    if (now == surface) return;   // the same: nothing changed
+    if (!track_trace_key_set_surface(&a->trace.keys, &a->trace.key_count, &a->trace.key_cap, point, side, surface)) {
+        set_status(a, "out of memory");
+        return;
+    }
+    a->dirty = 1;
+}
+
 void app_remove_point(App *a)
 {
     if (a->kind != APP_KIND_TRACK) return;

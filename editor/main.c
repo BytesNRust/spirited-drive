@@ -30,6 +30,7 @@
 enum {
     WINDOW_W = 960,
     WINDOW_H = 600,
+    WINDOW_MIN_W = 640, WINDOW_MIN_H = 400, WINDOW_MAX_W = 3840, WINDOW_MAX_H = 2160,   /* --window's range */
     FRAME_MS = 16
 };
 
@@ -52,6 +53,7 @@ typedef struct {
     int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
+    int window_w, window_h;  /* --window WxH: the window's size (a headless picture of a layout at another size); WINDOW_W x WINDOW_H by default */
 } Options;
 
 static int usage(void)
@@ -59,7 +61,8 @@ static int usage(void)
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png]]\n"
-                    "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n");
+                    "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n"
+                    "       [--window WxH]\n");
     return 0;
 }
 
@@ -67,11 +70,20 @@ static int parse_args(int argc, char **argv, Options *o)
 {
     memset(o, 0, sizeof *o);
     o->select = -1;
+    o->window_w = WINDOW_W, o->window_h = WINDOW_H;
     for (int i = 1; i < argc; ++i) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--game") == 0 && has_value) o->game = argv[++i];
         else if (strcmp(argv[i], "--user") == 0 && has_value) o->user = argv[++i];
         else if (strcmp(argv[i], "--shot") == 0 && has_value) o->shot = argv[++i];
+        else if (strcmp(argv[i], "--window") == 0 && has_value) {
+            char tail = '\0';
+            if (sscanf(argv[++i], "%dx%d%c", &o->window_w, &o->window_h, &tail) != 2 || o->window_w < WINDOW_MIN_W || o->window_w > WINDOW_MAX_W ||
+                o->window_h < WINDOW_MIN_H || o->window_h > WINDOW_MAX_H) {
+                fprintf(stderr, "--window wants WxH, %d..%d by %d..%d: %s\n", WINDOW_MIN_W, WINDOW_MAX_W, WINDOW_MIN_H, WINDOW_MAX_H, argv[i]);
+                return 0;
+            }
+        }
         else if (strcmp(argv[i], "--frames") == 0 && has_value) o->frames = atoi(argv[++i]);
         else if (strcmp(argv[i], "--select") == 0 && has_value) o->select = atoi(argv[++i]);
         else if (strcmp(argv[i], "--ask") == 0 && has_value) {
@@ -357,7 +369,7 @@ static int run(App *a, const Options *o)
         fprintf(stderr, "SDL: %s\n", SDL_GetError());
         return 1;
     }
-    SDL_Window *win = SDL_CreateWindow("Spirited Drive Studio", WINDOW_W, WINDOW_H, SDL_WINDOW_RESIZABLE);
+    SDL_Window *win = SDL_CreateWindow("Spirited Drive Studio", o->window_w, o->window_h, SDL_WINDOW_RESIZABLE);
     SDL_Renderer *ren = win != NULL ? SDL_CreateRenderer(win, NULL) : NULL;
     if (ren == NULL) {
         fprintf(stderr, "SDL window: %s\n", SDL_GetError());

@@ -12,6 +12,8 @@ extern "C" {
 }
 
 void points_panel(App *a);
+void road_key_panel(App *a);   // under the Points table: the selected point's road key, each side (Left | Right)
+float road_key_panel_height(void);   // the room it takes, which the Points table leaves
 void limits_panel(App *a);
 void problems_panel(App *a);
 void node_panel(App *a);

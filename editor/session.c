@@ -94,6 +94,8 @@ uint64_t session_fingerprint(const Trace *trace)
         h = mix(h, &trace->keys[i].point, sizeof trace->keys[i].point);
         h = mix(h, &trace->keys[i].has, sizeof trace->keys[i].has);
         h = mix(h, &trace->keys[i].width_m, sizeof trace->keys[i].width_m);
+        h = mix(h, &trace->keys[i].shoulder_l_surface, sizeof trace->keys[i].shoulder_l_surface);
+        h = mix(h, &trace->keys[i].shoulder_r_surface, sizeof trace->keys[i].shoulder_r_surface);
     }
     return h;
 }

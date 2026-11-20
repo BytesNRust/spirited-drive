@@ -35,7 +35,8 @@ typedef struct {
 /* the engine's six verge words, in its order (core/formats/track_piece.c): project.ini's edge= is one of them, grass when it is not there */
 extern const char *const PROJECT_EDGES[];
 
-enum { PROJECT_TRACE_VERSION = 2 };   /* trace.json's version: 1 had the points and the width; 2 adds the road keys. A file of a newer version is refused. */
+enum { PROJECT_TRACE_VERSION = 3 };   /* trace.json's version: 1 had the points and the width; 2 adds the road keys; 3 a key's shoulder surfaces. A file of a newer
+                                       * version is refused. The writer writes the lowest that holds what the trace has (2, or 3 with a surface). */
 
 typedef struct {
     TracePoint *points;           /* malloc'd, `count` of them */
@@ -72,8 +73,9 @@ int project_art_refresh(const char *dir, const char *generic, const char *const 
  * byte of the file stays. 1 on success, 0 with `why` (an unknown word leaves the file as it is). */
 int project_set_edge(const char *dir, const char *edge, char *why, size_t why_cap);
 
-/* Writes trace.json of `dir` (through a temporary file, then renamed): always version 2, the points and the project's width, and a "keys" array only when
- * there are keys: {"point": 3, "width_m": 14.0}. 1 on success, 0 with `why`. */
+/* Writes trace.json of `dir` (through a temporary file, then renamed): the points and the project's width, and a "keys" array only when there are keys:
+ * {"point": 3, "width_m": 14.0, "shoulder_l_surface": "tarmac"}. Version 3 when a key sets a shoulder surface (a Studio that reads only 2 refuses it instead of
+ * losing the surfaces on saving), else 2. 1 on success, 0 with `why`. */
 int project_save_trace(const char *dir, const Trace *trace, char *why, size_t why_cap);
 
 #endif

@@ -416,7 +416,7 @@ static void test_keys_none_is_old(void)
     memset(&err, 0, sizeof err);
     CHECK(track_trace_nodes(p, 6, WIDTH, &a, &na, &err));
     CHECK(track_trace_nodes_keyed(p, 6, WIDTH, NULL, 0, &b, &nb, &err));
-    const TraceKey none[1] = { { 2, 0, 0 } };   /* a key with no value (no bit set) says nothing */
+    const TraceKey none[1] = { { 2, 0, 0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* a key with no value (no bit set) says nothing */
     CHECK(track_trace_nodes_keyed(p, 6, WIDTH, none, 1, &c, &nc, &err));
     CHECK_EQ_INT(na, nb);
     CHECK_EQ_INT(na, nc);
@@ -437,7 +437,7 @@ static void test_keys_interpolate(void)
 {
     TracePoint p[6];
     straight_points(p, 6, 60);                    /* 300 m: 12 segments, a node every 6.25 m */
-    const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH, 8.0 }, { 4, TRACE_KEY_WIDTH, 14.0 } };   /* 32 and 56 bytes at s = 60 and 240 */
+    const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH, 8.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 4, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* 32 and 56 bytes at s = 60 and 240 */
     TrackGenNode *n = NULL;
     int count = 0;
     ExchangeError err;
@@ -459,7 +459,7 @@ static void test_keys_interpolate(void)
     CHECK(n[48].width == 56);                     /* after the last key it holds */
     free(n);
 
-    const TraceKey first = { 0, TRACE_KEY_WIDTH, 6.0 };   /* a key on point 0 replaces the project's width as the start */
+    const TraceKey first = { 0, TRACE_KEY_WIDTH, 6.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT };   /* a key on point 0 replaces the project's width as the start */
     CHECK(track_trace_nodes_keyed(p, 6, WIDTH, &first, 1, &n, &count, &err));
     CHECK(n != NULL && n[0].width == 24 && n[count - 1].width == 24);
     free(n);
@@ -480,15 +480,15 @@ static void test_keys_faults(void)
     int count = 0;
     ExchangeError err;
     memset(&err, 0, sizeof err);
-    const TraceKey off[1] = { { 4, TRACE_KEY_WIDTH, 10.0 } };
+    const TraceKey off[1] = { { 4, TRACE_KEY_WIDTH, 10.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, off, 1, &n, &count, &err));
     CHECK(strstr(err.message, "point 4") != NULL);
-    const TraceKey narrow[1] = { { 1, TRACE_KEY_WIDTH, 1.75 } };
+    const TraceKey narrow[1] = { { 1, TRACE_KEY_WIDTH, 1.75, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, narrow, 1, &n, &count, &err));
     CHECK(strstr(err.message, "2") != NULL && strstr(err.message, "30") != NULL);
-    const TraceKey wide[1] = { { 1, TRACE_KEY_WIDTH, 30.25 } };
+    const TraceKey wide[1] = { { 1, TRACE_KEY_WIDTH, 30.25, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, wide, 1, &n, &count, &err));
-    const TraceKey twice[2] = { { 1, TRACE_KEY_WIDTH, 9.0 }, { 1, TRACE_KEY_WIDTH, 11.0 } };
+    const TraceKey twice[2] = { { 1, TRACE_KEY_WIDTH, 9.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 1, TRACE_KEY_WIDTH, 11.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, twice, 2, &n, &count, &err));
     CHECK(strstr(err.message, "twice") != NULL);
     CHECK(n == NULL && count == 0);
@@ -528,7 +528,7 @@ static void test_keys_width_limit(void)
     TracePoint q[12];                                   /* evenly spaced, so the curve is straight: only the width is amber */
     straight_points(q, 12, 15);
     TracePoint p[4] = { { 0, 0 }, { 0, 100 }, { 0, 115 }, { 0, 300 } };
-    const TraceKey sudden[2] = { { 2, TRACE_KEY_WIDTH, 10.0 }, { 3, TRACE_KEY_WIDTH, 14.0 } };   /* 10 to 14 m (16 bytes) over 15 m */
+    const TraceKey sudden[2] = { { 2, TRACE_KEY_WIDTH, 10.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 3, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* 10 to 14 m (16 bytes) over 15 m */
     TrackGenNode *n = NULL;
     int count = 0;
     ExchangeError err;
@@ -561,7 +561,7 @@ static void test_keys_width_limit(void)
     free(flags);
     free(n);
 
-    const TraceKey calm[2] = { { 0, TRACE_KEY_WIDTH, 8.0 }, { 3, TRACE_KEY_WIDTH, 14.0 } };   /* 6 m over 300 m: 0.2 m a node at the most */
+    const TraceKey calm[2] = { { 0, TRACE_KEY_WIDTH, 8.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 3, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* 6 m over 300 m: 0.2 m a node at the most */
     CHECK(track_trace_nodes_keyed(p, 4, WIDTH, calm, 2, &n, &count, &err));
     flags = calloc((size_t)count, 1);
     track_trace_flags(n, count, flags);
@@ -586,7 +586,7 @@ static void test_keys_ramp_steepness(void)
     const int amber[3] = { 0, 0, 1 };
     for (int t = 0; t < 3; ++t) {
         TracePoint p[4] = { { 0, 0 }, { 0, 100 }, { 0, 100 + lengths[t] }, { 0, 300 } };
-        const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH, 8.0 }, { 2, TRACE_KEY_WIDTH, 14.0 } };
+        const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH, 8.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 2, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
         TrackGenNode *n = NULL;
         int count = 0;
         ExchangeError err;
@@ -622,6 +622,105 @@ static void test_stage_too_short(void)
     CHECK(track_trace_stage_short(100, small, sizeof small) && strlen(small) == sizeof small - 1);   /* cut short, still said */
 }
 
+/* the shoulder's surface (step 2b): a key sets a side to verge or tarmac and it holds from the key's point to the next key that sets that side; a side a key leaves
+ * to inherit keeps what was before; before the first key both sides are the verge (the road of before: sides all zero) */
+static void test_surface_keys(void)
+{
+    TracePoint p[6];
+    straight_points(p, 6, 60);                    /* 300 m: 49 nodes, a node every 6.25 m; points at 0, 60, 120 .. 300 m */
+    const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH | TRACE_KEY_SHOULDER_SURFACE, 8.0, TRACE_SURFACE_TARMAC, TRACE_SURFACE_INHERIT },
+                               { 3, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_VERGE, TRACE_SURFACE_TARMAC } };
+    TrackGenNode *n = NULL;
+    int count = 0;
+    ExchangeError err;
+    memset(&err, 0, sizeof err);
+    CHECK(track_trace_nodes_keyed(p, 6, WIDTH, keys, 2, &n, &count, &err));
+    CHECK_EQ_INT(count, 49);
+    if (n == NULL) return;
+    int right = 1;
+    for (int k = 0; k < count; ++k) {
+        const double s = k * 6.25;
+        const int left_tarmac = s >= 60 && s < 180, right_tarmac = s >= 180;
+        for (int side = 0; side < 2; ++side) {
+            const int tarmac = side == TRACK_GEN_LEFT ? left_tarmac : right_tarmac;
+            right &= n[k].side[side].tarmac == tarmac && n[k].side[side].has == (tarmac ? (unsigned)TRACK_GEN_SIDE_TARMAC : 0u);   /* the verge is zero: as before */
+        }
+    }
+    CHECK(right);
+    CHECK(n[48].width == 32);                     /* the width key on the same point still works */
+    free(n);
+    TraceSurface left[6], rights[6];              /* what each control point is (the Road key block shows the inherited ones dimmed) */
+    track_trace_point_surfaces(keys, 2, 6, left, rights);
+    CHECK(left[0] == TRACE_SURFACE_VERGE && rights[0] == TRACE_SURFACE_VERGE);
+    CHECK(left[1] == TRACE_SURFACE_TARMAC && rights[1] == TRACE_SURFACE_VERGE);
+    CHECK(left[2] == TRACE_SURFACE_TARMAC && rights[2] == TRACE_SURFACE_VERGE);
+    CHECK(left[3] == TRACE_SURFACE_VERGE && rights[3] == TRACE_SURFACE_TARMAC);
+    CHECK(left[5] == TRACE_SURFACE_VERGE && rights[5] == TRACE_SURFACE_TARMAC);
+    const TraceKey nothing[1] = { { 2, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* both sides inherit: nothing */
+    CHECK(track_trace_nodes_keyed(p, 6, WIDTH, nothing, 1, &n, &count, &err));
+    int zero = n != NULL;
+    for (int k = 0; n != NULL && k < count; ++k) zero &= n[k].side[0].has == 0 && n[k].side[1].has == 0 && n[k].side[0].tarmac == 0 && n[k].side[1].tarmac == 0;
+    CHECK(zero);
+    free(n);
+}
+
+/* a surface key that is wrong is refused with its point named */
+static void test_surface_faults(void)
+{
+    TracePoint p[4];
+    straight_points(p, 4, 100);
+    TrackGenNode *n = NULL;
+    int count = 0;
+    ExchangeError err;
+    memset(&err, 0, sizeof err);
+    const TraceKey off[1] = { { 4, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_TARMAC, TRACE_SURFACE_INHERIT } };
+    CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, off, 1, &n, &count, &err));
+    CHECK(strstr(err.message, "point 4") != NULL);
+    const TraceKey odd[1] = { { 1, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_INHERIT, (TraceSurface)7 } };
+    CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, odd, 1, &n, &count, &err));
+    CHECK(strstr(err.message, "point 1") != NULL && strstr(err.message, "surface") != NULL);
+    const TraceKey twice[2] = { { 1, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_TARMAC, TRACE_SURFACE_INHERIT },
+                                { 1, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_VERGE, TRACE_SURFACE_INHERIT } };
+    CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, twice, 2, &n, &count, &err));
+    CHECK(strstr(err.message, "twice") != NULL);
+    CHECK(n == NULL && count == 0);
+}
+
+/* the surface's edits: each side on its own; a key that sets nothing any more goes, one that still sets the width stays; and the other way round */
+static void test_surface_edits(void)
+{
+    TraceKey *k = NULL;
+    int n = 0, cap = 0;
+    CHECK(track_trace_key_set_surface(&k, &n, &cap, 2, TRACK_GEN_LEFT, TRACE_SURFACE_TARMAC));
+    CHECK(n == 1 && k[0].point == 2 && (k[0].has & TRACE_KEY_SHOULDER_SURFACE) && k[0].shoulder_l_surface == TRACE_SURFACE_TARMAC &&
+          k[0].shoulder_r_surface == TRACE_SURFACE_INHERIT && !(k[0].has & TRACE_KEY_WIDTH));
+    CHECK(track_trace_key_set_surface(&k, &n, &cap, 2, TRACK_GEN_RIGHT, TRACE_SURFACE_VERGE));
+    CHECK(n == 1 && k[0].shoulder_r_surface == TRACE_SURFACE_VERGE);
+    CHECK(track_trace_key_set_surface(&k, &n, &cap, 2, TRACK_GEN_LEFT, TRACE_SURFACE_INHERIT));
+    CHECK(n == 1 && (k[0].has & TRACE_KEY_SHOULDER_SURFACE));      /* the right side still sets it */
+    CHECK(track_trace_key_set_surface(&k, &n, &cap, 2, TRACK_GEN_RIGHT, TRACE_SURFACE_INHERIT));
+    CHECK_EQ_INT(n, 0);                                            /* nothing set: the key goes */
+    CHECK(track_trace_key_set_surface(&k, &n, &cap, 5, TRACK_GEN_RIGHT, TRACE_SURFACE_INHERIT));
+    CHECK_EQ_INT(n, 0);                                            /* inheriting where there is no key adds none */
+    CHECK(track_trace_key_set_width(&k, &n, &cap, 3, 12.0));
+    CHECK(track_trace_key_set_surface(&k, &n, &cap, 3, TRACK_GEN_RIGHT, TRACE_SURFACE_TARMAC));
+    CHECK(n == 1 && k[0].width_m == 12.0 && (k[0].has & TRACE_KEY_WIDTH) && k[0].shoulder_r_surface == TRACE_SURFACE_TARMAC);
+    track_trace_key_clear_width(k, &n, 3);
+    CHECK(n == 1 && !(k[0].has & TRACE_KEY_WIDTH) && k[0].shoulder_r_surface == TRACE_SURFACE_TARMAC);   /* the surface keeps the key */
+    CHECK(track_trace_key_set_width(&k, &n, &cap, 3, 12.0));
+    CHECK(track_trace_key_set_surface(&k, &n, &cap, 3, TRACK_GEN_RIGHT, TRACE_SURFACE_INHERIT));
+    CHECK(n == 1 && (k[0].has == TRACE_KEY_WIDTH));                /* the width keeps it */
+    CHECK(track_trace_key_set_surface(&k, &n, &cap, 1, TRACK_GEN_LEFT, TRACE_SURFACE_VERGE));
+    CHECK(n == 2 && k[0].point == 1 && k[1].point == 3);           /* ascending */
+    track_trace_keys_insert_point(k, n, 2);
+    CHECK(k[0].point == 1 && k[0].shoulder_l_surface == TRACE_SURFACE_VERGE && k[1].point == 4);
+    track_trace_keys_remove_point(k, &n, 1);
+    CHECK(n == 1 && k[0].point == 3);
+    CHECK(!track_trace_key_set_surface(&k, &n, &cap, 3, 2, TRACE_SURFACE_TARMAC));   /* no side 2 */
+    CHECK(!track_trace_key_set_surface(&k, &n, &cap, 3, TRACK_GEN_LEFT, (TraceSurface)9));
+    free(k);
+}
+
 int main(void)
 {
     test_straight();
@@ -641,6 +740,9 @@ int main(void)
     test_keys_interpolate();
     test_keys_faults();
     test_keys_edits();
+    test_surface_keys();
+    test_surface_faults();
+    test_surface_edits();
     test_keys_width_limit();
     test_keys_ramp_steepness();
     test_stage_too_short();
