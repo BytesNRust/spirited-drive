@@ -223,6 +223,7 @@ void viewport_panel(App *a)
         const ImVec2 size = ImGui::GetContentRegionAvail();
         if (size.x >= 1 && size.y >= 1) {
             const ImVec2 origin = ImGui::GetCursorScreenPos();
+            a->canvas_x = origin.x, a->canvas_y = origin.y;
             a->view.width = (int)size.x;
             a->view.height = (int)size.y;
             if (++frames == 3 || a->fit_pending) {   // fit the trace to the panel once, when its size has settled, and when another project was opened
