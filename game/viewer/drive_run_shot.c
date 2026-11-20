@@ -33,6 +33,28 @@
 #include "viewer/drive_run_private.h"
 
 enum { SPIN_TICKS = 150, SPIN_BRAKE_TICKS = 30 };   /* TNFS_SCRIPT=spin: the last 150 ticks, the handbrake the first 30 */
+enum {
+    PHYSICS_PARKED = 6,      /* 00470518 (ai_parked.c): a traffic car parked high above the track, off the road, until the player comes near */
+    FOLLOW_WAIT_MAX = 4000   /* TNFS_FOLLOW_SETTLE: the most steps past --node the frame waits for the followed car */
+};
+
+/* port (dev, env only): TNFS_FOLLOW_SETTLE=N with TNFS_FOLLOW_CAR: the frame waits past --node until the followed car has been on the road (not parked) N steps, at
+ * most FOLLOW_WAIT_MAX more (Studio's Race photo of a traffic car: a fixed tick can find it parked, the camera high above an empty road); 0 for no wait */
+static uint32_t follow_settle(void)
+{
+    const char *v = getenv("TNFS_FOLLOW_SETTLE");
+    return v != NULL && atoi(v) > 0 ? (uint32_t)atoi(v) : 0;
+}
+
+/* the followed car's line: on the road or parked at the frame, and with the wait since when */
+static void follow_say(const Car *followed, uint32_t settle, uint32_t on_from, uint32_t frame)
+{
+    if (followed->physics == PHYSICS_PARKED)
+        printf("follow: slot %d is parked off the road at the frame (tick %u)%s\n", (int)followed->index, frame,
+               settle > 0 ? ": it did not come out on the road in the wait" : "");
+    else if (settle > 0) printf("follow: slot %d on the road from tick %u, the frame at tick %u\n", (int)followed->index, on_from, frame);
+    else printf("follow: slot %d on the road at the frame (tick %u)\n", (int)followed->index, frame);
+}
 
 /* The screenshots' input on step i of `ticks`: full throttle, a tap of
  * 0x1000 while the race tick is 320..327, and over the last 20 steps the
@@ -169,6 +191,9 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
         race_sound_load_banks(&drive_sim.race, drive_audio_load, &drive_banks);
         race_sound_start_voices(&drive_sim.race);
     }
+    const int following = followed != drive_sim.race.cars[0];
+    const uint32_t settle = following ? follow_settle() : 0, last = ticks + FOLLOW_WAIT_MAX;
+    uint32_t on_from = 0;   /* the steps done when the followed car last came out on the road; 0 while it is parked */
     for (uint32_t i = 0; i < ticks; i++) {
         drive_replay_key(&drive_replay, env_press((int32_t)i));
         if (view_at >= 0 && (int32_t)i == view_at) race_chase_follow(&drive_sim.race, &drive_sim.race.chase, followed, view_to % CHASE_KINDS);
@@ -186,6 +211,11 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
         }
         drive_tick(screenshot_input(i, ticks));
         police_keep(&drive_sim.race);
+        if (following) {
+            if (followed->physics == PHYSICS_PARKED) on_from = 0;
+            else if (on_from == 0) on_from = i + 1;
+            if (settle > 0 && i + 1 == ticks && ticks < last && (on_from == 0 || ticks - on_from < settle)) ticks++;   /* the frame waits for it */
+        }
         if (dumping) drive_audio_offline_tick();
         const char *notice = getenv("TNFS_NOTICE");
         if (notice != NULL && (notice[0] == '1' || notice[0] == '2') && i + 10 >= ticks) {
@@ -217,6 +247,7 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
         ported_view_stream(&t->tri, &t->art, chase_camera(&drive_sim.race.chase, t->tri.ring_nodes).node);  /* and 0043f540 */
     }
     if (dumping) drive_audio_offline_close();
+    if (following) follow_say(followed, settle, on_from, ticks);
     frame_times_print();
     const Car *car = drive_sim.race.cars[0];
     const RaceChase *chase = &drive_sim.race.chase;

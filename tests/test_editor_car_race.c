@@ -80,27 +80,72 @@ static void test_command(void)
     CHECK(!has_env(&c, "TNFS_CAR_MASKS=/elsewhere") && !has_env(&c, "TNFS_VIEW=1") && !has_env(&c, "SDL_VIDEO_DRIVER=cocoa"));   /* the person's own do not change the test */
     CHECK(!has_env_key(&c, "TNFS_FOLLOW_CAR") && !has_env_key(&c, "TNFS_DRIVE_SEED"));
     car_race_command_free(&c);
-    /* the same in a window: no screenshot, no headless drivers (the person's SDL ones stay), no view kind */
+    /* the same in a window: no screenshot, no headless drivers (the person's SDL ones stay), no view kind; the race in a window is Control Central's, whose --car
+     * is the menu's number (00426620 turns it into the model): the RX-7 is 0 there, model 7 */
     s = setup_of("MRX7", "TR2", 0, 0);
     CHECK(car_race_command(&s, base_env, &c, why, sizeof why));
-    CHECK(arg_pair(&c, "--car", "7") && !has_arg(&c, "--node") && !has_arg(&c, "--screenshot"));
+    CHECK(arg_pair(&c, "--car", "0") && !has_arg(&c, "--node") && !has_arg(&c, "--screenshot"));
     CHECK(has_env(&c, "SDL_VIDEO_DRIVER=cocoa") && !has_env_key(&c, "TNFS_VIEW") && has_env(&c, "TNFS_CAR_MASKS=/p/proj/car_masks"));
     car_race_command_free(&c);
+    /* the 512TR (the owner's test, T1): menu number 6 in a window, model 4 for a photo */
+    s = setup_of("F512TR", "TR5", 0, 0);
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why) && arg_pair(&c, "--car", "6"));
+    car_race_command_free(&c);
+    s = setup_of("F512TR", "TR5", 0, RACE_TICKS_DRIVEN);
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why) && arg_pair(&c, "--car", "4"));
+    car_race_command_free(&c);
+    /* every drivable car: the menu's number turns back into its model as the game's table does */
+    static const int HEAD_TO_HEAD[8] = { 7, 6, 0, 2, 3, 5, 4, 1 };   /* 00426620 */
+    for (int i = 0; car_export_car(i) != NULL; ++i) {
+        const ExportCar *car = car_export_car(i);
+        if (car->kind != EXPORT_DRIVABLE) continue;
+        const int pick = car_race_menu_pick(car->model);
+        CHECK(pick >= 0 && pick < 8 && HEAD_TO_HEAD[pick] == car->model);
+    }
+    CHECK_EQ_INT(car_race_menu_pick(-1), -1);
+    CHECK_EQ_INT(car_race_menu_pick(8), -1);
     /* a traffic car: a race with traffic (type 1), the first car for the player, the slot followed and the seed of the draw, no dash masks */
     s = setup_of("Wagon", "CL1", 1, RACE_TICKS_TRAFFIC);
     s.slot = 4, s.seed = RACE_SEED_FIRST + 3;
     CHECK(car_race_command(&s, base_env, &c, why, sizeof why));
     CHECK(arg_pair(&c, "--type", "1") && arg_pair(&c, "--car", "0") && !has_arg(&c, "--racers") && arg_pair(&c, "--node", "800"));
     CHECK(has_env(&c, "TNFS_FOLLOW_CAR=4") && has_env(&c, "TNFS_DRIVE_SEED=11115") && !has_env_key(&c, "TNFS_DASH_MASKS"));
+    CHECK(has_env(&c, "TNFS_FOLLOW_SETTLE=64"));   /* T3: the frame waits until the car has been out on the road a while (it is parked off it before) */
     car_race_command_free(&c);
+    s = setup_of("Wagon", "CL1", 0, 1);   /* a probe follows nothing and waits for nothing */
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why) && !has_env_key(&c, "TNFS_FOLLOW_SETTLE") && !has_env_key(&c, "TNFS_FOLLOW_CAR"));
+    car_race_command_free(&c);
+    /* in a window the player drives the same car as in a photo: its menu number (T2: the window says which car that is) */
+    s = setup_of("JETTA", "CL1", 0, 0);
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why) && arg_pair(&c, "--type", "1"));
+    {
+        char pick[8];
+        snprintf(pick, sizeof pick, "%d", car_race_menu_pick(RACE_TRAFFIC_PLAYER_MODEL));
+        CHECK(arg_pair(&c, "--car", pick));
+    }
+    car_race_command_free(&c);
+    CHECK(car_race_player_label(car_export_car(index_of("JETTA"))) != NULL && strcmp(car_race_player_label(car_export_car(index_of("JETTA"))), "Toyota Supra Turbo") == 0);
+    CHECK(strcmp(car_race_player_label(car_export_car(index_of("F512TR"))), "Ferrari 512 TR") == 0);
+    /* what a race in a window is, said plainly (T2): who drives what, and where the tested car is */
+    char note[400];
+    car_race_note(car_export_car(index_of("JETTA")), "CL1", note, sizeof note);
+    CHECK(strstr(note, "You drive the Toyota Supra Turbo on Coastal 1") != NULL && strstr(note, "Jetta") != NULL && strstr(note, "traffic") != NULL);
+    CHECK(strstr(note, "at random") != NULL && strstr(note, "Race photo") != NULL);   /* the window's draw is the game's own: not every race has it */
+    car_race_note(car_export_car(index_of("COPMUST")), "AL2", note, sizeof note);
+    CHECK(strstr(note, "You drive the Toyota Supra Turbo on Alpine 2") != NULL && strstr(note, "Police Mustang") != NULL);
+    car_race_note(car_export_car(index_of("F512TR")), "TR5", note, sizeof note);
+    CHECK(strstr(note, "You drive the Ferrari 512 TR on Rusty Springs") != NULL && strstr(note, "traffic") == NULL);
+    car_race_note(NULL, "TR5", note, sizeof note);
+    CHECK(note[0] == '\0');
     /* the police car the same */
     s = setup_of("COPMUST", "AL2", 0, RACE_TICKS_POLICE);
     s.slot = 2;
     CHECK(car_race_command(&s, base_env, &c, why, sizeof why) && arg_pair(&c, "--type", "1") && arg_pair(&c, "--node", "250"));
     CHECK(has_env(&c, "TNFS_POLICE_NEAR=15") && has_env(&c, "TNFS_FOLLOW_CAR=2"));   /* the police put behind the player, chasing: the camera on it has it at any tick */
+    CHECK(!has_env_key(&c, "TNFS_FOLLOW_SETTLE"));   /* the police car is on the road from the start */
     car_race_command_free(&c);
-    s = setup_of("Wagon", "CL1", 0, 0);   /* the police are put near only for a photo of the police car */
-    CHECK(car_race_command(&s, base_env, &c, why, sizeof why) && !has_env_key(&c, "TNFS_POLICE_NEAR"));
+    s = setup_of("Wagon", "CL1", 0, 0);   /* the police are put near only for a photo of the police car; a window waits for nothing */
+    CHECK(car_race_command(&s, base_env, &c, why, sizeof why) && !has_env_key(&c, "TNFS_POLICE_NEAR") && !has_env_key(&c, "TNFS_FOLLOW_SETTLE"));
     car_race_command_free(&c);
     /* a circuit has no traffic: refused, with the way out; a track that is not one; a setup that is not whole */
     s = setup_of("Wagon", "TR5", 0, 0);
@@ -251,13 +296,19 @@ static void make_fake_game(char *path, size_t cap)
         "         else printf 'race car: slot 0 is TSupra\\nrace car: slot 3 is BMW\\n' > \"$user/spirited-drive.log\"; fi;;\n"
         "  *) printf 'race car: slot 0 is TSupra\\nrace car: slot 3 is Wagon\\n' > \"$user/spirited-drive.log\";;\n"
         "esac\n"
+        "if [ -n \"$TNFS_FOLLOW_CAR\" ]; then case \"$FAKE_FOLLOW\" in\n"   /* the game's line on the followed car (a game from before it says none) */
+        "  road) echo \"follow: slot $TNFS_FOLLOW_CAR on the road from tick 900, the frame at tick 964\";;\n"
+        "  parked) echo \"follow: slot $TNFS_FOLLOW_CAR is parked off the road at the frame (tick 4800): it did not come out on the road in the wait\";;\n"
+        "  first) if [ -z \"$TNFS_DRIVE_SEED\" ]; then echo \"follow: slot $TNFS_FOLLOW_CAR is parked off the road at the frame (tick 4800)\";\n"
+        "         else echo \"follow: slot $TNFS_FOLLOW_CAR on the road from tick 1000, the frame at tick 1064\"; fi;;\n"
+        "esac; fi\n"
         "if [ -n \"$shot\" ]; then printf 'P6\\n640 480\\n255\\n' > \"$shot\"; head -c 921600 /dev/zero >> \"$shot\"; fi\n"
         "exit 0\n", 0755);
 }
 
 static void run_job(RaceJob *job)
 {
-    for (int i = 0; i < 3000 && car_race_poll(job); ++i) usleep(5000);
+    for (int i = 0; i < 12000 && car_race_poll(job); ++i) usleep(5000);   /* a minute at most: every draw tried twice is 50 runs of the fake */
 }
 
 static int temps_left(void)
@@ -304,6 +355,30 @@ static void test_job(void)
     run_job(&job);
     CHECK(job.finished && !job.ok && strstr(job.summary, "none of") != NULL && strstr(job.summary, "no tick where it is on screen") != NULL);
     CHECK(job.probes == RACE_SEEDS + 1 && job.photo == NULL && job.photo_serial == serial && !temps_left());
+    /* T3: the game says the car was on the road at the frame: the summary says so, and the tick */
+    setenv("FAKE_MODE", "ok", 1);
+    setenv("FAKE_FOLLOW", "road", 1);
+    CHECK(car_race_start_photo(&job, game, "/cd", project, wagon, "CL1", 0, why, sizeof why));
+    run_job(&job);
+    CHECK(job.ok && job.photo != NULL && strstr(job.summary, "the Wagon on the road") != NULL && strstr(job.summary, "964 ticks") != NULL);
+    CHECK(strstr(job.summary, "cannot see") == NULL);
+    /* parked off the road in the game's own draw: the next draw is tried, and its photo has the car on the road */
+    setenv("FAKE_FOLLOW", "first", 1);
+    CHECK(car_race_start_photo(&job, game, "/cd", project, wagon, "CL1", 0, why, sizeof why));
+    run_job(&job);
+    CHECK(job.ok && job.photo_seed == RACE_SEED_FIRST && strstr(job.summary, "1064 ticks") != NULL && strstr(job.log, "stayed parked") != NULL);
+    /* parked in every draw: no photo, said plainly */
+    setenv("FAKE_FOLLOW", "parked", 1);
+    const int before = job.photo_serial;
+    CHECK(car_race_start_photo(&job, game, "/cd", project, wagon, "CL1", 0, why, sizeof why));
+    run_job(&job);
+    CHECK(job.finished && !job.ok && strstr(job.summary, "parked off the road") != NULL && job.photo == NULL && job.photo_serial == before && !temps_left());
+    /* parked in the draws that have it, absent from the others (the last one tried among them): still said as parked */
+    setenv("FAKE_MODE", "later", 1);
+    CHECK(car_race_start_photo(&job, game, "/cd", project, wagon, "CL1", 0, why, sizeof why));
+    run_job(&job);
+    CHECK(job.finished && !job.ok && strstr(job.summary, "parked off the road") != NULL && job.probes == RACE_SEEDS + 1);
+    unsetenv("FAKE_FOLLOW");
     /* a game that does not say who is in which slot (an older one) */
     setenv("FAKE_MODE", "old", 1);
     CHECK(car_race_start_photo(&job, game, "/cd", project, cop, "AL1", 0, why, sizeof why));

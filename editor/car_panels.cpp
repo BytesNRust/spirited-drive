@@ -587,6 +587,9 @@ void race_panel(App *a, ImTextureID photo)
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("The night is each track's own; Rusty Springs is the reference");
             if (a->race_night && now != nullptr && strcmp(now->stem, "TR7") == 0) ImGui::TextDisabled("Lost Vegas has no time of day: it stays as it is");
             ImGui::EndDisabled();
+            char note[500];   // Test in race: who drives what, and where a traffic car is
+            car_race_note(car, now != nullptr ? now->stem : "", note, sizeof note);
+            if (note[0] != '\0') muted_wrapped("Test in race: %s", note);
             ImGui::BeginDisabled(busy);
             if (ImGui::Button("Test in race")) app_race(a, 0);
             ImGui::SameLine();

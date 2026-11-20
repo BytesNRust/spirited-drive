@@ -51,6 +51,41 @@ int car_race_default_track(const ExportCar *car)
     return car_race_track_find(car != NULL && car->kind != EXPORT_DRIVABLE ? "CL1" : "TR5");
 }
 
+int car_race_menu_pick(int model)
+{
+    static const int MODEL_OF_PICK[8] = { 7, 6, 0, 2, 3, 5, 4, 1 };   /* 00426620: the menu's number to the model (game/race/race_models.c HEAD_TO_HEAD) */
+    for (int pick = 0; pick < 8; ++pick)
+        if (MODEL_OF_PICK[pick] == model) return pick;
+    return -1;
+}
+
+const char *car_race_player_label(const ExportCar *car)
+{
+    if (car == NULL) return NULL;
+    if (car->kind == EXPORT_DRIVABLE) return car->label;
+    for (int i = 0; car_export_car(i) != NULL; ++i)
+        if (car_export_car(i)->kind == EXPORT_DRIVABLE && car_export_car(i)->model == RACE_TRAFFIC_PLAYER_MODEL) return car_export_car(i)->label;
+    return NULL;
+}
+
+void car_race_note(const ExportCar *car, const char *track, char *out, size_t cap)
+{
+    if (cap == 0) return;
+    out[0] = '\0';
+    const int ti = car_race_track_find(track);
+    const char *driver = car_race_player_label(car);
+    if (car == NULL || ti < 0 || driver == NULL) return;
+    if (car->kind == EXPORT_DRIVABLE)
+        snprintf(out, cap, "You drive the %s on %s, with this project's masks.", driver, TRACKS[ti].label);
+    else if (car->kind == EXPORT_POLICE)
+        snprintf(out, cap, "You drive the %s on %s: the %s cannot be driven (it has no specs of its own). It is the police car of this race with traffic.", driver,
+                 TRACKS[ti].label, car->label);
+    else
+        snprintf(out, cap, "You drive the %s on %s: the %s cannot be driven (a traffic car has no specs of its own). It is one of the traffic's cars, which the game "
+                 "draws at random for each race: look for it on the road, ahead of you or coming the other way. Some races do not have it; Race photo finds one that does.",
+                 driver, TRACKS[ti].label, car->label);
+}
+
 static int refuse(char *why, size_t cap, const char *format, ...) __attribute__((format(printf, 3, 4)));
 static int refuse(char *why, size_t cap, const char *format, ...)
 {
@@ -113,8 +148,15 @@ int car_race_command(const RaceSetup *s, char *const *base, RaceCommand *out, ch
     if (s->photo_ticks > 0 && s->shot == NULL) return refuse(why, why_cap, "no file for the photo");
     int ok = add_arg(out, "%s", s->game) && add_arg(out, "--data") && add_arg(out, "%s", s->cd) && add_arg(out, "--user") && add_arg(out, "%s", s->user) &&
              add_arg(out, "--drive") && add_arg(out, "%s", TRACKS[ti].stem);
-    if (traffic) ok = ok && add_arg(out, "--car") && add_arg(out, "0") && add_arg(out, "--type") && add_arg(out, "1");   /* the player's car is the game's first; the traffic is the test */
-    else ok = ok && add_arg(out, "--car") && add_arg(out, "%d", s->car->model) && add_arg(out, "--racers") && add_arg(out, "1");
+    const int model = traffic ? RACE_TRAFFIC_PLAYER_MODEL : s->car->model;   /* the player's car; for a traffic or police car the traffic is the test */
+    const int number = s->photo_ticks > 0 ? model : car_race_menu_pick(model);   /* a photo takes the model, a race in a window the menu's number */
+    if (number < 0) {
+        car_race_command_free(out);
+        return refuse(why, why_cap, "%s has no number in the game's car menu", s->car->label);
+    }
+    ok = ok && add_arg(out, "--car") && add_arg(out, "%d", number);
+    if (traffic) ok = ok && add_arg(out, "--type") && add_arg(out, "1");
+    else ok = ok && add_arg(out, "--racers") && add_arg(out, "1");
     if (s->photo_ticks > 0) ok = ok && add_arg(out, "--node") && add_arg(out, "%d", s->photo_ticks) && add_arg(out, "--screenshot") && add_arg(out, "%s", s->shot);
     for (char *const *e = base; ok && e != NULL && *e != NULL; ++e) {
         if (strncmp(*e, "TNFS_", 5) == 0 || (s->photo_ticks > 0 && strncmp(*e, "SDL_", 4) == 0)) continue;
@@ -127,6 +169,7 @@ int car_race_command(const RaceSetup *s, char *const *base, RaceCommand *out, ch
              add_env(out, "SDL_AUDIODRIVER=dummy") && add_env(out, "TNFS_VIEW=3");
     if (s->car->kind == EXPORT_POLICE && s->photo_ticks > 0) ok = ok && add_env(out, "TNFS_POLICE_NEAR=%d", RACE_POLICE_NEAR);   /* chasing the player from behind: a camera on it sees it */
     if (s->slot > 0) ok = ok && add_env(out, "TNFS_FOLLOW_CAR=%d", s->slot);
+    if (s->slot > 0 && s->photo_ticks > 0 && s->car->kind == EXPORT_TRAFFIC) ok = ok && add_env(out, "TNFS_FOLLOW_SETTLE=%d", RACE_FOLLOW_SETTLE);   /* parked until the player nears */
     if (s->seed != 0) ok = ok && add_env(out, "TNFS_DRIVE_SEED=%u", (unsigned)s->seed);
     if (ok) return 1;
     car_race_command_free(out);
@@ -355,7 +398,11 @@ static int start_common(RaceJob *j, const char *game, const char *cd, const char
 int car_race_start_race(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, char *why, size_t why_cap)
 {
     const int ok = start_common(job, game, cd, project, car, track, night, RACE_JOB_RACE, why, why_cap);
-    if (ok) job_say(job, "Test in race: %s on %s, %s. A scratch player folder; the masks are the project's.\n", car->label, track, night ? "night" : "day");
+    if (ok) {
+        char note[500];
+        car_race_note(car, track, note, sizeof note);
+        job_say(job, "Test in race, %s. %s A scratch player folder.\n", night ? "night" : "day", note);
+    }
     return ok;
 }
 
@@ -391,12 +438,28 @@ static char *collect(RaceJob *j, size_t *game_len)
     return text;
 }
 
+/* the game's line on the followed car (drive_run_shot.c): 1 on the road at the frame (`frame` the tick), 0 parked off the road, -1 no line (a game from before it) */
+static int follow_line(const char *log, unsigned *frame)
+{
+    const char *at = log != NULL ? strstr(log, "follow: slot ") : NULL;
+    if (at == NULL) return -1;
+    const char *nl = strchr(at, '\n'), *frame_at = strstr(at, "the frame at tick ");
+    if (strstr(at, "is parked off the road") != NULL && (nl == NULL || strstr(at, "is parked off the road") < nl)) return 0;
+    if (frame_at == NULL || (nl != NULL && frame_at > nl) || sscanf(frame_at, "the frame at tick %u", frame) != 1) return -1;
+    return 1;
+}
+
+static void next_draw(RaceJob *j, const char *why_not);
+
 static void photo_done(RaceJob *j)
 {
     uint8_t *rgba = NULL;
     int w = 0, h = 0;
     char why[200];
+    unsigned frame = 0;
     if (j->run.exit_code != 0) { finish(j, 0, "The game ended with exit code %d: no photo. Its output is in the log.", j->run.exit_code); return; }
+    const int follow = j->setup.slot > 0 ? follow_line(j->run.log, &frame) : -1;
+    if (follow == 0) { next_draw(j, "the car stayed parked off the road (it waits there until the player comes near)"); return; }
     if (!car_race_read_ppm(j->own[4], &rgba, &w, &h, why, sizeof why)) { finish(j, 0, "No photo: %s.", why); return; }
     free(j->photo);
     j->photo = rgba;
@@ -404,6 +467,8 @@ static void photo_done(RaceJob *j)
     j->photo_slot = j->setup.slot, j->photo_night = j->setup.night, j->photo_seed = j->setup.seed;
     snprintf(j->photo_track, sizeof j->photo_track, "%s", j->track);
     if (j->setup.car->kind == EXPORT_DRIVABLE) finish(j, 1, "Photo: %s on %s, %s.", j->setup.car->label, j->track, j->setup.night ? "night" : "day");
+    else if (follow == 1) finish(j, 1, "Photo: the %s on the road (slot %d of the traffic draw %u) on %s, %s, %u ticks in.", j->setup.car->label, j->setup.slot,
+                                 (unsigned)j->setup.seed, j->track, j->setup.night ? "night" : "day", frame);
     else finish(j, 1, "Photo: the camera follows the %s (slot %d of the traffic draw %u) on %s, %s, %d ticks in. Studio cannot see whether it is on screen: look.", j->setup.car->label,
                 j->setup.slot, (unsigned)j->setup.seed, j->track, j->setup.night ? "night" : "day", car_race_photo_ticks(j->setup.car));
 }
@@ -417,17 +482,37 @@ static void probe_done(RaceJob *j, const char *game_log)
         return;
     }
     const int slot = car_race_find_slot(game_log, j->setup.car->file);
-    job_say(j, "Traffic draw %u: %s.\n", (unsigned)j->setup.seed, slot >= 0 ? "the car is in it" : "the car is not in it");
     char why[300];
     if (slot < 0) {
-        if (++j->probes > RACE_SEEDS) { finish(j, 0, "No photo: the %s was in none of %d draws of the traffic, so there is no tick where it is on screen. Test in race (the window) may still show it.", j->setup.car->label, j->probes); return; }
-        j->setup.seed = RACE_SEED_FIRST + (uint32_t)(j->probes - 1);
-        if (!launch(j, why, sizeof why)) { finish(j, 0, "%s", why); return; }
+        next_draw(j, "the car is not in it");
         return;
     }
+    job_say(j, "Traffic draw %u: the car is in it.\n", (unsigned)j->setup.seed);
     j->setup.slot = slot;
     j->setup.photo_ticks = car_race_photo_ticks(j->setup.car);
     j->state = RACE_JOB_SHOOT;
+    if (!launch(j, why, sizeof why)) finish(j, 0, "%s", why);
+}
+
+/* the draw tried has no photo of the car (`why_not`): a probe of the next one, or the end when every one was tried */
+static void next_draw(RaceJob *j, const char *why_not)
+{
+    char why[300];
+    job_say(j, "Traffic draw %u: %s.\n", (unsigned)j->setup.seed, why_not);
+    if (j->setup.slot > 0) j->parked = 1;
+    if (++j->probes > RACE_SEEDS) {
+        if (j->parked)
+            finish(j, 0, "No photo: in every draw of the traffic that had it, the %s stayed parked off the road until the frame. Test in race (the window) may still show it.",
+                   j->setup.car->label);
+        else
+            finish(j, 0, "No photo: the %s was in none of %d draws of the traffic, so there is no tick where it is on screen. Test in race (the window) may still show it.",
+                   j->setup.car->label, j->probes);
+        return;
+    }
+    j->setup.seed = RACE_SEED_FIRST + (uint32_t)(j->probes - 1);
+    j->setup.slot = 0;
+    j->setup.photo_ticks = 1;
+    j->state = RACE_JOB_PROBE;
     if (!launch(j, why, sizeof why)) finish(j, 0, "%s", why);
 }
 
