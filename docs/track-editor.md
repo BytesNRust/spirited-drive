@@ -61,6 +61,9 @@ more than 8° per node: they may not look right in the game"; the same for the r
 the nodes themselves, one row each, red first and then by node number: "node 80: turns 9.4° (more than 8°) and radius 38 m (under 43 m), may
 not look right". A click on a row selects the nearest point and centres the Viewport on that node. With none it says "No problems". Both windows are
 dockable like the others and their layout is kept.
+In the first layout (and after Window > Reset layout) the right column is as wide as all the Points columns need and the Road profile as wide as its labels and
+both sides' choices need, while the Viewport keeps the larger part (at 960x600 Limits gets the least). The Project window keeps each path on one line: a long one
+shows its start and its end with "..." between, the whole path in its tooltip.
 
 Both also say in red, above the rest, when the road is too short for a stage: a stage's race ends 181 nodes (about 1.1 km) before the road's last
 node and the grid's front row starts at node 32, so a stage needs at least 214 nodes (about 1.29 km) of road for its finish to lie past the front row;
