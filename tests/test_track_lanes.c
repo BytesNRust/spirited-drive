@@ -1,9 +1,10 @@
 /* Lanes in the generator (dep59 editor phase 2, step 4): a node's lanes (flags[0], node +4: oncoming << 4 | own, the CD's 0x11 / 0x12 / 0x21) and its
- * right half width. A 1+2 node is the CD's AL1 node 220 (notes/dep59-editor-road-width.md §B): verge bytes 40 / 80, the row's middle point 5 m right
- * of the node line (between the two own lanes), the yellow centre on the node line, the left edge 5 m left of it: three 5 m strips, the right one
- * dashed inside with the edge outside (slot 15), the inner left one dashed inside with the yellow outside (slot 18), the outer left one the road's
- * own (yellow inside, edge outside); the template's strips beyond move one strip outwards on the two-lane side. 2+1 is its mirror. A node with no
- * lanes is the road of before, byte for byte (test_track_sides pins it). */
+ * right half width. A 1+2 node has the CD's AL1 node 220 bytes (notes/dep59-editor-road-width.md §B: verge 40 / 80) and three 5 m strips, but not its
+ * row: the middle point stays on the node line (the yellow centre) and the one-lane side is the 1+1 road's, so nothing there moves where a stretch
+ * starts (AL1 moves its middle a lane out and hides the jump under transition pictures the generic art has not). On the two-lane side the inner lane
+ * runs from the centre to a dashed line (slot 18: yellow inside, dashed outside), the outer lane from it to the edge (slot 15: dashed inside, edge
+ * outside), and the template's strips beyond move one strip outwards. 2+1 is its mirror. A node with no lanes is the road of before, byte for byte
+ * (test_track_sides pins it). */
 #include "formats/track_gen.h"
 #include "formats/track_template.h"
 #include "formats/tri.h"
@@ -98,11 +99,12 @@ static void lanes(const uint8_t *tmpl, size_t tsize, const uint8_t tmpl_tex[10])
         int lanes;
         double left, right;
         uint8_t bytes[5];                 /* verge left, right, barrier left, right, flags[0] */
-        double row[6];                    /* middle, R0, R1 (the right shoulder's end), L0, L1, L2 */
+        double row[6];                    /* middle, R0, R1, L0, L1, L2 (0: the template's, past the one-lane side's shoulder) */
+        double shoulder_end;              /* the two-lane side's third point (R2 / L2): its shoulder's end, 3 m past the edge */
     } CASES[] = {
-        { 0x12, 40, 80, { 40, 80, 64, 104, 0x12 }, { 5, 10, 13, 0, -5, -8 } },
-        { 0x21, 80, 40, { 80, 40, 104, 64, 0x21 }, { -5, 0, 5, -10, -13, 0 } },
-        { 0x12, 40, 60, { 40, 60, 64, 84, 0x12 }, { 2.5, 7.5, 10.5, 0, -5, -8 } },
+        { 0x12, 40, 80, { 40, 80, 64, 104, 0x12 }, { 0, 5, 10, -5, -8, 0 }, 13 },
+        { 0x21, 80, 40, { 80, 40, 104, 64, 0x21 }, { 0, 5, 8, -5, -10, -13 }, -13 },
+        { 0x12, 40, 60, { 40, 60, 64, 84, 0x12 }, { 0, 5, 7.5, -5, -8, 0 }, 10.5 },   /* the taper: the outer lane 2.5 m */
     };
     for (size_t c = 0; c < sizeof CASES / sizeof CASES[0]; ++c) {
         static TrackGenNode n[COUNT];
@@ -125,19 +127,19 @@ static void lanes(const uint8_t *tmpl, size_t tsize, const uint8_t tmpl_tex[10])
         CHECK_EQ_INT(out[0x98C + 36 * LANE_TO + 4], 0x11);
         double want[6];
         memcpy(want, CASES[c].row, sizeof want);
-        if (CASES[c].lanes == 0x21) want[5] = point_at(row_of(&parts, NODE), 8);   /* L2 is past the shoulder: not this test's */
-        else want[5] = CASES[c].row[5];
+        if (CASES[c].lanes == 0x12) want[5] = point_at(row_of(&parts, NODE), 8);   /* L2 is past the one-lane side's shoulder: not this test's */
+        CHECK(near(point_at(row_of(&parts, NODE), CASES[c].lanes == 0x12 ? 3 : 8), CASES[c].shoulder_end));
         char what[32];
         snprintf(what, sizeof what, "case %zu", c);
         check_row(row_of(&parts, NODE), want, what);
-        /* the segment's strips: the lanes' slots first, the template's beyond moved one strip out on the two-lane side */
+        /* the segment's strips: on the two-lane side the lanes' slots first, the template's beyond moved one strip out; the other side the template's */
         const uint8_t *tex = parts.terrain + (size_t)SEG * TRI_SEGMENT_SIZE + 0xe;
         uint8_t expect[10];
         if (CASES[c].lanes == 0x12) {
-            const uint8_t e[10] = { 15, tmpl_tex[1], tmpl_tex[2], tmpl_tex[3], tmpl_tex[4], 18, tmpl_tex[5], tmpl_tex[6], tmpl_tex[7], tmpl_tex[8] };
+            const uint8_t e[10] = { 18, 15, tmpl_tex[1], tmpl_tex[2], tmpl_tex[3], tmpl_tex[5], tmpl_tex[6], tmpl_tex[7], tmpl_tex[8], tmpl_tex[9] };
             memcpy(expect, e, 10);
         } else {
-            const uint8_t e[10] = { 18, tmpl_tex[0], tmpl_tex[1], tmpl_tex[2], tmpl_tex[3], 15, tmpl_tex[6], tmpl_tex[7], tmpl_tex[8], tmpl_tex[9] };
+            const uint8_t e[10] = { tmpl_tex[0], tmpl_tex[1], tmpl_tex[2], tmpl_tex[3], tmpl_tex[4], 18, 15, tmpl_tex[6], tmpl_tex[7], tmpl_tex[8] };
             memcpy(expect, e, 10);
         }
         CHECK(memcmp(tex, expect, 10) == 0);
@@ -204,8 +206,8 @@ static void more_faults(const uint8_t *tmpl, size_t tsize)
     free(out), out = NULL;
 }
 
-/* a tarmac shoulder (dev3's step 2b) on a lane segment: its picture goes on the shoulder band, one strip further out on the centre side (the left of a
- * 1+2: lane, road, then the shoulder), where it was on the other side */
+/* a tarmac shoulder (dev3's step 2b) on a lane segment: its picture goes on the shoulder band, one strip further out on the two-lane side (the right of
+ * a 1+2: two lanes, then the shoulder), where it was on the other side */
 static void tarmac_on_lanes(const uint8_t *tmpl, size_t tsize)
 {
     static TrackGenNode n[COUNT];
@@ -219,12 +221,40 @@ static void tarmac_on_lanes(const uint8_t *tmpl, size_t tsize)
     CHECK(generate(n, tmpl, tsize, &out, &tri, &parts, why, sizeof why));
     if (out == NULL) return;
     const uint8_t *tex = parts.terrain + (size_t)SEG * TRI_SEGMENT_SIZE + 0xe;
-    CHECK_EQ_INT(tex[0], TRACK_GENERIC_SLOT_LANE_EDGE);
-    CHECK_EQ_INT(tex[1], TRACK_GENERIC_SLOT_TARMAC);        /* right: lane, then the shoulder */
-    CHECK_EQ_INT(tex[5], TRACK_GENERIC_SLOT_LANE_CENTRE);
-    CHECK_EQ_INT(tex[6], TRACK_GENERIC_SLOT_ROAD);          /* left: lane, road, then the shoulder */
-    CHECK_EQ_INT(tex[7], TRACK_GENERIC_SLOT_TARMAC);
+    CHECK_EQ_INT(tex[0], TRACK_GENERIC_SLOT_LANE_CENTRE);
+    CHECK_EQ_INT(tex[1], TRACK_GENERIC_SLOT_LANE_EDGE);
+    CHECK_EQ_INT(tex[2], TRACK_GENERIC_SLOT_TARMAC);        /* right: two lanes, then the shoulder */
+    CHECK_EQ_INT(tex[5], TRACK_GENERIC_SLOT_ROAD);
+    CHECK_EQ_INT(tex[6], TRACK_GENERIC_SLOT_TARMAC);        /* left: the road's own, then the shoulder */
     free(out);
+}
+
+/* where a stretch starts and ends nothing jumps on the one-lane side: the middle (the yellow centre) and its edge and shoulder are where the node before has
+ * them, and the two-lane side's edge is not nearer the centre than before (the quads between rows join point to point: a point that moved a lane drew the
+ * strips diagonally, a gravel wedge over the oncoming lane) */
+static void no_jump(const uint8_t *tmpl, size_t tsize)
+{
+    static const int LANES[2] = { TRACK_GEN_LANES_1_2, TRACK_GEN_LANES_2_1 };
+    for (int c = 0; c < 2; ++c) {
+        static TrackGenNode n[COUNT];
+        const int right = LANES[c] == TRACK_GEN_LANES_1_2;
+        straight(n, LANES[c], right ? 40 : 45, right ? 45 : 40);   /* the taper's first node: 5 eighths more on the two-lane side */
+        uint8_t *out = NULL;
+        Tri tri;
+        TriParts parts;
+        char why[256] = "";
+        CHECK(generate(n, tmpl, tsize, &out, &tri, &parts, why, sizeof why));
+        if (out == NULL) continue;
+        for (int k = 0; k < 2; ++k) {
+            const int at = k == 0 ? LANE_FROM : LANE_TO;   /* into the stretch, and out of it */
+            const uint8_t *before = row_of(&parts, at - 1), *now = row_of(&parts, at);
+            const int one_edge = right ? 6 : 1, one_shoulder = right ? 7 : 2, two_edge = right ? 2 : 7, two_edge_before = right ? 1 : 6;
+            CHECK(near(point_at(now, 0), point_at(before, 0)));
+            CHECK(near(point_at(now, one_edge), point_at(before, one_edge)) && near(point_at(now, one_shoulder), point_at(before, one_shoulder)));
+            if (k == 0) CHECK(fabs(point_at(now, two_edge)) >= fabs(point_at(before, two_edge_before)) - 0.01);
+        }
+        free(out);
+    }
 }
 
 int main(void)
@@ -240,6 +270,7 @@ int main(void)
     faults(tmpl, tsize);
     more_faults(tmpl, tsize);
     tarmac_on_lanes(tmpl, tsize);
+    no_jump(tmpl, tsize);
     free(tmpl);
     return TEST_REPORT();
 }

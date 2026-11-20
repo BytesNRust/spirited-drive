@@ -193,13 +193,6 @@ static int two_lane_side(const TrackGenNode *shape)
     return shape->lanes == TRACK_GEN_LANES_1_2 ? TRACK_GEN_RIGHT : shape->lanes == TRACK_GEN_LANES_2_1 ? TRACK_GEN_LEFT : -1;
 }
 
-/* the side whose row chain has two strips of road on a lane node: the other one, from the middle point over the centre line to the far edge; -1 for none */
-static int centre_side(const TrackGenNode *shape)
-{
-    const int two = two_lane_side(shape);
-    return two < 0 ? -1 : two == TRACK_GEN_RIGHT ? TRACK_GEN_LEFT : TRACK_GEN_RIGHT;
-}
-
 static void write_node(uint8_t *dst, const uint8_t *model, const TrackGenNode *shape, const int32_t pos[3], const TriNode *tmpl)
 {
     memcpy(dst, model, NODE_SIZE);
@@ -266,26 +259,24 @@ static void write_strip(uint8_t *seg, const uint8_t *model, const TrackGenNode *
 static void strip_side_slots(uint8_t *seg, const TrackGenNode *first)
 {
     enum { STRIP_TEXTURES = 0xe, SHOULDER_BAND = 1, LEFT_CHAIN = 5 };
-    const int centre = centre_side(first);   /* step 4: that side has one more road strip, so its shoulder band is one further out */
+    const int centre = two_lane_side(first);   /* step 4: the two-lane side has one more road strip, so its shoulder band is one further out */
     for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side)
         if ((first->side[side].has & TRACK_GEN_SIDE_TARMAC) && first->side[side].tarmac)
             seg[STRIP_TEXTURES + (side == TRACK_GEN_LEFT ? LEFT_CHAIN : 0) + SHOULDER_BAND + (side == centre)] = TRACK_GENERIC_SLOT_TARMAC;
 }
 
-/* The strips' pictures of a lane segment (step 4: its first node 1+2 or 2+1), as the CD's AL1 node 220. The middle point lies between the two lanes of one
- * direction: the strip from it to that side's edge is TRACK_GENERIC_SLOT_LANE_EDGE (dashed inside, edge outside); on the centre side, the strip from it to the
- * yellow centre is TRACK_GENERIC_SLOT_LANE_CENTRE (dashed inside, yellow outside), then the road's own picture from the centre to the other edge. The
- * template's strips beyond move one strip out on the centre side; its last one goes. */
+/* The strips' pictures of a lane segment (step 4: its first node 1+2 or 2+1). The one-lane side keeps the road's own picture (centre line inside, edge
+ * outside). On the two-lane side the inner lane is TRACK_GENERIC_SLOT_LANE_CENTRE (the yellow centre inside, a dashed line outside), the outer lane
+ * TRACK_GENERIC_SLOT_LANE_EDGE (dashed inside, the edge outside); the template's strips beyond move one strip out there, its last one goes. */
 static void lane_slots(uint8_t *seg, const TrackGenNode *first)
 {
     enum { STRIP_TEXTURES = 0xe, LEFT_CHAIN = 5, PER_SIDE = 5 };
     const int two = two_lane_side(first);
     if (two < 0) return;
-    uint8_t *right = seg + STRIP_TEXTURES, *left = right + LEFT_CHAIN;
-    uint8_t *edge = two == TRACK_GEN_RIGHT ? right : left, *centre = two == TRACK_GEN_RIGHT ? left : right;
-    memmove(centre + 1, centre, PER_SIDE - 1);   /* the road's own picture becomes the centre side's second strip */
-    centre[0] = TRACK_GENERIC_SLOT_LANE_CENTRE;
-    edge[0] = TRACK_GENERIC_SLOT_LANE_EDGE;
+    uint8_t *strips = seg + STRIP_TEXTURES + (two == TRACK_GEN_LEFT ? LEFT_CHAIN : 0);
+    memmove(strips + 1, strips, PER_SIDE - 1);
+    strips[0] = TRACK_GENERIC_SLOT_LANE_CENTRE;
+    strips[1] = TRACK_GENERIC_SLOT_LANE_EDGE;
 }
 
 /* the frame of a node as the file will hold it: the same angles write_node stores */
@@ -364,8 +355,9 @@ static double (*terrain_caps(const TrackGenNode *shapes, int count))[2]
 }
 
 /* A lane row (step 4) before it is turned: `two` the side with two lanes (-1: no lanes, the template's row), and the steps across (raw units, local axes)
- * of the points it sets (`set`). On the two-lane side the template's points move one out (its last goes) so the road has two strips there. The middle
- * point is one lane in from that side's edge (between the two lanes of one direction); the yellow centre is on the node line; each strip is a lane. */
+ * of the points it sets (`set`). The middle point stays on the node line (the yellow centre) and the one-lane side is the 1+1 road's, so nothing on that side
+ * moves where a stretch starts or ends. On the two-lane side the template's points move one out (its last goes): the inner lane from the centre to the
+ * dashed line, then the outer lane to the edge, which grows and shrinks with the taper. */
 typedef struct {
     int two;
     int set[11];
@@ -377,20 +369,11 @@ static void lane_row(const TrackGenNode *shape, uint8_t *r, LaneRow *out)
     memset(out, 0, sizeof *out);
     out->two = two_lane_side(shape);
     if (out->two < 0) return;
-    const int lane = 16 * TRACK_GEN_LANE, left = 16 * (int)lround(shape->width), right = 16 * right_half(shape);
-    const int first = out->two == TRACK_GEN_RIGHT ? 6 : 1;   /* the first point of the side that gets two strips of road: the centre side */
-    memmove(r + 6 * (first + 1), r + 6 * first, 6 * 4);      /* its template points one out, the last dropped */
-    const int middle = out->two == TRACK_GEN_RIGHT ? right - lane : -(left - lane);
-    out->set[0] = 1, out->step[0] = middle;
-    if (out->two == TRACK_GEN_RIGHT) {
-        out->set[1] = 1, out->step[1] = lane;              /* to the right edge: the outer own lane */
-        out->set[6] = 1, out->step[6] = -middle;           /* to the node line: the inner own lane */
-        out->set[7] = 1, out->step[7] = -left;             /* to the left edge: the oncoming lane */
-    } else {
-        out->set[6] = 1, out->step[6] = -lane;             /* to the left edge: the outer oncoming lane */
-        out->set[1] = 1, out->step[1] = -middle;           /* to the node line: the inner oncoming lane */
-        out->set[2] = 1, out->step[2] = right;             /* to the right edge: the own lane */
-    }
+    const int lane = 16 * TRACK_GEN_LANE, half = 16 * (out->two == TRACK_GEN_RIGHT ? right_half(shape) : (int)lround(shape->width));
+    const int first = out->two == TRACK_GEN_RIGHT ? 1 : 6, sign = out->two == TRACK_GEN_RIGHT ? 1 : -1;
+    memmove(r + 6 * (first + 1), r + 6 * first, 6 * 4);   /* the side's template points one out, the last dropped */
+    out->set[first] = 1, out->step[first] = sign * lane;                                  /* the inner lane, to the dashed line */
+    out->set[first + 1] = 1, out->step[first + 1] = sign * (half > lane ? half - lane : 0);   /* the outer lane, to the edge */
 }
 
 /* write_strip with the rows turned: the template's, in its nodes' own axes (`from`, one frame a row), laid along the new nodes' (`shapes`).
@@ -411,7 +394,7 @@ static void write_strip_turned(uint8_t *seg, const uint8_t *model, const TrackGe
         for (int point = 0; point < 11; ++point) {
             const int lateral = point == 1 ? widen_r : point == 6 ? -widen : 0;   /* right[0] and left[0]: the road's edges */
             const int side = point >= 6, on_side = point == 0 ? -1 : point - 1 - 5 * side;   /* 0..4 along its side; -1 the middle */
-            const int road = 1 + (centre_side(&shapes[row]) == (side == 0 ? TRACK_GEN_RIGHT : TRACK_GEN_LEFT));   /* the side's points that are the road's own */
+            const int road = 1 + (two_lane_side(&shapes[row]) == (side == 0 ? TRACK_GEN_RIGHT : TRACK_GEN_LEFT));   /* the side's points that are the road's own */
             const int hold = on_side >= road + 1 && caps[row][side] != INFINITY;   /* the edge and the shoulder's end are kept */
             const TrackGenSide *own = &shapes[row].side[side == 0 ? TRACK_GEN_RIGHT : TRACK_GEN_LEFT];
             const int shoulder = on_side == road && (own->has & TRACK_GEN_SIDE_SHOULDER);   /* the shoulder's end: its step across is the shoulder */

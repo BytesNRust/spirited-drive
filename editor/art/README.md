@@ -15,7 +15,7 @@ from `generic_stage.txt` (here, with the paths of the art folder it was built in
 | terrain 1 gravel, 2 rock, 3 grass, 10 planks | Gravel001, Rock035, Grass005, Planks001 (512x512 colour maps) | ambientCG, CC0 1.0 |
 | terrain 0 road | asphalt with our own yellow centre line and white edge lines (`make_road.py`) | Asphalt010 (ambientCG, CC0 1.0) and our own lines |
 | terrain 4 tarmac shoulder (phase 2 step 2b, slot 12) | Asphalt010 as it is: the road's asphalt without its lines | ambientCG, CC0 1.0 |
-| terrain 5 and 6 lanes (phase 2 step 4, slots 15 and 18) | Asphalt010 with our own lines (`make_lanes.py`): 5 a dashed white line inside and the white edge line outside, 6 a dashed white line inside and the yellow centre line outside (a 1+2 or 2+1 stretch's three 5 m strips; the third is terrain 0) | Asphalt010 (ambientCG, CC0 1.0) and our own lines |
+| terrain 5 and 6 lanes (phase 2 step 4, slots 15 and 18) | Asphalt010 with our own lines (`make_lanes.py`): 5 a dashed white line inside and the white edge line outside, 6 the yellow centre line inside and a dashed white line outside (a 1+2 or 2+1 stretch's three 5 m strips: 6 then 5 on the two-lane side, terrain 0 on the other) | Asphalt010 (ambientCG, CC0 1.0) and our own lines |
 | terrain 7..9 fillers | flat white | ours |
 | horizon | a flat vertical blue gradient, 256x64 | ours |
 
