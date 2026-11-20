@@ -299,7 +299,14 @@ void problems_panel(App *a)
             ImGui::TextWrapped("%s", lanes);
             ImGui::PopStyleColor();
         }
-        if (refusal == NULL && (!a->road_made || (a->problem_count == 0 && !a->stage_short)) && !art_line && !lanes_line) ImGui::TextDisabled("No problems");
+        char custom[APP_MSG];
+        const bool custom_line = app_barrier_custom_note(a, custom, sizeof custom);   // a barrier set apart from the fence: amber, built as asked
+        if (custom_line) {
+            ImGui::PushStyleColor(ImGuiCol_Text, WARN_TEXT);
+            ImGui::TextWrapped("%s", custom);
+            ImGui::PopStyleColor();
+        }
+        if (refusal == NULL && (!a->road_made || (a->problem_count == 0 && !a->stage_short)) && !art_line && !lanes_line && !custom_line) ImGui::TextDisabled("No problems");
         // red rows first, then amber, each by node (track_trace_problems); a click centres the Viewport on the node
         for (int i = 0; i < a->problem_count && i < PROBLEM_ROWS; ++i) {
             const TraceProblem &p = a->problems[i];
