@@ -102,6 +102,8 @@ typedef struct {
     int problem_count;
     TraceSummaryLine summary[TRACE_SUMMARY_LINES];   /* a line per rule some node breaks, red first */
     int summary_count;
+    int stage_short;             /* the road is too short for a stage (track_trace_stage_short): red in Problems and Limits, `stage_text` says why */
+    char stage_text[2 * TRACE_SUMMARY_TEXT];
     double length;               /* the centre line's length, in units (TRACE_METRES gives metres) */
     double *node_dist;           /* metres from node 0 to each node, when road_made */
     double *point_dist;          /* metres along the curve to each control point (point_count values, when road_made) */

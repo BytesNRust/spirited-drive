@@ -313,6 +313,12 @@ static void check_app_flow(void)
     CHECK(!app_open_project(a, two));                        /* an empty folder */
     CHECK(app_new_project(a, two));                          /* New makes the project there */
     CHECK(strcmp(a->dir, two) == 0);
+    app_recompute(a);                                        /* its 200 m straight is too short for a stage: said, with what it needs */
+    CHECK(a->road_made && a->stage_short && strstr(a->stage_text, "too short for a stage") != NULL && strstr(a->stage_text, "214 nodes") != NULL);
+    a->trace.points[a->trace.count - 1].z = 2000.0;          /* the last point 2 km on: long enough */
+    a->dirty = 1;
+    app_recompute(a);
+    CHECK(a->road_made && !a->stage_short && a->stage_text[0] == '\0');
     CHECK(a->fit_pending);
     CHECK_EQ_INT(a->recent.count, 2);                        /* both are in the list, the new one first */
     char real_one[PATH_MAX], real_two[PATH_MAX];   /* the list holds real paths (a symlinked TMPDIR is another name) */

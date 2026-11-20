@@ -1,4 +1,5 @@
 #include "game/race/race_sim.h"
+#include "formats/race_stage.h"
 #include "game/race/track_traits.h"
 
 #include "game/race/race_camera.h"
@@ -44,7 +45,7 @@ enum {
     RACER = 0x4,                 /* flags_174 (00440858) */
     COP = 0x8,                   /* flags_174 (00440858) */
     EARLY_LOOP_NODES = 1000,
-    STAGE_END = 0xb5,            /* nodes a stage's race stops short of its last (00455a5c) */
+    STAGE_END = RACE_STAGE_END,  /* nodes a stage's race stops short of its last (00455a5c; core/formats/race_stage.h, shared with the Studio) */
     STOPPED = 0x8000,            /* a finished human's speed (+0x70) at most this ends the race */
     END_FINISHED = 1,            /* 00509d6c / 00509d70 */
     END_ALL_OUT = 0x10           /* no human has a finish above 0 */

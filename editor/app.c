@@ -45,6 +45,8 @@ static void drop_road(App *a)
     a->problems = NULL;
     a->problem_count = 0;
     a->summary_count = 0;
+    a->stage_short = 0;
+    a->stage_text[0] = '\0';
 }
 
 void app_begin(App *a, const char *game, const char *user, const char *generic_art)
@@ -218,6 +220,7 @@ void app_recompute(App *a)
         return;
     }
     a->road_made = 1;
+    a->stage_short = track_trace_stage_short(a->node_count, a->stage_text, sizeof a->stage_text);
     track_trace_flags(a->nodes, a->node_count, a->flags);
     a->node_dist = calloc((size_t)a->node_count, sizeof *a->node_dist);
     a->point_dist = calloc((size_t)a->trace.count, sizeof *a->point_dist);

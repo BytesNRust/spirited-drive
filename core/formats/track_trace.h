@@ -97,6 +97,16 @@ void track_trace_keys_remove_point(TraceKey *keys, int *count, int index);
 /* Per node (flags[i], for i < count): the TRACE_FLAG_* bits that node breaks, a warning bit only where its red one is not set. flags[0] is always 0 (the start has no node before it). */
 void track_trace_flags(const TrackGenNode *nodes, int count, uint8_t *flags);
 
+/* The fewest nodes (track_trace_nodes' node_count) a road needs to be a stage: the game's road has one node fewer (the trace's last closes the last
+ * segment), a stage's race ends RACE_STAGE_END nodes before that road's last and the front row starts at node RACE_GRID_FRONT
+ * (formats/race_stage.h), so the finish must lie past the front row. Under it the race ends at its first tick, the car standing. */
+int track_trace_stage_min_nodes(void);
+
+/* 1 with the reason in `out` (English, the lengths and the numbers from the game's constants) when a road of `node_count` trace nodes is too short for
+ * a stage: "too short for a stage: 1.13 km of road (188 nodes); a stage needs 1.29 km (214 nodes): the race ends 181 nodes (1.09 km) before the
+ * road's last node, and the front row starts at node 32"; 0 and "" otherwise. A text longer than `cap` is cut. */
+int track_trace_stage_short(int node_count, char *out, size_t cap);
+
 /* A node that breaks a limit, as the Problems panel lists it. `flags` are its TRACE_FLAG_* bits, `red` is set when any of them is red,
  * `turn` is its turn from the node before in degrees (unsigned) and `radius` the curve's radius there in units (0 on a straight). */
 typedef struct {
