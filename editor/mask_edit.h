@@ -56,6 +56,10 @@ int mask_edit_size_note(const MaskEdit *e, char *out, size_t cap);
 
 /* the texture's colour under mask texel (x, y), scaled as the game scales the mask; 0 when there is no texture or the texel is outside */
 int mask_edit_texture_at(const MaskEdit *e, int x, int y, uint8_t rgb[3]);
+/* The texel of a width x height mask under a point of the screen: the mask is drawn from (origin_x, origin_y) with `scale` screen pixels a texel. 1 with (*x, *y) when the point is on a texel;
+ * 0 with both -1 otherwise, including a point that is not a number or too far to be one (a missing mouse position is -FLT_MAX) or a scale that is not above 0: nothing is cast out of range. */
+int mask_edit_texel_under(float px, float py, float origin_x, float origin_y, float scale, int width, int height, int *x, int *y);
+
 /* the class of texel (x, y), or -1 outside */
 int mask_edit_class_at(const MaskEdit *e, int x, int y);
 

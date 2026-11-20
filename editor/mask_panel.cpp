@@ -120,8 +120,10 @@ void canvas(App *a, ImTextureID tex)
     ImGui::SetCursorScreenPos(origin);
     ImGui::InvisibleButton("paint", size);
     const bool hovered = ImGui::IsItemHovered(), active = ImGui::IsItemActive();
+    // no mouse position (a headless run, the pointer outside the window) is -FLT_MAX: not a texel, and never cast to an int
     const ImVec2 mouse = ImGui::GetIO().MousePos;
-    const int x = (int)floorf((mouse.x - origin.x) / scale), y = (int)floorf((mouse.y - origin.y) / scale);
+    int x = -1, y = -1;
+    if (ImGui::IsMousePosValid(&mouse)) mask_edit_texel_under(mouse.x, mouse.y, origin.x, origin.y, scale, e.width, e.height, &x, &y);
     const bool inside = x >= 0 && y >= 0 && x < e.width && y < e.height;
     static int last_x = -1, last_y = -1;
     const uint8_t cls = mask_edit_class(m.cls)->value;
