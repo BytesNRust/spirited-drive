@@ -60,6 +60,19 @@ int mask_edit_texture_at(const MaskEdit *e, int x, int y, uint8_t rgb[3]);
  * 0 with both -1 otherwise, including a point that is not a number or too far to be one (a missing mouse position is -FLT_MAX) or a scale that is not above 0: nothing is cast out of range. */
 int mask_edit_texel_under(float px, float py, float origin_x, float origin_y, float scale, int width, int height, int *x, int *y);
 
+/* Zoom (screen pixels a texel) moves through the steps ME_ZOOM_MIN..ME_ZOOM_MAX: the next step above `scale` for `dir` > 0, the next below for `dir` < 0, held to the ends. */
+enum { ME_ZOOM_MIN = 1, ME_ZOOM_MAX = 16 };
+float mask_edit_zoom_step(float scale, int dir);
+/* The scroll (one axis) that keeps the texel at the middle of a `view` screen pixels wide view where it was when the zoom goes from `old_scale` to `new_scale`; never below 0
+ * (the drawing's far edge is ImGui's to hold). */
+float mask_edit_zoom_scroll(float scroll, float view, float old_scale, float new_scale);
+/* The wheel's zoom steps: `delta` (ImGui's MouseWheel, one a notch of a mouse wheel, small fractions a frame from a trackpad) is added to `*acc`; each whole notch reached is a
+ * step (positive in, negative out), the rest stays in `*acc`. A turn the other way drops what was left. */
+int mask_edit_wheel_steps(float *acc, float delta);
+/* What a key of the keyboard's layout does to the zoom: '+' or '=' (the US key of '+') ME_ZOOM_IN, '-' ME_ZOOM_OUT, '0' ME_ZOOM_FIT, anything else ME_ZOOM_NONE. */
+typedef enum { ME_ZOOM_NONE = 0, ME_ZOOM_IN, ME_ZOOM_OUT, ME_ZOOM_FIT } MaskZoomKey;
+MaskZoomKey mask_edit_zoom_key(int ch);
+
 /* the class of texel (x, y), or -1 outside */
 int mask_edit_class_at(const MaskEdit *e, int x, int y);
 

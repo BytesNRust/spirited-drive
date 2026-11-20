@@ -172,12 +172,12 @@ void preview_panel(App *a, SDL_Renderer *ren)
     if (ImGui::Begin(PANEL_PREVIEW)) {
         const int count = paint_count(a);
         if (paint >= count) paint = count - 1;
-        char current[96] = "As the car file has it";
+        char current[96] = "Base texture (no colour)";
         if (paint >= 0) snprintf(current, sizeof current, "%s", a->edit.now.paints[paint].name);
         if (count > 0) {
             ImGui::SetNextItemWidth(220);
             if (ImGui::BeginCombo("Paint", current)) {
-                if (ImGui::Selectable("As the car file has it", paint < 0)) paint = -1;
+                if (ImGui::Selectable("Base texture (no colour)", paint < 0)) paint = -1;
                 for (int i = 0; i < count; ++i) {
                     const uint8_t *c = a->edit.now.paints[i].rgb;
                     ImGui::ColorButton("##c", ImVec4(c[0] / 255.0f, c[1] / 255.0f, c[2] / 255.0f, 1.0f), ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoPicker, ImVec2(14, 14));

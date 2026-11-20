@@ -372,6 +372,7 @@ void masks_panel(App *a)
     masks_dock = ImGui::GetWindowDockID();
     if (open) {
         const CarProject &c = a->car;
+        const bool original = car_race_original_of(&c) != nullptr;   // an exported original car (or its masks): one of the game's own
         ImGui::Text("Car file: %s", leaf(c.cfm));
         masks_changes_section(a);   // what the project's masks have changed from the game's: first, it is what a hand-over needs
         ImGui::Spacing();
@@ -383,16 +384,18 @@ void masks_panel(App *a)
             ImGui::Spacing();
             if (ImGui::Button("Reveal masks folder")) snprintf(a->reveal, sizeof a->reveal, "%s/car_masks/%s", c.piece, c.folder);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Show the folder in the Finder");
-            char repo[256];
-            car_export_repo_path(c.folder, repo, sizeof repo);
-            muted_wrapped("In the game's source tree these files are %s: copy them there to change the game's masks.", repo);
+            if (original) {   // only one of the game's own cars has its masks in the game's source tree; a mod car's stay in its mod
+                char repo[256];
+                car_export_repo_path(c.folder, repo, sizeof repo);
+                muted_wrapped("In the game's source tree these files are %s: copy them there to change the game's masks.", repo);
+            }
         }
         ImGui::Spacing();
         if (c.kit_mask_count > 0) {
-            ImGui::Text("Your color masks (mascaras/): %d", c.kit_mask_count);
+            ImGui::Text("Your colour masks for GIMP (mascaras/): %d", c.kit_mask_count);
             name_list(c.kit_mask, c.kit_mask_count);
-        } else if (!c.masks_only) {
-            muted_wrapped("No color masks of your own (mascaras/).");
+        } else if (!c.masks_only && !original) {   // the kit's folder of colour PNGs, not the grey masks above: an exported original has no kit
+            muted_wrapped("No colour masks for GIMP (mascaras/): that folder of the kit holds colour PNGs painted in GIMP. Edit mask writes the grey masks above, in car_masks/%s/.", c.folder);
         }
     }
     ImGui::End();

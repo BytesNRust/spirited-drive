@@ -134,6 +134,25 @@ static void check_model(void)
     mask_edit_stroke_begin(&e); mask_edit_pencil(&e, 1, 0, 1, 224); mask_edit_stroke_end(&e);
     CHECK_EQ_INT(e.undo_count, 2);
     mask_edit_undo(&e); mask_edit_undo(&e);
+    /* a drag: each texel the pointer reaches shows at once, so every call of the stroke that changes a texel raises the version the picture is rebuilt by
+     * (the owner's drag drew nothing until the next click) */
+    mask_edit_stroke_begin(&e);
+    unsigned seen = e.version;
+    mask_edit_pencil(&e, 0, 2, 1, 224);
+    CHECK(e.version != seen);
+    seen = e.version;
+    CHECK_EQ_INT(mask_edit_line(&e, 0, 2, 3, 2, 1, 224), 3);
+    CHECK(e.version != seen);
+    seen = e.version;
+    mask_edit_line(&e, 3, 2, 3, 3, 1, 224);
+    CHECK(e.version != seen);
+    seen = e.version;
+    CHECK_EQ_INT(mask_edit_pencil(&e, 3, 3, 1, 224), 0);
+    CHECK(e.version == seen);   /* a texel already that class: nothing to rebuild */
+    mask_edit_stroke_end(&e);
+    CHECK_EQ_INT(e.undo_count, 1);   /* still one step to undo */
+    mask_edit_undo(&e);
+    CHECK_MEM(e.now, m, sizeof m);
 
     /* fill by class: the paint half (the glass texel is not paint, but 4-connected round it) */
     const int n = mask_edit_fill(&e, 0, 0, 192, ME_FILL_CLASS);
@@ -366,6 +385,39 @@ static void check_textures(const char *cd, const char *data)
     CHECK_EQ_INT(mask_tex_list("/nonexistent.CFM", list, MASK_TEX_LIST), 0);
 }
 
+/* Edit mask's zoom: the keys and the wheel step through the zooms, and every zoom (the slider's too) keeps the texel at the view's middle where it was */
+static void check_zoom(void)
+{
+    CHECK(mask_edit_zoom_step(1.0f, 1) == 1.5f);
+    CHECK(mask_edit_zoom_step(4.0f, 1) == 6.0f);
+    CHECK(mask_edit_zoom_step(5.0f, 1) == 6.0f);   /* a slider's zoom between steps goes to the next */
+    CHECK(mask_edit_zoom_step(5.0f, -1) == 4.0f);
+    CHECK(mask_edit_zoom_step(16.0f, 1) == 16.0f);   /* held to the ends */
+    CHECK(mask_edit_zoom_step(1.0f, -1) == 1.0f);
+    CHECK(mask_edit_zoom_step(0.0f, 1) == 1.5f);
+    /* a 400-pixel view scrolled 600 at 4x shows texel (600 + 200) / 4 = 200 in its middle; at 8x that texel is at 1600, so the scroll is 1400 */
+    CHECK(mask_edit_zoom_scroll(600.0f, 400.0f, 4.0f, 8.0f) == 1400.0f);
+    CHECK(mask_edit_zoom_scroll(1400.0f, 400.0f, 8.0f, 4.0f) == 600.0f);   /* and back */
+    CHECK(mask_edit_zoom_scroll(0.0f, 400.0f, 4.0f, 2.0f) == 0.0f);   /* never before the drawing's start */
+    CHECK(mask_edit_zoom_scroll(10.0f, 400.0f, 0.0f, 2.0f) == 0.0f);   /* no scale: no scroll */
+    /* the wheel: a notch is a step; a trackpad's small deltas a frame add up to one step a whole notch, not one a frame (the owner's two-finger zoom ran away) */
+    float acc = 0.0f;
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, 1.0f), 1);
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, -1.0f), -1);
+    int steps = 0;
+    for (int i = 0; i < 10; i++) steps += mask_edit_wheel_steps(&acc, 0.25f);   /* 2.5 notches over ten frames */
+    CHECK_EQ_INT(steps, 2);
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, -0.25f), 0);   /* turned back: the half notch left is dropped, a quarter is no step */
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, -0.75f), -1);
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, 0.0f), 0);
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, 3.0f), 3);   /* a fast mouse wheel: every notch */
+    CHECK_EQ_INT(mask_edit_zoom_key('+'), ME_ZOOM_IN);
+    CHECK_EQ_INT(mask_edit_zoom_key('='), ME_ZOOM_IN);
+    CHECK_EQ_INT(mask_edit_zoom_key('-'), ME_ZOOM_OUT);
+    CHECK_EQ_INT(mask_edit_zoom_key('0'), ME_ZOOM_FIT);
+    CHECK_EQ_INT(mask_edit_zoom_key('z'), ME_ZOOM_NONE);
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) { fprintf(stderr, "usage: test_editor_mask_edit data-dir [game-files-dir]\n"); return 2; }
@@ -375,6 +427,7 @@ int main(int argc, char **argv)
     check_model();
     check_refusals();
     check_texel_under();
+    check_zoom();
     check_compose();
     check_repo(argv[1]);
     if (argc > 2) check_textures(argv[2], argv[1]);
