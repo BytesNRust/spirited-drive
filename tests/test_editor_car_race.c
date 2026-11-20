@@ -319,7 +319,9 @@ static void make_fake_game(char *path, size_t cap)
     write_text_file(path,
         "#!/bin/sh\n"
         "user=; shot=\n"
-        "while [ $# -gt 0 ]; do case \"$1\" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; esac; shift; done\n"
+        "zip=\n"
+        "while [ $# -gt 0 ]; do case \"$1\" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; --install) zip=$2; shift;; esac; shift; done\n"
+        "if [ -n \"$zip\" ]; then echo \"$zip\" > \"$user/../installed_from\"; sleep 1; case \"$zip\" in *broken*) exit 4;; esac; mkdir -p \"$user/mods/loop\"; echo 'installed loop 0.1'; exit 0; fi\n"
         "echo \"fake game out follow=$TNFS_FOLLOW_CAR seed=$TNFS_DRIVE_SEED masks=$TNFS_CAR_MASKS\"\n"
         "case \"$FAKE_MODE\" in\n"
         "  drive) printf 'mods: 1\\ntrack piece: loop is track 18\\n' > \"$user/spirited-drive.log\"; echo \"$@\"; sleep 30; exit 0;;\n"
@@ -516,20 +518,6 @@ static void test_drive_command(void)
     car_race_command_free(&c);
 }
 
-static char installed_from[600];
-
-/* the game's installer, faked: the piece's folder in the scratch player folder, as `--install` makes it */
-static int fake_install(const char *game, const char *zip, const char *user_dir, char *why, size_t why_cap)
-{
-    (void)game;
-    snprintf(installed_from, sizeof installed_from, "%s", zip);
-    if (strstr(zip, "broken") != NULL) return snprintf(why, why_cap, "--install stopped with status 4"), 0;
-    char path[800];
-    snprintf(path, sizeof path, "%s/mods", user_dir), mkdir(path, 0777);
-    snprintf(path, sizeof path, "%s/mods/loop", user_dir), mkdir(path, 0777);
-    return 1;
-}
-
 /* the whole Test drive against the fake game: installed into the scratch folder, the game's own log says whether it took the piece, Stop ends it */
 static void test_drive_job(void)
 {
@@ -539,8 +527,15 @@ static void test_drive_job(void)
     memset(&job, 0, sizeof job);
     job.run.fd = -1;
     setenv("FAKE_MODE", "drive", 1);
-    CHECK(car_race_start_drive(&job, game, "/cd", "/p/loop/build/loop.zip", "loop", car_race_menu_car(0), NULL, fake_install, why, sizeof why));
-    CHECK(strcmp(installed_from, "/p/loop/build/loop.zip") == 0 && car_race_busy(&job));
+    CHECK(car_race_start_drive(&job, game, "/cd", "/p/loop/build/loop.zip", "loop", car_race_menu_car(0), NULL, why, sizeof why));
+    CHECK(car_race_busy(&job) && car_race_installing(&job));   /* the install runs in the job: the start does not wait for it (it takes a second) */
+    for (int i = 0; i < 4000 && car_race_installing(&job) && car_race_poll(&job); ++i) usleep(5000);
+    char from[700] = "";
+    char path[700];
+    snprintf(path, sizeof path, "%s/installed_from", job.temp);
+    FILE *f = fopen(path, "r");
+    if (f != NULL) (void)!fgets(from, sizeof from, f), fclose(f);
+    CHECK(strncmp(from, "/p/loop/build/loop.zip", 22) == 0 && !car_race_installing(&job) && car_race_busy(&job));   /* the zip given, then the game */
     for (int i = 0; i < 4000 && job.piece_track == 0 && car_race_poll(&job); ++i) usleep(5000);
     CHECK_EQ_INT(job.piece_track, 18);   /* read from the game's log while it runs */
     CHECK(strstr(job.piece_line, "track piece: loop is track 18") != NULL);
@@ -551,7 +546,7 @@ static void test_drive_job(void)
     CHECK(!temps_left());
 
     setenv("FAKE_MODE", "half", 1);   /* a line the game is still writing ("track 1" of "track 18") is not taken */
-    CHECK(car_race_start_drive(&job, game, "/cd", "/p/loop/build/loop.zip", "loop", car_race_menu_car(0), NULL, fake_install, why, sizeof why));
+    CHECK(car_race_start_drive(&job, game, "/cd", "/p/loop/build/loop.zip", "loop", car_race_menu_car(0), NULL, why, sizeof why));
     for (int i = 0; i < 4000 && job.piece_track == 0 && car_race_poll(&job); ++i) usleep(5000);
     CHECK_EQ_INT(job.piece_track, 18);
     car_race_stop(&job);
@@ -559,14 +554,19 @@ static void test_drive_job(void)
     CHECK(!temps_left());
 
     setenv("FAKE_MODE", "refused", 1);   /* the game does not take it: said, not ok */
-    CHECK(car_race_start_drive(&job, game, "/cd", "/p/loop/build/loop.zip", "loop", car_race_menu_car(0), NULL, fake_install, why, sizeof why));
+    CHECK(car_race_start_drive(&job, game, "/cd", "/p/loop/build/loop.zip", "loop", car_race_menu_car(0), NULL, why, sizeof why));
     run_job(&job);
     CHECK(!job.ok && job.piece_track < 0 && strstr(job.summary, "refused") != NULL && strstr(job.summary, "already") != NULL);
     CHECK(!temps_left());
 
-    CHECK(!car_race_start_drive(&job, game, "/cd", "/p/broken.zip", "loop", car_race_menu_car(0), NULL, fake_install, why, sizeof why));
-    CHECK(strstr(why, "status 4") != NULL && !car_race_busy(&job) && !temps_left());   /* an install that fails: nothing runs, nothing left */
-    CHECK(!car_race_start_drive(&job, game, "/cd", "/p/loop.zip", "loop", car_export_car(index_of("Wagon")), NULL, fake_install, why, sizeof why));
+    CHECK(car_race_start_drive(&job, game, "/cd", "/p/broken.zip", "loop", car_race_menu_car(0), NULL, why, sizeof why));
+    run_job(&job);   /* an install that fails: the game does not run, the job says why, nothing left */
+    CHECK(!job.ok && strstr(job.summary, "status 4") != NULL && strstr(job.summary, "install") != NULL && strstr(job.log, "--drive") == NULL && !temps_left());
+    CHECK(car_race_start_drive(&job, game, "/cd", "/p/loop.zip", "loop", car_race_menu_car(0), NULL, why, sizeof why));
+    car_race_stop(&job);   /* Stop while it installs: no game after it */
+    run_job(&job);
+    CHECK(!job.ok && strstr(job.summary, "Stopped") != NULL && strstr(job.log, "--drive") == NULL && !temps_left());
+    CHECK(!car_race_start_drive(&job, game, "/cd", "/p/loop.zip", "loop", car_export_car(index_of("Wagon")), NULL, why, sizeof why));
     car_race_free(&job);
 }
 

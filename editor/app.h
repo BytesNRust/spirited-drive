@@ -89,6 +89,7 @@ typedef struct {
     int race_night;              /* the preset: 0 Day, 1 Night */
     int race_track;              /* the track chosen (car_race_track's index) */
     RaceLook race_look;          /* the Race window's look switches (T6): the session's, never written to the car's project; all on by default */
+    InstallJob install;          /* Install (U): the game's installer, run in the background (install_job.h) */
     int drive_pick;              /* the car Test drive gives the player: the game's car menu's number (0..7, car_race_menu_car); the editor's settings keep it */
     char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder (main.c does it and clears this) */
     Project project;
@@ -262,7 +263,12 @@ int app_game_found(const App *a);
 
 int app_save(App *a);
 int app_build(App *a);
+/* Install starts the game's installer and returns (1 when it started): app_install_poll (every frame) says its end in the status, "installed into ..." or
+ * "install failed: ..."; 1 while it runs. One at a time; no test drive and nothing opened while it runs. */
 int app_install(App *a);
+int app_install_poll(App *a);
+int app_install_busy(const App *a);
+void app_install_stop(App *a);   /* asks the installer to end (a hung one): app_install_poll says "install failed: the install was stopped" */
 
 /* Points: a new point after the last one, along the last segment; one after the selected point, midway to the next (or after the last);
  * the selected point removed (a trace keeps 2 points). Each sets the status when it refuses. */

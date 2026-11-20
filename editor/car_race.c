@@ -453,11 +453,13 @@ static int job_can_start(const RaceJob *j, const char *game, char *why, size_t w
 static int job_begin(RaceJob *j, const char *game, const char *cd, const char *project, const RaceLook *look, char *why, size_t why_cap)
 {
     proc_free(&j->run);
+    install_job_free(&j->install);
     car_race_command_free(&j->command);
     free(j->photo), free(j->log);
     const int serial = j->photo_serial;
     memset(j, 0, sizeof *j);
     j->run.fd = -1;
+    install_job_init(&j->install);
     j->photo_serial = serial;
     j->look = look != NULL ? *look : car_race_look_default();
     j->log = malloc(RACE_LOG_MAX);
@@ -500,26 +502,20 @@ static int start_common(RaceJob *j, const char *game, const char *cd, const char
 }
 
 int car_race_start_drive(RaceJob *job, const char *game, const char *cd, const char *zip, const char *piece, const ExportCar *car, const RaceLook *look,
-                         RaceInstall install, char *why, size_t why_cap)
+                         char *why, size_t why_cap)
 {
     if (!job_can_start(job, game, why, why_cap)) return 0;
     if (car == NULL || car->kind != EXPORT_DRIVABLE || car_race_menu_pick(car->model) < 0)
         return refuse(why, why_cap, "%s is not a car you drive", car != NULL ? car->label : "no car");
     if (piece == NULL || !car_race_piece_id_ok(piece)) return refuse(why, why_cap, "%s is not a piece's id", piece != NULL ? piece : "nothing");
-    if (zip == NULL || install == NULL) return refuse(why, why_cap, "the test drive is not set up");
+    if (zip == NULL) return refuse(why, why_cap, "the test drive is not set up");
     if (strlen(game) >= EXPORT_PATH || strlen(cd) >= EXPORT_PATH) return refuse(why, why_cap, "a path is too long");
     if (!job_begin(job, game, cd, "", look, why, why_cap)) return 0;
     snprintf(job->piece, sizeof job->piece, "%s", piece);
     job->setup.car = car, job->setup.piece = job->piece;
-    job->state = RACE_JOB_RACE;
-    char failed[300] = "it gave no reason";
-    if (!car_race_user_files(job->own[3], 0, &job->look, why, why_cap)) return job_abandon(job);
-    if (!install(game, zip, job->own[3], failed, sizeof failed)) {
-        refuse(why, why_cap, "the game did not install the piece: %s", failed);
-        return job_abandon(job);
-    }
-    if (!launch(job, why, why_cap)) return job_abandon(job);
-    job_say(job, "Test drive of %s: you drive the %s, a time trial. A scratch player folder.\n", piece, car->label);
+    job->state = RACE_JOB_INSTALL;
+    if (!car_race_user_files(job->own[3], 0, &job->look, why, why_cap) || !install_job_start(&job->install, game, zip, job->own[3], why, why_cap)) return job_abandon(job);
+    job_say(job, "Test drive of %s: you drive the %s, a time trial. A scratch player folder: installing the track.\n", piece, car->label);
     return 1;
 }
 
@@ -699,9 +695,30 @@ static void drive_done(RaceJob *j, const char *game_log)
     else finish(j, 0, "%s before the game said whether it took %s (exit code %d). Its output is in the log.", ended, j->piece, j->run.exit_code);
 }
 
+/* a test drive's install: while it runs nothing else; ended, its output into the log, then the game, or the end of the job saying why not */
+static void install_step(RaceJob *j)
+{
+    char why[300];
+    if (install_job_poll(&j->install)) return;
+    if (j->install.run.log != NULL && j->install.run.log_len > 0) job_log(j, j->install.run.log, j->install.run.log_len);
+    if (j->install.run.stopped) { finish(j, 0, "Stopped while the game installed %s.", j->piece); return; }
+    if (!j->install.ok) { finish(j, 0, "The game did not install %s: %s. Its output is in the log.", j->piece, j->install.why); return; }
+    j->state = RACE_JOB_RACE;
+    if (!launch(j, why, sizeof why)) finish(j, 0, "%s", why);
+}
+
+int car_race_installing(const RaceJob *j)
+{
+    return j->state == RACE_JOB_INSTALL;
+}
+
 int car_race_poll(RaceJob *j)
 {
     if (j->state == RACE_JOB_IDLE) return 0;
+    if (j->state == RACE_JOB_INSTALL) {
+        install_step(j);
+        return j->state != RACE_JOB_IDLE;
+    }
     if (proc_poll(&j->run)) {
         piece_watch(j);
         return 1;
@@ -720,7 +737,8 @@ int car_race_poll(RaceJob *j)
 
 void car_race_stop(RaceJob *j)
 {
-    proc_stop(&j->run);
+    if (j->state == RACE_JOB_INSTALL) install_job_stop(&j->install);
+    else proc_stop(&j->run);
 }
 
 int car_race_busy(const RaceJob *j)
@@ -731,10 +749,12 @@ int car_race_busy(const RaceJob *j)
 void car_race_free(RaceJob *j)
 {
     proc_free(&j->run);
+    install_job_free(&j->install);
     car_race_command_free(&j->command);
     if (j->temp[0] != '\0') car_race_temp_remove(j->temp);
     free(j->photo);
     free(j->log);
     memset(j, 0, sizeof *j);
     j->run.fd = -1;
+    install_job_init(&j->install);
 }

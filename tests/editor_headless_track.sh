@@ -182,7 +182,13 @@ gaps = [b[1] - a[1] for a, b in zip(p, p[1:])]
 assert p[0] == [0.0, 0.0] and all(q[0] == 0.0 for q in p) and max(gaps) <= 100 and min(gaps) > 0 and p[-1][1] > 1290, p
 " "$work/fresh/trace.json" || fail "a new project is not a straight of over 1.29 km with a point every 100 m at most"
 
-# ==== Install: the game not where it is said or not found ====
+# ==== Install: in the background (a slow installer), the game not where it is said or not found ====
+# the game's installer runs while the window goes on; --install waits for it, says where it went and prints the installer's own line
+printf '#!/bin/sh\nuser=; zip=\nwhile [ $# -gt 0 ]; do case "$1" in --user) user=$2; shift;; --install) zip=$2; shift;; esac; shift; done\nsleep 1\nmkdir -p "$user/mods/$(basename "$zip" .zip)" && echo "installed $(basename "$zip" .zip) 0.1"\n' > "$work/slow-tnfs"
+chmod +x "$work/slow-tnfs"
+"$editor" "$work/fresh" --frames 2 --build --install --game "$work/slow-tnfs" --user "$work/u-slow" >"$work/log" 2>&1 || fail "install with a slow installer: $(cat "$work/log")"
+grep -q "installed fresh 0.1" "$work/log" && grep -q "installed into" "$work/log" || fail "the slow install does not say it installed: $(cat "$work/log")"
+[ -d "$work/u-slow/mods/fresh" ] || fail "the slow install made no mods/fresh"
 # the game is not where --game says: Install says so, and what to do, without running anything
 out=$("$editor" "$work/proj" --frames 2 --install --game "$work/no-such-game" --user "$work/u2" 2>&1) && fail "install with a game that is not there went"
 echo "$out" | grep -q "copy Spirited Drive and Spirited Drive Studio to Applications" || fail "no hint about the game's place: $out"

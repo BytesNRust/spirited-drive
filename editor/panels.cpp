@@ -411,11 +411,18 @@ void project_panel(App *a)
         snprintf(save, sizeof save, "Save (%s)", save_keys);
         if (ImGui::Button(save)) app_save(a);
         ImGui::SameLine();
+        ImGui::BeginDisabled(app_install_busy(a) || car_race_installing(&a->race));   // the installer reads the zip Build writes
         if (ImGui::Button("Build (B)")) app_build(a);
+        ImGui::EndDisabled();
         ImGui::SameLine();
-        ImGui::BeginDisabled(a->zip[0] == '\0');
+        ImGui::BeginDisabled(a->zip[0] == '\0' || app_install_busy(a) || car_race_busy(&a->race));   // nor while a test drive runs
         if (ImGui::Button("Install (U)")) app_install(a);
         ImGui::EndDisabled();
+        if (app_install_busy(a)) {   // the game's installer runs in the background: the window goes on (its own line: beside the buttons it runs off at 960 x 600)
+            ImGui::TextUnformatted("Installing...");
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Stop##install")) app_install_stop(a);
+        }
         if (a->zip[0] != '\0') path_line("package ", a->zip, false);
         if (a->art_note[0] != '\0') {
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));

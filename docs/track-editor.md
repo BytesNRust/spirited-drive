@@ -231,6 +231,8 @@ trial. **Stop**, or closing the game's window, ends it; the scratch folder goes 
   `[StudioSettings][Editor] DriveCar=N`, the menu's number).
 - **Look**: the same switches and resolution as the car's Race window (`race_look_controls`, `editor/race_look_ui.cpp`), all on by default.
 - A track with a red problem, or too short for a stage, is not run: the window says the Problems' text. No game found says what to do, as Install does.
+- The install runs in the background: the state line says «Installing...» and the editor goes on; then the game starts. **Install (U)** in the Project
+  window does the same (an «Installing...» line with a **Stop**); while either installs, Build waits (the installer reads the zip) and nothing else installs.
 - The state line says what the game's own log says of the piece while it runs (`track piece: <id> is track N`, or why it refused it). The game's log is
   under a folded header.
 - Not in this version: a race photo at the selected point.

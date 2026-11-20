@@ -6,6 +6,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"   // MarkIniSettingsDirty: the car is kept with the editor's settings
 
+#include <float.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -28,7 +29,7 @@ void car_combo(App *a)
     const ExportCar *now = car_race_menu_car(a->drive_pick);
     ImGui::TextUnformatted("Car");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 13.0f);
+    ImGui::SetNextItemWidth(-FLT_MIN);   // the rest of the line: the tab is narrow beside Road profile at 960 x 600
     if (ImGui::BeginCombo("##drivecar", now != nullptr ? now->label : "")) {
         for (int pick = 0; car_race_menu_car(pick) != nullptr; ++pick)
             if (ImGui::Selectable(car_race_menu_car(pick)->label, pick == a->drive_pick)) {
@@ -43,7 +44,9 @@ void car_combo(App *a)
 void state_line(const App *a, const char *refused)
 {
     const RaceJob &j = a->race;
-    if (car_race_busy(&j)) {
+    if (car_race_installing(&j)) {
+        ImGui::TextUnformatted("Installing...");
+    } else if (car_race_busy(&j)) {
         if (j.piece_track > 0) ImGui::Text("Running: the game took %s as track %d", j.piece, j.piece_track);
         else if (j.piece_track < 0) bad_text(j.piece_line);
         else ImGui::TextUnformatted("Running: the game is loading the track");
@@ -66,9 +69,7 @@ void drive_panel(App *a)
     if (beside != 0) ImGui::SetNextWindowDockID(beside, ImGuiCond_FirstUseEver);   // a layout kept from before this window: a tab beside Limits
     if (ImGui::Begin(PANEL_DRIVE)) {
         const bool busy = car_race_busy(&a->race);
-        ImGui::BeginDisabled(busy);
-        car_combo(a);
-        ImGui::SameLine();
+        ImGui::BeginDisabled(busy || app_install_busy(a));   // nor while Install writes the player folder
         if (ImGui::Button("Test drive")) {
             refused[0] = '\0';
             if (!app_test_drive(a)) snprintf(refused, sizeof refused, "%s", a->status);
@@ -83,6 +84,9 @@ void drive_panel(App *a)
         help_marker("Test drive builds the track, installs it into a scratch player folder (yours and its mods are not touched) and runs the game on it in its "
                     "window: a time trial with the car picked here. A track with red problems, or too short for a stage, is not run: Problems says why. "
                     "Close the game's window or press Stop to end it.");
+        ImGui::BeginDisabled(busy || app_install_busy(a));   // the buttons first, the car under them: the tab is narrow at 960 x 600
+        car_combo(a);
+        ImGui::EndDisabled();
         state_line(a, refused);
         ImGui::BeginDisabled(busy);
         race_look_controls(&a->race_look);

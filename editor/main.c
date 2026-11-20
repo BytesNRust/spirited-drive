@@ -313,13 +313,23 @@ static void set_title(SDL_Window *win, const App *a)
     if (strcmp(title, SDL_GetWindowTitle(win)) != 0) SDL_SetWindowTitle(win, title);
 }
 
+/* --install: the window's Install, waited for; the installer's own output ("installed <id> <version>") goes to stdout as the game prints it. 1 when it installed. */
+static int install_waited(App *a)
+{
+    int made = app_install(a);
+    while (made && app_install_poll(a)) SDL_Delay(20);
+    if (made && a->install.run.log != NULL) fputs(a->install.run.log, stdout);
+    return made && a->install.ok;
+}
+
 /* --test-drive: the Drive window's button, waited for until the game's log has the track's line (printed), then the game is stopped. 1 when it took the track. */
 static int test_drive(App *a, const Options *o)
 {
     if (o->race_off != NULL) (void)race_off_apply(o->race_off, &a->race_look);   /* checked whole in parse_args */
     if (o->race_scale != 0) a->race_look.scale = o->race_scale;
     int made = app_test_drive(a);
-    for (int i = 0; made && i < TEST_DRIVE_WAIT_MS / 20 && a->race.piece_track == 0 && app_race_poll(a); ++i) SDL_Delay(20);
+    for (int i = 0; made && car_race_installing(&a->race) && i < TEST_DRIVE_WAIT_MS / 20 && app_race_poll(a); ++i) SDL_Delay(20);   /* the install first, */
+    for (int i = 0; made && i < TEST_DRIVE_WAIT_MS / 20 && a->race.piece_track == 0 && app_race_poll(a); ++i) SDL_Delay(20);   /* then the game's line */
     if (made) {
         if (a->race.piece_line[0] != '\0') fprintf(stdout, "%s\n", a->race.piece_line);
         app_race_stop(a);
@@ -336,7 +346,7 @@ static int run_requested(App *a, const Options *o)
     int ok = 1;
     if (o->save) ok &= app_save(a);
     if (o->build) ok &= app_build(a);
-    if (o->install) ok &= app_install(a);
+    if (o->install) ok &= install_waited(a);
     if (o->save || o->build || o->install) fprintf(stdout, "%s\n", a->status);
     if (o->test_drive) ok &= test_drive(a, o);
     if (o->export_car != NULL) {   /* Export original car, headless: the project is made in --into and opened */
@@ -557,6 +567,7 @@ static int run(App *a, const Options *o)
             else if (run_go(win, a)) quit = 1;
         }
         app_rehacer_poll(a);
+        app_install_poll(a);
         app_race_poll(a);
         app_recompute(a);
         SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);

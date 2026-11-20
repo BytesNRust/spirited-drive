@@ -715,6 +715,34 @@ static void check_app_flow(void)
     snprintf(a->game, sizeof a->game, "%s/no-game-here", two);
     CHECK(!app_test_drive(a) && strstr(a->status, "game was not found") != NULL && !app_race_busy(a));   /* a stage the game races, but no game */
     CHECK_EQ_INT(a->drive_pick, 0);                          /* the menu's first car, until one is picked */
+    {   /* Install does not hold the window: the game's installer (a second, here) runs in the background, its end in the status */
+        char slow[PATH_MAX], user[PATH_MAX], made[PATH_MAX + 32], old_user[APP_PATH];
+        memcpy(old_user, a->user, sizeof old_user);
+        snprintf(slow, sizeof slow, "%s/slow-tnfs", two);
+        snprintf(user, sizeof user, "%s/player", two);
+        FILE *f = fopen(slow, "w");
+        CHECK(f != NULL);
+        if (f != NULL) {
+            fputs("#!/bin/sh\nuser=\nwhile [ $# -gt 0 ]; do case \"$1\" in --user) user=$2; shift;; esac; shift; done\nsleep 1; mkdir -p \"$user/mods/two\"; echo 'installed two 0.1'\n", f);
+            fclose(f);
+        }
+        chmod(slow, 0755);
+        snprintf(a->game, sizeof a->game, "%s", slow);
+        snprintf(a->user, sizeof a->user, "%s", user);
+        snprintf(a->zip, sizeof a->zip, "%s/build/two.zip", two);   /* as Build leaves it (this test has no art to build with; the fake installer does not read it) */
+        CHECK(app_install(a) && app_install_busy(a) && strstr(a->status, "installing") != NULL);
+        CHECK(!app_install(a) && strstr(a->status, "already") != NULL);   /* one at a time */
+        CHECK(!app_test_drive(a) && strstr(a->status, "install") != NULL);   /* nor a test drive while it installs */
+        CHECK(!app_build(a) && strstr(a->status, "installing") != NULL);   /* nor a Build: the installer reads the zip */
+        for (int i = 0; i < 1000 && app_install_poll(a); ++i) usleep(10000);
+        CHECK(!app_install_busy(a) && strstr(a->status, "installed into") != NULL);
+        snprintf(made, sizeof made, "%s/mods/two", user);
+        struct stat st;
+        CHECK(stat(made, &st) == 0);
+        snprintf(a->game, sizeof a->game, "%s/no-game-here", two);
+        memcpy(a->user, old_user, sizeof a->user);
+        a->zip[0] = '\0';
+    }
     CHECK(a->fit_pending);
     CHECK_EQ_INT(a->recent.count, 2);                        /* both are in the list, the new one first */
     char real_one[PATH_MAX], real_two[PATH_MAX];   /* the list holds real paths (a symlinked TMPDIR is another name) */

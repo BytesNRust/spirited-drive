@@ -61,10 +61,12 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     a->selected = -1;
     a->node = a->node_for = -1;
     a->race_look = car_race_look_default();
+    install_job_init(&a->install);
     a->export_pick = -1;
     a->preview_paint = -1;
     a->night = night_settings_default();
     a->rehacer.run.fd = a->race.run.fd = -1;   /* no output pipe: a zero is a descriptor (stdin) */
+    install_job_init(&a->race.install);
 }
 
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
@@ -188,6 +190,7 @@ int app_export_car(App *a, const char *parent)
 void app_free(App *a)
 {
     car_race_free(&a->race);
+    install_job_free(&a->install);
     rehacer_free(&a->rehacer);
     car_edit_free(&a->edit);
     mask_edit_free(&a->mask.me);
@@ -330,6 +333,10 @@ void app_ask(App *a, AppAction act, const char *path)
     if (act == APP_ACT_NONE || a->confirm != APP_ACT_NONE || a->go != APP_ACT_NONE) return;
     if (app_rehacer_busy(a)) {   /* the backup or the script is working on the kit: nothing else until it ends */
         set_status(a, "Rehacer is running: wait for it to end, or press Stop");
+        return;
+    }
+    if (install_job_busy(&a->install)) {   /* the game's installer is writing the player folder: nothing else until it ends */
+        set_status(a, "An install is running: wait for it to end");
         return;
     }
     if (car_race_busy(&a->race)) {   /* the game is running on this project's masks: nothing else until it ends */
@@ -494,6 +501,7 @@ int app_build(App *a)
 {
     char why[APP_MSG], zip[APP_PATH];
     if (!track_open(a)) return 0;
+    if (app_install_busy(a) || car_race_installing(&a->race)) return set_status(a, "build: the game is installing the package: wait for it to end"), 0;   /* it reads the zip */
     if (!build_project(a->dir, &a->project, &a->trace, zip, sizeof zip, why, sizeof why)) {
         snprintf(a->status, sizeof a->status, "build refused: %s", why);
         return 0;
@@ -570,13 +578,34 @@ int app_install(App *a)
         set_status(a, "build first (B): install takes the built package");
         return 0;
     }
+    if (install_job_busy(&a->install)) return set_status(a, "install: one is running already"), 0;
+    if (car_race_busy(&a->race)) return set_status(a, "install: a test drive is running: wait for it to end, or press Stop"), 0;
     char why[APP_MSG];
-    if (!install_zip(a->game, a->zip, a->user, why, sizeof why)) {
+    if (!install_job_start(&a->install, a->game, a->zip, a->user, why, sizeof why)) {
         snprintf(a->status, sizeof a->status, "install failed: %s", why);
         return 0;
     }
-    snprintf(a->status, sizeof a->status, "installed into %s", a->user[0] != '\0' ? a->user : "the game's player folder");
+    set_status(a, "installing...");
     return 1;
+}
+
+int app_install_poll(App *a)
+{
+    if (!install_job_busy(&a->install)) return 0;
+    if (install_job_poll(&a->install)) return 1;
+    if (a->install.ok) snprintf(a->status, sizeof a->status, "installed into %s", a->user[0] != '\0' ? a->user : "the game's player folder");
+    else snprintf(a->status, sizeof a->status, "install failed: %s", a->install.why);
+    return 0;
+}
+
+void app_install_stop(App *a)
+{
+    install_job_stop(&a->install);
+}
+
+int app_install_busy(const App *a)
+{
+    return install_job_busy(&a->install);
 }
 
 /* a copy of the trace's points with `point` put at `index` (0..count: index == count appends) */

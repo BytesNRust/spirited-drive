@@ -25,6 +25,7 @@ int app_test_drive(App *a)
     char why[APP_MSG];
     if (a->kind != APP_KIND_TRACK) return snprintf(a->status, sizeof a->status, "test drive: open a track first"), 0;
     if (car_race_busy(&a->race)) return snprintf(a->status, sizeof a->status, "test drive: the game is running already"), 0;
+    if (install_job_busy(&a->install)) return snprintf(a->status, sizeof a->status, "test drive: an install is running: wait for it to end"), 0;
     app_recompute(a);   /* the road as it is now, not as the last frame had it */
     if (!road_drivable(a)) return 0;
     if (!app_check_game(a)) return 0;   /* the status says where it was looked for and what to do, as Install's */
@@ -33,10 +34,10 @@ int app_test_drive(App *a)
     if (!car_race_piece_id_ok(a->project.id)) return snprintf(a->status, sizeof a->status, "test drive: the id %s has more than letters, digits, - and _", a->project.id), 0;
     if (a->export_src.cd[0] == '\0') return snprintf(a->status, sizeof a->status, "test drive: the game's files were not found (start the editor with --cd DIR)"), 0;
     if (!app_build(a)) return 0;
-    if (!car_race_start_drive(&a->race, a->game, a->export_src.cd, a->zip, a->project.id, car, &a->race_look, install_zip, why, sizeof why)) {
+    if (!car_race_start_drive(&a->race, a->game, a->export_src.cd, a->zip, a->project.id, car, &a->race_look, why, sizeof why)) {
         snprintf(a->status, sizeof a->status, "test drive: %s", why);
         return 0;
     }
-    snprintf(a->status, sizeof a->status, "test drive: the game is running on %s: close its window or Stop to end it", a->project.id);
+    snprintf(a->status, sizeof a->status, "test drive: installing %s, then the game runs on it: close its window or Stop to end it", a->project.id);
     return 1;
 }

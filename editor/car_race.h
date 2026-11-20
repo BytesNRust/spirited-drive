@@ -12,6 +12,7 @@
 
 #include "car_export.h"
 #include "car_project.h"
+#include "install_job.h"
 #include "proc_run.h"
 
 #include <stddef.h>
@@ -123,7 +124,7 @@ int car_race_count_notes(const char *text, size_t len);
 /* a binary PPM (P6, 640 x 480 or 1280 x 960 for render scale 2, 255) as RGBA (`w` x `h`): `rgba` malloc'd; 0 with `why` */
 int car_race_read_ppm(const char *path, uint8_t **rgba, int *w, int *h, char *why, size_t why_cap);
 
-typedef enum { RACE_JOB_IDLE = 0, RACE_JOB_PROBE, RACE_JOB_SHOOT, RACE_JOB_RACE } RaceJobState;
+typedef enum { RACE_JOB_IDLE = 0, RACE_JOB_PROBE, RACE_JOB_SHOOT, RACE_JOB_RACE, RACE_JOB_INSTALL } RaceJobState;
 
 typedef struct {
     RaceJobState state;
@@ -151,6 +152,7 @@ typedef struct {
     int piece_track;                 /* what the game's log says of it while it runs: the track number it took, -1 refused, 0 not said yet */
     char piece_line[200];            /* that line of the game's log */
     int piece_polls;                 /* polls since the game's log was last read */
+    InstallJob install;              /* Test drive: the game's installer, before the game runs (RACE_JOB_INSTALL) */
 } RaceJob;
 
 /* Starts Test in race (a race in the game's window) or Race photo (headless, then the picture in job->photo) of `car` from `project`. `game` and `cd` are the game's
@@ -159,14 +161,15 @@ int car_race_start_race(RaceJob *job, const char *game, const char *cd, const ch
                         char *why, size_t why_cap);
 int car_race_start_photo(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
                          char *why, size_t why_cap);
-/* The game's installer: `zip` into the player folder `user_dir` (build.c's install_zip). Given to car_race_start_drive so this file does not need the build. */
-typedef int (*RaceInstall)(const char *game, const char *zip, const char *user_dir, char *why, size_t why_cap);
-/* Starts Test drive of a track piece (the track editor's Drive window): a scratch player folder with the Restomod look, `zip` installed into it by `install`, then the
+/* Starts Test drive of a track piece (the track editor's Drive window): a scratch player folder with the Restomod look, `zip` installed into it by the game's installer
+ * in the job (RACE_JOB_INSTALL: car_race_installing; the start does not wait for it), then the
  * game's window on the piece as a time trial with `car` (one the game's car menu has). While it runs the job reads the game's log for the piece's line
- * (piece_track). 1 when it started, 0 with `why` (no game, not a drivable car, the install failed). */
+ * (piece_track). 1 when it started, 0 with `why` (no game, not a drivable car); an install that fails ends the job, its summary saying why. */
 int car_race_piece_id_ok(const char *id);   /* a piece's id the test drive takes: a folder name of letters, digits, '-' and '_' */
 int car_race_start_drive(RaceJob *job, const char *game, const char *cd, const char *zip, const char *piece, const ExportCar *car, const RaceLook *look,
-                         RaceInstall install, char *why, size_t why_cap);
+                         char *why, size_t why_cap);
+/* the job is installing the piece (before the game runs) */
+int car_race_installing(const RaceJob *job);
 /* the car the game's car menu has at `pick` (0..7, its order), NULL past it */
 const ExportCar *car_race_menu_car(int pick);
 

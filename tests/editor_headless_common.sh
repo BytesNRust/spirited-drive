@@ -6,6 +6,7 @@ set -u
 editor=$1
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+mkdir "$work/tmp" && export TMPDIR="$work/tmp/"   # the scratch folders the editor makes (studio-race-*) are this run's alone: another session's game cannot fail a check
 export SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
