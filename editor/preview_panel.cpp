@@ -1,6 +1,7 @@
 // The Preview window (dep59 car editor E1): the textures of the open car as the race paints them (editor/car_preview.h), in the paint chosen from the card's own, made again
 // when a mask is edited or saved, the paint list or the chosen colour changes, or Rehacer ends.
 #include "panels.h"
+#include "help_marker.h"
 
 extern "C" {
 #include "car_preview.h"
@@ -113,15 +114,44 @@ void upload(SDL_Renderer *ren, const NightSettings &night, int phase)
     shown.uploaded = true;
 }
 
-// Day / Night, the track the night is of, and the lamps (core/formats/car_night.h): only the combinations the race can show are offered
-void night_controls(App *a)
+// the top row's Day / Night (the paint is before it), with the (?) of what the view does not show
+void day_night_row(App *a)
 {
     NightSettings &n = a->night;
-    ImGui::SeparatorText("View");
     if (ImGui::RadioButton("Day", !n.night)) n.night = 0;
     ImGui::SameLine();
     if (ImGui::RadioButton("Night", n.night != 0)) n.night = 1;
     ImGui::SameLine();
+    help_marker(shown.have && shown.preview.special > 0
+                    ? "Headlights and side lights go together at night, as in the race. Glow on the road and halos show only in a race: Race photo (night).\n"
+                      "Hatched magenta: the police lights' screen entries (0xfa-0xfd). Hatched green: the car's own slot colour (0xfe).\n"
+                      "Chequer: 0xff, transparent in a polygon of mode 1."
+                    : "Headlights and side lights go together at night, as in the race.\nGlow on the road and halos show only in a race: Race photo (night).");
+}
+
+// the Lights header's title: the lamps on and, at night, the track and the light, so a closed header hides no state ("###lights" keeps it one header)
+void lights_title(const NightSettings &n, char *out, size_t cap)
+{
+    const char *on[4];
+    int count = 0;
+    if (n.night && n.lights) on[count++] = "headlights";
+    if (n.brake) on[count++] = "brake";
+    if (n.reverse) on[count++] = "reverse";
+    if (shown.has_police && n.police) on[count++] = "police";
+    int at = snprintf(out, cap, "Lights: %s", count == 0 ? "off" : on[0]);
+    for (int i = 1; i < count && at > 0 && (size_t)at < cap; ++i) at += snprintf(out + at, cap - (size_t)at, ", %s", on[i]);
+    if (n.night && at > 0 && (size_t)at < cap) at += snprintf(out + at, cap - (size_t)at, "  |  Night of %s, %d %%", night_refs()[n.ref].label, n.light);
+    if (at > 0 && (size_t)at < cap) snprintf(out + at, cap - (size_t)at, "###lights");
+}
+
+// the track the night is of, the light at the car and the lamps (core/formats/car_night.h), under a header closed by default: only the combinations the race can
+// show are offered
+void lights_header(App *a)
+{
+    NightSettings &n = a->night;
+    char title[160];
+    lights_title(n, title, sizeof title);
+    if (!ImGui::CollapsingHeader(title)) return;
     ImGui::BeginDisabled(!n.night);
     ImGui::SetNextItemWidth(170);
     if (ImGui::BeginCombo("Night of", night_refs()[n.ref].label)) {
@@ -129,10 +159,10 @@ void night_controls(App *a)
             if (ImGui::Selectable(night_refs()[i].label, n.ref == i)) n.ref = i;
         ImGui::EndCombo();
     }
-    ImGui::EndDisabled();
-    ImGui::BeginDisabled(!n.night);
     ImGui::SetNextItemWidth(220);
     ImGui::SliderInt("Light at car", &n.light, NIGHT_LIGHT_MIN, NIGHT_LIGHT_MAX, "%d %%");
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("100 %% is the race's light at the car on this track, at Race photo's node;\nthe road and the headlight pool add more in places.");
     ImGui::SameLine();
     if (ImGui::SmallButton("100 %")) n.light = 100;
     ImGui::Checkbox("Headlights + side lights", reinterpret_cast<bool *>(&n.lights));
@@ -146,14 +176,13 @@ void night_controls(App *a)
         ImGui::SameLine();
         ImGui::Checkbox("Police lights", reinterpret_cast<bool *>(&n.police));
     }
-    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-    if (n.night)
-        ImGui::TextWrapped("100 %% is the race's light at the car on this track, at Race photo's node; the road and the headlight pool add more in places.");
-    ImGui::TextWrapped("Headlights and side lights go together at night, as in the race. Glow on the road and halos show only in a race: Race photo (night).");
-    if (shown.have)
-        ImGui::TextWrapped("Lamp texels in the masks: headlight %d, position %d, brake %d, reversing %d", shown.lamp_texels[LAMP_HEADLIGHT], shown.lamp_texels[LAMP_POSITION],
-                            shown.lamp_texels[LAMP_BRAKE], shown.lamp_texels[LAMP_REVERSE]);
-    ImGui::PopStyleColor();
+    if (shown.have) {
+        ImGui::SameLine();
+        char texels[160];
+        snprintf(texels, sizeof texels, "Lamp texels in the masks: headlight %d, position %d, brake %d, reversing %d", shown.lamp_texels[LAMP_HEADLIGHT],
+                 shown.lamp_texels[LAMP_POSITION], shown.lamp_texels[LAMP_BRAKE], shown.lamp_texels[LAMP_REVERSE]);
+        help_marker(texels);
+    }
 }
 
 }   // namespace
@@ -175,7 +204,7 @@ void preview_panel(App *a, SDL_Renderer *ren)
         char current[96] = "Base texture (no colour)";
         if (paint >= 0) snprintf(current, sizeof current, "%s", a->edit.now.paints[paint].name);
         if (count > 0) {
-            ImGui::SetNextItemWidth(220);
+            ImGui::SetNextItemWidth(200);
             if (ImGui::BeginCombo("Paint", current)) {
                 if (ImGui::Selectable("Base texture (no colour)", paint < 0)) paint = -1;
                 for (int i = 0; i < count; ++i) {
@@ -191,7 +220,9 @@ void preview_panel(App *a, SDL_Renderer *ren)
             ImGui::TextDisabled(a->car.masks_only || (oc != nullptr && oc->kind != EXPORT_DRIVABLE) ? "A traffic or police car: the race does not paint it, it shows its own colours with its masks' shine and black."
                                                                                                   : "The card has no paints: the car is shown as its file has it.");
         }
-        night_controls(a);
+        if (count > 0) ImGui::SameLine();   // the top row: Paint, Day / Night (a car with no paints has its line of why above)
+        day_night_row(a);
+        lights_header(a);
         // made again when what it is made from changed; not while a pencil stroke is going (every texel of it would make one) or a script is at work on the kit
         const uint8_t *rgb = paint >= 0 ? a->edit.now.paints[paint].rgb : nullptr;
         const bool busy = a->mask.me.stroke != 0 || app_rehacer_busy(a) || a->car.cfm[0] == '\0';
@@ -212,12 +243,13 @@ void preview_panel(App *a, SDL_Renderer *ren)
             if (shown.why[0] != '\0') ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s", shown.why);
         } else {
             const CarPreview &p = shown.preview;
-            const bool over = p.body_colours > PREVIEW_OWN_ENTRIES;
-            ImGui::PushStyleColor(ImGuiCol_Text, over ? ImVec4(0.95f, 0.78f, 0.35f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-            ImGui::TextWrapped("%s", p.note);
-            ImGui::PopStyleColor();
-            if (p.special > 0)
-                ImGui::TextDisabled("Hatched magenta: the police lights' screen entries (0xfa-0xfd). Hatched green: the car's own slot colour (0xfe). Chequer: 0xff, transparent in a polygon of mode 1.");
+            if (p.body_colours > PREVIEW_OWN_ENTRIES) {   // a warning, one line in sight: the whole of it on hover
+                help_marker(p.note);   // first: a narrow panel wraps the line after it, the (?) stays in sight
+                ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
+                ImGui::TextWrapped("palette: %d of the body's %d colours will look like their nearest in the race", p.body_colours - PREVIEW_OWN_ENTRIES, p.body_colours);
+                ImGui::PopStyleColor();
+            }
             ImGui::Separator();
             ImGui::BeginChild("textures", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar);
             const float width = ImGui::GetContentRegionAvail().x;

@@ -100,7 +100,8 @@ void fence_cell(App *a, int point, int side, bool own, double shown)
     if (ImGui::Checkbox(on ? "On###fence" : "Off###fence", &on)) app_set_point_side(a, point, TRACE_SIDE_FENCE, side, on ? 1 : 0);
     if (!own) ImGui::PopStyleColor();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s\nOn: the wall is drawn on this side (the game's fence).\nOff: it is not drawn, but it still stops the car where Barrier from edge says.\n"
+        ImGui::SetTooltip("%s\nOn: the game's fence is drawn on this side, at the end of the shoulder (not at Barrier from edge).\n"
+                          "Off: no fence is drawn; the barrier still stops the car where Barrier from edge says.\n"
                           "The game keeps one fence setting per 4 nodes, the one at their first node.",
                           inherit_tip(own, false));
     inherit_menu(a, point, TRACE_SIDE_FENCE, side, own);

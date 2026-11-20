@@ -1,5 +1,6 @@
 // The editor's side panels (panels.h).
 #include "panels.h"
+#include "help_marker.h"
 
 #include "imgui.h"
 #include <SDL3/SDL.h>
@@ -279,6 +280,9 @@ void project_panel(App *a)
     project_dock = ImGui::GetWindowDockID();   // also while it is a hidden tab
     if (open) {
         ImGui::Text("%s  stem %s", a->project.id, a->project.stem);
+        ImGui::SameLine();
+        help_marker("Mouse: left drag moves a point, right or middle drag pans, the wheel zooms.\n"
+                    "Keys: arrows nudge, F fit, N add, I insert, Del remove, B build, U install.");
         ImGui::TextWrapped("art %s", a->project.art);
         ImGui::TextWrapped("%s", a->dir);
         ImGui::Separator();
@@ -305,12 +309,6 @@ void project_panel(App *a)
         ImGui::TextWrapped("installs into %s", a->user[0] != '\0' ? a->user : "the game's player folder");
         ImGui::PopStyleColor();
         ImGui::TextWrapped("%s", a->status);
-        ImGui::Separator();
-        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));   // the help wraps with the panel, never cut at its edge
-        ImGui::TextWrapped("drag LMB  pan RMB/MMB  zoom wheel");
-        ImGui::TextWrapped("arrows nudge  F fit  N add  I insert");
-        ImGui::TextWrapped("Del remove  S save  B build  U install");
-        ImGui::PopStyleColor();
     }
     ImGui::End();
 }

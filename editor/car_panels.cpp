@@ -1,5 +1,6 @@
 // The start screen and the car's panels (panels.h): what Studio shows with nothing open, and what it shows of an open car (read only for now).
 #include "panels.h"
+#include "help_marker.h"
 
 #include "imgui.h"
 
@@ -240,6 +241,9 @@ static void masks_project_facts(const App *a)
     ImGui::TextUnformatted(c.info.name);
     ImGui::SetWindowFontScale(1.0f);
     ImGui::Text("project %s   masks car_masks/%s", c.kit, c.folder);
+    ImGui::SameLine();
+    help_marker("There is no card to edit and nothing to Save here: the masks are the PNG files in car_masks/.\n"
+                "Adjust them in your picture editor; Reveal masks folder (in Masks) finds them.");
     muted_wrapped("%s", c.root);
     ImGui::Spacing();
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
@@ -262,7 +266,6 @@ static void masks_project_facts(const App *a)
         }
         ImGui::EndTable();
     }
-    muted_wrapped("There is no card to edit and nothing to Save here: the masks are the PNG files in car_masks/. Adjust them in your picture editor, and use Reveal masks folder (in Masks) to find them.");
 }
 
 void car_panel(App *a)
@@ -283,7 +286,6 @@ void car_panel(App *a)
         ImGui::SetWindowFontScale(1.0f);
         ImGui::Text("kit %s   stem %s   id %s", c.kit, m.stem, m.id);
         muted_wrapped("%s", c.root);
-        muted_wrapped("Save writes only coche/mod.ini, and only the lines you changed. Every other line and every other file stays as it is.");
         ImGui::Spacing();
         const bool running = app_rehacer_busy(a);
         ImGui::BeginDisabled(count > 0 || !modified || running);
@@ -308,6 +310,8 @@ void car_panel(App *a)
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             ImGui::SetTooltip("%s", running ? "Rehacer is running" : has_script ? "Run this kit's rehacer.command (the kit is backed up first)" : "This kit has no rehacer.command");
+        ImGui::SameLine();
+        help_marker("Save writes only coche/mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is.");
         if (ImGui::BeginPopupModal("Save before Rehacer", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::TextUnformatted("mod.ini has changes that are not saved. Rehacer reads the card,");
             ImGui::TextUnformatted("so they are saved first.");
@@ -399,15 +403,22 @@ void masks_panel(App *a)
             if (original) {   // only one of the game's own cars has its masks in the game's source tree; a mod car's stay in its mod
                 char repo[256];
                 car_export_repo_path(c.folder, repo, sizeof repo);
-                muted_wrapped("In the game's source tree these files are %s: copy them there to change the game's masks.", repo);
+                ImGui::SameLine();
+                char help[320];
+                snprintf(help, sizeof help, "In the game's source tree these files are %s:\ncopy them there to change the game's masks.", repo);
+                help_marker(help);
             }
         }
         ImGui::Spacing();
         if (c.kit_mask_count > 0) {
-            ImGui::Text("Your colour masks for GIMP (mascaras/): %d", c.kit_mask_count);
+            ImGui::Text("Your colour masks for an external image editor (mascaras/): %d", c.kit_mask_count);
             name_list(c.kit_mask, c.kit_mask_count);
         } else if (!c.masks_only && !original) {   // the kit's folder of colour PNGs, not the grey masks above: an exported original has no kit
-            muted_wrapped("No colour masks for GIMP (mascaras/): that folder of the kit holds colour PNGs painted in GIMP. Edit mask writes the grey masks above, in car_masks/%s/.", c.folder);
+            muted_wrapped("No colour masks for an external image editor (mascaras/)");
+            ImGui::SameLine();
+            char help[320];
+            snprintf(help, sizeof help, "That folder of the kit holds colour PNGs painted in an external image editor.\nEdit mask writes the grey masks above, in car_masks/%s/.", c.folder);
+            help_marker(help);
         }
     }
     ImGui::End();
@@ -431,10 +442,11 @@ void export_popup(App *a)
     ImGui::SetNextWindowSize(ImVec2(540, 520), ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (!ImGui::BeginPopupModal(NAME, nullptr, ImGuiWindowFlags_NoSavedSettings)) return;
-    ImGui::TextWrapped("Make a project from one of the game's cars, to adjust its masks. The project holds the masks the game has now, with the same names and sizes.");
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
     ImGui::TextWrapped("Made from the game's files: for your own use, do not share.");
     ImGui::PopStyleColor();
+    ImGui::SameLine();
+    help_marker("Make a project from one of the game's cars, to adjust its masks.\nThe project holds the masks the game has now, with the same names and sizes.");
     muted_wrapped("Reading the game's files from %s and its masks from %s", a->export_src.cd, a->export_src.data);
     ImGui::Spacing();
     const float footer = ImGui::GetFrameHeightWithSpacing() * 2 + 6;
@@ -515,8 +527,12 @@ void rehacer_panel(App *a)
     }
     if (ImGui::Begin(PANEL_REHACER)) {
         const Rehacer &r = a->rehacer;
-        muted_wrapped("Runs this kit's rehacer.command with the kit as its folder. Before it runs, Studio copies the kit into .studio-backup/<time>/ (the last %d are kept).",
-                      REHACER_KEEP);
+        ImGui::TextUnformatted("Kit script: rehacer.command");
+        ImGui::SameLine();
+        char help[240];
+        snprintf(help, sizeof help, "Runs this kit's rehacer.command with the kit as its folder (Rehacer, in the Car panel).\n"
+                 "Before it runs, Studio copies the kit into .studio-backup/<time>/ (the last %d are kept).", REHACER_KEEP);
+        help_marker(help);
         if (!app_rehacer_available(a)) {
             ImGui::Spacing();
             ImGui::TextUnformatted("This kit has no rehacer.command.");
