@@ -75,6 +75,17 @@ would need: the game takes 512 or 1024 nodes for one. The editor builds stages o
 
 While a point is dragged, a readout by the cursor gives its distance from the point before, the turn there and the radius of that turn.
 
+### Add curve and Add straight
+
+The Points panel's **Add curve** row takes the direction (R or L, as the view shows it), the angle it turns in all (up to 180°), the radius in
+metres and how many points it has (the default keeps each step under 40 m and 15°); **Add straight** takes a length and a point count. While a
+row's fields are hovered or edited, the Viewport draws what Accept would make: the new stretch in grey (amber under 43 m of radius, red under
+20.9 m, where Build refuses it) and the road after it where it would go, and the line under the rows says the length, the point count, the point
+it goes after and, under a limit, the limit in Build's words. **Accept** puts it in after the last selected point (the road's last when none is
+selected), going on along the road's heading there: every point lies on the arc, the points after it follow rigidly, the stretch takes the road
+profile the road has at that point and the road after keeps its own. The new points become the selection; one undo takes it all back. To change
+a curve, select its stretch, remove it and add the new one.
+
 ## Limits
 
 The road is drawn through the control points as a Catmull-Rom curve, resampled to the CD's node spacing (about 6 m). Up to 8 degrees a node

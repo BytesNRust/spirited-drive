@@ -101,6 +101,12 @@ typedef struct {
     Selection sel;               /* the selected control points (dep87, app_select.h): `selected` is always one of them when there are any */
     TracePoint *rotate_from;     /* the points as they were when the Rotate points field was taken (app_sel_rotate_live), else NULL */
     int rotate_from_count;
+    struct {                     /* Add curve and Add straight's fields (app_points.h); all 0 until the Points panel first shows them */
+        int right, count, straight_count;   /* a count of 0: the default (arc_block.h) */
+        int preview;             /* the Viewport draws what Accept would make: 1 the curve, 2 the straight, 0 nothing (the fields hovered or edited) */
+        int preview_hold;        /* the same, held whatever the mouse does (--steps preview-curve, for a picture) */
+        double degrees, radius_m, length_m;
+    } curve;
     TracePoint *clip_points;     /* Copy's points and their keys on 0..clip_count-1 (app_points.h), NULL before a copy */
     int clip_count;
     TraceKey *clip_keys;

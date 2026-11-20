@@ -1,5 +1,6 @@
 // The editor's side panels (panels.h).
 #include "panels.h"
+#include "curve_panel.h"
 #include "help_marker.h"
 #include "path_elide.h"
 
@@ -158,6 +159,7 @@ void points_panel(App *a)
         if (picked > 1) ImGui::TextDisabled("%d points, %d selected", a->trace.count, picked);
         else ImGui::TextDisabled("%d points", a->trace.count);
         if (picked > 1) rotate_row(a), group_row(a);
+        curve_rows(a);
         const bool scroll_to_selected = a->selected != shown;
         // the table takes the rest of the panel, but never fewer than POINTS_MIN_ROWS rows
         const ImGuiStyle &st = ImGui::GetStyle();

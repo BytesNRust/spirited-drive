@@ -13,8 +13,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -194,6 +194,13 @@ static int at_once(App *a, const char *name, const double *arg)
     if (strcmp(name, "mirror-lr") == 0) return app_mirror_points(a, 0);
     if (strcmp(name, "mirror-fb") == 0) return app_mirror_points(a, 1);
     if (strcmp(name, "reverse") == 0) return app_reverse_points(a);
+    if (strncmp(name, "curve:", 6) == 0 || strncmp(name, "straight:", 9) == 0) {   /* the Add curve / Add straight fields set, then Accept */
+        app_curve_defaults(a);
+        if (name[0] == 'c') a->curve.right = arg[0] != 0, a->curve.degrees = arg[1], a->curve.radius_m = arg[2], a->curve.count = (int)arg[3];
+        else a->curve.length_m = arg[0], a->curve.straight_count = (int)arg[1];
+        return app_add_curve(a, name[0] == 's');
+    }
+    if (strncmp(name, "preview:", 8) == 0) return arg[0] >= 0 && arg[0] <= 2 ? (app_curve_defaults(a), a->curve.preview_hold = (int)arg[0], 1) : 0;
     if (strcmp(name, "print-sel") == 0) {
         if (a->kind != APP_KIND_TRACK) return 0;
         char which[256];

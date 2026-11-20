@@ -3,6 +3,8 @@
 
 #include "imgui.h"
 
+#include <stdlib.h>
+
 #include <math.h>
 
 extern "C" {
@@ -11,6 +13,7 @@ extern "C" {
 #include "app_select.h"
 #include "interact.h"
 #include "point_ops.h"
+#include "app_points.h"
 }
 
 namespace {
@@ -26,6 +29,8 @@ const double EDGE_UNIT = 0.125;   // metres from the centre to the road's edge p
 const float TARMAC_MIN_PX = 4;    // a tarmac line stays this far from the road's line however far out the view is
 const float BOX_MIN_PX = 4;       // a left drag on no point shorter than this is a click there, not a box
 const double END_SNAP_PX = 8;     // the last point dragged this near point 0 lands on it (snap_end)
+const ImU32 PREVIEW_GREY = IM_COL32(200, 200, 200, 230), PREVIEW_TAIL = IM_COL32(150, 150, 150, 140);   // Add curve's preview (draw_curve_preview)
+const ImU32 PREVIEW_RED = IM_COL32(255, 90, 90, 255), PREVIEW_AMBER = IM_COL32(255, 176, 33, 255);
 const ImU32 BOX_EDGE = IM_COL32(255, 220, 0, 200), BOX_FILL = IM_COL32(255, 220, 0, 32);
 
 struct Box {   // the box a left drag on no point draws (dep87): its first corner in the panel's pixels, while the button is held
@@ -151,6 +156,25 @@ void draw_box(const Canvas &c)
 SelClick click_kind(const ImGuiIO &io)
 {
     return io.KeyShift ? SEL_RANGE : io.KeyCtrl ? SEL_TOGGLE : SEL_ONE;
+}
+
+// what Add curve or Add straight would make while their fields are hovered or edited: the new stretch grey (in the limit's colour under a
+// radius limit) and the road after it where it would go, dimmer
+void draw_curve_preview(const Canvas &c, App *a)
+{
+    if (a->curve.preview == 0) return;
+    int n = 0, from = 0, to = 0;
+    TracePoint *q = app_curve_preview(a, a->curve.preview == 2, &n, &from, &to);
+    if (q == NULL) return;
+    const int level = a->curve.preview == 1 ? app_curve_level(a) : 0;
+    const ImU32 block = level == 2 ? PREVIEW_RED : level == 1 ? PREVIEW_AMBER : PREVIEW_GREY;
+    for (int i = from; i + 1 < n; ++i)
+        c.list->AddLine(to_screen(c, a->view, q[i].x, q[i].z), to_screen(c, a->view, q[i + 1].x, q[i + 1].z), i < to ? block : PREVIEW_TAIL, i < to ? 3.0f : 2.0f);
+    for (int i = from + 1; i <= to; ++i) {
+        const ImVec2 p = to_screen(c, a->view, q[i].x, q[i].z);
+        c.list->AddRect(ImVec2(p.x - POINT_HALF, p.y - POINT_HALF), ImVec2(p.x + POINT_HALF, p.y + POINT_HALF), block);
+    }
+    free(q);
 }
 
 // the last point dragged within END_SNAP_PX of point 0 (not itself moving) lands on it: the end on the start, as a circuit closes (the game
@@ -324,6 +348,7 @@ void viewport_panel(App *a)
             draw_road(c, *a);
             draw_points(c, *a);
             draw_box(c);
+            draw_curve_preview(c, a);
             c.list->PopClipRect();
             if (ImGui::IsItemHovered()) draw_tooltip(c, *a);
         }

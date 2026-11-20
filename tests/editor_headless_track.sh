@@ -239,6 +239,28 @@ grep -q "copy a run of points first" "$work/log" || fail "Paste's refusal does n
 [ "$(grep '^points:' "$work/log" | head -1 | awk '{print $NF}')" = "0.000,0.000" ] || fail "the end dragged 2 m from the start did not land on it: $(grep '^points:' "$work/log")"
 [ "$(grep '^points:' "$work/log" | tail -1 | awk '{print $NF}')" != "0.000,0.000" ] || fail "the end 40 m from the start was pulled onto it"
 
+# ==== Add curve and Add straight (dep88): after the last point or the selected one, going on the road's way; one undo; red under Build's radius ====
+# a straight north of 4 points 100 m apart. A quarter right of radius 60 m after the last point ends 60 m on and 60 m east (6 points, the
+# default: 15 degrees each); after point 1 the road beyond turns with it and runs east; radius 15 m is red in Problems at once, in Build's words
+mkdir "$work/curve"
+printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 100.0], [0.0, 200.0], [0.0, 300.0]]\n}\n' > "$work/curve/trace.json"
+"$editor" "$work/curve" --user "$work/cu" --frames 2 --steps curve:1,90,60,0,status,print-sel,print,undo,print,row:1,curve:1,90,60,6,print,problems,undo,curve:1,90,15,6,problems,status,undo,straight:250,0,print >"$work/log" 2>&1 \
+    || fail "Add curve and Add straight: $(cat "$work/log")"
+grep -q "^status: curve added: 94 m, 6 points after point 3$" "$work/log" || fail "Add curve did not say what it added: $(grep '^status:' "$work/log")"
+grep -q "^selected: 3-9$" "$work/log" || fail "the new curve (from the point it went after) is not the selection: $(grep '^selected:' "$work/log")"
+python3 -c "
+import sys
+rows = [[tuple(map(float, q.split(','))) for q in l.split()[2:]] for l in open(sys.argv[1]) if l.startswith('points: ')]
+assert len(rows) == 4, len(rows)
+end = rows[0]
+assert len(end) == 10 and end[-1] == (60.0, 360.0) and all(abs(((x - 60) ** 2 + (z - 300) ** 2) ** 0.5 - 60) < 0.01 for x, z in end[3:]), ('at the end', end)
+assert rows[1] == [(0.0, 0.0), (0.0, 100.0), (0.0, 200.0), (0.0, 300.0)], ('one undo', rows[1])
+mid = rows[2]
+assert mid[7] == (60.0, 160.0) and mid[8] == (160.0, 160.0) and mid[9] == (260.0, 160.0), ('in the middle: the road after turns east', mid)
+assert rows[3][-1] == (0.0, 550.0) and len(rows[3]) == 7, ('a straight of 250 m in 3', rows[3])
+" "$work/log" || fail "the curve or the straight did not go where they say: $(grep '^points:' "$work/log")"
+grep -q "^problems: red" "$work/log" && grep -q "radius 15 m (under 20.9 m): not built" "$work/log" || fail "a curve of radius 15 m was not red at once, in Build's words: $(grep '^problems:\|^status:' "$work/log")"
+
 # ==== Build: under the limits, over an amber one, refused over a red one ====
 # Build: a curve under the limits is built, one over them is refused with the limit named
 "$editor" "$work/mild" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a curve under the limits: $(cat "$work/log")"

@@ -2,6 +2,7 @@
 #include "app_points.h"
 
 #include "app_select.h"
+#include "arc_block.h"
 #include "key_ops.h"
 #include "point_ops.h"
 
@@ -119,5 +120,82 @@ int app_reverse_points(App *a)
     run_text(a, s, e, run, sizeof run);
     take(a, points, a->trace.count, keys, key_count, s, e);
     snprintf(a->status, sizeof a->status, "%s reversed", run);
+    return 1;
+}
+
+void app_curve_defaults(App *a)
+{
+    if (a->curve.degrees <= 0) a->curve.degrees = 90, a->curve.radius_m = 60, a->curve.right = 1;
+    if (a->curve.length_m <= 0) a->curve.length_m = 200;
+}
+
+static int curve_anchor(App *a)
+{
+    app_sel_sync(a);
+    return sel_count(&a->sel) > 0 ? sel_last(&a->sel) : a->trace.count - 1;
+}
+
+/* the block from (0, 0) and its count of new points; 0 when the fields are out of range */
+static int curve_block(const App *a, int straight, TracePoint *out, TracePoint *end)
+{
+    if (straight) {
+        const int k = a->curve.straight_count > 0 ? a->curve.straight_count : straight_default_count(a->curve.length_m);
+        *end = (TracePoint){ 0, 1 };
+        return straight_block(a->curve.length_m, k, out) ? k : 0;
+    }
+    const int k = a->curve.count > 0 ? a->curve.count : arc_default_count(a->curve.degrees, a->curve.radius_m);
+    *end = arc_end_heading(a->curve.right, a->curve.degrees);
+    return arc_block(a->curve.right, a->curve.degrees, a->curve.radius_m, k, out) ? k : 0;
+}
+
+TracePoint *app_curve_preview(App *a, int straight, int *count, int *from, int *to)
+{
+    if (a->kind != APP_KIND_TRACK || a->trace.count < 1) return NULL;
+    TracePoint block[ARC_POINTS_MAX + 1], end;
+    const int k = curve_block(a, straight, block, &end), anchor = curve_anchor(a);
+    if (k == 0) return NULL;
+    TracePoint *q = pts_paste_tangents(a->trace.points, a->trace.count, anchor, block, k + 1, (TracePoint){ 0, 1 }, end);
+    if (q != NULL) *count = a->trace.count + k, *from = anchor, *to = anchor + k;
+    return q;
+}
+
+int app_curve_level(const App *a)
+{
+    if (a->curve.radius_m < TRACE_METRES(TRACE_RADIUS_MIN)) return 2;
+    return a->curve.radius_m < TRACE_METRES(TRACE_RADIUS_WARN) ? 1 : 0;
+}
+
+void app_curve_text(App *a, int straight, char *out, size_t cap)
+{
+    TracePoint block[ARC_POINTS_MAX + 1], end;
+    const int k = curve_block(a, straight, block, &end);
+    if (k == 0) {
+        snprintf(out, cap, "out of range");
+        return;
+    }
+    const double length = straight ? a->curve.length_m : arc_length_m(a->curve.degrees, a->curve.radius_m);
+    const int level = straight ? 0 : app_curve_level(a);
+    char limit[96] = "";
+    if (level > 0)
+        snprintf(limit, sizeof limit, "; radius %.0f m (under %g m)%s", a->curve.radius_m, TRACE_METRES(level == 2 ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN),
+                 level == 2 ? ": not built" : "");
+    snprintf(out, cap, "%.0f m, %d point%s after point %d%s", length, k, k == 1 ? "" : "s", curve_anchor(a), limit);
+}
+
+int app_add_curve(App *a, int straight)
+{
+    int count = 0, from = 0, to = 0;
+    TracePoint *points = app_curve_preview(a, straight, &count, &from, &to);
+    TraceKey *keys = NULL;
+    int key_count = 0;
+    if (points == NULL || !keys_paste(&a->trace, from, NULL, 0, to - from + 1, &keys, &key_count)) {
+        free(points);
+        snprintf(a->status, sizeof a->status, "%s: the fields are out of range", straight ? "Add straight" : "Add curve");
+        return 0;
+    }
+    char text[160];
+    app_curve_text(a, straight, text, sizeof text);
+    take(a, points, count, keys, key_count, from, to);
+    snprintf(a->status, sizeof a->status, "%s added: %s", straight ? "straight" : "curve", text);
     return 1;
 }

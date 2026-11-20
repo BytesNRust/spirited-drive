@@ -6,6 +6,8 @@
 
 #include "app.h"
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -21,6 +23,19 @@ int app_paste_points(App *a);
 int app_mirror_points(App *a, int square);
 /* the run travelled the other way (the whole road: driven the other way, nothing moves) */
 int app_reverse_points(App *a);
+
+/* Add curve / Add straight (dep88) with App.curve's fields, after the last selected point (the road's last with none selected), going on along
+ * the road's heading there; the points after it follow. The new points and that point become the selection; one step to undo. The block takes the
+ * profile the road has at that point; the road after it keeps its own. */
+void app_curve_defaults(App *a);
+int app_add_curve(App *a, int straight);
+/* the road as Add curve (`straight` 0) or Add straight would make it, a new array of *count points (NULL when the fields are out of range), and
+ * where the block starts in it (*from) and ends (*to) */
+TracePoint *app_curve_preview(App *a, int straight, int *count, int *from, int *to);
+/* how the curve's radius stands against Build's limits: 2 red (not built), 1 amber, 0 fine (a straight: 0) */
+int app_curve_level(const App *a);
+/* the fields' readout: "94 m, 6 points after point 7", with "; radius 15 m (under 20.9 m): not built" (Build's words) under a limit */
+void app_curve_text(App *a, int straight, char *out, size_t cap);
 
 #ifdef __cplusplus
 }
