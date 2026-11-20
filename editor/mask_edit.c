@@ -182,6 +182,17 @@ float mask_edit_zoom_scroll(float scroll, float view, float old_scale, float new
     return to > 0.0f ? to : 0.0f;
 }
 
+int mask_edit_wheel_steps(float *acc, float delta)
+{
+    if (!isfinite(delta) || !isfinite(*acc)) *acc = 0.0f;
+    if (!isfinite(delta) || delta == 0.0f) return 0;
+    if (*acc * delta < 0.0f) *acc = 0.0f;
+    *acc += delta;
+    const float whole = truncf(*acc);
+    *acc -= whole;
+    return (int)whole;
+}
+
 MaskZoomKey mask_edit_zoom_key(int ch)
 {
     return ch == '+' || ch == '=' ? ME_ZOOM_IN : ch == '-' ? ME_ZOOM_OUT : ch == '0' ? ME_ZOOM_FIT : ME_ZOOM_NONE;

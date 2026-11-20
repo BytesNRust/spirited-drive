@@ -118,11 +118,36 @@ MaskZoomKey zoom_key_pressed()
     return ME_ZOOM_NONE;
 }
 
-// the view of the canvas the frame before: its scroll and size, and whether the pointer was on the picture (the wheel zooms there)
+// the view of the canvas the frame before: its scroll and the size of its content area, whether the pointer was on the picture (the wheel zooms there), the wheel's part
+// of a notch, a pan by the right or middle button under way; for the mask `sel` drawn in frame `frame` (another mask, or a frame without the canvas, starts afresh)
 struct CanvasView {
     ImVec2 scroll, size;
-    bool hovered;
+    bool hovered, panning;
+    float wheel;
+    int sel, frame;
 };
+CanvasView g_view = { ImVec2(0, 0), ImVec2(0, 0), false, false, 0.0f, -1, -1 };
+
+// the view as it is now, once the picture and its button are drawn; the right or middle button dragged on the picture moves the view (the left one paints)
+void canvas_view_update(const MaskUi &m, bool hovered)
+{
+    CanvasView &v = g_view;
+    const ImGuiStyle &st = ImGui::GetStyle();
+    const ImVec2 win = ImGui::GetWindowSize();   // less the scroll bars and the padding: the area the picture shows in, whose middle the zoom keeps
+    v.size = ImVec2(win.x - (ImGui::GetScrollMaxY() > 0 ? st.ScrollbarSize : 0.0f) - 2.0f * st.WindowPadding.x,
+                    win.y - (ImGui::GetScrollMaxX() > 0 ? st.ScrollbarSize : 0.0f) - 2.0f * st.WindowPadding.y);
+    if (hovered && (ImGui::IsMouseClicked(ImGuiMouseButton_Right) || ImGui::IsMouseClicked(ImGuiMouseButton_Middle))) v.panning = true;
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Right) && !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) v.panning = false;
+    if (v.panning) {
+        const ImVec2 d = ImGui::GetIO().MouseDelta;
+        ImGui::SetScrollX(ImGui::GetScrollX() - d.x);
+        ImGui::SetScrollY(ImGui::GetScrollY() - d.y);
+    }
+    v.scroll = ImVec2(ImGui::GetScrollX(), ImGui::GetScrollY());
+    v.hovered = hovered;
+    v.sel = m.sel;
+    v.frame = ImGui::GetFrameCount();
+}
 
 // the picture, scaled; the pencil, fill and eyedropper act on the texel under the mouse. The slider, the keys + - 0 (the window has the keyboard) and the wheel on the
 // picture zoom about the middle of the view.
@@ -130,8 +155,9 @@ void canvas(App *a, ImTextureID tex)
 {
     MaskUi &m = a->mask;
     MaskEdit &e = m.me;
-    static CanvasView view = { ImVec2(0, 0), ImVec2(0, 0), false };
+    CanvasView &view = g_view;
     if (tex == 0) return;
+    if (view.sel != m.sel || view.frame != ImGui::GetFrameCount() - 1) view = CanvasView{ ImVec2(0, 0), ImVec2(0, 0), false, false, 0.0f, m.sel, -1 };
     const ImVec2 avail = ImGui::GetContentRegionAvail();
     float scale = m.zoom;
     if (scale <= 0) {   // fit the window, whole texels
@@ -146,11 +172,12 @@ void canvas(App *a, ImTextureID tex)
     ImGui::SameLine();
     bool fit = ImGui::Button("Fit");
     ImGui::SameLine();
-    muted("Pencil: drag. Zoom: + - 0, wheel. Ctrl+Z undoes.");
+    muted("Pencil: drag. Zoom: + - 0, wheel. Move: right or middle drag. Ctrl+Z undoes.");
     const MaskZoomKey key = m.focus ? zoom_key_pressed() : ME_ZOOM_NONE;
-    const float wheel = view.hovered ? ImGui::GetIO().MouseWheel : 0.0f;
-    if (key == ME_ZOOM_IN || wheel > 0) scale = m.zoom = mask_edit_zoom_step(scale, 1);
-    else if (key == ME_ZOOM_OUT || wheel < 0) scale = m.zoom = mask_edit_zoom_step(scale, -1);
+    const int notches = view.hovered ? mask_edit_wheel_steps(&view.wheel, ImGui::GetIO().MouseWheel) : 0;
+    if (key == ME_ZOOM_IN) scale = m.zoom = mask_edit_zoom_step(scale, 1);
+    else if (key == ME_ZOOM_OUT) scale = m.zoom = mask_edit_zoom_step(scale, -1);
+    for (int n = notches; n != 0; n += n > 0 ? -1 : 1) scale = m.zoom = mask_edit_zoom_step(scale, n > 0 ? 1 : -1);
     fit |= key == ME_ZOOM_FIT;
     if (fit) m.zoom = 0;   // the next frame fits, from the start
     const ImVec2 size(e.width * scale, e.height * scale);
@@ -170,9 +197,7 @@ void canvas(App *a, ImTextureID tex)
     ImGui::InvisibleButton("paint", size);
     ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);   // the wheel on the picture zooms, it does not scroll
     const bool hovered = ImGui::IsItemHovered(), active = ImGui::IsItemActive();
-    view.scroll = ImVec2(ImGui::GetScrollX(), ImGui::GetScrollY());
-    view.size = ImGui::GetWindowSize();
-    view.hovered = hovered;
+    canvas_view_update(m, hovered);
     // no mouse position (a headless run, the pointer outside the window) is -FLT_MAX: not a texel, and never cast to an int
     const ImVec2 mouse = ImGui::GetIO().MousePos;
     int x = -1, y = -1;

@@ -400,6 +400,17 @@ static void check_zoom(void)
     CHECK(mask_edit_zoom_scroll(1400.0f, 400.0f, 8.0f, 4.0f) == 600.0f);   /* and back */
     CHECK(mask_edit_zoom_scroll(0.0f, 400.0f, 4.0f, 2.0f) == 0.0f);   /* never before the drawing's start */
     CHECK(mask_edit_zoom_scroll(10.0f, 400.0f, 0.0f, 2.0f) == 0.0f);   /* no scale: no scroll */
+    /* the wheel: a notch is a step; a trackpad's small deltas a frame add up to one step a whole notch, not one a frame (the owner's two-finger zoom ran away) */
+    float acc = 0.0f;
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, 1.0f), 1);
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, -1.0f), -1);
+    int steps = 0;
+    for (int i = 0; i < 10; i++) steps += mask_edit_wheel_steps(&acc, 0.25f);   /* 2.5 notches over ten frames */
+    CHECK_EQ_INT(steps, 2);
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, -0.25f), 0);   /* turned back: the half notch left is dropped, a quarter is no step */
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, -0.75f), -1);
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, 0.0f), 0);
+    CHECK_EQ_INT(mask_edit_wheel_steps(&acc, 3.0f), 3);   /* a fast mouse wheel: every notch */
     CHECK_EQ_INT(mask_edit_zoom_key('+'), ME_ZOOM_IN);
     CHECK_EQ_INT(mask_edit_zoom_key('='), ME_ZOOM_IN);
     CHECK_EQ_INT(mask_edit_zoom_key('-'), ME_ZOOM_OUT);

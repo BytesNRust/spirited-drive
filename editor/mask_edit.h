@@ -66,6 +66,9 @@ float mask_edit_zoom_step(float scale, int dir);
 /* The scroll (one axis) that keeps the texel at the middle of a `view` screen pixels wide view where it was when the zoom goes from `old_scale` to `new_scale`; never below 0
  * (the drawing's far edge is ImGui's to hold). */
 float mask_edit_zoom_scroll(float scroll, float view, float old_scale, float new_scale);
+/* The wheel's zoom steps: `delta` (ImGui's MouseWheel, one a notch of a mouse wheel, small fractions a frame from a trackpad) is added to `*acc`; each whole notch reached is a
+ * step (positive in, negative out), the rest stays in `*acc`. A turn the other way drops what was left. */
+int mask_edit_wheel_steps(float *acc, float delta);
 /* What a key of the keyboard's layout does to the zoom: '+' or '=' (the US key of '+') ME_ZOOM_IN, '-' ME_ZOOM_OUT, '0' ME_ZOOM_FIT, anything else ME_ZOOM_NONE. */
 typedef enum { ME_ZOOM_NONE = 0, ME_ZOOM_IN, ME_ZOOM_OUT, ME_ZOOM_FIT } MaskZoomKey;
 MaskZoomKey mask_edit_zoom_key(int ch);
