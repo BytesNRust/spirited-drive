@@ -33,6 +33,7 @@ static bool fires(bool mac_behaviour, bool cmd)
 {
     ImGuiContext *ctx = ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
+    io.IniFilename = nullptr;   // no imgui.ini left where the test runs
     io.ConfigMacOSXBehaviors = mac_behaviour;
     io.DisplaySize = ImVec2(640, 480);
     io.DeltaTime = 1.0f / 60.0f;
