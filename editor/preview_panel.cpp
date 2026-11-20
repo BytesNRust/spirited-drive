@@ -124,10 +124,10 @@ void day_night_row(App *a)
     if (ImGui::RadioButton("Night", n.night != 0)) n.night = 1;
     ImGui::SameLine();
     help_marker(shown.have && shown.preview.special > 0
-                    ? "Headlights and side lights go together at night, as in the race. Glow on the road and halos show only in a race: Race photo (night).\n"
+                    ? "Headlights and side lights go together at night, as in the race. Glow on the road and halos show only in a race: In-game photo (night).\n"
                       "Hatched magenta: the police lights' screen entries (0xfa-0xfd).\n"
                       "Chequer: 0xff, transparent in a polygon of mode 1."
-                    : "Headlights and side lights go together at night, as in the race.\nGlow on the road and halos show only in a race: Race photo (night).");
+                    : "Headlights and side lights go together at night, as in the race.\nGlow on the road and halos show only in a race: In-game photo (night).");
 }
 
 // the Lights header's title: the lamps on and, at night, the track and the light, so a closed header hides no state ("###lights" keeps it one header)
@@ -163,7 +163,7 @@ void lights_header(App *a)
     ImGui::SetNextItemWidth(220);
     ImGui::SliderInt("Light at car", &n.light, NIGHT_LIGHT_MIN, NIGHT_LIGHT_MAX, "%d %%");
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("100 %% is the race's light at the car on this track, at Race photo's node;\nthe road and the headlight pool add more in places.");
+        ImGui::SetTooltip("100 %% is the race's light at the car on this track, at In-game photo's node;\nthe road and the headlight pool add more in places.");
     ImGui::SameLine();
     if (ImGui::SmallButton("100 %")) n.light = 100;
     ImGui::Checkbox("Headlights + side lights", reinterpret_cast<bool *>(&n.lights));

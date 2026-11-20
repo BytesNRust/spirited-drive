@@ -1,6 +1,6 @@
 #!/bin/sh
 # The editor on cars, headless, in the order a user goes: Export original car, open it (or a kit), edit and save its card, Rehacer,
-# Edit mask and save it, Preview by day and night, the Model, Race photo, Changes. The blocks that need the player's game files
+# Edit mask and save it, Preview by day and night, the Model, In-game photo, Changes. The blocks that need the player's game files
 # (original/) are skipped without them.
 # usage: editor_headless_car.sh EDITOR
 . "$(dirname "$0")/editor_headless_common.sh"
@@ -154,8 +154,8 @@ if [ -f "$p911" ]; then
     cmp -s "$work/m1.png" "$work/stub.png" && fail "the 911 looks like a car that cannot be drawn"
 fi
 
-# ==== Race photo (a fake game) ====
-# Race photo with a fake game (a script that writes what the real one does): a masks project of a traffic car finds the car in the draw, follows its slot and shows
+# ==== In-game photo (a fake game) ====
+# In-game photo with a fake game (a script that writes what the real one does): a masks project of a traffic car finds the car in the draw, follows its slot and shows
 # the picture; the picture is written as a PNG; a game that fails is told, with a non-zero status; a car of the game's that is not one asks for an export first
 cat > "$work/fake-tnfs" <<'FAKE'
 #!/bin/sh
@@ -170,23 +170,23 @@ else
 fi
 FAKE
 chmod +x "$work/fake-tnfs"
-"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --night --race-png "$work/photo.png" --frames 4 --shot "$work/racepanel.png" >"$work/log" 2>&1 || fail "Race photo with a fake game: $(cat "$work/log")"
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --night --race-png "$work/photo.png" --frames 4 --shot "$work/racepanel.png" >"$work/log" 2>&1 || fail "In-game photo with a fake game: $(cat "$work/log")"
 grep -q "Photo: the camera follows the Wagon (slot 3" "$work/log" || fail "no word about the slot followed: $(cat "$work/log")"
 python3 -c "
 import sys
 d = open(sys.argv[1], 'rb').read()
 assert d[:8] == b'\x89PNG\r\n\x1a\n' and int.from_bytes(d[16:20], 'big') == 1280 and int.from_bytes(d[20:24], 'big') == 960
-" "$work/photo.png" || fail "the race photo is not a 1280x960 PNG (render scale 2, the default)"
+" "$work/photo.png" || fail "the in-game photo is not a 1280x960 PNG (render scale 2, the default)"
 # the Race window's switches (T6): render scale 1 is 640x480, and what is off is said in the summary
-"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --race-scale 1 --race-off reflections --race-png "$work/photo1.png" --frames 2 >"$work/log" 2>&1 || fail "Race photo at scale 1: $(cat "$work/log")"
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --race-scale 1 --race-off reflections --race-png "$work/photo1.png" --frames 2 >"$work/log" 2>&1 || fail "In-game photo at scale 1: $(cat "$work/log")"
 grep -q "(Reflections off, 640x480)" "$work/log" || fail "the summary does not say what was off: $(cat "$work/log")"
 python3 -c "
 import sys
 d = open(sys.argv[1], 'rb').read()
 assert int.from_bytes(d[16:20], 'big') == 640 and int.from_bytes(d[20:24], 'big') == 480
-" "$work/photo1.png" || fail "the race photo at render scale 1 is not 640x480"
+" "$work/photo1.png" || fail "the in-game photo at render scale 1 is not 640x480"
 [ -s "$work/racepanel.png" ] || fail "no PNG of the Race window"
-# a switch that is not one, a scale that is not 1 or 2, or the look without a Race photo: refused, never a photo with the whole look
+# a switch that is not one, a scale that is not 1 or 2, or the look without a In-game photo: refused, never a photo with the whole look
 "$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --race-off reflection --frames 2 >"$work/log" 2>&1 && fail "--race-off with an unknown switch was taken"
 grep -q "reflections, car_colours" "$work/log" || fail "an unknown --race-off word is not named: $(cat "$work/log")"
 "$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --race-scale 3 --frames 2 >"$work/log" 2>&1 && fail "--race-scale 3 was taken"

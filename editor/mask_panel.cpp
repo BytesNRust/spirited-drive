@@ -317,7 +317,7 @@ void mask_edit_panel(App *a, ImTextureID tex)
                 legend(a);
                 ImGui::Spacing();
                 ImGui::BeginDisabled(!(car_race_original_of(&a->car) != nullptr && !app_race_busy(a)));
-                if (ImGui::Button(app_mask_modified(a) ? "Save, then Race photo" : "Race photo")) {
+                if (ImGui::Button(app_mask_modified(a) ? "Save, then In-game photo" : "In-game photo")) {
                     if (!app_mask_modified(a) || app_mask_save(a)) app_race(a, 1);
                 }
                 ImGui::EndDisabled();

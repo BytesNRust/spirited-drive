@@ -17,7 +17,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
-const char *const PANEL_CAR = "Car", *const PANEL_TEXTURES = "Textures", *const PANEL_MASKS = "Masks", *const PANEL_REHACER = "Rehacer", *const PANEL_RACE = "Race";
+const char *const PANEL_CAR = "Car", *const PANEL_TEXTURES = "Textures", *const PANEL_MASKS = "Masks", *const PANEL_REHACER = "Rehacer", *const PANEL_RACE = "Drive###Race";   // shown "Drive"; the ### id keeps it apart from the track editor's Drive, which shares the ini (a layout saved before the rename floats it: Reset layout docks it)
 
 namespace {
 
@@ -623,9 +623,9 @@ void race_panel(App *a, ImTextureID photo)
         const bool busy = app_race_busy(a);
         const bool traffic = car != nullptr && car->kind != EXPORT_DRIVABLE;
         if (car == nullptr) {
-            ImGui::TextDisabled("Test in race: the game's own cars only");
+            ImGui::TextDisabled("Test drive: the game's own cars only");
             ImGui::SameLine();
-            help_marker("Test in race runs the game with this project's masks in front of its own, so it needs a project of one of the game's cars. "
+            help_marker("Test drive runs the game with this project's masks in front of its own, so it needs a project of one of the game's cars. "
                         "Make one with Export original car.");
         } else {
             ImGui::BeginDisabled(busy);
@@ -657,12 +657,12 @@ void race_panel(App *a, ImTextureID photo)
             car_race_note(car, now != nullptr ? now->stem : "", note, sizeof note);
             char help[800];   // the detail, behind the (?) beside the buttons: no loose explanation in the panel
             const int n = snprintf(help, sizeof help, "The game runs on a scratch player folder, with this project's masks.%s%s%s",
-                                   traffic ? " A traffic or police car: City, Coastal or Alpine stages only." : "", note[0] != '\0' ? "\n\nTest in race: " : "", note);
+                                   traffic ? " A traffic or police car: City, Coastal or Alpine stages only." : "", note[0] != '\0' ? "\n\nTest drive: " : "", note);
             if (n < 0 || static_cast<size_t>(n) >= sizeof help) snprintf(help + sizeof help - 4, 4, "...");
             ImGui::BeginDisabled(busy);
-            if (ImGui::Button("Test in race")) app_race(a, 0);
+            if (ImGui::Button("Test drive")) app_race(a, 0);
             ImGui::SameLine();
-            if (ImGui::Button("Race photo")) app_race(a, 1);
+            if (ImGui::Button("In-game photo")) app_race(a, 1);
             ImGui::EndDisabled();
             ImGui::SameLine();
             ImGui::BeginDisabled(!busy);

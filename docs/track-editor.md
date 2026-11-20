@@ -164,7 +164,7 @@ game's source tree (`data/car_masks/<folder>/`): the way to change a game mask i
 files: for your own use, do not share" and has `redistributable=0`. `--export-car FOLDER --into PARENT` does it before the first frame (headless), `--ask export`
 shows the window and `--pick FOLDER` chooses a car in it.
 
-**Test in race and Race photo** (the Race window, for a project of one of the game's own cars: the eight from Export original car, and the traffic and police ones).
+**Test drive and In-game photo** (the Drive window, for a project of one of the game's own cars: the eight from Export original car, and the traffic and police ones).
 Both run the game (the one Studio found; Locate game if it is not there) on a scratch player folder made for the run (`studio-race-XXXXXX` in the temporary folder,
 Restomod whole, its look keys written out, no extra liveries, removed when the run ends): the player's own folder and the installed game are never touched. The project's masks are
 in front of the game's own (`TNFS_CAR_MASKS=<project>/car_masks`, and `TNFS_DASH_MASKS` for a car you drive); the person's own `TNFS_*` variables are dropped.
@@ -175,7 +175,7 @@ time of day). **Look**, under the buttons and open (it folds by hand), has Refle
 for a photo, `--car N --type 0` for the window; N is the car's model for a photo, and the car menu's number for the window, whose race is
 Control Central's: the game turns that number into the model by its own table, 00426620). A traffic or police car is raced in a race with traffic (`--type 1`), which
 runs only on the City, Coastal and Alpine stages (the circuits are greyed for it; default Coastal 1); the player drives the Toyota Supra Turbo, and the window says so
-and where the tested car is: the window's traffic is the game's own draw, so a given traffic car is on the road in some races and not in others. **Test in race** opens the game's window; **Stop** ends it. **Race photo** runs
+and where the tested car is: the window's traffic is the game's own draw, so a given traffic car is on the road in some races and not in others. **Test drive** opens the game's window; **Stop** ends it. **In-game photo** runs
 the game headless and shows one frame in the window next to the masks (200 ticks in for a car you drive, 800 for a traffic car, 250 for the police car). For a
 traffic or police car the camera has to follow the slot the car has in the race (`TNFS_FOLLOW_CAR`): the traffic's models are drawn by the race's seed, so a
 probe run (1 tick) per seed reads the game's `race car: slot N is STEM` lines and Studio tries the game's own seed and then 24 more (`TNFS_DRIVE_SEED`) until the car
@@ -183,7 +183,7 @@ is in the draw; if none has it there is no photo, and the window says so. A traf
 the game to wait until the car has been on the road 64 ticks (`TNFS_FOLLOW_SETTLE`, past the 800); if it stays parked in a draw the next draw is tried (4 such draws at most), and the
 summary says the tick of the frame. The police car is put 15 nodes behind the player, chasing (`TNFS_POLICE_NEAR`), so its camera
 has it at any tick. Studio cannot see whether the car is on screen: look at the picture. A game older than this Studio does not log the slots: the photo says so, and
-Test in race still runs. The game's log (its output and its own `spirited-drive.log`) is in the window, errors red, the masks it took green; the game looks for every
+Test drive still runs. The game's log (its output and its own `spirited-drive.log`) is in the window, errors red, the masks it took green; the game looks for every
 car's mask in the override first and says "cannot read" for the cars the project has none for: those lines are dim, they are expected. `--race-photo` takes the
 photo before the first frame (with `--night`, `--track STEM`, `--race-png FILE`), headless runs wait for it.
 
@@ -274,20 +274,20 @@ trial. **Stop**, or closing the game's window, ends it; the scratch folder goes 
 
 - **Car**: the game's car menu, in its order; the first is the default, and the last one picked is kept in the editor's settings (`track-editor.ini`,
   `[StudioSettings][Editor] DriveCar=N`, the menu's number).
-- **Look**: the same switches and resolution as the car's Race window (`race_look_controls`, `editor/race_look_ui.cpp`), all on by default.
+- **Look**: the same switches and resolution as the car's Drive window (`race_look_controls`, `editor/race_look_ui.cpp`), all on by default.
 - A track with a red problem, or too short for a stage, is not run: the window says the Problems' text. No game found says what to do, as Install does.
 - The install runs in the background: the state line says «Installing...» and the editor goes on; then the game starts. **Install (U)** in the Project
   window does the same (an «Installing...» line with a **Stop**); while either installs, Build waits (the installer reads the zip) and nothing else installs.
 - The state line says what the game's own log says of the piece while it runs (`track piece: <id> is track N`, or why it refused it). The game's log is
   under a folded header.
-- Not in this version: a race photo at the selected point.
+- Not in this version: a in-game photo at the selected point.
 
 Headless: `--test-drive` does the same and waits (60 s at most) for the game's line on the piece, prints it, then stops the game. `--race-off` and
 `--race-scale` set the look, as for `--race-photo`; `--cd DIR` names the game's files.
 
 ## Preview
 
-The **Preview** window (a tab beside Textures and Race) shows each texture of the car file as the race has it: the game's own code (the fixed black of the masks, then the paint) runs on a copy of the car file with this project's masks in front of the game's, and an unsaved mask edit counts as if it were saved. Pick the paint from the card's `paints=` (a car you drive; a traffic or police car has none: the race does not paint it). It updates by itself when a mask is edited or saved, a paint or its colour changes, or Rehacer ends (not while a pencil stroke is going).
+The **Preview** window (a tab beside Textures and Drive) shows each texture of the car file as the race has it: the game's own code (the fixed black of the masks, then the paint) runs on a copy of the car file with this project's masks in front of the game's, and an unsaved mask edit counts as if it were saved. Pick the paint from the card's `paints=` (a car you drive; a traffic or police car has none: the race does not paint it). It updates by itself when a mask is edited or saved, a paint or its colour changes, or Rehacer ends (not while a pencil stroke is going).
 
 The bank's palette is taken to 6 bits a channel, as the race loads it. Not applied: the track's light and the screen palette's nearest-colour snapping. Instead Preview counts the distinct colours of the body and says how many the car's entries in the race palette (23 of its own, 72 shared when several cars race) cannot hold: the rest will look like their nearest. Texels that name one of the race's screen entries (0xfa-0xfe) are hatched, and 0xff is a chequer. Headless: `--paint N` shows the card's N-th paint.
 
@@ -297,13 +297,13 @@ At the top of the **Masks** window of a project made from one of the game's cars
 
 ## Edit mask
 
-The **Edit mask** window (a tab beside Textures and Race) paints a car's masks. Pick a texture of the car file (the ones with a mask in `car_masks/<car>/`; the low detail bank's are marked "low"): the mask is drawn over the texture, each class in its legend colour, with an Overlay switch, an Opacity slider and a switch per class. The class chosen in the legend is the one the tools paint with.
+The **Edit mask** window (a tab beside Textures and Drive) paints a car's masks. Pick a texture of the car file (the ones with a mask in `car_masks/<car>/`; the low detail bank's are marked "low"): the mask is drawn over the texture, each class in its legend colour, with an Overlay switch, an Opacity slider and a switch per class. The class chosen in the legend is the one the tools paint with.
 
 - **Pencil**: a square of 1 to 8 texels; drag to draw a line (one step to undo). **Fill**: the connected texels of the same mask class, or of the same texture colour. **Eyedropper**: takes the class under the click.
 - **Undo / Redo** (Cmd+Z, Cmd+Shift+Z or Cmd+Y on a Mac, Ctrl elsewhere, while the window has the keyboard), **Save mask** (Cmd/Ctrl+S too), **Discard**.
 - Save writes the mask as the 8-bit grey PNG of `data/car_masks`: the same name and size, every texel outside the edit as it was; a mask with no change is not rewritten. Changing texture, closing the project or running Rehacer with unsaved mask changes asks first.
 - A mask whose size is not its texture's says both sizes: the game scales the mask to the texture (nearest neighbour), so the Studio shows it scaled the same way.
-- **Race photo** (or **Save, then Race photo** when there are changes) runs the game on the saved masks and shows the picture in the Race window.
+- **In-game photo** (or **Save, then In-game photo** when there are changes) runs the game on the saved masks and shows the picture in the Drive window.
 
 Headless: `--mask NAME` (`side`, `frnt_lo`) opens a mask, `--mask-rect X,Y,W,H,CLASS` paints a rectangle of it (repeatable, one step each), `--mask-save` saves it; with `--shot` the picture is the window.
 

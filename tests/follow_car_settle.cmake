@@ -1,5 +1,5 @@
 # usage: cmake -DTNFS=<exe> -DREPO=<repository> -DWORK=<scratch dir> -P follow_car_settle.cmake
-# Studio's Race photo of a traffic car (TNFS_FOLLOW_CAR): a traffic car is parked high above the track (ai_parked.c) until the player comes near, so a frame at a fixed tick
+# Studio's In-game photo of a traffic car (TNFS_FOLLOW_CAR): a traffic car is parked high above the track (ai_parked.c) until the player comes near, so a frame at a fixed tick
 # can show the empty road from up there. With TNFS_FOLLOW_SETTLE=N the frame waits, past --node, until the followed car has been on the road N ticks. Coastal 1 with the
 # draw 11112 has the Jetta in slot 6, parked at tick 800 and on the road later.
 include("${CMAKE_CURRENT_LIST_DIR}/unique_work.cmake")

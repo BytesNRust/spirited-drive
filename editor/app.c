@@ -140,11 +140,11 @@ int app_race(App *a, int photo)
     if (a->kind != APP_KIND_CAR) return set_status(a, "open a car first"), 0;
     const RaceTrack *track = car_race_track(a->race_track);
     const ExportCar *car = car_race_original_of(&a->car);
-    if (track == NULL || car == NULL) return set_status(a, "Test in race is for the game's own cars: export one with Export original car"), 0;
+    if (track == NULL || car == NULL) return set_status(a, "Test drive is for the game's own cars: export one with Export original car"), 0;
     const int ok = photo ? car_race_start_photo(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, &a->race_look, why, sizeof why)
                          : car_race_start_race(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, &a->race_look, why, sizeof why);
     if (!ok) return set_status(a, why), 0;
-    set_status(a, photo ? "taking the race photo..." : "the game is running: close its window to end the test");
+    set_status(a, photo ? "taking the in-game photo..." : "the game is running: close its window to end the test");
     return 1;
 }
 

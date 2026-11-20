@@ -1249,7 +1249,7 @@ static void check_export(void)
     CHECK(strcmp(car_race_track(a->race_track)->stem, "CL1") == 0);   /* a traffic car starts on a stage: the circuits have no traffic */
     snprintf(a->game, sizeof a->game, "%s", "/nonexistent/tnfs");
     CHECK(!app_race_busy(a) && !app_race(a, 1) && strstr(a->status, "game's program") != NULL);   /* no game where Studio looked */
-    {   /* Race photo through the app, against a fake game */
+    {   /* In-game photo through the app, against a fake game */
         char fake[700];
         path_in(fake, sizeof fake, "ex/fake-tnfs");
         put("ex/fake-tnfs", "#!/bin/sh\nuser=; shot=\nwhile [ $# -gt 0 ]; do case \"$1\" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; esac; shift; done\n"

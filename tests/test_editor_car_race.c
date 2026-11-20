@@ -1,4 +1,4 @@
-/* Test in race and Race photo (editor/car_race.c, proc_run.c): the command line and environment built for each kind of car and each preset, the scratch player folder's
+/* Test drive and In-game photo (editor/car_race.c, proc_run.c): the command line and environment built for each kind of car and each preset, the scratch player folder's
  * files, the log's lines, the slot a car has, and the whole job run against a fake game (a shell script that writes the lines the real one does), so no game data is
  * needed. */
 #include "car_race.h"
@@ -131,7 +131,7 @@ static void test_command(void)
     char note[400];
     car_race_note(car_export_car(index_of("JETTA")), "CL1", note, sizeof note);
     CHECK(strstr(note, "You drive the Toyota Supra Turbo on Coastal 1") != NULL && strstr(note, "Jetta") != NULL && strstr(note, "traffic") != NULL);
-    CHECK(strstr(note, "at random") != NULL && strstr(note, "Race photo") != NULL);   /* the window's draw is the game's own: not every race has it */
+    CHECK(strstr(note, "at random") != NULL && strstr(note, "In-game photo") != NULL);   /* the window's draw is the game's own: not every race has it */
     car_race_note(car_export_car(index_of("COPMUST")), "AL2", note, sizeof note);
     CHECK(strstr(note, "You drive the Toyota Supra Turbo on Alpine 2") != NULL && strstr(note, "Police Mustang") != NULL);
     car_race_note(car_export_car(index_of("F512TR")), "TR5", note, sizeof note);
@@ -447,7 +447,7 @@ static void test_job(void)
     CHECK(car_race_start_photo(&job, game, "/cd", project, p911, "TR5", 0, NULL, why, sizeof why));
     run_job(&job);
     CHECK(!job.ok && strstr(job.summary, "exit code 3") != NULL && strstr(job.log, "no such track") != NULL && job.photo == NULL && !temps_left());
-    /* Test in race: the game in its window, run to its end */
+    /* Test drive: the game in its window, run to its end */
     setenv("FAKE_MODE", "ok", 1);
     CHECK(car_race_start_race(&job, game, "/cd", project, p911, "TR2", 1, NULL, why, sizeof why));
     run_job(&job);

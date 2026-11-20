@@ -89,7 +89,7 @@ void car_race_note(const ExportCar *car, const char *track, char *out, size_t ca
                  TRACKS[ti].label, car->label);
     else
         snprintf(out, cap, "You drive the %s on %s: the %s cannot be driven (a traffic car has no specs of its own). It is one of the traffic's cars, which the game "
-                 "draws at random for each race: look for it on the road, ahead of you or coming the other way. Some races do not have it; Race photo finds one that does.",
+                 "draws at random for each race: look for it on the road, ahead of you or coming the other way. Some races do not have it; In-game photo finds one that does.",
                  driver, TRACKS[ti].label, car->label);
 }
 
@@ -489,7 +489,7 @@ static int start_common(RaceJob *j, const char *game, const char *cd, const char
                         RaceJobState state, char *why, size_t why_cap)
 {
     if (!job_can_start(j, game, why, why_cap)) return 0;
-    if (car == NULL) return refuse(why, why_cap, "this car is not one of the game's: Test in race is for the cars Export original car makes");
+    if (car == NULL) return refuse(why, why_cap, "this car is not one of the game's: Test drive is for the cars Export original car makes");
     if (car_race_track_find(track) < 0) return refuse(why, why_cap, "no such track");
     if (strlen(game) >= EXPORT_PATH || strlen(cd) >= EXPORT_PATH || strlen(project) >= EXPORT_PATH) return refuse(why, why_cap, "a path is too long");
     if (!job_begin(j, game, cd, project, look, why, why_cap)) return 0;
@@ -526,7 +526,7 @@ int car_race_start_race(RaceJob *job, const char *game, const char *cd, const ch
     if (ok) {
         char note[500];
         car_race_note(car, track, note, sizeof note);
-        job_say(job, "Test in race, %s. %s A scratch player folder.\n", night ? "night" : "day", note);
+        job_say(job, "Test drive, %s. %s A scratch player folder.\n", night ? "night" : "day", note);
     }
     return ok;
 }
@@ -536,7 +536,7 @@ int car_race_start_photo(RaceJob *job, const char *game, const char *cd, const c
 {
     const int traffic = car != NULL && car->kind != EXPORT_DRIVABLE;
     const int ok = start_common(job, game, cd, project, car, track, night, look, traffic ? RACE_JOB_PROBE : RACE_JOB_SHOOT, why, why_cap);
-    if (ok) job_say(job, "Race photo: %s on %s, %s.\n", car->label, track, night ? "night" : "day");
+    if (ok) job_say(job, "In-game photo: %s on %s, %s.\n", car->label, track, night ? "night" : "day");
     return ok;
 }
 
@@ -610,7 +610,7 @@ static void probe_done(RaceJob *j, const char *game_log)
 {
     if (j->run.exit_code != 0) { finish(j, 0, "The game ended with exit code %d while looking for the %s in the traffic. Its output is in the log.", j->run.exit_code, j->setup.car->label); return; }
     if (game_log == NULL || strstr(game_log, "race car: slot") == NULL) {   /* an older game: it does not say who is in which slot */
-        finish(j, 0, "No photo: this game does not say which car is in which slot of the traffic (it is older than this Studio). Test in race (the window) still runs.");
+        finish(j, 0, "No photo: this game does not say which car is in which slot of the traffic (it is older than this Studio). Test drive (the window) still runs.");
         return;
     }
     const int slot = car_race_find_slot(game_log, j->setup.car->file);
@@ -634,10 +634,10 @@ static void next_draw(RaceJob *j, const char *why_not)
     if (j->setup.slot > 0) j->parked++;
     if (++j->probes > RACE_SEEDS || j->parked >= RACE_PARKED_DRAWS) {
         if (j->parked)
-            finish(j, 0, "No photo: in the %d draws of the traffic that had it, the %s stayed parked off the road until the frame. Test in race (the window) may still show it.",
+            finish(j, 0, "No photo: in the %d draws of the traffic that had it, the %s stayed parked off the road until the frame. Test drive (the window) may still show it.",
                    j->parked, j->setup.car->label);
         else
-            finish(j, 0, "No photo: the %s was in none of %d draws of the traffic, so there is no tick where it is on screen. Test in race (the window) may still show it.",
+            finish(j, 0, "No photo: the %s was in none of %d draws of the traffic, so there is no tick where it is on screen. Test drive (the window) may still show it.",
                    j->setup.car->label, j->probes);
         return;
     }
