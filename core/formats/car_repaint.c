@@ -295,6 +295,7 @@ static void repaint_guard(const RepaintBank *bank, const Survey *s, const uint8_
 /* the remap of every family entry: itself for a draft, else recoloured in place or moved to a spare entry */
 static void repaint_plan(const RepaintBank *bank, int floor, ColourFn fn, void *ctx, const Survey *s, uint8_t *const *draft, Spares *sp, const uint8_t shared[ENTRIES], int remap[ENTRIES])
 {
+    uint8_t inplace[ENTRIES] = { 0 }, pending[ENTRIES] = { 0 }, inplace_rgb[ENTRIES][3], pending_rgb[ENTRIES][3];
     for (int e = 0; e < ENTRIES; e++) {
         if (s->main[e] + s->end[e] == 0 || !in_family(bank, s, e, floor)) continue;
         if (draft != NULL) {
@@ -315,9 +316,23 @@ static void repaint_plan(const RepaintBank *bank, int floor, ColourFn fn, void *
             set_colour(bank, e, out);
             if (second_valid(bank)) set_second(bank, e, second);
             remap[e] = e;
+            inplace[e] = 1, memcpy(inplace_rgb[e], out, 3);
         } else {
             remap[e] = spare_for(bank, sp, out, second);
+            if (remap[e] < 0) pending[e] = 1, memcpy(pending_rgb[e], out, 3);
         }
+    }
+    /* a bank with no free entry left (the fixed black took them) and no colour given: the shared entry takes the nearest colour an entry recoloured in place has, as
+     * spare_for takes the nearest given one, and is not left as it was */
+    for (int e = 0; e < ENTRIES; e++) {
+        if (!pending[e]) continue;
+        int best = -1, best_d = 1 << 30;
+        for (int i = 0; i < ENTRIES; i++) {
+            if (!inplace[i]) continue;
+            const int dr = inplace_rgb[i][0] - pending_rgb[e][0], dg = inplace_rgb[i][1] - pending_rgb[e][1], db = inplace_rgb[i][2] - pending_rgb[e][2];
+            if (dr * dr + dg * dg + db * db < best_d) best = i, best_d = dr * dr + dg * dg + db * db;
+        }
+        remap[e] = best;
     }
 }
 

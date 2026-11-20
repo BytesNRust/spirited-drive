@@ -472,6 +472,44 @@ static void test_transparent_index(void)
     CHECK_EQ_INT(colour(&f, f.pal, 0xff, 2), 252);   /* and its colour is as it was */
 }
 
+
+/* A photographic body: forty grey shades, thirty-six of them shared by the paint texels and the shine texels (so each needs an entry of its own to be recoloured), and a bank whose every entry is
+ * used but one, which the fixed black takes. The paint then has no free entry: it must still recolour every paint texel (the Carrera's side turned red only in splotches),
+ * to the nearest colour already given. */
+static void test_paint_after_the_black_took_the_last_spare(void)
+{
+    enum { FAMILY_FIRST = 20, FAMILY = 40, BLACK_ENTRY = 5, LAST_SPARE = 249, SIZE = 4096 };
+    uint8_t body[SIZE], mask[SIZE], fill[250], pal[768] = { 0 }, xxx[768] = { 0 }, original[SIZE];
+    for (int i = 0; i < SIZE; i++) {
+        body[i] = (uint8_t)(FAMILY_FIRST + i % FAMILY);
+        mask[i] = i % 3 == 0 && i % FAMILY < FAMILY - 4 ? CAR_MASK_SHINE : CAR_MASK_PAINT;   /* the last four shades are paint only: recoloured in place */
+        if (i % 50 == 7) body[i] = BLACK_ENTRY, mask[i] = CAR_MASK_BLACK;
+        original[i] = body[i];
+    }
+    for (int e = 0; e < 250; e++)   /* every entry but the last spare is in a texture, the black's too (it stays used); the paint's only in the body */
+        fill[e] = (uint8_t)(e == LAST_SPARE || (e >= FAMILY_FIRST && e < FAMILY_FIRST + FAMILY) ? 0 : e);
+    for (int e = 0; e < 250; e++) set(pal, e, 20 + e % 7, 20 + e % 5, 20 + e % 3);
+    for (int k = 0; k < FAMILY; k++) set(pal, FAMILY_FIRST + k, 120 + 2 * k, 120 + 2 * k, 120 + 2 * k);   /* a neutral ramp: the paint */
+    set(pal, BLACK_ENTRY, 18, 18, 18);
+    memcpy(xxx, pal, sizeof xxx);
+    RepaintTexture tex[2] = { { body, SIZE, REPAINT_MAIN, 0, { { 0 } }, mask }, { fill, 250, REPAINT_NONE, 0, { { 0 } }, NULL } };
+    RepaintBank bank = { tex, 2, { pal, xxx }, 2, 0x24, 0x24 };
+    const uint8_t black[3] = { 14, 14, 16 }, red[3] = { 200, 16, 46 };
+    CHECK(car_repaint_fixed_black(&bank, black, 40) > 0);
+    const int changed = car_repaint_paint(&bank, red, 40);
+    int paint_texels = 0, red_texels = 0;
+    for (int i = 0; i < SIZE; i++) {
+        if (mask[i] != CAR_MASK_PAINT) continue;
+        paint_texels++;
+        const uint8_t *c = pal + 3 * body[i];
+        red_texels += c[0] > c[1] + 40 && c[0] > c[2] + 40;
+    }
+    CHECK(changed >= paint_texels);
+    CHECK_EQ_INT(red_texels, paint_texels);   /* none left grey */
+    for (int i = 0; i < SIZE; i++)
+        if (mask[i] == CAR_MASK_SHINE) CHECK(body[i] == original[i]);   /* the shine texels stay as they were */
+}
+
 int main(void)
 {
     test_transparent_index();
@@ -495,5 +533,6 @@ int main(void)
     test_a_body_class_texel_is_kept_and_drafted_as_body();
     test_a_fixed_black_texel_is_black_whatever_the_paint();
     test_a_fixed_black_texel_takes_the_bodys_tone();
+    test_paint_after_the_black_took_the_last_spare();
     return TEST_REPORT();
 }
