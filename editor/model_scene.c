@@ -19,7 +19,7 @@ typedef struct {
     uint32_t count;
     uint8_t rgb[LAMP_COLOURS + 1][3];
     int colours;
-    int lamps;                  /* car_night_lamp_state of the state the layer was made for, -1 none yet */
+    int lamps;                  /* car_night_lamp_state of the state the layer was made for (and 8 with the brake on by day), -1 none yet */
 } LampLayer;
 
 struct ModelScene {
@@ -179,7 +179,7 @@ static uint8_t *lamp_texels(LampLayer *l, const PreviewTex *t, const CarNightSta
 static void lamp_layer(ModelScene *m, const CarNightState *night)
 {
     LampLayer *l = &m->lamp;
-    const int lamps = car_night_lamp_state(night);
+    const int lamps = car_night_lamp_state(night) | (!night->night && night->brake ? 8 : 0);   /* 8, past LampState's bits: the brake by day, which car_night_texture lights with the state still LAMP_DAY */
     if (l->lamps == lamps) return;
     lamp_free(l);
     l->lamps = lamps;
