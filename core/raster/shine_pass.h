@@ -35,6 +35,7 @@ int shine_corner_uvs(const Object3DCorners *c, const float up[3], int32_t packed
 int shine_shape_uv(ObjShape shape, const FshEntry *t, const Object3DCorners *c, int32_t uv[8]);
 
 /* the exe's path: the envmap's pass over the polygon and uvs the mapper drew, for a texture shine_class.h knows (the others are left alone) */
-void shine_pass_affine(const QuadTarget *q, ObjShape shape, const FshEntry *texture, const Object3DCorners *c, const EnvShine *env, const float up[3]);
+void shine_pass_affine(const QuadTarget *q, ObjShape shape, const FshEntry *texture, MapMode mode, const Object3DCorners *c, const EnvShine *env,
+                       const float up[3]);
 
 #endif

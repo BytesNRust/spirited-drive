@@ -75,12 +75,13 @@ int shine_shape_uv(ObjShape shape, const FshEntry *t, const Object3DCorners *c, 
     return 0;
 }
 
-void shine_pass_affine(const QuadTarget *q, ObjShape shape, const FshEntry *texture, const Object3DCorners *c, const EnvShine *env, const float up[3])
+void shine_pass_affine(const QuadTarget *q, ObjShape shape, const FshEntry *texture, MapMode mode, const Object3DCorners *c, const EnvShine *env,
+                       const float up[3])
 {
     int32_t packed[4], uv16[8], uv[8];
     const ShineClass *cls;
     if (env == NULL || texture->type != FSH_TYPE_BITMAP || (cls = shine_class_find(texture->payload)) == NULL) return;
     if (!shine_corner_uvs(c, up, packed) || !shine_shape_uv(shape, texture, c, uv16)) return;
     for (int i = 0; i < 2 * c->corners; i++) uv[i] = uv16[i] >> 16;
-    shine_draw_env_affine(q, cls, env, c->screen, uv, packed, c->corners);
+    shine_draw_env_affine(q, cls, env, c->screen, uv, packed, c->corners, shape, texture, mode);
 }

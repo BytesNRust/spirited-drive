@@ -6,6 +6,7 @@
 #define TNFS_SHINE_DRAW_H
 
 #include "raster/car_shine.h"
+#include "raster/object_mappers.h"
 #include "raster/quad.h"
 #include "raster/view.h"
 
@@ -30,9 +31,11 @@ void shine_draw_set_view(const View *view);
 
 /* the exe's path: the polygon's integer screen corners (x, y) and its uvs in whole texels (as the mappers take them), 3 or 4 corners, affine.
  * `packed[i]` is corner i's sphere-map uv (car_envmap_pack); each pixel takes the image's value at its own interpolated uv, quantised to the
- * levels, and goes through the paint table or, for class 128, the glass table. */
+ * levels, and goes through the paint table or, for class 128, the glass table. The pixels are exactly the ones the exe's mapper draws for the
+ * polygon (`shape`, `texture` and `mode` as the mapper was called: object_mappers.h; a transparent mode's 0xff texels are not drawn): one past
+ * them lies on a neighbour already drawn and shined, which a second pass would brighten again (a light seam, W3). */
 void shine_draw_env_affine(const QuadTarget *q, const ShineClass *cls, const EnvShine *env, const int32_t screen[8], const int32_t uv[8],
-                           const int32_t packed[4], int corners);
+                           const int32_t packed[4], int corners, ObjShape shape, const FshEntry *texture, MapMode mode);
 
 /* Modern 3D's: the camera-space corners (cam[i] points at x, y, z), uv 16.16, clipped at the view's near plane and perspective-correct, as
  * the affine one with the view's shine_draw_set_view. */

@@ -3,15 +3,16 @@
 
 #include "formats/car_repaint.h"
 #include "raster/car_envmap.h"
+#include "raster/object_mappers.h"
 #include "raster/raster_record.h"
 
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* the class map's codes are the draft's (car_repaint.h): paint, matte and shine (glass, lamps) */
 enum { MAX_VERTS = 8, SHINE_PAINT = REPAINT_DRAFT_PAINT, SHINE_GLASS = REPAINT_DRAFT_SHINE, SHINE_BODY = REPAINT_DRAFT_BODY };
 static const float EDGE_GROW = 0.45f;   /* modern_road.c's: a polygon's outer edges reach this much of a pixel out */
-static const float ROW_REACH = 0.5f;    /* the exe's mapper rounds a row's ends: half a pixel past an outer edge, either way (the square the mapper's rounding spans) */
 static const float IZ_MIN = 1e-9f;
 
 /* the 4x4 ordered dither's thresholds, as modern_road.c's: (BAYER + 0.5) / 16 by (y & 3, x & 3) */
@@ -42,20 +43,18 @@ static float edge(const Screen *a, const Screen *b, float x, float y)
     return (b->sx - a->sx) * (y - a->sy) - (b->sy - a->sy) * (x - a->sx);
 }
 
-/* The pass follows each polygon's own exe draw, which overwrites whatever a neighbour drew there, so it reaches exactly the pixels that draw
- * fills: the closed outline, a pixel on an edge included (a shared edge is drawn by both polygons, the later over the earlier, and each
- * pass follows its own draw). One pixel more is a pixel the polygon did not redraw, shined twice (a light line down a seam); one less is a dark
- * dot. Only the diagonals inside one polygon's fan are exact: a pixel on one belongs to the side the edge's direction names, as the fan's two
- * triangles are one draw. `origin` is where a pixel sits in the coordinates: the exe's affine mapper has no centre offset (0), the 3D one
- * (modern_road.c) takes pixel centres (0.5) and grows a polygon's outer edges by EDGE_GROW of a pixel (`grow`), as this does. */
+/* Modern 3D's pass (draw_camera) follows modern_road.c's polygon: pixel centres (`origin` 0.5) and the outer edges grown by EDGE_GROW of a pixel
+ * (`grow`), as that draw grows them, so the pass reaches the pixels its own draw just wrote. Only the diagonals inside one polygon's fan are exact:
+ * a pixel on one belongs to the side the edge's direction names, as the fan's two triangles are one draw. The exe's path takes the mapper's own
+ * pixels instead (mapper_cover). */
 typedef struct {
     int outer_ab, outer_bc, outer_ca;
 } Outline;
 
 /* the least edge value a pixel may have: nothing for an inside diagonal, `grow` pixels past an outer edge (the edge value is the distance times its length) */
-static float reach(const Screen *from, const Screen *to, int outer, float grow, float row_reach)
+static float reach(const Screen *from, const Screen *to, int outer, float grow)
 {
-    return outer ? -grow * hypotf(to->sx - from->sx, to->sy - from->sy) - row_reach * (fabsf(to->sy - from->sy) + fabsf(to->sx - from->sx)) : 0.0f;
+    return outer ? -grow * hypotf(to->sx - from->sx, to->sy - from->sy) : 0.0f;
 }
 
 static int owns_tie(const Screen *from, const Screen *to)
@@ -90,8 +89,7 @@ static uint8_t texel_class(const Shine *sh, float u, float v)
     return sh->cls->klass[(size_t)ty * (size_t)sh->cls->width + (size_t)tx];
 }
 
-static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, const Screen *c, Outline o, float origin, float grow,
-                     float row_reach, const Shine *sh)
+static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, const Screen *c, Outline o, float origin, float grow, const Shine *sh)
 {
     const float area = edge(a, b, c->sx, c->sy);
     if (fabsf(area) < 1e-6f) return;
@@ -102,8 +100,7 @@ static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, cons
         o.outer_ab = o.outer_ca, o.outer_ca = u;
     }
     const float inv = 1.0f / fabsf(area);
-    const float min_bc = reach(b, c, o.outer_bc, grow, row_reach), min_ca = reach(c, a, o.outer_ca, grow, row_reach),
-                min_ab = reach(a, b, o.outer_ab, grow, row_reach);
+    const float min_bc = reach(b, c, o.outer_bc, grow), min_ca = reach(c, a, o.outer_ca, grow), min_ab = reach(a, b, o.outer_ab, grow);
     const int own_bc = o.outer_bc || owns_tie(b, c), own_ca = o.outer_ca || owns_tie(c, a), own_ab = o.outer_ab || owns_tie(a, b);
     const int x0 = (int)fmaxf((float)q->clip_left, floorf(fminf(a->sx, fminf(b->sx, c->sx))) - 1),
               x1 = (int)fminf((float)q->clip_right - 1, ceilf(fmaxf(a->sx, fmaxf(b->sx, c->sx))) + 1);
@@ -132,18 +129,99 @@ static void triangle(const QuadTarget *q, const Screen *a, const Screen *b, cons
     }
 }
 
-static void fan(const QuadTarget *q, const Screen *s, int n, float origin, float grow, float row_reach, const Shine *sh)
+static void fan(const QuadTarget *q, const Screen *s, int n, float origin, float grow, const Shine *sh)
 {
-    for (int i = 1; i + 1 < n; i++) triangle(q, &s[0], &s[i], &s[i + 1], (Outline){ i == 1, 1, i + 2 == n }, origin, grow, row_reach, sh);
+    for (int i = 1; i + 1 < n; i++) triangle(q, &s[0], &s[i], &s[i + 1], (Outline){ i == 1, 1, i + 2 == n }, origin, grow, sh);
 }
 
-/* `eo` is the envmap's uv per corner, 2 floats each */
-static void draw_affine(const QuadTarget *q, const Shine *sh, const int32_t screen[8], const int32_t uv[8], const float eo[8], int corners)
+enum { COVER_REACH = 16384,   /* the screen coordinates a cover is taken for: the mapper keeps them in 16.16 */
+       NOT_DRAWN = 0xff };    /* a cover's pixel the mapper left */
+
+/* the polygon as the exe's mapper was asked to draw it */
+typedef struct {
+    ObjShape shape;
+    const FshEntry *texture;
+    MapMode mode;
+} Drawn;
+
+/* The pixels the mapper draws for `d` at `screen` within `whole`'s clip: a box of them (*x0, *y0, *bw x *bh bytes, NOT_DRAWN where it left
+ * them), malloc'd; NULL when nothing is in the clip, the corners are past COVER_REACH or out of memory. The mapper draws the polygon itself,
+ * shifted to the box (it takes whole pixels: a shift does not move its edges or its clip). */
+static uint8_t *mapper_cover(const QuadTarget *whole, const Drawn *d, const int32_t screen[8], const int32_t uv[8], int corners, int *x0, int *y0,
+                             int *bw, int *bh)
+{
+    uint8_t one[256];   /* the remap's and the shade's table: every pixel drawn as 1 (on the stack: the bands replay this on several threads) */
+    memset(one, 1, sizeof one);
+    int32_t lo_x = screen[0], hi_x = screen[0], lo_y = screen[1], hi_y = screen[1];
+    for (int i = 1; i < corners; i++) {
+        lo_x = screen[2 * i] < lo_x ? screen[2 * i] : lo_x, hi_x = screen[2 * i] > hi_x ? screen[2 * i] : hi_x;
+        lo_y = screen[2 * i + 1] < lo_y ? screen[2 * i + 1] : lo_y, hi_y = screen[2 * i + 1] > hi_y ? screen[2 * i + 1] : hi_y;
+    }
+    const int32_t left = lo_x - 2 > whole->clip_left ? lo_x - 2 : whole->clip_left, right = hi_x + 3 < whole->clip_right ? hi_x + 3 : whole->clip_right;
+    const int32_t top = lo_y - 2 > whole->clip_top ? lo_y - 2 : whole->clip_top, bottom = hi_y + 3 < whole->clip_bottom ? hi_y + 3 : whole->clip_bottom;
+    if (left >= right || top >= bottom || d->texture == NULL) return NULL;
+    if (lo_x < -COVER_REACH || hi_x > COVER_REACH || lo_y < -COVER_REACH || hi_y > COVER_REACH) return NULL;   /* the mapper's 16.16 would wrap: nothing to match */
+    *x0 = left, *y0 = top, *bw = right - left, *bh = bottom - top;
+    uint8_t *mask = malloc((size_t)*bw * (size_t)*bh);
+    if (mask == NULL) return NULL;
+    memset(mask, NOT_DRAWN, (size_t)*bw * (size_t)*bh);
+    const QuadTarget box = { mask, *bw, 0, 0, *bw, *bh };
+    int32_t at[8];
+    for (int i = 0; i < corners; i++) at[2 * i] = screen[2 * i] - left, at[2 * i + 1] = screen[2 * i + 1] - top;
+    for (int i = corners; i < 4; i++) at[2 * i] = at[0], at[2 * i + 1] = at[1];
+    /* the polygon's own mode, which never writes 0xff where it skips the texel: a remap mode's and the shade's table is all 1 here; the opaque
+     * mode, which writes 0xff texels, through the remap (the same mapper with each texel looked up) */
+    const MapMode m = d->mode == MAP_OPAQUE ? MAP_REMAP : d->mode;
+    switch (d->shape) {
+    case OBJ_TRIANGLE: obj_draw_triangle(&box, d->texture, uv, at, m, one); break;
+    case OBJ_QUAD: obj_draw_quad(&box, d->texture, uv, at, m, one); break;
+    case OBJ_QUAD_TRIS: obj_draw_quad_tris(&box, d->texture, uv, at, m, one); break;
+    case OBJ_FULL: obj_draw_full(&box, d->texture, at, m, one); break;
+    case OBJ_INSET: obj_draw_inset(&box, d->texture, at, m, one); break;
+    }
+    return mask;
+}
+
+/* the weights of (px, py) in the triangle a b c (any winding; outside it they extrapolate, as a pixel the mapper's rounding puts past an edge) */
+static int weights(const Screen *a, const Screen *b, const Screen *c, float px, float py, float w[3])
+{
+    const float area = edge(a, b, c->sx, c->sy);
+    if (fabsf(area) < 1e-6f) return 0;
+    w[0] = edge(b, c, px, py) / area, w[1] = edge(c, a, px, py) / area, w[2] = edge(a, b, px, py) / area;
+    return 1;
+}
+
+/* `eo` is the envmap's uv per corner, 2 floats each. Every pixel the mapper draws (mapper_cover) within `q`'s clip (a band's rows when replayed),
+ * once; its uvs from the fan's triangle on its side of the diagonal (a quad's 0-2: corner 1's side or corner 3's) */
+static void draw_affine(const QuadTarget *q, const QuadTarget *whole, const Shine *sh, const Drawn *d, const int32_t screen[8], const int32_t uv[8],
+                        const float eo[8], int corners)
 {
     Screen s[4];
     for (int i = 0; i < corners; i++)
         s[i] = (Screen){ (float)screen[2 * i], (float)screen[2 * i + 1], 1.0f, (float)uv[2 * i], (float)uv[2 * i + 1], eo[2 * i], eo[2 * i + 1] };
-    fan(q, s, corners, 0.0f, 0.0f, ROW_REACH, sh);
+    int x0 = 0, y0 = 0, bw = 0, bh = 0;
+    uint8_t *mask = mapper_cover(whole, d, screen, uv, corners, &x0, &y0, &bw, &bh);
+    if (mask == NULL) return;
+    /* a quad's side of corner 1 across the 0-2 diagonal; corner 1 on it (a quad drawn as a triangle: a corner given twice) leaves corner 3's */
+    const float side1 = corners == 4 ? edge(&s[0], &s[2], s[1].sx, s[1].sy) : 0.0f, side3 = corners == 4 ? edge(&s[0], &s[2], s[3].sx, s[3].sy) : 0.0f;
+    for (int by = 0; by < bh; by++) {
+        const int y = y0 + by;
+        if (y < q->clip_top || y >= q->clip_bottom) continue;
+        uint8_t *row = q->pixels + (size_t)y * (size_t)q->pitch;
+        for (int bx = 0; bx < bw; bx++) {
+            const int x = x0 + bx;
+            if (mask[(size_t)by * (size_t)bw + (size_t)bx] == NOT_DRAWN || x < q->clip_left || x >= q->clip_right) continue;
+            const Screen *b = &s[1], *c = &s[2];
+            if (corners == 4 && (side1 == 0.0f || edge(&s[0], &s[2], (float)x, (float)y) * side1 < 0)) b = &s[2], c = &s[3];   /* corner 3's triangle */
+            float w[3];
+            if (!weights(&s[0], b, c, (float)x, (float)y, w) && !(corners == 4 && side3 == 0.0f && weights(&s[0], &s[1], &s[2], (float)x, (float)y, w)))
+                continue;   /* both of a quad's triangles flat: a line, nothing to weigh */
+            const uint8_t k = texel_class(sh, w[0] * s[0].uz + w[1] * b->uz + w[2] * c->uz, w[0] * s[0].vz + w[1] * b->vz + w[2] * c->vz);
+            if (k != SHINE_PAINT && k != SHINE_GLASS && k != SHINE_BODY) continue;   /* as triangle(): paint, glass and body texels shine */
+            envmap_pixel(&row[x], sh->env, k == SHINE_GLASS, w[0] * s[0].eu + w[1] * b->eu + w[2] * c->eu, w[0] * s[0].ev + w[1] * b->ev + w[2] * c->ev, x, y);
+        }
+    }
+    free(mask);
 }
 
 typedef struct {
@@ -184,7 +262,7 @@ static void draw_camera(const QuadTarget *q, const Shine *sh, const int32_t uv[8
         s[i] = (Screen){ kept_view->centre_x + out[i].x * focal * iz, kept_view->centre_y - out[i].y * focal * iz, iz, out[i].u * iz,
                          out[i].v * iz, out[i].eu * iz, out[i].ev * iz };
     }
-    fan(q, s, n, 0.5f, EDGE_GROW, 0.0f, sh);
+    fan(q, s, n, 0.5f, EDGE_GROW, sh);
 }
 
 enum { KIND_AFFINE = 0, KIND_CAMERA = 1 };
@@ -203,8 +281,9 @@ static void replay(const RasterCmd *c, const QuadTarget *whole, int32_t top, int
     const Shine sh = { c->table, (const EnvShine *)c->shape };
     float eo[8];
     if (c->mode == KIND_AFFINE) {
+        const Drawn d = { (ObjShape)c->a, c->texture, (MapMode)c->b };
         unpack_corners(c->v + 16, c->count, eo);
-        draw_affine(&band, &sh, c->v, c->v + 8, eo, c->count);
+        draw_affine(&band, whole, &sh, &d, c->v, c->v + 8, eo, c->count);
     } else {
         const int32_t *cam[4] = { c->v + 8, c->v + 11, c->v + 14, c->v + 17 };
         unpack_corners(c->v + 20, c->count, eo);
@@ -218,13 +297,14 @@ static int usable(const ShineClass *cls, int corners)
 }
 
 void shine_draw_env_affine(const QuadTarget *q, const ShineClass *cls, const EnvShine *env, const int32_t screen[8], const int32_t uv[8],
-                           const int32_t packed[4], int corners)
+                           const int32_t packed[4], int corners, ObjShape shape, const FshEntry *texture, MapMode mode)
 {
-    if (!usable(cls, corners) || env == NULL || env->image == NULL) return;
+    if (!usable(cls, corners) || env == NULL || env->image == NULL || texture == NULL) return;
     struct RasterRecorder *rec = raster_recorder_for(q);
     if (rec != NULL) {
         RasterCmd *c = raster_record_add(rec, q, replay);
         c->mode = KIND_AFFINE, c->count = corners, c->table = cls, c->shape = (const uint8_t *)env;
+        c->texture = texture, c->a = (int32_t)shape, c->b = (int32_t)mode;
         memcpy(c->v, screen, 8 * sizeof *screen);
         memcpy(c->v + 8, uv, 8 * sizeof *uv);
         memcpy(c->v + 16, packed, 4 * sizeof *packed);
@@ -234,7 +314,8 @@ void shine_draw_env_affine(const QuadTarget *q, const ShineClass *cls, const Env
     float eo[8];
     unpack_corners(packed, corners, eo);
     const Shine sh = { cls, env };
-    draw_affine(q, &sh, screen, uv, eo, corners);
+    const Drawn d = { shape, texture, mode };
+    draw_affine(q, q, &sh, &d, screen, uv, eo, corners);
 }
 
 void shine_draw_env_camera(const QuadTarget *q, const ShineClass *cls, const EnvShine *env, const int32_t uv[8], const int32_t *const cam[4],

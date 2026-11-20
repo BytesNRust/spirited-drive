@@ -5,6 +5,7 @@
 #include "game/race/car_envmap.h"
 #include "game/race/car_repaint.h"
 #include "game/viewer/shine_draw.h"
+#include "raster/object_mappers.h"
 #include "test.h"
 
 #include <math.h>
@@ -17,6 +18,8 @@ static uint8_t screen_px[W * H];
 static uint8_t klass[TEX * TEX];
 static const QuadTarget Q = { screen_px, W, 0, 0, W, H };
 static const ShineClass CLS = { klass, TEX, TEX };
+static uint8_t tex_texels[TEX * TEX] = { 100 };   /* the polygons' texture, as the mapper draws it (no 0xff: every texel drawn) */
+static const FshEntry TEXE = { .type = FSH_TYPE_BITMAP, .width = TEX, .height = TEX, .payload = tex_texels, .payload_size = sizeof tex_texels };
 
 static void setup(void)
 {
@@ -69,7 +72,7 @@ static void test_the_envmap_shines_the_drafts_glass(void)
     const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
     int32_t packed[4];
     centre(packed);
-    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     CHECK(screen_px[24 * W + 10] >= 60 && screen_px[24 * W + 10] < 60 + CAR_SHINE_LEVELS);    /* paint: the paint table */
     CHECK(screen_px[24 * W + 22] >= 160 && screen_px[24 * W + 22] < 160 + CAR_SHINE_LEVELS);  /* shine (glass, lamps): the glass table */
     CHECK_EQ_INT(screen_px[24 * W + 36], START);                                              /* matte: untouched */
@@ -85,7 +88,7 @@ static void test_the_body_class_shines_through_the_paint_table_at_the_body_gain(
     const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
     int32_t packed[4];
     centre(packed);
-    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     const int lo = (int)floorf(car_envmap_level(255, CAR_ENVMAP_BODY_GAIN));
     for (int x = 33; x < 39; x++) {   /* the texels 6 and 7 of the 32-wide polygon, 4 pixels each */
         const int v = screen_px[24 * W + x];
@@ -111,13 +114,13 @@ static void test_a_hard_step_is_not_dithered(void)
     int32_t packed[4];
     centre(packed);
     int lower = 0, upper = 0;
-    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     for (int y = 10; y < 38; y++)
         for (int x = 10; x < 38; x++) lower += screen_px[y * W + x] == 68, upper += screen_px[y * W + x] == 69;
     CHECK(lower > 0 && upper > 0);   /* an ordinary step is dithered between the two */
     env_setup(sample);
     memset(paint_hard[8], 1, 256);
-    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     lower = upper = 0;
     for (int y = 10; y < 38; y++)
         for (int x = 10; x < 38; x++) lower += screen_px[y * W + x] == 68, upper += screen_px[y * W + x] == 69;
@@ -133,11 +136,11 @@ static void test_a_dark_sample_shades_the_paint_below_neutral(void)
     const int32_t packed[4] = { c, c, c, c };
     const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
     EnvShine env = env_setup(0);
-    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     for (int y = 24; y < 26; y++)
         for (int x = 10; x < 14; x++) CHECK(screen_px[y * W + x] >= 61 && screen_px[y * W + x] <= 62);
     env = env_setup(128);
-    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     CHECK_EQ_INT(screen_px[24 * W + 10], 64);
 }
 
@@ -149,7 +152,7 @@ static void test_a_triangle_and_the_clip(void)
     centre(packed);
     QuadTarget clipped = Q;
     clipped.clip_left = 20, clipped.clip_right = 30;
-    shine_draw_env_affine(&clipped, &CLS, &env, screen, uv, packed, 3);
+    shine_draw_env_affine(&clipped, &CLS, &env, screen, uv, packed, 3, OBJ_TRIANGLE, &TEXE, MAP_OPAQUE);
     CHECK_EQ_INT(screen_px[12 * W + 25], START + 1);
     CHECK_EQ_INT(screen_px[12 * W + 15], START);   /* left of the clip */
     CHECK_EQ_INT(screen_px[12 * W + 35], START);   /* right of it */
@@ -163,7 +166,7 @@ static void test_the_diagonal_is_drawn_once(void)
     const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
     int32_t packed[4];
     centre(packed);
-    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     int twice = 0, missed = 0;
     for (int y = 9; y < 39; y++)
         for (int x = 9; x < 39; x++) {
@@ -184,8 +187,8 @@ static void test_a_shared_edge_between_polygons_leaves_no_gap(void)
         const int32_t uv[6] = { 0, 0, TEX, 0, 0, TEX };
         int32_t packed[4];
         centre(packed);
-        shine_draw_env_affine(&Q, &CLS, &env, a, uv, packed, 3);
-        shine_draw_env_affine(&Q, &CLS, &env, flip ? bf : b, uv, packed, 3);
+        shine_draw_env_affine(&Q, &CLS, &env, a, uv, packed, 3, OBJ_TRIANGLE, &TEXE, MAP_OPAQUE);
+        shine_draw_env_affine(&Q, &CLS, &env, flip ? bf : b, uv, packed, 3, OBJ_TRIANGLE, &TEXE, MAP_OPAQUE);
         int missed = 0;
         for (int y = 9; y < 39; y++)
             for (int x = 9; x < 39; x++) missed += screen_px[y * W + x] == START;
@@ -202,7 +205,7 @@ static void test_the_exe_path_keeps_to_the_mappers_pixels(void)
     const int32_t screen[8] = { 8, 8, 40, 8, 40, 40, 8, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
     int32_t packed[4];
     centre(packed);
-    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     CHECK(screen_px[8 * W + 8] != START);     /* the corner pixel */
     CHECK(screen_px[40 * W + 40] != START);   /* the far corner pixel */
     CHECK(screen_px[20 * W + 8] != START && screen_px[20 * W + 40] != START);
@@ -221,9 +224,9 @@ static void test_the_columns_both_polygons_cover_are_shined_once_each_after_thei
     const int32_t left[8] = { 8, 8, 24, 8, 24, 40, 8, 40 }, right[8] = { 24, 8, 40, 8, 40, 40, 24, 40 }, uv[8] = { 0, 0, TEX, 0, TEX, TEX, 0, TEX };
     int32_t packed[4];
     centre(packed);
-    shine_draw_env_affine(&Q, &CLS, &env, left, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, left, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     for (int y = 8; y <= 40; y++) screen_px[y * W + 24] = START;   /* the right quad's own draw over the shared column */
-    shine_draw_env_affine(&Q, &CLS, &env, right, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, right, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     for (int y = 9; y < 40; y++) CHECK_EQ_INT(screen_px[y * W + 24], START + 1);
     for (int y = 9; y < 40; y++) CHECK_EQ_INT(screen_px[y * W + 23], START + 1);   /* the left's own, not the right's reach */
 }
@@ -283,19 +286,81 @@ static void test_recorded_is_the_direct_draw(void)
     for (int i = 0; i < W * H; i++) screen_px[i] = (uint8_t)(i * 7 % 3 == 0 ? START : 20);
     uint8_t before[W * H];
     memcpy(before, screen_px, sizeof before);
-    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     shine_draw_env_camera(&Q, &CLS, &env, uv16, cam, packed, 4);
     memcpy(direct, screen_px, sizeof direct);
     CHECK(memcmp(direct, before, sizeof before) != 0);
     memcpy(screen_px, before, sizeof before);
     struct RasterRecorder *rec = malloc(sizeof *rec);
     raster_record_begin(rec, screen_px);
-    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4);
+    shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, 4, OBJ_QUAD, &TEXE, MAP_OPAQUE);
     shine_draw_env_camera(&Q, &CLS, &env, uv16, cam, packed, 4);
     CHECK(memcmp(screen_px, before, sizeof before) == 0);   /* nothing drawn until the flush */
     raster_record_end(rec);
     CHECK(memcmp(screen_px, direct, sizeof direct) == 0);
     free(rec);
+}
+
+/* W3 (the owner's test, 2026-11-20: thin light lines along the polygons' edges in Studio's Model with Shine on, not in the race): on the exe's path
+ * the pass must shine exactly the pixels the exe's mapper drew for the same polygon. Each pixel it shines past them lies on a neighbour already
+ * drawn and shined, which this shines a second time (a light seam); each it misses stays dark. Slanted quads and triangles at random, drawn by
+ * the mapper itself (obj_draw_quad, obj_draw_triangle) */
+static uint32_t rng = 12345u;
+static int rand_in(int lo, int hi)
+{
+    rng = rng * 1103515245u + 12345u;
+    return lo + (int)((rng >> 16) % (uint32_t)(hi - lo + 1));
+}
+
+static void test_the_exe_pass_covers_exactly_the_mappers_pixels(void)
+{
+    static uint8_t texels[TEX * TEX], drawn[W * H];
+    uint8_t shade[256];
+    for (int i = 0; i < TEX * TEX; i++) texels[i] = (uint8_t)(i % 5 == 0 ? 0xff : 100);   /* holes a transparent or shade mode skips */
+    memset(shade, 7, sizeof shade);
+    const FshEntry tex = { .type = FSH_TYPE_BITMAP, .width = TEX, .height = TEX, .payload = texels, .payload_size = sizeof texels };
+    const QuadTarget mapper = { drawn, W, 0, 0, W, H };
+    static const ObjShape SHAPES[3] = { OBJ_TRIANGLE, OBJ_QUAD, OBJ_QUAD_TRIS };
+    static const MapMode MODES[3] = { MAP_OPAQUE, MAP_TRANSPARENT, MAP_SHADE };
+    int extra = 0, missed = 0, shapes = 0, clipped = 0;
+    for (int n = 0; n < 360; n++) {
+        const ObjShape shape = SHAPES[n % 3];
+        const MapMode mode = MODES[(n / 3) % 3];
+        const int corners = shape == OBJ_TRIANGLE ? 3 : 4;
+        int32_t screen[8], uv[8] = { 0, 0, TEX - 1, 0, TEX - 1, TEX - 1, 0, TEX - 1 };
+        const int cx = rand_in(-4, W + 4), cy = rand_in(-4, H + 4);   /* some across the clip */
+        for (int i = 0; i < corners; i++) {   /* a convex outline: corners round the centre in order, each at its own radius */
+            const double a = (i + rand_in(0, 40) / 100.0) * 2 * 3.14159265358979 / corners, r = rand_in(7, 14);
+            screen[2 * i] = cx + (int32_t)lround(r * cos(a)), screen[2 * i + 1] = cy + (int32_t)lround(r * sin(a));
+        }
+        if (corners == 3) uv[4] = 0;   /* (0,0) (TEX-1,0) (0,TEX-1) */
+        if (corners == 4 && n % 7 == 0) screen[2] = screen[0], screen[3] = screen[1];   /* a quad drawn as a triangle: corner 1 is corner 0 */
+        const EnvShine env = env_plus_one();
+        static uint8_t on_ff[W * H];   /* drawn twice, over 0 and over 0xff: a pixel is the mapper's when either changed (it may write 0 or 0xff) */
+        const QuadTarget mapper_ff = { on_ff, W, 0, 0, W, H };
+        memset(drawn, 0, sizeof drawn), memset(on_ff, 0xff, sizeof on_ff);
+        for (int pass = 0; pass < 2; pass++) {
+            const QuadTarget *t = pass ? &mapper_ff : &mapper;
+            switch (shape) {
+            case OBJ_TRIANGLE: obj_draw_triangle(t, &tex, uv, screen, mode, shade); break;
+            case OBJ_QUAD: obj_draw_quad(t, &tex, uv, screen, mode, shade); break;
+            default: obj_draw_quad_tris(t, &tex, uv, screen, mode, shade); break;
+            }
+        }
+        int32_t packed[4];
+        centre(packed);
+        shine_draw_env_affine(&Q, &CLS, &env, screen, uv, packed, corners, shape, &tex, mode);
+        int area = 0;
+        for (int i = 0; i < W * H; i++) {
+            const int by_mapper = drawn[i] != 0 || on_ff[i] != 0xff, by_pass = screen_px[i] != START;
+            area += by_mapper, extra += by_pass && !by_mapper, missed += by_mapper && !by_pass;
+        }
+        shapes += area > 0;
+        for (int i = 0; i < corners; i++) clipped += screen[2 * i] < 0 || screen[2 * i] >= W || screen[2 * i + 1] < 0 || screen[2 * i + 1] >= H;
+    }
+    CHECK(shapes > 250 && clipped > 50);   /* the cases were met: drawn, and across the clip */
+    CHECK_EQ_INT(extra, 0);
+    CHECK_EQ_INT(missed, 0);
 }
 
 int main(void)
@@ -312,5 +377,6 @@ int main(void)
     test_camera_pass_is_perspective_correct();
     test_a_polygon_behind_the_eye_draws_nothing();
     test_recorded_is_the_direct_draw();
+    test_the_exe_pass_covers_exactly_the_mappers_pixels();
     return TEST_REPORT();
 }

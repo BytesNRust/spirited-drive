@@ -37,7 +37,7 @@ static const EnvShine *env_shine;
 
 void object_sink_set_envmap(const EnvShine *env) { env_shine = env; }
 
-static void envmap_exe(const ObjectSink *s, ObjShape shape, const FshEntry *texture, const Object3DCorners *c);
+static void envmap_exe(const ObjectSink *s, ObjShape shape, const FshEntry *texture, MapMode mode, const Object3DCorners *c);
 
 /* port (body_shine 4): each corner's sphere-map uv of the envmap (car_envmap.h) from its normal and the line of sight, packed; 0 when the
  * polygon carries no normals */
@@ -67,7 +67,7 @@ static void textured(void *user, Object3DTable table, int mode, const FshEntry *
         obj_draw_inset(s->target, texture, c->screen, m, shade);
         break;
     }
-    envmap_exe(s, shape, texture, c);
+    envmap_exe(s, shape, texture, m, c);
 }
 
 /* 00473140 on an 8-bit screen without the inverse table: the nearest of
@@ -100,9 +100,9 @@ static void flat(void *user, uint32_t rgb, const Object3DCorners *c)
 }
 
 /* port (body_shine 4): the envmap's pass on the exe's path, over the polygon and uvs the mapper drew (raster/shine_pass.h) */
-static void envmap_exe(const ObjectSink *s, ObjShape shape, const FshEntry *texture, const Object3DCorners *c)
+static void envmap_exe(const ObjectSink *s, ObjShape shape, const FshEntry *texture, MapMode mode, const Object3DCorners *c)
 {
-    shine_pass_affine(s->target, shape, texture, c, env_shine, shine_up);
+    shine_pass_affine(s->target, shape, texture, mode, c, env_shine, shine_up);
 }
 
 static void textured_camera(void *user, Object3DTable table, int mode, const FshEntry *texture, const Object3DCorners *c)

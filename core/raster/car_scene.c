@@ -97,7 +97,7 @@ static void textured(void *user, Object3DTable table, int mode, const FshEntry *
     case OBJ_FULL: obj_draw_full(&s->target, texture, c->screen, m, NULL); break;
     case OBJ_INSET: obj_draw_inset(&s->target, texture, c->screen, m, NULL); break;
     }
-    if (s->scene->shine != NULL) shine_pass_affine(&s->target, (ObjShape)(slot / 3), texture, c, s->scene->shine, s->up);   /* the envmap's pass, as the race runs it after each textured polygon */
+    if (s->scene->shine != NULL) shine_pass_affine(&s->target, (ObjShape)(slot / 3), texture, m, c, s->scene->shine, s->up);   /* the envmap's pass, as the race runs it after each textured polygon */
 }
 
 /* 004a3390: two corners a line, three or four a flat polygon, in the palette's colour nearest the polygon's */
