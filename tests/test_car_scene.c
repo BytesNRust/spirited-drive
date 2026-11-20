@@ -83,8 +83,8 @@ static uint8_t *make_cfm(size_t *len)
     static uint8_t pal[768], side[64];
     for (int i = 0; i < 256; i++) pal[3 * i] = (uint8_t)i, pal[3 * i + 1] = (uint8_t)(255 - i), pal[3 * i + 2] = (uint8_t)(i / 2);
     for (int i = 0; i < 64; i++) side[i] = (uint8_t)(40 + i);
-    const ShpiDescEntry e[2] = { { .name = "!PAL", .type = 0x24, .width = 256, .height = 1, .data = pal, .block_size = SHPI_BLOCK_AUTO },
-                                 { .name = "side", .type = 0x7b, .width = 8, .height = 8, .data = side, .block_size = SHPI_BLOCK_AUTO, .dir_index = 1 } };
+    const ShpiDescEntry e[2] = { { .name = { '!', 'P', 'A', 'L' }, .type = 0x24, .width = 256, .height = 1, .data = pal, .block_size = SHPI_BLOCK_AUTO },
+                                 { .name = { 's', 'i', 'd', 'e' }, .type = 0x7b, .width = 8, .height = 8, .data = side, .block_size = SHPI_BLOCK_AUTO, .dir_index = 1 } };
     uint8_t *shpi = NULL;
     size_t shpi_len = 0;
     if (!shpi_build(e, 2, &shpi, &shpi_len, &err)) return free(orip), NULL;
