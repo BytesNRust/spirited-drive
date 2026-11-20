@@ -108,12 +108,13 @@ static void test_the_pitch_is_the_eyes(void)
 }
 
 /* ---- a synthetic car: a box, 6 two-sided quads, one with a texture ---- */
-static uint8_t *make_cfm(size_t *len)
+/* `wheels`: the race cars' tyre refs too (frntires, rertires naming no bitmap; tire1 -> tyr1, tire4 -> tyr4, each its own pixels) */
+static uint8_t *make_cfm_with(size_t *len, int wheels)
 {
     static MeshVertex v[8];
     static MeshUv uv[4] = { { 0, 0 }, { 7, 0 }, { 7, 7 }, { 0, 7 } };
     static MeshDescPolygon p[6];
-    static MeshTexture t[3];
+    static MeshTexture t[7];
     static uint32_t surface[6] = { 0, 1, 2, 3, 4, 5 };
     static MeshDescGroup g[1];
     const int sx[8] = { -1, 1, 1, -1, -1, 1, 1, -1 }, sy[8] = { -1, -1, 1, 1, -1, -1, 1, 1 }, sz[8] = { -1, -1, -1, -1, 1, 1, 1, 1 };
@@ -127,26 +128,36 @@ static uint8_t *make_cfm(size_t *len)
     t[1].unknown_1[0] = 0x80 | 0x40 << 8;   /* flat colours, nearest the bank palette's */
     t[2].unknown_1[0] = 0x20 << 16 | 0xC0 << 8;
     memcpy(g[0].name, "surface", 7), g[0].polygons = surface, g[0].count = 6;
+    memset(t + 3, 0, sizeof t[0] * 4);
+    memcpy(t[3].label, "frntires", 8), memcpy(t[4].label, "rertires", 8);
+    memcpy(t[5].label, "tire1", 5), memcpy(t[5].name, "tyr1", 4), memcpy(t[6].label, "tire4", 5), memcpy(t[6].name, "tyr4", 4);
     MeshDesc d = { 0 };
-    d.vertices = v, d.vertex_count = 8, d.uvs = uv, d.uv_count = 4, d.polygons = p, d.polygon_count = 6, d.textures = t, d.texture_count = 3, d.groups = g, d.group_count = 1;
+    d.vertices = v, d.vertex_count = 8, d.uvs = uv, d.uv_count = 4, d.polygons = p, d.polygon_count = 6, d.textures = t, d.texture_count = wheels ? 7 : 3, d.groups = g, d.group_count = 1;
     uint8_t *orip = NULL;
     size_t orip_len = 0;
     ExchangeError err = { { 0 } };
     if (!mesh_build(&d, &orip, &orip_len, &err)) return NULL;
-    static uint8_t pal[768], side[64];
+    static uint8_t pal[768], side[64], tyr1[64], tyr4[64];
     for (int i = 0; i < 256; i++) pal[3 * i] = (uint8_t)i, pal[3 * i + 1] = (uint8_t)(255 - i), pal[3 * i + 2] = (uint8_t)(i / 2);
-    for (int i = 0; i < 64; i++) side[i] = (uint8_t)(40 + i);
-    const ShpiDescEntry e[2] = { { .name = { '!', 'P', 'A', 'L' }, .type = 0x24, .width = 256, .height = 1, .data = pal, .block_size = SHPI_BLOCK_AUTO },
-                                 { .name = { 's', 'i', 'd', 'e' }, .type = 0x7b, .width = 8, .height = 8, .data = side, .block_size = SHPI_BLOCK_AUTO, .dir_index = 1 } };
+    for (int i = 0; i < 64; i++) side[i] = (uint8_t)(40 + i), tyr1[i] = 11, tyr4[i] = 44;
+    const ShpiDescEntry e[4] = { { .name = { '!', 'P', 'A', 'L' }, .type = 0x24, .width = 256, .height = 1, .data = pal, .block_size = SHPI_BLOCK_AUTO },
+                                 { .name = { 's', 'i', 'd', 'e' }, .type = 0x7b, .width = 8, .height = 8, .data = side, .block_size = SHPI_BLOCK_AUTO, .dir_index = 1 },
+                                 { .name = { 't', 'y', 'r', '1' }, .type = 0x7b, .width = 8, .height = 8, .data = tyr1, .block_size = SHPI_BLOCK_AUTO, .dir_index = 2 },
+                                 { .name = { 't', 'y', 'r', '4' }, .type = 0x7b, .width = 8, .height = 8, .data = tyr4, .block_size = SHPI_BLOCK_AUTO, .dir_index = 3 } };
     uint8_t *shpi = NULL;
     size_t shpi_len = 0;
-    if (!shpi_build(e, 2, &shpi, &shpi_len, &err)) return free(orip), NULL;
+    if (!shpi_build(e, wheels ? 4 : 2, &shpi, &shpi_len, &err)) return free(orip), NULL;
     const uint8_t *const child[CFM_CHILDREN] = { orip, shpi, orip, shpi };
     const size_t clen[CFM_CHILDREN] = { orip_len, shpi_len, orip_len, shpi_len };
     uint8_t *cfm = NULL;
     const int ok = cfm_build(child, clen, &cfm, len, &err);
     free(orip), free(shpi);
     return ok ? cfm : NULL;
+}
+
+static uint8_t *make_cfm(size_t *len)
+{
+    return make_cfm_with(len, 0);
 }
 
 static uint32_t picture(CarScene *s, const Orbit *o, int *drawn)
@@ -292,7 +303,7 @@ static void test_a_layer_of_the_same_pixels(void)
 }
 
 /* the CD's 911 (skipped without original/): its four views pinned, so the high model, its bank, the wheels at rest and the sections' order are */
-static const uint32_t GOLDEN_P911[4] = { 0xa980ab32u, 0xf33143f6u, 0x96b1cebbu, 0x741a4d58u };
+static const uint32_t GOLDEN_P911[4] = { 0xa980ab32u, 0xb06d745au, 0x96b1cebbu, 0x741a4d58u };   /* the side's wheels are tyr1 (at rest) since 2026-11-20, tyr4 before */
 
 static void test_the_cds_911(void)
 {
@@ -323,6 +334,27 @@ static void test_the_cds_911(void)
     free(cfm);
 }
 
+/* the wheels at rest show the still frame, tyr1, as the race does for a car that stands (game/race/car_wheels.c: frame 0 below 0x1999): not tyr4, the blurred one */
+static void test_the_wheels_at_rest_are_the_still_frame(void)
+{
+    size_t len = 0;
+    uint8_t *cfm = make_cfm_with(&len, 1);
+    CHECK(cfm != NULL);
+    if (cfm == NULL) return;
+    CarScene s;
+    CHECK(car_scene_open(&s, cfm, len));
+    const int32_t front = object3d_texture_named(&s.obj, "frntires"), rear = object3d_texture_named(&s.obj, "rertires");
+    const int32_t still = object3d_texture_named(&s.obj, "tire1"), fast = object3d_texture_named(&s.obj, "tire4");
+    CHECK(front >= 0 && rear >= 0 && still >= 0 && fast >= 0);
+    if (front >= 0 && rear >= 0 && still >= 0 && fast >= 0) {
+        CHECK(s.obj.textures[still].texture != NULL && s.obj.textures[still].texture != s.obj.textures[fast].texture);
+        CHECK(s.obj.textures[front].texture == s.obj.textures[still].texture);
+        CHECK(s.obj.textures[rear].texture == s.obj.textures[still].texture);
+    }
+    car_scene_close(&s);
+    free(cfm);
+}
+
 static void test_what_is_not_a_car_is_refused(void)
 {
     CarScene s;
@@ -339,6 +371,7 @@ int main(void)
     test_the_picture_fills_any_shape();
     test_a_layer_of_the_same_pixels();
     test_the_cds_911();
+    test_the_wheels_at_rest_are_the_still_frame();
     test_what_is_not_a_car_is_refused();
     return TEST_REPORT();
 }

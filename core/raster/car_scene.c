@@ -26,10 +26,11 @@ static void palette_of(CarScene *s)
     }
 }
 
-/* car_model.c's tyres(): the front and rear tyre refs draw the fourth wheel frame, the wheels at rest */
+/* the wheels at rest: the front and rear tyre refs draw the first wheel frame, tire1, as the race does for a car that stands (game/race/car_wheels.c:
+ * frame 0 below 0x1999). car_model.c's tyres() binds tire4 at load, but the race rebinds frame 0 on the first draw of a car that does not move. */
 static void wheels_at_rest(Object3D *obj)
 {
-    const int32_t front = object3d_texture_named(obj, "frntires"), rear = object3d_texture_named(obj, "rertires"), frame = object3d_texture_named(obj, "tire4");
+    const int32_t front = object3d_texture_named(obj, "frntires"), rear = object3d_texture_named(obj, "rertires"), frame = object3d_texture_named(obj, "tire1");
     if (frame < 0 || (uint32_t)frame >= obj->texture_count) return;
     const FshEntry *shape = obj->textures[frame].texture;
     if (front >= 0) object3d_set_texture(obj, front, shape);
