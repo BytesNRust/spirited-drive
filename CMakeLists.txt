@@ -812,15 +812,25 @@ endif()
 
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
-    add_executable(tnfs-studio studio/main.c studio/fsio.c studio/slot.c studio/track_new.c studio/help.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_texture.c studio/car_card.c studio/car_card_shot.c studio/mod_validate.c studio/mod_pack.c studio/fam_command.c)
+    # tnfs_tools: what the command line and the car editor share (dep59 1b): every studio command but the argument parsing of main.c
+    add_library(tnfs_tools STATIC studio/fsio.c studio/slot.c studio/track_new.c studio/help.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_texture.c studio/car_card.c studio/car_card_shot.c studio/car_masks.c studio/mod_validate.c studio/mod_pack.c studio/fam_command.c studio/pack_tree.c)
+    target_include_directories(tnfs_tools PUBLIC .)
+    target_link_libraries(tnfs_tools PUBLIC tnfs_core)
+    target_compile_options(tnfs_tools PRIVATE ${TNFS_WARNINGS})
+    add_executable(tnfs-studio studio/main.c)
     add_executable(model_build_piece tests/model_build_piece.c)
     target_link_libraries(model_build_piece PRIVATE tnfs_core)
     target_compile_options(model_build_piece PRIVATE ${TNFS_WARNINGS})
     add_executable(blender_like_tool tests/blender_like_tool.c)   # dep71: Blender's OBJ exporter as the tests know it
     target_compile_options(blender_like_tool PRIVATE ${TNFS_WARNINGS})
     target_include_directories(tnfs-studio PRIVATE .)
-    target_link_libraries(tnfs-studio PRIVATE tnfs_core)
+    target_link_libraries(tnfs-studio PRIVATE tnfs_tools tnfs_core)
     target_compile_options(tnfs-studio PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_car_masks tests/test_car_masks.c)   # tnfs-studio car masks, on a synthetic kit
+    target_include_directories(test_car_masks PRIVATE tests)
+    target_link_libraries(test_car_masks PRIVATE tnfs_tools tnfs_core)
+    target_compile_options(test_car_masks PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME car_masks COMMAND test_car_masks)
 endif()
 
 option(TNFS_EDITOR "Build the track editor (tnfs-track-editor, Dear ImGui: the only C++ of the tree)" ON)
