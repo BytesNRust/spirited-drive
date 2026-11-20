@@ -131,6 +131,10 @@ void night_controls(App *a)
     }
     ImGui::EndDisabled();
     ImGui::BeginDisabled(!n.night);
+    ImGui::SetNextItemWidth(220);
+    ImGui::SliderInt("Light at car", &n.light, NIGHT_LIGHT_MIN, NIGHT_LIGHT_MAX, "%d %%");
+    ImGui::SameLine();
+    if (ImGui::SmallButton("100 %")) n.light = 100;
     ImGui::Checkbox("Headlights + side lights", reinterpret_cast<bool *>(&n.lights));
     ImGui::SameLine();
     ImGui::Checkbox("Brake", reinterpret_cast<bool *>(&n.brake));
@@ -144,8 +148,8 @@ void night_controls(App *a)
     }
     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     if (n.night)
-        ImGui::TextWrapped("Night tone: the game's own night (the flat cool tone of its light effects) with the City and Lost Vegas lifts at their default, 0. The race also lights the body from the place (the road, the headlight pool): in a race it is lighter than here, see Race photo (night).");
-    ImGui::TextWrapped("In the race the headlights and the side lights are on together at night. Glow on the road and halos show only in a race: use Race photo (night).");
+        ImGui::TextWrapped("100 %% is the race's light at the car on this track, at Race photo's node; the road and the headlight pool add more in places.");
+    ImGui::TextWrapped("Headlights and side lights go together at night, as in the race. Glow on the road and halos show only in a race: Race photo (night).");
     if (shown.have)
         ImGui::TextWrapped("Lamp texels in the masks: headlight %d, position %d, brake %d, reversing %d", shown.lamp_texels[LAMP_HEADLIGHT], shown.lamp_texels[LAMP_POSITION],
                             shown.lamp_texels[LAMP_BRAKE], shown.lamp_texels[LAMP_REVERSE]);

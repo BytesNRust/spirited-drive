@@ -30,6 +30,11 @@ void car_night_palette(const uint8_t palette8[768], const CarNightState *s, uint
         PaletteTint tint = s->tint;   /* the tint is written to as the exe does */
         palette_tint_colours(&tint, 0, COLOURS, six);
     }
+    if (s->lit)   /* the light at the car: the race maps each colour to the screen palette entry nearest its scaled colour (light_tint_lit_table_floor); here the scaled colour itself */
+        for (int i = 0; i < 768; i++) {
+            const float v = (float)six[i] * s->light[i % 3] + 0.5f;
+            six[i] = (uint8_t)(v < 0.0f ? 0 : v > 63.0f ? 63 : v);
+        }
     for (int i = 0; i < 768; i++) out8[i] = to_8_bits(six[i]);
 }
 

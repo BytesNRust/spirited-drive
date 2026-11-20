@@ -5,6 +5,7 @@
 #include "formats/police_flash.h"
 #include "test.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 static uint8_t palette[768];
@@ -80,6 +81,27 @@ static void test_reverse_by_day(void)
     CHECK(car_night_lamp_state(&s) == (LAMP_DAY | LAMP_REVERSING));
 }
 
+static void test_light_at_car(void)
+{
+    CarNightState s;
+    memset(&s, 0, sizeof s);
+    uint8_t rgba[32], lit[32], px[3], q[3];
+    CHECK(car_night_texture(INDEX, MASK, 8, 1, palette, &s, rgba));
+    s.lit = 1, s.light[0] = s.light[1] = s.light[2] = 0.5f;
+    CHECK(car_night_texture(INDEX, MASK, 8, 1, palette, &s, lit));
+    rgb_of(rgba, 0, q), rgb_of(lit, 0, px);
+    CHECK(px[0] < q[0] && px[1] < q[1]);                  /* a body texel is darker under half the light */
+    for (int k = 0; k < 3; k++) CHECK(abs((int)px[k] - (int)q[k] / 2) <= 4);
+    s.night = 1, s.lights = 1;
+    CHECK(car_night_texture(INDEX, MASK, 8, 1, palette, &s, lit));
+    rgb_of(lit, 1, px);
+    CHECK(same(px, up(LAMP_HEADLIGHT_R), up(LAMP_HEADLIGHT_G), up(LAMP_HEADLIGHT_B)));   /* a lamp is lit whatever the light (the race's emissive entries) */
+    s.light[0] = s.light[1] = s.light[2] = 3.0f;
+    CHECK(car_night_texture(INDEX, MASK, 8, 1, palette, &s, lit));
+    rgb_of(lit, 0, px);
+    for (int k = 0; k < 3; k++) CHECK(px[k] >= q[k]);   /* more light than the file's is brighter, clamped at 6 bits (255) */
+}
+
 static void test_tint_and_police(void)
 {
     CarNightState s;
@@ -113,6 +135,7 @@ int main(void)
     test_day_is_the_palette();
     test_lamps_at_night();
     test_reverse_by_day();
+    test_light_at_car();
     test_tint_and_police();
     return TEST_REPORT();
 }
