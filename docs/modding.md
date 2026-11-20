@@ -506,6 +506,8 @@ The masks are painted in PSDs and read back by scripts in `tools/`. The Python o
 
 **`tools/dash_mask_from_psd.py <dir of CAR/dash.psd> [<output dir>]`** reads the `mask` layer into `dash_mask.png` (colours in the Dash masks table above; a pixel with alpha under 128 or black is not marked, yellow, white or light grey is lit, blue is the dash's art, green a dial, red a wiper blade the dash draws, cyan the nose seen through the windscreen) and, if the PSD has a **`color`** layer, `dash_color.png` too (a PSD without one gets none, and an old `dash_color.png` there is deleted). A layer named `limpia` (or `wipers`) holds the wiper blades: whatever is painted on it, in any colour but black, is a blade.
 
+**`tools/masks_status.py [--art DIR] [--data DIR] [--todo]`** prints one row per original car: its PSD textures, its mask PNGs, and what is left (`no mask: <tex>`, `stale: <tex>` when a PSD is newer than its PNG, and for the eight cars you drive `no dash PSD`, `dash mask`, `dash colour`). It reads the PSD folder (default `~/workspace/bytes-n-rust/art/tnfs-masks`) and `data/`, writes nothing, and ends with `done N of M cars`. A PNG copied or checked out after its PSD never shows as stale: the check is by file times.
+
 ## Settings and launchers
 
 Every key of `port.cfg` and the three mode files, its default, range, menu and `TNFS_*` variable is in [settings.md](settings.md); copy nothing from there into a mod, point to it. The development variables (`TNFS_START_NODE`, `TNFS_FRAMES`, `TNFS_SHOTS`, `TNFS_VIEW`...) drive headless runs, with `SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy`, `timeout -k` and a scratch `--user` folder so the player's files stay out.

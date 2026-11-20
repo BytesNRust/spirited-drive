@@ -1973,6 +1973,7 @@ if(NOT EMSCRIPTEN)
     if(TNFS_PYTHON3)
         add_test(NAME car_mask_class_table COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_car_mask_class_table.py")
         add_test(NAME car_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_car_mask_psd.py")
+        add_test(NAME masks_status COMMAND ${TNFS_PYTHON3} -I "${CMAKE_SOURCE_DIR}/tests/test_masks_status.py")   # tools/masks_status.py: what is left of the original masks and dashes
         add_test(NAME track_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_track_mask_psd.py")
         add_test(NAME dash_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_dash_mask_psd.py")
         add_test(NAME dash_psd_update COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_dash_psd_update.py")
