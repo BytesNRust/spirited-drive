@@ -277,8 +277,8 @@ static ImTextureID photo_texture(SDL_Renderer *ren, const App *a)
     }
     if (tex == nullptr || serial != a->race.photo_serial) {
         if (tex != nullptr) SDL_DestroyTexture(tex);
-        tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, RACE_PHOTO_W, RACE_PHOTO_H);
-        if (tex != nullptr) SDL_UpdateTexture(tex, nullptr, a->race.photo, RACE_PHOTO_W * 4);
+        tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, a->race.photo_w, a->race.photo_h);   // 640 x 480, or twice at render scale 2
+        if (tex != nullptr) SDL_UpdateTexture(tex, nullptr, a->race.photo, a->race.photo_w * 4);
         serial = a->race.photo_serial;
     }
     return reinterpret_cast<ImTextureID>(tex);

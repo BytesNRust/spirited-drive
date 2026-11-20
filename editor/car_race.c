@@ -156,7 +156,8 @@ int car_race_command(const RaceSetup *s, char *const *base, RaceCommand *out, ch
     }
     ok = ok && add_arg(out, "--car") && add_arg(out, "%d", number);
     if (traffic) ok = ok && add_arg(out, "--type") && add_arg(out, "1");
-    else ok = ok && add_arg(out, "--racers") && add_arg(out, "1");
+    else if (s->photo_ticks > 0) ok = ok && add_arg(out, "--racers") && add_arg(out, "1");
+    else ok = ok && add_arg(out, "--type") && add_arg(out, "0");   /* T4: the window's race is Control Central's: a time trial has the car alone */
     if (s->photo_ticks > 0) ok = ok && add_arg(out, "--node") && add_arg(out, "%d", s->photo_ticks) && add_arg(out, "--screenshot") && add_arg(out, "%s", s->shot);
     for (char *const *e = base; ok && e != NULL && *e != NULL; ++e) {
         if (strncmp(*e, "TNFS_", 5) == 0 || (s->photo_ticks > 0 && strncmp(*e, "SDL_", 4) == 0)) continue;
@@ -176,11 +177,57 @@ int car_race_command(const RaceSetup *s, char *const *base, RaceCommand *out, ch
     return refuse(why, why_cap, "the command is too long");
 }
 
-int car_race_user_files(const char *user, int night, char *why, size_t why_cap)
+const char RACE_LOOK_ON[] = "body_shine=4\ncar_colours=1\ncar_soft_shadow=1\ntexture_filter=1\nlight_effects=1\nlamp_flares=1\nperspective=1\nfog=1\nfog_sample=1\n"
+                           "sky_fill=1\nsky_fill_below=1\npolice_glow=1\ntraffic_halo=1\n";
+
+RaceLook car_race_look_default(void)
 {
-    char path[EXPORT_PATH + 32];
+    const RaceLook look = { 1, 1, 1, 1, 2 };
+    return look;
+}
+
+void car_race_look_off(const RaceLook *look, char *out, size_t cap)
+{
+    if (cap == 0) return;
+    out[0] = '\0';
+    const char *const names[4] = { "Reflections", "Car colours", "Soft shadow", "Texture filter" };
+    const int on[4] = { look->reflections, look->car_colours, look->soft_shadow, look->texture_filter };
+    size_t at = 0;
+    for (int i = 0; i < 4; ++i) {
+        if (on[i]) continue;
+        const int n = snprintf(out + at, cap - at, "%s%s", at > 0 ? ", " : "", names[i]);
+        if (n < 0 || (size_t)n >= cap - at) return;   /* cut: what fits is said */
+        at += (size_t)n;
+    }
+    const int n = snprintf(out + at, cap - at, "%s%s", at > 0 ? " off" : "", look->scale == 1 ? (at > 0 ? ", 640x480" : "640x480") : "");
+    (void)n;   /* a cut text still ends within cap */
+}
+
+/* the look's lines of restomod.cfg: RACE_LOOK_ON with the four switches as `look` has them, then the render scale */
+static int look_lines(const RaceLook *look, char *out, size_t cap)
+{
+    const int n = snprintf(out, cap, "%s", RACE_LOOK_ON);
+    if (n < 0 || (size_t)n >= cap) return 0;
+    struct { const char *key; int on, value; } sw[4] = { { "body_shine=", look->reflections, 4 }, { "car_colours=", look->car_colours, 1 },
+                                                        { "car_soft_shadow=", look->soft_shadow, 1 }, { "texture_filter=", look->texture_filter, 1 } };
+    for (int i = 0; i < 4; ++i) {   /* the key's line is in RACE_LOOK_ON at its on value: written over with 0 when the switch is off (same length: one digit) */
+        char *line = strstr(out, sw[i].key);
+        if (line != NULL && !sw[i].on) line[strlen(sw[i].key)] = '0';
+    }
+    const size_t used = strlen(out);
+    const int m = snprintf(out + used, cap - used, "render_scale=%d\n", look->scale == 1 ? 1 : 2);
+    return m > 0 && (size_t)m < cap - used;
+}
+
+int car_race_user_files(const char *user, int night, const RaceLook *look, char *why, size_t why_cap)
+{
+    char path[EXPORT_PATH + 32], mode[1024], lines[600];
     static const char PORT[] = "profile=restomod\n";
-    const char *const parts[2] = { PORT, night ? "extra_liveries=0\nrender_scale=1\nlight_time=night\nlight_effects=1\n" : "extra_liveries=0\nrender_scale=1\nlight_time=day\n" };
+    const RaceLook fallback = car_race_look_default();
+    if (!look_lines(look != NULL ? look : &fallback, lines, sizeof lines)) return refuse(why, why_cap, "the look's settings are too long");
+    const int n = snprintf(mode, sizeof mode, "%sextra_liveries=0\nlight_time=%s\n", lines, night ? "night" : "day");
+    if (n < 0 || (size_t)n >= sizeof mode) return refuse(why, why_cap, "the look's settings are too long");
+    const char *const parts[2] = { PORT, mode };
     const char *const names[2] = { "port.cfg", "restomod.cfg" };
     for (int i = 0; i < 2; ++i) {
         if (snprintf(path, sizeof path, "%s/%s", user, names[i]) >= (int)sizeof path) return refuse(why, why_cap, "the path is too long: %s", user);
@@ -269,9 +316,10 @@ int car_race_read_ppm(const char *path, uint8_t **rgba, int *w, int *h, char *wh
     int width = 0, height = 0, max = 0, used = 0;
     char head[64] = { 0 };
     const size_t got = fread(head, 1, sizeof head - 1, f);
-    if (got < 12 || sscanf(head, "P6 %d %d %d%n", &width, &height, &max, &used) != 3 || max != 255 || width != RACE_PHOTO_W || height != RACE_PHOTO_H) {
+    const int parsed = got >= 12 && sscanf(head, "P6 %d %d %d%n", &width, &height, &max, &used) == 3 && max == 255;
+    if (!parsed || !((width == RACE_PHOTO_W && height == RACE_PHOTO_H) || (width == 2 * RACE_PHOTO_W && height == 2 * RACE_PHOTO_H))) {
         fclose(f);
-        return refuse(why, why_cap, "the game's picture is not a %dx%d PPM", RACE_PHOTO_W, RACE_PHOTO_H);
+        return refuse(why, why_cap, "the game's picture is not a %dx%d or %dx%d PPM", RACE_PHOTO_W, RACE_PHOTO_H, 2 * RACE_PHOTO_W, 2 * RACE_PHOTO_H);
     }
     const size_t pixels = (size_t)width * height;
     uint8_t *rgb = malloc(pixels * 3), *out = malloc(pixels * 4);
@@ -357,8 +405,8 @@ static int launch(RaceJob *j, char *why, size_t why_cap)
     return proc_start(&j->run, j->command.argv, j->command.envp, NULL, why, why_cap);
 }
 
-static int start_common(RaceJob *j, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, RaceJobState state,
-                        char *why, size_t why_cap)
+static int start_common(RaceJob *j, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
+                        RaceJobState state, char *why, size_t why_cap)
 {
     if (j->state != RACE_JOB_IDLE || j->run.running) return refuse(why, why_cap, "a race is already running");
     struct stat st;
@@ -373,6 +421,7 @@ static int start_common(RaceJob *j, const char *game, const char *cd, const char
     memset(j, 0, sizeof *j);
     j->run.fd = -1;
     j->photo_serial = serial;
+    j->look = look != NULL ? *look : car_race_look_default();
     j->log = malloc(RACE_LOG_MAX);
     if (j->log == NULL) return refuse(why, why_cap, "out of memory");
     j->log[0] = '\0';
@@ -386,7 +435,7 @@ static int start_common(RaceJob *j, const char *game, const char *cd, const char
     snprintf(j->track, sizeof j->track, "%s", track);
     j->setup.car = car, j->setup.night = night, j->setup.photo_ticks = state == RACE_JOB_RACE ? 0 : state == RACE_JOB_PROBE ? 1 : car_race_photo_ticks(car);
     j->state = state;
-    if (!car_race_user_files(user, night, why, why_cap) || !launch(j, why, why_cap)) {
+    if (!car_race_user_files(user, night, &j->look, why, why_cap) || !launch(j, why, why_cap)) {
         car_race_temp_remove(j->temp);
         free(j->log), j->log = NULL;
         j->state = RACE_JOB_IDLE;
@@ -395,9 +444,10 @@ static int start_common(RaceJob *j, const char *game, const char *cd, const char
     return 1;
 }
 
-int car_race_start_race(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, char *why, size_t why_cap)
+int car_race_start_race(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
+                        char *why, size_t why_cap)
 {
-    const int ok = start_common(job, game, cd, project, car, track, night, RACE_JOB_RACE, why, why_cap);
+    const int ok = start_common(job, game, cd, project, car, track, night, look, RACE_JOB_RACE, why, why_cap);
     if (ok) {
         char note[500];
         car_race_note(car, track, note, sizeof note);
@@ -406,10 +456,11 @@ int car_race_start_race(RaceJob *job, const char *game, const char *cd, const ch
     return ok;
 }
 
-int car_race_start_photo(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, char *why, size_t why_cap)
+int car_race_start_photo(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
+                         char *why, size_t why_cap)
 {
     const int traffic = car != NULL && car->kind != EXPORT_DRIVABLE;
-    const int ok = start_common(job, game, cd, project, car, track, night, traffic ? RACE_JOB_PROBE : RACE_JOB_SHOOT, why, why_cap);
+    const int ok = start_common(job, game, cd, project, car, track, night, look, traffic ? RACE_JOB_PROBE : RACE_JOB_SHOOT, why, why_cap);
     if (ok) job_say(job, "Race photo: %s on %s, %s.\n", car->label, track, night ? "night" : "day");
     return ok;
 }
@@ -417,10 +468,15 @@ int car_race_start_photo(RaceJob *job, const char *game, const char *cd, const c
 static void finish(RaceJob *j, int ok, const char *format, ...) __attribute__((format(printf, 3, 4)));
 static void finish(RaceJob *j, int ok, const char *format, ...)
 {
+    char off[120], tail[124] = "";   /* T6: what was switched off, so a picture is not taken for the whole look; it always fits, the message gives way */
+    car_race_look_off(&j->look, off, sizeof off);
+    if (off[0] != '\0') (void)snprintf(tail, sizeof tail, " (%s)", off);   /* off < 120 bytes: tail holds it whole */
+    const size_t room = sizeof j->summary - strlen(tail);
     va_list args;
     va_start(args, format);
-    vsnprintf(j->summary, sizeof j->summary, format, args);
+    vsnprintf(j->summary, room, format, args);
     va_end(args);
+    memcpy(j->summary + strlen(j->summary), tail, strlen(tail) + 1);
     j->ok = ok;
     j->finished = 1;
     j->state = RACE_JOB_IDLE;
@@ -463,6 +519,7 @@ static void photo_done(RaceJob *j)
     if (!car_race_read_ppm(j->own[4], &rgba, &w, &h, why, sizeof why)) { finish(j, 0, "No photo: %s.", why); return; }
     free(j->photo);
     j->photo = rgba;
+    j->photo_w = w, j->photo_h = h;
     j->photo_serial++;
     j->photo_slot = j->setup.slot, j->photo_night = j->setup.night, j->photo_seed = j->setup.seed;
     snprintf(j->photo_track, sizeof j->photo_track, "%s", j->track);
