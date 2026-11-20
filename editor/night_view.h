@@ -10,7 +10,7 @@ enum { NIGHT_LIGHT_MIN = 10, NIGHT_LIGHT_MAX = 250 };   /* the "Light at car" sl
 typedef struct {
     const char *label;   /* "Rusty Springs" */
     const char *stem;    /* "tr5": the stem the INFO table and the night tone know it by */
-    float ratio;         /* the light at the car at night as the race has it at the node Race photo puts the car (game log "lamps: slot 0 node N ON: ... ratio r r r", night, light_effects): 1 is the colour as the file has it */
+    float ratio[3];         /* the light at the car at night as the race has it at the node Race photo puts the car (game log "lamps: slot 0 node N ON: ... ratio r r r", night, light_effects): 1 is the colour as the file has it */
 } NightRef;
 
 /* The tracks the view can take its light from, the first the default (Rusty Springs, as Test in race and Race photo use); `night_ref_count` of them. */

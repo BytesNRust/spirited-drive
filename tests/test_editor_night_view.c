@@ -25,6 +25,13 @@ int main(void)
     s.night = 1;
     st = night_settings_state(&s, 0);
     CHECK(!st.tinted && st.lit && st.light[0] == st.light[1] && st.light[0] > 0.7f && st.light[0] < 0.74f);   /* the race's light at the car at the photo's node (0.72), not the sky's tone */
+    s.ref = night_ref_find("tr7");   /* a track whose light at the car is coloured: each channel as the log has it (0.67 0.43 0.14) */
+    st = night_settings_state(&s, 0);
+    CHECK(st.light[0] > 0.66f && st.light[0] < 0.68f && st.light[1] > 0.42f && st.light[1] < 0.44f && st.light[2] > 0.13f && st.light[2] < 0.15f);
+    s.ref = night_ref_find("tr4");
+    st = night_settings_state(&s, 0);
+    CHECK(st.light[0] > 0.64f && st.light[0] < 0.66f && st.light[2] > 0.60f && st.light[2] < 0.62f);
+    s.ref = 0;
     s.light = 50;
     st = night_settings_state(&s, 0);
     CHECK(st.light[0] > 0.35f && st.light[0] < 0.37f);   /* the slider is a percent of it */
