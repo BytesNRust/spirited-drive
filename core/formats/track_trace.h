@@ -258,6 +258,16 @@ typedef struct {
 } TraceSummaryLine;
 int track_trace_summary(const TraceFlags *flags, int count, TraceSummaryLine lines[TRACE_SUMMARY_LINES]);
 
+/* The distance strip (editor): one road value, a single TRACE_KEY_ bit, as the stretches of control points it holds over. A run starts at a key that sets
+ * the bit and lasts to the next key that sets it, the last to the end (point_count - 1); before the first key the template's value holds, a run of its own
+ * with `set` 0 (none when a key is on the first point). `keys` are as the editor keeps them, ascending; a key off the points is skipped. Fills out[0..cap)
+ * and returns how many runs there are (out may be NULL); 0 for no points or a `bit` that is not exactly one value's. */
+typedef struct {
+    int first, last;   /* the control points the run covers, from the key's to the next key's (the end's for the last) */
+    int set;           /* 1 a key sets the value at `first`, 0 the template's */
+} TraceStripRun;
+int track_trace_strip_runs(const TraceKey *keys, int key_count, int point_count, unsigned bit, TraceStripRun *out, int cap);
+
 /* Metres from node 0 to each node along the road (the sum of the distances between consecutive nodes: m[0] = 0), `count` values. */
 void track_trace_distances(const TrackGenNode *nodes, int count, double *metres);
 

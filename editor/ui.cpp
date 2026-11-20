@@ -174,6 +174,7 @@ void default_layout(ImGuiID dock)
     const ImGuiID profile = ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Right, profile_part, nullptr, &bottom);   // the Road profile beside them: Node stays in sight
     ImGui::DockBuilderDockWindow(PANEL_ROAD_KEY, profile);
     ImGui::DockBuilderDockWindow(PANEL_DRIVE, bottom);   // and Test drive's
+    ImGui::DockBuilderDockWindow(PANEL_STRIP, bottom);   // and the Distance strip's
     const ImGuiID track = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.42f, nullptr, &right);   // the road's width and verge material above the project
     ImGui::DockBuilderDockWindow(PANEL_TRACK, track);
     ImGui::DockBuilderDockWindow(PANEL_PROJECT, right);
@@ -269,7 +270,7 @@ void shortcuts(App *a)
     if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) interact_nudge(a, 0, -INTERACT_NUDGE);
 }
 
-const char *const TRACK_PANELS[] = { "Viewport", PANEL_TRACK, PANEL_PROJECT, PANEL_POINTS, PANEL_NODE, PANEL_ROAD_KEY, PANEL_LIMITS, PANEL_PROBLEMS };
+const char *const TRACK_PANELS[] = { "Viewport", PANEL_TRACK, PANEL_PROJECT, PANEL_POINTS, PANEL_NODE, PANEL_ROAD_KEY, PANEL_LIMITS, PANEL_PROBLEMS, PANEL_STRIP };
 
 // the panels of the mode on screen, as the Window menu lists them (a car's Textures and Rehacer are not a masks project's)
 int mode_panels(const App *a, const char *out[], int cap)
@@ -629,6 +630,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
         limits_panel(a);
         problems_panel(a);
         drive_panel(a);
+        strip_panel(a);
         node_panel(a);
         road_key_window(a);
         if (track_edit_done()) app_track_commit(a);

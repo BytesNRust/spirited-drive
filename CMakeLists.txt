@@ -116,6 +116,7 @@ add_library(tnfs_core STATIC
     core/formats/track_trace_height.c
     core/formats/track_trace_fence.c
     core/formats/track_trace_stretch.c
+    core/formats/track_trace_strip.c
     core/formats/track_trace.c
     core/formats/fixed_math.c
     core/raster/flat.c
@@ -172,7 +173,7 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 # x86 does not, so the same layout gave different bytes. Off for the files that make the bytes of a package; the editor's join them
 # as they arrive. (Not all of core: tri_reverse runs in a race and is left as recorded replays have it.)
 if(NOT MSVC)
-    set_source_files_properties(core/formats/track_gen.c core/formats/track_trace.c core/formats/track_trace_sides.c core/formats/track_trace_bank.c core/formats/track_trace_lanes.c core/formats/track_trace_height.c core/formats/track_trace_fence.c core/formats/track_trace_stretch.c PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+    set_source_files_properties(core/formats/track_gen.c core/formats/track_trace.c core/formats/track_trace_sides.c core/formats/track_trace_bank.c core/formats/track_trace_lanes.c core/formats/track_trace_height.c core/formats/track_trace_fence.c core/formats/track_trace_stretch.c core/formats/track_trace_strip.c PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
 endif()
 
 # The recovered game logic: platform-independent, links no SDL.
@@ -875,7 +876,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     else()
         target_compile_options(imgui PRIVATE -w)
     endif()
-    add_executable(tnfs-track-editor game/sys/sha256.c editor/game_find.c editor/main.c editor/steps.c editor/race_look_ui.cpp editor/drive_panel.cpp editor/light_panel.cpp editor/light_compare_panel.cpp editor/light_tone_panel.cpp editor/app_drive.c editor/track_undo.c editor/edit_seq.c editor/command_keys.cpp editor/help_marker.cpp editor/app.c editor/car_build_job.c editor/app_light.c editor/light_session.c editor/light_file.c editor/light_photo.c editor/light_compare.c editor/install_job.c editor/mask_changes.c editor/app_mask.c editor/app_psd.c editor/psd_job.c editor/app_card_watch.c editor/texture_file.c editor/mask_edit.c editor/mask_tex.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/race_sheet.c editor/app_sheet.c editor/app_dash.c editor/psd_stale.c editor/proc_run.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp editor/road_key_panel.cpp editor/car_panels.cpp editor/shortcut_keys.c editor/car_preview.c editor/night_view.c editor/mask_panel.cpp editor/changes_panel.cpp editor/preview_panel.cpp editor/photo_view.cpp editor/model_panel.cpp editor/window_fit.c editor/path_elide.c editor/selection.c editor/app_select.c editor/app_colour.c editor/point_ops.c editor/key_ops.c editor/app_points.c editor/arc_block.c editor/curve_panel.cpp editor/sheet_ui.cpp editor/model_scene.c editor/app_sides.c)
+    add_executable(tnfs-track-editor game/sys/sha256.c editor/game_find.c editor/main.c editor/steps.c editor/race_look_ui.cpp editor/drive_panel.cpp editor/strip_panel.cpp editor/light_panel.cpp editor/light_compare_panel.cpp editor/light_tone_panel.cpp editor/app_drive.c editor/track_undo.c editor/edit_seq.c editor/command_keys.cpp editor/help_marker.cpp editor/app.c editor/car_build_job.c editor/app_light.c editor/light_session.c editor/light_file.c editor/light_photo.c editor/light_compare.c editor/install_job.c editor/mask_changes.c editor/app_mask.c editor/app_psd.c editor/psd_job.c editor/app_card_watch.c editor/texture_file.c editor/mask_edit.c editor/mask_tex.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/race_sheet.c editor/app_sheet.c editor/app_dash.c editor/psd_stale.c editor/proc_run.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp editor/road_key_panel.cpp editor/car_panels.cpp editor/shortcut_keys.c editor/car_preview.c editor/night_view.c editor/mask_panel.cpp editor/changes_panel.cpp editor/preview_panel.cpp editor/photo_view.cpp editor/model_panel.cpp editor/window_fit.c editor/path_elide.c editor/selection.c editor/app_select.c editor/app_colour.c editor/point_ops.c editor/key_ops.c editor/app_points.c editor/arc_block.c editor/curve_panel.cpp editor/sheet_ui.cpp editor/model_scene.c editor/app_sides.c)
     target_include_directories(tnfs-track-editor PRIVATE ${CMAKE_SOURCE_DIR})   # project.c's game/sys/sha256.h
     target_link_libraries(tnfs-track-editor PRIVATE tnfs_tools tnfs_tools tnfs_core SDL3::SDL3 imgui Threads::Threads)
     # the generic art a new project copies (editor/art/README.md): beside the program in a build tree, in Contents/Resources in the app (tools/package_macos.sh)
@@ -1131,7 +1132,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build shpi_flat cfm_build car_import_layout obj_read car_steer car_texture car_import car_kit_banks car_kit car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank track_lanes track_trace_lanes track_trace_height track_trace_fence track_trace_stretch)
+    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build shpi_flat cfm_build car_import_layout obj_read car_steer car_texture car_import car_kit_banks car_kit car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank track_lanes track_trace_lanes track_trace_height track_trace_fence track_trace_stretch track_trace_strip)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
