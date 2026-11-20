@@ -310,7 +310,8 @@ static int parse_lanes(const char *obj, double point, int *lanes, char *why, siz
     return 0;
 }
 
-enum { KEY_OBJECT_MAX = 512 };   /* the longest {...} of a key read: a full key (the width, the surfaces and every side value) is about 290 characters */
+enum { KEY_OBJECT_MAX = 768 };   /* the longest {...} of a key read: a full key (the width, the surfaces, every side value, the bank and the fence step's) is
+                                    * about 420 characters */
 
 /* the side fields of trace.json (version 3, step 3): [TRACE_SIDE_*][side] */
 static const char *const SIDE_FIELD[TRACE_SIDE_FIELDS][2] = {
@@ -370,6 +371,46 @@ static int parse_key_sides(const char *obj, double point, TraceKey *k, char *why
     return 1;
 }
 
+/* the fence step's values of a key object (version 4) into `k`: "fence_height" low / tall, "fence_art" planks / rail / parapet, "barrier_l_custom" and
+ * "barrier_r_custom" true / false; 0 with `why` naming the field and the word for another value */
+static int parse_key_fence(const char *obj, double point, TraceKey *k, char *why, size_t why_cap)
+{
+    static const char *const HEIGHT[] = { "low", "tall" }, *const ART[TRACE_FENCE_PICTURES] = { "planks", "rail", "parapet" };
+    static const char *const CUSTOM[2] = { "barrier_l_custom", "barrier_r_custom" };
+    char word[32];
+    if (object_word(obj, "fence_height", word, sizeof word)) {
+        int v = -1;
+        for (int i = 0; i < 2; ++i) if (strcmp(word, HEIGHT[i]) == 0) v = i;
+        if (v < 0) return snprintf(why, why_cap, "trace.json: the road key on point %.0f has fence_height \"%s\": low or tall", point, word), 0;
+        k->has |= TRACE_KEY_FENCE_HEIGHT, k->fence_tall = v;
+    }
+    if (object_word(obj, "fence_art", word, sizeof word)) {
+        int v = -1;
+        for (int i = 0; i < TRACE_FENCE_PICTURES; ++i) if (strcmp(word, ART[i]) == 0) v = i;
+        if (v < 0) return snprintf(why, why_cap, "trace.json: the road key on point %.0f has fence_art \"%s\": planks, rail or parapet", point, word), 0;
+        k->has |= TRACE_KEY_FENCE_ART, k->fence_art = v;
+    }
+    for (int side = 0; side < 2; ++side) {
+        if (!object_word(obj, CUSTOM[side], word, sizeof word)) continue;
+        if (strcmp(word, "true") != 0 && strcmp(word, "false") != 0)
+            return snprintf(why, why_cap, "trace.json: the road key on point %.0f has %s %s: true or false", point, CUSTOM[side], word), 0;
+        k->has |= TRACE_KEY_BARRIER_CUSTOM(side), k->barrier_custom[side] = strcmp(word, "true") == 0;
+    }
+    return 1;
+}
+
+/* a file from before the fence step (version 3 or less) had no Custom: a barrier key was the barrier from the start (blended from the template's), so a side
+ * with one is Custom from point 0, and the road is built as before. 0 when out of memory */
+static int old_barriers_custom(Trace *t)
+{
+    for (int side = 0; side < 2; ++side) {
+        int any = 0;
+        for (int k = 0; k < t->key_count; ++k) any |= (t->keys[k].has & TRACE_KEY_SIDE(TRACE_SIDE_BARRIER, side)) != 0;
+        if (any && !track_trace_key_set_fence(&t->keys, &t->key_count, &t->key_cap, 0, TRACE_KEY_BARRIER_CUSTOM(side), 1)) return 0;
+    }
+    return 1;
+}
+
 /* the objects of the JSON array after "keys" (version 2 on): [{"point": 3, "width_m": 14.0, "shoulder_l_surface": "tarmac"}, ...] into trace->keys; the
  * surfaces and the road's sides (step 3) are version 3's. A field this version does not know is left alone (the next steps' fields are additive); a key that sets nothing this version
  * knows is no key. 1 when well formed and every key is on a point and in the road's range */
@@ -415,6 +456,7 @@ static int parse_keys(const char *text, int version, Trace *t, char *why, size_t
             return 0;
         }
         if (has_bank) sides.has |= TRACE_KEY_BANK, sides.bank_deg = bank;
+        if (version >= 4 && !parse_key_fence(obj, point, &sides, why, why_cap)) return 0;
         int lanes = 0;
         if (version >= 3 && !parse_lanes(obj, point, &lanes, why, why_cap)) return 0;
         if (!has_width && !has_surface && sides.has == 0 && lanes == 0) continue;
@@ -445,6 +487,13 @@ static int parse_keys(const char *text, int version, Trace *t, char *why, size_t
                     stored = track_trace_key_set_side(&t->keys, &t->key_count, &t->key_cap, (int)point, f, side, sides.side[f][side]);
         if (stored && has_bank) stored = track_trace_key_set_bank(&t->keys, &t->key_count, &t->key_cap, (int)point, bank);
         if (stored && lanes != 0) stored = track_trace_key_set_lanes(&t->keys, &t->key_count, &t->key_cap, (int)point, lanes);
+        static const unsigned FENCE_BITS[] = { TRACE_KEY_FENCE_HEIGHT, TRACE_KEY_FENCE_ART, TRACE_KEY_BARRIER_CUSTOM(0), TRACE_KEY_BARRIER_CUSTOM(1) };
+        for (size_t b = 0; b < sizeof FENCE_BITS / sizeof FENCE_BITS[0]; ++b) {
+            const unsigned bit = FENCE_BITS[b];
+            if (!stored || !(sides.has & bit)) continue;
+            const int v = bit == TRACE_KEY_FENCE_HEIGHT ? sides.fence_tall : bit == TRACE_KEY_FENCE_ART ? sides.fence_art : sides.barrier_custom[bit == TRACE_KEY_BARRIER_CUSTOM(1)];
+            stored = track_trace_key_set_fence(&t->keys, &t->key_count, &t->key_cap, (int)point, bit, v);
+        }
         if (!stored) {
             snprintf(why, why_cap, "trace.json: out of memory");
             return 0;
@@ -471,7 +520,8 @@ int project_open(const char *dir, Project *out, Trace *trace, char *why, size_t 
     trace->key_count = trace->key_cap = 0;
     int version = 1;
     const int ok = parse_version(json, &version, why, why_cap) && parse_width(json, &trace->width, why, why_cap) && parse_points(json, trace, why, why_cap) &&
-                   (version < 2 || parse_keys(json, version, trace, why, why_cap));   // keys are version 2's: an older file with a "keys" array has none
+                   (version < 2 || parse_keys(json, version, trace, why, why_cap)) &&   // keys are version 2's: an older file with a "keys" array has none
+                   (version >= 4 || old_barriers_custom(trace) || (snprintf(why, why_cap, "trace.json: out of memory"), 0));
     free(json);
     if (!ok) {   // what was read before the fault goes with it
         free(trace->points);
@@ -759,6 +809,11 @@ static void key_fields(Text *text, const TraceKey *k)
         }
     if (k->has & TRACE_KEY_BANK) text_add(text, ", \"bank_deg\": %.2f", k->bank_deg);
     if (k->has & TRACE_KEY_LANES) text_add(text, ", \"lanes\": \"%d+%d\"", (k->lanes >> 4) & 0xf, k->lanes & 0xf);
+    if (k->has & TRACE_KEY_FENCE_HEIGHT) text_add(text, ", \"fence_height\": \"%s\"", k->fence_tall ? "tall" : "low");
+    static const char *const ART[TRACE_FENCE_PICTURES] = { "planks", "rail", "parapet" };
+    if ((k->has & TRACE_KEY_FENCE_ART) && k->fence_art >= 0 && k->fence_art < TRACE_FENCE_PICTURES) text_add(text, ", \"fence_art\": \"%s\"", ART[k->fence_art]);
+    for (int side = 0; side < 2; ++side)
+        if (k->has & TRACE_KEY_BARRIER_CUSTOM(side)) text_add(text, ", \"barrier_%c_custom\": %s", side == TRACK_GEN_LEFT ? 'l' : 'r', k->barrier_custom[side] ? "true" : "false");
 }
 
 int project_save_trace(const char *dir, const Trace *trace, char *why, size_t why_cap)
@@ -773,8 +828,11 @@ int project_save_trace(const char *dir, const Trace *trace, char *why, size_t wh
     }
     Text text = { NULL, 0, 0, 0 };
     int version = 2;   /* 3 only when a key has a value past the width (a surface, a side, the bank): a file with none stays readable by a version 2 Studio */
-    for (int i = 0; i < trace->key_count; ++i)
-        if (trace->keys[i].has & ~(unsigned)TRACE_KEY_WIDTH) version = 3;
+    const unsigned fence = TRACE_KEY_FENCE_HEIGHT | TRACE_KEY_FENCE_ART | TRACE_KEY_BARRIER_CUSTOM(0) | TRACE_KEY_BARRIER_CUSTOM(1);   /* 4 only with the fence step's */
+    for (int i = 0; i < trace->key_count; ++i) {
+        if ((trace->keys[i].has & ~(unsigned)TRACE_KEY_WIDTH) && version < 3) version = 3;
+        if (trace->keys[i].has & fence) version = 4;
+    }
     text_add(&text, "{\n  \"version\": %d,\n  \"width\": %.1f,\n  \"points\": [\n", version, trace->width);
     for (int i = 0; i < trace->count; ++i) text_add(&text, "    [%.3f, %.3f]%s\n", trace->points[i].x, trace->points[i].z, i + 1 < trace->count ? "," : "");
     if (trace->key_count == 0) {

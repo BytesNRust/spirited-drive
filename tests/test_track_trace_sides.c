@@ -68,15 +68,16 @@ static void test_no_side_keys(void)
     free(n);
 }
 
-/* a width (the shoulder, the wall's distance): from the template's 3 m at the start to the key's value at its point by a smoothstep, then held; the other
- * side says nothing */
+/* a width (the shoulder, the wall's distance with Custom): from the template's 3 m at the start to the key's value at its point by a smoothstep, then held;
+ * the other side says nothing */
 static void test_widths_interpolate(void)
 {
     TracePoint p[6];
     straight_points(p, 6, 60);   /* 300 m: a node every 6.25 m */
-    const TraceKey keys[2] = { side_key(2, TRACE_SIDE_SHOULDER, R, 6.0), side_key(4, TRACE_SIDE_BARRIER, R, 12.0) };
+    TraceKey keys[3] = { side_key(0, TRACE_SIDE_SHOULDER, R, 3.0), side_key(2, TRACE_SIDE_SHOULDER, R, 6.0), side_key(4, TRACE_SIDE_BARRIER, R, 12.0) };
+    keys[0].has |= TRACE_KEY_BARRIER_CUSTOM(R), keys[0].barrier_custom[R] = 1;   /* the barrier its own from the start (else it follows the shoulder) */
     int count = 0;
-    TrackGenNode *n = nodes_of(p, 6, keys, 2, &count);
+    TrackGenNode *n = nodes_of(p, 6, keys, 3, &count);
     CHECK_EQ_INT(count, 49);
     if (n == NULL) return;
     int exact = 1;

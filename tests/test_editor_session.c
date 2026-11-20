@@ -193,9 +193,9 @@ static void check_keys_file(void)
     free(t.points);
     free(t.keys);
 
-    write_file(trace, "{\"version\": 4, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]]}\n");
+    write_file(trace, "{\"version\": 5, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]]}\n");
     CHECK(!project_open(dir, &proj, &t, why, sizeof why));   /* a newer file is refused, not read as if it were this one */
-    CHECK(strstr(why, "trace.json") != NULL && strstr(why, "version 4") != NULL && strstr(why, "newer") != NULL);
+    CHECK(strstr(why, "trace.json") != NULL && strstr(why, "version 5") != NULL && strstr(why, "newer") != NULL);
 
     write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 3, \"width_m\": 9}]}\n");
     CHECK(!project_open(dir, &proj, &t, why, sizeof why));
@@ -338,8 +338,9 @@ static void check_surface_app(void)
     remove(generic);
 }
 
-/* the road's sides in trace.json (step 3): version 3, written only when a key has a value of a version past 2; every field of a full key comes back (the
- * writer grows its text, it never cuts a key short); each side value is in the fingerprint; values off their range are refused naming the point */
+/* the road's sides in trace.json (step 3, and the fence step's values: version 4), written only when a key has a value of a version past 2; every field of a
+ * full key comes back (the writer grows its text, it never cuts a key short); each side value is in the fingerprint; values off their range are refused
+ * naming the point */
 static void check_side_keys_file(void)
 {
     char dir[600], trace[700], ini[700], why[256];
@@ -350,16 +351,18 @@ static void check_side_keys_file(void)
     write_file(ini, "id=sides\nname=sides\nauthor=\nstem=SIDE\nart=GENERIC.FAM\nredistributable=1\n");
     Project proj;
     Trace t;
-    write_file(trace, "{\"version\": 3, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200], [0, 300]],\n \"keys\": [\n"
+    write_file(trace, "{\"version\": 4, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200], [0, 300]],\n \"keys\": [\n"
                       "  {\"point\": 1, \"width_m\": 12.5, \"shoulder_l_m\": 4.25, \"shoulder_r_m\": 0, \"barrier_l_m\": 6, \"barrier_r_m\": 12.75,"
-                      " \"wall_l\": \"hard\", \"wall_r\": \"soft\", \"fence_l\": false, \"fence_r\": true, \"bank_deg\": -27.5},\n"
+                      " \"wall_l\": \"hard\", \"wall_r\": \"soft\", \"fence_l\": false, \"fence_r\": true, \"bank_deg\": -27.5,"
+                      " \"fence_height\": \"tall\", \"fence_art\": \"rail\", \"barrier_l_custom\": true, \"barrier_r_custom\": true},\n"
                       "  {\"point\": 3, \"wall_r\": \"hard\"}]}\n");
     CHECK(project_open(dir, &proj, &t, why, sizeof why));
     if (t.key_count != 2) { fprintf(stderr, "side keys: %s\n", why); CHECK(0); cleanup_project(dir); return; }
     const TraceKey *k = &t.keys[0];
     const unsigned all = TRACE_KEY_WIDTH | TRACE_KEY_SIDE(TRACE_SIDE_SHOULDER, 0) | TRACE_KEY_SIDE(TRACE_SIDE_SHOULDER, 1) | TRACE_KEY_SIDE(TRACE_SIDE_BARRIER, 0) |
                          TRACE_KEY_SIDE(TRACE_SIDE_BARRIER, 1) | TRACE_KEY_SIDE(TRACE_SIDE_WALL, 0) | TRACE_KEY_SIDE(TRACE_SIDE_WALL, 1) |
-                         TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 0) | TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 1) | TRACE_KEY_BANK;
+                         TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 0) | TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 1) | TRACE_KEY_BANK | TRACE_KEY_FENCE_HEIGHT | TRACE_KEY_FENCE_ART |
+                         TRACE_KEY_BARRIER_CUSTOM(0) | TRACE_KEY_BARRIER_CUSTOM(1);
     CHECK(k->point == 1 && k->has == all && k->width_m == 12.5 && k->bank_deg == -27.5);
     CHECK(k->side[TRACE_SIDE_SHOULDER][0] == 4.25 && k->side[TRACE_SIDE_SHOULDER][1] == 0 && k->side[TRACE_SIDE_BARRIER][0] == 6 && k->side[TRACE_SIDE_BARRIER][1] == 12.75);
     CHECK(k->side[TRACE_SIDE_WALL][0] == TRACK_GEN_WALL_HARD && k->side[TRACE_SIDE_WALL][1] == TRACK_GEN_WALL_SOFT);
@@ -379,12 +382,16 @@ static void check_side_keys_file(void)
     t.keys[0].bank_deg = -27;   /* the bank too */
     CHECK(differs(&print, &t));
     t.keys[0].bank_deg = -27.5;
+    t.keys[0].fence_tall = 0;   /* and the fence step's */
+    CHECK(differs(&print, &t));
+    t.keys[0].fence_tall = 1;
 
-    CHECK(project_save_trace(dir, &t, why, sizeof why));   /* round trip of the full key: version 3, every field */
+    CHECK(project_save_trace(dir, &t, why, sizeof why));   /* round trip of the full key: version 4, every field */
     const char *text = read_file(trace);
-    CHECK(strstr(text, "\"version\": 3") != NULL);
+    CHECK(strstr(text, "\"version\": 4") != NULL);
     static const char *const FIELDS[] = { "\"width_m\": 12.50", "\"shoulder_l_m\": 4.25", "\"shoulder_r_m\": 0.00", "\"barrier_l_m\": 6.00", "\"barrier_r_m\": 12.75",
-                                          "\"wall_l\": \"hard\"", "\"wall_r\": \"soft\"", "\"fence_l\": false", "\"fence_r\": true", "\"bank_deg\": -27.50}" };
+                                          "\"wall_l\": \"hard\"", "\"wall_r\": \"soft\"", "\"fence_l\": false", "\"fence_r\": true", "\"bank_deg\": -27.50",
+                                          "\"fence_height\": \"tall\"", "\"fence_art\": \"rail\"", "\"barrier_l_custom\": true", "\"barrier_r_custom\": true}" };
     for (size_t i = 0; i < sizeof FIELDS / sizeof FIELDS[0]; ++i) {
         if (strstr(text, FIELDS[i]) == NULL) fprintf(stderr, "not written: %s\n%s\n", FIELDS[i], text);
         CHECK(strstr(text, FIELDS[i]) != NULL);
@@ -400,6 +407,8 @@ static void check_side_keys_file(void)
     for (int f = 0; f < TRACE_SIDE_FIELDS; ++f)
         for (int side = 0; side < 2; ++side) track_trace_key_clear_side(t.keys, &t.key_count, 1, f, side);
     track_trace_key_clear_bank(t.keys, &t.key_count, 1);
+    static const unsigned FENCE[] = { TRACE_KEY_FENCE_HEIGHT, TRACE_KEY_FENCE_ART, TRACE_KEY_BARRIER_CUSTOM(0), TRACE_KEY_BARRIER_CUSTOM(1) };
+    for (size_t b = 0; b < sizeof FENCE / sizeof FENCE[0]; ++b) track_trace_key_clear_fence(t.keys, &t.key_count, 1, FENCE[b]);
     CHECK(t.key_count == 1 && t.keys[0].has == TRACE_KEY_WIDTH);
     CHECK(project_save_trace(dir, &t, why, sizeof why));
     CHECK(strstr(read_file(trace), "\"version\": 2") != NULL && strstr(read_file(trace), "_l") == NULL && strstr(read_file(trace), "bank") == NULL);

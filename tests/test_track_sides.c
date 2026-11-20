@@ -195,6 +195,38 @@ static void check_fences(const uint8_t *tmpl, size_t tsize)
     free(out);
 }
 
+/* the fence's look (the fence step): bit 5 of the segment's fence byte is the low fence (clear: tall, 2 m), the low 5 bits its picture (slot 32 + them);
+ * both sides share them. A segment takes its first node's: tall from node 12 (segment 3), the picture 6 from node 21 (so segment 6 on); the side bits
+ * and the rest the template's */
+static void check_fence_look(const uint8_t *tmpl, size_t tsize)
+{
+    static TrackGenNode n[COUNT];
+    s_nodes(n, 0.0, WIDTH);
+    for (int i = 0; i < COUNT; ++i) {
+        if (i >= 12) n[i].fence.has |= TRACK_GEN_FENCE_HEIGHT, n[i].fence.tall = 1;
+        if (i >= 21) n[i].fence.has |= TRACK_GEN_FENCE_SLOT, n[i].fence.slot = 6;
+    }
+    uint8_t *out;
+    Tri tri;
+    TriParts parts;
+    if (!generate_tri(n, tmpl, tsize, &out, &tri, &parts)) { CHECK(0); return; }
+    int ok = 1;
+    for (int seg = 0; seg < (COUNT - 1) / 4; ++seg) {
+        const uint8_t fence = parts.terrain[(size_t)seg * TRI_SEGMENT_SIZE + 0xd];
+        uint8_t want = TRACK_TEMPLATE_FENCE;
+        if (seg >= 3) want &= (uint8_t)~TRI_FENCE_LOW;
+        if (seg >= 6) want = (uint8_t)((want & ~TRI_FENCE_SLOT_MASK) | 6);
+        if (fence != want) {
+            fprintf(stderr, "segment %d: fence 0x%02x, expected 0x%02x\n", seg, fence, want);
+            ok = 0;
+        }
+    }
+    CHECK(ok);
+    free(out);
+    for (int i = 0; i < COUNT; ++i) n[i].fence.has = TRACK_GEN_FENCE_SLOT, n[i].fence.slot = 32;   /* the byte has 5 bits for it */
+    CHECK(!generate_tri(n, tmpl, tsize, &out, &tri, &parts));
+}
+
 /* the shoulder: the row's second point of a side (the shoulder's end) is the road edge plus it; the points past it keep their own steps (the verge 10 m,
  * the grass 20 and 30), so they move out with it; the other side is as it was */
 static void check_shoulders(const uint8_t *tmpl, size_t tsize)
@@ -316,6 +348,7 @@ int main(void)
     check_barriers(tmpl, tsize);
     check_walls(tmpl, tsize);
     check_fences(tmpl, tsize);
+    check_fence_look(tmpl, tsize);
     check_shoulders(tmpl, tsize);
     check_sides_on_a_bend(tmpl, tsize);
     check_side_errors(tmpl, tsize);

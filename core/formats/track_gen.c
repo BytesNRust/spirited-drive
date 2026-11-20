@@ -227,9 +227,12 @@ static void write_node(uint8_t *dst, const uint8_t *model, const TrackGenNode *s
     }
 }
 
-/* the fence byte of a segment (+0xd): the template's, but for the sides its first node gives */
+/* the fence byte of a segment (+0xd): the template's, but for the sides, the height and the picture its first node gives */
 static void write_fence(uint8_t *seg, const TrackGenNode *first)
 {
+    const TrackGenFence *f = &first->fence;
+    if (f->has & TRACK_GEN_FENCE_HEIGHT) seg[0xd] = (uint8_t)(f->tall ? seg[0xd] & ~TRI_FENCE_LOW : seg[0xd] | TRI_FENCE_LOW);
+    if (f->has & TRACK_GEN_FENCE_SLOT) seg[0xd] = (uint8_t)((seg[0xd] & ~TRI_FENCE_SLOT_MASK) | (f->slot & TRI_FENCE_SLOT_MASK));
     for (int side = 0; side < 2; ++side) {
         const TrackGenSide *s = &first->side[side];
         if (!(s->has & TRACK_GEN_SIDE_FENCE)) continue;
@@ -427,6 +430,9 @@ static int check_sides(const TrackGenNode *n, int i, ExchangeError *err)
         if ((s->has & TRACK_GEN_SIDE_WALL) && s->wall != TRACK_GEN_WALL_HARD && s->wall != TRACK_GEN_WALL_SOFT)
             return exchange_fail(err, "node %d: the %s barrier's kind %d is not hard (0) or soft (1)", i, name, s->wall), 0;
     }
+    const TrackGenFence *f = &n[i].fence;
+    if ((f->has & TRACK_GEN_FENCE_SLOT) && (f->slot < 0 || f->slot >= TRACK_GEN_FENCE_SLOTS))
+        return exchange_fail(err, "node %d: the fence's picture %d is outside 0..%d", i, f->slot, TRACK_GEN_FENCE_SLOTS - 1), 0;
     return 1;
 }
 

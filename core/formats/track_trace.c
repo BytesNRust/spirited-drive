@@ -1,6 +1,7 @@
 #include "formats/track_trace.h"
 #include "formats/track_trace_bank.h"
 #include "formats/track_trace_lanes.h"
+#include "formats/track_trace_fence.h"
 #include "formats/track_trace_sides.h"
 
 #include "formats/race_stage.h"
@@ -281,7 +282,7 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
         exchange_fail(err, "out of memory");
     } else if (!width_stops(&c, width, width_keys, key_count, stops, &stop_count, err) || !check_surface_keys(c.count, keys, key_count, err) ||
                !trace_sides_check(c.count, keys, key_count, err) || !trace_bank_check(c.count, keys, key_count, err) ||
-               !trace_lanes_check(keys, key_count, err)) {
+               !trace_lanes_check(keys, key_count, err) || !trace_fence_check(keys, key_count, err)) {
         // err names the key
     } else if (segments > TRACK_GEN_MAX_SEGMENTS) {
         exchange_fail(err, "the road is %d segments; the most is %d (about %g m)", segments, TRACK_GEN_MAX_SEGMENTS,
@@ -310,6 +311,7 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
             double *point_s = malloc(sizeof *point_s * (size_t)c.count);   // the sides (step 3) along the arc length, from the keys
             for (int i = 0; point_s != NULL && i < c.count; ++i) point_s[i] = c.s[i * SAMPLES_PER_SPAN];
             if (point_s == NULL || !trace_sides_apply(point_s, keys, key_count, step, out, count_nodes, err) ||
+                !trace_fence_apply(point_s, keys, key_count, step, out, count_nodes) ||   /* after the sides: the barrier follows the shoulder */
                 !trace_bank_apply(point_s, keys, key_count, step, out, count_nodes, err) ||
                 !trace_lanes_apply(point_s, c.count, keys, key_count, step, out, count_nodes)) {
                 if (point_s == NULL || err->message[0] == '\0') exchange_fail(err, "out of memory");

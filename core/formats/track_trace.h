@@ -95,6 +95,14 @@ enum { TRACE_SIDE_SHOULDER, TRACE_SIDE_BARRIER, TRACE_SIDE_WALL, TRACE_SIDE_FENC
 #define TRACE_SHOULDER_DEFAULT_M 3.0   /* the generic template's: the shoulder and the wall 3 m past the road edge, soft walls, a fence each side */
 #define TRACE_BARRIER_DEFAULT_M 3.0
 
+/* The fence step: «Fence height» and «Fence picture» are the road's, both sides' (the game keeps one fence byte a segment, track_near.c), each held from its
+ * key to the next that sets it; the template's (low, planks) before any key. A side's barrier follows what is drawn (barrier_line, track_trace_fence.c:
+ * today where the shoulder ends, where the fence stands) unless that side's «Custom» holds: then the key's «Barrier from edge» is used, as before. */
+#define TRACE_KEY_FENCE_HEIGHT (1u << 12)              /* `fence_tall` */
+#define TRACE_KEY_FENCE_ART (1u << 13)                 /* `fence_art` */
+#define TRACE_KEY_BARRIER_CUSTOM(side) (1u << (14 + (side)))   /* `barrier_custom[side]` */
+enum { TRACE_FENCE_PLANKS, TRACE_FENCE_RAIL, TRACE_FENCE_PARAPET, TRACE_FENCE_PICTURES };
+
 typedef struct {
     int point;          /* the control point it is on, 0..count-1 */
     unsigned has;       /* TRACE_KEY_* bits: which values this key sets */
@@ -104,7 +112,21 @@ typedef struct {
     double bank_deg;    /* TRACE_KEY_BANK: the road's bank at the point, degrees (+-TRACE_BANK_INPUT_MAX_DEG) */
     double side[TRACE_SIDE_FIELDS][2];   /* TRACE_KEY_SIDE(field, side): [TRACE_SIDE_*][TRACK_GEN_LEFT / _RIGHT] */
     int lanes;                           /* TRACE_KEY_LANES */
+    int fence_tall;        /* TRACE_KEY_FENCE_HEIGHT: 1 tall (2 m), 0 low (0.9 m) */
+    int fence_art;         /* TRACE_KEY_FENCE_ART: TRACE_FENCE_PLANKS, _RAIL or _PARAPET */
+    int barrier_custom[2]; /* TRACE_KEY_BARRIER_CUSTOM(side): 1 the barrier is the key's Barrier from edge, 0 it follows what is drawn */
 } TraceKey;
+
+/* What a point has of the fence step, as the keys up to it make it */
+typedef struct {
+    int tall, art;
+    int custom[2];
+} TraceFencePoint;
+void track_trace_point_fence(const TraceKey *keys, int key_count, int point_count, TraceFencePoint *out);
+/* A fence value of the key on `point` (made when there is none): `bit` TRACE_KEY_FENCE_HEIGHT (value 0/1), TRACE_KEY_FENCE_ART (a TRACE_FENCE_ picture) or
+ * TRACE_KEY_BARRIER_CUSTOM(side) (0/1). 0 for another bit or a value out of range, or out of memory. Clearing drops that bit; a key with nothing left goes. */
+int track_trace_key_set_fence(TraceKey **keys, int *count, int *cap, int point, unsigned bit, int value);
+void track_trace_key_clear_fence(TraceKey *keys, int *count, int point, unsigned bit);
 
 /* The length of the centre line through `points` (the curve, not the chords), in units; 0 for fewer than 2 points. */
 double track_trace_length(const TracePoint *points, int count);

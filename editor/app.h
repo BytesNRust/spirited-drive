@@ -294,6 +294,15 @@ int app_tarmac_art_note(const App *a, char *text, size_t cap);
  * does not set, does not. A key with nothing left goes. */
 void app_set_point_side(App *a, int point, int field, int side, double value);
 void app_clear_point_side(App *a, int point, int field, int side);
+/* The fence step (app_sides.c): on point `point`'s road key, `bit` TRACE_KEY_FENCE_HEIGHT (0 low, 1 tall), TRACE_KEY_FENCE_ART (a TRACE_FENCE_ picture) or
+ * TRACE_KEY_BARRIER_CUSTOM(side) (1: the barrier is that side's Barrier from edge, 0: it follows the fence). A value out of range changes nothing; clearing
+ * lets the point inherit again. An unsaved change when it changes anything. */
+void app_set_point_fence(App *a, int point, unsigned bit, int value);
+void app_clear_point_fence(App *a, int point, unsigned bit);
+/* what point `point` has of them as the keys make it; 0 for no such point or out of memory */
+int app_point_fence(const App *a, int point, TraceFencePoint *out);
+/* 1, with the amber line for Problems in `text`, when a key turns a side's Custom on: the barrier is not where the fence is drawn */
+int app_barrier_custom_note(const App *a, char *text, size_t cap);
 /* the bank's key on a point: clamped to +-TRACE_BANK_INPUT_MAX_DEG and to a tenth of a degree; clearing it inherits again */
 void app_set_point_bank(App *a, int point, double degrees);
 void app_clear_point_bank(App *a, int point);

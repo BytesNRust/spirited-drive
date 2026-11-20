@@ -17,6 +17,8 @@ enum {
     TRACK_GENERIC_BANKS = 11,         /* terrain SHPIs the FAM must have: 0 road, 1 shoulder, 2 verge, 3 grass, 4 the tarmac shoulder (letter A of
                                          each), 5..9 anything, and 10 the fence (its letter C): the fence's texture is the slot 32 + the fence byte's low 5 bits */
     TRACK_GENERIC_FENCE_SLOT = 32,
+    TRACK_GENERIC_FENCE_PICTURE_STEP = 3,   /* the fence's pictures are letter C of banks 10, 11, 12: slots 32, 35, 38, the fence byte's low bits 0, 3, 6 (a bank's
+                                               letters share one picture) */
     TRACK_TEMPLATE_FENCE = 0xE0,      /* the strips' fence byte: bits 7 and 6: a fence each side; 0x20: the low one, and the texture slot TRACK_GENERIC_FENCE_SLOT (32 + the low 5 bits: 0) */
     TRACK_GENERIC_SLOT_ROAD = 0 * 3,
     TRACK_GENERIC_SLOT_SHOULDER = 1 * 3,

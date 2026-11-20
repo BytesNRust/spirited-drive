@@ -56,9 +56,18 @@ enum {                                  /* TrackGenSide.has bits */
     TRACK_GEN_SIDE_WALL = 1 << 3,       /* `wall`: its kind, the side's nibble of node byte 5 (the left's high, the right's low) */
     TRACK_GEN_SIDE_FENCE = 1 << 4       /* `fence`: 1 a fence on that side, 0 none; a segment (4 nodes) takes its first node's (TRI_FENCE_LEFT / _RIGHT) */
 };
-enum { TRACK_GEN_WALL_HARD = 0, TRACK_GEN_WALL_SOFT = 1 };
+enum { TRACK_GEN_WALL_HARD = 0, TRACK_GEN_WALL_SOFT = 1 };   /* hard: the game's hit, with its sound and a race note; soft: a glancing one */
 /* lanes (step 4), the CD's three (the survey): one lane each way, two own lanes (the extra one on the right), two oncoming (on the left); a lane is 5 m */
-enum { TRACK_GEN_LANES_1_1 = 0x11, TRACK_GEN_LANES_1_2 = 0x12, TRACK_GEN_LANES_2_1 = 0x21, TRACK_GEN_LANE = 40 };   /* hard: the game's hit, with its sound and a race note; soft: a glancing one */
+enum { TRACK_GEN_LANES_1_1 = 0x11, TRACK_GEN_LANES_1_2 = 0x12, TRACK_GEN_LANES_2_1 = 0x21, TRACK_GEN_LANE = 40 };
+/* The fence's look on a node (the fence step): the game has one per segment for both sides, its height and its picture (the fence byte's bit 5 and low 5
+ * bits); a segment takes its first node's. `has` says which the node sets; all zero is the template's. */
+enum { TRACK_GEN_FENCE_HEIGHT = 1 << 0, TRACK_GEN_FENCE_SLOT = 1 << 1 };
+enum { TRACK_GEN_FENCE_SLOTS = 32 };   /* the picture is slot 32 + slot, slot 0..31 */
+typedef struct {
+    unsigned has;   /* TRACK_GEN_FENCE_* bits */
+    int tall;       /* TRACK_GEN_FENCE_HEIGHT: 1 tall (2 m), 0 low (0.9 m) */
+    int slot;       /* TRACK_GEN_FENCE_SLOT: 0..TRACK_GEN_FENCE_SLOTS - 1 */
+} TrackGenFence;
 #define TRACK_GEN_SIDE_MAX 160.0   /* the most a shoulder or a wall's distance may be, in the verge byte's 1/8 m: 20 m */
 typedef struct {
     unsigned has;         /* TRACK_GEN_SIDE_* bits */
@@ -81,6 +90,7 @@ typedef struct {
     TrackGenSide side[2]; /* [TRACK_GEN_LEFT], [TRACK_GEN_RIGHT]; all zero: the template's */
     int lanes;            /* step 4: flags[0] (node +4), oncoming << 4 | own: TRACK_GEN_LANES_1_1, _1_2 or _2_1; 0 the template's. A segment's strips take its first node's */
     double width_r;       /* step 4: the right half width in the verge byte, 0..255; 0 the same as `width` (the left one) */
+    TrackGenFence fence;  /* the fence's height and picture, both sides'; all zero: the template's */
 } TrackGenNode;
 
 enum { TRACK_GEN_MAX_NODES = TRACK_GEN_MAX_SEGMENTS * 4 + 1 };

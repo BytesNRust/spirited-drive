@@ -140,7 +140,9 @@ typedef struct {
 enum {
     TRI_FENCE_LEFT = 0x80,
     TRI_FENCE_RIGHT = 0x40,
-    TRI_FENCE_TEXTURE_MASK = 0x3F
+    TRI_FENCE_TEXTURE_MASK = 0x3F,
+    TRI_FENCE_LOW = 0x20,        /* set: the low fence (0.9 m), clear: the tall one (2 m); both sides' (track_fence.c) */
+    TRI_FENCE_SLOT_MASK = 0x1F   /* the picture: slot 32 + these bits, both sides' */
 };
 
 typedef struct {

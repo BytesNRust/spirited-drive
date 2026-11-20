@@ -112,6 +112,7 @@ add_library(tnfs_core STATIC
     core/formats/track_trace_sides.c
     core/formats/track_trace_bank.c
     core/formats/track_trace_lanes.c
+    core/formats/track_trace_fence.c
     core/formats/track_trace.c
     core/formats/fixed_math.c
     core/raster/flat.c
@@ -168,7 +169,7 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 # x86 does not, so the same layout gave different bytes. Off for the files that make the bytes of a package; the editor's join them
 # as they arrive. (Not all of core: tri_reverse runs in a race and is left as recorded replays have it.)
 if(NOT MSVC)
-    set_source_files_properties(core/formats/track_gen.c core/formats/track_trace.c core/formats/track_trace_sides.c core/formats/track_trace_bank.c core/formats/track_trace_lanes.c PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+    set_source_files_properties(core/formats/track_gen.c core/formats/track_trace.c core/formats/track_trace_sides.c core/formats/track_trace_bank.c core/formats/track_trace_lanes.c core/formats/track_trace_fence.c PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
 endif()
 
 # The recovered game logic: platform-independent, links no SDL.
@@ -968,8 +969,12 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_lanes PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_lanes PRIVATE tnfs_core Threads::Threads)
     target_compile_options(test_editor_lanes PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_editor_fence tests/test_editor_fence.c game/sys/sha256.c editor/game_find.c editor/app.c editor/app_drive.c editor/track_undo.c editor/app_sides.c editor/night_view.c editor/app_mask.c editor/mask_edit.c editor/mask_tex.c editor/build.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/edit_seq.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c editor/view.c)   # the fence step: trace.json version 4 and the editor
+    target_include_directories(test_editor_fence PRIVATE editor tests ${CMAKE_SOURCE_DIR})
+    target_link_libraries(test_editor_fence PRIVATE tnfs_core Threads::Threads)
+    target_compile_options(test_editor_fence PRIVATE ${TNFS_WARNINGS})
     # the tools share ONLY the core with the game (the owner's rule): the Studio and its tests never link the game's library or compile its files
-    foreach(studio_target tnfs-track-editor test_editor_track_undo test_editor_shortcuts test_editor_car_preview test_editor_model_scene test_editor_car_export test_editor_car_race test_editor_car_rehacer test_editor_session test_editor_lanes test_editor_mask_edit test_editor_mask_changes)
+    foreach(studio_target tnfs-track-editor test_editor_track_undo test_editor_shortcuts test_editor_car_preview test_editor_model_scene test_editor_car_export test_editor_car_race test_editor_car_rehacer test_editor_session test_editor_lanes test_editor_fence test_editor_mask_edit test_editor_mask_changes)
         get_target_property(studio_libs ${studio_target} LINK_LIBRARIES)
         get_target_property(studio_sources ${studio_target} SOURCES)
         if(studio_libs MATCHES "tnfs_game")
@@ -993,6 +998,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_install COMMAND test_editor_install)
         add_test(NAME editor_session COMMAND test_editor_session)
         add_test(NAME editor_lanes COMMAND test_editor_lanes)
+        add_test(NAME editor_fence COMMAND test_editor_fence)
         add_test(NAME editor_car_project COMMAND test_editor_car_project)
         add_test(NAME editor_car_edit COMMAND test_editor_car_edit)
         add_test(NAME editor_car_rehacer COMMAND test_editor_car_rehacer)
@@ -1025,7 +1031,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_kit_banks car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank track_lanes track_trace_lanes)
+    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_kit_banks car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank track_lanes track_trace_lanes track_trace_fence)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
