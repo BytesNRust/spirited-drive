@@ -14,7 +14,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { CAR_SCENE_SECTIONS = 4, CAR_SCENE_CLEAR = 0xFF };
+enum {
+    CAR_SCENE_SECTIONS = 4, CAR_SCENE_CLEAR = 0xFF,
+    CAR_SCENE_NEAR_Z = 30   /* close to the eye, a polygon with a corner this near or nearer is left out (the race's rule); the orbit's dist_min keeps the car beyond it */
+};
 
 typedef struct {
     Chunk file;
@@ -33,8 +36,13 @@ typedef struct {
 int car_scene_open(CarScene *s, const uint8_t *cfm, size_t size);
 void car_scene_close(CarScene *s);
 
-/* The car as `o` sees it into `pixels`, w x h bytes, which the caller has cleared (CAR_SCENE_CLEAR is what car_scene_rgba leaves transparent). */
+/* The car as `o` sees it into `pixels`, w x h bytes, which the caller has cleared (CAR_SCENE_CLEAR is what car_scene_rgba leaves transparent). Any shape: the
+ * pixels are square and the scale is that of a square picture of the smaller side, in the middle; a wider or taller one shows more around it. */
 void car_scene_render(CarScene *s, const Orbit *o, uint8_t *pixels, int w, int h);
+
+/* The same picture with the textures of the slots `layer` names (s->obj.texture_count of them, NULL for a slot kept) in place of the car's own, and every flat
+ * polygon and line drawn in `flat`: a second plane of the same pixels, as the editor's night view takes the lamp texels from (a layer of their kinds). */
+void car_scene_render_layer(CarScene *s, const Orbit *o, uint8_t *pixels, int w, int h, const FshEntry *const *layer, uint8_t flat);
 
 /* `n` indices as RGBA; the clear index is transparent */
 void car_scene_rgba(const CarScene *s, const uint8_t *pixels, size_t n, uint8_t *rgba);

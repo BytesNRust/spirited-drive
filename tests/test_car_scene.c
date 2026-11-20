@@ -7,6 +7,7 @@
 #include "raster/car_scene.h"
 #include "test.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -27,10 +28,32 @@ static void test_the_orbit_keeps_to_its_limits(void)
     Orbit o;
     orbit_init(&o, 300);
     CHECK_EQ_INT(o.dist, 900);
-    orbit_drag(&o, 0, -100000);
-    CHECK_EQ_INT(o.pitch, ORBIT_PITCH_MIN);   /* a little below the road at most */
-    orbit_drag(&o, 0, 100000);
-    CHECK_EQ_INT(o.pitch, ORBIT_PITCH_MAX);   /* straight above at most */
+    CHECK_EQ_INT(o.pitch, 18 * 16);
+    orbit_drag(&o, 0, 72 * 16 / ORBIT_DRAG);
+    CHECK_EQ_INT(o.pitch, ORBIT_PITCH_TOP);   /* straight above */
+    orbit_drag(&o, 0, 90 * 16 / ORBIT_DRAG);
+    CHECK_EQ_INT(o.pitch, 180 * 16);           /* on over the top: no limit, the car upside down */
+    orbit_drag(&o, 0, 210 * 16 / ORBIT_DRAG);
+    CHECK_EQ_INT(o.pitch, 30 * 16);            /* a whole turn and more: the pitch wraps */
+    orbit_drag(&o, 0, -(45 * 16) / ORBIT_DRAG);
+    CHECK_EQ_INT(o.pitch, ORBIT_TURN - 15 * 16);   /* below the road, as far as the drag goes */
+    for (int i = 0; i < 50; i++) orbit_drag(&o, 0, -100000);
+    CHECK(o.pitch >= 0 && o.pitch < ORBIT_TURN);
+    orbit_set(&o, 0, 0);
+    orbit_drag(&o, 10, 0);
+    const int32_t upright = o.yaw;
+    orbit_set(&o, 0, 180 * 16);
+    orbit_drag(&o, 10, 0);
+    CHECK_EQ_INT(o.yaw, ORBIT_TURN - upright);   /* upside down a drag turns the other way, so the car still follows the pointer */
+    orbit_set(&o, -90 * 16, 370 * 16);
+    CHECK_EQ_INT(o.yaw, 270 * 16);
+    CHECK_EQ_INT(o.pitch, 10 * 16);              /* a set orbit is wrapped too, not held */
+    orbit_set_degrees(&o, 360e9 + 45.0, -100.5);
+    CHECK_EQ_INT(o.yaw, 45 * 16);                /* degrees of any size */
+    CHECK_EQ_INT(o.pitch, 260 * 16 - 8);
+    orbit_set_degrees(&o, NAN, INFINITY);
+    CHECK_EQ_INT(o.yaw, 0);                      /* not a number: level, from the rear */
+    CHECK_EQ_INT(o.pitch, 0);
     orbit_drag(&o, 10000, 0);
     CHECK(o.yaw >= 0 && o.yaw < ORBIT_TURN);  /* the yaw wraps */
     orbit_drag(&o, -100000, 0);
@@ -39,8 +62,14 @@ static void test_the_orbit_keeps_to_its_limits(void)
     CHECK_EQ_INT(o.dist, o.dist_min);
     for (int i = 0; i < 200; i++) orbit_zoom(&o, -1);
     CHECK_EQ_INT(o.dist, o.dist_max);
+    orbit_set_dist(&o, 1);
+    CHECK_EQ_INT(o.dist, o.dist_min);   /* a distance asked for is held too: nearer, the near plane would cut the car */
+    orbit_set_dist(&o, 1000);
+    CHECK_EQ_INT(o.dist, 1000);
+    orbit_set_dist(&o, INT32_MAX);
+    CHECK_EQ_INT(o.dist, o.dist_max);
     orbit_view(&o, ORBIT_TOP);
-    CHECK_EQ_INT(o.pitch, ORBIT_PITCH_MAX);
+    CHECK_EQ_INT(o.pitch, ORBIT_PITCH_TOP);
     orbit_view(&o, ORBIT_SIDE);
     CHECK_EQ_INT(o.pitch, 0);
     CHECK_EQ_INT(o.yaw, 90 * 16);
@@ -106,7 +135,7 @@ static uint32_t picture(CarScene *s, const Orbit *o, int *drawn)
     return crc32(pix, sizeof pix);
 }
 
-static const uint32_t GOLDEN[5] = { 0x1b8678eau, 0x9af83cd1u, 0x3e42a15bu, 0x1a57e690u, 0x2dc643f8u };   /* front, side, rear, top, orbit */
+static const uint32_t GOLDEN[5] = { 0xdd527df4u, 0x78d20c93u, 0x5ec55c77u, 0x61cf1fcbu, 0x0be1d28eu };   /* front, side, rear, top, orbit (160 x 100: the scale of the 100-pixel side) */
 
 static void test_a_synthetic_car(void)
 {
@@ -143,8 +172,103 @@ static void test_a_synthetic_car(void)
     free(cfm);
 }
 
+/* M2: a picture of any shape has square pixels and the same scale as a square one of its smaller side: the square's picture is the middle of the wide one, and of the tall one */
+static void test_the_picture_fills_any_shape(void)
+{
+    size_t len = 0;
+    uint8_t *cfm = make_cfm(&len);
+    CHECK(cfm != NULL);
+    if (cfm == NULL) return;
+    CarScene s;
+    CHECK(car_scene_open(&s, cfm, len));
+    Orbit o;
+    orbit_init(&o, s.radius);
+    enum { S = 96, WIDE = 3 * S };
+    static uint8_t square[S * S], wide[WIDE * S], tall[S * WIDE];
+    memset(square, CAR_SCENE_CLEAR, sizeof square), memset(wide, CAR_SCENE_CLEAR, sizeof wide), memset(tall, CAR_SCENE_CLEAR, sizeof tall);
+    car_scene_render(&s, &o, square, S, S);
+    car_scene_render(&s, &o, wide, WIDE, S);
+    car_scene_render(&s, &o, tall, S, WIDE);
+    int same_wide = 1, same_tall = 1, outside = 0, drawn = 0;
+    for (int y = 0; y < S; y++)
+        for (int x = 0; x < S; x++) {
+            same_wide &= square[y * S + x] == wide[y * WIDE + S + x];
+            same_tall &= square[y * S + x] == tall[(S + y) * S + x];
+            drawn += square[y * S + x] != CAR_SCENE_CLEAR;
+        }
+    for (int y = 0; y < S; y++)
+        for (int x = 0; x < WIDE; x++) outside += (x < S || x >= 2 * S) && wide[y * WIDE + x] != CAR_SCENE_CLEAR;
+    CHECK(drawn > 500);
+    CHECK(same_wide);
+    CHECK(same_tall);
+    CHECK_EQ_INT(outside, 0);   /* at home the whole car is in the square: nothing more at the sides */
+    /* zoomed in all the way, from every side: no corner of the car comes to the near plane, so no polygon is left out */
+    for (int i = 0; i < 100; i++) orbit_zoom(&o, 1);
+    int32_t nearest = INT32_MAX;
+    for (int32_t yaw = 0; yaw < ORBIT_TURN; yaw += 45 * 16)
+        for (int32_t pitch = 0; pitch < ORBIT_TURN; pitch += 45 * 16) {
+            o.yaw = yaw, o.pitch = pitch;
+            car_scene_render(&s, &o, wide, WIDE, S);
+            for (uint32_t v = 0; v < s.obj.vertex_count; v++)
+                if (s.obj.camera[v][2] < nearest) nearest = s.obj.camera[v][2];
+        }
+    fprintf(stderr, "dist_min %d radius %d nearest corner %d\n", o.dist_min, s.radius, nearest);
+    CHECK(nearest > CAR_SCENE_NEAR_Z);
+    car_scene_close(&s);
+    free(cfm);
+}
+
+/* M3: a layer of the same pixels: the side's texture swapped for one of a single value, every flat in another; it covers exactly what the picture does, and
+ * the car's own texture is back after it */
+static void test_a_layer_of_the_same_pixels(void)
+{
+    size_t len = 0;
+    uint8_t *cfm = make_cfm(&len);
+    CHECK(cfm != NULL);
+    if (cfm == NULL) return;
+    CarScene s;
+    CHECK(car_scene_open(&s, cfm, len));
+    Orbit o;
+    orbit_init(&o, s.radius);
+    orbit_set(&o, 60 * 16, 30 * 16);   /* the textured side and flat faces */
+    static uint8_t pix[W * H], layer[W * H], again[W * H];
+    memset(pix, CAR_SCENE_CLEAR, sizeof pix), memset(layer, CAR_SCENE_CLEAR, sizeof layer), memset(again, CAR_SCENE_CLEAR, sizeof again);
+    car_scene_render(&s, &o, pix, W, H);
+    static uint8_t fives[64];
+    memset(fives, 5, sizeof fives);
+    const FshEntry **swap = calloc(s.obj.texture_count, sizeof *swap);
+    CHECK(swap != NULL);
+    if (swap == NULL) return;
+    FshEntry side;
+    memset(&side, 0, sizeof side);
+    int swapped = 0;
+    for (uint32_t i = 0; i < s.obj.texture_count; i++)
+        if (s.obj.textures[i].texture != NULL && memcmp(s.obj.textures[i].texture->name, "side", 4) == 0) {
+            side = *s.obj.textures[i].texture, side.payload = fives, side.payload_size = sizeof fives;
+            swap[i] = &side, swapped++;
+        }
+    CHECK_EQ_INT(swapped, 1);
+    car_scene_render_layer(&s, &o, layer, W, H, swap, 9);
+    int same_cover = 1, fives_seen = 0, nines = 0, other = 0;
+    for (int i = 0; i < W * H; i++) {
+        same_cover &= (pix[i] == CAR_SCENE_CLEAR) == (layer[i] == CAR_SCENE_CLEAR);
+        fives_seen += layer[i] == 5, nines += layer[i] == 9;
+        other += layer[i] != 5 && layer[i] != 9 && layer[i] != CAR_SCENE_CLEAR;
+    }
+    CHECK(same_cover);
+    fprintf(stderr, "layer: %d of the side, %d flat\n", fives_seen, nines);
+    CHECK(fives_seen > 100);   /* the textured side */
+    CHECK(nines > 100);        /* the flat faces */
+    CHECK_EQ_INT(other, 0);
+    car_scene_render(&s, &o, again, W, H);
+    CHECK(memcmp(pix, again, sizeof pix) == 0);   /* the car's own textures are back */
+    free(swap);
+    car_scene_close(&s);
+    free(cfm);
+}
+
 /* the CD's 911 (skipped without original/): its four views pinned, so the high model, its bank, the wheels at rest and the sections' order are */
-static const uint32_t GOLDEN_P911[4] = { 0x3d07a350u, 0xfeb3f860u, 0xd73844dbu, 0xbcd263f6u };
+static const uint32_t GOLDEN_P911[4] = { 0xa980ab32u, 0xf33143f6u, 0x96b1cebbu, 0x741a4d58u };
 
 static void test_the_cds_911(void)
 {
@@ -168,7 +292,7 @@ static void test_the_cds_911(void)
         orbit_view(&o, views[i]);
         const uint32_t crc = picture(&s, &o, &drawn);
         fprintf(stderr, "911 view %d crc %08x drawn %d\n", i, crc, drawn);
-        CHECK(drawn > 1000);
+        CHECK(drawn > 800);
         CHECK_EQ_INT(crc, GOLDEN_P911[i]);
     }
     car_scene_close(&s);
@@ -187,6 +311,8 @@ int main(void)
 {
     test_the_orbit_keeps_to_its_limits();
     test_a_synthetic_car();
+    test_the_picture_fills_any_shape();
+    test_a_layer_of_the_same_pixels();
     test_the_cds_911();
     test_what_is_not_a_car_is_refused();
     return TEST_REPORT();

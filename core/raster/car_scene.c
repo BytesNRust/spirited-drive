@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { LEVEL_HIGH = 0, FOV = 45, NEAR_FLAG_Z = 0x219 /* model_draw.h's MODEL_NEAR_FLAG_Z */, NEAR_Z = 30 };
+enum { LEVEL_HIGH = 0, FOV = 45, NEAR_FLAG_Z = 0x219 /* model_draw.h's MODEL_NEAR_FLAG_Z */ };
 
 static const char *const SECTION_NAMES[CAR_SCENE_SECTIONS] = { "inside", "surface", "outside", "convex" };
 static const int32_t IDENTITY[9] = { 0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x10000 };
@@ -78,6 +78,7 @@ void car_scene_close(CarScene *s)
 typedef struct {
     QuadTarget target;
     const CarScene *scene;
+    int flat;   /* the colour of every flat polygon and line, -1: the palette's nearest */
 } Sink;
 
 static void textured(void *user, Object3DTable table, int mode, const FshEntry *texture, const Object3DCorners *c)
@@ -99,16 +100,20 @@ static void textured(void *user, Object3DTable table, int mode, const FshEntry *
 static void flat(void *user, uint32_t rgb, const Object3DCorners *c)
 {
     const Sink *s = user;
-    const uint32_t colour = (uint32_t)palette_match_nearest(s->scene->quad, s->scene->enabled, rgb);
+    const uint32_t colour = s->flat >= 0 ? (uint32_t)s->flat : (uint32_t)palette_match_nearest(s->scene->quad, s->scene->enabled, rgb);
     if (c->corners == 2) flat_line(&s->target, c->screen[0], c->screen[1], c->screen[2], c->screen[3], colour);
     else if (c->corners == 3 || c->corners == 4) flat_polygon(&s->target, colour, c->corners, c->screen);
 }
 
-void car_scene_render(CarScene *s, const Orbit *o, uint8_t *pixels, int w, int h)
+static void render(CarScene *s, const Orbit *o, uint8_t *pixels, int w, int h, int flat_colour)
 {
     if (w < 2 || h < 2 || h > QUAD_MAX_ROWS) return;
+    /* the field of view across the smaller side, and square pixels: view_project scales both axes by the horizontal focal, so a view of a
+     * square of that side, centred in the whole picture, shows more at the sides of a wide one (or above and below a tall one), never less */
     View view;
-    view_init(&view, 0, 0, w, h, FOV, FOV);
+    const int side = w < h ? w : h;
+    view_init(&view, 0, 0, side, side, FOV, FOV);
+    view.centre_x = w / 2, view.centre_y = h / 2;
     int32_t matrix[9];
     orbit_matrix(o, matrix);
     const int32_t eye[3] = { 0, 0, (int32_t)(0u - (uint32_t)o->dist) };   /* the car `dist` in front: 004591d4's eye is the car's place negated */
@@ -117,13 +122,32 @@ void car_scene_render(CarScene *s, const Orbit *o, uint8_t *pixels, int w, int h
     object3d_set_matrix(&s->obj, matrix);
     object3d_transform(&s->obj, IDENTITY, eye, 0);
     object3d_project(&s->obj, &view);
-    Sink sink = { { pixels, w, 0, 0, w, h }, s };
+    Sink sink = { { pixels, w, 0, 0, w, h }, s, flat_colour };
     const Object3DSink out = { .user = &sink, .textured = textured, .flat = flat };
     for (int i = 0; i < CAR_SCENE_SECTIONS; i++) {
         if (s->sections[i].order == NULL) continue;
         object3d_sort_list(&s->obj, &s->sections[i]);
-        object3d_draw_list(&s->obj, &s->sections[i], NEAR_Z, &out);
+        object3d_draw_list(&s->obj, &s->sections[i], CAR_SCENE_NEAR_Z, &out);
     }
+}
+
+void car_scene_render(CarScene *s, const Orbit *o, uint8_t *pixels, int w, int h)
+{
+    render(s, o, pixels, w, h, -1);
+}
+
+void car_scene_render_layer(CarScene *s, const Orbit *o, uint8_t *pixels, int w, int h, const FshEntry *const *layer, uint8_t flat)
+{
+    const uint32_t n = s->obj.texture_count;
+    const FshEntry **own = n > 0 ? malloc(n * sizeof *own) : NULL;
+    if (n > 0 && own == NULL) return;
+    for (uint32_t i = 0; i < n; i++) {
+        own[i] = s->obj.textures[i].texture;
+        if (layer != NULL && layer[i] != NULL) s->obj.textures[i].texture = layer[i];
+    }
+    render(s, o, pixels, w, h, flat);
+    for (uint32_t i = 0; i < n; i++) s->obj.textures[i].texture = own[i];
+    free(own);
 }
 
 void car_scene_rgba(const CarScene *s, const uint8_t *pixels, size_t n, uint8_t *rgba)

@@ -70,11 +70,8 @@ int car_view_command(int argc, char **argv, ExchangeError *err)
     orbit_init(&o, scene.radius);
     if (a.have_view) orbit_view(&o, a.view);
     if (a.have_orbit) {
-        o.yaw = (int32_t)(a.yaw * 16.0), o.pitch = (int32_t)(a.pitch * 16.0);
-        o.yaw = ((o.yaw % ORBIT_TURN) + ORBIT_TURN) % ORBIT_TURN;
-        if (o.pitch < ORBIT_PITCH_MIN) o.pitch = ORBIT_PITCH_MIN;
-        if (o.pitch > ORBIT_PITCH_MAX) o.pitch = ORBIT_PITCH_MAX;
-        if (a.dist > 0) o.dist = a.dist;
+        orbit_set_degrees(&o, a.yaw, a.pitch);
+        if (a.dist > 0) orbit_set_dist(&o, a.dist);
     }
     const size_t n = (size_t)a.w * (size_t)a.h;
     uint8_t *pixels = malloc(n), *rgba = malloc(4 * n), *png = NULL;
