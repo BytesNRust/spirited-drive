@@ -537,7 +537,8 @@ static void check_explicit_errors(const uint8_t *tmpl, size_t tsize)
 }
 
 /* the shoulder's surface per node and side (step 2b): a node with its sides all zero is the road of before, byte for byte (the template's flags[2], 0x22);
- * a tarmac side clears that side's nibble of flags[2] (node +6: high left, low right), the game's row 0, and no other byte of the TRI changes */
+ * a tarmac side clears that side's nibble of flags[2] (node +6: high left, low right), the game's row 0, and the segments whose first node has it draw that
+ * side's shoulder band (texture[1] right, texture[6] left) with the generic art's asphalt (TRACK_GENERIC_SLOT_TARMAC); no other byte of the TRI changes */
 static void check_shoulder_surface(void)
 {
     enum { COUNT = 50 * 4 + 1, NODES_AT = 0x98c, NODE_BYTES = 36, FLAGS2 = 6 };
@@ -582,9 +583,24 @@ static void check_shoulder_surface(void)
             right &= t.flags[2] == want;
         }
         CHECK(right);
-        int other = 0;   /* every byte that differs is a node's flags[2] */
-        for (size_t b = 0; b < paved_len; ++b)
-            if (paved[b] != plain[b] && !(b >= NODES_AT && (b - NODES_AT) % NODE_BYTES == FLAGS2 && (b - NODES_AT) / NODE_BYTES < COUNT)) ++other;
+        int bands = 1;
+        for (int seg = 0; seg < COUNT / 4; ++seg) {
+            TriSegment t;
+            CHECK_EQ_INT(tri_segment(&tri, (uint32_t)seg, &t), TRI_OK);
+            const int first = seg * 4, left = first < 100, right_side = first >= 50 && first < 150;
+            bands &= t.texture[6] == (left ? TRACK_GENERIC_SLOT_TARMAC : TRACK_GENERIC_SLOT_SHOULDER);
+            bands &= t.texture[1] == (right_side ? TRACK_GENERIC_SLOT_TARMAC : TRACK_GENERIC_SLOT_SHOULDER);
+            bands &= t.texture[0] == TRACK_GENERIC_SLOT_ROAD && t.texture[2] == TRACK_GENERIC_SLOT_VERGE && t.texture[7] == TRACK_GENERIC_SLOT_VERGE;
+        }
+        CHECK(bands);
+        int other = 0;   /* every byte that differs is a node's flags[2] or a segment's shoulder band */
+        for (size_t b = 0; b < paved_len; ++b) {
+            if (paved[b] == plain[b]) continue;
+            const int flags2 = b >= NODES_AT && (b - NODES_AT) % NODE_BYTES == FLAGS2 && (b - NODES_AT) / NODE_BYTES < COUNT;
+            const size_t at = b - tri.terrain_offset, in = at % TRI_SEGMENT_SIZE;
+            const int band = b >= tri.terrain_offset && at / TRI_SEGMENT_SIZE < COUNT / 4 && (in == 0xe + 1 || in == 0xe + 6);
+            if (!flags2 && !band) ++other;
+        }
         CHECK_EQ_INT(other, 0);
     }
     free(paved);

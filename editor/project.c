@@ -448,7 +448,11 @@ static int adopt_art(const char *dir, const char *ini_path, const char *ini, con
 
 /* the SHA-256 of every GENERIC.FAM Studio carried before the one it carries now (the road lines' shades, editor/art/README.md): a project's copy that is
  * byte for byte one of these is the author's untouched copy of an old Studio's, and is replaced */
-const char *const PROJECT_OLD_ARTS[] = { "ad2a9b645848ad93fcb939ac954baf6c543233a28db898b58ab708049617e59d", NULL };
+const char *const PROJECT_OLD_ARTS[] = {
+    "ad2a9b645848ad93fcb939ac954baf6c543233a28db898b58ab708049617e59d",   /* the first: its road's yellow line went green under a car */
+    "a715e01ce5bd6e088e74ad51c0b5d0015de30ec97d138f27499a4f0fd4fc9151",   /* bank 4 a white filler: a tarmac shoulder (phase 2 step 2b) drew white */
+    NULL,
+};
 
 static void sha256_of(const void *bytes, size_t size, char out[65])
 {
@@ -487,6 +491,24 @@ int project_art_refresh(const char *dir, const char *generic, const char *const 
     free(copy);
     free(bundled);
     return replaced;
+}
+
+int project_art_is_generic(const char *dir, const char *generic)
+{
+    if (generic == NULL) return 0;
+    char path[PATH_MAX_LEN], why[160], art[PROJECT_PATH_MAX];
+    snprintf(path, sizeof path, "%s/project.ini", dir);
+    size_t size = 0, copy_size = 0, bundled_size = 0;
+    char *ini = read_text(path, &size, why, sizeof why);
+    const int named = ini != NULL && ini_value(ini, "art", art, sizeof art) && strcmp(art, GENERIC_ART) == 0;
+    free(ini);
+    if (!named) return 0;
+    snprintf(path, sizeof path, "%s/%s", dir, GENERIC_ART);
+    char *copy = read_text(path, &copy_size, why, sizeof why), *bundled = read_text(generic, &bundled_size, why, sizeof why);
+    const int same = copy != NULL && bundled != NULL && copy_size == bundled_size && memcmp(copy, bundled, copy_size) == 0;
+    free(copy);
+    free(bundled);
+    return same;
 }
 
 static int make_dir(const char *dir, char *why, size_t why_cap)

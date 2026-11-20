@@ -14,14 +14,15 @@ enum {
     TRACK_TEMPLATE_SEGMENTS = 12,     /* track_gen takes its cross-section and brightness from strip 10, so 11 are the least */
     TRACK_TEMPLATE_HALF_WIDTH = 40,   /* the road's verge bytes: eighths of a unit, 5 units each side of the centre */
     TRACK_TEMPLATE_BARRIER = 64,      /* the barrier bytes: 8 units from the centre */
-    TRACK_GENERIC_BANKS = 11,         /* terrain SHPIs the FAM must have: 0 road, 1 shoulder, 2 verge, 3 grass (letter A of each), 4..9 anything,
-                                         and 10 the fence (its letter C): the fence's texture is the slot 32 + the fence byte's low 5 bits */
+    TRACK_GENERIC_BANKS = 11,         /* terrain SHPIs the FAM must have: 0 road, 1 shoulder, 2 verge, 3 grass, 4 the tarmac shoulder (letter A of
+                                         each), 5..9 anything, and 10 the fence (its letter C): the fence's texture is the slot 32 + the fence byte's low 5 bits */
     TRACK_GENERIC_FENCE_SLOT = 32,
     TRACK_TEMPLATE_FENCE = 0xE0,      /* the strips' fence byte: bits 7 and 6: a fence each side; 0x20: the low one, and the texture slot TRACK_GENERIC_FENCE_SLOT (32 + the low 5 bits: 0) */
     TRACK_GENERIC_SLOT_ROAD = 0 * 3,
     TRACK_GENERIC_SLOT_SHOULDER = 1 * 3,
     TRACK_GENERIC_SLOT_VERGE = 2 * 3,
-    TRACK_GENERIC_SLOT_GRASS = 3 * 3
+    TRACK_GENERIC_SLOT_GRASS = 3 * 3,
+    TRACK_GENERIC_SLOT_TARMAC = 4 * 3   /* a tarmac shoulder (phase 2 step 2b): the road's asphalt without its lines. An art of the author's own draws its bank 4 */
 };
 
 /* The track's INFO file (the horizon, the fog and the time-of-day colours the game reads: text, one value a line) made for this template and

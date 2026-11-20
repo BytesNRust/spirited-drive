@@ -68,6 +68,9 @@ int project_create(const char *dir, const char *id, const char *generic_art, cha
  * not looked at. 1 when it was replaced, else 0; `note` is "" when there is nothing to say. */
 extern const char *const PROJECT_OLD_ARTS[];
 int project_art_refresh(const char *dir, const char *generic, const char *const old[], char *note, size_t note_cap);
+/* 1 when the project at `dir` draws with Studio's current generic art: art=GENERIC.FAM and that copy byte for byte `generic`. A tarmac shoulder (a road key)
+ * draws with that art's asphalt bank (TRACK_GENERIC_SLOT_TARMAC); an art of the author's own may have anything there, and Problems says so */
+int project_art_is_generic(const char *dir, const char *generic);
 
 /* Sets the edge= line of `dir`'s project.ini to `edge` (one of PROJECT_EDGES): the line is replaced where it is or added at the end, every other
  * byte of the file stays. 1 on success, 0 with `why` (an unknown word leaves the file as it is). */

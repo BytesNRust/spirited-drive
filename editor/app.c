@@ -75,6 +75,7 @@ int app_open(App *a, const char *dir, const char *game, const char *user, const 
         return 0;
     }
     if (project_art_refresh(dir, generic_art, PROJECT_OLD_ARTS, a->art_note, sizeof a->art_note)) fprintf(stderr, "%s (%s)\n", a->art_note, dir);
+    a->art_generic = project_art_is_generic(dir, generic_art);
     a->kind = APP_KIND_TRACK;
     a->saved_print = session_fingerprint(&a->trace);
     snprintf(a->saved_edge, sizeof a->saved_edge, "%s", a->project.edge);
@@ -653,6 +654,20 @@ void app_set_point_surface(App *a, int point, int side, TraceSurface surface)
         return;
     }
     a->dirty = 1;
+}
+
+int app_tarmac_art_note(const App *a, char *text, size_t cap)
+{
+    if (a->kind != APP_KIND_TRACK || a->art_generic) return 0;
+    for (int i = 0; i < a->trace.key_count; ++i) {
+        const TraceKey *k = &a->trace.keys[i];
+        if ((k->has & TRACE_KEY_SHOULDER_SURFACE) && (k->shoulder_l_surface == TRACE_SURFACE_TARMAC || k->shoulder_r_surface == TRACE_SURFACE_TARMAC)) {
+            snprintf(text, cap, "a tarmac shoulder draws with bank 4 of the art (%s), which is asphalt only in Studio's own GENERIC.FAM: check it in the game",
+                     a->project.art);
+            return 1;
+        }
+    }
+    return 0;
 }
 
 void app_remove_point(App *a)

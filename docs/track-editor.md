@@ -173,8 +173,22 @@ so an 8 to 14 m ramp is right at the limit at 45 m of road (5.00 bytes), clean f
   "keys": [ {"point": 1, "width_m": 8.0}, {"point": 4, "width_m": 14.0} ] }
 ```
 
-A key whose point does not exist, twice on a point, or with a width outside 2..30 m refuses the file with a message naming it. Unknown fields are ignored. Banks, lanes and
-surface per key are not read yet; their place is reserved in the key (`TRACE_KEY_*` bits in `core/formats/track_trace.h`).
+### Shoulder surface
+
+The **Road key** block under the Points table sets, for the selected point and each side (Left | Right), the shoulder's surface from there on: **Verge**
+(the Track window's verge material, which slows the player's car) or **Tarmac** (the road's own surface, no slow-down; the rivals feel neither). A value the
+point inherits shows dimmed; right-click a set one and choose "Inherit again". A tarmac shoulder is drawn with asphalt in the game (bank 4 of Studio's
+`GENERIC.FAM`, the TRI's shoulder band of each segment) and, in the Viewport, as an asphalt-grey line beside the road at its edge; a node's tip says
+"shoulder: tarmac left/right". **A side changes at a segment's start** (every 4 nodes, 25 m): the game's texture is per segment, so the grip (the node's
+surface) changes at the first node of the segment where the key's point falls, not at the point itself, and picture and grip always agree.
+
+When the project's art is not Studio's current generic copy (`art=` of another name, or a `GENERIC.FAM` the author edited) Problems says that a tarmac
+shoulder draws with that art's bank 4 and should be checked in the game; the art is not touched. An untouched copy from an older Studio is replaced
+by the current one when the project opens (`editor/art/README.md`). In `trace.json` a key carries `"shoulder_l_surface": "tarmac"` and/or `"shoulder_r_surface": "verge"`,
+and the file is `"version": 3` when any key sets a surface (2 otherwise).
+
+A key whose point does not exist, twice on a point, or with a width outside 2..30 m refuses the file with a message naming it. Unknown fields are ignored. Banks and lanes
+per key are not read yet; their place is reserved in the key (`TRACE_KEY_*` bits in `core/formats/track_trace.h`).
 
 ## Preview
 
