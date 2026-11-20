@@ -128,6 +128,8 @@ static const char *const HELP_CAR =
     "       tnfs-studio car import PIECE_DIR --obj FILE.obj ... (car import --help)\n"
     "       tnfs-studio car resize PIECE_DIR NAME WxH ... (car resize --help)\n"
     "       tnfs-studio car texture add PIECE_DIR NAME FILE.png ... (car texture --help)\n"
+    "       tnfs-studio car kit PIECE_DIR KIT_DIR     a car piece laid out as a kit: flat sources (README.txt inside says which)\n"
+    "       tnfs-studio car build KIT_DIR             the kit's build/piece/ and build/<id>.zip from its sources alone\n"
     "Each form's flags: tnfs-studio car FORM --help\n";
 
 static const char *const HELP_FAM =

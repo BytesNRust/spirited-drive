@@ -195,6 +195,12 @@ What an importer has to turn a model into, measured by `tests/test_car_import_la
 
   `car import --raw` keeps a bank that is the donor's entries with bitmaps of its own after them.
 
+## A car kit
+
+A kit is a car's sources as flat files, the folders of `core/formats/car_kit_paths.h` (the one place that spells them): `mod.ini` and `card.png`; `model/near/mesh/` (the Blender OBJ `mesh.blender.obj` and mesh_export's tables) and `model/near/bank/` (the bank's flat files, "A texture bank" above), the same under `model/far/`; `specs/specs.tsv` and `specs/pdn.tsv` (optional); `car_masks/<tex>_mask.png` (`_lo` for the far bank) and `dash_masks/`, grey, with no stem level; `photos/`; and `build/`, which a build writes and anything may delete. `tnfs-studio car kit PIECE KIT` lays a car piece out as one; `tnfs-studio car build KIT` makes `build/piece/` (the piece as the game installs it: the stem level of the masks added back) and `build/<id>.zip` from the sources alone, with no donor and no binary to start from, and writes nothing else.
+
+*Checked*: every CFM of the CD but LDIABLO (below) is built again byte for byte from its kit (`tests/test_car_kit.c`); the 9 PBS and 22 PDN records too, from a zeroed record (their tables cover every byte), but not their files: the CD's are EA's QFS streams and the build writes ours, as `pack` does. The owner's 911 kit, built from its own sources (an RGB painting among them, fitted to the palette), gives its installed C84.CFM and C84.PBS byte for byte and C84.PDN's record.
+
 ## Exceptions
 
 - **LDIABLO.CFM, low mesh**: its texture references are 19 bytes long, not 20, so every table after them sits 3 bytes early and the map does not end on a slot. The game never opens LDIABLO (the race's Diablo is LDIABL; LDIABLO is not in the executable's names). The layout test leaves it out by name.

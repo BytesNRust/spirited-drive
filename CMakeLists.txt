@@ -74,6 +74,7 @@ add_library(tnfs_core STATIC
     core/formats/car_brake_lamp.c
     core/formats/car_texture.c
     core/formats/car_import.c
+    core/formats/car_kit.c
     core/formats/car_import_bank.c
     core/formats/car_import_mesh.c
     core/formats/car_import_tables.c
@@ -830,7 +831,7 @@ endif()
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
     # tnfs_tools: what the command line and the car editor share (dep59 1b): every studio command but the argument parsing of main.c
-    add_library(tnfs_tools STATIC studio/fsio.c studio/slot.c studio/track_new.c studio/help.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_texture.c studio/car_view.c studio/car_card.c studio/car_card_shot.c studio/car_masks.c studio/mod_validate.c studio/mod_pack.c studio/fam_command.c studio/pack_tree.c)
+    add_library(tnfs_tools STATIC studio/fsio.c studio/slot.c studio/track_new.c studio/help.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_texture.c studio/car_kit.c studio/car_view.c studio/car_card.c studio/car_card_shot.c studio/car_masks.c studio/mod_validate.c studio/mod_pack.c studio/fam_command.c studio/pack_tree.c)
     target_include_directories(tnfs_tools PUBLIC .)
     target_link_libraries(tnfs_tools PUBLIC tnfs_core)
     target_compile_options(tnfs_tools PRIVATE ${TNFS_WARNINGS})
@@ -1046,7 +1047,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build shpi_flat cfm_build car_import_layout obj_read car_steer car_texture car_import car_kit_banks car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank track_lanes track_trace_lanes track_trace_fence)
+    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build shpi_flat cfm_build car_import_layout obj_read car_steer car_texture car_import car_kit_banks car_kit car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank track_lanes track_trace_lanes track_trace_fence)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -1081,6 +1082,7 @@ foreach(name port_old_files car_registry car_lights ai_added car_list content_ro
     target_compile_definitions(test_car_scene PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_shpi_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_shpi_flat PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_car_kit PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_resize PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_texture_add PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_cfm_build PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -1621,6 +1623,8 @@ if(NOT EMSCRIPTEN)
         add_test(NAME car_import_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_import.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/tests/car_import ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:blender_like_tool>)
         add_test(NAME car_resize_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_resize.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:blender_like_tool>)
         add_test(NAME car_texture_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_texture.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:blender_like_tool>)
+        add_test(NAME car_kit_cli COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_kit_cli.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
+        set_tests_properties(car_kit_cli PROPERTIES TIMEOUT 300)
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands
