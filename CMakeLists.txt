@@ -1023,7 +1023,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_light_file PRIVATE editor tests)
     target_compile_options(test_editor_light_file PRIVATE ${TNFS_WARNINGS})
     # the tools share ONLY the core with the game (the owner's rule): the Studio and its tests never link the game's library or compile its files
-    foreach(studio_target tnfs-track-editor test_editor_track_undo test_editor_shortcuts test_editor_car_preview test_editor_model_scene test_editor_car_export test_editor_car_race test_editor_light_photo test_editor_car_rehacer test_editor_session test_editor_mask_reload test_editor_lanes test_editor_fence test_editor_light_file test_editor_light_session test_editor_light_flow test_editor_mask_edit test_editor_card_reload test_editor_mask_changes)
+    foreach(studio_target tnfs-track-editor test_editor_track_undo test_editor_shortcuts test_editor_car_preview test_editor_model_scene test_editor_car_export test_editor_car_race test_editor_car_rehacer test_editor_session test_editor_psd test_editor_mask_reload test_editor_lanes test_editor_fence test_editor_mask_edit test_editor_light_photo test_editor_light_file test_editor_light_session test_editor_light_flow test_editor_card_reload test_editor_mask_changes)
         get_target_property(studio_libs ${studio_target} LINK_LIBRARIES)
         get_target_property(studio_sources ${studio_target} SOURCES)
         if(studio_libs MATCHES "tnfs_game")
