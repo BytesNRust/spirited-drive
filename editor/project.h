@@ -15,12 +15,15 @@
 enum {
     PROJECT_TEXT_MAX = 128,
     PROJECT_POINTS_MAX = 2400,    /* a road of 599 segments has about this many control points at most; more are refused on load */
-    PROJECT_START_POINTS = 6,     /* a new project is a straight of this many points */
-    PROJECT_START_LENGTH = 200,   /* and this long, in units */
+    PROJECT_START_GAP = 100,      /* a new project's straight (project_start_points) has a control point every this many metres at most */
     PROJECT_PATH_MAX = 512,
     PROJECT_WIDTH_MIN = 8,        /* track_gen's layout range for a road's width (the road width byte) */
     PROJECT_WIDTH_MAX = 120
 };
+
+/* A new project is a straight as long as the shortest stage the game races (track_trace_stage_min_length, about 1.3 km), so it is born with nothing red:
+ * this many control points, evenly spaced, no more than PROJECT_START_GAP metres apart. */
+int project_start_points(void);
 
 typedef struct {
     char id[MOD_INI_ID_MAX + 1];

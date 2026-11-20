@@ -573,6 +573,12 @@ int track_trace_stage_min_nodes(void)
     return RACE_STAGE_END + RACE_GRID_FRONT + 2;
 }
 
+double track_trace_stage_min_length(void)
+{
+    const int segments = (track_trace_stage_min_nodes() - 1 + NODES_PER_SEGMENT - 1) / NODES_PER_SEGMENT;
+    return ceil(TRACE_METRES((segments + 0.25) * NODES_PER_SEGMENT * NODE_SPACING));
+}
+
 int track_trace_stage_short(int node_count, char *out, size_t cap)
 {
     if (cap > 0) out[0] = '\0';

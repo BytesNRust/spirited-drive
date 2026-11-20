@@ -135,6 +135,17 @@ sed 's/"bank_deg": 30.0/"bank_deg": 40.0/' "$work/banked/trace.json" > "$work/ov
 [ -s "$work/banked/build/banked.zip" ] || fail "no zip of the road banked 30 degrees"
 "$editor" "$work/overbanked" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a road banked 40 degrees"
 grep -q "banks more than 35 degrees" "$work/log" || fail "the bank's refusal does not name the limit: $(cat "$work/log")"
+# a new project is born a stage the game races: a straight of the shortest stage's length, built with nothing too short
+mkdir "$work/fresh"
+"$editor" "$work/fresh" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a new project: $(cat "$work/log")"
+[ -s "$work/fresh/build/fresh.zip" ] || fail "no zip of a new project"
+grep -q "too short" "$work/log" && fail "a new project is too short for a stage: $(cat "$work/log")"
+python3 -c "
+import json, sys
+p = json.load(open(sys.argv[1]))['points']
+gaps = [b[1] - a[1] for a, b in zip(p, p[1:])]
+assert p[0] == [0.0, 0.0] and all(q[0] == 0.0 for q in p) and max(gaps) <= 100 and min(gaps) > 0 and p[-1][1] > 1290, p
+" "$work/fresh/trace.json" || fail "a new project is not a straight of over 1.29 km with a point every 100 m at most"
 
 # ==== Install: the game not where it is said or not found ====
 # the game is not where --game says: Install says so, and what to do, without running anything

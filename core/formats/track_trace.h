@@ -163,6 +163,9 @@ void track_trace_flags(const TrackGenNode *nodes, int count, TraceFlags *flags);
  * segment), a stage's race ends RACE_STAGE_END nodes before that road's last and the front row starts at node RACE_GRID_FRONT
  * (formats/race_stage.h), so the finish must lie past the front row. Under it the race ends at its first tick, the car standing. */
 int track_trace_stage_min_nodes(void);
+/* A road just long enough to be a stage, in whole metres: the fewest whole segments whose trace has track_trace_stage_min_nodes() nodes, plus a quarter of a
+ * segment so the spline's length rounds to them (the strict least is about 18 m shorter), up to the metre. A new project's straight is this long. */
+double track_trace_stage_min_length(void);
 
 /* 1 with the reason in `out` (English, the lengths and the numbers from the game's constants) when a road of `node_count` trace nodes is too short for
  * a stage: "too short for a stage: 1.13 km of road (188 nodes); a stage needs 1.29 km (214 nodes): the race ends 181 nodes (1.09 km) before the

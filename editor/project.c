@@ -639,16 +639,25 @@ int project_create(const char *dir, const char *id, const char *generic_art, cha
     if (!adopted) return 0;
     snprintf(path, sizeof path, "%s/trace.json", dir);
     if (stat(path, &st) != 0) {
-        Trace straight = { NULL, PROJECT_START_POINTS, DEFAULT_WIDTH, NULL, 0, 0 };
-        TracePoint pts[PROJECT_START_POINTS];
-        for (int i = 0; i < PROJECT_START_POINTS; ++i) {
-            pts[i].x = 0;
-            pts[i].z = (double)PROJECT_START_LENGTH * i / (PROJECT_START_POINTS - 1);
+        const int count = project_start_points();
+        const double length = track_trace_stage_min_length();
+        TracePoint *pts = calloc((size_t)count, sizeof *pts);
+        if (pts == NULL) {
+            snprintf(why, why_cap, "out of memory");
+            return 0;
         }
-        straight.points = pts;
-        return project_save_trace(dir, &straight, why, why_cap);
+        for (int i = 0; i < count; ++i) pts[i].z = i + 1 < count ? length * i / (count - 1) : length;   /* the last one exactly the length */
+        Trace straight = { pts, count, DEFAULT_WIDTH, NULL, 0, 0 };
+        const int saved = project_save_trace(dir, &straight, why, why_cap);
+        free(pts);
+        return saved;
     }
     return 1;
+}
+
+int project_start_points(void)
+{
+    return (int)ceil(track_trace_stage_min_length() / PROJECT_START_GAP) + 1;
 }
 
 int project_set_edge(const char *dir, const char *edge, char *why, size_t why_cap)
