@@ -113,6 +113,9 @@ typedef struct {
     struct {                     /* Add curve and Add straight's fields (app_points.h); all 0 until the Points panel first shows them */
         int right, count, straight_count;   /* a count of 0: the default (arc_block.h) */
         int preview;             /* the Viewport draws what Accept would make: 1 the curve, 2 the straight, 0 nothing (the fields hovered or edited) */
+        int block_open;          /* the Add curve / straight block as last drawn: 1 open, 2 folded, 0 not drawn yet (curve_panel.cpp) */
+        int block_chosen;        /* the user has clicked the block's header: it keeps what they chose, else it follows the room */
+        int block_force;         /* --steps curve-fold: 1 unfold, 2 fold the block at the next frame, as a click on its header (then 0) */
         int preview_hold;        /* the same, held whatever the mouse does (--steps preview-curve, for a picture) */
         double degrees, radius_m, length_m;
     } curve;

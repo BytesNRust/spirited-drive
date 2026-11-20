@@ -13,8 +13,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -201,6 +201,7 @@ static int at_once(App *a, const char *name, const double *arg)
         return app_add_curve(a, name[0] == 's');
     }
     if (strncmp(name, "preview:", 8) == 0) return arg[0] >= 0 && arg[0] <= 2 ? (app_curve_defaults(a), a->curve.preview_hold = (int)arg[0], 1) : 0;
+    if (strcmp(name, "curve-block") == 0 || strncmp(name, "curve-fold:", 11) == 0) return arg[0] == 0 || arg[0] == 1 || name[6] == 'b' ? 2 : 0;   /* by_frames: after the panel has drawn */
     if (strcmp(name, "print-sel") == 0) {
         if (a->kind != APP_KIND_TRACK) return 0;
         char which[256];
@@ -297,6 +298,14 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
     const int p = s->phase++;
     float x = 0, y = 0;
     if (strncmp(name, "race-", 5) == 0) return race_frames(s, a, name, p);
+    if (strcmp(name, "curve-block") == 0) {   /* the block as the panel drew it in the frame before */
+        fprintf(stdout, "curve block: %s\n", a->curve.block_open == 1 ? "open" : a->curve.block_open == 2 ? "folded" : "not drawn");
+        return 0;
+    }
+    if (strncmp(name, "curve-fold:", 11) == 0) {   /* a click on the header: set now, drawn by the next frame, which this step waits for */
+        if (p == 0) a->curve.block_force = arg[0] != 0 ? 1 : 2;
+        return p == 0;
+    }
     if (strncmp(name, "key:", 4) == 0) return key_frames(s, win, name + 4, p);
     if (strncmp(name, "click:", 6) == 0 || strstr(name, "-click:") != NULL) {   /* shift-click, cmd-click: the modifier held around it */
         SDL_Keycode mod_key;

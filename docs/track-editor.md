@@ -77,6 +77,8 @@ While a point is dragged, a readout by the cursor gives its distance from the po
 
 ### Add curve and Add straight
 
+The rows sit in a folding block, **Add curve / straight**: it starts folded when the Points table would be left under 4 rows (the default layout) and open when there is room; a click on its header keeps what you chose.
+
 The Points panel's **Add curve** row takes the direction (R or L, as the view shows it), the angle it turns in all (up to 180°), the radius in
 metres and how many points it has (the default keeps each step under 40 m and 15°); **Add straight** takes a length and a point count. While a
 row's fields are hovered or edited, the Viewport draws what Accept would make: the new stretch in grey (amber under 43 m of radius, red under

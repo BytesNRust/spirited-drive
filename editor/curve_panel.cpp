@@ -66,11 +66,32 @@ bool straight_row(App *a)
     return live || ImGui::IsItemHovered();
 }
 
+// the open block's height: its two rows and the line under them
+float block_height()
+{
+    const ImGuiStyle &st = ImGui::GetStyle();
+    return 2 * (ImGui::GetFrameHeight() + st.ItemSpacing.y) + ImGui::GetTextLineHeightWithSpacing();
+}
+
 }   // namespace
 
-void curve_rows(App *a)
+void curve_rows(App *a, float table_least)
 {
     app_curve_defaults(a);
+    const bool fits = ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() - block_height() >= table_least;
+    // until the user clicks the header the block follows the room (the dock's size settles after the first frames, and the window can be resized)
+    if (a->curve.block_force != 0) {   // --steps curve-fold: as a click on the header
+        ImGui::SetNextItemOpen(a->curve.block_force == 1, ImGuiCond_Always);
+        a->curve.block_chosen = 1, a->curve.block_force = 0;
+    } else if (!a->curve.block_chosen) ImGui::SetNextItemOpen(fits, ImGuiCond_Always);
+    const bool open = ImGui::CollapsingHeader("Add curve / straight###curveblock");
+    if (ImGui::IsItemClicked()) a->curve.block_chosen = 1;
+    ImGui::SetItemTooltip("Adds a curve or a straight after the last selected point, going on the way the road goes there. Click to fold or unfold.");
+    a->curve.block_open = open ? 1 : 2;
+    if (!open) {
+        a->curve.preview = a->curve.preview_hold;
+        return;
+    }
     const bool curve = curve_row(a), straight = straight_row(a);
     a->curve.preview = curve ? 1 : straight ? 2 : a->curve.preview_hold;
     if (a->curve.preview == 0) return;

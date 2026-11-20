@@ -159,12 +159,12 @@ void points_panel(App *a)
         if (picked > 1) ImGui::TextDisabled("%d points, %d selected", a->trace.count, picked);
         else ImGui::TextDisabled("%d points", a->trace.count);
         if (picked > 1) rotate_row(a), group_row(a);
-        curve_rows(a);
-        const bool scroll_to_selected = a->selected != shown;
         // the table takes the rest of the panel, but never fewer than POINTS_MIN_ROWS rows
         const ImGuiStyle &st = ImGui::GetStyle();
         const float row = ImGui::GetFrameHeight() + 2 * st.CellPadding.y;
         const float least = (POINTS_MIN_ROWS + 1) * row + st.ScrollbarSize + 2;   // the rows, the header, a sideways scroll bar, the borders
+        curve_rows(a, least);   // a block that starts folded when it would leave the table less than `least`
+        const bool scroll_to_selected = a->selected != shown;
         const float room = ImGui::GetContentRegionAvail().y;
         // the columns never narrower than their header or a value: a narrow panel scrolls the table sideways, a wide one stretches them (each by its need,
         // so none gets less than it). The vertical scroll bar's width is left out, or the stretched table would scroll sideways by that much.

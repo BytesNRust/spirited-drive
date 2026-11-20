@@ -6,6 +6,7 @@ extern "C" {
 #include "app.h"
 }
 
-void curve_rows(App *a);
+// the rows in a folding block: folded to begin with when the panel's room left after them would be under `table_least` (the Points table's least height)
+void curve_rows(App *a, float table_least);
 
 #endif

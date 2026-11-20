@@ -261,6 +261,13 @@ assert rows[3][-1] == (0.0, 550.0) and len(rows[3]) == 7, ('a straight of 250 m 
 " "$work/log" || fail "the curve or the straight did not go where they say: $(grep '^points:' "$work/log")"
 grep -q "^problems: red" "$work/log" && grep -q "radius 15 m (under 20.9 m): not built" "$work/log" || fail "a curve of radius 15 m was not red at once, in Build's words: $(grep '^problems:\|^status:' "$work/log")"
 
+# the rows are a folding block: folded to begin with when the Points table would be left under 4 rows (the default layout, at any window size);
+# a click on its header (curve-fold) unfolds it and the choice stays; the fields are there to Accept either way
+"$editor" "$work/curve" --user "$work/cu2" --window 960x600 --frames 12 --steps curve-block,curve-fold:1,curve-block,curve-fold:0,curve-block >"$work/log" 2>&1 || fail "the Add curve block: $(cat "$work/log")"
+[ "$(grep '^curve block' "$work/log" | tr '\n' '|')" = "curve block: folded|curve block: open|curve block: folded|" ] || fail "the Add curve block does not start folded and follow the header: $(grep '^curve block' "$work/log")"
+"$editor" "$work/curve" --user "$work/cu3" --window 960x600 --frames 12 --steps curve-block,curve:1,90,60,0,status >"$work/log" 2>&1 || fail "Add curve with the block folded: $(cat "$work/log")"
+grep -q "^status: curve added" "$work/log" || fail "Add curve does not work with the block folded: $(grep '^status:' "$work/log")"
+
 # ==== Build: under the limits, over an amber one, refused over a red one ====
 # Build: a curve under the limits is built, one over them is refused with the limit named
 "$editor" "$work/mild" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a curve under the limits: $(cat "$work/log")"

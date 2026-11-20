@@ -18,6 +18,8 @@
  *   mirror-lr, mirror-fb, reverse   the Points window's Mirror L/R, Mirror F/B and Reverse on the selected run
  *   curve:DIR,DEG,R,K  Add curve's fields (DIR 1 right, 0 left; DEG degrees, R metres, K points, 0 for the default) and Accept
  *   straight:L,K   Add straight's (L metres, K points or 0) and Accept
+ *   curve-block    prints "curve block: open" or "curve block: folded": the Points panel's Add curve / straight block as last drawn
+ *   curve-fold:N   the block unfolded (1) or folded (0) as a click on its header would; it keeps that whatever the room
  *   preview:KIND   the Viewport shows what Add curve (1) or Add straight (2) would make with their fields, until preview:0 (for a picture)
  *   drag:I,DX,DY   point I taken and dragged DX, DY screen pixels, in four moves, then let go
  *   drag-near:I,J,M  point I dragged as drag does, to M metres before point J on the line from J to I (a place in metres, whatever the zoom)
