@@ -2,7 +2,8 @@
  * author's OBJ, car_import_tables.c in raw mode), and the CFM put together again. Without a low OBJ the low slot holds the high
  * mesh and its bank (the owner's decision 3); in raw mode, which retouches the donor, the donor's own far model and bank stay. Raw
  * mode's banks are the donor's chunks byte for byte (fix/raw-import-banks): it only names the donor's bitmaps; or the piece's own,
- * when they are a retouch of the donor's (CarImportIn.own_cfm: car resize's other sizes survive a Blender round trip). */
+ * when they are a retouch of the donor's (CarImportIn.own_cfm: car resize's other sizes survive a Blender round trip); or a kit's own
+ * banks (CarImportIn.bank, dep85), which are the car's whatever the donor has, and with which no donor is read. */
 #include "formats/car_import_internal.h"
 #include "formats/cfm_build.h"
 #include "formats/chunk.h"
@@ -101,16 +102,42 @@ static int level_chunks(const CarImportIn *in, int level, const DonorLevel *d, u
     return ok;
 }
 
+/* a kit's own bank of `level` (CarImportIn.bank) as the level's bank: no donor mesh (raw makes the mesh from its tables) */
+static int kit_level(const CarImportIn *in, int level, DonorLevel *d, ExchangeError *err)
+{
+    memset(&d->mesh, 0, sizeof d->mesh);
+    d->shpi = in->bank[level], d->shpi_len = in->bank_len[level];
+    return shpi_describe(d->shpi, d->shpi_len, d->bank, DONOR_BANK_CAP, &d->bank_count, err);
+}
+
+/* a kit's build (CarImportIn.bank): both levels from their OBJs and tables with the kit's banks, no donor read */
+static int kit_import(const CarImportIn *in, DonorLevel d[2], uint8_t *made[CFM_CHILDREN], size_t made_len[CFM_CHILDREN], int32_t half[3],
+                      ExchangeError *err)
+{
+    if (!in->raw || in->bank[0] == NULL || in->bank[1] == NULL) { exchange_fail(err, "a kit's banks are given for both models, in raw mode"); return 0; }
+    if (in->low == NULL) { exchange_fail(err, "a kit's far model needs its own OBJ (--low): there is no donor's far model to keep"); return 0; }
+    return kit_level(in, 0, &d[0], err) && level_chunks(in, 0, &d[0], &made[0], &made_len[0], &made[1], &made_len[1], half, err) &&
+           kit_level(in, 1, &d[1], err) && level_chunks(in, 1, &d[1], &made[2], &made_len[2], &made[3], &made_len[3], NULL, err);
+}
+
 int car_import(const CarImportIn *in, uint8_t **cfm, size_t *cfm_len, int32_t half[3], ExchangeError *err)
 {
     const uint8_t *child[CFM_CHILDREN];
     size_t len[CFM_CHILDREN];
     *cfm = NULL, *cfm_len = 0;
-    if (!cfm_describe(in->donor_cfm, in->donor_cfm_len, child, len, err)) return 0;
+    const int kit = in->bank[0] != NULL || in->bank[1] != NULL;
+    if (!kit && !cfm_describe(in->donor_cfm, in->donor_cfm_len, child, len, err)) return 0;
     DonorLevel *d = calloc(2, sizeof *d);
     if (d == NULL) { exchange_fail(err, "out of memory"); return 0; }
     uint8_t *made[CFM_CHILDREN] = { NULL };
     size_t made_len[CFM_CHILDREN] = { 0 };
+    if (kit) {
+        int ok = kit_import(in, d, made, made_len, half, err) && cfm_build((const uint8_t *const *)made, made_len, cfm, cfm_len, err);
+        for (int k = 0; k < CFM_CHILDREN; k++) free(made[k]);
+        mesh_desc_free(&d[0].mesh), mesh_desc_free(&d[1].mesh);
+        free(d);
+        return ok;
+    }
     int ok = donor_level(child, len, 0, &d[0], err);
     if (ok) own_bank(in, 0, &d[0]);
     ok = ok && level_chunks(in, 0, &d[0], &made[0], &made_len[0], &made[1], &made_len[1], half, err);

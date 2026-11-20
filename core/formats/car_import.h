@@ -39,6 +39,10 @@ typedef struct {
                                             * the piece's bank, and Blender's uvs are read with its sizes; without a low OBJ the piece's
                                             * far model stays when its bank is such. Any other bank: the donor's, as without it */
     size_t own_cfm_len;
+    const uint8_t *bank[2];                /* raw: the car's own banks, near and far (a kit's, dep85), each level's SHPI chunk as it is: they
+                                            * are the car's banks whatever the donor has, Blender's uvs are read with their sizes, and with
+                                            * both given (and a low OBJ, which they need) no donor is read: donor_cfm may be NULL */
+    size_t bank_len[2];
     int raw;                               /* the OBJ is mesh_export's: the mesh's frame, units and texel uvs */
     double scale;                          /* mesh units per OBJ unit when not raw */
     double steer_degrees;                  /* 0: each front wheel turns as the donor's (car_steer_fit) */
