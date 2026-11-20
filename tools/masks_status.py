@@ -101,6 +101,7 @@ def main():
         print("masks_status: the data folder %s is not there (--data)" % args.data, file=sys.stderr)
         return 2
     art_f, mask_f, dash_f = folders(args.art), folders(os.path.join(args.data, "car_masks")), folders(os.path.join(args.data, "dash_masks"))
+    art_f = {k: n for k, n in art_f.items() if k in mask_f or any(x.lower().endswith(".psd") for x in (files(os.path.join(args.art, n)) or {}))}   # tracks/ and the like hold no car
     if not os.path.isdir(os.path.join(args.data, "car_masks")):
         print("masks_status: %s has no car_masks folder (--data)" % args.data, file=sys.stderr)
         return 2
