@@ -1,5 +1,5 @@
 /* The pictures of a track's art (formats/fam_image.h): resampling keeps the average, the palette is 6-bit and holds the colours it was
- * made from, and no pixel is given the transparent index 0xFF. */
+ * made from, and no opaque pixel is given the transparent index 0xFF; a see-through one (alpha under 128) is, and gives the palette no colour. */
 #include "formats/fam_image.h"
 #include "test.h"
 
@@ -71,6 +71,39 @@ static void test_no_pixel_is_transparent(void)
     free(idx);
 }
 
+/* a see-through texel (alpha 0) next to an opaque red one: the half-size texel is red, half see-through, not a dark red */
+static void test_resample_colour_by_alpha(void)
+{
+    uint8_t src[2 * 4] = { 255, 0, 0, 255, 0, 0, 0, 0 };
+    FamPicture p = picture(src, 2, 1);
+    uint8_t *out = fam_resample(&p, 1, 1);
+    CHECK(out != NULL);
+    if (out == NULL) return;
+    CHECK_EQ_INT(out[0], 255);
+    CHECK_EQ_INT(out[1], 0);
+    CHECK_EQ_INT(out[3], 128);
+    free(out);
+}
+
+/* alpha under 128 is the transparent index, and its colour is in no palette entry: a green that is never seen takes none of the 255 */
+static void test_see_through_pixels(void)
+{
+    uint8_t rgba[4 * 4] = { 255, 0, 0, 255, 0, 255, 0, 0, 0, 255, 0, 127, 0, 0, 255, 128 };
+    FamPicture p = picture(rgba, 4, 1);
+    uint8_t pal[FAM_PALETTE_BYTES];
+    CHECK(fam_palette_make(&p, 1, pal));
+    uint8_t *idx = fam_indices(&p, pal);
+    CHECK(idx != NULL);
+    if (idx == NULL) return;
+    CHECK(idx[0] != 0xff && idx[3] != 0xff);   /* opaque, and 128 is opaque enough */
+    CHECK_EQ_INT(idx[1], 0xff);
+    CHECK_EQ_INT(idx[2], 0xff);
+    int green = 0;
+    for (int i = 0; i < FAM_PIXEL_INDICES; i++) green += (pal[3 * i + 1] << 2) >= 128 && (pal[3 * i] << 2) < 128 && (pal[3 * i + 2] << 2) < 128;
+    CHECK_EQ_INT(green, 0);
+    free(idx);
+}
+
 static void test_black_and_white_palette(void)
 {
     uint8_t rgba[4 * 3] = { 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
@@ -127,6 +160,8 @@ static void test_line_shades_keep_their_hue(void)
 
 int main(void)
 {
+    test_resample_colour_by_alpha();
+    test_see_through_pixels();
     test_resample_average();
     test_resample_up();
     test_palette_holds_the_colours();

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+enum { OPAQUE = 255 };
 enum { CELL_LEVELS = 64, CELLS = CELL_LEVELS * CELL_LEVELS * CELL_LEVELS, CHANNELS = 3 };
 
 typedef struct {
@@ -26,7 +27,7 @@ static uint32_t *histogram_of(const FamPicture *pics, size_t n)
         const size_t count = (size_t)pics[p].width * pics[p].height;
         for (size_t i = 0; i < count; i++) {
             const uint8_t *px = pics[p].rgba + i * 4;
-            hist[cell_of(px[0], px[1], px[2])]++;
+            if (px[3] >= FAM_SEEN_ALPHA) hist[cell_of(px[0], px[1], px[2])]++;   /* a see-through pixel's colour is never shown */
         }
     }
     return hist;
@@ -227,7 +228,7 @@ uint8_t *fam_indices(const FamPicture *pic, const uint8_t palette6[FAM_PALETTE_B
     if (out == NULL) return NULL;
     for (size_t i = 0; i < count; i++) {
         const uint8_t *px = pic->rgba + i * 4;
-        out[i] = fam_palette_index(palette6, px[0], px[1], px[2]);
+        out[i] = px[3] >= FAM_SEEN_ALPHA ? fam_palette_index(palette6, px[0], px[1], px[2]) : FAM_TRANSPARENT;
     }
     return out;
 }
@@ -242,12 +243,18 @@ uint8_t *fam_resample(const FamPicture *src, uint32_t width, uint32_t height)
         for (uint32_t x = 0; x < width; x++) {
             uint32_t x0 = (uint32_t)((uint64_t)x * src->width / width), x1 = (uint32_t)((uint64_t)(x + 1) * src->width / width);
             if (x1 <= x0) x1 = x0 + 1;
-            uint64_t sum[4] = { 0, 0, 0, 0 };
+            uint64_t sum[4] = { 0, 0, 0, 0 }, weighted[3] = { 0, 0, 0 };
             for (uint32_t sy = y0; sy < y1; sy++)
-                for (uint32_t sx = x0; sx < x1; sx++)
-                    for (int c = 0; c < 4; c++) sum[c] += src->rgba[((size_t)sy * src->width + sx) * 4 + c];
+                for (uint32_t sx = x0; sx < x1; sx++) {
+                    const uint8_t *px = src->rgba + ((size_t)sy * src->width + sx) * 4;
+                    for (int c = 0; c < 4; c++) sum[c] += px[c];
+                    for (int c = 0; c < 3; c++) weighted[c] += (uint64_t)px[c] * px[3];
+                }
             const uint64_t count = (uint64_t)(x1 - x0) * (y1 - y0);
-            for (int c = 0; c < 4; c++) out[((size_t)y * width + x) * 4 + c] = (uint8_t)((sum[c] + count / 2) / count);
+            uint8_t *to = out + ((size_t)y * width + x) * 4;
+            for (int c = 0; c < 4; c++) to[c] = (uint8_t)((sum[c] + count / 2) / count);
+            if (sum[3] != OPAQUE * count && sum[3] != 0)   /* some see-through texels: the colour is the seen ones' (an opaque box keeps the plain mean) */
+                for (int c = 0; c < 3; c++) to[c] = (uint8_t)((weighted[c] + sum[3] / 2) / sum[3]);
         }
     }
     return out;

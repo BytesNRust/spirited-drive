@@ -1,5 +1,5 @@
 /* The track art file built from pictures (formats/fam_build.h): the tree the chunk reader walks, the banks the SHPI reader opens, the
- * variant sizes, no transparent pixel, the validator's limits, and the refusals. With the path to the CD's AL1 track file as an
+ * variant sizes, no transparent pixel from opaque pictures and see-through ones from a picture with gaps (a fence's), the validator's limits, and the refusals. With the path to the CD's AL1 track file as an
  * argument, the terrain's variants have the CD's sizes. */
 #include "formats/chunk.h"
 #include "formats/fam_build.h"
@@ -305,6 +305,46 @@ static void test_generic_check(const Stage *s)
     CHECK(strstr(msg, "letters") != NULL);
 }
 
+/* a fence with gaps (step: fences): terrain 1's left half is see-through (alpha 0). Every bitmap of its bank, at every variant size, holds
+ * the transparent index 0xFF (the game draws it see-through, track_art.c) and seen pixels too; bank 0's, opaque, holds none */
+static void test_see_through_bank(const Stage *stage)
+{
+    static uint8_t gaps[SIDE * SIDE * 4];
+    memcpy(gaps, stage->terrain[1], sizeof gaps);
+    for (int y = 0; y < SIDE; y++)
+        for (int x = 0; x < SIDE / 2; x++) gaps[4 * (y * SIDE + x) + 3] = 0;
+    const FamPicture terrain[TEXTURES] = { stage->terrain_pic[0], { SIDE, SIDE, gaps } };
+    const FamSource src = { terrain, TEXTURES, NULL, 0, &stage->horizon_pic, NULL };
+    uint8_t *file = NULL;
+    size_t len = 0;
+    char msg[256];
+    CHECK(build(&src, &file, &len, msg, sizeof msg));
+    if (file == NULL) return;
+    Chunk root, group;
+    CHECK(chunk_open(&root, file, len) == CHUNK_OK);
+    CHECK(chunk_child(&root, FAM_CHILD_TERRAIN, &group) == CHUNK_OK);
+    for (uint32_t b = 0; b < TEXTURES; b++) {
+        Chunk bank;
+        Fsh fsh;
+        CHECK(chunk_child(&group, b, &bank) == CHUNK_OK && bank_open(&bank, &fsh));
+        int bitmaps = 0, with_gaps = 0, with_seen = 0;
+        for (uint32_t i = 0; i < fsh.count; i++) {
+            FshEntry e;
+            if (fsh_entry(&fsh, i, &e) != FSH_OK || e.type != FSH_TYPE_BITMAP) continue;
+            const size_t n = (size_t)e.width * e.height;
+            int clear = 0;
+            for (size_t k = 0; k < n; k++) clear += e.payload[k] == 0xff;
+            ++bitmaps;
+            with_gaps += clear > 0;
+            with_seen += (size_t)clear < n;
+        }
+        CHECK(bitmaps == FAM_LETTERS * FAM_VARIANTS);
+        CHECK_EQ_INT(with_gaps, b == 1 ? bitmaps : 0);
+        CHECK_EQ_INT(with_seen, bitmaps);
+    }
+    free(file);
+}
+
 int main(int argc, char **argv)
 {
     static Stage stage;
@@ -325,6 +365,7 @@ int main(int argc, char **argv)
     test_file_limit(&stage);
     test_letters(&stage, len);
     test_generic_check(&stage);
+    test_see_through_bank(&stage);
     if (argc > 1) test_ladder_matches_cd(file, len, argv[1]);
     free(file);
     return TEST_REPORT();
