@@ -415,7 +415,7 @@ static void test_keys_none_is_old(void)
     memset(&err, 0, sizeof err);
     CHECK(track_trace_nodes(p, 6, WIDTH, &a, &na, &err));
     CHECK(track_trace_nodes_keyed(p, 6, WIDTH, NULL, 0, &b, &nb, &err));
-    const TraceKey none[1] = { { 2, 0, 0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* a key with no value (no bit set) says nothing */
+    const TraceKey none[1] = { { .point = 2, .has = 0, .width_m = 0 } };   /* a key with no value (no bit set) says nothing */
     CHECK(track_trace_nodes_keyed(p, 6, WIDTH, none, 1, &c, &nc, &err));
     CHECK_EQ_INT(na, nb);
     CHECK_EQ_INT(na, nc);
@@ -436,7 +436,7 @@ static void test_keys_interpolate(void)
 {
     TracePoint p[6];
     straight_points(p, 6, 60);                    /* 300 m: 12 segments, a node every 6.25 m */
-    const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH, 8.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 4, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* 32 and 56 bytes at s = 60 and 240 */
+    const TraceKey keys[2] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 8.0 }, { .point = 4, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };   /* 32 and 56 bytes at s = 60 and 240 */
     TrackGenNode *n = NULL;
     int count = 0;
     ExchangeError err;
@@ -458,7 +458,7 @@ static void test_keys_interpolate(void)
     CHECK(n[48].width == 56);                     /* after the last key it holds */
     free(n);
 
-    const TraceKey first = { 0, TRACE_KEY_WIDTH, 6.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT };   /* a key on point 0 replaces the project's width as the start */
+    const TraceKey first = { .point = 0, .has = TRACE_KEY_WIDTH, .width_m = 6.0 };   /* a key on point 0 replaces the project's width as the start */
     CHECK(track_trace_nodes_keyed(p, 6, WIDTH, &first, 1, &n, &count, &err));
     CHECK(n != NULL && n[0].width == 24 && n[count - 1].width == 24);
     free(n);
@@ -479,15 +479,15 @@ static void test_keys_faults(void)
     int count = 0;
     ExchangeError err;
     memset(&err, 0, sizeof err);
-    const TraceKey off[1] = { { 4, TRACE_KEY_WIDTH, 10.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
+    const TraceKey off[1] = { { .point = 4, .has = TRACE_KEY_WIDTH, .width_m = 10.0 } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, off, 1, &n, &count, &err));
     CHECK(strstr(err.message, "point 4") != NULL);
-    const TraceKey narrow[1] = { { 1, TRACE_KEY_WIDTH, 1.75, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
+    const TraceKey narrow[1] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 1.75 } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, narrow, 1, &n, &count, &err));
     CHECK(strstr(err.message, "2") != NULL && strstr(err.message, "30") != NULL);
-    const TraceKey wide[1] = { { 1, TRACE_KEY_WIDTH, 30.25, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
+    const TraceKey wide[1] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 30.25 } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, wide, 1, &n, &count, &err));
-    const TraceKey twice[2] = { { 1, TRACE_KEY_WIDTH, 9.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 1, TRACE_KEY_WIDTH, 11.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
+    const TraceKey twice[2] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 9.0 }, { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 11.0 } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, twice, 2, &n, &count, &err));
     CHECK(strstr(err.message, "twice") != NULL);
     CHECK(n == NULL && count == 0);
@@ -527,7 +527,7 @@ static void test_keys_width_limit(void)
     TracePoint q[12];                                   /* evenly spaced, so the curve is straight: only the width is amber */
     straight_points(q, 12, 15);
     TracePoint p[4] = { { 0, 0 }, { 0, 100 }, { 0, 115 }, { 0, 300 } };
-    const TraceKey sudden[2] = { { 2, TRACE_KEY_WIDTH, 10.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 3, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* 10 to 14 m (16 bytes) over 15 m */
+    const TraceKey sudden[2] = { { .point = 2, .has = TRACE_KEY_WIDTH, .width_m = 10.0 }, { .point = 3, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };   /* 10 to 14 m (16 bytes) over 15 m */
     TrackGenNode *n = NULL;
     int count = 0;
     ExchangeError err;
@@ -560,7 +560,7 @@ static void test_keys_width_limit(void)
     free(flags);
     free(n);
 
-    const TraceKey calm[2] = { { 0, TRACE_KEY_WIDTH, 8.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 3, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* 6 m over 300 m: 0.2 m a node at the most */
+    const TraceKey calm[2] = { { .point = 0, .has = TRACE_KEY_WIDTH, .width_m = 8.0 }, { .point = 3, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };   /* 6 m over 300 m: 0.2 m a node at the most */
     CHECK(track_trace_nodes_keyed(p, 4, WIDTH, calm, 2, &n, &count, &err));
     flags = calloc((size_t)count, 1);
     track_trace_flags(n, count, flags);
@@ -585,7 +585,7 @@ static void test_keys_ramp_steepness(void)
     const int amber[3] = { 0, 0, 1 };
     for (int t = 0; t < 3; ++t) {
         TracePoint p[4] = { { 0, 0 }, { 0, 100 }, { 0, 100 + lengths[t] }, { 0, 300 } };
-        const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH, 8.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 2, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
+        const TraceKey keys[2] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 8.0 }, { .point = 2, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };
         TrackGenNode *n = NULL;
         int count = 0;
         ExchangeError err;
@@ -607,8 +607,8 @@ static void test_surface_keys(void)
 {
     TracePoint p[6];
     straight_points(p, 6, 60);                    /* 300 m: 49 nodes, a node every 6.25 m; points at 0, 60, 120 .. 300 m */
-    const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH | TRACE_KEY_SHOULDER_SURFACE, 8.0, TRACE_SURFACE_TARMAC, TRACE_SURFACE_INHERIT },
-                               { 3, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_VERGE, TRACE_SURFACE_TARMAC } };
+    const TraceKey keys[2] = { { .point = 1, .has = TRACE_KEY_WIDTH | TRACE_KEY_SHOULDER_SURFACE, .width_m = 8.0, .shoulder_l_surface = TRACE_SURFACE_TARMAC, .shoulder_r_surface = TRACE_SURFACE_INHERIT },
+                               { .point = 3, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_VERGE, .shoulder_r_surface = TRACE_SURFACE_TARMAC } };
     TrackGenNode *n = NULL;
     int count = 0;
     ExchangeError err;
@@ -635,7 +635,7 @@ static void test_surface_keys(void)
     CHECK(left[2] == TRACE_SURFACE_TARMAC && rights[2] == TRACE_SURFACE_VERGE);
     CHECK(left[3] == TRACE_SURFACE_VERGE && rights[3] == TRACE_SURFACE_TARMAC);
     CHECK(left[5] == TRACE_SURFACE_VERGE && rights[5] == TRACE_SURFACE_TARMAC);
-    const TraceKey nothing[1] = { { 2, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* both sides inherit: nothing */
+    const TraceKey nothing[1] = { { .point = 2, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_INHERIT, .shoulder_r_surface = TRACE_SURFACE_INHERIT } };   /* both sides inherit: nothing */
     CHECK(track_trace_nodes_keyed(p, 6, WIDTH, nothing, 1, &n, &count, &err));
     int zero = n != NULL;
     for (int k = 0; n != NULL && k < count; ++k) zero &= n[k].side[0].has == 0 && n[k].side[1].has == 0 && n[k].side[0].tarmac == 0 && n[k].side[1].tarmac == 0;
@@ -652,14 +652,14 @@ static void test_surface_faults(void)
     int count = 0;
     ExchangeError err;
     memset(&err, 0, sizeof err);
-    const TraceKey off[1] = { { 4, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_TARMAC, TRACE_SURFACE_INHERIT } };
+    const TraceKey off[1] = { { .point = 4, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_TARMAC, .shoulder_r_surface = TRACE_SURFACE_INHERIT } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, off, 1, &n, &count, &err));
     CHECK(strstr(err.message, "point 4") != NULL);
-    const TraceKey odd[1] = { { 1, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_INHERIT, (TraceSurface)7 } };
+    const TraceKey odd[1] = { { .point = 1, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_INHERIT, .shoulder_r_surface = (TraceSurface)7 } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, odd, 1, &n, &count, &err));
     CHECK(strstr(err.message, "point 1") != NULL && strstr(err.message, "surface") != NULL);
-    const TraceKey twice[2] = { { 1, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_TARMAC, TRACE_SURFACE_INHERIT },
-                                { 1, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_VERGE, TRACE_SURFACE_INHERIT } };
+    const TraceKey twice[2] = { { .point = 1, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_TARMAC, .shoulder_r_surface = TRACE_SURFACE_INHERIT },
+                                { .point = 1, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_VERGE, .shoulder_r_surface = TRACE_SURFACE_INHERIT } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, twice, 2, &n, &count, &err));
     CHECK(strstr(err.message, "twice") != NULL);
     CHECK(n == NULL && count == 0);

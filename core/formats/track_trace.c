@@ -1,4 +1,5 @@
 #include "formats/track_trace.h"
+#include "formats/track_trace_sides.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -273,7 +274,8 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
     int stop_count = 0;
     if (stops == NULL) {
         exchange_fail(err, "out of memory");
-    } else if (!width_stops(&c, width, keys, key_count, stops, &stop_count, err) || !check_surface_keys(c.count, keys, key_count, err)) {
+    } else if (!width_stops(&c, width, keys, key_count, stops, &stop_count, err) || !check_surface_keys(c.count, keys, key_count, err) ||
+               !trace_sides_check(c.count, keys, key_count, err)) {
         // err names the key
     } else if (segments > TRACK_GEN_MAX_SEGMENTS) {
         exchange_fail(err, "the road is %d segments; the most is %d (about %g m)", segments, TRACK_GEN_MAX_SEGMENTS,
@@ -299,9 +301,17 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
                 out[k].position[2] = (int32_t)lround(z * POSITION_ONE);
             }
             node_surfaces(&c, keys, key_count, step, out, count_nodes);
-            *nodes = out;
-            *node_count = count_nodes;
-            ok = 1;
+            double *point_s = malloc(sizeof *point_s * (size_t)c.count);   // the sides (step 3) along the arc length, from the keys
+            for (int i = 0; point_s != NULL && i < c.count; ++i) point_s[i] = c.s[i * SAMPLES_PER_SPAN];
+            if (point_s == NULL || !trace_sides_apply(point_s, keys, key_count, step, out, count_nodes, err)) {
+                if (point_s == NULL) exchange_fail(err, "out of memory");
+                free(out);
+            } else {
+                *nodes = out;
+                *node_count = count_nodes;
+                ok = 1;
+            }
+            free(point_s);
         }
     }
     free(stops);
@@ -337,6 +347,19 @@ void track_trace_point_surfaces(const TraceKey *keys, int key_count, int count, 
     }
 }
 
+void track_trace_point_sides(const TracePoint *points, int count, const TraceKey *keys, int key_count, double (*values)[TRACE_SIDE_FIELDS][2])
+{
+    Curve c;
+    ExchangeError err;
+    double *point_s = NULL;
+    const int made = points != NULL && count >= 2 && curve_make(points, count, &c);
+    if (made && trace_sides_check(count, keys, key_count, &err) && (point_s = malloc(sizeof *point_s * (size_t)count)) != NULL)
+        for (int i = 0; i < count; ++i) point_s[i] = c.s[i * SAMPLES_PER_SPAN];
+    trace_sides_at_points(point_s, count, keys, key_count, values);   // NULL: the template's for all
+    free(point_s);
+    if (made) curve_free(&c);
+}
+
 /* ---- the key list's edits ---- */
 
 int track_trace_key_find(const TraceKey *keys, int count, int point)
@@ -363,10 +386,8 @@ static int key_slot(TraceKey **keys, int *count, int *cap, int point)
             (*keys)[at] = (*keys)[at - 1];
             --at;
         }
+        memset(&(*keys)[at], 0, sizeof **keys);   // every value of a new key unset, the sides too
         (*keys)[at].point = point;
-        (*keys)[at].has = 0;
-        (*keys)[at].width_m = 0;
-        (*keys)[at].shoulder_l_surface = (*keys)[at].shoulder_r_surface = TRACE_SURFACE_INHERIT;
         ++*count;
     }
     return at;
