@@ -393,6 +393,213 @@ static void test_turn_degrees(void)
     CHECK(fabs(track_trace_turn_degrees(16000, 100) - 10.6348) < 0.001);   /* across the wrap */
 }
 
+
+/* ---- road keys: the width of the road per control point (the plan's step 1) ---- */
+
+static double smooth(double t) { return t * t * (3 - 2 * t); }
+
+/* a straight of `n` points `gap` m apart */
+static void straight_points(TracePoint *p, int n, double gap)
+{
+    for (int i = 0; i < n; ++i) p[i].x = 0, p[i].z = gap * i;
+}
+
+/* no keys: the same nodes as ever, byte for byte; and a key list of nothing is the same */
+static void test_keys_none_is_old(void)
+{
+    TracePoint p[6];
+    straight_points(p, 6, 60);
+    TrackGenNode *a = NULL, *b = NULL, *c = NULL;
+    int na = 0, nb = 0, nc = 0;
+    ExchangeError err;
+    memset(&err, 0, sizeof err);
+    CHECK(track_trace_nodes(p, 6, WIDTH, &a, &na, &err));
+    CHECK(track_trace_nodes_keyed(p, 6, WIDTH, NULL, 0, &b, &nb, &err));
+    const TraceKey none[1] = { { 2, 0, 0 } };   /* a key with no value (no bit set) says nothing */
+    CHECK(track_trace_nodes_keyed(p, 6, WIDTH, none, 1, &c, &nc, &err));
+    CHECK_EQ_INT(na, nb);
+    CHECK_EQ_INT(na, nc);
+    if (a != NULL && b != NULL && c != NULL && na == nb && na == nc) {
+        for (int i = 0; i < na; ++i) {   /* field by field: the struct's tail padding is not written */
+            CHECK(a[i].heading == b[i].heading && a[i].grade == b[i].grade && a[i].bank == b[i].bank && a[i].width == b[i].width);
+            CHECK(memcmp(a[i].position, b[i].position, sizeof a[i].position) == 0);
+            CHECK(a[i].heading == c[i].heading && a[i].width == c[i].width && memcmp(a[i].position, c[i].position, sizeof a[i].position) == 0);
+        }
+    }
+    free(a);
+    free(b);
+    free(c);
+}
+
+/* the width along the road: the project's at the start, then a key's value at its point, and between two keys a smoothstep over the arc length */
+static void test_keys_interpolate(void)
+{
+    TracePoint p[6];
+    straight_points(p, 6, 60);                    /* 300 m: 12 segments, a node every 6.25 m */
+    const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH, 8.0 }, { 4, TRACE_KEY_WIDTH, 14.0 } };   /* 32 and 56 bytes at s = 60 and 240 */
+    TrackGenNode *n = NULL;
+    int count = 0;
+    ExchangeError err;
+    memset(&err, 0, sizeof err);
+    CHECK(track_trace_nodes_keyed(p, 6, WIDTH, keys, 2, &n, &count, &err));
+    CHECK_EQ_INT(count, 49);
+    if (n == NULL) return;
+    int exact = 1;
+    for (int k = 0; k < count; ++k) {
+        const double s = k * 6.25;
+        double want = 56;
+        if (s <= 60) want = 40 + (32 - 40) * smooth(s / 60);                 /* from the project's width (the implicit key of point 0) to the first key */
+        else if (s < 240) want = 32 + (56 - 32) * smooth((s - 60) / 180);    /* between the two keys */
+        if (fabs(n[k].width - want) > 1e-6) exact = 0;
+    }
+    CHECK(exact);
+    CHECK(n[0].width == 40);
+    CHECK(fabs(n[24].width - 44.0) < 1e-9);       /* s = 150: the middle of 60..240 */
+    CHECK(n[48].width == 56);                     /* after the last key it holds */
+    free(n);
+
+    const TraceKey first = { 0, TRACE_KEY_WIDTH, 6.0 };   /* a key on point 0 replaces the project's width as the start */
+    CHECK(track_trace_nodes_keyed(p, 6, WIDTH, &first, 1, &n, &count, &err));
+    CHECK(n != NULL && n[0].width == 24 && n[count - 1].width == 24);
+    free(n);
+
+    double w[6];                                   /* what each control point is, in metres: the dimmed values of the Points table */
+    track_trace_point_widths(p, 6, WIDTH, keys, 2, w);
+    CHECK(fabs(w[0] - 10.0) < 1e-9 && fabs(w[1] - 8.0) < 1e-9 && fabs(w[4] - 14.0) < 1e-9 && fabs(w[5] - 14.0) < 1e-9);
+    CHECK(fabs(w[2] - (32 + 24 * smooth(60.0 / 180)) / 4) < 1e-6);
+    CHECK(fabs(w[3] - (32 + 24 * smooth(120.0 / 180)) / 4) < 1e-6);
+}
+
+/* a key list that is wrong is refused with its point named */
+static void test_keys_faults(void)
+{
+    TracePoint p[4];
+    straight_points(p, 4, 100);
+    TrackGenNode *n = NULL;
+    int count = 0;
+    ExchangeError err;
+    memset(&err, 0, sizeof err);
+    const TraceKey off[1] = { { 4, TRACE_KEY_WIDTH, 10.0 } };
+    CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, off, 1, &n, &count, &err));
+    CHECK(strstr(err.message, "point 4") != NULL);
+    const TraceKey narrow[1] = { { 1, TRACE_KEY_WIDTH, 1.75 } };
+    CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, narrow, 1, &n, &count, &err));
+    CHECK(strstr(err.message, "2") != NULL && strstr(err.message, "30") != NULL);
+    const TraceKey wide[1] = { { 1, TRACE_KEY_WIDTH, 30.25 } };
+    CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, wide, 1, &n, &count, &err));
+    const TraceKey twice[2] = { { 1, TRACE_KEY_WIDTH, 9.0 }, { 1, TRACE_KEY_WIDTH, 11.0 } };
+    CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, twice, 2, &n, &count, &err));
+    CHECK(strstr(err.message, "twice") != NULL);
+    CHECK(n == NULL && count == 0);
+}
+
+/* the list's edits: set, update, clear, and the keys follow their points when one is inserted or removed */
+static void test_keys_edits(void)
+{
+    TraceKey *k = NULL;
+    int n = 0, cap = 0;
+    CHECK(track_trace_key_set_width(&k, &n, &cap, 5, 12.0));
+    CHECK(track_trace_key_set_width(&k, &n, &cap, 2, 8.0));
+    CHECK(track_trace_key_set_width(&k, &n, &cap, 9, 14.0));
+    CHECK_EQ_INT(n, 3);
+    CHECK(k != NULL && k[0].point == 2 && k[1].point == 5 && k[2].point == 9);   /* by point */
+    CHECK(track_trace_key_set_width(&k, &n, &cap, 5, 13.0));
+    CHECK_EQ_INT(n, 3);                                                          /* an update, not a new key */
+    CHECK(k[1].width_m == 13.0 && (k[1].has & TRACE_KEY_WIDTH));
+    CHECK_EQ_INT(track_trace_key_find(k, n, 5), 1);
+    CHECK_EQ_INT(track_trace_key_find(k, n, 4), -1);
+    track_trace_keys_insert_point(k, n, 5);                                      /* a point inserted at 5: the keys from 5 on move up */
+    CHECK(k[0].point == 2 && k[1].point == 6 && k[2].point == 10);
+    track_trace_keys_remove_point(k, &n, 6);                                     /* the point of a key removed: the key goes with it */
+    CHECK_EQ_INT(n, 2);
+    CHECK(k[0].point == 2 && k[1].point == 9);                                   /* the later ones move down */
+    track_trace_key_clear_width(k, &n, 2);
+    CHECK_EQ_INT(n, 1);
+    CHECK(k[0].point == 9);
+    track_trace_key_clear_width(k, &n, 7);                                       /* none there: nothing happens */
+    CHECK_EQ_INT(n, 1);
+    free(k);
+}
+
+/* the limit on the road width: more than 5 bytes (1.25 m) a node is amber, wording and summary included; a calm ramp is clean */
+static void test_keys_width_limit(void)
+{
+    TracePoint q[12];                                   /* evenly spaced, so the curve is straight: only the width is amber */
+    straight_points(q, 12, 15);
+    TracePoint p[4] = { { 0, 0 }, { 0, 100 }, { 0, 115 }, { 0, 300 } };
+    const TraceKey sudden[2] = { { 2, TRACE_KEY_WIDTH, 10.0 }, { 3, TRACE_KEY_WIDTH, 14.0 } };   /* 10 to 14 m (16 bytes) over 15 m */
+    TrackGenNode *n = NULL;
+    int count = 0;
+    ExchangeError err;
+    memset(&err, 0, sizeof err);
+    CHECK(track_trace_nodes_keyed(q, 12, WIDTH, sudden, 2, &n, &count, &err));
+    if (n == NULL) return;
+    uint8_t *flags = calloc((size_t)count, 1);
+    track_trace_flags(n, count, flags);
+    int flagged = 0, right = 1;
+    for (int i = 1; i < count; ++i) {
+        const int over = fabs(n[i].width - n[i - 1].width) > 5.0 + 1e-9;
+        if ((flags[i] & TRACE_FLAG_WIDTH_WARN) != 0) ++flagged;
+        if (((flags[i] & TRACE_FLAG_WIDTH_WARN) != 0) != over) right = 0;
+        CHECK((flags[i] & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) == 0);   /* amber for the width, red for nothing */
+    }
+    CHECK(right);
+    CHECK(flagged > 0);
+    CHECK(flags[0] == 0);
+    TraceProblem rows[8];
+    const int total = track_trace_problems(n, count, flags, rows, 8);
+    CHECK_EQ_INT(total, flagged);
+    CHECK(total > 0 && !rows[0].red && rows[0].width_step > 1.25);
+    char text[160];
+    track_trace_problem_text(&rows[0], text, sizeof text);
+    CHECK(strstr(text, "width changes") != NULL && strstr(text, "more than 1.25 m") != NULL && strstr(text, "may not look right") != NULL);
+    TraceSummaryLine lines[TRACE_SUMMARY_LINES];
+    const int used = track_trace_summary(flags, count, lines);
+    CHECK_EQ_INT(used, 1);
+    CHECK(!lines[0].red && lines[0].nodes == flagged && strstr(lines[0].text, "change width by more than 1.25 m per node") != NULL);
+    free(flags);
+    free(n);
+
+    const TraceKey calm[2] = { { 0, TRACE_KEY_WIDTH, 8.0 }, { 3, TRACE_KEY_WIDTH, 14.0 } };   /* 6 m over 300 m: 0.2 m a node at the most */
+    CHECK(track_trace_nodes_keyed(p, 4, WIDTH, calm, 2, &n, &count, &err));
+    flags = calloc((size_t)count, 1);
+    track_trace_flags(n, count, flags);
+    CHECK_EQ_INT(count_flags(flags, count, TRACE_FLAG_WIDTH_WARN), 0);
+    free(flags);
+    free(n);
+
+    /* the longest row: both amber turn rules and the width one on a node of the last digits; the text is whole, not cut at the buffer */
+    const TraceProblem all = { 2396, 0, TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN, 16.4, 21.0, 1.55 };
+    char longest[TRACE_PROBLEM_TEXT];
+    track_trace_problem_text(&all, longest, sizeof longest);
+    CHECK(strlen(longest) > 128 - 1 && strlen(longest) < TRACE_PROBLEM_TEXT - 1);
+    CHECK(strstr(longest, "width changes 1.55 m (more than 1.25 m), may not look right") != NULL);
+    CHECK(strncmp(longest, "node 2396: turns 16.4", 21) == 0);
+}
+
+/* the ramp's steepest step: the smoothstep's slope is 1.5 times the average one, so a ramp of D bytes over L metres on 6.25 m nodes steps 1.5 x D x 6.25 / L
+ * bytes at the most: 8 to 14 m (24 bytes) is at the limit at 45 m (5.00 bytes), clean from about there and amber under it */
+static void test_keys_ramp_steepness(void)
+{
+    const double lengths[3] = { 60, 45, 40 };
+    const int amber[3] = { 0, 0, 1 };
+    for (int t = 0; t < 3; ++t) {
+        TracePoint p[4] = { { 0, 0 }, { 0, 100 }, { 0, 100 + lengths[t] }, { 0, 300 } };
+        const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH, 8.0 }, { 2, TRACE_KEY_WIDTH, 14.0 } };
+        TrackGenNode *n = NULL;
+        int count = 0;
+        ExchangeError err;
+        memset(&err, 0, sizeof err);
+        CHECK(track_trace_nodes_keyed(p, 4, 32, keys, 2, &n, &count, &err));   /* the project's width 8 m too: the ramp is the only change */
+        if (n == NULL) return;
+        double most = 0;
+        for (int i = 1; i < count; ++i) most = fmax(most, fabs(n[i].width - n[i - 1].width));
+        CHECK(most <= 1.5 * 24 * 6.25 / lengths[t] + 0.05);                      /* the slope's own bound */
+        CHECK_EQ_INT(most > 5.0, amber[t]);
+        free(n);
+    }
+}
+
 int main(void)
 {
     test_straight();
@@ -408,5 +615,11 @@ int main(void)
     test_generates_tri();
     test_turn_degrees();
     test_turned_generic();
+    test_keys_none_is_old();
+    test_keys_interpolate();
+    test_keys_faults();
+    test_keys_edits();
+    test_keys_width_limit();
+    test_keys_ramp_steepness();
     return TEST_REPORT();
 }

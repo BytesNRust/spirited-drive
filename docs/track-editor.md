@@ -20,7 +20,7 @@ The project folder is created with `project.ini` and `trace.json` (a straight of
 | File | What it holds |
 |------|---------------|
 | `project.ini` | `id`, `name`, `author`, `stem` (1..7 of A-Z 0-9, not AL/CL/CY/TR first), `art` (a FAM: relative to the project folder, or absolute), `redistributable` (the author's word on the art's licence) |
-| `trace.json` | `width` (the road's width byte, 8..120; the template's is 40, see Road width) and `points`, the control points as `[x, z]` in metres (one track unit is one metre) |
+| `trace.json` | `width` (the road's width byte, 8..120; the template's is 40, see Road width) and `points`, the control points as `[x, z]` in metres (one track unit is one metre), and optional `version` (2) and `keys`, the road keys (see Road keys). A file with no `version` or `1` has no keys; a newer one is refused |
 | `build/<id>.zip` | written by Build; the only thing the game installs |
 
 ## Keys
@@ -132,7 +132,7 @@ use what is on screen, not the file, as before.
 ## Metres and the Node window
 
 One track unit is one metre (`TRACE_METRES_PER_UNIT` in `core/formats/track_trace.h` says where that comes from), and the editor writes every distance in metres.
-The Points table has two read-only columns beside x and z: `dist m`, the distance along the curve from the start to the point, and `turn`, the turn at the
+The Points table has a `width (m)` column (see Road keys) and two read-only columns beside x and z: `dist m`, the distance along the curve from the start to the point, and `turn`, the turn at the
 node nearest the point ("R 5.3°" to the right, "L 3.1°" to the left). Hovering a node in the Viewport shows its number, its distance from the start and its
 turn. The **Node** window (under Points) shows the selected node, picked by a click in the Viewport, in Points or in Problems: its number, x and z, the
 distance from the start, the turn, the distance to the node before and to the next one, and the limits it breaks. With none it says "Select a node".
@@ -146,6 +146,25 @@ The Track window (above Project in the first layout; a tab beside Project in a l
 the tarmac the surface changes and the walls start further out. In `trace.json` the width is still the node byte `width` (track_gen's byte 0 of every
 node): the distance of each edge from the centre in eighths of a metre (VERGE_UNIT 0x2000 in 16.16, game/race/car_walls.c), so metres = byte / 4
 and the template's 40 is 10 m. The terrain rows move by the same amount, 16 raw per byte (0.125 m).
+
+## Road keys: the width per point
+
+A control point can set the road's width from there on: in the Points table, drag its `width (m)` cell (2 to 30 m, one pixel is 0.25 m). That makes a **road key** on the
+point. A point with no key shows the width it inherits, dimmed: from the Track window's width before the first key, and between two keys a smoothstep of the
+distance along the curve (3t²-2t³, so the road widens gently at both ends; its steepest slope is 1.5 times the average), and after the last key the last key's
+width holds. Right-click a key's cell and choose "Inherit again" to clear it. Inserting a point keeps the keys on their points, removing one drops its key. The
+Node window shows the node's effective width.
+
+Problems marks amber a node whose width changes by more than 1.25 m (5 bytes) from the node before: D metres over L metres of road on 6.25 m nodes (a 300 m road) steps 1.5 x D x 6.25 / L,
+so an 8 to 14 m ramp is right at the limit at 45 m of road (5.00 bytes), clean from about 45 m on and amber under it (at 40 m). A width clause on a node that is red for another reason is covered by "can't be built". In `trace.json` the keys are written only when there are some, with `"version": 2`:
+
+```json
+{ "version": 2, "width": 32, "points": [[0,0],[60,0],[120,0],[180,0],[240,0],[300,0]],
+  "keys": [ {"point": 1, "width_m": 8.0}, {"point": 4, "width_m": 14.0} ] }
+```
+
+A key whose point does not exist, twice on a point, or with a width outside 2..30 m refuses the file with a message naming it. Unknown fields are ignored. Banks, lanes and
+surface per key are not read yet; their place is reserved in the key (`TRACE_KEY_*` bits in `core/formats/track_trace.h`).
 
 ## Preview
 
@@ -185,6 +204,6 @@ of the unsaved changes.
 ## What is missing
 
 - The INFO is generic: lines 9 and 10 (the sky colours) are a plain blue and the other lines zero. Not checked against the game's sky.
-- Heights, banks and per-point widths are not read from `trace.json` yet (every node is level, unbanked, of the same width).
+- Heights and banks are not read from `trace.json` yet (every node is level and unbanked); the width is per road key (see Road keys).
 - The install was not run end to end in this version: it invokes the game's `--install`, which needs a built game.
 - The 3D free-flight view, lighting and scenery editing are later phases.

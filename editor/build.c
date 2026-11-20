@@ -70,7 +70,7 @@ static int road_nodes(const Trace *t, TrackGenNode **nodes, int *count, char *wh
         snprintf(why, why_cap, "width %g is outside %d..%d", t->width, PROJECT_WIDTH_MIN, PROJECT_WIDTH_MAX);
         return 0;
     }
-    if (!track_trace_nodes(t->points, t->count, t->width, nodes, count, &err)) {
+    if (!track_trace_nodes_keyed(t->points, t->count, t->width, t->keys, t->key_count, nodes, count, &err)) {
         snprintf(why, why_cap, "%s", err.message);
         return 0;
     }

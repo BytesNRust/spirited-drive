@@ -99,6 +99,55 @@ static double side_reach(const uint8_t *row, int side, int upto, double heading)
     return fabs(across);
 }
 
+/* a road that widens (the road keys of the editor): 20 nodes of 10 m, a smoothstep to 14 m over 24 nodes, then 14 m. The verge byte of each node is the
+ * width, steps at the most of what the smoothstep allows (1.5 x 16 bytes / 24 nodes, so 1 byte, rounded up: 2), and the terrain row's road edge moves
+ * with it, 16 raw units a byte (an eighth of a unit): the edge of the road is where the verge byte says */
+static void check_width_ramp(void)
+{
+    uint8_t *tmpl = NULL;
+    size_t tsize = 0;
+    ExchangeError terr = {0};
+    CHECK(track_template_generic(&tmpl, &tsize, &terr));
+    if (tmpl == NULL) return;
+    enum { RAMP_FROM = 20, RAMP_NODES = 24, COUNT = 20 + 24 + 20 + 1 };
+    static TrackGenNode n[COUNT];
+    memset(n, 0, sizeof n);
+    int32_t z = 0;
+    for (int i = 0; i < COUNT; ++i) {
+        const double t = i <= RAMP_FROM ? 0 : i >= RAMP_FROM + RAMP_NODES ? 1 : (double)(i - RAMP_FROM) / RAMP_NODES;
+        n[i].width = 40 + 16 * t * t * (3 - 2 * t);
+        n[i].position[2] = z;
+        z += TRACK_GEN_NODE_LENGTH;
+    }
+    uint8_t *out = NULL;
+    size_t len = 0;
+    ExchangeError err = {0};
+    CHECK(track_generate_nodes_turned(n, COUNT, tmpl, tsize, &out, &len, &err));
+    if (out == NULL) { fprintf(stderr, "%s\n", err.message); free(tmpl); return; }
+    Tri tri;
+    TriParts parts;
+    CHECK_EQ_INT(tri_open(&tri, out, len), TRI_OK);
+    CHECK_EQ_INT(tri_parts(&tri, &parts), TRI_OK);
+    int previous = 0, most = 0, edges = 1, verges = 1;
+    for (int i = 0; i < COUNT - 1; ++i) {   /* the closing node has no terrain row */
+        TriNode node;
+        CHECK_EQ_INT(tri_node(&tri, (uint32_t)i, &node), TRI_OK);
+        const int want = (int)lround(n[i].width);
+        if (node.right_verge != want || node.left_verge != want) verges = 0;
+        if (i > 0 && abs(node.right_verge - previous) > most) most = abs(node.right_verge - previous);
+        previous = node.right_verge;
+        const uint8_t *row = parts.terrain + (size_t)(i / 4) * TRI_SEGMENT_SIZE + 0x18 + 66 * (i % 4);
+        for (int side = 0; side < 2; ++side)
+            if (fabs(side_reach(row, side, 0, 0) - want / 8.0) > 0.1) edges = 0;   /* byte / 8 units: 16 raw a byte */
+    }
+    CHECK(verges);
+    CHECK(edges);
+    CHECK(most >= 1 && most <= 2);
+    CHECK_EQ_INT(previous, 56);
+    free(out);
+    free(tmpl);
+}
+
 /* an S: 20 nodes straight, then `half` nodes turning `degrees` right and `half` left (abrupt) or the same turn as a sine over the two halves (smooth,
  * as the editor's spline gives it, the turn going through zero), then straight again */
 static void s_nodes(TrackGenNode *n, int count, double degrees, int half, int smooth)
@@ -495,6 +544,7 @@ int main(int argc, char **argv)
     check_turn_limit(tmpl, tsize);
     check_terrain_reach();
     check_s_bend_edges();
+    check_width_ramp();
     check_straight_and_curve(tmpl, tsize);
     check_golden(tmpl, tsize);
     check_layout_nodes();

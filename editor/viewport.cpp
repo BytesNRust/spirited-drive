@@ -59,7 +59,7 @@ void draw_grid(const Canvas &c, const View &v)
 ImU32 segment_colour(uint8_t flags)
 {
     if (flags & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) return BAD;
-    return (flags & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN)) ? WARN : ROAD;
+    return (flags & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN)) ? WARN : ROAD;
 }
 
 // the road: its nodes joined, a node breaking a limit drawn red; with no road (the trace cannot make one), the control polygon in red
@@ -148,8 +148,11 @@ void draw_tooltip(const Canvas &c, const App &a)
     if (a.flags[node] & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) {
         ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "too tight: the road is not built");
         ImGui::TextUnformatted("points too close for this turn: space them out or smooth them");
-    } else if (a.flags[node] & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN)) {
-        ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "very tight curve: check the terrain in the game, the AI brakes");
+    } else {
+        if (a.flags[node] & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN))
+            ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "very tight curve: check the terrain in the game, the AI brakes");
+        if (a.flags[node] & TRACE_FLAG_WIDTH_WARN)
+            ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "width changes too fast (over %g m a node): lengthen the ramp", TRACE_WIDTH_STEP_WARN_M);
     }
     ImGui::EndTooltip();
 }

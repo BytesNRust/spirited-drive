@@ -89,5 +89,11 @@ uint64_t session_fingerprint(const Trace *trace)
         h = mix(h, &trace->points[i].x, sizeof trace->points[i].x);
         h = mix(h, &trace->points[i].z, sizeof trace->points[i].z);
     }
+    h = mix(h, &trace->key_count, sizeof trace->key_count);
+    for (int i = 0; i < trace->key_count; ++i) {   // field by field: the struct's padding is not the key's
+        h = mix(h, &trace->keys[i].point, sizeof trace->keys[i].point);
+        h = mix(h, &trace->keys[i].has, sizeof trace->keys[i].has);
+        h = mix(h, &trace->keys[i].width_m, sizeof trace->keys[i].width_m);
+    }
     return h;
 }
