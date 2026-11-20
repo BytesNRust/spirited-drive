@@ -93,10 +93,12 @@ int main(int argc, char **argv)
         CHECK_EQ_INT((int)strlen(PROJECT_OLD_ARTS[listed]), 64);
         listed++;
     }
-    CHECK_EQ_INT(listed, 3);
-    CHECK(listed == 3 && strcmp(PROJECT_OLD_ARTS[1], "a715e01ce5bd6e088e74ad51c0b5d0015de30ec97d138f27499a4f0fd4fc9151") == 0);
+    CHECK_EQ_INT(listed, 4);
+    CHECK(listed == 4 && strcmp(PROJECT_OLD_ARTS[1], "a715e01ce5bd6e088e74ad51c0b5d0015de30ec97d138f27499a4f0fd4fc9151") == 0);
     /* step 4 retired the art with banks 5 and 6 white fillers (a 1+2 stretch's lanes drew white) */
-    CHECK(listed == 3 && strcmp(PROJECT_OLD_ARTS[2], "d0e0c18cafb9303cc73c3344c37b247ecb8d0a86a57ef8f5841698b420dee861") == 0);
+    CHECK(listed == 4 && strcmp(PROJECT_OLD_ARTS[2], "d0e0c18cafb9303cc73c3344c37b247ecb8d0a86a57ef8f5841698b420dee861") == 0);
+    /* the fence step retired the art with no rail or parapet (banks 11 and 12): a project's copy of it could not build a fence picture the road asks */
+    CHECK(listed == 4 && strcmp(PROJECT_OLD_ARTS[3], "ecb55854df0af20f03359b9e41bf9459ec96ecaadc20a892193e11b3034f8767") == 0);
     if (argc > 1) {   /* the art Studio carries now (editor/art/GENERIC.FAM) is none of them: else every open would replace a project's copy with itself */
         size_t len = 0;
         FILE *f = fopen(argv[1], "rb");

@@ -294,7 +294,7 @@ A `track` piece (`type=track` in its `mod.ini`) is an A-to-B track like Coastal 
     scenery trees.png                   a scenery texture (optional, in order)
     horizon sky.png                     the horizon: exactly one line
 
-`track new --generic ART.FAM` takes a file with at least 11 terrain banks and refuses one with fewer, or one whose bank 10 has no letter C. The template's slots: bank 0 is the road (slot 0), 1 the shoulder (slot 3), 2 the verge (slot 6) and 3 the grass (slot 9), each through its letter A alone; banks 4 to 9 are fillers; bank 10, letter C, is the fence (slot 32). The same file goes in as the day art of the piece (`ETRACKFM` and `GTRACKFM`).
+`track new --generic ART.FAM` takes a file with at least 11 terrain banks and refuses one with fewer, or one whose bank 10 has no letter C. The template's slots: bank 0 is the road (slot 0), 1 the shoulder (slot 3), 2 the verge (slot 6) and 3 the grass (slot 9), each through its letter A alone; banks 4 to 9 are fillers; bank 10, letter C, is the fence (slot 32). A fence's picture is the slot 32 + n, n the fence byte's low five bits: the editor's «Fence picture» Planks, Rail and Parapet are 32, 35 and 38, letter C of banks 10, 11 and 12, and its Build refuses an art without the one the road asks (the Studio's generic art has all three). A fence bank is written `terrain N letters=C fence PICTURE.png`: it holds the CD's two fence sizes (64x64 and 80x40) instead of the eight terrain ones, and a pixel with alpha under 128 is see-through. The same file goes in as the day art of the piece (`ETRACKFM` and `GTRACKFM`).
 
 ## Try your piece
 

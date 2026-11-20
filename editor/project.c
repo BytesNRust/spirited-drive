@@ -615,6 +615,7 @@ const char *const PROJECT_OLD_ARTS[] = {
     "ad2a9b645848ad93fcb939ac954baf6c543233a28db898b58ab708049617e59d",   /* the first: its road's yellow line went green under a car */
     "a715e01ce5bd6e088e74ad51c0b5d0015de30ec97d138f27499a4f0fd4fc9151",   /* bank 4 a white filler: a tarmac shoulder (phase 2 step 2b) drew white */
     "d0e0c18cafb9303cc73c3344c37b247ecb8d0a86a57ef8f5841698b420dee861",   /* banks 5 and 6 white fillers: a 1+2 stretch's lanes (step 4) drew white */
+    "ecb55854df0af20f03359b9e41bf9459ec96ecaadc20a892193e11b3034f8767",   /* no rail or parapet (banks 11, 12): the fence step's pictures could not build */
     NULL,
 };
 

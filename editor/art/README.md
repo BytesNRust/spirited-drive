@@ -12,16 +12,18 @@ from `generic_stage.txt` (here, with the paths of the art folder it was built in
 
 | bank | picture | origin |
 |---|---|---|
-| terrain 1 gravel, 2 rock, 3 grass, 10 planks | Gravel001, Rock035, Grass005, Planks001 (512x512 colour maps) | ambientCG, CC0 1.0 |
+| terrain 1 gravel, 2 rock, 3 grass | Gravel001, Rock035, Grass005 (512x512 colour maps) | ambientCG, CC0 1.0 |
 | terrain 0 road | asphalt with our own yellow centre line and white edge lines (`make_road.py`) | Asphalt010 (ambientCG, CC0 1.0) and our own lines |
 | terrain 4 tarmac shoulder (phase 2 step 2b, slot 12) | Asphalt010 as it is: the road's asphalt without its lines | ambientCG, CC0 1.0 |
 | terrain 6 two lanes (phase 2 step 4, slot 18) | Asphalt010 laid twice across with our own lines (`make_lanes.py`): the yellow centre line inside, a dashed white line in the middle, the white edge line outside: the two-lane half of a 1+2 or 2+1 stretch as one 10 m strip (the game stands a side's fence on row point 2, so a stretch is width, not row points) | Asphalt010 (ambientCG, CC0 1.0) and our own lines |
+| terrain 10, 11, 12 the fence's pictures Planks, Rail, Parapet (the fence step, slots 32, 35, 38; `letters=C fence`: the CD's two fence sizes, 64x64 and 80x40) | 320x160 pictures (`make_fences.py`): three boards of Planks001 with see-through gaps and two posts; a steel guard rail, its beam and two posts, see-through between; a parapet of Rock035 under a lighter capstone row, opaque | Planks001, Rock035 (ambientCG, CC0 1.0); the rail and the shapes ours |
 | terrain 5 and 7..9 fillers | flat white | ours |
 | horizon | a flat vertical blue gradient, 256x64 | ours |
 
 ambientCG's licence: "All assets are released under the Creative Commons CC0 license, making them free to use without attribution - even in
 commercial circumstances." (checked 2026-11-18; the pages are https://ambientcg.com/view?id=Gravel001, Rock035, Grass005, Planks001, Asphalt010.)
-The contract of the FAM (11 terrain banks, bank 10 with letter C only) is the one `track new --generic` checks (core/formats/track_template.c).
+The contract of the FAM (at least 11 terrain banks, bank 10 with letter C) is the one `track new --generic` checks (core/formats/track_template.c);
+the editor's Build also refuses an art without the picture a fence key asks (the rail is bank 11's letter C, the parapet bank 12's).
 
 ## The shades under a car
 
