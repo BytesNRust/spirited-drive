@@ -52,12 +52,12 @@ int psd_job_find(const char *psd_root, const char *folder, char *out, size_t cap
     return found;
 }
 
-static int run_script(PsdJob *job, const char *script, const char *out_dir, char *why, size_t why_cap)
+static int run_script(PsdJob *job, const char *script, const char *src_root, const char *out_dir, char *why, size_t why_cap)
 {
     char path[PSD_PATH];
     if (!join(path, sizeof path, job->tools, script)) return snprintf(why, why_cap, "the tools path is too long"), 0;
     if (access(path, R_OK) != 0) return snprintf(why, why_cap, "%s is not in %s: Convert PSD needs the repository's tools folder", script, job->tools), 0;
-    char *argv[] = { "/usr/bin/env", "python3", path, job->psd_dir, (char *)out_dir, NULL };
+    char *argv[] = { "/usr/bin/env", "python3", path, (char *)src_root, (char *)out_dir, NULL };
     proc_free(&job->run);
     return proc_start(&job->run, argv, environ, NULL, why, why_cap);
 }
@@ -148,6 +148,7 @@ static void fail(PsdJob *job, const char *what)
     char tail[200];
     snprintf(tail, sizeof tail, "%s", log + len - keep);
     for (char *c = tail; *c != '\0'; c++) if (*c == '\n') *c = ' ';
+    if (strstr(log, "No module named") != NULL) what = "python3 has no psd-tools or Pillow: run  pip3 install psd-tools Pillow  and try again";
     snprintf(job->text, sizeof job->text, "Convert PSD failed: %s%s%s", what, tail[0] != '\0' ? ": " : "", tail);
     job->finished = 1, job->ok = 0, job->stage = 0;
     clean_scratch(job);
@@ -199,6 +200,28 @@ static int has_dash_psd(const PsdJob *job)
     return join(path, sizeof path, job->psd_dir, "dash.psd") && access(path, R_OK) == 0;
 }
 
+/* The scripts take a folder of car folders and turn every PSD of each into a mask (the body script would make masks of dash.psd and of a backup too): so they are
+ * given a scratch tree of links to just this car's PSDs, one for the body masks and one for the dash. The PSDs themselves are only ever read. */
+static int link_sources(PsdJob *job)
+{
+    char body[PSD_PATH], dash[PSD_PATH], root[PSD_PATH];
+    if (!join(root, sizeof root, job->scratch, "body_src") || !join(body, sizeof body, root, job->folder) || mkdir(root, 0755) != 0 || mkdir(body, 0755) != 0) return 0;
+    if (!join(root, sizeof root, job->scratch, "dash_src") || !join(dash, sizeof dash, root, job->folder) || mkdir(root, 0755) != 0 || mkdir(dash, 0755) != 0) return 0;
+    DIR *d = opendir(job->psd_dir);
+    if (d == NULL) return 0;
+    int ok = 1;
+    for (const struct dirent *e = readdir(d); e != NULL && ok; e = readdir(d)) {
+        const size_t len = strlen(e->d_name);
+        char from[PSD_PATH], to[PSD_PATH];
+        if (len < 5 || strcmp(e->d_name + len - 4, ".psd") != 0 || !join(from, sizeof from, job->psd_dir, e->d_name)) continue;
+        const int is_dash = strcmp(e->d_name, "dash.psd") == 0;
+        if (!is_dash && memchr(e->d_name, '.', len - 4) != NULL) continue;   /* a backup such as frnt.before-1603.psd */
+        if (!join(to, sizeof to, is_dash ? dash : body, e->d_name) || symlink(from, to) != 0) ok = 0;
+    }
+    closedir(d);
+    return ok;
+}
+
 int psd_job_start(PsdJob *job, const char *tools, const char *psd_dir, const char *folder, const char *piece, char *why, size_t why_cap)
 {
     if (job->stage != 0 || job->run.running) return snprintf(why, why_cap, "a conversion is running already"), 0;
@@ -213,12 +236,12 @@ int psd_job_start(PsdJob *job, const char *tools, const char *psd_dir, const cha
     const char *tmp = getenv("TMPDIR");
     if (snprintf(job->scratch, sizeof job->scratch, "%s/tnfs-psd-XXXXXX", tmp != NULL && tmp[0] != '\0' ? tmp : "/tmp") >= (int)sizeof job->scratch || mkdtemp(job->scratch) == NULL)
         return job->scratch[0] = '\0', snprintf(why, why_cap, "no scratch folder for the conversion"), 0;
-    char body[PSD_PATH];
-    if (!join(body, sizeof body, job->scratch, "masks") || mkdir(body, 0755) != 0) return clean_scratch(job), snprintf(why, why_cap, "no scratch folder for the conversion"), 0;
+    char body[PSD_PATH], src[PSD_PATH];
+    if (!join(body, sizeof body, job->scratch, "masks") || mkdir(body, 0755) != 0 || !link_sources(job)) return clean_scratch(job), snprintf(why, why_cap, "no scratch folder for the conversion"), 0;
     char dash[PSD_PATH];
     if (!join(dash, sizeof dash, job->scratch, "dash") || mkdir(dash, 0755) != 0) return clean_scratch(job), snprintf(why, why_cap, "no scratch folder for the conversion"), 0;
     job->stage = 1;
-    if (!run_script(job, BODY_SCRIPT, body, why, why_cap)) {
+    if (!join(src, sizeof src, job->scratch, "body_src") || !run_script(job, BODY_SCRIPT, src, body, why, why_cap)) {
         job->stage = 0;
         clean_scratch(job);
         return 0;
@@ -238,7 +261,8 @@ int psd_job_poll(PsdJob *job)
     }
     if (job->stage == 1 && has_dash_psd(job)) {
         job->stage = 2;
-        if (!join(out, sizeof out, job->scratch, "dash") || !run_script(job, DASH_SCRIPT, out, why, sizeof why)) return fail(job, why), 0;
+        char src[PSD_PATH];
+        if (!join(out, sizeof out, job->scratch, "dash") || !join(src, sizeof src, job->scratch, "dash_src") || !run_script(job, DASH_SCRIPT, src, out, why, sizeof why)) return fail(job, why), 0;
         return 1;
     }
     finish(job);

@@ -29,7 +29,7 @@ void app_psd_setup(App *a, const char *base, const char *root)
     const char *env = getenv("TNFS_TOOLS");
     char cand[APP_PATH];
     if (env != NULL && has_scripts(env)) snprintf(a->tools, sizeof a->tools, "%s", env);
-    static const char *const ABOVE[] = { "tools", "../tools", "../../tools", "../../../tools" };   /* beside the program, or a build folder inside the source tree */
+    static const char *const ABOVE[] = { "tools", "../Resources/tools", "../tools", "../../tools", "../../../tools" };   /* beside the program, or a build folder inside the source tree */
     for (size_t i = 0; base != NULL && a->tools[0] == '\0' && i < sizeof ABOVE / sizeof ABOVE[0]; i++) {
         char dir[APP_PATH];
         if (join(dir, sizeof dir, base, ABOVE[i]) && has_scripts(dir) && realpath(dir, cand) != NULL) snprintf(a->tools, sizeof a->tools, "%s", cand);

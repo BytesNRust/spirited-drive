@@ -58,20 +58,22 @@ static int content_is(const char *rel, const char *text)
 static const char BODY[] =
     "import os, sys\n"
     "src, dest = sys.argv[1], sys.argv[2]\n"
-    "car = os.path.basename(src.rstrip('/'))\n"
-    "os.makedirs(os.path.join(dest, car), exist_ok=True)\n"
-    "for n in sorted(os.listdir(src)):\n"
-    "    if n.endswith('.psd') and n != 'dash.psd' and '.' not in n[:-4]:\n"
-    "        open(os.path.join(dest, car, n[:-4] + '_mask.png'), 'w').write('png of ' + n)\n"
+    "for car in sorted(os.listdir(src)):\n"
+    "    for n in sorted(os.listdir(os.path.join(src, car))):\n"
+    "        if not n.endswith('.psd'):\n"
+    "            continue\n"
+    "        os.makedirs(os.path.join(dest, car), exist_ok=True)\n"
+    "        open(os.path.join(dest, car, n[:-4] + '_mask.png'), 'w').write('png of ' + n + ' read as ' + open(os.path.join(src, car, n)).read())\n"
     "        if os.environ.get('FAKE_PSD_FAIL'):\n"
     "            print('psd-tools exploded on ' + n); sys.exit(3)\n";
 static const char DASH[] =
     "import os, sys\n"
     "src, dest = sys.argv[1], sys.argv[2]\n"
-    "car = os.path.basename(src.rstrip('/'))\n"
-    "os.makedirs(os.path.join(dest, car), exist_ok=True)\n"
-    "open(os.path.join(dest, car, 'dash_mask.png'), 'w').write('dash mask')\n"
-    "open(os.path.join(dest, car, 'dash_color.png'), 'w').write('dash colour')\n";
+    "for car in sorted(os.listdir(src)):\n"
+    "    if os.path.isfile(os.path.join(src, car, 'dash.psd')):\n"
+    "        os.makedirs(os.path.join(dest, car.upper()), exist_ok=True)\n"
+    "        open(os.path.join(dest, car.upper(), 'dash_mask.png'), 'w').write('dash mask')\n"
+    "        open(os.path.join(dest, car.upper(), 'dash_color.png'), 'w').write('dash colour')\n";
 
 static void run_to_end(PsdJob *job)
 {
@@ -116,8 +118,8 @@ static void test_body_masks(void)
     run_to_end(&job);
     CHECK(job.finished && job.ok);
     CHECK_EQ_INT(job.masks, 2);   /* side and frnt: a backup is not a texture */
-    CHECK(content_is("proj/car_masks/TSUPRA/side_mask.png", "png of side.psd"));
-    CHECK(content_is("proj/car_masks/TSUPRA/frnt_mask.png", "png of frnt.psd"));
+    CHECK(content_is("proj/car_masks/TSUPRA/side_mask.png", "png of side.psd read as psd bytes"));
+    CHECK(content_is("proj/car_masks/TSUPRA/frnt_mask.png", "png of frnt.psd read as psd bytes"));
     CHECK(content_is("proj/car_masks/TSUPRA/mine_mask.png", "not in any PSD"));   /* a mask no PSD makes stays */
     CHECK(!exists("proj/dash_masks"));                                           /* no dash.psd: no dash folder */
     CHECK(strstr(job.text, "2 masks") != NULL);
@@ -172,6 +174,20 @@ static void test_dash_and_refusals(void)
 }
 
 /* the dash cannot be written (a file where its folder should be): the body masks are not replaced either */
+/* python3 without psd-tools: the text says what to install */
+static void test_missing_module(void)
+{
+    PsdJob job;
+    char why[300];
+    psd_job_init(&job);
+    put("tools/car_mask_from_psd.py", "import psd_tools_that_is_not_there\n");
+    CHECK(psd_job_start(&job, tools, psd_dir, "TSUPRA", piece, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.finished && !job.ok && strstr(job.text, "pip3 install psd-tools Pillow") != NULL);
+    put("tools/car_mask_from_psd.py", BODY);
+    psd_job_free(&job);
+}
+
 static void test_half_written_never(void)
 {
     PsdJob job;
@@ -222,6 +238,7 @@ int main(void)
     test_failure_leaves_the_project();
     test_dash_and_refusals();
     test_half_written_never();
+    test_missing_module();
     remove_tree();
     return TEST_REPORT();
 }

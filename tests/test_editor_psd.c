@@ -37,13 +37,13 @@ static void dir_of(const char *rel)
 static const char BODY[] =
     "import os, sys\n"
     "src, dest = sys.argv[1], sys.argv[2]\n"
-    "car = os.path.basename(src.rstrip('/'))\n"
-    "os.makedirs(os.path.join(dest, car), exist_ok=True)\n"
-    "for n in sorted(os.listdir(src)):\n"
-    "    if n.endswith('.psd'):\n"
-    "        open(os.path.join(dest, car, n[:-4] + '_mask.png'), 'w').write('png')\n"
-    "        if os.environ.get('FAKE_PSD_FAIL'):\n"
-    "            print('psd-tools exploded'); sys.exit(3)\n";
+    "for car in sorted(os.listdir(src)):\n"
+    "    for n in sorted(os.listdir(os.path.join(src, car))):\n"
+    "        if n.endswith('.psd'):\n"
+    "            os.makedirs(os.path.join(dest, car), exist_ok=True)\n"
+    "            open(os.path.join(dest, car, n[:-4] + '_mask.png'), 'w').write('png')\n"
+    "            if os.environ.get('FAKE_PSD_FAIL'):\n"
+    "                print('psd-tools exploded'); sys.exit(3)\n";
 
 static void run_to_end(App *a)
 {

@@ -97,6 +97,12 @@ pack_app() {
     if [ "$exe" = tnfs-track-editor ]; then   # the generic art a new project copies (editor/art/README.md): without it Studio's first build is refused
         [ -f "$SRC_DIR/editor/art/GENERIC.FAM" ] || { echo "editor/art/GENERIC.FAM is missing: Studio would ship without its generic art" >&2; exit 1; }
         cp "$SRC_DIR/editor/art/GENERIC.FAM" "$app/Contents/Resources/GENERIC.FAM"
+        # Convert PSD (Masks window) runs these two scripts with the Mac's python3 (psd-tools and Pillow are the user's: the button says so)
+        mkdir -p "$app/Contents/Resources/tools"
+        for script in car_mask_from_psd.py dash_mask_from_psd.py; do
+            [ -f "$SRC_DIR/tools/$script" ] || { echo "tools/$script is missing: Studio's Convert PSD would not work" >&2; exit 1; }
+            cp "$SRC_DIR/tools/$script" "$app/Contents/Resources/tools/$script"
+        done
     fi
     icon_key=""
     if [ -n "$icns" ]; then

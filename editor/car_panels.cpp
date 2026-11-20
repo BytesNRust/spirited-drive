@@ -417,7 +417,7 @@ void masks_panel(App *a)
                 if (busy) ImGui::SetTooltip("Converting: the masks are replaced when every script has ended well");
                 else if (a->tools[0] == '\0') ImGui::SetTooltip("The converter scripts (the repository's tools folder) are not beside this program");
                 else if (!found) ImGui::SetTooltip("No folder named %s in %s", c.folder, a->psd_root[0] != '\0' ? a->psd_root : "the PSD folder (--psd-root)");
-                else ImGui::SetTooltip("Make this car's masks again from the PSDs in %s.\nThe masks it makes replace the same ones here; the PSDs are never written.", psd);
+                else ImGui::SetTooltip("Make this car's masks again from the PSDs in %s.\nThe masks it makes replace the same ones here; the PSDs are never written.\nNeeds python3 with psd-tools and Pillow: pip3 install psd-tools Pillow", psd);
             }
             if (busy) {
                 ImGui::SameLine();
