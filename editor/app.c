@@ -39,6 +39,8 @@ static void drop_road(App *a)
     free(a->point_turn);
     free(a->point_width);
     a->node_dist = a->point_dist = a->point_turn = a->point_width = NULL;
+    free(a->point_sides);
+    a->point_sides = NULL;
     a->point_count = 0;
     a->node_for = -2;   // what the Node window shows is taken again from the selected point once the road is made again
     free(a->problems);
@@ -228,11 +230,13 @@ void app_recompute(App *a)
     a->point_dist = calloc((size_t)a->trace.count, sizeof *a->point_dist);
     a->point_turn = calloc((size_t)a->trace.count, sizeof *a->point_turn);
     a->point_width = calloc((size_t)a->trace.count, sizeof *a->point_width);
-    if (a->node_dist != NULL && a->point_dist != NULL && a->point_turn != NULL && a->point_width != NULL) {
+    a->point_sides = calloc((size_t)a->trace.count, sizeof *a->point_sides);
+    if (a->node_dist != NULL && a->point_dist != NULL && a->point_turn != NULL && a->point_width != NULL && a->point_sides != NULL) {
         a->point_count = a->trace.count;
         track_trace_distances(a->nodes, a->node_count, a->node_dist);
         track_trace_point_distances(a->trace.points, a->trace.count, a->point_dist);
         track_trace_point_widths(a->trace.points, a->trace.count, a->trace.width, a->trace.keys, a->trace.key_count, a->point_width);
+        track_trace_point_sides(a->trace.points, a->trace.count, a->trace.keys, a->trace.key_count, a->point_sides);
         for (int i = 0; i < a->trace.count; ++i) a->point_turn[i] = track_trace_signed_turn(a->nodes, nearest_node(a, i));
     } else {   // no memory for the figures: the road is as made, without them
         free(a->node_dist);
@@ -240,6 +244,8 @@ void app_recompute(App *a)
         free(a->point_turn);
         free(a->point_width);
         a->node_dist = a->point_dist = a->point_turn = a->point_width = NULL;
+        free(a->point_sides);
+        a->point_sides = NULL;
     }
     a->summary_count = track_trace_summary(a->flags, a->node_count, a->summary);
     a->problem_count = track_trace_problems(a->nodes, a->node_count, a->flags, NULL, 0);

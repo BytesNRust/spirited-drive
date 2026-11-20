@@ -452,6 +452,66 @@ static void check_side_keys_app(void)
     cleanup_project(dir);
 }
 
+/* every side value on its own: with all eight set on a point (and a width and a surface beside them), setting or clearing one changes only its bit and
+ * its value, never the other side's or another field's (a Left / Right swap or an "Inherit again" that clears the wrong one would show here); and the
+ * App keeps each point's side values as the keys make them (point_sides, made with the road, not each frame), the inherited ones too */
+static void check_side_values_apart(void)
+{
+    char dir[600];
+    path_in(dir, sizeof dir, "sideapart");
+    mkdir(dir, 0777);
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    CHECK(app_open(a, dir, "./tnfs", "", NULL));
+    const int P = 1;
+    app_set_point_width(a, P, 12.0);
+    app_set_point_surface(a, P, TRACK_GEN_LEFT, TRACE_SURFACE_TARMAC);
+    double want[TRACE_SIDE_FIELDS][2];
+    for (int f = 0; f < TRACE_SIDE_FIELDS; ++f)
+        for (int side = 0; side < 2; ++side) {
+            want[f][side] = f == TRACE_SIDE_WALL ? (side ? TRACK_GEN_WALL_HARD : TRACK_GEN_WALL_SOFT) : f == TRACE_SIDE_FENCE ? side : 1.0 + f * 2 + side;
+            app_set_point_side(a, P, f, side, want[f][side]);
+        }
+    for (int f = 0; f < TRACE_SIDE_FIELDS; ++f)
+        for (int side = 0; side < 2; ++side) {
+            const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, P);
+            CHECK(at >= 0);
+            if (at < 0) break;
+            const TraceKey before = a->trace.keys[at];
+            app_clear_point_side(a, P, f, side);
+            const TraceKey *k = &a->trace.keys[track_trace_key_find(a->trace.keys, a->trace.key_count, P)];
+            CHECK_EQ_INT((int)(before.has ^ k->has), (int)TRACE_KEY_SIDE(f, side));   /* only its bit went */
+            CHECK(k->width_m == before.width_m && k->shoulder_l_surface == before.shoulder_l_surface && k->shoulder_r_surface == before.shoulder_r_surface);
+            for (int g = 0; g < TRACE_SIDE_FIELDS; ++g)
+                for (int s2 = 0; s2 < 2; ++s2)
+                    if (g != f || s2 != side) CHECK(k->side[g][s2] == want[g][s2]);
+            const double other = f == TRACE_SIDE_WALL || f == TRACE_SIDE_FENCE ? 1 - want[f][side] : want[f][side] + 0.5;
+            app_set_point_side(a, P, f, side, other);
+            k = &a->trace.keys[track_trace_key_find(a->trace.keys, a->trace.key_count, P)];
+            CHECK(k->has == before.has && k->side[f][side] == other);   /* back, with its new value alone */
+            for (int g = 0; g < TRACE_SIDE_FIELDS; ++g)
+                for (int s2 = 0; s2 < 2; ++s2)
+                    if (g != f || s2 != side) CHECK(k->side[g][s2] == want[g][s2]);
+            want[f][side] = other;
+        }
+    app_recompute(a);
+    CHECK(a->road_made && a->point_sides != NULL && a->point_count == a->trace.count);
+    if (a->road_made && a->point_sides != NULL) {
+        double (*fresh)[TRACE_SIDE_FIELDS][2] = malloc(sizeof *fresh * (size_t)a->trace.count);
+        CHECK(fresh != NULL);
+        if (fresh != NULL) {
+            track_trace_point_sides(a->trace.points, a->trace.count, a->trace.keys, a->trace.key_count, fresh);
+            CHECK(memcmp(fresh, a->point_sides, sizeof *fresh * (size_t)a->trace.count) == 0);
+            CHECK(a->point_sides[P][TRACE_SIDE_SHOULDER][TRACK_GEN_RIGHT] == want[TRACE_SIDE_SHOULDER][TRACK_GEN_RIGHT]);
+            free(fresh);
+        }
+    }
+    app_free(a);
+    free(a);
+    cleanup_project(dir);
+}
+
 /* the editor: a key set on a point is an unsaved change, it saves, clearing it is another, the keys stay on their points when points come and go,
  * and the width is clamped to the road's range and to a quarter of a metre */
 static void check_keys_app(void)
@@ -1188,6 +1248,7 @@ int main(void)
     check_keys_file();
     check_side_keys_file();
     check_side_keys_app();
+    check_side_values_apart();
     check_keys_app();
     check_surface_file();
     check_surface_app();
