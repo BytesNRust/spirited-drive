@@ -26,6 +26,20 @@ static void path_in(char *out, size_t cap, const char *rel)
     snprintf(out, cap, "%s/%s", base, rel);
 }
 
+/* `text` without the fixture's folder in it: a word the windows never say is looked for in what they say, not in mkdtemp's random letters (they made "CD" once) */
+static const char *without_base(const char *text)
+{
+    static char out[1024];
+    size_t at = 0;
+    const size_t len = strlen(base);
+    for (const char *p = text; *p != '\0' && at + 1 < sizeof out;) {
+        if (len > 0 && strncmp(p, base, len) == 0) p += len;
+        else out[at++] = *p++;
+    }
+    out[at] = '\0';
+    return out;
+}
+
 static void make_dirs(const char *rel)
 {
     char p[1024];
@@ -265,7 +279,7 @@ static void test_available(void)
     CHECK(car_export_available(&s, index_of("COPMUST"), why, sizeof why));   /* CopMust.CFM on the disc, COPMUST here */
     CHECK(!car_export_available(&s, index_of("probe"), why, sizeof why));
     CHECK(strstr(why, "no masks") != NULL && strstr(why, "probe") != NULL);
-    CHECK(strstr(why, "CD") == NULL);   /* the windows never say "the CD" */
+    CHECK(strstr(without_base(why), "CD") == NULL);   /* the windows never say "the CD" (the fixture's folder may have the letters) */
     CHECK(!car_export_available(&s, index_of("CRX"), why, sizeof why));   /* its masks folder is not there */
     CHECK(!car_export_available(&s, 99, why, sizeof why));
     ExportSource none = s;
