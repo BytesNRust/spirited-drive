@@ -143,6 +143,36 @@ for seg in range(12):                               # the shoulder band: texture
     assert tex[6] == (12 if 60 <= s0 < 180 else 3) and tex[1] == (12 if s0 >= 180 else 3), (seg, list(tex))
 PY
 python3 "$work/tri_surfaces.py" "$work/surface/build/surface.zip" || fail "the TRI of the surface project does not have the shoulders of its keys"
+# the road's sides (step 3): the right wall 8 m past the road edge from point 0, a soft left wall from point 1 then a hard one from point 3, no right
+# fence from point 2. The TRI's nodes have the right wall byte 64 eighths past the right edge (+3 minus +1), flags[1]'s high nibble (left) 1 then 0 where
+# the template's was before, and the segments (4 nodes, 25 m) from 125 m on lose the right fence bit (0x40), every other bit the template's
+mkdir "$work/sides"
+printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 0, "barrier_r_m": 8.0}, {"point": 1, "wall_l": "soft"}, {"point": 2, "fence_r": false}, {"point": 3, "wall_l": "hard"}]\n}\n' > "$work/sides/trace.json"
+"$editor" "$work/sides" --frames 6 --select 1 --shot "$work/sides.png" >"$work/log" 2>&1 || fail "run on a project with side keys: $(cat "$work/log")"
+png_check "$work/sides.png" good
+"$editor" "$work/sides" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a project with side keys: $(cat "$work/log")"
+cat > "$work/tri_sides.py" <<'PY'
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+names = [n for n in z.namelist() if n.upper().endswith(".TRI")]
+assert len(names) == 1, names
+d = z.read(names[0])
+node = lambda k, b: d[0x98C + 36 * k + b]
+walls = [node(k, 3) - node(k, 1) for k in range(49)]
+assert walls == [64] * 49, walls
+first = node(0, 5) >> 4   # the template's left wall kind, before point 1
+kinds = [node(k, 5) >> 4 for k in range(49)]
+want = [first if k * 6.25 < 60 else 1 if k * 6.25 < 180 else 0 for k in range(49)]
+assert kinds == want, (kinds, want)
+assert all(node(k, 5) & 0xF == node(0, 5) & 0xF for k in range(49)), "the right wall's kind moved"
+at = d.find(b"TRKD")
+fences = [d[at + 288 * s + 0xD] for s in range(12)]
+assert all(d[at + 288 * s:at + 288 * s + 4] == b"TRKD" for s in range(12))
+assert fences[0] & 0x40, "the template has no right fence: the check proves nothing"
+assert [f & 0x40 for f in fences] == [0x40 if 25 * s < 120 else 0 for s in range(12)], [hex(f) for f in fences]
+assert all(f & ~0x40 == fences[0] & ~0x40 for f in fences), [hex(f) for f in fences]
+PY
+python3 "$work/tri_sides.py" "$work/sides/build/sides.zip" || fail "the TRI of the sides project does not have the sides of its keys"
 # --window WxH: the picture is that size (a layout at another window size); a size out of range is refused by name
 "$editor" "$work/surface" --window 1440x900 --frames 6 --select 2 --shot "$work/wide.png" >"$work/log" 2>&1 || fail "run with --window: $(cat "$work/log")"
 python3 -c "import struct,sys; d=open(sys.argv[1],'rb').read(24); sys.exit(0 if struct.unpack('>II', d[16:24]) == (1440, 900) else 1)" "$work/wide.png" || fail "--window 1440x900 did not make a 1440x900 picture"
