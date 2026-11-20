@@ -153,6 +153,73 @@ static void test_edits(void)
     free(keys);
 }
 
+static void straight_nodes(TrackGenNode *n, int count)
+{
+    memset(n, 0, sizeof *n * (size_t)count);   /* every field: track_trace_flags reads the sides too */
+    for (int i = 0; i < count; ++i) n[i].position[2] = 6 * 65536 * i, n[i].width = WIDTH;
+}
+
+/* the bank's limits, on any node (the first too): amber over 25 degrees either way, 35 itself still amber; red over 35 (the generator's), and it stops
+ * Build like a red curve. The Problems row and the summary name the bank and the limit. */
+static void test_bank_flags(void)
+{
+    enum { N = 6 };
+    CHECK_EQ_INT(TRACE_FLAG_BANK_WARN, 128);
+    CHECK_EQ_INT(TRACE_FLAG_BANK_LIMIT, 256);
+    CHECK((TRACE_FLAG_WARN_BITS & TRACE_FLAG_BANK_WARN) != 0 && (TRACE_FLAG_RED_BITS & TRACE_FLAG_BANK_LIMIT) != 0);
+    CHECK((TRACE_FLAG_RED_BITS & TRACE_FLAG_WARN_BITS) == 0);
+    TrackGenNode n[N];
+    TraceFlags flags[N];
+    straight_nodes(n, N);
+    n[0].bank = -36, n[1].bank = 25, n[2].bank = 25.05, n[3].bank = -35, n[4].bank = 35.05, n[5].bank = 60;
+    track_trace_flags(n, N, flags);
+    CHECK_EQ_INT(flags[0], TRACE_FLAG_BANK_LIMIT);
+    CHECK_EQ_INT(flags[1], 0);
+    CHECK_EQ_INT(flags[2], TRACE_FLAG_BANK_WARN);
+    CHECK_EQ_INT(flags[3], TRACE_FLAG_BANK_WARN);
+    CHECK_EQ_INT(flags[4], TRACE_FLAG_BANK_LIMIT);
+    CHECK_EQ_INT(flags[5], TRACE_FLAG_BANK_LIMIT);
+
+    TraceProblem rows[N];
+    CHECK_EQ_INT(track_trace_problems(n, N, flags, rows, N), 5);   /* red 0, 4, 5, then amber 2, 3 */
+    CHECK(rows[0].node == 0 && rows[0].red && rows[0].bank == -36 && rows[3].node == 2 && !rows[3].red);
+    char text[TRACE_PROBLEM_TEXT];
+    track_trace_problem_text(&rows[0], text, sizeof text);
+    CHECK(strcmp(text, "node 0: banks 36.0\xc2\xb0 (more than 35\xc2\xb0), can't be built") == 0);
+    if (strstr(text, "banks") == NULL || strstr(text, "35") == NULL) fprintf(stderr, "%s\n", text);
+    track_trace_problem_text(&rows[4], text, sizeof text);
+    CHECK(strcmp(text, "node 3: banks 35.0\xc2\xb0 (more than 25\xc2\xb0), may not look right") == 0);
+
+    TraceSummaryLine lines[TRACE_SUMMARY_LINES];
+    const int used = track_trace_summary(flags, N, lines);
+    CHECK_EQ_INT(used, 2);
+    CHECK(lines[0].red && strcmp(lines[0].text, "3 nodes bank more than 35\xc2\xb0: the track can't be built") == 0);
+    CHECK(!lines[1].red && strcmp(lines[1].text, "2 nodes bank more than 25\xc2\xb0: they may not look right in the game") == 0);
+    if (used != 2) fprintf(stderr, "  %d summary lines\n", used);
+}
+
+/* a trace keyed past 35 makes nodes (red, not refused), and the nodes the generator gets are refused: Build stops on the red flag first */
+static void test_keyed_red(void)
+{
+    TracePoint p[6];
+    straight_points(p, 6, 60);
+    const TraceKey key = { .point = 3, .has = TRACE_KEY_BANK, .bank_deg = 40.0 };
+    int count = 0;
+    ExchangeError err;
+    TrackGenNode *n = nodes_of(p, 6, &key, 1, &count, &err);
+    CHECK(n != NULL);
+    if (n == NULL) return;
+    TraceFlags *flags = calloc((size_t)count, sizeof *flags);
+    if (flags != NULL) {
+        track_trace_flags(n, count, flags);
+        int red = 0, amber = 0;
+        for (int i = 0; i < count; ++i) red += (flags[i] & TRACE_FLAG_BANK_LIMIT) != 0, amber += (flags[i] & TRACE_FLAG_BANK_WARN) != 0;
+        CHECK(red > 0 && amber > 0 && (flags[count - 1] & TRACE_FLAG_BANK_LIMIT) != 0);
+    }
+    free(flags);
+    free(n);
+}
+
 int main(void)
 {
     test_bit();
@@ -162,5 +229,7 @@ int main(void)
     test_range();
     test_point_banks();
     test_edits();
+    test_bank_flags();
+    test_keyed_red();
     return TEST_REPORT();
 }

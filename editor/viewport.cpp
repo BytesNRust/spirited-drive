@@ -194,6 +194,8 @@ void draw_tooltip(const Canvas &c, const App &a)
             ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "wall too far out (over %g m from the centre): the road is not built", TRACE_WALL_FAR_M);
             ImGui::TextUnformatted("bring the wall nearer the road, or narrow the road here");
         }
+        if (a.flags[node] & TRACE_FLAG_BANK_LIMIT)
+            ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "banks %.1f\xc2\xb0, over %g\xc2\xb0: the road is not built", fabs(a.nodes[node].bank), TRACE_BANK_MAX_DEG);
     } else {
         if (a.flags[node] & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN))
             ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "very tight curve: check the terrain in the game, the AI brakes");
@@ -202,6 +204,9 @@ void draw_tooltip(const Canvas &c, const App &a)
         if (a.flags[node] & TRACE_FLAG_SIDE_WARN)
             ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "a shoulder or a wall moves too fast (over %g m a node): spread it over more points",
                                TRACE_SIDE_STEP_WARN_M);
+        if (a.flags[node] & TRACE_FLAG_BANK_WARN)
+            ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "banks %.1f\xc2\xb0, over %g\xc2\xb0: check the edge and the car in the game", fabs(a.nodes[node].bank),
+                               TRACE_BANK_WARN_DEG);
     }
     ImGui::EndTooltip();
 }

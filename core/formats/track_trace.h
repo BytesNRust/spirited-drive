@@ -44,12 +44,14 @@ enum {
     TRACE_FLAG_RADIUS_WARN = 8,  /* amber: its radius is under TRACE_RADIUS_WARN (and not under the red one) */
     TRACE_FLAG_WIDTH_WARN = 16,  /* amber: the road's width changes by more than TRACE_WIDTH_STEP_WARN_M from the node before */
     TRACE_FLAG_SIDE_WARN = 32,   /* amber: a side's shoulder or wall distance moves more than TRACE_SIDE_STEP_WARN_M from the node before (step 3) */
-    TRACE_FLAG_WALL_FAR = 64     /* red: a wall is more than TRACE_WALL_FAR_M from the centre, past what a node's byte holds (step 3) */
+    TRACE_FLAG_WALL_FAR = 64,    /* red: a wall is more than TRACE_WALL_FAR_M from the centre, past what a node's byte holds (step 3) */
+    TRACE_FLAG_BANK_WARN = 128,  /* amber: the node banks more than TRACE_BANK_WARN_DEG either way (and no more than the red limit) */
+    TRACE_FLAG_BANK_LIMIT = 256  /* red: it banks more than TRACE_BANK_MAX_DEG, the most the generator builds */
 };
 /* A node's TRACE_FLAG_* bits: 16 of them (dev2's bank bits are 128 and 256). */
 typedef uint16_t TraceFlags;
-#define TRACE_FLAG_RED_BITS (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS | TRACE_FLAG_WALL_FAR)
-#define TRACE_FLAG_WARN_BITS (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN | TRACE_FLAG_SIDE_WARN)
+#define TRACE_FLAG_RED_BITS (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS | TRACE_FLAG_WALL_FAR | TRACE_FLAG_BANK_LIMIT)
+#define TRACE_FLAG_WARN_BITS (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN | TRACE_FLAG_SIDE_WARN | TRACE_FLAG_BANK_WARN)
 #define TRACE_SIDE_STEP_WARN_M 1.25   /* amber: as the width's (TRACE_WIDTH_STEP_WARN_M) */
 #define TRACE_WALL_FAR_M (255 / 8.0)  /* red: the wall's byte is the road edge's plus its distance, in 1/8 m: 31.875 m */
 
@@ -177,6 +179,7 @@ typedef struct {
     double width_step;   /* TRACE_FLAG_WIDTH_WARN: how much the road's width changes from the node before, in metres (unsigned; 0 otherwise) */
     double side_step;    /* TRACE_FLAG_SIDE_WARN: the most a shoulder or a wall distance moves from the node before, in metres (unsigned; 0 otherwise) */
     double wall_m;       /* TRACE_FLAG_WALL_FAR: the farther wall from the centre, in metres (0 otherwise) */
+    double bank;         /* TRACE_FLAG_BANK_WARN / _LIMIT: the node's bank, degrees, signed (0 otherwise) */
 } TraceProblem;
 
 /* The problem nodes: every node whose flags are not 0, red ones first and each group by node number. Fills out[0..cap) and returns how many
@@ -193,7 +196,7 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap);
  * ("3 nodes change width by more than 1.25 m per node: they may not look right in the game"); the sides' red line ("2 nodes have a wall more than
  * 31.875 m from the centre: the track can't be built") after the other red ones, and their amber one last ("1 node moves a shoulder or a wall by more
  * than 1.25 m: it may not look right in the game"). */
-enum { TRACE_SUMMARY_LINES = 7, TRACE_SUMMARY_TEXT = 128, TRACE_PROBLEM_TEXT = 320 };   /* TRACE_PROBLEM_TEXT: room for a row with every clause */
+enum { TRACE_SUMMARY_LINES = 9, TRACE_SUMMARY_TEXT = 128, TRACE_PROBLEM_TEXT = 384 };   /* TRACE_PROBLEM_TEXT: room for a row with every clause */
 typedef struct {
     int red;
     int nodes;

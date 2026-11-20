@@ -518,6 +518,9 @@ void track_trace_flags(const TrackGenNode *nodes, int count, TraceFlags *flags)
 {
     for (int i = 0; i < count; ++i) {
         TraceFlags f = wall_eighths(&nodes[i]) > 255 ? TRACE_FLAG_WALL_FAR : 0;
+        const double bank = fabs(nodes[i].bank);   /* the node's own, the first's too */
+        if (bank > TRACE_BANK_MAX_DEG + 1e-6) f |= TRACE_FLAG_BANK_LIMIT;
+        else if (bank > TRACE_BANK_WARN_DEG + 1e-6) f |= TRACE_FLAG_BANK_WARN;
         if (i == 0) {
             flags[i] = f;
             continue;
@@ -546,6 +549,7 @@ static void problem_of(const TrackGenNode *nodes, int i, TraceFlags flags, Trace
     p->width_step = (flags & TRACE_FLAG_WIDTH_WARN) ? fabs(nodes[i].width - nodes[i - 1].width) / TRACE_WIDTH_PER_METRE : 0;
     p->side_step = (flags & TRACE_FLAG_SIDE_WARN) ? side_step(nodes, i) : 0;
     p->wall_m = (flags & TRACE_FLAG_WALL_FAR) ? (double)wall_eighths(&nodes[i]) / 8.0 : 0;
+    p->bank = (flags & (TRACE_FLAG_BANK_WARN | TRACE_FLAG_BANK_LIMIT)) ? nodes[i].bank : 0;
 }
 
 int track_trace_problems(const TrackGenNode *nodes, int count, const TraceFlags *flags, TraceProblem *out, int cap)
@@ -587,7 +591,7 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap)
     const int turn_red = (p->flags & TRACE_FLAG_TURN) != 0, turn = turn_red || (p->flags & TRACE_FLAG_TURN_WARN);
     const int radius_red = (p->flags & TRACE_FLAG_RADIUS) != 0, radius = radius_red || (p->flags & TRACE_FLAG_RADIUS_WARN);
     const int width = (p->flags & TRACE_FLAG_WIDTH_WARN) != 0;
-    char clauses[5][64];
+    char clauses[6][64];
     int n = 0;
     if (turn) snprintf(clauses[n++], sizeof clauses[0], "turns %.1f" DEGREE " (more than %g" DEGREE ")", p->turn, turn_red ? TRACE_TURN_MAX_DEGREES : TRACE_TURN_WARN_DEGREES);
     if (radius) snprintf(clauses[n++], sizeof clauses[0], "radius %.0f m (under %g m)", TRACE_METRES(p->radius), TRACE_METRES(radius_red ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN));
@@ -595,6 +599,9 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap)
     if (p->flags & TRACE_FLAG_SIDE_WARN)
         snprintf(clauses[n++], sizeof clauses[0], "a shoulder or wall moves %.2f m (more than %g m)", p->side_step, TRACE_SIDE_STEP_WARN_M);
     if (p->flags & TRACE_FLAG_WALL_FAR) snprintf(clauses[n++], sizeof clauses[0], "a wall %.1f m from the centre (more than %g m)", p->wall_m, TRACE_WALL_FAR_M);
+    if (p->flags & (TRACE_FLAG_BANK_WARN | TRACE_FLAG_BANK_LIMIT))
+        snprintf(clauses[n++], sizeof clauses[0], "banks %.1f" DEGREE " (more than %g" DEGREE ")", fabs(p->bank),
+                 (p->flags & TRACE_FLAG_BANK_LIMIT) ? TRACE_BANK_MAX_DEG : TRACE_BANK_WARN_DEG);
     snprintf(out, cap, "node %d: ", p->node);
     for (int i = 0; i < n; ++i) {
         const size_t at = strlen(out);
@@ -606,10 +613,11 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap)
 
 int track_trace_summary(const TraceFlags *flags, int count, TraceSummaryLine lines[TRACE_SUMMARY_LINES])
 {
-    enum { RULE_TURN, RULE_RADIUS, RULE_WIDTH, RULE_WALL, RULE_SIDE };
+    enum { RULE_TURN, RULE_RADIUS, RULE_WIDTH, RULE_WALL, RULE_SIDE, RULE_BANK };
     static const struct { TraceFlags bit; int red, kind; } RULES[TRACE_SUMMARY_LINES] = {
-        { TRACE_FLAG_TURN, 1, RULE_TURN }, { TRACE_FLAG_RADIUS, 1, RULE_RADIUS }, { TRACE_FLAG_WALL_FAR, 1, RULE_WALL }, { TRACE_FLAG_TURN_WARN, 0, RULE_TURN },
-        { TRACE_FLAG_RADIUS_WARN, 0, RULE_RADIUS }, { TRACE_FLAG_WIDTH_WARN, 0, RULE_WIDTH }, { TRACE_FLAG_SIDE_WARN, 0, RULE_SIDE }
+        { TRACE_FLAG_TURN, 1, RULE_TURN }, { TRACE_FLAG_RADIUS, 1, RULE_RADIUS }, { TRACE_FLAG_WALL_FAR, 1, RULE_WALL }, { TRACE_FLAG_BANK_LIMIT, 1, RULE_BANK },
+        { TRACE_FLAG_TURN_WARN, 0, RULE_TURN }, { TRACE_FLAG_RADIUS_WARN, 0, RULE_RADIUS }, { TRACE_FLAG_WIDTH_WARN, 0, RULE_WIDTH },
+        { TRACE_FLAG_SIDE_WARN, 0, RULE_SIDE }, { TRACE_FLAG_BANK_WARN, 0, RULE_BANK }
     };
     int used = 0;
     for (int r = 0; r < TRACE_SUMMARY_LINES; ++r) {
@@ -632,9 +640,12 @@ int track_trace_summary(const TraceFlags *flags, int count, TraceSummaryLine lin
         else if (RULES[r].kind == RULE_WALL)
             snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s %s a wall more than %g m from the centre: %s", nodes, plural, nodes == 1 ? "has" : "have",
                      TRACE_WALL_FAR_M, verdict);
-        else
+        else if (RULES[r].kind == RULE_SIDE)
             snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s move%s a shoulder or a wall by more than %g m: %s", nodes, plural, nodes == 1 ? "s" : "",
                      TRACE_SIDE_STEP_WARN_M, verdict);
+        else
+            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s bank%s more than %g" DEGREE ": %s", nodes, plural, nodes == 1 ? "s" : "",
+                     RULES[r].red ? TRACE_BANK_MAX_DEG : TRACE_BANK_WARN_DEG, verdict);
         ++used;
     }
     return used;

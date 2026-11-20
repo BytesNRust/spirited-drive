@@ -88,6 +88,14 @@ if [ -f "$work/bad.png" ]; then png_check "$work/bad.png" bad; else fail "no PNG
 [ -s "$work/warn/build/warn.zip" ] || fail "no zip of the amber curve"
 "$editor" "$work/bad" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a curve over a red limit"
 grep -q "tighter than 20.9 m\|more than 16.5 degrees" "$work/log" || fail "the refusal does not name the red limit: $(cat "$work/log")"
+# the bank (version 3 keys): 30 degrees is amber and builds; 40 is red, refused with the limit named, as a red curve is
+mkdir "$work/banked" "$work/overbanked"
+printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 2, "bank_deg": 30.0}, {"point": 4, "bank_deg": 0.0}]\n}\n' > "$work/banked/trace.json"
+sed 's/"bank_deg": 30.0/"bank_deg": 40.0/' "$work/banked/trace.json" > "$work/overbanked/trace.json"
+"$editor" "$work/banked" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a road banked 30 degrees (amber): $(cat "$work/log")"
+[ -s "$work/banked/build/banked.zip" ] || fail "no zip of the road banked 30 degrees"
+"$editor" "$work/overbanked" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a road banked 40 degrees"
+grep -q "banks more than 35 degrees" "$work/log" || fail "the bank's refusal does not name the limit: $(cat "$work/log")"
 # road keys (trace.json version 2): a ramp from the project's 10 m to 8 m and 14 m builds a TRI whose verge bytes are the widths the keys say; a ramp too sudden is
 # amber (built, drawn amber), and a file of a newer version is refused with its reason
 mkdir "$work/keyed"
