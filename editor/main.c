@@ -475,6 +475,10 @@ static int run_requested(App *a, const Options *o)
         ok &= done;
     }
     if (o->convert_psd) {   /* Convert PSD as the Masks button runs it, waited for */
+        while (a->kind == APP_KIND_CAR && a->py.state != 2) {   /* the python with psd-tools is looked for first */
+            app_psd_poll(a);
+            SDL_Delay(20);
+        }
         int done = app_psd_start(a);
         while (done && app_psd_poll(a)) SDL_Delay(20);
         done = done && a->psd.ok;

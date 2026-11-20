@@ -45,6 +45,11 @@ static const char BODY[] =
     "            if os.environ.get('FAKE_PSD_FAIL'):\n"
     "                print('psd-tools exploded'); sys.exit(3)\n";
 
+static void wait_for_python(App *a)
+{
+    for (int i = 0; i < 4000 && a->py.state != 2; i++) app_psd_poll(a), usleep(5000);
+}
+
 static void run_to_end(App *a)
 {
     for (int i = 0; i < 4000 && app_psd_poll(a); i++) usleep(5000);
@@ -84,8 +89,19 @@ static void test_flows(void)
     app_psd_setup(a, none, none);
     CHECK(a->tools[0] != '\0' && !app_psd_start(a) && strstr(a->status, "no PSD folder named C84") != NULL && strstr(a->status, "nowhere") != NULL);
 
-    /* a PSD folder spelled c84, the car's C84: found without case; converted; the lists read again */
+    /* the python: TNFS_PYTHON is tried first; this one answers the import check and otherwise runs the real python */
+    char interp[500];
+    path_of(interp, sizeof interp, "py_fake");
+    CHECK(put("py_fake", "#!/bin/sh\n[ \"$1\" = -c ] && exit 0\nexec python3 \"$@\"\n") && chmod(interp, 0755) == 0);
+    setenv("TNFS_PYTHON", interp, 1);
     app_psd_setup(a, none, psd);
+    CHECK(!app_psd_python_ready(a) && !app_psd_start(a) && strstr(a->status, "still looking") != NULL);   /* not looked for yet */
+    wait_for_python(a);
+    CHECK(app_psd_python_ready(a) && strcmp(a->py.python, interp) == 0);
+    char note[400];
+    app_psd_python_note(a, note, sizeof note);
+    CHECK(strstr(note, "py_fake") != NULL);   /* the tooltip says which one */
+    /* a PSD folder spelled c84, the car's C84: found without case; converted; the lists read again */
     char dir[600];
     CHECK(app_psd_psd_dir(a, dir, sizeof dir) && strstr(dir, "/psd/c84") != NULL);
     CHECK(app_psd_start(a) && app_psd_busy(a));
@@ -117,7 +133,7 @@ static void test_flows(void)
 static void remove_tree(void)
 {
     const char *files[] = { "kit/coche/mod.ini", "kit/coche/SIMDATA/CARFAMS/C84.CFM", "kit/coche/car_masks/C84/old_mask.png", "kit/coche/car_masks/C84/side_mask.png", "kit/coche/car_masks/C84/frnt_mask.png",
-                            "tools/car_mask_from_psd.py", "psd/c84/side.psd", "psd/c84/frnt.psd", "psd/c84/rear.psd" };
+                            "tools/car_mask_from_psd.py", "psd/c84/side.psd", "psd/c84/frnt.psd", "psd/c84/rear.psd", "py_fake" };
     char p[700];
     for (size_t i = 0; i < sizeof files / sizeof files[0]; i++) path_of(p, sizeof p, files[i]), unlink(p);
     const char *dirs[] = { "kit/coche/car_masks/C84", "kit/coche/car_masks", "kit/coche/SIMDATA/CARFAMS", "kit/coche/SIMDATA", "kit/coche", "kit", "tools", "psd/c84", "psd" };

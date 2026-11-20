@@ -115,6 +115,7 @@ typedef struct {
     int race_night;              /* the preset: 0 Day, 1 Night */
     int race_track;              /* the track chosen (car_race_track's index) */
     RaceLook race_look;          /* the Race window's look switches (T6): the session's, never written to the car's project; all on by default */
+    PyProbe py;                  /* the python that has psd-tools, looked for once in the background (psd_job.h) */
     PsdJob psd;                  /* Convert PSD: the owner's PSDs of this car turned into its masks, in the background (psd_job.h, app_psd.c) */
     char psd_root[APP_PATH];     /* the folder of the owner's PSDs, one folder a car ("" for none): --psd-root, TNFS_PSD_ROOT, else art/tnfs-masks in the workspace */
     char tools[APP_PATH];        /* the repository's tools folder, where the converter scripts are ("" when not found) */
@@ -370,6 +371,9 @@ int app_psd_psd_dir(const App *a, char *out, size_t cap);
 int app_psd_start(App *a);
 int app_psd_poll(App *a);
 int app_psd_busy(const App *a);
+/* what the Convert PSD button's tooltip says about the python it uses (found, still looking, or none of the ones tried); the text is in `out` */
+int app_psd_python_ready(const App *a);
+void app_psd_python_note(const App *a, char *out, size_t cap);
 void app_psd_stop(App *a);
 /* the car's lists (project, textures, masks) and its card read again, as after Rehacer or Convert PSD */
 void app_car_reread(App *a);

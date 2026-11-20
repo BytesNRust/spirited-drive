@@ -11,8 +11,30 @@
 
 enum { PSD_PATH = 4096, PSD_TEXT = 400 };
 
+/* Which python runs the scripts: an app opened from the Finder has PATH=/usr/bin:/bin:..., so "python3" is Apple's, which has no psd-tools; the owner's is most likely
+ * Homebrew's. The candidates are tried in order, each with `-c "import psd_tools, PIL"` in the background; the first that succeeds is kept for the session. */
+enum { PY_CANDIDATES = 8 };
 typedef struct {
     ProcRun run;
+    char cand[PY_CANDIDATES][PSD_PATH];   /* "" stands for python3 found through PATH (run as /usr/bin/env python3) */
+    int count, next;
+    int state;                  /* 0 not started, 1 looking, 2 done */
+    int found;                  /* 1: `python` is the one (a "" there is the PATH's) */
+    char python[PSD_PATH];
+    char tried[PSD_TEXT];       /* the ones that could not import psd_tools and Pillow, for the tooltip */
+} PyProbe;
+
+/* The list to try: `env_python` (TNFS_PYTHON, may be NULL or ""), /opt/homebrew/bin/python3, /usr/local/bin/python3, then the PATH's. */
+void py_probe_init(PyProbe *probe, const char *env_python);
+/* The same with a list of your own (tests). */
+void py_probe_init_list(PyProbe *probe, const char *const *cands, int count);
+/* Starts the probe when it has not started, and advances it: 1 while it looks; 0 when done (`found`, `python`, `tried`). */
+int py_probe_poll(PyProbe *probe);
+void py_probe_free(PyProbe *probe);
+
+typedef struct {
+    ProcRun run;
+    char python[PSD_PATH];      /* the interpreter ("" for the PATH's python3) */
     int stage;                  /* 0 idle, 1 the body masks, 2 the dash */
     int finished, ok;           /* it ended; and well */
     char tools[PSD_PATH];       /* the folder of the two scripts */
@@ -27,8 +49,8 @@ typedef struct {
 void psd_job_init(PsdJob *job);
 /* The PSD folder of `folder` inside `psd_root` (names match without case: TSupra, TSUPRA); 1 with it in `out`, else 0. */
 int psd_job_find(const char *psd_root, const char *folder, char *out, size_t cap);
-/* Starts the conversion; 1, or 0 with `why` (no scripts, a scratch folder that cannot be made, python missing). */
-int psd_job_start(PsdJob *job, const char *tools, const char *psd_dir, const char *folder, const char *piece, char *why, size_t why_cap);
+/* Starts the conversion with the interpreter `python` ("" for the PATH's python3); 1, or 0 with `why` (no scripts, a scratch folder that cannot be made, python missing). */
+int psd_job_start(PsdJob *job, const char *python, const char *tools, const char *psd_dir, const char *folder, const char *piece, char *why, size_t why_cap);
 /* 1 while it runs; when it ends `finished`, `ok` and `text` are set and the project's files are copied (or not) */
 int psd_job_poll(PsdJob *job);
 int psd_job_busy(const PsdJob *job);

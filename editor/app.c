@@ -66,6 +66,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     a->race_look = car_race_look_default();
     install_job_init(&a->install);
     psd_job_init(&a->psd);
+    py_probe_init(&a->py, NULL);
     a->export_pick = -1;
     a->preview_paint = -1;
     a->night = night_settings_default();
@@ -199,6 +200,7 @@ void app_free(App *a)
     car_race_free(&a->race);
     install_job_free(&a->install);
     psd_job_free(&a->psd);
+    py_probe_free(&a->py);
     rehacer_free(&a->rehacer);
     car_edit_free(&a->edit);
     mask_edit_free(&a->mask.me);
@@ -425,6 +427,12 @@ static int open_in(App *a, const char *dir, AppKind kind)
         return 0;
     }
     app_carry_window(next, a);
+    if (a->py.state == 2) {   /* the python found is the session's; a probe still running is started again by the new project */
+        py_probe_free(&next->py);
+        next->py = a->py;
+        memset(&next->py.run, 0, sizeof next->py.run);
+        next->py.run.fd = -1;
+    }
     app_free(a);
     *a = *next;   // the new project's arrays belong to `a` now
     free(next);

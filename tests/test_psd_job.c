@@ -110,7 +110,7 @@ static void test_body_masks(void)
     psd_job_init(&job);
     put("proj/car_masks/TSUPRA/side_mask.png", "the old side");
     put("proj/car_masks/TSUPRA/mine_mask.png", "not in any PSD");
-    CHECK(psd_job_start(&job, tools, psd_dir, "TSUPRA", piece, why, sizeof why));
+    CHECK(psd_job_start(&job, "", tools, psd_dir, "TSUPRA", piece, why, sizeof why));
     CHECK(psd_job_busy(&job));
     char scratch[700];
     snprintf(scratch, sizeof scratch, "%s", job.scratch);
@@ -138,7 +138,7 @@ static void test_failure_leaves_the_project(void)
     path_of(old, sizeof old, "proj/car_masks/TSUPRA/frnt_mask.png");
     unlink(old);
     setenv("FAKE_PSD_FAIL", "1", 1);
-    CHECK(psd_job_start(&job, tools, psd_dir, "TSUPRA", piece, why, sizeof why));
+    CHECK(psd_job_start(&job, "", tools, psd_dir, "TSUPRA", piece, why, sizeof why));
     char scratch[700];
     snprintf(scratch, sizeof scratch, "%s", job.scratch);
     run_to_end(&job);
@@ -157,7 +157,7 @@ static void test_dash_and_refusals(void)
     char why[300];
     psd_job_init(&job);
     put("psd/TSupra/dash.psd", "dash psd");
-    CHECK(psd_job_start(&job, tools, psd_dir, "TSUPRA", piece, why, sizeof why));
+    CHECK(psd_job_start(&job, "", tools, psd_dir, "TSUPRA", piece, why, sizeof why));
     run_to_end(&job);
     CHECK(job.finished && job.ok);
     CHECK_EQ_INT(job.dash_files, 2);
@@ -166,10 +166,10 @@ static void test_dash_and_refusals(void)
     CHECK(!exists("proj/car_masks/TSUPRA/dash_mask.png"));                       /* the dash goes to its own folder */
     CHECK(strstr(job.text, "dash") != NULL);
     /* busy: a second start is refused; no scripts: said */
-    CHECK(psd_job_start(&job, tools, psd_dir, "TSUPRA", piece, why, sizeof why));
-    CHECK(!psd_job_start(&job, tools, psd_dir, "TSUPRA", piece, why, sizeof why) && strstr(why, "already") != NULL);
+    CHECK(psd_job_start(&job, "", tools, psd_dir, "TSUPRA", piece, why, sizeof why));
+    CHECK(!psd_job_start(&job, "", tools, psd_dir, "TSUPRA", piece, why, sizeof why) && strstr(why, "already") != NULL);
     run_to_end(&job);
-    CHECK(!psd_job_start(&job, "/no/tools", psd_dir, "TSUPRA", piece, why, sizeof why) && strstr(why, "car_mask_from_psd.py") != NULL);
+    CHECK(!psd_job_start(&job, "", "/no/tools", psd_dir, "TSUPRA", piece, why, sizeof why) && strstr(why, "car_mask_from_psd.py") != NULL);
     psd_job_free(&job);
 }
 
@@ -181,7 +181,7 @@ static void test_missing_module(void)
     char why[300];
     psd_job_init(&job);
     put("tools/car_mask_from_psd.py", "import psd_tools_that_is_not_there\n");
-    CHECK(psd_job_start(&job, tools, psd_dir, "TSUPRA", piece, why, sizeof why));
+    CHECK(psd_job_start(&job, "", tools, psd_dir, "TSUPRA", piece, why, sizeof why));
     run_to_end(&job);
     CHECK(job.finished && !job.ok && strstr(job.text, "pip3 install psd-tools Pillow") != NULL);
     put("tools/car_mask_from_psd.py", BODY);
@@ -201,14 +201,59 @@ static void test_half_written_never(void)
     path_of(p, sizeof p, "proj/dash_masks/TSUPRA"), rmdir(p);
     path_of(p, sizeof p, "proj/dash_masks"), rmdir(p);
     CHECK(put("proj/dash_masks", "a file in the way"));
-    CHECK(psd_job_start(&job, tools, psd_dir, "TSUPRA", piece, why, sizeof why));
+    CHECK(psd_job_start(&job, "", tools, psd_dir, "TSUPRA", piece, why, sizeof why));
     run_to_end(&job);
     CHECK(job.finished && !job.ok && strstr(job.text, "nothing was changed") != NULL);
     CHECK(content_is("proj/car_masks/TSUPRA/side_mask.png", "the old side"));
     CHECK(!exists("proj/car_masks/TSUPRA/frnt_mask.png.psdtmp") && !exists("proj/car_masks/TSUPRA/side_mask.png.psdtmp"));
     path_of(p, sizeof p, "proj/dash_masks"), unlink(p);
     psd_job_free(&job);
-    CHECK(!psd_job_start(&job, tools, psd_dir, "../x", piece, why, sizeof why) && strstr(why, "too long") != NULL);   /* a folder name that is not one */
+    CHECK(!psd_job_start(&job, "", tools, psd_dir, "../x", piece, why, sizeof why) && strstr(why, "too long") != NULL);   /* a folder name that is not one */
+    psd_job_free(&job);
+}
+
+static int make_script(const char *rel, const char *text)
+{
+    char p[700];
+    path_of(p, sizeof p, rel);
+    return put(rel, text) && chmod(p, 0755) == 0;
+}
+
+/* the interpreters tried in order: one not there, one without psd-tools (exit 1), one with (exit 0): the third is kept, the first two are told */
+static void test_probe(void)
+{
+    char none[700], no_psd[700], yes[700], yes2[700];
+    CHECK(make_script("py_no", "#!/bin/sh\nexit 1\n") && make_script("py_yes", "#!/bin/sh\n[ \"$1\" = -c ] && exit 0\nexec python3 \"$@\"\n") && make_script("py_yes2", "#!/bin/sh\nexit 0\n"));
+    path_of(none, sizeof none, "py_missing"), path_of(no_psd, sizeof no_psd, "py_no"), path_of(yes, sizeof yes, "py_yes"), path_of(yes2, sizeof yes2, "py_yes2");
+    const char *list[] = { none, no_psd, yes, yes2 };
+    PyProbe probe;
+    py_probe_init_list(&probe, list, 4);
+    for (int i = 0; i < 4000 && py_probe_poll(&probe); i++) usleep(5000);
+    CHECK(probe.state == 2 && probe.found && strcmp(probe.python, yes) == 0);
+    CHECK(strstr(probe.tried, "py_missing") != NULL && strstr(probe.tried, "py_no") != NULL && strstr(probe.tried, "py_yes") == NULL);
+    CHECK(py_probe_poll(&probe) == 0 && strcmp(probe.python, yes) == 0);   /* cached: no second look */
+    py_probe_free(&probe);
+    /* none of them: nothing found, all told */
+    const char *bad[] = { none, no_psd };
+    py_probe_init_list(&probe, bad, 2);
+    for (int i = 0; i < 4000 && py_probe_poll(&probe); i++) usleep(5000);
+    CHECK(probe.state == 2 && !probe.found && strstr(probe.tried, "py_missing") != NULL && strstr(probe.tried, "py_no") != NULL);
+    py_probe_free(&probe);
+    /* TNFS_PYTHON first */
+    py_probe_init(&probe, yes);
+    CHECK(strcmp(probe.cand[0], yes) == 0 && strcmp(probe.cand[1], "/opt/homebrew/bin/python3") == 0 && strcmp(probe.cand[2], "/usr/local/bin/python3") == 0 && probe.cand[3][0] == '\0' && probe.count == 4);
+    py_probe_free(&probe);
+    /* a job runs the scripts with the interpreter it is given (this one leaves a mark, then runs the real python) */
+    PsdJob job;
+    char why[300];
+    psd_job_init(&job);
+    CHECK(make_script("py_mark", "#!/bin/sh\ntouch \"$(dirname \"$0\")/py_mark.used\"\nexec python3 \"$@\"\n"));
+    char mark[700];
+    path_of(mark, sizeof mark, "py_mark");
+    put("proj/car_masks/TSUPRA/side_mask.png", "x");
+    CHECK(psd_job_start(&job, mark, tools, psd_dir, "TSUPRA", piece, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.finished && job.ok && exists("py_mark.used"));
     psd_job_free(&job);
 }
 
@@ -216,7 +261,8 @@ static void remove_tree(void)
 {
     const char *files[] = { "tools/car_mask_from_psd.py", "tools/dash_mask_from_psd.py", "psd/TSupra/side.psd", "psd/TSupra/frnt.psd", "psd/TSupra/side.before-1603.psd", "psd/TSupra/dash.psd",
                             "proj/car_masks/TSUPRA/side_mask.png", "proj/car_masks/TSUPRA/mine_mask.png", "proj/car_masks/TSUPRA/frnt_mask.png",
-                            "proj/dash_masks/TSUPRA/dash_mask.png", "proj/dash_masks/TSUPRA/dash_color.png" };
+                            "proj/dash_masks/TSUPRA/dash_mask.png", "proj/dash_masks/TSUPRA/dash_color.png",
+                            "py_no", "py_yes", "py_yes2", "py_mark", "py_mark.used" };
     char p[700];
     for (size_t i = 0; i < sizeof files / sizeof files[0]; i++) path_of(p, sizeof p, files[i]), unlink(p);
     const char *dirs[] = { "tools", "psd/TSupra", "psd", "proj/car_masks/TSUPRA", "proj/car_masks", "proj/dash_masks/TSUPRA", "proj/dash_masks", "proj" };
@@ -239,6 +285,7 @@ int main(void)
     test_dash_and_refusals();
     test_half_written_never();
     test_missing_module();
+    test_probe();
     remove_tree();
     return TEST_REPORT();
 }

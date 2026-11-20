@@ -57,7 +57,11 @@ static int run_script(PsdJob *job, const char *script, const char *src_root, con
     char path[PSD_PATH];
     if (!join(path, sizeof path, job->tools, script)) return snprintf(why, why_cap, "the tools path is too long"), 0;
     if (access(path, R_OK) != 0) return snprintf(why, why_cap, "%s is not in %s: Convert PSD needs the repository's tools folder", script, job->tools), 0;
-    char *argv[] = { "/usr/bin/env", "python3", path, (char *)src_root, (char *)out_dir, NULL };
+    char *argv[6];
+    int n = 0;
+    if (job->python[0] == '\0') argv[n++] = "/usr/bin/env", argv[n++] = "python3";
+    else argv[n++] = job->python;
+    argv[n++] = path, argv[n++] = (char *)src_root, argv[n++] = (char *)out_dir, argv[n] = NULL;
     proc_free(&job->run);
     return proc_start(&job->run, argv, environ, NULL, why, why_cap);
 }
@@ -222,13 +226,86 @@ static int link_sources(PsdJob *job)
     return ok;
 }
 
-int psd_job_start(PsdJob *job, const char *tools, const char *psd_dir, const char *folder, const char *piece, char *why, size_t why_cap)
+void py_probe_init_list(PyProbe *probe, const char *const *cands, int count)
+{
+    memset(probe, 0, sizeof *probe);
+    probe->run.fd = -1;
+    for (int i = 0; i < count && probe->count < PY_CANDIDATES; i++)
+        if (cands[i] != NULL && strlen(cands[i]) < PSD_PATH) snprintf(probe->cand[probe->count++], PSD_PATH, "%s", cands[i]);
+}
+
+void py_probe_init(PyProbe *probe, const char *env_python)
+{
+    const char *list[4];
+    int n = 0;
+    if (env_python != NULL && env_python[0] != '\0') list[n++] = env_python;
+    list[n++] = "/opt/homebrew/bin/python3";
+    list[n++] = "/usr/local/bin/python3";
+    list[n++] = "";
+    py_probe_init_list(probe, list, n);
+}
+
+static void tried_add(PyProbe *probe, const char *name)
+{
+    const size_t len = strlen(probe->tried);
+    snprintf(probe->tried + len, sizeof probe->tried - len, "%s%s", len > 0 ? ", " : "", name[0] != '\0' ? name : "python3 of PATH");
+}
+
+/* starts the candidate at probe->next that can run, skipping the ones that are not there; 0 when none is left */
+static int probe_start_next(PyProbe *probe)
+{
+    while (probe->next < probe->count) {
+        const char *cand = probe->cand[probe->next];
+        char why[120];
+        char *env_argv[] = { "/usr/bin/env", "python3", "-c", "import psd_tools, PIL", NULL };
+        char *own_argv[] = { (char *)cand, "-c", "import psd_tools, PIL", NULL };
+        if (cand[0] != '\0' && access(cand, X_OK) != 0) {
+            tried_add(probe, cand);   /* not installed there */
+            probe->next++;
+            continue;
+        }
+        proc_free(&probe->run);
+        if (proc_start(&probe->run, cand[0] == '\0' ? env_argv : own_argv, environ, NULL, why, sizeof why)) return 1;
+        tried_add(probe, cand);
+        probe->next++;
+    }
+    return 0;
+}
+
+int py_probe_poll(PyProbe *probe)
+{
+    if (probe->state == 2) return 0;
+    if (probe->state == 0) {
+        probe->state = 1;
+        if (!probe_start_next(probe)) probe->state = 2;
+        return probe->state == 1;
+    }
+    if (proc_poll(&probe->run)) return 1;
+    if (probe->run.exit_code == 0 && !probe->run.stopped) {
+        snprintf(probe->python, sizeof probe->python, "%s", probe->cand[probe->next]);
+        probe->found = 1;
+        probe->state = 2;
+        return 0;
+    }
+    tried_add(probe, probe->cand[probe->next]);
+    probe->next++;
+    if (!probe_start_next(probe)) probe->state = 2;
+    return probe->state == 1;
+}
+
+void py_probe_free(PyProbe *probe)
+{
+    proc_free(&probe->run);
+}
+
+int psd_job_start(PsdJob *job, const char *python, const char *tools, const char *psd_dir, const char *folder, const char *piece, char *why, size_t why_cap)
 {
     if (job->stage != 0 || job->run.running) return snprintf(why, why_cap, "a conversion is running already"), 0;
-    if (strlen(tools) >= PSD_PATH || strlen(psd_dir) >= PSD_PATH || strlen(piece) >= PSD_PATH || strlen(folder) >= sizeof job->folder || folder[0] == '\0' || folder[0] == '.' || strchr(folder, '/') != NULL)
+    if ((python != NULL && strlen(python) >= PSD_PATH) || strlen(tools) >= PSD_PATH || strlen(psd_dir) >= PSD_PATH || strlen(piece) >= PSD_PATH || strlen(folder) >= sizeof job->folder || folder[0] == '\0' || folder[0] == '.' || strchr(folder, '/') != NULL)
         return snprintf(why, why_cap, "a path is too long"), 0;
     proc_free(&job->run);
     psd_job_init(job);
+    snprintf(job->python, sizeof job->python, "%s", python != NULL ? python : "");
     snprintf(job->tools, sizeof job->tools, "%s", tools);
     snprintf(job->psd_dir, sizeof job->psd_dir, "%s", psd_dir);
     snprintf(job->folder, sizeof job->folder, "%s", folder);
