@@ -37,7 +37,7 @@ static int open_edge(const char *ini, char *edge, size_t cap, char *why)
     put("project.ini", ini);
     put("trace.json", TRACE);
     Project p;
-    Trace t = { NULL, 0, 0 };
+    Trace t = { NULL, 0, 0, NULL, 0, 0 };
     const int ok = project_open(root, &p, &t, why, 160);
     if (ok) snprintf(edge, cap, "%s", p.edge), free(t.points);
     return ok;
