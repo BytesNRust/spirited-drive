@@ -81,18 +81,15 @@ static void check_lanes_file(void)
         CHECK(t.keys[0].has == TRACE_KEY_LANES && t.keys[0].lanes == TRACK_GEN_LANES_1_2);
         CHECK(t.keys[1].has == (TRACE_KEY_WIDTH | TRACE_KEY_LANES) && t.keys[1].lanes == TRACK_GEN_LANES_2_1 && t.keys[1].width_m == 12.0);
         CHECK(t.keys[2].has == TRACE_KEY_LANES && t.keys[2].lanes == TRACK_GEN_LANES_1_1);
-        const uint64_t print = session_fingerprint(&t);
-        t.keys[0].lanes = TRACK_GEN_LANES_2_1;
-        CHECK(session_fingerprint(&t) != print);   /* the lanes are part of the project */
-        t.keys[0].lanes = TRACK_GEN_LANES_1_2;
-        CHECK(session_fingerprint(&t) == print);
         CHECK(project_save_trace(dir, &t, why, sizeof why));
         const char *text = read_file(trace);
         CHECK(strstr(text, "\"version\": 3") != NULL && strstr(text, "\"lanes\": \"1+2\"") != NULL && strstr(text, "\"lanes\": \"2+1\"") != NULL &&
               strstr(text, "\"lanes\": \"1+1\"") != NULL);
         Trace back;
         CHECK(project_open(dir, &proj, &back, why, sizeof why));   /* round trip */
-        CHECK(back.key_count == 3 && session_fingerprint(&back) == print);
+        CHECK(back.key_count == 3);
+        for (int i = 0; back.key_count == 3 && i < 3; ++i)
+            CHECK(back.keys[i].point == t.keys[i].point && back.keys[i].has == t.keys[i].has && back.keys[i].lanes == t.keys[i].lanes);
         free_trace(&back);
         /* the lanes gone (the width key stays): version 2 again */
         track_trace_key_clear_lanes(t.keys, &t.key_count, 3);

@@ -37,8 +37,5 @@ int recent_is_project(const char *dir);
 /* 1 when a recent folder of `kind` is still there: a track's project.ini, a car's mod.ini (in it or in its coche/). The cheap question the lists ask every frame. */
 int recent_present(const char *dir, int kind);
 
-/* A fingerprint of the trace (its points, its width and its road keys) for the unsaved-changes check only: it differs when any changed. Not a piece's print
- * (records and replays use track_piece_fingerprint, over the built files). */
-uint64_t session_fingerprint(const Trace *trace);
 
 #endif

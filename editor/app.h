@@ -94,6 +94,7 @@ typedef struct {
     Project project;
     Trace trace;
     View view;
+    float canvas_x, canvas_y;    /* where the Viewport's canvas starts in the window (viewport.cpp, every frame): --steps clicks a point there */
     int selected;                /* index of the selected control point, -1 for none */
     int dirty;                   /* the trace changed since the road was computed */
 

@@ -62,21 +62,34 @@ static void check_recent(void)
     remove(file);
 }
 
-static void check_fingerprint(void)
+/* a trace kept as the app keeps the saved one (track_undo.h), and whether another is not it: what app_modified tells */
+static const Project NO_PROJECT;
+static void mark(TrackUndo *u, const Trace *t)
+{
+    CHECK(track_undo_open(u, &NO_PROJECT, t));
+}
+static int differs(TrackUndo *u, const Trace *t)
+{
+    return track_undo_modified(u, &NO_PROJECT, t);
+}
+
+static void check_modified_trace(void)
 {
     TracePoint p[3] = { { 0, 0 }, { 0, 40 }, { 5, 80 } };
     Trace t = { p, 3, 40.0, NULL, 0, 0 };
-    const uint64_t first = session_fingerprint(&t);
-    CHECK(session_fingerprint(&t) == first);                 /* the same trace, the same print */
+    TrackUndo first;
+    mark(&first, &t);
+    CHECK(!differs(&first, &t));                             /* the same trace */
     p[1].x = 0.5;
-    CHECK(session_fingerprint(&t) != first);                 /* a point moved */
+    CHECK(differs(&first, &t));                              /* a point moved */
     p[1].x = 0;
-    CHECK(session_fingerprint(&t) == first);                 /* and back */
+    CHECK(!differs(&first, &t));                             /* and back */
     t.width = 42.0;
-    CHECK(session_fingerprint(&t) != first);                 /* the width */
+    CHECK(differs(&first, &t));                              /* the width */
     t.width = 40.0;
     t.count = 2;
-    CHECK(session_fingerprint(&t) != first);                 /* a point fewer */
+    CHECK(differs(&first, &t));                              /* a point fewer */
+    track_undo_free(&first);
 }
 
 static void check_road_width(void)
@@ -155,13 +168,14 @@ static void check_keys_file(void)
     CHECK_EQ_INT(t.key_count, 2);
     CHECK(t.key_count == 2 && t.keys[0].point == 1 && t.keys[0].width_m == 8.25 && (t.keys[0].has & TRACE_KEY_WIDTH));   /* by point, a field of a later step ignored */
     CHECK(t.key_count == 2 && t.keys[1].point == 2 && t.keys[1].width_m == 14.0);
-    const uint64_t with_keys = session_fingerprint(&t);
+    TrackUndo with_keys;
+    mark(&with_keys, &t);
     t.keys[1].width_m = 13.75;
-    CHECK(session_fingerprint(&t) != with_keys);             /* a key's value */
+    CHECK(differs(&with_keys, &t));                          /* a key's value */
     t.keys[1].width_m = 14.0;
-    CHECK(session_fingerprint(&t) == with_keys);
+    CHECK(!differs(&with_keys, &t));
     t.key_count = 1;
-    CHECK(session_fingerprint(&t) != with_keys);             /* a key fewer */
+    CHECK(differs(&with_keys, &t));                          /* a key fewer */
     t.key_count = 2;
 
     CHECK(project_save_trace(dir, &t, why, sizeof why));     /* round trip: version 2 and the keys */
@@ -169,7 +183,8 @@ static void check_keys_file(void)
     Trace back;
     CHECK(project_open(dir, &proj, &back, why, sizeof why));
     CHECK(back.key_count == 2 && back.keys[0].point == 1 && back.keys[0].width_m == 8.25 && back.keys[1].width_m == 14.0);
-    CHECK(session_fingerprint(&back) == with_keys);
+    CHECK(!differs(&with_keys, &back));
+    track_undo_free(&with_keys);
     free(back.points);
     free(back.keys);
     t.key_count = 0;
@@ -219,18 +234,20 @@ static void check_surface_file(void)
         CHECK(t.keys[0].has == TRACE_KEY_SHOULDER_SURFACE && t.keys[0].shoulder_l_surface == TRACE_SURFACE_TARMAC && t.keys[0].shoulder_r_surface == TRACE_SURFACE_INHERIT);
         CHECK(t.keys[1].has == (TRACE_KEY_WIDTH | TRACE_KEY_SHOULDER_SURFACE) && t.keys[1].width_m == 9.0 && t.keys[1].shoulder_l_surface == TRACE_SURFACE_VERGE &&
               t.keys[1].shoulder_r_surface == TRACE_SURFACE_TARMAC);
-        const uint64_t print = session_fingerprint(&t);
+        TrackUndo print;
+        mark(&print, &t);
         t.keys[0].shoulder_r_surface = TRACE_SURFACE_VERGE;
-        CHECK(session_fingerprint(&t) != print);             /* a side's surface is part of the project */
+        CHECK(differs(&print, &t));                          /* a side's surface is part of the project */
         t.keys[0].shoulder_r_surface = TRACE_SURFACE_INHERIT;
-        CHECK(session_fingerprint(&t) == print);
+        CHECK(!differs(&print, &t));
         CHECK(project_save_trace(dir, &t, why, sizeof why));
         const char *text = read_file(trace);
         CHECK(strstr(text, "\"version\": 3") != NULL && strstr(text, "\"shoulder_l_surface\": \"tarmac\"") != NULL &&
               strstr(text, "\"shoulder_r_surface\": \"tarmac\"") != NULL);
         Trace back;
         CHECK(project_open(dir, &proj, &back, why, sizeof why));   /* round trip */
-        CHECK(back.key_count == 2 && session_fingerprint(&back) == print);
+        CHECK(back.key_count == 2 && !differs(&print, &back));
+        track_undo_free(&print);
         free(back.points);
         free(back.keys);
         /* the surfaces gone (the width key stays): version 2 again */
@@ -349,17 +366,18 @@ static void check_side_keys_file(void)
     CHECK(k->side[TRACE_SIDE_FENCE][0] == 0 && k->side[TRACE_SIDE_FENCE][1] == 1);
     CHECK(t.keys[1].point == 3 && t.keys[1].has == TRACE_KEY_SIDE(TRACE_SIDE_WALL, 1) && t.keys[1].side[TRACE_SIDE_WALL][1] == TRACK_GEN_WALL_HARD);   /* sides only: a key */
 
-    const uint64_t print = session_fingerprint(&t);   /* every side value is in the fingerprint */
+    TrackUndo print;   /* every side value is a change to save */
+    mark(&print, &t);
     for (int f = 0; f < TRACE_SIDE_FIELDS; ++f)
         for (int side = 0; side < 2; ++side) {
             const double was = t.keys[0].side[f][side];
             t.keys[0].side[f][side] = was + 1;
-            CHECK(session_fingerprint(&t) != print);
+            CHECK(differs(&print, &t));
             t.keys[0].side[f][side] = was;
         }
-    CHECK(session_fingerprint(&t) == print);
+    CHECK(!differs(&print, &t));
     t.keys[0].bank_deg = -27;   /* the bank too */
-    CHECK(session_fingerprint(&t) != print);
+    CHECK(differs(&print, &t));
     t.keys[0].bank_deg = -27.5;
 
     CHECK(project_save_trace(dir, &t, why, sizeof why));   /* round trip of the full key: version 3, every field */
@@ -373,7 +391,8 @@ static void check_side_keys_file(void)
     }
     Trace back;
     CHECK(project_open(dir, &proj, &back, why, sizeof why));
-    CHECK(back.key_count == 2 && session_fingerprint(&back) == print);
+    CHECK(back.key_count == 2 && !differs(&print, &back));
+    track_undo_free(&print);
     free(back.points);
     free(back.keys);
 
@@ -1370,7 +1389,7 @@ int main(void)
         return 1;
     }
     check_recent();
-    check_fingerprint();
+    check_modified_trace();
     check_road_width();
     check_keys_file();
     check_side_keys_file();

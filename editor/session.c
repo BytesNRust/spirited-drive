@@ -71,34 +71,3 @@ int recent_present(const char *dir, int kind)
 {
     return kind == RECENT_CAR ? car_project_present(dir) : recent_is_project(dir);
 }
-
-/* FNV-1a over the bytes of the values */
-static uint64_t mix(uint64_t h, const void *bytes, size_t n)
-{
-    const unsigned char *p = bytes;
-    for (size_t i = 0; i < n; ++i) h = (h ^ p[i]) * 1099511628211ull;
-    return h;
-}
-
-uint64_t session_fingerprint(const Trace *trace)
-{
-    uint64_t h = 14695981039346656037ull;
-    h = mix(h, &trace->count, sizeof trace->count);
-    h = mix(h, &trace->width, sizeof trace->width);
-    for (int i = 0; i < trace->count; ++i) {
-        h = mix(h, &trace->points[i].x, sizeof trace->points[i].x);
-        h = mix(h, &trace->points[i].z, sizeof trace->points[i].z);
-    }
-    h = mix(h, &trace->key_count, sizeof trace->key_count);
-    for (int i = 0; i < trace->key_count; ++i) {   // field by field: the struct's padding is not the key's
-        h = mix(h, &trace->keys[i].point, sizeof trace->keys[i].point);
-        h = mix(h, &trace->keys[i].has, sizeof trace->keys[i].has);
-        h = mix(h, &trace->keys[i].width_m, sizeof trace->keys[i].width_m);
-        h = mix(h, &trace->keys[i].shoulder_l_surface, sizeof trace->keys[i].shoulder_l_surface);
-        h = mix(h, &trace->keys[i].shoulder_r_surface, sizeof trace->keys[i].shoulder_r_surface);
-        h = mix(h, trace->keys[i].side, sizeof trace->keys[i].side);   // the road's sides (step 3): doubles, no padding between them
-        h = mix(h, &trace->keys[i].bank_deg, sizeof trace->keys[i].bank_deg);
-        h = mix(h, &trace->keys[i].lanes, sizeof trace->keys[i].lanes);   // the lanes (step 4)
-    }
-    return h;
-}
