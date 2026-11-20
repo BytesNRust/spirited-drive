@@ -212,7 +212,7 @@ void app_recompute(App *a)
         snprintf(a->road_text, sizeof a->road_text, "%s", err.message);
         return;
     }
-    a->flags = calloc((size_t)a->node_count, 1);
+    a->flags = calloc((size_t)a->node_count, sizeof *a->flags);
     if (a->flags == NULL) {
         drop_road(a);
         snprintf(a->road_text, sizeof a->road_text, "out of memory");

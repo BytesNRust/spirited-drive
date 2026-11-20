@@ -42,8 +42,16 @@ enum {
     TRACE_FLAG_RADIUS = 2,       /* red: the curve's radius at the node is under TRACE_RADIUS_MIN */
     TRACE_FLAG_TURN_WARN = 4,    /* amber: it turns more than TRACE_TURN_WARN_DEGREES (and no more than the red limit) */
     TRACE_FLAG_RADIUS_WARN = 8,  /* amber: its radius is under TRACE_RADIUS_WARN (and not under the red one) */
-    TRACE_FLAG_WIDTH_WARN = 16   /* amber: the road's width changes by more than TRACE_WIDTH_STEP_WARN_M from the node before */
+    TRACE_FLAG_WIDTH_WARN = 16,  /* amber: the road's width changes by more than TRACE_WIDTH_STEP_WARN_M from the node before */
+    TRACE_FLAG_SIDE_WARN = 32,   /* amber: a side's shoulder or wall distance moves more than TRACE_SIDE_STEP_WARN_M from the node before (step 3) */
+    TRACE_FLAG_WALL_FAR = 64     /* red: a wall is more than TRACE_WALL_FAR_M from the centre, past what a node's byte holds (step 3) */
 };
+/* A node's TRACE_FLAG_* bits: 16 of them (dev2's bank bits are 128 and 256). */
+typedef uint16_t TraceFlags;
+#define TRACE_FLAG_RED_BITS (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS | TRACE_FLAG_WALL_FAR)
+#define TRACE_FLAG_WARN_BITS (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN | TRACE_FLAG_SIDE_WARN)
+#define TRACE_SIDE_STEP_WARN_M 1.25   /* amber: as the width's (TRACE_WIDTH_STEP_WARN_M) */
+#define TRACE_WALL_FAR_M (255 / 8.0)  /* red: the wall's byte is the road edge's plus its distance, in 1/8 m: 31.875 m */
 
 /* The road width in the editor's units: the byte track_gen writes is the distance of each road edge from the centre in 1/8 m, so the road edge to edge is
  * byte / 4 metres (the template's 40 is 10 m). The editor's range is 2..30 m (8..120). */
@@ -130,22 +138,25 @@ int track_trace_key_find(const TraceKey *keys, int count, int point);
 void track_trace_keys_insert_point(TraceKey *keys, int count, int index);
 void track_trace_keys_remove_point(TraceKey *keys, int *count, int index);
 
-/* Per node (flags[i], for i < count): the TRACE_FLAG_* bits that node breaks, a warning bit only where its red one is not set. flags[0] is always 0 (the start has no node before it). */
-void track_trace_flags(const TrackGenNode *nodes, int count, uint8_t *flags);
+/* Per node (flags[i], for i < count): the TRACE_FLAG_* bits that node breaks, a warning bit only where its red one is not set. flags[0] has only
+ * TRACE_FLAG_WALL_FAR, if any (the start has no node before it to turn or move from). */
+void track_trace_flags(const TrackGenNode *nodes, int count, TraceFlags *flags);
 
 /* A node that breaks a limit, as the Problems panel lists it. `flags` are its TRACE_FLAG_* bits, `red` is set when any of them is red,
  * `turn` is its turn from the node before in degrees (unsigned) and `radius` the curve's radius there in units (0 on a straight). */
 typedef struct {
     int node;
     int red;
-    uint8_t flags;
+    TraceFlags flags;
     double turn, radius;
     double width_step;   /* TRACE_FLAG_WIDTH_WARN: how much the road's width changes from the node before, in metres (unsigned; 0 otherwise) */
+    double side_step;    /* TRACE_FLAG_SIDE_WARN: the most a shoulder or a wall distance moves from the node before, in metres (unsigned; 0 otherwise) */
+    double wall_m;       /* TRACE_FLAG_WALL_FAR: the farther wall from the centre, in metres (0 otherwise) */
 } TraceProblem;
 
 /* The problem nodes: every node whose flags are not 0, red ones first and each group by node number. Fills out[0..cap) and returns how many
  * nodes there are in all (it may be more than cap). `flags` are track_trace_flags'. */
-int track_trace_problems(const TrackGenNode *nodes, int count, const uint8_t *flags, TraceProblem *out, int cap);
+int track_trace_problems(const TrackGenNode *nodes, int count, const TraceFlags *flags, TraceProblem *out, int cap);
 
 /* One row's text in English, the limits written from the constants: "node 80: turns 9.4° (more than 8°), may not look right", or with both rules
  * "node 80: turns 9.4° (more than 8°) and radius 38 units (under 43 units), may not look right"; a red row ends "can't be built". */
@@ -154,14 +165,16 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap);
 /* The summary of a road's flags, one line per rule some node breaks (a rule no node breaks has none), red lines first: "2 nodes turn more
  * than 16.5° per node: the track can't be built", "26 nodes turn more than 8° per node: they may not look right in the game", and the same for
  * the radius ("1 node is on a curve of radius under 43 units: it may not look right in the game"), and the width, last
- * ("3 nodes change width by more than 1.25 m per node: they may not look right in the game"). */
-enum { TRACE_SUMMARY_LINES = 5, TRACE_SUMMARY_TEXT = 128, TRACE_PROBLEM_TEXT = 192 };   /* TRACE_PROBLEM_TEXT: room for a row with all three amber clauses */
+ * ("3 nodes change width by more than 1.25 m per node: they may not look right in the game"); the sides' red line ("2 nodes have a wall more than
+ * 31.875 m from the centre: the track can't be built") after the other red ones, and their amber one last ("1 node moves a shoulder or a wall by more
+ * than 1.25 m: it may not look right in the game"). */
+enum { TRACE_SUMMARY_LINES = 7, TRACE_SUMMARY_TEXT = 128, TRACE_PROBLEM_TEXT = 320 };   /* TRACE_PROBLEM_TEXT: room for a row with every clause */
 typedef struct {
     int red;
     int nodes;
     char text[TRACE_SUMMARY_TEXT];
 } TraceSummaryLine;
-int track_trace_summary(const uint8_t *flags, int count, TraceSummaryLine lines[TRACE_SUMMARY_LINES]);
+int track_trace_summary(const TraceFlags *flags, int count, TraceSummaryLine lines[TRACE_SUMMARY_LINES]);
 
 /* Metres from node 0 to each node along the road (the sum of the distances between consecutive nodes: m[0] = 0), `count` values. */
 void track_trace_distances(const TrackGenNode *nodes, int count, double *metres);

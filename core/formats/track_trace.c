@@ -465,11 +465,45 @@ static void node_turn_radius(const TrackGenNode *nodes, int i, double *turn, dou
     }
 }
 
-void track_trace_flags(const TrackGenNode *nodes, int count, uint8_t *flags)
+/* a side's value in 1/8 m past the road edge, the template's (TRACE_*_DEFAULT_M) where the node does not say it */
+static double side_eighths(const TrackGenSide *s, unsigned bit)
 {
-    if (count > 0) flags[0] = 0;
-    for (int i = 1; i < count; ++i) {
-        uint8_t f = 0;
+    if (!(s->has & bit)) return 8 * (bit == TRACK_GEN_SIDE_SHOULDER ? TRACE_SHOULDER_DEFAULT_M : TRACE_BARRIER_DEFAULT_M);
+    return bit == TRACK_GEN_SIDE_SHOULDER ? s->shoulder : s->barrier;
+}
+
+/* the most a shoulder or a wall distance moves from node i - 1 to node i, in metres */
+static double side_step(const TrackGenNode *nodes, int i)
+{
+    static const unsigned BITS[2] = { TRACK_GEN_SIDE_SHOULDER, TRACK_GEN_SIDE_BARRIER };
+    double most = 0;
+    for (int side = 0; side < 2; ++side)
+        for (int b = 0; b < 2; ++b)
+            most = fmax(most, fabs(side_eighths(&nodes[i].side[side], BITS[b]) - side_eighths(&nodes[i - 1].side[side], BITS[b])) / 8);
+    return most;
+}
+
+/* the farther wall a node gives from the centre in 1/8 m, as the generator writes its byte: the road edge's plus the wall's distance (0 when it
+ * gives none: the template's wall is the generator's own, and track_generate_nodes refuses only a node's) */
+static long wall_eighths(const TrackGenNode *n)
+{
+    long most = 0;
+    for (int side = 0; side < 2; ++side) {
+        if (!(n->side[side].has & TRACK_GEN_SIDE_BARRIER)) continue;
+        const long at = lround(n->width) + lround(n->side[side].barrier);
+        if (at > most) most = at;
+    }
+    return most;
+}
+
+void track_trace_flags(const TrackGenNode *nodes, int count, TraceFlags *flags)
+{
+    for (int i = 0; i < count; ++i) {
+        TraceFlags f = wall_eighths(&nodes[i]) > 255 ? TRACE_FLAG_WALL_FAR : 0;
+        if (i == 0) {
+            flags[i] = f;
+            continue;
+        }
         double turn, radius;
         node_turn_radius(nodes, i, &turn, &radius);
         if (turn > TRACE_TURN_MAX_DEGREES + 1e-6) f |= TRACE_FLAG_TURN;
@@ -479,26 +513,31 @@ void track_trace_flags(const TrackGenNode *nodes, int count, uint8_t *flags)
             else if (radius < TRACE_RADIUS_WARN) f |= TRACE_FLAG_RADIUS_WARN;
         }
         if (fabs(nodes[i].width - nodes[i - 1].width) > TRACE_WIDTH_STEP_WARN_M * TRACE_WIDTH_PER_METRE + 1e-6) f |= TRACE_FLAG_WIDTH_WARN;
+        if (side_step(nodes, i) > TRACE_SIDE_STEP_WARN_M + 1e-6) f |= TRACE_FLAG_SIDE_WARN;
         flags[i] = f;
     }
 }
 
-#define RED_BITS (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)
+static void problem_of(const TrackGenNode *nodes, int i, TraceFlags flags, TraceProblem *p)
+{
+    memset(p, 0, sizeof *p);
+    p->node = i;
+    p->red = (flags & TRACE_FLAG_RED_BITS) != 0;
+    p->flags = flags;
+    if (i > 0) node_turn_radius(nodes, i, &p->turn, &p->radius);
+    p->width_step = (flags & TRACE_FLAG_WIDTH_WARN) ? fabs(nodes[i].width - nodes[i - 1].width) / TRACE_WIDTH_PER_METRE : 0;
+    p->side_step = (flags & TRACE_FLAG_SIDE_WARN) ? side_step(nodes, i) : 0;
+    p->wall_m = (flags & TRACE_FLAG_WALL_FAR) ? wall_eighths(&nodes[i]) / 8.0 : 0;
+}
 
-int track_trace_problems(const TrackGenNode *nodes, int count, const uint8_t *flags, TraceProblem *out, int cap)
+int track_trace_problems(const TrackGenNode *nodes, int count, const TraceFlags *flags, TraceProblem *out, int cap)
 {
     int total = 0;
     for (int pass = 0; pass < 2; ++pass) {   /* the red nodes, then the amber ones */
-        for (int i = 1; i < count; ++i) {
-            const int red = (flags[i] & RED_BITS) != 0;
+        for (int i = 0; i < count; ++i) {
+            const int red = (flags[i] & TRACE_FLAG_RED_BITS) != 0;
             if (flags[i] == 0 || red != (pass == 0)) continue;
-            if (total < cap) {
-                out[total].node = i;
-                out[total].red = red;
-                out[total].flags = flags[i];
-                node_turn_radius(nodes, i, &out[total].turn, &out[total].radius);
-                out[total].width_step = (flags[i] & TRACE_FLAG_WIDTH_WARN) ? fabs(nodes[i].width - nodes[i - 1].width) / TRACE_WIDTH_PER_METRE : 0;
-            }
+            if (total < cap) problem_of(nodes, i, flags[i], &out[total]);
             ++total;
         }
     }
@@ -512,11 +551,14 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap)
     const int turn_red = (p->flags & TRACE_FLAG_TURN) != 0, turn = turn_red || (p->flags & TRACE_FLAG_TURN_WARN);
     const int radius_red = (p->flags & TRACE_FLAG_RADIUS) != 0, radius = radius_red || (p->flags & TRACE_FLAG_RADIUS_WARN);
     const int width = (p->flags & TRACE_FLAG_WIDTH_WARN) != 0;
-    char clauses[3][64];
+    char clauses[5][64];
     int n = 0;
     if (turn) snprintf(clauses[n++], sizeof clauses[0], "turns %.1f" DEGREE " (more than %g" DEGREE ")", p->turn, turn_red ? TRACE_TURN_MAX_DEGREES : TRACE_TURN_WARN_DEGREES);
     if (radius) snprintf(clauses[n++], sizeof clauses[0], "radius %.0f m (under %g m)", TRACE_METRES(p->radius), TRACE_METRES(radius_red ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN));
     if (width) snprintf(clauses[n++], sizeof clauses[0], "width changes %.2f m (more than %g m)", p->width_step, TRACE_WIDTH_STEP_WARN_M);
+    if (p->flags & TRACE_FLAG_SIDE_WARN)
+        snprintf(clauses[n++], sizeof clauses[0], "a shoulder or wall moves %.2f m (more than %g m)", p->side_step, TRACE_SIDE_STEP_WARN_M);
+    if (p->flags & TRACE_FLAG_WALL_FAR) snprintf(clauses[n++], sizeof clauses[0], "a wall %.1f m from the centre (more than %g m)", p->wall_m, TRACE_WALL_FAR_M);
     snprintf(out, cap, "node %d: ", p->node);
     for (int i = 0; i < n; ++i) {
         const size_t at = strlen(out);
@@ -526,12 +568,12 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap)
     snprintf(out + at, cap > at ? cap - at : 0, ", %s", p->red ? "can't be built" : "may not look right");
 }
 
-int track_trace_summary(const uint8_t *flags, int count, TraceSummaryLine lines[TRACE_SUMMARY_LINES])
+int track_trace_summary(const TraceFlags *flags, int count, TraceSummaryLine lines[TRACE_SUMMARY_LINES])
 {
-    enum { RULE_TURN, RULE_RADIUS, RULE_WIDTH };
-    static const struct { uint8_t bit; int red, kind; } RULES[TRACE_SUMMARY_LINES] = {
-        { TRACE_FLAG_TURN, 1, RULE_TURN }, { TRACE_FLAG_RADIUS, 1, RULE_RADIUS }, { TRACE_FLAG_TURN_WARN, 0, RULE_TURN },
-        { TRACE_FLAG_RADIUS_WARN, 0, RULE_RADIUS }, { TRACE_FLAG_WIDTH_WARN, 0, RULE_WIDTH }
+    enum { RULE_TURN, RULE_RADIUS, RULE_WIDTH, RULE_WALL, RULE_SIDE };
+    static const struct { TraceFlags bit; int red, kind; } RULES[TRACE_SUMMARY_LINES] = {
+        { TRACE_FLAG_TURN, 1, RULE_TURN }, { TRACE_FLAG_RADIUS, 1, RULE_RADIUS }, { TRACE_FLAG_WALL_FAR, 1, RULE_WALL }, { TRACE_FLAG_TURN_WARN, 0, RULE_TURN },
+        { TRACE_FLAG_RADIUS_WARN, 0, RULE_RADIUS }, { TRACE_FLAG_WIDTH_WARN, 0, RULE_WIDTH }, { TRACE_FLAG_SIDE_WARN, 0, RULE_SIDE }
     };
     int used = 0;
     for (int r = 0; r < TRACE_SUMMARY_LINES; ++r) {
@@ -548,9 +590,15 @@ int track_trace_summary(const uint8_t *flags, int count, TraceSummaryLine lines[
         else if (RULES[r].kind == RULE_RADIUS)
             snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s %s on a curve of radius under %g m: %s", nodes, plural, nodes == 1 ? "is" : "are",
                      TRACE_METRES(RULES[r].red ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN), verdict);
-        else
+        else if (RULES[r].kind == RULE_WIDTH)
             snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s change%s width by more than %g m per node: %s", nodes, plural, nodes == 1 ? "s" : "",
                      TRACE_WIDTH_STEP_WARN_M, verdict);
+        else if (RULES[r].kind == RULE_WALL)
+            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s %s a wall more than %g m from the centre: %s", nodes, plural, nodes == 1 ? "has" : "have",
+                     TRACE_WALL_FAR_M, verdict);
+        else
+            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s move%s a shoulder or a wall by more than %g m: %s", nodes, plural, nodes == 1 ? "s" : "",
+                     TRACE_SIDE_STEP_WARN_M, verdict);
         ++used;
     }
     return used;

@@ -59,10 +59,10 @@ void draw_grid(const Canvas &c, const View &v)
 }
 
 // the colour of the road at a node: red when it breaks a red limit, amber over an amber one, else the road's
-ImU32 segment_colour(uint8_t flags)
+ImU32 segment_colour(TraceFlags flags)
 {
-    if (flags & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) return BAD;
-    return (flags & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN)) ? WARN : ROAD;
+    if (flags & TRACE_FLAG_RED_BITS) return BAD;
+    return (flags & TRACE_FLAG_WARN_BITS) ? WARN : ROAD;
 }
 
 // is a node's side a tarmac shoulder (the road key's surface, as the generator writes it)?
@@ -185,14 +185,23 @@ void draw_tooltip(const Canvas &c, const App &a)
     ImGui::Text("node %d: %.0f m from the start, turn %s", node, a.node_dist != NULL ? a.node_dist[node] : 0.0, turn);
     const bool left = tarmac_side(a.nodes[node], TRACK_GEN_LEFT), right = tarmac_side(a.nodes[node], TRACK_GEN_RIGHT);
     if (left || right) ImGui::Text("shoulder: tarmac %s", left && right ? "both sides" : left ? "left" : "right");
-    if (a.flags[node] & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) {
-        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "too tight: the road is not built");
-        ImGui::TextUnformatted("points too close for this turn: space them out or smooth them");
+    if (a.flags[node] & TRACE_FLAG_RED_BITS) {
+        if (a.flags[node] & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) {
+            ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "too tight: the road is not built");
+            ImGui::TextUnformatted("points too close for this turn: space them out or smooth them");
+        }
+        if (a.flags[node] & TRACE_FLAG_WALL_FAR) {
+            ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "wall too far out (over %g m from the centre): the road is not built", TRACE_WALL_FAR_M);
+            ImGui::TextUnformatted("bring the wall nearer the road, or narrow the road here");
+        }
     } else {
         if (a.flags[node] & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN))
             ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "very tight curve: check the terrain in the game, the AI brakes");
         if (a.flags[node] & TRACE_FLAG_WIDTH_WARN)
             ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "width changes too fast (over %g m a node): lengthen the ramp", TRACE_WIDTH_STEP_WARN_M);
+        if (a.flags[node] & TRACE_FLAG_SIDE_WARN)
+            ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "a shoulder or a wall moves too fast (over %g m a node): spread it over more points",
+                               TRACE_SIDE_STEP_WARN_M);
     }
     ImGui::EndTooltip();
 }

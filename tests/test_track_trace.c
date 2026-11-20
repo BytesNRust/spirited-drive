@@ -63,7 +63,7 @@ static int nodes_of(const TracePoint *p, int count, double width, TrackGenNode *
     return track_trace_nodes(p, count, width, nodes, n, &err);
 }
 
-static int count_flags(const uint8_t *flags, int n, uint8_t bit)
+static int count_flags(const TraceFlags *flags, int n, TraceFlags bit)
 {
     int c = 0;
     for (int i = 0; i < n; ++i) if (flags[i] & bit) ++c;
@@ -87,7 +87,7 @@ static void test_straight(void)
     }
     CHECK(straight);
     CHECK(fabs(unit(nodes[n - 1].position[2]) - 288.0) < 0.01);
-    uint8_t *flags = calloc((size_t)n, 1);
+    TraceFlags *flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN | TRACE_FLAG_RADIUS), 0);
     free(flags);
@@ -120,7 +120,7 @@ static void test_arc(void)
     const double last = atan2(p[12].x - p[11].x, p[12].z - p[11].z) * 8192 / M_PI;
     CHECK(fabs(track_trace_turn_degrees(last, nodes[n - 1].heading)) < 0.3);
     CHECK(track_trace_turn_degrees(nodes[0].heading, nodes[n - 1].heading) < 0);   /* a left turn: negative */
-    uint8_t *flags = calloc((size_t)n, 1);
+    TraceFlags *flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN | TRACE_FLAG_RADIUS), 0);   /* about 3 degrees a node on radius 100 */
     free(flags);
@@ -134,7 +134,7 @@ static void test_tight_arc_flags_radius(void)
     int n = 0;
     arc_points(30, 24, 180, p);                             /* a half circle of radius 30: about 11.5 degrees a node: amber, not red */
     CHECK(nodes_of(p, 25, WIDTH, &nodes, &n));
-    uint8_t *flags = calloc((size_t)n, 1);
+    TraceFlags *flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK(count_flags(flags, n, TRACE_FLAG_RADIUS_WARN) > 0);
     CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_RADIUS | TRACE_FLAG_TURN), 0);
@@ -143,7 +143,7 @@ static void test_tight_arc_flags_radius(void)
     free(nodes);
     arc_points(15, 24, 180, p);                             /* radius 15: about 23 degrees a node: red */
     CHECK(nodes_of(p, 25, WIDTH, &nodes, &n));
-    flags = calloc((size_t)n, 1);
+    flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK(count_flags(flags, n, TRACE_FLAG_RADIUS) > 0);
     free(flags);
@@ -156,7 +156,7 @@ static void test_corner_flags_turn(void)
     TrackGenNode *nodes = NULL;
     int n = 0;
     CHECK(nodes_of(p, 3, WIDTH, &nodes, &n));
-    uint8_t *flags = calloc((size_t)n, 1);
+    TraceFlags *flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK(count_flags(flags, n, TRACE_FLAG_TURN) > 0);
     free(flags);
@@ -165,9 +165,10 @@ static void test_corner_flags_turn(void)
 
 
 /* nodes that turn `degrees` each from the one before, TRACK_GEN_NODE_LENGTH apart: the limits' levels by flags alone */
-static uint8_t flags_at_turn(double degrees)
+static TraceFlags flags_at_turn(double degrees)
 {
     TrackGenNode n[3];
+    memset(n, 0, sizeof n);   /* the sides too: the template's */
     const double step = TRACK_GEN_NODE_LENGTH / 65536.0, back = degrees * 0x4000 / 360.0;
     double x = 0, z = 0;
     for (int i = 0; i < 3; ++i) {
@@ -180,7 +181,7 @@ static uint8_t flags_at_turn(double degrees)
         x += step * sin(back * i * 2 * M_PI / 0x4000);
         z += step * cos(back * i * 2 * M_PI / 0x4000);
     }
-    uint8_t flags[3];
+    TraceFlags flags[3];
     track_trace_flags(n, 3, flags);
     return flags[2];
 }
@@ -217,7 +218,7 @@ static void test_drawn_16_is_amber(void)
     TrackGenNode *nodes = NULL;
     int n = 0;
     CHECK(nodes_of(p, COUNT, WIDTH, &nodes, &n));
-    uint8_t *flags = calloc((size_t)n, 1);
+    TraceFlags *flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN | TRACE_FLAG_RADIUS), 0);
     CHECK(count_flags(flags, n, TRACE_FLAG_TURN_WARN) > 0);
@@ -228,6 +229,7 @@ static void test_drawn_16_is_amber(void)
 /* nodes whose turns from the one before are `turns[1..count-1]` degrees, TRACK_GEN_NODE_LENGTH apart */
 static void nodes_turning(const double *turns, int count, TrackGenNode *n)
 {
+    memset(n, 0, sizeof *n * (size_t)count);   /* the sides too: the template's */
     const double step = TRACK_GEN_NODE_LENGTH / 65536.0;
     double x = 0, z = 0, heading = 0;
     for (int i = 0; i < count; ++i) {
@@ -249,7 +251,7 @@ static void test_problems_and_summary(void)
     const double turns[N] = { 0, 9.4, 17.0, 3.0, 9.0, 16.0, 1.0 };   /* node 1 and 4 and 5 amber (5 is 16.0: over 8, under 16.5), node 2 red */
     TrackGenNode n[N];
     nodes_turning(turns, N, n);
-    uint8_t flags[N];
+    TraceFlags flags[N];
     track_trace_flags(n, N, flags);
     TraceProblem rows[N];
     CHECK_EQ_INT(track_trace_problems(n, N, flags, rows, N), 4);
@@ -289,7 +291,7 @@ static void test_zero_distance_turn(void)
     TrackGenNode n[2] = {{ 0 }};
     n[0].width = n[1].width = WIDTH;
     n[1].heading = 100;
-    uint8_t flags[2];
+    TraceFlags flags[2];
     track_trace_flags(n, 2, flags);
     CHECK_EQ_INT(flags[1] & TRACE_FLAG_RADIUS, TRACE_FLAG_RADIUS);
 }
@@ -534,7 +536,7 @@ static void test_keys_width_limit(void)
     memset(&err, 0, sizeof err);
     CHECK(track_trace_nodes_keyed(q, 12, WIDTH, sudden, 2, &n, &count, &err));
     if (n == NULL) return;
-    uint8_t *flags = calloc((size_t)count, 1);
+    TraceFlags *flags = calloc((size_t)count, sizeof *flags);
     track_trace_flags(n, count, flags);
     int flagged = 0, right = 1;
     for (int i = 1; i < count; ++i) {
@@ -562,14 +564,14 @@ static void test_keys_width_limit(void)
 
     const TraceKey calm[2] = { { .point = 0, .has = TRACE_KEY_WIDTH, .width_m = 8.0 }, { .point = 3, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };   /* 6 m over 300 m: 0.2 m a node at the most */
     CHECK(track_trace_nodes_keyed(p, 4, WIDTH, calm, 2, &n, &count, &err));
-    flags = calloc((size_t)count, 1);
+    flags = calloc((size_t)count, sizeof *flags);
     track_trace_flags(n, count, flags);
     CHECK_EQ_INT(count_flags(flags, count, TRACE_FLAG_WIDTH_WARN), 0);
     free(flags);
     free(n);
 
     /* the longest row: both amber turn rules and the width one on a node of the last digits; the text is whole, not cut at the buffer */
-    const TraceProblem all = { 2396, 0, TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN, 16.4, 21.0, 1.55 };
+    const TraceProblem all = { .node = 2396, .red = 0, .flags = TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN, .turn = 16.4, .radius = 21.0, .width_step = 1.55 };
     char longest[TRACE_PROBLEM_TEXT];
     track_trace_problem_text(&all, longest, sizeof longest);
     CHECK(strlen(longest) > 128 - 1 && strlen(longest) < TRACE_PROBLEM_TEXT - 1);

@@ -97,7 +97,7 @@ typedef struct {
     /* the road, computed from the trace by app_recompute */
     TrackGenNode *nodes;         /* malloc'd when road_made */
     int node_count;
-    uint8_t *flags;              /* per node, the TRACE_FLAG_* bits, when road_made */
+    TraceFlags *flags;           /* per node, the TRACE_FLAG_* bits, when road_made */
     int road_made;               /* 0 when the trace cannot become nodes (see road_text) */
     TraceProblem *problems;      /* malloc'd, `problem_count` of them: the nodes that break a limit, red first (track_trace_problems) */
     int problem_count;

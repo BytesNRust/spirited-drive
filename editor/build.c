@@ -74,7 +74,7 @@ static int road_nodes(const Trace *t, TrackGenNode **nodes, int *count, char *wh
         snprintf(why, why_cap, "%s", err.message);
         return 0;
     }
-    uint8_t *flags = calloc((size_t)*count, 1);
+    TraceFlags *flags = calloc((size_t)*count, sizeof *flags);
     if (flags == NULL) {
         free(*nodes);
         snprintf(why, why_cap, "out of memory");
@@ -88,6 +88,9 @@ static int road_nodes(const Trace *t, TrackGenNode **nodes, int *count, char *wh
             ok = 0;
         } else if (flags[i] & TRACE_FLAG_RADIUS) {
             snprintf(why, why_cap, "the curve at node %d is tighter than %g m", i, TRACE_METRES(TRACE_RADIUS_MIN));
+            ok = 0;
+        } else if (flags[i] & TRACE_FLAG_WALL_FAR) {
+            snprintf(why, why_cap, "a wall at node %d is more than %g m from the centre: bring it nearer the road or narrow the road", i, TRACE_WALL_FAR_M);
             ok = 0;
         }
     }
