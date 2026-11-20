@@ -392,7 +392,7 @@ static void test_job(void)
     /* a traffic car found at once: the probe, then the shot following its slot */
     CHECK(car_race_start_photo(&job, game, "/cd", project, wagon, "CL1", 0, NULL, why, sizeof why));
     run_job(&job);
-    CHECK(job.ok && job.photo_serial == 3 && job.photo_slot == 3 && strstr(job.summary, "slot 3") != NULL && strstr(job.summary, "800 ticks") != NULL);
+    CHECK(job.ok && job.photo_serial == 3 && job.photo_slot == 3 && strstr(job.summary, "slot 3") != NULL && strstr(job.summary, "800 ticks") != NULL && strstr(job.summary, "Coastal 1") != NULL && strstr(job.summary, "CL1") == NULL);
     CHECK(strstr(job.log, "follow=3") != NULL && strstr(job.log, "the car is in it") != NULL && !temps_left());
     /* found in the third draw: the seeds are tried in order */
     setenv("FAKE_MODE", "later", 1);
