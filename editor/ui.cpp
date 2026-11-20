@@ -50,6 +50,12 @@ static int g_win_w = 960, g_win_h = 600;   // the window's default size (ui_wind
 static int g_reset_in, g_save_in;   // frames until Reset layout rebuilds the dock (the window's new size in first), and until the layout file is rewritten
 enum { RESET_AFTER_FRAMES = 3, SAVE_AFTER_FRAMES = 2 };
 
+void ui_double_click_by_frames(void)
+{
+    ImGui::GetIO().MouseDoubleClickTime = 30.0f;
+    ImGui::GetIO().MouseSingleClickDelay = 31.0f;   // ImGui wants it over the double-click time
+}
+
 int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size_t why_cap)
 {
     IMGUI_CHECKVERSION();

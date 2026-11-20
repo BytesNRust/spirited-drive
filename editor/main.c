@@ -520,6 +520,7 @@ static int run(App *a, const Options *o)
         SDL_Quit();
         return 1;
     }
+    if (o->steps != NULL) ui_double_click_by_frames();
     ui_window_default(window_w, window_h);
     if (o->reset_layout) ui_reset_layout();
     if (o->orbit != NULL) {
