@@ -582,11 +582,15 @@ void race_log_lines(const char *text, size_t len, int *budget, bool show_notes)
 }   // namespace
 
 // The Race window's look (T6): Restomod whole by default; four switches for how the car is shown and the render scale. The session's, never the project's.
+// Under the buttons, folded by default (the Race tab is short at 960 x 600): its title says what is off, so a folded look is never a hidden one.
 static void race_look_controls(App *a)
 {
     RaceLook &look = a->race_look;
-    ImGui::TextUnformatted("Look");
-    ImGui::SameLine();
+    char off[120], title[160];
+    car_race_look_off(&look, off, sizeof off);
+    const int n = off[0] != '\0' ? snprintf(title, sizeof title, "Look (%s)###racelook", off) : snprintf(title, sizeof title, "Look###racelook");
+    if (n < 0 || static_cast<size_t>(n) >= sizeof title) snprintf(title, sizeof title, "Look (some off)###racelook");
+    if (!ImGui::CollapsingHeader(title)) return;
     struct { const char *label, *tip; int *on; } sw[4] = {
         { "Reflections", "The sky's reflection on the body (Restomod's envmap); off: the exe's flat body", &look.reflections },
         { "Car colours", "The screen palette's car entries fitted to this car's colours; off: the race's shared palette", &look.car_colours },
@@ -607,7 +611,7 @@ static void race_look_controls(App *a)
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Render scale 1: the exe's own resolution");
 }
 
-// Test in race and Race photo of an original car's project: the preset, the track, the look, the buttons, the picture, and the game's log
+// Test in race and Race photo of an original car's project: the preset, the track, the buttons, the look, the picture, and the game's log
 void race_panel(App *a, ImTextureID photo)
 {
     static int seen = 0, wait = 0;   // a new photo brings the tab forward (after the dock layout has settled: a focus given in the frame that builds it is lost)
@@ -648,7 +652,6 @@ void race_panel(App *a, ImTextureID photo)
             }
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("The night is each track's own; Rusty Springs is the reference");
             if (a->race_night && now != nullptr && strcmp(now->stem, "TR7") == 0) ImGui::TextDisabled("Lost Vegas has no time of day: it stays as it is");
-            race_look_controls(a);
             ImGui::EndDisabled();
             char note[500];   // Test in race: who drives what, and where a traffic car is
             car_race_note(car, now != nullptr ? now->stem : "", note, sizeof note);
@@ -661,6 +664,9 @@ void race_panel(App *a, ImTextureID photo)
             ImGui::SameLine();
             ImGui::BeginDisabled(!busy);
             if (ImGui::Button("Stop")) app_race_stop(a);
+            ImGui::EndDisabled();
+            ImGui::BeginDisabled(busy);
+            race_look_controls(a);
             ImGui::EndDisabled();
         }
         if (busy) ImGui::TextUnformatted("Running...");
