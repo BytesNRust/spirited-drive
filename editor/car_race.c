@@ -41,6 +41,12 @@ int car_race_track_find(const char *stem)
     return -1;
 }
 
+const char *car_race_track_label(const char *stem)
+{
+    const int i = car_race_track_find(stem);
+    return i >= 0 ? TRACKS[i].label : stem != NULL ? stem : "";
+}
+
 int car_race_photo_ticks(const ExportCar *car)
 {
     return car == NULL || car->kind == EXPORT_DRIVABLE ? RACE_TICKS_DRIVEN : car->kind == EXPORT_POLICE ? RACE_TICKS_POLICE : RACE_TICKS_TRAFFIC;
@@ -536,7 +542,7 @@ int car_race_start_photo(RaceJob *job, const char *game, const char *cd, const c
 {
     const int traffic = car != NULL && car->kind != EXPORT_DRIVABLE;
     const int ok = start_common(job, game, cd, project, car, track, night, look, traffic ? RACE_JOB_PROBE : RACE_JOB_SHOOT, why, why_cap);
-    if (ok) job_say(job, "In-game photo: %s on %s, %s.\n", car->label, track, night ? "night" : "day");
+    if (ok) job_say(job, "In-game photo: %s on %s, %s.\n", car->label, car_race_track_label(track), night ? "night" : "day");
     return ok;
 }
 
@@ -598,11 +604,11 @@ static void photo_done(RaceJob *j)
     j->photo_serial++;
     j->photo_slot = j->setup.slot, j->photo_night = j->setup.night, j->photo_seed = j->setup.seed;
     snprintf(j->photo_track, sizeof j->photo_track, "%s", j->track);
-    if (j->setup.car->kind == EXPORT_DRIVABLE) finish(j, 1, "Photo: %s on %s, %s.", j->setup.car->label, j->track, j->setup.night ? "night" : "day");
+    if (j->setup.car->kind == EXPORT_DRIVABLE) finish(j, 1, "Photo: %s on %s, %s.", j->setup.car->label, car_race_track_label(j->track), j->setup.night ? "night" : "day");
     else if (follow == 1) finish(j, 1, "Photo: the %s on the road (slot %d of the traffic draw %u) on %s, %s, %u ticks in.", j->setup.car->label, j->setup.slot,
-                                 (unsigned)j->setup.seed, j->track, j->setup.night ? "night" : "day", frame);
+                                 (unsigned)j->setup.seed, car_race_track_label(j->track), j->setup.night ? "night" : "day", frame);
     else finish(j, 1, "Photo: the camera follows the %s (slot %d of the traffic draw %u) on %s, %s, %d ticks in. Studio cannot see whether it is on screen: look.", j->setup.car->label,
-                j->setup.slot, (unsigned)j->setup.seed, j->track, j->setup.night ? "night" : "day", car_race_photo_ticks(j->setup.car));
+                j->setup.slot, (unsigned)j->setup.seed, car_race_track_label(j->track), j->setup.night ? "night" : "day", car_race_photo_ticks(j->setup.car));
 }
 
 /* a probe ended: is the car in the draw? */

@@ -51,6 +51,8 @@ int car_race_track_count(void);
 const RaceTrack *car_race_track(int index);
 /* the index of the track with this stem (any case), -1 for none */
 int car_race_track_find(const char *stem);
+/* the name the Track picker shows for this stem ("Rusty Springs" for TR5); an unknown stem is returned as it is, NULL gives "" */
+const char *car_race_track_label(const char *stem);
 /* the ticks of a car's photo */
 int car_race_photo_ticks(const ExportCar *car);
 

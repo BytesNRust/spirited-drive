@@ -175,6 +175,7 @@ static void test_tracks(void)
     int stages = 0;
     for (int i = 0; i < car_race_track_count(); ++i) stages += car_race_track(i)->stage;
     CHECK_EQ_INT(stages, 9);
+    CHECK(strcmp(car_race_track_label("tr5"), "Rusty Springs") == 0 && strcmp(car_race_track_label("XX9"), "XX9") == 0 && strcmp(car_race_track_label(NULL), "") == 0);
     CHECK(car_race_track_find("tr5") == car_race_track_find("TR5") && car_race_track_find("TR5") >= 0 && car_race_track_find("XX9") < 0 && car_race_track_find(NULL) < 0);
     CHECK(strcmp(car_race_track(car_race_default_track(car_export_car(index_of("P911"))))->stem, "TR5") == 0);   /* Rusty Springs: the night reference */
     CHECK(strcmp(car_race_track(car_race_default_track(car_export_car(index_of("Wagon"))))->stem, "CL1") == 0);   /* a stage: the circuits have no traffic */
@@ -376,7 +377,8 @@ static void test_job(void)
     CHECK(car_race_busy(&job) && !car_race_start_photo(&job, game, "/cd", project, p911, "TR5", 1, NULL, why, sizeof why) && strstr(why, "already") != NULL);
     run_job(&job);
     CHECK(!car_race_busy(&job) && job.finished && job.ok && job.photo != NULL && job.photo_serial == 1 && job.photo_night == 1);
-    CHECK(strstr(job.summary, "Porsche 911 Carrera on TR5, night") != NULL && strstr(job.summary, " off") == NULL);
+    CHECK(strstr(job.summary, "Porsche 911 Carrera on Rusty Springs, night") != NULL && strstr(job.summary, " off") == NULL && strstr(job.summary, "TR5") == NULL);
+    CHECK(strstr(job.log, "In-game photo: Porsche 911 Carrera on Rusty Springs, night") != NULL);
     CHECK(job.photo_w == 640 && job.photo_h == 480);   /* the size the game wrote (the fake's) */
     {   /* T6: what was switched off is said in the summary and the log */
         RaceLook look = car_race_look_default();
