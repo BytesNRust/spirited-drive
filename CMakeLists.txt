@@ -959,7 +959,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_session PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_session PRIVATE tnfs_core Threads::Threads)
     target_compile_options(test_editor_session PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_lanes tests/test_editor_lanes.c game/sys/sha256.c editor/game_find.c editor/app.c editor/app_drive.c editor/track_undo.c editor/app_sides.c editor/night_view.c editor/app_mask.c editor/mask_edit.c editor/mask_tex.c editor/build.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/edit_seq.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c editor/view.c)   # the road keys' lanes (step 4): trace.json and the editor
+    add_executable(test_editor_lanes tests/test_editor_lanes.c game/sys/sha256.c editor/game_find.c editor/app.c editor/app_drive.c editor/track_undo.c editor/app_sides.c editor/night_view.c editor/app_mask.c editor/mask_edit.c editor/mask_tex.c editor/build.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/edit_seq.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/install_job.c editor/proc_run.c editor/view.c)   # the road keys' lanes (step 4): trace.json and the editor
     target_include_directories(test_editor_lanes PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_lanes PRIVATE tnfs_core Threads::Threads)
     target_compile_options(test_editor_lanes PRIVATE ${TNFS_WARNINGS})
