@@ -4,12 +4,11 @@
 #include "game/gfx/object_mappers.h"
 #include "game/gfx/palette_match.h"
 #include "game/gfx/quad.h"
-#include "game/race/car_envmap.h"
+#include "raster/shine_pass.h"
 #include "game/sys/palette.h"
 #include "viewer/modern_road.h"
 #include "viewer/shine_class.h"
 
-#include <math.h>
 #include <string.h>
 
 /* 00491a82 indexes five tables of three thunks back to back, so a mode past
@@ -42,23 +41,6 @@ static void envmap_exe(const ObjectSink *s, ObjShape shape, const FshEntry *text
 
 /* port (body_shine 4): each corner's sphere-map uv of the envmap (car_envmap.h) from its normal and the line of sight, packed; 0 when the
  * polygon carries no normals */
-static int envmap_corners(const Object3DCorners *c, int32_t packed[4])
-{
-    if (c->normal == NULL || c->corners < 3 || c->corners > 4) return 0;
-    for (int i = 0; i < c->corners; i++) {
-        const float *n = c->normal + 3 * i;
-        const float p[3] = { (float)c->camera[3 * i], (float)c->camera[3 * i + 1], (float)c->camera[3 * i + 2] };
-        const float len = sqrtf(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
-        float uv[2] = { 0.5f, 0.5f };
-        if (len > 0 && !(n[0] == 0 && n[1] == 0 && n[2] == 0)) {
-            const float v[3] = { p[0] / len, p[1] / len, p[2] / len };
-            car_envmap_uv(n, v, shine_up, uv);
-        }
-        packed[i] = car_envmap_pack(uv);
-    }
-    return 1;
-}
-
 static void textured(void *user, Object3DTable table, int mode, const FshEntry *texture, const Object3DCorners *c)
 {
     const ObjectSink *s = user;
@@ -117,43 +99,10 @@ static void flat(void *user, uint32_t rgb, const Object3DCorners *c)
     }
 }
 
-/* port: the uv a mapper shape reads, 16.16 for each corner, whatever the shape takes them in (the triangle, quad
- * and split-quad ones come from the mesh in whole texels, the whole-texture one from the texture's size, the inset
- * one from its size less a texel each side) */
-static int camera_uv(ObjShape shape, const FshEntry *t, const Object3DCorners *c, int32_t uv[8])
-{
-    const int32_t w = (int16_t)t->width, h = (int16_t)t->height;
-    switch (shape) {
-    case OBJ_TRIANGLE:
-    case OBJ_QUAD:
-    case OBJ_QUAD_TRIS:
-        for (int i = 0; i < 8; i++) uv[i] = (int32_t)((uint32_t)c->uv[i] << 16);
-        return 1;
-    case OBJ_FULL: {
-        const int32_t r = (w << 16) - 1, b = (h << 16) - 1;
-        const int32_t full[8] = { 0, 0, r, 0, r, b, 0, b };
-        memcpy(uv, full, sizeof full);
-        return 1;
-    }
-    case OBJ_INSET: {
-        const int32_t r = (w - 1) << 16, b = (h - 1) << 16, o = 1 << 16;
-        const int32_t inset[8] = { o, o, r - o, o, r - o, b - o, o, b - o };
-        memcpy(uv, inset, sizeof inset);
-        return 1;
-    }
-    }
-    return 0;
-}
-
-/* port (body_shine 4): the envmap's pass on the exe's path, over the polygon and uvs the mapper drew */
+/* port (body_shine 4): the envmap's pass on the exe's path, over the polygon and uvs the mapper drew (raster/shine_pass.h) */
 static void envmap_exe(const ObjectSink *s, ObjShape shape, const FshEntry *texture, const Object3DCorners *c)
 {
-    int32_t packed[4], uv16[8], uv[8];
-    const ShineClass *cls;
-    if (env_shine == NULL || texture->type != FSH_TYPE_BITMAP || (cls = shine_class_find(texture->payload)) == NULL) return;
-    if (!envmap_corners(c, packed) || !camera_uv(shape, texture, c, uv16)) return;
-    for (int i = 0; i < 2 * c->corners; i++) uv[i] = uv16[i] >> 16;
-    shine_draw_env_affine(s->target, cls, env_shine, c->screen, uv, packed, c->corners);
+    shine_pass_affine(s->target, shape, texture, c, env_shine, shine_up);
 }
 
 static void textured_camera(void *user, Object3DTable table, int mode, const FshEntry *texture, const Object3DCorners *c)
@@ -162,13 +111,13 @@ static void textured_camera(void *user, Object3DTable table, int mode, const Fsh
     const int slot = (int)table * 3 + mode;
     if (slot >= 15 || texture->type != FSH_TYPE_BITMAP) return;
     int32_t uv[8];
-    if (!camera_uv((ObjShape)(slot / 3), texture, c, uv)) return;
+    if (!shine_shape_uv((ObjShape)(slot / 3), texture, c, uv)) return;
     const int32_t *const cam[4] = { &c->camera[0], &c->camera[3], &c->camera[6], &c->camera[9] };
     const MapMode base = (MapMode)(slot % 3);
     modern_polygon(s->target, s->view, texture, uv, cam, c->corners, lit_mode(base), lit_shade(base, s->shade));
     const ShineClass *cls;
     int32_t packed[4];
-    if (env_shine != NULL && (cls = shine_class_find(texture->payload)) != NULL && envmap_corners(c, packed)) {   /* port (body_shine 4) */
+    if (env_shine != NULL && (cls = shine_class_find(texture->payload)) != NULL && shine_corner_uvs(c, shine_up, packed)) {   /* port (body_shine 4) */
         shine_draw_set_view(s->view);
         shine_draw_env_camera(s->target, cls, env_shine, uv, cam, packed, c->corners);
     }

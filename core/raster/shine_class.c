@@ -1,5 +1,5 @@
 /* port (body shine): see shine_class.h. */
-#include "viewer/shine_class.h"
+#include "raster/shine_class.h"
 
 #include <stdlib.h>
 #include <string.h>

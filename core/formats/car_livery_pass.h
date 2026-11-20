@@ -34,4 +34,10 @@ int car_livery_glass_floor(const char *upper);
 int car_livery_black(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const uint8_t rgb[3]);
 int car_livery_paint(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const uint8_t rgb[3]);
 
+/* The draft of a car's masks (car_mask.h) from the rules that repaint it today: for each body texture of each bank, `fn(user, level, name, width, height, pixels, keep,
+ * rgb)` with `keep` (width x height of REPAINT_DRAFT_*: paint, or the rules leave the texel as it is, matte or with a shine), the texture's palette indices and the car's own
+ * colours (`rgb`, 256 x 3, 8 bits). The race's body shine takes its class maps from it (raster/shine_class.h); the CFM is not changed. Returns the texels marked paint in all. */
+typedef void (*CarLiveryDraftFn)(void *user, int level, const char name[4], int width, int height, const uint8_t *pixels, const uint8_t *keep, const uint8_t rgb[768]);
+int car_livery_draft(uint8_t *cfm, size_t size, const CarLiveryPass *pass, CarLiveryDraftFn fn, void *user);
+
 #endif
