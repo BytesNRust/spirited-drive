@@ -41,25 +41,38 @@ enum {
     TRACK_GEN_NODE_LENGTH = 395000  /* distance between consecutive nodes, as on the CD tracks */
 };
 
-/* A node of the track as the generator writes it: the shape the game reads (headings 14-bit, positions 16.16) before it is packed. The first node
- * is the start; the last is the closing node (a track of N segments has 4N + 1). */
 /* A side of a node (its index in TrackGenNode.side): what the road has beyond its edge on that side. `has` says which values the node sets; a side all zero is
- * the template's, so a node all zero is the road of before, byte for byte. The plan's step 2b sets the shoulder's surface; step 3 adds its own values here. */
+ * the template's, so a node all zero is the road of before, byte for byte. The plan's step 2b sets the shoulder's surface; step 3 the shoulder's width,
+ * the wall's distance and kind, the fence. */
 enum { TRACK_GEN_LEFT = 0, TRACK_GEN_RIGHT = 1 };
-enum { TRACK_GEN_SIDE_TARMAC = 1 << 0 };   /* TrackGenSide.has bits (step 3 takes 1 << 1 on) */
+enum {                                  /* TrackGenSide.has bits */
+    TRACK_GEN_SIDE_TARMAC = 1 << 0,     /* `tarmac` (step 2b) */
+    TRACK_GEN_SIDE_SHOULDER = 1 << 1,   /* `shoulder`: the row's second point of the side (the shoulder's end) is that far past the road edge */
+    TRACK_GEN_SIDE_BARRIER = 1 << 2,    /* `barrier`: the wall is that far past the road edge (the node's barrier byte is the verge byte plus it) */
+    TRACK_GEN_SIDE_WALL = 1 << 3,       /* `wall`: its kind, the side's nibble of node byte 5 (the left's high, the right's low) */
+    TRACK_GEN_SIDE_FENCE = 1 << 4       /* `fence`: 1 a fence on that side, 0 none; a segment (4 nodes) takes its first node's (TRI_FENCE_LEFT / _RIGHT) */
+};
+enum { TRACK_GEN_WALL_HARD = 0, TRACK_GEN_WALL_SOFT = 1 };   /* hard: the game's hit, with its sound and a race note; soft: a glancing one */
+#define TRACK_GEN_SIDE_MAX 160.0   /* the most a shoulder or a wall's distance may be, in the verge byte's 1/8 m: 20 m */
 typedef struct {
     unsigned has;         /* TRACK_GEN_SIDE_* bits */
     int tarmac;           /* TRACK_GEN_SIDE_TARMAC: 1 the shoulder beyond the verge edge is the road's own surface (the game's row 0: that side's nibble of the node's
                            * flags[2], node +6, is 0), 0 the template's verge */
+    double shoulder;      /* 1/8 m past the road edge, 0..TRACK_GEN_SIDE_MAX (the generic template's is 24: 3 m) */
+    double barrier;       /* 1/8 m past the road edge, 0..TRACK_GEN_SIDE_MAX, and the verge byte plus it at most 255 (the generic template's is 24) */
+    int wall;             /* TRACK_GEN_WALL_HARD or _SOFT */
+    int fence;            /* 0 or 1 */
 } TrackGenSide;
 
+/* A node of the track as the generator writes it: the shape the game reads (headings 14-bit, positions 16.16) before it is packed. The first node
+ * is the start; the last is the closing node (a track of N segments has 4N + 1). */
 typedef struct {
     double heading;       /* 14-bit units (0x4000 = full turn), 0 along +z, positive to the right */
     double grade;         /* percent, +-30 */
     double bank;          /* degrees, +-20 */
     double width;         /* the half road width in the node's verge byte, 0..255 (16 terrain units each); a layout asks for 8..120 */
     int32_t position[3];  /* x, y, z in 16.16; consecutive nodes 1..20 units apart */
-    TrackGenSide side[2]; /* [TRACK_GEN_LEFT], [TRACK_GEN_RIGHT] */
+    TrackGenSide side[2]; /* [TRACK_GEN_LEFT], [TRACK_GEN_RIGHT]; all zero: the template's */
 } TrackGenNode;
 
 enum { TRACK_GEN_MAX_NODES = TRACK_GEN_MAX_SEGMENTS * 4 + 1 };

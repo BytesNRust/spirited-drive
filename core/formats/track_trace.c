@@ -281,7 +281,7 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
     } else if (length / (NODES_PER_SEGMENT * segments) < MIN_SPACING_UNITS) {
         exchange_fail(err, "the road is too short: %g m for %d nodes", TRACE_METRES(length), count_nodes);
     } else {
-        TrackGenNode *out = malloc(sizeof *out * (size_t)count_nodes);
+        TrackGenNode *out = calloc((size_t)count_nodes, sizeof *out);   // zero sides: the template's (the keys set them below)
         if (out == NULL) {
             exchange_fail(err, "out of memory");
         } else {
