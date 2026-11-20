@@ -119,7 +119,7 @@ Both run the game (the one Studio found; Locate game if it is not there) on a sc
 Restomod whole, its look keys written out, no extra liveries, removed when the run ends): the player's own folder and the installed game are never touched. The project's masks are
 in front of the game's own (`TNFS_CAR_MASKS=<project>/car_masks`, and `TNFS_DASH_MASKS` for a car you drive); the person's own `TNFS_*` variables are dropped.
 **Day** or **Night** (Night is `light_time=night` and `light_effects=1`), and a track from the list (default Rusty Springs, the night reference; Lost Vegas has no
-time of day). **Look**, folded under the buttons, has Reflections, Car colours, Soft shadow and Texture filter (all on: Restomod's) and the resolution, 1280 x 960
+time of day). **Look**, under the buttons and open (it folds by hand), has Reflections, Car colours, Soft shadow and Texture filter (all on: Restomod's) and the resolution, 1280 x 960
 (render scale 2, the default) or 640 x 480; they are the session's, never saved in the project, and the header's title and the run's summary say what is off
 ("Look (Reflections off, 640x480)"). The window's explanations are behind the (?) beside the buttons. A car you drive is raced alone, a time trial (`--car N --racers 1`
 for a photo, `--car N --type 0` for the window; N is the car's model for a photo, and the car menu's number for the window, whose race is

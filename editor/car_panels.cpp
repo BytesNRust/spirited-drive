@@ -594,7 +594,8 @@ void race_log_lines(const char *text, size_t len, int *budget, bool show_notes)
 }   // namespace
 
 // The Race window's look (T6): Restomod whole by default; four switches for how the car is shown and the render scale. The session's, never the project's.
-// Under the buttons, folded by default (the Race tab is short at 960 x 600): its title says what is off, so a folded look is never a hidden one.
+// Under the buttons, open by default: it is what is checked before pressing them (notes/dep84-studio-ui-kit-draft.md section 7). Its title says what is off, so a
+// look folded by hand is never a hidden one.
 static void race_look_controls(App *a)
 {
     RaceLook &look = a->race_look;
@@ -602,7 +603,7 @@ static void race_look_controls(App *a)
     car_race_look_off(&look, off, sizeof off);
     const int n = off[0] != '\0' ? snprintf(title, sizeof title, "Look (%s)###racelook", off) : snprintf(title, sizeof title, "Look###racelook");
     if (n < 0 || static_cast<size_t>(n) >= sizeof title) snprintf(title, sizeof title, "Look (some off)###racelook");
-    if (!ImGui::CollapsingHeader(title)) return;
+    if (!ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) return;
     struct { const char *label, *tip; int *on; } sw[4] = {
         { "Reflections", "The sky's reflection on the body (Restomod's envmap); off: the exe's flat body", &look.reflections },
         { "Car colours", "The screen palette's car entries fitted to this car's colours; off: the race's shared palette", &look.car_colours },
