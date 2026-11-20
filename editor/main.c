@@ -16,6 +16,7 @@
 #include "build.h"
 #include "capture.h"
 #include "game_find.h"
+#include "mask_changes.h"
 #include "formats/png.h"
 #include "ui.h"
 
@@ -42,6 +43,11 @@ typedef struct {
     int race_photo, night;    /* --race-photo: take the race photo before the first frame (a headless run waits for it); --night: the Night preset */
     const char *track, *race_png;   /* --track STEM, --race-png FILE: the track and where the photo is also written */
     const char *orbit;       /* --orbit YAW,PITCH[,DIST]: the Model window's camera, in degrees (a headless picture of a view) */
+    const char *mask;        /* --mask NAME: the mask (topv, frnt_lo) opened in Edit mask before the first frame */
+    const char *mask_rect[8];   /* --mask-rect X,Y,W,H,CLASS: a rectangle of the open mask set to a class value (one step each), for a headless picture of an edit */
+    int mask_rect_count, mask_save;   /* --mask-save: the mask is saved before the first frame */
+    int changes;             /* --changes: the project's masks compared with the game's, the list printed (what Copy the changed list copies) */
+    int preview_paint;       /* --paint N: the card's N-th paint (from 1) shown in Preview, for a headless picture; 0 the car as its file has it */
     int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
@@ -51,7 +57,8 @@ static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
-                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png]]\n");
+                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png]]\n"
+                    "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--changes]\n");
     return 0;
 }
 
@@ -82,6 +89,11 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
         else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
         else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
+        else if (strcmp(argv[i], "--changes") == 0) o->changes = 1;
+        else if (strcmp(argv[i], "--paint") == 0 && has_value) o->preview_paint = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--mask") == 0 && has_value) o->mask = argv[++i];
+        else if (strcmp(argv[i], "--mask-rect") == 0 && has_value && o->mask_rect_count < 8) o->mask_rect[o->mask_rect_count++] = argv[++i];
+        else if (strcmp(argv[i], "--mask-save") == 0) o->mask_save = 1;
         else if (strcmp(argv[i], "--rehacer") == 0) o->rehacer = 1;
         else if (strcmp(argv[i], "--edit") == 0) o->edit = 1;
         else if (strcmp(argv[i], "--save") == 0) o->save = 1;
@@ -243,6 +255,44 @@ static int run_requested(App *a, const Options *o)
         if (!made && a->status[0] == '\0') snprintf(a->status, sizeof a->status, "--export-car %s needs a car of the list and --into PARENT", o->export_car);
         fprintf(made ? stdout : stderr, "%s\n", a->status);
         ok &= made;
+    }
+    if (o->changes) {   /* the masks against the game's, headless */
+        const ExportCar *car = car_race_original_of(&a->car);
+        char project[APP_PATH], game[APP_PATH], why[256], text[4096];
+        MaskChanges *changes = malloc(sizeof *changes);
+        int done = a->kind == APP_KIND_CAR && car != NULL && changes != NULL;
+        if (done) {
+            snprintf(project, sizeof project, "%s/car_masks/%s", a->car.piece, a->car.folder);
+            snprintf(game, sizeof game, "%s/car_masks/%s", a->export_src.data, car->folder);
+            done = mask_changes_compare(project, game, changes, why, sizeof why);
+        } else {
+            snprintf(why, sizeof why, "--changes needs an open car of the game");
+        }
+        if (done) mask_changes_text(changes, car->folder, text, sizeof text);
+        fprintf(done ? stdout : stderr, "%s", done ? text : why);
+        if (!done) fputc('\n', stderr);
+        free(changes);
+        ok &= done;
+    }
+    if (o->preview_paint > 0) a->preview_paint = o->preview_paint - 1;
+    if (o->mask != NULL) {   /* Edit mask, headless: the mask is opened, painted in rectangles, saved */
+        int done = app_mask_open_by_name(a, o->mask);
+        for (int i = 0; done && i < o->mask_rect_count; ++i) {
+            int x, y, w, h, cls;
+            if (sscanf(o->mask_rect[i], "%d,%d,%d,%d,%d", &x, &y, &w, &h, &cls) != 5 || w < 1 || h < 1) {
+                snprintf(a->status, sizeof a->status, "--mask-rect wants X,Y,W,H,CLASS: %s", o->mask_rect[i]);
+                done = 0;
+                break;
+            }
+            mask_edit_stroke_begin(&a->mask.me);
+            for (int yy = y; yy < y + h; ++yy)
+                for (int xx = x; xx < x + w; ++xx) mask_edit_pencil(&a->mask.me, xx, yy, 1, (uint8_t)cls);
+            mask_edit_stroke_end(&a->mask.me);
+        }
+        if (done && o->mask_save) done = app_mask_save(a);
+        if (!done && a->mask.error[0] != '\0') snprintf(a->status, sizeof a->status, "%s", a->mask.error);
+        fprintf(done ? stdout : stderr, "%s\n", a->status);
+        ok &= done;
     }
     if (o->race_photo) {   /* Race photo, headless: the game is run and waited for, the picture is in the Race window */
         if (o->track != NULL && car_race_track_find(o->track) >= 0) a->race_track = car_race_track_find(o->track);

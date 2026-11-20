@@ -638,6 +638,31 @@ static void check_export(void)
 }
 
 /* app_free of an app that never ran Rehacer or a race must not close descriptor 0 (an all-zero runner holds fd 0) */
+/* the mask editor in the app: a car with no readable car file has no textures to edit, and what is refused says why; Undo is the card's while no mask is open */
+static void check_mask_app(void)
+{
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, "./tnfs", "", NULL);
+    a->kind = APP_KIND_CAR;
+    app_mask_scan(a);
+    CHECK_EQ_INT(a->mask.tex_count, 0);
+    CHECK_EQ_INT(a->mask.sel, -1);
+    CHECK(a->mask.show == 1 && a->mask.brush >= ME_BRUSH_MIN && a->mask.brush <= ME_BRUSH_MAX && a->mask.opacity > 0);
+    CHECK(!app_mask_open(a, 0));
+    CHECK(!app_mask_open_by_name(a, "side"));
+    CHECK(strstr(a->mask.error, "no texture side") != NULL);
+    CHECK(!app_mask_modified(a));
+    CHECK(app_mask_save(a));   /* nothing open: nothing to save */
+    a->mask.focus = 1;
+    CHECK(!app_can_undo(a) && !app_can_redo(a));
+    CHECK(!app_undo(a));
+    CHECK(!app_modified(a));
+    app_free(a);
+    free(a);
+}
+
 static void check_free_keeps_stdin(void)
 {
     const int saved = dup(0);
@@ -682,6 +707,7 @@ int main(void)
     check_kinds();
     check_rehacer();
     check_export();
+    check_mask_app();
     check_free_keeps_stdin();
     rmdir(root);
     return TEST_REPORT();

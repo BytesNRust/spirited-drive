@@ -6,6 +6,7 @@
 
 #include "raster/car_scene.h"
 #include "raster/quad.h"
+#include "car_preview.h"
 
 struct ModelScene {
     CarScene scene;
@@ -31,24 +32,41 @@ static uint8_t *read_file(const char *path, size_t *size)
     return data;
 }
 
-ModelScene *model_scene_open(const char *path, char *why, size_t why_cap)
+/* the scene on `file` (kept, freed with the scene); `file` is freed here when it cannot be drawn */
+static ModelScene *open_bytes(uint8_t *file, size_t size, const char *name, char *why, size_t why_cap)
 {
-    size_t size = 0;
     ModelScene *m = calloc(1, sizeof *m);
-    if (m == NULL) return NULL;
-    m->file = read_file(path, &size);
-    if (m->file == NULL) {
-        snprintf(why, why_cap, "The car file could not be read: %s", path);
-        free(m);
+    if (m == NULL) {
+        free(file);
         return NULL;
     }
+    m->file = file;
     if (!car_scene_open(&m->scene, m->file, size)) {
-        snprintf(why, why_cap, "%s has no high model or bank this view can draw.", path);
+        snprintf(why, why_cap, "%s has no high model or bank this view can draw.", name);
         free(m->file);
         free(m);
         return NULL;
     }
     return m;
+}
+
+ModelScene *model_scene_open(const char *path, char *why, size_t why_cap)
+{
+    size_t size = 0;
+    uint8_t *file = read_file(path, &size);
+    if (file == NULL) {
+        snprintf(why, why_cap, "The car file could not be read: %s", path);
+        return NULL;
+    }
+    return open_bytes(file, size, path, why, why_cap);
+}
+
+ModelScene *model_scene_open_painted(const PreviewIn *in, char *why, size_t why_cap)
+{
+    uint8_t *file = NULL;
+    size_t size = 0;
+    if (!car_preview_painted_cfm(in, &file, &size, NULL, NULL, why, why_cap)) return NULL;
+    return open_bytes(file, size, in->cfm, why, why_cap);
 }
 
 void model_scene_close(ModelScene *m)

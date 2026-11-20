@@ -147,6 +147,28 @@ the tarmac the surface changes and the walls start further out. In `trace.json` 
 node): the distance of each edge from the centre in eighths of a metre (VERGE_UNIT 0x2000 in 16.16, game/race/car_walls.c), so metres = byte / 4
 and the template's 40 is 10 m. The terrain rows move by the same amount, 16 raw per byte (0.125 m).
 
+## Preview
+
+The **Preview** window (a tab beside Textures and Race) shows each texture of the car file as the race has it: the game's own code (the fixed black of the masks, then the paint) runs on a copy of the car file with this project's masks in front of the game's, and an unsaved mask edit counts as if it were saved. Pick the paint from the card's `paints=` (a car you drive; a traffic or police car has none: the race does not paint it). It updates by itself when a mask is edited or saved, a paint or its colour changes, or Rehacer ends (not while a pencil stroke is going).
+
+The bank's palette is taken to 6 bits a channel, as the race loads it. Not applied: the track's light and the screen palette's nearest-colour snapping. Instead Preview counts the distinct colours of the body and says how many the car's entries in the race palette (23 of its own, 72 shared when several cars race) cannot hold: the rest will look like their nearest. Texels that name one of the race's screen entries (0xfa-0xfe) are hatched, and 0xff is a chequer. Headless: `--paint N` shows the card's N-th paint.
+
+## Changes from the game's masks
+
+At the top of the **Masks** window of a project made from one of the game's cars (Export original car), **Changes from the game's masks** compares each `*_mask.png` of `car_masks/<folder>/` with the game's own copy, `data/car_masks/<folder>/`, the one the export started from: *unchanged*, *changed* (how many texels, and which classes gained and lost them), *new* (only the project has it) or *missing* (only the game has it). Masks are compared as classes, so a file written again by another picture editor with the same texels is unchanged; backups with an extra dot in the name (`frnt.before-1650_mask.png`) are left out, as the export leaves them. **Refresh** reads the files again; **Copy the changed list** puts plain text on the clipboard (the folder, then a line for each changed file with its texel count and classes, each new and each missing file, and how many are unchanged) for pasting into a hand-over. Read only. Headless: `--changes` prints the same text.
+
+## Edit mask
+
+The **Edit mask** window (a tab beside Textures and Race) paints a car's masks. Pick a texture of the car file (the ones with a mask in `car_masks/<car>/`; the low detail bank's are marked "low"): the mask is drawn over the texture, each class in its legend colour, with an Overlay switch, an Opacity slider and a switch per class. The class chosen in the legend is the one the tools paint with.
+
+- **Pencil**: a square of 1 to 8 texels; drag to draw a line (one step to undo). **Fill**: the connected texels of the same mask class, or of the same texture colour. **Eyedropper**: takes the class under the click.
+- **Undo / Redo** (Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y while the window has the keyboard), **Save mask** (Ctrl+S too), **Discard**.
+- Save writes the mask as the 8-bit grey PNG of `data/car_masks`: the same name and size, every texel outside the edit as it was; a mask with no change is not rewritten. Changing texture, closing the project or running Rehacer with unsaved mask changes asks first.
+- A mask whose size is not its texture's says both sizes: the game scales the mask to the texture (nearest neighbour), so the Studio shows it scaled the same way.
+- **Race photo** (or **Save, then Race photo** when there are changes) runs the game on the saved masks and shows the picture in the Race window.
+
+Headless: `--mask NAME` (`side`, `frnt_lo`) opens a mask, `--mask-rect X,Y,W,H,CLASS` paints a rectangle of it (repeatable, one step each), `--mask-save` saves it; with `--shot` the picture is the window.
+
 ## Headless run
 
 For a smoke run (no window events, no sound):

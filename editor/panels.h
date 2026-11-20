@@ -28,11 +28,15 @@ void masks_panel(App *a);
 void race_panel(App *a, ImTextureID photo);   // Test in race and Race photo, the picture (a texture, 0 for none) and the game's log
 void model_panel(App *a, SDL_Renderer *ren);   // the open car in 3D: drag to turn, wheel to zoom, F S R T Home
 void model_panel_preset(double yaw, double pitch, int dist);   // an orbit for the next car opened (degrees, degrees, model units; dist 0 keeps the home distance)
+void mask_edit_panel(App *a, ImTextureID picture);   // Edit mask: the mask over its texture (a texture of mask_edit_compose, 0 for none), the legend, the tools
+void preview_panel(App *a, struct SDL_Renderer *ren);   // Preview: the textures as the race paints them, in a paint of the card's
+void preview_free(void);
+void masks_changes_section(App *a);   // in Masks: the project's masks against the game's, a button copies the list
 void export_popup(App *a);    // the Export original car window, up while a->export_dialog is set
 
 // the panels' names, as the dock layout places them
 extern const char *const PANEL_POINTS, *const PANEL_LIMITS, *const PANEL_PROBLEMS, *const PANEL_NODE, *const PANEL_PROJECT, *const PANEL_TRACK;
 extern const char *const PANEL_MODEL;
-extern const char *const PANEL_CAR, *const PANEL_TEXTURES, *const PANEL_MASKS, *const PANEL_REHACER, *const PANEL_RACE;
+extern const char *const PANEL_CAR, *const PANEL_TEXTURES, *const PANEL_MASKS, *const PANEL_REHACER, *const PANEL_RACE, *const PANEL_MASK_EDIT, *const PANEL_PREVIEW;
 
 #endif

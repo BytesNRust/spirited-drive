@@ -8,7 +8,11 @@
 
 #include <SDL3/SDL.h>
 
+extern "C" {
 #include "model_scene.h"
+}
+#include "car_export.h"
+#include "car_race.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -25,6 +29,11 @@ struct Model {
     char loaded[APP_PATH] = "";   // the CFM the scene holds (or tried to)
     ModelScene *scene = nullptr;
     char why[200] = "";
+    char key_dir[APP_PATH] = "";   // what the picture was made from: the project, its masks, the paint (the Preview window's own choice)
+    unsigned key_generation = 0, key_version = 0;
+    int key_paint = -2;
+    uint8_t key_rgb[3] = {};
+    bool painted = false;
     Orbit orbit = {};
     bool auto_rotate = false, dirty = true;
     int preset = 0;               // an orbit asked for on the command line, waiting for the car
@@ -44,13 +53,51 @@ void close_scene()
     g.scene = nullptr;
 }
 
-// the car file read and the scene opened on it; the camera starts at home (or at the command line's orbit)
-void load(const char *cfm)
+// the scene of the car as the race paints it (the Preview window's paint); the car file as it is when it cannot be painted
+void open_scene(App *a, const uint8_t *rgb)
 {
     close_scene();
-    snprintf(g.loaded, sizeof g.loaded, "%s", cfm);
     g.why[0] = 0;
-    g.scene = model_scene_open(cfm, g.why, sizeof g.why);
+    const ExportCar *oc = car_race_original_of(&a->car);
+    char masks[APP_PATH], fallback[APP_PATH], why[sizeof g.why];
+    snprintf(masks, sizeof masks, "%s/car_masks/%s", a->car.piece, a->car.folder);
+    snprintf(fallback, sizeof fallback, "%s/car_masks/%s", a->export_src.data, oc != nullptr ? oc->folder : "");
+    PreviewIn in = {};
+    in.cfm = a->car.cfm;
+    in.stem = oc != nullptr ? oc->folder : a->car.folder;
+    in.masks_dir = a->car.has_masks_dir ? masks : nullptr;
+    in.fallback_dir = oc != nullptr && a->export_src.data[0] != '\0' ? fallback : nullptr;
+    in.edit = a->mask.sel >= 0 && app_mask_modified(a) ? &a->mask.me : nullptr;
+    in.paint = rgb;
+    in.added = oc == nullptr;
+    g.scene = model_scene_open_painted(&in, why, sizeof why);
+    g.painted = g.scene != nullptr;
+    if (g.scene == nullptr) g.scene = model_scene_open(a->car.cfm, g.why, sizeof g.why);   // the file as it is: masks that are not there yet
+    g.dirty = true;
+}
+
+// the keys the picture is made from
+bool stale(const App *a, const uint8_t *rgb)
+{
+    return strcmp(g.key_dir, a->dir) != 0 || g.key_generation != a->mask.generation || g.key_version != (a->mask.sel >= 0 ? a->mask.me.version : 0u)
+           || g.key_paint != a->preview_paint || (rgb != nullptr && memcmp(g.key_rgb, rgb, 3) != 0);
+}
+
+void remember(const App *a, const uint8_t *rgb)
+{
+    snprintf(g.key_dir, sizeof g.key_dir, "%s", a->dir);
+    g.key_generation = a->mask.generation;
+    g.key_version = a->mask.sel >= 0 ? a->mask.me.version : 0u;
+    g.key_paint = a->preview_paint;
+    if (rgb != nullptr) memcpy(g.key_rgb, rgb, 3);
+}
+
+// the car file read and the scene opened on it; the camera starts at home (or at the command line's orbit)
+void load(App *a, const uint8_t *rgb)
+{
+    snprintf(g.loaded, sizeof g.loaded, "%s", a->car.cfm);
+    open_scene(a, rgb);
+    remember(a, rgb);
     if (g.scene == nullptr) return;
     orbit_init(&g.orbit, model_scene_radius(g.scene));
     if (g.preset) {
@@ -61,7 +108,6 @@ void load(const char *cfm)
         if (g.preset_dist > 0) g.orbit.dist = g.preset_dist;
         g.preset = 0;
     }
-    g.dirty = true;
 }
 
 // the surface and the texture, for a picture of w x h
@@ -142,7 +188,16 @@ void model_panel_preset(double yaw, double pitch, int dist)
 void model_panel(App *a, SDL_Renderer *ren)
 {
     if (ImGui::Begin(PANEL_MODEL)) {
-        if (strcmp(g.loaded, a->car.cfm) != 0) load(a->car.cfm);
+        const int paint = a->preview_paint;
+        const ExportCar *oc = car_race_original_of(&a->car);   // the paints as the Preview window has them: a masks project and the game's traffic have none
+        const int count = a->car.masks_only || (oc != nullptr && oc->kind != EXPORT_DRIVABLE) ? 0 : a->edit.now.paint_count;
+        const uint8_t *rgb = paint >= 0 && paint < count ? a->edit.now.paints[paint].rgb : nullptr;
+        const bool busy = a->mask.me.stroke != 0 || app_rehacer_busy(a) || a->car.cfm[0] == '\0';
+        if (!busy && strcmp(g.loaded, a->car.cfm) != 0) load(a, rgb);
+        else if (!busy && g.scene != nullptr && stale(a, rgb)) {   // a mask edited or saved, another paint: the same camera on the car made again
+            open_scene(a, rgb);
+            remember(a, rgb);
+        }
         if (g.scene == nullptr) {
             ImGui::TextWrapped("%s", g.why[0] != 0 ? g.why : "No car is open.");
         } else {
@@ -166,7 +221,7 @@ void model_panel(App *a, SDL_Renderer *ren)
                 at.x += static_cast<float>((shown_w - w) / 2);
                 turn_and_zoom(ImVec2(static_cast<float>(w), static_cast<float>(h)));
                 ImGui::GetWindowDrawList()->AddImage(reinterpret_cast<ImTextureID>(g.tex), at, ImVec2(at.x + static_cast<float>(w), at.y + static_cast<float>(h)));
-                ImGui::TextDisabled("Drag to turn, wheel to zoom, F S R T Home. Unpainted: the colors of the car's bank.");
+                ImGui::TextDisabled("Drag to turn, wheel to zoom, F S R T Home. %s", g.painted ? "As the race paints it." : "As the car file has it.");
             }
         }
     }

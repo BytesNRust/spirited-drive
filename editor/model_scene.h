@@ -11,11 +11,14 @@ extern "C" {
 #endif
 
 #include "raster/orbit.h"
+#include "car_preview.h"
 
 typedef struct ModelScene ModelScene;
 
 /* The CFM at `path` read and opened; NULL with `why` when it cannot be. */
 ModelScene *model_scene_open(const char *path, char *why, size_t why_cap);
+/* The car file as the race has it after the game's own black and paint (car_preview_painted_cfm); NULL with `why` when it cannot be made. */
+ModelScene *model_scene_open_painted(const PreviewIn *in, char *why, size_t why_cap);
 void model_scene_close(ModelScene *m);
 int32_t model_scene_radius(const ModelScene *m);
 int model_scene_max_rows(void);

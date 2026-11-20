@@ -112,6 +112,8 @@ void car_layout(ImGuiID dock)
     ImGui::DockBuilderDockWindow(PANEL_MODEL, model);
     ImGui::DockBuilderDockWindow(PANEL_TEXTURES, right);
     ImGui::DockBuilderDockWindow(PANEL_RACE, right);   // a tab beside Textures
+    ImGui::DockBuilderDockWindow(PANEL_MASK_EDIT, right);   // and the mask editor, which needs the room
+    ImGui::DockBuilderDockWindow(PANEL_PREVIEW, right);
     ImGui::DockBuilderDockWindow(PANEL_REHACER, masks);   // a tab beside Masks, which is the one in front
     ImGui::DockBuilderDockWindow(PANEL_MASKS, masks);
     ImGui::DockBuilderFinish(dock);
@@ -125,11 +127,13 @@ void masks_layout(ImGuiID dock)
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
     ImGuiID left = 0, right = 0, race = 0;
     left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.3f, nullptr, &right);
-    race = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.8f, nullptr, &right);
+    race = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.5f, nullptr, &right);   // the masks list and its changes need room above
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
     ImGui::DockBuilderDockWindow(PANEL_MODEL, right);   // a tab beside Masks
     ImGui::DockBuilderDockWindow(PANEL_MASKS, right);
     ImGui::DockBuilderDockWindow(PANEL_RACE, race);
+    ImGui::DockBuilderDockWindow(PANEL_MASK_EDIT, race);
+    ImGui::DockBuilderDockWindow(PANEL_PREVIEW, race);
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -188,8 +192,8 @@ void main_menu(App *a)
         ImGui::EndMenu();
     }
     if (a->kind == APP_KIND_CAR && ImGui::BeginMenu("Edit")) {
-        if (ImGui::MenuItem("Undo", "Ctrl+Z", false, car_edit_can_undo(&a->edit))) car_edit_undo(&a->edit);
-        if (ImGui::MenuItem("Redo", "Ctrl+Shift+Z", false, car_edit_can_redo(&a->edit))) car_edit_redo(&a->edit);
+        if (ImGui::MenuItem("Undo", "Ctrl+Z", false, app_can_undo(a))) app_undo(a);
+        if (ImGui::MenuItem("Redo", "Ctrl+Shift+Z", false, app_can_redo(a))) app_redo(a);
         ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
@@ -274,6 +278,43 @@ static ImTextureID photo_texture(SDL_Renderer *ren, const App *a)
     return reinterpret_cast<ImTextureID>(tex);
 }
 
+// the mask being edited over its texture as a texture: made again when the mask or what is shown of it changed
+static ImTextureID mask_texture(SDL_Renderer *ren, const App *a)
+{
+    static SDL_Texture *tex = nullptr;
+    static unsigned key = 0;
+    static int width = 0, height = 0;
+    const MaskUi &m = a->mask;
+    if (m.sel < 0) {
+        if (tex != nullptr) SDL_DestroyTexture(tex), tex = nullptr;
+        width = height = 0;
+        return 0;
+    }
+    unsigned now = m.me.version * 2654435761u + (unsigned)m.show * 7u + (unsigned)(m.opacity * 1000.0f) * 31u + (unsigned)m.sel * 131u;
+    for (int i = 0; i < ME_CLASSES; ++i) now = now * 3u + (unsigned)m.class_on[i];
+    if (tex == nullptr || width != m.me.width || height != m.me.height || key != now) {
+        if (tex == nullptr || width != m.me.width || height != m.me.height) {
+            if (tex != nullptr) SDL_DestroyTexture(tex);
+            tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, m.me.width, m.me.height);
+            if (tex != nullptr) SDL_SetTextureScaleMode(tex, SDL_SCALEMODE_NEAREST);
+            width = m.me.width;
+            height = m.me.height;
+        }
+        if (tex != nullptr) {
+            uint8_t on[ME_CLASSES];
+            for (int i = 0; i < ME_CLASSES; ++i) on[i] = (uint8_t)m.class_on[i];
+            uint8_t *rgba = static_cast<uint8_t *>(malloc((size_t)width * height * 4));
+            if (rgba != nullptr) {
+                mask_edit_compose(&m.me, on, m.show, m.opacity, rgba);
+                SDL_UpdateTexture(tex, nullptr, rgba, width * 4);
+                free(rgba);
+            }
+        }
+        key = now;
+    }
+    return reinterpret_cast<ImTextureID>(tex);
+}
+
 void ui_frame(SDL_Renderer *ren, App *a)
 {
     static bool track_laid_out = false, car_laid_out = false, masks_laid_out = false;
@@ -309,6 +350,8 @@ void ui_frame(SDL_Renderer *ren, App *a)
         model_panel(a, ren);
         masks_panel(a);
         race_panel(a, photo_texture(ren, a));
+        mask_edit_panel(a, mask_texture(ren, a));
+        preview_panel(a, ren);
         if (!a->car.masks_only) rehacer_panel(a);   // a masks project has no script
     } else {
         start_screen(a);
