@@ -13,7 +13,8 @@ TraceKey *trace_lanes_width_keys(const TraceKey *keys, int key_count, int point_
 
 /* sets the nodes' lanes and halves: node k's segment takes the lanes of the last point at or before its start (point i at point_s[i], node k at
  * k * step); in a 1+2 or 2+1 stretch the halves are the lanes' (TRACK_GEN_LANE each), into and out of it each half moves at most
- * TRACE_LANE_STEP a node and the two-lane half is never under a lane. Nothing when no key says 1+2 or 2+1. 0 when out of memory. */
+ * TRACE_LANE_STEP a node and the two-lane half is never under a lane; a two-lane half narrows from the second node of a segment (the segment before
+ * draws its two-lane picture up to the first). Nothing when no key says 1+2 or 2+1. 0 when out of memory. */
 int trace_lanes_apply(const double *point_s, int point_count, const TraceKey *keys, int key_count, double step, TrackGenNode *nodes, int node_count);
 
 #endif

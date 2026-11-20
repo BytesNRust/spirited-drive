@@ -100,6 +100,10 @@ int trace_lanes_apply(const double *point_s, int point_count, const TraceKey *ke
             want_left = toward(left, want_left, TRACE_LANE_STEP);
             want_right = toward(right, want_right, TRACE_LANE_STEP);
         }
+        if (k % NODES_PER_SEGMENT == 0) {   /* the segment before draws its picture up to this row: a two-lane half narrows from the next node */
+            if (left >= 2 * TRACK_GEN_LANE && want_left < left) want_left = left;
+            if (right >= 2 * TRACK_GEN_LANE && want_right < right) want_right = right;
+        }
         if (l == TRACK_GEN_LANES_1_2 && want_right < TRACK_GEN_LANE) want_right = TRACK_GEN_LANE;   /* never a lane under 5 m: a jump at the start */
         if (l == TRACK_GEN_LANES_2_1 && want_left < TRACK_GEN_LANE) want_left = TRACK_GEN_LANE;
         left = want_left, right = want_right, was = own;

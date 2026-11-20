@@ -91,10 +91,13 @@ static void test_stretch(int lanes)
             const double two_before = two_right ? right_of(&n[k - 1]) : n[k - 1].width, one_before = two_right ? n[k - 1].width : right_of(&n[k - 1]);
             CHECK(fabs(two - two_before) <= 5 + 1e-9 && fabs(one - one_before) <= 5 + 1e-9);
         }
-        if (k < from || k >= to + 8) CHECK(n[k].width == WIDTH && right_of(&n[k]) == WIDTH);   /* far from the stretch: the road of before */
+        if (k < from || k >= to + 9) CHECK(n[k].width == WIDTH && right_of(&n[k]) == WIDTH);   /* far from the stretch: the road of before */
     }
     CHECK(two_right ? right_of(&n[from]) == 45 : n[from].width == 45);   /* AL1's taper: 5 a node from the 5 m half */
-    CHECK(two_right ? right_of(&n[to]) == 75 : n[to].width == 75);       /* and back from 10 m after it */
+    /* and back from 10 m after it, from the second node: the stretch's last segment draws its two-lane picture up to node `to` (a segment's
+     * picture reaches the next segment's first row), so the half is still two lanes there; narrowing on that quad bends its dashed line */
+    CHECK(two_right ? right_of(&n[to]) == 80 : n[to].width == 80);
+    CHECK(two_right ? right_of(&n[to + 1]) == 75 : n[to + 1].width == 75);
     TraceFlags *flags = calloc((size_t)count, sizeof *flags);
     if (flags != NULL) {
         track_trace_flags(n, count, flags);
