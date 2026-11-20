@@ -1,7 +1,7 @@
 #!/bin/sh
 # A car from the game to the Studio and back to the game, the happy path a user takes: Export original car (the Wagon), Edit mask and
-# Save mask, an edit undone and redone with the window's unsaved mark following, the Preview shows the edit, and a Race photo from the
-# real game shows it too (it differs from the photo of the car as exported). Each editor run has a player folder of its own, so a window
+# Save mask, an edit undone and redone with the window's unsaved mark following, the Preview shows the edit, a Race photo from the
+# real game shows it too (it differs from the photo of the car as exported), and Test in race starts the game on the car and stops it. Each editor run has a player folder of its own, so a window
 # layout kept by one run cannot change another's picture.
 # Needs the game's files (original/).
 # usage: editor_e2e_car.sh EDITOR TNFS ORIGINAL_DIR PORT_DATA
@@ -47,6 +47,16 @@ cmp -s "$work/preview-exported.png" "$work/preview-edited.png" && fail "the Prev
 photo "$work/photo-edited.png" || fail "Race photo of the edited car: $(cat "$work/log")"
 [ -s "$work/photo-edited.png" ] || fail "no Race photo of the edited car"
 cmp -s "$work/photo-exported.png" "$work/photo-edited.png" && fail "the Race photo does not show the edit"
+
+# 5. Test in race: the game starts on the car's masks (its window headless here, the SDL drivers passed on), its log has the race's cars,
+# and Stop ends it
+studio "$car" --game "$tnfs" --cd "$orig" --frames 2 --steps race,race-log,race-stop || fail "Test in race: $(cat "$work/log")"
+grep '^race: ' "$work/log" | grep -q -- "--data $orig --user .* --drive [A-Z0-9]* --car [0-9]* --type 1" \
+    || fail "the command line of Test in race: $(grep '^race' "$work/log")"
+real_car=$(cd "$car" && pwd -P)   # the editor names the folder as it really is (/private/var on a Mac)
+grep -q "^race env: TNFS_CAR_MASKS=$real_car/car_masks\$" "$work/log" || fail "the game is not given the car's masks: $(grep '^race' "$work/log")"
+grep -q '^race log: race car: slot 0 is ' "$work/log" || fail "the game's log has no car of the race: $(grep '^race' "$work/log")"
+grep -q '^race end: Stopped.' "$work/log" || fail "Stop did not end the game: $(grep '^race' "$work/log")"
 
 [ "$failures" -eq 0 ] && echo "editor_e2e_car: ok"
 exit "$failures"
