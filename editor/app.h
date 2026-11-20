@@ -387,6 +387,8 @@ int app_install_poll(App *a);
  * ends the status says so, and the car is read again (its textures, its masks, its file). A headless run waits for it. */
 int app_car_build_poll(App *a);
 int app_car_building(const App *a);
+/* 1 when the open car is a kit in the current layout: the shape Build and Install are for (build_car: the build in a thread, then Install takes build/<id>.zip) */
+int app_car_is_kit(const App *a);
 int app_install_busy(const App *a);
 /* Convert PSD (dep98): app_psd_setup finds the tools folder (TNFS_TOOLS, else tools/ above the program at `base`) and the PSD folder (`root`, else TNFS_PSD_ROOT, else
  * ~/workspace/bytes-n-rust/art/tnfs-masks). app_psd_psd_dir gives this car's PSD folder (names match without case; 0 when there is none). app_psd_start runs the

@@ -3,6 +3,7 @@
 #include "build.h"
 #include "game_find.h"
 
+#include <sys/stat.h>
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>
@@ -103,6 +104,7 @@ int app_open(App *a, const char *dir, const char *game, const char *user, const 
 
 /* the car at `dir` as the project of `a`, which has nothing open (app_begin) */
 static void build_unbuilt_kit(App *a);
+static int car_zip_path(const App *a, char *out, size_t cap);
 
 static int car_into(App *a, const char *dir)
 {
@@ -438,7 +440,10 @@ int app_car_build_poll(App *a)
 {
     if (!car_build_job_busy(&a->car_build)) return 0;
     if (car_build_job_poll(&a->car_build)) return 1;
-    if (a->car_build.ok) snprintf(a->status, sizeof a->status, "built the car: build/piece and the zip are made again");
+    if (a->car_build.ok) {
+        snprintf(a->status, sizeof a->status, "built the car: build/piece and the zip are made again");
+        if (!car_zip_path(a, a->zip, sizeof a->zip)) a->zip[0] = '\0';
+    }
     else snprintf(a->status, sizeof a->status, "the car could not be built: %s", a->car_build.why);
     app_car_reread(a);
     return 0;
@@ -529,7 +534,7 @@ int app_node_count(const App *a)
 static int track_open(App *a)
 {
     if (a->kind == APP_KIND_TRACK) return 1;
-    set_status(a, a->kind == APP_KIND_CAR ? "a car has no Build or Install here yet" : "open a track first");
+    set_status(a, a->kind == APP_KIND_CAR ? "Build and Install are for a car kit: this project is a masks project or a car as exported, which has no build" : "open a track first");
     return 0;
 }
 
@@ -570,9 +575,44 @@ int app_save(App *a)
     return 1;
 }
 
+/* a car kit in the current layout is open (not a masks project, not an exported original's piece folder): the one shape Build and Install are for */
+static int car_kit_open(const App *a)
+{
+    return a->kind == APP_KIND_CAR && !a->car.masks_only && !a->car.legacy;
+}
+
+int app_car_is_kit(const App *a)
+{
+    return car_kit_open(a);
+}
+
+/* the package car build writes: build/<id>.zip (the stem when the card has no id: as studio's write_build names it) */
+static int car_zip_path(const App *a, char *out, size_t cap)
+{
+    const char *name = a->car.info.id[0] != '\0' ? a->car.info.id : a->car.info.stem;
+    return snprintf(out, cap, "%s/build/%s.zip", a->car.root, name) < (int)cap;
+}
+
+/* Build on a kit: car build's work, in a thread; app_car_build_poll tells its end. The sources are read from disk, so what is not saved is saved first */
+static int build_car(App *a)
+{
+    char why[APP_MSG];
+    if (app_install_busy(a) || car_race_installing(&a->race)) return set_status(a, "build: the game is installing the package: wait for it to end"), 0;   /* it reads the zip */
+    if (car_edit_modified(&a->edit)) return set_status(a, "build: mod.ini has changes that are not saved: save them first"), 0;
+    if (app_mask_modified(a)) return set_status(a, "build: a mask has changes that are not saved: save it first"), 0;
+    if (app_rehacer_busy(a)) return set_status(a, "build: Rehacer is running: wait for it to end"), 0;
+    if (!car_build_job_start(&a->car_build, a->car.root, why, sizeof why)) {
+        snprintf(a->status, sizeof a->status, "build: %s", why);
+        return 0;
+    }
+    set_status(a, "building the car from the kit...");
+    return 1;
+}
+
 int app_build(App *a)
 {
     char why[APP_MSG], zip[APP_PATH];
+    if (car_kit_open(a)) return build_car(a);
     if (!track_open(a)) return 0;
     if (app_install_busy(a) || car_race_installing(&a->race)) return set_status(a, "build: the game is installing the package: wait for it to end"), 0;   /* it reads the zip */
     if (!build_project(a->dir, &a->project, &a->trace, zip, sizeof zip, why, sizeof why)) {
@@ -645,8 +685,16 @@ int app_check_game(App *a)
 
 int app_install(App *a)
 {
-    if (!track_open(a)) return 0;
+    struct stat st;
+    if (!car_kit_open(a) && !track_open(a)) return 0;
     if (!game_there(a)) return game_missing_status(a, "install: ");
+    if (car_kit_open(a)) {   /* the kit's package is the one its last build made; it is there from an earlier session too */
+        if (car_build_job_busy(&a->car_build)) return set_status(a, "install: the car is being built: wait for it to end"), 0;
+        if (!car_zip_path(a, a->zip, sizeof a->zip) || stat(a->zip, &st) != 0) {
+            a->zip[0] = '\0';
+            return set_status(a, "build first: install takes the package the build makes"), 0;
+        }
+    }
     if (a->zip[0] == '\0') {
         set_status(a, "build first (B): install takes the built package");
         return 0;

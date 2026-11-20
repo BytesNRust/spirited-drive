@@ -417,7 +417,13 @@ static int run_requested(App *a, const Options *o)
     int ok = 1;
     if (o->frames > 0) while (app_car_build_poll(a)) SDL_Delay(5);   /* a headless run waits for the kit to be built: its pictures show the car */
     if (o->save) ok &= app_save(a);
-    if (o->build) ok &= app_build(a);
+    if (o->build) {
+        ok &= app_build(a);
+        if (ok && app_car_building(a)) {   /* a car kit builds in a thread: wait for it, then say how it ended */
+            while (app_car_build_poll(a)) SDL_Delay(5);
+            ok &= a->car_build.ok;
+        }
+    }
     if (o->install) ok &= install_waited(a);
     if (o->save || o->build || o->install) fprintf(stdout, "%s\n", a->status);
     if (o->test_drive) ok &= test_drive(a, o);

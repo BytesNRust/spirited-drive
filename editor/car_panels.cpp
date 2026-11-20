@@ -307,6 +307,20 @@ void car_panel(App *a)
         if (ImGui::Button("Redo")) car_edit_redo(&a->edit);
         ImGui::EndDisabled();
         own_stack_tip("card");
+        if (app_car_is_kit(a)) {   // a kit in the current layout: its car is made from its sources, then installed in the game
+            ImGui::SameLine();
+            ImGui::BeginDisabled(running || app_car_building(a) || app_install_busy(a));
+            if (ImGui::Button("Build")) app_build(a);
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                ImGui::SetTooltip("%s", app_car_building(a) ? "The car is being built" : "Make the car from this kit's files: build/piece and build/<id>.zip (save what you changed first)");
+            ImGui::SameLine();
+            ImGui::BeginDisabled(running || app_car_building(a) || app_install_busy(a));
+            if (ImGui::Button("Install")) app_install(a);
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                ImGui::SetTooltip("%s", app_install_busy(a) ? "The game is installing the package" : "Install the last build in the game (Build first)");
+        }
         ImGui::SameLine();
         const bool has_script = app_rehacer_available(a);
         ImGui::BeginDisabled(running || !has_script);

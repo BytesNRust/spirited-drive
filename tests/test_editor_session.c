@@ -1518,6 +1518,18 @@ static void check_kit_builds_on_open(void)
     CHECK(!app_car_building(a));
     CHECK(strstr(a->status, "could not be built") != NULL && strstr(a->status, "mesh.blender.obj") != NULL);
     CHECK(!a->car.built && a->kind == APP_KIND_CAR);   /* the car stays open, with no car file */
+    /* Build and Install on a kit: Install wants a package first; Build is refused with changes not saved, and says why it fails; a piece folder has no build */
+    CHECK(app_car_is_kit(a));
+    CHECK(!app_install(a) && (strstr(a->status, "build first") != NULL || strstr(a->status, "game was not found") != NULL));
+    CHECK(car_edit_set(&a->edit, CE_YEAR, "1990") == 1 && !app_build(a) && strstr(a->status, "not saved") != NULL && !app_car_building(a));
+    car_edit_undo(&a->edit);
+    CHECK(app_build(a) && app_car_building(a));
+    CHECK(!app_build(a) && !app_install(a));                     /* one build at a time; nothing is installed while it runs */
+    for (int i = 0; i < 4000 && app_car_build_poll(a); ++i) usleep(2000);
+    CHECK(strstr(a->status, "could not be built") != NULL && a->zip[0] == '\0');
+    CHECK(app_open_car(a, piece) && !app_car_is_kit(a));
+    CHECK(!app_build(a) && strstr(a->status, "for a car kit") != NULL && !app_car_building(a));
+    CHECK(!app_install(a) && strstr(a->status, "for a car kit") != NULL);
     app_free(a);
     free(a);
     char cmd[1500];
