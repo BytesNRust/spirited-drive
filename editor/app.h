@@ -271,7 +271,7 @@ int app_install_busy(const App *a);
 void app_install_stop(App *a);   /* asks the installer to end (a hung one): app_install_poll says "install failed: the install was stopped" */
 
 /* Points: a new point after the last one, along the last segment; one after the selected point, midway to the next (or after the last);
- * the selected point removed (a trace keeps 2 points). Each sets the status when it refuses. */
+ * the selected point removed (a trace keeps TRACE_POINTS_MIN points). Each sets the status when it refuses. */
 void app_add_point(App *a);
 void app_insert_point(App *a);
 void app_remove_point(App *a);

@@ -113,7 +113,7 @@ static double param_at(const Curve *c, double at)
 
 static int check_points(const TracePoint *points, int count, ExchangeError *err)
 {
-    if (points == NULL || count < 2) return exchange_fail(err, "a trace has 2 points or more, not %d", count), 0;
+    if (points == NULL || count < TRACE_POINTS_MIN) return exchange_fail(err, "a trace has %d points or more, not %d", TRACE_POINTS_MIN, count), 0;
     for (int i = 0; i < count; ++i) {
         if (!isfinite(points[i].x) || !isfinite(points[i].z)) return exchange_fail(err, "point %d is not a number", i), 0;
         if (fabs(points[i].x) > TRACE_COORD_MAX || fabs(points[i].z) > TRACE_COORD_MAX)
@@ -126,7 +126,7 @@ static int check_points(const TracePoint *points, int count, ExchangeError *err)
 
 double track_trace_length(const TracePoint *points, int count)
 {
-    if (points == NULL || count < 2) return 0;
+    if (points == NULL || count < TRACE_POINTS_MIN) return 0;
     Curve c;
     if (!curve_make(points, count, &c)) return 0;
     const double length = c.length;
@@ -338,7 +338,7 @@ void track_trace_point_widths(const TracePoint *points, int count, double width,
     for (int i = 0; i < count; ++i) metres[i] = 0;
     Curve c;
     ExchangeError err;
-    if (points == NULL || count < 2 || !curve_make(points, count, &c)) return;
+    if (points == NULL || count < TRACE_POINTS_MIN || !curve_make(points, count, &c)) return;
     WidthStop *stops = malloc(sizeof *stops * (size_t)(key_count > 0 ? key_count + 1 : 1));
     int n = 0;
     if (stops != NULL && width_stops(&c, width, keys, key_count, stops, &n, &err)) {
@@ -699,7 +699,7 @@ double track_trace_step(const TrackGenNode *nodes, int i)
 void track_trace_point_distances(const TracePoint *points, int count, double *metres)
 {
     Curve c;
-    if (points == NULL || count < 2 || !curve_make(points, count, &c)) {
+    if (points == NULL || count < TRACE_POINTS_MIN || !curve_make(points, count, &c)) {
         for (int i = 0; i < count; ++i) metres[i] = 0;
         return;
     }

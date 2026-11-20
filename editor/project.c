@@ -182,8 +182,8 @@ static int parse_points(const char *text, Trace *t, char *why, size_t why_cap)
         ++t->count;
         if (t->count > PROJECT_POINTS_MAX) break;
     }
-    if (!closed || t->count < 2 || t->count > PROJECT_POINTS_MAX) {
-        snprintf(why, why_cap, "trace.json: the points array must hold 2..%d [x, z] pairs and close", PROJECT_POINTS_MAX);
+    if (!closed || t->count < TRACE_POINTS_MIN || t->count > PROJECT_POINTS_MAX) {
+        snprintf(why, why_cap, "trace.json: the points array must hold %d..%d [x, z] pairs and close", TRACE_POINTS_MIN, PROJECT_POINTS_MAX);
         free(t->points);
         t->points = NULL;
         t->count = 0;
@@ -763,8 +763,8 @@ static void key_fields(Text *text, const TraceKey *k)
 
 int project_save_trace(const char *dir, const Trace *trace, char *why, size_t why_cap)
 {
-    if (trace->count < 2) {
-        snprintf(why, why_cap, "a trace has 2 points or more");
+    if (trace->count < TRACE_POINTS_MIN) {
+        snprintf(why, why_cap, "a trace has %d points or more", TRACE_POINTS_MIN);
         return 0;
     }
     if (!(trace->width >= PROJECT_WIDTH_MIN && trace->width <= PROJECT_WIDTH_MAX)) {   /* what parse_width would refuse on the way back */

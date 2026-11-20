@@ -776,8 +776,10 @@ void app_remove_point(App *a)
         set_status(a, "select a point first (click it)");
         return;
     }
-    if (a->trace.count <= 2) {
-        set_status(a, "a trace keeps 2 points");
+    if (a->trace.count <= TRACE_POINTS_MIN) {
+        char text[64];
+        snprintf(text, sizeof text, "a trace keeps %d points", TRACE_POINTS_MIN);
+        set_status(a, text);
         return;
     }
     TracePoint *fewer = malloc(sizeof *fewer * (size_t)(a->trace.count - 1));

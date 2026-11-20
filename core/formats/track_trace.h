@@ -30,6 +30,7 @@
  * (notes/dep59-editor-limits-vs-cd.md). Every distance the editor shows is TRACE_METRES(units): this is the only place the factor lives. */
 #define TRACE_METRES_PER_UNIT 1.0
 #define TRACE_METRES(units) ((units) * TRACE_METRES_PER_UNIT)
+#define TRACE_POINTS_MIN 2         /* the fewest control points a trace has: a curve needs two (parse, save, the editor's Remove) */
 #define TRACE_STEP_MIN 0.5           /* units; two control points closer than this are the same point */
 #define TRACE_COORD_MAX 20000.0      /* units from the origin: inside the 16.16 positions with room for the sums */
 
