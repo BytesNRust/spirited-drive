@@ -241,6 +241,15 @@ void node_panel(App *a)
             ImGui::Text("distance from the start: %.1f m", a->node_dist != NULL ? a->node_dist[n] : 0.0);
             ImGui::Text("turn: %s", turn);
             ImGui::Text("road width: %.2f m", a->nodes[n].width / TRACE_WIDTH_PER_METRE);
+            {   // the bank, in the limit's colour; R or L for the curve it suits
+                const double b = a->nodes[n].bank, size = fabs(b);
+                char bank[24];
+                if (size < 0.05) snprintf(bank, sizeof bank, "level");
+                else snprintf(bank, sizeof bank, "%c %.1f\xc2\xb0", b > 0 ? 'R' : 'L', size);
+                if (size > TRACE_BANK_MAX_DEG) ImGui::TextColored(BAD_TEXT, "bank: %s", bank);
+                else if (size > TRACE_BANK_WARN_DEG) ImGui::TextColored(WARN_TEXT, "bank: %s", bank);
+                else ImGui::Text("bank: %s", bank);
+            }
             ImGui::Text("shoulder surface: left %s, right %s", a->nodes[n].side[TRACK_GEN_LEFT].tarmac ? "tarmac" : "verge",
                         a->nodes[n].side[TRACK_GEN_RIGHT].tarmac ? "tarmac" : "verge");
             ImGui::Text("to the previous node: %.2f m", track_trace_step(a->nodes, n));

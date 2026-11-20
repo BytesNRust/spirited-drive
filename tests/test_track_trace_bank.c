@@ -171,7 +171,7 @@ static void test_bank_flags(void)
     TrackGenNode n[N];
     TraceFlags flags[N];
     straight_nodes(n, N);
-    n[0].bank = -36, n[1].bank = 25, n[2].bank = 25.05, n[3].bank = -35, n[4].bank = 35.05, n[5].bank = 60;
+    n[0].bank = -36, n[1].bank = 25, n[2].bank = 25.0000005, n[3].bank = -35, n[4].bank = 35.0000005, n[5].bank = 60;   /* just over: red is what the generator refuses */
     track_trace_flags(n, N, flags);
     CHECK_EQ_INT(flags[0], TRACE_FLAG_BANK_LIMIT);
     CHECK_EQ_INT(flags[1], 0);

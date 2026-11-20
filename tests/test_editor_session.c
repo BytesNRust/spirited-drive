@@ -395,6 +395,11 @@ static void check_side_keys_file(void)
     CHECK_EQ_INT(t.key_count, 0);
     free(t.points);
     free(t.keys);
+    write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 1, \"bank_deg\": 99}]}\n");
+    CHECK(project_open(dir, &proj, &t, why, sizeof why));   /* a bank alone in version 2: not read, not refused (even out of range) */
+    CHECK_EQ_INT(t.key_count, 0);
+    free(t.points);
+    free(t.keys);
 
     static const struct { const char *key, *words; } BAD[] = {
         { "{\"point\": 1, \"shoulder_r_m\": 20.5}", "right shoulder" }, { "{\"point\": 2, \"barrier_l_m\": -1}", "left wall" },
@@ -405,7 +410,8 @@ static void check_side_keys_file(void)
         { "{\"point\": 1, \"shoulder_l_m\": \"abc\"}", "shoulder_l_m" }, { "{\"point\": 2, \"barrier_r_m\": null}", "barrier_r_m" },
         { "{\"point\": 1, \"width_m\": \"abc\"}", "width_m" },
         { "{\"point\": 1, \"bank_deg\": 60.5}", "point 1 banks 60.5" }, { "{\"point\": 7, \"bank_deg\": 5}", "point 7" },
-        { "{\"point\": 1, \"bank_deg\": \"steep\"}", "bank_deg" },
+        { "{\"point\": 1, \"bank_deg\": \"steep\"}", "bank_deg" }, { "{\"point\": 1, \"bank_deg\": null}", "bank_deg" },
+        { "{\"point\": 1, \"bank_deg\": 1e999}", "point 1 banks inf" },
     };
     for (size_t b = 0; b < sizeof BAD / sizeof BAD[0]; ++b) {
         char json[400];

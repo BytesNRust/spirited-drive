@@ -519,8 +519,8 @@ void track_trace_flags(const TrackGenNode *nodes, int count, TraceFlags *flags)
     for (int i = 0; i < count; ++i) {
         TraceFlags f = wall_eighths(&nodes[i]) > 255 ? TRACE_FLAG_WALL_FAR : 0;
         const double bank = fabs(nodes[i].bank);   /* the node's own, the first's too */
-        if (bank > TRACE_BANK_MAX_DEG + 1e-6) f |= TRACE_FLAG_BANK_LIMIT;
-        else if (bank > TRACE_BANK_WARN_DEG + 1e-6) f |= TRACE_FLAG_BANK_WARN;
+        if (bank > TRACE_BANK_MAX_DEG) f |= TRACE_FLAG_BANK_LIMIT;   /* exactly the generator's test: what is red is what it refuses */
+        else if (bank > TRACE_BANK_WARN_DEG) f |= TRACE_FLAG_BANK_WARN;
         if (i == 0) {
             flags[i] = f;
             continue;

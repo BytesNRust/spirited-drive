@@ -399,7 +399,6 @@ static int parse_keys(const char *text, int version, Trace *t, char *why, size_t
             snprintf(why, why_cap, "trace.json: the road key on point %.0f has a bank_deg that is not a number of degrees", point);
             return 0;
         }
-        sides.point = (int)point;
         if (has_bank) sides.has |= TRACE_KEY_BANK, sides.bank_deg = bank;
         if (!has_width && !has_surface && sides.has == 0) continue;
         if (point < 0 || point >= t->count) {
