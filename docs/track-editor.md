@@ -29,17 +29,29 @@ has nothing red.
 
 | Input | Action |
 |-------|--------|
-| left drag on a point | move it (the selected point) |
+| left click on a point | select it alone (a click on empty space clears the selection) |
+| Shift+click, Cmd+click (Ctrl elsewhere) | select a range from the last clicked point; add or take away one point (the Points rows take the same clicks) |
+| left drag on empty space | box: select the points inside it (with Shift, add them) |
+| left drag on a point | move it; on a selected point, move all the selected points (one undo step) |
 | right or middle drag, wheel | pan, zoom (wheel zooms about the cursor) |
-| arrows | nudge the selected point by 1 unit |
+| arrows | nudge the selected points by 1 unit |
+| `[` `]` | rotate the selected points 1° about the first of them (Shift: 5°) |
 | `N` | add a point after the last one, along the last segment |
 | `I` | insert a point after the selected one |
-| `Del` or `X` | remove the selected point (a trace keeps 2) |
+| `Del` or `X` | remove the selected points (a trace keeps 2: removing more is refused, the status line says why) |
 | `F` | fit the view to the trace |
 | `S` | save `trace.json` |
 | `B` | build `build/<id>.zip` |
 | `U` | install the last built zip (runs the game: `--game`, `--user`) |
-| `Esc` | quit |
+| `Esc` | clear the selection; with nothing selected, quit |
+
+### Several points selected
+
+With more than one point selected, the Points panel has a row «Rotate points [ 0.0° ] about point N»: drag or type an angle and the selected
+points turn about the first of them, clockwise as the view shows it (the view does not turn); the field goes back to 0 after each edit, and each
+edit is one undo step. The Node window shows how many are selected and how long the stretch is along the road. The Road profile shows each value
+the selected points share, or «Mixed», and is read-only until one point is selected. A group move that breaks a limit shows in Problems at once,
+as a single point's move does. The X and Z cells of the Points table still edit only their own row.
 
 ## Limits
 

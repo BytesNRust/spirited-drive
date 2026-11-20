@@ -9,6 +9,7 @@
 
 extern "C" {
 #include "formats/track_gen.h"
+#include "app_select.h"
 #include "interact.h"
 }
 #include "panels.h"
@@ -228,8 +229,11 @@ void shortcuts(App *a)
     const double cx = a->view.width / 2.0, cy = a->view.height / 2.0;
     if (ImGui::IsKeyPressed(ImGuiKey_N, false)) app_add_point(a);
     if (ImGui::IsKeyPressed(ImGuiKey_I, false)) app_insert_point(a);
-    if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) app_remove_point(a);
-    else if (ImGui::IsKeyPressed(ImGuiKey_X, false)) app_remove_point(a);
+    if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) app_remove_selection(a);
+    else if (ImGui::IsKeyPressed(ImGuiKey_X, false)) app_remove_selection(a);
+    const double rotate_step = io.KeyShift ? ROTATE_KEY_STEP_SHIFT : ROTATE_KEY_STEP;   // [ and ]: the selected points rotate about the first
+    if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket)) app_sel_rotate_by(a, -rotate_step);
+    if (ImGui::IsKeyPressed(ImGuiKey_RightBracket)) app_sel_rotate_by(a, rotate_step);
     if (ImGui::IsKeyPressed(ImGuiKey_B, false)) app_build(a);
     if (ImGui::IsKeyPressed(ImGuiKey_U, false)) app_install(a);
     if (ImGui::IsKeyPressed(ImGuiKey_F, false)) interact_fit(a);
@@ -511,6 +515,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
             track_laid_out = true;
             if (reset || !g_had_layout || dock_is_empty(dock)) default_layout(dock);
         }
+        app_sel_sync(a);   // the selected set agrees with the points and with `selected` before anything reads it
         if (a->confirm == APP_ACT_NONE) shortcuts(a), track_command_keys(a);   // the keys edit nothing while the question is up
         viewport_panel(a);
         project_panel(a);

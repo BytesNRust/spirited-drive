@@ -8,6 +8,7 @@
 extern "C" {
 #include "formats/track_gen.h"
 #include "formats/track_trace.h"
+#include "app_select.h"
 #include "interact.h"
 }
 
@@ -22,6 +23,14 @@ const ImU32 GRID = IM_COL32(36, 40, 46, 255), BACKGROUND = IM_COL32(18, 20, 24, 
             TARMAC = IM_COL32(112, 116, 124, 255);   // a tarmac shoulder (a road key): asphalt grey beside the road
 const double EDGE_UNIT = 0.125;   // metres from the centre to the road's edge per unit of the node's width byte (VERGE_UNIT, game/race/car_walls.c)
 const float TARMAC_MIN_PX = 4;    // a tarmac line stays this far from the road's line however far out the view is
+const float BOX_MIN_PX = 4;       // a left drag on no point shorter than this is a click there, not a box
+const ImU32 BOX_EDGE = IM_COL32(255, 220, 0, 200), BOX_FILL = IM_COL32(255, 220, 0, 32);
+
+struct Box {   // the box a left drag on no point draws (dep87): its first corner in the panel's pixels, while the button is held
+    bool on, add;   // add: Shift was held, the points join the set
+    double x, y;
+};
+Box g_box;
 
 struct Canvas {
     ImVec2 origin;   // the panel's top-left, in window pixels
@@ -122,20 +131,57 @@ void draw_points(const Canvas &c, const App &a)
     for (int i = 0; i < a.trace.count; ++i) {
         const ImVec2 p = to_screen(c, a.view, a.trace.points[i].x, a.trace.points[i].z);
         c.list->AddRectFilled(ImVec2(p.x - POINT_HALF, p.y - POINT_HALF), ImVec2(p.x + POINT_HALF, p.y + POINT_HALF),
-                              i == a.selected ? SELECTED : a.road_made ? POINT : BAD);
+                              sel_has(&a.sel, i) ? SELECTED : a.road_made ? POINT : BAD);
     }
 }
 
-// what the mouse does on the canvas: a click takes a point and the button held drags it, the right or middle button pans, the wheel zooms
+// the box being drawn, from its first corner to the mouse
+void draw_box(const Canvas &c)
+{
+    if (!g_box.on) return;
+    const ImVec2 from(c.origin.x + (float)g_box.x, c.origin.y + (float)g_box.y), to = ImGui::GetIO().MousePos;
+    const ImVec2 lo(fminf(from.x, to.x), fminf(from.y, to.y)), hi(fmaxf(from.x, to.x), fmaxf(from.y, to.y));
+    c.list->AddRectFilled(lo, hi, BOX_FILL);
+    c.list->AddRect(lo, hi, BOX_EDGE);
+}
+
+// a click's kind from the keys held: Shift a range, Cmd one more or one less (ImGui's Ctrl is Cmd on the Mac), else that one alone
+SelClick click_kind(const ImGuiIO &io)
+{
+    return io.KeyShift ? SEL_RANGE : io.KeyCtrl ? SEL_TOGGLE : SEL_ONE;
+}
+
+// the left button let go of a box: the points inside it selected, or (hardly moved: a click on no point) nothing selected
+void end_box(App *a, double mx, double my)
+{
+    g_box.on = false;
+    if (fabs(mx - g_box.x) < BOX_MIN_PX && fabs(my - g_box.y) < BOX_MIN_PX) {
+        if (!g_box.add) app_sel_clear(a);
+        return;
+    }
+    double x0, z0, x1, z1;
+    view_to_world(&a->view, g_box.x, g_box.y, &x0, &z0);
+    view_to_world(&a->view, mx, my, &x1, &z1);
+    app_sel_box(a, x0, z0, x1, z1, g_box.add);
+}
+
+// what the mouse does on the canvas: a click takes a point (Shift a range, Cmd one more), the button held drags every selected point; a left
+// drag on no point draws a box that selects; the right or middle button pans, the wheel zooms
 void handle_mouse(App *a, const ImVec2 &origin)
 {
     static int dragged = -1;   // the point the left button took, -1 when none
-    static double grab_x, grab_z;   // where the point was from the mouse when it was taken: the point keeps that distance, it does not jump
+    static int collapse = -1;   // a plain click on a point of a larger set: the set becomes that point when the button is let go without a drag
+    static double grab_x, grab_z;   // where the point was from the mouse when it was taken: the points keep that distance, they do not jump
     const ImGuiIO &io = ImGui::GetIO();
     const double mx = io.MousePos.x - origin.x, my = io.MousePos.y - origin.y;
     if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-        a->selected = view_pick(&a->view, a->trace.points, a->trace.count, mx, my, INTERACT_PICK_REACH);
-        dragged = a->selected;
+        const int pick = view_pick(&a->view, a->trace.points, a->trace.count, mx, my, INTERACT_PICK_REACH);
+        const SelClick how = click_kind(io);
+        collapse = -1;
+        if (pick < 0) g_box = { true, io.KeyShift, mx, my };
+        else if (how == SEL_ONE && sel_has(&a->sel, pick) && app_sel_count(a) > 1) a->selected = pick, collapse = pick;   // the set stays for a drag
+        else app_sel_click(a, pick, how);
+        dragged = pick >= 0 && sel_has(&a->sel, pick) ? pick : -1;
         if (dragged >= 0) {
             double x, z;
             view_to_world(&a->view, mx, my, &x, &z);
@@ -143,13 +189,17 @@ void handle_mouse(App *a, const ImVec2 &origin)
             grab_z = a->trace.points[dragged].z - z;
         }
     }
-    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || dragged >= a->trace.count || dragged != a->selected) dragged = -1;   // released, or the point is another now
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {   // let go
+        if (g_box.on) end_box(a, mx, my);
+        if (collapse >= 0 && collapse < a->trace.count) app_sel_click(a, collapse, SEL_ONE);
+        collapse = dragged = -1;
+    }
+    if (dragged >= a->trace.count || (dragged >= 0 && !sel_has(&a->sel, dragged))) dragged = -1;   // the point is gone or no longer selected
     if (dragged >= 0 && io.MouseDelta.x * io.MouseDelta.x + io.MouseDelta.y * io.MouseDelta.y > 0) {
         double x, z;
         view_to_world(&a->view, mx, my, &x, &z);
-        a->trace.points[a->selected].x = x + grab_x;
-        a->trace.points[a->selected].z = z + grab_z;
-        a->dirty = 1;
+        app_sel_move(a, x + grab_x - a->trace.points[dragged].x, z + grab_z - a->trace.points[dragged].z);   // the group, by the taken point's move
+        collapse = -1;
     }
     if (ImGui::IsItemActive() && (ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Middle))) {
         a->view.cx -= io.MouseDelta.x / a->view.scale;
@@ -239,6 +289,7 @@ void viewport_panel(App *a)
             draw_grid(c, a->view);
             draw_road(c, *a);
             draw_points(c, *a);
+            draw_box(c);
             c.list->PopClipRect();
             if (ImGui::IsItemHovered()) draw_tooltip(c, *a);
         }

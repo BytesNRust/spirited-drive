@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 extern "C" {
+#include "app_select.h"
 #include "formats/track_gen.h"
 #include "interact.h"
 #include "shortcut_keys.h"
@@ -27,6 +28,7 @@ const float POINT_COL_NUMBER = 28;   // the Points table's # column
 const int POINT_COLS = 6;
 const char *const POINT_HEADERS[POINT_COLS] = { "x (m)", "z (m)", "w (m)", "bank (\xc2\xb0)", "dist m", "turn" };
 const char *const POINT_SAMPLES[POINT_COLS] = { "-1234.5", "-1234.5", "30.00", "-60.0", "12345", "R 12.3\xc2\xb0" };
+const float ROTATE_DRAG_SPEED = 0.25f;   // degrees a pixel of drag on Rotate points
 const int POINTS_MIN_ROWS = 4;   // the Points table shows at least these rows: in a short window the panel scrolls instead
 const int PATH_MAX_SHOWN = 1024;   // a path line's buffer (APP_PATH and more: elided, it is shorter)
 const int PROBLEM_ROWS = 200;   // the nodes listed in Problems; the count says how many more
@@ -100,6 +102,25 @@ static void bank_cell(App *a, int i, int *shown)
     }
 }
 
+// with several points selected: «Rotate points [ 0.0° ] about point N», a field that rotates them about the first while it is dragged or typed,
+// back to 0 when let go (the points stay where it left them: one undo step)
+static void rotate_row(App *a)
+{
+    static float degrees = 0;
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Rotate points");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(ImGui::CalcTextSize("-180.0\xc2\xb0").x + 2 * ImGui::GetStyle().FramePadding.x);
+    if (ImGui::DragFloat("##rotate", &degrees, ROTATE_DRAG_SPEED, -180.0f, 180.0f, "%.1f\xc2\xb0", ImGuiSliderFlags_AlwaysClamp)) app_sel_rotate_live(a, degrees);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Rotates the selected points about the first of them. The view does not turn. Keys: [ and ] (Shift: 5\xc2\xb0).");
+    if (ImGui::IsItemDeactivated()) {
+        app_sel_rotate_end(a);
+        degrees = 0;
+    }
+    ImGui::SameLine();
+    ImGui::Text("about point %d", sel_first(&a->sel));
+}
+
 void points_panel(App *a)
 {
     static int shown = -2;   // the selection the table last scrolled to
@@ -110,9 +131,12 @@ void points_panel(App *a)
         ImGui::BeginDisabled(a->selected < 0);
         if (ImGui::Button("Insert (I)")) app_insert_point(a);
         ImGui::SameLine();
-        if (ImGui::Button("Remove (Del)")) app_remove_point(a);
+        if (ImGui::Button("Remove (Del)")) app_remove_selection(a);
         ImGui::EndDisabled();
-        ImGui::TextDisabled("%d points", a->trace.count);
+        const int picked = app_sel_count(a);
+        if (picked > 1) ImGui::TextDisabled("%d points, %d selected", a->trace.count, picked);
+        else ImGui::TextDisabled("%d points", a->trace.count);
+        if (picked > 1) rotate_row(a);
         const bool scroll_to_selected = a->selected != shown;
         // the table takes the rest of the panel, but never fewer than POINTS_MIN_ROWS rows
         const ImGuiStyle &st = ImGui::GetStyle();
@@ -141,7 +165,11 @@ void points_panel(App *a)
                     ImGui::TableSetColumnIndex(0);
                     char label[16];
                     snprintf(label, sizeof label, "%d", i);
-                    if (ImGui::Selectable(label, i == a->selected)) a->selected = shown = i;   // chosen here: the table does not scroll to it
+                    if (ImGui::Selectable(label, sel_has(&a->sel, i))) {   // as a click in the Viewport: Shift a range, Cmd one more or one less
+                        const ImGuiIO &io = ImGui::GetIO();
+                        app_sel_click(a, i, io.KeyShift ? SEL_RANGE : io.KeyCtrl ? SEL_TOGGLE : SEL_ONE);
+                        shown = a->selected;   // chosen here: the table does not scroll to it
+                    }
                     if (scroll_to_selected && i == a->selected) ImGui::SetScrollHereY();
                     TracePoint &p = a->trace.points[i];
                     const double lo = -TRACE_COORD_MAX, hi = TRACE_COORD_MAX;
@@ -294,6 +322,17 @@ void problems_panel(App *a)
 
 static ImGuiID node_dock = 0;   // the dock node Node is in, where a layout kept from before the Road key window puts it as a tab
 
+// Node with several points selected: how many, which, and the stretch of road from the first to the last
+static void selection_summary(const App *a)
+{
+    char which[96];
+    sel_describe(&a->sel, which, sizeof which);
+    ImGui::Text("%d points selected: %s", sel_count(&a->sel), which);
+    const int first = sel_first(&a->sel), last = sel_last(&a->sel);
+    if (a->road_made && a->point_dist != NULL && last < a->point_count)
+        ImGui::Text("stretch: %.0f m along the road (points %d to %d)", a->point_dist[last] - a->point_dist[first], first, last);
+}
+
 void node_panel(App *a)
 {
     if (points_dock != 0) ImGui::SetNextWindowDockID(points_dock, ImGuiCond_FirstUseEver);
@@ -302,7 +341,9 @@ void node_panel(App *a)
         app_recompute(a);   // a point added or removed in Points this frame: the road and its figures first
         app_sync_selection(a);
         const int n = a->node;
-        if (!a->road_made || n < 0 || n >= a->node_count) {
+        if (app_sel_count(a) > 1) {
+            selection_summary(a);
+        } else if (!a->road_made || n < 0 || n >= a->node_count) {
             ImGui::TextDisabled("Select a node");
         } else {
             char turn[16];

@@ -1,11 +1,10 @@
 #include "interact.h"
 
+#include "app_select.h"
+
 void interact_nudge(App *a, double dx, double dz)
 {
-    if (a->selected < 0) return;
-    a->trace.points[a->selected].x += dx;
-    a->trace.points[a->selected].z += dz;
-    a->dirty = 1;
+    app_sel_move(a, dx, dz);   /* every selected point (dep87) */
 }
 
 void interact_zoom(App *a, double sx, double sy, double factor)

@@ -3,6 +3,10 @@
 // the shoulder's surface; step 3's are below it: the shoulder's width, how far the wall is, its kind and the fence. Step 4's lanes sit above the table.
 #include "panels.h"
 
+extern "C" {
+#include "app_select.h"
+}
+
 #include "imgui.h"
 
 #include <float.h>
@@ -187,6 +191,28 @@ bool point_side_values(const App *a, int point, double out[TRACE_SIDE_FIELDS][2]
     return true;
 }
 
+// the profile of several points, read only (dep87 part 1): each value the selected points share, or «Mixed» (app_sel_profile)
+void several_points(const App *a)
+{
+    if (!ImGui::BeginTable("road_key_several", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) return;
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, label_width());
+    ImGui::TableSetupColumn("Left");
+    ImGui::TableSetupColumn("Right");
+    ImGui::TableHeadersRow();
+    for (int row = 0; row < APP_SEL_PROFILE_ROWS; ++row) {
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextUnformatted(row == 0 ? SURFACE_LABEL : LABELS[row - 1]);
+        for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side) {
+            char text[32];
+            ImGui::TableSetColumnIndex(1 + side);
+            ImGui::TextDisabled("%s", app_sel_profile(a, row, side, text, sizeof text) >= 0 ? text : "-");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Several points selected: select one point to change its profile.");
+        }
+    }
+    ImGui::EndTable();
+}
+
 }   // namespace
 
 float road_key_panel_width()
@@ -201,6 +227,15 @@ void road_key_panel(App *a)
     const int point = a->selected;
     if (point < 0 || point >= a->trace.count) {
         ImGui::TextDisabled("Select a point to set its road profile.");
+        return;
+    }
+    if (sel_count(&a->sel) > 1) {   // several points: what they share, read only until editing a selection comes (dep87 part 2)
+        char which[96];
+        sel_describe(&a->sel, which, sizeof which);
+        const bool run = sel_last(&a->sel) - sel_first(&a->sel) + 1 == sel_count(&a->sel);
+        if (run) ImGui::Text("%s at points %s (%d points)", PANEL_ROAD_KEY, which, sel_count(&a->sel));
+        else ImGui::Text("%s at %d points (%s)", PANEL_ROAD_KEY, sel_count(&a->sel), which);
+        several_points(a);
         return;
     }
     ImGui::Text("%s at point %d", PANEL_ROAD_KEY, point);

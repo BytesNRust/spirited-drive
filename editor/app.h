@@ -12,6 +12,7 @@
 #include "car_project.h"
 #include "car_race.h"
 #include "project.h"
+#include "selection.h"
 #include "session.h"
 #include "track_undo.h"
 #include "view.h"
@@ -97,6 +98,9 @@ typedef struct {
     View view;
     float canvas_x, canvas_y;    /* where the Viewport's canvas starts in the window (viewport.cpp, every frame): --steps clicks a point there */
     int selected;                /* index of the selected control point, -1 for none */
+    Selection sel;               /* the selected control points (dep87, app_select.h): `selected` is always one of them when there are any */
+    TracePoint *rotate_from;     /* the points as they were when the Rotate points field was taken (app_sel_rotate_live), else NULL */
+    int rotate_from_count;
     int dirty;                   /* the trace changed since the road was computed */
 
     /* the road, computed from the trace by app_recompute */

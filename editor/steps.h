@@ -4,8 +4,16 @@
  *   undo, redo, save
  *   title          the window's title printed ("title: ...")
  *   print          a track's points printed ("points: COUNT x,z x,z ...")
- *   key:NAME       a key pressed and let go (SDL's key names: N, I, Delete, X ...), as the keyboard sends it
+ *   key:NAME       a key pressed and let go (SDL's key names: N, I, Delete, X ...), as the keyboard sends it; Shift+ or Cmd+ before
+ *                  the name holds that modifier (key:Shift+])
  *   click:I        the left button pressed and let go on the track's point I, in the Viewport
+ *   shift-click:I, cmd-click:I   the same with Shift (a range) or Cmd (one more or one less) held (dep87)
+ *   box:X0,Z0,X1,Z1   a left drag on the Viewport from track place (X0, Z0) to (X1, Z1): the points inside it selected
+ *   row:I, shift-row:I, cmd-row:I   point I's row of the Points table clicked (plain, Shift, Cmd), as the table does
+ *   rotate:DEG     the selected points rotated DEG degrees about the first, as Rotate points does (an undo step of its own)
+ *   print-sel      the selected points printed ("selected: 3-7", "selected: none")
+ *   print-profile  the Road profile of the selected points as the panel shows them, each row Left|Right ("profile: Off-road|Asphalt 3.00|Mixed ...")
+ *   status         the status line printed ("status: 3 points removed")
  *   drag:I,DX,DY   point I taken and dragged DX, DY screen pixels, in four moves, then let go
  *   drag-near:I,J,M  point I dragged as drag does, to M metres before point J on the line from J to I (a place in metres, whatever the zoom)
  *   width:I,M      a road key's width on point I set to M metres, as the Points window sets it
@@ -25,7 +33,7 @@
 
 #include <SDL3/SDL.h>
 
-enum { STEPS_MAX = 64, STEPS_ARGS = 3 };
+enum { STEPS_MAX = 64, STEPS_ARGS = 4 };
 
 typedef struct {
     char name[STEPS_MAX][16];

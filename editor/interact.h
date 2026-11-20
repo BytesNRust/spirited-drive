@@ -4,10 +4,13 @@
 
 #include "app.h"
 
-enum { INTERACT_NUDGE = 1,    /* units an arrow key moves the selected point */
+#define ROTATE_KEY_STEP 1.0         /* degrees [ and ] rotate the selected points */
+#define ROTATE_KEY_STEP_SHIFT 5.0   /* with Shift */
+
+enum { INTERACT_NUDGE = 1,    /* units an arrow key moves the selected points */
        INTERACT_PICK_REACH = 12 };   /* pixels a click may be from a point and still take it */
 
-/* the selected point moved by (dx, dz) units; nothing when none is selected */
+/* the selected points moved by (dx, dz) units; nothing when none is selected */
 void interact_nudge(App *a, double dx, double dz);
 
 /* zooms by `factor` keeping the world point under the view's (sx, sy) where it is */

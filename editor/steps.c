@@ -1,5 +1,7 @@
 #include "steps.h"
 
+#include "app_select.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,8 +11,9 @@
  * waited for, not for ever */
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000 };
 
-static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
+static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -36,7 +39,7 @@ int steps_read(Steps *s, const char *text)
         snprintf(word, sizeof word, "%.*s", (int)strcspn(item, ":"), item);
         const int which = known(word);
         if (which < 0 || s->count == STEPS_MAX) {
-            fprintf(stderr, "--steps %s: edit, undo, redo, save, title, print, key:NAME, click:I, drag:I,DX,DY, drag-near:I,J,M, width:I,M, bank:I,DEG, problems, build, race, race-log or race-stop expected\n", item);
+            fprintf(stderr, "--steps %s: edit, undo, redo, save, title, print, key:NAME, click:I, drag:I,DX,DY, drag-near:I,J,M, width:I,M, bank:I,DEG, problems, build, shift-click:I, cmd-click:I, box:X0,Z0,X1,Z1, row:I, shift-row:I, cmd-row:I, rotate:DEG, print-sel, print-profile, race, race-log or race-stop expected\n", item);
             return 0;
         }
         snprintf(s->name[s->count], sizeof s->name[0], "%s", item);   /* "key:N", "click:2": the first number is after the colon */
@@ -100,9 +103,9 @@ static void mouse(SDL_Window *win, Uint32 type, float x, float y)
     SDL_PushEvent(&ev);
 }
 
-static int key(SDL_Window *win, const char *name, int down)
+/* a key's event; `mod` the modifiers held with it, as the keyboard sends them (the window takes them from the event, not the state) */
+static int key_event(SDL_Window *win, SDL_Keycode code, int down, SDL_Keymod mod)
 {
-    const SDL_Keycode code = SDL_GetKeyFromName(name);
     if (code == SDLK_UNKNOWN) return 0;
     SDL_Event ev;
     memset(&ev, 0, sizeof ev);
@@ -111,8 +114,33 @@ static int key(SDL_Window *win, const char *name, int down)
     ev.key.key = code;
     ev.key.scancode = SDL_GetScancodeFromKey(code, NULL);
     ev.key.down = down;
+    ev.key.mod = mod;
     SDL_PushEvent(&ev);
     return 1;
+}
+
+/* the modifier a step holds: "Shift+" or "Cmd+" before a key's name, or a shift- / cmd- step; *rest the key's name after it */
+static void held(const char *name, SDL_Keycode *code, SDL_Keymod *mod, const char **rest)
+{
+    *code = SDLK_UNKNOWN, *mod = SDL_KMOD_NONE, *rest = name;
+    if (strncmp(name, "Shift+", 6) == 0 || strncmp(name, "shift-", 6) == 0) *code = SDLK_LSHIFT, *mod = SDL_KMOD_LSHIFT, *rest = name + 6;
+    else if (strncmp(name, "Cmd+", 4) == 0 || strncmp(name, "cmd-", 4) == 0) *code = SDLK_LGUI, *mod = SDL_KMOD_LGUI, *rest = name + 4;
+}
+
+/* key:NAME with its modifier: the modifier down, the key down and up with it held, the modifier up; a frame each */
+static int key_frames(Steps *s, SDL_Window *win, const char *name, int p)
+{
+    SDL_Keycode mod_key;
+    SDL_Keymod mod;
+    const char *rest;
+    held(name, &mod_key, &mod, &rest);
+    const SDL_Keycode code = SDL_GetKeyFromName(rest);
+    if (p == 0 && code == SDLK_UNKNOWN) return s->failed = 1, 0;
+    if (p == 0 && mod_key != SDLK_UNKNOWN) key_event(win, mod_key, 1, mod);
+    if (p == 1) key_event(win, code, 1, mod);
+    if (p == 2) key_event(win, code, 0, mod);
+    if (p == 3 && mod_key != SDLK_UNKNOWN) key_event(win, mod_key, 0, SDL_KMOD_NONE);
+    return p < 4;
 }
 
 static void print_points(const App *a)
@@ -152,13 +180,46 @@ static int at_once(App *a, const char *name, const double *arg)
         fprintf(stdout, "title: %s\n", title);
         return 1;
     }
-    if (strcmp(name, "problems") == 0) return a->kind == APP_KIND_TRACK ? (print_problems(a), 1) : 0;
+    if (strcmp(name, "problems") == 0) return a->kind == APP_KIND_TRACK ? (app_recompute(a), print_problems(a), 1) : 0;   /* an edit this frame counts */
     if (strcmp(name, "build") == 0) {   /* as the Build button: what it says printed, a refusal too */
         app_build(a);
         fprintf(stdout, "build: %s\n", a->status);
         return 1;
     }
     if (strcmp(name, "print") == 0) return a->kind == APP_KIND_TRACK ? (print_points(a), 1) : 0;
+    if (strcmp(name, "status") == 0) return fprintf(stdout, "status: %s\n", a->status), 1;
+    if (strcmp(name, "print-sel") == 0) {
+        if (a->kind != APP_KIND_TRACK) return 0;
+        char which[256];
+        app_sel_sync(a);
+        sel_describe(&a->sel, which, sizeof which);
+        fprintf(stdout, "selected: %s\n", which[0] != '\0' ? which : "none");
+        return 1;
+    }
+    if (strcmp(name, "print-profile") == 0) {
+        if (a->kind != APP_KIND_TRACK) return 0;
+        app_sel_sync(a);
+        fprintf(stdout, "profile:");
+        for (int row = 0; row < APP_SEL_PROFILE_ROWS; ++row) {
+            char left[32], right[32];
+            if (app_sel_profile(a, row, TRACK_GEN_LEFT, left, sizeof left) < 0 || app_sel_profile(a, row, TRACK_GEN_RIGHT, right, sizeof right) < 0) return 0;
+            fprintf(stdout, " %s|%s", left, right);
+        }
+        fprintf(stdout, "\n");
+        return 1;
+    }
+    if (strncmp(name, "row:", 4) == 0 || strncmp(name, "shift-row:", 10) == 0 || strncmp(name, "cmd-row:", 8) == 0) {   /* as the Points table's row */
+        const int point = (int)arg[0];
+        if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count) return 0;
+        app_sel_click(a, point, name[0] == 's' ? SEL_RANGE : name[0] == 'c' ? SEL_TOGGLE : SEL_ONE);
+        return 1;
+    }
+    if (strncmp(name, "rotate", 6) == 0) {   /* Rotate points, typed: its own undo step, as the field's let go is */
+        if (a->kind != APP_KIND_TRACK || app_sel_count(a) == 0) return 0;
+        app_sel_rotate_by(a, arg[0]);
+        app_track_commit(a);
+        return 1;
+    }
     if (strcmp(name, "race") == 0) {   /* Test in race, as its button: the game's command line and the TNFS_ part of its environment printed */
         if (!app_race(a, 0)) return 0;
         fprintf(stdout, "race:");
@@ -223,18 +284,30 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
     const int p = s->phase++;
     float x = 0, y = 0;
     if (strncmp(name, "race-", 5) == 0) return race_frames(s, a, name, p);
-    if (strncmp(name, "key:", 4) == 0) {
-        if (p == 0 && !key(win, name + 4, 1)) return s->failed = 1, 0;
-        if (p == 1) key(win, name + 4, 0);
-        return p < 2;
-    }
-    if (strncmp(name, "click:", 6) == 0) {
+    if (strncmp(name, "key:", 4) == 0) return key_frames(s, win, name + 4, p);
+    if (strncmp(name, "click:", 6) == 0 || strstr(name, "-click:") != NULL) {   /* shift-click, cmd-click: the modifier held around it */
+        SDL_Keycode mod_key;
+        SDL_Keymod mod;
+        const char *rest;
+        held(name, &mod_key, &mod, &rest);
         if (p == 0 && !point_at(a, (int)arg[0], &s->from_x, &s->from_y)) return s->failed = 1, 0;
         x = s->from_x, y = s->from_y;
-        if (p == 0) mouse(win, SDL_EVENT_MOUSE_MOTION, x, y);
-        if (p == 1) mouse(win, SDL_EVENT_MOUSE_BUTTON_DOWN, x, y);
-        if (p == 2) mouse(win, SDL_EVENT_MOUSE_BUTTON_UP, x, y);
-        return p < 3;
+        if (p == 0 && mod_key != SDLK_UNKNOWN) key_event(win, mod_key, 1, mod);
+        if (p == 1) mouse(win, SDL_EVENT_MOUSE_MOTION, x, y);
+        if (p == 2) mouse(win, SDL_EVENT_MOUSE_BUTTON_DOWN, x, y);
+        if (p == 3) mouse(win, SDL_EVENT_MOUSE_BUTTON_UP, x, y);
+        if (p == 4 && mod_key != SDLK_UNKNOWN) key_event(win, mod_key, 0, SDL_KMOD_NONE);
+        return p < 5;
+    }
+    if (strncmp(name, "box", 3) == 0 && p == 0) {   /* box:X0,Z0,X1,Z1: the corners from track places, then the drag's frames */
+        if (a->kind != APP_KIND_TRACK) return s->failed = 1, 0;
+        double sx, sy;
+        view_to_screen(&a->view, arg[0], arg[1], &sx, &sy);
+        s->from_x = a->canvas_x + (float)sx, s->from_y = a->canvas_y + (float)sy;
+        view_to_screen(&a->view, arg[2], arg[3], &sx, &sy);
+        s->to_x = a->canvas_x + (float)sx, s->to_y = a->canvas_y + (float)sy;
+        mouse(win, SDL_EVENT_MOUSE_MOTION, s->from_x, s->from_y);
+        return 1;
     }
     /* drag:I,DX,DY: to the point, down, DRAG_MOVES moves, up; drag-near:I,J,M the same to M metres before point J on the way from I */
     if (p == 0) {

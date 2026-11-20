@@ -59,6 +59,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     snprintf(a->user, sizeof a->user, "%s", user);
     snprintf(a->generic, sizeof a->generic, "%s", generic_art != NULL ? generic_art : "");
     a->selected = -1;
+    sel_init(&a->sel);
     a->node = a->node_for = -1;
     a->race_look = car_race_look_default();
     install_job_init(&a->install);
@@ -195,6 +196,9 @@ void app_free(App *a)
     car_edit_free(&a->edit);
     mask_edit_free(&a->mask.me);
     track_undo_free(&a->track_undo);
+    sel_free(&a->sel);
+    free(a->rotate_from);
+    a->rotate_from = NULL, a->rotate_from_count = 0;
     free(a->trace.points);
     free(a->trace.keys);
     drop_road(a);

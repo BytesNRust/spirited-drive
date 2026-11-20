@@ -154,6 +154,39 @@ for s in range(12):
 PY
 python3 "$work/tri_lanes.py" "$work/lanes/build/lanes.zip" || fail "the TRI of the lanes project does not have the lanes of its keys"
 
+# ==== Several points selected (dep87): gestures, group edits, one undo each, the guard on removing, the profile Mixed ====
+# a straight of 8 points 40 m apart, the right shoulder tarmac from point 3. In the viewport: a click, Shift+click a range, Cmd+click one in or
+# out, Esc clears, a box drag the points inside it; the Points rows take the same clicks. The Road profile shows a value the points share, else Mixed
+mkdir "$work/multi"
+printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 40.0], [0.0, 80.0], [0.0, 120.0], [0.0, 160.0], [0.0, 200.0], [0.0, 240.0], [0.0, 280.0]],\n  "keys": [{"point": 3, "shoulder_r_surface": "tarmac"}]\n}\n' > "$work/multi/trace.json"
+"$editor" "$work/multi" --user "$work/mu" --frames 2 --steps click:1,print-sel,shift-click:4,print-sel,cmd-click:6,print-sel,cmd-click:2,print-sel,key:Escape,print-sel,box:-10,110,10,210,print-sel,row:2,shift-row:5,cmd-row:7,print-sel,print-profile >"$work/log" 2>&1 \
+    || fail "selecting several points: $(cat "$work/log")"
+[ "$(grep '^selected:' "$work/log" | tr '\n' '/')" = "selected: 1/selected: 1-4/selected: 1-4, 6/selected: 1, 3-4, 6/selected: none/selected: 3-5/selected: 2-5, 7/" ] \
+    || fail "click, Shift, Cmd, Esc, box and rows did not select what they say: $(grep '^selected:' "$work/log")"
+grep -q "^profile: Off-road|Mixed 3.00|3.00" "$work/log" || fail "the Road profile of points 2-5, 7 does not show the right surface Mixed: $(grep '^profile:' "$work/log")"
+# dragging one of 2-4 moves the three, one undo puts them back; an arrow nudges the three; rotate 90 about point 2 folds the road (Problems shows
+# it red at once), undo straightens it; Delete removes the three, undo brings them back; removing all 8 is refused with the minimum named
+"$editor" "$work/multi" --user "$work/mu" --frames 2 --steps click:2,shift-click:4,drag:3,20,0,print,undo,print,key:Right,print,undo,key:],print,undo,rotate:90,print,problems,undo,problems,key:Delete,print,undo,print,box:-10,-10,10,300,key:Delete,status,print >"$work/log" 2>&1 \
+    || fail "editing several points: $(cat "$work/log")"
+python3 -c "
+import sys
+rows = [[tuple(map(float, q.split(','))) for q in l.split()[2:]] for l in open(sys.argv[1]) if l.startswith('points: ')]
+straight = [(0.0, 40.0 * i) for i in range(8)]
+assert len(rows) == 8, len(rows)
+d = rows[0]
+assert d[2][0] > 10 and d[2][0] == d[3][0] == d[4][0] and [p[1] for p in d] == [p[1] for p in straight], ('drag', d)
+assert all(d[i] == straight[i] for i in (0, 1, 5, 6, 7)), ('drag moved others', d)
+assert rows[1] == straight, ('undo of the drag', rows[1])
+assert [p[0] for p in rows[2]] == [0, 0, 1, 1, 1, 0, 0, 0], ('arrow', rows[2])
+r = rows[3]
+assert r[2] == (0, 80) and abs(r[3][0] - 40 * 0.0174524) < 1e-3 and abs(r[4][0] - 80 * 0.0174524) < 1e-3, (']', r)
+assert rows[4][2:5] == [(0, 80), (40, 80), (80, 80)], ('rotate 90', rows[4])
+assert len(rows[5]) == 5 and rows[5] == [straight[i] for i in (0, 1, 5, 6, 7)], ('Delete', rows[5])
+assert rows[6] == straight and rows[7] == straight, ('undo of Delete, refusal', rows[6:])
+" "$work/log" || fail "the group's drag, arrow, ], rotate and Delete (each one undo) did not do what they say: $(grep '^points:' "$work/log")"
+[ "$(grep '^problems:' "$work/log" | tr '\n' '/')" = "problems: red node 13/problems: none/" ] || fail "Problems did not show the folded road red at once, then clear on undo: $(grep '^problems:' "$work/log")"
+grep -q "^status: a track keeps at least 2 points: 8 of 8 are selected" "$work/log" || fail "removing all the points was not refused with the minimum: $(grep '^status:' "$work/log")"
+
 # ==== Build: under the limits, over an amber one, refused over a red one ====
 # Build: a curve under the limits is built, one over them is refused with the limit named
 "$editor" "$work/mild" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a curve under the limits: $(cat "$work/log")"
