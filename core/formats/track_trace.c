@@ -577,8 +577,8 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap)
     if (radius) snprintf(clauses[n++], sizeof clauses[0], "radius %.0f m (under %g m)", TRACE_METRES(p->radius), TRACE_METRES(radius_red ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN));
     if (width) snprintf(clauses[n++], sizeof clauses[0], "width changes %.2f m (more than %g m)", p->width_step, TRACE_WIDTH_STEP_WARN_M);
     if (p->flags & TRACE_FLAG_SIDE_WARN)
-        snprintf(clauses[n++], sizeof clauses[0], "a shoulder or wall moves %.2f m (more than %g m)", p->side_step, TRACE_SIDE_STEP_WARN_M);
-    if (p->flags & TRACE_FLAG_WALL_FAR) snprintf(clauses[n++], sizeof clauses[0], "a wall %.1f m from the centre (more than %g m)", p->wall_m, TRACE_WALL_FAR_M);
+        snprintf(clauses[n++], sizeof clauses[0], "a shoulder or barrier moves %.2f m (more than %g m)", p->side_step, TRACE_SIDE_STEP_WARN_M);
+    if (p->flags & TRACE_FLAG_WALL_FAR) snprintf(clauses[n++], sizeof clauses[0], "a barrier %.1f m from the centre (more than %g m)", p->wall_m, TRACE_WALL_FAR_M);
     snprintf(out, cap, "node %d: ", p->node);
     for (int i = 0; i < n; ++i) {
         const size_t at = strlen(out);
@@ -614,10 +614,10 @@ int track_trace_summary(const TraceFlags *flags, int count, TraceSummaryLine lin
             snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s change%s width by more than %g m per node: %s", nodes, plural, nodes == 1 ? "s" : "",
                      TRACE_WIDTH_STEP_WARN_M, verdict);
         else if (RULES[r].kind == RULE_WALL)
-            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s %s a wall more than %g m from the centre: %s", nodes, plural, nodes == 1 ? "has" : "have",
+            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s %s a barrier more than %g m from the centre: %s", nodes, plural, nodes == 1 ? "has" : "have",
                      TRACE_WALL_FAR_M, verdict);
         else
-            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s move%s a shoulder or a wall by more than %g m: %s", nodes, plural, nodes == 1 ? "s" : "",
+            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s move%s a shoulder or a barrier by more than %g m: %s", nodes, plural, nodes == 1 ? "s" : "",
                      TRACE_SIDE_STEP_WARN_M, verdict);
         ++used;
     }

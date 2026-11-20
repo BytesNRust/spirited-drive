@@ -191,8 +191,8 @@ void draw_tooltip(const Canvas &c, const App &a)
             ImGui::TextUnformatted("points too close for this turn: space them out or smooth them");
         }
         if (a.flags[node] & TRACE_FLAG_WALL_FAR) {
-            ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "wall too far out (over %g m from the centre): the road is not built", TRACE_WALL_FAR_M);
-            ImGui::TextUnformatted("bring the wall nearer the road, or narrow the road here");
+            ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "barrier too far out (over %g m from the centre): the road is not built", TRACE_WALL_FAR_M);
+            ImGui::TextUnformatted("bring the barrier nearer the road, or narrow the road here");
         }
     } else {
         if (a.flags[node] & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN))
@@ -200,7 +200,7 @@ void draw_tooltip(const Canvas &c, const App &a)
         if (a.flags[node] & TRACE_FLAG_WIDTH_WARN)
             ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "width changes too fast (over %g m a node): lengthen the ramp", TRACE_WIDTH_STEP_WARN_M);
         if (a.flags[node] & TRACE_FLAG_SIDE_WARN)
-            ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "a shoulder or a wall moves too fast (over %g m a node): spread it over more points",
+            ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "a shoulder or a barrier moves too fast (over %g m a node): spread it over more points",
                                TRACE_SIDE_STEP_WARN_M);
     }
     ImGui::EndTooltip();

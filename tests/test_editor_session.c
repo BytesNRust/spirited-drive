@@ -390,7 +390,7 @@ static void check_side_keys_file(void)
     free(t.keys);
 
     static const struct { const char *key, *words; } BAD[] = {
-        { "{\"point\": 1, \"shoulder_r_m\": 20.5}", "right shoulder" }, { "{\"point\": 2, \"barrier_l_m\": -1}", "left wall" },
+        { "{\"point\": 1, \"shoulder_r_m\": 20.5}", "right shoulder" }, { "{\"point\": 2, \"barrier_l_m\": -1}", "left barrier" },
         { "{\"point\": 1, \"wall_l\": \"bouncy\"}", "wall_l" }, { "{\"point\": 1, \"fence_r\": 1}", "fence_r" },
         { "{\"point\": 5, \"fence_r\": true}", "point 5" },
         /* a point past any int is refused before it is made one (UBSan: the cast of inf), and a value that is no number is refused by name, not dropped */

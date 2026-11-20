@@ -84,8 +84,8 @@ void wall_cell(App *a, int point, int side, bool own, double shown)
     if (ImGui::Combo("##wall", &choice, NAMES, 2)) app_set_point_side(a, point, TRACE_SIDE_WALL, side, choice == 1 ? TRACK_GEN_WALL_SOFT : TRACK_GEN_WALL_HARD);
     if (!own) ImGui::PopStyleColor();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s\nBoth stop the car at the wall.\nHard: a hit makes the crash sound, a hard one is recorded in the race, and the car is turned "
-                          "off the wall twice as sharply.\nSoft: no sound and nothing recorded; the car is turned off the wall more gently.",
+        ImGui::SetTooltip("%s\nThe barrier is not drawn: it only stops the car, where Barrier from edge says. Both kinds stop it.\nHard: a hit makes the crash sound, a hard one is recorded in the race, and the car is turned "
+                          "off the barrier twice as sharply.\nSoft: no sound and nothing recorded; the car is turned off the barrier more gently.",
                           inherit_tip(own, false));
     inherit_menu(a, point, TRACE_SIDE_WALL, side, own);
     ImGui::PopID();
@@ -100,7 +100,7 @@ void fence_cell(App *a, int point, int side, bool own, double shown)
     if (ImGui::Checkbox(on ? "On###fence" : "Off###fence", &on)) app_set_point_side(a, point, TRACE_SIDE_FENCE, side, on ? 1 : 0);
     if (!own) ImGui::PopStyleColor();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s\nOn: the wall is drawn on this side (the game's fence).\nOff: it is not drawn, but it still stops the car where Wall from edge says.\n"
+        ImGui::SetTooltip("%s\nOn: the wall is drawn on this side (the game's fence).\nOff: it is not drawn, but it still stops the car where Barrier from edge says.\n"
                           "The game keeps one fence setting per 4 nodes, the one at their first node.",
                           inherit_tip(own, false));
     inherit_menu(a, point, TRACE_SIDE_FENCE, side, own);
@@ -111,9 +111,9 @@ void fence_cell(App *a, int point, int side, bool own, double shown)
 // the table is drawn: a cell that changes the keys this frame (and may move or free them) changes nothing the later cells read
 void side_rows(App *a, int point, const TraceKey *key, const double values[TRACE_SIDE_FIELDS][2])
 {
-    static const char *const LABELS[TRACE_SIDE_FIELDS] = { "Shoulder (m)", "Wall from edge (m)", "Wall", "Fence" };
+    static const char *const LABELS[TRACE_SIDE_FIELDS] = { "Shoulder (m)", "Barrier from edge (m)", "Barrier", "Fence" };
     static const char *const WHAT[2] = { "How far the shoulder reaches past the road's edge.",
-                                         "How far past the road's edge the wall stands: it stops the car there. At most 31.875 m from the centre." };
+                                         "How far past the road's edge the barrier is: it stops the car there, and is not drawn. At most 31.875 m from the centre." };
     for (int field = 0; field < TRACE_SIDE_FIELDS; ++field) {
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);

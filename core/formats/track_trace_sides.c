@@ -31,8 +31,8 @@ static int fault(ExchangeError *err, int point, int field, int side, double v)
     const char *s = SIDE_NAME[side];
     if (field == TRACE_SIDE_SHOULDER) return exchange_fail(err, "the road key on point %d has a %s shoulder of %g m, outside 0..%g m", point, s, v, TRACE_SIDE_MAX_M), 0;
     if (field == TRACE_SIDE_BARRIER)
-        return exchange_fail(err, "the road key on point %d has a %s wall %g m from the road edge, outside 0..%g m", point, s, v, TRACE_SIDE_MAX_M), 0;
-    if (field == TRACE_SIDE_WALL) return exchange_fail(err, "the road key on point %d has a %s wall kind of %g: hard (0) or soft (1)", point, s, v), 0;
+        return exchange_fail(err, "the road key on point %d has a %s barrier %g m from the road edge, outside 0..%g m", point, s, v, TRACE_SIDE_MAX_M), 0;
+    if (field == TRACE_SIDE_WALL) return exchange_fail(err, "the road key on point %d has a %s barrier kind of %g: hard (0) or soft (1)", point, s, v), 0;
     return exchange_fail(err, "the road key on point %d has a %s fence of %g: on (1) or off (0)", point, s, v), 0;
 }
 

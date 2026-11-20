@@ -254,9 +254,9 @@ static void check_side_errors(const uint8_t *tmpl, size_t tsize)
     static TrackGenNode n[COUNT];
     static const struct { unsigned has; double shoulder, barrier; int wall; const char *word; } BAD[] = {
         { TRACK_GEN_SIDE_SHOULDER, 161, 0, 0, "shoulder" }, { TRACK_GEN_SIDE_SHOULDER, -1, 0, 0, "shoulder" },
-        { TRACK_GEN_SIDE_BARRIER, 161, 0, 0, "wall" },   /* (barrier set below) */
+        { TRACK_GEN_SIDE_BARRIER, 161, 0, 0, "barrier" },   /* (barrier set below) */
         { TRACK_GEN_SIDE_BARRIER, 0, 0, 0, "centre" },
-        { TRACK_GEN_SIDE_WALL, 0, 0, 2, "wall" },
+        { TRACK_GEN_SIDE_WALL, 0, 0, 2, "barrier" },
     };
     for (size_t b = 0; b < sizeof BAD / sizeof BAD[0]; ++b) {
         s_nodes(n, 0.0, WIDTH);
