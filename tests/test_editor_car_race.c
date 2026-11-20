@@ -322,6 +322,8 @@ static void make_fake_game(char *path, size_t cap)
         "while [ $# -gt 0 ]; do case \"$1\" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; esac; shift; done\n"
         "echo \"fake game out follow=$TNFS_FOLLOW_CAR seed=$TNFS_DRIVE_SEED masks=$TNFS_CAR_MASKS\"\n"
         "case \"$FAKE_MODE\" in\n"
+        "  drive) printf 'mods: 1\\ntrack piece: loop is track 18\\n' > \"$user/spirited-drive.log\"; echo \"$@\"; sleep 30; exit 0;;\n"
+        "  refused) printf 'track piece: loop refused: there are 8 added tracks already, the most there may be\\n' > \"$user/spirited-drive.log\"; exit 0;;\n"
         "  fail) echo \"error: no such track\" >&2; exit 3;;\n"
         "  hang) sleep 30; exit 0;;\n"
         "esac\n"
@@ -485,6 +487,80 @@ static void test_original_of(void)
     CHECK(car_race_original_of(&c) == NULL);
 }
 
+/* Test drive of a track piece (the track editor's Drive window): the menu's cars in its order, and the command, a time trial on the piece the run installed */
+static void test_drive_command(void)
+{
+    const ExportCar *first = car_race_menu_car(0);
+    CHECK(first != NULL && first->kind == EXPORT_DRIVABLE && car_race_menu_pick(first->model) == 0);   /* the menu's first */
+    int all = 1;
+    for (int pick = 0; pick < 8; ++pick) all &= car_race_menu_car(pick) != NULL && car_race_menu_pick(car_race_menu_car(pick)->model) == pick;
+    CHECK(all && car_race_menu_car(8) == NULL && car_race_menu_car(-1) == NULL);
+
+    char *env[] = { "HOME=/h", "TNFS_CAR_MASKS=/elsewhere", "PATH=/bin", NULL };
+    RaceSetup s = { 0 };
+    s.game = "/g/tnfs", s.cd = "/cd", s.project = "/p/loop", s.user = "/tmp/u", s.car = car_race_menu_car(3), s.piece = "loop";
+    RaceCommand c;
+    memset(&c, 0, sizeof c);
+    char why[300];
+    CHECK(car_race_command(&s, env, &c, why, sizeof why));
+    CHECK(arg_pair(&c, "--mods", "/tmp/u/mods/loop") && arg_pair(&c, "--drive", "loop") && arg_pair(&c, "--car", "3") && arg_pair(&c, "--type", "0"));
+    CHECK(arg_pair(&c, "--user", "/tmp/u") && arg_pair(&c, "--data", "/cd") && !has_arg(&c, "--racers") && !has_arg(&c, "--node"));
+    CHECK(!has_env_key(&c, "TNFS_") && has_env(&c, "HOME=/h"));   /* no masks of a car's project, and none of the person's TNFS_ */
+    s.car = car_export_car(index_of("Wagon"));
+    CHECK(!car_race_command(&s, env, &c, why, sizeof why) && strstr(why, "drive") != NULL);   /* a traffic car is not driven */
+    s.car = car_race_menu_car(0), s.photo_ticks = 200, s.shot = "/tmp/f.ppm";
+    CHECK(!car_race_command(&s, env, &c, why, sizeof why));   /* no photo of a piece */
+    s.photo_ticks = 0, s.piece = "../x";
+    CHECK(!car_race_command(&s, env, &c, why, sizeof why));   /* an id that is no folder name */
+    car_race_command_free(&c);
+}
+
+static char installed_from[600];
+
+/* the game's installer, faked: the piece's folder in the scratch player folder, as `--install` makes it */
+static int fake_install(const char *game, const char *zip, const char *user_dir, char *why, size_t why_cap)
+{
+    (void)game;
+    snprintf(installed_from, sizeof installed_from, "%s", zip);
+    if (strstr(zip, "broken") != NULL) return snprintf(why, why_cap, "--install stopped with status 4"), 0;
+    char path[800];
+    snprintf(path, sizeof path, "%s/mods", user_dir), mkdir(path, 0777);
+    snprintf(path, sizeof path, "%s/mods/loop", user_dir), mkdir(path, 0777);
+    return 1;
+}
+
+/* the whole Test drive against the fake game: installed into the scratch folder, the game's own log says whether it took the piece, Stop ends it */
+static void test_drive_job(void)
+{
+    char game[600], why[300];
+    make_fake_game(game, sizeof game);
+    RaceJob job;
+    memset(&job, 0, sizeof job);
+    job.run.fd = -1;
+    setenv("FAKE_MODE", "drive", 1);
+    CHECK(car_race_start_drive(&job, game, "/cd", "/p/loop/build/loop.zip", "loop", car_race_menu_car(0), NULL, fake_install, why, sizeof why));
+    CHECK(strcmp(installed_from, "/p/loop/build/loop.zip") == 0 && car_race_busy(&job));
+    for (int i = 0; i < 4000 && job.piece_track == 0 && car_race_poll(&job); ++i) usleep(5000);
+    CHECK_EQ_INT(job.piece_track, 18);   /* read from the game's log while it runs */
+    CHECK(strstr(job.piece_line, "track piece: loop is track 18") != NULL);
+    car_race_stop(&job);
+    run_job(&job);
+    CHECK(!car_race_busy(&job) && job.ok && strstr(job.summary, "loop") != NULL && strstr(job.summary, "track 18") != NULL);
+    CHECK(strstr(job.log, "--drive loop") != NULL || strstr(job.log, "Test drive") != NULL);
+    CHECK(!temps_left());
+
+    setenv("FAKE_MODE", "refused", 1);   /* the game does not take it: said, not ok */
+    CHECK(car_race_start_drive(&job, game, "/cd", "/p/loop/build/loop.zip", "loop", car_race_menu_car(0), NULL, fake_install, why, sizeof why));
+    run_job(&job);
+    CHECK(!job.ok && job.piece_track < 0 && strstr(job.summary, "refused") != NULL && strstr(job.summary, "already") != NULL);
+    CHECK(!temps_left());
+
+    CHECK(!car_race_start_drive(&job, game, "/cd", "/p/broken.zip", "loop", car_race_menu_car(0), NULL, fake_install, why, sizeof why));
+    CHECK(strstr(why, "status 4") != NULL && !car_race_busy(&job) && !temps_left());   /* an install that fails: nothing runs, nothing left */
+    CHECK(!car_race_start_drive(&job, game, "/cd", "/p/loop.zip", "loop", car_export_car(index_of("Wagon")), NULL, fake_install, why, sizeof why));
+    car_race_free(&job);
+}
+
 int main(void)
 {
     snprintf(base, sizeof base, "%s/car_race_test_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
@@ -499,6 +575,8 @@ int main(void)
     test_ppm();
     test_original_of();
     test_job();
+    test_drive_command();
+    test_drive_job();
     nftw(base, remove_entry, 16, FTW_DEPTH | FTW_PHYS);   /* what this test made, and only it */
     return TEST_REPORT();
 }
