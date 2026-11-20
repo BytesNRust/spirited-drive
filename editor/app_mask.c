@@ -105,7 +105,9 @@ int app_mask_open(App *a, int index)
     app_mask_close(a);
     m->error[0] = '\0';
     if (!m->has_mask[index]) {
-        snprintf(m->error, sizeof m->error, "%s has no mask in car_masks/%s: the game uses its family rules for it", m->tex[index].name, a->car.folder);
+        char rel[CAR_PROJECT_NAME + 16];
+        car_project_masks_rel(&a->car, rel, sizeof rel);
+        snprintf(m->error, sizeof m->error, "%s has no mask in %s: the game uses its family rules for it", m->tex[index].name, rel);
         return 0;
     }
     char p[ME_PATH], why[APP_MSG];

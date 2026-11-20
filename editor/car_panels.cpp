@@ -422,9 +422,8 @@ void masks_panel(App *a)
         const bool original = car_race_original_of(&c) != nullptr;   // an exported original car (or its masks): one of the game's own
         if (c.built || c.masks_only) ImGui::Text("Car file: %s", leaf(c.cfm));
         else ImGui::Text("Car file: %s (not built yet)", leaf(c.cfm));
-        char rel[CAR_PROJECT_NAME + 16], masks_path[APP_PATH];   // car_masks for a kit, car_masks/<folder> for a masks project
-        if (c.masks_only || c.legacy) snprintf(rel, sizeof rel, "car_masks/%s", c.folder);
-        else snprintf(rel, sizeof rel, "car_masks");
+        char rel[CAR_PROJECT_NAME + 16], masks_path[APP_PATH];   // car_masks for a kit, car_masks/<folder> for the other shapes
+        car_project_masks_rel(&c, rel, sizeof rel);
         car_project_masks_dir(&c, masks_path, sizeof masks_path);
         masks_changes_section(a);   // what the project's masks have changed from the game's: first, it is what a hand-over needs
         ImGui::Spacing();

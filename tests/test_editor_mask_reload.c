@@ -115,6 +115,7 @@ static App *open_car(void)
     a->kind = APP_KIND_CAR;
     snprintf(a->car.piece, sizeof a->car.piece, "%s", root);
     snprintf(a->car.folder, sizeof a->car.folder, "BOX");
+    a->car.legacy = 1;   /* a piece folder: its masks under car_masks/<folder>/ (car_project_masks_dir) */
     snprintf(a->car.cfm, sizeof a->car.cfm, "%s", cfm);
     app_mask_scan(a);
     return a;

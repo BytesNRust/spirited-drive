@@ -44,6 +44,8 @@ int car_project_is_masks(const char *dir);
 
 /* The folder of the project's masks: root/car_masks for a kit (flat), piece/car_masks/<folder> for a masks project. */
 void car_project_masks_dir(const CarProject *c, char *out, size_t cap);
+/* the same relative to the project's folder, for the words on screen: "car_masks" for a kit, "car_masks/<folder>" for the other shapes */
+void car_project_masks_rel(const CarProject *c, char *out, size_t cap);
 
 /* 1 when `dir` looks like a car project (a mod.ini in it, or an old coche/mod.ini that detect will refuse in words, or a masks project): the cheap question for a recent list, which asks every frame. car_project_detect judges. */
 int car_project_present(const char *dir);

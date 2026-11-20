@@ -308,7 +308,9 @@ void mask_edit_panel(App *a, ImTextureID tex)
             }
             if (m.error[0] != '\0') ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s", m.error);
             if (m.sel < 0) {
-                muted("Choose a texture to see its mask over it and paint it. Only the textures with a mask in car_masks/%s can be edited.", a->car.folder);
+                char rel[CAR_PROJECT_NAME + 16];
+        car_project_masks_rel(&a->car, rel, sizeof rel);
+        muted("Choose a texture to see its mask over it and paint it. Only the textures with a mask in %s can be edited.", rel);
             } else {
                 ImGui::Text("%s   %dx%d   %s", m.tex[m.sel].file, m.me.width, m.me.height, app_mask_modified(a) ? "(unsaved changes)" : "");
                 if (m.tex_file[0] != '\0') {   // only in a kit: the texture's PNG in its bank folder

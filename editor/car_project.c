@@ -273,6 +273,12 @@ int car_project_detect(const char *dir, CarProject *out, char *why, size_t why_c
     return 1;
 }
 
+void car_project_masks_rel(const CarProject *c, char *out, size_t cap)
+{
+    if (c->masks_only || c->legacy) snprintf(out, cap, "car_masks/%s", c->folder);
+    else snprintf(out, cap, "%s", car_kit_path(CAR_KIT_CAR_MASKS));
+}
+
 void car_project_masks_dir(const CarProject *c, char *out, size_t cap)
 {
     if (c->masks_only || c->legacy) snprintf(out, cap, "%s/car_masks/%s", c->piece, c->folder);
