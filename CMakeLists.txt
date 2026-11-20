@@ -854,7 +854,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     else()
         target_compile_options(imgui PRIVATE -w)
     endif()
-    add_executable(tnfs-track-editor game/sys/sha256.c editor/game_find.c editor/main.c editor/app.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c game/race/car_paint.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp editor/car_panels.cpp)
+    add_executable(tnfs-track-editor game/sys/sha256.c editor/game_find.c editor/main.c editor/app.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp editor/car_panels.cpp)
     target_include_directories(tnfs-track-editor PRIVATE ${CMAKE_SOURCE_DIR})   # project.c's game/sys/sha256.h
     target_link_libraries(tnfs-track-editor PRIVATE tnfs_core SDL3::SDL3 imgui)
     # the generic art a new project copies (editor/art/README.md): beside the program in a build tree, in Contents/Resources in the app (tools/package_macos.sh)
@@ -881,11 +881,11 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_car_edit PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_car_edit PRIVATE tnfs_core)
     target_compile_options(test_editor_car_edit PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_car_export tests/test_editor_car_export.c editor/car_export.c editor/car_project.c game/race/car_paint.c)   # Export original car: each kind made from a fixture game folder, no game files
+    add_executable(test_editor_car_export tests/test_editor_car_export.c editor/car_export.c editor/car_project.c)   # Export original car: each kind made from a fixture game folder, no game files
     target_include_directories(test_editor_car_export PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_car_export PRIVATE tnfs_core)
     target_compile_options(test_editor_car_export PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_car_race tests/test_editor_car_race.c editor/car_race.c editor/proc_run.c editor/car_export.c game/race/car_paint.c)   # Test in race / Race photo: the command and environment for each kind, the job against a fake game
+    add_executable(test_editor_car_race tests/test_editor_car_race.c editor/car_race.c editor/proc_run.c editor/car_export.c)   # Test in race / Race photo: the command and environment for each kind, the job against a fake game
     target_include_directories(test_editor_car_race PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_car_race PRIVATE tnfs_core)
     target_compile_options(test_editor_car_race PRIVATE ${TNFS_WARNINGS})
@@ -893,7 +893,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_car_rehacer PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_car_rehacer PRIVATE tnfs_core)
     target_compile_options(test_editor_car_rehacer PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_session tests/test_editor_session.c game/sys/sha256.c editor/game_find.c editor/app.c editor/build.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c game/race/car_paint.c editor/view.c)   # the session: recent projects, unsaved changes, open and new
+    add_executable(test_editor_session tests/test_editor_session.c game/sys/sha256.c editor/game_find.c editor/app.c editor/build.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c editor/view.c)   # the session: recent projects, unsaved changes, open and new
     target_include_directories(test_editor_session PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_session PRIVATE tnfs_core)
     target_compile_options(test_editor_session PRIVATE ${TNFS_WARNINGS})
