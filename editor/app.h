@@ -246,5 +246,10 @@ void app_set_point_surface(App *a, int point, int side, TraceSurface surface);
 /* 1, with the line for Problems in `text`, when a road key makes a shoulder tarmac and the project's art is not Studio's current generic: its asphalt bank is
  * Studio's own (TRACK_GENERIC_SLOT_TARMAC), an art of the author's may show anything there. Nothing is changed in the art */
 int app_tarmac_art_note(const App *a, char *text, size_t cap);
+/* The road's sides (step 3; app_sides.c): a side value of point `point` (TRACE_SIDE_*, TRACK_GEN_LEFT / _RIGHT): widths kept to a quarter of a metre in
+ * 0..TRACE_SIDE_MAX_M, a wall to hard or soft, a fence to on or off. A change makes the project modified; the same value again, or clearing a value the point
+ * does not set, does not. A key with nothing left goes. */
+void app_set_point_side(App *a, int point, int field, int side, double value);
+void app_clear_point_side(App *a, int point, int field, int side);
 
 #endif

@@ -404,6 +404,49 @@ static void check_side_keys_file(void)
     cleanup_project(dir);
 }
 
+/* the editor's side values (step 3): a value set on a point is an unsaved change and saves; widths are kept to a quarter of a metre and to 0..20 m, a
+ * kind to hard or soft, a fence to on or off; the same value again is no change; clearing it is one */
+static void check_side_keys_app(void)
+{
+    char dir[600];
+    path_in(dir, sizeof dir, "sidekeyed");
+    mkdir(dir, 0777);
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    CHECK(app_open(a, dir, "./tnfs", "", NULL));
+    CHECK(!app_modified(a));
+    app_set_point_side(a, 2, TRACE_SIDE_SHOULDER, TRACK_GEN_RIGHT, 4.1);
+    CHECK(app_modified(a));
+    CHECK(a->trace.key_count == 1 && a->trace.keys[0].point == 2 && a->trace.keys[0].side[TRACE_SIDE_SHOULDER][TRACK_GEN_RIGHT] == 4.0);   /* 4.1 is 4 m */
+    CHECK(app_save(a));
+    CHECK(!app_modified(a));
+    app_set_point_side(a, 2, TRACE_SIDE_SHOULDER, TRACK_GEN_RIGHT, 4.0);
+    CHECK(!app_modified(a));                                 /* the same value: nothing changed */
+    app_set_point_side(a, 2, TRACE_SIDE_BARRIER, TRACK_GEN_LEFT, 99);
+    CHECK(a->trace.keys[0].side[TRACE_SIDE_BARRIER][TRACK_GEN_LEFT] == TRACE_SIDE_MAX_M);   /* kept to the range */
+    app_set_point_side(a, 2, TRACE_SIDE_BARRIER, TRACK_GEN_LEFT, -3);
+    CHECK(a->trace.keys[0].side[TRACE_SIDE_BARRIER][TRACK_GEN_LEFT] == 0);
+    app_set_point_side(a, 3, TRACE_SIDE_WALL, TRACK_GEN_LEFT, 7);   /* anything but hard is soft; anything but off is on */
+    app_set_point_side(a, 3, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT, 0.4);
+    CHECK(a->trace.key_count == 2 && a->trace.keys[1].side[TRACE_SIDE_WALL][TRACK_GEN_LEFT] == TRACK_GEN_WALL_SOFT &&
+          a->trace.keys[1].side[TRACE_SIDE_FENCE][TRACK_GEN_RIGHT] == 1);
+    app_set_point_side(a, 9, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT, 0);   /* no such point: nothing */
+    app_set_point_side(a, 3, TRACE_SIDE_FIELDS, TRACK_GEN_RIGHT, 0);   /* no such value: nothing */
+    CHECK_EQ_INT(a->trace.key_count, 2);
+    CHECK(app_save(a));
+    app_clear_point_side(a, 3, TRACE_SIDE_WALL, TRACK_GEN_LEFT);
+    CHECK(app_modified(a) && a->trace.key_count == 2);
+    app_clear_point_side(a, 3, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT);
+    CHECK_EQ_INT(a->trace.key_count, 1);                     /* nothing left on point 3: its key is gone */
+    CHECK(app_save(a));
+    app_clear_point_side(a, 3, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT);
+    CHECK(!app_modified(a));                                 /* nothing to clear: no change */
+    app_free(a);
+    free(a);
+    cleanup_project(dir);
+}
+
 /* the editor: a key set on a point is an unsaved change, it saves, clearing it is another, the keys stay on their points when points come and go,
  * and the width is clamped to the road's range and to a quarter of a metre */
 static void check_keys_app(void)
@@ -1066,6 +1109,7 @@ int main(void)
     check_road_width();
     check_keys_file();
     check_side_keys_file();
+    check_side_keys_app();
     check_keys_app();
     check_surface_file();
     check_surface_app();
