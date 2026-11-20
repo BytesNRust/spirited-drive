@@ -7,8 +7,8 @@
 
 enum {
     ROW_POINTS = 11,
-    FENCE_RIGHT = 0x80,   /* the LOD's +0x10 pairs */
-    FENCE_LEFT = 0x40,    /* its +8 pairs */
+    FENCE_LEFT = 0x80,    /* the LOD's +0x10 pairs: the left fence going forward (TRI_FENCE_LEFT) */
+    FENCE_RIGHT = 0x40,   /* its +8 pairs: the right one */
     FENCE_LOW = 0x20,
     FENCE_TEXTURE = 0x20,
     VARIANTS = 8,         /* 0050eec4: 8 dwords a texture */
@@ -28,8 +28,8 @@ static void fences(const TrackFarInputs *f, const TrackLod *lod, const uint8_t *
     const int32_t texture = (fence & 0x1f) + FENCE_TEXTURE;
     const int tall = (fence & FENCE_LOW) == 0;
     const int pair = (at & 3) * 2;
-    if (fence & FENCE_RIGHT) track_fence_draw(f->fence_ops, &f->fence, &lod->fence[8 + pair], first, uv, level, texture, tall);
-    if (fence & FENCE_LEFT) track_fence_draw(f->fence_ops, &f->fence, &lod->fence[pair], first, uv, level, texture, tall);
+    if (fence & FENCE_LEFT) track_fence_draw(f->fence_ops, &f->fence, &lod->fence[8 + pair], first, uv, level, texture, tall);
+    if (fence & FENCE_RIGHT) track_fence_draw(f->fence_ops, &f->fence, &lod->fence[pair], first, uv, level, texture, tall);
 }
 
 static int under_walker_unmarked(const TrackObjectWalk *w, int32_t at)
