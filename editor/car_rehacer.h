@@ -42,14 +42,15 @@ typedef struct {
     int backing_up;            /* rehacer_begin: the kit is being copied in its own thread; poll starts the script when the copy has ended */
     int failed;                /* the backup failed, or Stop came before the script ran: `why` says, and the script did not run */
     char why[300];
-    int runs;                  /* how many runs were begun with this struct: the window brings each new run's log forward */
+    int run_id;                /* this run's own number (> 0), never the same twice in the process, also across freed structs: the window brings each new run's log
+                                * forward */
     RehacerJob *job;           /* the backup's thread while it is not joined */
 } Rehacer;
 
 /* Runs kit/rehacer.command with sh, the kit as its folder, no input (a `read` ends at once), its output to the log. 1 when it started, 0 with `why`. */
 int rehacer_start(Rehacer *r, const char *kit, char *why, size_t why_cap);
 /* Rehacer as the window runs it (owner test R1: nothing holds the window): the backup of `kit` (rehacer_backup with `stamp`, `keep`, `max_mb`) in its own thread,
- * then, from rehacer_poll, the script (rehacer_start). Returns at once: 1 when the copy started (`runs` counts it, the last run's log is dropped), 0 with `why`
+ * then, from rehacer_poll, the script (rehacer_start). Returns at once: 1 when the copy started (with a new `run_id`; the last run's log is dropped), 0 with `why`
  * when a run is going, the kit has no script or the stamp is not one. A backup that fails, or a Stop before the script runs, ends it with `failed` and `why`. */
 int rehacer_begin(Rehacer *r, const char *kit, const char *stamp, int keep, int max_mb, char *why, size_t why_cap);
 /* 1 while the backup or the script runs */

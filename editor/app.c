@@ -703,15 +703,20 @@ int app_rehacer_poll(App *a)
 
 int app_rehacer_raise_offer(const App *a, char *next, size_t cap)
 {
-    return !car_edit_modified(&a->edit) && raise_offer(a, next, cap);
+    return !car_edit_modified(&a->edit) && !app_mask_modified(a) && raise_offer(a, next, cap);
 }
 
 int app_rehacer_raise_and_run(App *a)
 {
     char next[MOD_INI_VERSION_MAX + 1];
     if (car_edit_modified(&a->edit)) return set_status(a, "mod.ini has changes that are not saved: save them first, then raise the version"), 0;
+    if (app_mask_modified(a)) return set_status(a, "a mask has changes that are not saved: save it first, then raise the version"), 0;   /* Save would write it too */
     if (!raise_offer(a, next, sizeof next)) return set_status(a, "there is no version to raise: change it in the card by hand"), 0;
-    if (!car_edit_set(&a->edit, CE_VERSION, next) || !app_save(a)) return 0;   /* the card's own field, saved as Save does: the status says why it failed */
+    if (!car_edit_set(&a->edit, CE_VERSION, next)) return 0;
+    if (!app_save(a)) {   /* the card's own field, saved as Save does; when it cannot be written the card on screen goes back as it was, and nothing runs */
+        car_edit_undo(&a->edit);
+        return 0;
+    }
     return app_rehacer(a);
 }
 

@@ -190,7 +190,7 @@ void main_menu(App *a)
         ImGui::Separator();
         char save_keys[16];
         shortcut_label(save_keys, sizeof save_keys, SHORTCUT_MAC, "S");   // the car's Save is Cmd+S on a Mac, Ctrl+S elsewhere; a track's is S alone
-        if (ImGui::MenuItem("Save", a->kind == APP_KIND_CAR ? save_keys : "S", false, a->kind != APP_KIND_NONE)) app_save(a);
+        if (ImGui::MenuItem("Save", a->kind == APP_KIND_CAR ? save_keys : "S", false, a->kind != APP_KIND_NONE && !app_rehacer_busy(a))) app_save(a);   // as the keys: not while Rehacer works on the kit
         if (ImGui::MenuItem("Quit")) app_ask(a, APP_ACT_QUIT, "");
         ImGui::EndMenu();
     }
@@ -198,8 +198,8 @@ void main_menu(App *a)
         char undo_keys[16], redo_keys[24];
         shortcut_label(undo_keys, sizeof undo_keys, SHORTCUT_MAC, "Z");
         shortcut_label(redo_keys, sizeof redo_keys, SHORTCUT_MAC, "Shift+Z");
-        if (ImGui::MenuItem("Undo", undo_keys, false, app_can_undo(a))) app_undo(a);
-        if (ImGui::MenuItem("Redo", redo_keys, false, app_can_redo(a))) app_redo(a);
+        if (ImGui::MenuItem("Undo", undo_keys, false, app_can_undo(a) && !app_rehacer_busy(a))) app_undo(a);
+        if (ImGui::MenuItem("Redo", redo_keys, false, app_can_redo(a) && !app_rehacer_busy(a))) app_redo(a);
         ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();

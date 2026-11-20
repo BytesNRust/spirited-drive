@@ -3,6 +3,7 @@
  * for Save / Discard / Cancel; Open wants a project in the folder and New wants none; a failed open leaves the project as it was. */
 #include "app.h"
 #include "formats/pbs.h"
+#include "formats/png.h"
 #include "formats/car_piece.h"
 #include "session.h"
 #include "test.h"
@@ -525,6 +526,45 @@ static void check_rehacer(void)
         CHECK(app_save(a));
         CHECK(!app_rehacer_raise_offer(a, next, sizeof next));
         CHECK(!app_rehacer_raise_and_run(a) && !app_rehacer_busy(a));
+    }
+    {   /* a mask with unsaved changes: not offered, the button refuses (Save would write the mask too, behind the author's back) */
+        char next[MOD_INI_VERSION_MAX + 1] = "", why[256] = "", mp[900];
+        CHECK_EQ_INT(car_edit_set(&a->edit, CE_VERSION, "1.0.1"), 1);
+        CHECK(app_save(a));
+        CHECK(app_rehacer(a));
+        for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
+        CHECK(app_rehacer_raise_offer(a, next, sizeof next) && strcmp(next, "1.0.2") == 0);
+        uint8_t grey[8 * 6], tex[4 * 3 * 3] = { 0 }, *png = NULL;
+        size_t len = 0;
+        memset(grey, 255, sizeof grey);
+        snprintf(mp, sizeof mp, "%s/rk/a_mask.png", root);
+        FILE *m = png_write_grey(grey, 8, 6, &png, &len) == PNG_OK ? fopen(mp, "wb") : NULL;
+        if (m != NULL) fwrite(png, 1, len, m), fclose(m);
+        free(png);
+        CHECK(mask_edit_open(&a->mask.me, mp, 4, 3, tex, why, sizeof why));
+        a->mask.sel = 0;
+        CHECK_EQ_INT(mask_edit_pencil(&a->mask.me, 1, 1, 1, 0), 1);
+        CHECK(app_mask_modified(a));
+        CHECK(!app_rehacer_raise_offer(a, next, sizeof next));
+        CHECK(!app_rehacer_raise_and_run(a) && strstr(a->status, "mask") != NULL && !app_rehacer_busy(a));
+        CHECK(strcmp(a->edit.now.value[CE_VERSION], "1.0.1") == 0 && !car_edit_modified(&a->edit));   /* nothing was changed */
+        CHECK(mask_edit_undo(&a->mask.me) && !app_mask_modified(a));
+        CHECK(app_rehacer_raise_offer(a, next, sizeof next));
+        mask_edit_free(&a->mask.me);
+        a->mask.sel = -1;
+        remove(mp);
+
+        char coche[900], card[300] = "", cp[900];   /* the card cannot be written: nothing runs again, and the card on screen is as it was */
+        snprintf(coche, sizeof coche, "%s/coche", rk);
+        snprintf(cp, sizeof cp, "%s/mod.ini", coche);
+        chmod(coche, 0555);
+        CHECK(!app_rehacer_raise_and_run(a) && !app_rehacer_busy(a));
+        chmod(coche, 0755);
+        CHECK(strcmp(a->edit.now.value[CE_VERSION], "1.0.1") == 0 && !car_edit_modified(&a->edit));
+        FILE *c = fopen(cp, "rb");
+        if (c != NULL) card[fread(card, 1, sizeof card - 1, c)] = '\0', fclose(c);
+        CHECK(strstr(card, "version=1.0.1\n") != NULL);
+        CHECK(app_rehacer_raise_offer(a, next, sizeof next) && strcmp(next, "1.0.2") == 0);   /* still offered */
     }
     {   /* the backups: five are kept */
         char names[16][REHACER_STAMP_NAME];

@@ -494,8 +494,8 @@ void rehacer_panel(App *a)
 {
     static int shown = 0;   // the run whose tab was brought forward
     if (masks_dock != 0) ImGui::SetNextWindowDockID(masks_dock, ImGuiCond_FirstUseEver);
-    if (app_rehacer_busy(a) && a->rehacer.runs != shown) {   // a run was asked for: its tab comes forward at once, while the kit is still copied
-        shown = a->rehacer.runs;
+    if (app_rehacer_busy(a) && a->rehacer.run_id != shown) {   // a run was asked for: its tab comes forward at once, while the kit is still copied
+        shown = a->rehacer.run_id;
         ImGui::SetNextWindowFocus();
     }
     if (ImGui::Begin(PANEL_REHACER)) {

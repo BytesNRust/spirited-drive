@@ -3,6 +3,7 @@
 #include "car_rehacer.h"
 #include "test.h"
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -283,7 +284,8 @@ static void check_begin_backs_up_in_the_background(void)
     memset(&r, 0, sizeof r);
     CHECK_EQ_INT(rehacer_begin(&r, kit_path("bg"), "20261120-090000", REHACER_KEEP, 100, why, sizeof why), 1);
     CHECK(rehacer_busy(&r) && r.backing_up && !r.run.running && !r.run.finished);   /* begin did not copy and run: poll does that */
-    CHECK_EQ_INT(r.runs, 1);
+    const int first = r.run_id;
+    CHECK(first > 0);
     CHECK_EQ_INT(rehacer_begin(&r, kit_path("bg"), "20261120-090001", REHACER_KEEP, 100, why, sizeof why), 0);   /* one at a time */
     CHECK(strstr(why, "already") != NULL);
     begin_to_end(&r);
@@ -292,15 +294,17 @@ static void check_begin_backs_up_in_the_background(void)
     CHECK(is_file("bg/proof.txt"));
     CHECK(strstr(r.backup, "/.studio-backup/20261120-090000") != NULL && is_dir("bg/.studio-backup/20261120-090000/coche"));
     CHECK(!is_file("bg/.studio-backup/20261120-090000/proof.txt"));   /* the copy was made before the script ran */
-    CHECK_EQ_INT(r.runs, 1);
+    CHECK_EQ_INT(r.run_id, first);
     rehacer_free(&r);
 
-    memset(&r, 0, sizeof r);   /* a second run is counted: the window brings its log forward again */
+    /* every run has its own id, also in a struct that was freed (another car opened): the window brings each new run's log forward */
+    memset(&r, 0, sizeof r);
     CHECK_EQ_INT(rehacer_begin(&r, kit_path("bg"), "20261120-090002", REHACER_KEEP, 100, why, sizeof why), 1);
+    CHECK(r.run_id > first);
     begin_to_end(&r);
-    const int runs = r.runs;
+    const int second = r.run_id;
     CHECK_EQ_INT(rehacer_begin(&r, kit_path("bg"), "20261120-090003", REHACER_KEEP, 100, why, sizeof why), 1);
-    CHECK_EQ_INT(r.runs, runs + 1);
+    CHECK(r.run_id > second);
     CHECK(r.run.log == NULL && !r.run.finished);   /* the last run's log is gone with it */
     begin_to_end(&r);
     rehacer_free(&r);
@@ -353,6 +357,36 @@ static void check_stop_and_free_while_backing_up(void)
     CHECK(!rehacer_busy(&r) && !is_file("many/proof.txt"));
 }
 
+/* Stop while one big file is copied: the copy stops inside it (not at its end) and the partial backup is removed. The file is sparse: 1 GB on disk costs
+ * nothing, and a copy that ran to its end would write all of it, which takes far longer than the bound. */
+static void check_stop_inside_a_big_file(void)
+{
+    char why[300], p[1024], dir[1024];
+    make_kit("huge", "#!/bin/sh\necho made > proof.txt\n");
+    path_in(p, sizeof p, "huge/modelo/huge.bin");
+    const int fd = open(p, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    CHECK(fd >= 0 && ftruncate(fd, (off_t)1024 * 1024 * 1024) == 0);
+    if (fd >= 0) close(fd);
+    Rehacer r;
+    memset(&r, 0, sizeof r);
+    CHECK_EQ_INT(rehacer_begin(&r, kit_path("huge"), "20261120-093000", REHACER_KEEP, 2048, why, sizeof why), 1);
+    path_in(dir, sizeof dir, "huge/.studio-backup/20261120-093000/modelo/huge.bin");
+    struct stat st;
+    for (int i = 0; i < 2000 && (stat(dir, &st) != 0 || st.st_size == 0); i++) usleep(1000);   /* the copy is inside the big file */
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    rehacer_stop(&r);
+    begin_to_end(&r);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    const double waited = (double)(t1.tv_sec - t0.tv_sec) + (double)(t1.tv_nsec - t0.tv_nsec) / 1e9;
+    if (waited >= 0.5) fprintf(stderr, "the copy took %.2f s to stop\n", waited);
+    CHECK(waited < 0.5);
+    CHECK(!rehacer_busy(&r) && r.failed && r.run.stopped && !is_file("huge/proof.txt"));
+    CHECK(!is_dir("huge/.studio-backup/20261120-093000"));   /* the partial copy was removed */
+    rehacer_free(&r);
+    unlink(p);
+}
+
 /* the game's install said the files changed but the version did not (owner test R2): the window offers to raise it */
 static void check_version_unraised(void)
 {
@@ -384,6 +418,7 @@ int main(void)
     check_begin_backs_up_in_the_background();
     check_begin_when_the_backup_fails();
     check_stop_and_free_while_backing_up();
+    check_stop_inside_a_big_file();
     check_version_unraised();
     char cmd[600];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", base);

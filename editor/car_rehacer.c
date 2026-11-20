@@ -121,7 +121,7 @@ static size_t tree_bytes(const char *dir, int top)
     return total;
 }
 
-static int copy_file(const char *from, const char *to, mode_t mode, char *why, size_t why_cap)
+static int copy_file(const char *from, const char *to, mode_t mode, RehacerJob *job, char *why, size_t why_cap)
 {
     FILE *in = fopen(from, "rb");
     if (in == NULL) return refuse(why, why_cap, "could not read %s: %s", from, strerror(errno));
@@ -133,10 +133,12 @@ static int copy_file(const char *from, const char *to, mode_t mode, char *why, s
     }
     char buf[65536];
     int ok = 1;
-    for (size_t n; ok && (n = fread(buf, 1, sizeof buf, in)) > 0;) ok = fwrite(buf, 1, n, out) == n;
+    int stop = 0;
+    for (size_t n; ok && !(stop = cancelled(job)) && (n = fread(buf, 1, sizeof buf, in)) > 0;) ok = fwrite(buf, 1, n, out) == n;   /* Stop is seen inside a big file */
     ok = ok && !ferror(in);
     fclose(in);
     ok = fclose(out) == 0 && ok;
+    if (stop) return refuse(why, why_cap, "Stop was pressed while the kit was backed up");
     if (!ok) return refuse(why, why_cap, "could not copy %s: %s", from, strerror(errno != 0 ? errno : EIO));
     chmod(to, mode & 0777);
     return 1;
@@ -162,7 +164,7 @@ static int copy_tree(const char *from, const char *to, int top, RehacerJob *job,
         } else if (S_ISDIR(st.st_mode)) {
             ok = (mkdir(dst, 0777) == 0 || refuse(why, why_cap, "could not make %s: %s", dst, strerror(errno))) && copy_tree(src, dst, 0, job, why, why_cap);
         } else if (S_ISREG(st.st_mode)) {
-            ok = copy_file(src, dst, st.st_mode, why, why_cap);
+            ok = copy_file(src, dst, st.st_mode, job, why, why_cap);
         }   /* a link or a device is not copied */
     }
     closedir(d);
@@ -210,7 +212,7 @@ int rehacer_backups(const char *kit, char names[][REHACER_STAMP_NAME], int cap)
 
 static void rotate(const char *kit, int keep)
 {
-    static char names[256][REHACER_STAMP_NAME];
+    static char names[256][REHACER_STAMP_NAME];   /* static: only one backup runs at a time (rehacer_begin refuses a second) */
     const int n = rehacer_backups(kit, names, 256);
     for (int i = 0; i < n - keep; i++) {
         char path[REHACER_PATH], dir[REHACER_PATH];
@@ -304,9 +306,9 @@ int rehacer_begin(Rehacer *r, const char *kit, const char *stamp, int keep, int 
     snprintf(job->stamp, sizeof job->stamp, "%s", stamp);
     job->keep = keep;
     job->max_mb = max_mb;
-    const int runs = r->runs;
-    rehacer_free(r);   /* the last run and its log */
-    r->runs = runs + 1;
+    static int last_id;   /* the UI thread is the only one that begins runs */
+    rehacer_free(r);      /* the last run and its log */
+    r->run_id = ++last_id;
     if (pthread_mutex_init(&job->lock, NULL) != 0) {
         free(job);
         return refuse(why, why_cap, "could not start the backup");
