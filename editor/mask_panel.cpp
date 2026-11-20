@@ -1,4 +1,5 @@
 // The Edit mask window (dep59 car editor E3): pick a texture of the car, see it with its mask overlaid, paint the mask (pencil, fill, eyedropper), undo, Save.
+#include "help_marker.h"
 #include "panels.h"
 #include "shortcut_keys.h"
 
@@ -294,6 +295,16 @@ void mask_edit_panel(App *a, ImTextureID tex)
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("Cancel")) pending = -1;
+            }
+            if (m.disk_changed && m.sel >= 0) {   // another program wrote the open mask's file while it has unsaved changes here
+                ImGui::TextColored(ImVec4(0.95f, 0.78f, 0.35f, 1.0f), "Changed on disk");
+                ImGui::SameLine();
+                if (ImGui::Button("Reload")) app_mask_reload(a);
+                ImGui::SameLine();
+                if (ImGui::Button("Keep mine")) app_mask_keep_mine(a);
+                ImGui::SameLine();
+                help_marker("Another program wrote this mask's file while it has unsaved changes here. Reload takes the file's texels and drops "
+                            "the changes; Keep mine keeps them, and Save writes them over the file.");
             }
             if (m.error[0] != '\0') ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s", m.error);
             if (m.sel < 0) {

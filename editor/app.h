@@ -49,6 +49,11 @@ enum { APP_ANSWER_CANCEL = 0, APP_ANSWER_DISCARD = 1, APP_ANSWER_SAVE = 2 };
 /* the mask editor of the open car (dep59 car editor E3): the textures of its CFM, the mask being edited and the tools */
 typedef enum { MASK_TOOL_PENCIL = 0, MASK_TOOL_FILL, MASK_TOOL_PICK } MaskTool;
 
+/* a mask file as it was last read or written: its modification time (ns) and size, both 0 while there is no file */
+typedef struct {
+    long long mtime_ns, size;
+} MaskStamp;
+
 typedef struct {
     MaskTexInfo tex[MASK_TEX_LIST];   /* the textures of the car file, both banks */
     int tex_count;
@@ -66,6 +71,9 @@ typedef struct {
     unsigned generation;              /* counts every mask opened, closed, discarded or saved: a picture made from the mask compares with it */
     int focus;                        /* the Edit mask window has the keyboard: Ctrl+Z is the mask's (set by the panel every frame) */
     int saved_since_race;             /* a mask was saved: Race photo shows the result */
+    MaskStamp disk[MASK_TEX_LIST];    /* each texture's mask file as the editor last saw it (app_mask_watch) */
+    double disk_looked;               /* when app_mask_watch last looked at the files (its clock); 0: never */
+    int disk_changed;                 /* the open mask's file changed on disk while it has unsaved edits: Reload or Keep mine, and Save waits */
 } MaskUi;
 
 typedef struct {
@@ -199,6 +207,14 @@ int app_redo(App *a);
 int app_can_undo(const App *a);
 int app_can_redo(const App *a);
 int app_mask_modified(const App *a);
+/* Masks changed on disk by another program (W4). app_mask_watch looks at the car's mask files when `now` (seconds, any clock that only grows) is a
+ * second or more after its last look: a changed, new or removed file moves mask.generation (the Preview and the Model read the masks again) and
+ * has_mask; the open mask is read again when it has no unsaved edits (closed when its file went), else it keeps them and mask.disk_changed says
+ * «Changed on disk». 1 when something changed. app_mask_reload takes the file's texels over the edits; app_mask_keep_mine keeps the edits, and the
+ * next Save writes them over the file. app_mask_save refuses while the open mask's file changed under it and Keep mine was not chosen. */
+int app_mask_watch(App *a, double now);
+int app_mask_reload(App *a);
+void app_mask_keep_mine(App *a);
 /* A track's edit taken as one step to undo when it differs from the last (the window calls it when no field is typed in and no point dragged) */
 void app_track_commit(App *a);
 /* A track's step back (redo: forward); the road is made again from it, the selection kept when its point is still there. 1 when there was one. */
