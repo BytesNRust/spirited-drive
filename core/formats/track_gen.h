@@ -33,6 +33,10 @@
 #define TRACK_GEN_TURN_MAX_DEGREES 16.5   /* the CD's most is 16.2 (TR6 turns 16.2 in a step, Alpine 3's 15.8); the half degree over 16 is for the editor's spline, which at the joint of a straight and a curve drawn at 16 gives 16.1 */
 #define TRACK_GEN_TURN_WARN_DEGREES 8.0
 #define TRACK_GEN_LAYOUT_TURN_MAX_DEGREES 8.0
+/* The bank: the editor's nodes (track_generate_nodes_turned, whose rows turn with the node's frame) up to 35 degrees, the CD's own most (TR4 banks 34.5;
+ * the editor's 25 is a warning: notes/dep59-banking-spike.md); a layout's and track_generate_nodes' (rows not turned) 20. */
+#define TRACK_GEN_BANK_MAX_DEGREES 35.0
+#define TRACK_GEN_LAYOUT_BANK_MAX_DEGREES 20.0
 #define TRACK_GEN_TERRAIN_REACH 0.4   /* the furthest the terrain of a turned node goes across the road on the inside of the curve, as a part of the curve's radius there */
 
 enum {
@@ -69,7 +73,7 @@ typedef struct {
 typedef struct {
     double heading;       /* 14-bit units (0x4000 = full turn), 0 along +z, positive to the right */
     double grade;         /* percent, +-30 */
-    double bank;          /* degrees, +-20 */
+    double bank;          /* degrees, +-TRACK_GEN_BANK_MAX_DEGREES turned, +-TRACK_GEN_LAYOUT_BANK_MAX_DEGREES otherwise */
     double width;         /* the half road width in the node's verge byte, 0..255 (16 terrain units each); a layout asks for 8..120 */
     int32_t position[3];  /* x, y, z in 16.16; consecutive nodes 1..20 units apart */
     TrackGenSide side[2]; /* [TRACK_GEN_LEFT], [TRACK_GEN_RIGHT]; all zero: the template's */

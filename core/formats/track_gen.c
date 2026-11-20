@@ -32,7 +32,7 @@ enum {
 };
 
 #define MAX_GRADE_PERCENT 30.0
-#define MAX_BANK_DEGREES 20.0
+#define MAX_BANK_DEGREES TRACK_GEN_LAYOUT_BANK_MAX_DEGREES
 #define MAX_TURN_DEGREES_PER_NODE TRACK_GEN_LAYOUT_TURN_MAX_DEGREES
 
 typedef struct {
@@ -414,7 +414,8 @@ static int check_node(const TrackGenNode *n, int i, int turned, ExchangeError *e
     if (n[i].width < 0 || n[i].width > 255)   /* a byte: the CD's own templates start from 0 (CY1..3) to 123 (TR5), outside what a layout may ask for */
         return exchange_fail(err, "node %d: width=%g is outside 0..255", i, n[i].width), 0;
     if (fabs(n[i].grade) > MAX_GRADE_PERCENT) return exchange_fail(err, "node %d: grade=%g is outside +-%g", i, n[i].grade, MAX_GRADE_PERCENT), 0;
-    if (fabs(n[i].bank) > MAX_BANK_DEGREES) return exchange_fail(err, "node %d: bank=%g is outside +-%g", i, n[i].bank, MAX_BANK_DEGREES), 0;
+    const double bank_most = turned ? TRACK_GEN_BANK_MAX_DEGREES : MAX_BANK_DEGREES;
+    if (fabs(n[i].bank) > bank_most) return exchange_fail(err, "node %d: bank=%g is outside +-%g", i, n[i].bank, bank_most), 0;
     for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side)
         if (n[i].side[side].tarmac != 0 && n[i].side[side].tarmac != 1)
             return exchange_fail(err, "node %d: the %s side's tarmac=%d is not 0 or 1", i, side == TRACK_GEN_LEFT ? "left" : "right", n[i].side[side].tarmac), 0;

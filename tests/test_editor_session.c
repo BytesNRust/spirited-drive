@@ -334,15 +334,15 @@ static void check_side_keys_file(void)
     Trace t;
     write_file(trace, "{\"version\": 3, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200], [0, 300]],\n \"keys\": [\n"
                       "  {\"point\": 1, \"width_m\": 12.5, \"shoulder_l_m\": 4.25, \"shoulder_r_m\": 0, \"barrier_l_m\": 6, \"barrier_r_m\": 12.75,"
-                      " \"wall_l\": \"hard\", \"wall_r\": \"soft\", \"fence_l\": false, \"fence_r\": true},\n"
+                      " \"wall_l\": \"hard\", \"wall_r\": \"soft\", \"fence_l\": false, \"fence_r\": true, \"bank_deg\": -27.5},\n"
                       "  {\"point\": 3, \"wall_r\": \"hard\"}]}\n");
     CHECK(project_open(dir, &proj, &t, why, sizeof why));
     if (t.key_count != 2) { fprintf(stderr, "side keys: %s\n", why); CHECK(0); cleanup_project(dir); return; }
     const TraceKey *k = &t.keys[0];
     const unsigned all = TRACE_KEY_WIDTH | TRACE_KEY_SIDE(TRACE_SIDE_SHOULDER, 0) | TRACE_KEY_SIDE(TRACE_SIDE_SHOULDER, 1) | TRACE_KEY_SIDE(TRACE_SIDE_BARRIER, 0) |
                          TRACE_KEY_SIDE(TRACE_SIDE_BARRIER, 1) | TRACE_KEY_SIDE(TRACE_SIDE_WALL, 0) | TRACE_KEY_SIDE(TRACE_SIDE_WALL, 1) |
-                         TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 0) | TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 1);
-    CHECK(k->point == 1 && k->has == all && k->width_m == 12.5);
+                         TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 0) | TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 1) | TRACE_KEY_BANK;
+    CHECK(k->point == 1 && k->has == all && k->width_m == 12.5 && k->bank_deg == -27.5);
     CHECK(k->side[TRACE_SIDE_SHOULDER][0] == 4.25 && k->side[TRACE_SIDE_SHOULDER][1] == 0 && k->side[TRACE_SIDE_BARRIER][0] == 6 && k->side[TRACE_SIDE_BARRIER][1] == 12.75);
     CHECK(k->side[TRACE_SIDE_WALL][0] == TRACK_GEN_WALL_HARD && k->side[TRACE_SIDE_WALL][1] == TRACK_GEN_WALL_SOFT);
     CHECK(k->side[TRACE_SIDE_FENCE][0] == 0 && k->side[TRACE_SIDE_FENCE][1] == 1);
@@ -357,12 +357,15 @@ static void check_side_keys_file(void)
             t.keys[0].side[f][side] = was;
         }
     CHECK(session_fingerprint(&t) == print);
+    t.keys[0].bank_deg = -27;   /* the bank too */
+    CHECK(session_fingerprint(&t) != print);
+    t.keys[0].bank_deg = -27.5;
 
     CHECK(project_save_trace(dir, &t, why, sizeof why));   /* round trip of the full key: version 3, every field */
     const char *text = read_file(trace);
     CHECK(strstr(text, "\"version\": 3") != NULL);
     static const char *const FIELDS[] = { "\"width_m\": 12.50", "\"shoulder_l_m\": 4.25", "\"shoulder_r_m\": 0.00", "\"barrier_l_m\": 6.00", "\"barrier_r_m\": 12.75",
-                                          "\"wall_l\": \"hard\"", "\"wall_r\": \"soft\"", "\"fence_l\": false", "\"fence_r\": true}" };
+                                          "\"wall_l\": \"hard\"", "\"wall_r\": \"soft\"", "\"fence_l\": false", "\"fence_r\": true", "\"bank_deg\": -27.50}" };
     for (size_t i = 0; i < sizeof FIELDS / sizeof FIELDS[0]; ++i) {
         if (strstr(text, FIELDS[i]) == NULL) fprintf(stderr, "not written: %s\n%s\n", FIELDS[i], text);
         CHECK(strstr(text, FIELDS[i]) != NULL);
@@ -376,14 +379,18 @@ static void check_side_keys_file(void)
     track_trace_key_clear_side(t.keys, &t.key_count, 3, TRACE_SIDE_WALL, 1);   /* only a width left: version 2 again, no side field */
     for (int f = 0; f < TRACE_SIDE_FIELDS; ++f)
         for (int side = 0; side < 2; ++side) track_trace_key_clear_side(t.keys, &t.key_count, 1, f, side);
+    track_trace_key_clear_bank(t.keys, &t.key_count, 1);
     CHECK(t.key_count == 1 && t.keys[0].has == TRACE_KEY_WIDTH);
     CHECK(project_save_trace(dir, &t, why, sizeof why));
-    CHECK(strstr(read_file(trace), "\"version\": 2") != NULL && strstr(read_file(trace), "_l") == NULL);
+    CHECK(strstr(read_file(trace), "\"version\": 2") != NULL && strstr(read_file(trace), "_l") == NULL && strstr(read_file(trace), "bank") == NULL);
+    CHECK(track_trace_key_set_bank(&t.keys, &t.key_count, &t.key_cap, 2, 8.0));   /* a bank alone is version 3 */
+    CHECK(project_save_trace(dir, &t, why, sizeof why));
+    CHECK(strstr(read_file(trace), "\"version\": 3") != NULL && strstr(read_file(trace), "{\"point\": 2, \"bank_deg\": 8.00}") != NULL);
     free(t.points);
     free(t.keys);
 
     /* side fields are version 3's: a version 2 file that has them reads them as nothing */
-    write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 1, \"wall_l\": \"hard\"}]}\n");
+    write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 1, \"wall_l\": \"hard\", \"bank_deg\": 10}]}\n");
     CHECK(project_open(dir, &proj, &t, why, sizeof why));
     CHECK_EQ_INT(t.key_count, 0);
     free(t.points);
@@ -397,6 +404,8 @@ static void check_side_keys_file(void)
         { "{\"point\": 1e999, \"fence_r\": true}", "on point inf" }, { "{\"point\": -1e999, \"barrier_l_m\": 3}", "on point -inf" },
         { "{\"point\": 1, \"shoulder_l_m\": \"abc\"}", "shoulder_l_m" }, { "{\"point\": 2, \"barrier_r_m\": null}", "barrier_r_m" },
         { "{\"point\": 1, \"width_m\": \"abc\"}", "width_m" },
+        { "{\"point\": 1, \"bank_deg\": 60.5}", "point 1 banks 60.5" }, { "{\"point\": 7, \"bank_deg\": 5}", "point 7" },
+        { "{\"point\": 1, \"bank_deg\": \"steep\"}", "bank_deg" },
     };
     for (size_t b = 0; b < sizeof BAD / sizeof BAD[0]; ++b) {
         char json[400];
@@ -479,6 +488,18 @@ static void check_keys_app(void)
     app_clear_point_width(a, 4);
     app_clear_point_width(a, 3);
     CHECK_EQ_INT(a->trace.key_count, 1);
+    app_set_point_bank(a, 2, 12.34);                         /* the bank: a tenth of a degree, on the width's key */
+    CHECK(a->trace.key_count == 1 && a->trace.keys[0].has == (TRACE_KEY_WIDTH | TRACE_KEY_BANK) && a->trace.keys[0].bank_deg == 12.3);
+    CHECK(app_save(a));
+    app_set_point_bank(a, 2, 12.3);
+    CHECK(!app_modified(a));                                 /* the same value: nothing changed */
+    app_set_point_bank(a, 1, -75);
+    CHECK(a->trace.key_count == 2 && a->trace.keys[0].bank_deg == -TRACE_BANK_INPUT_MAX_DEG && a->trace.keys[0].has == TRACE_KEY_BANK);   /* clamped to the input's */
+    app_recompute(a);   /* the Points column's values: each point's bank as the keys make it */
+    CHECK(a->point_bank != NULL && a->point_count > 2 && a->point_bank[0] == 0 && a->point_bank[1] == -60 && a->point_bank[2] == 12.3);
+    app_clear_point_bank(a, 1);
+    app_clear_point_bank(a, 2);
+    CHECK(app_modified(a) && a->trace.key_count == 1 && a->trace.keys[0].has == TRACE_KEY_WIDTH);
     CHECK(app_save(a));
     a->selected = 1;
     app_insert_point(a);                                     /* a point after 1: the key on 2 is on 3 now */

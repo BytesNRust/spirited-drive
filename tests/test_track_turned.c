@@ -143,6 +143,30 @@ static void check_errors(const uint8_t *tmpl, size_t tsize)
     CHECK(!make("section 10\n", tmpl, 100, 1, &out, &len));                         /* not a TRI */
 }
 
+/* the bank (dep59 phase 2): the editor's nodes may bank TRACK_GEN_BANK_MAX_DEGREES (35, the CD's TR4 reaches 34.5), a layout still 20 */
+static void check_bank_limit(const uint8_t *tmpl, size_t tsize)
+{
+    TrackGenNode *nodes = NULL;
+    int count = 0;
+    ExchangeError err = {0};
+    CHECK(TRACK_GEN_BANK_MAX_DEGREES == 35.0 && TRACK_GEN_LAYOUT_BANK_MAX_DEGREES == 20.0);
+    CHECK(track_layout_nodes("section 12\n", 11, TRACK_TEMPLATE_HALF_WIDTH, &nodes, &count, &err));
+    if (nodes == NULL) return;
+    uint8_t *out = NULL;
+    size_t len = 0;
+    for (int i = 0; i < count; ++i) nodes[i].bank = i % 2 == 0 ? 35.0 : -35.0;   /* the limit itself, either way */
+    CHECK(track_generate_nodes_turned(nodes, count, tmpl, tsize, &out, &len, &err));
+    free(out);
+    out = NULL;
+    CHECK(!track_generate_nodes(nodes, count, tmpl, tsize, &out, &len, &err) && strstr(err.message, "+-20") != NULL);   /* a layout's limit */
+    nodes[9].bank = -35.5;
+    CHECK(!track_generate_nodes_turned(nodes, count, tmpl, tsize, &out, &len, &err) && out == NULL);
+    CHECK(strstr(err.message, "node 9") != NULL && strstr(err.message, "+-35") != NULL);
+    free(nodes);
+    TrackGenNode *layout = NULL;
+    CHECK(!track_layout_nodes("section 12 bank=21\n", 19, TRACK_TEMPLATE_HALF_WIDTH, &layout, &count, &err) && layout == NULL);   /* a layout's bank: still 20 */
+}
+
 /* a CD track as the template: its strip 10 is not at heading 0 nor flat, and the new rows still lie across the new road as the template's lie across its own */
 static int check_cd_templates(int argc, char **argv)
 {
@@ -185,6 +209,7 @@ int main(int argc, char **argv)
     check_curve_follows(tmpl, tsize);
     check_widening_is_along_the_road(tmpl, tsize);
     check_errors(tmpl, tsize);
+    check_bank_limit(tmpl, tsize);
     if (argc > 1) CHECK(check_cd_templates(argc, argv) > 0);
     free(tmpl);
     return TEST_REPORT();
