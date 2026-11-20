@@ -203,6 +203,19 @@ void car_layout(ImGuiID dock)
     ImGui::DockBuilderFinish(dock);
 }
 
+// the layout of the Track light window: the file's controls on the left, the photo on the right
+void light_layout(ImGuiID dock)
+{
+    ImGui::DockBuilderRemoveNode(dock);
+    ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
+    ImGuiID left = 0, right = 0;
+    left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.38f, nullptr, &right);
+    ImGui::DockBuilderDockWindow(PANEL_LIGHT, left);
+    ImGui::DockBuilderDockWindow(PANEL_LIGHT_PHOTO, right);
+    ImGui::DockBuilderFinish(dock);
+}
+
 // the layout of a masks project: its facts on the left, the masks and under them the race on the right (it has no textures to list and no script to run)
 void masks_layout(ImGuiID dock)
 {
@@ -261,6 +274,11 @@ int mode_panels(const App *a, const char *out[], int cap)
         const int n = (int)(sizeof TRACK_PANELS / sizeof TRACK_PANELS[0]);
         for (int i = 0; i < n && i < cap; ++i) out[i] = TRACK_PANELS[i];
         return n < cap ? n : cap;
+    }
+    if (a->kind == APP_KIND_LIGHT) {
+        out[0] = PANEL_LIGHT;
+        if (cap > 1) out[1] = PANEL_LIGHT_PHOTO;
+        return cap > 1 ? 2 : cap;
     }
     if (a->kind != APP_KIND_CAR) return 0;
     const bool masks = a->car.masks_only;
@@ -329,7 +347,7 @@ void front_tabs(const App *a)
 {
     const char *const track[] = { PANEL_LIMITS, PANEL_NODE }, *const car[] = { PANEL_PREVIEW, PANEL_REHACER }, *const masks[] = { PANEL_MODEL, PANEL_PREVIEW };
     const char *const *names = a->kind == APP_KIND_TRACK ? track : a->car.masks_only ? masks : car;
-    if (a->kind == APP_KIND_NONE) return;
+    if (a->kind == APP_KIND_NONE || a->kind == APP_KIND_LIGHT) return;   // the light window has no tabs
     for (int i = 0; i < 2; ++i) ImGui::SetWindowFocus(names[i]);
 }
 
@@ -363,6 +381,7 @@ void main_menu(App *a)
         if (ImGui::MenuItem("Open track...")) app_ask(a, APP_ACT_OPEN, "");
         if (ImGui::MenuItem("New track...")) app_ask(a, APP_ACT_NEW, "");
         if (ImGui::MenuItem("Export original car...")) a->export_dialog = 1;
+        if (ImGui::MenuItem("Track light...", nullptr, false, a->light_dir[0] != '\0')) app_ask(a, APP_ACT_OPEN_LIGHT, "");
         if (ImGui::BeginMenu("Open recent", a->recent.count > 0)) {
             for (int i = 0; i < a->recent.count; ++i) {
                 char label[SESSION_PATH + 16];
@@ -430,7 +449,7 @@ void confirm_popup(App *a)
         ++age;
         const char *then = a->confirm == APP_ACT_QUIT ? "quitting" : a->confirm == APP_ACT_NEW || a->confirm == APP_ACT_NEW_AT ? "starting a new track"
                                                                                                                               : "opening another project";
-        ImGui::Text("Save the changes to \"%s\" before %s?", a->kind == APP_KIND_CAR ? a->car.info.id : a->project.id, then);
+        ImGui::Text("Save the changes to \"%s\" before %s?", a->kind == APP_KIND_CAR ? a->car.info.id : a->kind == APP_KIND_LIGHT ? "the light file" : a->project.id, then);
         ImGui::Spacing();
         int answer = -1;
         if (ImGui::Button("Save")) answer = APP_ANSWER_SAVE;
@@ -467,6 +486,41 @@ static ImTextureID photo_texture(SDL_Renderer *ren, const App *a)
         tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, a->race.photo_w, a->race.photo_h);   // 640 x 480, or twice at render scale 2
         if (tex != nullptr) SDL_UpdateTexture(tex, nullptr, a->race.photo, a->race.photo_w * 4);
         serial = a->race.photo_serial;
+    }
+    return reinterpret_cast<ImTextureID>(tex);
+}
+
+// the Track light photo as a texture: made again when the job took another picture (a->light.photo.serial)
+static ImTextureID light_texture(SDL_Renderer *ren, const App *a)
+{
+    static SDL_Texture *tex = nullptr;
+    static int serial = -1;
+    const LightPhotoJob &j = a->light.photo;
+    if (a->kind != APP_KIND_LIGHT || j.rgba == nullptr) {
+        if (tex != nullptr) SDL_DestroyTexture(tex), tex = nullptr;
+        serial = -1;
+        return 0;
+    }
+    if (tex == nullptr || serial != j.serial) {
+        if (tex != nullptr) SDL_DestroyTexture(tex);
+        // the software renderer (a headless run) draws only half of a 1280 x 960 texture's quad: it gets the picture halved (2 x 2 box average); a window's renderer gets it whole
+        const char *renderer = SDL_GetRendererName(ren);
+        const bool halve = renderer != nullptr && strcmp(renderer, "software") == 0 && j.w >= 1280 && j.w % 2 == 0 && j.h % 2 == 0;
+        const int tw = halve ? j.w / 2 : j.w, th = halve ? j.h / 2 : j.h;
+        uint8_t *half = halve ? static_cast<uint8_t *>(malloc(static_cast<size_t>(tw) * th * 4)) : nullptr;
+        if (half != nullptr) {
+            for (int y = 0; y < th; ++y)
+                for (int x = 0; x < tw; ++x)
+                    for (int c = 0; c < 4; ++c) {
+                        const uint8_t *p = j.rgba + (static_cast<size_t>(y) * 2 * j.w + static_cast<size_t>(x) * 2) * 4 + c;
+                        half[(static_cast<size_t>(y) * tw + x) * 4 + c] = static_cast<uint8_t>((p[0] + p[4] + p[static_cast<size_t>(j.w) * 4] + p[static_cast<size_t>(j.w) * 4 + 4] + 2) / 4);
+                    }
+        }
+        const bool use_half = half != nullptr;
+        tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, use_half ? tw : j.w, use_half ? th : j.h);
+        if (tex != nullptr) SDL_UpdateTexture(tex, nullptr, use_half ? half : j.rgba, (use_half ? tw : j.w) * 4);
+        free(half);
+        serial = j.serial;
     }
     return reinterpret_cast<ImTextureID>(tex);
 }
@@ -510,7 +564,7 @@ static ImTextureID mask_texture(SDL_Renderer *ren, const App *a)
 
 void ui_frame(SDL_Renderer *ren, App *a)
 {
-    static bool track_laid_out = false, car_laid_out = false, masks_laid_out = false;
+    static bool track_laid_out = false, car_laid_out = false, masks_laid_out = false, light_laid_out = false;
     ImGui_ImplSDLRenderer3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
@@ -553,6 +607,15 @@ void ui_frame(SDL_Renderer *ren, App *a)
         mask_edit_panel(a, mask_texture(ren, a));
         preview_panel(a, ren);
         if (!a->car.masks_only) rehacer_panel(a);   // a masks project has no script
+    } else if (a->kind == APP_KIND_LIGHT) {   // the Track light window has a dock space of its own
+        const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr("StudioLightDock"), ImGui::GetMainViewport());
+        if (!light_laid_out || reset) {
+            light_laid_out = true;
+            if (reset || dock_is_empty(dock)) light_layout(dock);
+        }
+        if (a->confirm == APP_ACT_NONE) light_shortcuts(a);
+        light_panel(a);
+        light_photo_panel(a, light_texture(ren, a));
     } else {
         start_screen(a);
     }

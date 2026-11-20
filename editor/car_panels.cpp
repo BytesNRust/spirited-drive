@@ -75,6 +75,10 @@ void start_screen(App *a)
         ImGui::SameLine();
         if (ImGui::Button("Export original car...", button)) a->export_dialog = 1;
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Make a project from one of the game's cars, to adjust its masks");
+        ImGui::BeginDisabled(a->light_dir[0] == '\0');
+        if (ImGui::Button("Track light...", button)) app_ask(a, APP_ACT_OPEN_LIGHT, "");
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Tune a CD track's light at dawn, day, dusk and night, with a photo from the game");
         ImGui::Dummy(ImVec2(0, 14));
         ImGui::SeparatorText("Recent");
         if (a->recent.count == 0) muted_wrapped("Nothing opened yet.");

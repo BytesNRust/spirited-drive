@@ -25,6 +25,11 @@ void drive_panel(App *a);   // Test drive of the open track: the car, the button
 ImGuiID panels_limits_dock(void);   // the dock node Limits is in (0 before it is drawn): the windows added since dock there as tabs
 void race_look_controls(RaceLook *look);   // the race look's switches and resolution, under a folded "Look" header (race_look_ui.cpp): the Race and Drive windows'
 
+// the Track light window (light_panel.cpp): the file's controls and rows, and the photo (a texture of the job's picture, 0 for none)
+void light_panel(App *a);
+void light_photo_panel(App *a, ImTextureID photo);
+void light_shortcuts(App *a);   // Cmd+S saves the light file
+
 // the start screen (nothing open) and the open car's panels: its card, its textures, its masks
 void start_screen(App *a);
 void car_panel(App *a);
@@ -45,7 +50,7 @@ void export_popup(App *a);    // the Export original car window, up while a->exp
 
 // the panels' names, as the dock layout places them
 extern const char *const PANEL_POINTS, *const PANEL_LIMITS, *const PANEL_PROBLEMS, *const PANEL_NODE, *const PANEL_PROJECT, *const PANEL_TRACK, *const PANEL_ROAD_KEY;
-extern const char *const PANEL_MODEL, *const PANEL_DRIVE;
+extern const char *const PANEL_MODEL, *const PANEL_DRIVE, *const PANEL_LIGHT, *const PANEL_LIGHT_PHOTO;
 extern const char *const PANEL_CAR, *const PANEL_TEXTURES, *const PANEL_MASKS, *const PANEL_REHACER, *const PANEL_RACE, *const PANEL_MASK_EDIT, *const PANEL_PREVIEW;
 
 #endif

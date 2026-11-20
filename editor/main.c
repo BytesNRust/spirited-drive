@@ -43,12 +43,17 @@ enum {
     TEST_DRIVE_WAIT_MS = 60000   /* --test-drive waits this long for the game's line on the track */
 };
 
+#ifndef STUDIO_LIGHT_DIR
+#define STUDIO_LIGHT_DIR ""   /* a build with no source tree to tune: --light-dir names the folder */
+#endif
+
 typedef struct {
     const char *dir, *game, *user, *shot;
     int frames, save, build, install, select;   /* select: a control point to select before the first frame, -1 for none */
     int test_drive;           /* --test-drive: Test drive as the Drive window runs it, until the game's log says whether it took the track; then the game is stopped */
     const char *set[8];      /* --set key=value, a car's field set before the first frame (a headless picture of a problem, a save of a change) */
     int set_count;
+    const char *light_dir;   /* --light-dir DIR: the folder whose track_light/ the Track light window tunes (default: the source tree's data/) */
     const char *pick;        /* --pick FOLDER: the car chosen in the Export window before the first frame */
     const char *export_car, *export_into, *cd, *port_data;   /* --export-car STEM --into DIR, --cd DIR, --port-data DIR: Export original car without the window's dialogs */
     int race_photo, night;    /* --race-photo: take the race photo before the first frame (a headless run waits for it); --night: the Night preset */
@@ -78,7 +83,7 @@ static int usage(void)
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2]]\n"
                     "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n"
-                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--steps STEP,...]\n");
+                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light] [--steps STEP,...]\n");
     return 0;
 }
 
@@ -128,7 +133,7 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--ask") == 0 && has_value) {
             const char *what = argv[++i];
             o->ask = strcmp(what, "quit") == 0 ? APP_ACT_QUIT : strcmp(what, "new") == 0 ? APP_ACT_NEW : strcmp(what, "open") == 0 ? APP_ACT_OPEN
-                   : strcmp(what, "opencar") == 0 ? APP_ACT_OPEN_CAR : strcmp(what, "export") == 0 ? APP_ACT_EXPORT_PICK : APP_ACT_NONE;
+                   : strcmp(what, "opencar") == 0 ? APP_ACT_OPEN_CAR : strcmp(what, "light") == 0 ? APP_ACT_OPEN_LIGHT : strcmp(what, "export") == 0 ? APP_ACT_EXPORT_PICK : APP_ACT_NONE;
             if (o->ask == APP_ACT_NONE) return usage();
         } else if (strcmp(argv[i], "--export-car") == 0 && has_value) o->export_car = argv[++i];
         else if (strcmp(argv[i], "--into") == 0 && has_value) o->export_into = argv[++i];
@@ -145,6 +150,7 @@ static int parse_args(int argc, char **argv, Options *o)
             if (strcmp(v, "1") != 0 && strcmp(v, "2") != 0) return usage();   /* 1 (640x480) or 2 (1280x960), nothing else */
             o->race_scale = v[0] - '0';
         }
+        else if (strcmp(argv[i], "--light-dir") == 0 && has_value) o->light_dir = argv[++i];
         else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
         else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
         else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
@@ -284,6 +290,7 @@ static int run_go(SDL_Window *win, App *a)
     else if (act == APP_ACT_RECENT) app_open_recent(a, path);
     else if (act == APP_ACT_OPEN_AT) app_open_project(a, path);
     else if (act == APP_ACT_OPEN_CAR_AT) app_open_car(a, path);
+    else if (act == APP_ACT_OPEN_LIGHT) app_open_light(a);
     else if (act == APP_ACT_NEW_AT) app_new_project(a, path);
     return 0;
 }
@@ -567,7 +574,8 @@ static int run(App *a, const Options *o)
         SDL_Quit();
         return 0;
     }
-    if (o->ask == APP_ACT_EXPORT_PICK) a->export_dialog = 1;   /* the window itself, for a headless picture of it */
+    if (o->ask == APP_ACT_OPEN_LIGHT) app_open_light(a);   /* the window itself, for a headless picture of it (a headless run drops a->go) */
+    else if (o->ask == APP_ACT_EXPORT_PICK) a->export_dialog = 1;   /* the window itself, for a headless picture of it */
     else if (o->ask != APP_ACT_NONE) app_ask(a, o->ask, "");   /* ... and the action asked for */
     if (o->user == NULL && o->frames == 0) {   /* a normal run keeps the recent projects in the editor's own folder */
         const char *pref = SDL_GetPrefPath(NULL, "spirited-drive-studio");
@@ -603,6 +611,7 @@ static int run(App *a, const Options *o)
         app_install_poll(a);
         app_race_poll(a);
         app_card_watch(a, SDL_GetTicks() / 1000.0);   /* mod.ini, the car file and the textures */
+        app_light_poll(a, SDL_GetTicks() / 1000.0);   /* the Track light photo: its output, and the next one when a change has settled */
         app_mask_watch(a, SDL_GetTicks() / 1000.0);   /* masks changed on disk by another program: about once a second */
         app_recompute(a);
         SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);
@@ -658,6 +667,7 @@ int main(int argc, char **argv)
         SDL_free(pref);
         app_set_export_source(app, &sources);
         app_set_game_lookup(app, tried, memo);
+        app_set_light_dir(app, o.light_dir != NULL ? o.light_dir : STUDIO_LIGHT_DIR);   /* the folder the Track light window tunes: named, or the source tree's data/ it was built from */
         app_check_game(app);   /* the window opens with what to do if the game is not found, not with a failed install later */
         status = run(app, &o) ? 0 : 1;
     } else {
