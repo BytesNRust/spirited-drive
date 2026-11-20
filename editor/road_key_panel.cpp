@@ -1,6 +1,6 @@
 // The Road key block under the Points table (phase 2 of the editor): the values a road key on the selected point sets on each side of the road, Left | Right.
 // A value the point inherits from the keys before shows dimmed; choosing one sets it on this point's key, right-click lets it inherit again. Step 2b's row is
-// the shoulder's surface; step 3 adds its rows (shoulder width, barrier, wall, fence) below it.
+// the shoulder's surface; step 3's are below it: the shoulder's width, how far the wall is, its kind and the fence.
 #include "panels.h"
 
 #include "imgui.h"
@@ -10,7 +10,7 @@
 
 namespace {
 
-const int ROWS = 1;   // the rows of the block's table (step 3 raises it with its own)
+const int ROWS = 5;   // the rows of the block's table: the shoulder's surface (2b), then step 3's four
 
 // one side's shoulder surface: a combo Verge / Tarmac showing what the point has, dimmed when inherited; right-click on a set one inherits again
 void surface_cell(App *a, int point, int side, TraceSurface set, TraceSurface shown)
@@ -32,6 +32,90 @@ void surface_cell(App *a, int point, int side, TraceSurface set, TraceSurface sh
         ImGui::EndPopup();
     }
     ImGui::PopID();
+}
+
+const char *inherit_tip(bool own)
+{
+    return own ? "Set on this point. Right-click to let it inherit again." : "Inherited from the points before. Change it to set it on this point.";
+}
+
+// the right-click menu of a side value the point sets: "Inherit again" clears it
+void inherit_menu(App *a, int point, int field, int side, bool own)
+{
+    if (own && ImGui::BeginPopupContextItem("##inherit")) {
+        if (ImGui::MenuItem("Inherit again")) app_clear_point_side(a, point, field, side);
+        ImGui::EndPopup();
+    }
+}
+
+// one side's width in metres (the shoulder, or the wall's distance from the road edge), formatted as the Points table's width
+void metres_cell(App *a, int point, int field, int side, bool own, double shown, const char *what)
+{
+    const double lo = 0, hi = TRACE_SIDE_MAX_M;
+    double metres = shown;
+    ImGui::PushID(field * 2 + side);
+    if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::DragScalar("##m", ImGuiDataType_Double, &metres, 0.25f, &lo, &hi, "%.2f", ImGuiSliderFlags_AlwaysClamp)) app_set_point_side(a, point, field, side, metres);
+    if (!own) ImGui::PopStyleColor();
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s\n%s", inherit_tip(own), what);
+    inherit_menu(a, point, field, side, own);
+    ImGui::PopID();
+}
+
+// one side's wall: Hard or Soft
+void wall_cell(App *a, int point, int side, bool own, double shown)
+{
+    static const char *const NAMES[] = { "Hard", "Soft" };
+    int choice = shown == TRACK_GEN_WALL_SOFT ? 1 : 0;
+    ImGui::PushID(TRACE_SIDE_WALL * 2 + side);
+    if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::Combo("##wall", &choice, NAMES, 2)) app_set_point_side(a, point, TRACE_SIDE_WALL, side, choice == 1 ? TRACK_GEN_WALL_SOFT : TRACK_GEN_WALL_HARD);
+    if (!own) ImGui::PopStyleColor();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s\nBoth stop the car at the wall.\nHard: a hit makes the crash sound, a hard one is recorded in the race, and the car is turned "
+                          "off the wall twice as sharply.\nSoft: no sound and nothing recorded; the car is turned off the wall more gently.",
+                          inherit_tip(own));
+    inherit_menu(a, point, TRACE_SIDE_WALL, side, own);
+    ImGui::PopID();
+}
+
+// one side's fence: on or off
+void fence_cell(App *a, int point, int side, bool own, double shown)
+{
+    bool on = shown != 0;
+    ImGui::PushID(TRACE_SIDE_FENCE * 2 + side);
+    if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    if (ImGui::Checkbox(on ? "On###fence" : "Off###fence", &on)) app_set_point_side(a, point, TRACE_SIDE_FENCE, side, on ? 1 : 0);
+    if (!own) ImGui::PopStyleColor();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s\nOn: the wall is drawn on this side (the game's fence).\nOff: it is not drawn, but it still stops the car where Wall from edge says.\n"
+                          "The game keeps one fence setting per 4 nodes, the one at their first node.",
+                          inherit_tip(own));
+    inherit_menu(a, point, TRACE_SIDE_FENCE, side, own);
+    ImGui::PopID();
+}
+
+// step 3's rows: what the point has each side, as the keys make it, set ones bright and inherited ones dimmed
+void side_rows(App *a, int point, const TraceKey *key, double (*values)[2])
+{
+    static const char *const LABELS[TRACE_SIDE_FIELDS] = { "Shoulder (m)", "Wall from edge (m)", "Wall", "Fence" };
+    static const char *const WHAT[2] = { "How far the shoulder reaches past the road's edge.",
+                                         "How far past the road's edge the wall stands: it stops the car there. At most 31.875 m from the centre." };
+    for (int field = 0; field < TRACE_SIDE_FIELDS; ++field) {
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextUnformatted(LABELS[field]);
+        for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side) {
+            ImGui::TableSetColumnIndex(1 + side);
+            const bool own = key != nullptr && (key->has & TRACE_KEY_SIDE(field, side));
+            const double shown = values[field][side];
+            if (field == TRACE_SIDE_WALL) wall_cell(a, point, side, own, shown);
+            else if (field == TRACE_SIDE_FENCE) fence_cell(a, point, side, own, shown);
+            else metres_cell(a, point, field, side, own, shown, WHAT[field]);
+        }
+    }
 }
 
 }   // namespace
@@ -62,6 +146,14 @@ void road_key_panel(App *a)
         return;
     }
     track_trace_point_surfaces(a->trace.keys, a->trace.key_count, point + 1, left, right);
+    double (*sides)[TRACE_SIDE_FIELDS][2] = static_cast<double (*)[TRACE_SIDE_FIELDS][2]>(malloc(sizeof *sides * (size_t)a->trace.count));
+    if (sides == nullptr) {
+        free(left);
+        free(right);
+        ImGui::TextDisabled("out of memory");
+        return;
+    }
+    track_trace_point_sides(a->trace.points, a->trace.count, a->trace.keys, a->trace.key_count, sides);
     if (ImGui::BeginTable("road_key", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 120);
         ImGui::TableSetupColumn("Left");
@@ -75,8 +167,10 @@ void road_key_panel(App *a)
         surface_cell(a, point, TRACK_GEN_LEFT, sets ? key->shoulder_l_surface : TRACE_SURFACE_INHERIT, left[point]);
         ImGui::TableSetColumnIndex(2);
         surface_cell(a, point, TRACK_GEN_RIGHT, sets ? key->shoulder_r_surface : TRACE_SURFACE_INHERIT, right[point]);
+        side_rows(a, point, key, sides[point]);
         ImGui::EndTable();
     }
+    free(sides);
     free(left);
     free(right);
 }

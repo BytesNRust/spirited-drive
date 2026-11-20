@@ -320,6 +320,138 @@ static void check_surface_app(void)
     remove(generic);
 }
 
+/* the road's sides in trace.json (step 3): version 3, written only when a key has a value of a version past 2; every field of a full key comes back (the
+ * writer grows its text, it never cuts a key short); each side value is in the fingerprint; values off their range are refused naming the point */
+static void check_side_keys_file(void)
+{
+    char dir[600], trace[700], ini[700], why[256];
+    path_in(dir, sizeof dir, "sidekeys");
+    mkdir(dir, 0777);
+    snprintf(trace, sizeof trace, "%s/trace.json", dir);
+    snprintf(ini, sizeof ini, "%s/project.ini", dir);
+    write_file(ini, "id=sides\nname=sides\nauthor=\nstem=SIDE\nart=GENERIC.FAM\nredistributable=1\n");
+    Project proj;
+    Trace t;
+    write_file(trace, "{\"version\": 3, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200], [0, 300]],\n \"keys\": [\n"
+                      "  {\"point\": 1, \"width_m\": 12.5, \"shoulder_l_m\": 4.25, \"shoulder_r_m\": 0, \"barrier_l_m\": 6, \"barrier_r_m\": 12.75,"
+                      " \"wall_l\": \"hard\", \"wall_r\": \"soft\", \"fence_l\": false, \"fence_r\": true},\n"
+                      "  {\"point\": 3, \"wall_r\": \"hard\"}]}\n");
+    CHECK(project_open(dir, &proj, &t, why, sizeof why));
+    if (t.key_count != 2) { fprintf(stderr, "side keys: %s\n", why); CHECK(0); cleanup_project(dir); return; }
+    const TraceKey *k = &t.keys[0];
+    const unsigned all = TRACE_KEY_WIDTH | TRACE_KEY_SIDE(TRACE_SIDE_SHOULDER, 0) | TRACE_KEY_SIDE(TRACE_SIDE_SHOULDER, 1) | TRACE_KEY_SIDE(TRACE_SIDE_BARRIER, 0) |
+                         TRACE_KEY_SIDE(TRACE_SIDE_BARRIER, 1) | TRACE_KEY_SIDE(TRACE_SIDE_WALL, 0) | TRACE_KEY_SIDE(TRACE_SIDE_WALL, 1) |
+                         TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 0) | TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 1);
+    CHECK(k->point == 1 && k->has == all && k->width_m == 12.5);
+    CHECK(k->side[TRACE_SIDE_SHOULDER][0] == 4.25 && k->side[TRACE_SIDE_SHOULDER][1] == 0 && k->side[TRACE_SIDE_BARRIER][0] == 6 && k->side[TRACE_SIDE_BARRIER][1] == 12.75);
+    CHECK(k->side[TRACE_SIDE_WALL][0] == TRACK_GEN_WALL_HARD && k->side[TRACE_SIDE_WALL][1] == TRACK_GEN_WALL_SOFT);
+    CHECK(k->side[TRACE_SIDE_FENCE][0] == 0 && k->side[TRACE_SIDE_FENCE][1] == 1);
+    CHECK(t.keys[1].point == 3 && t.keys[1].has == TRACE_KEY_SIDE(TRACE_SIDE_WALL, 1) && t.keys[1].side[TRACE_SIDE_WALL][1] == TRACK_GEN_WALL_HARD);   /* sides only: a key */
+
+    const uint64_t print = session_fingerprint(&t);   /* every side value is in the fingerprint */
+    for (int f = 0; f < TRACE_SIDE_FIELDS; ++f)
+        for (int side = 0; side < 2; ++side) {
+            const double was = t.keys[0].side[f][side];
+            t.keys[0].side[f][side] = was + 1;
+            CHECK(session_fingerprint(&t) != print);
+            t.keys[0].side[f][side] = was;
+        }
+    CHECK(session_fingerprint(&t) == print);
+
+    CHECK(project_save_trace(dir, &t, why, sizeof why));   /* round trip of the full key: version 3, every field */
+    const char *text = read_file(trace);
+    CHECK(strstr(text, "\"version\": 3") != NULL);
+    static const char *const FIELDS[] = { "\"width_m\": 12.50", "\"shoulder_l_m\": 4.25", "\"shoulder_r_m\": 0.00", "\"barrier_l_m\": 6.00", "\"barrier_r_m\": 12.75",
+                                          "\"wall_l\": \"hard\"", "\"wall_r\": \"soft\"", "\"fence_l\": false", "\"fence_r\": true}" };
+    for (size_t i = 0; i < sizeof FIELDS / sizeof FIELDS[0]; ++i) {
+        if (strstr(text, FIELDS[i]) == NULL) fprintf(stderr, "not written: %s\n%s\n", FIELDS[i], text);
+        CHECK(strstr(text, FIELDS[i]) != NULL);
+    }
+    Trace back;
+    CHECK(project_open(dir, &proj, &back, why, sizeof why));
+    CHECK(back.key_count == 2 && session_fingerprint(&back) == print);
+    free(back.points);
+    free(back.keys);
+
+    track_trace_key_clear_side(t.keys, &t.key_count, 3, TRACE_SIDE_WALL, 1);   /* only a width left: version 2 again, no side field */
+    for (int f = 0; f < TRACE_SIDE_FIELDS; ++f)
+        for (int side = 0; side < 2; ++side) track_trace_key_clear_side(t.keys, &t.key_count, 1, f, side);
+    CHECK(t.key_count == 1 && t.keys[0].has == TRACE_KEY_WIDTH);
+    CHECK(project_save_trace(dir, &t, why, sizeof why));
+    CHECK(strstr(read_file(trace), "\"version\": 2") != NULL && strstr(read_file(trace), "_l") == NULL);
+    free(t.points);
+    free(t.keys);
+
+    /* side fields are version 3's: a version 2 file that has them reads them as nothing */
+    write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 1, \"wall_l\": \"hard\"}]}\n");
+    CHECK(project_open(dir, &proj, &t, why, sizeof why));
+    CHECK_EQ_INT(t.key_count, 0);
+    free(t.points);
+    free(t.keys);
+
+    static const struct { const char *key, *words; } BAD[] = {
+        { "{\"point\": 1, \"shoulder_r_m\": 20.5}", "right shoulder" }, { "{\"point\": 2, \"barrier_l_m\": -1}", "left wall" },
+        { "{\"point\": 1, \"wall_l\": \"bouncy\"}", "wall_l" }, { "{\"point\": 1, \"fence_r\": 1}", "fence_r" },
+        { "{\"point\": 5, \"fence_r\": true}", "point 5" },
+        /* a point past any int is refused before it is made one (UBSan: the cast of inf), and a value that is no number is refused by name, not dropped */
+        { "{\"point\": 1e999, \"fence_r\": true}", "on point inf" }, { "{\"point\": -1e999, \"barrier_l_m\": 3}", "on point -inf" },
+        { "{\"point\": 1, \"shoulder_l_m\": \"abc\"}", "shoulder_l_m" }, { "{\"point\": 2, \"barrier_r_m\": null}", "barrier_r_m" },
+        { "{\"point\": 1, \"width_m\": \"abc\"}", "width_m" },
+    };
+    for (size_t b = 0; b < sizeof BAD / sizeof BAD[0]; ++b) {
+        char json[400];
+        snprintf(json, sizeof json, "{\"version\": 3, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [%s]}\n", BAD[b].key);
+        write_file(trace, json);
+        CHECK(!project_open(dir, &proj, &t, why, sizeof why));
+        if (strstr(why, "trace.json") == NULL || strstr(why, BAD[b].words) == NULL) fprintf(stderr, "bad %zu: %s\n", b, why);
+        CHECK(strstr(why, "trace.json") != NULL && strstr(why, BAD[b].words) != NULL);
+    }
+    cleanup_project(dir);
+}
+
+/* the editor's side values (step 3): a value set on a point is an unsaved change and saves; widths are kept to a quarter of a metre and to 0..20 m, a
+ * kind to hard or soft, a fence to on or off; the same value again is no change; clearing it is one */
+static void check_side_keys_app(void)
+{
+    char dir[600];
+    path_in(dir, sizeof dir, "sidekeyed");
+    mkdir(dir, 0777);
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    CHECK(app_open(a, dir, "./tnfs", "", NULL));
+    CHECK(!app_modified(a));
+    app_set_point_side(a, 2, TRACE_SIDE_SHOULDER, TRACK_GEN_RIGHT, 4.1);
+    CHECK(app_modified(a));
+    CHECK(a->trace.key_count == 1 && a->trace.keys[0].point == 2 && a->trace.keys[0].side[TRACE_SIDE_SHOULDER][TRACK_GEN_RIGHT] == 4.0);   /* 4.1 is 4 m */
+    CHECK(app_save(a));
+    CHECK(!app_modified(a));
+    app_set_point_side(a, 2, TRACE_SIDE_SHOULDER, TRACK_GEN_RIGHT, 4.0);
+    CHECK(!app_modified(a));                                 /* the same value: nothing changed */
+    app_set_point_side(a, 2, TRACE_SIDE_BARRIER, TRACK_GEN_LEFT, 99);
+    CHECK(a->trace.keys[0].side[TRACE_SIDE_BARRIER][TRACK_GEN_LEFT] == TRACE_SIDE_MAX_M);   /* kept to the range */
+    app_set_point_side(a, 2, TRACE_SIDE_BARRIER, TRACK_GEN_LEFT, -3);
+    CHECK(a->trace.keys[0].side[TRACE_SIDE_BARRIER][TRACK_GEN_LEFT] == 0);
+    app_set_point_side(a, 3, TRACE_SIDE_WALL, TRACK_GEN_LEFT, 7);   /* anything but hard is soft; anything but off is on */
+    app_set_point_side(a, 3, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT, 0.4);
+    CHECK(a->trace.key_count == 2 && a->trace.keys[1].side[TRACE_SIDE_WALL][TRACK_GEN_LEFT] == TRACK_GEN_WALL_SOFT &&
+          a->trace.keys[1].side[TRACE_SIDE_FENCE][TRACK_GEN_RIGHT] == 1);
+    app_set_point_side(a, 9, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT, 0);   /* no such point: nothing */
+    app_set_point_side(a, 3, TRACE_SIDE_FIELDS, TRACK_GEN_RIGHT, 0);   /* no such value: nothing */
+    CHECK_EQ_INT(a->trace.key_count, 2);
+    CHECK(app_save(a));
+    app_clear_point_side(a, 3, TRACE_SIDE_WALL, TRACK_GEN_LEFT);
+    CHECK(app_modified(a) && a->trace.key_count == 2);
+    app_clear_point_side(a, 3, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT);
+    CHECK_EQ_INT(a->trace.key_count, 1);                     /* nothing left on point 3: its key is gone */
+    CHECK(app_save(a));
+    app_clear_point_side(a, 3, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT);
+    CHECK(!app_modified(a));                                 /* nothing to clear: no change */
+    app_free(a);
+    free(a);
+    cleanup_project(dir);
+}
+
 /* the editor: a key set on a point is an unsaved change, it saves, clearing it is another, the keys stay on their points when points come and go,
  * and the width is clamped to the road's range and to a quarter of a metre */
 static void check_keys_app(void)
@@ -1054,6 +1186,8 @@ int main(void)
     check_fingerprint();
     check_road_width();
     check_keys_file();
+    check_side_keys_file();
+    check_side_keys_app();
     check_keys_app();
     check_surface_file();
     check_surface_app();

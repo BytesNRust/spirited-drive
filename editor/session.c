@@ -96,6 +96,7 @@ uint64_t session_fingerprint(const Trace *trace)
         h = mix(h, &trace->keys[i].width_m, sizeof trace->keys[i].width_m);
         h = mix(h, &trace->keys[i].shoulder_l_surface, sizeof trace->keys[i].shoulder_l_surface);
         h = mix(h, &trace->keys[i].shoulder_r_surface, sizeof trace->keys[i].shoulder_r_surface);
+        h = mix(h, trace->keys[i].side, sizeof trace->keys[i].side);   // the road's sides (step 3): doubles, no padding between them
     }
     return h;
 }

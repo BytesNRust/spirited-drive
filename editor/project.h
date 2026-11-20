@@ -35,8 +35,9 @@ typedef struct {
 /* the engine's six verge words, in its order (core/formats/track_piece.c): project.ini's edge= is one of them, grass when it is not there */
 extern const char *const PROJECT_EDGES[];
 
-enum { PROJECT_TRACE_VERSION = 3 };   /* trace.json's version: 1 had the points and the width; 2 adds the road keys; 3 a key's shoulder surfaces. A file of a newer
-                                       * version is refused. The writer writes the lowest that holds what the trace has (2, or 3 with a surface). */
+enum { PROJECT_TRACE_VERSION = 3 };   /* trace.json's newest version: 1 had the points and the width; 2 adds the road keys; 3 the keys' values past the width (the
+                                       * shoulder surfaces of step 2b, the road's sides of step 3). A file of a newer version is refused. The writer writes the lowest
+                                       * that holds what the trace has (2, or 3 with such a value). */
 
 typedef struct {
     TracePoint *points;           /* malloc'd, `count` of them */

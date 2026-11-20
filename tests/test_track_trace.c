@@ -64,7 +64,7 @@ static int nodes_of(const TracePoint *p, int count, double width, TrackGenNode *
     return track_trace_nodes(p, count, width, nodes, n, &err);
 }
 
-static int count_flags(const uint8_t *flags, int n, uint8_t bit)
+static int count_flags(const TraceFlags *flags, int n, TraceFlags bit)
 {
     int c = 0;
     for (int i = 0; i < n; ++i) if (flags[i] & bit) ++c;
@@ -88,7 +88,7 @@ static void test_straight(void)
     }
     CHECK(straight);
     CHECK(fabs(unit(nodes[n - 1].position[2]) - 288.0) < 0.01);
-    uint8_t *flags = calloc((size_t)n, 1);
+    TraceFlags *flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN | TRACE_FLAG_RADIUS), 0);
     free(flags);
@@ -121,7 +121,7 @@ static void test_arc(void)
     const double last = atan2(p[12].x - p[11].x, p[12].z - p[11].z) * 8192 / M_PI;
     CHECK(fabs(track_trace_turn_degrees(last, nodes[n - 1].heading)) < 0.3);
     CHECK(track_trace_turn_degrees(nodes[0].heading, nodes[n - 1].heading) < 0);   /* a left turn: negative */
-    uint8_t *flags = calloc((size_t)n, 1);
+    TraceFlags *flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN | TRACE_FLAG_RADIUS), 0);   /* about 3 degrees a node on radius 100 */
     free(flags);
@@ -135,7 +135,7 @@ static void test_tight_arc_flags_radius(void)
     int n = 0;
     arc_points(30, 24, 180, p);                             /* a half circle of radius 30: about 11.5 degrees a node: amber, not red */
     CHECK(nodes_of(p, 25, WIDTH, &nodes, &n));
-    uint8_t *flags = calloc((size_t)n, 1);
+    TraceFlags *flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK(count_flags(flags, n, TRACE_FLAG_RADIUS_WARN) > 0);
     CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_RADIUS | TRACE_FLAG_TURN), 0);
@@ -144,7 +144,7 @@ static void test_tight_arc_flags_radius(void)
     free(nodes);
     arc_points(15, 24, 180, p);                             /* radius 15: about 23 degrees a node: red */
     CHECK(nodes_of(p, 25, WIDTH, &nodes, &n));
-    flags = calloc((size_t)n, 1);
+    flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK(count_flags(flags, n, TRACE_FLAG_RADIUS) > 0);
     free(flags);
@@ -157,7 +157,7 @@ static void test_corner_flags_turn(void)
     TrackGenNode *nodes = NULL;
     int n = 0;
     CHECK(nodes_of(p, 3, WIDTH, &nodes, &n));
-    uint8_t *flags = calloc((size_t)n, 1);
+    TraceFlags *flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK(count_flags(flags, n, TRACE_FLAG_TURN) > 0);
     free(flags);
@@ -166,9 +166,10 @@ static void test_corner_flags_turn(void)
 
 
 /* nodes that turn `degrees` each from the one before, TRACK_GEN_NODE_LENGTH apart: the limits' levels by flags alone */
-static uint8_t flags_at_turn(double degrees)
+static TraceFlags flags_at_turn(double degrees)
 {
     TrackGenNode n[3];
+    memset(n, 0, sizeof n);   /* the sides too: the template's */
     const double step = TRACK_GEN_NODE_LENGTH / 65536.0, back = degrees * 0x4000 / 360.0;
     double x = 0, z = 0;
     for (int i = 0; i < 3; ++i) {
@@ -181,7 +182,7 @@ static uint8_t flags_at_turn(double degrees)
         x += step * sin(back * i * 2 * M_PI / 0x4000);
         z += step * cos(back * i * 2 * M_PI / 0x4000);
     }
-    uint8_t flags[3];
+    TraceFlags flags[3];
     track_trace_flags(n, 3, flags);
     return flags[2];
 }
@@ -218,7 +219,7 @@ static void test_drawn_16_is_amber(void)
     TrackGenNode *nodes = NULL;
     int n = 0;
     CHECK(nodes_of(p, COUNT, WIDTH, &nodes, &n));
-    uint8_t *flags = calloc((size_t)n, 1);
+    TraceFlags *flags = calloc((size_t)n, sizeof *flags);
     track_trace_flags(nodes, n, flags);
     CHECK_EQ_INT(count_flags(flags, n, TRACE_FLAG_TURN | TRACE_FLAG_RADIUS), 0);
     CHECK(count_flags(flags, n, TRACE_FLAG_TURN_WARN) > 0);
@@ -229,6 +230,7 @@ static void test_drawn_16_is_amber(void)
 /* nodes whose turns from the one before are `turns[1..count-1]` degrees, TRACK_GEN_NODE_LENGTH apart */
 static void nodes_turning(const double *turns, int count, TrackGenNode *n)
 {
+    memset(n, 0, sizeof *n * (size_t)count);   /* the sides too: the template's */
     const double step = TRACK_GEN_NODE_LENGTH / 65536.0;
     double x = 0, z = 0, heading = 0;
     for (int i = 0; i < count; ++i) {
@@ -250,7 +252,7 @@ static void test_problems_and_summary(void)
     const double turns[N] = { 0, 9.4, 17.0, 3.0, 9.0, 16.0, 1.0 };   /* node 1 and 4 and 5 amber (5 is 16.0: over 8, under 16.5), node 2 red */
     TrackGenNode n[N];
     nodes_turning(turns, N, n);
-    uint8_t flags[N];
+    TraceFlags flags[N];
     track_trace_flags(n, N, flags);
     TraceProblem rows[N];
     CHECK_EQ_INT(track_trace_problems(n, N, flags, rows, N), 4);
@@ -290,7 +292,7 @@ static void test_zero_distance_turn(void)
     TrackGenNode n[2] = {{ 0 }};
     n[0].width = n[1].width = WIDTH;
     n[1].heading = 100;
-    uint8_t flags[2];
+    TraceFlags flags[2];
     track_trace_flags(n, 2, flags);
     CHECK_EQ_INT(flags[1] & TRACE_FLAG_RADIUS, TRACE_FLAG_RADIUS);
 }
@@ -416,7 +418,7 @@ static void test_keys_none_is_old(void)
     memset(&err, 0, sizeof err);
     CHECK(track_trace_nodes(p, 6, WIDTH, &a, &na, &err));
     CHECK(track_trace_nodes_keyed(p, 6, WIDTH, NULL, 0, &b, &nb, &err));
-    const TraceKey none[1] = { { 2, 0, 0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* a key with no value (no bit set) says nothing */
+    const TraceKey none[1] = { { .point = 2, .has = 0, .width_m = 0 } };   /* a key with no value (no bit set) says nothing */
     CHECK(track_trace_nodes_keyed(p, 6, WIDTH, none, 1, &c, &nc, &err));
     CHECK_EQ_INT(na, nb);
     CHECK_EQ_INT(na, nc);
@@ -437,7 +439,7 @@ static void test_keys_interpolate(void)
 {
     TracePoint p[6];
     straight_points(p, 6, 60);                    /* 300 m: 12 segments, a node every 6.25 m */
-    const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH, 8.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 4, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* 32 and 56 bytes at s = 60 and 240 */
+    const TraceKey keys[2] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 8.0 }, { .point = 4, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };   /* 32 and 56 bytes at s = 60 and 240 */
     TrackGenNode *n = NULL;
     int count = 0;
     ExchangeError err;
@@ -459,7 +461,7 @@ static void test_keys_interpolate(void)
     CHECK(n[48].width == 56);                     /* after the last key it holds */
     free(n);
 
-    const TraceKey first = { 0, TRACE_KEY_WIDTH, 6.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT };   /* a key on point 0 replaces the project's width as the start */
+    const TraceKey first = { .point = 0, .has = TRACE_KEY_WIDTH, .width_m = 6.0 };   /* a key on point 0 replaces the project's width as the start */
     CHECK(track_trace_nodes_keyed(p, 6, WIDTH, &first, 1, &n, &count, &err));
     CHECK(n != NULL && n[0].width == 24 && n[count - 1].width == 24);
     free(n);
@@ -480,15 +482,15 @@ static void test_keys_faults(void)
     int count = 0;
     ExchangeError err;
     memset(&err, 0, sizeof err);
-    const TraceKey off[1] = { { 4, TRACE_KEY_WIDTH, 10.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
+    const TraceKey off[1] = { { .point = 4, .has = TRACE_KEY_WIDTH, .width_m = 10.0 } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, off, 1, &n, &count, &err));
     CHECK(strstr(err.message, "point 4") != NULL);
-    const TraceKey narrow[1] = { { 1, TRACE_KEY_WIDTH, 1.75, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
+    const TraceKey narrow[1] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 1.75 } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, narrow, 1, &n, &count, &err));
     CHECK(strstr(err.message, "2") != NULL && strstr(err.message, "30") != NULL);
-    const TraceKey wide[1] = { { 1, TRACE_KEY_WIDTH, 30.25, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
+    const TraceKey wide[1] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 30.25 } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, wide, 1, &n, &count, &err));
-    const TraceKey twice[2] = { { 1, TRACE_KEY_WIDTH, 9.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 1, TRACE_KEY_WIDTH, 11.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
+    const TraceKey twice[2] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 9.0 }, { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 11.0 } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, twice, 2, &n, &count, &err));
     CHECK(strstr(err.message, "twice") != NULL);
     CHECK(n == NULL && count == 0);
@@ -528,14 +530,14 @@ static void test_keys_width_limit(void)
     TracePoint q[12];                                   /* evenly spaced, so the curve is straight: only the width is amber */
     straight_points(q, 12, 15);
     TracePoint p[4] = { { 0, 0 }, { 0, 100 }, { 0, 115 }, { 0, 300 } };
-    const TraceKey sudden[2] = { { 2, TRACE_KEY_WIDTH, 10.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 3, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* 10 to 14 m (16 bytes) over 15 m */
+    const TraceKey sudden[2] = { { .point = 2, .has = TRACE_KEY_WIDTH, .width_m = 10.0 }, { .point = 3, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };   /* 10 to 14 m (16 bytes) over 15 m */
     TrackGenNode *n = NULL;
     int count = 0;
     ExchangeError err;
     memset(&err, 0, sizeof err);
     CHECK(track_trace_nodes_keyed(q, 12, WIDTH, sudden, 2, &n, &count, &err));
     if (n == NULL) return;
-    uint8_t *flags = calloc((size_t)count, 1);
+    TraceFlags *flags = calloc((size_t)count, sizeof *flags);
     track_trace_flags(n, count, flags);
     int flagged = 0, right = 1;
     for (int i = 1; i < count; ++i) {
@@ -561,16 +563,16 @@ static void test_keys_width_limit(void)
     free(flags);
     free(n);
 
-    const TraceKey calm[2] = { { 0, TRACE_KEY_WIDTH, 8.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 3, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* 6 m over 300 m: 0.2 m a node at the most */
+    const TraceKey calm[2] = { { .point = 0, .has = TRACE_KEY_WIDTH, .width_m = 8.0 }, { .point = 3, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };   /* 6 m over 300 m: 0.2 m a node at the most */
     CHECK(track_trace_nodes_keyed(p, 4, WIDTH, calm, 2, &n, &count, &err));
-    flags = calloc((size_t)count, 1);
+    flags = calloc((size_t)count, sizeof *flags);
     track_trace_flags(n, count, flags);
     CHECK_EQ_INT(count_flags(flags, count, TRACE_FLAG_WIDTH_WARN), 0);
     free(flags);
     free(n);
 
     /* the longest row: both amber turn rules and the width one on a node of the last digits; the text is whole, not cut at the buffer */
-    const TraceProblem all = { 2396, 0, TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN, 16.4, 21.0, 1.55 };
+    const TraceProblem all = { .node = 2396, .red = 0, .flags = TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN, .turn = 16.4, .radius = 21.0, .width_step = 1.55 };
     char longest[TRACE_PROBLEM_TEXT];
     track_trace_problem_text(&all, longest, sizeof longest);
     CHECK(strlen(longest) > 128 - 1 && strlen(longest) < TRACE_PROBLEM_TEXT - 1);
@@ -586,7 +588,7 @@ static void test_keys_ramp_steepness(void)
     const int amber[3] = { 0, 0, 1 };
     for (int t = 0; t < 3; ++t) {
         TracePoint p[4] = { { 0, 0 }, { 0, 100 }, { 0, 100 + lengths[t] }, { 0, 300 } };
-        const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH, 8.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT }, { 2, TRACE_KEY_WIDTH, 14.0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };
+        const TraceKey keys[2] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 8.0 }, { .point = 2, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };
         TrackGenNode *n = NULL;
         int count = 0;
         ExchangeError err;
@@ -629,8 +631,8 @@ static void test_surface_keys(void)
 {
     TracePoint p[6];
     straight_points(p, 6, 60);                    /* 300 m: 49 nodes, a node every 6.25 m; points at 0, 60, 120 .. 300 m */
-    const TraceKey keys[2] = { { 1, TRACE_KEY_WIDTH | TRACE_KEY_SHOULDER_SURFACE, 8.0, TRACE_SURFACE_TARMAC, TRACE_SURFACE_INHERIT },
-                               { 3, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_VERGE, TRACE_SURFACE_TARMAC } };
+    const TraceKey keys[2] = { { .point = 1, .has = TRACE_KEY_WIDTH | TRACE_KEY_SHOULDER_SURFACE, .width_m = 8.0, .shoulder_l_surface = TRACE_SURFACE_TARMAC, .shoulder_r_surface = TRACE_SURFACE_INHERIT },
+                               { .point = 3, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_VERGE, .shoulder_r_surface = TRACE_SURFACE_TARMAC } };
     TrackGenNode *n = NULL;
     int count = 0;
     ExchangeError err;
@@ -657,7 +659,7 @@ static void test_surface_keys(void)
     CHECK(left[2] == TRACE_SURFACE_TARMAC && rights[2] == TRACE_SURFACE_VERGE);
     CHECK(left[3] == TRACE_SURFACE_VERGE && rights[3] == TRACE_SURFACE_TARMAC);
     CHECK(left[5] == TRACE_SURFACE_VERGE && rights[5] == TRACE_SURFACE_TARMAC);
-    const TraceKey nothing[1] = { { 2, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_INHERIT, TRACE_SURFACE_INHERIT } };   /* both sides inherit: nothing */
+    const TraceKey nothing[1] = { { .point = 2, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_INHERIT, .shoulder_r_surface = TRACE_SURFACE_INHERIT } };   /* both sides inherit: nothing */
     CHECK(track_trace_nodes_keyed(p, 6, WIDTH, nothing, 1, &n, &count, &err));
     int zero = n != NULL;
     for (int k = 0; n != NULL && k < count; ++k) zero &= n[k].side[0].has == 0 && n[k].side[1].has == 0 && n[k].side[0].tarmac == 0 && n[k].side[1].tarmac == 0;
@@ -674,14 +676,14 @@ static void test_surface_faults(void)
     int count = 0;
     ExchangeError err;
     memset(&err, 0, sizeof err);
-    const TraceKey off[1] = { { 4, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_TARMAC, TRACE_SURFACE_INHERIT } };
+    const TraceKey off[1] = { { .point = 4, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_TARMAC, .shoulder_r_surface = TRACE_SURFACE_INHERIT } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, off, 1, &n, &count, &err));
     CHECK(strstr(err.message, "point 4") != NULL);
-    const TraceKey odd[1] = { { 1, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_INHERIT, (TraceSurface)7 } };
+    const TraceKey odd[1] = { { .point = 1, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_INHERIT, .shoulder_r_surface = (TraceSurface)7 } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, odd, 1, &n, &count, &err));
     CHECK(strstr(err.message, "point 1") != NULL && strstr(err.message, "surface") != NULL);
-    const TraceKey twice[2] = { { 1, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_TARMAC, TRACE_SURFACE_INHERIT },
-                                { 1, TRACE_KEY_SHOULDER_SURFACE, 0, TRACE_SURFACE_VERGE, TRACE_SURFACE_INHERIT } };
+    const TraceKey twice[2] = { { .point = 1, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_TARMAC, .shoulder_r_surface = TRACE_SURFACE_INHERIT },
+                                { .point = 1, .has = TRACE_KEY_SHOULDER_SURFACE, .width_m = 0, .shoulder_l_surface = TRACE_SURFACE_VERGE, .shoulder_r_surface = TRACE_SURFACE_INHERIT } };
     CHECK(!track_trace_nodes_keyed(p, 4, WIDTH, twice, 2, &n, &count, &err));
     CHECK(strstr(err.message, "twice") != NULL);
     CHECK(n == NULL && count == 0);

@@ -160,7 +160,7 @@ static int parse_layout(const char *layout, size_t len, double start_width, Sect
 static void node_shapes(const Section *sections, int count, double start_width, TrackGenNode *shapes)
 {
     int node = 0;
-    TrackGenNode at = { 0, 0, 0, start_width, { 0, 0, 0 }, { { 0, 0 }, { 0, 0 } } };
+    TrackGenNode at = { 0, 0, 0, start_width, { 0, 0, 0 }, { { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 } } };
     for (int s = 0; s < count; ++s) {
         const int nodes = sections[s].segments * TRI_NODES_PER_SEGMENT;
         const TrackGenNode from = at;
@@ -207,6 +207,25 @@ static void write_node(uint8_t *dst, const uint8_t *model, const TrackGenNode *s
     put_u16(dst + 0x22, 0);
     for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side)   /* a tarmac shoulder: that side's nibble of flags[2] (high left, low right) is row 0 */
         if ((shape->side[side].has & TRACK_GEN_SIDE_TARMAC) && shape->side[side].tarmac) dst[6] &= (uint8_t)(side == TRACK_GEN_LEFT ? 0x0f : 0xf0);
+    for (int side = 0; side < 2; ++side) {   /* the sides a node gives (step 3); the rest stays the template's */
+        const TrackGenSide *s = &shape->side[side];
+        if (s->has & TRACK_GEN_SIDE_BARRIER) dst[2 + side] = (uint8_t)clamp_byte((double)(dst[side] + lround(s->barrier)));
+        if (s->has & TRACK_GEN_SIDE_WALL) {
+            const int shift = side == TRACK_GEN_LEFT ? 4 : 0;
+            dst[5] = (uint8_t)((dst[5] & ~(0xf << shift)) | (s->wall & 0xf) << shift);
+        }
+    }
+}
+
+/* the fence byte of a segment (+0xd): the template's, but for the sides its first node gives */
+static void write_fence(uint8_t *seg, const TrackGenNode *first)
+{
+    for (int side = 0; side < 2; ++side) {
+        const TrackGenSide *s = &first->side[side];
+        if (!(s->has & TRACK_GEN_SIDE_FENCE)) continue;
+        const uint8_t bit = side == TRACK_GEN_LEFT ? TRI_FENCE_LEFT : TRI_FENCE_RIGHT;
+        seg[0xd] = (uint8_t)(s->fence ? seg[0xd] | bit : seg[0xd] & ~bit);
+    }
 }
 
 static void write_strip(uint8_t *seg, const uint8_t *model, const TrackGenNode *shapes, const TriNode *tmpl)
@@ -217,7 +236,11 @@ static void write_strip(uint8_t *seg, const uint8_t *model, const TrackGenNode *
         const int width = (int)lround(shapes[row].width);
         put_i16(r + ROW_RIGHT0, get_i16(r + ROW_RIGHT0) + 16 * (width - tmpl->left_verge));
         put_i16(r + ROW_LEFT0, get_i16(r + ROW_LEFT0) - 16 * (width - tmpl->left_verge));
+        const TrackGenSide *right = &shapes[row].side[TRACK_GEN_RIGHT], *left = &shapes[row].side[TRACK_GEN_LEFT];   /* the model strip is flat at heading 0 */
+        if (right->has & TRACK_GEN_SIDE_SHOULDER) put_i16(r + ROW_RIGHT0 + 6, (int)lround(16 * right->shoulder));
+        if (left->has & TRACK_GEN_SIDE_SHOULDER) put_i16(r + ROW_LEFT0 + 6, -(int)lround(16 * left->shoulder));
     }
+    write_fence(seg, &shapes[0]);
 }
 
 /* The picture of each side's shoulder band in a segment (texture[1] right, texture[6] left: each chain's band from the road's edge out): the generic art's
@@ -241,12 +264,13 @@ static void shape_frame(const TrackGenNode *shape, TrackFrame *frame)
 /* one point of a row (3 x i16 deltas in world axes) from the template node's axes to the new node's, `lateral` added across the road on the
  * way. `*across` is the point's lateral reach from the road's centre in the new axes, summed along the row's side (`*across` of the side's
  * point before, in and out): when it passes `cap` the point is held at `cap`, the lateral step of the chain shortened to match. */
-static void turn_point(uint8_t *p, const TrackFrame *from, const TrackFrame *to, int lateral, int hold, double cap, double *across)
+static void turn_point(uint8_t *p, const TrackFrame *from, const TrackFrame *to, int lateral, int hold, double cap, const int *step, double *across)
 {
     const int32_t world[3] = { get_i16(p), get_i16(p + 2), get_i16(p + 4) };
     int32_t local[3], turned[3];
     track_frame_to_local(from, world, local);
     local[0] += lateral;
+    if (step != NULL) local[0] = *step;   /* a step across of its own (a shoulder's width), in place of the template's */
     if (hold) {
         const double reach = *across + local[0];
         double held = fabs(reach) > cap ? (reach < 0 ? -cap : cap) : reach;
@@ -322,10 +346,14 @@ static void write_strip_turned(uint8_t *seg, const uint8_t *model, const TrackGe
             const int lateral = point == 1 ? widen : point == 6 ? -widen : 0;   /* right[0] and left[0]: the road's edges */
             const int side = point >= 6, on_side = point == 0 ? -1 : point - 1 - 5 * side;   /* 0..4 along its side; -1 the middle */
             const int hold = on_side >= 2 && caps[row][side] != INFINITY;
+            const TrackGenSide *own = &shapes[row].side[side == 0 ? TRACK_GEN_RIGHT : TRACK_GEN_LEFT];
+            const int shoulder = on_side == 1 && (own->has & TRACK_GEN_SIDE_SHOULDER);   /* the shoulder's end: its step across is the shoulder */
+            const int step = (int)lround(16 * own->shoulder) * (side == 0 ? 1 : -1);
             double middle = 0;
-            turn_point(r + 6 * point, &from[row], &to, lateral, hold, caps[row][side], on_side < 0 ? &middle : &across[side]);
+            turn_point(r + 6 * point, &from[row], &to, lateral, hold, caps[row][side], shoulder ? &step : NULL, on_side < 0 ? &middle : &across[side]);
         }
     }
+    write_fence(seg, &shapes[0]);
 }
 
 /* the positions along the headings: each node one node length from the one before (the closing node's too, as the CD's) */
@@ -348,7 +376,7 @@ int track_layout_nodes(const char *layout, size_t layout_len, double start_width
     int sections_count, segments;
     if (!parse_layout(layout, layout_len, start_width, sections, &sections_count, &segments, err)) return 0;
     const int n = segments * TRI_NODES_PER_SEGMENT + 1;
-    TrackGenNode *made = malloc(sizeof *made * (size_t)n);
+    TrackGenNode *made = calloc((size_t)n, sizeof *made);   /* zero sides: the template's */
     if (made == NULL) { exchange_fail(err, "out of memory"); return 0; }
     node_shapes(sections, sections_count, start_width, made);
     integrate_positions(made, n);
@@ -358,6 +386,23 @@ int track_layout_nodes(const char *layout, size_t layout_len, double start_width
 }
 
 enum { STEP_MIN = 1 << 16, STEP_MAX = 20 << 16, HEADING_MAX = 1 << 24 };   /* steps of 1 and 20 units in 16.16; a thousand turns */
+
+/* a node's sides (step 3), named by side and by what is wrong; the wall's byte against 255 is check_wall_bytes', which needs the template */
+static int check_sides(const TrackGenNode *n, int i, ExchangeError *err)
+{
+    for (int side = 0; side < 2; ++side) {
+        const TrackGenSide *s = &n[i].side[side];
+        const char *name = side == TRACK_GEN_LEFT ? "left" : "right";
+        if (!isfinite(s->shoulder) || !isfinite(s->barrier)) return exchange_fail(err, "node %d: a value of the %s side is not a finite number", i, name), 0;
+        if ((s->has & TRACK_GEN_SIDE_SHOULDER) && (s->shoulder < 0 || s->shoulder > TRACK_GEN_SIDE_MAX))
+            return exchange_fail(err, "node %d: the %s shoulder is %g m, outside 0..%g m", i, name, s->shoulder / 8, TRACK_GEN_SIDE_MAX / 8), 0;
+        if ((s->has & TRACK_GEN_SIDE_BARRIER) && (s->barrier < 0 || s->barrier > TRACK_GEN_SIDE_MAX))
+            return exchange_fail(err, "node %d: the %s wall is %g m from the road edge, outside 0..%g m", i, name, s->barrier / 8, TRACK_GEN_SIDE_MAX / 8), 0;
+        if ((s->has & TRACK_GEN_SIDE_WALL) && s->wall != TRACK_GEN_WALL_HARD && s->wall != TRACK_GEN_WALL_SOFT)
+            return exchange_fail(err, "node %d: the %s wall's kind %d is not hard (0) or soft (1)", i, name, s->wall), 0;
+    }
+    return 1;
+}
 
 /* a node out of range, or too far a turn or step from the one before: why, naming it; 1 when it is as the generator takes it */
 static int check_node(const TrackGenNode *n, int i, int turned, ExchangeError *err)
@@ -373,6 +418,7 @@ static int check_node(const TrackGenNode *n, int i, int turned, ExchangeError *e
     for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side)
         if (n[i].side[side].tarmac != 0 && n[i].side[side].tarmac != 1)
             return exchange_fail(err, "node %d: the %s side's tarmac=%d is not 0 or 1", i, side == TRACK_GEN_LEFT ? "left" : "right", n[i].side[side].tarmac), 0;
+    if (!check_sides(n, i, err)) return 0;
     if (i == 0) return 1;
     double turn = fmod(n[i].heading - n[i - 1].heading, ANGLE_TURN);
     if (turn > ANGLE_TURN / 2) turn -= ANGLE_TURN;
@@ -385,6 +431,22 @@ static int check_node(const TrackGenNode *n, int i, int turned, ExchangeError *e
     const double dz = (double)n[i].position[2] - n[i - 1].position[2], step = sqrt(dx * dx + dy * dy + dz * dz);
     if (step < STEP_MIN || step > STEP_MAX)
         return exchange_fail(err, "node %d: it is %g units from the node before, it must be 1..20", i, step / 65536), 0;
+    return 1;
+}
+
+/* the wall a node gives, each side, as write_node makes its byte: that side's edge byte (the right one is the width plus what the template's right edge
+ * has more than its left) plus the wall's distance, at most 255 */
+static int check_wall_bytes(const TrackGenNode *n, int count, const TriNode *tmpl, ExchangeError *err)
+{
+    for (int i = 0; i < count; ++i)
+        for (int side = 0; side < 2; ++side) {
+            if (!(n[i].side[side].has & TRACK_GEN_SIDE_BARRIER)) continue;
+            const long edge = clamp_byte((double)(lround(n[i].width) + (side == TRACK_GEN_RIGHT ? tmpl->right_verge - tmpl->left_verge : 0)));
+            const long wall = edge + lround(n[i].side[side].barrier);
+            if (wall > 255)
+                return exchange_fail(err, "node %d: the %s wall is %g m from the centre, past the %g m a node holds", i, side == TRACK_GEN_LEFT ? "left" : "right",
+                                     (double)wall / 8.0, 255 / 8.0), 0;
+        }
     return 1;
 }
 
@@ -411,6 +473,7 @@ static int generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *
         exchange_fail(err, "the template is not a usable TRI");
         return 0;
     }
+    if (!check_wall_bytes(shapes, count, &model, err)) return 0;
     uint8_t *header = calloc(1, TRI_HEADER_SIZE);
     uint8_t *scenery = malloc((size_t)TRI_SCENERY_MAX * TRI_SCENERY_SIZE);
     uint8_t *terrain = malloc((size_t)segments * TRI_SEGMENT_SIZE);
