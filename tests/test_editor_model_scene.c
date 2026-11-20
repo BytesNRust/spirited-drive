@@ -22,40 +22,45 @@ enum { W = 320, H = 200, SIDE = 8 };
 
 static char base[256];
 
-/* the box of test_car_scene.c: 6 two-sided quads, the +x one textured with "side" (8 x 8) */
-static uint8_t *make_cfm(size_t *len)
+/* the box of test_car_scene.c: 6 two-sided quads, the +x one textured with "side" (8 x 8); with `wheel` the other five with "tyr1", a texture with no
+ * mask whose texels are all palette index 1 (as a wheel's are low indices: W1, the owner's 2026-11-20 test) */
+static uint8_t *make_cfm_of(size_t *len, int wheel)
 {
     static MeshVertex v[8];
     static MeshUv uv[4] = { { 0, 0 }, { 7, 0 }, { 7, 7 }, { 0, 7 } };
     static MeshDescPolygon p[6];
-    static MeshTexture t[3];
+    static MeshTexture t[4];
     static uint32_t surface[6] = { 0, 1, 2, 3, 4, 5 };
     static MeshDescGroup g[1];
     const int sx[8] = { -1, 1, 1, -1, -1, 1, 1, -1 }, sy[8] = { -1, -1, 1, 1, -1, -1, 1, 1 }, sz[8] = { -1, -1, -1, -1, 1, 1, 1, 1 };
     for (int i = 0; i < 8; i++) v[i] = (MeshVertex){ sx[i] * 2 * 300, sy[i] * 300, sz[i] * 400 };
     const uint32_t face[6][4] = { { 0, 1, 2, 3 }, { 5, 4, 7, 6 }, { 4, 0, 3, 7 }, { 1, 5, 6, 2 }, { 3, 2, 6, 7 }, { 4, 5, 1, 0 } };
     for (int i = 0; i < 6; i++) {
-        p[i] = (MeshDescPolygon){ .flags = 4 | (i == 3 ? 0x80 : 0), .unknown_1 = (uint8_t)(0x01 | (i == 3 ? 0x10 : 0)), .texture = (uint8_t)(i == 3 ? 0 : 1 + i % 2), .has_uv = i == 3 };
+        const int textured = i == 3 || wheel;
+        p[i] = (MeshDescPolygon){ .flags = 4 | (textured ? 0x80 : 0), .unknown_1 = (uint8_t)(0x01 | (textured ? 0x10 : 0)),
+                                  .texture = (uint8_t)(i == 3 ? 0 : wheel ? 3 : 1 + i % 2), .has_uv = textured };
         for (int k = 0; k < 4; k++) p[i].vertex[k] = face[i][k], p[i].uv[k] = (uint32_t)k;
     }
     memcpy(t[0].label, "side", 4), memcpy(t[0].name, "side", 4);
+    memcpy(t[3].label, "tyr1", 4), memcpy(t[3].name, "tyr1", 4);
     t[1].unknown_1[0] = 0x80 | 0x40 << 8;
     t[2].unknown_1[0] = 0x20 << 16 | 0xC0 << 8;
     memcpy(g[0].name, "surface", 7), g[0].polygons = surface, g[0].count = 6;
     MeshDesc d = { 0 };
-    d.vertices = v, d.vertex_count = 8, d.uvs = uv, d.uv_count = 4, d.polygons = p, d.polygon_count = 6, d.textures = t, d.texture_count = 3, d.groups = g, d.group_count = 1;
+    d.vertices = v, d.vertex_count = 8, d.uvs = uv, d.uv_count = 4, d.polygons = p, d.polygon_count = 6, d.textures = t, d.texture_count = 4, d.groups = g, d.group_count = 1;
     uint8_t *orip = NULL;
     size_t orip_len = 0;
     ExchangeError err = { { 0 } };
     if (!mesh_build(&d, &orip, &orip_len, &err)) return NULL;
-    static uint8_t pal[768], side[SIDE * SIDE];
+    static uint8_t pal[768], side[SIDE * SIDE], tyre[SIDE * SIDE];
     for (int i = 0; i < 256; i++) pal[3 * i] = (uint8_t)(i | 3), pal[3 * i + 1] = (uint8_t)(255 - i), pal[3 * i + 2] = (uint8_t)(i / 2 + 1);   /* low bits the race drops */
-    for (int i = 0; i < SIDE * SIDE; i++) side[i] = (uint8_t)(40 + i);
-    const ShpiDescEntry e[2] = { { .name = { '!', 'P', 'A', 'L' }, .type = 0x24, .width = 256, .height = 1, .data = pal, .block_size = SHPI_BLOCK_AUTO },
-                                 { .name = { 's', 'i', 'd', 'e' }, .type = 0x7b, .width = SIDE, .height = SIDE, .data = side, .block_size = SHPI_BLOCK_AUTO, .dir_index = 1 } };
+    for (int i = 0; i < SIDE * SIDE; i++) side[i] = (uint8_t)(40 + i), tyre[i] = 1;
+    const ShpiDescEntry e[3] = { { .name = { '!', 'P', 'A', 'L' }, .type = 0x24, .width = 256, .height = 1, .data = pal, .block_size = SHPI_BLOCK_AUTO },
+                                 { .name = { 's', 'i', 'd', 'e' }, .type = 0x7b, .width = SIDE, .height = SIDE, .data = side, .block_size = SHPI_BLOCK_AUTO, .dir_index = 1 },
+                                 { .name = { 't', 'y', 'r', '1' }, .type = 0x7b, .width = SIDE, .height = SIDE, .data = tyre, .block_size = SHPI_BLOCK_AUTO, .dir_index = 2 } };
     uint8_t *shpi = NULL;
     size_t shpi_len = 0;
-    if (!shpi_build(e, 2, &shpi, &shpi_len, &err)) return free(orip), NULL;
+    if (!shpi_build(e, 3, &shpi, &shpi_len, &err)) return free(orip), NULL;
     const uint8_t *const child[CFM_CHILDREN] = { orip, shpi, orip, shpi };
     const size_t clen[CFM_CHILDREN] = { orip_len, shpi_len, orip_len, shpi_len };
     uint8_t *cfm = NULL;
@@ -63,6 +68,8 @@ static uint8_t *make_cfm(size_t *len)
     free(orip), free(shpi);
     return ok ? cfm : NULL;
 }
+
+static uint8_t *make_cfm(size_t *len) { return make_cfm_of(len, 0); }
 
 static int write_file(const char *path, const uint8_t *data, size_t n)
 {
@@ -355,6 +362,70 @@ static void test_the_cds_911(void)
     model_scene_close(m);
 }
 
+/* W1 (the owner's test, 2026-11-20): a texel of a texture with no mask (a wheel's) keeps its colour whatever lamps are lit. The box with its other five
+ * faces in "tyr1" (all index 1) changes, between every lamps state and the dark night, in the pixels the plain box changes in (its lamps), give or
+ * take the faces' edges */
+static ModelScene *open_cfm(const char *name, int wheel, const char *masks)
+{
+    char path[500];
+    snprintf(path, sizeof path, "%s/car/%s.CFM", base, name);
+    size_t len = 0;
+    uint8_t *cfm = make_cfm_of(&len, wheel);
+    CHECK(cfm != NULL && write_file(path, cfm, len));
+    free(cfm);
+    PreviewIn in;
+    memset(&in, 0, sizeof in);
+    in.cfm = path, in.stem = "BOX", in.masks_dir = masks, in.added = 1;
+    char why[200] = "";
+    ModelScene *m = model_scene_open_painted(&in, why, sizeof why);
+    if (m == NULL) fprintf(stderr, "open_cfm %s: %s\n", name, why);
+    return m;
+}
+
+static int changed_pixels(ModelScene *m, const Orbit *o, const CarNightState *a, const CarNightState *b, int *lamps)
+{
+    static uint8_t first[W * H * 4];
+    CHECK(model_scene_render(m, o, W, H, a, first));
+    CHECK(model_scene_render(m, o, W, H, b, rgba));
+    *lamps = model_scene_lamp_pixels(m);
+    int changed = 0;
+    for (int i = 0; i < W * H; i++) changed += memcmp(first + 4 * i, rgba + 4 * i, 4) != 0;
+    return changed;
+}
+
+static void test_a_texture_with_no_mask_keeps_its_colours(void)
+{
+    char dir[400], masks[400];
+    snprintf(dir, sizeof dir, "%s/car", base);
+    snprintf(masks, sizeof masks, "%s/masks_w1", base);
+    mkdir(dir, 0777), mkdir(masks, 0777);
+    CHECK(make_mask(masks));
+    ModelScene *plain = open_cfm("PLAIN", 0, masks), *wheel = open_cfm("WHEEL", 1, masks);
+    CHECK(plain != NULL && wheel != NULL);
+    if (plain == NULL || wheel == NULL) {
+        model_scene_close(plain), model_scene_close(wheel);
+        return;
+    }
+    Orbit o;
+    orbit_init(&o, model_scene_radius(plain));
+    orbit_set(&o, 60 * 16, 30 * 16);
+    CarNightState dark;
+    memset(&dark, 0, sizeof dark);
+    dark.night = 1, dark.lit = 1, dark.light[0] = dark.light[1] = dark.light[2] = 0.4f;
+    const int states[5][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 1, 1, 0 }, { 1, 1, 1 }, { 0, 0, 1 } };   /* lights, brake, reverse: the owner's combinations */
+    for (int k = 0; k < 5; k++) {
+        CarNightState s = dark;
+        s.lights = states[k][0], s.brake = states[k][1], s.reverse = states[k][2];
+        int plain_lamps = 0, wheel_lamps = 0;
+        const int plain_changed = changed_pixels(plain, &o, &dark, &s, &plain_lamps), wheel_changed = changed_pixels(wheel, &o, &dark, &s, &wheel_lamps);
+        fprintf(stderr, "W1 state %d: plain %d changed %d lamps, wheel %d changed %d lamps\n", k, plain_changed, plain_lamps, wheel_changed, wheel_lamps);
+        CHECK_EQ_INT(wheel_changed, wheel_lamps);   /* what changes is the lamps */
+        CHECK(abs(wheel_lamps - plain_lamps) <= 1 + plain_lamps / 100);   /* and they are the side's: the faces' edges are drawn a pixel apart */
+        CHECK_EQ_INT(plain_changed, plain_lamps);
+    }
+    model_scene_close(plain), model_scene_close(wheel);
+}
+
 int main(void)
 {
     snprintf(base, sizeof base, "%s/model_scene_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
@@ -362,5 +433,6 @@ int main(void)
     test_a_synthetic_car();
     test_the_body_shine();
     test_the_cds_911();
+    test_a_texture_with_no_mask_keeps_its_colours();
     return TEST_REPORT();
 }

@@ -20,6 +20,7 @@ typedef struct {
     const FshEntry **slots;     /* for car_scene_render_layer: the slot's entry, NULL for a slot with no lamp texel */
     uint8_t **texels;
     uint32_t count;
+    int lit;                    /* texels of a lit lamp in some slot */
     uint8_t rgb[LAMP_COLOURS + 1][3];
     int colours;
     int lamps;                  /* the switches the layer was made for (lamp_key), -1 none yet */
@@ -139,7 +140,7 @@ static void lamp_free(LampLayer *l)
 {
     for (uint32_t i = 0; i < l->count; i++) free(l->texels[i]);
     free(l->texels), free(l->entries), free(l->slots);
-    l->texels = NULL, l->entries = NULL, l->slots = NULL, l->count = 0, l->colours = 0;
+    l->texels = NULL, l->entries = NULL, l->slots = NULL, l->count = 0, l->colours = 0, l->lit = 0;
 }
 
 void model_scene_close(ModelScene *m)
@@ -221,6 +222,16 @@ static uint8_t *lamp_texels(LampLayer *l, const PreviewTex *t, const CarNightSta
     return out;
 }
 
+/* A texture's layer with no lamp: NO_LAMP, transparent where its texel is (the Preview's texels, else the bank's own); NULL when neither is there */
+static uint8_t *dark_texels(const PreviewTex *t, const FshEntry *e)
+{
+    const size_t n = (size_t)e->width * (size_t)e->height;
+    const uint8_t *index = t != NULL && t->index != NULL ? t->index : e->payload_size >= n ? e->payload : NULL;
+    uint8_t *out = index != NULL ? malloc(n) : NULL;
+    for (size_t i = 0; out != NULL && i < n; i++) out[i] = index[i] == CAR_SCENE_CLEAR ? CAR_SCENE_CLEAR : NO_LAMP;
+    return out;
+}
+
 /* the layer's key: every switch the lamps' pass reads (lamps_only below), not the race's lamp state, so a rule of car_night_texture's own (the
  * brake lit by day with the state still LAMP_DAY) cannot leave the layer stale */
 static int lamp_key(const CarNightState *s)
@@ -246,13 +257,15 @@ static void lamp_layer(ModelScene *m, const CarNightState *night)
     l->count = n;
     CarNightState lamps_only = { 0 };
     lamps_only.night = night->night, lamps_only.lights = night->lights, lamps_only.brake = night->brake, lamps_only.reverse = night->reverse;
-    for (uint32_t s = 0; s < n; s++) {
+    for (uint32_t s = 0; s < n; s++) {   /* every texture its layer, a dark one where no lamp is: a slot left out draws its own indices, read as lamps (W1) */
         const FshEntry *e = m->scene.obj.textures[s].texture;
-        const PreviewTex *t = e != NULL ? preview_of(m, e) : NULL;
-        if (t == NULL || t->index == NULL || t->mask == NULL) continue;
+        if (e == NULL) continue;
+        const PreviewTex *t = preview_of(m, e);
         int lit = 0;
-        l->texels[s] = lamp_texels(l, t, &lamps_only, &lit);
-        if (l->texels[s] == NULL || lit == 0) continue;
+        l->texels[s] = t != NULL && t->index != NULL && t->mask != NULL ? lamp_texels(l, t, &lamps_only, &lit) : NULL;
+        if (lit == 0) free(l->texels[s]), l->texels[s] = dark_texels(t, e);
+        if (l->texels[s] == NULL) continue;
+        l->lit += lit;
         l->entries[s] = *e;
         l->entries[s].payload = l->texels[s];
         l->entries[s].payload_size = (size_t)e->width * e->height;
@@ -262,9 +275,7 @@ static void lamp_layer(ModelScene *m, const CarNightState *night)
 
 static int has_lamps(const LampLayer *l)
 {
-    for (uint32_t s = 0; s < l->count; s++)
-        if (l->slots[s] != NULL) return 1;
-    return 0;
+    return l->lit > 0;
 }
 
 static int grow(ModelScene *m, size_t n)
