@@ -156,6 +156,37 @@ int mask_edit_texel_under(float px, float py, float origin_x, float origin_y, fl
     return 1;
 }
 
+static const float ZOOM_STEPS[] = { 1.0f, 1.5f, 2.0f, 3.0f, 4.0f, 6.0f, 8.0f, 12.0f, 16.0f };   /* ME_ZOOM_MIN..ME_ZOOM_MAX */
+
+float mask_edit_zoom_step(float scale, int dir)
+{
+    const int n = (int)(sizeof ZOOM_STEPS / sizeof ZOOM_STEPS[0]);
+    if (!(scale > 0.0f)) scale = ZOOM_STEPS[0];
+    if (dir > 0) {
+        for (int i = 0; i < n; i++)
+            if (ZOOM_STEPS[i] > scale + 0.01f) return ZOOM_STEPS[i];
+        return ZOOM_STEPS[n - 1];
+    }
+    if (dir < 0) {
+        for (int i = n - 1; i >= 0; i--)
+            if (ZOOM_STEPS[i] < scale - 0.01f) return ZOOM_STEPS[i];
+        return ZOOM_STEPS[0];
+    }
+    return scale < ZOOM_STEPS[0] ? ZOOM_STEPS[0] : scale > ZOOM_STEPS[n - 1] ? ZOOM_STEPS[n - 1] : scale;
+}
+
+float mask_edit_zoom_scroll(float scroll, float view, float old_scale, float new_scale)
+{
+    if (!(old_scale > 0.0f) || !(new_scale > 0.0f) || !isfinite(scroll) || !isfinite(view)) return 0.0f;
+    const float centre = (scroll + view * 0.5f) / old_scale, to = centre * new_scale - view * 0.5f;   /* the texel at the middle, in texels */
+    return to > 0.0f ? to : 0.0f;
+}
+
+MaskZoomKey mask_edit_zoom_key(int ch)
+{
+    return ch == '+' || ch == '=' ? ME_ZOOM_IN : ch == '-' ? ME_ZOOM_OUT : ch == '0' ? ME_ZOOM_FIT : ME_ZOOM_NONE;
+}
+
 int mask_edit_class_at(const MaskEdit *e, int x, int y)
 {
     if (x < 0 || y < 0 || x >= e->width || y >= e->height) return -1;
@@ -204,6 +235,7 @@ static int paint_texel(MaskEdit *e, MaskStep *s, int x, int y, uint8_t cls)
     const size_t i = (size_t)y * e->width + x;
     if (e->now[i] == cls || !step_add(s, (uint32_t)i, e->now[i])) return 0;
     e->now[i] = cls;
+    e->modified_known = 0, e->version++;   /* a texel added to a stroke's open step shows at once, not at the next step */
     return 1;
 }
 
