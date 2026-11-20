@@ -410,7 +410,7 @@ void masks_panel(App *a)
             char psd[APP_PATH];
             const bool found = app_psd_psd_dir(a, psd, sizeof psd);
             const bool busy = app_psd_busy(a);
-            char python_note[400];
+            char python_note[800];
             app_psd_python_note(a, python_note, sizeof python_note);
             ImGui::BeginDisabled(!found || busy || a->tools[0] == '\0' || !app_psd_python_ready(a));
             if (ImGui::Button("Convert PSD")) app_psd_start(a);

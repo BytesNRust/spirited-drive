@@ -239,6 +239,16 @@ static void test_probe(void)
     for (int i = 0; i < 4000 && py_probe_poll(&probe); i++) usleep(5000);
     CHECK(probe.state == 2 && !probe.found && strstr(probe.tried, "py_missing") != NULL && strstr(probe.tried, "py_no") != NULL);
     py_probe_free(&probe);
+    /* an interpreter that never answers is given up and the next one is tried */
+    CHECK(make_script("py_hang", "#!/bin/sh\nsleep 30\n"));
+    char hang[700];
+    path_of(hang, sizeof hang, "py_hang");
+    const char *slow[] = { hang, yes };
+    py_probe_init_list(&probe, slow, 2);
+    probe.timeout_s = 0.3;
+    for (int i = 0; i < 4000 && py_probe_poll(&probe); i++) usleep(5000);
+    CHECK(probe.state == 2 && probe.found && strcmp(probe.python, yes) == 0 && strstr(probe.tried, "no answer") != NULL);
+    py_probe_free(&probe);
     /* TNFS_PYTHON first */
     py_probe_init(&probe, yes);
     CHECK(strcmp(probe.cand[0], yes) == 0 && strcmp(probe.cand[1], "/opt/homebrew/bin/python3") == 0 && strcmp(probe.cand[2], "/usr/local/bin/python3") == 0 && probe.cand[3][0] == '\0' && probe.count == 4);
@@ -262,7 +272,7 @@ static void remove_tree(void)
     const char *files[] = { "tools/car_mask_from_psd.py", "tools/dash_mask_from_psd.py", "psd/TSupra/side.psd", "psd/TSupra/frnt.psd", "psd/TSupra/side.before-1603.psd", "psd/TSupra/dash.psd",
                             "proj/car_masks/TSUPRA/side_mask.png", "proj/car_masks/TSUPRA/mine_mask.png", "proj/car_masks/TSUPRA/frnt_mask.png",
                             "proj/dash_masks/TSUPRA/dash_mask.png", "proj/dash_masks/TSUPRA/dash_color.png",
-                            "py_no", "py_yes", "py_yes2", "py_mark", "py_mark.used" };
+                            "py_no", "py_yes", "py_yes2", "py_mark", "py_mark.used", "py_hang" };
     char p[700];
     for (size_t i = 0; i < sizeof files / sizeof files[0]; i++) path_of(p, sizeof p, files[i]), unlink(p);
     const char *dirs[] = { "tools", "psd/TSupra", "psd", "proj/car_masks/TSUPRA", "proj/car_masks", "proj/dash_masks/TSUPRA", "proj/dash_masks", "proj" };

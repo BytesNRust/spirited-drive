@@ -121,11 +121,24 @@ static void test_flows(void)
     char p[700];
     path_of(p, sizeof p, "kit/coche/car_masks/C84/rear_mask.png");
     CHECK(access(p, F_OK) != 0);
+    /* a window whose probe has not finished opens a car: TNFS_PYTHON is still the first candidate */
+    App *b = calloc(1, sizeof *b);
+    CHECK(b != NULL);
+    if (b != NULL) {
+        app_begin(b, "./tnfs", "", NULL);
+        CHECK(strcmp(b->py.cand[0], interp) == 0 && b->py.state == 0);
+        char kit0[500];
+        path_of(kit0, sizeof kit0, "kit");
+        CHECK(app_open_car(b, kit0) && strcmp(b->py.cand[0], interp) == 0);
+        app_free(b);
+        free(b);
+    }
     /* another car opened in the same window: the folders are the window's, Convert PSD still works */
     char kit[500];
     path_of(kit, sizeof kit, "kit");
     CHECK(app_open_car(a, kit));
     CHECK(a->tools[0] != '\0' && a->psd_root[0] != '\0' && app_psd_psd_dir(a, dir, sizeof dir));
+    unsetenv("TNFS_PYTHON");
     app_free(a);
     free(a);
 }

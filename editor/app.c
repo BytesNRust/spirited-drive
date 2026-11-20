@@ -66,7 +66,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     a->race_look = car_race_look_default();
     install_job_init(&a->install);
     psd_job_init(&a->psd);
-    py_probe_init(&a->py, NULL);
+    py_probe_init(&a->py, getenv("TNFS_PYTHON"));
     a->export_pick = -1;
     a->preview_paint = -1;
     a->night = night_settings_default();
@@ -427,7 +427,7 @@ static int open_in(App *a, const char *dir, AppKind kind)
         return 0;
     }
     app_carry_window(next, a);
-    if (a->py.state == 2) {   /* the python found is the session's; a probe still running is started again by the new project */
+    if (a->py.state == 2) {   /* the python found is the session's (the log below now belongs to the old window's app_free); a probe not done is made again by the new project, with the same TNFS_PYTHON */
         py_probe_free(&next->py);
         next->py = a->py;
         memset(&next->py.run, 0, sizeof next->py.run);

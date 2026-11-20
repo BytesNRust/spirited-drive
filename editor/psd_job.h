@@ -18,6 +18,8 @@ typedef struct {
     ProcRun run;
     char cand[PY_CANDIDATES][PSD_PATH];   /* "" stands for python3 found through PATH (run as /usr/bin/env python3) */
     int count, next;
+    double started;             /* when the candidate being tried was started (a monotonic clock, seconds) */
+    double timeout_s;           /* a candidate that has not answered by then is given up (a shim or a stalled import must not hold the button forever); 12 */
     int state;                  /* 0 not started, 1 looking, 2 done */
     int found;                  /* 1: `python` is the one (a "" there is the PATH's) */
     char python[PSD_PATH];

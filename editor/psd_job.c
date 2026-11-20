@@ -8,6 +8,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 extern char **environ;
@@ -226,10 +227,18 @@ static int link_sources(PsdJob *job)
     return ok;
 }
 
+static double now_s(void)
+{
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (double)t.tv_sec + (double)t.tv_nsec / 1e9;
+}
+
 void py_probe_init_list(PyProbe *probe, const char *const *cands, int count)
 {
     memset(probe, 0, sizeof *probe);
     probe->run.fd = -1;
+    probe->timeout_s = 12;
     for (int i = 0; i < count && probe->count < PY_CANDIDATES; i++)
         if (cands[i] != NULL && strlen(cands[i]) < PSD_PATH) snprintf(probe->cand[probe->count++], PSD_PATH, "%s", cands[i]);
 }
@@ -265,7 +274,10 @@ static int probe_start_next(PyProbe *probe)
             continue;
         }
         proc_free(&probe->run);
-        if (proc_start(&probe->run, cand[0] == '\0' ? env_argv : own_argv, environ, NULL, why, sizeof why)) return 1;
+        if (proc_start(&probe->run, cand[0] == '\0' ? env_argv : own_argv, environ, NULL, why, sizeof why)) {
+            probe->started = now_s();
+            return 1;
+        }
         tried_add(probe, cand);
         probe->next++;
     }
@@ -280,7 +292,16 @@ int py_probe_poll(PyProbe *probe)
         if (!probe_start_next(probe)) probe->state = 2;
         return probe->state == 1;
     }
-    if (proc_poll(&probe->run)) return 1;
+    if (proc_poll(&probe->run)) {
+        if (now_s() - probe->started < probe->timeout_s) return 1;
+        proc_free(&probe->run);   /* ends it: this candidate did not answer in time */
+        char name[PSD_PATH + 16];
+        snprintf(name, sizeof name, "%s (no answer in %d s)", probe->cand[probe->next][0] != '\0' ? probe->cand[probe->next] : "python3 of PATH", (int)probe->timeout_s);
+        tried_add(probe, name);
+        probe->next++;
+        if (!probe_start_next(probe)) probe->state = 2;
+        return probe->state == 1;
+    }
     if (probe->run.exit_code == 0 && !probe->run.stopped) {
         snprintf(probe->python, sizeof probe->python, "%s", probe->cand[probe->next]);
         probe->found = 1;

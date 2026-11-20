@@ -55,7 +55,7 @@ void app_psd_python_note(const App *a, char *out, size_t cap)
 {
     if (a->py.state != 2) snprintf(out, cap, "Looking for a python with psd-tools and Pillow...");
     else if (a->py.found) snprintf(out, cap, "Runs the scripts with %s", a->py.python[0] != '\0' ? a->py.python : "python3 of PATH");
-    else snprintf(out, cap, "No python with psd-tools and Pillow (tried: %s).\nInstall them: pip3 install psd-tools Pillow, or set TNFS_PYTHON to the python that has them", a->py.tried[0] != '\0' ? a->py.tried : "none");
+    else snprintf(out, cap, "No python with psd-tools and Pillow (tried: %s).\nInstall them: pip3 install psd-tools Pillow, or set TNFS_PYTHON to the full path of the python that has them", a->py.tried[0] != '\0' ? a->py.tried : "none");
 }
 
 int app_psd_busy(const App *a)
