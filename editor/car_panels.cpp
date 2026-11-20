@@ -31,6 +31,18 @@ void muted_wrapped(const char *format, ...)
     ImGui::PopStyleColor();
 }
 
+// a "(?)" whose hover shows `text`, wrapped (dev3 unifies these in a common help_marker())
+void help_marker(const char *text)
+{
+    ImGui::TextDisabled("(?)");
+    if (ImGui::BeginItemTooltip()) {
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 32.0f);
+        ImGui::TextUnformatted(text);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
+
 // the last component of a folder path
 const char *leaf(const char *path)
 {
@@ -625,9 +637,11 @@ void race_panel(App *a, ImTextureID photo)
         const bool busy = app_race_busy(a);
         const bool traffic = car != nullptr && car->kind != EXPORT_DRIVABLE;
         if (car == nullptr) {
-            muted_wrapped("Test in race is for the game's own cars: it runs the game with this project's masks in front of its own. Make one with Export original car.");
+            ImGui::TextDisabled("Test in race: the game's own cars only");
+            ImGui::SameLine();
+            help_marker("Test in race runs the game with this project's masks in front of its own, so it needs a project of one of the game's cars. "
+                        "Make one with Export original car.");
         } else {
-            muted_wrapped("The game runs on a scratch player folder, with this project's masks.%s", traffic ? " Traffic: City, Coastal or Alpine stages only." : "");
             ImGui::BeginDisabled(busy);
             ImGui::TextUnformatted("Time");
             ImGui::SameLine();
@@ -655,7 +669,10 @@ void race_panel(App *a, ImTextureID photo)
             ImGui::EndDisabled();
             char note[500];   // Test in race: who drives what, and where a traffic car is
             car_race_note(car, now != nullptr ? now->stem : "", note, sizeof note);
-            if (note[0] != '\0') muted_wrapped("Test in race: %s", note);
+            char help[800];   // the detail, behind the (?) beside the buttons: no loose explanation in the panel
+            const int n = snprintf(help, sizeof help, "The game runs on a scratch player folder, with this project's masks.%s%s%s",
+                                   traffic ? " A traffic or police car: City, Coastal or Alpine stages only." : "", note[0] != '\0' ? "\n\nTest in race: " : "", note);
+            if (n < 0 || static_cast<size_t>(n) >= sizeof help) snprintf(help + sizeof help - 4, 4, "...");
             ImGui::BeginDisabled(busy);
             if (ImGui::Button("Test in race")) app_race(a, 0);
             ImGui::SameLine();
@@ -665,6 +682,8 @@ void race_panel(App *a, ImTextureID photo)
             ImGui::BeginDisabled(!busy);
             if (ImGui::Button("Stop")) app_race_stop(a);
             ImGui::EndDisabled();
+            ImGui::SameLine();
+            help_marker(help);
             ImGui::BeginDisabled(busy);
             race_look_controls(a);
             ImGui::EndDisabled();

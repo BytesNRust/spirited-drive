@@ -116,10 +116,13 @@ shows the window and `--pick FOLDER` chooses a car in it.
 
 **Test in race and Race photo** (the Race window, for a project of one of the game's own cars: the eight from Export original car, and the traffic and police ones).
 Both run the game (the one Studio found; Locate game if it is not there) on a scratch player folder made for the run (`studio-race-XXXXXX` in the temporary folder,
-Restomod, no extra liveries, render scale 1, removed when the run ends): the player's own folder and the installed game are never touched. The project's masks are
+Restomod whole, its look keys written out, no extra liveries, removed when the run ends): the player's own folder and the installed game are never touched. The project's masks are
 in front of the game's own (`TNFS_CAR_MASKS=<project>/car_masks`, and `TNFS_DASH_MASKS` for a car you drive); the person's own `TNFS_*` variables are dropped.
 **Day** or **Night** (Night is `light_time=night` and `light_effects=1`), and a track from the list (default Rusty Springs, the night reference; Lost Vegas has no
-time of day). A car you drive is raced alone (`--car N --racers 1`; N is the car's model for a photo, and the car menu's number for the window, whose race is
+time of day). **Look**, folded under the buttons, has Reflections, Car colours, Soft shadow and Texture filter (all on: Restomod's) and the resolution, 1280 x 960
+(render scale 2, the default) or 640 x 480; they are the session's, never saved in the project, and the header's title and the run's summary say what is off
+("Look (Reflections off, 640x480)"). The window's explanations are behind the (?) beside the buttons. A car you drive is raced alone, a time trial (`--car N --racers 1`
+for a photo, `--car N --type 0` for the window; N is the car's model for a photo, and the car menu's number for the window, whose race is
 Control Central's: the game turns that number into the model by its own table, 00426620). A traffic or police car is raced in a race with traffic (`--type 1`), which
 runs only on the City, Coastal and Alpine stages (the circuits are greyed for it; default Coastal 1); the player drives the Toyota Supra Turbo, and the window says so
 and where the tested car is: the window's traffic is the game's own draw, so a given traffic car is on the road in some races and not in others. **Test in race** opens the game's window; **Stop** ends it. **Race photo** runs
