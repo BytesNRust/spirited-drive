@@ -30,6 +30,7 @@ enum {
     RACE_SEED_FIRST = 0x2b68, /* the game's own fixed seed is 0x2b67; the seeds above it draw other models, the small ones draw one model for every slot */
     RACE_SLOTS = 9,
     RACE_LOG_MAX = 131072,
+    RACE_PIECE_POLLS = 10,    /* a test drive reads the game's log every this many polls (the frames of the editor) until the piece's line is in it */
     RACE_PHOTO_W = 640, RACE_PHOTO_H = 480,
     RACE_TRAFFIC_PLAYER_MODEL = 0  /* the car the player drives in a race with a traffic or police car to test: the Supra (model 0) */
 };
@@ -67,6 +68,7 @@ typedef struct {
     uint32_t seed;           /* TNFS_DRIVE_SEED; 0 for the game's own */
     int photo_ticks;         /* > 0: headless, the frame after that many ticks in `shot`; 0: a race in a window */
     const char *shot;
+    const char *piece;       /* a track piece's id: Test drive of the track editor, a time trial on it (`track` and `project` unused); NULL for a car's race */
 } RaceSetup;
 
 typedef struct {
@@ -145,6 +147,10 @@ typedef struct {
     int photo_slot, photo_night;     /* what the photo shows */
     uint32_t photo_seed;
     char photo_track[8];
+    char piece[64];                  /* Test drive: the piece's id ("" for a car's race) */
+    int piece_track;                 /* what the game's log says of it while it runs: the track number it took, -1 refused, 0 not said yet */
+    char piece_line[200];            /* that line of the game's log */
+    int piece_polls;                 /* polls since the game's log was last read */
 } RaceJob;
 
 /* Starts Test in race (a race in the game's window) or Race photo (headless, then the picture in job->photo) of `car` from `project`. `game` and `cd` are the game's
@@ -153,6 +159,17 @@ int car_race_start_race(RaceJob *job, const char *game, const char *cd, const ch
                         char *why, size_t why_cap);
 int car_race_start_photo(RaceJob *job, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
                          char *why, size_t why_cap);
+/* The game's installer: `zip` into the player folder `user_dir` (build.c's install_zip). Given to car_race_start_drive so this file does not need the build. */
+typedef int (*RaceInstall)(const char *game, const char *zip, const char *user_dir, char *why, size_t why_cap);
+/* Starts Test drive of a track piece (the track editor's Drive window): a scratch player folder with the Restomod look, `zip` installed into it by `install`, then the
+ * game's window on the piece as a time trial with `car` (one the game's car menu has). While it runs the job reads the game's log for the piece's line
+ * (piece_track). 1 when it started, 0 with `why` (no game, not a drivable car, the install failed). */
+int car_race_piece_id_ok(const char *id);   /* a piece's id the test drive takes: a folder name of letters, digits, '-' and '_' */
+int car_race_start_drive(RaceJob *job, const char *game, const char *cd, const char *zip, const char *piece, const ExportCar *car, const RaceLook *look,
+                         RaceInstall install, char *why, size_t why_cap);
+/* the car the game's car menu has at `pick` (0..7, its order), NULL past it */
+const ExportCar *car_race_menu_car(int pick);
+
 /* every frame: takes the output, moves a photo job from the probes to the shot, ends the job; 1 while it runs */
 int car_race_poll(RaceJob *job);
 void car_race_stop(RaceJob *job);

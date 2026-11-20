@@ -157,6 +157,19 @@ if [ ! -x "/Applications/Spirited Drive.app/Contents/MacOS/tnfs" ] && [ ! -x "$(
     echo "$out" | grep -q "Applications" || fail "no hint with no game found: $out"
 fi
 
+# ==== Test drive: refused with the Problems' text, never into the player's folder (the game's own run is editor_e2e_track's) ====
+"$editor" "$work/bad" --frames 2 --test-drive --game "$work/no-such-game" --user "$work/td" >"$work/log" 2>&1 && fail "Test drive went on a curve over a red limit"
+grep -q "fix the red problems first" "$work/log" && grep -q "under 20.9 m\|more than 16.5" "$work/log" || fail "Test drive's refusal does not name the red limit: $(cat "$work/log")"
+"$editor" "$work/mild" --frames 2 --test-drive --game "$work/no-such-game" --user "$work/td" >"$work/log" 2>&1 && fail "Test drive went on a road too short for a stage"
+grep -q "too short for a stage" "$work/log" || fail "Test drive's refusal does not say the road is too short: $(cat "$work/log")"
+"$editor" "$work/fresh" --frames 2 --test-drive --race-off reflections --race-scale 1 --game "$work/no-such-game" --user "$work/td" >"$work/log" 2>&1 && fail "Test drive went with no game"
+grep -q "the game was not found" "$work/log" || fail "Test drive's refusal does not say the game is missing: $(cat "$work/log")"
+[ -d "$work/td/mods" ] && fail "Test drive put something in the player's mods folder"
+"$editor" "$work/fresh" --frames 2 --test-drive --race-scale 3 >/dev/null 2>&1 && fail "--race-scale 3 was taken with --test-drive"
+"$editor" "$work/fresh" --frames 2 --race-off reflections >/dev/null 2>&1 && fail "--race-off was taken with neither --race-photo nor --test-drive"
+"$editor" "$work/fresh" --frames 6 --shot "$work/drive.png" >"$work/log" 2>&1 || fail "run with the Drive window: $(cat "$work/log")"
+[ -s "$work/drive.png" ] || fail "no PNG with the Drive window"
+
 # ==== Window, player folder, and what a track project refuses ====
 # --window WxH: the picture is that size (a layout at another window size); a size out of range is refused by name
 "$editor" "$work/surface" --window 1440x900 --frames 6 --select 2 --shot "$work/wide.png" >"$work/log" 2>&1 || fail "run with --window: $(cat "$work/log")"

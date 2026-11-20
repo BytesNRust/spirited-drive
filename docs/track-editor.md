@@ -221,6 +221,23 @@ not read. A value that is not a number, or outside -60..60, refuses the file nam
   "keys": [ {"point": 1, "bank_deg": 0}, {"point": 2, "bank_deg": 30.0}, {"point": 4, "bank_deg": 0} ] }
 ```
 
+## Test drive: the Drive window
+
+The **Drive** window (a tab beside Limits and Problems) runs the game on the open track. **Test drive** builds the piece (as Build does), installs it into a
+scratch player folder of its own (never yours: your player folder and its `mods/` are not touched), and starts the game in its window on the piece as a time
+trial. **Stop**, or closing the game's window, ends it; the scratch folder goes with it.
+
+- **Car**: the game's car menu, in its order; the first is the default, and the last one picked is kept in the editor's settings (`track-editor.ini`,
+  `[StudioSettings][Editor] DriveCar=N`, the menu's number).
+- **Look**: the same switches and resolution as the car's Race window (`race_look_controls`, `editor/race_look_ui.cpp`), all on by default.
+- A track with a red problem, or too short for a stage, is not run: the window says the Problems' text. No game found says what to do, as Install does.
+- The state line says what the game's own log says of the piece while it runs (`track piece: <id> is track N`, or why it refused it). The game's log is
+  under a folded header.
+- Not in this version: a race photo at the selected point.
+
+Headless: `--test-drive` does the same and waits (60 s at most) for the game's line on the piece, prints it, then stops the game. `--race-off` and
+`--race-scale` set the look, as for `--race-photo`; `--cd DIR` names the game's files.
+
 ## Preview
 
 The **Preview** window (a tab beside Textures and Race) shows each texture of the car file as the race has it: the game's own code (the fixed black of the masks, then the paint) runs on a copy of the car file with this project's masks in front of the game's, and an unsaved mask edit counts as if it were saved. Pick the paint from the card's `paints=` (a car you drive; a traffic or police car has none: the race does not paint it). It updates by itself when a mask is edited or saved, a paint or its colour changes, or Rehacer ends (not while a pencil stroke is going).
@@ -252,7 +269,8 @@ SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_RENDER_DRIVER=software timeout
     --frames 3 --save --build --shot out.png
 ```
 
-`--install --game ./build/native/tnfs --user SCRATCH` runs the game's installer into a scratch player folder. `--select N` selects control point N first
+`--install --game ./build/native/tnfs --user SCRATCH` runs the game's installer into a scratch player folder; `--test-drive --game ./build/native/tnfs --cd original`
+runs Test drive (see Test drive). `--select N` selects control point N first
 (for a picture of the Node window). `--edit` adds a point first (something unsaved) and `--ask quit|new|open` asks for that action, to show the question
 of the unsaved changes.
 

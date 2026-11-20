@@ -89,6 +89,7 @@ typedef struct {
     int race_night;              /* the preset: 0 Day, 1 Night */
     int race_track;              /* the track chosen (car_race_track's index) */
     RaceLook race_look;          /* the Race window's look switches (T6): the session's, never written to the car's project; all on by default */
+    int drive_pick;              /* the car Test drive gives the player: the game's car menu's number (0..7, car_race_menu_car); the editor's settings keep it */
     char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder (main.c does it and clears this) */
     Project project;
     Trace trace;
@@ -153,6 +154,11 @@ int app_race(App *a, int photo);
 int app_race_poll(App *a);
 void app_race_stop(App *a);
 int app_race_busy(const App *a);
+
+/* Test drive of the open track (the Drive window): refused, with the status saying why (the Problems' text for a road the game does not race, no game), else the
+ * piece is built (app_build) and the game runs on it in its window as a time trial, from a scratch player folder it is installed into, never a->user, with the
+ * car a->drive_pick and the look a->race_look. The job is a->race: app_race_poll, app_race_stop and app_race_busy run it as Test in race's. 1 when it started. */
+int app_test_drive(App *a);
 
 /* Where the game's files are, for Export original car; also remembered across the projects opened from this window. */
 void app_set_export_source(App *a, const ExportSource *src);

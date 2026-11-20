@@ -59,6 +59,13 @@ int car_race_menu_pick(int model)
     return -1;
 }
 
+const ExportCar *car_race_menu_car(int pick)
+{
+    for (int i = 0; pick >= 0 && pick < 8 && car_export_car(i) != NULL; ++i)
+        if (car_export_car(i)->kind == EXPORT_DRIVABLE && car_race_menu_pick(car_export_car(i)->model) == pick) return car_export_car(i);
+    return NULL;
+}
+
 const char *car_race_player_label(const ExportCar *car)
 {
     if (car == NULL) return NULL;
@@ -137,9 +144,36 @@ void car_race_command_free(RaceCommand *c)
     memset(c, 0, sizeof *c);
 }
 
+/* a piece's id is a folder name: letters, digits, '-' and '_' */
+int car_race_piece_id_ok(const char *id)
+{
+    if (id[0] == '\0' || strlen(id) >= sizeof ((RaceJob *)0)->piece) return 0;
+    for (const char *c = id; *c != '\0'; ++c)
+        if (!isalnum((unsigned char)*c) && *c != '-' && *c != '_') return 0;
+    return 1;
+}
+
+/* Test drive: the piece the run installed (--mods: the profile's mods are the scratch folder's, empty but for it), a time trial in the window with the menu's car */
+static int drive_command(const RaceSetup *s, char *const *base, RaceCommand *out, char *why, size_t why_cap)
+{
+    if (s->car == NULL || s->game == NULL || s->cd == NULL || s->cd[0] == '\0' || s->user == NULL) return refuse(why, why_cap, "the test drive is not set up (no game files)");
+    if (!car_race_piece_id_ok(s->piece)) return refuse(why, why_cap, "%s is not a piece's id", s->piece);
+    if (s->car->kind != EXPORT_DRIVABLE || car_race_menu_pick(s->car->model) < 0) return refuse(why, why_cap, "%s is not a car you drive", s->car->label);
+    if (s->photo_ticks > 0) return refuse(why, why_cap, "a test drive has no photo");
+    int ok = add_arg(out, "%s", s->game) && add_arg(out, "--data") && add_arg(out, "%s", s->cd) && add_arg(out, "--user") && add_arg(out, "%s", s->user) &&
+             add_arg(out, "--mods") && add_arg(out, "%s/mods/%s", s->user, s->piece) && add_arg(out, "--drive") && add_arg(out, "%s", s->piece) &&
+             add_arg(out, "--car") && add_arg(out, "%d", car_race_menu_pick(s->car->model)) && add_arg(out, "--type") && add_arg(out, "0");
+    for (char *const *e = base; ok && e != NULL && *e != NULL; ++e)
+        if (strncmp(*e, "TNFS_", 5) != 0) ok = add_env(out, "%s", *e);
+    if (ok) return 1;
+    car_race_command_free(out);
+    return refuse(why, why_cap, "the command is too long");
+}
+
 int car_race_command(const RaceSetup *s, char *const *base, RaceCommand *out, char *why, size_t why_cap)
 {
     memset(out, 0, sizeof *out);
+    if (s->piece != NULL) return drive_command(s, base, out, why, why_cap);
     const int traffic = s->car != NULL && s->car->kind != EXPORT_DRIVABLE;
     const int ti = car_race_track_find(s->track);
     if (s->car == NULL || s->game == NULL || s->cd == NULL || s->project == NULL || s->user == NULL || s->track == NULL) return refuse(why, why_cap, "the race is not set up");
@@ -397,6 +431,7 @@ static int launch(RaceJob *j, char *why, size_t why_cap)
 {
     RaceSetup *s = &j->setup;
     s->game = j->own[0], s->cd = j->own[1], s->project = j->own[2], s->user = j->own[3], s->shot = j->own[4], s->track = j->track;
+    s->piece = j->piece[0] != '\0' ? j->piece : NULL;
     char shot[EXPORT_PATH + 32];
     snprintf(shot, sizeof shot, "%s/frame.ppm", j->temp);
     snprintf(j->own[4], sizeof j->own[4], "%s", shot);
@@ -405,15 +440,18 @@ static int launch(RaceJob *j, char *why, size_t why_cap)
     return proc_start(&j->run, j->command.argv, j->command.envp, NULL, why, why_cap);
 }
 
-static int start_common(RaceJob *j, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
-                        RaceJobState state, char *why, size_t why_cap)
+/* nothing running and a game where `game` says */
+static int job_can_start(const RaceJob *j, const char *game, char *why, size_t why_cap)
 {
     if (j->state != RACE_JOB_IDLE || j->run.running) return refuse(why, why_cap, "a race is already running");
     struct stat st;
     if (game == NULL || stat(game, &st) != 0 || !S_ISREG(st.st_mode)) return refuse(why, why_cap, "the game's program is not where Studio looked (%s): use Locate game", game != NULL ? game : "nowhere");
-    if (car == NULL) return refuse(why, why_cap, "this car is not one of the game's: Test in race is for the cars Export original car makes");
-    if (car_race_track_find(track) < 0) return refuse(why, why_cap, "no such track");
-    if (strlen(game) >= EXPORT_PATH || strlen(cd) >= EXPORT_PATH || strlen(project) >= EXPORT_PATH) return refuse(why, why_cap, "a path is too long");
+    return 1;
+}
+
+/* a fresh job (the photo serial kept) with its log and scratch folder: own[3] is the scratch player folder; 0 with `why` and nothing left */
+static int job_begin(RaceJob *j, const char *game, const char *cd, const char *project, const RaceLook *look, char *why, size_t why_cap)
+{
     proc_free(&j->run);
     car_race_command_free(&j->command);
     free(j->photo), free(j->log);
@@ -432,15 +470,56 @@ static int start_common(RaceJob *j, const char *game, const char *cd, const char
     }
     snprintf(j->own[0], sizeof j->own[0], "%s", game), snprintf(j->own[1], sizeof j->own[1], "%s", cd), snprintf(j->own[2], sizeof j->own[2], "%s", project);
     snprintf(j->own[3], sizeof j->own[3], "%s", user);
+    return 1;
+}
+
+/* a job that could not start: its scratch folder and log go */
+static int job_abandon(RaceJob *j)
+{
+    car_race_temp_remove(j->temp);
+    j->temp[0] = '\0';
+    free(j->log), j->log = NULL;
+    j->state = RACE_JOB_IDLE;
+    return 0;
+}
+
+static int start_common(RaceJob *j, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
+                        RaceJobState state, char *why, size_t why_cap)
+{
+    if (!job_can_start(j, game, why, why_cap)) return 0;
+    if (car == NULL) return refuse(why, why_cap, "this car is not one of the game's: Test in race is for the cars Export original car makes");
+    if (car_race_track_find(track) < 0) return refuse(why, why_cap, "no such track");
+    if (strlen(game) >= EXPORT_PATH || strlen(cd) >= EXPORT_PATH || strlen(project) >= EXPORT_PATH) return refuse(why, why_cap, "a path is too long");
+    if (!job_begin(j, game, cd, project, look, why, why_cap)) return 0;
+    const char *user = j->own[3];
     snprintf(j->track, sizeof j->track, "%s", track);
     j->setup.car = car, j->setup.night = night, j->setup.photo_ticks = state == RACE_JOB_RACE ? 0 : state == RACE_JOB_PROBE ? 1 : car_race_photo_ticks(car);
     j->state = state;
-    if (!car_race_user_files(user, night, &j->look, why, why_cap) || !launch(j, why, why_cap)) {
-        car_race_temp_remove(j->temp);
-        free(j->log), j->log = NULL;
-        j->state = RACE_JOB_IDLE;
-        return 0;
+    if (!car_race_user_files(user, night, &j->look, why, why_cap) || !launch(j, why, why_cap)) return job_abandon(j);
+    return 1;
+}
+
+int car_race_start_drive(RaceJob *job, const char *game, const char *cd, const char *zip, const char *piece, const ExportCar *car, const RaceLook *look,
+                         RaceInstall install, char *why, size_t why_cap)
+{
+    if (!job_can_start(job, game, why, why_cap)) return 0;
+    if (car == NULL || car->kind != EXPORT_DRIVABLE || car_race_menu_pick(car->model) < 0)
+        return refuse(why, why_cap, "%s is not a car you drive", car != NULL ? car->label : "no car");
+    if (piece == NULL || !car_race_piece_id_ok(piece)) return refuse(why, why_cap, "%s is not a piece's id", piece != NULL ? piece : "nothing");
+    if (zip == NULL || install == NULL) return refuse(why, why_cap, "the test drive is not set up");
+    if (strlen(game) >= EXPORT_PATH || strlen(cd) >= EXPORT_PATH) return refuse(why, why_cap, "a path is too long");
+    if (!job_begin(job, game, cd, "", look, why, why_cap)) return 0;
+    snprintf(job->piece, sizeof job->piece, "%s", piece);
+    job->setup.car = car, job->setup.piece = job->piece;
+    job->state = RACE_JOB_RACE;
+    char failed[300] = "it gave no reason";
+    if (!car_race_user_files(job->own[3], 0, &job->look, why, why_cap)) return job_abandon(job);
+    if (!install(game, zip, job->own[3], failed, sizeof failed)) {
+        refuse(why, why_cap, "the game did not install the piece: %s", failed);
+        return job_abandon(job);
     }
+    if (!launch(job, why, why_cap)) return job_abandon(job);
+    job_say(job, "Test drive of %s: you drive the %s, a time trial. A scratch player folder.\n", piece, car->label);
     return 1;
 }
 
@@ -573,14 +652,65 @@ static void next_draw(RaceJob *j, const char *why_not)
     if (!launch(j, why, sizeof why)) finish(j, 0, "%s", why);
 }
 
+/* the game's line on the piece (track_pieces.c): "track piece: <id> is track N" or "track piece: <id> refused: ..."; kept in the job when the log has it */
+/* `whole`: only a line the game has ended (while it runs, the last line may be half written: "track 1" of "track 12") */
+static void piece_seen(RaceJob *j, const char *log, int whole)
+{
+    char head[100];
+    if (log == NULL || j->piece_track != 0 || snprintf(head, sizeof head, "track piece: %s ", j->piece) >= (int)sizeof head) return;
+    const char *at = strstr(log, head);
+    if (at == NULL) return;
+    const char *nl = strchr(at, '\n');
+    if (whole && nl == NULL) return;
+    const size_t len = nl != NULL ? (size_t)(nl - at) : strlen(at);
+    snprintf(j->piece_line, sizeof j->piece_line, "%.*s", (int)(len < sizeof j->piece_line ? len : sizeof j->piece_line - 1), at);
+    int track = 0;
+    if (sscanf(at + strlen(head), "is track %d", &track) == 1 && track > 0) j->piece_track = track;
+    else if (strncmp(at + strlen(head), "refused", 7) == 0) j->piece_track = -1;
+}
+
+/* while the game runs, its log now and then (it writes it line by line), until it says the piece's line */
+static void piece_watch(RaceJob *j)
+{
+    if (j->piece[0] == '\0' || j->piece_track != 0 || ++j->piece_polls < RACE_PIECE_POLLS) return;
+    j->piece_polls = 0;
+    char path[EXPORT_PATH + 32];
+    if (snprintf(path, sizeof path, "%s/spirited-drive.log", j->own[3]) >= (int)sizeof path) return;
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return;
+    char *text = malloc(PROC_LOG_MAX + 1);
+    if (text != NULL) {
+        const size_t n = fread(text, 1, PROC_LOG_MAX, f);
+        text[n] = '\0';
+        piece_seen(j, text, 1);
+    }
+    free(text);
+    fclose(f);
+}
+
+/* a test drive ended: what the game said of the piece */
+static void drive_done(RaceJob *j, const char *game_log)
+{
+    piece_seen(j, game_log, 0);
+    const char *ended = j->run.stopped ? "Stopped" : j->run.exit_code == 0 ? "The game ended" : "The game ended with an error";
+    if (j->piece_track > 0) finish(j, j->run.stopped || j->run.exit_code == 0, "%s. The game took %s as track %d, driven with the %s.", ended, j->piece, j->piece_track, j->setup.car->label);
+    else if (j->piece_track < 0) finish(j, 0, "%s. The game says: %s.", ended, j->piece_line + strlen("track piece: "));
+    else if (j->run.stopped) finish(j, 0, "Stopped before the game said whether it took %s.", j->piece);
+    else finish(j, 0, "%s before the game said whether it took %s (exit code %d). Its output is in the log.", ended, j->piece, j->run.exit_code);
+}
+
 int car_race_poll(RaceJob *j)
 {
     if (j->state == RACE_JOB_IDLE) return 0;
-    if (proc_poll(&j->run)) return 1;
+    if (proc_poll(&j->run)) {
+        piece_watch(j);
+        return 1;
+    }
     size_t n = 0;
     char *game_log = collect(j, &n);
     const RaceJobState was = j->state;
-    if (j->run.stopped && was != RACE_JOB_RACE) finish(j, 0, "Stopped.");
+    if (j->piece[0] != '\0') drive_done(j, game_log);
+    else if (j->run.stopped && was != RACE_JOB_RACE) finish(j, 0, "Stopped.");
     else if (was == RACE_JOB_RACE) finish(j, j->run.exit_code == 0 || j->run.stopped, j->run.stopped ? "Stopped." : j->run.exit_code == 0 ? "The game ended." : "The game ended with exit code %d.", j->run.exit_code);
     else if (was == RACE_JOB_PROBE) probe_done(j, game_log);
     else photo_done(j);

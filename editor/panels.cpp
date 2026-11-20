@@ -200,6 +200,11 @@ void points_panel(App *a)
 
 static ImGuiID limits_dock = 0;   // the dock node Limits is in, where a layout kept from before the Problems window puts it as a tab
 
+ImGuiID panels_limits_dock(void)
+{
+    return limits_dock;
+}
+
 void limits_panel(App *a)
 {
     if (ImGui::Begin(PANEL_LIMITS)) {

@@ -32,12 +32,14 @@ enum {
     WINDOW_W = WINDOW_LEAST_W,   /* a headless run's window (--frames, --shot): the size the tests' pictures are of */
     WINDOW_H = WINDOW_LEAST_H,
     WINDOW_MIN_W = 640, WINDOW_MIN_H = 400, WINDOW_MAX_W = 3840, WINDOW_MAX_H = 2160,   /* --window's range */
-    FRAME_MS = 16
+    FRAME_MS = 16,
+    TEST_DRIVE_WAIT_MS = 60000   /* --test-drive waits this long for the game's line on the track */
 };
 
 typedef struct {
     const char *dir, *game, *user, *shot;
     int frames, save, build, install, select;   /* select: a control point to select before the first frame, -1 for none */
+    int test_drive;           /* --test-drive: Test drive as the Drive window runs it, until the game's log says whether it took the track; then the game is stopped */
     const char *set[8];      /* --set key=value, a car's field set before the first frame (a headless picture of a problem, a save of a change) */
     int set_count;
     const char *pick;        /* --pick FOLDER: the car chosen in the Export window before the first frame */
@@ -69,7 +71,7 @@ static int usage(void)
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2]]\n"
                     "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n"
-                    "       [--window WxH] [--reset-layout] [--steps edit,undo,redo,save,title]\n");
+                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--steps edit,undo,redo,save,title]\n");
     return 0;
 }
 
@@ -155,11 +157,12 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--save") == 0) o->save = 1;
         else if (strcmp(argv[i], "--build") == 0) o->build = 1;
         else if (strcmp(argv[i], "--install") == 0) o->install = 1;
+        else if (strcmp(argv[i], "--test-drive") == 0) o->test_drive = 1;
         else if (argv[i][0] != '-' && o->dir == NULL) o->dir = argv[i];
         else return usage();
     }
     RaceLook check = car_race_look_default();
-    if ((o->race_off != NULL || o->race_scale != 0) && !o->race_photo) return usage();   /* the Race look is a Race photo's */
+    if ((o->race_off != NULL || o->race_scale != 0) && !o->race_photo && !o->test_drive) return usage();   /* the Race look is a Race photo's or a test drive's */
     if (o->race_off != NULL && !race_off_apply(o->race_off, &check)) return usage();
     return 1;
 }
@@ -346,6 +349,23 @@ static int run_steps(App *a, const char *steps)
     return 1;
 }
 
+/* --test-drive: the Drive window's button, waited for until the game's log has the track's line (printed), then the game is stopped. 1 when it took the track. */
+static int test_drive(App *a, const Options *o)
+{
+    if (o->race_off != NULL) (void)race_off_apply(o->race_off, &a->race_look);   /* checked whole in parse_args */
+    if (o->race_scale != 0) a->race_look.scale = o->race_scale;
+    int made = app_test_drive(a);
+    for (int i = 0; made && i < TEST_DRIVE_WAIT_MS / 20 && a->race.piece_track == 0 && app_race_poll(a); ++i) SDL_Delay(20);
+    if (made) {
+        if (a->race.piece_line[0] != '\0') fprintf(stdout, "%s\n", a->race.piece_line);
+        app_race_stop(a);
+        while (app_race_poll(a)) SDL_Delay(20);
+        made = a->race.piece_track > 0;
+    }
+    fprintf(made ? stdout : stderr, "%s\n", a->status);
+    return made;
+}
+
 /* the actions asked for on the command line, once, before the first frame; 1 when all of them went */
 static int run_requested(App *a, const Options *o)
 {
@@ -354,6 +374,7 @@ static int run_requested(App *a, const Options *o)
     if (o->build) ok &= app_build(a);
     if (o->install) ok &= app_install(a);
     if (o->save || o->build || o->install) fprintf(stdout, "%s\n", a->status);
+    if (o->test_drive) ok &= test_drive(a, o);
     if (o->export_car != NULL) {   /* Export original car, headless: the project is made in --into and opened */
         const int made = pick_car(a, o->export_car) && o->export_into != NULL && app_export_car(a, o->export_into);
         if (!made && a->status[0] == '\0') snprintf(a->status, sizeof a->status, "--export-car %s needs a car of the list and --into PARENT", o->export_car);
@@ -553,6 +574,7 @@ static int run(App *a, const Options *o)
         }
     }
     const int headless = o->frames > 0;
+    ui_settings_to(a);
     int ok = run_requested(a, o), frame = 0, quit = 0;
     while (!quit) {
         for (SDL_Event ev; SDL_PollEvent(&ev);) {
