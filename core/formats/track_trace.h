@@ -76,7 +76,7 @@ int track_trace_nodes(const TracePoint *points, int count, double width, TrackGe
 
 /* The same with road keys: `width` (the byte) is the road's width at the start, a key with TRACE_KEY_WIDTH sets it at its point, and between two of them
  * (the start counting as one at point 0 when no key is there) the width is a smoothstep over the arc length, so the step from node to node stays small
- * (at most 1.5 times the average: D bytes over L metres on 6 m nodes steps 1.5 x D x 6 / L); after the last key it holds. With no keys it is
+ * (at most 1.5 times the average: D bytes over L metres on 6.25 m nodes steps 1.5 x D x 6.25 / L); after the last key it holds. With no keys it is
  * track_trace_nodes. A key off the points, twice on a point or outside TRACE_ROAD_MIN_M..MAX_M fails with err naming it. */
 int track_trace_nodes_keyed(const TracePoint *points, int count, double width, const TraceKey *keys, int key_count, TrackGenNode **nodes,
                             int *node_count, ExchangeError *err);
@@ -118,8 +118,8 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap);
 /* The summary of a road's flags, one line per rule some node breaks (a rule no node breaks has none), red lines first: "2 nodes turn more
  * than 16.5° per node: the track can't be built", "26 nodes turn more than 8° per node: they may not look right in the game", and the same for
  * the radius ("1 node is on a curve of radius under 43 units: it may not look right in the game"), and the width, last
- * ("3 nodes widen faster than 1.25 m per node: they may not look right in the game"). */
-enum { TRACE_SUMMARY_LINES = 5, TRACE_SUMMARY_TEXT = 128 };
+ * ("3 nodes change width by more than 1.25 m per node: they may not look right in the game"). */
+enum { TRACE_SUMMARY_LINES = 5, TRACE_SUMMARY_TEXT = 128, TRACE_PROBLEM_TEXT = 192 };   /* TRACE_PROBLEM_TEXT: room for a row with all three amber clauses */
 typedef struct {
     int red;
     int nodes;

@@ -142,7 +142,7 @@ void problems_panel(App *a)
         // red rows first, then amber, each by node (track_trace_problems); a click centres the Viewport on the node
         for (int i = 0; i < a->problem_count && i < PROBLEM_ROWS; ++i) {
             const TraceProblem &p = a->problems[i];
-            char label[TRACE_SUMMARY_TEXT];
+            char label[TRACE_PROBLEM_TEXT];
             track_trace_problem_text(&p, label, sizeof label);
             ImGui::PushStyleColor(ImGuiCol_Text, p.red ? BAD_TEXT : WARN_TEXT);
             ImGui::PushID(p.node);
@@ -181,7 +181,7 @@ void node_panel(App *a)
             else ImGui::TextDisabled("to the next node: -");
             for (int i = 0; i < a->problem_count; ++i) {   // the limits it breaks, worded as in Problems
                 if (a->problems[i].node != n) continue;
-                char text[TRACE_SUMMARY_TEXT];
+                char text[TRACE_PROBLEM_TEXT];
                 track_trace_problem_text(&a->problems[i], text, sizeof text);
                 ImGui::PushStyleColor(ImGuiCol_Text, a->problems[i].red ? BAD_TEXT : WARN_TEXT);
                 ImGui::TextWrapped("%s", text);

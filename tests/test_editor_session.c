@@ -136,6 +136,18 @@ static void check_keys_file(void)
     free(t.points);
     free(t.keys);
 
+    /* keys are version 2's: a file with no version, or version 1, that has a "keys" array loads none (and is not refused for it) */
+    write_file(trace, "{\"version\": 1, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 1, \"width_m\": 8.0}]}\n");
+    CHECK(project_open(dir, &proj, &t, why, sizeof why));
+    CHECK_EQ_INT(t.key_count, 0);
+    free(t.points);
+    free(t.keys);
+    write_file(trace, "{\"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 9, \"width_m\": 8.0}]}\n");
+    CHECK(project_open(dir, &proj, &t, why, sizeof why));   /* not even read: the bad point is no fault in a file without keys */
+    CHECK_EQ_INT(t.key_count, 0);
+    free(t.points);
+    free(t.keys);
+
     write_file(trace, "{\"version\": 2, \"width\": 36.0, \"points\": [[0, 0], [0, 100], [0, 200]],\n \"keys\": [{\"point\": 2, \"width_m\": 14.0}, {\"point\": 1, \"width_m\": 8.25, \"bank\": 3}]}\n");
     CHECK(project_open(dir, &proj, &t, why, sizeof why));
     CHECK_EQ_INT(t.key_count, 2);

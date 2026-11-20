@@ -155,8 +155,8 @@ distance along the curve (3t²-2t³, so the road widens gently at both ends; its
 width holds. Right-click a key's cell and choose "Inherit again" to clear it. Inserting a point keeps the keys on their points, removing one drops its key. The
 Node window shows the node's effective width.
 
-Problems marks amber a node whose width changes by more than 1.25 m (5 bytes) from the node before: D metres over L metres of road on 6 m nodes steps 1.5 x D x 6 / L,
-so an 8 to 14 m ramp is clean from 45 m of road on and over that limit at 40 m. In `trace.json` the keys are written only when there are some, with `"version": 2`:
+Problems marks amber a node whose width changes by more than 1.25 m (5 bytes) from the node before: D metres over L metres of road on 6.25 m nodes (a 300 m road) steps 1.5 x D x 6.25 / L,
+so an 8 to 14 m ramp is right at the limit at 45 m of road (5.00 bytes), clean from about 45 m on and amber under it (at 40 m). A width clause on a node that is red for another reason is covered by "can't be built". In `trace.json` the keys are written only when there are some, with `"version": 2`:
 
 ```json
 { "version": 2, "width": 32, "points": [[0,0],[60,0],[120,0],[180,0],[240,0],[300,0]],

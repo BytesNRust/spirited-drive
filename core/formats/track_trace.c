@@ -439,7 +439,7 @@ int track_trace_summary(const uint8_t *flags, int count, TraceSummaryLine lines[
             snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s %s on a curve of radius under %g m: %s", nodes, plural, nodes == 1 ? "is" : "are",
                      TRACE_METRES(RULES[r].red ? TRACE_RADIUS_MIN : TRACE_RADIUS_WARN), verdict);
         else
-            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s widen%s faster than %g m per node: %s", nodes, plural, nodes == 1 ? "s" : "",
+            snprintf(lines[used].text, TRACE_SUMMARY_TEXT, "%d node%s change%s width by more than %g m per node: %s", nodes, plural, nodes == 1 ? "s" : "",
                      TRACE_WIDTH_STEP_WARN_M, verdict);
         ++used;
     }

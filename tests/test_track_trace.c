@@ -556,7 +556,7 @@ static void test_keys_width_limit(void)
     TraceSummaryLine lines[TRACE_SUMMARY_LINES];
     const int used = track_trace_summary(flags, count, lines);
     CHECK_EQ_INT(used, 1);
-    CHECK(!lines[0].red && lines[0].nodes == flagged && strstr(lines[0].text, "widen faster than 1.25 m per node") != NULL);
+    CHECK(!lines[0].red && lines[0].nodes == flagged && strstr(lines[0].text, "change width by more than 1.25 m per node") != NULL);
     free(flags);
     free(n);
 
@@ -567,10 +567,18 @@ static void test_keys_width_limit(void)
     CHECK_EQ_INT(count_flags(flags, count, TRACE_FLAG_WIDTH_WARN), 0);
     free(flags);
     free(n);
+
+    /* the longest row: both amber turn rules and the width one on a node of the last digits; the text is whole, not cut at the buffer */
+    const TraceProblem all = { 2396, 0, TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN, 16.4, 21.0, 1.55 };
+    char longest[TRACE_PROBLEM_TEXT];
+    track_trace_problem_text(&all, longest, sizeof longest);
+    CHECK(strlen(longest) > 128 - 1 && strlen(longest) < TRACE_PROBLEM_TEXT - 1);
+    CHECK(strstr(longest, "width changes 1.55 m (more than 1.25 m), may not look right") != NULL);
+    CHECK(strncmp(longest, "node 2396: turns 16.4", 21) == 0);
 }
 
 /* the ramp's steepest step: the smoothstep's slope is 1.5 times the average one, so a ramp of D bytes over L metres on 6.25 m nodes steps 1.5 x D x 6.25 / L
- * bytes at the most: 8 to 14 m (24 bytes) is clean from 45 m and amber under it */
+ * bytes at the most: 8 to 14 m (24 bytes) is at the limit at 45 m (5.00 bytes), clean from about there and amber under it */
 static void test_keys_ramp_steepness(void)
 {
     const double lengths[3] = { 60, 45, 40 };

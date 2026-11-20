@@ -204,8 +204,9 @@ static int parse_width(const char *text, double *width, char *why, size_t why_ca
 }
 
 /* trace.json's version: none or 1 is the first Studio's, 2 has the road keys, a newer one was written by a Studio that knows more than this one */
-static int parse_version(const char *text, char *why, size_t why_cap)
+static int parse_version(const char *text, int *version, char *why, size_t why_cap)
 {
+    *version = 1;
     const char *p = strstr(text, "\"version\"");
     p = p != NULL ? strchr(p, ':') : NULL;
     if (p == NULL) return 1;
@@ -219,6 +220,7 @@ static int parse_version(const char *text, char *why, size_t why_cap)
         snprintf(why, why_cap, "trace.json: version %.0f is newer than the version %d this Studio reads: update Studio", v, PROJECT_TRACE_VERSION);
         return 0;
     }
+    *version = (int)v;
     return 1;
 }
 
@@ -299,8 +301,9 @@ int project_open(const char *dir, Project *out, Trace *trace, char *why, size_t 
     trace->count = 0;
     trace->keys = NULL;
     trace->key_count = trace->key_cap = 0;
-    const int ok = parse_version(json, why, why_cap) && parse_width(json, &trace->width, why, why_cap) && parse_points(json, trace, why, why_cap) &&
-                   parse_keys(json, trace, why, why_cap);
+    int version = 1;
+    const int ok = parse_version(json, &version, why, why_cap) && parse_width(json, &trace->width, why, why_cap) && parse_points(json, trace, why, why_cap) &&
+                   (version < 2 || parse_keys(json, trace, why, why_cap));   // keys are version 2's: an older file with a "keys" array has none
     free(json);
     if (!ok) {   // what was read before the fault goes with it
         free(trace->points);

@@ -101,7 +101,6 @@ z = zipfile.ZipFile(sys.argv[1])
 names = [n for n in z.namelist() if n.upper().endswith(".TRI")]
 assert len(names) == 1, names
 d = z.read(names[0])
-nodes = (len(d) - 0x98C) // 36   # at least; the nodes come first in the file's header
 first, last = d[0x98C], d[0x98C + 36 * 48]   # byte 0 of node 0, byte 0 of node 48 (a straight of 300 m: 12 segments of 4 nodes)
 mid = d[0x98C + 36 * 24]
 assert first == 40 and last == 56 and 40 < mid < 56, (first, mid, last)
