@@ -1,5 +1,6 @@
 #include "steps.h"
 
+#include "app_points.h"
 #include "app_select.h"
 
 #include <math.h>
@@ -12,8 +13,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -188,6 +189,11 @@ static int at_once(App *a, const char *name, const double *arg)
     }
     if (strcmp(name, "print") == 0) return a->kind == APP_KIND_TRACK ? (print_points(a), 1) : 0;
     if (strcmp(name, "status") == 0) return fprintf(stdout, "status: %s\n", a->status), 1;
+    if (strcmp(name, "copy") == 0) return app_copy_points(a);   /* each is one step to undo (app_points.h) */
+    if (strcmp(name, "paste") == 0) return app_paste_points(a);
+    if (strcmp(name, "mirror-lr") == 0) return app_mirror_points(a, 0);
+    if (strcmp(name, "mirror-fb") == 0) return app_mirror_points(a, 1);
+    if (strcmp(name, "reverse") == 0) return app_reverse_points(a);
     if (strcmp(name, "print-sel") == 0) {
         if (a->kind != APP_KIND_TRACK) return 0;
         char which[256];

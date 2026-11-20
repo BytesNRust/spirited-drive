@@ -7,6 +7,8 @@
 
 #include "formats/track_trace.h"
 
+#include <stddef.h>
+
 /* the road's heading at point i as a unit vector ((0, 0) when there is no chord: fewer than 2 points, or two on top of each other) */
 TracePoint pts_heading(const TracePoint *p, int n, int i);
 
@@ -25,5 +27,24 @@ TracePoint *pts_mirror_fb(const TracePoint *p, int n, int s, int e);
  * (s == 0): its new last point sits where the old last was and arrives there with the heading the road had arriving there; the tail stays.
  * A new array of n points, NULL as above. */
 TracePoint *pts_reverse(const TracePoint *p, int n, int s, int e);
+
+/* what the Viewport shows while point i is dragged: metres to the point before (0 at point 0), the turn there in degrees (positive to the right,
+ * as track_trace_turn_text writes it; 0 without a point on each side) and the radius in metres of the circle through it and its neighbours
+ * (0 on a straight or at an end) */
+typedef struct {
+    double to_prev_m, turn_deg, radius_m;
+} PointReadout;
+PointReadout pts_readout(const TracePoint *p, int n, int i);
+
+/* how far the road's end is from closing on its start: metres from the last point to point 0, and the turn in degrees (signed as above) from
+ * the heading arriving at the last point to the one leaving point 0 (both 0 with fewer than 3 points) */
+typedef struct {
+    double gap_m, turn_deg;
+} EndGap;
+EndGap pts_end_gap(const TracePoint *p, int n);
+/* the gap as the editor writes it: "end: 3.2 m and L 4.0\xc2\xb0 from the start"; under PTS_CLOSE_NOTE_M it adds what a circuit would need
+ * (the game wraps a circuit's nodes by a power of two): "; a circuit needs 512 or 1024 nodes, this road has 437" (`nodes` the road's, 0 to leave it out) */
+#define PTS_CLOSE_NOTE_M 25.0
+void pts_end_gap_text(EndGap g, int nodes, char *out, size_t cap);
 
 #endif

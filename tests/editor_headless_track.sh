@@ -213,6 +213,32 @@ assert rows[6] == straight and rows[7] == straight, ('undo of Delete, refusal', 
 [ "$(grep '^problems:' "$work/log" | tr '\n' '/')" = "problems: red node 13/problems: none/" ] || fail "Problems did not show the folded road red at once, then clear on undo: $(grep '^problems:' "$work/log")"
 grep -q "^status: a track keeps at least 2 points: 8 of 8 are selected" "$work/log" || fail "removing all the points was not refused with the minimum: $(grep '^status:' "$work/log")"
 
+# ==== Copy, Paste, Mirror, Reverse on a run of points (dep87 1b): half a circuit closes; the profile's sides follow; each is one undo; the end snaps ====
+# half a circuit from (0, 0) to (0, 300), its ends square to the axis x = 0, the right shoulder asphalt from point 2. Cmd+C on all of it, Cmd+V
+# after its last point, Mirror L/R and Reverse on the pasted run: the second half is the first's mirror image and ends on the start. Point 10
+# (old 4's mirror) has the asphalt on the left after Mirror, back on the right after Reverse (a circuit's outside both ways). Three undos.
+mkdir "$work/half"
+printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [60.0, 0.0], [140.0, 30.0], [160.0, 120.0], [110.0, 180.0], [150.0, 260.0], [60.0, 300.0], [0.0, 300.0]],\n  "keys": [{"point": 2, "shoulder_r_surface": "tarmac"}]\n}\n' > "$work/half/trace.json"
+"$editor" "$work/half" --user "$work/hu" --frames 2 --steps row:0,shift-row:7,copy,status,paste,status,print-sel,mirror-lr,status,row:10,print-profile,row:7,shift-row:14,reverse,status,print,row:10,print-profile,undo,undo,undo,print >"$work/log" 2>&1 \
+    || fail "copy, paste, mirror and reverse on half a circuit: $(cat "$work/log")"
+[ "$(grep '^status:' "$work/log" | tr '\n' '/')" = "status: 8 points copied (0-7)/status: 7 points pasted after point 7/status: points 7-14 mirrored left/right/status: points 7-14 reversed/" ] \
+    || fail "copy, paste, mirror, reverse did not say what they did: $(grep '^status:' "$work/log")"
+grep -q "^selected: 7-14$" "$work/log" || fail "the pasted run (from the point it went after) is not the selection: $(grep '^selected:' "$work/log")"
+grep -q "^points: 15 0.000,0.000 60.000,0.000 140.000,30.000 160.000,120.000 110.000,180.000 150.000,260.000 60.000,300.000 0.000,300.000 -60.000,300.000 -150.000,260.000 -110.000,180.000 -160.000,120.000 -140.000,30.000 -60.000,0.000 0.000,0.000$" "$work/log" \
+    || fail "half a circuit square to its axis did not close as its mirror image: $(grep '^points:' "$work/log")"
+[ "$(grep '^profile:' "$work/log" | cut -d' ' -f2 | tr '\n' '/')" = "Asphalt|Off-road/Off-road|Asphalt/" ] || fail "the shoulder surface did not change sides with Mirror and back with Reverse: $(grep '^profile:' "$work/log")"
+grep -q "^points: 8 0.000,0.000 60.000,0.000 140.000,30.000 160.000,120.000 110.000,180.000 150.000,260.000 60.000,300.000 0.000,300.000$" "$work/log" \
+    || fail "three undos did not bring the half back (each operation one step): $(grep '^points:' "$work/log" | tail -1)"
+# a selection with a gap, or Paste before any Copy, is refused with the reason
+"$editor" "$work/half" --user "$work/hu" --frames 2 --steps row:1,cmd-row:3,copy >"$work/log" 2>&1 && fail "Copy of points with a gap went"
+grep -q "Copy wants a run of points without gaps" "$work/log" || fail "Copy's refusal of a gap does not say why: $(cat "$work/log")"
+"$editor" "$work/half" --user "$work/hu" --frames 2 --steps paste >"$work/log" 2>&1 && fail "Paste with nothing copied went"
+grep -q "copy a run of points first" "$work/log" || fail "Paste's refusal does not say why: $(cat "$work/log")"
+# the last point dragged 2 m from the start lands on it; 40 m away it stays where it is let go
+"$editor" "$work/half" --user "$work/hu" --frames 2 --steps drag-near:7,0,2,print,undo,drag-near:7,0,40,print >"$work/log" 2>&1 || fail "dragging the end near the start: $(cat "$work/log")"
+[ "$(grep '^points:' "$work/log" | head -1 | awk '{print $NF}')" = "0.000,0.000" ] || fail "the end dragged 2 m from the start did not land on it: $(grep '^points:' "$work/log")"
+[ "$(grep '^points:' "$work/log" | tail -1 | awk '{print $NF}')" != "0.000,0.000" ] || fail "the end 40 m from the start was pulled onto it"
+
 # ==== Build: under the limits, over an amber one, refused over a red one ====
 # Build: a curve under the limits is built, one over them is refused with the limit named
 "$editor" "$work/mild" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a curve under the limits: $(cat "$work/log")"

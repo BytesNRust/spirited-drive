@@ -14,6 +14,8 @@
  *   print-sel      the selected points printed ("selected: 3-7", "selected: none")
  *   print-profile  the Road profile of the selected points as the panel shows them, each row Left|Right ("profile: Off-road|Asphalt 3.00|Mixed ...")
  *   status         the status line printed ("status: 3 points removed")
+ *   copy, paste    Cmd+C and Cmd+V on the selected run of points (app_points.h); paste goes after the last selected point
+ *   mirror-lr, mirror-fb, reverse   the Points window's Mirror L/R, Mirror F/B and Reverse on the selected run
  *   drag:I,DX,DY   point I taken and dragged DX, DY screen pixels, in four moves, then let go
  *   drag-near:I,J,M  point I dragged as drag does, to M metres before point J on the line from J to I (a place in metres, whatever the zoom)
  *   width:I,M      a road key's width on point I set to M metres, as the Points window sets it

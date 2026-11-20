@@ -2,6 +2,7 @@
 #include "point_ops.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -98,4 +99,46 @@ TracePoint *pts_reverse(const TracePoint *p, int n, int s, int e)
     const TracePoint o = q[e];
     for (int i = 0; i <= e; ++i) q[i] = add(p[e], turn(sub(q[i], o), r));
     return q;
+}
+
+/* the turn from heading a to heading b in degrees, positive to the right on screen (z up: anticlockwise in (x, z) is to the left) */
+static double right_turn(TracePoint a, TracePoint b)
+{
+    if ((a.x == 0 && a.z == 0) || (b.x == 0 && b.z == 0)) return 0;
+    return -remainder(angle(b) - angle(a), 2 * M_PI) * 180.0 / M_PI;
+}
+
+PointReadout pts_readout(const TracePoint *p, int n, int i)
+{
+    PointReadout r = { 0, 0, 0 };
+    if (i < 0 || i >= n) return r;
+    if (i > 0) r.to_prev_m = TRACE_METRES(hypot(p[i].x - p[i - 1].x, p[i].z - p[i - 1].z));
+    if (i == 0 || i == n - 1) return r;
+    const TracePoint in = sub(p[i], p[i - 1]), out = sub(p[i + 1], p[i]);
+    r.turn_deg = right_turn(in, out);
+    const double cross = in.x * out.z - in.z * out.x;
+    if (fabs(cross) > 1e-12) {   /* the circle through the three points: a b c / (4 area) */
+        const TracePoint across = sub(p[i + 1], p[i - 1]);
+        r.radius_m = TRACE_METRES(hypot(in.x, in.z) * hypot(out.x, out.z) * hypot(across.x, across.z) / (2 * fabs(cross)));
+    }
+    return r;
+}
+
+EndGap pts_end_gap(const TracePoint *p, int n)
+{
+    EndGap g = { 0, 0 };
+    if (n < 3) return g;
+    g.gap_m = TRACE_METRES(hypot(p[n - 1].x - p[0].x, p[n - 1].z - p[0].z));
+    g.turn_deg = right_turn(pts_heading(p, n, n - 1), pts_heading(p, n, 0));
+    return g;
+}
+
+void pts_end_gap_text(EndGap g, int nodes, char *out, size_t cap)
+{
+    char turn[16];
+    track_trace_turn_text(g.turn_deg, turn, sizeof turn);
+    if (g.gap_m < PTS_CLOSE_NOTE_M && nodes > 0)
+        snprintf(out, cap, "end: %.1f m and %s from the start; a circuit needs 512 or 1024 nodes, this road has %d", g.gap_m, turn, nodes);
+    else
+        snprintf(out, cap, "end: %.1f m and %s from the start", g.gap_m, turn);
 }

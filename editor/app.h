@@ -101,6 +101,10 @@ typedef struct {
     Selection sel;               /* the selected control points (dep87, app_select.h): `selected` is always one of them when there are any */
     TracePoint *rotate_from;     /* the points as they were when the Rotate points field was taken (app_sel_rotate_live), else NULL */
     int rotate_from_count;
+    TracePoint *clip_points;     /* Copy's points and their keys on 0..clip_count-1 (app_points.h), NULL before a copy */
+    int clip_count;
+    TraceKey *clip_keys;
+    int clip_key_count;
     int dirty;                   /* the trace changed since the road was computed */
 
     /* the road, computed from the trace by app_recompute */

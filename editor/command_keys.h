@@ -7,10 +7,10 @@
 extern "C" {
 #endif
 
-typedef enum { COMMAND_NONE, COMMAND_SAVE, COMMAND_UNDO, COMMAND_REDO } CommandKey;
+typedef enum { COMMAND_NONE, COMMAND_SAVE, COMMAND_UNDO, COMMAND_REDO, COMMAND_COPY, COMMAND_PASTE } CommandKey;
 
-/* The command pressed this frame: Cmd+S Save; Cmd+Z Undo; Cmd+Shift+Z or Cmd+Y Redo. While a text field has the keyboard (`text_input`) only Save:
- * the field keeps its own Cmd+Z. Called every frame, so the keys' routes are kept. */
+/* The command pressed this frame: Cmd+S Save; Cmd+Z Undo; Cmd+Shift+Z or Cmd+Y Redo; Cmd+C Copy, Cmd+V Paste (the track's points). While a text
+ * field has the keyboard (`text_input`) only Save: the field keeps its own Cmd+Z, Cmd+C and Cmd+V. Called every frame, so the keys' routes are kept. */
 CommandKey command_key(int text_input);
 
 #ifdef __cplusplus

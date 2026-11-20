@@ -11,7 +11,9 @@
 #include <stdio.h>
 
 extern "C" {
+#include "app_points.h"
 #include "app_select.h"
+#include "point_ops.h"
 #include "formats/track_gen.h"
 #include "interact.h"
 #include "shortcut_keys.h"
@@ -121,6 +123,25 @@ static void rotate_row(App *a)
     ImGui::Text("about point %d", sel_first(&a->sel));
 }
 
+// Mirror and Reverse on the selected run (app_points.h); without a run (a gap in the selection) they are dimmed and say why
+static void group_row(App *a)
+{
+    const int first = sel_first(&a->sel), count = sel_count(&a->sel), run = count >= 2 && sel_last(&a->sel) - first + 1 == count;
+    const char *why = "Select a run of points without gaps (Shift+click its last point).";
+    ImGui::BeginDisabled(!run);
+    if (ImGui::Button("Mirror L/R")) app_mirror_points(a, 0);
+    ImGui::SetItemTooltip("%s", run ? "Reflects the selected points about the road's heading at the first of them: the run turns the other way, "
+                                      "its sides change over." : why);
+    ImGui::SameLine();
+    if (ImGui::Button("Mirror F/B")) app_mirror_points(a, 1);
+    ImGui::SetItemTooltip("%s", run ? "Reflects the selected points about the line square to the road at the first of them: the run folds back." : why);
+    ImGui::SameLine();
+    if (ImGui::Button("Reverse")) app_reverse_points(a);
+    ImGui::SetItemTooltip("%s", run ? "The selected points are travelled the other way, from where the first of them is (all points: the road is driven "
+                                      "the other way); its sides change over." : why);
+    ImGui::EndDisabled();
+}
+
 void points_panel(App *a)
 {
     static int shown = -2;   // the selection the table last scrolled to
@@ -136,7 +157,7 @@ void points_panel(App *a)
         const int picked = app_sel_count(a);
         if (picked > 1) ImGui::TextDisabled("%d points, %d selected", a->trace.count, picked);
         else ImGui::TextDisabled("%d points", a->trace.count);
-        if (picked > 1) rotate_row(a);
+        if (picked > 1) rotate_row(a), group_row(a);
         const bool scroll_to_selected = a->selected != shown;
         // the table takes the rest of the panel, but never fewer than POINTS_MIN_ROWS rows
         const ImGuiStyle &st = ImGui::GetStyle();
@@ -385,6 +406,11 @@ void node_panel(App *a)
                 ImGui::TextWrapped("%s", text);
                 ImGui::PopStyleColor();
             }
+        }
+        if (app_sel_count(a) == 1 && a->selected == a->trace.count - 1 && a->trace.count >= 3) {   // the last point: how far the end is from the start
+            char gap[160];
+            pts_end_gap_text(pts_end_gap(a->trace.points, a->trace.count), a->road_made ? a->node_count : 0, gap, sizeof gap);
+            ImGui::TextWrapped("%s", gap);
         }
     }
     ImGui::End();

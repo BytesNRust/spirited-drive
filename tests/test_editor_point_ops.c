@@ -5,6 +5,7 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 static int near(TracePoint a, double x, double z)
 {
@@ -109,6 +110,41 @@ static void test_circuit_closes(void)
     free(c);
 }
 
+static void test_readout(void)
+{
+    const TracePoint p[4] = { { 0, 0 }, { 0, 30 }, { 30, 60 }, { 30, 100 } };
+    PointReadout r = pts_readout(p, 4, 1);   /* from +z to (1,1): 45 degrees to the right on screen (z up) */
+    CHECK(fabs(r.to_prev_m - 30) < 1e-9 && fabs(r.turn_deg - 45) < 1e-9);
+    CHECK(fabs(r.radius_m - dist(p[0], p[2]) / (2 * sin(M_PI / 4))) < 1e-9);   /* the circumradius: chord / (2 sin of the angle across it) */
+    r = pts_readout(p, 4, 2);   /* back to +z: 45 to the left */
+    CHECK(fabs(r.turn_deg + 45) < 1e-9 && fabs(r.to_prev_m - sqrt(1800)) < 1e-9);
+    r = pts_readout(p, 4, 0);
+    CHECK(r.to_prev_m == 0 && r.turn_deg == 0 && r.radius_m == 0);
+    r = pts_readout(p, 4, 3);   /* an end: no turn */
+    CHECK(fabs(r.to_prev_m - 40) < 1e-9 && r.turn_deg == 0 && r.radius_m == 0);
+    const TracePoint line[3] = { { 0, 0 }, { 0, 10 }, { 0, 20 } };
+    r = pts_readout(line, 3, 1);
+    CHECK(r.turn_deg == 0 && r.radius_m == 0);   /* a straight: no radius */
+}
+
+static void test_end_gap(void)
+{
+    const TracePoint loop[5] = { { 0, 0 }, { 100, 0 }, { 100, 100 }, { 0, 100 }, { 0, 3 } };   /* square, anticlockwise: left turns */
+    EndGap g = pts_end_gap(loop, 5);
+    CHECK(fabs(g.gap_m - 3) < 1e-9 && fabs(g.turn_deg + 90) < 1e-9);   /* arriving along -z, leaving along +x: a quarter to the left */
+    const TracePoint shut[5] = { { 0, 0 }, { 100, 0 }, { 100, 100 }, { 0, 100 }, { 0, 0 } };
+    g = pts_end_gap(shut, 5);
+    CHECK(g.gap_m == 0);
+    char text[160];
+    pts_end_gap_text((EndGap){ 3.04, -90 }, 437, text, sizeof text);
+    CHECK(strcmp(text, "end: 3.0 m and L 90.0\xc2\xb0 from the start; a circuit needs 512 or 1024 nodes, this road has 437") == 0);
+    pts_end_gap_text((EndGap){ 300, 0.01 }, 437, text, sizeof text);   /* far off: the gap alone */
+    CHECK(strcmp(text, "end: 300.0 m and - from the start") == 0);
+    if (strcmp(text, "end: 300.0 m and - from the start") != 0) printf("text: '%s'\n", text);
+    g = pts_end_gap(shut, 2);
+    CHECK(g.gap_m == 0 && g.turn_deg == 0);
+}
+
 int main(void)
 {
     test_heading();
@@ -116,5 +152,7 @@ int main(void)
     test_mirror();
     test_reverse();
     test_circuit_closes();
+    test_readout();
+    test_end_gap();
     return TEST_REPORT();
 }

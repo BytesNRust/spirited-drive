@@ -36,6 +36,7 @@ has nothing red.
 | right or middle drag, wheel | pan, zoom (wheel zooms about the cursor) |
 | arrows | nudge the selected points by 1 unit |
 | `[` `]` | rotate the selected points 1° about the first of them (Shift: 5°) |
+| Cmd+C, Cmd+V (Ctrl elsewhere) | copy the selected run of points with its road profile; paste it after the last selected point |
 | `N` | add a point after the last one, along the last segment |
 | `I` | insert a point after the selected one |
 | `Del` or `X` | remove the selected points (a trace keeps 2: removing more is refused, the status line says why) |
@@ -52,6 +53,27 @@ points turn about the first of them, clockwise as the view shows it (the view do
 edit is one undo step. The Node window shows how many are selected and how long the stretch is along the road. The Road profile shows each value
 the selected points share, or «Mixed», and is read-only until one point is selected. A group move that breaks a limit shows in Problems at once,
 as a single point's move does. The X and Z cells of the Points table still edit only their own row.
+
+A selected run of points (no gaps, two or more) has three more operations in the Points panel, and Copy and Paste on the keys; each is one undo step:
+
+- **Copy / Paste** (Cmd+C, Cmd+V): Paste puts the copied points in after the last selected point (the road's last when none is selected). The
+  block's first point lands on that point, the block turns to go on along the road's heading there, and the points after it follow it rigidly.
+  The road profile comes with it, and the road after the block keeps its own. The pasted run, that point included, becomes the selection.
+- **Mirror L/R**: reflects the run about the road's heading at its first point. **Mirror F/B**: about the line square to it there (the run folds
+  back). Both swap the profile's sides: shoulders, barriers, fences, surfaces, lanes 1+2 and 2+1, the bank's sign.
+- **Reverse**: the run is travelled the other way. With all points selected, the road is driven the other way and nothing moves. A stretch in
+  the middle is turned round and put back so its new first point sits where the old one was, going on the same way: no jump.
+
+The points after a run that moved follow it, keeping the turn they had where they joined it. The profile values just outside the run keep
+theirs; only a ramp running into the run from a key further out takes a new shape.
+
+**Half a circuit**: build the first half from its start to the far side, both ends square to the axis the circuit is symmetric about (the first
+and last segments run straight across it). Select it all, Cmd+C, Cmd+V, then Mirror L/R and Reverse on the pasted run: the second half is the
+first's mirror image and ends exactly on the start. With ends that turn, it misses. Dragged within a few pixels of the start, the last point
+lands on it; the Node window (last point selected) and the drag's readout say how far the end is from the start, and near it what a circuit
+would need: the game takes 512 or 1024 nodes for one. The editor builds stages only: a closed circuit is not built yet.
+
+While a point is dragged, a readout by the cursor gives its distance from the point before, the turn there and the radius of that turn.
 
 ## Limits
 

@@ -10,6 +10,7 @@ extern "C" {
 #include "formats/track_trace.h"
 #include "app_select.h"
 #include "interact.h"
+#include "point_ops.h"
 }
 
 namespace {
@@ -24,6 +25,7 @@ const ImU32 GRID = IM_COL32(36, 40, 46, 255), BACKGROUND = IM_COL32(18, 20, 24, 
 const double EDGE_UNIT = 0.125;   // metres from the centre to the road's edge per unit of the node's width byte (VERGE_UNIT, game/race/car_walls.c)
 const float TARMAC_MIN_PX = 4;    // a tarmac line stays this far from the road's line however far out the view is
 const float BOX_MIN_PX = 4;       // a left drag on no point shorter than this is a click there, not a box
+const double END_SNAP_PX = 8;     // the last point dragged this near point 0 lands on it (snap_end)
 const ImU32 BOX_EDGE = IM_COL32(255, 220, 0, 200), BOX_FILL = IM_COL32(255, 220, 0, 32);
 
 struct Box {   // the box a left drag on no point draws (dep87): its first corner in the panel's pixels, while the button is held
@@ -151,6 +153,36 @@ SelClick click_kind(const ImGuiIO &io)
     return io.KeyShift ? SEL_RANGE : io.KeyCtrl ? SEL_TOGGLE : SEL_ONE;
 }
 
+// the last point dragged within END_SNAP_PX of point 0 (not itself moving) lands on it: the end on the start, as a circuit closes (the game
+// takes no circuit from a mod yet: the road is then refused for two points on one place, the readout says what a circuit needs)
+void snap_end(App *a, int dragged)
+{
+    const int n = a->trace.count;
+    if (dragged != n - 1 || n < 3 || sel_has(&a->sel, 0)) return;
+    const TracePoint p0 = a->trace.points[0], end = a->trace.points[n - 1];
+    if (hypot(p0.x - end.x, p0.z - end.z) * a->view.scale < END_SNAP_PX) app_sel_move(a, p0.x - end.x, p0.z - end.z);
+}
+
+// while a point is dragged: its length to the point before, its turn and the radius there; for the last point how far the end is from the start
+void drag_readout(const App &a, int i)
+{
+    const PointReadout r = pts_readout(a.trace.points, a.trace.count, i);
+    char turn[16];
+    track_trace_turn_text(r.turn_deg, turn, sizeof turn);
+    ImGui::BeginTooltip();
+    if (i > 0) ImGui::Text("point %d: %.1f m from point %d", i, r.to_prev_m, i - 1);
+    if (i > 0 && i < a.trace.count - 1) {
+        if (r.radius_m > 0) ImGui::Text("turn %s, radius %.0f m", turn, r.radius_m);
+        else ImGui::Text("turn %s", turn);
+    }
+    if (i == a.trace.count - 1 && a.trace.count >= 3) {
+        char gap[160];
+        pts_end_gap_text(pts_end_gap(a.trace.points, a.trace.count), a.road_made ? a.node_count : 0, gap, sizeof gap);
+        ImGui::TextUnformatted(gap);
+    }
+    ImGui::EndTooltip();
+}
+
 // the left button let go of a box: the points inside it selected, or (hardly moved: a click on no point) nothing selected
 void end_box(App *a, double mx, double my)
 {
@@ -199,8 +231,10 @@ void handle_mouse(App *a, const ImVec2 &origin)
         double x, z;
         view_to_world(&a->view, mx, my, &x, &z);
         app_sel_move(a, x + grab_x - a->trace.points[dragged].x, z + grab_z - a->trace.points[dragged].z);   // the group, by the taken point's move
+        snap_end(a, dragged);
         collapse = -1;
     }
+    if (dragged >= 0 && ImGui::IsMouseDown(ImGuiMouseButton_Left) && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) drag_readout(*a, dragged);
     if (ImGui::IsItemActive() && (ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Middle))) {
         a->view.cx -= io.MouseDelta.x / a->view.scale;
         a->view.cz += io.MouseDelta.y / a->view.scale;

@@ -199,6 +199,8 @@ void app_free(App *a)
     sel_free(&a->sel);
     free(a->rotate_from);
     a->rotate_from = NULL, a->rotate_from_count = 0;
+    free(a->clip_points), free(a->clip_keys);
+    a->clip_points = NULL, a->clip_keys = NULL, a->clip_count = a->clip_key_count = 0;
     free(a->trace.points);
     free(a->trace.keys);
     drop_road(a);

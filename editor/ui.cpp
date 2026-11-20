@@ -9,6 +9,7 @@
 
 extern "C" {
 #include "formats/track_gen.h"
+#include "app_points.h"
 #include "app_select.h"
 #include "interact.h"
 }
@@ -333,6 +334,8 @@ void track_command_keys(App *a)
     if (key == COMMAND_SAVE) app_save(a);
     else if (key == COMMAND_UNDO) app_undo(a);
     else if (key == COMMAND_REDO) app_redo(a);
+    else if (key == COMMAND_COPY) app_copy_points(a);
+    else if (key == COMMAND_PASTE) app_paste_points(a);
 }
 
 // a track's edit is one step to undo once it is done: no field typed in, no point dragged, no arrow held
