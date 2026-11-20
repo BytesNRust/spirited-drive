@@ -160,7 +160,7 @@ static int parse_layout(const char *layout, size_t len, double start_width, Sect
 static void node_shapes(const Section *sections, int count, double start_width, TrackGenNode *shapes)
 {
     int node = 0;
-    TrackGenNode at = { 0, 0, 0, start_width, { 0, 0, 0 }, { { 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0 } } };
+    TrackGenNode at = { .width = start_width };
     for (int s = 0; s < count; ++s) {
         const int nodes = sections[s].segments * TRI_NODES_PER_SEGMENT;
         const TrackGenNode from = at;
@@ -184,14 +184,31 @@ static unsigned angle14(double units) { return (unsigned)((long)lround(units) & 
 
 static int clamp_byte(double v) { return v < 0 ? 0 : v > 255 ? 255 : (int)lround(v); }
 
+/* the right half width of a node in the verge byte: its own (step 4), else the left one */
+static int right_half(const TrackGenNode *shape) { return (int)lround(shape->width_r > 0 ? shape->width_r : shape->width); }
+
+/* a 1+2 or 2+1 node (step 4): which side has the two lanes (TRACK_GEN_RIGHT or _LEFT), -1 for any other */
+static int two_lane_side(const TrackGenNode *shape)
+{
+    return shape->lanes == TRACK_GEN_LANES_1_2 ? TRACK_GEN_RIGHT : shape->lanes == TRACK_GEN_LANES_2_1 ? TRACK_GEN_LEFT : -1;
+}
+
+/* the side whose row chain has two strips of road on a lane node: the other one, from the middle point over the centre line to the far edge; -1 for none */
+static int centre_side(const TrackGenNode *shape)
+{
+    const int two = two_lane_side(shape);
+    return two < 0 ? -1 : two == TRACK_GEN_RIGHT ? TRACK_GEN_LEFT : TRACK_GEN_RIGHT;
+}
+
 static void write_node(uint8_t *dst, const uint8_t *model, const TrackGenNode *shape, const int32_t pos[3], const TriNode *tmpl)
 {
     memcpy(dst, model, NODE_SIZE);
-    const int width = (int)lround(shape->width);
+    const int width = (int)lround(shape->width), right = right_half(shape);
     dst[0] = (uint8_t)clamp_byte(width);
-    dst[1] = (uint8_t)clamp_byte(width + (tmpl->right_verge - tmpl->left_verge));
+    dst[1] = (uint8_t)clamp_byte(right + (tmpl->right_verge - tmpl->left_verge));
     dst[2] = (uint8_t)clamp_byte(width + (tmpl->left_barrier - tmpl->left_verge));
-    dst[3] = (uint8_t)clamp_byte(width + (tmpl->right_barrier - tmpl->left_verge));
+    dst[3] = (uint8_t)clamp_byte(right + (tmpl->right_barrier - tmpl->left_verge));
+    if (shape->lanes != 0) dst[4] = (uint8_t)shape->lanes;
     put_i32(dst + 8, pos[0]);
     put_i32(dst + 12, pos[1]);
     put_i32(dst + 16, pos[2]);
@@ -249,9 +266,26 @@ static void write_strip(uint8_t *seg, const uint8_t *model, const TrackGenNode *
 static void strip_side_slots(uint8_t *seg, const TrackGenNode *first)
 {
     enum { STRIP_TEXTURES = 0xe, SHOULDER_BAND = 1, LEFT_CHAIN = 5 };
+    const int centre = centre_side(first);   /* step 4: that side has one more road strip, so its shoulder band is one further out */
     for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side)
         if ((first->side[side].has & TRACK_GEN_SIDE_TARMAC) && first->side[side].tarmac)
-            seg[STRIP_TEXTURES + (side == TRACK_GEN_LEFT ? LEFT_CHAIN : 0) + SHOULDER_BAND] = TRACK_GENERIC_SLOT_TARMAC;
+            seg[STRIP_TEXTURES + (side == TRACK_GEN_LEFT ? LEFT_CHAIN : 0) + SHOULDER_BAND + (side == centre)] = TRACK_GENERIC_SLOT_TARMAC;
+}
+
+/* The strips' pictures of a lane segment (step 4: its first node 1+2 or 2+1), as the CD's AL1 node 220. The middle point lies between the two lanes of one
+ * direction: the strip from it to that side's edge is TRACK_GENERIC_SLOT_LANE_EDGE (dashed inside, edge outside); on the centre side, the strip from it to the
+ * yellow centre is TRACK_GENERIC_SLOT_LANE_CENTRE (dashed inside, yellow outside), then the road's own picture from the centre to the other edge. The
+ * template's strips beyond move one strip out on the centre side; its last one goes. */
+static void lane_slots(uint8_t *seg, const TrackGenNode *first)
+{
+    enum { STRIP_TEXTURES = 0xe, LEFT_CHAIN = 5, PER_SIDE = 5 };
+    const int two = two_lane_side(first);
+    if (two < 0) return;
+    uint8_t *right = seg + STRIP_TEXTURES, *left = right + LEFT_CHAIN;
+    uint8_t *edge = two == TRACK_GEN_RIGHT ? right : left, *centre = two == TRACK_GEN_RIGHT ? left : right;
+    memmove(centre + 1, centre, PER_SIDE - 1);   /* the road's own picture becomes the centre side's second strip */
+    centre[0] = TRACK_GENERIC_SLOT_LANE_CENTRE;
+    edge[0] = TRACK_GENERIC_SLOT_LANE_EDGE;
 }
 
 /* the frame of a node as the file will hold it: the same angles write_node stores */
@@ -329,6 +363,36 @@ static double (*terrain_caps(const TrackGenNode *shapes, int count))[2]
     return caps;
 }
 
+/* A lane row (step 4) before it is turned: `two` the side with two lanes (-1: no lanes, the template's row), and the steps across (raw units, local axes)
+ * of the points it sets (`set`). On the two-lane side the template's points move one out (its last goes) so the road has two strips there. The middle
+ * point is one lane in from that side's edge (between the two lanes of one direction); the yellow centre is on the node line; each strip is a lane. */
+typedef struct {
+    int two;
+    int set[11];
+    int step[11];
+} LaneRow;
+
+static void lane_row(const TrackGenNode *shape, uint8_t *r, LaneRow *out)
+{
+    memset(out, 0, sizeof *out);
+    out->two = two_lane_side(shape);
+    if (out->two < 0) return;
+    const int lane = 16 * TRACK_GEN_LANE, left = 16 * (int)lround(shape->width), right = 16 * right_half(shape);
+    const int first = out->two == TRACK_GEN_RIGHT ? 6 : 1;   /* the first point of the side that gets two strips of road: the centre side */
+    memmove(r + 6 * (first + 1), r + 6 * first, 6 * 4);      /* its template points one out, the last dropped */
+    const int middle = out->two == TRACK_GEN_RIGHT ? right - lane : -(left - lane);
+    out->set[0] = 1, out->step[0] = middle;
+    if (out->two == TRACK_GEN_RIGHT) {
+        out->set[1] = 1, out->step[1] = lane;              /* to the right edge: the outer own lane */
+        out->set[6] = 1, out->step[6] = -middle;           /* to the node line: the inner own lane */
+        out->set[7] = 1, out->step[7] = -left;             /* to the left edge: the oncoming lane */
+    } else {
+        out->set[6] = 1, out->step[6] = -lane;             /* to the left edge: the outer oncoming lane */
+        out->set[1] = 1, out->step[1] = -middle;           /* to the node line: the inner oncoming lane */
+        out->set[2] = 1, out->step[2] = right;             /* to the right edge: the own lane */
+    }
+}
+
 /* write_strip with the rows turned: the template's, in its nodes' own axes (`from`, one frame a row), laid along the new nodes' (`shapes`).
  * `caps` are the rows' terrain_caps, [right, left]: the points from the third on of a side do not reach further across than its cap (the two nearest
  * the road, its edge and its verge, are the road's own and are kept). */
@@ -340,20 +404,25 @@ static void write_strip_turned(uint8_t *seg, const uint8_t *model, const TrackGe
         uint8_t *r = seg + ROW_BASE + ROW_SIZE * row;
         TrackFrame to;
         shape_frame(&shapes[row], &to);
-        const int widen = 16 * ((int)lround(shapes[row].width) - tmpl->left_verge);
+        const int widen = 16 * ((int)lround(shapes[row].width) - tmpl->left_verge), widen_r = 16 * (right_half(&shapes[row]) - tmpl->left_verge);
+        LaneRow lane;
+        lane_row(&shapes[row], r, &lane);
         double across[2] = { 0, 0 };   /* right, left */
         for (int point = 0; point < 11; ++point) {
-            const int lateral = point == 1 ? widen : point == 6 ? -widen : 0;   /* right[0] and left[0]: the road's edges */
+            const int lateral = point == 1 ? widen_r : point == 6 ? -widen : 0;   /* right[0] and left[0]: the road's edges */
             const int side = point >= 6, on_side = point == 0 ? -1 : point - 1 - 5 * side;   /* 0..4 along its side; -1 the middle */
-            const int hold = on_side >= 2 && caps[row][side] != INFINITY;
+            const int road = 1 + (centre_side(&shapes[row]) == (side == 0 ? TRACK_GEN_RIGHT : TRACK_GEN_LEFT));   /* the side's points that are the road's own */
+            const int hold = on_side >= road + 1 && caps[row][side] != INFINITY;   /* the edge and the shoulder's end are kept */
             const TrackGenSide *own = &shapes[row].side[side == 0 ? TRACK_GEN_RIGHT : TRACK_GEN_LEFT];
-            const int shoulder = on_side == 1 && (own->has & TRACK_GEN_SIDE_SHOULDER);   /* the shoulder's end: its step across is the shoulder */
-            const int step = (int)lround(16 * own->shoulder) * (side == 0 ? 1 : -1);
+            const int shoulder = on_side == road && (own->has & TRACK_GEN_SIDE_SHOULDER);   /* the shoulder's end: its step across is the shoulder */
+            const int step = shoulder ? (int)lround(16 * own->shoulder) * (side == 0 ? 1 : -1) : lane.step[point];
             double middle = 0;
-            turn_point(r + 6 * point, &from[row], &to, lateral, hold, caps[row][side], shoulder ? &step : NULL, on_side < 0 ? &middle : &across[side]);
+            turn_point(r + 6 * point, &from[row], &to, lateral, hold, caps[row][side], shoulder || lane.set[point] ? &step : NULL,
+                       on_side < 0 ? &middle : &across[side]);
         }
     }
     write_fence(seg, &shapes[0]);
+    lane_slots(seg, &shapes[0]);
 }
 
 /* the positions along the headings: each node one node length from the one before (the closing node's too, as the CD's) */
@@ -404,6 +473,26 @@ static int check_sides(const TrackGenNode *n, int i, ExchangeError *err)
     return 1;
 }
 
+/* a node's lanes (step 4), named: the CD's three or the template's (0); a right half width in its byte; on a lane node, a lane at least on the side
+ * that has two (the middle point between them); the same lanes on the 4 nodes of a segment (the strips' pictures go by segment); the turned rows only */
+static int check_lanes(const TrackGenNode *n, int i, int turned, ExchangeError *err)
+{
+    const int lanes = n[i].lanes;
+    if (lanes != 0 && lanes != TRACK_GEN_LANES_1_1 && lanes != TRACK_GEN_LANES_1_2 && lanes != TRACK_GEN_LANES_2_1)
+        return exchange_fail(err, "node %d: lanes 0x%02x is not 1+1 (0x11), 1+2 (0x12) or 2+1 (0x21)", i, (unsigned)lanes), 0;
+    if (!isfinite(n[i].width_r) || n[i].width_r < 0 || n[i].width_r > 255)
+        return exchange_fail(err, "node %d: the right half width=%g is outside 0..255", i, n[i].width_r), 0;
+    const int two = two_lane_side(&n[i]);
+    if (two >= 0 && (two == TRACK_GEN_RIGHT ? right_half(&n[i]) : (int)lround(n[i].width)) < TRACK_GEN_LANE)
+        return exchange_fail(err, "node %d: lanes 0x%02x need the %s half at least a lane (%d), not %g", i, (unsigned)lanes, two == TRACK_GEN_RIGHT ? "right" : "left",
+                             TRACK_GEN_LANE, two == TRACK_GEN_RIGHT ? (double)right_half(&n[i]) : n[i].width), 0;
+    if (lanes != 0 && !turned) return exchange_fail(err, "node %d: lanes are made on the turned rows only (the editor's)", i), 0;
+    const int first = i - i % TRI_NODES_PER_SEGMENT;
+    if (two_lane_side(&n[i]) != two_lane_side(&n[first]))
+        return exchange_fail(err, "node %d: its lanes differ from node %d's, the first of its segment (lanes change where a segment starts)", i, first), 0;
+    return 1;
+}
+
 /* a node out of range, or too far a turn or step from the one before: why, naming it; 1 when it is as the generator takes it */
 static int check_node(const TrackGenNode *n, int i, int turned, ExchangeError *err)
 {
@@ -420,6 +509,7 @@ static int check_node(const TrackGenNode *n, int i, int turned, ExchangeError *e
         if (n[i].side[side].tarmac != 0 && n[i].side[side].tarmac != 1)
             return exchange_fail(err, "node %d: the %s side's tarmac=%d is not 0 or 1", i, side == TRACK_GEN_LEFT ? "left" : "right", n[i].side[side].tarmac), 0;
     if (!check_sides(n, i, err)) return 0;
+    if (!check_lanes(n, i, turned, err)) return 0;
     if (i == 0) return 1;
     double turn = fmod(n[i].heading - n[i - 1].heading, ANGLE_TURN);
     if (turn > ANGLE_TURN / 2) turn -= ANGLE_TURN;
@@ -435,14 +525,14 @@ static int check_node(const TrackGenNode *n, int i, int turned, ExchangeError *e
     return 1;
 }
 
-/* the wall a node gives, each side, as write_node makes its byte: that side's edge byte (the right one is the width plus what the template's right edge
- * has more than its left) plus the wall's distance, at most 255 */
+/* the wall a node gives, each side, as write_node makes its byte: that side's edge byte (the right one is the right half, step 4's or the width, plus what
+ * the template's right edge has more than its left) plus the wall's distance, at most 255 */
 static int check_wall_bytes(const TrackGenNode *n, int count, const TriNode *tmpl, ExchangeError *err)
 {
     for (int i = 0; i < count; ++i)
         for (int side = 0; side < 2; ++side) {
             if (!(n[i].side[side].has & TRACK_GEN_SIDE_BARRIER)) continue;
-            const long edge = clamp_byte((double)(lround(n[i].width) + (side == TRACK_GEN_RIGHT ? tmpl->right_verge - tmpl->left_verge : 0)));
+            const long edge = clamp_byte(side == TRACK_GEN_RIGHT ? (double)(right_half(&n[i]) + (tmpl->right_verge - tmpl->left_verge)) : (double)lround(n[i].width));
             const long wall = edge + lround(n[i].side[side].barrier);
             if (wall > 255)
                 return exchange_fail(err, "node %d: the %s barrier is %g m from the centre, past the %g m a node holds", i, side == TRACK_GEN_LEFT ? "left" : "right",
