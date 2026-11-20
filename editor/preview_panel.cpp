@@ -140,6 +140,8 @@ void night_controls(App *a)
         ImGui::Checkbox("Police lights", reinterpret_cast<bool *>(&n.police));
     }
     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    if (n.night)
+        ImGui::TextWrapped("Night tone: the game's own night (the flat cool tone of its light effects) with the City and Lost Vegas lifts at their default, 0. The race also lights the body from the place (the road, the headlight pool): in a race it is lighter than here, see Race photo (night).");
     ImGui::TextWrapped("In the race the headlights and the side lights are on together at night. Glow on the road and halos show only in a race: use Race photo (night).");
     if (shown.have)
         ImGui::TextWrapped("Lamp texels in the masks: headlight %d, position %d, brake %d, reversing %d", shown.lamp_texels[LAMP_HEADLIGHT], shown.lamp_texels[LAMP_POSITION],
