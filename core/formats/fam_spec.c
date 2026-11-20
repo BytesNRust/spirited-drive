@@ -41,6 +41,7 @@ static int add_item(FamSpec *out, FamSpecKind kind, const char *path, unsigned l
     FamSpecItem *it = &out->item[out->count++];
     it->kind = kind;
     it->letters = letters;
+    it->fence = 0;
     snprintf(it->path, sizeof it->path, "%s", path);
     return 1;
 }
@@ -84,8 +85,13 @@ static int terrain_line(const char *s, size_t *at, FamSpec *out, size_t line, Ex
         }
         if (letters == 0) { exchange_fail(err, "line %zu: letters= names no letter", line); return 0; }
     }
+    peek = *at;
+    const int fence = next_word(s, &peek, word, sizeof word) && strcmp(word, "fence") == 0;   /* a picture called fence.png is a picture */
+    if (fence) *at = peek;
     char path[FAM_SPEC_PATH];
-    return line_path(s, *at, path, sizeof path, line, err) && add_item(out, FAM_SPEC_TERRAIN, path, letters, line, err);
+    if (!line_path(s, *at, path, sizeof path, line, err) || !add_item(out, FAM_SPEC_TERRAIN, path, letters, line, err)) return 0;
+    out->item[out->count - 1].fence = fence;
+    return 1;
 }
 
 static int horizon_seen(const FamSpec *out)

@@ -15,7 +15,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum { FAM_VARIANTS = 8, FAM_LETTERS = 3 };
+enum { FAM_VARIANTS = 8, FAM_LETTERS = 3, FAM_FENCE_VARIANTS = 2 };
 
 typedef struct {
     const FamPicture *terrain;   /* terrain[i] is texture id i */
@@ -24,6 +24,8 @@ typedef struct {
     size_t scenery_count;
     const FamPicture *horizon;   /* the sky and the background: required */
     const unsigned *terrain_letters;   /* terrain_letters[i]: the FAM_LETTER_ bits (fam_spec.h) bank i holds; NULL: all three for every bank */
+    const unsigned char *terrain_fence;   /* terrain_fence[i] 1: bank i is a fence's, each letter 000 at 64 x 64 and 001 at 80 x 40 as the CD's AL1
+                                             bank 16 (the game takes 001 for the 002..007 it does not find, track_art.c); NULL: none */
 } FamSource;
 
 /* The FAM bytes (malloc'd, free with free()). 0 with the reason in `err`: no horizon, fewer than 2 terrain textures, more than the

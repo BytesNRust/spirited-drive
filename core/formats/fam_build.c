@@ -18,6 +18,9 @@ static const uint16_t LADDER[FAM_VARIANTS][2] = {
     { 128, 256 }, { 64, 128 }, { 32, 64 }, { 16, 32 }, { 32, 96 }, { 16, 48 }, { 8, 24 }, { 4, 12 }
 };
 
+/* a fence's two pictures, the CD's AL1 bank 16 (slot 48): 000 and 001; the game draws a fence with the near variants, so with 001 */
+static const uint16_t FENCE_LADDER[FAM_FENCE_VARIANTS][2] = { { 64, 64 }, { 80, 40 } };
+
 static const char LETTERS[FAM_LETTERS] = { 'A', 'B', 'C' };
 
 /* one resampled texture: its variants' pictures and their palette indices */
@@ -26,6 +29,7 @@ typedef struct {
     uint8_t *rgba[FAM_VARIANTS];
     uint8_t *index[FAM_VARIANTS];
     unsigned letters;   /* FAM_LETTER_ bits of the letters the bank holds */
+    int variants;       /* FAM_VARIANTS, or FAM_FENCE_VARIANTS for a fence's bank */
 } Terrain;
 
 /* a chunk of a file being made: malloc'd bytes */
@@ -149,7 +153,7 @@ static int bank_of(ShpiDescEntry *e, size_t n, Blob *out, ExchangeError *err)
     return shpi_build(e, n, &out->data, &out->len, err);
 }
 
-/* a terrain bank: the palette, then letters A, B, C each with the variants 000..007 */
+/* a terrain bank: the palette, then letters A, B, C each with the variants 000..007 (a fence's: 000 and 001) */
 static int terrain_bank(const Terrain *t, const uint8_t palette6[FAM_PALETTE_BYTES], Blob *out, ExchangeError *err)
 {
     enum { ENTRIES = 1 + FAM_LETTERS * FAM_VARIANTS };
@@ -158,9 +162,9 @@ static int terrain_bank(const Terrain *t, const uint8_t palette6[FAM_PALETTE_BYT
     uint32_t place = 1;
     for (int l = 0; l < FAM_LETTERS; l++) {
         if (!(t->letters & (1u << l))) continue;
-        for (int v = 0; v < FAM_VARIANTS; v++, place++) {
+        for (int v = 0; v < t->variants; v++, place++) {
             const char name[4] = { LETTERS[l], '0', '0', (char)('0' + v) };
-            e[place] = entry_of(name, BITMAP_TYPE, LADDER[v][0], LADDER[v][1], t->index[v], place);
+            e[place] = entry_of(name, BITMAP_TYPE, t->width[v], t->height[v], t->index[v], place);
         }
     }
     return bank_of(e, place, out, err);
@@ -183,8 +187,9 @@ static int picture_bank(const char name[4], const FamPicture *pic, const uint8_t
 
 static int terrain_resample(const FamPicture *src, Terrain *t, ExchangeError *err)
 {
-    for (int v = 0; v < FAM_VARIANTS; v++) {
-        t->width[v] = LADDER[v][0], t->height[v] = LADDER[v][1];
+    for (int v = 0; v < t->variants; v++) {
+        const uint16_t *size = t->variants == FAM_FENCE_VARIANTS ? FENCE_LADDER[v] : LADDER[v];
+        t->width[v] = size[0], t->height[v] = size[1];
         t->rgba[v] = fam_resample(src, t->width[v], t->height[v]);
         if (t->rgba[v] == NULL) { exchange_fail(err, "out of memory"); return 0; }
     }
@@ -205,10 +210,10 @@ static int stage_palette(const FamSource *src, const Terrain *t, uint8_t palette
     if (pics == NULL) { exchange_fail(err, "out of memory"); return 0; }
     size_t k = 0;
     for (size_t i = 0; i < src->terrain_count; i++)
-        for (int v = 0; v < FAM_VARIANTS; v++) pics[k++] = variant_picture(&t[i], v);
+        for (int v = 0; v < t[i].variants; v++) pics[k++] = variant_picture(&t[i], v);
     for (size_t i = 0; i < src->scenery_count; i++) pics[k++] = src->scenery[i];
     pics[k++] = *src->horizon;
-    const int ok = fam_palette_make(pics, total, palette6);
+    const int ok = fam_palette_make(pics, k, palette6);
     free(pics);
     if (!ok) exchange_fail(err, "out of memory");
     return ok;
@@ -216,7 +221,7 @@ static int stage_palette(const FamSource *src, const Terrain *t, uint8_t palette
 
 static int terrain_index(Terrain *t, const uint8_t palette6[FAM_PALETTE_BYTES], ExchangeError *err)
 {
-    for (int v = 0; v < FAM_VARIANTS; v++) {
+    for (int v = 0; v < t->variants; v++) {
         t->index[v] = fam_indices(&(FamPicture){ t->width[v], t->height[v], t->rgba[v] }, palette6);
         if (t->index[v] == NULL) { exchange_fail(err, "out of memory"); return 0; }
     }
@@ -302,6 +307,7 @@ int fam_build(const FamSource *src, uint8_t **out, size_t *out_len, ExchangeErro
             ok = 0;
             break;
         }
+        t[i].variants = src->terrain_fence != NULL && src->terrain_fence[i] ? FAM_FENCE_VARIANTS : FAM_VARIANTS;
         ok = terrain_resample(&src->terrain[i], &t[i], err);
     }
     ok = ok && file_of(src, t, out, out_len, err);

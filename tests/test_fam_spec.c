@@ -85,9 +85,29 @@ static void test_letters(void)
     CHECK(strstr(msg, "no picture") != NULL);
 }
 
+/* "fence" after the letters: the bank is a fence's (fam_build: the CD's two fence pictures, not the terrain's eight variants) */
+static void test_fence(void)
+{
+    FamSpec spec;
+    char msg[256];
+    CHECK(parse("terrain 0 a.png\nterrain 1 letters=C fence planks.png\nterrain 2 fence rail.png\nhorizon sky.png\n", &spec, msg, sizeof msg));
+    CHECK_EQ_INT(spec.item[0].fence, 0);
+    CHECK_EQ_INT(spec.item[1].fence, 1);
+    CHECK_EQ_INT(spec.item[1].letters, FAM_LETTER_C);
+    CHECK(strcmp(spec.item[1].path, "planks.png") == 0);
+    CHECK_EQ_INT(spec.item[2].fence, 1);
+    CHECK_EQ_INT(spec.item[2].letters, FAM_LETTERS_ALL);
+    CHECK(strcmp(spec.item[2].path, "rail.png") == 0);
+    CHECK(parse("terrain 0 fence.png\nhorizon sky.png\n", &spec, msg, sizeof msg));   /* a picture called fence.png is a picture */
+    CHECK(spec.item[0].fence == 0 && strcmp(spec.item[0].path, "fence.png") == 0);
+    CHECK(!parse("terrain 0 fence\nhorizon s.png\n", &spec, msg, sizeof msg));   /* the path is still needed */
+    CHECK(strstr(msg, "no picture") != NULL);
+}
+
 int main(void)
 {
     test_letters();
+    test_fence();
     test_good_spec();
     test_path_with_spaces();
     test_refusals();

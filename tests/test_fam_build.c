@@ -152,7 +152,7 @@ static void test_refusals(const Stage *s)
         { TEXTURES, 0, 0, "a stage needs a horizon" },
     };
     for (size_t i = 0; i < sizeof cases / sizeof cases[0]; i++) {
-        const FamSource src = { many, cases[i].terrain, s->scenery_pic, cases[i].scenery, cases[i].horizon ? &s->horizon_pic : NULL, NULL };
+        const FamSource src = { many, cases[i].terrain, s->scenery_pic, cases[i].scenery, cases[i].horizon ? &s->horizon_pic : NULL, NULL, NULL };
         uint8_t *out = NULL;
         size_t len = 0;
         char msg[256];
@@ -168,7 +168,7 @@ static void test_file_limit(const Stage *s)
 {
     static FamPicture many[LIMIT_TERRAIN];
     for (int i = 0; i < LIMIT_TERRAIN; i++) many[i] = s->terrain_pic[i % TEXTURES];
-    const FamSource src = { many, LIMIT_TERRAIN, NULL, 0, &s->horizon_pic, NULL };
+    const FamSource src = { many, LIMIT_TERRAIN, NULL, 0, &s->horizon_pic, NULL, NULL };
     uint8_t *out = NULL;
     size_t len = 0;
     char msg[256];
@@ -235,7 +235,7 @@ static void test_letters(const Stage *stage, size_t all_len)
     for (int i = 0; i < TEXTURES; i++) letters[i] = FAM_LETTERS_ALL;
     letters[0] = FAM_LETTER_A;
     letters[1] = FAM_LETTER_B | FAM_LETTER_C;
-    const FamSource src = { stage->terrain_pic, TEXTURES, stage->scenery_pic, 1, &stage->horizon_pic, letters };
+    const FamSource src = { stage->terrain_pic, TEXTURES, stage->scenery_pic, 1, &stage->horizon_pic, letters, NULL };
     uint8_t *file = NULL;
     size_t len = 0;
     char msg[256];
@@ -269,8 +269,8 @@ static void test_generic_check(const Stage *s)
     static unsigned letters[TRACK_GENERIC_BANKS];
     for (int i = 0; i < TRACK_GENERIC_BANKS; i++) many[i] = s->terrain_pic[i % TEXTURES], letters[i] = FAM_LETTER_A;
     letters[TRACK_GENERIC_BANKS - 1] = FAM_LETTER_C;
-    const FamSource good = { many, TRACK_GENERIC_BANKS, NULL, 0, &s->horizon_pic, letters };
-    const FamSource few = { many, TRACK_GENERIC_BANKS - 1, NULL, 0, &s->horizon_pic, letters };
+    const FamSource good = { many, TRACK_GENERIC_BANKS, NULL, 0, &s->horizon_pic, letters, NULL };
+    const FamSource few = { many, TRACK_GENERIC_BANKS - 1, NULL, 0, &s->horizon_pic, letters, NULL };
     uint8_t *file = NULL;
     size_t len = 0;
     char msg[256];
@@ -314,7 +314,7 @@ static void test_see_through_bank(const Stage *stage)
     for (int y = 0; y < SIDE; y++)
         for (int x = 0; x < SIDE / 2; x++) gaps[4 * (y * SIDE + x) + 3] = 0;
     const FamPicture terrain[TEXTURES] = { stage->terrain_pic[0], { SIDE, SIDE, gaps } };
-    const FamSource src = { terrain, TEXTURES, NULL, 0, &stage->horizon_pic, NULL };
+    const FamSource src = { terrain, TEXTURES, NULL, 0, &stage->horizon_pic, NULL, NULL };
     uint8_t *file = NULL;
     size_t len = 0;
     char msg[256];
@@ -345,11 +345,43 @@ static void test_see_through_bank(const Stage *stage)
     free(file);
 }
 
+/* a fence's bank (terrain_fence): each letter it holds has the CD's two fence pictures, 000 at 64 x 64 and 001 at 80 x 40 (AL1's bank 16;
+ * the game takes 001 for the variants 002..007 it does not find, track_art.c), where a terrain bank has the eight variants of the ladder */
+static void test_fence_bank(const Stage *stage)
+{
+    const unsigned letters[TEXTURES] = { FAM_LETTERS_ALL, FAM_LETTER_A | FAM_LETTER_C };
+    const unsigned char fence[TEXTURES] = { 0, 1 };
+    const FamSource src = { stage->terrain_pic, TEXTURES, NULL, 0, &stage->horizon_pic, letters, fence };
+    uint8_t *file = NULL;
+    size_t len = 0;
+    char msg[256];
+    CHECK(build(&src, &file, &len, msg, sizeof msg));
+    if (file == NULL) return;
+    Chunk root, group, bank;
+    Fsh fsh;
+    CHECK(chunk_open(&root, file, len) == CHUNK_OK);
+    CHECK(chunk_child(&root, FAM_CHILD_TERRAIN, &group) == CHUNK_OK);
+    CHECK(chunk_child(&group, 0, &bank) == CHUNK_OK && bank_open(&bank, &fsh));
+    CHECK_EQ_INT((int)fsh.count, 1 + FAM_LETTERS * FAM_VARIANTS);   /* the terrain bank as before */
+    CHECK(chunk_child(&group, 1, &bank) == CHUNK_OK && bank_open(&bank, &fsh));
+    CHECK_EQ_INT((int)fsh.count, 1 + 2 * 2);                         /* the palette, A000 A001 C000 C001 */
+    static const char *const names[] = { "A000", "A001", "C000", "C001" };
+    static const int sizes[][2] = { { 64, 64 }, { 80, 40 }, { 64, 64 }, { 80, 40 } };
+    for (int i = 0; i < 4; i++) {
+        FshEntry e;
+        CHECK(find_entry(&fsh, names[i], &e));
+        CHECK(e.width == sizes[i][0] && e.height == sizes[i][1]);
+    }
+    FshEntry none;
+    CHECK(!find_entry(&fsh, "A002", &none) && !find_entry(&fsh, "B000", &none));
+    free(file);
+}
+
 int main(int argc, char **argv)
 {
     static Stage stage;
     stage_init(&stage);
-    const FamSource src = { stage.terrain_pic, TEXTURES, stage.scenery_pic, 1, &stage.horizon_pic, NULL };
+    const FamSource src = { stage.terrain_pic, TEXTURES, stage.scenery_pic, 1, &stage.horizon_pic, NULL, NULL };
     uint8_t *file = NULL;
     size_t len = 0;
     char msg[256];
@@ -366,6 +398,7 @@ int main(int argc, char **argv)
     test_letters(&stage, len);
     test_generic_check(&stage);
     test_see_through_bank(&stage);
+    test_fence_bank(&stage);
     if (argc > 1) test_ladder_matches_cd(file, len, argv[1]);
     free(file);
     return TEST_REPORT();

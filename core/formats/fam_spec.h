@@ -5,6 +5,8 @@
  *   terrain 1 asphalt.png
  *   terrain 2 letters=AC rock.png   only the letters A and C of the bank (A, B, C: any of them; a bank costs 143 KB a letter set and
  *                            the file holds 1.45 MB: a track that uses the slot of one letter has no use for the other two)
+ *   terrain 3 letters=C fence planks.png   a fence's bank: each letter has the CD's two fence pictures, not the eight terrain variants
+ *                            (fam_build.h); "fence" comes after the letters, before the picture
  *   scenery trees.png        a scenery texture (optional, in order)
  *   horizon sky.png          the horizon, exactly one line
  *
@@ -27,6 +29,7 @@ typedef struct {
     FamSpecKind kind;
     char path[FAM_SPEC_PATH];
     unsigned letters;   /* terrain: the FAM_LETTER_ bits the bank holds (FAM_LETTERS_ALL when the line says nothing) */
+    int fence;          /* terrain: 1 when the line says "fence" (the bank is a fence's pictures) */
 } FamSpecItem;
 
 typedef struct {

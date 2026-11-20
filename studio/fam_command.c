@@ -105,6 +105,7 @@ typedef struct {
     Loaded *item;
     FamPicture *terrain, *scenery;
     unsigned *letters;   /* a terrain bank's letters */
+    unsigned char *fence;   /* 1: a fence's bank */
     FamPicture horizon;
     size_t terrain_count, scenery_count, loaded;
 } Pictures;
@@ -115,6 +116,7 @@ static void pictures_free(Pictures *p)
     free(p->item);
     free(p->terrain);
     free(p->letters);
+    free(p->fence);
     free(p->scenery);
 }
 
@@ -122,7 +124,8 @@ static void pictures_free(Pictures *p)
 static void place(Pictures *p, const FamSpecItem *it)
 {
     const FamPicture pic = p->item[p->loaded - 1].pic;
-    if (it->kind == FAM_SPEC_TERRAIN) p->letters[p->terrain_count] = it->letters, p->terrain[p->terrain_count++] = pic;
+    if (it->kind == FAM_SPEC_TERRAIN)
+        p->letters[p->terrain_count] = it->letters, p->fence[p->terrain_count] = (unsigned char)it->fence, p->terrain[p->terrain_count++] = pic;
     else if (it->kind == FAM_SPEC_SCENERY) p->scenery[p->scenery_count++] = pic;
     else p->horizon = pic;
 }
@@ -133,7 +136,8 @@ static int load_all(const char *spec, const FamSpec *s, Pictures *p, ExchangeErr
     p->terrain = calloc(s->count ? s->count : 1, sizeof *p->terrain);
     p->scenery = calloc(s->count ? s->count : 1, sizeof *p->scenery);
     p->letters = calloc(s->count ? s->count : 1, sizeof *p->letters);
-    if (p->item == NULL || p->terrain == NULL || p->scenery == NULL || p->letters == NULL) { exchange_fail(err, "out of memory"); return 0; }
+    p->fence = calloc(s->count ? s->count : 1, sizeof *p->fence);
+    if (p->item == NULL || p->terrain == NULL || p->scenery == NULL || p->letters == NULL || p->fence == NULL) { exchange_fail(err, "out of memory"); return 0; }
     for (size_t i = 0; i < s->count; i++) {
         char path[FAM_PATH];
         resolve(spec, s->item[i].path, path);
@@ -158,7 +162,7 @@ static int build(const Args *a, ExchangeError *err)
     uint8_t *bytes = NULL;
     size_t len = 0;
     if (ok) {
-        const FamSource src = { p.terrain, p.terrain_count, p.scenery, p.scenery_count, &p.horizon, p.letters };
+        const FamSource src = { p.terrain, p.terrain_count, p.scenery, p.scenery_count, &p.horizon, p.letters, p.fence };
         ok = fam_build(&src, &bytes, &len, err) && fsio_write_file(a->out, bytes, len, a->force, err);
     }
     if (ok) printf("%s: %zu bytes, %zu terrain textures, %zu scenery textures\n", a->out, len, p.terrain_count, p.scenery_count);
