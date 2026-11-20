@@ -5,7 +5,7 @@
  *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--shine on|off] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
  * PROJECT is a folder such as art/tnfs-tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
- * art/tnfs-cars/<kit>/ (or its coche/): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
+ * art/tnfs-cars/<kit>/: a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
  * the road is made on the generic template and the stage's art is the FAM named by project.ini's art=. --game and --user are for the
  * install (the game's --install; without --user, into the game's own player folder). Without PROJECT the editor reopens the project it had last, or shows
  * the start screen; without --game it takes the Spirited Drive app beside it (inside the DMG) or ./tnfs. The options after --frames run headless: N frames, then they are done, and --shot writes the last frame to a PNG; the
@@ -415,6 +415,7 @@ static int test_drive(App *a, const Options *o)
 static int run_requested(App *a, const Options *o)
 {
     int ok = 1;
+    if (o->frames > 0) while (app_car_build_poll(a)) SDL_Delay(5);   /* a headless run waits for the kit to be built: its pictures show the car */
     if (o->save) ok &= app_save(a);
     if (o->build) ok &= app_build(a);
     if (o->install) ok &= install_waited(a);
@@ -425,6 +426,7 @@ static int run_requested(App *a, const Options *o)
         if (!made && a->status[0] == '\0') snprintf(a->status, sizeof a->status, "--export-car %s needs a car of the list and --into PARENT", o->export_car);
         fprintf(made ? stdout : stderr, "%s\n", a->status);
         ok &= made;
+        if (made && o->frames > 0) while (app_car_build_poll(a)) SDL_Delay(5);   /* the exported kit is built as it opens */
     }
     if (o->changes) {   /* the masks against the game's, headless */
         const ExportCar *car = car_race_original_of(&a->car);
@@ -432,7 +434,7 @@ static int run_requested(App *a, const Options *o)
         MaskChanges *changes = malloc(sizeof *changes);
         int done = a->kind == APP_KIND_CAR && car != NULL && changes != NULL;
         if (done) {
-            snprintf(project, sizeof project, "%s/car_masks/%s", a->car.piece, a->car.folder);
+            car_project_masks_dir(&a->car, project, sizeof project);
             snprintf(game, sizeof game, "%s/car_masks/%s", a->export_src.data, car->folder);
             done = mask_changes_compare(project, game, changes, why, sizeof why);
         } else {
@@ -669,6 +671,7 @@ static int run(App *a, const Options *o)
             else if (run_go(win, a)) quit = 1;
         }
         app_rehacer_poll(a);
+        app_car_build_poll(a);
         app_install_poll(a);
         app_psd_poll(a);
         app_dash_poll(a);

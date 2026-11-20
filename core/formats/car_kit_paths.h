@@ -33,6 +33,7 @@ typedef enum {
     CAR_KIT_README,
     CAR_KIT_MESH_OBJ,       /* the OBJ in a mesh folder: the user's Blender export */
     CAR_KIT_MESH_TO_BANK,   /* a mesh folder's bank, from the mesh folder (its MTL's textures) */
+    CAR_KIT_MODEL,          /* the folder of both models, near and far */
     CAR_KIT_PATHS
 } CarKitPath;
 

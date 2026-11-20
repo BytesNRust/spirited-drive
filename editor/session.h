@@ -34,7 +34,7 @@ int recent_save(const Recent *r, const char *file);
 /* 1 when `dir` still holds a track project (a project.ini in it). */
 int recent_is_project(const char *dir);
 
-/* 1 when a recent folder of `kind` is still there: a track's project.ini, a car's mod.ini (in it or in its coche/). The cheap question the lists ask every frame. */
+/* 1 when a recent folder of `kind` is still there: a track's project.ini, a car's kit (a mod.ini and a model/ in it). The cheap question the lists ask every frame. */
 int recent_present(const char *dir, int kind);
 
 

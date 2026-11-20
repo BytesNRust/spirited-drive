@@ -52,12 +52,9 @@ int texture_file_of(const char *kit_root, int level, const char *name, char *out
     unsigned char b[4] = {0, 0, 0, 0};
     memcpy(b, name, strnlen(name, 4));
     snprintf(name_hex, sizeof name_hex, "%02x%02x%02x%02x", b[0], b[1], b[2], b[3]);
-    const char *banks[2] = {car_kit_path(level == 0 ? CAR_KIT_NEAR_BANK : CAR_KIT_FAR_BANK), level == 0 ? "modelo/c1" : "modelo/c3"};
-    for (int i = 0; i < 2; i++) {
-        char bank[4096];
-        if (snprintf(bank, sizeof bank, "%s/%s", kit_root, banks[i]) >= (int)sizeof bank) continue;
-        if (in_bank(bank, name_hex, out, cap)) return 1;
-    }
+    char bank[4096];
+    if (snprintf(bank, sizeof bank, "%s/%s", kit_root, car_kit_path(level == 0 ? CAR_KIT_NEAR_BANK : CAR_KIT_FAR_BANK)) < (int)sizeof bank &&
+        in_bank(bank, name_hex, out, cap)) return 1;
     out[0] = '\0';
     return 0;
 }

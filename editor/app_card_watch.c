@@ -30,11 +30,11 @@ static unsigned long long mix(unsigned long long h, unsigned long long v)
 /* a sum over the PNG files of modelo/<bank>: name, time and size of each (a sum, so the order of the listing does not matter) */
 static unsigned long long pngs_of(const App *a)
 {
-    static const char *const BANKS[] = { "c1", "c3" };
+    static const char *const BANKS[] = { "near", "far" };
     unsigned long long sum = 0;
     for (size_t b = 0; b < sizeof BANKS / sizeof BANKS[0]; b++) {
         char dir[CAR_PROJECT_PATH + 16];
-        const int n = snprintf(dir, sizeof dir, "%s/modelo/%s", a->car.root, BANKS[b]);
+        const int n = snprintf(dir, sizeof dir, "%s/model/%s/bank", a->car.root, BANKS[b]);
         DIR *d = n > 0 && (size_t)n < sizeof dir ? opendir(dir) : NULL;
         if (d == NULL) continue;
         for (const struct dirent *e = readdir(d); e != NULL; e = readdir(d)) {

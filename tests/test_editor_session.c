@@ -867,8 +867,8 @@ static void check_recent_kinds(void)
 
     /* a car is present while its mod.ini is; a track while its project.ini is */
     dir_in("kitp");
-    dir_in("kitp/coche");
-    put("kitp/coche/mod.ini", "id=a\n");
+    dir_in("kitp/model");
+    put("kitp/mod.ini", "id=a\n");
     dir_in("trk");
     put("trk/project.ini", "id=t\n");
     char kit[700], trk[700];
@@ -877,9 +877,9 @@ static void check_recent_kinds(void)
     CHECK(recent_present(kit, RECENT_CAR) && !recent_present(kit, RECENT_TRACK));
     CHECK(recent_present(trk, RECENT_TRACK) && !recent_present(trk, RECENT_CAR));
     CHECK(!recent_present("/home/p/nowhere", RECENT_CAR) && !recent_present("/home/p/nowhere", RECENT_TRACK));
-    path_in(kit, sizeof kit, "kitp/coche/mod.ini");
+    path_in(kit, sizeof kit, "kitp/mod.ini");
     remove(kit);
-    path_in(kit, sizeof kit, "kitp/coche");
+    path_in(kit, sizeof kit, "kitp/model");
     rmdir(kit);
     path_in(kit, sizeof kit, "kitp");
     rmdir(kit);
@@ -892,14 +892,12 @@ static void check_recent_kinds(void)
 /* one project of either kind: nothing open, a car, a track, back; the track's actions do nothing for a car; a car has nothing unsaved */
 static void check_kinds(void)
 {
-    char dirs[][40] = { "kit", "kit/coche", "kit/coche/SIMDATA", "kit/coche/SIMDATA/CARFAMS", "kit/modelo", "kit/modelo/c1", "tr" };
+    char dirs[][40] = { "kit", "kit/model", "kit/model/near", "kit/model/near/bank", "tr" };
     for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; ++i) dir_in(dirs[i]);
-    put("kit/coche/mod.ini", "id=carrera-84\nname=911\nversion=1\ntype=car\nstem=C84\nsound_from=911\n");
-    put("kit/coche/SIMDATA/CARFAMS/C84.CFM", "cfm");
-    put("kit/modelo/c1/0010_rsid.png", "x");
-    char kit[700], coche[700], two[700], blank[700], recent[700], real_kit[PATH_MAX];
+    put("kit/mod.ini", "id=carrera-84\nname=911\nversion=1\ntype=car\nstem=C84\nsound_from=911\n");
+    put("kit/model/near/bank/0010_rsid.png", "x");
+    char kit[700], two[700], blank[700], recent[700], real_kit[PATH_MAX];
     path_in(kit, sizeof kit, "kit");
-    path_in(coche, sizeof coche, "kit/coche");
     path_in(two, sizeof two, "tr");
     path_in(blank, sizeof blank, "blank");
     path_in(recent, sizeof recent, "kinds.txt");
@@ -919,7 +917,7 @@ static void check_kinds(void)
     app_keep_recent(a, recent);
     CHECK_EQ_INT(a->recent.count, 0);                        /* nothing open puts nothing in the list */
 
-    CHECK(app_open_car(a, coche));                           /* given coche/, the kit is opened */
+    CHECK(app_open_car(a, kit));                             /* the kit's folder opens it, built or not */
     CHECK_EQ_INT(a->kind, APP_KIND_CAR);
     CHECK(strcmp(a->dir, real_kit) == 0 && strcmp(a->car.info.stem, "C84") == 0 && a->car.texture_count == 1);
     CHECK_EQ_INT(a->recent.count, 1);
@@ -951,7 +949,7 @@ static void check_kinds(void)
     a->go = APP_ACT_NONE;
     {
         char ini[900];
-        path_in(ini, sizeof ini, "kit/coche/mod.ini");
+        path_in(ini, sizeof ini, "kit/mod.ini");
         FILE *card = fopen(ini, "rb");
         char text[400] = "";
         if (card != NULL) text[fread(text, 1, sizeof text - 1, card)] = '\0', fclose(card);
@@ -997,6 +995,7 @@ static void check_kinds(void)
     CHECK(app_open_any(a, blank, "./tnfs", "", NULL) && a->kind == APP_KIND_TRACK);
     app_free(a);
     dir_in("notcar");
+    dir_in("notcar/model");
     put("notcar/mod.ini", "id=a\nname=A\nversion=1\ntype=track\nstem=TT\n");
     path_in(blank, sizeof blank, "notcar");
     CHECK(!app_open_any(a, blank, "./tnfs", "", NULL));      /* it is not made a track project: the card says what it is */
@@ -1019,14 +1018,13 @@ static void check_kinds(void)
 /* Rehacer through the app: refused with no script and with unsaved card changes; run after a backup; the lists read again; nothing else opens while it runs */
 static void check_rehacer(void)
 {
-    char dirs[][40] = { "rk", "rk/coche", "rk/coche/SIMDATA", "rk/coche/SIMDATA/CARFAMS", "rk/modelo", "rk/modelo/c1", "nk", "nk/coche", "nk/coche/SIMDATA", "nk/coche/SIMDATA/CARFAMS" };
+    char dirs[][40] = { "rk", "rk/model", "rk/model/near", "rk/model/near/bank", "rk/build", "rk/build/piece", "rk/build/piece/SIMDATA", "rk/build/piece/SIMDATA/CARFAMS", "nk", "nk/model" };
     for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; ++i) dir_in(dirs[i]);
     static const char CARD[] = "id=carrera-84\nname=911\nversion=1\ntype=car\nstem=C84\nsound_from=911\n";
-    put("rk/coche/mod.ini", CARD);
-    put("rk/coche/SIMDATA/CARFAMS/C84.CFM", "the car file as it was");
-    put("rk/modelo/c1/0010_rsid.png", "x");
-    put("nk/coche/mod.ini", CARD);
-    put("nk/coche/SIMDATA/CARFAMS/C84.CFM", "cfm");
+    put("rk/mod.ini", CARD);
+    put("rk/build/piece/SIMDATA/CARFAMS/C84.CFM", "the car file as it was");
+    put("rk/model/near/bank/0010_rsid.png", "x");
+    put("nk/mod.ini", CARD);
     char rk[700], nk[700];
     path_in(rk, sizeof rk, "rk");
     path_in(nk, sizeof nk, "nk");
@@ -1044,7 +1042,7 @@ static void check_rehacer(void)
     snprintf(p, sizeof p, "%s/.studio-backup", nk);
     CHECK(stat(p, &st) != 0);                                /* and no backup was made for nothing */
 
-    put("rk/rehacer.command", "#!/bin/sh\necho making the car\necho texture > modelo/c1/0020_new.png\necho changed > coche/SIMDATA/CARFAMS/C84.CFM\nexit ${REHACER_TEST_EXIT:-0}\n");
+    put("rk/rehacer.command", "#!/bin/sh\necho making the car\necho texture > model/near/bank/0020_new.png\necho changed > build/piece/SIMDATA/CARFAMS/C84.CFM\nexit ${REHACER_TEST_EXIT:-0}\n");
     CHECK(app_open_car(a, rk));
     CHECK(app_rehacer_available(a) && a->car.texture_count == 1);
     CHECK_EQ_INT(car_edit_set(&a->edit, CE_YEAR, "1990"), 1);   /* unsaved changes: refused, nothing run, no backup */
@@ -1068,11 +1066,11 @@ static void check_rehacer(void)
     {   /* the backup holds the car file as it was before the script changed it */
         char got[100] = "";
         char bp[1100];
-        snprintf(bp, sizeof bp, "%s/coche/SIMDATA/CARFAMS/C84.CFM", a->rehacer.backup);
+        snprintf(bp, sizeof bp, "%s/build/piece/SIMDATA/CARFAMS/C84.CFM", a->rehacer.backup);
         FILE *b = fopen(bp, "rb");
         if (b != NULL) got[fread(got, 1, sizeof got - 1, b)] = '\0', fclose(b);
         CHECK(strcmp(got, "the car file as it was") == 0);
-        snprintf(bp, sizeof bp, "%s/coche/mod.ini", a->rehacer.backup);
+        snprintf(bp, sizeof bp, "%s/mod.ini", a->rehacer.backup);
         b = fopen(bp, "rb");
         char card[200] = "";
         if (b != NULL) card[fread(card, 1, sizeof card - 1, b)] = '\0', fclose(b);
@@ -1106,7 +1104,7 @@ static void check_rehacer(void)
         CHECK(app_rehacer_raise_and_run(a));
         CHECK(app_rehacer_busy(a) && !car_edit_modified(&a->edit) && strcmp(a->edit.now.value[CE_VERSION], "1.0.1") == 0);
         char card[300] = "", cp[900];
-        snprintf(cp, sizeof cp, "%s/coche/mod.ini", rk);
+        snprintf(cp, sizeof cp, "%s/mod.ini", rk);
         FILE *c = fopen(cp, "rb");
         if (c != NULL) card[fread(card, 1, sizeof card - 1, c)] = '\0', fclose(c);
         CHECK(strstr(card, "version=1.0.1\n") != NULL && strstr(card, "year=1990\n") != NULL);   /* only the version changed */
@@ -1148,12 +1146,12 @@ static void check_rehacer(void)
         a->mask.sel = -1;
         remove(mp);
 
-        char coche[900], card[300] = "", cp[900];   /* the card cannot be written: nothing runs again, and the card on screen is as it was */
-        snprintf(coche, sizeof coche, "%s/coche", rk);
-        snprintf(cp, sizeof cp, "%s/mod.ini", coche);
-        chmod(coche, 0555);
+        char kitdir[900], card[300] = "", cp[900];   /* the card cannot be written: nothing runs again, and the card on screen is as it was */
+        snprintf(kitdir, sizeof kitdir, "%s", rk);
+        snprintf(cp, sizeof cp, "%s/mod.ini", kitdir);
+        chmod(kitdir, 0555);
         CHECK(!app_rehacer_raise_and_run(a) && !app_rehacer_busy(a));
-        chmod(coche, 0755);
+        chmod(kitdir, 0755);
         CHECK(strcmp(a->edit.now.value[CE_VERSION], "1.0.1") == 0 && !car_edit_modified(&a->edit));
         FILE *c = fopen(cp, "rb");
         if (c != NULL) card[fread(card, 1, sizeof card - 1, c)] = '\0', fclose(c);
@@ -1305,7 +1303,7 @@ static void check_mask_texture_file(void)
     char kit[600], p[900];
     snprintf(kit, sizeof kit, "%s/tex_file_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
     if (mkdtemp(kit) == NULL) { CHECK(0); return; }
-    const char *dirs[] = { "model", "model/near", "model/near/bank", "car_masks", "car_masks/KC" };
+    const char *dirs[] = { "model", "model/near", "model/near/bank", "car_masks" };
     for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; i++) snprintf(p, sizeof p, "%s/%s", kit, dirs[i]), mkdir(p, 0777);
     snprintf(p, sizeof p, "%s/model/near/bank/entries.tsv", kit);
     FILE *f = fopen(p, "wb");
@@ -1317,7 +1315,7 @@ static void check_mask_texture_file(void)
     uint8_t grey[8 * 6], *png = NULL;
     size_t len = 0;
     memset(grey, 255, sizeof grey);
-    snprintf(p, sizeof p, "%s/car_masks/KC/frnt_mask.png", kit);
+    snprintf(p, sizeof p, "%s/car_masks/frnt_mask.png", kit);
     f = png_write_grey(grey, 8, 6, &png, &len) == PNG_OK ? fopen(p, "wb") : NULL;
     if (f != NULL) fwrite(png, 1, len, f), fclose(f);
     free(png);
@@ -1494,6 +1492,39 @@ static void check_free_keeps_stdin(void)
     }
 }
 
+/* a kit with no car file is built as it opens, in a thread: the window is not held, the end is told in the status, the car is read again. This kit has no Blender
+ * OBJ, so the build says why it cannot; an old-shape piece and a built kit start nothing */
+static void check_kit_builds_on_open(void)
+{
+    dir_in("bk");
+    dir_in("bk/model");
+    put("bk/mod.ini", "id=bk\nname=B\nversion=1\ntype=car\nstem=BK\n");
+    dir_in("bp");   /* a piece: mod.ini and SIMDATA */
+    dir_in("bp/SIMDATA");
+    dir_in("bp/SIMDATA/CARFAMS");
+    put("bp/mod.ini", "id=bp\nname=B\nversion=1\ntype=car\nstem=BP\n");
+    put("bp/SIMDATA/CARFAMS/BP.CFM", "cfm");
+    char kit[700], piece[700];
+    path_in(kit, sizeof kit, "bk");
+    path_in(piece, sizeof piece, "bp");
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, "./tnfs", "", NULL);
+    CHECK(app_open_car(a, piece) && !app_car_building(a) && a->car.legacy && a->car.built);   /* nothing to build: it is the car as it is */
+    CHECK(app_open_car(a, kit));
+    CHECK(!a->car.built && !a->car.legacy);
+    for (int i = 0; i < 4000 && app_car_build_poll(a); ++i) usleep(2000);
+    CHECK(!app_car_building(a));
+    CHECK(strstr(a->status, "could not be built") != NULL && strstr(a->status, "mesh.blender.obj") != NULL);
+    CHECK(!a->car.built && a->kind == APP_KIND_CAR);   /* the car stays open, with no car file */
+    app_free(a);
+    free(a);
+    char cmd[1500];
+    snprintf(cmd, sizeof cmd, "rm -rf '%s/bk' '%s/bp'", root, root);
+    if (system(cmd) != 0) fprintf(stderr, "could not clean up\n");
+}
+
 int main(void)
 {
     const char *tmp = getenv("TMPDIR");
@@ -1515,6 +1546,7 @@ int main(void)
     check_app_flow();
     check_recent_kinds();
     check_kinds();
+    check_kit_builds_on_open();
     check_rehacer();
     check_export();
     check_mask_app();

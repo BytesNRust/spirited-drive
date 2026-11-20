@@ -101,16 +101,16 @@ static void run_to_end(App *a)
 
 static App *open_kit(void)
 {
-    const char *dirs[] = { "kit", "kit/coche", "kit/coche/SIMDATA", "kit/coche/SIMDATA/CARFAMS", "kit/coche/car_masks", "kit/coche/car_masks/P911", "tools", "psd", "psd/P911", "cd" };
+    const char *dirs[] = { "kit", "kit/SIMDATA", "kit/SIMDATA/CARFAMS", "kit/car_masks", "kit/car_masks/P911", "tools", "psd", "psd/P911", "cd" };
     for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; i++) dir_of(dirs[i]);
-    if (!put("kit/coche/mod.ini", "id=boxcar\nname=Box\nversion=1\ntype=car\nstem=P911\nsound_from=911\n") || !put("kit/coche/SIMDATA/CARFAMS/P911.CFM", "cfm") ||
-        !put("kit/coche/car_masks/P911/frnt_mask.png", "old") || !put("tools/car_mask_from_psd.py", BODY) || !put("tools/dash_mask_from_psd.py", DASH) ||
+    if (!put("kit/mod.ini", "id=boxcar\nname=Box\nversion=1\ntype=car\nstem=P911\nsound_from=911\n") || !put("kit/SIMDATA/CARFAMS/P911.CFM", "cfm") ||
+        !put("kit/car_masks/P911/frnt_mask.png", "old") || !put("tools/car_mask_from_psd.py", BODY) || !put("tools/dash_mask_from_psd.py", DASH) ||
         !put("psd/P911/frnt.psd", "psd") || !put("psd/P911/dash.psd", "psd") || !put("game", GAME))
         return NULL;
     char game[500];
     path_of(game, sizeof game, "game");
     chmod(game, 0755);
-    age("kit/coche/car_masks/P911/frnt_mask.png", 3600);   /* the PSDs are newer: just written */
+    age("kit/car_masks/P911/frnt_mask.png", 3600);   /* the PSDs are newer: just written */
     App *a = calloc(1, sizeof *a);
     if (a == NULL) return NULL;
     app_begin(a, game, "", NULL);
@@ -149,7 +149,7 @@ static void test_flow(void)
     CHECK(app_dash_check_start(a) && a->dash_check == 1 && !app_dash_possible(a, why, sizeof why));
     run_to_end(a);
     CHECK(a->psd.ok && a->dash_check == 0);
-    CHECK(contains_file("kit/coche/dash_masks/P911/dash_mask.png", "png") || contains_file("kit/dash_masks/P911/dash_mask.png", "png"));
+    CHECK(contains_file("kit/dash_masks/P911/dash_mask.png", "png") || contains_file("kit/dash_masks/P911/dash_mask.png", "png"));
     CHECK(a->race.ok && a->race.photo != NULL && a->race.photo_w == 640);
     CHECK(contains_file("env.txt", "TNFS_GAUGE_LIGHT=5") && contains_file("env.txt", "TNFS_VIEW=0") && contains_file("env.txt", "dash_masks"));
     CHECK(contains_file("restomod.txt", "light_time=night"));

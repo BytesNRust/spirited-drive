@@ -32,41 +32,46 @@ grep -q "already there" "$work/log" || fail "no word about the folder that is th
 "$editor" --pick nosuchcar --frames 2 $export_opts >/dev/null 2>&1 && fail "--pick took a car that is not in the list"
 
 # ==== Open: the start screen, a car's kit, a card that is not a car ====
-# no PROJECT: the start screen (nothing is made anywhere); a car's kit opens as a car, by its root or its coche/, and writes nothing; a card that is not a car is refused
+# no PROJECT: the start screen (nothing is made anywhere); a car's kit (the current layout) opens as a car and writes nothing; an old coche/ + modelo/ kit and a card
+# that is not a car are refused in words
 "$editor" --frames 3 --shot "$work/start.png" >"$work/log" 2>&1 || fail "run with nothing to open: $(cat "$work/log")"
 [ -s "$work/start.png" ] || fail "no PNG of the start screen"
 "$editor" --ask opencar --frames 3 >"$work/log" 2>&1 || fail "run with Open car asked for on the start screen: $(cat "$work/log")"
-mkdir -p "$work/kit/coche/SIMDATA/CARFAMS" "$work/kit/coche/car_masks/K1" "$work/kit/modelo/c1"
-printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\nsound_from=911\n' > "$work/kit/coche/mod.ini"
-printf 'x' > "$work/kit/coche/SIMDATA/CARFAMS/K1.CFM"
-printf 'x' > "$work/kit/coche/car_masks/K1/rsid_mask.png"
-printf 'x' > "$work/kit/modelo/c1/0010_rsid.png"
+mkdir -p "$work/kit/model/near/bank" "$work/kit/car_masks"
+printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\nsound_from=911\n' > "$work/kit/mod.ini"
+printf 'x' > "$work/kit/car_masks/rsid_mask.png"
+printf 'x' > "$work/kit/model/near/bank/0010_rsid.png"
 "$editor" "$work/kit" --frames 3 --shot "$work/kit.png" >"$work/log" 2>&1 || fail "run on a car's kit: $(cat "$work/log")"
-"$editor" "$work/kit/coche" --frames 3 --shot "$work/coche.png" >"$work/log" 2>&1 || fail "run on a car's coche folder: $(cat "$work/log")"
-[ -s "$work/kit.png" ] && [ -s "$work/coche.png" ] || fail "no PNG of the car"
-cmp -s "$work/kit.png" "$work/coche.png" || fail "the kit and its coche/ are not the same car on screen"
+[ -s "$work/kit.png" ] || fail "no PNG of the car"
 cmp -s "$work/kit.png" "$work/start.png" && fail "the car looks like the start screen"
-[ ! -e "$work/kit/project.ini" ] && [ ! -e "$work/kit/coche/project.ini" ] || fail "opening a car made track files in it"
+[ ! -e "$work/kit/project.ini" ] || fail "opening a car made track files in it"
+mkdir -p "$work/oldkit/coche" "$work/oldkit/modelo"
+printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\n' > "$work/oldkit/coche/mod.ini"
+out=$("$editor" "$work/oldkit" --frames 2 2>&1) && fail "an old coche/ + modelo/ kit was opened"
+echo "$out" | grep -q "not a kit in the current layout" || fail "no word that the layout is the old one: $out"
+out=$("$editor" "$work/oldkit/coche" --frames 2 2>&1) && fail "an old coche/ folder was opened"
+echo "$out" | grep -q "not a kit in the current layout" || fail "no word that coche/ is the old layout: $out"
+[ ! -e "$work/oldkit/project.ini" ] && [ ! -e "$work/oldkit/coche/project.ini" ] || fail "an old kit was made a track project"
 "$editor" "$work/kit" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a car"
 grep -q "no Build or Install" "$work/log" || fail "Build on a car does not say so: $(cat "$work/log")"
-mkdir "$work/notcar"
+mkdir -p "$work/notcar/model"
 printf 'id=t\nname=T\nversion=1\ntype=track\nstem=TT\n' > "$work/notcar/mod.ini"
 out=$("$editor" "$work/notcar" --frames 2 2>&1) && fail "a track's mod.ini was opened as a car"
 echo "$out" | grep -q "type=track" || fail "no word about what the card is: $out"
 [ ! -e "$work/notcar/project.ini" ] || fail "a card that is not a car was made a track project"
 
 # ==== Card: edit and Save mod.ini, an invalid field, unsaved changes on Quit ====
-cp "$work/kit/coche/mod.ini" "$work/card.before"
+cp "$work/kit/mod.ini" "$work/card.before"
 "$editor" "$work/kit" --frames 2 --save >"$work/log" 2>&1 || fail "Save with nothing changed failed: $(cat "$work/log")"
-cmp -s "$work/card.before" "$work/kit/coche/mod.ini" || fail "Save with nothing changed touched mod.ini"
+cmp -s "$work/card.before" "$work/kit/mod.ini" || fail "Save with nothing changed touched mod.ini"
 # a change is written to mod.ini and nothing else; an invalid field refuses Save, shows on its field, and leaves the file as it was
 "$editor" "$work/kit" --frames 2 --set year=1990 --save >"$work/log" 2>&1 || fail "Save of a change failed: $(cat "$work/log")"
 printf 'year=1990\n' >> "$work/card.before"
-cmp -s "$work/card.before" "$work/kit/coche/mod.ini" || fail "Save changed more than the one line"
-cp "$work/kit/coche/mod.ini" "$work/card.before"
+cmp -s "$work/card.before" "$work/kit/mod.ini" || fail "Save changed more than the one line"
+cp "$work/kit/mod.ini" "$work/card.before"
 "$editor" "$work/kit" --frames 3 --set year=12345678901234567 --save --shot "$work/invalid.png" >"$work/log" 2>&1 && fail "Save went with a field that has a problem"
 grep -q "Year: 17 characters; the card keeps up to 16" "$work/log" || fail "no word about the field: $(cat "$work/log")"
-cmp -s "$work/card.before" "$work/kit/coche/mod.ini" || fail "a refused Save changed mod.ini"
+cmp -s "$work/card.before" "$work/kit/mod.ini" || fail "a refused Save changed mod.ini"
 [ -s "$work/invalid.png" ] || fail "no PNG with an invalid field"
 "$editor" "$work/kit" --frames 3 --set year=1991 --ask quit --shot "$work/carconfirm.png" >"$work/log" 2>&1 || fail "run with a changed card and a quit asked for: $(cat "$work/log")"
 "$editor" "$work/kit" --frames 2 --set nokey=1 >"$work/log" 2>&1 && fail "--set accepted a key that is not editable"
@@ -77,14 +82,14 @@ rm -f "$work/kit/project.ini"
 # exit code is the run's
 "$editor" "$work/kit" --frames 2 --rehacer >"$work/log" 2>&1 && fail "Rehacer went on a kit with no rehacer.command"
 grep -q "no rehacer.command" "$work/log" || fail "no plain word about the missing script: $(cat "$work/log")"
-printf '#!/bin/sh\necho "working in $(pwd)"\necho made > coche/proof.txt\nexit ${REHACER_EXIT:-0}\n' > "$work/kit/rehacer.command"
+printf '#!/bin/sh\necho "working in $(pwd)"\necho made > proof.txt\nexit ${REHACER_EXIT:-0}\n' > "$work/kit/rehacer.command"
 "$editor" "$work/kit" --frames 2 --set year=1992 --rehacer >"$work/log" 2>&1 && fail "Rehacer ran with unsaved card changes"
 grep -q "not saved" "$work/log" || fail "no word about the unsaved changes: $(cat "$work/log")"
-[ ! -e "$work/kit/coche/proof.txt" ] && [ ! -d "$work/kit/.studio-backup" ] || fail "a refused Rehacer ran or made a backup"
+[ ! -e "$work/kit/proof.txt" ] && [ ! -d "$work/kit/.studio-backup" ] || fail "a refused Rehacer ran or made a backup"
 "$editor" "$work/kit" --frames 3 --rehacer --shot "$work/rehacer.png" >"$work/log" 2>&1 || fail "Rehacer did not run: $(cat "$work/log")"
 grep -q "exit code 0" "$work/log" || fail "no exit code told: $(cat "$work/log")"
-[ -f "$work/kit/coche/proof.txt" ] || fail "the script did not run with the kit as its folder"
-set -- "$work"/kit/.studio-backup/*/coche/mod.ini
+[ -f "$work/kit/proof.txt" ] || fail "the script did not run with the kit as its folder"
+set -- "$work"/kit/.studio-backup/*/mod.ini
 [ -f "$1" ] || fail "no backup of the kit before it ran"
 [ -s "$work/rehacer.png" ] || fail "no PNG of a Rehacer run"
 REHACER_EXIT=3 "$editor" "$work/kit" --frames 3 --rehacer >"$work/log" 2>&1 && fail "a script that failed was told as a success"
@@ -128,6 +133,29 @@ if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_mas
     cmp -s "$work/night-dark.png" "$work/night-head.png" && fail "the headlights did not light"
     "$editor" "$work/real/p911-original" --view night --night-track nosuch --frames 2 >"$work/log" 2>&1
     grep -q "not a track the night view knows" "$work/log" || fail "no word about an unknown --night-track: $(cat "$work/log")"
+
+    # the exported-original flow, as the owner works it (old shape: mod.ini + SIMDATA + car_masks/P911/): open the export, edit a mask and Save, then race it. Nothing of the
+    # kit layout (build, model/) may touch it: no build/ appears, the mask is written in car_masks/P911/, and the race is given that folder
+    p911="$work/real/p911-original"
+    m="$p911/car_masks/P911/frnt_mask.png"
+    [ -f "$m" ] || fail "the exported 911 has no car_masks/P911/frnt_mask.png"
+    cp "$m" "$work/frnt-before.png"
+    "$editor" "$p911" --mask frnt --mask-rect 4,4,6,6,200 --mask-save --frames 8 >"$work/log" 2>&1 || fail "Edit mask on the exported 911: $(cat "$work/log")"
+    grep -q "saved frnt_mask.png" "$work/log" || fail "no word that the exported 911's mask was saved: $(cat "$work/log")"
+    cmp -s "$m" "$work/frnt-before.png" && fail "the exported 911's mask was not written"
+    [ ! -e "$p911/build" ] && [ ! -e "$p911/model" ] || fail "opening an exported original made a build/ or a model/ in it"
+    cat > "$work/fake-tnfs-911" <<'FAKE911'
+#!/bin/sh
+user=; shot=
+while [ $# -gt 0 ]; do case "$1" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; esac; shift; done
+printf 'race car: slot 0 is P911\n' > "$user/spirited-drive.log"
+printf '%s\n' "$TNFS_CAR_MASKS" > "$user/masks-given"
+printf 'P6\n640 480\n255\n' > "$shot"; head -c 921600 /dev/zero >> "$shot"
+FAKE911
+    chmod +x "$work/fake-tnfs-911"
+    "$editor" "$p911" --game "$work/fake-tnfs-911" --cd "$repo/original" --race-photo --race-png "$work/photo911.png" --frames 4 >"$work/log" 2>&1 || fail "Race photo of the exported 911: $(cat "$work/log")"
+    [ -s "$work/photo911.png" ] || fail "no race photo of the exported 911"
+    grep -q "^Photo: Porsche 911 Carrera" "$work/log" || fail "the race of the exported 911 said nothing: $(cat "$work/log")"
 fi
 
 # ==== Model ====
@@ -137,19 +165,20 @@ fi
 grep -q "YAW,PITCH" "$work/log" || fail "no word about --orbit: $(cat "$work/log")"
 p911="$(cd "$(dirname "$0")/.." && pwd)/original/SIMDATA/CARFAMS/P911.CFM"
 if [ -f "$p911" ]; then
-    mkdir -p "$work/k911/coche/SIMDATA/CARFAMS" "$work/k911/coche/car_masks/P911"
-    printf 'id=k911\nname=K911\nversion=1\ntype=car\nstem=P911\nsound_from=911\n' > "$work/k911/coche/mod.ini"
-    cp "$p911" "$work/k911/coche/SIMDATA/CARFAMS/P911.CFM"
-    printf 'x' > "$work/k911/coche/car_masks/P911/rsid_mask.png"
-    "$editor" "$work/k911" --frames 4 --orbit 215,18 --shot "$work/m1.png" >"$work/log" 2>&1 || fail "run on the 911: $(cat "$work/log")"
-    "$editor" "$work/k911" --frames 4 --orbit 90,18 --shot "$work/m2.png" >"$work/log" 2>&1 || fail "run on the 911, another orbit: $(cat "$work/log")"
-    "$editor" "$work/k911" --frames 4 --orbit 215,18 --shot "$work/m3.png" >"$work/log" 2>&1 || fail "run on the 911 again: $(cat "$work/log")"
+    k911="$work/k911"   # a piece folder: mod.ini, the CD's car file, masks under car_masks/P911/ (the shape Export original makes)
+    mkdir -p "$k911/SIMDATA/CARFAMS" "$k911/car_masks/P911"
+    printf 'id=k911\nname=K911\nversion=1\ntype=car\nstem=P911\nsound_from=911\n' > "$k911/mod.ini"
+    cp "$p911" "$k911/SIMDATA/CARFAMS/P911.CFM"
+    printf 'x' > "$k911/car_masks/P911/rsid_mask.png"
+    "$editor" "$k911" --frames 4 --orbit 215,18 --shot "$work/m1.png" >"$work/log" 2>&1 || fail "run on the 911: $(cat "$work/log")"
+    "$editor" "$k911" --frames 4 --orbit 90,18 --shot "$work/m2.png" >"$work/log" 2>&1 || fail "run on the 911, another orbit: $(cat "$work/log")"
+    "$editor" "$k911" --frames 4 --orbit 215,18 --shot "$work/m3.png" >"$work/log" 2>&1 || fail "run on the 911 again: $(cat "$work/log")"
     cmp -s "$work/m1.png" "$work/m2.png" && fail "two orbits drew the same window"
     cmp -s "$work/m1.png" "$work/m3.png" || fail "the same orbit drew two different windows"
     # the body shine (M5): on by default, off is another picture of the same orbit; a bad --shine is refused
-    "$editor" "$work/k911" --frames 4 --orbit 215,18 --shine off --shot "$work/m4.png" >"$work/log" 2>&1 || fail "run on the 911 without the shine: $(cat "$work/log")"
+    "$editor" "$k911" --frames 4 --orbit 215,18 --shine off --shot "$work/m4.png" >"$work/log" 2>&1 || fail "run on the 911 without the shine: $(cat "$work/log")"
     cmp -s "$work/m1.png" "$work/m4.png" && fail "the shine off drew the same window as on"
-    "$editor" "$work/k911" --frames 2 --shine maybe >"$work/log" 2>&1 && fail "a bad --shine was accepted"
+    "$editor" "$k911" --frames 2 --shine maybe >"$work/log" 2>&1 && fail "a bad --shine was accepted"
     grep -q "on or off" "$work/log" || fail "no word about --shine: $(cat "$work/log")"
     cmp -s "$work/m1.png" "$work/stub.png" && fail "the 911 looks like a car that cannot be drawn"
 fi

@@ -30,7 +30,7 @@ void masks_changes_section(App *a)
     if (oc == nullptr || !a->car.has_masks_dir) return;   // only a car of the game has a copy of the game's to be compared with
     static int refresh = 0;
     char project[APP_PATH], game[APP_PATH];
-    snprintf(project, sizeof project, "%s/car_masks/%s", a->car.piece, a->car.folder);
+    car_project_masks_dir(&a->car, project, sizeof project);
     snprintf(game, sizeof game, "%s/car_masks/%s", a->export_src.data, oc->folder);
     if (!compared.have || strcmp(compared.key_dir, a->dir) != 0 || compared.key_generation != a->mask.generation || compared.key_refresh != refresh) {
         compared.have = mask_changes_compare(project, game, &compared.changes, compared.why, sizeof compared.why) != 0;

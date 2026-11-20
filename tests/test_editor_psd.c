@@ -57,10 +57,10 @@ static void run_to_end(App *a)
 
 static App *open_kit(void)
 {
-    const char *dirs[] = { "kit", "kit/coche", "kit/coche/SIMDATA", "kit/coche/SIMDATA/CARFAMS", "kit/coche/car_masks", "kit/coche/car_masks/C84", "tools", "psd", "psd/c84" };
+    const char *dirs[] = { "kit", "kit/SIMDATA", "kit/SIMDATA/CARFAMS", "kit/car_masks", "kit/car_masks/C84", "tools", "psd", "psd/c84" };
     for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; i++) dir_of(dirs[i]);
-    if (!put("kit/coche/mod.ini", "id=boxcar\nname=Box\nversion=1\ntype=car\nstem=C84\nsound_from=911\n") || !put("kit/coche/SIMDATA/CARFAMS/C84.CFM", "cfm") ||
-        !put("kit/coche/car_masks/C84/old_mask.png", "old") || !put("tools/car_mask_from_psd.py", BODY) || !put("psd/c84/side.psd", "psd") || !put("psd/c84/frnt.psd", "psd"))
+    if (!put("kit/mod.ini", "id=boxcar\nname=Box\nversion=1\ntype=car\nstem=C84\nsound_from=911\n") || !put("kit/SIMDATA/CARFAMS/C84.CFM", "cfm") ||
+        !put("kit/car_masks/C84/old_mask.png", "old") || !put("tools/car_mask_from_psd.py", BODY) || !put("psd/c84/side.psd", "psd") || !put("psd/c84/frnt.psd", "psd"))
         return NULL;
     App *a = calloc(1, sizeof *a);
     if (a == NULL) return NULL;
@@ -119,7 +119,7 @@ static void test_flows(void)
     CHECK(!a->psd.ok && strstr(a->status, "exploded") != NULL && !app_psd_busy(a));
     CHECK_EQ_INT(a->car.mask_count, 3);
     char p[700];
-    path_of(p, sizeof p, "kit/coche/car_masks/C84/rear_mask.png");
+    path_of(p, sizeof p, "kit/car_masks/C84/rear_mask.png");
     CHECK(access(p, F_OK) != 0);
     /* a window whose probe has not finished opens a car: TNFS_PYTHON is still the first candidate */
     App *b = calloc(1, sizeof *b);
@@ -145,11 +145,11 @@ static void test_flows(void)
 
 static void remove_tree(void)
 {
-    const char *files[] = { "kit/coche/mod.ini", "kit/coche/SIMDATA/CARFAMS/C84.CFM", "kit/coche/car_masks/C84/old_mask.png", "kit/coche/car_masks/C84/side_mask.png", "kit/coche/car_masks/C84/frnt_mask.png",
+    const char *files[] = { "kit/mod.ini", "kit/SIMDATA/CARFAMS/C84.CFM", "kit/car_masks/C84/old_mask.png", "kit/car_masks/C84/side_mask.png", "kit/car_masks/C84/frnt_mask.png",
                             "tools/car_mask_from_psd.py", "psd/c84/side.psd", "psd/c84/frnt.psd", "psd/c84/rear.psd", "py_fake" };
     char p[700];
     for (size_t i = 0; i < sizeof files / sizeof files[0]; i++) path_of(p, sizeof p, files[i]), unlink(p);
-    const char *dirs[] = { "kit/coche/car_masks/C84", "kit/coche/car_masks", "kit/coche/SIMDATA/CARFAMS", "kit/coche/SIMDATA", "kit/coche", "kit", "tools", "psd/c84", "psd" };
+    const char *dirs[] = { "kit/car_masks/C84", "kit/car_masks", "kit/SIMDATA/CARFAMS", "kit/SIMDATA", "kit", "tools", "psd/c84", "psd" };
     for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; i++) path_of(p, sizeof p, dirs[i]), rmdir(p);
     rmdir(root);
 }

@@ -163,7 +163,7 @@ static int piece_files(const char *kit, const ModInfo *info, const CarKitBuilt *
 }
 
 /* build/piece/ written again from `files` and zipped as build/<id>.zip (mod pack: validated, the installation's own check) */
-static int write_build(const char *kit, const ModInfo *info, const FileSet *files, ExchangeError *err)
+static int write_build(const char *kit, const ModInfo *info, const FileSet *files, int verbose, ExchangeError *err)
 {
     char dir[PATH_MAX], zip[PATH_MAX];
     joined(dir, sizeof dir, kit, car_kit_path(CAR_KIT_BUILD_PIECE));
@@ -172,14 +172,12 @@ static int write_build(const char *kit, const ModInfo *info, const FileSet *file
     if (!fsio_write_tree(dir, files, 0, err)) return 0;
     char *pack[] = { "mod", "pack", dir, zip, "--force" };
     if (!mod_command(5, pack, err)) return 0;
-    printf("built %s and %s\n", dir, zip);
+    if (verbose) printf("built %s and %s\n", dir, zip);
     return 1;
 }
 
-int car_build_command(int argc, char **argv, ExchangeError *err)
+int car_kit_build_dir(const char *kit, int verbose, ExchangeError *err)
 {
-    if (argc != 3) { exchange_fail(err, "usage: tnfs-studio car build KIT_DIR"); return 0; }
-    const char *kit = argv[2];
     char obj[PATH_MAX];
     snprintf(obj, sizeof obj, "%s/%s/%s", kit, car_kit_path(CAR_KIT_NEAR_MESH), car_kit_path(CAR_KIT_MESH_OBJ));
     if (!fsio_exists(obj)) { exchange_fail(err, "%s is not a car kit: it has no %s/%s (tnfs-studio car kit makes one)", kit, car_kit_path(CAR_KIT_NEAR_MESH), car_kit_path(CAR_KIT_MESH_OBJ)); return 0; }
@@ -191,11 +189,17 @@ int car_build_command(int argc, char **argv, ExchangeError *err)
     memset(&built, 0, sizeof built);
     FileSet files;
     fileset_init(&files);
-    int ok = read_flat(kit, &flat, err) && car_kit_build(&flat, &built, err) && piece_files(kit, &info, &built, &files, err) && write_build(kit, &info, &files, err);
-    for (int l = 0; ok && l < CAR_KIT_LEVELS; ++l)
+    int ok = read_flat(kit, &flat, err) && car_kit_build(&flat, &built, err) && piece_files(kit, &info, &built, &files, err) && write_build(kit, &info, &files, verbose, err);
+    for (int l = 0; ok && verbose && l < CAR_KIT_LEVELS; ++l)
         if (built.bank_stats[l].reassigned > 0) printf("%s: %u pixels moved to the nearest palette colour\n", car_kit_path(l == 0 ? CAR_KIT_NEAR_BANK : CAR_KIT_FAR_BANK), built.bank_stats[l].reassigned);
     fileset_free(&files);
     car_kit_built_free(&built);
     car_kit_flat_free(&flat);
     return ok;
+}
+
+int car_build_command(int argc, char **argv, ExchangeError *err)
+{
+    if (argc != 3) { exchange_fail(err, "usage: tnfs-studio car build KIT_DIR"); return 0; }
+    return car_kit_build_dir(argv[2], 1, err);
 }

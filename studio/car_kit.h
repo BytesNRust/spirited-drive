@@ -11,6 +11,10 @@
 
 #include "formats/exchange.h"
 
+/* car build, without the talk: build/piece/ and build/<id>.zip made again from the kit's sources (the Studio window's Build runs it in a thread). `verbose`
+ * prints what car build prints. 0 with `err` filled on failure. */
+int car_kit_build_dir(const char *kit, int verbose, ExchangeError *err);
+
 /* argv[0] is "car", argv[1] "kit" or "build". 0 with `err` filled on failure. */
 int car_kit_command(int argc, char **argv, ExchangeError *err);
 int car_build_command(int argc, char **argv, ExchangeError *err);

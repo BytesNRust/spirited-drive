@@ -318,7 +318,7 @@ void car_panel(App *a)
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             ImGui::SetTooltip("%s", running ? "Rehacer is running" : has_script ? "Run this kit's rehacer.command (the kit is backed up first)" : "This kit has no rehacer.command");
         ImGui::SameLine();
-        help_marker("Save writes only coche/mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is.");
+        help_marker("Save writes only mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is.");
         if (a->cdisk.card_changed) {   // another program wrote mod.ini while the card has unsaved changes here
             ImGui::TextColored(ImVec4(0.95f, 0.78f, 0.35f, 1.0f), "Changed on disk");
             ImGui::SameLine();
@@ -378,13 +378,13 @@ void textures_panel(App *a)
 {
     if (ImGui::Begin(PANEL_TEXTURES)) {
         const CarProject &c = a->car;
-        if (!c.has_modelo) {
-            muted_wrapped("No modelo/ folder beside this car's folder: there are no textures to list.");
+        if (!c.has_model) {
+            muted_wrapped("No model/ folder in this car's kit: there are no textures to list.");
         } else {
-            ImGui::Text("Close up (modelo/c1): %d", c.texture_count);
+            ImGui::Text("Close up (model/near/bank): %d", c.texture_count);
             name_list(c.texture, c.texture_count);
             ImGui::Spacing();
-            ImGui::Text("Far away (modelo/c3): %d", c.far_count);
+            ImGui::Text("Far away (model/far/bank): %d", c.far_count);
         }
     }
     ImGui::End();
@@ -406,7 +406,12 @@ void masks_panel(App *a)
     if (open) {
         const CarProject &c = a->car;
         const bool original = car_race_original_of(&c) != nullptr;   // an exported original car (or its masks): one of the game's own
-        ImGui::Text("Car file: %s", leaf(c.cfm));
+        if (c.built || c.masks_only) ImGui::Text("Car file: %s", leaf(c.cfm));
+        else ImGui::Text("Car file: %s (not built yet)", leaf(c.cfm));
+        char rel[CAR_PROJECT_NAME + 16], masks_path[APP_PATH];   // car_masks for a kit, car_masks/<folder> for a masks project
+        if (c.masks_only || c.legacy) snprintf(rel, sizeof rel, "car_masks/%s", c.folder);
+        else snprintf(rel, sizeof rel, "car_masks");
+        car_project_masks_dir(&c, masks_path, sizeof masks_path);
         masks_changes_section(a);   // what the project's masks have changed from the game's: first, it is what a hand-over needs
         ImGui::Spacing();
         {   // the owner's PSDs of this car, turned into the masks above (tools/car_mask_from_psd.py, and the dash's when the folder has a dash.psd)
@@ -449,12 +454,12 @@ void masks_panel(App *a)
             ImGui::Spacing();
         }
         if (!c.has_masks_dir) {
-            ImGui::Text("Masks of the car (car_masks/%s): none yet", c.folder);
+            ImGui::Text("Masks of the car (%s): none yet", rel);
         } else {
-            ImGui::Text("Masks of the car (car_masks/%s): %d", c.folder, c.mask_count);
+            ImGui::Text("Masks of the car (%s): %d", rel, c.mask_count);
             name_list(c.mask, c.mask_count);
             ImGui::Spacing();
-            if (ImGui::Button("Reveal masks folder")) snprintf(a->reveal, sizeof a->reveal, "%s/car_masks/%s", c.piece, c.folder);
+            if (ImGui::Button("Reveal masks folder")) snprintf(a->reveal, sizeof a->reveal, "%s", masks_path);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Show the folder in the Finder");
             if (original) {   // only one of the game's own cars has its masks in the game's source tree; a mod car's stay in its mod
                 char repo[256];
@@ -464,17 +469,6 @@ void masks_panel(App *a)
                 snprintf(help, sizeof help, "In the game's source tree these files are %s:\ncopy them there to change the game's masks.", repo);
                 help_marker(help);
             }
-        }
-        ImGui::Spacing();
-        if (c.kit_mask_count > 0) {
-            ImGui::Text("Your colour masks for an external image editor (mascaras/): %d", c.kit_mask_count);
-            name_list(c.kit_mask, c.kit_mask_count);
-        } else if (!c.masks_only && !original) {   // the kit's folder of colour PNGs, not the grey masks above: an exported original has no kit
-            muted_wrapped("No colour masks for an external image editor (mascaras/)");
-            ImGui::SameLine();
-            char help[320];
-            snprintf(help, sizeof help, "That folder of the kit holds colour PNGs painted in an external image editor.\nEdit mask writes the grey masks above, in car_masks/%s/.", c.folder);
-            help_marker(help);
         }
     }
     ImGui::End();

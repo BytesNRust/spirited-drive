@@ -65,7 +65,7 @@ struct Source {
 void source_of(App *a, const uint8_t *rgb, Source *s)
 {
     const ExportCar *oc = car_race_original_of(&a->car);
-    snprintf(s->masks, sizeof s->masks, "%s/car_masks/%s", a->car.piece, a->car.folder);
+    car_project_masks_dir(&a->car, s->masks, sizeof s->masks);
     snprintf(s->fallback, sizeof s->fallback, "%s/car_masks/%s", a->export_src.data, oc != nullptr ? oc->folder : "");
     s->in.cfm = a->car.cfm;
     s->in.stem = oc != nullptr ? oc->folder : a->car.folder;
@@ -102,7 +102,7 @@ void open_scene(App *a, const uint8_t *rgb)
     g.scene = model_scene_open_painted(&src.in, why, sizeof why);
     g.painted = g.scene != nullptr;
     if (g.scene == nullptr) g.scene = model_scene_open(a->car.cfm, g.why, sizeof g.why);   // the file as it is: masks that are not there yet
-    snprintf(g.envmap, sizeof g.envmap, "%s/car_envmap.png", a->car.piece);   // a mod's car_envmap.png replaces the game's, as in the race
+    snprintf(g.envmap, sizeof g.envmap, "%s/car_envmap.png", a->car.root);   // a mod's car_envmap.png replaces the game's, as in the race
     FILE *f = fopen(g.envmap, "rb");
     if (f != nullptr) fclose(f);
     else g.envmap[0] = '\0';

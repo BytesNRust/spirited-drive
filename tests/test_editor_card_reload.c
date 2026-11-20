@@ -1,5 +1,5 @@
 /* The card and the car's files changed on disk while the car is open (W4, editor/app_card_watch.c): mod.ini with no unsaved edits is read again; with
- * edits it is kept, the state says «Changed on disk» (Reload or Keep mine) and Save asks first; the car file and the textures of modelo/c1 changing
+ * edits it is kept, the state says «Changed on disk» (Reload or Keep mine) and Save asks first; the car file and the textures of model/near/bank changing
  * reach the lists, the Model and the Preview (car_serial, mask.generation). A kit made of plain files (no game data). */
 #include "app.h"
 #include "test.h"
@@ -59,9 +59,9 @@ static const char *CARD(int year)
 
 static App *open_kit(void)
 {
-    const char *dirs[] = { "coche", "coche/SIMDATA", "coche/SIMDATA/CARFAMS", "modelo", "modelo/c1" };
+    const char *dirs[] = { "build", "build/piece", "build/piece/SIMDATA", "build/piece/SIMDATA/CARFAMS", "model", "model/near", "model/near/bank" };
     for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; i++) dir_of(dirs[i]);
-    if (!put("coche/mod.ini", CARD(1984)) || !put("coche/SIMDATA/CARFAMS/C84.CFM", "cfm one") || !put("modelo/c1/0010_rsid.png", "x")) return NULL;
+    if (!put("mod.ini", CARD(1984)) || !put("build/piece/SIMDATA/CARFAMS/C84.CFM", "cfm one") || !put("model/near/bank/0010_rsid.png", "x")) return NULL;
     App *a = calloc(1, sizeof *a);
     if (a == NULL) return NULL;
     app_begin(a, "./tnfs", "", NULL);
@@ -83,7 +83,7 @@ static void test_the_card(void)
     CHECK(strcmp(year(a), "1984") == 0);
 
     /* no unsaved edits: read again at the next look a second on */
-    CHECK(put("coche/mod.ini", CARD(1985)));
+    CHECK(put("mod.ini", CARD(1985)));
     CHECK_EQ_INT(app_card_watch(a, 10.4), 0);   /* not yet a second */
     CHECK(strcmp(year(a), "1984") == 0);
     CHECK_EQ_INT(app_card_watch(a, 11.1), 1);
@@ -99,22 +99,22 @@ static void test_the_card(void)
 
     /* unsaved edits: kept, the state says so, Save does not write over the file */
     CHECK(car_edit_set(&a->edit, CE_YEAR, "1991"));
-    CHECK(put("coche/mod.ini", CARD(1970)));
+    CHECK(put("mod.ini", CARD(1970)));
     CHECK_EQ_INT(app_card_watch(a, 14.4), 1);
     CHECK(a->cdisk.card_changed && car_edit_modified(&a->edit));
     CHECK(strcmp(year(a), "1991") == 0);
     CHECK(!app_save(a));
     CHECK(strstr(a->status, "mod.ini changed on disk") != NULL);
-    CHECK(file_has("coche/mod.ini", "year=1970"));   /* the file is the other program's still */
+    CHECK(file_has("mod.ini", "year=1970"));   /* the file is the other program's still */
     CHECK_EQ_INT(app_card_watch(a, 15.5), 0);               /* said once */
     app_card_keep_mine(a);
     CHECK(!a->cdisk.card_changed);
     CHECK(app_save(a));
-    CHECK(file_has("coche/mod.ini", "year=1991"));   /* mine, written over */
+    CHECK(file_has("mod.ini", "year=1991"));   /* mine, written over */
 
     /* Reload: the file's card, the edits gone */
     CHECK(car_edit_set(&a->edit, CE_YEAR, "1992"));
-    CHECK(put("coche/mod.ini", CARD(1960)));
+    CHECK(put("mod.ini", CARD(1960)));
     CHECK_EQ_INT(app_card_watch(a, 16.6), 1);
     CHECK(a->cdisk.card_changed);
     CHECK(app_card_reload(a));
@@ -122,17 +122,17 @@ static void test_the_card(void)
 
     /* changed between two looks, then Save at once: asked all the same */
     CHECK(car_edit_set(&a->edit, CE_YEAR, "1993"));
-    CHECK(put("coche/mod.ini", CARD(1950)));
+    CHECK(put("mod.ini", CARD(1950)));
     CHECK(!app_save(a));
     CHECK(a->cdisk.card_changed);
     CHECK(app_card_reload(a));
     CHECK(strcmp(year(a), "1950") == 0);
 
     /* a card another program is still writing (not a car's card yet): the open one stays, read at a later look */
-    CHECK(put("coche/mod.ini", "id=bo"));
+    CHECK(put("mod.ini", "id=bo"));
     CHECK_EQ_INT(app_card_watch(a, 17.7), 0);
     CHECK(strcmp(year(a), "1950") == 0 && !a->cdisk.card_changed);
-    CHECK(put("coche/mod.ini", CARD(1940)));
+    CHECK(put("mod.ini", CARD(1940)));
     CHECK_EQ_INT(app_card_watch(a, 18.8), 1);
     CHECK(strcmp(year(a), "1940") == 0);
     app_free(a);
@@ -149,7 +149,7 @@ static void test_the_car_files(void)
     CHECK_EQ_INT(a->car.texture_count, 1);
 
     /* a texture added: the list, and the Model and the Preview are told */
-    CHECK(put("modelo/c1/0020_bonn.png", "y"));
+    CHECK(put("model/near/bank/0020_bonn.png", "y"));
     CHECK_EQ_INT(app_card_watch(a, 2.1), 1);
     CHECK_EQ_INT(a->car.texture_count, 2);
     CHECK(a->cdisk.serial == serial && strstr(a->status, "textures changed on disk") != NULL);   /* the list only: the car file is as it was */
@@ -157,16 +157,16 @@ static void test_the_car_files(void)
 
     /* a texture rewritten, the car file rewritten (Rehacer, a new bank) */
     unsigned s = a->cdisk.serial;
-    CHECK(put("modelo/c1/0020_bonn.png", "yy"));
+    CHECK(put("model/near/bank/0020_bonn.png", "yy"));
     CHECK_EQ_INT(app_card_watch(a, 4.3), 1);
     CHECK(a->cdisk.serial == s);
-    CHECK(put("coche/SIMDATA/CARFAMS/C84.CFM", "cfm two, longer"));
+    CHECK(put("build/piece/SIMDATA/CARFAMS/C84.CFM", "cfm two, longer"));
     CHECK_EQ_INT(app_card_watch(a, 5.4), 1);
     CHECK(a->cdisk.serial != s && a->mask.generation != generation && strstr(a->status, "car file changed on disk") != NULL);
 
     /* a texture gone */
     char p[700];
-    path_of(p, sizeof p, "modelo/c1/0020_bonn.png");
+    path_of(p, sizeof p, "model/near/bank/0020_bonn.png");
     CHECK(unlink(p) == 0);
     CHECK_EQ_INT(app_card_watch(a, 6.5), 1);
     CHECK_EQ_INT(a->car.texture_count, 1);
@@ -188,12 +188,12 @@ int main(void)
     test_the_card();
     test_the_car_files();
     char cmd[600];
-    const char *files[] = { "coche/mod.ini", "coche/mod.ini.tmp", "coche/SIMDATA/CARFAMS/C84.CFM", "modelo/c1/0010_rsid.png", "modelo/c1/0020_bonn.png" };
+    const char *files[] = { "mod.ini", "mod.ini.tmp", "build/piece/SIMDATA/CARFAMS/C84.CFM", "model/near/bank/0010_rsid.png", "model/near/bank/0020_bonn.png" };
     for (size_t i = 0; i < sizeof files / sizeof files[0]; i++) {
         path_of(cmd, sizeof cmd, files[i]);
         unlink(cmd);
     }
-    const char *dirs[] = { "modelo/c1", "modelo", "coche/SIMDATA/CARFAMS", "coche/SIMDATA", "coche" };
+    const char *dirs[] = { "model/near/bank", "model/near", "model", "build/piece/SIMDATA/CARFAMS", "build/piece/SIMDATA", "build/piece", "build" };
     for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; i++) {
         path_of(cmd, sizeof cmd, dirs[i]);
         rmdir(cmd);

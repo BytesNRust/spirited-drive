@@ -1,5 +1,5 @@
 /* «Show texture file» (editor/texture_file.c): the bank PNG of a texture of a car kit, found by its bank's entries.tsv (name_hex, file).
- * The kit's model/near|far/bank (formats/car_kit_paths.h) and the older layout modelo/c1|c3 both answer; anything else (no kit, no such
+ * The kit's model/near|far/bank (formats/car_kit_paths.h) answers; anything else (no kit, no such
  * texture, a row whose file is missing, a palette) does not, so the button is not shown. Fixtures are made here. */
 #include "texture_file.h"
 #include "test.h"
@@ -71,14 +71,6 @@ int main(void)
     put("gone/model/near/bank/entries.tsv", rows);
     CHECK(found("gone", 0, "side", NULL));
 
-    /* the older layout: modelo/c1 the near bank, c3 the far one, entries.tsv without pos */
-    put("old/modelo/c1/entries.tsv", "# index\tname_hex\tlabel\ttype\tblock_size\twidth\theight\tmisc0\tmisc1\tmisc2\tmisc3\tfile\ttail_hex\n"
-                                     "1\t746f7076\ttopv\t123\t0\t8\t8\t0\t0\t0\t0\t0001_topv.png\t0000002810ff\n");
-    put("old/modelo/c1/0001_topv.png", "t");
-    put("old/modelo/c3/entries.tsv", "# index\tname_hex\n0\t746f7076\ttopv\t123\t0\t8\t8\t0\t0\t0\t0\t0000_topv.png\t\n");
-    put("old/modelo/c3/0000_topv.png", "t");
-    CHECK(found("old", 0, "topv", "modelo/c1/0001_topv.png"));
-    CHECK(found("old", 1, "topv", "modelo/c3/0000_topv.png"));
 
     /* not a kit: a piece (mod.ini, no bank), a folder that is not there */
     put("piece/mod.ini", "id=p\n");

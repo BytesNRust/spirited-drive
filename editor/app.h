@@ -3,6 +3,7 @@
 #ifndef TNFS_TRACK_EDITOR_APP_H
 #define TNFS_TRACK_EDITOR_APP_H
 
+#include "car_build_job.h"
 #include "car_edit.h"
 #include "mask_edit.h"
 #include "mask_tex.h"
@@ -40,7 +41,7 @@ typedef enum {
     APP_ACT_RECENT,    /* the folder is in the path */
     APP_ACT_NEW_AT,    /* the folder the New dialog gave, in the path: asked through the same question, as the project may have changed meanwhile */
     APP_ACT_OPEN_AT,   /* the same for Open */
-    APP_ACT_OPEN_CAR,  /* a car's folder is asked for (its kit or its coche/) */
+    APP_ACT_OPEN_CAR,  /* a car's folder is asked for (its kit's folder) */
     APP_ACT_OPEN_CAR_AT, /* the folder that dialog gave, in the path */
     APP_ACT_EXPORT_PICK, /* a folder to make the exported car's project in is asked for (main.c's dialog); the car is a->export_pick */
     APP_ACT_EXPORT_AT,   /* the folder that dialog gave, in the path: the project is made in it and opened */
@@ -123,6 +124,7 @@ typedef struct {
     PsdJob psd;                  /* Convert PSD: the owner's PSDs of this car turned into its masks, in the background (psd_job.h, app_psd.c) */
     char psd_root[APP_PATH];     /* the folder of the owner's PSDs, one folder a car ("" for none): --psd-root, TNFS_PSD_ROOT, else art/tnfs-masks in the workspace */
     char tools[APP_PATH];        /* the repository's tools folder, where the converter scripts are ("" when not found) */
+    CarBuildJob car_build;       /* the kit built in a thread: when the car file is not there at Open, and by Build (car_build_job.h) */
     InstallJob install;          /* Install (U): the game's installer, run in the background (install_job.h) */
     int drive_pick;              /* the car Test drive gives the player: the game's car menu's number (0..7, car_race_menu_car); the editor's settings keep it */
     int dash_check;              /* Check dash (app_dash.h): 1 while its Convert PSD runs (the cockpit photo follows) */
@@ -201,7 +203,7 @@ typedef struct {
 /* An app with nothing open: the start screen. `game`, `user` and `generic_art` as for app_open. */
 void app_begin(App *a, const char *game, const char *user, const char *generic_art);
 
-/* Opens what `dir` holds, for the folder the command line gave: a track project (it has a project.ini), else a car's kit (a mod.ini in it or in its coche/),
+/* Opens what `dir` holds, for the folder the command line gave: a track project (it has a project.ini), else a car's kit (a mod.ini and a model/ in it),
  * else a new track project there (app_open). 1 with the app ready, 0 with status naming the fault. */
 int app_open_any(App *a, const char *dir, const char *game, const char *user, const char *generic_art);
 
@@ -325,7 +327,7 @@ void app_answer(App *a, int answer);
  * project stays as it was, with the status saying why. app_open_project wants a project.ini in the folder; app_new_project wants none (it makes one). */
 int app_open_project(App *a, const char *dir);
 int app_new_project(App *a, const char *dir);
-/* Opens the car in `dir` (a kit's root or its coche/: car_project_detect); on a failure the status says what was looked at and what is missing, and the open
+/* Opens the car in `dir` (a kit's folder: car_project_detect); on a failure the status says what was looked at and what is missing, and the open
  * project stays as it was. */
 int app_open_car(App *a, const char *dir);
 /* Opens a recent folder as the kind it was kept as. */
@@ -381,6 +383,10 @@ int app_build(App *a);
  * "install failed: ..."; 1 while it runs. One at a time; no test drive and nothing opened while it runs. */
 int app_install(App *a);
 int app_install_poll(App *a);
+/* A kit with no car file is built when it is opened (a thread: Preview says "building..." and the window stays alive). Every frame: 1 while the build runs; when it
+ * ends the status says so, and the car is read again (its textures, its masks, its file). A headless run waits for it. */
+int app_car_build_poll(App *a);
+int app_car_building(const App *a);
 int app_install_busy(const App *a);
 /* Convert PSD (dep98): app_psd_setup finds the tools folder (TNFS_TOOLS, else tools/ above the program at `base`) and the PSD folder (`root`, else TNFS_PSD_ROOT, else
  * ~/workspace/bytes-n-rust/art/tnfs-masks). app_psd_psd_dir gives this car's PSD folder (names match without case; 0 when there is none). app_psd_start runs the

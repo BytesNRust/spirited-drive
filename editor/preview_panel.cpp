@@ -60,7 +60,7 @@ void make(App *a, int paint)
     shown.why[0] = '\0';
     const ExportCar *oc = car_race_original_of(&a->car);
     char masks[APP_PATH];
-    snprintf(masks, sizeof masks, "%s/car_masks/%s", a->car.piece, a->car.folder);
+    car_project_masks_dir(&a->car, masks, sizeof masks);
     PreviewIn in = {};
     in.cfm = a->car.cfm;
     in.stem = oc != nullptr ? oc->folder : a->car.folder;

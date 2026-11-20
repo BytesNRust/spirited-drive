@@ -1,5 +1,5 @@
 /* «Show texture file» (owner, dep85 follow-up): the bank PNG a texture of the open car is painted in, so the Mask panel can show it in the
- * Finder. A car kit's bank folders hold it (formats/car_kit_paths.h: model/near/bank, model/far/bank; the older kit layout modelo/c1, c3),
+ * Finder. A car kit's bank folders hold it (formats/car_kit_paths.h: model/near/bank, model/far/bank),
  * named by the bank's entries.tsv. Pure C, no window. */
 #ifndef TNFS_TRACK_EDITOR_TEXTURE_FILE_H
 #define TNFS_TRACK_EDITOR_TEXTURE_FILE_H

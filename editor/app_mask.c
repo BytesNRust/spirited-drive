@@ -19,7 +19,9 @@ static void say(App *a, const char *text)
 
 static void masks_path(const App *a, const char *file, char *out, size_t cap)
 {
-    snprintf(out, cap, "%s/car_masks/%s/%s", a->car.piece, a->car.folder, file);
+    char dir[APP_PATH];
+    car_project_masks_dir(&a->car, dir, sizeof dir);
+    snprintf(out, cap, "%s/%s", dir, file);
 }
 
 /* the file's time and size now; zeros when there is none */

@@ -69,10 +69,9 @@ check() {
 mkdir -p "$work/track"
 check track "$work/track" Points Node "Road profile" Limits
 
-mkdir -p "$work/kit/coche/SIMDATA/CARFAMS" "$work/kit/coche/car_masks/K1" "$work/kit/modelo/c1"
-printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\nsound_from=911\n' > "$work/kit/coche/mod.ini"
-printf 'x' > "$work/kit/coche/SIMDATA/CARFAMS/K1.CFM"
-printf 'x' > "$work/kit/coche/car_masks/K1/rsid_mask.png"
+mkdir -p "$work/kit/model/near/bank" "$work/kit/car_masks"
+printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\nsound_from=911\n' > "$work/kit/mod.ini"
+printf 'x' > "$work/kit/car_masks/rsid_mask.png"
 check car "$work/kit" Car Model Preview Masks
 
 mkdir -p "$work/game/cd/SIMDATA/CARFAMS" "$work/game/data/car_masks/Wagon" "$work/exports"

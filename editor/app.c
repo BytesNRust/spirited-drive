@@ -102,6 +102,8 @@ int app_open(App *a, const char *dir, const char *game, const char *user, const 
 }
 
 /* the car at `dir` as the project of `a`, which has nothing open (app_begin) */
+static void build_unbuilt_kit(App *a);
+
 static int car_into(App *a, const char *dir)
 {
     char why[APP_MSG];
@@ -110,7 +112,7 @@ static int car_into(App *a, const char *dir)
         return 0;
     }
     char card[CAR_PROJECT_PATH + 16];
-    snprintf(card, sizeof card, "%s/mod.ini", a->car.piece);
+    snprintf(card, sizeof card, "%s/mod.ini", a->car.root);
     if (!a->car.masks_only && !car_edit_open(&a->edit, card, why, sizeof why)) {   /* a masks project has no card */
         set_status(a, why);
         return 0;
@@ -132,7 +134,9 @@ int app_open_any(App *a, const char *dir, const char *game, const char *user, co
 {
     if (!recent_is_project(dir) && car_project_present(dir)) {
         app_begin(a, game, user, generic_art);
-        return car_into(a, dir);
+        const int opened = car_into(a, dir);
+        if (opened) build_unbuilt_kit(a);
+        return opened;
     }
     return app_open(a, dir, game, user, generic_art);
 }
@@ -208,6 +212,7 @@ void app_free(App *a)
     install_job_free(&a->install);
     psd_job_free(&a->psd);
     py_probe_free(&a->py);
+    car_build_job_free(&a->car_build);
     rehacer_free(&a->rehacer);
     car_edit_free(&a->edit);
     mask_edit_free(&a->mask.me);
@@ -412,6 +417,33 @@ void app_carry_window(App *to, const App *from)
     memcpy(to->psd_root, from->psd_root, sizeof to->psd_root);
 }
 
+/* a kit with no car file yet is built, in a thread, as it opens: the car file is the build's (a masks project has its own) */
+static void build_unbuilt_kit(App *a)
+{
+    char why[APP_MSG];
+    if (a->kind != APP_KIND_CAR || a->car.masks_only || a->car.built) return;
+    if (!car_build_job_start(&a->car_build, a->car.root, why, sizeof why)) {
+        snprintf(a->status, sizeof a->status, "the car file was not built: %s", why);
+        return;
+    }
+    snprintf(a->status, sizeof a->status, "building the car from the kit...");
+}
+
+int app_car_building(const App *a)
+{
+    return car_build_job_busy(&a->car_build);
+}
+
+int app_car_build_poll(App *a)
+{
+    if (!car_build_job_busy(&a->car_build)) return 0;
+    if (car_build_job_poll(&a->car_build)) return 1;
+    if (a->car_build.ok) snprintf(a->status, sizeof a->status, "built the car: build/piece and the zip are made again");
+    else snprintf(a->status, sizeof a->status, "the car could not be built: %s", a->car_build.why);
+    app_car_reread(a);
+    return 0;
+}
+
 static int open_in(App *a, const char *dir, AppKind kind)
 {
     App *next = calloc(1, sizeof *next);
@@ -445,6 +477,7 @@ static int open_in(App *a, const char *dir, AppKind kind)
     free(next);
     a->fit_pending = 1;
     remember(a);
+    build_unbuilt_kit(a);
     return 1;
 }
 
@@ -859,7 +892,7 @@ void app_car_reread(App *a)
         a->car = *fresh;
     }
     free(fresh);
-    snprintf(card, sizeof card, "%s/mod.ini", a->car.piece);
+    snprintf(card, sizeof card, "%s/mod.ini", a->car.root);
     CarEdit next;
     if (!car_edit_modified(&a->edit) && car_edit_open(&next, card, why, sizeof why)) {
         car_edit_free(&a->edit);

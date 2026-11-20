@@ -18,6 +18,7 @@ static const char *const PATHS[CAR_KIT_PATHS] = {
     [CAR_KIT_MOD_INI] = "mod.ini",
     [CAR_KIT_CARD] = "card.png",
     [CAR_KIT_NEAR_MESH] = "model/near/mesh",
+    [CAR_KIT_MODEL] = "model",
     [CAR_KIT_NEAR_BANK] = "model/near/bank",
     [CAR_KIT_FAR_MESH] = "model/far/mesh",
     [CAR_KIT_FAR_BANK] = "model/far/bank",

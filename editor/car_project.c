@@ -1,5 +1,7 @@
 #include "car_project.h"
 
+#include "formats/car_kit_paths.h"
+
 #include <dirent.h>
 #include <stdarg.h>
 #include <strings.h>
@@ -75,14 +77,37 @@ static int list_png(const char *dir, char names[CAR_PROJECT_LIST][CAR_PROJECT_NA
     return count;
 }
 
-/* the folder holding mod.ini for `dir`: itself, else its coche/. 0 when neither has one. */
-static int find_piece(const char *dir, char *piece, size_t cap)
+/* 1 when `dir` holds a mod.ini */
+static int has_card(const char *dir)
 {
     char ini[CAR_PROJECT_PATH + 16];
-    if (join(ini, sizeof ini, dir, "mod.ini") && is_file(ini)) return snprintf(piece, cap, "%s", dir) < (int)cap;
-    char coche[CAR_PROJECT_PATH + 16];
-    if (!join(coche, sizeof coche, dir, "coche") || !join(ini, sizeof ini, coche, "mod.ini")) return 0;
-    return is_file(ini) && snprintf(piece, cap, "%s", coche) < (int)cap;
+    return join(ini, sizeof ini, dir, "mod.ini") && is_file(ini);
+}
+
+/* 1 when `dir` holds an old-layout coche/mod.ini */
+static int has_old_card(const char *dir)
+{
+    char ini[CAR_PROJECT_PATH + 16];
+    return join(ini, sizeof ini, dir, "coche/mod.ini") && is_file(ini);
+}
+
+/* 1 when `dir` is the coche/ of an old kit: a folder named coche with a modelo/ beside it */
+static int is_old_kit_card_folder(const char *dir)
+{
+    char up[CAR_PROJECT_PATH], name[CAR_PROJECT_NAME], modelo[CAR_PROJECT_PATH + 16];
+    base_name(dir, name, sizeof name);
+    snprintf(up, sizeof up, "%s", dir);
+    char *slash = strrchr(up, '/');
+    if (strcmp(name, "coche") != 0 || slash == NULL || slash == up) return 0;
+    *slash = '\0';
+    return join(modelo, sizeof modelo, up, "modelo") && is_dir(modelo);
+}
+
+/* 1 when `dir` is a kit's folder: a mod.ini and a model/ */
+static int is_kit_folder(const char *dir)
+{
+    char model[CAR_PROJECT_PATH + 16];
+    return has_card(dir) && join(model, sizeof model, dir, car_kit_path(CAR_KIT_MODEL)) && is_dir(model);
 }
 
 /* the value of `key` in an ini text of `len` bytes (the first line "key=value", the value trimmed): 1 with it in `out` */
@@ -172,8 +197,7 @@ static int detect_masks(const char *given, const char *name, CarProject *out, ch
 
 int car_project_present(const char *dir)
 {
-    char piece[CAR_PROJECT_PATH];
-    return dir != NULL && dir[0] != '\0' && (find_piece(dir, piece, sizeof piece) || car_project_is_masks(dir));
+    return dir != NULL && dir[0] != '\0' && (has_card(dir) || has_old_card(dir) || car_project_is_masks(dir));
 }
 
 /* mod.ini's bytes: 0 when unreadable or over the card's cap */
@@ -195,16 +219,23 @@ int car_project_detect(const char *dir, CarProject *out, char *why, size_t why_c
     if (realpath(dir, given) == NULL) snprintf(given, sizeof given, "%s", dir);
     base_name(given, name, sizeof name);
     if (car_project_is_masks(given)) return detect_masks(given, name, out, why, why_cap);
-    if (!find_piece(given, out->piece, sizeof out->piece))
-        return refuse(why, why_cap,
-                      "No car found in %s: it has no mod.ini and no coche/mod.ini. Choose the car's kit folder (the one that holds coche/ and modelo/) "
-                      "or its coche/ folder.",
-                      name);
+    if (!has_card(given)) {
+        if (has_old_card(given))
+            return refuse(why, why_cap, "%s is not a kit in the current layout: it has coche/mod.ini, the old coche/ + modelo/ layout, which Studio no longer opens.", name);
+        return refuse(why, why_cap, "No car found in %s: it has no mod.ini. Choose the car's kit folder (the one with mod.ini, model/ and car_masks/).", name);
+    }
+    const int kit = is_kit_folder(given);   /* else a piece folder as Export original makes it (a masks-less `car new` piece too): mod.ini and SIMDATA at its top */
+    if (!kit && is_old_kit_card_folder(given))
+        return refuse(why, why_cap, "%s is not a kit in the current layout: it is the coche/ of an old coche/ + modelo/ kit, which Studio no longer opens.", name);
+    snprintf(out->root, sizeof out->root, "%s", given);
+    snprintf(out->kit, sizeof out->kit, "%s", name);
+    out->legacy = !kit;
+    if (kit && !join(out->piece, sizeof out->piece, given, car_kit_path(CAR_KIT_BUILD_PIECE))) return refuse(why, why_cap, "%s is too deep: its path is too long", name);   /* the folder the game installs */
+    if (!kit) snprintf(out->piece, sizeof out->piece, "%s", given);
     char card[MOD_INI_MAX_SIZE + 1], path[CAR_PROJECT_PATH + 32], reason[200];
     size_t card_len = 0;
-    const int piece_is_given = strcmp(out->piece, given) == 0;
-    const char *where = piece_is_given ? "mod.ini" : "coche/mod.ini";
-    if (!join(path, sizeof path, out->piece, "mod.ini") || !read_card(path, card, MOD_INI_MAX_SIZE, &card_len))
+    const char *where = "mod.ini";
+    if (!join(path, sizeof path, out->root, "mod.ini") || !read_card(path, card, MOD_INI_MAX_SIZE, &card_len))
         return refuse(why, why_cap, "%s in %s cannot be read (it is over %d bytes or unreadable)", where, name, MOD_INI_MAX_SIZE);
     if (!mod_ini_parse((const uint8_t *)card, card_len, &out->info, reason, sizeof reason)) {
         memset(out, 0, sizeof *out);
@@ -219,35 +250,31 @@ int car_project_detect(const char *dir, CarProject *out, char *why, size_t why_c
         memset(out, 0, sizeof *out);
         return refuse(why, why_cap, "%s in %s has no stem= (the root of the car's file names, such as stem=C84)", where, name);
     }
-    char suffix[CAR_PROJECT_NAME + 32];
+    char suffix[CAR_PROJECT_NAME + 64], dirpath[CAR_PROJECT_PATH + 64];
     snprintf(suffix, sizeof suffix, "SIMDATA/CARFAMS/%s.CFM", out->info.stem);
-    if (!join(out->cfm, sizeof out->cfm, out->piece, suffix) || !is_file(out->cfm)) {
+    if (!join(out->cfm, sizeof out->cfm, out->piece, suffix)) {
         memset(out, 0, sizeof *out);
-        return refuse(why, why_cap, "%s in %s is a car, but its car file is missing: %s%s", where, name, piece_is_given ? "" : "coche/", suffix);
+        return refuse(why, why_cap, "%s is too deep: its car file's path is too long", name);
     }
-    /* the kit: the folder above coche/ when it holds modelo/; a folder given with its own mod.ini and a modelo/ above it is the same kit */
-    snprintf(out->root, sizeof out->root, "%s", out->piece);
-    char up[CAR_PROJECT_PATH], above[CAR_PROJECT_PATH + 16];
-    snprintf(up, sizeof up, "%s", out->piece);
-    char *slash = strrchr(up, '/');
-    if (slash != NULL && slash != up) {
-        *slash = '\0';
-        if (join(above, sizeof above, up, "modelo") && is_dir(above)) snprintf(out->root, sizeof out->root, "%s", up);
+    out->built = is_file(out->cfm);
+    if (!kit && !out->built) {   /* a piece with no car file; a kit has none until it is built */
+        memset(out, 0, sizeof *out);
+        return refuse(why, why_cap, "%s in %s is a car, but its car file is missing: %s", where, name, suffix);
     }
-    base_name(out->root, out->kit, sizeof out->kit);
-    char dirpath[CAR_PROJECT_PATH + 64];
-    char masks_root[CAR_PROJECT_PATH + 16];
-    snprintf(out->folder, sizeof out->folder, "%s", out->info.stem);   /* the folder may be spelt as the game's data does (TSupra for stem TSUPRA) */
-    if (join(masks_root, sizeof masks_root, out->piece, "car_masks")) find_folder(masks_root, out->info.stem, out->folder, sizeof out->folder);
-    snprintf(suffix, sizeof suffix, "car_masks/%s", out->folder);
-    out->has_masks_dir = join(dirpath, sizeof dirpath, out->piece, suffix) && is_dir(dirpath);
+    snprintf(out->folder, sizeof out->folder, "%s", out->info.stem);   /* a piece's folder may be spelt as the game's data does (TSupra for stem TSUPRA) */
+    if (!kit && join(dirpath, sizeof dirpath, out->piece, "car_masks")) find_folder(dirpath, out->info.stem, out->folder, sizeof out->folder);
+    car_project_masks_dir(out, dirpath, sizeof dirpath);
+    out->has_masks_dir = is_dir(dirpath);
     if (out->has_masks_dir) out->mask_count = list_png(dirpath, out->mask);
-    out->has_modelo = join(dirpath, sizeof dirpath, out->root, "modelo") && is_dir(dirpath);
-    if (out->has_modelo) {
-        if (join(dirpath, sizeof dirpath, out->root, "modelo/c1")) out->texture_count = list_png(dirpath, out->texture);
-        char far_names[CAR_PROJECT_LIST][CAR_PROJECT_NAME];
-        if (join(dirpath, sizeof dirpath, out->root, "modelo/c3")) out->far_count = list_png(dirpath, far_names);
-    }
-    if (join(dirpath, sizeof dirpath, out->root, "mascaras") && is_dir(dirpath)) out->kit_mask_count = list_png(dirpath, out->kit_mask);
+    out->has_model = kit;
+    if (kit && join(dirpath, sizeof dirpath, out->root, car_kit_path(CAR_KIT_NEAR_BANK))) out->texture_count = list_png(dirpath, out->texture);
+    char far_names[CAR_PROJECT_LIST][CAR_PROJECT_NAME];
+    if (kit && join(dirpath, sizeof dirpath, out->root, car_kit_path(CAR_KIT_FAR_BANK))) out->far_count = list_png(dirpath, far_names);
     return 1;
+}
+
+void car_project_masks_dir(const CarProject *c, char *out, size_t cap)
+{
+    if (c->masks_only || c->legacy) snprintf(out, cap, "%s/car_masks/%s", c->piece, c->folder);
+    else snprintf(out, cap, "%s/%s", c->root, car_kit_path(CAR_KIT_CAR_MASKS));
 }
