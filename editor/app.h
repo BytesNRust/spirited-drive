@@ -6,6 +6,7 @@
 #include "car_edit.h"
 #include "mask_edit.h"
 #include "mask_tex.h"
+#include "night_view.h"
 #include "car_export.h"
 #include "car_rehacer.h"
 #include "car_project.h"
@@ -69,6 +70,8 @@ typedef struct {
     CarProject car;              /* the car project, when kind is APP_KIND_CAR */
     Rehacer rehacer;             /* the kit's rehacer.command, running or last run (car_rehacer.h) */
     int preview_paint;           /* the card's paint the Preview shows: an index of the card's paints, -1 for the car as its file has it */
+    char preview_focus[5];       /* a texture the Preview scrolls to (--preview-tex NAME, for a headless picture); "" none */
+    NightSettings night;         /* the Preview's Day / Night and lamp switches (editor/night_view.h) */
     MaskUi mask;                 /* the mask editor (editor/mask_edit.h), when kind is APP_KIND_CAR */
     CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
     char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */

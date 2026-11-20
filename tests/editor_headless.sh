@@ -222,6 +222,14 @@ if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_mas
     "$editor" "$work/real/p911-original" --paint 3 --frames 14 --shot "$work/preview-paint.png" >"$work/log" 2>&1 || fail "Preview of the real 911 in a paint: $(cat "$work/log")"
     cmp -s "$work/preview-file.png" "$work/preview-paint.png" && fail "a paint did not change the Preview"
     ls "${TMPDIR:-/tmp}" | grep -q '^studio-preview-' && fail "a scratch folder of the Preview was left behind"
+    # the night view: Day, Night with the lights off and Night with the headlights each show another picture of the front texture
+    "$editor" "$work/real/p911-original" --view day --preview-tex frnt --frames 20 --shot "$work/night-day.png" >"$work/log" 2>&1 || fail "Preview by day: $(cat "$work/log")"
+    "$editor" "$work/real/p911-original" --view night --lights none --preview-tex frnt --frames 20 --shot "$work/night-dark.png" >"$work/log" 2>&1 || fail "Preview at night, lights off: $(cat "$work/log")"
+    "$editor" "$work/real/p911-original" --view night --lights head --preview-tex frnt --frames 20 --shot "$work/night-head.png" >"$work/log" 2>&1 || fail "Preview at night, headlights: $(cat "$work/log")"
+    cmp -s "$work/night-day.png" "$work/night-dark.png" && fail "Night did not change the Preview"
+    cmp -s "$work/night-dark.png" "$work/night-head.png" && fail "the headlights did not light"
+    "$editor" "$work/real/p911-original" --view night --night-track nosuch --frames 2 >"$work/log" 2>&1
+    grep -q "not a track the night view knows" "$work/log" || fail "no word about an unknown --night-track: $(cat "$work/log")"
     "$editor" "$work/real/wagon-masks" --mask nosuch --frames 2 >"$work/log" 2>&1 && fail "a texture the car has not was opened"
     "$editor" "$work/real/wagon-masks" --mask side --mask-rect 1,2,3 --frames 2 >"$work/log" 2>&1 && fail "a bad --mask-rect was taken"
 fi

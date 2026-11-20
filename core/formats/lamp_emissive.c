@@ -1,6 +1,6 @@
-#include "game/race/lamp_emissive.h"
+#include "formats/lamp_emissive.h"
 
-#include "game/race/car_mask.h"
+#include "formats/car_mask_codec.h"
 
 #include <stdlib.h>
 
