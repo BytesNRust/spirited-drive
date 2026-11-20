@@ -159,7 +159,7 @@ static int parse_layout(const char *layout, size_t len, double start_width, Sect
 static void node_shapes(const Section *sections, int count, double start_width, TrackGenNode *shapes)
 {
     int node = 0;
-    TrackGenNode at = { 0, 0, 0, start_width, { 0, 0, 0 } };
+    TrackGenNode at = { 0, 0, 0, start_width, { 0, 0, 0 }, { { 0, 0 }, { 0, 0 } } };
     for (int s = 0; s < count; ++s) {
         const int nodes = sections[s].segments * TRI_NODES_PER_SEGMENT;
         const TrackGenNode from = at;
@@ -169,6 +169,7 @@ static void node_shapes(const Section *sections, int count, double start_width, 
             shapes[node].grade = from.grade + (sections[s].grade - from.grade) * t;
             shapes[node].bank = from.bank + (sections[s].bank - from.bank) * t;
             shapes[node].width = from.width + (sections[s].width - from.width) * t;
+            memset(shapes[node].side, 0, sizeof shapes[node].side);   /* a layout has no sides of its own: the template's */
         }
         at.heading = from.heading + sections[s].turn / 360.0 * ANGLE_TURN;
         at.grade = sections[s].grade;
@@ -203,6 +204,8 @@ static void write_node(uint8_t *dst, const uint8_t *model, const TrackGenNode *s
     put_i16(dst + 0x1e, -(int)lround(sin(bank) * VECTOR_ONE));
     put_i16(dst + 0x20, -(int)lround(sin(heading) * cos(bank) * VECTOR_ONE));
     put_u16(dst + 0x22, 0);
+    for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side)   /* a tarmac shoulder: that side's nibble of flags[2] (high left, low right) is row 0 */
+        if ((shape->side[side].has & TRACK_GEN_SIDE_TARMAC) && shape->side[side].tarmac) dst[6] &= (uint8_t)(side == TRACK_GEN_LEFT ? 0x0f : 0xf0);
 }
 
 static void write_strip(uint8_t *seg, const uint8_t *model, const TrackGenNode *shapes, const TriNode *tmpl)
@@ -355,6 +358,9 @@ static int check_node(const TrackGenNode *n, int i, int turned, ExchangeError *e
         return exchange_fail(err, "node %d: width=%g is outside 0..255", i, n[i].width), 0;
     if (fabs(n[i].grade) > MAX_GRADE_PERCENT) return exchange_fail(err, "node %d: grade=%g is outside +-%g", i, n[i].grade, MAX_GRADE_PERCENT), 0;
     if (fabs(n[i].bank) > MAX_BANK_DEGREES) return exchange_fail(err, "node %d: bank=%g is outside +-%g", i, n[i].bank, MAX_BANK_DEGREES), 0;
+    for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side)
+        if (n[i].side[side].tarmac != 0 && n[i].side[side].tarmac != 1)
+            return exchange_fail(err, "node %d: the %s side's tarmac=%d is not 0 or 1", i, side == TRACK_GEN_LEFT ? "left" : "right", n[i].side[side].tarmac), 0;
     if (i == 0) return 1;
     double turn = fmod(n[i].heading - n[i - 1].heading, ANGLE_TURN);
     if (turn > ANGLE_TURN / 2) turn -= ANGLE_TURN;

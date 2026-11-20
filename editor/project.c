@@ -219,7 +219,7 @@ static int parse_width(const char *text, double *width, char *why, size_t why_ca
     return 1;
 }
 
-/* trace.json's version: none or 1 is the first Studio's, 2 has the road keys, a newer one was written by a Studio that knows more than this one */
+/* trace.json's version: none or 1 is the first Studio's, 2 has the road keys, 3 their shoulder surfaces, a newer one was written by a Studio that knows more than this one */
 static int parse_version(const char *text, int *version, char *why, size_t why_cap)
 {
     *version = 1;
@@ -253,10 +253,43 @@ static int object_number(const char *obj, const char *name, double *value)
     return end != p + 1;
 }
 
-/* the objects of the JSON array after "keys" (version 2): [{"point": 3, "width_m": 14.0}, ...] into trace->keys. A field this version does not know is
- * left alone (the next steps' fields are additive); a key that sets nothing this version knows is no key. 1 when well formed and every key is on a point
- * and in the road's range */
-static int parse_keys(const char *text, Trace *t, char *why, size_t why_cap)
+/* a string after "name" inside the object text `obj` into `out` (cap bytes): 1 when there is one, 0 when the name is not there, -1 when its value is no string */
+static int object_string(const char *obj, const char *name, char *out, size_t cap)
+{
+    char key[40];
+    snprintf(key, sizeof key, "\"%s\"", name);
+    const char *p = strstr(obj, key);
+    p = p != NULL ? strchr(p + strlen(key), ':') : NULL;
+    if (p == NULL) return 0;
+    ++p;
+    while (isspace((unsigned char)*p)) ++p;
+    const char *end = *p == '"' ? strchr(p + 1, '"') : NULL;
+    if (end == NULL || (size_t)(end - p - 1) >= cap) return -1;
+    memcpy(out, p + 1, (size_t)(end - p - 1));
+    out[end - p - 1] = '\0';
+    return 1;
+}
+
+/* a side's shoulder surface of a key (version 3): "verge" or "tarmac"; none is TRACE_SURFACE_INHERIT. 0 with `why` for another value */
+static int parse_surface(const char *obj, const char *name, double point, TraceSurface *out, char *why, size_t why_cap)
+{
+    char value[16];
+    const int found = object_string(obj, name, value, sizeof value);
+    *out = TRACE_SURFACE_INHERIT;
+    if (found == 0) return 1;
+    if (found > 0 && strcmp(value, "verge") == 0) *out = TRACE_SURFACE_VERGE;
+    else if (found > 0 && strcmp(value, "tarmac") == 0) *out = TRACE_SURFACE_TARMAC;
+    else {
+        snprintf(why, why_cap, "trace.json: the road key on point %.0f has %s \"%s\": it is \"verge\" or \"tarmac\"", point, name, found > 0 ? value : "(not a string)");
+        return 0;
+    }
+    return 1;
+}
+
+/* the objects of the JSON array after "keys" (version 2 on): [{"point": 3, "width_m": 14.0, "shoulder_l_surface": "tarmac"}, ...] into trace->keys; the
+ * surfaces are version 3's. A field this version does not know is left alone (the next steps' fields are additive); a key that sets nothing this version
+ * knows is no key. 1 when well formed and every key is on a point and in the road's range */
+static int parse_keys(const char *text, int version, Trace *t, char *why, size_t why_cap)
 {
     const char *p = strstr(text, "\"keys\"");
     p = p != NULL ? strchr(p, '[') : NULL;
@@ -280,12 +313,16 @@ static int parse_keys(const char *text, Trace *t, char *why, size_t why_cap)
             snprintf(why, why_cap, "trace.json: a road key has no point number");
             return 0;
         }
-        if (!has_width) continue;
+        TraceSurface left = TRACE_SURFACE_INHERIT, right = TRACE_SURFACE_INHERIT;
+        if (version >= 3 && (!parse_surface(obj, "shoulder_l_surface", point, &left, why, why_cap) || !parse_surface(obj, "shoulder_r_surface", point, &right, why, why_cap)))
+            return 0;
+        const int has_surface = left != TRACE_SURFACE_INHERIT || right != TRACE_SURFACE_INHERIT;
+        if (!has_width && !has_surface) continue;
         if (point < 0 || point >= t->count) {
             snprintf(why, why_cap, "trace.json: a road key is on point %.0f, and the trace has points 0..%d", point, t->count - 1);
             return 0;
         }
-        if (!(metres >= TRACE_ROAD_MIN_M && metres <= TRACE_ROAD_MAX_M)) {
+        if (has_width && !(metres >= TRACE_ROAD_MIN_M && metres <= TRACE_ROAD_MAX_M)) {
             snprintf(why, why_cap, "trace.json: the road key on point %.0f has width %g m, outside %g..%g m", point, metres, TRACE_ROAD_MIN_M, TRACE_ROAD_MAX_M);
             return 0;
         }
@@ -293,7 +330,9 @@ static int parse_keys(const char *text, Trace *t, char *why, size_t why_cap)
             snprintf(why, why_cap, "trace.json: point %.0f has a road key twice", point);
             return 0;
         }
-        if (!track_trace_key_set_width(&t->keys, &t->key_count, &t->key_cap, (int)point, metres)) {
+        if ((has_width && !track_trace_key_set_width(&t->keys, &t->key_count, &t->key_cap, (int)point, metres)) ||
+            !track_trace_key_set_surface(&t->keys, &t->key_count, &t->key_cap, (int)point, TRACK_GEN_LEFT, left) ||
+            !track_trace_key_set_surface(&t->keys, &t->key_count, &t->key_cap, (int)point, TRACK_GEN_RIGHT, right)) {
             snprintf(why, why_cap, "trace.json: out of memory");
             return 0;
         }
@@ -319,7 +358,7 @@ int project_open(const char *dir, Project *out, Trace *trace, char *why, size_t 
     trace->key_count = trace->key_cap = 0;
     int version = 1;
     const int ok = parse_version(json, &version, why, why_cap) && parse_width(json, &trace->width, why, why_cap) && parse_points(json, trace, why, why_cap) &&
-                   (version < 2 || parse_keys(json, trace, why, why_cap));   // keys are version 2's: an older file with a "keys" array has none
+                   (version < 2 || parse_keys(json, version, trace, why, why_cap));   // keys are version 2's: an older file with a "keys" array has none
     free(json);
     if (!ok) {   // what was read before the fault goes with it
         free(trace->points);
@@ -524,6 +563,27 @@ int project_set_edge(const char *dir, const char *edge, char *why, size_t why_ca
     return ok;
 }
 
+/* the fields a key sets, each ", \"name\": value", into `out`; 0 when they do not fit */
+static int key_fields(const TraceKey *k, char *out, size_t cap)
+{
+    size_t at = 0;
+    out[0] = '\0';
+    if (k->has & TRACE_KEY_WIDTH) {
+        const int n = snprintf(out + at, cap - at, ", \"width_m\": %.2f", k->width_m);
+        if (n < 0 || (size_t)n >= cap - at) return 0;
+        at += (size_t)n;
+    }
+    const TraceSurface sides[2] = { k->shoulder_l_surface, k->shoulder_r_surface };
+    static const char *const NAMES[2] = { "shoulder_l_surface", "shoulder_r_surface" };
+    for (int side = 0; side < 2 && (k->has & TRACE_KEY_SHOULDER_SURFACE); ++side) {
+        if (sides[side] == TRACE_SURFACE_INHERIT) continue;
+        const int n = snprintf(out + at, cap - at, ", \"%s\": \"%s\"", NAMES[side], sides[side] == TRACE_SURFACE_TARMAC ? "tarmac" : "verge");
+        if (n < 0 || (size_t)n >= cap - at) return 0;
+        at += (size_t)n;
+    }
+    return 1;
+}
+
 int project_save_trace(const char *dir, const Trace *trace, char *why, size_t why_cap)
 {
     if (trace->count < 2) {
@@ -534,13 +594,17 @@ int project_save_trace(const char *dir, const Trace *trace, char *why, size_t wh
         snprintf(why, why_cap, "trace.json: width %g is outside %d..%d", trace->width, PROJECT_WIDTH_MIN, PROJECT_WIDTH_MAX);
         return 0;
     }
-    const size_t cap = 256 + (size_t)trace->count * 40 + (size_t)trace->key_count * 64;
+    enum { KEY_TEXT = 160 };   /* the longest key this Studio writes is about 110 bytes (and under the reader's 256): {"point": 599, "width_m": 30.00, both surfaces} */
+    const size_t cap = 256 + (size_t)trace->count * 40 + (size_t)trace->key_count * KEY_TEXT;
+    int version = 2;
+    for (int i = 0; i < trace->key_count; ++i)
+        if (trace->keys[i].has & TRACE_KEY_SHOULDER_SURFACE) version = 3;
     char *text = malloc(cap);
     if (text == NULL) {
         snprintf(why, why_cap, "out of memory");
         return 0;
     }
-    size_t at = (size_t)snprintf(text, cap, "{\n  \"version\": %d,\n  \"width\": %.1f,\n  \"points\": [\n", PROJECT_TRACE_VERSION, trace->width);
+    size_t at = (size_t)snprintf(text, cap, "{\n  \"version\": %d,\n  \"width\": %.1f,\n  \"points\": [\n", version, trace->width);
     for (int i = 0; i < trace->count; ++i)
         at += (size_t)snprintf(text + at, cap - at, "    [%.3f, %.3f]%s\n", trace->points[i].x, trace->points[i].z,
                                i + 1 < trace->count ? "," : "");
@@ -548,9 +612,13 @@ int project_save_trace(const char *dir, const Trace *trace, char *why, size_t wh
         snprintf(text + at, cap - at, "  ]\n}\n");
     } else {
         at += (size_t)snprintf(text + at, cap - at, "  ],\n  \"keys\": [\n");
-        for (int i = 0; i < trace->key_count; ++i) {
-            char fields[48] = "";
-            if (trace->keys[i].has & TRACE_KEY_WIDTH) snprintf(fields, sizeof fields, ", \"width_m\": %.2f", trace->keys[i].width_m);
+        for (int i = 0; i < trace->key_count && at < cap; ++i) {
+            char fields[KEY_TEXT] = "";
+            if (!key_fields(&trace->keys[i], fields, sizeof fields)) {
+                free(text);
+                snprintf(why, why_cap, "trace.json: the road key on point %d does not fit its line", trace->keys[i].point);
+                return 0;
+            }
             at += (size_t)snprintf(text + at, cap - at, "    {\"point\": %d%s}%s\n", trace->keys[i].point, fields, i + 1 < trace->key_count ? "," : "");
         }
         snprintf(text + at, cap - at, "  ]\n}\n");

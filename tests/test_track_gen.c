@@ -536,6 +536,66 @@ static void check_explicit_errors(const uint8_t *tmpl, size_t tsize)
     }
 }
 
+/* the shoulder's surface per node and side (step 2b): a node with its sides all zero is the road of before, byte for byte (the template's flags[2], 0x22);
+ * a tarmac side clears that side's nibble of flags[2] (node +6: high left, low right), the game's row 0, and no other byte of the TRI changes */
+static void check_shoulder_surface(void)
+{
+    enum { COUNT = 50 * 4 + 1, NODES_AT = 0x98c, NODE_BYTES = 36, FLAGS2 = 6 };
+    uint8_t *tmpl = NULL;   /* the editor's template: verge (0x22) both sides */
+    size_t tsize = 0;
+    ExchangeError terr = {0};
+    CHECK(track_template_generic(&tmpl, &tsize, &terr));
+    if (tmpl == NULL) return;
+    static TrackGenNode n[COUNT];
+    hand_nodes(n, COUNT);
+    uint8_t *plain = NULL, *paved = NULL;
+    size_t plain_len = 0, paved_len = 0;
+    ExchangeError err = {0};
+    CHECK(track_generate_nodes(n, COUNT, tmpl, tsize, &plain, &plain_len, &err));
+    if (plain == NULL) {
+        free(tmpl);
+        return;
+    }
+    Tri tri;
+    CHECK_EQ_INT(tri_open(&tri, plain, plain_len), TRI_OK);
+    int all_template = 1;
+    for (int i = 0; i < COUNT; ++i) {
+        TriNode t;
+        CHECK_EQ_INT(tri_node(&tri, (uint32_t)i, &t), TRI_OK);
+        all_template &= t.flags[2] == 0x22;
+    }
+    CHECK(all_template);   /* zero sides: the template's verge on both sides, as before this field */
+    for (int i = 0; i < COUNT; ++i) {
+        if (i < 100) n[i].side[TRACK_GEN_LEFT].has = TRACK_GEN_SIDE_TARMAC, n[i].side[TRACK_GEN_LEFT].tarmac = 1;
+        if (i >= 50 && i < 150) n[i].side[TRACK_GEN_RIGHT].has = TRACK_GEN_SIDE_TARMAC, n[i].side[TRACK_GEN_RIGHT].tarmac = 1;
+        if (i >= 150) n[i].side[TRACK_GEN_RIGHT].has = TRACK_GEN_SIDE_TARMAC, n[i].side[TRACK_GEN_RIGHT].tarmac = 0;   /* set to the verge: as zero */
+    }
+    CHECK(track_generate_nodes(n, COUNT, tmpl, tsize, &paved, &paved_len, &err));
+    CHECK(paved != NULL && paved_len == plain_len);
+    if (paved != NULL && paved_len == plain_len) {
+        CHECK_EQ_INT(tri_open(&tri, paved, paved_len), TRI_OK);
+        int right = 1;
+        for (int i = 0; i < COUNT; ++i) {
+            TriNode t;
+            CHECK_EQ_INT(tri_node(&tri, (uint32_t)i, &t), TRI_OK);
+            const int want = i < 50 ? 0x02 : i < 100 ? 0x00 : i < 150 ? 0x20 : 0x22;
+            right &= t.flags[2] == want;
+        }
+        CHECK(right);
+        int other = 0;   /* every byte that differs is a node's flags[2] */
+        for (size_t b = 0; b < paved_len; ++b)
+            if (paved[b] != plain[b] && !(b >= NODES_AT && (b - NODES_AT) % NODE_BYTES == FLAGS2 && (b - NODES_AT) / NODE_BYTES < COUNT)) ++other;
+        CHECK_EQ_INT(other, 0);
+    }
+    free(paved);
+    paved = NULL;
+    n[7].side[TRACK_GEN_LEFT].tarmac = 2;   /* not 0 or 1: refused, the node named */
+    CHECK(!track_generate_nodes(n, COUNT, tmpl, tsize, &paved, &paved_len, &err));
+    CHECK(paved == NULL && strstr(err.message, "node 7") != NULL);
+    free(plain);
+    free(tmpl);
+}
+
 int main(int argc, char **argv)
 {
     size_t tsize = 0;
@@ -550,6 +610,7 @@ int main(int argc, char **argv)
     check_layout_nodes();
     check_explicit_nodes(tmpl, tsize);
     check_explicit_errors(tmpl, tsize);
+    check_shoulder_surface();
     free(tmpl);
 
     for (int i = 1; i < argc; ++i) {                      /* CD tracks as templates */

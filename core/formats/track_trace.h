@@ -55,11 +55,20 @@ enum {
 /* A road key: values a control point sets for the road from there on (the plan's step 1 does the width; the bits are the room for the next steps:
  * bank, lanes, surface, shoulder, pace, each its own bit and its own field, so a file or a list with only some of them reads as before). A value not
  * set (its bit clear) is not the key's: the point is inheriting. Keys are kept by point, ascending. */
-enum { TRACE_KEY_WIDTH = 1 };
+enum {
+    TRACE_KEY_WIDTH = 1,
+    /* 1 << 1 is the bank's (step 5) */
+    TRACE_KEY_SHOULDER_SURFACE = 1 << 2,   /* step 2b; step 3 takes 1 << 3 on */
+};
+/* A shoulder's surface beyond the verge edge, a side of a key: inheriting (what the key before has, the verge before any key), the verge (the template's grass,
+ * as before), or tarmac (the road's own surface, no off-road grip). */
+typedef enum { TRACE_SURFACE_INHERIT = 0, TRACE_SURFACE_VERGE, TRACE_SURFACE_TARMAC } TraceSurface;
 typedef struct {
     int point;          /* the control point it is on, 0..count-1 */
     unsigned has;       /* TRACE_KEY_* bits: which values this key sets */
     double width_m;     /* TRACE_KEY_WIDTH: the road's width at the point, edge to edge, in metres (TRACE_ROAD_MIN_M..MAX_M) */
+    TraceSurface shoulder_l_surface, shoulder_r_surface;   /* TRACE_KEY_SHOULDER_SURFACE (set while either side is not TRACE_SURFACE_INHERIT): each side's,
+                                                            * held from the point to the next key that sets that side */
 } TraceKey;
 
 /* The length of the centre line through `points` (the curve, not the chords), in units; 0 for fewer than 2 points. */
@@ -85,11 +94,18 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
  * Points table shows those dimmed). `metres` has `count` values; 0 values when the curve cannot be made. */
 void track_trace_point_widths(const TracePoint *points, int count, double width, const TraceKey *keys, int key_count, double *metres);
 
+/* The shoulder's surface at each control point, each side, as the keys make it: TRACE_SURFACE_VERGE or _TARMAC (never INHERIT). `left` and `right` have `count`
+ * values. The keys are taken as they are (a key off the points is skipped). */
+void track_trace_point_surfaces(const TraceKey *keys, int key_count, int count, TraceSurface *left, TraceSurface *right);
+
 /* The key list's edits: `*keys` is malloc'd, `*count` long, `*cap` big. Set the width of the key on `point` (a new key keeps the list ascending, an old
  * one is updated; 0 when out of memory); clear it (the key goes when no other value is set); the position of the key on `point` or -1; and keep the keys on
  * their points when a point is inserted (those from `index` on move up) or removed (its key goes, the later ones move down). */
 int track_trace_key_set_width(TraceKey **keys, int *count, int *cap, int point, double metres);
 void track_trace_key_clear_width(TraceKey *keys, int *count, int point);
+/* Set a side's (TRACK_GEN_LEFT or _RIGHT) shoulder surface of the key on `point`: VERGE or TARMAC adds the key when there is none; INHERIT clears that side,
+ * and the key goes when it then sets nothing. 0 when out of memory, or the side or the surface is none of those. */
+int track_trace_key_set_surface(TraceKey **keys, int *count, int *cap, int point, int side, TraceSurface surface);
 int track_trace_key_find(const TraceKey *keys, int count, int point);
 void track_trace_keys_insert_point(TraceKey *keys, int count, int index);
 void track_trace_keys_remove_point(TraceKey *keys, int *count, int index);

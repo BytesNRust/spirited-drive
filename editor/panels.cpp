@@ -38,7 +38,7 @@ void points_panel(App *a)
         ImGui::EndDisabled();
         ImGui::TextDisabled("%d points", a->trace.count);
         const bool scroll_to_selected = a->selected != shown;
-        if (ImGui::BeginTable("points", 6, ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+        if (ImGui::BeginTable("points", 6, ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders, ImVec2(0, -road_key_panel_height()))) {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 28);
             ImGui::TableSetupColumn("x (m)");
@@ -110,6 +110,7 @@ void points_panel(App *a)
             }
             ImGui::EndTable();
         }
+        road_key_panel(a);
     }
     ImGui::End();
 }
@@ -176,6 +177,8 @@ void node_panel(App *a)
             ImGui::Text("distance from the start: %.1f m", a->node_dist != NULL ? a->node_dist[n] : 0.0);
             ImGui::Text("turn: %s", turn);
             ImGui::Text("road width: %.2f m", a->nodes[n].width / TRACE_WIDTH_PER_METRE);
+            ImGui::Text("shoulder surface: left %s, right %s", a->nodes[n].side[TRACK_GEN_LEFT].tarmac ? "tarmac" : "verge",
+                        a->nodes[n].side[TRACK_GEN_RIGHT].tarmac ? "tarmac" : "verge");
             ImGui::Text("to the previous node: %.2f m", track_trace_step(a->nodes, n));
             if (n + 1 < a->node_count) ImGui::Text("to the next node: %.2f m", track_trace_step(a->nodes, n + 1));
             else ImGui::TextDisabled("to the next node: -");

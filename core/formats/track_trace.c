@@ -200,6 +200,61 @@ static double width_at(const WidthStop *stops, int n, double at)
     return stops[n - 1].w;
 }
 
+/* a side's surface of a key (TRACK_GEN_LEFT / _RIGHT); INHERIT when the key does not set it */
+static TraceSurface key_surface(const TraceKey *key, int side)
+{
+    if (!(key->has & TRACE_KEY_SHOULDER_SURFACE)) return TRACE_SURFACE_INHERIT;
+    return side == TRACK_GEN_LEFT ? key->shoulder_l_surface : key->shoulder_r_surface;
+}
+
+static int surface_known(TraceSurface s)
+{
+    return s == TRACE_SURFACE_INHERIT || s == TRACE_SURFACE_VERGE || s == TRACE_SURFACE_TARMAC;
+}
+
+/* the keys that set a surface: on the points, a surface each side knows, and one a point; 0 with err naming the point */
+static int check_surface_keys(int point_count, const TraceKey *keys, int key_count, ExchangeError *err)
+{
+    for (int k = 0; k < key_count; ++k) {
+        if (!(keys[k].has & TRACE_KEY_SHOULDER_SURFACE)) continue;
+        const int point = keys[k].point;
+        if (point < 0 || point >= point_count) return exchange_fail(err, "a road key is on point %d, and the trace has points 0..%d", point, point_count - 1), 0;
+        if (!surface_known(keys[k].shoulder_l_surface) || !surface_known(keys[k].shoulder_r_surface))
+            return exchange_fail(err, "the road key on point %d has a shoulder surface that is not inherit, verge or tarmac", point), 0;
+        for (int j = 0; j < k; ++j)
+            if ((keys[j].has & TRACE_KEY_SHOULDER_SURFACE) && keys[j].point == point) return exchange_fail(err, "point %d has a road key twice", point), 0;
+    }
+    return 1;
+}
+
+/* the surface of `side` from point `point` on: that of the key with the greatest point not after it that sets the side; the verge before any */
+static TraceSurface surface_from(const TraceKey *keys, int key_count, int point, int side)
+{
+    int best = -1;
+    TraceSurface at = TRACE_SURFACE_VERGE;
+    for (int k = 0; k < key_count; ++k) {
+        const TraceSurface s = key_surface(&keys[k], side);
+        if (s == TRACE_SURFACE_INHERIT || keys[k].point > point || keys[k].point <= best) continue;
+        best = keys[k].point, at = s;
+    }
+    return at;
+}
+
+/* each node's sides: a tarmac shoulder where the keys make one, from the key's point along the arc to the next key of that side; the verge is left zero (the
+ * template's, as before) */
+static void node_surfaces(const Curve *c, const TraceKey *keys, int key_count, double step, TrackGenNode *out, int count_nodes)
+{
+    int point = 0;   /* the last control point at or before the node */
+    for (int k = 0; k < count_nodes; ++k) {
+        while (point + 1 < c->count && c->s[(point + 1) * SAMPLES_PER_SPAN] <= k * step + 1e-9) ++point;
+        for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side) {
+            const int tarmac = surface_from(keys, key_count, point, side) == TRACE_SURFACE_TARMAC;
+            out[k].side[side].has = tarmac ? (unsigned)TRACK_GEN_SIDE_TARMAC : 0u;
+            out[k].side[side].tarmac = tarmac;
+        }
+    }
+}
+
 int track_trace_nodes_keyed(const TracePoint *points, int count, double width, const TraceKey *keys, int key_count, TrackGenNode **nodes,
                             int *node_count, ExchangeError *err)
 {
@@ -216,7 +271,7 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
     int stop_count = 0;
     if (stops == NULL) {
         exchange_fail(err, "out of memory");
-    } else if (!width_stops(&c, width, keys, key_count, stops, &stop_count, err)) {
+    } else if (!width_stops(&c, width, keys, key_count, stops, &stop_count, err) || !check_surface_keys(c.count, keys, key_count, err)) {
         // err names the key
     } else if (segments > TRACK_GEN_MAX_SEGMENTS) {
         exchange_fail(err, "the road is %d segments; the most is %d (about %g m)", segments, TRACK_GEN_MAX_SEGMENTS,
@@ -241,6 +296,7 @@ int track_trace_nodes_keyed(const TracePoint *points, int count, double width, c
                 out[k].position[1] = 0;
                 out[k].position[2] = (int32_t)lround(z * POSITION_ONE);
             }
+            node_surfaces(&c, keys, key_count, step, out, count_nodes);
             *nodes = out;
             *node_count = count_nodes;
             ok = 1;
@@ -271,6 +327,14 @@ void track_trace_point_widths(const TracePoint *points, int count, double width,
     curve_free(&c);
 }
 
+void track_trace_point_surfaces(const TraceKey *keys, int key_count, int count, TraceSurface *left, TraceSurface *right)
+{
+    for (int i = 0; i < count; ++i) {
+        left[i] = surface_from(keys, key_count, i, TRACK_GEN_LEFT);
+        right[i] = surface_from(keys, key_count, i, TRACK_GEN_RIGHT);
+    }
+}
+
 /* ---- the key list's edits ---- */
 
 int track_trace_key_find(const TraceKey *keys, int count, int point)
@@ -280,14 +344,15 @@ int track_trace_key_find(const TraceKey *keys, int count, int point)
     return -1;
 }
 
-int track_trace_key_set_width(TraceKey **keys, int *count, int *cap, int point, double metres)
+/* the index of the key on `point`, a new empty one (the list kept ascending) when there is none; -1 when out of memory */
+static int key_slot(TraceKey **keys, int *count, int *cap, int point)
 {
     int at = track_trace_key_find(*keys, *count, point);
     if (at < 0) {
         if (*count == *cap) {
             const int grown = *cap == 0 ? 8 : *cap * 2;
             TraceKey *more = realloc(*keys, sizeof *more * (size_t)grown);
-            if (more == NULL) return 0;
+            if (more == NULL) return -1;
             *keys = more;
             *cap = grown;
         }
@@ -299,8 +364,16 @@ int track_trace_key_set_width(TraceKey **keys, int *count, int *cap, int point, 
         (*keys)[at].point = point;
         (*keys)[at].has = 0;
         (*keys)[at].width_m = 0;
+        (*keys)[at].shoulder_l_surface = (*keys)[at].shoulder_r_surface = TRACE_SURFACE_INHERIT;
         ++*count;
     }
+    return at;
+}
+
+int track_trace_key_set_width(TraceKey **keys, int *count, int *cap, int point, double metres)
+{
+    const int at = key_slot(keys, count, cap, point);
+    if (at < 0) return 0;
     (*keys)[at].has |= TRACE_KEY_WIDTH;
     (*keys)[at].width_m = metres;
     return 1;
@@ -319,6 +392,20 @@ void track_trace_key_clear_width(TraceKey *keys, int *count, int point)
     keys[at].has &= ~(unsigned)TRACE_KEY_WIDTH;
     keys[at].width_m = 0;
     if (keys[at].has == 0) key_remove_at(keys, count, at);   // no other value set (the next steps' bits will say): the key is nothing
+}
+
+int track_trace_key_set_surface(TraceKey **keys, int *count, int *cap, int point, int side, TraceSurface surface)
+{
+    if ((side != TRACK_GEN_LEFT && side != TRACK_GEN_RIGHT) || !surface_known(surface)) return 0;
+    int at = track_trace_key_find(*keys, *count, point);
+    if (at < 0 && surface == TRACE_SURFACE_INHERIT) return 1;   // inheriting where no key is: nothing to do
+    if (at < 0 && (at = key_slot(keys, count, cap, point)) < 0) return 0;
+    TraceKey *k = &(*keys)[at];
+    *(side == TRACK_GEN_LEFT ? &k->shoulder_l_surface : &k->shoulder_r_surface) = surface;
+    if (k->shoulder_l_surface == TRACE_SURFACE_INHERIT && k->shoulder_r_surface == TRACE_SURFACE_INHERIT) k->has &= ~(unsigned)TRACE_KEY_SHOULDER_SURFACE;
+    else k->has |= TRACE_KEY_SHOULDER_SURFACE;
+    if (k->has == 0) key_remove_at(*keys, count, at);   // it sets nothing any more
+    return 1;
 }
 
 void track_trace_keys_insert_point(TraceKey *keys, int count, int index)
