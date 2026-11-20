@@ -227,7 +227,7 @@ static void test_a_synthetic_car(void)
 
 /* M5: the body shine as the race draws it: the masks' paint texels go through the envmap's tables, the kit's car_envmap.png replaces the game's
  * image, it follows the night's palette, and a closed car's class maps are dropped (another car's texels may take their addresses) */
-static ModelScene *open_box(const char *masks, int matte, char *path, size_t path_cap)
+static ModelScene *open_box(const char *masks, int matte, char *path, size_t path_cap, PreviewIn *in)
 {
     char dir[400];
     snprintf(dir, sizeof dir, "%s/car", base);
@@ -240,11 +240,10 @@ static ModelScene *open_box(const char *masks, int matte, char *path, size_t pat
     CHECK(write_file(path, cfm, len));
     free(cfm);
     CHECK(make_mask_of(masks, matte));
-    PreviewIn in;
-    memset(&in, 0, sizeof in);
-    in.cfm = path, in.stem = "BOX", in.masks_dir = masks, in.added = 1;
+    memset(in, 0, sizeof *in);
+    in->cfm = path, in->stem = "BOX", in->masks_dir = masks, in->added = 1;
     char why[200] = "";
-    ModelScene *m = model_scene_open_painted(&in, why, sizeof why);
+    ModelScene *m = model_scene_open_painted(in, why, sizeof why);
     if (m == NULL) fprintf(stderr, "open_box: %s\n", why);
     return m;
 }
@@ -257,23 +256,34 @@ static void test_the_body_shine(void)
     snprintf(bright, sizeof bright, "%s/bright_envmap.png", base);
     CHECK(make_envmap(grey, 128));
     CHECK(make_envmap(bright, 255));
-    ModelScene *m = open_box(masks, 0, path, sizeof path);
+    PreviewIn in;
+    ModelScene *m = open_box(masks, 0, path, sizeof path, &in);
     CHECK(m != NULL);
     if (m == NULL) return;
-    CHECK_EQ_INT(model_scene_shine_textures(m), 1);   /* the side, a body texture by its mask */
+    int sw = 0, sh = 0;
+    const uint8_t *side = model_scene_texels(m, "side", &sw, &sh);
+    CHECK(side != NULL);
+    /* the masks' draft is made when the shine is first on, not before: a car looked at with the shine off never reads it */
+    CHECK_EQ_INT(model_scene_shine_textures(m), 0);
+    CHECK(shine_class_find(side) == NULL);
+    CHECK_EQ_INT(model_scene_shine(m, 0, &in, NULL), 0);
+    CHECK_EQ_INT(model_scene_shine_textures(m), 0);
+    CHECK(shine_class_find(side) == NULL);
     Orbit o;
     orbit_init(&o, model_scene_radius(m));
     orbit_set(&o, 60 * 16, 30 * 16);
     CarNightState s;
     memset(&s, 0, sizeof s);
     const Picture plain = picture(m, &o, &s, "box_shine_off");
-    CHECK(model_scene_shine(m, 1, NULL));
+    CHECK(model_scene_shine(m, 1, &in, NULL));
+    CHECK_EQ_INT(model_scene_shine_textures(m), 1);   /* the side, a body texture by its mask */
+    CHECK(shine_class_find(side) != NULL);
     const Picture shine = picture(m, &o, &s, "box_shine_on");
-    CHECK(model_scene_shine(m, 1, grey));
+    CHECK(model_scene_shine(m, 1, &in, grey));
     const Picture neutral = picture(m, &o, &s, NULL);
-    CHECK(model_scene_shine(m, 1, bright));
+    CHECK(model_scene_shine(m, 1, &in, bright));
     const Picture lifted = picture(m, &o, &s, "box_shine_bright");
-    CHECK_EQ_INT(model_scene_shine(m, 0, NULL), 0);
+    CHECK_EQ_INT(model_scene_shine(m, 0, &in, NULL), 0);
     const Picture off_again = picture(m, &o, &s, NULL);
     fprintf(stderr, "shine: plain light %ld, procedural %ld, neutral %ld, bright %ld\n", plain.light, shine.light, neutral.light, lifted.light);
     CHECK_EQ_INT(shine.drawn, plain.drawn);
@@ -282,27 +292,27 @@ static void test_the_body_shine(void)
     CHECK(lifted.light > plain.light);         /* all sky: lifted toward white */
     CHECK_EQ_INT(off_again.hash, plain.hash);
     s.night = 1, s.lit = 1, s.light[0] = s.light[1] = s.light[2] = 0.4f;
-    CHECK(model_scene_shine(m, 0, NULL) == 0);
+    CHECK(model_scene_shine(m, 0, &in, NULL) == 0);
     const Picture night = picture(m, &o, &s, NULL);
-    CHECK(model_scene_shine(m, 1, bright));
+    CHECK(model_scene_shine(m, 1, &in, bright));
+    CHECK_EQ_INT(model_scene_shine_textures(m), 1);   /* on again: the draft made once, not added to */
     const Picture night_shine = picture(m, &o, &s, "box_shine_night");
     CHECK(night_shine.hash != night.hash);     /* the tables follow the night's palette */
     CHECK(night_shine.light < lifted.light);
-    int sw = 0, sh = 0;
-    const uint8_t *side = model_scene_texels(m, "side", &sw, &sh);
-    CHECK(side != NULL && shine_class_find(side) != NULL);
+    CHECK(shine_class_find(side) != NULL);
     const uintptr_t side_at = (uintptr_t)side;   /* the address alone, as the class store keys it: never read after the close */
     model_scene_close(m);
     CHECK(shine_class_find((const uint8_t *)side_at) == NULL);   /* dropped with the car: a later file at that address finds nothing of it */
     /* another car after it: all matte, nothing of the first car's classes is left to find */
     char masks_b[400], path_b[500];
     snprintf(masks_b, sizeof masks_b, "%s/matte_masks", base);
-    ModelScene *b = open_box(masks_b, 1, path_b, sizeof path_b);
+    PreviewIn in_b;
+    ModelScene *b = open_box(masks_b, 1, path_b, sizeof path_b, &in_b);
     CHECK(b != NULL);
     if (b == NULL) return;
     memset(&s, 0, sizeof s);
     const Picture b_plain = picture(b, &o, &s, NULL);
-    model_scene_shine(b, 1, bright);
+    model_scene_shine(b, 1, &in_b, bright);
     const Picture b_shine = picture(b, &o, &s, NULL);
     CHECK_EQ_INT(b_shine.hash, b_plain.hash);   /* all matte: no shine, and none of the closed car's */
     model_scene_close(b);

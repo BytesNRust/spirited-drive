@@ -39,6 +39,7 @@ struct Model {
     bool auto_rotate = false, dirty = true;
     bool shine = true;            // the body shine, on: the owner checks the shine and matte masks with it
     bool shines = false;          // the car has texels the shine reaches
+    bool shine_asked = false;     // the box (or the command line) changed it: set when the window is next drawn
     char envmap[APP_PATH] = "";   // the kit's own car_envmap.png, when it has one
     int preset = 0;               // an orbit asked for on the command line, waiting for the car
     double preset_yaw = 0, preset_pitch = 0;
@@ -53,10 +54,33 @@ struct Model {
 
 Model g;
 
-// the shine on or off as the box says, with the kit's envmap or the game's own
-void set_shine()
+// what the car is painted from (the Preview window's), with the folders' names it points to
+struct Source {
+    PreviewIn in = {};
+    char masks[APP_PATH], fallback[APP_PATH];
+};
+
+void source_of(App *a, const uint8_t *rgb, Source *s)
 {
-    g.shines = g.scene != nullptr && model_scene_shine(g.scene, g.shine, g.envmap[0] != '\0' ? g.envmap : nullptr);
+    const ExportCar *oc = car_race_original_of(&a->car);
+    snprintf(s->masks, sizeof s->masks, "%s/car_masks/%s", a->car.piece, a->car.folder);
+    snprintf(s->fallback, sizeof s->fallback, "%s/car_masks/%s", a->export_src.data, oc != nullptr ? oc->folder : "");
+    s->in.cfm = a->car.cfm;
+    s->in.stem = oc != nullptr ? oc->folder : a->car.folder;
+    s->in.masks_dir = a->car.has_masks_dir ? s->masks : nullptr;
+    s->in.fallback_dir = oc != nullptr && a->export_src.data[0] != '\0' ? s->fallback : nullptr;
+    s->in.edit = a->mask.sel >= 0 && app_mask_modified(a) ? &a->mask.me : nullptr;
+    s->in.paint = rgb;
+    s->in.added = oc == nullptr;
+}
+
+// the shine on or off as the box says, with the kit's envmap or the game's own; the masks' draft read the first time it is on
+void set_shine(App *a, const uint8_t *rgb)
+{
+    Source src;
+    source_of(a, rgb, &src);
+    g.shines = g.scene != nullptr && model_scene_shine(g.scene, g.shine, &src.in, g.envmap[0] != '\0' ? g.envmap : nullptr);
+    g.shine_asked = false;
 }
 
 void close_scene()
@@ -70,26 +94,17 @@ void open_scene(App *a, const uint8_t *rgb)
 {
     close_scene();
     g.why[0] = 0;
-    const ExportCar *oc = car_race_original_of(&a->car);
-    char masks[APP_PATH], fallback[APP_PATH], why[sizeof g.why];
-    snprintf(masks, sizeof masks, "%s/car_masks/%s", a->car.piece, a->car.folder);
-    snprintf(fallback, sizeof fallback, "%s/car_masks/%s", a->export_src.data, oc != nullptr ? oc->folder : "");
-    PreviewIn in = {};
-    in.cfm = a->car.cfm;
-    in.stem = oc != nullptr ? oc->folder : a->car.folder;
-    in.masks_dir = a->car.has_masks_dir ? masks : nullptr;
-    in.fallback_dir = oc != nullptr && a->export_src.data[0] != '\0' ? fallback : nullptr;
-    in.edit = a->mask.sel >= 0 && app_mask_modified(a) ? &a->mask.me : nullptr;
-    in.paint = rgb;
-    in.added = oc == nullptr;
-    g.scene = model_scene_open_painted(&in, why, sizeof why);
+    char why[sizeof g.why];
+    Source src;
+    source_of(a, rgb, &src);
+    g.scene = model_scene_open_painted(&src.in, why, sizeof why);
     g.painted = g.scene != nullptr;
     if (g.scene == nullptr) g.scene = model_scene_open(a->car.cfm, g.why, sizeof g.why);   // the file as it is: masks that are not there yet
     snprintf(g.envmap, sizeof g.envmap, "%s/car_envmap.png", a->car.piece);   // a mod's car_envmap.png replaces the game's, as in the race
     FILE *f = fopen(g.envmap, "rb");
     if (f != nullptr) fclose(f);
     else g.envmap[0] = '\0';
-    set_shine();
+    set_shine(a, rgb);
     g.dirty = true;
 }
 
@@ -191,7 +206,7 @@ void toolbar()
     ImGui::SameLine();
     if (ImGui::Checkbox("Auto-rotate", &g.auto_rotate)) g.dirty = true;
     ImGui::SameLine();
-    if (ImGui::Checkbox("Shine", &g.shine)) set_shine(), g.dirty = true;
+    if (ImGui::Checkbox("Shine", &g.shine)) g.shine_asked = true;
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("The body's shine as the race draws it, where the masks say paint or shine (matte texels stay as they are).\n"
                           "Its tones are taken from the car's own colours; in a race, from the screen's.%s",
@@ -216,8 +231,7 @@ void turn_and_zoom()
 void model_panel_shine(bool on)
 {
     g.shine = on;
-    set_shine();
-    g.dirty = true;
+    g.shine_asked = true;
 }
 
 void model_panel_preset(double yaw, double pitch, int dist)
@@ -243,6 +257,7 @@ void model_panel(App *a, SDL_Renderer *ren)
         } else {
             toolbar();
             keys();
+            if (g.shine_asked && !busy) set_shine(a, rgb), g.dirty = true;   // after a stroke: the draft is of the masks as they are
             const ImVec2 size = ImGui::GetContentRegionAvail();
             const int lines = g.shine ? 2 : 1;   // the words under the picture
             const int area_w = static_cast<int>(size.x), area_h = static_cast<int>(size.y) - lines * static_cast<int>(ImGui::GetTextLineHeightWithSpacing());
