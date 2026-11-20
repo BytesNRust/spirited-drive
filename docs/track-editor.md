@@ -20,7 +20,7 @@ The project folder is created with `project.ini` and `trace.json` (a straight of
 | File | What it holds |
 |------|---------------|
 | `project.ini` | `id`, `name`, `author`, `stem` (1..7 of A-Z 0-9, not AL/CL/CY/TR first), `art` (a FAM: relative to the project folder, or absolute), `redistributable` (the author's word on the art's licence) |
-| `trace.json` | `width` (the road's width byte, 8..120; the template's is 40, see Road width) and `points`, the control points as `[x, z]` in metres (one track unit is one metre), and optional `version` (2) and `keys`, the road keys (see Road keys). A file with no `version` or `1` has no keys; a newer one is refused |
+| `trace.json` | `width` (the road's width byte, 8..120; the template's is 40, see Road width) and `points`, the control points as `[x, z]` in metres (one track unit is one metre), and optional `version` (2; 3 when a key has a bank or a side value) and `keys`, the road keys (see Road keys). A file with no `version` or `1` has no keys; a newer one is refused |
 | `build/<id>.zip` | written by Build; the only thing the game installs |
 
 ## Keys
@@ -151,7 +151,7 @@ turn. The **Node** window (under Points) shows the selected node, picked by a cl
 distance from the start, the turn, the distance to the node before and to the next one, and the limits it breaks. With none it says "Select a node".
 The distance between nodes is not the same on every road: the editor spaces them evenly along the curve and fits a whole number of segments (4 nodes
 each) to its length, so it is about 6.03 m on a long road and can be a few per cent more or less on a short one (the CD's is about 6.0 m).
-Height and slope are not shown: the editor has no height yet.
+Height and slope are not shown: the editor has no height yet. The bank is (see Road keys: the bank).
 
 ## Road width: the Track window
 
@@ -191,8 +191,30 @@ shoulder draws with that art's bank 4 and should be checked in the game; the art
 by the current one when the project opens (`editor/art/README.md`). In `trace.json` a key carries `"shoulder_l_surface": "tarmac"` and/or `"shoulder_r_surface": "verge"`,
 and the file is `"version": 3` when any key sets a surface (2 otherwise).
 
-A key whose point does not exist, twice on a point, or with a width outside 2..30 m refuses the file with a message naming it. Unknown fields are ignored. Banks and lanes
+A key whose point does not exist, twice on a point, or with a width outside 2..30 m refuses the file with a message naming it. Unknown fields are ignored. Lanes
 per key are not read yet; their place is reserved in the key (`TRACE_KEY_*` bits in `core/formats/track_trace.h`).
+
+## Road keys: the bank
+
+The Points table's `bank (°)` column banks the road at a point, the same way as the width: drag or type a value (-60..60, a tenth of a degree; one pixel is
+0.25°) and the point has a key; a point with none shows, dimmed, the bank it inherits: level before the first key, a smoothstep of the distance along the
+curve between two keys, the last key's after it. Right-click "Inherit again (clear this bank)" clears it. Positive banks the road for a right-hand curve
+(the outside edge up), as the CD's tracks do; the Node window says "bank: R 30.0°" or "L ...", or "level".
+
+The limits (notes/dep59-banking-spike.md), in Problems, the Limits summary, the Viewport and the column's colour:
+
+- **amber over 25°**: built. The CD banks over 25° only in short stretches of three tracks, and the game measures the road's edge in plan, so at 25° the edge is
+  about 10 % off (13 % at 30°, 18 % at 35°): on a banked curve the car can run over the inside line. Drive it.
+- **red over 35°**: the track is not built, as with a red curve; Build refuses it naming the node. 35° is the CD's own most (TR4 banks 34.5°), and 35 itself is
+  amber. The generator takes up to 35° on the editor's nodes (`TRACK_GEN_BANK_MAX_DEGREES`); a `track new` layout still 20°.
+
+In `trace.json` the bank is `bank_deg` on a key, a field of version 3: a file with a bank is written as version 3, and a version 2 file's `bank_deg` is
+not read. A value that is not a number, or outside -60..60, refuses the file naming the point:
+
+```json
+{ "version": 3, "width": 40, "points": [[0,0],[0,60],[0,120],[0,180],[0,240]],
+  "keys": [ {"point": 1, "bank_deg": 0}, {"point": 2, "bank_deg": 30.0}, {"point": 4, "bank_deg": 0} ] }
+```
 
 ## Preview
 
@@ -232,6 +254,6 @@ of the unsaved changes.
 ## What is missing
 
 - The INFO is generic: lines 9 and 10 (the sky colours) are a plain blue and the other lines zero. Not checked against the game's sky.
-- Heights and banks are not read from `trace.json` yet (every node is level and unbanked); the width is per road key (see Road keys).
+- Heights are not read from `trace.json` yet (every node is level); the width and the bank are per road key (see Road keys).
 - The install was not run end to end in this version: it invokes the game's `--install`, which needs a built game.
 - The 3D free-flight view, lighting and scenery editing are later phases.

@@ -92,6 +92,9 @@ static int road_nodes(const Trace *t, TrackGenNode **nodes, int *count, char *wh
         } else if (flags[i] & TRACE_FLAG_WALL_FAR) {
             snprintf(why, why_cap, "a barrier at node %d is more than %g m from the centre: bring it nearer the road or narrow the road", i, TRACE_WALL_FAR_M);
             ok = 0;
+        } else if (flags[i] & TRACE_FLAG_BANK_LIMIT) {
+            snprintf(why, why_cap, "node %d banks more than %g degrees: the most the game's road takes", i, TRACE_BANK_MAX_DEG);
+            ok = 0;
         }
     }
     free(flags);

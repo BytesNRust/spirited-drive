@@ -280,8 +280,8 @@ static void test_all_rules_fit(void)
     memset(&p, 0, sizeof p);
     p.node = 12345;
     p.red = 1;
-    p.flags = TRACE_FLAG_TURN | TRACE_FLAG_RADIUS | TRACE_FLAG_WIDTH_WARN | TRACE_FLAG_SIDE_WARN | TRACE_FLAG_WALL_FAR;
-    p.turn = 123.4, p.radius = 12.3, p.width_step = 12.25, p.side_step = 18.75, p.wall_m = 34.875;
+    p.flags = TRACE_FLAG_TURN | TRACE_FLAG_RADIUS | TRACE_FLAG_WIDTH_WARN | TRACE_FLAG_SIDE_WARN | TRACE_FLAG_WALL_FAR | TRACE_FLAG_BANK_LIMIT;
+    p.turn = 123.4, p.radius = 12.3, p.width_step = 12.25, p.side_step = 18.75, p.wall_m = 34.875, p.bank = -59.9;
     char text[TRACE_PROBLEM_TEXT];
     track_trace_problem_text(&p, text, sizeof text);
     CHECK(strlen(text) + 1 < sizeof text);

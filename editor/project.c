@@ -2,6 +2,7 @@
 #include "project.h"
 
 #include "formats/track_piece.h"
+#include "formats/track_trace_bank.h"
 #include "formats/track_trace_sides.h"
 #include "game/sys/sha256.h"
 
@@ -392,6 +393,13 @@ static int parse_keys(const char *text, int version, Trace *t, char *why, size_t
         TraceKey sides;   /* the road's sides (step 3) */
         memset(&sides, 0, sizeof sides);
         if (version >= 3 && !parse_key_sides(obj, point, &sides, why, why_cap)) return 0;
+        double bank = 0;   /* the bank: version 3's too */
+        const int bank_at = version >= 3 ? object_value(obj, "bank_deg", &bank) : 0, has_bank = bank_at == 1;
+        if (bank_at < 0) {
+            snprintf(why, why_cap, "trace.json: the road key on point %.0f has a bank_deg that is not a number of degrees", point);
+            return 0;
+        }
+        if (has_bank) sides.has |= TRACE_KEY_BANK, sides.bank_deg = bank;
         if (!has_width && !has_surface && sides.has == 0) continue;
         if (point < 0 || point >= t->count) {
             snprintf(why, why_cap, "trace.json: a road key is on point %.0f, and the trace has points 0..%d", point, t->count - 1);
@@ -407,7 +415,7 @@ static int parse_keys(const char *text, int version, Trace *t, char *why, size_t
             return 0;
         }
         ExchangeError err;
-        if (!trace_sides_check(t->count, &sides, 1, &err)) {
+        if (!trace_sides_check(t->count, &sides, 1, &err) || !trace_bank_check(t->count, &sides, 1, &err)) {
             snprintf(why, why_cap, "trace.json: %s", err.message);
             return 0;
         }
@@ -418,6 +426,7 @@ static int parse_keys(const char *text, int version, Trace *t, char *why, size_t
             for (int side = 0; side < 2; ++side)
                 if (stored && (sides.has & TRACE_KEY_SIDE(f, side)))
                     stored = track_trace_key_set_side(&t->keys, &t->key_count, &t->key_cap, (int)point, f, side, sides.side[f][side]);
+        if (stored && has_bank) stored = track_trace_key_set_bank(&t->keys, &t->key_count, &t->key_cap, (int)point, bank);
         if (!stored) {
             snprintf(why, why_cap, "trace.json: out of memory");
             return 0;
@@ -720,6 +729,7 @@ static void key_fields(Text *text, const TraceKey *k)
             else if (f == TRACE_SIDE_FENCE) text_add(text, ", \"%s\": %s", SIDE_FIELD[f][side], v != 0 ? "true" : "false");
             else text_add(text, ", \"%s\": %.2f", SIDE_FIELD[f][side], v);
         }
+    if (k->has & TRACE_KEY_BANK) text_add(text, ", \"bank_deg\": %.2f", k->bank_deg);
 }
 
 int project_save_trace(const char *dir, const Trace *trace, char *why, size_t why_cap)
@@ -733,7 +743,7 @@ int project_save_trace(const char *dir, const Trace *trace, char *why, size_t wh
         return 0;
     }
     Text text = { NULL, 0, 0, 0 };
-    int version = 2;   /* 3 only when a key has a value past the width (a surface, a side): a file with none stays readable by a version 2 Studio */
+    int version = 2;   /* 3 only when a key has a value past the width (a surface, a side, the bank): a file with none stays readable by a version 2 Studio */
     for (int i = 0; i < trace->key_count; ++i)
         if (trace->keys[i].has & ~(unsigned)TRACE_KEY_WIDTH) version = 3;
     text_add(&text, "{\n  \"version\": %d,\n  \"width\": %.1f,\n  \"points\": [\n", version, trace->width);

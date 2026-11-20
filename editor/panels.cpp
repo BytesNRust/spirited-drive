@@ -28,6 +28,40 @@ const int PROBLEM_ROWS = 200;   // the nodes listed in Problems; the count says 
 
 static ImGuiID points_dock = 0;   // the dock node Points is in, where a layout kept from before the Node window puts it as a tab
 
+// The road's bank at point i (column 4): the key's own, or (dimmed) what the keys around make it; amber over TRACE_BANK_WARN_DEG, red over the most the
+// generator builds. Typing or dragging sets a key, right-click clears it.
+static void bank_cell(App *a, int i, int *shown)
+{
+    ImGui::TableSetColumnIndex(4);
+    const int key = track_trace_key_find(a->trace.keys, a->trace.key_count, i);
+    const bool keyed = key >= 0 && (a->trace.keys[key].has & TRACE_KEY_BANK);
+    double degrees = keyed ? a->trace.keys[key].bank_deg : (a->road_made && a->point_bank != NULL && i < a->point_count ? a->point_bank[i] : 0.0);
+    const double lo = -TRACE_BANK_INPUT_MAX_DEG, hi = TRACE_BANK_INPUT_MAX_DEG;
+    const double size = fabs(degrees);
+    const bool red = size > TRACE_BANK_MAX_DEG, amber = !red && size > TRACE_BANK_WARN_DEG;
+    const ImVec4 colour = red ? BAD_TEXT : amber ? WARN_TEXT : ImGui::GetStyleColorVec4(keyed ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+    ImGui::PushStyleColor(ImGuiCol_Text, (red || amber) && !keyed ? ImVec4(colour.x, colour.y, colour.z, 0.6f) : colour);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::DragScalar("##b", ImGuiDataType_Double, &degrees, 0.25f, &lo, &hi, "%.1f", ImGuiSliderFlags_AlwaysClamp)) {
+        a->selected = *shown = i;
+        app_set_point_bank(a, i, degrees);
+    }
+    ImGui::PopStyleColor();
+    if (ImGui::IsItemHovered()) {
+        const char *what = keyed ? "A bank set on this point. Right-click to let it inherit again." : "Inherited from the points around. Drag or type to bank the road here.";
+        const char *limit = red ? "Over %g\xc2\xb0: the track can't be built." : amber ? "Over %g\xc2\xb0: it may not look right in the game." : "";
+        ImGui::BeginTooltip();
+        ImGui::TextUnformatted(what);
+        ImGui::TextUnformatted("Positive banks the road for a right-hand curve.");
+        if (limit[0] != '\0') ImGui::TextColored(red ? BAD_TEXT : WARN_TEXT, limit, red ? TRACE_BANK_MAX_DEG : TRACE_BANK_WARN_DEG);
+        ImGui::EndTooltip();
+    }
+    if (keyed && ImGui::BeginPopupContextItem("##clearbank")) {
+        if (ImGui::MenuItem("Inherit again (clear this bank)")) app_clear_point_bank(a, i);
+        ImGui::EndPopup();
+    }
+}
+
 void points_panel(App *a)
 {
     static int shown = -2;   // the selection the table last scrolled to
@@ -48,15 +82,16 @@ void points_panel(App *a)
         const float least = (POINTS_MIN_ROWS + 1) * row + st.ScrollbarSize + 2;   // the rows, the header, a sideways scroll bar, the borders
         const float room = ImGui::GetContentRegionAvail().y;
         // the columns never narrower than a value ("-1234.5") or their header: a narrow panel scrolls the table sideways, a wide one stretches them
-        const float value = ImGui::CalcTextSize("-1234.5").x, inner = POINT_COL_NUMBER + 3 * value + POINT_COL_DIST + POINT_COL_TURN + 12 * st.CellPadding.x + 8;
+        const float value = ImGui::CalcTextSize("-1234.5").x, inner = POINT_COL_NUMBER + 4 * value + POINT_COL_DIST + POINT_COL_TURN + 14 * st.CellPadding.x + 8;
         const float wide = ImGui::GetContentRegionAvail().x;
-        if (ImGui::BeginTable("points", 6, ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders,
+        if (ImGui::BeginTable("points", 7, ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders,
                               ImVec2(0, room > least ? room : least), wide > inner ? wide : inner)) {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, POINT_COL_NUMBER);
             ImGui::TableSetupColumn("x (m)");
             ImGui::TableSetupColumn("z (m)");
             ImGui::TableSetupColumn("w (m)");   // the road's width: short, so a narrow panel does not cut it
+            ImGui::TableSetupColumn("bank (\xc2\xb0)");   // the road's bank: amber over 25, red over 35
             ImGui::TableSetupColumn("dist m", ImGuiTableColumnFlags_WidthFixed, POINT_COL_DIST);
             ImGui::TableSetupColumn("turn", ImGuiTableColumnFlags_WidthFixed, POINT_COL_TURN);
             ImGui::TableHeadersRow();
@@ -106,11 +141,12 @@ void points_panel(App *a)
                         if (ImGui::MenuItem("Inherit again (clear this width)")) app_clear_point_width(a, i);
                         ImGui::EndPopup();
                     }
+                    bank_cell(a, i, &shown);
                     // read-only: the distance along the curve from the start, and the turn at the node nearest the point
-                    ImGui::TableSetColumnIndex(4);
+                    ImGui::TableSetColumnIndex(5);
                     if (a->road_made && a->point_dist != NULL && i < a->point_count) ImGui::Text("%.0f", a->point_dist[i]);
                     else ImGui::TextDisabled("-");
-                    ImGui::TableSetColumnIndex(5);
+                    ImGui::TableSetColumnIndex(6);
                     if (a->road_made && a->point_turn != NULL && i < a->point_count) {
                         char turn[16];
                         track_trace_turn_text(a->point_turn[i], turn, sizeof turn);
@@ -209,6 +245,15 @@ void node_panel(App *a)
             ImGui::Text("distance from the start: %.1f m", a->node_dist != NULL ? a->node_dist[n] : 0.0);
             ImGui::Text("turn: %s", turn);
             ImGui::Text("road width: %.2f m", a->nodes[n].width / TRACE_WIDTH_PER_METRE);
+            {   // the bank, in the limit's colour; R or L for the curve it suits
+                const double b = a->nodes[n].bank, size = fabs(b);
+                char bank[24];
+                if (size < 0.05) snprintf(bank, sizeof bank, "level");
+                else snprintf(bank, sizeof bank, "%c %.1f\xc2\xb0", b > 0 ? 'R' : 'L', size);
+                if (size > TRACE_BANK_MAX_DEG) ImGui::TextColored(BAD_TEXT, "bank: %s", bank);
+                else if (size > TRACE_BANK_WARN_DEG) ImGui::TextColored(WARN_TEXT, "bank: %s", bank);
+                else ImGui::Text("bank: %s", bank);
+            }
             ImGui::Text("shoulder surface: left %s, right %s", a->nodes[n].side[TRACK_GEN_LEFT].tarmac ? "asphalt" : "off-road",
                         a->nodes[n].side[TRACK_GEN_RIGHT].tarmac ? "asphalt" : "off-road");
             ImGui::Text("to the previous node: %.2f m", track_trace_step(a->nodes, n));

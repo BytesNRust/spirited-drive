@@ -38,7 +38,8 @@ static void drop_road(App *a)
     free(a->point_dist);
     free(a->point_turn);
     free(a->point_width);
-    a->node_dist = a->point_dist = a->point_turn = a->point_width = NULL;
+    free(a->point_bank);
+    a->node_dist = a->point_dist = a->point_turn = a->point_width = a->point_bank = NULL;
     free(a->point_sides);
     a->point_sides = NULL;
     a->point_count = 0;
@@ -231,19 +232,22 @@ void app_recompute(App *a)
     a->point_turn = calloc((size_t)a->trace.count, sizeof *a->point_turn);
     a->point_width = calloc((size_t)a->trace.count, sizeof *a->point_width);
     a->point_sides = calloc((size_t)a->trace.count, sizeof *a->point_sides);
-    if (a->node_dist != NULL && a->point_dist != NULL && a->point_turn != NULL && a->point_width != NULL && a->point_sides != NULL) {
+    a->point_bank = calloc((size_t)a->trace.count, sizeof *a->point_bank);
+    if (a->node_dist != NULL && a->point_dist != NULL && a->point_turn != NULL && a->point_width != NULL && a->point_sides != NULL && a->point_bank != NULL) {
         a->point_count = a->trace.count;
         track_trace_distances(a->nodes, a->node_count, a->node_dist);
         track_trace_point_distances(a->trace.points, a->trace.count, a->point_dist);
         track_trace_point_widths(a->trace.points, a->trace.count, a->trace.width, a->trace.keys, a->trace.key_count, a->point_width);
         track_trace_point_sides(a->trace.points, a->trace.count, a->trace.keys, a->trace.key_count, a->point_sides);
+        track_trace_point_banks(a->trace.points, a->trace.count, a->trace.keys, a->trace.key_count, a->point_bank);
         for (int i = 0; i < a->trace.count; ++i) a->point_turn[i] = track_trace_signed_turn(a->nodes, nearest_node(a, i));
     } else {   // no memory for the figures: the road is as made, without them
         free(a->node_dist);
         free(a->point_dist);
         free(a->point_turn);
         free(a->point_width);
-        a->node_dist = a->point_dist = a->point_turn = a->point_width = NULL;
+        free(a->point_bank);
+        a->node_dist = a->point_dist = a->point_turn = a->point_width = a->point_bank = NULL;
         free(a->point_sides);
         a->point_sides = NULL;
     }
@@ -674,6 +678,29 @@ int app_tarmac_art_note(const App *a, char *text, size_t cap)
         }
     }
     return 0;
+}
+
+void app_set_point_bank(App *a, int point, double degrees)
+{
+    if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count || !isfinite(degrees)) return;
+    const double most = TRACE_BANK_INPUT_MAX_DEG;
+    const double want = round((degrees < -most ? -most : degrees > most ? most : degrees) * 10) / 10;
+    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
+    if (at >= 0 && (a->trace.keys[at].has & TRACE_KEY_BANK) && a->trace.keys[at].bank_deg == want) return;   // the same: nothing changed
+    if (!track_trace_key_set_bank(&a->trace.keys, &a->trace.key_count, &a->trace.key_cap, point, want)) {
+        set_status(a, "out of memory");
+        return;
+    }
+    a->dirty = 1;
+}
+
+void app_clear_point_bank(App *a, int point)
+{
+    if (a->kind != APP_KIND_TRACK) return;
+    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
+    if (at < 0 || !(a->trace.keys[at].has & TRACE_KEY_BANK)) return;
+    track_trace_key_clear_bank(a->trace.keys, &a->trace.key_count, point);
+    a->dirty = 1;
 }
 
 void app_remove_point(App *a)

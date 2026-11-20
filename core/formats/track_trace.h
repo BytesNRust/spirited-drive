@@ -3,9 +3,9 @@
  *
  * The points (x, z in game units, 1 unit about 1 m; the road starts at the first point heading towards the second) are joined by a
  * uniform Catmull-Rom curve, which goes through every point, and the curve is resampled by arc length: 4 nodes per segment and one
- * more, the spacing being the CD's (TRACK_GEN_NODE_LENGTH, about 6 units). Heights and banks of the points are not used yet: every node is level
- * and unbanked. The width of the road is the project's, or the road keys' (a TraceKey on a control point, the plan's step 1): between two keys it is
- * a smoothstep over the arc length.
+ * more, the spacing being the CD's (TRACK_GEN_NODE_LENGTH, about 6 units). Heights of the points are not used yet: every node is level. The
+ * width of the road is the project's, or the road keys' (a TraceKey on a control point, the plan's step 1): between two keys it is a smoothstep over the
+ * arc length; the bank is the keys' the same way (unbanked with none).
  *
  * The limits the editor shows (track_trace_flags), in two levels (notes/dep59-editor-limits-vs-cd.md). Up to 8 degrees a node (a radius of 43 units) nothing is
  * marked. AMBER, a warning that the road is built: over TRACK_GEN_TURN_WARN_DEGREES, or under TRACE_RADIUS_WARN; the CD has such curves (Alpine 3
@@ -44,12 +44,14 @@ enum {
     TRACE_FLAG_RADIUS_WARN = 8,  /* amber: its radius is under TRACE_RADIUS_WARN (and not under the red one) */
     TRACE_FLAG_WIDTH_WARN = 16,  /* amber: the road's width changes by more than TRACE_WIDTH_STEP_WARN_M from the node before */
     TRACE_FLAG_SIDE_WARN = 32,   /* amber: a side's shoulder or wall distance moves more than TRACE_SIDE_STEP_WARN_M from the node before (step 3) */
-    TRACE_FLAG_WALL_FAR = 64     /* red: a wall is more than TRACE_WALL_FAR_M from the centre, past what a node's byte holds (step 3) */
+    TRACE_FLAG_WALL_FAR = 64,    /* red: a wall is more than TRACE_WALL_FAR_M from the centre, past what a node's byte holds (step 3) */
+    TRACE_FLAG_BANK_WARN = 128,  /* amber: the node banks more than TRACE_BANK_WARN_DEG either way (and no more than the red limit) */
+    TRACE_FLAG_BANK_LIMIT = 256  /* red: it banks more than TRACE_BANK_MAX_DEG, the most the generator builds */
 };
 /* A node's TRACE_FLAG_* bits: 16 of them (dev2's bank bits are 128 and 256). */
 typedef uint16_t TraceFlags;
-#define TRACE_FLAG_RED_BITS (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS | TRACE_FLAG_WALL_FAR)
-#define TRACE_FLAG_WARN_BITS (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN | TRACE_FLAG_SIDE_WARN)
+#define TRACE_FLAG_RED_BITS (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS | TRACE_FLAG_WALL_FAR | TRACE_FLAG_BANK_LIMIT)
+#define TRACE_FLAG_WARN_BITS (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN | TRACE_FLAG_SIDE_WARN | TRACE_FLAG_BANK_WARN)
 #define TRACE_SIDE_STEP_WARN_M 1.25   /* amber: as the width's (TRACE_WIDTH_STEP_WARN_M) */
 #define TRACE_WALL_FAR_M (255 / 8.0)  /* red: the wall's byte is the road edge's plus its distance, in 1/8 m: 31.875 m */
 
@@ -65,12 +67,20 @@ typedef uint16_t TraceFlags;
  * set (its bit clear) is not the key's: the point is inheriting. Keys are kept by point, ascending. */
 enum {
     TRACE_KEY_WIDTH = 1,
-    /* 1 << 1 is the bank's (step 5) */
+    TRACE_KEY_BANK = 1 << 1,               /* the bank (dev2) */
     TRACE_KEY_SHOULDER_SURFACE = 1 << 2,   /* step 2b; step 3 takes 1 << 3 on */
 };
 /* A shoulder's surface beyond the verge edge, a side of a key: inheriting (what the key before has, the verge before any key), the verge (the template's grass,
  * as before), or tarmac (the road's own surface, no off-road grip). */
 typedef enum { TRACE_SURFACE_INHERIT = 0, TRACE_SURFACE_VERGE, TRACE_SURFACE_TARMAC } TraceSurface;
+
+/* The bank (a key's bank_deg): degrees, signed as the CD's, positive where the heading grows (a right-hand curve). From key to key a smoothstep over the arc
+ * length, level at the start when the first key is further on, held after the last. A key takes +-TRACE_BANK_INPUT_MAX_DEG; the limits are
+ * track_trace_flags': amber over TRACE_BANK_WARN_DEG (where the CD stops banking everyday roads and the engine's edge, measured in plan, is 10 % off),
+ * red over TRACE_BANK_MAX_DEG (the generator's: the track is not built). notes/dep59-banking-spike.md. */
+#define TRACE_BANK_INPUT_MAX_DEG 60.0
+#define TRACE_BANK_WARN_DEG 25.0
+#define TRACE_BANK_MAX_DEG TRACK_GEN_BANK_MAX_DEGREES
 
 /* The road's sides (step 3): per side ([TRACK_GEN_LEFT], [TRACK_GEN_RIGHT]) the shoulder's width and the wall's distance past the road edge in metres
  * (0..TRACE_SIDE_MAX_M; smoothstep from key to key, from the template's 3 m at the start when the first key is further on), the wall's kind
@@ -88,6 +98,7 @@ typedef struct {
     double width_m;     /* TRACE_KEY_WIDTH: the road's width at the point, edge to edge, in metres (TRACE_ROAD_MIN_M..MAX_M) */
     TraceSurface shoulder_l_surface, shoulder_r_surface;   /* TRACE_KEY_SHOULDER_SURFACE (set while either side is not TRACE_SURFACE_INHERIT): each side's,
                                                             * held from the point to the next key that sets that side */
+    double bank_deg;    /* TRACE_KEY_BANK: the road's bank at the point, degrees (+-TRACE_BANK_INPUT_MAX_DEG) */
     double side[TRACE_SIDE_FIELDS][2];   /* TRACE_KEY_SIDE(field, side): [TRACE_SIDE_*][TRACK_GEN_LEFT / _RIGHT] */
 } TraceKey;
 
@@ -134,6 +145,12 @@ void track_trace_key_clear_width(TraceKey *keys, int *count, int point);
 /* Set a side's (TRACK_GEN_LEFT or _RIGHT) shoulder surface of the key on `point`: VERGE or TARMAC adds the key when there is none; INHERIT clears that side,
  * and the key goes when it then sets nothing. 0 when out of memory, or the side or the surface is none of those. */
 int track_trace_key_set_surface(TraceKey **keys, int *count, int *cap, int point, int side, TraceSurface surface);
+/* the same for the bank: set (a new key has only the bank) and clear (the key goes when nothing else is set) */
+int track_trace_key_set_bank(TraceKey **keys, int *count, int *cap, int point, double degrees);
+void track_trace_key_clear_bank(TraceKey *keys, int *count, int point);
+/* Each control point's bank as the keys make it, in degrees (the key's own where it has one, else the smoothstep's there); level for all when the curve
+ * cannot be made or a key is bad. */
+void track_trace_point_banks(const TracePoint *points, int count, const TraceKey *keys, int key_count, double *degrees);
 int track_trace_key_find(const TraceKey *keys, int count, int point);
 void track_trace_keys_insert_point(TraceKey *keys, int count, int index);
 void track_trace_keys_remove_point(TraceKey *keys, int *count, int index);
@@ -162,6 +179,7 @@ typedef struct {
     double width_step;   /* TRACE_FLAG_WIDTH_WARN: how much the road's width changes from the node before, in metres (unsigned; 0 otherwise) */
     double side_step;    /* TRACE_FLAG_SIDE_WARN: the most a shoulder or a wall distance moves from the node before, in metres (unsigned; 0 otherwise) */
     double wall_m;       /* TRACE_FLAG_WALL_FAR: the farther wall from the centre, in metres (0 otherwise) */
+    double bank;         /* TRACE_FLAG_BANK_WARN / _LIMIT: the node's bank, degrees, signed (0 otherwise) */
 } TraceProblem;
 
 /* The problem nodes: every node whose flags are not 0, red ones first and each group by node number. Fills out[0..cap) and returns how many
@@ -178,7 +196,7 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap);
  * ("3 nodes change width by more than 1.25 m per node: they may not look right in the game"); the sides' red line ("2 nodes have a wall more than
  * 31.875 m from the centre: the track can't be built") after the other red ones, and their amber one last ("1 node moves a shoulder or a wall by more
  * than 1.25 m: it may not look right in the game"). */
-enum { TRACE_SUMMARY_LINES = 7, TRACE_SUMMARY_TEXT = 128, TRACE_PROBLEM_TEXT = 320 };   /* TRACE_PROBLEM_TEXT: room for a row with every clause */
+enum { TRACE_SUMMARY_LINES = 9, TRACE_SUMMARY_TEXT = 128, TRACE_PROBLEM_TEXT = 384 };   /* TRACE_PROBLEM_TEXT: room for a row with every clause */
 typedef struct {
     int red;
     int nodes;
