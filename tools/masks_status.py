@@ -10,7 +10,7 @@ Read only. Stdlib only.
 
 A car is done when every PSD texture has its mask PNG and the PNG is not older than the PSD (tools/car_mask_from_psd.py converts), and the
 eight cars you drive also have a dash: its PSD, its dash_mask.png (not older than the PSD) and its dash_color.png (the colour file is optional in the game, orange without it; here it is asked so the list shows which dashes still glow orange). Names match without case
-(the PSD folder says TSupra, dash_masks says TSUPRA). A backup such as frnt.before-1603.psd is not a texture."""
+(the PSD folder says TSupra, dash_masks says TSUPRA). A backup such as frnt.before-1603.psd is not a texture. Textures and files are matched without case too. The stale check goes by file times, which a sync or a checkout of data/ resets: a PNG copied after its PSD never shows as stale. The PNG column counts every *_mask.png of the car."""
 import argparse
 import os
 import sys
@@ -18,54 +18,64 @@ import sys
 DRIVABLE = {"ansx", "czr1", "dviper", "f512tr", "ldiabl", "mrx7", "p911", "tsupra"}
 
 
-def mtime(path):
-    try:
-        return os.stat(path).st_mtime
-    except OSError:
-        return None
-
-
 def folders(root):
-    """{lowercase name: real name} of the folders in root; {} when there is none"""
+    """{lowercase name: real name} of the folders in root (not ._-led ones); {} when there is none or it cannot be read"""
     try:
-        return {n.lower(): n for n in sorted(os.listdir(root)) if os.path.isdir(os.path.join(root, n))}
+        names = sorted(os.listdir(root))
     except OSError:
         return {}
+    return {n.lower(): n for n in names if not n.startswith((".", "_")) and os.path.isdir(os.path.join(root, n))}
 
 
-def psd_textures(folder):
-    """{texture: mtime} of the texture PSDs: not the dash, not a backup (a name with a second dot)"""
-    out = {}
+def files(folder):
+    """{lowercase name: (real name, mtime)} of the regular files in folder; None when it is not there or cannot be read"""
     if folder is None:
-        return out
-    for n in sorted(os.listdir(folder)):
-        stem, ext = os.path.splitext(n)
-        if ext.lower() == ".psd" and "." not in stem and stem.lower() != "dash":
-            out[stem] = mtime(os.path.join(folder, n))
+        return None
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return None
+    out = {}
+    for n in names:
+        path = os.path.join(folder, n)
+        if os.path.isfile(path):
+            try:
+                out.setdefault(n.lower(), (n, os.stat(path).st_mtime))
+            except OSError:
+                pass
     return out
 
 
-def judge(art, data, key, names):
-    art_dir = os.path.join(art, names["art"]) if names["art"] else None
-    mask_dir = os.path.join(data, "car_masks", names["masks"]) if names["masks"] else None
-    dash_dir = os.path.join(data, "dash_masks", names["dash"]) if names["dash"] else None
-    psds = psd_textures(art_dir)
+def psd_textures(art_files):
+    """{texture (lowercase): mtime} of the texture PSDs: not the dash, not a backup (a name with a second dot)"""
+    out = {}
+    for lower, (name, m) in (art_files or {}).items():
+        stem, ext = os.path.splitext(lower)
+        if ext == ".psd" and "." not in stem and stem != "dash":
+            out[stem] = m
+    return out
+
+
+def judge(data, key, names, art_files, mask_files, dash_files):
+    psds = psd_textures(art_files)
     todo = []
-    if not psds:
+    for what, entries, shown in (("art", art_files, names["art"]), ("masks", mask_files, names["masks"]), ("dash", dash_files, names["dash"])):
+        if shown is not None and entries is None:
+            todo.append("cannot read the %s folder" % what)
+    if not psds and art_files is not None:
         todo.append("no PSD")
-    pngs = 0
-    if mask_dir:
-        pngs = sum(1 for n in os.listdir(mask_dir) if n.endswith("_mask.png"))
-    missing = [t for t in psds if mask_dir is None or mtime(os.path.join(mask_dir, t + "_mask.png")) is None]
-    stale = [t for t, m in psds.items() if t not in missing and mtime(os.path.join(mask_dir, t + "_mask.png")) < m]
+    masks = {k: m for k, (n, m) in (mask_files or {}).items() if k.endswith("_mask.png")}
+    wanted = {t: masks.get(t + "_mask.png") for t in psds}
+    missing = [t for t, m in wanted.items() if m is None]
+    stale = [t for t, m in wanted.items() if m is not None and m < psds[t]]
     if stale:
         todo.append("stale: " + ", ".join(stale))
     if missing:
         todo.append("no mask: " + ", ".join(missing))
     if key in DRIVABLE:
-        dash_psd = mtime(os.path.join(art_dir, "dash.psd")) if art_dir else None
-        dmask = mtime(os.path.join(dash_dir, "dash_mask.png")) if dash_dir else None
-        dcolor = mtime(os.path.join(dash_dir, "dash_color.png")) if dash_dir else None
+        dash_psd = (art_files or {}).get("dash.psd", (None, None))[1]
+        dmask = (dash_files or {}).get("dash_mask.png", (None, None))[1]
+        dcolor = (dash_files or {}).get("dash_color.png", (None, None))[1]
         if dash_psd is None:
             todo.append("no dash PSD")
         if dmask is None:
@@ -74,7 +84,7 @@ def judge(art, data, key, names):
             todo.append("stale: dash")
         if dcolor is None:
             todo.append("dash colour")
-    return len(psds), pngs, todo
+    return len(psds), len(masks), todo
 
 
 def main():
@@ -91,16 +101,25 @@ def main():
         print("masks_status: the data folder %s is not there (--data)" % args.data, file=sys.stderr)
         return 2
     art_f, mask_f, dash_f = folders(args.art), folders(os.path.join(args.data, "car_masks")), folders(os.path.join(args.data, "dash_masks"))
-    keys = sorted(set(art_f) | set(mask_f) | set(dash_f))
+    if not os.path.isdir(os.path.join(args.data, "car_masks")):
+        print("masks_status: %s has no car_masks folder (--data)" % args.data, file=sys.stderr)
+        return 2
+    keys = sorted(set(art_f) | set(mask_f))   # a car is one that has PSDs or masks: a dash folder alone does not make one
     rows, done = [], 0
     for k in keys:
         names = {"art": art_f.get(k), "masks": mask_f.get(k), "dash": dash_f.get(k)}
-        shown = names["masks"] or names["art"] or names["dash"]
-        n_psd, n_png, todo = judge(args.art, args.data, k, names)
+        shown = names["masks"] or names["art"]
+        art_files = files(os.path.join(args.art, names["art"])) if names["art"] else None
+        mask_files = files(os.path.join(args.data, "car_masks", names["masks"])) if names["masks"] else None
+        dash_files = files(os.path.join(args.data, "dash_masks", names["dash"])) if names["dash"] else None
+        n_psd, n_png, todo = judge(args.data, k, names, art_files, mask_files, dash_files)
+        if names["art"] is None:
+            todo.insert(0, "no PSD")
         done += not todo
         if todo or not args.todo:
             rows.append("%-10s %2d PSD %2d PNG  %s" % (shown, n_psd, n_png, "done" if not todo else "; ".join(todo)))
-    print("\n".join(rows))
+    if rows:
+        print("\n".join(rows))
     print("done %d of %d cars" % (done, len(keys)))
     return 0
 
