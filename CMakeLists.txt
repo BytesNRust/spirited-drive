@@ -71,6 +71,7 @@ add_library(tnfs_core STATIC
     core/formats/cfm_build.c
     core/formats/obj_read.c
     core/formats/car_steer.c
+    core/formats/car_wheels_gen.c
     core/formats/car_texture.c
     core/formats/car_import.c
     core/formats/car_import_bank.c
@@ -827,7 +828,7 @@ endif()
 # The studio command line: file formats only, no game code and no SDL.
 if(NOT EMSCRIPTEN)
     # tnfs_tools: what the command line and the car editor share (dep59 1b): every studio command but the argument parsing of main.c
-    add_library(tnfs_tools STATIC studio/fsio.c studio/slot.c studio/track_new.c studio/help.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_texture.c studio/car_view.c studio/car_card.c studio/car_card_shot.c studio/car_masks.c studio/mod_validate.c studio/mod_pack.c studio/fam_command.c studio/pack_tree.c)
+    add_library(tnfs_tools STATIC studio/fsio.c studio/slot.c studio/track_new.c studio/help.c studio/car_new.c studio/car_import.c studio/car_resize.c studio/car_wheels.c studio/car_texture.c studio/car_view.c studio/car_card.c studio/car_card_shot.c studio/car_masks.c studio/mod_validate.c studio/mod_pack.c studio/fam_command.c studio/pack_tree.c)
     target_include_directories(tnfs_tools PUBLIC .)
     target_link_libraries(tnfs_tools PUBLIC tnfs_core)
     target_compile_options(tnfs_tools PRIVATE ${TNFS_WARNINGS})
@@ -1013,7 +1014,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank)
+    foreach(name qfs qfs_encode car_piece car_wheel_frames track_piece mesh_layout mesh_build shpi_build cfm_build car_import_layout obj_read car_steer car_texture car_import car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})

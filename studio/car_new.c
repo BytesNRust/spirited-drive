@@ -2,6 +2,7 @@
 #include "studio/car_import.h"
 #include "studio/car_masks.h"
 #include "studio/car_resize.h"
+#include "studio/car_wheels.h"
 #include "studio/car_texture.h"
 #include "studio/car_view.h"
 
@@ -186,8 +187,9 @@ int car_command(int argc, char **argv, ExchangeError *err)
     if (argc >= 2 && strcmp(argv[1], "resize") == 0) return car_resize_command(argc, argv, err);
     if (argc >= 2 && strcmp(argv[1], "texture") == 0) return car_texture_command(argc, argv, err);
     if (argc >= 2 && strcmp(argv[1], "view") == 0) return car_view_command(argc, argv, err);
+    if (argc >= 2 && strcmp(argv[1], "wheels") == 0) return car_wheels_command(argc, argv, err);
     if (argc < 2 || strcmp(argv[1], "new") != 0) { exchange_fail(err, USAGE " | tnfs-studio car import PIECE_DIR --obj FILE.obj ... | tnfs-studio car resize PIECE_DIR NAME WxH ... | "
-                                                                                 "tnfs-studio car texture add PIECE_DIR NAME FILE.png ... | tnfs-studio car card PIECE_DIR --generic | tnfs-studio car masks KIT_DIR [--stem STEM] | tnfs-studio car view CAR.CFM --shot OUT.png"); return 0; }
+                                                                                 "tnfs-studio car texture add PIECE_DIR NAME FILE.png ... | tnfs-studio car card PIECE_DIR --generic | tnfs-studio car masks KIT_DIR [--stem STEM] | tnfs-studio car view CAR.CFM --shot OUT.png | tnfs-studio car wheels IN.png OUT_DIR ..."); return 0; }
     Args a;
     return parse(argc, argv, &a, err) && car_new(&a, err);
 }
