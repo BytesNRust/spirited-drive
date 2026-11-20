@@ -13,7 +13,8 @@
 #define KEY_RAMPED (TRACE_KEY_WIDTH | TRACE_KEY_BANK | TRACE_KEY_SIDE(TRACE_SIDE_SHOULDER, 0) | TRACE_KEY_SIDE(TRACE_SIDE_SHOULDER, 1) | \
                     TRACE_KEY_SIDE(TRACE_SIDE_BARRIER, 0) | TRACE_KEY_SIDE(TRACE_SIDE_BARRIER, 1))
 #define KEY_HELD (TRACE_KEY_SHOULDER_SURFACE | TRACE_KEY_SIDE(TRACE_SIDE_WALL, 0) | TRACE_KEY_SIDE(TRACE_SIDE_WALL, 1) | \
-                  TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 0) | TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 1) | TRACE_KEY_LANES)
+                  TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 0) | TRACE_KEY_SIDE(TRACE_SIDE_FENCE, 1) | TRACE_KEY_LANES | TRACE_KEY_FENCE_HEIGHT | \
+                  TRACE_KEY_FENCE_ART | TRACE_KEY_BARRIER_CUSTOM(0) | TRACE_KEY_BARRIER_CUSTOM(1))
 
 /* what the keys make at every control point, every value (track_trace_point_*) */
 typedef struct {
@@ -23,6 +24,7 @@ typedef struct {
     double (*side)[TRACE_SIDE_FIELDS][2];
     TraceSurface *surface[2];
     int *lanes;
+    TraceFencePoint *fence;  /* the fence's height and picture (the road's) and each side's barrier Custom */
 } KeyState;
 
 int key_state_make(const Trace *t, KeyState *s);   /* 0 when memory is out */
@@ -30,7 +32,8 @@ void key_state_free(KeyState *s);
 /* a key on point i setting the values of `mask` as they are there (a width is left out where a lane stretch would ignore it) */
 TraceKey key_state_at(const KeyState *s, int i, unsigned mask);
 
-/* k seen from the other side: left and right swapped, the bank's sign turned, lanes 1+2 and 2+1 swapped */
+/* k seen from the other side: left and right swapped (a barrier's Custom with its distance: a side whose Custom is off ignores it), the bank's sign
+ * turned, lanes 1+2 and 2+1 swapped; the fence's height and picture are the road's and stay */
 TraceKey key_swapped(TraceKey k);
 /* whether a and b set the same values of `mask` (both set or both not, and equal where set) */
 int key_same(const TraceKey *a, const TraceKey *b, unsigned mask);

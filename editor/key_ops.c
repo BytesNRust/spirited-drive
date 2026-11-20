@@ -9,12 +9,14 @@
 
 #define SIDE_BITS(field) (TRACE_KEY_SIDE(field, 0) | TRACE_KEY_SIDE(field, 1))
 #define KEY_KNOWN (KEY_RAMPED | KEY_HELD)
+#define CUSTOM_BITS (TRACE_KEY_BARRIER_CUSTOM(0) | TRACE_KEY_BARRIER_CUSTOM(1))
 
 /* each side's bit with its partner's: a mirror or a reverse moves one side's values to the other */
 static unsigned both_sides(unsigned has)
 {
     for (int f = 0; f < TRACE_SIDE_FIELDS; ++f)
         if (has & SIDE_BITS(f)) has |= SIDE_BITS(f);
+    if (has & CUSTOM_BITS) has |= CUSTOM_BITS;
     return has;
 }
 
@@ -28,18 +30,20 @@ int key_state_make(const Trace *t, KeyState *s)
     const size_t c = (size_t)(n > 0 ? n : 1);
     s->width_m = malloc(sizeof *s->width_m * c), s->bank_deg = malloc(sizeof *s->bank_deg * c), s->side = malloc(sizeof *s->side * c);
     s->surface[0] = malloc(sizeof *s->surface[0] * c), s->surface[1] = malloc(sizeof *s->surface[1] * c), s->lanes = malloc(sizeof *s->lanes * c);
-    if (!s->width_m || !s->bank_deg || !s->side || !s->surface[0] || !s->surface[1] || !s->lanes) return key_state_free(s), 0;
+    s->fence = malloc(sizeof *s->fence * c);
+    if (!s->width_m || !s->bank_deg || !s->side || !s->surface[0] || !s->surface[1] || !s->lanes || !s->fence) return key_state_free(s), 0;
     track_trace_point_widths(t->points, n, t->width, t->keys, t->key_count, s->width_m);
     track_trace_point_banks(t->points, n, t->keys, t->key_count, s->bank_deg);
     track_trace_point_sides(t->points, n, t->keys, t->key_count, s->side);
     track_trace_point_surfaces(t->keys, t->key_count, n, s->surface[0], s->surface[1]);
     track_trace_point_lanes(t->keys, t->key_count, n, s->lanes);
+    track_trace_point_fence(t->keys, t->key_count, n, s->fence);
     return 1;
 }
 
 void key_state_free(KeyState *s)
 {
-    free(s->width_m), free(s->bank_deg), free(s->side), free(s->surface[0]), free(s->surface[1]), free(s->lanes);
+    free(s->width_m), free(s->bank_deg), free(s->side), free(s->surface[0]), free(s->surface[1]), free(s->lanes), free(s->fence);
     memset(s, 0, sizeof *s);
 }
 
@@ -54,13 +58,18 @@ TraceKey key_state_at(const KeyState *s, int i, unsigned mask)
     k.width_m = s->width_m[i], k.bank_deg = s->bank_deg[i], k.lanes = s->lanes[i];
     k.shoulder_l_surface = s->surface[0][i], k.shoulder_r_surface = s->surface[1][i];
     memcpy(k.side, s->side[i], sizeof k.side);
+    k.fence_tall = s->fence[i].tall, k.fence_art = s->fence[i].art;
+    k.barrier_custom[0] = s->fence[i].custom[0], k.barrier_custom[1] = s->fence[i].custom[1];
     return k;
 }
 
 TraceKey key_swapped(TraceKey k)
 {
     TraceKey w = k;
-    w.has = k.has & ~(unsigned)(SIDE_BITS(0) | SIDE_BITS(1) | SIDE_BITS(2) | SIDE_BITS(3));
+    w.has = k.has & ~(unsigned)(SIDE_BITS(0) | SIDE_BITS(1) | SIDE_BITS(2) | SIDE_BITS(3) | CUSTOM_BITS);
+    if (k.has & TRACE_KEY_BARRIER_CUSTOM(0)) w.has |= TRACE_KEY_BARRIER_CUSTOM(1);
+    if (k.has & TRACE_KEY_BARRIER_CUSTOM(1)) w.has |= TRACE_KEY_BARRIER_CUSTOM(0);
+    w.barrier_custom[0] = k.barrier_custom[1], w.barrier_custom[1] = k.barrier_custom[0];
     for (int f = 0; f < TRACE_SIDE_FIELDS; ++f) {
         if (k.has & TRACE_KEY_SIDE(f, 0)) w.has |= TRACE_KEY_SIDE(f, 1);
         if (k.has & TRACE_KEY_SIDE(f, 1)) w.has |= TRACE_KEY_SIDE(f, 0);
@@ -81,6 +90,10 @@ int key_same(const TraceKey *a, const TraceKey *b, unsigned mask)
     if ((m & TRACE_KEY_WIDTH) && !same_double(a->width_m, b->width_m)) return 0;
     if ((m & TRACE_KEY_BANK) && !same_double(a->bank_deg, b->bank_deg)) return 0;
     if ((m & TRACE_KEY_LANES) && a->lanes != b->lanes) return 0;
+    if ((m & TRACE_KEY_FENCE_HEIGHT) && a->fence_tall != b->fence_tall) return 0;
+    if ((m & TRACE_KEY_FENCE_ART) && a->fence_art != b->fence_art) return 0;
+    for (int side = 0; side < 2; ++side)
+        if ((m & TRACE_KEY_BARRIER_CUSTOM(side)) && a->barrier_custom[side] != b->barrier_custom[side]) return 0;
     if ((m & TRACE_KEY_SHOULDER_SURFACE) && (a->shoulder_l_surface != b->shoulder_l_surface || a->shoulder_r_surface != b->shoulder_r_surface)) return 0;
     for (int f = 0; f < TRACE_SIDE_FIELDS; ++f)
         for (int side = 0; side < 2; ++side)
@@ -95,6 +108,10 @@ static void put(TraceKey *dst, const TraceKey *src, unsigned mask)
     if (m & TRACE_KEY_WIDTH) dst->width_m = src->width_m;
     if (m & TRACE_KEY_BANK) dst->bank_deg = src->bank_deg;
     if (m & TRACE_KEY_LANES) dst->lanes = src->lanes;
+    if (m & TRACE_KEY_FENCE_HEIGHT) dst->fence_tall = src->fence_tall;
+    if (m & TRACE_KEY_FENCE_ART) dst->fence_art = src->fence_art;
+    for (int side = 0; side < 2; ++side)
+        if (m & TRACE_KEY_BARRIER_CUSTOM(side)) dst->barrier_custom[side] = src->barrier_custom[side];
     if (m & TRACE_KEY_SHOULDER_SURFACE) {
         if (src->shoulder_l_surface != TRACE_SURFACE_INHERIT) dst->shoulder_l_surface = src->shoulder_l_surface;
         if (src->shoulder_r_surface != TRACE_SURFACE_INHERIT) dst->shoulder_r_surface = src->shoulder_r_surface;

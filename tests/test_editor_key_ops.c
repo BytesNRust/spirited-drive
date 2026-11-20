@@ -1,5 +1,6 @@
 /* dep87 1b: the road profile keys that go with Copy, Paste, Mirror and Reverse (editor/key_ops.h). A straight of 10 points 40 m apart with a
- * left shoulder of 5 m from point 2, the right shoulder tarmac from 3, a bank of 10 degrees at 4, lanes 1+2 from 5 and no left fence from 6:
+ * left shoulder of 5 m from point 2, the right shoulder tarmac from 3 with a tall rail fence and the left barrier Custom at 6 m, a bank of 10
+ * degrees at 4, lanes 1+2 from 5, no left fence from 6, the fence low again from 8:
  * each operation's result is read back point by point (what the Points table and the generator see) against the original's. */
 #include "key_ops.h"
 #include "point_ops.h"
@@ -13,7 +14,7 @@
 enum { N = 10 };
 
 static TracePoint g_points[N];
-static TraceKey g_keys[5];
+static TraceKey g_keys[6];
 
 static Trace road(void)
 {
@@ -21,10 +22,14 @@ static Trace road(void)
     memset(g_keys, 0, sizeof g_keys);
     g_keys[0].point = 2, g_keys[0].has = TRACE_KEY_SIDE(TRACE_SIDE_SHOULDER, TRACK_GEN_LEFT), g_keys[0].side[TRACE_SIDE_SHOULDER][TRACK_GEN_LEFT] = 5;
     g_keys[1].point = 3, g_keys[1].has = TRACE_KEY_SHOULDER_SURFACE, g_keys[1].shoulder_r_surface = TRACE_SURFACE_TARMAC;
+    g_keys[1].has |= TRACE_KEY_FENCE_HEIGHT | TRACE_KEY_FENCE_ART, g_keys[1].fence_tall = 1, g_keys[1].fence_art = TRACE_FENCE_RAIL;   /* the road's fence */
+    g_keys[1].has |= TRACE_KEY_BARRIER_CUSTOM(TRACK_GEN_LEFT) | TRACE_KEY_SIDE(TRACE_SIDE_BARRIER, TRACK_GEN_LEFT);   /* the left barrier its own */
+    g_keys[1].barrier_custom[TRACK_GEN_LEFT] = 1, g_keys[1].side[TRACE_SIDE_BARRIER][TRACK_GEN_LEFT] = 6;
     g_keys[2].point = 4, g_keys[2].has = TRACE_KEY_BANK, g_keys[2].bank_deg = 10;
     g_keys[3].point = 5, g_keys[3].has = TRACE_KEY_LANES, g_keys[3].lanes = TRACK_GEN_LANES_1_2;
     g_keys[4].point = 6, g_keys[4].has = TRACE_KEY_SIDE(TRACE_SIDE_FENCE, TRACK_GEN_LEFT), g_keys[4].side[TRACE_SIDE_FENCE][TRACK_GEN_LEFT] = 0;
-    return (Trace){ g_points, N, 40.0, g_keys, 5, 5 };
+    g_keys[5].point = 8, g_keys[5].has = TRACE_KEY_FENCE_HEIGHT, g_keys[5].fence_tall = 0;   /* low again */
+    return (Trace){ g_points, N, 40.0, g_keys, 6, 6 };
 }
 
 typedef struct {
@@ -68,6 +73,10 @@ static void test_swapped(void)
     CHECK(w.shoulder_r_surface == TRACE_SURFACE_TARMAC && w.shoulder_l_surface == TRACE_SURFACE_INHERIT);
     const TraceKey back = key_swapped(w);
     CHECK(key_same(&back, &k, ~0u));
+    k.has |= TRACE_KEY_BARRIER_CUSTOM(TRACK_GEN_LEFT) | TRACE_KEY_FENCE_HEIGHT, k.barrier_custom[TRACK_GEN_LEFT] = 1, k.fence_tall = 1;
+    const TraceKey c = key_swapped(k);   /* Custom changes sides with its barrier; the fence's height is the road's */
+    CHECK((c.has & TRACE_KEY_BARRIER_CUSTOM(TRACK_GEN_RIGHT)) && !(c.has & TRACE_KEY_BARRIER_CUSTOM(TRACK_GEN_LEFT)));
+    CHECK(c.barrier_custom[TRACK_GEN_RIGHT] == 1 && c.barrier_custom[TRACK_GEN_LEFT] == 0 && (c.has & TRACE_KEY_FENCE_HEIGHT) && c.fence_tall == 1);
 }
 
 static void test_mirror(void)
@@ -91,6 +100,10 @@ static void test_mirror(void)
     CHECK(r.st.lanes[5] == TRACK_GEN_LANES_2_1 && r.st.lanes[7] == TRACK_GEN_LANES_1_2 && r.st.bank_deg[4] == -10);
     CHECK(r.st.side[2][TRACE_SIDE_SHOULDER][TRACK_GEN_RIGHT] == 5 && r.st.side[6][TRACE_SIDE_FENCE][TRACK_GEN_RIGHT] == 0);
     CHECK(r.st.side[7][TRACE_SIDE_FENCE][TRACK_GEN_LEFT] == 0 && r.st.side[7][TRACE_SIDE_FENCE][TRACK_GEN_RIGHT] == 1);   /* the tail's own again */
+    for (int i = 3; i < 7; ++i)   /* the Custom barrier changed sides with its 6 m; the road's tall rail stayed */
+        CHECK(r.st.fence[i].custom[TRACK_GEN_RIGHT] == 1 && r.st.fence[i].custom[TRACK_GEN_LEFT] == 0 && r.st.side[i][TRACE_SIDE_BARRIER][TRACK_GEN_RIGHT] == 6
+              && r.st.fence[i].tall == 1 && r.st.fence[i].art == TRACE_FENCE_RAIL);
+    CHECK(r.st.fence[7].custom[TRACK_GEN_LEFT] == 1 && r.st.fence[7].custom[TRACK_GEN_RIGHT] == 0);   /* the tail's own again */
     done(&r);
     key_state_free(&before);
 }
@@ -139,12 +152,15 @@ static void test_copy_paste(void)
     const int keyed[] = { 0, 2, 3 };   /* the block's first, its bank key, its last */
     for (int i = 0; i < 3; ++i) CHECK(same_at(&r.st, N - 1 + keyed[i], &before, 2 + keyed[i], ramped, 0));
     CHECK(same_at(&r.st, 8, &before, 8, ramped, 0) && same_at(&r.st, 4, &before, 4, ramped, 0));
+    CHECK(r.st.fence[9].tall == 0 && r.st.fence[9].art == TRACE_FENCE_PLANKS);   /* the copy's first segment: low planks, as at old 2 (the road's low from 8) */
+    CHECK(r.st.fence[10].tall == 1 && r.st.fence[10].art == TRACE_FENCE_RAIL && r.st.fence[11].tall == 1);   /* old 3 on: the tall rail */
     done(&r);
     CHECK(keys_paste(&t, 1, clip, clip_count, 4, &keys, &count));   /* in the middle, after point 1: the old 2.. are now 5.. */
     CHECK(made(&r, pts_paste(t.points, N, 1, t.points + 2, 4), N + 3, keys, count));
     for (int i = 0; i < 3; ++i) CHECK(same_at(&r.st, 1 + i, &before, 2 + i, held, 0));
     CHECK(same_at(&r.st, 0, &before, 0, held, 0));
     for (int j = 4; j < N + 2; ++j) CHECK(same_at(&r.st, j, &before, j - 3, held, 0));   /* the tail from the block's end: old segment 1 on */
+    CHECK(r.st.fence[2].tall == 1 && r.st.fence[2].art == TRACE_FENCE_RAIL && r.st.fence[4].tall == 0 && r.st.fence[4].art == TRACE_FENCE_PLANKS);
     CHECK(same_at(&r.st, 0, &before, 0, ramped, 0) && same_at(&r.st, 5, &before, 2, ramped, 0) && same_at(&r.st, 7, &before, 4, ramped, 0));
     done(&r);
     free(clip);
