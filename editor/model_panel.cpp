@@ -231,7 +231,8 @@ void model_panel(App *a, SDL_Renderer *ren)
                 ImGui::InvisibleButton("##orbit", area);
                 turn_and_zoom();
                 ImGui::GetWindowDrawList()->AddImage(reinterpret_cast<ImTextureID>(g.tex), at, ImVec2(at.x + area.x, at.y + area.y));
-                ImGui::TextDisabled("Drag to turn, wheel to zoom, F S R T Home. %s", g.painted ? "As the race paints it." : "As the car file has it.");
+                // the Preview's words: a paint chosen is the race's; none (or a car the paint cannot be made for) is the base texture
+                ImGui::TextDisabled("Drag to turn, wheel to zoom, F S R T Home. %s", g.painted && rgb != nullptr ? "As the race paints it." : "Base texture (no colour).");
             }
         }
     }

@@ -178,7 +178,10 @@ static void test_a_synthetic_car(void)
     s.reverse = 0, s.lights = 1;
     const Picture day_switches = picture(m, &o, &s, NULL);   /* head and position lights glow only at night */
     s.brake = 1;
-    const Picture day_brake = picture(m, &o, &s, NULL);      /* the brake lights light by day too, as in the race (car_night.c) */
+    const Picture day_brake = picture(m, &o, &s, "box_day_brake");   /* the brake lights light by day too, as in the race (car_night.c) */
+    s.brake = 0;
+    const Picture day_brake_off = picture(m, &o, &s, NULL);  /* and go out again: every switch change remakes the lamps */
+    s.brake = 1;
     s.night = 1, s.lit = 1, s.light[0] = s.light[1] = s.light[2] = 0.4f;
     const Picture night = picture(m, &o, &s, "box_night");
     s.brake = 0;
@@ -192,6 +195,8 @@ static void test_a_synthetic_car(void)
     CHECK_EQ_INT(day_lamps.lamps, 0);
     CHECK_EQ_INT(day_switches.lamps, 0);
     CHECK(day_brake.lamps > 0);                        /* braking by day: the brake texels only */
+    CHECK_EQ_INT(day_brake_off.lamps, 0);
+    CHECK_EQ_INT(day_brake_off.hash, day_switches.hash);
     CHECK_EQ_INT(night.drawn, day.drawn);              /* the same car, the same pixels */
     CHECK(night.lamps > 50);                           /* head and brake lights */
     CHECK(day_brake.lamps < night.lamps);

@@ -19,7 +19,7 @@ typedef struct {
     uint32_t count;
     uint8_t rgb[LAMP_COLOURS + 1][3];
     int colours;
-    int lamps;                  /* car_night_lamp_state of the state the layer was made for (and 8 with the brake on by day), -1 none yet */
+    int lamps;                  /* the switches the layer was made for (lamp_key), -1 none yet */
 } LampLayer;
 
 struct ModelScene {
@@ -175,11 +175,18 @@ static uint8_t *lamp_texels(LampLayer *l, const PreviewTex *t, const CarNightSta
     return out;
 }
 
+/* the layer's key: every switch the lamps' pass reads (lamps_only below), not the race's lamp state, so a rule of car_night_texture's own (the
+ * brake lit by day with the state still LAMP_DAY) cannot leave the layer stale */
+static int lamp_key(const CarNightState *s)
+{
+    return (s->night != 0) | (s->lights != 0) << 1 | (s->brake != 0) << 2 | (s->reverse != 0) << 3;
+}
+
 /* the layer for the lamps of `night`, made again only when they change */
 static void lamp_layer(ModelScene *m, const CarNightState *night)
 {
     LampLayer *l = &m->lamp;
-    const int lamps = car_night_lamp_state(night) | (!night->night && night->brake ? 8 : 0);   /* 8, past LampState's bits: the brake by day, which car_night_texture lights with the state still LAMP_DAY */
+    const int lamps = lamp_key(night);
     if (l->lamps == lamps) return;
     lamp_free(l);
     l->lamps = lamps;
