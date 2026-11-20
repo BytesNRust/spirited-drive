@@ -9,7 +9,8 @@
 # the DMG has the game only) and generated/tnfs_version.h.
 # OUT_DIR receives "Spirited Drive.app", "Spirited Drive Studio.app" and Spirited-Drive-<version>-macos.dmg.
 # With REQUIRE_EDITOR=1 in the environment a missing editor binary is an error (a release must not ship without Studio).
-# ICNS is the icon of both apps; without it, the source tree's data/icon/tnfs.icns (tools/spirited_icon.py makes it).
+# ICNS is the game's icon; without it, the source tree's data/icon/tnfs.icns (tools/spirited_icon.py makes it).
+# STUDIO_ICNS is Studio's: the file in the environment, else editor/icon/studio.icns (tools/studio_icon.py makes it), else ICNS.
 #
 # No game data goes in: players bring their own CD. Our own data (data/ in the source tree: car masks, the
 # environment map, light maps) goes in the game's Contents/Resources/data; Studio's generic art (editor/art/GENERIC.FAM) in its Contents/Resources. The apps are signed ad hoc (the beta is unsigned:
@@ -23,6 +24,9 @@ OUT_DIR=$2
 ICNS=${3:-}
 SRC_DIR=$(cd "$(dirname "$0")/.." && pwd)
 [ -n "$ICNS" ] || { [ -f "$SRC_DIR/data/icon/tnfs.icns" ] && ICNS="$SRC_DIR/data/icon/tnfs.icns"; } || true
+STUDIO_ICNS=${STUDIO_ICNS:-}
+[ -n "$STUDIO_ICNS" ] || { [ -f "$SRC_DIR/editor/icon/studio.icns" ] && STUDIO_ICNS="$SRC_DIR/editor/icon/studio.icns"; } || true
+[ -n "$STUDIO_ICNS" ] || STUDIO_ICNS=$ICNS
 
 APP_NAME="Spirited Drive"
 STUDIO_NAME="Spirited Drive Studio"
@@ -47,7 +51,7 @@ OUT_DIR=$(cd "$OUT_DIR" && pwd)
 # One bundle in OUT_DIR: the binary as Contents/MacOS/EXECUTABLE, SDL3 beside it, the licences, the icon, an Info.plist; WITH_DATA=1 puts
 # our own data/ in it (the game's). Nothing may point outside the bundle or the system; the bundle is signed ad hoc.
 pack_app() {
-    name=$1 id=$2 exe=$3 src=$4 category=$5 with_data=$6
+    name=$1 id=$2 exe=$3 src=$4 category=$5 with_data=$6 icns=${7:-}
     app="$OUT_DIR/$name.app"
     rm -rf "$app"
     mkdir -p "$app/Contents/MacOS" "$app/Contents/Frameworks" "$app/Contents/Resources"
@@ -95,9 +99,10 @@ pack_app() {
         cp "$SRC_DIR/editor/art/GENERIC.FAM" "$app/Contents/Resources/GENERIC.FAM"
     fi
     icon_key=""
-    if [ -n "$ICNS" ]; then
-        cp "$ICNS" "$app/Contents/Resources/tnfs.icns"
-        icon_key="<key>CFBundleIconFile</key><string>tnfs</string>"
+    if [ -n "$icns" ]; then
+        icon_file=$(basename "$icns" .icns)
+        cp "$icns" "$app/Contents/Resources/$icon_file.icns"
+        icon_key="<key>CFBundleIconFile</key><string>$icon_file</string>"
     fi
 
     cat > "$app/Contents/Info.plist" <<EOF
@@ -138,13 +143,13 @@ EOF
     codesign --verify --strict "$app"
 }
 
-pack_app "$APP_NAME" "$BUNDLE_ID" tnfs "$BIN" public.app-category.racing-games 1
+pack_app "$APP_NAME" "$BUNDLE_ID" tnfs "$BIN" public.app-category.racing-games 1 "$ICNS"
 APP="$OUT_DIR/$APP_NAME.app"
 ARCHS=$(lipo -archs "$APP/Contents/MacOS/tnfs")
 
 STUDIO=""
 if [ -x "$EDITOR_BIN" ]; then
-    pack_app "$STUDIO_NAME" "$STUDIO_ID" tnfs-track-editor "$EDITOR_BIN" public.app-category.developer-tools 0
+    pack_app "$STUDIO_NAME" "$STUDIO_ID" tnfs-track-editor "$EDITOR_BIN" public.app-category.developer-tools 0 "$STUDIO_ICNS"
     STUDIO="$OUT_DIR/$STUDIO_NAME.app"
     # one set of architectures for both apps: a universal game with an arm64-only editor would ship a Studio that fails on an Intel Mac
     sorted_archs() { lipo -archs "$1" | tr ' ' '\n' | sort | tr '\n' ' '; }
