@@ -197,6 +197,69 @@ grep -q "exit code 3" "$work/log" || fail "the game's exit code is not told: $(c
 grep -q "no traffic" "$work/log" || fail "no word about the circuit: $(cat "$work/log")"
 ls "${TMPDIR:-/tmp}" | grep -q '^studio-race-' && fail "a scratch folder of a race was left behind"
 
+# ==== Sheets (a fake game): Day and Night of a car in one labelled picture, the traffic cars in another ====
+# a fake game that draws the day red and the night green (the colour of a whole 1280x960 frame): Sheet takes both, in order, and the PNG written has them side by side
+# (halved to 640x480 each, a label band under); the traffic sheet has a cell for every traffic car and the police car, the Wagon's done (its project is the one open)
+# and the others empty with their reason; a game that fails leaves cells that say so, and the sheet still saves
+cat > "$work/fake-sheet-tnfs" <<'FAKE'
+#!/bin/sh
+user=; shot=
+while [ $# -gt 0 ]; do case "$1" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; esac; shift; done
+[ "${FAKE_FAIL:-}" = 1 ] && { echo "error: the fake game fails" >&2; exit 3; }
+printf 'race car: slot 0 is TSupra\nrace car: slot 3 is Wagon\n' > "$user/spirited-drive.log"
+if grep -q '^light_time=night$' "$user/restomod.cfg"; then rgb='0,200,0'; else rgb='200,0,0'; fi
+python3 -c "
+import sys
+r, g, b = map(int, sys.argv[2].split(','))
+open(sys.argv[1], 'wb').write(b'P6\n1280 960\n255\n' + bytes([r, g, b]) * (1280 * 960))
+" "$shot" "$rgb"
+FAKE
+chmod +x "$work/fake-sheet-tnfs"
+rm -rf "$work/exports/wagon-masks/sheets"
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-sheet-tnfs" --cd "$work/game/cd" --frames 4 --steps sheet:0,print-sheet,sheet-save >"$work/log" 2>&1 || fail "the car sheet: $(cat "$work/log")"
+grep -q "^sheet 2: Day=done Night=done$" "$work/log" || fail "the sheet did not take Day and Night, in order: $(grep '^sheet\|--steps' "$work/log")"
+sheet=$(sed -n 's/^sheet saved: //p' "$work/log")
+[ -s "$sheet" ] && [ "$(dirname "$sheet")" = "$work/exports/wagon-masks/sheets" ] || fail "Save sheet did not write a PNG in the project's sheets folder: $(grep '^sheet' "$work/log")"
+python3 - "$sheet" <<'PY' || fail "the saved sheet is not Day (red) and Night (green) side by side, 1280x500"
+import struct, sys, zlib
+d = open(sys.argv[1], 'rb').read()
+assert d[:8] == b'\x89PNG\r\n\x1a\n'
+w, h = struct.unpack('>II', d[16:24])
+assert (w, h) == (1280, 500), (w, h)
+pos, idat = 8, b''
+while pos < len(d):
+    n, kind = struct.unpack('>I4s', d[pos:pos + 8])
+    if kind == b'IDAT': idat += d[pos + 8:pos + 8 + n]
+    pos += 12 + n
+raw, stride = zlib.decompress(idat), w * 4 + 1
+rows, prev = [], bytearray(w * 4)
+for y in range(h):
+    f, line = raw[y * stride], bytearray(raw[y * stride + 1:(y + 1) * stride])
+    for i in range(len(line)):
+        a = line[i - 4] if i >= 4 else 0
+        b = prev[i]
+        c = prev[i - 4] if i >= 4 else 0
+        if f == 1: line[i] = (line[i] + a) & 255
+        elif f == 2: line[i] = (line[i] + b) & 255
+        elif f == 3: line[i] = (line[i] + (a + b) // 2) & 255
+        elif f == 4:
+            p = a + b - c
+            pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+            line[i] = (line[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+    rows.append(line); prev = line
+px = lambda x, y: tuple(rows[y][x * 4:x * 4 + 3])
+assert px(100, 100) == (200, 0, 0), ('Day cell', px(100, 100))
+assert px(640 + 100, 100) == (0, 200, 0), ('Night cell', px(740, 100))
+assert any(px(x, 490) != px(639, 499) for x in range(0, 200)), 'the label band has no text'
+PY
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-sheet-tnfs" --cd "$work/game/cd" --frames 4 --steps sheet:1,print-sheet >"$work/log" 2>&1 || fail "the traffic sheet: $(cat "$work/log")"
+grep -q "^sheet 13: .*Wagon=done" "$work/log" || fail "the traffic sheet has no Wagon photo among its 13 cells: $(grep '^sheet' "$work/log")"
+[ "$(grep '^sheet 13:' "$work/log" | grep -o '=failed' | wc -l | tr -d ' ')" = 12 ] || fail "the traffic cars without a project are not 12 failed cells: $(grep '^sheet' "$work/log")"
+FAKE_FAIL=1 "$editor" "$work/exports/wagon-masks" --game "$work/fake-sheet-tnfs" --cd "$work/game/cd" --frames 4 --steps sheet:0,print-sheet,sheet-save >"$work/log" 2>&1 || fail "a sheet of a game that fails: $(cat "$work/log")"
+grep -q "^sheet 2: Day=failed Night=failed$" "$work/log" && grep -q "^sheet saved: " "$work/log" || fail "a game that fails is not two failed cells that still save: $(cat "$work/log")"
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-sheet-tnfs" --cd "$work/game/cd" --frames 4 --steps sheet-save >"$work/log" 2>&1 && fail "Save sheet with no sheet taken wrote a file"
+ls "${TMPDIR:-/tmp}" | grep -q '^studio-race-' && fail "a scratch folder of a sheet was left behind"
+
 # ==== Changes from the game's masks ====
 # Changes from the game's masks: the fixture's exported Wagon has the game's own file; with the real game files an edit shows as a changed mask with its texels
 "$editor" "$work/exports/wagon-masks" --cd "$work/game/cd" --port-data "$work/game/data" --changes --frames 2 >"$work/log" 2>&1 || fail "--changes of the fixture's Wagon: $(cat "$work/log")"

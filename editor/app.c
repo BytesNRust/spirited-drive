@@ -150,6 +150,7 @@ int app_race(App *a, int photo)
     const int ok = photo ? car_race_start_photo(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, &a->race_look, why, sizeof why)
                          : car_race_start_race(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, &a->race_look, why, sizeof why);
     if (!ok) return set_status(a, why), 0;
+    if (photo) sheet_free(&a->sheet), a->sheet_serial++;   // a single photo replaces the sheet in the Race window
     set_status(a, photo ? "taking the in-game photo..." : "the game is running: close its window to end the test");
     return 1;
 }
@@ -198,6 +199,7 @@ void app_free(App *a)
 {
     app_light_free(a);
     car_race_free(&a->race);
+    sheet_free(&a->sheet);
     install_job_free(&a->install);
     psd_job_free(&a->psd);
     py_probe_free(&a->py);

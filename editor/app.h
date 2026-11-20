@@ -15,6 +15,7 @@
 #include "project.h"
 #include "psd_job.h"
 #include "selection.h"
+#include "race_sheet.h"
 #include "session.h"
 #include "track_undo.h"
 #include "view.h"
@@ -124,6 +125,9 @@ typedef struct {
     int dash_check;              /* Check dash (app_dash.h): 1 while its Convert PSD runs (the cockpit photo follows) */
     char dash_stale[320];        /* what is older than its PSD, a sentence ("" when nothing): the Masks window's warning */
     int dash_stale_ticks;        /* frames since it was last worked out */
+    RaceSheet sheet;             /* the Race window's Sheet / Traffic sheet: the cells and their photos (app_sheet.h) */
+    int sheet_active, sheet_cur, sheet_stop, sheet_serial;   /* it runs; the cell being photographed (-1 none); it is being stopped; changes when a cell does */
+    char sheet_saved[APP_PATH];  /* the PNG the last Save sheet wrote */
     char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder, or a file to show selected in its folder (main.c does it and clears this) */
     Project project;
     Trace trace;

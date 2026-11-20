@@ -3,6 +3,7 @@
 #include "app_points.h"
 #include "app_select.h"
 #include "app_colour.h"
+#include "app_sheet.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -11,11 +12,11 @@
 
 /* the Viewport fits the trace to its size on its third frame: the mouse goes in after SETTLED_FRAMES; the game's log and its end are
  * waited for, not for ever */
-enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000 };
+enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -206,6 +207,13 @@ static int at_once(App *a, const char *name, const double *arg)
         else a->curve.length_m = arg[0], a->curve.straight_count = (int)arg[1];
         return app_add_curve(a, name[0] == 's');
     }
+    if (strncmp(name, "sheet:", 6) == 0) return arg[0] == 0 || arg[0] == 1 ? 2 : 0;   /* by_frames: the sheet is taken, one photo after another */
+    if (strcmp(name, "print-sheet") == 0) {
+        char text[1024];
+        app_sheet_describe(a, text, sizeof text);
+        return fprintf(stdout, "%s\n", text), 1;
+    }
+    if (strcmp(name, "sheet-save") == 0) return app_sheet_save(a) ? (fprintf(stdout, "sheet saved: %s\n", a->sheet_saved), 1) : 0;
     if (strncmp(name, "preview:", 8) == 0) return arg[0] >= 0 && arg[0] <= 2 ? (app_curve_defaults(a), a->curve.preview_hold = (int)arg[0], 1) : 0;
     if (strcmp(name, "curve-block") == 0 || strncmp(name, "curve-fold:", 11) == 0) return arg[0] == 0 || arg[0] == 1 || name[6] == 'b' ? 2 : 0;   /* by_frames: after the panel has drawn */
     if (strncmp(name, "colour-by:", 10) == 0) return arg[0] >= 0 && arg[0] < TRACE_COLOUR_MODES ? (app_set_colour_by(a, (int)arg[0]), 1) : 0;   /* a mode of TraceColourBy */
@@ -332,6 +340,11 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
         if (p == 3) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_DOWN, s->from_x, s->from_y, 2);
         if (p == 4) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_UP, s->from_x, s->from_y, 2);
         return p < 5;
+    }
+    if (strncmp(name, "sheet:", 6) == 0) {   /* sheet:N, N 0 the car's, 1 the traffic's: started, then waited for (a sheet is a few photos of a game run) */
+        if (p == 0 && !app_sheet_start(a, (int)arg[0])) return s->failed = 1, 0;
+        if (p >= SHEET_FRAMES) return fprintf(stderr, "--steps sheet: it did not end\n"), s->failed = 1, 0;
+        return app_sheet_busy(a);
     }
     if (strncmp(name, "key:", 4) == 0) return key_frames(s, win, name + 4, p);
     if (strncmp(name, "click:", 6) == 0 || strstr(name, "-click:") != NULL) {   /* shift-click, cmd-click: the modifier held around it */

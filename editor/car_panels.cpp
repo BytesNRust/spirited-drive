@@ -1,6 +1,7 @@
 // The start screen and the car's panels (panels.h): what Studio shows with nothing open, and what it shows of an open car (read only for now).
 #include "panels.h"
 #include "help_marker.h"
+#include "sheet_ui.h"
 
 #include "imgui.h"
 
@@ -10,6 +11,7 @@ extern "C" {
 #include "shortcut_keys.h"
 #include "car_race.h"
 #include "app_dash.h"
+#include "app_sheet.h"
 #include "formats/car_piece.h"
 }
 
@@ -664,7 +666,7 @@ void race_log_lines(const char *text, size_t len, int *budget, bool show_notes)
 }   // namespace
 
 // Test in race and Race photo of an original car's project: the preset, the track, the buttons, the look, the picture, and the game's log
-void race_panel(App *a, ImTextureID photo)
+void race_panel(App *a, ImTextureID photo, ImTextureID sheet)
 {
     static int seen = 0, wait = 0;   // a new photo brings the tab forward (after the dock layout has settled: a focus given in the frame that builds it is lost)
     if (a->race.photo_serial != seen) {
@@ -674,7 +676,7 @@ void race_panel(App *a, ImTextureID photo)
     if (wait > 0 && --wait == 0) ImGui::SetNextWindowFocus();
     if (ImGui::Begin(PANEL_RACE)) {
         const ExportCar *car = car_race_original_of(&a->car);
-        const bool busy = app_race_busy(a);
+        const bool busy = app_race_busy(a) || app_sheet_busy(a);
         const bool traffic = car != nullptr && car->kind != EXPORT_DRIVABLE;
         if (car == nullptr) {
             ImGui::TextDisabled("Test drive: the game's own cars only");
@@ -720,7 +722,7 @@ void race_panel(App *a, ImTextureID photo)
             ImGui::EndDisabled();
             ImGui::SameLine();
             ImGui::BeginDisabled(!busy);
-            if (ImGui::Button("Stop")) app_race_stop(a);
+            if (ImGui::Button("Stop")) app_sheet_busy(a) ? app_sheet_stop(a) : app_race_stop(a);
             ImGui::EndDisabled();
             ImGui::SameLine();
             help_marker(help);
@@ -742,6 +744,7 @@ void race_panel(App *a, ImTextureID photo)
                 }
                 ImGui::EndDisabled();
             }
+            sheet_row(a, busy);
             ImGui::BeginDisabled(busy);
             race_look_controls(&a->race_look);
             ImGui::EndDisabled();
@@ -751,7 +754,15 @@ void race_panel(App *a, ImTextureID photo)
             if (a->race.ok) muted_wrapped("%s", a->race.summary);
             else problem_text(a->race.summary);
         }
-        if (a->race.photo != nullptr && photo != 0) {   // the picture, as big as the window leaves room for beside the log's few lines
+        if (a->sheet.count > 0 && sheet != 0) {   // a sheet takes the place of the single photo
+            const ImVec2 room = ImGui::GetContentRegionAvail();
+            const ImVec2 size = sheet_size(a);
+            const float sw = size.x, sh = size.y;
+            float w = room.x < sw ? room.x : sw;
+            const float high = room.y - 90.0f > 120.0f ? room.y - 90.0f : 120.0f;
+            if (w * sh / sw > high) w = high * sw / sh;
+            ImGui::Image(sheet, ImVec2(w, w * sh / sw));
+        } else if (a->race.photo != nullptr && photo != 0) {   // the picture, as big as the window leaves room for beside the log's few lines
             const ImVec2 room = ImGui::GetContentRegionAvail();
             const float pw = static_cast<float>(a->race.photo_w), ph = static_cast<float>(a->race.photo_h);   // 640 x 480, or 1280 x 960
             float w = room.x < pw ? room.x : pw;

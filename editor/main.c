@@ -14,6 +14,7 @@
 #include "app.h"
 #include "app_select.h"
 #include "app_dash.h"
+#include "app_sheet.h"
 #include "art.h"
 #include "build.h"
 #include "capture.h"
@@ -662,6 +663,7 @@ static int run(App *a, const Options *o)
         app_card_watch(a, SDL_GetTicks() / 1000.0);   /* mod.ini, the car file and the textures */
         app_light_poll(a, SDL_GetTicks() / 1000.0);   /* the Track light photo: its output, and the next one when a change has settled */
         app_mask_watch(a, SDL_GetTicks() / 1000.0);   /* masks changed on disk by another program: about once a second */
+        app_sheet_poll(a);
         app_recompute(a);
         SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);
         SDL_RenderClear(ren);

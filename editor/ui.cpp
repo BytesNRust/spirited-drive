@@ -19,6 +19,7 @@ extern "C" {
 #include "viewport.h"
 
 #include <algorithm>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -525,6 +526,31 @@ static ImTextureID light_texture(SDL_Renderer *ren, const App *a)
     return reinterpret_cast<ImTextureID>(tex);
 }
 
+// the sheet as a texture: made again when a cell changed (a->sheet_serial)
+static ImTextureID sheet_texture(SDL_Renderer *ren, const App *a)
+{
+    static SDL_Texture *tex = nullptr;
+    static int serial = -1;
+    if (a->sheet.count == 0) {
+        if (tex != nullptr) SDL_DestroyTexture(tex), tex = nullptr;
+        serial = -1;
+        return 0;
+    }
+    if (tex == nullptr || serial != a->sheet_serial) {
+        if (tex != nullptr) SDL_DestroyTexture(tex), tex = nullptr;
+        uint8_t *rgba = nullptr;
+        int w = 0, h = 0;
+        char why[160];
+        if (sheet_compose(&a->sheet, &rgba, &w, &h, why, sizeof why)) {
+            tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, w, h);
+            if (tex != nullptr) SDL_UpdateTexture(tex, nullptr, rgba, w * 4);
+            free(rgba);
+        }
+        serial = a->sheet_serial;
+    }
+    return reinterpret_cast<ImTextureID>(tex);
+}
+
 // the mask being edited over its texture as a texture: made again when the mask or what is shown of it changed
 static ImTextureID mask_texture(SDL_Renderer *ren, const App *a)
 {
@@ -603,7 +629,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (!a->car.masks_only) textures_panel(a);   // nor textures: only its masks
         model_panel(a, ren);
         masks_panel(a);
-        race_panel(a, photo_texture(ren, a));
+        race_panel(a, photo_texture(ren, a), sheet_texture(ren, a));
         mask_edit_panel(a, mask_texture(ren, a));
         preview_panel(a, ren);
         if (!a->car.masks_only) rehacer_panel(a);   // a masks project has no script

@@ -23,6 +23,9 @@
  *   colour-by:N    the Viewport's Colour by mode N (TraceColourBy: 0 Limits, 1 Curve, 2 Bank, 3 Width, 4 Lanes, 5 Shoulder, 6 Fence)
  *   print-classes  the road's node classes in that mode as runs, "classes 1: 0@0-36 2@37-81 ..." (class@first-last)
  *   dblclick-road:X,Z  a double click on the road at track place X, Z in metres: it selects that stretch (not in Limits mode)
+ *   sheet:N        takes the Race window's sheet and waits for it: N 0 the car's (Day and Night), 1 the traffic cars'; fails when it cannot start
+ *   print-sheet    the cells and how they ended, "sheet 2: Day=done Night=failed"
+ *   sheet-save     Save sheet: writes the PNG in the project's sheets/ folder, prints "sheet saved: PATH"
  *   preview:KIND   the Viewport shows what Add curve (1) or Add straight (2) would make with their fields, until preview:0 (for a picture)
  *   drag:I,DX,DY   point I taken and dragged DX, DY screen pixels, in four moves, then let go
  *   drag-near:I,J,M  point I dragged as drag does, to M metres before point J on the line from J to I (a place in metres, whatever the zoom)
