@@ -164,6 +164,7 @@ typedef int (*RaceInstall)(const char *game, const char *zip, const char *user_d
 /* Starts Test drive of a track piece (the track editor's Drive window): a scratch player folder with the Restomod look, `zip` installed into it by `install`, then the
  * game's window on the piece as a time trial with `car` (one the game's car menu has). While it runs the job reads the game's log for the piece's line
  * (piece_track). 1 when it started, 0 with `why` (no game, not a drivable car, the install failed). */
+int car_race_piece_id_ok(const char *id);   /* a piece's id the test drive takes: a folder name of letters, digits, '-' and '_' */
 int car_race_start_drive(RaceJob *job, const char *game, const char *cd, const char *zip, const char *piece, const ExportCar *car, const RaceLook *look,
                          RaceInstall install, char *why, size_t why_cap);
 /* the car the game's car menu has at `pick` (0..7, its order), NULL past it */

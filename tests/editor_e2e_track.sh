@@ -1,6 +1,7 @@
 #!/bin/sh
 # A track from the Studio to the game, the happy path a user takes: a new project, a point added and saved, Build, Install into the
-# player's folder, and the game races the installed piece (no window) and names it in its log. Needs the game's files (original/).
+# player's folder, and Test drive (the Drive window's button): the game runs on the piece from a scratch player folder and names it in its log.
+# Needs the game's files (original/).
 # usage: editor_e2e_track.sh EDITOR TNFS ORIGINAL_DIR
 . "$(dirname "$0")/editor_headless_common.sh"
 tnfs=$2
@@ -25,11 +26,15 @@ first=$(points)
 grep -q "installed loop" "$work/log" || fail "Install does not say it installed the piece: $(cat "$work/log")"
 [ -f "$player/mods/loop/mod.ini" ] || fail "the piece is not in the player's mods folder"
 
-# 5. The game races the installed piece and names it
-"$tnfs" --data "$orig" --user "$player" --mods "$player/mods/loop" --drive loop --car 5 --racers 1 --node 40 --screenshot "$work/race.ppm" >"$work/log" 2>&1 \
-    || fail "the game did not race the installed piece: $(tail -3 "$work/log")"
-[ -s "$work/race.ppm" ] || fail "no frame of the race"
-grep -q "track piece: loop is track" "$player/spirited-drive.log" || fail "the game's log does not name the piece: $(tail -5 "$player/spirited-drive.log")"
+# 5. Test drive: the editor builds, installs into its own scratch folder and runs the game on the piece; the game's log names it (the line is the editor's
+# own launch's, printed by it), the game is stopped, and the player's folder is as it was
+driver="$work/driver"
+mkdir -p "$driver"
+"$editor" "$work/loop" --user "$driver" --frames 2 --test-drive --game "$tnfs" --cd "$orig" >"$work/log" 2>&1 || fail "Test drive: $(cat "$work/log")"
+grep -q "^track piece: loop is track [0-9]" "$work/log" || fail "Test drive does not print the game's line on the piece: $(cat "$work/log")"
+grep -q "The game took loop as track" "$work/log" || fail "Test drive does not say the game took the piece: $(cat "$work/log")"
+[ -d "$driver/mods" ] && fail "Test drive installed into the player's folder"
+[ -f "$driver/spirited-drive.log" ] && fail "Test drive's game wrote its log in the player's folder"
 
 [ "$failures" -eq 0 ] && echo "editor_e2e_track: ok"
 exit "$failures"

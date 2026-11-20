@@ -14,6 +14,8 @@ extern "C" {
 /* Starts ImGui on the window and its renderer, with docking on. `ini` is where the layout is kept (NULL: not kept). 1, or 0 with `why`. */
 int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size_t why_cap);
 void ui_close(void);
+/* the editor's settings the ini had (ui_open reads it), into `a`: the car Test drive gives the player. Before the first frame, so a headless run has them too. */
+void ui_settings_to(App *a);
 
 /* The window's size by default (window_fit's on a normal run, 960 x 600 headless): Window > Reset layout gives it back. */
 void ui_window_default(int w, int h);

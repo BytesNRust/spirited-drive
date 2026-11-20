@@ -16,8 +16,30 @@ extern "C" {
 #include "viewport.h"
 
 #include <stdio.h>
+#include <string.h>
 
 static char g_ini[APP_PATH];
+static App *g_app;              // the app the frames draw, for the editor's settings in the ini
+static int g_drive_read = -1;   // the Drive car the ini had ([StudioSettings][Editor] DriveCar=N), until ui_settings_to gives it to the app
+
+// The editor's own settings, kept in the ImGui ini beside the layout: the car Test drive gives the player.
+static void *settings_open(ImGuiContext *, ImGuiSettingsHandler *, const char *name)
+{
+    return strcmp(name, "Editor") == 0 ? reinterpret_cast<void *>(1) : nullptr;
+}
+
+static void settings_line(ImGuiContext *, ImGuiSettingsHandler *, void *, const char *line)
+{
+    int pick = -1;
+    if (sscanf(line, "DriveCar=%d", &pick) == 1 && car_race_menu_car(pick) != nullptr) g_drive_read = pick;   // a number past the menu keeps the default
+}
+
+static void settings_write(ImGuiContext *, ImGuiSettingsHandler *handler, ImGuiTextBuffer *out)
+{
+    const int pick = g_app != nullptr ? g_app->drive_pick : g_drive_read;   // before ui_settings_to (an early exit): what the ini had
+    if (pick < 0) return;
+    out->appendf("[%s][Editor]\nDriveCar=%d\n\n", handler->TypeName, pick);
+}
 static bool g_had_layout;   // the ini file was there at the start: its layout is the user's, not ours to replace
 static SDL_Window *g_win;
 static int g_win_w = 960, g_win_h = 600;   // the window's default size (ui_window_default)
@@ -34,6 +56,13 @@ int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
     g_win = win;
+    ImGuiSettingsHandler settings;
+    settings.TypeName = "StudioSettings";
+    settings.TypeHash = ImHashStr("StudioSettings");
+    settings.ReadOpenFn = settings_open;
+    settings.ReadLineFn = settings_line;
+    settings.WriteAllFn = settings_write;
+    ImGui::AddSettingsHandler(&settings);
     if (ini != nullptr) {
         snprintf(g_ini, sizeof g_ini, "%s", ini);
         io.IniFilename = g_ini;
@@ -43,6 +72,7 @@ int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size
     } else {
         io.IniFilename = nullptr;
     }
+    if (ini != nullptr && g_had_layout) ImGui::LoadIniSettingsFromDisk(g_ini);   // now, not at the first frame: the settings are the app's before it runs anything
     ImGui::StyleColorsDark();
     if (!ImGui_ImplSDL3_InitForSDLRenderer(win, ren)) {
         snprintf(why, why_cap, "ImGui: the SDL backend did not start");
@@ -56,6 +86,13 @@ int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size
         return 0;
     }
     return 1;
+}
+
+void ui_settings_to(App *a)
+{
+    g_app = a;
+    if (g_drive_read >= 0) a->drive_pick = g_drive_read;
+    g_drive_read = -1;
 }
 
 void ui_close(void)
@@ -117,6 +154,7 @@ void default_layout(ImGuiID dock)
     ImGui::DockBuilderDockWindow(PANEL_PROBLEMS, bottom);   // its own tab beside Limits
     const ImGuiID profile = ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Right, 0.5f, nullptr, &bottom);   // the Road profile beside them: Node stays in sight
     ImGui::DockBuilderDockWindow(PANEL_ROAD_KEY, profile);
+    ImGui::DockBuilderDockWindow(PANEL_DRIVE, bottom);   // and Test drive's
     const ImGuiID track = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.42f, nullptr, &right);   // the road's width and verge material above the project
     ImGui::DockBuilderDockWindow(PANEL_TRACK, track);
     ImGui::DockBuilderDockWindow(PANEL_PROJECT, right);
@@ -438,6 +476,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
     ImGui::NewFrame();
     if (a->kind != APP_KIND_NONE && ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_L, ImGuiInputFlags_RouteGlobal)) ui_reset_layout();
     const bool reset = g_reset_in > 0 && --g_reset_in == 0 && a->kind != APP_KIND_NONE;   // Reset layout's countdown ends: this frame rebuilds the dock
+    g_app = a;
     main_menu(a);
     if (a->kind == APP_KIND_TRACK) {   // the track editor, as it was; its dock space keeps the layout of the first Studio
         const ImGuiID dock = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
@@ -452,6 +491,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
         points_panel(a);
         limits_panel(a);
         problems_panel(a);
+        drive_panel(a);
         node_panel(a);
         road_key_window(a);
     } else if (a->kind == APP_KIND_CAR) {   // a car has a dock space of its own: each kind keeps its layout

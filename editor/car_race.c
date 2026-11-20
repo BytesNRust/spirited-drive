@@ -145,7 +145,7 @@ void car_race_command_free(RaceCommand *c)
 }
 
 /* a piece's id is a folder name: letters, digits, '-' and '_' */
-static int piece_id_ok(const char *id)
+int car_race_piece_id_ok(const char *id)
 {
     if (id[0] == '\0' || strlen(id) >= sizeof ((RaceJob *)0)->piece) return 0;
     for (const char *c = id; *c != '\0'; ++c)
@@ -156,8 +156,8 @@ static int piece_id_ok(const char *id)
 /* Test drive: the piece the run installed (--mods: the profile's mods are the scratch folder's, empty but for it), a time trial in the window with the menu's car */
 static int drive_command(const RaceSetup *s, char *const *base, RaceCommand *out, char *why, size_t why_cap)
 {
-    if (s->car == NULL || s->game == NULL || s->cd == NULL || s->user == NULL) return refuse(why, why_cap, "the test drive is not set up");
-    if (!piece_id_ok(s->piece)) return refuse(why, why_cap, "%s is not a piece's id", s->piece);
+    if (s->car == NULL || s->game == NULL || s->cd == NULL || s->cd[0] == '\0' || s->user == NULL) return refuse(why, why_cap, "the test drive is not set up (no game files)");
+    if (!car_race_piece_id_ok(s->piece)) return refuse(why, why_cap, "%s is not a piece's id", s->piece);
     if (s->car->kind != EXPORT_DRIVABLE || car_race_menu_pick(s->car->model) < 0) return refuse(why, why_cap, "%s is not a car you drive", s->car->label);
     if (s->photo_ticks > 0) return refuse(why, why_cap, "a test drive has no photo");
     int ok = add_arg(out, "%s", s->game) && add_arg(out, "--data") && add_arg(out, "%s", s->cd) && add_arg(out, "--user") && add_arg(out, "%s", s->user) &&
@@ -505,14 +505,14 @@ int car_race_start_drive(RaceJob *job, const char *game, const char *cd, const c
     if (!job_can_start(job, game, why, why_cap)) return 0;
     if (car == NULL || car->kind != EXPORT_DRIVABLE || car_race_menu_pick(car->model) < 0)
         return refuse(why, why_cap, "%s is not a car you drive", car != NULL ? car->label : "no car");
-    if (piece == NULL || !piece_id_ok(piece)) return refuse(why, why_cap, "%s is not a piece's id", piece != NULL ? piece : "nothing");
+    if (piece == NULL || !car_race_piece_id_ok(piece)) return refuse(why, why_cap, "%s is not a piece's id", piece != NULL ? piece : "nothing");
     if (zip == NULL || install == NULL) return refuse(why, why_cap, "the test drive is not set up");
     if (strlen(game) >= EXPORT_PATH || strlen(cd) >= EXPORT_PATH) return refuse(why, why_cap, "a path is too long");
     if (!job_begin(job, game, cd, "", look, why, why_cap)) return 0;
     snprintf(job->piece, sizeof job->piece, "%s", piece);
     job->setup.car = car, job->setup.piece = job->piece;
     job->state = RACE_JOB_RACE;
-    char failed[300];
+    char failed[300] = "it gave no reason";
     if (!car_race_user_files(job->own[3], 0, &job->look, why, why_cap)) return job_abandon(job);
     if (!install(game, zip, job->own[3], failed, sizeof failed)) {
         refuse(why, why_cap, "the game did not install the piece: %s", failed);
@@ -653,13 +653,15 @@ static void next_draw(RaceJob *j, const char *why_not)
 }
 
 /* the game's line on the piece (track_pieces.c): "track piece: <id> is track N" or "track piece: <id> refused: ..."; kept in the job when the log has it */
-static void piece_seen(RaceJob *j, const char *log)
+/* `whole`: only a line the game has ended (while it runs, the last line may be half written: "track 1" of "track 12") */
+static void piece_seen(RaceJob *j, const char *log, int whole)
 {
     char head[100];
     if (log == NULL || j->piece_track != 0 || snprintf(head, sizeof head, "track piece: %s ", j->piece) >= (int)sizeof head) return;
     const char *at = strstr(log, head);
     if (at == NULL) return;
     const char *nl = strchr(at, '\n');
+    if (whole && nl == NULL) return;
     const size_t len = nl != NULL ? (size_t)(nl - at) : strlen(at);
     snprintf(j->piece_line, sizeof j->piece_line, "%.*s", (int)(len < sizeof j->piece_line ? len : sizeof j->piece_line - 1), at);
     int track = 0;
@@ -680,7 +682,7 @@ static void piece_watch(RaceJob *j)
     if (text != NULL) {
         const size_t n = fread(text, 1, PROC_LOG_MAX, f);
         text[n] = '\0';
-        piece_seen(j, text);
+        piece_seen(j, text, 1);
     }
     free(text);
     fclose(f);
@@ -689,10 +691,11 @@ static void piece_watch(RaceJob *j)
 /* a test drive ended: what the game said of the piece */
 static void drive_done(RaceJob *j, const char *game_log)
 {
-    piece_seen(j, game_log);
+    piece_seen(j, game_log, 0);
     const char *ended = j->run.stopped ? "Stopped" : j->run.exit_code == 0 ? "The game ended" : "The game ended with an error";
-    if (j->piece_track > 0) finish(j, j->run.stopped || j->run.exit_code == 0, "%s. The game took %s as track %d.", ended, j->piece, j->piece_track);
+    if (j->piece_track > 0) finish(j, j->run.stopped || j->run.exit_code == 0, "%s. The game took %s as track %d, driven with the %s.", ended, j->piece, j->piece_track, j->setup.car->label);
     else if (j->piece_track < 0) finish(j, 0, "%s. The game says: %s.", ended, j->piece_line + strlen("track piece: "));
+    else if (j->run.stopped) finish(j, 0, "Stopped before the game said whether it took %s.", j->piece);
     else finish(j, 0, "%s before the game said whether it took %s (exit code %d). Its output is in the log.", ended, j->piece, j->run.exit_code);
 }
 

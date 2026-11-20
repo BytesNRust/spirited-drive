@@ -359,6 +359,7 @@ static int open_in(App *a, const char *dir, AppKind kind)
     memcpy(next->game_memo, a->game_memo, sizeof next->game_memo);
     next->export_src = a->export_src;   /* so does where the game's files are */
     next->export_pick = a->export_pick;
+    next->drive_pick = a->drive_pick;   /* the editor's setting, not the project's */
     app_free(a);
     *a = *next;   // the new project's arrays belong to `a` now
     free(next);

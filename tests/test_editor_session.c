@@ -663,7 +663,13 @@ static void check_app_flow(void)
     a->dirty = 1;
     app_recompute(a);
     CHECK(a->road_made && a->stage_short && strstr(a->stage_text, "too short for a stage") != NULL && strstr(a->stage_text, "214 nodes") != NULL);
+    CHECK(!app_test_drive(a) && strstr(a->status, "too short for a stage") != NULL && !app_race_busy(a));   /* Test drive says the Problems' text, runs nothing */
     a->trace.points[a->trace.count - 1].z += 30.0;
+    a->dirty = 1;
+    app_recompute(a);
+    snprintf(a->game, sizeof a->game, "%s/no-game-here", two);
+    CHECK(!app_test_drive(a) && strstr(a->status, "game was not found") != NULL && !app_race_busy(a));   /* a stage the game races, but no game */
+    CHECK_EQ_INT(a->drive_pick, 0);                          /* the menu's first car, until one is picked */
     CHECK(a->fit_pending);
     CHECK_EQ_INT(a->recent.count, 2);                        /* both are in the list, the new one first */
     char real_one[PATH_MAX], real_two[PATH_MAX];   /* the list holds real paths (a symlinked TMPDIR is another name) */
@@ -823,7 +829,7 @@ static void check_kinds(void)
     app_begin(a, "./tnfs", "", NULL);                        /* the start screen: nothing open, nothing to save, nothing that asks */
     CHECK_EQ_INT(a->kind, APP_KIND_NONE);
     CHECK(!app_modified(a));
-    CHECK(!app_save(a) && !app_build(a) && !app_install(a));
+    CHECK(!app_save(a) && !app_build(a) && !app_install(a) && !app_test_drive(a));
     app_add_point(a);                                        /* nothing to add a point to */
     app_ask(a, APP_ACT_OPEN, "");
     CHECK_EQ_INT(a->go, APP_ACT_OPEN);                       /* so no question first */
@@ -838,7 +844,7 @@ static void check_kinds(void)
     CHECK(a->recent.kind[0] == RECENT_CAR && strcmp(a->recent.dir[0], real_kit) == 0);
     CHECK(!app_modified(a));
     CHECK(app_save(a) && strstr(a->status, "nothing to save") != NULL);   /* nothing changed: mod.ini is not touched */
-    CHECK(!app_build(a) && !app_install(a));
+    CHECK(!app_build(a) && !app_install(a) && !app_test_drive(a));   /* Test drive is a track's */
     app_ask(a, APP_ACT_NEW, "");                             /* switching from a car with nothing unsaved asks nothing */
     CHECK_EQ_INT(a->go, APP_ACT_NEW);
     a->go = APP_ACT_NONE;

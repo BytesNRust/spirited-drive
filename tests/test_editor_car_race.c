@@ -323,6 +323,7 @@ static void make_fake_game(char *path, size_t cap)
         "echo \"fake game out follow=$TNFS_FOLLOW_CAR seed=$TNFS_DRIVE_SEED masks=$TNFS_CAR_MASKS\"\n"
         "case \"$FAKE_MODE\" in\n"
         "  drive) printf 'mods: 1\\ntrack piece: loop is track 18\\n' > \"$user/spirited-drive.log\"; echo \"$@\"; sleep 30; exit 0;;\n"
+        "  half) printf 'track piece: loop is track 1' > \"$user/spirited-drive.log\"; sleep 1; printf '8\\n' >> \"$user/spirited-drive.log\"; sleep 30; exit 0;;\n"
         "  refused) printf 'track piece: loop refused: there are 8 added tracks already, the most there may be\\n' > \"$user/spirited-drive.log\"; exit 0;;\n"
         "  fail) echo \"error: no such track\" >&2; exit 3;;\n"
         "  hang) sleep 30; exit 0;;\n"
@@ -547,6 +548,14 @@ static void test_drive_job(void)
     run_job(&job);
     CHECK(!car_race_busy(&job) && job.ok && strstr(job.summary, "loop") != NULL && strstr(job.summary, "track 18") != NULL);
     CHECK(strstr(job.log, "--drive loop") != NULL || strstr(job.log, "Test drive") != NULL);
+    CHECK(!temps_left());
+
+    setenv("FAKE_MODE", "half", 1);   /* a line the game is still writing ("track 1" of "track 18") is not taken */
+    CHECK(car_race_start_drive(&job, game, "/cd", "/p/loop/build/loop.zip", "loop", car_race_menu_car(0), NULL, fake_install, why, sizeof why));
+    for (int i = 0; i < 4000 && job.piece_track == 0 && car_race_poll(&job); ++i) usleep(5000);
+    CHECK_EQ_INT(job.piece_track, 18);
+    car_race_stop(&job);
+    run_job(&job);
     CHECK(!temps_left());
 
     setenv("FAKE_MODE", "refused", 1);   /* the game does not take it: said, not ok */
