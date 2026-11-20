@@ -8,6 +8,8 @@
 #include "test.h"
 
 #include <dirent.h>
+#include <float.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -230,6 +232,24 @@ static void check_compose(void)
     mask_edit_free(&e);
 }
 
+/* the texel under the pointer: a missing mouse position (-FLT_MAX, which ImGui uses) and other non-positions are no texel, and nothing is cast out of range (UBSan halts on it) */
+static void check_texel_under(void)
+{
+    int x = 7, y = 7;
+    CHECK(mask_edit_texel_under(110.0f, 125.0f, 100.0f, 100.0f, 4.0f, 8, 8, &x, &y) && x == 2 && y == 6);
+    CHECK(mask_edit_texel_under(100.0f, 100.0f, 100.0f, 100.0f, 4.0f, 8, 8, &x, &y) && x == 0 && y == 0);   /* the first texel's corner */
+    CHECK(!mask_edit_texel_under(132.0f, 100.0f, 100.0f, 100.0f, 4.0f, 8, 8, &x, &y) && x == -1 && y == -1);   /* the right edge is outside */
+    CHECK(!mask_edit_texel_under(99.9f, 110.0f, 100.0f, 100.0f, 4.0f, 8, 8, &x, &y));
+    CHECK(!mask_edit_texel_under(-FLT_MAX, -FLT_MAX, 100.0f, 100.0f, 4.0f, 8, 8, &x, &y) && x == -1 && y == -1);   /* no mouse position */
+    CHECK(!mask_edit_texel_under(FLT_MAX, FLT_MAX, 100.0f, 100.0f, 4.0f, 8, 8, &x, &y));
+    CHECK(!mask_edit_texel_under(-FLT_MAX, 100.0f, 100.0f, 100.0f, 0.001f, 8, 8, &x, &y));
+    CHECK(!mask_edit_texel_under(NAN, 100.0f, 100.0f, 100.0f, 4.0f, 8, 8, &x, &y));
+    CHECK(!mask_edit_texel_under(INFINITY, 100.0f, 100.0f, 100.0f, 4.0f, 8, 8, &x, &y));
+    CHECK(!mask_edit_texel_under(110.0f, 110.0f, 100.0f, 100.0f, 0.0f, 8, 8, &x, &y));   /* a scale of nothing */
+    CHECK(!mask_edit_texel_under(110.0f, 110.0f, 100.0f, 100.0f, -1.0f, 8, 8, &x, &y));
+    CHECK(!mask_edit_texel_under(110.0f, 110.0f, -FLT_MAX, 100.0f, 4.0f, 8, 8, &x, &y));
+}
+
 static void check_refusals(void)
 {
     char why[256] = "", p[1024];
@@ -354,6 +374,7 @@ int main(int argc, char **argv)
     check_classes();
     check_model();
     check_refusals();
+    check_texel_under();
     check_compose();
     check_repo(argv[1]);
     if (argc > 2) check_textures(argv[2], argv[1]);
