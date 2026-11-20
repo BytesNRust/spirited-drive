@@ -19,6 +19,7 @@
 #include "mask_changes.h"
 #include "formats/png.h"
 #include "ui.h"
+#include "window_fit.h"
 
 #include <SDL3/SDL.h>
 
@@ -28,8 +29,8 @@
 #include <strings.h>
 
 enum {
-    WINDOW_W = 960,
-    WINDOW_H = 600,
+    WINDOW_W = WINDOW_LEAST_W,   /* a headless run's window (--frames, --shot): the size the tests' pictures are of */
+    WINDOW_H = WINDOW_LEAST_H,
     WINDOW_MIN_W = 640, WINDOW_MIN_H = 400, WINDOW_MAX_W = 3840, WINDOW_MAX_H = 2160,   /* --window's range */
     FRAME_MS = 16
 };
@@ -55,7 +56,8 @@ typedef struct {
     int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
-    int window_w, window_h;  /* --window WxH: the window's size (a headless picture of a layout at another size); WINDOW_W x WINDOW_H by default */
+    int window_w, window_h;  /* --window WxH: the window's size (a headless picture of a layout at another size); 0 x 0 for the default: WINDOW_W x WINDOW_H
+                              * headless, what the display leaves on a normal run (window_fit) */
 } Options;
 
 static int usage(void)
@@ -95,7 +97,7 @@ static int parse_args(int argc, char **argv, Options *o)
 {
     memset(o, 0, sizeof *o);
     o->select = -1;
-    o->window_w = WINDOW_W, o->window_h = WINDOW_H;
+    o->window_w = 0, o->window_h = 0;
     for (int i = 1; i < argc; ++i) {
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--game") == 0 && has_value) o->game = argv[++i];
@@ -406,7 +408,13 @@ static int run(App *a, const Options *o)
         fprintf(stderr, "SDL: %s\n", SDL_GetError());
         return 1;
     }
-    SDL_Window *win = SDL_CreateWindow("Spirited Drive Studio", o->window_w, o->window_h, SDL_WINDOW_RESIZABLE);
+    int window_w = o->window_w, window_h = o->window_h;
+    if (window_w == 0) {   /* the default: a headless run keeps its pictures' size, a normal run takes what the main display leaves (menu bar and Dock out) */
+        SDL_Rect usable = { 0, 0, 0, 0 };
+        if (o->frames > 0 || o->shot != NULL || !SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &usable)) window_w = WINDOW_W, window_h = WINDOW_H;
+        else window_fit(usable.w, usable.h, &window_w, &window_h);
+    }
+    SDL_Window *win = SDL_CreateWindow("Spirited Drive Studio", window_w, window_h, SDL_WINDOW_RESIZABLE);
     SDL_Renderer *ren = win != NULL ? SDL_CreateRenderer(win, NULL) : NULL;
     if (ren == NULL) {
         fprintf(stderr, "SDL window: %s\n", SDL_GetError());
