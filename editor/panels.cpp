@@ -190,6 +190,24 @@ void track_panel(App *a)
             }
         }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", PROJECT_ROAD_TIP);
+        // the verge's material, mod.ini's edge=: dirt is not offered, its third surface keeps the off-road flag of the race before (race_sim.c KEEP(surfaces)),
+        // so it drives differently by what was raced first; a project.ini that already says dirt keeps showing it
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted("Verge");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::BeginCombo("##edge", a->project.edge)) {
+            for (int i = 0; PROJECT_EDGES[i] != NULL; ++i) {
+                const bool is_dirt = strcmp(PROJECT_EDGES[i], "dirt") == 0;
+                const bool current = strcmp(a->project.edge, PROJECT_EDGES[i]) == 0;
+                if (is_dirt && !current) continue;
+                if (ImGui::Selectable(PROJECT_EDGES[i], current) && !current) {
+                    snprintf(a->project.edge, sizeof a->project.edge, "%s", PROJECT_EDGES[i]);
+                }
+            }
+            ImGui::EndCombo();
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("What lies off the road: the verge's look, sound and grip in the game.");
     }
     ImGui::End();
 }

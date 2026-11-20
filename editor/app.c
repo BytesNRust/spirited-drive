@@ -73,6 +73,7 @@ int app_open(App *a, const char *dir, const char *game, const char *user, const 
     if (project_art_refresh(dir, generic_art, PROJECT_OLD_ARTS, a->art_note, sizeof a->art_note)) fprintf(stderr, "%s (%s)\n", a->art_note, dir);
     a->kind = APP_KIND_TRACK;
     a->saved_print = session_fingerprint(&a->trace);
+    snprintf(a->saved_edge, sizeof a->saved_edge, "%s", a->project.edge);
     a->dirty = 1;
     app_recompute(a);
     view_fit(&a->view, a->trace.points, a->trace.count, 960, 600);
@@ -264,7 +265,7 @@ void app_select_node(App *a, int node)
 int app_modified(const App *a)
 {
     if (a->kind == APP_KIND_CAR) return car_edit_modified(&a->edit) || app_mask_modified(a);
-    return a->kind == APP_KIND_TRACK && session_fingerprint(&a->trace) != a->saved_print;
+    return a->kind == APP_KIND_TRACK && (session_fingerprint(&a->trace) != a->saved_print || strcmp(a->project.edge, a->saved_edge) != 0);
 }
 
 void app_ask(App *a, AppAction act, const char *path)
@@ -419,8 +420,15 @@ int app_save(App *a)
         set_status(a, why);
         return 0;
     }
+    if (strcmp(a->project.edge, a->saved_edge) != 0) {
+        if (!project_set_edge(a->dir, a->project.edge, why, sizeof why)) {
+            set_status(a, why);
+            return 0;
+        }
+        snprintf(a->saved_edge, sizeof a->saved_edge, "%s", a->project.edge);
+    }
     a->saved_print = session_fingerprint(&a->trace);
-    set_status(a, "saved trace.json");
+    set_status(a, "saved trace.json and project.ini");
     return 1;
 }
 

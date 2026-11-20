@@ -92,6 +92,15 @@ static int ini_value(const char *text, const char *key, char *out, size_t cap)
     return 0;
 }
 
+const char *const PROJECT_EDGES[] = { "grass", "gravel", "sand", "snow", "dirt", "water", NULL };
+
+static int edge_ok(const char *word)
+{
+    for (int i = 0; PROJECT_EDGES[i] != NULL; ++i)
+        if (strcmp(word, PROJECT_EDGES[i]) == 0) return 1;
+    return 0;
+}
+
 static int parse_project(const char *text, Project *p, char *why, size_t why_cap)
 {
     memset(p, 0, sizeof *p);
@@ -110,6 +119,13 @@ static int parse_project(const char *text, Project *p, char *why, size_t why_cap
     char flag[8] = "0";
     ini_value(text, "redistributable", flag, sizeof flag);
     p->redistributable = strcmp(flag, "1") == 0;
+    char edge[PROJECT_TEXT_MAX] = "grass";
+    ini_value(text, "edge", edge, sizeof edge);
+    if (!edge_ok(edge)) {
+        snprintf(why, why_cap, "project.ini: edge=%s is not grass, gravel, sand, snow, dirt or water", edge);
+        return 0;
+    }
+    snprintf(p->edge, sizeof p->edge, "%s", edge);
     return 1;
 }
 
@@ -384,6 +400,35 @@ int project_create(const char *dir, const char *id, const char *generic_art, cha
         return project_save_trace(dir, &straight, why, why_cap);
     }
     return 1;
+}
+
+int project_set_edge(const char *dir, const char *edge, char *why, size_t why_cap)
+{
+    if (!edge_ok(edge)) {
+        snprintf(why, why_cap, "project.ini: edge=%s is not grass, gravel, sand, snow, dirt or water", edge);
+        return 0;
+    }
+    char path[PATH_MAX_LEN];
+    snprintf(path, sizeof path, "%s/project.ini", dir);
+    size_t size = 0;
+    char *ini = read_text(path, &size, why, why_cap);
+    if (ini == NULL) return 0;
+    const char *line = line_of(ini, "edge");
+    const char *end = line != NULL ? strchr(line, '\n') : NULL;
+    const size_t cap = size + 32;
+    char *text = malloc(cap);
+    if (text == NULL) {
+        free(ini);
+        snprintf(why, why_cap, "out of memory");
+        return 0;
+    }
+    int n;
+    if (line != NULL) n = snprintf(text, cap, "%.*sedge=%s%s", (int)(line - ini), ini, edge, end != NULL ? end : "");
+    else n = snprintf(text, cap, "%s%sedge=%s\n", ini, size > 0 && ini[size - 1] != '\n' ? "\n" : "", edge);
+    const int ok = n > 0 && write_atomic(path, text, (size_t)n, why, why_cap);
+    free(text);
+    free(ini);
+    return ok;
 }
 
 int project_save_trace(const char *dir, const Trace *trace, char *why, size_t why_cap)
