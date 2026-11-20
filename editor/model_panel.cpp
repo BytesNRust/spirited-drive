@@ -37,6 +37,9 @@ struct Model {
     bool painted = false;
     Orbit orbit = {};
     bool auto_rotate = false, dirty = true;
+    bool shine = true;            // the body shine, on: the owner checks the shine and matte masks with it
+    bool shines = false;          // the car has texels the shine reaches
+    char envmap[APP_PATH] = "";   // the kit's own car_envmap.png, when it has one
     int preset = 0;               // an orbit asked for on the command line, waiting for the car
     double preset_yaw = 0, preset_pitch = 0;
     int32_t preset_dist = 0;
@@ -49,6 +52,12 @@ struct Model {
 };
 
 Model g;
+
+// the shine on or off as the box says, with the kit's envmap or the game's own
+void set_shine()
+{
+    g.shines = g.scene != nullptr && model_scene_shine(g.scene, g.shine, g.envmap[0] != '\0' ? g.envmap : nullptr);
+}
 
 void close_scene()
 {
@@ -76,6 +85,11 @@ void open_scene(App *a, const uint8_t *rgb)
     g.scene = model_scene_open_painted(&in, why, sizeof why);
     g.painted = g.scene != nullptr;
     if (g.scene == nullptr) g.scene = model_scene_open(a->car.cfm, g.why, sizeof g.why);   // the file as it is: masks that are not there yet
+    snprintf(g.envmap, sizeof g.envmap, "%s/car_envmap.png", a->car.piece);   // a mod's car_envmap.png replaces the game's, as in the race
+    FILE *f = fopen(g.envmap, "rb");
+    if (f != nullptr) fclose(f);
+    else g.envmap[0] = '\0';
+    set_shine();
     g.dirty = true;
 }
 
@@ -177,6 +191,12 @@ void toolbar()
     ImGui::SameLine();
     if (ImGui::Checkbox("Auto-rotate", &g.auto_rotate)) g.dirty = true;
     ImGui::SameLine();
+    if (ImGui::Checkbox("Shine", &g.shine)) set_shine(), g.dirty = true;
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("The body's shine as the race draws it, where the masks say paint or shine (matte texels stay as they are).\n"
+                          "Its tones are taken from the car's own colours; in a race, from the screen's.%s",
+                          g.envmap[0] != '\0' ? "\nThe kit's car_envmap.png is the sky it reflects." : "");
+    ImGui::SameLine();
     if (ImGui::Button("Reload")) g.loaded[0] = 0;   // the file again: after Rehacer or a new bank
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Read the car file again");
 }
@@ -192,6 +212,13 @@ void turn_and_zoom()
 }
 
 }   // namespace
+
+void model_panel_shine(bool on)
+{
+    g.shine = on;
+    set_shine();
+    g.dirty = true;
+}
 
 void model_panel_preset(double yaw, double pitch, int dist)
 {
@@ -217,7 +244,8 @@ void model_panel(App *a, SDL_Renderer *ren)
             toolbar();
             keys();
             const ImVec2 size = ImGui::GetContentRegionAvail();
-            const int area_w = static_cast<int>(size.x), area_h = static_cast<int>(size.y) - static_cast<int>(ImGui::GetTextLineHeightWithSpacing());
+            const int lines = g.shine ? 2 : 1;   // the words under the picture
+            const int area_w = static_cast<int>(size.x), area_h = static_cast<int>(size.y) - lines * static_cast<int>(ImGui::GetTextLineHeightWithSpacing());
             int w = 0, h = 0;   // the picture fills the area (car_scene keeps its pixels square, the car whole in the smaller side)
             if (picture_size(area_w, area_h, &w, &h) && make_target(ren, w, h)) {
                 if (g.auto_rotate) {
@@ -233,6 +261,9 @@ void model_panel(App *a, SDL_Renderer *ren)
                 ImGui::GetWindowDrawList()->AddImage(reinterpret_cast<ImTextureID>(g.tex), at, ImVec2(at.x + area.x, at.y + area.y));
                 // the Preview's words: a paint chosen is the race's; none (or a car the paint cannot be made for) is the base texture
                 ImGui::TextDisabled("Drag to turn, wheel to zoom, F S R T Home. %s", g.painted && rgb != nullptr ? "As the race paints it." : "Base texture (no colour).");
+                if (g.shine)
+                    ImGui::TextDisabled("%s", g.shines ? "Shine: its tones from the car's own colours (a race takes them from the screen's)."
+                                                       : "Shine: no texel of this car shines (its masks mark none as paint or shine).");
             }
         }
     }

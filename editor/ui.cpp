@@ -60,6 +60,11 @@ void ui_close(void)
     ImGui::DestroyContext();
 }
 
+void ui_model_shine(int on)
+{
+    model_panel_shine(on != 0);
+}
+
 void ui_model_orbit(double yaw, double pitch, int dist)
 {
     model_panel_preset(yaw, pitch, dist);

@@ -3,6 +3,7 @@
 #include "raster/flat.h"
 #include "raster/object_mappers.h"
 #include "raster/palette_match.h"
+#include "raster/shine_pass.h"
 #include "raster/view.h"
 
 #include <stdlib.h>
@@ -79,6 +80,7 @@ typedef struct {
     QuadTarget target;
     const CarScene *scene;
     int flat;   /* the colour of every flat polygon and line, -1: the palette's nearest */
+    float up[3];   /* the world's up in the camera's space, for the shine */
 } Sink;
 
 static void textured(void *user, Object3DTable table, int mode, const FshEntry *texture, const Object3DCorners *c)
@@ -94,6 +96,7 @@ static void textured(void *user, Object3DTable table, int mode, const FshEntry *
     case OBJ_FULL: obj_draw_full(&s->target, texture, c->screen, m, NULL); break;
     case OBJ_INSET: obj_draw_inset(&s->target, texture, c->screen, m, NULL); break;
     }
+    if (s->scene->shine != NULL) shine_pass_affine(&s->target, (ObjShape)(slot / 3), texture, c, s->scene->shine, s->up);   /* the envmap's pass, as the race runs it after each textured polygon */
 }
 
 /* 004a3390: two corners a line, three or four a flat polygon, in the palette's colour nearest the polygon's */
@@ -121,14 +124,23 @@ static void render(CarScene *s, const Orbit *o, uint8_t *pixels, int w, int h, i
     else s->obj.flags &= ~(uint32_t)OBJECT3D_FLAG_NEAR;
     object3d_set_matrix(&s->obj, matrix);
     object3d_transform(&s->obj, IDENTITY, eye, 0);
+    object3d_update_normals(&s->obj);   /* none kept unless the shine is on */
     object3d_project(&s->obj, &view);
-    Sink sink = { { pixels, w, 0, 0, w, h }, s, flat_colour };
+    Sink sink = { { pixels, w, 0, 0, w, h }, s, flat_colour, { 0, 1, 0 } };
+    if (s->shine != NULL) shine_world_up(matrix, sink.up);   /* the car stands on the world's ground: its up is the world's */
     const Object3DSink out = { .user = &sink, .textured = textured, .flat = flat };
     for (int i = 0; i < CAR_SCENE_SECTIONS; i++) {
         if (s->sections[i].order == NULL) continue;
         object3d_sort_list(&s->obj, &s->sections[i]);
         object3d_draw_list(&s->obj, &s->sections[i], CAR_SCENE_NEAR_Z, &out);
     }
+}
+
+int car_scene_shine(CarScene *s, const EnvShine *env)
+{
+    if (env != NULL && s->obj.normal == NULL && !object3d_enable_normals(&s->obj)) env = NULL;
+    s->shine = env;
+    return env != NULL;
 }
 
 void car_scene_render(CarScene *s, const Orbit *o, uint8_t *pixels, int w, int h)

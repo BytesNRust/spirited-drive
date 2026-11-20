@@ -14,7 +14,7 @@ int car_shine_same_family(const uint8_t a[3], const uint8_t b[3]);
 /* port (body_shine 4, envmap, car_envmap.h): the tables for the palette's paint texels and for the keep-and-shine ones (glass, lamps), level by
  * level, `out`[level][entry] the entry that is `entry` seen at that level (CAR_SHINE_NEUTRAL the identity). A highlight goes toward white and
  * loses saturation. The glass (mask 128) keeps its own colour as the base. Only the `usable` entries (1) are picked; an `emissive` one (1) is
- * left as it is. The game passes its screen palette's (game/race/car_shine.h car_envmap_tables). */
+ * left as it is. The race passes its screen palette's. */
 void car_shine_tables(const uint8_t palette[768], const uint8_t usable[256], const uint8_t emissive[256], uint8_t paint[CAR_SHINE_LEVELS][256],
                       uint8_t glass[CAR_SHINE_LEVELS][256]);
 

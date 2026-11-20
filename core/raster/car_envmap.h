@@ -27,7 +27,7 @@ void car_envmap_unpack(int32_t packed, float uv[2]);
 void car_envmap_hard(const uint8_t palette[768], const uint8_t tables[16][256], uint8_t hard[16][256]);
 
 /* the procedural image (port-made values) into `image` (CAR_ENVMAP_SIZE squared bytes): what the game uses when no car_envmap.png is found
- * (game/race/car_envmap.h car_envmap_build: the file lookup) */
+ * (where a car_envmap.png is looked for, and when the image is made again, is the caller's) */
 void car_envmap_make(uint8_t *image);
 
 /* the 8-bit grey PNG at `path` (its red channel where it is coloured), resampled to CAR_ENVMAP_SIZE by nearest neighbour into `image`.

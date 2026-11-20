@@ -4,6 +4,7 @@
 #ifndef TNFS_TRACK_EDITOR_CAR_PREVIEW_H
 #define TNFS_TRACK_EDITOR_CAR_PREVIEW_H
 
+#include "formats/car_livery_pass.h"
 #include "mask_edit.h"
 #include "mask_tex.h"
 
@@ -49,6 +50,11 @@ typedef struct {
  * the '!PAL' of each bank recoloured in place (its own type, 0x24 8 bits or 0x22 6 bits: not taken to 6 bits). `blacked` and `painted` (each may be NULL) get the texels changed.
  * 1, or 0 with `why`.  */
 int car_preview_painted_cfm(const PreviewIn *in, uint8_t **cfm, size_t *len, int *blacked, int *painted, char *why, size_t why_cap);
+
+/* The draft of the car's masks (formats/car_livery_pass.h car_livery_draft) with the masks the paint is made with (the project's, the edit, the game's own):
+ * `fn` gets each body texture's REPAINT_DRAFT_* classes, from the file as it is (the race drafts before the black and the paint). The texels marked
+ * paint, or -1 with `why` when the file cannot be read. The Model window shines a car by it (raster/shine_class.h). */
+int car_preview_draft(const PreviewIn *in, CarLiveryDraftFn fn, void *user, char *why, size_t why_cap);
 
 /* Makes the preview. 1, or 0 with `why`.  */
 int car_preview_make(const PreviewIn *in, CarPreview *out, char *why, size_t why_cap);

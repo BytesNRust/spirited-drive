@@ -322,6 +322,11 @@ if [ -f "$p911" ]; then
     "$editor" "$work/k911" --frames 4 --orbit 215,18 --shot "$work/m3.png" >"$work/log" 2>&1 || fail "run on the 911 again: $(cat "$work/log")"
     cmp -s "$work/m1.png" "$work/m2.png" && fail "two orbits drew the same window"
     cmp -s "$work/m1.png" "$work/m3.png" || fail "the same orbit drew two different windows"
+    # the body shine (M5): on by default, off is another picture of the same orbit; a bad --shine is refused
+    "$editor" "$work/k911" --frames 4 --orbit 215,18 --shine off --shot "$work/m4.png" >"$work/log" 2>&1 || fail "run on the 911 without the shine: $(cat "$work/log")"
+    cmp -s "$work/m1.png" "$work/m4.png" && fail "the shine off drew the same window as on"
+    "$editor" "$work/k911" --frames 2 --shine maybe >"$work/log" 2>&1 && fail "a bad --shine was accepted"
+    grep -q "on or off" "$work/log" || fail "no word about --shine: $(cat "$work/log")"
     cmp -s "$work/m1.png" "$work/stub.png" && fail "the 911 looks like a car that cannot be drawn"
 fi
 # Edit mask: a car file with no textures offers none (the fixture's is not a real one); with the player's real game files a traffic car's mask is opened, painted, saved
