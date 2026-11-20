@@ -80,8 +80,11 @@ int app_open(App *a, const char *dir, const char *game, const char *user, const 
     if (project_art_refresh(dir, generic_art, PROJECT_OLD_ARTS, a->art_note, sizeof a->art_note)) fprintf(stderr, "%s (%s)\n", a->art_note, dir);
     a->art_generic = project_art_is_generic(dir, generic_art);
     a->kind = APP_KIND_TRACK;
-    a->saved_print = session_fingerprint(&a->trace);
     snprintf(a->saved_edge, sizeof a->saved_edge, "%s", a->project.edge);
+    if (!track_undo_open(&a->track_undo, &a->project, &a->trace)) {
+        set_status(a, "out of memory for undo");
+        return 0;
+    }
     a->dirty = 1;
     app_recompute(a);
     view_fit(&a->view, a->trace.points, a->trace.count, 960, 600);
@@ -188,6 +191,7 @@ void app_free(App *a)
     rehacer_free(&a->rehacer);
     car_edit_free(&a->edit);
     mask_edit_free(&a->mask.me);
+    track_undo_free(&a->track_undo);
     free(a->trace.points);
     free(a->trace.keys);
     drop_road(a);
@@ -283,10 +287,33 @@ void app_select_node(App *a, int node)
     a->node = node;
 }
 
+void app_title(const App *a, char *out, size_t cap)
+{
+    const char *name = a->kind == APP_KIND_TRACK ? a->project.id : a->kind == APP_KIND_CAR ? (a->car.info.id[0] != '\0' ? a->car.info.id : a->car.folder) : "";
+    if (name[0] == '\0') snprintf(out, cap, "Spirited Drive Studio");
+    else snprintf(out, cap, "Spirited Drive Studio \xe2\x80\x94 %s%s", name, app_modified(a) ? " *" : "");
+}
+
+void app_track_commit(App *a)
+{
+    if (a->kind == APP_KIND_TRACK) track_undo_commit(&a->track_undo, &a->project, &a->trace);
+}
+
+int app_track_undo(App *a, int redo)
+{
+    if (a->kind != APP_KIND_TRACK) return 0;
+    if (!(redo ? track_undo_redo : track_undo_undo)(&a->track_undo, &a->project, &a->trace)) return 0;
+    if (a->selected >= a->trace.count) a->selected = a->trace.count - 1;
+    a->dirty = 1;
+    app_recompute(a);
+    set_status(a, redo ? "redone" : "undone");
+    return 1;
+}
+
 int app_modified(const App *a)
 {
     if (a->kind == APP_KIND_CAR) return car_edit_modified(&a->edit) || app_mask_modified(a);
-    return a->kind == APP_KIND_TRACK && (session_fingerprint(&a->trace) != a->saved_print || strcmp(a->project.edge, a->saved_edge) != 0);
+    return a->kind == APP_KIND_TRACK && track_undo_modified(&a->track_undo, &a->project, &a->trace);
 }
 
 void app_ask(App *a, AppAction act, const char *path)
@@ -448,7 +475,7 @@ int app_save(App *a)
         }
         snprintf(a->saved_edge, sizeof a->saved_edge, "%s", a->project.edge);
     }
-    a->saved_print = session_fingerprint(&a->trace);
+    track_undo_saved(&a->track_undo, &a->project, &a->trace);
     set_status(a, "saved trace.json and project.ini");
     return 1;
 }

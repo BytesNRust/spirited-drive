@@ -13,6 +13,7 @@
 extern "C" {
 #include "formats/track_gen.h"
 #include "interact.h"
+#include "shortcut_keys.h"
 }
 
 const char *const PANEL_POINTS = "Points", *const PANEL_LIMITS = "Limits", *const PANEL_PROBLEMS = "Problems", *const PANEL_NODE = "Node", *const PANEL_PROJECT = "Project", *const PANEL_TRACK = "Track",
@@ -360,12 +361,20 @@ void project_panel(App *a)
     if (open) {
         ImGui::Text("%s  stem %s", a->project.id, a->project.stem);
         ImGui::SameLine();
-        help_marker("Mouse: left drag moves a point, right or middle drag pans, the wheel zooms.\n"
-                    "Keys: arrows nudge, F fit, N add, I insert, Del remove, B build, U install.");
+        char keys[256], save_key[16], undo_key[16], redo_key[24];
+        shortcut_label(save_key, sizeof save_key, SHORTCUT_MAC, "S");
+        shortcut_label(undo_key, sizeof undo_key, SHORTCUT_MAC, "Z");
+        shortcut_label(redo_key, sizeof redo_key, SHORTCUT_MAC, "Shift+Z");
+        snprintf(keys, sizeof keys, "Mouse: left drag moves a point, right or middle drag pans, the wheel zooms.\n"
+                                    "Keys: arrows nudge, F fit, N add, I insert, Del remove, %s save, %s undo, %s redo, B build, U install.", save_key, undo_key, redo_key);
+        help_marker(keys);
         path_line("art ", a->project.art, false);
         path_line("", a->dir, false);
         ImGui::Separator();
-        if (ImGui::Button("Save (S)")) app_save(a);
+        char save[32], save_keys[16];
+        shortcut_label(save_keys, sizeof save_keys, SHORTCUT_MAC, "S");
+        snprintf(save, sizeof save, "Save (%s)", save_keys);
+        if (ImGui::Button(save)) app_save(a);
         ImGui::SameLine();
         if (ImGui::Button("Build (B)")) app_build(a);
         ImGui::SameLine();

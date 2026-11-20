@@ -1,4 +1,5 @@
 #include "mask_edit.h"
+#include "edit_seq.h"
 
 #include "formats/car_mask_codec.h"
 #include "formats/png.h"
@@ -218,6 +219,7 @@ static MaskStep *step_new(MaskEdit *e, uint8_t cls)
     MaskStep *s = &e->undo[e->undo_count++];
     memset(s, 0, sizeof *s);
     s->cls = cls;
+    s->seq = edit_seq_next();
     e->modified_known = 0, e->version++;
     return s;
 }
@@ -270,7 +272,10 @@ void mask_edit_stroke_end(MaskEdit *e)
 static int stroke_open_step(MaskEdit *e, uint8_t cls, int *fresh)
 {
     *fresh = 0;
-    if (e->stroke == 2 && e->undo_count > 0 && e->undo[e->undo_count - 1].cls == cls) return 1;
+    if (e->stroke == 2 && e->undo_count > 0 && e->undo[e->undo_count - 1].cls == cls) {
+        e->undo[e->undo_count - 1].seq = edit_seq_next();   /* the stroke goes on: as new as its last texel */
+        return 1;
+    }
     *fresh = 1;
     if (step_new(e, cls) == NULL) return 0;
     if (e->stroke) e->stroke = 2;
@@ -385,6 +390,8 @@ int mask_edit_redo(MaskEdit *e)
 
 int mask_edit_can_undo(const MaskEdit *e) { return e->undo_count > 0; }
 int mask_edit_can_redo(const MaskEdit *e) { return e->redo_count > 0; }
+unsigned long mask_edit_undo_seq(const MaskEdit *e) { return e->undo_count > 0 ? e->undo[e->undo_count - 1].seq : 0; }
+unsigned long mask_edit_redo_seq(const MaskEdit *e) { return e->redo_count > 0 ? e->redo[e->redo_count - 1].seq : 0; }
 
 int mask_edit_modified(MaskEdit *e)
 {

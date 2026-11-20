@@ -13,6 +13,7 @@ extern "C" {
 }
 #include "panels.h"
 #include "shortcut_keys.h"
+#include "command_keys.h"
 #include "viewport.h"
 
 #include <algorithm>
@@ -191,7 +192,6 @@ void shortcuts(App *a)
     if (ImGui::IsKeyPressed(ImGuiKey_I, false)) app_insert_point(a);
     if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) app_remove_point(a);
     else if (ImGui::IsKeyPressed(ImGuiKey_X, false)) app_remove_point(a);
-    if (ImGui::IsKeyPressed(ImGuiKey_S, false)) app_save(a);
     if (ImGui::IsKeyPressed(ImGuiKey_B, false)) app_build(a);
     if (ImGui::IsKeyPressed(ImGuiKey_U, false)) app_install(a);
     if (ImGui::IsKeyPressed(ImGuiKey_F, false)) interact_fit(a);
@@ -284,6 +284,24 @@ void front_tabs(const App *a)
     for (int i = 0; i < 2; ++i) ImGui::SetWindowFocus(names[i]);
 }
 
+// Save, Undo and Redo on the platform's command key (command_keys.h)
+void track_command_keys(App *a)
+{
+    const CommandKey key = command_key(ImGui::GetIO().WantTextInput);
+    if (key == COMMAND_SAVE) app_save(a);
+    else if (key == COMMAND_UNDO) app_undo(a);
+    else if (key == COMMAND_REDO) app_redo(a);
+}
+
+// a track's edit is one step to undo once it is done: no field typed in, no point dragged, no arrow held
+bool track_edit_done()
+{
+    for (int b = 0; b < ImGuiMouseButton_COUNT; ++b)
+        if (ImGui::IsMouseDown(b)) return false;
+    return !ImGui::IsAnyItemActive() && !ImGui::IsKeyDown(ImGuiKey_LeftArrow) && !ImGui::IsKeyDown(ImGuiKey_RightArrow)
+           && !ImGui::IsKeyDown(ImGuiKey_UpArrow) && !ImGui::IsKeyDown(ImGuiKey_DownArrow);
+}
+
 // the File menu: a new track, an open track or car, the recent ones (tracks and cars together), Save, Quit; each asks the app (app_ask), which asks about unsaved
 // changes first
 void main_menu(App *a)
@@ -306,12 +324,12 @@ void main_menu(App *a)
         }
         ImGui::Separator();
         char save_keys[16];
-        shortcut_label(save_keys, sizeof save_keys, SHORTCUT_MAC, "S");   // the car's Save is Cmd+S on a Mac, Ctrl+S elsewhere; a track's is S alone
-        if (ImGui::MenuItem("Save", a->kind == APP_KIND_CAR ? save_keys : "S", false, a->kind != APP_KIND_NONE && !app_rehacer_busy(a))) app_save(a);   // as the keys: not while Rehacer works on the kit
+        shortcut_label(save_keys, sizeof save_keys, SHORTCUT_MAC, "S");   // Save is Cmd+S on a Mac, Ctrl+S elsewhere, a car's and a track's
+        if (ImGui::MenuItem("Save", save_keys, false, a->kind != APP_KIND_NONE && !app_rehacer_busy(a))) app_save(a);   // as the keys: not while Rehacer works on the kit
         if (ImGui::MenuItem("Quit")) app_ask(a, APP_ACT_QUIT, "");
         ImGui::EndMenu();
     }
-    if (a->kind == APP_KIND_CAR && ImGui::BeginMenu("Edit")) {
+    if (a->kind != APP_KIND_NONE && ImGui::BeginMenu("Edit")) {
         char undo_keys[16], redo_keys[24];
         shortcut_label(undo_keys, sizeof undo_keys, SHORTCUT_MAC, "Z");
         shortcut_label(redo_keys, sizeof redo_keys, SHORTCUT_MAC, "Shift+Z");
@@ -454,7 +472,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
             track_laid_out = true;
             if (reset || !g_had_layout || dock_is_empty(dock)) default_layout(dock);
         }
-        if (a->confirm == APP_ACT_NONE) shortcuts(a);   // the keys edit nothing while the question is up
+        if (a->confirm == APP_ACT_NONE) shortcuts(a), track_command_keys(a);   // the keys edit nothing while the question is up
         viewport_panel(a);
         project_panel(a);
         track_panel(a);
@@ -463,6 +481,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
         problems_panel(a);
         node_panel(a);
         road_key_window(a);
+        if (track_edit_done()) app_track_commit(a);
     } else if (a->kind == APP_KIND_CAR) {   // a car has a dock space of its own: each kind keeps its layout
         const bool masks = a->car.masks_only;   // a masks project keeps a layout of its own: it shows fewer windows
         const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr(masks ? "StudioMasksDock" : "StudioCarDock"), ImGui::GetMainViewport());

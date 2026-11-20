@@ -258,9 +258,15 @@ void mask_edit_panel(App *a, ImTextureID tex)
             texture_picker(a, pending);
             if (m.sel >= 0) {
                 ImGui::SameLine();
-                if (ImGui::Button("Undo")) app_undo(a);   // the keyboard's Cmd+Z (Ctrl+Z off a Mac) reaches here too
+                ImGui::BeginDisabled(!mask_edit_can_undo(&m.me));
+                if (ImGui::Button("Undo")) mask_edit_undo(&m.me);   // this mask's own: Cmd+Z is the car's one history (app_undo)
+                ImGui::EndDisabled();
+                own_stack_tip("mask");
                 ImGui::SameLine();
-                if (ImGui::Button("Redo")) app_redo(a);
+                ImGui::BeginDisabled(!mask_edit_can_redo(&m.me));
+                if (ImGui::Button("Redo")) mask_edit_redo(&m.me);
+                ImGui::EndDisabled();
+                own_stack_tip("mask");
                 ImGui::SameLine();
                 ImGui::BeginDisabled(!app_mask_modified(a));
                 if (ImGui::Button("Save mask")) app_mask_save(a);

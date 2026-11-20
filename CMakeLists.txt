@@ -869,7 +869,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     else()
         target_compile_options(imgui PRIVATE -w)
     endif()
-    add_executable(tnfs-track-editor game/sys/sha256.c editor/game_find.c editor/main.c editor/help_marker.cpp editor/app.c editor/mask_changes.c editor/app_mask.c editor/mask_edit.c editor/mask_tex.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp editor/road_key_panel.cpp editor/car_panels.cpp editor/shortcut_keys.c editor/car_preview.c editor/night_view.c editor/mask_panel.cpp editor/changes_panel.cpp editor/preview_panel.cpp editor/model_panel.cpp editor/window_fit.c editor/path_elide.c editor/model_scene.c editor/app_sides.c)
+    add_executable(tnfs-track-editor game/sys/sha256.c editor/game_find.c editor/main.c editor/track_undo.c editor/edit_seq.c editor/command_keys.cpp editor/help_marker.cpp editor/app.c editor/mask_changes.c editor/app_mask.c editor/mask_edit.c editor/mask_tex.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp editor/road_key_panel.cpp editor/car_panels.cpp editor/shortcut_keys.c editor/car_preview.c editor/night_view.c editor/mask_panel.cpp editor/changes_panel.cpp editor/preview_panel.cpp editor/model_panel.cpp editor/window_fit.c editor/path_elide.c editor/model_scene.c editor/app_sides.c)
     target_include_directories(tnfs-track-editor PRIVATE ${CMAKE_SOURCE_DIR})   # project.c's game/sys/sha256.h
     target_link_libraries(tnfs-track-editor PRIVATE tnfs_core SDL3::SDL3 imgui Threads::Threads)
     # the generic art a new project copies (editor/art/README.md): beside the program in a build tree, in Contents/Resources in the app (tools/package_macos.sh)
@@ -902,7 +902,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_car_project PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_car_project PRIVATE tnfs_core)
     target_compile_options(test_editor_car_project PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_car_edit tests/test_editor_car_edit.c editor/car_edit.c)   # a car's card edited: fields, colors, undo, problems, Save
+    add_executable(test_editor_car_edit tests/test_editor_car_edit.c editor/car_edit.c editor/edit_seq.c)   # a car's card edited: fields, colors, undo, problems, Save
     target_include_directories(test_editor_car_edit PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_car_edit PRIVATE tnfs_core)
     target_compile_options(test_editor_car_edit PRIVATE ${TNFS_WARNINGS})
@@ -914,15 +914,15 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_car_race PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_car_race PRIVATE tnfs_core)
     target_compile_options(test_editor_car_race PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_mask_edit tests/test_editor_mask_edit.c editor/mask_edit.c editor/mask_tex.c)   # the mask editor's model: pencil, fill, undo, Save, the repo's masks round trip
+    add_executable(test_editor_mask_edit tests/test_editor_mask_edit.c editor/mask_edit.c editor/edit_seq.c editor/mask_tex.c)   # the mask editor's model: pencil, fill, undo, Save, the repo's masks round trip
     target_include_directories(test_editor_mask_edit PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_mask_edit PRIVATE tnfs_core)
     target_compile_options(test_editor_mask_edit PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_car_preview tests/test_editor_car_preview.c editor/car_preview.c editor/mask_edit.c editor/mask_tex.c)   # the painted preview equals the game's own paint calls
+    add_executable(test_editor_car_preview tests/test_editor_car_preview.c editor/car_preview.c editor/mask_edit.c editor/edit_seq.c editor/mask_tex.c)   # the painted preview equals the game's own paint calls
     target_include_directories(test_editor_car_preview PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_car_preview PRIVATE tnfs_core)
     target_compile_options(test_editor_car_preview PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_model_scene tests/test_editor_model_scene.c editor/model_scene.c editor/car_preview.c editor/mask_edit.c editor/mask_tex.c)   # the Model window's car: the Preview's texels, palette and night
+    add_executable(test_editor_model_scene tests/test_editor_model_scene.c editor/model_scene.c editor/car_preview.c editor/mask_edit.c editor/edit_seq.c editor/mask_tex.c)   # the Model window's car: the Preview's texels, palette and night
     target_include_directories(test_editor_model_scene PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_model_scene PRIVATE tnfs_core)
     target_compile_options(test_editor_model_scene PRIVATE ${TNFS_WARNINGS})
@@ -933,11 +933,11 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_link_libraries(test_editor_night_view PRIVATE tnfs_core)
     target_compile_options(test_editor_night_view PRIVATE ${TNFS_WARNINGS})
     add_test(NAME editor_night_view COMMAND test_editor_night_view)
-    add_executable(test_editor_mask_changes tests/test_editor_mask_changes.c editor/mask_changes.c editor/mask_edit.c)   # a project's masks against the game's: unchanged, changed, new, missing
+    add_executable(test_editor_mask_changes tests/test_editor_mask_changes.c editor/mask_changes.c editor/mask_edit.c editor/edit_seq.c)   # a project's masks against the game's: unchanged, changed, new, missing
     target_include_directories(test_editor_mask_changes PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_mask_changes PRIVATE tnfs_core)
     target_compile_options(test_editor_mask_changes PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_shortcuts tests/test_editor_shortcuts.cpp editor/shortcut_keys.c)   # the shortcuts' key: Cmd on a Mac, Ctrl elsewhere, in the menus and in ImGui
+    add_executable(test_editor_shortcuts tests/test_editor_shortcuts.cpp editor/shortcut_keys.c editor/command_keys.cpp)   # the shortcuts' key: Cmd on a Mac, Ctrl elsewhere, in the menus and in ImGui
     target_include_directories(test_editor_shortcuts PRIVATE editor tests)
     target_link_libraries(test_editor_shortcuts PRIVATE imgui)
     target_compile_options(test_editor_shortcuts PRIVATE ${TNFS_WARNINGS})
@@ -950,12 +950,16 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_car_rehacer PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_car_rehacer PRIVATE tnfs_core Threads::Threads)
     target_compile_options(test_editor_car_rehacer PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_session tests/test_editor_session.c game/sys/sha256.c editor/game_find.c editor/app.c editor/app_sides.c editor/night_view.c editor/app_mask.c editor/mask_edit.c editor/mask_tex.c editor/build.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c editor/view.c)   # the session: recent projects, unsaved changes, open and new
+    add_executable(test_editor_track_undo tests/test_editor_track_undo.c editor/track_undo.c editor/project.c game/sys/sha256.c)   # a track project's undo, redo and unsaved state
+    target_include_directories(test_editor_track_undo PRIVATE editor tests ${CMAKE_SOURCE_DIR})
+    target_link_libraries(test_editor_track_undo PRIVATE tnfs_core)
+    target_compile_options(test_editor_track_undo PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_editor_session tests/test_editor_session.c game/sys/sha256.c editor/game_find.c editor/app.c editor/track_undo.c editor/app_sides.c editor/night_view.c editor/app_mask.c editor/mask_edit.c editor/mask_tex.c editor/build.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/edit_seq.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c editor/view.c)   # the session: recent projects, unsaved changes, open and new
     target_include_directories(test_editor_session PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_session PRIVATE tnfs_core Threads::Threads)
     target_compile_options(test_editor_session PRIVATE ${TNFS_WARNINGS})
     # the tools share ONLY the core with the game (the owner's rule): the Studio and its tests never link the game's library or compile its files
-    foreach(studio_target tnfs-track-editor test_editor_shortcuts test_editor_car_preview test_editor_model_scene test_editor_car_export test_editor_car_race test_editor_car_rehacer test_editor_session test_editor_mask_edit test_editor_mask_changes)
+    foreach(studio_target tnfs-track-editor test_editor_track_undo test_editor_shortcuts test_editor_car_preview test_editor_model_scene test_editor_car_export test_editor_car_race test_editor_car_rehacer test_editor_session test_editor_mask_edit test_editor_mask_changes)
         get_target_property(studio_libs ${studio_target} LINK_LIBRARIES)
         get_target_property(studio_sources ${studio_target} SOURCES)
         if(studio_libs MATCHES "tnfs_game")
@@ -982,6 +986,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_car_edit COMMAND test_editor_car_edit)
         add_test(NAME editor_car_rehacer COMMAND test_editor_car_rehacer)
         add_test(NAME editor_shortcuts COMMAND test_editor_shortcuts)
+        add_test(NAME editor_track_undo COMMAND test_editor_track_undo)
         add_test(NAME editor_mask_changes COMMAND test_editor_mask_changes)
         add_test(NAME editor_car_preview COMMAND test_editor_car_preview)
         add_test(NAME editor_car_race COMMAND test_editor_car_race)

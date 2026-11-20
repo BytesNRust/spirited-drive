@@ -26,6 +26,7 @@ typedef struct {
     uint8_t *old;      /* what each was */
     size_t count, cap;
     uint8_t cls;       /* what they became */
+    unsigned long seq; /* when its edit was made (edit_seq.h), kept as it moves between undo and redo */
 } MaskStep;
 
 typedef struct {
@@ -91,6 +92,9 @@ int mask_edit_undo(MaskEdit *e);
 int mask_edit_redo(MaskEdit *e);
 int mask_edit_can_undo(const MaskEdit *e);
 int mask_edit_can_redo(const MaskEdit *e);
+/* the number (edit_seq.h) of the step Undo (Redo) would take, 0 for none */
+unsigned long mask_edit_undo_seq(const MaskEdit *e);
+unsigned long mask_edit_redo_seq(const MaskEdit *e);
 
 /* 1 when what is on screen is not what the file has (undoing back to it is not modified) */
 int mask_edit_modified(MaskEdit *e);

@@ -13,6 +13,7 @@
 #include "car_race.h"
 #include "project.h"
 #include "session.h"
+#include "track_undo.h"
 #include "view.h"
 
 #include <stdint.h>
@@ -119,7 +120,7 @@ typedef struct {
     char road_text[APP_MSG];     /* why the road is not made; "" when it is */
 
     char saved_edge[8];          /* the verge material as it is in project.ini: app_modified compares with project.edge */
-    uint64_t saved_print;        /* session_fingerprint of the trace as it is in trace.json: app_modified compares with it */
+    TrackUndo track_undo;        /* a track's undo and redo, and the project as its files have it: app_modified compares with that */
     AppAction confirm;           /* an action waiting for the answer to "unsaved changes" */
     char confirm_path[APP_PATH];
     AppAction go;                /* an action to run now (main.c): the confirmation is answered, or there was nothing unsaved */
@@ -167,14 +168,22 @@ int app_mask_open(App *a, int index);
 int app_mask_open_by_name(App *a, const char *name);
 int app_mask_save(App *a);
 void app_mask_close(App *a);
-/* Undo and redo of what has the keyboard: the mask when the Edit mask window does, else the card */
+/* Undo and redo: a track's project (track_undo.h); a car's one history, the card's edits and the open mask's in the order they were made,
+ * whatever window has the keyboard (the windows' own Undo buttons are each their own stack's) */
 int app_undo(App *a);
 int app_redo(App *a);
 int app_can_undo(const App *a);
 int app_can_redo(const App *a);
 int app_mask_modified(const App *a);
+/* A track's edit taken as one step to undo when it differs from the last (the window calls it when no field is typed in and no point dragged) */
+void app_track_commit(App *a);
+/* A track's step back (redo: forward); the road is made again from it, the selection kept when its point is still there. 1 when there was one. */
+int app_track_undo(App *a, int redo);
 
 void app_free(App *a);
+
+/* The window's title: "Spirited Drive Studio", then " \xe2\x80\x94 <project's id>" with a project open and " *" when it has unsaved changes (app_modified). */
+void app_title(const App *a, char *out, size_t cap);
 
 /* 1 when the open project has unsaved changes: a track's trace is not what trace.json holds, a car's card is not what mod.ini holds (a point moved, added or removed, or the width changed since the last save or open). */
 int app_modified(const App *a);
