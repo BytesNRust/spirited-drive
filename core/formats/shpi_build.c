@@ -113,7 +113,20 @@ static int check(const ShpiDescEntry *e, size_t n, ExchangeError *err)
     return ok;
 }
 
+int shpi_describe_head(const uint8_t *b, size_t size, ShpiHead *head)
+{
+    memset(head, 0, sizeof *head);   /* a rebuilt bank's size word is its new length */
+    if (size < HEADER || memcmp(b, "SHPI", 4) != 0) return 0;
+    memcpy(head->tag, b + 12, 4);
+    return 1;
+}
+
 int shpi_build(const ShpiDescEntry *e, size_t n, uint8_t **out, size_t *out_len, ExchangeError *err)
+{
+    return shpi_build_head(NULL, e, n, out, out_len, err);
+}
+
+int shpi_build_head(const ShpiHead *head, const ShpiDescEntry *e, size_t n, uint8_t **out, size_t *out_len, ExchangeError *err)
 {
     *out = NULL, *out_len = 0;
     if (!check(e, n, err)) return 0;
@@ -122,7 +135,7 @@ int shpi_build(const ShpiDescEntry *e, size_t n, uint8_t **out, size_t *out_len,
     if (total > UINT32_MAX) { exchange_fail(err, "the bank would pass 4 GB"); return 0; }
     uint8_t *b = calloc((size_t)total, 1);
     if (b == NULL) { exchange_fail(err, "out of memory"); return 0; }
-    memcpy(b, "SHPI", 4), put32(b + 4, (uint32_t)total), put32(b + 8, (uint32_t)n), memcpy(b + 12, "WRAP", 4);
+    memcpy(b, "SHPI", 4), put32(b + 4, head != NULL && head->keep_size_word ? head->size_word : (uint32_t)total), put32(b + 8, (uint32_t)n), memcpy(b + 12, head != NULL ? head->tag : "WRAP", 4);
     size_t at = HEADER + (size_t)DIR_ENTRY * n;
     for (size_t i = 0; i < n; i++) {
         const ShpiDescEntry *x = &e[i];

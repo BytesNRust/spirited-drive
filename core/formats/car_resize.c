@@ -107,7 +107,8 @@ static int resized_bank(const uint8_t *shpi, size_t len, const char name[4], uin
     if (ok) {
         hit->width = w, hit->height = h, hit->data = pixels != NULL ? pixels : *made;
         hit->block_size = SHPI_BLOCK_AUTO;
-        ok = shpi_build(e, n, out, out_len, err);
+        ShpiHead head;   /* the bank keeps its own tag */
+        ok = shpi_describe_head(shpi, len, &head) && shpi_build_head(&head, e, n, out, out_len, err);
     }
     free(e);
     return ok;

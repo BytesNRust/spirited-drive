@@ -28,7 +28,20 @@ typedef struct {
     size_t lead_len;
 } ShpiDescEntry;
 
-/* a SHPI chunk of `n` entries in that order (malloc'd); 0 with the reason in `err`: a type other than 0x7b, 0x22 or 0x24, a bitmap
+/* The bank's own head beyond its size and count: bytes 12..15 ("WRAP" on every bank of the CD), kept by a bank rebuilt from itself or
+ * from its flat files (dep85), never made up for one that has them. */
+typedef struct {
+    char tag[4];
+    int keep_size_word;   /* 1: bytes 4..7 are `size_word`, as stored (a CD bank followed in its CFM by bytes of its own: 4 of the 78); 0: the length */
+    uint32_t size_word;
+} ShpiHead;
+
+/* shpi_build with the head `head` (NULL: a new bank's, "WRAP") */
+int shpi_build_head(const ShpiHead *head, const ShpiDescEntry *entries, size_t n, uint8_t **out, size_t *out_len, ExchangeError *err);
+/* the head of an existing SHPI: its tag, and its size word not kept (a bank rebuilt from it gets its new length); 0 when it is not one */
+int shpi_describe_head(const uint8_t *shpi, size_t size, ShpiHead *head);
+
+/* a new bank: shpi_build_head with no head. A SHPI chunk of `n` entries in that order (malloc'd); 0 with the reason in `err`: a type other than 0x7b, 0x22 or 0x24, a bitmap
  * side of 0 or past 32767, two entries of one name, no !PAL, directory places that are not 0..n-1 once each, a block size past 24
  * bits. Every pixel index is taken (0xFA..0xFF are the race's own, docs/modding/car-model.md). */
 int shpi_build(const ShpiDescEntry *entries, size_t n, uint8_t **out, size_t *out_len, ExchangeError *err);

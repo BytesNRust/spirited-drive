@@ -4,6 +4,7 @@
 #include "formats/fsh.h"
 #include "formats/le.h"
 #include "formats/png.h"
+#include "formats/shpi_build.h"
 #include "formats/tsv.h"
 
 #include <ctype.h>
@@ -14,10 +15,11 @@
 enum {
     ENTRY_HEADER = 16,
     PALETTE_BYTES = 768,
-    TAIL_MAX = 1 << 24    /* bytes after the pixels one entry may carry */
+    TAIL_MAX = 1 << 24,   /* bytes after the pixels one entry may carry */
+    LEAD_MAX = 4096       /* bytes between the directory and the first entry a bank.tsv may carry (the CD's most: 2) */
 };
 
-static const char entries_file[] = "entries.tsv";
+static const char entries_file[] = SHPI_ENTRIES_FILE;
 
 static void put_u16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
 static void put_u24(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); }
@@ -112,6 +114,43 @@ int shpi_entry_rgba(const uint8_t *data, size_t size, const char name[4], uint8_
     return 0;
 }
 
+/* entry `i`'s place in the file: the entries before it by offset, the directory's order among equals (shpi_describe's order) */
+static uint32_t physical_place(const uint8_t *head, uint32_t count, uint32_t i)
+{
+    const uint32_t at = le_u32(head + 16 + 8 * (size_t)i + 4);
+    uint32_t place = 0;
+    for (uint32_t k = 0; k < count; ++k) {
+        const uint32_t other = le_u32(head + 16 + 8 * (size_t)k + 4);
+        place += other < at || (other == at && k < i);
+    }
+    return place;
+}
+
+/* bank.tsv: the head's tag (bytes 12..15), the bytes between the directory and the first entry, and the size word (bytes 4..7: auto when
+ * it is the bank's length), each always written */
+static int write_bank_file(const uint8_t *head, size_t head_size, uint32_t count, size_t size, FileSet *out, ExchangeError *err)
+{
+    const size_t directory_end = 16 + 8 * (size_t)count;
+    TsvWriter tsv;
+    tsv_writer_init(&tsv);
+    tsv_comment(&tsv, "key\tvalue: tag is the bank's bytes 12..15, lead_hex the bytes between its directory and its first entry, size_word its bytes 4..7 (auto: its length)");
+    tsv_str(&tsv, "tag");
+    tsv_hex(&tsv, head + 12, 4);
+    tsv_row(&tsv);
+    tsv_str(&tsv, "lead_hex");
+    tsv_hex(&tsv, head + directory_end, head_size > directory_end ? head_size - directory_end : 0);
+    tsv_row(&tsv);
+    tsv_str(&tsv, "size_word");
+    const uint32_t word = le_u32(head + 4);
+    if (word == size) tsv_str(&tsv, "auto");
+    else tsv_uint(&tsv, word);
+    tsv_row(&tsv);
+    const int ok = !tsv.failed && fileset_add(out, SHPI_BANK_FILE, tsv.data, tsv.len);
+    if (!ok) exchange_fail(err, "cannot write %s", SHPI_BANK_FILE);
+    tsv_writer_free(&tsv);
+    return ok;
+}
+
 int shpi_export(const uint8_t *data, size_t size, const uint8_t *external_palette, FileSet *out, ExchangeError *err)
 {
     DocNode *doc = NULL;
@@ -142,7 +181,7 @@ int shpi_export(const uint8_t *data, size_t size, const uint8_t *external_palett
 
     TsvWriter tsv;
     tsv_writer_init(&tsv);
-    tsv_comment(&tsv, "index\tname_hex\tlabel\ttype\tblock_size\twidth\theight\tmisc0\tmisc1\tmisc2\tmisc3\tfile\ttail_hex");
+    tsv_comment(&tsv, "index\tname_hex\tlabel\ttype\tblock_size\twidth\theight\tmisc0\tmisc1\tmisc2\tmisc3\tfile\ttail_hex\tpos");
     int ok = 1;
     for (uint32_t i = 0; i < count && ok; ++i) {
         DocNode *child = NULL;
@@ -202,6 +241,7 @@ int shpi_export(const uint8_t *data, size_t size, const uint8_t *external_palett
         tsv_str(&tsv, file);
         if (bitmap) tsv_hex(&tsv, b + ENTRY_HEADER + pixels, n - ENTRY_HEADER - pixels);
         else tsv_hex(&tsv, NULL, 0);
+        tsv_uint(&tsv, physical_place(head, count, i));
         tsv_row(&tsv);
     }
     if (ok && (tsv.failed || !fileset_add(out, entries_file, tsv.data, tsv.len))) {
@@ -209,6 +249,7 @@ int shpi_export(const uint8_t *data, size_t size, const uint8_t *external_palett
         ok = 0;
     }
     tsv_writer_free(&tsv);
+    if (ok) ok = write_bank_file(head, head_size, count, size, out, err);
     doc_free(doc);
     return ok;
 }
@@ -260,6 +301,7 @@ typedef struct {
     char file[64];
     uint8_t *tail;
     size_t tail_len;
+    uint32_t pos;   /* the physical place; the index when the row has no pos (an entries.tsv of before dep85) */
 } Row;
 
 static int parse_row(const TsvRow *r, const char *source, Row *row, ExchangeError *err)
@@ -301,6 +343,11 @@ static int parse_row(const TsvRow *r, const char *source, Row *row, ExchangeErro
     if (row->tail == NULL) { exchange_fail(err, "out of memory"); return 0; }
     if (tsv_get_hex(r, 12, row->tail, hex_len / 2 + 1, &row->tail_len) != TSV_OK) {
         exchange_fail(err, "%s:%u: tail_hex is not a hex string", source, r->line);
+        return 0;
+    }
+    row->pos = row->index;
+    if (r->cells > 13 && tsv_get_uint(r, 13, &row->pos) != TSV_OK) {
+        exchange_fail(err, "%s:%u: pos is not a number", source, r->line);
         return 0;
     }
     return 1;
@@ -427,5 +474,159 @@ int shpi_import(const uint8_t *original, size_t size, const uint8_t *external_pa
     if (rows != NULL) for (uint32_t i = 0; i < count; ++i) free(rows[i].tail);
     free(rows);
     doc_free(doc);
+    return ok;
+}
+
+/* ------------------------------------------------------------------ from flat files (dep85) */
+
+/* bank.tsv: `tag` (4 bytes), `lead_hex` and `size_word`, each once; a key it does not know is refused */
+static int read_bank_file(const FileSet *in, ShpiHead *head, uint8_t *lead, size_t *lead_len, ExchangeError *err)
+{
+    const SetFile *f = fileset_find(in, SHPI_BANK_FILE);
+    if (f == NULL) { exchange_fail(err, "%s not found: a bank's head is not made up", SHPI_BANK_FILE); return 0; }
+    int tag = 0, has_lead = 0, has_size = 0, ok = 1;
+    memset(head, 0, sizeof *head);
+    TsvReader reader;
+    tsv_reader_init(&reader, f->data, f->size);
+    TsvRow r;
+    while (ok && tsv_next(&reader, &r) == TSV_OK) {
+        size_t n = 0;
+        const char *value = r.cells > 1 ? r.cell[1] : "";
+        if (strcmp(r.cell[0], "tag") == 0 && !tag) {
+            ok = r.cells > 1 && tsv_get_hex(&r, 1, (uint8_t *)head->tag, 4, &n) == TSV_OK && n == 4;
+            if (!ok) exchange_fail(err, "%s:%u: tag is 8 hex digits (4 bytes)", SHPI_BANK_FILE, r.line);
+            tag = 1;
+        } else if (strcmp(r.cell[0], "lead_hex") == 0 && !has_lead) {
+            ok = value[0] == '\0' || tsv_get_hex(&r, 1, lead, LEAD_MAX, &n) == TSV_OK;
+            if (!ok) exchange_fail(err, "%s:%u: lead_hex is not hex, or longer than %d bytes", SHPI_BANK_FILE, r.line, LEAD_MAX);
+            *lead_len = value[0] == '\0' ? 0 : n;
+            has_lead = 1;
+        } else if (strcmp(r.cell[0], "size_word") == 0 && !has_size) {
+            head->keep_size_word = strcmp(value, "auto") != 0;
+            ok = !head->keep_size_word || tsv_get_uint(&r, 1, &head->size_word) == TSV_OK;
+            if (!ok) exchange_fail(err, "%s:%u: size_word is auto or a number", SHPI_BANK_FILE, r.line);
+            has_size = 1;
+        } else {
+            exchange_fail(err, "%s:%u: '%s' is not tag, lead_hex or size_word (or is there twice)", SHPI_BANK_FILE, r.line, r.cell[0]);
+            ok = 0;
+        }
+    }
+    tsv_reader_free(&reader);
+    if (ok && (!tag || !has_lead || !has_size)) exchange_fail(err, "%s has no %s", SHPI_BANK_FILE, !tag ? "tag" : !has_lead ? "lead_hex" : "size_word"), ok = 0;
+    return ok;
+}
+
+static void free_rows(Row *rows, uint32_t n)
+{
+    for (uint32_t i = 0; rows != NULL && i < n; ++i) free(rows[i].tail);
+    free(rows);
+}
+
+/* entries.tsv's rows, in the directory's order (index 0, 1, ...), their physical places once each; *rows malloc'd */
+static int read_rows(const FileSet *in, Row **rows, uint32_t *count, ExchangeError *err)
+{
+    *rows = NULL, *count = 0;
+    const SetFile *table = fileset_find(in, entries_file);
+    if (table == NULL) { exchange_fail(err, "%s not found", entries_file); return 0; }
+    uint32_t cap = 0;
+    int ok = 1;
+    TsvReader reader;
+    tsv_reader_init(&reader, table->data, table->size);
+    TsvRow tr;
+    while (ok && tsv_next(&reader, &tr) == TSV_OK) {
+        if (*count == cap) {
+            Row *grown = realloc(*rows, (cap = cap ? 2 * cap : 16) * sizeof **rows);
+            if (grown == NULL) { exchange_fail(err, "out of memory"); ok = 0; break; }
+            *rows = grown;
+        }
+        Row *row = &(*rows)[*count];
+        ok = parse_row(&tr, entries_file, row, err);
+        ++*count;   /* its tail is freed with the others, read or not */
+        if (ok && row->index != *count - 1) exchange_fail(err, "%s:%u: entry %u where %u was due", entries_file, tr.line, row->index, *count - 1), ok = 0;
+    }
+    tsv_reader_free(&reader);
+    if (ok && *count == 0) exchange_fail(err, "%s lists no entry", entries_file), ok = 0;
+    uint8_t *taken = ok ? calloc(*count, 1) : NULL;
+    if (ok && taken == NULL) exchange_fail(err, "out of memory"), ok = 0;
+    for (uint32_t i = 0; ok && i < *count; ++i)
+        if ((*rows)[i].pos >= *count || taken[(*rows)[i].pos]++)
+            exchange_fail(err, "%s: entry %u's pos %u is taken or past the %u entries", entries_file, i, (*rows)[i].pos, *count), ok = 0;
+    free(taken);
+    if (!ok) free_rows(*rows, *count), *rows = NULL, *count = 0;
+    return ok;
+}
+
+/* the reference palette from the rows: the first palette entry in the directory's order (shpi_export's), else external, else grey */
+static int flat_palette(const FileSet *in, const Row *rows, uint32_t count, const uint8_t *external, uint8_t rgb[PALETTE_BYTES], ExchangeError *err)
+{
+    for (uint32_t i = 0; i < count; ++i) {
+        if (!is_palette(rows[i].type)) continue;
+        const SetFile *f = fileset_find(in, rows[i].file);
+        if (f == NULL || f->size < PALETTE_BYTES) {
+            exchange_fail(err, "%s: palette file '%s' missing or shorter than 768 bytes", entries_file, rows[i].file);
+            return 0;
+        }
+        expand_palette(rows[i].type, f->data, rgb);
+        return 1;
+    }
+    if (external != NULL) memcpy(rgb, external, PALETTE_BYTES);
+    else grey_ramp(rgb);
+    return 1;
+}
+
+/* row `i` as an entry: a bitmap's indices from its PNG (malloc'd in *owned), another entry's bytes from its file (data, then the rest as tail) */
+static int flat_entry(const FileSet *in, const Row *row, uint32_t i, const uint8_t rgb[PALETTE_BYTES], ShpiDescEntry *e, uint8_t **owned,
+                      ImportStats *stats, ExchangeError *err)
+{
+    memset(e, 0, sizeof *e);
+    memcpy(e->name, row->name, 4);
+    e->type = row->type, e->width = (uint16_t)row->width, e->height = (uint16_t)row->height, e->dir_index = i;
+    for (int m = 0; m < 4; ++m) e->misc[m] = (int16_t)row->misc[m];
+    const SetFile *f = fileset_find(in, row->file);
+    if (f == NULL) { exchange_fail(err, "%s: file '%s' (entry %u) not found", entries_file, row->file, i); return 0; }
+    if (!is_bitmap(row->type)) {
+        const size_t data = is_palette(row->type) ? PALETTE_BYTES : 0;
+        if (f->size < data) { exchange_fail(err, "%s: shorter than a palette's 768 bytes", row->file); return 0; }
+        e->data = f->data, e->tail = f->data + data, e->tail_len = f->size - data;
+        e->block_size = row->auto_block ? SHPI_BLOCK_AUTO : row->block_size;
+        return 1;
+    }
+    PngImage img;
+    const PngResult pr = png_read(f->data, f->size, &img);
+    if (pr != PNG_OK) { exchange_fail(err, "%s: %s", row->file, png_result_str(pr)); return 0; }
+    int ok = img.width == row->width && img.height == row->height;
+    if (!ok) exchange_fail(err, "%s: image is %ux%u but %s says %ux%u (edit both to resize)", row->file, img.width, img.height, entries_file, row->width, row->height);
+    *owned = ok ? malloc((size_t)img.width * img.height) : NULL;
+    if (ok && *owned == NULL) exchange_fail(err, "out of memory"), ok = 0;
+    if (ok) to_indices(&img, rgb, *owned, stats);
+    png_free(img.pixels);
+    e->data = *owned, e->tail = row->tail, e->tail_len = row->tail_len;
+    e->block_size = row->auto_block ? (uint32_t)(ENTRY_HEADER + (size_t)row->width * row->height) : row->block_size;
+    return ok;
+}
+
+int shpi_from_flat(const FileSet *in, const uint8_t *external_palette, uint8_t **out, size_t *out_len, ImportStats *stats, ExchangeError *err)
+{
+    *out = NULL, *out_len = 0;
+    memset(stats, 0, sizeof *stats);
+    ShpiHead head;
+    uint8_t lead[LEAD_MAX];
+    size_t lead_len = 0;
+    Row *rows = NULL;
+    uint32_t count = 0;
+    if (!read_bank_file(in, &head, lead, &lead_len, err) || !read_rows(in, &rows, &count, err)) return 0;
+    uint8_t rgb[PALETTE_BYTES];
+    ShpiDescEntry *placed = calloc(count, sizeof *placed);
+    uint8_t **owned = calloc(count, sizeof *owned);
+    int ok = placed != NULL && owned != NULL;
+    if (!ok) exchange_fail(err, "out of memory");
+    ok = ok && flat_palette(in, rows, count, external_palette, rgb, err);
+    for (uint32_t i = 0; ok && i < count; ++i) ok = flat_entry(in, &rows[i], i, rgb, &placed[rows[i].pos], &owned[i], stats, err);
+    if (ok) placed[0].lead = lead_len > 0 ? lead : NULL, placed[0].lead_len = lead_len;
+    ok = ok && shpi_build_head(&head, placed, count, out, out_len, err);
+    for (uint32_t i = 0; owned != NULL && i < count; ++i) free(owned[i]);
+    free(owned);
+    free(placed);
+    free_rows(rows, count);
     return ok;
 }

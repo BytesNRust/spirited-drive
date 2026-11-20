@@ -61,7 +61,8 @@ static uint8_t *small_cfm(size_t *len)
     uint8_t *mesh = NULL, *bank = NULL, *cfm = NULL;
     size_t mesh_len = 0, bank_len = 0;
     ExchangeError err = { { 0 } };
-    int ok = mesh_build(&m, &mesh, &mesh_len, &err) && shpi_build(e, 2, &bank, &bank_len, &err);
+    const ShpiHead head = { { 'A', 'B', 'C', 'D' }, 0, 0 };   /* a tag of its own: an added texture keeps it */
+    int ok = mesh_build(&m, &mesh, &mesh_len, &err) && shpi_build_head(&head, e, 2, &bank, &bank_len, &err);
     if (ok) {
         const uint8_t *const child[CFM_CHILDREN] = { mesh, bank, mesh, bank };
         const size_t clen[CFM_CHILDREN] = { mesh_len, bank_len, mesh_len, bank_len };
@@ -139,6 +140,10 @@ static void test_small(void)
     ExchangeError err = { { 0 } };
     CHECK(car_texture_add(cfm, len, 0, "badg", "badge", px, 6, 4, &out, &n1, &ref, &err));
     if (out != NULL) check_added(cfm, len, out, n1, 0, "badg", "badge", px, 6, 4, ref);
+    const uint8_t *kid[CFM_CHILDREN];
+    size_t kid_len[CFM_CHILDREN];
+    ShpiHead kept;
+    CHECK(out != NULL && cfm_describe(out, n1, kid, kid_len, &err) && shpi_describe_head(kid[1], kid_len[1], &kept) && memcmp(kept.tag, "ABCD", 4) == 0);
     /* a second one, on the far level */
     CHECK(out != NULL && car_texture_add(out, n1, 1, "rr02", "rr02", px, 4, 6, &again, &n2, &ref, &err));
     if (again != NULL) check_added(out, n1, again, n2, 1, "rr02", "rr02", px, 4, 6, ref);

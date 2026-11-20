@@ -151,7 +151,8 @@ static uint8_t *small_cfm(size_t *len)
     uint8_t *mesh = NULL, *bank = NULL, *cfm = NULL;
     size_t mesh_len = 0, bank_len = 0;
     ExchangeError err = { { 0 } };
-    int ok = mesh_build(&m, &mesh, &mesh_len, &err) && shpi_build(e, 4, &bank, &bank_len, &err);
+    const ShpiHead head = { { 'A', 'B', 'C', 'D' }, 0, 0 };   /* a tag of its own: a resized texture keeps it */
+    int ok = mesh_build(&m, &mesh, &mesh_len, &err) && shpi_build_head(&head, e, 4, &bank, &bank_len, &err);
     if (ok) {
         const uint8_t *const child[CFM_CHILDREN] = { mesh, bank, mesh, bank };
         const size_t clen[CFM_CHILDREN] = { mesh_len, bank_len, mesh_len, bank_len };
@@ -197,6 +198,8 @@ static void test_cfm(void)
     size_t was_len[CFM_CHILDREN];
     CHECK(out != NULL && level_of(out, out_len, 0, &m, e, 8, &n, child, clen));
     CHECK(cfm_describe(cfm, len, was, was_len, &err));
+    ShpiHead kept;
+    CHECK(out != NULL && shpi_describe_head(child[1], clen[1], &kept) && memcmp(kept.tag, "ABCD", 4) == 0);
     if (out != NULL && n == 4) {
         const ShpiDescEntry *r = find(e, n, "rsid"), *d = find(e, n, "door");
         CHECK(r != NULL && r->width == 200 && r->height == 75);

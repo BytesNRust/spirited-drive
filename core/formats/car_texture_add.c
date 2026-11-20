@@ -59,7 +59,8 @@ static int bank_with(const uint8_t *shpi, size_t len, const char *name, const ui
         memset(x, 0, sizeof *x);
         memcpy(x->name, name, 4);
         x->type = 0x7b, x->width = w, x->height = h, x->data = pixels, x->block_size = SHPI_BLOCK_AUTO, x->dir_index = (uint32_t)n;
-        ok = shpi_build(e, n + 1, out, out_len, err);
+        ShpiHead head;   /* the bank keeps its own tag */
+        ok = shpi_describe_head(shpi, len, &head) && shpi_build_head(&head, e, n + 1, out, out_len, err);
     }
     free(e);
     return ok;
