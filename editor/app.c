@@ -95,6 +95,8 @@ static int car_into(App *a, const char *dir)
     snprintf(a->dir, sizeof a->dir, "%s", a->car.root);
     a->kind = APP_KIND_CAR;
     a->race_track = car_race_default_track(car_race_original_of(&a->car));
+    a->mask.opacity = 0;
+    app_mask_scan(a);
     set_status(a, a->car.masks_only ? "opened: a masks project (made from the game's files: for your own use, do not share)" : "opened: edit the card and the colors; Save writes mod.ini only");
     return 1;
 }
@@ -172,6 +174,7 @@ void app_free(App *a)
     car_race_free(&a->race);
     rehacer_free(&a->rehacer);
     car_edit_free(&a->edit);
+    mask_edit_free(&a->mask.me);
     free(a->trace.points);
     drop_road(a);
     a->trace.points = NULL;
@@ -256,7 +259,7 @@ void app_select_node(App *a, int node)
 
 int app_modified(const App *a)
 {
-    if (a->kind == APP_KIND_CAR) return car_edit_modified(&a->edit);
+    if (a->kind == APP_KIND_CAR) return car_edit_modified(&a->edit) || app_mask_modified(a);
     return a->kind == APP_KIND_TRACK && session_fingerprint(&a->trace) != a->saved_print;
 }
 
@@ -393,13 +396,17 @@ static int track_open(App *a)
 int app_save(App *a)
 {
     char why[APP_MSG];
-    if (a->kind == APP_KIND_CAR && a->car.masks_only) return set_status(a, "a masks project has no card to save: its masks are the PNG files in car_masks/"), 0;
-    if (a->kind == APP_KIND_CAR) {   /* the card: only mod.ini, only the lines that changed */
+    if (a->kind == APP_KIND_CAR && a->car.masks_only) {   /* no card: only the mask being edited */
+        if (a->mask.sel < 0) return set_status(a, "a masks project has no card to save: open a mask in Edit mask, or use your picture editor on the PNG files in car_masks/"), 0;
+        return app_mask_save(a);
+    }
+    if (a->kind == APP_KIND_CAR) {   /* the card: only mod.ini, only the lines that changed; and the mask being edited */
         const int changed = car_edit_modified(&a->edit);
         if (!car_edit_save(&a->edit, why, sizeof why)) {
             set_status(a, why);
             return 0;
         }
+        if (a->mask.sel >= 0 && app_mask_modified(a)) return app_mask_save(a);
         set_status(a, changed ? "saved mod.ini" : "nothing to save: mod.ini is as it was");
         return 1;
     }
@@ -633,6 +640,7 @@ static void reload_car(App *a)
         car_edit_free(&a->edit);
         a->edit = next;
     }
+    app_mask_scan(a);   /* the script may have changed the textures and the masks */
 }
 
 int app_rehacer(App *a)
@@ -643,6 +651,7 @@ int app_rehacer(App *a)
     if (a->rehacer.run.running) return set_status(a, "Rehacer is already running"), 0;
     if (!rehacer_script_present(a->dir)) return set_status(a, "this kit has no rehacer.command, so there is nothing to run"), 0;
     if (car_edit_modified(&a->edit)) return set_status(a, "mod.ini has changes that are not saved: save them first, then run Rehacer"), 0;
+    if (app_mask_modified(a)) return set_status(a, "a mask has changes that are not saved: save them first, then run Rehacer"), 0;
     rehacer_free(&a->rehacer);
     rehacer_stamp(stamp, sizeof stamp);
     if (!rehacer_backup(a->dir, stamp, REHACER_KEEP, REHACER_BACKUP_MAX_MB, a->rehacer.backup, sizeof a->rehacer.backup, why, sizeof why)) {

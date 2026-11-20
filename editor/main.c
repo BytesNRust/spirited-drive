@@ -41,6 +41,9 @@ typedef struct {
     const char *export_car, *export_into, *cd, *port_data;   /* --export-car STEM --into DIR, --cd DIR, --port-data DIR: Export original car without the window's dialogs */
     int race_photo, night;    /* --race-photo: take the race photo before the first frame (a headless run waits for it); --night: the Night preset */
     const char *track, *race_png;   /* --track STEM, --race-png FILE: the track and where the photo is also written */
+    const char *mask;        /* --mask NAME: the mask (topv, frnt_lo) opened in Edit mask before the first frame */
+    const char *mask_rect[8];   /* --mask-rect X,Y,W,H,CLASS: a rectangle of the open mask set to a class value (one step each), for a headless picture of an edit */
+    int mask_rect_count, mask_save;   /* --mask-save: the mask is saved before the first frame */
     int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
@@ -50,7 +53,8 @@ static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
-                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png]]\n");
+                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png]]\n"
+                    "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]]\n");
     return 0;
 }
 
@@ -80,6 +84,9 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
         else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
         else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
+        else if (strcmp(argv[i], "--mask") == 0 && has_value) o->mask = argv[++i];
+        else if (strcmp(argv[i], "--mask-rect") == 0 && has_value && o->mask_rect_count < 8) o->mask_rect[o->mask_rect_count++] = argv[++i];
+        else if (strcmp(argv[i], "--mask-save") == 0) o->mask_save = 1;
         else if (strcmp(argv[i], "--rehacer") == 0) o->rehacer = 1;
         else if (strcmp(argv[i], "--edit") == 0) o->edit = 1;
         else if (strcmp(argv[i], "--save") == 0) o->save = 1;
@@ -241,6 +248,25 @@ static int run_requested(App *a, const Options *o)
         if (!made && a->status[0] == '\0') snprintf(a->status, sizeof a->status, "--export-car %s needs a car of the list and --into PARENT", o->export_car);
         fprintf(made ? stdout : stderr, "%s\n", a->status);
         ok &= made;
+    }
+    if (o->mask != NULL) {   /* Edit mask, headless: the mask is opened, painted in rectangles, saved */
+        int done = app_mask_open_by_name(a, o->mask);
+        for (int i = 0; done && i < o->mask_rect_count; ++i) {
+            int x, y, w, h, cls;
+            if (sscanf(o->mask_rect[i], "%d,%d,%d,%d,%d", &x, &y, &w, &h, &cls) != 5 || w < 1 || h < 1) {
+                snprintf(a->status, sizeof a->status, "--mask-rect wants X,Y,W,H,CLASS: %s", o->mask_rect[i]);
+                done = 0;
+                break;
+            }
+            mask_edit_stroke_begin(&a->mask.me);
+            for (int yy = y; yy < y + h; ++yy)
+                for (int xx = x; xx < x + w; ++xx) mask_edit_pencil(&a->mask.me, xx, yy, 1, (uint8_t)cls);
+            mask_edit_stroke_end(&a->mask.me);
+        }
+        if (done && o->mask_save) done = app_mask_save(a);
+        if (!done && a->mask.error[0] != '\0') snprintf(a->status, sizeof a->status, "%s", a->mask.error);
+        fprintf(done ? stdout : stderr, "%s\n", a->status);
+        ok &= done;
     }
     if (o->race_photo) {   /* Race photo, headless: the game is run and waited for, the picture is in the Race window */
         if (o->track != NULL && car_race_track_find(o->track) >= 0) a->race_track = car_race_track_find(o->track);

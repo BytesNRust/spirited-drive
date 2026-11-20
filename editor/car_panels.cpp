@@ -216,8 +216,8 @@ void car_shortcuts(App *a)
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal) && !app_rehacer_busy(a)) app_save(a);
     if (app_rehacer_busy(a)) return;   // the script is working on the kit: the card is not edited meanwhile
     if (io.WantTextInput) return;   // a text box has its own Ctrl+Z while it has the keyboard
-    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal) || ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal)) car_edit_redo(&a->edit);
-    else if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal)) car_edit_undo(&a->edit);
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal) || ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal)) app_redo(a);
+    else if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal)) app_undo(a);
 }
 
 // the facts of a masks project, read only: there is no card to edit

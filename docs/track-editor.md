@@ -147,6 +147,18 @@ the tarmac the surface changes and the walls start further out. In `trace.json` 
 node): the distance of each edge from the centre in eighths of a metre (VERGE_UNIT 0x2000 in 16.16, game/race/car_walls.c), so metres = byte / 4
 and the template's 40 is 10 m. The terrain rows move by the same amount, 16 raw per byte (0.125 m).
 
+## Edit mask
+
+The **Edit mask** window (a tab beside Textures and Race) paints a car's masks. Pick a texture of the car file (the ones with a mask in `car_masks/<car>/`; the low detail bank's are marked "low"): the mask is drawn over the texture, each class in its legend colour, with an Overlay switch, an Opacity slider and a switch per class. The class chosen in the legend is the one the tools paint with.
+
+- **Pencil**: a square of 1 to 8 texels; drag to draw a line (one step to undo). **Fill**: the connected texels of the same mask class, or of the same texture colour. **Eyedropper**: takes the class under the click.
+- **Undo / Redo** (Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y while the window has the keyboard), **Save mask** (Ctrl+S too), **Discard**.
+- Save writes the mask as the 8-bit grey PNG of `data/car_masks`: the same name and size, every texel outside the edit as it was; a mask with no change is not rewritten. Changing texture, closing the project or running Rehacer with unsaved mask changes asks first.
+- A mask whose size is not its texture's says both sizes: the game scales the mask to the texture (nearest neighbour), so the Studio shows it scaled the same way.
+- **Race photo** (or **Save, then Race photo** when there are changes) runs the game on the saved masks and shows the picture in the Race window.
+
+Headless: `--mask NAME` (`side`, `frnt_lo`) opens a mask, `--mask-rect X,Y,W,H,CLASS` paints a rectangle of it (repeatable, one step each), `--mask-save` saves it; with `--shot` the picture is the window.
+
 ## Headless run
 
 For a smoke run (no window events, no sound):

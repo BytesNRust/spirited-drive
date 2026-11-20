@@ -4,6 +4,8 @@
 #define TNFS_TRACK_EDITOR_APP_H
 
 #include "car_edit.h"
+#include "mask_edit.h"
+#include "mask_tex.h"
 #include "car_export.h"
 #include "car_rehacer.h"
 #include "car_project.h"
@@ -41,10 +43,31 @@ typedef enum {
 /* the answers to "unsaved changes" */
 enum { APP_ANSWER_CANCEL = 0, APP_ANSWER_DISCARD = 1, APP_ANSWER_SAVE = 2 };
 
+/* the mask editor of the open car (dep59 car editor E3): the textures of its CFM, the mask being edited and the tools */
+typedef enum { MASK_TOOL_PENCIL = 0, MASK_TOOL_FILL, MASK_TOOL_PICK } MaskTool;
+
+typedef struct {
+    MaskTexInfo tex[MASK_TEX_LIST];   /* the textures of the car file, both banks */
+    int tex_count;
+    char has_mask[MASK_TEX_LIST];     /* the car's masks folder holds the texture's mask */
+    int sel;                          /* the texture being edited (index into tex), -1 for none */
+    MaskEdit me;                      /* its mask, when sel >= 0 */
+    char note[256];                   /* the size note of the open mask, "" when it matches its texture */
+    char error[APP_MSG];         /* why a mask could not be opened or saved, until the next try */
+    int tool, brush, cls;             /* MaskTool; the pencil's size 1..8; the legend index of the class the pencil and fill paint */
+    int fill_by_texture;              /* 0: the fill takes the texels of the same class, 1: of the same texture colour */
+    int show, class_on[ME_CLASSES];   /* the overlay on or off, and each class of it */
+    float opacity;                    /* 0..1 */
+    float zoom;                       /* screen pixels a mask texel; 0: fit the window (the panel sets it) */
+    int focus;                        /* the Edit mask window has the keyboard: Ctrl+Z is the mask's (set by the panel every frame) */
+    int saved_since_race;             /* a mask was saved: Race photo shows the result */
+} MaskUi;
+
 typedef struct {
     AppKind kind;                /* what is open: the track fields below are read for APP_KIND_TRACK, `car` for APP_KIND_CAR */
     CarProject car;              /* the car project, when kind is APP_KIND_CAR */
     Rehacer rehacer;             /* the kit's rehacer.command, running or last run (car_rehacer.h) */
+    MaskUi mask;                 /* the mask editor (editor/mask_edit.h), when kind is APP_KIND_CAR */
     CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
     char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */
     char game[APP_PATH];         /* the game program, run for install */
@@ -122,6 +145,21 @@ void app_set_export_source(App *a, const ExportSource *src);
 /* Makes the project of the exported car a->export_pick in a folder named for it inside `parent` and opens it (car_export): the window stays as it was, with
  * open_error saying why, when it cannot. 1 when it is open. */
 int app_export_car(App *a, const char *parent);
+
+/* The mask editor (E3). app_mask_scan lists the textures of the open car's file and which have a mask in car_masks/<folder>/ (done when a car opens and after Rehacer);
+ * app_mask_open edits texture `index` (what is open must not have changes: the panel asks first), app_mask_save writes the mask (same size, the edit only),
+ * app_mask_close lets it go. app_mask_open_by_name takes "topv" or "frnt_lo" (the mask file's name without _mask.png). Each sets the status and mask.error when it refuses. */
+void app_mask_scan(App *a);
+int app_mask_open(App *a, int index);
+int app_mask_open_by_name(App *a, const char *name);
+int app_mask_save(App *a);
+void app_mask_close(App *a);
+/* Undo and redo of what has the keyboard: the mask when the Edit mask window does, else the card */
+int app_undo(App *a);
+int app_redo(App *a);
+int app_can_undo(const App *a);
+int app_can_redo(const App *a);
+int app_mask_modified(const App *a);
 
 void app_free(App *a);
 

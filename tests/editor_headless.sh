@@ -200,6 +200,26 @@ grep -q "exit code 3" "$work/log" || fail "the game's exit code is not told: $(c
 "$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --track TR5 --frames 2 >"$work/log" 2>&1 && fail "a traffic car was raced on a circuit"
 grep -q "no traffic" "$work/log" || fail "no word about the circuit: $(cat "$work/log")"
 ls "${TMPDIR:-/tmp}" | grep -q '^studio-race-' && fail "a scratch folder of a race was left behind"
+# Edit mask: a car file with no textures offers none (the fixture's is not a real one); with the player's real game files a traffic car's mask is opened, painted, saved
+# (a grey PNG of the same size) and drawn, and a texture the car has no mask for is refused
+"$editor" "$work/exports/wagon-masks" --mask side --frames 2 >"$work/log" 2>&1 && fail "a mask was opened of a car file that has no textures"
+grep -q "no texture side" "$work/log" || fail "no word that the car file has no such texture: $(cat "$work/log")"
+repo=$(cd "$(dirname "$0")/.." && pwd)
+if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_masks/Wagon" ]; then
+    mkdir "$work/real"
+    "$editor" --export-car Wagon --into "$work/real" --cd "$repo/original" --port-data "$repo/data" --frames 1 >"$work/log" 2>&1 || fail "export of the real Wagon: $(cat "$work/log")"
+    m="$work/real/wagon-masks/car_masks/Wagon/side_mask.png"
+    "$editor" "$work/real/wagon-masks" --mask side --frames 8 --shot "$work/mask-before.png" >"$work/log" 2>&1 || fail "Edit mask of the real Wagon: $(cat "$work/log")"
+    cmp -s "$m" "$repo/data/car_masks/Wagon/side_mask.png" || fail "opening a mask changed the file"
+    "$editor" "$work/real/wagon-masks" --mask side --mask-rect 142,26,8,5,248 --mask-save --frames 8 --shot "$work/mask-after.png" >"$work/log" 2>&1 || fail "Edit mask with a painted rectangle: $(cat "$work/log")"
+    grep -q "saved side_mask.png" "$work/log" || fail "no word that the mask was saved: $(cat "$work/log")"
+    cmp -s "$m" "$repo/data/car_masks/Wagon/side_mask.png" && fail "the saved mask is the game's file: nothing was written"
+    [ ! -e "$m.saving" ] || fail "a temporary file of the Save was left behind"
+    cmp -s "$work/mask-before.png" "$work/mask-after.png" && fail "the edit did not change the picture"
+    [ -s "$work/mask-after.png" ] || fail "no PNG of the Edit mask window"
+    "$editor" "$work/real/wagon-masks" --mask nosuch --frames 2 >"$work/log" 2>&1 && fail "a texture the car has not was opened"
+    "$editor" "$work/real/wagon-masks" --mask side --mask-rect 1,2,3 --frames 2 >"$work/log" 2>&1 && fail "a bad --mask-rect was taken"
+fi
 "$editor" --no-such-option >/dev/null 2>&1 && fail "an unknown option was accepted"
 [ "$failures" -eq 0 ] && echo "editor_headless: ok"
 exit "$failures"
