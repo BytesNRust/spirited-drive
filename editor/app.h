@@ -370,6 +370,7 @@ int app_psd_psd_dir(const App *a, char *out, size_t cap);
 int app_psd_start(App *a);
 int app_psd_poll(App *a);
 int app_psd_busy(const App *a);
+void app_psd_stop(App *a);
 /* the car's lists (project, textures, masks) and its card read again, as after Rehacer or Convert PSD */
 void app_car_reread(App *a);
 void app_install_stop(App *a);   /* asks the installer to end (a hung one): app_install_poll says "install failed: the install was stopped" */

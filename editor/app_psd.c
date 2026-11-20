@@ -18,6 +18,11 @@ static int has_scripts(const char *tools)
     return join(p, sizeof p, tools, "car_mask_from_psd.py") && access(p, R_OK) == 0;
 }
 
+void app_psd_stop(App *a)
+{
+    psd_job_stop(&a->psd);
+}
+
 void app_psd_setup(App *a, const char *base, const char *root)
 {
     a->tools[0] = a->psd_root[0] = '\0';
@@ -63,7 +68,9 @@ int app_psd_poll(App *a)
     if (!psd_job_busy(&a->psd)) return 0;
     if (psd_job_poll(&a->psd)) return 1;
     snprintf(a->status, sizeof a->status, "%s", a->psd.text);
-    if (a->psd.ok) {
+    if (a->psd.ok && app_mask_modified(a)) {   /* a mask was opened and edited while it ran: its edits are not dropped; the lists are read at the next Rehacer or open */
+        snprintf(a->status, sizeof a->status, "%s The open mask has unsaved changes, so the lists were not read again: Save or Discard it, then reopen the car.", a->psd.text);
+    } else if (a->psd.ok) {
         app_car_reread(a);   /* the lists, and the masks read again (a mask that was open is closed: it was just remade) */
     }
     return 0;

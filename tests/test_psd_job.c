@@ -171,6 +171,31 @@ static void test_dash_and_refusals(void)
     psd_job_free(&job);
 }
 
+/* the dash cannot be written (a file where its folder should be): the body masks are not replaced either */
+static void test_half_written_never(void)
+{
+    PsdJob job;
+    char why[300];
+    psd_job_init(&job);
+    put("psd/TSupra/dash.psd", "dash psd");
+    put("proj/car_masks/TSUPRA/side_mask.png", "the old side");
+    char p[700];
+    path_of(p, sizeof p, "proj/dash_masks/TSUPRA/dash_mask.png"), unlink(p);
+    path_of(p, sizeof p, "proj/dash_masks/TSUPRA/dash_color.png"), unlink(p);
+    path_of(p, sizeof p, "proj/dash_masks/TSUPRA"), rmdir(p);
+    path_of(p, sizeof p, "proj/dash_masks"), rmdir(p);
+    CHECK(put("proj/dash_masks", "a file in the way"));
+    CHECK(psd_job_start(&job, tools, psd_dir, "TSUPRA", piece, why, sizeof why));
+    run_to_end(&job);
+    CHECK(job.finished && !job.ok && strstr(job.text, "nothing was changed") != NULL);
+    CHECK(content_is("proj/car_masks/TSUPRA/side_mask.png", "the old side"));
+    CHECK(!exists("proj/car_masks/TSUPRA/frnt_mask.png.psdtmp") && !exists("proj/car_masks/TSUPRA/side_mask.png.psdtmp"));
+    path_of(p, sizeof p, "proj/dash_masks"), unlink(p);
+    psd_job_free(&job);
+    CHECK(!psd_job_start(&job, tools, psd_dir, "../x", piece, why, sizeof why) && strstr(why, "too long") != NULL);   /* a folder name that is not one */
+    psd_job_free(&job);
+}
+
 static void remove_tree(void)
 {
     const char *files[] = { "tools/car_mask_from_psd.py", "tools/dash_mask_from_psd.py", "psd/TSupra/side.psd", "psd/TSupra/frnt.psd", "psd/TSupra/side.before-1603.psd", "psd/TSupra/dash.psd",
@@ -196,6 +221,7 @@ int main(void)
     test_body_masks();
     test_failure_leaves_the_project();
     test_dash_and_refusals();
+    test_half_written_never();
     remove_tree();
     return TEST_REPORT();
 }

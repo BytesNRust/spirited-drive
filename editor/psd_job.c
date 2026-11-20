@@ -26,6 +26,12 @@ static int is_dir(const char *path)
     return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
+static int is_real_dir(const char *path)   /* a symbolic link is not followed */
+{
+    struct stat st;
+    return lstat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}
+
 static int join(char *out, size_t cap, const char *a, const char *b)
 {
     const int n = snprintf(out, cap, "%s/%s", a, b);
@@ -63,7 +69,7 @@ static void remove_files_in(const char *dir)
     for (const struct dirent *e = readdir(d); e != NULL; e = readdir(d)) {
         char path[PSD_PATH];
         if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0 || !join(path, sizeof path, dir, e->d_name)) continue;
-        if (is_dir(path)) remove_files_in(path), rmdir(path);
+        if (is_real_dir(path)) remove_files_in(path), rmdir(path);
         else unlink(path);
     }
     closedir(d);
@@ -79,9 +85,7 @@ static void clean_scratch(PsdJob *job)
 
 static int copy_file(const char *from, const char *to)
 {
-    char tmp[PSD_PATH + 8];
-    if (snprintf(tmp, sizeof tmp, "%s.tmp", to) >= (int)sizeof tmp) return 0;
-    FILE *in = fopen(from, "rb"), *out = in != NULL ? fopen(tmp, "wb") : NULL;
+    FILE *in = fopen(from, "rb"), *out = in != NULL ? fopen(to, "wb") : NULL;
     int ok = in != NULL && out != NULL;
     char buf[8192];
     size_t n;
@@ -89,13 +93,24 @@ static int copy_file(const char *from, const char *to)
     if (ok) ok = !ferror(in);
     if (in != NULL) fclose(in);
     if (out != NULL) ok = fclose(out) == 0 && ok;
-    if (ok) ok = rename(tmp, to) == 0;
-    if (!ok) remove(tmp);
     return ok;
 }
 
-/* every PNG the script wrote below `from` (one folder a car, PNG files) into <piece>/<kind>/<folder>/; the count, -1 on a failed write */
-static int copy_pngs(const PsdJob *job, const char *from, const char *kind)
+/* a file written next to its place and not yet in it: all of a conversion's are made first, then all are renamed (a failed write leaves the project untouched) */
+enum { STAGE_MAX = 256 };
+typedef struct {
+    char tmp[STAGE_MAX][PSD_PATH + 8], to[STAGE_MAX][PSD_PATH];
+    int count;
+} Staged;
+
+static void unstage(Staged *st)
+{
+    for (int i = 0; i < st->count; i++) remove(st->tmp[i]);
+    st->count = 0;
+}
+
+/* every PNG the script wrote below `from` (one folder a car, PNG files) copied beside its place in <piece>/<kind>/<folder>/; the count, -1 on a failure */
+static int stage_pngs(const PsdJob *job, const char *from, const char *kind, Staged *st)
 {
     char top[PSD_PATH], dest[PSD_PATH];
     if (!join(top, sizeof top, job->piece, kind) || !join(dest, sizeof dest, top, job->folder)) return -1;
@@ -104,14 +119,21 @@ static int copy_pngs(const PsdJob *job, const char *from, const char *kind)
     int count = 0;
     for (const struct dirent *e = readdir(d); e != NULL && count >= 0; e = readdir(d)) {
         char sub[PSD_PATH];
-        if (e->d_name[0] == '.' || !join(sub, sizeof sub, from, e->d_name) || !is_dir(sub)) continue;
+        if (e->d_name[0] == '.' || !join(sub, sizeof sub, from, e->d_name) || !is_real_dir(sub)) continue;
         DIR *s = opendir(sub);
         for (const struct dirent *f = s != NULL ? readdir(s) : NULL; f != NULL && count >= 0; f = readdir(s)) {
             const size_t len = strlen(f->d_name);
-            char src[PSD_PATH], to[PSD_PATH];
+            char src[PSD_PATH];
             if (len < 5 || strcmp(f->d_name + len - 4, ".png") != 0 || !join(src, sizeof src, sub, f->d_name)) continue;
-            if ((mkdir(top, 0755) != 0 && errno != EEXIST) || (mkdir(dest, 0755) != 0 && errno != EEXIST) || !join(to, sizeof to, dest, f->d_name) || !copy_file(src, to)) count = -1;
-            else count++;
+            const int slot = st->count;
+            if (slot >= STAGE_MAX || (mkdir(top, 0755) != 0 && errno != EEXIST) || (mkdir(dest, 0755) != 0 && errno != EEXIST) || !join(st->to[slot], sizeof st->to[slot], dest, f->d_name) ||
+                snprintf(st->tmp[slot], sizeof st->tmp[slot], "%s.psdtmp", st->to[slot]) >= (int)sizeof st->tmp[slot])
+                count = -1;
+            else {
+                st->count++;
+                if (copy_file(src, st->tmp[slot])) count++;
+                else count = -1;
+            }
         }
         if (s != NULL) closedir(s);
     }
@@ -134,15 +156,38 @@ static void fail(PsdJob *job, const char *what)
 static void finish(PsdJob *job)
 {
     char from[PSD_PATH];
-    if (!join(from, sizeof from, job->scratch, "masks")) { fail(job, "a path is too long"); return; }
-    job->masks = copy_pngs(job, from, "car_masks");
-    if (job->masks < 0) { fail(job, "a mask could not be written into the project"); return; }
+    Staged *st = calloc(1, sizeof *st);
+    if (st == NULL) {
+        fail(job, "out of memory");
+        return;
+    }
+    if (!join(from, sizeof from, job->scratch, "masks")) {
+        fail(job, "a path is too long");
+        free(st);
+        return;
+    }
+    job->masks = stage_pngs(job, from, "car_masks", st);
+    if (job->masks > 0 && join(from, sizeof from, job->scratch, "dash")) job->dash_files = stage_pngs(job, from, "dash_masks", st);
+    if (job->masks < 0 || job->dash_files < 0) {
+        unstage(st);
+        free(st);
+        fail(job, "a file could not be written into the project (nothing was changed)");
+        return;
+    }
     if (job->masks == 0) {
+        free(st);
         fail(job, "the script wrote no masks (does each PSD have a \"mask\" layer?)");
         return;
     }
-    if (join(from, sizeof from, job->scratch, "dash")) job->dash_files = copy_pngs(job, from, "dash_masks");
-    if (job->dash_files < 0) { fail(job, "a dash file could not be written into the project"); return; }
+    int renamed = 0;
+    for (int i = 0; i < st->count; i++) renamed += rename(st->tmp[i], st->to[i]) == 0;
+    if (renamed != st->count) {
+        unstage(st);
+        free(st);
+        fail(job, "some files could not be put in place: the project may hold part of the new masks");
+        return;
+    }
+    free(st);
     snprintf(job->text, sizeof job->text, "Converted %d mask%s from %s%s.", job->masks, job->masks == 1 ? "" : "s", job->psd_dir, job->dash_files > 0 ? ", and the dash" : "");
     job->finished = 1, job->ok = 1, job->stage = 0;
     clean_scratch(job);
@@ -157,8 +202,9 @@ static int has_dash_psd(const PsdJob *job)
 int psd_job_start(PsdJob *job, const char *tools, const char *psd_dir, const char *folder, const char *piece, char *why, size_t why_cap)
 {
     if (job->stage != 0 || job->run.running) return snprintf(why, why_cap, "a conversion is running already"), 0;
-    if (strlen(tools) >= PSD_PATH || strlen(psd_dir) >= PSD_PATH || strlen(piece) >= PSD_PATH || strlen(folder) >= sizeof job->folder)
+    if (strlen(tools) >= PSD_PATH || strlen(psd_dir) >= PSD_PATH || strlen(piece) >= PSD_PATH || strlen(folder) >= sizeof job->folder || folder[0] == '\0' || folder[0] == '.' || strchr(folder, '/') != NULL)
         return snprintf(why, why_cap, "a path is too long"), 0;
+    proc_free(&job->run);
     psd_job_init(job);
     snprintf(job->tools, sizeof job->tools, "%s", tools);
     snprintf(job->psd_dir, sizeof job->psd_dir, "%s", psd_dir);

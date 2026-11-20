@@ -422,6 +422,8 @@ void masks_panel(App *a)
             if (busy) {
                 ImGui::SameLine();
                 ImGui::TextUnformatted("Converting...");
+                ImGui::SameLine();
+                if (ImGui::Button("Stop")) app_psd_stop(a);
             }
             ImGui::Spacing();
         }

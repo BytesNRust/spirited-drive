@@ -399,6 +399,8 @@ void app_carry_window(App *to, const App *from)
     to->export_pick = from->export_pick;
     to->drive_pick = from->drive_pick;   /* the editor's setting, not the project's */
     memcpy(to->light_dir, from->light_dir, sizeof to->light_dir);
+    memcpy(to->tools, from->tools, sizeof to->tools);   /* Convert PSD's folders are the window's too */
+    memcpy(to->psd_root, from->psd_root, sizeof to->psd_root);
 }
 
 static int open_in(App *a, const char *dir, AppKind kind)

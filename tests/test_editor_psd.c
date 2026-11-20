@@ -105,6 +105,11 @@ static void test_flows(void)
     char p[700];
     path_of(p, sizeof p, "kit/coche/car_masks/C84/rear_mask.png");
     CHECK(access(p, F_OK) != 0);
+    /* another car opened in the same window: the folders are the window's, Convert PSD still works */
+    char kit[500];
+    path_of(kit, sizeof kit, "kit");
+    CHECK(app_open_car(a, kit));
+    CHECK(a->tools[0] != '\0' && a->psd_root[0] != '\0' && app_psd_psd_dir(a, dir, sizeof dir));
     app_free(a);
     free(a);
 }
