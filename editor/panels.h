@@ -16,6 +16,7 @@ float points_panel_width();   // the Points panel's width that shows all its col
 float road_key_panel_width();   // the Road profile window's width that shows its labels and both sides' combos whole
 void road_key_panel(App *a);   // the selected point's road key, each side (Left | Right): the Road profile window's content
 void road_key_window(App *a);   // the Road profile window (PANEL_ROAD_KEY), beside Limits and Problems
+void strip_panel(App *a);   // the Distance strip window (strip_panel.cpp): each road value's stretches along the road, a tab beside Limits
 void limits_panel(App *a);
 void problems_panel(App *a);
 void node_panel(App *a);
@@ -45,7 +46,7 @@ void export_popup(App *a);    // the Export original car window, up while a->exp
 
 // the panels' names, as the dock layout places them
 extern const char *const PANEL_POINTS, *const PANEL_LIMITS, *const PANEL_PROBLEMS, *const PANEL_NODE, *const PANEL_PROJECT, *const PANEL_TRACK, *const PANEL_ROAD_KEY;
-extern const char *const PANEL_MODEL, *const PANEL_DRIVE;
+extern const char *const PANEL_MODEL, *const PANEL_DRIVE, *const PANEL_STRIP;
 extern const char *const PANEL_CAR, *const PANEL_TEXTURES, *const PANEL_MASKS, *const PANEL_REHACER, *const PANEL_RACE, *const PANEL_MASK_EDIT, *const PANEL_PREVIEW;
 
 #endif
