@@ -161,17 +161,25 @@ void points_panel(App *a)
                     ImGui::TableSetColumnIndex(3);
                     const int key = track_trace_key_find(a->trace.keys, a->trace.key_count, i);
                     const bool keyed = key >= 0 && (a->trace.keys[key].has & TRACE_KEY_WIDTH);
+                    const int lanes = app_point_lanes(a, i);
+                    const bool by_lanes = lanes == TRACK_GEN_LANES_1_2 || lanes == TRACK_GEN_LANES_2_1;   // a lane stretch sets the width: the cell is locked
                     double metres = keyed ? a->trace.keys[key].width_m
                                           : (a->road_made && a->point_width != NULL && i < a->point_count ? a->point_width[i] : project_road_metres(a->trace.width));
+                    if (by_lanes) metres = 3 * TRACK_GEN_LANE / 8.0;   // three lanes of 5 m
                     const double road_lo = TRACE_ROAD_MIN_M, road_hi = TRACE_ROAD_MAX_M;
                     if (!keyed) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
                     ImGui::SetNextItemWidth(-FLT_MIN);
+                    ImGui::BeginDisabled(by_lanes);
                     if (ImGui::DragScalar("##w", ImGuiDataType_Double, &metres, 0.25f, &road_lo, &road_hi, "%.2f", ImGuiSliderFlags_AlwaysClamp)) {
                         a->selected = shown = i;
                         app_set_point_width(a, i, metres);
                     }
+                    ImGui::EndDisabled();
                     if (!keyed) ImGui::PopStyleColor();
-                    if (ImGui::IsItemHovered()) ImGui::SetTooltip(keyed ? "A width set on this point. Right-click to let it inherit again." : "Inherited from the points before. Drag or type to set this point's width.");
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+                        if (by_lanes) ImGui::SetTooltip("Set by the lanes (%d+%d, 5 m each). Change the lanes in Road profile to set a width here.", (lanes >> 4) & 0xf, lanes & 0xf);
+                        else ImGui::SetTooltip("%s", keyed ? "A width set on this point. Right-click to let it inherit again." : "Inherited from the points before. Drag or type to set this point's width.");
+                    }
                     if (keyed && ImGui::BeginPopupContextItem("##clear")) {
                         if (ImGui::MenuItem("Inherit again (clear this width)")) app_clear_point_width(a, i);
                         ImGui::EndPopup();
@@ -244,7 +252,14 @@ void problems_panel(App *a)
             ImGui::TextWrapped("%s", art);
             ImGui::PopStyleColor();
         }
-        if ((!a->road_made || (a->problem_count == 0 && !a->stage_short)) && !art_line) ImGui::TextDisabled("No problems");
+        char lanes[APP_MSG];
+        const bool lanes_line = app_lane_width_note(a, lanes, sizeof lanes);   // a width key inside a lane stretch: ignored, said
+        if (lanes_line) {
+            ImGui::PushStyleColor(ImGuiCol_Text, WARN_TEXT);
+            ImGui::TextWrapped("%s", lanes);
+            ImGui::PopStyleColor();
+        }
+        if ((!a->road_made || (a->problem_count == 0 && !a->stage_short)) && !art_line && !lanes_line) ImGui::TextDisabled("No problems");
         // red rows first, then amber, each by node (track_trace_problems); a click centres the Viewport on the node
         for (int i = 0; i < a->problem_count && i < PROBLEM_ROWS; ++i) {
             const TraceProblem &p = a->problems[i];

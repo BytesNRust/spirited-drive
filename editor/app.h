@@ -281,5 +281,13 @@ void app_clear_point_side(App *a, int point, int field, int side);
 /* the bank's key on a point: clamped to +-TRACE_BANK_INPUT_MAX_DEG and to a tenth of a degree; clearing it inherits again */
 void app_set_point_bank(App *a, int point, double degrees);
 void app_clear_point_bank(App *a, int point);
+/* The lanes of point `point`'s road key (step 4; app_sides.c): TRACK_GEN_LANES_1_1, _1_2 or _2_1 (anything else changes nothing), or cleared so the point
+ * takes the lanes before it again. An unsaved change when it changes anything. */
+void app_set_point_lanes(App *a, int point, int lanes);
+void app_clear_point_lanes(App *a, int point);
+/* the lanes point `point` has as the keys make them (1+1 before any lanes key; 0 for no such point) */
+int app_point_lanes(const App *a, int point);
+/* 1, with the amber line for Problems in `text`, when a width key sits inside a 1+2 or 2+1 stretch: the lanes set the road's width there, the key is ignored */
+int app_lane_width_note(const App *a, char *text, size_t cap);
 
 #endif
