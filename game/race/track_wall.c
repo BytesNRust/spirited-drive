@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-enum { RIGHT_PAIRS = 8, ROW_POINTS = 11 };
+enum { SIDE_PAIRS = 8, ROW_POINTS = 11 };   /* fence pairs a side: the first 8 the right fence, the next 8 the left */
 
 /* where a point of a row stands once the row is turned */
 static int turned(int point) { return point == 0 ? 0 : point <= 5 ? point + 5 : point - 5; }
@@ -44,7 +44,7 @@ static uint8_t same_row_vertex(const TrackLod *lod, uint8_t vertex, int want)
 static int reversed;
 
 static int rows_as_forward;
-enum { STRIP_HALF = 5, STRIPS = 10, FENCE_BIT_RIGHT = 0x80, FENCE_BIT_LEFT = 0x40 };
+enum { STRIP_HALF = 5, STRIPS = 10, FENCE_BIT_LEFT = 0x80, FENCE_BIT_RIGHT = 0x40 };   /* TRI_FENCE_LEFT / _RIGHT, as the game draws them going forward */
 
 void track_wall_set_inner(int inner) { reversed = inner != 0; }
 void track_wall_set_rows(int on) { rows_as_forward = on != 0; }
@@ -69,12 +69,12 @@ const TrackLod *track_wall_lod(int lod)
             inner_lods[n] = TRACK_LODS[n];
             /* a reversed circuit's left wall is the old right chain's, turned with the row (points 1..5 on 6..10, 6..10 on 1..5), and its right wall the old left's:
              * the second and third points the exe's chains stand on (2, 7, 8) are now 7, 2, 3, and the odd ends some far LODs have (0, 5, 6) turn the same way */
-            for (int i = 0; i < RIGHT_PAIRS; i++) {
-                const uint8_t left = TRACK_LODS[n].fence[i], right = TRACK_LODS[n].fence[RIGHT_PAIRS + i];
-                if (left == 0 || right == 0) continue;
-                const int was_left = point_of(&TRACK_LODS[n], left), was_right = point_of(&TRACK_LODS[n], right);
-                if (was_right >= 0) inner_lods[n].fence[i] = same_row_vertex(&TRACK_LODS[n], left, turned(was_right));
-                if (was_left >= 0) inner_lods[n].fence[RIGHT_PAIRS + i] = same_row_vertex(&TRACK_LODS[n], right, turned(was_left));
+            for (int i = 0; i < SIDE_PAIRS; i++) {
+                const uint8_t right = TRACK_LODS[n].fence[i], left = TRACK_LODS[n].fence[SIDE_PAIRS + i];
+                if (right == 0 || left == 0) continue;
+                const int was_right = point_of(&TRACK_LODS[n], right), was_left = point_of(&TRACK_LODS[n], left);
+                if (was_left >= 0) inner_lods[n].fence[i] = same_row_vertex(&TRACK_LODS[n], right, turned(was_left));
+                if (was_right >= 0) inner_lods[n].fence[SIDE_PAIRS + i] = same_row_vertex(&TRACK_LODS[n], left, turned(was_right));
             }
         }
         built = 1;
