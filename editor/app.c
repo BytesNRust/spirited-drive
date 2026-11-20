@@ -55,6 +55,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     a->selected = -1;
     a->node = a->node_for = -1;
     a->export_pick = -1;
+    a->preview_paint = -1;
     a->rehacer.run.fd = a->race.run.fd = -1;   /* no output pipe: a zero is a descriptor (stdin) */
 }
 
@@ -96,6 +97,7 @@ static int car_into(App *a, const char *dir)
     a->kind = APP_KIND_CAR;
     a->race_track = car_race_default_track(car_race_original_of(&a->car));
     a->mask.opacity = 0;
+    a->preview_paint = -1;
     app_mask_scan(a);
     set_status(a, a->car.masks_only ? "opened: a masks project (made from the game's files: for your own use, do not share)" : "opened: edit the card and the colors; Save writes mod.ini only");
     return 1;

@@ -147,6 +147,12 @@ the tarmac the surface changes and the walls start further out. In `trace.json` 
 node): the distance of each edge from the centre in eighths of a metre (VERGE_UNIT 0x2000 in 16.16, game/race/car_walls.c), so metres = byte / 4
 and the template's 40 is 10 m. The terrain rows move by the same amount, 16 raw per byte (0.125 m).
 
+## Preview
+
+The **Preview** window (a tab beside Textures and Race) shows each texture of the car file as the race has it: the game's own code (the fixed black of the masks, then the paint) runs on a copy of the car file with this project's masks in front of the game's, and an unsaved mask edit counts as if it were saved. Pick the paint from the card's `paints=` (a car you drive; a traffic or police car has none: the race does not paint it). It updates by itself when a mask is edited or saved, a paint or its colour changes, or Rehacer ends (not while a pencil stroke is going).
+
+The bank's palette is taken to 6 bits a channel, as the race loads it. Not applied: the track's light and the screen palette's nearest-colour snapping. Instead Preview counts the distinct colours of the body and says how many the car's entries in the race palette (23 of its own, 72 shared when several cars race) cannot hold: the rest will look like their nearest. Texels that name one of the race's screen entries (0xfa-0xfe) are hatched, and 0xff is a chequer. Headless: `--paint N` shows the card's N-th paint.
+
 ## Edit mask
 
 The **Edit mask** window (a tab beside Textures and Race) paints a car's masks. Pick a texture of the car file (the ones with a mask in `car_masks/<car>/`; the low detail bank's are marked "low"): the mask is drawn over the texture, each class in its legend colour, with an Overlay switch, an Opacity slider and a switch per class. The class chosen in the legend is the one the tools paint with.

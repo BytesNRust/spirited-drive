@@ -217,6 +217,11 @@ if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_mas
     [ ! -e "$m.saving" ] || fail "a temporary file of the Save was left behind"
     cmp -s "$work/mask-before.png" "$work/mask-after.png" && fail "the edit did not change the picture"
     [ -s "$work/mask-after.png" ] || fail "no PNG of the Edit mask window"
+    "$editor" --export-car P911 --into "$work/real" --cd "$repo/original" --port-data "$repo/data" --frames 1 >"$work/log" 2>&1 || fail "export of the real 911: $(cat "$work/log")"
+    "$editor" "$work/real/p911-original" --frames 14 --shot "$work/preview-file.png" >"$work/log" 2>&1 || fail "Preview of the real 911: $(cat "$work/log")"
+    "$editor" "$work/real/p911-original" --paint 3 --frames 14 --shot "$work/preview-paint.png" >"$work/log" 2>&1 || fail "Preview of the real 911 in a paint: $(cat "$work/log")"
+    cmp -s "$work/preview-file.png" "$work/preview-paint.png" && fail "a paint did not change the Preview"
+    ls "${TMPDIR:-/tmp}" | grep -q '^studio-preview-' && fail "a scratch folder of the Preview was left behind"
     "$editor" "$work/real/wagon-masks" --mask nosuch --frames 2 >"$work/log" 2>&1 && fail "a texture the car has not was opened"
     "$editor" "$work/real/wagon-masks" --mask side --mask-rect 1,2,3 --frames 2 >"$work/log" 2>&1 && fail "a bad --mask-rect was taken"
 fi

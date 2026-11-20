@@ -59,6 +59,7 @@ typedef struct {
     int show, class_on[ME_CLASSES];   /* the overlay on or off, and each class of it */
     float opacity;                    /* 0..1 */
     float zoom;                       /* screen pixels a mask texel; 0: fit the window (the panel sets it) */
+    unsigned generation;              /* counts every mask opened, closed, discarded or saved: a picture made from the mask compares with it */
     int focus;                        /* the Edit mask window has the keyboard: Ctrl+Z is the mask's (set by the panel every frame) */
     int saved_since_race;             /* a mask was saved: Race photo shows the result */
 } MaskUi;
@@ -67,6 +68,7 @@ typedef struct {
     AppKind kind;                /* what is open: the track fields below are read for APP_KIND_TRACK, `car` for APP_KIND_CAR */
     CarProject car;              /* the car project, when kind is APP_KIND_CAR */
     Rehacer rehacer;             /* the kit's rehacer.command, running or last run (car_rehacer.h) */
+    int preview_paint;           /* the card's paint the Preview shows: an index of the card's paints, -1 for the car as its file has it */
     MaskUi mask;                 /* the mask editor (editor/mask_edit.h), when kind is APP_KIND_CAR */
     CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
     char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */

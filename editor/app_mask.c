@@ -30,6 +30,7 @@ static void defaults(MaskUi *m)
 
 void app_mask_close(App *a)
 {
+    a->mask.generation++;
     mask_edit_free(&a->mask.me);
     a->mask.sel = -1;
     a->mask.note[0] = '\0';
@@ -81,6 +82,7 @@ int app_mask_open(App *a, int index)
         return 0;
     }
     m->sel = index;
+    m->generation++;
     if (!mask_edit_size_note(&m->me, m->note, sizeof m->note)) m->note[0] = '\0';
     snprintf(a->status, sizeof a->status, "editing %s: Save writes this mask only", m->tex[index].file);
     return 1;
@@ -111,6 +113,7 @@ int app_mask_save(App *a)
         return 0;
     }
     m->error[0] = '\0';
+    m->generation++;
     if (changed) m->saved_since_race = 1;
     snprintf(a->status, sizeof a->status, changed ? "saved %s" : "nothing to save: %s is as it was", m->tex[m->sel].file);
     return 1;

@@ -106,6 +106,7 @@ void car_layout(ImGuiID dock)
     ImGui::DockBuilderDockWindow(PANEL_TEXTURES, right);
     ImGui::DockBuilderDockWindow(PANEL_RACE, right);   // a tab beside Textures
     ImGui::DockBuilderDockWindow(PANEL_MASK_EDIT, right);   // and the mask editor, which needs the room
+    ImGui::DockBuilderDockWindow(PANEL_PREVIEW, right);
     ImGui::DockBuilderDockWindow(PANEL_REHACER, masks);   // a tab beside Masks, which is the one in front
     ImGui::DockBuilderDockWindow(PANEL_MASKS, masks);
     ImGui::DockBuilderFinish(dock);
@@ -124,6 +125,7 @@ void masks_layout(ImGuiID dock)
     ImGui::DockBuilderDockWindow(PANEL_MASKS, right);
     ImGui::DockBuilderDockWindow(PANEL_RACE, race);
     ImGui::DockBuilderDockWindow(PANEL_MASK_EDIT, race);
+    ImGui::DockBuilderDockWindow(PANEL_PREVIEW, race);
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -340,6 +342,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
         masks_panel(a);
         race_panel(a, photo_texture(ren, a));
         mask_edit_panel(a, mask_texture(ren, a));
+        preview_panel(a, ren);
         if (!a->car.masks_only) rehacer_panel(a);   // a masks project has no script
     } else {
         start_screen(a);
