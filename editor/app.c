@@ -217,7 +217,7 @@ void app_recompute(App *a)
     a->length = track_trace_length(a->trace.points, a->trace.count);
     ExchangeError err;
     memset(&err, 0, sizeof err);
-    a->road_text[0] = '\0';
+    a->road_text[0] = a->build_text[0] = '\0';
     if (!track_trace_nodes_keyed(a->trace.points, a->trace.count, a->trace.width, a->trace.keys, a->trace.key_count, &a->nodes, &a->node_count, &err)) {
         snprintf(a->road_text, sizeof a->road_text, "%s", err.message);
         return;
@@ -229,6 +229,7 @@ void app_recompute(App *a)
         return;
     }
     a->road_made = 1;
+    if (build_road_check(a->nodes, a->node_count, a->build_text, sizeof a->build_text)) a->build_text[0] = '\0';
     a->stage_short = track_trace_stage_short(a->node_count, a->stage_text, sizeof a->stage_text);
     track_trace_flags(a->nodes, a->node_count, a->flags);
     a->node_dist = calloc((size_t)a->node_count, sizeof *a->node_dist);
@@ -262,6 +263,14 @@ void app_recompute(App *a)
         if (a->problems != NULL) track_trace_problems(a->nodes, a->node_count, a->flags, a->problems, a->problem_count);
         else a->problem_count = 0;
     }
+}
+
+const char *app_road_refusal(const App *a)
+{
+    if (a->road_text[0] != '\0') return a->road_text;
+    for (int i = 0; i < a->problem_count; ++i)
+        if (a->problems[i].red) return NULL;   /* Build stops at a red node first: Problems' row names it */
+    return a->build_text[0] != '\0' ? a->build_text : NULL;
 }
 
 void app_sync_selection(App *a)

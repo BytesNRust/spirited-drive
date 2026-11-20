@@ -62,27 +62,29 @@ static int write_file(const char *path, const uint8_t *data, size_t size)
 }
 
 /* the road's nodes, refused while one breaks a limit: the nodes are malloc'd into *nodes (count in *count) */
-static int road_nodes(const Trace *t, TrackGenNode **nodes, int *count, char *why, size_t why_cap)
+/* the generator's own refusal of the nodes (track_generate_check_turned on the generic template) */
+static int generator_takes(const TrackGenNode *nodes, int count, char *why, size_t why_cap)
 {
     ExchangeError err;
     memset(&err, 0, sizeof err);
-    if (!(t->width >= PROJECT_WIDTH_MIN && t->width <= PROJECT_WIDTH_MAX)) {
-        snprintf(why, why_cap, "width %g is outside %d..%d", t->width, PROJECT_WIDTH_MIN, PROJECT_WIDTH_MAX);
-        return 0;
-    }
-    if (!track_trace_nodes_keyed(t->points, t->count, t->width, t->keys, t->key_count, nodes, count, &err)) {
-        snprintf(why, why_cap, "%s", err.message);
-        return 0;
-    }
-    TraceFlags *flags = calloc((size_t)*count, sizeof *flags);
+    uint8_t *tmpl = NULL;
+    size_t tmpl_len = 0;
+    const int ok = track_template_generic(&tmpl, &tmpl_len, &err) && track_generate_check_turned(nodes, count, tmpl, tmpl_len, &err);
+    if (!ok) snprintf(why, why_cap, "%s", err.message);
+    free(tmpl);
+    return ok;
+}
+
+int build_road_check(const TrackGenNode *nodes, int count, char *why, size_t why_cap)
+{
+    TraceFlags *flags = calloc((size_t)count, sizeof *flags);
     if (flags == NULL) {
-        free(*nodes);
         snprintf(why, why_cap, "out of memory");
         return 0;
     }
-    track_trace_flags(*nodes, *count, flags);
+    track_trace_flags(nodes, count, flags);
     int ok = 1;
-    for (int i = 0; ok && i < *count; ++i) {
+    for (int i = 0; ok && i < count; ++i) {
         if (flags[i] & TRACE_FLAG_TURN) {
             snprintf(why, why_cap, "node %d turns more than %g degrees from the node before", i, TRACE_TURN_MAX_DEGREES);
             ok = 0;
@@ -98,11 +100,26 @@ static int road_nodes(const Trace *t, TrackGenNode **nodes, int *count, char *wh
         }
     }
     free(flags);
-    if (!ok) {
-        free(*nodes);
-        *nodes = NULL;
+    return ok && generator_takes(nodes, count, why, why_cap);
+}
+
+/* the road's nodes, refused while one breaks a limit: the nodes are malloc'd into *nodes (count in *count) */
+static int road_nodes(const Trace *t, TrackGenNode **nodes, int *count, char *why, size_t why_cap)
+{
+    ExchangeError err;
+    memset(&err, 0, sizeof err);
+    if (!(t->width >= PROJECT_WIDTH_MIN && t->width <= PROJECT_WIDTH_MAX)) {
+        snprintf(why, why_cap, "width %g is outside %d..%d", t->width, PROJECT_WIDTH_MIN, PROJECT_WIDTH_MAX);
+        return 0;
     }
-    return ok;
+    if (!track_trace_nodes_keyed(t->points, t->count, t->width, t->keys, t->key_count, nodes, count, &err)) {
+        snprintf(why, why_cap, "%s", err.message);
+        return 0;
+    }
+    if (build_road_check(*nodes, *count, why, why_cap)) return 1;
+    free(*nodes);
+    *nodes = NULL;
+    return 0;
 }
 
 /* the card of the piece, its keys the generator writes and the author line; 1 with `info` parsed */

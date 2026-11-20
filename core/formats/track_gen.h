@@ -103,6 +103,10 @@ int track_generate_nodes(const TrackGenNode *nodes, int count, const uint8_t *te
 int track_generate_nodes_turned(const TrackGenNode *nodes, int count, const uint8_t *template_tri, size_t template_size, uint8_t **out,
                                 size_t *out_len, ExchangeError *err);
 
+/* What track_generate_nodes_turned refuses before it writes a byte (the node count, each node, the template, the barriers' bytes), in its words:
+ * 1 when it would build these nodes. Cheap enough for every edit (the editor's Problems shows a refusal before Build). */
+int track_generate_check_turned(const TrackGenNode *nodes, int count, const uint8_t *template_tri, size_t template_size, ExchangeError *err);
+
 /* 1 and *out (malloc'd, *out_len bytes) on success; 0 with err naming the layout line otherwise. */
 int track_generate(const char *layout, size_t layout_len, const uint8_t *template_tri, size_t template_size,
                    uint8_t **out, size_t *out_len, ExchangeError *err);

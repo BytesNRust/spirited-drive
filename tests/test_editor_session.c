@@ -685,6 +685,31 @@ static void check_app_flow(void)
     CHECK(a->road_made && a->stage_short && strstr(a->stage_text, "too short for a stage") != NULL && strstr(a->stage_text, "214 nodes") != NULL);
     CHECK(!app_test_drive(a) && strstr(a->status, "too short for a stage") != NULL && !app_race_busy(a));   /* Test drive says the Problems' text, runs nothing */
     a->trace.points[a->trace.count - 1].z += 30.0;
+    /* a point dragged near the next (owner flow): 17 m before it the nodes bunch up with no red node and the generator refuses the road;
+     * Problems has Build's words before Build. 11 m before it a node turns past the red limit: that is Problems' row, and Build names it */
+    a->dirty = 1;
+    app_recompute(a);
+    CHECK(app_road_refusal(a) == NULL && a->build_text[0] == '\0');
+    const double kept_z = a->trace.points[2].z;
+    a->trace.points[2].z = a->trace.points[3].z - 17.0;
+    a->dirty = 1;
+    app_recompute(a);
+    const char *refusal = app_road_refusal(a);
+    CHECK(a->problem_count == 0 && refusal != NULL && strstr(refusal, "units from the node before") != NULL);
+    CHECK(!app_build(a) && strncmp(a->status, "build refused: ", 15) == 0);
+    CHECK(refusal != NULL && strcmp(a->status + 15, refusal) == 0);
+    a->trace.points[2].z = a->trace.points[3].z - 11.0;
+    a->dirty = 1;
+    app_recompute(a);
+    CHECK(app_road_refusal(a) == NULL && a->problem_count > 0 && a->problems[0].red);
+    CHECK(!app_build(a) && strstr(a->status, "turns more than") != NULL);
+    char node[16];
+    snprintf(node, sizeof node, "node %d ", a->problems[0].node);
+    CHECK(strstr(a->status, node) != NULL);   /* the row's node is the one Build names */
+    a->trace.points[2].z = kept_z;
+    a->dirty = 1;
+    app_recompute(a);
+    CHECK(app_road_refusal(a) == NULL && a->build_text[0] == '\0');
     a->dirty = 1;
     app_recompute(a);
     snprintf(a->game, sizeof a->game, "%s/no-game-here", two);

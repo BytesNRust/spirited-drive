@@ -1,5 +1,6 @@
 #include "steps.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,8 +9,8 @@
  * waited for, not for ever */
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000 };
 
-static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2 };   /* the numbers each takes (key takes its name after the colon) */
+static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -35,7 +36,7 @@ int steps_read(Steps *s, const char *text)
         snprintf(word, sizeof word, "%.*s", (int)strcspn(item, ":"), item);
         const int which = known(word);
         if (which < 0 || s->count == STEPS_MAX) {
-            fprintf(stderr, "--steps %s: edit, undo, redo, save, title, print, key:NAME, click:I, drag:I,DX,DY, width:I,M, bank:I,DEG, race, race-log or race-stop expected\n", item);
+            fprintf(stderr, "--steps %s: edit, undo, redo, save, title, print, key:NAME, click:I, drag:I,DX,DY, drag-near:I,J,M, width:I,M, bank:I,DEG, problems, build, race, race-log or race-stop expected\n", item);
             return 0;
         }
         snprintf(s->name[s->count], sizeof s->name[0], "%s", item);   /* "key:N", "click:2": the first number is after the colon */
@@ -66,6 +67,18 @@ static int point_at(const App *a, int i, float *x, float *y)
     double sx, sy;
     view_to_screen(&a->view, a->trace.points[i].x, a->trace.points[i].z, &sx, &sy);
     *x = a->canvas_x + (float)sx, *y = a->canvas_y + (float)sy;
+    return 1;
+}
+
+/* where in the window the place `metres` before point `j`, on the line from it to point `i`, is: the target of drag-near */
+static int near_point(const App *a, int i, int j, double metres, Steps *s)
+{
+    if (a->kind != APP_KIND_TRACK || i < 0 || j < 0 || i >= a->trace.count || j >= a->trace.count || i == j) return 0;
+    const double dx = a->trace.points[i].x - a->trace.points[j].x, dz = a->trace.points[i].z - a->trace.points[j].z, d = sqrt(dx * dx + dz * dz);
+    if (d <= 0) return 0;
+    double sx, sy;
+    view_to_screen(&a->view, a->trace.points[j].x + dx * metres / d, a->trace.points[j].z + dz * metres / d, &sx, &sy);
+    s->to_x = a->canvas_x + (float)sx, s->to_y = a->canvas_y + (float)sy;
     return 1;
 }
 
@@ -109,6 +122,18 @@ static void print_points(const App *a)
     fprintf(stdout, "\n");
 }
 
+/* what Problems shows first: Build's refusal line, else its first red row's node, else none */
+static void print_problems(const App *a)
+{
+    const char *refusal = app_road_refusal(a);
+    int red = -1;
+    for (int i = 0; red < 0 && i < a->problem_count; ++i)
+        if (a->problems[i].red) red = a->problems[i].node;
+    if (refusal != NULL) fprintf(stdout, "problems: refusal %s\n", refusal);
+    else if (red >= 0) fprintf(stdout, "problems: red node %d\n", red);
+    else fprintf(stdout, "problems: none\n");
+}
+
 /* a step that needs no frame; 1 when it did what it says */
 static int at_once(App *a, const char *name, const double *arg)
 {
@@ -125,6 +150,12 @@ static int at_once(App *a, const char *name, const double *arg)
         char title[APP_PATH + 64];
         app_title(a, title, sizeof title);
         fprintf(stdout, "title: %s\n", title);
+        return 1;
+    }
+    if (strcmp(name, "problems") == 0) return a->kind == APP_KIND_TRACK ? (print_problems(a), 1) : 0;
+    if (strcmp(name, "build") == 0) {   /* as the Build button: what it says printed, a refusal too */
+        app_build(a);
+        fprintf(stdout, "build: %s\n", a->status);
         return 1;
     }
     if (strcmp(name, "print") == 0) return a->kind == APP_KIND_TRACK ? (print_points(a), 1) : 0;
@@ -205,17 +236,19 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
         if (p == 2) mouse(win, SDL_EVENT_MOUSE_BUTTON_UP, x, y);
         return p < 3;
     }
-    /* drag:I,DX,DY: to the point, down, DRAG_MOVES moves, up */
+    /* drag:I,DX,DY: to the point, down, DRAG_MOVES moves, up; drag-near:I,J,M the same to M metres before point J on the way from I */
     if (p == 0) {
         if (!point_at(a, (int)arg[0], &s->from_x, &s->from_y)) return s->failed = 1, 0;
+        if (strncmp(name, "drag-near", 9) == 0 && !near_point(a, (int)arg[0], (int)arg[1], arg[2], s)) return s->failed = 1, 0;
+        if (strncmp(name, "drag-near", 9) != 0) s->to_x = s->from_x + (float)arg[1], s->to_y = s->from_y + (float)arg[2];
         mouse(win, SDL_EVENT_MOUSE_MOTION, s->from_x, s->from_y);
     } else if (p == 1) {
         mouse(win, SDL_EVENT_MOUSE_BUTTON_DOWN, s->from_x, s->from_y);
     } else if (p <= 1 + DRAG_MOVES) {
         const float f = (float)(p - 1) / DRAG_MOVES;
-        mouse(win, SDL_EVENT_MOUSE_MOTION, s->from_x + f * (float)arg[1], s->from_y + f * (float)arg[2]);
+        mouse(win, SDL_EVENT_MOUSE_MOTION, s->from_x + f * (s->to_x - s->from_x), s->from_y + f * (s->to_y - s->from_y));
     } else if (p == 2 + DRAG_MOVES) {
-        mouse(win, SDL_EVENT_MOUSE_BUTTON_UP, s->from_x + (float)arg[1], s->from_y + (float)arg[2]);
+        mouse(win, SDL_EVENT_MOUSE_BUTTON_UP, s->to_x, s->to_y);
     }
     return p < 3 + DRAG_MOVES;
 }

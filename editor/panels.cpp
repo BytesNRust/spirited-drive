@@ -222,8 +222,14 @@ void limits_panel(App *a)
         snprintf(text, sizeof text, "%d / %d nodes", nodes, (int)TRACK_GEN_MAX_NODES);
         ImGui::ProgressBar((float)nodes / (float)TRACK_GEN_MAX_NODES, ImVec2(-FLT_MIN, 0), text);
         ImGui::Text("length %.0f m (%.2f km)", TRACE_METRES(a->length), TRACE_METRES(a->length) / 1000.0);
-        if (a->road_text[0] != '\0') ImGui::TextColored(BAD_TEXT, "%s", a->road_text);   // the road is not made: why
-        else if (a->summary_count == 0 && !a->stage_short) ImGui::TextColored(OK_TEXT, "limits: all good");
+        const char *refusal = app_road_refusal(a);   // the road not made, or the generator refuses it: Build's words
+        if (refusal != NULL) {
+            ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
+            ImGui::TextWrapped("%s", refusal);
+            ImGui::PopStyleColor();
+        } else if (a->summary_count == 0 && !a->stage_short) {
+            ImGui::TextColored(OK_TEXT, "limits: all good");
+        }
         if (a->road_made && a->stage_short) {   // the road as a whole: too short for a stage's race
             ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
             ImGui::TextWrapped("%s", a->stage_text);
@@ -240,6 +246,12 @@ void problems_panel(App *a)
 {
     if (limits_dock != 0) ImGui::SetNextWindowDockID(limits_dock, ImGuiCond_FirstUseEver);
     if (ImGui::Begin(PANEL_PROBLEMS)) {
+        const char *refusal = app_road_refusal(a);   // what Build would refuse that no red row says: first, in Build's words
+        if (refusal != NULL) {
+            ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
+            ImGui::TextWrapped("%s", refusal);
+            ImGui::PopStyleColor();
+        }
         if (a->road_made && a->stage_short) {   // the road as a whole first: a stage this short has no race
             ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
             ImGui::TextWrapped("%s", a->stage_text);
@@ -259,7 +271,7 @@ void problems_panel(App *a)
             ImGui::TextWrapped("%s", lanes);
             ImGui::PopStyleColor();
         }
-        if ((!a->road_made || (a->problem_count == 0 && !a->stage_short)) && !art_line && !lanes_line) ImGui::TextDisabled("No problems");
+        if (refusal == NULL && (!a->road_made || (a->problem_count == 0 && !a->stage_short)) && !art_line && !lanes_line) ImGui::TextDisabled("No problems");
         // red rows first, then amber, each by node (track_trace_problems); a click centres the Viewport on the node
         for (int i = 0; i < a->problem_count && i < PROBLEM_ROWS; ++i) {
             const TraceProblem &p = a->problems[i];

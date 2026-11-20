@@ -50,6 +50,16 @@ python3 -c "import json, sys; k = json.load(open(sys.argv[1])).get('keys', []); 
 python3 -c "import json, sys; k = json.load(open(sys.argv[1])).get('keys', []); sys.exit(0 if any(x.get('point') == 3 and x.get('bank_deg') == 5.0 for x in k) else 1)" \
     "$work/loop/trace.json" || fail "the bank set on point 3 is not in trace.json: $(cat "$work/loop/trace.json")"
 
+# 2d. A point dragged too near the next (17 m before it, on a new project): the nodes bunch up with no red node; Problems says so in red in
+# Build's words before Build, and Build refuses with those words
+"$editor" "$work/near" --user "$player" --frames 2 --save >"$work/log" 2>&1 || fail "New project (near): $(cat "$work/log")"
+"$editor" "$work/near" --user "$player" --frames 2 --steps problems,drag-near:2,3,17,problems,build >"$work/log" 2>&1 \
+    || fail "the drag near the next point: $(cat "$work/log")"
+[ "$(grep '^problems' "$work/log" | head -1)" = "problems: none" ] || fail "Problems was not clear before the drag: $(grep '^problems' "$work/log")"
+refusal=$(sed -n 's/^problems: refusal //p' "$work/log")
+case "$refusal" in *"units from the node before"*) ;; *) fail "Problems has no red line for the bunched nodes: $(grep '^problems' "$work/log")" ;; esac
+grep -qxF "build: build refused: $refusal" "$work/log" || fail "Build refused with other words than Problems': $(grep '^build' "$work/log") / $refusal"
+
 # 3. Build and 4. Install into the player's folder
 "$editor" "$work/loop" --user "$player" --frames 2 --build --install --game "$tnfs" >"$work/log" 2>&1 || fail "Build and Install: $(cat "$work/log")"
 grep -q "installed loop" "$work/log" || fail "Install does not say it installed the piece: $(cat "$work/log")"

@@ -498,30 +498,38 @@ static int check_wall_bytes(const TrackGenNode *n, int count, const TriNode *tmp
     return 1;
 }
 
-static int generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *template_tri, size_t template_size, int turned, uint8_t **out,
-                          size_t *out_len, ExchangeError *err)
+/* what generate_nodes refuses before it writes: the count, each node, the template and the walls' bytes; the template's parts in `tri`, `parts`, `model` */
+static int check_nodes(const TrackGenNode *shapes, int count, const uint8_t *template_tri, size_t template_size, int turned, Tri *tri, TriParts *parts,
+                       TriNode *model, ExchangeError *err)
 {
-    *out = NULL;
     if (shapes == NULL || count < 1 || (count - 1) % TRI_NODES_PER_SEGMENT != 0) {
         exchange_fail(err, "a track has 4 nodes a segment and a closing one, not %d nodes", count);
         return 0;
     }
-    const int segments = (count - 1) / TRI_NODES_PER_SEGMENT, nodes = count - 1;
+    const int segments = (count - 1) / TRI_NODES_PER_SEGMENT;
     if (segments < TRACK_GEN_MIN_SEGMENTS || segments > TRACK_GEN_MAX_SEGMENTS) {
         exchange_fail(err, "a track of %d segments is outside %d..%d", segments, TRACK_GEN_MIN_SEGMENTS, TRACK_GEN_MAX_SEGMENTS);
         return 0;
     }
     for (int i = 0; i < count; ++i)
         if (!check_node(shapes, i, turned, err)) return 0;
-    Tri tri;
-    TriParts parts;
-    TriNode model;
-    if (tri_open(&tri, template_tri, template_size) != TRI_OK || tri_parts(&tri, &parts) != TRI_OK ||
-        tri.segment_count < 1 || tri_node(&tri, 1, &model) != TRI_OK) {
+    if (tri_open(tri, template_tri, template_size) != TRI_OK || tri_parts(tri, parts) != TRI_OK || tri->segment_count < 1 ||
+        tri_node(tri, 1, model) != TRI_OK) {
         exchange_fail(err, "the template is not a usable TRI");
         return 0;
     }
-    if (!check_wall_bytes(shapes, count, &model, err)) return 0;
+    return check_wall_bytes(shapes, count, model, err);
+}
+
+static int generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *template_tri, size_t template_size, int turned, uint8_t **out,
+                          size_t *out_len, ExchangeError *err)
+{
+    *out = NULL;
+    Tri tri;
+    TriParts parts;
+    TriNode model;
+    if (!check_nodes(shapes, count, template_tri, template_size, turned, &tri, &parts, &model, err)) return 0;
+    const int segments = (count - 1) / TRI_NODES_PER_SEGMENT, nodes = count - 1;
     uint8_t *header = calloc(1, TRI_HEADER_SIZE);
     uint8_t *scenery = malloc((size_t)TRI_SCENERY_MAX * TRI_SCENERY_SIZE);
     uint8_t *terrain = malloc((size_t)segments * TRI_SEGMENT_SIZE);
@@ -600,6 +608,14 @@ int track_generate_nodes_turned(const TrackGenNode *shapes, int count, const uin
                                 size_t *out_len, ExchangeError *err)
 {
     return generate_nodes(shapes, count, template_tri, template_size, 1, out, out_len, err);
+}
+
+int track_generate_check_turned(const TrackGenNode *shapes, int count, const uint8_t *template_tri, size_t template_size, ExchangeError *err)
+{
+    Tri tri;
+    TriParts parts;
+    TriNode model;
+    return check_nodes(shapes, count, template_tri, template_size, 1, &tri, &parts, &model, err);
 }
 
 int track_generate(const char *layout, size_t layout_len, const uint8_t *template_tri, size_t template_size,

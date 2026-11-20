@@ -167,6 +167,36 @@ static void check_bank_limit(const uint8_t *tmpl, size_t tsize)
     CHECK(!track_layout_nodes("section 12 bank=21\n", 19, TRACK_TEMPLATE_HALF_WIDTH, &layout, &count, &err) && layout == NULL);   /* a layout's bank: still 20 */
 }
 
+/* track_generate_check_turned: what track_generate_nodes_turned refuses before it writes, with its words, and nothing it takes (the editor
+ * shows it in Problems before Build: a refusal there is a red line first) */
+static void check_check_is_the_generators(const uint8_t *tmpl, size_t tsize)
+{
+    TrackGenNode *nodes = NULL;
+    int count = 0;
+    ExchangeError err = {0}, gen = {0};
+    CHECK(track_layout_nodes("section 12\n", 11, TRACK_TEMPLATE_HALF_WIDTH, &nodes, &count, &err));
+    if (nodes == NULL) return;
+    CHECK(track_generate_check_turned(nodes, count, tmpl, tsize, &err));
+    uint8_t *out = NULL;
+    size_t len = 0;
+    const int at = 20;   /* each breaks one rule at node 20: too near the node before, too far, a bank past the most, a barrier past the byte */
+    for (int rule = 0; rule < 4; ++rule) {
+        TrackGenNode was = nodes[at];
+        if (rule == 0) nodes[at].position[2] = nodes[at - 1].position[2] + 30000;   /* 0.46 units */
+        if (rule == 1) nodes[at].position[2] = nodes[at - 1].position[2] + (21 << 16);
+        if (rule == 2) nodes[at].bank = 36.0;
+        if (rule == 3) nodes[at].side[TRACK_GEN_LEFT].has |= TRACK_GEN_SIDE_BARRIER, nodes[at].side[TRACK_GEN_LEFT].barrier = 250;
+        memset(&err, 0, sizeof err), memset(&gen, 0, sizeof gen);
+        CHECK(!track_generate_check_turned(nodes, count, tmpl, tsize, &err));
+        CHECK(!track_generate_nodes_turned(nodes, count, tmpl, tsize, &out, &len, &gen) && out == NULL);
+        CHECK(strcmp(err.message, gen.message) == 0 && strstr(err.message, "node 2") != NULL);
+        nodes[at] = was;
+    }
+    CHECK(!track_generate_check_turned(nodes, 5, tmpl, tsize, &err));   /* one segment */
+    CHECK(!track_generate_check_turned(nodes, count, tmpl, 100, &err));   /* not a TRI */
+    free(nodes);
+}
+
 /* a CD track as the template: its strip 10 is not at heading 0 nor flat, and the new rows still lie across the new road as the template's lie across its own */
 static int check_cd_templates(int argc, char **argv)
 {
@@ -210,6 +240,7 @@ int main(int argc, char **argv)
     check_widening_is_along_the_road(tmpl, tsize);
     check_errors(tmpl, tsize);
     check_bank_limit(tmpl, tsize);
+    check_check_is_the_generators(tmpl, tsize);
     if (argc > 1) CHECK(check_cd_templates(argc, argv) > 0);
     free(tmpl);
     return TEST_REPORT();

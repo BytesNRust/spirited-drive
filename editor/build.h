@@ -3,6 +3,7 @@
 #ifndef TNFS_TRACK_EDITOR_BUILD_H
 #define TNFS_TRACK_EDITOR_BUILD_H
 
+#include "formats/track_gen.h"
 #include "project.h"
 
 #include <stddef.h>
@@ -11,6 +12,11 @@
  * track_template_generic (no CD byte), the INFO of a generic piece and the stage's art (project.ini's art=, a FAM), and the card, checked the
  * way the game checks a track piece. 1 with `zip` the path written; 0 with `why` naming the fault otherwise. */
 int build_project(const char *dir, const Project *p, const Trace *t, char *zip, size_t zip_cap, char *why, size_t why_cap);
+
+/* What Build refuses of the road's nodes, in its words: a node past a red limit (turn, radius, barrier, bank: Problems' red rows), then what
+ * the generator itself refuses (too near or too far from the node before, a barrier past its byte, the node count: track_generate_check_turned).
+ * 1 when Build takes them; 0 with `why`. The editor runs it on every recompute, so Problems shows a refusal before Build. */
+int build_road_check(const TrackGenNode *nodes, int count, char *why, size_t why_cap);
 
 /* The card (mod.ini) of the piece: its keys the generator writes, the project's edge= and the author line, checked by the game's own parser. 1 with
  * `text` (`*len` bytes) and the parse in `info`; 0 with `why`. */

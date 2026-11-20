@@ -120,6 +120,7 @@ typedef struct {
     int node;                    /* the node the Node window shows, -1 for none */
     int node_for;                /* the control point `node` was taken from (app_sync_selection) */
     char road_text[APP_MSG];     /* why the road is not made; "" when it is */
+    char build_text[APP_MSG];    /* why Build would refuse the road made (build_road_check); "" when it takes it */
 
     char saved_edge[8];          /* the verge material as it is in project.ini: app_modified compares with project.edge */
     TrackUndo track_undo;        /* a track's undo and redo, and the project as its files have it: app_modified compares with that */
@@ -188,6 +189,10 @@ void app_track_commit(App *a);
 int app_track_undo(App *a, int redo);
 
 void app_free(App *a);
+/* Why Build would refuse the road as it is now, in Build's words, when no red row of Problems says it already: the road not made, or the
+ * generator's refusal of nodes that break no red limit. Problems shows it in red before Build. NULL when Build takes the road, or a red node
+ * (which Build names first) stops it. After app_recompute. */
+const char *app_road_refusal(const App *a);
 
 /* The window's title: "Spirited Drive Studio", then " \xe2\x80\x94 <project's id>" with a project open and " *" when it has unsaved changes (app_modified). */
 void app_title(const App *a, char *out, size_t cap);
