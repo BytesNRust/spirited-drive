@@ -397,9 +397,9 @@ static int check_sides(const TrackGenNode *n, int i, ExchangeError *err)
         if ((s->has & TRACK_GEN_SIDE_SHOULDER) && (s->shoulder < 0 || s->shoulder > TRACK_GEN_SIDE_MAX))
             return exchange_fail(err, "node %d: the %s shoulder is %g m, outside 0..%g m", i, name, s->shoulder / 8, TRACK_GEN_SIDE_MAX / 8), 0;
         if ((s->has & TRACK_GEN_SIDE_BARRIER) && (s->barrier < 0 || s->barrier > TRACK_GEN_SIDE_MAX))
-            return exchange_fail(err, "node %d: the %s wall is %g m from the road edge, outside 0..%g m", i, name, s->barrier / 8, TRACK_GEN_SIDE_MAX / 8), 0;
+            return exchange_fail(err, "node %d: the %s barrier is %g m from the road edge, outside 0..%g m", i, name, s->barrier / 8, TRACK_GEN_SIDE_MAX / 8), 0;
         if ((s->has & TRACK_GEN_SIDE_WALL) && s->wall != TRACK_GEN_WALL_HARD && s->wall != TRACK_GEN_WALL_SOFT)
-            return exchange_fail(err, "node %d: the %s wall's kind %d is not hard (0) or soft (1)", i, name, s->wall), 0;
+            return exchange_fail(err, "node %d: the %s barrier's kind %d is not hard (0) or soft (1)", i, name, s->wall), 0;
     }
     return 1;
 }
@@ -444,7 +444,7 @@ static int check_wall_bytes(const TrackGenNode *n, int count, const TriNode *tmp
             const long edge = clamp_byte((double)(lround(n[i].width) + (side == TRACK_GEN_RIGHT ? tmpl->right_verge - tmpl->left_verge : 0)));
             const long wall = edge + lround(n[i].side[side].barrier);
             if (wall > 255)
-                return exchange_fail(err, "node %d: the %s wall is %g m from the centre, past the %g m a node holds", i, side == TRACK_GEN_LEFT ? "left" : "right",
+                return exchange_fail(err, "node %d: the %s barrier is %g m from the centre, past the %g m a node holds", i, side == TRACK_GEN_LEFT ? "left" : "right",
                                      (double)wall / 8.0, 255 / 8.0), 0;
         }
     return 1;

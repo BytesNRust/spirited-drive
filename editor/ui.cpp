@@ -95,6 +95,8 @@ void default_layout(ImGuiID dock)
     ImGui::DockBuilderDockWindow("Viewport", centre);
     ImGui::DockBuilderDockWindow(PANEL_LIMITS, bottom);
     ImGui::DockBuilderDockWindow(PANEL_PROBLEMS, bottom);   // its own tab beside Limits
+    const ImGuiID profile = ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Right, 0.5f, nullptr, &bottom);   // the Road profile beside them: Node stays in sight
+    ImGui::DockBuilderDockWindow(PANEL_ROAD_KEY, profile);
     const ImGuiID track = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.42f, nullptr, &right);   // the road's width and verge material above the project
     ImGui::DockBuilderDockWindow(PANEL_TRACK, track);
     ImGui::DockBuilderDockWindow(PANEL_PROJECT, right);
@@ -347,6 +349,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
         limits_panel(a);
         problems_panel(a);
         node_panel(a);
+        road_key_window(a);
     } else if (a->kind == APP_KIND_CAR) {   // a car has a dock space of its own: each kind keeps its layout
         const bool masks = a->car.masks_only;   // a masks project keeps a layout of its own: it shows fewer windows
         const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr(masks ? "StudioMasksDock" : "StudioCarDock"), ImGui::GetMainViewport());

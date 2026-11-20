@@ -191,7 +191,7 @@ static int parse_points(const char *text, Trace *t, char *why, size_t why_cap)
     return 1;
 }
 
-const char *const PROJECT_ROAD_TIP = "Width of the tarmac, edge to edge. Beyond it the surface changes and the walls start further out. Default 10 m. A width set on a point in Points takes over from there.";
+const char *const PROJECT_ROAD_TIP = "Width of the tarmac, edge to edge. Beyond it the surface changes and the barriers start further out. Default 10 m. A width set on a point in Points takes over from there.";
 
 double project_road_metres(double width_byte)
 {

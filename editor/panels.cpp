@@ -13,13 +13,14 @@ extern "C" {
 #include "interact.h"
 }
 
-const char *const PANEL_POINTS = "Points", *const PANEL_LIMITS = "Limits", *const PANEL_PROBLEMS = "Problems", *const PANEL_NODE = "Node", *const PANEL_PROJECT = "Project", *const PANEL_TRACK = "Track";
+const char *const PANEL_POINTS = "Points", *const PANEL_LIMITS = "Limits", *const PANEL_PROBLEMS = "Problems", *const PANEL_NODE = "Node", *const PANEL_PROJECT = "Project", *const PANEL_TRACK = "Track",
+                  *const PANEL_ROAD_KEY = "Road profile";   // the window's title, and the start of its header ("Road profile at point 3")
 
 namespace {
 
 const ImVec4 BAD_TEXT(1.0f, 0.35f, 0.35f, 1.0f), WARN_TEXT(1.0f, 0.69f, 0.13f, 1.0f), OK_TEXT(0.47f, 0.86f, 0.55f, 1.0f);
 const float POINT_COL_NUMBER = 28, POINT_COL_DIST = 50, POINT_COL_TURN = 54;   // the Points table's fixed columns: #, dist m, turn ("R 12.3°")
-const int POINTS_MIN_ROWS = 4;   // the Points table shows at least these rows, whatever the Road key block below takes
+const int POINTS_MIN_ROWS = 4;   // the Points table shows at least these rows: in a short window the panel scrolls instead
 const int PROBLEM_ROWS = 200;   // the nodes listed in Problems; the count says how many more
 
 }   // namespace
@@ -40,11 +41,11 @@ void points_panel(App *a)
         ImGui::EndDisabled();
         ImGui::TextDisabled("%d points", a->trace.count);
         const bool scroll_to_selected = a->selected != shown;
-        // the table takes what the Road key block below leaves, but never fewer than POINTS_MIN_ROWS rows: in a short window the panel scrolls instead
+        // the table takes the rest of the panel, but never fewer than POINTS_MIN_ROWS rows
         const ImGuiStyle &st = ImGui::GetStyle();
         const float row = ImGui::GetFrameHeight() + 2 * st.CellPadding.y;
         const float least = (POINTS_MIN_ROWS + 1) * row + st.ScrollbarSize + 2;   // the rows, the header, a sideways scroll bar, the borders
-        const float room = ImGui::GetContentRegionAvail().y - road_key_panel_height();
+        const float room = ImGui::GetContentRegionAvail().y;
         // the columns never narrower than a value ("-1234.5") or their header: a narrow panel scrolls the table sideways, a wide one stretches them
         const float value = ImGui::CalcTextSize("-1234.5").x, inner = POINT_COL_NUMBER + 3 * value + POINT_COL_DIST + POINT_COL_TURN + 12 * st.CellPadding.x + 8;
         const float wide = ImGui::GetContentRegionAvail().x;
@@ -121,7 +122,6 @@ void points_panel(App *a)
             }
             ImGui::EndTable();
         }
-        road_key_panel(a);
     }
     ImGui::End();
 }
@@ -188,10 +188,13 @@ void problems_panel(App *a)
     ImGui::End();
 }
 
+static ImGuiID node_dock = 0;   // the dock node Node is in, where a layout kept from before the Road key window puts it as a tab
+
 void node_panel(App *a)
 {
     if (points_dock != 0) ImGui::SetNextWindowDockID(points_dock, ImGuiCond_FirstUseEver);
     if (ImGui::Begin(PANEL_NODE)) {
+        node_dock = ImGui::GetWindowDockID();
         app_recompute(a);   // a point added or removed in Points this frame: the road and its figures first
         app_sync_selection(a);
         const int n = a->node;
@@ -205,8 +208,8 @@ void node_panel(App *a)
             ImGui::Text("distance from the start: %.1f m", a->node_dist != NULL ? a->node_dist[n] : 0.0);
             ImGui::Text("turn: %s", turn);
             ImGui::Text("road width: %.2f m", a->nodes[n].width / TRACE_WIDTH_PER_METRE);
-            ImGui::Text("shoulder surface: left %s, right %s", a->nodes[n].side[TRACK_GEN_LEFT].tarmac ? "tarmac" : "verge",
-                        a->nodes[n].side[TRACK_GEN_RIGHT].tarmac ? "tarmac" : "verge");
+            ImGui::Text("shoulder surface: left %s, right %s", a->nodes[n].side[TRACK_GEN_LEFT].tarmac ? "asphalt" : "off-road",
+                        a->nodes[n].side[TRACK_GEN_RIGHT].tarmac ? "asphalt" : "off-road");
             ImGui::Text("to the previous node: %.2f m", track_trace_step(a->nodes, n));
             if (n + 1 < a->node_count) ImGui::Text("to the next node: %.2f m", track_trace_step(a->nodes, n + 1));
             else ImGui::TextDisabled("to the next node: -");
@@ -309,5 +312,12 @@ void project_panel(App *a)
         ImGui::TextWrapped("Del remove  S save  B build  U install");
         ImGui::PopStyleColor();
     }
+    ImGui::End();
+}
+
+void road_key_window(App *a)
+{
+    if (node_dock != 0) ImGui::SetNextWindowDockID(node_dock, ImGuiCond_FirstUseEver);
+    if (ImGui::Begin(PANEL_ROAD_KEY, nullptr, ImGuiWindowFlags_NoFocusOnAppearing)) road_key_panel(a);   // it does not take the front from Node
     ImGui::End();
 }

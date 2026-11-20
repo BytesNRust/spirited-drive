@@ -128,7 +128,7 @@ static void test_side_faults(void)
     straight_points(p, 4, 100);
     static const struct { int point, field, side; double value; const char *words; } BAD[] = {
         { 1, TRACE_SIDE_SHOULDER, R, 20.25, "shoulder" }, { 1, TRACE_SIDE_SHOULDER, L, -0.25, "shoulder" },
-        { 2, TRACE_SIDE_BARRIER, L, 21, "wall" }, { 2, TRACE_SIDE_WALL, R, 2, "wall" }, { 3, TRACE_SIDE_FENCE, L, 0.5, "fence" },
+        { 2, TRACE_SIDE_BARRIER, L, 21, "barrier" }, { 2, TRACE_SIDE_WALL, R, 2, "barrier" }, { 3, TRACE_SIDE_FENCE, L, 0.5, "fence" },
         { 4, TRACE_SIDE_FENCE, L, 1, "point 4" },
     };
     for (size_t b = 0; b < sizeof BAD / sizeof BAD[0]; ++b) {
@@ -254,21 +254,21 @@ static void test_side_flags(void)
     CHECK(fabs(rows[2].side_step - 17.0) < 1e-9);   /* 20 m to 3 m */
     char text[TRACE_PROBLEM_TEXT];
     track_trace_problem_text(&rows[0], text, sizeof text);
-    CHECK(strcmp(text, "node 0: a wall 32.0 m from the centre (more than 31.875 m), can't be built") == 0);
-    if (strcmp(text, "node 0: a wall 32.0 m from the centre (more than 31.875 m), can't be built") != 0) fprintf(stderr, "%s\n", text);
+    CHECK(strcmp(text, "node 0: a barrier 32.0 m from the centre (more than 31.875 m), can't be built") == 0);
+    if (strcmp(text, "node 0: a barrier 32.0 m from the centre (more than 31.875 m), can't be built") != 0) fprintf(stderr, "%s\n", text);
     track_trace_problem_text(&rows[2], text, sizeof text);
-    CHECK(strstr(text, "a shoulder or wall moves 17.00 m (more than 1.25 m), may not look right") != NULL);
+    CHECK(strstr(text, "a shoulder or barrier moves 17.00 m (more than 1.25 m), may not look right") != NULL);
     if (strstr(text, "moves 17.00 m") == NULL) fprintf(stderr, "%s\n", text);
 
     TraceSummaryLine lines[TRACE_SUMMARY_LINES];
     const int used = track_trace_summary(flags, N, lines);
     CHECK(used >= 2);
     CHECK(lines[0].red && lines[0].nodes == 2);
-    CHECK(strcmp(lines[0].text, "2 nodes have a wall more than 31.875 m from the centre: the track can't be built") == 0);
+    CHECK(strcmp(lines[0].text, "2 nodes have a barrier more than 31.875 m from the centre: the track can't be built") == 0);
     if (used >= 2) {
         CHECK(!lines[used - 1].red && lines[used - 1].nodes == 1);
-        CHECK(strcmp(lines[used - 1].text, "1 node moves a shoulder or a wall by more than 1.25 m: it may not look right in the game") == 0);
-        if (strcmp(lines[used - 1].text, "1 node moves a shoulder or a wall by more than 1.25 m: it may not look right in the game") != 0)
+        CHECK(strcmp(lines[used - 1].text, "1 node moves a shoulder or a barrier by more than 1.25 m: it may not look right in the game") == 0);
+        if (strcmp(lines[used - 1].text, "1 node moves a shoulder or a barrier by more than 1.25 m: it may not look right in the game") != 0)
             fprintf(stderr, "%s\n", lines[used - 1].text);
     }
 }

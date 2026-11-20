@@ -112,6 +112,7 @@ typedef struct {
     int point_count;             /* the control points the road was computed from: trace.count has moved on when a point was added since */
     double *point_turn;          /* the signed turn, in degrees, at the node nearest each control point */
     double *point_width;         /* the road's width in metres at each control point as the keys make it (track_trace_point_widths): the inherited values show dimmed */
+    double (*point_sides)[TRACE_SIDE_FIELDS][2];   /* each control point's side values as the keys make them (track_trace_point_sides), with the road: the Road key block's */
     int node;                    /* the node the Node window shows, -1 for none */
     int node_for;                /* the control point `node` was taken from (app_sync_selection) */
     char road_text[APP_MSG];     /* why the road is not made; "" when it is */
