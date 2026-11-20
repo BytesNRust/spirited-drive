@@ -149,6 +149,14 @@ static void check_app_flow(void)
     CHECK(!app_modified(a));
     a->go = APP_ACT_NONE;
 
+    /* the verge material changed: unsaved like a point is; Save writes edge= to project.ini and a reopened project has it */
+    snprintf(a->project.edge, sizeof a->project.edge, "sand");
+    CHECK(app_modified(a));
+    CHECK(app_save(a));
+    CHECK(!app_modified(a));
+    CHECK(app_open_project(a, one));
+    CHECK(strcmp(a->project.edge, "sand") == 0 && !app_modified(a));
+
     /* Open wants a project; New wants none */
     CHECK(!app_open_project(a, two));                        /* no project.ini there yet */
     CHECK(strstr(a->status, "no project") != NULL);

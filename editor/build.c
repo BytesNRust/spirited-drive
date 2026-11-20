@@ -100,12 +100,18 @@ static int road_nodes(const Trace *t, TrackGenNode **nodes, int *count, char *wh
 }
 
 /* the card of the piece, its keys the generator writes and the author line; 1 with `info` parsed */
-static int piece_card(const Project *p, uint8_t *text, size_t cap, size_t *len, ModInfo *info, char *why, size_t why_cap)
+int build_card(const Project *p, uint8_t *text, size_t cap, size_t *len, ModInfo *info, char *why, size_t why_cap)
 {
     char head[MOD_INI_MAX_SIZE], texts[MOD_INI_MAX_SIZE];
     const char *name = p->name[0] != '\0' ? p->name : p->id;
-    if (snprintf(head, sizeof head, "id=%s\nname=%s\nversion=0.1\ntype=track\nstem=%s\nkind=stage\nsegments=1\nroad=asphalt\nedge=grass\n",
-                 p->id, name, p->stem) >= (int)sizeof head ||
+    int edge_known = p->edge[0] == '\0';
+    for (int i = 0; PROJECT_EDGES[i] != NULL; ++i) edge_known |= strcmp(p->edge, PROJECT_EDGES[i]) == 0;
+    if (!edge_known) {
+        snprintf(why, why_cap, "edge=%s is not grass, gravel, sand, snow, dirt or water", p->edge);
+        return 0;
+    }
+    if (snprintf(head, sizeof head, "id=%s\nname=%s\nversion=0.1\ntype=track\nstem=%s\nkind=stage\nsegments=1\nroad=asphalt\nedge=%s\n",
+                 p->id, name, p->stem, p->edge[0] != '\0' ? p->edge : "grass") >= (int)sizeof head ||
         !mod_ini_text_keys(p->author, "", texts, sizeof texts)) {
         snprintf(why, why_cap, "the card does not fit mod.ini");
         return 0;
@@ -220,7 +226,7 @@ int build_project(const char *dir, const Project *p, const Trace *t, char *zip, 
     uint8_t card[MOD_INI_MAX_SIZE];
     size_t card_len = 0;
     ModInfo info;
-    if (ok) ok = piece_card(p, card, sizeof card, &card_len, &info, why, why_cap);
+    if (ok) ok = build_card(p, card, sizeof card, &card_len, &info, why, why_cap);
     if (ok) {
         Report report;
         report_init(&report);

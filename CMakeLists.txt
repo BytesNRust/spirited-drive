@@ -868,8 +868,8 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_link_libraries(tnfs-track-editor PRIVATE tnfs_core SDL3::SDL3 imgui)
     # the generic art a new project copies (editor/art/README.md): beside the program in a build tree, in Contents/Resources in the app (tools/package_macos.sh)
     add_custom_command(TARGET tnfs-track-editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM $<TARGET_FILE_DIR:tnfs-track-editor>/GENERIC.FAM)
-    add_executable(test_editor_install tests/test_editor_install.c editor/build.c)   # the editor's install, without its window
-    target_include_directories(test_editor_install PRIVATE editor tests)
+    add_executable(test_editor_install tests/test_editor_install.c editor/build.c editor/project.c game/sys/sha256.c)   # the editor's install, without its window
+    target_include_directories(test_editor_install PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_install PRIVATE tnfs_core)
     target_compile_options(test_editor_install PRIVATE ${TNFS_WARNINGS})
     add_executable(test_editor_game_find tests/test_editor_game_find.c editor/game_find.c)   # where Studio looks for the game, on any layout
@@ -878,6 +878,10 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     add_executable(test_generic_art_shades tests/test_generic_art_shades.c)   # the bundled generic art keeps its lines' hue under a shadow
     target_link_libraries(test_generic_art_shades PRIVATE tnfs_core)
     target_compile_options(test_generic_art_shades PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_editor_verge tests/test_editor_verge.c editor/project.c editor/build.c game/sys/sha256.c)   # a track project's verge material: edge= read, written, and in the build's card
+    target_include_directories(test_editor_verge PRIVATE editor tests ${CMAKE_SOURCE_DIR})
+    target_link_libraries(test_editor_verge PRIVATE tnfs_core)
+    target_compile_options(test_editor_verge PRIVATE ${TNFS_WARNINGS})
     add_executable(test_editor_art_refresh tests/test_editor_art_refresh.c editor/project.c game/sys/sha256.c)   # a project's copy of the generic art, refreshed when it is an older Studio's
     target_include_directories(test_editor_art_refresh PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_art_refresh PRIVATE tnfs_core)
@@ -956,6 +960,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_car_export COMMAND test_editor_car_export ${CMAKE_SOURCE_DIR}/data)
         add_test(NAME editor_mask_edit COMMAND test_editor_mask_edit ${CMAKE_SOURCE_DIR}/data ${CMAKE_SOURCE_DIR}/original)
         add_test(NAME editor_art_refresh COMMAND test_editor_art_refresh)
+        add_test(NAME editor_verge COMMAND test_editor_verge)
         add_test(NAME generic_art_shades COMMAND test_generic_art_shades ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM)
         add_test(NAME editor_game_find COMMAND test_editor_game_find)
         add_test(NAME editor_headless COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless.sh $<TARGET_FILE:tnfs-track-editor>)

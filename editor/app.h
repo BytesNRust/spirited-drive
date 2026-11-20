@@ -111,6 +111,7 @@ typedef struct {
     int node_for;                /* the control point `node` was taken from (app_sync_selection) */
     char road_text[APP_MSG];     /* why the road is not made; "" when it is */
 
+    char saved_edge[8];          /* the verge material as it is in project.ini: app_modified compares with project.edge */
     uint64_t saved_print;        /* session_fingerprint of the trace as it is in trace.json: app_modified compares with it */
     AppAction confirm;           /* an action waiting for the answer to "unsaved changes" */
     char confirm_path[APP_PATH];

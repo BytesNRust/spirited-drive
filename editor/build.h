@@ -12,6 +12,10 @@
  * way the game checks a track piece. 1 with `zip` the path written; 0 with `why` naming the fault otherwise. */
 int build_project(const char *dir, const Project *p, const Trace *t, char *zip, size_t zip_cap, char *why, size_t why_cap);
 
+/* The card (mod.ini) of the piece: its keys the generator writes, the project's edge= and the author line, checked by the game's own parser. 1 with
+ * `text` (`*len` bytes) and the parse in `info`; 0 with `why`. */
+int build_card(const Project *p, uint8_t *text, size_t cap, size_t *len, ModInfo *info, char *why, size_t why_cap);
+
 /* Installs `zip` into the player folder `user_dir` the way the game's own installer does (`tnfs --user DIR --install ZIP`), by running the
  * game. 1 when it exits 0; 0 with `why` otherwise. */
 int install_zip(const char *game, const char *zip, const char *user_dir, char *why, size_t why_cap);

@@ -89,7 +89,7 @@ void default_layout(ImGuiID dock)
     ImGui::DockBuilderDockWindow("Viewport", centre);
     ImGui::DockBuilderDockWindow(PANEL_LIMITS, bottom);
     ImGui::DockBuilderDockWindow(PANEL_PROBLEMS, bottom);   // its own tab beside Limits
-    const ImGuiID track = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.34f, nullptr, &right);   // the road's width above the project
+    const ImGuiID track = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.42f, nullptr, &right);   // the road's width and verge material above the project
     ImGui::DockBuilderDockWindow(PANEL_TRACK, track);
     ImGui::DockBuilderDockWindow(PANEL_PROJECT, right);
     node = ImGui::DockBuilderSplitNode(points, ImGuiDir_Down, 0.45f, nullptr, &points);
