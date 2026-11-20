@@ -17,7 +17,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
-const char *const PANEL_CAR = "Car", *const PANEL_TEXTURES = "Textures", *const PANEL_MASKS = "Masks", *const PANEL_REHACER = "Rehacer", *const PANEL_RACE = "Drive###Race";   // shown "Drive"; the ### id keeps it apart from the track editor's Drive, which shares the ini (a layout saved before the rename floats it: Reset layout docks it)
+const char *const PANEL_CAR = "Car", *const PANEL_TEXTURES = "Textures", *const PANEL_MASKS = "Masks", *const PANEL_REHACER = "Rehacer", *const PANEL_RACE = "Drive###Race";   // shown "Drive"; the ### id keeps it apart from the track editor's Drive, which shares the ini (ImGui keys a window's settings by the part after ###: a layout saved with the old "Race" window keeps this one in its dock, tested with a real ini)
 
 namespace {
 
