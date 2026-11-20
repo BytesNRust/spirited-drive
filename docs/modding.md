@@ -164,6 +164,8 @@ The fixed black, the lamps and the shine of an added car are read from one folde
 
 The layer's own opacity is ignored. A low detail texture's PSD is named `<tex>_lo.psd`. Needs `pip install psd-tools Pillow`. A mod puts its masks in `<mod>/car_masks/<CAR>/`. To try a folder of masks without installing them: `TNFS_CAR_MASKS=<dir of <CAR>/<tex>_mask.png>`; the log's `car mask:` lines say which file each texture used.
 
+**Masks from PNGs.** `tnfs-studio car masks KIT_DIR [--stem STEM] [--force]` makes the same grey masks from colour PNGs, with no Pillow: each `KIT_DIR/mascaras/<tex>.png` (`<tex>_lo.png` for the low detail bank) is classed with the colours above and written to `KIT_DIR/coche/car_masks/<STEM>/<tex>_mask.png` (the stem is the one of `coche/mod.ini` unless `--stem` says another); a mask in that folder with no picture is left as it is, and nothing is overwritten without `--force`. A PNG saved from GIMP carries the layer's opacity in its alpha (a mask layer at 46% gives solid texels of alpha 117, antialiased edges far under that), so the PSD tool's "alpha under 128 is paint" would paint everything. Here a texel counts as part of the mask when its alpha is at least a quarter of the most opaque texel's in that picture, and as clear (paint) otherwise; its colour is then classed as above.
+
 ## Dash masks
 
 The dash (cockpit view) lights its gauges at night. `data/dash_masks/<CAR>/dash_mask.png` says which parts glow; an optional `dash_color.png` gives them colours (for the *gauge light: from the car* setting). They come from a PSD of the dash at 640 x 480:
