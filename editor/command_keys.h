@@ -3,10 +3,18 @@
 #ifndef TNFS_TRACK_EDITOR_COMMAND_KEYS_H
 #define TNFS_TRACK_EDITOR_COMMAND_KEYS_H
 
-enum CommandKey { COMMAND_NONE, COMMAND_SAVE, COMMAND_UNDO, COMMAND_REDO };
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum { COMMAND_NONE, COMMAND_SAVE, COMMAND_UNDO, COMMAND_REDO } CommandKey;
 
 /* The command pressed this frame: Cmd+S Save; Cmd+Z Undo; Cmd+Shift+Z or Cmd+Y Redo. While a text field has the keyboard (`text_input`) only Save:
  * the field keeps its own Cmd+Z. Called every frame, so the keys' routes are kept. */
-CommandKey command_key(bool text_input);
+CommandKey command_key(int text_input);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -168,7 +168,8 @@ int app_mask_open(App *a, int index);
 int app_mask_open_by_name(App *a, const char *name);
 int app_mask_save(App *a);
 void app_mask_close(App *a);
-/* Undo and redo: a track's project (track_undo.h); a car's: the mask when the Edit mask window has the keyboard, else the card */
+/* Undo and redo: a track's project (track_undo.h); a car's one history, the card's edits and the open mask's in the order they were made,
+ * whatever window has the keyboard (the windows' own Undo buttons are each their own stack's) */
 int app_undo(App *a);
 int app_redo(App *a);
 int app_can_undo(const App *a);

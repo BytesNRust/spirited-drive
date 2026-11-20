@@ -2,7 +2,7 @@
 
 #include "imgui.h"
 
-CommandKey command_key(bool text_input)
+CommandKey command_key(int text_input)
 {
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal)) return COMMAND_SAVE;   // ImGuiMod_Ctrl is Cmd on a Mac
     if (text_input) return COMMAND_NONE;

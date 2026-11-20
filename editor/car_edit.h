@@ -40,6 +40,7 @@ typedef struct {
     CarEditState now, saved;   /* on screen, and as the card has it */
     CarEditState *undo, *redo; /* malloc'd stacks of CE_UNDO_MAX; the oldest falls off */
     int undo_count, redo_count;
+    unsigned long undo_seq[CE_UNDO_MAX], redo_seq[CE_UNDO_MAX];   /* each step's number (edit_seq.h): when its edit was made, kept as it moves */
     int run;                   /* what the last edit was, so that typing in one field is one step to undo; -1 for none */
 } CarEdit;
 
@@ -73,6 +74,9 @@ int car_edit_undo(CarEdit *e);
 int car_edit_redo(CarEdit *e);
 int car_edit_can_undo(const CarEdit *e);
 int car_edit_can_redo(const CarEdit *e);
+/* the number (edit_seq.h) of the step Undo (Redo) would take, 0 for none */
+unsigned long car_edit_undo_seq(const CarEdit *e);
+unsigned long car_edit_redo_seq(const CarEdit *e);
 
 /* 1 when what is on screen is not what the card has (undoing back to the card's state is not modified). Spaces round a text do not count: Save drops them. */
 int car_edit_modified(const CarEdit *e);

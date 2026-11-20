@@ -309,7 +309,7 @@ static void set_title(SDL_Window *win, const App *a)
     if (strcmp(title, SDL_GetWindowTitle(win)) != 0) SDL_SetWindowTitle(win, title);
 }
 
-/* --steps, in order: edit (a track's point added), undo, redo, save, title (the window's title printed); 0 with a word on stderr for a step
+/* --steps, in order: edit (a track's point added, or the open mask's first texel painted), undo, redo, save, title (the window's title printed); 0 with a word on stderr for a step
  * that is not one or did nothing, the steps after it not done */
 static int run_steps(App *a, const char *steps)
 {
@@ -321,6 +321,8 @@ static int run_steps(App *a, const char *steps)
             app_add_point(a);
             app_track_commit(a);   /* as the window does once an edit is done */
             did = 1;
+        } else if (strcmp(step, "edit") == 0 && a->kind == APP_KIND_CAR && a->mask.sel >= 0) {   /* the open mask's first texel painted another class */
+            did = mask_edit_pencil(&a->mask.me, 0, 0, 1, a->mask.me.now[0] == 248 ? 0 : 248) > 0;
         } else if (strcmp(step, "undo") == 0) {
             did = app_undo(a);
         } else if (strcmp(step, "redo") == 0) {
@@ -333,7 +335,7 @@ static int run_steps(App *a, const char *steps)
             fprintf(stdout, "title: %s\n", title);
             did = 1;
         } else {
-            fprintf(stderr, "--steps %s: edit (a track's), undo, redo, save or title expected\n", step);
+            fprintf(stderr, "--steps %s: edit (a track's, or an open mask's), undo, redo, save or title expected\n", step);
             return 0;
         }
         if (!did) {
@@ -447,6 +449,7 @@ static int run_requested(App *a, const Options *o)
         }
         fprintf(ok ? stdout : stderr, "%s\n", a->status);
     }
+    if (o->steps != NULL) ok &= run_steps(a, o->steps);   /* last: on the mask --mask opened, the card --set changed */
     return ok;
 }
 
@@ -528,13 +531,6 @@ static int run(App *a, const Options *o)
         }
     }
     if (o->edit) app_add_point(a);   /* and of the confirmation: something unsaved ... */
-    if (o->steps != NULL && !run_steps(a, o->steps)) {
-        ui_close();
-        SDL_DestroyRenderer(ren);
-        SDL_DestroyWindow(win);
-        SDL_Quit();
-        return 0;   /* a run that did not go */
-    }
     if (o->pick != NULL && !pick_car(a, o->pick)) {
         fprintf(stderr, "--pick %s: not a car Export original car knows\n", o->pick);
         ui_close();

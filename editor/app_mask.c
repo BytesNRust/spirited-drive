@@ -124,26 +124,43 @@ int app_mask_modified(const App *a)
     return a->mask.sel >= 0 && mask_edit_modified((MaskEdit *)&a->mask.me);
 }
 
+/* a car's history is the card's steps and the open mask's in the order they were made (edit_seq.h): Undo takes the newest of the two stacks'
+ * tops; Redo the one undone last, the older of the two redo tops, while nothing was edited since (a newer step on an undo stack) */
+static unsigned long card_undo(const App *a) { return car_edit_undo_seq(&a->edit); }
+static unsigned long mask_undo(const App *a) { return a->mask.sel >= 0 ? mask_edit_undo_seq(&a->mask.me) : 0; }
+
+/* 1 the card's redo, 2 the mask's, 0 none */
+static int redo_of(const App *a)
+{
+    const unsigned long card = car_edit_redo_seq(&a->edit), mask = a->mask.sel >= 0 ? mask_edit_redo_seq(&a->mask.me) : 0;
+    const unsigned long newest_undo = card_undo(a) > mask_undo(a) ? card_undo(a) : mask_undo(a);
+    const int which = card != 0 && (mask == 0 || card < mask) ? 1 : mask != 0 ? 2 : 0;
+    const unsigned long seq = which == 1 ? card : which == 2 ? mask : 0;
+    return seq > newest_undo ? which : 0;
+}
+
 int app_can_undo(const App *a)
 {
     if (a->kind == APP_KIND_TRACK) return track_undo_can_undo(&a->track_undo, &a->project, &a->trace);
-    return a->mask.focus && a->mask.sel >= 0 ? mask_edit_can_undo(&a->mask.me) : car_edit_can_undo(&a->edit);
+    return card_undo(a) != 0 || mask_undo(a) != 0;
 }
 
 int app_can_redo(const App *a)
 {
     if (a->kind == APP_KIND_TRACK) return track_undo_can_redo(&a->track_undo);
-    return a->mask.focus && a->mask.sel >= 0 ? mask_edit_can_redo(&a->mask.me) : car_edit_can_redo(&a->edit);
+    return redo_of(a) != 0;
 }
 
 int app_undo(App *a)
 {
     if (a->kind == APP_KIND_TRACK) return app_track_undo(a, 0);
-    return a->mask.focus && a->mask.sel >= 0 ? mask_edit_undo(&a->mask.me) : car_edit_undo(&a->edit);
+    if (mask_undo(a) > card_undo(a)) return mask_edit_undo(&a->mask.me);
+    return car_edit_undo(&a->edit);
 }
 
 int app_redo(App *a)
 {
     if (a->kind == APP_KIND_TRACK) return app_track_undo(a, 1);
-    return a->mask.focus && a->mask.sel >= 0 ? mask_edit_redo(&a->mask.me) : car_edit_redo(&a->edit);
+    const int which = redo_of(a);
+    return which == 1 ? car_edit_redo(&a->edit) : which == 2 ? mask_edit_redo(&a->mask.me) : 0;
 }

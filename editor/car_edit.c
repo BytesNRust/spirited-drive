@@ -1,4 +1,5 @@
 #include "car_edit.h"
+#include "edit_seq.h"
 
 #include "formats/car_piece.h"
 
@@ -147,11 +148,16 @@ void car_edit_free(CarEdit *e)
 static void before_edit(CarEdit *e, int run)
 {
     e->redo_count = 0;
-    if (run >= 0 && run == e->run && e->undo_count > 0) return;
+    if (run >= 0 && run == e->run && e->undo_count > 0) {
+        e->undo_seq[e->undo_count - 1] = edit_seq_next();   /* the step goes on: it is as new as its last keystroke */
+        return;
+    }
     if (e->undo_count == CE_UNDO_MAX) {
         memmove(e->undo, e->undo + 1, sizeof *e->undo * (CE_UNDO_MAX - 1));
+        memmove(e->undo_seq, e->undo_seq + 1, sizeof *e->undo_seq * (CE_UNDO_MAX - 1));
         e->undo_count--;
     }
+    e->undo_seq[e->undo_count] = edit_seq_next();
     e->undo[e->undo_count++] = e->now;
     e->run = run;
 }
@@ -224,10 +230,20 @@ int car_edit_can_redo(const CarEdit *e)
     return e->redo_count > 0;
 }
 
+unsigned long car_edit_undo_seq(const CarEdit *e)
+{
+    return e->undo_count > 0 ? e->undo_seq[e->undo_count - 1] : 0;
+}
+
+unsigned long car_edit_redo_seq(const CarEdit *e)
+{
+    return e->redo_count > 0 ? e->redo_seq[e->redo_count - 1] : 0;
+}
+
 int car_edit_undo(CarEdit *e)
 {
     if (e->undo_count == 0) return 0;
-    if (e->redo_count < CE_UNDO_MAX) e->redo[e->redo_count++] = e->now;
+    if (e->redo_count < CE_UNDO_MAX) e->redo_seq[e->redo_count] = e->undo_seq[e->undo_count - 1], e->redo[e->redo_count++] = e->now;
     e->now = e->undo[--e->undo_count];
     e->run = -1;
     return 1;
@@ -236,7 +252,7 @@ int car_edit_undo(CarEdit *e)
 int car_edit_redo(CarEdit *e)
 {
     if (e->redo_count == 0) return 0;
-    if (e->undo_count < CE_UNDO_MAX) e->undo[e->undo_count++] = e->now;
+    if (e->undo_count < CE_UNDO_MAX) e->undo_seq[e->undo_count] = e->redo_seq[e->redo_count - 1], e->undo[e->undo_count++] = e->now;
     e->now = e->redo[--e->redo_count];
     e->run = -1;
     return 1;

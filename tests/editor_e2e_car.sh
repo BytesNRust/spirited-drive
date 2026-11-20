@@ -1,7 +1,8 @@
 #!/bin/sh
 # A car from the game to the Studio and back to the game, the happy path a user takes: Export original car (the Wagon), Edit mask and
-# Save mask, the Preview shows the edit, and a Race photo from the real game shows it too (it differs from the photo of the car as
-# exported). Each editor run has a player folder of its own, so a window layout kept by one run cannot change another's picture.
+# Save mask, an edit undone and redone with the window's unsaved mark following, the Preview shows the edit, and a Race photo from the
+# real game shows it too (it differs from the photo of the car as exported). Each editor run has a player folder of its own, so a window
+# layout kept by one run cannot change another's picture.
 # Needs the game's files (original/).
 # usage: editor_e2e_car.sh EDITOR TNFS ORIGINAL_DIR PORT_DATA
 . "$(dirname "$0")/editor_headless_common.sh"
@@ -26,6 +27,17 @@ preview "$work/preview-exported.png" || fail "Preview of the car as exported: $(
 studio "$car" --mask side --mask-rect 142,26,8,5,248 --mask-save --frames 8 || fail "Edit mask and Save mask: $(cat "$work/log")"
 grep -q "saved side_mask.png" "$work/log" || fail "no word that the mask was saved: $(cat "$work/log")"
 cmp -s "$mask" "$data/car_masks/Wagon/side_mask.png" && fail "the saved mask is still the game's file"
+
+# 2b. Edit, undo, redo, save on the open mask: the window's title has the unsaved mark after an edit, not after its undo, again after the redo,
+# not after Save, and again after an undo past the save; the file has what was saved
+cp "$mask" "$work/mask-before-2b.png"
+studio "$car" --mask side --frames 2 --steps title,edit,title,undo,title,redo,title,save,title,undo,title || fail "edit, undo, redo, save: $(cat "$work/log")"
+grep '^title: ' "$work/log" | sed 's/^title: Spirited Drive Studio .* wagon-masks/wagon/' > "$work/titles"
+printf 'wagon\nwagon *\nwagon\nwagon *\nwagon\nwagon *\n' | cmp -s - "$work/titles" || fail "the unsaved mark in the title: $(tr '\n' '|' < "$work/titles")"
+cmp -s "$mask" "$work/mask-before-2b.png" && fail "Save after a redo did not write the texel redone"
+cp "$mask" "$work/mask-after-2b.png"
+studio "$car" --mask side --frames 2 --steps edit,save,undo,save || fail "a mask saved and undone past the save: $(cat "$work/log")"
+cmp -s "$mask" "$work/mask-after-2b.png" || fail "undoing past a save and saving again did not give the file back"
 
 # 3. Preview shows the edit
 preview "$work/preview-edited.png" || fail "Preview of the edited car: $(cat "$work/log")"

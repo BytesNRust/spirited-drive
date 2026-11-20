@@ -6,6 +6,8 @@
 
 extern "C" {
 #include "car_export.h"
+#include "command_keys.h"
+#include "shortcut_keys.h"
 #include "car_race.h"
 #include "formats/car_piece.h"
 }
@@ -213,12 +215,20 @@ void colors_section(App *a, const CarEditProblem *problems, int count)
 
 void car_shortcuts(App *a)
 {
-    const ImGuiIO &io = ImGui::GetIO();
-    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal) && !app_rehacer_busy(a)) app_save(a);
-    if (app_rehacer_busy(a)) return;   // the script is working on the kit: the card is not edited meanwhile
-    if (io.WantTextInput) return;   // a text box has its own Ctrl+Z while it has the keyboard
-    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal) || ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal)) app_redo(a);
-    else if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal)) app_undo(a);
+    const CommandKey key = command_key(ImGui::GetIO().WantTextInput);   // a text box has its own Cmd+Z while it has the keyboard
+    if (app_rehacer_busy(a)) return;   // the script is working on the kit: nothing is saved or edited meanwhile
+    if (key == COMMAND_SAVE) app_save(a);
+    else if (key == COMMAND_UNDO) app_undo(a);   // the car's one history: the newest change, the card's or the mask's
+    else if (key == COMMAND_REDO) app_redo(a);
+}
+
+// the tooltip of a window's own Undo or Redo: it is that window's stack, where Cmd+Z and the Edit menu are the car's one history
+void own_stack_tip(const char *what)
+{
+    char undo_keys[16];
+    shortcut_label(undo_keys, sizeof undo_keys, SHORTCUT_MAC, "Z");
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("This %s's changes only. %s and Edit > Undo take back the newest change, the card's or a mask's.", what, undo_keys);
 }
 
 // the facts of a masks project, read only: there is no card to edit
@@ -284,10 +294,12 @@ void car_panel(App *a)
         ImGui::BeginDisabled(!car_edit_can_undo(&a->edit) || running);
         if (ImGui::Button("Undo")) car_edit_undo(&a->edit);
         ImGui::EndDisabled();
+        own_stack_tip("card");
         ImGui::SameLine();
         ImGui::BeginDisabled(!car_edit_can_redo(&a->edit) || running);
         if (ImGui::Button("Redo")) car_edit_redo(&a->edit);
         ImGui::EndDisabled();
+        own_stack_tip("card");
         ImGui::SameLine();
         const bool has_script = app_rehacer_available(a);
         ImGui::BeginDisabled(running || !has_script);
