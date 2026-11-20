@@ -8,15 +8,15 @@
 #include <string.h>
 
 static const MaskClass CLASSES[ME_CLASSES] = {
-    { CAR_MASK_PAINT, "Body / paint (repainted)", { 150, 80, 220 } },
-    { CAR_MASK_SHINE, "Glass", { 60, 120, 255 } },
-    { CAR_MASK_BODY, "Body shine, kept", { 40, 200, 60 } },
-    { CAR_MASK_BLACK, "Fixed black", { 220, 40, 220 } },
-    { CAR_MASK_BRAKE, "Brake light", { 255, 40, 40 } },
-    { CAR_MASK_POSITION, "Side light", { 255, 150, 30 } },
-    { CAR_MASK_HEADLIGHT, "Headlight", { 255, 235, 40 } },
-    { CAR_MASK_REVERSE, "Reverse light", { 40, 230, 230 } },
-    { CAR_MASK_MATTE, "Matte (plate, badges, plastics)", { 255, 255, 255 } },
+    { CAR_MASK_PAINT, "Body / paint (repainted)", "paint", { 150, 80, 220 } },
+    { CAR_MASK_SHINE, "Glass", "glass", { 60, 120, 255 } },
+    { CAR_MASK_BODY, "Body shine, kept", "body shine", { 40, 200, 60 } },
+    { CAR_MASK_BLACK, "Fixed black", "fixed black", { 220, 40, 220 } },
+    { CAR_MASK_BRAKE, "Brake light", "brake", { 255, 40, 40 } },
+    { CAR_MASK_POSITION, "Side light", "side light", { 255, 150, 30 } },
+    { CAR_MASK_HEADLIGHT, "Headlight", "headlight", { 255, 235, 40 } },
+    { CAR_MASK_REVERSE, "Reverse light", "reverse", { 40, 230, 230 } },
+    { CAR_MASK_MATTE, "Matte (plate, badges, plastics)", "matte", { 255, 255, 255 } },
 };
 
 const MaskClass *mask_edit_class(int index)

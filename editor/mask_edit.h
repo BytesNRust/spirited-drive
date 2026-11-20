@@ -17,6 +17,7 @@ typedef enum { ME_FILL_CLASS = 0, ME_FILL_TEXTURE } MaskFillMode;
 typedef struct {
     uint8_t value;
     const char *name;
+    const char *tag;     /* a short name for a list: "glass", "side light" */
     uint8_t rgb[3];
 } MaskClass;
 
