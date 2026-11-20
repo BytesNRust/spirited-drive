@@ -1,6 +1,7 @@
 #!/bin/sh
-# A track from the Studio to the game, the happy path a user takes: a new project, a point added and saved, Build, Install into the
-# player's folder, and the game races the installed piece (no window) and names it in its log. Needs the game's files (original/).
+# A track from the Studio to the game, the happy path a user takes: a new project, a point added and saved, an edit undone and redone with
+# the window's unsaved mark following, Build, Install into the player's folder, and the game races the installed piece (no window) and
+# names it in its log. Needs the game's files (original/).
 # usage: editor_e2e_track.sh EDITOR TNFS ORIGINAL_DIR
 . "$(dirname "$0")/editor_headless_common.sh"
 tnfs=$2
@@ -19,6 +20,15 @@ first=$(points)
 # 2. A point added, then saved
 "$editor" "$work/loop" --user "$player" --frames 2 --edit --save >"$work/log" 2>&1 || fail "a point added and saved: $(cat "$work/log")"
 [ "$(points)" -eq $((first + 1)) ] || fail "the point added is not in trace.json ($first points before, $(points) after)"
+
+# 2b. Edit, undo, redo, save: the window's title has the unsaved mark after an edit, not after its undo, again after the redo, not after
+# Save, and again after an undo past the save; trace.json has what was saved
+before=$(points)
+"$editor" "$work/loop" --user "$player" --frames 2 --steps title,edit,title,undo,title,redo,title,save,title,undo,title >"$work/log" 2>&1 \
+    || fail "edit, undo, redo, save: $(cat "$work/log")"
+grep '^title: ' "$work/log" | sed 's/^title: Spirited Drive Studio .* loop/loop/' > "$work/titles"
+printf 'loop\nloop *\nloop\nloop *\nloop\nloop *\n' | cmp -s - "$work/titles" || fail "the unsaved mark in the title: $(tr '\n' '|' < "$work/titles")"
+[ "$(points)" -eq $((before + 1)) ] || fail "Save after a redo did not write the point redone ($before points before, $(points) after)"
 
 # 3. Build and 4. Install into the player's folder
 "$editor" "$work/loop" --user "$player" --frames 2 --build --install --game "$tnfs" >"$work/log" 2>&1 || fail "Build and Install: $(cat "$work/log")"

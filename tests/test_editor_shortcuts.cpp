@@ -2,6 +2,7 @@
 // Dear ImGui, which the shortcuts go through, takes the same key: on a Mac the backend's Cmd arrives as ImGuiMod_Ctrl (io.ConfigMacOSXBehaviors swaps
 // them), so ImGuiMod_Ctrl | Z is Cmd+Z there and Ctrl+Z elsewhere. No window: a context fed the key events the SDL backend sends.
 #include "shortcut_keys.h"
+#include "command_keys.h"
 
 #include "imgui.h"
 #include "test.h"
@@ -66,9 +67,55 @@ static void check_imgui_takes_the_platform_key()
     ImGui::DestroyContext(ctx);
 }
 
+// one frame with `cmd` (the platform's: Super on a Mac's backend, else Control), Shift when `shift`, and `key` held from the second frame; the command
+// command_key saw, NONE for none
+static CommandKey command_of(bool cmd, bool shift, ImGuiKey key)
+{
+    ImGuiContext *ctx = ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    io.ConfigMacOSXBehaviors = SHORTCUT_MAC;
+    io.DisplaySize = ImVec2(640, 480);
+    io.DeltaTime = 1.0f / 60.0f;
+    unsigned char *pixels = nullptr;
+    int w = 0, h = 0;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
+    io.IniFilename = nullptr;   // no imgui.ini left where the test runs
+    CommandKey seen = COMMAND_NONE;
+    for (int frame = 0; frame < 4; ++frame) {
+        ImGui::NewFrame();
+        ImGui::Begin("Track");
+        const CommandKey now = command_key(false);
+        if (now != COMMAND_NONE) seen = now;
+        ImGui::End();
+        ImGui::EndFrame();
+        if (frame == 0) {
+            if (cmd) {
+                io.AddKeyEvent(SHORTCUT_MAC ? ImGuiMod_Super : ImGuiMod_Ctrl, true);
+                io.AddKeyEvent(SHORTCUT_MAC ? ImGuiKey_LeftSuper : ImGuiKey_LeftCtrl, true);
+            }
+            if (shift) io.AddKeyEvent(ImGuiMod_Shift, true), io.AddKeyEvent(ImGuiKey_LeftShift, true);
+            io.AddKeyEvent(key, true);
+        }
+    }
+    ImGui::DestroyContext(ctx);
+    return seen;
+}
+
+// Save, Undo and Redo of both editors: on the command key, never a plain letter (a track's Save was S alone; owner 2026-11-20)
+static void check_command_keys()
+{
+    CHECK_EQ_INT(command_of(true, false, ImGuiKey_S), COMMAND_SAVE);
+    CHECK_EQ_INT(command_of(false, false, ImGuiKey_S), COMMAND_NONE);   // S alone: typing an S saves nothing
+    CHECK_EQ_INT(command_of(true, false, ImGuiKey_Z), COMMAND_UNDO);
+    CHECK_EQ_INT(command_of(true, true, ImGuiKey_Z), COMMAND_REDO);
+    CHECK_EQ_INT(command_of(true, false, ImGuiKey_Y), COMMAND_REDO);
+    CHECK_EQ_INT(command_of(false, false, ImGuiKey_Z), COMMAND_NONE);
+}
+
 int main()
 {
     check_labels();
     check_imgui_takes_the_platform_key();
+    check_command_keys();
     return TEST_REPORT();
 }

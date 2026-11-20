@@ -2,7 +2,7 @@
  * car project's card, textures and masks (dep59 car editor 1d, read only for now); with nothing open, a start screen.
  *
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
- *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--shine on|off] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]
+ *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--shine on|off] [--edit] [--steps edit,undo,redo,save,title] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
  * PROJECT is a folder such as art/tnfs-tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
  * art/tnfs-cars/<kit>/ (or its coche/): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
@@ -56,6 +56,7 @@ typedef struct {
     int preview_paint;       /* --paint N: the card's N-th paint (from 1) shown in Preview, for a headless picture; 0 the car as its file has it */
     int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
+    const char *steps;       /* --steps edit,undo,redo,save,title: done in order before the first frame (title prints the window's title): a flow test's edits */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
     int reset_layout;        /* --reset-layout: Window > Reset layout before the first frame (a headless check that it gives the first-run dock back) */
     int window_w, window_h;  /* --window WxH: the window's size (a headless picture of a layout at another size); 0 x 0 for the default: WINDOW_W x WINDOW_H
@@ -68,7 +69,7 @@ static int usage(void)
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2]]\n"
                     "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n"
-                    "       [--window WxH] [--reset-layout]\n");
+                    "       [--window WxH] [--reset-layout] [--steps edit,undo,redo,save,title]\n");
     return 0;
 }
 
@@ -150,6 +151,7 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--reset-layout") == 0) o->reset_layout = 1;
         else if (strcmp(argv[i], "--rehacer") == 0) o->rehacer = 1;
         else if (strcmp(argv[i], "--edit") == 0) o->edit = 1;
+        else if (strcmp(argv[i], "--steps") == 0 && has_value) o->steps = argv[++i];
         else if (strcmp(argv[i], "--save") == 0) o->save = 1;
         else if (strcmp(argv[i], "--build") == 0) o->build = 1;
         else if (strcmp(argv[i], "--install") == 0) o->install = 1;
@@ -297,6 +299,49 @@ static int pick_car(App *a, const char *folder)
     for (int i = 0; car_export_car(i) != NULL; ++i)
         if (strcasecmp(car_export_car(i)->folder, folder) == 0) return a->export_pick = i, 1;
     return 0;
+}
+
+/* the window's title as the app has it (the project and its unsaved mark), set when it changes */
+static void set_title(SDL_Window *win, const App *a)
+{
+    char title[APP_PATH + 64];
+    app_title(a, title, sizeof title);
+    if (strcmp(title, SDL_GetWindowTitle(win)) != 0) SDL_SetWindowTitle(win, title);
+}
+
+/* --steps, in order: edit (a track's point added), undo, redo, save, title (the window's title printed); 0 with a word on stderr for a step
+ * that is not one or did nothing, the steps after it not done */
+static int run_steps(App *a, const char *steps)
+{
+    char list[256];
+    snprintf(list, sizeof list, "%s", steps);
+    for (char *step = strtok(list, ","); step != NULL; step = strtok(NULL, ",")) {
+        int did = 0;
+        if (strcmp(step, "edit") == 0 && a->kind == APP_KIND_TRACK) {
+            app_add_point(a);
+            app_track_commit(a);   /* as the window does once an edit is done */
+            did = 1;
+        } else if (strcmp(step, "undo") == 0) {
+            did = app_undo(a);
+        } else if (strcmp(step, "redo") == 0) {
+            did = app_redo(a);
+        } else if (strcmp(step, "save") == 0) {
+            did = app_save(a);
+        } else if (strcmp(step, "title") == 0) {
+            char title[APP_PATH + 64];
+            app_title(a, title, sizeof title);
+            fprintf(stdout, "title: %s\n", title);
+            did = 1;
+        } else {
+            fprintf(stderr, "--steps %s: edit (a track's), undo, redo, save or title expected\n", step);
+            return 0;
+        }
+        if (!did) {
+            fprintf(stderr, "--steps: %s did nothing (%s)\n", step, a->status);
+            return 0;
+        }
+    }
+    return 1;
 }
 
 /* the actions asked for on the command line, once, before the first frame; 1 when all of them went */
@@ -483,6 +528,13 @@ static int run(App *a, const Options *o)
         }
     }
     if (o->edit) app_add_point(a);   /* and of the confirmation: something unsaved ... */
+    if (o->steps != NULL && !run_steps(a, o->steps)) {
+        ui_close();
+        SDL_DestroyRenderer(ren);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+        return 0;   /* a run that did not go */
+    }
     if (o->pick != NULL && !pick_car(a, o->pick)) {
         fprintf(stderr, "--pick %s: not a car Export original car knows\n", o->pick);
         ui_close();
@@ -527,6 +579,7 @@ static int run(App *a, const Options *o)
         SDL_SetRenderDrawColor(ren, 18, 20, 24, 255);
         SDL_RenderClear(ren);
         ui_frame(ren, a);
+        set_title(win, a);
         ++frame;
         if (headless && frame >= o->frames) {
             if (o->shot != NULL) {

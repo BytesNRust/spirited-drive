@@ -1236,6 +1236,49 @@ static void check_mask_app(void)
     free(a);
 }
 
+/* a track's undo and redo through the app (owner 2026-11-20), and the window's title with its unsaved mark: set by an edit, cleared by Save,
+ * back after an undo past the save; an undo of a point added takes the road back with it */
+static void check_track_undo_title(void)
+{
+    char dir[600], title[APP_PATH + 64];
+    path_in(dir, sizeof dir, "undo");
+    mkdir(dir, 0777);
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_title(a, title, sizeof title);
+    CHECK(strcmp(title, "Spirited Drive Studio") == 0);   /* nothing open */
+    CHECK(app_open(a, dir, "./tnfs", "", NULL));
+    app_title(a, title, sizeof title);
+    CHECK(strcmp(title, "Spirited Drive Studio \xe2\x80\x94 undo") == 0);
+    CHECK(!app_can_undo(a) && !app_can_redo(a));
+    const int points = a->trace.count;
+    app_add_point(a);
+    app_track_commit(a);
+    CHECK_EQ_INT(a->trace.count, points + 1);
+    app_title(a, title, sizeof title);
+    CHECK(strcmp(title, "Spirited Drive Studio \xe2\x80\x94 undo *") == 0);
+    CHECK(app_can_undo(a) && app_undo(a));
+    CHECK_EQ_INT(a->trace.count, points);
+    CHECK(!app_modified(a));                              /* back to the file: nothing to save */
+    CHECK_EQ_INT(a->point_count, points);                 /* the road made again from the points undone */
+    CHECK(app_can_redo(a) && app_redo(a));
+    CHECK_EQ_INT(a->trace.count, points + 1);
+    CHECK(app_modified(a));
+    CHECK(app_save(a));
+    app_title(a, title, sizeof title);
+    CHECK(strcmp(title, "Spirited Drive Studio \xe2\x80\x94 undo") == 0);
+    CHECK(app_undo(a));
+    CHECK(app_modified(a));                               /* an undo past the save is a change to save */
+    snprintf(a->project.edge, sizeof a->project.edge, "sand");
+    app_track_commit(a);
+    CHECK(!app_can_redo(a));                              /* a new edit: nothing to redo */
+    CHECK(app_undo(a) && strcmp(a->project.edge, "grass") == 0);
+    app_free(a);
+    free(a);
+    cleanup_project(dir);
+}
+
 static void check_free_keeps_stdin(void)
 {
     const int saved = dup(0);
@@ -1288,6 +1331,7 @@ int main(void)
     check_rehacer();
     check_export();
     check_mask_app();
+    check_track_undo_title();
     check_free_keeps_stdin();
     rmdir(root);
     return TEST_REPORT();

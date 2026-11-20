@@ -126,20 +126,24 @@ int app_mask_modified(const App *a)
 
 int app_can_undo(const App *a)
 {
+    if (a->kind == APP_KIND_TRACK) return track_undo_can_undo(&a->track_undo, &a->project, &a->trace);
     return a->mask.focus && a->mask.sel >= 0 ? mask_edit_can_undo(&a->mask.me) : car_edit_can_undo(&a->edit);
 }
 
 int app_can_redo(const App *a)
 {
+    if (a->kind == APP_KIND_TRACK) return track_undo_can_redo(&a->track_undo);
     return a->mask.focus && a->mask.sel >= 0 ? mask_edit_can_redo(&a->mask.me) : car_edit_can_redo(&a->edit);
 }
 
 int app_undo(App *a)
 {
+    if (a->kind == APP_KIND_TRACK) return app_track_undo(a, 0);
     return a->mask.focus && a->mask.sel >= 0 ? mask_edit_undo(&a->mask.me) : car_edit_undo(&a->edit);
 }
 
 int app_redo(App *a)
 {
+    if (a->kind == APP_KIND_TRACK) return app_track_undo(a, 1);
     return a->mask.focus && a->mask.sel >= 0 ? mask_edit_redo(&a->mask.me) : car_edit_redo(&a->edit);
 }
