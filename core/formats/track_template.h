@@ -37,6 +37,11 @@ const char *track_template_info(size_t *len);
  * 1 when it does; 0 with the reason in err. */
 int track_template_check_fam(const uint8_t *fam, size_t size, ExchangeError *err);
 
+/* Whether `fam` has every fence picture the track `tri` asks for (the fence step): a segment with a fence on either side draws slot 32 + its fence byte's
+ * low 5 bits, letter slot % 3 of terrain bank slot / 3 (the generic art: the planks, rail and parapet are bank 10, 11 and 12's C). 1 when it has; 0 with
+ * err naming the first segment and the slot it lacks. */
+int track_template_check_fence_art(const uint8_t *fam, size_t fam_size, const uint8_t *tri, size_t tri_size, ExchangeError *err);
+
 /* The template as a TRI file: 1 and *out (malloc'd, *out_len bytes), the same bytes every time; 0 with err when it cannot be assembled. */
 int track_template_generic(uint8_t **out, size_t *out_len, ExchangeError *err);
 

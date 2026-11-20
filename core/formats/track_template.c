@@ -183,3 +183,33 @@ int track_template_check_fam(const uint8_t *fam, size_t size, ExchangeError *err
     }
     return 1;
 }
+
+/* whether terrain bank `bank` of the FAM's terrain table has letter `letter`'s first variant */
+static int bank_has(const Chunk *terrain, uint32_t bank, char letter)
+{
+    Chunk b;
+    Fsh fsh;
+    uint32_t at;
+    const char name[4] = { letter, '0', '0', '0' };
+    return bank < terrain->count && chunk_child(terrain, bank, &b) == CHUNK_OK && b.kind == CHUNK_KIND_BITMAP && chunk_bitmaps(&b, &fsh) == FSH_OK &&
+           fsh_find(&fsh, name, &at) == FSH_OK;
+}
+
+int track_template_check_fence_art(const uint8_t *fam, size_t fam_size, const uint8_t *tri, size_t tri_size, ExchangeError *err)
+{
+    Chunk root, terrain;
+    Tri t;
+    TriParts parts;
+    if (chunk_open(&root, fam, fam_size) != CHUNK_OK || chunk_child(&root, 0, &terrain) != CHUNK_OK || terrain.kind != CHUNK_KIND_HEADER)
+        return exchange_fail(err, "not a track art file (FAM)"), 0;
+    if (tri_open(&t, tri, tri_size) != TRI_OK || tri_parts(&t, &parts) != TRI_OK) return exchange_fail(err, "not a track file (TRI)"), 0;
+    for (uint32_t s = 0; s < t.segment_count; ++s) {
+        const uint8_t fence = parts.terrain[(size_t)s * TRI_SEGMENT_SIZE + 0xd];
+        if (!(fence & (TRI_FENCE_LEFT | TRI_FENCE_RIGHT))) continue;
+        const uint32_t slot = TRACK_GENERIC_FENCE_SLOT + (fence & TRI_FENCE_SLOT_MASK);
+        if (bank_has(&terrain, slot / 3, (char)('A' + slot % 3))) continue;
+        return exchange_fail(err, "segment %u's fence picture is slot %u (terrain bank %u, letter %c), which the art does not have: use the Studio's generic art, or "
+                                  "add it (docs/modding.md, Art for a generic track)", s, slot, slot / 3, 'A' + (int)(slot % 3)), 0;
+    }
+    return 1;
+}

@@ -4,6 +4,7 @@
 #include "formats/chunk.h"
 #include "formats/fam_build.h"
 #include "formats/track_template.h"
+#include "formats/tri.h"
 #include "formats/fsh.h"
 #include "formats/validate.h"
 #include "test.h"
@@ -377,6 +378,46 @@ static void test_fence_bank(const Stage *stage)
     free(file);
 }
 
+/* the fence's pictures a track asks for are in its art (the fence step): each segment with a fence draws slot 32 + the fence byte's low bits, the letter
+ * slot % 3 of bank slot / 3. The template's planks (slot 32: bank 10's C) are in the 11-bank art; a segment asking for the rail (slot 35: bank 11's C) is
+ * refused by segment and slot until the art has 13 banks with them */
+static void test_fence_slots(const Stage *s)
+{
+    enum { BANKS = TRACK_GENERIC_BANKS + 2 };
+    static FamPicture many[BANKS];
+    static unsigned letters[BANKS];
+    static unsigned char fence[BANKS];
+    for (int i = 0; i < BANKS; i++) many[i] = s->terrain_pic[i % TEXTURES], letters[i] = i >= TRACK_GENERIC_BANKS - 1 ? FAM_LETTER_C : FAM_LETTER_A;
+    for (int i = TRACK_GENERIC_BANKS - 1; i < BANKS; i++) fence[i] = 1;
+    uint8_t *tri = NULL;
+    size_t tri_len = 0;
+    ExchangeError err = { { 0 } };
+    CHECK(track_template_generic(&tri, &tri_len, &err));
+    if (tri == NULL) return;
+    Tri t;
+    TriParts parts;
+    CHECK(tri_open(&t, tri, tri_len) == TRI_OK && tri_parts(&t, &parts) == TRI_OK);
+    uint8_t *seg2 = tri + (parts.terrain - tri) + 2 * TRI_SEGMENT_SIZE + 0xd;   /* the template's own bytes, changed here */
+    char msg[256];
+    for (int n = TRACK_GENERIC_BANKS; n <= BANKS; n += 2) {   /* the 11-bank art, then the 13-bank one */
+        const FamSource src = { many, (size_t)n, NULL, 0, &s->horizon_pic, letters, fence };
+        uint8_t *file = NULL;
+        size_t len = 0;
+        CHECK(build(&src, &file, &len, msg, sizeof msg));
+        if (file == NULL) continue;
+        *seg2 = TRACK_TEMPLATE_FENCE;   /* the planks */
+        CHECK(track_template_check_fence_art(file, len, tri, tri_len, &err));
+        *seg2 = (uint8_t)(TRACK_TEMPLATE_FENCE | 3);   /* the rail */
+        const int ok = track_template_check_fence_art(file, len, tri, tri_len, &err);
+        CHECK_EQ_INT(ok, n == BANKS);
+        if (!ok) CHECK(strstr(err.message, "segment 2") != NULL && strstr(err.message, "slot 35") != NULL && strstr(err.message, "bank 11") != NULL);
+        *seg2 = (uint8_t)((TRACK_TEMPLATE_FENCE | 3) & ~(TRI_FENCE_LEFT | TRI_FENCE_RIGHT));   /* no fence either side: nothing drawn, nothing needed */
+        CHECK(track_template_check_fence_art(file, len, tri, tri_len, &err));
+        free(file);
+    }
+    free(tri);
+}
+
 int main(int argc, char **argv)
 {
     static Stage stage;
@@ -399,6 +440,7 @@ int main(int argc, char **argv)
     test_generic_check(&stage);
     test_see_through_bank(&stage);
     test_fence_bank(&stage);
+    test_fence_slots(&stage);
     if (argc > 1) test_ladder_matches_cd(file, len, argv[1]);
     free(file);
     return TEST_REPORT();

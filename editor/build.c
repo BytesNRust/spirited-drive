@@ -211,6 +211,12 @@ static int piece_files(const Project *p, const char *dir, const uint8_t *tri, si
         return 0;
     }
     char info_text[INFO_TEXT_MAX];
+    ExchangeError err = { { 0 } };
+    if (!track_template_check_fence_art(fam, art_len, tri, tri_len, &err)) {   /* a fence picture the art lacks (the fence step): said, not built */
+        snprintf(why, why_cap, "%s: %s", art, err.message);
+        free(fam);
+        return 0;
+    }
     int ok = fileset_add(set, paths[0], tri, tri_len) && fileset_add(set, paths[2], fam, art_len) && fileset_add(set, paths[3], fam, art_len);
     free(fam);
     if (!ok) snprintf(why, why_cap, "cannot add the piece's files");
