@@ -3,6 +3,7 @@
 #include "formats/car_mask_codec.h"
 #include "formats/png.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -141,6 +142,17 @@ int mask_edit_texture_at(const MaskEdit *e, int x, int y, uint8_t rgb[3])
     if (tx >= e->tex_width) tx = e->tex_width - 1;
     if (ty >= e->tex_height) ty = e->tex_height - 1;
     memcpy(rgb, e->tex + ((size_t)ty * e->tex_width + (size_t)tx) * 3, 3);
+    return 1;
+}
+
+int mask_edit_texel_under(float px, float py, float origin_x, float origin_y, float scale, int width, int height, int *x, int *y)
+{
+    *x = *y = -1;
+    if (!(scale > 0.0f) || !isfinite(px) || !isfinite(py) || !isfinite(origin_x) || !isfinite(origin_y)) return 0;
+    const float fx = floorf((px - origin_x) / scale), fy = floorf((py - origin_y) / scale);
+    if (!(fx >= 0.0f && fx < (float)width && fy >= 0.0f && fy < (float)height)) return 0;   /* (a difference that overflowed is no texel either) */
+    *x = (int)fx;
+    *y = (int)fy;
     return 1;
 }
 
