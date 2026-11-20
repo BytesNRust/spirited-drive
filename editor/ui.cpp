@@ -120,7 +120,7 @@ void masks_layout(ImGuiID dock)
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
     ImGuiID left = 0, right = 0, race = 0;
     left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.3f, nullptr, &right);
-    race = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.8f, nullptr, &right);
+    race = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.5f, nullptr, &right);   // the masks list and its changes need room above
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
     ImGui::DockBuilderDockWindow(PANEL_MASKS, right);
     ImGui::DockBuilderDockWindow(PANEL_RACE, race);

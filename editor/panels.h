@@ -27,6 +27,7 @@ void race_panel(App *a, ImTextureID photo);   // Test in race and Race photo, th
 void mask_edit_panel(App *a, ImTextureID picture);   // Edit mask: the mask over its texture (a texture of mask_edit_compose, 0 for none), the legend, the tools
 void preview_panel(App *a, struct SDL_Renderer *ren);   // Preview: the textures as the race paints them, in a paint of the card's
 void preview_free(void);
+void masks_changes_section(App *a);   // in Masks: the project's masks against the game's, a button copies the list
 void export_popup(App *a);    // the Export original car window, up while a->export_dialog is set
 
 // the panels' names, as the dock layout places them

@@ -373,6 +373,7 @@ void masks_panel(App *a)
     if (open) {
         const CarProject &c = a->car;
         ImGui::Text("Car file: %s", leaf(c.cfm));
+        masks_changes_section(a);   // what the project's masks have changed from the game's: first, it is what a hand-over needs
         ImGui::Spacing();
         if (!c.has_masks_dir) {
             ImGui::Text("Masks of the car (car_masks/%s): none yet", c.folder);

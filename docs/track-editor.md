@@ -153,6 +153,10 @@ The **Preview** window (a tab beside Textures and Race) shows each texture of th
 
 The bank's palette is taken to 6 bits a channel, as the race loads it. Not applied: the track's light and the screen palette's nearest-colour snapping. Instead Preview counts the distinct colours of the body and says how many the car's entries in the race palette (23 of its own, 72 shared when several cars race) cannot hold: the rest will look like their nearest. Texels that name one of the race's screen entries (0xfa-0xfe) are hatched, and 0xff is a chequer. Headless: `--paint N` shows the card's N-th paint.
 
+## Changes from the game's masks
+
+At the top of the **Masks** window of a project made from one of the game's cars (Export original car), **Changes from the game's masks** compares each `*_mask.png` of `car_masks/<folder>/` with the game's own copy, `data/car_masks/<folder>/`, the one the export started from: *unchanged*, *changed* (how many texels, and which classes gained and lost them), *new* (only the project has it) or *missing* (only the game has it). Masks are compared as classes, so a file written again by another picture editor with the same texels is unchanged; backups with an extra dot in the name (`frnt.before-1650_mask.png`) are left out, as the export leaves them. **Refresh** reads the files again; **Copy the changed list** puts plain text on the clipboard (the folder, then a line for each changed file with its texel count and classes, each new and each missing file, and how many are unchanged) for pasting into a hand-over. Read only. Headless: `--changes` prints the same text.
+
 ## Edit mask
 
 The **Edit mask** window (a tab beside Textures and Race) paints a car's masks. Pick a texture of the car file (the ones with a mask in `car_masks/<car>/`; the low detail bank's are marked "low"): the mask is drawn over the texture, each class in its legend colour, with an Overlay switch, an Opacity slider and a switch per class. The class chosen in the legend is the one the tools paint with.
