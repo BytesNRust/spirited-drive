@@ -348,40 +348,7 @@ int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const uint8_
     return changed > 0 ? changed : 0;
 }
 
-/* ----- the drafts of the masks ----- */
-
-typedef struct {
-    LiveryDraftFn fn;
-    void *user;
-    int floor;
-} DraftJob;
-
-static int run_draft(const RepaintBank *bank, const BankMeta *meta, void *ctx)
-{
-    const DraftJob *j = ctx;
-    uint8_t *keeps[MAX_TEXTURES] = { NULL };
-    int ok = 1;
-    for (int t = 0; t < bank->texture_count; t++) {
-        keeps[t] = malloc(bank->textures[t].count > 0 ? bank->textures[t].count : 1);
-        ok = ok && keeps[t] != NULL;
-    }
-    int paint = -1;
-    if (ok) paint = car_repaint_draft(bank, j->floor, keeps);
-    if (paint >= 0) {
-        /* the bank's first palette ('!PAL') is what the textures' indices show; the second ('!xxx') holds only the car's own colours */
-        const uint8_t *pal = bank->palette[0];
-        const int shift = bank->type == 0x22 ? 2 : 0;
-        uint8_t rgb[768];
-        for (int i = 0; i < 768; i++) rgb[i] = (uint8_t)(pal[i] << shift);
-        for (int t = 0; t < bank->texture_count; t++) {
-            const RepaintTexture *tex = &bank->textures[t];
-            if (tex->body == REPAINT_NONE || tex->width <= 0) continue;
-            j->fn(j->user, meta->level, meta->name[t], tex->width, (int)(tex->count / (size_t)tex->width), tex->pixels, keeps[t], rgb);
-        }
-    }
-    for (int t = 0; t < bank->texture_count; t++) free(keeps[t]);
-    return paint > 0 ? paint : 0;
-}
+/* ----- the drafts of the masks: core/formats/car_livery_pass.h car_livery_draft ----- */
 
 int drive_livery_draft(const char *stem, uint8_t *cfm, size_t size, LiveryDraftFn fn, void *user)
 {
@@ -394,7 +361,7 @@ int drive_livery_draft_masks(const char *stem, const char *mask_dir, uint8_t *cf
     size_t i = 0;
     for (; stem[i] != '\0' && i < LIVERY_STEM - 1; i++) upper[i] = (char)toupper((unsigned char)stem[i]);
     upper[i] = '\0';
-    /* the Corvette's dark teal body lies under its runtime floor (a lower one repaints eight lamp texels): the draft starts its fascia as paint */
-    const DraftJob job = { fn, user, strcmp(upper, "CZR1") == 0 ? 20 : car_livery_glass_floor(upper) };
-    return repaint_cfm(cfm, size, stem, mask_dir, upper, run_draft, (void *)&job);
+    const MaskSource src = { stem, mask_dir };
+    const CarLiveryPass pass = { upper, mask_dir != NULL, 0, load_mask, (void *)&src };
+    return car_livery_draft(cfm, size, &pass, fn, user);
 }

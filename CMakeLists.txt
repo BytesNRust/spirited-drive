@@ -122,6 +122,11 @@ add_library(tnfs_core STATIC
     core/raster/view.c
     core/raster/car_pose.c
     core/raster/orbit.c
+    core/raster/car_shine.c
+    core/raster/car_envmap.c
+    core/raster/shine_draw.c
+    core/raster/shine_class.c
+    core/raster/shine_pass.c
     core/raster/car_scene.c
     core/formats/shape_bank.c
     core/formats/car_mask_codec.c
@@ -639,7 +644,7 @@ target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 if(NOT MSVC)
     target_compile_options(tnfs_game PRIVATE -fwrapv)
     # fixed_math moved to core and keeps the same wraparound arithmetic (a negative remainder << 16 in fx_div)
-    set_source_files_properties(core/formats/fixed_math.c core/formats/shape_bank.c core/formats/car_mask_codec.c core/formats/car_paint.c core/formats/car_repaint.c core/formats/car_bank_walk.c core/formats/car_livery_pass.c core/formats/lamp_emissive.c core/formats/police_flash.c core/formats/palette_tint.c core/raster/flat.c core/raster/flat_edge.c core/raster/flat_scan.c core/raster/object3d.c core/raster/object_mappers.c core/raster/palette_match.c core/raster/quad.c core/raster/raster_record.c core/raster/quad_tri.c core/raster/view.c core/raster/car_pose.c core/raster/orbit.c core/raster/car_scene.c PROPERTIES COMPILE_OPTIONS -fwrapv)
+    set_source_files_properties(core/formats/fixed_math.c core/formats/shape_bank.c core/formats/car_mask_codec.c core/formats/car_paint.c core/formats/car_repaint.c core/formats/car_bank_walk.c core/formats/car_livery_pass.c core/formats/lamp_emissive.c core/formats/police_flash.c core/formats/palette_tint.c core/raster/flat.c core/raster/flat_edge.c core/raster/flat_scan.c core/raster/object3d.c core/raster/object_mappers.c core/raster/palette_match.c core/raster/quad.c core/raster/raster_record.c core/raster/quad_tri.c core/raster/view.c core/raster/car_pose.c core/raster/orbit.c core/raster/car_scene.c core/raster/car_shine.c core/raster/car_envmap.c core/raster/shine_draw.c core/raster/shine_class.c core/raster/shine_pass.c PROPERTIES COMPILE_OPTIONS -fwrapv)
     # (the classic rasterizer, core/raster, was game code: the same arithmetic)
 endif()
 
@@ -733,8 +738,6 @@ add_executable(tnfs
     game/viewer/drive_bumper.c
     game/viewer/model_view.c
     game/viewer/object_sink.c
-    game/viewer/shine_draw.c
-    game/viewer/shine_class.c
     game/viewer/body_shine.c
     game/viewer/soft_shadow.c
     game/viewer/ported_view.c
@@ -1193,27 +1196,27 @@ foreach(name port_old_files car_registry car_lights ai_added car_list content_ro
     target_link_libraries(test_car_render_sides PRIVATE tnfs_game)
     target_compile_options(test_car_render_sides PRIVATE ${TNFS_WARNINGS})
     add_test(NAME car_render_sides COMMAND test_car_render_sides)
-    add_executable(test_shine_draw tests/test_shine_draw.c game/viewer/shine_draw.c)
+    add_executable(test_shine_draw tests/test_shine_draw.c)
     target_include_directories(test_shine_draw PRIVATE game)
     target_link_libraries(test_shine_draw PRIVATE tnfs_game)
     target_compile_options(test_shine_draw PRIVATE ${TNFS_WARNINGS})
     add_test(NAME shine_draw COMMAND test_shine_draw)
-    add_executable(test_shine_class tests/test_shine_class.c game/viewer/shine_class.c game/viewer/shine_draw.c)
+    add_executable(test_shine_class tests/test_shine_class.c)
     target_include_directories(test_shine_class PRIVATE game)
     target_link_libraries(test_shine_class PRIVATE tnfs_game)
     target_compile_options(test_shine_class PRIVATE ${TNFS_WARNINGS})
     add_test(NAME shine_class COMMAND test_shine_class)
-    add_executable(test_sink_shine tests/test_sink_shine.c game/viewer/object_sink.c game/viewer/modern_road.c game/viewer/shine_draw.c game/viewer/shine_class.c)
+    add_executable(test_sink_shine tests/test_sink_shine.c game/viewer/object_sink.c game/viewer/modern_road.c)
     target_include_directories(test_sink_shine PRIVATE game)
     target_link_libraries(test_sink_shine PRIVATE tnfs_game)
     target_compile_options(test_sink_shine PRIVATE ${TNFS_WARNINGS})
     add_test(NAME sink_shine COMMAND test_sink_shine)
-    add_executable(test_body_shine tests/test_body_shine.c game/viewer/body_shine.c game/viewer/object_sink.c game/viewer/modern_road.c game/viewer/shine_draw.c game/viewer/shine_class.c)
+    add_executable(test_body_shine tests/test_body_shine.c game/viewer/body_shine.c game/viewer/object_sink.c game/viewer/modern_road.c)
     target_include_directories(test_body_shine PRIVATE game)
     target_link_libraries(test_body_shine PRIVATE tnfs_game)
     target_compile_options(test_body_shine PRIVATE ${TNFS_WARNINGS})
     add_test(NAME body_shine COMMAND test_body_shine)
-    add_executable(test_modern_objects tests/test_modern_objects.c game/viewer/object_sink.c game/viewer/modern_road.c game/viewer/shine_draw.c game/viewer/shine_class.c)
+    add_executable(test_modern_objects tests/test_modern_objects.c game/viewer/object_sink.c game/viewer/modern_road.c)
     target_include_directories(test_modern_objects PRIVATE game)
     target_link_libraries(test_modern_objects PRIVATE tnfs_game)
     target_compile_options(test_modern_objects PRIVATE ${TNFS_WARNINGS})
@@ -1228,7 +1231,7 @@ foreach(name port_old_files car_registry car_lights ai_added car_list content_ro
     target_link_libraries(test_near_scenery PRIVATE tnfs_game)
     target_compile_options(test_near_scenery PRIVATE ${TNFS_WARNINGS})
     add_test(NAME near_scenery COMMAND test_near_scenery)
-    add_executable(test_object_sink tests/test_object_sink.c game/viewer/object_sink.c game/viewer/modern_road.c game/viewer/shine_draw.c game/viewer/shine_class.c)
+    add_executable(test_object_sink tests/test_object_sink.c game/viewer/object_sink.c game/viewer/modern_road.c)
     target_include_directories(test_object_sink PRIVATE game)
     target_link_libraries(test_object_sink PRIVATE tnfs_game)
     target_compile_options(test_object_sink PRIVATE ${TNFS_WARNINGS})
