@@ -2,7 +2,9 @@
 #include "viewport.h"
 
 #include "imgui.h"
+#include "stretch_colours.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <math.h>
@@ -11,6 +13,7 @@ extern "C" {
 #include "formats/track_gen.h"
 #include "formats/track_trace.h"
 #include "app_select.h"
+#include "app_colour.h"
 #include "interact.h"
 #include "point_ops.h"
 #include "app_points.h"
@@ -116,7 +119,7 @@ void draw_tarmac(const Canvas &c, const App &a)
 }
 
 // the road: its nodes joined, a node breaking a limit drawn red; with no road (the trace cannot make one), the control polygon in red
-void draw_road(const Canvas &c, const App &a)
+void draw_road(const Canvas &c, const App &a, const uint8_t *classes)
 {
     const View &v = a.view;
     if (!a.road_made) {
@@ -128,8 +131,10 @@ void draw_road(const Canvas &c, const App &a)
     draw_tarmac(c, a);
     for (int i = 1; i < a.node_count; ++i) {
         const TrackGenNode &p = a.nodes[i - 1], &q = a.nodes[i];
+        // Colour by: the node's class colour, but a red limit shows through in every mode
+        const ImU32 colour = classes != nullptr && !(a.flags[i] & TRACE_FLAG_RED_BITS) ? stretch_colour(a.colour_by, classes[i]) : segment_colour(a.flags[i]);
         c.list->AddLine(to_screen(c, v, p.position[0] / 65536.0, p.position[2] / 65536.0),
-                        to_screen(c, v, q.position[0] / 65536.0, q.position[2] / 65536.0), segment_colour(a.flags[i]), 3);
+                        to_screen(c, v, q.position[0] / 65536.0, q.position[2] / 65536.0), colour, 3);
     }
 }
 
@@ -221,6 +226,8 @@ void end_box(App *a, double mx, double my)
     app_sel_box(a, x0, z0, x1, z1, g_box.add);
 }
 
+int node_near(const Canvas &c, const App &a, double mx, double my);
+
 // what the mouse does on the canvas: a click takes a point (Shift a range, Cmd one more), the button held drags every selected point; a left
 // drag on no point draws a box that selects; the right or middle button pans, the wheel zooms
 void handle_mouse(App *a, const ImVec2 &origin)
@@ -234,7 +241,9 @@ void handle_mouse(App *a, const ImVec2 &origin)
         const int pick = view_pick(&a->view, a->trace.points, a->trace.count, mx, my, INTERACT_PICK_REACH);
         const SelClick how = click_kind(io);
         collapse = -1;
-        if (pick < 0) g_box = { true, io.KeyShift, mx, my };
+        const int road = pick < 0 && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && a->colour_by != TRACE_COLOUR_LIMITS ? node_near(Canvas{ origin, nullptr }, *a, mx, my) : -1;
+        if (road >= 0 && app_select_stretch(a, road)) g_box.on = false;   // a double-click on the road: its stretch (Colour by), not a box
+        else if (pick < 0) g_box = { true, io.KeyShift, mx, my };
         else if (how == SEL_ONE && sel_has(&a->sel, pick) && app_sel_count(a) > 1) a->selected = pick, collapse = pick;   // the set stays for a drag
         else app_sel_click(a, pick, how);
         dragged = pick >= 0 && sel_has(&a->sel, pick) ? pick : -1;
@@ -319,6 +328,41 @@ void draw_tooltip(const Canvas &c, const App &a)
     ImGui::EndTooltip();
 }
 
+const char *const COLOUR_BY_NAMES[TRACE_COLOUR_MODES] = { "Limits", "Curve", "Bank", "Width", "Lanes", "Shoulder", "Fence" };
+const float COMBO_MARGIN = 8;   // from the canvas' top-left corner
+
+// the Colour by combo over the canvas' top-left corner; true while the mouse is on it. Its tooltip is the legend: what each colour means in the mode.
+bool colour_by_combo(App *a, const ImVec2 &origin)
+{
+    ImGui::SetCursorScreenPos(ImVec2(origin.x + COMBO_MARGIN, origin.y + COMBO_MARGIN));
+    ImGui::SetNextItemWidth(ImGui::CalcTextSize("Colour by: Shoulder").x + 2 * ImGui::GetStyle().FramePadding.x + ImGui::GetFrameHeight());
+    char shown[48];
+    snprintf(shown, sizeof shown, "Colour by: %s", COLOUR_BY_NAMES[a->colour_by]);
+    if (ImGui::BeginCombo("##colourby", shown)) {
+        for (int m = 0; m < TRACE_COLOUR_MODES; ++m)
+            if (ImGui::Selectable(COLOUR_BY_NAMES[m], m == a->colour_by)) app_set_colour_by(a, m);
+        ImGui::EndCombo();
+    }
+    const bool hovered = ImGui::IsItemHovered() || ImGui::IsItemActive();
+    if (ImGui::IsItemHovered() && !ImGui::IsPopupOpen("##colourby") && ImGui::BeginTooltip()) {
+        if (a->colour_by == TRACE_COLOUR_LIMITS) {
+            ImGui::TextUnformatted("Red and amber mark what Build refuses or warns about.");
+            ImGui::TextUnformatted("Pick a mode to colour the road by it; double-click the road then selects that stretch.");
+        } else {
+            ImGui::Text("The road coloured by %s. Red still marks a limit Build refuses.", COLOUR_BY_NAMES[a->colour_by]);
+            ImGui::TextUnformatted("Double-click the road to select its stretch.");
+            for (int k = 0; k < track_trace_class_count((TraceColourBy)a->colour_by); ++k) {
+                ImGui::ColorButton("##swatch", ImColor(stretch_colour(a->colour_by, k)), ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoDragDrop,
+                                   ImVec2(ImGui::GetTextLineHeight(), ImGui::GetTextLineHeight()));
+                ImGui::SameLine();
+                ImGui::TextUnformatted(track_trace_class_name((TraceColourBy)a->colour_by, k));
+            }
+        }
+        ImGui::EndTooltip();
+    }
+    return hovered;
+}
+
 }   // namespace
 
 void viewport_panel(App *a)
@@ -338,6 +382,7 @@ void viewport_panel(App *a)
                 interact_fit(a);
                 a->fit_pending = 0;
             }
+            ImGui::SetNextItemAllowOverlap();   // the Colour by combo sits over the canvas
             ImGui::InvisibleButton("canvas", size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
             handle_mouse(a, origin);
             app_recompute(a);   // what the mouse and the keys just changed, so the road is drawn with its points
@@ -345,12 +390,14 @@ void viewport_panel(App *a)
             c.list->PushClipRect(origin, ImVec2(origin.x + size.x, origin.y + size.y), true);
             c.list->AddRectFilled(origin, ImVec2(origin.x + size.x, origin.y + size.y), BACKGROUND);
             draw_grid(c, a->view);
-            draw_road(c, *a);
+            draw_road(c, *a, app_colour_classes(a));
             draw_points(c, *a);
             draw_box(c);
             draw_curve_preview(c, a);
             c.list->PopClipRect();
-            if (ImGui::IsItemHovered()) draw_tooltip(c, *a);
+            const bool over_canvas = ImGui::IsItemHovered();
+            const bool over_combo = colour_by_combo(a, origin);
+            if (over_canvas && !over_combo) draw_tooltip(c, *a);
         }
     }
     ImGui::End();

@@ -6,7 +6,7 @@
 
 #include <math.h>
 
-enum { CURVE_WINDOW = 4 };   /* nodes either side the curve is read over */
+enum { CURVE_WINDOW = 4, CURVE_MIN_RUN = 8 };   /* nodes either side the curve is read over; a curve or straight shorter than this is its neighbour's (a spline's wobble) */
 
 static const double WIDTH_EDGES_M[TRACE_WIDTH_BANDS - 1] = { 8, 11, 13, 16, 20 };   /* a road narrower than the first is band 0 */
 static const double EDGE_UNIT_M = 0.125;                                              /* the half width's byte is 1/8 m a unit */
@@ -88,6 +88,24 @@ static int fence_class(const TrackGenFence *f)
     return 1 + 2 * (art >= TRACE_FENCE_PICTURES ? TRACE_FENCE_PICTURES - 1 : art) + tall;
 }
 
+/* a run of fewer than CURVE_MIN_RUN nodes takes the class of the run before it (the first, of the one after): the shortest first, until none is left */
+static void absorb_short_runs(uint8_t *c, int count)
+{
+    for (int pass = 0; pass < count; ++pass) {
+        int a = 0, shortest = -1, shortest_first = 0, shortest_last = 0;
+        while (a < count) {
+            int b = a;
+            while (b + 1 < count && c[b + 1] == c[a]) ++b;
+            const int len = b - a + 1;
+            if (len < CURVE_MIN_RUN && !(a == 0 && b == count - 1) && (shortest < 0 || len < shortest)) shortest = len, shortest_first = a, shortest_last = b;
+            a = b + 1;
+        }
+        if (shortest < 0) return;
+        const uint8_t into = shortest_first > 0 ? c[shortest_first - 1] : c[shortest_last + 1];
+        for (int k = shortest_first; k <= shortest_last; ++k) c[k] = into;
+    }
+}
+
 void track_trace_node_classes(const TrackGenNode *nodes, int count, TraceColourBy mode, uint8_t *out)
 {
     for (int k = 0; k < count; ++k) {
@@ -103,6 +121,7 @@ void track_trace_node_classes(const TrackGenNode *nodes, int count, TraceColourB
         }
         out[k] = (uint8_t)c;
     }
+    if (mode == TRACE_COLOUR_CURVE) absorb_short_runs(out, count);
 }
 
 int track_trace_stretches(const uint8_t *classes, int count, TraceStretch *out, int cap)

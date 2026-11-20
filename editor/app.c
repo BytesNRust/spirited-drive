@@ -30,6 +30,8 @@ static void drop_road(App *a)
 {
     free(a->nodes);
     free(a->flags);
+    free(a->node_class);
+    a->node_class = NULL;
     a->nodes = NULL;
     a->flags = NULL;
     a->node_count = 0;
@@ -210,7 +212,7 @@ void app_free(App *a)
 }
 
 /* the node nearest control point `i`: by its distance along the curve over the road's (equal, to a few centimetres) node spacing */
-static int nearest_node(const App *a, int i)
+int app_nearest_node(const App *a, int i)
 {
     if (a->node_count < 2 || a->point_dist == NULL || i < 0 || i >= a->point_count) return 0;
     const double step = a->node_dist != NULL ? a->node_dist[a->node_count - 1] / (a->node_count - 1) : 0;
@@ -254,7 +256,7 @@ void app_recompute(App *a)
         track_trace_point_widths(a->trace.points, a->trace.count, a->trace.width, a->trace.keys, a->trace.key_count, a->point_width);
         track_trace_point_sides(a->trace.points, a->trace.count, a->trace.keys, a->trace.key_count, a->point_sides);
         track_trace_point_banks(a->trace.points, a->trace.count, a->trace.keys, a->trace.key_count, a->point_bank);
-        for (int i = 0; i < a->trace.count; ++i) a->point_turn[i] = track_trace_signed_turn(a->nodes, nearest_node(a, i));
+        for (int i = 0; i < a->trace.count; ++i) a->point_turn[i] = track_trace_signed_turn(a->nodes, app_nearest_node(a, i));
     } else {   // no memory for the figures: the road is as made, without them
         free(a->node_dist);
         free(a->point_dist);
@@ -286,7 +288,7 @@ void app_sync_selection(App *a)
 {
     if (a->selected != a->node_for) {
         a->node_for = a->selected;
-        a->node = a->selected >= 0 && a->road_made && a->point_dist != NULL && a->selected < a->point_count ? nearest_node(a, a->selected) : -1;
+        a->node = a->selected >= 0 && a->road_made && a->point_dist != NULL && a->selected < a->point_count ? app_nearest_node(a, a->selected) : -1;
     }
     if (a->node >= a->node_count || !a->road_made) a->node = a->road_made && a->node_count > 0 ? a->node_count - 1 : -1;
 }

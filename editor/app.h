@@ -124,6 +124,9 @@ typedef struct {
     TraceKey *clip_keys;
     int clip_key_count;
     int dirty;                   /* the trace changed since the road was computed */
+    int colour_by;               /* the Viewport's Colour by mode (TraceColourBy, 0 Limits); not saved with the project */
+    uint8_t *node_class;         /* each node's class in colour_by, made by app_colour_classes; NULL until then and whenever the road is made again */
+    int node_class_mode;
 
     /* the road, computed from the trace by app_recompute */
     TrackGenNode *nodes;         /* malloc'd when road_made */
@@ -276,6 +279,8 @@ int app_rehacer_raise_and_run(App *a);
 
 /* Computes the road when the trace changed (a no-op otherwise). */
 void app_recompute(App *a);
+/* the node nearest control point `i`, by its distance along the road (0 with no road) */
+int app_nearest_node(const App *a, int i);
 
 /* The Node window shows a node: the one picked in Problems (app_select_node), else the one nearest the selected control point. app_sync_selection
  * follows a change of the selected point; app_select_node makes `node` the shown node and selects the control point nearest it. */

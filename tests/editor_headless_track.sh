@@ -268,6 +268,34 @@ grep -q "^problems: red" "$work/log" && grep -q "radius 15 m (under 20.9 m): not
 "$editor" "$work/curve" --user "$work/cu3" --window 960x600 --frames 12 --steps curve-block,curve:1,90,60,0,status >"$work/log" 2>&1 || fail "Add curve with the block folded: $(cat "$work/log")"
 grep -q "^status: curve added" "$work/log" || fail "Add curve does not work with the block folded: $(grep '^status:' "$work/log")"
 
+# ==== Colour by (dep95): the road coloured by what each stretch is; a double-click on the road selects its stretch ====
+# a road that goes straight 300 m, turns right round a U and comes back south: curve mode finds straight, (the corner's wobble to the left), right, straight
+mkdir "$work/cs"
+printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0,0],[0,100],[0,200],[0,300],[30,390],[100,430],[190,420],[260,360],[280,260],[280,160],[280,60]]\n}\n' > "$work/cs/trace.json"
+"$editor" "$work/cs" --user "$work/cs-u" --window 960x600 --frames 12 --steps colour-by:1,print-classes,dblclick-road:280,200,print-sel,status >"$work/log" 2>&1 || fail "Colour by curve: $(cat "$work/log")"
+python3 - "$work/log" <<'PY' || fail "curve mode did not find a straight, the corner, the right turn and a straight: $(grep '^classes' "$work/log")"
+import sys, re
+line = [l for l in open(sys.argv[1]) if l.startswith('classes 1:')][0]
+runs = [tuple(map(int, re.split('[@-]', t))) for t in line.split(':')[1].split()]
+assert [r[0] for r in runs] == [0, 1, 2, 0], runs
+assert runs[0][1] == 0 and all(a[2] + 1 == b[1] for a, b in zip(runs, runs[1:])), ('runs are not in order and whole', runs)
+assert runs[2][2] - runs[2][1] > 80, ('the right turn is the long run', runs)
+PY
+grep -q "^selected: 3-9$" "$work/log" || fail "a double-click on the road after the turn did not select its stretch (points 3 to 9): $(grep '^selected' "$work/log")"
+grep -q "^status: stretch selected: points 3 to 9$" "$work/log" || fail "the stretch does not say which points: $(grep '^status' "$work/log")"
+# in Limits mode a double-click on the road selects nothing (the first click clears); a click on a point still picks it
+"$editor" "$work/cs" --user "$work/cs-u" --window 960x600 --frames 12 --steps colour-by:0,dblclick-road:280,200,print-sel,click:9,print-sel >"$work/log" 2>&1 || fail "Limits mode: $(cat "$work/log")"
+[ "$(grep '^selected:' "$work/log" | tr '\n' '|')" = "selected: none|selected: 9|" ] || fail "Limits mode: a double-click on the road must select nothing, a click a point: $(grep '^selected' "$work/log")"
+# the bank key's stretch (30 degrees is the top class), and a mode with nothing keyed is one run
+mkdir "$work/cbank"
+printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 2, "bank_deg": 30.0}, {"point": 4, "bank_deg": 0.0}]\n}\n' > "$work/cbank/trace.json"
+"$editor" "$work/cbank" --user "$work/cs-u" --window 960x600 --frames 12 --steps colour-by:2,print-classes,dblclick-road:0,150,print-sel,colour-by:3,print-classes,colour-by:5,print-classes >"$work/log" 2>&1 || fail "Colour by bank: $(cat "$work/log")"
+grep -q "^classes 2: 0@0-2 1@3-7 2@8-11 3@12-26 2@27-30 1@31-36 0@37-48$" "$work/log" || fail "the bank ramp is not up and down the classes: $(grep '^classes 2' "$work/log")"
+grep -q "^selected: 2$" "$work/log" || fail "a double-click on the banked stretch did not select its point: $(grep '^selected' "$work/log")"
+grep -q "^classes 3: 1@0-48$" "$work/log" && grep -q "^classes 5: 0@0-48$" "$work/log" || fail "the width and shoulder modes of a plain road are not one run each: $(grep '^classes' "$work/log")"
+# a mode out of range is refused
+"$editor" "$work/cs" --user "$work/cs-u" --frames 2 --steps colour-by:99 >"$work/log" 2>&1 && fail "colour-by:99 was taken"
+
 # ==== Build: under the limits, over an amber one, refused over a red one ====
 # Build: a curve under the limits is built, one over them is refused with the limit named
 "$editor" "$work/mild" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a curve under the limits: $(cat "$work/log")"

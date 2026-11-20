@@ -44,6 +44,10 @@ static void test_curve(void)
         CHECK(s[0].first == 0 && s[3].last == NODES - 1);
         CHECK(s[1].klass == TRACE_CURVE_RIGHT && s[3].klass == TRACE_CURVE_LEFT);
     }
+    /* a wobble of 3 nodes the other way inside the right curve is not a stretch of its own */
+    for (int k = 50; k < 53; ++k) n[k].heading -= 3 * 16384.0 / 360.0;
+    track_trace_node_classes(n, NODES, TRACE_COLOUR_CURVE, c);
+    CHECK(c[51] == TRACE_CURVE_RIGHT);
     /* a gentle bend (0.1 degree a node: radius ~3400 m) is a straight */
     for (int k = 0; k < NODES; ++k) n[k].heading = k * 16384.0 / 360.0 * 0.1;
     track_trace_node_classes(n, NODES, TRACE_COLOUR_CURVE, c);
