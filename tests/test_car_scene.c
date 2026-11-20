@@ -2,6 +2,8 @@
  * side, built with mesh_build, shpi_build and cfm_build: no CD data) opened and drawn from the four fixed views and an orbit, each picture's CRC-32
  * pinned, and a CFM that is not a car refused. With the CD's P911 in original/ (skipped without) its four views are pinned too. */
 #include "formats/cfm_build.h"
+#include "formats/fixed_math.h"
+#include "raster/car_pose.h"
 #include "formats/mesh_build.h"
 #include "formats/shpi_build.h"
 #include "raster/car_scene.h"
@@ -83,6 +85,28 @@ static void test_the_orbit_keeps_to_its_limits(void)
     CHECK_EQ_INT(m[8], 0x10000);
 }
 
+/* M1: the pitch tips the car about the eye's horizontal axis, whatever the yaw: from any side a positive pitch shows the roof (the car's up leans
+ * toward the eye, as from the front, where the race's own tip already does), and the car's up stays upright on the screen (no sideways lean) */
+static void test_the_pitch_is_the_eyes(void)
+{
+    Orbit o;
+    orbit_init(&o, 300);
+    const int32_t up[3] = { 0, 0x10000, 0 };
+    int32_t m[9], front[3];
+    car_body_matrix(0x800000, 30 * 0x1000000 / 360, 0, m);   /* the race's own tip, the car's front to the eye: the roof shows */
+    mat3_apply(up, m, front);
+    CHECK(front[2] != 0);
+    for (int32_t yaw = 0; yaw < ORBIT_TURN; yaw += 30 * 16) {
+        int32_t c[3];
+        orbit_set(&o, yaw, 30 * 16);
+        orbit_matrix(&o, m);
+        mat3_apply(up, m, c);
+        CHECK((c[2] < 0) == (front[2] < 0));   /* the same lean as from the front */
+        CHECK(c[0] > -0x400 && c[0] < 0x400);  /* upright: no lean to the side */
+        CHECK(c[1] > 0);
+    }
+}
+
 /* ---- a synthetic car: a box, 6 two-sided quads, one with a texture ---- */
 static uint8_t *make_cfm(size_t *len)
 {
@@ -135,7 +159,7 @@ static uint32_t picture(CarScene *s, const Orbit *o, int *drawn)
     return crc32(pix, sizeof pix);
 }
 
-static const uint32_t GOLDEN[5] = { 0xdd527df4u, 0x78d20c93u, 0x5ec55c77u, 0x61cf1fcbu, 0x0be1d28eu };   /* front, side, rear, top, orbit (160 x 100: the scale of the 100-pixel side) */
+static const uint32_t GOLDEN[5] = { 0xdd527df4u, 0x78d20c93u, 0x5ec55c77u, 0x61cf1fcbu, 0x3a35d6dfu };   /* front, side, rear, top, orbit (160 x 100: the scale of the 100-pixel side) */
 
 static void test_a_synthetic_car(void)
 {
@@ -310,6 +334,7 @@ static void test_what_is_not_a_car_is_refused(void)
 int main(void)
 {
     test_the_orbit_keeps_to_its_limits();
+    test_the_pitch_is_the_eyes();
     test_a_synthetic_car();
     test_the_picture_fills_any_shape();
     test_a_layer_of_the_same_pixels();
