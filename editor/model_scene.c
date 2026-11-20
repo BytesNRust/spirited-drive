@@ -29,6 +29,7 @@ typedef struct {
  * tables of the palette last shown */
 typedef struct {
     int slot, textures, on;
+    int painted;               /* a painted scene: its masks can be drafted (when the shine is first on: slot is 0 until then) */
     uint8_t image[CAR_ENVMAP_SIZE * CAR_ENVMAP_SIZE];
     uint8_t palette[768];
     int made;                  /* the tables are `palette`'s */
@@ -47,8 +48,6 @@ struct ModelScene {
     LampLayer lamp;
     int lamp_pixels;
 };
-
-static void register_shine(ModelScene *m, const PreviewIn *in);
 
 static uint8_t *read_file(const char *path, size_t *size)
 {
@@ -104,7 +103,7 @@ ModelScene *model_scene_open_painted(const PreviewIn *in, char *why, size_t why_
     if (!car_preview_painted_cfm(in, &file, &size, NULL, NULL, why, why_cap)) return NULL;
     ModelScene *m = open_bytes(file, size, in->cfm, why, why_cap);
     if (m != NULL) m->has_preview = car_preview_make(in, &m->preview, why, why_cap);   /* without it the car is drawn by day only */
-    if (m != NULL) register_shine(m, in);
+    if (m != NULL) m->shine.painted = 1;
     return m;
 }
 
@@ -315,9 +314,10 @@ static void colour(ModelScene *m, const CarNightState *s, const uint8_t pal[768]
     }
 }
 
-int model_scene_shine(ModelScene *m, int on, const char *envmap)
+int model_scene_shine(ModelScene *m, int on, const PreviewIn *in, const char *envmap)
 {
     Shine *sh = &m->shine;
+    if (on && sh->painted && sh->slot == 0 && in != NULL) register_shine(m, in);   /* the draft once, the first time it is wanted */
     sh->on = on && sh->textures > 0;
     if (!sh->on) return 0;
     if (envmap == NULL || !car_envmap_file(envmap, sh->image)) car_envmap_make(sh->image);

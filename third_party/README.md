@@ -8,4 +8,4 @@
   `https://raw.githubusercontent.com/ocornut/imgui/v1.92.9b-docking/` (the core `imgui*.cpp/.h`, `imconfig.h`, `imstb_*.h`, `LICENSE.txt`) and
   its `backends/imgui_impl_sdl3.*` and `backends/imgui_impl_sdlrenderer3.*`. MIT (`LICENSES/MIT-imgui.txt`). Only the track editor
   (`editor/`, option `TNFS_EDITOR`) links it, and it is the only C++ in the tree besides `editor/ui.cpp`. Do not move to another tag
-  without running the editor's headless test (`tests/editor_headless.sh`); the docking branch is not the stable one.
+  without running the editor's headless test (`tests/editor_headless_track.sh` and `tests/editor_headless_car.sh`); the docking branch is not the stable one.
