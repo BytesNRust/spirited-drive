@@ -88,6 +88,17 @@ if [ -f "$work/bad.png" ]; then png_check "$work/bad.png" bad; else fail "no PNG
 [ -s "$work/warn/build/warn.zip" ] || fail "no zip of the amber curve"
 "$editor" "$work/bad" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a curve over a red limit"
 grep -q "tighter than 20.9 m\|more than 16.5 degrees" "$work/log" || fail "the refusal does not name the red limit: $(cat "$work/log")"
+# a new project is born a stage the game races: a straight of the shortest stage's length, built with nothing too short
+mkdir "$work/fresh"
+"$editor" "$work/fresh" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a new project: $(cat "$work/log")"
+[ -s "$work/fresh/build/fresh.zip" ] || fail "no zip of a new project"
+grep -q "too short" "$work/log" && fail "a new project is too short for a stage: $(cat "$work/log")"
+python3 -c "
+import json, sys
+t = json.load(open(sys.argv[1]))
+p = t['points']
+assert len(p) == 15 and p[0] == [0.0, 0.0] and p[-1] == [0.0, 1308.0], p
+" "$work/fresh/trace.json" || fail "a new project is not the 1308 m straight of 15 points"
 # road keys (trace.json version 2): a ramp from the project's 10 m to 8 m and 14 m builds a TRI whose verge bytes are the widths the keys say; a ramp too sudden is
 # amber (built, drawn amber), and a file of a newer version is refused with its reason
 mkdir "$work/keyed"

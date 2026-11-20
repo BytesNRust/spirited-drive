@@ -622,6 +622,20 @@ static void test_stage_too_short(void)
     CHECK(!track_trace_stage_short(2000, text, sizeof text));
     char small[16];
     CHECK(track_trace_stage_short(100, small, sizeof small) && strlen(small) == sizeof small - 1);   /* cut short, still said */
+
+    /* the shortest road that is a stage (a new project's straight): whole metres, the fewest whole segments whose nodes are enough */
+    const double metres = track_trace_stage_min_length();
+    CHECK(metres == floor(metres));
+    const int segments = track_trace_segments(metres), nodes = 4 * segments + 1;
+    CHECK(nodes >= least && 4 * (segments - 1) + 1 < least);   /* enough, and one segment less is not */
+    CHECK_EQ_INT(segments, 54);
+    CHECK(metres > 1290 && metres < 1320);
+    TracePoint p[2] = { { 0, 0 }, { 0, metres } };
+    TrackGenNode *n = NULL;
+    int count = 0;
+    ExchangeError err;
+    CHECK(track_trace_nodes(p, 2, 40, &n, &count, &err) && !track_trace_stage_short(count, text, sizeof text));   /* built, not short */
+    free(n);
 }
 
 /* the shoulder's surface (step 2b): a key sets a side to verge or tarmac and it holds from the key's point to the next key that sets that side; a side a key leaves

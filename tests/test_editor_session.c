@@ -436,7 +436,7 @@ static void check_side_keys_app(void)
     app_set_point_side(a, 3, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT, 0.4);
     CHECK(a->trace.key_count == 2 && a->trace.keys[1].side[TRACE_SIDE_WALL][TRACK_GEN_LEFT] == TRACK_GEN_WALL_SOFT &&
           a->trace.keys[1].side[TRACE_SIDE_FENCE][TRACK_GEN_RIGHT] == 1);
-    app_set_point_side(a, 9, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT, 0);   /* no such point: nothing */
+    app_set_point_side(a, a->trace.count, TRACE_SIDE_FENCE, TRACK_GEN_RIGHT, 0);   /* no such point: nothing */
     app_set_point_side(a, 3, TRACE_SIDE_FIELDS, TRACK_GEN_RIGHT, 0);   /* no such value: nothing */
     CHECK_EQ_INT(a->trace.key_count, 2);
     CHECK(app_save(a));
@@ -568,12 +568,15 @@ static void check_app_flow(void)
     CHECK(!app_open_project(a, two));                        /* an empty folder */
     CHECK(app_new_project(a, two));                          /* New makes the project there */
     CHECK(strcmp(a->dir, two) == 0);
-    app_recompute(a);                                        /* its 200 m straight is too short for a stage: said, with what it needs */
-    CHECK(a->road_made && a->stage_short && strstr(a->stage_text, "too short for a stage") != NULL && strstr(a->stage_text, "214 nodes") != NULL);
-    a->trace.points[a->trace.count - 1].z = 2000.0;          /* the last point 2 km on: long enough */
+    app_recompute(a);                                        /* a straight born at the shortest stage the game races: nothing red, nothing amber */
+    CHECK(a->road_made && !a->stage_short && a->stage_text[0] == '\0' && a->summary_count == 0 && a->problem_count == 0);
+    CHECK(a->trace.count == project_start_points() && a->trace.points[a->trace.count - 1].z == track_trace_stage_min_length());
+    CHECK(a->trace.points[1].z - a->trace.points[0].z <= PROJECT_START_GAP);
+    a->trace.points[a->trace.count - 1].z -= 30.0;           /* shorter by a few nodes: too short, said with what it needs */
     a->dirty = 1;
     app_recompute(a);
-    CHECK(a->road_made && !a->stage_short && a->stage_text[0] == '\0');
+    CHECK(a->road_made && a->stage_short && strstr(a->stage_text, "too short for a stage") != NULL && strstr(a->stage_text, "214 nodes") != NULL);
+    a->trace.points[a->trace.count - 1].z += 30.0;
     CHECK(a->fit_pending);
     CHECK_EQ_INT(a->recent.count, 2);                        /* both are in the list, the new one first */
     char real_one[PATH_MAX], real_two[PATH_MAX];   /* the list holds real paths (a symlinked TMPDIR is another name) */
@@ -584,7 +587,7 @@ static void check_app_flow(void)
     CHECK(strcmp(a->dir, two) == 0);
     CHECK(app_open_project(a, one));                         /* Open takes it, with the point that was saved */
     CHECK(strcmp(a->dir, one) == 0);
-    CHECK_EQ_INT(a->trace.count, PROJECT_START_POINTS + 1);
+    CHECK_EQ_INT(a->trace.count, project_start_points() + 1);
     CHECK(!app_modified(a));
 
     Recent back;
@@ -787,7 +790,7 @@ static void check_kinds(void)
 
     CHECK(app_new_project(a, two));                          /* a track after the car */
     CHECK_EQ_INT(a->kind, APP_KIND_TRACK);
-    CHECK(a->trace.count == PROJECT_START_POINTS && a->car.info.id[0] == '\0');
+    CHECK(a->trace.count == project_start_points() && a->car.info.id[0] == '\0');
     CHECK_EQ_INT(a->recent.count, 2);
     CHECK(a->recent.kind[0] == RECENT_TRACK && a->recent.kind[1] == RECENT_CAR);
     app_add_point(a);                                        /* a track with a change asks before a car replaces it */

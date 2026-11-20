@@ -15,7 +15,9 @@ nix develop -c sh -c 'cmake -S . -B build/native -G Ninja && cmake --build build
 ./build/native/tnfs-track-editor art/tnfs-tracks/my-road
 ```
 
-The project folder is created with `project.ini` and `trace.json` (a straight of six points, 200 m) when they are missing.
+The project folder is created with `project.ini` and `trace.json` when they are missing: a straight as long as the shortest stage the game races (1308 m, 54
+segments of 4 nodes: `track_trace_stage_min_length()`, from the game's own `RACE_STAGE_END` and `RACE_GRID_FRONT`), 15 points 93.4 m apart, so a new project
+has nothing red.
 
 | File | What it holds |
 |------|---------------|
@@ -64,7 +66,7 @@ Both also say in red, above the rest, when the road is too short for a stage: a 
 node and the grid's front row starts at node 32, so a stage needs at least 214 nodes (about 1.29 km) of road for its finish to lie past the front row;
 under that the race ends at its first tick with the car standing. The line gives the road's length and what it needs ("too short for a stage: 1.13 km
 of road (188 nodes); a stage needs 1.29 km (214 nodes): ..."). The numbers come from the game's own constants (`core/formats/race_stage.h`, which the
-race reads too). A new project's 200 m straight is too short: make it longer.
+race reads too). A new project is born just long enough (see above): shortening it brings the line back.
 
 ## Start screen, cars, and projects: New, Open, recent, and unsaved changes
 
