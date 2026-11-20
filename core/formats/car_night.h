@@ -15,9 +15,9 @@ typedef struct {
     PaletteTint tint;
     int lit;                 /* 1: the car's colours are scaled by `light` (the race's ratio of the light at the car: game/viewer/view_light.c car_light), after the tint, per channel, 6 bits */
     float light[3];          /* the ratio at the car's node: 1 is the colour as the file has it */
-    int night;               /* 1: low light: the lamps can glow (lamp_emissive_low); 0 by day: only the reversing light */
+    int night;               /* 1: low light: the lamps can glow (lamp_emissive_low); 0 by day: only the brake and the reversing lights */
     int lights;              /* at night: the head and position lights (in the race they go together) */
-    int brake;               /* the brake lights; they glow only in low light */
+    int brake;               /* the brake lights, in any light: by day the race writes the car's lamp entry with the lit colour (game/race/car_lights.c) */
     int reverse;             /* the reversing lights, in any light */
     int police;              /* the police lights (texels 0xfa..0xfd) flash */
     int32_t police_tick;     /* the tick of the flash: police_lights_phase */

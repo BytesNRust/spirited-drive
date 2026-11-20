@@ -48,7 +48,7 @@ static void lamp_colour(int kind, uint8_t rgb[3])
 
 /* Which texels glow, and as which kind: -1 for none. The race's own rule (lamp_texels_write) is run twice on a copy with two different sets of entries: a texel that
  * shows entry A.x in the one and B.x in the other is a lit lamp of kind x (a texel left at its day index cannot match both). */
-static int lit_kinds(const uint8_t *index, const uint8_t *mask, size_t count, int state, int8_t *kind)
+static int lit_kinds(const uint8_t *index, const uint8_t *mask, size_t count, int state, int day_brake, int8_t *kind)
 {
     memset(kind, -1, count);
     if (mask == NULL) return 1;
@@ -68,6 +68,7 @@ static int lit_kinds(const uint8_t *index, const uint8_t *mask, size_t count, in
         const uint8_t ea[4] = { 10, 11, 12, 13 }, eb[4] = { 20, 21, 22, 23 };   /* the brake (lit), position, headlight, reversing entries */
         for (int e = 0; e < 4; e++)
             if (va == ea[e] && vb == eb[e]) { kind[at] = (int8_t)(e == 0 ? LAMP_BRAKE : e == 1 ? LAMP_POSITION : e == 2 ? LAMP_HEADLIGHT : LAMP_REVERSE); break; }
+        if (day_brake && l.texel[i].kind == LAMP_BRAKE) kind[at] = LAMP_BRAKE;   /* by day the race lights the brake through the car's lamp entry (car_lights.c) */
     }
     free(one), free(two), lamp_texels_free(&l);
     return 1;
@@ -81,7 +82,7 @@ int car_night_texture(const uint8_t *index, const uint8_t *mask, int w, int h, c
     car_night_palette(palette8, s, pal);
     int8_t *kind = malloc(count);
     if (kind == NULL) return 0;
-    if (!lit_kinds(index, mask, count, car_night_lamp_state(s), kind)) { free(kind); return 0; }
+    if (!lit_kinds(index, mask, count, car_night_lamp_state(s), !s->night && s->brake, kind)) { free(kind); return 0; }
     uint8_t flash[256];
     if (s->police) police_lights_table(NULL, palette8, s->police_tick, flash);
     for (size_t i = 0; i < count; i++) {

@@ -17,7 +17,7 @@ int main(void)
     CHECK(!st.tinted && car_night_lamp_state(&st) == LAMP_DAY);            /* by day the lights switch does nothing */
     s.brake = 1;
     st = night_settings_state(&s, 0);
-    CHECK(car_night_lamp_state(&st) == LAMP_DAY && night_settings_plain(&s));   /* nor does the brake */
+    CHECK(car_night_lamp_state(&st) == LAMP_DAY && st.brake && !night_settings_plain(&s));   /* the brake does (L1: by day the race lights it too) */
     s.reverse = 1;
     st = night_settings_state(&s, 0);
     CHECK(car_night_lamp_state(&st) == (LAMP_DAY | LAMP_REVERSING) && !night_settings_plain(&s));

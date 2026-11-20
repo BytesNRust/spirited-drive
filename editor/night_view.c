@@ -44,5 +44,5 @@ CarNightState night_settings_state(const NightSettings *s, int32_t police_tick)
 
 int night_settings_plain(const NightSettings *s)
 {
-    return !s->night && !s->reverse && !s->police;
+    return !s->night && !s->brake && !s->reverse && !s->police;   /* by day the brake and the reversing lights glow (as in the race) */
 }

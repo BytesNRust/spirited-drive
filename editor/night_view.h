@@ -33,7 +33,7 @@ typedef struct {
 NightSettings night_settings_default(void);
 
 /* The state of core/formats/car_night.h these settings give: no light by day (the palette as the Preview shows it), at night the car scaled by the reference track's light at the car times `light` (the race lights a car by its node's ratio, not by the world's tone),
- * the lamps' state by the rules of the race (lights and brake only at night; the reversing light in any light). `police_tick` is the flash's tick. */
+ * the lamps' state by the rules of the race (the head and position lights only at night; the brake and the reversing light in any light). `police_tick` is the flash's tick. */
 CarNightState night_settings_state(const NightSettings *s, int32_t police_tick);
 
 /* 1 when these settings show the car exactly as the day preview does (no tint of its own, no lamp lit): the preview's own picture can be used. */
