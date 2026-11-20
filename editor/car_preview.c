@@ -248,6 +248,25 @@ static int paint_and_walk(const PreviewIn *in, uint8_t **out_cfm, size_t *out_le
     return 1;
 }
 
+int car_preview_draft(const PreviewIn *in, CarLiveryDraftFn fn, void *user, char *why, size_t why_cap)
+{
+    size_t size = 0;
+    uint8_t *cfm = read_file(in->cfm, &size);
+    if (cfm == NULL) {
+        snprintf(why, why_cap, "Cannot read the car file %s", in->cfm);
+        return -1;
+    }
+    char upper[32];
+    size_t u = 0;
+    for (; in->stem[u] != '\0' && u < sizeof upper - 1; u++) upper[u] = (char)toupper((unsigned char)in->stem[u]);
+    upper[u] = '\0';
+    const MaskSource source = { in };
+    const CarLiveryPass pass = { upper, in->added, 0, load_mask, (void *)&source };   /* the masks the paint is made with */
+    const int marked = car_livery_draft(cfm, size, &pass, fn, user);   /* the file as it is: the race drafts before the black and the paint */
+    free(cfm);
+    return marked;
+}
+
 int car_preview_painted_cfm(const PreviewIn *in, uint8_t **out_cfm, size_t *out_len, int *blacked, int *painted, char *why, size_t why_cap)
 {
     return paint_and_walk(in, out_cfm, out_len, NULL, blacked, painted, why, why_cap);

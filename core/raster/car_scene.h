@@ -10,6 +10,7 @@
 #include "formats/mesh.h"
 #include "raster/object3d.h"
 #include "raster/orbit.h"
+#include "raster/shine_draw.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -30,6 +31,7 @@ typedef struct {
     uint8_t quad[256 * 4];                       /* the same as the colour matcher reads it: B, G, R, 0 */
     uint8_t enabled[256];
     int32_t radius;                              /* the farthest vertex of the body from the model's origin */
+    const EnvShine *shine;                       /* the body shine's tables and image (car_scene_shine), NULL: none */
 } CarScene;
 
 /* Opens the CFM `cfm` (kept: it must outlive the scene). 0 when it is not a car (nothing is left open). */
@@ -43,6 +45,11 @@ void car_scene_render(CarScene *s, const Orbit *o, uint8_t *pixels, int w, int h
 /* The same picture with the textures of the slots `layer` names (s->obj.texture_count of them, NULL for a slot kept) in place of the car's own, and every flat
  * polygon and line drawn in `flat`: a second plane of the same pixels, as the editor's night view takes the lamp texels from (a layer of their kinds). */
 void car_scene_render_layer(CarScene *s, const Orbit *o, uint8_t *pixels, int w, int h, const FshEntry *const *layer, uint8_t flat);
+
+/* The body shine as the race draws it (raster/shine_pass.h: the envmap pass over each textured polygon whose texture shine_class.h knows), with the
+ * tables and image of `env` (kept by pointer; NULL turns it off). The car's up is the world's: the sky of the sphere map stays above the car however
+ * the orbit turns it. 0 when the normals cannot be kept (the shine is then off). */
+int car_scene_shine(CarScene *s, const EnvShine *env);
 
 /* `n` indices as RGBA; the clear index is transparent */
 void car_scene_rgba(const CarScene *s, const uint8_t *pixels, size_t n, uint8_t *rgba);

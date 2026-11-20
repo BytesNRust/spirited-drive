@@ -17,6 +17,8 @@ void ui_close(void);
 
 /* The orbit the Model window starts the next car at (degrees, degrees, model units; dist 0 keeps the home distance): a headless picture of a view. */
 void ui_model_orbit(double yaw, double pitch, int dist);
+/* The Model window's body shine on or off (on by default). */
+void ui_model_shine(int on);
 
 /* 1 when a menu or a popup is open: Escape then closes it and is not the window's own. */
 int ui_popup_open(void);

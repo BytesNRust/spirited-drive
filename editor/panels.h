@@ -27,7 +27,8 @@ void textures_panel(App *a);
 void masks_panel(App *a);
 void race_panel(App *a, ImTextureID photo);   // Test in race and Race photo, the picture (a texture, 0 for none) and the game's log
 void model_panel(App *a, SDL_Renderer *ren);   // the open car in 3D: drag to turn, wheel to zoom, F S R T Home
-void model_panel_preset(double yaw, double pitch, int dist);   // an orbit for the next car opened (degrees, degrees, model units; dist 0 keeps the home distance)
+void model_panel_preset(double yaw, double pitch, int dist);
+void model_panel_shine(bool on);   // the body shine on or off (on by default)   // an orbit for the next car opened (degrees, degrees, model units; dist 0 keeps the home distance)
 void mask_edit_panel(App *a, ImTextureID picture);   // Edit mask: the mask over its texture (a texture of mask_edit_compose, 0 for none), the legend, the tools
 void preview_panel(App *a, struct SDL_Renderer *ren);   // Preview: the textures as the race paints them, in a paint of the card's
 void preview_free(void);

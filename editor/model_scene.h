@@ -34,6 +34,12 @@ const CarPreview *model_scene_preview(const ModelScene *m);
 const uint8_t *model_scene_texels(const ModelScene *m, const char *name, int *w, int *h);
 /* how many pixels of the last picture show a lit lamp: 0 by day or without masks */
 int model_scene_lamp_pixels(const ModelScene *m);
+/* The body shine as the race draws it (raster/shine_pass.h): on or off, its envmap the PNG at `envmap` (a kit's car_envmap.png, as a mod's replaces the
+ * game's) or the game's procedural one when it is NULL or cannot be read. The tables are the race's (car_shine_tables) on the palette the picture is
+ * shown in (Day / Night): the car's own, where the race has the screen's. Returns 1 when the car shines (a painted scene whose masks mark body texels). */
+int model_scene_shine(ModelScene *m, int on, const char *envmap);
+/* the high bank's textures the shine knows (a class map each), 0 for none */
+int model_scene_shine_textures(const ModelScene *m);
 
 #ifdef __cplusplus
 }

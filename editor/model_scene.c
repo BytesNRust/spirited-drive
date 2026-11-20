@@ -5,7 +5,10 @@
 #include <string.h>
 
 #include "formats/police_flash.h"
+#include "raster/car_envmap.h"
 #include "raster/car_scene.h"
+#include "raster/shine_class.h"
+#include "raster/shine_pass.h"
 #include "raster/quad.h"
 #include "car_preview.h"
 
@@ -22,8 +25,20 @@ typedef struct {
     int lamps;                  /* the switches the layer was made for (lamp_key), -1 none yet */
 } LampLayer;
 
+/* the body shine: the class maps (shine_class.h, the process's: kept under a slot of the scene's own, dropped when it closes), the envmap and the
+ * tables of the palette last shown */
+typedef struct {
+    int slot, textures, on;
+    uint8_t image[CAR_ENVMAP_SIZE * CAR_ENVMAP_SIZE];
+    uint8_t palette[768];
+    int made;                  /* the tables are `palette`'s */
+    ShineTables tables;
+    EnvShine env;
+} Shine;
+
 struct ModelScene {
     CarScene scene;
+    Shine shine;
     uint8_t *file;   /* the CFM's bytes: the scene points into them */
     uint8_t *pixels, *layer;
     size_t capacity;
@@ -32,6 +47,8 @@ struct ModelScene {
     LampLayer lamp;
     int lamp_pixels;
 };
+
+static void register_shine(ModelScene *m, const PreviewIn *in);
 
 static uint8_t *read_file(const char *path, size_t *size)
 {
@@ -87,7 +104,36 @@ ModelScene *model_scene_open_painted(const PreviewIn *in, char *why, size_t why_
     if (!car_preview_painted_cfm(in, &file, &size, NULL, NULL, why, why_cap)) return NULL;
     ModelScene *m = open_bytes(file, size, in->cfm, why, why_cap);
     if (m != NULL) m->has_preview = car_preview_make(in, &m->preview, why, why_cap);   /* without it the car is drawn by day only */
+    if (m != NULL) register_shine(m, in);
     return m;
+}
+
+/* the slots the scenes' class maps are kept under: far from the race's car slots, one a scene, so a closed scene's are dropped and never read again */
+static int next_slot = 0x10000;
+
+typedef struct {
+    ModelScene *m;
+} Register;
+
+/* a body texture's draft (car_preview_draft): its classes kept for the texels the scene draws, the painted file's texture of that name (level 0) */
+static void register_texture(void *user, int level, const char name[4], int width, int height, const uint8_t *pixels, const uint8_t *keep, const uint8_t rgb[768])
+{
+    (void)pixels, (void)rgb;
+    ModelScene *m = ((Register *)user)->m;
+    uint32_t index;
+    FshEntry e;
+    if (level != 0 || fsh_find(&m->scene.bank, name, &index) != FSH_OK || fsh_entry(&m->scene.bank, index, &e) != FSH_OK) return;
+    if (e.width != width || e.height != height || (size_t)width * (size_t)height > e.payload_size) return;
+    shine_class_add(m->shine.slot, e.payload, width, height, keep);
+    m->shine.textures++;
+}
+
+static void register_shine(ModelScene *m, const PreviewIn *in)
+{
+    char why[200];
+    Register r = { m };
+    m->shine.slot = next_slot++;
+    if (car_preview_draft(in, register_texture, &r, why, sizeof why) < 0) m->shine.textures = 0;
 }
 
 static void lamp_free(LampLayer *l)
@@ -101,6 +147,7 @@ void model_scene_close(ModelScene *m)
 {
     if (m == NULL) return;
     lamp_free(&m->lamp);
+    if (m->shine.slot != 0) shine_class_drop_slot(m->shine.slot);   /* the texels' addresses go with the file: none may be found again */
     if (m->has_preview) car_preview_free(&m->preview);
     car_scene_close(&m->scene);
     free(m->file);
@@ -235,12 +282,18 @@ static int grow(ModelScene *m, size_t n)
 }
 
 /* the picture's colours: the palette as the Preview has it (the race's 6 bits) in the state's light, the lamps over it, the police lights' flash */
-static void colour(ModelScene *m, const CarNightState *s, int lamps, size_t n, uint8_t *rgba)
+/* the palette the picture is shown in: the Preview's (the race's 6 bits) by day, in the state's light at night */
+static void shown_palette(const ModelScene *m, const CarNightState *s, uint8_t pal[768])
 {
     const uint8_t *base = m->has_preview ? m->preview.palette[0] : m->scene.palette;
-    uint8_t pal[768], flash[256];
     if (s->tinted || s->lit) car_night_palette(base, s, pal);
-    else memcpy(pal, base, sizeof pal);   /* no light on it: the palette as the Preview window shows it by day */
+    else memcpy(pal, base, 768);   /* no light on it: the palette as the Preview window shows it by day */
+}
+
+static void colour(ModelScene *m, const CarNightState *s, const uint8_t pal[768], int lamps, size_t n, uint8_t *rgba)
+{
+    const uint8_t *base = m->has_preview ? m->preview.palette[0] : m->scene.palette;
+    uint8_t flash[256];
     if (s->police) police_lights_table(NULL, base, s->police_tick, flash);
     m->lamp_pixels = 0;
     for (size_t i = 0; i < n; i++) {
@@ -262,6 +315,38 @@ static void colour(ModelScene *m, const CarNightState *s, int lamps, size_t n, u
     }
 }
 
+int model_scene_shine(ModelScene *m, int on, const char *envmap)
+{
+    Shine *sh = &m->shine;
+    sh->on = on && sh->textures > 0;
+    if (!sh->on) return 0;
+    if (envmap == NULL || !car_envmap_file(envmap, sh->image)) car_envmap_make(sh->image);
+    return 1;
+}
+
+int model_scene_shine_textures(const ModelScene *m)
+{
+    return m->shine.textures;
+}
+
+/* the pass's tables for the palette the picture is shown in, made again when it changes (as the race's body_shine keeps them by palette) */
+static const EnvShine *shine_for(ModelScene *m, const uint8_t pal[768])
+{
+    Shine *sh = &m->shine;
+    if (!sh->on) return NULL;
+    if (!sh->made || memcmp(sh->palette, pal, sizeof sh->palette) != 0) {
+        uint8_t usable[256], emissive[256] = { 0 };
+        memset(usable, 1, sizeof usable);
+        usable[CAR_SCENE_CLEAR] = 0;   /* the transparent entry */
+        for (int i = POLICE_LIGHT_FIRST; i < POLICE_LIGHT_FIRST + POLICE_LIGHT_COUNT; i++) emissive[i] = 1;   /* the police lights' entries flash, they do not shine */
+        memcpy(sh->palette, pal, sizeof sh->palette);
+        shine_tables_make(pal, usable, emissive, &sh->tables);
+        sh->env = shine_tables_env(&sh->tables, sh->image);
+        sh->made = 1;
+    }
+    return &sh->env;
+}
+
 int model_scene_render(ModelScene *m, const Orbit *o, int w, int h, const CarNightState *night, uint8_t *rgba)
 {
     if (w < 1 || h < 1 || h > QUAD_MAX_ROWS) return 0;
@@ -269,15 +354,19 @@ int model_scene_render(ModelScene *m, const Orbit *o, int w, int h, const CarNig
     if (!grow(m, n)) return 0;
     const CarNightState day = { 0 };
     const CarNightState *s = night != NULL ? night : &day;
+    uint8_t pal[768];
+    shown_palette(m, s, pal);
     memset(m->pixels, CAR_SCENE_CLEAR, n);
+    car_scene_shine(&m->scene, shine_for(m, pal));
     car_scene_render(&m->scene, o, m->pixels, w, h);
+    car_scene_shine(&m->scene, NULL);   /* the lamp layer's values are not colours: no shine on them */
     lamp_layer(m, s);
     const int lamps = has_lamps(&m->lamp);
     if (lamps) {
         memset(m->layer, CAR_SCENE_CLEAR, n);
         car_scene_render_layer(&m->scene, o, m->layer, w, h, m->lamp.slots, NO_LAMP);
     }
-    colour(m, s, lamps, n, rgba);
+    colour(m, s, pal, lamps, n, rgba);
     return 1;
 }
 

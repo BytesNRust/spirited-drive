@@ -1,4 +1,4 @@
-/* port (body shine): see shine_pass.h. The pieces come from the race's object sink and body shine (game/viewer/object_sink.c, body_shine.c). */
+/* port (body shine): see shine_pass.h. The race's drawing of a car and the Studio's 3D view both run these. */
 #include "raster/shine_pass.h"
 
 #include "formats/fixed_math.h"

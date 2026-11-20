@@ -110,7 +110,7 @@ int car_livery_paint(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const
     return car_livery_walk(cfm, size, pass, run_paint, (void *)&job);
 }
 
-/* ----- the drafts of the masks (moved from the game's drive_livery.c: the Studio's 3D view shines the same texels) ----- */
+/* ----- the drafts of the masks: the race and the Studio's 3D view shine the same texels ----- */
 
 typedef struct {
     CarLiveryDraftFn fn;
