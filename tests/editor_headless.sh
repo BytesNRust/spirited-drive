@@ -1,7 +1,7 @@
 #!/bin/sh
 # The track editor runs headless (Dear ImGui over the SDL software renderer): a project folder is made, N frames are drawn and the last one
 # is written as a PNG that has the window's size, the road's line and the control points drawn in the viewport panel; --save writes the
-# project files; --user makes its folder and keeps the layout in it; an unknown option fails. (Never run it without a PROJECT here: that opens a window on a folder in the real Documents.)
+# project files; --user makes its folder and keeps the layout in it; an unknown option fails. (Without a PROJECT it shows the start screen and makes nothing; a normal run reopens the last project from the recent list, a headless one does not read it.)
 # usage: editor_headless.sh EDITOR
 set -u
 editor=$1
@@ -98,6 +98,108 @@ if [ ! -x "/Applications/Spirited Drive.app/Contents/MacOS/tnfs" ] && [ ! -x "$(
     out=$(cd "$work" && "$editor" "$work/proj" --frames 2 --install 2>&1) && fail "install with no game found went"
     echo "$out" | grep -q "Applications" || fail "no hint with no game found: $out"
 fi
-"$editor" --no-such-option >/dev/null 2>&1 && fail "an unknown option was accepted"   # (no PROJECT is a run, not an error: it opens Documents/Spirited Drive Studio/my-track)
+# no PROJECT: the start screen (nothing is made anywhere); a car's kit opens as a car, by its root or its coche/, and writes nothing; a card that is not a car is refused
+"$editor" --frames 3 --shot "$work/start.png" >"$work/log" 2>&1 || fail "run with nothing to open: $(cat "$work/log")"
+[ -s "$work/start.png" ] || fail "no PNG of the start screen"
+"$editor" --ask opencar --frames 3 >"$work/log" 2>&1 || fail "run with Open car asked for on the start screen: $(cat "$work/log")"
+mkdir -p "$work/kit/coche/SIMDATA/CARFAMS" "$work/kit/coche/car_masks/K1" "$work/kit/modelo/c1"
+printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\nsound_from=911\n' > "$work/kit/coche/mod.ini"
+printf 'x' > "$work/kit/coche/SIMDATA/CARFAMS/K1.CFM"
+printf 'x' > "$work/kit/coche/car_masks/K1/rsid_mask.png"
+printf 'x' > "$work/kit/modelo/c1/0010_rsid.png"
+"$editor" "$work/kit" --frames 3 --shot "$work/kit.png" >"$work/log" 2>&1 || fail "run on a car's kit: $(cat "$work/log")"
+"$editor" "$work/kit/coche" --frames 3 --shot "$work/coche.png" >"$work/log" 2>&1 || fail "run on a car's coche folder: $(cat "$work/log")"
+[ -s "$work/kit.png" ] && [ -s "$work/coche.png" ] || fail "no PNG of the car"
+cmp -s "$work/kit.png" "$work/coche.png" || fail "the kit and its coche/ are not the same car on screen"
+cmp -s "$work/kit.png" "$work/start.png" && fail "the car looks like the start screen"
+[ ! -e "$work/kit/project.ini" ] && [ ! -e "$work/kit/coche/project.ini" ] || fail "opening a car made track files in it"
+"$editor" "$work/kit" --frames 2 --build >"$work/log" 2>&1 && fail "Build went on a car"
+grep -q "no Build or Install" "$work/log" || fail "Build on a car does not say so: $(cat "$work/log")"
+cp "$work/kit/coche/mod.ini" "$work/card.before"
+"$editor" "$work/kit" --frames 2 --save >"$work/log" 2>&1 || fail "Save with nothing changed failed: $(cat "$work/log")"
+cmp -s "$work/card.before" "$work/kit/coche/mod.ini" || fail "Save with nothing changed touched mod.ini"
+# a change is written to mod.ini and nothing else; an invalid field refuses Save, shows on its field, and leaves the file as it was
+"$editor" "$work/kit" --frames 2 --set year=1990 --save >"$work/log" 2>&1 || fail "Save of a change failed: $(cat "$work/log")"
+printf 'year=1990\n' >> "$work/card.before"
+cmp -s "$work/card.before" "$work/kit/coche/mod.ini" || fail "Save changed more than the one line"
+cp "$work/kit/coche/mod.ini" "$work/card.before"
+"$editor" "$work/kit" --frames 3 --set year=12345678901234567 --save --shot "$work/invalid.png" >"$work/log" 2>&1 && fail "Save went with a field that has a problem"
+grep -q "Year: 17 characters; the card keeps up to 16" "$work/log" || fail "no word about the field: $(cat "$work/log")"
+cmp -s "$work/card.before" "$work/kit/coche/mod.ini" || fail "a refused Save changed mod.ini"
+[ -s "$work/invalid.png" ] || fail "no PNG with an invalid field"
+"$editor" "$work/kit" --frames 3 --set year=1991 --ask quit --shot "$work/carconfirm.png" >"$work/log" 2>&1 || fail "run with a changed card and a quit asked for: $(cat "$work/log")"
+"$editor" "$work/kit" --frames 2 --set nokey=1 >"$work/log" 2>&1 && fail "--set accepted a key that is not editable"
+rm -f "$work/kit/project.ini"
+# Rehacer: a kit with no rehacer.command says so; unsaved card changes refuse it; the script runs with the kit as its folder after the kit is backed up, and its
+# exit code is the run's
+"$editor" "$work/kit" --frames 2 --rehacer >"$work/log" 2>&1 && fail "Rehacer went on a kit with no rehacer.command"
+grep -q "no rehacer.command" "$work/log" || fail "no plain word about the missing script: $(cat "$work/log")"
+printf '#!/bin/sh\necho "working in $(pwd)"\necho made > coche/proof.txt\nexit ${REHACER_EXIT:-0}\n' > "$work/kit/rehacer.command"
+"$editor" "$work/kit" --frames 2 --set year=1992 --rehacer >"$work/log" 2>&1 && fail "Rehacer ran with unsaved card changes"
+grep -q "not saved" "$work/log" || fail "no word about the unsaved changes: $(cat "$work/log")"
+[ ! -e "$work/kit/coche/proof.txt" ] && [ ! -d "$work/kit/.studio-backup" ] || fail "a refused Rehacer ran or made a backup"
+"$editor" "$work/kit" --frames 3 --rehacer --shot "$work/rehacer.png" >"$work/log" 2>&1 || fail "Rehacer did not run: $(cat "$work/log")"
+grep -q "exit code 0" "$work/log" || fail "no exit code told: $(cat "$work/log")"
+[ -f "$work/kit/coche/proof.txt" ] || fail "the script did not run with the kit as its folder"
+set -- "$work"/kit/.studio-backup/*/coche/mod.ini
+[ -f "$1" ] || fail "no backup of the kit before it ran"
+[ -s "$work/rehacer.png" ] || fail "no PNG of a Rehacer run"
+REHACER_EXIT=3 "$editor" "$work/kit" --frames 3 --rehacer >"$work/log" 2>&1 && fail "a script that failed was told as a success"
+grep -q "exit code 3" "$work/log" || fail "the failing exit code is not told: $(cat "$work/log")"
+rm -f "$work/kit/rehacer.command"
+mkdir "$work/notcar"
+printf 'id=t\nname=T\nversion=1\ntype=track\nstem=TT\n' > "$work/notcar/mod.ini"
+out=$("$editor" "$work/notcar" --frames 2 2>&1) && fail "a track's mod.ini was opened as a car"
+echo "$out" | grep -q "type=track" || fail "no word about what the card is: $out"
+[ ! -e "$work/notcar/project.ini" ] || fail "a card that is not a car was made a track project"
+# Export original car: a fixture game folder (a synthetic car file, masks that are PNG headers); a traffic car becomes a masks project, a refused car and a second
+# export into the same folder say why and write nothing; the window of the choice draws
+mkdir -p "$work/game/cd/SIMDATA/CARFAMS" "$work/game/data/car_masks/Wagon" "$work/exports"
+printf 'cfm' > "$work/game/cd/SIMDATA/CARFAMS/WAGON.CFM"
+printf 'cfm' > "$work/game/cd/SIMDATA/CARFAMS/PROBE.CFM"
+python3 -c "
+import sys, struct
+open(sys.argv[1], 'wb').write(b'\x89PNG\r\n\x1a\n' + struct.pack('>I4sIIBB', 13, b'IHDR', 100, 50, 8, 0) + bytes(20))
+" "$work/game/data/car_masks/Wagon/side_mask.png"
+export_opts="--cd $work/game/cd --port-data $work/game/data"
+"$editor" --export-car Wagon --into "$work/exports" $export_opts --frames 3 --shot "$work/export.png" >"$work/log" 2>&1 || fail "export of a traffic car: $(cat "$work/log")"
+grep -q "do not share" "$work/log" || fail "no word that the files are the game's: $(cat "$work/log")"
+grep -q '^kind=masks$' "$work/exports/wagon-masks/project.ini" && grep -q '^redistributable=0$' "$work/exports/wagon-masks/project.ini" || fail "the masks project's project.ini"
+cmp -s "$work/game/data/car_masks/Wagon/side_mask.png" "$work/exports/wagon-masks/car_masks/Wagon/side_mask.png" || fail "the exported mask is not the game's file"
+[ -s "$work/export.png" ] || fail "no PNG of an exported masks project"
+"$editor" --export-car Wagon --into "$work/exports" $export_opts --frames 2 >"$work/log" 2>&1 && fail "a second export into the same folder went"
+grep -q "already there" "$work/log" || fail "no word about the folder that is there: $(cat "$work/log")"
+"$editor" --export-car probe --into "$work/exports" $export_opts --frames 2 >"$work/log" 2>&1 && fail "a car with no masks was exported"
+[ ! -e "$work/exports/probe-masks" ] && [ ! -e "$work/exports/probe-masks.exporting" ] || fail "a refused export left files"
+"$editor" "$work/exports/wagon-masks" --frames 3 --shot "$work/masksproject.png" >"$work/log" 2>&1 || fail "a masks project did not open: $(cat "$work/log")"
+[ ! -e "$work/exports/wagon-masks/trace.json" ] || fail "a masks project was made a track project"
+"$editor" --ask export --pick Wagon $export_opts --frames 4 --shot "$work/exportdialog.png" >"$work/log" 2>&1 || fail "the export window did not draw: $(cat "$work/log")"
+[ -s "$work/exportdialog.png" ] || fail "no PNG of the export window"
+"$editor" --pick nosuchcar --frames 2 $export_opts >/dev/null 2>&1 && fail "--pick took a car that is not in the list"
+# Race photo with a fake game (a script that writes what the real one does): a masks project of a traffic car finds the car in the draw, follows its slot and shows
+# the picture; the picture is written as a PNG; a game that fails is told, with a non-zero status; a car of the game's that is not one asks for an export first
+cat > "$work/fake-tnfs" <<'FAKE'
+#!/bin/sh
+user=; shot=
+while [ $# -gt 0 ]; do case "$1" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; esac; shift; done
+[ "${FAKE_FAIL:-}" = 1 ] && { echo "error: the fake game fails" >&2; exit 3; }
+printf 'race car: slot 0 is TSupra\nrace car: slot 3 is Wagon\n' > "$user/spirited-drive.log"
+printf 'P6\n640 480\n255\n' > "$shot"; head -c 921600 /dev/zero >> "$shot"
+FAKE
+chmod +x "$work/fake-tnfs"
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --night --race-png "$work/photo.png" --frames 4 --shot "$work/racepanel.png" >"$work/log" 2>&1 || fail "Race photo with a fake game: $(cat "$work/log")"
+grep -q "Photo: the camera follows the Wagon (slot 3" "$work/log" || fail "no word about the slot followed: $(cat "$work/log")"
+python3 -c "
+import sys
+d = open(sys.argv[1], 'rb').read()
+assert d[:8] == b'\x89PNG\r\n\x1a\n' and int.from_bytes(d[16:20], 'big') == 640 and int.from_bytes(d[20:24], 'big') == 480
+" "$work/photo.png" || fail "the race photo is not a 640x480 PNG"
+[ -s "$work/racepanel.png" ] || fail "no PNG of the Race window"
+FAKE_FAIL=1 "$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --frames 2 >"$work/log" 2>&1 && fail "a game that failed was told as a success"
+grep -q "exit code 3" "$work/log" || fail "the game's exit code is not told: $(cat "$work/log")"
+"$editor" "$work/exports/wagon-masks" --game "$work/fake-tnfs" --cd "$work/game/cd" --race-photo --track TR5 --frames 2 >"$work/log" 2>&1 && fail "a traffic car was raced on a circuit"
+grep -q "no traffic" "$work/log" || fail "no word about the circuit: $(cat "$work/log")"
+ls "${TMPDIR:-/tmp}" | grep -q '^studio-race-' && fail "a scratch folder of a race was left behind"
+"$editor" --no-such-option >/dev/null 2>&1 && fail "an unknown option was accepted"
 [ "$failures" -eq 0 ] && echo "editor_headless: ok"
 exit "$failures"

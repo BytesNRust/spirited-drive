@@ -51,24 +51,25 @@ static PageNavOps ops(Fake *f)
     return o;
 }
 
-static void test_the_first_page_has_the_right_triangle_only(void)
+static void test_the_first_page_has_both_triangles(void)
 {
     Fake f = { .has_arrows = 1 };
     const PageNavOps o = ops(&f);
     page_nav_draw(&o, 0, 3, 0);
-    CHECK_EQ_INT(f.arrows, 1);
-    CHECK_EQ_INT(f.arrow_right[0], 1);
+    CHECK_EQ_INT(f.arrows, 2);   /* the pager wraps: both arrows on every page */
+    CHECK_EQ_INT(f.arrow_right[0], 0);
+    CHECK_EQ_INT(f.arrow_right[1], 1);
     CHECK_EQ_INT(f.arrow_lit[0], 0);
     CHECK_EQ_INT(f.texts, 1);
     CHECK(strcmp(f.text[0], "1/3") == 0);   /* the count, no chevron in it */
     CHECK_EQ_INT(f.text_style[0], CREAM);
-    CHECK_EQ_INT(f.arrow_x[0], ui_pager_layout(30, 16).right_x);   /* the kit's gap from the "1/3" (3 x 10 wide) */
+    CHECK_EQ_INT(f.arrow_x[1], ui_pager_layout(30, 16).right_x);   /* the kit's gap from the "1/3" (3 x 10 wide) */
     CHECK_EQ_INT(f.arrow_y[0], PAGE_NAV_ARROW_MID - 32 / 2);   /* the mask's middle on the count's */
     CHECK_EQ_INT(f.text_y[0], PAGE_NAV_TEXT_Y);
     CHECK_EQ_INT(PAGE_NAV_TEXT_Y, 440);   /* the count's last row on DONE's and CANCEL's (456) */
 }
 
-static void test_a_middle_page_has_both_the_last_the_left_only(void)
+static void test_every_page_has_both_triangles_and_one_page_none(void)
 {
     Fake f = { .has_arrows = 1 };
     const PageNavOps o = ops(&f);
@@ -79,9 +80,11 @@ static void test_a_middle_page_has_both_the_last_the_left_only(void)
     CHECK_EQ_INT(f.arrow_right[1], 1);
     f.arrows = 0;
     page_nav_draw(&o, 2, 3, 0);
-    CHECK_EQ_INT(f.arrows, 1);
-    CHECK_EQ_INT(f.arrow_right[0], 0);
+    CHECK_EQ_INT(f.arrows, 2);
     CHECK(strcmp(f.text[f.texts - 1], "3/3") == 0);
+    f.arrows = 0;
+    page_nav_draw(&o, 0, 1, 0);
+    CHECK_EQ_INT(f.arrows, 0);   /* one page: nothing to turn to (the CD has no such pager: hidden) */
 }
 
 static void test_a_count_too_wide_for_the_box_is_the_text(void)
@@ -161,9 +164,9 @@ static void test_without_the_cd_it_is_the_text_it_was(void)
     const PageNavOps o = ops(&f);
     page_nav_draw(&o, 0, 2, 0);
     CHECK_EQ_INT(f.arrows, 0);
-    CHECK(strcmp(f.text[0], "1/2 >") == 0);
+    CHECK(strcmp(f.text[0], "< 1/2 >") == 0);
     page_nav_draw(&o, 1, 2, 0);
-    CHECK(strcmp(f.text[1], "< 2/2") == 0);
+    CHECK(strcmp(f.text[1], "< 2/2 >") == 0);
     page_nav_draw(&o, 1, 3, 0);
     CHECK(strcmp(f.text[2], "< 2/3 >") == 0);
     CHECK_EQ_INT(f.text_style[2], CREAM);
@@ -171,7 +174,7 @@ static void test_without_the_cd_it_is_the_text_it_was(void)
     none.arrow = NULL, none.arrow_size = NULL;   /* a screen whose ops have no slot for them */
     f.texts = 0;
     page_nav_draw(&none, 0, 2, 0);
-    CHECK(strcmp(f.text[0], "1/2 >") == 0);
+    CHECK(strcmp(f.text[0], "< 1/2 >") == 0);
 }
 
 static void test_the_pointer_lights_the_triangle_it_is_on(void)
@@ -186,16 +189,17 @@ static void test_the_pointer_lights_the_triangle_it_is_on(void)
     f.pointer_x = PAGE_NAV_X1 - 5;
     CHECK_EQ_INT(page_nav_lit(&o, 1, 3), 2);
     f.pointer_x = PAGE_NAV_X0 + 5;
-    CHECK_EQ_INT(page_nav_lit(&o, 0, 2), 2);   /* a page with one: the box is its button, wherever in it */
+    CHECK_EQ_INT(page_nav_lit(&o, 0, 2), 1);   /* the halves on every page: the first page's left wraps to the last */
     CHECK_EQ_INT(page_nav_lit(&o, 1, 2), 1);
     f.pointer_x = PAGE_NAV_X1 - 5;
-    CHECK_EQ_INT(page_nav_lit(&o, 1, 2), 1);
+    CHECK_EQ_INT(page_nav_lit(&o, 1, 2), 2);
+    CHECK_EQ_INT(page_nav_lit(&o, 0, 1), 0);   /* one page: none */
 }
 
 int main(void)
 {
-    test_the_first_page_has_the_right_triangle_only();
-    test_a_middle_page_has_both_the_last_the_left_only();
+    test_the_first_page_has_both_triangles();
+    test_every_page_has_both_triangles_and_one_page_none();
     test_the_text_is_centred_on_the_box();
     test_the_count_is_drawn_at_the_buttons_size_where_the_screen_can();
     test_a_count_too_wide_for_the_box_is_the_text();

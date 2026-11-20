@@ -11,7 +11,8 @@
 /* the sizes, num/den of the font's: GRAVER18 is wide, so the list's words and the tabs (3/4, as Control Central's card names) are
  * smaller than the mock-up's Mac font drew them, the versions and the card's words smaller still (3/5) */
 enum { SMALL_NUM = 3, SMALL_DEN = 5, BUTTON_NUM = 4, BUTTON_DEN = 5, ROW_NUM = 3, ROW_DEN = 4, TAB_NUM = 3, TAB_DEN = 4, GAP = 8, ARROW_DY = 3,
-       VERSION_DY = 2, CARD_LINES = 2 };
+       VERSION_DY = 2, CARD_LINES = 2,
+       DONE_NUM = 11, DONE_DEN = 12, DONE_DY = 1 };   /* Done's letters: the main face's capitals are 12 rows at 1/1, the CD's DONE 11 */
 
 static const char *const TAB_NAME[CONTENT_TABS] = { "Cars", "Tracks", "Tweaks" };
 static const int TAB_CENTRE[CONTENT_TABS] = { 90, 197, 304 };   /* centred over the list, fixed places */
@@ -19,7 +20,6 @@ static const char *const CARD_WORDS[CONTENT_CARD_BUTTONS] = { "Update...", "Unin
 static const int CARD_X[CONTENT_CARD_BUTTONS] = { CONTENT_CARD_X0, CONTENT_UNINSTALL_X, CONTENT_CARD_X0 };
 static const int CARD_Y[CONTENT_CARD_BUTTONS] = { CONTENT_CARD_BUTTONS_Y, CONTENT_CARD_BUTTONS_Y, CONTENT_PREVIOUS_Y };
 static const char *const FOOT_WORDS[CONTENT_FOOT_BUTTONS] = { "New", "Duplicate", "Rename", "Delete", "Install...", "Done" };
-static const int FOOT_X[CONTENT_FOOT_BUTTONS - 1] = { 14, 66, 170, 252, 420 };
 /* the selector's name: the main face's size, or smaller when the name is wide (ui_fit shrinks it, and cuts it at the smallest); its note: cut */
 static const UiSize NAME_SIZES[] = { { 1, 1 }, { 5, 6 }, { 3, 4 } };
 static const UiSize NOTE_SIZES[] = { { SMALL_NUM, SMALL_DEN } };
@@ -113,6 +113,39 @@ static int locked_all(const ContentRows *rows)
     return on == 0 ? CONTENT_ALL_OFF : on == rows->count ? CONTENT_ALL_ON : CONTENT_ALL_MIXED;
 }
 
+/* the list's pager through the kit (ui_kit.h): the screen's slots in the shape the kit asks for */
+static void pager_text(void *ctx, int32_t style, const char *text, int32_t x, int32_t y)
+{
+    const ContentOps *const o = ctx;
+    o->text(o->ctx, style == 1 ? CONTENT_YELLOW : CONTENT_CREAM, text, x, y, 1, 1);
+}
+static int32_t pager_text_width(void *ctx, const char *text)
+{
+    const ContentOps *const o = ctx;
+    return o->text_width(o->ctx, text, 1, 1);
+}
+static void pager_scaled(void *ctx, int32_t style, const char *text, int32_t x, int32_t y, int32_t num, int32_t den)
+{
+    const ContentOps *const o = ctx;
+    o->text(o->ctx, style == 1 ? CONTENT_YELLOW : CONTENT_CREAM, text, x, y, num, den);
+}
+static int32_t pager_scaled_width(void *ctx, const char *text, int32_t num, int32_t den)
+{
+    const ContentOps *const o = ctx;
+    return o->text_width(o->ctx, text, num, den);
+}
+static int32_t pager_arrow_size(void *ctx, int32_t right, int32_t *w, int32_t *h)
+{
+    (void)ctx, (void)right;
+    *w = UI_ARROW_MASK_W, *h = UI_ARROW_MASK_H;
+    return 1;
+}
+static void pager_arrow(void *ctx, int32_t right, int32_t lit, int32_t x, int32_t y)
+{
+    const ContentOps *const o = ctx;
+    o->arrow(o->ctx, right ? CONTENT_ARROW_RIGHT : CONTENT_ARROW_LEFT, lit, x, y);
+}
+
 static void list(const ContentOps *o, const ContentPage *p)
 {
     const ContentRows *rows = p->view->rows;
@@ -127,12 +160,10 @@ static void list(const ContentOps *o, const ContentPage *p)
         if (row >= 0) row_line(o, p, &rows->row[row], line);
     }
     const int pages = content_nav_pages(rows);
-    if (pages > 1) {   /* the two arrows always, dim when there is no page that way */
-        char text[16];
-        snprintf(text, sizeof text, "%d/%d", n->page + 1, pages);
-        o->text(o->ctx, CONTENT_CREAM, text, CONTENT_PAGE_X - o->text_width(o->ctx, text, SMALL_NUM, SMALL_DEN) / 2, CONTENT_PAGE_Y, SMALL_NUM, SMALL_DEN);
-        o->arrow(o->ctx, n->page > 0 ? CONTENT_ARROW_LEFT : CONTENT_ARROW_LEFT_OFF, 0, CONTENT_PAGE_PREV_X, CONTENT_PAGE_Y + ARROW_DY);
-        o->arrow(o->ctx, n->page + 1 < pages ? CONTENT_ARROW_RIGHT : CONTENT_ARROW_RIGHT_OFF, 0, CONTENT_PAGE_NEXT_X, CONTENT_PAGE_Y + ARROW_DY);
+    if (pages > 1) {   /* the kit's pager: the count at the buttons' size, a triangle only where there is a page to go to */
+        const PageNavOps pager = { (void *)o, pager_text, pager_text_width, NULL, pager_arrow_size, pager_arrow, { pager_scaled, pager_scaled, pager_scaled_width }, 0 };
+        const UiPagerPlace at = { CONTENT_PAGE_X, CONTENT_PAGE_Y - 4, CONTENT_LIST_X0, CONTENT_LIST_X1 };
+        ui_page_count_at(&pager, &at, n->page, pages, 0);
     }
 }
 
@@ -211,15 +242,42 @@ static void card(const ContentOps *o, const ContentPage *p)
     }
 }
 
+/* a foot word's advance and the blank columns around its ink, at its size */
+static UiFootWord foot_word(const ContentOps *o, int b)
+{
+    const int done = b == CONTENT_FOOT_DONE, num = done ? DONE_NUM : BUTTON_NUM, den = done ? DONE_DEN : BUTTON_DEN;
+    UiFootWord w = { o->text_width(o->ctx, FOOT_WORDS[b], num, den), 0, 0 };
+    int32_t l, r;
+    if (o->text_ink != NULL && o->text_ink(o->ctx, FOOT_WORDS[b], num, den, &l, &r)) w.lead = l, w.trail = w.w - 1 - r > 0 ? w.w - 1 - r : 0;
+    return w;
+}
+
+void content_foot_layout(const ContentOps *o, ContentView *v)
+{
+    static const int MID[] = { CONTENT_FOOT_NEW, CONTENT_FOOT_DUPLICATE, CONTENT_FOOT_RENAME, CONTENT_FOOT_DELETE };
+    enum { MID_N = 4 };
+    UiFootWord w[MID_N];
+    for (int i = 0; i < MID_N; i++) w[i] = foot_word(o, MID[i]);
+    const UiFootWord done = foot_word(o, CONTENT_FOOT_DONE), install = foot_word(o, CONTENT_FOOT_INSTALL);
+    const UiFootLayout l = ui_foot_layout(done, install, w, MID_N, UI_FOOT_GAP, UI_FOOT_MARGIN, CONTENT_FOOT_WIDTH);
+    /* the draw origins in [0] and the click spans' other ends in [1]: each word's box, Done's from the left edge to the middle of the gap after it,
+     * Install...'s from the middle of the gap before it to the right edge */
+    v->foot_x[CONTENT_FOOT_DONE][0] = l.left_x, v->foot_x[CONTENT_FOOT_DONE][1] = l.left_x + done.w + UI_FOOT_GAP / 2;
+    v->foot_x[CONTENT_FOOT_INSTALL][0] = l.right_x, v->foot_x[CONTENT_FOOT_INSTALL][1] = l.right_x + install.w;
+    for (int i = 0; i < MID_N; i++) v->foot_x[MID[i]][0] = l.mid_x[i], v->foot_x[MID[i]][1] = l.mid_x[i] + w[i].w;
+}
+
+static int foot_origin(const ContentView *v, int b) { return v->foot_x[b][0]; }
+
 static void foot(const ContentOps *o, const ContentPage *p)
 {
     rule(o, CONTENT_LIST_X0, CONTENT_FOOT_RULE_Y, CONTENT_CARD_X1, CONTENT_FOOT_RULE_Y);
     for (int b = 0; b < CONTENT_FOOT_BUTTONS; b++) {
         const int style = button_style(p->view->foot_on[b], !p->quiet && p->nav->at == CONTENT_AT_FOOT && p->nav->item == b);
-        if (b == CONTENT_FOOT_DONE)
-            o->text(o->ctx, style, FOOT_WORDS[b], CONTENT_DONE_RIGHT - o->text_width(o->ctx, FOOT_WORDS[b], 1, 1), CONTENT_FOOT_Y - 2, 1, 1);
+        if (b == CONTENT_FOOT_DONE)   /* the CD's DONE: at the left, the capitals 11 rows */
+            o->text(o->ctx, style, FOOT_WORDS[b], foot_origin(p->view, b), CONTENT_FOOT_Y - DONE_DY, DONE_NUM, DONE_DEN);
         else
-            o->text(o->ctx, style, FOOT_WORDS[b], FOOT_X[b], CONTENT_FOOT_Y, BUTTON_NUM, BUTTON_DEN);
+            o->text(o->ctx, style, FOOT_WORDS[b], foot_origin(p->view, b), CONTENT_FOOT_Y, BUTTON_NUM, BUTTON_DEN);
     }
 }
 

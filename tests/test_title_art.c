@@ -238,6 +238,7 @@ static void test_the_titles_by_their_text(void)
     CHECK_EQ_INT(title_art_for("Graphics Detail"), TITLE_ART_GRAPHICS_DETAIL);
     CHECK_EQ_INT(title_art_for("Game Mode"), TITLE_ART_GAME_MODE);
     CHECK_EQ_INT(title_art_for("Controls Setup"), TITLE_ART_CONTROLS_SETUP);
+    CHECK_EQ_INT(title_art_for("Content"), TITLE_ART_CONTENT);
     CHECK_EQ_INT(title_art_for("Audio"), TITLE_ART_COUNT);
     CHECK_EQ_INT(title_art_for(NULL), TITLE_ART_COUNT);
 }

@@ -60,12 +60,69 @@ the nodes themselves, one row each, red first and then by node number: "node 80:
 not look right". A click on a row selects the nearest point and centres the Viewport on that node. With none it says "No problems". Both windows are
 dockable like the others and their layout is kept.
 
-## Projects: New, Open, recent, and unsaved changes
+## Start screen, cars, and projects: New, Open, recent, and unsaved changes
 
-The **File** menu has New project..., Open project..., Open recent, Save and Quit. New and Open ask for a folder with the system's own folder window.
-Open wants a folder that holds a project (a `project.ini`); New wants one that holds none, and makes the project there (the window's folder dialog can
-make the folder). The last eight project folders are kept in the editor's own folder (`recent.txt` beside its layout) and listed in Open recent; one
-that has no project any more is greyed out. The view fits the project that was opened.
+Studio has one project open, a track or a car. With nothing to reopen it shows a **start screen**: Open car..., Open track..., New track..., Export original
+car... and **Recent** (cars and tracks together, up to eight; a folder that is gone is greyed). A normal run with no folder given
+reopens the project it had last. The **File** menu has the same entries, Save (a track's) and Quit. Each kind keeps its own docked layout in the layout file.
+
+Open track wants a folder that holds a project (a `project.ini`); New track wants one that holds none, and makes the project there (the window's folder dialog
+can make the folder). The last eight project folders are kept in the editor's own folder (`recent.txt` beside its layout; a car's line starts with `car` and a tab,
+and a file from the first Studio, all tracks, still reads). The view fits the project that was opened.
+
+**Open car** takes a car kit's folder (the one that holds `coche/` and `modelo/`) or its `coche/`; given `coche/` with a `modelo/` beside it, the kit is opened.
+What makes it a car: a `mod.ini` with `type=car` and a `stem=`, and the car's file `SIMDATA/CARFAMS/<STEM>.CFM` beside it. `car_masks/<STEM>/` may be missing (listed as
+none). A folder that is not a car is refused with what was looked at and what is missing. The car window shows and edits the card (`mod.ini`): version, year, power, weight, make, model, country, category, author, description, ABS and traction
+control (yes, no, or the default, which removes the line), sound from (the game's eight original cars) and the colors (add, remove, move up or down, name, and a
+color picker; up to 16). Each field is checked by the game's own reader (`mod_ini_parse`, car_piece's words) and a field with a problem is red, with what is wrong
+and its number ("Year: 17 characters; the card keeps up to 16"); **Save is blocked while any field has a problem**. Undo and Redo (buttons, the Edit menu,
+Ctrl or Cmd+Z and Shift+Z) take back typing in a field as one step. **Save writes only `coche/mod.ini`**, through `mod_ini_set`: only the lines you changed,
+every other byte (comments, order, line ends) stays, and a Save with no change writes nothing. A card with unsaved changes asks before it is left, as a track does.
+The textures (`modelo/c1`, and how many far ones) and the mask files found are listed beside it. `--set KEY=VALUE` sets a field before the first frame (headless
+runs). **Rehacer** (a button in the car window, and the Rehacer tab with its log) runs the kit's own `rehacer.command` with the kit as its folder, through `sh`, with no
+input. Before it runs, Studio copies the whole kit (but `.studio-backup` and Finder's `.DS_Store`) into `.studio-backup/<YYYYMMDD-HHMMSS>/` and keeps the last
+five; a kit over 512 MB is not backed up, so it does not run. The script's output (both streams) streams into the log, Stop ends it, and its exit code is shown.
+When it ends the textures and masks lists and the card are read again. It is refused, with the reason in the status line, when the kit has no `rehacer.command`
+(the button is disabled), when `mod.ini` has changes that are not saved (the button offers Save first), or while another run goes; while it runs the card is not
+edited and nothing else is opened. `--rehacer` runs it before the first frame (a headless run waits for it and fails when its exit code is not 0).
+The same folder on the command line opens as a track when it has a `project.ini`, as a car
+when it holds a car's `mod.ini`, else as a new track project.
+
+**Export original car** (File menu and the start screen) makes a project of your own from one of the game's cars, to adjust its masks. It reads the player's own
+copy of the game's files (`gamedata/` in the player folder: `--user`, else the system's) for the car files, and the game's own `data/` (the app's
+`Contents/Resources/data`, or `data/` beside a build tree's program) for the masks; `--cd DIR` and `--port-data DIR` name either. The window lists the cars; one
+the game has no masks for (probe) or no files for is greyed, with the reason as its tooltip. After the car, a folder is asked for and the project is made in it,
+in a folder named for the car (`p911-original`, `wagon-masks`). It is made beside as `<folder>.exporting` and renamed when whole, so a failure leaves
+nothing, and a folder that is already there is refused (a second export of the same car into the same folder changes nothing).
+- **The eight cars you drive** (a normal car project, as `tnfs-studio car new` makes one, but with the car's own stem): `mod.ini` (`redistributable=0`, the
+  catalogue's colors as `paints=`, ABS and traction control from the PBS, a description that says the files are the game's), `SIMDATA/CARFAMS/<STEM>.CFM` and
+  `.PDN`, `SIMDATA/CARSPECS/<STEM>.PBS`, `car_masks/<folder>/` and `dash_masks/<STEM>/`. It opens with the card editable, as any car does. A game stem is
+  not a mod stem the game takes (`mod_validate` refuses it), so this project is for looking and for the masks, not for Build.
+- **The twelve traffic cars and the police car** (a masks project; they have no PBS, so they cannot be driven): `project.ini` (`kind=masks`, `masks=<folder>`,
+  `cfm=original/<X>.CFM`, `export_sizes=<mask>:<W>x<H> ...`, `redistributable=0`), `original/<X>.CFM` (a copy kept to look at) and `car_masks/<folder>/`. It
+  opens with the Car window (read only: what it is) and the Masks window only; there is no card, no Save and no Rehacer.
+
+The masks are the game's `data/car_masks/<folder>/` copied as they are (same names, same bytes, so the same 8-bit grey PNGs and sizes; the old `*.before-*_mask.png`
+copies, which the game does not read, are left out). The Masks window's **Reveal masks folder** shows the folder in the Finder, and says what it maps to in the
+game's source tree (`data/car_masks/<folder>/`): the way to change a game mask is to copy the files there. Everything made this way says "Made from the game's
+files: for your own use, do not share" and has `redistributable=0`. `--export-car FOLDER --into PARENT` does it before the first frame (headless), `--ask export`
+shows the window and `--pick FOLDER` chooses a car in it.
+
+**Test in race and Race photo** (the Race window, for a project of one of the game's own cars: the eight from Export original car, and the traffic and police ones).
+Both run the game (the one Studio found; Locate game if it is not there) on a scratch player folder made for the run (`studio-race-XXXXXX` in the temporary folder,
+Restomod, no extra liveries, render scale 1, removed when the run ends): the player's own folder and the installed game are never touched. The project's masks are
+in front of the game's own (`TNFS_CAR_MASKS=<project>/car_masks`, and `TNFS_DASH_MASKS` for a car you drive); the person's own `TNFS_*` variables are dropped.
+**Day** or **Night** (Night is `light_time=night` and `light_effects=1`), and a track from the list (default Rusty Springs, the night reference; Lost Vegas has no
+time of day). A car you drive is raced alone (`--car N --racers 1`). A traffic or police car is raced in a race with traffic (`--type 1`), which runs only on the
+City, Coastal and Alpine stages (the circuits are greyed for it; default Coastal 1). **Test in race** opens the game's window; **Stop** ends it. **Race photo** runs
+the game headless and shows one frame in the window next to the masks (200 ticks in for a car you drive, 800 for a traffic car, 250 for the police car). For a
+traffic or police car the camera has to follow the slot the car has in the race (`TNFS_FOLLOW_CAR`): the traffic's models are drawn by the race's seed, so a
+probe run (1 tick) per seed reads the game's `race car: slot N is STEM` lines and Studio tries the game's own seed and then 24 more (`TNFS_DRIVE_SEED`) until the car
+is in the draw; if none has it there is no photo, and the window says so. The police car is put 15 nodes behind the player, chasing (`TNFS_POLICE_NEAR`), so its camera
+has it at any tick. Studio cannot see whether the car is on screen: look at the picture. A game older than this Studio does not log the slots: the photo says so, and
+Test in race still runs. The game's log (its output and its own `spirited-drive.log`) is in the window, errors red, the masks it took green; the game looks for every
+car's mask in the override first and says "cannot read" for the cars the project has none for: those lines are dim, they are expected. `--race-photo` takes the
+photo before the first frame (with `--night`, `--track STEM`, `--race-png FILE`), headless runs wait for it.
 
 Closing the window, Escape and Quit with changes that are not in `trace.json` (a point moved, added or removed, or the road width changed since the last
 save or open) ask "Save the changes to <project> before quitting?" with **Save** (Enter), **Discard** and **Cancel** (Escape). New, Open and Open recent ask

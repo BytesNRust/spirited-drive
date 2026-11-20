@@ -69,10 +69,20 @@ static const Piece TITLES[TITLE_ART_COUNT][PIECES] = {
         { TITLE_ART_CNTRLSET_QFS, 256, 272, CONTROLS_SMALL_TOP },   /* u */
         { TITLE_ART_CNTRLSET_QFS, 278, 292, CONTROLS_SMALL_TOP },   /* p */
     },
+    /* "Content" has no screen of its own: every letter is in the controls screen's title (C, o, n, t from "Controls", e from "Setup") */
+    [TITLE_ART_CONTENT] = {
+        { TITLE_ART_CNTRLSET_QFS, 8, 28, TITLE_ART_TOP },           /* C */
+        { TITLE_ART_CNTRLSET_QFS, 33, 49, CONTROLS_SMALL_TOP },     /* o */
+        { TITLE_ART_CNTRLSET_QFS, 55, 71, CONTROLS_SMALL_TOP },     /* n */
+        { TITLE_ART_CNTRLSET_QFS, 76, 90, CONTROLS_SMALL_TOP },     /* t */
+        { TITLE_ART_CNTRLSET_QFS, 219, 233, CONTROLS_SMALL_TOP },   /* e */
+        { TITLE_ART_CNTRLSET_QFS, 55, 71, CONTROLS_SMALL_TOP },     /* n */
+        { TITLE_ART_CNTRLSET_QFS, 76, 90, CONTROLS_SMALL_TOP },     /* t */
+    },
 };
 
 static const char *const TEXTS[TITLE_ART_COUNT] = { "Customize Game", "Graphics Detail", "Game Mode",
-                                                    "Controls Setup" };
+                                                    "Controls Setup", "Content" };
 
 /* the pieces in use: a title's row ends at its first empty one */
 static int piece_count(const Piece *pieces)

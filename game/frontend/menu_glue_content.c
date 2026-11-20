@@ -43,7 +43,7 @@ enum {
     /* the card's panel darkened a further 60% toward the gallery's panel tint (gallery_layout.h's GL_PANEL_RGB), edged in the rules' colour,
      * so the card's dim words read over the background's light "&" */
     PANEL_RGB = 0x0a0704, PANEL_NUM = 3, PANEL_DEN = 5,
-    CREAM_RGB = 0xe8d3b7, YELLOW_RGB = 0xffce06, DIM_RGB = 0x8c8273,   /* text.h's TEXT_CREAM and TEXT_YELLOW */
+    CREAM_RGB = 0xe8d3b7, YELLOW_RGB = 0xffce06,   /* text.h's TEXT_CREAM and TEXT_YELLOW */
     TRI_H = 6, TRI_W = 2 * TRI_H - 1               /* the up and down triangles */
 };
 
@@ -174,6 +174,15 @@ static int32_t content_text_width(void *ctx, const char *text, int32_t num, int3
     return glue_plus_text_width_scaled(ctx, text, num, den);
 }
 
+static int32_t content_text_ink(void *ctx, const char *text, int32_t num, int32_t den, int32_t *left, int32_t *right)
+{
+    (void)ctx;
+    int l, r;
+    const int found = text_ink_x_scaled(text, num, den, &l, &r);
+    *left = l, *right = r;
+    return found;
+}
+
 /* a flat rectangle, x0..x1 and y0..y1 inclusive, a row at a time (menu_glue_screens.c's fill_rows) */
 static void content_fill(void *ctx, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t rgb)
 {
@@ -188,14 +197,6 @@ static void content_arrow(void *ctx, int32_t which, int32_t lit, int32_t x, int3
 {
     if (which == CONTENT_ARROW_LEFT || which == CONTENT_ARROW_RIGHT) {
         own_panel_arrow(ctx, which == CONTENT_ARROW_RIGHT, lit, x, y);
-        return;
-    }
-    if (which == CONTENT_ARROW_LEFT_OFF || which == CONTENT_ARROW_RIGHT_OFF) {   /* dim, flat, the size of the page arrows' body */
-        const int32_t dim = nearest(DIM_RGB);
-        for (int col = 0; col < TRI_H; col++) {
-            const int inset = which == CONTENT_ARROW_LEFT_OFF ? col : TRI_H - 1 - col;
-            ea_frame(x + col, y + inset, x + col, y + TRI_W - 1 - inset, dim);
-        }
         return;
     }
     const int32_t c = nearest(lit ? YELLOW_RGB : CREAM_RGB);
@@ -680,7 +681,7 @@ int32_t glue_content_screen(int32_t *edition)
     const ContentOps ops = { content_background, content_text, content_text_width, own_title_text, content_fill, content_arrow,
                              content_preview, content_show, key, content_pointer, content_wait, content_editions,
                              content_edition_name, content_edition_load, content_edition_save, content_mods, content_used_in,
-                             content_card, content_foot, content_refused, NULL, content_dropped };
+                             content_card, content_foot, content_refused, NULL, content_dropped, content_text_ink };
     const int music = *menu_audio_silent() == 0;
     if (music) {   /* the car gallery's (calmer) music, as Control Central's gallery starts it (central_select.c) */
         menu_audio_music_fade_out();

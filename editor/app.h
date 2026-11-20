@@ -3,6 +3,11 @@
 #ifndef TNFS_TRACK_EDITOR_APP_H
 #define TNFS_TRACK_EDITOR_APP_H
 
+#include "car_edit.h"
+#include "car_export.h"
+#include "car_rehacer.h"
+#include "car_project.h"
+#include "car_race.h"
 #include "project.h"
 #include "session.h"
 #include "view.h"
@@ -15,6 +20,9 @@ enum {
     APP_NEW_STEP = 40        /* units between a point and the one added after it */
 };
 
+/* what the window has open: nothing (the start screen), a track project or a car project. Exactly one; the fields of the other kind are not read. */
+typedef enum { APP_KIND_NONE = 0, APP_KIND_TRACK, APP_KIND_CAR } AppKind;
+
 /* what the window was asked to do that ends or changes the project: quit, start a new project, open one, open a recent one */
 typedef enum {
     APP_ACT_NONE = 0,
@@ -23,19 +31,34 @@ typedef enum {
     APP_ACT_OPEN,      /* a folder holding a project is asked for */
     APP_ACT_RECENT,    /* the folder is in the path */
     APP_ACT_NEW_AT,    /* the folder the New dialog gave, in the path: asked through the same question, as the project may have changed meanwhile */
-    APP_ACT_OPEN_AT    /* the same for Open */
+    APP_ACT_OPEN_AT,   /* the same for Open */
+    APP_ACT_OPEN_CAR,  /* a car's folder is asked for (its kit or its coche/) */
+    APP_ACT_OPEN_CAR_AT, /* the folder that dialog gave, in the path */
+    APP_ACT_EXPORT_PICK, /* a folder to make the exported car's project in is asked for (main.c's dialog); the car is a->export_pick */
+    APP_ACT_EXPORT_AT    /* the folder that dialog gave, in the path: the project is made in it and opened */
 } AppAction;
 
 /* the answers to "unsaved changes" */
 enum { APP_ANSWER_CANCEL = 0, APP_ANSWER_DISCARD = 1, APP_ANSWER_SAVE = 2 };
 
 typedef struct {
-    char dir[APP_PATH];          /* the project folder */
+    AppKind kind;                /* what is open: the track fields below are read for APP_KIND_TRACK, `car` for APP_KIND_CAR */
+    CarProject car;              /* the car project, when kind is APP_KIND_CAR */
+    Rehacer rehacer;             /* the kit's rehacer.command, running or last run (car_rehacer.h) */
+    CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
+    char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */
     char game[APP_PATH];         /* the game program, run for install */
     char art_note[160];          /* what opening the project did to or noticed about its copy of the generic art (project_art_refresh); "" for nothing */
     char game_tried[2048];       /* every place the game was looked for (game_find), for the message when it is not there */
     char game_memo[APP_PATH];    /* the file that remembers the game the user located ("" for none) */
     char user[APP_PATH];         /* the player folder the install goes to */
+    ExportSource export_src;     /* where Export original car reads the game's files from (car_export_source) */
+    int export_dialog;           /* the Export original car window is up */
+    int export_pick;             /* the car chosen in it (car_export_car's index), -1 for none */
+    RaceJob race;                /* Test in race / Race photo of the open original car (car_race.h), running or last run */
+    int race_night;              /* the preset: 0 Day, 1 Night */
+    int race_track;              /* the track chosen (car_race_track's index) */
+    char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder (main.c does it and clears this) */
     Project project;
     Trace trace;
     View view;
@@ -72,15 +95,37 @@ typedef struct {
 
     char zip[APP_PATH];          /* the last package built, "" before one */
     char status[APP_MSG];        /* the last thing done, for the window's bottom line */
+    char open_error[APP_MSG];    /* why the last Open, New or recent could not open its folder, until it is acknowledged (the window says it in a message); "" for none */
 } App;
 
-/* Opens the project in `dir`, creating its files where they are missing (project_create: `generic_art` is the editor's GENERIC.FAM or NULL).
+/* An app with nothing open: the start screen. `game`, `user` and `generic_art` as for app_open. */
+void app_begin(App *a, const char *game, const char *user, const char *generic_art);
+
+/* Opens what `dir` holds, for the folder the command line gave: a track project (it has a project.ini), else a car's kit (a mod.ini in it or in its coche/),
+ * else a new track project there (app_open). 1 with the app ready, 0 with status naming the fault. */
+int app_open_any(App *a, const char *dir, const char *game, const char *user, const char *generic_art);
+
+/* Opens the track project in `dir`, creating its files where they are missing (project_create: `generic_art` is the editor's GENERIC.FAM or NULL).
  * 1 with the app ready, 0 with status naming the fault. */
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art);
 
+/* Test in race (the game in its window, on a scratch player folder, with this project's masks) and Race photo (the same headless, one picture in a->race.photo): for
+ * the open car when it is one of the game's (car_race_original_of). Refused, with the status saying why, when no car is open, it is not an original, the game is not
+ * there or a race goes. app_race_poll (every frame) takes the output and the picture; 1 while a job runs. While one runs nothing else is opened (app_ask). */
+int app_race(App *a, int photo);
+int app_race_poll(App *a);
+void app_race_stop(App *a);
+int app_race_busy(const App *a);
+
+/* Where the game's files are, for Export original car; also remembered across the projects opened from this window. */
+void app_set_export_source(App *a, const ExportSource *src);
+/* Makes the project of the exported car a->export_pick in a folder named for it inside `parent` and opens it (car_export): the window stays as it was, with
+ * open_error saying why, when it cannot. 1 when it is open. */
+int app_export_car(App *a, const char *parent);
+
 void app_free(App *a);
 
-/* 1 when the trace is not what trace.json holds (a point moved, added or removed, or the width changed since the last save or open). */
+/* 1 when the open project has unsaved changes: a track's trace is not what trace.json holds, a car's card is not what mod.ini holds (a point moved, added or removed, or the width changed since the last save or open). */
 int app_modified(const App *a);
 
 /* Asks for an action. With nothing unsaved it is a->go at once; else a->confirm waits for app_answer, and a->go stays NONE. An action asked for
@@ -95,9 +140,25 @@ void app_answer(App *a, int answer);
  * project stays as it was, with the status saying why. app_open_project wants a project.ini in the folder; app_new_project wants none (it makes one). */
 int app_open_project(App *a, const char *dir);
 int app_new_project(App *a, const char *dir);
+/* Opens the car in `dir` (a kit's root or its coche/: car_project_detect); on a failure the status says what was looked at and what is missing, and the open
+ * project stays as it was. */
+int app_open_car(App *a, const char *dir);
+/* Opens a recent folder as the kind it was kept as. */
+int app_open_recent(App *a, const char *dir);
 
 /* Keeps the recent projects in `file` (loaded now, with the project that is open put first, saved at every change); "" or NULL keeps none. */
 void app_keep_recent(App *a, const char *file);
+
+/* Rehacer (dep59 car editor 1f): runs the open kit's own rehacer.command. Refused, with the status saying why, when no car is open, a run is going, the kit has no
+ * script, the card has unsaved changes (save first), or the kit cannot be backed up. Before it runs the kit is copied into .studio-backup/<time>/ (the last
+ * REHACER_KEEP are kept). app_rehacer_poll (every frame) takes its output and, when it ends, tells its exit code in the status and reads the car again (the
+ * textures and masks lists, and the card); 1 while it runs. While it runs nothing else is opened (app_ask) and the card is not edited. */
+int app_rehacer(App *a);
+int app_rehacer_poll(App *a);
+void app_rehacer_stop(App *a);
+int app_rehacer_busy(const App *a);
+/* 1 when the open car's kit has a rehacer.command */
+int app_rehacer_available(const App *a);
 
 /* Computes the road when the trace changed (a no-op otherwise). */
 void app_recompute(App *a);
