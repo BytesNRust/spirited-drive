@@ -277,7 +277,7 @@ int app_modified(const App *a)
 void app_ask(App *a, AppAction act, const char *path)
 {
     if (act == APP_ACT_NONE || a->confirm != APP_ACT_NONE || a->go != APP_ACT_NONE) return;
-    if (a->rehacer.run.running) {   /* the script is working on the kit: nothing else until it ends */
+    if (app_rehacer_busy(a)) {   /* the backup or the script is working on the kit: nothing else until it ends */
         set_status(a, "Rehacer is running: wait for it to end, or press Stop");
         return;
     }
@@ -664,7 +664,7 @@ void app_remove_point(App *a)
 
 int app_rehacer_busy(const App *a)
 {
-    return a->rehacer.run.running;
+    return rehacer_busy(&a->rehacer);
 }
 
 int app_rehacer_available(const App *a)
@@ -698,34 +698,72 @@ int app_rehacer(App *a)
     char why[APP_MSG], stamp[32];
     if (a->kind != APP_KIND_CAR) return set_status(a, "open a car first"), 0;
     if (a->car.masks_only) return set_status(a, "a masks project has no rehacer.command"), 0;
-    if (a->rehacer.run.running) return set_status(a, "Rehacer is already running"), 0;
+    if (app_rehacer_busy(a)) return set_status(a, "Rehacer is already running"), 0;
     if (!rehacer_script_present(a->dir)) return set_status(a, "this kit has no rehacer.command, so there is nothing to run"), 0;
     if (car_edit_modified(&a->edit)) return set_status(a, "mod.ini has changes that are not saved: save them first, then run Rehacer"), 0;
     if (app_mask_modified(a)) return set_status(a, "a mask has changes that are not saved: save them first, then run Rehacer"), 0;
-    rehacer_free(&a->rehacer);
     rehacer_stamp(stamp, sizeof stamp);
-    if (!rehacer_backup(a->dir, stamp, REHACER_KEEP, REHACER_BACKUP_MAX_MB, a->rehacer.backup, sizeof a->rehacer.backup, why, sizeof why)) {
-        snprintf(a->status, sizeof a->status, "Rehacer did not run, the backup failed: %s", why);
-        return 0;
-    }
-    if (!rehacer_start(&a->rehacer, a->dir, why, sizeof why)) {
+    if (!rehacer_begin(&a->rehacer, a->dir, stamp, REHACER_KEEP, REHACER_BACKUP_MAX_MB, why, sizeof why)) {   /* the copy runs in its own thread (R1) */
         snprintf(a->status, sizeof a->status, "Rehacer did not start: %s", why);
         return 0;
     }
-    const char *slash = strrchr(a->rehacer.backup, '/');
-    snprintf(a->status, sizeof a->status, "Rehacer running; the kit was backed up in %s/%s", REHACER_BACKUPS, slash != NULL ? slash + 1 : a->rehacer.backup);
+    snprintf(a->status, sizeof a->status, "Rehacer: backing up the kit into %s/%s first", REHACER_BACKUPS, stamp);
     return 1;
+}
+
+/* the version the card would get from "Raise version" (R2), when the last run's install said the files changed but the version did not */
+static int raise_offer(const App *a, char *next, size_t cap)
+{
+    if (cap > 0) next[0] = '\0';
+    const Rehacer *r = &a->rehacer;
+    if (a->kind != APP_KIND_CAR || app_rehacer_busy(a) || !r->run.finished || r->run.stopped || !rehacer_version_unraised(r->run.log)) return 0;
+    return car_edit_version_next(a->edit.now.value[CE_VERSION], next, cap);
 }
 
 int app_rehacer_poll(App *a)
 {
-    if (!a->rehacer.run.running) return 0;
-    if (rehacer_poll(&a->rehacer)) return 1;
+    const int was_running = a->rehacer.run.running;
+    if (!app_rehacer_busy(a)) return 0;
+    if (rehacer_poll(&a->rehacer)) {
+        if (!was_running && a->rehacer.run.running) {   /* the backup has ended and the script has started */
+            const char *slash = strrchr(a->rehacer.backup, '/');
+            snprintf(a->status, sizeof a->status, "Rehacer running; the kit was backed up in %s/%s", REHACER_BACKUPS, slash != NULL ? slash + 1 : a->rehacer.backup);
+        }
+        return 1;
+    }
+    if (a->rehacer.failed) {   /* the script never ran: nothing on disk changed but the backup */
+        snprintf(a->status, sizeof a->status, "Rehacer did not run: %s", a->rehacer.why);
+        return 0;
+    }
     if (a->rehacer.run.stopped) snprintf(a->status, sizeof a->status, "Rehacer was stopped (exit code %d)", a->rehacer.run.exit_code);
     else if (a->rehacer.run.exit_code == 0) snprintf(a->status, sizeof a->status, "Rehacer finished: exit code 0");
     else snprintf(a->status, sizeof a->status, "Rehacer failed: exit code %d (see the log)", a->rehacer.run.exit_code);
     reload_car(a);
+    char next[MOD_INI_VERSION_MAX + 1];
+    if (raise_offer(a, next, sizeof next)) {
+        const size_t n = strlen(a->status);
+        snprintf(a->status + n, sizeof a->status - n, "; the game says the files changed but the version did not: raise it to %s in the Rehacer tab", next);
+    }
     return 0;
+}
+
+int app_rehacer_raise_offer(const App *a, char *next, size_t cap)
+{
+    return !car_edit_modified(&a->edit) && !app_mask_modified(a) && raise_offer(a, next, cap);
+}
+
+int app_rehacer_raise_and_run(App *a)
+{
+    char next[MOD_INI_VERSION_MAX + 1];
+    if (car_edit_modified(&a->edit)) return set_status(a, "mod.ini has changes that are not saved: save them first, then raise the version"), 0;
+    if (app_mask_modified(a)) return set_status(a, "a mask has changes that are not saved: save it first, then raise the version"), 0;   /* Save would write it too */
+    if (!raise_offer(a, next, sizeof next)) return set_status(a, "there is no version to raise: change it in the card by hand"), 0;
+    if (!car_edit_set(&a->edit, CE_VERSION, next)) return 0;
+    if (!app_save(a)) {   /* the card's own field, saved as Save does; when it cannot be written the card on screen goes back as it was, and nothing runs */
+        car_edit_undo(&a->edit);
+        return 0;
+    }
+    return app_rehacer(a);
 }
 
 void app_rehacer_stop(App *a)

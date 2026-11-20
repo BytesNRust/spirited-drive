@@ -367,7 +367,7 @@ void masks_panel(App *a)
         snprintf(shown, sizeof shown, "%s", a->dir);
         wait = 3;
     }
-    if (wait > 0 && --wait == 0 && !a->rehacer.run.running && !a->rehacer.run.finished) ImGui::SetNextWindowFocus();   // a run's log is what to look at, then
+    if (wait > 0 && --wait == 0 && !app_rehacer_busy(a) && !a->rehacer.run.finished) ImGui::SetNextWindowFocus();   // a run's log is what to look at, then
     const bool open = ImGui::Begin(PANEL_MASKS);
     masks_dock = ImGui::GetWindowDockID();
     if (open) {
@@ -471,12 +471,34 @@ void export_popup(App *a)
     ImGui::EndPopup();
 }
 
+// R2: the game's install said the files changed but the version did not. The button raises the card's version one step, saves and runs again; nothing is
+// raised without it.
+static void raise_version_offer(App *a)
+{
+    if (!rehacer_version_unraised(a->rehacer.run.log) || a->rehacer.run.stopped) return;
+    ImGui::Spacing();
+    ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
+    ImGui::TextWrapped("The game installed it, but its files changed and its version did not. Raise the version so the new car can be told from the old one.");
+    ImGui::PopStyleColor();
+    char next[MOD_INI_VERSION_MAX + 1], label[64];
+    if (app_rehacer_raise_offer(a, next, sizeof next)) {
+        snprintf(label, sizeof label, "Raise version to %s and run again", next);
+        if (ImGui::Button(label)) app_rehacer_raise_and_run(a);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("Sets Version in the Car tab to %s, saves mod.ini and runs Rehacer again (undo takes the version back)", next);
+    } else if (car_edit_modified(&a->edit)) {
+        muted_wrapped("Save the card's changes first: then the version can be raised here.");
+    } else {
+        muted_wrapped("Version \"%s\" is not numbers like 1.2.3: raise it by hand in the Car tab, save, and run Rehacer again.", a->edit.now.value[CE_VERSION]);
+    }
+}
+
 void rehacer_panel(App *a)
 {
-    static pid_t shown = 0;   // the run whose tab was brought forward
+    static int shown = 0;   // the run whose tab was brought forward
     if (masks_dock != 0) ImGui::SetNextWindowDockID(masks_dock, ImGuiCond_FirstUseEver);
-    if (a->rehacer.run.running && a->rehacer.run.pid != shown) {   // a run started: its log is what to look at
-        shown = a->rehacer.run.pid;
+    if (app_rehacer_busy(a) && a->rehacer.run_id != shown) {   // a run was asked for: its tab comes forward at once, while the kit is still copied
+        shown = a->rehacer.run_id;
         ImGui::SetNextWindowFocus();
     }
     if (ImGui::Begin(PANEL_REHACER)) {
@@ -487,17 +509,28 @@ void rehacer_panel(App *a)
             ImGui::Spacing();
             ImGui::TextUnformatted("This kit has no rehacer.command.");
         }
-        if (r.run.running) {
+        if (r.backing_up) {
+            ImGui::Spacing();
+            ImGui::TextUnformatted("Backing up the kit, then the script runs...");
+            ImGui::SameLine();
+            if (ImGui::Button("Stop")) app_rehacer_stop(a);
+        } else if (r.run.running) {
             ImGui::Spacing();
             ImGui::TextUnformatted("Running...");
             ImGui::SameLine();
             if (ImGui::Button("Stop")) app_rehacer_stop(a);
+        } else if (r.failed) {
+            ImGui::Spacing();
+            ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
+            ImGui::TextWrapped("Did not run: %s", r.why);
+            ImGui::PopStyleColor();
         } else if (r.run.finished) {
             ImGui::Spacing();
             const ImVec4 colour = r.run.exit_code == 0 ? ImVec4(0.47f, 0.86f, 0.55f, 1.0f) : BAD_TEXT;
             ImGui::PushStyleColor(ImGuiCol_Text, colour);
             ImGui::Text("%s: exit code %d", r.run.stopped ? "Stopped" : r.run.exit_code == 0 ? "Finished" : "Failed", r.run.exit_code);
             ImGui::PopStyleColor();
+            raise_version_offer(a);
         }
         if (r.backup[0] != '\0') {
             const char *slash = strrchr(r.backup, '/');
@@ -508,7 +541,7 @@ void rehacer_panel(App *a)
             const bool at_bottom = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 4.0f;
             if (r.run.log_cut) ImGui::TextDisabled("(the start of the output was dropped)");
             if (r.run.log != nullptr && r.run.log_len > 0) ImGui::TextUnformatted(r.run.log, r.run.log + r.run.log_len);
-            else if (!r.run.running && !r.run.finished) ImGui::TextDisabled("Nothing has run yet.");
+            else if (!app_rehacer_busy(a) && !r.run.finished && !r.failed) ImGui::TextDisabled("Nothing has run yet.");
             if (r.run.running && at_bottom) ImGui::SetScrollHereY(1.0f);
         }
         ImGui::EndChild();

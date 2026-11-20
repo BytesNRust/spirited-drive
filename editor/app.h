@@ -195,15 +195,22 @@ int app_open_recent(App *a, const char *dir);
 void app_keep_recent(App *a, const char *file);
 
 /* Rehacer (dep59 car editor 1f): runs the open kit's own rehacer.command. Refused, with the status saying why, when no car is open, a run is going, the kit has no
- * script, the card has unsaved changes (save first), or the kit cannot be backed up. Before it runs the kit is copied into .studio-backup/<time>/ (the last
- * REHACER_KEEP are kept). app_rehacer_poll (every frame) takes its output and, when it ends, tells its exit code in the status and reads the car again (the
- * textures and masks lists, and the card); 1 while it runs. While it runs nothing else is opened (app_ask) and the card is not edited. */
+ * script or the card has unsaved changes (save first). It returns at once (owner test R1): the kit is copied into .studio-backup/<time>/ (the last REHACER_KEEP
+ * are kept) in its own thread, and app_rehacer_poll (every frame) starts the script when the copy has ended (a copy that fails is told, and nothing runs), takes
+ * its output and, when it ends, tells its exit code in the status and reads the car again (the textures and masks lists, and the card); 1 while it copies or
+ * runs. Meanwhile nothing else is opened (app_ask) and the card is not edited. */
 int app_rehacer(App *a);
 int app_rehacer_poll(App *a);
 void app_rehacer_stop(App *a);
 int app_rehacer_busy(const App *a);
 /* 1 when the open car's kit has a rehacer.command */
 int app_rehacer_available(const App *a);
+/* Raise version (owner test R2): after a run whose install said the files changed but the version did not, the card's version one step up (car_edit_version_next)
+ * into `next`. 1 when it is offered: the run ended (not stopped), the card has no unsaved change and its version is numbers. */
+int app_rehacer_raise_offer(const App *a, char *next, size_t cap);
+/* The button: sets the card's version to the offered one (one step to undo), saves the card and runs Rehacer again. Nothing is raised without it. 0 with the
+ * status saying why (not offered, unsaved changes, the save or the run refused). */
+int app_rehacer_raise_and_run(App *a);
 
 /* Computes the road when the trace changed (a no-op otherwise). */
 void app_recompute(App *a);

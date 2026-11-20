@@ -22,7 +22,7 @@ void track_panel(App *a);
 void start_screen(App *a);
 void car_panel(App *a);
 void rehacer_panel(App *a);   // Rehacer's status and log
-void car_shortcuts(App *a);   // Ctrl+S, Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y (Cmd on a Mac)
+void car_shortcuts(App *a);   // Cmd+S, Cmd+Z, Cmd+Shift+Z / Cmd+Y on a Mac; Ctrl elsewhere (ImGuiMod_Ctrl is Cmd on a Mac: shortcut_keys.h)
 void textures_panel(App *a);
 void masks_panel(App *a);
 void race_panel(App *a, ImTextureID photo);   // Test in race and Race photo, the picture (a texture, 0 for none) and the game's log
