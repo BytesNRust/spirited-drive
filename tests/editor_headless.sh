@@ -135,6 +135,11 @@ want = [0x22 if k * 6.25 < 60 else 0x02 if k * 6.25 < 180 else 0x20 for k in ran
 assert got == want, [hex(b) for b in got]
 PY
 python3 "$work/tri_surfaces.py" "$work/surface/build/surface.zip" || fail "the TRI of the surface project does not have the shoulders of its keys"
+# --window WxH: the picture is that size (a layout at another window size); a size out of range is refused by name
+"$editor" "$work/surface" --window 1440x900 --frames 6 --select 2 --shot "$work/wide.png" >"$work/log" 2>&1 || fail "run with --window: $(cat "$work/log")"
+python3 -c "import struct,sys; d=open(sys.argv[1],'rb').read(24); sys.exit(0 if struct.unpack('>II', d[16:24]) == (1440, 900) else 1)" "$work/wide.png" || fail "--window 1440x900 did not make a 1440x900 picture"
+"$editor" "$work/surface" --window 100x100 --frames 2 >"$work/log" 2>&1 && fail "--window 100x100 was taken"
+grep -q "\-\-window wants WxH" "$work/log" || fail "the refusal of --window does not say what it wants: $(cat "$work/log")"
 "$editor" "$work/proj" --frames 2 --user "$work/user/sub" >/dev/null 2>&1 || fail "run with --user"
 [ -f "$work/user/sub/track-editor.ini" ] || fail "the layout was not kept in the player folder (made when missing)"
 # the game is not where --game says: Install says so, and what to do, without running anything

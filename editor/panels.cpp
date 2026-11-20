@@ -18,6 +18,8 @@ const char *const PANEL_POINTS = "Points", *const PANEL_LIMITS = "Limits", *cons
 namespace {
 
 const ImVec4 BAD_TEXT(1.0f, 0.35f, 0.35f, 1.0f), WARN_TEXT(1.0f, 0.69f, 0.13f, 1.0f), OK_TEXT(0.47f, 0.86f, 0.55f, 1.0f);
+const float POINT_COL_NUMBER = 28, POINT_COL_DIST = 50, POINT_COL_TURN = 54;   // the Points table's fixed columns: #, dist m, turn ("R 12.3°")
+const int POINTS_MIN_ROWS = 4;   // the Points table shows at least these rows, whatever the Road key block below takes
 const int PROBLEM_ROWS = 200;   // the nodes listed in Problems; the count says how many more
 
 }   // namespace
@@ -38,14 +40,23 @@ void points_panel(App *a)
         ImGui::EndDisabled();
         ImGui::TextDisabled("%d points", a->trace.count);
         const bool scroll_to_selected = a->selected != shown;
-        if (ImGui::BeginTable("points", 6, ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders, ImVec2(0, -road_key_panel_height()))) {
+        // the table takes what the Road key block below leaves, but never fewer than POINTS_MIN_ROWS rows: in a short window the panel scrolls instead
+        const ImGuiStyle &st = ImGui::GetStyle();
+        const float row = ImGui::GetFrameHeight() + 2 * st.CellPadding.y;
+        const float least = (POINTS_MIN_ROWS + 1) * row + st.ScrollbarSize + 2;   // the rows, the header, a sideways scroll bar, the borders
+        const float room = ImGui::GetContentRegionAvail().y - road_key_panel_height();
+        // the columns never narrower than a value ("-1234.5") or their header: a narrow panel scrolls the table sideways, a wide one stretches them
+        const float value = ImGui::CalcTextSize("-1234.5").x, inner = POINT_COL_NUMBER + 3 * value + POINT_COL_DIST + POINT_COL_TURN + 12 * st.CellPadding.x + 8;
+        const float wide = ImGui::GetContentRegionAvail().x;
+        if (ImGui::BeginTable("points", 6, ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders,
+                              ImVec2(0, room > least ? room : least), wide > inner ? wide : inner)) {
             ImGui::TableSetupScrollFreeze(0, 1);
-            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 28);
+            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, POINT_COL_NUMBER);
             ImGui::TableSetupColumn("x (m)");
             ImGui::TableSetupColumn("z (m)");
-            ImGui::TableSetupColumn("width (m)");
-            ImGui::TableSetupColumn("dist m", ImGuiTableColumnFlags_WidthFixed, 50);
-            ImGui::TableSetupColumn("turn", ImGuiTableColumnFlags_WidthFixed, 54);
+            ImGui::TableSetupColumn("w (m)");   // the road's width: short, so a narrow panel does not cut it
+            ImGui::TableSetupColumn("dist m", ImGuiTableColumnFlags_WidthFixed, POINT_COL_DIST);
+            ImGui::TableSetupColumn("turn", ImGuiTableColumnFlags_WidthFixed, POINT_COL_TURN);
             ImGui::TableHeadersRow();
             shown = a->selected;   // the table is drawn: it has scrolled to what was selected from elsewhere
             ImGuiListClipper clipper;
