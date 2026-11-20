@@ -11,6 +11,7 @@
 #include "car_rehacer.h"
 #include "car_project.h"
 #include "car_race.h"
+#include "light_ui.h"
 #include "project.h"
 #include "selection.h"
 #include "session.h"
@@ -25,8 +26,8 @@ enum {
     APP_NEW_STEP = 40        /* units between a point and the one added after it */
 };
 
-/* what the window has open: nothing (the start screen), a track project or a car project. Exactly one; the fields of the other kind are not read. */
-typedef enum { APP_KIND_NONE = 0, APP_KIND_TRACK, APP_KIND_CAR } AppKind;
+/* what the window has open: nothing (the start screen), a track project, a car project or the Track light window (a light folder, no project). Exactly one; the fields of the other kinds are not read. */
+typedef enum { APP_KIND_NONE = 0, APP_KIND_TRACK, APP_KIND_CAR, APP_KIND_LIGHT } AppKind;
 
 /* what the window was asked to do that ends or changes the project: quit, start a new project, open one, open a recent one */
 typedef enum {
@@ -40,7 +41,8 @@ typedef enum {
     APP_ACT_OPEN_CAR,  /* a car's folder is asked for (its kit or its coche/) */
     APP_ACT_OPEN_CAR_AT, /* the folder that dialog gave, in the path */
     APP_ACT_EXPORT_PICK, /* a folder to make the exported car's project in is asked for (main.c's dialog); the car is a->export_pick */
-    APP_ACT_EXPORT_AT    /* the folder that dialog gave, in the path: the project is made in it and opened */
+    APP_ACT_EXPORT_AT,   /* the folder that dialog gave, in the path: the project is made in it and opened */
+    APP_ACT_OPEN_LIGHT   /* the Track light window on the light folder a->light_dir */
 } AppAction;
 
 /* the answers to "unsaved changes" */
@@ -93,6 +95,8 @@ typedef struct {
     int preview_paint;           /* the card's paint the Preview shows: an index of the card's paints, -1 for the car as its file has it */
     char preview_focus[5];       /* a texture the Preview scrolls to (--preview-tex NAME, for a headless picture); "" none */
     NightSettings night;         /* the Preview's Day / Night and lamp switches (editor/night_view.h) */
+    LightUi light;               /* the Track light window (light_ui.h), when kind is APP_KIND_LIGHT */
+    char light_dir[APP_PATH];    /* the light folder the Track light window tunes: its track_light/ and track/ (--light-dir, else the source tree's data/); "" for none */
     MaskUi mask;                 /* the mask editor (editor/mask_edit.h), when kind is APP_KIND_CAR */
     CarDisk cdisk;               /* mod.ini, the car file and the textures as the editor last saw them (app_card_watch) */
     CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
@@ -247,6 +251,30 @@ int app_card_save_ok(App *a);   /* 0, with the status, when mod.ini changed on d
 void app_track_commit(App *a);
 /* A track's step back (redo: forward); the road is made again from it, the selection kept when its point is still there. 1 when there was one. */
 int app_track_undo(App *a, int redo);
+
+/* The Track light window (dep98 step 2, part C; app_light.c). app_set_light_dir says which folder it tunes (a->light_dir). app_open_light closes what is open (the
+ * caller asked first: app_ask APP_ACT_OPEN_LIGHT) and opens the window on that folder, at the first track's day; 0, with open_error, when the folder is no light folder. */
+void app_set_light_dir(App *a, const char *dir);
+int app_open_light(App *a);
+/* The track (light_ui_track's index) and time (0..3) of the file: refused, with light.error, while the working copy has unsaved changes (Save or Revert first). */
+int app_light_select(App *a, int track, int time);
+/* The photo's node, clamped to the file's road. */
+void app_light_set_node(App *a, long node);
+/* The window edited a->light.session.file (light_file_set_*): the photo is due. */
+void app_light_touch(App *a);
+/* Revert and Save of the file (light_session.h); Save says why it refused in light.error and the status. */
+void app_light_revert(App *a);
+int app_light_save(App *a);
+/* The photo: takes one now of the working copy at the track, time and node (the game headless, light_photo.h); refused, with light.error, with no game, no CD data or no file. */
+int app_light_photo(App *a);
+/* Every frame, with the clock `now` in seconds: takes the photo job's output and picture, and starts the photo that is due once `now` is LIGHT_UI_SETTLE past the last
+ * change. 1 while a job runs. */
+int app_light_poll(App *a, double now);
+int app_light_busy(const App *a);
+/* lets go of the window's session and photo (app_free) */
+void app_light_free(App *a);
+/* what belongs to the window, not to what is open, moves to `to` from `from` when one kind replaces another: the recent list, the game lookup, where the game's files are, the settings */
+void app_carry_window(App *to, const App *from);
 
 void app_free(App *a);
 /* Why Build would refuse the road as it is now, in Build's words, when no red row of Problems says it already: the road not made, or the

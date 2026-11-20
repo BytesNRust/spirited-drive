@@ -70,6 +70,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     a->night = night_settings_default();
     a->rehacer.run.fd = a->race.run.fd = -1;   /* no output pipe: a zero is a descriptor (stdin) */
     install_job_init(&a->race.install);
+    a->light.photo.run.fd = -1;
 }
 
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
@@ -193,6 +194,7 @@ int app_export_car(App *a, const char *parent)
 
 void app_free(App *a)
 {
+    app_light_free(a);
     car_race_free(&a->race);
     install_job_free(&a->install);
     rehacer_free(&a->rehacer);
@@ -310,7 +312,7 @@ void app_select_node(App *a, int node)
 
 void app_title(const App *a, char *out, size_t cap)
 {
-    const char *name = a->kind == APP_KIND_TRACK ? a->project.id : a->kind == APP_KIND_CAR ? (a->car.info.id[0] != '\0' ? a->car.info.id : a->car.folder) : "";
+    const char *name = a->kind == APP_KIND_TRACK ? a->project.id : a->kind == APP_KIND_CAR ? (a->car.info.id[0] != '\0' ? a->car.info.id : a->car.folder) : a->kind == APP_KIND_LIGHT ? "Track light" : "";
     if (name[0] == '\0') snprintf(out, cap, "Spirited Drive Studio");
     else snprintf(out, cap, "Spirited Drive Studio \xe2\x80\x94 %s%s", name, app_modified(a) ? " *" : "");
 }
@@ -334,6 +336,7 @@ int app_track_undo(App *a, int redo)
 int app_modified(const App *a)
 {
     if (a->kind == APP_KIND_CAR) return car_edit_modified(&a->edit) || app_mask_modified(a);
+    if (a->kind == APP_KIND_LIGHT) return light_session_dirty(&a->light.session);
     return a->kind == APP_KIND_TRACK && track_undo_modified(&a->track_undo, &a->project, &a->trace);
 }
 
@@ -384,6 +387,18 @@ static void remember(App *a)
     if (a->recent_file[0] != '\0') recent_save(&a->recent, a->recent_file);
 }
 
+void app_carry_window(App *to, const App *from)
+{
+    to->recent = from->recent;
+    memcpy(to->recent_file, from->recent_file, sizeof to->recent_file);
+    memcpy(to->game_tried, from->game_tried, sizeof to->game_tried);   /* what the game lookup found stays with the window, not with a project */
+    memcpy(to->game_memo, from->game_memo, sizeof to->game_memo);
+    to->export_src = from->export_src;   /* so does where the game's files are */
+    to->export_pick = from->export_pick;
+    to->drive_pick = from->drive_pick;   /* the editor's setting, not the project's */
+    memcpy(to->light_dir, from->light_dir, sizeof to->light_dir);
+}
+
 static int open_in(App *a, const char *dir, AppKind kind)
 {
     App *next = calloc(1, sizeof *next);
@@ -405,13 +420,7 @@ static int open_in(App *a, const char *dir, AppKind kind)
         free(next);
         return 0;
     }
-    next->recent = a->recent;
-    memcpy(next->recent_file, a->recent_file, sizeof next->recent_file);
-    memcpy(next->game_tried, a->game_tried, sizeof next->game_tried);   /* what the game lookup found stays with the window, not with a project */
-    memcpy(next->game_memo, a->game_memo, sizeof next->game_memo);
-    next->export_src = a->export_src;   /* so does where the game's files are */
-    next->export_pick = a->export_pick;
-    next->drive_pick = a->drive_pick;   /* the editor's setting, not the project's */
+    app_carry_window(next, a);
     app_free(a);
     *a = *next;   // the new project's arrays belong to `a` now
     free(next);
@@ -475,6 +484,7 @@ static int track_open(App *a)
 int app_save(App *a)
 {
     char why[APP_MSG];
+    if (a->kind == APP_KIND_LIGHT) return app_light_save(a);
     if (a->kind == APP_KIND_CAR && a->car.masks_only) {   /* no card: only the mask being edited */
         if (a->mask.sel < 0) return set_status(a, "a masks project has no card to save: open a mask in Edit mask, or use your picture editor on the PNG files in car_masks/"), 0;
         return app_mask_save(a);
