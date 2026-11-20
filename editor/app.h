@@ -56,6 +56,7 @@ typedef struct {
     int sel;                          /* the texture being edited (index into tex), -1 for none */
     MaskEdit me;                      /* its mask, when sel >= 0 */
     char note[256];                   /* the size note of the open mask, "" when it matches its texture */
+    char tex_file[ME_PATH];           /* the open mask's texture as a PNG of the car's kit (texture_file.h), "" when it has none: Show texture file */
     char error[APP_MSG];         /* why a mask could not be opened or saved, until the next try */
     int tool, brush, cls;             /* MaskTool; the pencil's size 1..8; the legend index of the class the pencil and fill paint */
     int fill_by_texture;              /* 0: the fill takes the texels of the same class, 1: of the same texture colour */
@@ -92,7 +93,7 @@ typedef struct {
     RaceLook race_look;          /* the Race window's look switches (T6): the session's, never written to the car's project; all on by default */
     InstallJob install;          /* Install (U): the game's installer, run in the background (install_job.h) */
     int drive_pick;              /* the car Test drive gives the player: the game's car menu's number (0..7, car_race_menu_car); the editor's settings keep it */
-    char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder (main.c does it and clears this) */
+    char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder, or a file to show selected in its folder (main.c does it and clears this) */
     Project project;
     Trace trace;
     View view;

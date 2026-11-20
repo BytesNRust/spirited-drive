@@ -29,6 +29,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <spawn.h>
+
+extern char **environ;
 
 enum {
     WINDOW_W = WINDOW_LEAST_W,   /* a headless run's window (--frames, --shot): the size the tests' pictures are of */
@@ -284,6 +289,31 @@ static int run_go(SDL_Window *win, App *a)
 }
 
 /* the folder the dialog gave, when it did: the project is opened (or made) in it; a cancelled dialog changes nothing */
+/* a->reveal in the Finder: a folder opened, a file shown selected in its folder (`open -R`, no shell; elsewhere its folder opened) */
+static void reveal(App *a)
+{
+    char path[APP_PATH], url[APP_PATH * 3];
+    snprintf(path, sizeof path, "%s", a->reveal);
+    struct stat st;
+    const int file = stat(path, &st) == 0 && S_ISREG(st.st_mode);
+#ifdef __APPLE__
+    if (file) {
+        char *argv[] = {(char *)"open", (char *)"-R", path, NULL};
+        pid_t pid;
+        int status = 0;
+        const int rc = posix_spawnp(&pid, "open", NULL, NULL, argv, environ);
+        if (rc != 0 || waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+            snprintf(a->status, sizeof a->status, "cannot show %s in the Finder", path);
+        return;
+    }
+#endif
+    if (file) {
+        char *slash = strrchr(path, '/');
+        if (slash != NULL) *slash = '\0';
+    }
+    if (car_export_file_url(path, url, sizeof url) && !SDL_OpenURL(url)) snprintf(a->status, sizeof a->status, "cannot open %s: %s", path, SDL_GetError());
+}
+
 static void take_dialog(App *a)
 {
     if (g_dialog.lock == NULL) return;
@@ -560,9 +590,8 @@ static int run(App *a, const Options *o)
             window_event(a, &ev);
         }
         take_dialog(a);
-        if (a->reveal[0] != '\0') {   /* a folder to show in the Finder (the Masks window's button) */
-            char url[APP_PATH * 3];
-            if (!headless && car_export_file_url(a->reveal, url, sizeof url) && !SDL_OpenURL(url)) snprintf(a->status, sizeof a->status, "cannot open %s: %s", a->reveal, SDL_GetError());
+        if (a->reveal[0] != '\0') {   /* a folder or file to show in the Finder (the Masks window's and the Mask panel's buttons) */
+            if (!headless) reveal(a);
             a->reveal[0] = '\0';
         }
         if (a->go != APP_ACT_NONE) {

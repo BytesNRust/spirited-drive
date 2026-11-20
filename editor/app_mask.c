@@ -1,5 +1,6 @@
 /* The mask editor of the open car (app.h's app_mask_*): the textures of its CFM, the mask being edited, Save. */
 #include "app.h"
+#include "texture_file.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +35,7 @@ void app_mask_close(App *a)
     mask_edit_free(&a->mask.me);
     a->mask.sel = -1;
     a->mask.note[0] = '\0';
+    a->mask.tex_file[0] = '\0';
 }
 
 void app_mask_scan(App *a)
@@ -84,6 +86,7 @@ int app_mask_open(App *a, int index)
     m->sel = index;
     m->generation++;
     if (!mask_edit_size_note(&m->me, m->note, sizeof m->note)) m->note[0] = '\0';
+    texture_file_of(a->car.root, m->tex[index].level, m->tex[index].name, m->tex_file, sizeof m->tex_file);
     snprintf(a->status, sizeof a->status, "editing %s: Save writes this mask only", m->tex[index].file);
     return 1;
 }

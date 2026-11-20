@@ -1299,6 +1299,58 @@ static void check_export(void)
 }
 
 /* app_free of an app that never ran Rehacer or a race must not close descriptor 0 (an all-zero runner holds fd 0) */
+/* «Show texture file»: a mask opened in a kit knows its texture's bank PNG (the Mask panel's button shows it); outside a kit, or once closed, it has none */
+static void check_mask_texture_file(void)
+{
+    char kit[600], p[900];
+    snprintf(kit, sizeof kit, "%s/tex_file_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
+    if (mkdtemp(kit) == NULL) { CHECK(0); return; }
+    const char *dirs[] = { "model", "model/near", "model/near/bank", "car_masks", "car_masks/KC" };
+    for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; i++) snprintf(p, sizeof p, "%s/%s", kit, dirs[i]), mkdir(p, 0777);
+    snprintf(p, sizeof p, "%s/model/near/bank/entries.tsv", kit);
+    FILE *f = fopen(p, "wb");
+    if (f != NULL) fputs("# index\tname_hex\tlabel\ttype\tblock_size\twidth\theight\tmisc0\tmisc1\tmisc2\tmisc3\tfile\ttail_hex\tpos\n"
+                         "1\t66726e74\tfrnt\t123\t0\t8\t6\t0\t0\t0\t0\t0001_frnt.png\t\t1\n", f), fclose(f);
+    snprintf(p, sizeof p, "%s/model/near/bank/0001_frnt.png", kit);
+    f = fopen(p, "wb");
+    if (f != NULL) fputs("x", f), fclose(f);
+    uint8_t grey[8 * 6], *png = NULL;
+    size_t len = 0;
+    memset(grey, 255, sizeof grey);
+    snprintf(p, sizeof p, "%s/car_masks/KC/frnt_mask.png", kit);
+    f = png_write_grey(grey, 8, 6, &png, &len) == PNG_OK ? fopen(p, "wb") : NULL;
+    if (f != NULL) fwrite(png, 1, len, f), fclose(f);
+    free(png);
+
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, "./tnfs", "", NULL);
+    a->kind = APP_KIND_CAR;
+    snprintf(a->car.root, sizeof a->car.root, "%s", kit);
+    snprintf(a->car.piece, sizeof a->car.piece, "%s", kit);
+    snprintf(a->car.folder, sizeof a->car.folder, "KC");
+    MaskUi *m = &a->mask;
+    m->tex_count = 1;
+    m->tex[0] = (MaskTexInfo){ 0, "frnt", "frnt_mask.png", 8, 6 };
+    m->has_mask[0] = 1;
+    char want[900];
+    snprintf(want, sizeof want, "%s/model/near/bank/0001_frnt.png", kit);
+    CHECK(app_mask_open(a, 0));
+    CHECK(strcmp(m->tex_file, want) == 0);
+    app_mask_close(a);
+    CHECK(m->tex_file[0] == '\0');
+    m->tex_count = 1;   /* the far texture of the same name: the kit has no far bank, so no file */
+    m->tex[0] = (MaskTexInfo){ 1, "frnt", "frnt_mask.png", 8, 6 };
+    m->has_mask[0] = 1;
+    CHECK(app_mask_open(a, 0));
+    CHECK(m->tex_file[0] == '\0');
+    app_free(a);
+    free(a);
+    snprintf(p, sizeof p, "rm -rf '%s'", kit);
+    if (system(p) != 0) fprintf(stderr, "could not remove %s\n", kit);
+}
+
 /* the mask editor in the app: a car with no readable car file has no textures to edit, and what is refused says why; Undo is the card's while no mask is open */
 static void check_mask_app(void)
 {
@@ -1466,6 +1518,7 @@ int main(void)
     check_rehacer();
     check_export();
     check_mask_app();
+    check_mask_texture_file();
     check_track_undo_title();
     check_car_common_history();
     check_free_keeps_stdin();

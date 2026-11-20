@@ -300,6 +300,12 @@ void mask_edit_panel(App *a, ImTextureID tex)
                 muted("Choose a texture to see its mask over it and paint it. Only the textures with a mask in car_masks/%s can be edited.", a->car.folder);
             } else {
                 ImGui::Text("%s   %dx%d   %s", m.tex[m.sel].file, m.me.width, m.me.height, app_mask_modified(a) ? "(unsaved changes)" : "");
+                if (m.tex_file[0] != '\0') {   // only in a kit: the texture's PNG in its bank folder
+                    ImGui::SameLine();
+                    if (ImGui::Button("Show texture file")) snprintf(a->reveal, sizeof a->reveal, "%s", m.tex_file);
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Show this texture's PNG in the Finder, to paint it in an external image editor.\n%s", m.tex_file);
+                }
                 if (m.note[0] != '\0') {
                     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
                     ImGui::TextWrapped("%s", m.note);
