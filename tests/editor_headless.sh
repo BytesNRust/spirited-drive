@@ -95,10 +95,10 @@ mkdir "$work/fresh"
 grep -q "too short" "$work/log" && fail "a new project is too short for a stage: $(cat "$work/log")"
 python3 -c "
 import json, sys
-t = json.load(open(sys.argv[1]))
-p = t['points']
-assert len(p) == 15 and p[0] == [0.0, 0.0] and p[-1] == [0.0, 1308.0], p
-" "$work/fresh/trace.json" || fail "a new project is not the 1308 m straight of 15 points"
+p = json.load(open(sys.argv[1]))['points']
+gaps = [b[1] - a[1] for a, b in zip(p, p[1:])]
+assert p[0] == [0.0, 0.0] and all(q[0] == 0.0 for q in p) and max(gaps) <= 100 and min(gaps) > 0 and p[-1][1] > 1290, p
+" "$work/fresh/trace.json" || fail "a new project is not a straight of over 1.29 km with a point every 100 m at most"
 # road keys (trace.json version 2): a ramp from the project's 10 m to 8 m and 14 m builds a TRI whose verge bytes are the widths the keys say; a ramp too sudden is
 # amber (built, drawn amber), and a file of a newer version is refused with its reason
 mkdir "$work/keyed"
