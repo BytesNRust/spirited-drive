@@ -272,6 +272,38 @@ static void check_side_errors(const uint8_t *tmpl, size_t tsize)
     }
 }
 
+/* the 255 is the wall's byte itself, each side: the right one adds the wall to the right edge's byte, which is the width plus what the template's right
+ * edge has more than its left. A template with a wider right half refuses a right wall that the left side may have; the generic template is symmetric,
+ * so the editor's TRACE_FLAG_WALL_FAR (width plus wall) is the generator's own check there */
+static void check_wall_byte_per_side(const uint8_t *tmpl, size_t tsize)
+{
+    enum { NODE1 = 0x98C + 36 };
+    CHECK_EQ_INT(tmpl[NODE1 + 0], tmpl[NODE1 + 1]);   /* the generic template: left edge == right edge */
+    uint8_t *wide = malloc(tsize);
+    if (wide == NULL) return;
+    memcpy(wide, tmpl, tsize);
+    wide[NODE1 + 1] = (uint8_t)(wide[NODE1 + 1] + 10);   /* the right edge 1.25 m farther out */
+    static TrackGenNode n[COUNT];
+    for (int side = 0; side < 2; ++side) {
+        s_nodes(n, 0.0, WIDTH);
+        n[7].width = 95;                                   /* 95 + 160 = 255: the left wall's byte is full, the right one's is past it */
+        set_side(&n[7], side, TRACK_GEN_SIDE_BARRIER, 0, 160, 0, 0);
+        uint8_t *out = NULL;
+        size_t len = 0;
+        ExchangeError err = {0};
+        const int built = track_generate_nodes_turned(n, COUNT, wide, tsize, &out, &len, &err);
+        if (side == TRACK_GEN_LEFT) {
+            CHECK(built);
+        } else {
+            CHECK(!built);
+            CHECK(strstr(err.message, "node 7") != NULL && strstr(err.message, "right") != NULL && strstr(err.message, "centre") != NULL);
+            if (strstr(err.message, "right") == NULL) fprintf(stderr, "%s\n", err.message);
+        }
+        free(out);
+    }
+    free(wide);
+}
+
 int main(void)
 {
     uint8_t *tmpl = NULL;
@@ -287,6 +319,7 @@ int main(void)
     check_shoulders(tmpl, tsize);
     check_sides_on_a_bend(tmpl, tsize);
     check_side_errors(tmpl, tsize);
+    check_wall_byte_per_side(tmpl, tsize);
     free(tmpl);
     return TEST_REPORT();
 }

@@ -242,8 +242,8 @@ static int parse_version(const char *text, int *version, char *why, size_t why_c
     return 1;
 }
 
-/* a number after "name" inside the object text `obj`; 1 when there is one */
-static int object_number(const char *obj, const char *name, double *value)
+/* a number after "name" inside the object text `obj`: 1 when there is one, 0 when the name is not there, -1 when its value is no number ("abc", null) */
+static int object_value(const char *obj, const char *name, double *value)
 {
     char key[32];
     snprintf(key, sizeof key, "\"%s\"", name);
@@ -252,7 +252,13 @@ static int object_number(const char *obj, const char *name, double *value)
     if (p == NULL) return 0;
     char *end = NULL;
     *value = strtod(p + 1, &end);
-    return end != p + 1;
+    return end != p + 1 ? 1 : -1;
+}
+
+/* a number after "name" inside the object text `obj`; 1 when there is one */
+static int object_number(const char *obj, const char *name, double *value)
+{
+    return object_value(obj, name, value) == 1;
 }
 
 /* a string after "name" inside the object text `obj` into `out` (cap bytes): 1 when there is one, 0 when the name is not there, -1 when its value is no string */
@@ -321,7 +327,12 @@ static int parse_key_sides(const char *obj, double point, TraceKey *k, char *why
             double v = 0;
             char word[32];
             if (f == TRACE_SIDE_SHOULDER || f == TRACE_SIDE_BARRIER) {
-                if (!object_number(obj, SIDE_FIELD[f][side], &v)) continue;
+                const int at = object_value(obj, SIDE_FIELD[f][side], &v);
+                if (at < 0) {
+                    snprintf(why, why_cap, "trace.json: the road key on point %.0f has a %s that is not a number of metres", point, SIDE_FIELD[f][side]);
+                    return 0;
+                }
+                if (at == 0) continue;
             } else if (!object_word(obj, SIDE_FIELD[f][side], word, sizeof word)) {
                 continue;
             } else if (f == TRACE_SIDE_WALL) {
@@ -365,9 +376,13 @@ static int parse_keys(const char *text, int version, Trace *t, char *why, size_t
         obj[close - p] = '\0';
         p = close + 1;
         double point = 0, metres = 0;
-        const int has_width = object_number(obj, "width_m", &metres);
         if (!object_number(obj, "point", &point) || point != floor(point)) {
             snprintf(why, why_cap, "trace.json: a road key has no point number");
+            return 0;
+        }
+        const int width_at = object_value(obj, "width_m", &metres), has_width = width_at == 1;
+        if (width_at < 0) {
+            snprintf(why, why_cap, "trace.json: the road key on point %.0f has a width_m that is not a number of metres", point);
             return 0;
         }
         TraceSurface left = TRACE_SURFACE_INHERIT, right = TRACE_SURFACE_INHERIT;
@@ -376,13 +391,13 @@ static int parse_keys(const char *text, int version, Trace *t, char *why, size_t
         const int has_surface = left != TRACE_SURFACE_INHERIT || right != TRACE_SURFACE_INHERIT;
         TraceKey sides;   /* the road's sides (step 3) */
         memset(&sides, 0, sizeof sides);
-        sides.point = (int)point;
         if (version >= 3 && !parse_key_sides(obj, point, &sides, why, why_cap)) return 0;
         if (!has_width && !has_surface && sides.has == 0) continue;
         if (point < 0 || point >= t->count) {
             snprintf(why, why_cap, "trace.json: a road key is on point %.0f, and the trace has points 0..%d", point, t->count - 1);
             return 0;
         }
+        sides.point = (int)point;   /* only now: a point out of range (1e999 is inf, a whole number) is no int */
         if (has_width && !(metres >= TRACE_ROAD_MIN_M && metres <= TRACE_ROAD_MAX_M)) {
             snprintf(why, why_cap, "trace.json: the road key on point %.0f has width %g m, outside %g..%g m", point, metres, TRACE_ROAD_MIN_M, TRACE_ROAD_MAX_M);
             return 0;

@@ -209,7 +209,7 @@ static void write_node(uint8_t *dst, const uint8_t *model, const TrackGenNode *s
         if ((shape->side[side].has & TRACK_GEN_SIDE_TARMAC) && shape->side[side].tarmac) dst[6] &= (uint8_t)(side == TRACK_GEN_LEFT ? 0x0f : 0xf0);
     for (int side = 0; side < 2; ++side) {   /* the sides a node gives (step 3); the rest stays the template's */
         const TrackGenSide *s = &shape->side[side];
-        if (s->has & TRACK_GEN_SIDE_BARRIER) dst[2 + side] = (uint8_t)clamp_byte(dst[side] + lround(s->barrier));
+        if (s->has & TRACK_GEN_SIDE_BARRIER) dst[2 + side] = (uint8_t)clamp_byte((double)(dst[side] + lround(s->barrier)));
         if (s->has & TRACK_GEN_SIDE_WALL) {
             const int shift = side == TRACK_GEN_LEFT ? 4 : 0;
             dst[5] = (uint8_t)((dst[5] & ~(0xf << shift)) | (s->wall & 0xf) << shift);
@@ -387,8 +387,7 @@ int track_layout_nodes(const char *layout, size_t layout_len, double start_width
 
 enum { STEP_MIN = 1 << 16, STEP_MAX = 20 << 16, HEADING_MAX = 1 << 24 };   /* steps of 1 and 20 units in 16.16; a thousand turns */
 
-/* a node out of range, or too far a turn or step from the one before: why, naming it; 1 when it is as the generator takes it */
-/* a node's sides (step 3), named by side and by what is wrong */
+/* a node's sides (step 3), named by side and by what is wrong; the wall's byte against 255 is check_wall_bytes', which needs the template */
 static int check_sides(const TrackGenNode *n, int i, ExchangeError *err)
 {
     for (int side = 0; side < 2; ++side) {
@@ -399,15 +398,13 @@ static int check_sides(const TrackGenNode *n, int i, ExchangeError *err)
             return exchange_fail(err, "node %d: the %s shoulder is %g m, outside 0..%g m", i, name, s->shoulder / 8, TRACK_GEN_SIDE_MAX / 8), 0;
         if ((s->has & TRACK_GEN_SIDE_BARRIER) && (s->barrier < 0 || s->barrier > TRACK_GEN_SIDE_MAX))
             return exchange_fail(err, "node %d: the %s wall is %g m from the road edge, outside 0..%g m", i, name, s->barrier / 8, TRACK_GEN_SIDE_MAX / 8), 0;
-        if ((s->has & TRACK_GEN_SIDE_BARRIER) && lround(n[i].width) + lround(s->barrier) > 255)
-            return exchange_fail(err, "node %d: the %s wall is %g m from the centre, past the %g m a node holds", i, name, (lround(n[i].width) + lround(s->barrier)) / 8.0,
-                                 255 / 8.0), 0;
         if ((s->has & TRACK_GEN_SIDE_WALL) && s->wall != TRACK_GEN_WALL_HARD && s->wall != TRACK_GEN_WALL_SOFT)
             return exchange_fail(err, "node %d: the %s wall's kind %d is not hard (0) or soft (1)", i, name, s->wall), 0;
     }
     return 1;
 }
 
+/* a node out of range, or too far a turn or step from the one before: why, naming it; 1 when it is as the generator takes it */
 static int check_node(const TrackGenNode *n, int i, int turned, ExchangeError *err)
 {
     if (!isfinite(n[i].heading) || !isfinite(n[i].grade) || !isfinite(n[i].bank) || !isfinite(n[i].width))
@@ -437,6 +434,22 @@ static int check_node(const TrackGenNode *n, int i, int turned, ExchangeError *e
     return 1;
 }
 
+/* the wall a node gives, each side, as write_node makes its byte: that side's edge byte (the right one is the width plus what the template's right edge
+ * has more than its left) plus the wall's distance, at most 255 */
+static int check_wall_bytes(const TrackGenNode *n, int count, const TriNode *tmpl, ExchangeError *err)
+{
+    for (int i = 0; i < count; ++i)
+        for (int side = 0; side < 2; ++side) {
+            if (!(n[i].side[side].has & TRACK_GEN_SIDE_BARRIER)) continue;
+            const long edge = clamp_byte((double)(lround(n[i].width) + (side == TRACK_GEN_RIGHT ? tmpl->right_verge - tmpl->left_verge : 0)));
+            const long wall = edge + lround(n[i].side[side].barrier);
+            if (wall > 255)
+                return exchange_fail(err, "node %d: the %s wall is %g m from the centre, past the %g m a node holds", i, side == TRACK_GEN_LEFT ? "left" : "right",
+                                     (double)wall / 8.0, 255 / 8.0), 0;
+        }
+    return 1;
+}
+
 static int generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *template_tri, size_t template_size, int turned, uint8_t **out,
                           size_t *out_len, ExchangeError *err)
 {
@@ -460,6 +473,7 @@ static int generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *
         exchange_fail(err, "the template is not a usable TRI");
         return 0;
     }
+    if (!check_wall_bytes(shapes, count, &model, err)) return 0;
     uint8_t *header = calloc(1, TRI_HEADER_SIZE);
     uint8_t *scenery = malloc((size_t)TRI_SCENERY_MAX * TRI_SCENERY_SIZE);
     uint8_t *terrain = malloc((size_t)segments * TRI_SEGMENT_SIZE);

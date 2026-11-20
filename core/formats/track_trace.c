@@ -527,7 +527,7 @@ static void problem_of(const TrackGenNode *nodes, int i, TraceFlags flags, Trace
     if (i > 0) node_turn_radius(nodes, i, &p->turn, &p->radius);
     p->width_step = (flags & TRACE_FLAG_WIDTH_WARN) ? fabs(nodes[i].width - nodes[i - 1].width) / TRACE_WIDTH_PER_METRE : 0;
     p->side_step = (flags & TRACE_FLAG_SIDE_WARN) ? side_step(nodes, i) : 0;
-    p->wall_m = (flags & TRACE_FLAG_WALL_FAR) ? wall_eighths(&nodes[i]) / 8.0 : 0;
+    p->wall_m = (flags & TRACE_FLAG_WALL_FAR) ? (double)wall_eighths(&nodes[i]) / 8.0 : 0;
 }
 
 int track_trace_problems(const TrackGenNode *nodes, int count, const TraceFlags *flags, TraceProblem *out, int cap)

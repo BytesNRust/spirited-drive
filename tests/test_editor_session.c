@@ -392,6 +392,10 @@ static void check_side_keys_file(void)
         { "{\"point\": 1, \"shoulder_r_m\": 20.5}", "right shoulder" }, { "{\"point\": 2, \"barrier_l_m\": -1}", "left wall" },
         { "{\"point\": 1, \"wall_l\": \"bouncy\"}", "wall_l" }, { "{\"point\": 1, \"fence_r\": 1}", "fence_r" },
         { "{\"point\": 5, \"fence_r\": true}", "point 5" },
+        /* a point past any int is refused before it is made one (UBSan: the cast of inf), and a value that is no number is refused by name, not dropped */
+        { "{\"point\": 1e999, \"fence_r\": true}", "on point inf" }, { "{\"point\": -1e999, \"barrier_l_m\": 3}", "on point -inf" },
+        { "{\"point\": 1, \"shoulder_l_m\": \"abc\"}", "shoulder_l_m" }, { "{\"point\": 2, \"barrier_r_m\": null}", "barrier_r_m" },
+        { "{\"point\": 1, \"width_m\": \"abc\"}", "width_m" },
     };
     for (size_t b = 0; b < sizeof BAD / sizeof BAD[0]; ++b) {
         char json[400];
