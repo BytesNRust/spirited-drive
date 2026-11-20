@@ -17,7 +17,7 @@ enum { CONTENT_CREAM = 0, CONTENT_YELLOW = 1, CONTENT_RED = 2, CONTENT_DIM = 4 }
 /* the mock-up's flat colours, 0xRRGGBB: the rules and the preview's frame, the preview's panel */
 enum { CONTENT_RULE_RGB = 0x7a654a, CONTENT_PANEL_RGB = 0x1a140d };
 /* the arrows ContentOps.arrow draws */
-enum { CONTENT_ARROW_UP, CONTENT_ARROW_DOWN, CONTENT_ARROW_LEFT, CONTENT_ARROW_RIGHT, CONTENT_ARROW_LEFT_OFF, CONTENT_ARROW_RIGHT_OFF };   /* the last two: a page arrow with no page that way, drawn dim */
+enum { CONTENT_ARROW_UP, CONTENT_ARROW_DOWN, CONTENT_ARROW_LEFT, CONTENT_ARROW_RIGHT };
 
 typedef struct ContentOps {
     /* the page, drawn whole at each change: Customize Game's clean background, the game's text at num/den of its size (style:
@@ -54,6 +54,8 @@ typedef struct ContentOps {
     /* port (T7): a file dropped on the window since the last turn, installed by the caller with its dialog (NULL: none taken); 1 when the
      * editions or the mods changed, with `edition` set to the one to show */
     int32_t (*dropped)(void *ctx, int32_t *edition);
+    /* port: the first and last columns the text's ink covers at num/den from its pen's x 0, 1 when it has ink (NULL: the whole width is ink) */
+    int32_t (*text_ink)(void *ctx, const char *text, int32_t num, int32_t den, int32_t *left, int32_t *right);
 } ContentOps;
 
 /* the screen until Done (or Escape) with the rule kept; `edition` the selector's choice it opens on, and the one it closed on */

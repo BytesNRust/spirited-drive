@@ -5,7 +5,7 @@
 #            records (a stock car's RECORDS screen, page 1)  records-p2 (its page 2)
 #            added-gallery (an added car's gallery: the car arrow clicked twice to car 16, the first added car, then the same click, KEYS after it; needs PROFILE=restomod, an EDITION with the piece among its cars and MODS the piece's folder)  options  controls (page 1/3, Keyboard)  controls-p2 (2/3, Game controller)  controls-p3 (3/3, Tune)
 #            graphics  extras (page 1/3)  extras-p2  extras-p3
-#            content (CONTENT, from Game Mode's "Manage content...": open in Restomod alone, so PROFILE defaults to restomod there)
+#            content (CONTENT, from Game Mode's "Manage content...": open in Restomod alone, so PROFILE defaults to restomod there; with KEYS they follow 2.5 s after the click, the pointer parked off the list: a WAIT on the screen mark armed after it came never ended, and KEYS never ran)
 #            added-page (the added track's own page, opened by its card's click; MODS and EDITION as added-track)
 #            added-track (Control Central on an added track's card, mark:card=16: MODS a track piece's folder and EDITION an edition of it alone, both required)
 #            track (the track screen)  best-times (Coastal, page 1/3)  best-times-p2  best-times-p3  best-circuit (Rusty Springs, 1/2)
@@ -34,7 +34,7 @@
 # Every step waits for the game's own "mark:screen=NAME" log line (the front end logs one as each screen opens), not for a time; the clicks wait for
 # the screen to be still (TNFS_INPUT_SETTLE). A step that does not come in time stops the run and says which ("input script: step N: WAIT ... timed
 # out"), exit 3. The run is the visible-run kind: dummy SDL drivers, timeout -k, a scratch --mods and --user, the repo's original/ as the game data.
-#   env: DATA (the game data folder, default <repo>/original)  STEP_TIMEOUT (60 s a step)  SETTLE (1500 ms)  KEEP=1 (keep the scratch dir, for a look)
+#   env: DATA (the game data folder, default <repo>/original)  STEP_TIMEOUT (60 s a step)  SETTLE (1500 ms)  FRESH (20 s: no picture is taken as still before a frame newer than the target's mark, or this long after it)  KEEP=1 (keep the scratch dir, for a look)
 #        STILL (30): the most seconds the walk waits, after the target's mark and its tail, for the screen to stop changing
 #        QUIET (2): the seconds without a new frame that make the screen still (the menus present a frame only when something changes)
 #        FORMAT (4:3, 16:9 or 21:9; default 4:3): the screen format the walk runs in. The 640x480 menus sit centred on a wider screen, so every click
@@ -113,7 +113,7 @@ pack="" shots=""   # pack: the target saves SHOT pictures (the names in shots, a
 steps_after=""   # set by the targets whose own steps go on after their mark (the done wait below)
 case $target in
 game-mode)    script="$to_game_mode${KEYS:+,$KEYS}"; final=game_mode; tail=${TAIL:-3} ;;
-content)      script="$to_game_mode,$(click 320 315),1500:CLICK:320:383,$(wait_for content)${KEYS:+,$KEYS}"; final=content; PROFILE=${PROFILE:-restomod} ;;   # ROW[MANAGE]: y 315 in the reordered Game Mode, y 383 in the one before (menu_compare walks both; the click that misses lands on the selector or on nothing)
+content)      script="$to_game_mode,$(click 320 315),1500:CLICK:320:383,${KEYS:+2500:MOUSE:560:420,$KEYS}${KEYS:-$(wait_for content)}"; final=content; PROFILE=${PROFILE:-restomod} ;;   # ROW[MANAGE]: y 315 in the reordered Game Mode, y 383 in the one before (menu_compare walks both; the click that misses lands on the selector or on nothing)
 central)      script="$to_central${KEYS:+,$KEYS}"; final=central; tail=${TAIL:-3} ;;
 showcase)     script="$to_central,$(click 180 200),$(wait_for showcase)"; final=showcase ;;
 records)      script="$to_central,$(click 180 200),$(wait_for showcase),1000:CLICK:$(( 430 + dx )):265,1500:CLICK:$(( 375 + dx )):265,$(wait_for car_records),$(park)"; final=car_records; tail=${TAIL:-3} ;;   # a stock car's RECORDS: the showcase's Video tile slid to its other face, then clicked
@@ -186,10 +186,10 @@ limit=$(( step * 12 + 60 ))
 # ("input script: done"), at most DONE_WAIT seconds
 # past the target's mark: a binary from before that line (a menu_compare against an older build, a bisect) never logs it, and the walk then
 # says so and goes on as without KEYS
-rc=1 waited=0 marked=-1
+rc=1 waited=0 marked=-1 frames_at_mark=0 mark_epoch=0
 while [ $waited -lt $limit ]; do
     sleep 1; waited=$((waited + 1))
-    if [ $marked -lt 0 ] && grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null; then marked=$waited; fi
+    if [ $marked -lt 0 ] && grep -q "mark:screen=$final" "$work/user/spirited-drive.log" 2>/dev/null; then marked=$waited; frames_at_mark=$(ls "$work/cap" | wc -l); mark_epoch=$(date +%s); fi
     if [ $marked -ge 0 ]; then
         if [ -z "$KEYS$steps_after" ] || grep -q "input script: done" "$work/user/spirited-drive.log" 2>/dev/null; then sleep ${tail:-3}; rc=0; break; fi
         if [ $(( waited - marked )) -ge ${DONE_WAIT:-30} ]; then
@@ -210,6 +210,10 @@ pick=""
 if [ $rc -eq 0 ] && [ -z "$pack" ]; then   # (a pack walk's pictures are its SHOTs, already still)
     ticks=0 calm=0 seen=""
     while [ $ticks -lt $(( ${STILL:-30} * 2 )) ]; do
+        # the mark is logged when the page is turned to, before it is drawn: under load (ASan, a full ctest beside it) the game still presents the page it left,
+        # two equal frames of it look still, and its picture is taken (extras-p2 came out as page 1). No frame is still until one has been presented since the
+        # mark, or FRESH seconds (default 20) have passed since it: a screen that drew before it logged presents none, and goes on as it did
+        if [ $(ls "$work/cap" | wc -l) -le $frames_at_mark ] && [ $(( $(date +%s) - mark_epoch )) -lt ${FRESH:-20} ]; then sleep 0.5; ticks=$((ticks + 1)); continue; fi
         frames=($(ls "$work/cap" | sort | tail -3))
         newest=${frames[-1]:-}
         if [ -n "$newest" ] && [ "$newest" = "$seen" ]; then

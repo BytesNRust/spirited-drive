@@ -141,8 +141,24 @@ static void test_the_left_triangle_turns_back(void)
     const int to_one[] = { PAGE_DOWN, AT(NAV_LEFT_X, BUTTONS_Y), CLICK, IDLE, IDLE, ESCAPE };
     setup(&two);
     run(&two, to_one, 6);
-    CHECK(shown(&two.fake, "1/3 >"));
+    CHECK(shown(&two.fake, "< 1/3 >"));
     CHECK(shown(&two.fake, "Explode mode"));
+}
+
+/* the pager wraps, as the CD's: the right triangle on the last page goes to the first, the left on the first to the last */
+static void test_the_triangles_wrap_round(void)
+{
+    Rig last;
+    const int round[] = { PAGE_DOWN, PAGE_DOWN, AT(NAV_RIGHT_X, BUTTONS_Y), CLICK, IDLE, IDLE, ESCAPE };
+    setup(&last);
+    run(&last, round, 7);
+    CHECK(shown(&last.fake, "< 1/3 >"));
+
+    Rig first;
+    const int back[] = { AT(NAV_LEFT_X, BUTTONS_Y), CLICK, IDLE, IDLE, ESCAPE };
+    setup(&first);
+    run(&first, back, 5);
+    CHECK(shown(&first.fake, "< 3/3 >"));
 }
 
 int main(void)
@@ -156,5 +172,6 @@ int main(void)
     test_the_page_indicator_lights_alone();
     test_a_click_on_the_indicator_only_turns();
     test_the_left_triangle_turns_back();
+    test_the_triangles_wrap_round();
     return TEST_REPORT();
 }

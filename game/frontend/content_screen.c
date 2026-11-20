@@ -103,6 +103,7 @@ void content_screen_run(const ContentOps *o, int32_t *edition)
     memset(&s, 0, sizeof s);
     s.edition = *edition;
     content_nav_start(&s.nav);
+    content_foot_layout(o, &s.view);
     load(&s, o);
     ContentPage page = { s.name, &s.mods, &s.view, &s.nav, 0, 0 };
     int32_t px = -1, py = -1, x, y;

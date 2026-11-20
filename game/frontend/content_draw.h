@@ -16,4 +16,7 @@ typedef struct {
 
 void content_draw(const ContentOps *o, const ContentPage *p);
 
+/* the foot buttons' places by the kit's foot rule (ui_foot_layout), from the words' widths: the draw origins and the click spans, in the view */
+void content_foot_layout(const ContentOps *o, ContentView *v);
+
 #endif

@@ -336,7 +336,7 @@ static void choose(Page *p, PortExtras *e, int16_t *unlock, int clicked, const E
     const PageNavOps nav = nav_ops(o);
     const int lit = page_nav_lit(&nav, p->page, EXTRAS_PAGES);
     if (lit != 0) {
-        turn(p, lit == 1 ? p->page - 1 : p->page + 1, NONE, o);
+        turn(p, (p->page + (lit == 1 ? EXTRAS_PAGES - 1 : 1)) % EXTRAS_PAGES, NONE, o);
         return;
     }
     if (clicked) select_row(p, row_at(p, o), o);
@@ -385,10 +385,11 @@ static void step(Page *p, uint16_t k, PortExtras *e, int16_t *unlock, const Extr
                                  : (p->selected == cancel ? done - 1 : (p->selected + done) % (done + 1));
         select_row(p, to, o);
         pointer_to(p, o);
-    } else if (k == RIGHT && p->selected == cancel && p->page + 1 < EXTRAS_PAGES) {
-        turn(p, p->page + 1, 0, o);
-    } else if (k == LEFT && p->selected == done && p->page > 0) {
-        turn(p, p->page - 1, cancel_of(p->page - 1), o);
+    } else if (k == RIGHT && p->selected == cancel) {
+        turn(p, (p->page + 1) % EXTRAS_PAGES, 0, o);
+    } else if (k == LEFT && p->selected == done) {
+        const int to = (p->page + EXTRAS_PAGES - 1) % EXTRAS_PAGES;
+        turn(p, to, cancel_of(to), o);
     } else if ((k == LEFT || k == RIGHT) && p->selected >= done) {
         o->pointer_off(o->ctx);
         select_row(p, p->selected == done ? cancel : done, o);
