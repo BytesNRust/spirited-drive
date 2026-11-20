@@ -1,6 +1,6 @@
 // The Road key window, a tab beside Node (phase 2 of the editor): the values a road key on the selected point sets on each side of the road, Left | Right.
 // A value the point inherits from the keys before shows dimmed; choosing one sets it on this point's key, right-click lets it inherit again. Step 2b's row is
-// the shoulder's surface; step 3's are below it: the shoulder's width, how far the wall is, its kind and the fence.
+// the shoulder's surface; step 3's are below it: the shoulder's width, how far the wall is, its kind and the fence. Step 4's lanes sit above the table.
 #include "panels.h"
 
 #include "imgui.h"
@@ -21,6 +21,37 @@ float label_width()
     float widest = ImGui::CalcTextSize(SURFACE_LABEL).x;
     for (int field = 0; field < TRACE_SIDE_FIELDS; ++field) widest = fmaxf(widest, ImGui::CalcTextSize(LABELS[field]).x);
     return widest;
+}
+
+// the point's lanes, left + right (step 4): a combo 1+1 / 1+2 / 2+1 showing what the point has, dimmed when it holds from a key before; right-click on a
+// set one inherits again. Lanes are the whole road's, not a side's: the row sits above the Left | Right table
+void lanes_row(App *a, int point, bool own, int shown)
+{
+    static const char *const NAMES[] = { "1+1", "1+2", "2+1" };
+    static const int LANES[] = { TRACK_GEN_LANES_1_1, TRACK_GEN_LANES_1_2, TRACK_GEN_LANES_2_1 };
+    int choice = shown == TRACK_GEN_LANES_1_2 ? 1 : shown == TRACK_GEN_LANES_2_1 ? 2 : 0;
+    if (!ImGui::BeginTable("lanes", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) return;   // the label column as the table's below
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, label_width());
+    ImGui::TableSetupColumn("");
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Lanes");
+    ImGui::TableSetColumnIndex(1);
+    if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::Combo("##lanes", &choice, NAMES, 3)) app_set_point_lanes(a, point, LANES[choice]);
+    if (!own) ImGui::PopStyleColor();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s\nLeft + right lanes, 5 m each.\n1+2 or 2+1: the road is 15 m wide from this point to the next one that sets lanes; a width set "
+                          "inside is not used. The extra lane opens and closes over about 50 m, the shoulder, fence and barrier moving out with it.\n"
+                          "The game keeps one lanes setting per 4 nodes, the one at their first node.",
+                          own ? "Set on this point. Right-click to let it inherit again." : "Not set on this point: it holds from the key before. Choose to set it on this point.");
+    if (own && ImGui::BeginPopupContextItem("##inherit_lanes")) {
+        if (ImGui::MenuItem("Inherit again")) app_clear_point_lanes(a, point);
+        ImGui::EndPopup();
+    }
+    ImGui::EndTable();
 }
 
 // one side's shoulder surface: a combo Verge / Tarmac showing what the point has, dimmed when inherited; right-click on a set one inherits again
@@ -193,6 +224,7 @@ void road_key_panel(App *a)
         return;
     }
     track_trace_point_surfaces(a->trace.keys, a->trace.key_count, point + 1, left, right);
+    lanes_row(a, point, key != nullptr && (key->has & TRACE_KEY_LANES), app_point_lanes(a, point));
     if (ImGui::BeginTable("road_key", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, label_width());
         ImGui::TableSetupColumn("Left");

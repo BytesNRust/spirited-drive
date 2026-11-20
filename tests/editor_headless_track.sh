@@ -124,6 +124,8 @@ python3 "$work/tri_sides.py" "$work/sides/build/sides.zip" || fail "the TRI of t
 # draws its first right strip with the two-lane picture (slot 18), every other strip the template's
 mkdir "$work/lanes"
 printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 1, "lanes": "1+2"}, {"point": 3, "lanes": "1+1"}]\n}\n' > "$work/lanes/trace.json"
+"$editor" "$work/lanes" --frames 6 --select 2 --shot "$work/lanes.png" >"$work/log" 2>&1 || fail "run on a project with lanes keys: $(cat "$work/log")"
+png_check "$work/lanes.png" good
 "$editor" "$work/lanes" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a project with lanes keys: $(cat "$work/log")"
 cat > "$work/tri_lanes.py" <<'PY'
 import sys, zipfile
