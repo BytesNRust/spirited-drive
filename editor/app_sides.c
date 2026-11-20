@@ -1,4 +1,5 @@
-/* The road's sides on the editor's road keys (step 3; app.h): set and clear a side value of a control point, as the Road key block edits them. */
+/* The road's sides and lanes on the editor's road keys (steps 3 and 4; app.h): set and clear a side value or the lanes of a control point, as the Road
+ * profile block edits them. */
 #include "app.h"
 
 #include <math.h>
@@ -38,4 +39,52 @@ void app_clear_point_side(App *a, int point, int field, int side)
     if (at < 0 || !(a->trace.keys[at].has & TRACE_KEY_SIDE(field, side))) return;   /* nothing to clear */
     track_trace_key_clear_side(a->trace.keys, &a->trace.key_count, point, field, side);
     a->dirty = 1;
+}
+
+static int lanes_point_ok(const App *a, int point) { return a->kind == APP_KIND_TRACK && point >= 0 && point < a->trace.count; }
+
+void app_set_point_lanes(App *a, int point, int lanes)
+{
+    if (!lanes_point_ok(a, point) || !(lanes == TRACK_GEN_LANES_1_1 || lanes == TRACK_GEN_LANES_1_2 || lanes == TRACK_GEN_LANES_2_1)) return;
+    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
+    if (at >= 0 && (a->trace.keys[at].has & TRACE_KEY_LANES) && a->trace.keys[at].lanes == lanes) return;   /* the same: nothing changed */
+    if (!track_trace_key_set_lanes(&a->trace.keys, &a->trace.key_count, &a->trace.key_cap, point, lanes)) {
+        snprintf(a->status, sizeof a->status, "out of memory");
+        return;
+    }
+    a->dirty = 1;
+}
+
+void app_clear_point_lanes(App *a, int point)
+{
+    if (!lanes_point_ok(a, point)) return;
+    const int at = track_trace_key_find(a->trace.keys, a->trace.key_count, point);
+    if (at < 0 || !(a->trace.keys[at].has & TRACE_KEY_LANES)) return;   /* nothing to clear */
+    track_trace_key_clear_lanes(a->trace.keys, &a->trace.key_count, point);
+    a->dirty = 1;
+}
+
+int app_point_lanes(const App *a, int point)
+{
+    if (!lanes_point_ok(a, point)) return 0;
+    int lanes = TRACK_GEN_LANES_1_1;
+    for (int k = 0; k < a->trace.key_count && a->trace.keys[k].point <= point; ++k)
+        if (a->trace.keys[k].has & TRACE_KEY_LANES) lanes = a->trace.keys[k].lanes;
+    return lanes;
+}
+
+int app_lane_width_note(const App *a, char *text, size_t cap)
+{
+    enum { NAMED = 8 };
+    if (a->kind != APP_KIND_TRACK) return 0;
+    int points[NAMED];
+    const int n = track_trace_lane_ignored_widths(a->trace.points, a->trace.count, a->trace.keys, a->trace.key_count, points, NAMED);
+    if (n == 0) return 0;
+    size_t used = (size_t)snprintf(text, cap, "the width on point%s", n > 1 ? "s" : "");
+    for (int i = 0; i < n && i < NAMED && used < cap; ++i) {
+        const int lanes = app_point_lanes(a, points[i]);
+        used += (size_t)snprintf(text + used, cap - used, "%s %d (%d+%d)", i == 0 ? "" : ",", points[i], (lanes >> 4) & 0xf, lanes & 0xf);
+    }
+    if (used < cap) snprintf(text + used, cap - used, "%s %s ignored: a 1+2 or 2+1 stretch takes the lanes' width", n > NAMED ? " and more" : "", n > 1 ? "are" : "is");
+    return 1;
 }

@@ -118,6 +118,41 @@ assert [f & 0x40 for f in fences] == [0x40 if 25 * s < 120 else 0 for s in range
 assert all(f & ~0x40 == fences[0] & ~0x40 for f in fences), [hex(f) for f in fences]
 PY
 python3 "$work/tri_sides.py" "$work/sides/build/sides.zip" || fail "the TRI of the sides project does not have the sides of its keys"
+# lanes (step 4): 1+2 from point 1, 1+1 again from point 3. A segment (4 nodes, 25 m) takes the lanes of the last point at or before its start: nodes
+# 12..31 have flags[0] 0x12, the rest the template's. The left half stays 40 eighths (5 m); the right one grows 5 a node to 80 (two lanes) and back from node 33;
+# the shoulder and barrier move out with the edge (barrier - verge the template's on every node, each side); a segment whose right half is two whole lanes
+# draws its first right strip with the two-lane picture (slot 18), every other strip the template's
+mkdir "$work/lanes"
+printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 1, "lanes": "1+2"}, {"point": 3, "lanes": "1+1"}]\n}\n' > "$work/lanes/trace.json"
+"$editor" "$work/lanes" --frames 6 --select 2 --shot "$work/lanes.png" >"$work/log" 2>&1 || fail "run on a project with lanes keys: $(cat "$work/log")"
+png_check "$work/lanes.png" good
+"$editor" "$work/lanes" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a project with lanes keys: $(cat "$work/log")"
+cat > "$work/tri_lanes.py" <<'PY'
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+names = [n for n in z.namelist() if n.upper().endswith(".TRI")]
+assert len(names) == 1, names
+d = z.read(names[0])
+node = lambda k, b: d[0x98C + 36 * k + b]
+stretch = lambda k: 12 <= k < 32
+lanes = [node(k, 4) for k in range(49)]
+assert lanes == [0x12 if stretch(k) else node(0, 4) for k in range(49)], [hex(v) for v in lanes]
+assert all(node(k, 0) == 40 for k in range(49)), [node(k, 0) for k in range(49)]
+right = [node(k, 1) for k in range(49)]
+assert max(right) == 80 and right[0] == 40 and right[48] == 40, right
+assert all(abs(right[k] - right[k - 1]) <= 5 for k in range(1, 49)), right
+assert all(right[k] == 80 for k in range(20, 33)) and right[33] == 75, right   # node 32 too: segment 7 draws its picture to it
+for side in (0, 1):
+    assert all(node(k, 2 + side) - node(k, side) == node(0, 2 + side) - node(0, side) for k in range(49)), side
+at = d.find(b"TRKD")
+tex = [d[at + 288 * s + 0xE:at + 288 * s + 0x18] for s in range(12)]
+full = [s for s in range(12) if stretch(4 * s) and right[4 * s] >= 80]
+assert full == [5, 6, 7], full
+for s in range(12):
+    want = bytes([18]) + tex[0][1:] if s in full else tex[0]
+    assert tex[s] == want, (s, list(tex[s]), list(want))
+PY
+python3 "$work/tri_lanes.py" "$work/lanes/build/lanes.zip" || fail "the TRI of the lanes project does not have the lanes of its keys"
 
 # ==== Build: under the limits, over an amber one, refused over a red one ====
 # Build: a curve under the limits is built, one over them is refused with the limit named

@@ -295,6 +295,21 @@ static int parse_surface(const char *obj, const char *name, double point, TraceS
     return 1;
 }
 
+/* a key's lanes (version 3, step 4): "1+1", "1+2" or "2+1" into *lanes, 0 when the key has none; 0 with `why` for another value */
+static int parse_lanes(const char *obj, double point, int *lanes, char *why, size_t why_cap)
+{
+    static const struct { const char *name; int lanes; } NAMES[] = { { "1+1", TRACK_GEN_LANES_1_1 }, { "1+2", TRACK_GEN_LANES_1_2 }, { "2+1", TRACK_GEN_LANES_2_1 } };
+    char value[16];
+    const int found = object_string(obj, "lanes", value, sizeof value);
+    *lanes = 0;
+    if (found == 0) return 1;
+    for (size_t i = 0; found > 0 && i < sizeof NAMES / sizeof NAMES[0]; ++i)
+        if (strcmp(value, NAMES[i].name) == 0) *lanes = NAMES[i].lanes;
+    if (*lanes != 0) return 1;
+    snprintf(why, why_cap, "trace.json: the road key on point %.0f has lanes \"%s\": it is \"1+1\", \"1+2\" or \"2+1\"", point, found > 0 ? value : "(not a string)");
+    return 0;
+}
+
 enum { KEY_OBJECT_MAX = 512 };   /* the longest {...} of a key read: a full key (the width, the surfaces and every side value) is about 290 characters */
 
 /* the side fields of trace.json (version 3, step 3): [TRACE_SIDE_*][side] */
@@ -400,7 +415,9 @@ static int parse_keys(const char *text, int version, Trace *t, char *why, size_t
             return 0;
         }
         if (has_bank) sides.has |= TRACE_KEY_BANK, sides.bank_deg = bank;
-        if (!has_width && !has_surface && sides.has == 0) continue;
+        int lanes = 0;
+        if (version >= 3 && !parse_lanes(obj, point, &lanes, why, why_cap)) return 0;
+        if (!has_width && !has_surface && sides.has == 0 && lanes == 0) continue;
         if (point < 0 || point >= t->count) {
             snprintf(why, why_cap, "trace.json: a road key is on point %.0f, and the trace has points 0..%d", point, t->count - 1);
             return 0;
@@ -427,6 +444,7 @@ static int parse_keys(const char *text, int version, Trace *t, char *why, size_t
                 if (stored && (sides.has & TRACE_KEY_SIDE(f, side)))
                     stored = track_trace_key_set_side(&t->keys, &t->key_count, &t->key_cap, (int)point, f, side, sides.side[f][side]);
         if (stored && has_bank) stored = track_trace_key_set_bank(&t->keys, &t->key_count, &t->key_cap, (int)point, bank);
+        if (stored && lanes != 0) stored = track_trace_key_set_lanes(&t->keys, &t->key_count, &t->key_cap, (int)point, lanes);
         if (!stored) {
             snprintf(why, why_cap, "trace.json: out of memory");
             return 0;
@@ -546,6 +564,7 @@ static int adopt_art(const char *dir, const char *ini_path, const char *ini, con
 const char *const PROJECT_OLD_ARTS[] = {
     "ad2a9b645848ad93fcb939ac954baf6c543233a28db898b58ab708049617e59d",   /* the first: its road's yellow line went green under a car */
     "a715e01ce5bd6e088e74ad51c0b5d0015de30ec97d138f27499a4f0fd4fc9151",   /* bank 4 a white filler: a tarmac shoulder (phase 2 step 2b) drew white */
+    "d0e0c18cafb9303cc73c3344c37b247ecb8d0a86a57ef8f5841698b420dee861",   /* banks 5 and 6 white fillers: a 1+2 stretch's lanes (step 4) drew white */
     NULL,
 };
 
@@ -739,6 +758,7 @@ static void key_fields(Text *text, const TraceKey *k)
             else text_add(text, ", \"%s\": %.2f", SIDE_FIELD[f][side], v);
         }
     if (k->has & TRACE_KEY_BANK) text_add(text, ", \"bank_deg\": %.2f", k->bank_deg);
+    if (k->has & TRACE_KEY_LANES) text_add(text, ", \"lanes\": \"%d+%d\"", (k->lanes >> 4) & 0xf, k->lanes & 0xf);
 }
 
 int project_save_trace(const char *dir, const Trace *trace, char *why, size_t why_cap)

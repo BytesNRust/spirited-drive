@@ -22,7 +22,9 @@ enum {
     TRACK_GENERIC_SLOT_SHOULDER = 1 * 3,
     TRACK_GENERIC_SLOT_VERGE = 2 * 3,
     TRACK_GENERIC_SLOT_GRASS = 3 * 3,
-    TRACK_GENERIC_SLOT_TARMAC = 4 * 3   /* a tarmac shoulder (phase 2 step 2b): the road's asphalt without its lines. An art of the author's own draws its bank 4 */
+    TRACK_GENERIC_SLOT_TARMAC = 4 * 3,  /* a tarmac shoulder (phase 2 step 2b): the road's asphalt without its lines. An art of the author's own draws its bank 4 */
+    TRACK_GENERIC_SLOT_LANES = 6 * 3   /* the two-lane half of a 1+2 or 2+1 stretch (phase 2 step 4): the yellow centre inside, a dashed line in the middle, the
+                                          edge line outside, one strip of 10 m; an author's art draws its bank 6 */
 };
 
 /* The track's INFO file (the horizon, the fog and the time-of-day colours the game reads: text, one value a line) made for this template and

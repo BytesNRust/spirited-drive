@@ -88,6 +88,8 @@ typedef enum { TRACE_SURFACE_INHERIT = 0, TRACE_SURFACE_VERGE, TRACE_SURFACE_TAR
  * (1 << 1 is the bank's, 1 << 2 the shoulder surface's). */
 enum { TRACE_SIDE_SHOULDER, TRACE_SIDE_BARRIER, TRACE_SIDE_WALL, TRACE_SIDE_FENCE, TRACE_SIDE_FIELDS };
 #define TRACE_KEY_SIDE(field, side) (1u << (3 + 2 * (field) + (side)))
+#define TRACE_KEY_LANES (1u << 11)   /* step 4: `lanes`, TRACK_GEN_LANES_1_1, _1_2 or _2_1; it holds until the next key that says lanes */
+#define TRACE_LANE_STEP 5.0          /* step 4: the most a half moves a node into or out of a lane stretch, in eighths of a metre (AL1 193..200) */
 #define TRACE_SIDE_MAX_M 20.0
 #define TRACE_SHOULDER_DEFAULT_M 3.0   /* the generic template's: the shoulder and the wall 3 m past the road edge, soft walls, a fence each side */
 #define TRACE_BARRIER_DEFAULT_M 3.0
@@ -100,6 +102,7 @@ typedef struct {
                                                             * held from the point to the next key that sets that side */
     double bank_deg;    /* TRACE_KEY_BANK: the road's bank at the point, degrees (+-TRACE_BANK_INPUT_MAX_DEG) */
     double side[TRACE_SIDE_FIELDS][2];   /* TRACE_KEY_SIDE(field, side): [TRACE_SIDE_*][TRACK_GEN_LEFT / _RIGHT] */
+    int lanes;                           /* TRACE_KEY_LANES */
 } TraceKey;
 
 /* The length of the centre line through `points` (the curve, not the chords), in units; 0 for fewer than 2 points. */
@@ -141,6 +144,16 @@ void track_trace_key_clear_side(TraceKey *keys, int *count, int point, int field
 /* Each control point's side values as the keys make them (the key's own where it has one, else what the smoothstep or the key before gives there, else the
  * template's: TRACE_*_DEFAULT_M, soft walls, fences on): values[point][TRACE_SIDE_*][side]. The template's for all when the curve cannot be made. */
 void track_trace_point_sides(const TracePoint *points, int count, const TraceKey *keys, int key_count, double (*values)[TRACE_SIDE_FIELDS][2]);
+
+/* Lanes (step 4). A segment takes the lanes of the last control point at or before its start; in a 1+2 or 2+1 stretch the road's halves are the
+ * lanes' (TRACK_GEN_LANE each) and a width key there is ignored. Set: the lanes of `point`'s key (added when none); 0 when out of memory or the lanes
+ * are none of the three. Clear: drops that bit (the key goes when nothing is left). */
+int track_trace_key_set_lanes(TraceKey **keys, int *count, int *cap, int point, int lanes);
+void track_trace_key_clear_lanes(TraceKey *keys, int *count, int point);
+/* each point's lanes as the keys make them (1+1 before any key), `point_count` values */
+void track_trace_point_lanes(const TraceKey *keys, int key_count, int point_count, int *lanes);
+/* the points whose width key a lane stretch ignores, in order, into out[0..cap); returns how many there are (out may be NULL) */
+int track_trace_lane_ignored_widths(const TracePoint *points, int count, const TraceKey *keys, int key_count, int *out, int cap);
 void track_trace_key_clear_width(TraceKey *keys, int *count, int point);
 /* Set a side's (TRACK_GEN_LEFT or _RIGHT) shoulder surface of the key on `point`: VERGE or TARMAC adds the key when there is none; INHERIT clears that side,
  * and the key goes when it then sets nothing. 0 when out of memory, or the side or the surface is none of those. */

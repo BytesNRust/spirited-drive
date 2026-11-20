@@ -56,7 +56,9 @@ enum {                                  /* TrackGenSide.has bits */
     TRACK_GEN_SIDE_WALL = 1 << 3,       /* `wall`: its kind, the side's nibble of node byte 5 (the left's high, the right's low) */
     TRACK_GEN_SIDE_FENCE = 1 << 4       /* `fence`: 1 a fence on that side, 0 none; a segment (4 nodes) takes its first node's (TRI_FENCE_LEFT / _RIGHT) */
 };
-enum { TRACK_GEN_WALL_HARD = 0, TRACK_GEN_WALL_SOFT = 1 };   /* hard: the game's hit, with its sound and a race note; soft: a glancing one */
+enum { TRACK_GEN_WALL_HARD = 0, TRACK_GEN_WALL_SOFT = 1 };
+/* lanes (step 4), the CD's three (the survey): one lane each way, two own lanes (the extra one on the right), two oncoming (on the left); a lane is 5 m */
+enum { TRACK_GEN_LANES_1_1 = 0x11, TRACK_GEN_LANES_1_2 = 0x12, TRACK_GEN_LANES_2_1 = 0x21, TRACK_GEN_LANE = 40 };   /* hard: the game's hit, with its sound and a race note; soft: a glancing one */
 #define TRACK_GEN_SIDE_MAX 160.0   /* the most a shoulder or a wall's distance may be, in the verge byte's 1/8 m: 20 m */
 typedef struct {
     unsigned has;         /* TRACK_GEN_SIDE_* bits */
@@ -77,6 +79,8 @@ typedef struct {
     double width;         /* the half road width in the node's verge byte, 0..255 (16 terrain units each); a layout asks for 8..120 */
     int32_t position[3];  /* x, y, z in 16.16; consecutive nodes 1..20 units apart */
     TrackGenSide side[2]; /* [TRACK_GEN_LEFT], [TRACK_GEN_RIGHT]; all zero: the template's */
+    int lanes;            /* step 4: flags[0] (node +4), oncoming << 4 | own: TRACK_GEN_LANES_1_1, _1_2 or _2_1; 0 the template's. A segment's strips take its first node's */
+    double width_r;       /* step 4: the right half width in the verge byte, 0..255; 0 the same as `width` (the left one) */
 } TrackGenNode;
 
 enum { TRACK_GEN_MAX_NODES = TRACK_GEN_MAX_SEGMENTS * 4 + 1 };

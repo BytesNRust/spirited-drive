@@ -93,8 +93,10 @@ int main(int argc, char **argv)
         CHECK_EQ_INT((int)strlen(PROJECT_OLD_ARTS[listed]), 64);
         listed++;
     }
-    CHECK_EQ_INT(listed, 2);
-    CHECK(listed == 2 && strcmp(PROJECT_OLD_ARTS[1], "a715e01ce5bd6e088e74ad51c0b5d0015de30ec97d138f27499a4f0fd4fc9151") == 0);
+    CHECK_EQ_INT(listed, 3);
+    CHECK(listed == 3 && strcmp(PROJECT_OLD_ARTS[1], "a715e01ce5bd6e088e74ad51c0b5d0015de30ec97d138f27499a4f0fd4fc9151") == 0);
+    /* step 4 retired the art with banks 5 and 6 white fillers (a 1+2 stretch's lanes drew white) */
+    CHECK(listed == 3 && strcmp(PROJECT_OLD_ARTS[2], "d0e0c18cafb9303cc73c3344c37b247ecb8d0a86a57ef8f5841698b420dee861") == 0);
     if (argc > 1) {   /* the art Studio carries now (editor/art/GENERIC.FAM) is none of them: else every open would replace a project's copy with itself */
         size_t len = 0;
         FILE *f = fopen(argv[1], "rb");
