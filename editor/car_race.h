@@ -86,6 +86,9 @@ typedef enum { RACE_LINE_PLAIN = 0, RACE_LINE_ERROR, RACE_LINE_MASK, RACE_LINE_N
  * "cannot read .../<tex>_mask.png" for a car the project has no masks for (it reads the override first for every car, then its own data): expected, shown dim; else PLAIN */
 RaceLineKind car_race_line_kind(const char *line, size_t len);
 
+/* how many lines of `text` are RACE_LINE_NOTE: the panel shows them as one summary line */
+int car_race_count_notes(const char *text, size_t len);
+
 /* a binary PPM (P6, 640 x 480, 255) as RGBA: `rgba` malloc'd; 0 with `why` */
 int car_race_read_ppm(const char *path, uint8_t **rgba, int *w, int *h, char *why, size_t why_cap);
 

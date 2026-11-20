@@ -13,6 +13,8 @@
 #include <time.h>
 #include <unistd.h>
 
+extern char **environ;
+
 const char REHACER_SCRIPT[] = "rehacer.command";
 const char REHACER_BACKUPS[] = ".studio-backup";
 
@@ -217,123 +219,31 @@ int rehacer_backup(const char *kit, const char *stamp, int keep, int max_mb, cha
     return 1;
 }
 
-/* ---- the run ---- */
-
-static void log_add(Rehacer *r, const char *data, size_t n)
-{
-    if (n > REHACER_LOG_MAX) {
-        data += n - REHACER_LOG_MAX;
-        n = REHACER_LOG_MAX;
-        r->log_cut = 1;
-    }
-    if (r->log_len + n > REHACER_LOG_MAX) {   /* the start goes, up to the end of a line */
-        size_t drop = r->log_len + n - REHACER_LOG_MAX;
-        const char *nl = memchr(r->log + drop, '\n', r->log_len - drop);
-        if (nl != NULL && (size_t)(nl - (r->log + drop)) < 256) drop = (size_t)(nl - r->log) + 1;
-        if (drop > r->log_len) drop = r->log_len;
-        memmove(r->log, r->log + drop, r->log_len - drop);
-        r->log_len -= drop;
-        r->log_cut = 1;
-    }
-    memcpy(r->log + r->log_len, data, n);
-    r->log_len += n;
-    r->log[r->log_len] = '\0';
-}
-
-static void drain(Rehacer *r)
-{
-    char buf[4096];
-    while (r->fd >= 0) {
-        const ssize_t n = read(r->fd, buf, sizeof buf);
-        if (n > 0) {
-            log_add(r, buf, (size_t)n);
-        } else {
-            if (n == 0 || (errno != EAGAIN && errno != EINTR)) {
-                close(r->fd);
-                r->fd = -1;
-            }
-            if (n < 0 && errno == EINTR) continue;
-            break;
-        }
-    }
-}
+/* ---- the run (proc_run.c) ---- */
 
 int rehacer_start(Rehacer *r, const char *kit, char *why, size_t why_cap)
 {
     if (!rehacer_script_present(kit)) return refuse(why, why_cap, "this kit has no %s", REHACER_SCRIPT);
-    char *log = malloc(REHACER_LOG_MAX + 1);
-    int pipes[2];
-    if (log == NULL || pipe(pipes) != 0) {
-        free(log);
-        return refuse(why, why_cap, "could not start it: %s", strerror(errno != 0 ? errno : ENOMEM));
-    }
-    const pid_t pid = fork();
-    if (pid < 0) {
-        close(pipes[0]);
-        close(pipes[1]);
-        free(log);
-        return refuse(why, why_cap, "could not start it: %s", strerror(errno));
-    }
-    if (pid == 0) {   /* the script: its own process group (Stop ends all of it), the kit as its folder, no input, both streams to the pipe */
-        setpgid(0, 0);
-        const int null = open("/dev/null", O_RDONLY);
-        if (null >= 0) dup2(null, 0);
-        dup2(pipes[1], 1);
-        dup2(pipes[1], 2);
-        close(pipes[0]);
-        close(pipes[1]);
-        if (chdir(kit) != 0) _exit(126);
-        execl("/bin/sh", "sh", REHACER_SCRIPT, (char *)NULL);
-        _exit(127);
-    }
-    setpgid(pid, pid);
-    close(pipes[1]);
-    fcntl(pipes[0], F_SETFL, fcntl(pipes[0], F_GETFL) | O_NONBLOCK);
-    free(r->log);
+    char *const argv[] = { "/bin/sh", (char *)REHACER_SCRIPT, NULL };   /* the script through sh, the kit as its folder, no input, both streams to the log */
     char backup[REHACER_PATH];
     snprintf(backup, sizeof backup, "%s", r->backup);
-    memset(r, 0, sizeof *r);
+    if (!proc_start(&r->run, argv, environ, kit, why, why_cap)) return 0;
     snprintf(r->backup, sizeof r->backup, "%s", backup);   /* the backup made for this run stays with it */
-    r->running = 1;
-    r->pid = pid;
-    r->fd = pipes[0];
-    r->log = log;
-    r->log[0] = '\0';
     return 1;
 }
 
 int rehacer_poll(Rehacer *r)
 {
-    if (!r->running) return 0;
-    drain(r);
-    int status = 0;
-    const pid_t done = waitpid(r->pid, &status, WNOHANG);
-    if (done != r->pid) return 1;
-    drain(r);
-    if (r->fd >= 0) close(r->fd);
-    r->fd = -1;
-    r->running = 0;
-    r->finished = 1;
-    r->exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : WIFSIGNALED(status) ? 128 + WTERMSIG(status) : 1;
-    return 0;
+    return proc_poll(&r->run);
 }
 
 void rehacer_stop(Rehacer *r)
 {
-    if (!r->running) return;
-    r->stopped = 1;
-    kill(-r->pid, SIGTERM);
+    proc_stop(&r->run);
 }
 
 void rehacer_free(Rehacer *r)
 {
-    if (r->running) {
-        kill(-r->pid, SIGKILL);
-        int status;
-        waitpid(r->pid, &status, 0);
-    }
-    if (r->fd >= 0) close(r->fd);
-    free(r->log);
+    proc_free(&r->run);   /* a Rehacer that never ran is all zero: proc_free leaves the fd 0 it holds alone */
     memset(r, 0, sizeof *r);
-    r->fd = -1;
 }

@@ -7,6 +7,7 @@
 #include "session.h"
 #include "test.h"
 
+#include <fcntl.h>
 #include <ftw.h>
 #include <limits.h>
 #include <stdio.h>
@@ -464,9 +465,9 @@ static void check_rehacer(void)
     CHECK_EQ_INT(a->go, APP_ACT_NONE);
     CHECK(strstr(a->status, "Rehacer is running") != NULL);
     for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
-    CHECK(!app_rehacer_busy(a) && a->rehacer.finished && a->rehacer.exit_code == 0);
+    CHECK(!app_rehacer_busy(a) && a->rehacer.run.finished && a->rehacer.run.exit_code == 0);
     CHECK(strstr(a->status, "finished: exit code 0") != NULL);
-    CHECK(a->rehacer.log != NULL && strstr(a->rehacer.log, "making the car") != NULL);
+    CHECK(a->rehacer.run.log != NULL && strstr(a->rehacer.run.log, "making the car") != NULL);
     CHECK_EQ_INT(a->car.texture_count, 2);                   /* the lists were read again: the script added a texture */
     CHECK(!app_modified(a));
     {   /* the backup holds the car file as it was before the script changed it */
@@ -489,15 +490,15 @@ static void check_rehacer(void)
     setenv("REHACER_TEST_EXIT", "3", 1);                     /* a failing script: its exit code is told */
     CHECK(app_rehacer(a));
     for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
-    CHECK(a->rehacer.exit_code == 3 && strstr(a->status, "failed: exit code 3") != NULL);
+    CHECK(a->rehacer.run.exit_code == 3 && strstr(a->status, "failed: exit code 3") != NULL);
     unsetenv("REHACER_TEST_EXIT");
 
     put("rk/rehacer.command", "#!/bin/sh\necho started\nsleep 30\n");   /* Stop */
     CHECK(app_rehacer(a));
-    for (int i = 0; i < 400 && (a->rehacer.log == NULL || strstr(a->rehacer.log, "started") == NULL); ++i) app_rehacer_poll(a), usleep(5000);
+    for (int i = 0; i < 400 && (a->rehacer.run.log == NULL || strstr(a->rehacer.run.log, "started") == NULL); ++i) app_rehacer_poll(a), usleep(5000);
     app_rehacer_stop(a);
     for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
-    CHECK(!app_rehacer_busy(a) && a->rehacer.stopped && strstr(a->status, "stopped") != NULL);
+    CHECK(!app_rehacer_busy(a) && a->rehacer.run.stopped && strstr(a->status, "stopped") != NULL);
     {   /* the backups: five are kept */
         char names[16][REHACER_STAMP_NAME];
         CHECK(rehacer_backups(rk, names, 16) >= 1);
@@ -636,6 +637,35 @@ static void check_export(void)
     nftw(scratch, remove_entry, 16, FTW_DEPTH | FTW_PHYS);   /* what this check made, and only it */
 }
 
+/* app_free of an app that never ran Rehacer or a race must not close descriptor 0 (an all-zero runner holds fd 0) */
+static void check_free_keeps_stdin(void)
+{
+    const int saved = dup(0);
+    const int null = open("/dev/null", O_RDONLY);
+    CHECK(null >= 0);
+    dup2(null, 0);   /* make sure 0 is open whatever the test runs under */
+    close(null);
+    App *a = calloc(1, sizeof *a);   /* calloc, not app_begin: the all-zero state is what is guarded */
+    CHECK(a != NULL);
+    if (a != NULL) {
+        app_free(a);
+        free(a);
+    }
+    CHECK(fcntl(0, F_GETFD) != -1);
+    App *b = calloc(1, sizeof *b);
+    if (b != NULL) {
+        app_begin(b, "./tnfs", "", NULL);
+        CHECK_EQ_INT(b->rehacer.run.fd, -1);
+        app_free(b);
+        free(b);
+    }
+    CHECK(fcntl(0, F_GETFD) != -1);
+    if (saved >= 0) {
+        dup2(saved, 0);
+        close(saved);
+    }
+}
+
 int main(void)
 {
     const char *tmp = getenv("TMPDIR");
@@ -652,6 +682,7 @@ int main(void)
     check_kinds();
     check_rehacer();
     check_export();
+    check_free_keeps_stdin();
     rmdir(root);
     return TEST_REPORT();
 }

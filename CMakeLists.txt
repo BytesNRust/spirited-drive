@@ -877,7 +877,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_car_race PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_car_race PRIVATE tnfs_core)
     target_compile_options(test_editor_car_race PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_car_rehacer tests/test_editor_car_rehacer.c editor/car_rehacer.c)   # Rehacer: the backup of a kit, its script run, its output
+    add_executable(test_editor_car_rehacer tests/test_editor_car_rehacer.c editor/car_rehacer.c editor/proc_run.c)   # Rehacer: the backup of a kit, its script run, its output
     target_include_directories(test_editor_car_rehacer PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_car_rehacer PRIVATE tnfs_core)
     target_compile_options(test_editor_car_rehacer PRIVATE ${TNFS_WARNINGS})
