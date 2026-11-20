@@ -1,5 +1,6 @@
 // The Edit mask window (dep59 car editor E3): pick a texture of the car, see it with its mask overlaid, paint the mask (pencil, fill, eyedropper), undo, Save.
 #include "panels.h"
+#include "shortcut_keys.h"
 
 #include <SDL3/SDL_keyboard.h>
 #include <math.h>
@@ -172,7 +173,9 @@ void canvas(App *a, ImTextureID tex)
     ImGui::SameLine();
     bool fit = ImGui::Button("Fit");
     ImGui::SameLine();
-    muted("Pencil: drag. Zoom: + - 0, wheel. Move: right or middle drag. Ctrl+Z undoes.");
+    char undo_keys[24];
+    shortcut_label(undo_keys, sizeof undo_keys, SHORTCUT_MAC, "Z");   // Cmd+Z on a Mac, Ctrl+Z elsewhere
+    muted("Pencil: drag. Zoom: + - 0, wheel. Move: right or middle drag. %s undoes.", undo_keys);
     const MaskZoomKey key = m.focus ? zoom_key_pressed() : ME_ZOOM_NONE;
     const int notches = view.hovered ? mask_edit_wheel_steps(&view.wheel, ImGui::GetIO().MouseWheel) : 0;
     if (key == ME_ZOOM_IN) scale = m.zoom = mask_edit_zoom_step(scale, 1);
@@ -255,7 +258,7 @@ void mask_edit_panel(App *a, ImTextureID tex)
             texture_picker(a, pending);
             if (m.sel >= 0) {
                 ImGui::SameLine();
-                if (ImGui::Button("Undo")) app_undo(a);   // the keyboard's Ctrl+Z reaches here too
+                if (ImGui::Button("Undo")) app_undo(a);   // the keyboard's Cmd+Z (Ctrl+Z off a Mac) reaches here too
                 ImGui::SameLine();
                 if (ImGui::Button("Redo")) app_redo(a);
                 ImGui::SameLine();
