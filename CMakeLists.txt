@@ -110,6 +110,16 @@ add_library(tnfs_core STATIC
     core/formats/track_gen.c
     core/formats/track_trace.c
     core/formats/fixed_math.c
+    core/raster/flat.c
+    core/raster/flat_edge.c
+    core/raster/flat_scan.c
+    core/raster/object3d.c
+    core/raster/object_mappers.c
+    core/raster/palette_match.c
+    core/raster/quad.c
+    core/raster/raster_record.c
+    core/raster/quad_tri.c
+    core/raster/view.c
     core/formats/track_frame.c
     core/formats/track_template.c
     core/formats/tri_reverse.c
@@ -283,18 +293,9 @@ add_library(tnfs_game STATIC
     game/frontend/next_segment.c
     game/frontend/wide_field.c
     game/frontend/yes_no_box.c
-    game/gfx/flat.c
-    game/gfx/flat_edge.c
-    game/gfx/flat_scan.c
-    game/gfx/object3d.c
     game/gfx/blit.c
     game/gfx/clip.c
-    game/gfx/object_mappers.c
     game/gfx/inverse_map.c
-    game/gfx/palette_match.c
-    game/gfx/quad.c
-    game/gfx/raster_record.c
-    game/gfx/quad_tri.c
     game/gfx/needle.c
     game/race/car_draw.c
     game/race/car_drive.c
@@ -561,7 +562,6 @@ add_library(tnfs_game STATIC
     game/race/track_object_walk.c
     game/race/track_objects.c
     game/race/track_render.c
-    game/race/view.c
     game/sys/inverse_load.c
     game/sys/key_codes.c
     game/sys/joystick.c
@@ -629,7 +629,8 @@ target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 if(NOT MSVC)
     target_compile_options(tnfs_game PRIVATE -fwrapv)
     # fixed_math moved to core and keeps the same wraparound arithmetic (a negative remainder << 16 in fx_div)
-    set_source_files_properties(core/formats/fixed_math.c PROPERTIES COMPILE_OPTIONS -fwrapv)
+    set_source_files_properties(core/formats/fixed_math.c core/raster/flat.c core/raster/flat_edge.c core/raster/flat_scan.c core/raster/object3d.c core/raster/object_mappers.c core/raster/palette_match.c core/raster/quad.c core/raster/raster_record.c core/raster/quad_tri.c core/raster/view.c PROPERTIES COMPILE_OPTIONS -fwrapv)
+    # (the classic rasterizer, core/raster, was game code: the same arithmetic)
 endif()
 
 set(TNFS_SDL3_PLATFORM

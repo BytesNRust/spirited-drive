@@ -12,11 +12,11 @@
  * rectangle fill. The tables start at zero here; the original's sit on the
  * stack uninitialised, which only shows for outlines that leave a row
  * unwritten (concave or crossing input). */
-#include "game/gfx/flat.h"
-#include "game/gfx/raster_record.h"
+#include "raster/flat.h"
+#include "raster/raster_record.h"
 
-#include "game/gfx/flat_internal.h"
-#include "game/gfx/x86_int.h"
+#include "raster/flat_internal.h"
+#include "raster/x86_int.h"
 
 #include <string.h>
 

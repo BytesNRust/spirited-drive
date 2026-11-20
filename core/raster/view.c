@@ -1,6 +1,6 @@
-#include "game/race/view.h"
+#include "raster/view.h"
 
-#include "game/sys/fixed_math.h"
+#include "formats/fixed_math.h"
 
 enum { NEAR_Z = 10 };
 

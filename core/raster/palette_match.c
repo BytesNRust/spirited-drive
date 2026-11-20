@@ -1,6 +1,6 @@
 /* RGB to palette index, 8-bit path. Ported from NFS_WIN.EXE 00473140; the
  * address of each piece is in palette_match.h. */
-#include "game/gfx/palette_match.h"
+#include "raster/palette_match.h"
 
 #include <stddef.h>
 
