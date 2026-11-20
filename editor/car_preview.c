@@ -34,14 +34,6 @@ static uint8_t *read_file(const char *path, size_t *len)
     return buf;
 }
 
-static int write_file(const char *path, const uint8_t *data, size_t len)
-{
-    FILE *f = fopen(path, "wb");
-    if (f == NULL) return 0;
-    const int ok = fwrite(data, 1, len, f) == len;
-    return fclose(f) == 0 && ok;
-}
-
 static const char *leaf(const char *path)
 {
     const char *slash = strrchr(path, '/');
