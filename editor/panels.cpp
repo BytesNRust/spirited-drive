@@ -150,7 +150,14 @@ void problems_panel(App *a)
 {
     if (limits_dock != 0) ImGui::SetNextWindowDockID(limits_dock, ImGuiCond_FirstUseEver);
     if (ImGui::Begin(PANEL_PROBLEMS)) {
-        if (!a->road_made || a->problem_count == 0) ImGui::TextDisabled("No problems");
+        char art[APP_MSG];
+        const bool art_line = app_tarmac_art_note(a, art, sizeof art);   // tarmac shoulders on an art that is not Studio's current generic: said, nothing changed
+        if (art_line) {
+            ImGui::PushStyleColor(ImGuiCol_Text, WARN_TEXT);
+            ImGui::TextWrapped("%s", art);
+            ImGui::PopStyleColor();
+        }
+        if ((!a->road_made || a->problem_count == 0) && !art_line) ImGui::TextDisabled("No problems");
         // red rows first, then amber, each by node (track_trace_problems); a click centres the Viewport on the node
         for (int i = 0; i < a->problem_count && i < PROBLEM_ROWS; ++i) {
             const TraceProblem &p = a->problems[i];

@@ -77,6 +77,7 @@ typedef struct {
     char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */
     char game[APP_PATH];         /* the game program, run for install */
     char art_note[160];          /* what opening the project did to or noticed about its copy of the generic art (project_art_refresh); "" for nothing */
+    int art_generic;             /* the project draws with Studio's current generic art (project_art_is_generic), as it was when opened */
     char game_tried[2048];       /* every place the game was looked for (game_find), for the message when it is not there */
     char game_memo[APP_PATH];    /* the file that remembers the game the user located ("" for none) */
     char user[APP_PATH];         /* the player folder the install goes to */
@@ -242,5 +243,8 @@ void app_clear_point_width(App *a, int point);
 /* The shoulder surface of a side (TRACK_GEN_LEFT / _RIGHT) of a control point's road key (the Road key block): verge or tarmac sets it, TRACE_SURFACE_INHERIT
  * lets that side inherit again. An unsaved change when it changes anything. */
 void app_set_point_surface(App *a, int point, int side, TraceSurface surface);
+/* 1, with the line for Problems in `text`, when a road key makes a shoulder tarmac and the project's art is not Studio's current generic: its asphalt bank is
+ * Studio's own (TRACK_GENERIC_SLOT_TARMAC), an art of the author's may show anything there. Nothing is changed in the art */
+int app_tarmac_art_note(const App *a, char *text, size_t cap);
 
 #endif

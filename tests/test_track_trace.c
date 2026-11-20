@@ -601,7 +601,8 @@ static void test_keys_ramp_steepness(void)
 }
 
 /* the shoulder's surface (step 2b): a key sets a side to verge or tarmac and it holds from the key's point to the next key that sets that side; a side a key leaves
- * to inherit keeps what was before; before the first key both sides are the verge (the road of before: sides all zero) */
+ * to inherit keeps what was before; before the first key both sides are the verge (the road of before: sides all zero). A change takes effect at the first
+ * segment (4 nodes) that starts at or after the key, so the grip and the shoulder's texture, which goes by segment, change together */
 static void test_surface_keys(void)
 {
     TracePoint p[6];
@@ -617,7 +618,7 @@ static void test_surface_keys(void)
     if (n == NULL) return;
     int right = 1;
     for (int k = 0; k < count; ++k) {
-        const double s = k * 6.25;
+        const double s = (k - k % 4) * 6.25;   /* the surface changes where a segment starts, as its texture does: the segment's first node decides */
         const int left_tarmac = s >= 60 && s < 180, right_tarmac = s >= 180;
         for (int side = 0; side < 2; ++side) {
             const int tarmac = side == TRACK_GEN_LEFT ? left_tarmac : right_tarmac;

@@ -286,9 +286,37 @@ static void check_surface_app(void)
     CHECK_EQ_INT(a->trace.key_count, 0);
     app_recompute(a);
     CHECK(a->road_made);
+    /* no generic art given: the project's art is not Studio's current one, so a tarmac side has a Problems line; none without one */
+    char note[APP_MSG];
+    CHECK(!a->art_generic);
+    CHECK(!app_tarmac_art_note(a, note, sizeof note));
+    app_set_point_surface(a, 1, TRACK_GEN_LEFT, TRACE_SURFACE_TARMAC);
+    CHECK(app_tarmac_art_note(a, note, sizeof note) && strstr(note, "tarmac") != NULL);
+    app_set_point_surface(a, 1, TRACK_GEN_LEFT, TRACE_SURFACE_VERGE);   /* a key, but no tarmac in it */
+    CHECK(!app_tarmac_art_note(a, note, sizeof note));
     app_free(a);
     free(a);
     cleanup_project(dir);
+
+    /* opened with Studio's generic art: the project's copy is it, so no line */
+    char generic[600];
+    path_in(generic, sizeof generic, "generic.fam");
+    FILE *g = fopen(generic, "wb");
+    CHECK(g != NULL);
+    if (g != NULL) fputs("FAMILY", g), fclose(g);
+    path_in(dir, sizeof dir, "surfaced2");
+    mkdir(dir, 0777);
+    a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    CHECK(app_open(a, dir, "./tnfs", "", generic));
+    CHECK(a->art_generic);
+    app_set_point_surface(a, 1, TRACK_GEN_LEFT, TRACE_SURFACE_TARMAC);
+    CHECK(!app_tarmac_art_note(a, note, sizeof note));
+    app_free(a);
+    free(a);
+    cleanup_project(dir);
+    remove(generic);
 }
 
 /* the editor: a key set on a point is an unsaved change, it saves, clearing it is another, the keys stay on their points when points come and go,
@@ -335,7 +363,7 @@ static void check_keys_app(void)
 static void cleanup_project(const char *dir)
 {
     char f[600];
-    static const char *const names[] = { "project.ini", "trace.json", "trace.json.tmp", "project.ini.tmp" };
+    static const char *const names[] = { "project.ini", "trace.json", "trace.json.tmp", "project.ini.tmp", "GENERIC.FAM" };
     for (size_t i = 0; i < sizeof names / sizeof names[0]; ++i) {
         snprintf(f, sizeof f, "%s/%s", dir, names[i]);
         remove(f);

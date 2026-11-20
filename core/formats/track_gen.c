@@ -2,6 +2,7 @@
 #include "formats/track_gen.h"
 
 #include "formats/track_frame.h"
+#include "formats/track_template.h"
 #include "formats/tri.h"
 
 #include <math.h>
@@ -217,6 +218,17 @@ static void write_strip(uint8_t *seg, const uint8_t *model, const TrackGenNode *
         put_i16(r + ROW_RIGHT0, get_i16(r + ROW_RIGHT0) + 16 * (width - tmpl->left_verge));
         put_i16(r + ROW_LEFT0, get_i16(r + ROW_LEFT0) - 16 * (width - tmpl->left_verge));
     }
+}
+
+/* The picture of each side's shoulder band in a segment (texture[1] right, texture[6] left: each chain's band from the road's edge out): the generic art's
+ * asphalt (TRACK_GENERIC_SLOT_TARMAC) where the segment's first node has that side tarmac, else the template's. The texture goes by segment, so the surface
+ * of the shoulder changes at a segment's start (track_trace aligns its keys there). It picks the picture only; where the band ends is the strip's rows'. */
+static void strip_side_slots(uint8_t *seg, const TrackGenNode *first)
+{
+    enum { STRIP_TEXTURES = 0xe, SHOULDER_BAND = 1, LEFT_CHAIN = 5 };
+    for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side)
+        if ((first->side[side].has & TRACK_GEN_SIDE_TARMAC) && first->side[side].tarmac)
+            seg[STRIP_TEXTURES + (side == TRACK_GEN_LEFT ? LEFT_CHAIN : 0) + SHOULDER_BAND] = TRACK_GENERIC_SLOT_TARMAC;
 }
 
 /* the frame of a node as the file will hold it: the same angles write_node stores */
@@ -447,6 +459,7 @@ static int generate_nodes(const TrackGenNode *shapes, int count, const uint8_t *
         else
             write_strip(terrain + (size_t)s * TRI_SEGMENT_SIZE, parts.terrain + (size_t)model_segment * TRI_SEGMENT_SIZE,
                         shapes + s * TRI_NODES_PER_SEGMENT, &model);
+        strip_side_slots(terrain + (size_t)s * TRI_SEGMENT_SIZE, shapes + s * TRI_NODES_PER_SEGMENT);
     }
     free(caps);
     memcpy(scenery, parts.scenery, (size_t)TRI_SCENERY_MAX * TRI_SCENERY_SIZE);

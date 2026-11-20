@@ -31,7 +31,7 @@ static int file_is(const char *name, const char *text, size_t size)
     return n == size && memcmp(got, text, size) == 0;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
     snprintf(root, sizeof root, "/tmp/tnfs_art_refresh_XXXXXX");
     if (mkdtemp(root) == NULL) return fprintf(stderr, "no temp folder\n"), 2;
@@ -69,6 +69,16 @@ int main(void)
     CHECK(file_is("p/GENERIC.FAM", "OLD-ART", 7));
     CHECK_EQ_INT(note[0], 0);
 
+    /* is the project's art Studio's current generic (a tarmac shoulder draws with its asphalt bank)? only art=GENERIC.FAM byte for byte the bundled one */
+    CHECK_EQ_INT(project_art_is_generic(dir, generic), 0);   /* art=mine.fam */
+    write_file(ini_path, "id=t\nname=t\nauthor=\nstem=EDIT\nart=GENERIC.FAM\nredistributable=1\n", 65);
+    CHECK_EQ_INT(project_art_is_generic(dir, generic), 0);   /* an old Studio's copy, not yet refreshed */
+    write_file("p/GENERIC.FAM", "NEW-ART", 7);
+    CHECK_EQ_INT(project_art_is_generic(dir, generic), 1);
+    write_file("p/GENERIC.FAM", "NEW-ARX", 7);
+    CHECK_EQ_INT(project_art_is_generic(dir, generic), 0);   /* edited */
+    CHECK_EQ_INT(project_art_is_generic(dir, NULL), 0);
+
     /* no bundled art (the build cannot read it), or no copy in the project: nothing */
     write_file(ini_path, "id=t\nname=t\nauthor=\nstem=EDIT\nart=GENERIC.FAM\nredistributable=1\n", 65);
     CHECK_EQ_INT(project_art_refresh(dir, NULL, old, note, sizeof note), 0);
@@ -77,8 +87,35 @@ int main(void)
     remove(gone);
     CHECK_EQ_INT(project_art_refresh(dir, generic, old, note, sizeof note), 0);
 
-    /* the list the editor carries holds the first Studio's art */
-    CHECK(PROJECT_OLD_ARTS[0] != NULL && strlen(PROJECT_OLD_ARTS[0]) == 64 && PROJECT_OLD_ARTS[1] == NULL);
+    /* the list the editor carries holds the arts of the Studios before: the first one, and the one whose bank 4 was a white filler (a tarmac shoulder drew white) */
+    int listed = 0;
+    while (PROJECT_OLD_ARTS[listed] != NULL) {
+        CHECK_EQ_INT((int)strlen(PROJECT_OLD_ARTS[listed]), 64);
+        listed++;
+    }
+    CHECK_EQ_INT(listed, 2);
+    CHECK(listed == 2 && strcmp(PROJECT_OLD_ARTS[1], "a715e01ce5bd6e088e74ad51c0b5d0015de30ec97d138f27499a4f0fd4fc9151") == 0);
+    if (argc > 1) {   /* the art Studio carries now (editor/art/GENERIC.FAM) is none of them: else every open would replace a project's copy with itself */
+        size_t len = 0;
+        FILE *f = fopen(argv[1], "rb");
+        uint8_t *bytes = NULL;
+        if (f != NULL) {
+            fseek(f, 0, SEEK_END);
+            len = (size_t)ftell(f);
+            fseek(f, 0, SEEK_SET);
+            bytes = malloc(len);
+            if (bytes != NULL && fread(bytes, 1, len, f) != len) free(bytes), bytes = NULL;
+            fclose(f);
+        }
+        CHECK(bytes != NULL);
+        if (bytes != NULL) {
+            Sha256 s;
+            char now[65];
+            sha256_init(&s), sha256_update(&s, bytes, len), sha256_hex(&s, now);
+            for (int i = 0; i < listed; i++) CHECK(strcmp(now, PROJECT_OLD_ARTS[i]) != 0);
+            free(bytes);
+        }
+    }
     char path[400];   /* the scratch folder goes away */
     const char *const names[] = { "p/project.ini", "p/GENERIC.FAM", "bundled.fam" };
     for (size_t i = 0; i < sizeof names / sizeof names[0]; i++) snprintf(path, sizeof path, "%s/%s", root, names[i]), remove(path);

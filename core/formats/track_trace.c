@@ -241,12 +241,14 @@ static TraceSurface surface_from(const TraceKey *keys, int key_count, int point,
 }
 
 /* each node's sides: a tarmac shoulder where the keys make one, from the key's point along the arc to the next key of that side; the verge is left zero (the
- * template's, as before) */
+ * template's, as before). A node takes what its segment's first node has: the shoulder's picture goes by segment (track_gen strip_side_slots), so the grip
+ * changes where the picture does, at the first segment start at or after the key */
 static void node_surfaces(const Curve *c, const TraceKey *keys, int key_count, double step, TrackGenNode *out, int count_nodes)
 {
-    int point = 0;   /* the last control point at or before the node */
+    int point = 0;   /* the last control point at or before the node's segment start */
     for (int k = 0; k < count_nodes; ++k) {
-        while (point + 1 < c->count && c->s[(point + 1) * SAMPLES_PER_SPAN] <= k * step + 1e-9) ++point;
+        const double at = (k - k % NODES_PER_SEGMENT) * step;
+        while (point + 1 < c->count && c->s[(point + 1) * SAMPLES_PER_SPAN] <= at + 1e-9) ++point;
         for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side) {
             const int tarmac = surface_from(keys, key_count, point, side) == TRACE_SURFACE_TARMAC;
             out[k].side[side].has = tarmac ? (unsigned)TRACK_GEN_SIDE_TARMAC : 0u;

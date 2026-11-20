@@ -18,7 +18,10 @@ const float POINT_HALF = 4;    // a control point's square, half its side in pix
 const double GRID_LINES_MAX = 400;   // a view with more lines than this (zoomed far out) has no grid
 const double TIP_REACH = 10;   // pixels from a flagged node that bring its tip
 const ImU32 GRID = IM_COL32(36, 40, 46, 255), BACKGROUND = IM_COL32(18, 20, 24, 255), ROAD = IM_COL32(200, 204, 212, 255),
-            BAD = IM_COL32(255, 70, 70, 255), WARN = IM_COL32(255, 176, 32, 255), POINT = IM_COL32(90, 160, 255, 255), SELECTED = IM_COL32(255, 220, 0, 255);
+            BAD = IM_COL32(255, 70, 70, 255), WARN = IM_COL32(255, 176, 32, 255), POINT = IM_COL32(90, 160, 255, 255), SELECTED = IM_COL32(255, 220, 0, 255),
+            TARMAC = IM_COL32(112, 116, 124, 255);   // a tarmac shoulder (a road key): asphalt grey beside the road
+const double EDGE_UNIT = 0.125;   // metres from the centre to the road's edge per unit of the node's width byte (VERGE_UNIT, game/race/car_walls.c)
+const float TARMAC_MIN_PX = 4;    // a tarmac line stays this far from the road's line however far out the view is
 
 struct Canvas {
     ImVec2 origin;   // the panel's top-left, in window pixels
@@ -62,6 +65,40 @@ ImU32 segment_colour(uint8_t flags)
     return (flags & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN)) ? WARN : ROAD;
 }
 
+// is a node's side a tarmac shoulder (the road key's surface, as the generator writes it)?
+bool tarmac_side(const TrackGenNode &n, int side)
+{
+    return (n.side[side].has & TRACK_GEN_SIDE_TARMAC) && n.side[side].tarmac;
+}
+
+// a tarmac shoulder: an asphalt-grey line beside the road at its edge, on each side whose segment starts tarmac (the game changes a side's surface at a
+// segment's first node, grip and picture), at least TARMAC_MIN_PX from the road's line
+void draw_tarmac(const Canvas &c, const App &a)
+{
+    for (int i = 1; i < a.node_count; ++i) {
+        const TrackGenNode &p = a.nodes[i - 1], &q = a.nodes[i];
+        const double px = p.position[0] / 65536.0, pz = p.position[2] / 65536.0, qx = q.position[0] / 65536.0, qz = q.position[2] / 65536.0;
+        const double dx = qx - px, dz = qz - pz, len = sqrt(dx * dx + dz * dz);
+        if (len <= 0) continue;
+        for (int side = TRACK_GEN_LEFT; side <= TRACK_GEN_RIGHT; ++side) {
+            if (!tarmac_side(p, side)) continue;
+            const double toward = side == TRACK_GEN_RIGHT ? 1 : -1, off = p.width * EDGE_UNIT;   // right of a heading along +z is +x
+            const double nx = toward * dz / len, nz = -toward * dx / len;
+            const ImVec2 a0 = to_screen(c, a.view, px, pz), b0 = to_screen(c, a.view, qx, qz);
+            ImVec2 o = to_screen(c, a.view, px + nx * off, pz + nz * off);
+            float ox = o.x - a0.x, oy = o.y - a0.y;
+            const float olen = sqrtf(ox * ox + oy * oy);
+            if (olen < TARMAC_MIN_PX) {   // zoomed far out: the edge is under the road's line, so the line goes TARMAC_MIN_PX out the same way
+                const ImVec2 s = to_screen(c, a.view, px + nx, pz + nz);
+                const float sx = s.x - a0.x, sy = s.y - a0.y, slen = sqrtf(sx * sx + sy * sy);
+                if (slen <= 0) continue;
+                ox = sx / slen * TARMAC_MIN_PX, oy = sy / slen * TARMAC_MIN_PX;
+            }
+            c.list->AddLine(ImVec2(a0.x + ox, a0.y + oy), ImVec2(b0.x + ox, b0.y + oy), TARMAC, 3);
+        }
+    }
+}
+
 // the road: its nodes joined, a node breaking a limit drawn red; with no road (the trace cannot make one), the control polygon in red
 void draw_road(const Canvas &c, const App &a)
 {
@@ -72,6 +109,7 @@ void draw_road(const Canvas &c, const App &a)
                             to_screen(c, v, a.trace.points[i].x, a.trace.points[i].z), BAD, 2);
         return;
     }
+    draw_tarmac(c, a);
     for (int i = 1; i < a.node_count; ++i) {
         const TrackGenNode &p = a.nodes[i - 1], &q = a.nodes[i];
         c.list->AddLine(to_screen(c, v, p.position[0] / 65536.0, p.position[2] / 65536.0),
@@ -145,6 +183,8 @@ void draw_tooltip(const Canvas &c, const App &a)
     track_trace_turn_text(track_trace_signed_turn(a.nodes, node), turn, sizeof turn);
     ImGui::BeginTooltip();
     ImGui::Text("node %d: %.0f m from the start, turn %s", node, a.node_dist != NULL ? a.node_dist[node] : 0.0, turn);
+    const bool left = tarmac_side(a.nodes[node], TRACK_GEN_LEFT), right = tarmac_side(a.nodes[node], TRACK_GEN_RIGHT);
+    if (left || right) ImGui::Text("shoulder: tarmac %s", left && right ? "both sides" : left ? "left" : "right");
     if (a.flags[node] & (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS)) {
         ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "too tight: the road is not built");
         ImGui::TextUnformatted("points too close for this turn: space them out or smooth them");

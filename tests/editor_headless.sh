@@ -118,7 +118,7 @@ printf '{\n  "version": 4,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 100
 "$editor" "$work/newer" --frames 2 --build >"$work/log" 2>&1 && fail "a trace.json of a newer version was read"
 grep -q "version 4" "$work/log" || fail "the refusal does not name the version: $(cat "$work/log")"
 # shoulder surfaces (trace.json version 3, step 2b): a tarmac shoulder on the left from point 1, then the right one from point 3 (the left back to the verge), builds a TRI
-# whose nodes' flags[2] (node +6, high nibble left, low right) clear that side: 0x22 before, 0x02, then 0x20
+# whose nodes' flags[2] (node +6, high nibble left, low right) clear that side: 0x22 before, 0x02, then 0x20; those segments draw that shoulder in asphalt
 mkdir "$work/surface"
 printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 1, "shoulder_l_surface": "tarmac"}, {"point": 3, "shoulder_l_surface": "verge", "shoulder_r_surface": "tarmac"}]\n}\n' > "$work/surface/trace.json"
 "$editor" "$work/surface" --frames 6 --select 3 --shot "$work/surface.png" >"$work/log" 2>&1 || fail "run on a project with shoulder surfaces: $(cat "$work/log")"
@@ -131,8 +131,16 @@ names = [n for n in z.namelist() if n.upper().endswith(".TRI")]
 assert len(names) == 1, names
 d = z.read(names[0])
 got = [d[0x98C + 36 * k + 6] for k in range(49)]   # 300 m: 49 nodes, 6.25 m apart; points at 0, 60 .. 300 m
-want = [0x22 if k * 6.25 < 60 else 0x02 if k * 6.25 < 180 else 0x20 for k in range(49)]
+start = lambda k: (k - k % 4) * 6.25                # a change takes effect where a segment starts
+want = [0x22 if start(k) < 60 else 0x02 if start(k) < 180 else 0x20 for k in range(49)]
 assert got == want, [hex(b) for b in got]
+terrain = 0x1621C + int.from_bytes(d[0x1621C + 4:0x1621C + 8], "little")   # after the SJBO chunk (core/formats/tri.c), each segment at its offset in the table at 0x2c
+for seg in range(12):                               # the shoulder band: texture[1] right, texture[6] left; 12 is the asphalt, 3 the gravel
+    at = terrain + int.from_bytes(d[0x2c + 4 * seg:0x2c + 4 * seg + 4], "little")
+    assert d[at:at + 4] == b"TRKD", (seg, d[at:at + 4])
+    tex = d[at + 0xe:at + 0x18]
+    s0 = seg * 4 * 6.25
+    assert tex[6] == (12 if 60 <= s0 < 180 else 3) and tex[1] == (12 if s0 >= 180 else 3), (seg, list(tex))
 PY
 python3 "$work/tri_surfaces.py" "$work/surface/build/surface.zip" || fail "the TRI of the surface project does not have the shoulders of its keys"
 # --window WxH: the picture is that size (a layout at another window size); a size out of range is refused by name

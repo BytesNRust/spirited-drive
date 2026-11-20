@@ -14,7 +14,8 @@ from `generic_stage.txt` (here, with the paths of the art folder it was built in
 |---|---|---|
 | terrain 1 gravel, 2 rock, 3 grass, 10 planks | Gravel001, Rock035, Grass005, Planks001 (512x512 colour maps) | ambientCG, CC0 1.0 |
 | terrain 0 road | asphalt with our own yellow centre line and white edge lines (`make_road.py`) | Asphalt010 (ambientCG, CC0 1.0) and our own lines |
-| terrain 4..9 fillers | flat white | ours |
+| terrain 4 tarmac shoulder (phase 2 step 2b, slot 12) | Asphalt010 as it is: the road's asphalt without its lines | ambientCG, CC0 1.0 |
+| terrain 5..9 fillers | flat white | ours |
 | horizon | a flat vertical blue gradient, 256x64 | ours |
 
 ambientCG's licence: "All assets are released under the Creative Commons CC0 license, making them free to use without attribution - even in
