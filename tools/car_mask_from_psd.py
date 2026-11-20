@@ -17,7 +17,7 @@ A texel of the mask layer is classed by its alpha and colour:
                                          light; checked before the blue and green rules, since cyan has blue = green)
   dark (opaque, brightest channel < 64)  0   PAINT too (black is paint, as in the old two-value masks)
   anything else                    255  KEEP its colour, no shine (plastics, trim, plate, badges, vents)
-The layer's own opacity is ignored: it is only how the mask shows over the texture. The PNG is grey, 0 / 128 / 192 / 224 / 240 / 244 / 248 / 252 / 255. The colour that means 192 is BODY_KEEPS below: change that one constant to use another.
+The layer's own opacity (the layer setting) is ignored: it is only how the mask shows over the texture; a texel's own alpha is read (under 128 is paint), so a PNG saved with the opacity baked into its alpha is not read by this tool (`tnfs-studio car masks` reads that one). The PNG is grey, 0 / 128 / 192 / 224 / 240 / 244 / 248 / 252 / 255. The colour that means 192 is BODY_KEEPS below: change that one constant to use another.
 
 usage: car_mask_from_psd.py <dir of CAR/<tex>.psd> [<output dir, default data/car_masks next to tools/>]
 Needs psd-tools (pip install psd-tools) and Pillow.
