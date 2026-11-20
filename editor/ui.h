@@ -15,6 +15,14 @@ extern "C" {
 int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size_t why_cap);
 void ui_close(void);
 
+/* The window's size by default (window_fit's on a normal run, 960 x 600 headless): Window > Reset layout gives it back. */
+void ui_window_default(int w, int h);
+
+/* Window > Reset layout (Cmd+Shift+L): the window goes back to its default size, centred, and a few frames later (once the new size is in) the current
+ * mode's panels go back to its first-run dock (a track's, a car's or a masks project's; the other modes' layouts are kept), uncollapsed, and the layout file
+ * is rewritten with it. */
+void ui_reset_layout(void);
+
 /* The orbit the Model window starts the next car at (degrees, degrees, model units; dist 0 keeps the home distance): a headless picture of a view. */
 void ui_model_orbit(double yaw, double pitch, int dist);
 /* The Model window's body shine on or off (on by default). */

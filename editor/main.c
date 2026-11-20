@@ -57,6 +57,7 @@ typedef struct {
     int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
+    int reset_layout;        /* --reset-layout: Window > Reset layout before the first frame (a headless check that it gives the first-run dock back) */
     int window_w, window_h;  /* --window WxH: the window's size (a headless picture of a layout at another size); 0 x 0 for the default: WINDOW_W x WINDOW_H
                               * headless, what the display leaves on a normal run (window_fit) */
 } Options;
@@ -67,7 +68,7 @@ static int usage(void)
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2]]\n"
                     "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n"
-                    "       [--window WxH]\n");
+                    "       [--window WxH] [--reset-layout]\n");
     return 0;
 }
 
@@ -146,6 +147,7 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--mask") == 0 && has_value) o->mask = argv[++i];
         else if (strcmp(argv[i], "--mask-rect") == 0 && has_value && o->mask_rect_count < 8) o->mask_rect[o->mask_rect_count++] = argv[++i];
         else if (strcmp(argv[i], "--mask-save") == 0) o->mask_save = 1;
+        else if (strcmp(argv[i], "--reset-layout") == 0) o->reset_layout = 1;
         else if (strcmp(argv[i], "--rehacer") == 0) o->rehacer = 1;
         else if (strcmp(argv[i], "--edit") == 0) o->edit = 1;
         else if (strcmp(argv[i], "--save") == 0) o->save = 1;
@@ -443,6 +445,8 @@ static int run(App *a, const Options *o)
         SDL_Quit();
         return 1;
     }
+    ui_window_default(window_w, window_h);
+    if (o->reset_layout) ui_reset_layout();
     if (o->orbit != NULL) {
         double yaw = 0, pitch = 0;
         int dist = 0;
