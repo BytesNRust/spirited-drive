@@ -52,7 +52,8 @@ static const char *CARD(int year)
     static char text[300];
     static int pad;   /* every card is longer than the last: the size alone tells two writes apart on a clock as coarse as a kernel tick */
     const int n = snprintf(text, sizeof text, "id=boxcar\nname=Box\nversion=1\ntype=car\nstem=C84\nsound_from=911\nyear=%d\n#", year);
-    for (int i = 0; i < ++pad && n + i + 2 < (int)sizeof text; i++) text[n + i] = '#', text[n + i + 1] = '\n', text[n + i + 2] = '\0';
+    pad++;
+    for (int i = 0; i < pad && n + i + 2 < (int)sizeof text; i++) text[n + i] = '#', text[n + i + 1] = '\n', text[n + i + 2] = '\0';
     return text;
 }
 

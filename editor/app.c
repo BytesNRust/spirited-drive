@@ -837,7 +837,10 @@ static void reload_car(App *a)
         a->edit = next;
     }
     app_mask_scan(a);   /* the script may have changed the textures and the masks */
+    const MaskStamp kept = a->cdisk.card;
+    const int edits = car_edit_modified(&a->edit);
     app_card_arm(a);
+    if (edits) a->cdisk.card = kept;   /* edits kept over a card the script wrote: the next look says «Changed on disk» */
     a->cdisk.serial++;   /* the Model reads the car file again */
 }
 
