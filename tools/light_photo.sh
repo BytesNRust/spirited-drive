@@ -8,6 +8,7 @@
 # environment:
 #   LIGHT_DIR  a folder with track_light/ and track/ (the working copies of the files to judge): they go first, as a mod's do. Default: the repo's data/ (what the game reads).
 #   TICKS      the headless run's ticks before the frame (default 4)
+#   VIEW       the game's camera (TNFS_VIEW; default 0, the in-car view with the road ahead, as a menu race shows it; the harness's own default looks at the car from beside)
 #   FULL=1     the sheet at full size (4 pictures of 1280x960 side by side), not halved
 # The run is Restomod with the port's light on, autopilot, clear weather, a scratch player folder; it leaves nothing outside OUTDIR. Edit a file in LIGHT_DIR, run again, look.
 # Not for CI: it needs the CD's data (original/) and a built game; tests/light_photo_check.py covers the sheet and the arguments, tests/light_photo_run.sh one real run.
@@ -40,7 +41,7 @@ pics=
 for pair in A:dawn B:day C:dusk N:night; do
   letter=${pair%%:*} time=${pair#*:}
   ppm="$work/$letter.ppm"
-  env TNFS_AUTOPILOT=1 TNFS_FRAMES=1 TNFS_WEATHER=clear TNFS_LIGHT_TIME=$time TNFS_START_NODE=$node SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy \
+  env TNFS_AUTOPILOT=1 TNFS_FRAMES=1 TNFS_WEATHER=clear TNFS_VIEW=${VIEW:-0} TNFS_LIGHT_TIME=$time TNFS_START_NODE=$node SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_AUDIODRIVER=dummy \
     $guard "$bin" --data "$original" --user "$work/user" --mods "$work/mods" --drive "$track" --node "$ticks" --screenshot "$ppm" > "$work/$letter.log" 2>&1
   rc=$?
   if [ $rc -ne 0 ] || [ ! -s "$ppm" ]; then echo "the $time run of $track failed (rc $rc); its log:" >&2; tail -5 "$work/$letter.log" >&2; exit 1; fi
