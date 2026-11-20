@@ -30,6 +30,7 @@ STROKE = 6
 BAND_H = 260                   # on the 1024 px artwork
 RED_REF = 250.0                # the value that maps the editor blue to full brightness
 REDNESS_LO, REDNESS_HI = 50, 140
+POCKET_MIN_RED = 150           # a red pocket this bright is background; the key's red mark is darker (121 to 135)
 MAC_BODY = 824 / 1024          # Apple's icon grid: a centred body of 824 on 1024, with a soft shadow
 MAC_SHADOW_BLUR, MAC_SHADOW_DROP = 28 / 1024, 10 / 1024
 ICONSET = (("icon_16x16.png", 16), ("icon_16x16@2x.png", 32), ("icon_32x32.png", 32), ("icon_32x32@2x.png", 64),
@@ -68,6 +69,8 @@ def recolour_background(icon):
     for seed in seeds:
         if cand.getpixel(seed) == 255:
             ImageDraw.floodfill(cand, seed, 128, thresh=0)
+    for pocket in bright_pockets(px, icon.width, icon.height):
+        cand.putpixel(pocket, 128)
     out = []
     for (r, g, b, a), m in zip(px, cand.tobytes()):
         if m != 128:
@@ -80,6 +83,37 @@ def recolour_background(icon):
     result = Image.new("RGBA", icon.size)
     result.putdata(out)
     return result
+
+
+def pure_red(r, g, b):
+    return redness(r, g, b) > REDNESS_LO and max(g, b) <= 0.2 * r
+
+
+def bright_pockets(px, width, height):
+    """Pixels of bright red that the edge fill cannot reach: the background showing inside the key ring at 16 and 32 px.
+
+    A pocket is a component of pure red that does not touch the edge and whose mean red is at least POCKET_MIN_RED.
+    Darker red on the artwork (the key's red mark) stays as it is.
+    """
+    red = {(i % width, i // width) for i, (r, g, b, a) in enumerate(px) if a > 128 and pure_red(r, g, b)}
+    found, seen = [], set()
+    for start in red:
+        if start in seen:
+            continue
+        comp, stack = [], [start]
+        seen.add(start)
+        while stack:
+            p = stack.pop()
+            comp.append(p)
+            for q in ((p[0] + 1, p[1]), (p[0] - 1, p[1]), (p[0], p[1] + 1), (p[0], p[1] - 1)):
+                if q in red and q not in seen:
+                    seen.add(q)
+                    stack.append(q)
+        on_edge = any(x in (0, width - 1) or y in (0, height - 1) for x, y in comp)
+        mean_r = sum(px[y * width + x][0] for x, y in comp) / float(len(comp))
+        if not on_edge and mean_r >= POCKET_MIN_RED:
+            found.extend(comp)
+    return found
 
 
 def fit_font(text, max_w, max_h, start=400):
