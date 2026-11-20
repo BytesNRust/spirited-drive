@@ -19,6 +19,10 @@ extern "C" {
 
 static char g_ini[APP_PATH];
 static bool g_had_layout;   // the ini file was there at the start: its layout is the user's, not ours to replace
+static SDL_Window *g_win;
+static int g_win_w = 960, g_win_h = 600;   // the window's default size (ui_window_default)
+static int g_reset_in, g_save_in;   // frames until Reset layout rebuilds the dock (the window's new size in first), and until the layout file is rewritten
+enum { RESET_AFTER_FRAMES = 3, SAVE_AFTER_FRAMES = 2 };
 
 int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size_t why_cap)
 {
@@ -29,6 +33,7 @@ int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size
     }
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
+    g_win = win;
     if (ini != nullptr) {
         snprintf(g_ini, sizeof g_ini, "%s", ini);
         io.IniFilename = g_ini;
@@ -63,6 +68,21 @@ void ui_close(void)
 void ui_model_shine(int on)
 {
     model_panel_shine(on != 0);
+}
+
+void ui_window_default(int w, int h)
+{
+    g_win_w = w, g_win_h = h;
+}
+
+void ui_reset_layout(void)
+{
+    if (g_win != nullptr) {
+        SDL_RestoreWindow(g_win);   // out of full screen or maximized first: a size is not taken there
+        SDL_SetWindowSize(g_win, g_win_w, g_win_h);
+        SDL_SetWindowPosition(g_win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    }
+    g_reset_in = RESET_AFTER_FRAMES;
 }
 
 void ui_model_orbit(double yaw, double pitch, int dist)
@@ -174,6 +194,87 @@ void shortcuts(App *a)
     if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) interact_nudge(a, 0, -INTERACT_NUDGE);
 }
 
+const char *const TRACK_PANELS[] = { "Viewport", PANEL_TRACK, PANEL_PROJECT, PANEL_POINTS, PANEL_NODE, PANEL_ROAD_KEY, PANEL_LIMITS, PANEL_PROBLEMS };
+
+// the panels of the mode on screen, as the Window menu lists them (a car's Textures and Rehacer are not a masks project's)
+int mode_panels(const App *a, const char *out[], int cap)
+{
+    if (a->kind == APP_KIND_TRACK) {
+        const int n = (int)(sizeof TRACK_PANELS / sizeof TRACK_PANELS[0]);
+        for (int i = 0; i < n && i < cap; ++i) out[i] = TRACK_PANELS[i];
+        return n < cap ? n : cap;
+    }
+    if (a->kind != APP_KIND_CAR) return 0;
+    const bool masks = a->car.masks_only;
+    const char *const all[] = { PANEL_CAR, PANEL_MODEL, masks ? nullptr : PANEL_TEXTURES, PANEL_RACE, PANEL_MASK_EDIT, PANEL_PREVIEW, PANEL_MASKS,
+                                masks ? nullptr : PANEL_REHACER };
+    int n = 0;
+    for (const char *name : all)
+        if (name != nullptr && n < cap) out[n++] = name;
+    return n;
+}
+
+// does a floating panel lie (at least in part) inside the window? one dragged off it cannot be got back by hand
+bool on_screen(const ImGuiWindow *w)
+{
+    const ImGuiViewport *v = ImGui::GetMainViewport();
+    return w->Pos.x < v->Pos.x + v->Size.x && w->Pos.y < v->Pos.y + v->Size.y && w->Pos.x + w->Size.x > v->Pos.x && w->Pos.y + w->Size.y > v->Pos.y;
+}
+
+// a panel the user can see now: drawn last frame, not collapsed, its tab the one in front when docked, inside the window when floating
+bool panel_shown(const char *name)
+{
+    const ImGuiWindow *w = ImGui::FindWindowByName(name);
+    if (w == nullptr || !w->WasActive || w->Collapsed) return false;
+    return w->DockIsActive ? w->DockTabIsVisible : on_screen(w);
+}
+
+// brings a panel to the front: uncollapsed, its tab chosen, a floating one off the window put back in its middle
+void panel_show(const char *name)
+{
+    const ImGuiWindow *w = ImGui::FindWindowByName(name);
+    if (w == nullptr) return;
+    ImGui::SetWindowCollapsed(name, false);
+    if (!w->DockIsActive && !on_screen(w)) {
+        const ImGuiViewport *v = ImGui::GetMainViewport();
+        ImGui::SetWindowPos(name, ImVec2(v->Pos.x + (v->Size.x - w->Size.x) / 2, v->Pos.y + (v->Size.y - w->Size.y) / 2));
+    }
+    ImGui::SetWindowFocus(name);
+}
+
+// the Window menu: Reset layout, then the mode's panels, a tick on the ones on screen; choosing one brings it to the front (no panel closes, so none reopens)
+void window_menu(const App *a)
+{
+    if (a->kind == APP_KIND_NONE || !ImGui::BeginMenu("Window")) return;
+    char keys[24];
+    shortcut_label(keys, sizeof keys, SHORTCUT_MAC, "Shift+L");
+    if (ImGui::MenuItem("Reset layout", keys)) ui_reset_layout();
+    ImGui::Separator();
+    const char *names[16];
+    const int n = mode_panels(a, names, 16);
+    for (int i = 0; i < n; ++i)
+        if (ImGui::MenuItem(names[i], nullptr, panel_shown(names[i]))) panel_show(names[i]);
+    ImGui::EndMenu();
+}
+
+// Reset layout's last step, in the frame its countdown ends: the mode's panels uncollapsed (DockBuilderDockWindow has docked the floating ones)
+void uncollapse_panels(const App *a)
+{
+    const char *names[16];
+    const int n = mode_panels(a, names, 16);
+    for (int i = 0; i < n; ++i) ImGui::SetWindowCollapsed(names[i], false);
+}
+
+// the frame after Reset layout: in each dock node with tabs, the one a first run has in front (a panel that exists does not take the front by appearing,
+// as on a first run, so it is chosen here)
+void front_tabs(const App *a)
+{
+    const char *const track[] = { PANEL_LIMITS, PANEL_NODE }, *const car[] = { PANEL_PREVIEW, PANEL_REHACER }, *const masks[] = { PANEL_MODEL, PANEL_PREVIEW };
+    const char *const *names = a->kind == APP_KIND_TRACK ? track : a->car.masks_only ? masks : car;
+    if (a->kind == APP_KIND_NONE) return;
+    for (int i = 0; i < 2; ++i) ImGui::SetWindowFocus(names[i]);
+}
+
 // the File menu: a new track, an open track or car, the recent ones (tracks and cars together), Save, Quit; each asks the app (app_ask), which asks about unsaved
 // changes first
 void main_menu(App *a)
@@ -209,6 +310,7 @@ void main_menu(App *a)
         if (ImGui::MenuItem("Redo", redo_keys, false, app_can_redo(a) && !app_rehacer_busy(a))) app_redo(a);
         ImGui::EndMenu();
     }
+    window_menu(a);
     ImGui::EndMainMenuBar();
 }
 
@@ -334,12 +436,14 @@ void ui_frame(SDL_Renderer *ren, App *a)
     ImGui_ImplSDLRenderer3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
+    if (a->kind != APP_KIND_NONE && ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_L, ImGuiInputFlags_RouteGlobal)) ui_reset_layout();
+    const bool reset = g_reset_in > 0 && --g_reset_in == 0 && a->kind != APP_KIND_NONE;   // Reset layout's countdown ends: this frame rebuilds the dock
     main_menu(a);
     if (a->kind == APP_KIND_TRACK) {   // the track editor, as it was; its dock space keeps the layout of the first Studio
         const ImGuiID dock = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
-        if (!track_laid_out) {
+        if (!track_laid_out || reset) {
             track_laid_out = true;
-            if (!g_had_layout || dock_is_empty(dock)) default_layout(dock);
+            if (reset || !g_had_layout || dock_is_empty(dock)) default_layout(dock);
         }
         if (a->confirm == APP_ACT_NONE) shortcuts(a);   // the keys edit nothing while the question is up
         viewport_panel(a);
@@ -354,9 +458,9 @@ void ui_frame(SDL_Renderer *ren, App *a)
         const bool masks = a->car.masks_only;   // a masks project keeps a layout of its own: it shows fewer windows
         const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr(masks ? "StudioMasksDock" : "StudioCarDock"), ImGui::GetMainViewport());
         bool &laid_out = masks ? masks_laid_out : car_laid_out;
-        if (!laid_out) {
+        if (!laid_out || reset) {
             laid_out = true;
-            if (dock_is_empty(dock)) (masks ? masks_layout : car_layout)(dock);
+            if (reset || dock_is_empty(dock)) (masks ? masks_layout : car_layout)(dock);
         }
         if (a->confirm == APP_ACT_NONE) car_shortcuts(a);
         car_panel(a);
@@ -369,6 +473,13 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (!a->car.masks_only) rehacer_panel(a);   // a masks project has no script
     } else {
         start_screen(a);
+    }
+    if (reset) {
+        uncollapse_panels(a);
+        g_save_in = SAVE_AFTER_FRAMES;   // the panels dock in this frame's Begin: the file is written once they are in
+    } else if (g_save_in > 0) {
+        if (g_save_in == SAVE_AFTER_FRAMES) front_tabs(a);
+        if (--g_save_in == 0 && g_ini[0] != '\0') ImGui::SaveIniSettingsToDisk(g_ini);
     }
     export_popup(a);
     confirm_popup(a);

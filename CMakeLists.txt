@@ -990,6 +990,8 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_game_find COMMAND test_editor_game_find)
         add_test(NAME editor_headless COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless.sh $<TARGET_FILE:tnfs-track-editor>)
         set_tests_properties(editor_headless PROPERTIES TIMEOUT 300)
+        add_test(NAME editor_layout_reset COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_layout_reset.sh $<TARGET_FILE:tnfs-track-editor>)   # Window > Reset layout gives the first run's dock back
+        set_tests_properties(editor_layout_reset PROPERTIES TIMEOUT 120)
         add_test(NAME editor_game_lookup COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_game_lookup.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM)
         set_tests_properties(editor_game_lookup PROPERTIES TIMEOUT 300)
         add_test(NAME editor_bundle COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_bundle.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM)
