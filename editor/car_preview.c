@@ -1,17 +1,14 @@
 #include "car_preview.h"
 
-#include "formats/car_bank_walk.h"
-#include "game/race/car_mask.h"
-#include "game/race/car_paint.h"
-#include "game/sys/palette.h"
-#include "game/viewer/drive_livery.h"
+#include "formats/car_livery_pass.h"
+#include "formats/car_mask_codec.h"
+#include "formats/car_paint.h"
+#include "formats/png.h"
 
-#include <dirent.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 enum { PATH = 4096, SCREEN_FIRST = 0xfa, TRANSPARENT_INDEX = 0xff, OWN_INDEX = 0xfe };
 
@@ -51,52 +48,60 @@ static const char *leaf(const char *path)
     return slash != NULL ? slash + 1 : path;
 }
 
-/* the masks of the project (and the edit not yet saved) as the folder the game's override reads: <root>/<stem>/<tex>_mask.png */
-static int spill_masks(const PreviewIn *in, const char *dir)
+/* the editor's part of the pass (formats/car_livery_pass.h): a texture's mask is read from the project's folder, the unsaved edit in place of its file, else from the game's own masks
+ * folder when there is one (the race's lookup of an original car); scaled to the texture as the game scales a mask */
+typedef struct {
+    const PreviewIn *in;
+} MaskSource;
+
+static int name_ok(const char name[4])
 {
-    if (in->masks_dir != NULL) {
-        DIR *d = opendir(in->masks_dir);
-        struct dirent *de;
-        while (d != NULL && (de = readdir(d)) != NULL) {
-            const size_t n = strlen(de->d_name);
-            if (n < 10 || strcmp(de->d_name + n - 9, "_mask.png") != 0) continue;
-            char from[PATH], to[PATH];
-            snprintf(from, sizeof from, "%s/%s", in->masks_dir, de->d_name);
-            snprintf(to, sizeof to, "%s/%s", dir, de->d_name);
-            size_t len = 0;
-            uint8_t *b = read_file(from, &len);
-            if (b != NULL) write_file(to, b, len);
-            free(b);
-        }
-        if (d != NULL) closedir(d);
-    }
-    if (in->edit != NULL && in->edit->now != NULL) {
-        uint8_t *png = NULL;
-        size_t len = 0;
-        char to[PATH];
-        snprintf(to, sizeof to, "%s/%s", dir, leaf(in->edit->path));
-        if (!mask_edit_render(in->edit, &png, &len)) return 0;
-        const int ok = write_file(to, png, len);
-        free(png);
-        return ok;
-    }
+    for (int i = 0; i < 4; i++)
+        if (!isalnum((unsigned char)name[i])) return 0;
     return 1;
 }
 
-static void remove_spill(const char *root, const char *dir)
+static uint8_t *mask_of_png(const uint8_t *png, size_t len, int width, int height)
 {
-    DIR *d = opendir(dir);
-    struct dirent *de;
-    while (d != NULL && (de = readdir(d)) != NULL) {
-        const size_t n = strlen(de->d_name);
-        if (n < 10 || strcmp(de->d_name + n - 9, "_mask.png") != 0) continue;   /* only what this made */
-        char p[PATH];
-        snprintf(p, sizeof p, "%s/%s", dir, de->d_name);
-        remove(p);
+    uint32_t w = 0, h = 0;
+    if (png_size(png, len, &w, &h) != PNG_OK || w == 0 || h == 0 || w > 2048 || h > 2048) return NULL;
+    uint8_t *mask = malloc((size_t)width * (size_t)height);
+    if (mask != NULL && !car_mask_parse(png, len, width, height, mask)) {
+        free(mask);
+        return NULL;
     }
-    if (d != NULL) closedir(d);
-    rmdir(dir);
-    rmdir(root);
+    return mask;
+}
+
+static uint8_t *mask_in_folder(const char *dir, const char *file, int width, int height)
+{
+    if (dir == NULL) return NULL;
+    char path[PATH];
+    snprintf(path, sizeof path, "%s/%s", dir, file);
+    size_t len = 0;
+    uint8_t *png = read_file(path, &len);
+    uint8_t *mask = png != NULL ? mask_of_png(png, len, width, height) : NULL;
+    free(png);
+    return mask;
+}
+
+static uint8_t *load_mask(void *user, const char name[4], int level, int width, int height)
+{
+    const PreviewIn *in = ((const MaskSource *)user)->in;
+    if (!name_ok(name) || width <= 0 || height <= 0) return NULL;
+    char file[32];
+    snprintf(file, sizeof file, "%.4s%s_mask.png", name, level != 0 ? "_lo" : "");
+    if (in->edit != NULL && in->edit->now != NULL && strcmp(leaf(in->edit->path), file) == 0) {
+        uint8_t *png = NULL;
+        size_t len = 0;
+        if (mask_edit_render(in->edit, &png, &len)) {
+            uint8_t *mask = mask_of_png(png, len, width, height);
+            free(png);
+            return mask;
+        }
+    }
+    uint8_t *mask = mask_in_folder(in->masks_dir, file, width, height);
+    return mask != NULL ? mask : mask_in_folder(in->fallback_dir, file, width, height);
 }
 
 typedef struct {
@@ -104,7 +109,7 @@ typedef struct {
     int level_count[2];       /* textures seen by the hook in each bank, in the walk's order */
     int widths[2][CAR_BANK_MAX_TEXTURES], heights[2][CAR_BANK_MAX_TEXTURES];
     uint8_t seen[1 << 15];    /* the distinct body colours: a bitmap of 6 bits a channel */
-    const char *stem, *skin;  /* how the masks are looked up while the scratch folder is up: by stem through TNFS_CAR_MASKS, or in the skin's folder */
+    const MaskSource *source;
     int ok;
 } Collect;
 
@@ -131,6 +136,12 @@ static void special_texel(uint8_t index, int x, int y, uint8_t rgba[4])
     rgba[3] = 255;
 }
 
+/* the race's 6-bit to 8-bit palette (game/sys/palette.c palette_6_to_8) */
+static void six_to_eight(const uint8_t *six, uint8_t *rgb)
+{
+    for (int i = 0; i < 256 * 3; i++) rgb[i] = (uint8_t)((six[i] * 0xff + 0x20) / 0x3f);
+}
+
 static int on_bank(void *user, const RepaintBank *bank, const CarBankMeta *meta)
 {
     Collect *c = user;
@@ -140,9 +151,9 @@ static int on_bank(void *user, const RepaintBank *bank, const CarBankMeta *meta)
     if (bank->type == 0x24) {   /* an 8-bit palette: the race takes it to 6 bits a channel */
         uint8_t six[768];
         for (int i = 0; i < 768; i++) six[i] = (uint8_t)(pal[i] >> 2);
-        palette_6_to_8(256, six, rgb);
+        six_to_eight(six, rgb);
     } else {
-        palette_6_to_8(256, pal, rgb);
+        six_to_eight(pal, rgb);
     }
     for (int k = 0; k < bank->texture_count && k < CAR_BANK_MAX_TEXTURES; k++) {
         const RepaintTexture *t = &bank->textures[k];
@@ -154,7 +165,7 @@ static int on_bank(void *user, const RepaintBank *bank, const CarBankMeta *meta)
         pt->index = malloc((size_t)w * h);
         if (pt->rgba == NULL || pt->index == NULL) { free(pt->rgba); free(pt->index); pt->rgba = pt->index = NULL; c->ok = 0; continue; }
         memcpy(pt->index, t->pixels, (size_t)w * h);
-        pt->mask = c->skin != NULL ? car_mask_load_dir(c->skin, meta->name[k], meta->level, w, h) : car_mask_load(c->stem, meta->name[k], meta->level, w, h);   /* as the race read it, the unsaved edit in place of its file */
+        pt->mask = load_mask((void *)c->source, meta->name[k], meta->level, w, h);   /* as the race reads it, the unsaved edit in place of its file */
         memcpy(out->palette[meta->level], rgb, 768);
         pt->info.level = meta->level;
         int n = 0;
@@ -200,7 +211,7 @@ static void say_colours(CarPreview *p)
                  p->body_colours, own, shared, p->body_colours - own);
 }
 
-/* the painted file, and (`out` not NULL) the preview of it read while the scratch masks are still up */
+/* the painted file, and (`out` not NULL) the preview of it */
 static int paint_and_walk(const PreviewIn *in, uint8_t **out_cfm, size_t *out_len, CarPreview *out, int *blacked, int *painted, char *why, size_t why_cap)
 {
     size_t size = 0;
@@ -209,47 +220,30 @@ static int paint_and_walk(const PreviewIn *in, uint8_t **out_cfm, size_t *out_le
         snprintf(why, why_cap, "Cannot read the car file %s", in->cfm);
         return 0;
     }
-    const char *tmp = getenv("TMPDIR");
-    char root[PATH], dir[PATH];
-    snprintf(root, sizeof root, "%s/studio-preview-XXXXXX", tmp != NULL && tmp[0] != '\0' ? tmp : "/tmp");
-    if (mkdtemp(root) == NULL) {
-        free(cfm);
-        snprintf(why, why_cap, "Cannot make a scratch folder for the masks");
-        return 0;
-    }
-    snprintf(dir, sizeof dir, "%s/%s", root, in->stem);
-    if (mkdir(dir, 0700) != 0 || !spill_masks(in, dir)) {
-        remove_spill(root, dir);
-        free(cfm);
-        snprintf(why, why_cap, "Cannot prepare the masks for the preview");
-        return 0;
-    }
-    char *old = getenv("TNFS_CAR_MASKS") != NULL ? strdup(getenv("TNFS_CAR_MASKS")) : NULL;
-    setenv("TNFS_CAR_MASKS", root, 1);
+    char upper[32];
+    size_t u = 0;
+    for (; in->stem[u] != '\0' && u < sizeof upper - 1; u++) upper[u] = (char)toupper((unsigned char)in->stem[u]);
+    upper[u] = '\0';
+    const MaskSource source = { in };
+    const CarLiveryPass pass = { upper, in->added, 0, load_mask, (void *)&source };
     const CarPaint *black = car_paint_black_of(in->stem);
     const uint8_t added_black[3] = CAR_PAINT_ADDED_BLACK;
-    const char *const skin = in->added ? dir : NULL;   /* an added car's masks are a skin's folder: read from it alone */
     int nb = 0, np = 0, walked = 1;
-    if (black != NULL || in->added) nb = drive_livery_black(in->stem, skin, cfm, size, black != NULL ? black->rgb : added_black);   /* as the race does, before any paint */
-    if (in->paint != NULL) np = in->added ? drive_livery_paint_masks(in->stem, skin, cfm, size, in->paint) : drive_livery_paint(in->stem, cfm, size, in->paint);
+    if (black != NULL || in->added) nb = car_livery_black(cfm, size, &pass, black != NULL ? black->rgb : added_black);   /* as the race does, before any paint */
+    if (in->paint != NULL) np = car_livery_paint(cfm, size, &pass, in->paint);
     if (out != NULL) {
         Collect *c = calloc(1, sizeof *c);
         walked = c != NULL;
         if (walked) {
             c->out = out;
             c->ok = 1;
-            c->stem = in->stem;
-            c->skin = skin;
+            c->source = &source;
             const CarBankHooks hooks = { on_texture, on_bank };
             car_bank_walk(cfm, size, &hooks, c);
             walked = c->ok;
         }
         free(c);
     }
-    if (old != NULL) setenv("TNFS_CAR_MASKS", old, 1);
-    else unsetenv("TNFS_CAR_MASKS");
-    free(old);
-    remove_spill(root, dir);
     if (blacked != NULL) *blacked = nb;
     if (painted != NULL) *painted = np;
     if (!walked) {

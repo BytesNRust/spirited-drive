@@ -115,6 +115,7 @@ add_library(tnfs_core STATIC
     core/formats/car_paint.c
     core/formats/car_repaint.c
     core/formats/car_bank_walk.c
+    core/formats/car_livery_pass.c
     core/formats/track_frame.c
     core/formats/track_template.c
     core/formats/tri_reverse.c
@@ -631,7 +632,7 @@ target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 if(NOT MSVC)
     target_compile_options(tnfs_game PRIVATE -fwrapv)
     # fixed_math moved to core and keeps the same wraparound arithmetic (a negative remainder << 16 in fx_div)
-    set_source_files_properties(core/formats/fixed_math.c core/formats/shape_bank.c core/formats/car_mask_codec.c core/formats/car_paint.c core/formats/car_repaint.c core/formats/car_bank_walk.c PROPERTIES COMPILE_OPTIONS -fwrapv)
+    set_source_files_properties(core/formats/fixed_math.c core/formats/shape_bank.c core/formats/car_mask_codec.c core/formats/car_paint.c core/formats/car_repaint.c core/formats/car_bank_walk.c core/formats/car_livery_pass.c PROPERTIES COMPILE_OPTIONS -fwrapv)
 endif()
 
 set(TNFS_SDL3_PLATFORM
@@ -844,9 +845,9 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     else()
         target_compile_options(imgui PRIVATE -w)
     endif()
-    add_executable(tnfs-track-editor game/sys/sha256.c editor/game_find.c editor/main.c editor/app.c editor/app_mask.c editor/mask_edit.c editor/mask_tex.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp editor/car_panels.cpp editor/car_preview.c editor/platform_files.c game/viewer/drive_livery.c editor/mask_panel.cpp editor/preview_panel.cpp)
+    add_executable(tnfs-track-editor game/sys/sha256.c editor/game_find.c editor/main.c editor/app.c editor/app_mask.c editor/mask_edit.c editor/mask_tex.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp editor/car_panels.cpp editor/car_preview.c editor/mask_panel.cpp editor/preview_panel.cpp)
     target_include_directories(tnfs-track-editor PRIVATE ${CMAKE_SOURCE_DIR})   # project.c's game/sys/sha256.h
-    target_link_libraries(tnfs-track-editor PRIVATE tnfs_game tnfs_core SDL3::SDL3 imgui)
+    target_link_libraries(tnfs-track-editor PRIVATE tnfs_core SDL3::SDL3 imgui)
     # the generic art a new project copies (editor/art/README.md): beside the program in a build tree, in Contents/Resources in the app (tools/package_macos.sh)
     add_custom_command(TARGET tnfs-track-editor POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM $<TARGET_FILE_DIR:tnfs-track-editor>/GENERIC.FAM)
     add_executable(test_editor_install tests/test_editor_install.c editor/build.c)   # the editor's install, without its window
@@ -883,9 +884,9 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_mask_edit PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_mask_edit PRIVATE tnfs_core)
     target_compile_options(test_editor_mask_edit PRIVATE ${TNFS_WARNINGS})
-    add_executable(test_editor_car_preview tests/test_editor_car_preview.c editor/car_preview.c editor/mask_edit.c editor/mask_tex.c editor/platform_files.c game/viewer/drive_livery.c)   # the painted preview equals the game's own paint calls
+    add_executable(test_editor_car_preview tests/test_editor_car_preview.c editor/car_preview.c editor/mask_edit.c editor/mask_tex.c)   # the painted preview equals the game's own paint calls
     target_include_directories(test_editor_car_preview PRIVATE editor tests ${CMAKE_SOURCE_DIR})
-    target_link_libraries(test_editor_car_preview PRIVATE tnfs_game tnfs_core)
+    target_link_libraries(test_editor_car_preview PRIVATE tnfs_core)
     target_compile_options(test_editor_car_preview PRIVATE ${TNFS_WARNINGS})
     add_executable(test_editor_car_rehacer tests/test_editor_car_rehacer.c editor/car_rehacer.c editor/proc_run.c)   # Rehacer: the backup of a kit, its script run, its output
     target_include_directories(test_editor_car_rehacer PRIVATE editor tests ${CMAKE_SOURCE_DIR})
@@ -895,6 +896,19 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_session PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_session PRIVATE tnfs_core)
     target_compile_options(test_editor_session PRIVATE ${TNFS_WARNINGS})
+    # the tools share ONLY the core with the game (the owner's rule): the Studio and its tests never link the game's library or compile its files
+    foreach(studio_target tnfs-track-editor test_editor_car_preview test_editor_car_export test_editor_car_race test_editor_car_rehacer test_editor_session test_editor_mask_edit)
+        get_target_property(studio_libs ${studio_target} LINK_LIBRARIES)
+        get_target_property(studio_sources ${studio_target} SOURCES)
+        if(studio_libs MATCHES "tnfs_game")
+            message(FATAL_ERROR "${studio_target} links tnfs_game: the Studio shares only the core with the game")
+        endif()
+        foreach(studio_source ${studio_sources})
+            if(studio_source MATCHES "^game/(viewer|race|sys|gfx|platform|frontend)/" AND NOT studio_source STREQUAL "game/sys/sha256.c")   # (sha256.c: a self-contained hash the editor has always shared)
+                message(FATAL_ERROR "${studio_target} compiles ${studio_source}: the Studio shares only the core with the game")
+            endif()
+        endforeach()
+    endforeach()
     target_compile_options(tnfs-track-editor PRIVATE ${TNFS_WARNINGS})
     if(NOT MSVC)
         target_compile_options(tnfs-track-editor PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions -fno-rtti>)

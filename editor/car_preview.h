@@ -1,6 +1,5 @@
 /* The painted preview of a car's textures (dep59 car editor E1): each texture of the car file as the race has it after the car's masks and paint went through it: the
- * fixed black, then the catalogue paint, by the game's own code (game/viewer/drive_livery.h) on a copy of the car file, with the project's masks in front of the game's
- * (TNFS_CAR_MASKS, as Test in race does). The bank's palette is taken to 6 bits a channel as the race loads it. The track's light and the screen palette's nearest-colour
+ * fixed black, then the catalogue paint, by the game's own code (formats/car_livery_pass.h, the pass the game's livery code runs) on a copy of the car file, with the project's masks in front of the game's. The bank's palette is taken to 6 bits a channel as the race loads it. The track's light and the screen palette's nearest-colour
  * snapping are not applied: the preview counts the body's distinct colours and says how many the car's entries in the race palette cannot hold. Pure C, no window. */
 #ifndef TNFS_TRACK_EDITOR_CAR_PREVIEW_H
 #define TNFS_TRACK_EDITOR_CAR_PREVIEW_H
@@ -39,7 +38,8 @@ typedef struct {
 typedef struct {
     const char *cfm;        /* the car's file */
     const char *stem;       /* the stem the game looks the car's masks and black up by ("P911", "Wagon": the masks folder's name) */
-    const char *masks_dir;  /* the project's car_masks/<folder>/, NULL for none (the game's own masks are used) */
+    const char *masks_dir;  /* the project's car_masks/<folder>/, NULL for none */
+    const char *fallback_dir;   /* the game's own masks of the car (data/car_masks/<folder>/), read for a texture the project has none for: the race's lookup of an original car; NULL for none (an added car has none) */
     const MaskEdit *edit;   /* the mask being edited, with changes not saved: it is used in place of its file; NULL for none */
     const uint8_t *paint;   /* the paint's RGB (8 bits), NULL for the car as it is */
     int added;              /* a car of the player's own (not one of the game's): its masks are read as a skin's folder, its black is the catalogue's usual one (the race's added-car path) */
@@ -47,10 +47,10 @@ typedef struct {
 
 /* The car file as the race has it after the game's own fixed black and paint: a malloc'd copy of the CFM (free() it), the same layout as the file, high and low banks painted,
  * the '!PAL' of each bank recoloured in place (its own type, 0x24 8 bits or 0x22 6 bits: not taken to 6 bits). `blacked` and `painted` (each may be NULL) get the texels changed.
- * 1, or 0 with `why`. The process's TNFS_CAR_MASKS is set during the call and put back. */
+ * 1, or 0 with `why`.  */
 int car_preview_painted_cfm(const PreviewIn *in, uint8_t **cfm, size_t *len, int *blacked, int *painted, char *why, size_t why_cap);
 
-/* Makes the preview. 1, or 0 with `why`. The process's TNFS_CAR_MASKS is set during the call and put back. */
+/* Makes the preview. 1, or 0 with `why`.  */
 int car_preview_make(const PreviewIn *in, CarPreview *out, char *why, size_t why_cap);
 void car_preview_free(CarPreview *p);
 

@@ -56,6 +56,9 @@ void make(App *a, SDL_Renderer *ren, int paint)
     in.cfm = a->car.cfm;
     in.stem = oc != nullptr ? oc->folder : a->car.folder;
     in.masks_dir = a->car.has_masks_dir ? masks : nullptr;
+    char fallback[APP_PATH];   // the game's own masks of an original car, for a texture the project has none for
+    snprintf(fallback, sizeof fallback, "%s/car_masks/%s", a->export_src.data, oc != nullptr ? oc->folder : "");
+    in.fallback_dir = oc != nullptr && a->export_src.data[0] != '\0' ? fallback : nullptr;
     in.edit = a->mask.sel >= 0 && app_mask_modified(a) ? &a->mask.me : nullptr;
     in.paint = paint >= 0 && paint < paint_count(a) ? a->edit.now.paints[paint].rgb : nullptr;
     in.added = oc == nullptr;
