@@ -1,15 +1,16 @@
 # The generic straight's art (tnfs-studio fam build generic_stage.txt --out X.FAM; run in this folder after make_road.py).
 # The terrain banks are the slots of core/formats/track_template.h: 0 road with its lines (slot 0), 1 gravel (the shoulder, 3), 2 rock
-# (the verge, 6), 3 grass (9), 4 the tarmac shoulder (12: the road's asphalt without its lines); each is used through its letter A alone. Banks 5..9
-# are fillers: the fence's texture is the slot 32 + n
+# (the verge, 6), 3 grass (9), 4 the tarmac shoulder (12: the road's asphalt without its lines), 5 and 6 the lanes of a 1+2 or 2+1 stretch (15: a
+# dashed line inside and the edge line outside, 18: a dashed line inside and the yellow centre line outside; make_lanes.py); each is used through
+# its letter A alone. Banks 7..9 are fillers: the fence's texture is the slot 32 + n
 # (n is the fence byte's low bits, 0 here), which is bank 10's letter C, so bank 10 is the planks, with that letter alone.
 terrain 0 letters=A road_lines.png
 terrain 1 letters=A ../_generic-cc0/png/Gravel001.png
 terrain 2 letters=A ../_generic-cc0/png/Rock035.png
 terrain 3 letters=A ../_generic-cc0/png/Grass005.png
 terrain 4 letters=A ../_generic-cc0/png/Asphalt010.png
-terrain 5 letters=A ../_generic-cc0/png/road_white.png
-terrain 6 letters=A ../_generic-cc0/png/road_white.png
+terrain 5 letters=A lane_dash_edge.png
+terrain 6 letters=A lane_dash_yellow.png
 terrain 7 letters=A ../_generic-cc0/png/road_white.png
 terrain 8 letters=A ../_generic-cc0/png/road_white.png
 terrain 9 letters=A ../_generic-cc0/png/road_white.png
