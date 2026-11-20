@@ -1,6 +1,6 @@
-#include "game/race/car_repaint.h"
-#include "game/race/car_mask.h"
-#include "game/race/car_paint.h"
+#include "formats/car_repaint.h"
+#include "formats/car_mask_codec.h"
+#include "formats/car_paint.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -689,7 +689,8 @@ int car_repaint_body_class(const char name[4], int level)
 {
     /* (the 512 TR has no topv: its top is J000 and J001) */
     static const char *const MAIN[] = { "topv", "rsid", "bott", "wing", "J000", "J001" }, *const END[] = { "frnt", "rear" };
-    /* the low detail bank's side and back: the sides and the rear, as the high bank's rsid and rear are (no high texture has these names) */
+    /* the low detail bank's side and back: the sides and the rear, as the high bank's rsid and rear are. The catalogue cars' high banks have no texture of these names, but the
+     * traffic cars' have (a side, some a back): those are body textures only where a mask names them, which drive_livery.c's repaint_cfm decides (a mask was loaded) */
     static const char *const LOW_MAIN[] = { "side" }, *const LOW_END[] = { "back" };
     if (named(name, MAIN, sizeof MAIN / sizeof *MAIN)) return REPAINT_MAIN;
     if (level != 0 && named(name, LOW_MAIN, sizeof LOW_MAIN / sizeof *LOW_MAIN)) return REPAINT_MAIN;

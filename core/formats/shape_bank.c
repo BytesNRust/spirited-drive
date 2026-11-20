@@ -1,7 +1,7 @@
 /* Shape banks (shape_bank.h). */
-#include "game/sys/shape_bank.h"
+#include "formats/shape_bank.h"
 
-#include "core/formats/fsh.h"
+#include "formats/fsh.h"
 
 #include <stddef.h>
 #include <string.h>

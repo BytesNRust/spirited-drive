@@ -7,16 +7,12 @@
 #ifndef TNFS_CAR_LIVERY_H
 #define TNFS_CAR_LIVERY_H
 
+#include "formats/car_livery_pair.h"
 #include "formats/psx_bigf.h"
 
 #include <stdint.h>
 
 enum { CAR_LIVERY_PAIRS = 1024 };   /* the most body colours a map takes; a car with more gets no alternate */
-
-/* one body colour: `from` is the normal livery's colour, `to` the alternate's, both BGR555 (5 bits a channel) */
-typedef struct {
-    uint16_t from, to;
-} CarLiveryPair;
 
 /* The map from the normal livery's colour counts (`normal`) to the alternate's (`alternate`), both PSX_COLOURS long.
  * Only the colours one livery has and the other lacks are mapped, plus the `forced` colours (BGR555): the body colours

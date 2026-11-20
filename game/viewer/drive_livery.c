@@ -1,5 +1,6 @@
 #include "game/viewer/drive_livery.h"
 
+#include "formats/car_bank_walk.h"
 #include "formats/chunk.h"
 #include "formats/fsh.h"
 #include "formats/psx_bigf.h"
@@ -19,7 +20,7 @@
 
 enum { LIVERY_PATH = 512, LIVERY_STEM = 16, SHAPE_DATA = 0x10, LEVELS = 2 };
 
-static const uint8_t PAL_NAME[4] = { '!', 'P', 'A', 'L' }, OWN_NAME[4] = { '!', 'x', 'x', 'x' };
+static const uint8_t PAL_NAME[4] = { '!', 'P', 'A', 'L' };
 
 /* The PC palette entries (indices into the car's '!PAL') that are body colour the console version textures do not show as body:
  * the colours both liveries paint, which the count alone leaves unmapped. Found from the PC car's textures: the entries
@@ -146,7 +147,7 @@ static void keep_plate(RepaintTexture *tex, const char *upper, const char name[4
         }
 }
 
-enum { MAX_TEXTURES = 32 };
+enum { MAX_TEXTURES = CAR_BANK_MAX_TEXTURES };
 
 /* The lightness (8 bits) under which a neutral colour is glass or shadow, not paint: a grey body (the NSX's ramp) needs it high, the
  * Diablo's black one low, a coloured body only for its greys. By the car's stem (upper case). */
@@ -157,11 +158,7 @@ static int glass_floor(const char *upper)
     return 40;
 }
 
-/* what the callback needs to know of the bank beside the texture list: its detail level and the textures' names, in the list's order */
-typedef struct {
-    int level;
-    char name[MAX_TEXTURES][4];
-} BankMeta;
+typedef CarBankMeta BankMeta;   /* what the callback knows of the bank beside the texture list: its detail level and the textures' names */
 
 typedef int (*RepaintFn)(const RepaintBank *bank, const BankMeta *meta, void *ctx);
 static int run_lamps(const RepaintBank *bank, const BankMeta *meta, void *ctx);
@@ -175,6 +172,35 @@ static int mask_paints(const uint8_t *mask, size_t count)
     return 0;
 }
 
+typedef struct {
+    const char *stem, *mask_dir, *upper;
+    RepaintFn fn;
+    void *ctx;
+} WalkJob;
+
+/* the game's part of the walk (formats/car_bank_walk.h): the number plates, and the texture's mask */
+static void texture_hook(void *user, int level, const char name[4], int width, int height, RepaintTexture *tex)
+{
+    const WalkJob *job = user;
+    const char *mask_dir = job->mask_dir;
+    const size_t pixels = tex->count;
+    keep_plate(tex, job->upper, name, width);
+    const int high_side = level == 0 && memcmp(name, "side", 4) == 0, high_back = level == 0 && memcmp(name, "back", 4) == 0;
+    if (tex->body != REPAINT_NONE || job->fn == run_lamps || mask_dir != NULL || high_side || high_back)
+        tex->mask = mask_dir != NULL ? car_mask_load_dir(mask_dir, name, level, width, height)
+                                     : car_mask_load(job->stem, name, level, width, height);
+    if (tex->body == REPAINT_NONE && mask_dir != NULL && mask_paints(tex->mask, pixels))
+        tex->body = REPAINT_MAIN;   /* an added car's own texture (car texture add) is the body where its own mask paints */
+    if (tex->body == REPAINT_NONE && tex->mask != NULL)   /* a traffic car's high bank has a side (some a back) the catalogue cars have not (car_repaint_body_class leaves them out): a mask makes it a body texture */
+        tex->body = high_side ? REPAINT_MAIN : high_back ? REPAINT_END : REPAINT_NONE;
+}
+
+static int bank_hook(void *user, const RepaintBank *bank, const CarBankMeta *meta)
+{
+    const WalkJob *job = user;
+    return job->fn(bank, meta, job->ctx);
+}
+
 /* Runs `fn` on each of the CFM's two banks (high and low detail) with its textures and palettes, as the loader will read them. A body
  * texture (any texture, for the lamps' walk) that has a hand-made mask (car_mask.h, by the car's `stem` and the texture's name; from
  * `mask_dir` alone when it is not NULL, an added car's skin's) is given it. With `mask_dir` (an added car) any texture is given its
@@ -182,43 +208,9 @@ static int mask_paints(const uint8_t *mask, size_t count)
  * masks (no `mask_dir`) keep their names' classes, so the Jetta's BTM1 mask, for instance, paints nothing. */
 static int repaint_cfm(uint8_t *cfm, size_t size, const char *stem, const char *mask_dir, const char *upper, RepaintFn fn, void *ctx)
 {
-    Chunk file;
-    int changed = 0;
-    if (chunk_open(&file, cfm, size) != CHUNK_OK) return 0;
-    for (uint32_t level = 0; level < LEVELS; level++) {
-        Chunk shpi;
-        Fsh bank;
-        if (chunk_child(&file, 2 * level + 1, &shpi) != CHUNK_OK || shpi.kind != CHUNK_KIND_BITMAP) continue;
-        if (fsh_open(&bank, shpi.data, shpi.size) != FSH_OK || !shape_bank_valid(shpi.data, shpi.size)) continue;
-        uint8_t *data = (uint8_t *)(uintptr_t)bank.data;
-        uint8_t *pal = shape_bank_find(data, PAL_NAME), *own = shape_bank_find(data, OWN_NAME);
-        if (pal == NULL) continue;
-        RepaintTexture textures[MAX_TEXTURES];
-        BankMeta meta = { (int)level, { { 0 } } };
-        int count = 0;
-        for (uint32_t i = 0; i < bank.count && count < MAX_TEXTURES; i++) {
-            FshEntry e;
-            if (fsh_entry(&bank, i, &e) != FSH_OK || e.type != FSH_TYPE_BITMAP || e.name[0] == '!') continue;
-            size_t pixels = (size_t)e.width * e.height;
-            if (pixels > e.payload_size) pixels = e.payload_size;
-            RepaintTexture tex = { (uint8_t *)(uintptr_t)e.payload, pixels, car_repaint_body_class(e.name, (int)level), 0, { 0 }, NULL };
-            tex.width = (int)e.width;
-            keep_plate(&tex, upper, e.name, (int)e.width);
-            if (tex.body != REPAINT_NONE || fn == run_lamps || mask_dir != NULL)
-                tex.mask = mask_dir != NULL ? car_mask_load_dir(mask_dir, e.name, (int)level, (int)e.width, (int)e.height)
-                                            : car_mask_load(stem, e.name, (int)level, (int)e.width, (int)e.height);
-            if (tex.body == REPAINT_NONE && mask_dir != NULL && mask_paints(tex.mask, pixels))
-                tex.body = REPAINT_MAIN;   /* an added car's own texture (car texture add) is the body where its own mask paints */
-            memcpy(meta.name[count], e.name, 4);
-            textures[count++] = tex;
-        }
-        const RepaintBank rb = { textures, count, { pal + SHAPE_DATA, own != NULL ? own + SHAPE_DATA : NULL }, 2, pal[0],
-                                 own != NULL ? own[0] : 0 };
-        const int n = fn(&rb, &meta, ctx);
-        if (n > 0) changed += n;
-        for (int k = 0; k < count; k++) free((void *)(uintptr_t)textures[k].mask);
-    }
-    return changed;
+    const WalkJob job = { stem, mask_dir, upper, fn, ctx };
+    const CarBankHooks hooks = { texture_hook, bank_hook };
+    return car_bank_walk(cfm, size, &hooks, (void *)&job);
 }
 
 typedef struct {

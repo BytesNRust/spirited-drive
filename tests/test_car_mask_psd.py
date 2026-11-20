@@ -19,7 +19,7 @@ except ImportError as error:
     print("test_car_mask_psd: skipped (%s)" % error)
     sys.exit(0)
 
-header = open(os.path.join(here, "..", "game", "race", "car_mask.h")).read()
+header = open(os.path.join(here, "..", "core", "formats", "car_mask_codec.h")).read()
 classes = dict((name, int(value)) for name, value in re.findall(r"CAR_MASK_(BRAKE|POSITION|HEADLIGHT|REVERSE) = (\d+)", header))
 failures = 0
 

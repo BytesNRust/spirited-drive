@@ -110,6 +110,11 @@ add_library(tnfs_core STATIC
     core/formats/track_gen.c
     core/formats/track_trace.c
     core/formats/fixed_math.c
+    core/formats/shape_bank.c
+    core/formats/car_mask_codec.c
+    core/formats/car_paint.c
+    core/formats/car_repaint.c
+    core/formats/car_bank_walk.c
     core/formats/track_frame.c
     core/formats/track_template.c
     core/formats/tri_reverse.c
@@ -404,8 +409,6 @@ add_library(tnfs_game STATIC
     game/race/car_model.c
     game/race/car_livery.c
     game/race/car_variant.c
-    game/race/car_paint.c
-    game/race/car_repaint.c
     game/race/car_mask.c
     game/race/track_mask.c
     game/race/dash_mask.c
@@ -592,7 +595,6 @@ add_library(tnfs_game STATIC
     game/sys/race_records.c
     game/sys/control_map.c
     game/sys/pointer_state.c
-    game/sys/shape_bank.c
     game/viewer/screen_layout.c
     game/viewer/dash_box.c
     game/viewer/drive_livery.c
@@ -629,7 +631,7 @@ target_compile_options(tnfs_game PRIVATE ${TNFS_WARNINGS})
 if(NOT MSVC)
     target_compile_options(tnfs_game PRIVATE -fwrapv)
     # fixed_math moved to core and keeps the same wraparound arithmetic (a negative remainder << 16 in fx_div)
-    set_source_files_properties(core/formats/fixed_math.c PROPERTIES COMPILE_OPTIONS -fwrapv)
+    set_source_files_properties(core/formats/fixed_math.c core/formats/shape_bank.c core/formats/car_mask_codec.c core/formats/car_paint.c core/formats/car_repaint.c core/formats/car_bank_walk.c PROPERTIES COMPILE_OPTIONS -fwrapv)
 endif()
 
 set(TNFS_SDL3_PLATFORM
@@ -1624,6 +1626,14 @@ if(NOT EMSCRIPTEN)
     endif()
     target_compile_options(test_drive_skin PRIVATE ${TNFS_WARNINGS})
     add_test(NAME drive_skin COMMAND test_drive_skin)
+    # port (dep59 car editor, 1a): the paint code's output pinned on a synthetic car file and masks (no game data: runs in CI)
+    add_executable(test_paint_golden tests/test_paint_golden.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
+    target_link_libraries(test_paint_golden PRIVATE tnfs_game SDL3::SDL3)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(test_paint_golden PRIVATE m)
+    endif()
+    target_compile_options(test_paint_golden PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME paint_golden COMMAND test_paint_golden)
     add_executable(test_platform_cfg_cache tests/test_platform_cfg_cache.c ${TNFS_SDL3_PLATFORM} game/platform/sdl3/pad_keys.c game/platform/sdl3/input_script.c)
     target_link_libraries(test_platform_cfg_cache PRIVATE tnfs_game SDL3::SDL3)
     if(UNIX AND NOT APPLE)
