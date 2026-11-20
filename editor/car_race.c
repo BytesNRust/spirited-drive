@@ -458,7 +458,7 @@ static void photo_done(RaceJob *j)
     char why[200];
     unsigned frame = 0;
     if (j->run.exit_code != 0) { finish(j, 0, "The game ended with exit code %d: no photo. Its output is in the log.", j->run.exit_code); return; }
-    const int follow = j->setup.slot > 0 ? follow_line(j->run.log, &frame) : -1;
+    const int follow = j->setup.slot > 0 && j->setup.car->kind == EXPORT_TRAFFIC ? follow_line(j->run.log, &frame) : -1;   /* the wait is asked for a traffic car only */
     if (follow == 0) { next_draw(j, "the car stayed parked off the road (it waits there until the player comes near)"); return; }
     if (!car_race_read_ppm(j->own[4], &rgba, &w, &h, why, sizeof why)) { finish(j, 0, "No photo: %s.", why); return; }
     free(j->photo);
@@ -499,11 +499,11 @@ static void next_draw(RaceJob *j, const char *why_not)
 {
     char why[300];
     job_say(j, "Traffic draw %u: %s.\n", (unsigned)j->setup.seed, why_not);
-    if (j->setup.slot > 0) j->parked = 1;
-    if (++j->probes > RACE_SEEDS) {
+    if (j->setup.slot > 0) j->parked++;
+    if (++j->probes > RACE_SEEDS || j->parked >= RACE_PARKED_DRAWS) {
         if (j->parked)
-            finish(j, 0, "No photo: in every draw of the traffic that had it, the %s stayed parked off the road until the frame. Test in race (the window) may still show it.",
-                   j->setup.car->label);
+            finish(j, 0, "No photo: in the %d draws of the traffic that had it, the %s stayed parked off the road until the frame. Test in race (the window) may still show it.",
+                   j->parked, j->setup.car->label);
         else
             finish(j, 0, "No photo: the %s was in none of %d draws of the traffic, so there is no tick where it is on screen. Test in race (the window) may still show it.",
                    j->setup.car->label, j->probes);

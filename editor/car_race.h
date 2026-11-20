@@ -24,6 +24,7 @@ enum {
     RACE_TICKS_POLICE = 250,  /* the police car, put behind the player chasing (RACE_POLICE_NEAR nodes), so the camera on it has it at any tick */
     RACE_POLICE_NEAR = 15,
     RACE_SEEDS = 24,          /* the seeds tried to find a traffic car in the draw (and on the road at the frame) */
+    RACE_PARKED_DRAWS = 4,    /* draws tried where the traffic car stayed parked before the photo gives up (each such run is up to 4800 ticks long) */
     RACE_FOLLOW_SETTLE = 64,  /* a traffic car's photo waits until the car has been on the road this many ticks (TNFS_FOLLOW_SETTLE: it is parked off the road before) */
     RACE_SEED_FIRST = 0x2b68, /* the game's own fixed seed is 0x2b67; the seeds above it draw other models, the small ones draw one model for every slot */
     RACE_SLOTS = 9,
@@ -116,7 +117,7 @@ typedef struct {
     char *log;                       /* what the finished runs wrote (and the job's own lines), RACE_LOG_MAX at most; the run's own is run.log */
     size_t log_len;
     int probes;                      /* seeds tried */
-    int parked;                      /* a draw had the car, but it stayed parked off the road until the frame */
+    int parked;                      /* draws that had the car, but where it stayed parked off the road until the frame */
     int finished;                    /* the job ended (ok or not): `summary` says how */
     int ok;
     char summary[400];

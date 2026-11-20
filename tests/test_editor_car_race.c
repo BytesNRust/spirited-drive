@@ -291,6 +291,7 @@ static void make_fake_game(char *path, size_t cap)
         "esac\n"
         "case \"$FAKE_MODE\" in\n"
         "  old) ;;\n"
+        "  police) printf 'race car: slot 0 is TSupra\\nrace car: slot 2 is COPMUST\\n' > \"$user/spirited-drive.log\";;\n"
         "  never) printf 'race car: slot 0 is TSupra\\nrace car: slot 3 is BMW\\n' > \"$user/spirited-drive.log\";;\n"
         "  later) if [ \"$TNFS_DRIVE_SEED\" = 11113 ]; then printf 'race car: slot 0 is TSupra\\nrace car: slot 5 is Wagon\\n' > \"$user/spirited-drive.log\";\n"
         "         else printf 'race car: slot 0 is TSupra\\nrace car: slot 3 is BMW\\n' > \"$user/spirited-drive.log\"; fi;;\n"
@@ -373,11 +374,17 @@ static void test_job(void)
     CHECK(car_race_start_photo(&job, game, "/cd", project, wagon, "CL1", 0, why, sizeof why));
     run_job(&job);
     CHECK(job.finished && !job.ok && strstr(job.summary, "parked off the road") != NULL && job.photo == NULL && job.photo_serial == before && !temps_left());
+    CHECK(job.parked == RACE_PARKED_DRAWS && job.probes == RACE_PARKED_DRAWS);   /* a few parked draws are enough: each one is a long run */
+    /* the police car is never parked: a line that says so is not a reason to try another draw (the old summary) */
+    setenv("FAKE_MODE", "police", 1);
+    CHECK(car_race_start_photo(&job, game, "/cd", project, cop, "AL1", 0, why, sizeof why));
+    run_job(&job);
+    CHECK(job.ok && job.probes == 0 && job.parked == 0 && strstr(job.summary, "cannot see") != NULL);
     /* parked in the draws that have it, absent from the others (the last one tried among them): still said as parked */
     setenv("FAKE_MODE", "later", 1);
     CHECK(car_race_start_photo(&job, game, "/cd", project, wagon, "CL1", 0, why, sizeof why));
     run_job(&job);
-    CHECK(job.finished && !job.ok && strstr(job.summary, "parked off the road") != NULL && job.probes == RACE_SEEDS + 1);
+    CHECK(job.finished && !job.ok && strstr(job.summary, "parked off the road") != NULL && job.probes == RACE_SEEDS + 1 && job.parked == 1);
     unsetenv("FAKE_FOLLOW");
     /* a game that does not say who is in which slot (an older one) */
     setenv("FAKE_MODE", "old", 1);

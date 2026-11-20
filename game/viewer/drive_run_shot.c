@@ -43,17 +43,16 @@ enum {
 static uint32_t follow_settle(void)
 {
     const char *v = getenv("TNFS_FOLLOW_SETTLE");
-    return v != NULL && atoi(v) > 0 ? (uint32_t)atoi(v) : 0;
+    const unsigned long n = v != NULL ? strtoul(v, NULL, 10) : 0;
+    return n > FOLLOW_WAIT_MAX ? FOLLOW_WAIT_MAX : (uint32_t)n;
 }
 
-/* the followed car's line: on the road or parked at the frame, and with the wait since when */
-static void follow_say(const Car *followed, uint32_t settle, uint32_t on_from, uint32_t frame)
+/* the wait's line (TNFS_FOLLOW_SETTLE only: a run without it prints what it always did): the followed car on the road since when, or parked at the frame */
+static void follow_say(const Car *followed, uint32_t on_from, uint32_t frame)
 {
     if (followed->physics == PHYSICS_PARKED)
-        printf("follow: slot %d is parked off the road at the frame (tick %u)%s\n", (int)followed->index, frame,
-               settle > 0 ? ": it did not come out on the road in the wait" : "");
-    else if (settle > 0) printf("follow: slot %d on the road from tick %u, the frame at tick %u\n", (int)followed->index, on_from, frame);
-    else printf("follow: slot %d on the road at the frame (tick %u)\n", (int)followed->index, frame);
+        printf("follow: slot %d is parked off the road at the frame (tick %u): it did not come out on the road in the wait\n", (int)followed->index, frame);
+    else printf("follow: slot %d on the road from tick %u, the frame at tick %u\n", (int)followed->index, on_from, frame);
 }
 
 /* The screenshots' input on step i of `ticks`: full throttle, a tap of
@@ -194,7 +193,8 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
     const int following = followed != drive_sim.race.cars[0];
     const uint32_t settle = following ? follow_settle() : 0, last = ticks + FOLLOW_WAIT_MAX;
     uint32_t on_from = 0;   /* the steps done when the followed car last came out on the road; 0 while it is parked */
-    for (uint32_t i = 0; i < ticks; i++) {
+    uint32_t end = ticks;   /* the frame's step: `ticks`, later when the wait asks (the input scripts keep counting from `ticks`, the frames' window from `end`) */
+    for (uint32_t i = 0; i < end; i++) {
         drive_replay_key(&drive_replay, env_press((int32_t)i));
         if (view_at >= 0 && (int32_t)i == view_at) race_chase_follow(&drive_sim.race, &drive_sim.race.chase, followed, view_to % CHASE_KINDS);
         if (look_from >= 0) {
@@ -214,16 +214,16 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
         if (following) {
             if (followed->physics == PHYSICS_PARKED) on_from = 0;
             else if (on_from == 0) on_from = i + 1;
-            if (settle > 0 && i + 1 == ticks && ticks < last && (on_from == 0 || ticks - on_from < settle)) ticks++;   /* the frame waits for it */
+            if (settle > 0 && i + 1 == end && end < last && (on_from == 0 || end - on_from < settle)) end++;   /* the frame waits for it */
         }
         if (dumping) drive_audio_offline_tick();
         const char *notice = getenv("TNFS_NOTICE");
-        if (notice != NULL && (notice[0] == '1' || notice[0] == '2') && i + 10 >= ticks) {
-            drive_sim.race.stop_notice[notice[0] - '1'] = !(notice[1] == 'o' && i + 5 >= ticks);
+        if (notice != NULL && (notice[0] == '1' || notice[0] == '2') && i + 10 >= end) {
+            drive_sim.race.stop_notice[notice[0] - '1'] = !(notice[1] == 'o' && i + 5 >= end);
             render_drive(t, pixels);  /* whole frames, so the screen comes and goes as on screen */
             continue;
         }
-        if (i + frames >= ticks && (ticks - 1 - i) % frame_skip == 0) {
+        if (i + frames >= end && (end - 1 - i) % frame_skip == 0) {
             struct timespec t0, t1;
             clock_gettime(CLOCK_MONOTONIC, &t0);
             render_drive(t, pixels);
@@ -240,14 +240,14 @@ int drive_screenshot(const Track *t, uint8_t *pixels, uint32_t ticks, const char
                 present_us[frame_count] = (t2.tv_sec - t1.tv_sec) * 1000000.0 + (t2.tv_nsec - t1.tv_nsec) / 1000.0;
                 frame_us[frame_count++] = (t1.tv_sec - t0.tv_sec) * 1000000.0 + (t1.tv_nsec - t0.tv_nsec) / 1000.0;
             }
-            spin_shot(t, pixels, i, ticks);
+            spin_shot(t, pixels, i, end);
             continue;
         }
         drive_hud_strip(&drive_hud, &drive_sim.race);  /* the HUD keeps drawing every frame */
         ported_view_stream(&t->tri, &t->art, chase_camera(&drive_sim.race.chase, t->tri.ring_nodes).node);  /* and 0043f540 */
     }
     if (dumping) drive_audio_offline_close();
-    if (following) follow_say(followed, settle, on_from, ticks);
+    if (settle > 0) follow_say(followed, on_from, end);
     frame_times_print();
     const Car *car = drive_sim.race.cars[0];
     const RaceChase *chase = &drive_sim.race.chase;

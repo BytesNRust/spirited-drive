@@ -121,8 +121,8 @@ the game headless and shows one frame in the window next to the masks (200 ticks
 traffic or police car the camera has to follow the slot the car has in the race (`TNFS_FOLLOW_CAR`): the traffic's models are drawn by the race's seed, so a
 probe run (1 tick) per seed reads the game's `race car: slot N is STEM` lines and Studio tries the game's own seed and then 24 more (`TNFS_DRIVE_SEED`) until the car
 is in the draw; if none has it there is no photo, and the window says so. A traffic car waits parked high above the track until the player comes near, so the shot asks
-the game to wait until the car has been on the road 64 ticks (`TNFS_FOLLOW_SETTLE`, past the 800); if it stays parked in a draw the next draw is tried, and the summary
-says the tick of the frame. The police car is put 15 nodes behind the player, chasing (`TNFS_POLICE_NEAR`), so its camera
+the game to wait until the car has been on the road 64 ticks (`TNFS_FOLLOW_SETTLE`, past the 800); if it stays parked in a draw the next draw is tried (4 such draws at most), and the
+summary says the tick of the frame. The police car is put 15 nodes behind the player, chasing (`TNFS_POLICE_NEAR`), so its camera
 has it at any tick. Studio cannot see whether the car is on screen: look at the picture. A game older than this Studio does not log the slots: the photo says so, and
 Test in race still runs. The game's log (its output and its own `spirited-drive.log`) is in the window, errors red, the masks it took green; the game looks for every
 car's mask in the override first and says "cannot read" for the cars the project has none for: those lines are dim, they are expected. `--race-photo` takes the
