@@ -25,4 +25,14 @@ int car_mask_parse(const uint8_t *png, size_t len, int width, int height, uint8_
  * `*out` is freed with png_free. Returns 0 when it cannot. */
 int car_mask_write(const uint8_t *mask, int width, int height, uint8_t **out, size_t *len);
 
+/* The same, as the repo's masks are: a grey 8-bit PNG whose texel IS its class (0, 128, 192, 224, 240, 244, 248, 252, 255; any other non-zero value is
+ * written as 255). `*out` is freed with png_free. Returns 0 when it cannot. */
+int car_mask_write_grey(const uint8_t *mask, int width, int height, uint8_t **out, size_t *len);
+
+/* The class of one texel of a mask LAYER, as the PSD tool (tools/car_mask_from_psd.py keep_mask) classes it, the one rule the editor and the CLI share
+ * (`car_mask_parse` reads finished masks and does not use it): alpha under 128 paints (0); a lamp colour (red 240, orange 244, yellow 248, cyan 252: decided
+ * before the blue and green rules, since cyan has blue = green); magenta 224 (the fixed black); blue above red and green 128; green above both 192; any other
+ * colour with a channel of 64 or more 255; a dark opaque texel (brightest channel under 64) paints (0). */
+int car_mask_class_rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+
 #endif
