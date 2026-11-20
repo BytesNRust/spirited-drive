@@ -4,6 +4,7 @@
 #ifndef TNFS_DRIVE_LIVERY_H
 #define TNFS_DRIVE_LIVERY_H
 
+#include "formats/car_livery_pass.h"
 #include "game/race/lamp_emissive.h"
 
 #include <stddef.h>
@@ -50,8 +51,7 @@ int drive_livery_dash(const char *stem, uint8_t *bank, size_t size, const uint8_
  * texture of each bank, `fn(user, level, name, width, height, pixels, keep, rgb)` with `keep` (width x height of REPAINT_DRAFT_*: paint, or the rules leave the
  * texel as it is, matte or with a shine), the texture's palette indices and the car's own colours (`rgb`, 256 x 3, 8 bits). The CFM is not
  * changed. Returns the number of texels marked paint in all. */
-typedef void (*LiveryDraftFn)(void *user, int level, const char name[4], int width, int height, const uint8_t *pixels, const uint8_t *keep,
-                              const uint8_t rgb[768]);
+typedef CarLiveryDraftFn LiveryDraftFn;   /* core/formats/car_livery_pass.h */
 int drive_livery_draft(const char *stem, uint8_t *cfm, size_t size, LiveryDraftFn fn, void *user);
 /* drive_livery_draft with the masks of `mask_dir` alone (an added car's skin's folder: its own texture is a body texture where its mask paints); NULL as drive_livery_draft */
 int drive_livery_draft_masks(const char *stem, const char *mask_dir, uint8_t *cfm, size_t size, LiveryDraftFn fn, void *user);

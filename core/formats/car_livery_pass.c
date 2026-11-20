@@ -109,3 +109,45 @@ int car_livery_paint(uint8_t *cfm, size_t size, const CarLiveryPass *pass, const
     const ColourJob job = { rgb, car_livery_glass_floor(pass->upper) };
     return car_livery_walk(cfm, size, pass, run_paint, (void *)&job);
 }
+
+/* ----- the drafts of the masks (moved from the game's drive_livery.c: the Studio's 3D view shines the same texels) ----- */
+
+typedef struct {
+    CarLiveryDraftFn fn;
+    void *user;
+    int floor;
+} DraftJob;
+
+static int run_draft(const RepaintBank *bank, const CarBankMeta *meta, void *ctx)
+{
+    const DraftJob *j = ctx;
+    uint8_t *keeps[CAR_BANK_MAX_TEXTURES] = { NULL };
+    int ok = 1;
+    for (int t = 0; t < bank->texture_count; t++) {
+        keeps[t] = malloc(bank->textures[t].count > 0 ? bank->textures[t].count : 1);
+        ok = ok && keeps[t] != NULL;
+    }
+    int paint = -1;
+    if (ok) paint = car_repaint_draft(bank, j->floor, keeps);
+    if (paint >= 0) {
+        /* the bank's first palette ('!PAL') is what the textures' indices show; the second ('!xxx') holds only the car's own colours */
+        const uint8_t *pal = bank->palette[0];
+        const int shift = bank->type == 0x22 ? 2 : 0;
+        uint8_t rgb[768];
+        for (int i = 0; i < 768; i++) rgb[i] = (uint8_t)(pal[i] << shift);
+        for (int t = 0; t < bank->texture_count; t++) {
+            const RepaintTexture *tex = &bank->textures[t];
+            if (tex->body == REPAINT_NONE || tex->width <= 0) continue;
+            j->fn(j->user, meta->level, meta->name[t], tex->width, (int)(tex->count / (size_t)tex->width), tex->pixels, keeps[t], rgb);
+        }
+    }
+    for (int t = 0; t < bank->texture_count; t++) free(keeps[t]);
+    return paint > 0 ? paint : 0;
+}
+
+int car_livery_draft(uint8_t *cfm, size_t size, const CarLiveryPass *pass, CarLiveryDraftFn fn, void *user)
+{
+    /* the Corvette's dark teal body lies under its runtime floor (a lower one repaints eight lamp texels): the draft starts its fascia as paint */
+    const DraftJob job = { fn, user, strcmp(pass->upper, "CZR1") == 0 ? 20 : car_livery_glass_floor(pass->upper) };
+    return car_livery_walk(cfm, size, pass, run_draft, (void *)&job);
+}

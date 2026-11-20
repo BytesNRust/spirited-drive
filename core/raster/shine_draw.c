@@ -1,9 +1,9 @@
 /* port (body shine): see shine_draw.h. */
-#include "viewer/shine_draw.h"
+#include "raster/shine_draw.h"
 
-#include "game/gfx/raster_record.h"
-#include "game/race/car_envmap.h"
-#include "game/race/car_repaint.h"
+#include "formats/car_repaint.h"
+#include "raster/car_envmap.h"
+#include "raster/raster_record.h"
 
 #include <math.h>
 #include <string.h>
