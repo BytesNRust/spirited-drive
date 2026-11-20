@@ -299,7 +299,10 @@ void node_panel(App *a)
             ImGui::Text("x %.1f m   z %.1f m", TRACE_METRES(a->nodes[n].position[0] / 65536.0), TRACE_METRES(a->nodes[n].position[2] / 65536.0));
             ImGui::Text("distance from the start: %.1f m", a->node_dist != NULL ? a->node_dist[n] : 0.0);
             ImGui::Text("turn: %s", turn);
-            ImGui::Text("road width: %.2f m", a->nodes[n].width / TRACE_WIDTH_PER_METRE);
+            const double right_half = a->nodes[n].width_r > 0 ? a->nodes[n].width_r : a->nodes[n].width;   // a lane stretch's halves differ (step 4)
+            ImGui::Text("road width: %.2f m", (a->nodes[n].width + right_half) / (2 * TRACE_WIDTH_PER_METRE));
+            const int lanes = a->nodes[n].lanes != 0 ? a->nodes[n].lanes : TRACK_GEN_LANES_1_1;
+            ImGui::Text("lanes: %d+%d", (lanes >> 4) & 0xf, lanes & 0xf);
             {   // the bank, in the limit's colour; R or L for the curve it suits
                 const double b = a->nodes[n].bank, size = fabs(b);
                 char bank[24];
