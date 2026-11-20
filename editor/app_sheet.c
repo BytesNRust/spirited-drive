@@ -145,7 +145,7 @@ int app_sheet_save(App *a)
     snprintf(path, sizeof path, "%s/sheet-%s.png", dir, stamp);
     if (!sheet_write_png(&a->sheet, path, why, sizeof why)) return say(a, why), 0;
     snprintf(a->sheet_saved, sizeof a->sheet_saved, "%s", path);
-    snprintf(a->reveal, sizeof a->reveal, "%s", dir);
+    snprintf(a->reveal, sizeof a->reveal, "%s", path);   // the file, shown selected in its folder
     snprintf(a->status, sizeof a->status, "sheet saved: %s", path);
     return 1;
 }

@@ -14,7 +14,7 @@ int app_sheet_poll(App *a);
 /* ends the running sheet: the photo in progress is stopped, the cells not yet taken say so */
 void app_sheet_stop(App *a);
 int app_sheet_busy(const App *a);
-/* writes the sheet as a PNG in the open project's sheets/ folder and asks for the folder to be shown (App.reveal); 1 when written */
+/* writes the sheet as a PNG in the open project's sheets/ folder and asks for it to be shown selected in the Finder (App.reveal); 1 when written */
 int app_sheet_save(App *a);
 /* "Day:done Night:failed ..." for --steps print-sheet */
 void app_sheet_describe(const App *a, char *out, size_t cap);

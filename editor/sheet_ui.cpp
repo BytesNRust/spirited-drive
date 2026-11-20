@@ -20,7 +20,7 @@ void sheet_row(App *a, bool busy)
     ImGui::SameLine();
     ImGui::BeginDisabled(busy || a->sheet.count == 0);
     if (ImGui::Button("Save sheet")) app_sheet_save(a);
-    ImGui::SetItemTooltip("Writes the sheet as a PNG in this project's sheets folder and shows the folder.");
+    ImGui::SetItemTooltip("Writes the sheet as a PNG in this project's sheets folder and shows it in the Finder.");
     ImGui::EndDisabled();
     if (a->sheet_active) {
         ImGui::SameLine();

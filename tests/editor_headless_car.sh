@@ -219,7 +219,7 @@ rm -rf "$work/exports/wagon-masks/sheets"
 "$editor" "$work/exports/wagon-masks" --game "$work/fake-sheet-tnfs" --cd "$work/game/cd" --frames 4 --steps sheet:0,print-sheet,sheet-save >"$work/log" 2>&1 || fail "the car sheet: $(cat "$work/log")"
 grep -q "^sheet 2: Day=done Night=done$" "$work/log" || fail "the sheet did not take Day and Night, in order: $(grep '^sheet\|--steps' "$work/log")"
 sheet=$(sed -n 's/^sheet saved: //p' "$work/log")
-[ -s "$sheet" ] && [ "$(dirname "$sheet")" = "$work/exports/wagon-masks/sheets" ] || fail "Save sheet did not write a PNG in the project's sheets folder: $(grep '^sheet' "$work/log")"
+[ -s "$sheet" ] && [ "$(basename "$(dirname "$sheet")")" = sheets ] && [ -s "$work/exports/wagon-masks/sheets/$(basename "$sheet")" ] || fail "Save sheet did not write a PNG in the project's sheets folder: $(grep '^sheet' "$work/log")"
 python3 - "$sheet" <<'PY' || fail "the saved sheet is not Day (red) and Night (green) side by side, 1280x500"
 import struct, sys, zlib
 d = open(sys.argv[1], 'rb').read()
