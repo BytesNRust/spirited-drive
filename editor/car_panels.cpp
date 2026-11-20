@@ -216,8 +216,8 @@ void car_shortcuts(App *a)
     if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal) && !app_rehacer_busy(a)) app_save(a);
     if (app_rehacer_busy(a)) return;   // the script is working on the kit: the card is not edited meanwhile
     if (io.WantTextInput) return;   // a text box has its own Ctrl+Z while it has the keyboard
-    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal) || ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal)) car_edit_redo(&a->edit);
-    else if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal)) car_edit_undo(&a->edit);
+    if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal) || ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiInputFlags_RouteGlobal)) app_redo(a);
+    else if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Z, ImGuiInputFlags_RouteGlobal)) app_undo(a);
 }
 
 // the facts of a masks project, read only: there is no card to edit
@@ -373,6 +373,7 @@ void masks_panel(App *a)
     if (open) {
         const CarProject &c = a->car;
         ImGui::Text("Car file: %s", leaf(c.cfm));
+        masks_changes_section(a);   // what the project's masks have changed from the game's: first, it is what a hand-over needs
         ImGui::Spacing();
         if (!c.has_masks_dir) {
             ImGui::Text("Masks of the car (car_masks/%s): none yet", c.folder);
