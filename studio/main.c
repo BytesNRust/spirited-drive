@@ -9,6 +9,7 @@
  *   tnfs-studio car import PIECE_DIR --obj FILE.obj ...   (studio/car_import.h)
  *   tnfs-studio car resize PIECE_DIR NAME WxH ...   (studio/car_resize.h)
  *   tnfs-studio car texture add PIECE_DIR NAME FILE.png ...   (studio/car_texture.h)
+ *   tnfs-studio car masks KIT_DIR [--stem STEM] [--force]   (studio/car_masks.h)
  *   tnfs-studio mod pack DIR OUT.zip [--force]   (studio/mod_pack.h)
  * `export` and `import` are the same two commands. Packing needs the original file: edits overlay it, and
  * an untouched file comes back byte for byte (a packed file keeps its original stream). Nothing is
@@ -26,6 +27,7 @@
 #include "studio/help.h"
 #include "studio/mod_pack.h"
 #include "studio/mod_validate.h"
+#include "studio/pack_tree.h"
 #include "studio/slot.h"
 #include "studio/car_new.h"
 #include "studio/track_new.h"
@@ -64,6 +66,7 @@ static void usage(FILE *to)
           "                         [--steer DEGREES] [--donor CAR] [--keep-pdn] [--data DIR] [--force]\n"
           "  tnfs-studio car resize PIECE_DIR NAME WxH [--image FILE.png] [--low]\n"
           "  tnfs-studio car texture add PIECE_DIR NAME FILE.png [--low] [--label LABEL]\n"
+          "  tnfs-studio car masks KIT_DIR [--stem STEM] [--force]\n"
           "  tnfs-studio fam build SPEC --out FILE.FAM [--force]   (studio/fam_command.h)\n"
           "  tnfs-studio mod pack DIR OUT.zip [--force]\n"
           "  (export = unpack, import = pack)\n"
@@ -126,21 +129,6 @@ static int load_palette(const char *path, uint8_t rgb[768], ExchangeError *err)
     return found;
 }
 
-static const char *base_name(const char *path)
-{
-    const char *slash = strrchr(path, '/');
-    return slash ? slash + 1 : path;
-}
-
-/* "path: message", unless the message already starts with the file's name. */
-static void name_the_file(ExchangeError *err, const char *path)
-{
-    char tmp[sizeof err->message];
-    snprintf(tmp, sizeof tmp, "%s", err->message);
-    if (strncmp(tmp, base_name(path), strlen(base_name(path))) == 0) exchange_fail(err, "%s: %s", path, tmp + strlen(base_name(path)) + (tmp[strlen(base_name(path))] == ':' ? 2 : 0));
-    else exchange_fail(err, "%s: %s", path, tmp);
-}
-
 static int do_unpack(const Args *a, const uint8_t *palette, ExchangeError *err)
 {
     size_t size = 0;
@@ -148,8 +136,8 @@ static int do_unpack(const Args *a, const uint8_t *palette, ExchangeError *err)
     if (file == NULL) return 0;
     FileSet set;
     fileset_init(&set);
-    int ok = resource_export(file, size, base_name(a->positional[0]), palette, &set, err);
-    if (!ok) name_the_file(err, a->positional[0]);
+    int ok = resource_export(file, size, studio_base_name(a->positional[0]), palette, &set, err);
+    if (!ok) studio_name_the_file(err, a->positional[0]);
     if (ok) ok = fsio_write_tree(a->positional[1], &set, a->force, err);
     if (ok) printf("%s: %zu files written to %s\n", a->positional[0], set.count, a->positional[1]);
     fileset_free(&set);
@@ -159,30 +147,7 @@ static int do_unpack(const Args *a, const uint8_t *palette, ExchangeError *err)
 
 static int do_pack(const Args *a, const uint8_t *palette, ExchangeError *err)
 {
-    if (a->from == NULL) { exchange_fail(err, "pack needs --from ORIGINAL (the file the tree was unpacked from)"); return 0; }
-    size_t size = 0;
-    uint8_t *original = fsio_read_file(a->from, &size, err);
-    if (original == NULL) return 0;
-    FileSet set;
-    fileset_init(&set);
-    uint8_t *out = NULL;
-    size_t out_len = 0;
-    ImportStats stats;
-    int ok = fsio_read_tree(a->positional[0], &set, err);
-    if (ok) {
-        ok = resource_import(original, size, base_name(a->from), palette, &set, &out, &out_len, &stats, err);
-        if (!ok) name_the_file(err, a->from);
-    }
-    if (ok) ok = fsio_write_file(a->positional[1], out, out_len, a->force, err);
-    if (ok) {
-        printf("%s: %zu bytes written", a->positional[1], out_len);
-        if (stats.pixels) printf("; %u pixels, %u reassigned to the palette", stats.pixels, stats.reassigned);
-        printf("\n");
-    }
-    free(out);
-    fileset_free(&set);
-    free(original);
-    return ok;
+    return studio_pack(a->positional[0], a->positional[1], a->from, palette, a->force, err);
 }
 
 static int is_directory(const char *path)

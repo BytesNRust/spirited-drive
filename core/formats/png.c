@@ -27,6 +27,7 @@
 enum {
     MAX_DIMENSION = 16384,
     STORED_BLOCK = 65535,
+    COLOR_GREY = 0,
     COLOR_INDEXED = 3,
     COLOR_RGBA = 6
 };
@@ -113,6 +114,11 @@ PngResult png_write_indexed(const uint8_t *indices, uint32_t width, uint32_t hei
                             uint8_t **out, size_t *out_len)
 {
     return write_image(indices, width, height, COLOR_INDEXED, 1, palette, out, out_len);
+}
+
+PngResult png_write_grey(const uint8_t *grey, uint32_t width, uint32_t height, uint8_t **out, size_t *out_len)
+{
+    return write_image(grey, width, height, COLOR_GREY, 1, NULL, out, out_len);
 }
 
 PngResult png_write_rgba(const uint8_t *rgba, uint32_t width, uint32_t height, uint8_t **out, size_t *out_len)

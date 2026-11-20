@@ -1,6 +1,6 @@
-#include "game/race/car_repaint.h"
-#include "game/race/car_mask.h"
-#include "game/race/car_paint.h"
+#include "formats/car_repaint.h"
+#include "formats/car_mask_codec.h"
+#include "formats/car_paint.h"
 
 #include <math.h>
 #include <stdlib.h>

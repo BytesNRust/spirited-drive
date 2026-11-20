@@ -55,6 +55,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     a->selected = -1;
     a->node = a->node_for = -1;
     a->export_pick = -1;
+    a->rehacer.run.fd = a->race.run.fd = -1;   /* no output pipe: a zero is a descriptor (stdin) */
 }
 
 int app_open(App *a, const char *dir, const char *game, const char *user, const char *generic_art)
@@ -262,7 +263,7 @@ int app_modified(const App *a)
 void app_ask(App *a, AppAction act, const char *path)
 {
     if (act == APP_ACT_NONE || a->confirm != APP_ACT_NONE || a->go != APP_ACT_NONE) return;
-    if (a->rehacer.running) {   /* the script is working on the kit: nothing else until it ends */
+    if (a->rehacer.run.running) {   /* the script is working on the kit: nothing else until it ends */
         set_status(a, "Rehacer is running: wait for it to end, or press Stop");
         return;
     }
@@ -606,7 +607,7 @@ void app_remove_point(App *a)
 
 int app_rehacer_busy(const App *a)
 {
-    return a->rehacer.running;
+    return a->rehacer.run.running;
 }
 
 int app_rehacer_available(const App *a)
@@ -639,7 +640,7 @@ int app_rehacer(App *a)
     char why[APP_MSG], stamp[32];
     if (a->kind != APP_KIND_CAR) return set_status(a, "open a car first"), 0;
     if (a->car.masks_only) return set_status(a, "a masks project has no rehacer.command"), 0;
-    if (a->rehacer.running) return set_status(a, "Rehacer is already running"), 0;
+    if (a->rehacer.run.running) return set_status(a, "Rehacer is already running"), 0;
     if (!rehacer_script_present(a->dir)) return set_status(a, "this kit has no rehacer.command, so there is nothing to run"), 0;
     if (car_edit_modified(&a->edit)) return set_status(a, "mod.ini has changes that are not saved: save them first, then run Rehacer"), 0;
     rehacer_free(&a->rehacer);
@@ -659,11 +660,11 @@ int app_rehacer(App *a)
 
 int app_rehacer_poll(App *a)
 {
-    if (!a->rehacer.running) return 0;
+    if (!a->rehacer.run.running) return 0;
     if (rehacer_poll(&a->rehacer)) return 1;
-    if (a->rehacer.stopped) snprintf(a->status, sizeof a->status, "Rehacer was stopped (exit code %d)", a->rehacer.exit_code);
-    else if (a->rehacer.exit_code == 0) snprintf(a->status, sizeof a->status, "Rehacer finished: exit code 0");
-    else snprintf(a->status, sizeof a->status, "Rehacer failed: exit code %d (see the log)", a->rehacer.exit_code);
+    if (a->rehacer.run.stopped) snprintf(a->status, sizeof a->status, "Rehacer was stopped (exit code %d)", a->rehacer.run.exit_code);
+    else if (a->rehacer.run.exit_code == 0) snprintf(a->status, sizeof a->status, "Rehacer finished: exit code 0");
+    else snprintf(a->status, sizeof a->status, "Rehacer failed: exit code %d (see the log)", a->rehacer.run.exit_code);
     reload_car(a);
     return 0;
 }

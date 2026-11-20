@@ -1,4 +1,4 @@
-#include "game/race/car_paint.h"
+#include "formats/car_paint.h"
 
 #include <math.h>
 #include <stddef.h>

@@ -197,6 +197,10 @@ static void test_log(void)
     CHECK_EQ_INT(car_race_line_kind("car mask: cannot read it", 24), RACE_LINE_ERROR);
     CHECK_EQ_INT(car_race_line_kind("track not found", 15), RACE_LINE_ERROR);
     CHECK_EQ_INT(car_race_line_kind("", 0), RACE_LINE_PLAIN);
+    const char *noisy = "a\nplatform: cannot read /p/TSupra/a_mask.png: Couldn't open /p\nb\nplatform: cannot read /p/TSupra/b_mask.png: Couldn't open /p\nplatform: cannot read /p/x.cfm: Couldn't open /p\n";
+    CHECK_EQ_INT(car_race_count_notes(noisy, strlen(noisy)), 2);   /* the two masks; the car file is an error */
+    CHECK_EQ_INT(car_race_count_notes("", 0), 0);
+    { const char *last = "platform: cannot read /p/q_mask.png: Couldn't open /p"; CHECK_EQ_INT(car_race_count_notes(last, strlen(last)), 1); }   /* the last line without a newline */
 }
 
 static void write_text_file(const char *path, const char *text, mode_t mode)

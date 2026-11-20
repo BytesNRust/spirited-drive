@@ -206,35 +206,35 @@ static void check_run(void)
     Rehacer r;
     memset(&r, 0, sizeof r);
     CHECK_EQ_INT(rehacer_start(&r, kit_path("run"), why, sizeof why), 1);
-    CHECK(r.running && !r.finished);
+    CHECK(r.run.running && !r.run.finished);
     run_to_end(&r);
-    CHECK(!r.running && r.finished);
-    CHECK_EQ_INT(r.exit_code, 3);
-    CHECK(r.log != NULL && strstr(r.log, "to stderr") != NULL && strstr(r.log, "read gave: []") != NULL);   /* both streams; no input */
-    CHECK(r.log != NULL && strstr(r.log, "run") != NULL && strstr(r.log, "cwd is ") != NULL);
+    CHECK(!r.run.running && r.run.finished);
+    CHECK_EQ_INT(r.run.exit_code, 3);
+    CHECK(r.run.log != NULL && strstr(r.run.log, "to stderr") != NULL && strstr(r.run.log, "read gave: []") != NULL);   /* both streams; no input */
+    CHECK(r.run.log != NULL && strstr(r.run.log, "run") != NULL && strstr(r.run.log, "cwd is ") != NULL);
     CHECK(is_file("run/proof.txt"));   /* the kit was its folder */
     CHECK(read_file("run/coche/SIMDATA/CARFAMS/K1.CFM", got, sizeof got) && strcmp(got, "changed\n") == 0);
     CHECK_EQ_INT(rehacer_poll(&r), 0);   /* polled again: nothing more */
     rehacer_free(&r);
-    CHECK(r.log == NULL);
+    CHECK(r.run.log == NULL);
 
     make_kit("ok", "#!/bin/sh\necho fine\nexit 0\n");   /* the exit code is told as it is */
     memset(&r, 0, sizeof r);
     CHECK_EQ_INT(rehacer_start(&r, kit_path("ok"), why, sizeof why), 1);
     run_to_end(&r);
-    CHECK(r.finished && r.exit_code == 0 && strstr(r.log, "fine") != NULL);
+    CHECK(r.run.finished && r.run.exit_code == 0 && strstr(r.run.log, "fine") != NULL);
     rehacer_free(&r);
 
     make_kit("noexec", "echo \"no shebang, no exec bit\"\n");   /* run with sh: the script need not be executable */
     memset(&r, 0, sizeof r);
     CHECK_EQ_INT(rehacer_start(&r, kit_path("noexec"), why, sizeof why), 1);
     run_to_end(&r);
-    CHECK(r.finished && r.exit_code == 0 && strstr(r.log, "no shebang") != NULL);
+    CHECK(r.run.finished && r.run.exit_code == 0 && strstr(r.run.log, "no shebang") != NULL);
     rehacer_free(&r);
 
     memset(&r, 0, sizeof r);   /* no script: refused, with a plain reason */
     CHECK_EQ_INT(rehacer_start(&r, kit_path("noscript"), why, sizeof why), 0);
-    CHECK(strstr(why, "rehacer.command") != NULL && !r.running);
+    CHECK(strstr(why, "rehacer.command") != NULL && !r.run.running);
     CHECK_EQ_INT(rehacer_start(&r, "/home/p/nowhere", why, sizeof why), 0);
 }
 
@@ -246,26 +246,26 @@ static void check_long_output_and_stop(void)
     memset(&r, 0, sizeof r);
     CHECK_EQ_INT(rehacer_start(&r, kit_path("noisy"), why, sizeof why), 1);
     run_to_end(&r);
-    CHECK(r.finished && r.exit_code == 0);
-    CHECK(r.log_len <= REHACER_LOG_MAX && r.log_cut && strstr(r.log, "THE-END") != NULL && strstr(r.log, "line 0 of") == NULL);   /* the last of it is kept */
+    CHECK(r.run.finished && r.run.exit_code == 0);
+    CHECK(r.run.log_len <= REHACER_LOG_MAX && r.run.log_cut && strstr(r.run.log, "THE-END") != NULL && strstr(r.run.log, "line 0 of") == NULL);   /* the last of it is kept */
     rehacer_free(&r);
 
     make_kit("slow", "#!/bin/sh\necho started\nsleep 30\necho never\n");
     memset(&r, 0, sizeof r);
     CHECK_EQ_INT(rehacer_start(&r, kit_path("slow"), why, sizeof why), 1);
-    for (int i = 0; i < 400 && (r.log == NULL || strstr(r.log, "started") == NULL); i++) rehacer_poll(&r), usleep(5000);
-    CHECK(r.running && r.log != NULL && strstr(r.log, "started") != NULL);
+    for (int i = 0; i < 400 && (r.run.log == NULL || strstr(r.run.log, "started") == NULL); i++) rehacer_poll(&r), usleep(5000);
+    CHECK(r.run.running && r.run.log != NULL && strstr(r.run.log, "started") != NULL);
     rehacer_stop(&r);
     run_to_end(&r);
-    CHECK(r.finished && r.stopped && r.exit_code == 128 + 15);   /* ended by TERM */
-    CHECK(strstr(r.log, "never") == NULL);
+    CHECK(r.run.finished && r.run.stopped && r.run.exit_code == 128 + 15);   /* ended by TERM */
+    CHECK(strstr(r.run.log, "never") == NULL);
     rehacer_free(&r);
 
     make_kit("slow2", "#!/bin/sh\nsleep 30\n");   /* freeing a run that is going ends it */
     memset(&r, 0, sizeof r);
     CHECK_EQ_INT(rehacer_start(&r, kit_path("slow2"), why, sizeof why), 1);
     rehacer_free(&r);
-    CHECK(!r.running);
+    CHECK(!r.run.running);
 }
 
 int main(void)

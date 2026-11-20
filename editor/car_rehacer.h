@@ -4,12 +4,14 @@
 #ifndef TNFS_TRACK_EDITOR_CAR_REHACER_H
 #define TNFS_TRACK_EDITOR_CAR_REHACER_H
 
+#include "proc_run.h"
+
 #include <stddef.h>
 #include <sys/types.h>
 
 enum {
     REHACER_KEEP = 5,                       /* backups kept */
-    REHACER_LOG_MAX = 65536,                /* bytes of output kept (the last ones) */
+    REHACER_LOG_MAX = PROC_LOG_MAX,         /* bytes of output kept (the last ones) */
     REHACER_PATH = 4096,
     REHACER_BACKUP_MAX_MB = 512             /* a kit bigger than this is not backed up, so Rehacer does not run */
 };
@@ -33,15 +35,7 @@ enum { REHACER_STAMP_NAME = 40 };
 int rehacer_backups(const char *kit, char names[][REHACER_STAMP_NAME], int cap);
 
 typedef struct {
-    int running;
-    int finished;              /* it ran and ended: `exit_code` is told */
-    int exit_code;             /* its status; 128 + the signal when it was ended by one */
-    int stopped;               /* Stop was asked for */
-    pid_t pid;
-    int fd;                    /* the read end of its output, -1 when closed */
-    char *log;                 /* malloc'd, `log_len` bytes, NUL terminated: its output, both streams; the last REHACER_LOG_MAX */
-    size_t log_len;
-    int log_cut;               /* the start of the output was dropped */
+    ProcRun run;               /* the script's process, its output (both streams, the last REHACER_LOG_MAX bytes) and its exit code (proc_run.h) */
     char backup[REHACER_PATH]; /* the backup made before this run, "" for none */
 } Rehacer;
 
