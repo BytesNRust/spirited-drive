@@ -65,6 +65,7 @@ void app_begin(App *a, const char *game, const char *user, const char *generic_a
     a->node = a->node_for = -1;
     a->race_look = car_race_look_default();
     install_job_init(&a->install);
+    psd_job_init(&a->psd);
     a->export_pick = -1;
     a->preview_paint = -1;
     a->night = night_settings_default();
@@ -197,6 +198,7 @@ void app_free(App *a)
     app_light_free(a);
     car_race_free(&a->race);
     install_job_free(&a->install);
+    psd_job_free(&a->psd);
     rehacer_free(&a->rehacer);
     car_edit_free(&a->edit);
     mask_edit_free(&a->mask.me);
@@ -829,7 +831,7 @@ int app_rehacer_available(const App *a)
 }
 
 /* the car as the script left it: the lists of textures and masks, and the card (nothing on screen was edited while it ran) */
-static void reload_car(App *a)
+void app_car_reread(App *a)
 {
     CarProject *fresh = malloc(sizeof *fresh);
     char why[APP_MSG], card[CAR_PROJECT_PATH + 16];
@@ -899,7 +901,7 @@ int app_rehacer_poll(App *a)
     if (a->rehacer.run.stopped) snprintf(a->status, sizeof a->status, "Rehacer was stopped (exit code %d)", a->rehacer.run.exit_code);
     else if (a->rehacer.run.exit_code == 0) snprintf(a->status, sizeof a->status, "Rehacer finished: exit code 0");
     else snprintf(a->status, sizeof a->status, "Rehacer failed: exit code %d (see the log)", a->rehacer.run.exit_code);
-    reload_car(a);
+    app_car_reread(a);
     char next[MOD_INI_VERSION_MAX + 1];
     if (raise_offer(a, next, sizeof next)) {
         const size_t n = strlen(a->status);

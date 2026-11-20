@@ -49,6 +49,7 @@ enum {
 
 typedef struct {
     const char *dir, *game, *user, *shot;
+    const char *psd_root;     /* --psd-root DIR: the folder of the owner's PSDs, one folder a car (Convert PSD) */
     int frames, save, build, install, select;   /* select: a control point to select before the first frame, -1 for none */
     int test_drive;           /* --test-drive: Test drive as the Drive window runs it, until the game's log says whether it took the track; then the game is stopped */
     const char *set[8];      /* --set key=value, a car's field set before the first frame (a headless picture of a problem, a save of a change) */
@@ -122,6 +123,7 @@ static int parse_args(int argc, char **argv, Options *o)
         const int has_value = i + 1 < argc;
         if (strcmp(argv[i], "--game") == 0 && has_value) o->game = argv[++i];
         else if (strcmp(argv[i], "--user") == 0 && has_value) o->user = argv[++i];
+        else if (strcmp(argv[i], "--psd-root") == 0 && has_value) o->psd_root = argv[++i];
         else if (strcmp(argv[i], "--shot") == 0 && has_value) o->shot = argv[++i];
         else if (strcmp(argv[i], "--window") == 0 && has_value) {
             char tail = '\0';
@@ -640,6 +642,7 @@ static int run(App *a, const Options *o)
         }
         app_rehacer_poll(a);
         app_install_poll(a);
+        app_psd_poll(a);
         app_race_poll(a);
         app_card_watch(a, SDL_GetTicks() / 1000.0);   /* mod.ini, the car file and the textures */
         app_light_poll(a, SDL_GetTicks() / 1000.0);   /* the Track light photo: its output, and the next one when a change has settled */
@@ -691,6 +694,7 @@ int main(int argc, char **argv)
     int opened = 1;
     if (o.dir != NULL) opened = app_open_any(app, o.dir, o.game, o.user != NULL ? o.user : "", generic_art);
     else app_begin(app, o.game, o.user != NULL ? o.user : "", generic_art);   /* nothing given: the start screen, or what it had last */
+    app_psd_setup(app, SDL_GetBasePath(), o.psd_root);
     if (opened) {
         ExportSource sources;
         char *pref = o.cd == NULL && o.user == NULL ? SDL_GetPrefPath(NULL, "Spirited Drive") : NULL;   /* the game's player folder, where its own copy of the game's files is: not asked (it makes the folder) when something names it */

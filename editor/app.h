@@ -13,6 +13,7 @@
 #include "car_race.h"
 #include "light_ui.h"
 #include "project.h"
+#include "psd_job.h"
 #include "selection.h"
 #include "session.h"
 #include "track_undo.h"
@@ -114,6 +115,9 @@ typedef struct {
     int race_night;              /* the preset: 0 Day, 1 Night */
     int race_track;              /* the track chosen (car_race_track's index) */
     RaceLook race_look;          /* the Race window's look switches (T6): the session's, never written to the car's project; all on by default */
+    PsdJob psd;                  /* Convert PSD: the owner's PSDs of this car turned into its masks, in the background (psd_job.h, app_psd.c) */
+    char psd_root[APP_PATH];     /* the folder of the owner's PSDs, one folder a car ("" for none): --psd-root, TNFS_PSD_ROOT, else art/tnfs-masks in the workspace */
+    char tools[APP_PATH];        /* the repository's tools folder, where the converter scripts are ("" when not found) */
     InstallJob install;          /* Install (U): the game's installer, run in the background (install_job.h) */
     int drive_pick;              /* the car Test drive gives the player: the game's car menu's number (0..7, car_race_menu_car); the editor's settings keep it */
     char reveal[APP_PATH];       /* a folder the window is asked to show in the Finder, or a file to show selected in its folder (main.c does it and clears this) */
@@ -357,6 +361,17 @@ int app_build(App *a);
 int app_install(App *a);
 int app_install_poll(App *a);
 int app_install_busy(const App *a);
+/* Convert PSD (dep98): app_psd_setup finds the tools folder (TNFS_TOOLS, else tools/ above the program at `base`) and the PSD folder (`root`, else TNFS_PSD_ROOT, else
+ * ~/workspace/bytes-n-rust/art/tnfs-masks). app_psd_psd_dir gives this car's PSD folder (names match without case; 0 when there is none). app_psd_start runs the
+ * converters into a scratch folder and copies the PNGs into the project only when they ended well; it refuses with the status when the open mask has unsaved changes.
+ * app_psd_poll (every frame) tells the result in the status and reads the car's lists again (the open mask is closed: it was just remade). 1 while it runs. */
+void app_psd_setup(App *a, const char *base, const char *root);
+int app_psd_psd_dir(const App *a, char *out, size_t cap);
+int app_psd_start(App *a);
+int app_psd_poll(App *a);
+int app_psd_busy(const App *a);
+/* the car's lists (project, textures, masks) and its card read again, as after Rehacer or Convert PSD */
+void app_car_reread(App *a);
 void app_install_stop(App *a);   /* asks the installer to end (a hung one): app_install_poll says "install failed: the install was stopped" */
 
 /* Points: a new point after the last one, along the last segment; one after the selected point, midway to the next (or after the last);
