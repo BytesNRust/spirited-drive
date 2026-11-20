@@ -5,6 +5,8 @@
 
 #include "imgui.h"
 
+#include <SDL3/SDL.h>
+
 extern "C" {
 #include "app.h"
 }
@@ -24,10 +26,13 @@ void car_shortcuts(App *a);   // Ctrl+S, Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y (Cmd on a
 void textures_panel(App *a);
 void masks_panel(App *a);
 void race_panel(App *a, ImTextureID photo);   // Test in race and Race photo, the picture (a texture, 0 for none) and the game's log
+void model_panel(App *a, SDL_Renderer *ren);   // the open car in 3D: drag to turn, wheel to zoom, F S R T Home
+void model_panel_preset(double yaw, double pitch, int dist);   // an orbit for the next car opened (degrees, degrees, model units; dist 0 keeps the home distance)
 void export_popup(App *a);    // the Export original car window, up while a->export_dialog is set
 
 // the panels' names, as the dock layout places them
 extern const char *const PANEL_POINTS, *const PANEL_LIMITS, *const PANEL_PROBLEMS, *const PANEL_NODE, *const PANEL_PROJECT, *const PANEL_TRACK;
+extern const char *const PANEL_MODEL;
 extern const char *const PANEL_CAR, *const PANEL_TEXTURES, *const PANEL_MASKS, *const PANEL_REHACER, *const PANEL_RACE;
 
 #endif

@@ -846,7 +846,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     else()
         target_compile_options(imgui PRIVATE -w)
     endif()
-    add_executable(tnfs-track-editor game/sys/sha256.c editor/game_find.c editor/main.c editor/app.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c game/race/car_paint.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp editor/car_panels.cpp)
+    add_executable(tnfs-track-editor game/sys/sha256.c editor/game_find.c editor/main.c editor/app.c editor/art.c editor/build.c editor/capture.c editor/interact.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/proc_run.c game/race/car_paint.c editor/view.c editor/ui.cpp editor/viewport.cpp editor/panels.cpp editor/car_panels.cpp editor/model_panel.cpp editor/model_scene.c)
     target_include_directories(tnfs-track-editor PRIVATE ${CMAKE_SOURCE_DIR})   # project.c's game/sys/sha256.h
     target_link_libraries(tnfs-track-editor PRIVATE tnfs_core SDL3::SDL3 imgui)
     # the generic art a new project copies (editor/art/README.md): beside the program in a build tree, in Contents/Resources in the app (tools/package_macos.sh)

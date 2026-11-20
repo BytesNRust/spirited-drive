@@ -15,6 +15,9 @@ extern "C" {
 int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size_t why_cap);
 void ui_close(void);
 
+/* The orbit the Model window starts the next car at (degrees, degrees, model units; dist 0 keeps the home distance): a headless picture of a view. */
+void ui_model_orbit(double yaw, double pitch, int dist);
+
 /* 1 when a menu or a popup is open: Escape then closes it and is not the window's own. */
 int ui_popup_open(void);
 

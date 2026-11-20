@@ -2,7 +2,7 @@
  * car project's card, textures and masks (dep59 car editor 1d, read only for now); with nothing open, a start screen.
  *
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
- *                     [--frames N] [--save] [--build] [--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]
+ *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
  * PROJECT is a folder such as art/tnfs-tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
  * art/tnfs-cars/<kit>/ (or its coche/): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
@@ -41,6 +41,7 @@ typedef struct {
     const char *export_car, *export_into, *cd, *port_data;   /* --export-car STEM --into DIR, --cd DIR, --port-data DIR: Export original car without the window's dialogs */
     int race_photo, night;    /* --race-photo: take the race photo before the first frame (a headless run waits for it); --night: the Night preset */
     const char *track, *race_png;   /* --track STEM, --race-png FILE: the track and where the photo is also written */
+    const char *orbit;       /* --orbit YAW,PITCH[,DIST]: the Model window's camera, in degrees (a headless picture of a view) */
     int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
@@ -75,6 +76,7 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--pick") == 0 && has_value) o->pick = argv[++i];
         else if (strcmp(argv[i], "--race-photo") == 0) o->race_photo = 1;
         else if (strcmp(argv[i], "--night") == 0) o->night = 1;
+        else if (strcmp(argv[i], "--orbit") == 0 && has_value) o->orbit = argv[++i];
         else if (strcmp(argv[i], "--track") == 0 && has_value) o->track = argv[++i];
         else if (strcmp(argv[i], "--race-png") == 0 && has_value) o->race_png = argv[++i];
         else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
@@ -304,6 +306,19 @@ static int run(App *a, const Options *o)
         SDL_DestroyWindow(win);
         SDL_Quit();
         return 1;
+    }
+    if (o->orbit != NULL) {
+        double yaw = 0, pitch = 0;
+        int dist = 0;
+        if (sscanf(o->orbit, "%lf,%lf,%d", &yaw, &pitch, &dist) < 2) {
+            fprintf(stderr, "--orbit %s: YAW,PITCH[,DIST] expected\n", o->orbit);
+            ui_close();
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            return 0;   /* a run that did not go */
+        }
+        ui_model_orbit(yaw, pitch, dist);
     }
     if (a->kind == APP_KIND_TRACK && o->select >= 0 && o->select < a->trace.count) a->selected = o->select;   /* for a headless picture of the Node window */
     for (int i = 0; i < o->set_count; ++i) {   /* a car's fields, as typed */
