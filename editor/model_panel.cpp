@@ -3,6 +3,7 @@
 // to turn the car all the way round, on every axis, the wheel zooms, F / S / R / T are the front, side, rear and top, Home the first view; Auto-rotate
 // turns it by itself. Painted as the Preview window paints it (car_preview), in its Day / Night and lamps.
 #include "panels.h"
+#include "help_marker.h"
 
 #include "imgui.h"
 
@@ -244,7 +245,7 @@ void model_panel(App *a, SDL_Renderer *ren)
             toolbar();
             keys();
             const ImVec2 size = ImGui::GetContentRegionAvail();
-            const int lines = g.shine ? 2 : 1;   // the words under the picture
+            const int lines = g.shine && !g.shines ? 2 : 1;   // the words under the picture: the state, and "no shine" when Shine has nothing to show
             const int area_w = static_cast<int>(size.x), area_h = static_cast<int>(size.y) - lines * static_cast<int>(ImGui::GetTextLineHeightWithSpacing());
             int w = 0, h = 0;   // the picture fills the area (car_scene keeps its pixels square, the car whole in the smaller side)
             if (picture_size(area_w, area_h, &w, &h) && make_target(ren, w, h)) {
@@ -260,10 +261,12 @@ void model_panel(App *a, SDL_Renderer *ren)
                 turn_and_zoom();
                 ImGui::GetWindowDrawList()->AddImage(reinterpret_cast<ImTextureID>(g.tex), at, ImVec2(at.x + area.x, at.y + area.y));
                 // the Preview's words: a paint chosen is the race's; none (or a car the paint cannot be made for) is the base texture
-                ImGui::TextDisabled("Drag to turn, wheel to zoom, F S R T Home. %s", g.painted && rgb != nullptr ? "As the race paints it." : "Base texture (no colour).");
-                if (g.shine)
-                    ImGui::TextDisabled("%s", g.shines ? "Shine: its tones from the car's own colours (a race takes them from the screen's)."
-                                                       : "Shine: no texel of this car shines (its masks mark none as paint or shine).");
+                ImGui::TextDisabled("%s", g.painted && rgb != nullptr ? "As the race paints it." : "Base texture (no colour).");
+                ImGui::SameLine();
+                help_marker(g.shine && g.shines ? "Drag to turn, wheel to zoom; keys F, S, R, T and Home for the views.\n"
+                                                  "Shine: its tones come from the car's own colours (a race takes them from the screen's)."
+                                                : "Drag to turn, wheel to zoom; keys F, S, R, T and Home for the views.");
+                if (g.shine && !g.shines) ImGui::TextDisabled("Shine: no texel of this car shines (its masks mark none as paint or shine).");
             }
         }
     }
