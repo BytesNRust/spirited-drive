@@ -18,6 +18,10 @@ typedef struct {
     LightFile file;                 /* the working copy; edit it with light_file_set_*; valid only with has_file */
     char *loaded;                   /* the file's bytes as read or last saved */
     size_t loaded_size;
+    int has_places;                 /* the track's places file <dir>/track/<TRACK>.txt was there and is a places file of this track (part D); the fields below are valid only then */
+    LightFile places;               /* its working copy: tunnel, canyon and car_dim ranges, edited with light_file_set_place */
+    char *places_loaded;            /* its bytes as read or last saved */
+    size_t places_loaded_size;
 } LightSession;
 
 /* Opens <dir>/track_light/<TRACK><letter>.txt. 1 when the folder is a light folder; with no file there, has_file is 0 and `why` says so. 0 with `why` when the folder has no
@@ -33,6 +37,10 @@ char *light_session_text(const LightSession *s, size_t *size);
 int light_session_dirty(const LightSession *s);
 /* The working copy goes back to what was read or last saved. */
 void light_session_revert(LightSession *s);
+/* The places working copy's bytes (malloc'd, NUL-terminated; NULL without a places file or out of memory), as the photo job takes them. Dirty, Revert and Save cover the places file as well:
+ * Save also writes the places file when it changed, and nothing at all when it cannot be (the folder has no track/). */
+char *light_session_places_text(const LightSession *s, size_t *size);
+
 /* A node of the photo kept inside the road: 0 .. nodes-1 (0 without a file). */
 unsigned light_session_clamp_node(const LightSession *s, long node);
 /* Writes the working copy as the file (a temporary file next to it, then a rename) and makes it the new baseline. 1, or 0 with `why` (no file, a folder that is no longer a light
