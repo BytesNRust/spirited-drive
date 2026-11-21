@@ -25,7 +25,11 @@ static void check_paths(void)
         for (int j = 0; p != NULL && j < i; ++j) CHECK(strcmp(p, car_kit_path((CarKitPath)j)) != 0);
         for (size_t k = 0; p != NULL && k < sizeof OLD / sizeof OLD[0]; ++k) CHECK(strstr(p, OLD[k]) == NULL);
     }
-    CHECK(strcmp(car_kit_path(CAR_KIT_BUILD), "build") == 0 && strcmp(car_kit_path(CAR_KIT_CAR_MASKS), "car_masks") == 0);
+    CHECK(strcmp(car_kit_path(CAR_KIT_BUILD), "build") == 0 && strcmp(car_kit_path(CAR_KIT_GEN_CAR_MASKS), "art-generated/car_masks") == 0 &&
+          strcmp(car_kit_path(CAR_KIT_GEN_DASH_MASKS), "art-generated/dash_masks") == 0);
+    CHECK(strcmp(car_kit_path(CAR_KIT_ART_SOURCE), "art-source") == 0 && strcmp(car_kit_path(CAR_KIT_SRC_MASKS), "art-source/masks") == 0 &&
+          strcmp(car_kit_path(CAR_KIT_SRC_MESH), "art-source/mesh") == 0 && strcmp(car_kit_path(CAR_KIT_ART_GENERATED), "art-generated") == 0);
+    CHECK(strcmp(car_kit_path(CAR_KIT_GEN_MANIFEST), "art-generated/.generated.tsv") == 0);   /* what Studio generated: a hash a file, kept out of the build */
     CHECK(strcmp(car_kit_path(CAR_KIT_NEAR_BANK), "model/near/bank") == 0 && strcmp(car_kit_path(CAR_KIT_FAR_MESH), "model/far/mesh") == 0);
 }
 
@@ -34,7 +38,7 @@ static void check_readme(void)
     const char *text = car_kit_readme();
     CHECK(text != NULL && strstr(text, "disposable") != NULL && strstr(text, "_mask.png goes over the texture") != NULL);
     static const CarKitPath EDITED[] = { CAR_KIT_MOD_INI, CAR_KIT_CARD, CAR_KIT_NEAR_MESH, CAR_KIT_NEAR_BANK, CAR_KIT_FAR_MESH,
-                                         CAR_KIT_FAR_BANK, CAR_KIT_SPECS, CAR_KIT_PDN, CAR_KIT_CAR_MASKS, CAR_KIT_DASH_MASKS, CAR_KIT_PHOTOS, CAR_KIT_BUILD };
+                                         CAR_KIT_FAR_BANK, CAR_KIT_SPECS, CAR_KIT_PDN, CAR_KIT_GEN_CAR_MASKS, CAR_KIT_GEN_DASH_MASKS, CAR_KIT_PHOTOS, CAR_KIT_BUILD };
     for (size_t i = 0; text != NULL && i < sizeof EDITED / sizeof EDITED[0]; ++i) CHECK(strstr(text, car_kit_path(EDITED[i])) != NULL);
 }
 

@@ -90,9 +90,9 @@ static int piece_extras(const char *piece, const ModInfo *info, FileSet *out, Ex
 {
     char rel[PATH_MAX], prefix[PATH_MAX];
     int ok = add_file(piece, "mod.ini", out, car_kit_path(CAR_KIT_MOD_INI), 1, err) && add_file(piece, "card.png", out, car_kit_path(CAR_KIT_CARD), 0, err);
-    snprintf(rel, sizeof rel, "car_masks/%s", info->stem), snprintf(prefix, sizeof prefix, "%s/", car_kit_path(CAR_KIT_CAR_MASKS));
+    snprintf(rel, sizeof rel, "car_masks/%s", info->stem), snprintf(prefix, sizeof prefix, "%s/", car_kit_path(CAR_KIT_GEN_CAR_MASKS));
     ok = ok && add_tree(piece, rel, out, prefix, err);
-    snprintf(rel, sizeof rel, "dash_masks/%s", info->stem), snprintf(prefix, sizeof prefix, "%s/", car_kit_path(CAR_KIT_DASH_MASKS));
+    snprintf(rel, sizeof rel, "dash_masks/%s", info->stem), snprintf(prefix, sizeof prefix, "%s/", car_kit_path(CAR_KIT_GEN_DASH_MASKS));
     ok = ok && add_tree(piece, rel, out, prefix, err);
     for (int i = 0; ok && i <= info->photo_count; ++i) {   /* photos=, then photo_small= */
         const char *name = i < info->photo_count ? info->photo[i] : info->photo_small;
@@ -156,9 +156,9 @@ static int piece_files(const char *kit, const ModInfo *info, const CarKitBuilt *
              fileset_add(out, paths[0], built->cfm, built->cfm_len) && (built->pdn == NULL || fileset_add(out, paths[1], built->pdn, built->pdn_len)) &&
              (built->pbs == NULL || fileset_add(out, paths[2], built->pbs, built->pbs_len));
     snprintf(prefix, sizeof prefix, "car_masks/%s/", info->stem);
-    ok = ok && add_tree(kit, car_kit_path(CAR_KIT_CAR_MASKS), out, prefix, err);
+    ok = ok && add_tree(kit, car_kit_path(CAR_KIT_GEN_CAR_MASKS), out, prefix, err);
     snprintf(prefix, sizeof prefix, "dash_masks/%s/", info->stem);
-    ok = ok && add_tree(kit, car_kit_path(CAR_KIT_DASH_MASKS), out, prefix, err);
+    ok = ok && add_tree(kit, car_kit_path(CAR_KIT_GEN_DASH_MASKS), out, prefix, err);
     return ok && add_tree(kit, car_kit_path(CAR_KIT_PHOTOS), out, "", err);
 }
 

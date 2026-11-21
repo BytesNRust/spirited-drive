@@ -23,16 +23,17 @@ sources() { (cd "$1" && find . -type f ! -path './build/*' | LC_ALL=C sort | xar
 p="$work/piece"
 "$studio" car new --template viper --id kit-car --stem KITCAR --out "$p" --data "$orig" --port-data "$port" >"$work/log" 2>&1 ||
     fail "car new: $(cat "$work/log")"
-mkdir -p "$p/car_masks/KITCAR" && cp "$p/card.png" "$p/car_masks/KITCAR/note.png"   # a file under the stem, to see it come back there
+mkdir -p "$p/car_masks/KITCAR" "$p/dash_masks/KITCAR" && cp "$p/card.png" "$p/car_masks/KITCAR/note.png" && cp "$p/card.png" "$p/dash_masks/KITCAR/dash_mask.png"   # a file under the stem, to see it come back there
 
 # 1. the kit
 k="$work/kit"
 "$studio" car kit "$p" "$k" >"$work/log" 2>&1 || fail "car kit: $(cat "$work/log")"
 for f in README.txt mod.ini card.png model/near/mesh/mesh.blender.obj model/near/bank/entries.tsv model/near/bank/bank.tsv \
-         model/far/mesh/mesh.blender.obj model/far/bank/bank.tsv specs/specs.tsv specs/pdn.tsv car_masks/note.png; do
+         model/far/mesh/mesh.blender.obj model/far/bank/bank.tsv specs/specs.tsv specs/pdn.tsv art-generated/car_masks/note.png art-generated/dash_masks/dash_mask.png; do
     [ -f "$k/$f" ] || fail "the kit has no $f"
 done
-[ ! -e "$k/car_masks/KITCAR" ] || fail "the kit's masks keep the stem level"
+[ ! -e "$k/art-generated/car_masks/KITCAR" ] || fail "the kit's masks keep the stem level"
+[ ! -e "$k/car_masks" ] && [ ! -e "$k/dash_masks" ] || fail "the kit has masks at its top: they are generated, under art-generated/"
 [ ! -e "$k/build" ] || fail "car kit made build/"
 grep -q "disposable" "$k/README.txt" || fail "README.txt does not say build/ is disposable"
 
@@ -46,7 +47,8 @@ for f in SIMDATA/CARSPECS/KITCAR.PBS SIMDATA/CARFAMS/KITCAR.PDN; do
         fail "unpack of $f"
     diff -r "$work/was-$(basename "$f")" "$work/now-$(basename "$f")" >/dev/null || fail "$f's record is not the piece's"
 done
-[ -f "$b/car_masks/KITCAR/note.png" ] || fail "the build has no car_masks/KITCAR/note.png"
+[ -f "$b/car_masks/KITCAR/note.png" ] && [ -f "$b/dash_masks/KITCAR/dash_mask.png" ] || fail "the build has no car_masks/KITCAR/note.png and dash_masks/KITCAR/dash_mask.png"
+[ ! -e "$b/art-generated" ] && [ ! -e "$b/art-source" ] || fail "the build carries the kit's art folders"
 cmp -s "$p/card.png" "$b/card.png" && cmp -s "$p/mod.ini" "$b/mod.ini" || fail "the card is not copied as it is"
 ls "$k"/build/*.zip >/dev/null 2>&1 || fail "no zip in build/"
 "$studio" validate "$b" >"$work/log" 2>&1 && grep -q "no findings" "$work/log" || fail "validate of the build: $(cat "$work/log")"

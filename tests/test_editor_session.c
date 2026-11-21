@@ -1373,7 +1373,7 @@ static void check_mask_texture_file(void)
     char kit[600], p[900];
     snprintf(kit, sizeof kit, "%s/tex_file_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
     if (mkdtemp(kit) == NULL) { CHECK(0); return; }
-    const char *dirs[] = { "model", "model/near", "model/near/bank", "car_masks" };
+    const char *dirs[] = { "model", "model/near", "model/near/bank", "art-generated", "art-generated/car_masks" };
     for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; i++) snprintf(p, sizeof p, "%s/%s", kit, dirs[i]), mkdir(p, 0777);
     snprintf(p, sizeof p, "%s/model/near/bank/entries.tsv", kit);
     FILE *f = fopen(p, "wb");
@@ -1385,7 +1385,7 @@ static void check_mask_texture_file(void)
     uint8_t grey[8 * 6], *png = NULL;
     size_t len = 0;
     memset(grey, 255, sizeof grey);
-    snprintf(p, sizeof p, "%s/car_masks/frnt_mask.png", kit);
+    snprintf(p, sizeof p, "%s/art-generated/car_masks/frnt_mask.png", kit);
     f = png_write_grey(grey, 8, 6, &png, &len) == PNG_OK ? fopen(p, "wb") : NULL;
     if (f != NULL) fwrite(png, 1, len, f), fclose(f);
     free(png);

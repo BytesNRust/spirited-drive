@@ -1,6 +1,6 @@
 #!/bin/sh
 # A car kit in the current layout in the Studio, the happy path a user takes: Open (the car file is built as it opens), Preview, Edit mask and Save mask
-# (in the kit's flat car_masks/), Preview shows the edit, Build (build/piece and the zip carry the edit), Install into a player folder. The kit is a car you
+# (in the kit's flat art-generated/car_masks/), Preview shows the edit, Build (build/piece and the zip carry the edit), Install into a player folder. The kit is a car you
 # drive, laid out by `tnfs-studio car kit`, its card given a stem of its own (a mod's stem is no original car's). Needs the game's files (original/).
 # usage: editor_e2e_kit.sh EDITOR TNFS ORIGINAL_DIR PORT_DATA STUDIO
 . "$(dirname "$0")/editor_headless_common.sh"
@@ -23,8 +23,8 @@ w,h=309,166
 def ch(t,d): return struct.pack(">I",len(d))+t+d+struct.pack(">I",zlib.crc32(t+d))
 raw=b"".join(b"\0"+b"\x80"*(w*3) for _ in range(h))
 open(sys.argv[1],"wb").write(b"\x89PNG\r\n\x1a\n"+ch(b"IHDR",struct.pack(">IIBBBBB",w,h,8,2,0,0,0))+ch(b"IDAT",zlib.compress(raw))+ch(b"IEND",b""))' "$kit/card.png" || fail "no card.png: the game wants Control Central's picture (309 x 166) in a piece"
-mask="$kit/car_masks/frnt_mask.png"
-[ -f "$mask" ] || fail "the kit has no flat car_masks/frnt_mask.png"
+mask="$kit/art-generated/car_masks/frnt_mask.png"
+[ -f "$mask" ] || fail "the kit has no flat art-generated/car_masks/frnt_mask.png"
 [ ! -d "$kit/build" ] || fail "a fresh kit has a build/"
 
 # 2. Open: the car file is built as the kit opens (a headless run waits for it), the Preview shows the car

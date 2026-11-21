@@ -7,9 +7,12 @@
  *   model/far/mesh/, model/far/bank/   the far model, the same way
  *   specs/specs.tsv          the PBS (optional: a car with none keeps the game's)
  *   specs/pdn.tsv            the PDN (optional)
- *   car_masks/               the masks, grey, as the game reads them: <tex>_mask.png over the near texture <tex>, <tex>_lo_mask.png over the
- *                            far one; the only mask source (colour masks are an export, not a source). No stem level: the build adds it
- *   dash_masks/              dash_mask.png (and dash_color.png), the same way
+ *   art-source/              what is edited with other programs (dep100): masks/ (a PSD a texture, <tex>.psd and <tex>_lo.psd, and dash.psd; a texture with no
+ *                            PSD has its mask PNG there as its source) and mesh/ (the Blender OBJs). Studio never writes into it
+ *   art-generated/           what Studio writes, never edited by hand: car_masks/ (the masks, grey, as the game reads them: <tex>_mask.png over the near
+ *                            texture <tex>, <tex>_lo_mask.png over the far one; no stem level, the build adds it), dash_masks/ (dash_mask.png and
+ *                            dash_color.png, the same way) and .generated.tsv (a hash a generated PNG, for the warning on a hand-edited one; the
+ *                            build ignores it). The textures stay in model/near/bank and model/far/bank at the kit's top until art-source/textures/ takes them
  *   photos/                  the showcase's pictures, <name>.png, named by mod.ini's photos= and photo_small=; the build puts them in the piece
  *   build/                   disposable: build/piece/ (the mod as the game installs it: mod.ini, card.png, SIMDATA/, car_masks/<STEM>/,
  *                            dash_masks/<STEM>/, the photos) and build/<id>.zip */
@@ -25,8 +28,13 @@ typedef enum {
     CAR_KIT_FAR_BANK,
     CAR_KIT_SPECS,
     CAR_KIT_PDN,
-    CAR_KIT_CAR_MASKS,
-    CAR_KIT_DASH_MASKS,
+    CAR_KIT_ART_SOURCE,
+    CAR_KIT_SRC_MASKS,      /* art-source/masks: <tex>.psd, <tex>_lo.psd, dash.psd, or the PNG that is a texture's source */
+    CAR_KIT_SRC_MESH,       /* art-source/mesh: the Blender OBJs */
+    CAR_KIT_ART_GENERATED,
+    CAR_KIT_GEN_CAR_MASKS,  /* art-generated/car_masks: flat, <tex>_mask.png; what the build and the editor read */
+    CAR_KIT_GEN_DASH_MASKS, /* art-generated/dash_masks: flat, dash_mask.png and dash_color.png */
+    CAR_KIT_GEN_MANIFEST,   /* art-generated/.generated.tsv: name and sha256 of each generated PNG; never copied to build/piece */
     CAR_KIT_PHOTOS,
     CAR_KIT_BUILD,
     CAR_KIT_BUILD_PIECE,

@@ -43,12 +43,12 @@ static void write_file(const char *rel, const char *text)
 static const char CARD[] = "id=carrera-84\nname=911 Carrera 3.2\nversion=0.2\ntype=car\nstem=C84\nshort_name=911 3.2\nyear=1984\npower=231 hp\n"
                            "weight=1160 kg\npaints=Guards Red:c8102e,Black:141414\nauthor=Edgar\n";
 
-/* kit/ in the current layout (car_kit_paths.h): mod.ini, model/near/bank and model/far/bank (PNG files), car_masks (flat PNG files), and
+/* kit/ in the current layout (car_kit_paths.h): mod.ini, model/near/bank and model/far/bank (PNG files), art-generated/car_masks (flat PNG files), and
  * build/piece/SIMDATA/CARFAMS/C84.CFM when `built` */
 static void make_kit(const char *kit, int built)
 {
     char p[256];
-    static const char *const DIRS[] = { "model", "model/near", "model/near/bank", "model/far", "model/far/bank", "car_masks", "build", "build/piece",
+    static const char *const DIRS[] = { "model", "model/near", "model/near/bank", "model/far", "model/far/bank", "art-generated", "art-generated/car_masks", "build", "build/piece",
                                         "build/piece/SIMDATA", "build/piece/SIMDATA/CARFAMS" };
     make_dir(kit);
     for (size_t i = 0; i < sizeof DIRS / sizeof DIRS[0]; i++) {
@@ -60,7 +60,7 @@ static void make_kit(const char *kit, int built)
     if (built) snprintf(p, sizeof p, "%s/build/piece/SIMDATA/CARFAMS/C84.CFM", kit), write_file(p, "cfm");
     static const char *const MASKS[] = { "rsid_mask.png", "frnt_mask.png", "bott_mask.png", "notes.txt" };
     for (size_t i = 0; i < sizeof MASKS / sizeof MASKS[0]; i++) {
-        snprintf(p, sizeof p, "%s/car_masks/%s", kit, MASKS[i]), write_file(p, "x");
+        snprintf(p, sizeof p, "%s/art-generated/car_masks/%s", kit, MASKS[i]), write_file(p, "x");
     }
     static const char *const TEX[] = { "0010_rsid.png", "0001_topv.png", "0000__PAL.bin", "entries.tsv", "0003_bott.png" };
     for (size_t i = 0; i < sizeof TEX / sizeof TEX[0]; i++) {
@@ -100,7 +100,7 @@ static void check_kit(void)
     CHECK_EQ_INT(car_project_present(dir), 1);
     CHECK(strcmp(c.kit, "kit") == 0);
     car_project_masks_dir(&c, dir, sizeof dir);
-    path_in(want, sizeof want, "kit/car_masks", "");
+    path_in(want, sizeof want, "kit/art-generated/car_masks", "");
     CHECK(strcmp(dir, want) == 0);
     car_project_card_dir(&c, dir, sizeof dir);   /* the card's own files (mod.ini, card.png) are the kit's, not build/piece's (disposable) */
     path_in(want, sizeof want, "kit", "");
@@ -211,7 +211,7 @@ static void check_what_is_not_a_car(void)
         for (const char *p = why; *p != '\0'; p++) CHECK((unsigned char)*p >= 0x20 || *p == '\n');
     }
     CHECK_EQ_INT(detect("kit/model", &c, why), 0);   /* a folder of the kit that is not the car */
-    CHECK_EQ_INT(detect("kit/car_masks", &c, why), 0);
+    CHECK_EQ_INT(detect("kit/art-generated/car_masks", &c, why), 0);
     CHECK_EQ_INT(car_project_detect(NULL, &c, why, sizeof why), 0);
 }
 
@@ -220,7 +220,7 @@ static void check_no_masks_is_a_car(void)
     static CarProject c;
     char why[400];
     make_kit("bare", 1);
-    system_rm("bare/car_masks");
+    system_rm("bare/art-generated/car_masks");
     CHECK_EQ_INT(detect("bare", &c, why), 1);   /* no masks yet is listed as none, not refused */
     CHECK(!c.has_masks_dir && c.mask_count == 0);
 }

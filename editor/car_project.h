@@ -1,5 +1,5 @@
-/* A car project: a kit folder such as <workspace>/cars/<kit>/ in the current layout (core/formats/car_kit_paths.h, dep85): mod.ini at its top, model/,
- * car_masks/ (flat: <tex>_mask.png), build/. What makes it a car: a mod.ini with type=car and a stem=, and a model/ folder. The car's file is the build's
+/* A car project: a kit folder such as <workspace>/cars/<kit>/ in the current layout (core/formats/car_kit_paths.h, dep85, dep100): mod.ini at its top, model/,
+ * art-generated/car_masks/ (flat: <tex>_mask.png), build/. What makes it a car: a mod.ini with type=car and a stem=, and a model/ folder. The car's file is the build's
  * (build/piece/SIMDATA/CARFAMS/<STEM>.CFM): a kit not built yet is a kit, `built` says whether the file is there. Two shapes more open as they always did:
  * a piece folder with no model/ (what Export original car makes of a car you drive: mod.ini, SIMDATA/CARFAMS/<STEM>.CFM, car_masks/<folder>/), and a masks
  * project (a traffic or police car: project.ini with kind=masks). The old coche/ + modelo/ kit is refused. Read only. Pure C, no window. */
@@ -42,13 +42,13 @@ int car_project_detect(const char *dir, CarProject *out, char *why, size_t why_c
 /* 1 when `dir` holds a masks project: a project.ini that says kind=masks (editor/car_export.h makes them). It is not a track project, whatever the file is called. */
 int car_project_is_masks(const char *dir);
 
-/* The folder of the project's masks: root/car_masks for a kit (flat), piece/car_masks/<folder> for a masks project. */
+/* The folder of the project's masks: root/art-generated/car_masks for a kit (flat), piece/car_masks/<folder> for a masks project. */
 void car_project_masks_dir(const CarProject *c, char *out, size_t cap);
 /* The folder that holds the card's own files (mod.ini, card.png): the kit's folder for a kit, the piece itself for the other shapes. Never build/piece: that is rebuilt. */
 void car_project_card_dir(const CarProject *c, char *out, size_t cap);
 /* Where the showcase's pictures (photos= names them) are: root/photos for a kit (the build copies them into the piece), the piece itself for the other shapes. */
 void car_project_photos_dir(const CarProject *c, char *out, size_t cap);
-/* the same relative to the project's folder, for the words on screen: "car_masks" for a kit, "car_masks/<folder>" for the other shapes */
+/* the same relative to the project's folder, for the words on screen: "art-generated/car_masks" for a kit, "car_masks/<folder>" for the other shapes */
 void car_project_masks_rel(const CarProject *c, char *out, size_t cap);
 
 /* 1 when `dir` looks like a car project (a mod.ini in it, or an old coche/mod.ini that detect will refuse in words, or a masks project): the cheap question for a recent list, which asks every frame. car_project_detect judges. */

@@ -374,7 +374,11 @@ static void masks_project_facts(const App *a)
             ImGui::TableSetColumnIndex(0);
             ImGui::TextUnformatted(row[0]);
             ImGui::TableSetColumnIndex(1);
-            if (strcmp(row[0], "masks") == 0 && c.has_masks_dir) ImGui::Text("%d in car_masks/%s", c.mask_count, c.folder);
+            if (strcmp(row[0], "masks") == 0 && c.has_masks_dir) {
+                char rel[128];
+                car_project_masks_rel(&c, rel, sizeof rel);
+                ImGui::Text("%d in %s", c.mask_count, rel);
+            }
             else ImGui::TextWrapped("%s", row[1]);
         }
         ImGui::EndTable();

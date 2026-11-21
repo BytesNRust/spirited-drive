@@ -24,8 +24,13 @@ static const char *const PATHS[CAR_KIT_PATHS] = {
     [CAR_KIT_FAR_BANK] = "model/far/bank",
     [CAR_KIT_SPECS] = "specs/specs.tsv",
     [CAR_KIT_PDN] = "specs/pdn.tsv",
-    [CAR_KIT_CAR_MASKS] = "car_masks",
-    [CAR_KIT_DASH_MASKS] = "dash_masks",
+    [CAR_KIT_ART_SOURCE] = "art-source",
+    [CAR_KIT_SRC_MASKS] = "art-source/masks",
+    [CAR_KIT_SRC_MESH] = "art-source/mesh",
+    [CAR_KIT_ART_GENERATED] = "art-generated",
+    [CAR_KIT_GEN_CAR_MASKS] = "art-generated/car_masks",
+    [CAR_KIT_GEN_DASH_MASKS] = "art-generated/dash_masks",
+    [CAR_KIT_GEN_MANIFEST] = "art-generated/.generated.tsv",
     [CAR_KIT_PHOTOS] = "photos",
     [CAR_KIT_BUILD] = "build",
     [CAR_KIT_BUILD_PIECE] = "build/piece",
@@ -53,9 +58,11 @@ const char *car_kit_readme(void)
            "  model/far/bank/         its textures\n"
            "  specs/specs.tsv         the car's physics (optional)\n"
            "  specs/pdn.tsv           its body size and AI (optional)\n"
-           "  car_masks/              the colour masks, grey, as the game reads them: car_masks/frnt_mask.png goes over the texture\n"
-           "                          model/near/bank/NNNN_frnt.png (same size; paint it on that picture); a _lo mask over model/far/bank\n"
-           "  dash_masks/             dash_mask.png (and dash_color.png), the same way\n"
+           "  art-source/             what you edit with other programs: masks/ (a PSD a texture) and mesh/ (the OBJs)\n"
+           "  art-generated/          what Studio writes: do not edit it\n"
+           "  art-generated/car_masks/   the colour masks, grey: frnt_mask.png goes over the texture model/near/bank/NNNN_frnt.png (same\n"
+           "                          size); a _lo mask over model/far/bank\n"
+           "  art-generated/dash_masks/  dash_mask.png (and dash_color.png), the same way\n"
            "  photos/                 your showcase pictures, NAME.png, listed in mod.ini's photos= (and photo_small=)\n"
            "  build/                  disposable: what a build makes (the game's files and the zip). Never edit it; delete it any time.\n";
 }
