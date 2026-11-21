@@ -917,6 +917,9 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     add_executable(test_editor_workspace tests/test_editor_workspace.c editor/workspace.c)   # the workspace folder: cars/ and tracks/, what it lists, where a dialog starts
     target_include_directories(test_editor_workspace PRIVATE editor tests)
     target_compile_options(test_editor_workspace PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_editor_original_track tests/test_editor_original_track.c editor/original_track.c)   # an original track as a workspace project: add, never overwrite, publish
+    target_include_directories(test_editor_original_track PRIVATE editor tests)
+    target_compile_options(test_editor_original_track PRIVATE ${TNFS_WARNINGS})
     add_executable(test_editor_key_ops tests/test_editor_key_ops.c editor/key_ops.c editor/point_ops.c)   # dep87 1b: the profile keys of copy, paste, mirror, reverse
     target_include_directories(test_editor_key_ops PRIVATE editor tests)
     target_link_libraries(test_editor_key_ops PRIVATE tnfs_core)
@@ -1148,6 +1151,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_selection COMMAND test_editor_selection)
         add_test(NAME editor_point_ops COMMAND test_editor_point_ops)
         add_test(NAME editor_workspace COMMAND test_editor_workspace)
+        add_test(NAME editor_original_track COMMAND test_editor_original_track)
         add_test(NAME editor_key_ops COMMAND test_editor_key_ops)
         add_test(NAME editor_key_scope COMMAND test_editor_key_scope)
         add_test(NAME editor_arc_block COMMAND test_editor_arc_block)
