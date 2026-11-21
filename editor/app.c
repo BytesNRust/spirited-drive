@@ -375,7 +375,7 @@ void app_ask(App *a, AppAction act, const char *path)
     const int gives = act == APP_ACT_NEW_AT || act == APP_ACT_OPEN_AT || act == APP_ACT_OPEN_CAR_AT || act == APP_ACT_EXPORT_AT || act == APP_ACT_LIGHT_AT;
     const int answered = gives && a->discard_accepted;   /* the question was answered before the picker: Save or Discard stands for the open it gave */
     if (gives) a->discard_accepted = 0;
-    if (app_modified(a) && !answered) {
+    if ((app_modified(a) || act == APP_ACT_QUIT) && !answered) {   /* leaving Studio is asked every time, the rest only with something unsaved */
         a->confirm = act;
         snprintf(a->confirm_path, sizeof a->confirm_path, "%s", path != NULL ? path : "");
     } else {

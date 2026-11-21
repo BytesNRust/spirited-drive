@@ -669,18 +669,36 @@ void open_error_popup(App *a)
 // frame, so the Enter that chose a menu item cannot answer it)
 void confirm_popup(App *a)
 {
-    static const char *const NAME = "Unsaved changes";
     static int age = 0;               // frames the question has been up
     static bool save_failed = false;  // the last Save did not write: the question stays, with the reason
+    static const char *shown = nullptr;   // the title of the question that is up
+    // leaving Studio is asked every time: with nothing unsaved it is only "Quit Studio?" (Quit / Cancel)
+    const bool plain_quit = a->confirm == APP_ACT_QUIT && !app_modified(a);
+    const char *const NAME = plain_quit ? "Quit Studio" : "Unsaved changes";
     if (a->confirm == APP_ACT_NONE) {
         age = 0;
         save_failed = false;
     } else if (!ImGui::IsPopupOpen(NAME)) {
         ImGui::OpenPopup(NAME);
+        shown = NAME;
     }
-    if (!ImGui::BeginPopupModal(NAME, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+    if (shown == nullptr || !ImGui::BeginPopupModal(shown, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;   // the name it was opened with, also while it is closed by an answer
     if (a->confirm == APP_ACT_NONE) {   // answered elsewhere (Escape)
         ImGui::CloseCurrentPopup();
+    } else if (plain_quit) {
+        ++age;
+        ImGui::TextUnformatted("Quit Studio?");
+        ImGui::Spacing();
+        int answer = -1;
+        if (ImGui::Button("Quit")) answer = APP_ANSWER_DISCARD;   // nothing to save: it goes on
+        ImGui::SetItemDefaultFocus();
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) answer = APP_ANSWER_CANCEL;
+        if (age > 1 && ImGui::IsKeyPressed(ImGuiKey_Enter, false)) answer = APP_ANSWER_DISCARD;
+        if (answer >= 0) {
+            app_answer(a, answer);
+            ImGui::CloseCurrentPopup();
+        }
     } else {
         ++age;
         const char *then = a->confirm == APP_ACT_QUIT ? "quitting" : a->confirm == APP_ACT_NEW || a->confirm == APP_ACT_NEW_AT ? "starting a new track"

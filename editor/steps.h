@@ -42,6 +42,7 @@
  *   slope:G,IN,OUT,KEEP      the Slope block over the selected run: grade G %, eased IN m and OUT m, KEEP 1 the road after it kept; then Accept (slope-rise:R,.. by rise R m)
  *   slope-preview:N    the profile draws what Accept would make (N 1; 0 stops), held, for a picture
  *   strip-split:DY     the splitter between the Viewport and the Distance strip dragged DY pixels (down: a lower strip); strip-size:H drags it to H pixels high (whatever it was); print-strip prints "strip: H", its window height in pixels
+ *   print-confirm  what waits for an answer and what is to run, "confirm: quit|none|other" and "go: quit|none|other" (Escape never quits; a quit is asked every time)
  *   print-height:I      point I's height printed ("height: 2 12.3")
  *   night-light:N, night-tint:R,G,B (0..1), night-reset:K (0 the light to 100 %, 1 the tint to the grey), lights-open (the Preview's Lights header unfolded), print-night: the car Preview's Night light and tint, as its slider, picker and Reset buttons set them
  *   problems       what Problems shows first: "problems: refusal TEXT" (Build's words), "problems: red node N" or "problems: none"
