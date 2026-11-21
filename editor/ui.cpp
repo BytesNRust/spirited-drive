@@ -152,8 +152,9 @@ namespace {
 
 // the first-run track layout's parts of the window (right column) and of the bottom (Road profile): at least the first, at most the second
 const float RIGHT_LEAST = 0.33f, RIGHT_MOST = 0.45f, PROFILE_LEAST = 0.5f, PROFILE_MOST = 0.7f;
+const float STRIP_PART = 0.46f;   // the Distance strip's share of the height under the Viewport (what is left of the centre after the bottom row)
 
-// the layout of a first run (no ini): the top view in the middle, the limits and the problems (two tabs) under it, the project and the points to its right
+// the layout of a first run (no ini): the top view in the middle, the Distance strip as a row under it, then the limits and the problems (tabs), the project and the points to its right
 void default_layout(ImGuiID dock)
 {
     ImGui::DockBuilderRemoveNode(dock);
@@ -167,6 +168,7 @@ void default_layout(ImGuiID dock)
     ImGuiID right = 0, centre = dock, bottom = 0, points = 0, node = 0;
     right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, right_part, nullptr, &centre);
     bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down, 0.30f, nullptr, &centre);
+    const ImGuiID strip = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down, STRIP_PART, nullptr, &centre);   // the Distance strip: a row of its own under the view, as wide as it
     points = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.55f, nullptr, &right);
     ImGui::DockBuilderDockWindow("Viewport", centre);
     ImGui::DockBuilderDockWindow(PANEL_LIMITS, bottom);
@@ -174,7 +176,7 @@ void default_layout(ImGuiID dock)
     const ImGuiID profile = ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Right, profile_part, nullptr, &bottom);   // the Road profile beside them: Node stays in sight
     ImGui::DockBuilderDockWindow(PANEL_ROAD_KEY, profile);
     ImGui::DockBuilderDockWindow(PANEL_DRIVE, bottom);   // and Test drive's
-    ImGui::DockBuilderDockWindow(PANEL_STRIP, bottom);   // and the Distance strip's
+    ImGui::DockBuilderDockWindow(PANEL_STRIP, strip);
     const ImGuiID track = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.42f, nullptr, &right);   // the road's width and verge material above the project
     ImGui::DockBuilderDockWindow(PANEL_TRACK, track);
     ImGui::DockBuilderDockWindow(PANEL_PROJECT, right);
