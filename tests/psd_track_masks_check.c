@@ -1,4 +1,4 @@
-/* usage: psd_track_masks_check <psd root (<TRACK>/<name>.psd)> <data/track_masks>
+/* usage: psd_track_masks_check <psd root (<TRACK>/<name>.psd, or a workspace's tracks/ with <TRACK>/art-source/masks/<name>.psd)> <data/track_masks>
  * Reads every track PSD with the C reader (psd_track_mask) and compares its marks with the PNG tools/track_mask_from_psd.py made, as the game reads it (red 128 or more and opaque
  * reflective; red and green 128 or more, blue under 128, opaque, a lamp), and the PNG's colour type (grey without lamps, RGBA with). Lists every difference; exit 0 only when there is
  * none. Read only. */
@@ -83,7 +83,8 @@ int main(int argc, char **argv)
     char **track = list(argv[1], &tracks);
     for (size_t t = 0; t < tracks; ++t) {
         char dir[1024];
-        snprintf(dir, sizeof dir, "%s/%s", argv[1], track[t]);
+        snprintf(dir, sizeof dir, "%s/%s/art-source/masks", argv[1], track[t]);   /* a workspace's <TRACK>/art-source/masks, else the art folder's <TRACK> */
+        if (opendir(dir) == NULL) snprintf(dir, sizeof dir, "%s/%s", argv[1], track[t]);
         size_t n;
         char **files = list(dir, &n);
         for (size_t i = 0; i < n; ++i) {
