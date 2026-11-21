@@ -1430,7 +1430,7 @@ static void check_mask_app(void)
     app_mask_scan(a);
     CHECK_EQ_INT(a->mask.tex_count, 0);
     CHECK_EQ_INT(a->mask.sel, -1);
-    CHECK(a->mask.show == 1 && a->mask.brush >= ME_BRUSH_MIN && a->mask.brush <= ME_BRUSH_MAX && a->mask.opacity > 0);
+    CHECK(a->mask.show == 1 && a->mask.opacity > 0);
     CHECK(!app_mask_open(a, 0));
     CHECK(!app_mask_open_by_name(a, "side"));
     CHECK(strstr(a->mask.error, "no texture side") != NULL);

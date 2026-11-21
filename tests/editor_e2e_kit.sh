@@ -1,5 +1,5 @@
 #!/bin/sh
-# A car kit in the current layout in the Studio, the happy path a user takes: Open (the car file is built as it opens), Preview, Edit mask and Save mask
+# A car kit in the current layout in the Studio, the happy path a user takes: Open (the car file is built as it opens), Preview, the mask changed from outside
 # (in the kit's flat art-generated/car_masks/), Preview shows the edit, Build (build/piece and the zip carry the edit), Install into a player folder. The kit is a car you
 # drive, laid out by `tnfs-studio car kit`, its card given a stem of its own (a mod's stem is no original car's). Needs the game's files (original/).
 # usage: editor_e2e_kit.sh EDITOR TNFS ORIGINAL_DIR PORT_DATA STUDIO
@@ -33,11 +33,13 @@ preview "$work/preview-before.png" || fail "Open and Preview of the kit: $(cat "
 [ -f "$kit/build/piece/SIMDATA/CARFAMS/FLOW911.CFM" ] || fail "Open did not build the car file: $(cat "$work/log")"
 [ -s "$work/preview-before.png" ] || fail "no PNG of the Preview"
 
-# 3. Edit mask and Save mask: the kit's flat file is written, and nothing else in the kit
+# 3. The kit's flat mask file changed from outside Studio, and the mask view reads it without writing it
 cp "$mask" "$work/mask-before.png"
-studio "$kit" --mask frnt --mask-rect 40,40,8,8,90 --mask-save --frames 8 || fail "Edit mask and Save mask: $(cat "$work/log")"
-grep -q "saved frnt_mask.png" "$work/log" || fail "no word that the mask was saved: $(cat "$work/log")"
-cmp -s "$mask" "$work/mask-before.png" && fail "the saved mask is the file it was"
+python3 -I "$(dirname "$0")/mask_poke.py" "$mask" 40 40 8 8 90 || fail "the outside change of the mask"
+cp "$mask" "$work/mask-poked.png"
+studio "$kit" --mask frnt --frames 8 || fail "mask view: $(cat "$work/log")"
+cmp -s "$mask" "$work/mask-poked.png" || fail "the mask view wrote the mask file"
+cmp -s "$mask" "$work/mask-before.png" && fail "the outside change was not made"
 
 # 4. Preview shows the edit
 preview "$work/preview-after.png" || fail "Preview of the edited kit: $(cat "$work/log")"

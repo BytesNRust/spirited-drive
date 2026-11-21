@@ -57,9 +57,6 @@ static int same(MaskStamp x, MaskStamp y)
 static void defaults(MaskUi *m)
 {
     m->sel = -1;
-    m->tool = MASK_TOOL_PENCIL;
-    m->brush = 2;
-    m->cls = 0;
     m->show = 1;
     for (int i = 0; i < ME_CLASSES; i++) m->class_on[i] = 1;
     m->opacity = 0.55f;

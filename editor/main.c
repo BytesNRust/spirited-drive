@@ -77,9 +77,7 @@ typedef struct {
     const char *card_backdrop;   /* --card-backdrop FILE: the card photo's backdrop is that PNG */
     const char *orbit;       /* --orbit YAW,PITCH[,DIST]: the Model window's camera, in degrees (a headless picture of a view) */
     const char *shine;       /* --shine on|off: the Model window's body shine (on by default) */
-    const char *mask;        /* --mask NAME: the mask (topv, frnt_lo) opened in Edit mask before the first frame */
-    const char *mask_rect[8];   /* --mask-rect X,Y,W,H,CLASS: a rectangle of the open mask set to a class value (one step each), for a headless picture of an edit */
-    int mask_rect_count, mask_save;   /* --mask-save: the mask is saved before the first frame */
+    const char *mask;        /* --mask NAME: the mask (topv, frnt_lo) opened in the mask view before the first frame */
     const char *view, *lights, *night_tint, *preview_tex;   int night_light;   /* --view day|night, --lights head,side,brake,reverse,police, --night-light PERCENT, --night-tint R,G,B (0..1): the Preview's Day / Night and its lamps, for a headless picture */
     int changes;             /* --changes: the project's masks compared with the game's, the list printed (what Copy the changed list copies) */
     int preview_paint;       /* --paint N: the card's N-th paint (from 1) shown in Preview, for a headless picture; 0 the car as its file has it */
@@ -97,7 +95,7 @@ static int usage(void)
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--workspace DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--photo-view] [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
-                    "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-light PERCENT] [--night-tint R,G,B] [--preview-tex NAME] [--changes] [--card-backdrop FILE.png] [--add-photo FILE.png]...\n"
+                    "       [--mask NAME] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-light PERCENT] [--night-tint R,G,B] [--preview-tex NAME] [--changes] [--card-backdrop FILE.png] [--add-photo FILE.png]...\n"
                     "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--wheels still|slow|fast] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--compare off|before|four]] [--steps STEP,...]\n");
     return 0;
 }
@@ -199,8 +197,6 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--night-light") == 0 && has_value) o->night_light = atoi(argv[++i]);
         else if (strcmp(argv[i], "--night-tint") == 0 && has_value) o->night_tint = argv[++i];
         else if (strcmp(argv[i], "--mask") == 0 && has_value) o->mask = argv[++i];
-        else if (strcmp(argv[i], "--mask-rect") == 0 && has_value && o->mask_rect_count < 8) o->mask_rect[o->mask_rect_count++] = argv[++i];
-        else if (strcmp(argv[i], "--mask-save") == 0) o->mask_save = 1;
         else if (strcmp(argv[i], "--reset-layout") == 0) o->reset_layout = 1;
         else if (strcmp(argv[i], "--rehacer") == 0) o->rehacer = 1;
         else if (strcmp(argv[i], "--edit") == 0) o->edit = 1;
@@ -526,21 +522,8 @@ static int run_requested(App *a, const Options *o)
         else
             for (int i = 0; i < 3; ++i) a->night.tint[i] = t[i];
     }
-    if (o->mask != NULL) {   /* Edit mask, headless: the mask is opened, painted in rectangles, saved */
+    if (o->mask != NULL) {   /* the mask view, headless: the mask is opened */
         int done = app_mask_open_by_name(a, o->mask);
-        for (int i = 0; done && i < o->mask_rect_count; ++i) {
-            int x, y, w, h, cls;
-            if (sscanf(o->mask_rect[i], "%d,%d,%d,%d,%d", &x, &y, &w, &h, &cls) != 5 || w < 1 || h < 1) {
-                snprintf(a->status, sizeof a->status, "--mask-rect wants X,Y,W,H,CLASS: %s", o->mask_rect[i]);
-                done = 0;
-                break;
-            }
-            mask_edit_stroke_begin(&a->mask.me);
-            for (int yy = y; yy < y + h; ++yy)
-                for (int xx = x; xx < x + w; ++xx) mask_edit_pencil(&a->mask.me, xx, yy, 1, (uint8_t)cls);
-            mask_edit_stroke_end(&a->mask.me);
-        }
-        if (done && o->mask_save) done = app_mask_save(a);
         if (!done && a->mask.error[0] != '\0') snprintf(a->status, sizeof a->status, "%s", a->mask.error);
         fprintf(done ? stdout : stderr, "%s\n", a->status);
         ok &= done;

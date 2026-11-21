@@ -197,7 +197,6 @@ static int at_once(App *a, const char *name, const double *arg)
         app_track_commit(a);   /* as the window does once an edit is done */
         return 1;
     }
-    if (strcmp(name, "edit") == 0) return a->kind == APP_KIND_CAR && a->mask.sel >= 0 && mask_edit_pencil(&a->mask.me, 0, 0, 1, a->mask.me.now[0] == 248 ? 0 : 248) > 0;
     if (strcmp(name, "undo") == 0) return app_undo(a);
     if (strcmp(name, "redo") == 0) return app_redo(a);
     if (strcmp(name, "save") == 0) return app_save(a);

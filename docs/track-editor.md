@@ -311,17 +311,15 @@ The bank's palette is taken to 6 bits a channel, as the race loads it. Not appli
 
 At the top of the **Masks** window of a project made from one of the game's cars (Export original car), **Changes from the game's masks** compares each `*_mask.png` of `car_masks/<folder>/` with the game's own copy, `data/car_masks/<folder>/`, the one the export started from: *unchanged*, *changed* (how many texels, and which classes gained and lost them), *new* (only the project has it) or *missing* (only the game has it). Masks are compared as classes, so a file written again by another picture editor with the same texels is unchanged; backups with an extra dot in the name (`frnt.before-1650_mask.png`) are left out, as the export leaves them. **Refresh** reads the files again; **Copy the changed list** puts plain text on the clipboard (the folder, then a line for each changed file with its texel count and classes, each new and each missing file, and how many are unchanged) for pasting into a hand-over. Read only. Headless: `--changes` prints the same text.
 
-## Edit mask
+## Mask view
 
-The **Edit mask** window (a tab beside Textures and Drive) paints a car's masks. Pick a texture of the car file (the ones with a mask in `car_masks/<car>/`; the low detail bank's are marked "low"): the mask is drawn over the texture, each class in its legend colour, with an Overlay switch, an Opacity slider and a switch per class. The class chosen in the legend is the one the tools paint with.
+The **Mask view** window (a tab beside Textures and Drive) shows a car's masks; it does not paint them. Masks are made in an external editor (the PSD, or the PNG of a texture that has no PSD), and the window shows the result and reloads when the file changes. Pick a texture of the car file (the ones with a mask in `car_masks/<car>/`; the low detail bank's are marked "low"): the mask is drawn over the texture, each class in its legend colour, with an Overlay switch, an Opacity slider and a switch per class. Zoom with the slider, the keys + - 0 or the wheel; move with the right or middle button.
 
-- **Pencil**: a square of 1 to 8 texels; drag to draw a line (one step to undo). **Fill**: the connected texels of the same mask class, or of the same texture colour. **Eyedropper**: takes the class under the click.
-- **Undo / Redo** (Cmd+Z, Cmd+Shift+Z or Cmd+Y on a Mac, Ctrl elsewhere, while the window has the keyboard), **Save mask** (Cmd/Ctrl+S too), **Discard**.
-- Save writes the mask as the 8-bit grey PNG of `data/car_masks`: the same name and size, every texel outside the edit as it was; a mask with no change is not rewritten. Changing texture, closing the project or running Rehacer with unsaved mask changes asks first.
 - A mask whose size is not its texture's says both sizes: the game scales the mask to the texture (nearest neighbour), so the Studio shows it scaled the same way.
-- **In-game photo** (or **Save, then In-game photo** when there are changes) runs the game on the saved masks and shows the picture in the Drive window.
+- **In-game photo** runs the game on the masks and shows the picture in the Drive window.
+- Studio never writes a mask file from this window.
 
-Headless: `--mask NAME` (`side`, `frnt_lo`) opens a mask, `--mask-rect X,Y,W,H,CLASS` paints a rectangle of it (repeatable, one step each), `--mask-save` saves it; with `--shot` the picture is the window.
+Headless: `--mask NAME` (`side`, `frnt_lo`) opens a mask; with `--shot` the picture is the window. (`--mask-rect` and `--mask-save` are gone.)
 
 ## Headless run
 

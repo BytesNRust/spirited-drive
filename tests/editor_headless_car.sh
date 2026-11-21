@@ -1,6 +1,6 @@
 #!/bin/sh
 # The editor on cars, headless, in the order a user goes: Export original car, open it (or a kit), edit and save its card, Rehacer,
-# Edit mask and save it, Preview by day and night, the Model, In-game photo, Changes. The blocks that need the player's game files
+# The mask view, Preview by day and night, the Model, In-game photo, Changes. The blocks that need the player's game files
 # (original/) are skipped without them.
 # usage: editor_headless_car.sh EDITOR
 . "$(dirname "$0")/editor_headless_common.sh"
@@ -158,9 +158,9 @@ REHACER_EXIT=3 "$editor" "$work/kit" --frames 3 --rehacer >"$work/log" 2>&1 && f
 grep -q "exit code 3" "$work/log" || fail "the failing exit code is not told: $(cat "$work/log")"
 rm -f "$work/kit/rehacer.command"
 
-# ==== Edit mask and Save mask ====
-# Edit mask: a car file with no textures offers none (the fixture's is not a real one); with the player's real game files a traffic car's mask is opened, painted, saved
-# (a grey PNG of the same size) and drawn, and a texture the car has no mask for is refused
+# ==== The mask view (read-only) ====
+# The mask view (read-only): a car file with no textures offers none (the fixture's is not a real one); with the player's real game files a traffic car's mask is opened and
+# drawn, a change made to its file from outside (an image editor) shows in the picture, Studio never writes it, and a texture the car has no mask for is refused
 "$editor" "$work/exports/wagon-masks" --mask side --frames 2 >"$work/log" 2>&1 && fail "a mask was opened of a car file that has no textures"
 grep -q "no texture side" "$work/log" || fail "no word that the car file has no such texture: $(cat "$work/log")"
 repo=$(cd "$(dirname "$0")/.." && pwd)
@@ -168,16 +168,20 @@ if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_mas
     mkdir "$work/real"
     "$editor" --export-car Wagon --into "$work/real" --cd "$repo/original" --port-data "$repo/data" --frames 1 >"$work/log" 2>&1 || fail "export of the real Wagon: $(cat "$work/log")"
     m="$work/real/wagon-masks/car_masks/Wagon/side_mask.png"
-    "$editor" "$work/real/wagon-masks" --mask side --frames 8 --shot "$work/mask-before.png" >"$work/log" 2>&1 || fail "Edit mask of the real Wagon: $(cat "$work/log")"
+    "$editor" "$work/real/wagon-masks" --mask side --frames 8 --shot "$work/mask-before.png" >"$work/log" 2>&1 || fail "mask view of the real Wagon: $(cat "$work/log")"
     cmp -s "$m" "$repo/data/car_masks/Wagon/side_mask.png" || fail "opening a mask changed the file"
-    "$editor" "$work/real/wagon-masks" --mask side --mask-rect 142,26,8,5,248 --mask-save --frames 8 --shot "$work/mask-after.png" >"$work/log" 2>&1 || fail "Edit mask with a painted rectangle: $(cat "$work/log")"
-    grep -q "saved side_mask.png" "$work/log" || fail "no word that the mask was saved: $(cat "$work/log")"
-    cmp -s "$m" "$repo/data/car_masks/Wagon/side_mask.png" && fail "the saved mask is the game's file: nothing was written"
-    [ ! -e "$m.saving" ] || fail "a temporary file of the Save was left behind"
-    cmp -s "$work/mask-before.png" "$work/mask-after.png" && fail "the edit did not change the picture"
-    [ -s "$work/mask-after.png" ] || fail "no PNG of the Edit mask window"
+    python3 -I "$(dirname "$0")/mask_poke.py" "$m" 142 26 8 5 248 || fail "the outside change of the mask"
+    cp "$m" "$work/mask-poked.png"
+    "$editor" "$work/real/wagon-masks" --mask side --frames 8 --shot "$work/mask-after.png" >"$work/log" 2>&1 || fail "mask view of the changed mask: $(cat "$work/log")"
+    cmp -s "$m" "$work/mask-poked.png" || fail "the mask view wrote the mask file"
+    ls "$work/real/wagon-masks/car_masks/Wagon" | grep -q "saving" && fail "a temporary file of a save was left behind"
+    cmp -s "$work/mask-before.png" "$work/mask-after.png" && fail "the change made from outside did not change the picture"
+    [ -s "$work/mask-after.png" ] || fail "no PNG of the mask view"
     "$editor" "$work/real/wagon-masks" --mask nosuch --frames 2 >"$work/log" 2>&1 && fail "a texture the car has not was opened"
-    "$editor" "$work/real/wagon-masks" --mask side --mask-rect 1,2,3 --frames 2 >"$work/log" 2>&1 && fail "a bad --mask-rect was taken"
+    "$editor" "$work/real/wagon-masks" --mask side --mask-rect 1,2,3,4,5 --frames 2 >"$work/log" 2>&1 && fail "--mask-rect was taken: masks are no longer painted in Studio"
+    grep -q "^usage: " "$work/log" || fail "an option that is gone was not refused with the usage: $(cat "$work/log")"
+    "$editor" "$work/real/wagon-masks" --mask side --mask-save --frames 2 >"$work/log" 2>&1 && fail "--mask-save was taken: masks are no longer saved by Studio"
+    grep -q "^usage: " "$work/log" || fail "an option that is gone was not refused with the usage: $(cat "$work/log")"
 fi
 
 # ==== Preview: a paint, Day and Night ====
@@ -231,15 +235,15 @@ open(sys.argv[1], 'wb').write(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', struct.
     "$editor" "$work/real/p911-original" --view night --lights head --night-tint 0.9,0.3,0.2 --preview-tex frnt --frames 20 --shot "$work/night-tint.png" >"$work/log" 2>&1 || fail "Preview at night with a tint: $(cat "$work/log")"
     cmp -s "$work/night-head.png" "$work/night-tint.png" && fail "the tint did not change the night picture"
 
-    # the exported-original flow, as the owner works it (old shape: mod.ini + SIMDATA + car_masks/P911/): open the export, edit a mask and Save, then race it. Nothing of the
-    # kit layout (build, model/) may touch it: no build/ appears, the mask is written in car_masks/P911/, and the race is given that folder
+    # the exported-original flow, as the owner works it (old shape: mod.ini + SIMDATA + car_masks/P911/): open the export, change a mask from outside, then race it. Nothing of the
+    # kit layout (build, model/) may touch it: no build/ appears, the mask stays in car_masks/P911/, and the race is given that folder
     p911="$work/real/p911-original"
     m="$p911/car_masks/P911/frnt_mask.png"
     [ -f "$m" ] || fail "the exported 911 has no car_masks/P911/frnt_mask.png"
     cp "$m" "$work/frnt-before.png"
-    "$editor" "$p911" --mask frnt --mask-rect 4,4,6,6,200 --mask-save --frames 8 >"$work/log" 2>&1 || fail "Edit mask on the exported 911: $(cat "$work/log")"
-    grep -q "saved frnt_mask.png" "$work/log" || fail "no word that the exported 911's mask was saved: $(cat "$work/log")"
-    cmp -s "$m" "$work/frnt-before.png" && fail "the exported 911's mask was not written"
+    python3 -I "$(dirname "$0")/mask_poke.py" "$m" 4 4 6 6 200 || fail "the outside change of the exported 911's mask"
+    "$editor" "$p911" --mask frnt --frames 8 >"$work/log" 2>&1 || fail "mask view on the exported 911: $(cat "$work/log")"
+    cmp -s "$m" "$work/frnt-before.png" && fail "the outside change of the exported 911's mask was not written"
     [ ! -e "$p911/build" ] && [ ! -e "$p911/model" ] || fail "opening an exported original made a build/ or a model/ in it"
     cat > "$work/fake-tnfs-911" <<'FAKE911'
 #!/bin/sh

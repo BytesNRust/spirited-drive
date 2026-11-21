@@ -583,7 +583,7 @@ int app_save(App *a)
     char why[APP_MSG];
     if (a->kind == APP_KIND_LIGHT) return app_light_save(a);
     if (a->kind == APP_KIND_CAR && a->car.masks_only) {   /* no card: only the mask being edited */
-        if (a->mask.sel < 0) return set_status(a, "a masks project has no card to save: open a mask in Edit mask, or use your picture editor on the PNG files in car_masks/"), 0;
+        if (a->mask.sel < 0) return set_status(a, "a masks project has no card to save: paint the masks in your picture editor, on the PNG files in car_masks/"), 0;
         return app_mask_save(a);
     }
     if (a->kind == APP_KIND_CAR) {   /* the card: only mod.ini, only the lines that changed; and the mask being edited */

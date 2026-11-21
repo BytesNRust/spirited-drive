@@ -62,7 +62,6 @@ typedef enum {
 enum { APP_ANSWER_CANCEL = 0, APP_ANSWER_DISCARD = 1, APP_ANSWER_SAVE = 2 };
 
 /* the mask editor of the open car (dep59 car editor E3): the textures of its CFM, the mask being edited and the tools */
-typedef enum { MASK_TOOL_PENCIL = 0, MASK_TOOL_FILL, MASK_TOOL_PICK } MaskTool;
 
 /* a mask file as it was last read or written: its modification time (ns) and size, both 0 while there is no file */
 typedef struct {
@@ -88,13 +87,11 @@ typedef struct {
     char note[256];                   /* the size note of the open mask, "" when it matches its texture */
     char tex_file[ME_PATH];           /* the open mask's texture as a PNG of the car's kit (texture_file.h), "" when it has none: Show texture file */
     char error[APP_MSG];         /* why a mask could not be opened or saved, until the next try */
-    int tool, brush, cls;             /* MaskTool; the pencil's size 1..8; the legend index of the class the pencil and fill paint */
-    int fill_by_texture;              /* 0: the fill takes the texels of the same class, 1: of the same texture colour */
     int show, class_on[ME_CLASSES];   /* the overlay on or off, and each class of it */
     float opacity;                    /* 0..1 */
     float zoom;                       /* screen pixels a mask texel; 0: fit the window (the panel sets it) */
     unsigned generation;              /* counts every mask opened, closed, discarded or saved: a picture made from the mask compares with it */
-    int focus;                        /* the Edit mask window has the keyboard: Ctrl+Z is the mask's (set by the panel every frame) */
+    int focus;                        /* the mask view has the keyboard: + - 0 zoom (set by the panel every frame) */
     int saved_since_race;             /* a mask was saved: Race photo shows the result */
     MaskStamp disk[MASK_TEX_LIST];    /* each texture's mask file as the editor last saw it (app_mask_watch) */
     double disk_looked;               /* when app_mask_watch last looked at the files (its clock); 0: never */

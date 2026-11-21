@@ -1,6 +1,6 @@
 #!/bin/sh
-# A car from the game to the Studio and back to the game, the happy path a user takes: Export original car (the Wagon), Edit mask and
-# Save mask, an edit undone and redone with the window's unsaved mark following, the Preview shows the edit, a In-game photo from the
+# A car from the game to the Studio and back to the game, the happy path a user takes: Export original car (the Wagon), the mask changed from
+# outside Studio and read by the mask view (never written by it), the Preview shows the edit, a In-game photo from the
 # real game shows it too (it differs from the photo of the car as exported), and Test drive starts the game on the car and stops it. Each editor run has a player folder of its own, so a window
 # layout kept by one run cannot change another's picture.
 # Needs the game's files (original/).
@@ -23,21 +23,15 @@ studio --export-car Wagon --into "$work/cars" --cd "$orig" --port-data "$data" -
 photo "$work/photo-exported.png" || fail "In-game photo of the car as exported: $(cat "$work/log")"   # what the edit is told apart from
 preview "$work/preview-exported.png" || fail "Preview of the car as exported: $(cat "$work/log")"
 
-# 2. Edit mask and Save mask
-studio "$car" --mask side --mask-rect 142,26,8,5,248 --mask-save --frames 8 || fail "Edit mask and Save mask: $(cat "$work/log")"
-grep -q "saved side_mask.png" "$work/log" || fail "no word that the mask was saved: $(cat "$work/log")"
-cmp -s "$mask" "$data/car_masks/Wagon/side_mask.png" && fail "the saved mask is still the game's file"
-
-# 2b. Edit, undo, redo, save on the open mask: the window's title has the unsaved mark after an edit, not after its undo, again after the redo,
-# not after Save, and again after an undo past the save; the file has what was saved
-cp "$mask" "$work/mask-before-2b.png"
-studio "$car" --mask side --frames 2 --steps title,edit,title,undo,title,redo,title,save,title,undo,title || fail "edit, undo, redo, save: $(cat "$work/log")"
-grep '^title: ' "$work/log" | sed 's/^title: Spirited Drive Studio .* wagon-masks/wagon/' > "$work/titles"
-printf 'wagon\nwagon *\nwagon\nwagon *\nwagon\nwagon *\n' | cmp -s - "$work/titles" || fail "the unsaved mark in the title: $(tr '\n' '|' < "$work/titles")"
-cmp -s "$mask" "$work/mask-before-2b.png" && fail "Save after a redo did not write the texel redone"
-cp "$mask" "$work/mask-after-2b.png"
-studio "$car" --mask side --frames 2 --steps edit,save,undo,save || fail "a mask saved and undone past the save: $(cat "$work/log")"
-cmp -s "$mask" "$work/mask-after-2b.png" || fail "undoing past a save and saving again did not give the file back"
+# 2. The mask changed from outside Studio (an image editor writes the file): the mask view reads it, Studio never writes it, and --mask-rect is refused
+cp "$mask" "$work/mask-before.png"
+python3 -I "$(dirname "$0")/mask_poke.py" "$mask" 142 26 8 5 248 || fail "the outside change of the mask"
+cp "$mask" "$work/mask-poked.png"
+studio "$car" --mask side --frames 8 || fail "mask view of the changed mask: $(cat "$work/log")"
+cmp -s "$mask" "$work/mask-poked.png" || fail "the mask view wrote the mask file"
+cmp -s "$mask" "$data/car_masks/Wagon/side_mask.png" && fail "the changed mask is still the game's file"
+studio "$car" --mask side --mask-rect 142,26,8,5,248 --frames 2 && fail "--mask-rect was taken: masks are no longer painted in Studio"
+grep -q "^usage: " "$work/log" || fail "an option that is gone was not refused with the usage: $(cat "$work/log")"
 
 # 3. Preview shows the edit
 preview "$work/preview-edited.png" || fail "Preview of the edited car: $(cat "$work/log")"
@@ -67,8 +61,8 @@ if [ -r "$orig/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$data/car_masks/P911" ]; the
     [ -f "$drv/mod.ini" ] && [ -f "$dmask" ] || { fail "the 911's export is not the old shape: $(ls "$drv")"; exit "$failures"; }
     studio "$drv" --view night --lights head --preview-tex topv --frames 14 --shot "$work/drv-preview-exported.png" || fail "Preview of the exported 911: $(cat "$work/log")"
     studio "$drv" --game "$tnfs" --cd "$orig" --race-photo --race-png "$work/drv-photo-exported.png" --frames 4 || fail "Race photo of the exported 911: $(cat "$work/log")"
-    studio "$drv" --mask topv --mask-rect 16,16,48,48,90 --mask-save --frames 8 || fail "Edit mask and Save mask on the exported 911: $(cat "$work/log")"
-    grep -q "saved topv_mask.png" "$work/log" || fail "no word that the exported 911's mask was saved: $(cat "$work/log")"
+    python3 -I "$(dirname "$0")/mask_poke.py" "$dmask" 16 16 48 48 90 || fail "the outside change of the exported 911's mask"
+    studio "$drv" --mask topv --frames 8 || fail "mask view on the exported 911: $(cat "$work/log")"
     cmp -s "$dmask" "$data/car_masks/P911/topv_mask.png" && fail "the exported 911's mask is still the game's file"
     studio "$drv" --view night --lights head --preview-tex topv --frames 14 --shot "$work/drv-preview-edited.png" || fail "Preview of the edited 911: $(cat "$work/log")"
     cmp -s "$work/drv-preview-exported.png" "$work/drv-preview-edited.png" && fail "the Preview of the exported 911 does not show the edit"
