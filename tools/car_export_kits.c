@@ -1,6 +1,9 @@
 /* The originals as kits (dep100 item 6): car_export_kits CD_DIR DATA_DIR OUT_DIR exports every car Export original lists (the 20 with masks) as a kit in the
- * current layout, OUT_DIR/<stem>/ (editor/car_export_kit.h). tools/migrate_originals.py adds the PSDs and checks the masks. Exit 0 when every car was made. */
+ * current layout, OUT_DIR/<stem>/ (editor/car_export_kit.h). With ART_DIR (the owner's tnfs-masks, only read) each kit also gets the real PSDs in art-source/masks and
+ * the masks they make are checked against data/'s with the C reader (tools/car_migrate_art.c); the report is printed. tools/migrate_originals.py (python, psd-tools) is the optional
+ * cross-check. Exit 0 when every car was made and nothing failed. */
 #include "car_export_kit.h"
+#include "car_migrate_art.h"
 #include "studio/car_kit.h"
 #include "studio/fsio.h"
 
@@ -30,10 +33,12 @@ static int same_cfm(const ExportSource *src, const char *stem, const char *kit, 
 
 int main(int argc, char **argv)
 {
-    if (argc != 4) {
-        fprintf(stderr, "usage: car_export_kits CD_DIR DATA_DIR OUT_DIR\n");
+    if (argc != 4 && argc != 5) {
+        fprintf(stderr, "usage: car_export_kits CD_DIR DATA_DIR OUT_DIR [ART_DIR]\n");
         return 2;
     }
+    MigrateReport report;
+    memset(&report, 0, sizeof report);
     ExportSource src;
     snprintf(src.cd, sizeof src.cd, "%s", argv[1]);
     snprintf(src.data, sizeof src.data, "%s", argv[2]);
@@ -55,7 +60,12 @@ int main(int argc, char **argv)
         printf("made %s\n", dir), ++made;
         if (!same_cfm(&src, car_export_car(i)->file, dir, why, sizeof why)) printf("FAILED %s: %s\n", car_export_car(i)->folder, why), ++failed;
         else printf("cfm %s: the kit builds the original's CFM byte for byte\n", car_export_car(i)->file);
+        if (argc == 5) migrate_art(dir, car_export_car(i)->file, argv[4], &report);
     }
     printf("%d kits made, %d failed\n", made, failed);
+    if (argc == 5) {
+        migrate_report_print(&report, stdout);
+        failed += report.failure_count;
+    }
     return failed != 0;
 }

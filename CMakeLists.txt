@@ -856,7 +856,7 @@ if(NOT EMSCRIPTEN)
     target_compile_options(test_car_masks PRIVATE ${TNFS_WARNINGS})
     add_test(NAME car_masks COMMAND test_car_masks)
     # dep100 item 6: the originals as kits (editor/car_export_kit.c), run by tools/migrate_originals.py; not shipped
-    add_executable(car_export_kits tools/car_export_kits.c editor/car_export_kit.c editor/car_export.c)
+    add_executable(car_export_kits tools/car_export_kits.c tools/car_migrate_art.c editor/car_export_kit.c editor/car_export.c)
     target_include_directories(car_export_kits PRIVATE editor ${CMAKE_SOURCE_DIR})
     target_link_libraries(car_export_kits PRIVATE tnfs_tools tnfs_core)
     target_compile_options(car_export_kits PRIVATE ${TNFS_WARNINGS})
