@@ -117,6 +117,8 @@ typedef struct {
     uint8_t *tmask_rgba;         /* its picture, tmask_w x tmask_h: the track's texture with the mask over it (just the mask when the game's files are not found); NULL for none */
     int tmask_w, tmask_h;
     unsigned tmask_serial;       /* counts the pictures made, for the texture */
+    double tmask_psd_seen;       /* the newest mask PSD time the scan saw; a PSD newer than this was saved again (app_track_masks_poll) */
+    double tmask_check_at;       /* the clock of the last look at the PSDs */
     char tmask_note[200];        /* why there is no picture, or what Regenerate did */
     int original_dialog;         /* the Open original track window is up */
     int publish_dialog;          /* the Publish to the game window is up, with its preview in publish_text */
@@ -352,6 +354,8 @@ int app_original_publish(App *a);
 int app_original_check_all(App *a, char *out, size_t cap);
 int app_track_masks_load(App *a);
 int app_track_masks_refresh(App *a);
+/* Once a second, with the window's clock: a PSD saved again makes the PNGs again, the rows refresh and the photos are taken again with the new masks. 1 when it did. */
+int app_track_masks_poll(App *a);
 int app_track_mask_select(App *a, int i);
 int app_track_mask_regenerate(App *a);
 /* The window on another light folder (the Choose... button): refused, with light.error and the status, while the working copy has unsaved changes or when the folder

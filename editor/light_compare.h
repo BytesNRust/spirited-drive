@@ -20,6 +20,7 @@ typedef struct {
     int running;                               /* the slot whose game runs, -1 for none */
     int missing[LIGHT_COMPARE_SLOTS];          /* 1: the light folder has no file for that slot's time (a picture cannot be made) */
     char why[LIGHT_PHOTO_WHY];                 /* the last refusal or failure, "" for none */
+    char masks[EXPORT_PATH];   /* the track's mask PNGs of the workspace (flat) the pictures show in front of the game's own; "" for none (set by the App) */
 } LightCompare;
 
 void light_compare_init(LightCompare *c);

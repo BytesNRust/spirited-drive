@@ -30,6 +30,15 @@ static void set_error(App *a, const char *text)
     snprintf(a->status, sizeof a->status, "%s", text);
 }
 
+/* the folder of mask PNGs the photos of an original track show: <its folder>/art-generated/track_masks; "" for a plain light folder */
+static void set_masks(App *a)
+{
+    char masks[APP_PATH + 32] = "";
+    if (a->original_dir[0] != '\0') snprintf(masks, sizeof masks, "%s/art-generated/track_masks", a->original_dir);
+    snprintf(a->light.photo.masks, sizeof a->light.photo.masks, "%s", masks);
+    snprintf(a->light.compare.masks, sizeof a->light.compare.masks, "%s", masks);
+}
+
 /* something the photo shows changed: it is due once the settle time passes */
 static void changed(App *a)
 {
@@ -273,6 +282,7 @@ int app_light_photo(App *a)
     }
     char why[LIGHT_PHOTO_WHY];
     size_t places_size = 0;
+    set_masks(a);   /* an original track: the masks of its folder go in front of the game's */
     char *places = light_session_places_text(&ui->session, &places_size);   /* NULL without a places file: the game's own is used */
     const int ok = light_photo_start(&ui->photo, a->game, a->export_src.cd, ui->session.track, ui->session.letter, (unsigned)ui->node, ui->view, ui->hud, light_photo_view_ticks(ui->view), text, size,
                                      places, places_size, why, sizeof why);
@@ -299,6 +309,7 @@ int app_light_poll(App *a, double now)
     if (ui->session.has_file && ui->edit_serial != ui->photo_serial && now - ui->edit_at >= LIGHT_UI_SETTLE) return app_light_photo(a);
     /* the comparison pictures wait for the window's own photo (one game at a time) and for a change to settle */
     const int waiting = ui->photo.state == LIGHT_PHOTO_RUNNING || ui->edit_serial != ui->photo_serial || now - ui->edit_at < LIGHT_UI_SETTLE;
+    set_masks(a);
     return light_compare_poll(&ui->compare, &ui->session, ui->node, ui->view, ui->hud, a->game, a->export_src.cd, waiting);
 }
 

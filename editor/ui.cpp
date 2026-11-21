@@ -990,6 +990,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (panel_open(PANEL_LIGHT_COMPARE)) light_compare_panel(a, compare);
         if (a->original_dir[0] != '\0') {
             app_track_masks_load(a);   // the masks of an original track: scanned and made from the PSDs once per open
+            app_track_masks_poll(a);   // and again when a PSD is saved
             if (panel_open(PANEL_TRACK_MASKS)) track_masks_panel(a, track_mask_texture(ren, a));
         }
     } else {

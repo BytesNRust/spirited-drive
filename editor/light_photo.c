@@ -1,6 +1,7 @@
 /* The Track light window's photo job (light_photo.h). */
 #include "light_photo.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -98,7 +99,7 @@ int light_photo_command(const LightPhotoSetup *s, char *const *base, RaceCommand
         if (strncmp(*v, "TNFS_", 5) != 0 && strncmp(*v, "SDL_", 4) != 0) ok = push(e, ec, RACE_ENVS, "%s", *v);
     ok = ok && push(e, ec, RACE_ENVS, "TNFS_AUTOPILOT=1") && push(e, ec, RACE_ENVS, "TNFS_FRAMES=1") && push(e, ec, RACE_ENVS, "TNFS_WEATHER=clear") && push(e, ec, RACE_ENVS, "TNFS_VIEW=%d", light_photo_view_kind(s->view)) && (s->hud || push(e, ec, RACE_ENVS, "TNFS_NO_HUD=1")) &&
          push(e, ec, RACE_ENVS, "TNFS_LIGHT_TIME=%s", light_photo_time_word(s->letter)) && push(e, ec, RACE_ENVS, "TNFS_START_NODE=%u", s->node) &&
-         push(e, ec, RACE_ENVS, "SDL_VIDEO_DRIVER=dummy") && push(e, ec, RACE_ENVS, "SDL_AUDIO_DRIVER=dummy") && push(e, ec, RACE_ENVS, "SDL_AUDIODRIVER=dummy");
+         (s->masks == NULL || s->masks[0] == '\0' || push(e, ec, RACE_ENVS, "TNFS_TRACK_MASKS=%s", s->masks)) && push(e, ec, RACE_ENVS, "SDL_VIDEO_DRIVER=dummy") && push(e, ec, RACE_ENVS, "SDL_AUDIO_DRIVER=dummy") && push(e, ec, RACE_ENVS, "SDL_AUDIODRIVER=dummy");
     if (ok) return 1;
     car_race_command_free(out);
     return refuse(why, why_cap, "the command is too long");
@@ -136,6 +137,31 @@ static int write_file(const char *path, const char *text, size_t size, char *why
     return ok || refuse(why, cap, "cannot write %s: %s", path, strerror(errno));
 }
 
+/* the PNGs of `from` (a flat folder) copied to <to>/<track>/; a PNG that does not copy fails the photo, an empty or missing folder does not */
+static int copy_masks(const char *from, const char *to, const char *track, char *why, size_t cap)
+{
+    char dir[EXPORT_PATH + 40];
+    snprintf(dir, sizeof dir, "%s/%s", to, track);
+    if (mkdir(to, 0777) != 0 || mkdir(dir, 0777) != 0) return refuse(why, cap, "cannot make the scratch folders: %s", strerror(errno));
+    DIR *d = opendir(from);
+    for (struct dirent *e = d != NULL ? readdir(d) : NULL; e != NULL; e = readdir(d)) {
+        const size_t n = strlen(e->d_name);
+        if (n < 5 || e->d_name[0] == '.' || strcmp(e->d_name + n - 4, ".png") != 0) continue;
+        char src[EXPORT_PATH + 300], dst[EXPORT_PATH + 340], buf[8192];
+        snprintf(src, sizeof src, "%s/%s", from, e->d_name);
+        snprintf(dst, sizeof dst, "%s/%s", dir, e->d_name);
+        FILE *in = fopen(src, "rb"), *out = in != NULL ? fopen(dst, "wb") : NULL;
+        size_t got = 0;
+        int ok = in != NULL && out != NULL;
+        while (ok && (got = fread(buf, 1, sizeof buf, in)) > 0) ok = fwrite(buf, 1, got, out) == got;
+        if (in != NULL) fclose(in);
+        if (out != NULL) ok = fclose(out) == 0 && ok;
+        if (!ok) return closedir(d), refuse(why, cap, "cannot copy the track's masks: %s", e->d_name);
+    }
+    if (d != NULL) closedir(d);
+    return 1;
+}
+
 int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int view, int hud, int ticks,
                       const char *file_text, size_t file_size, const char *places_text, size_t places_size, char *why, size_t why_cap)
 {
@@ -163,7 +189,7 @@ int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, cons
                 snprintf(path, sizeof path, "%s/track", mods);
                 char file[EXPORT_PATH + 80];
                 snprintf(file, sizeof file, "%s/track_light/%s%c.txt", mods, track, letter);
-                const LightPhotoSetup setup = { game, cd, user, mods, { 0 }, letter, node, view, hud, ticks, job->shot };
+                const LightPhotoSetup setup = { game, cd, user, mods, { 0 }, letter, node, view, hud, ticks, job->shot, NULL };
                 LightPhotoSetup s = setup;
                 snprintf(s.track, sizeof s.track, "%s", track);
                 ok = mkdir(path, 0777) == 0 && write_file(file, file_text, file_size, why, why_cap);
@@ -171,6 +197,13 @@ int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, cons
                 if (ok && places_text != NULL && places_size > 0) {
                     snprintf(file, sizeof file, "%s/%s.txt", path, track);
                     ok = write_file(file, places_text, places_size, why, why_cap);
+                }
+                char masks[EXPORT_PATH + 16];
+                masks[0] = '\0';
+                if (ok && job->masks[0] != '\0') {   // the track's masks of the workspace in front of the game's: <scratch>/masks/<TRACK>/<name>.png
+                    snprintf(masks, sizeof masks, "%s/masks", job->temp);
+                    ok = copy_masks(job->masks, masks, track, why, why_cap);
+                    s.masks = masks;
                 }
                 ok = ok && car_race_user_files(user, letter == 'N', NULL, why, why_cap) && light_photo_command(&s, environ, &job->command, why, why_cap) &&
                      proc_start(&job->run, job->command.argv, job->command.envp, NULL, why, why_cap);
