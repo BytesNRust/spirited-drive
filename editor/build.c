@@ -97,6 +97,9 @@ int build_road_check(const TrackGenNode *nodes, int count, char *why, size_t why
         } else if (flags[i] & TRACE_FLAG_BANK_LIMIT) {
             snprintf(why, why_cap, "node %d banks more than %g degrees: the most the game's road takes", i, TRACE_BANK_MAX_DEG);
             ok = 0;
+        } else if (flags[i] & TRACE_FLAG_GRADE_LIMIT) {
+            snprintf(why, why_cap, "node %d %s more than %g %%: the most the game's road takes", i, nodes[i].grade >= 0 ? "climbs" : "descends", TRACK_GEN_GRADE_MAX_PERCENT);
+            ok = 0;
         }
     }
     free(flags);

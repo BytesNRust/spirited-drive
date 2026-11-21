@@ -35,6 +35,8 @@
 #define TRACK_GEN_LAYOUT_TURN_MAX_DEGREES 8.0
 /* The bank: the editor's nodes (track_generate_nodes_turned, whose rows turn with the node's frame) up to 35 degrees, the CD's own most (TR4 banks 34.5;
  * the editor's 25 is a warning: notes/dep59-banking-spike.md); a layout's and track_generate_nodes' (rows not turned) 20. */
+/* The steepest grade a node may have, percent: about what the CD builds (TR7 reaches -64; the spike of dep95 builds and drives to 64), one named place so tuning is one line. */
+#define TRACK_GEN_GRADE_MAX_PERCENT 65.0
 #define TRACK_GEN_BANK_MAX_DEGREES 35.0
 #define TRACK_GEN_LAYOUT_BANK_MAX_DEGREES 20.0
 #define TRACK_GEN_TERRAIN_REACH 0.4   /* the furthest the terrain of a turned node goes across the road on the inside of the curve, as a part of the curve's radius there */

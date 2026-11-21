@@ -152,6 +152,29 @@ static void test_point_ops_carry_heights(void)
     free(q);
 }
 
+/* Build refuses a node past the grade limit and names it; a gentle slope on the same road is not refused for its grade */
+static void test_build_refuses_a_steep_grade(void)
+{
+    char dir[600];
+    path_in(dir, sizeof dir, "steep");
+    mkdir(dir, 0777);
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    CHECK(app_open(a, dir, "./tnfs", "", NULL) && a->trace.count >= 3 && a->road_made);
+    app_set_point_height(a, a->trace.count - 1, 5);   // a gentle slope along the whole road: nothing is marked
+    app_recompute(a);
+    CHECK(a->road_made && a->problem_count == 0 && a->summary_count == 0);
+    app_set_point_height(a, a->trace.count - 1, 400);   // 400 m up over the road: far past the limit
+    app_recompute(a);
+    CHECK(a->summary_count > 0 && a->summary[0].red && strstr(a->summary[0].text, "climb") != NULL);
+    CHECK(a->problem_count > 0 && a->problems[0].red);
+    CHECK(!app_build(a) && strstr(a->status, "climbs more than 65") != NULL && strstr(a->status, "node") != NULL);
+    app_free(a);
+    free(a);
+    cleanup_project(dir);
+}
+
 static void test_app_flow(void)
 {
     char dir[600], trace[700], why[256];
@@ -216,6 +239,7 @@ int main(void)
     test_core_height_at();
     test_reading();
     test_point_ops_carry_heights();
+    test_build_refuses_a_steep_grade();
     test_app_flow();
     rmdir(root);
     return TEST_REPORT();

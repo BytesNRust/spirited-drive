@@ -56,12 +56,14 @@ enum {
     TRACE_FLAG_SIDE_WARN = 32,   /* amber: a side's shoulder or wall distance moves more than TRACE_SIDE_STEP_WARN_M from the node before (step 3) */
     TRACE_FLAG_WALL_FAR = 64,    /* red: a wall is more than TRACE_WALL_FAR_M from the centre, past what a node's byte holds (step 3) */
     TRACE_FLAG_BANK_WARN = 128,  /* amber: the node banks more than TRACE_BANK_WARN_DEG either way (and no more than the red limit) */
-    TRACE_FLAG_BANK_LIMIT = 256  /* red: it banks more than TRACE_BANK_MAX_DEG, the most the generator builds */
+    TRACE_FLAG_BANK_LIMIT = 256, /* red: it banks more than TRACE_BANK_MAX_DEG, the most the generator builds */
+    TRACE_FLAG_GRADE_LIMIT = 512,   /* red: the node climbs or descends more than TRACK_GEN_GRADE_MAX_PERCENT, the most the generator builds (dep95) */
+    TRACE_FLAG_GRADE_WARN = 1024    /* amber: the slope's angle changes more than TRACE_GRADE_CHANGE_WARN_DEG from the node before */
 };
-/* A node's TRACE_FLAG_* bits: 16 of them (dev2's bank bits are 128 and 256). */
+/* A node's TRACE_FLAG_* bits: 16 of them (dev2's bank bits are 128 and 256, the grade's 512 and 1024). */
 typedef uint16_t TraceFlags;
-#define TRACE_FLAG_RED_BITS (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS | TRACE_FLAG_WALL_FAR | TRACE_FLAG_BANK_LIMIT)
-#define TRACE_FLAG_WARN_BITS (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN | TRACE_FLAG_SIDE_WARN | TRACE_FLAG_BANK_WARN)
+#define TRACE_FLAG_RED_BITS (TRACE_FLAG_TURN | TRACE_FLAG_RADIUS | TRACE_FLAG_WALL_FAR | TRACE_FLAG_BANK_LIMIT | TRACE_FLAG_GRADE_LIMIT)
+#define TRACE_FLAG_WARN_BITS (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN | TRACE_FLAG_WIDTH_WARN | TRACE_FLAG_SIDE_WARN | TRACE_FLAG_BANK_WARN | TRACE_FLAG_GRADE_WARN)
 #define TRACE_SIDE_STEP_WARN_M 1.25   /* amber: as the width's (TRACE_WIDTH_STEP_WARN_M) */
 #define TRACE_WALL_FAR_M (255 / 8.0)  /* red: the wall's byte is the road edge's plus its distance, in 1/8 m: 31.875 m */
 
@@ -91,6 +93,8 @@ typedef enum { TRACE_SURFACE_INHERIT = 0, TRACE_SURFACE_VERGE, TRACE_SURFACE_TAR
 #define TRACE_BANK_INPUT_MAX_DEG 60.0
 #define TRACE_BANK_WARN_DEG 25.0
 #define TRACE_BANK_MAX_DEG TRACK_GEN_BANK_MAX_DEGREES
+/* The slope's angle may change at most this much from one node to the next before the road may not look right (amber, a warning only; the owner's, 2026-11-20: tuned later). */
+#define TRACE_GRADE_CHANGE_WARN_DEG 5.0
 
 /* The road's sides (step 3): per side ([TRACK_GEN_LEFT], [TRACK_GEN_RIGHT]) the shoulder's width and the wall's distance past the road edge in metres
  * (0..TRACE_SIDE_MAX_M; smoothstep from key to key, from the template's 3 m at the start when the first key is further on), the wall's kind
@@ -227,6 +231,8 @@ typedef struct {
     double width_step;   /* TRACE_FLAG_WIDTH_WARN: how much the road's width changes from the node before, in metres (unsigned; 0 otherwise) */
     double side_step;    /* TRACE_FLAG_SIDE_WARN: the most a shoulder or a wall distance moves from the node before, in metres (unsigned; 0 otherwise) */
     double wall_m;       /* TRACE_FLAG_WALL_FAR: the farther wall from the centre, in metres (0 otherwise) */
+    double grade;        /* TRACE_FLAG_GRADE_LIMIT: the node's grade, percent, signed (0 otherwise) */
+    double grade_change; /* TRACE_FLAG_GRADE_WARN: the change of the slope's angle from the node before, degrees (0 otherwise) */
     double bank;         /* TRACE_FLAG_BANK_WARN / _LIMIT: the node's bank, degrees, signed (0 otherwise) */
 } TraceProblem;
 
@@ -244,7 +250,7 @@ void track_trace_problem_text(const TraceProblem *p, char *out, size_t cap);
  * ("3 nodes change width by more than 1.25 m per node: they may not look right in the game"); the sides' red line ("2 nodes have a wall more than
  * 31.875 m from the centre: the track can't be built") after the other red ones, and their amber one last ("1 node moves a shoulder or a wall by more
  * than 1.25 m: it may not look right in the game"). */
-enum { TRACE_SUMMARY_LINES = 9, TRACE_SUMMARY_TEXT = 128, TRACE_PROBLEM_TEXT = 384 };   /* TRACE_PROBLEM_TEXT: room for a row with every clause */
+enum { TRACE_SUMMARY_LINES = 11, TRACE_SUMMARY_TEXT = 128, TRACE_PROBLEM_TEXT = 384 };   /* TRACE_PROBLEM_TEXT: room for a row with every clause */
 typedef struct {
     int red;
     int nodes;

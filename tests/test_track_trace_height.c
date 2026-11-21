@@ -129,11 +129,145 @@ static void test_tri_of_a_hill(void)
     free(nodes);
 }
 
+/* ---- step 3: the grade's limits, Problems rows and summary ---- */
+
+static void flags_of(const TrackGenNode *nodes, int count, TraceFlags **flags)
+{
+    *flags = calloc((size_t)count, sizeof **flags);
+    if (*flags != NULL) track_trace_flags(nodes, count, *flags);
+}
+
+static int count_flag(const TraceFlags *flags, int count, unsigned bit)
+{
+    int n = 0;
+    for (int i = 0; i < count; ++i) n += (flags[i] & bit) != 0;
+    return n;
+}
+
+static void test_grade_limits(void)
+{
+    CHECK(TRACK_GEN_GRADE_MAX_PERCENT == 65.0 && TRACE_GRADE_CHANGE_WARN_DEG == 5.0);
+    // a gentle hill (12 percent at most, slow vertical curves): nothing is marked
+    const double gentle[POINTS] = { 0, 4, 12, 8, 8 };
+    TracePoint p[POINTS];
+    straight(p, gentle);
+    int count = 0;
+    TrackGenNode *nodes = nodes_of(p, &count);
+    TraceFlags *flags = NULL;
+    CHECK(nodes != NULL);
+    flags_of(nodes, count, &flags);
+    CHECK(flags != NULL && count_flag(flags, count, TRACE_FLAG_GRADE_LIMIT | TRACE_FLAG_GRADE_WARN) == 0);
+    free(flags);
+    free(nodes);
+    // a wall: 90 m up in 100 m: the steep nodes are red (what the generator refuses), and only a node past 65 percent is
+    const double wall[POINTS] = { 0, 90, 90, 90, 90 };
+    straight(p, wall);
+    nodes = nodes_of(p, &count);
+    flags_of(nodes, count, &flags);
+    CHECK(nodes != NULL && flags != NULL);
+    int first_red = -1;
+    for (int k = 0; nodes != NULL && flags != NULL && k < count; ++k) {
+        const int red = (flags[k] & TRACE_FLAG_GRADE_LIMIT) != 0;
+        CHECK(red == (fabs(nodes[k].grade) > TRACK_GEN_GRADE_MAX_PERCENT));   // exactly the generator's test
+        CHECK(!red || (flags[k] & TRACE_FLAG_RED_BITS) != 0);
+        if (red && first_red < 0) first_red = k;
+    }
+    CHECK(first_red >= 0);
+    if (nodes != NULL && flags != NULL && first_red >= 0) {
+        TraceProblem problems[32];
+        const int n = track_trace_problems(nodes, count, flags, problems, 32);
+        CHECK(n > 0 && problems[0].red && problems[0].node == first_red && fabs(problems[0].grade) > TRACK_GEN_GRADE_MAX_PERCENT);   // red first, in node order
+        char text[TRACE_PROBLEM_TEXT];
+        track_trace_problem_text(&problems[0], text, sizeof text);
+        char want[32];
+        snprintf(want, sizeof want, "node %d: climbs", first_red);
+        CHECK(strstr(text, want) != NULL && strstr(text, "65") != NULL && strstr(text, ", can't be built") != NULL && strlen(text) + 1 < sizeof text);
+        TraceSummaryLine lines[TRACE_SUMMARY_LINES];
+        const int used = track_trace_summary(flags, count, lines);
+        CHECK(used >= 1 && lines[0].red && strstr(lines[0].text, "climb") != NULL && strstr(lines[0].text, "65") != NULL && strstr(lines[0].text, "can't be built") != NULL);
+    }
+    free(flags);
+    free(nodes);
+    // a descent says so
+    const double drop[POINTS] = { 0, -90, -90, -90, -90 };
+    straight(p, drop);
+    nodes = nodes_of(p, &count);
+    flags_of(nodes, count, &flags);
+    int found = 0;
+    for (int k = 0; nodes != NULL && flags != NULL && k < count; ++k)
+        if (flags[k] & TRACE_FLAG_GRADE_LIMIT) {
+            TraceProblem pr;
+            memset(&pr, 0, sizeof pr);
+            char text[TRACE_PROBLEM_TEXT];
+            TraceProblem all[64];
+            const int n = track_trace_problems(nodes, count, flags, all, 64);
+            for (int i = 0; i < n; ++i)
+                if (all[i].node == k) pr = all[i];
+            track_trace_problem_text(&pr, text, sizeof text);
+            found = strstr(text, "descends") != NULL;
+            break;
+        }
+    CHECK(found);
+    free(flags);
+    free(nodes);
+}
+
+/* a short vertical curve: 30 m between points, 6 m of rise in one span: the slope changes more than 5 degrees from one node to the next (amber), without a node past the limit */
+static void test_grade_change_is_amber(void)
+{
+    enum { N = 7 };
+    const double heights[N] = { 0, 0, 0, 6, 6, 6, 6 };
+    TracePoint p[N];
+    for (int i = 0; i < N; ++i) p[i] = (TracePoint){ .x = 0, .z = 30.0 * i, .h = heights[i] };
+    TrackGenNode *nodes = NULL;
+    int count = 0;
+    ExchangeError err;
+    memset(&err, 0, sizeof err);
+    CHECK(track_trace_nodes(p, N, WIDTH, &nodes, &count, &err));
+    TraceFlags *flags = NULL;
+    if (nodes != NULL) flags_of(nodes, count, &flags);
+    CHECK(flags != NULL && count_flag(flags, count, TRACE_FLAG_GRADE_LIMIT) == 0 && count_flag(flags, count, TRACE_FLAG_GRADE_WARN) > 0);
+    for (int k = 1; flags != NULL && k < count; ++k) {
+        const double change = fabs(atan(nodes[k].grade / 100.0) - atan(nodes[k - 1].grade / 100.0)) * 180.0 / M_PI;
+        CHECK(((flags[k] & TRACE_FLAG_GRADE_WARN) != 0) == (change > TRACE_GRADE_CHANGE_WARN_DEG + 1e-6));
+    }
+    if (flags != NULL) {
+        TraceProblem problems[32];
+        const int n = track_trace_problems(nodes, count, flags, problems, 32);
+        CHECK(n > 0 && !problems[0].red && problems[0].grade_change > TRACE_GRADE_CHANGE_WARN_DEG);
+        char text[TRACE_PROBLEM_TEXT];
+        track_trace_problem_text(&problems[0], text, sizeof text);
+        CHECK(strstr(text, "slope changes") != NULL && strstr(text, "may not look right") != NULL);
+        TraceSummaryLine lines[TRACE_SUMMARY_LINES];
+        const int used = track_trace_summary(flags, count, lines);
+        CHECK(used == 1 && !lines[0].red && strstr(lines[0].text, "slope") != NULL);
+    }
+    free(flags);
+    free(nodes);
+}
+
+/* a flat road is marked by no grade rule */
+static void test_flat_road_has_no_grade_flags(void)
+{
+    TracePoint p[POINTS];
+    straight(p, NULL);
+    int count = 0;
+    TrackGenNode *nodes = nodes_of(p, &count);
+    TraceFlags *flags = NULL;
+    if (nodes != NULL) flags_of(nodes, count, &flags);
+    CHECK(flags != NULL && count_flag(flags, count, TRACE_FLAG_GRADE_LIMIT | TRACE_FLAG_GRADE_WARN) == 0);
+    free(flags);
+    free(nodes);
+}
+
 int main(void)
 {
     test_flat();
     test_hill();
     test_steep_grade_is_in_the_nodes();
     test_tri_of_a_hill();
+    test_grade_limits();
+    test_grade_change_is_amber();
+    test_flat_road_has_no_grade_flags();
     return TEST_REPORT();
 }

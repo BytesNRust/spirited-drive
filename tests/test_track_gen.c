@@ -272,7 +272,7 @@ static void check_errors(const uint8_t *tmpl, size_t tsize)
         { "section 10\nsection x\n", "line 2" },
         { "# c\nsection 10 turn=abc\n", "line 2" },
         { "section 10 spin=3\n", "spin" },
-        { "section 10 grade=45\n", "grade" },
+        { "section 10 grade=66\n", "grade" },   /* the limit is TRACK_GEN_GRADE_MAX_PERCENT, 65: the CD's steepest road is at -64 */
         { "section 10 bank=60\n", "bank" },
         { "section 10 width=3\n", "width" },
         { "corner 10\n", "corner" },
@@ -518,7 +518,7 @@ static void check_explicit_errors(const uint8_t *tmpl, size_t tsize)
         else if (!strcmp(w, "long")) count = 600 * 4 + 1;
         else if (!strcmp(w, "nan")) n[7].grade = NAN;
         else if (!strcmp(w, "width")) n[5].width = 300;
-        else if (!strcmp(w, "grade")) n[6].grade = 31;
+        else if (!strcmp(w, "grade")) n[6].grade = 66;   /* past TRACK_GEN_GRADE_MAX_PERCENT */
         else if (!strcmp(w, "bank")) n[9].bank = -21;
         else if (!strcmp(w, "turn")) for (int i = 20; i < COUNT; ++i) n[i].heading = n[19].heading + 0x4000 / 360.0 * 9 + (i - 20) * 0;   /* 9 degrees in one step: over the 8 a node may turn */
         else if (!strcmp(w, "still")) n[11].position[2] = n[10].position[2];

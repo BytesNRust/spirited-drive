@@ -313,6 +313,9 @@ void draw_tooltip(const Canvas &c, const App &a)
         }
         if (a.flags[node] & TRACE_FLAG_BANK_LIMIT)
             ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "banks %.1f\xc2\xb0, over %g\xc2\xb0: the road is not built", fabs(a.nodes[node].bank), TRACE_BANK_MAX_DEG);
+        if (a.flags[node] & TRACE_FLAG_GRADE_LIMIT)
+            ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s %.0f %%, over %g %%: the road is not built", a.nodes[node].grade >= 0 ? "climbs" : "descends", fabs(a.nodes[node].grade),
+                               TRACK_GEN_GRADE_MAX_PERCENT);
     } else {
         if (a.flags[node] & (TRACE_FLAG_TURN_WARN | TRACE_FLAG_RADIUS_WARN))
             ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "very tight curve: check the terrain in the game, the AI brakes");
@@ -324,6 +327,8 @@ void draw_tooltip(const Canvas &c, const App &a)
         if (a.flags[node] & TRACE_FLAG_BANK_WARN)
             ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "banks %.1f\xc2\xb0, over %g\xc2\xb0: check the edge and the car in the game", fabs(a.nodes[node].bank),
                                TRACE_BANK_WARN_DEG);
+        if (a.flags[node] & TRACE_FLAG_GRADE_WARN)
+            ImGui::TextColored(ImVec4(1.0f, 0.69f, 0.13f, 1.0f), "the slope changes over %g\xc2\xb0 a node: lengthen the vertical curve, or check it in the game", TRACE_GRADE_CHANGE_WARN_DEG);
     }
     ImGui::EndTooltip();
 }
