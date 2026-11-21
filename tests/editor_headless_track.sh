@@ -464,5 +464,15 @@ grep -q "\-\-window wants WxH" "$work/log" || fail "the refusal of --window does
 [ -f "$work/user/sub/track-editor.ini" ] || fail "the layout was not kept in the player folder (made when missing)"
 "$editor" "$work/proj" --changes --frames 2 >"$work/log" 2>&1 && fail "--changes of a track project went"
 "$editor" --no-such-option >/dev/null 2>&1 && fail "an unknown option was accepted"
+# ==== Window menu: every panel the frame draws is listed, each item closes and reopens it, the closed ones are kept in the ini ====
+panels=$("$editor" "$work/warn" --user "$work/u-win" --window 1280x960 --frames 6 --steps print-panels,panel:3,print-panels,panel:3,print-panels,panel:9 2>&1)
+[ "$(echo "$panels" | grep -c '^panel [0-9]*: .*: open, drawn, docked$')" = 29 ] || fail "the track's panels are not 10 open and drawn, 9 after closing one, 10 after opening it: $panels"
+[ "$(echo "$panels" | grep -c '^unlisted:$')" = 3 ] || fail "a panel is drawn that the Window menu does not list: $(echo "$panels" | grep '^unlisted')"
+echo "$panels" | grep -q '^panel 3: Points: closed, not drawn, docked$' || fail "Window > Points did not close the panel: $panels"
+echo "$panels" | grep -q '^panel 9: Drive: ' || fail "the Drive panel is not in the Window menu: $panels"
+grep -q '^Closed=Drive$' "$work/u-win/track-editor.ini" || fail "a closed panel is not kept in the ini: $(cat "$work/u-win/track-editor.ini")"
+panels=$("$editor" "$work/warn" --user "$work/u-win" --window 1280x960 --frames 6 --steps print-panels,panel:9,print-panels 2>&1)
+echo "$panels" | grep -q '^panel 9: Drive: closed, not drawn' || fail "the panel closed in the last run is open again: $panels"
+echo "$panels" | tail -11 | grep -q '^panel 9: Drive: open, drawn, docked$' || fail "Window > Drive did not open the panel again, docked: $panels"
 [ "$failures" -eq 0 ] && echo "editor_headless_track: ok"
 exit "$failures"

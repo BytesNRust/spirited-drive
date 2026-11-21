@@ -27,7 +27,29 @@ static char g_ini[APP_PATH];
 static App *g_app;              // the app the frames draw, for the editor's settings in the ini
 static int g_drive_read = -1;   // the Drive car the ini had ([StudioSettings][Editor] DriveCar=N), until ui_settings_to gives it to the app
 
-// The editor's own settings, kept in the ImGui ini beside the layout: the car Test drive gives the player.
+// the panels the Window menu has closed: not drawn at all, so their place in the dock is kept by the layout and reopening puts them back; kept in the ini
+enum { CLOSED_MAX = 32, CLOSED_NAME = 48 };
+static char g_closed[CLOSED_MAX][CLOSED_NAME];
+static int g_closed_n;
+
+static bool panel_open(const char *name)
+{
+    for (int i = 0; i < g_closed_n; ++i)
+        if (strcmp(g_closed[i], name) == 0) return false;
+    return true;
+}
+
+static void panel_set_open(const char *name, bool open)
+{
+    for (int i = 0; i < g_closed_n; ++i) {
+        if (strcmp(g_closed[i], name) != 0) continue;
+        if (open) memcpy(g_closed[i], g_closed[--g_closed_n], CLOSED_NAME);   // out of the set: the last one takes its place
+        return;
+    }
+    if (!open && g_closed_n < CLOSED_MAX && strlen(name) < CLOSED_NAME) snprintf(g_closed[g_closed_n++], CLOSED_NAME, "%s", name);
+}
+
+// The editor's own settings, kept in the ImGui ini beside the layout: the car Test drive gives the player, and the panels the Window menu closed.
 static void *settings_open(ImGuiContext *, ImGuiSettingsHandler *, const char *name)
 {
     return strcmp(name, "Editor") == 0 ? reinterpret_cast<void *>(1) : nullptr;
@@ -37,13 +59,17 @@ static void settings_line(ImGuiContext *, ImGuiSettingsHandler *, void *, const 
 {
     int pick = -1;
     if (sscanf(line, "DriveCar=%d", &pick) == 1 && car_race_menu_car(pick) != nullptr) g_drive_read = pick;   // a number past the menu keeps the default
+    if (strncmp(line, "Closed=", 7) == 0) panel_set_open(line + 7, false);
 }
 
 static void settings_write(ImGuiContext *, ImGuiSettingsHandler *handler, ImGuiTextBuffer *out)
 {
     const int pick = g_app != nullptr ? g_app->drive_pick : g_drive_read;   // before ui_settings_to (an early exit): what the ini had
-    if (pick < 0) return;
-    out->appendf("[%s][Editor]\nDriveCar=%d\n\n", handler->TypeName, pick);
+    if (pick < 0 && g_closed_n == 0) return;
+    out->appendf("[%s][Editor]\n", handler->TypeName);
+    if (pick >= 0) out->appendf("DriveCar=%d\n", pick);
+    for (int i = 0; i < g_closed_n; ++i) out->appendf("Closed=%s\n", g_closed[i]);
+    out->append("\n");
 }
 static bool g_had_layout;   // the ini file was there at the start: its layout is the user's, not ours to replace
 static SDL_Window *g_win;
@@ -130,6 +156,7 @@ void ui_reset_layout(void)
         SDL_SetWindowSize(g_win, g_win_w, g_win_h);
         SDL_SetWindowPosition(g_win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     }
+    g_closed_n = 0;   // Reset layout shows every panel again
     g_reset_in = RESET_AFTER_FRAMES;
 }
 
@@ -272,7 +299,7 @@ void shortcuts(App *a)
     if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) interact_nudge(a, 0, -INTERACT_NUDGE);
 }
 
-const char *const TRACK_PANELS[] = { "Viewport", PANEL_TRACK, PANEL_PROJECT, PANEL_POINTS, PANEL_NODE, PANEL_ROAD_KEY, PANEL_LIMITS, PANEL_PROBLEMS, PANEL_STRIP };
+const char *const TRACK_PANELS[] = { "Viewport", PANEL_TRACK, PANEL_PROJECT, PANEL_POINTS, PANEL_NODE, PANEL_ROAD_KEY, PANEL_LIMITS, PANEL_PROBLEMS, PANEL_STRIP, PANEL_DRIVE };
 
 // the panels of the mode on screen, as the Window menu lists them (a car's Textures and Rehacer are not a masks project's)
 int mode_panels(const App *a, const char *out[], int cap)
@@ -283,9 +310,9 @@ int mode_panels(const App *a, const char *out[], int cap)
         return n < cap ? n : cap;
     }
     if (a->kind == APP_KIND_LIGHT) {
-        out[0] = PANEL_LIGHT;
-        if (cap > 1) out[1] = PANEL_LIGHT_PHOTO;
-        return cap > 1 ? 2 : cap;
+        const char *const light[] = { PANEL_LIGHT, PANEL_LIGHT_PHOTO, PANEL_LIGHT_COMPARE };
+        for (int i = 0; i < 3 && i < cap; ++i) out[i] = light[i];
+        return cap < 3 ? cap : 3;
     }
     if (a->kind != APP_KIND_CAR) return 0;
     const bool masks = a->car.masks_only;
@@ -297,35 +324,7 @@ int mode_panels(const App *a, const char *out[], int cap)
     return n;
 }
 
-// does a floating panel lie (at least in part) inside the window? one dragged off it cannot be got back by hand
-bool on_screen(const ImGuiWindow *w)
-{
-    const ImGuiViewport *v = ImGui::GetMainViewport();
-    return w->Pos.x < v->Pos.x + v->Size.x && w->Pos.y < v->Pos.y + v->Size.y && w->Pos.x + w->Size.x > v->Pos.x && w->Pos.y + w->Size.y > v->Pos.y;
-}
-
-// a panel the user can see now: drawn last frame, not collapsed, its tab the one in front when docked, inside the window when floating
-bool panel_shown(const char *name)
-{
-    const ImGuiWindow *w = ImGui::FindWindowByName(name);
-    if (w == nullptr || !w->WasActive || w->Collapsed) return false;
-    return w->DockIsActive ? w->DockTabIsVisible : on_screen(w);
-}
-
-// brings a panel to the front: uncollapsed, its tab chosen, a floating one off the window put back in its middle
-void panel_show(const char *name)
-{
-    const ImGuiWindow *w = ImGui::FindWindowByName(name);
-    if (w == nullptr) return;
-    ImGui::SetWindowCollapsed(name, false);
-    if (!w->DockIsActive && !on_screen(w)) {
-        const ImGuiViewport *v = ImGui::GetMainViewport();
-        ImGui::SetWindowPos(name, ImVec2(v->Pos.x + (v->Size.x - w->Size.x) / 2, v->Pos.y + (v->Size.y - w->Size.y) / 2));
-    }
-    ImGui::SetWindowFocus(name);
-}
-
-// the Window menu: Reset layout, then the mode's panels, a tick on the ones on screen; choosing one brings it to the front (no panel closes, so none reopens)
+// the Window menu: Reset layout, then the mode's panels, each a toggle: ticked when the panel is open, a click closes it or opens it again (docked where it was)
 void window_menu(const App *a)
 {
     if (a->kind == APP_KIND_NONE || !ImGui::BeginMenu("Window")) return;
@@ -336,7 +335,7 @@ void window_menu(const App *a)
     const char *names[16];
     const int n = mode_panels(a, names, 16);
     for (int i = 0; i < n; ++i)
-        if (ImGui::MenuItem(names[i], nullptr, panel_shown(names[i]))) panel_show(names[i]);
+        if (ImGui::MenuItem(names[i], nullptr, panel_open(names[i]))) panel_set_open(names[i], !panel_open(names[i]));
     ImGui::EndMenu();
 }
 
@@ -489,6 +488,42 @@ void confirm_popup(App *a)
 
 }   // namespace
 
+int ui_panel_toggle(const App *a, int index)
+{
+    const char *names[16];
+    const int n = mode_panels(a, names, 16);
+    if (index < 0 || index >= n) return 0;
+    panel_set_open(names[index], !panel_open(names[index]));
+    return 1;
+}
+
+// a window the user docks, as the Window menu lists them: not a popup, a child, a tooltip or a no-docking window (the menu bar, the dock space, Start, the photo's window)
+static bool is_panel_window(const ImGuiWindow *w)
+{
+    const ImGuiWindowFlags not_panel = ImGuiWindowFlags_ChildWindow | ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_Modal;
+    return (w->Flags & not_panel) == 0 && !w->IsFallbackWindow && strncmp(w->Name, "Debug", 5) != 0 && strncmp(w->Name, "##", 2) != 0;
+}
+
+void ui_print_panels(const App *a)
+{
+    const char *names[16];
+    const int n = mode_panels(a, names, 16);
+    for (int i = 0; i < n; ++i) {
+        const ImGuiWindow *w = ImGui::FindWindowByName(names[i]);
+        printf("panel %d: %s: %s, %s, %s\n", i, names[i], panel_open(names[i]) ? "open" : "closed", w != nullptr && w->Active ? "drawn" : "not drawn", w != nullptr && w->DockId != 0 ? "docked" : "floating");
+    }
+    printf("unlisted:");   // panels drawn this frame that the Window menu does not list
+    const ImGuiContext *g = ImGui::GetCurrentContext();
+    for (const ImGuiWindow *w : g->Windows) {
+        if (!w->Active || !is_panel_window(w)) continue;
+        bool listed = false;
+        for (int i = 0; i < n; ++i) listed |= strcmp(names[i], w->Name) == 0;
+        if (!listed) printf(" [%s]", w->Name);
+    }
+    printf("\n");
+}
+
+
 // the race photo as a texture: made again when the job took another picture (a->race.photo_serial)
 static ImTextureID photo_texture(SDL_Renderer *ren, const App *a)
 {
@@ -635,16 +670,16 @@ void ui_frame(SDL_Renderer *ren, App *a)
         }
         app_sel_sync(a);   // the selected set agrees with the points and with `selected` before anything reads it
         if (a->confirm == APP_ACT_NONE) shortcuts(a), track_command_keys(a);   // the keys edit nothing while the question is up
-        viewport_panel(a);
-        project_panel(a);
-        track_panel(a);
-        points_panel(a);
-        limits_panel(a);
-        problems_panel(a);
-        drive_panel(a);
-        strip_panel(a);
-        node_panel(a);
-        road_key_window(a);
+        if (panel_open("Viewport")) viewport_panel(a);
+        if (panel_open(PANEL_PROJECT)) project_panel(a);
+        if (panel_open(PANEL_TRACK)) track_panel(a);
+        if (panel_open(PANEL_POINTS)) points_panel(a);
+        if (panel_open(PANEL_LIMITS)) limits_panel(a);
+        if (panel_open(PANEL_PROBLEMS)) problems_panel(a);
+        if (panel_open(PANEL_DRIVE)) drive_panel(a);
+        if (panel_open(PANEL_STRIP)) strip_panel(a);
+        if (panel_open(PANEL_NODE)) node_panel(a);
+        if (panel_open(PANEL_ROAD_KEY)) road_key_window(a);
         if (track_edit_done()) app_track_commit(a);
     } else if (a->kind == APP_KIND_CAR) {   // a car has a dock space of its own: each kind keeps its layout
         const bool masks = a->car.masks_only;   // a masks project keeps a layout of its own: it shows fewer windows
@@ -655,16 +690,16 @@ void ui_frame(SDL_Renderer *ren, App *a)
             if (reset || dock_is_empty(dock)) (masks ? masks_layout : car_layout)(dock);
         }
         if (a->confirm == APP_ACT_NONE) car_shortcuts(a);
-        car_panel(a);
-        if (!a->car.masks_only) textures_panel(a);   // nor textures: only its masks
-        model_panel(a, ren);
-        masks_panel(a);
+        if (panel_open(PANEL_CAR)) car_panel(a);
+        if (!a->car.masks_only && panel_open(PANEL_TEXTURES)) textures_panel(a);   // nor textures: only its masks
+        if (panel_open(PANEL_MODEL)) model_panel(a, ren);
+        if (panel_open(PANEL_MASKS)) masks_panel(a);
         const ImTextureID photo = photo_texture(ren, a);
-        race_panel(a, photo, sheet_texture(ren, a));
+        if (panel_open(PANEL_RACE)) race_panel(a, photo, sheet_texture(ren, a));
         photo_view_panel(a, photo);
-        mask_edit_panel(a, mask_texture(ren, a));
-        preview_panel(a, ren);
-        if (!a->car.masks_only) rehacer_panel(a);   // a masks project has no script
+        if (panel_open(PANEL_MASK_EDIT)) mask_edit_panel(a, mask_texture(ren, a));
+        if (panel_open(PANEL_PREVIEW)) preview_panel(a, ren);
+        if (!a->car.masks_only && panel_open(PANEL_REHACER)) rehacer_panel(a);   // a masks project has no script
     } else if (a->kind == APP_KIND_LIGHT) {   // the Track light window has a dock space of its own
         const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr("StudioLightDock"), ImGui::GetMainViewport());
         if (!light_laid_out || reset) {
@@ -672,11 +707,11 @@ void ui_frame(SDL_Renderer *ren, App *a)
             if (reset || dock_is_empty(dock)) light_layout(dock);
         }
         if (a->confirm == APP_ACT_NONE) light_shortcuts(a);
-        light_panel(a);
-        light_photo_panel(a, light_texture(ren, a));
+        if (panel_open(PANEL_LIGHT)) light_panel(a);
+        if (panel_open(PANEL_LIGHT_PHOTO)) light_photo_panel(a, light_texture(ren, a));
         ImTextureID compare[LIGHT_COMPARE_SLOTS];
         light_compare_textures(ren, a, compare);
-        light_compare_panel(a, compare);
+        if (panel_open(PANEL_LIGHT_COMPARE)) light_compare_panel(a, compare);
     } else {
         start_screen(a);
     }

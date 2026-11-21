@@ -26,6 +26,10 @@ void ui_window_default(int w, int h);
  * mode's panels go back to its first-run dock (a track's, a car's or a masks project's; the other modes' layouts are kept), uncollapsed, and the layout file
  * is rewritten with it. */
 void ui_reset_layout(void);
+/* the Window menu's INDEX-th panel clicked (closed when open, open when closed): 1 when the mode has one. For --steps. */
+int ui_panel_toggle(const App *a, int index);
+/* the mode's panels as the Window menu lists them (open or closed, drawn this frame or not), then `unlisted:` and the panels drawn that the menu does not list. For --steps. */
+void ui_print_panels(const App *a);
 
 /* The orbit the Model window starts the next car at (degrees, degrees, model units; dist 0 keeps the home distance): a headless picture of a view. */
 void ui_model_orbit(double yaw, double pitch, int dist);

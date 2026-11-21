@@ -323,5 +323,11 @@ done
 "$editor" --user "$work/u-ws" --workspace "$ws" --window 960x600 --frames 6 --shot "$work/ws-start.png" >"$work/log" 2>&1 || fail "the start screen of a workspace: $(cat "$work/log")"
 "$editor" --user "$work/u-ws2" --window 960x600 --frames 6 --shot "$work/ws-offer.png" >"$work/log" 2>&1 || fail "the start screen with the offer: $(cat "$work/log")"
 [ -s "$work/ws-start.png" ] && [ -s "$work/ws-offer.png" ] && ! cmp -s "$work/ws-start.png" "$work/ws-offer.png" || fail "the start screen does not change with a workspace"
+# ==== Window menu: every panel a car's window draws is listed (a masks project's too) ====
+for proj in "$work/kit" "$work/exports/wagon-masks"; do
+    panels=$("$editor" "$proj" --window 1280x960 --frames 6 --steps print-panels 2>&1)
+    echo "$panels" | grep -q '^unlisted:$' || fail "a panel of $(basename "$proj") is drawn that the Window menu does not list: $(echo "$panels" | grep '^unlisted')"
+    [ "$(echo "$panels" | grep -c '^panel [0-9]*: .*: open, drawn')" -ge 5 ] || fail "the panels of $(basename "$proj") are not drawn: $panels"
+done
 [ "$failures" -eq 0 ] && echo "editor_headless_car: ok"
 exit "$failures"
