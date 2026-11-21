@@ -275,6 +275,7 @@ void light_panel(App *a)
             }
             ImGui::SeparatorText("Tunnels");
             tunnel_tone_row(a);
+            light_tone_rows(a);
             other_lines(a);
         }
     }

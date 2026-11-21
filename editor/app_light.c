@@ -235,8 +235,11 @@ int app_light_photo(App *a)
         return 0;
     }
     char why[LIGHT_PHOTO_WHY];
+    size_t places_size = 0;
+    char *places = light_session_places_text(&ui->session, &places_size);   /* NULL without a places file: the game's own is used */
     const int ok = light_photo_start(&ui->photo, a->game, a->export_src.cd, ui->session.track, ui->session.letter, (unsigned)ui->node, LIGHT_PHOTO_TICKS_DEFAULT, text, size,
-                                     NULL, 0, why, sizeof why);
+                                     places, places_size, why, sizeof why);
+    free(places);
     free(text);
     if (!ok) {
         set_error(a, why);

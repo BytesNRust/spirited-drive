@@ -27,6 +27,8 @@ void race_look_controls(RaceLook *look);   // the race look's switches and resol
 
 // the Track light window (light_panel.cpp): the file's controls and rows, and the photo (a texture of the job's picture, 0 for none)
 void light_panel(App *a);
+// the tone, car tone, tunnel zone and places rows of the Track light window (light_tone_panel.cpp), called by light_panel
+void light_tone_rows(App *a);
 void light_photo_panel(App *a, ImTextureID photo);
 void light_shortcuts(App *a);   // Cmd+S saves the light file
 
