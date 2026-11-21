@@ -17,14 +17,12 @@ static int fail(char *why, size_t cap, const char *what, const char *detail)
     return 0;
 }
 
-const uint8_t CARD_PHOTO_BACKDROP[3] = { 24, 28, 36 };
-
-int card_photo_render(ModelScene *scene, const Orbit *o, const CarNightState *night, const uint8_t backdrop[3], uint8_t *rgba)
+int card_photo_render(ModelScene *scene, const Orbit *o, const CarNightState *night, const uint8_t *backdrop, uint8_t *rgba)
 {
     if (!model_scene_render(scene, o, CARD_PHOTO_W, CARD_PHOTO_H, night, rgba)) return 0;
     for (size_t i = 0; i < (size_t)CARD_PHOTO_W * CARD_PHOTO_H; ++i) {   /* the car where it is drawn (alpha 0 is the clear background), else the backdrop; the card is opaque */
         uint8_t *px = rgba + 4 * i;
-        if (px[3] == 0) memcpy(px, backdrop, 3);
+        if (px[3] == 0) memcpy(px, backdrop + 4 * i, 3);
         px[3] = 255;
     }
     return 1;
@@ -37,7 +35,7 @@ int card_photo_exists(const char *piece)
     return piece != NULL && snprintf(path, sizeof path, "%s/card.png", piece) < (int)sizeof path && stat(path, &st) == 0 && S_ISREG(st.st_mode);
 }
 
-int card_photo_write(ModelScene *scene, const Orbit *o, const CarNightState *night, const uint8_t backdrop[3], const char *piece, char *why, size_t why_cap)
+int card_photo_write(ModelScene *scene, const Orbit *o, const CarNightState *night, const uint8_t *backdrop, const char *piece, char *why, size_t why_cap)
 {
     if (scene == NULL || o == NULL || backdrop == NULL || piece == NULL) return fail(why, why_cap, "there is no car picture to use", NULL);
     char path[CARD_PATH], tmp[CARD_PATH + 8];

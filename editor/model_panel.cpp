@@ -12,6 +12,7 @@
 extern "C" {
 #include "formats/police_flash.h"
 #include "model_scene.h"
+#include "card_backdrop.h"
 #include "card_central.h"
 #include "card_photo.h"
 }
@@ -41,6 +42,10 @@ struct Model {
     bool painted = false;
     Orbit orbit = {};
     bool auto_rotate = false, dirty = true;
+    CardBackdrop backdrop = card_backdrop_default();   // what the card photo stands in front of (session only)
+    uint8_t back_rgba[CARD_PHOTO_W * CARD_PHOTO_H * 4] = {};   // the backdrop made, and the reason when its picture cannot be
+    bool back_dirty = true;
+    char back_why[400] = "";
     bool card_view = false;       // the picture is the card's: 309 x 166 over the card's backdrop, as card.png would be saved
     bool as_card = false;         // and put in Control Central's palette as the game draws it (card_central.h)
     uint8_t cpal[768] = {};       // Central's palette, read from the game's files (cpal_cd says where from)
@@ -171,10 +176,26 @@ bool make_target(SDL_Renderer *ren, int w, int h)
 }
 
 // the picture in the Preview window's light: Day or Night, the track the night is of, the light at the car, the lamps (editor/night_view.h)
+// the backdrop's pixels, made again when it changed; a picture that cannot be read leaves the plain colour under it, and its reason is kept for the tooltip
+const uint8_t *backdrop_pixels()
+{
+    if (g.back_dirty) {
+        g.back_dirty = false, g.dirty = true;
+        g.back_why[0] = '\0';
+        if (!card_backdrop_fill(&g.backdrop, CARD_PHOTO_W, CARD_PHOTO_H, g.back_rgba, g.back_why, sizeof g.back_why)) {
+            CardBackdrop plain = g.backdrop;
+            plain.kind = CARD_BACKDROP_PLAIN;
+            char ignore[8];
+            card_backdrop_fill(&plain, CARD_PHOTO_W, CARD_PHOTO_H, g.back_rgba, ignore, sizeof ignore);
+        }
+    }
+    return g.back_rgba;
+}
+
 void draw_picture(const App *a, int phase, int w, int h)
 {
     const CarNightState night = night_settings_state(&a->night, phase * POLICE_FLASH_TICKS);
-    const bool made = g.card_view ? card_photo_render(g.scene, &g.orbit, &night, CARD_PHOTO_BACKDROP, g.rgba) : model_scene_render(g.scene, &g.orbit, w, h, &night, g.rgba);
+    const bool made = g.card_view ? card_photo_render(g.scene, &g.orbit, &night, backdrop_pixels(), g.rgba) : model_scene_render(g.scene, &g.orbit, w, h, &night, g.rgba);
     if (made && g.card_view && g.as_card && g.cpal_ok) {   // what Central makes of it: the same dither into the same palette
         uint8_t *drawn = static_cast<uint8_t *>(malloc(static_cast<size_t>(w) * h * 4));
         if (drawn != nullptr) {
@@ -216,10 +237,15 @@ void keys()
 int use_as_card_photo(App *a)
 {
     char why[APP_MSG];
+    const uint8_t *backdrop = backdrop_pixels();
+    if (g.back_why[0] != '\0') {   // the picture asked for cannot be read: no plain card in its place
+        snprintf(a->status, sizeof a->status, "card photo: the backdrop's picture: %s", g.back_why);
+        return 0;
+    }
     const CarNightState night = night_settings_state(&a->night, 0);
     char dir[APP_PATH];
     car_project_card_dir(&a->car, dir, sizeof dir);   // the kit's own card.png (the build puts it in the piece), not build/piece's
-    const int ok = card_photo_write(g.scene, &g.orbit, &night, CARD_PHOTO_BACKDROP, dir, why, sizeof why);
+    const int ok = card_photo_write(g.scene, &g.orbit, &night, backdrop, dir, why, sizeof why);
     if (ok) snprintf(a->status, sizeof a->status, "card.png made from the Model's view (309 x 166)");
     else snprintf(a->status, sizeof a->status, "card photo: %s", why);
     return ok;
@@ -249,6 +275,46 @@ void card_view_controls(const App *a)
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
         ImGui::SetTooltip("%s", !g.cpal_ok ? g.cpal_why : !g.card_view ? "Needs Card view." : "The picture in Control Central's palette, dithered as the game does it when it draws the card.");
+}
+
+void backdrop_controls()
+{
+    static const char *const KINDS[] = { "Plain colour", "Gradient", "Picture" };
+    ImGui::SetNextItemWidth(110);
+    if (ImGui::BeginCombo("##backdrop", KINDS[g.backdrop.kind])) {
+        for (int i = 0; i < 3; ++i)
+            if (ImGui::Selectable(KINDS[i], g.backdrop.kind == i)) g.backdrop.kind = i, g.back_dirty = true;
+        ImGui::EndCombo();
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("What the card photo stands in front of");
+    float top[3] = { g.backdrop.top[0] / 255.0f, g.backdrop.top[1] / 255.0f, g.backdrop.top[2] / 255.0f };
+    float bottom[3] = { g.backdrop.bottom[0] / 255.0f, g.backdrop.bottom[1] / 255.0f, g.backdrop.bottom[2] / 255.0f };
+    const ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel;
+    ImGui::SameLine();
+    if (ImGui::ColorEdit3("##top", top, flags)) {
+        for (int k = 0; k < 3; ++k) g.backdrop.top[k] = static_cast<uint8_t>(lroundf(top[k] * 255.0f));
+        if (g.backdrop.kind != CARD_BACKDROP_GRADIENT) memcpy(g.backdrop.bottom, g.backdrop.top, 3);
+        g.back_dirty = true;
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip(g.backdrop.kind == CARD_BACKDROP_GRADIENT ? "The top colour" : g.backdrop.kind == CARD_BACKDROP_FILE ? "What shows through a transparent picture" : "The colour");
+    if (g.backdrop.kind == CARD_BACKDROP_GRADIENT) {
+        ImGui::SameLine();
+        if (ImGui::ColorEdit3("##bottom", bottom, flags)) {
+            for (int k = 0; k < 3; ++k) g.backdrop.bottom[k] = static_cast<uint8_t>(lroundf(bottom[k] * 255.0f));
+            g.back_dirty = true;
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("The bottom colour");
+    }
+    if (g.backdrop.kind == CARD_BACKDROP_FILE) {
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(240);
+        if (ImGui::InputTextWithHint("##backfile", "path of a PNG", g.backdrop.file, sizeof g.backdrop.file, ImGuiInputTextFlags_EnterReturnsTrue)) g.back_dirty = true;
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("A PNG picture, fitted to cover the card's 309 x 166 (Enter to load it)");
+        if (g.back_why[0] != '\0') {
+            ImGui::SameLine();
+            help_marker(g.back_why);
+        }
+    }
 }
 
 void card_photo_button(App *a)
@@ -298,6 +364,7 @@ void toolbar(App *a)
     card_photo_button(a);
     ImGui::SameLine();
     card_view_controls(a);
+    backdrop_controls();
 }
 
 void turn_and_zoom()
@@ -316,6 +383,27 @@ void model_panel_shine(bool on)
 {
     g.shine = on;
     g.shine_asked = true;
+}
+
+int model_panel_backdrop(App *a, int kind, int r, int gr, int b, int bottom)
+{
+    if (g.scene == nullptr || a->kind != APP_KIND_CAR || kind < CARD_BACKDROP_PLAIN || kind > CARD_BACKDROP_FILE) return 0;
+    if (r < 0 || r > 255 || gr < 0 || gr > 255 || b < 0 || b > 255) return 0;
+    uint8_t *colour = bottom ? g.backdrop.bottom : g.backdrop.top;
+    colour[0] = static_cast<uint8_t>(r), colour[1] = static_cast<uint8_t>(gr), colour[2] = static_cast<uint8_t>(b);
+    if (!bottom) {
+        g.backdrop.kind = kind;
+        if (kind != CARD_BACKDROP_GRADIENT) memcpy(g.backdrop.bottom, g.backdrop.top, 3);
+    }
+    g.back_dirty = true;
+    return 1;
+}
+
+void model_panel_backdrop_file(const char *path)
+{
+    g.backdrop.kind = CARD_BACKDROP_FILE;
+    snprintf(g.backdrop.file, sizeof g.backdrop.file, "%s", path);
+    g.back_dirty = true;
 }
 
 int model_panel_card_view(App *a, bool card, bool as_card)
@@ -370,7 +458,7 @@ void model_panel(App *a, SDL_Renderer *ren)
                     g.dirty = true;
                 }
                 const int phase = a->night.police ? static_cast<int>((SDL_GetTicks() / 500u) & 1u) : 0;   // the flash, as the Preview window has it
-                if (g.dirty || g.key_phase != phase || memcmp(&g.key_night, &a->night, sizeof a->night) != 0) draw_picture(a, phase, w, h);
+                if (g.dirty || (g.back_dirty && g.card_view) || g.key_phase != phase || memcmp(&g.key_night, &a->night, sizeof a->night) != 0) draw_picture(a, phase, w, h);
                 const ImVec2 at = ImGui::GetCursorScreenPos(), area(static_cast<float>(area_w), static_cast<float>(area_h));
                 ImGui::InvisibleButton("##orbit", area);
                 turn_and_zoom();

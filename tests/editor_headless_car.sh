@@ -158,6 +158,24 @@ assert d[:8] == b'\x89PNG\r\n\x1a\n' and int.from_bytes(d[16:20], 'big') == 309 
     "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --steps card-view:1,1 --frames 14 --shot "$work/model-card-central.png" >"$work/log" 2>&1 || fail "As on the card: $(cat "$work/log")"
     cmp -s "$work/model-plain.png" "$work/model-card.png" && fail "Card view did not change the Model window"
     cmp -s "$work/model-card.png" "$work/model-card-central.png" && fail "As on the card did not change the Card view"
+    # the card photo's backdrop: a plain colour, a gradient and the person's own picture each give another Card view, and Use as card photo saves the one on screen
+    python3 -c "
+import struct, sys, zlib
+w, h = 40, 20
+raw = b''.join(b'\\x00' + b'\\x10\\xc0\\x30\\xff' * w for _ in range(h))
+def chunk(t, d): return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+open(sys.argv[1], 'wb').write(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
+" "$work/backdrop.png" || fail "could not write the backdrop picture"
+    for kind in "plain:card-backdrop:0,200,40,40" "gradient:card-backdrop:1,200,40,40,card-bd-bottom:20,20,200"; do
+        "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --steps "card-view:1,0,${kind#*:}" --frames 14 --shot "$work/model-${kind%%:*}.png" >"$work/log" 2>&1 || fail "backdrop ${kind%%:*}: $(cat "$work/log")"
+    done
+    "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --card-backdrop "$work/backdrop.png" --steps card-view:1,0 --frames 14 --shot "$work/model-picture.png" >"$work/log" 2>&1 || fail "backdrop picture: $(cat "$work/log")"
+    cmp -s "$work/model-card.png" "$work/model-plain.png" && fail "a backdrop did not change the Card view"
+    cmp -s "$work/model-card.png" "$work/model-gradient.png" && fail "a gradient did not change the Card view"
+    cmp -s "$work/model-gradient.png" "$work/model-picture.png" && fail "a backdrop picture did not change the Card view"
+    cp "$card" "$work/card-before.png"
+    "$editor" "$work/real/p911-original" --cd "$repo/original" --paint 3 --steps card-backdrop:0,200,40,40,card-photo,status --frames 14 >"$work/log" 2>&1 || fail "Use as card photo on a backdrop: $(cat "$work/log")"
+    cmp -s "$card" "$work/card-before.png" && fail "the backdrop did not reach card.png"
     # the night view: Day, Night with the lights off and Night with the headlights each show another picture of the front texture
     "$editor" "$work/real/p911-original" --view day --preview-tex frnt --frames 20 --shot "$work/night-day.png" >"$work/log" 2>&1 || fail "Preview by day: $(cat "$work/log")"
     "$editor" "$work/real/p911-original" --view night --lights none --preview-tex frnt --frames 20 --shot "$work/night-dark.png" >"$work/log" 2>&1 || fail "Preview at night, lights off: $(cat "$work/log")"

@@ -1,5 +1,5 @@
 /* The car's card picture made from the Model window (dep59 car editor, «Use as card photo»): the scene as the Model's camera sees it, 309 x 166 (PIECE.CARD:
- * the game does not scale it) over a plain backdrop, written as <piece>/card.png (RGBA, all opaque; the game fits it to Central's palette when it installs). */
+ * the game does not scale it) over a backdrop, written as <piece>/card.png (RGBA, all opaque; the game fits it to Central's palette when it installs). */
 #ifndef TNFS_TRACK_EDITOR_CARD_PHOTO_H
 #define TNFS_TRACK_EDITOR_CARD_PHOTO_H
 
@@ -10,18 +10,15 @@
 
 enum { CARD_PHOTO_W = 309, CARD_PHOTO_H = 166 };   /* CAR_PIECE_CARD_W / H (formats/car_piece.h) */
 
-/* The backdrop of the card photo: a plain dark blue-grey, the car's colours stand out from it */
-extern const uint8_t CARD_PHOTO_BACKDROP[3];
-
-/* The card picture itself: the scene as `o` sees it (in the light `night` says, NULL: day) at 309 x 166 over `backdrop` (RGB), into `rgba` (309 x 166, all opaque).
- * 1, or 0 when the car cannot be drawn at that size. */
-int card_photo_render(ModelScene *scene, const Orbit *o, const CarNightState *night, const uint8_t backdrop[3], uint8_t *rgba);
+/* The card picture itself: the scene as `o` sees it (in the light `night` says, NULL: day) at 309 x 166 over `backdrop` (309 x 166 RGBA, opaque: card_backdrop_fill),
+ * into `rgba` (309 x 166, all opaque). 1, or 0 when the car cannot be drawn at that size. */
+int card_photo_render(ModelScene *scene, const Orbit *o, const CarNightState *night, const uint8_t *backdrop, uint8_t *rgba);
 
 /* 1 when <piece>/card.png is there (a file): the panel asks before it is replaced */
 int card_photo_exists(const char *piece);
 
-/* The scene as `o` sees it (in the light `night` says, NULL: day) over `backdrop` (RGB), written to <piece>/card.png: staged as card.png.tmp and renamed, so the
+/* The scene as `o` sees it (in the light `night` says, NULL: day) over `backdrop` (309 x 166 RGBA), written to <piece>/card.png: staged as card.png.tmp and renamed, so the
  * card is the old one or the new one, never half. 1, or 0 with `why` (English, for the person; nothing is left behind). */
-int card_photo_write(ModelScene *scene, const Orbit *o, const CarNightState *night, const uint8_t backdrop[3], const char *piece, char *why, size_t why_cap);
+int card_photo_write(ModelScene *scene, const Orbit *o, const CarNightState *night, const uint8_t *backdrop, const char *piece, char *why, size_t why_cap);
 
 #endif

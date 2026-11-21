@@ -3,6 +3,7 @@
  * their fixed colours, only with the switches that light them. A synthetic car (a box with a textured side, mesh_build/shpi_build/cfm_build: no game data) and a
  * mask with head and brake lights; with the CD's P911 in original/ (skipped without) the same from its own masks, and TNFS_MODEL_SHOTS=DIR writes the pictures. */
 #include "model_scene.h"
+#include "card_backdrop.h"
 #include "card_photo.h"
 #include "formats/car_brake_lamp.h"
 #include "formats/car_mask_codec.h"
@@ -573,8 +574,12 @@ static void test_the_card_photo(void)
     orbit_set(&o, 60 * 16, 30 * 16);
     snprintf(card, sizeof card, "%s/card.png", dir);
     CHECK(!card_photo_exists(dir));
-    const uint8_t back[3] = { 20, 40, 60 };
-    CHECK(card_photo_write(m, &o, NULL, back, dir, why, sizeof why));
+    CardBackdrop plain = card_backdrop_default();
+    plain.top[0] = 20, plain.top[1] = 40, plain.top[2] = 60;
+    static uint8_t backdrop[CARD_PHOTO_W * CARD_PHOTO_H * 4];
+    CHECK(card_backdrop_fill(&plain, CARD_PHOTO_W, CARD_PHOTO_H, backdrop, why, sizeof why));
+    const uint8_t *back = plain.top;
+    CHECK(card_photo_write(m, &o, NULL, backdrop, dir, why, sizeof why));
     CHECK(card_photo_exists(dir));
     FILE *f = fopen(card, "rb");
     CHECK(f != NULL);
@@ -601,8 +606,8 @@ static void test_the_card_photo(void)
     CHECK(access(tmp, F_OK) != 0);   /* staged, then renamed */
     char nowhere[500];
     snprintf(nowhere, sizeof nowhere, "%s/no-such-folder", base);
-    CHECK(!card_photo_write(m, &o, NULL, back, nowhere, why, sizeof why) && why[0] != '\0');
-    CHECK(!card_photo_write(NULL, &o, NULL, back, dir, why, sizeof why));
+    CHECK(!card_photo_write(m, &o, NULL, backdrop, nowhere, why, sizeof why) && why[0] != '\0');
+    CHECK(!card_photo_write(NULL, &o, NULL, backdrop, dir, why, sizeof why));
     model_scene_close(m);
 }
 

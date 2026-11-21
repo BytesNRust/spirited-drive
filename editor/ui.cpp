@@ -96,6 +96,16 @@ int ui_card_photo(App *a)
     return model_panel_card_photo(a);
 }
 
+int ui_card_backdrop(App *a, int kind, int r, int g, int b, int bottom)
+{
+    return model_panel_backdrop(a, kind, r, g, b, bottom);
+}
+
+void ui_card_backdrop_file(const char *path)
+{
+    model_panel_backdrop_file(path);
+}
+
 int ui_card_view(App *a, int card, int as_card)
 {
     return model_panel_card_view(a, card != 0, as_card != 0);

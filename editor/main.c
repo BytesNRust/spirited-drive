@@ -71,6 +71,7 @@ typedef struct {
     int race_scale;         /* --race-scale 1|2: its render scale (0: the default) */
     int race_cockpit;       /* --race-view cockpit: a photo from the dash (follow, the default, is 0) */
     int gauge_light;        /* --gauge-light 0..5 (a cockpit photo's night dash), 0 for none given; stored as the value + 1 */
+    const char *card_backdrop;   /* --card-backdrop FILE: the card photo's backdrop is that PNG */
     const char *orbit;       /* --orbit YAW,PITCH[,DIST]: the Model window's camera, in degrees (a headless picture of a view) */
     const char *shine;       /* --shine on|off: the Model window's body shine (on by default) */
     const char *mask;        /* --mask NAME: the mask (topv, frnt_lo) opened in Edit mask before the first frame */
@@ -93,7 +94,7 @@ static int usage(void)
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--workspace DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--photo-view] [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
-                    "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-light PERCENT] [--night-tint R,G,B] [--preview-tex NAME] [--changes]\n"
+                    "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-light PERCENT] [--night-tint R,G,B] [--preview-tex NAME] [--changes] [--card-backdrop FILE.png]\n"
                     "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--compare off|before|four]] [--steps STEP,...]\n");
     return 0;
 }
@@ -155,6 +156,7 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--photo-view") == 0) o->photo_view = 1;
         else if (strcmp(argv[i], "--night") == 0) o->night = 1;
         else if (strcmp(argv[i], "--orbit") == 0 && has_value) o->orbit = argv[++i];
+        else if (strcmp(argv[i], "--card-backdrop") == 0 && has_value) o->card_backdrop = argv[++i];
         else if (strcmp(argv[i], "--shine") == 0 && has_value) o->shine = argv[++i];
         else if (strcmp(argv[i], "--track") == 0 && has_value) o->track = argv[++i];
         else if (strcmp(argv[i], "--race-png") == 0 && has_value) o->race_png = argv[++i];
@@ -602,6 +604,7 @@ static int run(App *a, const Options *o)
     if (o->steps != NULL) ui_double_click_by_frames();
     ui_window_default(window_w, window_h);
     if (o->reset_layout) ui_reset_layout();
+    if (o->card_backdrop != NULL) ui_card_backdrop_file(o->card_backdrop);
     if (o->orbit != NULL) {
         double yaw = 0, pitch = 0;
         int dist = 0;
