@@ -648,11 +648,21 @@ static void check_app_flow(void)
     app_keep_recent(a, recent);
     CHECK_EQ_INT(a->recent.count, 1);                        /* the project that is open */
 
-    /* nothing unsaved: the action goes at once */
+    /* nothing unsaved: an action goes at once, but leaving Studio is always asked (Esc, Cmd+Q and the window's close all come as a quit) */
     CHECK(!app_modified(a));
     app_ask(a, APP_ACT_QUIT, "");
+    CHECK_EQ_INT(a->go, APP_ACT_NONE);
+    CHECK_EQ_INT(a->confirm, APP_ACT_QUIT);
+    app_answer(a, APP_ANSWER_CANCEL);                        /* "Cancel": Studio stays */
+    CHECK_EQ_INT(a->confirm, APP_ACT_NONE);
+    CHECK_EQ_INT(a->go, APP_ACT_NONE);
+    app_ask(a, APP_ACT_QUIT, "");
+    app_answer(a, APP_ANSWER_DISCARD);                       /* "Quit": nothing to save, so it goes */
     CHECK_EQ_INT(a->go, APP_ACT_QUIT);
     CHECK_EQ_INT(a->confirm, APP_ACT_NONE);
+    a->go = APP_ACT_NONE;
+    app_ask(a, APP_ACT_MAIN, "");
+    CHECK_EQ_INT(a->go, APP_ACT_MAIN);                       /* the other actions are not asked when nothing is unsaved */
     a->go = APP_ACT_NONE;
 
     /* a point added: unsaved; the action waits, and a second one asked meanwhile is dropped */

@@ -27,6 +27,13 @@ if [ -f "$work/warn.png" ]; then png_check "$work/warn.png" warn; else fail "no 
 "$editor" "$work/warn" --window 960x1200 --edit --ask quit --frames 6 --shot "$work/confirm.png" >"$work/log" 2>&1 || fail "run with unsaved changes and a quit asked for: $(cat "$work/log")"
 [ -s "$work/confirm.png" ] || fail "no PNG with the unsaved-changes question"
 "$editor" "$work/warn" --ask quit --frames 6 >"$work/log" 2>&1 || fail "run with a quit asked for and nothing unsaved: $(cat "$work/log")"
+# Escape never quits Studio; a quit is asked every time, with nothing unsaved too (Quit / Cancel), and Escape on that question is Cancel
+"$editor" "$work/warn" --frames 6 --steps key:Escape,print-confirm >"$work/log" 2>&1 || fail "Escape on a clean track: $(cat "$work/log")"
+grep -q "^confirm: none$" "$work/log" && grep -q "^go: none$" "$work/log" || fail "Escape asked to quit or quit: $(cat "$work/log")"
+"$editor" "$work/warn" --frames 6 --ask quit --steps print-confirm >"$work/log" 2>&1 || fail "a clean quit asked for: $(cat "$work/log")"
+grep -q "^confirm: quit$" "$work/log" && grep -q "^go: none$" "$work/log" || fail "a quit with nothing unsaved was not asked: $(cat "$work/log")"
+"$editor" "$work/warn" --frames 6 --ask quit --steps key:Escape,print-confirm >"$work/log" 2>&1 || fail "Escape on the quit question: $(cat "$work/log")"
+grep -q "^confirm: none$" "$work/log" && grep -q "^go: none$" "$work/log" || fail "Escape on the quit question did not cancel it: $(cat "$work/log")"
 mkdir "$work/bad"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 80.0], [20.0, 90.0], [0.0, 100.0], [0.0, 180.0]]\n}\n' > "$work/bad/trace.json"
 "$editor" "$work/bad" --window 960x1200 --frames 6 --shot "$work/bad.png" >"$work/log" 2>&1 || fail "run on a project that breaks limits: $(cat "$work/log")"

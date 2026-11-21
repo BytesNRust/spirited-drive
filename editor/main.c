@@ -274,8 +274,8 @@ static int default_game(char *out, size_t cap, char *tried, size_t tried_cap, ch
     return game_find(&finder, out, cap, tried, tried_cap);
 }
 
-/* the window's own events: closing it, or Escape (which no panel keeps) asks to quit, once no control point is selected; with unsaved changes the answer is asked for first (app_ask),
- * and Escape on that question is Cancel */
+/* the window's own events: closing it asks to quit (app_ask: always asked, and with unsaved changes the Save question); Escape never quits: it is Cancel on a question, and lets
+ * the selected points go on a track */
 static void window_event(App *a, const SDL_Event *ev)
 {
     if (ev->type == SDL_EVENT_QUIT) {
@@ -283,8 +283,7 @@ static void window_event(App *a, const SDL_Event *ev)
     } else if (ev->type == SDL_EVENT_KEY_DOWN && ev->key.key == SDLK_ESCAPE && !ev->key.repeat) {
         if (a->confirm != APP_ACT_NONE) app_answer(a, APP_ANSWER_CANCEL);
         else if (ui_popup_open()) return;   /* with a menu open Escape closes the menu, nothing more */
-        else if (a->kind == APP_KIND_TRACK && app_sel_count(a) > 0) app_sel_clear(a);   /* several points (or one) selected: Escape lets them go first */
-        else app_ask(a, APP_ACT_QUIT, "");
+        else if (a->kind == APP_KIND_TRACK && app_sel_count(a) > 0) app_sel_clear(a);   /* several points (or one) selected: Escape lets them go */
     }
 }
 
