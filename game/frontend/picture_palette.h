@@ -10,9 +10,6 @@
  * `usable` marks; entry 0 when none is marked */
 void picture_palette_nearest(const uint8_t *rgba, int n, const uint8_t palette[768], const uint8_t usable[256], uint8_t *out);
 
-/* port (dep59, the owner's): the same, a `w` x `h` picture dithered: Floyd-Steinberg error diffusion in the palette's 8 bits a channel
- * (each pixel the nearest usable entry to its colour plus the error carried to it, the error kept within 0..255), so a colour the
- * screen's palette lacks comes out as a mix of the ones it has; entry 0 everywhere when none is marked */
-void picture_palette_dither(const uint8_t *rgba, int w, int h, const uint8_t palette[768], const uint8_t usable[256], uint8_t *out);
+#include "raster/picture_palette.h"   /* picture_palette_dither: in the core */
 
 #endif

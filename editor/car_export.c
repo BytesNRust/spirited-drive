@@ -391,6 +391,14 @@ static int copy_masks(const char *from, const char *to, char *sizes, size_t size
     return ok;
 }
 
+int car_export_game_file(const char *cd, const char *rel, uint8_t **data, size_t *size, char *why, size_t why_cap)
+{
+    char path[EXPORT_PATH];
+    if (!find_path_ci(cd, rel, path, sizeof path)) return fail(why, why_cap, "The game's files have no %s (looked in %s).", rel, cd);
+    *data = read_file(path, size, why, why_cap);
+    return *data != NULL;
+}
+
 /* the game's file `rel` copied to `dst` (a path in the project, made by the caller's folder); `leaf_out`, when not NULL, gets the name the game's disc has */
 static int copy_game_file(const ExportSource *src, const char *rel, const char *dst, char *leaf_out, size_t leaf_cap, char *why, size_t why_cap)
 {

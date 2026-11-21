@@ -9,6 +9,7 @@
 #define TNFS_TRACK_EDITOR_CAR_EXPORT_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 enum { EXPORT_PATH = 4096, EXPORT_CARS = 21 };
 
@@ -34,6 +35,8 @@ const ExportCar *car_export_car(int index);
 /* The places to look, from the game's program (`game`, "<app>/Contents/MacOS/tnfs" or a build tree's ./tnfs), the player folder in use (`user`, "" for the
  * system's: then `pref`, ending in '/', NULL for none) and the two overrides (NULL for none). Each is the first candidate that holds what it should, else the
  * first candidate (the dialog then says what is missing and where it looked). */
+/* the game's file `rel` ("FRONTEND/ART/CONTROL/CENTRAL.QFS", each part in any case) below `cd`, read whole: `data` malloc'd (free it), `size`. 1, or 0 with `why`. */
+int car_export_game_file(const char *cd, const char *rel, uint8_t **data, size_t *size, char *why, size_t why_cap);
 void car_export_source(const char *game, const char *user, const char *pref, const char *cd_override, const char *data_override, ExportSource *out);
 
 /* 1 when the car can be exported from `src`; 0 with the reason (English, for the person: what is missing and where it looked) */
