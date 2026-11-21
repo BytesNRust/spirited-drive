@@ -33,7 +33,7 @@ printf 'loop\nloop *\nloop\nloop *\nloop\nloop *\n' | cmp -s - "$work/titles" ||
 # 2c. The window, as a user: N adds a point at the end; a click takes point 2 and a drag moves it along the road, one step to undo (the undo gives back the
 # point exactly); Del removes it and an undo brings it back; a road key's width set as the Points window sets it (8 m at point 1) and a bank cell of the Road profile (5 degrees
 # at point 3), saved
-"$editor" "$work/loop" --user "$player" --frames 2 --steps print,key:N,print,click:2,drag:2,0,-5,print,undo,print,redo,print,key:Delete,print,undo,print,width:1,8,bank:3,5,save \
+"$editor" "$work/loop" --user "$player" --window 1280x960 --frames 2 --steps print,key:N,print,click:2,drag:2,0,-5,print,undo,print,redo,print,key:Delete,print,undo,print,width:1,8,bank:3,5,save \
     >"$work/log" 2>&1 || fail "the window's edits: $(cat "$work/log")"
 grep '^points: ' "$work/log" > "$work/prints"
 line() { sed -n "${1}p" "$work/prints"; }
@@ -82,7 +82,7 @@ awk -v a="$(h 1)" -v b="$(h 2)" 'BEGIN { exit !(b > a) }' || fail "dragging the 
 # 2d. A point dragged too near the next (17 m before it, on a new project): the nodes bunch up with no red node; Problems says so in red in
 # Build's words before Build, and Build refuses with those words
 "$editor" "$work/near" --user "$player" --frames 2 --save >"$work/log" 2>&1 || fail "New project (near): $(cat "$work/log")"
-"$editor" "$work/near" --user "$player" --frames 2 --steps problems,drag-near:2,3,17,problems,build >"$work/log" 2>&1 \
+"$editor" "$work/near" --user "$player" --window 960x760 --frames 2 --steps problems,drag-near:2,3,17,problems,build >"$work/log" 2>&1 \
     || fail "the drag near the next point: $(cat "$work/log")"
 [ "$(grep '^problems' "$work/log" | head -1)" = "problems: none" ] || fail "Problems was not clear before the drag: $(grep '^problems' "$work/log")"
 refusal=$(sed -n 's/^problems: refusal //p' "$work/log")

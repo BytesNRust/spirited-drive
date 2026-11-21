@@ -1,6 +1,6 @@
 #!/bin/sh
 # What editor_headless_track.sh and editor_headless_car.sh share (sourced, with the editor as their $1): the editor run headless (SDL dummy
-# video and audio), a scratch folder, fail() that counts, and png_check (a 960x600 picture with the road and the points in it).
+# video and audio), a scratch folder, fail() that counts, and png_check (a 960x1200 picture with the road and the points in it).
 # Neither script bounds its runs: ctest does (TIMEOUT), as CI has no `timeout`.
 set -u
 editor=$1
@@ -17,7 +17,7 @@ d = open(sys.argv[1], "rb").read()
 mode = sys.argv[2]
 assert d[:8] == b"\x89PNG\r\n\x1a\n"
 w, h, depth, ctype = struct.unpack(">IIBB", d[16:26])
-assert (w, h) == (960, 600), (w, h)
+assert (w, h) == (960, 1200), (w, h)
 assert ctype in (2, 6) and depth == 8
 bpp = 3 if ctype == 2 else 4
 i, idat = 8, b""
@@ -59,4 +59,4 @@ elif mode == "warn":   # a curve over an amber limit and under the red ones: amb
 else:                # a corner too tight: the road is made (grey), and its nodes at the corner are red
     assert road > 400 and points > 100 and red > 50, (road, points, red)
 PY
-png_check() { python3 "$work/png_check.py" "$1" "$2" || fail "$1 is not a 960x600 picture with the $2 project's road and points in it"; }
+png_check() { python3 "$work/png_check.py" "$1" "$2" || fail "$1 is not a 960x1200 picture with the $2 project's road and points in it"; }

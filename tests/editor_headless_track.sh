@@ -8,7 +8,7 @@
 . "$(dirname "$0")/editor_headless_common.sh"
 
 # ==== New project: made, saved and drawn ====
-"$editor" "$work/proj" --frames 6 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
+"$editor" "$work/proj" --window 960x1200 --frames 6 --save --shot "$work/shot.png" >"$work/log" 2>&1 || fail "run: $(cat "$work/log")"
 [ -f "$work/proj/project.ini" ] && [ -f "$work/proj/trace.json" ] || fail "no project files"
 [ -f "$work/shot.png" ] || { fail "no PNG"; exit 1; }
 png_check "$work/shot.png" good
@@ -16,20 +16,20 @@ png_check "$work/shot.png" good
 # ==== Points and limits: mild, amber and red curves, a point selected, unsaved changes on Quit ====
 mkdir "$work/mild"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 40.0], [15.0, 80.0], [15.0, 120.0], [0.0, 160.0], [0.0, 200.0]]\n}\n' > "$work/mild/trace.json"   # an S of 6.5 degrees a node at most: nothing is marked (the old limit was 6)
-"$editor" "$work/mild" --frames 6 --shot "$work/mild.png" >"$work/log" 2>&1 || fail "run on a mild S: $(cat "$work/log")"
+"$editor" "$work/mild" --window 960x1200 --frames 6 --shot "$work/mild.png" >"$work/log" 2>&1 || fail "run on a mild S: $(cat "$work/log")"
 if [ -f "$work/mild.png" ]; then png_check "$work/mild.png" good; else fail "no PNG of the mild S"; fi
 mkdir "$work/warn"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, -40.0], [0.0, 0.0], [20.0, 40.0], [20.0, 80.0], [0.0, 120.0], [0.0, 160.0]]\n}\n' > "$work/warn/trace.json"   # an S that turns about 9 degrees a node: amber
-"$editor" "$work/warn" --frames 6 --shot "$work/warn.png" >"$work/log" 2>&1 || fail "run on a curve over an amber limit: $(cat "$work/log")"
+"$editor" "$work/warn" --window 960x1200 --frames 6 --shot "$work/warn.png" >"$work/log" 2>&1 || fail "run on a curve over an amber limit: $(cat "$work/log")"
 if [ -f "$work/warn.png" ]; then png_check "$work/warn.png" warn; else fail "no PNG of the curve over an amber limit"; fi
-"$editor" "$work/warn" --select 3 --frames 6 --shot "$work/select.png" >"$work/log" 2>&1 || fail "run with a point selected (the Node window): $(cat "$work/log")"
+"$editor" "$work/warn" --window 960x1200 --select 3 --frames 6 --shot "$work/select.png" >"$work/log" 2>&1 || fail "run with a point selected (the Node window): $(cat "$work/log")"
 [ -s "$work/select.png" ] || fail "no PNG with a point selected"
-"$editor" "$work/warn" --edit --ask quit --frames 6 --shot "$work/confirm.png" >"$work/log" 2>&1 || fail "run with unsaved changes and a quit asked for: $(cat "$work/log")"
+"$editor" "$work/warn" --window 960x1200 --edit --ask quit --frames 6 --shot "$work/confirm.png" >"$work/log" 2>&1 || fail "run with unsaved changes and a quit asked for: $(cat "$work/log")"
 [ -s "$work/confirm.png" ] || fail "no PNG with the unsaved-changes question"
 "$editor" "$work/warn" --ask quit --frames 6 >"$work/log" 2>&1 || fail "run with a quit asked for and nothing unsaved: $(cat "$work/log")"
 mkdir "$work/bad"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 80.0], [20.0, 90.0], [0.0, 100.0], [0.0, 180.0]]\n}\n' > "$work/bad/trace.json"
-"$editor" "$work/bad" --frames 6 --shot "$work/bad.png" >"$work/log" 2>&1 || fail "run on a project that breaks limits: $(cat "$work/log")"
+"$editor" "$work/bad" --window 960x1200 --frames 6 --shot "$work/bad.png" >"$work/log" 2>&1 || fail "run on a project that breaks limits: $(cat "$work/log")"
 if [ -f "$work/bad.png" ]; then png_check "$work/bad.png" bad; else fail "no PNG of the project that breaks limits"; fi
 
 # ==== Road profile keys: widths, shoulder surfaces, sides (each built and read back from the TRI) ====
@@ -37,7 +37,7 @@ if [ -f "$work/bad.png" ]; then png_check "$work/bad.png" bad; else fail "no PNG
 # amber (built, drawn amber), and a file of a newer version is refused with its reason
 mkdir "$work/keyed"
 printf '{\n  "version": 2,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 1, "width_m": 8.0}, {"point": 4, "width_m": 14.0}]\n}\n' > "$work/keyed/trace.json"
-"$editor" "$work/keyed" --frames 6 --select 2 --shot "$work/keyed.png" >"$work/log" 2>&1 || fail "run on a project with road keys: $(cat "$work/log")"
+"$editor" "$work/keyed" --window 960x1200 --frames 6 --select 2 --shot "$work/keyed.png" >"$work/log" 2>&1 || fail "run on a project with road keys: $(cat "$work/log")"
 png_check "$work/keyed.png" good
 "$editor" "$work/keyed" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a project with road keys: $(cat "$work/log")"
 cat > "$work/tri_widths.py" <<'PY'
@@ -55,7 +55,7 @@ PY
 python3 "$work/tri_widths.py" "$work/keyed/build/keyed.zip" || fail "the TRI of the keyed project does not have the widths of its keys"
 mkdir "$work/sudden"
 printf '{\n  "version": 2,\n  "width": 40.0,\n  "points": [[0.0,  0.0], [0.0,  15.0], [0.0,  30.0], [0.0,  45.0], [0.0,  60.0], [0.0,  75.0], [0.0,  90.0], [0.0,  105.0], [0.0,  120.0], [0.0,  135.0], [0.0,  150.0], [0.0,  165.0]],\n  "keys": [{"point": 2, "width_m": 10.0}, {"point": 3, "width_m": 14.0}]\n}\n' > "$work/sudden/trace.json"
-"$editor" "$work/sudden" --frames 6 --shot "$work/sudden.png" >"$work/log" 2>&1 || fail "run on a ramp that is too sudden: $(cat "$work/log")"
+"$editor" "$work/sudden" --window 960x1200 --frames 6 --shot "$work/sudden.png" >"$work/log" 2>&1 || fail "run on a ramp that is too sudden: $(cat "$work/log")"
 if [ -f "$work/sudden.png" ]; then png_check "$work/sudden.png" warn; else fail "no PNG of the sudden ramp"; fi
 "$editor" "$work/sudden" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a ramp that is only over an amber limit: $(cat "$work/log")"
 mkdir "$work/newer"
@@ -66,7 +66,7 @@ grep -q "version 6" "$work/log" || fail "the refusal does not name the version: 
 # whose nodes' flags[2] (node +6, high nibble left, low right) clear that side: 0x22 before, 0x02, then 0x20; those segments draw that shoulder in asphalt
 mkdir "$work/surface"
 printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 1, "shoulder_l_surface": "tarmac"}, {"point": 3, "shoulder_l_surface": "verge", "shoulder_r_surface": "tarmac"}]\n}\n' > "$work/surface/trace.json"
-"$editor" "$work/surface" --frames 6 --select 3 --shot "$work/surface.png" >"$work/log" 2>&1 || fail "run on a project with shoulder surfaces: $(cat "$work/log")"
+"$editor" "$work/surface" --window 960x1200 --frames 6 --select 3 --shot "$work/surface.png" >"$work/log" 2>&1 || fail "run on a project with shoulder surfaces: $(cat "$work/log")"
 png_check "$work/surface.png" good
 "$editor" "$work/surface" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a project with shoulder surfaces: $(cat "$work/log")"
 cat > "$work/tri_surfaces.py" <<'PY'
@@ -93,7 +93,7 @@ python3 "$work/tri_surfaces.py" "$work/surface/build/surface.zip" || fail "the T
 # the template's was before, and the segments (4 nodes, 25 m) from 125 m on lose the right fence bit (0x40), every other bit the template's
 mkdir "$work/sides"
 printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 0, "barrier_r_m": 8.0}, {"point": 1, "wall_l": "soft"}, {"point": 2, "fence_r": false}, {"point": 3, "wall_l": "hard"}]\n}\n' > "$work/sides/trace.json"
-"$editor" "$work/sides" --frames 6 --select 1 --shot "$work/sides.png" >"$work/log" 2>&1 || fail "run on a project with side keys: $(cat "$work/log")"
+"$editor" "$work/sides" --window 960x1200 --frames 6 --select 1 --shot "$work/sides.png" >"$work/log" 2>&1 || fail "run on a project with side keys: $(cat "$work/log")"
 png_check "$work/sides.png" good
 "$editor" "$work/sides" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a project with side keys: $(cat "$work/log")"
 cat > "$work/tri_sides.py" <<'PY'
@@ -124,7 +124,7 @@ python3 "$work/tri_sides.py" "$work/sides/build/sides.zip" || fail "the TRI of t
 # draws its first right strip with the two-lane picture (slot 18), every other strip the template's
 mkdir "$work/lanes"
 printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 1, "lanes": "1+2"}, {"point": 3, "lanes": "1+1"}]\n}\n' > "$work/lanes/trace.json"
-"$editor" "$work/lanes" --frames 6 --select 2 --shot "$work/lanes.png" >"$work/log" 2>&1 || fail "run on a project with lanes keys: $(cat "$work/log")"
+"$editor" "$work/lanes" --window 960x1200 --frames 6 --select 2 --shot "$work/lanes.png" >"$work/log" 2>&1 || fail "run on a project with lanes keys: $(cat "$work/log")"
 png_check "$work/lanes.png" good
 "$editor" "$work/lanes" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a project with lanes keys: $(cat "$work/log")"
 cat > "$work/tri_lanes.py" <<'PY'
@@ -158,7 +158,7 @@ python3 "$work/tri_lanes.py" "$work/lanes/build/lanes.zip" || fail "the TRI of t
 # 35) from segment 8 (200 m), the side bits the template's; the left barrier follows the shoulder (barrier - verge = shoulder), the right is the template's
 mkdir "$work/fence"
 printf '{\n  "version": 4,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 1, "fence_height": "tall"}, {"point": 2, "shoulder_l_m": 6.0}, {"point": 3, "fence_art": "rail"}]\n}\n' > "$work/fence/trace.json"
-"$editor" "$work/fence" --frames 6 --select 3 --shot "$work/fence.png" >"$work/log" 2>&1 || fail "run on a project with fence keys: $(cat "$work/log")"
+"$editor" "$work/fence" --window 960x1200 --frames 6 --select 3 --shot "$work/fence.png" >"$work/log" 2>&1 || fail "run on a project with fence keys: $(cat "$work/log")"
 png_check "$work/fence.png" good
 "$editor" "$work/fence" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a project with fence keys: $(cat "$work/log")"
 cat > "$work/tri_fence.py" <<'PY'
@@ -185,14 +185,14 @@ python3 "$work/tri_fence.py" "$work/fence/build/fence.zip" || fail "the TRI of t
 # out, Esc clears, a box drag the points inside it; the Points rows take the same clicks. The Road profile shows a value the points share, else Mixed
 mkdir "$work/multi"
 printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 40.0], [0.0, 80.0], [0.0, 120.0], [0.0, 160.0], [0.0, 200.0], [0.0, 240.0], [0.0, 280.0]],\n  "keys": [{"point": 3, "shoulder_r_surface": "tarmac"}]\n}\n' > "$work/multi/trace.json"
-"$editor" "$work/multi" --user "$work/mu" --frames 2 --steps click:1,print-sel,shift-click:4,print-sel,cmd-click:6,print-sel,cmd-click:2,print-sel,key:Escape,print-sel,box:-10,110,10,210,print-sel,row:2,shift-row:5,cmd-row:7,print-sel,print-profile >"$work/log" 2>&1 \
+"$editor" "$work/multi" --window 960x1200 --user "$work/mu" --frames 2 --steps click:1,print-sel,shift-click:4,print-sel,cmd-click:6,print-sel,cmd-click:2,print-sel,key:Escape,print-sel,box:-10,110,10,210,print-sel,row:2,shift-row:5,cmd-row:7,print-sel,print-profile >"$work/log" 2>&1 \
     || fail "selecting several points: $(cat "$work/log")"
 [ "$(grep '^selected:' "$work/log" | tr '\n' '/')" = "selected: 1/selected: 1-4/selected: 1-4, 6/selected: 1, 3-4, 6/selected: none/selected: 3-5/selected: 2-5, 7/" ] \
     || fail "click, Shift, Cmd, Esc, box and rows did not select what they say: $(grep '^selected:' "$work/log")"
 grep -q "^profile: Off-road|Mixed 3.00|3.00" "$work/log" || fail "the Road profile of points 2-5, 7 does not show the right surface Mixed: $(grep '^profile:' "$work/log")"
 # dragging one of 2-4 moves the three, one undo puts them back; an arrow nudges the three; rotate 90 about point 2 folds the road (Problems shows
 # it red at once), undo straightens it; Delete removes the three, undo brings them back; removing all 8 is refused with the minimum named
-"$editor" "$work/multi" --user "$work/mu" --frames 2 --steps click:2,shift-click:4,drag:3,20,0,print,undo,print,key:Right,print,undo,key:],print,undo,rotate:90,print,problems,undo,problems,key:Delete,print,undo,print,box:-10,-10,10,300,key:Delete,status,print >"$work/log" 2>&1 \
+"$editor" "$work/multi" --window 960x1200 --user "$work/mu" --frames 2 --steps click:2,shift-click:4,drag:3,20,0,print,undo,print,key:Right,print,undo,key:],print,undo,rotate:90,print,problems,undo,problems,key:Delete,print,undo,print,box:-100,-10,100,300,key:Delete,status,print >"$work/log" 2>&1 \
     || fail "editing several points: $(cat "$work/log")"
 python3 -c "
 import sys
@@ -219,7 +219,7 @@ grep -q "^status: a track keeps at least 2 points: 8 of 8 are selected" "$work/l
 # (old 4's mirror) has the asphalt on the left after Mirror, back on the right after Reverse (a circuit's outside both ways). Three undos.
 mkdir "$work/half"
 printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [60.0, 0.0], [140.0, 30.0], [160.0, 120.0], [110.0, 180.0], [150.0, 260.0], [60.0, 300.0], [0.0, 300.0]],\n  "keys": [{"point": 2, "shoulder_r_surface": "tarmac"}]\n}\n' > "$work/half/trace.json"
-"$editor" "$work/half" --user "$work/hu" --frames 2 --steps row:0,shift-row:7,copy,status,paste,status,print-sel,mirror-lr,status,row:10,print-profile,row:7,shift-row:14,reverse,status,print,row:10,print-profile,undo,undo,undo,print >"$work/log" 2>&1 \
+"$editor" "$work/half" --window 960x1200 --user "$work/hu" --frames 2 --steps row:0,shift-row:7,copy,status,paste,status,print-sel,mirror-lr,status,row:10,print-profile,row:7,shift-row:14,reverse,status,print,row:10,print-profile,undo,undo,undo,print >"$work/log" 2>&1 \
     || fail "copy, paste, mirror and reverse on half a circuit: $(cat "$work/log")"
 [ "$(grep '^status:' "$work/log" | tr '\n' '/')" = "status: 8 points copied (0-7)/status: 7 points pasted after point 7/status: points 7-14 mirrored left/right/status: points 7-14 reversed/" ] \
     || fail "copy, paste, mirror, reverse did not say what they did: $(grep '^status:' "$work/log")"
@@ -230,12 +230,12 @@ grep -q "^points: 15 0.000,0.000 60.000,0.000 140.000,30.000 160.000,120.000 110
 grep -q "^points: 8 0.000,0.000 60.000,0.000 140.000,30.000 160.000,120.000 110.000,180.000 150.000,260.000 60.000,300.000 0.000,300.000$" "$work/log" \
     || fail "three undos did not bring the half back (each operation one step): $(grep '^points:' "$work/log" | tail -1)"
 # a selection with a gap, or Paste before any Copy, is refused with the reason
-"$editor" "$work/half" --user "$work/hu" --frames 2 --steps row:1,cmd-row:3,copy >"$work/log" 2>&1 && fail "Copy of points with a gap went"
+"$editor" "$work/half" --window 960x1200 --user "$work/hu" --frames 2 --steps row:1,cmd-row:3,copy >"$work/log" 2>&1 && fail "Copy of points with a gap went"
 grep -q "Copy wants a run of points without gaps" "$work/log" || fail "Copy's refusal of a gap does not say why: $(cat "$work/log")"
-"$editor" "$work/half" --user "$work/hu" --frames 2 --steps paste >"$work/log" 2>&1 && fail "Paste with nothing copied went"
+"$editor" "$work/half" --window 960x1200 --user "$work/hu" --frames 2 --steps paste >"$work/log" 2>&1 && fail "Paste with nothing copied went"
 grep -q "copy a run of points first" "$work/log" || fail "Paste's refusal does not say why: $(cat "$work/log")"
 # the last point dragged 2 m from the start lands on it; 40 m away it stays where it is let go
-"$editor" "$work/half" --user "$work/hu" --frames 2 --steps drag-near:7,0,2,print,undo,drag-near:7,0,40,print >"$work/log" 2>&1 || fail "dragging the end near the start: $(cat "$work/log")"
+"$editor" "$work/half" --window 960x1200 --user "$work/hu" --frames 2 --steps drag-near:7,0,2,print,undo,drag-near:7,0,40,print >"$work/log" 2>&1 || fail "dragging the end near the start: $(cat "$work/log")"
 [ "$(grep '^points:' "$work/log" | head -1 | awk '{print $NF}')" = "0.000,0.000" ] || fail "the end dragged 2 m from the start did not land on it: $(grep '^points:' "$work/log")"
 [ "$(grep '^points:' "$work/log" | tail -1 | awk '{print $NF}')" != "0.000,0.000" ] || fail "the end 40 m from the start was pulled onto it"
 
@@ -244,7 +244,7 @@ grep -q "copy a run of points first" "$work/log" || fail "Paste's refusal does n
 # default: 15 degrees each); after point 1 the road beyond turns with it and runs east; radius 15 m is red in Problems at once, in Build's words
 mkdir "$work/curve"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 100.0], [0.0, 200.0], [0.0, 300.0]]\n}\n' > "$work/curve/trace.json"
-"$editor" "$work/curve" --user "$work/cu" --frames 2 --steps curve:1,90,60,0,status,print-sel,print,undo,print,row:1,curve:1,90,60,6,print,problems,undo,curve:1,90,15,6,problems,status,undo,straight:250,0,print >"$work/log" 2>&1 \
+"$editor" "$work/curve" --window 960x1200 --user "$work/cu" --frames 2 --steps curve:1,90,60,0,status,print-sel,print,undo,print,row:1,curve:1,90,60,6,print,problems,undo,curve:1,90,15,6,problems,status,undo,straight:250,0,print >"$work/log" 2>&1 \
     || fail "Add curve and Add straight: $(cat "$work/log")"
 grep -q "^status: curve added: 94 m, 6 points after point 3$" "$work/log" || fail "Add curve did not say what it added: $(grep '^status:' "$work/log")"
 grep -q "^selected: 3-9$" "$work/log" || fail "the new curve (from the point it went after) is not the selection: $(grep '^selected:' "$work/log")"
@@ -272,7 +272,7 @@ grep -q "^status: curve added" "$work/log" || fail "Add curve does not work with
 # a road that goes straight 300 m, turns right round a U and comes back south: curve mode finds straight, (the corner's wobble to the left), right, straight
 mkdir "$work/cs"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0,0],[0,100],[0,200],[0,300],[30,390],[100,430],[190,420],[260,360],[280,260],[280,160],[280,60]]\n}\n' > "$work/cs/trace.json"
-"$editor" "$work/cs" --user "$work/cs-u" --window 960x600 --frames 12 --steps colour-by:1,print-classes,dblclick-road:280,200,print-sel,status >"$work/log" 2>&1 || fail "Colour by curve: $(cat "$work/log")"
+"$editor" "$work/cs" --user "$work/cs-u" --window 1280x960 --frames 12 --steps colour-by:1,print-classes,dblclick-road:280,200,print-sel,status >"$work/log" 2>&1 || fail "Colour by curve: $(cat "$work/log")"
 python3 - "$work/log" <<'PY' || fail "curve mode did not find a straight, the corner, the right turn and a straight: $(grep '^classes' "$work/log")"
 import sys, re
 line = [l for l in open(sys.argv[1]) if l.startswith('classes 1:')][0]
@@ -284,22 +284,22 @@ PY
 grep -q "^selected: 3-9$" "$work/log" || fail "a double-click on the road after the turn did not select its stretch (points 3 to 9): $(grep '^selected' "$work/log")"
 grep -q "^status: stretch selected: points 3 to 9$" "$work/log" || fail "the stretch does not say which points: $(grep '^status' "$work/log")"
 # in Limits mode a double-click on the road selects nothing (the first click clears); a click on a point still picks it
-"$editor" "$work/cs" --user "$work/cs-u" --window 960x600 --frames 12 --steps colour-by:0,dblclick-road:280,200,print-sel,click:9,print-sel >"$work/log" 2>&1 || fail "Limits mode: $(cat "$work/log")"
+"$editor" "$work/cs" --user "$work/cs-u" --window 1280x960 --frames 12 --steps colour-by:0,dblclick-road:280,200,print-sel,click:9,print-sel >"$work/log" 2>&1 || fail "Limits mode: $(cat "$work/log")"
 [ "$(grep '^selected:' "$work/log" | tr '\n' '|')" = "selected: none|selected: 9|" ] || fail "Limits mode: a double-click on the road must select nothing, a click a point: $(grep '^selected' "$work/log")"
 # the bank key's stretch (30 degrees is the top class), and a mode with nothing keyed is one run
 mkdir "$work/cbank"
 printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.0], [0.0, 120.0], [0.0, 180.0], [0.0, 240.0], [0.0, 300.0]],\n  "keys": [{"point": 2, "bank_deg": 30.0}, {"point": 4, "bank_deg": 0.0}]\n}\n' > "$work/cbank/trace.json"
-"$editor" "$work/cbank" --user "$work/cs-u" --window 960x600 --frames 12 --steps colour-by:2,print-classes,dblclick-road:0,150,print-sel,colour-by:3,print-classes,colour-by:5,print-classes >"$work/log" 2>&1 || fail "Colour by bank: $(cat "$work/log")"
+"$editor" "$work/cbank" --user "$work/cs-u" --window 1280x960 --frames 12 --steps colour-by:2,print-classes,dblclick-road:0,150,print-sel,colour-by:3,print-classes,colour-by:5,print-classes >"$work/log" 2>&1 || fail "Colour by bank: $(cat "$work/log")"
 grep -q "^classes 2: 0@0-2 1@3-7 2@8-11 3@12-26 2@27-30 1@31-36 0@37-48$" "$work/log" || fail "the bank ramp is not up and down the classes: $(grep '^classes 2' "$work/log")"
 grep -q "^selected: 2$" "$work/log" || fail "a double-click on the banked stretch did not select its point: $(grep '^selected' "$work/log")"
 grep -q "^classes 3: 1@0-48$" "$work/log" && grep -q "^classes 5: 0@0-48$" "$work/log" || fail "the width and shoulder modes of a plain road are not one run each: $(grep '^classes' "$work/log")"
 # Colour by grade (dep95 step 5): a hill of 15 m over 60 m is steep up and steep down (3 and 6), level before, between and after
 mkdir "$work/cgrade"
 printf '{\n  "version": 5,\n  "width": 40.0,\n  "points": [[0.0, 0.0, 0.0], [0.0, 60.0, 0.0], [0.0, 120.0, 15.0], [0.0, 180.0, 15.0], [0.0, 240.0, 0.0], [0.0, 300.0, 0.0]]\n}\n' > "$work/cgrade/trace.json"
-"$editor" "$work/cgrade" --user "$work/cs-u" --window 960x600 --frames 12 --steps colour-by:7,print-classes >"$work/log" 2>&1 || fail "Colour by grade: $(cat "$work/log")"
+"$editor" "$work/cgrade" --user "$work/cs-u" --window 1280x960 --frames 12 --steps colour-by:7,print-classes >"$work/log" 2>&1 || fail "Colour by grade: $(cat "$work/log")"
 grep -q "^classes 7: 0@0-9 2@10-10 3@11-17 2@18-18 0@19-28 5@29-29 6@30-36 5@37-37 0@38-48$" "$work/log" || fail "the hill is not up and down the grade classes: $(grep '^classes 7' "$work/log")"
 # a mode out of range is refused
-"$editor" "$work/cs" --user "$work/cs-u" --frames 2 --steps colour-by:99 >"$work/log" 2>&1 && fail "colour-by:99 was taken"
+"$editor" "$work/cs" --window 960x1200 --user "$work/cs-u" --frames 2 --steps colour-by:99 >"$work/log" 2>&1 && fail "colour-by:99 was taken"
 
 # ==== Build: under the limits, over an amber one, refused over a red one ====
 # Build: a curve under the limits is built, one over them is refused with the limit named
