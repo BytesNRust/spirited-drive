@@ -924,6 +924,10 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_track_tex PRIVATE editor tests)
     target_link_libraries(test_editor_track_tex PRIVATE tnfs_game tnfs_core)
     target_compile_options(test_editor_track_tex PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_editor_track_masks tests/test_editor_track_masks.c editor/track_masks.c editor/track_tex.c)   # an original track's masks: PSD -> PNG, the states, never overwrite a hand-edited PNG
+    target_include_directories(test_editor_track_masks PRIVATE editor tests)
+    target_link_libraries(test_editor_track_masks PRIVATE tnfs_game tnfs_core)
+    target_compile_options(test_editor_track_masks PRIVATE ${TNFS_WARNINGS})
     add_executable(test_editor_key_ops tests/test_editor_key_ops.c editor/key_ops.c editor/point_ops.c)   # dep87 1b: the profile keys of copy, paste, mirror, reverse
     target_include_directories(test_editor_key_ops PRIVATE editor tests)
     target_link_libraries(test_editor_key_ops PRIVATE tnfs_core)
@@ -1156,6 +1160,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_point_ops COMMAND test_editor_point_ops)
         add_test(NAME editor_workspace COMMAND test_editor_workspace)
         add_test(NAME editor_original_track COMMAND test_editor_original_track)
+        add_test(NAME editor_track_masks COMMAND test_editor_track_masks)
         if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA")
             add_test(NAME editor_track_tex COMMAND test_editor_track_tex ${CMAKE_SOURCE_DIR}/original)   # the textures of a CD track: needs the game files
         endif()
