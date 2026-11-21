@@ -589,6 +589,7 @@ int app_save(App *a)
     if (a->kind == APP_KIND_CAR) {   /* the card: only mod.ini, only the lines that changed; and the mask being edited */
         const int changed = car_edit_modified(&a->edit);
         if (changed && !app_card_save_ok(a)) return 0;
+        if (changed && app_photos_missing(a, why, sizeof why)) return set_status(a, why), 0;
         if (!car_edit_save(&a->edit, why, sizeof why)) {
             set_status(a, why);
             return 0;

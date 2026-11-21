@@ -119,6 +119,16 @@ ls "$work/kit/coche" | grep -q '\.tmp$' && fail "a staged file was left behind"
 grep -q "50x30" "$work/log" || fail "no word about the size: $(cat "$work/log")"
 [ -e "$work/kit/coche/tiny.png" ] && fail "a refused picture was copied"
 "$editor" "$work/kit" --frames 2 --add-photo "$work/shots-in/nothing.png" >"$work/log" 2>&1 && fail "a picture that is not there was accepted"
+cp "$work/kit/coche/mod.ini" "$work/card.after"
+# a photo added and not saved waits as name.new: no PNG of a photo's name, which the piece's check would count, and the card is not changed
+"$editor" "$work/kit" --frames 2 --add-photo "$work/shots-in/Side View.PNG" >"$work/log" 2>&1 || fail "Add photo without Save: $(cat "$work/log")"
+[ -s "$work/kit/coche/side-view-3.png.new" ] || fail "an unsaved photo is not staged"
+[ -e "$work/kit/coche/side-view-3.png" ] && fail "an unsaved photo is a PNG of a photo's name"
+cmp -s "$work/kit/coche/mod.ini" "$work/card.after" || fail "an unsaved photo changed the card"
+find "$work/kit/coche" -name '*.new' -delete
+# a card listing a photo the folder has not: Save refuses with the name
+"$editor" "$work/kit" --frames 2 --set photos=ghost.png --save >"$work/log" 2>&1 && fail "Save went with a listed photo that is not in the folder"
+grep -q "ghost.png" "$work/log" || fail "no word about the missing photo: $(cat "$work/log")"
 # the copies are the author's now (a later run did not make them): a shorter list is written and the files stay
 "$editor" "$work/kit" --frames 2 --set photos=side-view.png --save >"$work/log" 2>&1 || fail "Save of a shorter list: $(cat "$work/log")"
 grep -q '^photos=side-view.png$' "$work/kit/coche/mod.ini" || fail "the shorter list was not written"

@@ -152,17 +152,54 @@ int car_photos_import(const char *source, const char *piece, const char *name, c
     return 1;
 }
 
-int car_photos_sweep(const char *piece, char (*made)[NAME], int made_n, const char *listed)
+static int path_of(char *path, size_t cap, const char *piece, const char *name, const char *suffix)
+{
+    const int n = snprintf(path, cap, "%s/%s%s", piece, name, suffix);
+    return n > 0 && (size_t)n < cap;
+}
+
+static int exists_file(const char *piece, const char *name, const char *suffix)
+{
+    char path[4200];
+    FILE *f = path_of(path, sizeof path, piece, name, suffix) ? fopen(path, "rb") : NULL;
+    if (f == NULL) return 0;
+    fclose(f);
+    return 1;
+}
+
+int car_photos_commit(const char *piece, const char *listed)
 {
     char names[MOD_INI_PHOTOS_MAX][NAME];
     const int n = car_photos_split(listed, names, MOD_INI_PHOTOS_MAX);
-    int removed = 0;
-    for (int i = 0; i < made_n; i++) {
-        if (is_taken(made[i], names, n)) continue;
-        char path[4096];
-        const int len = snprintf(path, sizeof path, "%s/%s", piece, made[i]);
-        if (len > 0 && (size_t)len < sizeof path && remove(path) == 0) removed++;
+    int done = 0;
+    for (int i = 0; i < n; i++) {
+        char from[4200], to[4200];
+        if (exists_file(piece, names[i], "") || !exists_file(piece, names[i], ".new")) continue;
+        if (path_of(from, sizeof from, piece, names[i], ".new") && path_of(to, sizeof to, piece, names[i], "") && rename(from, to) == 0) done++;
     }
+    return done;
+}
+
+int car_photos_sweep(const char *piece, char (*made)[NAME], int *made_n, const char *listed)
+{
+    char names[MOD_INI_PHOTOS_MAX][NAME];
+    const int n = car_photos_split(listed, names, MOD_INI_PHOTOS_MAX);
+    int removed = 0, kept = 0;
+    for (int i = 0; i < *made_n; i++) {
+        int keep = is_taken(made[i], names, n);
+        if (!keep) {
+            char path[4200];
+            if (path_of(path, sizeof path, piece, made[i], "")) remove(path);
+            if (path_of(path, sizeof path, piece, made[i], ".new")) remove(path);
+            keep = exists_file(piece, made[i], "") || exists_file(piece, made[i], ".new");   /* could not be removed: still ours */
+            if (!keep) removed++;
+        }
+        if (keep) {
+            if (kept != i) memcpy(made[kept], made[i], NAME);
+            kept++;
+        }
+    }
+    *made_n = kept;
     return removed;
 }
 
@@ -172,6 +209,10 @@ int car_photos_size(const char *piece, const char *name, uint32_t *w, uint32_t *
     uint8_t head[64];
     const int n = snprintf(path, sizeof path, "%s/%s", piece, name);
     FILE *f = (n > 0 && (size_t)n < sizeof path) ? fopen(path, "rb") : NULL;
+    if (f == NULL && n > 0 && (size_t)n < sizeof path - 4) {
+        strcat(path, ".new");
+        f = fopen(path, "rb");
+    }
     if (f == NULL) return 0;
     const size_t got = fread(head, 1, sizeof head, f);
     fclose(f);

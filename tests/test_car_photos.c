@@ -65,12 +65,16 @@ static void test_safe_names(void)
 
 static void test_import_and_sweep(const char *dir)
 {
+    uint32_t sw0 = 0, sh0 = 0;
     char piece[600], src[600], dst[700], why[300] = "";
     snprintf(piece, sizeof piece, "%s/piece", dir);
     mkdir(piece, 0777);
     snprintf(src, sizeof src, "%s/ok.png", dir);
     CHECK(write_png(src, 450, 254));
-    CHECK(car_photos_import(src, piece, "side.png", why, sizeof why));
+    CHECK(car_photos_import(src, piece, "side.png.new", why, sizeof why));   /* how Studio stages it */
+    CHECK(car_photos_size(piece, "side.png", &sw0, &sh0) && sw0 == 450);   /* seen under its name before the commit */
+    CHECK_EQ_INT(car_photos_commit(piece, "side.png"), 1);
+    CHECK_EQ_INT(car_photos_commit(piece, "side.png"), 0);
     snprintf(dst, sizeof dst, "%s/side.png", piece);
     CHECK(exists(dst));
     uint32_t sw = 0, sh = 0;
@@ -95,18 +99,26 @@ static void test_import_and_sweep(const char *dir)
     CHECK(!car_photos_import(src, "/nonexistent-piece", "x.png", why, sizeof why));
     /* the sweep: of the files Studio made, those the card no longer names go; the named ones, and any other file, stay */
     snprintf(src, sizeof src, "%s/ok.png", dir);
-    CHECK(car_photos_import(src, piece, "second.png", why, sizeof why));
+    CHECK(car_photos_import(src, piece, "second.png.new", why, sizeof why));
+    CHECK_EQ_INT(car_photos_commit(piece, "second.png"), 1);
     snprintf(dst, sizeof dst, "%s/mine.png", piece);   /* a picture the author put there himself */
     CHECK(write_png(dst, 300, 200));
-    char made[2][N] = { "side.png", "second.png" };
-    CHECK_EQ_INT(car_photos_sweep(piece, made, 2, "second.png"), 1);
+    char made[3][N] = { "side.png", "second.png" };
+    int made_n = 2;
+    snprintf(dst, sizeof dst, "%s/third.png.new", piece);   /* a staged one of a later add, never committed */
+    CHECK(write_png(dst, 300, 200));
+    CHECK_EQ_INT(car_photos_sweep(piece, made, &made_n, "second.png,shot.png"), 1);
+    CHECK(made_n == 1 && strcmp(made[0], "second.png") == 0);   /* the one removed is dropped, the named one stays ours */
     snprintf(dst, sizeof dst, "%s/side.png", piece);
     CHECK(!exists(dst));
     snprintf(dst, sizeof dst, "%s/second.png", piece);
     CHECK(exists(dst));
     snprintf(dst, sizeof dst, "%s/mine.png", piece);
     CHECK(exists(dst));   /* not Studio's: never removed */
-    CHECK_EQ_INT(car_photos_sweep(piece, made, 2, "second.png"), 0);   /* again: nothing left to remove */
+    CHECK_EQ_INT(car_photos_sweep(piece, made, &made_n, "second.png"), 0);   /* again: nothing left to remove */
+    CHECK_EQ_INT(car_photos_sweep(piece, made, &made_n, ""), 1 );   /* the card names nothing now */
+    snprintf(dst, sizeof dst, "%s/second.png", piece);
+    CHECK(!exists(dst) && made_n == 0);
 }
 
 int main(void)
