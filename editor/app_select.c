@@ -1,5 +1,6 @@
 /* The track editor's selected control points as the window uses them (app_select.h). */
 #include "app_select.h"
+#include "key_ops.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -144,4 +145,24 @@ void app_remove_selection(App *a)
     a->dirty = 1;
     if (removed == 1) snprintf(a->status, sizeof a->status, "point removed");
     else snprintf(a->status, sizeof a->status, "%d points removed", removed);
+}
+
+unsigned app_sel_mixed(const App *a)
+{
+    if (a->kind != APP_KIND_TRACK || sel_count(&a->sel) < 2) return 0;
+    KeyState st;
+    if (!key_state_make(&a->trace, &st)) return 0;
+    const int first = sel_first(&a->sel);
+    const TraceKey base = key_state_at(&st, first, KEY_RAMPED | KEY_HELD | TRACE_KEY_WIDTH);
+    unsigned mixed = 0;
+    for (int i = first + 1; i < a->trace.count; ++i) {
+        if (!sel_has(&a->sel, i)) continue;
+        const TraceKey k = key_state_at(&st, i, KEY_RAMPED | KEY_HELD | TRACE_KEY_WIDTH);
+        for (unsigned bit = 1; bit != 0 && bit <= (KEY_RAMPED | KEY_HELD); bit <<= 1)
+            if ((bit & (KEY_RAMPED | KEY_HELD)) && !key_same(&base, &k, bit)) mixed |= bit;
+        for (int side = 0; side < 2; ++side)
+            if (st.surface[side][i] != st.surface[side][first]) mixed |= APP_SEL_MIXED_SURFACE(side);
+    }
+    key_state_free(&st);
+    return mixed;
 }

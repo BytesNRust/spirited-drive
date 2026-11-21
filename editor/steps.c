@@ -17,8 +17,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -335,6 +335,32 @@ static int at_once(App *a, const char *name, const double *arg)
             fprintf(stdout, "road %d: width %.2f bank %.1f lanes %d shoulder %.2f|%.2f surface %d|%d\n", i, st.width_m[i], st.bank_deg[i], st.lanes[i],
                     st.side[i][TRACE_SIDE_SHOULDER][TRACK_GEN_LEFT], st.side[i][TRACE_SIDE_SHOULDER][TRACK_GEN_RIGHT], (int)st.surface[0][i], (int)st.surface[1][i]);
         key_state_free(&st);
+        return 1;
+    }
+    if (strncmp(name, "side:", 5) == 0) {   /* side:P,F,S,V: a Road profile side cell on point P (F TRACE_SIDE_ 0 shoulder, 1 barrier, 2 wall, 3 fence; S 0 left, 1 right) set to V */
+        const int point = (int)arg[0], field = (int)arg[1], side = (int)arg[2];
+        if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count || field < 0 || field >= TRACE_SIDE_FIELDS || side < 0 || side > 1) return 0;
+        app_set_point_side(a, point, field, side, arg[3]);
+        app_track_commit(a);
+        return 1;
+    }
+    if (strcmp(name, "print-mixed") == 0) {   /* the values the selected points do not share, which the Road profile shows as a dash */
+        static const char *const FIELD[TRACE_SIDE_FIELDS] = { "shoulder", "barrier", "wall", "fence" };
+        if (a->kind != APP_KIND_TRACK) return 0;
+        const unsigned m = app_sel_mixed(a);
+        fprintf(stdout, "mixed:");
+        if (m & TRACE_KEY_WIDTH) fprintf(stdout, " width");
+        if (m & TRACE_KEY_BANK) fprintf(stdout, " bank");
+        if (m & TRACE_KEY_LANES) fprintf(stdout, " lanes");
+        if (m & TRACE_KEY_FENCE_HEIGHT) fprintf(stdout, " fence-height");
+        if (m & TRACE_KEY_FENCE_ART) fprintf(stdout, " fence-art");
+        for (int side = 0; side < 2; ++side) {
+            if (m & APP_SEL_MIXED_SURFACE(side)) fprintf(stdout, " surface-%c", side ? 'r' : 'l');
+            if (m & TRACE_KEY_BARRIER_CUSTOM(side)) fprintf(stdout, " custom-%c", side ? 'r' : 'l');
+            for (int f = 0; f < TRACE_SIDE_FIELDS; ++f)
+                if (m & TRACE_KEY_SIDE(f, side)) fprintf(stdout, " %s-%c", FIELD[f], side ? 'r' : 'l');
+        }
+        fprintf(stdout, "\n");
         return 1;
     }
     if (strncmp(name, "bank", 4) == 0) {   /* a cell of the Road profile's bank row, as the panel sets it */

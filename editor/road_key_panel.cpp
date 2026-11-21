@@ -41,6 +41,28 @@ void road_reach_hover(App *a, int point, unsigned mask)
 namespace {
 
 const ImVec4 WARN_TEXT(1.0f, 0.69f, 0.13f, 1.0f);   // amber, as panels.cpp's
+const char *const DASH = "-";   // the selected points differ on this value (the font has no em dash)
+unsigned g_mixed = 0;                        // the values that differ between the selected points (app_sel_mixed), taken once a frame by road_key_panel
+
+bool is_mixed(unsigned bit) { return (g_mixed & bit) != 0; }
+// the tip's first line over a value the selected points do not share
+const char *mix_note(unsigned bit)
+{
+    return is_mixed(bit) ? "The selected points differ here. Changing it sets it on all of them.\n" : "";
+}
+
+// ImGui::Combo, but with «—» shown while the selected points differ; the choice made is returned in *choice
+bool combo_mixable(const char *id, int *choice, const char *const *names, int count, bool mixed)
+{
+    if (!mixed) return ImGui::Combo(id, choice, names, count);
+    bool changed = false;
+    if (ImGui::BeginCombo(id, DASH)) {
+        for (int i = 0; i < count; ++i)
+            if (ImGui::Selectable(names[i], false)) *choice = i, changed = true;
+        ImGui::EndCombo();
+    }
+    return changed;
+}
 const char *const SURFACE_LABEL = "Shoulder surface";   // the first row's label (step 2b)
 const char *const LABELS[TRACE_SIDE_FIELDS] = { "Shoulder (m)", "Barrier from edge (m)", "Barrier", "Fence" };   // step 3's rows
 const char *const ROAD_LABELS[] = { "Fence height", "Fence picture", "Custom barrier" };   // the fence step's rows
@@ -68,14 +90,14 @@ void lanes_row(App *a, int point, bool own, int shown)
     ImGui::TableSetColumnIndex(1);
     if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     ImGui::SetNextItemWidth(-FLT_MIN);
-    if (ImGui::Combo("##lanes", &choice, NAMES, 3)) app_set_point_lanes(a, point, LANES[choice]);
+    if (combo_mixable("##lanes", &choice, NAMES, 3, is_mixed(TRACE_KEY_LANES))) app_set_point_lanes(a, point, LANES[choice]);
     if (!own) ImGui::PopStyleColor();
     road_reach_hover(a, point, TRACE_KEY_LANES);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s\nLeft + right lanes, 5 m each.\n1+2 or 2+1: the road is 15 m wide from this point to the next one that sets lanes; a width set "
+        ImGui::SetTooltip("%s%s\nLeft + right lanes, 5 m each.\n1+2 or 2+1: the road is 15 m wide from this point to the next one that sets lanes; a width set "
                           "inside is not used. The extra lane opens and closes over about 50 m, the shoulder, fence and barrier moving out with it.\n"
                           "The game keeps one lanes setting per 4 nodes, the one at their first node.",
-                          own ? "Set on this point. Right-click to let it inherit again." : "Not set on this point: it holds from the key before. Choose to set it on this point.");
+                          mix_note(TRACE_KEY_LANES), own ? "Set on this point. Right-click to let it inherit again." : "Not set on this point: it holds from the key before. Choose to set it on this point.");
     if (own && ImGui::BeginPopupContextItem("##inherit_lanes")) {
         if (ImGui::MenuItem("Inherit again")) app_clear_point_lanes(a, point);
         road_extend_menu(a, point, TRACE_KEY_LANES);
@@ -96,10 +118,10 @@ void road_row(App *a, int point, const char *label, unsigned bit, const char *co
     int choice = shown;
     if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     ImGui::SetNextItemWidth(-FLT_MIN);
-    if (ImGui::Combo("##road", &choice, names, count)) app_set_point_fence(a, point, bit, choice);
+    if (combo_mixable("##road", &choice, names, count, is_mixed(bit))) app_set_point_fence(a, point, bit, choice);
     if (!own) ImGui::PopStyleColor();
     road_reach_hover(a, point, bit);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s\n%s", own ? "Set on this point. Right-click to let it inherit again."
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s%s\n%s", mix_note(bit), own ? "Set on this point. Right-click to let it inherit again."
                                                               : "Not set on this point: it holds from the key before. Choose to set it on this point.", what);
     if (own && ImGui::BeginPopupContextItem("##inherit")) {
         if (ImGui::MenuItem("Inherit again")) app_clear_point_fence(a, point, bit);
@@ -135,13 +157,13 @@ void surface_cell(App *a, int point, int side, TraceSurface set, TraceSurface sh
     ImGui::PushID(side);
     if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     ImGui::SetNextItemWidth(-FLT_MIN);
-    if (ImGui::Combo("##surface", &choice, NAMES, 2)) app_set_point_surface(a, point, side, choice == 1 ? TRACE_SURFACE_TARMAC : TRACE_SURFACE_VERGE);
+    if (combo_mixable("##surface", &choice, NAMES, 2, is_mixed(APP_SEL_MIXED_SURFACE(side)))) app_set_point_surface(a, point, side, choice == 1 ? TRACE_SURFACE_TARMAC : TRACE_SURFACE_VERGE);
     if (!own) ImGui::PopStyleColor();
     road_reach_hover(a, point, TRACE_KEY_SHOULDER_SURFACE);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s\nAsphalt: grips as the road does.\nOff-road: the Verge material of the Track panel; the car loses grip "
+        ImGui::SetTooltip("%s%s\nAsphalt: grips as the road does.\nOff-road: the Verge material of the Track panel; the car loses grip "
                           "(the player's car; the rivals do not feel either).",
-                          own ? "Set on this point. Right-click to let it inherit again." : "Inherited from the points before. Choose to set it on this point.");
+                          mix_note(APP_SEL_MIXED_SURFACE(side)), own ? "Set on this point. Right-click to let it inherit again." : "Inherited from the points before. Choose to set it on this point.");
     if (own && ImGui::BeginPopupContextItem("##inherit")) {
         if (ImGui::MenuItem("Inherit again")) app_set_point_surface(a, point, side, TRACE_SURFACE_INHERIT);
         road_extend_menu(a, point, TRACE_KEY_SHOULDER_SURFACE);
@@ -180,14 +202,14 @@ void metres_cell(App *a, int point, int field, int side, bool own, double shown,
     double metres = held_id == id ? held : shown;
     if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     ImGui::SetNextItemWidth(-FLT_MIN);
-    if (ImGui::DragScalar("##m", ImGuiDataType_Double, &metres, 0.05f, &lo, &hi, "%.2f", ImGuiSliderFlags_AlwaysClamp)) {
+    if (ImGui::DragScalar("##m", ImGuiDataType_Double, &metres, 0.05f, &lo, &hi, is_mixed(TRACE_KEY_SIDE(field, side)) && held_id != id ? DASH : "%.2f", ImGuiSliderFlags_AlwaysClamp)) {
         held_id = id, held = metres;
         app_set_point_side(a, point, field, side, metres);
     }
     if (held_id == id && !ImGui::IsItemActive()) held_id = 0;
     if (!own) ImGui::PopStyleColor();
     road_reach_hover(a, point, TRACE_KEY_SIDE(field, side));
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s\n%s", inherit_tip(own, true), what);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s%s\n%s", mix_note(TRACE_KEY_SIDE(field, side)), inherit_tip(own, true), what);
     inherit_menu(a, point, field, side, own);
     ImGui::PopID();
 }
@@ -200,13 +222,13 @@ void wall_cell(App *a, int point, int side, bool own, double shown)
     ImGui::PushID(TRACE_SIDE_WALL * 2 + side);
     if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     ImGui::SetNextItemWidth(-FLT_MIN);
-    if (ImGui::Combo("##wall", &choice, NAMES, 2)) app_set_point_side(a, point, TRACE_SIDE_WALL, side, choice == 1 ? TRACK_GEN_WALL_SOFT : TRACK_GEN_WALL_HARD);
+    if (combo_mixable("##wall", &choice, NAMES, 2, is_mixed(TRACE_KEY_SIDE(TRACE_SIDE_WALL, side)))) app_set_point_side(a, point, TRACE_SIDE_WALL, side, choice == 1 ? TRACK_GEN_WALL_SOFT : TRACK_GEN_WALL_HARD);
     if (!own) ImGui::PopStyleColor();
     road_reach_hover(a, point, TRACE_KEY_SIDE(TRACE_SIDE_WALL, side));
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s\nThe barrier is not drawn: it only stops the car, where Barrier from edge says. Both kinds stop it.\nHard: a hit makes the crash sound, a hard one is recorded in the race, and the car is turned "
+        ImGui::SetTooltip("%s%s\nThe barrier is not drawn: it only stops the car, where Barrier from edge says. Both kinds stop it.\nHard: a hit makes the crash sound, a hard one is recorded in the race, and the car is turned "
                           "off the barrier twice as sharply.\nSoft: no sound and nothing recorded; the car is turned off the barrier more gently.",
-                          inherit_tip(own, false));
+                          mix_note(TRACE_KEY_SIDE(TRACE_SIDE_WALL, side)), inherit_tip(own, false));
     inherit_menu(a, point, TRACE_SIDE_WALL, side, own);
     ImGui::PopID();
 }
@@ -217,14 +239,15 @@ void fence_cell(App *a, int point, int side, bool own, double shown)
     bool on = shown != 0;
     ImGui::PushID(TRACE_SIDE_FENCE * 2 + side);
     if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-    if (ImGui::Checkbox(on ? "On###fence" : "Off###fence", &on)) app_set_point_side(a, point, TRACE_SIDE_FENCE, side, on ? 1 : 0);
+    const bool fence_mixed = is_mixed(TRACE_KEY_SIDE(TRACE_SIDE_FENCE, side));
+    if (ImGui::Checkbox(fence_mixed ? "-###fence" : on ? "On###fence" : "Off###fence", &on)) app_set_point_side(a, point, TRACE_SIDE_FENCE, side, on ? 1 : 0);
     if (!own) ImGui::PopStyleColor();
     road_reach_hover(a, point, TRACE_KEY_SIDE(TRACE_SIDE_FENCE, side));
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s\nOn: the game's fence is drawn on this side, at the end of the shoulder; its height and picture are the Fence rows above.\n"
+        ImGui::SetTooltip("%s%s\nOn: the game's fence is drawn on this side, at the end of the shoulder; its height and picture are the Fence rows above.\n"
                           "Off: no fence is drawn; the barrier still stops the car where the shoulder ends (or at Barrier from edge with Custom barrier).\n"
                           "The game keeps one fence setting per 4 nodes, the one at their first node.",
-                          inherit_tip(own, false));
+                          mix_note(TRACE_KEY_SIDE(TRACE_SIDE_FENCE, side)), inherit_tip(own, false));
     inherit_menu(a, point, TRACE_SIDE_FENCE, side, own);
     ImGui::PopID();
 }
@@ -251,13 +274,13 @@ void custom_cell(App *a, int point, int side, bool own, bool on)
     if (!own) ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
     else if (on) ImGui::PushStyleColor(ImGuiCol_Text, WARN_TEXT);
     bool tick = on;
-    if (ImGui::Checkbox(tick ? "On###custom" : "Off###custom", &tick)) app_set_point_fence(a, point, bit, tick ? 1 : 0);
+    if (ImGui::Checkbox(is_mixed(bit) ? "-###custom" : tick ? "On###custom" : "Off###custom", &tick)) app_set_point_fence(a, point, bit, tick ? 1 : 0);
     if (!own || on) ImGui::PopStyleColor();
     road_reach_hover(a, point, bit);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s\nOn: the barrier stops the car at Barrier from edge, set apart from the fence (Problems says where).\n"
+        ImGui::SetTooltip("%s%s\nOn: the barrier stops the car at Barrier from edge, set apart from the fence (Problems says where).\n"
                           "Off: the barrier follows the fence, where the shoulder ends.",
-                          inherit_tip(own, false));
+                          mix_note(bit), inherit_tip(own, false));
     if (own && ImGui::BeginPopupContextItem("##inherit")) {
         if (ImGui::MenuItem("Inherit again")) app_clear_point_fence(a, point, bit);
         road_extend_menu(a, point, bit);
@@ -331,14 +354,15 @@ void road_key_panel(App *a)
         ImGui::TextDisabled("Select a point to set its road profile.");
         return;
     }
-    if (sel_count(&a->sel) > 1 && sel_has(&a->sel, point)) {   // several points: the rows show the selected point's; a change is made on all of them (dep87 part 2)
+    g_mixed = app_sel_mixed(a);
+    if (sel_count(&a->sel) > 1 && sel_has(&a->sel, point)) {   // several points: the rows show what they share, «—» where they differ; a change is made on all of them (dep87 part 2)
         char which[96];
         sel_describe(&a->sel, which, sizeof which);
         const bool run = sel_last(&a->sel) - sel_first(&a->sel) + 1 == sel_count(&a->sel);
         if (run) ImGui::Text("%s at points %s (%d points)", PANEL_ROAD_KEY, which, sel_count(&a->sel));
         else ImGui::Text("%s at %d points (%s)", PANEL_ROAD_KEY, sel_count(&a->sel), which);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("The rows show point %d. A change sets that value on all the selected points; the value that held before comes back after them.", point);
+            ImGui::SetTooltip("The rows show the value the selected points share, or - where they differ. A change sets only that value, on all of them; what held before comes back after them.");
     } else {
         ImGui::Text("%s at point %d", PANEL_ROAD_KEY, point);
     }

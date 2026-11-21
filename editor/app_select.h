@@ -30,6 +30,11 @@ void app_sel_rotate_by(App *a, double degrees);
 enum { APP_SEL_PROFILE_ROWS = 1 + TRACE_SIDE_FIELDS };
 int app_sel_profile(const App *a, int row, int side, char *out, size_t cap);
 
+/* dep87 part 2: which road values differ between the selected points, as TRACE_KEY_ bits (a side's value its own bit); APP_SEL_MIXED_SURFACE(side) for
+ * a side's shoulder surface (the surface bit covers both sides). 0 with fewer than two points selected. The Road profile shows «\xe2\x80\x94» for those. */
+#define APP_SEL_MIXED_SURFACE(side) (1u << (30 + (side)))
+unsigned app_sel_mixed(const App *a);
+
 /* the selected points removed, their road keys with them; refused (in the status) when fewer than TRACE_POINTS_MIN would remain */
 void app_remove_selection(App *a);
 

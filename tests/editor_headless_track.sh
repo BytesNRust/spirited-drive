@@ -418,6 +418,24 @@ assert shoulder[10:][6] != 6.0, shoulder[10:]
 PY
 "$editor" "$work/scope2" --user "$work/scope-u" --frames 2 --steps row:6,paste-profile >"$work/log" 2>&1 && fail "Paste profile with nothing copied went"
 grep -q "no profile copied" "$work/log" || fail "Paste profile before any copy did not say nothing was copied: $(cat "$work/log")"
+# The Road profile of several selected points: a value they do not share is a dash («Mixed» in print-mixed), one they share is shown; setting one value sets only
+# it on all of them. Points 3-5 have left shoulders of 3, 6 and 9 m and widths of 10, 12 and 14 m; the bank they share (4 degrees)
+mkdir "$work/mixed"
+printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 40.0], [0.0, 80.0], [0.0, 120.0], [0.0, 160.0], [0.0, 200.0], [0.0, 240.0], [0.0, 280.0]],\n  "keys": [{"point": 3, "width_m": 10.0, "shoulder_l_m": 3.0, "bank_deg": 4.0}, {"point": 4, "width_m": 12.0, "shoulder_l_m": 6.0, "bank_deg": 4.0}, {"point": 5, "width_m": 14.0, "shoulder_l_m": 9.0, "bank_deg": 4.0}, {"point": 6, "width_m": 10.0, "shoulder_l_m": 3.0, "bank_deg": 4.0}]\n}\n' > "$work/mixed/trace.json"
+"$editor" "$work/mixed" --user "$work/scope-u" --frames 2 --steps row:3,shift-row:5,print-mixed,side:3,0,0,5,print-mixed,width:4,11,print-mixed,print-road >"$work/log" 2>&1 || fail "mixed profile: $(cat "$work/log")"
+[ "$(grep '^mixed:' "$work/log" | sed -n 1p)" = "mixed: width shoulder-l" ] || fail "points with different widths and left shoulders do not report both as mixed: $(grep '^mixed:' "$work/log")"
+[ "$(grep '^mixed:' "$work/log" | sed -n 2p)" = "mixed: width" ] || fail "after the shoulder is set on all three it is still mixed: $(grep '^mixed:' "$work/log")"
+[ "$(grep '^mixed:' "$work/log" | sed -n 3p)" = "mixed:" ] || fail "after the width is set on all three it is still mixed: $(grep '^mixed:' "$work/log")"
+python3 - "$work/log" <<'PY' || fail "setting one value on several points did not set it on all of them and nothing else"
+import re, sys
+rows = [re.match(r"road (\d+): width ([\d.]+) bank ([-\d.]+) lanes (\d+) shoulder ([\d.]+)\|", l) for l in open(sys.argv[1]) if l.startswith("road ")]
+width = [float(m.group(2)) for m in rows]
+bank = [float(m.group(3)) for m in rows]
+shoulder = [float(m.group(5)) for m in rows]
+assert shoulder[3:6] == [5.0, 5.0, 5.0], shoulder
+assert width[3:6] == [11.0, 11.0, 11.0], width
+assert bank[3:6] == [4.0, 4.0, 4.0], bank   # the bank was not touched
+PY
 # a ramped value: a width on one point rises to it and falls after it; on a range it holds over the range
 "$editor" "$work/scope" --user "$work/scope-u" --frames 2 --steps print-road,width:5,14,print-road >"$work/log" 2>&1 || fail "scope width: $(cat "$work/log")"
 python3 - "$work/log" <<'PY' || fail "a width edit on one point is not on that point alone"
