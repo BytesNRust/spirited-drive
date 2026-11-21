@@ -50,6 +50,8 @@
  *   race           a car's Test in race, as its button: the game's command line printed ("race: ...") and its TNFS_ environment ("race env: ...")
  *   race-log       waits for the game's log to name the race's car ("race log: race car: slot 0 is ..."); fails when the game ends first
  *   poll-wait:S   the window runs S seconds, so a file changed meanwhile is seen as when it is open: "poll: watching" first, then "poll: STATUS" when the photos are due again
+ *   new-car-open   File > New car with a workspace: the window up, for a picture
+ *   new-car:T      File > New car: the name "Car <word>" typed, car T (0..7: the eight you drive) chosen, Create pressed; the kit is made and opened
  *   race-stop      the race stopped as the Stop button stops it, waited for, its end printed ("race end: ...")
  *
  * A number after a step is that step's (drag:2,0,-5). The keys and the mouse go in as SDL events, so the window takes them as it takes a

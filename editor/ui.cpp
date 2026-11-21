@@ -15,6 +15,7 @@ extern "C" {
 #include "interact.h"
 }
 #include "help_marker.h"
+#include "new_car_popup.h"
 #include "panels.h"
 #include "shortcut_keys.h"
 #include "command_keys.h"
@@ -454,11 +455,12 @@ bool track_edit_done()
 }
 
 // The File menu holds the actions of the room on screen only (Cars, Tracks, the main menu), New before Open: a car's room has no New track, a track's no Open car.
-enum FileItem { FILE_NEW_TRACK, FILE_OPEN_TRACK, FILE_LIGHT, FILE_COPY, FILE_OPEN_CAR, FILE_EXPORT, FILE_RECENT, FILE_WORKSPACE, FILE_SEPARATOR, FILE_SAVE, FILE_MAIN, FILE_QUIT };
+enum FileItem { FILE_NEW_CAR, FILE_NEW_TRACK, FILE_OPEN_TRACK, FILE_LIGHT, FILE_COPY, FILE_OPEN_CAR, FILE_EXPORT, FILE_RECENT, FILE_WORKSPACE, FILE_SEPARATOR, FILE_SAVE, FILE_MAIN, FILE_QUIT };
 
 static const char *file_label(FileItem item)
 {
     switch (item) {
+    case FILE_NEW_CAR: return "New car...";
     case FILE_NEW_TRACK: return "New track...";
     case FILE_OPEN_TRACK: return "Open track...";
     case FILE_LIGHT: return "Open original track...";
@@ -481,7 +483,7 @@ static int file_items(const App *a, FileItem out[12])
     const AppRoom room = app_room(a);
     if (room == APP_ROOM_TRACKS) out[n++] = FILE_NEW_TRACK, out[n++] = FILE_OPEN_TRACK, out[n++] = FILE_LIGHT, out[n++] = FILE_RECENT;
     if (room == APP_ROOM_TRACKS && app_original_can_copy(a)) out[n++] = FILE_COPY;
-    if (room == APP_ROOM_CARS) out[n++] = FILE_OPEN_CAR, out[n++] = FILE_EXPORT, out[n++] = FILE_RECENT;
+    if (room == APP_ROOM_CARS) out[n++] = FILE_NEW_CAR, out[n++] = FILE_OPEN_CAR, out[n++] = FILE_EXPORT, out[n++] = FILE_RECENT;
     if (room == APP_ROOM_HUB) out[n++] = FILE_WORKSPACE;   // the workspace is for both rooms: its menu is the main menu's, not a room's
     if (room == APP_ROOM_HUB) out[n++] = FILE_SEPARATOR;
     if (room != APP_ROOM_HUB) out[n++] = FILE_SAVE, out[n++] = FILE_MAIN;
@@ -539,7 +541,8 @@ void main_menu(App *a)
                 shortcut_label(keys, sizeof keys, SHORTCUT_MAC, "W");
                 if (ImGui::MenuItem("Main menu", keys)) app_ask(a, APP_ACT_MAIN, "");
             } else if (ImGui::MenuItem(file_label(item))) {
-                if (item == FILE_NEW_TRACK) app_ask(a, APP_ACT_NEW, "");
+                if (item == FILE_NEW_CAR) app_ask(a, APP_ACT_NEW_CAR, "");
+                else if (item == FILE_NEW_TRACK) app_ask(a, APP_ACT_NEW, "");
                 else if (item == FILE_OPEN_TRACK) app_ask(a, APP_ACT_OPEN, "");
                 else if (item == FILE_LIGHT) a->original_dialog = 1;
                 else if (item == FILE_COPY) app_original_copy_ask(a);
@@ -712,6 +715,7 @@ void confirm_popup(App *a)
     } else {
         ++age;
         const char *then = a->confirm == APP_ACT_QUIT ? "quitting" : a->confirm == APP_ACT_NEW || a->confirm == APP_ACT_NEW_AT ? "starting a new track"
+                                                                                                                              : a->confirm == APP_ACT_NEW_CAR ? "starting a new car"
                                                                                                                               : a->confirm == APP_ACT_LIGHT_AT ? "choosing another light folder"
                                                                                                                                                                : a->confirm == APP_ACT_MAIN ? "going to the main menu"
                                                                                                                                                                : "opening another project";
@@ -1025,6 +1029,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
     export_popup(a);
     confirm_popup(a);
     new_track_popup(a);
+    new_car_popup(a);
     original_popup(a);
     copy_popup(a);
     open_error_popup(a);

@@ -139,6 +139,10 @@ void start_screen(App *a)
             ImGui::SetWindowFontScale(1.25f);
             ImGui::TextUnformatted("Cars");
             ImGui::SetWindowFontScale(1.0f);
+            ImGui::BeginDisabled(a->workspace[0] == '\0');
+            if (ImGui::Button("New car...", ImVec2(half, 0))) app_ask(a, APP_ACT_NEW_CAR, "");
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Start a car as a copy of one of the eight you drive; it goes in the workspace's cars/ folder");
             if (ImGui::Button("Open car...", ImVec2(half, 0))) app_ask(a, APP_ACT_OPEN_CAR, "");
             if (ImGui::Button("Export original car...", ImVec2(half, 0))) a->export_dialog = 1;
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Make a project from one of the game's cars, to adjust its masks");

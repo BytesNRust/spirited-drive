@@ -56,6 +56,7 @@ typedef enum {
     APP_ACT_LIGHT_AT,    /* the folder that dialog gave, in the path: the window is on it (app_light_set_folder) */
     APP_ACT_MAIN,        /* back to the main menu (the hub): the project is closed (app_close_project), after the question about unsaved changes */
     APP_ACT_WORKSPACE_PICK, /* a workspace folder is asked for (main.c's dialog); the folder that dialog gives is the workspace at once (app_workspace_set), with no question about unsaved changes */
+    APP_ACT_NEW_CAR,    /* the New car window (a->new_car_dialog) is asked for, after the question about unsaved changes */
     APP_ACT_PHOTO_PICK, /* main.c's file dialog is on screen for a showcase photo (a->photo_dialog asks for it): the picture is copied into the car's folder when it comes back, so no question */
     APP_ACT_BACKDROP_PICK /* main.c's file dialog is on screen for the card photo's backdrop picture (a->backdrop_dialog asks for it): nothing in the project changes, so no question */
 } AppAction;
@@ -256,6 +257,12 @@ typedef struct {
     char new_track_id[40];
     int new_track_id_typed;
     char new_track_error[APP_MSG];
+    int new_car_dialog;          /* the New car window is up: a name, the id it makes (may be typed over), the car it starts as (0..7, the eight you drive) */
+    char new_car_name[64];
+    char new_car_id[40];
+    int new_car_id_typed;
+    int new_car_template;
+    char new_car_error[APP_MSG];   /* why Create was refused */
     WorkspaceList workspace_list;  /* the projects in it, scanned when it is set and when the window starts */
 
     char zip[APP_PATH];          /* the last package built, "" before one */
@@ -448,6 +455,9 @@ int app_workspace_item(const App *a, int kind, int i, char *out, size_t cap);
 /* New track with a workspace: the track `name` is made as <workspace>/tracks/<id> (`id` NULL or "" takes the one the name makes) and opened. 0, with the reason in the status and
  * new_track_error and nothing written, when there is no workspace, the name or id is not usable, or that folder exists. */
 int app_new_track_named(App *a, const char *name, const char *id);
+/* New car (dep102; app_new_car.c): a kit <workspace>/cars/<id> made from the car `template_word` (one of the eight you drive, viper, 911 ...) by car_new_kit, opened and listed. 1, or 0 with the
+ * reason in new_car_error and the status and nothing written, when there is no workspace, the name or id is not usable, that folder exists, or the game's files are not found. A null `id` is made from the name. */
+int app_new_car_named(App *a, const char *name, const char *id, const char *template_word);
 /* the workspace lists read again (after a project was made in it) */
 void app_workspace_refresh(App *a);
 /* The start screen's Recent list: entry `index` taken out, or every entry of `kind` (RECENT_CAR / RECENT_TRACK); the list file is written again. */
