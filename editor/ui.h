@@ -57,6 +57,13 @@ void ui_event(const SDL_Event *ev);
  * SDL_RenderPresent. The panels change `a`: the points, the view, the selection. */
 void ui_frame(SDL_Renderer *ren, App *a);
 
+/* ImGui's recoverable errors ("EndDisabled() too many times", a Begin with no End...): ui_open has ImGui tell them here, each is also printed on stderr as
+ * "imgui error: ...". A headless run fails when any was told (main.c); the banner ImGui draws in the window is easy to miss in a test. */
+int ui_error_count(void);
+const char *ui_error_first(void);
+/* a deliberate error, for the guard's test (--steps ui-fault) */
+void ui_fault(void);
+
 #ifdef __cplusplus
 }
 #endif

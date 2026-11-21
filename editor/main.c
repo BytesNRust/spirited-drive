@@ -758,6 +758,10 @@ static int run(App *a, const Options *o)
         SDL_RenderPresent(ren);
         SDL_Delay(FRAME_MS);
     }
+    if (headless && ui_error_count() > 0) {   /* a panel that breaks ImGui's rules draws a banner nobody reads in a test */
+        fprintf(stderr, "ImGui reported %d error%s, the first: %s\n", ui_error_count(), ui_error_count() == 1 ? "" : "s", ui_error_first());
+        ok = 0;
+    }
     ui_close();
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);

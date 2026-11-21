@@ -116,6 +116,30 @@ int ui_card_view(App *a, int card, int as_card)
     return model_panel_card_view(a, card != 0, as_card != 0);
 }
 
+static int g_errors;
+static char g_first_error[256];
+
+static void imgui_error(ImGuiContext *, void *, const char *msg)
+{
+    if (g_errors++ == 0) snprintf(g_first_error, sizeof g_first_error, "%s", msg);
+    fprintf(stderr, "imgui error: %s\n", msg);
+}
+
+int ui_error_count(void)
+{
+    return g_errors;
+}
+
+const char *ui_error_first(void)
+{
+    return g_first_error;
+}
+
+void ui_fault(void)
+{
+    ImGui::EndDisabled();   // none was begun: ImGui's "Calling EndDisabled() too many times!"
+}
+
 void ui_double_click_by_frames(void)
 {
     ImGui::GetIO().MouseDoubleClickTime = 30.0f;
@@ -131,6 +155,7 @@ int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size
     }
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
+    ImGui::GetCurrentContext()->ErrorCallback = imgui_error;   // the context's own hook for the recoverable errors (imgui_internal.h)
     g_win = win;
     ImGuiSettingsHandler settings;
     settings.TypeName = "StudioSettings";

@@ -145,6 +145,14 @@ rm -f "$work/kit/photos/side-view.png" "$work/kit/photos/side-view-2.png"
 grep -q "^usage: " "$work/log" || fail "--rehacer was not refused with the usage: $(cat "$work/log")"
 [ ! -d "$work/kit/.studio-backup" ] || fail "a run made a backup folder in the kit"
 
+# ==== The ImGui error guard ====
+# A panel that breaks ImGui's rules (an EndDisabled with no BeginDisabled...) makes a headless run fail, with the error on stderr; a clean run does not
+"$editor" "$work/kit" --frames 2 --steps ui-fault >"$work/log" 2>&1 && fail "a deliberate ImGui error did not fail the run"
+grep -q "^imgui error: " "$work/log" || fail "the ImGui error was not printed: $(cat "$work/log")"
+grep -q "ImGui reported 1 error" "$work/log" || fail "the run did not say it failed on an ImGui error: $(cat "$work/log")"
+"$editor" "$work/kit" --frames 2 >"$work/log" 2>&1 || fail "a clean run failed: $(cat "$work/log")"
+grep -q "imgui error" "$work/log" && fail "a clean run reported an ImGui error: $(cat "$work/log")"
+
 # ==== The mask view (read-only) ====
 # The mask view (read-only): a car file with no textures offers none (the fixture's is not a real one); with the player's real game files a traffic car's mask is opened and
 # drawn, a change made to its file from outside (an image editor) shows in the picture, Studio never writes it, and a texture the car has no mask for is refused

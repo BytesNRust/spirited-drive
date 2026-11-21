@@ -1150,7 +1150,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_headless_track COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_track.sh $<TARGET_FILE:tnfs-track-editor>)
         set_tests_properties(editor_headless_track PROPERTIES TIMEOUT 450)
         add_test(NAME editor_headless_car COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_car.sh $<TARGET_FILE:tnfs-track-editor>)
-        set_tests_properties(editor_headless_car PROPERTIES TIMEOUT 300)
+        set_tests_properties(editor_headless_car PROPERTIES TIMEOUT 450)
         add_test(NAME editor_layout_reset COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_layout_reset.sh $<TARGET_FILE:tnfs-track-editor>)   # Window > Reset layout gives the first run's dock back
         set_tests_properties(editor_layout_reset PROPERTIES TIMEOUT 120)
         add_test(NAME editor_light_window COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_light_window.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})   # the Track light window headless: opens, photographs the working copy through a fake game, leaves the folder as it was
