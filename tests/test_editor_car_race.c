@@ -368,7 +368,7 @@ static void make_fake_game(char *path, size_t cap)
         "zip=\n"
         "while [ $# -gt 0 ]; do case \"$1\" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; --install) zip=$2; shift;; esac; shift; done\n"
         "if [ -n \"$zip\" ]; then echo \"$zip\" > \"$user/../installed_from\"; sleep 1; case \"$zip\" in *broken*) exit 4;; esac; mkdir -p \"$user/mods/loop\"; echo 'installed loop 0.1'; exit 0; fi\n"
-        "echo \"fake game out follow=$TNFS_FOLLOW_CAR seed=$TNFS_DRIVE_SEED masks=$TNFS_CAR_MASKS saw=$(ls \"$TNFS_CAR_MASKS\"/*/ 2>/dev/null | tr '\\n' ' ') dashsaw=$(ls \"$TNFS_DASH_MASKS\"/*/ 2>/dev/null | tr '\\n' ' ')\"\n"
+        "echo \"fake game out follow=$TNFS_FOLLOW_CAR seed=$TNFS_DRIVE_SEED masks=$TNFS_CAR_MASKS saw=$([ -n \"$TNFS_CAR_MASKS\" ] && ls \"$TNFS_CAR_MASKS\"/*/ 2>/dev/null | tr '\\n' ' ') dashsaw=$([ -n \"$TNFS_DASH_MASKS\" ] && ls \"$TNFS_DASH_MASKS\"/*/ 2>/dev/null | tr '\\n' ' ')\"\n"
         "case \"$FAKE_MODE\" in\n"
         "  drive) printf 'mods: 1\\ntrack piece: loop is track 18\\n' > \"$user/spirited-drive.log\"; echo \"$@\"; sleep 30; exit 0;;\n"
         "  half) printf 'track piece: loop is track 1' > \"$user/spirited-drive.log\"; sleep 1; printf '8\\n' >> \"$user/spirited-drive.log\"; sleep 30; exit 0;;\n"
@@ -437,7 +437,7 @@ static void test_kit_masks(void)
     CHECK(job.temp[0] == '\0' && !temps_left() && stat(path, &st) == 0 && st.st_size == 9);   /* the scratch folder went, the kit's file did not */
     CHECK(car_race_start_photo(&job, game, "/cd", kit, wagon, "CL1", 0, NULL, why, sizeof why));   /* a traffic car: no dash masks */
     run_job(&job);
-    CHECK(job.ok && strstr(job.log, "saw=side_mask.png") != NULL && strstr(job.log, "dashsaw=\n") == NULL);
+    CHECK(job.ok && strstr(job.log, "saw=side_mask.png") != NULL && strstr(job.log, "dashsaw=\n") != NULL);   /* a traffic car has no dash masks: TNFS_DASH_MASKS is not set (an unset one in the fake's ls was the whole root, which filled the log) */
     CHECK(stat(path, &st) == 0 && !temps_left());
     car_race_free(&job);
 }
