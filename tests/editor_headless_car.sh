@@ -286,6 +286,10 @@ if [ -f "$p911" ]; then
     cmp -s "$work/w_slow.png" "$work/w_fast.png" && fail "Wheels Slow and Fast drew the same window"
     cmp -s "$work/w_still.png" "$work/w_fast.png" && fail "Wheels Still and Fast drew the same window"
     cmp -s "$work/w_slow.png" "$work/w_slow2.png" || fail "headless Wheels Slow drew two different windows"
+    # at night with the headlights on the wheel layer follows the frame too (the lamp layer is made again when the wheels change)
+    "$editor" "$work/k911" --frames 4 --orbit 270,0 --view night --lights head,side --wheels still --shot "$work/wn_still.png" >"$work/log" 2>&1 || fail "run at night with still wheels: $(cat "$work/log")"
+    "$editor" "$work/k911" --frames 4 --orbit 270,0 --view night --lights head,side --wheels fast --shot "$work/wn_fast.png" >"$work/log" 2>&1 || fail "run at night with fast wheels: $(cat "$work/log")"
+    cmp -s "$work/wn_still.png" "$work/wn_fast.png" && fail "Wheels Still and Fast drew the same window at night"
     "$editor" "$work/k911" --frames 2 --wheels spinning >"$work/log" 2>&1 && fail "a bad --wheels was accepted"
     cmp -s "$work/m1.png" "$work/stub.png" && fail "the 911 looks like a car that cannot be drawn"
 fi

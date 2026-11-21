@@ -202,8 +202,9 @@ int wheel_frame(const App *a)
 // the picture in the Preview window's light: Day or Night, the track the night is of, the light at the car, the lamps (editor/night_view.h)
 void draw_picture(const App *a, int phase, int w, int h)
 {
-    g.key_wheel = wheel_frame(a);
-    model_scene_wheels(g.scene, g.key_wheel);
+    const int wheels = wheel_frame(a);   // once: the clock moves between two calls
+    g.key_wheel = wheels;
+    model_scene_wheels(g.scene, wheels);
     const CarNightState night = night_settings_state(&a->night, phase * POLICE_FLASH_TICKS);
     const bool made = g.card_view ? card_photo_render(g.scene, &g.orbit, &night, backdrop_pixels(), g.rgba) : model_scene_render(g.scene, &g.orbit, w, h, &night, g.rgba);
     if (made && g.card_view && g.as_card && g.cpal_ok) {   // what Central makes of it: the same dither into the same palette

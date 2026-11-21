@@ -40,6 +40,7 @@ typedef struct {
 } Shine;
 
 struct ModelScene {
+    int wheel_frame;            /* the race wheel frame bound to the tyre slots (car_scene_wheels), 0 after the scene opens */
     CarScene scene;
     Shine shine;
     uint8_t *file;   /* the CFM's bytes: the scene points into them */
@@ -78,6 +79,7 @@ static ModelScene *open_bytes(uint8_t *file, size_t size, const char *name, char
     }
     m->file = file;
     m->lamp.lamps = -1;
+    m->wheel_frame = 0;   // car_scene_open binds the still frame
     if (!car_scene_open(&m->scene, m->file, size)) {
         snprintf(why, why_cap, "%s has no high model or bank this view can draw.", name);
         free(m->file);
@@ -346,7 +348,11 @@ int model_scene_shine(ModelScene *m, int on, const PreviewIn *in, const char *en
 
 int model_scene_wheels(ModelScene *m, int frame)
 {
-    return car_scene_wheels(&m->scene, frame);
+    if (frame == m->wheel_frame) return 1;   // already bound: nothing to remake
+    if (!car_scene_wheels(&m->scene, frame)) return 0;
+    m->wheel_frame = frame;
+    m->lamp.lamps = -1;   // the lamp layer holds each tyre slot's texels as that frame had them: made again at the next draw
+    return 1;
 }
 
 int model_scene_shine_textures(const ModelScene *m)
