@@ -1710,6 +1710,8 @@ if(NOT EMSCRIPTEN)
         if(TARGET tnfs-track-editor AND NOT WIN32)   # the Studio's two happy paths end to end, with the real game (sh scripts with python3)
             add_test(NAME editor_e2e_track COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_track.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original)
             set_tests_properties(editor_e2e_track PROPERTIES TIMEOUT 300)
+            add_test(NAME editor_hill_race COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_hill_race.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original)   # dep95 step 8: a hill drawn in the editor, built, installed and raced: the camera's height at the foot, the crest and the way down
+            set_tests_properties(editor_hill_race PROPERTIES TIMEOUT 300)
             add_test(NAME editor_e2e_car COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_car.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
             set_tests_properties(editor_e2e_car PROPERTIES TIMEOUT 300)
             add_test(NAME editor_e2e_cockpit COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_e2e_cockpit.sh $<TARGET_FILE:tnfs-track-editor> $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
