@@ -69,7 +69,7 @@ echo "$out" | grep -q 'track_masks/AL1/scenery_00.png new' || fail "the preview 
 [ -f "$work/data/track_masks/AL1/slot_00.png" ] && [ -f "$work/data/track_masks/AL1/scenery_00.png" ] || fail "the PNGs are not in data/track_masks/AL1"
 echo "$out" | grep -q '^preview: AL1: *7 unchanged' || fail "after publishing nothing is left to publish: $out"
 out=$(run --frames 4 --steps check-originals 2>&1) || fail "check-originals: $out"
-echo "$out" | grep -q '^originals: 16 tracks, 2 masks: 2 equal, 0 differ, 0 new in the workspace$' || fail "the migration check: $out"
+echo "$out" | grep -q '^originals: 16 tracks, 2 masks: 2 equal, 0 differ, 0 new in the workspace; acceptance: 0 differences outside art-source/masks$' || fail "the migration check: $out"
 
 # the photo shows the workspace's masks (TNFS_TRACK_MASKS), and a PSD retouched in Photoshop shows in the next photo
 export FAKE_RECORD="$work/record"
