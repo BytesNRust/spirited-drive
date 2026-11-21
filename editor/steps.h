@@ -49,6 +49,7 @@
  *   build          Build, as its button: what it says printed ("build: built ID.zip" or "build: build refused: ...")
  *   race           a car's Test in race, as its button: the game's command line printed ("race: ...") and its TNFS_ environment ("race env: ...")
  *   race-log       waits for the game's log to name the race's car ("race log: race car: slot 0 is ..."); fails when the game ends first
+ *   poll-wait:S   the window runs S seconds, so a file changed meanwhile is seen as when it is open: "poll: watching" first, then "poll: STATUS" when the photos are due again
  *   race-stop      the race stopped as the Stop button stops it, waited for, its end printed ("race end: ...")
  *
  * A number after a step is that step's (drag:2,0,-5). The keys and the mouse go in as SDL events, so the window takes them as it takes a
@@ -70,6 +71,8 @@ typedef struct {
     int frames;   /* drawn since the steps began */
     float from_x, from_y;   /* where the step's point was in the window when it began (click, drag) */
     float to_x, to_y;       /* where a drag lets it go */
+    double wait_from;   /* poll-wait: the clock when it began */
+    long wait_serial;   /* poll-wait: the photo edit serial it last saw */
     int failed;   /* a step that is not one or did nothing: the steps after it are not done */
 } Steps;
 

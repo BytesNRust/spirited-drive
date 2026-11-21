@@ -88,6 +88,26 @@ want=$(cksum < "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png")
 "$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" paint   # back to the first mask for what follows
 sleep 1
 run --frames 4 --steps open-original:0,masks-print > /dev/null 2>&1
+# the window open: a PSD saved while the editor runs (no new run) is seen by the panel's poll: its status says so, the PNG is made again and so is the photo
+png="$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png"
+before_png=$(cksum < "$png")
+run --frames 100000 --steps open-original:0,poll-wait:90 > "$work/poll.out" 2>&1 &
+poll_pid=$!
+for _ in $(seq 1 120); do grep -q '^poll: watching' "$work/poll.out" && break; sleep 0.5; done
+grep -q '^poll: watching' "$work/poll.out" || { kill "$poll_pid" 2>/dev/null; fail "the window did not start watching: $(cat "$work/poll.out")"; }
+sleep 2
+"$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" lamps   # saved again while the window is open
+for _ in $(seq 1 120); do
+    [ "$(cksum < "$png")" != "$before_png" ] && grep -q '^poll: .*a PSD was saved again' "$work/poll.out" && grep -q "^scenery_00.png $(cksum < "$png")\$" "$work/record" && break
+    sleep 0.5
+done
+kill "$poll_pid" 2>/dev/null; wait "$poll_pid" 2>/dev/null
+grep -q '^poll: .*a PSD was saved again' "$work/poll.out" || fail "the open window did not notice the saved PSD: $(cat "$work/poll.out")"
+[ "$(cksum < "$png")" != "$before_png" ] || fail "the open window did not make the PNG again"
+grep -q "^scenery_00.png $(cksum < "$png")\$" "$work/record" || fail "the open window's photo did not show the new PNG: $(cat "$work/record")"
+"$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" paint   # back to the first mask for what follows
+sleep 1
+run --frames 4 --steps open-original:0,masks-print > /dev/null 2>&1
 unset FAKE_RECORD
 
 # a PNG changed by hand is kept and says so; Regenerate from PSD puts the PSD's mask back

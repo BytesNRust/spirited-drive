@@ -20,8 +20,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open", "card-photo", "card-view", "card-backdrop", "card-bd-bottom", "ui-fault", "scan", "add-originals", "open-original", "publish-ask", "publish", "print-original", "original-open", "masks-print", "mask-select", "mask-regen", "check-originals", "masks-poll", "repo-ask", "repo-copy", "print-repo", "print-confirm", "poll-wait" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0, 0, 2, 4, 3, 0, 2, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -295,6 +295,7 @@ static int at_once(App *a, const char *name, const double *arg)
     if (strcmp(name, "print-menu") == 0) return ui_print_menu(a), 1;   /* the room on screen and the File menu's items in it */
     if (strcmp(name, "main-menu") == 0) return app_close_project(a);   /* File > Main menu (a headless run drops the question about unsaved changes) */
     if (strcmp(name, "print-panels") == 0) return ui_print_panels(a), 1;   /* the Window menu's panels, open or closed, drawn or not, and the ones drawn that it does not list */
+    if (strncmp(name, "poll-wait:", 10) == 0) return 2;   /* by_frames: the window runs S seconds, the panel's poll looking at the PSDs as it does when open */
     if (strncmp(name, "scan:", 5) == 0) return 2;   /* by_frames: the mouse over the window, a point a frame */
     if (strncmp(name, "panel:", 6) == 0) return 2;   /* by_frames: a click on the I-th item of the Window menu, drawn by the next frame */
     if (strcmp(name, "print-view") == 0) return fprintf(stdout, "view: %.1f %.1f %.2f\n", a->view.cx, a->view.cz, a->view.scale), 1;   /* the top view's centre (x z) and pixels per metre */
@@ -505,6 +506,11 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
     const int p = s->phase++;
     float x = 0, y = 0;
     if (strncmp(name, "race-", 5) == 0) return race_frames(s, a, name, p);
+    if (strncmp(name, "poll-wait:", 10) == 0) {   /* poll-wait:S: S seconds of frames; "poll: watching" at the start, "poll: STATUS" each time the photos are due again (a PSD saved meanwhile by the test) */
+        if (p == 0) s->wait_from = a->light.now, s->wait_serial = a->light.edit_serial, fprintf(stdout, "poll: watching\n"), fflush(stdout);
+        if (a->light.edit_serial != s->wait_serial) s->wait_serial = a->light.edit_serial, fprintf(stdout, "poll: %s\n", a->status), fflush(stdout);
+        return a->light.now - s->wait_from < arg[0];
+    }
     if (strcmp(name, "curve-block") == 0) {   /* the block as the panel drew it in the frame before */
         fprintf(stdout, "curve block: %s\n", a->curve.block_open == 1 ? "open" : a->curve.block_open == 2 ? "folded" : "not drawn");
         return 0;
