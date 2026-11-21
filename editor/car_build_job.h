@@ -4,6 +4,8 @@
 #ifndef TNFS_TRACK_EDITOR_CAR_BUILD_JOB_H
 #define TNFS_TRACK_EDITOR_CAR_BUILD_JOB_H
 
+#include "formats/car_check.h"
+
 #include <pthread.h>
 #include <stddef.h>
 
@@ -13,6 +15,9 @@ typedef struct {
     int running;               /* set by the thread's end: read under `lock` */
     int done;                  /* a build ran and was told by car_build_job_poll */
     int ok;
+    int check;                 /* the job that ran or runs is the kit's check (studio/car_kit_check.h), not a build */
+    CarCheckList list;         /* the findings of the last check; checked says there are some to show, even none */
+    int checked;
     char kit[4096];
     char why[300];
     pthread_mutex_t lock;
@@ -23,6 +28,8 @@ typedef struct {
 void car_build_job_init(CarBuildJob *job);
 /* starts the build of `kit`; 0 with `why` when one is running already or the thread could not start */
 int car_build_job_start(CarBuildJob *job, const char *kit, char *why, size_t why_cap);
+/* starts the check of `kit` in the same thread: the findings are in `list` when it ends; `ok` is 0 only when it could not run */
+int car_build_job_start_check(CarBuildJob *job, const char *kit, char *why, size_t why_cap);
 /* every frame: 1 while it runs; when it ends it is joined and `done`, `ok` and `why` are told once (the next call returns 0 and changes nothing) */
 int car_build_job_poll(CarBuildJob *job);
 int car_build_job_busy(const CarBuildJob *job);

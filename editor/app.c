@@ -457,6 +457,12 @@ int app_car_build_poll(App *a)
 {
     if (!car_build_job_busy(&a->car_build)) return 0;
     if (car_build_job_poll(&a->car_build)) return 1;
+    if (a->car_build.check) {   // the kit's check ended: the findings are the panel's, the status is the totals
+        const size_t errors = car_check_count(&a->car_build.list, CAR_CHECK_ERROR), warnings = car_check_count(&a->car_build.list, CAR_CHECK_WARNING);
+        if (!a->car_build.ok) snprintf(a->status, sizeof a->status, "the check could not run: %s", a->car_build.why);
+        else snprintf(a->status, sizeof a->status, "checked: %zu error%s, %zu warning%s", errors, errors == 1 ? "" : "s", warnings, warnings == 1 ? "" : "s");
+        return 0;
+    }
     if (a->car_build.ok) {
         snprintf(a->status, sizeof a->status, "built the car: build/piece and the zip are made again");
         if (!car_zip_path(a, a->zip, sizeof a->zip)) a->zip[0] = '\0';
@@ -647,6 +653,16 @@ static int build_car(App *a)
         return 0;
     }
     set_status(a, "building the car from the kit...");
+    return 1;
+}
+
+/* Check on a kit: the report of studio/car_kit_check.h, in the build's thread (one at a time with a build); app_car_build_poll tells its end */
+int app_check(App *a)
+{
+    char why[APP_MSG];
+    if (!car_kit_open(a)) return set_status(a, "check: this is not a car kit"), 0;
+    if (!car_build_job_start_check(&a->car_build, a->car.root, why, sizeof why)) return snprintf(a->status, sizeof a->status, "check: %s", why), 0;
+    set_status(a, "checking the kit...");
     return 1;
 }
 

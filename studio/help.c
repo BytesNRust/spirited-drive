@@ -130,6 +130,7 @@ static const char *const HELP_CAR =
     "       tnfs-studio car texture add PIECE_DIR NAME FILE.png ... (car texture --help)\n"
     "       tnfs-studio car kit PIECE_DIR KIT_DIR     a car piece laid out as a kit: flat sources (README.txt inside says which)\n"
     "       tnfs-studio car build KIT_DIR             the kit's build/piece/ and build/<id>.zip from its sources alone\n"
+    "       tnfs-studio car check KIT_DIR             what is wrong with the kit before a build: the model, its wheels, its masks\n"
     "Each form's flags: tnfs-studio car FORM --help\n";
 
 static const char *const HELP_FAM =

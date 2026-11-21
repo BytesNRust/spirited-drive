@@ -46,6 +46,14 @@ cmp -s "$mask" "$work/mask-before.png" && fail "the outside change was not made"
 preview "$work/preview-after.png" || fail "Preview of the edited kit: $(cat "$work/log")"
 cmp -s "$work/preview-before.png" "$work/preview-after.png" && fail "the Preview does not show the edit"
 
+# 4a. Check on a kit (the Check button): the 911 kit has no finding; a mask with no texture is a warning that the report lists
+studio "$kit" --steps check --frames 4 || fail "Check on the kit: $(cat "$work/log")"
+grep -q "^check: checked: 0 errors, 0 warnings" "$work/log" || fail "Check found something in a good kit: $(cat "$work/log")"
+cp "$mask" "$kit/art-generated/car_masks/zzzz_mask.png"
+studio "$kit" --steps check --frames 4 || fail "Check on a kit with a mask of no texture: $(cat "$work/log")"
+grep -q "^check warning: zzzz_mask.png has no texture zzzz" "$work/log" && grep -q "^check: checked: 0 errors, 1 warning" "$work/log" || fail "Check does not list the mask of no texture: $(cat "$work/log")"
+python3 -c 'import os,sys; os.remove(sys.argv[1])' "$kit/art-generated/car_masks/zzzz_mask.png"
+
 # 4b. Use as card photo and Add photo on a kit: card.png is the KIT's (not build/piece's), the showcase pictures are in the kit's photos/; the next Build carries both
 cp "$kit/card.png" "$work/card-before.png"
 studio "$kit" --cd "$orig" --paint 3 --steps card-photo,status --frames 14 || fail "Use as card photo on a kit: $(cat "$work/log")"

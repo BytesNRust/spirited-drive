@@ -500,6 +500,9 @@ int app_install_poll(App *a);
 /* A kit with no car file is built when it is opened (a thread: Preview says "building..." and the window stays alive). Every frame: 1 while the build runs; when it
  * ends the status says so, and the car is read again (its textures, its masks, its file). A headless run waits for it. */
 int app_car_build_poll(App *a);
+/* Check: the kit's report (what is wrong before a build: the model, its wheels, its masks) in the build's thread; app_car_build_poll says its end, and a->car_build.list holds
+ * the findings when a->car_build.checked. 1 when it started */
+int app_check(App *a);
 int app_car_building(const App *a);
 /* 1 when the open car is a kit in the current layout: the shape Build and Install are for (build_car: the build in a thread, then Install takes build/<id>.zip) */
 int app_car_is_kit(const App *a);

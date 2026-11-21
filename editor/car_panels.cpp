@@ -405,6 +405,12 @@ void car_panel(App *a)
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("%s", app_install_busy(a) ? "The game is installing the package" : "Install the last build in the game (Build first)");
             ImGui::SameLine();
+            ImGui::BeginDisabled(app_car_building(a) || app_install_busy(a));
+            if (ImGui::Button("Check")) app_check(a);
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                ImGui::SetTooltip("%s", app_car_building(a) ? "The car is being built or checked" : "What is wrong with this kit before a build: the model, its wheels, its masks (save what you changed first)");
+            ImGui::SameLine();
         }
         help_marker("File > Save (Cmd+S) writes only mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is; the showcase photos you add are copied into the folder, and Save removes the copies you took off the list.");
         if (a->cdisk.card_changed) {   // another program wrote mod.ini while the card has unsaved changes here
@@ -423,6 +429,14 @@ void car_panel(App *a)
             ImGui::PopStyleColor();
         } else if (a->status[0] != '\0') {
             muted_wrapped("%s", a->status);
+        }
+        if (app_car_is_kit(a) && a->car_build.checked) {   // the kit's check: a line a finding, red for an error, amber for a warning
+            for (size_t i = 0; i < a->car_build.list.count; i++) {
+                const CarCheckItem &f = a->car_build.list.item[i];
+                ImGui::PushStyleColor(ImGuiCol_Text, f.severity == CAR_CHECK_ERROR ? BAD_TEXT : ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
+                ImGui::TextWrapped("%s: %s", f.severity == CAR_CHECK_ERROR ? "error" : "warning", f.text);
+                ImGui::PopStyleColor();
+            }
         }
         ImGui::Separator();
         const CarEditProblem *card = problem_for(problems, count, CE_CARD);

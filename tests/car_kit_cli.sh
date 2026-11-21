@@ -5,6 +5,7 @@
 # 2. `car build KIT`: build/piece/ holds the car's CFM byte for byte, its PBS and PDN with the same records (unpacked to the same TSVs),
 #    the masks under the stem again; validate finds nothing; build/<id>.zip is made. The kit's sources are byte for byte as before, and a
 #    second build gives the same bytes.
+# 4. `car check KIT`: the kit has no finding; with no near OBJ it says the model does not build and fails; a mask with no texture and masks that paint nothing are warnings.
 # 3. Refused, nothing written: `car kit` into a folder that has files; `car build` of a folder that is not a kit.
 # usage: car_kit_cli.sh STUDIO ORIGINAL_DIR PORT_DATA_DIR
 set -u
@@ -76,6 +77,26 @@ mkdir -p "$old/model/near/mesh" "$old/model/near/bank" && cp "$k/mod.ini" "$old/
 "$studio" car build "$old" >"$work/log" 2>&1 && fail "car build of an old-layout kit went on"
 grep -q "old layout" "$work/log" && grep -q "art-source/mesh" "$work/log" && grep -q "car kit" "$work/log" || fail "the old-layout refusal does not say so: $(cat "$work/log")"
 [ ! -e "$old/build" ] || fail "a refused car build made build/ in an old-layout kit"
+# 4. car check
+"$studio" car check "$k" >"$work/log" 2>&1 || fail "car check of the kit: $(cat "$work/log")"
+grep -q "^0 errors, 0 warnings" "$work/log" || fail "car check of the kit found something: $(cat "$work/log")"
+cp -R "$k" "$work/nomesh" && rm "$work/nomesh/art-source/mesh/near.obj"
+"$studio" car check "$work/nomesh" >"$work/log" 2>&1 && fail "car check of a kit with no near OBJ went on"
+grep -q "^error: the model does not build" "$work/log" || fail "car check does not say the model does not build: $(cat "$work/log")"
+cp -R "$k" "$work/masks"
+m=$(ls "$work/masks/art-generated/car_masks" | head -1)
+cp "$work/masks/art-generated/car_masks/$m" "$work/masks/art-generated/car_masks/zzzz_mask.png"
+"$studio" car check "$work/masks" >"$work/log" 2>&1 || fail "car check of a kit with a mask of no texture is a warning, not an error: $(cat "$work/log")"
+grep -q "^warning: zzzz_mask.png has no texture zzzz" "$work/log" || fail "car check does not say the mask has no texture: $(cat "$work/log")"
+python3 -I - "$work/masks/art-generated/car_masks" <<'PY'
+import os, struct, sys, zlib
+def chunk(t, d): return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 0, 0, 0, 0)) + chunk(b"IDAT", zlib.compress((b"\x00" + b"\xff" * 4) * 4)) + chunk(b"IEND", b"")
+for n in os.listdir(sys.argv[1]):
+    open(os.path.join(sys.argv[1], n), "wb").write(png)
+PY
+"$studio" car check "$work/masks" >"$work/log" 2>&1 || fail "car check of a kit whose masks paint nothing is a warning: $(cat "$work/log")"
+grep -q "^warning: no mask has a texel that takes the car's paint" "$work/log" || fail "car check does not say no mask paints: $(cat "$work/log")"
 
 [ "$failures" -eq 0 ] && echo "car_kit_cli: ok"
 exit "$failures"
