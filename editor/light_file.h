@@ -12,6 +12,10 @@ enum {
     LIGHT_KIND_BRIGHTNESS = 0,   /* `brightness FROM TO PERCENT` */
     LIGHT_KIND_LAMP,             /* `lamp NODE PERCENT [RRGGBB[:strength]] [radius]` (a night file's) */
     LIGHT_KIND_TUNNEL_TONE,      /* `tunnel_tone LIGHT [colour]` */
+    LIGHT_KIND_TONE,             /* `tone FROM TO [p0..p10 ...] RRGGBB:percent` (part D) */
+    LIGHT_KIND_CAR_TONE,         /* `car_tone [FROM TO] RRGGBB:percent` */
+    LIGHT_KIND_ZONE,             /* `tunnel FROM TO [light] [colour | lit]` of a time's file */
+    LIGHT_KIND_PLACE,            /* `tunnel|canyon|car_dim FROM TO` of a track's places file (letter 0) */
     LIGHT_KIND_OWNED,            /* how many kinds the window edits */
     LIGHT_KIND_BAD = LIGHT_KIND_OWNED,   /* a line that names one of them and is not well-formed: kept as it is, listed, never rewritten */
     LIGHT_KIND_OTHER                     /* every other line */
@@ -23,6 +27,9 @@ enum {   /* the game's limits (game/race/track_light_file.h) */
     LIGHT_MAX_LAMP_PERCENT = 1000,
     LIGHT_MAX_LAMP_RADIUS = 64,
     LIGHT_MAX_BRIGHTNESS_PERCENT = 1000,
+    LIGHT_MAX_TONES = 64,          /* `tone` lines; also car_tone and zone lines, 64 each */
+    LIGHT_MAX_DISTINCT_TONES = 16, /* different (colour, percent) among the `tone` lines */
+    LIGHT_POINTS = 11,             /* the points of a node's row: p0..p10 */
     LIGHT_WHY = 160
 };
 #define LIGHT_MAX_TUNNEL_LIGHT 10000.0
@@ -56,6 +63,14 @@ typedef struct {
     char colour[48];   /* "RRGGBB", "RRGGBB:strength" or "r/g/b[:strength]" as it is written */
 } LightTunnelTone;
 
+/* part D. A tone is seen over nodes FROM..TO (`mask`: bit p for the row points it covers, 0 for all of them) as a colour at a percent 0..100. A car tone is the same for the car, over
+ * the whole track when `has_nodes` is 0. A zone is a tunnel over FROM..TO with this time's light (percent, `has_light`) and colour, or a hall (`lit`, then neither). A place is a
+ * range of a track's tunnel, canyon or car_dim nodes. A tone's colour is six lower-case hex digits; a zone's is RRGGBB, RRGGBB:strength or r/g/b[:strength]. */
+typedef struct { unsigned from, to, mask; char colour[8]; unsigned percent; } LightTone;
+typedef struct { int has_nodes; unsigned from, to; char colour[8]; unsigned percent; } LightCarTone;
+typedef struct { unsigned from, to; int lit, has_light; double light; int has_colour; char colour[48]; } LightZone;
+typedef struct { char what[8]; unsigned from, to; } LightPlace;
+
 /* Reads a file's text. 1, or 0 with `why` (header missing or not a light file, a time that is not A, B, C or N, no node count). Nothing is refused for its other lines. */
 int light_file_parse(const char *text, size_t size, LightFile *out, char *why, size_t cap);
 void light_file_free(LightFile *f);
@@ -71,6 +86,10 @@ int light_file_first_bad(const LightFile *f);
 int light_file_get_brightness(const LightFile *f, int i, LightBrightness *out);
 int light_file_get_lamp(const LightFile *f, int i, LightLamp *out);
 int light_file_get_tunnel_tone(const LightFile *f, int i, LightTunnelTone *out);
+int light_file_get_tone(const LightFile *f, int i, LightTone *out);
+int light_file_get_car_tone(const LightFile *f, int i, LightCarTone *out);
+int light_file_get_zone(const LightFile *f, int i, LightZone *out);
+int light_file_get_place(const LightFile *f, int i, LightPlace *out);
 
 /* Set the i-th line of a kind, or add a new one at the end of the file with i = -1. 1; or 0 with `why` when the value breaks a rule of the game (an unordered or out-of-range
  * run of nodes, a percent over its limit, a 65th brightness or a 2049th lamp, a lamp in a file that is not a night's, a bad colour, a second tunnel_tone) or memory is out; the
@@ -78,6 +97,13 @@ int light_file_get_tunnel_tone(const LightFile *f, int i, LightTunnelTone *out);
 int light_file_set_brightness(LightFile *f, int i, const LightBrightness *v, char *why, size_t cap);
 int light_file_set_lamp(LightFile *f, int i, const LightLamp *v, char *why, size_t cap);
 int light_file_set_tunnel_tone(LightFile *f, int i, const LightTunnelTone *v, char *why, size_t cap);
+
+/* part D. Tone, car tone and zone lines belong to a time's file, places to a places file; the same rules (the run inside the road, percents, 16 distinct tones, 64 lines of a kind). A place
+ * is checked against `nodes`, the node count of the track's time files (a places file has none of its own). */
+int light_file_set_tone(LightFile *f, int i, const LightTone *v, char *why, size_t cap);
+int light_file_set_car_tone(LightFile *f, int i, const LightCarTone *v, char *why, size_t cap);
+int light_file_set_zone(LightFile *f, int i, const LightZone *v, char *why, size_t cap);
+int light_file_set_place(LightFile *f, int i, const LightPlace *v, unsigned nodes, char *why, size_t cap);
 
 /* Drops the i-th line of an owned kind (nothing else moves). 1, or 0 when there is no such line. */
 int light_file_remove(LightFile *f, int kind, int i);

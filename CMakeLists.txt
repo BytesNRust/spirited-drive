@@ -1033,6 +1033,10 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     add_executable(test_editor_light_file tests/test_editor_light_file.c editor/light_file.c)   # the Track light window's file model (dep98): the repo's light files round-trip byte for byte
     target_include_directories(test_editor_light_file PRIVATE editor tests)
     target_compile_options(test_editor_light_file PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_editor_light_tones tests/test_editor_light_tones.c editor/light_file.c)   # the tone, car tone, zone and places lines of the Track light window's model (dep98 part D)
+    target_include_directories(test_editor_light_tones PRIVATE editor tests)
+    target_compile_options(test_editor_light_tones PRIVATE ${TNFS_WARNINGS})
+    add_test(NAME editor_light_tones COMMAND test_editor_light_tones)
     # the tools share ONLY the core with the game (the owner's rule): the Studio and its tests never link the game's library or compile its files
     foreach(studio_target tnfs-track-editor test_editor_track_undo test_editor_shortcuts test_editor_car_preview test_editor_model_scene test_editor_car_export test_editor_car_race test_editor_car_rehacer test_editor_session test_editor_psd test_editor_dash_check test_editor_mask_reload test_editor_lanes test_editor_fence test_editor_mask_edit test_editor_light_photo test_editor_light_file test_editor_light_session test_editor_light_flow test_editor_card_reload test_editor_mask_changes)
         get_target_property(studio_libs ${studio_target} LINK_LIBRARIES)

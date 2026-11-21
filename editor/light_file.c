@@ -169,6 +169,106 @@ static int parse_tunnel_tone(const char *line, LightTunnelTone *out)
     return 1;
 }
 
+// a tone's colour and percent as one token, RRGGBB:percent (the game reads `%x:%d`; the editor takes exactly six hex digits and a whole percent 0..100)
+static int parse_tone_colour(const char *token, char colour[8], unsigned *percent)
+{
+    if (strlen(token) < 8 || token[6] != ':' || !is_hex6(token)) return 0;
+    if (!is_unsigned(token + 7, percent) || *percent > 100) return 0;
+    for (int i = 0; i < 6; ++i) colour[i] = (char)tolower((unsigned char)token[i]);
+    colour[6] = '\0';
+    return 1;
+}
+
+static int parse_tone(const char *line, unsigned nodes, LightTone *out)
+{
+    char word[TOKEN], token[TOKEN], a[TOKEN], b[TOKEN];
+    const char *p = line;
+    LightTone v;
+    memset(&v, 0, sizeof v);
+    if (next_token(&p, word) != 1 || strcmp(word, "tone") != 0) return 0;
+    if (next_token(&p, a) != 1 || next_token(&p, b) != 1 || !is_unsigned(a, &v.from) || !is_unsigned(b, &v.to) || v.from > v.to || v.to >= nodes) return 0;
+    int got;
+    int coloured = 0;
+    while ((got = next_token(&p, token)) == 1) {
+        unsigned point;
+        if (coloured) return 0;
+        if (token[0] == 'p' && is_unsigned(token + 1, &point)) {
+            if (point >= LIGHT_POINTS) return 0;
+            v.mask |= 1u << point;
+        } else if (parse_tone_colour(token, v.colour, &v.percent)) {
+            coloured = 1;
+        } else {
+            return 0;
+        }
+    }
+    if (got < 0 || !coloured) return 0;
+    if (out != NULL) *out = v;
+    return 1;
+}
+
+static int parse_car_tone(const char *line, unsigned nodes, LightCarTone *out)
+{
+    char word[TOKEN], t[3][TOKEN], extra[TOKEN];
+    const char *p = line;
+    LightCarTone v;
+    memset(&v, 0, sizeof v);
+    if (next_token(&p, word) != 1 || strcmp(word, "car_tone") != 0) return 0;
+    int n = 0;
+    while (n < 3 && next_token(&p, t[n]) == 1) ++n;
+    if (next_token(&p, extra) != 0) return 0;
+    if (n == 1) {
+        if (!parse_tone_colour(t[0], v.colour, &v.percent)) return 0;
+    } else {
+        if (n != 3 || !is_unsigned(t[0], &v.from) || !is_unsigned(t[1], &v.to) || v.from > v.to || v.to >= nodes || !parse_tone_colour(t[2], v.colour, &v.percent)) return 0;
+        v.has_nodes = 1;
+    }
+    if (out != NULL) *out = v;
+    return 1;
+}
+
+static int parse_zone(const char *line, unsigned nodes, LightZone *out)
+{
+    char word[TOKEN], a[TOKEN], b[TOKEN], token[TOKEN];
+    const char *p = line;
+    LightZone v;
+    memset(&v, 0, sizeof v);
+    if (next_token(&p, word) != 1 || strcmp(word, "tunnel") != 0) return 0;
+    if (next_token(&p, a) != 1 || next_token(&p, b) != 1 || !is_unsigned(a, &v.from) || !is_unsigned(b, &v.to) || v.from > v.to || v.to >= nodes) return 0;
+    int got;
+    while ((got = next_token(&p, token)) == 1) {
+        if (strcmp(token, "lit") == 0) {
+            if (v.lit) return 0;
+            v.lit = 1;
+        } else if (is_look_colour(token) && !v.has_colour) {
+            if (strlen(token) >= sizeof v.colour) return 0;
+            v.has_colour = 1;
+            memcpy(v.colour, token, strlen(token) + 1);
+        } else {
+            char *end = NULL;
+            const double light = strtod(token, &end);
+            if (v.has_light || v.has_colour || end == token || *end != '\0' || !(light >= 0.0 && light <= LIGHT_MAX_TUNNEL_LIGHT)) return 0;
+            v.light = light;
+            v.has_light = 1;
+        }
+    }
+    if (got < 0 || (v.lit && (v.has_light || v.has_colour))) return 0;   // a hall is lit by its own lamps
+    if (out != NULL) *out = v;
+    return 1;
+}
+
+static int parse_place(const char *line, LightPlace *out)
+{
+    char word[TOKEN], a[TOKEN], b[TOKEN], extra[TOKEN];
+    const char *p = line;
+    LightPlace v;
+    memset(&v, 0, sizeof v);
+    if (next_token(&p, word) != 1 || (strcmp(word, "tunnel") != 0 && strcmp(word, "canyon") != 0 && strcmp(word, "car_dim") != 0)) return 0;
+    if (next_token(&p, a) != 1 || next_token(&p, b) != 1 || next_token(&p, extra) != 0 || !is_unsigned(a, &v.from) || !is_unsigned(b, &v.to) || v.from > v.to) return 0;
+    memcpy(v.what, word, strlen(word) + 1);
+    if (out != NULL) *out = v;
+    return 1;
+}
+
 // ---- lines --------------------------------------------------------------------------------------------------------------------------------------------------------
 
 static int push_line(LightFile *f, const char *text, size_t len)
@@ -229,13 +329,19 @@ static int read_header(LightFile *f, char *why, size_t cap)
 
 static int classify(const LightFile *f, const char *text)
 {
-    if (f->letter == 0) return LIGHT_KIND_OTHER;   // a places file has nothing the window edits
     char word[TOKEN];
     const char *p = text;
     if (next_token(&p, word) != 1) return LIGHT_KIND_OTHER;
+    if (f->letter == 0) {   // a places file: its ranges are the window's; `present`, `snow` and the rest are not
+        if (strcmp(word, "tunnel") == 0 || strcmp(word, "canyon") == 0 || strcmp(word, "car_dim") == 0) return parse_place(text, NULL) ? LIGHT_KIND_PLACE : LIGHT_KIND_BAD;
+        return LIGHT_KIND_OTHER;
+    }
     if (strcmp(word, "brightness") == 0) return parse_brightness(text, f->nodes, NULL) ? LIGHT_KIND_BRIGHTNESS : LIGHT_KIND_BAD;
     if (strcmp(word, "lamp") == 0) return parse_lamp(text, f->nodes, NULL) ? LIGHT_KIND_LAMP : LIGHT_KIND_BAD;
     if (strcmp(word, "tunnel_tone") == 0) return parse_tunnel_tone(text, NULL) ? LIGHT_KIND_TUNNEL_TONE : LIGHT_KIND_BAD;
+    if (strcmp(word, "tone") == 0) return parse_tone(text, f->nodes, NULL) ? LIGHT_KIND_TONE : LIGHT_KIND_BAD;
+    if (strcmp(word, "car_tone") == 0) return parse_car_tone(text, f->nodes, NULL) ? LIGHT_KIND_CAR_TONE : LIGHT_KIND_BAD;
+    if (strcmp(word, "tunnel") == 0) return parse_zone(text, f->nodes, NULL) ? LIGHT_KIND_ZONE : LIGHT_KIND_BAD;
     return LIGHT_KIND_OTHER;
 }
 
@@ -326,6 +432,30 @@ int light_file_get_tunnel_tone(const LightFile *f, int i, LightTunnelTone *out)
     return at >= 0 && parse_tunnel_tone(f->lines[at].text, out);
 }
 
+int light_file_get_tone(const LightFile *f, int i, LightTone *out)
+{
+    const int at = find_line(f, LIGHT_KIND_TONE, i);
+    return at >= 0 && parse_tone(f->lines[at].text, f->nodes, out);
+}
+
+int light_file_get_car_tone(const LightFile *f, int i, LightCarTone *out)
+{
+    const int at = find_line(f, LIGHT_KIND_CAR_TONE, i);
+    return at >= 0 && parse_car_tone(f->lines[at].text, f->nodes, out);
+}
+
+int light_file_get_zone(const LightFile *f, int i, LightZone *out)
+{
+    const int at = find_line(f, LIGHT_KIND_ZONE, i);
+    return at >= 0 && parse_zone(f->lines[at].text, f->nodes, out);
+}
+
+int light_file_get_place(const LightFile *f, int i, LightPlace *out)
+{
+    const int at = find_line(f, LIGHT_KIND_PLACE, i);
+    return at >= 0 && parse_place(f->lines[at].text, out);
+}
+
 // ---- edits --------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // `text` (no line end) becomes the i-th line of `kind`, or a new last line for i = -1; the file's line ending is kept. 1, or 0 for no such line or no memory
@@ -400,6 +530,108 @@ int light_file_set_tunnel_tone(LightFile *f, int i, const LightTunnelTone *v, ch
     const int n = snprintf(text, sizeof text, "tunnel_tone %.10g", v->light);
     if (v->has_colour) snprintf(text + n, sizeof text - (size_t)n, " %s", v->colour);
     return put_line(f, LIGHT_KIND_TUNNEL_TONE, i, text) || fail(why, cap, "out of memory");
+}
+
+// a run FROM..TO of a time's file: in order, inside the road
+static int check_run(const LightFile *f, unsigned from, unsigned to, char *why, size_t cap)
+{
+    if (from > to) return fail(why, cap, "a run goes from a node to a later one");
+    if (to >= f->nodes) {
+        char text[LIGHT_WHY];
+        snprintf(text, sizeof text, "the road has nodes 0 to %u: the run ends past it", f->nodes - 1);
+        return fail(why, cap, text);
+    }
+    return 1;
+}
+
+static int tone_colour_ok(const char *colour)
+{
+    return strlen(colour) == 6 && is_hex6(colour);
+}
+
+// the number of different (colour, percent) among the tone lines, not counting the line `skip` (-1 for none), and whether (colour, percent) is one of them
+static int distinct_tones(const LightFile *f, int skip, const char *colour, unsigned percent, int *has)
+{
+    LightTone seen[LIGHT_MAX_TONES];
+    int n = 0, index = 0;
+    *has = 0;
+    for (int at = 0; at < f->count && n < LIGHT_MAX_TONES; ++at) {
+        LightTone t;
+        if (f->lines[at].kind != LIGHT_KIND_TONE) continue;
+        if (index++ == skip || !parse_tone(f->lines[at].text, f->nodes, &t)) continue;
+        int known = 0;
+        for (int k = 0; k < n; ++k) known |= strcmp(seen[k].colour, t.colour) == 0 && seen[k].percent == t.percent;
+        if (!known) seen[n++] = t;
+        if (strcmp(t.colour, colour) == 0 && t.percent == percent) *has = 1;
+    }
+    return n;
+}
+
+int light_file_set_tone(LightFile *f, int i, const LightTone *v, char *why, size_t cap)
+{
+    if (f->letter == 0) return fail(why, cap, "a places file has no tone lines");
+    if (i >= light_file_count(f, LIGHT_KIND_TONE) || i < -1) return fail(why, cap, "there is no such tone line");
+    if (!check_run(f, v->from, v->to, why, cap)) return 0;
+    if (v->percent > 100) return fail(why, cap, "a tone's strength is 0 to 100 percent");
+    if (!tone_colour_ok(v->colour)) return fail(why, cap, "a tone's colour is six hex digits");
+    if (v->mask >= (1u << LIGHT_POINTS)) return fail(why, cap, "a row has the points p0 to p10");
+    if (i < 0 && light_file_count(f, LIGHT_KIND_TONE) >= LIGHT_MAX_TONES) return fail(why, cap, "the game takes 64 tone lines at most");
+    char colour[8];
+    for (int k = 0; k < 7; ++k) colour[k] = (char)tolower((unsigned char)v->colour[k]);
+    int has = 0;
+    if (distinct_tones(f, i, colour, v->percent, &has) >= LIGHT_MAX_DISTINCT_TONES && !has) return fail(why, cap, "a track has 16 distinct tones at most: reuse a colour and strength already in a tone line");
+    char text[TOKEN * 2];
+    int n = snprintf(text, sizeof text, "tone %u %u", v->from, v->to);
+    if (v->mask != 0 && v->mask != (1u << LIGHT_POINTS) - 1u)
+        for (unsigned p = 0; p < LIGHT_POINTS; ++p)
+            if (v->mask & (1u << p)) n += snprintf(text + n, sizeof text - (size_t)n, " p%u", p);
+    snprintf(text + n, sizeof text - (size_t)n, " %s:%u", colour, v->percent);
+    return put_line(f, LIGHT_KIND_TONE, i, text) || fail(why, cap, "out of memory");
+}
+
+int light_file_set_car_tone(LightFile *f, int i, const LightCarTone *v, char *why, size_t cap)
+{
+    if (f->letter == 0) return fail(why, cap, "a places file has no car tone lines");
+    if (i >= light_file_count(f, LIGHT_KIND_CAR_TONE) || i < -1) return fail(why, cap, "there is no such car tone line");
+    if (v->has_nodes && !check_run(f, v->from, v->to, why, cap)) return 0;
+    if (v->percent > 100) return fail(why, cap, "a car tone's strength is 0 to 100 percent");
+    if (!tone_colour_ok(v->colour)) return fail(why, cap, "a car tone's colour is six hex digits");
+    if (i < 0 && light_file_count(f, LIGHT_KIND_CAR_TONE) >= LIGHT_MAX_TONES) return fail(why, cap, "the game takes 64 car tone lines at most");
+    char colour[8];
+    for (int k = 0; k < 7; ++k) colour[k] = (char)tolower((unsigned char)v->colour[k]);
+    char text[TOKEN * 2];
+    if (v->has_nodes) snprintf(text, sizeof text, "car_tone %u %u %s:%u", v->from, v->to, colour, v->percent);
+    else snprintf(text, sizeof text, "car_tone %s:%u", colour, v->percent);
+    return put_line(f, LIGHT_KIND_CAR_TONE, i, text) || fail(why, cap, "out of memory");
+}
+
+int light_file_set_zone(LightFile *f, int i, const LightZone *v, char *why, size_t cap)
+{
+    if (f->letter == 0) return fail(why, cap, "a places file has no zone lines: its tunnels are places");
+    if (i >= light_file_count(f, LIGHT_KIND_ZONE) || i < -1) return fail(why, cap, "there is no such zone line");
+    if (!check_run(f, v->from, v->to, why, cap)) return 0;
+    if (v->lit && (v->has_light || v->has_colour)) return fail(why, cap, "a hall is lit by its own lamps: it has no light or colour of its own");
+    if (v->has_light && !(v->light >= 0.0 && v->light <= LIGHT_MAX_TUNNEL_LIGHT)) return fail(why, cap, "a zone's light is 0 to 10000 percent");
+    if (v->has_colour && !is_look_colour(v->colour)) return fail(why, cap, "a zone's colour is six hex digits or r/g/b (three factors 0 to 1), then an optional :strength");
+    if (i < 0 && light_file_count(f, LIGHT_KIND_ZONE) >= LIGHT_MAX_TONES) return fail(why, cap, "the game takes 64 zone lines at most");
+    char text[TOKEN * 3];
+    int n = snprintf(text, sizeof text, "tunnel %u %u", v->from, v->to);
+    if (v->lit) n += snprintf(text + n, sizeof text - (size_t)n, " lit");
+    if (v->has_light) n += snprintf(text + n, sizeof text - (size_t)n, " %.10g", v->light);
+    if (v->has_colour) snprintf(text + n, sizeof text - (size_t)n, " %s", v->colour);
+    return put_line(f, LIGHT_KIND_ZONE, i, text) || fail(why, cap, "out of memory");
+}
+
+int light_file_set_place(LightFile *f, int i, const LightPlace *v, unsigned nodes, char *why, size_t cap)
+{
+    if (f->letter != 0) return fail(why, cap, "only a places file has places lines (tunnel, canyon, car_dim)");
+    if (i >= light_file_count(f, LIGHT_KIND_PLACE) || i < -1) return fail(why, cap, "there is no such places line");
+    if (strcmp(v->what, "tunnel") != 0 && strcmp(v->what, "canyon") != 0 && strcmp(v->what, "car_dim") != 0) return fail(why, cap, "a place is a tunnel, a canyon or car_dim");
+    if (v->from > v->to) return fail(why, cap, "a place goes from a node to a later one");
+    if (nodes == 0 || v->to >= nodes) return fail(why, cap, "the road ends before that node: the place runs past it");
+    char text[TOKEN];
+    snprintf(text, sizeof text, "%s %u %u", v->what, v->from, v->to);
+    return put_line(f, LIGHT_KIND_PLACE, i, text) || fail(why, cap, "out of memory");
 }
 
 int light_file_remove(LightFile *f, int kind, int i)
