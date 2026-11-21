@@ -418,6 +418,14 @@ if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_mas
     grep -q "1 changed" "$work/log" || fail "no count of changes: $(cat "$work/log")"
     grep -q "headlight +40" "$work/log" || fail "no word of the texels' classes: $(cat "$work/log")"
 fi
+# an untouched export of a drivable car (the 911) is none of the changes: its masks are the game's own and the dash mask is not among car_masks'
+if [ -r "$repo/original/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$repo/data/car_masks/P911" ]; then
+    mkdir "$work/real911"
+    "$editor" --export-car P911 --into "$work/real911" --cd "$repo/original" --port-data "$repo/data" --frames 1 >"$work/log" 2>&1 || fail "export of the real 911: $(cat "$work/log")"
+    kit911=$(ls -d "$work"/real911/*/ | head -1)   # its folder is named after the car (p911 here)
+    "$editor" "$kit911" --cd "$repo/original" --port-data "$repo/data" --changes --frames 2 >"$work/log" 2>&1 || fail "--changes of the real 911: $(cat "$work/log")"
+    grep -q "car_masks/P911: 0 changed, 0 new, 0 missing, 7 unchanged" "$work/log" || fail "an untouched 911 export shows changes: $(cat "$work/log")"
+fi
 # ==== Workspace: one folder with cars/ and tracks/, listed on the start screen, where the dialogs start ====
 ws="$work/workspace"
 mkdir -p "$ws"

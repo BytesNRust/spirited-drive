@@ -6,6 +6,8 @@ extern "C" {
 #include "mask_changes.h"
 }
 
+#include "help_marker.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -43,7 +45,9 @@ void masks_changes_section(App *a)
     if (ImGui::Button("Refresh")) ++refresh;
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Read the files again (after your picture editor wrote one)");
     if (!compared.have) {
-        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s", compared.why);
+        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "No game masks to compare with");   // the state in sight; the folder it looked in is behind the (?)
+        ImGui::SameLine();
+        help_marker(compared.why);
         return;
     }
     const MaskChanges &c = compared.changes;
