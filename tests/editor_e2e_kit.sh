@@ -18,7 +18,11 @@ studio --export-car P911 --into "$work/cars" --cd "$orig" --port-data "$data" --
 [ -f "$work/kit/mod.ini" ] && [ -d "$work/kit/model/near/bank" ] || { fail "no kit was made"; exit "$failures"; }
 sed 's/^stem=.*/stem=FLOW911/; s/^id=.*/id=flow911/' "$work/kit/mod.ini" > "$work/mod.ini.new" && mv "$work/mod.ini.new" "$work/kit/mod.ini"
 kit="$work/kit"
-magick -size 309x166 xc:'#808080' "$kit/card.png" || fail "no card.png: the game wants Control Central's picture (309 x 166) in a piece"
+python3 -c 'import sys,zlib,struct
+w,h=309,166
+def ch(t,d): return struct.pack(">I",len(d))+t+d+struct.pack(">I",zlib.crc32(t+d))
+raw=b"".join(b"\0"+b"\x80"*(w*3) for _ in range(h))
+open(sys.argv[1],"wb").write(b"\x89PNG\r\n\x1a\n"+ch(b"IHDR",struct.pack(">IIBBBBB",w,h,8,2,0,0,0))+ch(b"IDAT",zlib.compress(raw))+ch(b"IEND",b""))' "$kit/card.png" || fail "no card.png: the game wants Control Central's picture (309 x 166) in a piece"
 mask="$kit/car_masks/frnt_mask.png"
 [ -f "$mask" ] || fail "the kit has no flat car_masks/frnt_mask.png"
 [ ! -d "$kit/build" ] || fail "a fresh kit has a build/"
