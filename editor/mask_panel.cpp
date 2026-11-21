@@ -1,4 +1,4 @@
-// The mask view (dep59 car editor E3, read-only since dep100): pick a texture of the car and see it with its mask overlaid. Masks are painted in an external
+// The masks of a car (dep59 car editor E3, read-only since dep100): a row for each texture with the state of its mask, and the picked one overlaid on its texture. Masks are painted in an external
 // editor (PSD or PNG); the view reloads when the file changes (app_card_watch).
 #include "help_marker.h"
 #include "panels.h"
@@ -8,8 +8,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-
-const char *const PANEL_MASK_EDIT = "Mask view###Edit mask";   // the id stays the old one, so a saved dock layout still finds the window
 
 namespace {
 
@@ -26,28 +24,41 @@ void muted(const char *format, ...)
     ImGui::PopStyleColor();
 }
 
-void texture_label(const MaskTexInfo &t, bool has_mask, char *out, size_t cap)
-{
-    snprintf(out, cap, "%s%s  %dx%d%s", t.name, t.level == 0 ? "" : " (low)", t.width, t.height, has_mask ? "" : "  - no mask");
-}
-
-// the texture picker
-void texture_picker(App *a)
+// the masks of the car, a row for each texture of the car file with its mask's state; a click shows that mask over its texture
+void mask_list(App *a)
 {
     MaskUi &m = a->mask;
-    char label[96] = "choose a texture";
-    if (m.sel >= 0) texture_label(m.tex[m.sel], true, label, sizeof label);
-    ImGui::SetNextItemWidth(260);
-    if (ImGui::BeginCombo("Texture", label)) {
-        for (int i = 0; i < m.tex_count; ++i) {
-            char row[96];
-            texture_label(m.tex[i], m.has_mask[i] != 0, row, sizeof row);
-            ImGui::BeginDisabled(!m.has_mask[i]);
-            if (ImGui::Selectable(row, i == m.sel) && i != m.sel) app_mask_open(a, i);
-            ImGui::EndDisabled();
-        }
-        ImGui::EndCombo();
+    if (m.tex_count == 0) {
+        muted("The car file has no textures to show (%s).", a->car.cfm[0] != '\0' ? "it could not be read or has none" : "no car file");
+        return;
     }
+    const float rows = fminf((float)m.tex_count, 7.0f);
+    ImGui::BeginDisabled(app_rehacer_busy(a));
+    if (ImGui::BeginTable("masklist", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY, ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * (rows + 1.2f)))) {
+        ImGui::TableSetupScrollFreeze(0, 1);
+        ImGui::TableSetupColumn("Texture", ImGuiTableColumnFlags_WidthStretch, 2.0f);
+        ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+        ImGui::TableSetupColumn("Mask", ImGuiTableColumnFlags_WidthStretch, 2.0f);
+        ImGui::TableHeadersRow();
+        for (int i = 0; i < m.tex_count; ++i) {
+            const MaskTexInfo &t = m.tex[i];
+            char name[48];
+            snprintf(name, sizeof name, "%s%s", t.name, t.level == 0 ? "" : " (low)");
+            ImGui::PushID(i);
+            ImGui::TableNextRow();
+            ImGui::BeginDisabled(!m.has_mask[i]);   // a texture with no mask: its whole row greyed
+            ImGui::TableNextColumn();
+            if (ImGui::Selectable(name, i == m.sel, ImGuiSelectableFlags_SpanAllColumns) && i != m.sel) app_mask_open(a, i);
+            ImGui::TableNextColumn();
+            ImGui::Text("%dx%d", t.width, t.height);
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(app_mask_state(a, i));
+            ImGui::EndDisabled();
+            ImGui::PopID();
+        }
+        ImGui::EndTable();
+    }
+    ImGui::EndDisabled();
 }
 
 void legend(App *a)
@@ -126,7 +137,7 @@ void canvas_view_update(const MaskUi &m, bool hovered)
 
 // the picture, scaled, read-only. The slider, the keys + - 0 (the window has the keyboard) and the wheel on the
 // picture zoom about the middle of the view.
-void canvas(App *a, ImTextureID tex)
+void canvas(App *a, ImTextureID tex, float height)
 {
     MaskUi &m = a->mask;
     MaskEdit &e = m.me;
@@ -162,7 +173,7 @@ void canvas(App *a, ImTextureID tex)
         ImGui::SetNextWindowContentSize(size);
         ImGui::SetNextWindowScroll(ImVec2(mask_edit_zoom_scroll(view.scroll.x, view.size.x, before, scale), mask_edit_zoom_scroll(view.scroll.y, view.size.y, before, scale)));
     }
-    ImGui::BeginChild("canvas", ImVec2(0, 0), ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::BeginChild("canvas", ImVec2(0, height), ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     ImDrawList *pic = ImGui::GetWindowDrawList();
     pic->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerNearest, nullptr);   // hard texels at any zoom, not blurred
@@ -177,57 +188,46 @@ void canvas(App *a, ImTextureID tex)
 
 }   // namespace
 
-// The mask view: the window itself. `tex` is the mask over its texture (made by the caller from mask_edit_compose), 0 when no mask is open.
-void mask_edit_panel(App *a, ImTextureID tex)
+// The Masks window's list of masks and, under it, the open mask over its texture. `tex` is the mask over its texture (made by the caller from mask_edit_compose),
+// 0 when no mask is open. Inside the Masks window (masks_panel), which says when it has the keyboard (MaskUi.focus).
+void mask_view_section(App *a, ImTextureID tex)
 {
     MaskUi &m = a->mask;
-    static int shown = -1, wait = 0;   // a mask just opened brings its window forward (after the dock layout has settled: a focus given in that frame is lost)
-    if (m.sel != shown) {
-        if (m.sel >= 0) wait = 3;
-        shown = m.sel;
+    mask_list(a);
+    if (m.tex_count == 0) return;
+    if (m.error[0] != '\0') ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s", m.error);
+    if (m.sel < 0) {
+        muted("Choose a texture to see its mask over it.");
+        return;
     }
-    if (wait > 0 && --wait == 0) ImGui::SetNextWindowFocus();
-    const bool open = ImGui::Begin(PANEL_MASK_EDIT);
-    m.focus = open && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
-    if (open) {
-        if (m.tex_count == 0) {
-            muted("The car file has no textures to show (%s).", a->car.cfm[0] != '\0' ? "it could not be read or has none" : "no car file");
-        } else {
-            ImGui::BeginDisabled(app_rehacer_busy(a));
-            texture_picker(a);
-            ImGui::EndDisabled();
-            if (m.error[0] != '\0') ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s", m.error);
-            if (m.sel < 0) {
-                char rel[CAR_PROJECT_NAME + 16];
-                car_project_masks_rel(&a->car, rel, sizeof rel);
-                muted("Choose a texture to see its mask over it. The textures with a mask are in %s.", rel);
-            } else {
-                ImGui::Text("%s   %dx%d", m.tex[m.sel].file, m.me.width, m.me.height);
-                if (m.tex_file[0] != '\0') {   // only in a kit: the texture's PNG in its bank folder
-                    ImGui::SameLine();
-                    if (ImGui::Button("Show texture file")) snprintf(a->reveal, sizeof a->reveal, "%s", m.tex_file);
-                    if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip("Show this texture's PNG in the Finder, to paint it in an external image editor.\n%s", m.tex_file);
-                }
-                if (m.note[0] != '\0') {
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
-                    ImGui::TextWrapped("%s", m.note);
-                    ImGui::PopStyleColor();
-                }
-                ImGui::BeginChild("tools", ImVec2(280, 0), ImGuiChildFlags_None);
-                legend(a);
-                ImGui::Spacing();
-                ImGui::BeginDisabled(!(car_race_original_of(&a->car) != nullptr && !app_race_busy(a)));
-                if (ImGui::Button("In-game photo")) app_race(a, 1);
-                ImGui::EndDisabled();
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Runs the game on the masks on disk and shows the picture in the Race window");
-                ImGui::EndChild();
-                ImGui::SameLine();
-                ImGui::BeginGroup();
-                canvas(a, tex);
-                ImGui::EndGroup();
-            }
-        }
+    static int brought = -1;   // a mask just picked (or opened by name) brings the view into sight: the list above may fill the window
+    if (m.sel != brought) {
+        brought = m.sel;
+        ImGui::SetScrollHereY(0.0f);
     }
-    ImGui::End();
+    ImGui::Text("%s   %dx%d", m.tex[m.sel].file, m.me.width, m.me.height);
+    if (m.tex_file[0] != '\0') {   // only in a kit: the texture's PNG in its bank folder
+        ImGui::SameLine();
+        if (ImGui::Button("Show texture file")) snprintf(a->reveal, sizeof a->reveal, "%s", m.tex_file);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Show this texture's PNG in the Finder, to paint it in an external image editor.\n%s", m.tex_file);
+    }
+    if (m.note[0] != '\0') {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.78f, 0.35f, 1.0f));
+        ImGui::TextWrapped("%s", m.note);
+        ImGui::PopStyleColor();
+    }
+    const float height = fmaxf(ImGui::GetContentRegionAvail().y, 260.0f);   // the window scrolls when the view has too little room
+    ImGui::BeginChild("tools", ImVec2(280, height), ImGuiChildFlags_None);
+    legend(a);
+    ImGui::Spacing();
+    ImGui::BeginDisabled(!(car_race_original_of(&a->car) != nullptr && !app_race_busy(a)));
+    if (ImGui::Button("In-game photo")) app_race(a, 1);
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Runs the game on the masks on disk and shows the picture in the Race window");
+    ImGui::EndChild();
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+    canvas(a, tex, height);
+    ImGui::EndGroup();
 }

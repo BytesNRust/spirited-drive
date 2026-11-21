@@ -24,8 +24,12 @@ void app_dash_stale_refresh(App *a)
     StaleReport r;
     a->dash_stale[0] = '\0';
     a->dash_stale_ticks = 0;
+    a->stale_ok = 0;
     if (a->kind != APP_KIND_CAR || car_race_original_of(&a->car) == NULL || !app_psd_psd_dir(a, dir, sizeof dir)) return;
-    if (psd_stale_check(dir, a->car.piece, a->car.folder, drivable(a) != NULL, &r)) psd_stale_text(&r, a->dash_stale, sizeof a->dash_stale);
+    if (!psd_stale_check(dir, a->car.piece, a->car.folder, drivable(a) != NULL, &r)) return;
+    psd_stale_text(&r, a->dash_stale, sizeof a->dash_stale);
+    a->stale = r;
+    a->stale_ok = 1;
 }
 
 int app_dash_possible(const App *a, char *why, size_t why_cap)

@@ -22,7 +22,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
-const char *const PANEL_CAR = "Car", *const PANEL_TEXTURES = "Textures", *const PANEL_MASKS = "Masks", *const PANEL_REHACER = "Rehacer", *const PANEL_RACE = "Drive###Race";   // shown "Drive"; the ### id keeps it apart from the track editor's Drive, which shares the ini (ImGui keys a window's settings by the part after ###: a layout saved with the old "Race" window keeps this one in its dock, checked by hand with an ini the old build wrote)
+const char *const PANEL_CAR = "Car", *const PANEL_MASKS = "Masks", *const PANEL_REHACER = "Rehacer", *const PANEL_RACE = "Drive###Race";   // shown "Drive"; the ### id keeps it apart from the track editor's Drive, which shares the ini (ImGui keys a window's settings by the part after ###: a layout saved with the old "Race" window keeps this one in its dock, checked by hand with an ini the old build wrote)
 
 namespace {
 
@@ -44,13 +44,6 @@ const char *leaf(const char *path)
 {
     const char *slash = strrchr(path, '/');
     return slash != nullptr && slash[1] != '\0' ? slash + 1 : path;
-}
-
-// a list of file names, with how many more there are than the names kept
-void name_list(const char names[][CAR_PROJECT_NAME], int count)
-{
-    for (int i = 0; i < count && i < CAR_PROJECT_LIST; ++i) ImGui::BulletText("%s", names[i]);
-    if (count > CAR_PROJECT_LIST) ImGui::TextDisabled("and %d more", count - CAR_PROJECT_LIST);
 }
 
 }   // namespace
@@ -501,25 +494,9 @@ void car_panel(App *a)
     ImGui::End();
 }
 
-void textures_panel(App *a)
-{
-    if (ImGui::Begin(PANEL_TEXTURES)) {
-        const CarProject &c = a->car;
-        if (!c.has_model) {
-            muted_wrapped("No model/ folder in this car's kit: there are no textures to list.");
-        } else {
-            ImGui::Text("Close up (model/near/bank): %d", c.texture_count);
-            name_list(c.texture, c.texture_count);
-            ImGui::Spacing();
-            ImGui::Text("Far away (model/far/bank): %d", c.far_count);
-        }
-    }
-    ImGui::End();
-}
-
 static ImGuiID masks_dock = 0;   // the dock node Masks is in, where a layout kept from before Rehacer puts it as a tab
 
-void masks_panel(App *a)
+void masks_panel(App *a, ImTextureID tex)
 {
     static char shown[APP_PATH] = "";   // the project whose Masks tab was brought forward: a car just opened shows its masks, not the script's empty log
     static int wait = 0;                // frames to let the dock layout settle first: a focus given in the frame that builds it is lost
@@ -527,9 +504,10 @@ void masks_panel(App *a)
         snprintf(shown, sizeof shown, "%s", a->dir);
         wait = 3;
     }
-    if (wait > 0 && --wait == 0 && !app_rehacer_busy(a) && !a->rehacer.run.finished) ImGui::SetNextWindowFocus();   // a run's log is what to look at, then
+    if (wait > 0 && --wait == 0 && (a->car.masks_only || (!app_rehacer_busy(a) && !a->rehacer.run.finished))) ImGui::SetNextWindowFocus();   // a run's log is what to look at, then
     const bool open = ImGui::Begin(PANEL_MASKS);
     masks_dock = ImGui::GetWindowDockID();
+    a->mask.focus = open && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);   // the keyboard's + - 0 zoom the view
     if (open) {
         const CarProject &c = a->car;
         const bool original = car_race_original_of(&c) != nullptr;   // an exported original car (or its masks): one of the game's own
@@ -583,8 +561,7 @@ void masks_panel(App *a)
             ImGui::Text("Masks of the car (%s): none yet", rel);
         } else {
             ImGui::Text("Masks of the car (%s): %d", rel, c.mask_count);
-            name_list(c.mask, c.mask_count);
-            ImGui::Spacing();
+            ImGui::SameLine();
             if (ImGui::Button("Reveal masks folder")) snprintf(a->reveal, sizeof a->reveal, "%s", masks_path);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Show the folder in the Finder");
             if (original) {   // only one of the game's own cars has its masks in the game's source tree; a mod car's stay in its mod
@@ -596,6 +573,8 @@ void masks_panel(App *a)
                 help_marker(help);
             }
         }
+        ImGui::Spacing();
+        mask_view_section(a, tex);
     }
     ImGui::End();
 }

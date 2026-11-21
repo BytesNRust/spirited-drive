@@ -44,8 +44,7 @@ void car_panel(App *a);
 void rehacer_panel(App *a);   // Rehacer's status and log
 void car_shortcuts(App *a);   // Cmd+S, Cmd+Z, Cmd+Shift+Z / Cmd+Y on a Mac; Ctrl elsewhere (command_keys.h)
 void own_stack_tip(const char *what);   // the tooltip of a window's own Undo / Redo (the card's, a mask's): not the car's one history
-void textures_panel(App *a);
-void masks_panel(App *a);
+void masks_panel(App *a, ImTextureID picture);   // Masks: the changes, Convert PSD, a row for each texture with its mask's state, and the picked mask over its texture (a texture of mask_edit_compose, 0 for none)
 void race_panel(App *a, ImTextureID photo, ImTextureID sheet);   // Test in race and Race photo, the picture (a texture, 0 for none) and the game's log
 void photo_view_panel(App *a, ImTextureID photo);   // the photo in a large window of its own (a->photo_view_open)
 void model_panel(App *a, SDL_Renderer *ren);   // the open car in 3D: drag to turn, wheel to zoom, F S R T Home
@@ -56,7 +55,7 @@ void model_panel_backdrop_file(const char *path);   // a picture as the backdrop
 int model_panel_card_view(App *a, bool card, bool as_card);   // the Card view and As on the card boxes set (the step card-view): 1 when the car is open
 int model_panel_card_photo(App *a);   // «Use as card photo» as its button does it, without the question about a card.png that is there (the step card-photo, through ui_card_photo): 1 when it was made
 void model_panel_shine(bool on);   // the body shine on or off (on by default)   // an orbit for the next car opened (degrees, degrees, model units; dist 0 keeps the home distance)
-void mask_edit_panel(App *a, ImTextureID picture);   // Edit mask: the mask over its texture (a texture of mask_edit_compose, 0 for none), the legend
+void mask_view_section(App *a, ImTextureID picture);   // in Masks: the list of masks with their state and the open mask over its texture
 void preview_panel(App *a, struct SDL_Renderer *ren);   // Preview: the textures as the race paints them, in a paint of the card's
 void preview_free(void);
 void masks_changes_section(App *a);   // in Masks: the project's masks against the game's, a button copies the list
@@ -65,6 +64,6 @@ void export_popup(App *a);    // the Export original car window, up while a->exp
 // the panels' names, as the dock layout places them
 extern const char *const PANEL_POINTS, *const PANEL_LIMITS, *const PANEL_PROBLEMS, *const PANEL_NODE, *const PANEL_PROJECT, *const PANEL_TRACK, *const PANEL_ROAD_KEY;
 extern const char *const PANEL_MODEL, *const PANEL_DRIVE, *const PANEL_LIGHT, *const PANEL_LIGHT_PHOTO, *const PANEL_STRIP;
-extern const char *const PANEL_CAR, *const PANEL_TEXTURES, *const PANEL_MASKS, *const PANEL_REHACER, *const PANEL_RACE, *const PANEL_MASK_EDIT, *const PANEL_PREVIEW;
+extern const char *const PANEL_CAR, *const PANEL_MASKS, *const PANEL_REHACER, *const PANEL_RACE, *const PANEL_PREVIEW;
 
 #endif

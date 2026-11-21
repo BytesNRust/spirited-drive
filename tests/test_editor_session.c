@@ -1521,7 +1521,7 @@ static void check_car_common_history(void)
     CHECK(app_redo(a) && car_edit_modified(&a->edit) && !app_mask_modified(a));   /* redo in the order they were made */
     CHECK(app_redo(a) && app_mask_modified(a));
     CHECK(!app_can_redo(a));
-    a->mask.focus = 1;                                     /* the Edit mask window has the keyboard, and the card is edited after the paint */
+    a->mask.focus = 1;                                     /* the Masks window has the keyboard, and the card is edited after the paint */
     CHECK(car_edit_set_by_text(&a->edit, "year=1991"));
     CHECK(app_undo(a));                                    /* the Edit menu's Undo: the card, the newest */
     CHECK(car_edit_can_redo(&a->edit) && !mask_edit_can_redo(&a->mask.me) && app_mask_modified(a));

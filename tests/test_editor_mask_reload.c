@@ -1,5 +1,5 @@
 /* A mask changed on disk while the car is open (W4, editor/app_mask.c's app_mask_watch): the files are looked at about once a second; a mask with no
- * unsaved edits is read again (the Edit mask window, and through mask.generation the Preview and the Model), one with edits keeps them and says
+ * unsaved edits is read again (the Masks window, and through mask.generation the Preview and the Model), one with edits keeps them and says
  * «Changed on disk» (Reload or Keep mine), and Save does not write over a file changed under it until Keep mine. A synthetic car (a box with a
  * textured side: mesh_build/shpi_build/cfm_build, no game data). */
 #include "app.h"
@@ -235,6 +235,34 @@ static void test_the_open_mask_removed(void)
     free(a);
 }
 
+/* the state a texture's mask shows in the Masks list: from the PSD times when there are PSDs to compare with, else the PNG is the source */
+static void test_the_state_of_a_mask(void)
+{
+    App *a = open_car();
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    const int side = 0;
+    CHECK(a->mask.tex_count > 0 && a->mask.has_mask[side]);
+    CHECK(strcmp(app_mask_state(a, side), "PNG only") == 0);   /* no PSD folder: the PNG is the source */
+    a->stale_ok = 1;
+    a->stale.count = 1;
+    snprintf(a->stale.item[0].png, sizeof a->stale.item[0].png, "%s", a->mask.tex[side].file);
+    a->stale.item[0].state = STALE_OK;
+    CHECK(strcmp(app_mask_state(a, side), "in sync") == 0);
+    a->stale.item[0].state = STALE_NEWER;
+    CHECK(strcmp(app_mask_state(a, side), "PSD newer") == 0);
+    a->stale.item[0].state = STALE_MISSING;
+    CHECK(strcmp(app_mask_state(a, side), "PSD found, no mask yet") == 0);
+    a->stale.item[0].dash = 1;   /* the dash's PSD is not a body texture's */
+    CHECK(strcmp(app_mask_state(a, side), "PNG only") == 0);
+    a->mask.has_mask[side] = 0;
+    CHECK(strcmp(app_mask_state(a, side), "no mask") == 0);
+    CHECK(strcmp(app_mask_state(a, -1), "no mask") == 0);
+    CHECK(strcmp(app_mask_state(a, 999), "no mask") == 0);
+    app_free(a);
+    free(a);
+}
+
 int main(void)
 {
     const char *tmp = getenv("TMPDIR");
@@ -245,6 +273,7 @@ int main(void)
     }
     test_a_mask_changed_on_disk();
     test_the_open_mask_removed();
+    test_the_state_of_a_mask();
     char p[600];
     unlink(mask_path);
     snprintf(p, sizeof p, "%s/car_masks/BOX", root), rmdir(p);

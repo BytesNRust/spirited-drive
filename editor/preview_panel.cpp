@@ -234,7 +234,7 @@ void preview_panel(App *a, SDL_Renderer *ren)
         shown.key_count = -1;
         wait = 3;
     }
-    if (wait > 0 && --wait == 0 && a->mask.sel < 0) ImGui::SetNextWindowFocus();   // (a mask being edited has the front)   // a car just opened shows how the race paints it (after the dock layout has settled: a focus given in that frame is lost)
+    if (wait > 0 && --wait == 0 && a->car.masks_only) ImGui::SetNextWindowFocus();   // (a car's Masks tab has the front)   // a masks project just opened shows how the race paints it (after the dock layout has settled: a focus given in that frame is lost)
     if (ImGui::Begin(PANEL_PREVIEW)) {
         const int count = paint_count(a);
         if (paint >= count) paint = count - 1;

@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -286,4 +287,17 @@ int app_redo(App *a)
     if (a->kind == APP_KIND_TRACK) return app_track_undo(a, 1);
     const int which = redo_of(a);
     return which == 1 ? car_edit_redo(&a->edit) : which == 2 ? mask_edit_redo(&a->mask.me) : 0;
+}
+
+const char *app_mask_state(const App *a, int index)
+{
+    if (index < 0 || index >= a->mask.tex_count) return "no mask";
+    const MaskTexInfo *t = &a->mask.tex[index];
+    if (a->stale_ok)
+        for (int i = 0; i < a->stale.count; ++i) {
+            const StaleItem *it = &a->stale.item[i];
+            if (it->dash || strcasecmp(it->png, t->file) != 0) continue;
+            return it->state == STALE_OK ? "in sync" : it->state == STALE_NEWER ? "PSD newer" : "PSD found, no mask yet";
+        }
+    return a->mask.has_mask[index] ? "PNG only" : "no mask";
 }

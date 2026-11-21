@@ -385,7 +385,7 @@ static void check_textures(const char *cd, const char *data)
     CHECK_EQ_INT(mask_tex_list("/nonexistent.CFM", list, MASK_TEX_LIST), 0);
 }
 
-/* Edit mask's zoom: the keys and the wheel step through the zooms, and every zoom (the slider's too) keeps the texel at the view's middle where it was */
+/* the mask view's zoom: the keys and the wheel step through the zooms, and every zoom (the slider's too) keeps the texel at the view's middle where it was */
 static void check_zoom(void)
 {
     CHECK(mask_edit_zoom_step(1.0f, 1) == 1.5f);

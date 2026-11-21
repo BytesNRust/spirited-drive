@@ -7,6 +7,7 @@
 #include "car_edit.h"
 #include "mask_edit.h"
 #include "mask_tex.h"
+#include "psd_stale.h"
 #include "night_view.h"
 #include "car_export.h"
 #include "car_rehacer.h"
@@ -142,6 +143,8 @@ typedef struct {
     int dash_check;              /* Check dash (app_dash.h): 1 while its Convert PSD runs (the cockpit photo follows) */
     char dash_stale[320];        /* what is older than its PSD, a sentence ("" when nothing): the Masks window's warning */
     int dash_stale_ticks;        /* frames since it was last worked out */
+    StaleReport stale;           /* each PSD of the car against its mask (psd_stale.h), when stale_ok: the Masks window's state column */
+    int stale_ok;                /* stale was worked out for this project (a PSD folder was found) */
     RaceSheet sheet;             /* the Race window's Sheet / Traffic sheet: the cells and their photos (app_sheet.h) */
     int sheet_active, sheet_cur, sheet_stop, sheet_serial;   /* it runs; the cell being photographed (-1 none); it is being stopped; changes when a cell does */
     char sheet_saved[APP_PATH];  /* the PNG the last Save sheet wrote */
@@ -288,6 +291,9 @@ int app_redo(App *a);
 int app_can_undo(const App *a);
 int app_can_redo(const App *a);
 int app_mask_modified(const App *a);
+/* How texture `index`'s mask stands, for the Masks window's list: "in sync", "PSD newer" or "PSD found, no mask yet" when the car has PSDs to compare with
+ * (a->stale, a->stale_ok), else "PNG only" (the PNG is the source) or "no mask". Never NULL. */
+const char *app_mask_state(const App *a, int index);
 /* Masks changed on disk by another program (W4). app_mask_watch looks at the car's mask files when `now` (seconds, any clock that only grows) is a
  * second or more after its last look: a changed, new or removed file moves mask.generation (the Preview and the Model read the masks again) and
  * has_mask; the open mask is read again when it has no unsaved edits (closed when its file went), else it keeps them and mask.disk_changed says

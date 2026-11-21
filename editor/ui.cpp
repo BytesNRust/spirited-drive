@@ -270,16 +270,14 @@ void car_layout(ImGuiID dock)
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
     ImGuiID left = 0, right = 0, masks = 0;
     left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.4f, nullptr, &right);
-    masks = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.3f, nullptr, &right);   // the race and its photo need the room
-    const ImGuiID model = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.6f, nullptr, &right);   // the car in 3D above its textures
+    masks = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.18f, nullptr, &right);   // the log of a script run
+    const ImGuiID model = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.35f, nullptr, &right);   // the car in 3D above its masks, the race and its photo
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
     ImGui::DockBuilderDockWindow(PANEL_MODEL, model);
-    ImGui::DockBuilderDockWindow(PANEL_TEXTURES, right);
-    ImGui::DockBuilderDockWindow(PANEL_RACE, right);   // a tab beside Textures
-    ImGui::DockBuilderDockWindow(PANEL_MASK_EDIT, right);   // and the mask editor, which needs the room
+    ImGui::DockBuilderDockWindow(PANEL_MASKS, right);   // the masks, which need the room
+    ImGui::DockBuilderDockWindow(PANEL_RACE, right);   // a tab beside Masks
     ImGui::DockBuilderDockWindow(PANEL_PREVIEW, right);
-    ImGui::DockBuilderDockWindow(PANEL_REHACER, masks);   // a tab beside Masks, which is the one in front
-    ImGui::DockBuilderDockWindow(PANEL_MASKS, masks);
+    ImGui::DockBuilderDockWindow(PANEL_REHACER, masks);
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -299,7 +297,7 @@ void light_layout(ImGuiID dock)
     ImGui::DockBuilderFinish(dock);
 }
 
-// the layout of a masks project: its facts on the left, the masks and under them the race on the right (it has no textures to list and no script to run)
+// the layout of a masks project: its facts on the left, the masks (list and view) and the race on the right (it has no script to run)
 void masks_layout(ImGuiID dock)
 {
     ImGui::DockBuilderRemoveNode(dock);
@@ -307,12 +305,11 @@ void masks_layout(ImGuiID dock)
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
     ImGuiID left = 0, right = 0, race = 0;
     left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.3f, nullptr, &right);
-    race = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.5f, nullptr, &right);   // the masks list and its changes need room above
+    race = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.4f, nullptr, &right);   // the masks list, its changes and the view need room above
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
-    ImGui::DockBuilderDockWindow(PANEL_MODEL, right);   // a tab beside Masks
-    ImGui::DockBuilderDockWindow(PANEL_MASKS, right);
+    ImGui::DockBuilderDockWindow(PANEL_MASKS, right);   // alone above: the list and the view need the room
+    ImGui::DockBuilderDockWindow(PANEL_MODEL, race);
     ImGui::DockBuilderDockWindow(PANEL_RACE, race);
-    ImGui::DockBuilderDockWindow(PANEL_MASK_EDIT, race);
     ImGui::DockBuilderDockWindow(PANEL_PREVIEW, race);
     ImGui::DockBuilderFinish(dock);
 }
@@ -350,7 +347,7 @@ void shortcuts(App *a)
 
 const char *const TRACK_PANELS[] = { "Viewport", PANEL_TRACK, PANEL_PROJECT, PANEL_POINTS, PANEL_NODE, PANEL_ROAD_KEY, PANEL_LIMITS, PANEL_PROBLEMS, PANEL_STRIP, PANEL_DRIVE };
 
-// the panels of the mode on screen, as the Window menu lists them (a car's Textures and Rehacer are not a masks project's)
+// the panels of the mode on screen, as the Window menu lists them (a car's Rehacer is not a masks project's)
 int mode_panels(const App *a, const char *out[], int cap)
 {
     if (a->kind == APP_KIND_TRACK) {
@@ -365,7 +362,7 @@ int mode_panels(const App *a, const char *out[], int cap)
     }
     if (a->kind != APP_KIND_CAR) return 0;
     const bool masks = a->car.masks_only;
-    const char *const all[] = { PANEL_CAR, PANEL_MODEL, masks ? nullptr : PANEL_TEXTURES, PANEL_RACE, PANEL_MASK_EDIT, PANEL_PREVIEW, PANEL_MASKS,
+    const char *const all[] = { PANEL_CAR, PANEL_MODEL, PANEL_RACE, PANEL_PREVIEW, PANEL_MASKS,
                                 masks ? nullptr : PANEL_REHACER };
     int n = 0;
     for (const char *name : all)
@@ -400,7 +397,7 @@ void uncollapse_panels(const App *a)
 // as on a first run, so it is chosen here)
 void front_tabs(const App *a)
 {
-    const char *const track[] = { PANEL_LIMITS, PANEL_NODE }, *const car[] = { PANEL_PREVIEW, PANEL_REHACER }, *const masks[] = { PANEL_MODEL, PANEL_PREVIEW };
+    const char *const track[] = { PANEL_LIMITS, PANEL_NODE }, *const car[] = { PANEL_MASKS, PANEL_REHACER }, *const masks[] = { PANEL_MASKS, PANEL_PREVIEW };
     const char *const *names = a->kind == APP_KIND_TRACK ? track : a->car.masks_only ? masks : car;
     if (a->kind == APP_KIND_NONE || a->kind == APP_KIND_LIGHT) return;   // the light window has no tabs
     for (int i = 0; i < 2; ++i) ImGui::SetWindowFocus(names[i]);
@@ -849,13 +846,11 @@ void ui_frame(SDL_Renderer *ren, App *a)
         }
         if (a->confirm == APP_ACT_NONE) car_shortcuts(a);
         if (panel_open(PANEL_CAR)) car_panel(a);
-        if (!a->car.masks_only && panel_open(PANEL_TEXTURES)) textures_panel(a);   // nor textures: only its masks
         if (panel_open(PANEL_MODEL)) model_panel(a, ren);
-        if (panel_open(PANEL_MASKS)) masks_panel(a);
+        if (panel_open(PANEL_MASKS)) masks_panel(a, mask_texture(ren, a));
         const ImTextureID photo = photo_texture(ren, a);
         if (panel_open(PANEL_RACE)) race_panel(a, photo, sheet_texture(ren, a));
         photo_view_panel(a, photo);
-        if (panel_open(PANEL_MASK_EDIT)) mask_edit_panel(a, mask_texture(ren, a));
         if (panel_open(PANEL_PREVIEW)) preview_panel(a, ren);
         if (!a->car.masks_only && panel_open(PANEL_REHACER)) rehacer_panel(a);   // a masks project has no script
     } else if (a->kind == APP_KIND_LIGHT) {   // the Track light window has a dock space of its own
