@@ -6,6 +6,7 @@
 #include "formats/mod_ini.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,6 +27,9 @@ int car_photos_import(const char *source, const char *piece, const char *name, c
 
 /* Of the `made_n` files Studio made in `piece` (`made`), removes those `listed` (the card's photos= text) does not name. Other files are never touched. How many were removed. */
 int car_photos_sweep(const char *piece, char (*made)[MOD_INI_PHOTO_NAME_MAX + 1], int made_n, const char *listed);
+
+/* the size of the PNG `name` in `piece`, read from its header: 1 with *w and *h, 0 when there is no such readable picture */
+int car_photos_size(const char *piece, const char *name, uint32_t *w, uint32_t *h);
 
 #ifdef __cplusplus
 }

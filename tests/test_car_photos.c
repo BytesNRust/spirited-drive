@@ -73,6 +73,9 @@ static void test_import_and_sweep(const char *dir)
     CHECK(car_photos_import(src, piece, "side.png", why, sizeof why));
     snprintf(dst, sizeof dst, "%s/side.png", piece);
     CHECK(exists(dst));
+    uint32_t sw = 0, sh = 0;
+    CHECK(car_photos_size(piece, "side.png", &sw, &sh) && sw == 450 && sh == 254);   /* from the header */
+    CHECK(!car_photos_size(piece, "none.png", &sw, &sh));
     snprintf(dst, sizeof dst, "%s/side.png.tmp", piece);
     CHECK(!exists(dst));   /* staged and renamed */
     /* a picture the showcase cannot use: refused with its size, nothing copied */

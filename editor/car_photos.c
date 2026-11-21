@@ -165,3 +165,15 @@ int car_photos_sweep(const char *piece, char (*made)[NAME], int made_n, const ch
     }
     return removed;
 }
+
+int car_photos_size(const char *piece, const char *name, uint32_t *w, uint32_t *h)
+{
+    char path[4200];
+    uint8_t head[64];
+    const int n = snprintf(path, sizeof path, "%s/%s", piece, name);
+    FILE *f = (n > 0 && (size_t)n < sizeof path) ? fopen(path, "rb") : NULL;
+    if (f == NULL) return 0;
+    const size_t got = fread(head, 1, sizeof head, f);
+    fclose(f);
+    return png_size(head, got, w, h) == PNG_OK;
+}

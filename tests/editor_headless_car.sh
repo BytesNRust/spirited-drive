@@ -93,6 +93,42 @@ cmp -s "$work/card.before" "$work/kit/mod.ini" || fail "a refused Save changed m
 "$editor" "$work/kit" --frames 2 --set nokey=1 >"$work/log" 2>&1 && fail "--set accepted a key that is not editable"
 rm -f "$work/kit/project.ini"
 
+# ==== Showcase photos: Add photo, Save, refusals ====
+# a PNG is copied into the car's folder under a safe name and named on the card (photos=); Save writes the line; a picture of a size the showcase cannot use is refused with
+# its size and nothing is copied; a copy made by an earlier run is the author's: a shorter list is saved and the file stays (the sweep itself is test_car_photos)
+mkdir -p "$work/shots-in"
+png() {   # png FILE W H
+    python3 -c "
+import struct, sys, zlib
+w, h = int(sys.argv[2]), int(sys.argv[3])
+raw = b''.join(b'\\x00' + b'\\x30\\x60\\xc0\\xff' * w for _ in range(h))
+def chunk(t, d): return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+open(sys.argv[1], 'wb').write(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
+" "$@"
+}
+png "$work/shots-in/Side View.PNG" 450 254 || fail "could not write a showcase picture"
+png "$work/shots-in/tiny.png" 50 30 || fail "could not write a tiny picture"
+cp "$work/kit/coche/mod.ini" "$work/card.before"
+"$editor" "$work/kit" --frames 3 --add-photo "$work/shots-in/Side View.PNG" --add-photo "$work/shots-in/Side View.PNG" --save --shot "$work/photos.png" >"$work/log" 2>&1 || fail "Add photo and Save: $(cat "$work/log")"
+grep -q '^photos=side-view.png,side-view-2.png$' "$work/kit/coche/mod.ini" || fail "photos= is not the two safe names: $(cat "$work/kit/coche/mod.ini")"
+[ -s "$work/kit/coche/side-view.png" ] && [ -s "$work/kit/coche/side-view-2.png" ] || fail "the photos were not copied into the car's folder"
+cmp -s "$work/shots-in/Side View.PNG" "$work/kit/coche/side-view.png" || fail "the copy is not the picture"
+[ -s "$work/photos.png" ] || fail "no PNG of the Showcase photos"
+ls "$work/kit/coche" | grep -q '\.tmp$' && fail "a staged file was left behind"
+"$editor" "$work/kit" --frames 2 --add-photo "$work/shots-in/tiny.png" >"$work/log" 2>&1 && fail "a 50x30 picture was accepted as a showcase photo"
+grep -q "50x30" "$work/log" || fail "no word about the size: $(cat "$work/log")"
+[ -e "$work/kit/coche/tiny.png" ] && fail "a refused picture was copied"
+"$editor" "$work/kit" --frames 2 --add-photo "$work/shots-in/nothing.png" >"$work/log" 2>&1 && fail "a picture that is not there was accepted"
+# the copies are the author's now (a later run did not make them): a shorter list is written and the files stay
+"$editor" "$work/kit" --frames 2 --set photos=side-view.png --save >"$work/log" 2>&1 || fail "Save of a shorter list: $(cat "$work/log")"
+grep -q '^photos=side-view.png$' "$work/kit/coche/mod.ini" || fail "the shorter list was not written"
+[ -s "$work/kit/coche/side-view-2.png" ] || fail "Save removed a file this run did not make"
+"$editor" "$work/kit" --frames 2 --set photos=side-view.png,side-view.png --save >"$work/log" 2>&1 && fail "Save went with a photo named twice"
+grep -q "Showcase photos" "$work/log" || fail "no word about the photos: $(cat "$work/log")"
+grep -q '^photos=side-view.png$' "$work/kit/coche/mod.ini" || fail "a refused Save changed the card"
+cp "$work/card.before" "$work/kit/coche/mod.ini"
+rm -f "$work/kit/coche/side-view.png" "$work/kit/coche/side-view-2.png"
+
 # ==== Rehacer ====
 # Rehacer: a kit with no rehacer.command says so; unsaved card changes refuse it; the script runs with the kit as its folder after the kit is backed up, and its
 # exit code is the run's

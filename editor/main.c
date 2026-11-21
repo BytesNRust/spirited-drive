@@ -57,6 +57,8 @@ typedef struct {
     int test_drive;           /* --test-drive: Test drive as the Drive window runs it, until the game's log says whether it took the track; then the game is stopped */
     const char *set[8];      /* --set key=value, a car's field set before the first frame (a headless picture of a problem, a save of a change) */
     int set_count;
+    const char *add_photo[8];   /* --add-photo FILE.png (up to 8): a showcase photo added to the open car before the first frame, as Add photo... does */
+    int add_photo_count;
     const char *light_pick;  /* --light TRACK:TIME:NODE (CY1:N:70): the Track light window's first track, time of day (A, B, C or N) and photo node, for a headless picture or flow */
     const char *light_compare;   /* --compare off|before|four: what the Track light window shows beside the photo (part D) */
     const char *light_dir;   /* --light-dir DIR: the folder whose track_light/ the Track light window tunes (default: the source tree's data/) */
@@ -94,7 +96,7 @@ static int usage(void)
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--workspace DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--photo-view] [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
-                    "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-light PERCENT] [--night-tint R,G,B] [--preview-tex NAME] [--changes] [--card-backdrop FILE.png]\n"
+                    "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-light PERCENT] [--night-tint R,G,B] [--preview-tex NAME] [--changes] [--card-backdrop FILE.png] [--add-photo FILE.png]...\n"
                     "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--compare off|before|four]] [--steps STEP,...]\n");
     return 0;
 }
@@ -156,6 +158,7 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--photo-view") == 0) o->photo_view = 1;
         else if (strcmp(argv[i], "--night") == 0) o->night = 1;
         else if (strcmp(argv[i], "--orbit") == 0 && has_value) o->orbit = argv[++i];
+        else if (strcmp(argv[i], "--add-photo") == 0 && has_value && o->add_photo_count < 8) o->add_photo[o->add_photo_count++] = argv[++i];
         else if (strcmp(argv[i], "--card-backdrop") == 0 && has_value) o->card_backdrop = argv[++i];
         else if (strcmp(argv[i], "--shine") == 0 && has_value) o->shine = argv[++i];
         else if (strcmp(argv[i], "--track") == 0 && has_value) o->track = argv[++i];
@@ -313,8 +316,8 @@ static void dialog_start(SDL_Window *win, App *a, AppAction kind)
     SDL_ShowOpenFolderDialog(dialog_done, &g_dialog, win, where[0] != '\0' ? where : NULL, false);
 }
 
-/* The file dialog for the card photo's backdrop picture (a PNG), starting beside the picture already chosen, else where the open car lives */
-static void file_dialog_start(SDL_Window *win, const App *a, const char *from)
+/* The file dialog for a PNG picture (the card photo's backdrop, or a showcase photo: `kind`), starting beside the picture already chosen, else where the open car lives */
+static void file_dialog_start(SDL_Window *win, const App *a, const char *from, AppAction kind)
 {
     if (g_dialog.lock == NULL) g_dialog.lock = SDL_CreateMutex();
     if (g_dialog.lock == NULL || g_dialog.open) return;
@@ -325,7 +328,7 @@ static void file_dialog_start(SDL_Window *win, const App *a, const char *from)
     if (from[0] != '\0' && slash != NULL && slash != where) *slash = '\0';
     g_dialog.open = 1;
     g_dialog.ready = 0;
-    g_dialog.kind = APP_ACT_BACKDROP_PICK;
+    g_dialog.kind = kind;
     SDL_ShowOpenFileDialog(dialog_done, &g_dialog, win, PNG_FILES, 1, where[0] != '\0' ? where : NULL, false);
 }
 
@@ -392,6 +395,10 @@ static void take_dialog(App *a)
     SDL_UnlockMutex(g_dialog.lock);
     if (path[0] == '\0') {
         if (answered) app_pick_cancelled(a);   /* a cancelled picker: the answer given before it is dropped */
+        return;
+    }
+    if (kind == APP_ACT_PHOTO_PICK) {   /* a showcase photo: copied into the car's folder, named on the card (an undo step); no question */
+        app_add_photo(a, path);
         return;
     }
     if (kind == APP_ACT_BACKDROP_PICK) {   /* a picture for the card photo: nothing in the project changes, no question */
@@ -660,6 +667,16 @@ static int run(App *a, const Options *o)
             return 0;   /* a run that did not go */
         }
     }
+    for (int i = 0; i < o->add_photo_count; ++i) {   /* showcase photos, as Add photo... does it */
+        if (!app_add_photo(a, o->add_photo[i])) {
+            fprintf(stderr, "--add-photo %s: %s\n", o->add_photo[i], a->status);
+            ui_close();
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            return 0;   /* a run that did not go */
+        }
+    }
     if (o->edit) app_add_point(a);   /* and of the confirmation: something unsaved ... */
     if (o->pick != NULL && !pick_car(a, o->pick)) {
         fprintf(stderr, "--pick %s: not a car Export original car knows\n", o->pick);
@@ -714,7 +731,11 @@ static int run(App *a, const Options *o)
         take_dialog(a);
         if (a->backdrop_dialog) {   /* the Model window's Choose... (a headless run has the typed path and --card-backdrop) */
             a->backdrop_dialog = 0;
-            if (!headless) file_dialog_start(win, a, ui_card_backdrop_path());
+            if (!headless) file_dialog_start(win, a, ui_card_backdrop_path(), APP_ACT_BACKDROP_PICK);
+        }
+        if (a->photo_dialog) {   /* the Car window's Add photo... (a headless run has --add-photo) */
+            a->photo_dialog = 0;
+            if (!headless) file_dialog_start(win, a, "", APP_ACT_PHOTO_PICK);
         }
         if (a->reveal[0] != '\0') {   /* a folder or file to show in the Finder (the Masks window's and the Mask panel's buttons) */
             if (!headless) reveal(a);

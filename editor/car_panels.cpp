@@ -13,6 +13,7 @@ extern "C" {
 #include "car_race.h"
 #include "app_dash.h"
 #include "app_sheet.h"
+#include "car_photos.h"
 #include "formats/car_piece.h"
 }
 
@@ -231,6 +232,49 @@ void word_row(App *a, int field, const char *none, const char *const *words, int
     if (bad != nullptr) problem_text(bad->text);
 }
 
+// the Showcase photos: the pictures the game's Car Showcase shows for this car, in order (the card's photos= line, an undo step each)
+void photos_section(App *a, const CarEditProblem *problems, int count)
+{
+    char names[MOD_INI_PHOTOS_MAX][MOD_INI_PHOTO_NAME_MAX + 1];
+    const int n = car_photos_split(a->edit.now.value[CE_PHOTOS], names, MOD_INI_PHOTOS_MAX);
+    ImGui::SeparatorText("Showcase photos");
+    ImGui::SameLine();
+    help_marker("The pictures of this car in the game's Car Showcase, in this order. Add photo... copies a PNG (100x60 to 1280x960; 450x254 fits the page) into the car's folder "
+                "under a safe name and lists it on the card (photos=). Save writes the line, and removes the copies you took off the list.");
+    if (n == 0) muted_wrapped("None: the showcase shows only the card photo.");
+    for (int i = 0; i < n; ++i) {
+        uint32_t w = 0, h = 0;
+        const bool there = car_photos_size(a->car.piece, names[i], &w, &h) != 0;
+        ImGui::PushID(i);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(names[i]);
+        ImGui::SameLine();
+        if (there) ImGui::TextDisabled("%ux%u", (unsigned)w, (unsigned)h);
+        else {
+            ImGui::TextColored(BAD_TEXT, "missing");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("The car's folder has no PNG of this name");
+        }
+        ImGui::SameLine();
+        ImGui::BeginDisabled(i == 0);
+        if (ImGui::SmallButton("Up")) app_photo_move(a, i, -1);
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(i == n - 1);
+        if (ImGui::SmallButton("Down")) app_photo_move(a, i, 1);
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Remove")) app_photo_remove(a, i);
+        ImGui::PopID();
+    }
+    const CarEditProblem *bad = problem_for(problems, count, CE_PHOTOS);
+    if (bad != nullptr) problem_text(bad->text);
+    const bool full = n >= MOD_INI_PHOTOS_MAX;
+    ImGui::BeginDisabled(full);
+    if (ImGui::Button("Add photo...")) a->photo_dialog = 1;
+    ImGui::EndDisabled();
+    if (full && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("A card keeps up to %d photos", MOD_INI_PHOTOS_MAX);
+}
+
 void colors_section(App *a, const CarEditProblem *problems, int count)
 {
     CarEditState &s = a->edit.now;
@@ -394,7 +438,7 @@ void car_panel(App *a)
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             ImGui::SetTooltip("%s", running ? "Rehacer is running" : has_script ? "Run this kit's rehacer.command (the kit is backed up first)" : "This kit has no rehacer.command");
         ImGui::SameLine();
-        help_marker("Save writes only mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is.");
+        help_marker("Save writes only mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is; the showcase photos you add are copied into the folder, and Save removes the copies you took off the list.");
         if (a->cdisk.card_changed) {   // another program wrote mod.ini while the card has unsaved changes here
             ImGui::TextColored(ImVec4(0.95f, 0.78f, 0.35f, 1.0f), "Changed on disk");
             ImGui::SameLine();
@@ -445,6 +489,7 @@ void car_panel(App *a)
             ImGui::EndTable();
         }
         colors_section(a, problems, count);
+        photos_section(a, problems, count);
         ImGui::EndDisabled();
     }
     ImGui::End();

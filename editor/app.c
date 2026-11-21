@@ -594,6 +594,7 @@ int app_save(App *a)
             return 0;
         }
         if (changed) app_card_keep_mine(a);   /* our own write is not a change on disk */
+        app_photos_swept(a);
         if (a->mask.sel >= 0 && app_mask_modified(a)) return app_mask_save(a);
         set_status(a, changed ? "saved mod.ini" : "nothing to save: mod.ini is as it was");
         return 1;

@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 
+enum { APP_PHOTOS_MADE = 16 };
 enum {
     APP_PATH = 4096,
     APP_MSG = 320,
@@ -53,6 +54,7 @@ typedef enum {
     APP_ACT_LIGHT_AT,    /* the folder that dialog gave, in the path: the window is on it (app_light_set_folder) */
     APP_ACT_MAIN,        /* back to the main menu (the hub): the project is closed (app_close_project), after the question about unsaved changes */
     APP_ACT_WORKSPACE_PICK, /* a workspace folder is asked for (main.c's dialog); the folder that dialog gives is the workspace at once (app_workspace_set), with no question about unsaved changes */
+    APP_ACT_PHOTO_PICK, /* main.c's file dialog is on screen for a showcase photo (a->photo_dialog asks for it): the picture is copied into the car's folder when it comes back, so no question */
     APP_ACT_BACKDROP_PICK /* main.c's file dialog is on screen for the card photo's backdrop picture (a->backdrop_dialog asks for it): nothing in the project changes, so no question */
 } AppAction;
 
@@ -120,6 +122,9 @@ typedef struct {
     char game_memo[APP_PATH];    /* the file that remembers the game the user located ("" for none) */
     char user[APP_PATH];         /* the player folder the install goes to */
     ExportSource export_src;     /* where Export original car reads the game's files from (car_export_source) */
+    char photos_made[APP_PHOTOS_MADE][25];   /* the showcase photo files Studio copied into the car's folder (app_photos.c): the ones Save removes when the card stops naming them */
+    int photos_made_n;
+    int photo_dialog;            /* the Car window's Add photo... asks main.c for a PNG file dialog; main.c takes it back to 0 */
     int backdrop_dialog;         /* the Model window's Choose... asks main.c for a PNG file dialog (the card photo's backdrop); main.c takes it back to 0 */
     int export_dialog;           /* the Export original car window is up */
     int export_pick;             /* the car chosen in it (car_export_car's index), -1 for none */
@@ -444,6 +449,16 @@ int app_set_game(App *a, const char *picked);
 int app_game_found(const App *a);
 
 int app_save(App *a);
+
+/* The showcase photos (app_photos.c; the card's photos= line is CE_PHOTOS, so each is one undo step). Add copies the picture at `source` into the car's folder under a safe
+ * name (size-checked: 100x60 to 1280x960) and names it last; 1, or 0 with the reason in a->status. Remove and Move (by -1 up, +1 down) change the list only. */
+int app_add_photo(App *a, const char *source);
+int app_photo_remove(App *a, int index);
+int app_photo_move(App *a, int index, int by);
+/* after a Save of the card: the files Studio made that the card does not name are removed */
+void app_photos_swept(App *a);
+/* 1 when the car's folder has a file called `name` */
+int app_photo_file_ok(const App *a, const char *name);
 int app_build(App *a);
 /* Install starts the game's installer and returns (1 when it started): app_install_poll (every frame) says its end in the status, "installed into ..." or
  * "install failed: ..."; 1 while it runs. One at a time; no test drive and nothing opened while it runs. */
