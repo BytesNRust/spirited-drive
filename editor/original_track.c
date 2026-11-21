@@ -293,7 +293,8 @@ void original_track_publish_text(const OriginalPublish *p, const char *stem, cha
     size_t n = (size_t)snprintf(out, cap, "%s:", stem);
     for (int i = 0; i < p->count && n < cap; ++i) {
         const OriginalPublishItem *it = &p->item[i];
-        if (it->state == OT_CHANGED) n += (size_t)snprintf(out + n, cap - n, "\n  %s changed (+%d -%d lines)", it->file, it->lines_added, it->lines_removed);
+        const int mask = strncmp(it->file, "track_masks/", 12) == 0;
+        if (it->state == OT_CHANGED) n += (size_t)snprintf(out + n, cap - n, "\n  %s changed (+%d -%d %s)", it->file, it->lines_added, it->lines_removed, mask ? "texels" : "lines");
         else if (it->state == OT_NEW) n += (size_t)snprintf(out + n, cap - n, "\n  %s new", it->file);
     }
     if (n < cap) snprintf(out + n, cap - n, "\n  %d unchanged", p->same);

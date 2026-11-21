@@ -9,6 +9,7 @@
 #include "mask_tex.h"
 #include "psd_stale.h"
 #include "original_track.h"
+#include "track_masks.h"
 #include "night_view.h"
 #include "car_export.h"
 #include "car_project.h"
@@ -110,9 +111,17 @@ typedef struct {
     char data_dir[APP_PATH];     /* the game's data/ as a source tree has it (--port-data, --light-dir, the tree the program was built from): where the original tracks are added from and published to; "" for none (a packaged app) */
     char art_dir[APP_PATH];      /* the owner's track mask PSDs, <TRACK>/<name>.psd (--art-dir, else art/tnfs-masks/tracks beside the source tree); "" for none */
     char original_dir[APP_PATH]; /* the original track's folder the Track light window is on (<workspace>/tracks/<STEM>); "" for the plain window of a light folder */
+    TrackMasks tmasks;           /* the masks of the original track on screen (track_masks.h), scanned when it opens and after Regenerate; tmasks_loaded 0 until then */
+    int tmasks_loaded;
+    int tmask_sel;               /* the row on show, -1 for none */
+    uint8_t *tmask_rgba;         /* its picture, tmask_w x tmask_h: the track's texture with the mask over it (just the mask when the game's files are not found); NULL for none */
+    int tmask_w, tmask_h;
+    unsigned tmask_serial;       /* counts the pictures made, for the texture */
+    char tmask_note[200];        /* why there is no picture, or what Regenerate did */
     int original_dialog;         /* the Open original track window is up */
     int publish_dialog;          /* the Publish to the game window is up, with its preview in publish_text */
-    char publish_text[640];
+    OriginalPublish publish_plan;   /* what the preview lists: the light files and the masks of the original track against data/ */
+    char publish_text[4096];
     CarDisk cdisk;               /* mod.ini, the car file and the textures as the editor last saw them (app_card_watch) */
     CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
     char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */
@@ -335,6 +344,13 @@ int app_open_original(App *a, const char *dir);
 int app_original_can_publish(const App *a);
 int app_original_publish_ask(App *a);
 int app_original_publish(App *a);
+/* The Masks panel of an original track (app_track_masks.c, editor only). app_track_masks_load scans the folder and makes the PNGs of the PSDs that need them (NEW and STALE), once
+ * per open; app_track_masks_refresh scans again. app_track_mask_select puts row `i`'s picture in tmask_rgba; app_track_mask_regenerate makes the selected one's PNG from its PSD
+ * again (after the warning: it replaces a PNG edited by hand). 1, or 0 with the reason in tmask_note. */
+int app_track_masks_load(App *a);
+int app_track_masks_refresh(App *a);
+int app_track_mask_select(App *a, int i);
+int app_track_mask_regenerate(App *a);
 /* The window on another light folder (the Choose... button): refused, with light.error and the status, while the working copy has unsaved changes or when the folder
  * is no light folder (light_session_open's reason); then nothing changes. 1 when it is on the folder, kept as a->light_dir for the rest of the session. */
 int app_light_set_folder(App *a, const char *dir);

@@ -16,6 +16,7 @@
 
 #include <stddef.h>
 
+#include "original_track.h"
 #include "track_tex.h"
 
 enum { TM_MAX = TRACK_TEX_MAX, TM_NOTE = 160 };
@@ -48,6 +49,16 @@ int track_masks_generate(const char *dir, const TrackMasks *rows, int *written, 
 
 /* Regenerate from PSD: the PNG of that one name made from its PSD even when it was edited by hand (not from an empty mask layer: refused, 0 with `why`). */
 int track_masks_regenerate(const char *dir, const char *name, char *why, size_t why_cap);
+
+/* The marks of a mask PNG as the game reads it (red 128 or more and opaque: reflective; red and green 128 or more with blue under 128: a lamp): `*marks` is w x h bytes of
+ * TRACK_MASK_* (formats/psd_mask.h), malloc'd. 1, or 0 when the file does not read. */
+int track_masks_load(const char *dir, const char *name, unsigned char **marks, unsigned *w, unsigned *h);
+
+/* Publishing the masks (the light files are original_track.h's): appends to `plan` an item for each PNG of art-generated/track_masks, "track_masks/<STEM>/<name>.png" relative to
+ * data/: same (the game's PNG marks the same texels), changed (with the texels gained and lost) or new. Compared as marks, so a PNG another encoder wrote is the same. 1, or 0 with `why`. */
+int track_masks_publish_plan(const char *dir, const char *data_dir, const char *stem, OriginalPublish *plan, char *why, size_t why_cap);
+/* Copies the changed and new mask items of `plan` into data/ (the folder made when missing); `written` is added to. 1, or 0 with `why`. */
+int track_masks_publish(const char *dir, const char *data_dir, const OriginalPublish *plan, int *written, char *why, size_t why_cap);
 
 /* a word for the state, for the panel and the tests: "ok", "new", "stale", "edited by hand", "PNG is the source", "no mask painted in the PSD", "unreadable PSD" */
 const char *track_mask_state_text(TrackMaskState s);

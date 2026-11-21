@@ -36,6 +36,9 @@ void light_tone_rows(App *a);
 extern const char *const PANEL_LIGHT_COMPARE;
 void light_compare_panel(App *a, const ImTextureID photos[LIGHT_COMPARE_SLOTS]);
 void light_photo_panel(App *a, ImTextureID photo);
+// an original track's masks (track_masks_panel.cpp): the rows and the picked mask over its texture (a texture of a->tmask_rgba, 0 for none)
+extern const char *const PANEL_TRACK_MASKS;
+void track_masks_panel(App *a, ImTextureID picture);
 void light_shortcuts(App *a);   // Cmd+S saves the light file
 
 // the start screen (nothing open) and the open car's panels: its card, its textures, its masks
