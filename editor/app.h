@@ -8,6 +8,7 @@
 #include "mask_edit.h"
 #include "mask_tex.h"
 #include "psd_stale.h"
+#include "original_track.h"
 #include "night_view.h"
 #include "car_export.h"
 #include "car_project.h"
@@ -106,6 +107,12 @@ typedef struct {
     LightUi light;               /* the Track light window (light_ui.h), when kind is APP_KIND_LIGHT */
     char light_dir[APP_PATH];    /* the light folder the Track light window tunes: its track_light/ and track/ (--light-dir, else the source tree's data/); "" for none */
     MaskUi mask;                 /* the masks window's state (editor/mask_edit.h), when kind is APP_KIND_CAR */
+    char data_dir[APP_PATH];     /* the game's data/ as a source tree has it (--port-data, --light-dir, the tree the program was built from): where the original tracks are added from and published to; "" for none (a packaged app) */
+    char art_dir[APP_PATH];      /* the owner's track mask PSDs, <TRACK>/<name>.psd (--art-dir, else art/tnfs-masks/tracks beside the source tree); "" for none */
+    char original_dir[APP_PATH]; /* the original track's folder the Track light window is on (<workspace>/tracks/<STEM>); "" for the plain window of a light folder */
+    int original_dialog;         /* the Open original track window is up */
+    int publish_dialog;          /* the Publish to the game window is up, with its preview in publish_text */
+    char publish_text[640];
     CarDisk cdisk;               /* mod.ini, the car file and the textures as the editor last saw them (app_card_watch) */
     CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
     char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */
@@ -310,11 +317,24 @@ int app_track_undo(App *a, int redo);
  * caller asked first: app_ask APP_ACT_OPEN_LIGHT) and opens the window on that folder, at the first track's day; 0, with open_error, when the folder is no light folder. */
 void app_set_light_dir(App *a, const char *dir);
 int app_open_light(App *a);
+int app_open_light_on(App *a, int track);   /* the same on the light folder a->light_dir, at that track (light_ui_track's index) */
 /* The game's own light folder: <program's folder>/../Resources/data (a packaged app) or <program's folder>/data, the first that holds a track_light/ folder; 1 and its
  * path in `out`, else 0. A packaged Studio has no source tree to tune, so this is what it offers until a folder is chosen. */
 /* 1 when a path runs through a folder named *.app (Save refuses those; no default is taken there) */
 int app_light_in_bundle(const char *path);
 int app_light_default_dir(const char *game, char *out, size_t cap);
+
+/* Original tracks (dep103; app_original.c). app_set_game_data says where the game's data/ and the art folder are (either may be ""; an empty art folder is looked for beside the
+ * source tree). app_original_add_all makes the sixteen CD tracks projects of the workspace (copies, nothing overwritten); 1, or 0 with the reason in status. app_open_original closes what is
+ * open (the caller asked first) and opens the Track light window on that original track's folder: its own light files, the track fixed. app_original_publish_ask makes the preview
+ * (publish_text) and puts the window up; app_original_publish copies the changed light files into data/. */
+void app_set_game_data(App *a, const char *data_dir, const char *art_dir);
+int app_original_add_all(App *a);
+int app_original_count(const App *a);   /* how many of the sixteen are in the workspace */
+int app_open_original(App *a, const char *dir);
+int app_original_can_publish(const App *a);
+int app_original_publish_ask(App *a);
+int app_original_publish(App *a);
 /* The window on another light folder (the Choose... button): refused, with light.error and the status, while the working copy has unsaved changes or when the folder
  * is no light folder (light_session_open's reason); then nothing changes. 1 when it is on the folder, kept as a->light_dir for the rest of the session. */
 int app_light_set_folder(App *a, const char *dir);

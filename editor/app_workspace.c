@@ -10,6 +10,7 @@
 
 static int present(const char *dir, int kind)
 {
+    if (kind == WORKSPACE_KIND_TRACK && original_track_present(dir)) return 1;   // an original track of the game, added from its data/
     return recent_present(dir, kind == WORKSPACE_KIND_CAR ? RECENT_CAR : RECENT_TRACK);
 }
 

@@ -451,14 +451,15 @@ bool track_edit_done()
 }
 
 // The File menu holds the actions of the room on screen only (Cars, Tracks, the main menu), New before Open: a car's room has no New track, a track's no Open car.
-enum FileItem { FILE_NEW_TRACK, FILE_OPEN_TRACK, FILE_LIGHT, FILE_OPEN_CAR, FILE_EXPORT, FILE_RECENT, FILE_WORKSPACE, FILE_SEPARATOR, FILE_SAVE, FILE_MAIN, FILE_QUIT };
+enum FileItem { FILE_NEW_TRACK, FILE_OPEN_TRACK, FILE_LIGHT, FILE_PUBLISH, FILE_OPEN_CAR, FILE_EXPORT, FILE_RECENT, FILE_WORKSPACE, FILE_SEPARATOR, FILE_SAVE, FILE_MAIN, FILE_QUIT };
 
 static const char *file_label(FileItem item)
 {
     switch (item) {
     case FILE_NEW_TRACK: return "New track...";
     case FILE_OPEN_TRACK: return "Open track...";
-    case FILE_LIGHT: return "Track light...";
+    case FILE_LIGHT: return "Open original track...";
+    case FILE_PUBLISH: return "Publish to the game...";
     case FILE_OPEN_CAR: return "Open car...";
     case FILE_EXPORT: return "Export original car...";
     case FILE_RECENT: return "Open recent";
@@ -476,6 +477,7 @@ static int file_items(const App *a, FileItem out[12])
     int n = 0;
     const AppRoom room = app_room(a);
     if (room == APP_ROOM_TRACKS) out[n++] = FILE_NEW_TRACK, out[n++] = FILE_OPEN_TRACK, out[n++] = FILE_LIGHT, out[n++] = FILE_RECENT;
+    if (room == APP_ROOM_TRACKS && app_original_can_publish(a)) out[n++] = FILE_PUBLISH;
     if (room == APP_ROOM_CARS) out[n++] = FILE_OPEN_CAR, out[n++] = FILE_EXPORT, out[n++] = FILE_RECENT;
     if (room == APP_ROOM_HUB) out[n++] = FILE_WORKSPACE;   // the workspace is for both rooms: its menu is the main menu's, not a room's
     if (room == APP_ROOM_HUB) out[n++] = FILE_SEPARATOR;
@@ -535,7 +537,8 @@ void main_menu(App *a)
             } else if (ImGui::MenuItem(file_label(item))) {
                 if (item == FILE_NEW_TRACK) app_ask(a, APP_ACT_NEW, "");
                 else if (item == FILE_OPEN_TRACK) app_ask(a, APP_ACT_OPEN, "");
-                else if (item == FILE_LIGHT) app_ask(a, APP_ACT_OPEN_LIGHT, "");
+                else if (item == FILE_LIGHT) a->original_dialog = 1;
+                else if (item == FILE_PUBLISH) app_original_publish_ask(a);
                 else if (item == FILE_OPEN_CAR) app_ask(a, APP_ACT_OPEN_CAR, "");
                 else if (item == FILE_EXPORT) a->export_dialog = 1;
                 else if (item == FILE_QUIT) app_ask(a, APP_ACT_QUIT, "");
@@ -584,6 +587,71 @@ void new_track_popup(App *a)
     if (create && app_new_track_named(a, a->new_track_name, a->new_track_id)) a->new_track_dialog = 0;
     if (cancel) a->new_track_dialog = 0, a->new_track_error[0] = '\0';
     if (!a->new_track_dialog) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
+}
+
+// Open original track: the originals in the workspace, one click each; Add makes all sixteen from the game's files when some are missing
+void original_popup(App *a)
+{
+    static const char *const NAME = "Open original track";
+    if (a->original_dialog && !ImGui::IsPopupOpen(NAME)) ImGui::OpenPopup(NAME);
+    if (!ImGui::BeginPopupModal(NAME, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+    if (!a->original_dialog) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    const int have = app_original_count(a);
+    if (a->workspace[0] == '\0') {
+        ImGui::TextUnformatted("Choose a workspace first (File > Workspace on the main menu):\nthe original tracks are kept in its tracks/ folder.");
+    } else {
+        for (int i = 0; i < OT_STEMS; ++i) {
+            char dir[APP_PATH];
+            if (!original_track_dir(a->workspace, original_track_stem(i), dir, sizeof dir) || !original_track_present(dir)) continue;
+            if (ImGui::Selectable(original_track_stem(i), false, ImGuiSelectableFlags_DontClosePopups, ImVec2(160, 0))) {
+                a->original_dialog = 0;
+                app_ask(a, APP_ACT_OPEN_AT, dir);
+            }
+        }
+        if (have == 0) ImGui::TextDisabled("No original track is in this workspace yet.");
+        if (have < OT_STEMS) {
+            ImGui::Spacing();
+            if (a->data_dir[0] != '\0') {
+                if (ImGui::Button(have == 0 ? "Add the 16 original tracks" : "Add the missing original tracks")) app_original_add_all(a);
+                ImGui::SameLine();
+                help_marker("Copies each track's light files from the game's data/ (and the owner's mask PSDs, when the art folder is known) into <workspace>/tracks/<TRACK>. Nothing that is already there is changed.");
+            } else {
+                ImGui::TextDisabled("Studio has no game data folder, so none can be added (--port-data).");
+            }
+        }
+    }
+    if (a->status[0] != '\0' && strncmp(a->status, "original tracks:", 16) == 0) ImGui::TextWrapped("%s", a->status);
+    ImGui::Spacing();
+    if (ImGui::Button("Close") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) a->original_dialog = 0;
+    if (!a->original_dialog) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
+}
+
+// Publish to the game: what would change in data/, with Publish and Cancel
+void publish_popup(App *a)
+{
+    static const char *const NAME = "Publish to the game";
+    if (a->publish_dialog && !ImGui::IsPopupOpen(NAME)) ImGui::OpenPopup(NAME);
+    if (!ImGui::BeginPopupModal(NAME, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+    if (!a->publish_dialog) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    ImGui::TextUnformatted("Copies the changed light files into the game's data/:");
+    ImGui::TextDisabled("%s", a->data_dir);
+    ImGui::Spacing();
+    ImGui::TextUnformatted(a->publish_text);
+    ImGui::Spacing();
+    if (ImGui::Button("Publish")) app_original_publish(a);
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) a->publish_dialog = 0;
+    if (!a->publish_dialog) ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }
 
@@ -911,6 +979,8 @@ void ui_frame(SDL_Renderer *ren, App *a)
     export_popup(a);
     confirm_popup(a);
     new_track_popup(a);
+    original_popup(a);
+    publish_popup(a);
     open_error_popup(a);
     if (ImGui::GetCurrentContext()->DebugDrawIdConflictsId != 0) imgui_error(nullptr, nullptr, "two items share an ID (ImGui's red box): a row of a list needs its own PushID");   // only for the item under the mouse: the scan step moves it over the window
     ImGui::Render();

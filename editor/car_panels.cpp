@@ -145,7 +145,7 @@ void start_screen(App *a)
             if (ImGui::Button("New track...", ImVec2(half, 0))) app_ask(a, APP_ACT_NEW, "");
             if (ImGui::Button("Open track...", ImVec2(half, 0))) app_ask(a, APP_ACT_OPEN, "");
             ImGui::BeginDisabled(a->light_dir[0] == '\0');
-            if (ImGui::Button("Track light...", ImVec2(half, 0))) app_ask(a, APP_ACT_OPEN_LIGHT, "");
+            if (ImGui::Button("Open original track...", ImVec2(half, 0))) a->original_dialog = 1;
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Tune a CD track's light at dawn, day, dusk and night, with a photo from the game");
             workspace_list(a, 1, half);

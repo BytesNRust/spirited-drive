@@ -112,7 +112,7 @@ int app_light_set_folder(App *a, const char *dir)
 
 static const char *const NO_FOLDER = "Choose a light folder: none is set (pick a folder that holds track_light/ and is not inside an app)";
 
-int app_open_light(App *a)
+int app_open_light_on(App *a, int track)
 {
     App *next = calloc(1, sizeof *next);
     if (next == NULL) {
@@ -125,7 +125,7 @@ int app_open_light(App *a)
     if (a->light_dir[0] == '\0') app_light_default_dir(a->game, a->light_dir, sizeof a->light_dir);   /* the game's own light files, when it has them */
     if (a->light_dir[0] == '\0') {   /* no folder: the window opens to ask for one (Choose...) */
         snprintf(next->light.error, sizeof next->light.error, "%s", NO_FOLDER);
-    } else if (!open_session(&next->light, a->light_dir, 0, 1, why, sizeof why)) {
+    } else if (!open_session(&next->light, a->light_dir, track, 1, why, sizeof why)) {
         snprintf(a->open_error, sizeof a->open_error, "%s", why);
         snprintf(a->status, sizeof a->status, "%s", why);
         app_free(next);
@@ -141,6 +141,11 @@ int app_open_light(App *a)
     snprintf(a->status, sizeof a->status, "Track light: %s", a->light_dir[0] != '\0' ? a->light_dir : "no folder set");
     changed(a);
     return 1;
+}
+
+int app_open_light(App *a)
+{
+    return app_open_light_on(a, 0);
 }
 
 int app_light_select(App *a, int track, int time)
