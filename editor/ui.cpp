@@ -397,7 +397,7 @@ void uncollapse_panels(const App *a)
 // as on a first run, so it is chosen here)
 void front_tabs(const App *a)
 {
-    const char *const track[] = { PANEL_LIMITS, PANEL_NODE }, *const car[] = { PANEL_MASKS, PANEL_REHACER }, *const masks[] = { PANEL_MASKS, PANEL_PREVIEW };
+    const char *const track[] = { PANEL_LIMITS, PANEL_NODE }, *const car[] = { PANEL_PREVIEW, PANEL_REHACER }, *const masks[] = { PANEL_MASKS, PANEL_PREVIEW };
     const char *const *names = a->kind == APP_KIND_TRACK ? track : a->car.masks_only ? masks : car;
     if (a->kind == APP_KIND_NONE || a->kind == APP_KIND_LIGHT) return;   // the light window has no tabs
     for (int i = 0; i < 2; ++i) ImGui::SetWindowFocus(names[i]);
