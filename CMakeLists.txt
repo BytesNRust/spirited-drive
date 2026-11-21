@@ -68,6 +68,7 @@ add_library(tnfs_core STATIC
     core/formats/fam_image.c
     core/formats/fam_build.c
     core/formats/fam_spec.c
+    core/formats/fam_banks.c
     core/formats/cfm_build.c
     core/formats/obj_read.c
     core/formats/car_steer.c
@@ -908,6 +909,11 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_key_ops PRIVATE editor tests)
     target_link_libraries(test_editor_key_ops PRIVATE tnfs_core)
     target_compile_options(test_editor_key_ops PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_fam_banks tests/test_fam_banks.c)   # dep96 step 1 spike: the banks of a built FAM read back
+    target_include_directories(test_fam_banks PRIVATE tests)
+    target_link_libraries(test_fam_banks PRIVATE tnfs_core)
+    target_compile_options(test_fam_banks PRIVATE ${TNFS_WARNINGS})
+    target_compile_definitions(test_fam_banks PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     add_executable(test_editor_arc_block tests/test_editor_arc_block.c editor/arc_block.c editor/point_ops.c)   # dep88: Add curve and Add straight's points
     target_include_directories(test_editor_arc_block PRIVATE editor tests)
     target_link_libraries(test_editor_arc_block PRIVATE tnfs_core)
@@ -1088,6 +1094,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_selection COMMAND test_editor_selection)
         add_test(NAME editor_point_ops COMMAND test_editor_point_ops)
         add_test(NAME editor_key_ops COMMAND test_editor_key_ops)
+        add_test(NAME fam_banks COMMAND test_fam_banks)
         add_test(NAME editor_arc_block COMMAND test_editor_arc_block)
         add_test(NAME editor_psd_stale COMMAND test_editor_psd_stale)
         add_test(NAME editor_race_sheet COMMAND test_editor_race_sheet)
