@@ -9,11 +9,13 @@
 enum { CURVE_WINDOW = 4, CURVE_MIN_RUN = 8 };   /* nodes either side the curve is read over; a curve or straight shorter than this is its neighbour's (a spline's wobble) */
 
 static const double WIDTH_EDGES_M[TRACE_WIDTH_BANDS - 1] = { 8, 11, 13, 16, 20 };   /* a road narrower than the first is band 0 */
+static const double GRADE_EDGES_PCT[2] = { 8, 20 };                                  /* the grade steps after the level one (TRACE_GRADE_LEVEL_PCT) */
 static const double EDGE_UNIT_M = 0.125;                                              /* the half width's byte is 1/8 m a unit */
 
 static const char *const CURVE_NAMES[TRACE_CURVE_CLASSES] = { "straight", "left", "right" };
 static const char *const BANK_NAMES[TRACE_BANK_CLASSES] = { "flat", "banked a little one way", "banked some one way", "banked a lot one way",
                                                             "banked a little the other way", "banked some the other way", "banked a lot the other way" };
+static const char *const GRADE_NAMES[TRACE_GRADE_CLASSES] = { "level", "uphill a little", "uphill", "uphill steeply", "downhill a little", "downhill", "downhill steeply" };
 static const char *const WIDTH_NAMES[TRACE_WIDTH_BANDS] = { "under 8 m", "8 to 11 m", "11 to 13 m", "13 to 16 m", "16 to 20 m", "20 m or more" };
 static const char *const LANES_NAMES[3] = { "one lane each way", "one lane out, two back", "two lanes out, one back" };
 static const char *const SHOULDER_NAMES[4] = { "verge both sides", "tarmac on the left", "tarmac on the right", "tarmac both sides" };
@@ -28,6 +30,7 @@ int track_trace_class_count(TraceColourBy mode)
     case TRACE_COLOUR_LANES: return 3;
     case TRACE_COLOUR_SHOULDER: return 4;
     case TRACE_COLOUR_FENCE: return TRACE_FENCE_CLASSES;
+    case TRACE_COLOUR_GRADE: return TRACE_GRADE_CLASSES;
     default: return 1;
     }
 }
@@ -42,6 +45,7 @@ const char *track_trace_class_name(TraceColourBy mode, int klass)
     case TRACE_COLOUR_LANES: return LANES_NAMES[klass];
     case TRACE_COLOUR_SHOULDER: return SHOULDER_NAMES[klass];
     case TRACE_COLOUR_FENCE: return FENCE_NAMES[klass];
+    case TRACE_COLOUR_GRADE: return GRADE_NAMES[klass];
     default: return "";
     }
 }
@@ -65,6 +69,15 @@ static int bank_class(double bank)
     int step = (int)(size / TRACE_BANK_STEP_DEG);
     if (step > 2) step = 2;
     return 1 + step + (bank < 0 ? 3 : 0);
+}
+
+static int grade_class(double grade)
+{
+    const double size = fabs(grade);
+    if (size < TRACE_GRADE_LEVEL_PCT) return 0;
+    int step = 0;
+    while (step < 2 && size >= GRADE_EDGES_PCT[step]) ++step;
+    return 1 + step + (grade < 0 ? 3 : 0);
 }
 
 static int width_class(const TrackGenNode *n)
@@ -117,6 +130,7 @@ void track_trace_node_classes(const TrackGenNode *nodes, int count, TraceColourB
         case TRACE_COLOUR_LANES: c = nodes[k].lanes == TRACK_GEN_LANES_1_2 ? 1 : nodes[k].lanes == TRACK_GEN_LANES_2_1 ? 2 : 0; break;
         case TRACE_COLOUR_SHOULDER: c = tarmac(&nodes[k], TRACK_GEN_LEFT) | tarmac(&nodes[k], TRACK_GEN_RIGHT) << 1; break;
         case TRACE_COLOUR_FENCE: c = fence_class(&nodes[k].fence); break;
+        case TRACE_COLOUR_GRADE: c = grade_class(nodes[k].grade); break;
         default: break;
         }
         out[k] = (uint8_t)c;

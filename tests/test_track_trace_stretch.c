@@ -63,6 +63,15 @@ static void test_node_modes(void)
     n[1].bank = 0.5, n[2].bank = 5, n[3].bank = 15, n[4].bank = 25, n[5].bank = -5, n[6].bank = -25, n[7].bank = 35;
     track_trace_node_classes(n, 8, TRACE_COLOUR_BANK, c);
     CHECK(c[0] == 0 && c[1] == 0 && c[2] == 1 && c[3] == 2 && c[4] == 3 && c[5] == 4 && c[6] == 6 && c[7] == 3);
+    memset(n, 0, sizeof n);   /* grade (percent): level under 2, then 2-8, 8-20 and 20 or more, up (1..3) and down (4..6) */
+    n[1].grade = 1.5, n[2].grade = 5, n[3].grade = 12, n[4].grade = 30, n[5].grade = -5, n[6].grade = -30, n[7].grade = -1.9;
+    track_trace_node_classes(n, 8, TRACE_COLOUR_GRADE, c);
+    CHECK(c[0] == 0 && c[1] == 0 && c[2] == 1 && c[3] == 2 && c[4] == 3 && c[5] == 4 && c[6] == 6 && c[7] == 0);
+    CHECK(track_trace_class_count(TRACE_COLOUR_GRADE) == TRACE_GRADE_CLASSES);
+    CHECK(strcmp(track_trace_class_name(TRACE_COLOUR_GRADE, 0), "level") == 0);
+    n[1].grade = 2, n[2].grade = 8, n[3].grade = 20, n[4].grade = -2, n[5].grade = -8, n[6].grade = -20;   /* the edges belong to the steeper class */
+    track_trace_node_classes(n, 8, TRACE_COLOUR_GRADE, c);
+    CHECK(c[1] == 1 && c[2] == 2 && c[3] == 3 && c[4] == 4 && c[5] == 5 && c[6] == 6);
     memset(n, 0, sizeof n);
     n[0].width = 24, n[1].width = 40, n[2].width = 48, n[3].width = 100, n[4].width = 40, n[4].width_r = 80;   /* half widths in 1/8 m: 6, 10, 12, 25 m; 15 m */
     track_trace_node_classes(n, 5, TRACE_COLOUR_WIDTH, c);

@@ -293,6 +293,11 @@ printf '{\n  "version": 3,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 60.
 grep -q "^classes 2: 0@0-2 1@3-7 2@8-11 3@12-26 2@27-30 1@31-36 0@37-48$" "$work/log" || fail "the bank ramp is not up and down the classes: $(grep '^classes 2' "$work/log")"
 grep -q "^selected: 2$" "$work/log" || fail "a double-click on the banked stretch did not select its point: $(grep '^selected' "$work/log")"
 grep -q "^classes 3: 1@0-48$" "$work/log" && grep -q "^classes 5: 0@0-48$" "$work/log" || fail "the width and shoulder modes of a plain road are not one run each: $(grep '^classes' "$work/log")"
+# Colour by grade (dep95 step 5): a hill of 15 m over 60 m is steep up and steep down (3 and 6), level before, between and after
+mkdir "$work/cgrade"
+printf '{\n  "version": 5,\n  "width": 40.0,\n  "points": [[0.0, 0.0, 0.0], [0.0, 60.0, 0.0], [0.0, 120.0, 15.0], [0.0, 180.0, 15.0], [0.0, 240.0, 0.0], [0.0, 300.0, 0.0]]\n}\n' > "$work/cgrade/trace.json"
+"$editor" "$work/cgrade" --user "$work/cs-u" --window 960x600 --frames 12 --steps colour-by:7,print-classes >"$work/log" 2>&1 || fail "Colour by grade: $(cat "$work/log")"
+grep -q "^classes 7: 0@0-9 2@10-10 3@11-17 2@18-18 0@19-28 5@29-29 6@30-36 5@37-37 0@38-48$" "$work/log" || fail "the hill is not up and down the grade classes: $(grep '^classes 7' "$work/log")"
 # a mode out of range is refused
 "$editor" "$work/cs" --user "$work/cs-u" --frames 2 --steps colour-by:99 >"$work/log" 2>&1 && fail "colour-by:99 was taken"
 

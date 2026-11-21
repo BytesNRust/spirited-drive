@@ -18,15 +18,17 @@ typedef enum {
     TRACE_COLOUR_LANES,      /* 0 one each way (or the template's), 1 one lane out and two back (TRACK_GEN_LANES_1_2), 2 the other (_2_1) */
     TRACE_COLOUR_SHOULDER,   /* bit 0 the left shoulder is tarmac, bit 1 the right one */
     TRACE_COLOUR_FENCE,      /* 0 the template's fence, else 1 + 2 * picture (TRACE_FENCE_*) + tall */
+    TRACE_COLOUR_GRADE,      /* 0 level, 1..3 the grade up in three steps, 4..6 the same down (the node's own sign) */
     TRACE_COLOUR_MODES
 } TraceColourBy;
 
 enum { TRACE_CURVE_STRAIGHT = 0, TRACE_CURVE_LEFT, TRACE_CURVE_RIGHT, TRACE_CURVE_CLASSES };
-enum { TRACE_WIDTH_BANDS = 6, TRACE_BANK_CLASSES = 7, TRACE_FENCE_CLASSES = 7 };
+enum { TRACE_WIDTH_BANDS = 6, TRACE_BANK_CLASSES = 7, TRACE_FENCE_CLASSES = 7, TRACE_GRADE_CLASSES = 7 };
 
 #define TRACE_STRAIGHT_RADIUS_M 2000.0   /* a curve of at least this radius is a straight */
 #define TRACE_BANK_FLAT_DEG 1.0          /* under this a node is flat; each step of the bank is TRACE_BANK_STEP_DEG more */
 #define TRACE_BANK_STEP_DEG 10.0
+#define TRACE_GRADE_LEVEL_PCT 2.0        /* a node whose grade is under this percent is level; the steps up are from there, to 8 and to 20 percent (a class takes its lower edge) */
 
 /* how many classes a mode has (they are 0 .. n - 1); 1 for TRACE_COLOUR_LIMITS */
 int track_trace_class_count(TraceColourBy mode);

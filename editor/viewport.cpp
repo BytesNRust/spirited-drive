@@ -333,7 +333,7 @@ void draw_tooltip(const Canvas &c, const App &a)
     ImGui::EndTooltip();
 }
 
-const char *const COLOUR_BY_NAMES[TRACE_COLOUR_MODES] = { "Limits", "Curve", "Bank", "Width", "Lanes", "Shoulder", "Fence" };
+const char *const COLOUR_BY_NAMES[TRACE_COLOUR_MODES] = { "Limits", "Curve", "Bank", "Width", "Lanes", "Shoulder", "Fence", "Grade" };
 const float COMBO_MARGIN = 8;   // from the canvas' top-left corner
 
 // the Colour by combo over the canvas' top-left corner; true while the mouse is on it. Its tooltip is the legend: what each colour means in the mode.
