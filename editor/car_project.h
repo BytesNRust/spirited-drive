@@ -46,6 +46,8 @@ int car_project_is_masks(const char *dir);
 void car_project_masks_dir(const CarProject *c, char *out, size_t cap);
 /* The folder that holds the card's own files (mod.ini, card.png): the kit's folder for a kit, the piece itself for the other shapes. Never build/piece: that is rebuilt. */
 void car_project_card_dir(const CarProject *c, char *out, size_t cap);
+/* Where the showcase's pictures (photos= names them) are: root/photos for a kit (the build copies them into the piece), the piece itself for the other shapes. */
+void car_project_photos_dir(const CarProject *c, char *out, size_t cap);
 /* the same relative to the project's folder, for the words on screen: "car_masks" for a kit, "car_masks/<folder>" for the other shapes */
 void car_project_masks_rel(const CarProject *c, char *out, size_t cap);
 

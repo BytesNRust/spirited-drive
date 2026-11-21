@@ -237,6 +237,8 @@ void photos_section(App *a, const CarEditProblem *problems, int count)
 {
     char names[MOD_INI_PHOTOS_MAX][MOD_INI_PHOTO_NAME_MAX + 1];
     const int n = car_photos_split(a->edit.now.value[CE_PHOTOS], names, MOD_INI_PHOTOS_MAX);
+    char photos_dir[APP_PATH];
+    app_photos_dir(a, photos_dir, sizeof photos_dir);
     ImGui::SeparatorText("Showcase photos");
     ImGui::SameLine();
     help_marker("The pictures of this car in the game's Car Showcase, in this order. Add photo... copies a PNG (100x60 to 1280x960; 450x254 fits the page) into the car's folder "
@@ -244,7 +246,7 @@ void photos_section(App *a, const CarEditProblem *problems, int count)
     if (n == 0) muted_wrapped("None: the showcase shows only the card photo.");
     for (int i = 0; i < n; ++i) {
         uint32_t w = 0, h = 0;
-        const bool there = car_photos_size(a->car.piece, names[i], &w, &h) != 0;
+        const bool there = car_photos_size(photos_dir, names[i], &w, &h) != 0;
         ImGui::PushID(i);
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(names[i]);

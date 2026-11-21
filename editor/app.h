@@ -459,6 +459,8 @@ int app_photo_move(App *a, int index, int by);
 void app_photos_swept(App *a);
 /* 1 with the reason in `why` when the card lists a photo the car's folder has no file for (Save refuses: the piece would fail its check) */
 int app_photos_missing(const App *a, char *why, size_t cap);
+/* the folder the showcase pictures are in (car_project_photos_dir) */
+void app_photos_dir(const App *a, char *out, size_t cap);
 /* 1 when the car's folder has a file called `name` */
 int app_photo_file_ok(const App *a, const char *name);
 int app_build(App *a);

@@ -284,6 +284,12 @@ void car_project_card_dir(const CarProject *c, char *out, size_t cap)
     snprintf(out, cap, "%s", c->legacy || c->masks_only ? c->piece : c->root);
 }
 
+void car_project_photos_dir(const CarProject *c, char *out, size_t cap)
+{
+    if (c->legacy || c->masks_only) snprintf(out, cap, "%s", c->piece);
+    else snprintf(out, cap, "%s/%s", c->root, car_kit_path(CAR_KIT_PHOTOS));
+}
+
 void car_project_masks_dir(const CarProject *c, char *out, size_t cap)
 {
     if (c->masks_only || c->legacy) snprintf(out, cap, "%s/car_masks/%s", c->piece, c->folder);
