@@ -24,8 +24,11 @@ extern "C" {
 namespace {
 
 const float ROW_H = 16.0f, LABEL_PAD = 8.0f, MIN_TICK_PX = 70.0f;
-const float PROFILE_H = 130.0f, HANDLE_R = 4.5f, PICK_PX = 9.0f;   // the profile's height, a point's mark and how near the mouse picks it
+const float PROFILE_MAX_H = 130.0f, PROFILE_MIN_H = 80.0f, HANDLE_R = 4.5f, PICK_PX = 9.0f;   // the profile's tallest and least height (it takes what the window has), a point's mark and how near the mouse picks it
 const float LABEL_MIN_PX = 72.0f, LABEL_MAX_SHARE = 0.3f;   // the row names' column is at most this share of the window (never under the minimum)
+const char *const BARS_HELP = "Each bar is one road value along the road. A bright stretch starts at a point whose key sets the value and lasts to the next key that "
+                              "sets it; the dim stretch before the first key is the template's. Click a stretch to select the point it starts at, Shift-click to "
+                              "select all its points.";
 const int CURVE_STEPS = 12;                                         // line pieces per segment of the curve
 
 TraceGradeUnit grade_unit = TRACE_GRADE_PERCENT;   // the % / degrees switch, kept while the program runs
@@ -127,7 +130,7 @@ int segment_at(const std::vector<double> &metres, double at, double *frac)
 
 // the profile: the height curve over the road, a mark at each control point (the selected ones filled), a slope over the limit in red. Dragging a mark up or down
 // sets that point's height. Returns nothing: it changes the app.
-void profile(App *a, const std::vector<double> &metres, double total, ImVec2 origin, float width, float label)
+void profile(App *a, const std::vector<double> &metres, double total, ImVec2 origin, float width, float label, float height)
 {
     ImDrawList *draw = ImGui::GetWindowDrawList();
     const int count = a->trace.count;
@@ -148,8 +151,8 @@ void profile(App *a, const std::vector<double> &metres, double total, ImVec2 ori
         lo = drag_lo;
         hi = drag_hi;
     }
-    const float top = origin.y + 4, bottom = origin.y + PROFILE_H - 4;
-    const ImVec2 box0(origin.x, origin.y), box1(origin.x + width, origin.y + PROFILE_H);
+    const float top = origin.y + 4, bottom = origin.y + height - 4;
+    const ImVec2 box0(origin.x, origin.y), box1(origin.x + width, origin.y + height);
     draw->AddRectFilled(box0, box1, ImGui::GetColorU32(ImGuiCol_FrameBg));
     auto row_of = [&](double h) { return (float)track_trace_profile_row_of_height(h, top, bottom, lo, hi); };
     auto col_of = [&](double m) { return origin.x + (float)(m / total) * width; };
@@ -202,7 +205,7 @@ void profile(App *a, const std::vector<double> &metres, double total, ImVec2 ori
     draw->PopClipRect();
 
     ImGui::SetCursorScreenPos(origin);
-    ImGui::InvisibleButton("##profile", ImVec2(width, PROFILE_H));
+    ImGui::InvisibleButton("##profile", ImVec2(width, height));
     const ImVec2 mouse = ImGui::GetIO().MousePos;
     if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {   // the top view comes to this place on the road
         double frac;
@@ -301,7 +304,9 @@ void strip_panel(App *a)
         ImGui::SetNextWindowFocus();
         a->focus_strip = 0;
     }
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f, 2.0f));   // a little less padding: at the first-run height the curve keeps about 80 px
     const bool shown = ImGui::Begin(PANEL_STRIP);
+    ImGui::PopStyleVar();
     a->strip_win = { 1, ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ImGui::GetWindowSize().x, ImGui::GetWindowSize().y };
     if (shown) {
         const int count = a->trace.count;
@@ -311,9 +316,6 @@ void strip_panel(App *a)
         if (total <= 0) {
             ImGui::TextDisabled("The road is not made yet.");
         } else {
-            help_marker("Each bar is one road value along the road. A bright stretch starts at a point whose key sets the value and lasts to the next key that "
-                        "sets it; the dim stretch before the first key is the template's. Click a stretch to select the point it starts at, Shift-click to "
-                        "select all its points.");
             float label = 0;
             const std::vector<Channel> rows = channels();
             for (const Channel &row : rows) label = std::max(label, ImGui::CalcTextSize(row.label).x);
@@ -321,10 +323,12 @@ void strip_panel(App *a)
             const float width = std::max(ImGui::GetContentRegionAvail().x - label - LABEL_PAD - ImGui::GetStyle().ScrollbarSize, 60.0f);
             ImVec2 at = ImGui::GetCursorScreenPos();
             ruler(total, ImVec2(at.x + label + LABEL_PAD, at.y), width);
-            ImGui::Dummy(ImVec2(0, ROW_H));
+            help_marker(BARS_HELP);   // in the empty corner left of the ruler: no row of its own
+            ImGui::SetCursorScreenPos(ImVec2(at.x, at.y + ROW_H));
             const ImVec2 profile_at = ImGui::GetCursorScreenPos();
-            profile(a, metres, total, ImVec2(profile_at.x + label + LABEL_PAD, profile_at.y), width, label);
-            ImGui::SetCursorScreenPos(ImVec2(profile_at.x, profile_at.y + PROFILE_H + 2));
+            const float height = std::clamp(ImGui::GetContentRegionAvail().y, PROFILE_MIN_H, PROFILE_MAX_H);   // the window's height, so the curve is whole in sight
+            profile(a, metres, total, ImVec2(profile_at.x + label + LABEL_PAD, profile_at.y), width, label, height);
+            ImGui::SetCursorScreenPos(ImVec2(profile_at.x, profile_at.y + height + 2));
             readout(a, metres);
             std::vector<TraceStripRun> runs;
             const float first_y = ImGui::GetCursorScreenPos().y;   // the first bar's top, where the selection's lines start

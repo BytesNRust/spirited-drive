@@ -107,6 +107,7 @@ grep -q "^status: slope: .*segment.* over 65 %: not made" "$work/log" || fail "a
 splitu="$work/split-user"
 "$editor" "$work/hill2" --user "$splitu" --window 1280x800 --frames 12 --steps strip,print-strip,strip-split:-120,print-strip >"$work/log" 2>&1 || fail "the strip's splitter: $(cat "$work/log")"
 awk '/^strip: /{ n++; h[n] = $2 } END { exit !(n == 2 && h[1] >= 110 && h[1] <= 130 && h[2] >= h[1] + 100 && h[2] <= h[1] + 140) }' "$work/log" || fail "the strip is not about 120 px high at first, nor 120 px higher after its top border was dragged up 120: $(grep '^strip' "$work/log")"
+awk '/^strip: /{ n++; p[n] = $4 } END { exit !(n == 2 && p[1] >= 80 && p[2] >= p[1]) }' "$work/log" || fail "the strip's curve is under 80 px high at the first-run height (the (?) takes a row, or the curve is fixed and cut): $(grep '^strip' "$work/log")"
 second=$(grep '^strip: ' "$work/log" | tail -1 | cut -d' ' -f2)
 "$editor" "$work/hill2" --user "$splitu" --window 1280x800 --frames 10 --steps strip,print-strip >"$work/log" 2>&1 || fail "the strip's height after a restart: $(cat "$work/log")"
 [ "$(grep '^strip: ' "$work/log" | cut -d' ' -f2)" = "$second" ] || fail "the strip's height was not remembered: $second then $(grep '^strip' "$work/log")"

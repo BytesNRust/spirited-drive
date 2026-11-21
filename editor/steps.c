@@ -275,7 +275,7 @@ static int at_once(App *a, const char *name, const double *arg)
         return 1;
     }
     if (strncmp(name, "strip-split:", 12) == 0 || strncmp(name, "strip-size:", 11) == 0) return 2;   /* by_frames: the mouse goes in */
-    if (strcmp(name, "print-strip") == 0) return a->strip_win.drawn ? (fprintf(stdout, "strip: %.0f\n", a->strip_win.h), 1) : 0;   /* the Distance strip window's height in pixels, as drawn last frame */
+    if (strcmp(name, "print-strip") == 0) return a->strip_win.drawn ? (fprintf(stdout, "strip: %.0f profile: %.0f\n", a->strip_win.h, a->profile_drawn.drawn ? fminf(a->profile_drawn.bottom + 4, a->strip_win.y + a->strip_win.h) - (a->profile_drawn.top - 4) : 0.0f), 1) : 0;   /* the Distance strip window's height and its curve's part in sight, in pixels, as drawn last frame */
     if (strncmp(name, "profile-click:", 14) == 0) return 2;   /* by_frames: the mouse goes in */
     if (strcmp(name, "insert-here") == 0) return app_insert_here(a), 1;   /* the Insert point here button */
     if (strcmp(name, "print-workspace") == 0) {   /* the workspace, whether the start screen offers to choose one, and the projects the workspace lists */
