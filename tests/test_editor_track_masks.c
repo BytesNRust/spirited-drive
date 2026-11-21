@@ -216,6 +216,19 @@ int main(void)
         CHECK(track_masks_publish(g_dir, data, &plan, &n, why, sizeof why) && n == 1, "only the changed one is written: %d", n);
     }
 
+    /* the newest PSD's time: the poll of the panel */
+    {
+        char first[400];
+        path_of(first, sizeof first, "art-source/masks/slot_03.psd");
+        struct stat a, b;
+        CHECK(stat(first, &a) == 0 && track_masks_newest_psd(g_dir) > 0, "a PSD has a time");
+        age("art-source/masks/slot_01.psd", 5000);
+        const double before = track_masks_newest_psd(g_dir);
+        psd("slot_01", PAINT);   // saved again: newer than all the others
+        CHECK(track_masks_newest_psd(g_dir) >= before && stat(first, &b) == 0, "saved again, not older");
+        CHECK(track_masks_newest_psd("/nonexistent/folder") == 0, "no folder, no time");
+    }
+
     /* a folder with neither */
     char other[300];
     snprintf(other, sizeof other, "%s/art-source", g_dir);

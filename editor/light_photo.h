@@ -46,6 +46,7 @@ typedef struct {
     int hud;                 /* 1: the game's HUD stays in the picture; 0: TNFS_NO_HUD=1 */
     int ticks;               /* 1..LIGHT_PHOTO_TICKS_MAX */
     const char *shot;        /* the PPM the game writes */
+    const char *masks;       /* NULL for none, else a folder of <TRACK>/<name>.png that goes in front of the game's own track masks (TNFS_TRACK_MASKS) */
 } LightPhotoSetup;
 
 /* The command line and environment of one photo in `out` (malloc'd words: car_race_command_free). `base` is the environment it starts from (NULL terminated, NULL for
@@ -65,6 +66,7 @@ typedef struct {
     char letter;
     unsigned node;
     int view, hud;
+    char masks[EXPORT_PATH];     /* set before light_photo_start: a folder of this track's mask PNGs (flat, <name>.png) the photo shows instead of the game's own; "" for none */
     uint8_t *rgba;               /* DONE: the picture, w x h RGBA (malloc'd; the last good one stays through a later failure) */
     int w, h;
     int serial;                  /* changes when `rgba` does */

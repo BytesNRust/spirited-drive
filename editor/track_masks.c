@@ -235,6 +235,23 @@ static int write_png(const char *dir, const char *name, char *why, size_t cap)
     return 1;
 }
 
+double track_masks_newest_psd(const char *dir)
+{
+    char src[1100];
+    double newest = 0;
+    snprintf(src, sizeof src, "%s/art-source/masks", dir);
+    DIR *d = opendir(src);
+    for (struct dirent *e = d != NULL ? readdir(d) : NULL; e != NULL; e = readdir(d)) {
+        double t = 0;
+        char path[1500];
+        if (!is_psd(e->d_name)) continue;
+        snprintf(path, sizeof path, "%s/%s", src, e->d_name);
+        if (mtime_of(path, &t) && t > newest) newest = t;
+    }
+    if (d != NULL) closedir(d);
+    return newest;
+}
+
 int track_masks_generate(const char *dir, const TrackMasks *rows, int *written, char *why, size_t why_cap)
 {
     *written = 0;

@@ -21,6 +21,7 @@ cat > "$work/fake_game" <<'SH'
 #!/bin/sh
 shot=
 while [ $# -gt 0 ]; do case $1 in --screenshot) shot=$2; shift;; esac; shift; done
+if [ -n "${FAKE_RECORD:-}" ]; then { echo "masks=${TNFS_TRACK_MASKS:-}"; for f in "${TNFS_TRACK_MASKS:-/nonexistent}"/*/*.png; do [ -f "$f" ] && echo "$(basename "$f") $(cksum < "$f")"; done; } > "$FAKE_RECORD"; fi
 printf 'P6\n1280 960\n255\n' > "$shot"
 head -c 3686400 /dev/zero | LC_ALL=C tr '\000' '\100' >> "$shot"
 SH
@@ -69,6 +70,25 @@ echo "$out" | grep -q 'track_masks/AL1/scenery_00.png new' || fail "the preview 
 echo "$out" | grep -q '^publish: AL1: *7 unchanged' || fail "after publishing nothing is left to publish: $out"
 out=$(run --frames 4 --steps check-originals 2>&1) || fail "check-originals: $out"
 echo "$out" | grep -q '^originals: 16 tracks, 2 masks: 2 equal, 0 differ, 0 new in the workspace$' || fail "the migration check: $out"
+
+# the photo shows the workspace's masks (TNFS_TRACK_MASKS), and a PSD retouched in Photoshop shows in the next photo
+export FAKE_RECORD="$work/record"
+out=$(run --frames 60 --steps open-original:0 2>&1) || fail "photo masks: $out"
+grep -q '^masks=.' "$work/record" 2>/dev/null || fail "the photo was not given the workspace's masks: $(cat "$work/record" 2>/dev/null)"
+want=$(cksum < "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png")
+grep -q "^scenery_00.png $want\$" "$work/record" || fail "the photo's scenery_00 mask is not the workspace's: $(cat "$work/record")"
+before=$(grep '^scenery_00.png' "$work/record")
+sleep 1
+"$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" lamps   # retouched and saved: newer than its PNG
+out=$(run --frames 60 --steps open-original:0 2>&1) || fail "photo after a retouch: $out"
+after=$(grep '^scenery_00.png' "$work/record")
+[ -n "$after" ] && [ "$after" != "$before" ] || fail "a retouched PSD did not change the mask in the photo: $before -> $after"
+want=$(cksum < "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png")
+[ "$after" = "scenery_00.png $want" ] || fail "the photo's mask is not the regenerated PNG: $after"
+"$make_psd" "$work/ws/tracks/AL1/art-source/masks/scenery_00.psd" paint   # back to the first mask for what follows
+sleep 1
+run --frames 4 --steps open-original:0,masks-print > /dev/null 2>&1
+unset FAKE_RECORD
 
 # a PNG changed by hand is kept and says so; Regenerate from PSD puts the PSD's mask back
 python3 - "$work/ws/tracks/AL1/art-generated/track_masks/scenery_00.png" <<'PY'

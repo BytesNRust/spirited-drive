@@ -47,6 +47,9 @@ int track_masks_scan(const char *dir, const TrackTexInfo *tex, int tex_count, Tr
  * (the files before the failing one are written). The rows are scanned again by the caller. */
 int track_masks_generate(const char *dir, const TrackMasks *rows, int *written, char *why, size_t why_cap);
 
+/* The newest modification time (seconds, fractions kept) of a mask PSD of `dir`; 0 when there is none. Stat only: what the Masks panel polls to find a PSD that was saved again. */
+double track_masks_newest_psd(const char *dir);
+
 /* Regenerate from PSD: the PNG of that one name made from its PSD even when it was edited by hand (not from an empty mask layer: refused, 0 with `why`). */
 int track_masks_regenerate(const char *dir, const char *name, char *why, size_t why_cap);
 

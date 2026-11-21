@@ -119,7 +119,7 @@ static int start_slot(LightCompare *c, const LightSession *s, int slot, int node
             c->shown[slot] = key;
             c->missing[slot] = 1;
             result = -1;
-        } else if (!light_photo_start(&c->job[slot], game, cd, s->track, letter, (unsigned)node, view, hud, light_photo_view_ticks(view), text, size, places, places_size, why, sizeof why)) {
+        } else if ((snprintf(c->job[slot].masks, sizeof c->job[slot].masks, "%s", c->masks), 0) || !light_photo_start(&c->job[slot], game, cd, s->track, letter, (unsigned)node, view, hud, light_photo_view_ticks(view), text, size, places, places_size, why, sizeof why)) {
             say(c, why);
             c->shown[slot] = key;   /* tried: a refusal is not tried again every frame */
             result = -1;

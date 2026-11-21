@@ -44,6 +44,7 @@ int app_track_masks_refresh(App *a)
         snprintf(a->tmask_note, sizeof a->tmask_note, "%s", why);
         return a->tmasks_loaded = 1, 0;
     }
+    a->tmask_psd_seen = track_masks_newest_psd(a->original_dir);
     return a->tmasks_loaded = 1;
 }
 
@@ -162,4 +163,18 @@ int app_original_check_all(App *a, char *out, size_t cap)
     }
     snprintf(out, cap, "originals: %d tracks, %d masks: %d equal, %d differ, %d new in the workspace%s%s", tracks, masks, equal, differ, added, failed > 0 ? "; failed: " : "", failed > 0 ? why : "");
     return differ == 0 && failed == 0;
+}
+
+int app_track_masks_poll(App *a)
+{
+    if (!a->tmasks_loaded || a->original_dir[0] == '\0' || a->light.now < a->tmask_check_at) return 0;
+    a->tmask_check_at = a->light.now + 1.0;
+    if (track_masks_newest_psd(a->original_dir) <= a->tmask_psd_seen) return 0;
+    a->tmasks_loaded = 0;   // a PSD was saved again: scan, make the PNGs, and show the photos again with them
+    app_track_masks_load(a);
+    ++a->light.edit_serial;
+    a->light.edit_at = a->light.now;
+    memset(a->light.compare.shown, 0, sizeof a->light.compare.shown);
+    snprintf(a->status, sizeof a->status, "masks: a PSD was saved again: the PNGs and the photo are made again");
+    return 1;
 }

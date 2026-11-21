@@ -42,6 +42,7 @@ static const char FAKE[] =
     "if [ -n \"$FAKE_RECORD\" ]; then {\n"
     "  echo \"track=$track ticks=$ticks time=$TNFS_LIGHT_TIME start=$TNFS_START_NODE video=$SDL_VIDEO_DRIVER person=$TNFS_PERSON kept=$KEEP_ME\"\n"
     "  ls \"$mods/track_light\"; cat \"$mods\"/track_light/*.txt; echo ---; cat \"$mods\"/track/*.txt 2>/dev/null\n"
+    "  echo \"masks=$TNFS_TRACK_MASKS\"; if [ -n \"$TNFS_TRACK_MASKS\" ]; then ls \"$TNFS_TRACK_MASKS\"/*/*; cat \"$TNFS_TRACK_MASKS\"/*/*.png; echo; fi\n"
     "} > \"$FAKE_RECORD\"; fi\n"
     "case $FAKE_MODE in\n"
     "  fail) echo 'the game says: no such track' >&2; exit 3;;\n"
@@ -85,7 +86,7 @@ static int has_env(const RaceCommand *c, const char *entry)
 
 static void test_command(void)
 {
-    LightPhotoSetup s = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 0, 4, "/s.ppm" };
+    LightPhotoSetup s = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 0, 4, "/s.ppm", NULL };
     char *const base[] = { "HOME=/h", "TNFS_PERSON=1", "SDL_VIDEO_DRIVER=x11", "TNFS_LIGHT_TIME=day", NULL };
     RaceCommand c;
     char why[LIGHT_PHOTO_WHY];
@@ -127,7 +128,7 @@ static void test_views(void)
     light_photo_view_pref_set(77);
     CHECK_EQ_INT(light_photo_view_pref(), LIGHT_VIEW_DEFAULT);
 
-    LightPhotoSetup s = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 0, 4, "/s.ppm" };
+    LightPhotoSetup s = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 0, 4, "/s.ppm", NULL };
     RaceCommand c;
     char why[LIGHT_PHOTO_WHY];
     for (int v = 0; v < LIGHT_VIEWS; ++v) {
@@ -159,7 +160,7 @@ static void test_views(void)
 
 static void test_command_refusals(void)
 {
-    const LightPhotoSetup good = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 0, 4, "/s.ppm" };
+    const LightPhotoSetup good = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 0, 4, "/s.ppm", NULL };
     RaceCommand c;
     char why[LIGHT_PHOTO_WHY];
     LightPhotoSetup s = good;
@@ -225,6 +226,52 @@ static void test_job_done(void)
     CHECK(strstr(rec, "time=day") != NULL && strstr(rec, "---\n") != NULL && strstr(rec, "tunnel 10 20") == NULL);   // no places text: none in the folder
     light_photo_free(&job);
     CHECK(job.rgba == NULL);
+}
+
+static void test_masks(void)
+{
+    // the command: the track's masks folder goes in as TNFS_TRACK_MASKS, none when there is none
+    RaceCommand c;
+    char why[LIGHT_PHOTO_WHY];
+    LightPhotoSetup s = { "/g/tnfs", "/cd", "/u", "/m", "CY1", 'N', 70, 0, 0, 4, "/s.ppm", "/x/masks" };
+    CHECK(light_photo_command(&s, NULL, &c, why, sizeof why) && has_env(&c, "TNFS_TRACK_MASKS=/x/masks"));
+    car_race_command_free(&c);
+    s.masks = NULL;
+    CHECK(light_photo_command(&s, NULL, &c, why, sizeof why) && !has_env(&c, "TNFS_TRACK_MASKS=/x/masks"));
+    car_race_command_free(&c);
+    // a job with masks: they are copied to <scratch>/masks/<TRACK>/, the game is told where, and they are gone with the scratch folder
+    char from[600];
+    snprintf(from, sizeof from, "%s/maskssrc", dir);
+    mkdir(from, 0777);
+    char file[700];
+    snprintf(file, sizeof file, "%s/scenery_00.png", from);
+    write_text(file, "MASKDATA-A", 0);
+    snprintf(file, sizeof file, "%s/slot_01.png", from);
+    write_text(file, "MASKDATA-B", 0);
+    snprintf(file, sizeof file, "%s/notes.txt", from);
+    write_text(file, "not a mask", 0);
+    LightPhotoJob job;
+    memset(&job, 0, sizeof job);
+    setenv("FAKE_RECORD", record, 1);
+    setenv("FAKE_MODE", "", 1);
+    snprintf(job.masks, sizeof job.masks, "%s", from);
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    char temp[EXPORT_PATH];
+    snprintf(temp, sizeof temp, "%s", job.temp);
+    run_to_end(&job);
+    CHECK(job.state == LIGHT_PHOTO_DONE);
+    const char *rec = read_all(record);
+    CHECK(strstr(rec, "/masks/CY1/scenery_00.png") != NULL && strstr(rec, "/masks/CY1/slot_01.png") != NULL && strstr(rec, "notes.txt") == NULL);
+    CHECK(strstr(rec, "MASKDATA-A") != NULL && strstr(rec, "MASKDATA-B") != NULL);
+    struct stat st;
+    CHECK(stat(temp, &st) != 0);
+    light_photo_free(&job);
+    // no masks: the variable is empty
+    memset(&job, 0, sizeof job);
+    CHECK(light_photo_start(&job, fake, dir, "CY1", 'N', 70, 0, 0, 4, NIGHT_FILE, strlen(NIGHT_FILE), NULL, 0, why, sizeof why));
+    run_to_end(&job);
+    CHECK(strstr(read_all(record), "masks=\n") != NULL);
+    light_photo_free(&job);
 }
 
 static void test_job_failures(void)
@@ -303,6 +350,7 @@ int main(void)
     test_views();
     test_command_refusals();
     test_job_done();
+    test_masks();
     test_job_failures();
     test_job_stop();
     unlink(fake);
