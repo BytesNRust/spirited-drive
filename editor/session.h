@@ -28,6 +28,16 @@ void recent_load(Recent *r, const char *file);
 /* Puts `dir` first, of `kind`: it leaves the place it had (whatever kind it was), and the oldest falls off past RECENT_MAX. An empty `dir` is ignored. */
 void recent_push(Recent *r, const char *dir, int kind);
 
+/* Takes entry `index` out of the list (the older ones move up); an index that is not in the list changes nothing. */
+void recent_remove(Recent *r, int index);
+
+/* Takes out every entry of `kind` (RECENT_TRACK or RECENT_CAR), the others keep their order. */
+void recent_clear(Recent *r, int kind);
+
+/* 1 when `dir` is `folder` or lies below it, both read through their real paths when they exist (the list holds real paths, a workspace may be named through a link);
+ * an empty `folder` holds everything. A name that only starts the same ("/ws-two" for "/ws") is not inside. */
+int recent_inside(const char *dir, const char *folder);
+
 /* Writes the list to `file`, through a temporary file. 1 on success. */
 int recent_save(const Recent *r, const char *file);
 

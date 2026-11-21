@@ -2,7 +2,9 @@
 
 #include "car_project.h"
 
+#include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -42,6 +44,34 @@ void recent_push(Recent *r, const char *dir, int kind)
     }
     snprintf(r->dir[0], SESSION_PATH, "%s", dir);
     r->kind[0] = kind == RECENT_CAR ? RECENT_CAR : RECENT_TRACK;
+}
+
+void recent_remove(Recent *r, int index)
+{
+    if (index < 0 || index >= r->count) return;
+    for (int i = index; i + 1 < r->count; ++i) {
+        memcpy(r->dir[i], r->dir[i + 1], SESSION_PATH);
+        r->kind[i] = r->kind[i + 1];
+    }
+    --r->count;
+}
+
+void recent_clear(Recent *r, int kind)
+{
+    for (int i = r->count - 1; i >= 0; --i)
+        if (r->kind[i] == kind) recent_remove(r, i);
+}
+
+int recent_inside(const char *dir, const char *folder)
+{
+    if (folder == NULL || folder[0] == '\0') return 1;
+    char a[PATH_MAX], b[PATH_MAX];
+    if (realpath(dir, a) == NULL) snprintf(a, sizeof a, "%s", dir);   /* a folder that is gone is compared as it was written */
+    if (realpath(folder, b) == NULL) snprintf(b, sizeof b, "%s", folder);
+    size_t n = strlen(b);
+    while (n > 1 && b[n - 1] == '/') b[--n] = '\0';
+    if (strncmp(a, b, n) != 0) return 0;
+    return a[n] == '\0' || a[n] == '/' || n == 1;   /* "/" holds everything */
 }
 
 int recent_save(const Recent *r, const char *file)

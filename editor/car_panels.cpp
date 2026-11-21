@@ -78,7 +78,6 @@ static void workspace_list(App *a, int kind, float width)
 {
     if (a->workspace[0] == '\0') return;
     const int count = kind == 0 ? a->workspace_list.cars : a->workspace_list.tracks;
-    ImGui::SeparatorText("In the workspace");
     if (count == 0) muted_wrapped("none yet");
     for (int i = 0; i < count; ++i) {
         const char *name = kind == 0 ? a->workspace_list.car[i] : a->workspace_list.track[i];
@@ -89,23 +88,29 @@ static void workspace_list(App *a, int kind, float width)
     }
 }
 
-// the recent projects of one kind
+// the recent projects of one kind: those inside the workspace (all of them with none), each removable with a right click, and a button that clears the kind
 static void recent_list(App *a, int kind, float width)
 {
-    ImGui::SeparatorText("Recent");
     int shown = 0;
+    int remove = -1;
     for (int i = 0; i < a->recent.count; ++i) {
-        if (a->recent.kind[i] != kind) continue;
+        if (a->recent.kind[i] != kind || !recent_inside(a->recent.dir[i], a->workspace)) continue;
         ++shown;
         const bool there = recent_present(a->recent.dir[i], a->recent.kind[i]);
         ImGui::PushID(1000 + i);
         ImGui::BeginDisabled(!there);   // a folder that is gone is greyed
         if (ImGui::Selectable(leaf(a->recent.dir[i]), false, 0, ImVec2(width, 0))) app_ask(a, APP_ACT_RECENT, a->recent.dir[i]);
         ImGui::EndDisabled();
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s%s", a->recent.dir[i], there ? "" : "\nnot found: the folder was moved or deleted");
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s%s\nRight click: remove from Recent", a->recent.dir[i], there ? "" : "\nnot found: the folder was moved or deleted");
+        if (ImGui::BeginPopupContextItem("recent item")) {
+            if (ImGui::MenuItem("Remove from Recent")) remove = i;
+            ImGui::EndPopup();
+        }
         ImGui::PopID();
     }
+    if (remove >= 0) app_recent_remove(a, remove);
     if (shown == 0) muted_wrapped("Nothing opened yet.");
+    else if (ImGui::SmallButton(kind == RECENT_CAR ? "Clear recent cars" : "Clear recent tracks")) app_recent_clear(a, kind);
 }
 
 void start_screen(App *a)
@@ -130,15 +135,15 @@ void start_screen(App *a)
         if (ImGui::BeginTable("rooms", 2, ImGuiTableFlags_SizingStretchSame, ImVec2(total, 0))) {
             const float half = total / 2 - 16;
             ImGui::TableNextColumn();
+            ImGui::AlignTextToFramePadding();   // the same baseline in both columns
             ImGui::SetWindowFontScale(1.25f);
             ImGui::TextUnformatted("Cars");
             ImGui::SetWindowFontScale(1.0f);
             if (ImGui::Button("Open car...", ImVec2(half, 0))) app_ask(a, APP_ACT_OPEN_CAR, "");
             if (ImGui::Button("Export original car...", ImVec2(half, 0))) a->export_dialog = 1;
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Make a project from one of the game's cars, to adjust its masks");
-            workspace_list(a, 0, half);
-            recent_list(a, RECENT_CAR, half);
             ImGui::TableNextColumn();
+            ImGui::AlignTextToFramePadding();   // the same baseline in both columns
             ImGui::SetWindowFontScale(1.25f);
             ImGui::TextUnformatted("Tracks");
             ImGui::SetWindowFontScale(1.0f);
@@ -148,7 +153,25 @@ void start_screen(App *a)
             if (ImGui::Button("Open original track...", ImVec2(half, 0))) a->original_dialog = 1;
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Tune a CD track's light at dawn, day, dusk and night, with a photo from the game");
-            workspace_list(a, 1, half);
+            ImGui::EndTable();
+        }
+        // what the workspace holds and what was opened lately: each heading once across both rooms, the lists in the columns of their room
+        const float half = total / 2 - 16;
+        if (a->workspace[0] != '\0') {
+            ImGui::SeparatorText("In the workspace");
+            if (ImGui::BeginTable("in the workspace", 2, ImGuiTableFlags_SizingStretchSame, ImVec2(total, 0))) {
+                ImGui::TableNextColumn();
+                workspace_list(a, 0, half);
+                ImGui::TableNextColumn();
+                workspace_list(a, 1, half);
+                ImGui::EndTable();
+            }
+        }
+        ImGui::SeparatorText("Recent");
+        if (ImGui::BeginTable("recent", 2, ImGuiTableFlags_SizingStretchSame, ImVec2(total, 0))) {
+            ImGui::TableNextColumn();
+            recent_list(a, RECENT_CAR, half);
+            ImGui::TableNextColumn();
             recent_list(a, RECENT_TRACK, half);
             ImGui::EndTable();
         }

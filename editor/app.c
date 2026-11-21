@@ -414,6 +414,18 @@ static void remember(App *a)
     if (a->recent_file[0] != '\0') recent_save(&a->recent, a->recent_file);
 }
 
+void app_recent_remove(App *a, int index)
+{
+    recent_remove(&a->recent, index);
+    if (a->recent_file[0] != '\0') recent_save(&a->recent, a->recent_file);
+}
+
+void app_recent_clear(App *a, int kind)
+{
+    recent_clear(&a->recent, kind);
+    if (a->recent_file[0] != '\0') recent_save(&a->recent, a->recent_file);
+}
+
 void app_carry_window(App *to, const App *from)
 {
     to->recent = from->recent;

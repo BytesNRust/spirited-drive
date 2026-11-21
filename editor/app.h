@@ -449,6 +449,9 @@ int app_workspace_item(const App *a, int kind, int i, char *out, size_t cap);
 int app_new_track_named(App *a, const char *name, const char *id);
 /* the workspace lists read again (after a project was made in it) */
 void app_workspace_refresh(App *a);
+/* The start screen's Recent list: entry `index` taken out, or every entry of `kind` (RECENT_CAR / RECENT_TRACK); the list file is written again. */
+void app_recent_remove(App *a, int index);
+void app_recent_clear(App *a, int kind);
 /* the folder dialog for a workspace, from the menu or the start screen: it does not ask about unsaved changes (it changes no project) */
 void app_workspace_pick(App *a);
 /* where the folder dialog `kind` (APP_ACT_NEW, _OPEN, _OPEN_CAR, _EXPORT_PICK, _WORKSPACE_PICK) starts: the workspace's cars/ or tracks/, else the open project's parent, else "" */

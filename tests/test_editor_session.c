@@ -25,6 +25,52 @@ static void path_in(char *out, size_t cap, const char *name)
     snprintf(out, cap, "%s/%s", root, name);
 }
 
+/* the recent list of the start screen: one entry removed, a kind cleared, and "inside the workspace" (a folder under it, not one that only starts with its name) */
+static void check_recent_manage(void)
+{
+    Recent r;
+    memset(&r, 0, sizeof r);
+    recent_push(&r, "/ws/cars/a", RECENT_CAR);
+    recent_push(&r, "/ws/tracks/t", RECENT_TRACK);
+    recent_push(&r, "/other/cars/b", RECENT_CAR);
+    recent_push(&r, "/ws/cars/c", RECENT_CAR);               /* newest first: c, b, t, a */
+    CHECK_EQ_INT(r.count, 4);
+    recent_remove(&r, 1);                                    /* b */
+    CHECK_EQ_INT(r.count, 3);
+    CHECK(strcmp(r.dir[0], "/ws/cars/c") == 0 && strcmp(r.dir[1], "/ws/tracks/t") == 0 && strcmp(r.dir[2], "/ws/cars/a") == 0);
+    CHECK(r.kind[0] == RECENT_CAR && r.kind[1] == RECENT_TRACK && r.kind[2] == RECENT_CAR);
+    recent_remove(&r, 7);                                    /* no such entry: nothing */
+    recent_remove(&r, -1);
+    CHECK_EQ_INT(r.count, 3);
+    recent_clear(&r, RECENT_CAR);                            /* the cars go, the track stays */
+    CHECK_EQ_INT(r.count, 1);
+    CHECK(strcmp(r.dir[0], "/ws/tracks/t") == 0 && r.kind[0] == RECENT_TRACK);
+    recent_clear(&r, RECENT_CAR);
+    CHECK_EQ_INT(r.count, 1);
+    recent_clear(&r, RECENT_TRACK);
+    CHECK_EQ_INT(r.count, 0);
+
+    CHECK(recent_inside("/ws/cars/a", "/ws"));
+    CHECK(recent_inside("/ws/cars/a", "/ws/"));              /* a slash at the end of the workspace is the same folder */
+    CHECK(recent_inside("/ws", "/ws"));
+    CHECK(!recent_inside("/ws-two/cars/a", "/ws"));          /* only the name starts the same */
+    CHECK(!recent_inside("/other/cars/b", "/ws"));
+    CHECK(recent_inside("/other/cars/b", ""));               /* no workspace: everything is inside */
+    char real[600], link[700], kit[700];
+    path_in(real, sizeof real, "rin-real");
+    path_in(link, sizeof link, "rin-link");
+    snprintf(kit, sizeof kit, "%s/cars", real);
+    mkdir(real, 0777);
+    mkdir(kit, 0777);
+    CHECK(symlink(real, link) == 0);
+    char here[800];
+    snprintf(here, sizeof here, "%s/cars", real);
+    CHECK(recent_inside(here, link));                        /* the workspace named through a link: the recent list holds real paths */
+    unlink(link);
+    rmdir(kit);
+    rmdir(real);
+}
+
 static void check_recent(void)
 {
     Recent r;
@@ -1506,6 +1552,7 @@ int main(int argc, char **argv)
         return 1;
     }
     check_recent();
+    check_recent_manage();
     check_modified_trace();
     check_road_width();
     check_keys_file();
