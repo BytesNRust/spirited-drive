@@ -988,6 +988,45 @@ static void check_kinds(void)
     CHECK_EQ_INT(a->go, APP_ACT_OPEN_CAR_AT);
     CHECK(strcmp(a->go_path, kit) == 0);
     a->go = APP_ACT_NONE;
+
+    /* an Open is asked once: Discard (or Save) carries through to the folder the picker gives, and is spent by that open */
+    const AppAction PICKS[4] = { APP_ACT_OPEN_CAR, APP_ACT_OPEN, APP_ACT_NEW, APP_ACT_EXPORT_PICK };
+    const AppAction GIVES[4] = { APP_ACT_OPEN_CAR_AT, APP_ACT_OPEN_AT, APP_ACT_NEW_AT, APP_ACT_EXPORT_AT };
+    for (int k = 0; k < 4; ++k) {
+        app_ask(a, PICKS[k], "");
+        CHECK_EQ_INT(a->confirm, PICKS[k]);
+        app_answer(a, APP_ANSWER_DISCARD);
+        CHECK_EQ_INT(a->go, PICKS[k]);
+        a->go = APP_ACT_NONE;                                /* main.c's dialog is up */
+        app_ask(a, GIVES[k], kit);
+        CHECK_EQ_INT(a->confirm, APP_ACT_NONE);              /* the folder it gave: no second question */
+        CHECK_EQ_INT(a->go, GIVES[k]);
+        a->go = APP_ACT_NONE;
+        app_ask(a, GIVES[k], kit);                           /* the answer was spent: the next one asks again */
+        CHECK_EQ_INT(a->confirm, GIVES[k]);
+        app_answer(a, APP_ANSWER_CANCEL);
+        app_ask(a, PICKS[k], "");                            /* Cancel in the picker: nothing is lost, and the next open asks again */
+        app_answer(a, APP_ANSWER_DISCARD);
+        a->go = APP_ACT_NONE;
+        app_pick_cancelled(a);
+        app_ask(a, GIVES[k], kit);
+        CHECK_EQ_INT(a->confirm, GIVES[k]);
+        app_answer(a, APP_ANSWER_CANCEL);
+        CHECK(app_modified(a));
+    }
+    app_ask(a, APP_ACT_RECENT, real_kit);                    /* an answer about something that is not a picker's open licenses nothing */
+    app_answer(a, APP_ANSWER_DISCARD);
+    a->go = APP_ACT_NONE;
+    app_ask(a, APP_ACT_OPEN_CAR_AT, kit);
+    CHECK_EQ_INT(a->confirm, APP_ACT_OPEN_CAR_AT);
+    app_answer(a, APP_ANSWER_CANCEL);
+    app_ask(a, APP_ACT_QUIT, "");
+    app_answer(a, APP_ANSWER_DISCARD);
+    a->go = APP_ACT_NONE;
+    app_ask(a, APP_ACT_OPEN_AT, kit);
+    CHECK_EQ_INT(a->confirm, APP_ACT_OPEN_AT);
+    app_answer(a, APP_ANSWER_CANCEL);
+
     CHECK(app_open_recent(a, real_kit));                     /* a recent car opens as a car, a recent track as a track */
     CHECK_EQ_INT(a->kind, APP_KIND_CAR);
     char real_two[PATH_MAX];

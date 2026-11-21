@@ -360,14 +360,19 @@ static void take_dialog(App *a)
     if (g_dialog.lock == NULL) return;
     char path[APP_PATH] = "";
     AppAction kind = APP_ACT_NONE;
+    int answered = 0;
     SDL_LockMutex(g_dialog.lock);
     if (g_dialog.ready) {
+        answered = 1;
         g_dialog.ready = 0;
         kind = g_dialog.kind;
         snprintf(path, sizeof path, "%s", g_dialog.path);
     }
     SDL_UnlockMutex(g_dialog.lock);
-    if (path[0] == '\0') return;
+    if (path[0] == '\0') {
+        if (answered) app_pick_cancelled(a);   /* a cancelled picker: the answer given before it is dropped */
+        return;
+    }
     if (kind == APP_ACT_WORKSPACE_PICK) {   /* it changes no project: no question about unsaved changes */
         app_workspace_set(a, path);
         return;

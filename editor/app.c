@@ -373,7 +373,10 @@ void app_ask(App *a, AppAction act, const char *path)
         set_status(a, "A race is running: wait for it to end, or press Stop");
         return;
     }
-    if (app_modified(a)) {
+    const int gives = act == APP_ACT_NEW_AT || act == APP_ACT_OPEN_AT || act == APP_ACT_OPEN_CAR_AT || act == APP_ACT_EXPORT_AT || act == APP_ACT_LIGHT_AT;
+    const int answered = gives && a->discard_accepted;   /* the question was answered before the picker: Save or Discard stands for the open it gave */
+    if (gives) a->discard_accepted = 0;
+    if (app_modified(a) && !answered) {
         a->confirm = act;
         snprintf(a->confirm_path, sizeof a->confirm_path, "%s", path != NULL ? path : "");
     } else {
@@ -389,8 +392,15 @@ void app_answer(App *a, int answer)
     if (answer == APP_ANSWER_SAVE || answer == APP_ANSWER_DISCARD) {
         a->go = a->confirm;
         memcpy(a->go_path, a->confirm_path, sizeof a->go_path);
+        a->discard_accepted = a->confirm == APP_ACT_NEW || a->confirm == APP_ACT_OPEN || a->confirm == APP_ACT_OPEN_CAR || a->confirm == APP_ACT_EXPORT_PICK
+                              || a->confirm == APP_ACT_LIGHT_PICK;   /* a folder picker follows: the open it gives is not asked about again */
     }
     a->confirm = APP_ACT_NONE;
+}
+
+void app_pick_cancelled(App *a)
+{
+    a->discard_accepted = 0;
 }
 
 /* puts the open project first in the recent list, by its real path (a relative one or one with a slash at its end would be another entry, and

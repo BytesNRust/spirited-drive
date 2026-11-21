@@ -209,6 +209,7 @@ typedef struct {
     char confirm_path[APP_PATH];
     AppAction go;                /* an action to run now (main.c): the confirmation is answered, or there was nothing unsaved */
     char go_path[APP_PATH];
+    int discard_accepted;        /* Save or Discard was answered for a folder picker (Open, New, Export...): the open the picker gives is not asked about again; spent by it, or by app_pick_cancelled */
     int fit_pending;             /* the view is fitted to the trace on the next frame (a project was just opened) */
     char generic[APP_PATH];      /* the editor's own GENERIC.FAM, for the projects it creates ("" when there is none) */
     Recent recent;               /* the project folders opened lately, newest first */
@@ -345,6 +346,8 @@ void app_ask(App *a, AppAction act, const char *path);
 /* The answer to the waiting confirmation: APP_ANSWER_SAVE saves and goes on (if the save fails it stays waiting, with the status saying why),
  * APP_ANSWER_DISCARD goes on without saving, APP_ANSWER_CANCEL drops the action. */
 void app_answer(App *a, int answer);
+/* the folder picker was closed without a folder: the answer given before it is dropped (the next open asks again) */
+void app_pick_cancelled(App *a);
 
 /* Closes the project and opens the one in `dir` (APP_ACT_RECENT, and the folder the Open and New dialogs gave): 1 when it is open. On a failure the
  * project stays as it was, with the status saying why. app_open_project wants a project.ini in the folder; app_new_project wants none (it makes one). */
