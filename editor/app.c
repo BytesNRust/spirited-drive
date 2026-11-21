@@ -797,7 +797,7 @@ void app_insert_point(App *a)
     }
     if (!can_add(a)) return;
     const TracePoint *p = &a->trace.points[a->selected], *q = &a->trace.points[a->selected + 1];
-    const TracePoint mid = { (p->x + q->x) / 2, (p->z + q->z) / 2 };
+    const TracePoint mid = { .x = (p->x + q->x) / 2, .z = (p->z + q->z) / 2, .h = track_trace_height_at(a->trace.points, a->trace.count, a->selected, 0.5) };   /* on the curve: no height moves */
     TracePoint *more = points_with(a, a->selected + 1, mid);
     if (more == NULL) {
         set_status(a, "out of memory");
@@ -806,6 +806,16 @@ void app_insert_point(App *a)
     track_trace_keys_insert_point(a->trace.keys, a->trace.key_count, a->selected + 1);   // the keys stay on their points
     put_points(a, more, a->trace.count + 1, a->selected + 1);
     set_status(a, "point inserted after the selected one");
+}
+
+void app_set_point_height(App *a, int point, double metres)
+{
+    if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count || !(fabs(metres) <= 1e9)) return;   /* not a number: nothing */
+    double want = round(metres / TRACE_HEIGHT_STEP_M) * TRACE_HEIGHT_STEP_M;
+    want = want > TRACE_HEIGHT_MAX_M ? TRACE_HEIGHT_MAX_M : want < -TRACE_HEIGHT_MAX_M ? -TRACE_HEIGHT_MAX_M : want;
+    if (a->trace.points[point].h == want) return;   // the same: nothing changed
+    a->trace.points[point].h = want;
+    a->dirty = 1;
 }
 
 /* a width for a key: inside the road's range and a whole byte, a quarter of a metre */

@@ -51,11 +51,11 @@ static void test_counts(void)
 
 static void test_goes_on_along_the_road(void)
 {
-    const TracePoint east[3] = { { 0, 0 }, { 100, 0 }, { 150, 0 } };
+    const TracePoint east[3] = { { .x = 0, .z = 0 }, { .x = 100, .z = 0 }, { .x = 150, .z = 0 } };
     TracePoint arc[7];
     CHECK(arc_block(1, 90, 60, 6, arc));
     /* heading east, a quarter right after point 1: it ends 60 on and 60 to the south; the road after it (50 m east) now runs 50 m south */
-    TracePoint *q = pts_paste_tangents(east, 3, 1, arc, 7, (TracePoint){ 0, 1 }, arc_end_heading(1, 90));
+    TracePoint *q = pts_paste_tangents(east, 3, 1, arc, 7, (TracePoint){ .x = 0, .z = 1 }, arc_end_heading(1, 90));
     CHECK(q != NULL && near(q[7], 160, -60) && near(q[8], 160, -110));
     free(q);
     CHECK(near(arc_end_heading(1, 90), 1, 0) && near(arc_end_heading(0, 180), 0, -1));

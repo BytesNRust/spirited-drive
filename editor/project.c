@@ -133,8 +133,9 @@ static int parse_project(const char *text, Project *p, char *why, size_t why_cap
     return 1;
 }
 
-/* the numbers of the JSON array `[[x, z], ...]` after "points", pairs into trace; 1 when well formed */
-static int parse_points(const char *text, Trace *t, char *why, size_t why_cap)
+/* the numbers of the JSON array `[[x, z], ...]` after "points" (version 5: `[[x, z, h], ...]`, a pair there is height 0), into trace; 1 when well formed. A height is finite and
+ * within TRACE_HEIGHT_MAX_M, and only a version 5 file has one. */
+static int parse_points(const char *text, int version, Trace *t, char *why, size_t why_cap)
 {
     const char *p = strstr(text, "\"points\"");
     p = p != NULL ? strchr(p, '[') : NULL;
@@ -163,6 +164,28 @@ static int parse_points(const char *text, Trace *t, char *why, size_t why_cap)
         if (end == p) break;
         p = end;
         while (isspace((unsigned char)*p)) ++p;
+        double h = 0;
+        if (*p == ',') {   /* a third number: the height */
+            ++p;
+            h = strtod(p, &end);
+            if (end == p) break;
+            p = end;
+            while (isspace((unsigned char)*p)) ++p;
+            if (version < 5) {
+                snprintf(why, why_cap, "trace.json: point %d has a height, which only a version 5 file has", t->count);
+                free(t->points);
+                t->points = NULL;
+                t->count = 0;
+                return 0;
+            }
+            if (!(fabs(h) <= TRACE_HEIGHT_MAX_M)) {   /* also false for a number that is not finite */
+                snprintf(why, why_cap, "trace.json: point %d: the height must be a number within %.0f m of the start", t->count, TRACE_HEIGHT_MAX_M);
+                free(t->points);
+                t->points = NULL;
+                t->count = 0;
+                return 0;
+            }
+        }
         if (*p != ']') break;
         ++p;
         if (t->count == cap) {
@@ -179,6 +202,7 @@ static int parse_points(const char *text, Trace *t, char *why, size_t why_cap)
         }
         t->points[t->count].x = x;
         t->points[t->count].z = z;
+        t->points[t->count].h = h;
         ++t->count;
         if (t->count > PROJECT_POINTS_MAX) break;
     }
@@ -519,7 +543,7 @@ int project_open(const char *dir, Project *out, Trace *trace, char *why, size_t 
     trace->keys = NULL;
     trace->key_count = trace->key_cap = 0;
     int version = 1;
-    const int ok = parse_version(json, &version, why, why_cap) && parse_width(json, &trace->width, why, why_cap) && parse_points(json, trace, why, why_cap) &&
+    const int ok = parse_version(json, &version, why, why_cap) && parse_width(json, &trace->width, why, why_cap) && parse_points(json, version, trace, why, why_cap) &&
                    (version < 2 || parse_keys(json, version, trace, why, why_cap)) &&   // keys are version 2's: an older file with a "keys" array has none
                    (version >= 4 || old_barriers_custom(trace) || (snprintf(why, why_cap, "trace.json: out of memory"), 0));
     free(json);
@@ -828,6 +852,11 @@ int project_save_trace(const char *dir, const Trace *trace, char *why, size_t wh
         snprintf(why, why_cap, "trace.json: width %g is outside %d..%d", trace->width, PROJECT_WIDTH_MIN, PROJECT_WIDTH_MAX);
         return 0;
     }
+    for (int i = 0; i < trace->count; ++i)   /* what the reader would refuse on the way back */
+        if (!(fabs(trace->points[i].h) <= TRACE_HEIGHT_MAX_M)) {
+            snprintf(why, why_cap, "trace.json: point %d: the height must be a number within %.0f m of the start", i, TRACE_HEIGHT_MAX_M);
+            return 0;
+        }
     Text text = { NULL, 0, 0, 0 };
     int version = 2;   /* 3 only when a key has a value past the width (a surface, a side, the bank): a file with none stays readable by a version 2 Studio */
     const unsigned fence = TRACE_KEY_FENCE_HEIGHT | TRACE_KEY_FENCE_ART | TRACE_KEY_BARRIER_CUSTOM(0) | TRACE_KEY_BARRIER_CUSTOM(1);   /* 4 only with the fence step's */
@@ -835,8 +864,16 @@ int project_save_trace(const char *dir, const Trace *trace, char *why, size_t wh
         if ((trace->keys[i].has & ~(unsigned)TRACE_KEY_WIDTH) && version < 3) version = 3;
         if (trace->keys[i].has & fence) version = 4;
     }
+    int heights = 0;   /* 5 only when a point has a height: a flat project is written as before */
+    for (int i = 0; i < trace->count; ++i)
+        if (trace->points[i].h != 0) heights = 1;
+    if (heights) version = 5;
     text_add(&text, "{\n  \"version\": %d,\n  \"width\": %.1f,\n  \"points\": [\n", version, trace->width);
-    for (int i = 0; i < trace->count; ++i) text_add(&text, "    [%.3f, %.3f]%s\n", trace->points[i].x, trace->points[i].z, i + 1 < trace->count ? "," : "");
+    for (int i = 0; i < trace->count; ++i) {
+        const char *comma = i + 1 < trace->count ? "," : "";
+        if (heights) text_add(&text, "    [%.3f, %.3f, %.3f]%s\n", trace->points[i].x, trace->points[i].z, trace->points[i].h, comma);
+        else text_add(&text, "    [%.3f, %.3f]%s\n", trace->points[i].x, trace->points[i].z, comma);
+    }
     if (trace->key_count == 0) {
         text_add(&text, "  ]\n}\n");
     } else {

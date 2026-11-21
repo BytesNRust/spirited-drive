@@ -6,14 +6,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-static TracePoint sub(TracePoint a, TracePoint b) { return (TracePoint){ a.x - b.x, a.z - b.z }; }
-static TracePoint add(TracePoint a, TracePoint b) { return (TracePoint){ a.x + b.x, a.z + b.z }; }
+/* the plan vectors below carry no height: a point made from one gets its height set by keep_h (a heading, an offset and a rotation are of the plan only) */
+static TracePoint sub(TracePoint a, TracePoint b) { return (TracePoint){ .x = a.x - b.x, .z = a.z - b.z }; }
+static TracePoint add(TracePoint a, TracePoint b) { return (TracePoint){ .x = a.x + b.x, .z = a.z + b.z }; }
+static TracePoint keep_h(TracePoint moved, double h) { moved.h = h; return moved; }
 
 /* v turned by `r` radians anticlockwise in (x, z) (from +x towards +z) */
 static TracePoint turn(TracePoint v, double r)
 {
     const double c = cos(r), s = sin(r);
-    return (TracePoint){ v.x * c - v.z * s, v.x * s + v.z * c };
+    return (TracePoint){ .x = v.x * c - v.z * s, .z = v.x * s + v.z * c };
 }
 
 static double angle(TracePoint v) { return atan2(v.z, v.x); }
@@ -22,15 +24,15 @@ static double angle(TracePoint v) { return atan2(v.z, v.x); }
 static TracePoint reflect(TracePoint v, TracePoint u)
 {
     const double t = v.x * u.x + v.z * u.z;
-    return (TracePoint){ 2 * t * u.x - v.x, 2 * t * u.z - v.z };
+    return (TracePoint){ .x = 2 * t * u.x - v.x, .z = 2 * t * u.z - v.z };
 }
 
 TracePoint pts_heading(const TracePoint *p, int n, int i)
 {
-    if (n < 2 || i < 0 || i >= n) return (TracePoint){ 0, 0 };
+    if (n < 2 || i < 0 || i >= n) return (TracePoint){ .x = 0, .z = 0 };
     const TracePoint d = i == 0 ? sub(p[1], p[0]) : sub(p[i], p[i - 1]);
     const double len = hypot(d.x, d.z);
-    return len > 0 ? (TracePoint){ d.x / len, d.z / len } : (TracePoint){ 0, 0 };
+    return len > 0 ? (TracePoint){ .x = d.x / len, .z = d.z / len } : (TracePoint){ .x = 0, .z = 0 };
 }
 
 static TracePoint *copy_of(const TracePoint *p, int n)
@@ -44,7 +46,7 @@ static TracePoint *copy_of(const TracePoint *p, int n)
 static void tail_follows(TracePoint *q, const TracePoint *p, int n, int e, TracePoint was, TracePoint now)
 {
     const double r = (was.x == 0 && was.z == 0) || (now.x == 0 && now.z == 0) ? 0 : angle(now) - angle(was);
-    for (int i = e + 1; i < n; ++i) q[i] = add(q[e], turn(sub(p[i], p[e]), r));
+    for (int i = e + 1; i < n; ++i) q[i] = keep_h(add(q[e], turn(sub(p[i], p[e]), r)), p[i].h);   /* the tail keeps its heights */
 }
 
 static int run_ok(int n, int s, int e) { return n >= 2 && s >= 0 && e < n && s < e; }
@@ -58,10 +60,10 @@ TracePoint *pts_paste_tangents(const TracePoint *p, int n, int anchor, const Tra
     const TracePoint road = pts_heading(p, n, anchor);
     const int no_road = road.x == 0 && road.z == 0, no_start = start.x == 0 && start.z == 0;
     const double r = no_road || no_start ? 0 : angle(road) - angle(start);
-    for (int i = 1; i < m; ++i) q[anchor + i] = add(p[anchor], turn(sub(block[i], block[0]), r));
+    for (int i = 1; i < m; ++i) q[anchor + i] = keep_h(add(p[anchor], turn(sub(block[i], block[0]), r)), p[anchor].h + block[i].h - block[0].h);   /* the block's heights are its own, from the anchor's */
     const int last = anchor + m - 1;   /* the tail, which left p[anchor], leaves the block's end turned as much as the block turns */
     const double rt = no_start || (end.x == 0 && end.z == 0) ? 0 : angle(end) - angle(start);
-    for (int i = anchor + 1; i < n; ++i) q[last + i - anchor] = add(q[last], turn(sub(p[i], p[anchor]), rt));
+    for (int i = anchor + 1; i < n; ++i) q[last + i - anchor] = keep_h(add(q[last], turn(sub(p[i], p[anchor]), rt)), p[i].h);
     return q;
 }
 
@@ -76,8 +78,8 @@ static TracePoint *mirror(const TracePoint *p, int n, int s, int e, int square)
     if (!run_ok(n, s, e)) return NULL;
     TracePoint *q = copy_of(p, n);
     if (q == NULL) return NULL;
-    const TracePoint h = pts_heading(p, n, s), u = square ? (TracePoint){ -h.z, h.x } : h;
-    for (int i = s + 1; i <= e; ++i) q[i] = add(p[s], reflect(sub(p[i], p[s]), u));
+    const TracePoint h = pts_heading(p, n, s), u = square ? (TracePoint){ .x = -h.z, .z = h.x } : h;
+    for (int i = s + 1; i <= e; ++i) q[i] = keep_h(add(p[s], reflect(sub(p[i], p[s]), u)), p[i].h);   /* a mirror on the plan: each point keeps its height */
     tail_follows(q, p, n, e, pts_heading(p, n, e), pts_heading(q, n, e));
     return q;
 }
@@ -96,14 +98,14 @@ TracePoint *pts_reverse(const TracePoint *p, int n, int s, int e)
         const TracePoint road = pts_heading(p, n, s), first = sub(q[s + 1], q[s]);
         const double r = angle(road) - angle(first);
         const TracePoint o = q[s];
-        for (int i = s; i <= e; ++i) q[i] = add(p[s], turn(sub(q[i], o), r));
+        for (int i = s; i <= e; ++i) q[i] = keep_h(add(p[s], turn(sub(q[i], o), r)), q[i].h);   /* the heights go with the points: the profile runs the other way too */
         tail_follows(q, p, n, e, pts_heading(p, n, e), pts_heading(q, n, e));
         return q;
     }
     const TracePoint road = pts_heading(p, n, e), last = sub(q[e], q[e - 1]);   /* s == 0: the new last on p[e], arriving as the road did */
     const double r = angle(road) - angle(last);
     const TracePoint o = q[e];
-    for (int i = 0; i <= e; ++i) q[i] = add(p[e], turn(sub(q[i], o), r));
+    for (int i = 0; i <= e; ++i) q[i] = keep_h(add(p[e], turn(sub(q[i], o), r)), q[i].h);
     return q;
 }
 

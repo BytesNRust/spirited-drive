@@ -108,7 +108,7 @@ static void check_round_trip(void)
     CHECK(project_open(dir, &proj, &t, why, sizeof why));
     CHECK_EQ_INT(t.key_count, 0);
     free(t.points), free(t.keys);
-    write_trace(trace, 5, "{\"point\": 1, \"fence_height\": \"tall\"}");   /* newer than this Studio */
+    write_trace(trace, 6, "{\"point\": 1, \"fence_height\": \"tall\"}");   /* newer than this Studio */
     CHECK(!project_open(dir, &proj, &t, why, sizeof why));
     cleanup_project(dir);
 }

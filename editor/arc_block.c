@@ -9,7 +9,7 @@ int arc_block(int right, double degrees, double radius_m, int count, TracePoint 
     const double r = radius_m / TRACE_METRES_PER_UNIT, side = right ? 1 : -1;
     for (int i = 0; i <= count; ++i) {   /* about the centre (side * r, 0): angle t from the start, going +z first */
         const double t = degrees * M_PI / 180.0 * i / count;
-        out[i] = (TracePoint){ side * (r - r * cos(t)), r * sin(t) };
+        out[i] = (TracePoint){ .x = side * (r - r * cos(t)), .z = r * sin(t) };
     }
     return 1;
 }
@@ -17,7 +17,7 @@ int arc_block(int right, double degrees, double radius_m, int count, TracePoint 
 int straight_block(double length_m, int count, TracePoint *out)
 {
     if (!(length_m > 0 && length_m <= STRAIGHT_LENGTH_MAX_M) || count < 1 || count > ARC_POINTS_MAX) return 0;
-    for (int i = 0; i <= count; ++i) out[i] = (TracePoint){ 0, length_m / TRACE_METRES_PER_UNIT * i / count };
+    for (int i = 0; i <= count; ++i) out[i] = (TracePoint){ .x = 0, .z = length_m / TRACE_METRES_PER_UNIT * i / count };
     return 1;
 }
 
@@ -40,5 +40,5 @@ int straight_default_count(double length_m) { return clamp_count(length_m / STRA
 TracePoint arc_end_heading(int right, double degrees)
 {
     const double t = degrees * M_PI / 180.0;
-    return (TracePoint){ (right ? 1 : -1) * sin(t), cos(t) };
+    return (TracePoint){ .x = (right ? 1 : -1) * sin(t), .z = cos(t) };
 }

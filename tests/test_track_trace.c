@@ -73,7 +73,7 @@ static int count_flags(const TraceFlags *flags, int n, TraceFlags bit)
 
 static void test_straight(void)
 {
-    const TracePoint p[] = { { 0, 0 }, { 0, 96 }, { 0, 192 }, { 0, 288 } };
+    const TracePoint p[] = { { .x = 0, .z = 0 }, { .x = 0, .z = 96 }, { .x = 0, .z = 192 }, { .x = 0, .z = 288 } };
     TrackGenNode *nodes = NULL;
     int n = 0;
     CHECK(nodes_of(p, 4, WIDTH, &nodes, &n));
@@ -153,7 +153,7 @@ static void test_tight_arc_flags_radius(void)
 
 static void test_corner_flags_turn(void)
 {
-    const TracePoint p[] = { { 0, 0 }, { 0, 100 }, { 100, 100 } };
+    const TracePoint p[] = { { .x = 0, .z = 0 }, { .x = 0, .z = 100 }, { .x = 100, .z = 100 } };
     TrackGenNode *nodes = NULL;
     int n = 0;
     CHECK(nodes_of(p, 3, WIDTH, &nodes, &n));
@@ -314,7 +314,7 @@ static void test_metres(void)
     CHECK(fabs(track_trace_signed_turn(n, 1) - 5.0) < 0.01);     /* right */
     CHECK(fabs(track_trace_signed_turn(n, 2) + 3.0) < 0.01);     /* left */
     CHECK(track_trace_signed_turn(n, 0) == 0);
-    const TracePoint line[] = { { 0, 0 }, { 0, 100 }, { 0, 300 } };
+    const TracePoint line[] = { { .x = 0, .z = 0 }, { .x = 0, .z = 100 }, { .x = 0, .z = 300 } };
     double pd[3];
     track_trace_point_distances(line, 3, pd);
     CHECK(fabs(pd[0]) < 0.001 && fabs(pd[1] - 100) < 0.5 && fabs(pd[2] - 300) < 0.5);   /* along the curve: a straight, so the sums of its spans */
@@ -332,13 +332,13 @@ static void test_faults(void)
 {
     TrackGenNode *nodes = NULL;
     int n = 0;
-    const TracePoint one[] = { { 0, 0 } };
+    const TracePoint one[] = { { .x = 0, .z = 0 } };
     CHECK(!nodes_of(one, 1, WIDTH, &nodes, &n));
-    const TracePoint nan_point[] = { { 0, 0 }, { NAN, 10 } };
+    const TracePoint nan_point[] = { { .x = 0, .z = 0 }, { .x = NAN, .z = 10 } };
     CHECK(!nodes_of(nan_point, 2, WIDTH, &nodes, &n));
-    const TracePoint twins[] = { { 0, 0 }, { 0, 0 }, { 0, 200 } };
+    const TracePoint twins[] = { { .x = 0, .z = 0 }, { .x = 0, .z = 0 }, { .x = 0, .z = 200 } };
     CHECK(!nodes_of(twins, 3, WIDTH, &nodes, &n));
-    const TracePoint short_road[] = { { 0, 0 }, { 0, 10 } };   /* 8 segments would put the nodes 0.3 units apart */
+    const TracePoint short_road[] = { { .x = 0, .z = 0 }, { .x = 0, .z = 10 } };   /* 8 segments would put the nodes 0.3 units apart */
     CHECK(!nodes_of(short_road, 2, WIDTH, &nodes, &n));
     TracePoint long_road[61];
     for (int i = 0; i <= 60; ++i) { long_road[i].x = 0; long_road[i].z = 300.0 * i; }   /* 18000 units: 750 segments */
@@ -529,7 +529,7 @@ static void test_keys_width_limit(void)
 {
     TracePoint q[12];                                   /* evenly spaced, so the curve is straight: only the width is amber */
     straight_points(q, 12, 15);
-    TracePoint p[4] = { { 0, 0 }, { 0, 100 }, { 0, 115 }, { 0, 300 } };
+    TracePoint p[4] = { { .x = 0, .z = 0 }, { .x = 0, .z = 100 }, { .x = 0, .z = 115 }, { .x = 0, .z = 300 } };
     const TraceKey sudden[2] = { { .point = 2, .has = TRACE_KEY_WIDTH, .width_m = 10.0 }, { .point = 3, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };   /* 10 to 14 m (16 bytes) over 15 m */
     TrackGenNode *n = NULL;
     int count = 0;
@@ -587,7 +587,7 @@ static void test_keys_ramp_steepness(void)
     const double lengths[3] = { 60, 45, 40 };
     const int amber[3] = { 0, 0, 1 };
     for (int t = 0; t < 3; ++t) {
-        TracePoint p[4] = { { 0, 0 }, { 0, 100 }, { 0, 100 + lengths[t] }, { 0, 300 } };
+        TracePoint p[4] = { { .x = 0, .z = 0 }, { .x = 0, .z = 100 }, { .x = 0, .z = 100 + lengths[t] }, { .x = 0, .z = 300 } };
         const TraceKey keys[2] = { { .point = 1, .has = TRACE_KEY_WIDTH, .width_m = 8.0 }, { .point = 2, .has = TRACE_KEY_WIDTH, .width_m = 14.0 } };
         TrackGenNode *n = NULL;
         int count = 0;
@@ -630,7 +630,7 @@ static void test_stage_too_short(void)
     CHECK(nodes >= least && 4 * (segments - 1) + 1 < least);   /* enough, and one segment less is not */
     CHECK_EQ_INT(segments, 54);
     CHECK(metres > 1290 && metres < 1320);
-    TracePoint p[2] = { { 0, 0 }, { 0, metres } };
+    TracePoint p[2] = { { .x = 0, .z = 0 }, { .x = 0, .z = metres } };
     TrackGenNode *n = NULL;
     int count = 0;
     ExchangeError err;

@@ -113,6 +113,7 @@ add_library(tnfs_core STATIC
     core/formats/track_trace_sides.c
     core/formats/track_trace_bank.c
     core/formats/track_trace_lanes.c
+    core/formats/track_trace_height.c
     core/formats/track_trace_fence.c
     core/formats/track_trace_stretch.c
     core/formats/track_trace.c
@@ -171,7 +172,7 @@ target_compile_options(tnfs_core PRIVATE ${TNFS_WARNINGS})
 # x86 does not, so the same layout gave different bytes. Off for the files that make the bytes of a package; the editor's join them
 # as they arrive. (Not all of core: tri_reverse runs in a race and is left as recorded replays have it.)
 if(NOT MSVC)
-    set_source_files_properties(core/formats/track_gen.c core/formats/track_trace.c core/formats/track_trace_sides.c core/formats/track_trace_bank.c core/formats/track_trace_lanes.c core/formats/track_trace_fence.c core/formats/track_trace_stretch.c PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+    set_source_files_properties(core/formats/track_gen.c core/formats/track_trace.c core/formats/track_trace_sides.c core/formats/track_trace_bank.c core/formats/track_trace_lanes.c core/formats/track_trace_height.c core/formats/track_trace_fence.c core/formats/track_trace_stretch.c PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
 endif()
 
 # The recovered game logic: platform-independent, links no SDL.
@@ -1022,6 +1023,10 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_include_directories(test_editor_light_compare PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_light_compare PRIVATE tnfs_tools tnfs_core Threads::Threads)
     target_compile_options(test_editor_light_compare PRIVATE ${TNFS_WARNINGS})
+    add_executable(test_editor_heights tests/test_editor_heights.c editor/point_ops.c game/sys/sha256.c editor/game_find.c editor/app.c editor/car_build_job.c editor/race_sheet.c editor/app_light.c editor/light_session.c editor/light_file.c editor/light_photo.c editor/light_compare.c editor/app_drive.c editor/track_undo.c editor/app_sides.c editor/selection.c editor/night_view.c editor/app_mask.c editor/app_psd.c editor/psd_job.c editor/app_card_watch.c editor/texture_file.c editor/mask_edit.c editor/mask_tex.c editor/build.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/edit_seq.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/install_job.c editor/proc_run.c editor/view.c)   # the road keys' lanes (step 4): trace.json and the editor
+    target_include_directories(test_editor_heights PRIVATE editor tests ${CMAKE_SOURCE_DIR})
+    target_link_libraries(test_editor_heights PRIVATE tnfs_tools tnfs_tools tnfs_core Threads::Threads)
+    target_compile_options(test_editor_heights PRIVATE ${TNFS_WARNINGS})
     add_executable(test_editor_lanes tests/test_editor_lanes.c game/sys/sha256.c editor/game_find.c editor/app.c editor/car_build_job.c editor/race_sheet.c editor/app_light.c editor/light_session.c editor/light_file.c editor/light_photo.c editor/light_compare.c editor/app_drive.c editor/track_undo.c editor/app_sides.c editor/selection.c editor/night_view.c editor/app_mask.c editor/app_psd.c editor/psd_job.c editor/app_card_watch.c editor/texture_file.c editor/mask_edit.c editor/mask_tex.c editor/build.c editor/project.c editor/session.c editor/car_project.c editor/car_edit.c editor/edit_seq.c editor/car_rehacer.c editor/car_export.c editor/car_race.c editor/install_job.c editor/proc_run.c editor/view.c)   # the road keys' lanes (step 4): trace.json and the editor
     target_include_directories(test_editor_lanes PRIVATE editor tests ${CMAKE_SOURCE_DIR})
     target_link_libraries(test_editor_lanes PRIVATE tnfs_tools tnfs_tools tnfs_core Threads::Threads)
@@ -1046,7 +1051,7 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     target_compile_options(test_editor_light_tones PRIVATE ${TNFS_WARNINGS})
     add_test(NAME editor_light_tones COMMAND test_editor_light_tones)
     # the tools share ONLY the core with the game (the owner's rule): the Studio and its tests never link the game's library or compile its files
-    foreach(studio_target tnfs-track-editor test_editor_track_undo test_editor_shortcuts test_editor_car_preview test_editor_model_scene test_editor_car_export test_editor_car_race test_editor_car_rehacer test_editor_session test_editor_psd test_editor_dash_check test_editor_light_compare test_editor_light_places test_editor_mask_reload test_editor_lanes test_editor_fence test_editor_mask_edit test_editor_light_photo test_editor_light_file test_editor_light_session test_editor_light_flow test_editor_card_reload test_editor_mask_changes)
+    foreach(studio_target tnfs-track-editor test_editor_track_undo test_editor_shortcuts test_editor_car_preview test_editor_model_scene test_editor_car_export test_editor_car_race test_editor_car_rehacer test_editor_session test_editor_psd test_editor_dash_check test_editor_light_compare test_editor_light_places test_editor_mask_reload test_editor_heights test_editor_lanes test_editor_fence test_editor_mask_edit test_editor_light_photo test_editor_light_file test_editor_light_session test_editor_light_flow test_editor_card_reload test_editor_mask_changes)
         get_target_property(studio_libs ${studio_target} LINK_LIBRARIES)
         get_target_property(studio_sources ${studio_target} SOURCES)
         if(studio_libs MATCHES "tnfs_game")
@@ -1075,6 +1080,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME editor_mask_reload COMMAND test_editor_mask_reload)
         add_test(NAME editor_card_reload COMMAND test_editor_card_reload)
         add_test(NAME editor_lanes COMMAND test_editor_lanes)
+        add_test(NAME editor_heights COMMAND test_editor_heights)
         add_test(NAME editor_fence COMMAND test_editor_fence)
         add_test(NAME editor_light_file COMMAND test_editor_light_file ${CMAKE_SOURCE_DIR})
         add_test(NAME editor_car_project COMMAND test_editor_car_project)

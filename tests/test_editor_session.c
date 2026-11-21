@@ -75,7 +75,7 @@ static int differs(TrackUndo *u, const Trace *t)
 
 static void check_modified_trace(void)
 {
-    TracePoint p[3] = { { 0, 0 }, { 0, 40 }, { 5, 80 } };
+    TracePoint p[3] = { { .x = 0, .z = 0 }, { .x = 0, .z = 40 }, { .x = 5, .z = 80 } };
     Trace t = { p, 3, 40.0, NULL, 0, 0 };
     TrackUndo first;
     mark(&first, &t);
@@ -193,9 +193,9 @@ static void check_keys_file(void)
     free(t.points);
     free(t.keys);
 
-    write_file(trace, "{\"version\": 5, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]]}\n");
+    write_file(trace, "{\"version\": 6, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]]}\n");
     CHECK(!project_open(dir, &proj, &t, why, sizeof why));   /* a newer file is refused, not read as if it were this one */
-    CHECK(strstr(why, "trace.json") != NULL && strstr(why, "version 5") != NULL && strstr(why, "newer") != NULL);
+    CHECK(strstr(why, "trace.json") != NULL && strstr(why, "version 6") != NULL && strstr(why, "newer") != NULL);
 
     write_file(trace, "{\"version\": 2, \"width\": 40.0, \"points\": [[0, 0], [0, 100], [0, 200]], \"keys\": [{\"point\": 3, \"width_m\": 9}]}\n");
     CHECK(!project_open(dir, &proj, &t, why, sizeof why));

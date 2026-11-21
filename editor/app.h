@@ -412,6 +412,9 @@ void app_install_stop(App *a);   /* asks the installer to end (a hung one): app_
 void app_add_point(App *a);
 void app_insert_point(App *a);
 void app_remove_point(App *a);
+/* A control point's height in metres above the start (the Points table's "h"; dep95): kept to a tenth of a metre and inside +-TRACE_HEIGHT_MAX_M. An unsaved change when it
+ * changes anything; a project with a height is written as trace.json version 5. */
+void app_set_point_height(App *a, int point, double metres);
 /* The road width key of a control point (the Points table's "width (m)"): set it (clamped to the road's range and to a quarter of a metre), or clear it so
  * the point inherits again. Either is an unsaved change when it changes anything. */
 void app_set_point_width(App *a, int point, double metres);

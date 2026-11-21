@@ -59,9 +59,9 @@ printf '{\n  "version": 2,\n  "width": 40.0,\n  "points": [[0.0,  0.0], [0.0,  1
 if [ -f "$work/sudden.png" ]; then png_check "$work/sudden.png" warn; else fail "no PNG of the sudden ramp"; fi
 "$editor" "$work/sudden" --frames 2 --build >"$work/log" 2>&1 || fail "Build refused a ramp that is only over an amber limit: $(cat "$work/log")"
 mkdir "$work/newer"
-printf '{\n  "version": 5,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 100.0], [0.0, 200.0]]\n}\n' > "$work/newer/trace.json"
+printf '{\n  "version": 6,\n  "width": 40.0,\n  "points": [[0.0, 0.0], [0.0, 100.0], [0.0, 200.0]]\n}\n' > "$work/newer/trace.json"
 "$editor" "$work/newer" --frames 2 --build >"$work/log" 2>&1 && fail "a trace.json of a newer version was read"
-grep -q "version 5" "$work/log" || fail "the refusal does not name the version: $(cat "$work/log")"
+grep -q "version 6" "$work/log" || fail "the refusal does not name the version: $(cat "$work/log")"
 # shoulder surfaces (trace.json version 3, step 2b): a tarmac shoulder on the left from point 1, then the right one from point 3 (the left back to the verge), builds a TRI
 # whose nodes' flags[2] (node +6, high nibble left, low right) clear that side: 0x22 before, 0x02, then 0x20; those segments draw that shoulder in asphalt
 mkdir "$work/surface"

@@ -18,7 +18,7 @@ static double dist(TracePoint a, TracePoint b) { return hypot(a.x - b.x, a.z - b
 
 static void test_heading(void)
 {
-    const TracePoint p[3] = { { 0, 0 }, { 0, 10 }, { 10, 10 } };
+    const TracePoint p[3] = { { .x = 0, .z = 0 }, { .x = 0, .z = 10 }, { .x = 10, .z = 10 } };
     CHECK(near(pts_heading(p, 3, 0), 0, 1));   /* point 0: the chord leaving it */
     CHECK(near(pts_heading(p, 3, 1), 0, 1));   /* the chord arriving */
     CHECK(near(pts_heading(p, 3, 2), 1, 0));
@@ -27,17 +27,17 @@ static void test_heading(void)
 
 static void test_paste(void)
 {
-    const TracePoint road[3] = { { 0, 0 }, { 0, 10 }, { 0, 20 } };
-    const TracePoint block[3] = { { 0, 0 }, { 0, 10 }, { 10, 20 } };
+    const TracePoint road[3] = { { .x = 0, .z = 0 }, { .x = 0, .z = 10 }, { .x = 0, .z = 20 } };
+    const TracePoint block[3] = { { .x = 0, .z = 0 }, { .x = 0, .z = 10 }, { .x = 10, .z = 20 } };
     TracePoint *q = pts_paste(road, 3, 2, block, 3);   /* at the end, the same heading: as it was, after point 2 */
     CHECK(q != NULL && near(q[2], 0, 20) && near(q[3], 0, 30) && near(q[4], 10, 40));
     free(q);
-    const TracePoint east[2] = { { 0, 0 }, { 10, 0 } };
+    const TracePoint east[2] = { { .x = 0, .z = 0 }, { .x = 10, .z = 0 } };
     q = pts_paste(east, 2, 1, block, 3);   /* the block turned from +z to +x (a quarter clockwise) */
     CHECK(q != NULL && near(q[1], 10, 0) && near(q[2], 20, 0) && near(q[3], 30, -10));
     free(q);
-    const TracePoint straight[4] = { { 0, 0 }, { 0, 10 }, { 0, 20 }, { 0, 30 } };
-    const TracePoint turn[3] = { { 0, 0 }, { 0, 10 }, { 10, 10 } };
+    const TracePoint straight[4] = { { .x = 0, .z = 0 }, { .x = 0, .z = 10 }, { .x = 0, .z = 20 }, { .x = 0, .z = 30 } };
+    const TracePoint turn[3] = { { .x = 0, .z = 0 }, { .x = 0, .z = 10 }, { .x = 10, .z = 10 } };
     q = pts_paste(straight, 4, 1, turn, 3);   /* in the middle: the tail turns with the block's end (+z to +x) and follows it */
     CHECK(q != NULL && near(q[1], 0, 10) && near(q[2], 0, 20) && near(q[3], 10, 20) && near(q[4], 20, 20) && near(q[5], 30, 20));
     free(q);
@@ -47,7 +47,7 @@ static void test_paste(void)
 
 static void test_mirror(void)
 {
-    const TracePoint p[5] = { { 0, 0 }, { 0, 10 }, { 5, 20 }, { 10, 25 }, { 10, 35 } };
+    const TracePoint p[5] = { { .x = 0, .z = 0 }, { .x = 0, .z = 10 }, { .x = 5, .z = 20 }, { .x = 10, .z = 25 }, { .x = 10, .z = 35 } };
     TracePoint *q = pts_mirror_lr(p, 4, 1, 3);   /* about x = 0 (through point 1, along +z) */
     CHECK(q != NULL && near(q[0], 0, 0) && near(q[1], 0, 10) && near(q[2], -5, 20) && near(q[3], -10, 25));
     free(q);
@@ -62,7 +62,7 @@ static void test_mirror(void)
 
 static void test_reverse(void)
 {
-    const TracePoint p[5] = { { 0, 0 }, { 0, 10 }, { 10, 20 }, { 10, 30 }, { 10, 40 } };
+    const TracePoint p[5] = { { .x = 0, .z = 0 }, { .x = 0, .z = 10 }, { .x = 10, .z = 20 }, { .x = 10, .z = 30 }, { .x = 10, .z = 40 } };
     TracePoint *q = pts_reverse(p, 5, 0, 4);   /* the whole road: driven the other way, nothing moves */
     CHECK(q != NULL && near(q[0], 10, 40) && near(q[2], 10, 20) && near(q[4], 0, 0));
     free(q);
@@ -93,7 +93,7 @@ static TracePoint *close_half(const TracePoint *half, int k1, int *n)
 
 static void test_circuit_closes(void)
 {
-    const TracePoint square[8] = { { 0, 0 }, { 60, 0 }, { 140, 30 }, { 160, 120 }, { 110, 180 }, { 150, 260 }, { 60, 300 }, { 0, 300 } };
+    const TracePoint square[8] = { { .x = 0, .z = 0 }, { .x = 60, .z = 0 }, { .x = 140, .z = 30 }, { .x = 160, .z = 120 }, { .x = 110, .z = 180 }, { .x = 150, .z = 260 }, { .x = 60, .z = 300 }, { .x = 0, .z = 300 } };
     int n = 0;
     TracePoint *c = close_half(square, 8, &n);   /* the half starts and ends square to its axis (x = 0): it closes, a mirror image */
     CHECK(c != NULL && near(c[n - 1], 0, 0));
@@ -104,7 +104,7 @@ static void test_circuit_closes(void)
     }
     free(c);
     TracePoint gon[9];   /* half a 16-gon with S and T on corners (each turns 22.5 degrees): the ends are not square, it misses */
-    for (int i = 0; i < 9; ++i) gon[i] = (TracePoint){ 100 * sin(2 * M_PI * i / 16), 100 - 100 * cos(2 * M_PI * i / 16) };
+    for (int i = 0; i < 9; ++i) gon[i] = (TracePoint){ .x = 100 * sin(2 * M_PI * i / 16), .z = 100 - 100 * cos(2 * M_PI * i / 16) };
     c = close_half(gon, 9, &n);
     CHECK(c != NULL && dist(c[n - 1], gon[0]) > 50);
     free(c);
@@ -112,7 +112,7 @@ static void test_circuit_closes(void)
 
 static void test_readout(void)
 {
-    const TracePoint p[4] = { { 0, 0 }, { 0, 30 }, { 30, 60 }, { 30, 100 } };
+    const TracePoint p[4] = { { .x = 0, .z = 0 }, { .x = 0, .z = 30 }, { .x = 30, .z = 60 }, { .x = 30, .z = 100 } };
     PointReadout r = pts_readout(p, 4, 1);   /* from +z to (1,1): 45 degrees to the right on screen (z up) */
     CHECK(fabs(r.to_prev_m - 30) < 1e-9 && fabs(r.turn_deg - 45) < 1e-9);
     CHECK(fabs(r.radius_m - dist(p[0], p[2]) / (2 * sin(M_PI / 4))) < 1e-9);   /* the circumradius: chord / (2 sin of the angle across it) */
@@ -122,17 +122,17 @@ static void test_readout(void)
     CHECK(r.to_prev_m == 0 && r.turn_deg == 0 && r.radius_m == 0);
     r = pts_readout(p, 4, 3);   /* an end: no turn */
     CHECK(fabs(r.to_prev_m - 40) < 1e-9 && r.turn_deg == 0 && r.radius_m == 0);
-    const TracePoint line[3] = { { 0, 0 }, { 0, 10 }, { 0, 20 } };
+    const TracePoint line[3] = { { .x = 0, .z = 0 }, { .x = 0, .z = 10 }, { .x = 0, .z = 20 } };
     r = pts_readout(line, 3, 1);
     CHECK(r.turn_deg == 0 && r.radius_m == 0);   /* a straight: no radius */
 }
 
 static void test_end_gap(void)
 {
-    const TracePoint loop[5] = { { 0, 0 }, { 100, 0 }, { 100, 100 }, { 0, 100 }, { 0, 3 } };   /* square, anticlockwise: left turns */
+    const TracePoint loop[5] = { { .x = 0, .z = 0 }, { .x = 100, .z = 0 }, { .x = 100, .z = 100 }, { .x = 0, .z = 100 }, { .x = 0, .z = 3 } };   /* square, anticlockwise: left turns */
     EndGap g = pts_end_gap(loop, 5);
     CHECK(fabs(g.gap_m - 3) < 1e-9 && fabs(g.turn_deg + 90) < 1e-9);   /* arriving along -z, leaving along +x: a quarter to the left */
-    const TracePoint shut[5] = { { 0, 0 }, { 100, 0 }, { 100, 100 }, { 0, 100 }, { 0, 0 } };
+    const TracePoint shut[5] = { { .x = 0, .z = 0 }, { .x = 100, .z = 0 }, { .x = 100, .z = 100 }, { .x = 0, .z = 100 }, { .x = 0, .z = 0 } };
     g = pts_end_gap(shut, 5);
     CHECK(g.gap_m == 0);
     char text[160];

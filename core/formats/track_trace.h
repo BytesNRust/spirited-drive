@@ -34,9 +34,18 @@
 #define TRACE_STEP_MIN 0.5           /* units; two control points closer than this are the same point */
 #define TRACE_COORD_MAX 20000.0      /* units from the origin: inside the 16.16 positions with room for the sums */
 
+/* A control point: its place on the plan and its height in metres above the start (dep95; 0 for every point of a flat road, which is every project before version 5). */
 typedef struct {
     double x, z;
+    double h;
 } TracePoint;
+#define TRACE_HEIGHT_MAX_M 500.0     /* the most a height may be above or below the start: the editor clamps, trace.json refuses past it */
+#define TRACE_HEIGHT_STEP_M 0.1      /* a height is kept to a tenth of a metre */
+
+/* The height of the curve at fraction `frac` (0..1) of the chord from point `seg` to point `seg + 1`, by a monotone cubic over the chord lengths: a run of equal heights is
+ * flat, a hill top is its point, and the curve never leaves the range of the two heights it joins. 0 for a segment that is not in the points. This is the height a point put in
+ * there takes, so putting it in changes no height anywhere. */
+double track_trace_height_at(const TracePoint *points, int count, int seg, double frac);
 
 enum {
     TRACE_FLAG_TURN = 1,         /* red: the node turns more than TRACE_TURN_MAX_DEGREES from the node before */

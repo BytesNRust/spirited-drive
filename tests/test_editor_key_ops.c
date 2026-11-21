@@ -18,7 +18,7 @@ static TraceKey g_keys[6];
 
 static Trace road(void)
 {
-    for (int i = 0; i < N; ++i) g_points[i] = (TracePoint){ 0, 40.0 * i };
+    for (int i = 0; i < N; ++i) g_points[i] = (TracePoint){ .x = 0, .z = 40.0 * i };
     memset(g_keys, 0, sizeof g_keys);
     g_keys[0].point = 2, g_keys[0].has = TRACE_KEY_SIDE(TRACE_SIDE_SHOULDER, TRACK_GEN_LEFT), g_keys[0].side[TRACE_SIDE_SHOULDER][TRACK_GEN_LEFT] = 5;
     g_keys[1].point = 3, g_keys[1].has = TRACE_KEY_SHOULDER_SURFACE, g_keys[1].shoulder_r_surface = TRACE_SURFACE_TARMAC;

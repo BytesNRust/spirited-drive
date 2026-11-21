@@ -140,7 +140,7 @@ static int curve_block(const App *a, int straight, TracePoint *out, TracePoint *
 {
     if (straight) {
         const int k = a->curve.straight_count > 0 ? a->curve.straight_count : straight_default_count(a->curve.length_m);
-        *end = (TracePoint){ 0, 1 };
+        *end = (TracePoint){ .x = 0, .z = 1 };
         return straight_block(a->curve.length_m, k, out) ? k : 0;
     }
     const int k = a->curve.count > 0 ? a->curve.count : arc_default_count(a->curve.degrees, a->curve.radius_m);
@@ -154,7 +154,7 @@ TracePoint *app_curve_preview(App *a, int straight, int *count, int *from, int *
     TracePoint block[ARC_POINTS_MAX + 1], end;
     const int k = curve_block(a, straight, block, &end), anchor = curve_anchor(a);
     if (k == 0) return NULL;
-    TracePoint *q = pts_paste_tangents(a->trace.points, a->trace.count, anchor, block, k + 1, (TracePoint){ 0, 1 }, end);
+    TracePoint *q = pts_paste_tangents(a->trace.points, a->trace.count, anchor, block, k + 1, (TracePoint){ .x = 0, .z = 1 }, end);
     if (q != NULL) *count = a->trace.count + k, *from = anchor, *to = anchor + k;
     return q;
 }

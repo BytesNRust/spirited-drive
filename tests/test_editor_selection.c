@@ -50,7 +50,7 @@ static void test_clicks(void)
 
 static void test_box(void)
 {
-    const TracePoint p[6] = { { 0, 0 }, { 10, 0 }, { 20, 5 }, { 30, 10 }, { 40, 40 }, { 15, -5 } };
+    const TracePoint p[6] = { { .x = 0, .z = 0 }, { .x = 10, .z = 0 }, { .x = 20, .z = 5 }, { .x = 30, .z = 10 }, { .x = 40, .z = 40 }, { .x = 15, .z = -5 } };
     Selection s;
     sel_init(&s);
     CHECK(sel_resize(&s, 6));
@@ -100,7 +100,7 @@ static void test_describe_long(void)
 
 static void test_move_and_rotate(void)
 {
-    TracePoint p[5] = { { 0, 0 }, { 10, 0 }, { 10, 10 }, { 0, 10 }, { 50, 50 } };
+    TracePoint p[5] = { { .x = 0, .z = 0 }, { .x = 10, .z = 0 }, { .x = 10, .z = 10 }, { .x = 0, .z = 10 }, { .x = 50, .z = 50 } };
     Selection s;
     sel_init(&s);
     CHECK(sel_resize(&s, 5));
