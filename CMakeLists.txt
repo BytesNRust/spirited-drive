@@ -71,6 +71,7 @@ add_library(tnfs_core STATIC
     core/formats/cfm_build.c
     core/formats/obj_read.c
     core/formats/car_steer.c
+    core/formats/car_check.c
     core/formats/car_brake_lamp.c
     core/formats/car_texture.c
     core/formats/car_import.c
@@ -1197,7 +1198,7 @@ if(NOT EMSCRIPTEN)
     if(NOT WIN32)
         add_test(NAME try_online_local COMMAND ${CMAKE_COMMAND} -DREPO=${CMAKE_SOURCE_DIR} -DWORK=${CMAKE_BINARY_DIR}/try_online_local -P ${CMAKE_SOURCE_DIR}/tests/try_online_local.cmake)
     endif()
-    foreach(name psd_mask qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build shpi_flat cfm_build car_import_layout obj_read car_steer car_texture car_import car_kit_banks car_kit car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank track_lanes track_trace_lanes track_trace_height track_trace_profile track_trace_fence track_trace_stretch track_trace_strip)
+    foreach(name psd_mask qfs qfs_encode car_piece track_piece mesh_layout mesh_build shpi_build shpi_flat cfm_build car_import_layout obj_read car_steer car_check_wheels car_texture car_import car_kit_banks car_kit car_resize car_texture_add doc fsh ffn ico chunk mesh pbs pdn car_ai bnk tri tri_write tri_reverse tsv png fileset shpi_exchange table_exchange tri_exchange wav bnk_exchange mesh_exchange mesh_blender resource_exchange validate modpath slots track_gen track_frame psx_bigf update_check zip mod_ini mod_ini_set mod_check mod_install edition_ini stock_content track_turned track_trace track_sides track_trace_sides track_trace_bank track_lanes track_trace_lanes track_trace_height track_trace_profile track_trace_fence track_trace_stretch track_trace_strip)
         add_executable(test_${name} tests/test_${name}.c)
         target_link_libraries(test_${name} PRIVATE tnfs_core)
         target_compile_options(test_${name} PRIVATE ${TNFS_WARNINGS})
@@ -1246,6 +1247,7 @@ foreach(name port_old_files car_registry car_lights ai_added car_list content_ro
     target_compile_definitions(test_car_import_layout PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_obj_read PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_steer PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(test_car_check_wheels PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_import PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_kit_banks PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_definitions(test_car_paint_cfm PRIVATE TNFS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
