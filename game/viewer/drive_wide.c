@@ -33,7 +33,15 @@ DriveWide drive_wide = { SCREEN_W, NULL, { { 0 } }, 0, 0, 1, NULL };
  * path's), whatever the screen's width */
 static int tinted_time(void) { return drive_light_time_tinted(); }   /* kept at the race's start: no port.cfg read a frame */
 
-int drive_wide_active(void) { return drive_wide.width > SCREEN_W || drive_wide.scale > 1 || tinted_time(); }
+/* port (dev, env only): TNFS_NO_HUD=1 leaves the 3D picture alone outside the car, for judging the track's light (the Track light window's photo): no top bar, tach, map, keys or mirror.
+ * It takes the wide path (the 3D in a buffer of its own under the 2D layer), where the 2D layer is left empty. Unset, nothing changes. */
+int drive_wide_no_hud(void)
+{
+    const char *v = getenv("TNFS_NO_HUD");
+    return v != NULL && v[0] == '1' && v[1] == '\0';
+}
+
+int drive_wide_active(void) { return drive_wide.width > SCREEN_W || drive_wide.scale > 1 || tinted_time() || drive_wide_no_hud(); }
 
 uint8_t *drive_wide_canvas(void) { return drive_wide.scale > 1 ? drive_wide.layer : drive_wide.pixels; }
 
@@ -691,6 +699,12 @@ void drive_wide_compose(const RaceState *race, const uint8_t *frame)
 {
     place_count = 0;
     WideFrame w = wide_frame_start(race, frame);
+    static uint8_t empty[SCREEN_W * SCREEN_H];
+    if (drive_wide_no_hud() && !w.in_car && !w.police) {   /* the 2D layer empty: the 3D shows through everywhere */
+        memset(empty, LAYER_KEY, sizeof empty);
+        frame = empty;
+        w.mirror_on = 0;
+    }
     drive_light_world_rect(drive_wide.width * drive_wide.scale, 0, 0, 0, 0);
     LayerPiece pieces[12];
     w.lights = !w.police && hud_start_lights_drawn(&drive_hud.hud, race->tick);

@@ -53,6 +53,7 @@ static int open_session(LightUi *ui, const char *dir, int track, int time, char 
     ui->track = track;
     ui->time = time;
     ui->view = light_photo_view_pref();
+    ui->hud = light_photo_hud_pref();
     return 1;
 }
 
@@ -186,6 +187,16 @@ void app_light_set_view(App *a, int view)
     }
 }
 
+void app_light_set_hud(App *a, int hud)
+{
+    LightUi *ui = &a->light;
+    light_photo_hud_pref_set(hud);
+    if ((hud != 0) != ui->hud) {
+        ui->hud = hud != 0;
+        changed(a);
+    }
+}
+
 void app_light_touch(App *a)
 {
     a->light.error[0] = '\0';
@@ -258,7 +269,7 @@ int app_light_photo(App *a)
     char why[LIGHT_PHOTO_WHY];
     size_t places_size = 0;
     char *places = light_session_places_text(&ui->session, &places_size);   /* NULL without a places file: the game's own is used */
-    const int ok = light_photo_start(&ui->photo, a->game, a->export_src.cd, ui->session.track, ui->session.letter, (unsigned)ui->node, ui->view, light_photo_view_ticks(ui->view), text, size,
+    const int ok = light_photo_start(&ui->photo, a->game, a->export_src.cd, ui->session.track, ui->session.letter, (unsigned)ui->node, ui->view, ui->hud, light_photo_view_ticks(ui->view), text, size,
                                      places, places_size, why, sizeof why);
     free(places);
     free(text);
@@ -283,7 +294,7 @@ int app_light_poll(App *a, double now)
     if (ui->session.has_file && ui->edit_serial != ui->photo_serial && now - ui->edit_at >= LIGHT_UI_SETTLE) return app_light_photo(a);
     /* the comparison pictures wait for the window's own photo (one game at a time) and for a change to settle */
     const int waiting = ui->photo.state == LIGHT_PHOTO_RUNNING || ui->edit_serial != ui->photo_serial || now - ui->edit_at < LIGHT_UI_SETTLE;
-    return light_compare_poll(&ui->compare, &ui->session, ui->node, ui->view, a->game, a->export_src.cd, waiting);
+    return light_compare_poll(&ui->compare, &ui->session, ui->node, ui->view, ui->hud, a->game, a->export_src.cd, waiting);
 }
 
 void app_light_free(App *a)

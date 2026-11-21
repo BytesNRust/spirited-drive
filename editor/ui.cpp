@@ -70,6 +70,7 @@ static void settings_line(ImGuiContext *, ImGuiSettingsHandler *, void *, const 
     if (sscanf(line, "NightLight=%d", &read_light) == 1) night_pref_set(read_light, tint);   // the Preview's Night view: the light at the car (clamped) ...
     else if (sscanf(line, "NightTint=%f,%f,%f", &read_tint[0], &read_tint[1], &read_tint[2]) == 3) night_pref_set(light, read_tint);   // ... and its tint
     if (sscanf(line, "LightView=%d", &view) == 1) light_photo_view_pref_set(view);   // clamped: a damaged line gives the default
+    if (sscanf(line, "LightHud=%d", &view) == 1) light_photo_hud_pref_set(view);
 }
 
 static void settings_write(ImGuiContext *, ImGuiSettingsHandler *handler, ImGuiTextBuffer *out)
@@ -78,13 +79,14 @@ static void settings_write(ImGuiContext *, ImGuiSettingsHandler *handler, ImGuiT
     int light = 0;
     float tint[3];
     const bool night = night_pref_get(&light, tint) != 0;
-    const int view = light_photo_view_pref();
-    if (pick < 0 && g_closed_n == 0 && !night && view == LIGHT_VIEW_DEFAULT) return;
+    const int view = light_photo_view_pref(), hud = light_photo_hud_pref();
+    if (pick < 0 && g_closed_n == 0 && !night && view == LIGHT_VIEW_DEFAULT && !hud) return;
     out->appendf("[%s][Editor]\n", handler->TypeName);
     if (pick >= 0) out->appendf("DriveCar=%d\n", pick);
     for (int i = 0; i < g_closed_n; ++i) out->appendf("Closed=%s\n", g_closed[i]);
     if (night) out->appendf("NightLight=%d\nNightTint=%.3f,%.3f,%.3f\n", light, tint[0], tint[1], tint[2]);
     if (view != LIGHT_VIEW_DEFAULT) out->appendf("LightView=%d\n", view);
+    if (hud) out->appendf("LightHud=1\n");
     out->append("\n");
 }
 static bool g_had_layout;   // the ini file was there at the start: its layout is the user's, not ours to replace
@@ -829,8 +831,11 @@ void ui_frame(SDL_Renderer *ren, App *a)
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     {   // the Track light window's view is kept in the ini: a change marks it for saving
-        static int seen_view = LIGHT_VIEW_DEFAULT;
-        if (light_photo_view_pref() != seen_view) seen_view = light_photo_view_pref(), ImGui::MarkIniSettingsDirty();
+        static int seen_view = LIGHT_VIEW_DEFAULT, seen_hud = 0;
+        if (light_photo_view_pref() != seen_view || light_photo_hud_pref() != seen_hud) {
+            seen_view = light_photo_view_pref(), seen_hud = light_photo_hud_pref();
+            ImGui::MarkIniSettingsDirty();
+        }
     }
     if (a->kind != APP_KIND_NONE && ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_L, ImGuiInputFlags_RouteGlobal)) ui_reset_layout();
     if (a->kind != APP_KIND_NONE && ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_W, ImGuiInputFlags_RouteGlobal)) app_ask(a, APP_ACT_MAIN, "");   // Cmd+W: the main menu

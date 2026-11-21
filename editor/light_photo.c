@@ -36,6 +36,10 @@ static int g_view_pref = LIGHT_VIEW_DEFAULT;
 void light_photo_view_pref_set(int view) { g_view_pref = light_photo_view_clamp(view); }
 int light_photo_view_pref(void) { return g_view_pref; }
 
+static int g_hud_pref;
+void light_photo_hud_pref_set(int hud) { g_hud_pref = hud != 0; }
+int light_photo_hud_pref(void) { return g_hud_pref; }
+
 const char *light_photo_time_word(char letter)
 {
     switch (letter) {
@@ -92,7 +96,7 @@ int light_photo_command(const LightPhotoSetup *s, char *const *base, RaceCommand
              push(a, ac, RACE_ARGS, "%s", s->shot);
     for (char *const *v = base; ok && v != NULL && *v != NULL; ++v)
         if (strncmp(*v, "TNFS_", 5) != 0 && strncmp(*v, "SDL_", 4) != 0) ok = push(e, ec, RACE_ENVS, "%s", *v);
-    ok = ok && push(e, ec, RACE_ENVS, "TNFS_AUTOPILOT=1") && push(e, ec, RACE_ENVS, "TNFS_FRAMES=1") && push(e, ec, RACE_ENVS, "TNFS_WEATHER=clear") && push(e, ec, RACE_ENVS, "TNFS_VIEW=%d", light_photo_view_kind(s->view)) &&
+    ok = ok && push(e, ec, RACE_ENVS, "TNFS_AUTOPILOT=1") && push(e, ec, RACE_ENVS, "TNFS_FRAMES=1") && push(e, ec, RACE_ENVS, "TNFS_WEATHER=clear") && push(e, ec, RACE_ENVS, "TNFS_VIEW=%d", light_photo_view_kind(s->view)) && (s->hud || push(e, ec, RACE_ENVS, "TNFS_NO_HUD=1")) &&
          push(e, ec, RACE_ENVS, "TNFS_LIGHT_TIME=%s", light_photo_time_word(s->letter)) && push(e, ec, RACE_ENVS, "TNFS_START_NODE=%u", s->node) &&
          push(e, ec, RACE_ENVS, "SDL_VIDEO_DRIVER=dummy") && push(e, ec, RACE_ENVS, "SDL_AUDIO_DRIVER=dummy") && push(e, ec, RACE_ENVS, "SDL_AUDIODRIVER=dummy");
     if (ok) return 1;
@@ -132,7 +136,7 @@ static int write_file(const char *path, const char *text, size_t size, char *why
     return ok || refuse(why, cap, "cannot write %s: %s", path, strerror(errno));
 }
 
-int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int view, int ticks,
+int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int view, int hud, int ticks,
                       const char *file_text, size_t file_size, const char *places_text, size_t places_size, char *why, size_t why_cap)
 {
     if (job->state == LIGHT_PHOTO_RUNNING) light_photo_stop(job);
@@ -159,7 +163,7 @@ int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, cons
                 snprintf(path, sizeof path, "%s/track", mods);
                 char file[EXPORT_PATH + 80];
                 snprintf(file, sizeof file, "%s/track_light/%s%c.txt", mods, track, letter);
-                const LightPhotoSetup setup = { game, cd, user, mods, { 0 }, letter, node, view, ticks, job->shot };
+                const LightPhotoSetup setup = { game, cd, user, mods, { 0 }, letter, node, view, hud, ticks, job->shot };
                 LightPhotoSetup s = setup;
                 snprintf(s.track, sizeof s.track, "%s", track);
                 ok = mkdir(path, 0777) == 0 && write_file(file, file_text, file_size, why, why_cap);
@@ -182,6 +186,7 @@ int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, cons
     job->letter = letter;
     job->node = node;
     job->view = view;
+    job->hud = hud;
     job->state = LIGHT_PHOTO_RUNNING;
     return 1;
 }

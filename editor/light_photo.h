@@ -26,7 +26,10 @@ int light_photo_view_ticks(int view);            /* the ticks the photo of the v
 int light_photo_view_clamp(int view);
 /* the person's view, kept for the session and in the ini (the window, the photo and the comparison all use it): clamped on the way in */
 void light_photo_view_pref_set(int view);
-int light_photo_view_pref(void);            /* view when it is in range, else LIGHT_VIEW_DEFAULT */
+int light_photo_view_pref(void);
+/* the HUD of the game's picture (the top bar, tach, map, mirror), 0 by default: the photo judges the light, so it goes without (TNFS_NO_HUD=1, outside the car); kept like the view */
+void light_photo_hud_pref_set(int hud);
+int light_photo_hud_pref(void);            /* view when it is in range, else LIGHT_VIEW_DEFAULT */
 
 /* the game's name of a time of day for a light file's letter: 'A' "dawn", 'B' "day", 'C' "dusk", 'N' "night"; NULL for any other */
 const char *light_photo_time_word(char letter);
@@ -40,6 +43,7 @@ typedef struct {
     char letter;             /* the time of day: 'A', 'B', 'C' or 'N' */
     unsigned node;           /* the road node the car starts at (TNFS_START_NODE) */
     int view;                /* 0..LIGHT_VIEWS-1: the camera */
+    int hud;                 /* 1: the game's HUD stays in the picture; 0: TNFS_NO_HUD=1 */
     int ticks;               /* 1..LIGHT_PHOTO_TICKS_MAX */
     const char *shot;        /* the PPM the game writes */
 } LightPhotoSetup;
@@ -60,7 +64,7 @@ typedef struct {
     char track[8];
     char letter;
     unsigned node;
-    int view;
+    int view, hud;
     uint8_t *rgba;               /* DONE: the picture, w x h RGBA (malloc'd; the last good one stays through a later failure) */
     int w, h;
     int serial;                  /* changes when `rgba` does */
@@ -69,7 +73,7 @@ typedef struct {
 
 /* Starts a photo: the scratch folder with `file_text` as mods/track_light/<TRACK><letter>.txt (and `places_text`, when given, as mods/track/<TRACK>.txt), the player
  * files, and the game. A job that runs is stopped first. 1, or 0 with `why` (and the state FAILED). */
-int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int view, int ticks,
+int light_photo_start(LightPhotoJob *job, const char *game, const char *cd, const char *track, char letter, unsigned node, int view, int hud, int ticks,
                       const char *file_text, size_t file_size, const char *places_text, size_t places_size, char *why, size_t why_cap);
 /* every frame: takes the game's output and sees whether it ended. 1 while it runs; when it ends the state is DONE (the picture in `rgba`) or FAILED (`why`), and the
  * scratch folder is gone. */

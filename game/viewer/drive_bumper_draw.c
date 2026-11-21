@@ -35,6 +35,7 @@ int drive_bumper_mirror_render(const DriveMirrorWorld *mirror, int32_t mirror_co
  * `pixels` or the wide screen's */
 void drive_bumper_draw(const RaceState *race, uint8_t *pixels, int mirror)
 {
+    if (drive_wide_no_hud() && race->chase.kind != DRIVE_DASH_KIND && race->chase.kind != DRIVE_DASH_FLY_IN_KIND) return;   /* the track's light alone: no mirror, no radar */
     const int wide = drive_wide_active();
     if (mirror) {
         const ScreenPoint at = drive_bumper_mirror_at(wide ? drive_wide.width : SCREEN_W, bumper_mirror.width);

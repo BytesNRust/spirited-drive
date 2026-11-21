@@ -85,6 +85,8 @@ void drive_end(void);
 ScreenFormat drive_screen_format(void);
 /* port (render scale): the wide path runs when the screen is wider than 640 or the 3D is drawn at more than 1x */
 int drive_wide_active(void);
+/* port (dev, env only): TNFS_NO_HUD=1 (drive_wide.c): outside the car the picture has no HUD, mirror or radar */
+int drive_wide_no_hud(void);
 /* where the 2D layer is composed: `pixels` at scale 1, else `layer` (width x 480) */
 uint8_t *drive_wide_canvas(void);
 /* with scale > 1, the layer's pixels put over the 3D as scale x scale blocks (nearest); the end of a frame */

@@ -2220,6 +2220,8 @@ if(NOT EMSCRIPTEN)
         # tools/light_photo.sh on one CD track: a 1280x960 sheet, four different times of day (registered with the other tests that need original/)
         add_test(NAME light_photo_run COMMAND ${CMAKE_SOURCE_DIR}/tests/light_photo_run.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/light_photo_run)
         set_tests_properties(light_photo_run PROPERTIES TIMEOUT 300)
+        add_test(NAME no_hud_shot COMMAND ${CMAKE_SOURCE_DIR}/tests/no_hud_shot.sh $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/no_hud_shot)   # TNFS_NO_HUD: the 3D alone outside the car, the dash view unchanged
+        set_tests_properties(no_hud_shot PROPERTIES TIMEOUT 300)
         if(TARGET test_editor_light_compare)
             add_test(NAME editor_light_compare_game COMMAND test_editor_light_compare ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tnfs> ${CMAKE_SOURCE_DIR}/original)   # the Track light comparison against the real game
             set_tests_properties(editor_light_compare_game PROPERTIES TIMEOUT 600)

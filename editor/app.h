@@ -324,6 +324,8 @@ int app_light_select(App *a, int track, int time);
 void app_light_set_node(App *a, long node);
 /* The photo's camera (light_photo_view_name), clamped; the person's choice for the next sessions too (light_photo_view_pref_set). */
 void app_light_set_view(App *a, int view);
+/* The HUD in the photo (off by default: the photo is for the light); kept like the view. */
+void app_light_set_hud(App *a, int hud);
 /* The window edited a->light.session.file (light_file_set_*): the photo is due. */
 void app_light_touch(App *a);
 /* Revert and Save of the file (light_session.h); Save says why it refused in light.error and the status. */

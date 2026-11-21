@@ -26,6 +26,7 @@ typedef struct {
     int track;                   /* light_ui_track's index */
     int time;                    /* 0..3 */
     int node;                    /* the photo's node, within the road of the file */
+    int hud;                     /* 1: the game's HUD stays in the photo (light_photo_hud_pref) */
     int view;                    /* the photo's camera, 0..LIGHT_VIEWS-1 (light_photo.h): kept as light_photo_view_pref */
     unsigned edit_serial;        /* counts every change of what the photo shows: an edit, a Revert, a track or time or node */
     unsigned photo_serial;       /* the edit_serial the last photo was started for */

@@ -56,8 +56,11 @@ void picker(App *a)
         ImGui::EndCombo();
     }
     ImGui::SameLine();
+    bool hud = ui.hud != 0;
+    if (ImGui::Checkbox("HUD##lighthud", &hud)) app_light_set_hud(a, hud ? 1 : 0);
+    ImGui::SameLine();
     help_marker("The camera of the photo and of the comparison pictures: Bumper has no car in the picture (the track's light alone); Dash is the cockpit; Chase near, mid and far "
-                "and High show the car from 4 to 16 m behind (their photos run longer, the camera glides to its place). It is kept for the next time.");
+                "and High show the car from 4 to 16 m behind (their photos run longer, the camera glides to its place). It is kept for the next time. HUD: the game's top bar, tach, map and mirror in the picture; off by default, so the picture is the light alone (outside the car).");
 }
 
 void node_row(App *a)
