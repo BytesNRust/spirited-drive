@@ -1,6 +1,7 @@
 // The start screen and the car's panels (panels.h): what Studio shows with nothing open, and what it shows of an open car (read only for now).
 #include "panels.h"
 #include "help_marker.h"
+#include "physics_popup.h"
 #include "path_elide.h"
 #include "sheet_ui.h"
 
@@ -481,6 +482,7 @@ void car_panel(App *a)
             word_row(a, CE_SOUND_FROM, nullptr, words, word_count, problems, count);
             ImGui::EndTable();
         }
+        physics_row(a);
         colors_section(a, problems, count);
         photos_section(a, problems, count);
     }

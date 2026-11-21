@@ -16,6 +16,7 @@ extern "C" {
 }
 #include "help_marker.h"
 #include "new_car_popup.h"
+#include "physics_popup.h"
 #include "panels.h"
 #include "shortcut_keys.h"
 #include "command_keys.h"
@@ -1030,6 +1031,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
     confirm_popup(a);
     new_track_popup(a);
     new_car_popup(a);
+    physics_popup(a);
     original_popup(a);
     copy_popup(a);
     open_error_popup(a);

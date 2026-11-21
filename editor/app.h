@@ -263,6 +263,8 @@ typedef struct {
     int new_car_id_typed;
     int new_car_template;
     char new_car_error[APP_MSG];   /* why Create was refused */
+    int physics_dialog;          /* the Physics from question (what it overwrites) is up: Copy or Cancel */
+    int physics_pick;            /* the car it names, 0..CAR_PHYSICS_WORDS-1 (editor/car_physics_from.h) */
     WorkspaceList workspace_list;  /* the projects in it, scanned when it is set and when the window starts */
 
     char zip[APP_PATH];          /* the last package built, "" before one */
@@ -458,6 +460,9 @@ int app_new_track_named(App *a, const char *name, const char *id);
 /* New car (dep102; app_new_car.c): a kit <workspace>/cars/<id> made from the car `template_word` (one of the eight you drive, viper, 911 ...) by car_new_kit, opened and listed. 1, or 0 with the
  * reason in new_car_error and the status and nothing written, when there is no workspace, the name or id is not usable, that folder exists, or the game's files are not found. A null `id` is made from the name. */
 int app_new_car_named(App *a, const char *name, const char *id, const char *template_word);
+/* Physics from (dep102; app_physics.c): the physics of `word`'s car (car_physics_words) copied into the open car kit's specs/specs.tsv and specs/pdn.tsv, as car_physics_from does. Refused
+ * in the status, and nothing written, when the open car is not a kit in the current layout, is one of the game's own, or the files are not there. 1 when copied (the status says how many rows). Build makes the car with them. */
+int app_physics_from(App *a, const char *word);
 /* the workspace lists read again (after a project was made in it) */
 void app_workspace_refresh(App *a);
 /* The start screen's Recent list: entry `index` taken out, or every entry of `kind` (RECENT_CAR / RECENT_TRACK); the list file is written again. */

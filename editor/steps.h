@@ -52,6 +52,8 @@
  *   poll-wait:S   the window runs S seconds, so a file changed meanwhile is seen as when it is open: "poll: watching" first, then "poll: STATUS" when the photos are due again
  *   new-car-open   File > New car with a workspace: the window up, for a picture
  *   new-car:T      File > New car: the name "Car <word>" typed, car T (0..7: the eight you drive) chosen, Create pressed; the kit is made and opened
+ *   physics-from:T the open car kit's Physics from: car T (0..8: the eight you drive, then the Warrior) copied into its specs.tsv and pdn.tsv
+ *   physics-open:T the Physics from question up with car T named, for a picture
  *   race-stop      the race stopped as the Stop button stops it, waited for, its end printed ("race end: ...")
  *
  * A number after a step is that step's (drag:2,0,-5). The keys and the mouse go in as SDL events, so the window takes them as it takes a

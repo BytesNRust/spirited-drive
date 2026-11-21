@@ -33,6 +33,30 @@ second=$(ls "$ws/cars" | grep -v '^car-supra$' | head -1)
 grep -q '^sound_from=supra$' "$ws/cars/$second/mod.ini" && fail "the second car has the first's sound"
 [ "$(grep '^stem=' "$ws/cars/$second/mod.ini")" != "$(grep '^stem=' "$ws/cars/car-supra/mod.ini")" ] || fail "two cars share a stem"
 
+# Physics from (dep102): in the open car, the performance rows become the game car's; the model's size and the assist words stay the car's own. The second car above was made
+# from template 1, so car 1's physics copied into the first car (the Supra) are the second car's.
+row() { grep -P "\t$2\t" "$1" 2>/dev/null || grep -E "[[:space:]]$2[[:space:]]" "$1"; }
+supra="$ws/cars/car-supra/specs"
+own_length=$(row "$supra/specs.tsv" half_length)
+own_body=$(row "$supra/pdn.tsv" body_0c)
+[ "$(row "$supra/specs.tsv" power)" != "$(row "$ws/cars/$second/specs/specs.tsv" power)" ] || fail "the two cars have the same power: nothing to prove"
+out=$(run --frames 10 "$ws/cars/car-supra" --steps physics-from:1,status 2>&1) || fail "Physics from: $out"
+echo "$out" | grep -q 'Physics from .*rows of specs.tsv' || fail "the status does not say what was copied: $out"
+ws2="$ws/cars"
+[ "$(row "$ws2/car-supra/specs/specs.tsv" power)" = "$(row "$ws2/$second/specs/specs.tsv" power)" ] || fail "the power is not the game car's"
+[ "$(row "$ws2/car-supra/specs/pdn.tsv" mass)" = "$(row "$ws2/$second/specs/pdn.tsv" mass)" ] || fail "the mass is not the game car's"
+[ "$(row "$ws2/car-supra/specs/specs.tsv" half_length)" = "$own_length" ] || fail "the model's size changed"
+[ "$(row "$ws2/car-supra/specs/pdn.tsv" body_0c)" = "$own_body" ] || fail "the collision body changed"
+ls "$supra" | grep -q '\.new$' && fail "Physics from left a scratch file: $(ls "$supra")"
+# no car open: refused in words
+out=$(run --frames 6 --steps physics-from:1 2>&1) && fail "Physics from with no car open worked: $out"
+echo "$out" | grep -q 'open a car kit' || fail "no word why: $out"
+# the Warrior (the last of the nine) is offered and copies
+out=$(run --frames 10 "$ws/cars/car-supra" --steps physics-from:8,status 2>&1) || fail "Physics from the Warrior: $out"
+# the question that asks first is drawn
+run --frames 8 "$ws/cars/car-supra" --steps physics-open:2 --shot "$work/physics.png" > "$work/log" 2>&1 || fail "the Physics from question did not draw: $(cat "$work/log")"
+[ -s "$work/physics.png" ] || fail "no picture of the Physics from question"
+
 # no game files: refused in words, no folder for the car
 mkdir "$work/emptycd"
 out=$(CD="$work/emptycd" run --frames 10 --steps new-car:2 2>&1) && fail "a car was made with no game files: $out"
