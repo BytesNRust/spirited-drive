@@ -166,6 +166,11 @@ static int make_kit(const char *piece, const char *kit, ExchangeError *err)
     return ok;
 }
 
+int car_kit_from_piece(const char *piece, const char *kit, ExchangeError *err)
+{
+    return make_kit(piece, kit, err);
+}
+
 int car_kit_command(int argc, char **argv, ExchangeError *err)
 {
     if (argc != 4) { exchange_fail(err, "usage: tnfs-studio car kit PIECE_DIR KIT_DIR"); return 0; }
@@ -251,4 +256,20 @@ int car_build_command(int argc, char **argv, ExchangeError *err)
 {
     if (argc != 3) { exchange_fail(err, "usage: tnfs-studio car build KIT_DIR"); return 0; }
     return car_kit_build_dir(argv[2], 1, err);
+}
+
+int car_kit_cfm_of_dir(const char *kit, uint8_t **cfm, size_t *cfm_len, ExchangeError *err)
+{
+    CarKitFlat flat;
+    car_kit_flat_init(&flat);
+    CarKitBuilt built;
+    memset(&built, 0, sizeof built);
+    int ok = read_flat(kit, &flat, err) && car_kit_build(&flat, &built, err);
+    if (ok) {
+        *cfm = built.cfm, *cfm_len = built.cfm_len;
+        built.cfm = NULL;
+    }
+    car_kit_built_free(&built);
+    car_kit_flat_free(&flat);
+    return ok;
 }

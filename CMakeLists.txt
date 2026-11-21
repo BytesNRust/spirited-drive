@@ -855,6 +855,11 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(test_car_masks PRIVATE tnfs_tools tnfs_core)
     target_compile_options(test_car_masks PRIVATE ${TNFS_WARNINGS})
     add_test(NAME car_masks COMMAND test_car_masks)
+    # dep100 item 6: the originals as kits (editor/car_export_kit.c), run by tools/migrate_originals.py; not shipped
+    add_executable(car_export_kits tools/car_export_kits.c editor/car_export_kit.c editor/car_export.c)
+    target_include_directories(car_export_kits PRIVATE editor ${CMAKE_SOURCE_DIR})
+    target_link_libraries(car_export_kits PRIVATE tnfs_tools tnfs_core)
+    target_compile_options(car_export_kits PRIVATE ${TNFS_WARNINGS})
 endif()
 
 option(TNFS_EDITOR "Build the track editor (tnfs-track-editor, Dear ImGui: the only C++ of the tree)" ON)
@@ -1751,6 +1756,8 @@ if(NOT EMSCRIPTEN)
         add_test(NAME car_texture_game COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_texture.sh $<TARGET_FILE:tnfs> $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE:blender_like_tool>)
         add_test(NAME car_kit_cli COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_kit_cli.sh $<TARGET_FILE:tnfs-studio> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
         set_tests_properties(car_kit_cli PROPERTIES TIMEOUT 300)
+        add_test(NAME car_export_kits COMMAND sh ${CMAKE_SOURCE_DIR}/tests/car_export_kits.sh $<TARGET_FILE:car_export_kits> ${CMAKE_SOURCE_DIR}/original ${CMAKE_SOURCE_DIR}/data)
+        set_tests_properties(car_export_kits PROPERTIES TIMEOUT 300)
     endif()
     # port: the job pool and the row splitter of the render bands
     # port: the primitives' recording and its replay by bands
