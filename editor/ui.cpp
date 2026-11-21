@@ -971,6 +971,10 @@ void ui_frame(SDL_Renderer *ren, App *a)
             light_laid_out = true;
             if (reset || dock_is_empty(dock)) light_layout(dock);
         }
+        if (a->original_dir[0] != '\0') {   // before any photo of this frame starts: they show the PNGs these two leave
+            app_track_masks_load(a);   // the masks of an original track: scanned and made from the PSDs once per open
+            app_track_masks_poll(a);   // and again when a PSD is saved
+        }
         if (a->confirm == APP_ACT_NONE) light_shortcuts(a);
         if (panel_open(PANEL_LIGHT)) light_panel(a);
         if (panel_open(PANEL_LIGHT_PHOTO)) light_photo_panel(a, light_texture(ren, a));
@@ -978,8 +982,6 @@ void ui_frame(SDL_Renderer *ren, App *a)
         light_compare_textures(ren, a, compare);
         if (panel_open(PANEL_LIGHT_COMPARE)) light_compare_panel(a, compare);
         if (a->original_dir[0] != '\0') {
-            app_track_masks_load(a);   // the masks of an original track: scanned and made from the PSDs once per open
-            app_track_masks_poll(a);   // and again when a PSD is saved
             if (panel_open(PANEL_TRACK_MASKS)) track_masks_panel(a, track_mask_texture(ren, a));
         }
     } else {
