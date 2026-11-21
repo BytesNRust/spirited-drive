@@ -1,6 +1,7 @@
 #include "car_race.h"
 
 #include "formats/car_paint.h"
+#include "formats/car_kit_paths.h"
 #include "formats/car_piece.h"
 
 #include <ctype.h>
@@ -514,6 +515,33 @@ static int job_abandon(RaceJob *j)
     return 0;
 }
 
+/* 1 when `dir` is a directory */
+static int is_dir_at(const char *dir)
+{
+    struct stat st;
+    return stat(dir, &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+/* A kit keeps its masks flat in art-generated/car_masks and art-generated/dash_masks; the game reads TNFS_CAR_MASKS/<stem>/<tex>_mask.png (and the same for the dash).
+ * For a project that is a kit (`project` has art-generated/car_masks): a folder in the job's scratch folder with that stem level, each stem a link to the kit's folder, and
+ * the job's project becomes it, so the run sees the masks as they are now and the kit is never written. Any other project is left as it is. 0 with `why` when a link fails. */
+static int stage_kit_masks(RaceJob *j, const ExportCar *car, const char *project, char *why, size_t why_cap)
+{
+    char from[EXPORT_PATH + 64], dir[EXPORT_PATH + 64], to[EXPORT_PATH + 128];
+    static const struct { CarKitPath source; const char *folder; } KINDS[] = { { CAR_KIT_GEN_CAR_MASKS, "car_masks" }, { CAR_KIT_GEN_DASH_MASKS, "dash_masks" } };
+    if (snprintf(from, sizeof from, "%s/%s", project, car_kit_path(CAR_KIT_GEN_CAR_MASKS)) >= (int)sizeof from || !is_dir_at(from)) return 1;
+    if (snprintf(dir, sizeof dir, "%s/masks", j->temp) >= (int)sizeof dir || mkdir(dir, 0777) != 0) return refuse(why, why_cap, "cannot make a folder for the masks: %s", strerror(errno));
+    for (size_t k = 0; k < sizeof KINDS / sizeof KINDS[0]; ++k) {
+        if (snprintf(from, sizeof from, "%s/%s", project, car_kit_path(KINDS[k].source)) >= (int)sizeof from || !is_dir_at(from)) continue;
+        if (snprintf(to, sizeof to, "%s/masks/%s", j->temp, KINDS[k].folder) >= (int)sizeof to || mkdir(to, 0777) != 0)
+            return refuse(why, why_cap, "cannot make a folder for the masks: %s", strerror(errno));
+        if (snprintf(to, sizeof to, "%s/masks/%s/%s", j->temp, KINDS[k].folder, car->file) >= (int)sizeof to || symlink(from, to) != 0)
+            return refuse(why, why_cap, "cannot link the kit's masks: %s", strerror(errno));
+    }
+    snprintf(j->own[2], sizeof j->own[2], "%s/masks", j->temp);
+    return 1;
+}
+
 static int start_common(RaceJob *j, const char *game, const char *cd, const char *project, const ExportCar *car, const char *track, int night, const RaceLook *look,
                         RaceJobState state, char *why, size_t why_cap)
 {
@@ -527,7 +555,7 @@ static int start_common(RaceJob *j, const char *game, const char *cd, const char
     j->setup.cockpit = look != NULL && look->cockpit, j->setup.gauge_set = look != NULL && look->gauge_set, j->setup.gauge_light = look != NULL ? look->gauge_light : 0;
     j->setup.car = car, j->setup.night = night, j->setup.photo_ticks = state == RACE_JOB_RACE ? 0 : state == RACE_JOB_PROBE ? 1 : car_race_photo_ticks(car);
     j->state = state;
-    if (!car_race_user_files(user, night, &j->look, why, why_cap) || !launch(j, why, why_cap)) return job_abandon(j);
+    if (!stage_kit_masks(j, car, project, why, why_cap) || !car_race_user_files(user, night, &j->look, why, why_cap) || !launch(j, why, why_cap)) return job_abandon(j);
     return 1;
 }
 

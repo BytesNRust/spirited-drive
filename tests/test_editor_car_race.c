@@ -368,7 +368,7 @@ static void make_fake_game(char *path, size_t cap)
         "zip=\n"
         "while [ $# -gt 0 ]; do case \"$1\" in --user) user=$2; shift;; --screenshot) shot=$2; shift;; --install) zip=$2; shift;; esac; shift; done\n"
         "if [ -n \"$zip\" ]; then echo \"$zip\" > \"$user/../installed_from\"; sleep 1; case \"$zip\" in *broken*) exit 4;; esac; mkdir -p \"$user/mods/loop\"; echo 'installed loop 0.1'; exit 0; fi\n"
-        "echo \"fake game out follow=$TNFS_FOLLOW_CAR seed=$TNFS_DRIVE_SEED masks=$TNFS_CAR_MASKS\"\n"
+        "echo \"fake game out follow=$TNFS_FOLLOW_CAR seed=$TNFS_DRIVE_SEED masks=$TNFS_CAR_MASKS saw=$(ls \"$TNFS_CAR_MASKS\"/*/ 2>/dev/null | tr '\\n' ' ') dashsaw=$(ls \"$TNFS_DASH_MASKS\"/*/ 2>/dev/null | tr '\\n' ' ')\"\n"
         "case \"$FAKE_MODE\" in\n"
         "  drive) printf 'mods: 1\\ntrack piece: loop is track 18\\n' > \"$user/spirited-drive.log\"; echo \"$@\"; sleep 30; exit 0;;\n"
         "  half) printf 'track piece: loop is track 1' > \"$user/spirited-drive.log\"; sleep 1; printf '8\\n' >> \"$user/spirited-drive.log\"; sleep 30; exit 0;;\n"
@@ -404,6 +404,42 @@ static int temps_left(void)
     char cmd[700];
     snprintf(cmd, sizeof cmd, "ls %s | grep -q studio-race-", base);
     return system(cmd) == 0;
+}
+
+/* a kit keeps its masks flat in art-generated/ (no stem level): the run is given a scratch folder with the stem level the game reads, linked to them, and the kit's files
+ * are left as they were when it goes */
+static void test_kit_masks(void)
+{
+    char game[600], why[300], kit[600], path[700];
+    make_fake_game(game, sizeof game);
+    snprintf(kit, sizeof kit, "%s/kitproj", base);
+    snprintf(path, sizeof path, "%s/art-generated", kit);
+    mkdir(kit, 0777), mkdir(path, 0777);
+    snprintf(path, sizeof path, "%s/art-generated/car_masks", kit);
+    mkdir(path, 0777);
+    snprintf(path, sizeof path, "%s/art-generated/car_masks/side_mask.png", kit);
+    write_text_file(path, "not a png", 0644);
+    snprintf(path, sizeof path, "%s/art-generated/dash_masks", kit);
+    mkdir(path, 0777);
+    snprintf(path, sizeof path, "%s/art-generated/dash_masks/dash_mask.png", kit);
+    write_text_file(path, "not a png", 0644);
+    RaceJob job;
+    memset(&job, 0, sizeof job);
+    job.run.fd = -1;
+    const ExportCar *p911 = car_export_car(index_of("P911")), *wagon = car_export_car(index_of("Wagon"));
+    setenv("FAKE_MODE", "ok", 1);
+    CHECK(car_race_start_photo(&job, game, "/cd", kit, p911, "TR5", 0, NULL, why, sizeof why));
+    run_job(&job);
+    CHECK(job.ok && strstr(job.log, "saw=side_mask.png") != NULL && strstr(job.log, "dashsaw=dash_mask.png") != NULL);
+    CHECK(strstr(job.log, "masks=") != NULL && strstr(job.log, "/kitproj/") == NULL && strstr(job.log, "studio-race-") != NULL);   /* the scratch folder's, not the kit's */
+    snprintf(path, sizeof path, "%s/art-generated/car_masks/side_mask.png", kit);
+    struct stat st;
+    CHECK(job.temp[0] == '\0' && !temps_left() && stat(path, &st) == 0 && st.st_size == 9);   /* the scratch folder went, the kit's file did not */
+    CHECK(car_race_start_photo(&job, game, "/cd", kit, wagon, "CL1", 0, NULL, why, sizeof why));   /* a traffic car: no dash masks */
+    run_job(&job);
+    CHECK(job.ok && strstr(job.log, "saw=side_mask.png") != NULL && strstr(job.log, "dashsaw=\n") == NULL);
+    CHECK(stat(path, &st) == 0 && !temps_left());
+    car_race_free(&job);
 }
 
 static void test_job(void)
@@ -631,6 +667,7 @@ int main(void)
     test_ppm();
     test_original_of();
     test_job();
+    test_kit_masks();
     test_drive_command();
     test_drive_job();
     nftw(base, remove_entry, 16, FTW_DEPTH | FTW_PHYS);   /* what this test made, and only it */

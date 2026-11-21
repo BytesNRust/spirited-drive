@@ -158,8 +158,9 @@ int app_race(App *a, int photo)
     RaceLook look = a->race_look;   /* Preview's colour, when the catalogue has it: the race shows the car painted as the Preview does */
     const int p = a->preview_paint;
     look.paint_model = car->model, look.paint = p >= 0 && p < a->edit.now.paint_count ? car_race_paint_digit(car, a->edit.now.paints[p].rgb) : 0;
-    const int ok = photo ? car_race_start_photo(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, &look, why, sizeof why)
-                         : car_race_start_race(&a->race, a->game, a->export_src.cd, a->car.piece, car, track->stem, a->race_night, &look, why, sizeof why);
+    const char *masks_of = app_car_is_kit(a) ? a->car.root : a->car.piece;   /* a kit: its art-generated/ masks, as they are now (car_race stages them); else the piece's */
+    const int ok = photo ? car_race_start_photo(&a->race, a->game, a->export_src.cd, masks_of, car, track->stem, a->race_night, &look, why, sizeof why)
+                         : car_race_start_race(&a->race, a->game, a->export_src.cd, masks_of, car, track->stem, a->race_night, &look, why, sizeof why);
     if (!ok) return set_status(a, why), 0;
     if (photo) sheet_free(&a->sheet), a->sheet_serial++;   // a single photo replaces the sheet in the Race window
     set_status(a, photo ? "taking the in-game photo..." : "the game is running: close its window to end the test");
