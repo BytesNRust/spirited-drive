@@ -2,6 +2,7 @@
 #include "app.h"
 
 #include "formats/mod_ini.h"
+#include "track_undo.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -111,8 +112,13 @@ int app_new_track_named(App *a, const char *name, const char *id)
     }
     if (!app_new_project(a, path)) return 0;
     char why[APP_MSG];   /* the project's title is what was typed; the folder and id are the id's */
-    if (project_set_name(a->dir, name, why, sizeof why)) snprintf(a->project.name, sizeof a->project.name, "%s", name);
-    else snprintf(a->status, sizeof a->status, "the track was made, its name was not kept: %s", why);
+    if (project_set_name(a->dir, name, why, sizeof why)) {
+        snprintf(a->project.name, sizeof a->project.name, "%s", name);
+        track_undo_free(&a->track_undo);   /* the name is in the file now: the saved state and the first step are the project as it is, so the new track is not "modified" */
+        if (!track_undo_open(&a->track_undo, &a->project, &a->trace)) snprintf(a->status, sizeof a->status, "out of memory: the track's undo steps are off");
+    } else {
+        snprintf(a->status, sizeof a->status, "the track was made, its name was not kept: %s", why);
+    }
     a->new_track_error[0] = '\0';
     app_workspace_refresh(a);
     return 1;

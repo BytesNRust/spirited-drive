@@ -442,6 +442,9 @@ before=$(cksum < "$ws/tracks/road-7/project.ini")
 "$editor" --user "$work/u-ws" --workspace "$ws" --frames 6 --steps new-track:7 >"$work/log" 2>&1 && fail "a track whose folder exists was made again"
 grep -q 'already exists' "$work/log" || fail "the refusal does not say the folder exists: $(cat "$work/log")"
 [ "$before" = "$(cksum < "$ws/tracks/road-7/project.ini")" ] || fail "a refused New track wrote into the existing project"
+# A track just made is not "modified": nothing was changed since its folder was written, so the title has no unsaved mark (and Cmd+W / Quit ask no question)
+"$editor" --user "$work/u-ws" --workspace "$ws" --frames 6 --steps new-track:8,title >"$work/log" 2>&1 || fail "New track (road-8): $(cat "$work/log")"
+[ "$(grep '^title: ' "$work/log")" = "title: Spirited Drive Studio — road-8" ] || fail "a track just made shows as modified: $(grep '^title: ' "$work/log")"
 # ==== Window menu: every panel a car's window draws is listed (a masks project's too) ====
 for proj in "$work/kit" "$work/exports/wagon-masks"; do
     panels=$("$editor" "$proj" --window 1280x960 --frames 6 --steps print-panels 2>&1)
