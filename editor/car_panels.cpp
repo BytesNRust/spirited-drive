@@ -53,6 +53,40 @@ void name_list(const char names[][CAR_PROJECT_NAME], int count)
 
 }   // namespace
 
+// The workspace on the start screen: with one, the cars and tracks in it (a click opens one); without, one line offering to choose it, with a (?) and a way to put it aside
+static void workspace_block(App *a, float column)
+{
+    if (a->workspace[0] == '\0') {
+        if (!app_workspace_offer(a)) return;
+        ImGui::Dummy(ImVec2(0, 10));
+        if (ImGui::Button("Choose workspace...")) app_workspace_pick(a);
+        ImGui::SameLine();
+        help_marker("A workspace is one folder with your cars and tracks in it (cars/ and tracks/ inside).\nOpen and New start there and this screen lists what it holds.\nYou can also set it later in File > Workspace.");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Not now")) app_workspace_put_aside(a);
+        return;
+    }
+    ImGui::Dummy(ImVec2(0, 14));
+    ImGui::SeparatorText("Workspace");
+    muted_wrapped("%s", leaf(a->workspace));
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", a->workspace);
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Change...")) app_workspace_pick(a);
+    for (int kind = 0; kind < 2; ++kind) {
+        const int count = kind == 0 ? a->workspace_list.cars : a->workspace_list.tracks;
+        ImGui::TextDisabled("%s", kind == 0 ? "Cars" : "Tracks");
+        if (count == 0) muted_wrapped("none yet");
+        for (int i = 0; i < count; ++i) {
+            const char *name = kind == 0 ? a->workspace_list.car[i] : a->workspace_list.track[i];
+            char path[APP_PATH];
+            ImGui::PushID(kind * WORKSPACE_LIST + i);
+            if (ImGui::Selectable(name, false, 0, ImVec2(column, 0)) && app_workspace_item(a, kind, i, path, sizeof path))
+                app_ask(a, kind == 0 ? APP_ACT_OPEN_CAR_AT : APP_ACT_OPEN_AT, path);   // a car and a track open by their own kind: the recent list knows only what was opened before
+            ImGui::PopID();
+        }
+    }
+}
+
 void start_screen(App *a)
 {
     const ImGuiViewport *vp = ImGui::GetMainViewport();
@@ -82,6 +116,7 @@ void start_screen(App *a)
         if (ImGui::Button("Track light...", button)) app_ask(a, APP_ACT_OPEN_LIGHT, "");
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Tune a CD track's light at dawn, day, dusk and night, with a photo from the game");
+        workspace_block(a, column);
         ImGui::Dummy(ImVec2(0, 14));
         ImGui::SeparatorText("Recent");
         if (a->recent.count == 0) muted_wrapped("Nothing opened yet.");

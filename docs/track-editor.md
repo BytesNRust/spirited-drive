@@ -12,8 +12,11 @@ editor's own generic one, and the stage's art is a FAM of your choice (`art=` in
 
 ```sh
 nix develop -c sh -c 'cmake -S . -B build/native -G Ninja && cmake --build build/native --target tnfs-track-editor'
-./build/native/tnfs-track-editor art/tnfs-tracks/my-road
+./build/native/tnfs-track-editor <workspace>/tracks/my-road
 ```
+
+A workspace is one folder with `cars/` and `tracks/` in it (File > Workspace, or `--workspace DIR`; the choice is kept between runs): Open and New start in its
+`cars/` or `tracks/`, and the start screen lists what is in them. It is optional: with none, the folder dialogs start where the system puts them.
 
 The project folder is created with `project.ini` and `trace.json` when they are missing: a straight as long as the shortest stage the game races (1308 m, 54
 segments of 4 nodes: `track_trace_stage_min_length()`, from the game's own `RACE_STAGE_END` and `RACE_GRID_FRONT`), 15 points 93.4 m apart, so a new project

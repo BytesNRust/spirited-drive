@@ -17,8 +17,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -255,6 +255,24 @@ static int at_once(App *a, const char *name, const double *arg)
     }
     if (strncmp(name, "profile-click:", 14) == 0) return 2;   /* by_frames: the mouse goes in */
     if (strcmp(name, "insert-here") == 0) return app_insert_here(a), 1;   /* the Insert point here button */
+    if (strcmp(name, "print-workspace") == 0) {   /* the workspace, whether the start screen offers to choose one, and the projects the workspace lists */
+        fprintf(stdout, "workspace: %s\noffer: %d\ncars:", a->workspace[0] != '\0' ? a->workspace : "none", app_workspace_offer(a));
+        for (int i = 0; i < a->workspace_list.cars; ++i) fprintf(stdout, " %s", a->workspace_list.car[i]);
+        fprintf(stdout, "\ntracks:");
+        for (int i = 0; i < a->workspace_list.tracks; ++i) fprintf(stdout, " %s", a->workspace_list.track[i]);
+        return fprintf(stdout, "\n"), 1;
+    }
+    if (strncmp(name, "open-ws:", 8) == 0) {   /* open-ws:K,I: the workspace's I-th car (K 0) or track (K 1) opened, as a click on its row on the start screen does (a headless run drops the question about unsaved changes) */
+        char path[APP_PATH];
+        return app_workspace_item(a, (int)arg[0], (int)arg[1], path, sizeof path) && (arg[0] == 0 ? app_open_car(a, path) : app_open_project(a, path));
+    }
+    if (strncmp(name, "dialog-dir:", 11) == 0) {   /* dialog-dir:K: where the folder dialog starts, K 0 for New/Open track, 1 for Open car, 2 for the workspace's own */
+        char where[APP_PATH];
+        const int kind = (int)arg[0];
+        app_dialog_dir(a, kind == 0 ? APP_ACT_OPEN : kind == 1 ? APP_ACT_OPEN_CAR : APP_ACT_WORKSPACE_PICK, where, sizeof where);
+        return fprintf(stdout, "dialog: %s\n", where), 1;
+    }
+    if (strcmp(name, "no-workspace") == 0) return app_workspace_clear(a), 1;   /* File > Workspace > No workspace */
     if (strcmp(name, "print-sel") == 0) {
         if (a->kind != APP_KIND_TRACK) return 0;
         char which[256];

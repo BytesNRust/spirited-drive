@@ -1,4 +1,4 @@
-/* A car project: a kit folder such as art/tnfs-cars/<kit>/ in the current layout (core/formats/car_kit_paths.h, dep85): mod.ini at its top, model/,
+/* A car project: a kit folder such as <workspace>/cars/<kit>/ in the current layout (core/formats/car_kit_paths.h, dep85): mod.ini at its top, model/,
  * car_masks/ (flat: <tex>_mask.png), build/. What makes it a car: a mod.ini with type=car and a stem=, and a model/ folder. The car's file is the build's
  * (build/piece/SIMDATA/CARFAMS/<STEM>.CFM): a kit not built yet is a kit, `built` says whether the file is there. Two shapes more open as they always did:
  * a piece folder with no model/ (what Export original car makes of a car you drive: mod.ini, SIMDATA/CARFAMS/<STEM>.CFM, car_masks/<folder>/), and a masks

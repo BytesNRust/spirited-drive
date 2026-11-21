@@ -1,4 +1,4 @@
-/* A track project: the source of a track, a folder such as art/tnfs-tracks/<id>/ (notes/dep59-track-editor-design.md §4.1).
+/* A track project: the source of a track, a folder such as <workspace>/tracks/<id>/ (notes/dep59-track-editor-design.md §4.1).
  *
  *   project.ini   id, name, author, stem, art (the stage's FAM, relative to the project folder), redistributable, edge (the verge's material)
  *   trace.json    the centre line: its control points (x, z in units) and the road width byte of its nodes

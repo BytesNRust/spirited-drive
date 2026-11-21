@@ -4,8 +4,8 @@
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
  *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--shine on|off] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
- * PROJECT is a folder such as art/tnfs-tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
- * art/tnfs-cars/<kit>/: a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
+ * PROJECT is a folder such as <workspace>/tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
+ * <workspace>/cars/<kit>/ (the workspace: one folder with cars/ and tracks/, --workspace or File > Workspace): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
  * the road is made on the generic template and the stage's art is the FAM named by project.ini's art=. --game and --user are for the
  * install (the game's --install; without --user, into the game's own player folder). Without PROJECT the editor reopens the project it had last, or shows
  * the start screen; without --game it takes the Spirited Drive app beside it (inside the DMG) or ./tnfs. The options after --frames run headless: N frames, then they are done, and --shot writes the last frame to a PNG; the
@@ -61,6 +61,7 @@ typedef struct {
     const char *light_compare;   /* --compare off|before|four: what the Track light window shows beside the photo (part D) */
     const char *light_dir;   /* --light-dir DIR: the folder whose track_light/ the Track light window tunes (default: the source tree's data/) */
     const char *pick;        /* --pick FOLDER: the car chosen in the Export window before the first frame */
+    const char *workspace;   /* --workspace DIR: the workspace folder (cars/ and tracks/ in it) for this run, kept like one chosen in the menu */
     const char *export_car, *export_into, *cd, *port_data;   /* --export-car STEM --into DIR, --cd DIR, --port-data DIR: Export original car without the window's dialogs */
     int convert_psd;          /* --convert-psd: Convert PSD before the first frame, waited for (a headless run); its exit status says how it ended */
     int photo_view;           /* --photo-view (with --race-photo): the photo's large window open for the --shot */
@@ -91,7 +92,7 @@ static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
-                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--photo-view] [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
+                    "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--workspace DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--photo-view] [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
                     "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n"
                     "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--compare off|before|four]] [--steps STEP,...]\n");
     return 0;
@@ -181,6 +182,7 @@ static int parse_args(int argc, char **argv, Options *o)
         }
         else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
         else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
+        else if (strcmp(argv[i], "--workspace") == 0 && has_value) o->workspace = argv[++i];
         else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
         else if (strcmp(argv[i], "--changes") == 0) o->changes = 1;
         else if (strcmp(argv[i], "--paint") == 0 && has_value) o->preview_paint = atoi(argv[++i]);
@@ -274,7 +276,7 @@ typedef struct {
     SDL_Mutex *lock;
     int open;                /* a dialog is on screen */
     int ready;               /* it was answered: `path` is the folder, "" when it was cancelled */
-    AppAction kind;          /* APP_ACT_NEW, APP_ACT_OPEN, APP_ACT_OPEN_CAR, APP_ACT_EXPORT_PICK or APP_ACT_LIGHT_PICK */
+    AppAction kind;          /* APP_ACT_NEW, APP_ACT_OPEN, APP_ACT_OPEN_CAR, APP_ACT_EXPORT_PICK, APP_ACT_LIGHT_PICK or APP_ACT_WORKSPACE_PICK */
     char path[APP_PATH];
 } Dialog;
 
@@ -297,9 +299,11 @@ static void dialog_start(SDL_Window *win, App *a, AppAction kind)
     if (g_dialog.lock == NULL) g_dialog.lock = SDL_CreateMutex();
     if (g_dialog.lock == NULL || g_dialog.open) return;
     char where[APP_PATH];
-    snprintf(where, sizeof where, "%s", kind == APP_ACT_LIGHT_PICK ? a->light_dir : a->dir);   /* "" with nothing open: the system's own place */
-    char *slash = strrchr(where, '/');
-    if (slash != NULL && slash != where) *slash = '\0';
+    if (kind == APP_ACT_LIGHT_PICK) {   /* beside the light folder's own parent */
+        snprintf(where, sizeof where, "%s", a->light_dir);
+        char *slash = strrchr(where, '/');
+        if (slash != NULL && slash != where) *slash = '\0';
+    } else app_dialog_dir(a, kind, where, sizeof where);   /* the workspace's cars/ or tracks/, else the open project's parent, else "": the system's own place */
     g_dialog.open = 1;
     g_dialog.ready = 0;
     g_dialog.kind = kind;
@@ -314,7 +318,7 @@ static int run_go(SDL_Window *win, App *a)
     snprintf(path, sizeof path, "%s", a->go_path);
     a->go = APP_ACT_NONE;
     if (act == APP_ACT_QUIT) return 1;
-    if (act == APP_ACT_NEW || act == APP_ACT_OPEN || act == APP_ACT_OPEN_CAR || act == APP_ACT_EXPORT_PICK || act == APP_ACT_LIGHT_PICK) dialog_start(win, a, act);
+    if (act == APP_ACT_NEW || act == APP_ACT_OPEN || act == APP_ACT_OPEN_CAR || act == APP_ACT_EXPORT_PICK || act == APP_ACT_LIGHT_PICK || act == APP_ACT_WORKSPACE_PICK) dialog_start(win, a, act);
     else if (act == APP_ACT_EXPORT_AT) app_export_car(a, path);
     else if (act == APP_ACT_RECENT) app_open_recent(a, path);
     else if (act == APP_ACT_OPEN_AT) app_open_project(a, path);
@@ -364,6 +368,10 @@ static void take_dialog(App *a)
     }
     SDL_UnlockMutex(g_dialog.lock);
     if (path[0] == '\0') return;
+    if (kind == APP_ACT_WORKSPACE_PICK) {   /* it changes no project: no question about unsaved changes */
+        app_workspace_set(a, path);
+        return;
+    }
     app_ask(a, kind == APP_ACT_NEW ? APP_ACT_NEW_AT : kind == APP_ACT_OPEN_CAR ? APP_ACT_OPEN_CAR_AT : kind == APP_ACT_EXPORT_PICK ? APP_ACT_EXPORT_AT
                 : kind == APP_ACT_LIGHT_PICK ? APP_ACT_LIGHT_AT : APP_ACT_OPEN_AT, path);   /* through the same question: what is on screen may have changed while the dialog was up */
 }
@@ -650,6 +658,7 @@ static int run(App *a, const Options *o)
         const char *pref = SDL_GetPrefPath(NULL, "spirited-drive-studio");
         char file[APP_PATH];
         if (pref != NULL && snprintf(file, sizeof file, "%srecent.txt", pref) < (int)sizeof file) app_keep_recent(a, file);
+        if (pref != NULL && snprintf(file, sizeof file, "%sworkspace.txt", pref) < (int)sizeof file) app_workspace_keep(a, file);
         if (a->kind == APP_KIND_NONE && a->recent.count > 0 && recent_present(a->recent.dir[0], a->recent.kind[0])) {   /* nothing given: the project it had last */
             char last[APP_PATH];
             snprintf(last, sizeof last, "%s", a->recent.dir[0]);
@@ -657,6 +666,7 @@ static int run(App *a, const Options *o)
             a->open_error[0] = '\0';   /* a restore that fails is the start screen, not a message nobody asked for */
         }
     }
+    if (o->workspace != NULL && !app_workspace_set(a, o->workspace)) fprintf(stderr, "--workspace %s: %s\n", o->workspace, a->status);
     const int headless = o->frames > 0;
     ui_settings_to(a);
     int ok = run_requested(a, o), frame = 0, quit = 0;

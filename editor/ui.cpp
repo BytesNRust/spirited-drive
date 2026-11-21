@@ -389,6 +389,16 @@ void main_menu(App *a)
         if (ImGui::MenuItem("New track...")) app_ask(a, APP_ACT_NEW, "");
         if (ImGui::MenuItem("Export original car...")) a->export_dialog = 1;
         if (ImGui::MenuItem("Track light...")) app_ask(a, APP_ACT_OPEN_LIGHT, "");
+        if (ImGui::BeginMenu("Workspace")) {
+            if (ImGui::MenuItem("Choose folder...")) app_workspace_pick(a);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("One folder with cars/ and tracks/ in it: Open and New start there, and the start screen lists what it holds");
+            if (ImGui::MenuItem("No workspace", nullptr, false, a->workspace[0] != '\0')) app_workspace_clear(a);
+            if (a->workspace[0] != '\0') {
+                ImGui::Separator();
+                ImGui::TextDisabled("%s", a->workspace);
+            }
+            ImGui::EndMenu();
+        }
         if (ImGui::BeginMenu("Open recent", a->recent.count > 0)) {
             for (int i = 0; i < a->recent.count; ++i) {
                 char label[SESSION_PATH + 16];

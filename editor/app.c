@@ -409,6 +409,10 @@ void app_carry_window(App *to, const App *from)
 {
     to->recent = from->recent;
     memcpy(to->recent_file, from->recent_file, sizeof to->recent_file);
+    memcpy(to->workspace, from->workspace, sizeof to->workspace);
+    to->workspace_put_aside = from->workspace_put_aside;
+    memcpy(to->workspace_file, from->workspace_file, sizeof to->workspace_file);
+    to->workspace_list = from->workspace_list;
     memcpy(to->game_tried, from->game_tried, sizeof to->game_tried);   /* what the game lookup found stays with the window, not with a project */
     memcpy(to->game_memo, from->game_memo, sizeof to->game_memo);
     to->export_src = from->export_src;   /* so does where the game's files are */

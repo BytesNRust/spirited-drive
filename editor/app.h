@@ -20,6 +20,7 @@
 #include "session.h"
 #include "track_undo.h"
 #include "view.h"
+#include "workspace.h"
 
 #include <stdint.h>
 
@@ -47,7 +48,8 @@ typedef enum {
     APP_ACT_EXPORT_AT,   /* the folder that dialog gave, in the path: the project is made in it and opened */
     APP_ACT_OPEN_LIGHT,  /* the Track light window on the light folder a->light_dir */
     APP_ACT_LIGHT_PICK,  /* a light folder is asked for (main.c's dialog), from the Track light window's Choose... */
-    APP_ACT_LIGHT_AT     /* the folder that dialog gave, in the path: the window is on it (app_light_set_folder) */
+    APP_ACT_LIGHT_AT,    /* the folder that dialog gave, in the path: the window is on it (app_light_set_folder) */
+    APP_ACT_WORKSPACE_PICK /* a workspace folder is asked for (main.c's dialog); the folder that dialog gives is the workspace at once (app_workspace_set), with no question about unsaved changes */
 } AppAction;
 
 /* the answers to "unsaved changes" */
@@ -211,6 +213,10 @@ typedef struct {
     char generic[APP_PATH];      /* the editor's own GENERIC.FAM, for the projects it creates ("" when there is none) */
     Recent recent;               /* the project folders opened lately, newest first */
     char recent_file[APP_PATH];  /* where they are kept, "" when they are not */
+    char workspace[APP_PATH];    /* the workspace folder (cars/ and tracks/ in it), "" for none */
+    int workspace_put_aside;     /* the offer to choose one was put aside: the start screen does not show it again */
+    char workspace_file[APP_PATH]; /* where the choice is kept, "" when it is not */
+    WorkspaceList workspace_list;  /* the projects in it, scanned when it is set and when the window starts */
 
     char zip[APP_PATH];          /* the last package built, "" before one */
     char status[APP_MSG];        /* the last thing done, for the window's bottom line */
@@ -352,6 +358,22 @@ int app_open_recent(App *a, const char *dir);
 
 /* Keeps the recent projects in `file` (loaded now, with the project that is open put first, saved at every change); "" or NULL keeps none. */
 void app_keep_recent(App *a, const char *file);
+/* The workspace (workspace.h): the file keeps the choice between runs; a folder that is gone is no workspace. */
+void app_workspace_keep(App *a, const char *file);
+/* `dir` becomes the workspace: its cars/ and tracks/ are made when missing, what they hold is listed, the choice is kept. 1 when it did; 0 with the status saying why. */
+int app_workspace_set(App *a, const char *dir);
+/* No workspace, and the offer to choose one is put aside (File > Workspace > No workspace) */
+void app_workspace_clear(App *a);
+/* the start screen's offer to choose a workspace is put aside */
+void app_workspace_put_aside(App *a);
+/* 1 when the start screen offers to choose a workspace: none is set and the offer was not put aside */
+int app_workspace_offer(const App *a);
+/* the folder of the I-th car (kind 0) or track (kind 1) the workspace lists into `out`; 0 when there is none */
+int app_workspace_item(const App *a, int kind, int i, char *out, size_t cap);
+/* the folder dialog for a workspace, from the menu or the start screen: it does not ask about unsaved changes (it changes no project) */
+void app_workspace_pick(App *a);
+/* where the folder dialog `kind` (APP_ACT_NEW, _OPEN, _OPEN_CAR, _EXPORT_PICK, _WORKSPACE_PICK) starts: the workspace's cars/ or tracks/, else the open project's parent, else "" */
+void app_dialog_dir(const App *a, AppAction kind, char *out, size_t cap);
 
 /* Rehacer (dep59 car editor 1f): runs the open kit's own rehacer.command. Refused, with the status saying why, when no car is open, a run is going, the kit has no
  * script or the card has unsaved changes (save first). It returns at once (owner test R1): the kit is copied into .studio-backup/<time>/ (the last REHACER_KEEP

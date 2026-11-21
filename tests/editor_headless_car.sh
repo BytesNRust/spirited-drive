@@ -301,5 +301,27 @@ if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_mas
     grep -q "1 changed" "$work/log" || fail "no count of changes: $(cat "$work/log")"
     grep -q "headlight +40" "$work/log" || fail "no word of the texels' classes: $(cat "$work/log")"
 fi
+# ==== Workspace: one folder with cars/ and tracks/, listed on the start screen, where the dialogs start ====
+ws="$work/workspace"
+mkdir -p "$ws"
+"$editor" "$work/emptyws" --workspace "$work/nothing-here" --frames 2 >"$work/log" 2>&1
+grep -q "must be a folder that exists" "$work/log" || fail "a workspace folder that does not exist was taken: $(cat "$work/log")"
+"$editor" --user "$work/u-ws" --frames 6 --steps print-workspace,dialog-dir:0 >"$work/log" 2>&1 || fail "no workspace: $(cat "$work/log")"
+[ "$(grep -E '^(workspace|offer|dialog):' "$work/log" | tr '\n' '|')" = "workspace: none|offer: 1|dialog: |" ] || fail "with none, the start screen offers one and the dialogs start where the system puts them: $(cat "$work/log")"
+mkdir -p "$ws/cars/zed/model/near/bank" "$ws/cars/Alpha/model/near/bank" "$ws/cars/not-a-car" "$ws/tracks/not-a-track"
+for k in zed Alpha; do printf 'id=%s\nname=K\nversion=1\ntype=car\nstem=K1\nsound_from=911\n' "$(echo "$k" | tr 'A-Z' 'a-z')" > "$ws/cars/$k/mod.ini"; done
+"$editor" "$ws/tracks/loop" --frames 2 --save >"$work/log" 2>&1 || fail "a track made in the workspace: $(cat "$work/log")"
+"$editor" --user "$work/u-ws" --workspace "$ws" --frames 6 --steps print-workspace,dialog-dir:0,dialog-dir:1,dialog-dir:2,no-workspace,print-workspace,dialog-dir:0 >"$work/log" 2>&1 || fail "a workspace: $(cat "$work/log")"
+got=$(grep -E '^(workspace|offer|cars|tracks|dialog):' "$work/log" | sed "s|$ws|WS|g" | tr '\n' '|')
+want="workspace: WS|offer: 0|cars: Alpha zed|tracks: loop|dialog: WS/tracks|dialog: WS/cars|dialog: WS|workspace: none|offer: 0|cars:|tracks:|dialog: |"
+[ "$got" = "$want" ] || fail "the workspace lists its cars and tracks, the dialogs start in its cars/ and tracks/, and No workspace puts it aside: $got"
+[ -d "$ws/cars" ] && [ -d "$ws/tracks" ] || fail "the workspace has no cars/ and tracks/"
+for pick in "0,0" "0,1" "1,0"; do
+    "$editor" --user "$work/u-ws" --workspace "$ws" --frames 6 --steps "open-ws:$pick,status" >"$work/log" 2>&1 || fail "open-ws:$pick: $(cat "$work/log")"
+done
+"$editor" --user "$work/u-ws" --workspace "$ws" --frames 6 --steps open-ws:1,7 >"$work/log" 2>&1 && fail "a track the workspace does not list was opened"
+"$editor" --user "$work/u-ws" --workspace "$ws" --window 960x600 --frames 6 --shot "$work/ws-start.png" >"$work/log" 2>&1 || fail "the start screen of a workspace: $(cat "$work/log")"
+"$editor" --user "$work/u-ws2" --window 960x600 --frames 6 --shot "$work/ws-offer.png" >"$work/log" 2>&1 || fail "the start screen with the offer: $(cat "$work/log")"
+[ -s "$work/ws-start.png" ] && [ -s "$work/ws-offer.png" ] && ! cmp -s "$work/ws-start.png" "$work/ws-offer.png" || fail "the start screen does not change with a workspace"
 [ "$failures" -eq 0 ] && echo "editor_headless_car: ok"
 exit "$failures"
