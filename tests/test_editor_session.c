@@ -1272,8 +1272,6 @@ static void check_mask_app(void)
     CHECK(!app_mask_open(a, 0));
     CHECK(!app_mask_open_by_name(a, "side"));
     CHECK(strstr(a->mask.error, "no texture side") != NULL);
-    CHECK(!app_mask_modified(a));
-    CHECK(app_mask_save(a));   /* nothing open: nothing to save */
     a->mask.focus = 1;
     CHECK(!app_can_undo(a) && !app_can_redo(a));
     CHECK(!app_undo(a));
@@ -1325,51 +1323,32 @@ static void check_track_undo_title(void)
     cleanup_project(dir);
 }
 
-/* a car's undo is one history, the card's and the mask's edits in the order they were made, whatever window has the keyboard (owner
- * 2026-11-20): Cmd+Z after painting the mask and clicking another window undoes the paint, as the Edit menu's Undo does; redo goes back in
- * the same order; a new edit after an undo leaves nothing to redo; the card's own Undo button undoes the card only */
-static void check_car_common_history(void)
+/* a car's undo is the card's edits (masks are painted elsewhere): Undo walks them back, Redo forward, a new edit after an undo leaves nothing to redo */
+static void check_car_history(void)
 {
-    char card[600], mask[600], why[256] = "";
+    char card[600], why[256] = "";
     path_in(card, sizeof card, "common_mod.ini");
-    path_in(mask, sizeof mask, "common_mask.png");
     write_file(card, "id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\nsound_from=911\n");
-    uint8_t grey[8 * 6] = { 0 };
-    uint8_t *png = NULL;
-    size_t n = 0;
-    CHECK(car_mask_write_grey(grey, 8, 6, &png, &n));
-    FILE *f = fopen(mask, "wb");
-    if (f != NULL) fwrite(png, 1, n, f), fclose(f);
-    png_free(png);
     App *a = calloc(1, sizeof *a);
     CHECK(a != NULL);
     if (a == NULL) return;
     app_begin(a, "./tnfs", "", NULL);
     a->kind = APP_KIND_CAR;
     CHECK(car_edit_open(&a->edit, card, why, sizeof why));
-    CHECK(mask_edit_open(&a->mask.me, mask, 0, 0, NULL, why, sizeof why));
-    a->mask.sel = 0;
-    CHECK(car_edit_set_by_text(&a->edit, "year=1990"));   /* the card, then the mask */
-    CHECK(mask_edit_pencil(&a->mask.me, 1, 1, 1, 248) > 0);
-    a->mask.focus = 0;                                     /* another window clicked */
+    CHECK(car_edit_set_by_text(&a->edit, "year=1990"));
+    CHECK(car_edit_set_by_text(&a->edit, "country=Spain"));
     CHECK(app_can_undo(a) && app_undo(a));
-    CHECK(!app_mask_modified(a) && car_edit_modified(&a->edit));   /* the paint, the newest, not the card */
+    CHECK(car_edit_modified(&a->edit) && app_can_redo(a));
     CHECK(app_undo(a) && !car_edit_modified(&a->edit));
     CHECK(!app_can_undo(a) && !app_undo(a));
-    CHECK(app_redo(a) && car_edit_modified(&a->edit) && !app_mask_modified(a));   /* redo in the order they were made */
-    CHECK(app_redo(a) && app_mask_modified(a));
+    CHECK(app_redo(a) && app_redo(a));
     CHECK(!app_can_redo(a));
-    a->mask.focus = 1;                                     /* the Masks window has the keyboard, and the card is edited after the paint */
-    CHECK(car_edit_set_by_text(&a->edit, "year=1991"));
-    CHECK(app_undo(a));                                    /* the Edit menu's Undo: the card, the newest */
-    CHECK(car_edit_can_redo(&a->edit) && !mask_edit_can_redo(&a->mask.me) && app_mask_modified(a));
-    CHECK(mask_edit_pencil(&a->mask.me, 2, 2, 1, 248) > 0);   /* a new edit: nothing to redo */
+    CHECK(app_undo(a));
+    CHECK(car_edit_set_by_text(&a->edit, "author=Ana"));   /* a new edit: nothing to redo */
     CHECK(!app_can_redo(a) && !app_redo(a));
-    CHECK(car_edit_undo(&a->edit) && !car_edit_modified(&a->edit));   /* the card's own button: the card only, the mask as it is */
-    CHECK(app_mask_modified(a));
     app_free(a);
     free(a);
-    remove(card), remove(mask);
+    remove(card);
 }
 
 static void check_free_keeps_stdin(void)
@@ -1470,7 +1449,7 @@ int main(void)
     check_mask_app();
     check_mask_texture_file();
     check_track_undo_title();
-    check_car_common_history();
+    check_car_history();
     check_free_keeps_stdin();
     rmdir(root);
     return TEST_REPORT();

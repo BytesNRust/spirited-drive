@@ -782,7 +782,7 @@ static void light_compare_textures(SDL_Renderer *ren, const App *a, ImTextureID 
     for (int i = 0; i < LIGHT_COMPARE_SLOTS; ++i) out[i] = job_texture(ren, a->kind == APP_KIND_LIGHT && i < light_compare_count(a->light.compare.mode), a->light.compare.job[i], tex[i], serial[i]);
 }
 
-// the mask being edited over its texture as a texture: made again when the mask or what is shown of it changed
+// the open mask over its texture as a texture: made again when the mask or what is shown of it changed
 static ImTextureID mask_texture(SDL_Renderer *ren, const App *a)
 {
     static SDL_Texture *tex = nullptr;

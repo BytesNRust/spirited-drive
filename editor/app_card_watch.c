@@ -122,7 +122,6 @@ static int files_look(App *a)
     const unsigned long long pngs = pngs_of(a);
     const int cfm_changed = !same(cfm, d->cfm);
     if (!cfm_changed && pngs == d->pngs) return 0;
-    if (cfm_changed && a->mask.sel >= 0 && app_mask_modified(a)) return 0;   /* the open mask's edits are not dropped: read when it is saved or closed */
     d->cfm = cfm;
     d->pngs = pngs;
     refresh(a, cfm_changed);

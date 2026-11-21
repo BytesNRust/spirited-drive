@@ -36,7 +36,7 @@ struct Model {
     ModelScene *scene = nullptr;
     char why[200] = "";
     char key_dir[APP_PATH] = "";   // what the picture was made from: the project, its masks, the paint (the Preview window's own choice)
-    unsigned key_generation = 0, key_version = 0;
+    unsigned key_generation = 0;
     int key_paint = -2;
     uint8_t key_rgb[3] = {};
     bool painted = false;
@@ -84,7 +84,6 @@ void source_of(App *a, const uint8_t *rgb, Source *s)
     s->in.stem = oc != nullptr ? oc->folder : a->car.folder;
     s->in.masks_dir = a->car.has_masks_dir ? s->masks : nullptr;
     s->in.fallback_dir = oc != nullptr && a->export_src.data[0] != '\0' ? s->fallback : nullptr;
-    s->in.edit = a->mask.sel >= 0 && app_mask_modified(a) ? &a->mask.me : nullptr;
     s->in.paint = rgb;
     s->in.added = oc == nullptr;
 }
@@ -126,7 +125,7 @@ void open_scene(App *a, const uint8_t *rgb)
 // the keys the picture is made from
 bool stale(const App *a, const uint8_t *rgb)
 {
-    return strcmp(g.key_dir, a->dir) != 0 || g.key_generation != a->mask.generation || g.key_version != (a->mask.sel >= 0 ? a->mask.me.version : 0u)
+    return strcmp(g.key_dir, a->dir) != 0 || g.key_generation != a->mask.generation
            || g.key_paint != a->preview_paint || (rgb != nullptr && memcmp(g.key_rgb, rgb, 3) != 0);
 }
 
@@ -134,7 +133,6 @@ void remember(const App *a, const uint8_t *rgb)
 {
     snprintf(g.key_dir, sizeof g.key_dir, "%s", a->dir);
     g.key_generation = a->mask.generation;
-    g.key_version = a->mask.sel >= 0 ? a->mask.me.version : 0u;
     g.key_paint = a->preview_paint;
     if (rgb != nullptr) memcpy(g.key_rgb, rgb, 3);
 }
@@ -466,9 +464,9 @@ void model_panel(App *a, SDL_Renderer *ren)
         const ExportCar *oc = car_race_original_of(&a->car);   // the paints as the Preview window has them: a masks project and the game's traffic have none
         const int count = a->car.masks_only || (oc != nullptr && oc->kind != EXPORT_DRIVABLE) ? 0 : a->edit.now.paint_count;
         const uint8_t *rgb = paint >= 0 && paint < count ? a->edit.now.paints[paint].rgb : nullptr;
-        const bool busy = a->mask.me.stroke != 0 || a->car.cfm[0] == '\0';
+        const bool busy = a->car.cfm[0] == '\0';
         if (!busy && (strcmp(g.loaded, a->car.cfm) != 0 || g.loaded_serial != a->cdisk.serial)) load(a, rgb);
-        else if (!busy && g.scene != nullptr && stale(a, rgb)) {   // a mask edited or saved, another paint: the same camera on the car made again
+        else if (!busy && g.scene != nullptr && stale(a, rgb)) {   // a mask changed on disk, another paint: the same camera on the car made again
             open_scene(a, rgb);
             remember(a, rgb);
         }
@@ -477,7 +475,7 @@ void model_panel(App *a, SDL_Renderer *ren)
         } else {
             toolbar(a);
             keys();
-            if (g.shine_asked && !busy) set_shine(a, rgb), g.dirty = true;   // after a stroke: the draft is of the masks as they are
+            if (g.shine_asked && !busy) set_shine(a, rgb), g.dirty = true;   // the draft is of the masks as they are
             const ImVec2 size = ImGui::GetContentRegionAvail();
             const int lines = g.shine && !g.shines ? 2 : 1;   // the words under the picture: the state, and "no shine" when Shine has nothing to show
             const int area_w = static_cast<int>(size.x), area_h = static_cast<int>(size.y) - lines * static_cast<int>(ImGui::GetTextLineHeightWithSpacing());

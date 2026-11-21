@@ -68,7 +68,6 @@ int app_psd_start(App *a)
     char dir[APP_PATH], why[APP_MSG];
     if (a->kind != APP_KIND_CAR) return snprintf(a->status, sizeof a->status, "open a car first"), 0;
     if (psd_job_busy(&a->psd)) return snprintf(a->status, sizeof a->status, "Convert PSD is already running"), 0;
-    if (app_mask_modified(a)) return snprintf(a->status, sizeof a->status, "the open mask has changes that are not saved: Save or Discard them first, or Convert PSD would replace them"), 0;
     if (a->tools[0] == '\0') return snprintf(a->status, sizeof a->status, "Convert PSD needs the repository's tools folder (car_mask_from_psd.py): not found beside this program (TNFS_TOOLS)"), 0;
     if (!app_psd_psd_dir(a, dir, sizeof dir))
         return snprintf(a->status, sizeof a->status, "no PSD folder named %s in %s", a->car.folder, a->psd_root[0] != '\0' ? a->psd_root : "(no PSD folder set: --psd-root)"), 0;
@@ -88,9 +87,7 @@ int app_psd_poll(App *a)
     if (!psd_job_busy(&a->psd)) return 0;
     if (psd_job_poll(&a->psd)) return 1;
     snprintf(a->status, sizeof a->status, "%s", a->psd.text);
-    if (a->psd.ok && app_mask_modified(a)) {   /* a mask was opened and edited while it ran: its edits are not dropped; the lists are read at the next open */
-        snprintf(a->status, sizeof a->status, "%s The open mask has unsaved changes, so the lists were not read again: Save or Discard it, then reopen the car.", a->psd.text);
-    } else if (a->psd.ok) {
+    if (a->psd.ok) {
         app_car_reread(a);   /* the lists, and the masks read again (a mask that was open is closed: it was just remade) */
     }
     return 0;

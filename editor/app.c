@@ -352,7 +352,7 @@ int app_track_undo(App *a, int redo)
 
 int app_modified(const App *a)
 {
-    if (a->kind == APP_KIND_CAR) return car_edit_modified(&a->edit) || app_mask_modified(a);
+    if (a->kind == APP_KIND_CAR) return car_edit_modified(&a->edit);
     if (a->kind == APP_KIND_LIGHT) return light_session_dirty(&a->light.session);
     return a->kind == APP_KIND_TRACK && track_undo_modified(&a->track_undo, &a->project, &a->trace);
 }
@@ -577,11 +577,8 @@ int app_save(App *a)
 {
     char why[APP_MSG];
     if (a->kind == APP_KIND_LIGHT) return app_light_save(a);
-    if (a->kind == APP_KIND_CAR && a->car.masks_only) {   /* no card: only the mask being edited */
-        if (a->mask.sel < 0) return set_status(a, "a masks project has no card to save: paint the masks in your picture editor, on the PNG files in car_masks/"), 0;
-        return app_mask_save(a);
-    }
-    if (a->kind == APP_KIND_CAR) {   /* the card: only mod.ini, only the lines that changed; and the mask being edited */
+    if (a->kind == APP_KIND_CAR && a->car.masks_only) return set_status(a, "a masks project has no card to save: paint the masks in your picture editor, on the PNG files in car_masks/"), 0;
+    if (a->kind == APP_KIND_CAR) {   /* the card: only mod.ini, only the lines that changed */
         const int changed = car_edit_modified(&a->edit);
         if (changed && !app_card_save_ok(a)) return 0;
         if (changed && app_photos_missing(a, why, sizeof why)) return set_status(a, why), 0;
@@ -591,7 +588,6 @@ int app_save(App *a)
         }
         if (changed) app_card_keep_mine(a);   /* our own write is not a change on disk */
         app_photos_swept(a);
-        if (a->mask.sel >= 0 && app_mask_modified(a)) return app_mask_save(a);
         set_status(a, changed ? "saved mod.ini" : "nothing to save: mod.ini is as it was");
         return 1;
     }
@@ -636,7 +632,6 @@ static int build_car(App *a)
     char why[APP_MSG];
     if (app_install_busy(a) || car_race_installing(&a->race)) return set_status(a, "build: the game is installing the package: wait for it to end"), 0;   /* it reads the zip */
     if (car_edit_modified(&a->edit)) return set_status(a, "build: mod.ini has changes that are not saved: save them first"), 0;
-    if (app_mask_modified(a)) return set_status(a, "build: a mask has changes that are not saved: save it first"), 0;
     if (!car_build_job_start(&a->car_build, a->car.root, why, sizeof why)) {
         snprintf(a->status, sizeof a->status, "build: %s", why);
         return 0;

@@ -2,7 +2,7 @@
 #if defined(__APPLE__)
 #define _DARWIN_C_SOURCE          /* st_mtimespec, which _POSIX_C_SOURCE alone hides */
 #endif
-/* The mask editor of the open car (app.h's app_mask_*): the textures of its CFM, the mask being edited, Save. */
+/* The masks window's state for the open car (app.h's app_mask_*): the textures of its CFM, the mask shown over its texture, the files watched. */
 #include "app.h"
 #include "texture_file.h"
 
@@ -12,11 +12,6 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-static void say(App *a, const char *text)
-{
-    snprintf(a->status, sizeof a->status, "%s", text);
-}
 
 static void masks_path(const App *a, const char *file, char *out, size_t cap)
 {
@@ -71,7 +66,6 @@ void app_mask_close(App *a)
     a->mask.sel = -1;
     a->mask.note[0] = '\0';
     a->mask.tex_file[0] = '\0';
-    a->mask.disk_changed = 0;
 }
 
 void app_mask_scan(App *a)
@@ -96,10 +90,6 @@ int app_mask_open(App *a, int index)
 {
     MaskUi *m = &a->mask;
     if (index < 0 || index >= m->tex_count) return 0;
-    if (mask_edit_modified(&m->me)) {
-        snprintf(m->error, sizeof m->error, "The open mask has unsaved changes: Save or Discard them first");
-        return 0;
-    }
     app_mask_close(a);
     m->error[0] = '\0';
     if (!m->has_mask[index]) {
@@ -145,47 +135,11 @@ int app_mask_open_by_name(App *a, const char *name)
     return 0;
 }
 
-int app_mask_save(App *a)
-{
-    MaskUi *m = &a->mask;
-    if (m->sel < 0) return 1;
-    char why[APP_MSG];
-    const int changed = mask_edit_modified(&m->me);
-    if (changed && !m->disk_changed && !same(stamp_at(a, m->sel), m->disk[m->sel])) m->disk_changed = 1;   /* changed since the last look */
-    if (m->disk_changed) {
-        snprintf(m->error, sizeof m->error, "%s changed on disk: Reload it, or Keep mine and Save again", m->tex[m->sel].file);
-        say(a, m->error);
-        return 0;
-    }
-    if (!mask_edit_save(&m->me, why, sizeof why)) {
-        snprintf(m->error, sizeof m->error, "%s", why);
-        say(a, why);
-        return 0;
-    }
-    m->error[0] = '\0';
-    m->disk[m->sel] = stamp_at(a, m->sel);   /* our own write is not a change on disk */
-    m->has_mask[m->sel] = 1;                 /* written back after it went (Keep mine) */
-    m->generation++;
-    if (changed) m->saved_since_race = 1;
-    snprintf(a->status, sizeof a->status, changed ? "saved %s" : "nothing to save: %s is as it was", m->tex[m->sel].file);
-    return 1;
-}
-
-int app_mask_modified(const App *a)
-{
-    return a->mask.sel >= 0 && mask_edit_modified((MaskEdit *)&a->mask.me);
-}
-
-/* the open mask's file changed: read again, closed when it went, or (unsaved edits) kept with the state line; 0 when the file cannot be read yet */
+/* the open mask's file changed: read again, or closed when it went; 0 when the file cannot be read yet */
 static int open_changed(App *a, MaskStamp now)
 {
     MaskUi *m = &a->mask;
     const int index = m->sel;
-    if (app_mask_modified(a)) {
-        m->disk_changed = 1;   /* m->disk[index] stays the old one: Save keeps asking until Keep mine */
-        snprintf(a->status, sizeof a->status, "%s changed on disk: Reload, or Keep mine", m->tex[index].file);
-        return 1;
-    }
     if (now.size == 0) {
         app_mask_close(a);
         snprintf(a->status, sizeof a->status, "%s changed on disk: it is gone", m->tex[index].file);
@@ -210,7 +164,7 @@ int app_mask_watch(App *a, double now)
         const MaskStamp s = stamp_at(a, i);
         if (same(s, m->disk[i])) continue;
         if (i == m->sel) {
-            if (m->disk_changed || !open_changed(a, s)) continue;   /* said already; or not readable yet */
+            if (!open_changed(a, s)) continue;   /* not readable yet */
             m->has_mask[i] = s.size != 0;
             changed = 1;
             continue;
@@ -223,70 +177,31 @@ int app_mask_watch(App *a, double now)
     return changed;
 }
 
-int app_mask_reload(App *a)
-{
-    MaskUi *m = &a->mask;
-    const int index = m->sel;
-    if (index < 0) return 1;
-    mask_edit_free(&m->me);   /* the edits go: what app_mask_open refuses to drop */
-    m->me = (MaskEdit){ 0 };
-    m->disk_changed = 0;
-    if (stamp_at(a, index).size == 0) {
-        m->has_mask[index] = 0;
-        app_mask_close(a);
-        return 1;
-    }
-    return app_mask_open(a, index);
-}
-
-void app_mask_keep_mine(App *a)
-{
-    MaskUi *m = &a->mask;
-    if (m->sel < 0) return;
-    m->disk[m->sel] = stamp_at(a, m->sel);
-    m->disk_changed = 0;
-    m->error[0] = '\0';
-}
-
-/* a car's history is the card's steps and the open mask's in the order they were made (edit_seq.h): Undo takes the newest of the two stacks'
- * tops; Redo the one undone last, the older of the two redo tops, while nothing was edited since (a newer step on an undo stack) */
+/* a car's history is the card's steps (edit_seq.h): Undo and Redo walk them */
 static unsigned long card_undo(const App *a) { return car_edit_undo_seq(&a->edit); }
-static unsigned long mask_undo(const App *a) { return a->mask.sel >= 0 ? mask_edit_undo_seq(&a->mask.me) : 0; }
-
-/* 1 the card's redo, 2 the mask's, 0 none */
-static int redo_of(const App *a)
-{
-    const unsigned long card = car_edit_redo_seq(&a->edit), mask = a->mask.sel >= 0 ? mask_edit_redo_seq(&a->mask.me) : 0;
-    const unsigned long newest_undo = card_undo(a) > mask_undo(a) ? card_undo(a) : mask_undo(a);
-    const int which = card != 0 && (mask == 0 || card < mask) ? 1 : mask != 0 ? 2 : 0;
-    const unsigned long seq = which == 1 ? card : which == 2 ? mask : 0;
-    return seq > newest_undo ? which : 0;
-}
 
 int app_can_undo(const App *a)
 {
     if (a->kind == APP_KIND_TRACK) return track_undo_can_undo(&a->track_undo, &a->project, &a->trace);
-    return card_undo(a) != 0 || mask_undo(a) != 0;
+    return card_undo(a) != 0;
 }
 
 int app_can_redo(const App *a)
 {
     if (a->kind == APP_KIND_TRACK) return track_undo_can_redo(&a->track_undo);
-    return redo_of(a) != 0;
+    return car_edit_redo_seq(&a->edit) != 0;
 }
 
 int app_undo(App *a)
 {
     if (a->kind == APP_KIND_TRACK) return app_track_undo(a, 0);
-    if (mask_undo(a) > card_undo(a)) return mask_edit_undo(&a->mask.me);
     return car_edit_undo(&a->edit);
 }
 
 int app_redo(App *a)
 {
     if (a->kind == APP_KIND_TRACK) return app_track_undo(a, 1);
-    const int which = redo_of(a);
-    return which == 1 ? car_edit_redo(&a->edit) : which == 2 ? mask_edit_redo(&a->mask.me) : 0;
+    return car_edit_redo(&a->edit);
 }
 
 const char *app_mask_state(const App *a, int index)

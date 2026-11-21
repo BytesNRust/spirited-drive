@@ -83,17 +83,6 @@ static int write_mask(uint8_t value)
     return ok;
 }
 
-/* the class of texel (x, y) of the mask file on disk */
-static int class_on_disk(int x, int y)
-{
-    MaskEdit e = { 0 };
-    char why[256];
-    if (!mask_edit_open(&e, mask_path, 0, 0, NULL, why, sizeof why)) return -1;
-    const int c = mask_edit_class_at(&e, x, y);
-    mask_edit_free(&e);
-    return c;
-}
-
 static App *open_car(void)
 {
     char dir[500], cfm[600];
@@ -126,65 +115,24 @@ static void test_a_mask_changed_on_disk(void)
     App *a = open_car();
     CHECK(a != NULL);
     if (a == NULL) return;
-    const int head = mask_edit_class_index(CAR_MASK_HEADLIGHT), matte = mask_edit_class_index(CAR_MASK_MATTE), paint = mask_edit_class_index(CAR_MASK_PAINT);
+    const int head = mask_edit_class_index(CAR_MASK_HEADLIGHT), matte = mask_edit_class_index(CAR_MASK_MATTE);
     CHECK(app_mask_open_by_name(a, "side"));
     CHECK_EQ_INT(mask_edit_class_at(&a->mask.me, 3, 3), head);
     CHECK_EQ_INT(app_mask_watch(a, 10.0), 0);   /* nothing changed: the first look only records the files */
 
-    /* no unsaved edits: read again, at the next look a second on */
+    /* the open mask is read again, at the next look a second on */
     unsigned gen = a->mask.generation;
     CHECK(write_mask(CAR_MASK_MATTE));
     CHECK_EQ_INT(app_mask_watch(a, 10.4), 0);   /* not yet a second */
     CHECK_EQ_INT(mask_edit_class_at(&a->mask.me, 3, 3), head);
     CHECK_EQ_INT(app_mask_watch(a, 11.1), 1);
-    CHECK(a->mask.sel >= 0 && !app_mask_modified(a) && !a->mask.disk_changed);
+    CHECK(a->mask.sel >= 0);
     CHECK_EQ_INT(mask_edit_class_at(&a->mask.me, 3, 3), matte);   /* the new texels */
     CHECK(a->mask.generation != gen);                              /* the Preview and the Model take it */
     CHECK(strstr(a->status, "changed on disk") != NULL);
     CHECK_EQ_INT(app_mask_watch(a, 12.2), 0);                      /* once */
 
-    /* our own Save is not a change on disk */
-    CHECK(mask_edit_pencil(&a->mask.me, 1, 1, 1, CAR_MASK_PAINT) > 0);
-    CHECK(app_mask_save(a));
-    CHECK_EQ_INT(app_mask_watch(a, 13.3), 0);
-    CHECK(mask_edit_can_undo(&a->mask.me));   /* the history stays */
-
-    /* unsaved edits: kept, the state says so, Save does not write over the file */
-    CHECK(mask_edit_pencil(&a->mask.me, 2, 2, 1, CAR_MASK_PAINT) > 0);
-    gen = a->mask.generation;
-    CHECK(write_mask(CAR_MASK_HEADLIGHT));
-    CHECK_EQ_INT(app_mask_watch(a, 14.4), 1);
-    CHECK(a->mask.disk_changed && app_mask_modified(a));
-    CHECK_EQ_INT(mask_edit_class_at(&a->mask.me, 2, 2), paint);
-    CHECK(!app_mask_save(a));
-    CHECK(strstr(a->mask.error, "changed on disk") != NULL);
-    CHECK_EQ_INT(class_on_disk(2, 2), head);
-    CHECK_EQ_INT(app_mask_watch(a, 15.5), 0);                      /* said once */
-    /* Keep mine: then Save writes it */
-    app_mask_keep_mine(a);
-    CHECK(!a->mask.disk_changed);
-    CHECK(app_mask_save(a));
-    CHECK_EQ_INT(class_on_disk(2, 2), paint);
-    CHECK_EQ_INT(class_on_disk(3, 3), matte);                      /* mine, all of it */
-
-    /* Reload: the file's texels, the edits gone */
-    CHECK(mask_edit_pencil(&a->mask.me, 4, 4, 1, CAR_MASK_HEADLIGHT) > 0);
-    CHECK(write_mask(CAR_MASK_PAINT));
-    CHECK_EQ_INT(app_mask_watch(a, 16.6), 1);
-    CHECK(a->mask.disk_changed);
-    CHECK(app_mask_reload(a));
-    CHECK(!a->mask.disk_changed && !app_mask_modified(a));
-    CHECK_EQ_INT(mask_edit_class_at(&a->mask.me, 4, 4), paint);
-
-    /* changed between two looks, then Save at once: asked all the same */
-    CHECK(mask_edit_pencil(&a->mask.me, 5, 5, 1, CAR_MASK_MATTE) > 0);
-    CHECK(write_mask(CAR_MASK_HEADLIGHT));
-    CHECK(!app_mask_save(a));
-    CHECK(a->mask.disk_changed);
-    CHECK_EQ_INT(class_on_disk(5, 5), head);
-
     /* no mask open: a change still reaches the Preview and the Model */
-    CHECK(app_mask_reload(a));
     app_mask_close(a);
     gen = a->mask.generation;
     CHECK(write_mask(CAR_MASK_MATTE));
@@ -202,7 +150,7 @@ static void test_a_mask_changed_on_disk(void)
     free(a);
 }
 
-/* a removed open mask with no edits closes; with edits it stays, Changed on disk */
+/* a removed open mask closes; a mask that comes back is listed again; a half written file leaves the open one as it is */
 static void test_the_open_mask_removed(void)
 {
     App *a = open_car();
@@ -216,18 +164,10 @@ static void test_the_open_mask_removed(void)
     CHECK(write_mask(CAR_MASK_PAINT));
     CHECK_EQ_INT(app_mask_watch(a, 3.2), 1);
     CHECK(app_mask_open_by_name(a, "side"));
-    CHECK(mask_edit_pencil(&a->mask.me, 1, 1, 1, CAR_MASK_MATTE) > 0);
-    CHECK(unlink(mask_path) == 0);
-    CHECK_EQ_INT(app_mask_watch(a, 4.3), 1);
-    CHECK(a->mask.sel >= 0 && a->mask.disk_changed && app_mask_modified(a));
-    app_mask_keep_mine(a);
-    CHECK(app_mask_save(a));   /* Keep mine writes it back */
-    CHECK_EQ_INT(class_on_disk(1, 1), mask_edit_class_index(CAR_MASK_MATTE));
-    CHECK(a->mask.has_mask[0]);   /* listed again */
     /* half written (another program still writing it): the open mask stays, read at a later look */
     CHECK(write_file(mask_path, (const uint8_t *)"\x89PNG", 4));
     CHECK_EQ_INT(app_mask_watch(a, 5.4), 0);
-    CHECK(a->mask.sel >= 0 && !a->mask.disk_changed);
+    CHECK(a->mask.sel >= 0);
     CHECK(write_mask(CAR_MASK_HEADLIGHT));
     CHECK_EQ_INT(app_mask_watch(a, 6.5), 1);
     CHECK(a->mask.sel >= 0 && mask_edit_class_at(&a->mask.me, 1, 1) == mask_edit_class_index(CAR_MASK_HEADLIGHT));

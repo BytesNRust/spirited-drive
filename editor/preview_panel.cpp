@@ -25,7 +25,7 @@ struct Shown {
     bool have = false;
     char why[256] = "";
     char key_dir[APP_PATH] = "";
-    unsigned key_generation = 0, key_version = 0;
+    unsigned key_generation = 0;
     int key_paint = -2;
     uint8_t key_rgb[3] = { 0, 0, 0 };
     int key_count = -1;
@@ -68,7 +68,6 @@ void make(App *a, int paint)
     char fallback[APP_PATH];   // the game's own masks of an original car, for a texture the project has none for
     snprintf(fallback, sizeof fallback, "%s/car_masks/%s", a->export_src.data, oc != nullptr ? oc->folder : "");
     in.fallback_dir = oc != nullptr && a->export_src.data[0] != '\0' ? fallback : nullptr;
-    in.edit = a->mask.sel >= 0 && app_mask_modified(a) ? &a->mask.me : nullptr;
     in.paint = paint >= 0 && paint < paint_count(a) ? a->edit.now.paints[paint].rgb : nullptr;
     in.added = oc == nullptr;
     if (!car_preview_make(&in, &shown.preview, shown.why, sizeof shown.why)) return;
@@ -260,16 +259,15 @@ void preview_panel(App *a, SDL_Renderer *ren)
         if (count > 0) ImGui::SameLine();   // the top row: Paint, Day / Night (a car with no paints has its line of why above)
         day_night_row(a);
         lights_header(a);
-        // made again when what it is made from changed; not while a pencil stroke is going (every texel of it would make one)
+        // made again when what it is made from changed
         const uint8_t *rgb = paint >= 0 ? a->edit.now.paints[paint].rgb : nullptr;
-        const bool busy = a->mask.me.stroke != 0 || a->car.cfm[0] == '\0';
-        const bool changed = shown.key_count != 1 || strcmp(shown.key_dir, a->dir) != 0 || shown.key_generation != a->mask.generation || shown.key_version != (a->mask.sel >= 0 ? a->mask.me.version : 0u)
+        const bool busy = a->car.cfm[0] == '\0';
+        const bool changed = shown.key_count != 1 || strcmp(shown.key_dir, a->dir) != 0 || shown.key_generation != a->mask.generation
                              || shown.key_paint != paint || (rgb != nullptr && memcmp(shown.key_rgb, rgb, 3) != 0);
         if (changed && !busy) {
             make(a, paint);
             snprintf(shown.key_dir, sizeof shown.key_dir, "%s", a->dir);
             shown.key_generation = a->mask.generation;
-            shown.key_version = a->mask.sel >= 0 ? a->mask.me.version : 0u;
             shown.key_paint = paint;
             if (rgb != nullptr) memcpy(shown.key_rgb, rgb, 3);
             shown.key_count = 1;

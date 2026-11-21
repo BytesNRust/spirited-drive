@@ -150,7 +150,7 @@ color picker; up to 16). Each field is checked by the game's own reader (`mod_in
 and its number ("Year: 17 characters; the card keeps up to 16"); **Save is blocked while any field has a problem**. Undo and Redo (the Edit menu,
 Cmd+Z and Cmd+Shift+Z on a Mac, Ctrl+Z and Ctrl+Shift+Z elsewhere; every shortcut takes the platform's key) take back typing in a field as one step. **Save writes only `coche/mod.ini`**, through `mod_ini_set`: only the lines you changed,
 every other byte (comments, order, line ends) stays, and a Save with no change writes nothing. A card with unsaved changes asks before it is left, as a track does.
-The textures (`modelo/c1`, and how many far ones) and the mask files found are listed beside it. `--set KEY=VALUE` sets a field before the first frame (headless
+The textures (`modelo/c1`, and how many far ones) and their mask files are listed in the Masks tab. `--set KEY=VALUE` sets a field before the first frame (headless
 runs). The car window has no Save, Undo or Redo buttons: File > Save and Edit > Undo / Redo (and Cmd/Ctrl+S, Z) do them. Build (a kit) makes the car again from the kit's
 files; the old Rehacer, which ran a kit's own `rehacer.command`, is gone. When an Install ends and the game says the files changed but the version did not, the status
 line says to raise Version in the Car tab (and to which).

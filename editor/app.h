@@ -61,7 +61,7 @@ typedef enum {
 /* the answers to "unsaved changes" */
 enum { APP_ANSWER_CANCEL = 0, APP_ANSWER_DISCARD = 1, APP_ANSWER_SAVE = 2 };
 
-/* the mask editor of the open car (dep59 car editor E3): the textures of its CFM, the mask being edited and the tools */
+/* the Masks window's state for the open car: the textures of its CFM, the mask shown over its texture and how it is shown */
 
 /* a mask file as it was last read or written: its modification time (ns) and size, both 0 while there is no file */
 typedef struct {
@@ -82,20 +82,18 @@ typedef struct {
     MaskTexInfo tex[MASK_TEX_LIST];   /* the textures of the car file, both banks */
     int tex_count;
     char has_mask[MASK_TEX_LIST];     /* the car's masks folder holds the texture's mask */
-    int sel;                          /* the texture being edited (index into tex), -1 for none */
-    MaskEdit me;                      /* its mask, when sel >= 0 */
+    int sel;                          /* the texture whose mask is shown (index into tex), -1 for none */
+    MaskEdit me;                      /* its mask as the file has it (read only), when sel >= 0 */
     char note[256];                   /* the size note of the open mask, "" when it matches its texture */
     char tex_file[ME_PATH];           /* the open mask's texture as a PNG of the car's kit (texture_file.h), "" when it has none: Show texture file */
-    char error[APP_MSG];         /* why a mask could not be opened or saved, until the next try */
+    char error[APP_MSG];         /* why a mask could not be opened, until the next try */
     int show, class_on[ME_CLASSES];   /* the overlay on or off, and each class of it */
     float opacity;                    /* 0..1 */
     float zoom;                       /* screen pixels a mask texel; 0: fit the window (the panel sets it) */
-    unsigned generation;              /* counts every mask opened, closed, discarded or saved: a picture made from the mask compares with it */
+    unsigned generation;              /* counts every mask opened, closed or changed on disk: a picture made from the mask compares with it */
     int focus;                        /* the mask view has the keyboard: + - 0 zoom (set by the panel every frame) */
-    int saved_since_race;             /* a mask was saved: Race photo shows the result */
-    MaskStamp disk[MASK_TEX_LIST];    /* each texture's mask file as the editor last saw it (app_mask_watch) */
+    MaskStamp disk[MASK_TEX_LIST];    /* each texture's mask file as Studio last saw it (app_mask_watch) */
     double disk_looked;               /* when app_mask_watch last looked at the files (its clock); 0: never */
-    int disk_changed;                 /* the open mask's file changed on disk while it has unsaved edits: Reload or Keep mine, and Save waits */
 } MaskUi;
 
 typedef struct {
@@ -107,7 +105,7 @@ typedef struct {
     int lights_open;             /* --steps lights-open: 1 the Preview's Lights header is unfolded by the next frame (then 0), as a click on it */
     LightUi light;               /* the Track light window (light_ui.h), when kind is APP_KIND_LIGHT */
     char light_dir[APP_PATH];    /* the light folder the Track light window tunes: its track_light/ and track/ (--light-dir, else the source tree's data/); "" for none */
-    MaskUi mask;                 /* the mask editor (editor/mask_edit.h), when kind is APP_KIND_CAR */
+    MaskUi mask;                 /* the masks window's state (editor/mask_edit.h), when kind is APP_KIND_CAR */
     CarDisk cdisk;               /* mod.ini, the car file and the textures as the editor last saw them (app_card_watch) */
     CarEdit edit;                /* its card as it is being edited (car_edit.h), when kind is APP_KIND_CAR; only mod.ini is ever written */
     char dir[APP_PATH];          /* the project folder: a track's, a car's kit; "" with nothing open */
@@ -274,37 +272,29 @@ void app_set_export_source(App *a, const ExportSource *src);
  * open_error saying why, when it cannot. 1 when it is open. */
 int app_export_car(App *a, const char *parent);
 
-/* The mask editor (E3). app_mask_scan lists the textures of the open car's file and which have a mask in car_masks/<folder>/ (done when a car opens and after Convert PSD);
- * app_mask_open edits texture `index` (what is open must not have changes: the panel asks first), app_mask_save writes the mask (same size, the edit only),
- * app_mask_close lets it go. app_mask_open_by_name takes "topv" or "frnt_lo" (the mask file's name without _mask.png). Each sets the status and mask.error when it refuses. */
+/* The Masks window (masks are painted elsewhere; Studio shows them). app_mask_scan lists the textures of the open car's file and which have a mask in car_masks/<folder>/ (done when a car opens and after Convert PSD);
+ * app_mask_open shows texture `index`'s mask over its texture, app_mask_close lets it go. app_mask_open_by_name takes "topv" or "frnt_lo" (the mask file's name without _mask.png). Each sets the status and mask.error when it refuses. */
 void app_mask_scan(App *a);
 int app_mask_open(App *a, int index);
 int app_mask_open_by_name(App *a, const char *name);
-int app_mask_save(App *a);
 void app_mask_close(App *a);
-/* Undo and redo: a track's project (track_undo.h); a car's one history, the card's edits and the open mask's in the order they were made,
- * whatever window has the keyboard (the windows' own Undo buttons are each their own stack's) */
+/* Undo and redo: a track's project (track_undo.h); a car's card edits (car_edit.h) */
 int app_undo(App *a);
 int app_redo(App *a);
 int app_can_undo(const App *a);
 int app_can_redo(const App *a);
-int app_mask_modified(const App *a);
 /* How texture `index`'s mask stands, for the Masks window's list: "in sync", "PSD newer" or "PSD found, no mask yet" when the car has PSDs to compare with
  * (a->stale, a->stale_ok), else "PNG only" (the PNG is the source) or "no mask". Never NULL. */
 const char *app_mask_state(const App *a, int index);
 /* Masks changed on disk by another program (W4). app_mask_watch looks at the car's mask files when `now` (seconds, any clock that only grows) is a
  * second or more after its last look: a changed, new or removed file moves mask.generation (the Preview and the Model read the masks again) and
- * has_mask; the open mask is read again when it has no unsaved edits (closed when its file went), else it keeps them and mask.disk_changed says
- * «Changed on disk». 1 when something changed. app_mask_reload takes the file's texels over the edits; app_mask_keep_mine keeps the edits, and the
- * next Save writes them over the file. app_mask_save refuses while the open mask's file changed under it and Keep mine was not chosen. */
+ * has_mask; the open mask is read again (closed when its file went). 1 when something changed. */
 MaskStamp app_file_stamp(const char *path);   /* a file's time and size now; zeros when there is none */
 int app_mask_watch(App *a, double now);
-int app_mask_reload(App *a);
-void app_mask_keep_mine(App *a);
 /* The same for the card and the car's files (W4, app_card_watch.c). mod.ini changed by another program: read again when the card has no unsaved
  * edits; else the edits stay, cdisk.card_changed says «Changed on disk», Save refuses until app_card_reload (the file's card over the edits) or
  * app_card_keep_mine (the next Save writes the edits over the file). The car file or a texture of modelo/c1 or c3 changed: the lists are read again; the car file
- * also moves cdisk.serial and mask.generation (Model, Preview), and the open mask is opened again (kept as it is while it has unsaved edits: read at a later look).
+ * also moves cdisk.serial and mask.generation (Model, Preview), and the open mask is opened again.
  * 1 when something changed. app_card_arm records the files as they are now (a car opened or read again). */
 int app_card_watch(App *a, double now);
 int app_card_reload(App *a);
