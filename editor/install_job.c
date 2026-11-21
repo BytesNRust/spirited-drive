@@ -55,6 +55,11 @@ int install_job_busy(const InstallJob *job)
     return job->run.running;
 }
 
+int install_version_unraised(const char *log)
+{
+    return log != NULL && strstr(log, "iles changed but its version did not") != NULL;   /* "Its files ..." in the menu, "its files ..." from --install */
+}
+
 void install_job_stop(InstallJob *job)
 {
     if (job->run.running) proc_stop(&job->run);

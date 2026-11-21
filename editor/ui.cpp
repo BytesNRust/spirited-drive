@@ -268,16 +268,14 @@ void car_layout(ImGuiID dock)
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->Size);
-    ImGuiID left = 0, right = 0, masks = 0;
+    ImGuiID left = 0, right = 0;
     left = ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.4f, nullptr, &right);
-    masks = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.18f, nullptr, &right);   // the log of a script run
-    const ImGuiID model = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.35f, nullptr, &right);   // the car in 3D above its masks, the race and its photo
+    const ImGuiID model = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.4f, nullptr, &right);   // the car in 3D above its masks, the race and its photo
     ImGui::DockBuilderDockWindow(PANEL_CAR, left);
     ImGui::DockBuilderDockWindow(PANEL_MODEL, model);
     ImGui::DockBuilderDockWindow(PANEL_MASKS, right);   // the masks, which need the room
     ImGui::DockBuilderDockWindow(PANEL_RACE, right);   // a tab beside Masks
     ImGui::DockBuilderDockWindow(PANEL_PREVIEW, right);
-    ImGui::DockBuilderDockWindow(PANEL_REHACER, masks);
     ImGui::DockBuilderFinish(dock);
 }
 
@@ -297,7 +295,7 @@ void light_layout(ImGuiID dock)
     ImGui::DockBuilderFinish(dock);
 }
 
-// the layout of a masks project: its facts on the left, the masks (list and view) and the race on the right (it has no script to run)
+// the layout of a masks project: its facts on the left, the masks (list and view) and the race on the right
 void masks_layout(ImGuiID dock)
 {
     ImGui::DockBuilderRemoveNode(dock);
@@ -347,7 +345,7 @@ void shortcuts(App *a)
 
 const char *const TRACK_PANELS[] = { "Viewport", PANEL_TRACK, PANEL_PROJECT, PANEL_POINTS, PANEL_NODE, PANEL_ROAD_KEY, PANEL_LIMITS, PANEL_PROBLEMS, PANEL_STRIP, PANEL_DRIVE };
 
-// the panels of the mode on screen, as the Window menu lists them (a car's Rehacer is not a masks project's)
+// the panels of the mode on screen, as the Window menu lists them
 int mode_panels(const App *a, const char *out[], int cap)
 {
     if (a->kind == APP_KIND_TRACK) {
@@ -361,12 +359,10 @@ int mode_panels(const App *a, const char *out[], int cap)
         return cap < 3 ? cap : 3;
     }
     if (a->kind != APP_KIND_CAR) return 0;
-    const bool masks = a->car.masks_only;
-    const char *const all[] = { PANEL_CAR, PANEL_MODEL, PANEL_RACE, PANEL_PREVIEW, PANEL_MASKS,
-                                masks ? nullptr : PANEL_REHACER };
+    const char *const all[] = { PANEL_CAR, PANEL_MODEL, PANEL_RACE, PANEL_PREVIEW, PANEL_MASKS };
     int n = 0;
     for (const char *name : all)
-        if (name != nullptr && n < cap) out[n++] = name;
+        if (n < cap) out[n++] = name;
     return n;
 }
 
@@ -397,7 +393,7 @@ void uncollapse_panels(const App *a)
 // as on a first run, so it is chosen here)
 void front_tabs(const App *a)
 {
-    const char *const track[] = { PANEL_LIMITS, PANEL_NODE }, *const car[] = { PANEL_PREVIEW, PANEL_REHACER }, *const masks[] = { PANEL_MASKS, PANEL_PREVIEW };
+    const char *const track[] = { PANEL_LIMITS, PANEL_NODE }, *const car[] = { PANEL_PREVIEW, PANEL_CAR }, *const masks[] = { PANEL_MASKS, PANEL_PREVIEW };
     const char *const *names = a->kind == APP_KIND_TRACK ? track : a->car.masks_only ? masks : car;
     if (a->kind == APP_KIND_NONE || a->kind == APP_KIND_LIGHT) return;   // the light window has no tabs
     for (int i = 0; i < 2; ++i) ImGui::SetWindowFocus(names[i]);
@@ -500,7 +496,7 @@ void main_menu(App *a)
             else if (item == FILE_SAVE) {
                 char save_keys[16];
                 shortcut_label(save_keys, sizeof save_keys, SHORTCUT_MAC, "S");   // Save is Cmd+S on a Mac, Ctrl+S elsewhere, a car's and a track's
-                if (ImGui::MenuItem("Save", save_keys, false, !app_rehacer_busy(a))) app_save(a);   // as the keys: not while Rehacer works on the kit
+                if (ImGui::MenuItem("Save", save_keys)) app_save(a);
             } else if (item == FILE_MAIN) {
                 char keys[16];
                 shortcut_label(keys, sizeof keys, SHORTCUT_MAC, "W");
@@ -520,8 +516,8 @@ void main_menu(App *a)
         char undo_keys[16], redo_keys[24];
         shortcut_label(undo_keys, sizeof undo_keys, SHORTCUT_MAC, "Z");
         shortcut_label(redo_keys, sizeof redo_keys, SHORTCUT_MAC, "Shift+Z");
-        if (ImGui::MenuItem("Undo", undo_keys, false, app_can_undo(a) && !app_rehacer_busy(a))) app_undo(a);
-        if (ImGui::MenuItem("Redo", redo_keys, false, app_can_redo(a) && !app_rehacer_busy(a))) app_redo(a);
+        if (ImGui::MenuItem("Undo", undo_keys, false, app_can_undo(a))) app_undo(a);
+        if (ImGui::MenuItem("Redo", redo_keys, false, app_can_redo(a))) app_redo(a);
         ImGui::EndMenu();
     }
     window_menu(a);
@@ -852,7 +848,6 @@ void ui_frame(SDL_Renderer *ren, App *a)
         if (panel_open(PANEL_RACE)) race_panel(a, photo, sheet_texture(ren, a));
         photo_view_panel(a, photo);
         if (panel_open(PANEL_PREVIEW)) preview_panel(a, ren);
-        if (!a->car.masks_only && panel_open(PANEL_REHACER)) rehacer_panel(a);   // a masks project has no script
     } else if (a->kind == APP_KIND_LIGHT) {   // the Track light window has a dock space of its own
         const ImGuiID dock = ImGui::DockSpaceOverViewport(ImHashStr("StudioLightDock"), ImGui::GetMainViewport());
         if (!light_laid_out || reset) {

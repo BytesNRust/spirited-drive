@@ -692,7 +692,7 @@ static char *two_faces_on(const char *obj, const char *mtl)
     return out;
 }
 
-/* the piece `own` (made from the Viper) exported at both levels as rehacer re-extracts it, `mtl` put on the first two faces of the
+/* the piece `own` (made from the Viper) exported at both levels as a rebuild of the kit re-extracts it, `mtl` put on the first two faces of the
  * high OBJ (or the low one when `low_edit`), both through Blender and back with raw onto the piece (malloc'd CFM; NULL with the reason
  * in `why`) */
 static uint8_t *blender_edit(const uint8_t *viper, size_t n, const uint8_t *own, size_t own_len, const char *mtl, int low_edit,

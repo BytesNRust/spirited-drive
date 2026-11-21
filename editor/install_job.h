@@ -24,6 +24,9 @@ int install_job_poll(InstallJob *job);
 int install_job_busy(const InstallJob *job);
 /* asks the installer to end: its end is told by install_job_poll, not ok, "stopped" */
 void install_job_stop(InstallJob *job);
+/* 1 when the installer's output says the package's files changed but its version did not (the game's words, as `--install` and the menu print them: "its files
+ * changed but its version did not: raise version= in mod.ini"). `log` is the job's output (job->run.log); NULL is 0. */
+int install_version_unraised(const char *log);
 /* ends it if it runs, frees its output; ready for install_job_start */
 void install_job_free(InstallJob *job);
 

@@ -1,5 +1,5 @@
 #!/bin/sh
-# The editor on cars, headless, in the order a user goes: Export original car, open it (or a kit), edit and save its card, Rehacer,
+# The editor on cars, headless, in the order a user goes: Export original car, open it (or a kit), edit and save its card,
 # The mask view, Preview by day and night, the Model, In-game photo, Changes. The blocks that need the player's game files
 # (original/) are skipped without them.
 # usage: editor_headless_car.sh EDITOR
@@ -139,24 +139,11 @@ grep -q '^photos=side-view.png$' "$work/kit/mod.ini" || fail "a refused Save cha
 cp "$work/card.before" "$work/kit/mod.ini"
 rm -f "$work/kit/photos/side-view.png" "$work/kit/photos/side-view-2.png"
 
-# ==== Rehacer ====
-# Rehacer: a kit with no rehacer.command says so; unsaved card changes refuse it; the script runs with the kit as its folder after the kit is backed up, and its
-# exit code is the run's
-"$editor" "$work/kit" --frames 2 --rehacer >"$work/log" 2>&1 && fail "Rehacer went on a kit with no rehacer.command"
-grep -q "no rehacer.command" "$work/log" || fail "no plain word about the missing script: $(cat "$work/log")"
-printf '#!/bin/sh\necho "working in $(pwd)"\necho made > proof.txt\nexit ${REHACER_EXIT:-0}\n' > "$work/kit/rehacer.command"
-"$editor" "$work/kit" --frames 2 --set year=1992 --rehacer >"$work/log" 2>&1 && fail "Rehacer ran with unsaved card changes"
-grep -q "not saved" "$work/log" || fail "no word about the unsaved changes: $(cat "$work/log")"
-[ ! -e "$work/kit/proof.txt" ] && [ ! -d "$work/kit/.studio-backup" ] || fail "a refused Rehacer ran or made a backup"
-"$editor" "$work/kit" --frames 3 --rehacer --shot "$work/rehacer.png" >"$work/log" 2>&1 || fail "Rehacer did not run: $(cat "$work/log")"
-grep -q "exit code 0" "$work/log" || fail "no exit code told: $(cat "$work/log")"
-[ -f "$work/kit/proof.txt" ] || fail "the script did not run with the kit as its folder"
-set -- "$work"/kit/.studio-backup/*/mod.ini
-[ -f "$1" ] || fail "no backup of the kit before it ran"
-[ -s "$work/rehacer.png" ] || fail "no PNG of a Rehacer run"
-REHACER_EXIT=3 "$editor" "$work/kit" --frames 3 --rehacer >"$work/log" 2>&1 && fail "a script that failed was told as a success"
-grep -q "exit code 3" "$work/log" || fail "the failing exit code is not told: $(cat "$work/log")"
-rm -f "$work/kit/rehacer.command"
+# ==== Rehacer is gone ====
+# Build replaces the kit script: --rehacer is refused with the usage, and no run makes a backup folder in the kit
+"$editor" "$work/kit" --frames 2 --rehacer >"$work/log" 2>&1 && fail "--rehacer was taken: Rehacer is gone"
+grep -q "^usage: " "$work/log" || fail "--rehacer was not refused with the usage: $(cat "$work/log")"
+[ ! -d "$work/kit/.studio-backup" ] || fail "a run made a backup folder in the kit"
 
 # ==== The mask view (read-only) ====
 # The mask view (read-only): a car file with no textures offers none (the fixture's is not a real one); with the player's real game files a traffic car's mask is opened and

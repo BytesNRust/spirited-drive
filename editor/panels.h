@@ -41,9 +41,7 @@ void light_shortcuts(App *a);   // Cmd+S saves the light file
 // the start screen (nothing open) and the open car's panels: its card, its textures, its masks
 void start_screen(App *a);
 void car_panel(App *a);
-void rehacer_panel(App *a);   // Rehacer's status and log
 void car_shortcuts(App *a);   // Cmd+S, Cmd+Z, Cmd+Shift+Z / Cmd+Y on a Mac; Ctrl elsewhere (command_keys.h)
-void own_stack_tip(const char *what);   // the tooltip of a window's own Undo / Redo (the card's, a mask's): not the car's one history
 void masks_panel(App *a, ImTextureID picture);   // Masks: the changes, Convert PSD, a row for each texture with its mask's state, and the picked mask over its texture (a texture of mask_edit_compose, 0 for none)
 void race_panel(App *a, ImTextureID photo, ImTextureID sheet);   // Test in race and Race photo, the picture (a texture, 0 for none) and the game's log
 void photo_view_panel(App *a, ImTextureID photo);   // the photo in a large window of its own (a->photo_view_open)
@@ -64,6 +62,6 @@ void export_popup(App *a);    // the Export original car window, up while a->exp
 // the panels' names, as the dock layout places them
 extern const char *const PANEL_POINTS, *const PANEL_LIMITS, *const PANEL_PROBLEMS, *const PANEL_NODE, *const PANEL_PROJECT, *const PANEL_TRACK, *const PANEL_ROAD_KEY;
 extern const char *const PANEL_MODEL, *const PANEL_DRIVE, *const PANEL_LIGHT, *const PANEL_LIGHT_PHOTO, *const PANEL_STRIP;
-extern const char *const PANEL_CAR, *const PANEL_MASKS, *const PANEL_REHACER, *const PANEL_RACE, *const PANEL_PREVIEW;
+extern const char *const PANEL_CAR, *const PANEL_MASKS, *const PANEL_RACE, *const PANEL_PREVIEW;
 
 #endif

@@ -33,7 +33,6 @@ void mask_list(App *a)
         return;
     }
     const float rows = fminf((float)m.tex_count, 7.0f);
-    ImGui::BeginDisabled(app_rehacer_busy(a));
     if (ImGui::BeginTable("masklist", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY, ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * (rows + 1.2f)))) {
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("Texture", ImGuiTableColumnFlags_WidthStretch, 2.0f);
@@ -58,7 +57,6 @@ void mask_list(App *a)
         }
         ImGui::EndTable();
     }
-    ImGui::EndDisabled();
 }
 
 void legend(App *a)

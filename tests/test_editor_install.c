@@ -88,10 +88,22 @@ static void check_install_job(void)
     install_job_free(&job);
 }
 
+/* the game's install said the files changed but the version did not: Studio tells the person to raise it */
+static void check_version_unraised(void)
+{
+    CHECK(install_version_unraised("x\nreinstalled k1 0.2 (same version); its files changed but its version did not: raise version= in mod.ini\nDone\n"));
+    CHECK(install_version_unraised("Its files changed but its version did not: raise version= in mod.ini"));   /* the menu's words */
+    CHECK(!install_version_unraised("reinstalled k1 0.2 (same version)\n"));
+    CHECK(!install_version_unraised("updated k1 0.2 -> 0.3\n"));
+    CHECK(!install_version_unraised(""));
+    CHECK(!install_version_unraised(NULL));
+}
+
 int main(void)
 {
     check_command_text();
     check_missing_game();
     check_install_job();
+    check_version_unraised();
     return TEST_REPORT();
 }

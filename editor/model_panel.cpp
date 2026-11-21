@@ -373,8 +373,6 @@ void toolbar(App *a)
                           "Its tones are taken from the car's own colours; in a race, from the screen's.%s",
                           g.envmap[0] != '\0' ? "\nThe kit's car_envmap.png is the sky it reflects." : "");
     ImGui::SameLine();
-    if (ImGui::Button("Reload")) g.loaded[0] = 0;   // the file again: after Rehacer or a new bank
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Read the car file again");
     card_photo_button(a);
     ImGui::SameLine();
     card_view_controls(a);
@@ -468,7 +466,7 @@ void model_panel(App *a, SDL_Renderer *ren)
         const ExportCar *oc = car_race_original_of(&a->car);   // the paints as the Preview window has them: a masks project and the game's traffic have none
         const int count = a->car.masks_only || (oc != nullptr && oc->kind != EXPORT_DRIVABLE) ? 0 : a->edit.now.paint_count;
         const uint8_t *rgb = paint >= 0 && paint < count ? a->edit.now.paints[paint].rgb : nullptr;
-        const bool busy = a->mask.me.stroke != 0 || app_rehacer_busy(a) || a->car.cfm[0] == '\0';
+        const bool busy = a->mask.me.stroke != 0 || a->car.cfm[0] == '\0';
         if (!busy && (strcmp(g.loaded, a->car.cfm) != 0 || g.loaded_serial != a->cdisk.serial)) load(a, rgb);
         else if (!busy && g.scene != nullptr && stale(a, rgb)) {   // a mask edited or saved, another paint: the same camera on the car made again
             open_scene(a, rgb);

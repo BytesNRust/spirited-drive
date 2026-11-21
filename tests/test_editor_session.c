@@ -1085,166 +1085,6 @@ static void check_kinds(void)
     remove(recent);
 }
 
-/* Rehacer through the app: refused with no script and with unsaved card changes; run after a backup; the lists read again; nothing else opens while it runs */
-static void check_rehacer(void)
-{
-    char dirs[][40] = { "rk", "rk/model", "rk/model/near", "rk/model/near/bank", "rk/build", "rk/build/piece", "rk/build/piece/SIMDATA", "rk/build/piece/SIMDATA/CARFAMS", "nk", "nk/model" };
-    for (size_t i = 0; i < sizeof dirs / sizeof dirs[0]; ++i) dir_in(dirs[i]);
-    static const char CARD[] = "id=carrera-84\nname=911\nversion=1\ntype=car\nstem=C84\nsound_from=911\n";
-    put("rk/mod.ini", CARD);
-    put("rk/build/piece/SIMDATA/CARFAMS/C84.CFM", "the car file as it was");
-    put("rk/model/near/bank/0010_rsid.png", "x");
-    put("nk/mod.ini", CARD);
-    char rk[700], nk[700];
-    path_in(rk, sizeof rk, "rk");
-    path_in(nk, sizeof nk, "nk");
-    App *a = calloc(1, sizeof *a);
-    CHECK(a != NULL);
-    if (a == NULL) return;
-    app_begin(a, "./tnfs", "", NULL);
-    CHECK(!app_rehacer(a) && strstr(a->status, "open a car") != NULL);   /* nothing open */
-
-    CHECK(app_open_car(a, nk));                              /* no script: said plainly, the button has nothing to run */
-    CHECK(!app_rehacer_available(a));
-    CHECK(!app_rehacer(a) && strstr(a->status, "no rehacer.command") != NULL);
-    char p[900];
-    struct stat st;
-    snprintf(p, sizeof p, "%s/.studio-backup", nk);
-    CHECK(stat(p, &st) != 0);                                /* and no backup was made for nothing */
-
-    put("rk/rehacer.command", "#!/bin/sh\necho making the car\necho texture > model/near/bank/0020_new.png\necho changed > build/piece/SIMDATA/CARFAMS/C84.CFM\nexit ${REHACER_TEST_EXIT:-0}\n");
-    CHECK(app_open_car(a, rk));
-    CHECK(app_rehacer_available(a) && a->car.texture_count == 1);
-    CHECK_EQ_INT(car_edit_set(&a->edit, CE_YEAR, "1990"), 1);   /* unsaved changes: refused, nothing run, no backup */
-    CHECK(!app_rehacer(a) && strstr(a->status, "not saved") != NULL);
-    snprintf(p, sizeof p, "%s/.studio-backup", rk);
-    CHECK(stat(p, &st) != 0 && !app_rehacer_busy(a));
-    CHECK(app_save(a));                                      /* saved: it may run */
-
-    CHECK(app_rehacer(a));
-    CHECK(app_rehacer_busy(a) && strstr(a->status, ".studio-backup/") != NULL);
-    CHECK(!app_rehacer(a) && strstr(a->status, "already running") != NULL);
-    app_ask(a, APP_ACT_QUIT, "");                            /* nothing else while it runs */
-    CHECK_EQ_INT(a->go, APP_ACT_NONE);
-    CHECK(strstr(a->status, "Rehacer is running") != NULL);
-    for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
-    CHECK(!app_rehacer_busy(a) && a->rehacer.run.finished && a->rehacer.run.exit_code == 0);
-    CHECK(strstr(a->status, "finished: exit code 0") != NULL);
-    CHECK(a->rehacer.run.log != NULL && strstr(a->rehacer.run.log, "making the car") != NULL);
-    CHECK_EQ_INT(a->car.texture_count, 2);                   /* the lists were read again: the script added a texture */
-    CHECK(!app_modified(a));
-    {   /* the backup holds the car file as it was before the script changed it */
-        char got[100] = "";
-        char bp[1100];
-        snprintf(bp, sizeof bp, "%s/build/piece/SIMDATA/CARFAMS/C84.CFM", a->rehacer.backup);
-        FILE *b = fopen(bp, "rb");
-        if (b != NULL) got[fread(got, 1, sizeof got - 1, b)] = '\0', fclose(b);
-        CHECK(strcmp(got, "the car file as it was") == 0);
-        snprintf(bp, sizeof bp, "%s/mod.ini", a->rehacer.backup);
-        b = fopen(bp, "rb");
-        char card[200] = "";
-        if (b != NULL) card[fread(card, 1, sizeof card - 1, b)] = '\0', fclose(b);
-        CHECK(strstr(card, "year=1990") != NULL);            /* the saved card was in the backup too */
-    }
-    app_ask(a, APP_ACT_QUIT, "");                            /* it has ended: asking works again */
-    CHECK_EQ_INT(a->go, APP_ACT_QUIT);
-    a->go = APP_ACT_NONE;
-
-    setenv("REHACER_TEST_EXIT", "3", 1);                     /* a failing script: its exit code is told */
-    CHECK(app_rehacer(a));
-    for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
-    CHECK(a->rehacer.run.exit_code == 3 && strstr(a->status, "failed: exit code 3") != NULL);
-    unsetenv("REHACER_TEST_EXIT");
-
-    put("rk/rehacer.command", "#!/bin/sh\necho started\nsleep 30\n");   /* Stop */
-    CHECK(app_rehacer(a));
-    for (int i = 0; i < 400 && (a->rehacer.run.log == NULL || strstr(a->rehacer.run.log, "started") == NULL); ++i) app_rehacer_poll(a), usleep(5000);
-    app_rehacer_stop(a);
-    for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
-    CHECK(!app_rehacer_busy(a) && a->rehacer.run.stopped && strstr(a->status, "stopped") != NULL);
-    {   /* R2: the install said the files changed but not the version: the window offers X.Y.(Z+1); the button raises it in the card, saves and runs again */
-        char next[MOD_INI_VERSION_MAX + 1] = "";
-        CHECK(!app_rehacer_raise_offer(a, next, sizeof next));   /* the stopped run said nothing about it */
-        put("rk/rehacer.command", "#!/bin/sh\necho 'reinstalled carrera-84 1 (same version); its files changed but its version did not: raise version= in mod.ini'\n");
-        CHECK(app_rehacer(a));
-        CHECK(!app_rehacer_raise_offer(a, next, sizeof next));   /* not while it runs */
-        for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
-        CHECK(app_rehacer_raise_offer(a, next, sizeof next) && strcmp(next, "1.0.1") == 0);
-        CHECK(strstr(a->status, "raise") != NULL);               /* the status says what the button does */
-        CHECK(app_rehacer_raise_and_run(a));
-        CHECK(app_rehacer_busy(a) && !car_edit_modified(&a->edit) && strcmp(a->edit.now.value[CE_VERSION], "1.0.1") == 0);
-        char card[300] = "", cp[900];
-        snprintf(cp, sizeof cp, "%s/mod.ini", rk);
-        FILE *c = fopen(cp, "rb");
-        if (c != NULL) card[fread(card, 1, sizeof card - 1, c)] = '\0', fclose(c);
-        CHECK(strstr(card, "version=1.0.1\n") != NULL && strstr(card, "year=1990\n") != NULL);   /* only the version changed */
-        for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
-        CHECK(app_rehacer_raise_offer(a, next, sizeof next) && strcmp(next, "1.0.2") == 0);   /* said again: the next step up */
-        CHECK_EQ_INT(car_edit_set(&a->edit, CE_YEAR, "1991"), 1);   /* other changes not saved: nothing is saved behind the author's back */
-        CHECK(!app_rehacer_raise_offer(a, next, sizeof next));
-        CHECK(!app_rehacer_raise_and_run(a) && strstr(a->status, "not saved") != NULL && !app_rehacer_busy(a));
-        CHECK(car_edit_undo(&a->edit) && !car_edit_modified(&a->edit));
-        CHECK_EQ_INT(car_edit_set(&a->edit, CE_VERSION, "beta"), 1);   /* a version that is not numbers: not offered (it is raised by hand) */
-        CHECK(app_save(a));
-        CHECK(!app_rehacer_raise_offer(a, next, sizeof next));
-        CHECK(!app_rehacer_raise_and_run(a) && !app_rehacer_busy(a));
-    }
-    {   /* a mask with unsaved changes: not offered, the button refuses (Save would write the mask too, behind the author's back) */
-        char next[MOD_INI_VERSION_MAX + 1] = "", why[256] = "", mp[900];
-        CHECK_EQ_INT(car_edit_set(&a->edit, CE_VERSION, "1.0.1"), 1);
-        CHECK(app_save(a));
-        CHECK(app_rehacer(a));
-        for (int i = 0; i < 4000 && app_rehacer_poll(a); ++i) usleep(5000);
-        CHECK(app_rehacer_raise_offer(a, next, sizeof next) && strcmp(next, "1.0.2") == 0);
-        uint8_t grey[8 * 6], tex[4 * 3 * 3] = { 0 }, *png = NULL;
-        size_t len = 0;
-        memset(grey, 255, sizeof grey);
-        snprintf(mp, sizeof mp, "%s/rk/a_mask.png", root);
-        FILE *m = png_write_grey(grey, 8, 6, &png, &len) == PNG_OK ? fopen(mp, "wb") : NULL;
-        if (m != NULL) fwrite(png, 1, len, m), fclose(m);
-        free(png);
-        CHECK(mask_edit_open(&a->mask.me, mp, 4, 3, tex, why, sizeof why));
-        a->mask.sel = 0;
-        CHECK_EQ_INT(mask_edit_pencil(&a->mask.me, 1, 1, 1, 0), 1);
-        CHECK(app_mask_modified(a));
-        CHECK(!app_rehacer_raise_offer(a, next, sizeof next));
-        CHECK(!app_rehacer_raise_and_run(a) && strstr(a->status, "mask") != NULL && !app_rehacer_busy(a));
-        CHECK(strcmp(a->edit.now.value[CE_VERSION], "1.0.1") == 0 && !car_edit_modified(&a->edit));   /* nothing was changed */
-        CHECK(mask_edit_undo(&a->mask.me) && !app_mask_modified(a));
-        CHECK(app_rehacer_raise_offer(a, next, sizeof next));
-        mask_edit_free(&a->mask.me);
-        a->mask.sel = -1;
-        remove(mp);
-
-        char kitdir[900], card[300] = "", cp[900];   /* the card cannot be written: nothing runs again, and the card on screen is as it was */
-        snprintf(kitdir, sizeof kitdir, "%s", rk);
-        snprintf(cp, sizeof cp, "%s/mod.ini", kitdir);
-        chmod(kitdir, 0555);
-        CHECK(!app_rehacer_raise_and_run(a) && !app_rehacer_busy(a));
-        chmod(kitdir, 0755);
-        CHECK(strcmp(a->edit.now.value[CE_VERSION], "1.0.1") == 0 && !car_edit_modified(&a->edit));
-        FILE *c = fopen(cp, "rb");
-        if (c != NULL) card[fread(card, 1, sizeof card - 1, c)] = '\0', fclose(c);
-        CHECK(strstr(card, "version=1.0.1\n") != NULL);
-        CHECK(app_rehacer_raise_offer(a, next, sizeof next) && strcmp(next, "1.0.2") == 0);   /* still offered */
-    }
-    {   /* the backups: five are kept */
-        char names[16][REHACER_STAMP_NAME];
-        CHECK(rehacer_backups(rk, names, 16) >= 1);
-        for (int i = 0; i < 7; ++i) {
-            char stamp[32], out[1024], why[200];
-            snprintf(stamp, sizeof stamp, "2026110%d-100000", i + 1);
-            CHECK(rehacer_backup(rk, stamp, REHACER_KEEP, 100, out, sizeof out, why, sizeof why));
-        }
-        CHECK_EQ_INT(rehacer_backups(rk, names, 16), REHACER_KEEP);
-    }
-    app_free(a);
-    free(a);
-    char cmd[1200];
-    snprintf(cmd, sizeof cmd, "rm -rf '%s/rk' '%s/nk'", root, root);
-    if (system(cmd) != 0) fprintf(stderr, "could not clean up\n");
-}
-
 /* a synthetic mask: a PNG header and filler; Export original car copies files, it never decodes them */
 static void put_mask(const char *name, uint32_t w, uint32_t h)
 {
@@ -1339,8 +1179,6 @@ static void check_export(void)
         CHECK(!app_race_busy(a));
     }
     CHECK(!app_save(a) && strstr(a->status, "no card") != NULL);
-    CHECK(!app_rehacer(a) && strstr(a->status, "no rehacer.command") != NULL);
-    CHECK(!app_rehacer_available(a));
     char masks_dir[700];
     snprintf(masks_dir, sizeof masks_dir, "%s/wagon-masks", out);
     CHECK(!recent_is_project(masks_dir) && recent_present(masks_dir, RECENT_CAR) && car_project_present(masks_dir));
@@ -1366,7 +1204,7 @@ static void check_export(void)
     nftw(scratch, remove_entry, 16, FTW_DEPTH | FTW_PHYS);   /* what this check made, and only it */
 }
 
-/* app_free of an app that never ran Rehacer or a race must not close descriptor 0 (an all-zero runner holds fd 0) */
+/* app_free of an app that never ran a race must not close descriptor 0 (an all-zero runner holds fd 0) */
 /* «Show texture file»: a mask opened in a kit knows its texture's bank PNG (the Mask panel's button shows it); outside a kit, or once closed, it has none */
 static void check_mask_texture_file(void)
 {
@@ -1551,7 +1389,6 @@ static void check_free_keeps_stdin(void)
     App *b = calloc(1, sizeof *b);
     if (b != NULL) {
         app_begin(b, "./tnfs", "", NULL);
-        CHECK_EQ_INT(b->rehacer.run.fd, -1);
         app_free(b);
         free(b);
     }
@@ -1629,7 +1466,6 @@ int main(void)
     check_recent_kinds();
     check_kinds();
     check_kit_builds_on_open();
-    check_rehacer();
     check_export();
     check_mask_app();
     check_mask_texture_file();

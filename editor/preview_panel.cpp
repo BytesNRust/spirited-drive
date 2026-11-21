@@ -1,5 +1,5 @@
 // The Preview window (dep59 car editor E1): the textures of the open car as the race paints them (editor/car_preview.h), in the paint chosen from the card's own, made again
-// when a mask is edited or saved, the paint list or the chosen colour changes, or Rehacer ends.
+// when a mask is edited or saved, the paint list or the chosen colour changes.
 #include "panels.h"
 #include "help_marker.h"
 
@@ -260,9 +260,9 @@ void preview_panel(App *a, SDL_Renderer *ren)
         if (count > 0) ImGui::SameLine();   // the top row: Paint, Day / Night (a car with no paints has its line of why above)
         day_night_row(a);
         lights_header(a);
-        // made again when what it is made from changed; not while a pencil stroke is going (every texel of it would make one) or a script is at work on the kit
+        // made again when what it is made from changed; not while a pencil stroke is going (every texel of it would make one)
         const uint8_t *rgb = paint >= 0 ? a->edit.now.paints[paint].rgb : nullptr;
-        const bool busy = a->mask.me.stroke != 0 || app_rehacer_busy(a) || a->car.cfm[0] == '\0';
+        const bool busy = a->mask.me.stroke != 0 || a->car.cfm[0] == '\0';
         const bool changed = shown.key_count != 1 || strcmp(shown.key_dir, a->dir) != 0 || shown.key_generation != a->mask.generation || shown.key_version != (a->mask.sel >= 0 ? a->mask.me.version : 0u)
                              || shown.key_paint != paint || (rgb != nullptr && memcmp(shown.key_rgb, rgb, 3) != 0);
         if (changed && !busy) {

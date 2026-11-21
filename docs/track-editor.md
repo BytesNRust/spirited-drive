@@ -147,16 +147,13 @@ What makes it a car: a `mod.ini` with `type=car` and a `stem=`, and the car's fi
 none). A folder that is not a car is refused with what was looked at and what is missing. The car window shows and edits the card (`mod.ini`): version, year, power, weight, make, model, country, category, author, description, ABS and traction
 control (yes, no, or the default, which removes the line), sound from (the game's eight original cars) and the colors (add, remove, move up or down, name, and a
 color picker; up to 16). Each field is checked by the game's own reader (`mod_ini_parse`, car_piece's words) and a field with a problem is red, with what is wrong
-and its number ("Year: 17 characters; the card keeps up to 16"); **Save is blocked while any field has a problem**. Undo and Redo (buttons, the Edit menu,
+and its number ("Year: 17 characters; the card keeps up to 16"); **Save is blocked while any field has a problem**. Undo and Redo (the Edit menu,
 Cmd+Z and Cmd+Shift+Z on a Mac, Ctrl+Z and Ctrl+Shift+Z elsewhere; every shortcut takes the platform's key) take back typing in a field as one step. **Save writes only `coche/mod.ini`**, through `mod_ini_set`: only the lines you changed,
 every other byte (comments, order, line ends) stays, and a Save with no change writes nothing. A card with unsaved changes asks before it is left, as a track does.
 The textures (`modelo/c1`, and how many far ones) and the mask files found are listed beside it. `--set KEY=VALUE` sets a field before the first frame (headless
-runs). **Rehacer** (a button in the car window, and the Rehacer tab with its log) runs the kit's own `rehacer.command` with the kit as its folder, through `sh`, with no
-input. Before it runs, Studio copies the whole kit (but `.studio-backup` and Finder's `.DS_Store`) into `.studio-backup/<YYYYMMDD-HHMMSS>/` and keeps the last
-five; a kit over 512 MB is not backed up, so it does not run. The script's output (both streams) streams into the log, Stop ends it, and its exit code is shown.
-When it ends the textures and masks lists and the card are read again. It is refused, with the reason in the status line, when the kit has no `rehacer.command`
-(the button is disabled), when `mod.ini` has changes that are not saved (the button offers Save first), or while another run goes; while it runs the card is not
-edited and nothing else is opened. `--rehacer` runs it before the first frame (a headless run waits for it and fails when its exit code is not 0).
+runs). The car window has no Save, Undo or Redo buttons: File > Save and Edit > Undo / Redo (and Cmd/Ctrl+S, Z) do them. Build (a kit) makes the car again from the kit's
+files; the old Rehacer, which ran a kit's own `rehacer.command`, is gone. When an Install ends and the game says the files changed but the version did not, the status
+line says to raise Version in the Car tab (and to which).
 The same folder on the command line opens as a track when it has a `project.ini`, as a car
 when it holds a car's `mod.ini`, else as a new track project.
 
@@ -172,7 +169,7 @@ nothing, and a folder that is already there is refused (a second export of the s
   not a mod stem the game takes (`mod_validate` refuses it), so this project is for looking and for the masks, not for Build.
 - **The twelve traffic cars and the police car** (a masks project; they have no PBS, so they cannot be driven): `project.ini` (`kind=masks`, `masks=<folder>`,
   `cfm=original/<X>.CFM`, `export_sizes=<mask>:<W>x<H> ...`, `redistributable=0`), `original/<X>.CFM` (a copy kept to look at) and `car_masks/<folder>/`. It
-  opens with the Car window (read only: what it is) and the Masks window only; there is no card, no Save and no Rehacer.
+  opens with the Car window (read only: what it is) and the Masks window only; there is no card and no Save.
 
 The masks are the game's `data/car_masks/<folder>/` copied as they are (same names, same bytes, so the same 8-bit grey PNGs and sizes; the old `*.before-*_mask.png`
 copies, which the game does not read, are left out). The Masks window's **Reveal masks folder** shows the folder in the Finder, and says what it maps to in the
@@ -303,7 +300,7 @@ Headless: `--test-drive` does the same and waits (60 s at most) for the game's l
 
 ## Preview
 
-The **Preview** window (a tab beside Masks and Drive) shows each texture of the car file as the race has it: the game's own code (the fixed black of the masks, then the paint) runs on a copy of the car file with this project's masks in front of the game's, and an unsaved mask edit counts as if it were saved. Pick the paint from the card's `paints=` (a car you drive; a traffic or police car has none: the race does not paint it). It updates by itself when a mask is edited or saved, a paint or its colour changes, or Rehacer ends (not while a pencil stroke is going).
+The **Preview** window (a tab beside Masks and Drive) shows each texture of the car file as the race has it: the game's own code (the fixed black of the masks, then the paint) runs on a copy of the car file with this project's masks in front of the game's, and an unsaved mask edit counts as if it were saved. Pick the paint from the card's `paints=` (a car you drive; a traffic or police car has none: the race does not paint it). It updates by itself when a mask is edited or saved, a paint or its colour changes, (not while a pencil stroke is going).
 
 The bank's palette is taken to 6 bits a channel, as the race loads it. Not applied: the track's light and the screen palette's nearest-colour snapping. Instead Preview counts the distinct colours of the body and says how many the car's entries in the race palette (23 of its own, 72 shared when several cars race) cannot hold: the rest will look like their nearest. Texels that name one of the race's screen entries (0xfa-0xfe) are hatched, and 0xff is a chequer. Headless: `--paint N` shows the card's N-th paint.
 

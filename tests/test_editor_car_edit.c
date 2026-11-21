@@ -363,7 +363,7 @@ static void check_by_text(void)
     car_edit_free(e);
 }
 
-/* the version one step up, for Rehacer's "Raise version" (owner test R2): X.Y.(Z+1), missing parts as 0; nothing for a version that is not numbers */
+/* the version one step up, for the "raise Version" hint after an install (owner test R2): X.Y.(Z+1), missing parts as 0; nothing for a version that is not numbers */
 static void check_version_next(void)
 {
     static const struct { const char *from, *to; } UP[] = {

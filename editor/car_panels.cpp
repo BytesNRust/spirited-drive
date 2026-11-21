@@ -9,7 +9,6 @@
 extern "C" {
 #include "car_export.h"
 #include "command_keys.h"
-#include "shortcut_keys.h"
 #include "car_race.h"
 #include "app_dash.h"
 #include "app_sheet.h"
@@ -22,7 +21,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
-const char *const PANEL_CAR = "Car", *const PANEL_MASKS = "Masks", *const PANEL_REHACER = "Rehacer", *const PANEL_RACE = "Drive###Race";   // shown "Drive"; the ### id keeps it apart from the track editor's Drive, which shares the ini (ImGui keys a window's settings by the part after ###: a layout saved with the old "Race" window keeps this one in its dock, checked by hand with an ini the old build wrote)
+const char *const PANEL_CAR = "Car", *const PANEL_MASKS = "Masks", *const PANEL_RACE = "Drive###Race";   // shown "Drive"; the ### id keeps it apart from the track editor's Drive, which shares the ini (ImGui keys a window's settings by the part after ###: a layout saved with the old "Race" window keeps this one in its dock, checked by hand with an ini the old build wrote)
 
 namespace {
 
@@ -324,19 +323,9 @@ void colors_section(App *a, const CarEditProblem *problems, int count)
 void car_shortcuts(App *a)
 {
     const CommandKey key = command_key(ImGui::GetIO().WantTextInput);   // a text box has its own Cmd+Z while it has the keyboard
-    if (app_rehacer_busy(a)) return;   // the script is working on the kit: nothing is saved or edited meanwhile
     if (key == COMMAND_SAVE) app_save(a);
     else if (key == COMMAND_UNDO) app_undo(a);   // the car's one history: the newest change, the card's or the mask's
     else if (key == COMMAND_REDO) app_redo(a);
-}
-
-// the tooltip of a window's own Undo or Redo: it is that window's stack, where Cmd+Z and the Edit menu are the car's one history
-void own_stack_tip(const char *what)
-{
-    char undo_keys[16];
-    shortcut_label(undo_keys, sizeof undo_keys, SHORTCUT_MAC, "Z");
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("This %s's changes only. %s and Edit > Undo take back the newest change, the card's or a mask's.", what, undo_keys);
 }
 
 // the facts of a masks project, read only: there is no card to edit
@@ -397,47 +386,21 @@ void car_panel(App *a)
         ImGui::Text("kit %s   stem %s   id %s", c.kit, m.stem, m.id);
         muted_wrapped("%s", c.root);
         ImGui::Spacing();
-        const bool running = app_rehacer_busy(a);
-        ImGui::BeginDisabled(count > 0 || !modified || running);
-        if (ImGui::Button("Save")) app_save(a);
-        ImGui::EndDisabled();
-        if (count > 0 && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Fix the %d problem%s below first", count, count == 1 ? "" : "s");
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!car_edit_can_undo(&a->edit) || running);
-        if (ImGui::Button("Undo")) car_edit_undo(&a->edit);
-        ImGui::EndDisabled();
-        own_stack_tip("card");
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!car_edit_can_redo(&a->edit) || running);
-        if (ImGui::Button("Redo")) car_edit_redo(&a->edit);
-        ImGui::EndDisabled();
-        own_stack_tip("card");
         if (app_car_is_kit(a)) {   // a kit in the current layout: its car is made from its sources, then installed in the game
-            ImGui::SameLine();
-            ImGui::BeginDisabled(running || app_car_building(a) || app_install_busy(a));
+            ImGui::BeginDisabled(app_car_building(a) || app_install_busy(a));
             if (ImGui::Button("Build")) app_build(a);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("%s", app_car_building(a) ? "The car is being built" : "Make the car from this kit's files: build/piece and build/<id>.zip (save what you changed first)");
             ImGui::SameLine();
-            ImGui::BeginDisabled(running || app_car_building(a) || app_install_busy(a));
+            ImGui::BeginDisabled(app_car_building(a) || app_install_busy(a));
             if (ImGui::Button("Install")) app_install(a);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("%s", app_install_busy(a) ? "The game is installing the package" : "Install the last build in the game (Build first)");
+            ImGui::SameLine();
         }
-        ImGui::SameLine();
-        const bool has_script = app_rehacer_available(a);
-        ImGui::BeginDisabled(running || !has_script);
-        if (ImGui::Button("Rehacer")) {
-            if (modified) ImGui::OpenPopup("Save before Rehacer");   // it reads mod.ini: the changes are saved first
-            else app_rehacer(a);
-        }
-        ImGui::EndDisabled();
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", running ? "Rehacer is running" : has_script ? "Run this kit's rehacer.command (the kit is backed up first)" : "This kit has no rehacer.command");
-        ImGui::SameLine();
-        help_marker("Save writes only mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is; the showcase photos you add are copied into the folder, and Save removes the copies you took off the list.");
+        help_marker("File > Save (Cmd+S) writes only mod.ini, and only the lines you changed.\nEvery other line and every other file stays as it is; the showcase photos you add are copied into the folder, and Save removes the copies you took off the list.");
         if (a->cdisk.card_changed) {   // another program wrote mod.ini while the card has unsaved changes here
             ImGui::TextColored(ImVec4(0.95f, 0.78f, 0.35f, 1.0f), "Changed on disk");
             ImGui::SameLine();
@@ -447,21 +410,6 @@ void car_panel(App *a)
             ImGui::SameLine();
             help_marker("Another program wrote mod.ini while the card has unsaved changes here. Reload takes the file's card and drops the changes; "
                         "Keep mine keeps them, and Save writes them over the file.");
-        }
-        if (ImGui::BeginPopupModal("Save before Rehacer", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::TextUnformatted("mod.ini has changes that are not saved. Rehacer reads the card,");
-            ImGui::TextUnformatted("so they are saved first.");
-            if (count > 0) problem_text("A field has a problem: fix it first, Save is blocked.");
-            ImGui::Spacing();
-            ImGui::BeginDisabled(count > 0);
-            if (ImGui::Button("Save and run") || (count == 0 && ImGui::IsKeyPressed(ImGuiKey_Enter, false))) {
-                if (app_save(a)) app_rehacer(a);
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndDisabled();
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) ImGui::CloseCurrentPopup();
-            ImGui::EndPopup();
         }
         if (count > 0) {
             ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
@@ -473,7 +421,6 @@ void car_panel(App *a)
         ImGui::Separator();
         const CarEditProblem *card = problem_for(problems, count, CE_CARD);
         if (card != nullptr) problem_text(card->text);
-        ImGui::BeginDisabled(running);   // the card is not edited while the script works on the kit
         if (ImGui::BeginTable("mod.ini", 2, ImGuiTableFlags_RowBg)) {
             ImGui::TableSetupColumn("key", ImGuiTableColumnFlags_WidthFixed, 120);
             ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
@@ -489,24 +436,20 @@ void car_panel(App *a)
         }
         colors_section(a, problems, count);
         photos_section(a, problems, count);
-        ImGui::EndDisabled();
     }
     ImGui::End();
 }
 
-static ImGuiID masks_dock = 0;   // the dock node Masks is in, where a layout kept from before Rehacer puts it as a tab
-
 void masks_panel(App *a, ImTextureID tex)
 {
-    static char shown[APP_PATH] = "";   // the project whose Masks tab was brought forward: a car just opened shows its masks, not the script's empty log
+    static char shown[APP_PATH] = "";   // the project whose Masks tab was brought forward: a masks project just opened shows its masks
     static int wait = 0;                // frames to let the dock layout settle first: a focus given in the frame that builds it is lost
     if (strcmp(shown, a->dir) != 0) {
         snprintf(shown, sizeof shown, "%s", a->dir);
         wait = 3;
     }
-    if (wait > 0 && --wait == 0 && (a->car.masks_only || (!app_rehacer_busy(a) && !a->rehacer.run.finished))) ImGui::SetNextWindowFocus();   // a run's log is what to look at, then
+    if (wait > 0 && --wait == 0 && a->car.masks_only) ImGui::SetNextWindowFocus();   // (a car's own front tab is Preview)
     const bool open = ImGui::Begin(PANEL_MASKS);
-    masks_dock = ImGui::GetWindowDockID();
     a->mask.focus = open && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);   // the keyboard's + - 0 zoom the view
     if (open) {
         const CarProject &c = a->car;
@@ -638,7 +581,7 @@ void export_popup(App *a)
     } else {
         muted_wrapped("Choose a car.");
     }
-    ImGui::BeginDisabled(!picked || a->go != APP_ACT_NONE || a->confirm != APP_ACT_NONE || app_rehacer_busy(a));
+    ImGui::BeginDisabled(!picked || a->go != APP_ACT_NONE || a->confirm != APP_ACT_NONE);
     if (ImGui::Button("Choose folder and export...")) a->go = APP_ACT_EXPORT_PICK;
     ImGui::EndDisabled();
     ImGui::SameLine();
@@ -648,88 +591,6 @@ void export_popup(App *a)
     }
     if (!a->export_dialog) ImGui::CloseCurrentPopup();   // the project was made and opened
     ImGui::EndPopup();
-}
-
-// R2: the game's install said the files changed but the version did not. The button raises the card's version one step, saves and runs again; nothing is
-// raised without it.
-static void raise_version_offer(App *a)
-{
-    if (!rehacer_version_unraised(a->rehacer.run.log) || a->rehacer.run.stopped) return;
-    ImGui::Spacing();
-    ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
-    ImGui::TextWrapped("The game installed it, but its files changed and its version did not. Raise the version so the new car can be told from the old one.");
-    ImGui::PopStyleColor();
-    char next[MOD_INI_VERSION_MAX + 1], label[64];
-    if (app_rehacer_raise_offer(a, next, sizeof next)) {
-        snprintf(label, sizeof label, "Raise version to %s and run again", next);
-        if (ImGui::Button(label)) app_rehacer_raise_and_run(a);
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("Sets Version in the Car tab to %s, saves mod.ini and runs Rehacer again (undo takes the version back)", next);
-    } else if (car_edit_modified(&a->edit)) {
-        muted_wrapped("Save the card's changes first: then the version can be raised here.");
-    } else {
-        muted_wrapped("Version \"%s\" is not numbers like 1.2.3: raise it by hand in the Car tab, save, and run Rehacer again.", a->edit.now.value[CE_VERSION]);
-    }
-}
-
-void rehacer_panel(App *a)
-{
-    static int shown = 0;   // the run whose tab was brought forward
-    if (masks_dock != 0) ImGui::SetNextWindowDockID(masks_dock, ImGuiCond_FirstUseEver);
-    if (app_rehacer_busy(a) && a->rehacer.run_id != shown) {   // a run was asked for: its tab comes forward at once, while the kit is still copied
-        shown = a->rehacer.run_id;
-        ImGui::SetNextWindowFocus();
-    }
-    if (ImGui::Begin(PANEL_REHACER)) {
-        const Rehacer &r = a->rehacer;
-        ImGui::TextUnformatted("Kit script: rehacer.command");
-        ImGui::SameLine();
-        char help[240];
-        snprintf(help, sizeof help, "Runs this kit's rehacer.command with the kit as its folder (Rehacer, in the Car panel).\n"
-                 "Before it runs, Studio copies the kit into .studio-backup/<time>/ (the last %d are kept).", REHACER_KEEP);
-        help_marker(help);
-        if (!app_rehacer_available(a)) {
-            ImGui::Spacing();
-            ImGui::TextUnformatted("This kit has no rehacer.command.");
-        }
-        if (r.backing_up) {
-            ImGui::Spacing();
-            ImGui::TextUnformatted("Backing up the kit, then the script runs...");
-            ImGui::SameLine();
-            if (ImGui::Button("Stop")) app_rehacer_stop(a);
-        } else if (r.run.running) {
-            ImGui::Spacing();
-            ImGui::TextUnformatted("Running...");
-            ImGui::SameLine();
-            if (ImGui::Button("Stop")) app_rehacer_stop(a);
-        } else if (r.failed) {
-            ImGui::Spacing();
-            ImGui::PushStyleColor(ImGuiCol_Text, BAD_TEXT);
-            ImGui::TextWrapped("Did not run: %s", r.why);
-            ImGui::PopStyleColor();
-        } else if (r.run.finished) {
-            ImGui::Spacing();
-            const ImVec4 colour = r.run.exit_code == 0 ? ImVec4(0.47f, 0.86f, 0.55f, 1.0f) : BAD_TEXT;
-            ImGui::PushStyleColor(ImGuiCol_Text, colour);
-            ImGui::Text("%s: exit code %d", r.run.stopped ? "Stopped" : r.run.exit_code == 0 ? "Finished" : "Failed", r.run.exit_code);
-            ImGui::PopStyleColor();
-            raise_version_offer(a);
-        }
-        if (r.backup[0] != '\0') {
-            const char *slash = strrchr(r.backup, '/');
-            muted_wrapped("Backup: %s/%s", REHACER_BACKUPS, slash != nullptr ? slash + 1 : r.backup);
-        }
-        ImGui::Separator();
-        if (ImGui::BeginChild("log", ImVec2(0, 0), ImGuiChildFlags_None)) {
-            const bool at_bottom = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 4.0f;
-            if (r.run.log_cut) ImGui::TextDisabled("(the start of the output was dropped)");
-            if (r.run.log != nullptr && r.run.log_len > 0) ImGui::TextUnformatted(r.run.log, r.run.log + r.run.log_len);
-            else if (!app_rehacer_busy(a) && !r.run.finished && !r.failed) ImGui::TextDisabled("Nothing has run yet.");
-            if (r.run.running && at_bottom) ImGui::SetScrollHereY(1.0f);
-        }
-        ImGui::EndChild();
-    }
-    ImGui::End();
 }
 
 namespace {

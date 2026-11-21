@@ -155,7 +155,7 @@ static void test_the_car_files(void)
     CHECK(a->cdisk.serial == serial && strstr(a->status, "textures changed on disk") != NULL);   /* the list only: the car file is as it was */
     CHECK_EQ_INT(app_card_watch(a, 3.2), 0);
 
-    /* a texture rewritten, the car file rewritten (Rehacer, a new bank) */
+    /* a texture rewritten, the car file rewritten (a build, a new bank) */
     unsigned s = a->cdisk.serial;
     CHECK(put("model/near/bank/0020_bonn.png", "yy"));
     CHECK_EQ_INT(app_card_watch(a, 4.3), 1);

@@ -2,7 +2,7 @@
 # dep71 follow-up: a car piece's texture resized and its uvs following (tnfs-studio car resize, studio/car_resize.h).
 # 1. car new of the Viper with a skin of rsid; `car resize PIECE rsid` to twice its size: validate finds nothing (the skin was scaled
 #    with it), unpack shows rsid at its new size, the uvs of rsid's faces twice what they were and every other line of mesh.obj as it
-#    was; resizing to the size it has gives the same CFM again (rehacer may run it every time).
+#    was; resizing to the size it has gives the same CFM again (a rebuild may run it every time).
 # 2. --image: a picture of the size asked is taken, one of another size refused with nothing written; --low resizes the far model's.
 # 3. The Blender round trip does not undo it: the Viper's export from before the resize, through Blender and back with --raw --force
 #    (the kit's command), gives the resized CFM byte for byte.

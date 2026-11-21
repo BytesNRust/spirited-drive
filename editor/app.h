@@ -10,7 +10,6 @@
 #include "psd_stale.h"
 #include "night_view.h"
 #include "car_export.h"
-#include "car_rehacer.h"
 #include "car_project.h"
 #include "car_race.h"
 #include "light_ui.h"
@@ -102,7 +101,6 @@ typedef struct {
 typedef struct {
     AppKind kind;                /* what is open: the track fields below are read for APP_KIND_TRACK, `car` for APP_KIND_CAR */
     CarProject car;              /* the car project, when kind is APP_KIND_CAR */
-    Rehacer rehacer;             /* the kit's rehacer.command, running or last run (car_rehacer.h) */
     int preview_paint;           /* the card's paint the Preview shows: an index of the card's paints, -1 for the car as its file has it */
     char preview_focus[5];       /* a texture the Preview scrolls to (--preview-tex NAME, for a headless picture); "" none */
     NightSettings night;         /* the Preview's Day / Night and lamp switches (editor/night_view.h) */
@@ -276,7 +274,7 @@ void app_set_export_source(App *a, const ExportSource *src);
  * open_error saying why, when it cannot. 1 when it is open. */
 int app_export_car(App *a, const char *parent);
 
-/* The mask editor (E3). app_mask_scan lists the textures of the open car's file and which have a mask in car_masks/<folder>/ (done when a car opens and after Rehacer);
+/* The mask editor (E3). app_mask_scan lists the textures of the open car's file and which have a mask in car_masks/<folder>/ (done when a car opens and after Convert PSD);
  * app_mask_open edits texture `index` (what is open must not have changes: the panel asks first), app_mask_save writes the mask (same size, the edit only),
  * app_mask_close lets it go. app_mask_open_by_name takes "topv" or "frnt_lo" (the mask file's name without _mask.png). Each sets the status and mask.error when it refuses. */
 void app_mask_scan(App *a);
@@ -412,24 +410,6 @@ void app_workspace_pick(App *a);
 /* where the folder dialog `kind` (APP_ACT_NEW, _OPEN, _OPEN_CAR, _EXPORT_PICK, _WORKSPACE_PICK) starts: the workspace's cars/ or tracks/, else the open project's parent, else "" */
 void app_dialog_dir(const App *a, AppAction kind, char *out, size_t cap);
 
-/* Rehacer (dep59 car editor 1f): runs the open kit's own rehacer.command. Refused, with the status saying why, when no car is open, a run is going, the kit has no
- * script or the card has unsaved changes (save first). It returns at once (owner test R1): the kit is copied into .studio-backup/<time>/ (the last REHACER_KEEP
- * are kept) in its own thread, and app_rehacer_poll (every frame) starts the script when the copy has ended (a copy that fails is told, and nothing runs), takes
- * its output and, when it ends, tells its exit code in the status and reads the car again (the textures and masks lists, and the card); 1 while it copies or
- * runs. Meanwhile nothing else is opened (app_ask) and the card is not edited. */
-int app_rehacer(App *a);
-int app_rehacer_poll(App *a);
-void app_rehacer_stop(App *a);
-int app_rehacer_busy(const App *a);
-/* 1 when the open car's kit has a rehacer.command */
-int app_rehacer_available(const App *a);
-/* Raise version (owner test R2): after a run whose install said the files changed but the version did not, the card's version one step up (car_edit_version_next)
- * into `next`. 1 when it is offered: the run ended (not stopped), the card has no unsaved change and its version is numbers. */
-int app_rehacer_raise_offer(const App *a, char *next, size_t cap);
-/* The button: sets the card's version to the offered one (one step to undo), saves the card and runs Rehacer again. Nothing is raised without it. 0 with the
- * status saying why (not offered, unsaved changes, the save or the run refused). */
-int app_rehacer_raise_and_run(App *a);
-
 /* Computes the road when the trace changed (a no-op otherwise). */
 void app_recompute(App *a);
 /* the node nearest control point `i`, by its distance along the road (0 with no road) */
@@ -493,7 +473,7 @@ int app_psd_busy(const App *a);
 int app_psd_python_ready(const App *a);
 void app_psd_python_note(const App *a, char *out, size_t cap);
 void app_psd_stop(App *a);
-/* the car's lists (project, textures, masks) and its card read again, as after Rehacer or Convert PSD */
+/* the car's lists (project, textures, masks) and its card read again, as after Convert PSD */
 void app_car_reread(App *a);
 void app_install_stop(App *a);   /* asks the installer to end (a hung one): app_install_poll says "install failed: the install was stopped" */
 

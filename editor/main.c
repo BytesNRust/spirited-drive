@@ -2,7 +2,7 @@
  * car project's card, textures and masks (dep59 car editor 1d, read only for now); with nothing open, a start screen.
  *
  *   tnfs-track-editor [PROJECT] [--game PATH] [--user DIR]
- *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--shine on|off] [--wheels still|slow|fast] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar] [--shot OUT.png]
+ *                     [--frames N] [--save] [--build] [--install] [--select N] [--orbit YAW,PITCH[,DIST]] [--shine on|off] [--wheels still|slow|fast] [--edit] [--steps STEP,...] [--set KEY=VALUE] [--ask quit|new|open|opencar] [--shot OUT.png]
  *
  * PROJECT is a folder such as <workspace>/tracks/<id>/ (created with its project.ini and trace.json when missing), or a car's kit folder such as
  * <workspace>/cars/<kit>/ (the workspace: one folder with cars/ and tracks/, --workspace or File > Workspace): a folder with a project.ini is a track, one with a car's mod.ini is a car. The build uses no CD data:
@@ -81,7 +81,6 @@ typedef struct {
     const char *view, *lights, *night_tint, *preview_tex;   int night_light;   /* --view day|night, --lights head,side,brake,reverse,police, --night-light PERCENT, --night-tint R,G,B (0..1): the Preview's Day / Night and its lamps, for a headless picture */
     int changes;             /* --changes: the project's masks compared with the game's, the list printed (what Copy the changed list copies) */
     int preview_paint;       /* --paint N: the card's N-th paint (from 1) shown in Preview, for a headless picture; 0 the car as its file has it */
-    int rehacer;             /* --rehacer: run the open car's rehacer.command before the first frame (a headless run waits for it) */
     int edit;                /* a point added before the first frame: unsaved changes, for a headless picture of the confirmation */
     const char *steps;       /* --steps ...: a user's edits played through the window in order (steps.h), for a flow test */
     AppAction ask;           /* an action asked for before the first frame (quit, new, open) */
@@ -93,7 +92,7 @@ typedef struct {
 static int usage(void)
 {
     fprintf(stderr, "usage: tnfs-track-editor [PROJECT] [--game PATH] [--user DIR] [--frames N] [--save] [--build] "
-                    "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
+                    "[--install] [--select N] [--edit] [--set KEY=VALUE] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--workspace DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--photo-view] [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
                     "       [--mask NAME] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-light PERCENT] [--night-tint R,G,B] [--preview-tex NAME] [--changes] [--card-backdrop FILE.png] [--add-photo FILE.png]...\n"
                     "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--wheels still|slow|fast] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--compare off|before|four]] [--steps STEP,...]\n");
@@ -198,7 +197,6 @@ static int parse_args(int argc, char **argv, Options *o)
         else if (strcmp(argv[i], "--night-tint") == 0 && has_value) o->night_tint = argv[++i];
         else if (strcmp(argv[i], "--mask") == 0 && has_value) o->mask = argv[++i];
         else if (strcmp(argv[i], "--reset-layout") == 0) o->reset_layout = 1;
-        else if (strcmp(argv[i], "--rehacer") == 0) o->rehacer = 1;
         else if (strcmp(argv[i], "--edit") == 0) o->edit = 1;
         else if (strcmp(argv[i], "--steps") == 0 && has_value) o->steps = argv[++i];
         else if (strcmp(argv[i], "--save") == 0) o->save = 1;
@@ -563,14 +561,6 @@ static int run_requested(App *a, const Options *o)
         fprintf(made ? stdout : stderr, "%s\n", a->status);
         ok &= made;
     }
-    if (o->rehacer) {   /* the car's script: a headless run waits for it and says how it ended */
-        ok &= app_rehacer(a);
-        if (ok && o->frames > 0) {
-            while (app_rehacer_poll(a)) SDL_Delay(5);
-            ok &= a->rehacer.run.finished && a->rehacer.run.exit_code == 0;   /* a backup that failed never ran the script */
-        }
-        fprintf(ok ? stdout : stderr, "%s\n", a->status);
-    }
     return ok;
 }
 
@@ -735,7 +725,6 @@ static int run(App *a, const Options *o)
             if (headless) a->go = APP_ACT_NONE;   /* a headless run ends by its frames: no dialog, no quit of its own */
             else if (run_go(win, a)) quit = 1;
         }
-        app_rehacer_poll(a);
         app_car_build_poll(a);
         app_install_poll(a);
         app_psd_poll(a);

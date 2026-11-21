@@ -88,7 +88,7 @@ int app_psd_poll(App *a)
     if (!psd_job_busy(&a->psd)) return 0;
     if (psd_job_poll(&a->psd)) return 1;
     snprintf(a->status, sizeof a->status, "%s", a->psd.text);
-    if (a->psd.ok && app_mask_modified(a)) {   /* a mask was opened and edited while it ran: its edits are not dropped; the lists are read at the next Rehacer or open */
+    if (a->psd.ok && app_mask_modified(a)) {   /* a mask was opened and edited while it ran: its edits are not dropped; the lists are read at the next open */
         snprintf(a->status, sizeof a->status, "%s The open mask has unsaved changes, so the lists were not read again: Save or Discard it, then reopen the car.", a->psd.text);
     } else if (a->psd.ok) {
         app_car_reread(a);   /* the lists, and the masks read again (a mask that was open is closed: it was just remade) */

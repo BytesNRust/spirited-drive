@@ -1,5 +1,5 @@
 /* A program run from Studio in the background (dep59 car editor E2): its output (both streams) kept for a log panel, polled every frame, stopped by SIGTERM to its
- * whole process group, its exit code told. POSIX only, no window. The Rehacer's runner (car_rehacer.h) is the same thing for a script. */
+ * whole process group, its exit code told. POSIX only, no window. */
 #ifndef TNFS_TRACK_EDITOR_PROC_RUN_H
 #define TNFS_TRACK_EDITOR_PROC_RUN_H
 
