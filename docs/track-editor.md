@@ -123,9 +123,20 @@ race reads too). A new project is born just long enough (see above): shortening 
 
 ## Start screen, cars, and projects: New, Open, recent, and unsaved changes
 
-Studio has one project open, a track or a car. With nothing to reopen it shows a **start screen**: Open car..., Open track..., New track..., Export original
-car... and **Recent** (cars and tracks together, up to eight; a folder that is gone is greyed). A normal run with no folder given
-reopens the project it had last. The **File** menu has the same entries, Save (a track's) and Quit. Each kind keeps its own docked layout in the layout file.
+Studio is **two rooms behind one hub**: Cars and Tracks (the Track light window is in Tracks). It has one project open, a car in the Cars room or a track in
+the Tracks room. With nothing to reopen it shows the **main menu**, the hub, with a door for each room side by side: **Cars** (Open car..., Export original car...)
+and **Tracks** (New track..., Open track..., Track light...). Under each door are the projects of the workspace of that kind (if one is set) and **Recent** of that
+kind (up to eight in all; a folder that is gone is greyed). A normal run with no folder given reopens the project it had last. Each kind keeps its own docked layout
+in the layout file.
+
+Inside a room, the **File** menu holds that room's actions only, New before Open: in Tracks New track..., Open track..., Track light..., Open recent (tracks);
+in Cars Open car..., Export original car..., Open recent (cars); in both Workspace, Save, **Main menu** (Cmd+W on a Mac, Ctrl+W elsewhere) and Quit. Main menu
+closes the project and goes back to the hub, asking once about unsaved changes; the recent list and the workspace stay. **Window** lists the room's panels, each a
+toggle: ticked when the panel is open, a click closes it or opens it again where it was (kept between runs; Reset layout opens them all).
+
+With a workspace set, New track asks only for a **name**: the id is made from it (lower case, a-z, 0-9 and '-'; shown, and you may type over it), the project is
+made in `<workspace>/tracks/<id>` and opened, and a folder that already exists is refused in words with nothing written. With no workspace the window's folder dialog
+is used as before.
 
 Open track wants a folder that holds a project (a `project.ini`); New track wants one that holds none, and makes the project there (the window's folder dialog
 can make the folder). The last eight project folders are kept in the editor's own folder (`recent.txt` beside its layout; a car's line starts with `car` and a tab,
