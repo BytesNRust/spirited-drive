@@ -146,6 +146,7 @@ int main(void)
         png_free(png);
     }
     CHECK(track_masks_scan(g_dir, NULL, 0, &m, why, sizeof why) && row(&m, "slot_03")->state == TM_EDITED && m.edited == 1 && m.to_make == 0, "slot_03 was edited by hand");
+    CHECK(row(&m, "slot_03")->reflective == 4, "an edited row counts the PNG's texels (the game's): %d", row(&m, "slot_03")->reflective);
     CHECK(track_masks_generate(g_dir, &m, &written, why, sizeof why) && written == 0, "generate keeps the edited PNG");
     read_png("art-generated/track_masks/slot_03.png", marks, &rgba);
     CHECK(marks[1] == 1, "still the hand-made one");

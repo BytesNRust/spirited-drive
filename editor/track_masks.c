@@ -170,6 +170,7 @@ static void judge(const char *dir, TrackMaskRow *r)
         double tp = 0, tg = 0;
         mtime_of(psd, &tp), mtime_of(png, &tg);
         r->state = tp > tg ? TM_STALE : TM_EDITED;
+        if (r->state == TM_EDITED && png_ok) count_marks(&from_png, &r->reflective, &r->lamps);   // an edited PNG is what the game uses now: its texels are the ones shown
     }
     free(from_psd.marks), free(from_png.marks);
 }
