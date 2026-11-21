@@ -47,6 +47,21 @@ typedef struct {
  * there takes, and the height of every node on the spline (track_trace_nodes_keyed: node y and grade, dep95 step 2), so the profile hardly moves when a point is put in. */
 double track_trace_height_at(const TracePoint *points, int count, int seg, double frac);
 
+/* The height profile as the editor's strip draws it (track_trace_height.c). */
+#define TRACE_PROFILE_MIN_SPAN_M 10.0   /* the profile's vertical range is never less than this, so a flat road has room to be drawn and dragged in */
+typedef enum { TRACE_GRADE_PERCENT, TRACE_GRADE_DEGREES } TraceGradeUnit;
+/* The range [lo, hi] of heights the profile is drawn in: the points' own, a tenth of the span more on each side, at least TRACE_PROFILE_MIN_SPAN_M, centred when widened. */
+void track_trace_profile_range(const TracePoint *points, int count, double *lo, double *hi);
+/* The height a screen row means when `top` is the row of `hi` and `bottom` the row of `lo` (not clamped: the editor clamps); `lo` for a box with no height. And back. */
+double track_trace_profile_height_at_row(double row, double top, double bottom, double lo, double hi);
+double track_trace_profile_row_of_height(double h, double top, double bottom, double lo, double hi);
+/* A slope of `rise` over `run` metres: percent (100 * rise / run) or degrees; 0 when there is no run. */
+double track_trace_grade(double rise, double run, TraceGradeUnit unit);
+/* The same as text: "+4.2 %" or "-2.4\xc2\xb0", no sign when level, "-" when there is no run; cut to fit `cap`. */
+void track_trace_grade_text(double rise, double run, TraceGradeUnit unit, char *out, int cap);
+/* The slope of the segment from point `seg` to the next, over the curve's distances `metres` (track_trace_point_distances); 0 for a segment that is not there. */
+double track_trace_segment_grade(const TracePoint *points, const double *metres, int count, int seg, TraceGradeUnit unit);
+
 enum {
     TRACE_FLAG_TURN = 1,         /* red: the node turns more than TRACE_TURN_MAX_DEGREES from the node before */
     TRACE_FLAG_RADIUS = 2,       /* red: the curve's radius at the node is under TRACE_RADIUS_MIN */

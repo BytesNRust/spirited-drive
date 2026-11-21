@@ -31,6 +31,7 @@
  *   drag-near:I,J,M  point I dragged as drag does, to M metres before point J on the line from J to I (a place in metres, whatever the zoom)
  *   width:I,M      a road key's width on point I set to M metres, as the Points window sets it
  *   bank:I,DEG     a road key's bank on point I set to DEG degrees, as the Road profile's bank cell sets it
+ *   height:I,M     point I's height set to M metres, as the Points window's h cell and the profile in the Distance strip set it (dep95)
  *   problems       what Problems shows first: "problems: refusal TEXT" (Build's words), "problems: red node N" or "problems: none"
  *   build          Build, as its button: what it says printed ("build: built ID.zip" or "build: build refused: ...")
  *   race           a car's Test in race, as its button: the game's command line printed ("race: ...") and its TNFS_ environment ("race env: ...")

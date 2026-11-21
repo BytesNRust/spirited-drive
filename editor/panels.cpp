@@ -28,9 +28,9 @@ namespace {
 const ImVec4 BAD_TEXT(1.0f, 0.35f, 0.35f, 1.0f), WARN_TEXT(1.0f, 0.69f, 0.13f, 1.0f), OK_TEXT(0.47f, 0.86f, 0.55f, 1.0f);
 const float POINT_COL_NUMBER = 28;   // the Points table's # column
 // the Points table's other columns: header, and the widest value it usually shows (a column is never narrower than either)
-const int POINT_COLS = 6;
-const char *const POINT_HEADERS[POINT_COLS] = { "x (m)", "z (m)", "w (m)", "bank (\xc2\xb0)", "dist m", "turn" };
-const char *const POINT_SAMPLES[POINT_COLS] = { "-1234.5", "-1234.5", "30.00", "-60.0", "12345", "R 12.3\xc2\xb0" };
+const int POINT_COLS = 7;
+const char *const POINT_HEADERS[POINT_COLS] = { "x (m)", "z (m)", "h (m)", "w (m)", "bank (\xc2\xb0)", "dist m", "turn" };
+const char *const POINT_SAMPLES[POINT_COLS] = { "-1234.5", "-1234.5", "-123.4", "30.00", "-60.0", "12345", "R 12.3\xc2\xb0" };
 const float ROTATE_DRAG_SPEED = 0.25f;   // degrees a pixel of drag on Rotate points
 const int POINTS_MIN_ROWS = 4;   // the Points table shows at least these rows: in a short window the panel scrolls instead
 const int PATH_MAX_SHOWN = 1024;   // a path line's buffer (APP_PATH and more: elided, it is shorter)
@@ -71,11 +71,11 @@ float points_panel_width()
     return points_table_inner(need) + 2 * st.ScrollbarSize + 2 * st.WindowPadding.x;   // the table's scroll bar and the panel's own (a short window scrolls it)
 }
 
-// The road's bank at point i (column 4): the key's own, or (dimmed) what the keys around make it; amber over TRACE_BANK_WARN_DEG, red over the most the
+// The road's bank at point i (column 5): the key's own, or (dimmed) what the keys around make it; amber over TRACE_BANK_WARN_DEG, red over the most the
 // generator builds. Typing or dragging sets a key, right-click clears it.
 static void bank_cell(App *a, int i, int *shown)
 {
-    ImGui::TableSetColumnIndex(4);
+    ImGui::TableSetColumnIndex(5);
     const int key = track_trace_key_find(a->trace.keys, a->trace.key_count, i);
     const bool keyed = key >= 0 && (a->trace.keys[key].has & TRACE_KEY_BANK);
     double degrees = keyed ? a->trace.keys[key].bank_deg : (a->road_made && a->point_bank != NULL && i < a->point_count ? a->point_bank[i] : 0.0);
@@ -171,11 +171,11 @@ void points_panel(App *a)
         float need[POINT_COLS];
         const float inner = points_table_inner(need);
         const float wide = ImGui::GetContentRegionAvail().x - st.ScrollbarSize;
-        if (ImGui::BeginTable("points", 7, ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders,
+        if (ImGui::BeginTable("points", 8, ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders,
                               ImVec2(0, room > least ? room : least), wide > inner ? wide : inner)) {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, POINT_COL_NUMBER);
-            for (int c = 0; c < POINT_COLS; ++c) ImGui::TableSetupColumn(POINT_HEADERS[c], ImGuiTableColumnFlags_WidthStretch, need[c]);   // x, z, w, bank, dist m, turn
+            for (int c = 0; c < POINT_COLS; ++c) ImGui::TableSetupColumn(POINT_HEADERS[c], ImGuiTableColumnFlags_WidthStretch, need[c]);   // x, z, h, w, bank, dist m, turn
             ImGui::TableHeadersRow();
             shown = a->selected;   // the table is drawn: it has scrolled to what was selected from elsewhere
             ImGuiListClipper clipper;
@@ -208,8 +208,17 @@ void points_panel(App *a)
                         a->selected = shown = i;
                         a->dirty = 1;
                     }
-                    // the road's width at the point: the key's own, or (dimmed) what the keys before and after make it; typing or dragging sets a key, right-click clears it
+                    // the point's height above the start (a tenth of a metre): dragging or typing sets it, as the profile in the Distance strip does
                     ImGui::TableSetColumnIndex(3);
+                    double height = p.h;
+                    const double h_lo = -TRACE_HEIGHT_MAX_M, h_hi = TRACE_HEIGHT_MAX_M;
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    if (ImGui::DragScalar("##h", ImGuiDataType_Double, &height, 0.1f, &h_lo, &h_hi, "%.1f", ImGuiSliderFlags_AlwaysClamp)) {
+                        a->selected = shown = i;
+                        app_set_point_height(a, i, height);
+                    }
+                    // the road's width at the point: the key's own, or (dimmed) what the keys before and after make it; typing or dragging sets a key, right-click clears it
+                    ImGui::TableSetColumnIndex(4);
                     const int key = track_trace_key_find(a->trace.keys, a->trace.key_count, i);
                     const bool keyed = key >= 0 && (a->trace.keys[key].has & TRACE_KEY_WIDTH);
                     const int lanes = app_point_lanes(a, i);
@@ -237,10 +246,10 @@ void points_panel(App *a)
                     }
                     bank_cell(a, i, &shown);
                     // read-only: the distance along the curve from the start, and the turn at the node nearest the point
-                    ImGui::TableSetColumnIndex(5);
+                    ImGui::TableSetColumnIndex(6);
                     if (a->road_made && a->point_dist != NULL && i < a->point_count) ImGui::Text("%.0f", a->point_dist[i]);
                     else ImGui::TextDisabled("-");
-                    ImGui::TableSetColumnIndex(6);
+                    ImGui::TableSetColumnIndex(7);
                     if (a->road_made && a->point_turn != NULL && i < a->point_count) {
                         char turn[16];
                         track_trace_turn_text(a->point_turn[i], turn, sizeof turn);

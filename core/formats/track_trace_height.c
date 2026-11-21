@@ -2,6 +2,7 @@
 #include "formats/track_trace.h"
 
 #include <math.h>
+#include <stdio.h>
 
 /* the chord length from point i to point i+1 (never 0: a zero chord is a point on top of another, and the run is then taken as 1 unit so the slopes stay finite) */
 static double chord(const TracePoint *p, int i)
@@ -42,4 +43,59 @@ double track_trace_height_at(const TracePoint *p, int count, int seg, double fra
     const double t2 = t * t, t3 = t2 * t;
     // the Hermite form on the first height, so equal heights with no slope give exactly that height and the ends give exactly the points
     return p[seg].h + dy * (3 * t2 - 2 * t3) + h * m0 * (t3 - 2 * t2 + t) + h * m1 * (t3 - t2);
+}
+
+void track_trace_profile_range(const TracePoint *points, int count, double *lo, double *hi)
+{
+    double low = 0, high = 0;
+    for (int i = 0; points != NULL && i < count; ++i) {
+        if (i == 0 || points[i].h < low) low = points[i].h;
+        if (i == 0 || points[i].h > high) high = points[i].h;
+    }
+    const double margin = (high - low) * 0.1;
+    low -= margin;
+    high += margin;
+    if (high - low < TRACE_PROFILE_MIN_SPAN_M) {   // a flat road: widened about its middle
+        const double mid = (low + high) / 2;
+        low = mid - TRACE_PROFILE_MIN_SPAN_M / 2;
+        high = mid + TRACE_PROFILE_MIN_SPAN_M / 2;
+    }
+    *lo = low;
+    *hi = high;
+}
+
+double track_trace_profile_height_at_row(double row, double top, double bottom, double lo, double hi)
+{
+    if (bottom == top) return lo;
+    return hi + (row - top) / (bottom - top) * (lo - hi);
+}
+
+double track_trace_profile_row_of_height(double h, double top, double bottom, double lo, double hi)
+{
+    if (hi == lo) return bottom;
+    return top + (hi - h) / (hi - lo) * (bottom - top);
+}
+
+double track_trace_grade(double rise, double run, TraceGradeUnit unit)
+{
+    if (!(run > 0)) return 0;
+    return unit == TRACE_GRADE_DEGREES ? atan2(rise, run) * 180.0 / M_PI : 100.0 * rise / run;
+}
+
+void track_trace_grade_text(double rise, double run, TraceGradeUnit unit, char *out, int cap)
+{
+    if (cap <= 0) return;
+    if (!(run > 0)) {
+        snprintf(out, (size_t)cap, "-");
+        return;
+    }
+    const double v = track_trace_grade(rise, run, unit);
+    const char *sign = v >= 0.05 ? "+" : "";   // level (to the tenth shown) has none
+    snprintf(out, (size_t)cap, unit == TRACE_GRADE_DEGREES ? "%s%.1f\xc2\xb0" : "%s%.1f %%", sign, fabs(v) < 0.05 ? 0.0 : v);
+}
+
+double track_trace_segment_grade(const TracePoint *points, const double *metres, int count, int seg, TraceGradeUnit unit)
+{
+    if (points == NULL || metres == NULL || seg < 0 || seg + 1 >= count) return 0;
+    return track_trace_grade(points[seg + 1].h - points[seg].h, metres[seg + 1] - metres[seg], unit);
 }

@@ -50,6 +50,22 @@ python3 -c "import json, sys; k = json.load(open(sys.argv[1])).get('keys', []); 
 python3 -c "import json, sys; k = json.load(open(sys.argv[1])).get('keys', []); sys.exit(0 if any(x.get('point') == 3 and x.get('bank_deg') == 5.0 for x in k) else 1)" \
     "$work/loop/trace.json" || fail "the bank set on point 3 is not in trace.json: $(cat "$work/loop/trace.json")"
 
+# 2c2. Heights (dep95): a height set on points 1 and 2 as the Points window's h cell and the profile set it (a tenth of a metre) is saved as trace.json version 5 with
+# [x, z, h] points; put back to 0 the project is saved as it was before heights (no triples)
+"$editor" "$work/hill" --user "$player" --frames 2 --save >"$work/log" 2>&1 || fail "New project (hill): $(cat "$work/log")"
+"$editor" "$work/hill" --user "$player" --frames 2 --steps height:1,6,height:2,12.34,save >"$work/log" 2>&1 || fail "heights set in the window: $(cat "$work/log")"
+python3 -c "
+import json, sys
+t = json.load(open(sys.argv[1])); p = t['points']
+sys.exit(0 if t['version'] == 5 and len(p[1]) == 3 and p[1][2] == 6.0 and p[2][2] == 12.3 and len(p[0]) == 3 and p[0][2] == 0 else 1)" \
+    "$work/hill/trace.json" || fail "the heights are not in trace.json as version 5 triples: $(cat "$work/hill/trace.json")"
+"$editor" "$work/hill" --user "$player" --frames 2 --steps height:1,0,height:2,0,save >"$work/log" 2>&1 || fail "heights put back to 0: $(cat "$work/log")"
+python3 -c "
+import json, sys
+t = json.load(open(sys.argv[1]))
+sys.exit(0 if t['version'] < 5 and all(len(q) == 2 for q in t['points']) else 1)" \
+    "$work/hill/trace.json" || fail "a flat project is not saved as before heights: $(cat "$work/hill/trace.json")"
+
 # 2d. A point dragged too near the next (17 m before it, on a new project): the nodes bunch up with no red node; Problems says so in red in
 # Build's words before Build, and Build refuses with those words
 "$editor" "$work/near" --user "$player" --frames 2 --save >"$work/log" 2>&1 || fail "New project (near): $(cat "$work/log")"
