@@ -45,6 +45,20 @@ printf 'x' > "$work/kit/model/near/bank/0010_rsid.png"
 [ -s "$work/kit.png" ] || fail "no PNG of the car"
 cmp -s "$work/kit.png" "$work/start.png" && fail "the car looks like the start screen"
 [ ! -e "$work/kit/project.ini" ] || fail "opening a car made track files in it"
+# the Preview's Night light and tint (no track selector): the defaults are the old look (100 %, grey 0.72), the steps set what the slider and the picker set, the two Reset buttons
+# put each back, the editor keeps both in its ini for the next run, and the command line comes after the ini
+nightu="$work/night-user"
+"$editor" "$work/kit" --user "$nightu" --frames 14 --steps print-night,night-light:60,night-tint:0.2,0.4,0.6,print-night,night-reset:0,print-night,night-reset:1,print-night >"$work/log" 2>&1 || fail "the night steps: $(cat "$work/log")"
+[ "$(grep '^night: ' "$work/log" | tr '\n' '|')" = "night: light=100 tint=0.720,0.720,0.720|night: light=60 tint=0.200,0.400,0.600|night: light=100 tint=0.200,0.400,0.600|night: light=100 tint=0.720,0.720,0.720|" ] \
+    || fail "the Night light and tint, set and reset: $(grep '^night' "$work/log")"
+"$editor" "$work/kit" --user "$nightu" --frames 14 --steps night-light:55,night-tint:0.1,0.2,0.3 >"$work/log" 2>&1 || fail "the night light and tint to keep: $(cat "$work/log")"
+grep -q '^NightLight=55$' "$nightu/track-editor.ini" && grep -q '^NightTint=0.100,0.200,0.300$' "$nightu/track-editor.ini" || fail "the ini does not keep the Night light and tint: $(grep -i night "$nightu/track-editor.ini")"
+"$editor" "$work/kit" --user "$nightu" --frames 3 --steps print-night >"$work/log" 2>&1 || fail "the night values after a restart: $(cat "$work/log")"
+grep -qx "night: light=55 tint=0.100,0.200,0.300" "$work/log" || fail "the Night light and tint were not remembered: $(grep '^night' "$work/log")"
+"$editor" "$work/kit" --user "$nightu" --night-light 70 --night-tint 0.5,0.5,0.5 --frames 3 --steps print-night >"$work/log" 2>&1 || fail "the night options: $(cat "$work/log")"
+grep -qx "night: light=70 tint=0.500,0.500,0.500" "$work/log" || fail "the command line did not win over the ini: $(grep '^night' "$work/log")"
+"$editor" "$work/kit" --user "$work/night-user2" --night-tint 2,0,0 --frames 3 >"$work/log" 2>&1
+grep -q "R,G,B, each 0 to 1 expected" "$work/log" || fail "no word about a --night-tint out of range: $(cat "$work/log")"
 mkdir -p "$work/oldkit/coche" "$work/oldkit/modelo"
 printf 'id=k1\nname=Kit One\nversion=1\ntype=car\nstem=K1\n' > "$work/oldkit/coche/mod.ini"
 out=$("$editor" "$work/oldkit" --frames 2 2>&1) && fail "an old coche/ + modelo/ kit was opened"
@@ -133,8 +147,8 @@ if [ -r "$repo/original/SIMDATA/CARFAMS/WAGON.CFM" ] && [ -d "$repo/data/car_mas
     "$editor" "$work/real/p911-original" --view night --lights head --preview-tex frnt --frames 20 --shot "$work/night-head.png" >"$work/log" 2>&1 || fail "Preview at night, headlights: $(cat "$work/log")"
     cmp -s "$work/night-day.png" "$work/night-dark.png" && fail "Night did not change the Preview"
     cmp -s "$work/night-dark.png" "$work/night-head.png" && fail "the headlights did not light"
-    "$editor" "$work/real/p911-original" --view night --night-track nosuch --frames 2 >"$work/log" 2>&1
-    grep -q "not a track the night view knows" "$work/log" || fail "no word about an unknown --night-track: $(cat "$work/log")"
+    "$editor" "$work/real/p911-original" --view night --lights head --night-tint 0.9,0.3,0.2 --preview-tex frnt --frames 20 --shot "$work/night-tint.png" >"$work/log" 2>&1 || fail "Preview at night with a tint: $(cat "$work/log")"
+    cmp -s "$work/night-head.png" "$work/night-tint.png" && fail "the tint did not change the night picture"
 
     # the exported-original flow, as the owner works it (old shape: mod.ini + SIMDATA + car_masks/P911/): open the export, edit a mask and Save, then race it. Nothing of the
     # kit layout (build, model/) may touch it: no build/ appears, the mask is written in car_masks/P911/, and the race is given that folder

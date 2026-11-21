@@ -19,8 +19,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size", "night-light", "night-tint", "night-reset", "print-night", "lights-open" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 3, 1, 0, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -338,6 +338,21 @@ static int at_once(App *a, const char *name, const double *arg)
         app_set_point_width(a, point, arg[1]);
         return 1;
     }
+    if (strncmp(name, "night-light:", 12) == 0) {   /* night-light:N, night-tint:R,G,B, night-reset:K (0 the light, 1 the tint), print-night: the Preview's Night light and tint, as its slider, picker and Reset buttons set them */
+        a->night.light = (int)arg[0] < NIGHT_LIGHT_MIN ? NIGHT_LIGHT_MIN : (int)arg[0] > NIGHT_LIGHT_MAX ? NIGHT_LIGHT_MAX : (int)arg[0];
+        return 1;
+    }
+    if (strncmp(name, "night-tint:", 11) == 0) {
+        for (int i = 0; i < 3; ++i) a->night.tint[i] = arg[i] < 0 ? 0.0f : arg[i] > 1 ? 1.0f : (float)arg[i];
+        return 1;
+    }
+    if (strncmp(name, "night-reset:", 12) == 0) {
+        if (arg[0] == 0) night_settings_reset_light(&a->night);
+        else night_settings_reset_tint(&a->night);
+        return 1;
+    }
+    if (strcmp(name, "lights-open") == 0) return a->lights_open = 1, 1;   /* the car Preview's Lights header unfolded by the next frame */
+    if (strcmp(name, "print-night") == 0) return fprintf(stdout, "night: light=%d tint=%.3f,%.3f,%.3f\n", a->night.light, a->night.tint[0], a->night.tint[1], a->night.tint[2]), 1;
     if (strncmp(name, "print-height", 12) == 0) {   /* "height: I H": point I's height in metres */
         const int point = (int)arg[0];
         if (a->kind != APP_KIND_TRACK || point < 0 || point >= a->trace.count) return 0;

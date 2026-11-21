@@ -105,6 +105,7 @@ typedef struct {
     int preview_paint;           /* the card's paint the Preview shows: an index of the card's paints, -1 for the car as its file has it */
     char preview_focus[5];       /* a texture the Preview scrolls to (--preview-tex NAME, for a headless picture); "" none */
     NightSettings night;         /* the Preview's Day / Night and lamp switches (editor/night_view.h) */
+    int lights_open;             /* --steps lights-open: 1 the Preview's Lights header is unfolded by the next frame (then 0), as a click on it */
     LightUi light;               /* the Track light window (light_ui.h), when kind is APP_KIND_LIGHT */
     char light_dir[APP_PATH];    /* the light folder the Track light window tunes: its track_light/ and track/ (--light-dir, else the source tree's data/); "" for none */
     MaskUi mask;                 /* the mask editor (editor/mask_edit.h), when kind is APP_KIND_CAR */

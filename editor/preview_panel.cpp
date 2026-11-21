@@ -130,7 +130,7 @@ void day_night_row(App *a)
                     : "Headlights and side lights go together at night, as in the race.\nGlow on the road and halos show only in a race: In-game photo (night).");
 }
 
-// the Lights header's title: the lamps on and, at night, the track and the light, so a closed header hides no state ("###lights" keeps it one header)
+// the Lights header's title: the lamps on and, at night, the light, so a closed header hides no state ("###lights" keeps it one header)
 void lights_title(const NightSettings &n, char *out, size_t cap)
 {
     const char *on[4];
@@ -141,31 +141,36 @@ void lights_title(const NightSettings &n, char *out, size_t cap)
     if (shown.has_police && n.police) on[count++] = "police";
     int at = snprintf(out, cap, "Lights: %s", count == 0 ? "off" : on[0]);
     for (int i = 1; i < count && at > 0 && (size_t)at < cap; ++i) at += snprintf(out + at, cap - (size_t)at, ", %s", on[i]);
-    if (n.night && at > 0 && (size_t)at < cap) at += snprintf(out + at, cap - (size_t)at, "  |  Night of %s, %d %%", night_refs()[n.ref].label, n.light);
+    if (n.night && at > 0 && (size_t)at < cap) at += snprintf(out + at, cap - (size_t)at, "  |  Night, %d %%", n.light);
     if (at > 0 && (size_t)at < cap) snprintf(out + at, cap - (size_t)at, "###lights");
 }
 
-// the track the night is of, the light at the car and the lamps (core/formats/car_night.h), under a header closed by default: only the combinations the race can
+// the light at the car, its tint and the lamps (core/formats/car_night.h), under a header closed by default: only the combinations the race can
 // show are offered
 void lights_header(App *a)
 {
     NightSettings &n = a->night;
     char title[160];
     lights_title(n, title, sizeof title);
+    if (a->lights_open != 0) {   // --steps lights-open: as a click on the header
+        ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+        a->lights_open = 0;
+    }
     if (!ImGui::CollapsingHeader(title)) return;
     ImGui::BeginDisabled(!n.night);
-    ImGui::SetNextItemWidth(170);
-    if (ImGui::BeginCombo("Night of", night_refs()[n.ref].label)) {
-        for (int i = 0; i < night_ref_count(); ++i)
-            if (ImGui::Selectable(night_refs()[i].label, n.ref == i)) n.ref = i;
-        ImGui::EndCombo();
-    }
     ImGui::SetNextItemWidth(220);
     ImGui::SliderInt("Light at car", &n.light, NIGHT_LIGHT_MIN, NIGHT_LIGHT_MAX, "%d %%");
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("100 %% is the race's light at the car on this track, at In-game photo's node;\nthe road and the headlight pool add more in places.");
+        ImGui::SetTooltip("100 %% leaves the tint as it is; more lights the car up, less darkens it.");
     ImGui::SameLine();
-    if (ImGui::SmallButton("100 %")) n.light = 100;
+    if (ImGui::SmallButton("Reset##light")) night_settings_reset_light(&n);
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("The light back to 100 %%.");
+    ImGui::ColorEdit3("Tint", n.tint, ImGuiColorEditFlags_NoInputs);
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Reset##tint")) night_settings_reset_tint(&n);
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("The tint back to the neutral grey.");
+    ImGui::SameLine();
+    help_marker("A quick look, not the track's real light: the car at night is its palette times this tint times the light. The real light of a track is Test drive's In-game photo (night).");
     ImGui::Checkbox("Headlights + side lights", reinterpret_cast<bool *>(&n.lights));
     ImGui::EndDisabled();
     if (!n.night && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Lights only glow in low light: choose Night.");

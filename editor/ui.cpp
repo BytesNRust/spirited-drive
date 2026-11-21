@@ -62,15 +62,26 @@ static void settings_line(ImGuiContext *, ImGuiSettingsHandler *, void *, const 
     int pick = -1;
     if (sscanf(line, "DriveCar=%d", &pick) == 1 && car_race_menu_car(pick) != nullptr) g_drive_read = pick;   // a number past the menu keeps the default
     if (strncmp(line, "Closed=", 7) == 0) panel_set_open(line + 7, false);
+    int light = NIGHT_LIGHT_DEFAULT;
+    float tint[3] = { NIGHT_TINT_DEFAULT, NIGHT_TINT_DEFAULT, NIGHT_TINT_DEFAULT };
+    night_pref_get(&light, tint);   // the light and tint so far: a line sets one of them, the other stays
+    int read_light = 0;
+    float read_tint[3];
+    if (sscanf(line, "NightLight=%d", &read_light) == 1) night_pref_set(read_light, tint);   // the Preview's Night view: the light at the car (clamped) ...
+    else if (sscanf(line, "NightTint=%f,%f,%f", &read_tint[0], &read_tint[1], &read_tint[2]) == 3) night_pref_set(light, read_tint);   // ... and its tint
 }
 
 static void settings_write(ImGuiContext *, ImGuiSettingsHandler *handler, ImGuiTextBuffer *out)
 {
     const int pick = g_app != nullptr ? g_app->drive_pick : g_drive_read;   // before ui_settings_to (an early exit): what the ini had
-    if (pick < 0 && g_closed_n == 0) return;
+    int light = 0;
+    float tint[3];
+    const bool night = night_pref_get(&light, tint) != 0;
+    if (pick < 0 && g_closed_n == 0 && !night) return;
     out->appendf("[%s][Editor]\n", handler->TypeName);
     if (pick >= 0) out->appendf("DriveCar=%d\n", pick);
     for (int i = 0; i < g_closed_n; ++i) out->appendf("Closed=%s\n", g_closed[i]);
+    if (night) out->appendf("NightLight=%d\nNightTint=%.3f,%.3f,%.3f\n", light, tint[0], tint[1], tint[2]);
     out->append("\n");
 }
 static bool g_had_layout;   // the ini file was there at the start: its layout is the user's, not ours to replace
@@ -134,6 +145,12 @@ void ui_settings_to(App *a)
     g_app = a;
     if (g_drive_read >= 0) a->drive_pick = g_drive_read;
     g_drive_read = -1;
+    int light = 0;
+    float tint[3];
+    if (night_pref_get(&light, tint)) {   // the Preview's Night light and tint the ini had (the command line, which comes after, wins)
+        a->night.light = light;
+        for (int i = 0; i < 3; ++i) a->night.tint[i] = tint[i];
+    }
 }
 
 void ui_close(void)
@@ -768,6 +785,15 @@ void ui_frame(SDL_Renderer *ren, App *a)
     if (a->kind != APP_KIND_NONE && ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_W, ImGuiInputFlags_RouteGlobal)) app_ask(a, APP_ACT_MAIN, "");   // Cmd+W: the main menu
     const bool reset = g_reset_in > 0 && --g_reset_in == 0 && a->kind != APP_KIND_NONE;   // Reset layout's countdown ends: this frame rebuilds the dock
     g_app = a;
+    if (a->kind == APP_KIND_CAR) {   // the Preview's Night light and tint are the editor's: kept for the next car and the next run (the ini is written when marked)
+        int light = 0;
+        float tint[3] = { 0, 0, 0 };
+        const NightSettings &n = a->night;
+        if (!night_pref_get(&light, tint) || light != n.light || tint[0] != n.tint[0] || tint[1] != n.tint[1] || tint[2] != n.tint[2]) {
+            night_pref_set(n.light, n.tint);
+            ImGui::MarkIniSettingsDirty();
+        }
+    }
     main_menu(a);
     if (a->kind == APP_KIND_TRACK) {   // the track editor, as it was; its dock space keeps the layout of the first Studio
         const ImGuiID dock = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
