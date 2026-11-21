@@ -347,6 +347,9 @@ int app_original_publish(App *a);
 /* The Masks panel of an original track (app_track_masks.c, editor only). app_track_masks_load scans the folder and makes the PNGs of the PSDs that need them (NEW and STALE), once
  * per open; app_track_masks_refresh scans again. app_track_mask_select puts row `i`'s picture in tmask_rgba; app_track_mask_regenerate makes the selected one's PNG from its PSD
  * again (after the warning: it replaces a PNG edited by hand). 1, or 0 with the reason in tmask_note. */
+/* The migration check: for every original track of the workspace the PNGs are made from the PSDs (what a track does when it opens), then each is compared, as marks, with data/track_masks.
+ * `out` gets one line: "originals: 16 tracks, 107 masks: 107 equal, 0 differ, 0 new in the workspace". 1 when none differs. */
+int app_original_check_all(App *a, char *out, size_t cap);
 int app_track_masks_load(App *a);
 int app_track_masks_refresh(App *a);
 int app_track_mask_select(App *a, int i);

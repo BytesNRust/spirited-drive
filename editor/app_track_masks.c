@@ -142,3 +142,24 @@ int app_original_publish(App *a)
     snprintf(a->status, sizeof a->status, "published to the game: %d file%s written into %s", written, written == 1 ? "" : "s", a->data_dir);
     return 1;
 }
+
+int app_original_check_all(App *a, char *out, size_t cap)
+{
+    int tracks = 0, masks = 0, equal = 0, differ = 0, added = 0, failed = 0;
+    char why[OT_WHY] = "";
+    if (a->workspace[0] == '\0' || a->data_dir[0] == '\0') return snprintf(out, cap, "originals: needs a workspace and the game's data folder"), 0;
+    for (int i = 0; i < OT_STEMS; ++i) {
+        char dir[APP_PATH];
+        if (!original_track_dir(a->workspace, original_track_stem(i), dir, sizeof dir) || !original_track_present(dir)) continue;
+        ++tracks;
+        static TrackMasks m;   // big: not on the stack
+        int written = 0;
+        OriginalPublish plan;
+        memset(&plan, 0, sizeof plan);
+        if (!track_masks_scan(dir, NULL, 0, &m, why, sizeof why)) continue;   // no masks in that folder
+        if (!track_masks_generate(dir, &m, &written, why, sizeof why) || !track_masks_publish_plan(dir, a->data_dir, original_track_stem(i), &plan, why, sizeof why)) ++failed;
+        masks += plan.count, equal += plan.same, differ += plan.changed, added += plan.added;
+    }
+    snprintf(out, cap, "originals: %d tracks, %d masks: %d equal, %d differ, %d new in the workspace%s%s", tracks, masks, equal, differ, added, failed > 0 ? "; failed: " : "", failed > 0 ? why : "");
+    return differ == 0 && failed == 0;
+}

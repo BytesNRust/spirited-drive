@@ -920,6 +920,8 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
     add_executable(test_editor_original_track tests/test_editor_original_track.c editor/original_track.c)   # an original track as a workspace project: add, never overwrite, publish
     target_include_directories(test_editor_original_track PRIVATE editor tests)
     target_compile_options(test_editor_original_track PRIVATE ${TNFS_WARNINGS})
+    add_executable(make_test_psd tests/make_test_psd.c)   # not a test: a 4 x 1 mask PSD for the shell flows
+    target_include_directories(make_test_psd PRIVATE tests)
     add_executable(test_editor_track_tex tests/test_editor_track_tex.c editor/track_tex.c)   # the textures of a CD track (needs the game files: registered only with original/)
     target_include_directories(test_editor_track_tex PRIVATE editor tests)
     target_link_libraries(test_editor_track_tex PRIVATE tnfs_game tnfs_core)
@@ -1180,7 +1182,7 @@ if(NOT EMSCRIPTEN)
         set_tests_properties(editor_layout_reset PROPERTIES TIMEOUT 120)
         add_test(NAME editor_light_window COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_light_window.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})   # the Track light window headless: opens, photographs the working copy through a fake game, leaves the folder as it was
         set_tests_properties(editor_light_window PROPERTIES TIMEOUT 240)
-        add_test(NAME editor_original_track_flow COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR})   # original tracks in a workspace: add the 16, open one, publish its light
+        add_test(NAME editor_original_track_flow COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_original_track.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR} $<TARGET_FILE:make_test_psd>)   # original tracks in a workspace: add the 16, open one, publish its light and masks
         set_tests_properties(editor_original_track_flow PROPERTIES TIMEOUT 300)
         add_test(NAME editor_ui_words COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_ui_words.sh ${CMAKE_SOURCE_DIR})   # words Studio never shows ("GIMP")
         add_test(NAME editor_game_lookup COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_game_lookup.sh $<TARGET_FILE:tnfs-track-editor> ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM)
