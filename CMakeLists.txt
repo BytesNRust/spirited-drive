@@ -1136,7 +1136,7 @@ if(NOT EMSCRIPTEN)
         add_test(NAME generic_art_shades COMMAND test_generic_art_shades ${CMAKE_SOURCE_DIR}/editor/art/GENERIC.FAM)
         add_test(NAME editor_game_find COMMAND test_editor_game_find)
         add_test(NAME editor_headless_track COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_track.sh $<TARGET_FILE:tnfs-track-editor>)
-        set_tests_properties(editor_headless_track PROPERTIES TIMEOUT 300)
+        set_tests_properties(editor_headless_track PROPERTIES TIMEOUT 450)
         add_test(NAME editor_headless_car COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_headless_car.sh $<TARGET_FILE:tnfs-track-editor>)
         set_tests_properties(editor_headless_car PROPERTIES TIMEOUT 300)
         add_test(NAME editor_layout_reset COMMAND sh ${CMAKE_SOURCE_DIR}/tests/editor_layout_reset.sh $<TARGET_FILE:tnfs-track-editor>)   # Window > Reset layout gives the first run's dock back

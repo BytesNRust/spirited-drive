@@ -41,6 +41,7 @@
  *   insert-here        the Insert point here button: a point at the remembered place
  *   slope:G,IN,OUT,KEEP      the Slope block over the selected run: grade G %, eased IN m and OUT m, KEEP 1 the road after it kept; then Accept (slope-rise:R,.. by rise R m)
  *   slope-preview:N    the profile draws what Accept would make (N 1; 0 stops), held, for a picture
+ *   strip-split:DY     the splitter between the Viewport and the Distance strip dragged DY pixels (down: a lower strip); strip-size:H drags it to H pixels high (whatever it was); print-strip prints "strip: H", its window height in pixels
  *   print-height:I      point I's height printed ("height: 2 12.3")
  *   problems       what Problems shows first: "problems: refusal TEXT" (Build's words), "problems: red node N" or "problems: none"
  *   build          Build, as its button: what it says printed ("build: built ID.zip" or "build: build refused: ...")

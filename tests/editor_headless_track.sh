@@ -273,7 +273,7 @@ grep -q "^status: curve added" "$work/log" || fail "Add curve does not work with
 mkdir "$work/cs"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0,0],[0,100],[0,200],[0,300],[30,390],[100,430],[190,420],[260,360],[280,260],[280,160],[280,60]]\n}\n' > "$work/cs/trace.json"
 # a double-click on a mark in the strip's profile takes the top view to that point (point 4 of this road is at 30, 390) and zooms in, never out; a click alone moves nothing
-"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 8 --steps strip,print-view,strip-dblclick:4,print-view >"$work/log" 2>&1 || fail "strip double-click: $(cat "$work/log")"
+"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 26 --steps strip,strip-size:370,print-view,strip-dblclick:4,print-view >"$work/log" 2>&1 || fail "strip double-click: $(cat "$work/log")"
 python3 - "$work/log" <<'PY' || fail "the strip's double-click did not centre the top view on point 4 at a working scale: $(grep '^view' "$work/log")"
 import sys
 v = [l.split()[1:] for l in open(sys.argv[1]) if l.startswith("view:")]
@@ -283,14 +283,14 @@ assert before != after
 assert abs(after[0] - 30) < 3 and abs(after[1] - 390) < 3 and after[2] >= 1.0, after   # a mark is a few px wide: the place under the press is near the point
 PY
 # the slope tool's preview: the run it is for is a teal band over the road in the Viewport (nothing without the preview), and the profile draws the plan (blue)
-"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 14 --steps row:2,shift-row:6,strip,slope-preview:40 --shot "$work/slope-run.png" >"$work/log" 2>&1 || fail "slope preview: $(cat "$work/log")"
+"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 26 --steps row:2,shift-row:6,strip,strip-size:370,slope-preview:40 --shot "$work/slope-run.png" >"$work/log" 2>&1 || fail "slope preview: $(cat "$work/log")"
 png_check "$work/slope-run.png" slope-run
-"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 14 --steps row:2,shift-row:6,strip --shot "$work/slope-none.png" >"$work/log" 2>&1 || fail "no slope preview: $(cat "$work/log")"
+"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 26 --steps row:2,shift-row:6,strip,strip-size:370 --shot "$work/slope-none.png" >"$work/log" 2>&1 || fail "no slope preview: $(cat "$work/log")"
 png_check "$work/slope-none.png" slope-none
 # the Distance strip's profile line is coloured by the same classes (the right turn orange); in Limits it is not (their own --user: the saved window layout of a 960x1200 run would move the 1280x960 runs' clicks)
-"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 8 --steps colour-by:1 --shot "$work/profile-curve.png" >"$work/log" 2>&1 || fail "profile in Colour by curve: $(cat "$work/log")"
+"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 26 --steps strip,strip-size:370,colour-by:1 --shot "$work/profile-curve.png" >"$work/log" 2>&1 || fail "profile in Colour by curve: $(cat "$work/log")"
 png_check "$work/profile-curve.png" profile-curve
-"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 8 --shot "$work/profile-limits.png" >"$work/log" 2>&1 || fail "profile in Limits: $(cat "$work/log")"
+"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 26 --steps strip,strip-size:370 --shot "$work/profile-limits.png" >"$work/log" 2>&1 || fail "profile in Limits: $(cat "$work/log")"
 png_check "$work/profile-limits.png" profile-limits
 "$editor" "$work/cs" --user "$work/cs-u" --window 1280x960 --frames 12 --steps colour-by:1,print-classes,dblclick-road:280,200,print-sel,status >"$work/log" 2>&1 || fail "Colour by curve: $(cat "$work/log")"
 python3 - "$work/log" <<'PY' || fail "curve mode did not find a straight, the corner, the right turn and a straight: $(grep '^classes' "$work/log")"

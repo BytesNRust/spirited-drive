@@ -296,11 +296,14 @@ void strip_panel(App *a)
     const ImGuiID beside = panels_limits_dock();
     if (beside != 0) ImGui::SetNextWindowDockID(beside, ImGuiCond_FirstUseEver);   // a tab beside Limits
     a->profile_drawn.drawn = 0;
+    a->strip_win.drawn = 0;
     if (a->focus_strip) {
         ImGui::SetNextWindowFocus();
         a->focus_strip = 0;
     }
-    if (ImGui::Begin(PANEL_STRIP)) {
+    const bool shown = ImGui::Begin(PANEL_STRIP);
+    a->strip_win = { 1, ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ImGui::GetWindowSize().x, ImGui::GetWindowSize().y };
+    if (shown) {
         const int count = a->trace.count;
         std::vector<double> metres((size_t)std::max(count, 0), 0.0);
         if (count >= 2) track_trace_point_distances(a->trace.points, count, metres.data());

@@ -19,8 +19,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open", "strip-split", "print-strip", "strip-size" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -269,6 +269,8 @@ static int at_once(App *a, const char *name, const double *arg)
         app_slope_accept(a);   /* a refusal is in the status, not a failed step */
         return 1;
     }
+    if (strncmp(name, "strip-split:", 12) == 0 || strncmp(name, "strip-size:", 11) == 0) return 2;   /* by_frames: the mouse goes in */
+    if (strcmp(name, "print-strip") == 0) return a->strip_win.drawn ? (fprintf(stdout, "strip: %.0f\n", a->strip_win.h), 1) : 0;   /* the Distance strip window's height in pixels, as drawn last frame */
     if (strncmp(name, "profile-click:", 14) == 0) return 2;   /* by_frames: the mouse goes in */
     if (strcmp(name, "insert-here") == 0) return app_insert_here(a), 1;   /* the Insert point here button */
     if (strcmp(name, "print-workspace") == 0) {   /* the workspace, whether the start screen offers to choose one, and the projects the workspace lists */
@@ -477,6 +479,21 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
         if (p == 4) mouse_clicks(win, SDL_EVENT_MOUSE_BUTTON_UP, s->from_x, s->from_y, 2);
         if (p == 5 && mod_key != SDLK_UNKNOWN) key_event(win, mod_key, 0, SDL_KMOD_NONE);
         return p < 6;
+    }
+    if (strncmp(name, "strip-split:", 12) == 0 || strncmp(name, "strip-size:", 11) == 0) {   /* strip-split:DY the splitter between the Viewport and the Distance strip (the strip's top edge) dragged DY pixels (down is a lower strip) */
+        if (p == 0) {
+            if (!a->strip_win.drawn) return s->failed = 1, 0;
+            s->from_x = a->strip_win.x + a->strip_win.w / 2, s->from_y = a->strip_win.y - 1, s->to_x = s->from_x, s->to_y = s->from_y + (name[7] == 'i' ? a->strip_win.h - (float)arg[0] : (float)arg[0]);   /* strip-size:H: to H pixels high, whatever it was */
+            mouse(win, SDL_EVENT_MOUSE_MOTION, s->from_x, s->from_y);
+        } else if (p == 1) {
+            mouse(win, SDL_EVENT_MOUSE_BUTTON_DOWN, s->from_x, s->from_y);
+        } else if (p <= 1 + DRAG_MOVES) {
+            const float f = (float)(p - 1) / DRAG_MOVES;
+            mouse(win, SDL_EVENT_MOUSE_MOTION, s->from_x, s->from_y + f * (s->to_y - s->from_y));
+        } else if (p == 2 + DRAG_MOVES) {
+            mouse(win, SDL_EVENT_MOUSE_BUTTON_UP, s->to_x, s->to_y);
+        }
+        return p < 3 + DRAG_MOVES;
     }
     if (strncmp(name, "profile-click:", 14) == 0) {   /* profile-click:I,DX: a click on the profile DX pixels right of point I's mark (DX past the mark's reach: a place between two points) */
         if (p == 0 && !mark_at(a, (int)arg[0], &s->from_x, &s->from_y)) return s->failed = 1, 0;

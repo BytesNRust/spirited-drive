@@ -69,7 +69,7 @@ sys.exit(0 if t['version'] < 5 and all(len(q) == 2 for q in t['points']) else 1)
 # 2c3. The profile as a user drags it (dep95): the Distance strip's tab to the front, a press on point 2's mark, a move 24 pixels up, a release: the height has
 # changed (up is higher), it is one step to undo (the undo gives the height back exactly) and a redo gives the drag back
 "$editor" "$work/hill2" --user "$player" --frames 2 --save >"$work/log" 2>&1 || fail "New project (hill2): $(cat "$work/log")"
-"$editor" "$work/hill2" --user "$player" --window 1280x800 --frames 2 --steps height:2,10,strip,print-height:2,profile-drag:2,-24,print-height:2,undo,print-height:2,redo,print-height:2 \
+"$editor" "$work/hill2" --user "$player" --window 1280x800 --frames 2 --steps height:2,10,strip,strip-size:370,print-height:2,profile-drag:2,-24,print-height:2,undo,print-height:2,redo,print-height:2 \
     >"$work/log" 2>&1 || fail "the profile's drag: $(cat "$work/log")"
 grep '^height: 2 ' "$work/log" | cut -d' ' -f3 > "$work/heights"
 [ "$(sed -n '$=' "$work/heights")" = 4 ] || fail "not every height came: $(cat "$work/heights")"
@@ -80,13 +80,13 @@ awk -v a="$(h 1)" -v b="$(h 2)" 'BEGIN { exit !(b > a) }' || fail "dragging the 
 [ "$(h 4)" = "$(h 2)" ] || fail "redo did not give the drag back: $(h 2) / $(h 4)"
 
 # 2c4. The same drag with Shift held (fine): the height moves up, but a tenth as far as the plain drag did (a tenth of a metre is its step, so: less than a fifth)
-"$editor" "$work/hill2" --user "$player" --window 1280x800 --frames 2 --steps height:2,10,strip,profile-fine:2,-24,print-height:2 >"$work/log" 2>&1 || fail "the profile's fine drag: $(cat "$work/log")"
+"$editor" "$work/hill2" --user "$player" --window 1280x800 --frames 2 --steps height:2,10,strip,strip-size:370,profile-fine:2,-24,print-height:2 >"$work/log" 2>&1 || fail "the profile's fine drag: $(cat "$work/log")"
 fine=$(grep '^height: 2 ' "$work/log" | cut -d' ' -f3)
 awk -v a="$(h 1)" -v b="$(h 2)" -v f="$fine" 'BEGIN { exit !(f > a && (f - a) * 5 < (b - a)) }' || fail "the fine drag did not move the height a tenth as far: plain $(h 1) -> $(h 2), fine -> $fine"
 
 # 2c5. Insert point here (the strip's button): with no place clicked it says so; after a click on the profile between points 2 and 3 it puts a point there, on the
 # curve (a height between theirs), selected
-"$editor" "$work/hill2" --user "$player" --window 1280x800 --frames 2 --steps height:3,12,strip,insert-here,status,profile-click:2,30,insert-here,status,print-sel,print-height:3,print-height:2,print-height:4 >"$work/log" 2>&1 \
+"$editor" "$work/hill2" --user "$player" --window 1280x800 --frames 2 --steps height:3,12,strip,strip-size:370,insert-here,status,profile-click:2,30,insert-here,status,print-sel,print-height:3,print-height:2,print-height:4 >"$work/log" 2>&1 \
     || fail "Insert point here: $(cat "$work/log")"
 grep -q "^status: click a place on the profile between two points first" "$work/log" || fail "Insert point here with no place clicked did not say so: $(grep '^status' "$work/log")"
 grep -q "^status: point inserted at the clicked place" "$work/log" || fail "Insert point here did not put a point in: $(grep '^status' "$work/log")"
@@ -102,10 +102,21 @@ awk '/^height: /{ n++; h[n] = $3 } END { exit !(n == 7 && h[1] == 0 && h[2] > 4 
 grep -q "^status: slope made: rises " "$work/log" || fail "the slope did not say what it made: $(grep '^status' "$work/log")"
 grep -q "^status: slope: .*segment.* over 65 %: not made" "$work/log" || fail "a slope over the grade limit was not refused with its words: $(grep '^status' "$work/log")"
 
+# 2c7. The Distance strip's height (the splitter under the Viewport): about 120 px on a first run, dragged by its top border, remembered in the ini, and never under 90 px nor
+# so tall that the Viewport goes under 90
+splitu="$work/split-user"
+"$editor" "$work/hill2" --user "$splitu" --window 1280x800 --frames 12 --steps strip,print-strip,strip-split:-120,print-strip >"$work/log" 2>&1 || fail "the strip's splitter: $(cat "$work/log")"
+awk '/^strip: /{ n++; h[n] = $2 } END { exit !(n == 2 && h[1] >= 110 && h[1] <= 130 && h[2] >= h[1] + 100 && h[2] <= h[1] + 140) }' "$work/log" || fail "the strip is not about 120 px high at first, nor 120 px higher after its top border was dragged up 120: $(grep '^strip' "$work/log")"
+second=$(grep '^strip: ' "$work/log" | tail -1 | cut -d' ' -f2)
+"$editor" "$work/hill2" --user "$splitu" --window 1280x800 --frames 10 --steps strip,print-strip >"$work/log" 2>&1 || fail "the strip's height after a restart: $(cat "$work/log")"
+[ "$(grep '^strip: ' "$work/log" | cut -d' ' -f2)" = "$second" ] || fail "the strip's height was not remembered: $second then $(grep '^strip' "$work/log")"
+"$editor" "$work/hill2" --user "$splitu" --window 1280x800 --frames 16 --steps strip,strip-split:900,print-strip,strip-split:-2000,print-strip >"$work/log" 2>&1 || fail "the strip's limits: $(cat "$work/log")"
+awk '/^strip: /{ n++; h[n] = $2 } END { exit !(n == 2 && h[1] >= 89 && h[1] <= 95 && h[2] > 300 && h[2] < 600) }' "$work/log" || fail "the strip was dragged under 90 px or so tall that the Viewport vanished: $(grep '^strip' "$work/log")"
+
 # 2d. A point dragged too near the next (17 m before it, on a new project): the nodes bunch up with no red node; Problems says so in red in
 # Build's words before Build, and Build refuses with those words
 "$editor" "$work/near" --user "$player" --frames 2 --save >"$work/log" 2>&1 || fail "New project (near): $(cat "$work/log")"
-"$editor" "$work/near" --user "$player" --window 960x760 --frames 2 --steps problems,drag-near:2,3,17,problems,build >"$work/log" 2>&1 \
+"$editor" "$work/near" --user "$work/near-user" --window 960x600 --frames 2 --steps problems,drag-near:2,3,17,problems,build >"$work/log" 2>&1 \
     || fail "the drag near the next point: $(cat "$work/log")"
 [ "$(grep '^problems' "$work/log" | head -1)" = "problems: none" ] || fail "Problems was not clear before the drag: $(grep '^problems' "$work/log")"
 refusal=$(sed -n 's/^problems: refusal //p' "$work/log")

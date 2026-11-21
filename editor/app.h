@@ -175,6 +175,10 @@ typedef struct {
         int set, seg;
         double frac;
     } profile_place;
+    struct {                     /* the Distance strip's window as it was drawn (strip_panel.cpp): its top edge is the splitter under the Viewport; --steps strip-split, print-strip */
+        int drawn;
+        float x, y, w, h;
+    } strip_win;
     int focus_strip;             /* set: the Distance strip's tab is brought to the front by the next frame (--steps strip) */
     int colour_by;               /* the Viewport's Colour by mode (TraceColourBy, 0 Limits); not saved with the project */
     uint8_t *node_class;         /* each node's class in colour_by, made by app_colour_classes; NULL until then and whenever the road is made again */

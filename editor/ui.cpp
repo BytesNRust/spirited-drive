@@ -75,6 +75,7 @@ static void settings_write(ImGuiContext *, ImGuiSettingsHandler *handler, ImGuiT
 }
 static bool g_had_layout;   // the ini file was there at the start: its layout is the user's, not ours to replace
 static SDL_Window *g_win;
+static const float PANE_LEAST_PX = 90.0f;   // no window or pane is made smaller than this by a splitter: the Viewport and the Distance strip can neither vanish
 static int g_win_w = 960, g_win_h = 600;   // the window's default size (ui_window_default)
 static int g_reset_in, g_save_in;   // frames until Reset layout rebuilds the dock (the window's new size in first), and until the layout file is rewritten
 enum { RESET_AFTER_FRAMES = 3, SAVE_AFTER_FRAMES = 2 };
@@ -113,6 +114,7 @@ int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size
     }
     if (ini != nullptr && g_had_layout) ImGui::LoadIniSettingsFromDisk(g_ini);   // now, not at the first frame: the settings are the app's before it runs anything
     ImGui::StyleColorsDark();
+    ImGui::GetStyle().WindowMinSize = ImVec2(PANE_LEAST_PX, PANE_LEAST_PX);   // a splitter stops here: the Viewport and the Distance strip (and every dock) keep this much
     if (!ImGui_ImplSDL3_InitForSDLRenderer(win, ren)) {
         snprintf(why, why_cap, "ImGui: the SDL backend did not start");
         ImGui::DestroyContext();
@@ -181,7 +183,8 @@ namespace {
 
 // the first-run track layout's parts of the window (right column) and of the bottom (Road profile): at least the first, at most the second
 const float RIGHT_LEAST = 0.33f, RIGHT_MOST = 0.45f, PROFILE_LEAST = 0.5f, PROFILE_MOST = 0.7f;
-const float STRIP_PART = 0.46f;   // the Distance strip's share of the height under the Viewport (what is left of the centre after the bottom row)
+const float STRIP_PART = 0.46f;   // the Distance strip's share of the height under the Viewport (what is left of the centre after the bottom row) at most
+const float STRIP_DEFAULT_PX = 120.0f;   // the Distance strip's height on a first run (the owner drags its top border for more); the layout is kept in the ini
 
 // the layout of a first run (no ini): the top view in the middle, the Distance strip as a row under it, then the limits and the problems (tabs), the project and the points to its right
 void default_layout(ImGuiID dock)
@@ -197,7 +200,9 @@ void default_layout(ImGuiID dock)
     ImGuiID right = 0, centre = dock, bottom = 0, points = 0, node = 0;
     right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, right_part, nullptr, &centre);
     bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down, 0.30f, nullptr, &centre);
-    const ImGuiID strip = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down, STRIP_PART, nullptr, &centre);   // the Distance strip: a row of its own under the view, as wide as it
+    const float centre_h = ImGui::GetMainViewport()->Size.y * 0.70f;   // what is left under the bottom row
+    const float strip_part = std::clamp(STRIP_DEFAULT_PX / std::max(centre_h, 1.0f), 0.1f, STRIP_PART);
+    const ImGuiID strip = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down, strip_part, nullptr, &centre);   // the Distance strip: a row of its own under the view, as wide as it
     points = ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, 0.55f, nullptr, &right);
     ImGui::DockBuilderDockWindow("Viewport", centre);
     ImGui::DockBuilderDockWindow(PANEL_LIMITS, bottom);
