@@ -34,6 +34,31 @@ void summary(const TrackMasks &m)
     if (n[TM_BAD] > 0) ImGui::SameLine(), ImGui::TextColored(state_colour(TM_BAD), "%d unreadable", n[TM_BAD]);
 }
 
+// a PSD with nothing painted in its mask and no PNG beside it
+bool unpainted_row(const TrackMaskRow &r)
+{
+    return r.state == TM_EMPTY && !r.has_png;
+}
+
+// one table row of texture i
+void mask_row(App *a, int i)
+{
+    const TrackMaskRow &r = a->tmasks.row[i];
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::PushID(i);
+    if (ImGui::Selectable(r.name, a->tmask_sel == i, ImGuiSelectableFlags_SpanAllColumns)) app_track_mask_select(a, i);
+    ImGui::PopID();
+    ImGui::TableNextColumn();
+    if (r.width > 0) ImGui::Text("%dx%d", r.width, r.height);
+    ImGui::TableNextColumn();
+    ImGui::Text("%d", r.reflective);
+    if (r.lamps > 0) ImGui::SameLine(0, 4), ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.0f, 1.0f), "+%d lamp", r.lamps);
+    ImGui::TableNextColumn();
+    ImGui::TextColored(state_colour(r.state), "%s", track_mask_state_text(r.state));
+    if (r.note[0] != '\0' && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", r.note);
+}
+
 }   // namespace
 
 void track_masks_panel(App *a, ImTextureID picture)
@@ -60,21 +85,20 @@ void track_masks_panel(App *a, ImTextureID picture)
         ImGui::TableSetupColumn("Mask");
         ImGui::TableSetupColumn("State");
         ImGui::TableHeadersRow();
-        for (int i = 0; i < m.count; ++i) {
-            const TrackMaskRow &r = m.row[i];
+        int unpainted = 0;
+        for (int i = 0; i < m.count; ++i) unpainted += unpainted_row(m.row[i]) ? 1 : 0;
+        for (int i = 0; i < m.count; ++i)
+            if (!unpainted_row(m.row[i])) mask_row(a, i);
+        if (unpainted > 0) {   // PSDs with no mask painted and no PNG: one closed header line at the bottom, open on click
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            ImGui::PushID(i);
-            if (ImGui::Selectable(r.name, a->tmask_sel == i, ImGuiSelectableFlags_SpanAllColumns)) app_track_mask_select(a, i);
-            ImGui::PopID();
-            ImGui::TableNextColumn();
-            if (r.width > 0) ImGui::Text("%dx%d", r.width, r.height);
-            ImGui::TableNextColumn();
-            ImGui::Text("%d%s", r.reflective, r.lamps > 0 ? "" : "");
-            if (r.lamps > 0) ImGui::SameLine(0, 4), ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.0f, 1.0f), "+%d lamp", r.lamps);
-            ImGui::TableNextColumn();
-            ImGui::TextColored(state_colour(r.state), "%s", track_mask_state_text(r.state));
-            if (r.note[0] != '\0' && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", r.note);
+            char head[48];
+            snprintf(head, sizeof head, "Not painted yet (%d)", unpainted);
+            if (ImGui::TreeNodeEx(head, ImGuiTreeNodeFlags_SpanAllColumns)) {
+                for (int i = 0; i < m.count; ++i)
+                    if (unpainted_row(m.row[i])) mask_row(a, i);
+                ImGui::TreePop();
+            }
         }
         ImGui::EndTable();
     }

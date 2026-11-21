@@ -218,6 +218,8 @@ size, the texels it marks and its state, and the picked mask over the game's tex
 again. States: **ok**, **new**, **stale**, **edited by hand** (the PNG differs from the PSD's and is newer: kept as it is until *Regenerate from PSD*; the row counts the PNG's texels, what the game uses),
 **PNG is the source** (a PNG with no PSD), **no mask painted in the PSD** (an empty mask layer is never a source: a PNG next to it is kept, and none is made from it), **unreadable PSD**.
 
+Textures whose PSD has no mask painted and no PNG (all of TR2, TR5 and TR7 at first) are not listed with the rest: they sit in one closed line at the bottom of the table, **Not painted yet (N)**, open on click. `tools/track_starter_psds.py <track_mask_draft> <original> <workspace tracks dir>` makes the starting PSD of every texture of TR2, TR5 and TR7 (the texture, an empty `mask` layer and a hidden `draft` guess); it never overwrites a PSD that is there, and needs Pillow.
+
 The **photo** of an original track shows its workspace's masks: the PNGs of `art-generated/track_masks` go in front of the game's own (`TNFS_TRACK_MASKS`, a copy in the photo's scratch folder), so a retouched PSD shows in the
 next photo (and in the comparison pictures).
 

@@ -2112,6 +2112,9 @@ if(NOT EMSCRIPTEN)
         add_test(NAME car_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_car_mask_psd.py")
         add_test(NAME masks_status COMMAND ${TNFS_PYTHON3} -I "${CMAKE_SOURCE_DIR}/tests/test_masks_status.py")   # tools/masks_status.py: what is left of the original masks and dashes
         add_test(NAME track_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_track_mask_psd.py")
+        if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA" AND TARGET track_mask_draft)   # starting PSDs of TR2, TR5, TR7 from the game's files
+            add_test(NAME track_starter_psds COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_track_starter_psds.py" $<TARGET_FILE:track_mask_draft> "${CMAKE_SOURCE_DIR}/original")
+        endif()
         add_test(NAME dash_mask_psd COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_dash_mask_psd.py")
         add_test(NAME dash_psd_update COMMAND ${TNFS_PYTHON3} "${CMAKE_SOURCE_DIR}/tests/test_dash_psd_update.py")
         if(EXISTS "${CMAKE_SOURCE_DIR}/original/SIMDATA" AND TARGET tnfs)   # the fixture part runs anywhere; the real dashes need the game's files
