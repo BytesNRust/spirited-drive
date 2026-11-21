@@ -178,9 +178,9 @@ fi
 limit=$(( step * 12 + 60 ))
 # TNFS_VERSION_TEXT: Game Mode's footer shows "vwalk", not the build's commit, so two builds' game-mode pictures compare (a binary from
 # before it ignores it, and its footer differs)
-(cd "$work" && env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERSION_TEXT=walk TNFS_SHOT_DIR="$work/shots" TNFS_CAPTURE_DIR="$work/cap" TNFS_CAPTURE_EVERY=${EVERY:-1} \
+(cd "$work" && { env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy TNFS_VERSION_TEXT=walk TNFS_SHOT_DIR="$work/shots" TNFS_CAPTURE_DIR="$work/cap" TNFS_CAPTURE_EVERY=${EVERY:-1} \
     TNFS_INPUT_SETTLE=$settle TNFS_INPUT_SCRIPT="$script" \
-    timeout -k 5 $limit "$bin" --data "$data" --mods "$work/mods" --user "$work/user" > "$work/log" 2>&1 &)
+    timeout -k 5 $limit "$bin" --data "$data" --mods "$work/mods" --user "$work/user" > "$work/log" 2>&1; echo $? > "$work/game.rc"; } &)
 # the game runs on its own: watch its log for the last mark, then let the screen settle a moment and stop it
 # with KEYS (steps after the target's own script), or a target whose own steps go on after its mark (steps_after: Best Times' pages and
 # tracks, whose last step can come after the tail when a track's art is slow to load), the walk also waits for the script's end
@@ -199,7 +199,8 @@ while [ $waited -lt $limit ]; do
         fi
     fi
     if grep -q "input script: step.*timed out" "$work/user/spirited-drive.log" 2>/dev/null; then rc=3; break; fi
-    pgrep -f "$work/user" >/dev/null 2>&1 || { [ $waited -gt 3 ] && break; }   # the game ended on its own (a crash, or the script's end)
+    [ -f "$work/game.rc" ] && break   # the game ended on its own (a crash, a quit, the script's end): the status it left, not a look at the process table, which
+                                       # (pgrep -f) came back empty for a game that was running and the walk then stopped it itself (ui_kit_check's flake)
 done
 # the screen still before the game is stopped. The menus present a frame only when something changes, so a page whose fade-in is over sends no more:
 # QUIET seconds without a new frame is still, and its newest frame, written long since, is the picture. A screen that keeps presenting (a blinking
@@ -276,6 +277,9 @@ if { [ $rc -eq 3 ] || [ $rc -eq 1 ]; } && [ "$final" = content ] && ! grep -q "m
 fi
 if [ $rc -ne 0 ]; then
     echo "menu_walk $target: failed (exit $rc); the game's last lines:" >&2
+    # how the game ended, when it did before the walk stopped it (timeout's status: 0 a clean exit, 124 the time limit, 128+N killed by signal N: 139 a crash, 143 TERM)
+    [ -f "$work/game.rc" ] && echo "menu_walk $target: the game's exit status: $(cat "$work/game.rc") (after ${waited}s)" >&2
+    [ -s "$work/log" ] && { echo "menu_walk $target: the game's own output, last lines:" >&2; tail -5 "$work/log" >&2; }
     grep -E "mark:screen|input script" "$work/user/spirited-drive.log" | tail -12 >&2
 fi
 { [ -n "$KEEP" ] || { [ -n "$KEEP_FAILED" ] && [ $rc -ne 0 ]; }; } && echo "kept: $work" >&2 || { find "$work" -type f -delete; find "$work" -depth -type d -empty -delete 2>/dev/null; }
