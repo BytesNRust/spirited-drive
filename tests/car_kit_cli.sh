@@ -28,14 +28,20 @@ mkdir -p "$p/car_masks/KITCAR" "$p/dash_masks/KITCAR" && cp "$p/card.png" "$p/ca
 # 1. the kit
 k="$work/kit"
 "$studio" car kit "$p" "$k" >"$work/log" 2>&1 || fail "car kit: $(cat "$work/log")"
-for f in README.txt mod.ini card.png model/near/mesh/mesh.blender.obj model/near/bank/entries.tsv model/near/bank/bank.tsv \
-         model/far/mesh/mesh.blender.obj model/far/bank/bank.tsv specs/specs.tsv specs/pdn.tsv art-generated/car_masks/note.png art-generated/dash_masks/dash_mask.png; do
+for f in README.txt mod.ini card.png art-source/mesh/near.obj art-source/mesh/near.mtl art-generated/model/near/mesh/mesh.header.tsv model/near/bank/entries.tsv model/near/bank/bank.tsv \
+         art-source/mesh/far.obj art-generated/model/far/mesh/mesh.polygons.tsv model/far/bank/bank.tsv specs/specs.tsv specs/pdn.tsv art-generated/car_masks/note.png art-generated/dash_masks/dash_mask.png; do
     [ -f "$k/$f" ] || fail "the kit has no $f"
 done
 [ ! -e "$k/art-generated/car_masks/KITCAR" ] || fail "the kit's masks keep the stem level"
 [ ! -e "$k/car_masks" ] && [ ! -e "$k/dash_masks" ] || fail "the kit has masks at its top: they are generated, under art-generated/"
+[ ! -e "$k/model/near/mesh" ] && [ ! -e "$k/model/far/mesh" ] || fail "the kit has a mesh folder under model/: the OBJ is art-source/mesh/, the tables art-generated/model/"
+grep -q '^mtllib near.mtl$' "$k/art-source/mesh/near.obj" && grep -q '^mtllib far.mtl$' "$k/art-source/mesh/far.obj" || fail "an OBJ does not name its own MTL"
+grep -q 'map_Kd \.\./\.\./model/near/bank/' "$k/art-source/mesh/near.mtl" || fail "near.mtl's textures are not at ../../model/near/bank/"
+grep -q 'map_Kd far\.[a-z]*\.png' "$k/art-source/mesh/far.mtl" && [ -f "$k/art-source/mesh/far.frnt.png" ] || fail "far.mtl's see-through copies are not beside it, named far.<label>.png"   # the far MTL's other materials name no bank file
+[ ! -e "$k/art-source/mesh/mesh.blender.obj" ] || fail "the OBJ keeps its old name"
 [ ! -e "$k/build" ] || fail "car kit made build/"
 grep -q "disposable" "$k/README.txt" || fail "README.txt does not say build/ is disposable"
+grep -q "model/near/bank" "$k/README.txt" && grep -q "not tested" "$k/README.txt" || fail "README.txt does not say where the textures are and that the MTL path is untested"
 
 # 2. the build
 before=$(sources "$k")
@@ -62,6 +68,14 @@ cmp -s "$work/first.CFM" "$b/SIMDATA/CARFAMS/KITCAR.CFM" || fail "a second build
 [ "$(sources "$k")" = "$before" ] || fail "a refused car kit wrote into the kit"
 "$studio" car build "$p" >"$work/log" 2>&1 && fail "car build of a piece (not a kit) went on"
 [ ! -e "$p/build" ] || fail "a refused car build made build/ in the piece"
+
+# an old-layout kit (the OBJ and tables in model/near/mesh) is refused in words, and nothing is built or moved
+old="$work/oldkit"
+mkdir -p "$old/model/near/mesh" "$old/model/near/bank" && cp "$k/mod.ini" "$old/" && cp "$k/model/near/bank/bank.tsv" "$old/model/near/bank/" &&
+    cp "$k/art-source/mesh/near.obj" "$old/model/near/mesh/mesh.blender.obj"
+"$studio" car build "$old" >"$work/log" 2>&1 && fail "car build of an old-layout kit went on"
+grep -q "old layout" "$work/log" && grep -q "art-source/mesh" "$work/log" && grep -q "car kit" "$work/log" || fail "the old-layout refusal does not say so: $(cat "$work/log")"
+[ ! -e "$old/build" ] || fail "a refused car build made build/ in an old-layout kit"
 
 [ "$failures" -eq 0 ] && echo "car_kit_cli: ok"
 exit "$failures"

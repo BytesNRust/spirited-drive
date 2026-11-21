@@ -1586,7 +1586,7 @@ static void check_kit_builds_on_open(void)
     CHECK(!a->car.built && !a->car.legacy);
     for (int i = 0; i < 4000 && app_car_build_poll(a); ++i) usleep(2000);
     CHECK(!app_car_building(a));
-    CHECK(strstr(a->status, "could not be built") != NULL && strstr(a->status, "mesh.blender.obj") != NULL);
+    CHECK(strstr(a->status, "could not be built") != NULL && strstr(a->status, "near.obj") != NULL);
     CHECK(!a->car.built && a->kind == APP_KIND_CAR);   /* the car stays open, with no car file */
     /* Build and Install on a kit: Install wants a package first; Build is refused with changes not saved, and says why it fails; a piece folder has no build */
     CHECK(app_car_is_kit(a));

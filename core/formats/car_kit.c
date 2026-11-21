@@ -11,22 +11,26 @@
 #include "formats/qfs.h"
 #include "formats/shpi_exchange.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static const char *const PATHS[CAR_KIT_PATHS] = {
     [CAR_KIT_MOD_INI] = "mod.ini",
     [CAR_KIT_CARD] = "card.png",
-    [CAR_KIT_NEAR_MESH] = "model/near/mesh",
+    [CAR_KIT_NEAR_MESH] = "art-generated/model/near/mesh",
     [CAR_KIT_MODEL] = "model",
     [CAR_KIT_NEAR_BANK] = "model/near/bank",
-    [CAR_KIT_FAR_MESH] = "model/far/mesh",
+    [CAR_KIT_FAR_MESH] = "art-generated/model/far/mesh",
     [CAR_KIT_FAR_BANK] = "model/far/bank",
     [CAR_KIT_SPECS] = "specs/specs.tsv",
     [CAR_KIT_PDN] = "specs/pdn.tsv",
     [CAR_KIT_ART_SOURCE] = "art-source",
     [CAR_KIT_SRC_MASKS] = "art-source/masks",
     [CAR_KIT_SRC_MESH] = "art-source/mesh",
+    [CAR_KIT_SRC_NEAR_OBJ] = "art-source/mesh/near.obj",
+    [CAR_KIT_SRC_FAR_OBJ] = "art-source/mesh/far.obj",
+    [CAR_KIT_GEN_MODEL] = "art-generated/model",
     [CAR_KIT_ART_GENERATED] = "art-generated",
     [CAR_KIT_GEN_CAR_MASKS] = "art-generated/car_masks",
     [CAR_KIT_GEN_DASH_MASKS] = "art-generated/dash_masks",
@@ -36,7 +40,7 @@ static const char *const PATHS[CAR_KIT_PATHS] = {
     [CAR_KIT_BUILD_PIECE] = "build/piece",
     [CAR_KIT_README] = "README.txt",
     [CAR_KIT_MESH_OBJ] = "mesh.blender.obj",
-    [CAR_KIT_MESH_TO_BANK] = "../bank",
+    [CAR_KIT_SRC_MESH_TO_KIT] = "../..",
 };
 
 const char *car_kit_path(CarKitPath which)
@@ -52,14 +56,16 @@ const char *car_kit_readme(void)
     return "This folder is a car for Spirited Drive: its sources. Edit them, then Build (Studio) or `tnfs-studio car build` makes the car.\n"
            "\n"
            "  mod.ini, card.png       the car's card: its name, its slot, its picture\n"
-           "  model/near/mesh/        the near model: mesh.blender.obj is the one to open and export in Blender\n"
-           "  model/near/bank/        its textures: one PNG each (paint them, RGB or on the palette)\n"
-           "  model/far/mesh/         the far model, the same way\n"
-           "  model/far/bank/         its textures\n"
+           "  model/near/bank/        the near model's textures: one PNG each (paint them, RGB or on the palette). They stay here, at the kit's top, for now\n"
+           "  model/far/bank/         the far model's textures\n"
            "  specs/specs.tsv         the car's physics (optional)\n"
            "  specs/pdn.tsv           its body size and AI (optional)\n"
            "  art-source/             what you edit with other programs: masks/ (a PSD a texture) and mesh/ (the OBJs)\n"
+           "  art-source/mesh/        near.obj and far.obj: open them in Blender and export back over them. Each has its .mtl, whose textures are\n"
+           "                          ../../model/near/bank (far: ../../model/far/bank); that path is not tested in Blender 3.6, so if a texture\n"
+           "                          does not show, point Blender at model/near/bank by hand\n"
            "  art-generated/          what Studio writes: do not edit it\n"
+           "  art-generated/model/near/mesh/, art-generated/model/far/mesh/   the mesh tables the OBJ does not carry\n"
            "  art-generated/car_masks/   the colour masks, grey: frnt_mask.png goes over the texture model/near/bank/NNNN_frnt.png (same\n"
            "                          size); a _lo mask over model/far/bank\n"
            "  art-generated/dash_masks/  dash_mask.png (and dash_color.png), the same way\n"
@@ -91,7 +97,9 @@ static const char *level_name(int level) { return level == CAR_KIT_NEAR ? "near"
 
 static int write_level(const uint8_t *const child[CFM_CHILDREN], const size_t len[CFM_CHILDREN], int level, CarKitFlat *out, ExchangeError *err)
 {
-    const MeshTextureBank bank = { child[2 * level + 1], len[2 * level + 1], car_kit_path(CAR_KIT_MESH_TO_BANK) };
+    char dir[96];   /* the MTL's way to the textures, from art-source/mesh */
+    snprintf(dir, sizeof dir, "%s/%s", car_kit_path(CAR_KIT_SRC_MESH_TO_KIT), car_kit_path(level == CAR_KIT_NEAR ? CAR_KIT_NEAR_BANK : CAR_KIT_FAR_BANK));
+    const MeshTextureBank bank = { child[2 * level + 1], len[2 * level + 1], dir };
     if (!mesh_export(child[2 * level], len[2 * level], MESH_STEM, &bank, 1, &out->mesh[level], err)) return 0;
     if (!shpi_export(child[2 * level + 1], len[2 * level + 1], NULL, &out->bank[level], err)) {   /* as the CFM holds it: bank.tsv keeps the size word */
         char why[sizeof err->message];
@@ -124,7 +132,7 @@ static int level_obj(const CarKitFlat *in, int level, ObjModel *obj, ExchangeErr
 {
     const SetFile *f = fileset_find(&in->mesh[level], car_kit_path(CAR_KIT_MESH_OBJ));
     if (f == NULL) {
-        exchange_fail(err, "%s has no %s", car_kit_path(level == CAR_KIT_NEAR ? CAR_KIT_NEAR_MESH : CAR_KIT_FAR_MESH), car_kit_path(CAR_KIT_MESH_OBJ));
+        exchange_fail(err, "the %s mesh has no OBJ (%s)", level_name(level), car_kit_path(level == CAR_KIT_NEAR ? CAR_KIT_SRC_NEAR_OBJ : CAR_KIT_SRC_FAR_OBJ));
         return 0;
     }
     return obj_read(f->data, f->size, NULL, 0, obj, err);

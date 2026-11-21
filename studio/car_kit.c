@@ -68,15 +68,57 @@ static int car_files(const char *piece, const char *stem, FileSet *files, Exchan
            add_file(piece, paths[2], files, "pbs", 0, err);
 }
 
+static const char *const LEVEL[CAR_KIT_LEVELS] = { "near", "far" };
+static const char BLENDER_PREFIX[] = "mesh.blender.";   /* what a CarKitFlat's mesh set calls the Blender files: mesh.blender.obj, .mtl, .<label>.png */
+
+/* `data` with each "mesh.blender." made `to` (the OBJ's mtllib line, the MTL's map_Kd names), in a new buffer; NULL if out of memory */
+static uint8_t *rename_in(const uint8_t *data, size_t size, const char *to, size_t *out_size)
+{
+    const size_t from_len = sizeof BLENDER_PREFIX - 1, to_len = strlen(to);
+    uint8_t *out = malloc(size * (to_len > from_len ? to_len : from_len) / from_len + 1), *w = out;
+    if (out == NULL) return NULL;
+    for (size_t i = 0; i < size;) {
+        if (size - i >= from_len && memcmp(data + i, BLENDER_PREFIX, from_len) == 0) memcpy(w, to, to_len), w += to_len, i += from_len;
+        else *w++ = data[i++];
+    }
+    *out_size = (size_t)(w - out);
+    return out;
+}
+
+/* one level's mesh files into the kit: the Blender set as art-source/mesh/<near|far>.obj, .mtl, .<label>.png (named for itself); the tables
+ * into art-generated/model/<near|far>/mesh, with the game's mesh.obj (the build reads it); mesh.mtl, which it does not, is left out */
+static int mesh_into(const FileSet *mesh, int level, FileSet *out)
+{
+    char name[PATH_MAX], to[32];
+    snprintf(to, sizeof to, "%s.", LEVEL[level]);
+    const size_t prefix_len = sizeof BLENDER_PREFIX - 1;
+    int ok = 1;
+    for (size_t i = 0; ok && i < mesh->count; ++i) {
+        const SetFile *f = &mesh->file[i];
+        const size_t n = strlen(f->name);
+        if (strncmp(f->name, BLENDER_PREFIX, prefix_len) == 0) {
+            snprintf(name, sizeof name, "%s/%s%s", car_kit_path(CAR_KIT_SRC_MESH), to, f->name + prefix_len);
+            const int text = n > 4 && (strcmp(f->name + n - 4, ".obj") == 0 || strcmp(f->name + n - 4, ".mtl") == 0);
+            size_t size = f->size;
+            uint8_t *data = text ? rename_in(f->data, f->size, to, &size) : NULL;
+            ok = text ? data != NULL && fileset_add_owned(out, name, data, size) : fileset_add(out, name, f->data, f->size);
+            if (text && !ok) free(data);
+        } else if ((n > 4 && strcmp(f->name + n - 4, ".tsv") == 0) || strcmp(f->name, "mesh.obj") == 0) {   /* the build reads the tables and the game's own mesh.obj */
+            snprintf(name, sizeof name, "%s/%s", car_kit_path(level == CAR_KIT_NEAR ? CAR_KIT_NEAR_MESH : CAR_KIT_FAR_MESH), f->name);
+            ok = fileset_add(out, name, f->data, f->size);
+        }
+    }
+    return ok;
+}
+
 /* the kit's flat model and specs files of `flat`, each under its folder of the path table */
 static int flat_into(CarKitFlat *flat, FileSet *out)
 {
-    static const CarKitPath MESH[CAR_KIT_LEVELS] = { CAR_KIT_NEAR_MESH, CAR_KIT_FAR_MESH }, BANK[CAR_KIT_LEVELS] = { CAR_KIT_NEAR_BANK, CAR_KIT_FAR_BANK };
+    static const CarKitPath BANK[CAR_KIT_LEVELS] = { CAR_KIT_NEAR_BANK, CAR_KIT_FAR_BANK };
     char prefix[PATH_MAX];
     int ok = 1;
     for (int l = 0; ok && l < CAR_KIT_LEVELS; ++l) {
-        snprintf(prefix, sizeof prefix, "%s/", car_kit_path(MESH[l]));
-        ok = fileset_move_prefixed(out, &flat->mesh[l], prefix);
+        ok = mesh_into(&flat->mesh[l], l, out);
         snprintf(prefix, sizeof prefix, "%s/", car_kit_path(BANK[l]));
         ok = ok && fileset_move_prefixed(out, &flat->bank[l], prefix);
     }
@@ -136,11 +178,13 @@ int car_kit_command(int argc, char **argv, ExchangeError *err)
 /* the kit's sources as car_kit_build reads them */
 static int read_flat(const char *kit, CarKitFlat *flat, ExchangeError *err)
 {
-    static const CarKitPath MESH[CAR_KIT_LEVELS] = { CAR_KIT_NEAR_MESH, CAR_KIT_FAR_MESH }, BANK[CAR_KIT_LEVELS] = { CAR_KIT_NEAR_BANK, CAR_KIT_FAR_BANK };
+    static const CarKitPath MESH[CAR_KIT_LEVELS] = { CAR_KIT_NEAR_MESH, CAR_KIT_FAR_MESH }, BANK[CAR_KIT_LEVELS] = { CAR_KIT_NEAR_BANK, CAR_KIT_FAR_BANK },
+                            OBJ[CAR_KIT_LEVELS] = { CAR_KIT_SRC_NEAR_OBJ, CAR_KIT_SRC_FAR_OBJ };
     char dir[PATH_MAX];
     for (int l = 0; l < CAR_KIT_LEVELS; ++l) {
         joined(dir, sizeof dir, kit, car_kit_path(MESH[l]));
-        if (!fsio_read_tree(dir, &flat->mesh[l], err)) return 0;
+        if (!fsio_read_tree(dir, &flat->mesh[l], err)) return 0;   /* the tables */
+        if (!add_file(kit, car_kit_path(OBJ[l]), &flat->mesh[l], car_kit_path(CAR_KIT_MESH_OBJ), 1, err)) return 0;
         joined(dir, sizeof dir, kit, car_kit_path(BANK[l]));
         if (!fsio_read_tree(dir, &flat->bank[l], err)) return 0;
     }
@@ -178,9 +222,14 @@ static int write_build(const char *kit, const ModInfo *info, const FileSet *file
 
 int car_kit_build_dir(const char *kit, int verbose, ExchangeError *err)
 {
-    char obj[PATH_MAX];
-    snprintf(obj, sizeof obj, "%s/%s/%s", kit, car_kit_path(CAR_KIT_NEAR_MESH), car_kit_path(CAR_KIT_MESH_OBJ));
-    if (!fsio_exists(obj)) { exchange_fail(err, "%s is not a car kit: it has no %s/%s (tnfs-studio car kit makes one)", kit, car_kit_path(CAR_KIT_NEAR_MESH), car_kit_path(CAR_KIT_MESH_OBJ)); return 0; }
+    char obj[PATH_MAX], old[PATH_MAX];
+    joined(obj, sizeof obj, kit, car_kit_path(CAR_KIT_SRC_NEAR_OBJ));
+    snprintf(old, sizeof old, "%s/model/near/mesh/%s", kit, car_kit_path(CAR_KIT_MESH_OBJ));   /* where the first layout kept it */
+    if (!fsio_exists(obj) && fsio_exists(old)) {
+        exchange_fail(err, "%s: old layout (model/near/mesh/): not built. Make a new kit with tnfs-studio car kit; its OBJs are in %s/", kit, car_kit_path(CAR_KIT_SRC_MESH));
+        return 0;
+    }
+    if (!fsio_exists(obj)) { exchange_fail(err, "%s is not a car kit: it has no %s (tnfs-studio car kit makes one)", kit, car_kit_path(CAR_KIT_SRC_NEAR_OBJ)); return 0; }
     ModInfo info;
     if (!car_piece_card(kit, &info, err)) return 0;
     CarKitFlat flat;
