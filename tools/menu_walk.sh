@@ -35,6 +35,7 @@
 # the screen to be still (TNFS_INPUT_SETTLE). A step that does not come in time stops the run and says which ("input script: step N: WAIT ... timed
 # out"), exit 3. The run is the visible-run kind: dummy SDL drivers, timeout -k, a scratch --mods and --user, the repo's original/ as the game data.
 #   env: DATA (the game data folder, default <repo>/original)  STEP_TIMEOUT (60 s a step)  SETTLE (1500 ms)  FRESH (20 s: no picture is taken as still before a frame newer than the target's mark, or this long after it)  KEEP=1 (keep the scratch dir, for a look)
+#        KEEP_FAILED=1 (keep the scratch dir of a walk that fails, and say so: "kept: ...", for a flake to be read afterwards)
 #        STILL (30): the most seconds the walk waits, after the target's mark and its tail, for the screen to stop changing
 #        QUIET (2): the seconds without a new frame that make the screen still (the menus present a frame only when something changes)
 #        FORMAT (4:3, 16:9 or 21:9; default 4:3): the screen format the walk runs in. The 640x480 menus sit centred on a wider screen, so every click
@@ -243,7 +244,7 @@ if [ -n "$pack" ]; then
     pkill -TERM -f "$work/user" 2>/dev/null
     rc=0; [ $never -gt 0 ] && rc=6; [ $missing -gt 0 ] && rc=3
     [ $rc -ne 0 ] && grep -E "mark:screen|input script" "$work/user/spirited-drive.log" | tail -8 >&2
-    [ -n "$KEEP" ] && echo "kept: $work" >&2 || { find "$work" -type f -delete; find "$work" -depth -type d -empty -delete 2>/dev/null; }
+    { [ -n "$KEEP" ] || { [ -n "$KEEP_FAILED" ] && [ $rc -ne 0 ]; }; } && echo "kept: $work" >&2 || { find "$work" -type f -delete; find "$work" -depth -type d -empty -delete 2>/dev/null; }
     exit $rc
 fi
 # the screen the game ended on: a key or click that went on past the target (a repeat) leaves another page up, and its picture is not the target's
@@ -277,5 +278,5 @@ if [ $rc -ne 0 ]; then
     echo "menu_walk $target: failed (exit $rc); the game's last lines:" >&2
     grep -E "mark:screen|input script" "$work/user/spirited-drive.log" | tail -12 >&2
 fi
-[ -n "$KEEP" ] && echo "kept: $work" >&2 || { find "$work" -type f -delete; find "$work" -depth -type d -empty -delete 2>/dev/null; }
+{ [ -n "$KEEP" ] || { [ -n "$KEEP_FAILED" ] && [ $rc -ne 0 ]; }; } && echo "kept: $work" >&2 || { find "$work" -type f -delete; find "$work" -depth -type d -empty -delete 2>/dev/null; }
 exit $rc

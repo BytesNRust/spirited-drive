@@ -13,16 +13,19 @@ python3 -c 'import PIL' 2>/dev/null || { echo "skip: no Pillow"; exit 77; }
 command -v zsh >/dev/null 2>&1 || { echo "skip: no zsh (tools/menu_walk.sh is one)"; exit 77; }
 command -v magick >/dev/null 2>&1 || { echo "skip: no magick (ImageMagick 7: tools/menu_walk.sh saves its pictures with it)"; exit 77; }
 work=$(mktemp -d)
-[ -n "${KEEP:-}" ] && echo "pictures in $work" || trap 'rm -r "$work"' EXIT
+# a walk that fails is kept, whole: its folder (the game's log and frames; menu_walk says "kept: ..." with KEEP_FAILED) and this one (the pictures and logs of
+# the others), so a flake can be read afterwards: the failing walk's last marks say which step it stopped at
+[ -n "${KEEP:-}" ] && echo "pictures in $work" || trap '[ -f "$work/keep" ] && echo "kept for a look: $work" || rm -r "$work"' EXIT
+export KEEP_FAILED=1
 fail=0
 # Controls Setup and Customize Game (Extras), their middle pages, in the mode that draws both
 # an edition of the player's own, its name wide, for the selector's gaps (E2b)
 printf 'name=MMMMMMMMMMMM\ncars=rx7,nsx,supra\ntracks=city,coastal\n' > "$work/wide.ini"
 (DATA="$orig" PROFILE=restomod EDITION="$work/wide.ini" zsh "$repo/tools/menu_walk.sh" "$tnfs" "$work/content" content >"$work/content.log" 2>&1 ||
-    { echo "FAIL content: the walk did not reach the screen"; tail -5 "$work/content.log"; touch "$work/content.failed"; }) &
+    { echo "FAIL content: the walk did not reach the screen"; tail -40 "$work/content.log"; touch "$work/content.failed" "$work/keep"; }) &
 for target in controls-p2 extras-p2 records; do   # side by side: each walk is a game session of its own
     (DATA="$orig" PROFILE=restomod zsh "$repo/tools/menu_walk.sh" "$tnfs" "$work" "$target" >"$work/$target.log" 2>&1 ||
-        { echo "FAIL $target: the walk did not reach the screen"; tail -5 "$work/$target.log"; touch "$work/$target.failed"; }) &
+        { echo "FAIL $target: the walk did not reach the screen"; tail -40 "$work/$target.log"; touch "$work/$target.failed" "$work/keep"; }) &
 done
 wait
 for target in controls-p2 extras-p2 records content; do [ -f "$work/$target.failed" ] && fail=1; done
