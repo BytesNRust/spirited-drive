@@ -611,6 +611,85 @@ static void test_the_card_photo(void)
     model_scene_close(m);
 }
 
+/* the car framed (B2): at the home camera the car is small in a short, wide picture (the scale is that of the smaller side); model_scene_frame puts it at the distance
+ * where it fills 80 % of the picture's larger share. The share is measured on the picture drawn: the box of the pixels with any alpha */
+enum { FRAME_W_MAX = 1280, FRAME_H_MAX = 800 };
+static int drawn_share(ModelScene *m, const Orbit *o, int w, int h)
+{
+    static uint8_t big[FRAME_W_MAX * FRAME_H_MAX * 4];
+    CHECK(model_scene_render(m, o, w, h, NULL, big));
+    int x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+            if (big[4 * ((size_t)y * w + x) + 3] != 0) {
+                if (x < x0) x0 = x;
+                if (x > x1) x1 = x;
+                if (y < y0) y0 = y;
+                if (y > y1) y1 = y;
+            }
+    if (x1 < 0) return 0;
+    const int by_w = 100 * (x1 - x0 + 1) / w, by_h = 100 * (y1 - y0 + 1) / h;
+    return by_w > by_h ? by_w : by_h;
+}
+
+static void check_framed(ModelScene *m, const char *what)
+{
+    static const int SIZES[][2] = { { 640, 200 }, { 1230, 520 }, { 300, 600 }, { 500, 500 } };
+    for (size_t i = 0; i < sizeof SIZES / sizeof SIZES[0]; i++) {
+        const int w = SIZES[i][0], h = SIZES[i][1];
+        Orbit o;
+        orbit_init(&o, model_scene_radius(m));
+        const int before = drawn_share(m, &o, w, h);
+        CHECK(model_scene_frame(m, &o, w, h, 80));
+        const int after = drawn_share(m, &o, w, h);
+        if (after < 70 || after > 80 || (after < before && before <= 80)) fprintf(stderr, "frame %s %dx%d: %d%% before, %d%% after\n", what, w, h, before, after);
+        CHECK(after >= 70 && after <= 80);   /* as large as 80 % lets it be (a car off the middle of the picture is cut by the edge sooner) */
+        CHECK(after >= before || before > 80);
+        CHECK(o.dist_home == o.dist && o.dist >= o.dist_min && o.dist <= o.dist_max);
+        orbit_home(&o);
+        CHECK(o.dist == o.dist_home);   /* Home comes back to the framed distance */
+    }
+    Orbit o;
+    orbit_init(&o, model_scene_radius(m));
+    CHECK(!model_scene_frame(m, &o, 640, 200, 0) && !model_scene_frame(m, &o, 640, 200, 101) && !model_scene_frame(m, &o, 1, 200, 80));
+}
+
+static void test_the_car_is_framed(void)
+{
+    char masks[400];
+    snprintf(masks, sizeof masks, "%s/masks", base);
+    ModelScene *m = open_cfm("FRAMED", 0, masks);
+    CHECK(m != NULL);
+    if (m == NULL) return;
+    check_framed(m, "the synthetic car");
+    model_scene_close(m);
+}
+
+/* the same on every car of the CD (skipped without original/): the 911, the other racers, the traffic cars and the police car */
+static void test_the_cds_cars_are_framed(void)
+{
+    char dir[600];
+    const int nd = snprintf(dir, sizeof dir, "%s/original/SIMDATA/CARFAMS", TNFS_SOURCE_DIR);
+    CHECK(nd > 0 && (size_t)nd < sizeof dir);
+    DIR *d = opendir(dir);
+    if (d == NULL) return;
+    int cars = 0;
+    for (struct dirent *e; (e = readdir(d)) != NULL;) {
+        const size_t len = strlen(e->d_name);
+        if (len < 5 || len > 40 || strcasecmp(e->d_name + len - 4, ".CFM") != 0) continue;
+        char path[700], why[200] = "";
+        CHECK(snprintf(path, sizeof path, "%s/%s", dir, e->d_name) < (int)sizeof path);
+        ModelScene *m = model_scene_open(path, why, sizeof why);
+        if (m == NULL) continue;   /* not a car the Model opens */
+        check_framed(m, e->d_name);
+        model_scene_close(m);
+        cars++;
+    }
+    closedir(d);
+    fprintf(stderr, "B2: %d CD cars framed\n", cars);
+    CHECK(cars >= 19);
+}
+
 int main(void)
 {
     snprintf(base, sizeof base, "%s/model_scene_XXXXXX", getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp");
@@ -622,5 +701,7 @@ int main(void)
     test_a_texture_with_no_mask_keeps_its_colours();
     test_the_brake_lamp_is_the_races();
     test_the_cds_brake_lamps();
+    test_the_car_is_framed();
+    test_the_cds_cars_are_framed();
     return TEST_REPORT();
 }

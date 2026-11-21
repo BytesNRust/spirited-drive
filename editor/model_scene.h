@@ -23,6 +23,10 @@ ModelScene *model_scene_open(const char *path, char *why, size_t why_cap);
 ModelScene *model_scene_open_painted(const PreviewIn *in, char *why, size_t why_cap);
 void model_scene_close(ModelScene *m);
 int32_t model_scene_radius(const ModelScene *m);
+/* Puts the car at the distance where, turned as `o` has it, the box it is drawn in is `percent` of a w x h picture (its larger side's share) and is not cut by the picture's
+ * edge (the car need not be centred), within the zoom's limits (dist_min..dist_max); Home returns to it (dist_home). Renders a dozen pictures of that size to find it. 0 for a size or
+ * percent that is no use. */
+int model_scene_frame(ModelScene *m, Orbit *o, int w, int h, int percent);
 int model_scene_max_rows(void);
 /* The car as `o` sees it, w x h RGBA (a clear background has alpha 0), in the light and lamps of `night` (formats/car_night.h, as the Preview window shows
  * its textures; NULL: by day, as the file has it): the palette tinted and lit, the lamp texels the masks name in their fixed colours, the police lights'

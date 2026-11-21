@@ -28,7 +28,7 @@ const char *const PANEL_MODEL = "Model";
 
 namespace {
 
-enum { MAX_W = 2048, AUTO_DEG_PER_SECOND = 24, GAME_TICKS_PER_SECOND = 30 /* the race calls its wheels 30 times a second (game/race/race_sim.h; the Studio links only the core) */ };
+enum { MAX_W = 2048, FRAME_PERCENT = 80, AUTO_DEG_PER_SECOND = 24, GAME_TICKS_PER_SECOND = 30 /* the race calls its wheels 30 times a second (game/race/race_sim.h; the Studio links only the core) */ };
 
 struct Model {
     char loaded[APP_PATH] = "";   // the CFM the scene holds (or tried to)
@@ -58,6 +58,7 @@ struct Model {
     int preset = 0;               // an orbit asked for on the command line, waiting for the car
     double preset_yaw = 0, preset_pitch = 0;
     int32_t preset_dist = 0;
+    bool fit = false;             // the car is to be framed (made to fill FRAME_PERCENT of the picture) when the picture's size is known: on open, on another car, on Home
     int key_wheel = -1;           // the wheel frame the picture was drawn with
     NightSettings key_night = {};   // the Preview's Day / Night and lamps the picture was drawn in, and the police flash's phase
     int key_phase = -1;
@@ -146,9 +147,10 @@ void load(App *a, const uint8_t *rgb)
     remember(a, rgb);
     if (g.scene == nullptr) return;
     orbit_init(&g.orbit, model_scene_radius(g.scene));
+    g.fit = true;
     if (g.preset) {
         orbit_set_degrees(&g.orbit, g.preset_yaw, g.preset_pitch);
-        if (g.preset_dist > 0) orbit_set_dist(&g.orbit, g.preset_dist);
+        if (g.preset_dist > 0) orbit_set_dist(&g.orbit, g.preset_dist), g.fit = false;   // a distance asked for is kept
         g.preset = 0;
     }
 }
@@ -238,7 +240,7 @@ void keys()
     if (ImGui::IsKeyPressed(ImGuiKey_S, false)) orbit_view(&g.orbit, ORBIT_SIDE), g.dirty = true;
     if (ImGui::IsKeyPressed(ImGuiKey_R, false)) orbit_view(&g.orbit, ORBIT_REAR), g.dirty = true;
     if (ImGui::IsKeyPressed(ImGuiKey_T, false)) orbit_view(&g.orbit, ORBIT_TOP), g.dirty = true;
-    if (ImGui::IsKeyPressed(ImGuiKey_Home, false)) orbit_home(&g.orbit), g.dirty = true;
+    if (ImGui::IsKeyPressed(ImGuiKey_Home, false)) orbit_home(&g.orbit), g.fit = true, g.dirty = true;
 }
 
 // «Use as card photo»: the picture as it is on screen (the Model's camera, the Preview's paint and light) at the card's 309 x 166 over a plain backdrop, in the
@@ -361,7 +363,7 @@ void toolbar(App *a)
     ImGui::SameLine();
     if (ImGui::Button("Top")) orbit_view(&g.orbit, ORBIT_TOP), g.dirty = true;
     ImGui::SameLine();
-    if (ImGui::Button("Home")) orbit_home(&g.orbit), g.dirty = true;
+    if (ImGui::Button("Home")) orbit_home(&g.orbit), g.fit = true, g.dirty = true;
     ImGui::SameLine();
     if (ImGui::Checkbox("Auto-rotate", &g.auto_rotate)) g.dirty = true;
     ImGui::SameLine();
@@ -482,6 +484,10 @@ void model_panel(App *a, SDL_Renderer *ren)
             int w = 0, h = 0;   // the picture fills the area (car_scene keeps its pixels square, the car whole in the smaller side)
             const bool sized = g.card_view ? (w = CARD_PHOTO_W, h = CARD_PHOTO_H, true) : picture_size(area_w, area_h, &w, &h);
             if (sized && make_target(ren, w, h)) {
+                if (g.fit && !g.card_view) {   // the car as large as the picture lets it be, whatever the window's shape
+                    model_scene_frame(g.scene, &g.orbit, w, h, FRAME_PERCENT);
+                    g.fit = false, g.dirty = true;
+                }
                 if (g.auto_rotate) {
                     const int step = static_cast<int>(roundf(ImGui::GetIO().DeltaTime * AUTO_DEG_PER_SECOND * 16.0f));
                     orbit_drag(&g.orbit, -step / ORBIT_DRAG - (step % ORBIT_DRAG != 0), 0);   // at least a step a frame: the yaw moves by 1/16 degrees

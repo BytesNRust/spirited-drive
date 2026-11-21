@@ -403,6 +403,53 @@ int model_scene_render(ModelScene *m, const Orbit *o, int w, int h, const CarNig
     return 1;
 }
 
+/* the box of the pixels the car is drawn in (alpha above 0) in a w x h picture turned and placed as `o` has it; 0 when nothing is drawn */
+static int drawn_box(ModelScene *m, const Orbit *o, int w, int h, uint8_t *rgba, int box[4])
+{
+    if (!model_scene_render(m, o, w, h, NULL, rgba)) return 0;
+    int x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            if (rgba[4 * ((size_t)y * w + x) + 3] == 0) continue;
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+        }
+    box[0] = x0, box[1] = y0, box[2] = x1 + 1, box[3] = y1 + 1;
+    return x1 >= 0;
+}
+
+/* 1 when the car at `dist` is too big: drawn over `percent` of the picture's larger share, or cut by the picture's edge (it need not be centred on the middle) */
+static int too_big(ModelScene *m, Orbit *o, int32_t dist, int w, int h, int percent, uint8_t *rgba)
+{
+    int box[4];
+    o->dist = dist;
+    if (!drawn_box(m, o, w, h, rgba, box)) return 0;
+    const int64_t by_w = 100 * (int64_t)(box[2] - box[0]) / w, by_h = 100 * (int64_t)(box[3] - box[1]) / h;
+    return (by_w > by_h ? by_w : by_h) > percent || box[0] <= 0 || box[1] <= 0 || box[2] >= w || box[3] >= h;
+}
+
+int model_scene_frame(ModelScene *m, Orbit *o, int w, int h, int percent)
+{
+    if (percent < 1 || percent > 100 || w < 2 || h < 2 || h > QUAD_MAX_ROWS) return 0;
+    uint8_t *rgba = malloc((size_t)w * (size_t)h * 4);
+    if (rgba == NULL) return 0;
+    /* the share falls as the car goes away: the nearest distance at which it is not too big, found by halving (the zoom's own limits hold) */
+    int32_t near = o->dist_min, far = o->dist_max;
+    if (!too_big(m, o, near, w, h, percent, rgba)) far = near;
+    else if (too_big(m, o, far, w, h, percent, rgba)) near = far;
+    while (far - near > 1) {
+        const int32_t mid = near + (far - near) / 2;
+        if (too_big(m, o, mid, w, h, percent, rgba)) near = mid;
+        else far = mid;
+    }
+    free(rgba);
+    o->dist = far;
+    o->dist_home = far;   /* Home comes back to the framed car */
+    return 1;
+}
+
 int model_scene_lamp_pixels(const ModelScene *m)
 {
     return m->lamp_pixels;

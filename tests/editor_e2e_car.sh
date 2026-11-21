@@ -59,12 +59,13 @@ if [ -r "$orig/SIMDATA/CARFAMS/P911.CFM" ] && [ -d "$data/car_masks/P911" ]; the
     dmask="$drv/car_masks/P911/topv_mask.png"
     studio --export-car P911 --into "$work/cars" --cd "$orig" --port-data "$data" --frames 1 || fail "Export original car of the 911: $(cat "$work/log")"
     [ -f "$drv/mod.ini" ] && [ -f "$dmask" ] || { fail "the 911's export is not the old shape: $(ls "$drv")"; exit "$failures"; }
-    studio "$drv" --view night --lights head --preview-tex topv --frames 14 --shot "$work/drv-preview-exported.png" || fail "Preview of the exported 911: $(cat "$work/log")"
+    # a view of the car where the top mask shows: in the framed default view the small patch the edit lights is not visible
+    studio "$drv" --orbit 30,20 --view night --lights head --preview-tex topv --frames 14 --shot "$work/drv-preview-exported.png" || fail "Preview of the exported 911: $(cat "$work/log")"
     studio "$drv" --game "$tnfs" --cd "$orig" --race-photo --race-png "$work/drv-photo-exported.png" --frames 4 || fail "Race photo of the exported 911: $(cat "$work/log")"
     python3 -I "$(dirname "$0")/mask_poke.py" "$dmask" 16 16 48 48 90 || fail "the outside change of the exported 911's mask"
     studio "$drv" --mask topv --frames 8 || fail "mask view on the exported 911: $(cat "$work/log")"
     cmp -s "$dmask" "$data/car_masks/P911/topv_mask.png" && fail "the exported 911's mask is still the game's file"
-    studio "$drv" --view night --lights head --preview-tex topv --frames 14 --shot "$work/drv-preview-edited.png" || fail "Preview of the edited 911: $(cat "$work/log")"
+    studio "$drv" --orbit 30,20 --view night --lights head --preview-tex topv --frames 14 --shot "$work/drv-preview-edited.png" || fail "Preview of the edited 911: $(cat "$work/log")"
     cmp -s "$work/drv-preview-exported.png" "$work/drv-preview-edited.png" && fail "the Preview of the exported 911 does not show the edit"
     studio "$drv" --game "$tnfs" --cd "$orig" --race-photo --race-png "$work/drv-photo-edited.png" --frames 4 || fail "Race photo of the edited 911: $(cat "$work/log")"
     cmp -s "$work/drv-photo-exported.png" "$work/drv-photo-edited.png" && fail "the Race photo of the exported 911 does not show the edit"
