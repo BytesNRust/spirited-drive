@@ -1027,6 +1027,26 @@ static void check_kinds(void)
     CHECK_EQ_INT(a->confirm, APP_ACT_OPEN_AT);
     app_answer(a, APP_ANSWER_CANCEL);
 
+    /* Main menu: asks once about unsaved changes, then closes the project and keeps the window's things (the recent list) */
+    const int recent_before = a->recent.count;
+    CHECK_EQ_INT(app_room(a), APP_ROOM_TRACKS);
+    app_ask(a, APP_ACT_MAIN, "");
+    CHECK_EQ_INT(a->confirm, APP_ACT_MAIN);
+    app_answer(a, APP_ANSWER_CANCEL);
+    CHECK(a->kind == APP_KIND_TRACK && app_modified(a));
+    app_ask(a, APP_ACT_MAIN, "");
+    app_answer(a, APP_ANSWER_DISCARD);
+    CHECK_EQ_INT(a->go, APP_ACT_MAIN);
+    a->go = APP_ACT_NONE;
+    CHECK(app_close_project(a));
+    CHECK_EQ_INT(a->kind, APP_KIND_NONE);
+    CHECK_EQ_INT(app_room(a), APP_ROOM_HUB);
+    CHECK_EQ_INT(a->recent.count, recent_before);
+    app_ask(a, APP_ACT_OPEN_CAR, "");                        /* nothing open: nothing to ask */
+    CHECK_EQ_INT(a->go, APP_ACT_OPEN_CAR);
+    a->go = APP_ACT_NONE;
+    CHECK(app_open_car(a, kit));
+    CHECK_EQ_INT(app_room(a), APP_ROOM_CARS);
     CHECK(app_open_recent(a, real_kit));                     /* a recent car opens as a car, a recent track as a track */
     CHECK_EQ_INT(a->kind, APP_KIND_CAR);
     char real_two[PATH_MAX];

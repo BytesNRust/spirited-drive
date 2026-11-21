@@ -81,6 +81,8 @@ int project_art_is_generic(const char *dir, const char *generic);
 /* Sets the edge= line of `dir`'s project.ini to `edge` (one of PROJECT_EDGES): the line is replaced where it is or added at the end, every other
  * byte of the file stays. 1 on success, 0 with `why` (an unknown word leaves the file as it is). */
 int project_set_edge(const char *dir, const char *edge, char *why, size_t why_cap);
+/* project.ini's name= set (one line of text), every other line as it was. 1 when written. */
+int project_set_name(const char *dir, const char *name, char *why, size_t why_cap);
 
 /* Writes trace.json of `dir` (through a temporary file, then renamed): the points and the project's width, and a "keys" array only when there are keys:
  * {"point": 3, "width_m": 14.0, "shoulder_l_surface": "tarmac"}. Version 3 when a key sets a shoulder surface (a Studio that reads only 2 refuses it instead of

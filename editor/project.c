@@ -755,20 +755,17 @@ int project_start_points(void)
     return (int)ceil(track_trace_stage_min_length() / PROJECT_START_GAP) + 1;
 }
 
-int project_set_edge(const char *dir, const char *edge, char *why, size_t why_cap)
+/* project.ini's line `key` set to `value` (added when there is none), every other line as it was */
+static int set_line(const char *dir, const char *key, const char *value, char *why, size_t why_cap)
 {
-    if (!edge_ok(edge)) {
-        snprintf(why, why_cap, "project.ini: edge=%s is not grass, gravel, sand, snow, dirt or water", edge);
-        return 0;
-    }
     char path[PATH_MAX_LEN];
     snprintf(path, sizeof path, "%s/project.ini", dir);
     size_t size = 0;
     char *ini = read_text(path, &size, why, why_cap);
     if (ini == NULL) return 0;
-    const char *line = line_of(ini, "edge");
+    const char *line = line_of(ini, key);
     const char *end = line != NULL ? strchr(line, '\n') : NULL;
-    const size_t cap = size + 32;
+    const size_t cap = size + strlen(key) + strlen(value) + 8;
     char *text = malloc(cap);
     if (text == NULL) {
         free(ini);
@@ -776,12 +773,30 @@ int project_set_edge(const char *dir, const char *edge, char *why, size_t why_ca
         return 0;
     }
     int n;
-    if (line != NULL) n = snprintf(text, cap, "%.*sedge=%s%s", (int)(line - ini), ini, edge, end != NULL ? end : "");
-    else n = snprintf(text, cap, "%s%sedge=%s\n", ini, size > 0 && ini[size - 1] != '\n' ? "\n" : "", edge);
+    if (line != NULL) n = snprintf(text, cap, "%.*s%s=%s%s", (int)(line - ini), ini, key, value, end != NULL ? end : "");
+    else n = snprintf(text, cap, "%s%s%s=%s\n", ini, size > 0 && ini[size - 1] != '\n' ? "\n" : "", key, value);
     const int ok = n > 0 && write_atomic(path, text, (size_t)n, why, why_cap);
     free(text);
     free(ini);
     return ok;
+}
+
+int project_set_edge(const char *dir, const char *edge, char *why, size_t why_cap)
+{
+    if (!edge_ok(edge)) {
+        snprintf(why, why_cap, "project.ini: edge=%s is not grass, gravel, sand, snow, dirt or water", edge);
+        return 0;
+    }
+    return set_line(dir, "edge", edge, why, why_cap);
+}
+
+int project_set_name(const char *dir, const char *name, char *why, size_t why_cap)
+{
+    if (name == NULL || name[0] == '\0' || strpbrk(name, "\r\n") != NULL) {
+        snprintf(why, why_cap, "project.ini: the name must be one line of text");
+        return 0;
+    }
+    return set_line(dir, "name", name, why, why_cap);
 }
 
 /* a text that grows as it is written: nothing is ever cut short; `failed` once memory ran out */

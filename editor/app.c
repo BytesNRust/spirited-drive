@@ -500,6 +500,32 @@ static int open_in(App *a, const char *dir, AppKind kind)
     return 1;
 }
 
+AppRoom app_room(const App *a)
+{
+    return a->kind == APP_KIND_CAR ? APP_ROOM_CARS : a->kind == APP_KIND_NONE ? APP_ROOM_HUB : APP_ROOM_TRACKS;
+}
+
+int app_close_project(App *a)
+{
+    App *next = calloc(1, sizeof *next);
+    if (next == NULL) {
+        set_status(a, "out of memory");
+        return 0;
+    }
+    app_begin(next, a->game, a->user, a->generic[0] != '\0' ? a->generic : NULL);
+    app_carry_window(next, a);
+    if (a->py.state == 2) {   // the python found is the session's, as open_in keeps it
+        py_probe_free(&next->py);
+        next->py = a->py;
+        memset(&next->py.run, 0, sizeof next->py.run);
+        next->py.run.fd = -1;
+    }
+    app_free(a);
+    *a = *next;
+    free(next);
+    return 1;
+}
+
 int app_open_project(App *a, const char *dir)
 {
     if (!recent_is_project(dir)) {

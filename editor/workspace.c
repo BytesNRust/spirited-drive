@@ -110,3 +110,19 @@ int workspace_save(const char *file, const char *dir, int put_aside)
     if (!ok) remove(tmp);
     return ok;
 }
+
+int workspace_id_from_name(const char *name, char *id, size_t cap, size_t max)
+{
+    size_t n = 0;
+    int pending = 0;   /* a separator is due before the next letter */
+    for (const char *p = name; p != NULL && *p != '\0' && n < max && n + 1 < cap; ++p) {
+        const char ch = (*p >= 'A' && *p <= 'Z') ? (char)(*p - 'A' + 'a') : *p;
+        if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) {
+            if (pending && n > 0 && n + 1 < max && n + 2 < cap) id[n++] = '-';
+            pending = 0;
+            id[n++] = ch;
+        } else pending = 1;
+    }
+    id[n] = '\0';
+    return n > 0;
+}

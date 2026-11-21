@@ -32,6 +32,8 @@ enum {
 
 /* what the window has open: nothing (the start screen), a track project, a car project or the Track light window (a light folder, no project). Exactly one; the fields of the other kinds are not read. */
 typedef enum { APP_KIND_NONE = 0, APP_KIND_TRACK, APP_KIND_CAR, APP_KIND_LIGHT } AppKind;
+/* Studio is two rooms behind one hub: Cars, Tracks (the Track light window is in Tracks), and the main menu with nothing open */
+typedef enum { APP_ROOM_HUB = 0, APP_ROOM_CARS, APP_ROOM_TRACKS } AppRoom;
 
 /* what the window was asked to do that ends or changes the project: quit, start a new project, open one, open a recent one */
 typedef enum {
@@ -49,6 +51,7 @@ typedef enum {
     APP_ACT_OPEN_LIGHT,  /* the Track light window on the light folder a->light_dir */
     APP_ACT_LIGHT_PICK,  /* a light folder is asked for (main.c's dialog), from the Track light window's Choose... */
     APP_ACT_LIGHT_AT,    /* the folder that dialog gave, in the path: the window is on it (app_light_set_folder) */
+    APP_ACT_MAIN,        /* back to the main menu (the hub): the project is closed (app_close_project), after the question about unsaved changes */
     APP_ACT_WORKSPACE_PICK /* a workspace folder is asked for (main.c's dialog); the folder that dialog gives is the workspace at once (app_workspace_set), with no question about unsaved changes */
 } AppAction;
 
@@ -217,6 +220,11 @@ typedef struct {
     char workspace[APP_PATH];    /* the workspace folder (cars/ and tracks/ in it), "" for none */
     int workspace_put_aside;     /* the offer to choose one was put aside: the start screen does not show it again */
     char workspace_file[APP_PATH]; /* where the choice is kept, "" when it is not */
+    int new_track_dialog;        /* the New track window (a workspace is set: only a name is asked for) is up */
+    char new_track_name[64];     /* what is typed in it, the id it makes, whether the id was typed over, and why Create was refused */
+    char new_track_id[40];
+    int new_track_id_typed;
+    char new_track_error[APP_MSG];
     WorkspaceList workspace_list;  /* the projects in it, scanned when it is set and when the window starts */
 
     char zip[APP_PATH];          /* the last package built, "" before one */
@@ -361,6 +369,10 @@ int app_open_recent(App *a, const char *dir);
 
 /* Keeps the recent projects in `file` (loaded now, with the project that is open put first, saved at every change); "" or NULL keeps none. */
 void app_keep_recent(App *a, const char *file);
+/* the room what is open belongs to */
+AppRoom app_room(const App *a);
+/* Closes the project and shows the main menu (nothing open); the window's own things stay (recent list, workspace, game lookup). The caller asked about unsaved changes first (app_ask APP_ACT_MAIN). 1 when it did. */
+int app_close_project(App *a);
 /* The workspace (workspace.h): the file keeps the choice between runs; a folder that is gone is no workspace. */
 void app_workspace_keep(App *a, const char *file);
 /* `dir` becomes the workspace: its cars/ and tracks/ are made when missing, what they hold is listed, the choice is kept. 1 when it did; 0 with the status saying why. */
@@ -373,6 +385,11 @@ void app_workspace_put_aside(App *a);
 int app_workspace_offer(const App *a);
 /* the folder of the I-th car (kind 0) or track (kind 1) the workspace lists into `out`; 0 when there is none */
 int app_workspace_item(const App *a, int kind, int i, char *out, size_t cap);
+/* New track with a workspace: the track `name` is made as <workspace>/tracks/<id> (`id` NULL or "" takes the one the name makes) and opened. 0, with the reason in the status and
+ * new_track_error and nothing written, when there is no workspace, the name or id is not usable, or that folder exists. */
+int app_new_track_named(App *a, const char *name, const char *id);
+/* the workspace lists read again (after a project was made in it) */
+void app_workspace_refresh(App *a);
 /* the folder dialog for a workspace, from the menu or the start screen: it does not ask about unsaved changes (it changes no project) */
 void app_workspace_pick(App *a);
 /* where the folder dialog `kind` (APP_ACT_NEW, _OPEN, _OPEN_CAR, _EXPORT_PICK, _WORKSPACE_PICK) starts: the workspace's cars/ or tracks/, else the open project's parent, else "" */

@@ -30,6 +30,8 @@ void ui_reset_layout(void);
 int ui_panel_toggle(const App *a, int index);
 /* the mode's panels as the Window menu lists them (open or closed, drawn this frame or not), then `unlisted:` and the panels drawn that the menu does not list. For --steps. */
 void ui_print_panels(const App *a);
+/* the room on screen and the File menu's items in it, in order (`room:` and `file:` lines). For --steps. */
+void ui_print_menu(const App *a);
 
 /* The orbit the Model window starts the next car at (degrees, degrees, model units; dist 0 keeps the home distance): a headless picture of a view. */
 void ui_model_orbit(double yaw, double pitch, int dist);

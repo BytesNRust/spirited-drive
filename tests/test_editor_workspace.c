@@ -87,6 +87,13 @@ int main(void)
     workspace_start_dir("", WORKSPACE_KIND_TRACK, "proj", out, sizeof out);
     CHECK(out[0] == '\0', "a bare name has no parent");
 
+    char id[64];
+    CHECK(workspace_id_from_name("  My New Track!! ", id, sizeof id, 32) && strcmp(id, "my-new-track") == 0, "id from a name: %s", id);
+    CHECK(workspace_id_from_name("Zeta_9 / Road", id, sizeof id, 32) && strcmp(id, "zeta-9-road") == 0, "id with separators: %s", id);
+    CHECK(workspace_id_from_name("A very long track name that goes on and on", id, sizeof id, 32) && strlen(id) <= 32 && id[strlen(id) - 1] != '-', "id is cut at 32: %s", id);
+    CHECK(!workspace_id_from_name("!!!", id, sizeof id, 32) && id[0] == '\0', "a name with nothing usable makes no id");
+    CHECK(workspace_id_from_name("Ünï 7", id, sizeof id, 32) && strcmp(id, "n-7") == 0, "non-ASCII letters are separators: %s", id);
+
     char file[512], dir[512] = "x";
     int aside = 1;
     snprintf(file, sizeof file, "%s/workspace.txt", g_root);

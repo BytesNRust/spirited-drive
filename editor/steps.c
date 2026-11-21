@@ -19,8 +19,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview", "shift-dblclick", "cmd-dblclick", "lanes", "extend", "extend-end", "print-road", "copy-profile", "paste-profile", "side", "print-mixed", "print-workspace", "open-ws", "dialog-dir", "no-workspace", "panel", "print-panels", "print-menu", "main-menu", "new-track", "new-track-open" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -243,6 +243,18 @@ static int at_once(App *a, const char *name, const double *arg)
         return fprintf(stdout, "%s\n", text), 1;
     }
     if (strncmp(name, "dblclick-road:", 14) == 0 || strncmp(name, "strip-dblclick:", 15) == 0 || strncmp(name, "shift-dblclick:", 15) == 0 || strncmp(name, "cmd-dblclick:", 13) == 0) return 2;   /* by_frames: the mouse goes in */
+    if (strcmp(name, "new-track-open") == 0) {   /* File > New track with a workspace, the window up (for a picture): a headless run has no native dialog to follow */
+        if (a->workspace[0] == '\0') return 0;
+        a->new_track_dialog = 1, a->new_track_name[0] = a->new_track_id[0] = a->new_track_error[0] = '\0', a->new_track_id_typed = 0;
+        return 1;
+    }
+    if (strncmp(name, "new-track:", 10) == 0) {   /* new-track:K: File > New track with a workspace, the name "Road K" typed and Create pressed */
+        char text[32];
+        snprintf(text, sizeof text, "Road %d", (int)arg[0]);
+        return app_new_track_named(a, text, NULL);
+    }
+    if (strcmp(name, "print-menu") == 0) return ui_print_menu(a), 1;   /* the room on screen and the File menu's items in it */
+    if (strcmp(name, "main-menu") == 0) return app_close_project(a);   /* File > Main menu (a headless run drops the question about unsaved changes) */
     if (strcmp(name, "print-panels") == 0) return ui_print_panels(a), 1;   /* the Window menu's panels, open or closed, drawn or not, and the ones drawn that it does not list */
     if (strncmp(name, "panel:", 6) == 0) return 2;   /* by_frames: a click on the I-th item of the Window menu, drawn by the next frame */
     if (strcmp(name, "print-view") == 0) return fprintf(stdout, "view: %.1f %.1f %.2f\n", a->view.cx, a->view.cz, a->view.scale), 1;   /* the top view's centre (x z) and pixels per metre */

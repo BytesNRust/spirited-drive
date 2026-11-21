@@ -323,6 +323,17 @@ done
 "$editor" --user "$work/u-ws" --workspace "$ws" --window 960x600 --frames 6 --shot "$work/ws-start.png" >"$work/log" 2>&1 || fail "the start screen of a workspace: $(cat "$work/log")"
 "$editor" --user "$work/u-ws2" --window 960x600 --frames 6 --shot "$work/ws-offer.png" >"$work/log" 2>&1 || fail "the start screen with the offer: $(cat "$work/log")"
 [ -s "$work/ws-start.png" ] && [ -s "$work/ws-offer.png" ] && ! cmp -s "$work/ws-start.png" "$work/ws-offer.png" || fail "the start screen does not change with a workspace"
+# ==== Two rooms: the main menu, Cars, Tracks; each room's File menu holds its own actions only, New before Open ====
+rooms=$("$editor" --user "$work/u-ws" --workspace "$ws" --frames 6 --steps print-menu,open-ws:1,0,print-menu,main-menu,print-menu,open-ws:0,0,print-menu,main-menu,print-menu 2>&1 | grep -E '^(room|file):' | tr '\n' '|')
+want="room: hub|file: Workspace | Quit|room: tracks|file: New track... | Open track... | Track light... | Open recent | Workspace | Save | Main menu | Quit|room: hub|file: Workspace | Quit|room: cars|file: Open car... | Export original car... | Open recent | Workspace | Save | Main menu | Quit|room: hub|file: Workspace | Quit|"
+[ "$rooms" = "$want" ] || fail "hub, room, Main menu, other room: the File menu of each holds its own actions: $rooms"
+# New track with a workspace asks only for the name: the id comes from it, the folder is made in tracks/, a folder that exists is refused and nothing is written
+"$editor" --user "$work/u-ws" --workspace "$ws" --frames 6 --steps new-track:7,print-menu >"$work/log" 2>&1 || fail "New track in a workspace: $(cat "$work/log")"
+grep -q '^id=road-7$' "$ws/tracks/road-7/project.ini" && grep -q '^name=Road 7$' "$ws/tracks/road-7/project.ini" || fail "the new track's id and name: $(cat "$ws/tracks/road-7/project.ini")"
+before=$(cksum < "$ws/tracks/road-7/project.ini")
+"$editor" --user "$work/u-ws" --workspace "$ws" --frames 6 --steps new-track:7 >"$work/log" 2>&1 && fail "a track whose folder exists was made again"
+grep -q 'already exists' "$work/log" || fail "the refusal does not say the folder exists: $(cat "$work/log")"
+[ "$before" = "$(cksum < "$ws/tracks/road-7/project.ini")" ] || fail "a refused New track wrote into the existing project"
 # ==== Window menu: every panel a car's window draws is listed (a masks project's too) ====
 for proj in "$work/kit" "$work/exports/wagon-masks"; do
     panels=$("$editor" "$proj" --window 1280x960 --frames 6 --steps print-panels 2>&1)

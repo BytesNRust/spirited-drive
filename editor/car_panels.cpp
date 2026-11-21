@@ -53,12 +53,12 @@ void name_list(const char names[][CAR_PROJECT_NAME], int count)
 
 }   // namespace
 
-// The workspace on the start screen: with one, the cars and tracks in it (a click opens one); without, one line offering to choose it, with a (?) and a way to put it aside
-static void workspace_block(App *a, float column)
+// The workspace row of the main menu: the folder with a Change... button, or the one line offering to choose it (a (?), and Not now: put aside, never shown again)
+static void workspace_row(App *a)
 {
     if (a->workspace[0] == '\0') {
         if (!app_workspace_offer(a)) return;
-        ImGui::Dummy(ImVec2(0, 10));
+        ImGui::Dummy(ImVec2(0, 8));
         if (ImGui::Button("Choose workspace...")) app_workspace_pick(a);
         ImGui::SameLine();
         help_marker("A workspace is one folder with your cars and tracks in it (cars/ and tracks/ inside).\nOpen and New start there and this screen lists what it holds.\nYou can also set it later in File > Workspace.");
@@ -66,25 +66,48 @@ static void workspace_block(App *a, float column)
         if (ImGui::SmallButton("Not now")) app_workspace_put_aside(a);
         return;
     }
-    ImGui::Dummy(ImVec2(0, 14));
-    ImGui::SeparatorText("Workspace");
+    ImGui::Dummy(ImVec2(0, 8));
+    ImGui::TextDisabled("Workspace");
+    ImGui::SameLine();
     muted_wrapped("%s", leaf(a->workspace));
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", a->workspace);
     ImGui::SameLine();
     if (ImGui::SmallButton("Change...")) app_workspace_pick(a);
-    for (int kind = 0; kind < 2; ++kind) {
-        const int count = kind == 0 ? a->workspace_list.cars : a->workspace_list.tracks;
-        ImGui::TextDisabled("%s", kind == 0 ? "Cars" : "Tracks");
-        if (count == 0) muted_wrapped("none yet");
-        for (int i = 0; i < count; ++i) {
-            const char *name = kind == 0 ? a->workspace_list.car[i] : a->workspace_list.track[i];
-            char path[APP_PATH];
-            ImGui::PushID(kind * WORKSPACE_LIST + i);
-            if (ImGui::Selectable(name, false, 0, ImVec2(column, 0)) && app_workspace_item(a, kind, i, path, sizeof path))
-                app_ask(a, kind == 0 ? APP_ACT_OPEN_CAR_AT : APP_ACT_OPEN_AT, path);   // a car and a track open by their own kind: the recent list knows only what was opened before
-            ImGui::PopID();
-        }
+}
+
+// the projects of the workspace of one kind (0 cars, 1 tracks); a click opens one, by its own kind (the recent list knows only what was opened before)
+static void workspace_list(App *a, int kind, float width)
+{
+    if (a->workspace[0] == '\0') return;
+    const int count = kind == 0 ? a->workspace_list.cars : a->workspace_list.tracks;
+    ImGui::SeparatorText("In the workspace");
+    if (count == 0) muted_wrapped("none yet");
+    for (int i = 0; i < count; ++i) {
+        const char *name = kind == 0 ? a->workspace_list.car[i] : a->workspace_list.track[i];
+        char path[APP_PATH];
+        ImGui::PushID(kind * WORKSPACE_LIST + i);
+        if (ImGui::Selectable(name, false, 0, ImVec2(width, 0)) && app_workspace_item(a, kind, i, path, sizeof path)) app_ask(a, kind == 0 ? APP_ACT_OPEN_CAR_AT : APP_ACT_OPEN_AT, path);
+        ImGui::PopID();
     }
+}
+
+// the recent projects of one kind
+static void recent_list(App *a, int kind, float width)
+{
+    ImGui::SeparatorText("Recent");
+    int shown = 0;
+    for (int i = 0; i < a->recent.count; ++i) {
+        if (a->recent.kind[i] != kind) continue;
+        ++shown;
+        const bool there = recent_present(a->recent.dir[i], a->recent.kind[i]);
+        ImGui::PushID(1000 + i);
+        ImGui::BeginDisabled(!there);   // a folder that is gone is greyed
+        if (ImGui::Selectable(leaf(a->recent.dir[i]), false, 0, ImVec2(width, 0))) app_ask(a, APP_ACT_RECENT, a->recent.dir[i]);
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s%s", a->recent.dir[i], there ? "" : "\nnot found: the folder was moved or deleted");
+        ImGui::PopID();
+    }
+    if (shown == 0) muted_wrapped("Nothing opened yet.");
 }
 
 void start_screen(App *a)
@@ -95,42 +118,41 @@ void start_screen(App *a)
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking |
                                    ImGuiWindowFlags_NoBringToFrontOnFocus;
     if (ImGui::Begin("Start", nullptr, flags)) {
-        const float width = ImGui::GetContentRegionAvail().x, column = width < 520.0f ? width : 520.0f;
-        ImGui::SetCursorPosX((width - column) / 2 + ImGui::GetStyle().WindowPadding.x);
+        const float width = ImGui::GetContentRegionAvail().x, total = width < 800.0f ? width : 800.0f;
+        ImGui::SetCursorPosX((width - total) / 2 + ImGui::GetStyle().WindowPadding.x);
         ImGui::BeginGroup();
         ImGui::Dummy(ImVec2(0, 18));
         ImGui::SetWindowFontScale(1.6f);
         ImGui::TextUnformatted("Spirited Drive Studio");
         ImGui::SetWindowFontScale(1.0f);
         muted_wrapped("Make cars and tracks for Spirited Drive.");
+        workspace_row(a);
         ImGui::Dummy(ImVec2(0, 10));
-        const ImVec2 button(column / 2 - 4, 0);
-        if (ImGui::Button("Open car...", button)) app_ask(a, APP_ACT_OPEN_CAR, "");
-        ImGui::SameLine();
-        if (ImGui::Button("Open track...", button)) app_ask(a, APP_ACT_OPEN, "");
-        if (ImGui::Button("New track...", button)) app_ask(a, APP_ACT_NEW, "");
-        ImGui::SameLine();
-        if (ImGui::Button("Export original car...", button)) a->export_dialog = 1;
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Make a project from one of the game's cars, to adjust its masks");
-        ImGui::BeginDisabled(a->light_dir[0] == '\0');
-        if (ImGui::Button("Track light...", button)) app_ask(a, APP_ACT_OPEN_LIGHT, "");
-        ImGui::EndDisabled();
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Tune a CD track's light at dawn, day, dusk and night, with a photo from the game");
-        workspace_block(a, column);
-        ImGui::Dummy(ImVec2(0, 14));
-        ImGui::SeparatorText("Recent");
-        if (a->recent.count == 0) muted_wrapped("Nothing opened yet.");
-        for (int i = 0; i < a->recent.count; ++i) {
-            const bool there = recent_present(a->recent.dir[i], a->recent.kind[i]);
-            const bool car = a->recent.kind[i] == RECENT_CAR;
-            char label[128];
-            snprintf(label, sizeof label, "%s  (%s)", leaf(a->recent.dir[i]), car ? "car" : "track");
-            ImGui::PushID(i);
-            ImGui::BeginDisabled(!there);   // a folder that is gone is greyed
-            if (ImGui::Selectable(label, false, 0, ImVec2(column, 0))) app_ask(a, APP_ACT_RECENT, a->recent.dir[i]);
+        // two rooms behind this one door: Cars and Tracks, each with its own actions, what the workspace holds and what was opened lately
+        if (ImGui::BeginTable("rooms", 2, ImGuiTableFlags_SizingStretchSame, ImVec2(total, 0))) {
+            const float half = total / 2 - 16;
+            ImGui::TableNextColumn();
+            ImGui::SetWindowFontScale(1.25f);
+            ImGui::TextUnformatted("Cars");
+            ImGui::SetWindowFontScale(1.0f);
+            if (ImGui::Button("Open car...", ImVec2(half, 0))) app_ask(a, APP_ACT_OPEN_CAR, "");
+            if (ImGui::Button("Export original car...", ImVec2(half, 0))) a->export_dialog = 1;
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Make a project from one of the game's cars, to adjust its masks");
+            workspace_list(a, 0, half);
+            recent_list(a, RECENT_CAR, half);
+            ImGui::TableNextColumn();
+            ImGui::SetWindowFontScale(1.25f);
+            ImGui::TextUnformatted("Tracks");
+            ImGui::SetWindowFontScale(1.0f);
+            if (ImGui::Button("New track...", ImVec2(half, 0))) app_ask(a, APP_ACT_NEW, "");
+            if (ImGui::Button("Open track...", ImVec2(half, 0))) app_ask(a, APP_ACT_OPEN, "");
+            ImGui::BeginDisabled(a->light_dir[0] == '\0');
+            if (ImGui::Button("Track light...", ImVec2(half, 0))) app_ask(a, APP_ACT_OPEN_LIGHT, "");
             ImGui::EndDisabled();
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s%s", a->recent.dir[i], there ? "" : "\nnot found: the folder was moved or deleted");
-            ImGui::PopID();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Tune a CD track's light at dawn, day, dusk and night, with a photo from the game");
+            workspace_list(a, 1, half);
+            recent_list(a, RECENT_TRACK, half);
+            ImGui::EndTable();
         }
         if (a->status[0] != '\0') {
             ImGui::Dummy(ImVec2(0, 10));

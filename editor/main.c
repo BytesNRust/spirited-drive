@@ -318,7 +318,8 @@ static int run_go(SDL_Window *win, App *a)
     snprintf(path, sizeof path, "%s", a->go_path);
     a->go = APP_ACT_NONE;
     if (act == APP_ACT_QUIT) return 1;
-    if (act == APP_ACT_NEW || act == APP_ACT_OPEN || act == APP_ACT_OPEN_CAR || act == APP_ACT_EXPORT_PICK || act == APP_ACT_LIGHT_PICK || act == APP_ACT_WORKSPACE_PICK) dialog_start(win, a, act);
+    if (act == APP_ACT_NEW && a->workspace[0] != '\0') a->new_track_dialog = 1, a->new_track_name[0] = a->new_track_id[0] = a->new_track_error[0] = '\0', a->new_track_id_typed = 0;   /* a workspace: only a name is asked for */
+    else if (act == APP_ACT_NEW || act == APP_ACT_OPEN || act == APP_ACT_OPEN_CAR || act == APP_ACT_EXPORT_PICK || act == APP_ACT_LIGHT_PICK || act == APP_ACT_WORKSPACE_PICK) dialog_start(win, a, act);
     else if (act == APP_ACT_EXPORT_AT) app_export_car(a, path);
     else if (act == APP_ACT_RECENT) app_open_recent(a, path);
     else if (act == APP_ACT_OPEN_AT) app_open_project(a, path);
@@ -326,6 +327,7 @@ static int run_go(SDL_Window *win, App *a)
     else if (act == APP_ACT_OPEN_LIGHT) app_open_light(a);
     else if (act == APP_ACT_LIGHT_AT) app_light_revert(a), app_light_set_folder(a, path);   /* asked about unsaved changes first: what is left is to be dropped */
     else if (act == APP_ACT_NEW_AT) app_new_project(a, path);
+    else if (act == APP_ACT_MAIN) app_close_project(a);
     return 0;
 }
 

@@ -37,4 +37,7 @@ void workspace_start_dir(const char *dir, int kind, const char *open_dir, char *
 void workspace_load(const char *file, char *dir, size_t cap, int *put_aside);
 int workspace_save(const char *file, const char *dir, int put_aside);
 
+/* The id a name makes (a mod's id: a-z, 0-9 and '-', up to `max` characters): lower case, every run of anything else one '-', none first or last. 0 when nothing is left. */
+int workspace_id_from_name(const char *name, char *id, size_t cap, size_t max);
+
 #endif

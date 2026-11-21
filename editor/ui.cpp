@@ -9,10 +9,12 @@
 
 extern "C" {
 #include "formats/track_gen.h"
+#include "formats/mod_ini.h"
 #include "app_points.h"
 #include "app_select.h"
 #include "interact.h"
 }
+#include "help_marker.h"
 #include "panels.h"
 #include "shortcut_keys.h"
 #include "command_keys.h"
@@ -377,42 +379,97 @@ bool track_edit_done()
            && !ImGui::IsKeyDown(ImGuiKey_UpArrow) && !ImGui::IsKeyDown(ImGuiKey_DownArrow);
 }
 
-// the File menu: a new track, an open track or car, the recent ones (tracks and cars together), Save, Quit; each asks the app (app_ask), which asks about unsaved
-// changes first
+// The File menu holds the actions of the room on screen only (Cars, Tracks, the main menu), New before Open: a car's room has no New track, a track's no Open car.
+enum FileItem { FILE_NEW_TRACK, FILE_OPEN_TRACK, FILE_LIGHT, FILE_OPEN_CAR, FILE_EXPORT, FILE_RECENT, FILE_WORKSPACE, FILE_SEPARATOR, FILE_SAVE, FILE_MAIN, FILE_QUIT };
+
+static const char *file_label(FileItem item)
+{
+    switch (item) {
+    case FILE_NEW_TRACK: return "New track...";
+    case FILE_OPEN_TRACK: return "Open track...";
+    case FILE_LIGHT: return "Track light...";
+    case FILE_OPEN_CAR: return "Open car...";
+    case FILE_EXPORT: return "Export original car...";
+    case FILE_RECENT: return "Open recent";
+    case FILE_WORKSPACE: return "Workspace";
+    case FILE_SAVE: return "Save";
+    case FILE_MAIN: return "Main menu";
+    case FILE_QUIT: return "Quit";
+    case FILE_SEPARATOR: break;
+    }
+    return "";
+}
+
+static int file_items(const App *a, FileItem out[12])
+{
+    int n = 0;
+    const AppRoom room = app_room(a);
+    if (room == APP_ROOM_TRACKS) out[n++] = FILE_NEW_TRACK, out[n++] = FILE_OPEN_TRACK, out[n++] = FILE_LIGHT, out[n++] = FILE_RECENT;
+    if (room == APP_ROOM_CARS) out[n++] = FILE_OPEN_CAR, out[n++] = FILE_EXPORT, out[n++] = FILE_RECENT;
+    out[n++] = FILE_WORKSPACE;
+    out[n++] = FILE_SEPARATOR;
+    if (room != APP_ROOM_HUB) out[n++] = FILE_SAVE, out[n++] = FILE_MAIN;
+    out[n++] = FILE_QUIT;
+    return n;
+}
+
+// Open recent: the room's own projects (cars in Cars, tracks in Tracks)
+static void recent_menu(App *a)
+{
+    const int kind = app_room(a) == APP_ROOM_CARS ? RECENT_CAR : RECENT_TRACK;
+    int count = 0;
+    for (int i = 0; i < a->recent.count; ++i) count += a->recent.kind[i] == kind;
+    if (!ImGui::BeginMenu("Open recent", count > 0)) return;
+    for (int i = 0; i < a->recent.count; ++i) {
+        if (a->recent.kind[i] != kind) continue;
+        ImGui::PushID(i);
+        if (ImGui::MenuItem(a->recent.dir[i], nullptr, false, recent_present(a->recent.dir[i], a->recent.kind[i]))) app_ask(a, APP_ACT_RECENT, a->recent.dir[i]);
+        ImGui::PopID();
+    }
+    ImGui::EndMenu();
+}
+
+static void workspace_menu(App *a)
+{
+    if (!ImGui::BeginMenu("Workspace")) return;
+    if (ImGui::MenuItem("Choose folder...")) app_workspace_pick(a);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("One folder with cars/ and tracks/ in it: Open and New start there, and the start screen lists what it holds");
+    if (ImGui::MenuItem("No workspace", nullptr, false, a->workspace[0] != '\0')) app_workspace_clear(a);
+    if (a->workspace[0] != '\0') {
+        ImGui::Separator();
+        ImGui::TextDisabled("%s", a->workspace);
+    }
+    ImGui::EndMenu();
+}
+
 void main_menu(App *a)
 {
     if (!ImGui::BeginMainMenuBar()) return;
     if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem("Open car...")) app_ask(a, APP_ACT_OPEN_CAR, "");
-        if (ImGui::MenuItem("Open track...")) app_ask(a, APP_ACT_OPEN, "");
-        if (ImGui::MenuItem("New track...")) app_ask(a, APP_ACT_NEW, "");
-        if (ImGui::MenuItem("Export original car...")) a->export_dialog = 1;
-        if (ImGui::MenuItem("Track light...")) app_ask(a, APP_ACT_OPEN_LIGHT, "");
-        if (ImGui::BeginMenu("Workspace")) {
-            if (ImGui::MenuItem("Choose folder...")) app_workspace_pick(a);
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("One folder with cars/ and tracks/ in it: Open and New start there, and the start screen lists what it holds");
-            if (ImGui::MenuItem("No workspace", nullptr, false, a->workspace[0] != '\0')) app_workspace_clear(a);
-            if (a->workspace[0] != '\0') {
-                ImGui::Separator();
-                ImGui::TextDisabled("%s", a->workspace);
+        FileItem items[12];
+        const int n = file_items(a, items);
+        for (int i = 0; i < n; ++i) {
+            const FileItem item = items[i];
+            if (item == FILE_SEPARATOR) ImGui::Separator();
+            else if (item == FILE_RECENT) recent_menu(a);
+            else if (item == FILE_WORKSPACE) workspace_menu(a);
+            else if (item == FILE_SAVE) {
+                char save_keys[16];
+                shortcut_label(save_keys, sizeof save_keys, SHORTCUT_MAC, "S");   // Save is Cmd+S on a Mac, Ctrl+S elsewhere, a car's and a track's
+                if (ImGui::MenuItem("Save", save_keys, false, !app_rehacer_busy(a))) app_save(a);   // as the keys: not while Rehacer works on the kit
+            } else if (item == FILE_MAIN) {
+                char keys[16];
+                shortcut_label(keys, sizeof keys, SHORTCUT_MAC, "W");
+                if (ImGui::MenuItem("Main menu", keys)) app_ask(a, APP_ACT_MAIN, "");
+            } else if (ImGui::MenuItem(file_label(item))) {
+                if (item == FILE_NEW_TRACK) app_ask(a, APP_ACT_NEW, "");
+                else if (item == FILE_OPEN_TRACK) app_ask(a, APP_ACT_OPEN, "");
+                else if (item == FILE_LIGHT) app_ask(a, APP_ACT_OPEN_LIGHT, "");
+                else if (item == FILE_OPEN_CAR) app_ask(a, APP_ACT_OPEN_CAR, "");
+                else if (item == FILE_EXPORT) a->export_dialog = 1;
+                else if (item == FILE_QUIT) app_ask(a, APP_ACT_QUIT, "");
             }
-            ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu("Open recent", a->recent.count > 0)) {
-            for (int i = 0; i < a->recent.count; ++i) {
-                char label[SESSION_PATH + 16];
-                snprintf(label, sizeof label, "%s  (%s)", a->recent.dir[i], a->recent.kind[i] == RECENT_CAR ? "car" : "track");
-                ImGui::PushID(i);
-                if (ImGui::MenuItem(label, nullptr, false, recent_present(a->recent.dir[i], a->recent.kind[i]))) app_ask(a, APP_ACT_RECENT, a->recent.dir[i]);
-                ImGui::PopID();
-            }
-            ImGui::EndMenu();
-        }
-        ImGui::Separator();
-        char save_keys[16];
-        shortcut_label(save_keys, sizeof save_keys, SHORTCUT_MAC, "S");   // Save is Cmd+S on a Mac, Ctrl+S elsewhere, a car's and a track's
-        if (ImGui::MenuItem("Save", save_keys, false, a->kind != APP_KIND_NONE && !app_rehacer_busy(a))) app_save(a);   // as the keys: not while Rehacer works on the kit
-        if (ImGui::MenuItem("Quit")) app_ask(a, APP_ACT_QUIT, "");
         ImGui::EndMenu();
     }
     if (a->kind != APP_KIND_NONE && ImGui::BeginMenu("Edit")) {
@@ -425,6 +482,38 @@ void main_menu(App *a)
     }
     window_menu(a);
     ImGui::EndMainMenuBar();
+}
+
+// New track with a workspace: only a name is asked for; the id (the folder in <workspace>/tracks) is made from it, shown, and may be typed over; Create makes the track
+void new_track_popup(App *a)
+{
+    static const char *const NAME = "New track";
+    if (a->new_track_dialog && !ImGui::IsPopupOpen(NAME)) ImGui::OpenPopup(NAME);
+    if (!ImGui::BeginPopupModal(NAME, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+    if (!a->new_track_dialog) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    ImGui::TextUnformatted("Name");
+    ImGui::SameLine();
+    if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+    if (ImGui::InputText("##name", a->new_track_name, sizeof a->new_track_name) && !a->new_track_id_typed)
+        workspace_id_from_name(a->new_track_name, a->new_track_id, sizeof a->new_track_id, MOD_INI_ID_MAX);
+    ImGui::TextUnformatted("Id  ");
+    ImGui::SameLine();
+    if (ImGui::InputText("##id", a->new_track_id, sizeof a->new_track_id)) a->new_track_id_typed = 1;
+    ImGui::SameLine();
+    help_marker("The id is the track's folder in the workspace's tracks/. It is made from the name; type over it to choose another.");
+    if (a->new_track_error[0] != '\0') ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "%s", a->new_track_error);
+    ImGui::Spacing();
+    const bool create = ImGui::Button("Create") || ImGui::IsKeyPressed(ImGuiKey_Enter, false);
+    ImGui::SameLine();
+    const bool cancel = ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape, false);
+    if (create && app_new_track_named(a, a->new_track_name, a->new_track_id)) a->new_track_dialog = 0;
+    if (cancel) a->new_track_dialog = 0, a->new_track_error[0] = '\0';
+    if (!a->new_track_dialog) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
 }
 
 // "Could not open <folder>": the reason an Open, New or recent gave (a->open_error), with OK; a car that is not one says what was looked at and what is missing
@@ -465,6 +554,7 @@ void confirm_popup(App *a)
         ++age;
         const char *then = a->confirm == APP_ACT_QUIT ? "quitting" : a->confirm == APP_ACT_NEW || a->confirm == APP_ACT_NEW_AT ? "starting a new track"
                                                                                                                               : a->confirm == APP_ACT_LIGHT_AT ? "choosing another light folder"
+                                                                                                                                                               : a->confirm == APP_ACT_MAIN ? "going to the main menu"
                                                                                                                                                                : "opening another project";
         ImGui::Text("Save the changes to \"%s\" before %s?", a->kind == APP_KIND_CAR ? a->car.info.id : a->kind == APP_KIND_LIGHT ? "the light file" : a->project.id, then);
         ImGui::Spacing();
@@ -502,6 +592,17 @@ static bool is_panel_window(const ImGuiWindow *w)
 {
     const ImGuiWindowFlags not_panel = ImGuiWindowFlags_ChildWindow | ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_Modal;
     return (w->Flags & not_panel) == 0 && !w->IsFallbackWindow && strncmp(w->Name, "Debug", 5) != 0 && strncmp(w->Name, "##", 2) != 0;
+}
+
+void ui_print_menu(const App *a)
+{
+    FileItem items[12];
+    const int n = file_items(a, items);
+    const AppRoom room = app_room(a);
+    printf("room: %s\nfile:", room == APP_ROOM_CARS ? "cars" : room == APP_ROOM_TRACKS ? "tracks" : "hub");
+    for (int i = 0; i < n; ++i)
+        if (items[i] != FILE_SEPARATOR) printf("%s%s", i == 0 ? " " : " | ", file_label(items[i]));
+    printf("\n");
 }
 
 void ui_print_panels(const App *a)
@@ -659,6 +760,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     if (a->kind != APP_KIND_NONE && ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_L, ImGuiInputFlags_RouteGlobal)) ui_reset_layout();
+    if (a->kind != APP_KIND_NONE && ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_W, ImGuiInputFlags_RouteGlobal)) app_ask(a, APP_ACT_MAIN, "");   // Cmd+W: the main menu
     const bool reset = g_reset_in > 0 && --g_reset_in == 0 && a->kind != APP_KIND_NONE;   // Reset layout's countdown ends: this frame rebuilds the dock
     g_app = a;
     main_menu(a);
@@ -724,6 +826,7 @@ void ui_frame(SDL_Renderer *ren, App *a)
     }
     export_popup(a);
     confirm_popup(a);
+    new_track_popup(a);
     open_error_popup(a);
     ImGui::Render();
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), ren);

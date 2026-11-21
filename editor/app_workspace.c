@@ -1,12 +1,20 @@
 /* The workspace of the App (app.h's app_workspace_*): the folder with cars/ and tracks/, what it holds, and where the folder dialogs start. */
 #include "app.h"
 
+#include "formats/mod_ini.h"
+
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 
 static int present(const char *dir, int kind)
 {
     return recent_present(dir, kind == WORKSPACE_KIND_CAR ? RECENT_CAR : RECENT_TRACK);
+}
+
+void app_workspace_refresh(App *a)
+{
+    workspace_scan(a->workspace, present, &a->workspace_list);
 }
 
 static void keep(const App *a)
@@ -79,4 +87,33 @@ void app_dialog_dir(const App *a, AppAction kind, char *out, size_t cap)
     }
     const int car = kind == APP_ACT_OPEN_CAR || kind == APP_ACT_EXPORT_PICK;
     workspace_start_dir(kind == APP_ACT_WORKSPACE_PICK ? "" : a->workspace, car ? WORKSPACE_KIND_CAR : WORKSPACE_KIND_TRACK, a->dir, out, cap);
+}
+
+int app_new_track_named(App *a, const char *name, const char *id)
+{
+    char made[MOD_INI_ID_MAX + 1], path[APP_PATH], text[APP_MSG];
+    text[0] = '\0';
+    if (a->workspace[0] == '\0') snprintf(text, sizeof text, "no workspace: New track asks for a folder");
+    else if (name == NULL || name[strspn(name, " ")] == '\0') snprintf(text, sizeof text, "give the track a name");
+    else {
+        if (id == NULL || id[0] == '\0') id = workspace_id_from_name(name, made, sizeof made, MOD_INI_ID_MAX) ? made : "";
+        if (!mod_ini_id_ok(id)) snprintf(text, sizeof text, "the id may hold only a-z, 0-9 and '-' (not first), up to %d", MOD_INI_ID_MAX);
+        else if (!workspace_path(a->workspace, WORKSPACE_KIND_TRACK, id, path, sizeof path)) snprintf(text, sizeof text, "the workspace's path is too long");
+        else {
+            struct stat st;
+            if (stat(path, &st) == 0) snprintf(text, sizeof text, "\"%s\" already exists in the workspace's tracks: choose another name or id", id);
+        }
+    }
+    if (text[0] != '\0') {
+        snprintf(a->new_track_error, sizeof a->new_track_error, "%s", text);
+        snprintf(a->status, sizeof a->status, "%s", text);
+        return 0;
+    }
+    if (!app_new_project(a, path)) return 0;
+    char why[APP_MSG];   /* the project's title is what was typed; the folder and id are the id's */
+    if (project_set_name(a->dir, name, why, sizeof why)) snprintf(a->project.name, sizeof a->project.name, "%s", name);
+    else snprintf(a->status, sizeof a->status, "the track was made, its name was not kept: %s", why);
+    a->new_track_error[0] = '\0';
+    app_workspace_refresh(a);
+    return 1;
 }
