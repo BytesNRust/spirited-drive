@@ -83,12 +83,12 @@ if [ -n "$orig" ] && [ -r "$orig/SIMDATA/CARFAMS/F512TR.CFM" ] && [ -d "$real_ma
     for car in F512TR CZR1; do
         [ -s "$work/real/$car/dash_color.png" ] && [ -s "$work/real/$car/sheet.png" ] || fail "no draft or sheet for $car"
     done
-    "$py" - "$work" <<'PY' || fail "the 512TR's sheet is not three panels, or its draft has no colour"
+    "$py" - "$work" <<'PY' || fail "the 512TR's sheet is not four panels, or its draft has no colour"
 import sys
 from PIL import Image
 w = sys.argv[1]
 s = Image.open(w + "/real/F512TR/sheet.png")
-assert s.size == (1920, 480), s.size
+assert s.size == (2560, 480), s.size
 c = Image.open(w + "/real/F512TR/dash_color.png").convert("RGBA")
 assert any(p[3] == 255 for n, p in c.getcolors(1 << 20))
 PY

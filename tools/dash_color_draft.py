@@ -17,11 +17,12 @@ usage: dash_color_draft.py [--game GAME --data DIR] [--stems A,B | --all] [--def
                   dumped by running the game headless in each car's cockpit at night (about 10 s a car); the dump dir is made if it is not there.
 <dash masks dir>  data/dash_masks (read only): <CAR>/dash_mask.png for each dash. By default the dashes with no dash_color.png; --all also the ones that have, --stems names some.
 <output dir>      gets <CAR>/dash_mask.png (a copy, so the folder works as TNFS_DASH_MASKS), <CAR>/dash_color.png (the draft) and <CAR>/sheet.png: the dash | the draft | with --game,
-                  the cockpit photo at night with the draft. Never inside art/ or data/, and a file that is there is never written over: the run stops before it writes anything.
+                  the cockpit photo at night (TR1) with the draft | that photo enlarged on the lit part. Never inside art/ or data/, and a file that is there is never written over: the run stops before it writes anything.
 Needs Pillow. The game's cockpit photo is the same one Studio's Race photo takes (Cockpit, Night, Gauge light 5).
 """
 import argparse
 import colorsys
+import math
 import importlib.util
 import os
 import subprocess
@@ -32,7 +33,8 @@ from PIL import Image, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WIDTH, HEIGHT = 640, 480
-GAUGE_JOIN = 10        # lit pixels this close are one gauge
+GAUGE_JOIN = 2         # lit pixels this close are one element (a numeral, a tick, a needle)
+NEIGHBOUR = 60         # an element with no hue of its own takes the colour of the nearest one that has, when it is this close (same dial)
 PAINT_MARGIN = 2       # the draft reaches this far round the lit pixels
 FOLD_DISTANCE = 48     # game/race/dash_color.h: colours this near (sum of the channel differences) share a slot
 MAX_COLOURS = 12
@@ -40,7 +42,7 @@ ORANGE = (255, 128, 0)  # a lit part with no colour glows this (gauge_light 3), 
 LIT = {(0, 255, 0), (255, 255, 255), (255, 255, 0)}
 # the game's car number (--car) of each dash's stem in a headless photo (editor/car_export.c: the model)
 CAR_NUMBER = {"TSUPRA": 0, "LDIABL": 1, "P911": 2, "CZR1": 3, "F512TR": 4, "DVIPER": 5, "ANSX": 6, "MRX7": 7}
-GAME_ARGS = ["--drive", "TR5", "--racers", "1", "--node", "200"]
+GAME_ARGS = ["--drive", "TR1", "--racers", "1", "--node", "200"]
 
 
 def load_tool(name):
@@ -138,10 +140,28 @@ def fold(colours):
     return out
 
 
+def centre(group):
+    return (sum(p[0] for p in group) / len(group), sum(p[1] for p in group) / len(group))
+
+
+def element_colours(art, groups, fallback):
+    """The hue of each element from the art under it; one with no hue takes the nearest hued element's within NEIGHBOUR (its own dial), else `fallback`."""
+    own = [hue_of(art, g, None) for g in groups]
+    centres = [centre(g) for g in groups]
+    out = []
+    for k, colour in enumerate(own):
+        if colour is None:
+            near = [(math.hypot(centres[k][0] - centres[j][0], centres[k][1] - centres[j][1]), own[j]) for j in range(len(groups)) if own[j] is not None]
+            near = [n for n in near if n[0] <= NEIGHBOUR]
+            colour = min(near)[1] if near else fallback
+        out.append(colour)
+    return out
+
+
 def draft(art, lit, fallback=ORANGE):
-    """The RGBA draft: each gauge's lit pixels and PAINT_MARGIN round them in the gauge's colour; (image, [colour of each gauge])."""
+    """The RGBA draft: each element's lit pixels and PAINT_MARGIN round them in the element's colour; (image, [colour of each element])."""
     groups = gauges(lit)
-    colours = fold([hue_of(art, g, fallback) for g in groups])
+    colours = fold(element_colours(art, groups, fallback))
     image = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
     pixels = image.load()
     for group, colour in zip(groups, colours):
@@ -206,6 +226,20 @@ def sheet(panels):
     for k, panel in enumerate(panels):
         image.paste(panel, (k * WIDTH, 0))
     return image
+
+
+def zoom(photo, lit):
+    """The part of the photo the lit pixels cover, enlarged to fill a panel."""
+    xs = [p[0] for p in lit]
+    ys = [p[1] for p in lit]
+    if not xs:
+        return Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+    x0, x1, y0, y1 = max(0, min(xs) - 16), min(WIDTH, max(xs) + 17), max(0, min(ys) - 16), min(HEIGHT, max(ys) + 17)
+    scale = min(WIDTH / (x1 - x0), HEIGHT / (y1 - y0))
+    crop = photo.crop((x0, y0, x1, y1)).resize((max(1, int((x1 - x0) * scale)), max(1, int((y1 - y0) * scale))), Image.LANCZOS)
+    panel = Image.new("RGB", (WIDTH, HEIGHT), (0, 0, 0))
+    panel.paste(crop, (0, 0))
+    return panel
 
 
 def on_art(art, draft_image):
@@ -278,7 +312,8 @@ def main(argv):
             return "%s holds no %s.ppm: dump it with the game (--game and --data do)" % (args.dump, stem)
         art = dash_image(psd_tool, args.dump, stem)
         mask_path = os.path.join(args.masks, folders[stem], "dash_mask.png")
-        image, colours = draft(art, lit_pixels(mask_path), fallback)
+        lit = lit_pixels(mask_path)
+        image, colours = draft(art, lit, fallback)
         target = os.path.join(args.out, folders[stem])
         os.makedirs(target, exist_ok=True)
         with open(mask_path, "rb") as src, open(os.path.join(target, "dash_mask.png"), "xb") as dst:
@@ -291,7 +326,7 @@ def main(argv):
             if photo is None:
                 print("%s: no photo (%s)" % (stem, why), file=sys.stderr)
             else:
-                panels.append(photo)
+                panels.extend([photo, zoom(photo, lit)])
         with open(os.path.join(target, "sheet.png"), "xb") as dst:
             sheet(panels).save(dst, "PNG")
         print("%s: %d gauges, colours %s -> %s" % (stem, len(colours), sorted(set("#%02x%02x%02x" % c for c in colours)), target))
