@@ -272,6 +272,11 @@ grep -q "^status: curve added" "$work/log" || fail "Add curve does not work with
 # a road that goes straight 300 m, turns right round a U and comes back south: curve mode finds straight, (the corner's wobble to the left), right, straight
 mkdir "$work/cs"
 printf '{\n  "version": 1,\n  "width": 40.0,\n  "points": [[0,0],[0,100],[0,200],[0,300],[30,390],[100,430],[190,420],[260,360],[280,260],[280,160],[280,60]]\n}\n' > "$work/cs/trace.json"
+# the Distance strip's profile line is coloured by the same classes (the right turn orange); in Limits it is not (their own --user: the saved window layout of a 960x1200 run would move the 1280x960 runs' clicks)
+"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 8 --steps colour-by:1 --shot "$work/profile-curve.png" >"$work/log" 2>&1 || fail "profile in Colour by curve: $(cat "$work/log")"
+png_check "$work/profile-curve.png" profile-curve
+"$editor" "$work/cs" --user "$work/cs-p" --window 960x1200 --frames 8 --shot "$work/profile-limits.png" >"$work/log" 2>&1 || fail "profile in Limits: $(cat "$work/log")"
+png_check "$work/profile-limits.png" profile-limits
 "$editor" "$work/cs" --user "$work/cs-u" --window 1280x960 --frames 12 --steps colour-by:1,print-classes,dblclick-road:280,200,print-sel,status >"$work/log" 2>&1 || fail "Colour by curve: $(cat "$work/log")"
 python3 - "$work/log" <<'PY' || fail "curve mode did not find a straight, the corner, the right turn and a straight: $(grep '^classes' "$work/log")"
 import sys, re

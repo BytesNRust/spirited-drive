@@ -52,7 +52,15 @@ def count(rgb, tol=12):
                  if abs(r - rgb[0]) <= tol and abs(g - rgb[1]) <= tol and abs(b - rgb[2]) <= tol)
     return n
 road, points, red, amber = count((200, 204, 212)), count((90, 160, 255)), count((255, 70, 70)), count((255, 176, 32))
-if mode == "good":   # the road was made and no limit breaks: no red, no amber
+def band(rgb, y0, y1, tol=6):   # the Distance strip's profile box is in rows 470-650 of the 960x1200 picture; the Viewport ends above it
+    return sum(1 for row in rows[y0:y1]
+               for r, g, b in zip(row[0::bpp], row[1::bpp], row[2::bpp])
+               if abs(r - rgb[0]) <= tol and abs(g - rgb[1]) <= tol and abs(b - rgb[2]) <= tol)
+if mode == "profile-curve":   # Colour by curve: the profile's line takes the stretch colours (the right turn is orange), as the road does
+    assert band((255, 150, 60), 470, 650) > 100, band((255, 150, 60), 470, 650)
+elif mode == "profile-limits":   # Limits: the profile's line is its own colour, no stretch colours
+    assert band((255, 150, 60), 470, 650) == 0, band((255, 150, 60), 470, 650)
+elif mode == "good":   # the road was made and no limit breaks: no red, no amber
     assert road > 400 and points > 100 and red == 0 and amber == 0, (road, points, red, amber)
 elif mode == "warn":   # a curve over an amber limit and under the red ones: amber nodes, no red
     assert road > 400 and points > 100 and amber > 20 and red == 0, (road, points, red, amber)

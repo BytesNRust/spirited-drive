@@ -5,7 +5,9 @@
 #include "panels.h"
 
 extern "C" {
+#include "app_colour.h"
 #include "app_select.h"
+#include "stretch_colours.h"
 }
 
 #include "help_marker.h"
@@ -145,13 +147,18 @@ void profile(App *a, const std::vector<double> &metres, double total, ImVec2 ori
     a->profile_drawn = { 1, origin.x, width, top, bottom, lo, hi, total };
     draw->PushClipRect(box0, box1, true);
     const ImU32 level = ImGui::GetColorU32(ImGuiCol_PlotLines), steep = IM_COL32(230, 70, 60, 255);
+    const uint8_t *classes = a->road_made ? app_colour_classes(a) : nullptr;   // Colour by: the line takes the stretch's colour, as the Viewport's road does
     for (int seg = 0; seg + 1 < count; ++seg) {
         const bool over = fabs(track_trace_segment_grade(points, metres.data(), count, seg, TRACE_GRADE_PERCENT)) > TRACK_GEN_GRADE_MAX_PERCENT;
         ImVec2 from(col_of(metres[(size_t)seg]), row_of(points[seg].h));
         for (int k = 1; k <= CURVE_STEPS; ++k) {
             const double frac = (double)k / CURVE_STEPS;
             const ImVec2 to(col_of(metres_at(metres, seg, frac)), row_of(track_trace_height_at(points, count, seg, frac)));
-            draw->AddLine(from, to, over ? steep : level, 2.0f);
+            ImU32 colour = level;
+            if (over) colour = steep;
+            else if (classes != nullptr)
+                colour = stretch_colour(a->colour_by, classes[track_trace_node_at(metres_at(metres, seg, (k - 0.5) / CURVE_STEPS), total, a->node_count)]);
+            draw->AddLine(from, to, colour, 2.0f);
             from = to;
         }
     }

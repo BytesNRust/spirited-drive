@@ -51,4 +51,8 @@ int track_trace_stretches(const uint8_t *classes, int count, TraceStretch *out, 
 /* the run that holds `node`: first and last set, 1; 0 when node is out of 0..count-1 */
 int track_trace_stretch_of(const uint8_t *classes, int count, int node, int *first, int *last);
 
+/* the node at `metres` along a profile of `total_m` metres, over `count` nodes spread evenly along it (the same rounding as the control points'); clamped to
+ * 0..count-1, 0 with no nodes. The height profile uses it to read a point of its line in the node classes. */
+int track_trace_node_at(double metres, double total_m, int count);
+
 #endif

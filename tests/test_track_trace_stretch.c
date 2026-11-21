@@ -110,6 +110,14 @@ static void test_stretches(void)
     CHECK(track_trace_stretches(c, 0, s, 2) == 0 && track_trace_stretches(NULL, 0, NULL, 0) == 0);
 }
 
+static void test_node_at(void)
+{
+    CHECK(track_trace_node_at(0, 100, 11) == 0 && track_trace_node_at(100, 100, 11) == 10 && track_trace_node_at(50, 100, 11) == 5);
+    CHECK(track_trace_node_at(54, 100, 11) == 5 && track_trace_node_at(56, 100, 11) == 6);   /* the nearest node */
+    CHECK(track_trace_node_at(-5, 100, 11) == 0 && track_trace_node_at(150, 100, 11) == 10);   /* clamped */
+    CHECK(track_trace_node_at(10, 100, 1) == 0 && track_trace_node_at(10, 100, 0) == 0 && track_trace_node_at(10, 0, 11) == 0);
+}
+
 static void test_names(void)
 {
     for (int m = 0; m < TRACE_COLOUR_MODES; ++m) {
@@ -125,6 +133,7 @@ int main(void)
     test_curve();
     test_node_modes();
     test_stretches();
+    test_node_at();
     test_names();
     return TEST_REPORT();
 }

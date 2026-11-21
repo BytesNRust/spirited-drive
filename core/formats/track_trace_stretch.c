@@ -161,3 +161,10 @@ int track_trace_stretch_of(const uint8_t *classes, int count, int node, int *fir
     *first = a, *last = b;
     return 1;
 }
+
+int track_trace_node_at(double metres, double total_m, int count)
+{
+    if (count < 2 || !(total_m > 0)) return 0;
+    const long node = lround(metres / total_m * (count - 1));
+    return node < 0 ? 0 : node >= count ? count - 1 : (int)node;
+}
