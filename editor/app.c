@@ -426,7 +426,9 @@ void app_carry_window(App *to, const App *from)
     to->export_src = from->export_src;   /* so does where the game's files are */
     to->export_pick = from->export_pick;
     to->drive_pick = from->drive_pick;   /* the editor's setting, not the project's */
-    memcpy(to->light_dir, from->light_dir, sizeof to->light_dir);
+    memcpy(to->light_dir, from->original_dir[0] != '\0' ? from->data_dir : from->light_dir, sizeof to->light_dir);   /* an original track's own light folder stays with it */
+    memcpy(to->data_dir, from->data_dir, sizeof to->data_dir);
+    memcpy(to->art_dir, from->art_dir, sizeof to->art_dir);
     memcpy(to->tools, from->tools, sizeof to->tools);   /* Convert PSD's folders are the window's too */
     memcpy(to->psd_root, from->psd_root, sizeof to->psd_root);
 }
@@ -526,6 +528,7 @@ int app_close_project(App *a)
 
 int app_open_project(App *a, const char *dir)
 {
+    if (original_track_present(dir)) return app_open_original(a, dir);
     if (!recent_is_project(dir)) {
         set_status(a, "that folder holds no project (no project.ini): use New to start one there");
         snprintf(a->open_error, sizeof a->open_error, "%s", a->status);

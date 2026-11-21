@@ -65,6 +65,7 @@ typedef struct {
     const char *light_compare;   /* --compare off|before|four: what the Track light window shows beside the photo (part D) */
     int light_hud;           /* --light-hud 0|1: the Track light photo with (1) or without (0) the game's HUD, -1 for none given */
     int light_view;          /* --light-view 0..5: the Track light window's photo camera (light_photo_view_name), -1 for none given */
+    const char *art_dir;     /* --art-dir DIR: the owner's track mask PSDs (<TRACK>/<name>.psd) that Add original tracks copies */
     const char *light_dir;   /* --light-dir DIR: the folder whose track_light/ the Track light window tunes (default: the source tree's data/) */
     const char *pick;        /* --pick FOLDER: the car chosen in the Export window before the first frame */
     const char *workspace;   /* --workspace DIR: the workspace folder (cars/ and tracks/ in it) for this run, kept like one chosen in the menu */
@@ -98,7 +99,7 @@ static int usage(void)
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--workspace DIR] [--pick FOLDER] [--convert-psd] [--psd-root DIR] [--race-photo [--photo-view] [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2] [--race-view follow|cockpit] [--gauge-light 0..5]]\n"
                     "       [--mask NAME] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-light PERCENT] [--night-tint R,G,B] [--preview-tex NAME] [--changes] [--card-backdrop FILE.png] [--add-photo FILE.png]...\n"
-                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--wheels still|slow|fast] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--light-view 0..5] [--light-hud 0|1] [--compare off|before|four]] [--steps STEP,...]\n");
+                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--wheels still|slow|fast] [--window WxH] [--reset-layout] [--light-dir DIR] [--art-dir DIR] [--ask light [--light TRACK:TIME:NODE] [--light-view 0..5] [--light-hud 0|1] [--compare off|before|four]] [--steps STEP,...]\n");
     return 0;
 }
 
@@ -174,6 +175,7 @@ static int parse_args(int argc, char **argv, Options *o)
             o->race_scale = v[0] - '0';
         }
         else if (strcmp(argv[i], "--light-dir") == 0 && has_value) o->light_dir = argv[++i];
+        else if (strcmp(argv[i], "--art-dir") == 0 && has_value) o->art_dir = argv[++i];
         else if (strcmp(argv[i], "--light") == 0 && has_value) o->light_pick = argv[++i];
         else if (strcmp(argv[i], "--light-hud") == 0 && has_value) {
             const char *v = argv[++i];
@@ -811,6 +813,12 @@ int main(int argc, char **argv)
         SDL_free(pref);
         app_set_export_source(app, &sources);
         app_set_game_lookup(app, tried, memo);
+        {   // the game's data/ for the original tracks: named, or the source tree's it was built from, or the one beside the program
+            char data[APP_PATH];
+            snprintf(data, sizeof data, "%s", o.port_data != NULL ? o.port_data : o.light_dir != NULL ? o.light_dir : STUDIO_LIGHT_DIR);
+            if (data[0] == '\0') app_light_default_dir(o.game, data, sizeof data);
+            app_set_game_data(app, data, o.art_dir);
+        }
         app_set_light_dir(app, o.light_dir != NULL ? o.light_dir : STUDIO_LIGHT_DIR);   /* the folder the Track light window tunes: named, or the source tree's data/ it was built from */
         app_check_game(app);   /* the window opens with what to do if the game is not found, not with a failed install later */
         status = run(app, &o) ? 0 : 1;

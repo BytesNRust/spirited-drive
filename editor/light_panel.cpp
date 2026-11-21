@@ -34,15 +34,20 @@ void picker(App *a)
     LightUi &ui = a->light;
     ImGui::TextUnformatted("Track");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(90.0f);
-    if (ImGui::BeginCombo("##lighttrack", light_ui_track(ui.track))) {
-        for (int i = 0; i < LIGHT_UI_TRACKS; ++i)
-            if (ImGui::Selectable(light_ui_track(i), i == ui.track) && i != ui.track) app_light_select(a, i, ui.time);
-        ImGui::EndCombo();
+    if (a->original_dir[0] != '\0') {   // an original track's own window: the track is fixed, only the time changes
+        ImGui::TextUnformatted(light_ui_track(ui.track));
+    } else {
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::BeginCombo("##lighttrack", light_ui_track(ui.track))) {
+            for (int i = 0; i < LIGHT_UI_TRACKS; ++i)
+                if (ImGui::Selectable(light_ui_track(i), i == ui.track) && i != ui.track) app_light_select(a, i, ui.time);
+            ImGui::EndCombo();
+        }
     }
     ImGui::SameLine();
-    help_marker("The CD's tracks, as the game's files name them. Their light files are the repo's data/track_light, one per time of day. Changing track or time asks for "
-                "Save or Revert first.");
+    help_marker(a->original_dir[0] != '\0' ? "This original track's light files, in its folder in the workspace: one per time of day. Changing the time asks for Save or Revert first. Publish to the game (File menu) copies them into the game's data/."
+                                           : "The CD's tracks, as the game's files name them. Their light files are the repo's data/track_light, one per time of day. Changing track or time asks for "
+                                             "Save or Revert first.");
     for (int t = 0; t < LIGHT_UI_TIMES; ++t) {
         if (t > 0) ImGui::SameLine();
         if (ImGui::RadioButton(light_ui_time_name(t), ui.time == t) && ui.time != t) app_light_select(a, ui.track, t);
@@ -250,6 +255,13 @@ void other_lines(const App *a)
 // the light folder this window tunes (or, in red, that none is set) and the button that asks for another
 void folder_row(App *a)
 {
+    if (a->original_dir[0] != '\0') {   // an original track: its folder in the workspace, no other to choose
+        ImGui::TextUnformatted("Original track");
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextWrapped("%s", a->original_dir);
+        ImGui::PopStyleColor();
+        return;
+    }
     ImGui::TextUnformatted("Light folder");
     ImGui::SameLine();
     if (ImGui::Button("Choose...")) a->go = APP_ACT_LIGHT_PICK;
