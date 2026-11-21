@@ -21,6 +21,8 @@ int ui_card_view(App *a, int card, int as_card);
 /* the card photo's backdrop (the steps card-backdrop:KIND,R,G,B and card-bd-bottom:R,G,B, and --card-backdrop FILE): 1 when the car is open to show it */
 int ui_card_backdrop(App *a, int kind, int r, int g, int b, int bottom);
 void ui_card_backdrop_file(const char *path);
+/* the picture chosen as the backdrop now ("" for none): where the file dialog starts */
+const char *ui_card_backdrop_path(void);
 int ui_open(SDL_Window *win, SDL_Renderer *ren, const char *ini, char *why, size_t why_cap);
 void ui_close(void);
 /* the editor's settings the ini had (ui_open reads it), into `a`: the car Test drive gives the player. Before the first frame, so a headless run has them too. */

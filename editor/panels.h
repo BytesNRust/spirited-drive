@@ -51,6 +51,7 @@ void photo_view_panel(App *a, ImTextureID photo);   // the photo in a large wind
 void model_panel(App *a, SDL_Renderer *ren);   // the open car in 3D: drag to turn, wheel to zoom, F S R T Home
 void model_panel_preset(double yaw, double pitch, int dist);
 int model_panel_backdrop(App *a, int kind, int r, int g, int b, int bottom);   // the card photo's backdrop (the step card-backdrop): kind 0 plain, 1 gradient, 2 picture; the colour is the top one, or the bottom one when `bottom`
+const char *model_panel_backdrop_path();   // the backdrop's picture now ("" for none)
 void model_panel_backdrop_file(const char *path);   // a picture as the backdrop (--card-backdrop)
 int model_panel_card_view(App *a, bool card, bool as_card);   // the Card view and As on the card boxes set (the step card-view): 1 when the car is open
 int model_panel_card_photo(App *a);   // «Use as card photo» as its button does it, without the question about a card.png that is there (the step card-photo, through ui_card_photo): 1 when it was made

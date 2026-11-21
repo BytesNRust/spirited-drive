@@ -277,7 +277,7 @@ void card_view_controls(const App *a)
         ImGui::SetTooltip("%s", !g.cpal_ok ? g.cpal_why : !g.card_view ? "Needs Card view." : "The picture in Control Central's palette, dithered as the game does it when it draws the card.");
 }
 
-void backdrop_controls()
+void backdrop_controls(App *a)
 {
     static const char *const KINDS[] = { "Plain colour", "Gradient", "Picture" };
     ImGui::SetNextItemWidth(110);
@@ -307,7 +307,10 @@ void backdrop_controls()
     }
     if (g.backdrop.kind == CARD_BACKDROP_FILE) {
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(240);
+        if (ImGui::Button("Choose...")) a->backdrop_dialog = 1;
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Pick a PNG picture to stand behind the car");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(200);
         if (ImGui::InputTextWithHint("##backfile", "path of a PNG", g.backdrop.file, sizeof g.backdrop.file, ImGuiInputTextFlags_EnterReturnsTrue)) g.back_dirty = true;
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("A PNG picture, fitted to cover the card's 309 x 166 (Enter to load it)");
         if (g.back_why[0] != '\0') {
@@ -364,7 +367,7 @@ void toolbar(App *a)
     card_photo_button(a);
     ImGui::SameLine();
     card_view_controls(a);
-    backdrop_controls();
+    backdrop_controls(a);
 }
 
 void turn_and_zoom()
@@ -397,6 +400,11 @@ int model_panel_backdrop(App *a, int kind, int r, int gr, int b, int bottom)
     }
     g.back_dirty = true;
     return 1;
+}
+
+const char *model_panel_backdrop_path()
+{
+    return g.backdrop.file;
 }
 
 void model_panel_backdrop_file(const char *path)

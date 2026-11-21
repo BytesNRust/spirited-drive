@@ -52,7 +52,8 @@ typedef enum {
     APP_ACT_LIGHT_PICK,  /* a light folder is asked for (main.c's dialog), from the Track light window's Choose... */
     APP_ACT_LIGHT_AT,    /* the folder that dialog gave, in the path: the window is on it (app_light_set_folder) */
     APP_ACT_MAIN,        /* back to the main menu (the hub): the project is closed (app_close_project), after the question about unsaved changes */
-    APP_ACT_WORKSPACE_PICK /* a workspace folder is asked for (main.c's dialog); the folder that dialog gives is the workspace at once (app_workspace_set), with no question about unsaved changes */
+    APP_ACT_WORKSPACE_PICK, /* a workspace folder is asked for (main.c's dialog); the folder that dialog gives is the workspace at once (app_workspace_set), with no question about unsaved changes */
+    APP_ACT_BACKDROP_PICK /* main.c's file dialog is on screen for the card photo's backdrop picture (a->backdrop_dialog asks for it): nothing in the project changes, so no question */
 } AppAction;
 
 /* the answers to "unsaved changes" */
@@ -119,6 +120,7 @@ typedef struct {
     char game_memo[APP_PATH];    /* the file that remembers the game the user located ("" for none) */
     char user[APP_PATH];         /* the player folder the install goes to */
     ExportSource export_src;     /* where Export original car reads the game's files from (car_export_source) */
+    int backdrop_dialog;         /* the Model window's Choose... asks main.c for a PNG file dialog (the card photo's backdrop); main.c takes it back to 0 */
     int export_dialog;           /* the Export original car window is up */
     int export_pick;             /* the car chosen in it (car_export_car's index), -1 for none */
     RaceJob race;                /* Test in race / Race photo of the open original car (car_race.h), running or last run */

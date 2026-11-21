@@ -279,7 +279,7 @@ typedef struct {
     SDL_Mutex *lock;
     int open;                /* a dialog is on screen */
     int ready;               /* it was answered: `path` is the folder, "" when it was cancelled */
-    AppAction kind;          /* APP_ACT_NEW, APP_ACT_OPEN, APP_ACT_OPEN_CAR, APP_ACT_EXPORT_PICK, APP_ACT_LIGHT_PICK or APP_ACT_WORKSPACE_PICK */
+    AppAction kind;          /* APP_ACT_NEW, APP_ACT_OPEN, APP_ACT_OPEN_CAR, APP_ACT_EXPORT_PICK, APP_ACT_LIGHT_PICK or APP_ACT_WORKSPACE_PICK (folders); APP_ACT_BACKDROP_PICK (a PNG file) */
     char path[APP_PATH];
 } Dialog;
 
@@ -311,6 +311,22 @@ static void dialog_start(SDL_Window *win, App *a, AppAction kind)
     g_dialog.ready = 0;
     g_dialog.kind = kind;
     SDL_ShowOpenFolderDialog(dialog_done, &g_dialog, win, where[0] != '\0' ? where : NULL, false);
+}
+
+/* The file dialog for the card photo's backdrop picture (a PNG), starting beside the picture already chosen, else where the open car lives */
+static void file_dialog_start(SDL_Window *win, const App *a, const char *from)
+{
+    if (g_dialog.lock == NULL) g_dialog.lock = SDL_CreateMutex();
+    if (g_dialog.lock == NULL || g_dialog.open) return;
+    static const SDL_DialogFileFilter PNG_FILES[] = { { "PNG pictures", "png" } };
+    char where[APP_PATH];
+    snprintf(where, sizeof where, "%s", from[0] != '\0' ? from : a->dir);
+    char *slash = strrchr(where, '/');
+    if (from[0] != '\0' && slash != NULL && slash != where) *slash = '\0';
+    g_dialog.open = 1;
+    g_dialog.ready = 0;
+    g_dialog.kind = APP_ACT_BACKDROP_PICK;
+    SDL_ShowOpenFileDialog(dialog_done, &g_dialog, win, PNG_FILES, 1, where[0] != '\0' ? where : NULL, false);
 }
 
 /* what to do with an action that is ready to go (confirmed, or nothing was unsaved); 1 to quit */
@@ -376,6 +392,10 @@ static void take_dialog(App *a)
     SDL_UnlockMutex(g_dialog.lock);
     if (path[0] == '\0') {
         if (answered) app_pick_cancelled(a);   /* a cancelled picker: the answer given before it is dropped */
+        return;
+    }
+    if (kind == APP_ACT_BACKDROP_PICK) {   /* a picture for the card photo: nothing in the project changes, no question */
+        ui_card_backdrop_file(path);
         return;
     }
     if (kind == APP_ACT_WORKSPACE_PICK) {   /* it changes no project: no question about unsaved changes */
@@ -692,6 +712,10 @@ static int run(App *a, const Options *o)
             window_event(a, &ev);
         }
         take_dialog(a);
+        if (a->backdrop_dialog) {   /* the Model window's Choose... (a headless run has the typed path and --card-backdrop) */
+            a->backdrop_dialog = 0;
+            if (!headless) file_dialog_start(win, a, ui_card_backdrop_path());
+        }
         if (a->reveal[0] != '\0') {   /* a folder or file to show in the Finder (the Masks window's and the Mask panel's buttons) */
             if (!headless) reveal(a);
             a->reveal[0] = '\0';
