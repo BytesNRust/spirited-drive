@@ -241,8 +241,53 @@ static void test_not_a_light_folder(void)
     mkdir(bare, 0777);
     app_set_light_dir(a, bare);
     CHECK(!app_open_light(a) && a->kind == APP_KIND_NONE && strstr(a->open_error, "track_light") != NULL);   // the window says why, the start screen stays
-    app_set_light_dir(a, "");
-    CHECK(!app_open_light(a) && a->kind == APP_KIND_NONE && a->open_error[0] != '\0');
+    app_free(a);
+    free(a);
+}
+
+/* the packaged app has no source tree: the window opens saying no folder is set, Choose... (app_light_set_folder) refuses what is no light folder and what would drop
+ * unsaved edits, then takes the folder and keeps it; the game's own data folder is the default when it has track_light/ */
+static void test_choose_folder(void)
+{
+    char pack[EXPORT_PATH + 64], dir[EXPORT_PATH + 64], found[EXPORT_PATH + 128];
+    snprintf(pack, sizeof pack, "%s/pack", root);
+    mkdir(pack, 0777);
+    snprintf(dir, sizeof dir, "%s/Contents", pack);
+    mkdir(dir, 0777);
+    snprintf(dir, sizeof dir, "%s/Contents/MacOS", pack);
+    mkdir(dir, 0777);
+    snprintf(dir, sizeof dir, "%s/Contents/Resources", pack);
+    mkdir(dir, 0777);
+    snprintf(dir, sizeof dir, "%s/Contents/Resources/data", pack);
+    mkdir(dir, 0777);
+    char program[EXPORT_PATH + 64];
+    snprintf(program, sizeof program, "%s/Contents/MacOS/tnfs", pack);
+    CHECK(!app_light_default_dir(program, found, sizeof found));   // a data folder with no track_light/ is not a light folder
+    snprintf(dir, sizeof dir, "%s/Contents/Resources/data/track_light", pack);
+    mkdir(dir, 0777);
+    CHECK(app_light_default_dir(program, found, sizeof found) && strstr(found, "Contents/MacOS/../Resources/data") != NULL);
+    CHECK(!app_light_default_dir("", found, sizeof found) && !app_light_default_dir(NULL, found, sizeof found) && !app_light_default_dir("tnfs", found, sizeof found));
+
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, fake, "", NULL);   // a game with no data folder beside it, and no folder set
+    CHECK(a->light_dir[0] == '\0');
+    CHECK(app_open_light(a) && a->kind == APP_KIND_LIGHT && !a->light.open && strstr(a->light.error, "No light folder") != NULL && a->light_dir[0] == '\0');
+    CHECK(!app_modified(a) && !app_light_select(a, 1, 1) && !app_light_photo(a) && !app_light_busy(a));
+    app_light_revert(a);   // nothing open: harmless
+    CHECK(!app_light_set_folder(a, root) && !a->light.open && a->light.error[0] != '\0' && a->light_dir[0] == '\0');   // root has no track_light/
+    CHECK(app_light_set_folder(a, light) && a->light.open && strcmp(a->light_dir, light) == 0 && a->light.error[0] == '\0');
+    CHECK(strcmp(light_ui_track(a->light.track), "AL1") == 0 && a->light.time == 1);
+    // unsaved edits: another folder is refused until they are saved or reverted
+    const LightBrightness b = { 0, a->light.session.file.nodes - 1, 40 };
+    char why[200];
+    CHECK(light_file_set_brightness(&a->light.session.file, -1, &b, why, sizeof why));
+    app_light_touch(a);
+    CHECK(app_modified(a) && !app_light_set_folder(a, light) && strstr(a->light.error, "unsaved") != NULL);
+    app_light_revert(a);
+    CHECK(!app_modified(a) && app_light_set_folder(a, light));
+    CHECK(!app_light_set_folder(a, root) && a->light.open && strcmp(a->light_dir, light) == 0);   // a refused folder leaves the open one
     app_free(a);
     free(a);
 }
@@ -265,6 +310,7 @@ int main(int argc, char **argv)
     snprintf(record, sizeof record, "%s/record", root);
     test_flow();
     test_not_a_light_folder();
+    test_choose_folder();
     car_race_temp_remove(root);
     if (argc > 3) test_real_game(repo, argv[2], argv[3]);
     return TEST_REPORT();

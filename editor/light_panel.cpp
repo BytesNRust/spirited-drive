@@ -233,12 +233,32 @@ void other_lines(const App *a)
     ImGui::EndChild();
 }
 
+// the light folder this window tunes (or, in red, that none is set) and the button that asks for another
+void folder_row(App *a)
+{
+    ImGui::TextUnformatted("Light folder");
+    ImGui::SameLine();
+    if (ImGui::Button("Choose...")) a->go = APP_ACT_LIGHT_PICK;
+    if (a->light_dir[0] != '\0' && a->light.open) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextWrapped("%s", a->light_dir);
+        ImGui::PopStyleColor();
+    } else {
+        bad_text(a->light.error[0] != '\0' ? a->light.error : "no folder set");
+    }
+}
+
 }   // namespace
 
 void light_panel(App *a)
 {
     LightUi &ui = a->light;
     if (ImGui::Begin(PANEL_LIGHT)) {
+        folder_row(a);
+        if (!ui.open) {   // no folder yet: nothing to tune until one is chosen
+            ImGui::End();
+            return;
+        }
         picker(a);
         if (!ui.session.has_file) {
             ImGui::TextDisabled("No light file for this track");
@@ -277,7 +297,7 @@ void light_photo_panel(App *a, ImTextureID photo)
         } else if (!running && ui.session.has_file && ui.error[0] == '\0') {
             ImGui::TextDisabled("no photo yet");
         }
-        if (ui.error[0] != '\0' && ui.photo.rgba == nullptr) bad_text(ui.error);
+        if (ui.open && ui.error[0] != '\0' && ui.photo.rgba == nullptr) bad_text(ui.error);   // with no folder the folder row says it
     }
     ImGui::End();
 }

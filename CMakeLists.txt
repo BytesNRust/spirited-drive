@@ -1046,7 +1046,9 @@ if(NOT EMSCRIPTEN AND TNFS_EDITOR)
             endif()
         endforeach()
     endforeach()
-    target_compile_definitions(tnfs-track-editor PRIVATE STUDIO_LIGHT_DIR="${CMAKE_SOURCE_DIR}/data")   # the Track light window tunes the repo's light files unless --light-dir says otherwise
+    if(NOT TNFS_RELEASE)   # a packaged app holds no path of the source tree (tools/package_macos.sh checks): its Track light window asks for a folder (Choose...)
+        target_compile_definitions(tnfs-track-editor PRIVATE STUDIO_LIGHT_DIR="${CMAKE_SOURCE_DIR}/data")   # the Track light window tunes the repo's light files unless --light-dir says otherwise
+    endif()
     target_compile_options(tnfs-track-editor PRIVATE ${TNFS_WARNINGS})
     if(NOT MSVC)
         target_compile_options(tnfs-track-editor PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions -fno-rtti>)

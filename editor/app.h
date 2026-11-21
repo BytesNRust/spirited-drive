@@ -44,7 +44,9 @@ typedef enum {
     APP_ACT_OPEN_CAR_AT, /* the folder that dialog gave, in the path */
     APP_ACT_EXPORT_PICK, /* a folder to make the exported car's project in is asked for (main.c's dialog); the car is a->export_pick */
     APP_ACT_EXPORT_AT,   /* the folder that dialog gave, in the path: the project is made in it and opened */
-    APP_ACT_OPEN_LIGHT   /* the Track light window on the light folder a->light_dir */
+    APP_ACT_OPEN_LIGHT,  /* the Track light window on the light folder a->light_dir */
+    APP_ACT_LIGHT_PICK,  /* a light folder is asked for (main.c's dialog), from the Track light window's Choose... */
+    APP_ACT_LIGHT_AT     /* the folder that dialog gave, in the path: the window is on it (app_light_set_folder) */
 } AppAction;
 
 /* the answers to "unsaved changes" */
@@ -268,6 +270,12 @@ int app_track_undo(App *a, int redo);
  * caller asked first: app_ask APP_ACT_OPEN_LIGHT) and opens the window on that folder, at the first track's day; 0, with open_error, when the folder is no light folder. */
 void app_set_light_dir(App *a, const char *dir);
 int app_open_light(App *a);
+/* The game's own light folder: <program's folder>/../Resources/data (a packaged app) or <program's folder>/data, the first that holds a track_light/ folder; 1 and its
+ * path in `out`, else 0. A packaged Studio has no source tree to tune, so this is what it offers until a folder is chosen. */
+int app_light_default_dir(const char *game, char *out, size_t cap);
+/* The window on another light folder (the Choose... button): refused, with light.error and the status, while the working copy has unsaved changes or when the folder
+ * is no light folder (light_session_open's reason); then nothing changes. 1 when it is on the folder, kept as a->light_dir for the rest of the session. */
+int app_light_set_folder(App *a, const char *dir);
 /* The track (light_ui_track's index) and time (0..3) of the file: refused, with light.error, while the working copy has unsaved changes (Save or Revert first). */
 int app_light_select(App *a, int track, int time);
 /* The photo's node, clamped to the file's road. */

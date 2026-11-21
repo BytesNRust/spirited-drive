@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 static const char *const TRACKS[LIGHT_UI_TRACKS] = { "AL1", "AL2", "AL3", "CL1", "CL2", "CL3", "CY1", "CY2", "CY3", "TR1", "TR2", "TR3", "TR4", "TR5", "TR6", "TR7" };
 
@@ -54,6 +55,53 @@ static int open_session(LightUi *ui, const char *dir, int track, int time, char 
     return 1;
 }
 
+int app_light_default_dir(const char *game, char *out, size_t cap)
+{
+    if (game == NULL || game[0] == '\0' || cap == 0) return 0;
+    char base[APP_PATH];
+    snprintf(base, sizeof base, "%s", game);
+    char *slash = strrchr(base, '/');
+    if (slash == NULL) return 0;
+    *slash = '\0';   /* the program's folder */
+    static const char *const WHERE[2] = { "%s/../Resources/data", "%s/data" };
+    for (int i = 0; i < 2; ++i) {
+        char dir[APP_PATH + 32], probe[APP_PATH + 48];
+        snprintf(dir, sizeof dir, WHERE[i], base);
+        snprintf(probe, sizeof probe, "%s/track_light", dir);
+        struct stat st;
+        if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) {
+            snprintf(out, cap, "%s", dir);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int app_light_set_folder(App *a, const char *dir)
+{
+    LightUi *ui = &a->light;
+    if (a->kind != APP_KIND_LIGHT || dir == NULL || dir[0] == '\0') return 0;
+    if (app_modified(a)) {
+        set_error(a, "the file has unsaved changes: Save or Revert before another folder");
+        return 0;
+    }
+    const int track = ui->open ? ui->track : 0, time = ui->open ? ui->time : 1;
+    char why[APP_MSG];
+    why[0] = '\0';
+    if (!open_session(ui, dir, track, time, why, sizeof why)) {
+        set_error(a, why);
+        return 0;
+    }
+    snprintf(a->light_dir, sizeof a->light_dir, "%s", dir);
+    ui->error[0] = '\0';
+    snprintf(a->status, sizeof a->status, "Track light: %s", a->light_dir);
+    app_light_set_node(a, ui->node);
+    changed(a);
+    return 1;
+}
+
+static const char *const NO_FOLDER = "No light folder is set: choose the folder that holds track_light/ (the game's data folder)";
+
 int app_open_light(App *a)
 {
     App *next = calloc(1, sizeof *next);
@@ -64,7 +112,10 @@ int app_open_light(App *a)
     app_begin(next, a->game, a->user, a->generic[0] != '\0' ? a->generic : NULL);
     char why[APP_MSG];
     why[0] = '\0';
-    if (!open_session(&next->light, a->light_dir, 0, 1, why, sizeof why)) {
+    if (a->light_dir[0] == '\0') app_light_default_dir(a->game, a->light_dir, sizeof a->light_dir);   /* the game's own light files, when it has them */
+    if (a->light_dir[0] == '\0') {   /* no folder: the window opens to ask for one (Choose...) */
+        snprintf(next->light.error, sizeof next->light.error, "%s", NO_FOLDER);
+    } else if (!open_session(&next->light, a->light_dir, 0, 1, why, sizeof why)) {
         snprintf(a->open_error, sizeof a->open_error, "%s", why);
         snprintf(a->status, sizeof a->status, "%s", why);
         app_free(next);
@@ -76,7 +127,7 @@ int app_open_light(App *a)
     app_free(a);
     *a = *next;   /* the new state's session belongs to `a` now */
     free(next);
-    snprintf(a->status, sizeof a->status, "Track light: %s", a->light_dir);
+    snprintf(a->status, sizeof a->status, "Track light: %s", a->light_dir[0] != '\0' ? a->light_dir : "no folder set");
     changed(a);
     return 1;
 }

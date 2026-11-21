@@ -382,7 +382,7 @@ void main_menu(App *a)
         if (ImGui::MenuItem("Open track...")) app_ask(a, APP_ACT_OPEN, "");
         if (ImGui::MenuItem("New track...")) app_ask(a, APP_ACT_NEW, "");
         if (ImGui::MenuItem("Export original car...")) a->export_dialog = 1;
-        if (ImGui::MenuItem("Track light...", nullptr, false, a->light_dir[0] != '\0')) app_ask(a, APP_ACT_OPEN_LIGHT, "");
+        if (ImGui::MenuItem("Track light...")) app_ask(a, APP_ACT_OPEN_LIGHT, "");
         if (ImGui::BeginMenu("Open recent", a->recent.count > 0)) {
             for (int i = 0; i < a->recent.count; ++i) {
                 char label[SESSION_PATH + 16];
@@ -449,7 +449,8 @@ void confirm_popup(App *a)
     } else {
         ++age;
         const char *then = a->confirm == APP_ACT_QUIT ? "quitting" : a->confirm == APP_ACT_NEW || a->confirm == APP_ACT_NEW_AT ? "starting a new track"
-                                                                                                                              : "opening another project";
+                                                                                                                              : a->confirm == APP_ACT_LIGHT_AT ? "choosing another light folder"
+                                                                                                                                                               : "opening another project";
         ImGui::Text("Save the changes to \"%s\" before %s?", a->kind == APP_KIND_CAR ? a->car.info.id : a->kind == APP_KIND_LIGHT ? "the light file" : a->project.id, then);
         ImGui::Spacing();
         int answer = -1;

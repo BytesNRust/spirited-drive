@@ -266,7 +266,7 @@ typedef struct {
     SDL_Mutex *lock;
     int open;                /* a dialog is on screen */
     int ready;               /* it was answered: `path` is the folder, "" when it was cancelled */
-    AppAction kind;          /* APP_ACT_NEW, APP_ACT_OPEN, APP_ACT_OPEN_CAR or APP_ACT_EXPORT_PICK */
+    AppAction kind;          /* APP_ACT_NEW, APP_ACT_OPEN, APP_ACT_OPEN_CAR, APP_ACT_EXPORT_PICK or APP_ACT_LIGHT_PICK */
     char path[APP_PATH];
 } Dialog;
 
@@ -289,7 +289,7 @@ static void dialog_start(SDL_Window *win, App *a, AppAction kind)
     if (g_dialog.lock == NULL) g_dialog.lock = SDL_CreateMutex();
     if (g_dialog.lock == NULL || g_dialog.open) return;
     char where[APP_PATH];
-    snprintf(where, sizeof where, "%s", a->dir);   /* "" with nothing open: the system's own place */
+    snprintf(where, sizeof where, "%s", kind == APP_ACT_LIGHT_PICK ? a->light_dir : a->dir);   /* "" with nothing open: the system's own place */
     char *slash = strrchr(where, '/');
     if (slash != NULL && slash != where) *slash = '\0';
     g_dialog.open = 1;
@@ -306,12 +306,13 @@ static int run_go(SDL_Window *win, App *a)
     snprintf(path, sizeof path, "%s", a->go_path);
     a->go = APP_ACT_NONE;
     if (act == APP_ACT_QUIT) return 1;
-    if (act == APP_ACT_NEW || act == APP_ACT_OPEN || act == APP_ACT_OPEN_CAR || act == APP_ACT_EXPORT_PICK) dialog_start(win, a, act);
+    if (act == APP_ACT_NEW || act == APP_ACT_OPEN || act == APP_ACT_OPEN_CAR || act == APP_ACT_EXPORT_PICK || act == APP_ACT_LIGHT_PICK) dialog_start(win, a, act);
     else if (act == APP_ACT_EXPORT_AT) app_export_car(a, path);
     else if (act == APP_ACT_RECENT) app_open_recent(a, path);
     else if (act == APP_ACT_OPEN_AT) app_open_project(a, path);
     else if (act == APP_ACT_OPEN_CAR_AT) app_open_car(a, path);
     else if (act == APP_ACT_OPEN_LIGHT) app_open_light(a);
+    else if (act == APP_ACT_LIGHT_AT) app_light_revert(a), app_light_set_folder(a, path);   /* asked about unsaved changes first: what is left is to be dropped */
     else if (act == APP_ACT_NEW_AT) app_new_project(a, path);
     return 0;
 }
@@ -355,7 +356,8 @@ static void take_dialog(App *a)
     }
     SDL_UnlockMutex(g_dialog.lock);
     if (path[0] == '\0') return;
-    app_ask(a, kind == APP_ACT_NEW ? APP_ACT_NEW_AT : kind == APP_ACT_OPEN_CAR ? APP_ACT_OPEN_CAR_AT : kind == APP_ACT_EXPORT_PICK ? APP_ACT_EXPORT_AT : APP_ACT_OPEN_AT, path);   /* through the same question: what is on screen may have changed while the dialog was up */
+    app_ask(a, kind == APP_ACT_NEW ? APP_ACT_NEW_AT : kind == APP_ACT_OPEN_CAR ? APP_ACT_OPEN_CAR_AT : kind == APP_ACT_EXPORT_PICK ? APP_ACT_EXPORT_AT
+                : kind == APP_ACT_LIGHT_PICK ? APP_ACT_LIGHT_AT : APP_ACT_OPEN_AT, path);   /* through the same question: what is on screen may have changed while the dialog was up */
 }
 
 /* the car of Export original car whose masks folder is `folder` (any case) chosen; 0 when there is none */
