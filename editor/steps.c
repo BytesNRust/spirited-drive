@@ -15,8 +15,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -412,7 +412,7 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
     }
     /* drag:I,DX,DY: to the point, down, DRAG_MOVES moves, up; drag-near:I,J,M the same to M metres before point J on the way from I */
     if (p == 0) {
-        const int profile = strncmp(name, "profile-drag", 12) == 0;   /* profile-drag:I,DY: point I's mark in the strip's profile, dragged DY pixels (down is lower) */
+        const int profile = strncmp(name, "profile-", 8) == 0;   /* profile-drag:I,DY: point I's mark in the strip's profile, dragged DY pixels (down is lower) */
         if (!(profile ? mark_at(a, (int)arg[0], &s->from_x, &s->from_y) : point_at(a, (int)arg[0], &s->from_x, &s->from_y))) return s->failed = 1, 0;
         if (profile) s->to_x = s->from_x, s->to_y = s->from_y + (float)arg[1];
         else if (strncmp(name, "drag-near", 9) == 0 && !near_point(a, (int)arg[0], (int)arg[1], arg[2], s)) return s->failed = 1, 0;
@@ -421,10 +421,12 @@ static int by_frames(Steps *s, App *a, SDL_Window *win, const char *name, const 
     } else if (p == 1) {
         mouse(win, SDL_EVENT_MOUSE_BUTTON_DOWN, s->from_x, s->from_y);
     } else if (p <= 1 + DRAG_MOVES) {
+        if (p == 2 && strncmp(name, "profile-fine", 12) == 0) key_event(win, SDLK_LSHIFT, 1, SDL_KMOD_LSHIFT);   /* profile-fine:I,DY: the same with Shift held during the drag (a tenth as far) */
         const float f = (float)(p - 1) / DRAG_MOVES;
         mouse(win, SDL_EVENT_MOUSE_MOTION, s->from_x + f * (s->to_x - s->from_x), s->from_y + f * (s->to_y - s->from_y));
     } else if (p == 2 + DRAG_MOVES) {
         mouse(win, SDL_EVENT_MOUSE_BUTTON_UP, s->to_x, s->to_y);
+        if (strncmp(name, "profile-fine", 12) == 0) key_event(win, SDLK_LSHIFT, 0, SDL_KMOD_NONE);
     }
     return p < 3 + DRAG_MOVES;
 }

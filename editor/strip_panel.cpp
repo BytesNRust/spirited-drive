@@ -27,6 +27,10 @@ const int CURVE_STEPS = 12;                                         // line piec
 
 TraceGradeUnit grade_unit = TRACE_GRADE_PERCENT;   // the % / degrees switch, kept while the program runs
 int dragged = -1;                                  // the point the mouse holds in the profile, -1 for none
+double drag_ref_h = 0;                             // the held point's height at the last reference: the drag moves it from there
+float drag_ref_y = 0;                              // and the mouse row it had then
+bool drag_fine = false;                            // Shift is held: the mouse moves the height a tenth as far (FINE_DRAG)
+const double FINE_DRAG = 0.1;
 double drag_lo = 0, drag_hi = 0;                   // the profile's range when the drag began: it does not move under the mouse
 
 struct Channel {
@@ -193,6 +197,9 @@ void profile(App *a, const std::vector<double> &metres, double total, ImVec2 ori
             dragged = near_i;
             drag_lo = lo;
             drag_hi = hi;
+            drag_ref_h = points[near_i].h;
+            drag_ref_y = mouse.y;
+            drag_fine = ImGui::GetIO().KeyShift;
             app_sel_click(a, near_i, ImGui::GetIO().KeyShift ? SEL_TOGGLE : SEL_ONE);
         } else {
             double frac;
@@ -201,9 +208,18 @@ void profile(App *a, const std::vector<double> &metres, double total, ImVec2 ori
         }
     }
     if (dragged >= 0) {
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
-            app_set_point_height(a, dragged, track_trace_profile_height_at_row(mouse.y, top, bottom, lo, hi));
-        else dragged = -1;
+        if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {   // from where the mouse was last referenced; Shift pressed or let go re-references, so the mark does not jump
+            const double from = track_trace_profile_height_at_row(drag_ref_y, top, bottom, lo, hi);
+            const double moved = track_trace_profile_height_at_row(mouse.y, top, bottom, lo, hi) - from;
+            const bool fine = ImGui::GetIO().KeyShift;
+            if (fine != drag_fine) {
+                drag_ref_h += moved * (drag_fine ? FINE_DRAG : 1.0);
+                drag_ref_y = mouse.y;
+                drag_fine = fine;
+            } else {
+                app_set_point_height(a, dragged, drag_ref_h + moved * (fine ? FINE_DRAG : 1.0));
+            }
+        } else dragged = -1;
     } else if (ImGui::IsItemHovered()) {
         double frac;
         const int seg = segment_at(metres, (mouse.x - origin.x) / width * total, &frac);

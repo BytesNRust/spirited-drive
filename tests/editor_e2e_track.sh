@@ -79,6 +79,11 @@ awk -v a="$(h 1)" -v b="$(h 2)" 'BEGIN { exit !(b > a) }' || fail "dragging the 
 [ "$(h 3)" = "$(h 1)" ] || fail "one undo did not give the height back: $(h 1) / $(h 3)"
 [ "$(h 4)" = "$(h 2)" ] || fail "redo did not give the drag back: $(h 2) / $(h 4)"
 
+# 2c4. The same drag with Shift held (fine): the height moves up, but a tenth as far as the plain drag did (a tenth of a metre is its step, so: less than a fifth)
+"$editor" "$work/hill2" --user "$player" --window 1280x800 --frames 2 --steps height:2,10,strip,profile-fine:2,-24,print-height:2 >"$work/log" 2>&1 || fail "the profile's fine drag: $(cat "$work/log")"
+fine=$(grep '^height: 2 ' "$work/log" | cut -d' ' -f3)
+awk -v a="$(h 1)" -v b="$(h 2)" -v f="$fine" 'BEGIN { exit !(f > a && (f - a) * 5 < (b - a)) }' || fail "the fine drag did not move the height a tenth as far: plain $(h 1) -> $(h 2), fine -> $fine"
+
 # 2d. A point dragged too near the next (17 m before it, on a new project): the nodes bunch up with no red node; Problems says so in red in
 # Build's words before Build, and Build refuses with those words
 "$editor" "$work/near" --user "$player" --frames 2 --save >"$work/log" 2>&1 || fail "New project (near): $(cat "$work/log")"
