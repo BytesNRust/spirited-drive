@@ -95,20 +95,34 @@ void brightness_rows(App *a)
     char why[LIGHT_WHY];
     const int count = light_file_count(&f, LIGHT_KIND_BRIGHTNESS);
     int remove = -1;
-    for (int i = 0; i < count; ++i) {
-        LightBrightness b;
-        if (!light_file_get_brightness(&f, i, &b)) continue;
-        int v[3] = { static_cast<int>(b.from), static_cast<int>(b.to), static_cast<int>(b.percent) };
-        ImGui::PushID(i);
-        ImGui::SetNextItemWidth(-90.0f);
-        if (ImGui::InputInt3("##b", v)) {
-            const LightBrightness next = { static_cast<unsigned>(v[0] < 0 ? 0 : v[0]), static_cast<unsigned>(v[1] < 0 ? 0 : v[1]), static_cast<unsigned>(v[2] < 0 ? 0 : v[2]) };
-            if (light_file_set_brightness(&f, i, &next, why, sizeof why)) app_light_touch(a);
-            else refused(a, why);
+    if (count > 0 && ImGui::BeginTable("##brightness", 4, ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("From node");
+        ImGui::TableSetupColumn("To node");
+        ImGui::TableSetupColumn("Percent");
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+        ImGui::TableHeadersRow();
+        for (int i = 0; i < count; ++i) {
+            LightBrightness b;
+            if (!light_file_get_brightness(&f, i, &b)) continue;
+            int v[3] = { static_cast<int>(b.from), static_cast<int>(b.to), static_cast<int>(b.percent) };
+            bool changed = false;
+            ImGui::PushID(i);
+            ImGui::TableNextRow();
+            for (int c = 0; c < 3; ++c) {
+                ImGui::TableSetColumnIndex(c);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                changed = ImGui::InputInt(c == 0 ? "##from" : c == 1 ? "##to" : "##pct", &v[c], 0, 0) || changed;
+            }
+            ImGui::TableSetColumnIndex(3);
+            if (ImGui::Button("Remove")) remove = i;
+            ImGui::PopID();
+            if (changed) {
+                const LightBrightness next = { static_cast<unsigned>(v[0] < 0 ? 0 : v[0]), static_cast<unsigned>(v[1] < 0 ? 0 : v[1]), static_cast<unsigned>(v[2] < 0 ? 0 : v[2]) };
+                if (light_file_set_brightness(&f, i, &next, why, sizeof why)) app_light_touch(a);
+                else refused(a, why);
+            }
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Remove")) remove = i;
-        ImGui::PopID();
+        ImGui::EndTable();
     }
     if (remove >= 0 && light_file_remove(&f, LIGHT_KIND_BRIGHTNESS, remove)) app_light_touch(a);
     if (ImGui::Button("Add brightness")) {
@@ -121,28 +135,52 @@ void brightness_rows(App *a)
     help_marker("Brightness: from node, to node, percent. The road's light between those nodes is scaled (100 is as it is). A later line wins over an earlier one.");
 }
 
+// a night file has hundreds of lamps: the list is folded, with its count, and scrolls inside its own box
 void lamp_rows(App *a)
 {
     LightFile &f = a->light.session.file;
     char why[LIGHT_WHY];
     const int count = light_file_count(&f, LIGHT_KIND_LAMP);
+    char label[48];
+    snprintf(label, sizeof label, "Lamps (%d)###lamps", count);
+    const bool open = ImGui::CollapsingHeader(label);
+    ImGui::SameLine();
+    help_marker("Lamp: node, light percent. A lamp lights the road around its node at night (a night file's only; the game takes 2048 at most). Its colour and radius stay as "
+                "the file has them.");
+    if (!open) return;
     int remove = -1;
-    for (int i = 0; i < count; ++i) {
-        LightLamp l;
-        if (!light_file_get_lamp(&f, i, &l)) continue;
-        int v[2] = { static_cast<int>(l.node), static_cast<int>(l.percent) };
-        ImGui::PushID(i);
-        ImGui::SetNextItemWidth(-90.0f);
-        if (ImGui::InputInt2("##l", v)) {
-            l.node = static_cast<unsigned>(v[0] < 0 ? 0 : v[0]);
-            l.percent = static_cast<unsigned>(v[1] < 0 ? 0 : v[1]);
-            if (light_file_set_lamp(&f, i, &l, why, sizeof why)) app_light_touch(a);
-            else refused(a, why);
+    if (count > 0 && ImGui::BeginChild("##lamplist", ImVec2(0, 220), ImGuiChildFlags_Borders)) {
+        if (ImGui::BeginTable("##lamps", 3, ImGuiTableFlags_SizingStretchProp)) {
+            ImGui::TableSetupColumn("Node");
+            ImGui::TableSetupColumn("Light %");
+            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+            ImGui::TableHeadersRow();
+            for (int i = 0; i < count; ++i) {
+                LightLamp l;
+                if (!light_file_get_lamp(&f, i, &l)) continue;
+                int v[2] = { static_cast<int>(l.node), static_cast<int>(l.percent) };
+                bool changed = false;
+                ImGui::PushID(i);
+                ImGui::TableNextRow();
+                for (int c = 0; c < 2; ++c) {
+                    ImGui::TableSetColumnIndex(c);
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    changed = ImGui::InputInt(c == 0 ? "##node" : "##pct", &v[c], 0, 0) || changed;
+                }
+                ImGui::TableSetColumnIndex(2);
+                if (ImGui::Button("Remove")) remove = i;
+                ImGui::PopID();
+                if (changed) {
+                    l.node = static_cast<unsigned>(v[0] < 0 ? 0 : v[0]);
+                    l.percent = static_cast<unsigned>(v[1] < 0 ? 0 : v[1]);
+                    if (light_file_set_lamp(&f, i, &l, why, sizeof why)) app_light_touch(a);
+                    else refused(a, why);
+                }
+            }
+            ImGui::EndTable();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Remove")) remove = i;
-        ImGui::PopID();
     }
+    if (count > 0) ImGui::EndChild();
     if (remove >= 0 && light_file_remove(&f, LIGHT_KIND_LAMP, remove)) app_light_touch(a);
     if (ImGui::Button("Add lamp")) {
         LightLamp l;
@@ -152,9 +190,6 @@ void lamp_rows(App *a)
         if (light_file_set_lamp(&f, -1, &l, why, sizeof why)) app_light_touch(a);
         else refused(a, why);
     }
-    ImGui::SameLine();
-    help_marker("Lamp: node, light percent. A lamp lights the road around its node at night (a night file's only; the game takes 2048 at most). Its colour and radius stay as "
-                "the file has them.");
 }
 
 void tunnel_tone_row(App *a)
@@ -216,7 +251,6 @@ void light_panel(App *a)
             ImGui::SeparatorText("Brightness");
             brightness_rows(a);
             if (ui.session.letter == 'N') {
-                ImGui::SeparatorText("Lamps");
                 lamp_rows(a);
             }
             ImGui::SeparatorText("Tunnels");

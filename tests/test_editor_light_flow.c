@@ -1,7 +1,8 @@
 /* The Track light window's flow at the App level (dep98 step 2 part C, the owner's rule: a step without a flow test is a gap): open the mode on a light folder, pick CY1
  * at night, add a brightness line, see the unsaved mark, the photo of the WORKING copy (a fake game records what it was given), Revert, Save into the folder, and the
  * refusals (a folder that is no light folder, a track or time change over unsaved edits, TR5 with no file, no game, a node out of the road). The folder is a temp copy of
- * repo light files, so it needs no CD data. usage: test_editor_light_flow REPO */
+ * repo light files, so it needs no CD data. With a game and the CD data given, the same loop runs against the real game too.
+ * usage: test_editor_light_flow REPO [GAME CD] */
 #include "app.h"
 #include "test.h"
 
@@ -66,14 +67,19 @@ static int track_index(const char *name)
 }
 
 /* polls until the photo job has ended (the clock runs on): 1 when it did */
-static int run_photo(App *a, double *now)
+static int run_photo_for(App *a, double *now, int polls)
 {
-    for (int i = 0; i < 2000; ++i) {
+    for (int i = 0; i < polls; ++i) {
         *now += 0.01;
         if (!app_light_poll(a, *now)) return 1;
         usleep(10000);
     }
     return 0;
+}
+
+static int run_photo(App *a, double *now)
+{
+    return run_photo_for(a, now, 2000);
 }
 
 static void test_flow(void)
@@ -160,6 +166,70 @@ static void test_flow(void)
     free(a);
 }
 
+
+/* the mean of a photo's R, G and B over its whole frame */
+static double mean_of(const uint8_t *rgba, int w, int h)
+{
+    double sum = 0;
+    for (size_t i = 0; i < (size_t)w * h; ++i) sum += rgba[i * 4] + rgba[i * 4 + 1] + rgba[i * 4 + 2];
+    return sum / ((double)w * h * 3);
+}
+
+/* the real game: CY1 at night, node 70: a photo is taken; a brightness line makes the next one darker; after Save, a fresh window on the saved folder gives the same picture */
+static void test_real_game(const char *repo, const char *game, const char *cd)
+{
+    char user[EXPORT_PATH], why[200], dir[EXPORT_PATH], sub[EXPORT_PATH + 16];
+    char tmp[EXPORT_PATH];
+    CHECK(car_race_temp(tmp, sizeof tmp, user, sizeof user, why, sizeof why));
+    snprintf(dir, sizeof dir, "%s/light", tmp);
+    mkdir(dir, 0777);
+    snprintf(sub, sizeof sub, "%s/track_light", dir);
+    mkdir(sub, 0777);
+    snprintf(light, sizeof light, "%s", dir);
+    copy_repo_file(repo, "CY1N.txt");
+    App *a = calloc(1, sizeof *a);
+    CHECK(a != NULL);
+    if (a == NULL) return;
+    app_begin(a, game, "", NULL);
+    app_set_light_dir(a, dir);
+    snprintf(a->export_src.cd, sizeof a->export_src.cd, "%s", cd);
+    CHECK(app_open_light(a) && app_light_select(a, track_index("CY1"), 3));
+    app_light_set_node(a, 70);
+    double now = 1;
+    CHECK(run_photo_for(a, &now, 6000) && a->light.photo.state == LIGHT_PHOTO_DONE && a->light.photo.w == 1280);
+    if (a->light.photo.state != LIGHT_PHOTO_DONE) { app_free(a), free(a); return; }
+    const double before = mean_of(a->light.photo.rgba, a->light.photo.w, a->light.photo.h);
+    uint8_t *first = malloc((size_t)a->light.photo.w * a->light.photo.h * 4);
+    memcpy(first, a->light.photo.rgba, (size_t)a->light.photo.w * a->light.photo.h * 4);
+    const LightBrightness dark = { 0, a->light.session.file.nodes - 1, 30 };
+    CHECK(light_file_set_brightness(&a->light.session.file, -1, &dark, why, sizeof why));
+    app_light_touch(a);
+    now += LIGHT_UI_SETTLE + 0.1;
+    CHECK(app_light_poll(a, now));
+    CHECK(run_photo_for(a, &now, 6000) && a->light.photo.state == LIGHT_PHOTO_DONE);
+    const double after = mean_of(a->light.photo.rgba, a->light.photo.w, a->light.photo.h);
+    CHECK(before > 1.0 && after < before);                    // the road is darker with 30 percent of its light
+    uint8_t *second = malloc((size_t)a->light.photo.w * a->light.photo.h * 4);
+    memcpy(second, a->light.photo.rgba, (size_t)a->light.photo.w * a->light.photo.h * 4);
+    CHECK(app_light_save(a));
+    app_free(a);
+    // a fresh window on the saved folder: the same picture as the working copy gave
+    app_begin(a, game, "", NULL);
+    app_set_light_dir(a, dir);
+    snprintf(a->export_src.cd, sizeof a->export_src.cd, "%s", cd);
+    CHECK(app_open_light(a) && app_light_select(a, track_index("CY1"), 3));
+    app_light_set_node(a, 70);
+    now = 1;
+    CHECK(run_photo_for(a, &now, 6000) && a->light.photo.state == LIGHT_PHOTO_DONE);
+    CHECK(memcmp(a->light.photo.rgba, second, (size_t)a->light.photo.w * a->light.photo.h * 4) == 0);
+    CHECK(memcmp(first, second, (size_t)a->light.photo.w * a->light.photo.h * 4) != 0);
+    free(first);
+    free(second);
+    app_free(a);
+    free(a);
+    car_race_temp_remove(tmp);
+}
+
 static void test_not_a_light_folder(void)
 {
     App *a = calloc(1, sizeof *a);
@@ -196,5 +266,6 @@ int main(int argc, char **argv)
     test_flow();
     test_not_a_light_folder();
     car_race_temp_remove(root);
+    if (argc > 3) test_real_game(repo, argv[2], argv[3]);
     return TEST_REPORT();
 }

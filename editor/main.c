@@ -53,6 +53,7 @@ typedef struct {
     int test_drive;           /* --test-drive: Test drive as the Drive window runs it, until the game's log says whether it took the track; then the game is stopped */
     const char *set[8];      /* --set key=value, a car's field set before the first frame (a headless picture of a problem, a save of a change) */
     int set_count;
+    const char *light_pick;  /* --light TRACK:TIME:NODE (CY1:N:70): the Track light window's first track, time of day (A, B, C or N) and photo node, for a headless picture or flow */
     const char *light_dir;   /* --light-dir DIR: the folder whose track_light/ the Track light window tunes (default: the source tree's data/) */
     const char *pick;        /* --pick FOLDER: the car chosen in the Export window before the first frame */
     const char *export_car, *export_into, *cd, *port_data;   /* --export-car STEM --into DIR, --cd DIR, --port-data DIR: Export original car without the window's dialogs */
@@ -83,7 +84,7 @@ static int usage(void)
                     "[--install] [--select N] [--edit] [--set KEY=VALUE] [--rehacer] [--ask quit|new|open|opencar|export] [--shot OUT.png]\n"
                     "       [--export-car FOLDER [--into PARENT]] [--cd DIR] [--port-data DIR] [--pick FOLDER] [--race-photo [--night] [--track STEM] [--race-png OUT.png] [--race-off reflections,car_colours,soft_shadow,texture_filter] [--race-scale 1|2]]\n"
                     "       [--mask NAME [--mask-rect X,Y,W,H,CLASS]... [--mask-save]] [--paint N] [--view day|night] [--lights head,side,brake,reverse,police] [--night-track STEM] [--preview-tex NAME] [--changes]\n"
-                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light] [--steps STEP,...]\n");
+                    "       [--test-drive [--race-off ...] [--race-scale 1|2]] [--window WxH] [--reset-layout] [--light-dir DIR] [--ask light [--light TRACK:TIME:NODE]] [--steps STEP,...]\n");
     return 0;
 }
 
@@ -151,6 +152,7 @@ static int parse_args(int argc, char **argv, Options *o)
             o->race_scale = v[0] - '0';
         }
         else if (strcmp(argv[i], "--light-dir") == 0 && has_value) o->light_dir = argv[++i];
+        else if (strcmp(argv[i], "--light") == 0 && has_value) o->light_pick = argv[++i];
         else if (strcmp(argv[i], "--cd") == 0 && has_value) o->cd = argv[++i];
         else if (strcmp(argv[i], "--port-data") == 0 && has_value) o->port_data = argv[++i];
         else if (strcmp(argv[i], "--set") == 0 && has_value && o->set_count < 8) o->set[o->set_count++] = argv[++i];
@@ -574,7 +576,21 @@ static int run(App *a, const Options *o)
         SDL_Quit();
         return 0;
     }
-    if (o->ask == APP_ACT_OPEN_LIGHT) app_open_light(a);   /* the window itself, for a headless picture of it (a headless run drops a->go) */
+    if (o->ask == APP_ACT_OPEN_LIGHT) {   /* the window itself, for a headless picture of it (a headless run drops a->go) */
+        if (app_open_light(a) && o->light_pick != NULL) {
+            char track[8] = "", time = '\0';
+            long node = 0;
+            int t = -1;
+            if (sscanf(o->light_pick, "%7[A-Z0-9]:%c:%ld", track, &time, &node) == 3)
+                for (int i = 0; i < LIGHT_UI_TIMES; ++i)
+                    if (light_ui_time_letter(i) == time) t = i;
+            int track_index = -1;
+            for (int i = 0; light_ui_track(i) != NULL; ++i)
+                if (strcmp(light_ui_track(i), track) == 0) track_index = i;
+            if (t < 0 || track_index < 0 || !app_light_select(a, track_index, t)) fprintf(stderr, "--light %s: TRACK:TIME:NODE such as CY1:N:70, the track one that has a light file\n", o->light_pick);
+            else app_light_set_node(a, node);
+        }
+    }
     else if (o->ask == APP_ACT_EXPORT_PICK) a->export_dialog = 1;   /* the window itself, for a headless picture of it */
     else if (o->ask != APP_ACT_NONE) app_ask(a, o->ask, "");   /* ... and the action asked for */
     if (o->user == NULL && o->frames == 0) {   /* a normal run keeps the recent projects in the editor's own folder */
