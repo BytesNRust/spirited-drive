@@ -93,6 +93,15 @@ grep -q "^status: point inserted at the clicked place" "$work/log" || fail "Inse
 grep -qx "selected: 3" "$work/log" || fail "the inserted point is not the one selected: $(grep '^selected' "$work/log")"
 awk '/^height: 2 /{a=$3} /^height: 3 /{m=$3} /^height: 4 /{b=$3} END { exit !(m > a && m < b) }' "$work/log" || fail "the inserted point is not on the curve between its neighbours: $(grep '^height' "$work/log")"
 
+# 2c6. The Slope block over a run of points (dep95 step 10): points 1 to 3 selected as the Points table does, 5 % with no easing: they climb 0, 5 and 10 m from point 1's
+# height and point 4 (the road after it, kept) goes up with point 3; an undo gives it all back in one step; a grade over the generator's limit is refused
+"$editor" "$work/hill2" --user "$player" --window 1280x800 --frames 2 --steps row:1,shift-row:3,slope:5,0,0,1,print-height:1,print-height:2,print-height:3,print-height:4,status,undo,print-height:3,print-height:4,slope:100,0,0,1,status,print-height:3 >"$work/log" 2>&1 \
+    || fail "the Slope block: $(cat "$work/log")"
+awk '/^height: /{ n++; h[n] = $3 } END { exit !(n == 7 && h[1] == 0 && h[2] > 4 && h[2] < 5.1 && (h[3] - 2 * h[2]) < 0.15 && (h[3] - 2 * h[2]) > -0.15 && h[4] == h[3] && h[5] == 0 && h[6] == 0 && h[7] == 0) }' "$work/log" \
+    || fail "the slope did not climb point 2 and 3 along 5 % (points 100 m apart along the curve: a little under 5 and 10 m) with the road after it kept, nor undo in one step, nor refuse 100 %: $(grep '^height' "$work/log")"
+grep -q "^status: slope made: rises " "$work/log" || fail "the slope did not say what it made: $(grep '^status' "$work/log")"
+grep -q "^status: slope: .*segment.* over 65 %: not made" "$work/log" || fail "a slope over the grade limit was not refused with its words: $(grep '^status' "$work/log")"
+
 # 2d. A point dragged too near the next (17 m before it, on a new project): the nodes bunch up with no red node; Problems says so in red in
 # Build's words before Build, and Build refuses with those words
 "$editor" "$work/near" --user "$player" --frames 2 --save >"$work/log" 2>&1 || fail "New project (near): $(cat "$work/log")"

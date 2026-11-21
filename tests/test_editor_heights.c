@@ -2,6 +2,8 @@
  * height still writes the version and pairs it always did, a height is an unsaved change that undo and redo carry, a point put in takes the curve's height there, a point
  * taken out takes only its own, and the values are checked (finite, within TRACE_HEIGHT_MAX_M). */
 #include "app.h"
+#include "app_select.h"
+#include "app_slope.h"
 #include "point_ops.h"
 #include "session.h"
 #include "test.h"
@@ -232,6 +234,42 @@ static void test_app_flow(void)
     a->selected = 2;
     app_remove_point(a);
     CHECK(a->trace.count == 5);
+    // the slope tool over points 1..3 (100 m apart, heights 4, 0, 12.3 before): 5 % with no easing is 0, 5 and 10 m above point 1's height; the road after it keeps
+    // its shape (point 4 moves by the change at point 3), one step to undo
+    app_track_commit(a);   // what came before is its own step
+    app_slope_defaults(a);
+    a->slope.by_rise = 0, a->slope.grade_pct = 5, a->slope.ease_in_m = 0, a->slope.ease_out_m = 0, a->slope.keep_after = 1;
+    a->selected = -1;
+    sel_clear(&a->sel);
+    app_sel_sync(a);
+    SlopePlan plan;
+    app_slope_plan(a, &plan);
+    CHECK(!plan.ok && plan.points == NULL && strstr(plan.text, "select a run") != NULL);   // nothing selected
+    sel_click(&a->sel, 1, SEL_ONE);
+    sel_click(&a->sel, 3, SEL_TOGGLE);
+    a->selected = 3;
+    CHECK(!app_slope_accept(a) && strstr(a->status, "without gaps") != NULL);   // 1 and 3 are not a run
+    sel_click(&a->sel, 2, SEL_TOGGLE);
+    const double h4_before = a->trace.points[4].h, h3_before = a->trace.points[3].h;
+    app_slope_plan(a, &plan);
+    CHECK(plan.ok && plan.first == 1 && plan.last == 3 && fabs(plan.length_m - 200) < 1e-6 && fabs(plan.rise_m - 10.0) < 0.11 && plan.red == 0 && strstr(plan.text, "rises 10.0 m over 200 m") != NULL);
+    app_slope_plan_free(&plan);
+    CHECK(app_slope_accept(a) && fabs(a->trace.points[1].h - 4.0) < 1e-9 && fabs(a->trace.points[2].h - 9.0) < 1e-9 && fabs(a->trace.points[3].h - 14.0) < 1e-9);
+    CHECK(fabs(a->trace.points[4].h - (h4_before + (14.0 - h3_before))) < 1e-9 && strstr(a->status, "slope made") != NULL);
+    app_track_commit(a);
+    CHECK(app_undo(a) && fabs(a->trace.points[2].h - 12.3) < 1e-9 && fabs(a->trace.points[3].h - h3_before) < 1e-9 && a->trace.points[4].h == h4_before);   // one step
+    CHECK(app_redo(a) && fabs(a->trace.points[3].h - 14.0) < 1e-9);
+    // the road after it left where it is
+    a->slope.keep_after = 0;
+    a->slope.by_rise = 1, a->slope.rise_m = -3;
+    CHECK(app_slope_accept(a) && fabs(a->trace.points[3].h - (a->trace.points[1].h - 3.0)) < 0.11 && a->trace.points[4].h == h4_before + (14.0 - h3_before));
+    // a segment over the generator's limit (100 % is a 100 m climb in 100 m) is refused, nothing written
+    a->slope.by_rise = 0, a->slope.grade_pct = 100, a->slope.keep_after = 1;
+    const double h2_now = a->trace.points[2].h;
+    CHECK(!app_slope_accept(a) && strstr(a->status, "not made") != NULL && a->trace.points[2].h == h2_now);
+    // fields out of range are refused with their words
+    a->slope.grade_pct = 5, a->slope.ease_in_m = 150, a->slope.ease_out_m = 150;
+    CHECK(!app_slope_accept(a) && strstr(a->status, "out of range") != NULL);
     // every height back to 0 and Save: the old version and pairs again
     for (int i = 0; i < a->trace.count; ++i) app_set_point_height(a, i, 0);
     CHECK(app_save(a));

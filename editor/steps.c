@@ -1,4 +1,5 @@
 #include "steps.h"
+#include "app_slope.h"
 
 #include "app_points.h"
 #include "app_select.h"
@@ -15,8 +16,8 @@
 enum { DRAG_MOVES = 4, SETTLED_FRAMES = 4, RACE_LOG_FRAMES = 4000, RACE_STOP_FRAMES = 1000, SHEET_FRAMES = 12000 };
 
 static const char *const NAMES[] = { "edit", "undo", "redo", "save", "title", "print", "key", "click", "drag", "width", "race", "race-log", "race-stop", "bank", "drag-near", "problems", "build",
-                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here" };
-static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0 };   /* the numbers each takes (key takes its name after the colon) */
+                                     "shift-click", "cmd-click", "box", "row", "shift-row", "cmd-row", "rotate", "print-sel", "print-profile", "status", "copy", "paste", "mirror-lr", "mirror-fb", "reverse", "curve", "straight", "preview", "curve-block", "curve-fold", "colour-by", "dblclick-road", "print-classes", "sheet", "print-sheet", "sheet-save", "height", "strip", "profile-drag", "print-height", "strip-dblclick", "print-view", "profile-fine", "profile-click", "insert-here", "slope", "slope-rise", "slope-preview" };
+static const int ARGS[] = { 0, 0, 0, 0, 0, 0, 0, 1, 3, 2, 0, 0, 0, 2, 3, 0, 0, 1, 1, 4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 1, 0, 1, 1, 2, 0, 1, 0, 0, 2, 0, 2, 1, 1, 0, 2, 2, 0, 4, 4, 1 };   /* the numbers each takes (key takes its name after the colon) */
 
 static int known(const char *name)
 {
@@ -238,6 +239,17 @@ static int at_once(App *a, const char *name, const double *arg)
     }
     if (strncmp(name, "dblclick-road:", 14) == 0 || strncmp(name, "strip-dblclick:", 15) == 0) return 2;   /* by_frames: the mouse goes in */
     if (strcmp(name, "print-view") == 0) return fprintf(stdout, "view: %.1f %.1f %.2f\n", a->view.cx, a->view.cz, a->view.scale), 1;   /* the top view's centre (x z) and pixels per metre */
+    if (strncmp(name, "slope-preview:", 14) == 0) return a->kind == APP_KIND_TRACK ? (app_slope_defaults(a), a->slope.preview_hold = arg[0] != 0, 1) : 0;   /* the profile draws what Accept would make, held (for a picture) */
+    if (strncmp(name, "slope", 5) == 0) {   /* slope:G,IN,OUT,KEEP / slope-rise:R,IN,OUT,KEEP: the Slope block's fields set, then Accept */
+        if (a->kind != APP_KIND_TRACK) return 0;
+        app_slope_defaults(a);
+        a->slope.by_rise = name[5] == '-';
+        if (a->slope.by_rise) a->slope.rise_m = arg[0];
+        else a->slope.grade_pct = arg[0];
+        a->slope.ease_in_m = arg[1], a->slope.ease_out_m = arg[2], a->slope.keep_after = arg[3] != 0;
+        app_slope_accept(a);   /* a refusal is in the status, not a failed step */
+        return 1;
+    }
     if (strncmp(name, "profile-click:", 14) == 0) return 2;   /* by_frames: the mouse goes in */
     if (strcmp(name, "insert-here") == 0) return app_insert_here(a), 1;   /* the Insert point here button */
     if (strcmp(name, "print-sel") == 0) {

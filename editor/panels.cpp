@@ -1,6 +1,7 @@
 // The editor's side panels (panels.h).
 #include "panels.h"
 #include "curve_panel.h"
+#include "slope_panel.h"
 #include "help_marker.h"
 #include "path_elide.h"
 
@@ -164,6 +165,7 @@ void points_panel(App *a)
         const float row = ImGui::GetFrameHeight() + 2 * st.CellPadding.y;
         const float least = (POINTS_MIN_ROWS + 1) * row + st.ScrollbarSize + 2;   // the rows, the header, a sideways scroll bar, the borders
         curve_rows(a, least);   // a block that starts folded when it would leave the table less than `least`
+        slope_rows(a);
         const bool scroll_to_selected = a->selected != shown;
         const float room = ImGui::GetContentRegionAvail().y;
         // the columns never narrower than their header or a value: a narrow panel scrolls the table sideways, a wide one stretches them (each by its need,

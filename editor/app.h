@@ -161,6 +161,11 @@ typedef struct {
         float x, width, top, bottom;   /* the curve's left edge and width in the window, the rows of its highest and lowest height */
         double lo, hi, total;          /* the heights at those rows, the road's length in metres */
     } profile_drawn;
+    struct {                     /* the slope tool's fields (app_slope.h); all 0 until app_slope_defaults */
+        int ready, by_rise, keep_after;
+        int preview, preview_hold;   /* the profile draws what Accept would make: 1 (the fields hovered or edited), held by --steps; 0 nothing */
+        double grade_pct, rise_m, ease_in_m, ease_out_m;
+    } slope;
     struct {                     /* the place on the profile last clicked (app_profile_place): between point seg and the next, at fraction frac; the Insert point here button's target */
         int set, seg;
         double frac;
